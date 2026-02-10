@@ -9,7 +9,6 @@
     { "path": "./packages/jsx" },
     { "path": "./packages/bench" },
     { "path": "./examples/hello-counter" },
-    { "path": "./examples/raw-draw-demo" },
-    { "path": "./examples/release-demo" }
+    { "path": "./examples/raw-draw-demo" }
   ]
 }
