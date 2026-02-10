@@ -2,7 +2,9 @@ import { spawn, spawnSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { assert, test } from "@rezi-ui/testkit";
-import { Terminal } from "@xterm/headless";
+
+type TerminalCtor = typeof import("@xterm/headless").Terminal;
+type HeadlessTerminal = InstanceType<TerminalCtor>;
 
 const COLS = 60;
 const ROWS = 16;
@@ -10,7 +12,20 @@ const TIMEOUT_MS = 5000;
 
 const isLinux = process.platform === "linux";
 
-function snapshotScreen(term: Terminal, rows: number): string[] {
+async function loadTerminalCtor(): Promise<TerminalCtor> {
+  const mod = await import("@xterm/headless");
+  const candidate = mod as unknown as {
+    Terminal?: TerminalCtor;
+    default?: { Terminal?: TerminalCtor };
+  };
+  const Terminal = candidate.Terminal ?? candidate.default?.Terminal;
+  if (!Terminal) {
+    throw new Error("terminal e2e could not resolve @xterm/headless Terminal export");
+  }
+  return Terminal;
+}
+
+function snapshotScreen(term: HeadlessTerminal, rows: number): string[] {
   const buffer = term.buffer.active;
   const out: string[] = [];
   for (let i = 0; i < rows; i++) {
@@ -32,6 +47,7 @@ function ensureScriptAvailable(): void {
 test("terminal e2e renders real output", { skip: isLinux ? false : "linux-only" }, async () => {
   ensureScriptAvailable();
 
+  const Terminal = await loadTerminalCtor();
   const term = new Terminal({ cols: COLS, rows: ROWS, allowProposedApi: true });
   const appPath = fileURLToPath(new URL("./fixtures/terminal-app.js", import.meta.url));
   const root = fileURLToPath(new URL("../../../../", import.meta.url));
