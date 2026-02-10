@@ -143,6 +143,13 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          echo "value=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Publishing version: $TAG"
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -152,6 +159,9 @@ jobs:
 
       - name: Install
         run: npm ci
+
+      - name: Sync package versions to tag
+        run: node scripts/release-set-version.mjs "${{ steps.version.outputs.value }}"
 
       - name: Build TypeScript
         run: npm run build
@@ -171,14 +181,39 @@ jobs:
       - name: Verify npm pack contents + install smoke
         run: node scripts/verify-native-pack.mjs
 
-      - name: Publish packages
+      # Publish in dependency order. Separate steps so a single failure
+      # doesn't block the rest and each package gets its own status in the UI.
+      - name: Publish @rezi-ui/core
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          npm publish -w @rezi-ui/core --access public
-          npm publish -w @rezi-ui/native --access public
-          npm publish -w @rezi-ui/node --access public
-          npm publish -w @rezi-ui/testkit --access public
-          npm publish -w @rezi-ui/ink-compat --access public
-          npm publish -w @rezi-ui/jsx --access public
-          npm publish -w create-rezi --access public
+        run: npm publish -w @rezi-ui/core --access public
+
+      - name: Publish @rezi-ui/native
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish -w @rezi-ui/native --access public
+
+      - name: Publish @rezi-ui/testkit
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish -w @rezi-ui/testkit --access public
+
+      - name: Publish @rezi-ui/node
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish -w @rezi-ui/node --access public
+
+      - name: Publish @rezi-ui/jsx
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish -w @rezi-ui/jsx --access public
+
+      - name: Publish @rezi-ui/ink-compat
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish -w @rezi-ui/ink-compat --access public
+
+      - name: Publish create-rezi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish -w create-rezi --access public
