@@ -17,8 +17,10 @@ type Output = {
 export default function measureElement(node: DOMElement): Output {
   const attrs = (node as { props?: Record<string, unknown> }).props ?? node.attributes;
 
-  const width = typeof attrs["width"] === "number" ? attrs["width"] : 0;
-  const height = typeof attrs["height"] === "number" ? attrs["height"] : 0;
+  const widthValue = attrs.width;
+  const heightValue = attrs.height;
+  const width = typeof widthValue === "number" ? widthValue : 0;
+  const height = typeof heightValue === "number" ? heightValue : 0;
 
   if (width === 0 && height === 0) {
     warnOnce(
