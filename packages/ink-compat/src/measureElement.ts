@@ -19,8 +19,8 @@ type MeasuredAttrs = {
  * available, or `0` with a one-time warning.
  */
 export default function measureElement(node: DOMElement): Output {
-  const attrs = ((node as { props?: Record<string, unknown> }).props ?? node.attributes) as
-    MeasuredAttrs;
+  const attrs = ((node as { props?: Record<string, unknown> }).props ??
+    node.attributes) as MeasuredAttrs;
 
   const widthValue = attrs.width;
   const heightValue = attrs.height;
