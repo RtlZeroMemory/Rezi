@@ -130,3 +130,63 @@ export type Instance = Readonly<{
   cleanup: () => void;
   clear: () => void;
 }>;
+
+// ── Context prop types (match Ink's exported Props types) ────────────
+
+/** Props exposed by Ink's `AppContext`. */
+export type AppProps = Readonly<{
+  exit: (error?: Error) => void;
+}>;
+
+/** Props exposed by Ink's `StdinContext`. */
+export type StdinProps = Readonly<{
+  stdin: NodeJS.ReadStream;
+  setRawMode: (value: boolean) => void;
+  isRawModeSupported: boolean;
+}>;
+
+/** Props exposed by Ink's `StdoutContext`. */
+export type StdoutProps = Readonly<{
+  stdout: NodeJS.WriteStream;
+  write: (data: string) => void;
+}>;
+
+/** Props exposed by Ink's `StderrContext`. */
+export type StderrProps = Readonly<{
+  stderr: NodeJS.WriteStream;
+  write: (data: string) => void;
+}>;
+
+/** Props for the `<Static>` component. */
+export type StaticProps<T> = Readonly<{
+  items: readonly T[];
+  style?: BoxProps;
+  children: (item: T, index: number) => ReactNode;
+}>;
+
+/** Props for the `<Transform>` component. */
+export type TransformProps = Readonly<{
+  transform: (children: string, index: number) => string;
+  children?: ReactNode;
+}>;
+
+/** Props for the `<Newline>` component. */
+export type NewlineProps = Readonly<{
+  count?: number;
+}>;
+
+// ── DOMElement ───────────────────────────────────────────────────────
+
+/**
+ * Opaque handle returned by a Box `ref`.
+ *
+ * In Ink this is a full DOM node with a yogaNode for layout queries.
+ * In ink-compat it wraps the reconciler's HostElement — layout is
+ * computed by the Zireael C engine, so `measureElement` returns
+ * explicitly-set dimensions or zero with a warning.
+ */
+export type DOMElement = {
+  nodeName: string;
+  attributes: Record<string, unknown>;
+  childNodes: readonly DOMElement[];
+};

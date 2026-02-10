@@ -19,7 +19,13 @@ export { default as useFocusManager } from "./hooks/useFocusManager.js";
 
 // Render
 export { render } from "./render.js";
-export type { Instance, RenderOptions } from "./types.js";
+
+// Measurement
+export { default as measureElement } from "./measureElement.js";
 
 // Types
+export type { Instance, RenderOptions } from "./types.js";
 export type { Key, BoxProps, TextProps } from "./types.js";
+export type { AppProps, StdinProps, StdoutProps, StderrProps } from "./types.js";
+export type { StaticProps, TransformProps, NewlineProps } from "./types.js";
+export type { DOMElement } from "./types.js";
