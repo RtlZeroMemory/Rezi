@@ -20,10 +20,10 @@ jobs:
             nodeFile: rezi_ui_native.linux-x64-gnu.node
             runSmoke: true
           - id: darwin-x64
-            runsOn: macos-13
+            runsOn: macos-latest
             rustTarget: x86_64-apple-darwin
             nodeFile: rezi_ui_native.darwin-x64.node
-            runSmoke: true
+            runSmoke: false
           - id: darwin-arm64
             runsOn: macos-latest
             rustTarget: aarch64-apple-darwin
