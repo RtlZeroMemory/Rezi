@@ -64,7 +64,6 @@ function getScriptSkipReason(): string | null {
 }
 
 test("terminal e2e renders real output", { skip: scriptSkipReason ?? false }, async () => {
-
   const Terminal = await loadTerminalCtor();
   const term = new Terminal({ cols: COLS, rows: ROWS, allowProposedApi: true });
   const appPath = fileURLToPath(new URL("./fixtures/terminal-app.js", import.meta.url));
