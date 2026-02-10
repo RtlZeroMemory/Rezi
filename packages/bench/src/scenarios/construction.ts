@@ -3,7 +3,7 @@
  *
  * Measures the time to construct a complete widget tree from scratch.
  *
- * - Rezi native: Direct ui.*() calls (synchronous, no React overhead).
+ * - Rezi native: createApp → state update → view rebuild → diff → drawlist → requestFrame.
  * - ink-compat: React reconciler → VNode pipeline (via renderToVNode-style approach).
  * - Ink: React reconciler → Yoga layout → ANSI output (via render + MeasuringStream).
  *
@@ -11,18 +11,53 @@
  */
 
 import { BenchBackend, MeasuringStream, NullReadable } from "../backends.js";
-import { benchAsync, benchSync, tryGc } from "../measure.js";
+import { benchAsync, tryGc } from "../measure.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 import { buildReactTree, buildReziTree } from "./treeBuilders.js";
 
 async function runRezi(config: ScenarioConfig, n: number): Promise<BenchMetrics> {
-  return benchSync(
-    (i) => {
-      buildReziTree(n, i);
-    },
-    config.warmup,
-    config.iterations,
-  );
+  const { createApp } = await import("@rezi-ui/core");
+  const backend = new BenchBackend();
+
+  type State = { seed: number };
+  const app = createApp<State>({
+    backend,
+    initialState: { seed: 0 },
+  });
+
+  app.view((state) => buildReziTree(n, state.seed));
+
+  const initialFrame = backend.waitForFrame();
+  await app.start();
+  await initialFrame;
+
+  try {
+    for (let i = 0; i < config.warmup; i++) {
+      const frameP = backend.waitForFrame();
+      app.update((s) => ({ seed: s.seed + 1 }));
+      await frameP;
+    }
+
+    const frameBase = backend.frameCount;
+    const bytesBase = backend.totalFrameBytes;
+
+    const metrics = await benchAsync(
+      async (i) => {
+        const frameP = backend.waitForFrame();
+        app.update((s) => ({ seed: s.seed + 1 }));
+        await frameP;
+      },
+      0,
+      config.iterations,
+    );
+
+    metrics.framesProduced = backend.frameCount - frameBase;
+    metrics.bytesProduced = backend.totalFrameBytes - bytesBase;
+    return metrics;
+  } finally {
+    await app.stop();
+    app.dispose();
+  }
 }
 
 async function runInkCompat(config: ScenarioConfig, n: number): Promise<BenchMetrics> {

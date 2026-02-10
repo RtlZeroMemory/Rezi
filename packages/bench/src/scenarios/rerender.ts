@@ -12,7 +12,7 @@
 
 import { type VNode, ui } from "@rezi-ui/core";
 import { BenchBackend, MeasuringStream, NullReadable } from "../backends.js";
-import { benchAsync, benchSync, tryGc } from "../measure.js";
+import { benchAsync, tryGc } from "../measure.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 
 // ── Tree builders (small counter app) ───────────────────────────────
@@ -54,14 +54,48 @@ function reactCounterTree(
 // ── Runners ─────────────────────────────────────────────────────────
 
 async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
-  // Pure synchronous: re-build the tree with new state each iteration
-  return benchSync(
-    (i) => {
-      reziCounterTree(i);
-    },
-    config.warmup,
-    config.iterations,
-  );
+  const { createApp } = await import("@rezi-ui/core");
+  const backend = new BenchBackend();
+
+  type State = { count: number };
+  const app = createApp<State>({
+    backend,
+    initialState: { count: 0 },
+  });
+
+  app.view((state) => reziCounterTree(state.count));
+
+  const initialFrame = backend.waitForFrame();
+  await app.start();
+  await initialFrame;
+
+  try {
+    for (let i = 0; i < config.warmup; i++) {
+      const frameP = backend.waitForFrame();
+      app.update((s) => ({ count: s.count + 1 }));
+      await frameP;
+    }
+
+    const frameBase = backend.frameCount;
+    const bytesBase = backend.totalFrameBytes;
+
+    const metrics = await benchAsync(
+      async (i) => {
+        const frameP = backend.waitForFrame();
+        app.update((s) => ({ count: s.count + 1 }));
+        await frameP;
+      },
+      0,
+      config.iterations,
+    );
+
+    metrics.framesProduced = backend.frameCount - frameBase;
+    metrics.bytesProduced = backend.totalFrameBytes - bytesBase;
+    return metrics;
+  } finally {
+    await app.stop();
+    app.dispose();
+  }
 }
 
 async function runInkCompat(config: ScenarioConfig): Promise<BenchMetrics> {

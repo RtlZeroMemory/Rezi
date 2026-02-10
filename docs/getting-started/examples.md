@@ -34,8 +34,6 @@ Run examples:
 ```bash
 node examples/hello-counter/dist/index.js
 node examples/raw-draw-demo/dist/index.js
-node examples/release-demo/dist/scenario1-screenshot.js
-node examples/release-demo/dist/scenario2-gif.js
 ```
 
 ## Example: Counter

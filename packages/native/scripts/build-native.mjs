@@ -209,10 +209,9 @@ function withMsvcDevEnv(env, hostTargetTriple) {
   const hostArch = getMsvcHostArch();
 
   try {
-    const batchArgs =
-      batchFile.toLowerCase().endsWith("vsdevcmd.bat")
-        ? ["-no_logo", `-arch=${targetArch}`, `-host_arch=${hostArch}`]
-        : [];
+    const batchArgs = batchFile.toLowerCase().endsWith("vsdevcmd.bat")
+      ? ["-no_logo", `-arch=${targetArch}`, `-host_arch=${hostArch}`]
+      : [];
     const next = runBatchAndGetEnv(batchFile, batchArgs, env);
     return envHasLib(next, "msvcrt.lib") ? next : env;
   } catch {
@@ -465,9 +464,15 @@ if (existsSync("./index.d.ts")) {
           }
 
           // Fall back to `npm exec` if the entrypoint isn't where we expect.
-          return spawnNpm(["exec", "--", "biome", ...biomeArgs], { stdio: "inherit", env: scriptEnv });
+          return spawnNpm(["exec", "--", "biome", ...biomeArgs], {
+            stdio: "inherit",
+            env: scriptEnv,
+          });
         })()
-      : spawnNpm(["exec", "--", "biome", ...biomeArgs], { stdio: "inherit", env: scriptEnv });
+      : spawnNpm(["exec", "--", "biome", ...biomeArgs], {
+          stdio: "inherit",
+          env: scriptEnv,
+        });
   if (fmt?.error) {
     const detail = fmt.error instanceof Error ? fmt.error.message : String(fmt.error);
     process.stderr.write(

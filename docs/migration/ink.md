@@ -6,10 +6,10 @@ Rezi includes `@rezi-ui/ink-compat`, a drop-in compatibility layer that lets you
 
 | | Ink | Rezi (via ink-compat) | Rezi (native) |
 |---|---|---|---|
-| Render speed | ~17ms/frame | ~0.08ms/frame | ~0.0004ms/frame |
-| Throughput | 61 ops/s | 12,400 ops/s | 2,000,000 ops/s |
-| Memory (1000 items) | 336MB RSS | 278MB RSS | 131MB RSS |
-| Architecture | React + Yoga + ANSI | React + Rezi VNodes | Direct VNode construction |
+| Render speed | ~17ms/frame | ~0.06ms/frame | ~0.025ms/frame |
+| Throughput | 60 ops/s | 17,000 ops/s | 38,900 ops/s |
+| Memory (1000 items) | 360MB RSS | 251MB RSS | 188MB RSS |
+| Architecture | React + Yoga + ANSI | React + Rezi VNodes | createApp → diff → drawlist |
 | Bundle | ink + yoga-wasm | react + @rezi-ui/* | @rezi-ui/core + @rezi-ui/node |
 
 ## Quick start

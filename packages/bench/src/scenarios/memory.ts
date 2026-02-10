@@ -110,49 +110,78 @@ function analyzeMemory(samples: MemorySnapshot[]): MemoryProfile {
 // ── Runners ─────────────────────────────────────────────────────────
 
 async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
+  const { createApp } = await import("@rezi-ui/core");
+  const backend = new BenchBackend();
+
+  type State = { iteration: number };
+  const app = createApp<State>({
+    backend,
+    initialState: { iteration: 0 },
+  });
+
+  app.view((state) => reziTree(state.iteration));
+
+  const initialFrame = backend.waitForFrame();
+  await app.start();
+  await initialFrame;
+
   const memorySamples: MemorySnapshot[] = [];
   const timingSamples: number[] = [];
 
-  // Warmup
-  for (let i = 0; i < config.warmup; i++) reziTree(i);
-
-  tryGc();
-  const memBefore = takeMemory();
-  const cpuBefore = takeCpu();
-  let memMax = memBefore;
-  const t0 = performance.now();
-
-  for (let i = 0; i < config.iterations; i++) {
-    const ts = performance.now();
-    reziTree(i);
-    timingSamples.push(performance.now() - ts);
-
-    if (i % SAMPLE_INTERVAL === SAMPLE_INTERVAL - 1) {
-      const snap = takeMemory();
-      memorySamples.push(snap);
-      memMax = peakMemory(memMax, snap);
+  try {
+    // Warmup
+    for (let i = 0; i < config.warmup; i++) {
+      const frameP = backend.waitForFrame();
+      app.update((s) => ({ iteration: s.iteration + 1 }));
+      await frameP;
     }
+
+    const frameBase = backend.frameCount;
+    const bytesBase = backend.totalFrameBytes;
+
+    tryGc();
+    const memBefore = takeMemory();
+    const cpuBefore = takeCpu();
+    let memMax = memBefore;
+    const t0 = performance.now();
+
+    for (let i = 0; i < config.iterations; i++) {
+      const ts = performance.now();
+      const frameP = backend.waitForFrame();
+      app.update((s) => ({ iteration: s.iteration + 1 }));
+      await frameP;
+      timingSamples.push(performance.now() - ts);
+
+      if (i % SAMPLE_INTERVAL === SAMPLE_INTERVAL - 1) {
+        const snap = takeMemory();
+        memorySamples.push(snap);
+        memMax = peakMemory(memMax, snap);
+      }
+    }
+
+    const totalWallMs = performance.now() - t0;
+    const cpuAfter = takeCpu();
+    const memAfter = takeMemory();
+    memMax = peakMemory(memMax, memAfter);
+
+    void analyzeMemory(memorySamples);
+
+    return {
+      timing: computeStats(timingSamples),
+      memBefore,
+      memAfter,
+      memPeak: memMax,
+      cpu: diffCpu(cpuBefore, cpuAfter),
+      iterations: config.iterations,
+      totalWallMs,
+      opsPerSec: config.iterations / (totalWallMs / 1000),
+      framesProduced: backend.frameCount - frameBase,
+      bytesProduced: backend.totalFrameBytes - bytesBase,
+    };
+  } finally {
+    await app.stop();
+    app.dispose();
   }
-
-  const totalWallMs = performance.now() - t0;
-  const cpuAfter = takeCpu();
-  const memAfter = takeMemory();
-  memMax = peakMemory(memMax, memAfter);
-
-  void analyzeMemory(memorySamples);
-
-  return {
-    timing: computeStats(timingSamples),
-    memBefore,
-    memAfter,
-    memPeak: memMax,
-    cpu: diffCpu(cpuBefore, cpuAfter),
-    iterations: config.iterations,
-    totalWallMs,
-    opsPerSec: config.iterations / (totalWallMs / 1000),
-    framesProduced: config.iterations,
-    bytesProduced: 0,
-  };
 }
 
 async function runInkCompat(config: ScenarioConfig): Promise<BenchMetrics> {

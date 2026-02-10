@@ -38,12 +38,6 @@ npm run build:native
 npm run test:native:smoke
 ```
 
-Demo app:
-
-```bash
-npm run demo
-```
-
 ## Repository layout
 
 - `packages/core` — runtime-agnostic TypeScript core (no Node APIs)
