@@ -1,4 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { assert, test } from "@rezi-ui/testkit";
@@ -51,28 +54,22 @@ test("terminal e2e renders real output", { skip: isLinux ? false : "linux-only" 
   const term = new Terminal({ cols: COLS, rows: ROWS, allowProposedApi: true });
   const appPath = fileURLToPath(new URL("./fixtures/terminal-app.js", import.meta.url));
   const root = fileURLToPath(new URL("../../../../", import.meta.url));
+  const transcriptDir = await mkdtemp(join(tmpdir(), "rezi-e2e-"));
+  const transcriptPath = join(transcriptDir, "typescript");
 
   const quotedNode = JSON.stringify(process.execPath);
   const quotedApp = JSON.stringify(appPath);
   const command = `stty cols ${COLS} rows ${ROWS}; ${quotedNode} ${quotedApp}`;
 
-  const child = spawn("script", ["-q", "-f", "-c", command, "/dev/null"], {
+  const child = spawn("script", ["-q", "-f", "-c", command, transcriptPath], {
     cwd: root,
     env: { ...process.env, TERM: "xterm-256color" },
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: ["ignore", "ignore", "pipe"],
   });
-
-  assert.ok(child.stdout, "expected script stdout pipe");
 
   let stderr = "";
   child.stderr?.on("data", (chunk) => {
     stderr += chunk.toString("utf8");
-  });
-
-  let pending = Promise.resolve();
-  child.stdout.on("data", (chunk) => {
-    const data = chunk.toString("utf8");
-    pending = pending.then(() => new Promise<void>((resolve) => term.write(data, resolve)));
   });
 
   const exit = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>(
@@ -88,7 +85,8 @@ test("terminal e2e renders real output", { skip: isLinux ? false : "linux-only" 
   });
 
   const { code, signal } = await Promise.race([exit, timeout]);
-  await pending;
+  const transcript = await readFile(transcriptPath, "utf8");
+  await new Promise<void>((resolve) => term.write(transcript, resolve));
 
   if (code !== 0) {
     throw new Error(
