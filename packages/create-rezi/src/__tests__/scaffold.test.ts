@@ -1,7 +1,7 @@
-import { assert, test } from "@rezi-ui/testkit";
 import { mkdtemp, readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { assert, test } from "@rezi-ui/testkit";
 import { createProject, normalizeTemplateName, toValidPackageName } from "../scaffold.js";
 
 test("normalizeTemplateName accepts friendly aliases", () => {

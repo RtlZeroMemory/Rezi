@@ -72,15 +72,15 @@ function spark(tick: number, base: number, amp: number, freq: number, points = 2
 }
 
 function metricTile(label: string, value: string, suffix: string, color: typeof accent) {
-  return ui.box({ flex: 1, border: "rounded", px: 1, py: 0, style: { bg: panelRaised, fg: border } }, [
-    ui.column({ gap: 0 }, [
-      ui.text(label, { style: { fg: fgDim } }),
-      ui.richText([
-        s(value, { fg: color, bold: true }),
-        s(` ${suffix}`, { fg: fgMuted }),
+  return ui.box(
+    { flex: 1, border: "rounded", px: 1, py: 0, style: { bg: panelRaised, fg: border } },
+    [
+      ui.column({ gap: 0 }, [
+        ui.text(label, { style: { fg: fgDim } }),
+        ui.richText([s(value, { fg: color, bold: true }), s(` ${suffix}`, { fg: fgMuted })]),
       ]),
-    ]),
-  ]);
+    ],
+  );
 }
 
 type State = { tick: number };
@@ -96,7 +96,7 @@ app.view(({ tick }) => {
   const allDone = progress.every((v) => v >= 1);
   const activeIndex = allDone ? -1 : progress.findIndex((v) => v < 1);
   const completedCount = progress.filter((v) => v >= 1).length;
-  const activeStage = activeIndex >= 0 ? stages[activeIndex]?.label ?? "" : "Observe";
+  const activeStage = activeIndex >= 0 ? (stages[activeIndex]?.label ?? "") : "Observe";
   const stageText = activeStage.padEnd(10, " ");
   const statusText = (allDone ? "COMPLETED" : "IN PROGRESS").padEnd(11, " ");
 
@@ -156,138 +156,140 @@ app.view(({ tick }) => {
       ),
 
       ui.row({ flex: 1, gap: 1, px: 1, py: 1, items: "stretch" }, [
-      ui.box({ flex: 3, border: "rounded", px: 1, style: { bg: panelAlt, fg: borderBright } }, [
-        ui.column(
-          { gap: 0 },
-          stages.flatMap((stage, i) => {
-            const p = progress[i] ?? 0;
-            const done = p >= 1;
-            const active = i === activeIndex;
-            const activeFrames = ["-", "\\", "|", "/"] as const;
-            const activeFrame = activeFrames[tick % activeFrames.length] ?? "-";
-            const icon = done ? "[x]" : active ? `[${activeFrame}]` : "[ ]";
-            const iconColor = done ? success : active ? accent : fgDim;
-            const nameColor = done ? success : active ? fg : fgMuted;
-            const statusLabel = done ? "done" : active ? `${Math.round(p * 100)}%` : "pending";
-            const statusColor = done ? success : active ? accentWarm : fgDim;
+        ui.box({ flex: 3, border: "rounded", px: 1, style: { bg: panelAlt, fg: borderBright } }, [
+          ui.column(
+            { gap: 0 },
+            stages.flatMap((stage, i) => {
+              const p = progress[i] ?? 0;
+              const done = p >= 1;
+              const active = i === activeIndex;
+              const activeFrames = ["-", "\\", "|", "/"] as const;
+              const activeFrame = activeFrames[tick % activeFrames.length] ?? "-";
+              const icon = done ? "[x]" : active ? `[${activeFrame}]` : "[ ]";
+              const iconColor = done ? success : active ? accent : fgDim;
+              const nameColor = done ? success : active ? fg : fgMuted;
+              const statusLabel = done ? "done" : active ? `${Math.round(p * 100)}%` : "pending";
+              const statusColor = done ? success : active ? accentWarm : fgDim;
 
-            return [
-              ui.row({ gap: 1 }, [
-                ui.text(icon, { style: { fg: iconColor, bold: done || active } }),
-                // Leading spacer absorbs occasional first-cell clipping on some terminal/font combos.
-                ui.text(` ${stage.label.padEnd(12, " ")}`, { style: { fg: nameColor, bold: active } }),
-                ui.text(statusLabel.padStart(8, " "), {
-                  style: { fg: statusColor, bold: done || active },
-                }),
-              ]),
-              active
-                ? ui.progress(p, {
-                    variant: "bar",
-                    trackStyle: { fg: fgDim },
-                    style: { fg: accent },
-                  })
-                : done
-                  ? ui.progress(1, { variant: "minimal", style: { fg: success } })
-                  : ui.progress(0, { variant: "minimal", style: { fg: fgDim } }),
-            ];
-          }),
-        ),
-      ]),
-
-      ui.column({ flex: 2, gap: 1 }, [
-        ui.row({ gap: 1 }, [
-          metricTile("FPS", String(fps), "avg", success),
-          metricTile("Memory", String(mem), "MB", accentWarm),
-          metricTile("P95", String(p95), "ms", warning),
+              return [
+                ui.row({ gap: 1 }, [
+                  ui.text(icon, { style: { fg: iconColor, bold: done || active } }),
+                  // Leading spacer absorbs occasional first-cell clipping on some terminal/font combos.
+                  ui.text(` ${stage.label.padEnd(12, " ")}`, {
+                    style: { fg: nameColor, bold: active },
+                  }),
+                  ui.text(statusLabel.padStart(8, " "), {
+                    style: { fg: statusColor, bold: done || active },
+                  }),
+                ]),
+                active
+                  ? ui.progress(p, {
+                      variant: "bar",
+                      trackStyle: { fg: fgDim },
+                      style: { fg: accent },
+                    })
+                  : done
+                    ? ui.progress(1, { variant: "minimal", style: { fg: success } })
+                    : ui.progress(0, { variant: "minimal", style: { fg: fgDim } }),
+              ];
+            }),
+          ),
         ]),
 
-        ui.box({ border: "rounded", px: 1, style: { bg: panelAlt, fg: border } }, [
-          ui.column({ gap: 0 }, [
-            ui.row({ gap: 1, items: "center" }, [
-              ui.text("Runtime Budget", { style: { fg: fgMuted, bold: true } }),
-              ui.richText([s("•", { fg: fgDim })]),
+        ui.column({ flex: 2, gap: 1 }, [
+          ui.row({ gap: 1 }, [
+            metricTile("FPS", String(fps), "avg", success),
+            metricTile("Memory", String(mem), "MB", accentWarm),
+            metricTile("P95", String(p95), "ms", warning),
+          ]),
+
+          ui.box({ border: "rounded", px: 1, style: { bg: panelAlt, fg: border } }, [
+            ui.column({ gap: 0 }, [
+              ui.row({ gap: 1, items: "center" }, [
+                ui.text("Runtime Budget", { style: { fg: fgMuted, bold: true } }),
+                ui.richText([s("•", { fg: fgDim })]),
+                ui.richText([
+                  s(allDone ? "stable" : "active", {
+                    fg: allDone ? success : accentWarm,
+                    bold: true,
+                  }),
+                ]),
+              ]),
+              ui.divider({ char: "─" }),
+              ui.miniChart(
+                [
+                  { label: "FPS", value: fps, max: 75 },
+                  { label: "MEM", value: mem, max: 120 },
+                  { label: "P95", value: p95, max: 20 },
+                  { label: "WRK", value: workers, max: 8 },
+                ],
+                { variant: "pills" },
+              ),
+              ui.sparkline(spark(tick, 58, 4.8, 0.22), {
+                min: 46,
+                max: 70,
+                style: { fg: success },
+              }),
+            ]),
+          ]),
+
+          ui.box({ border: "rounded", px: 1, flex: 1, style: { bg: panelAlt, fg: border } }, [
+            ui.column({ gap: 0, flex: 1 }, [
+              ui.row({ gap: 2 }, [
+                ui.status(stageState(progress[0] ?? 0), { label: "Bootstrap", showLabel: true }),
+                ui.status(stageState(progress[1] ?? 0), { label: "Compile", showLabel: true }),
+                ui.status(stageState(progress[2] ?? 0), { label: "Tests", showLabel: true }),
+              ]),
+              ui.row({ gap: 2 }, [
+                ui.status(stageState(progress[3] ?? 0), { label: "Lint", showLabel: true }),
+                ui.status(stageState(progress[4] ?? 0), { label: "Bundle", showLabel: true }),
+                ui.status(stageState(progress[5] ?? 0), { label: "Publish", showLabel: true }),
+              ]),
               ui.richText([
-                s(allDone ? "stable" : "active", {
+                s("Release Status: ", { fg: fgDim }),
+                s(allDone ? "all checks passing" : `${activeStage} running`, {
                   fg: allDone ? success : accentWarm,
                   bold: true,
                 }),
               ]),
-            ]),
-            ui.divider({ char: "─" }),
-            ui.miniChart(
-              [
-                { label: "FPS", value: fps, max: 75 },
-                { label: "MEM", value: mem, max: 120 },
-                { label: "P95", value: p95, max: 20 },
-                { label: "WRK", value: workers, max: 8 },
-              ],
-              { variant: "pills" },
-            ),
-            ui.sparkline(spark(tick, 58, 4.8, 0.22), {
-              min: 46,
-              max: 70,
-              style: { fg: success },
-            }),
-          ]),
-        ]),
-
-        ui.box({ border: "rounded", px: 1, flex: 1, style: { bg: panelAlt, fg: border } }, [
-          ui.column({ gap: 0, flex: 1 }, [
-            ui.row({ gap: 2 }, [
-              ui.status(stageState(progress[0] ?? 0), { label: "Bootstrap", showLabel: true }),
-              ui.status(stageState(progress[1] ?? 0), { label: "Compile", showLabel: true }),
-              ui.status(stageState(progress[2] ?? 0), { label: "Tests", showLabel: true }),
-            ]),
-            ui.row({ gap: 2 }, [
-              ui.status(stageState(progress[3] ?? 0), { label: "Lint", showLabel: true }),
-              ui.status(stageState(progress[4] ?? 0), { label: "Bundle", showLabel: true }),
-              ui.status(stageState(progress[5] ?? 0), { label: "Publish", showLabel: true }),
-            ]),
-            ui.richText([
-              s("Release Status: ", { fg: fgDim }),
-              s(allDone ? "all checks passing" : `${activeStage} running`, {
-                fg: allDone ? success : accentWarm,
-                bold: true,
+              ui.divider({ char: "─" }),
+              ui.row({ justify: "between", items: "center" }, [
+                ui.text("Component Load", { style: { fg: fgMuted, bold: true } }),
+                ui.richText([
+                  s(`${loadTotal}%`, { fg: accentWarm, bold: true }),
+                  s(" total", { fg: fgDim }),
+                ]),
+              ]),
+              ui.barChart(
+                [
+                  { label: "core", value: coreLoad, variant: "info" },
+                  { label: "node", value: nodeLoad, variant: "success" },
+                  { label: "jsx", value: jsxLoad, variant: "warning" },
+                ],
+                {
+                  showValues: true,
+                  maxBarLength: 20,
+                  style: { fg: fgMuted },
+                },
+              ),
+              ui.richText([
+                s("core ", { fg: success }),
+                s(`${coreLoad}%`, { fg: fg, bold: true }),
+                s("  •  ", { fg: fgDim }),
+                s("node ", { fg: accent }),
+                s(`${nodeLoad}%`, { fg: fg, bold: true }),
+                s("  •  ", { fg: fgDim }),
+                s("jsx ", { fg: warning }),
+                s(`${jsxLoad}%`, { fg: fg, bold: true }),
+              ]),
+              ui.sparkline(spark(tick, 49, 5.5, 0.2), {
+                min: 38,
+                max: 62,
+                style: { fg: accent },
               }),
             ]),
-            ui.divider({ char: "─" }),
-            ui.row({ justify: "between", items: "center" }, [
-              ui.text("Component Load", { style: { fg: fgMuted, bold: true } }),
-              ui.richText([
-                s(`${loadTotal}%`, { fg: accentWarm, bold: true }),
-                s(" total", { fg: fgDim }),
-              ]),
-            ]),
-            ui.barChart(
-              [
-                { label: "core", value: coreLoad, variant: "info" },
-                { label: "node", value: nodeLoad, variant: "success" },
-                { label: "jsx", value: jsxLoad, variant: "warning" },
-              ],
-              {
-                showValues: true,
-                maxBarLength: 20,
-                style: { fg: fgMuted },
-              },
-            ),
-            ui.richText([
-              s("core ", { fg: success }),
-              s(`${coreLoad}%`, { fg: fg, bold: true }),
-              s("  •  ", { fg: fgDim }),
-              s("node ", { fg: accent }),
-              s(`${nodeLoad}%`, { fg: fg, bold: true }),
-              s("  •  ", { fg: fgDim }),
-              s("jsx ", { fg: warning }),
-              s(`${jsxLoad}%`, { fg: fg, bold: true }),
-            ]),
-            ui.sparkline(spark(tick, 49, 5.5, 0.2), {
-              min: 38,
-              max: 62,
-              style: { fg: accent },
-            }),
           ]),
         ]),
-      ]),
       ]),
 
       ui.box(
@@ -302,9 +304,12 @@ app.view(({ tick }) => {
         [
           ui.row({ justify: "between", items: "center", gap: 2 }, [
             ui.row({ gap: 1, items: "center" }, [
-              ui.badge(allDone ? "Pipeline complete" : `Stage ${completedCount + 1}/${stages.length}`, {
-                variant: allDone ? "success" : "info",
-              }),
+              ui.badge(
+                allDone ? "Pipeline complete" : `Stage ${completedCount + 1}/${stages.length}`,
+                {
+                  variant: allDone ? "success" : "info",
+                },
+              ),
               ui.badge("Stable frame output", { variant: "default" }),
               ui.badge("Low-latency renderer", { variant: "default" }),
             ]),

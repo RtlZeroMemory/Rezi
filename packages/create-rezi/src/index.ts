@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { createInterface } from "node:readline/promises";
-import { cwd, exit, stdin, stdout } from "node:process";
 import { relative, resolve } from "node:path";
+import { cwd, exit, stdin, stdout } from "node:process";
+import { createInterface } from "node:readline/promises";
+import { fileURLToPath } from "node:url";
 import {
   TEMPLATE_DEFINITIONS,
   createProject,
@@ -12,7 +13,6 @@ import {
   toDisplayName,
   toValidPackageName,
 } from "./scaffold.js";
-import { fileURLToPath } from "node:url";
 
 type PackageManager = "npm" | "pnpm" | "yarn" | "bun";
 
@@ -82,15 +82,15 @@ function parseArgs(argv: string[]): CliOptions {
 }
 
 function printHelp(): void {
-  stdout.write(`create-rezi\n\n`);
-  stdout.write(`Usage:\n`);
-  stdout.write(`  npm create rezi my-app\n\n`);
-  stdout.write(`Options:\n`);
-  stdout.write(`  --template, -t <name>      Choose a template\n`);
-  stdout.write(`  --no-install               Skip dependency install\n`);
-  stdout.write(`  --pm <npm|pnpm|yarn|bun>    Choose a package manager\n`);
-  stdout.write(`  --list-templates           Show available templates\n`);
-  stdout.write(`  --help, -h                 Show this help\n`);
+  stdout.write("create-rezi\n\n");
+  stdout.write("Usage:\n");
+  stdout.write("  npm create rezi my-app\n\n");
+  stdout.write("Options:\n");
+  stdout.write("  --template, -t <name>      Choose a template\n");
+  stdout.write("  --no-install               Skip dependency install\n");
+  stdout.write("  --pm <npm|pnpm|yarn|bun>    Choose a package manager\n");
+  stdout.write("  --list-templates           Show available templates\n");
+  stdout.write("  --help, -h                 Show this help\n");
 }
 
 function printTemplates(): void {
@@ -103,6 +103,7 @@ function printTemplates(): void {
 }
 
 function detectPackageManager(): PackageManager {
+  // biome-ignore lint/complexity/useLiteralKeys: process.env uses an index signature in TS.
   const ua = process.env["npm_config_user_agent"] ?? "";
   if (ua.startsWith("pnpm/")) return "pnpm";
   if (ua.startsWith("yarn/")) return "yarn";
@@ -113,7 +114,12 @@ function detectPackageManager(): PackageManager {
 function resolvePackageManager(value?: string): PackageManager {
   if (!value) return detectPackageManager();
   const normalized = value.trim().toLowerCase();
-  if (normalized === "npm" || normalized === "pnpm" || normalized === "yarn" || normalized === "bun") {
+  if (
+    normalized === "npm" ||
+    normalized === "pnpm" ||
+    normalized === "yarn" ||
+    normalized === "bun"
+  ) {
     return normalized as PackageManager;
   }
   throw new Error(`Unsupported package manager: ${value}`);
@@ -189,8 +195,7 @@ async function main(): Promise<void> {
 
   try {
     const targetDir = options.targetDir || (await promptText(rl, "Project name", "rezi-app"));
-    const templateInput =
-      options.template || (await promptTemplate(rl));
+    const templateInput = options.template || (await promptTemplate(rl));
     const templateKey = normalizeTemplateName(templateInput);
     if (!templateKey) {
       stdout.write(`\nUnknown template: ${templateInput}\n`);

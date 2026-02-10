@@ -17,24 +17,60 @@ const tree: Tree = {
   "/": [
     { name: "src", type: "dir", size: "-", modified: "2026-02-10", preview: "" },
     { name: "docs", type: "dir", size: "-", modified: "2026-02-08", preview: "" },
-    { name: "package.json", type: "file", size: "2 KB", modified: "2026-02-07", preview: "{\n  \"name\": \"__APP_NAME__\"\n}" },
+    {
+      name: "package.json",
+      type: "file",
+      size: "2 KB",
+      modified: "2026-02-07",
+      preview: '{\n  "name": "__APP_NAME__"\n}',
+    },
     { name: ".env", type: "file", size: "1 KB", modified: "2026-02-05", preview: "API_KEY=***" },
   ],
   "/src": [
-    { name: "main.ts", type: "file", size: "4 KB", modified: "2026-02-10", preview: "import { createApp } from '@rezi-ui/core'" },
+    {
+      name: "main.ts",
+      type: "file",
+      size: "4 KB",
+      modified: "2026-02-10",
+      preview: "import { createApp } from '@rezi-ui/core'",
+    },
     { name: "components", type: "dir", size: "-", modified: "2026-02-09", preview: "" },
     { name: "styles", type: "dir", size: "-", modified: "2026-02-09", preview: "" },
   ],
   "/src/components": [
-    { name: "Panel.ts", type: "file", size: "1 KB", modified: "2026-02-09", preview: "export function Panel() {}" },
-    { name: "StatusBar.ts", type: "file", size: "1 KB", modified: "2026-02-09", preview: "export function StatusBar() {}" },
+    {
+      name: "Panel.ts",
+      type: "file",
+      size: "1 KB",
+      modified: "2026-02-09",
+      preview: "export function Panel() {}",
+    },
+    {
+      name: "StatusBar.ts",
+      type: "file",
+      size: "1 KB",
+      modified: "2026-02-09",
+      preview: "export function StatusBar() {}",
+    },
   ],
   "/docs": [
-    { name: "overview.md", type: "file", size: "3 KB", modified: "2026-02-08", preview: "# Overview" },
+    {
+      name: "overview.md",
+      type: "file",
+      size: "3 KB",
+      modified: "2026-02-08",
+      preview: "# Overview",
+    },
     { name: "usage.md", type: "file", size: "2 KB", modified: "2026-02-08", preview: "# Usage" },
   ],
   "/src/styles": [
-    { name: "tokens.ts", type: "file", size: "2 KB", modified: "2026-02-08", preview: "export const colors = {}" },
+    {
+      name: "tokens.ts",
+      type: "file",
+      size: "2 KB",
+      modified: "2026-02-08",
+      preview: "export const colors = {}",
+    },
   ],
 };
 
@@ -104,43 +140,55 @@ app.view((state) => {
     ]),
 
     ui.row({ flex: 1, gap: 1, items: "stretch" }, [
-      panel("Files", [
-        ui.column(
-          { gap: 0 },
-          entries.map((entry, index) => {
-            const active = index === state.selected;
-            const prefix = active ? ">" : " ";
-            const marker = entry.type === "dir" ? "[D]" : "[F]";
-            return ui.text(`${prefix} ${marker} ${entry.name}`, {
-              key: entry.name,
-              fg: active ? colors.accent : colors.muted,
-              bold: active,
-            });
-          }),
-        ),
-      ], 1),
+      panel(
+        "Files",
+        [
+          ui.column(
+            { gap: 0 },
+            entries.map((entry, index) => {
+              const active = index === state.selected;
+              const prefix = active ? ">" : " ";
+              const marker = entry.type === "dir" ? "[D]" : "[F]";
+              return ui.text(`${prefix} ${marker} ${entry.name}`, {
+                key: entry.name,
+                fg: active ? colors.accent : colors.muted,
+                bold: active,
+              });
+            }),
+          ),
+        ],
+        1,
+      ),
 
-      panel("Details", [
-        ui.column({ gap: 1 }, [
-          ui.text(selected ? selected.name : "-", { fg: colors.accent, bold: true }),
-          ui.text(`Type: ${selected?.type ?? "-"}`),
-          ui.text(`Size: ${selected?.size ?? "-"}`),
-          ui.text(`Modified: ${selected?.modified ?? "-"}`),
-          ui.divider({ char: "-" }),
-          ui.text("Preview", { fg: colors.muted }),
-          ui.text(preview),
-        ]),
-      ], 2),
+      panel(
+        "Details",
+        [
+          ui.column({ gap: 1 }, [
+            ui.text(selected ? selected.name : "-", { fg: colors.accent, bold: true }),
+            ui.text(`Type: ${selected?.type ?? "-"}`),
+            ui.text(`Size: ${selected?.size ?? "-"}`),
+            ui.text(`Modified: ${selected?.modified ?? "-"}`),
+            ui.divider({ char: "-" }),
+            ui.text("Preview", { fg: colors.muted }),
+            ui.text(preview),
+          ]),
+        ],
+        2,
+      ),
 
-      panel("Pinned", [
-        ui.column({ gap: 1 }, [
-          ui.text("Last opened", { fg: colors.muted }),
-          ui.text(state.opened ?? "-"),
-          ui.text(""),
-          ui.text("Hidden files"),
-          ui.text(state.showHidden ? "Visible" : "Hidden"),
-        ]),
-      ], 1),
+      panel(
+        "Pinned",
+        [
+          ui.column({ gap: 1 }, [
+            ui.text("Last opened", { fg: colors.muted }),
+            ui.text(state.opened ?? "-"),
+            ui.text(""),
+            ui.text("Hidden files"),
+            ui.text(state.showHidden ? "Visible" : "Hidden"),
+          ]),
+        ],
+        1,
+      ),
     ]),
 
     ui.box({ px: 1, py: 0, style: { bg: colors.ink, fg: colors.muted } }, [
@@ -164,36 +212,36 @@ app.view((state) => {
 });
 
 app.keys({
-  "q": () => app.stop(),
+  q: () => app.stop(),
   "ctrl+c": () => app.stop(),
-  "up": () =>
+  up: () =>
     app.update((s) => {
       const entries = listEntries(s);
       return { ...s, selected: clamp(s.selected - 1, 0, Math.max(0, entries.length - 1)) };
     }),
-  "down": () =>
+  down: () =>
     app.update((s) => {
       const entries = listEntries(s);
       return { ...s, selected: clamp(s.selected + 1, 0, Math.max(0, entries.length - 1)) };
     }),
-  "k": () =>
+  k: () =>
     app.update((s) => {
       const entries = listEntries(s);
       return { ...s, selected: clamp(s.selected - 1, 0, Math.max(0, entries.length - 1)) };
     }),
-  "j": () =>
+  j: () =>
     app.update((s) => {
       const entries = listEntries(s);
       return { ...s, selected: clamp(s.selected + 1, 0, Math.max(0, entries.length - 1)) };
     }),
-  "h": () => app.update((s) => ({ ...s, showHidden: !s.showHidden, selected: 0 })),
-  "backspace": () =>
+  h: () => app.update((s) => ({ ...s, showHidden: !s.showHidden, selected: 0 })),
+  backspace: () =>
     app.update((s) => ({
       ...s,
       path: parentPath(s.path),
       selected: 0,
     })),
-  "enter": () =>
+  enter: () =>
     app.update((s) => {
       const entries = listEntries(s);
       const entry = entries[s.selected];

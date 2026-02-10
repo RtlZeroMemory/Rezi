@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -38,9 +38,7 @@ export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
   },
 ] as const;
 
-const TEMPLATE_BY_KEY = new Map(
-  TEMPLATE_DEFINITIONS.map((template) => [template.key, template]),
-);
+const TEMPLATE_BY_KEY = new Map(TEMPLATE_DEFINITIONS.map((template) => [template.key, template]));
 
 const PACKAGE_NAME_RE = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
 

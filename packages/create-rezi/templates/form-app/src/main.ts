@@ -69,104 +69,116 @@ app.view((state) => {
     ]),
 
     ui.row({ flex: 1, gap: 1, items: "stretch" }, [
-      panel("Sections", [
-        ui.column(
-          { gap: 0 },
-          sections.map((label, index) => {
-            const active = index === state.section;
-            return ui.text(`${active ? ">" : " "} ${label}`, {
-              key: label,
-              fg: active ? colors.accent : colors.muted,
-              bold: active,
-            });
-          }),
-        ),
-      ], 1),
+      panel(
+        "Sections",
+        [
+          ui.column(
+            { gap: 0 },
+            sections.map((label, index) => {
+              const active = index === state.section;
+              return ui.text(`${active ? ">" : " "} ${label}`, {
+                key: label,
+                fg: active ? colors.accent : colors.muted,
+                bold: active,
+              });
+            }),
+          ),
+        ],
+        1,
+      ),
 
-      panel("Customer Details", [
-        ui.column({ gap: 1 }, [
-          ui.field({
-            label: "Name",
-            required: true,
-            children: ui.input({
-              id: "name",
-              value: state.name,
-              placeholder: "Ada Lovelace",
-              onInput: (value) => app.update((s) => ({ ...s, name: value })),
+      panel(
+        "Customer Details",
+        [
+          ui.column({ gap: 1 }, [
+            ui.field({
+              label: "Name",
+              required: true,
+              children: ui.input({
+                id: "name",
+                value: state.name,
+                placeholder: "Ada Lovelace",
+                onInput: (value) => app.update((s) => ({ ...s, name: value })),
+              }),
             }),
-          }),
-          ui.field({
-            label: "Email",
-            required: true,
-            children: ui.input({
-              id: "email",
-              value: state.email,
-              placeholder: "ada@lovelace.io",
-              onInput: (value) => app.update((s) => ({ ...s, email: value })),
+            ui.field({
+              label: "Email",
+              required: true,
+              children: ui.input({
+                id: "email",
+                value: state.email,
+                placeholder: "ada@lovelace.io",
+                onInput: (value) => app.update((s) => ({ ...s, email: value })),
+              }),
             }),
-          }),
-          ui.field({
-            label: "Company",
-            children: ui.input({
-              id: "company",
-              value: state.company,
-              placeholder: "Analytical Engines Ltd",
-              onInput: (value) => app.update((s) => ({ ...s, company: value })),
+            ui.field({
+              label: "Company",
+              children: ui.input({
+                id: "company",
+                value: state.company,
+                placeholder: "Analytical Engines Ltd",
+                onInput: (value) => app.update((s) => ({ ...s, company: value })),
+              }),
             }),
-          }),
-          ui.field({
-            label: "Plan",
-            children: ui.select({
-              id: "plan",
-              value: state.plan,
-              options: [
-                { value: "starter", label: "Starter" },
-                { value: "growth", label: "Growth" },
-                { value: "enterprise", label: "Enterprise" },
-              ],
-              onChange: (value) => app.update((s) => ({ ...s, plan: value as Plan })),
+            ui.field({
+              label: "Plan",
+              children: ui.select({
+                id: "plan",
+                value: state.plan,
+                options: [
+                  { value: "starter", label: "Starter" },
+                  { value: "growth", label: "Growth" },
+                  { value: "enterprise", label: "Enterprise" },
+                ],
+                onChange: (value) => app.update((s) => ({ ...s, plan: value as Plan })),
+              }),
             }),
-          }),
-          ui.field({
-            label: "Seats",
-            children: ui.input({
-              id: "seats",
-              value: state.seats,
-              onInput: (value) => app.update((s) => ({ ...s, seats: value })),
+            ui.field({
+              label: "Seats",
+              children: ui.input({
+                id: "seats",
+                value: state.seats,
+                onInput: (value) => app.update((s) => ({ ...s, seats: value })),
+              }),
             }),
-          }),
-          ui.checkbox({
-            id: "newsletter",
-            label: "Subscribe to release notes",
-            checked: state.newsletter,
-            onChange: (checked) => app.update((s) => ({ ...s, newsletter: checked })),
-          }),
-        ]),
-      ], 2),
+            ui.checkbox({
+              id: "newsletter",
+              label: "Subscribe to release notes",
+              checked: state.newsletter,
+              onChange: (checked) => app.update((s) => ({ ...s, newsletter: checked })),
+            }),
+          ]),
+        ],
+        2,
+      ),
 
-      panel("Preview", [
-        ui.column({ gap: 1 }, [
-          ui.text("Summary", { fg: colors.accent, bold: true }),
-          ui.text(`Name: ${state.name || "-"}`),
-          ui.text(`Email: ${state.email || "-"}`),
-          ui.text(`Company: ${state.company || "-"}`),
-          ui.text(`Plan: ${state.plan}`),
-          ui.text(`Seats: ${state.seats || "-"}`),
-          ui.text(`Newsletter: ${state.newsletter ? "Yes" : "No"}`),
-          ui.divider({ char: "-" }),
-          ui.text("Notes"),
-          ui.text(state.notes || "Add internal notes in Review."),
-          ui.button({
-            id: "save",
-            label: "Save draft",
-            onPress: () =>
-              app.update((s) => ({
-                ...s,
-                status: `Saved at ${new Date().toLocaleTimeString()}`,
-              })),
-          }),
-        ]),
-      ], 1),
+      panel(
+        "Preview",
+        [
+          ui.column({ gap: 1 }, [
+            ui.text("Summary", { fg: colors.accent, bold: true }),
+            ui.text(`Name: ${state.name || "-"}`),
+            ui.text(`Email: ${state.email || "-"}`),
+            ui.text(`Company: ${state.company || "-"}`),
+            ui.text(`Plan: ${state.plan}`),
+            ui.text(`Seats: ${state.seats || "-"}`),
+            ui.text(`Newsletter: ${state.newsletter ? "Yes" : "No"}`),
+            ui.divider({ char: "-" }),
+            ui.text("Notes"),
+            ui.text(state.notes || "Add internal notes in Review."),
+            ui.button({
+              id: "save",
+              label: "Save draft",
+              onPress: () =>
+                app.update((s) => ({
+                  ...s,
+                  status: `Saved at ${new Date().toLocaleTimeString()}`,
+                })),
+            }),
+          ]),
+        ],
+        1,
+      ),
     ]),
 
     ui.box({ px: 1, py: 0, style: { bg: colors.ink, fg: colors.muted } }, [
@@ -188,7 +200,7 @@ app.view((state) => {
 });
 
 app.keys({
-  "q": () => app.stop(),
+  q: () => app.stop(),
   "ctrl+c": () => app.stop(),
   "ctrl+s": () =>
     app.update((s) => ({

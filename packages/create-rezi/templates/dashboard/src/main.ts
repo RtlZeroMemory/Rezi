@@ -79,14 +79,17 @@ function clamp(value: number, min: number, max: number) {
 }
 
 function panel(title: string, children: ReturnType<typeof ui.column>[], flex = 1) {
-  return ui.box({
-    title,
-    flex,
-    border: "rounded",
-    px: 1,
-    py: 0,
-    style: { bg: colors.panel, fg: colors.muted },
-  }, children);
+  return ui.box(
+    {
+      title,
+      flex,
+      border: "rounded",
+      px: 1,
+      py: 0,
+      style: { bg: colors.panel, fg: colors.muted },
+    },
+    children,
+  );
 }
 
 app.view((state) => {
@@ -106,59 +109,71 @@ app.view((state) => {
     ]),
 
     ui.row({ flex: 1, gap: 1, items: "stretch" }, [
-      panel("Services", [
-        ui.column(
-          { gap: 0 },
-          visible.map((svc, index) => {
-            const active = index === state.selected;
-            return ui.row(
-              {
-                key: svc.name,
-                gap: 1,
-                style: {
-                  bg: active ? colors.inkSoft : undefined,
-                  fg: active ? colors.accent : colors.muted,
+      panel(
+        "Services",
+        [
+          ui.column(
+            { gap: 0 },
+            visible.map((svc, index) => {
+              const active = index === state.selected;
+              return ui.row(
+                {
+                  key: svc.name,
+                  gap: 1,
+                  style: {
+                    bg: active ? colors.inkSoft : undefined,
+                    fg: active ? colors.accent : colors.muted,
+                  },
                 },
-              },
-              [
-                ui.text(active ? ">" : " "),
-                ui.text(svc.name, { bold: active }),
-                ui.text(`(${svc.region})`, { fg: colors.muted }),
-                ui.text(svc.status.toUpperCase(), {
-                  fg: statusColor(svc.status),
-                  bold: true,
-                }),
-              ],
-            );
-          }),
-        ),
-      ], 1),
-
-      panel("Service Health", [
-        ui.column({ gap: 1 }, [
-          ui.text(selected ? selected.name : "-", { fg: colors.accent, bold: true }),
-          ui.row({ gap: 2 }, [
-            ui.text(`Latency: ${selected ? selected.latencyMs : "-"} ms`),
-            ui.text(`Errors: ${selected ? selected.errorRate : "-"}%`, {
-              fg: selected && selected.errorRate > 2 ? colors.warn : colors.muted,
+                [
+                  ui.text(active ? ">" : " "),
+                  ui.text(svc.name, { bold: active }),
+                  ui.text(`(${svc.region})`, { fg: colors.muted }),
+                  ui.text(svc.status.toUpperCase(), {
+                    fg: statusColor(svc.status),
+                    bold: true,
+                  }),
+                ],
+              );
             }),
-          ]),
-          ui.divider({ char: "-" }),
-          ui.text("Active incidents", { fg: colors.muted }),
-          ...incidents.map((line) => ui.text(`- ${line}`)),
-        ]),
-      ], 2),
+          ),
+        ],
+        1,
+      ),
 
-      panel("Activity", [
-        ui.column({ gap: 1 }, [
-          ui.text("Recent deploys", { fg: colors.muted }),
-          ...activity.map((line) => ui.text(`- ${line}`)),
-          ui.divider({ char: "-" }),
-          ui.text("Escalations", { fg: colors.muted }),
-          ui.text("- On-call rotation starts in 2h"),
-          ui.text("- 3 alerts awaiting acknowledgement"),
-        ]),
-      ], 1),
+      panel(
+        "Service Health",
+        [
+          ui.column({ gap: 1 }, [
+            ui.text(selected ? selected.name : "-", { fg: colors.accent, bold: true }),
+            ui.row({ gap: 2 }, [
+              ui.text(`Latency: ${selected ? selected.latencyMs : "-"} ms`),
+              ui.text(`Errors: ${selected ? selected.errorRate : "-"}%`, {
+                fg: selected && selected.errorRate > 2 ? colors.warn : colors.muted,
+              }),
+            ]),
+            ui.divider({ char: "-" }),
+            ui.text("Active incidents", { fg: colors.muted }),
+            ...incidents.map((line) => ui.text(`- ${line}`)),
+          ]),
+        ],
+        2,
+      ),
+
+      panel(
+        "Activity",
+        [
+          ui.column({ gap: 1 }, [
+            ui.text("Recent deploys", { fg: colors.muted }),
+            ...activity.map((line) => ui.text(`- ${line}`)),
+            ui.divider({ char: "-" }),
+            ui.text("Escalations", { fg: colors.muted }),
+            ui.text("- On-call rotation starts in 2h"),
+            ui.text("- 3 alerts awaiting acknowledgement"),
+          ]),
+        ],
+        1,
+      ),
     ]),
 
     state.showHelp
@@ -184,54 +199,58 @@ app.view((state) => {
             ]),
           ],
         )
-      : ui.box(
-          { px: 1, py: 0, style: { bg: colors.ink, fg: colors.muted } },
-          [
-            ui.row({ justify: "between", items: "center" }, [
-              ui.text("Status: nominal"),
-              ui.row({ gap: 1 }, [
-                ui.kbd("up/down"),
-                ui.text("Move"),
-                ui.kbd("f"),
-                ui.text("Filter"),
-                ui.kbd("?"),
-                ui.text("Help"),
-              ]),
+      : ui.box({ px: 1, py: 0, style: { bg: colors.ink, fg: colors.muted } }, [
+          ui.row({ justify: "between", items: "center" }, [
+            ui.text("Status: nominal"),
+            ui.row({ gap: 1 }, [
+              ui.kbd("up/down"),
+              ui.text("Move"),
+              ui.kbd("f"),
+              ui.text("Filter"),
+              ui.kbd("?"),
+              ui.text("Help"),
             ]),
-          ],
-        ),
+          ]),
+        ]),
   ]);
 });
 
 app.keys({
-  "q": () => app.stop(),
+  q: () => app.stop(),
   "ctrl+c": () => app.stop(),
-  "up": () =>
+  up: () =>
     app.update((s) => {
       const list = filterServices(s.filter);
       return { ...s, selected: clamp(s.selected - 1, 0, Math.max(0, list.length - 1)) };
     }),
-  "down": () =>
+  down: () =>
     app.update((s) => {
       const list = filterServices(s.filter);
       return { ...s, selected: clamp(s.selected + 1, 0, Math.max(0, list.length - 1)) };
     }),
-  "k": () =>
+  k: () =>
     app.update((s) => {
       const list = filterServices(s.filter);
       return { ...s, selected: clamp(s.selected - 1, 0, Math.max(0, list.length - 1)) };
     }),
-  "j": () =>
+  j: () =>
     app.update((s) => {
       const list = filterServices(s.filter);
       return { ...s, selected: clamp(s.selected + 1, 0, Math.max(0, list.length - 1)) };
     }),
-  "f": () =>
+  f: () =>
     app.update((s) => {
-      const next: Filter = s.filter === "all" ? "warning" : s.filter === "warning" ? "healthy" : s.filter === "healthy" ? "down" : "all";
+      const next: Filter =
+        s.filter === "all"
+          ? "warning"
+          : s.filter === "warning"
+            ? "healthy"
+            : s.filter === "healthy"
+              ? "down"
+              : "all";
       return { ...s, filter: next, selected: 0 };
     }),
-  "enter": () =>
+  enter: () =>
     app.update((s) => {
       const list = filterServices(s.filter);
       const svc = list[s.selected];

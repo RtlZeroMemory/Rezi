@@ -17,26 +17,10 @@ const streams: readonly Stream[] = [
 ];
 
 const chatByStream: Record<string, string[]> = {
-  "city-cam-01": [
-    "switch to night mode?",
-    "pan left a bit",
-    "traffic spike @ 18:00",
-  ],
-  "forest-node": [
-    "birdsong level: high",
-    "new fox spotted",
-    "wind noise up",
-  ],
-  "harbor-live": [
-    "dock 3 unloading",
-    "signal jitter",
-    "fog incoming",
-  ],
-  "lab-monitor": [
-    "temperature stable",
-    "note: calibrate sensor",
-    "airflow normal",
-  ],
+  "city-cam-01": ["switch to night mode?", "pan left a bit", "traffic spike @ 18:00"],
+  "forest-node": ["birdsong level: high", "new fox spotted", "wind noise up"],
+  "harbor-live": ["dock 3 unloading", "signal jitter", "fog incoming"],
+  "lab-monitor": ["temperature stable", "note: calibrate sensor", "airflow normal"],
 };
 
 type State = {
@@ -93,40 +77,52 @@ app.view((state) => {
     ]),
 
     ui.row({ flex: 1, gap: 1, items: "stretch" }, [
-      panel("Streams", [
-        ui.column(
-          { gap: 0 },
-          streams.map((stream, index) => {
-            const active = index === state.selected;
-            const prefix = active ? ">" : " ";
-            return ui.text(`${prefix} ${stream.name}`, {
-              key: stream.name,
-              fg: active ? colors.accent : colors.muted,
-              bold: active,
-            });
-          }),
-        ),
-      ], 1),
+      panel(
+        "Streams",
+        [
+          ui.column(
+            { gap: 0 },
+            streams.map((stream, index) => {
+              const active = index === state.selected;
+              const prefix = active ? ">" : " ";
+              return ui.text(`${prefix} ${stream.name}`, {
+                key: stream.name,
+                fg: active ? colors.accent : colors.muted,
+                bold: active,
+              });
+            }),
+          ),
+        ],
+        1,
+      ),
 
       ui.column({ flex: 2, gap: 1, items: "stretch" }, [
-        panel("Viewer", [
-          ui.column({ gap: 1 }, [
-            ui.text(current ? current.name : "-", { fg: colors.accent, bold: true }),
-            ui.text(`Category: ${current?.category ?? "-"}`),
-            ui.text(`Viewers: ${current?.viewers ?? 0}`),
-            ui.text(`Health: ${current?.health ?? "-"}`, {
-              fg: current?.health === "warning" ? colors.warn : colors.ok,
-            }),
-            ui.text(`Bitrate: ${current?.bitrate ?? 0} Mbps`),
-            ui.progress(bufferValue, { label: "Buffer", showPercent: true }),
-          ]),
-        ], 1),
-        panel("Chat", [
-          ui.column({ gap: 1 }, [
-            ui.text("Live chat", { fg: colors.muted }),
-            ...chat.map((line) => ui.text(`- ${line}`)),
-          ]),
-        ], 1),
+        panel(
+          "Viewer",
+          [
+            ui.column({ gap: 1 }, [
+              ui.text(current ? current.name : "-", { fg: colors.accent, bold: true }),
+              ui.text(`Category: ${current?.category ?? "-"}`),
+              ui.text(`Viewers: ${current?.viewers ?? 0}`),
+              ui.text(`Health: ${current?.health ?? "-"}`, {
+                fg: current?.health === "warning" ? colors.warn : colors.ok,
+              }),
+              ui.text(`Bitrate: ${current?.bitrate ?? 0} Mbps`),
+              ui.progress(bufferValue, { label: "Buffer", showPercent: true }),
+            ]),
+          ],
+          1,
+        ),
+        panel(
+          "Chat",
+          [
+            ui.column({ gap: 1 }, [
+              ui.text("Live chat", { fg: colors.muted }),
+              ...chat.map((line) => ui.text(`- ${line}`)),
+            ]),
+          ],
+          1,
+        ),
       ]),
     ]),
 
@@ -149,30 +145,30 @@ app.view((state) => {
 });
 
 app.keys({
-  "q": () => app.stop(),
+  q: () => app.stop(),
   "ctrl+c": () => app.stop(),
-  "up": () =>
+  up: () =>
     app.update((s) => ({
       ...s,
       selected: clamp(s.selected - 1, 0, streams.length - 1),
     })),
-  "down": () =>
+  down: () =>
     app.update((s) => ({
       ...s,
       selected: clamp(s.selected + 1, 0, streams.length - 1),
     })),
-  "k": () =>
+  k: () =>
     app.update((s) => ({
       ...s,
       selected: clamp(s.selected - 1, 0, streams.length - 1),
     })),
-  "j": () =>
+  j: () =>
     app.update((s) => ({
       ...s,
       selected: clamp(s.selected + 1, 0, streams.length - 1),
     })),
-  "space": () => app.update((s) => ({ ...s, paused: !s.paused })),
-  "f": () => app.update((s) => ({ ...s, follow: !s.follow })),
+  space: () => app.update((s) => ({ ...s, paused: !s.paused })),
+  f: () => app.update((s) => ({ ...s, follow: !s.follow })),
 });
 
 await app.start();
