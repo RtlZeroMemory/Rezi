@@ -26,17 +26,42 @@ export function checkRatatui(): boolean {
 }
 
 let _built = false;
+let _buildError: Error | null = null;
 
 /** Build the ratatui-bench binary in release mode. */
 export function ensureBuilt(): void {
   if (_built && existsSync(BINARY)) return;
+  if (existsSync(BINARY)) {
+    _built = true;
+    return;
+  }
+  if (_buildError) throw _buildError;
   console.log("\n  [ratatui] Building release binary...");
-  execSync("cargo build --release", {
-    cwd: BENCH_DIR,
-    stdio: ["ignore", "ignore", "inherit"],
-    timeout: 120_000,
-  });
-  _built = true;
+  try {
+    execSync("cargo build --release", {
+      cwd: BENCH_DIR,
+      stdio: ["ignore", "ignore", "inherit"],
+      timeout: 120_000,
+    });
+    _built = true;
+  } catch (err) {
+    // We sometimes end up with a corrupt/half-populated `target/` (e.g., checked-in artifacts,
+    // interrupted builds). A clean rebuild is a pragmatic recovery path.
+    console.log("  [ratatui] Build failed; running `cargo clean` and retrying once...");
+    try {
+      execSync("cargo clean", { cwd: BENCH_DIR, stdio: ["ignore", "ignore", "inherit"] });
+      execSync("cargo build --release", {
+        cwd: BENCH_DIR,
+        stdio: ["ignore", "ignore", "inherit"],
+        timeout: 120_000,
+      });
+      _built = true;
+    } catch (err2) {
+      _buildError =
+        err2 instanceof Error ? err2 : new Error(`ratatui ensureBuilt failed: ${String(err2)}`);
+      throw _buildError;
+    }
+  }
 }
 
 interface RatatuiOutput {

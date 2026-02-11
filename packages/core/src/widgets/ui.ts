@@ -73,7 +73,16 @@ function filterChildren(children: readonly UiChild[]): readonly VNode[] {
 }
 
 function isTextProps(v: TextStyle | TextProps): v is TextProps {
-  return typeof v === "object" && v !== null && ("style" in v || "id" in v || "key" in v);
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    ("style" in v ||
+      "id" in v ||
+      "key" in v ||
+      "variant" in v ||
+      "textOverflow" in v ||
+      "maxWidth" in v)
+  );
 }
 
 function text(content: string): VNode;

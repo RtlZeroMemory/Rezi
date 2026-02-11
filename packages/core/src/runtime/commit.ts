@@ -75,8 +75,11 @@ function leafVNodeEqual(a: VNode, b: VNode): boolean {
     case "text": {
       if (b.kind !== "text") return false;
       if (a.text !== b.text) return false;
-      const ap = a.props as { style?: unknown; key?: string };
-      const bp = b.props as { style?: unknown; key?: string };
+      const ap = a.props as { style?: unknown; textOverflow?: unknown; variant?: unknown; maxWidth?: unknown };
+      const bp = b.props as { style?: unknown; textOverflow?: unknown; variant?: unknown; maxWidth?: unknown };
+      if (ap.textOverflow !== bp.textOverflow) return false;
+      if (ap.variant !== bp.variant) return false;
+      if (ap.maxWidth !== bp.maxWidth) return false;
       return textStyleEqual(
         ap.style as Parameters<typeof textStyleEqual>[0],
         bp.style as Parameters<typeof textStyleEqual>[0],
@@ -90,10 +93,204 @@ function leafVNodeEqual(a: VNode, b: VNode): boolean {
     }
     case "divider": {
       if (b.kind !== "divider") return false;
-      const ap = a.props as { direction?: string };
-      const bp = b.props as { direction?: string };
-      return ap.direction === bp.direction;
+      const ap = a.props as { direction?: unknown; char?: unknown; label?: unknown; color?: unknown };
+      const bp = b.props as { direction?: unknown; char?: unknown; label?: unknown; color?: unknown };
+      return (
+        ap.direction === bp.direction &&
+        ap.char === bp.char &&
+        ap.label === bp.label &&
+        ap.color === bp.color
+      );
     }
+    default:
+      return false;
+  }
+}
+
+function boxShadowEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined) return false;
+  if (typeof a === "boolean" || typeof b === "boolean") return a === b;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+  const ao = a as { offsetX?: unknown; offsetY?: unknown; density?: unknown };
+  const bo = b as { offsetX?: unknown; offsetY?: unknown; density?: unknown };
+  return ao.offsetX === bo.offsetX && ao.offsetY === bo.offsetY && ao.density === bo.density;
+}
+
+function layoutConstraintsEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  const ao = (a ?? {}) as {
+    width?: unknown;
+    height?: unknown;
+    minWidth?: unknown;
+    maxWidth?: unknown;
+    minHeight?: unknown;
+    maxHeight?: unknown;
+    flex?: unknown;
+    aspectRatio?: unknown;
+  };
+  const bo = (b ?? {}) as typeof ao;
+  return (
+    ao.width === bo.width &&
+    ao.height === bo.height &&
+    ao.minWidth === bo.minWidth &&
+    ao.maxWidth === bo.maxWidth &&
+    ao.minHeight === bo.minHeight &&
+    ao.maxHeight === bo.maxHeight &&
+    ao.flex === bo.flex &&
+    ao.aspectRatio === bo.aspectRatio
+  );
+}
+
+function spacingPropsEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  const ao = (a ?? {}) as {
+    p?: unknown;
+    px?: unknown;
+    py?: unknown;
+    pt?: unknown;
+    pb?: unknown;
+    pl?: unknown;
+    pr?: unknown;
+    m?: unknown;
+    mx?: unknown;
+    my?: unknown;
+    mt?: unknown;
+    mr?: unknown;
+    mb?: unknown;
+    ml?: unknown;
+  };
+  const bo = (b ?? {}) as typeof ao;
+  return (
+    ao.p === bo.p &&
+    ao.px === bo.px &&
+    ao.py === bo.py &&
+    ao.pt === bo.pt &&
+    ao.pb === bo.pb &&
+    ao.pl === bo.pl &&
+    ao.pr === bo.pr &&
+    ao.m === bo.m &&
+    ao.mx === bo.mx &&
+    ao.my === bo.my &&
+    ao.mt === bo.mt &&
+    ao.mr === bo.mr &&
+    ao.mb === bo.mb &&
+    ao.ml === bo.ml
+  );
+}
+
+function boxPropsEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  const ao = (a ?? {}) as {
+    title?: unknown;
+    titleAlign?: unknown;
+    pad?: unknown;
+    border?: unknown;
+    borderTop?: unknown;
+    borderRight?: unknown;
+    borderBottom?: unknown;
+    borderLeft?: unknown;
+    shadow?: unknown;
+    style?: unknown;
+  };
+  const bo = (b ?? {}) as typeof ao;
+  return (
+    ao.title === bo.title &&
+    ao.titleAlign === bo.titleAlign &&
+    ao.pad === bo.pad &&
+    ao.border === bo.border &&
+    ao.borderTop === bo.borderTop &&
+    ao.borderRight === bo.borderRight &&
+    ao.borderBottom === bo.borderBottom &&
+    ao.borderLeft === bo.borderLeft &&
+    boxShadowEqual(ao.shadow, bo.shadow) &&
+    textStyleEqual(
+      ao.style as Parameters<typeof textStyleEqual>[0],
+      bo.style as Parameters<typeof textStyleEqual>[0],
+    ) &&
+    spacingPropsEqual(ao, bo) &&
+    layoutConstraintsEqual(ao, bo)
+  );
+}
+
+function stackPropsEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  const ao = (a ?? {}) as {
+    pad?: unknown;
+    gap?: unknown;
+    align?: unknown;
+    justify?: unknown;
+    items?: unknown;
+    style?: unknown;
+  };
+  const bo = (b ?? {}) as typeof ao;
+  return (
+    ao.pad === bo.pad &&
+    ao.gap === bo.gap &&
+    ao.align === bo.align &&
+    ao.justify === bo.justify &&
+    ao.items === bo.items &&
+    textStyleEqual(
+      ao.style as Parameters<typeof textStyleEqual>[0],
+      bo.style as Parameters<typeof textStyleEqual>[0],
+    ) &&
+    spacingPropsEqual(ao, bo) &&
+    layoutConstraintsEqual(ao, bo)
+  );
+}
+
+function focusZonePropsEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  const ao = (a ?? {}) as {
+    id?: unknown;
+    tabIndex?: unknown;
+    navigation?: unknown;
+    columns?: unknown;
+    wrapAround?: unknown;
+    onEnter?: unknown;
+    onExit?: unknown;
+  };
+  const bo = (b ?? {}) as typeof ao;
+  return (
+    ao.id === bo.id &&
+    ao.tabIndex === bo.tabIndex &&
+    ao.navigation === bo.navigation &&
+    ao.columns === bo.columns &&
+    ao.wrapAround === bo.wrapAround &&
+    ao.onEnter === bo.onEnter &&
+    ao.onExit === bo.onExit
+  );
+}
+
+function focusTrapPropsEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  const ao = (a ?? {}) as {
+    id?: unknown;
+    active?: unknown;
+    returnFocusTo?: unknown;
+    initialFocus?: unknown;
+  };
+  const bo = (b ?? {}) as typeof ao;
+  return (
+    ao.id === bo.id &&
+    ao.active === bo.active &&
+    ao.returnFocusTo === bo.returnFocusTo &&
+    ao.initialFocus === bo.initialFocus
+  );
+}
+
+function canFastReuseContainerSelf(prev: VNode, next: VNode): boolean {
+  if (prev.kind !== next.kind) return false;
+  switch (prev.kind) {
+    case "box":
+      return boxPropsEqual(prev.props, (next as typeof prev).props);
+    case "row":
+    case "column":
+      return stackPropsEqual(prev.props, (next as typeof prev).props);
+    case "focusZone":
+      return focusZonePropsEqual(prev.props, (next as typeof prev).props);
+    case "focusTrap":
+      return focusTrapPropsEqual(prev.props, (next as typeof prev).props);
     default:
       return false;
   }
@@ -255,6 +452,7 @@ type CommitCtx = Readonly<{
   localState: RuntimeLocalStateStore | undefined;
   seenInteractiveIds: Map<string, InstanceId>;
   lists: MutableLists;
+  collectLifecycleInstanceIds: boolean;
   composite: Readonly<{
     registry: CompositeInstanceRegistry;
     appState: unknown;
@@ -269,11 +467,20 @@ function commitNode(
   vnode: VNode,
   ctx: CommitCtx,
 ): CommitNodeResult {
+  // Leaf nodes — fast path: reuse previous RuntimeInstance when content is unchanged.
+  // Do this before any bookkeeping so unchanged leaf-heavy subtrees (lists, tables)
+  // don't pay per-node validation overhead.
+  if (prev && prev.vnode.kind === vnode.kind && leafVNodeEqual(prev.vnode, vnode)) {
+    return { ok: true, value: { root: prev } };
+  }
+
   const idFatal = ensureInteractiveId(ctx.seenInteractiveIds, instanceId, vnode);
   if (idFatal) return { ok: false, fatal: idFatal };
 
-  if (prev) ctx.lists.reused.push(instanceId);
-  else ctx.lists.mounted.push(instanceId);
+  if (ctx.collectLifecycleInstanceIds) {
+    if (prev) ctx.lists.reused.push(instanceId);
+    else ctx.lists.mounted.push(instanceId);
+  }
 
   // Composite widgets: execute render function and treat result as the node's children.
   // This integrates defineWidget() into the commit pipeline.
@@ -461,23 +668,69 @@ function commitNode(
       res.value.unmountedInstanceIds.length === 0 &&
       res.value.nextChildren.length === prevChildren.length;
 
-    const nextChildren: RuntimeInstance[] = [];
-    const committedChildVNodes: VNode[] = [];
-    let allChildrenSame = canTryFastReuse;
-    for (const child of res.value.nextChildren) {
-      const prevChild = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
-      const committed = commitNode(prevChild ?? null, child.instanceId, child.vnode, ctx);
-      if (!committed.ok) return committed;
-      nextChildren.push(committed.value.root);
-      committedChildVNodes.push(committed.value.root.vnode);
-      if (allChildrenSame && committed.value.root !== prevChild) {
-        allChildrenSame = false;
-      }
-    }
+    // Avoid allocating nextChildren/committedChildVNodes for the common case where
+    // everything is reused (e.g., list updates where only a couple rows change).
+    let nextChildren: readonly RuntimeInstance[] | null = null;
+    let committedChildVNodes: readonly VNode[] | null = null;
 
-    if (allChildrenSame && prev !== null) {
-      // All children are identical references → reuse parent entirely.
-      return { ok: true, value: { root: prev } };
+    if (canTryFastReuse) {
+      let allChildrenSame = true;
+      for (let i = 0; i < res.value.nextChildren.length; i++) {
+        const child = res.value.nextChildren[i];
+        if (!child) continue;
+        const prevChild = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
+        const committed = commitNode(prevChild ?? null, child.instanceId, child.vnode, ctx);
+        if (!committed.ok) return committed;
+
+        if (allChildrenSame && committed.value.root !== prevChild) {
+          allChildrenSame = false;
+          // First mismatch: allocate arrays and backfill prior entries with the prevChild refs
+          // we already proved were identical in earlier iterations.
+          const len = res.value.nextChildren.length;
+          const nextChildrenArr: RuntimeInstance[] = new Array(len);
+          const committedChildVNodesArr: VNode[] = new Array(len);
+          nextChildren = nextChildrenArr;
+          committedChildVNodes = committedChildVNodesArr;
+          for (let j = 0; j < i; j++) {
+            const plan = res.value.nextChildren[j];
+            if (!plan) continue;
+            const pc = plan.prevIndex !== null ? byPrevIndex[plan.prevIndex] : null;
+            if (!pc) continue;
+            nextChildrenArr[j] = pc;
+            committedChildVNodesArr[j] = pc.vnode;
+          }
+        }
+
+        if (!allChildrenSame) {
+          // Arrays are allocated after the first mismatch.
+          if (!nextChildren || !committedChildVNodes) {
+            return {
+              ok: false,
+              fatal: { code: "ZRUI_INVALID_PROPS", detail: "commitNode: internal fast-reuse invariant" },
+            };
+          }
+          (nextChildren as RuntimeInstance[])[i] = committed.value.root;
+          (committedChildVNodes as VNode[])[i] = committed.value.root.vnode;
+        }
+      }
+
+      if (allChildrenSame && prev !== null && canFastReuseContainerSelf(prev.vnode, vnodeForCommit)) {
+        // All children are identical references → reuse parent entirely.
+        return { ok: true, value: { root: prev } };
+      }
+    } else {
+      // General path: commit children and build next arrays.
+      const nextChildrenArr: RuntimeInstance[] = [];
+      const committedChildVNodesArr: VNode[] = [];
+      for (const child of res.value.nextChildren) {
+        const prevChild = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
+        const committed = commitNode(prevChild ?? null, child.instanceId, child.vnode, ctx);
+        if (!committed.ok) return committed;
+        nextChildrenArr.push(committed.value.root);
+        committedChildVNodesArr.push(committed.value.root.vnode);
+      }
+      nextChildren = nextChildrenArr;
+      committedChildVNodes = committedChildVNodesArr;
     }
 
     for (const unmountedId of res.value.unmountedInstanceIds) {
@@ -485,6 +738,12 @@ function commitNode(
       if (!prevNode) continue;
       deleteLocalStateForSubtree(ctx.localState, prevNode);
       collectSubtreeInstanceIds(prevNode, ctx.lists.unmounted);
+    }
+
+    if (!nextChildren || !committedChildVNodes) {
+      // canTryFastReuse=true and there was at least one mismatch, so arrays must exist.
+      nextChildren = prevChildren;
+      committedChildVNodes = prevChildren.map((c) => c.vnode);
     }
 
     return {
@@ -497,13 +756,6 @@ function commitNode(
         },
       },
     };
-  }
-
-  // Leaf nodes — fast path: reuse previous RuntimeInstance when content is unchanged.
-  // This avoids allocating a new RuntimeInstance object + result wrapper per frame
-  // for the majority of leaf nodes that don't change (e.g., 498/500 rows in a list update).
-  if (prev && prev.vnode.kind === vnode.kind && leafVNodeEqual(prev.vnode, vnode)) {
-    return { ok: true, value: { root: prev } };
   }
 
   return {
@@ -528,6 +780,8 @@ export function commitVNodeTree(
   opts: Readonly<{
     allocator: InstanceIdAllocator;
     localState?: RuntimeLocalStateStore;
+    /** Skip mounted/reused instanceId tracking (unmounted tracking remains). */
+    collectLifecycleInstanceIds?: boolean;
     composite?: Readonly<{
       registry: CompositeInstanceRegistry;
       appState: unknown;
@@ -535,11 +789,13 @@ export function commitVNodeTree(
     }>;
   }>,
 ): CommitResult {
+  const collectLifecycleInstanceIds = opts.collectLifecycleInstanceIds !== false;
   const ctx: CommitCtx = {
     allocator: opts.allocator,
     localState: opts.localState,
     seenInteractiveIds: new Map<string, InstanceId>(),
     lists: { mounted: [], reused: [], unmounted: [] },
+    collectLifecycleInstanceIds,
     composite: opts.composite ?? null,
     pendingEffects: [],
   };

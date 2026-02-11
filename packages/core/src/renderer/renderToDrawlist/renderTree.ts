@@ -28,6 +28,7 @@ import { renderOverlayWidget } from "./widgets/overlays.js";
 
 type RenderNodeTask = RuntimeInstance | null;
 type ClipRect = Readonly<Rect>;
+export type RenderTreeOptions = Readonly<{ damageRect?: Rect | undefined }>;
 
 export type ResolvedCursor = Readonly<{
   x: number;
@@ -35,6 +36,11 @@ export type ResolvedCursor = Readonly<{
   shape: CursorInfo["shape"];
   blink: boolean;
 }>;
+
+function rectIntersects(a: Rect, b: Rect): boolean {
+  if (a.w <= 0 || a.h <= 0 || b.w <= 0 || b.h <= 0) return false;
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
 
 export function renderTree(
   builder: DrawlistBuilderV1,
@@ -61,8 +67,10 @@ export function renderTree(
   logsConsoleRenderCacheById: ReadonlyMap<string, LogsConsoleRenderCache> | undefined,
   diffRenderCacheById: ReadonlyMap<string, DiffRenderCache> | undefined,
   codeEditorRenderCacheById: ReadonlyMap<string, CodeEditorRenderCache> | undefined,
+  opts: RenderTreeOptions | undefined = undefined,
 ): ResolvedCursor | null {
   let resolvedCursor: ResolvedCursor | null = null;
+  const damageRect = opts?.damageRect;
 
   const nodeStack: RenderNodeTask[] = [tree];
   const styleStack: ResolvedTextStyle[] = [inheritedStyle];
@@ -85,6 +93,7 @@ export function renderTree(
     const node = nodeOrPop;
     const vnode = node.vnode;
     const rect: Rect = layoutNode.rect;
+    if (damageRect && !rectIntersects(rect, damageRect)) continue;
 
     // Depth-first preorder: render node, then its children.
     switch (vnode.kind) {
@@ -113,6 +122,7 @@ export function renderTree(
           styleStack,
           layoutStack,
           clipStack,
+          damageRect,
         );
         break;
       }

@@ -26,6 +26,7 @@ export type InstrumentationPhase =
   | "view"
   | "vnode_commit"
   | "layout_indexes"
+  | "damage_identity_diff"
   | "metadata_collect"
   | "routing_rebuild"
   | "effects"
@@ -47,6 +48,7 @@ export const PERF_PHASES: readonly InstrumentationPhase[] = Object.freeze([
   "view",
   "vnode_commit",
   "layout_indexes",
+  "damage_identity_diff",
   "metadata_collect",
   "routing_rebuild",
   "effects",
