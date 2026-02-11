@@ -163,6 +163,8 @@ export type TableLocalState = Readonly<{
   scrollTop: number;
   /** Index of the focused row (-1 if none). */
   focusedRowIndex: number;
+  /** Index of the focused header column (when focusedRowIndex === -1). */
+  focusedColumnIndex: number;
   /** Last clicked row key (for shift-select). */
   lastClickedKey: string | null;
   /** Viewport height in rows. */
@@ -176,6 +178,7 @@ export type TableLocalState = Readonly<{
 const DEFAULT_TABLE_STATE: TableLocalState = Object.freeze({
   scrollTop: 0,
   focusedRowIndex: 0,
+  focusedColumnIndex: 0,
   lastClickedKey: null,
   viewportHeight: 0,
   startIndex: 0,
@@ -186,6 +189,7 @@ const DEFAULT_TABLE_STATE: TableLocalState = Object.freeze({
 export type TableLocalStatePatch = Readonly<{
   scrollTop?: number;
   focusedRowIndex?: number;
+  focusedColumnIndex?: number;
   lastClickedKey?: string | null;
   viewportHeight?: number;
   startIndex?: number;
@@ -211,6 +215,10 @@ export function createTableStateStore(): TableStateStore {
         scrollTop: patch.scrollTop !== undefined ? patch.scrollTop : prev.scrollTop,
         focusedRowIndex:
           patch.focusedRowIndex !== undefined ? patch.focusedRowIndex : prev.focusedRowIndex,
+        focusedColumnIndex:
+          patch.focusedColumnIndex !== undefined
+            ? patch.focusedColumnIndex
+            : prev.focusedColumnIndex,
         lastClickedKey:
           patch.lastClickedKey !== undefined ? patch.lastClickedKey : prev.lastClickedKey,
         viewportHeight:
