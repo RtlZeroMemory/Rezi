@@ -16,12 +16,15 @@ export { default as useStdout } from "./hooks/useStdout.js";
 export { default as useStderr } from "./hooks/useStderr.js";
 export { default as useFocus } from "./hooks/useFocus.js";
 export { default as useFocusManager } from "./hooks/useFocusManager.js";
+export { default as useIsScreenReaderEnabled } from "./hooks/useIsScreenReaderEnabled.js";
 
 // Render
 export { render } from "./render.js";
 
 // Measurement
 export { default as measureElement } from "./measureElement.js";
+export { getBoundingBox, getScrollHeight, getScrollWidth } from "./measureElement.js";
+export { default as ResizeObserver, ResizeObserverEntry } from "./resizeObserver.js";
 
 // Types
 export type { Instance, RenderOptions } from "./types.js";

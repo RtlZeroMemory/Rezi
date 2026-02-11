@@ -37,12 +37,17 @@ function convertNode(node: HostNode, ctx: ConvertCtx): VNode | null {
       if (isStatic && childVNodes.length === 0) return null;
       if (mapped.reverseChildren) childVNodes.reverse();
 
+      const measuredId = node.internal_id;
+      const stackPropsWithId = mapped.wrapper
+        ? mapped.stackProps
+        : { ...mapped.stackProps, id: measuredId };
       const stack =
         mapped.stackKind === "row"
-          ? ui.row(mapped.stackProps, childVNodes)
-          : ui.column(mapped.stackProps, childVNodes);
+          ? ui.row(stackPropsWithId, childVNodes)
+          : ui.column(stackPropsWithId, childVNodes);
 
-      const vnode = mapped.wrapper ? ui.box(mapped.wrapper, [stack]) : stack;
+      const wrapperWithId = mapped.wrapper ? { ...mapped.wrapper, id: measuredId } : null;
+      const vnode = wrapperWithId ? ui.box(wrapperWithId, [stack]) : stack;
 
       if (isStatic) {
         ctx.staticVNodes.push(vnode);

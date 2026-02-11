@@ -116,6 +116,11 @@ export type RenderOptions = Readonly<{
   exitOnCtrlC?: boolean;
   patchConsole?: boolean;
   maxFps?: number;
+  onRender?: (metrics: Readonly<{ renderTime: number }>) => void;
+  isScreenReaderEnabled?: boolean;
+  alternateBuffer?: boolean;
+  alternateBufferAlreadyActive?: boolean;
+  incrementalRendering?: boolean;
   /**
    * @internal Test-only hook. When provided, `render()` uses this backend instead of
    * `createNodeBackend()`.
@@ -181,12 +186,21 @@ export type NewlineProps = Readonly<{
  * Opaque handle returned by a Box `ref`.
  *
  * In Ink this is a full DOM node with a yogaNode for layout queries.
- * In ink-compat it wraps the reconciler's HostElement — layout is
- * computed by the Zireael C engine, so `measureElement` returns
- * explicitly-set dimensions or zero with a warning.
+ * In ink-compat it wraps the reconciler's HostElement and carries
+ * committed layout metadata populated after each render frame.
  */
 export type DOMElement = {
   nodeName: string;
   attributes: Record<string, unknown>;
   childNodes: readonly DOMElement[];
+  parentNode?: DOMElement;
+  internal_layout?: Readonly<{ x: number; y: number; width: number; height: number }>;
+  internal_scrollState?: Readonly<{
+    scrollHeight: number;
+    scrollWidth: number;
+    clientHeight: number;
+    clientWidth: number;
+  }>;
+  resizeObservers?: Set<unknown>;
+  internal_lastMeasuredSize?: Readonly<{ width: number; height: number }>;
 };

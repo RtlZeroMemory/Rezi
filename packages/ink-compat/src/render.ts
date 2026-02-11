@@ -1,11 +1,13 @@
 import { type RuntimeBackend, type UiEvent, type VNode, createApp, ui } from "@rezi-ui/core";
 import { createNodeBackend } from "@rezi-ui/node";
 import React from "react";
+import AccessibilityContext from "./context/AccessibilityContext.js";
 import AppContext from "./context/AppContext.js";
 import FocusProvider from "./context/FocusProvider.js";
 import StdioContext, { type StdioContextValue } from "./context/StdioContext.js";
 import { createInputEventEmitter } from "./internal/emitter.js";
 import { enableWarnOnce } from "./internal/warn.js";
+import { applyLayoutSnapshot } from "./measurement.js";
 import reconciler, { type HostRoot } from "./reconciler.js";
 import { createConsoleCapture } from "./render/consoleCapture.js";
 import { deferred } from "./render/deferred.js";
@@ -13,6 +15,31 @@ import { normalizeRenderOptions } from "./render/options.js";
 import type { Instance, RenderOptions } from "./types.js";
 
 type AppState = Readonly<{ vnode: VNode; consoleLines: readonly string[] }>;
+
+const ANSI_ALTERNATE_BUFFER_ENTER = "\u001B[?1049h";
+const ANSI_ALTERNATE_BUFFER_EXIT = "\u001B[?1049l";
+
+function hasRawMode(
+  stdin: NodeJS.ReadStream,
+): stdin is NodeJS.ReadStream & {
+  isTTY: true;
+  setRawMode: (value: boolean) => void;
+  ref: () => void;
+  unref: () => void;
+} {
+  return (
+    (stdin as unknown as { isTTY?: unknown }).isTTY === true &&
+    typeof (stdin as unknown as { setRawMode?: unknown }).setRawMode === "function"
+  );
+}
+
+function writeBestEffort(stream: NodeJS.WriteStream, data: string): void {
+  try {
+    void stream.write(data);
+  } catch {
+    // ignore
+  }
+}
 
 export function render(
   tree: React.ReactNode,
@@ -22,23 +49,43 @@ export function render(
 
   if (opts.debug === true) enableWarnOnce();
 
-  // We currently can't plumb stdio into the Rezi backend without core/node changes.
-  // We still expose the streams for compatibility with Ink hooks.
   const stdin = opts.stdin ?? process.stdin;
   const stdout = opts.stdout ?? process.stdout;
   const stderr = opts.stderr ?? process.stderr;
 
   const exitOnCtrlC = opts.exitOnCtrlC !== false;
   const maxFps = opts.maxFps ?? 60;
+  const isScreenReaderEnabled =
+    opts.isScreenReaderEnabled ?? process.env["INK_SCREEN_READER"] === "true";
+
+  let alternateBufferActive = opts.alternateBufferAlreadyActive === true;
+  const canUseAlternateBuffer =
+    opts.alternateBuffer === true && (stdout as unknown as { isTTY?: unknown }).isTTY === true;
+
+  if (canUseAlternateBuffer && !alternateBufferActive) {
+    writeBestEffort(stdout, ANSI_ALTERNATE_BUFFER_ENTER);
+    alternateBufferActive = true;
+  }
 
   const eventEmitter = createInputEventEmitter<UiEvent>();
+
+  let rootRef: HostRoot | null = null;
 
   const backend = ((opts as { internal_backend?: unknown }).internal_backend ??
     createNodeBackend({ fpsCap: maxFps })) as RuntimeBackend;
   const app = createApp<AppState>({
     backend,
     initialState: { vnode: ui.text(""), consoleLines: [] },
-    config: { fpsCap: maxFps },
+    config: {
+      fpsCap: maxFps,
+      internal_onRender: (metrics) => {
+        opts.onRender?.(metrics);
+      },
+      internal_onLayout: (snapshot) => {
+        if (!rootRef) return;
+        applyLayoutSnapshot(rootRef, snapshot.idRects);
+      },
+    },
   });
   app.view((s) => {
     if (s.consoleLines.length === 0) return s.vnode;
@@ -53,6 +100,10 @@ export function render(
   let exitError: Error | null = null;
   let restoreConsole: (() => void) | null = null;
   let unsubEvents: (() => void) | null = null;
+
+  const supportsRawMode = hasRawMode(stdin);
+  const backendOwnsRawMode = stdin === process.stdin;
+  let rawModeEnabledCount = 0;
 
   const cleanupPatchedConsole = () => {
     if (restoreConsole === null) return;
@@ -74,6 +125,29 @@ export function render(
     unsubEvents = null;
   };
 
+  const cleanupRawMode = () => {
+    if (rawModeEnabledCount <= 0) return;
+    if (supportsRawMode && !backendOwnsRawMode) {
+      try {
+        stdin.setRawMode(false);
+      } catch {
+        // ignore
+      }
+      try {
+        stdin.unref();
+      } catch {
+        // ignore
+      }
+    }
+    rawModeEnabledCount = 0;
+  };
+
+  const cleanupAlternateBuffer = () => {
+    if (!canUseAlternateBuffer || !alternateBufferActive) return;
+    writeBestEffort(stdout, ANSI_ALTERNATE_BUFFER_EXIT);
+    alternateBufferActive = false;
+  };
+
   // Console patching: best-effort Ink compatibility.
   // We intentionally disable in debug mode and in Node's test runner.
   const shouldPatchConsole =
@@ -90,6 +164,8 @@ export function render(
     exited = true;
     cleanupPatchedConsole();
     cleanupEventSubscription();
+    cleanupRawMode();
+    cleanupAlternateBuffer();
     void Promise.resolve()
       .then(() => app.stop())
       .catch(() => {
@@ -121,9 +197,42 @@ export function render(
     stdin,
     stdout,
     stderr,
-    // Rezi owns terminal mode; Ink-style raw mode toggling is intentionally a no-op.
-    setRawMode: () => {},
-    isRawModeSupported: false,
+    setRawMode: (enabled: boolean) => {
+      if (!supportsRawMode) {
+        if (stdin === process.stdin) {
+          throw new Error(
+            "Raw mode is not supported on the current process.stdin, which Ink uses as input stream by default.",
+          );
+        }
+        throw new Error("Raw mode is not supported on the stdin provided to Ink.");
+      }
+
+      if (enabled) {
+        if (rawModeEnabledCount === 0 && !backendOwnsRawMode) {
+          stdin.setEncoding("utf8");
+          try {
+            stdin.ref();
+          } catch {
+            // ignore
+          }
+          stdin.setRawMode(true);
+        }
+        rawModeEnabledCount++;
+        return;
+      }
+
+      if (rawModeEnabledCount <= 0) return;
+      rawModeEnabledCount--;
+      if (rawModeEnabledCount === 0 && !backendOwnsRawMode) {
+        stdin.setRawMode(false);
+        try {
+          stdin.unref();
+        } catch {
+          // ignore
+        }
+      }
+    },
+    isRawModeSupported: supportsRawMode,
     internal_exitOnCtrlC: exitOnCtrlC,
     internal_eventEmitter: eventEmitter,
   });
@@ -133,9 +242,13 @@ export function render(
       AppContext.Provider,
       { value: { exit: requestExit } },
       React.createElement(
-        StdioContext.Provider,
-        { value: stdioValue },
-        React.createElement(FocusProvider, null, node),
+        AccessibilityContext.Provider,
+        { value: isScreenReaderEnabled },
+        React.createElement(
+          StdioContext.Provider,
+          { value: stdioValue },
+          React.createElement(FocusProvider, null, node),
+        ),
       ),
     );
 
@@ -147,6 +260,7 @@ export function render(
       app.update((prev) => ({ ...prev, vnode: vnode ?? ui.text("") }));
     },
   };
+  rootRef = root;
 
   const container = reconciler.createContainer(root, 0, null, false, null, "id", () => {}, null);
 
@@ -156,6 +270,8 @@ export function render(
   } catch (error) {
     cleanupPatchedConsole();
     cleanupEventSubscription();
+    cleanupRawMode();
+    cleanupAlternateBuffer();
     try {
       app.dispose();
     } catch {
