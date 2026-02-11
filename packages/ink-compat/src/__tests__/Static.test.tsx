@@ -2,7 +2,11 @@ import { type VNode, ui } from "@rezi-ui/core";
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type React from "react";
 import { Static, Text } from "../index.js";
-import reconciler, { type HostRoot } from "../reconciler.js";
+import reconciler, {
+  createRootContainer,
+  updateRootContainer,
+  type HostRoot,
+} from "../reconciler.js";
 
 function createHarness() {
   let last: VNode | null = null;
@@ -16,11 +20,11 @@ function createHarness() {
     },
   };
 
-  const container = reconciler.createContainer(root, 0, null, false, null, "id", () => {}, null);
+  const container = createRootContainer(root);
 
   return {
     update(element: React.ReactNode) {
-      reconciler.updateContainer(element, container, null, () => {});
+      updateRootContainer(container, element);
     },
     getLast(): VNode {
       return last ?? ui.text("");

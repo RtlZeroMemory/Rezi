@@ -1,8 +1,10 @@
 import type { UiEvent, ZrevEvent } from "@rezi-ui/core";
 import type { InputEventEmitter } from "../internal/emitter.js";
+import { flushAllUpdates } from "../reconciler.js";
 
 export function emitEngineEvent(emitter: InputEventEmitter<UiEvent>, event: ZrevEvent): void {
   emitter.emit("input", { kind: "engine", event });
+  flushAllUpdates();
 }
 
 export function simulateKeyEvent(

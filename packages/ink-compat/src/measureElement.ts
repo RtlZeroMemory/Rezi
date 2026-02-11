@@ -1,12 +1,19 @@
 import {
   getBoundingBox,
   getInnerHeight,
+  getInnerWidth,
   getScrollHeight,
   getScrollWidth,
   measureElementFromLayout,
 } from "./measurement.js";
 import type { DOMElement } from "./types.js";
-export { getBoundingBox, getInnerHeight, getScrollHeight, getScrollWidth } from "./measurement.js";
+export {
+  getBoundingBox,
+  getInnerHeight,
+  getInnerWidth,
+  getScrollHeight,
+  getScrollWidth,
+} from "./measurement.js";
 
 /**
  * Measure the dimensions of a `<Box>` element.

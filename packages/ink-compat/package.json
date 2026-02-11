@@ -25,19 +25,17 @@
     "node": ">=18"
   },
   "peerDependencies": {
-    "react": ">=18.0.0",
-    "@rezi-ui/core": "0.1.0-alpha.0",
-    "@rezi-ui/node": "0.1.0-alpha.0"
+    "@rezi-ui/core": ">=0.1.0-alpha.0",
+    "@rezi-ui/node": ">=0.1.0-alpha.0",
+    "react": ">=19.0.0"
   },
   "dependencies": {
-    "react-reconciler": "^0.29.0"
+    "react-reconciler": "^0.32.0"
   },
   "devDependencies": {
     "@rezi-ui/testkit": "0.1.0-alpha.0",
-    "@types/react": "^18.0.0",
-    "@types/react-reconciler": "^0.28.9",
-    "ink": "^4.4.1",
-    "ink-gradient": "^3.0.0",
-    "ink-spinner": "^5.0.0"
+    "@types/react": "^19.0.0",
+    "@types/react-reconciler": "^0.32.2",
+    "react": "^19.2.0"
   }
 }

@@ -72,7 +72,9 @@ export type BoxProps = Readonly<{
   width?: number | string;
   height?: number | string;
   minWidth?: number | string;
+  maxWidth?: number | string;
   minHeight?: number | string;
+  maxHeight?: number | string;
   display?: "flex" | "none";
   borderStyle?: string;
   borderTop?: boolean;
@@ -92,13 +94,52 @@ export type BoxProps = Readonly<{
   overflow?: "visible" | "hidden" | "scroll";
   overflowX?: "visible" | "hidden" | "scroll";
   overflowY?: "visible" | "hidden" | "scroll";
+  backgroundColor?: string;
   scrollTop?: number;
   scrollLeft?: number;
   scrollbarThumbColor?: string;
+  userSelect?: "auto" | "none" | "text" | "all";
+  "aria-label"?: string;
+  "aria-hidden"?: boolean;
+  "aria-role"?:
+    | "button"
+    | "checkbox"
+    | "combobox"
+    | "list"
+    | "listbox"
+    | "listitem"
+    | "menu"
+    | "menuitem"
+    | "option"
+    | "progressbar"
+    | "radio"
+    | "radiogroup"
+    | "tab"
+    | "tablist"
+    | "table"
+    | "textbox"
+    | "timer"
+    | "toolbar";
+  "aria-state"?: Readonly<{
+    busy?: boolean;
+    checked?: boolean;
+    disabled?: boolean;
+    expanded?: boolean;
+    multiline?: boolean;
+    multiselectable?: boolean;
+    readonly?: boolean;
+    required?: boolean;
+    selected?: boolean;
+  }>;
+  opaque?: boolean;
+  sticky?: boolean;
+  stickyChildren?: ReactNode;
   children?: ReactNode;
 }>;
 
 export type TextProps = Readonly<{
+  "aria-label"?: string;
+  "aria-hidden"?: boolean;
   color?: string;
   backgroundColor?: string;
   dimColor?: boolean;
@@ -108,6 +149,8 @@ export type TextProps = Readonly<{
   strikethrough?: boolean;
   inverse?: boolean;
   wrap?: TextWrap;
+  terminalCursorFocus?: boolean;
+  terminalCursorPosition?: number;
   children?: ReactNode;
 }>;
 
@@ -144,6 +187,8 @@ export type Instance = Readonly<{
 /** Props exposed by Ink's `AppContext`. */
 export type AppProps = Readonly<{
   exit: (error?: Error) => void;
+  rerender: () => void;
+  selection?: unknown;
 }>;
 
 /** Props exposed by Ink's `StdinContext`. */
@@ -197,6 +242,45 @@ export type DOMElement = {
   attributes: Record<string, unknown>;
   childNodes: readonly DOMElement[];
   parentNode?: DOMElement;
+  yogaNode?: unknown;
+  internal_transform?: (children: string, index: number) => string;
+  internal_terminalCursorFocus?: boolean;
+  internal_terminalCursorPosition?: number;
+  internal_accessibility?: Readonly<{
+    role?:
+      | "button"
+      | "checkbox"
+      | "combobox"
+      | "list"
+      | "listbox"
+      | "listitem"
+      | "menu"
+      | "menuitem"
+      | "option"
+      | "progressbar"
+      | "radio"
+      | "radiogroup"
+      | "tab"
+      | "tablist"
+      | "table"
+      | "textbox"
+      | "timer"
+      | "toolbar";
+    state?: Readonly<{
+      busy?: boolean;
+      checked?: boolean;
+      disabled?: boolean;
+      expanded?: boolean;
+      multiline?: boolean;
+      multiselectable?: boolean;
+      readonly?: boolean;
+      required?: boolean;
+      selected?: boolean;
+    }>;
+  }>;
+  internalSticky?: boolean;
+  internalStickyAlternate?: boolean;
+  internal_opaque?: boolean;
   internal_layout?: Readonly<{ x: number; y: number; width: number; height: number }>;
   internal_scrollState?: Readonly<{
     scrollTop: number;

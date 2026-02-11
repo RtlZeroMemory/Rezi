@@ -152,11 +152,28 @@ export function mapBoxProps(p: BoxProps): MappedInkBox {
     }
   }
   const minWidth = coerceNumber(p.minWidth);
+  const maxWidth = coerceNumber(p.maxWidth);
   const minHeight = coerceNumber(p.minHeight);
+  const maxHeight = coerceNumber(p.maxHeight);
 
   const flex = typeof p.flexGrow === "number" ? p.flexGrow : undefined;
 
+  if (p.sticky === true) {
+    warnOnce("sticky is not fully supported by Rezi yet; rendering as regular content");
+  }
+  if (p.stickyChildren !== undefined) {
+    warnOnce("stickyChildren is not yet supported by Rezi; using regular children");
+  }
+  if (p.userSelect !== undefined && p.userSelect !== "auto") {
+    warnOnce("userSelect is not supported by Rezi yet");
+  }
+
   const border = mapBorderStyle(p.borderStyle);
+  const backgroundColor = resolveInkColor(p.backgroundColor);
+  const surfaceStyle = backgroundColor ? ({ bg: backgroundColor } as TextStyle) : undefined;
+  if (p.opaque === true && !surfaceStyle) {
+    warnOnce("opaque without backgroundColor is not supported by Rezi yet");
+  }
 
   const borderColor =
     resolveInkColor(p.borderColor) ??
@@ -171,26 +188,31 @@ export function mapBoxProps(p: BoxProps): MappedInkBox {
     p.borderBottomDimColor === true ||
     p.borderLeftDimColor === true;
 
-  const wrapperStyle = mergeStyle(undefined, {
+  const wrapperStyle = mergeStyle(surfaceStyle, {
     ...(borderColor ? { fg: borderColor } : {}),
     ...(borderDim ? { dim: true } : {}),
   });
   const paddingProps = mapPadding(p);
   const marginProps = mapMargin(p);
-  const constraintProps: Pick<StackProps, "width" | "height" | "minWidth" | "minHeight" | "flex"> =
-    {
-      ...(width === undefined ? {} : { width }),
-      ...(height === undefined ? {} : { height }),
-      ...(minWidth === undefined ? {} : { minWidth }),
-      ...(minHeight === undefined ? {} : { minHeight }),
-      ...(flex === undefined ? {} : { flex }),
-    };
+  const constraintProps: Pick<
+    StackProps,
+    "width" | "height" | "minWidth" | "maxWidth" | "minHeight" | "maxHeight" | "flex"
+  > = {
+    ...(width === undefined ? {} : { width }),
+    ...(height === undefined ? {} : { height }),
+    ...(minWidth === undefined ? {} : { minWidth }),
+    ...(maxWidth === undefined ? {} : { maxWidth }),
+    ...(minHeight === undefined ? {} : { minHeight }),
+    ...(maxHeight === undefined ? {} : { maxHeight }),
+    ...(flex === undefined ? {} : { flex }),
+  };
 
   const stackPropsBase: StackProps = {
     ...paddingProps,
     ...(gap === undefined ? {} : { gap }),
     ...(align === undefined ? {} : { align }),
     ...(justify === undefined ? {} : { justify }),
+    ...(surfaceStyle ? { style: surfaceStyle } : {}),
   };
 
   const wrapper: ReziBoxProps | null = border

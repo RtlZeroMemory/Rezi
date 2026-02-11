@@ -6,7 +6,11 @@ import FocusProvider from "../context/FocusProvider.js";
 import StdioContext, { type StdioContextValue } from "../context/StdioContext.js";
 import { Text, useFocus } from "../index.js";
 import { createInputEventEmitter } from "../internal/emitter.js";
-import reconciler, { type HostRoot } from "../reconciler.js";
+import reconciler, {
+  createRootContainer,
+  updateRootContainer,
+  type HostRoot,
+} from "../reconciler.js";
 
 function flushPassiveEffects(): void {
   while (reconciler.flushPassiveEffects()) {}
@@ -14,19 +18,19 @@ function flushPassiveEffects(): void {
 
 function mount(element: React.ReactNode, stdio: StdioContextValue) {
   const root: HostRoot = { kind: "root", children: [], staticVNodes: [], onCommit: () => {} };
-  const container = reconciler.createContainer(root, 0, null, false, null, "id", () => {}, null);
+  const container = createRootContainer(root);
 
   const wrapped = React.createElement(
     StdioContext.Provider,
     { value: stdio },
     React.createElement(FocusProvider, null, element),
   );
-  reconciler.updateContainer(wrapped, container, null, () => {});
+  updateRootContainer(container, wrapped);
   flushPassiveEffects();
 
   return {
     unmount() {
-      reconciler.updateContainer(null, container, null, () => {});
+      updateRootContainer(container, null);
       flushPassiveEffects();
     },
   };

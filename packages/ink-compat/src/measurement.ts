@@ -207,6 +207,16 @@ export function getInnerHeight(node: DOMElement): number {
   return Math.max(0, layout.height - border.top - border.bottom);
 }
 
+export function getInnerWidth(node: DOMElement): number {
+  const element = node as HostElement;
+  const scrollState = element.internal_scrollState;
+  if (scrollState) return scrollState.clientWidth;
+
+  const layout = readLayout(node);
+  const border = readBorderInsets(element.props as MeasurementProps);
+  return Math.max(0, layout.width - border.left - border.right);
+}
+
 export function getScrollHeight(node: DOMElement): number {
   const st = (node as HostElement).internal_scrollState;
   return st?.scrollHeight ?? 0;

@@ -8,7 +8,8 @@ import StdioContext, { type StdioContextValue } from "./context/StdioContext.js"
 import { createInputEventEmitter } from "./internal/emitter.js";
 import { enableWarnOnce } from "./internal/warn.js";
 import { applyLayoutSnapshot } from "./measurement.js";
-import reconciler, { type HostRoot } from "./reconciler.js";
+import type reconciler from "./reconciler.js";
+import { type HostRoot, createRootContainer, updateRootContainer } from "./reconciler.js";
 import { createConsoleCapture } from "./render/consoleCapture.js";
 import { deferred } from "./render/deferred.js";
 import { normalizeRenderOptions } from "./render/options.js";
@@ -158,6 +159,9 @@ export function render(
 
   const { patchConsole, clearConsoleBuffer } = createConsoleCapture(app, () => exited);
 
+  let latestTree = tree;
+  let container: ReturnType<typeof reconciler.createContainer> | null = null;
+
   const requestExit = (err?: Error) => {
     if (exited) return;
     if (err) exitError = err;
@@ -237,10 +241,16 @@ export function render(
     internal_eventEmitter: eventEmitter,
   });
 
+  const requestRerender = () => {
+    if (exited || container === null) return;
+    clearConsoleBuffer();
+    updateRootContainer(container, wrap(latestTree));
+  };
+
   const wrap = (node: React.ReactNode) =>
     React.createElement(
       AppContext.Provider,
-      { value: { exit: requestExit } },
+      { value: { exit: requestExit, rerender: requestRerender } },
       React.createElement(
         AccessibilityContext.Provider,
         { value: isScreenReaderEnabled },
@@ -262,11 +272,11 @@ export function render(
   };
   rootRef = root;
 
-  const container = reconciler.createContainer(root, 0, null, false, null, "id", () => {}, null);
+  container = createRootContainer(root);
 
   try {
     if (shouldPatchConsole) restoreConsole = patchConsole();
-    reconciler.updateContainer(wrap(tree), container, null, () => {});
+    updateRootContainer(container, wrap(latestTree));
   } catch (error) {
     cleanupPatchedConsole();
     cleanupEventSubscription();
@@ -286,17 +296,20 @@ export function render(
 
   return {
     rerender(nextTree: React.ReactNode) {
-      reconciler.updateContainer(wrap(nextTree), container, null, () => {});
+      latestTree = nextTree;
+      requestRerender();
     },
     unmount() {
-      reconciler.updateContainer(null, container, null, () => {});
+      if (container === null) return;
+      updateRootContainer(container, null);
       requestExit();
     },
     waitUntilExit() {
       return exitD.promise;
     },
     cleanup() {
-      reconciler.updateContainer(null, container, null, () => {});
+      if (container === null) return;
+      updateRootContainer(container, null);
       requestExit();
     },
     clear() {

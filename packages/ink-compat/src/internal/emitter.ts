@@ -1,3 +1,5 @@
+import { runWithSyncPriority } from "../reconciler.js";
+
 export type Listener<T> = (value: T) => void;
 
 export type InputEventEmitter<T> = Readonly<{
@@ -24,7 +26,9 @@ export function createInputEventEmitter<T>(): InputEventEmitter<T> {
       // This mirrors EventEmitter behavior where newly-added listeners are not
       // called for the current emit cycle.
       const snapshot = [...listeners];
-      for (const fn of snapshot) fn(value);
+      runWithSyncPriority(() => {
+        for (const fn of snapshot) fn(value);
+      });
     },
   });
 }

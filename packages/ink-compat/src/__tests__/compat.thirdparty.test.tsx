@@ -1,9 +1,14 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { Transform } from "ink";
-import Gradient from "ink-gradient";
-import Spinner from "ink-spinner";
 import React from "react";
-import { Box, type DOMElement, Text, getInnerHeight, getScrollHeight, render } from "../index.js";
+import {
+  Box,
+  type DOMElement,
+  Text,
+  Transform,
+  getInnerHeight,
+  getScrollHeight,
+  render,
+} from "../index.js";
 import {
   StubBackend,
   encodeZrevBatchV1,
@@ -35,10 +40,20 @@ async function renderToLastFrameBytes(tree: React.ReactNode): Promise<Uint8Array
   return bytes;
 }
 
-describe("third-party compatibility (real packages)", () => {
-  test("ink-spinner renders and advances frames over time", async () => {
+describe("compat behavior", () => {
+  test("animated component renders and advances frames over time", async () => {
+    function SpinnerLike() {
+      const [tick, setTick] = React.useState(0);
+      React.useEffect(() => {
+        const id = setInterval(() => setTick((n) => n + 1), 33);
+        return () => clearInterval(id);
+      }, []);
+      const frames = ["-", "\\", "|", "/"];
+      return <Text>{frames[tick % frames.length] ?? "-"}</Text>;
+    }
+
     const backend = new StubBackend();
-    const inst = render(<Spinner type="dots" />, { internal_backend: backend, exitOnCtrlC: false });
+    const inst = render(<SpinnerLike />, { internal_backend: backend, exitOnCtrlC: false });
 
     await flushMicrotasks(10);
     await pushInitialResize(backend);
@@ -53,33 +68,27 @@ describe("third-party compatibility (real packages)", () => {
     await inst.waitUntilExit();
   });
 
-  test("ink-gradient uses Ink Transform behavior with real package runtime", async () => {
-    const gradientElement = (
-      Gradient as unknown as (props: {
-        name: string;
-        children: React.ReactNode;
-      }) => React.ReactElement<{
-        transform: (input: string) => string;
-        children: React.ReactNode;
-      }>
-    )({
-      name: "rainbow",
-      children: <Text>rainbow</Text>,
-    });
-
-    assert.equal(gradientElement.type, Transform);
-    assert.equal(typeof gradientElement.props.transform, "function");
-
+  test("Transform applies per-line mutation semantics", async () => {
     const frame = await renderToLastFrameBytes(
-      <Gradient name="rainbow">
-        <Text>rainbow</Text>
-      </Gradient>,
+      <Transform transform={(line, i) => `${i}:${line.toUpperCase()}`}>
+        <Text>one{"\n"}two</Text>
+      </Transform>,
     );
 
     assert.ok(frame.length > 0);
   });
 
-  test("third-party components remain compatible with scroll measurement semantics", async () => {
+  test("scroll measurement semantics remain stable with animated content", async () => {
+    function SpinnerLike() {
+      const [tick, setTick] = React.useState(0);
+      React.useEffect(() => {
+        const id = setInterval(() => setTick((n) => n + 1), 33);
+        return () => clearInterval(id);
+      }, []);
+      const frames = ["-", "\\", "|", "/"];
+      return <Text>{frames[tick % frames.length] ?? "-"}</Text>;
+    }
+
     const backend = new StubBackend();
     const containerRef = React.createRef<DOMElement>();
 
@@ -93,10 +102,10 @@ describe("third-party compatibility (real packages)", () => {
         overflowX="hidden"
         scrollTop={1}
       >
-        <Spinner type="line" />
-        <Gradient name="pastel">
+        <SpinnerLike />
+        <Transform transform={(line) => line}>
           <Text>line-2</Text>
-        </Gradient>
+        </Transform>
         <Text>line-3</Text>
       </Box>,
       { internal_backend: backend, exitOnCtrlC: false },

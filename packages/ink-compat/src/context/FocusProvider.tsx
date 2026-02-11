@@ -1,6 +1,7 @@
 import type { UiEvent } from "@rezi-ui/core";
 import { ZR_KEY_ESCAPE, ZR_KEY_TAB, ZR_MOD_SHIFT } from "@rezi-ui/core/keybindings";
 import React from "react";
+import { runWithSyncPriority } from "../reconciler.js";
 import FocusContext from "./FocusContext.js";
 import { useRequiredStdioContext } from "./StdioContext.js";
 
@@ -39,71 +40,94 @@ export default function FocusProvider({ children }: Readonly<{ children: React.R
     focusables: [],
   });
 
+  const setStateSync = React.useCallback((updater: (previousState: FocusState) => FocusState) => {
+    runWithSyncPriority(() => {
+      setState(updater);
+    });
+  }, []);
+
   // Avoid re-subscribing to input events on every focus change.
   const stateRef = React.useRef(state);
   stateRef.current = state;
 
-  const add = React.useCallback((id: string, options: Readonly<{ autoFocus: boolean }>) => {
-    setState((previousState) => {
-      let nextActiveId = previousState.activeId;
-      if (!nextActiveId && options.autoFocus) nextActiveId = id;
+  const add = React.useCallback(
+    (id: string, options: Readonly<{ autoFocus: boolean }>) => {
+      setStateSync((previousState) => {
+        let nextActiveId = previousState.activeId;
+        if (!nextActiveId && options.autoFocus) nextActiveId = id;
 
-      return {
+        return {
+          ...previousState,
+          activeId: nextActiveId,
+          focusables: [...previousState.focusables, { id, isActive: true }],
+        };
+      });
+    },
+    [setStateSync],
+  );
+
+  const remove = React.useCallback(
+    (id: string) => {
+      setStateSync((previousState) => ({
         ...previousState,
-        activeId: nextActiveId,
-        focusables: [...previousState.focusables, { id, isActive: true }],
-      };
-    });
-  }, []);
+        activeId: previousState.activeId === id ? undefined : previousState.activeId,
+        focusables: previousState.focusables.filter((f) => f.id !== id),
+      }));
+    },
+    [setStateSync],
+  );
 
-  const remove = React.useCallback((id: string) => {
-    setState((previousState) => ({
-      ...previousState,
-      activeId: previousState.activeId === id ? undefined : previousState.activeId,
-      focusables: previousState.focusables.filter((f) => f.id !== id),
-    }));
-  }, []);
+  const activate = React.useCallback(
+    (id: string) => {
+      setStateSync((previousState) => ({
+        ...previousState,
+        focusables: previousState.focusables.map((f) => (f.id === id ? { id, isActive: true } : f)),
+      }));
+    },
+    [setStateSync],
+  );
 
-  const activate = React.useCallback((id: string) => {
-    setState((previousState) => ({
-      ...previousState,
-      focusables: previousState.focusables.map((f) => (f.id === id ? { id, isActive: true } : f)),
-    }));
-  }, []);
-
-  const deactivate = React.useCallback((id: string) => {
-    setState((previousState) => ({
-      ...previousState,
-      activeId: previousState.activeId === id ? undefined : previousState.activeId,
-      focusables: previousState.focusables.map((f) => (f.id === id ? { id, isActive: false } : f)),
-    }));
-  }, []);
+  const deactivate = React.useCallback(
+    (id: string) => {
+      setStateSync((previousState) => ({
+        ...previousState,
+        activeId: previousState.activeId === id ? undefined : previousState.activeId,
+        focusables: previousState.focusables.map((f) =>
+          f.id === id ? { id, isActive: false } : f,
+        ),
+      }));
+    },
+    [setStateSync],
+  );
 
   const enableFocus = React.useCallback(() => {
-    setState((previousState) => ({ ...previousState, isFocusEnabled: true }));
-  }, []);
+    setStateSync((previousState) => ({ ...previousState, isFocusEnabled: true }));
+  }, [setStateSync]);
 
   const disableFocus = React.useCallback(() => {
-    setState((previousState) => ({ ...previousState, isFocusEnabled: false }));
-  }, []);
+    setStateSync((previousState) => ({ ...previousState, isFocusEnabled: false }));
+  }, [setStateSync]);
 
-  const focus = React.useCallback((id: string) => {
-    setState((previousState) => {
-      const found = previousState.focusables.some((f) => f.id === id);
-      return found ? { ...previousState, activeId: id } : previousState;
-    });
-  }, []);
+  const focus = React.useCallback(
+    (id: string) => {
+      setStateSync((previousState) => {
+        const found = previousState.focusables.some((f) => f.id === id);
+        return found ? { ...previousState, activeId: id } : previousState;
+      });
+    },
+    [setStateSync],
+  );
 
   const focusNext = React.useCallback(() => {
-    setState((previousState) => {
+    setStateSync((previousState) => {
       const firstActiveId = previousState.focusables.find((f) => f.isActive)?.id;
       const nextId = findNextFocusable(previousState);
       return { ...previousState, activeId: nextId ?? firstActiveId };
     });
-  }, []);
+  }, [setStateSync]);
 
   const focusPrevious = React.useCallback(() => {
-    setState((previousState) => {
+    setStateSync((previousState) => {
       let lastActiveId: string | undefined = undefined;
       for (let i = previousState.focusables.length - 1; i >= 0; i--) {
         const f = previousState.focusables[i];
@@ -115,7 +139,7 @@ export default function FocusProvider({ children }: Readonly<{ children: React.R
       const prevId = findPreviousFocusable(previousState);
       return { ...previousState, activeId: prevId ?? lastActiveId };
     });
-  }, []);
+  }, [setStateSync]);
 
   React.useEffect(() => {
     const onInput = (ev: UiEvent) => {
@@ -128,7 +152,9 @@ export default function FocusProvider({ children }: Readonly<{ children: React.R
 
       // Mirror Ink: ESC clears focus if there is an active focused component.
       if (e.key === ZR_KEY_ESCAPE && s.activeId !== undefined) {
-        setState((prev) => (prev.activeId === undefined ? prev : { ...prev, activeId: undefined }));
+        setStateSync((prev) =>
+          prev.activeId === undefined ? prev : { ...prev, activeId: undefined },
+        );
         return;
       }
 
@@ -145,7 +171,7 @@ export default function FocusProvider({ children }: Readonly<{ children: React.R
     return () => {
       internal_eventEmitter.removeListener("input", onInput);
     };
-  }, [focusNext, focusPrevious, internal_eventEmitter]);
+  }, [focusNext, focusPrevious, internal_eventEmitter, setStateSync]);
 
   const value = React.useMemo(
     () => ({

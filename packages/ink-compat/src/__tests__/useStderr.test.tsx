@@ -2,7 +2,11 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import React, { useEffect } from "react";
 import StdioContext, { type StdioContextValue } from "../context/StdioContext.js";
 import { Text, useStderr } from "../index.js";
-import reconciler, { type HostRoot } from "../reconciler.js";
+import reconciler, {
+  createRootContainer,
+  updateRootContainer,
+  type HostRoot,
+} from "../reconciler.js";
 
 function flushPassiveEffects(): void {
   while (reconciler.flushPassiveEffects()) {}
@@ -10,15 +14,15 @@ function flushPassiveEffects(): void {
 
 function mountWithStdio(element: React.ReactNode, stdio: StdioContextValue) {
   const root: HostRoot = { kind: "root", children: [], staticVNodes: [], onCommit: () => {} };
-  const container = reconciler.createContainer(root, 0, null, false, null, "id", () => {}, null);
+  const container = createRootContainer(root);
 
   const wrapped = React.createElement(StdioContext.Provider, { value: stdio }, element);
-  reconciler.updateContainer(wrapped, container, null, () => {});
+  updateRootContainer(container, wrapped);
   flushPassiveEffects();
 
   return {
     unmount() {
-      reconciler.updateContainer(null, container, null, () => {});
+      updateRootContainer(container, null);
       flushPassiveEffects();
     },
   };

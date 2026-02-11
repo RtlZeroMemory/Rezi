@@ -2,7 +2,11 @@ import { type VNode, ui } from "@rezi-ui/core";
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type React from "react";
 import { Box, Spacer, Text } from "../index.js";
-import reconciler, { type HostRoot } from "../reconciler.js";
+import reconciler, {
+  createRootContainer,
+  updateRootContainer,
+  type HostRoot,
+} from "../reconciler.js";
 
 function renderToVNode(element: React.ReactNode): VNode {
   let last: VNode | null = null;
@@ -16,8 +20,8 @@ function renderToVNode(element: React.ReactNode): VNode {
     },
   };
 
-  const container = reconciler.createContainer(root, 0, null, false, null, "id", () => {}, null);
-  reconciler.updateContainer(element, container, null, () => {});
+  const container = createRootContainer(root);
+  updateRootContainer(container, element);
 
   return last ?? ui.text("");
 }

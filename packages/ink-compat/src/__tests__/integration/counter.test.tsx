@@ -14,6 +14,7 @@ describe("integration: counter", () => {
         exit: () => {
           exited = true;
         },
+        rerender: () => {},
       },
     });
 
