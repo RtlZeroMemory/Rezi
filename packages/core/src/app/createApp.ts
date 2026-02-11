@@ -29,7 +29,15 @@ import {
   type RuntimeBackend,
 } from "../backend.js";
 import type { UiEvent } from "../events.js";
-import type { App, AppConfig, DrawFn, EventHandler, ViewFn } from "../index.js";
+import type {
+  App,
+  AppConfig,
+  AppLayoutSnapshot,
+  AppRenderMetrics,
+  DrawFn,
+  EventHandler,
+  ViewFn,
+} from "../index.js";
 import type {
   BindingMap,
   KeyContext,
@@ -71,6 +79,8 @@ type ResolvedAppConfig = Readonly<{
   drawlistReuseOutputBuffer: boolean;
   drawlistEncodedStringCacheCap: number;
   maxFramesInFlight: number;
+  internal_onRender?: ((metrics: AppRenderMetrics) => void) | undefined;
+  internal_onLayout?: ((snapshot: AppLayoutSnapshot) => void) | undefined;
 }>;
 
 /** Default configuration values. */
@@ -83,6 +93,8 @@ const DEFAULT_CONFIG: ResolvedAppConfig = Object.freeze({
   drawlistReuseOutputBuffer: true,
   drawlistEncodedStringCacheCap: 1024,
   maxFramesInFlight: 1,
+  internal_onRender: undefined,
+  internal_onLayout: undefined,
 });
 const SYNC_FRAME_ACK_MARKER = "__reziSyncFrameAck";
 
@@ -157,6 +169,10 @@ export function resolveAppConfig(config: AppConfig | undefined): ResolvedAppConf
     config.maxFramesInFlight === undefined
       ? DEFAULT_CONFIG.maxFramesInFlight
       : Math.min(4, Math.max(1, requirePositiveInt("maxFramesInFlight", config.maxFramesInFlight)));
+  const internal_onRender =
+    typeof config.internal_onRender === "function" ? config.internal_onRender : undefined;
+  const internal_onLayout =
+    typeof config.internal_onLayout === "function" ? config.internal_onLayout : undefined;
 
   return Object.freeze({
     fpsCap,
@@ -167,6 +183,8 @@ export function resolveAppConfig(config: AppConfig | undefined): ResolvedAppConf
     drawlistReuseOutputBuffer,
     drawlistEncodedStringCacheCap,
     maxFramesInFlight,
+    internal_onRender,
+    internal_onLayout,
   });
 }
 
@@ -676,6 +694,28 @@ export function createApp<S>(
     }
   }
 
+  function emitInternalRenderMetrics(renderTime: number): boolean {
+    if (config.internal_onRender === undefined) return true;
+    try {
+      config.internal_onRender({ renderTime: Math.max(0, renderTime) });
+      return true;
+    } catch (e: unknown) {
+      fatalNowOrEnqueue("ZRUI_USER_CODE_THROW", `onRender callback threw: ${describeThrown(e)}`);
+      return false;
+    }
+  }
+
+  function emitInternalLayoutSnapshot(): boolean {
+    if (config.internal_onLayout === undefined) return true;
+    try {
+      config.internal_onLayout({ idRects: widgetRenderer.getRectByIdIndex() });
+      return true;
+    } catch (e: unknown) {
+      fatalNowOrEnqueue("ZRUI_USER_CODE_THROW", `onLayout callback threw: ${describeThrown(e)}`);
+      return false;
+    }
+  }
+
   function tryRenderOnce(): void {
     if (sm.state !== "Running") return;
     // During stop(), we may still receive a few late event batches, but we must not
@@ -708,6 +748,7 @@ export function createApp<S>(
       const df = drawFn;
       if (!df) return;
 
+      const renderStart = perfNow();
       const submitToken = perfMarkStart("submit_frame");
       const res = rawRenderer.submitFrame(df, hooks);
       perfMarkEnd("submit_frame", submitToken);
@@ -715,6 +756,7 @@ export function createApp<S>(
         fatalNowOrEnqueue(res.code, res.detail);
         return;
       }
+      if (!emitInternalRenderMetrics(perfNow() - renderStart)) return;
 
       submitFrameStartMs = PERF_ENABLED ? submitToken : null;
       const buildEndMs = PERF_ENABLED ? perfNow() : null;
@@ -750,6 +792,7 @@ export function createApp<S>(
         (pendingDirtyFlags & DIRTY_VIEW) !== 0,
     };
 
+    const renderStart = perfNow();
     const submitToken = perfMarkStart("submit_frame");
     const res = widgetRenderer.submitFrame(vf, snapshot, viewport, theme, hooks, plan);
     perfMarkEnd("submit_frame", submitToken);
@@ -757,6 +800,9 @@ export function createApp<S>(
       fatalNowOrEnqueue(res.code, res.detail);
       return;
     }
+    if (!emitInternalRenderMetrics(perfNow() - renderStart)) return;
+    if (!emitInternalLayoutSnapshot()) return;
+
     submitFrameStartMs = PERF_ENABLED ? submitToken : null;
     const buildEndMs = PERF_ENABLED ? perfNow() : null;
     framesInFlight++;

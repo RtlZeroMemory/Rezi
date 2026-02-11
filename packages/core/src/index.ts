@@ -716,6 +716,7 @@ export type { BindingMap, ModeBindingMap } from "./keybindings/index.js";
 import type { DrawApi } from "./drawApi.js";
 import type { UiEvent } from "./events.js";
 import type { BindingMap, KeyContext, ModeBindingMap } from "./keybindings/index.js";
+import type { Rect } from "./layout/types.js";
 import type { Theme } from "./theme/theme.js";
 import type { ThemeDefinition } from "./theme/tokens.js";
 import type { VNode } from "./widgets/types.js";
@@ -723,6 +724,8 @@ import type { VNode } from "./widgets/types.js";
 export type ViewFn<S> = (state: Readonly<S>) => VNode;
 export type DrawFn = (g: DrawApi) => void;
 export type EventHandler = (ev: UiEvent) => void;
+export type AppRenderMetrics = Readonly<{ renderTime: number }>;
+export type AppLayoutSnapshot = Readonly<{ idRects: ReadonlyMap<string, Rect> }>;
 
 export type AppConfig = Readonly<{
   fpsCap?: number;
@@ -750,6 +753,14 @@ export type AppConfig = Readonly<{
    * Default: 1 (no pipelining). Max: 4.
    */
   maxFramesInFlight?: number;
+  /**
+   * @internal Called after a frame is rendered/submitted.
+   */
+  internal_onRender?: (metrics: AppRenderMetrics) => void;
+  /**
+   * @internal Called with the latest widget id->rect layout snapshot.
+   */
+  internal_onLayout?: (snapshot: AppLayoutSnapshot) => void;
 }>;
 
 export interface App<S> {

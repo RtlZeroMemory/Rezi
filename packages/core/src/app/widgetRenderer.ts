@@ -480,6 +480,13 @@ export class WidgetRenderer<S> {
   }
 
   /**
+   * Get the latest committed id->rect layout index.
+   */
+  getRectByIdIndex(): ReadonlyMap<string, Rect> {
+    return this.rectById;
+  }
+
+  /**
    * Determine whether a key event should bypass the keybinding system.
    *
    * Why: When dropdowns or modal overlays are active, widgets must be able to
