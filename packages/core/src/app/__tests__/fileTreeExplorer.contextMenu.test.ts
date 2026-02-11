@@ -79,8 +79,12 @@ describe("FileTreeExplorer context menu", () => {
     );
     assert.ok(res.ok);
 
-    // Right-click (buttons bit 2) on the second row (index 1).
-    renderer.routeEngineEvent(mouseEvent(0, 1, 3, { buttons: 2 }));
+    // Right-click (buttons bit 4) on the second row (index 1).
+    renderer.routeEngineEvent(mouseEvent(0, 1, 3, { buttons: 4 }));
+    assert.deepEqual(calls, ["/b"]);
+
+    // Middle click should not fire context menu.
+    renderer.routeEngineEvent(mouseEvent(0, 0, 3, { buttons: 2 }));
     assert.deepEqual(calls, ["/b"]);
 
     // Left click should not fire context menu.
