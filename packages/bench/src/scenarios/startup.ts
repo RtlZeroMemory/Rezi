@@ -53,7 +53,7 @@ async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
   tryGc();
   const memBefore = takeMemory();
   const cpuBefore = takeCpu();
-  let memMax = memBefore;
+  let memMax: MemorySnapshot = memBefore;
   const t0 = performance.now();
   let totalBytes = 0;
 
@@ -87,6 +87,11 @@ async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
     memBefore,
     memAfter,
     memPeak: memMax,
+    rssGrowthKb: memAfter.rssKb - memBefore.rssKb,
+    heapUsedGrowthKb: memAfter.heapUsedKb - memBefore.heapUsedKb,
+    rssSlopeKbPerIter: null,
+    heapUsedSlopeKbPerIter: null,
+    memStable: null,
     cpu: diffCpu(cpuBefore, cpuAfter),
     iterations: config.iterations,
     totalWallMs,
@@ -116,7 +121,7 @@ async function runInkCompat(config: ScenarioConfig): Promise<BenchMetrics> {
   tryGc();
   const memBefore = takeMemory();
   const cpuBefore = takeCpu();
-  let memMax = memBefore;
+  let memMax: MemorySnapshot = memBefore;
   const t0 = performance.now();
   let totalBytes = 0;
 
@@ -149,6 +154,11 @@ async function runInkCompat(config: ScenarioConfig): Promise<BenchMetrics> {
     memBefore,
     memAfter,
     memPeak: memMax,
+    rssGrowthKb: memAfter.rssKb - memBefore.rssKb,
+    heapUsedGrowthKb: memAfter.heapUsedKb - memBefore.heapUsedKb,
+    rssSlopeKbPerIter: null,
+    heapUsedSlopeKbPerIter: null,
+    memStable: null,
     cpu: diffCpu(cpuBefore, cpuAfter),
     iterations: config.iterations,
     totalWallMs,
@@ -181,7 +191,7 @@ async function runInk(config: ScenarioConfig): Promise<BenchMetrics> {
   tryGc();
   const memBefore = takeMemory();
   const cpuBefore = takeCpu();
-  let memMax = memBefore;
+  let memMax: MemorySnapshot = memBefore;
   const t0 = performance.now();
   let totalBytes = 0;
 
@@ -218,6 +228,11 @@ async function runInk(config: ScenarioConfig): Promise<BenchMetrics> {
     memBefore,
     memAfter,
     memPeak: memMax,
+    rssGrowthKb: memAfter.rssKb - memBefore.rssKb,
+    heapUsedGrowthKb: memAfter.heapUsedKb - memBefore.heapUsedKb,
+    rssSlopeKbPerIter: null,
+    heapUsedSlopeKbPerIter: null,
+    memStable: null,
     cpu: diffCpu(cpuBefore, cpuAfter),
     iterations: config.iterations,
     totalWallMs,
@@ -243,7 +258,7 @@ async function runTermkit(config: ScenarioConfig): Promise<BenchMetrics> {
   tryGc();
   const memBefore = takeMemory();
   const cpuBefore = takeCpu();
-  let memMax = memBefore;
+  let memMax: MemorySnapshot = memBefore;
   const t0 = performance.now();
   let totalBytes = 0;
 
@@ -273,6 +288,11 @@ async function runTermkit(config: ScenarioConfig): Promise<BenchMetrics> {
     memBefore,
     memAfter,
     memPeak: memMax,
+    rssGrowthKb: memAfter.rssKb - memBefore.rssKb,
+    heapUsedGrowthKb: memAfter.heapUsedKb - memBefore.heapUsedKb,
+    rssSlopeKbPerIter: null,
+    heapUsedSlopeKbPerIter: null,
+    memStable: null,
     cpu: diffCpu(cpuBefore, cpuAfter),
     iterations: config.iterations,
     totalWallMs,
@@ -298,7 +318,7 @@ async function runBlessed(config: ScenarioConfig): Promise<BenchMetrics> {
   tryGc();
   const memBefore = takeMemory();
   const cpuBefore = takeCpu();
-  let memMax = memBefore;
+  let memMax: MemorySnapshot = memBefore;
   const t0 = performance.now();
   let totalBytes = 0;
 
@@ -329,6 +349,11 @@ async function runBlessed(config: ScenarioConfig): Promise<BenchMetrics> {
     memBefore,
     memAfter,
     memPeak: memMax,
+    rssGrowthKb: memAfter.rssKb - memBefore.rssKb,
+    heapUsedGrowthKb: memAfter.heapUsedKb - memBefore.heapUsedKb,
+    rssSlopeKbPerIter: null,
+    heapUsedSlopeKbPerIter: null,
+    memStable: null,
     cpu: diffCpu(cpuBefore, cpuAfter),
     iterations: config.iterations,
     totalWallMs,

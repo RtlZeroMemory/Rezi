@@ -375,7 +375,7 @@ async function runTermkit(config: ScenarioConfig): Promise<BenchMetrics> {
   termkitMemTree(ctx.buffer, 0);
   ctx.buffer.draw({ delta: false });
 
-  const memorySamples: MemorySnapshot[] = [];
+  const memorySamples: NodeMemorySnapshot[] = [];
   const timingSamples: number[] = [];
 
   // Warmup
@@ -389,7 +389,7 @@ async function runTermkit(config: ScenarioConfig): Promise<BenchMetrics> {
   tryGc();
   const memBefore = takeMemory();
   const cpuBefore = takeCpu();
-  let memMax = memBefore;
+  let memMax: MemorySnapshot = memBefore;
   const t0 = performance.now();
 
   for (let i = 0; i < config.iterations; i++) {
@@ -409,13 +409,18 @@ async function runTermkit(config: ScenarioConfig): Promise<BenchMetrics> {
   const cpuAfter = takeCpu();
   const memAfter = takeMemory();
   memMax = peakMemory(memMax, memAfter);
-  void analyzeMemory(memorySamples);
+  const prof = analyzeMemory(memorySamples);
 
   const result: BenchMetrics = {
     timing: computeStats(timingSamples),
     memBefore,
     memAfter,
     memPeak: memMax,
+    rssGrowthKb: memAfter.rssKb - memBefore.rssKb,
+    heapUsedGrowthKb: memAfter.heapUsedKb - memBefore.heapUsedKb,
+    rssSlopeKbPerIter: prof.growthRateKbPerIter,
+    heapUsedSlopeKbPerIter: prof.heapUsedGrowthRateKbPerIter,
+    memStable: prof.stable,
     cpu: diffCpu(cpuBefore, cpuAfter),
     iterations: config.iterations,
     totalWallMs,
@@ -474,7 +479,7 @@ async function runBlessed(config: ScenarioConfig): Promise<BenchMetrics> {
   ctx.screen.render();
   ctx.flush();
 
-  const memorySamples: MemorySnapshot[] = [];
+  const memorySamples: NodeMemorySnapshot[] = [];
   const timingSamples: number[] = [];
 
   // Warmup
@@ -489,7 +494,7 @@ async function runBlessed(config: ScenarioConfig): Promise<BenchMetrics> {
   tryGc();
   const memBefore = takeMemory();
   const cpuBefore = takeCpu();
-  let memMax = memBefore;
+  let memMax: MemorySnapshot = memBefore;
   const t0 = performance.now();
 
   for (let i = 0; i < config.iterations; i++) {
@@ -510,13 +515,18 @@ async function runBlessed(config: ScenarioConfig): Promise<BenchMetrics> {
   const cpuAfter = takeCpu();
   const memAfter = takeMemory();
   memMax = peakMemory(memMax, memAfter);
-  void analyzeMemory(memorySamples);
+  const prof = analyzeMemory(memorySamples);
 
   const result: BenchMetrics = {
     timing: computeStats(timingSamples),
     memBefore,
     memAfter,
     memPeak: memMax,
+    rssGrowthKb: memAfter.rssKb - memBefore.rssKb,
+    heapUsedGrowthKb: memAfter.heapUsedKb - memBefore.heapUsedKb,
+    rssSlopeKbPerIter: prof.growthRateKbPerIter,
+    heapUsedSlopeKbPerIter: prof.heapUsedGrowthRateKbPerIter,
+    memStable: prof.stable,
     cpu: diffCpu(cpuBefore, cpuAfter),
     iterations: config.iterations,
     totalWallMs,

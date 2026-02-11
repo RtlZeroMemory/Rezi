@@ -66,6 +66,8 @@ export function ensureBuilt(): void {
 
 interface RatatuiOutput {
   timing: {
+    // Optional for backwards compatibility with previously built binaries.
+    n?: number;
     mean: number;
     median: number;
     p95: number;
@@ -74,6 +76,8 @@ interface RatatuiOutput {
     max: number;
     stddev: number;
     cv: number;
+    meanCi95Low?: number;
+    meanCi95High?: number;
   };
   iterations: number;
   total_wall_ms: number;
@@ -111,21 +115,39 @@ export function runRatatui(
   });
 
   const output: RatatuiOutput = JSON.parse(stdout.trim());
+  const timing = {
+    n: output.timing.n ?? output.iterations,
+    mean: output.timing.mean,
+    median: output.timing.median,
+    p95: output.timing.p95,
+    p99: output.timing.p99,
+    min: output.timing.min,
+    max: output.timing.max,
+    stddev: output.timing.stddev,
+    cv: output.timing.cv,
+    meanCi95Low: output.timing.meanCi95Low ?? output.timing.mean,
+    meanCi95High: output.timing.meanCi95High ?? output.timing.mean,
+  };
 
   // We can't measure Ratatui's memory from inside Node, so use its self-report
   const memSnapshot = {
     rssKb: output.peak_rss_kb,
-    heapUsedKb: 0, // N/A for Rust
-    heapTotalKb: 0,
-    externalKb: 0,
-    arrayBuffersKb: 0,
+    heapUsedKb: null, // N/A for Rust
+    heapTotalKb: null,
+    externalKb: null,
+    arrayBuffersKb: null,
   };
 
   return {
-    timing: output.timing,
+    timing,
     memBefore: memSnapshot,
     memAfter: memSnapshot,
     memPeak: memSnapshot,
+    rssGrowthKb: 0,
+    heapUsedGrowthKb: null,
+    rssSlopeKbPerIter: null,
+    heapUsedSlopeKbPerIter: null,
+    memStable: null,
     cpu: { userMs: 0, systemMs: 0 }, // would need /proc/self/stat parsing
     iterations: output.iterations,
     totalWallMs: output.total_wall_ms,

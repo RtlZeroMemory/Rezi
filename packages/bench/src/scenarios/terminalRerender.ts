@@ -263,6 +263,8 @@ export const terminalRerenderScenario: Scenario = {
         return runBlessed(config);
       case "ratatui":
         return runRatatui(config);
+      default:
+        throw new Error(`Unsupported framework for terminal-rerender: ${framework}`);
     }
   },
 };

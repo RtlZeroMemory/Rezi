@@ -292,6 +292,8 @@ export const terminalTableScenario: Scenario = {
         return runBlessed(config, rows, cols);
       case "ratatui":
         return runRatatui(config, rows, cols);
+      default:
+        throw new Error(`Unsupported framework for terminal-table: ${framework}`);
     }
   },
 };

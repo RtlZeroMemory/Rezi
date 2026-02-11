@@ -19,8 +19,56 @@ use ratatui::{
 use serde::Serialize;
 use std::time::Instant;
 
+fn xorshift32_next(x: &mut u32) -> u32 {
+    // xorshift32
+    *x ^= *x << 13;
+    *x ^= *x >> 17;
+    *x ^= *x << 5;
+    *x
+}
+
+fn percentile(sorted: &[f64], p: f64) -> f64 {
+    if sorted.is_empty() {
+        return 0.0;
+    }
+    let idx = ((p * (sorted.len() as f64)).floor() as isize).clamp(0, (sorted.len() - 1) as isize);
+    sorted[idx as usize]
+}
+
+fn bootstrap_mean_ci95(samples: &[f64], mean: f64) -> (f64, f64) {
+    let n = samples.len();
+    if n < 2 {
+        return (mean, mean);
+    }
+
+    // Deterministic bootstrap (fixed seed) so the CI is reproducible.
+    let mut state: u32 = 0x6b33_17f5;
+    let budget = 200_000usize;
+    let resamples = (budget / n).max(500).min(2000);
+
+    let mut means: Vec<f64> = Vec::with_capacity(resamples);
+    for _ in 0..resamples {
+        let mut sum = 0.0;
+        for _ in 0..n {
+            let r = xorshift32_next(&mut state);
+            // Normalize to [0, 1)
+            let u = (r as f64) / 4_294_967_296.0;
+            let j = (u * (n as f64)).floor() as usize;
+            sum += samples[j.min(n - 1)];
+        }
+        means.push(sum / (n as f64));
+    }
+
+    means.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let low = percentile(&means, 0.025);
+    let high = percentile(&means, 0.975);
+    (low, high)
+}
+
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct TimingStats {
+    n: usize,
     mean: f64,
     median: f64,
     p95: f64,
@@ -29,6 +77,8 @@ struct TimingStats {
     max: f64,
     stddev: f64,
     cv: f64,
+    mean_ci95_low: f64,
+    mean_ci95_high: f64,
 }
 
 #[derive(Serialize)]
@@ -43,8 +93,10 @@ struct BenchOutput {
 fn compute_stats(samples: &mut Vec<f64>) -> TimingStats {
     if samples.is_empty() {
         return TimingStats {
+            n: 0,
             mean: 0.0, median: 0.0, p95: 0.0, p99: 0.0,
             min: 0.0, max: 0.0, stddev: 0.0, cv: 0.0,
+            mean_ci95_low: 0.0, mean_ci95_high: 0.0,
         };
     }
     samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -67,7 +119,20 @@ fn compute_stats(samples: &mut Vec<f64>) -> TimingStats {
     let stddev = variance.sqrt();
     let cv = if mean > 0.0 { stddev / mean } else { 0.0 };
 
-    TimingStats { mean, median, p95, p99, min, max, stddev, cv }
+    let (ci_low, ci_high) = bootstrap_mean_ci95(samples, mean);
+    TimingStats {
+        n,
+        mean,
+        median,
+        p95,
+        p99,
+        min,
+        max,
+        stddev,
+        cv,
+        mean_ci95_low: ci_low,
+        mean_ci95_high: ci_high,
+    }
 }
 
 fn get_peak_rss_kb() -> u64 {

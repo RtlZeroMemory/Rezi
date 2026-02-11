@@ -382,6 +382,8 @@ export const terminalVirtualListScenario: Scenario = {
         return runBlessed(config, items, viewport);
       case "ratatui":
         return runRatatui(config, items, viewport);
+      default:
+        throw new Error(`Unsupported framework for terminal-virtual-list: ${framework}`);
     }
   },
 };

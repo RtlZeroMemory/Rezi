@@ -307,6 +307,8 @@ export const terminalFrameFillScenario: Scenario = {
         return runBlessed(config, rows, cols, dirtyLines);
       case "ratatui":
         return runRatatui(config, rows, cols, dirtyLines);
+      default:
+        throw new Error(`Unsupported framework for terminal-frame-fill: ${framework}`);
     }
   },
 };
