@@ -108,6 +108,20 @@ describe("props: mapBoxProps()", () => {
     const out = mapBoxProps({ display: "none" });
     assert.equal(out.hidden, true);
   });
+
+  test("overflowY=scroll and scrollbarThumbColor map into runtime scroll metadata", () => {
+    const out = mapBoxProps({
+      overflow: "hidden",
+      overflowY: "scroll",
+      scrollTop: 7,
+      scrollbarThumbColor: "yellow",
+    });
+
+    assert.equal(out.overflow, "hidden");
+    assert.equal(out.overflowY, "scroll");
+    assert.equal(out.scrollTop, 7);
+    assert.equal(out.scrollbarThumbColor, "yellow");
+  });
 });
 
 describe("props: mapTextProps()", () => {

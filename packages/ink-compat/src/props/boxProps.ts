@@ -10,6 +10,12 @@ export type MappedInkBox = Readonly<{
   stackKind: "row" | "column";
   stackProps: StackProps;
   reverseChildren: boolean;
+  overflow: "visible" | "hidden" | "scroll";
+  overflowX: "visible" | "hidden" | "scroll";
+  overflowY: "visible" | "hidden" | "scroll";
+  scrollTop: number;
+  scrollLeft: number;
+  scrollbarThumbColor?: string;
 }>;
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] };
@@ -36,6 +42,15 @@ function coerceNumber(v: number | string | undefined): number | undefined {
   const n = Number(v);
   if (!Number.isFinite(n)) return undefined;
   return n;
+}
+
+function normalizeOverflow(v: unknown): "visible" | "hidden" | "scroll" {
+  return v === "hidden" || v === "scroll" ? v : "visible";
+}
+
+function coerceScrollOffset(v: unknown): number {
+  if (typeof v !== "number" || !Number.isFinite(v)) return 0;
+  return v <= 0 ? 0 : v;
 }
 
 function mapAlignItems(v: BoxProps["alignItems"]): StackProps["align"] | undefined {
@@ -107,6 +122,11 @@ function mapGap(p: BoxProps, isRow: boolean): number | undefined {
 
 export function mapBoxProps(p: BoxProps): MappedInkBox {
   const hidden = p.display === "none";
+  const overflow = normalizeOverflow(p.overflow);
+  const overflowX = normalizeOverflow(p.overflowX ?? overflow);
+  const overflowY = normalizeOverflow(p.overflowY ?? overflow);
+  const scrollTop = coerceScrollOffset(p.scrollTop);
+  const scrollLeft = coerceScrollOffset(p.scrollLeft);
 
   const dir = p.flexDirection ?? "row";
   const isRow = dir === "row" || dir === "row-reverse";
@@ -196,5 +216,11 @@ export function mapBoxProps(p: BoxProps): MappedInkBox {
     stackKind: isRow ? "row" : "column",
     stackProps,
     reverseChildren,
+    overflow,
+    overflowX,
+    overflowY,
+    scrollTop,
+    scrollLeft,
+    ...(p.scrollbarThumbColor === undefined ? {} : { scrollbarThumbColor: p.scrollbarThumbColor }),
   };
 }

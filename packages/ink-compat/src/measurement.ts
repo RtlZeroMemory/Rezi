@@ -1,4 +1,4 @@
-import type { HostElement, HostLayoutRect, HostRoot } from "./reconciler/types.js";
+import type { HostElement, HostLayoutRect, HostNode, HostRoot } from "./reconciler/types.js";
 import { ResizeObserverEntry } from "./resizeObserver.js";
 import type { DOMElement } from "./types.js";
 
@@ -9,6 +9,7 @@ type ResizeObserverLike = Readonly<{
 }>;
 
 const ZERO_LAYOUT: HostLayoutRect = Object.freeze({ x: 0, y: 0, width: 0, height: 0 });
+const ZERO_INSETS = Object.freeze({ top: 0, right: 0, bottom: 0, left: 0 });
 
 function toLayout(rect: CoreRect | undefined): HostLayoutRect {
   if (!rect) return ZERO_LAYOUT;
@@ -25,6 +26,131 @@ function toLayout(rect: CoreRect | undefined): HostLayoutRect {
 function readLayout(node: DOMElement): HostLayoutRect {
   const layout = (node as HostElement).internal_layout;
   return layout ?? ZERO_LAYOUT;
+}
+
+function coerceNonNegativeNumber(v: unknown): number | undefined {
+  if (typeof v === "number" && Number.isFinite(v) && v >= 0) return v;
+  if (typeof v === "string") {
+    const n = Number(v);
+    if (Number.isFinite(n) && n >= 0) return n;
+  }
+  return undefined;
+}
+
+function readScrollOffset(v: unknown): number {
+  if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) return 0;
+  return v;
+}
+
+function normalizeOverflow(v: unknown): "visible" | "hidden" | "scroll" {
+  return v === "hidden" || v === "scroll" ? v : "visible";
+}
+
+function readOverflowFromProps(props: Record<string, unknown>): Readonly<{
+  overflow: "visible" | "hidden" | "scroll";
+  overflowX: "visible" | "hidden" | "scroll";
+  overflowY: "visible" | "hidden" | "scroll";
+}> {
+  const overflow = normalizeOverflow(props["overflow"]);
+  const overflowX = normalizeOverflow(props["overflowX"] ?? overflow);
+  const overflowY = normalizeOverflow(props["overflowY"] ?? overflow);
+  return { overflow, overflowX, overflowY };
+}
+
+function readBorderInsets(props: Record<string, unknown>): Readonly<{
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}> {
+  const hasAnyBorder = props["borderStyle"] !== undefined || props["border"] !== undefined;
+  const borderStyle = props["borderStyle"] ?? props["border"];
+  const hasBorder = hasAnyBorder && borderStyle !== "none";
+
+  if (!hasBorder) return ZERO_INSETS;
+
+  const top = typeof props["borderTop"] === "boolean" ? props["borderTop"] : true;
+  const right = typeof props["borderRight"] === "boolean" ? props["borderRight"] : true;
+  const bottom = typeof props["borderBottom"] === "boolean" ? props["borderBottom"] : true;
+  const left = typeof props["borderLeft"] === "boolean" ? props["borderLeft"] : true;
+  return {
+    top: top ? 1 : 0,
+    right: right ? 1 : 0,
+    bottom: bottom ? 1 : 0,
+    left: left ? 1 : 0,
+  };
+}
+
+function resolveVerticalInsets(props: Record<string, unknown>): number {
+  const padding = coerceNonNegativeNumber(props["padding"]) ?? 0;
+  const paddingY = coerceNonNegativeNumber(props["paddingY"]) ?? padding;
+  const paddingTop = coerceNonNegativeNumber(props["paddingTop"]) ?? paddingY;
+  const paddingBottom = coerceNonNegativeNumber(props["paddingBottom"]) ?? paddingY;
+  const border = readBorderInsets(props);
+  return paddingTop + paddingBottom + border.top + border.bottom;
+}
+
+function estimateTextNodeHeight(node: HostElement): number {
+  let lines = 0;
+  for (const child of node.children) {
+    if (child.kind !== "text") continue;
+    lines += Math.max(1, child.text.split("\n").length);
+  }
+  return Math.max(1, lines);
+}
+
+function estimateNodeHeight(node: HostNode): number {
+  if (node.kind === "text") return Math.max(1, node.text.split("\n").length);
+
+  const explicitHeight = coerceNonNegativeNumber((node.props as { height?: unknown }).height);
+  if (explicitHeight !== undefined) return explicitHeight;
+
+  if (node.type === "ink-spacer") return 1;
+  if (node.type === "ink-text" || node.type === "ink-virtual-text") return estimateTextNodeHeight(node);
+
+  const direction = (node.props as { flexDirection?: unknown }).flexDirection;
+  const isColumn = direction === "column" || direction === "column-reverse";
+  const insets = resolveVerticalInsets(node.props);
+
+  if (node.children.length === 0) return insets;
+
+  if (isColumn) {
+    let total = insets;
+    for (const child of node.children) {
+      total += estimateNodeHeight(child);
+    }
+    return total;
+  }
+
+  let max = 0;
+  for (const child of node.children) {
+    const next = estimateNodeHeight(child);
+    if (next > max) max = next;
+  }
+  return insets + max;
+}
+
+function estimateScrollHeight(node: HostElement): number {
+  if (node.children.length === 0) return resolveVerticalInsets(node.props);
+
+  const direction = (node.props as { flexDirection?: unknown }).flexDirection;
+  const isColumn = direction === "column" || direction === "column-reverse";
+  const insets = resolveVerticalInsets(node.props);
+
+  if (isColumn) {
+    let total = insets;
+    for (const child of node.children) {
+      total += estimateNodeHeight(child);
+    }
+    return total;
+  }
+
+  let max = 0;
+  for (const child of node.children) {
+    const next = estimateNodeHeight(child);
+    if (next > max) max = next;
+  }
+  return insets + max;
 }
 
 export function measureElementFromLayout(
@@ -47,6 +173,16 @@ export function getBoundingBox(node: DOMElement): Readonly<{
     width: layout.width,
     height: layout.height,
   };
+}
+
+export function getInnerHeight(node: DOMElement): number {
+  const element = node as HostElement;
+  const scrollState = element.internal_scrollState;
+  if (scrollState) return scrollState.clientHeight;
+
+  const layout = readLayout(node);
+  const border = readBorderInsets(element.props);
+  return Math.max(0, layout.height - border.top - border.bottom);
 }
 
 export function getScrollHeight(node: DOMElement): number {
@@ -85,6 +221,9 @@ function updateNodeLayout(
   let maxChildX = 0;
   let maxChildY = 0;
 
+  const borderInsets = readBorderInsets(node.props);
+  const contentOriginX = layout.x + borderInsets.left;
+  const contentOriginY = layout.y + borderInsets.top;
   let maxRelRight = 0;
   let maxRelBottom = 0;
 
@@ -106,8 +245,8 @@ function updateNodeLayout(
       maxChildY = Math.max(maxChildY, childRect.y + childRect.height);
     }
 
-    const relRight = childRect.x - layout.x + childRect.width;
-    const relBottom = childRect.y - layout.y + childRect.height;
+    const relRight = childRect.x - contentOriginX + childRect.width;
+    const relBottom = childRect.y - contentOriginY + childRect.height;
     if (relRight > maxRelRight) maxRelRight = relRight;
     if (relBottom > maxRelBottom) maxRelBottom = relBottom;
   }
@@ -125,11 +264,34 @@ function updateNodeLayout(
 
   node.internal_layout = layout;
 
-  const clientWidth = layout.width;
-  const clientHeight = layout.height;
+  const overflow = readOverflowFromProps(node.props);
+  const clientWidth = Math.max(0, layout.width - borderInsets.left - borderInsets.right);
+  const clientHeight = Math.max(0, layout.height - borderInsets.top - borderInsets.bottom);
+
+  let scrollHeight = Math.max(clientHeight, maxRelBottom);
+  let scrollWidth = Math.max(clientWidth, maxRelRight);
+  const rawScrollTop = readScrollOffset(node.props["scrollTop"]);
+  const rawScrollLeft = readScrollOffset(node.props["scrollLeft"]);
+
+  if (overflow.overflowY === "scroll") {
+    const estimated = estimateScrollHeight(node);
+    scrollHeight = Math.max(scrollHeight, estimated, maxRelBottom + rawScrollTop);
+  }
+
+  if (overflow.overflowX === "scroll") {
+    scrollWidth = Math.max(scrollWidth, maxRelRight + rawScrollLeft);
+  }
+
+  const scrollTopMax = Math.max(0, scrollHeight - clientHeight);
+  const scrollLeftMax = Math.max(0, scrollWidth - clientWidth);
+  const scrollTop = overflow.overflowY === "scroll" ? Math.min(rawScrollTop, scrollTopMax) : 0;
+  const scrollLeft = overflow.overflowX === "scroll" ? Math.min(rawScrollLeft, scrollLeftMax) : 0;
+
   node.internal_scrollState = {
-    scrollHeight: Math.max(clientHeight, maxRelBottom),
-    scrollWidth: Math.max(clientWidth, maxRelRight),
+    scrollTop,
+    scrollLeft,
+    scrollHeight,
+    scrollWidth,
     clientHeight,
     clientWidth,
   };
