@@ -1691,6 +1691,9 @@ export class WidgetRenderer<S> {
       } else if (event.mouseKind === 4) {
         this.pressedTable = null;
         this.pressedTableHeader = null;
+      }
+    }
+
     // Right-click context menu for FileTreeExplorer.
     if (event.kind === "mouse" && event.mouseKind === 3) {
       const targetId = mouseTargetId;
