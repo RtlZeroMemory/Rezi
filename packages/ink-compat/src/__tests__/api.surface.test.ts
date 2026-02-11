@@ -3,6 +3,7 @@ import {
   type RenderOptions,
   ResizeObserver,
   getBoundingBox,
+  getInnerHeight,
   getScrollHeight,
   render,
 } from "../index.js";
@@ -10,6 +11,7 @@ import {
 describe("api surface", () => {
   test("exports measurement and observer APIs", () => {
     assert.equal(typeof getBoundingBox, "function");
+    assert.equal(typeof getInnerHeight, "function");
     assert.equal(typeof getScrollHeight, "function");
     assert.equal(typeof ResizeObserver, "function");
   });

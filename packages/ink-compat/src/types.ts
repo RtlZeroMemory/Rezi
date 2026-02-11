@@ -89,9 +89,12 @@ export type BoxProps = Readonly<{
   borderBottomDimColor?: boolean;
   borderLeftDimColor?: boolean;
   borderRightDimColor?: boolean;
-  overflow?: "visible" | "hidden";
-  overflowX?: "visible" | "hidden";
-  overflowY?: "visible" | "hidden";
+  overflow?: "visible" | "hidden" | "scroll";
+  overflowX?: "visible" | "hidden" | "scroll";
+  overflowY?: "visible" | "hidden" | "scroll";
+  scrollTop?: number;
+  scrollLeft?: number;
+  scrollbarThumbColor?: string;
   children?: ReactNode;
 }>;
 
@@ -196,6 +199,8 @@ export type DOMElement = {
   parentNode?: DOMElement;
   internal_layout?: Readonly<{ x: number; y: number; width: number; height: number }>;
   internal_scrollState?: Readonly<{
+    scrollTop: number;
+    scrollLeft: number;
     scrollHeight: number;
     scrollWidth: number;
     clientHeight: number;

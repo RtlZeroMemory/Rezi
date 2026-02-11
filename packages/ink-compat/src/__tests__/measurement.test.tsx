@@ -5,6 +5,7 @@ import {
   type DOMElement,
   Text,
   getBoundingBox,
+  getInnerHeight,
   getScrollHeight,
   measureElement,
   render,
@@ -106,6 +107,140 @@ describe("measurement", () => {
     await flushMicrotasks(10);
 
     assert.equal(getScrollHeight(parent), 4);
+
+    inst.unmount();
+    await inst.waitUntilExit();
+  });
+
+  test("getInnerHeight matches inner/client height semantics and updates on rerender", async () => {
+    const backend = new StubBackend();
+    const ref = React.createRef<DOMElement>();
+
+    const inst = render(
+      <Box width={12} height={6} borderStyle="single" ref={ref}>
+        <Text>body</Text>
+      </Box>,
+      { internal_backend: backend, exitOnCtrlC: false },
+    );
+
+    await flushMicrotasks(10);
+    await pushInitialResize(backend);
+
+    const node = ref.current;
+    assert.ok(node);
+    assert.equal(measureElement(node).height, 6);
+    assert.equal(getInnerHeight(node), 4);
+
+    inst.rerender(
+      <Box width={12} height={8} borderStyle="single" ref={ref}>
+        <Text>body</Text>
+      </Box>,
+    );
+    await flushMicrotasks(10);
+
+    assert.equal(measureElement(node).height, 8);
+    assert.equal(getInnerHeight(node), 6);
+
+    inst.unmount();
+    await inst.waitUntilExit();
+  });
+
+  test("overflowY=scroll and scrollTop update visible viewport in Gemini-like container", async () => {
+    const backend = new StubBackend();
+    const containerRef = React.createRef<DOMElement>();
+    const firstRef = React.createRef<DOMElement>();
+    const secondRef = React.createRef<DOMElement>();
+    const thirdRef = React.createRef<DOMElement>();
+    const fourthRef = React.createRef<DOMElement>();
+
+    const tree = (scrollTop: number) => (
+      <Box
+        ref={containerRef}
+        width={10}
+        height={2}
+        flexDirection="column"
+        overflowY="scroll"
+        overflowX="hidden"
+        scrollTop={scrollTop}
+      >
+        <Box ref={firstRef} height={1}>
+          <Text>row-1</Text>
+        </Box>
+        <Box ref={secondRef} height={1}>
+          <Text>row-2</Text>
+        </Box>
+        <Box ref={thirdRef} height={1}>
+          <Text>row-3</Text>
+        </Box>
+        <Box ref={fourthRef} height={1}>
+          <Text>row-4</Text>
+        </Box>
+      </Box>
+    );
+
+    const inst = render(tree(0), { internal_backend: backend, exitOnCtrlC: false });
+    await flushMicrotasks(10);
+    await pushInitialResize(backend);
+
+    const container = containerRef.current;
+    const first = firstRef.current;
+    const second = secondRef.current;
+    const third = thirdRef.current;
+    assert.ok(container);
+    assert.ok(first);
+    assert.ok(second);
+    assert.ok(third);
+
+    assert.equal(getScrollHeight(container), 4);
+    assert.equal(getBoundingBox(first).y, 0);
+    assert.equal(getBoundingBox(second).y, 1);
+    assert.equal(measureElement(third).height, 0);
+
+    inst.rerender(tree(1));
+    await flushMicrotasks(10);
+
+    assert.equal(getScrollHeight(container), 4);
+    assert.equal(measureElement(first).height, 0);
+    assert.equal(getBoundingBox(second).y, 0);
+    assert.equal(getBoundingBox(third).y, 1);
+
+    inst.unmount();
+    await inst.waitUntilExit();
+  });
+
+  test("scrollbarThumbColor is accepted as a renderer no-op without affecting scroll metrics", async () => {
+    const backend = new StubBackend();
+    const containerRef = React.createRef<DOMElement>();
+
+    const inst = render(
+      <Box
+        ref={containerRef}
+        width={8}
+        height={2}
+        flexDirection="column"
+        overflowY="scroll"
+        scrollbarThumbColor="magenta"
+      >
+        <Box height={1}>
+          <Text>a</Text>
+        </Box>
+        <Box height={1}>
+          <Text>b</Text>
+        </Box>
+        <Box height={1}>
+          <Text>c</Text>
+        </Box>
+      </Box>,
+      { internal_backend: backend, exitOnCtrlC: false },
+    );
+
+    await flushMicrotasks(10);
+    await pushInitialResize(backend);
+
+    const container = containerRef.current;
+    assert.ok(container);
+    assert.equal(getScrollHeight(container), 3);
+    assert.ok(backend.requestedFrames.length >= 1);
 
     inst.unmount();
     await inst.waitUntilExit();

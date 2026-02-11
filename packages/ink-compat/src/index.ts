@@ -23,7 +23,12 @@ export { render } from "./render.js";
 
 // Measurement
 export { default as measureElement } from "./measureElement.js";
-export { getBoundingBox, getScrollHeight, getScrollWidth } from "./measureElement.js";
+export {
+  getBoundingBox,
+  getInnerHeight,
+  getScrollHeight,
+  getScrollWidth,
+} from "./measureElement.js";
 export { default as ResizeObserver, ResizeObserverEntry } from "./resizeObserver.js";
 
 // Types

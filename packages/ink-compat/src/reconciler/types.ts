@@ -10,6 +10,8 @@ export type HostLayoutRect = Readonly<{
 }>;
 
 export type HostScrollState = Readonly<{
+  scrollTop: number;
+  scrollLeft: number;
   scrollHeight: number;
   scrollWidth: number;
   clientHeight: number;
