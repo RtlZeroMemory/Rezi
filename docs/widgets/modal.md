@@ -67,6 +67,7 @@ ui.modal({
 
 - Modals are rendered by conditionally including them in the tree (there is no `open` prop).
 - Render modals inside `ui.layers(...)` so they stack above base content.
+- Backdrops are rendered behind the modal. `"dim"` uses a light shade pattern; `"opaque"` clears the area behind the modal to the theme background color.
 
 ## Related
 

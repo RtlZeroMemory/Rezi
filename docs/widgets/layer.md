@@ -34,6 +34,7 @@ ui.layer({
 
 - Use [`Layers`](layers.md) to manage stacking order and modals.
 - `BackdropStyle` values: `"none"`, `"dim"`, `"opaque"`.
+- Backdrops are rendered behind the layer. `"dim"` uses a light shade pattern; `"opaque"` clears the area behind the layer to the theme background color.
 
 ## Related
 

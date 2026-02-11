@@ -307,6 +307,46 @@ describe("renderer - widget tree to deterministic ZRDL bytes", () => {
     assertBytesEqual(actual, expected, "divider_with_label.bin");
   });
 
+  test("modal_backdrop_dim.bin", async () => {
+    const expected = await load("modal_backdrop_dim.bin");
+    const modal: VNode = {
+      kind: "modal",
+      props: {
+        id: "m1",
+        title: "Modal",
+        backdrop: "dim",
+        content: { kind: "text", text: "Hello", props: {} },
+        actions: [{ kind: "button", props: { id: "ok", label: "OK" } }],
+      },
+    };
+    const vnode: VNode = {
+      kind: "layers",
+      props: {},
+      children: Object.freeze([modal]),
+    };
+    const actual = renderBytes(vnode, Object.freeze({ focusedId: null }));
+    assertBytesEqual(actual, expected, "modal_backdrop_dim.bin");
+  });
+
+  test("layer_backdrop_opaque.bin", async () => {
+    const expected = await load("layer_backdrop_opaque.bin");
+    const layer: VNode = {
+      kind: "layer",
+      props: {
+        id: "l1",
+        backdrop: "opaque",
+        content: { kind: "text", text: "Layer", props: {} },
+      },
+    };
+    const vnode: VNode = {
+      kind: "layers",
+      props: {},
+      children: Object.freeze([layer]),
+    };
+    const actual = renderBytes(vnode, Object.freeze({ focusedId: null }));
+    assertBytesEqual(actual, expected, "layer_backdrop_opaque.bin");
+  });
+
   test("button text is width-clamped in narrow layouts", () => {
     const vnode: VNode = { kind: "button", props: { id: "narrow", label: "ABCDEFGHI" } };
     const committed = commitTree(vnode);

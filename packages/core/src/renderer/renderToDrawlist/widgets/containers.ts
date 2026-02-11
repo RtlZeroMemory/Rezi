@@ -90,6 +90,7 @@ export function renderContainerWidget(
   builder: DrawlistBuilderV1,
   rect: Rect,
   currentClip: ClipRect | undefined,
+  viewport: Readonly<{ cols: number; rows: number }>,
   theme: Theme,
   parentStyle: ResolvedTextStyle,
   node: RuntimeInstance,
@@ -222,8 +223,23 @@ export function renderContainerWidget(
     }
     case "modal": {
       if (!isVisibleRect(rect)) break;
-      const props = vnode.props as { title?: unknown };
+      const props = vnode.props as { title?: unknown; backdrop?: unknown };
       const title = typeof props.title === "string" ? props.title : undefined;
+      const backdrop =
+        props.backdrop === "none" ? "none" : props.backdrop === "opaque" ? "opaque" : "dim";
+
+      const fill = currentClip ?? { x: 0, y: 0, w: viewport.cols, h: viewport.rows };
+      if (backdrop === "opaque") {
+        builder.fillRect(fill.x, fill.y, fill.w, fill.h, { bg: theme.colors.bg });
+      } else if (backdrop === "dim") {
+        if (fill.w > 0 && fill.h > 0) {
+          const line = "░".repeat(fill.w);
+          const style: ResolvedTextStyle = { fg: theme.colors.border, bg: theme.colors.bg };
+          for (let dy = 0; dy < fill.h; dy++) {
+            builder.drawText(fill.x, fill.y + dy, line, style);
+          }
+        }
+      }
 
       renderBoxBorder(builder, rect, "single", title, "left", parentStyle);
 
@@ -282,6 +298,25 @@ export function renderContainerWidget(
     }
     case "layer": {
       // Generic layer: transparent container for its content VNode.
+      const props = vnode.props as { backdrop?: unknown };
+      const backdrop =
+        props.backdrop === "dim" || props.backdrop === "opaque" || props.backdrop === "none"
+          ? props.backdrop
+          : "none";
+      if (backdrop !== "none") {
+        const fill = currentClip ?? { x: 0, y: 0, w: viewport.cols, h: viewport.rows };
+        if (backdrop === "opaque") {
+          builder.fillRect(fill.x, fill.y, fill.w, fill.h, { bg: theme.colors.bg });
+        } else if (backdrop === "dim") {
+          if (fill.w > 0 && fill.h > 0) {
+            const line = "░".repeat(fill.w);
+            const style: ResolvedTextStyle = { fg: theme.colors.border, bg: theme.colors.bg };
+            for (let dy = 0; dy < fill.h; dy++) {
+              builder.drawText(fill.x, fill.y + dy, line, style);
+            }
+          }
+        }
+      }
       pushChildrenWithLayout(
         node,
         layoutNode,
