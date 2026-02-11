@@ -53,6 +53,7 @@ import {
 } from "../keybindings/keyCodes.js";
 import { hitTestFocusable } from "../layout/hitTest.js";
 import { type LayoutTree, layout } from "../layout/layout.js";
+import { calculateAnchorPosition } from "../layout/positioning.js";
 import { measureTextCells } from "../layout/textMeasure.js";
 import type { Rect } from "../layout/types.js";
 import { PERF_DETAIL_ENABLED, PERF_ENABLED, perfMarkEnd, perfMarkStart } from "../perf/perf.js";
@@ -247,6 +248,7 @@ export class WidgetRenderer<S> {
   private committedRoot: RuntimeInstance | null = null;
   private layoutTree: LayoutTree | null = null;
   private renderTick = 0;
+  private lastViewport: Viewport = Object.freeze({ cols: 0, rows: 0 });
 
   /* --- Focus/Interaction State --- */
   private focusState: FocusManagerState = createFocusManagerState();
@@ -256,6 +258,7 @@ export class WidgetRenderer<S> {
   private baseEnabledById: ReadonlyMap<string, boolean> = new Map<string, boolean>();
   private pressableIds: ReadonlySet<string> = new Set<string>();
   private pressedId: string | null = null;
+  private pressedDropdown: Readonly<{ id: string; itemId: string }> | null = null;
   private pressedVirtualList: Readonly<{ id: string; index: number }> | null = null;
   private pressedTable: Readonly<{ id: string; rowIndex: number }> | null = null;
   private pressedTableHeader: Readonly<{ id: string; columnIndex: number }> | null = null;
@@ -528,6 +531,96 @@ export class WidgetRenderer<S> {
     }
 
     if (event.kind === "mouse") {
+      const topDropdownId =
+        this.dropdownStack.length > 0
+          ? (this.dropdownStack[this.dropdownStack.length - 1] ?? null)
+          : null;
+      if (topDropdownId) {
+        const dropdown = this.dropdownById.get(topDropdownId);
+        const dropdownRect = dropdown ? this.computeDropdownRect(dropdown) : null;
+        if (dropdown && dropdownRect && dropdownRect.w > 0 && dropdownRect.h > 0) {
+          const inside =
+            event.x >= dropdownRect.x &&
+            event.x < dropdownRect.x + dropdownRect.w &&
+            event.y >= dropdownRect.y &&
+            event.y < dropdownRect.y + dropdownRect.h;
+
+          const contentX = dropdownRect.x + 1;
+          const contentY = dropdownRect.y + 1;
+          const contentW = Math.max(0, dropdownRect.w - 2);
+          const contentH = Math.max(0, dropdownRect.h - 2);
+          const inContent =
+            event.x >= contentX &&
+            event.x < contentX + contentW &&
+            event.y >= contentY &&
+            event.y < contentY + contentH;
+          const itemIndex = inContent ? event.y - contentY : null;
+
+          const MOUSE_KIND_DOWN = 3;
+          const MOUSE_KIND_UP = 4;
+
+          if (event.mouseKind === MOUSE_KIND_DOWN) {
+            this.pressedDropdown = null;
+
+            if (!inside) {
+              if (dropdown.onClose) {
+                try {
+                  dropdown.onClose();
+                } catch {
+                  // Swallow close callback errors to preserve routing determinism.
+                }
+              }
+              return ROUTE_RENDER;
+            }
+
+            if (itemIndex !== null && itemIndex >= 0 && itemIndex < dropdown.items.length) {
+              const item = dropdown.items[itemIndex];
+              if (item && !item.divider && item.disabled !== true) {
+                const prevSelected = this.dropdownSelectedIndexById.get(topDropdownId) ?? 0;
+                this.dropdownSelectedIndexById.set(topDropdownId, itemIndex);
+                this.pressedDropdown = Object.freeze({ id: topDropdownId, itemId: item.id });
+                return Object.freeze({ needsRender: itemIndex !== prevSelected });
+              }
+            }
+
+            // Click inside dropdown but not on a selectable item: consume.
+            return ROUTE_NO_RENDER;
+          }
+
+          if (event.mouseKind === MOUSE_KIND_UP) {
+            const pressed = this.pressedDropdown;
+            this.pressedDropdown = null;
+
+            if (pressed && pressed.id === topDropdownId && itemIndex !== null) {
+              const item = dropdown.items[itemIndex];
+              if (item && item.id === pressed.itemId && !item.divider && item.disabled !== true) {
+                if (dropdown.onSelect) {
+                  try {
+                    dropdown.onSelect(item);
+                  } catch {
+                    // Swallow select callback errors to preserve routing determinism.
+                  }
+                }
+                if (dropdown.onClose) {
+                  try {
+                    dropdown.onClose();
+                  } catch {
+                    // Swallow close callback errors to preserve routing determinism.
+                  }
+                }
+                return ROUTE_RENDER;
+              }
+            }
+
+            // Mouse up while dropdown is open: consume.
+            return ROUTE_NO_RENDER;
+          }
+
+          // Dropdown open: block mouse events to lower layers.
+          return ROUTE_NO_RENDER;
+        }
+      }
+
       const hit = hitTestLayers(this.layerRegistry, event.x, event.y);
       if (hit.blocked) {
         const blocking = hit.blockingLayer;
@@ -1827,6 +1920,43 @@ export class WidgetRenderer<S> {
     }
   }
 
+  private computeDropdownRect(props: DropdownProps): Rect | null {
+    const viewport = this.lastViewport;
+    if (viewport.cols <= 0 || viewport.rows <= 0) return null;
+
+    const anchor = this.rectById.get(props.anchorId) ?? null;
+    if (!anchor) return null;
+
+    const items = Array.isArray(props.items) ? props.items : [];
+    let maxLabelW = 0;
+    let maxShortcutW = 0;
+    for (const item of items) {
+      if (!item || item.divider) continue;
+      const labelW = measureTextCells(item.label);
+      if (labelW > maxLabelW) maxLabelW = labelW;
+      const shortcut = item.shortcut;
+      if (shortcut && shortcut.length > 0) {
+        const shortcutW = measureTextCells(shortcut);
+        if (shortcutW > maxShortcutW) maxShortcutW = shortcutW;
+      }
+    }
+
+    const gapW = maxShortcutW > 0 ? 1 : 0;
+    const contentW = Math.max(1, maxLabelW + gapW + maxShortcutW);
+    const totalW = Math.max(2, contentW + 2); // +2 for border
+    const totalH = Math.max(2, items.length + 2); // +2 for border
+
+    const pos = calculateAnchorPosition({
+      anchor,
+      overlaySize: { w: totalW, h: totalH },
+      position: props.position ?? "below-start",
+      viewport: { x: 0, y: 0, width: viewport.cols, height: viewport.rows },
+      gap: 0,
+      flip: true,
+    });
+    return pos.rect;
+  }
+
   /**
    * Execute view function, commit tree, compute layout, and render to drawlist.
    *
@@ -1860,6 +1990,7 @@ export class WidgetRenderer<S> {
       };
     }
 
+    this.lastViewport = viewport;
     this.builder.reset();
 
     let entered = false;
@@ -2643,6 +2774,7 @@ export class WidgetRenderer<S> {
         commandPaletteItemsById: this.commandPaletteItemsById,
         commandPaletteLoadingById: this.commandPaletteLoadingById,
         toolApprovalFocusedActionById: this.toolApprovalFocusedActionById,
+        dropdownSelectedIndexById: this.dropdownSelectedIndexById,
         diffViewerFocusedHunkById: this.diffViewerFocusedHunkById,
         diffViewerExpandedHunksById: this.diffViewerExpandedHunksById,
         layoutIndex: this._pooledRectByInstanceId,

@@ -87,6 +87,8 @@ export type RenderToDrawlistParams = Readonly<{
   toolApprovalFocusedActionById?:
     | ReadonlyMap<string, "allow" | "deny" | "allowSession">
     | undefined;
+  /** Optional Dropdown selected index (per dropdown id). */
+  dropdownSelectedIndexById?: ReadonlyMap<string, number> | undefined;
   /** Optional DiffViewer focused hunk index (per viewer id). */
   diffViewerFocusedHunkById?: ReadonlyMap<string, number> | undefined;
   /** Optional DiffViewer expanded hunks (per viewer id). */
