@@ -40,13 +40,18 @@ function normalizePanelCellSizes(
   const remainder = availableForPanels - totalSize;
   if (remainder > 0) {
     let r = remainder;
-    for (let i = 0; i < sizes.length && r > 0; i++) {
-      const currentSize = sizes[i] ?? 0;
-      const maxSize = maxSizes?.[i] ?? availableForPanels;
-      if (currentSize < maxSize) {
-        sizes[i] = currentSize + 1;
-        r--;
+    while (r > 0) {
+      let progressed = false;
+      for (let i = 0; i < sizes.length && r > 0; i++) {
+        const currentSize = sizes[i] ?? 0;
+        const maxSize = maxSizes?.[i] ?? availableForPanels;
+        if (currentSize < maxSize) {
+          sizes[i] = currentSize + 1;
+          r--;
+          progressed = true;
+        }
       }
+      if (!progressed) break;
     }
   } else if (remainder < 0) {
     let overshoot = -remainder;

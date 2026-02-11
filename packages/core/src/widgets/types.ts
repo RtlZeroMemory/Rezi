@@ -991,8 +991,6 @@ export type PanelGroupProps = Readonly<{
   key?: string;
   /** Layout direction. */
   direction: SplitDirection;
-  /** Auto-save layout key (localStorage). */
-  autoSaveId?: string;
 }>;
 
 /* ---------- CodeEditor Widget ---------- */

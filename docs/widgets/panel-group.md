@@ -9,7 +9,6 @@ ui.panelGroup(
   {
     id: "panel-group",
     direction: "horizontal",
-    autoSaveId: "main-layout",
   },
   [
     ui.resizablePanel({ defaultSize: 25 }, [Sidebar()]),
@@ -24,12 +23,11 @@ ui.panelGroup(
 |------|------|---------|-------------|
 | `id` | `string` | **required** | Group identifier |
 | `direction` | `"horizontal" \| "vertical"` | **required** | Layout direction |
-| `autoSaveId` | `string` | - | App-level key for persisting layout (core does not persist) |
 
 ## Notes
 
-- `PanelGroup` distributes space evenly when sizes are not provided.
-- `ResizablePanel` size hints are preserved but not applied by core layout.
+- `PanelGroup` distributes space based on `ResizablePanel` size hints (with equal distribution when unspecified).
+- `ResizablePanel` size hints are interpreted as percentages of the group's width/height (based on `direction`).
 - Use [`SplitPane`](split-pane.md) for draggable resizing.
 
 ## Related

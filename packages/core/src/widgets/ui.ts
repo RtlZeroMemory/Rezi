@@ -840,7 +840,6 @@ export const ui = {
    * ui.panelGroup({
    *   id: "panel-group",
    *   direction: "horizontal",
-   *   autoSaveId: "main-layout",
    * }, [
    *   ui.resizablePanel({ defaultSize: 25 }, [Sidebar()]),
    *   ui.resizablePanel({ defaultSize: 75, minSize: 50 }, [Content()]),

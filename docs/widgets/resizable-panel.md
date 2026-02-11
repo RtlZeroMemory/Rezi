@@ -18,13 +18,13 @@ ui.panelGroup(
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `defaultSize` | `number` | auto | Initial size (percent or cells, based on parent) |
-| `minSize` | `number` | - | Minimum size |
-| `maxSize` | `number` | - | Maximum size |
+| `defaultSize` | `number` | auto | Initial size (percentage of the parent axis) |
+| `minSize` | `number` | - | Minimum size (percentage) |
+| `maxSize` | `number` | - | Maximum size (percentage) |
 | `collapsible` | `boolean` | `false` | Allow collapsing the panel |
 
 ## Notes
 
 - `ResizablePanel` should contain exactly one child widget.
-- `PanelGroup` distributes space evenly; size hints on `ResizablePanel` are preserved as metadata but not applied by core layout.
+- `PanelGroup` uses `defaultSize`/`minSize`/`maxSize` as sizing hints along its primary axis.
 - For draggable sizing, use [`SplitPane`](split-pane.md).

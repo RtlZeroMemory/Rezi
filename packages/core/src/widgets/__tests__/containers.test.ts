@@ -91,7 +91,6 @@ describe("container widgets - VNode construction", () => {
       {
         id: "group",
         direction: "vertical",
-        autoSaveId: "layout-main",
       },
       [ui.resizablePanel({ defaultSize: 30 }, [left]), ui.resizablePanel({}, [right])],
     );
@@ -100,7 +99,6 @@ describe("container widgets - VNode construction", () => {
     assert.deepEqual(group.props, {
       id: "group",
       direction: "vertical",
-      autoSaveId: "layout-main",
     });
 
     const panel = ui.resizablePanel({ minSize: 10, maxSize: 70, collapsible: true }, [left]);
