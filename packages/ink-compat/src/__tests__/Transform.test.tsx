@@ -52,4 +52,18 @@ describe("<Transform>", () => {
     assert.equal(vnode.children[1]?.kind, "text");
     assert.equal(vnode.children[1]?.text, "1:b");
   });
+
+  test("transform ANSI SGR output is parsed into styled text", () => {
+    const vnode = renderToVNode(
+      <Text>
+        <Transform transform={(s) => `\u001b[38;5;74m${s}\u001b[0m plain`}>X</Transform>
+      </Text>,
+    );
+
+    assert.equal(vnode.kind, "richText");
+    const spans = vnode.props.spans;
+    assert.equal(spans.length, 2);
+    assert.deepEqual(spans[0], { text: "X", style: { fg: { r: 95, g: 175, b: 215 } } });
+    assert.deepEqual(spans[1], { text: " plain" });
+  });
 });

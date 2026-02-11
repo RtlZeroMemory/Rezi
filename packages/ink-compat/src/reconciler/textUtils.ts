@@ -341,7 +341,7 @@ function collectTextSpans(
         const text = inner.map((s) => s.text).join("");
         const transformed = applyTransformPerLine(text, transform);
         if (transformed.length === 0) continue;
-        pushSpan(out, { text: transformed, ...(merged ? { style: merged } : {}) });
+        pushSanitizedStyledText(transformed, merged, out);
       } else {
         collectTextSpans(n.children, merged, out);
       }
@@ -386,7 +386,8 @@ export function convertText(node: HostElement): VNode | null {
     const text = inner.map((s) => s.text).join("");
     const transformed = applyTransformPerLine(text, transform);
     if (transformed.length > 0) {
-      spans = [{ text: transformed, ...(mapped.style ? { style: mapped.style } : {}) }];
+      spans = [];
+      pushSanitizedStyledText(transformed, mapped.style, spans);
     }
   } else {
     spans = [];
