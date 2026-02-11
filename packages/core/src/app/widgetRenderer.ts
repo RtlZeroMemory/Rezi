@@ -1691,6 +1691,44 @@ export class WidgetRenderer<S> {
       } else if (event.mouseKind === 4) {
         this.pressedTable = null;
         this.pressedTableHeader = null;
+    // Right-click context menu for FileTreeExplorer.
+    if (event.kind === "mouse" && event.mouseKind === 3) {
+      const targetId = mouseTargetId;
+      if (targetId !== null) {
+        const fte = this.fileTreeExplorerById.get(targetId);
+        const rect = this.rectById.get(targetId);
+        if (fte && rect && typeof fte.onContextMenu === "function") {
+          const RIGHT_BUTTON = 1 << 2;
+          if ((event.buttons & RIGHT_BUTTON) !== 0) {
+            const localY = event.y - rect.y;
+            const inBounds = localY >= 0 && localY < rect.h;
+            if (inBounds) {
+              const state = this.treeStore.get(fte.id);
+              const flatNodes =
+                readFileNodeFlatCache(state, fte.data, fte.expanded) ??
+                (() => {
+                  const next = flattenTree(
+                    fte.data,
+                    fileNodeGetKey,
+                    fileNodeGetChildren,
+                    fileNodeHasChildren,
+                    fte.expanded,
+                  );
+                  this.treeStore.set(fte.id, {
+                    flatCache: makeFileNodeFlatCache(fte.data, fte.expanded, next),
+                  });
+                  return next;
+                })();
+
+              const idx = Math.max(0, state.scrollTop) + localY;
+              const fn = flatNodes[idx];
+              if (fn) {
+                fte.onContextMenu(fn.node);
+                localNeedsRender = true;
+              }
+            }
+          }
+        }
       }
     }
 
