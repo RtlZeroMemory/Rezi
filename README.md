@@ -38,6 +38,9 @@ The result is per-frame rendering costs closer to compiled TUI frameworks than t
 
 ### 1) Ink compatibility (React)
 
+> ⚠️ **Experimental** — The Ink compatibility layer is in active development.  
+> Some Ink apps may not work yet. The target is complete drop-in compatibility.
+> 
 For existing Ink apps, the entry point is `@rezi-ui/ink-compat`:
 
 ```diff
