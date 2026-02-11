@@ -426,6 +426,9 @@ function armSabFrameWake(): void {
   const h = frameTransport.controlHeader;
   const seq = Atomics.load(h, FRAME_SAB_CONTROL_PUBLISHED_SEQ_WORD);
   if (seq > lastConsumedSabPublishedSeq) {
+    // Avoid timer-driven SAB mailbox polling; when we can observe that a newer
+    // frame is available, sync it now and schedule an immediate submit tick.
+    syncPendingSabFrameFromMailbox();
     scheduleTickNow();
     return;
   }
@@ -449,6 +452,7 @@ function armSabFrameWake(): void {
   if (waiter.async !== true) {
     if (!running) return;
     if (epoch !== sabWakeEpoch) return;
+    syncPendingSabFrameFromMailbox();
     scheduleTickNow();
     return;
   }
@@ -460,6 +464,7 @@ function armSabFrameWake(): void {
       if (epoch !== sabWakeEpoch) return;
       sabWakeArmed = false;
       if (!running) return;
+      syncPendingSabFrameFromMailbox();
       scheduleTickNow();
     },
     () => {
@@ -616,9 +621,6 @@ function shutdownNow(): void {
 function tick(): void {
   if (!running) return;
   if (engineId === null) return;
-  if (frameTransport.kind === FRAME_TRANSPORT_SAB_V1) {
-    syncPendingSabFrameFromMailbox();
-  }
 
   let didSubmitDrawlistThisTick = false;
   let didFrameWork = false;
