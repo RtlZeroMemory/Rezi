@@ -1,8 +1,19 @@
-import { type RichTextSpan, type TextStyle, type VNode, ui } from "@rezi-ui/core";
+import { type Rgb, type RichTextSpan, type TextStyle, type VNode, ui } from "@rezi-ui/core";
+import { resolveInkColor } from "../color.js";
 import { InkCompatError } from "../errors.js";
 import { mapTextProps } from "../props.js";
 import type { TextProps } from "../types.js";
 import type { HostElement, HostNode } from "./types.js";
+
+type MutableTextStyle = {
+  fg?: Rgb;
+  bg?: Rgb;
+  bold?: true;
+  dim?: true;
+  italic?: true;
+  underline?: true;
+  inverse?: true;
+};
 
 function mergeStyle(a: TextStyle | undefined, b: TextStyle | undefined): TextStyle | undefined {
   if (!a) return b;
@@ -56,6 +67,175 @@ function applyTransformPerLine(text: string, transform: InternalTransform): stri
   return lines.join("\n");
 }
 
+function styleOrUndefined(style: MutableTextStyle): TextStyle | undefined {
+  if (
+    style.fg === undefined &&
+    style.bg === undefined &&
+    style.bold === undefined &&
+    style.dim === undefined &&
+    style.italic === undefined &&
+    style.underline === undefined &&
+    style.inverse === undefined
+  ) {
+    return undefined;
+  }
+  return style;
+}
+
+function ansiIndexToRgb(index: number): Rgb | undefined {
+  if (!Number.isInteger(index) || index < 0 || index > 255) return undefined;
+  return resolveInkColor(`ansi256(${index})`);
+}
+
+function clampByte(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(255, Math.trunc(n)));
+}
+
+function parseSgrParams(raw: string): number[] {
+  if (raw.length === 0) return [0];
+  return raw
+    .split(";")
+    .map((p) => {
+      if (p.length === 0) return 0;
+      const n = Number.parseInt(p, 10);
+      return Number.isFinite(n) ? n : Number.NaN;
+    })
+    .filter((n) => !Number.isNaN(n));
+}
+
+function applySgrCodes(style: MutableTextStyle, rawParams: string): MutableTextStyle {
+  const params = parseSgrParams(rawParams);
+  const next: MutableTextStyle = { ...style };
+  let i = 0;
+
+  while (i < params.length) {
+    const code = params[i];
+    if (code === undefined) break;
+
+    // Extended colors: 38;5;n / 48;5;n and 38;2;r;g;b / 48;2;r;g;b
+    if (code === 38 || code === 48) {
+      const mode = params[i + 1];
+      if (mode === 5) {
+        const idx = params[i + 2];
+        if (idx !== undefined) {
+          const color = ansiIndexToRgb(idx);
+          if (color !== undefined) {
+            if (code === 38) next.fg = color;
+            else next.bg = color;
+          }
+          i += 3;
+          continue;
+        }
+      } else if (mode === 2) {
+        const r = params[i + 2];
+        const g = params[i + 3];
+        const b = params[i + 4];
+        if (r !== undefined && g !== undefined && b !== undefined) {
+          const color = { r: clampByte(r), g: clampByte(g), b: clampByte(b) };
+          if (code === 38) next.fg = color;
+          else next.bg = color;
+          i += 5;
+          continue;
+        }
+      }
+    }
+
+    switch (code) {
+      case 0:
+        delete next.fg;
+        delete next.bg;
+        delete next.bold;
+        delete next.dim;
+        delete next.italic;
+        delete next.underline;
+        delete next.inverse;
+        break;
+      case 1:
+        next.bold = true;
+        break;
+      case 2:
+        next.dim = true;
+        break;
+      case 3:
+        next.italic = true;
+        break;
+      case 4:
+        next.underline = true;
+        break;
+      case 7:
+        next.inverse = true;
+        break;
+      case 22:
+        delete next.bold;
+        delete next.dim;
+        break;
+      case 23:
+        delete next.italic;
+        break;
+      case 24:
+        delete next.underline;
+        break;
+      case 27:
+        delete next.inverse;
+        break;
+      case 39:
+        delete next.fg;
+        break;
+      case 49:
+        delete next.bg;
+        break;
+      default:
+        if (code >= 30 && code <= 37) {
+          const fg = ansiIndexToRgb(code - 30);
+          if (fg !== undefined) next.fg = fg;
+        } else if (code >= 90 && code <= 97) {
+          const fg = ansiIndexToRgb(code - 90 + 8);
+          if (fg !== undefined) next.fg = fg;
+        } else if (code >= 40 && code <= 47) {
+          const bg = ansiIndexToRgb(code - 40);
+          if (bg !== undefined) next.bg = bg;
+        } else if (code >= 100 && code <= 107) {
+          const bg = ansiIndexToRgb(code - 100 + 8);
+          if (bg !== undefined) next.bg = bg;
+        }
+        break;
+    }
+
+    i++;
+  }
+
+  return next;
+}
+
+type CsiSequence = Readonly<{
+  final: string;
+  params: string;
+  end: number;
+}>;
+
+function parseCsi(text: string, start: number): CsiSequence | null {
+  if (text[start] !== "\u001b" || text[start + 1] !== "[") return null;
+
+  let i = start + 2;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === undefined) break;
+    const code = ch.charCodeAt(0);
+    // CSI final bytes: 0x40..0x7e
+    if (code >= 0x40 && code <= 0x7e) {
+      return {
+        final: ch,
+        params: text.slice(start + 2, i),
+        end: i + 1,
+      };
+    }
+    i++;
+  }
+
+  return null;
+}
+
 export function sanitizeTextForTerminal(raw: string): string {
   // Normalize CRLF/CR into LF.
   const text = raw.replace(/\r\n?/g, "\n");
@@ -73,6 +253,14 @@ export function sanitizeTextForTerminal(raw: string): string {
       out += "  ";
       continue;
     }
+    if (ch === "\u001b") {
+      // Drop complete CSI sequences so we don't leak raw "[...m" fragments.
+      const csi = parseCsi(text, i);
+      if (csi) {
+        i = csi.end - 1;
+      }
+      continue;
+    }
 
     const code = ch.charCodeAt(0);
     // Drop other ASCII control chars.
@@ -84,6 +272,54 @@ export function sanitizeTextForTerminal(raw: string): string {
   return out;
 }
 
+function pushSanitizedStyledText(
+  raw: string,
+  inherited: TextStyle | undefined,
+  out: RichTextSpan[],
+): void {
+  const text = raw.replace(/\r\n?/g, "\n");
+  let buf = "";
+  let ansiStyle: MutableTextStyle = {};
+
+  const flush = (): void => {
+    if (buf.length === 0) return;
+    const merged = mergeStyle(inherited, styleOrUndefined(ansiStyle));
+    pushSpan(out, { text: buf, ...(merged ? { style: merged } : {}) });
+    buf = "";
+  };
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === undefined) continue;
+
+    if (ch === "\n") {
+      buf += "\n";
+      continue;
+    }
+    if (ch === "\t") {
+      buf += "  ";
+      continue;
+    }
+    if (ch === "\u001b") {
+      const csi = parseCsi(text, i);
+      if (csi) {
+        if (csi.final === "m") {
+          flush();
+          ansiStyle = applySgrCodes(ansiStyle, csi.params);
+        }
+        i = csi.end - 1;
+      }
+      continue;
+    }
+
+    const code = ch.charCodeAt(0);
+    if (code < 0x20 || code === 0x7f) continue;
+    buf += ch;
+  }
+
+  flush();
+}
+
 function collectTextSpans(
   nodes: readonly HostNode[],
   inherited: TextStyle | undefined,
@@ -91,9 +327,7 @@ function collectTextSpans(
 ): void {
   for (const n of nodes) {
     if (n.kind === "text") {
-      const text = sanitizeTextForTerminal(n.text);
-      if (text.length === 0) continue;
-      pushSpan(out, { text, ...(inherited ? { style: inherited } : {}) });
+      pushSanitizedStyledText(n.text, inherited, out);
       continue;
     }
 

@@ -48,6 +48,24 @@ describe("reconciler: host tree -> Rezi VNode", () => {
     assert.deepEqual(spans[1], { text: " there" });
   });
 
+  test("<Text> parses ANSI SGR color sequences into richText spans", () => {
+    const vnode = renderToVNode(<Text>{"\u001b[31mRED\u001b[0m plain"}</Text>);
+    assert.equal(vnode.kind, "richText");
+    const spans = vnode.props.spans;
+    assert.equal(spans.length, 2);
+    assert.deepEqual(spans[0], { text: "RED", style: { fg: { r: 128, g: 0, b: 0 } } });
+    assert.deepEqual(spans[1], { text: " plain" });
+  });
+
+  test("<Text> supports ANSI 256-color foreground (38;5;n)", () => {
+    const vnode = renderToVNode(<Text>{"\u001b[38;5;74mA\u001b[39mB"}</Text>);
+    assert.equal(vnode.kind, "richText");
+    const spans = vnode.props.spans;
+    assert.equal(spans.length, 2);
+    assert.deepEqual(spans[0], { text: "A", style: { fg: { r: 95, g: 175, b: 215 } } });
+    assert.deepEqual(spans[1], { text: "B" });
+  });
+
   test("<Box flexDirection> maps to ui.row/ui.column", () => {
     const row = renderToVNode(
       <Box flexDirection="row">
