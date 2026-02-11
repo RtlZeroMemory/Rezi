@@ -5,7 +5,10 @@ import type { BoxProps } from "../types.js";
 import { convertText, sanitizeTextForTerminal, splitSpansByNewline } from "./textUtils.js";
 import type { HostElement, HostNode, HostRoot } from "./types.js";
 
-type ConvertCtx = Readonly<{ staticVNodes: VNode[] }>;
+type ConvertCtx = Readonly<{
+  staticByOwner: Map<string, VNode[]>;
+  seenStaticOwners: Set<string>;
+}>;
 
 type ConvertedChild = Readonly<{ vnode: VNode; estimatedHeight: number }>;
 type LayoutSizingProps = Readonly<{
@@ -150,7 +153,10 @@ function convertNode(node: HostNode, ctx: ConvertCtx): VNode | null {
       const vnode = wrapperWithId ? ui.box(wrapperWithId, [stack]) : stack;
 
       if (isStatic) {
-        ctx.staticVNodes.push(vnode);
+        ctx.seenStaticOwners.add(node.internal_id);
+        const owned = ctx.staticByOwner.get(node.internal_id) ?? [];
+        owned.push(vnode);
+        ctx.staticByOwner.set(node.internal_id, owned);
         return null;
       }
 
@@ -167,12 +173,26 @@ function convertNode(node: HostNode, ctx: ConvertCtx): VNode | null {
 }
 
 export function convertRoot(root: HostRoot): VNode {
+  const staticByOwner = root.internal_staticByOwner ?? new Map<string, VNode[]>();
+  root.internal_staticByOwner = staticByOwner;
+  const seenStaticOwners = new Set<string>();
+
   const out: VNode[] = [];
-  const ctx: ConvertCtx = { staticVNodes: root.staticVNodes };
+  const ctx: ConvertCtx = { staticByOwner, seenStaticOwners };
   for (const c of root.children) {
     const v = convertNode(c, ctx);
     if (v) out.push(v);
   }
+
+  // Drop static owners that are no longer mounted to avoid replaying stale
+  // static chunks after keyed remounts (e.g. terminal resize refresh paths).
+  for (const ownerId of staticByOwner.keys()) {
+    if (!seenStaticOwners.has(ownerId)) {
+      staticByOwner.delete(ownerId);
+    }
+  }
+
+  root.staticVNodes = Array.from(staticByOwner.values()).flat();
 
   const all = [...root.staticVNodes, ...out];
   if (all.length === 0) return ui.text("");

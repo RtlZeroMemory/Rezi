@@ -52,10 +52,15 @@ export type HostRoot = {
   kind: "root";
   children: Array<HostElement | HostText>;
   /**
-   * Persistent static output (Ink `<Static>` semantics).
-   * Items are appended on each commit and remain for the lifetime of the render() root.
+   * Persistent static output (Ink `<Static>` semantics), recomputed from
+   * mounted static owners each commit.
    */
   staticVNodes: VNode[];
+  /**
+   * Internal owner-scoped store for static output chunks.
+   * Keyed by `HostElement.internal_id` of `<Static>` container nodes.
+   */
+  internal_staticByOwner?: Map<string, VNode[]>;
   internal_nextNodeId?: number;
   onCommit: (vnode: VNode | null) => void;
 };

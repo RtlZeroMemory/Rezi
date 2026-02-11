@@ -103,7 +103,6 @@ export function render(
   let unsubEvents: (() => void) | null = null;
 
   const supportsRawMode = hasRawMode(stdin);
-  const backendOwnsRawMode = stdin === process.stdin;
   let rawModeEnabledCount = 0;
 
   const cleanupPatchedConsole = () => {
@@ -128,7 +127,7 @@ export function render(
 
   const cleanupRawMode = () => {
     if (rawModeEnabledCount <= 0) return;
-    if (supportsRawMode && !backendOwnsRawMode) {
+    if (supportsRawMode) {
       try {
         stdin.setRawMode(false);
       } catch {
@@ -212,7 +211,7 @@ export function render(
       }
 
       if (enabled) {
-        if (rawModeEnabledCount === 0 && !backendOwnsRawMode) {
+        if (rawModeEnabledCount === 0) {
           stdin.setEncoding("utf8");
           try {
             stdin.ref();
@@ -227,7 +226,7 @@ export function render(
 
       if (rawModeEnabledCount <= 0) return;
       rawModeEnabledCount--;
-      if (rawModeEnabledCount === 0 && !backendOwnsRawMode) {
+      if (rawModeEnabledCount === 0) {
         stdin.setRawMode(false);
         try {
           stdin.unref();

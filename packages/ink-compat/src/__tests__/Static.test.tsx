@@ -68,4 +68,39 @@ describe("<Static>", () => {
     assert.equal(second.children[2]?.kind, "text");
     assert.equal(second.children[2]?.text, "dyn");
   });
+
+  test("does not duplicate static output across keyed remounts", () => {
+    const h = createHarness();
+
+    const render = (k: number, items: number[]) => (
+      <>
+        <Static key={String(k)} items={items}>
+          {(item, i) => <Text key={String(i)}>{String(item)}</Text>}
+        </Static>
+        <Text>dyn</Text>
+      </>
+    );
+
+    h.update(render(1, [1]));
+    const first = h.getLast();
+    assert.equal(first.kind, "column");
+    assert.equal(first.children.length, 2);
+    assert.equal(first.children[0]?.kind, "column");
+    assert.equal(first.children[0]?.children[0]?.kind, "text");
+    assert.equal(first.children[0]?.children[0]?.text, "1");
+    assert.equal(first.children[1]?.kind, "text");
+    assert.equal(first.children[1]?.text, "dyn");
+
+    // Key change forces a remount. Static output should be preserved once,
+    // not replayed as a duplicate chunk.
+    h.update(render(2, [1]));
+    const second = h.getLast();
+    assert.equal(second.kind, "column");
+    assert.equal(second.children.length, 2);
+    assert.equal(second.children[0]?.kind, "column");
+    assert.equal(second.children[0]?.children[0]?.kind, "text");
+    assert.equal(second.children[0]?.children[0]?.text, "1");
+    assert.equal(second.children[1]?.kind, "text");
+    assert.equal(second.children[1]?.text, "dyn");
+  });
 });
