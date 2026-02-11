@@ -3,6 +3,7 @@ import { clampNonNegative, clampWithin } from "../engine/bounds.js";
 import { isVNode } from "../engine/guards.js";
 import { ok } from "../engine/result.js";
 import type { LayoutTree } from "../engine/types.js";
+import { measureTextCells } from "../textMeasure.js";
 import type { Axis, Rect, Size } from "../types.js";
 import type { LayoutResult } from "../validateProps.js";
 
@@ -203,27 +204,6 @@ export function layoutOverlays(
 
       const title = typeof props.title === "string" ? props.title : undefined;
 
-      const maxWidth =
-        typeof props.maxWidth === "number" && props.maxWidth > 0
-          ? Math.floor(props.maxWidth)
-          : rectW;
-
-      let modalW =
-        typeof props.width === "number" && props.width > 0
-          ? Math.floor(props.width)
-          : Math.floor(rectW * 0.7);
-
-      modalW = clampNonNegative(Math.min(modalW, maxWidth));
-      modalW = clampWithin(modalW, Math.min(10, rectW), rectW);
-      if (rectW >= 4) modalW = Math.min(modalW, rectW - 2);
-
-      let modalH = Math.floor(rectH * 0.6);
-      modalH = clampWithin(modalH, Math.min(5, rectH), rectH);
-      if (rectH >= 4) modalH = Math.min(modalH, rectH - 2);
-
-      const mx = x + Math.floor((rectW - modalW) / 2);
-      const my = y + Math.floor((rectH - modalH) / 2);
-
       const content = isVNode(props.content) ? props.content : null;
       const actionsRaw = Array.isArray(props.actions) ? props.actions : [];
       const actions: VNode[] = [];
@@ -234,6 +214,60 @@ export function layoutOverlays(
       const border = 1;
       const titleH = title ? 1 : 0;
       const actionsH = actions.length > 0 ? 1 : 0;
+
+      const maxWidth =
+        typeof props.maxWidth === "number" && props.maxWidth > 0
+          ? Math.floor(props.maxWidth)
+          : rectW;
+
+      let modalH = Math.floor(rectH * 0.6);
+      modalH = clampWithin(modalH, Math.min(5, rectH), rectH);
+      if (rectH >= 4) modalH = Math.min(modalH, rectH - 2);
+
+      const maxModalW = clampNonNegative(Math.min(rectW, maxWidth));
+      const maxInnerW = clampNonNegative(maxModalW - border * 2);
+      const maxInnerH = clampNonNegative(modalH - border * 2 - titleH - actionsH);
+
+      let modalW: number;
+      if (typeof props.width === "number" && props.width > 0) {
+        modalW = Math.floor(props.width);
+      } else if (props.width === "auto") {
+        let contentW = 0;
+        if (content) {
+          const sizeRes = measureNode(content, maxInnerW, maxInnerH, "column");
+          if (!sizeRes.ok) return sizeRes;
+          contentW = clampNonNegative(Math.min(maxInnerW, sizeRes.value.w));
+        }
+
+        let actionsW = 0;
+        if (actions.length > 0) {
+          const gap = 1;
+          let total = 0;
+          for (let i = 0; i < actions.length; i++) {
+            const a = actions[i];
+            if (!a) continue;
+            const sizeRes = measureNode(a, maxInnerW, 1, "row");
+            if (!sizeRes.ok) return sizeRes;
+            const aw = clampNonNegative(Math.min(maxInnerW, sizeRes.value.w));
+            total += aw;
+            if (i < actions.length - 1) total += gap;
+          }
+          actionsW = total;
+        }
+
+        const innerW = Math.max(contentW, actionsW);
+        const titleW = title ? measureTextCells(title) + 4 : 0;
+        modalW = Math.max(innerW + border * 2, titleW);
+      } else {
+        modalW = Math.floor(rectW * 0.7);
+      }
+
+      modalW = clampNonNegative(Math.min(modalW, maxWidth));
+      modalW = clampWithin(modalW, Math.min(10, rectW), rectW);
+      if (rectW >= 4) modalW = Math.min(modalW, rectW - 2);
+
+      const mx = x + Math.floor((rectW - modalW) / 2);
+      const my = y + Math.floor((rectH - modalH) / 2);
 
       const innerX = mx + border;
       const innerY = my + border + titleH;
