@@ -32,6 +32,20 @@ function mouseDownEvent(x: number, y: number): ZrevEvent {
   };
 }
 
+function mouseEvent(x: number, y: number, mouseKind: 1 | 2 | 3 | 4 | 5): ZrevEvent {
+  return {
+    kind: "mouse",
+    timeMs: 0,
+    x,
+    y,
+    mouseKind,
+    mods: 0,
+    buttons: 0,
+    wheelX: 0,
+    wheelY: 0,
+  };
+}
+
 function createNoopBackend(): RuntimeBackend {
   return {
     start: async () => {},
@@ -416,6 +430,99 @@ describe("WidgetRenderer integration battery", () => {
     assert.equal(renderer.getFocusedId(), getToastActionFocusId("t0"));
     assert.deepEqual(events, ["exit:zone-1"]);
     assert.deepEqual(activated, ["t0"]);
+  });
+
+  test("dropdown mouse click selects item and closes", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const events: string[] = [];
+
+    const vnode = ui.layers([
+      ui.column({}, [ui.button({ id: "anchor", label: "Menu" })]),
+      ui.dropdown({
+        id: "dd",
+        anchorId: "anchor",
+        position: "below-start",
+        items: [
+          { id: "one", label: "One" },
+          { id: "two", label: "Two" },
+        ],
+        onSelect: (item) => events.push(`select:${item.id}`),
+        onClose: () => events.push("close"),
+      }),
+    ]);
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 40, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(mouseEvent(2, 3, 3));
+    renderer.routeEngineEvent(mouseEvent(2, 3, 4));
+
+    assert.deepEqual(events, ["select:two", "close"]);
+  });
+
+  test("dropdown mouse up does not select different item after reorder", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const events: string[] = [];
+    let items: readonly { id: string; label: string }[] = [
+      { id: "one", label: "One" },
+      { id: "two", label: "Two" },
+    ];
+
+    const view = () =>
+      ui.layers([
+        ui.column({}, [ui.button({ id: "anchor", label: "Menu" })]),
+        ui.dropdown({
+          id: "dd",
+          anchorId: "anchor",
+          position: "below-start",
+          items,
+          onSelect: (item) => events.push(`select:${item.id}`),
+          onClose: () => events.push("close"),
+        }),
+      ]);
+
+    const first = renderer.submitFrame(
+      () => view(),
+      undefined,
+      { cols: 40, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(first.ok);
+
+    renderer.routeEngineEvent(mouseEvent(2, 3, 3));
+
+    items = [
+      { id: "two", label: "Two" },
+      { id: "one", label: "One" },
+    ];
+    const second = renderer.submitFrame(
+      () => view(),
+      undefined,
+      { cols: 40, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(second.ok);
+
+    renderer.routeEngineEvent(mouseEvent(2, 3, 4));
+    assert.deepEqual(events, []);
   });
 
   test("virtualList routing updates selection and activates on Enter", () => {

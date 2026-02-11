@@ -23,11 +23,11 @@ ui.dropdown({
 ## Behavior
 
 - **Arrow keys** navigate items. **Enter** selects the highlighted item.
+- The current selection is visually highlighted.
 - **Mouse click** on an item selects it and fires the `onSelect` callback.
-- **Clicking outside** the dropdown closes it (via the layer backdrop).
+- **Clicking outside** the dropdown closes it (calls `onClose`).
 
 ## Notes
 
 - Use `anchorId` to position the dropdown relative to an element in the layout tree.
 - Render dropdowns inside `ui.layers(...)` so they stack above base UI.
-
