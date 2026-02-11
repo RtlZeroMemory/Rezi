@@ -42,6 +42,7 @@ ui.virtualList({
 
 - Use `itemHeight` callback for variable-height rows.
 - `renderItem` receives a `focused` flag for styling.
+- The `range` passed to `onScroll` is `[startIndex, endIndex)` and includes overscan.
 
 ## Related
 

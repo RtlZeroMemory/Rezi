@@ -1016,6 +1016,7 @@ export class WidgetRenderer<S> {
       const vlist = this.virtualListById.get(focusedId);
       if (vlist) {
         const state: VirtualListLocalState = this.virtualListStore.get(vlist.id);
+        const prevScrollTop = state.scrollTop;
         const r = routeVirtualListKey(event, {
           virtualListId: vlist.id,
           items: vlist.items,
@@ -1032,6 +1033,22 @@ export class WidgetRenderer<S> {
           if (r.nextScrollTop !== undefined) patch.scrollTop = r.nextScrollTop;
           this.virtualListStore.set(vlist.id, patch);
           changed = true;
+        }
+
+        if (
+          r.nextScrollTop !== undefined &&
+          r.nextScrollTop !== prevScrollTop &&
+          typeof vlist.onScroll === "function"
+        ) {
+          const overscan = vlist.overscan ?? 3;
+          const { startIndex, endIndex } = computeVisibleRange(
+            vlist.items,
+            vlist.itemHeight,
+            r.nextScrollTop,
+            state.viewportHeight,
+            overscan,
+          );
+          vlist.onScroll(r.nextScrollTop, [startIndex, endIndex]);
         }
 
         if (r.action && vlist.onSelect) {
@@ -1406,6 +1423,17 @@ export class WidgetRenderer<S> {
 
         if (r.nextScrollTop !== undefined) {
           this.virtualListStore.set(vlist.id, { scrollTop: r.nextScrollTop });
+          if (typeof vlist.onScroll === "function") {
+            const overscan = vlist.overscan ?? 3;
+            const { startIndex, endIndex } = computeVisibleRange(
+              vlist.items,
+              vlist.itemHeight,
+              r.nextScrollTop,
+              state.viewportHeight,
+              overscan,
+            );
+            vlist.onScroll(r.nextScrollTop, [startIndex, endIndex]);
+          }
           return ROUTE_RENDER;
         }
       }

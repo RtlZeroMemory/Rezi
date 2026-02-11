@@ -18,21 +18,12 @@ function keyEvent(key: number, mods = 0): ZrevEvent {
   return { kind: "key", timeMs: 0, key, mods, action: "down" };
 }
 
-function mouseDownEvent(x: number, y: number): ZrevEvent {
-  return {
-    kind: "mouse",
-    timeMs: 0,
-    x,
-    y,
-    mouseKind: 3,
-    mods: 0,
-    buttons: 0,
-    wheelX: 0,
-    wheelY: 0,
-  };
-}
-
-function mouseEvent(x: number, y: number, mouseKind: 1 | 2 | 3 | 4 | 5): ZrevEvent {
+function mouseEvent(
+  x: number,
+  y: number,
+  mouseKind: 1 | 2 | 3 | 4 | 5,
+  opts: Readonly<{ wheelX?: number; wheelY?: number }> = {},
+): ZrevEvent {
   return {
     kind: "mouse",
     timeMs: 0,
@@ -41,9 +32,13 @@ function mouseEvent(x: number, y: number, mouseKind: 1 | 2 | 3 | 4 | 5): ZrevEve
     mouseKind,
     mods: 0,
     buttons: 0,
-    wheelX: 0,
-    wheelY: 0,
+    wheelX: opts.wheelX ?? 0,
+    wheelY: opts.wheelY ?? 0,
   };
+}
+
+function mouseDownEvent(x: number, y: number): ZrevEvent {
+  return mouseEvent(x, y, 3);
 }
 
 function createNoopBackend(): RuntimeBackend {
@@ -558,6 +553,42 @@ describe("WidgetRenderer integration battery", () => {
     renderer.routeEngineEvent(keyEvent(21 /* DOWN */));
     renderer.routeEngineEvent(keyEvent(2 /* ENTER */));
     assert.deepEqual(selected, ["b:1"]);
+  });
+
+  test("virtualList onScroll fires for wheel and key-driven scroll", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const scrolled: Array<Readonly<{ scrollTop: number; range: [number, number] }>> = [];
+
+    const vnode = ui.virtualList({
+      id: "v",
+      items: new Array<number>(100).fill(0).map((_, i) => i),
+      itemHeight: 1,
+      renderItem: (item) => ui.text(String(item)),
+      onScroll: (scrollTop, range) => scrolled.push(Object.freeze({ scrollTop, range })),
+    });
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 20, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(mouseEvent(1, 1, 5, { wheelY: 1 }));
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    renderer.routeEngineEvent(keyEvent(13 /* END */));
+
+    assert.deepEqual(scrolled, [
+      { scrollTop: 3, range: [0, 16] },
+      { scrollTop: 90, range: [87, 100] },
+    ]);
   });
 
   test("table routing moves focused row and activates on Enter", () => {
