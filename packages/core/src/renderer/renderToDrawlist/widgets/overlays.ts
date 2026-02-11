@@ -114,6 +114,7 @@ export function renderOverlayWidget(
   commandPaletteItemsById: ReadonlyMap<string, readonly CommandItem[]> | undefined,
   commandPaletteLoadingById: ReadonlyMap<string, boolean> | undefined,
   toolApprovalFocusedActionById: ReadonlyMap<string, "allow" | "deny" | "allowSession"> | undefined,
+  dropdownSelectedIndexById: ReadonlyMap<string, number> | undefined,
 ): ResolvedCursor | null {
   const vnode = node.vnode;
   let resolvedCursor: ResolvedCursor | null = null;
@@ -125,6 +126,7 @@ export function renderOverlayWidget(
       if (!anchor) break;
 
       const items = Array.isArray(props.items) ? props.items : [];
+      const selectedIndex = dropdownSelectedIndexById?.get(props.id) ?? 0;
       let maxLabelW = 0;
       let maxShortcutW = 0;
       for (const item of items) {
@@ -164,26 +166,41 @@ export function renderOverlayWidget(
       const cw = clampNonNegative(dropdownRect.w - 2);
 
       builder.pushClip(cx, dropdownRect.y + 1, cw, clampNonNegative(dropdownRect.h - 2));
-      for (const item of items) {
-        if (!item) continue;
+      for (let index = 0; index < items.length; index++) {
+        const item = items[index];
+        if (!item) {
+          cy++;
+          continue;
+        }
         if (item.divider) {
           // Render divider
           builder.drawText(cx, cy, "\u2500".repeat(cw), parentStyle);
         } else {
+          const isSelected = index === selectedIndex;
           const disabled = item.disabled === true;
           const label = readString(item.label);
           const shortcut = readString(item.shortcut);
           const shortcutW = shortcut.length > 0 ? measureTextCells(shortcut) : 0;
           const shortcutSlotW = shortcutW > 0 ? shortcutW + 1 : 0;
           const labelW = Math.max(0, cw - shortcutSlotW);
+          if (isSelected) {
+            builder.fillRect(cx, cy, cw, 1, { bg: theme.colors.secondary });
+          }
+
           const style = disabled
             ? mergeTextStyle(parentStyle, { fg: theme.colors.muted })
-            : parentStyle;
+            : isSelected
+              ? mergeTextStyle(parentStyle, { fg: theme.colors.bg, bold: true })
+              : parentStyle;
           builder.drawText(cx, cy, truncateWithEllipsis(label, labelW > 0 ? labelW : cw), style);
           if (shortcutW > 0 && cw > shortcutW) {
             const shortcutX = cx + cw - shortcutW;
             if (shortcutX > cx) {
-              builder.drawText(shortcutX, cy, shortcut, mergeTextStyle(style, { dim: true }));
+              const shortcutStyle =
+                isSelected && !disabled
+                  ? mergeTextStyle(parentStyle, { fg: theme.colors.info })
+                  : mergeTextStyle(style, { dim: true });
+              builder.drawText(shortcutX, cy, shortcut, shortcutStyle);
             }
           }
         }

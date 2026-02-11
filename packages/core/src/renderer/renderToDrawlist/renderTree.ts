@@ -54,6 +54,7 @@ export function renderTree(
   commandPaletteItemsById: ReadonlyMap<string, readonly CommandItem[]> | undefined,
   commandPaletteLoadingById: ReadonlyMap<string, boolean> | undefined,
   toolApprovalFocusedActionById: ReadonlyMap<string, "allow" | "deny" | "allowSession"> | undefined,
+  dropdownSelectedIndexById: ReadonlyMap<string, number> | undefined,
   diffViewerFocusedHunkById: ReadonlyMap<string, number> | undefined,
   diffViewerExpandedHunksById: ReadonlyMap<string, ReadonlySet<number>> | undefined,
   tableRenderCacheById: ReadonlyMap<string, TableRenderCache> | undefined,
@@ -223,6 +224,7 @@ export function renderTree(
           commandPaletteItemsById,
           commandPaletteLoadingById,
           toolApprovalFocusedActionById,
+          dropdownSelectedIndexById,
         );
         if (nextCursor) resolvedCursor = nextCursor;
         break;

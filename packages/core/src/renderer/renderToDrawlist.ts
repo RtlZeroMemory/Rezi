@@ -72,6 +72,7 @@ export function renderToDrawlist(params: RenderToDrawlistParams): void {
     params.commandPaletteItemsById,
     params.commandPaletteLoadingById,
     params.toolApprovalFocusedActionById,
+    params.dropdownSelectedIndexById,
     params.diffViewerFocusedHunkById,
     params.diffViewerExpandedHunksById,
     params.tableRenderCacheById,

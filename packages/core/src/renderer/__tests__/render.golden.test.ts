@@ -106,7 +106,11 @@ function layoutTree(vnode: VNode) {
   return res.value;
 }
 
-function renderBytes(vnode: VNode, focusState: FocusState): Uint8Array {
+function renderBytes(
+  vnode: VNode,
+  focusState: FocusState,
+  opts: Readonly<{ dropdownSelectedIndexById?: ReadonlyMap<string, number> }> = {},
+): Uint8Array {
   const committed = commitTree(vnode);
   const lt = layoutTree(committed.vnode);
 
@@ -117,6 +121,9 @@ function renderBytes(vnode: VNode, focusState: FocusState): Uint8Array {
     viewport: { cols: 80, rows: 25 },
     focusState,
     builder: b,
+    ...(opts.dropdownSelectedIndexById
+      ? { dropdownSelectedIndexById: opts.dropdownSelectedIndexById }
+      : {}),
   });
   const built = b.build();
   assert.equal(built.ok, true);
@@ -345,6 +352,40 @@ describe("renderer - widget tree to deterministic ZRDL bytes", () => {
     };
     const actual = renderBytes(vnode, Object.freeze({ focusedId: null }));
     assertBytesEqual(actual, expected, "layer_backdrop_opaque.bin");
+  });
+
+  test("dropdown_selected_row.bin", async () => {
+    const expected = await load("dropdown_selected_row.bin");
+
+    const anchor: VNode = { kind: "button", props: { id: "anchor", label: "Menu" } };
+    const dropdown: VNode = {
+      kind: "dropdown",
+      props: {
+        id: "dd",
+        anchorId: "anchor",
+        position: "below-start",
+        items: Object.freeze([
+          { id: "one", label: "One" },
+          { id: "two", label: "Two", shortcut: "Ctrl+T" },
+          { id: "three", label: "Three" },
+        ]),
+      },
+    };
+
+    const vnode: VNode = {
+      kind: "layers",
+      props: {},
+      children: Object.freeze([
+        { kind: "column", props: {}, children: Object.freeze([anchor]) },
+        dropdown,
+      ]),
+    };
+
+    const selectedIndexById = new Map<string, number>([["dd", 1]]);
+    const actual = renderBytes(vnode, Object.freeze({ focusedId: null }), {
+      dropdownSelectedIndexById: selectedIndexById,
+    });
+    assertBytesEqual(actual, expected, "dropdown_selected_row.bin");
   });
 
   test("button text is width-clamped in narrow layouts", () => {
