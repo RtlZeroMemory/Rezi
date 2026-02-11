@@ -50,41 +50,55 @@ export default function FocusProvider({ children }: Readonly<{ children: React.R
   const stateRef = React.useRef(state);
   stateRef.current = state;
 
-  const add = React.useCallback((id: string, options: Readonly<{ autoFocus: boolean }>) => {
-    setStateSync((previousState) => {
-      let nextActiveId = previousState.activeId;
-      if (!nextActiveId && options.autoFocus) nextActiveId = id;
+  const add = React.useCallback(
+    (id: string, options: Readonly<{ autoFocus: boolean }>) => {
+      setStateSync((previousState) => {
+        let nextActiveId = previousState.activeId;
+        if (!nextActiveId && options.autoFocus) nextActiveId = id;
 
-      return {
+        return {
+          ...previousState,
+          activeId: nextActiveId,
+          focusables: [...previousState.focusables, { id, isActive: true }],
+        };
+      });
+    },
+    [setStateSync],
+  );
+
+  const remove = React.useCallback(
+    (id: string) => {
+      setStateSync((previousState) => ({
         ...previousState,
-        activeId: nextActiveId,
-        focusables: [...previousState.focusables, { id, isActive: true }],
-      };
-    });
-  }, [setStateSync]);
+        activeId: previousState.activeId === id ? undefined : previousState.activeId,
+        focusables: previousState.focusables.filter((f) => f.id !== id),
+      }));
+    },
+    [setStateSync],
+  );
 
-  const remove = React.useCallback((id: string) => {
-    setStateSync((previousState) => ({
-      ...previousState,
-      activeId: previousState.activeId === id ? undefined : previousState.activeId,
-      focusables: previousState.focusables.filter((f) => f.id !== id),
-    }));
-  }, [setStateSync]);
+  const activate = React.useCallback(
+    (id: string) => {
+      setStateSync((previousState) => ({
+        ...previousState,
+        focusables: previousState.focusables.map((f) => (f.id === id ? { id, isActive: true } : f)),
+      }));
+    },
+    [setStateSync],
+  );
 
-  const activate = React.useCallback((id: string) => {
-    setStateSync((previousState) => ({
-      ...previousState,
-      focusables: previousState.focusables.map((f) => (f.id === id ? { id, isActive: true } : f)),
-    }));
-  }, [setStateSync]);
-
-  const deactivate = React.useCallback((id: string) => {
-    setStateSync((previousState) => ({
-      ...previousState,
-      activeId: previousState.activeId === id ? undefined : previousState.activeId,
-      focusables: previousState.focusables.map((f) => (f.id === id ? { id, isActive: false } : f)),
-    }));
-  }, [setStateSync]);
+  const deactivate = React.useCallback(
+    (id: string) => {
+      setStateSync((previousState) => ({
+        ...previousState,
+        activeId: previousState.activeId === id ? undefined : previousState.activeId,
+        focusables: previousState.focusables.map((f) =>
+          f.id === id ? { id, isActive: false } : f,
+        ),
+      }));
+    },
+    [setStateSync],
+  );
 
   const enableFocus = React.useCallback(() => {
     setStateSync((previousState) => ({ ...previousState, isFocusEnabled: true }));
@@ -94,12 +108,15 @@ export default function FocusProvider({ children }: Readonly<{ children: React.R
     setStateSync((previousState) => ({ ...previousState, isFocusEnabled: false }));
   }, [setStateSync]);
 
-  const focus = React.useCallback((id: string) => {
-    setStateSync((previousState) => {
-      const found = previousState.focusables.some((f) => f.id === id);
-      return found ? { ...previousState, activeId: id } : previousState;
-    });
-  }, [setStateSync]);
+  const focus = React.useCallback(
+    (id: string) => {
+      setStateSync((previousState) => {
+        const found = previousState.focusables.some((f) => f.id === id);
+        return found ? { ...previousState, activeId: id } : previousState;
+      });
+    },
+    [setStateSync],
+  );
 
   const focusNext = React.useCallback(() => {
     setStateSync((previousState) => {
@@ -135,7 +152,9 @@ export default function FocusProvider({ children }: Readonly<{ children: React.R
 
       // Mirror Ink: ESC clears focus if there is an active focused component.
       if (e.key === ZR_KEY_ESCAPE && s.activeId !== undefined) {
-        setStateSync((prev) => (prev.activeId === undefined ? prev : { ...prev, activeId: undefined }));
+        setStateSync((prev) =>
+          prev.activeId === undefined ? prev : { ...prev, activeId: undefined },
+        );
         return;
       }
 

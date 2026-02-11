@@ -71,9 +71,7 @@ describe("compat behavior", () => {
   test("Transform applies per-line mutation semantics", async () => {
     const frame = await renderToLastFrameBytes(
       <Transform transform={(line, i) => `${i}:${line.toUpperCase()}`}>
-        <Text>
-          one{"\n"}two
-        </Text>
+        <Text>one{"\n"}two</Text>
       </Transform>,
     );
 

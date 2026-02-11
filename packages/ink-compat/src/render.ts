@@ -8,7 +8,8 @@ import StdioContext, { type StdioContextValue } from "./context/StdioContext.js"
 import { createInputEventEmitter } from "./internal/emitter.js";
 import { enableWarnOnce } from "./internal/warn.js";
 import { applyLayoutSnapshot } from "./measurement.js";
-import reconciler, { createRootContainer, updateRootContainer, type HostRoot } from "./reconciler.js";
+import type reconciler from "./reconciler.js";
+import { type HostRoot, createRootContainer, updateRootContainer } from "./reconciler.js";
 import { createConsoleCapture } from "./render/consoleCapture.js";
 import { deferred } from "./render/deferred.js";
 import { normalizeRenderOptions } from "./render/options.js";

@@ -6,7 +6,11 @@ import FocusProvider from "../context/FocusProvider.js";
 import StdioContext, { type StdioContextValue } from "../context/StdioContext.js";
 import { Text, useFocus } from "../index.js";
 import { createInputEventEmitter } from "../internal/emitter.js";
-import reconciler, { createRootContainer, updateRootContainer, type HostRoot } from "../reconciler.js";
+import reconciler, {
+  createRootContainer,
+  updateRootContainer,
+  type HostRoot,
+} from "../reconciler.js";
 
 function flushPassiveEffects(): void {
   while (reconciler.flushPassiveEffects()) {}

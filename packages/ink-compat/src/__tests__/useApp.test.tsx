@@ -2,7 +2,11 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import React from "react";
 import AppContext from "../context/AppContext.js";
 import { Text, useApp } from "../index.js";
-import reconciler, { createRootContainer, updateRootContainer, type HostRoot } from "../reconciler.js";
+import reconciler, {
+  createRootContainer,
+  updateRootContainer,
+  type HostRoot,
+} from "../reconciler.js";
 
 describe("useApp()", () => {
   test("throws when used outside render() root", () => {

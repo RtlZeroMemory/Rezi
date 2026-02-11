@@ -2,7 +2,11 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import React from "react";
 import StdioContext, { type StdioContextValue } from "../context/StdioContext.js";
 import { Text, useStdin } from "../index.js";
-import reconciler, { createRootContainer, updateRootContainer, type HostRoot } from "../reconciler.js";
+import reconciler, {
+  createRootContainer,
+  updateRootContainer,
+  type HostRoot,
+} from "../reconciler.js";
 
 describe("useStdin()", () => {
   test("throws when used outside render() root", () => {

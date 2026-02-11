@@ -1,6 +1,10 @@
 import { type VNode, ui } from "@rezi-ui/core";
 import type React from "react";
-import reconciler, { createRootContainer, updateRootContainer, type HostRoot } from "../reconciler.js";
+import reconciler, {
+  createRootContainer,
+  updateRootContainer,
+  type HostRoot,
+} from "../reconciler.js";
 
 /**
  * Render a React element into a Rezi VNode using the ink-compat reconciler.

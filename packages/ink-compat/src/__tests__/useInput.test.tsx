@@ -5,7 +5,11 @@ import React from "react";
 import StdioContext, { type StdioContextValue } from "../context/StdioContext.js";
 import { Text, useInput } from "../index.js";
 import { createInputEventEmitter } from "../internal/emitter.js";
-import reconciler, { createRootContainer, updateRootContainer, type HostRoot } from "../reconciler.js";
+import reconciler, {
+  createRootContainer,
+  updateRootContainer,
+  type HostRoot,
+} from "../reconciler.js";
 
 function flushPassiveEffects(): void {
   // Drain until stable (React may schedule nested passive effects).

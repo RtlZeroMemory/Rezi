@@ -2,7 +2,11 @@ import { type VNode, ui } from "@rezi-ui/core";
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type React from "react";
 import { Static, Text } from "../index.js";
-import reconciler, { createRootContainer, updateRootContainer, type HostRoot } from "../reconciler.js";
+import reconciler, {
+  createRootContainer,
+  updateRootContainer,
+  type HostRoot,
+} from "../reconciler.js";
 
 function createHarness() {
   let last: VNode | null = null;

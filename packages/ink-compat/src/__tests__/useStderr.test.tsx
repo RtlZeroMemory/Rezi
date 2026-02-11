@@ -2,7 +2,11 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import React, { useEffect } from "react";
 import StdioContext, { type StdioContextValue } from "../context/StdioContext.js";
 import { Text, useStderr } from "../index.js";
-import reconciler, { createRootContainer, updateRootContainer, type HostRoot } from "../reconciler.js";
+import reconciler, {
+  createRootContainer,
+  updateRootContainer,
+  type HostRoot,
+} from "../reconciler.js";
 
 function flushPassiveEffects(): void {
   while (reconciler.flushPassiveEffects()) {}

@@ -1,6 +1,6 @@
+import React from "react";
 import createReconciler from "react-reconciler";
 import { DefaultEventPriority } from "react-reconciler/constants.js";
-import React from "react";
 import { InkCompatError } from "../errors.js";
 import { convertRoot } from "./convert.js";
 import {
@@ -58,7 +58,12 @@ const hostConfig = {
   // -------------------
   //   Instance Create
   // -------------------
-  createInstance(originalType: HostType, newProps: Props, root: HostRoot, hostContext: HostContext) {
+  createInstance(
+    originalType: HostType,
+    newProps: Props,
+    root: HostRoot,
+    hostContext: HostContext,
+  ) {
     if (hostContext.isInsideText && originalType === "ink-box") {
       throw new InkCompatError("INK_COMPAT_INVALID_PROPS", "<Box> can't be nested inside <Text>");
     }
