@@ -22,7 +22,12 @@ export function measureLeaf(
     case "text": {
       const propsRes = validateTextProps(vnode.props);
       if (!propsRes.ok) return propsRes;
-      const w = Math.min(maxW, measureTextCells(vnode.text));
+      const intrinsicW = measureTextCells(vnode.text);
+      const cappedW =
+        propsRes.value.maxWidth === undefined
+          ? intrinsicW
+          : Math.min(intrinsicW, propsRes.value.maxWidth);
+      const w = Math.min(maxW, cappedW);
       const h = Math.min(maxH, 1);
       return ok({ w, h });
     }

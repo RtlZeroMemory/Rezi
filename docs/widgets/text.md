@@ -22,7 +22,7 @@ ui.text("Caption", { variant: "caption", textOverflow: "ellipsis" }); // pass Te
 | `key` | `string` | - | Reconciliation key for lists |
 | `style` | `TextStyle` | - | Style applied to this text |
 | `variant` | `"body" \| "heading" \| "caption" \| "code" \| "label"` | `"body"` | Predefined styling intent |
-| `textOverflow` | `"clip" \| "ellipsis"` | `"clip"` | How to handle overflow |
+| `textOverflow` | `"clip" \| "ellipsis" \| "middle"` | `"clip"` | How to handle overflow |
 | `maxWidth` | `number` | - | Maximum width (cells) for overflow handling |
 
 ## Examples
@@ -48,10 +48,22 @@ ui.box({ width: 20, border: "single", p: 1 }, [
 ]);
 ```
 
+### 3) Middle truncation
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.box({ width: 24, border: "single", p: 1 }, [
+  ui.text("/home/user/documents/project/src/index.ts", { textOverflow: "middle" }),
+]);
+```
+
 ## Notes
 
 - Text is not focusable and does not emit events.
 - Measurement and truncation are cell-based and deterministic.
+- `maxWidth` caps both measurement (layout) and truncation width.
+- `variant` applies a small default style (heading/label: bold, caption: dim, code: inverse) which can be overridden via `style`.
 
 ## Related
 

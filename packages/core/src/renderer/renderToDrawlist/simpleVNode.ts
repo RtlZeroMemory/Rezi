@@ -1,6 +1,10 @@
 import { type SpinnerVariant, getIconChar, getSpinnerFrame } from "../../icons/index.js";
 import type { DrawlistBuilderV1, VNode } from "../../index.js";
-import { measureTextCells, truncateWithEllipsis } from "../../layout/textMeasure.js";
+import {
+  measureTextCells,
+  truncateMiddle,
+  truncateWithEllipsis,
+} from "../../layout/textMeasure.js";
 import type { Theme } from "../../theme/theme.js";
 import { resolveColor } from "../../theme/theme.js";
 import { createShadowConfig, renderShadow } from "../shadow.js";
@@ -29,6 +33,38 @@ function readString(v: unknown): string | undefined {
 function readNumber(v: unknown): number | undefined {
   if (typeof v !== "number" || !Number.isFinite(v)) return undefined;
   return v;
+}
+
+function readNonNegativeInt(v: unknown): number | undefined {
+  const n = readNumber(v);
+  if (n === undefined || n < 0) return undefined;
+  return Math.trunc(n);
+}
+
+function readTextOverflow(v: unknown): "clip" | "ellipsis" | "middle" {
+  switch (v) {
+    case "ellipsis":
+    case "middle":
+      return v;
+    default:
+      return "clip";
+  }
+}
+
+function textVariantToStyle(
+  variant: unknown,
+): { bold?: true; dim?: true; inverse?: true } | undefined {
+  switch (variant) {
+    case "heading":
+    case "label":
+      return { bold: true };
+    case "caption":
+      return { dim: true };
+    case "code":
+      return { inverse: true };
+    default:
+      return undefined;
+  }
 }
 
 function truncateToWidth(text: string, width: number): string {
@@ -216,9 +252,39 @@ export function renderVNodeSimple(
 
   switch (vnode.kind) {
     case "text": {
-      const props = vnode.props as { style?: unknown };
-      builder.pushClip(x, y, w, h);
-      builder.drawText(x, y, vnode.text, mergeTextStyle(inheritedStyle, asTextStyle(props.style)));
+      const props = vnode.props as {
+        style?: unknown;
+        variant?: unknown;
+        textOverflow?: unknown;
+        maxWidth?: unknown;
+      };
+      const variantStyle = textVariantToStyle(props.variant);
+      const ownStyle = asTextStyle(props.style);
+      const style =
+        variantStyle === undefined && ownStyle === undefined
+          ? inheritedStyle
+          : mergeTextStyle(mergeTextStyle(inheritedStyle, variantStyle), ownStyle);
+      const textOverflow = readTextOverflow(props.textOverflow);
+      const maxWidth = readNonNegativeInt(props.maxWidth);
+      const overflowW = maxWidth === undefined ? w : Math.min(w, maxWidth);
+      if (overflowW <= 0) break;
+
+      let displayText = vnode.text;
+      if (measureTextCells(displayText) > overflowW) {
+        switch (textOverflow) {
+          case "ellipsis":
+            displayText = truncateWithEllipsis(displayText, overflowW);
+            break;
+          case "middle":
+            displayText = truncateMiddle(displayText, overflowW);
+            break;
+          case "clip":
+            break;
+        }
+      }
+
+      builder.pushClip(x, y, overflowW, h);
+      builder.drawText(x, y, displayText, style);
       builder.popClip();
       break;
     }

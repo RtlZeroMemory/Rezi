@@ -159,6 +159,78 @@ describe("renderer - widget tree to deterministic ZRDL bytes", () => {
     assert.equal(bytesEqual(actual, noClip), false, "clip changes bytes");
   });
 
+  test("text_overflow_clip.bin", async () => {
+    const expected = await load("text_overflow_clip.bin");
+
+    const vnode: VNode = {
+      kind: "box",
+      props: { width: 12, border: "single", p: 1 },
+      children: Object.freeze([
+        { kind: "text", text: "abcdefghijklmnopqrstuvwxyz", props: { variant: "code" } },
+      ]),
+    };
+
+    const actual = renderBytes(vnode, Object.freeze({ focusedId: null }));
+    assertBytesEqual(actual, expected, "text_overflow_clip.bin");
+  });
+
+  test("text_overflow_ellipsis.bin", async () => {
+    const expected = await load("text_overflow_ellipsis.bin");
+
+    const vnode: VNode = {
+      kind: "box",
+      props: { width: 12, border: "single", p: 1 },
+      children: Object.freeze([
+        {
+          kind: "text",
+          text: "abcdefghijklmnopqrstuvwxyz",
+          props: { variant: "heading", textOverflow: "ellipsis" },
+        },
+      ]),
+    };
+
+    const actual = renderBytes(vnode, Object.freeze({ focusedId: null }));
+    assertBytesEqual(actual, expected, "text_overflow_ellipsis.bin");
+  });
+
+  test("text_overflow_middle.bin", async () => {
+    const expected = await load("text_overflow_middle.bin");
+
+    const vnode: VNode = {
+      kind: "box",
+      props: { width: 12, border: "single", p: 1 },
+      children: Object.freeze([
+        {
+          kind: "text",
+          text: "/home/user/documents/project/src/index.ts",
+          props: { variant: "caption", textOverflow: "middle" },
+        },
+      ]),
+    };
+
+    const actual = renderBytes(vnode, Object.freeze({ focusedId: null }));
+    assertBytesEqual(actual, expected, "text_overflow_middle.bin");
+  });
+
+  test("text_overflow_max_width.bin", async () => {
+    const expected = await load("text_overflow_max_width.bin");
+
+    const vnode: VNode = {
+      kind: "box",
+      props: { border: "single", p: 1 },
+      children: Object.freeze([
+        {
+          kind: "text",
+          text: "this is a long line that should be constrained",
+          props: { textOverflow: "ellipsis", maxWidth: 10 },
+        },
+      ]),
+    };
+
+    const actual = renderBytes(vnode, Object.freeze({ focusedId: null }));
+    assertBytesEqual(actual, expected, "text_overflow_max_width.bin");
+  });
+
   test("box_with_title.bin", async () => {
     const expected = await load("box_with_title.bin");
 

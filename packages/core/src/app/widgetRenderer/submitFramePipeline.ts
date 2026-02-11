@@ -112,8 +112,25 @@ function hashChildOrder(hash: number, node: RuntimeInstance): number {
 function computeLayoutStabilitySignature(node: RuntimeInstance): number | null {
   switch (node.vnode.kind) {
     case "text": {
+      const props = node.vnode.props as Readonly<{ maxWidth?: unknown }>;
+      const maxWidthRaw = props.maxWidth;
+      const maxWidth =
+        maxWidthRaw === undefined
+          ? undefined
+          : typeof maxWidthRaw === "number" &&
+              Number.isFinite(maxWidthRaw) &&
+              Number.isInteger(maxWidthRaw) &&
+              maxWidthRaw >= 0
+            ? maxWidthRaw
+            : null;
+      if (maxWidth === null) return null;
+
       let hash = hashString(HASH_FNV_OFFSET, "text");
       hash = hashNumber(hash, measureTextCells(node.vnode.text));
+      hash = hashString(hash, "maxWidth");
+      const next = hashLayoutPropValue(hash, maxWidth);
+      if (next === null) return null;
+      hash = next;
       return hash;
     }
     case "button": {

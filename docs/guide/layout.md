@@ -167,7 +167,7 @@ ui.row({ gap: 1 }, [
 
 Rezi clips rendering to each widget’s allocated rect. Overflow is handled per-widget:
 
-- `ui.text` supports `textOverflow: "clip" | "ellipsis"` (and `maxWidth`)
+- `ui.text` supports `textOverflow: "clip" | "ellipsis" | "middle"` (and `maxWidth`)
 - Containers clip their children to the padded/bordered content area
 
 Example: ellipsis truncation

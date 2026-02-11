@@ -1,7 +1,11 @@
 import { type SpinnerVariant, getIconChar, getSpinnerFrame } from "../../../icons/index.js";
 import type { DrawlistBuilderV1 } from "../../../index.js";
 import type { LayoutTree } from "../../../layout/layout.js";
-import { measureTextCells, truncateWithEllipsis } from "../../../layout/textMeasure.js";
+import {
+  measureTextCells,
+  truncateMiddle,
+  truncateWithEllipsis,
+} from "../../../layout/textMeasure.js";
 import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { FocusState } from "../../../runtime/focus.js";
@@ -78,6 +82,32 @@ function readPositiveInt(v: unknown): number | undefined {
 
 function readString(v: unknown): string | undefined {
   return typeof v === "string" ? v : undefined;
+}
+
+function readTextOverflow(v: unknown): "clip" | "ellipsis" | "middle" {
+  switch (v) {
+    case "ellipsis":
+    case "middle":
+      return v;
+    default:
+      return "clip";
+  }
+}
+
+function textVariantToStyle(
+  variant: unknown,
+): { bold?: true; dim?: true; inverse?: true } | undefined {
+  switch (variant) {
+    case "heading":
+    case "label":
+      return { bold: true };
+    case "caption":
+      return { dim: true };
+    case "code":
+      return { inverse: true };
+    default:
+      return undefined;
+  }
 }
 
 function truncateToWidth(text: string, width: number): string {
@@ -350,32 +380,49 @@ export function renderBasicWidget(
   switch (vnode.kind) {
     case "text": {
       if (!isVisibleRect(rect)) break;
-      const props = vnode.props as { style?: unknown; textOverflow?: unknown };
+      const props = vnode.props as {
+        style?: unknown;
+        variant?: unknown;
+        textOverflow?: unknown;
+        maxWidth?: unknown;
+      };
+      const variantStyle = textVariantToStyle(props.variant);
+      const ownStyle = asTextStyle(props.style);
       const style =
-        props.style === undefined
+        variantStyle === undefined && ownStyle === undefined
           ? parentStyle
-          : mergeTextStyle(parentStyle, asTextStyle(props.style));
-      const textOverflow = props.textOverflow === "ellipsis" ? "ellipsis" : "clip";
+          : mergeTextStyle(mergeTextStyle(parentStyle, variantStyle), ownStyle);
+      const textOverflow = readTextOverflow(props.textOverflow);
+      const maxWidth = readNonNegativeInt(props.maxWidth);
+      const overflowW = maxWidth === undefined ? rect.w : Math.min(rect.w, maxWidth);
+      if (overflowW <= 0) break;
+
       let displayText = vnode.text;
       let useClip = false;
 
-      // Apply text truncation with ellipsis if needed
-      if (textOverflow === "ellipsis" && rect.w > 0) {
-        const textWidth = measureTextCells(displayText);
-        if (textWidth > rect.w) {
-          displayText = truncateWithEllipsis(displayText, rect.w);
+      const textWidth = measureTextCells(displayText);
+      const overflow = textWidth > overflowW;
+      if (overflow) {
+        switch (textOverflow) {
+          case "ellipsis":
+            displayText = truncateWithEllipsis(displayText, overflowW);
+            break;
+          case "middle":
+            displayText = truncateMiddle(displayText, overflowW);
+            break;
+          case "clip":
+            useClip = true;
+            break;
         }
-      } else if (rect.w > 0 && measureTextCells(displayText) > rect.w) {
-        useClip = true;
       }
 
-      if (props.style === undefined && textOverflow !== "ellipsis" && !useClip) {
+      if (variantStyle === undefined && ownStyle === undefined && !useClip && !overflow) {
         builder.drawText(rect.x, rect.y, vnode.text, parentStyle);
         break;
       }
 
       if (useClip) {
-        builder.pushClip(rect.x, rect.y, rect.w, rect.h);
+        builder.pushClip(rect.x, rect.y, overflowW, rect.h);
         builder.drawText(rect.x, rect.y, displayText, style);
         builder.popClip();
       } else {

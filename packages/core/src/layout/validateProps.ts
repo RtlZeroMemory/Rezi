@@ -89,7 +89,7 @@ export type ValidatedBoxProps = Readonly<
 export type ValidatedSpacerProps = Readonly<{ size: number; flex: number }>;
 export type ValidatedButtonProps = Readonly<{ id: string; label: string; disabled: boolean }>;
 export type ValidatedInputProps = Readonly<{ id: string; value: string; disabled: boolean }>;
-export type ValidatedTextProps = Readonly<Record<string, never>>;
+export type ValidatedTextProps = Readonly<{ maxWidth?: number }>;
 
 type LayoutConstraintPropBag = Readonly<{
   width?: unknown;
@@ -506,9 +506,14 @@ export function validateInputProps(props: InputProps | unknown): LayoutResult<Va
   };
 }
 
-/** Validate Text props (no layout-affecting props; always succeeds). */
+/** Validate Text props (`maxWidth` affects measurement; style/overflow are renderer concerns). */
 export function validateTextProps(props: TextProps | unknown): LayoutResult<ValidatedTextProps> {
-  /* Layout is not affected by Text.style; accept anything shape-typed here. */
-  void props;
-  return { ok: true, value: {} };
+  const p = (props ?? {}) as { maxWidth?: unknown };
+  const maxWidthRes = requireOptionalIntNonNegative("text", "maxWidth", p.maxWidth);
+  if (!maxWidthRes.ok) return maxWidthRes;
+
+  return {
+    ok: true,
+    value: maxWidthRes.value === undefined ? {} : { maxWidth: maxWidthRes.value },
+  };
 }
