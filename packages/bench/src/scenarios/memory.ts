@@ -325,12 +325,196 @@ async function runInk(config: ScenarioConfig): Promise<BenchMetrics> {
   }
 }
 
+// ── terminal-kit tree builder ─────────────────────────────────────────
+
+function termkitMemTree(
+  buffer: { put: (opts: Record<string, unknown>, str: string) => void; fill: () => void },
+  i: number,
+): void {
+  buffer.fill();
+  buffer.put({ x: 1, y: 0, attr: { bold: true } }, `Iteration ${i}`);
+  const pct = i % 100;
+  const filled = Math.floor(pct / 5);
+  const bar = `[${"#".repeat(filled)}${".".repeat(20 - filled)}] ${pct}%`;
+  buffer.put({ x: 1, y: 1 }, bar);
+  for (let j = 0; j < 20; j++) {
+    buffer.put({ x: 1, y: 3 + j, attr: { dim: j % 2 === 0 } }, `  Line ${j}: value=${i * 20 + j}`);
+  }
+}
+
+async function runTermkit(config: ScenarioConfig): Promise<BenchMetrics> {
+  const { createTermkitContext } = await import("../termkit-backend.js");
+  const ctx = createTermkitContext(120, 40);
+
+  // Initial render
+  termkitMemTree(ctx.buffer, 0);
+  ctx.buffer.draw({ delta: false });
+
+  const memorySamples: MemorySnapshot[] = [];
+  const timingSamples: number[] = [];
+
+  // Warmup
+  for (let i = 0; i < config.warmup; i++) {
+    termkitMemTree(ctx.buffer, i + 1);
+    ctx.buffer.draw({ delta: true });
+  }
+
+  ctx.resetBytes();
+
+  tryGc();
+  const memBefore = takeMemory();
+  const cpuBefore = takeCpu();
+  let memMax = memBefore;
+  const t0 = performance.now();
+
+  for (let i = 0; i < config.iterations; i++) {
+    const ts = performance.now();
+    termkitMemTree(ctx.buffer, config.warmup + i + 1);
+    ctx.buffer.draw({ delta: true });
+    timingSamples.push(performance.now() - ts);
+
+    if (i % SAMPLE_INTERVAL === SAMPLE_INTERVAL - 1) {
+      const snap = takeMemory();
+      memorySamples.push(snap);
+      memMax = peakMemory(memMax, snap);
+    }
+  }
+
+  const totalWallMs = performance.now() - t0;
+  const cpuAfter = takeCpu();
+  const memAfter = takeMemory();
+  memMax = peakMemory(memMax, memAfter);
+  void analyzeMemory(memorySamples);
+
+  const result: BenchMetrics = {
+    timing: computeStats(timingSamples),
+    memBefore,
+    memAfter,
+    memPeak: memMax,
+    cpu: diffCpu(cpuBefore, cpuAfter),
+    iterations: config.iterations,
+    totalWallMs,
+    opsPerSec: config.iterations / (totalWallMs / 1000),
+    framesProduced: config.iterations,
+    bytesProduced: ctx.totalBytes,
+  };
+
+  ctx.dispose();
+  return result;
+}
+
+// ── blessed memory tree ───────────────────────────────────────────────
+
+function blessedMemTree(
+  blessed: { text: (opts: Record<string, unknown>) => unknown },
+  screen: {
+    append: (el: unknown) => void;
+    children: unknown[];
+    remove: (el: unknown) => void;
+  },
+  i: number,
+): void {
+  while (screen.children.length > 0) screen.remove(screen.children[0]);
+  screen.append(
+    blessed.text({
+      top: 0,
+      left: 1,
+      content: `Iteration ${i}`,
+      style: { bold: true },
+      tags: false,
+    }),
+  );
+  const pct = i % 100;
+  const filled = Math.floor(pct / 5);
+  const bar = `[${"#".repeat(filled)}${".".repeat(20 - filled)}] ${pct}%`;
+  screen.append(blessed.text({ top: 1, left: 1, content: bar, tags: false }));
+  for (let j = 0; j < 20; j++) {
+    screen.append(
+      blessed.text({
+        top: 3 + j,
+        left: 1,
+        content: `  Line ${j}: value=${i * 20 + j}`,
+        style: { fg: j % 2 === 0 ? "grey" : "white" },
+        tags: false,
+      }),
+    );
+  }
+}
+
+async function runBlessed(config: ScenarioConfig): Promise<BenchMetrics> {
+  const { createBlessedContext } = await import("../blessed-backend.js");
+  const ctx = createBlessedContext(120, 40);
+
+  blessedMemTree(ctx.blessed, ctx.screen, 0);
+  ctx.screen.render();
+  ctx.flush();
+
+  const memorySamples: MemorySnapshot[] = [];
+  const timingSamples: number[] = [];
+
+  // Warmup
+  for (let i = 0; i < config.warmup; i++) {
+    blessedMemTree(ctx.blessed, ctx.screen, i + 1);
+    ctx.screen.render();
+    ctx.flush();
+  }
+
+  ctx.resetBytes();
+
+  tryGc();
+  const memBefore = takeMemory();
+  const cpuBefore = takeCpu();
+  let memMax = memBefore;
+  const t0 = performance.now();
+
+  for (let i = 0; i < config.iterations; i++) {
+    const ts = performance.now();
+    blessedMemTree(ctx.blessed, ctx.screen, config.warmup + i + 1);
+    ctx.screen.render();
+    ctx.flush();
+    timingSamples.push(performance.now() - ts);
+
+    if (i % SAMPLE_INTERVAL === SAMPLE_INTERVAL - 1) {
+      const snap = takeMemory();
+      memorySamples.push(snap);
+      memMax = peakMemory(memMax, snap);
+    }
+  }
+
+  const totalWallMs = performance.now() - t0;
+  const cpuAfter = takeCpu();
+  const memAfter = takeMemory();
+  memMax = peakMemory(memMax, memAfter);
+  void analyzeMemory(memorySamples);
+
+  const result: BenchMetrics = {
+    timing: computeStats(timingSamples),
+    memBefore,
+    memAfter,
+    memPeak: memMax,
+    cpu: diffCpu(cpuBefore, cpuAfter),
+    iterations: config.iterations,
+    totalWallMs,
+    opsPerSec: config.iterations / (totalWallMs / 1000),
+    framesProduced: config.iterations,
+    bytesProduced: ctx.totalBytes,
+  };
+
+  ctx.dispose();
+  return result;
+}
+
+async function runRatatui(config: ScenarioConfig): Promise<BenchMetrics> {
+  const { runRatatui: exec } = await import("../ratatui-runner.js");
+  return exec("memory-profile", config);
+}
+
 export const memoryScenario: Scenario = {
   name: "memory-profile",
   description: "Sustained workload measuring memory footprint, growth, CPU usage, and stability",
   defaultConfig: { warmup: 50, iterations: 2000 },
   paramSets: [{}],
-  frameworks: ["rezi-native", "ink-compat", "ink"],
+  frameworks: ["rezi-native", "ink-compat", "ink", "terminal-kit", "blessed", "ratatui"],
 
   async run(framework, config) {
     tryGc();
@@ -341,6 +525,12 @@ export const memoryScenario: Scenario = {
         return runInkCompat(config);
       case "ink":
         return runInk(config);
+      case "terminal-kit":
+        return runTermkit(config);
+      case "blessed":
+        return runBlessed(config);
+      case "ratatui":
+        return runRatatui(config);
     }
   },
 };

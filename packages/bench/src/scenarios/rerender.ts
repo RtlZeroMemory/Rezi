@@ -12,7 +12,7 @@
 
 import { type VNode, ui } from "@rezi-ui/core";
 import { BenchBackend, MeasuringStream, NullReadable } from "../backends.js";
-import { benchAsync, tryGc } from "../measure.js";
+import { benchAsync, benchSync, tryGc } from "../measure.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 
 // ── Tree builders (small counter app) ───────────────────────────────
@@ -20,12 +20,7 @@ import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types
 function reziCounterTree(count: number): VNode {
   return ui.column({ p: 1, gap: 1 }, [
     ui.text("Counter Benchmark", { style: { bold: true } }),
-    ui.row({ gap: 2 }, [
-      ui.text(`Count: ${count}`),
-      ui.button({ id: "inc", label: "+1" }),
-      ui.button({ id: "dec", label: "-1" }),
-    ]),
-    ui.divider(),
+    ui.row({ gap: 2 }, [ui.text(`Count: ${count}`), ui.text("[+1]"), ui.text("[-1]")]),
     ui.text(`Last updated: iteration ${count}`, { style: { dim: true } }),
   ]);
 }
@@ -186,12 +181,130 @@ async function runInk(config: ScenarioConfig): Promise<BenchMetrics> {
   }
 }
 
+// ── blessed counter ──────────────────────────────────────────────────
+
+function blessedCounterTree(
+  blessed: { text: (opts: Record<string, unknown>) => unknown },
+  screen: {
+    append: (el: unknown) => void;
+    children: unknown[];
+    remove: (el: unknown) => void;
+    render: () => void;
+  },
+  count: number,
+): void {
+  while (screen.children.length > 0) screen.remove(screen.children[0]);
+  screen.append(
+    blessed.text({
+      top: 1,
+      left: 1,
+      content: "Counter Benchmark",
+      style: { bold: true },
+      tags: false,
+    }),
+  );
+  screen.append(blessed.text({ top: 3, left: 1, content: `Count: ${count}`, tags: false }));
+  screen.append(blessed.text({ top: 3, left: 12, content: "[+1]", tags: false }));
+  screen.append(blessed.text({ top: 3, left: 18, content: "[-1]", tags: false }));
+  screen.append(
+    blessed.text({
+      top: 5,
+      left: 1,
+      content: `Last updated: iteration ${count}`,
+      style: { fg: "grey" },
+      tags: false,
+    }),
+  );
+}
+
+// ── terminal-kit counter ─────────────────────────────────────────────
+
+function termkitCounterTree(
+  buffer: { put: (opts: Record<string, unknown>, str: string) => void; fill: () => void },
+  count: number,
+): void {
+  buffer.fill();
+  buffer.put({ x: 1, y: 1, attr: { bold: true } }, "Counter Benchmark");
+  buffer.put({ x: 1, y: 3 }, `Count: ${count}`);
+  buffer.put({ x: 12, y: 3 }, "[+1]");
+  buffer.put({ x: 18, y: 3 }, "[-1]");
+  buffer.put({ x: 1, y: 5, attr: { dim: true } }, `Last updated: iteration ${count}`);
+}
+
+async function runTermkit(config: ScenarioConfig): Promise<BenchMetrics> {
+  const { createTermkitContext } = await import("../termkit-backend.js");
+  const ctx = createTermkitContext(120, 40);
+
+  // Initial render
+  termkitCounterTree(ctx.buffer, 0);
+  ctx.buffer.draw({ delta: false });
+
+  // Warmup — use delta rendering (only changes are output)
+  for (let i = 0; i < config.warmup; i++) {
+    termkitCounterTree(ctx.buffer, i + 1);
+    ctx.buffer.draw({ delta: true });
+  }
+
+  ctx.resetBytes();
+  const metrics = benchSync(
+    (i) => {
+      termkitCounterTree(ctx.buffer, config.warmup + i + 1);
+      ctx.buffer.draw({ delta: true });
+    },
+    0,
+    config.iterations,
+  );
+
+  metrics.bytesProduced = ctx.totalBytes;
+  metrics.framesProduced = config.iterations;
+  ctx.dispose();
+  return metrics;
+}
+
+async function runBlessed(config: ScenarioConfig): Promise<BenchMetrics> {
+  const { createBlessedContext } = await import("../blessed-backend.js");
+  const ctx = createBlessedContext(120, 40);
+
+  // Initial render
+  blessedCounterTree(ctx.blessed, ctx.screen, 0);
+  ctx.screen.render();
+  ctx.flush();
+
+  // Warmup
+  for (let i = 0; i < config.warmup; i++) {
+    blessedCounterTree(ctx.blessed, ctx.screen, i + 1);
+    ctx.screen.render();
+    ctx.flush();
+  }
+
+  ctx.resetBytes();
+  const metrics = benchSync(
+    (i) => {
+      blessedCounterTree(ctx.blessed, ctx.screen, config.warmup + i + 1);
+      ctx.screen.render();
+      ctx.flush();
+    },
+    0,
+    config.iterations,
+  );
+
+  metrics.bytesProduced = ctx.totalBytes;
+  metrics.framesProduced = config.iterations;
+  ctx.dispose();
+  return metrics;
+}
+
+async function runRatatui(config: ScenarioConfig): Promise<BenchMetrics> {
+  const { runRatatui: exec } = await import("../ratatui-runner.js");
+  return exec("rerender", config);
+}
+
 export const rerenderScenario: Scenario = {
   name: "rerender",
   description: "State update → new frame (small counter app, isolates per-update cost)",
   defaultConfig: { warmup: 100, iterations: 1000 },
   paramSets: [{}],
-  frameworks: ["rezi-native", "ink-compat", "ink"],
+  frameworks: ["rezi-native", "ink-compat", "ink", "terminal-kit", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig) {
     tryGc();
@@ -202,6 +315,12 @@ export const rerenderScenario: Scenario = {
         return runInkCompat(config);
       case "ink":
         return runInk(config);
+      case "terminal-kit":
+        return runTermkit(config);
+      case "blessed":
+        return runBlessed(config);
+      case "ratatui":
+        return runRatatui(config);
     }
   },
 };

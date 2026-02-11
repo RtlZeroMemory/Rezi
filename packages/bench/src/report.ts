@@ -22,6 +22,9 @@ const FRAMEWORK_LABELS: Record<Framework, string> = {
   "rezi-native": "Rezi (native)",
   "ink-compat": "Ink-on-Rezi",
   ink: "Ink",
+  "terminal-kit": "terminal-kit",
+  blessed: "blessed",
+  ratatui: "Ratatui (Rust)",
 };
 
 export function printTerminalTable(results: readonly BenchResult[]): void {
@@ -54,8 +57,14 @@ export function printTerminalTable(results: readonly BenchResult[]): void {
     console.log(`  ${header}`);
     console.log(`  ${"─".repeat(98)}`);
 
-    // Sort: rezi-native first, then ink-compat, then ink
-    const order: Framework[] = ["rezi-native", "ink-compat", "ink"];
+    const order: Framework[] = [
+      "rezi-native",
+      "ink-compat",
+      "ink",
+      "terminal-kit",
+      "blessed",
+      "ratatui",
+    ];
     const sorted = [...items].sort(
       (a, b) => order.indexOf(a.framework) - order.indexOf(b.framework),
     );
@@ -114,7 +123,14 @@ export function toMarkdown(results: readonly BenchResult[]): string {
     );
     lines.push("|---|---:|---:|---:|---:|---:|---:|---:|---:|");
 
-    const order: Framework[] = ["rezi-native", "ink-compat", "ink"];
+    const order: Framework[] = [
+      "rezi-native",
+      "ink-compat",
+      "ink",
+      "terminal-kit",
+      "blessed",
+      "ratatui",
+    ];
     const sorted = [...items].sort(
       (a, b) => order.indexOf(a.framework) - order.indexOf(b.framework),
     );
@@ -128,27 +144,35 @@ export function toMarkdown(results: readonly BenchResult[]): string {
     lines.push("");
   }
 
-  // Summary: speedup comparison
-  lines.push("## Speedup Summary\n");
-  lines.push("| Scenario | Ink-on-Rezi vs Ink | Rezi native vs Ink |");
-  lines.push("|---|---:|---:|");
+  // Summary: relative performance (ratio = other / rezi; >1 means rezi is faster)
+  lines.push("## Relative Performance (vs Rezi native)\n");
+  lines.push(
+    '> "Xx slower" = Rezi native is X times faster. "Xx faster" = other framework is faster.\n',
+  );
+
+  // Determine which frameworks have results
+  const allFws: Framework[] = ["ink", "ink-compat", "terminal-kit", "blessed", "ratatui"];
+  const presentFws = allFws.filter((fw) =>
+    [...groups.values()].some((items) => items.some((r) => r.framework === fw)),
+  );
+
+  const headerCols = presentFws.map((fw) => FRAMEWORK_LABELS[fw]);
+  lines.push(`| Scenario | ${headerCols.join(" | ")} |`);
+  lines.push(`|---|${presentFws.map(() => "---:").join("|")}|`);
 
   for (const [group, items] of groups) {
-    const inkResult = items.find((r) => r.framework === "ink");
-    const compatResult = items.find((r) => r.framework === "ink-compat");
     const nativeResult = items.find((r) => r.framework === "rezi-native");
+    const nativeMean = nativeResult?.metrics.timing.mean ?? 0;
 
-    const inkMean = inkResult?.metrics.timing.mean ?? 0;
-    const compatSpeedup =
-      compatResult && inkMean > 0
-        ? `${(inkMean / compatResult.metrics.timing.mean).toFixed(1)}x`
-        : "N/A";
-    const nativeSpeedup =
-      nativeResult && inkMean > 0
-        ? `${(inkMean / nativeResult.metrics.timing.mean).toFixed(1)}x`
-        : "N/A";
+    const fmtRatio = (fw: Framework) => {
+      const other = items.find((r) => r.framework === fw);
+      if (!other || nativeMean <= 0) return "N/A";
+      const ratio = other.metrics.timing.mean / nativeMean;
+      return ratio >= 1 ? `${ratio.toFixed(1)}x slower` : `${(1 / ratio).toFixed(1)}x faster`;
+    };
 
-    lines.push(`| ${group} | ${compatSpeedup} | ${nativeSpeedup} |`);
+    const cols = presentFws.map(fmtRatio);
+    lines.push(`| ${group} | ${cols.join(" | ")} |`);
   }
 
   lines.push("\n## Memory Comparison\n");

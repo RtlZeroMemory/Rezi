@@ -17,6 +17,51 @@ function clipEquals(a: ClipRect | undefined, b: ClipRect): boolean {
   return a !== undefined && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 }
 
+function rectIntersects(a: Rect, b: Rect): boolean {
+  if (a.w <= 0 || a.h <= 0 || b.w <= 0 || b.h <= 0) return false;
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function findStackChildRange(
+  children: readonly LayoutTree[],
+  childCount: number,
+  direction: "row" | "column",
+  damageRect: Rect,
+): Readonly<{ start: number; end: number }> | null {
+  const damageStart = direction === "column" ? damageRect.y : damageRect.x;
+  const damageEnd =
+    direction === "column" ? damageRect.y + damageRect.h : damageRect.x + damageRect.w;
+
+  let start = 0;
+  while (start < childCount) {
+    const child = children[start];
+    if (!child) {
+      start++;
+      continue;
+    }
+    const childStart = direction === "column" ? child.rect.y : child.rect.x;
+    const childSize = direction === "column" ? child.rect.h : child.rect.w;
+    const childEnd = childStart + childSize;
+    if (childEnd > damageStart) break;
+    start++;
+  }
+  if (start >= childCount) return null;
+
+  let endExclusive = start;
+  while (endExclusive < childCount) {
+    const child = children[endExclusive];
+    if (!child) {
+      endExclusive++;
+      continue;
+    }
+    const childStart = direction === "column" ? child.rect.y : child.rect.x;
+    if (childStart >= damageEnd) break;
+    endExclusive++;
+  }
+  if (endExclusive <= start) return null;
+  return { start, end: endExclusive - 1 };
+}
+
 function pushChildrenWithLayout(
   node: RuntimeInstance,
   layoutNode: LayoutTree,
@@ -26,12 +71,32 @@ function pushChildrenWithLayout(
   layoutStack: LayoutTree[],
   clipStack: (ClipRect | undefined)[],
   clip: ClipRect | undefined,
+  damageRect: Rect | undefined,
+  stackDirection: "row" | "column" | undefined = undefined,
 ): void {
   const childCount = Math.min(node.children.length, layoutNode.children.length);
-  for (let i = childCount - 1; i >= 0; i--) {
+  if (childCount <= 0) return;
+
+  let rangeStart = 0;
+  let rangeEnd = childCount - 1;
+  if (damageRect) {
+    if (stackDirection) {
+      const range = findStackChildRange(
+        layoutNode.children,
+        childCount,
+        stackDirection,
+        damageRect,
+      );
+      if (!range) return;
+      rangeStart = range.start;
+      rangeEnd = range.end;
+    }
+  }
+
+  for (let i = rangeEnd; i >= rangeStart; i--) {
     const c = node.children[i];
     const lc = layoutNode.children[i];
-    if (c && lc) {
+    if (c && lc && (!damageRect || rectIntersects(lc.rect, damageRect))) {
       nodeStack.push(c);
       styleStack.push(style);
       layoutStack.push(lc);
@@ -99,6 +164,7 @@ export function renderContainerWidget(
   styleStack: ResolvedTextStyle[],
   layoutStack: LayoutTree[],
   clipStack: (ClipRect | undefined)[],
+  damageRect: Rect | undefined,
 ): void {
   const vnode = node.vnode;
 
@@ -117,11 +183,33 @@ export function renderContainerWidget(
         pr?: unknown;
         style?: unknown;
       };
-      const spacing = resolveSpacingFromProps(props);
       const ownStyle = asTextStyle(props.style);
-      const style = mergeTextStyle(parentStyle, ownStyle);
-      if (isVisibleRect(rect) && shouldFillForStyleOverride(ownStyle)) {
+      const style = ownStyle ? mergeTextStyle(parentStyle, ownStyle) : parentStyle;
+      if (ownStyle && shouldFillForStyleOverride(ownStyle)) {
         builder.fillRect(rect.x, rect.y, rect.w, rect.h, style);
+      }
+
+      const spacing = resolveSpacingFromProps(props);
+
+      // Fast path: no spacing → childClip equals rect, avoid allocation.
+      if (spacing.top === 0 && spacing.right === 0 && spacing.bottom === 0 && spacing.left === 0) {
+        if (!clipEquals(currentClip, rect)) {
+          builder.pushClip(rect.x, rect.y, rect.w, rect.h);
+          nodeStack.push(null);
+        }
+        pushChildrenWithLayout(
+          node,
+          layoutNode,
+          style,
+          nodeStack,
+          styleStack,
+          layoutStack,
+          clipStack,
+          rect,
+          damageRect,
+          vnode.kind,
+        );
+        break;
       }
 
       const cx = rect.x + spacing.left;
@@ -143,6 +231,8 @@ export function renderContainerWidget(
         layoutStack,
         clipStack,
         childClip,
+        damageRect,
+        vnode.kind,
       );
       break;
     }
@@ -218,6 +308,7 @@ export function renderContainerWidget(
         layoutStack,
         clipStack,
         childClip,
+        damageRect,
       );
       break;
     }
@@ -263,6 +354,7 @@ export function renderContainerWidget(
         layoutStack,
         clipStack,
         childClip,
+        damageRect,
       );
       break;
     }
@@ -278,6 +370,7 @@ export function renderContainerWidget(
         layoutStack,
         clipStack,
         currentClip,
+        damageRect,
       );
       break;
     }
@@ -293,6 +386,7 @@ export function renderContainerWidget(
         layoutStack,
         clipStack,
         currentClip,
+        damageRect,
       );
       break;
     }
@@ -326,6 +420,7 @@ export function renderContainerWidget(
         layoutStack,
         clipStack,
         currentClip,
+        damageRect,
       );
       break;
     }
@@ -352,6 +447,7 @@ export function renderContainerWidget(
         layoutStack,
         clipStack,
         childClip,
+        damageRect,
       );
 
       // Render dividers between panels
@@ -408,6 +504,7 @@ export function renderContainerWidget(
         layoutStack,
         clipStack,
         childClip,
+        damageRect,
       );
       break;
     }
@@ -429,6 +526,7 @@ export function renderContainerWidget(
         layoutStack,
         clipStack,
         childClip,
+        damageRect,
       );
       break;
     }

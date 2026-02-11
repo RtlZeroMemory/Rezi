@@ -11,13 +11,21 @@
  */
 
 import { BenchBackend, MeasuringStream, NullReadable } from "../backends.js";
-import { benchAsync, tryGc } from "../measure.js";
+import { benchAsync, benchSync, tryGc } from "../measure.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
-import { buildReactTree, buildReziTree } from "./treeBuilders.js";
+import {
+  buildBlessedTree,
+  buildReactTree,
+  buildReziTree,
+  buildTermkitTree,
+} from "./treeBuilders.js";
 
 async function runRezi(config: ScenarioConfig, n: number): Promise<BenchMetrics> {
   const { createApp } = await import("@rezi-ui/core");
-  const backend = new BenchBackend();
+  // Viewport must be large enough to fit all items — prevents viewport
+  // clipping from giving Rezi an unfair advantage over frameworks that
+  // render the full list regardless of viewport size.
+  const backend = new BenchBackend(120, Math.max(40, n + 5));
 
   type State = { seed: number };
   const app = createApp<State>({
@@ -70,7 +78,7 @@ async function runInkCompat(config: ScenarioConfig, n: number): Promise<BenchMet
     throw new Error("@rezi-ui/ink-compat or react not available");
   }
 
-  const backend = new BenchBackend();
+  const backend = new BenchBackend(120, Math.max(40, n + 5));
 
   // Set up the frame waiter BEFORE render() — the initial frame may be
   // produced in microtasks before we get a chance to await.
@@ -123,6 +131,7 @@ async function runInk(config: ScenarioConfig, n: number): Promise<BenchMetrics> 
   }
 
   const stdout = new MeasuringStream();
+  stdout.rows = Math.max(40, n + 5);
   const stdin = new NullReadable();
 
   const tree = buildReactTree(React, Ink, n) as React.ReactNode;
@@ -165,12 +174,73 @@ async function runInk(config: ScenarioConfig, n: number): Promise<BenchMetrics> 
   }
 }
 
+async function runTermkit(config: ScenarioConfig, n: number): Promise<BenchMetrics> {
+  const { createTermkitContext } = await import("../termkit-backend.js");
+  const ctx = createTermkitContext(120, Math.max(40, n + 5));
+
+  // Warmup
+  for (let i = 0; i < config.warmup; i++) {
+    buildTermkitTree(ctx.buffer, n, i);
+    ctx.buffer.draw({ delta: false });
+  }
+
+  ctx.resetBytes();
+  const metrics = benchSync(
+    (i) => {
+      buildTermkitTree(ctx.buffer, n, i);
+      ctx.buffer.draw({ delta: false });
+    },
+    0,
+    config.iterations,
+  );
+
+  metrics.bytesProduced = ctx.totalBytes;
+  metrics.framesProduced = config.iterations;
+  ctx.dispose();
+  return metrics;
+}
+
+async function runBlessed(config: ScenarioConfig, n: number): Promise<BenchMetrics> {
+  const { createBlessedContext } = await import("../blessed-backend.js");
+  const ctx = createBlessedContext(120, Math.max(40, n + 5));
+
+  // Warmup
+  for (let i = 0; i < config.warmup; i++) {
+    ctx.clearChildren();
+    buildBlessedTree(ctx.blessed, ctx.screen, n, i);
+    ctx.screen.render();
+    ctx.flush();
+  }
+
+  ctx.resetBytes();
+  const metrics = benchSync(
+    (i) => {
+      ctx.clearChildren();
+      buildBlessedTree(ctx.blessed, ctx.screen, n, i);
+      ctx.screen.render();
+      ctx.flush();
+    },
+    0,
+    config.iterations,
+  );
+
+  metrics.bytesProduced = ctx.totalBytes;
+  metrics.framesProduced = config.iterations;
+  ctx.dispose();
+  return metrics;
+}
+
+async function runRatatui(config: ScenarioConfig, n: number): Promise<BenchMetrics> {
+  const { runRatatui: exec } = await import("../ratatui-runner.js");
+  return exec("construction", config, { items: n });
+}
+
 export const constructionScenario: Scenario = {
   name: "tree-construction",
   description: "Build a widget tree from scratch (parameterized by item count)",
   defaultConfig: { warmup: 50, iterations: 500 },
   paramSets: [{ items: 10 }, { items: 100 }, { items: 500 }, { items: 1000 }],
-  frameworks: ["rezi-native", "ink-compat", "ink"],
+  frameworks: ["rezi-native", "ink-compat", "ink", "terminal-kit", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig, params) {
     const { items: n } = params as { items: number };
@@ -183,6 +253,12 @@ export const constructionScenario: Scenario = {
         return runInkCompat(config, n);
       case "ink":
         return runInk(config, n);
+      case "terminal-kit":
+        return runTermkit(config, n);
+      case "blessed":
+        return runBlessed(config, n);
+      case "ratatui":
+        return runRatatui(config, n);
     }
   },
 };

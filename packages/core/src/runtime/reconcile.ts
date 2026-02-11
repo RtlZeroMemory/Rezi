@@ -128,17 +128,27 @@ function containsAnyKeyInNextChildren(nextVChildren: readonly VNode[]): boolean 
   return false;
 }
 
+/** Shared empty InstanceId arrays to avoid allocation in common reconciliation cases. */
+const EMPTY_INSTANCE_IDS: readonly InstanceId[] = Object.freeze([]);
+
 function reconcileUnkeyedChildren(
   prevChildren: readonly PrevChild[],
   nextVChildren: readonly VNode[],
   allocator: InstanceIdAllocator,
 ): ReconcileChildrenOk {
-  const nextChildren: ReconciledChild[] = [];
-  const reusedInstanceIds: InstanceId[] = [];
-  const newInstanceIds: InstanceId[] = [];
-  const unmountedInstanceIds: InstanceId[] = [];
+  const prevLen = prevChildren.length;
+  const nextLen = nextVChildren.length;
+  const sharedLength = Math.min(prevLen, nextLen);
 
-  const sharedLength = Math.min(prevChildren.length, nextVChildren.length);
+  // Pre-allocate with known sizes to avoid array growth.
+  const nextChildren: ReconciledChild[] = new Array(nextLen);
+  let nextChildrenCount = 0;
+  const reusedInstanceIds: InstanceId[] = new Array(sharedLength);
+  let reusedCount = 0;
+  const hasNewChildren = nextLen > prevLen;
+  const newInstanceIds: InstanceId[] = hasNewChildren ? new Array(nextLen - prevLen) : [];
+  let newCount = 0;
+
   for (let i = 0; i < sharedLength; i++) {
     const prev = prevChildren[i];
     const vnode = nextVChildren[i];
@@ -146,35 +156,51 @@ function reconcileUnkeyedChildren(
     const slotId: SlotId = `i:${i}`;
     if (prev) {
       const instanceId = prev.instanceId;
-      reusedInstanceIds.push(instanceId);
-      nextChildren.push({ slotId, vnode, instanceId, kind: "reused", prevIndex: i });
+      reusedInstanceIds[reusedCount++] = instanceId;
+      nextChildren[nextChildrenCount++] = {
+        slotId,
+        vnode,
+        instanceId,
+        kind: "reused",
+        prevIndex: i,
+      };
       continue;
     }
     const instanceId = allocator.allocate();
-    newInstanceIds.push(instanceId);
-    nextChildren.push({ slotId, vnode, instanceId, kind: "new", prevIndex: null });
+    newInstanceIds[newCount++] = instanceId;
+    nextChildren[nextChildrenCount++] = { slotId, vnode, instanceId, kind: "new", prevIndex: null };
   }
 
-  for (let i = sharedLength; i < nextVChildren.length; i++) {
+  for (let i = sharedLength; i < nextLen; i++) {
     const vnode = nextVChildren[i];
     if (!vnode) continue;
     const slotId: SlotId = `i:${i}`;
     const instanceId = allocator.allocate();
-    newInstanceIds.push(instanceId);
-    nextChildren.push({ slotId, vnode, instanceId, kind: "new", prevIndex: null });
+    newInstanceIds[newCount++] = instanceId;
+    nextChildren[nextChildrenCount++] = { slotId, vnode, instanceId, kind: "new", prevIndex: null };
   }
 
-  for (let i = sharedLength; i < prevChildren.length; i++) {
-    const prev = prevChildren[i];
-    if (!prev) continue;
-    unmountedInstanceIds.push(prev.instanceId);
+  // Trim pre-allocated arrays to actual size.
+  nextChildren.length = nextChildrenCount;
+  reusedInstanceIds.length = reusedCount;
+  newInstanceIds.length = newCount;
+
+  const unmountedInstanceIds: InstanceId[] = [];
+  if (prevLen > nextLen) {
+    for (let i = sharedLength; i < prevLen; i++) {
+      const prev = prevChildren[i];
+      if (prev) unmountedInstanceIds.push(prev.instanceId);
+    }
   }
 
   return {
     nextChildren,
     reusedInstanceIds,
     newInstanceIds,
-    unmountedInstanceIds,
+    unmountedInstanceIds:
+      unmountedInstanceIds.length === 0
+        ? (EMPTY_INSTANCE_IDS as InstanceId[])
+        : unmountedInstanceIds,
   };
 }
 

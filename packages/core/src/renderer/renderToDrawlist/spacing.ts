@@ -2,6 +2,9 @@ import { isSpacingKey, resolveSpacingValue } from "../../layout/spacing-scale.js
 
 type ResolvedSpacing = Readonly<{ top: number; right: number; bottom: number; left: number }>;
 
+/** Shared constant for the common zero-padding case. */
+const ZERO_SPACING: ResolvedSpacing = Object.freeze({ top: 0, right: 0, bottom: 0, left: 0 });
+
 export function clampNonNegative(n: number): number {
   return n < 0 ? 0 : n;
 }
@@ -42,17 +45,32 @@ export function resolveSpacingFromProps(props: {
   pl?: unknown;
   pr?: unknown;
 }): ResolvedSpacing {
+  // Fast path: no padding props at all → return shared constant (avoids allocation).
+  if (
+    props.pad === undefined &&
+    props.p === undefined &&
+    props.px === undefined &&
+    props.py === undefined &&
+    props.pt === undefined &&
+    props.pb === undefined &&
+    props.pl === undefined &&
+    props.pr === undefined
+  ) {
+    return ZERO_SPACING;
+  }
+
   const pad = readSpacingValue(props.pad, 0);
   const p = readOptionalSpacingValue(props.p) ?? pad;
   const px = readOptionalSpacingValue(props.px) ?? p;
   const py = readOptionalSpacingValue(props.py) ?? p;
 
-  return {
-    top: readOptionalSpacingValue(props.pt) ?? py,
-    right: readOptionalSpacingValue(props.pr) ?? px,
-    bottom: readOptionalSpacingValue(props.pb) ?? py,
-    left: readOptionalSpacingValue(props.pl) ?? px,
-  };
+  const top = readOptionalSpacingValue(props.pt) ?? py;
+  const right = readOptionalSpacingValue(props.pr) ?? px;
+  const bottom = readOptionalSpacingValue(props.pb) ?? py;
+  const left = readOptionalSpacingValue(props.pl) ?? px;
+
+  if (top === 0 && right === 0 && bottom === 0 && left === 0) return ZERO_SPACING;
+  return { top, right, bottom, left };
 }
 
 export function resolveMarginFromProps(props: {

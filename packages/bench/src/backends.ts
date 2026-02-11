@@ -79,6 +79,15 @@ export class BenchBackend implements RuntimeBackend {
   private stopped = false;
   private needsResize = true;
 
+  /** Configurable viewport dimensions. */
+  readonly cols: number;
+  readonly rows: number;
+
+  constructor(cols = 120, rows = 40) {
+    this.cols = cols;
+    this.rows = rows;
+  }
+
   async start(): Promise<void> {
     this.stopped = false;
     this.needsResize = true;
@@ -100,8 +109,8 @@ export class BenchBackend implements RuntimeBackend {
   async getCaps() {
     return {
       ...DEFAULT_TERMINAL_CAPS,
-      cols: 120,
-      rows: 40,
+      cols: this.cols,
+      rows: this.rows,
     };
   }
 
@@ -133,7 +142,7 @@ export class BenchBackend implements RuntimeBackend {
     if (this.needsResize) {
       this.needsResize = false;
       return new Promise<BackendEventBatch>((resolve) => {
-        setTimeout(() => resolve(resizeZrevBatch(120, 40)), 0);
+        setTimeout(() => resolve(resizeZrevBatch(this.cols, this.rows)), 0);
       });
     }
     // Subsequent polls yield empty batches after a short delay so the frame

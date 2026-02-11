@@ -12,11 +12,52 @@ export const DEFAULT_BASE_STYLE: ResolvedTextStyle = Object.freeze({
   bg: Object.freeze({ r: 7, g: 10, b: 12 }),
 });
 
+// Fast path cache for `mergeTextStyle(DEFAULT_BASE_STYLE, override)` when override only toggles
+// boolean attrs (no fg/bg). This is a hot path in large lists where style objects are frequently
+// recreated but only take on a few distinct shapes.
+const BASE_BOOL_STYLE_CACHE: Array<ResolvedTextStyle | null> = new Array(1024).fill(null);
+
+function encTriBool(v: boolean | undefined): number {
+  // 0 = inherit (undefined), 1 = false, 2 = true
+  if (v === undefined) return 0;
+  return v ? 2 : 1;
+}
+
 export function mergeTextStyle(
   base: ResolvedTextStyle,
   override: TextStyle | undefined,
 ): ResolvedTextStyle {
   if (!override) return base;
+  if (base === DEFAULT_BASE_STYLE && override.fg === undefined && override.bg === undefined) {
+    const b = encTriBool(override.bold);
+    const d = encTriBool(override.dim);
+    const i = encTriBool(override.italic);
+    const u = encTriBool(override.underline);
+    const inv = encTriBool(override.inverse);
+    const key = b | (d << 2) | (i << 4) | (u << 6) | (inv << 8);
+    if (key === 0) return base;
+    const cached = BASE_BOOL_STYLE_CACHE[key];
+    if (cached) return cached;
+
+    const merged: {
+      fg: NonNullable<TextStyle["fg"]>;
+      bg: NonNullable<TextStyle["bg"]>;
+      bold?: boolean;
+      dim?: boolean;
+      italic?: boolean;
+      underline?: boolean;
+      inverse?: boolean;
+    } = { fg: base.fg, bg: base.bg };
+
+    if (override.bold !== undefined) merged.bold = override.bold;
+    if (override.dim !== undefined) merged.dim = override.dim;
+    if (override.italic !== undefined) merged.italic = override.italic;
+    if (override.underline !== undefined) merged.underline = override.underline;
+    if (override.inverse !== undefined) merged.inverse = override.inverse;
+
+    BASE_BOOL_STYLE_CACHE[key] = merged;
+    return merged;
+  }
   if (
     override.fg === undefined &&
     override.bg === undefined &&

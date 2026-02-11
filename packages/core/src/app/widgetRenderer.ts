@@ -58,6 +58,8 @@ import { measureTextCells } from "../layout/textMeasure.js";
 import type { Rect } from "../layout/types.js";
 import { PERF_DETAIL_ENABLED, PERF_ENABLED, perfMarkEnd, perfMarkStart } from "../perf/perf.js";
 import { type CursorInfo, renderToDrawlist } from "../renderer/renderToDrawlist.js";
+import { renderTree } from "../renderer/renderToDrawlist/renderTree.js";
+import { DEFAULT_BASE_STYLE } from "../renderer/renderToDrawlist/textStyle.js";
 import { type CommitOk, type RuntimeInstance, commitVNodeTree } from "../runtime/commit.js";
 import {
   type FocusManagerState,
@@ -243,6 +245,118 @@ const EMPTY_STRING_ARRAY: readonly string[] = Object.freeze([]);
 const ROUTE_RENDER: WidgetRoutingOutcome = Object.freeze({ needsRender: true });
 const ROUTE_NO_RENDER: WidgetRoutingOutcome = Object.freeze({ needsRender: false });
 const ZERO_RECT: Rect = Object.freeze({ x: 0, y: 0, w: 0, h: 0 });
+const INCREMENTAL_DAMAGE_AREA_FRACTION = 0.45;
+
+function clipRectToViewport(rect: Rect, viewport: Viewport): Rect | null {
+  const x0 = Math.max(0, rect.x);
+  const y0 = Math.max(0, rect.y);
+  const x1 = Math.min(viewport.cols, rect.x + rect.w);
+  const y1 = Math.min(viewport.rows, rect.y + rect.h);
+  const w = x1 - x0;
+  const h = y1 - y0;
+  if (w <= 0 || h <= 0) return null;
+  return { x: x0, y: y0, w, h };
+}
+
+function rectOverlapsOrTouches(a: Rect, b: Rect): boolean {
+  return a.x <= b.x + b.w && a.x + a.w >= b.x && a.y <= b.y + b.h && a.y + a.h >= b.y;
+}
+
+function unionRect(a: Rect, b: Rect): Rect {
+  const x0 = Math.min(a.x, b.x);
+  const y0 = Math.min(a.y, b.y);
+  const x1 = Math.max(a.x + a.w, b.x + b.w);
+  const y1 = Math.max(a.y + a.h, b.y + b.h);
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+
+function isV2Builder(builder: DrawlistBuilderV1 | DrawlistBuilderV2): builder is DrawlistBuilderV2 {
+  return typeof (builder as DrawlistBuilderV2).setCursor === "function";
+}
+
+type WidgetKind = RuntimeInstance["vnode"]["kind"];
+type IdentityDiffDamageResult = Readonly<{
+  changedInstanceIds: readonly InstanceId[];
+  removedInstanceIds: readonly InstanceId[];
+  routingRelevantChanged: boolean;
+}>;
+
+function isRoutingRelevantKind(kind: WidgetKind): boolean {
+  switch (kind) {
+    case "button":
+    case "input":
+    case "focusZone":
+    case "focusTrap":
+    case "virtualList":
+    case "layers":
+    case "modal":
+    case "dropdown":
+    case "layer":
+    case "table":
+    case "tree":
+    case "select":
+    case "checkbox":
+    case "radioGroup":
+    case "commandPalette":
+    case "filePicker":
+    case "fileTreeExplorer":
+    case "splitPane":
+    case "panelGroup":
+    case "codeEditor":
+    case "diffViewer":
+    case "toolApprovalDialog":
+    case "logsConsole":
+    case "toastContainer":
+      return true;
+    default:
+      return false;
+  }
+}
+
+function isDamageGranularityKind(kind: WidgetKind): boolean {
+  if (kind === "row") return true;
+  switch (kind) {
+    case "text":
+    case "divider":
+    case "spacer":
+    case "button":
+    case "input":
+    case "select":
+    case "checkbox":
+    case "radioGroup":
+    case "richText":
+    case "badge":
+    case "spinner":
+    case "progress":
+    case "skeleton":
+    case "icon":
+    case "kbd":
+    case "status":
+    case "tag":
+    case "gauge":
+    case "empty":
+    case "errorDisplay":
+    case "callout":
+    case "sparkline":
+    case "barChart":
+    case "miniChart":
+    case "virtualList":
+    case "table":
+    case "tree":
+    case "dropdown":
+    case "commandPalette":
+    case "filePicker":
+    case "fileTreeExplorer":
+    case "codeEditor":
+    case "diffViewer":
+    case "toolApprovalDialog":
+    case "logsConsole":
+    case "toastContainer":
+      return true;
+    default:
+      return false;
+  }
+}
 
 /**
  * Renderer for widget view mode.
@@ -397,8 +511,18 @@ export class WidgetRenderer<S> {
   private readonly _pooledRectByInstanceId = new Map<InstanceId, Rect>();
   private readonly _pooledLayoutSigByInstanceId = new Map<InstanceId, number>();
   private readonly _pooledNextLayoutSigByInstanceId = new Map<InstanceId, number>();
+  private readonly _pooledChangedRenderInstanceIds: InstanceId[] = [];
+  private readonly _pooledRemovedRenderInstanceIds: InstanceId[] = [];
   private readonly _pooledRectById = new Map<string, Rect>();
   private readonly _pooledSplitPaneChildRectsById = new Map<string, readonly Rect[]>();
+  private readonly _prevFrameRectByInstanceId = new Map<InstanceId, Rect>();
+  private readonly _prevFrameRectById = new Map<string, Rect>();
+  private readonly _pooledDamageRects: Rect[] = [];
+  private readonly _pooledMergedDamageRects: Rect[] = [];
+  private _hasRenderedFrame = false;
+  private _lastRenderedViewport: Viewport = Object.freeze({ cols: 0, rows: 0 });
+  private _lastRenderedThemeRef: Theme | null = null;
+  private _lastRenderedFocusedId: string | null = null;
   private _layoutMeasureCache: WeakMap<VNode, unknown> = new WeakMap<VNode, unknown>();
   private readonly _pooledCloseOnEscape = new Map<string, boolean>();
   private readonly _pooledCloseOnBackdrop = new Map<string, boolean>();
@@ -406,6 +530,8 @@ export class WidgetRenderer<S> {
   private readonly _pooledToastActionByFocusId = new Map<string, () => void>();
   private readonly _pooledLayoutStack: LayoutTree[] = [];
   private readonly _pooledRuntimeStack: RuntimeInstance[] = [];
+  private readonly _pooledPrevRuntimeStack: RuntimeInstance[] = [];
+  private readonly _pooledDamageRuntimeStack: RuntimeInstance[] = [];
   private readonly _pooledDropdownStack: string[] = [];
   private readonly _pooledToastContainers: { rect: Rect; props: ToastContainerProps }[] = [];
   private readonly _pooledToastFocusableActionIds: string[] = [];
@@ -2142,6 +2268,297 @@ export class WidgetRenderer<S> {
     return pos.rect;
   }
 
+  private shouldAttemptIncrementalRender(
+    doLayout: boolean,
+    viewport: Viewport,
+    theme: Theme,
+  ): boolean {
+    if (!this._hasRenderedFrame) return false;
+    if (doLayout) return false;
+    if (
+      this._lastRenderedViewport.cols !== viewport.cols ||
+      this._lastRenderedViewport.rows !== viewport.rows
+    ) {
+      return false;
+    }
+    if (this._lastRenderedThemeRef !== theme) return false;
+
+    // Conservative correctness: overlays can draw outside local rects.
+    if (
+      this.dropdownStack.length > 0 ||
+      this.layerStack.length > 0 ||
+      this.toastContainers.length > 0
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  private collectSubtreeDamageAndRouting(
+    root: RuntimeInstance,
+    outInstanceIds: InstanceId[],
+  ): boolean {
+    let routingRelevant = false;
+    this._pooledDamageRuntimeStack.length = 0;
+    this._pooledDamageRuntimeStack.push(root);
+    while (this._pooledDamageRuntimeStack.length > 0) {
+      const node = this._pooledDamageRuntimeStack.pop();
+      if (!node) continue;
+      const kind = node.vnode.kind;
+      if (isRoutingRelevantKind(kind)) routingRelevant = true;
+      if (isDamageGranularityKind(kind) || node.children.length === 0) {
+        outInstanceIds.push(node.instanceId);
+        continue;
+      }
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        const child = node.children[i];
+        if (child) this._pooledDamageRuntimeStack.push(child);
+      }
+    }
+    return routingRelevant;
+  }
+
+  private computeIdentityDiffDamage(
+    prevRoot: RuntimeInstance | null,
+    nextRoot: RuntimeInstance,
+  ): IdentityDiffDamageResult {
+    this._pooledChangedRenderInstanceIds.length = 0;
+    this._pooledRemovedRenderInstanceIds.length = 0;
+
+    if (prevRoot === null) {
+      const routingRelevantChanged = this.collectSubtreeDamageAndRouting(
+        nextRoot,
+        this._pooledChangedRenderInstanceIds,
+      );
+      return {
+        changedInstanceIds: this._pooledChangedRenderInstanceIds,
+        removedInstanceIds: this._pooledRemovedRenderInstanceIds,
+        routingRelevantChanged,
+      };
+    }
+
+    let routingRelevantChanged = false;
+    this._pooledPrevRuntimeStack.length = 0;
+    this._pooledRuntimeStack.length = 0;
+    this._pooledPrevRuntimeStack.push(prevRoot);
+    this._pooledRuntimeStack.push(nextRoot);
+
+    while (this._pooledPrevRuntimeStack.length > 0 && this._pooledRuntimeStack.length > 0) {
+      const prevNode = this._pooledPrevRuntimeStack.pop();
+      const nextNode = this._pooledRuntimeStack.pop();
+      if (!prevNode || !nextNode) continue;
+      if (prevNode === nextNode) continue;
+
+      const prevKind = prevNode.vnode.kind;
+      const nextKind = nextNode.vnode.kind;
+
+      if (prevNode.instanceId !== nextNode.instanceId || prevKind !== nextKind) {
+        routingRelevantChanged =
+          this.collectSubtreeDamageAndRouting(prevNode, this._pooledRemovedRenderInstanceIds) ||
+          routingRelevantChanged;
+        routingRelevantChanged =
+          this.collectSubtreeDamageAndRouting(nextNode, this._pooledChangedRenderInstanceIds) ||
+          routingRelevantChanged;
+        continue;
+      }
+
+      if (isRoutingRelevantKind(nextKind)) routingRelevantChanged = true;
+
+      if (isDamageGranularityKind(nextKind)) {
+        this._pooledChangedRenderInstanceIds.push(nextNode.instanceId);
+        continue;
+      }
+
+      const prevChildren = prevNode.children;
+      const nextChildren = nextNode.children;
+      const sharedCount = Math.min(prevChildren.length, nextChildren.length);
+      let hadChildChanges = prevChildren.length !== nextChildren.length;
+
+      for (let i = sharedCount - 1; i >= 0; i--) {
+        const prevChild = prevChildren[i];
+        const nextChild = nextChildren[i];
+        if (!prevChild || !nextChild || prevChild === nextChild) continue;
+        hadChildChanges = true;
+        this._pooledPrevRuntimeStack.push(prevChild);
+        this._pooledRuntimeStack.push(nextChild);
+      }
+
+      if (nextChildren.length > sharedCount) {
+        hadChildChanges = true;
+        for (let i = sharedCount; i < nextChildren.length; i++) {
+          const child = nextChildren[i];
+          if (!child) continue;
+          routingRelevantChanged =
+            this.collectSubtreeDamageAndRouting(child, this._pooledChangedRenderInstanceIds) ||
+            routingRelevantChanged;
+        }
+      }
+
+      if (prevChildren.length > sharedCount) {
+        hadChildChanges = true;
+        for (let i = sharedCount; i < prevChildren.length; i++) {
+          const child = prevChildren[i];
+          if (!child) continue;
+          routingRelevantChanged =
+            this.collectSubtreeDamageAndRouting(child, this._pooledRemovedRenderInstanceIds) ||
+            routingRelevantChanged;
+        }
+      }
+
+      // If only this node changed (children are reference-identical), treat as self-damage.
+      if (!hadChildChanges) {
+        this._pooledChangedRenderInstanceIds.push(nextNode.instanceId);
+      }
+    }
+
+    this._pooledPrevRuntimeStack.length = 0;
+    this._pooledRuntimeStack.length = 0;
+
+    return {
+      changedInstanceIds: this._pooledChangedRenderInstanceIds,
+      removedInstanceIds: this._pooledRemovedRenderInstanceIds,
+      routingRelevantChanged,
+    };
+  }
+
+  private emitIncrementalCursor(cursorInfo: CursorInfo | undefined): void {
+    if (!cursorInfo || !this.useV2Cursor || !isV2Builder(this.builder)) return;
+
+    const focusedId = this.focusState.focusedId;
+    if (!focusedId) {
+      this.builder.hideCursor();
+      return;
+    }
+
+    const input = this.inputById.get(focusedId);
+    if (!input || input.disabled) {
+      this.builder.hideCursor();
+      return;
+    }
+
+    const rect = this._pooledRectByInstanceId.get(input.instanceId);
+    if (!rect || rect.w <= 0 || rect.h <= 0) {
+      this.builder.hideCursor();
+      return;
+    }
+
+    const graphemeOffset = this.inputCursorByInstanceId.get(input.instanceId) ?? input.value.length;
+    const cursorX = measureTextCells(input.value.slice(0, graphemeOffset));
+    this.builder.setCursor({
+      x: rect.x + 1 + cursorX,
+      y: rect.y,
+      shape: cursorInfo.shape,
+      visible: true,
+      blink: cursorInfo.blink,
+    });
+  }
+
+  private appendDamageRectForInstanceId(instanceId: InstanceId): boolean {
+    const current = this._pooledRectByInstanceId.get(instanceId);
+    if (current && current.w > 0 && current.h > 0) {
+      this._pooledDamageRects.push(current);
+      return true;
+    }
+    const prev = this._prevFrameRectByInstanceId.get(instanceId);
+    if (prev && prev.w > 0 && prev.h > 0) {
+      this._pooledDamageRects.push(prev);
+      return true;
+    }
+    return false;
+  }
+
+  private appendDamageRectForId(id: string): boolean {
+    const current = this._pooledRectById.get(id);
+    if (current && current.w > 0 && current.h > 0) {
+      this._pooledDamageRects.push(current);
+      return true;
+    }
+    const prev = this._prevFrameRectById.get(id);
+    if (prev && prev.w > 0 && prev.h > 0) {
+      this._pooledDamageRects.push(prev);
+      return true;
+    }
+    return false;
+  }
+
+  private collectSpinnerDamageRects(runtimeRoot: RuntimeInstance, layoutRoot: LayoutTree): void {
+    this._pooledRuntimeStack.length = 0;
+    this._pooledLayoutStack.length = 0;
+    this._pooledRuntimeStack.push(runtimeRoot);
+    this._pooledLayoutStack.push(layoutRoot);
+    while (this._pooledRuntimeStack.length > 0 && this._pooledLayoutStack.length > 0) {
+      const runtimeNode = this._pooledRuntimeStack.pop();
+      const layoutNode = this._pooledLayoutStack.pop();
+      if (!runtimeNode || !layoutNode) continue;
+      if (runtimeNode.vnode.kind === "spinner") {
+        const rect = layoutNode.rect;
+        if (rect.w > 0 && rect.h > 0) this._pooledDamageRects.push(rect);
+      }
+      const childCount = Math.min(runtimeNode.children.length, layoutNode.children.length);
+      for (let i = childCount - 1; i >= 0; i--) {
+        const runtimeChild = runtimeNode.children[i];
+        const layoutChild = layoutNode.children[i];
+        if (runtimeChild && layoutChild) {
+          this._pooledRuntimeStack.push(runtimeChild);
+          this._pooledLayoutStack.push(layoutChild);
+        }
+      }
+    }
+  }
+
+  private normalizeDamageRects(viewport: Viewport): readonly Rect[] {
+    this._pooledMergedDamageRects.length = 0;
+    for (const raw of this._pooledDamageRects) {
+      const clipped = clipRectToViewport(raw, viewport);
+      if (!clipped) continue;
+
+      let merged = clipped;
+      let expanded = true;
+      while (expanded) {
+        expanded = false;
+        for (let i = 0; i < this._pooledMergedDamageRects.length; i++) {
+          const existing = this._pooledMergedDamageRects[i];
+          if (!existing) continue;
+          if (!rectOverlapsOrTouches(existing, merged)) continue;
+          merged = unionRect(existing, merged);
+          this._pooledMergedDamageRects.splice(i, 1);
+          expanded = true;
+          break;
+        }
+      }
+      this._pooledMergedDamageRects.push(merged);
+    }
+    this._pooledMergedDamageRects.sort((a, b) => a.y - b.y || a.x - b.x);
+    return this._pooledMergedDamageRects;
+  }
+
+  private isDamageAreaTooLarge(viewport: Viewport): boolean {
+    const totalCells = viewport.cols * viewport.rows;
+    if (totalCells <= 0) return true;
+    let area = 0;
+    for (const rect of this._pooledMergedDamageRects) {
+      area += rect.w * rect.h;
+    }
+    return area > totalCells * INCREMENTAL_DAMAGE_AREA_FRACTION;
+  }
+
+  private snapshotRenderedFrameState(viewport: Viewport, theme: Theme, doLayout: boolean): void {
+    if (doLayout) {
+      this._prevFrameRectByInstanceId.clear();
+      for (const [instanceId, rect] of this._pooledRectByInstanceId) {
+        this._prevFrameRectByInstanceId.set(instanceId, rect);
+      }
+      this._prevFrameRectById.clear();
+      for (const [id, rect] of this._pooledRectById) {
+        this._prevFrameRectById.set(id, rect);
+      }
+    }
+    this._hasRenderedFrame = true;
+    this._lastRenderedViewport = Object.freeze({ cols: viewport.cols, rows: viewport.rows });
+    this._lastRenderedThemeRef = theme;
+    this._lastRenderedFocusedId = this.focusState.focusedId;
+  }
+
   /**
    * Execute view function, commit tree, compute layout, and render to drawlist.
    *
@@ -2193,9 +2610,11 @@ export class WidgetRenderer<S> {
       let prevFocusedIdBeforeFinalize: string | null = null;
       const prevActiveZoneIdBeforeSubmit = this.focusState.activeZoneId;
       const prevZoneMetaByIdBeforeSubmit = this.zoneMetaById;
+      const prevCommittedRoot = this.committedRoot;
       const hadRoutingWidgets = this.hadRoutingWidgets;
       let hasRoutingWidgets = hadRoutingWidgets;
       let didRoutingRebuild = false;
+      let identityDamageFromCommit: IdentityDiffDamageResult | null = null;
 
       if (doCommit) {
         const viewToken = PERF_DETAIL_ENABLED ? perfMarkStart("view") : 0;
@@ -2205,6 +2624,7 @@ export class WidgetRenderer<S> {
         const commitToken = PERF_DETAIL_ENABLED ? perfMarkStart("vnode_commit") : 0;
         const commitRes0 = commitVNodeTree(this.committedRoot, vnode, {
           allocator: this.allocator,
+          collectLifecycleInstanceIds: false,
           composite: {
             registry: this.compositeRegistry,
             appState: snapshot,
@@ -2217,6 +2637,13 @@ export class WidgetRenderer<S> {
         }
         commitRes = commitRes0.value;
         this.committedRoot = commitRes.root;
+
+        const damageToken = PERF_DETAIL_ENABLED ? perfMarkStart("damage_identity_diff") : 0;
+        identityDamageFromCommit = this.computeIdentityDiffDamage(
+          prevCommittedRoot,
+          this.committedRoot,
+        );
+        if (PERF_DETAIL_ENABLED) perfMarkEnd("damage_identity_diff", damageToken);
 
         if (!doLayout && plan.checkLayoutStability) {
           // Detect layout-relevant commit changes (including child order changes)
@@ -2298,29 +2725,37 @@ export class WidgetRenderer<S> {
       }
 
       if (doCommit) {
-        const metaToken = PERF_DETAIL_ENABLED ? perfMarkStart("metadata_collect") : 0;
-        // Single-pass metadata collection using pooled collector (avoids per-frame allocations)
-        const widgetMeta = this._metadataCollector.collect(this.committedRoot);
-        hasRoutingWidgets = widgetMeta.hasRoutingWidgets;
+        const canSkipMetadataCollect =
+          prevCommittedRoot !== null &&
+          hadRoutingWidgets === false &&
+          identityDamageFromCommit !== null &&
+          identityDamageFromCommit.routingRelevantChanged === false;
 
-        const nextZoneMetaById = new Map(widgetMeta.zones);
+        if (!canSkipMetadataCollect) {
+          const metaToken = PERF_DETAIL_ENABLED ? perfMarkStart("metadata_collect") : 0;
+          // Single-pass metadata collection using pooled collector (avoids per-frame allocations)
+          const widgetMeta = this._metadataCollector.collect(this.committedRoot);
+          hasRoutingWidgets = widgetMeta.hasRoutingWidgets;
 
-        prevFocusedIdBeforeFinalize = this.focusState.focusedId;
-        this.focusState = finalizeFocusWithPreCollectedMetadata(
-          this.focusState,
-          widgetMeta.focusableIds,
-          widgetMeta.zones,
-          widgetMeta.traps,
-        );
-        this.baseFocusList = widgetMeta.focusableIds;
-        this.baseEnabledById = widgetMeta.enabledById;
-        this.focusList = widgetMeta.focusableIds;
-        this.enabledById = widgetMeta.enabledById;
-        this.pressableIds = widgetMeta.pressableIds;
-        this.inputById = widgetMeta.inputById;
-        this.traps = widgetMeta.traps;
-        this.zoneMetaById = nextZoneMetaById;
-        if (PERF_DETAIL_ENABLED) perfMarkEnd("metadata_collect", metaToken);
+          const nextZoneMetaById = new Map(widgetMeta.zones);
+
+          prevFocusedIdBeforeFinalize = this.focusState.focusedId;
+          this.focusState = finalizeFocusWithPreCollectedMetadata(
+            this.focusState,
+            widgetMeta.focusableIds,
+            widgetMeta.zones,
+            widgetMeta.traps,
+          );
+          this.baseFocusList = widgetMeta.focusableIds;
+          this.baseEnabledById = widgetMeta.enabledById;
+          this.focusList = widgetMeta.focusableIds;
+          this.enabledById = widgetMeta.enabledById;
+          this.pressableIds = widgetMeta.pressableIds;
+          this.inputById = widgetMeta.inputById;
+          this.traps = widgetMeta.traps;
+          this.zoneMetaById = nextZoneMetaById;
+          if (PERF_DETAIL_ENABLED) perfMarkEnd("metadata_collect", metaToken);
+        }
       }
 
       if (doCommit && (hasRoutingWidgets || hadRoutingWidgets)) {
@@ -2961,35 +3396,130 @@ export class WidgetRenderer<S> {
         );
       }
 
-      const renderToken = perfMarkStart("render");
       const tick = this.renderTick;
       this.renderTick = (this.renderTick + 1) >>> 0;
-      renderToDrawlist({
-        tree: this.committedRoot,
-        layout: this.layoutTree,
-        viewport,
-        focusState: this.focusState,
-        builder: this.builder,
-        tick,
-        theme,
-        cursorInfo,
-        virtualListStore: this.virtualListStore,
-        tableStore: this.tableStore,
-        treeStore: this.treeStore,
-        loadedTreeChildrenById: this.loadedTreeChildrenByTreeId,
-        commandPaletteItemsById: this.commandPaletteItemsById,
-        commandPaletteLoadingById: this.commandPaletteLoadingById,
-        toolApprovalFocusedActionById: this.toolApprovalFocusedActionById,
-        dropdownSelectedIndexById: this.dropdownSelectedIndexById,
-        diffViewerFocusedHunkById: this.diffViewerFocusedHunkById,
-        diffViewerExpandedHunksById: this.diffViewerExpandedHunksById,
-        layoutIndex: this._pooledRectByInstanceId,
-        idRectIndex: this._pooledRectById,
-        tableRenderCacheById: this.tableRenderCacheById,
-        logsConsoleRenderCacheById: this.logsConsoleRenderCacheById,
-        diffRenderCacheById: this.diffRenderCacheById,
-        codeEditorRenderCacheById: this.codeEditorRenderCacheById,
-      });
+
+      const renderToken = perfMarkStart("render");
+      let usedIncrementalRender = false;
+      if (this.shouldAttemptIncrementalRender(doLayout, viewport, theme)) {
+        this._pooledDamageRects.length = 0;
+        let missingDamageRect = false;
+
+        if (doCommit) {
+          if (!identityDamageFromCommit) {
+            missingDamageRect = true;
+          } else {
+            for (const instanceId of identityDamageFromCommit.changedInstanceIds) {
+              if (!this.appendDamageRectForInstanceId(instanceId)) {
+                missingDamageRect = true;
+                break;
+              }
+            }
+            if (!missingDamageRect) {
+              for (const instanceId of identityDamageFromCommit.removedInstanceIds) {
+                if (!this.appendDamageRectForInstanceId(instanceId)) {
+                  missingDamageRect = true;
+                  break;
+                }
+              }
+            }
+          }
+        } else {
+          this.collectSpinnerDamageRects(this.committedRoot, this.layoutTree);
+        }
+
+        const prevFocusedId = this._lastRenderedFocusedId;
+        const nextFocusedId = this.focusState.focusedId;
+        if (!missingDamageRect && prevFocusedId !== nextFocusedId) {
+          if (prevFocusedId !== null && !this.appendDamageRectForId(prevFocusedId)) {
+            missingDamageRect = true;
+          }
+          if (
+            !missingDamageRect &&
+            nextFocusedId !== null &&
+            !this.appendDamageRectForId(nextFocusedId)
+          ) {
+            missingDamageRect = true;
+          }
+        }
+
+        if (!missingDamageRect) {
+          const damageRects = this.normalizeDamageRects(viewport);
+          if (damageRects.length > 0 && !this.isDamageAreaTooLarge(viewport)) {
+            for (const damageRect of damageRects) {
+              this.builder.fillRect(
+                damageRect.x,
+                damageRect.y,
+                damageRect.w,
+                damageRect.h,
+                DEFAULT_BASE_STYLE,
+              );
+            }
+            for (const damageRect of damageRects) {
+              this.builder.pushClip(damageRect.x, damageRect.y, damageRect.w, damageRect.h);
+              renderTree(
+                this.builder,
+                this.focusState,
+                this.layoutTree,
+                this._pooledRectById,
+                viewport,
+                theme,
+                tick,
+                DEFAULT_BASE_STYLE,
+                this.committedRoot,
+                cursorInfo,
+                this.virtualListStore,
+                this.tableStore,
+                this.treeStore,
+                this.loadedTreeChildrenByTreeId,
+                this.commandPaletteItemsById,
+                this.commandPaletteLoadingById,
+                this.toolApprovalFocusedActionById,
+                this.dropdownSelectedIndexById,
+                this.diffViewerFocusedHunkById,
+                this.diffViewerExpandedHunksById,
+                this.tableRenderCacheById,
+                this.logsConsoleRenderCacheById,
+                this.diffRenderCacheById,
+                this.codeEditorRenderCacheById,
+                { damageRect },
+              );
+              this.builder.popClip();
+            }
+            this.emitIncrementalCursor(cursorInfo);
+            usedIncrementalRender = true;
+          }
+        }
+      }
+
+      if (!usedIncrementalRender) {
+        renderToDrawlist({
+          tree: this.committedRoot,
+          layout: this.layoutTree,
+          viewport,
+          focusState: this.focusState,
+          builder: this.builder,
+          tick,
+          theme,
+          cursorInfo,
+          virtualListStore: this.virtualListStore,
+          tableStore: this.tableStore,
+          treeStore: this.treeStore,
+          loadedTreeChildrenById: this.loadedTreeChildrenByTreeId,
+          commandPaletteItemsById: this.commandPaletteItemsById,
+          commandPaletteLoadingById: this.commandPaletteLoadingById,
+          toolApprovalFocusedActionById: this.toolApprovalFocusedActionById,
+          dropdownSelectedIndexById: this.dropdownSelectedIndexById,
+          diffViewerFocusedHunkById: this.diffViewerFocusedHunkById,
+          diffViewerExpandedHunksById: this.diffViewerExpandedHunksById,
+          layoutIndex: this._pooledRectByInstanceId,
+          idRectIndex: this._pooledRectById,
+          tableRenderCacheById: this.tableRenderCacheById,
+          logsConsoleRenderCacheById: this.logsConsoleRenderCacheById,
+          diffRenderCacheById: this.diffRenderCacheById,
+          codeEditorRenderCacheById: this.codeEditorRenderCacheById,
+        });
+      }
       perfMarkEnd("render", renderToken);
 
       const buildToken = perfMarkStart("drawlist_build");
@@ -3002,6 +3532,7 @@ export class WidgetRenderer<S> {
           detail: `${built.error.code}: ${built.error.detail}`,
         };
       }
+      this.snapshotRenderedFrameState(viewport, theme, doLayout);
 
       // Render hooks are for preventing re-entrant app API calls during user render.
       hooks.exitRender();

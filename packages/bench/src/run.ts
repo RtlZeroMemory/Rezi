@@ -93,6 +93,16 @@ async function checkFramework(fw: Framework): Promise<boolean> {
       case "ink":
         await import("ink");
         return true;
+      case "terminal-kit":
+        await import("terminal-kit");
+        return true;
+      case "blessed":
+        await import("blessed");
+        return true;
+      case "ratatui": {
+        const { checkRatatui } = await import("./ratatui-runner.js");
+        return checkRatatui();
+      }
     }
   } catch {
     return false;
@@ -113,7 +123,14 @@ async function main(): Promise<void> {
 
   // Check which frameworks are available
   const availableFrameworks = new Map<Framework, boolean>();
-  for (const fw of ["rezi-native", "ink-compat", "ink"] as Framework[]) {
+  for (const fw of [
+    "rezi-native",
+    "ink-compat",
+    "ink",
+    "terminal-kit",
+    "blessed",
+    "ratatui",
+  ] as Framework[]) {
     if (opts.framework && opts.framework !== fw) {
       availableFrameworks.set(fw, false);
       continue;

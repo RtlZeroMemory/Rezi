@@ -56,6 +56,15 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
 }
 
+/** Check if a string contains only printable ASCII (0x20..0x7E). */
+function isAsciiText(text: string): boolean {
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (c < 0x20 || c > 0x7e) return false;
+  }
+  return true;
+}
+
 function clamp01(value: number): number {
   if (!Number.isFinite(value)) return 0;
   if (value <= 0) return 0;
@@ -398,30 +407,31 @@ export function renderBasicWidget(
       const overflowW = maxWidth === undefined ? rect.w : Math.min(rect.w, maxWidth);
       if (overflowW <= 0) break;
 
-      let displayText = vnode.text;
-      let useClip = false;
+      const text = vnode.text;
 
-      const textWidth = measureTextCells(displayText);
-      const overflow = textWidth > overflowW;
-      if (overflow) {
-        switch (textOverflow) {
-          case "ellipsis":
-            displayText = truncateWithEllipsis(displayText, overflowW);
-            break;
-          case "middle":
-            displayText = truncateMiddle(displayText, overflowW);
-            break;
-          case "clip":
-            useClip = true;
-            break;
-        }
-      }
+      // Avoid measuring in the common ASCII case.
+      const fits =
+        (isAsciiText(text) && text.length <= overflowW) || measureTextCells(text) <= overflowW;
 
-      if (variantStyle === undefined && ownStyle === undefined && !useClip && !overflow) {
-        builder.drawText(rect.x, rect.y, vnode.text, parentStyle);
+      if (fits) {
+        builder.drawText(rect.x, rect.y, text, style);
         break;
       }
 
+      let displayText = text;
+      let useClip = false;
+
+      switch (textOverflow) {
+        case "ellipsis":
+          displayText = truncateWithEllipsis(text, overflowW);
+          break;
+        case "middle":
+          displayText = truncateMiddle(text, overflowW);
+          break;
+        case "clip":
+          useClip = true;
+          break;
+      }
       if (useClip) {
         builder.pushClip(rect.x, rect.y, overflowW, rect.h);
         builder.drawText(rect.x, rect.y, displayText, style);

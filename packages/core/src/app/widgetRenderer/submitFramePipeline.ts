@@ -77,6 +77,14 @@ function hashString(hash: number, value: string): number {
   return out;
 }
 
+function measureTextCellsFast(text: string): number {
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (code < 0x20 || code > 0x7e) return measureTextCells(text);
+  }
+  return text.length;
+}
+
 function hashLayoutPropValue(hash: number, value: unknown): number | null {
   if (value === undefined) return hashU32(hash, 0);
   if (value === null) return hashU32(hash, 1);
@@ -125,7 +133,7 @@ function computeLayoutStabilitySignature(node: RuntimeInstance): number | null {
             : null;
       if (maxWidth === null) return null;
 
-      const measuredWidth = measureTextCells(node.vnode.text);
+      const measuredWidth = measureTextCellsFast(node.vnode.text);
       const cappedWidth =
         maxWidth === undefined ? measuredWidth : Math.min(measuredWidth, maxWidth);
 
@@ -145,7 +153,7 @@ function computeLayoutStabilitySignature(node: RuntimeInstance): number | null {
           ? Math.trunc(props.px)
           : 1;
       let hash = hashString(HASH_FNV_OFFSET, "button");
-      hash = hashNumber(hash, measureTextCells(props.label));
+      hash = hashNumber(hash, measureTextCellsFast(props.label));
       hash = hashNumber(hash, px);
       return hash;
     }
@@ -153,7 +161,7 @@ function computeLayoutStabilitySignature(node: RuntimeInstance): number | null {
       const props = node.vnode.props as Readonly<{ value?: unknown }>;
       if (typeof props.value !== "string") return null;
       let hash = hashString(HASH_FNV_OFFSET, "input");
-      hash = hashNumber(hash, measureTextCells(props.value));
+      hash = hashNumber(hash, measureTextCellsFast(props.value));
       return hash;
     }
     case "spacer": {
