@@ -182,6 +182,7 @@ export function renderCollectionWidget(
         : {
             scrollTop: 0,
             focusedRowIndex: 0,
+            focusedColumnIndex: 0,
             lastClickedKey: null,
             viewportHeight: bodyH,
             startIndex: 0,
@@ -206,10 +207,17 @@ export function renderCollectionWidget(
           const headerText = `${col.header ?? ""}${sortIndicator}`;
           const headerAlign = readCellAlign(col.align);
           const cell = alignCellContent(headerText, w, headerAlign);
-          const headerStyle =
+          const headerStyle0 =
             sortIndicator.length > 0
               ? mergeTextStyle(parentStyle, { bold: true, fg: theme.colors.info })
               : mergeTextStyle(parentStyle, { bold: true });
+          const isHeaderFocused =
+            focusState.focusedId === props.id &&
+            tableState.focusedRowIndex === -1 &&
+            i === tableState.focusedColumnIndex;
+          const headerStyle = isHeaderFocused
+            ? mergeTextStyle(headerStyle0, { inverse: true })
+            : headerStyle0;
           builder.drawText(xCursor, innerY, cell, headerStyle);
           xCursor += w;
         }

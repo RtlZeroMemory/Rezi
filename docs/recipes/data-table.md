@@ -89,7 +89,7 @@ await app.start();
 ## Explanation
 
 - Filter state is kept in `state.filter` and applied before passing data to the table.
-- Sorting is handled by the table (it emits `onSort(column, direction)` and you store that in state).
+- Sorting is handled by the table (click a sortable header, or focus the header and press Enter; it emits `onSort(column, direction)` and you store that in state).
 - Selection is stored as row keys and updated via `onSelectionChange`.
 
 ## Related

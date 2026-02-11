@@ -54,6 +54,7 @@ function createTableCtx<T>(
   const state: TableLocalState = {
     scrollTop: overrides.scrollTop ?? 0,
     focusedRowIndex: overrides.focusedRowIndex ?? 0,
+    focusedColumnIndex: overrides.focusedColumnIndex ?? 0,
     lastClickedKey: overrides.lastClickedKey ?? null,
     viewportHeight: overrides.viewportHeight ?? 10,
     startIndex: 0,

@@ -104,6 +104,7 @@ import {
   handleDividerDrag,
   sizesToPercentages,
 } from "../widgets/splitPane.js";
+import { computeSelection, distributeColumnWidths } from "../widgets/table.js";
 import { TOAST_HEIGHT, getToastActionFocusId, parseToastActionFocusId } from "../widgets/toast.js";
 import { type FlattenedNode, flattenTree } from "../widgets/tree.js";
 import type {
@@ -256,6 +257,9 @@ export class WidgetRenderer<S> {
   private pressableIds: ReadonlySet<string> = new Set<string>();
   private pressedId: string | null = null;
   private pressedVirtualList: Readonly<{ id: string; index: number }> | null = null;
+  private pressedTable: Readonly<{ id: string; rowIndex: number }> | null = null;
+  private pressedTableHeader: Readonly<{ id: string; columnIndex: number }> | null = null;
+  private lastTableClick: Readonly<{ id: string; rowIndex: number; timeMs: number }> | null = null;
   private traps: ReadonlyMap<string, CollectedTrap> = new Map<string, CollectedTrap>();
   private zoneMetaById: ReadonlyMap<string, CollectedZone> = new Map<string, CollectedZone>();
 
@@ -954,45 +958,128 @@ export class WidgetRenderer<S> {
         const rowKeys = tableCache?.rowKeys ?? table.data.map((row, i) => table.getRowKey(row, i));
         const state: TableLocalState = this.tableStore.get(table.id);
 
-        const r = routeTableKey(event, {
-          tableId: table.id,
-          rowKeys,
-          ...(tableCache?.rowKeyToIndex ? { rowKeyToIndex: tableCache.rowKeyToIndex } : {}),
-          data: table.data,
-          rowHeight,
-          state,
-          selection: (table.selection ?? EMPTY_STRING_ARRAY) as readonly string[],
-          selectionMode: table.selectionMode ?? "none",
-          keyboardNavigation: true,
-        });
-
-        if (r.consumed) {
-          if (
-            r.nextFocusedRowIndex !== undefined ||
-            r.nextScrollTop !== undefined ||
-            r.nextLastClickedKey !== undefined
-          ) {
-            const patch: {
-              focusedRowIndex?: number;
-              scrollTop?: number;
-              lastClickedKey?: string | null;
-            } = {};
-            if (r.nextFocusedRowIndex !== undefined) patch.focusedRowIndex = r.nextFocusedRowIndex;
-            if (r.nextScrollTop !== undefined) patch.scrollTop = r.nextScrollTop;
-            if (r.nextLastClickedKey !== undefined) patch.lastClickedKey = r.nextLastClickedKey;
-            this.tableStore.set(table.id, patch);
-          }
-
-          if (r.nextSelection !== undefined && table.onSelectionChange) {
-            table.onSelectionChange(r.nextSelection);
-          }
-
-          if (r.action && table.onRowPress) {
-            const row = table.data[r.action.rowIndex];
-            if (row !== undefined) table.onRowPress(row, r.action.rowIndex);
-          }
-
+        const headerHeight = table.showHeader === false ? 0 : (table.headerHeight ?? 1);
+        if (headerHeight <= 0 && state.focusedRowIndex === -1) {
+          this.tableStore.set(table.id, { focusedRowIndex: 0 });
           return ROUTE_RENDER;
+        }
+
+        if (headerHeight > 0) {
+          const colCount = table.columns.length;
+          const clampColIndex = (idx: number): number => {
+            if (colCount <= 0) return 0;
+            return Math.max(0, Math.min(colCount - 1, idx));
+          };
+
+          // Enter header focus with Up from the first row.
+          if (state.focusedRowIndex === 0 && event.key === ZR_KEY_UP) {
+            this.tableStore.set(table.id, {
+              focusedRowIndex: -1,
+              focusedColumnIndex: clampColIndex(state.focusedColumnIndex),
+            });
+            return ROUTE_RENDER;
+          }
+
+          // Header focus: left/right moves columns; Enter toggles sort.
+          if (state.focusedRowIndex === -1) {
+            const colIndex = clampColIndex(state.focusedColumnIndex);
+            if (colIndex !== state.focusedColumnIndex) {
+              this.tableStore.set(table.id, { focusedColumnIndex: colIndex });
+              return ROUTE_RENDER;
+            }
+
+            if (event.key === ZR_KEY_DOWN) {
+              this.tableStore.set(table.id, { focusedRowIndex: 0 });
+              return ROUTE_RENDER;
+            }
+
+            if (event.key === ZR_KEY_HOME) {
+              if (colIndex !== 0) {
+                this.tableStore.set(table.id, { focusedColumnIndex: 0 });
+                return ROUTE_RENDER;
+              }
+              return ROUTE_NO_RENDER;
+            }
+            if (event.key === ZR_KEY_END) {
+              const last = Math.max(0, colCount - 1);
+              if (colIndex !== last) {
+                this.tableStore.set(table.id, { focusedColumnIndex: last });
+                return ROUTE_RENDER;
+              }
+              return ROUTE_NO_RENDER;
+            }
+
+            if (event.key === ZR_KEY_LEFT || event.key === ZR_KEY_RIGHT) {
+              const delta = event.key === ZR_KEY_RIGHT ? 1 : -1;
+              const next = clampColIndex(colIndex + delta);
+              if (next !== colIndex) {
+                this.tableStore.set(table.id, { focusedColumnIndex: next });
+                return ROUTE_RENDER;
+              }
+              return ROUTE_NO_RENDER;
+            }
+
+            if (event.key === ZR_KEY_ENTER || event.key === ZR_KEY_SPACE) {
+              const col = table.columns[colIndex];
+              if (col && col.sortable === true && typeof table.onSort === "function") {
+                const nextDirection: "asc" | "desc" =
+                  table.sortColumn === col.key && table.sortDirection === "asc" ? "desc" : "asc";
+                table.onSort(col.key, nextDirection);
+                return ROUTE_RENDER;
+              }
+              return ROUTE_NO_RENDER;
+            }
+
+            if (event.key === ZR_KEY_UP) {
+              // Already in header focus.
+              return ROUTE_NO_RENDER;
+            }
+          }
+        }
+
+        if (state.focusedRowIndex !== -1) {
+          const r = routeTableKey(event, {
+            tableId: table.id,
+            rowKeys,
+            ...(tableCache?.rowKeyToIndex ? { rowKeyToIndex: tableCache.rowKeyToIndex } : {}),
+            data: table.data,
+            rowHeight,
+            state,
+            selection: (table.selection ?? EMPTY_STRING_ARRAY) as readonly string[],
+            selectionMode: table.selectionMode ?? "none",
+            keyboardNavigation: true,
+          });
+
+          if (r.consumed) {
+            if (
+              r.nextFocusedRowIndex !== undefined ||
+              r.nextScrollTop !== undefined ||
+              r.nextLastClickedKey !== undefined
+            ) {
+              const patch: {
+                focusedRowIndex?: number;
+                scrollTop?: number;
+                lastClickedKey?: string | null;
+              } = {};
+              if (r.nextFocusedRowIndex !== undefined) {
+                patch.focusedRowIndex = r.nextFocusedRowIndex;
+              }
+              if (r.nextScrollTop !== undefined) patch.scrollTop = r.nextScrollTop;
+              if (r.nextLastClickedKey !== undefined) patch.lastClickedKey = r.nextLastClickedKey;
+              this.tableStore.set(table.id, patch);
+            }
+
+            if (r.nextSelection !== undefined && table.onSelectionChange) {
+              table.onSelectionChange(r.nextSelection);
+            }
+
+            if (r.action && table.onRowPress) {
+              const row = table.data[r.action.rowIndex];
+              if (row !== undefined) table.onRowPress(row, r.action.rowIndex);
+            }
+
+            return ROUTE_RENDER;
+          }
         }
       }
 
@@ -1404,6 +1491,206 @@ export class WidgetRenderer<S> {
         }
       } else if (event.mouseKind === 4) {
         this.pressedVirtualList = null;
+      }
+    }
+
+    // Mouse click for table:
+    // - on down: focus row + update selection, or focus header column
+    // - on up: activate onRowPress/onRowDoublePress, or toggle sort on header
+    if (event.kind === "mouse" && (event.mouseKind === 3 || event.mouseKind === 4)) {
+      const targetId = mouseTargetId;
+      if (targetId !== null) {
+        const table = this.tableById.get(targetId);
+        const rect = this.rectById.get(targetId);
+        if (table && rect) {
+          const tableCache = this.tableRenderCacheById.get(table.id);
+          const rowKeys =
+            tableCache?.rowKeys ?? table.data.map((row, i) => table.getRowKey(row, i));
+          const rowKeyToIndex = tableCache?.rowKeyToIndex;
+          const selection = (table.selection ?? EMPTY_STRING_ARRAY) as readonly string[];
+          const selectionMode = table.selectionMode ?? "none";
+
+          const state = this.tableStore.get(table.id);
+
+          const border = table.border === "none" ? "none" : "single";
+          const t = border === "none" ? 0 : 1;
+          const innerX = rect.x + t;
+          const innerY = rect.y + t;
+          const innerW = Math.max(0, rect.w - t * 2);
+          const innerH = Math.max(0, rect.h - t * 2);
+
+          const headerHeight = table.showHeader === false ? 0 : (table.headerHeight ?? 1);
+          const rowHeight = table.rowHeight ?? 1;
+          const safeRowHeight = rowHeight > 0 ? rowHeight : 1;
+          const bodyY = innerY + headerHeight;
+          const bodyH = Math.max(0, innerH - headerHeight);
+          const virtualized = table.virtualized !== false;
+          const effectiveScrollTop = virtualized ? state.scrollTop : 0;
+
+          const inHeader =
+            headerHeight > 0 &&
+            innerW > 0 &&
+            event.x >= innerX &&
+            event.x < innerX + innerW &&
+            event.y >= innerY &&
+            event.y < innerY + headerHeight;
+          const inBody =
+            bodyH > 0 &&
+            innerW > 0 &&
+            event.x >= innerX &&
+            event.x < innerX + innerW &&
+            event.y >= bodyY &&
+            event.y < bodyY + bodyH;
+
+          const computeColumnIndex = (): number | null => {
+            if (!inHeader || innerW <= 0) return null;
+            const { widths } = distributeColumnWidths(table.columns, innerW);
+            let xCursor = innerX;
+            for (let c = 0; c < widths.length; c++) {
+              const w = widths[c] ?? 0;
+              if (w <= 0) continue;
+              if (event.x >= xCursor && event.x < xCursor + w) return c;
+              xCursor += w;
+            }
+            return null;
+          };
+
+          const computeRowIndex = (): number | null => {
+            if (!inBody) return null;
+            if (table.data.length === 0) return null;
+
+            const localY = event.y - bodyY;
+            const yInContent = effectiveScrollTop + localY;
+            if (yInContent < 0) return null;
+
+            const idx0 = Math.floor(yInContent / safeRowHeight);
+            if (idx0 < 0 || idx0 >= table.data.length) return null;
+            return idx0;
+          };
+
+          if (event.mouseKind === 3) {
+            this.pressedTable = null;
+            this.pressedTableHeader = null;
+
+            const colIndex = computeColumnIndex();
+            if (colIndex !== null) {
+              this.lastTableClick = null;
+              const prevRow = state.focusedRowIndex;
+              const prevCol = state.focusedColumnIndex;
+              this.tableStore.set(table.id, { focusedRowIndex: -1, focusedColumnIndex: colIndex });
+              this.pressedTableHeader = Object.freeze({ id: table.id, columnIndex: colIndex });
+              if (prevRow !== -1 || prevCol !== colIndex) localNeedsRender = true;
+              // Header press does not affect selection.
+              this.pressedTable = null;
+            } else {
+              const rowIndex = computeRowIndex();
+              if (rowIndex !== null) {
+                const rowKey = rowKeys[rowIndex];
+                if (rowKey === undefined) {
+                  this.pressedTable = null;
+                  this.pressedTableHeader = null;
+                  this.lastTableClick = null;
+                } else {
+                  const hasShift = (event.mods & ZR_MOD_SHIFT) !== 0;
+                  const hasCtrl = (event.mods & ZR_MOD_CTRL) !== 0;
+
+                  const res = computeSelection(
+                    selection,
+                    rowKey,
+                    selectionMode,
+                    { shift: hasShift, ctrl: hasCtrl },
+                    rowKeys,
+                    state.lastClickedKey,
+                    rowKeyToIndex,
+                  );
+
+                  const prevRow = state.focusedRowIndex;
+                  this.tableStore.set(table.id, {
+                    focusedRowIndex: rowIndex,
+                    lastClickedKey: rowKey,
+                  });
+                  if (rowIndex !== prevRow) localNeedsRender = true;
+                  if (res.changed && typeof table.onSelectionChange === "function") {
+                    table.onSelectionChange(res.selection);
+                    localNeedsRender = true;
+                  }
+
+                  this.pressedTable = Object.freeze({ id: table.id, rowIndex });
+                }
+              } else {
+                this.pressedTable = null;
+                this.pressedTableHeader = null;
+                this.lastTableClick = null;
+              }
+            }
+          } else {
+            const pressedRow = this.pressedTable;
+            const pressedHeader = this.pressedTableHeader;
+            this.pressedTable = null;
+            this.pressedTableHeader = null;
+
+            if (pressedHeader && pressedHeader.id === table.id) {
+              this.lastTableClick = null;
+              const colIndex = computeColumnIndex();
+              if (colIndex !== null && colIndex === pressedHeader.columnIndex) {
+                const col = table.columns[colIndex];
+                if (col && col.sortable === true && typeof table.onSort === "function") {
+                  const nextDirection: "asc" | "desc" =
+                    table.sortColumn === col.key && table.sortDirection === "asc" ? "desc" : "asc";
+                  table.onSort(col.key, nextDirection);
+                  localNeedsRender = true;
+                }
+              }
+            }
+
+            if (pressedRow && pressedRow.id === table.id) {
+              const rowIndex = computeRowIndex();
+              if (rowIndex !== null && rowIndex === pressedRow.rowIndex) {
+                const DOUBLE_PRESS_MS = 500;
+                const last = this.lastTableClick;
+                const dt = last ? event.timeMs - last.timeMs : Number.POSITIVE_INFINITY;
+                const isDouble =
+                  last &&
+                  last.id === table.id &&
+                  last.rowIndex === rowIndex &&
+                  dt >= 0 &&
+                  dt <= DOUBLE_PRESS_MS;
+
+                const row = table.data[rowIndex];
+                if (row !== undefined) {
+                  if (isDouble && typeof table.onRowDoublePress === "function") {
+                    table.onRowDoublePress(row, rowIndex);
+                    this.lastTableClick = null;
+                  } else if (typeof table.onRowPress === "function") {
+                    table.onRowPress(row, rowIndex);
+                    this.lastTableClick = Object.freeze({
+                      id: table.id,
+                      rowIndex,
+                      timeMs: event.timeMs,
+                    });
+                  } else {
+                    this.lastTableClick = Object.freeze({
+                      id: table.id,
+                      rowIndex,
+                      timeMs: event.timeMs,
+                    });
+                  }
+                  localNeedsRender = true;
+                } else {
+                  this.lastTableClick = null;
+                }
+              } else {
+                this.lastTableClick = null;
+              }
+            }
+          }
+        } else if (event.mouseKind === 4) {
+          this.pressedTable = null;
+          this.pressedTableHeader = null;
+        }
+      } else if (event.mouseKind === 4) {
+        this.pressedTable = null;
+        this.pressedTableHeader = null;
       }
     }
 

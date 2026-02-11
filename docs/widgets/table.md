@@ -34,6 +34,7 @@ ui.table({
 | `sortDirection` | `"asc" \| "desc"` | - | Current sort direction |
 | `onSort` | `(column: string, direction: "asc" \| "desc") => void` | - | Called when sort changes |
 | `onRowPress` | `(row: T, index: number) => void` | - | Row activation callback |
+| `onRowDoublePress` | `(row: T, index: number) => void` | - | Row double-activation callback (double-click) |
 | `virtualized` | `boolean` | `true` | Enable windowed rendering for large datasets |
 | `overscan` | `number` | `3` | Extra rows rendered outside viewport |
 | `showHeader` | `boolean` | `true` | Show/hide header row |
@@ -63,6 +64,9 @@ ui.table({
 
 - **Arrow keys** navigate rows. **Enter** activates the selected row.
 - **Mouse click** on a row selects it and moves focus to the table.
+- **Mouse click** on a sortable header toggles sort and fires `onSort(column, direction)`.
+- When focused: **Up** from the first row focuses the header. **Left/Right** moves between columns. **Enter** toggles sort on the focused header.
+- **Double click** on a row fires `onRowDoublePress` (when provided).
 - **Mouse scroll wheel** scrolls rows when the table is virtualized.
 
 ## Notes
