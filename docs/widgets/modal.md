@@ -29,7 +29,7 @@ ui.layers([
 | `title` | `string` | - | Optional modal header title |
 | `content` | `VNode` | **required** | Main modal body |
 | `actions` | `VNode[]` | `[]` | Action row (typically buttons) |
-| `width` | `number \| "auto"` | `"auto"` | Preferred modal width |
+| `width` | `number \| "auto"` | `~70%` | Preferred modal width |
 | `maxWidth` | `number` | - | Maximum width constraint |
 | `backdrop` | `"none" \| "dim" \| "opaque"` | `"dim"` | Backdrop style |
 | `closeOnBackdrop` | `boolean` | `true` | Close when clicking backdrop |
@@ -68,6 +68,7 @@ ui.modal({
 - Modals are rendered by conditionally including them in the tree (there is no `open` prop).
 - Render modals inside `ui.layers(...)` so they stack above base content.
 - Backdrops are rendered behind the modal. `"dim"` uses a light shade pattern; `"opaque"` clears the area behind the modal to the theme background color.
+- `width: "auto"` sizes to content/actions and is clamped by `maxWidth` and the viewport.
 
 ## Related
 

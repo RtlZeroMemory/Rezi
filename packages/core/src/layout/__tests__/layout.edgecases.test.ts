@@ -176,4 +176,41 @@ describe("layout edge cases", () => {
     if (!laidOut.ok) return;
     assert.deepEqual(laidOut.value.rect, { x: 0, y: 0, w: 20, h: 6 });
   });
+
+  test("modal width:'auto' measures content and actions", () => {
+    const modal: VNode = {
+      kind: "modal",
+      props: {
+        id: "m-auto",
+        width: "auto",
+        content: { kind: "text", text: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", props: {} }, // 30 cols
+        actions: Object.freeze([{ kind: "button", props: { id: "ok", label: "OK" } }]),
+      },
+    };
+    const tree: VNode = { kind: "layers", props: {}, children: Object.freeze([modal]) };
+    const laidOut = mustLayout(tree, 80, 25);
+    const modalLayout = laidOut.children[0];
+    assert.ok(modalLayout !== undefined, "expected modal layout node");
+    if (!modalLayout) return;
+    assert.equal(modalLayout.rect.w, 32);
+  });
+
+  test("modal width:'auto' respects maxWidth", () => {
+    const modal: VNode = {
+      kind: "modal",
+      props: {
+        id: "m-auto-maxw",
+        width: "auto",
+        maxWidth: 20,
+        content: { kind: "text", text: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", props: {} }, // 30 cols
+        actions: Object.freeze([{ kind: "button", props: { id: "ok", label: "OK" } }]),
+      },
+    };
+    const tree: VNode = { kind: "layers", props: {}, children: Object.freeze([modal]) };
+    const laidOut = mustLayout(tree, 80, 25);
+    const modalLayout = laidOut.children[0];
+    assert.ok(modalLayout !== undefined, "expected modal layout node");
+    if (!modalLayout) return;
+    assert.equal(modalLayout.rect.w, 20);
+  });
 });
