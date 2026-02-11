@@ -102,6 +102,7 @@ export function renderTree(
           builder,
           rect,
           currentClip,
+          viewport,
           theme,
           parentStyle,
           node,
