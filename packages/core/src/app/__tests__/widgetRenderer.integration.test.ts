@@ -4,7 +4,7 @@ import type { ZrevEvent } from "../../events.js";
 import { defineWidget, ui } from "../../index.js";
 import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
-import { getToastActionFocusId } from "../../widgets/toast.js";
+import { TOAST_HEIGHT, getToastActionFocusId } from "../../widgets/toast.js";
 import { createApp } from "../createApp.js";
 import { WidgetRenderer } from "../widgetRenderer.js";
 import { encodeZrevBatchV1, flushMicrotasks, makeBackendBatch } from "./helpers.js";
@@ -16,6 +16,20 @@ function noRenderHooks(): { enterRender: () => void; exitRender: () => void } {
 
 function keyEvent(key: number, mods = 0): ZrevEvent {
   return { kind: "key", timeMs: 0, key, mods, action: "down" };
+}
+
+function mouseDownEvent(x: number, y: number): ZrevEvent {
+  return {
+    kind: "mouse",
+    timeMs: 0,
+    x,
+    y,
+    mouseKind: 3,
+    mods: 0,
+    buttons: 0,
+    wheelX: 0,
+    wheelY: 0,
+  };
 }
 
 function createNoopBackend(): RuntimeBackend {
@@ -206,6 +220,202 @@ describe("WidgetRenderer integration battery", () => {
 
     renderer.routeEngineEvent(keyEvent(21 /* DOWN */));
     assert.equal(renderer.getFocusedId(), "z3");
+  });
+
+  test("focusZone onEnter/onExit fire on zone transitions", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const events: string[] = [];
+
+    const vnode = ui.column({}, [
+      ui.focusZone(
+        {
+          id: "zone-1",
+          onEnter: () => events.push("enter:zone-1"),
+          onExit: () => events.push("exit:zone-1"),
+        },
+        [ui.button({ id: "a", label: "A" })],
+      ),
+      ui.focusZone(
+        {
+          id: "zone-2",
+          onEnter: () => events.push("enter:zone-2"),
+          onExit: () => events.push("exit:zone-2"),
+        },
+        [ui.button({ id: "b", label: "B" })],
+      ),
+    ]);
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 40, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+    assert.equal(renderer.getFocusedId(), null);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "a");
+    assert.deepEqual(events, ["enter:zone-1"]);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "b");
+    assert.deepEqual(events, ["enter:zone-1", "exit:zone-1", "enter:zone-2"]);
+  });
+
+  test("focusZone onEnter/onExit swallow exceptions", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const vnode = ui.column({}, [
+      ui.focusZone(
+        {
+          id: "zone-1",
+          onEnter: () => {
+            throw new Error("boom");
+          },
+          onExit: () => {
+            throw new Error("boom2");
+          },
+        },
+        [ui.button({ id: "a", label: "A" })],
+      ),
+      ui.focusZone({ id: "zone-2" }, [ui.button({ id: "b", label: "B" })]),
+    ]);
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 40, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    assert.doesNotThrow(() => renderer.routeEngineEvent(keyEvent(3 /* TAB */)));
+    assert.equal(renderer.getFocusedId(), "a");
+
+    assert.doesNotThrow(() => renderer.routeEngineEvent(keyEvent(3 /* TAB */)));
+    assert.equal(renderer.getFocusedId(), "b");
+  });
+
+  test("focusZone callbacks use final state after toast focus reconciliation", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const events: string[] = [];
+    const viewport = { cols: 40, rows: 10 };
+    const vnode = ui.column({}, [
+      ui.focusZone(
+        {
+          id: "zone-1",
+          onEnter: () => events.push("enter:zone-1"),
+          onExit: () => events.push("exit:zone-1"),
+        },
+        [ui.button({ id: "a", label: "A" })],
+      ),
+      ui.toastContainer({
+        toasts: [
+          {
+            id: "t0",
+            message: "toast0",
+            type: "info",
+            action: { label: "Act", onAction: () => {} },
+          },
+        ],
+        onDismiss: () => {},
+      }),
+    ]);
+
+    const first = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      viewport,
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(first.ok);
+
+    renderer.routeEngineEvent(mouseDownEvent(viewport.cols - 6, viewport.rows - TOAST_HEIGHT + 1));
+    assert.equal(renderer.getFocusedId(), getToastActionFocusId("t0"));
+
+    events.length = 0;
+    const second = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      viewport,
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(second.ok);
+    assert.equal(renderer.getFocusedId(), getToastActionFocusId("t0"));
+    assert.deepEqual(events, []);
+  });
+
+  test("toast action mouse click emits focusZone onExit before early return", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const events: string[] = [];
+    const activated: string[] = [];
+    const viewport = { cols: 40, rows: 10 };
+
+    const vnode = ui.column({}, [
+      ui.focusZone(
+        {
+          id: "zone-1",
+          onEnter: () => events.push("enter:zone-1"),
+          onExit: () => events.push("exit:zone-1"),
+        },
+        [ui.button({ id: "a", label: "A" })],
+      ),
+      ui.toastContainer({
+        toasts: [
+          {
+            id: "t0",
+            message: "toast0",
+            type: "info",
+            action: { label: "Act", onAction: () => activated.push("t0") },
+          },
+        ],
+        onDismiss: () => {},
+      }),
+    ]);
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      viewport,
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "a");
+    assert.deepEqual(events, ["enter:zone-1"]);
+
+    events.length = 0;
+    renderer.routeEngineEvent(mouseDownEvent(viewport.cols - 6, viewport.rows - TOAST_HEIGHT + 1));
+
+    assert.equal(renderer.getFocusedId(), getToastActionFocusId("t0"));
+    assert.deepEqual(events, ["exit:zone-1"]);
+    assert.deepEqual(activated, ["t0"]);
   });
 
   test("virtualList routing updates selection and activates on Enter", () => {

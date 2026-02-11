@@ -90,6 +90,7 @@ import {
 } from "../runtime/router.js";
 import {
   type CollectedTrap,
+  type CollectedZone,
   type InputMeta,
   type WidgetMetadataCollector,
   createWidgetMetadataCollector,
@@ -256,6 +257,7 @@ export class WidgetRenderer<S> {
   private pressedId: string | null = null;
   private pressedVirtualList: Readonly<{ id: string; index: number }> | null = null;
   private traps: ReadonlyMap<string, CollectedTrap> = new Map<string, CollectedTrap>();
+  private zoneMetaById: ReadonlyMap<string, CollectedZone> = new Map<string, CollectedZone>();
 
   /* --- Instance ID Allocation --- */
   private readonly allocator = createInstanceIdAllocator(1);
@@ -478,6 +480,7 @@ export class WidgetRenderer<S> {
     const enabledById = this.enabledById;
 
     const prevFocusedId = this.focusState.focusedId;
+    const prevActiveZoneId = this.focusState.activeZoneId;
     const prevPressedId = this.pressedId;
 
     const focusedId = this.focusState.focusedId;
@@ -718,6 +721,14 @@ export class WidgetRenderer<S> {
                 focusedId: getToastActionFocusId(toast.id),
                 activeZoneId: null,
               });
+              if (this.focusState.activeZoneId !== prevActiveZoneId) {
+                this.invokeFocusZoneCallbacks(
+                  prevActiveZoneId,
+                  this.focusState.activeZoneId,
+                  this.zoneMetaById,
+                  this.zoneMetaById,
+                );
+              }
               toast.action.onAction();
               return ROUTE_RENDER;
             }
@@ -1456,6 +1467,15 @@ export class WidgetRenderer<S> {
       if (prevInput?.onBlur) prevInput.onBlur();
     }
 
+    if (this.focusState.activeZoneId !== prevActiveZoneId) {
+      this.invokeFocusZoneCallbacks(
+        prevActiveZoneId,
+        this.focusState.activeZoneId,
+        this.zoneMetaById,
+        this.zoneMetaById,
+      );
+    }
+
     if (res.action) {
       if (res.action.action === "press") {
         const btn = this.buttonById.get(res.action.id);
@@ -1487,6 +1507,37 @@ export class WidgetRenderer<S> {
     }
 
     return Object.freeze({ needsRender });
+  }
+
+  private invokeFocusZoneCallbacks(
+    prevZoneId: string | null,
+    nextZoneId: string | null,
+    prevZones: ReadonlyMap<string, CollectedZone>,
+    nextZones: ReadonlyMap<string, CollectedZone>,
+  ): void {
+    if (prevZoneId === nextZoneId) return;
+
+    if (prevZoneId !== null) {
+      const prev = prevZones.get(prevZoneId);
+      if (prev?.onExit) {
+        try {
+          prev.onExit();
+        } catch {
+          // Swallow callback errors to preserve routing determinism.
+        }
+      }
+    }
+
+    if (nextZoneId !== null) {
+      const next = nextZones.get(nextZoneId);
+      if (next?.onEnter) {
+        try {
+          next.onEnter();
+        } catch {
+          // Swallow callback errors to preserve routing determinism.
+        }
+      }
+    }
   }
 
   /**
@@ -1537,6 +1588,8 @@ export class WidgetRenderer<S> {
 
       let commitRes: CommitOk | null = null;
       let prevFocusedIdBeforeFinalize: string | null = null;
+      const prevActiveZoneIdBeforeSubmit = this.focusState.activeZoneId;
+      const prevZoneMetaByIdBeforeSubmit = this.zoneMetaById;
       const hadRoutingWidgets = this.hadRoutingWidgets;
       let hasRoutingWidgets = hadRoutingWidgets;
       let didRoutingRebuild = false;
@@ -1647,6 +1700,8 @@ export class WidgetRenderer<S> {
         const widgetMeta = this._metadataCollector.collect(this.committedRoot);
         hasRoutingWidgets = widgetMeta.hasRoutingWidgets;
 
+        const nextZoneMetaById = new Map(widgetMeta.zones);
+
         prevFocusedIdBeforeFinalize = this.focusState.focusedId;
         this.focusState = finalizeFocusWithPreCollectedMetadata(
           this.focusState,
@@ -1661,6 +1716,7 @@ export class WidgetRenderer<S> {
         this.pressableIds = widgetMeta.pressableIds;
         this.inputById = widgetMeta.inputById;
         this.traps = widgetMeta.traps;
+        this.zoneMetaById = nextZoneMetaById;
         if (PERF_DETAIL_ENABLED) perfMarkEnd("metadata_collect", metaToken);
       }
 
@@ -2249,6 +2305,15 @@ export class WidgetRenderer<S> {
         if (this.enabledById.get(this.pressedId) !== true) {
           this.pressedId = null;
         }
+      }
+
+      if (this.focusState.activeZoneId !== prevActiveZoneIdBeforeSubmit) {
+        this.invokeFocusZoneCallbacks(
+          prevActiveZoneIdBeforeSubmit,
+          this.focusState.activeZoneId,
+          prevZoneMetaByIdBeforeSubmit,
+          this.zoneMetaById,
+        );
       }
 
       // Build cursor info for v2 protocol
