@@ -36,6 +36,11 @@ ui.fileTreeExplorer({
 | `onContextMenu` | `(node) => void` | - | Context menu callback |
 | `renderNode` | `(node, depth, state) => VNode` | - | Custom renderer |
 
+## Behavior
+
+- **Arrow keys** navigate. **Enter** activates the focused node.
+- **Right click** on a node calls `onContextMenu(node)` when provided.
+
 ## Notes
 
 - `FileNode` includes `name`, `path`, `type`, and optional `children` and `status`.
