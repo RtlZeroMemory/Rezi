@@ -720,6 +720,14 @@ export class WidgetRenderer<S> {
                 focusedId: getToastActionFocusId(toast.id),
                 activeZoneId: null,
               });
+              if (this.focusState.activeZoneId !== prevActiveZoneId) {
+                this.invokeFocusZoneCallbacks(
+                  prevActiveZoneId,
+                  this.focusState.activeZoneId,
+                  this.zoneMetaById,
+                  this.zoneMetaById,
+                );
+              }
               toast.action.onAction();
               return ROUTE_RENDER;
             }
@@ -1579,6 +1587,8 @@ export class WidgetRenderer<S> {
 
       let commitRes: CommitOk | null = null;
       let prevFocusedIdBeforeFinalize: string | null = null;
+      const prevActiveZoneIdBeforeSubmit = this.focusState.activeZoneId;
+      const prevZoneMetaByIdBeforeSubmit = this.zoneMetaById;
       const hadRoutingWidgets = this.hadRoutingWidgets;
       let hasRoutingWidgets = hadRoutingWidgets;
       let didRoutingRebuild = false;
@@ -1689,8 +1699,6 @@ export class WidgetRenderer<S> {
         const widgetMeta = this._metadataCollector.collect(this.committedRoot);
         hasRoutingWidgets = widgetMeta.hasRoutingWidgets;
 
-        const prevActiveZoneIdBeforeFinalize = this.focusState.activeZoneId;
-        const prevZoneMetaById = this.zoneMetaById;
         const nextZoneMetaById = new Map(widgetMeta.zones);
 
         prevFocusedIdBeforeFinalize = this.focusState.focusedId;
@@ -1708,15 +1716,6 @@ export class WidgetRenderer<S> {
         this.inputById = widgetMeta.inputById;
         this.traps = widgetMeta.traps;
         this.zoneMetaById = nextZoneMetaById;
-
-        if (this.focusState.activeZoneId !== prevActiveZoneIdBeforeFinalize) {
-          this.invokeFocusZoneCallbacks(
-            prevActiveZoneIdBeforeFinalize,
-            this.focusState.activeZoneId,
-            prevZoneMetaById,
-            nextZoneMetaById,
-          );
-        }
         if (PERF_DETAIL_ENABLED) perfMarkEnd("metadata_collect", metaToken);
       }
 
@@ -2305,6 +2304,15 @@ export class WidgetRenderer<S> {
         if (this.enabledById.get(this.pressedId) !== true) {
           this.pressedId = null;
         }
+      }
+
+      if (this.focusState.activeZoneId !== prevActiveZoneIdBeforeSubmit) {
+        this.invokeFocusZoneCallbacks(
+          prevActiveZoneIdBeforeSubmit,
+          this.focusState.activeZoneId,
+          prevZoneMetaByIdBeforeSubmit,
+          this.zoneMetaById,
+        );
       }
 
       // Build cursor info for v2 protocol
