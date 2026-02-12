@@ -7,38 +7,49 @@
 
 > **Alpha** — under active development; APIs may change between releases.
 
-Rezi is a TypeScript/Node.js terminal UI framework with near-native rendering performance. Write your UI in TypeScript — with React, JSX, or a direct widget API — while a native C engine (Zireael) handles framebuffer diffing and terminal output.
+Rezi is a TypeScript/Node.js terminal UI framework with a native rendering engine (Zireael).
+You build UIs in TypeScript while Rezi emits compact drawlists and delegates terminal diff/present to native code.
 
-Across benchmarked scenarios, Rezi's render pipeline is within 3–5x of ratatui (Rust) and 10–50x faster than Ink. See [BENCHMARKS.md](BENCHMARKS.md) for methodology, caveats, and full results.
+In our terminal benchmark suite (`120x40`, PTY mode), Rezi is consistently in the same performance class as native TUIs: slightly slower than ratatui (Rust) by a low single-digit multiplier, while remaining substantially faster than classic JS TUI stacks in the same scenarios.
 
 ![Rezi overview](Assets/REZI_MAIN.png)
 
 ![Rezi core demo](Assets/REZICORE.gif)
 
+## Ink Compatibility Layer Status
+
+> **Visible roadmap item: currently under redesign.**
+
+A new Ink Compatibility Layer is being implemented with stricter parity and stability requirements.
+
+Current policy:
+- It is not part of the active API surface in this branch.
+- It will be reintroduced only after end-to-end validation on real applications and edge-case terminal behavior.
+- Compatibility claims will be published only with reproducible benchmark and test evidence.
+
 ## Why Rezi exists
 
-Terminal UIs typically pay for each update by rebuilding a full ANSI frame in userland, then writing it to stdout. That approach is simple and broadly compatible, but it tends to scale poorly for repeated small state changes or large trees.
+Most JS terminal frameworks do rendering and ANSI generation in userland for every update. This is flexible, but update cost grows quickly with larger trees and frequent rerenders.
 
-Rezi separates the concerns:
-
+Rezi splits responsibilities:
 - App code builds a declarative widget tree.
-- Rezi computes layout and emits a compact binary drawlist.
-- A native engine consumes the drawlist and handles terminal-diff/present logic.
+- Rezi computes layout and emits binary drawlists.
+- Zireael (native C engine) performs framebuffer diffing and terminal output.
 
-The result is per-frame rendering costs closer to compiled TUI frameworks than to JavaScript-side ANSI generation.
+This design keeps authoring ergonomic in TypeScript while moving hot rendering paths closer to native performance.
 
 ## How it works (high level)
 
-1. `createApp()` runs your view function to produce VNodes.
-2. Rezi commits the tree, runs layout, and builds a ZRDL drawlist.
+1. `createApp()` runs your view function and produces VNodes.
+2. Rezi commits the tree, computes layout, and builds a ZRDL drawlist.
 3. `@rezi-ui/node` transports drawlists/events to `@rezi-ui/native`.
-4. The Zireael engine diffs/presents output to the terminal.
+4. Zireael diffs framebuffer state and presents terminal output.
 
 ## Two ways to use it
 
 ### 1) JSX runtime (no React)
 
-`@rezi-ui/jsx` is a standalone JSX runtime that produces Rezi VNodes directly.
+`@rezi-ui/jsx` maps JSX directly to Rezi VNodes.
 
 ```tsx
 /** @jsxImportSource @rezi-ui/jsx */
@@ -73,7 +84,7 @@ npm install @rezi-ui/jsx @rezi-ui/core @rezi-ui/node
 
 ### 2) Native `ui.*` API
 
-Direct VNode authoring (no React, no JSX runtime):
+Direct VNode authoring with no React and no JSX runtime:
 
 ```ts
 import { createApp, ui } from "@rezi-ui/core";
@@ -104,35 +115,28 @@ npm install @rezi-ui/core @rezi-ui/node
 
 ## Performance overview
 
-The benchmark suite compares Rezi (native), Ink-on-Rezi, and Ink under controlled workloads, plus a separate terminal suite that adds blessed (Node.js) and ratatui (Rust). Each run reports mean, standard deviation, and a 95% confidence interval for the mean. Full methodology and limitations are in [BENCHMARKS.md](BENCHMARKS.md).
+The main comparative dataset is `benchmarks/2026-02-11-terminal` in PTY mode, comparing:
+- Rezi (TypeScript + native engine)
+- ratatui (Rust)
+- blessed (Node.js)
+- Ink (Node.js)
 
-![Benchmark summary](Assets/benchmarks-summary.svg)
+Selected means:
 
-Selected results from `benchmarks/2026-02-11-full` (`--io stub`, isolates the render pipeline from terminal I/O):
-
-| Scenario | Rezi (native) | Ink-on-Rezi | Ink |
-|---|---:|---:|---:|
-| Tree construction (items=1000) | 1.47ms | 10.90ms | 50.45ms |
-| Rerender (single update) | 34µs | 86µs | 16.37ms |
-
-Selected results from `benchmarks/2026-02-11-pty` (`--io pty`, measures the PTY/TTY write path; does not include terminal emulator rendering):
-
-| Scenario | Rezi (native) | Ink-on-Rezi | Ink |
-|---|---:|---:|---:|
-| Tree construction (items=1000) | 1.81ms | 11.27ms | 53.15ms |
-| Rerender (single update) | 353µs | 414µs | 16.52ms |
-
-Note: `Ink-on-Rezi` measurements above refer to the previous compatibility prototype.  
-A redesigned Ink compatibility layer is currently in progress and is intentionally withheld until it passes stricter correctness and stability validation.
-
-A separate terminal competitor suite compares Rezi against blessed (Node.js) and ratatui (Rust) on viewport-sized PTY workloads at 120×40. In these scenarios, Rezi is within 3–5x of ratatui while remaining roughly 30–50x faster than Ink (`benchmarks/2026-02-11-terminal`):
-
-| Scenario (PTY) | ratatui | blessed | Rezi (native) | Ink |
+| Scenario | ratatui (Rust) | blessed (Node) | Rezi (native engine) | Ink |
 |---|---:|---:|---:|---:|
 | `terminal-rerender` | 74µs | 126µs | 322µs | 16.39ms |
+| `terminal-frame-fill` (`dirtyLines=1`) | 197µs | 137µs | 567µs | 17.73ms |
+| `terminal-frame-fill` (`dirtyLines=40`) | 211µs | 256µs | 610µs | 17.66ms |
+| `terminal-virtual-list` | 126µs | 218µs | 584µs | 18.88ms |
 | `terminal-table` | 178µs | 188µs | 493µs | 17.44ms |
 
-Full results, methodology, and limitations: [BENCHMARKS.md](BENCHMARKS.md)
+Interpretation:
+- Rezi is generally ~2x–5x from the native Rust baseline in these microbenchmarks.
+- Rezi remains far ahead of high-level JS ANSI pipelines in the same scenarios.
+- This is the core goal: near-native behavior while keeping a TypeScript developer workflow.
+
+Full methodology and caveats: [BENCHMARKS.md](BENCHMARKS.md)
 
 ## Architecture
 
@@ -165,8 +169,6 @@ Node.js 18+ required (18.18+ recommended). Prebuilt native binaries are publishe
 | [`@rezi-ui/jsx`](https://www.npmjs.com/package/@rezi-ui/jsx) | JSX runtime (no React reconciler) |
 | [`@rezi-ui/testkit`](https://www.npmjs.com/package/@rezi-ui/testkit) | Test utilities and fixtures |
 | [`create-rezi`](https://www.npmjs.com/package/create-rezi) | Scaffolding CLI |
-
-Ink compatibility is being redesigned and will be published again only after it is tested and proven across complex real-world workloads.
 
 ## Quick start
 
