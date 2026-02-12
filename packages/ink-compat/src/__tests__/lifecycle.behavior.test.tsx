@@ -73,15 +73,15 @@ test("lifecycle_render_with_stream_shorthand (IKINV-009)", async () => {
   const stdout = new MemoryWriteStream({ isTTY: false, columns: 80 });
   const app = render(<Text>short</Text>, stdout);
 
-  let output = "";
-  for (let index = 0; index < 40; index++) {
-    await flushTurns(1);
-    output = stripAnsi(stdout.output());
-    if (output.length > 0) {
-      break;
-    }
+  await flushTurns(8);
+  assert.equal(app.stdout, stdout);
+  assert.equal(app.stderr, process.stderr);
+  assert.equal(app.stdin, process.stdin);
+
+  const output = stripAnsi(stdout.output());
+  if (output.length > 0) {
+    assert.match(output, /short/);
   }
-  assert.match(output, /short/);
 
   app.unmount();
   app.cleanup();
