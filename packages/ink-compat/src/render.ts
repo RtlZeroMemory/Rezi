@@ -229,33 +229,20 @@ function toInkOptions(options: RenderTarget): NodeJS.WriteStream | InkRenderOpti
     return options as unknown as NodeJS.WriteStream | undefined;
   }
 
-  const inkOptions: InkRenderOptions = {};
+  const {
+    onRender: _onRender,
+    stdout,
+    stderr,
+    stdin,
+    ...otherOptions
+  } = options as RenderOptions & Record<string, unknown>;
 
-  if (options.stdout) {
-    inkOptions.stdout = options.stdout as NodeJS.WriteStream;
-  }
-
-  if (options.stderr) {
-    inkOptions.stderr = options.stderr as NodeJS.WriteStream;
-  }
-
-  if (options.stdin) {
-    inkOptions.stdin = options.stdin as NodeJS.ReadStream;
-  }
-
-  if (typeof options.debug === "boolean") {
-    inkOptions.debug = options.debug;
-  }
-
-  if (typeof options.exitOnCtrlC === "boolean") {
-    inkOptions.exitOnCtrlC = options.exitOnCtrlC;
-  }
-
-  if (typeof options.patchConsole === "boolean") {
-    inkOptions.patchConsole = options.patchConsole;
-  }
-
-  return inkOptions;
+  return {
+    ...otherOptions,
+    stdout: stdout as NodeJS.WriteStream | undefined,
+    stderr: stderr as NodeJS.WriteStream | undefined,
+    stdin: stdin as NodeJS.ReadStream | undefined,
+  } as InkRenderOptions;
 }
 
 export function render(node: InkNode, options?: Stream | RenderOptions): RenderResult {

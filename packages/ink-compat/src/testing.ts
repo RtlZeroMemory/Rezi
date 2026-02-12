@@ -137,7 +137,7 @@ export function render(
 
   const stdout = customStdout ?? new TestingStdout({ isTTY, columns });
   const stderr = customStderr ?? new TestingStderr({ isTTY, columns });
-  const stdin = customStdin ?? createTestingStdin(true);
+  const stdin = customStdin ?? createTestingStdin(isTTY);
 
   const app = compatRender(tree, {
     ...renderOptions,

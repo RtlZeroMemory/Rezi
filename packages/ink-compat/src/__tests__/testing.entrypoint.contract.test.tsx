@@ -47,7 +47,7 @@ test("testing_stdin_write_drives_input_events (IKINV-005)", async () => {
     return <Text>{value}</Text>;
   };
 
-  const app = render(<Probe />);
+  const app = render(<Probe />, { isTTY: true });
   await flushTurns(6);
 
   app.stdin.write("a");
@@ -71,6 +71,20 @@ test("testing_cleanup_global_is_idempotent (IKINV-007)", async () => {
 
   cleanup();
   cleanup();
+});
+
+test("testing_render_default_stdin_respects_is_tty_option (IKINV-005)", async () => {
+  const nonTty = render(<Text>non-tty</Text>, { isTTY: false });
+  await flushTurns(4);
+  assert.equal(nonTty.stdin.isTTY, false);
+  nonTty.unmount();
+  nonTty.cleanup();
+
+  const tty = render(<Text>tty</Text>, { isTTY: true });
+  await flushTurns(4);
+  assert.equal(tty.stdin.isTTY, true);
+  tty.unmount();
+  tty.cleanup();
 });
 
 test("testing_stderr_collects_frames (IKINV-007)", async () => {
