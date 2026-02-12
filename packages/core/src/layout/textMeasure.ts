@@ -228,7 +228,9 @@ function measureTextCellsAsciiOnly(text: string): number | null {
   return total;
 }
 
-function measureTextCellsUncached(text: string): number {
+type GraphemeVisitor = (start: number, end: number, width: 0 | 1 | 2) => void;
+
+function scanGraphemeClusters(text: string, onCluster?: GraphemeVisitor): number {
   let total = 0;
   let off = 0;
 
@@ -285,12 +287,80 @@ function measureTextCellsUncached(text: string): number {
 
     if (hasEmoji && width < 2) width = 2;
     total += width;
+    onCluster?.(start, off, width);
 
     // Defensive progress guard: if decode returned 0-sized, force progress deterministically.
     if (off === start) off++;
   }
 
   return total;
+}
+
+function measureTextCellsUncached(text: string): number {
+  return scanGraphemeClusters(text);
+}
+
+type GraphemeSlices = Readonly<{
+  starts: readonly number[];
+  ends: readonly number[];
+  prefixWidths: readonly number[];
+}>;
+
+function collectGraphemeSlices(text: string): GraphemeSlices {
+  const starts: number[] = [];
+  const ends: number[] = [];
+  const prefixWidths: number[] = [0];
+
+  scanGraphemeClusters(text, (start, end, width) => {
+    starts.push(start);
+    ends.push(end);
+    const prev = prefixWidths[prefixWidths.length - 1] ?? 0;
+    prefixWidths.push(prev + width);
+  });
+
+  return { starts, ends, prefixWidths };
+}
+
+function maxPrefixClustersWithinWidth(prefixWidths: readonly number[], maxWidth: number): number {
+  let low = 0;
+  let high = prefixWidths.length - 1;
+  let best = 0;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const width = prefixWidths[mid] ?? Number.POSITIVE_INFINITY;
+    if (width <= maxWidth) {
+      best = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return best;
+}
+
+function maxSuffixClustersWithinWidth(prefixWidths: readonly number[], maxWidth: number): number {
+  const clusterCount = prefixWidths.length - 1;
+  const totalWidth = prefixWidths[clusterCount] ?? 0;
+
+  let low = 0;
+  let high = clusterCount;
+  let best = 0;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const left = prefixWidths[clusterCount - mid] ?? 0;
+    const width = totalWidth - left;
+    if (width <= maxWidth) {
+      best = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return best;
 }
 
 /**
@@ -311,28 +381,10 @@ export function truncateWithEllipsis(text: string, maxWidth: number): string {
   const targetWidth = maxWidth - 1;
   if (targetWidth <= 0) return "…";
 
-  // Binary search for truncation point
-  // We need to find the longest prefix that fits within targetWidth
-  let low = 0;
-  let high = text.length;
-  let bestEnd = 0;
-
-  while (low <= high) {
-    const mid = Math.floor((low + high) / 2);
-    const prefix = text.slice(0, mid);
-    const width = measureTextCells(prefix);
-
-    if (width <= targetWidth) {
-      bestEnd = mid;
-      low = mid + 1;
-    } else {
-      high = mid - 1;
-    }
-  }
-
-  // Handle edge case where even one character is too wide
-  if (bestEnd === 0) return "…";
-
+  const { ends, prefixWidths } = collectGraphemeSlices(text);
+  const bestClusters = maxPrefixClustersWithinWidth(prefixWidths, targetWidth);
+  if (bestClusters === 0) return "…";
+  const bestEnd = ends[bestClusters - 1] ?? 0;
   return `${text.slice(0, bestEnd)}…`;
 }
 
@@ -361,46 +413,18 @@ export function truncateMiddle(text: string, maxWidth: number): string {
   const startLen = Math.ceil(available / 2);
   const endLen = Math.floor(available / 2);
 
-  // Binary search for start portion
-  let low = 0;
-  let high = text.length;
-  let startEnd = 0;
-
-  while (low <= high) {
-    const mid = Math.floor((low + high) / 2);
-    const prefix = text.slice(0, mid);
-    const width = measureTextCells(prefix);
-
-    if (width <= startLen) {
-      startEnd = mid;
-      low = mid + 1;
-    } else {
-      high = mid - 1;
-    }
-  }
-
-  // Binary search from end for end portion
-  low = 0;
-  high = text.length;
-  let endStart = text.length;
-
-  while (low <= high) {
-    const mid = Math.floor((low + high) / 2);
-    const suffix = text.slice(text.length - mid);
-    const width = measureTextCells(suffix);
-
-    if (width <= endLen) {
-      endStart = text.length - mid;
-      low = mid + 1;
-    } else {
-      high = mid - 1;
-    }
-  }
+  const { starts, ends, prefixWidths } = collectGraphemeSlices(text);
+  const clusterCount = starts.length;
+  const startClusters = maxPrefixClustersWithinWidth(prefixWidths, startLen);
+  const endClusters = maxSuffixClustersWithinWidth(prefixWidths, endLen);
+  const endStartCluster = clusterCount - endClusters;
 
   // Ensure we don't overlap
-  if (startEnd >= endStart) {
+  if (startClusters >= endStartCluster) {
     return truncateWithEllipsis(text, maxWidth);
   }
 
+  const startEnd = startClusters === 0 ? 0 : (ends[startClusters - 1] ?? 0);
+  const endStart = endClusters === 0 ? text.length : (starts[endStartCluster] ?? text.length);
   return `${text.slice(0, startEnd)}…${text.slice(endStart)}`;
 }

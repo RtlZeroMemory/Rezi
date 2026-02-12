@@ -345,33 +345,6 @@ export function computeZoneMovement(
 }
 
 /**
- * Find which zone contains a given focusable id.
- * @param zones All focus zones
- * @param focusedId The id to find
- * @param zoneFocusableSets Optional pre-built Sets for O(1) membership test
- */
-function findZoneForId(
-  zones: ReadonlyMap<string, FocusZone>,
-  focusedId: string,
-  zoneFocusableSets?: ReadonlyMap<string, ReadonlySet<string>>,
-): string | null {
-  for (const [zoneId, zone] of zones) {
-    // Use O(1) Set lookup if available, otherwise O(n) includes
-    const focusableSet = zoneFocusableSets?.get(zoneId);
-    if (focusableSet !== undefined) {
-      if (focusableSet.has(focusedId)) {
-        return zoneId;
-      }
-    } else {
-      if (zone.focusableIds.includes(focusedId)) {
-        return zoneId;
-      }
-    }
-  }
-  return null;
-}
-
-/**
  * Get zones sorted by tabIndex.
  */
 function getSortedZones(zones: ReadonlyMap<string, FocusZone>): readonly FocusZone[] {
@@ -429,41 +402,41 @@ export function computeZoneTraversal(
     currentZoneIndex = sortedZones.findIndex((z) => z.id === activeZoneId);
   }
 
-  // Compute next zone
-  let nextZoneIndex: number;
-  if (currentZoneIndex < 0) {
-    // No active zone, go to first or last
-    nextZoneIndex = move === "next" ? 0 : sortedZones.length - 1;
-  } else {
-    const n = sortedZones.length;
-    nextZoneIndex = move === "next" ? (currentZoneIndex + 1) % n : (currentZoneIndex - 1 + n) % n;
-  }
+  const zoneCount = sortedZones.length;
+  const step = move === "next" ? 1 : -1;
+  const normalizeIndex = (i: number) => ((i % zoneCount) + zoneCount) % zoneCount;
+  const startZoneIndex =
+    currentZoneIndex < 0
+      ? move === "next"
+        ? 0
+        : zoneCount - 1
+      : normalizeIndex(currentZoneIndex + step);
 
-  const nextZone = sortedZones[nextZoneIndex];
-  if (!nextZone) {
-    return { nextZoneId: null, nextFocusedId: null };
-  }
+  // Traverse zones in TAB order, skipping empty zones.
+  for (let scanned = 0; scanned < zoneCount; scanned++) {
+    const zoneIndex = normalizeIndex(startZoneIndex + scanned * step);
+    const nextZone = sortedZones[zoneIndex];
+    if (!nextZone) continue;
 
-  // Get first focusable in next zone (or last if moving prev)
-  const zoneFocusables = nextZone.focusableIds;
-  if (zoneFocusables.length === 0) {
-    return { nextZoneId: nextZone.id, nextFocusedId: null };
-  }
+    const zoneFocusables = nextZone.focusableIds;
+    if (zoneFocusables.length === 0) continue;
 
-  // Prefer authoritative runtime last-focused map when available.
-  const lastFocused = lastFocusedByZone?.get(nextZone.id) ?? nextZone.lastFocusedId;
-  if (lastFocused !== null) {
-    // Use a Set for O(1) membership check instead of O(n) includes.
-    const focusableSet = new Set(zoneFocusables);
-    if (focusableSet.has(lastFocused)) {
-      return { nextZoneId: nextZone.id, nextFocusedId: lastFocused };
+    // Prefer authoritative runtime last-focused map when available.
+    const lastFocused = lastFocusedByZone?.get(nextZone.id) ?? nextZone.lastFocusedId;
+    if (lastFocused !== null) {
+      // Use a Set for O(1) membership check instead of O(n) includes.
+      const focusableSet = new Set(zoneFocusables);
+      if (focusableSet.has(lastFocused)) {
+        return { nextZoneId: nextZone.id, nextFocusedId: lastFocused };
+      }
     }
+
+    const nextFocusedId =
+      move === "next" ? zoneFocusables[0] : zoneFocusables[zoneFocusables.length - 1];
+    return { nextZoneId: nextZone.id, nextFocusedId: nextFocusedId ?? null };
   }
 
-  const nextFocusedId =
-    move === "next" ? zoneFocusables[0] : zoneFocusables[zoneFocusables.length - 1];
-
-  return { nextZoneId: nextZone.id, nextFocusedId: nextFocusedId ?? null };
+  return { nextZoneId: null, nextFocusedId: null };
 }
 
 /**
@@ -514,10 +487,85 @@ export function finalizeFocusWithPreCollectedMetadata(
   // Build Set for O(1) membership tests (avoids O(n) includes() calls)
   const focusSet = new Set(focusList);
 
-  // Convert collected zones to FocusZone with lastFocusedId from state
+  // Apply pending focus
+  let nextFocusedId: string | null = state.focusedId;
+  if (state.pendingFocusedId !== undefined) {
+    nextFocusedId = state.pendingFocusedId;
+  }
+
+  // Validate focused id still exists
+  if (nextFocusedId !== null && !focusSet.has(nextFocusedId)) {
+    nextFocusedId = focusList[0] ?? null;
+  }
+
+  // Update trap stack - keep only active traps
+  const previousTrapStackSet = new Set(state.trapStack);
+  const trapStack: string[] = [];
+  for (const trapId of state.trapStack) {
+    const trap = collectedTraps.get(trapId);
+    if (trap?.active) {
+      trapStack.push(trapId);
+    }
+  }
+  // Add any new active traps
+  for (const [trapId, trap] of collectedTraps) {
+    if (trap.active && !previousTrapStackSet.has(trapId)) {
+      trapStack.push(trapId);
+      // If trap has initialFocus, apply it
+      if (trap.initialFocus !== null && focusSet.has(trap.initialFocus)) {
+        nextFocusedId = trap.initialFocus;
+      } else if (trap.focusableIds.length > 0) {
+        // Focus first focusable in trap
+        const firstInTrap = trap.focusableIds[0];
+        if (firstInTrap !== undefined && focusSet.has(firstInTrap)) {
+          nextFocusedId = firstInTrap;
+        }
+      }
+    }
+  }
+
+  // Handle trap deactivation - return focus if specified
+  for (const [trapId, trap] of collectedTraps) {
+    const wasActive = previousTrapStackSet.has(trapId);
+    if (wasActive && !trap.active && trap.returnFocusTo !== null) {
+      if (focusSet.has(trap.returnFocusTo)) {
+        nextFocusedId = trap.returnFocusTo;
+      }
+    }
+  }
+
+  // Trap-driven reassignment may have changed focus.
+  if (nextFocusedId !== null && !focusSet.has(nextFocusedId)) {
+    nextFocusedId = focusList[0] ?? null;
+  }
+
+  // Active zone should always reflect the final focused id.
+  let activeZoneId: string | null = null;
+  if (nextFocusedId !== null) {
+    for (const [zoneId, zone] of collectedZones) {
+      if (zone.focusableIds.includes(nextFocusedId)) {
+        activeZoneId = zoneId;
+        break;
+      }
+    }
+  }
+
+  // Keep remembered focus only for zones that still exist and still contain the remembered id.
+  const lastFocusedByZone = new Map<string, string>();
+  for (const [zoneId, rememberedId] of state.lastFocusedByZone) {
+    const zone = collectedZones.get(zoneId);
+    if (zone === undefined) continue;
+    if (!zone.focusableIds.includes(rememberedId)) continue;
+    lastFocusedByZone.set(zoneId, rememberedId);
+  }
+  if (nextFocusedId !== null && activeZoneId !== null) {
+    lastFocusedByZone.set(activeZoneId, nextFocusedId);
+  }
+
+  // Convert collected zones to FocusZone with sanitized lastFocusedId.
   const zones = new Map<string, FocusZone>();
   for (const [id, collected] of collectedZones) {
-    const lastFocusedId = state.lastFocusedByZone.get(id) ?? null;
+    const lastFocusedId = lastFocusedByZone.get(id) ?? null;
     zones.set(
       id,
       Object.freeze({
@@ -530,72 +578,6 @@ export function finalizeFocusWithPreCollectedMetadata(
         lastFocusedId,
       }),
     );
-  }
-
-  // Apply pending focus
-  let nextFocusedId: string | null = state.focusedId;
-  if (state.pendingFocusedId !== undefined) {
-    nextFocusedId = state.pendingFocusedId;
-  }
-
-  // Validate focused id still exists
-  if (nextFocusedId !== null && !focusSet.has(nextFocusedId)) {
-    nextFocusedId = focusList[0] ?? null;
-  }
-
-  // Update active zone based on focused id
-  let activeZoneId = state.activeZoneId;
-  if (nextFocusedId !== null) {
-    const foundZone = findZoneForId(zones, nextFocusedId);
-    if (foundZone !== null) {
-      activeZoneId = foundZone;
-    }
-  }
-
-  // Validate active zone still exists
-  if (activeZoneId !== null && !zones.has(activeZoneId)) {
-    activeZoneId = null;
-  }
-
-  // Update lastFocusedByZone
-  const lastFocusedByZone = new Map(state.lastFocusedByZone);
-  if (nextFocusedId !== null && activeZoneId !== null) {
-    lastFocusedByZone.set(activeZoneId, nextFocusedId);
-  }
-
-  // Update trap stack - keep only active traps
-  const trapStack: string[] = [];
-  for (const trapId of state.trapStack) {
-    const trap = collectedTraps.get(trapId);
-    if (trap?.active) {
-      trapStack.push(trapId);
-    }
-  }
-  // Add any new active traps
-  for (const [trapId, trap] of collectedTraps) {
-    if (trap.active && !trapStack.includes(trapId)) {
-      trapStack.push(trapId);
-      // If trap has initialFocus, apply it
-      if (trap.initialFocus !== null && focusSet.has(trap.initialFocus)) {
-        nextFocusedId = trap.initialFocus;
-      } else if (trap.focusableIds.length > 0) {
-        // Focus first focusable in trap
-        const firstInTrap = trap.focusableIds[0];
-        if (firstInTrap !== undefined) {
-          nextFocusedId = firstInTrap;
-        }
-      }
-    }
-  }
-
-  // Handle trap deactivation - return focus if specified
-  for (const [trapId, trap] of collectedTraps) {
-    const wasActive = state.trapStack.includes(trapId);
-    if (wasActive && !trap.active && trap.returnFocusTo !== null) {
-      if (focusSet.has(trap.returnFocusTo)) {
-        nextFocusedId = trap.returnFocusTo;
-      }
-    }
   }
 
   return Object.freeze({

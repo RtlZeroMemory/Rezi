@@ -25,9 +25,26 @@ typedef struct zr_term_state_t {
   uint8_t cursor_visible; /* 0/1 */
   uint8_t cursor_shape;   /* zr_cursor_shape_t values */
   uint8_t cursor_blink;   /* 0/1 */
-  uint8_t _pad0;
+  /*
+    Validity mask for the fields above.
+
+    Why: The engine sometimes knows its cursor/style assumptions are desynced
+    (startup, resize). The diff renderer must be able to force emission of
+    baseline state even when numeric fields match, without changing the public
+    API/ABI surface.
+  */
+  uint8_t flags;
   zr_style_t style;
 } zr_term_state_t;
+
+/* --- zr_term_state_t.flags bits --- */
+#define ZR_TERM_STATE_STYLE_VALID ((uint8_t)0x01u)
+#define ZR_TERM_STATE_CURSOR_POS_VALID ((uint8_t)0x02u)
+#define ZR_TERM_STATE_CURSOR_VIS_VALID ((uint8_t)0x04u)
+#define ZR_TERM_STATE_CURSOR_SHAPE_VALID ((uint8_t)0x08u)
+#define ZR_TERM_STATE_VALID_ALL                                                                                        \
+  ((uint8_t)(ZR_TERM_STATE_STYLE_VALID | ZR_TERM_STATE_CURSOR_POS_VALID | ZR_TERM_STATE_CURSOR_VIS_VALID |             \
+             ZR_TERM_STATE_CURSOR_SHAPE_VALID))
 
 typedef struct zr_diff_stats_t {
   uint32_t dirty_lines;

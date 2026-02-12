@@ -1,5 +1,5 @@
 /*
-  src/core/zr_input_parser.c — Minimal input byte parser implementation.
+  src/core/zr_input_parser.c — Deterministic input byte parser implementation.
 
   Why: Provides a deterministic, bounds-checked parser for platform input bytes
   suitable for fuzzing. Unknown escape sequences are handled without hangs.
@@ -361,6 +361,195 @@ static bool zr__parse_csi_simple_key(const uint8_t* bytes, size_t len, size_t i,
   return true;
 }
 
+static bool zr__parse_csi_focus_key(const uint8_t* bytes, size_t len, size_t i, zr_key_t* out_key,
+                                    size_t* out_consumed) {
+  if (!bytes || !out_key || !out_consumed) {
+    return false;
+  }
+  if ((i + 2u) >= len) {
+    return false;
+  }
+  if (bytes[i] != 0x1Bu || bytes[i + 1u] != (uint8_t)'[') {
+    return false;
+  }
+
+  if (bytes[i + 2u] == (uint8_t)'I') {
+    *out_key = ZR_KEY_FOCUS_IN;
+    *out_consumed = 3u;
+    return true;
+  }
+  if (bytes[i + 2u] == (uint8_t)'O') {
+    *out_key = ZR_KEY_FOCUS_OUT;
+    *out_consumed = 3u;
+    return true;
+  }
+  return false;
+}
+
+static bool zr__is_valid_unicode_scalar(uint32_t scalar) {
+  if (scalar > 0x10FFFFu) {
+    return false;
+  }
+  return scalar < 0xD800u || scalar > 0xDFFFu;
+}
+
+static bool zr__extended_key_from_codepoint(uint32_t codepoint, zr_key_t* out_key) {
+  if (!out_key) {
+    return false;
+  }
+  switch (codepoint) {
+  case 0x08u:
+  case 0x7Fu:
+    *out_key = ZR_KEY_BACKSPACE;
+    return true;
+  case 0x09u:
+    *out_key = ZR_KEY_TAB;
+    return true;
+  case 0x0Du:
+    *out_key = ZR_KEY_ENTER;
+    return true;
+  case 0x1Bu:
+    *out_key = ZR_KEY_ESCAPE;
+    return true;
+  default:
+    return false;
+  }
+}
+
+/*
+  Emit a normalized event from an extended key protocol codepoint+modifier pair.
+
+  Why: CSI-u and modifyOtherKeys encode text/control keys through numeric fields.
+  The current event ABI has dedicated key+mods for control keys and text scalars
+  for printable input; this helper keeps both protocols on one policy path.
+*/
+static bool zr__emit_extended_codepoint(zr_event_queue_t* q, uint32_t time_ms, uint32_t codepoint, uint32_t mods) {
+  if (!q) {
+    return false;
+  }
+
+  zr_key_t key = ZR_KEY_UNKNOWN;
+  if (zr__extended_key_from_codepoint(codepoint, &key)) {
+    zr__push_key(q, time_ms, key, mods, ZR_KEY_ACTION_DOWN);
+    return true;
+  }
+
+  if (zr__is_valid_unicode_scalar(codepoint)) {
+    if ((mods & (ZR_MOD_ALT | ZR_MOD_META)) != 0u) {
+      zr__push_key(q, time_ms, ZR_KEY_ESCAPE, 0u, ZR_KEY_ACTION_DOWN);
+    }
+    zr__push_text_scalar(q, time_ms, codepoint);
+    return true;
+  }
+
+  if (mods != 0u) {
+    zr__push_key(q, time_ms, ZR_KEY_UNKNOWN, mods, ZR_KEY_ACTION_DOWN);
+    return true;
+  }
+  return false;
+}
+
+static bool zr__parse_csi_u_key(const uint8_t* bytes, size_t len, size_t i, uint32_t time_ms, zr_event_queue_t* q,
+                                size_t* out_consumed) {
+  if (!bytes || !q || !out_consumed) {
+    return false;
+  }
+  if ((i + 3u) >= len) {
+    return false;
+  }
+  if (bytes[i] != 0x1Bu || bytes[i + 1u] != (uint8_t)'[') {
+    return false;
+  }
+
+  size_t j = i + 2u;
+  uint32_t param_index = 0u;
+  uint32_t codepoint = 0u;
+  uint32_t mod_param = 0u;
+
+  while (j < len && (zr__is_digit(bytes[j]) || bytes[j] == (uint8_t)';')) {
+    uint32_t parsed = 0u;
+    if (!zr__parse_u32_dec(bytes, len, &j, &parsed)) {
+      return false;
+    }
+    param_index++;
+    if (param_index == 1u) {
+      codepoint = parsed;
+    } else if (param_index == 2u) {
+      mod_param = parsed;
+    }
+    if (j < len && bytes[j] == (uint8_t)';') {
+      j++;
+      continue;
+    }
+    break;
+  }
+
+  if (param_index == 0u || j >= len || bytes[j] != (uint8_t)'u') {
+    return false;
+  }
+
+  const uint32_t mods = (param_index >= 2u) ? zr__mods_from_csi_param(mod_param) : 0u;
+  if (!zr__emit_extended_codepoint(q, time_ms, codepoint, mods)) {
+    return false;
+  }
+  *out_consumed = (j + 1u) - i;
+  return true;
+}
+
+static bool zr__parse_modify_other_keys_tilde(const uint8_t* bytes, size_t len, size_t i, uint32_t time_ms,
+                                              zr_event_queue_t* q, size_t* out_consumed) {
+  if (!bytes || !q || !out_consumed) {
+    return false;
+  }
+  if ((i + 5u) >= len) {
+    return false;
+  }
+  if (bytes[i] != 0x1Bu || bytes[i + 1u] != (uint8_t)'[') {
+    return false;
+  }
+
+  size_t j = i + 2u;
+  uint32_t params[3];
+  params[0] = 0u;
+  params[1] = 0u;
+  params[2] = 0u;
+  uint32_t param_count = 0u;
+
+  if (!zr__parse_u32_dec(bytes, len, &j, &params[0])) {
+    return false;
+  }
+  param_count = 1u;
+
+  while (j < len && bytes[j] != (uint8_t)'~') {
+    if (bytes[j] != (uint8_t)';') {
+      return false;
+    }
+    j++;
+    uint32_t parsed = 0u;
+    if (!zr__parse_u32_dec(bytes, len, &j, &parsed)) {
+      return false;
+    }
+    if (param_count < 3u) {
+      params[param_count] = parsed;
+    }
+    param_count++;
+  }
+
+  if (j >= len || bytes[j] != (uint8_t)'~') {
+    return false;
+  }
+  if (params[0] != 27u || param_count < 3u) {
+    return false;
+  }
+
+  const uint32_t mods = zr__mods_from_csi_param(params[1]);
+  if (!zr__emit_extended_codepoint(q, time_ms, params[2], mods)) {
+    return false;
+  }
+  *out_consumed = (j + 1u) - i;
+  return true;
+}
+
 static bool zr__parse_ss3_key(const uint8_t* bytes, size_t len, size_t i, zr_key_t* out_key, size_t* out_consumed) {
   if (!bytes || !out_key || !out_consumed) {
     return false;
@@ -642,6 +831,16 @@ static size_t zr__consume_escape(zr_event_queue_t* q, const uint8_t* bytes, size
       }
     }
 
+    if (zr__parse_csi_focus_key(bytes, len, i, &key, &consumed)) {
+      zr__push_key(q, time_ms, key, 0u, ZR_KEY_ACTION_DOWN);
+      return consumed;
+    }
+    if (zr__parse_csi_u_key(bytes, len, i, time_ms, q, &consumed)) {
+      return consumed;
+    }
+    if (zr__parse_modify_other_keys_tilde(bytes, len, i, time_ms, q, &consumed)) {
+      return consumed;
+    }
     if (zr__parse_csi_simple_key(bytes, len, i, &key, &mods, &consumed)) {
       zr__push_key(q, time_ms, key, mods, ZR_KEY_ACTION_DOWN);
       return consumed;

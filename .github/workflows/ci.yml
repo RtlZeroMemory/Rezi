@@ -81,6 +81,10 @@ jobs:
         if: runner.os == 'Linux'
         run: npm run test:e2e
 
+      - name: Terminal e2e (Linux reduced)
+        if: runner.os == 'Linux'
+        run: npm run test:e2e:reduced
+
       - name: Terminal e2e equivalent (non-Linux reduced)
         if: runner.os != 'Linux'
         run: npm run test:e2e:reduced

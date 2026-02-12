@@ -180,6 +180,11 @@ assertThrows(
   /unknown key/i,
   "engineDebugQuery with unknown key must throw",
 );
+assertThrows(
+  () => engineDebugQuery(engineId, { maxRecords: 1 }, new Uint8Array(new ArrayBuffer(41), 1, 40)),
+  /align/i,
+  "engineDebugQuery with misaligned outHeaders must throw",
+);
 
 assert(
   enginePostUserEvent(engineId, 0xbeef, new Uint8Array([1, 2, 3, 4])) === ZR_OK,
@@ -208,6 +213,11 @@ assert(
 
 const payloadOut = new Uint8Array(1024);
 const firstRecordId = query.recordsReturned > 0 ? readU64LE(headers, 0) : 0n;
+assertThrows(
+  () => engineDebugGetPayload(engineId, 1n << 64n, new Uint8Array(16)),
+  /u64/i,
+  "engineDebugGetPayload with out-of-range recordId must throw",
+);
 const payloadBytes = engineDebugGetPayload(engineId, firstRecordId, payloadOut);
 assert(
   Number.isInteger(payloadBytes),

@@ -3,6 +3,7 @@
 
   Why: Implements the OS-facing platform boundary for POSIX terminals:
     - raw mode enter/leave (idempotent, best-effort restore on leave)
+    - explicit non-TTY pipe mode (env-gated, deterministic, no termios on pipes)
     - non-blocking input reads
     - poll()-based wait that can be interrupted by a self-pipe wake (threads + signals)
 */
@@ -52,12 +53,21 @@ struct plat_t {
   bool termios_valid;
 
   bool raw_active;
+  bool explicit_pipe_mode;
 
   bool sigwinch_registered;
 };
 
 enum {
   ZR_POSIX_SIGWINCH_MAX_WAKE_FDS = 32u,
+  ZR_POSIX_PIPE_MODE_DEFAULT_COLS = 80u,
+  ZR_POSIX_PIPE_MODE_DEFAULT_ROWS = 24u,
+  ZR_STYLE_ATTR_BOLD = 1u << 0u,
+  ZR_STYLE_ATTR_ITALIC = 1u << 1u,
+  ZR_STYLE_ATTR_UNDERLINE = 1u << 2u,
+  ZR_STYLE_ATTR_REVERSE = 1u << 3u,
+  ZR_STYLE_ATTR_STRIKE = 1u << 4u,
+  ZR_STYLE_ATTR_ALL_MASK = (1u << 5u) - 1u,
 };
 
 static _Atomic int g_posix_wake_fd_slots[ZR_POSIX_SIGWINCH_MAX_WAKE_FDS];
@@ -215,6 +225,43 @@ static bool zr_posix_str_has_any(const char* s, const char* const* needles, size
   return false;
 }
 
+static uint8_t zr_posix_ascii_tolower(uint8_t c) {
+  if (c >= (uint8_t)'A' && c <= (uint8_t)'Z') {
+    return (uint8_t)(c + ((uint8_t)'a' - (uint8_t)'A'));
+  }
+  return c;
+}
+
+static bool zr_posix_str_contains_ci(const char* s, const char* needle) {
+  if (!s || !needle || needle[0] == '\0') {
+    return false;
+  }
+
+  for (size_t i = 0u; s[i] != '\0'; i++) {
+    size_t j = 0u;
+    while (needle[j] != '\0' && s[i + j] != '\0' &&
+           zr_posix_ascii_tolower((uint8_t)s[i + j]) == zr_posix_ascii_tolower((uint8_t)needle[j])) {
+      j++;
+    }
+    if (needle[j] == '\0') {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool zr_posix_str_has_any_ci(const char* s, const char* const* needles, size_t count) {
+  if (!s || !needles) {
+    return false;
+  }
+  for (size_t i = 0u; i < count; i++) {
+    if (needles[i] && zr_posix_str_contains_ci(s, needles[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
 static bool zr_posix_env_bool_override(const char* key, uint8_t* out_value) {
   if (!key || !out_value) {
     return false;
@@ -237,9 +284,48 @@ static bool zr_posix_env_bool_override(const char* key, uint8_t* out_value) {
   return false;
 }
 
+static bool zr_posix_pipe_mode_enabled(void) {
+  uint8_t enabled = 0u;
+  if (!zr_posix_env_bool_override("ZIREAEL_POSIX_PIPE_MODE", &enabled)) {
+    return false;
+  }
+  return enabled != 0u;
+}
+
 static void zr_posix_cap_override(const char* key, uint8_t* inout_cap) {
   uint8_t override_value = 0u;
   if (zr_posix_env_bool_override(key, &override_value)) {
+    *inout_cap = override_value;
+  }
+}
+
+static bool zr_posix_env_u32_override(const char* key, uint32_t* out_value) {
+  if (!key || !out_value) {
+    return false;
+  }
+
+  const char* v = zr_posix_getenv_nonempty(key);
+  if (!v) {
+    return false;
+  }
+  if (v[0] == '-' || v[0] == '+') {
+    return false;
+  }
+
+  errno = 0;
+  char* end = NULL;
+  unsigned long parsed = strtoul(v, &end, 0);
+  if (errno != 0 || !end || *end != '\0' || parsed > UINT32_MAX) {
+    return false;
+  }
+
+  *out_value = (uint32_t)parsed;
+  return true;
+}
+
+static void zr_posix_cap_u32_override(const char* key, uint32_t* inout_cap) {
+  uint32_t override_value = 0u;
+  if (zr_posix_env_u32_override(key, &override_value)) {
     *inout_cap = override_value;
   }
 }
@@ -255,6 +341,77 @@ static bool zr_posix_term_supports_vt_common(void) {
   return zr_posix_str_has_any(term, kVtTerms, sizeof(kVtTerms) / sizeof(kVtTerms[0]));
 }
 
+static bool zr_posix_term_program_indicates_truecolor(const char* term_program) {
+  static const char* kPrograms[] = {"iTerm.app", "WezTerm", "Rio", "WarpTerminal", "vscode"};
+  return zr_posix_str_has_any_ci(term_program, kPrograms, sizeof(kPrograms) / sizeof(kPrograms[0]));
+}
+
+static bool zr_posix_term_indicates_truecolor(const char* term) {
+  static const char* kTruecolorTerms[] = {"-direct",   "truecolor", "24bit",   "kitty", "wezterm",
+                                          "alacritty", "foot",      "ghostty", "rio"};
+  return zr_posix_str_has_any_ci(term, kTruecolorTerms, sizeof(kTruecolorTerms) / sizeof(kTruecolorTerms[0]));
+}
+
+static bool zr_posix_detect_truecolor_env(void) {
+  const char* colorterm = zr_posix_getenv_nonempty("COLORTERM");
+  if (zr_posix_str_contains_ci(colorterm, "truecolor") || zr_posix_str_contains_ci(colorterm, "24bit") ||
+      zr_posix_str_contains_ci(colorterm, "24-bit") || zr_posix_str_contains_ci(colorterm, "rgb")) {
+    return true;
+  }
+
+  if (zr_posix_getenv_nonempty("KITTY_WINDOW_ID") || zr_posix_getenv_nonempty("WEZTERM_PANE") ||
+      zr_posix_getenv_nonempty("WEZTERM_EXECUTABLE") || zr_posix_getenv_nonempty("GHOSTTY_RESOURCES_DIR") ||
+      zr_posix_getenv_nonempty("VTE_VERSION") || zr_posix_getenv_nonempty("KONSOLE_VERSION") ||
+      zr_posix_getenv_nonempty("WT_SESSION")) {
+    return true;
+  }
+
+  const char* term_program = zr_posix_getenv_nonempty("TERM_PROGRAM");
+  if (zr_posix_term_program_indicates_truecolor(term_program)) {
+    return true;
+  }
+
+  const char* term = zr_posix_getenv_nonempty("TERM");
+  return zr_posix_term_indicates_truecolor(term);
+}
+
+static plat_color_mode_t zr_posix_color_mode_clamp(plat_color_mode_t requested, plat_color_mode_t detected) {
+  /*
+    requested_color_mode is a wrapper request. The backend must not report or
+    emit a higher mode than it believes is supported, but wrappers may request
+    a lower mode for determinism or compatibility.
+  */
+  if (detected == PLAT_COLOR_MODE_UNKNOWN) {
+    detected = PLAT_COLOR_MODE_16;
+  }
+  if (requested == PLAT_COLOR_MODE_UNKNOWN) {
+    return detected;
+  }
+  return (requested < detected) ? requested : detected;
+}
+
+static plat_color_mode_t zr_posix_detect_color_mode(void) {
+  /*
+    Color detection must be conservative and deterministic.
+
+    Why: The engine uses caps.color_mode to decide which SGR forms are safe to
+    emit. Over-reporting can corrupt output in low-color terminals/CI.
+  */
+  if (zr_posix_term_is_dumb()) {
+    return PLAT_COLOR_MODE_16;
+  }
+
+  if (zr_posix_detect_truecolor_env()) {
+    return PLAT_COLOR_MODE_RGB;
+  }
+
+  const char* term = zr_posix_getenv_nonempty("TERM");
+  if (zr_posix_str_contains_ci(term, "256color")) {
+    return PLAT_COLOR_MODE_256;
+  }
+  return PLAT_COLOR_MODE_16;
+}
+
 static uint8_t zr_posix_detect_scroll_region(void) {
   return zr_posix_term_supports_vt_common() ? 1u : 0u;
 }
@@ -267,6 +424,23 @@ static uint8_t zr_posix_detect_bracketed_paste(void) {
   return zr_posix_term_supports_vt_common() ? 1u : 0u;
 }
 
+static uint8_t zr_posix_detect_focus_events(void) {
+  if (zr_posix_term_is_dumb()) {
+    return 0u;
+  }
+
+  if (zr_posix_getenv_nonempty("KITTY_WINDOW_ID") || zr_posix_getenv_nonempty("WEZTERM_PANE") ||
+      zr_posix_getenv_nonempty("WEZTERM_EXECUTABLE") || zr_posix_getenv_nonempty("GHOSTTY_RESOURCES_DIR") ||
+      zr_posix_getenv_nonempty("VTE_VERSION") || zr_posix_getenv_nonempty("WT_SESSION")) {
+    return 1u;
+  }
+
+  const char* term = zr_posix_getenv_nonempty("TERM");
+  static const char* kFocusTerms[] = {"xterm",   "screen", "tmux", "rxvt", "alacritty", "kitty",
+                                      "wezterm", "foot",   "st",   "rio",  "ghostty"};
+  return zr_posix_str_has_any_ci(term, kFocusTerms, sizeof(kFocusTerms) / sizeof(kFocusTerms[0])) ? 1u : 0u;
+}
+
 static uint8_t zr_posix_detect_cursor_shape(void) {
   if (zr_posix_term_is_dumb()) {
     return 0u;
@@ -276,6 +450,26 @@ static uint8_t zr_posix_detect_cursor_shape(void) {
   static const char* kCursorTerms[] = {"xterm", "screen",  "tmux", "rxvt", "alacritty",
                                        "kitty", "wezterm", "foot", "st",   "rio"};
   return zr_posix_str_has_any(term, kCursorTerms, sizeof(kCursorTerms) / sizeof(kCursorTerms[0])) ? 1u : 0u;
+}
+
+static uint32_t zr_posix_detect_sgr_attrs_supported(void) {
+  if (zr_posix_term_is_dumb()) {
+    return 0u;
+  }
+
+  uint32_t attrs = ZR_STYLE_ATTR_BOLD | ZR_STYLE_ATTR_UNDERLINE | ZR_STYLE_ATTR_REVERSE;
+  if (zr_posix_detect_truecolor_env()) {
+    attrs |= ZR_STYLE_ATTR_ITALIC | ZR_STYLE_ATTR_STRIKE;
+    return attrs;
+  }
+
+  const char* term = zr_posix_getenv_nonempty("TERM");
+  static const char* kRichAttrTerms[] = {"xterm",   "screen", "tmux", "rxvt", "alacritty", "kitty",
+                                         "wezterm", "foot",   "st",   "rio",  "ghostty"};
+  if (zr_posix_str_has_any_ci(term, kRichAttrTerms, sizeof(kRichAttrTerms) / sizeof(kRichAttrTerms[0]))) {
+    attrs |= ZR_STYLE_ATTR_ITALIC | ZR_STYLE_ATTR_STRIKE;
+  }
+  return attrs;
 }
 
 static uint8_t zr_posix_detect_osc52(void) {
@@ -634,6 +828,100 @@ static zr_result_t zr_posix_wait_writable_timeout(int fd, int32_t timeout_ms) {
   }
 }
 
+static zr_result_t zr_posix_sigpipe_pending(bool* out_pending) {
+  if (!out_pending) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+  sigset_t pending;
+  if (sigpending(&pending) != 0) {
+    return ZR_ERR_PLATFORM;
+  }
+  const int member = sigismember(&pending, SIGPIPE);
+  if (member < 0) {
+    return ZR_ERR_PLATFORM;
+  }
+  *out_pending = (member == 1);
+  return ZR_OK;
+}
+
+static zr_result_t zr_posix_sigpipe_consume_if_pending(const sigset_t* sigpipe_set) {
+  if (!sigpipe_set) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+
+  bool pending = false;
+  zr_result_t pending_rc = zr_posix_sigpipe_pending(&pending);
+  if (pending_rc != ZR_OK) {
+    return pending_rc;
+  }
+  if (!pending) {
+    return ZR_OK;
+  }
+
+  sigset_t wait_set = *sigpipe_set;
+  int caught_signal = 0;
+  if (sigwait(&wait_set, &caught_signal) != 0 || caught_signal != SIGPIPE) {
+    return ZR_ERR_PLATFORM;
+  }
+  return ZR_OK;
+}
+
+/*
+  Perform one write() while suppressing thread-delivered SIGPIPE.
+
+  Why: Writing to a closed pipe/socket may raise SIGPIPE with default process
+  termination. The platform contract requires deterministic error returns
+  (ZR_ERR_PLATFORM) instead of process termination.
+*/
+static zr_result_t zr_posix_write_once_no_sigpipe(int fd, const uint8_t* bytes, size_t len, ssize_t* out_n,
+                                                  int* out_errno) {
+  if (!bytes || !out_n || !out_errno) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+
+  *out_n = -1;
+  *out_errno = 0;
+
+  sigset_t sigpipe_set;
+  sigset_t old_mask;
+  if (sigemptyset(&sigpipe_set) != 0 || sigaddset(&sigpipe_set, SIGPIPE) != 0) {
+    return ZR_ERR_PLATFORM;
+  }
+  if (sigprocmask(SIG_BLOCK, &sigpipe_set, &old_mask) != 0) {
+    return ZR_ERR_PLATFORM;
+  }
+
+  zr_result_t result = ZR_OK;
+  int saved_errno = errno;
+  bool sigpipe_pending_before = false;
+
+  zr_result_t pending_rc = zr_posix_sigpipe_pending(&sigpipe_pending_before);
+  if (pending_rc != ZR_OK) {
+    result = pending_rc;
+    goto done;
+  }
+
+  *out_n = write(fd, bytes, len);
+  if (*out_n < 0) {
+    *out_errno = errno;
+    saved_errno = *out_errno;
+  }
+  if (*out_n < 0 && *out_errno == EPIPE && !sigpipe_pending_before) {
+    zr_result_t consume_rc = zr_posix_sigpipe_consume_if_pending(&sigpipe_set);
+    if (consume_rc != ZR_OK) {
+      result = consume_rc;
+      goto done;
+    }
+  }
+
+done:
+  if (sigprocmask(SIG_SETMASK, &old_mask, NULL) != 0) {
+    result = ZR_ERR_PLATFORM;
+  }
+  errno = saved_errno;
+  return result;
+}
+
 /* Write all bytes to fd, retrying on EINTR; returns error on partial write failure. */
 static zr_result_t zr_posix_write_all(int fd, const uint8_t* bytes, int32_t len) {
   if (len < 0) {
@@ -648,12 +936,19 @@ static zr_result_t zr_posix_write_all(int fd, const uint8_t* bytes, int32_t len)
 
   int32_t written = 0;
   while (written < len) {
-    ssize_t n = write(fd, bytes + (size_t)written, (size_t)(len - written));
+    ssize_t n = -1;
+    int write_errno = 0;
+    zr_result_t write_rc =
+        zr_posix_write_once_no_sigpipe(fd, bytes + (size_t)written, (size_t)(len - written), &n, &write_errno);
+    if (write_rc != ZR_OK) {
+      return ZR_ERR_PLATFORM;
+    }
+
     if (n > 0) {
       written += (int32_t)n;
       continue;
     }
-    if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+    if (n < 0 && (write_errno == EAGAIN || write_errno == EWOULDBLOCK)) {
       /*
         Terminals are typically blocking, but stdout may be configured as
         non-blocking by a parent process or wrapper. Treat EAGAIN as a
@@ -665,7 +960,7 @@ static zr_result_t zr_posix_write_all(int fd, const uint8_t* bytes, int32_t len)
       }
       continue;
     }
-    if (n < 0 && errno == EINTR) {
+    if (n < 0 && write_errno == EINTR) {
       continue;
     }
     return ZR_ERR_PLATFORM;
@@ -695,7 +990,7 @@ static zr_result_t zr_posix_write_cstr(int fd, const char* s) {
 static void zr_posix_emit_enter_sequences(plat_t* plat) {
   /*
     Locked ordering for enter:
-      ?1049h, ?25l, ?7h, ?2004h, ?1000h?1002h?1003h?1006h (when enabled by config/caps)
+      ?1049h, ?25l, ?7h, ?2004h, ?1004h, ?1000h?1002h?1003h?1006h (when enabled by config/caps)
   */
   (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[?1049h");
   (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[?25l");
@@ -703,6 +998,9 @@ static void zr_posix_emit_enter_sequences(plat_t* plat) {
 
   if (plat->cfg.enable_bracketed_paste && plat->caps.supports_bracketed_paste) {
     (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[?2004h");
+  }
+  if (plat->cfg.enable_focus_events && plat->caps.supports_focus_events) {
+    (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[?1004h");
   }
   if (plat->cfg.enable_mouse && plat->caps.supports_mouse) {
     /*
@@ -719,7 +1017,8 @@ static void zr_posix_emit_enter_sequences(plat_t* plat) {
 static void zr_posix_emit_leave_sequences(plat_t* plat) {
   /*
     Best-effort restore on leave:
-      - disable mouse / bracketed paste
+      - disable mouse / focus / bracketed paste
+      - reset scroll region + SGR state
       - show cursor
       - leave alt screen
       - wrap policy: leave wrap enabled
@@ -727,10 +1026,15 @@ static void zr_posix_emit_leave_sequences(plat_t* plat) {
   if (plat->cfg.enable_mouse && plat->caps.supports_mouse) {
     (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[?1006l\x1b[?1003l\x1b[?1002l\x1b[?1000l");
   }
+  if (plat->cfg.enable_focus_events && plat->caps.supports_focus_events) {
+    (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[?1004l");
+  }
   if (plat->cfg.enable_bracketed_paste && plat->caps.supports_bracketed_paste) {
     (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[?2004l");
   }
 
+  (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[r");
+  (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[0m");
   (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[?7h");
   (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[?25h");
   (void)zr_posix_write_cstr(plat->stdout_fd, "\x1b[?1049l");
@@ -740,19 +1044,20 @@ static void zr_posix_set_caps_from_cfg(plat_t* plat, const plat_config_t* cfg) {
   if (!plat || !cfg) {
     return;
   }
-  plat->caps.color_mode = cfg->requested_color_mode;
+  const plat_color_mode_t detected_color = zr_posix_detect_color_mode();
+  plat->caps.color_mode = zr_posix_color_mode_clamp(cfg->requested_color_mode, detected_color);
   plat->caps.supports_mouse = zr_posix_detect_mouse_tracking();
   plat->caps.supports_bracketed_paste = zr_posix_detect_bracketed_paste();
-  /* Focus in/out bytes are not normalized by the core parser in v1. */
-  plat->caps.supports_focus_events = 0u;
+  plat->caps.supports_focus_events = zr_posix_detect_focus_events();
   plat->caps.supports_osc52 = zr_posix_detect_osc52();
   plat->caps.supports_sync_update = zr_posix_detect_sync_update();
   plat->caps.supports_scroll_region = zr_posix_detect_scroll_region();
   plat->caps.supports_cursor_shape = zr_posix_detect_cursor_shape();
   plat->caps.supports_output_wait_writable = 1u;
+  plat->caps.sgr_attrs_supported = zr_posix_detect_sgr_attrs_supported();
 
   /*
-    Manual capability overrides for non-standard terminals and CI harnesses.
+    Manual boolean capability overrides for non-standard terminals and CI harnesses.
 
     Values: 1/0, true/false, yes/no, on/off.
   */
@@ -762,11 +1067,16 @@ static void zr_posix_set_caps_from_cfg(plat_t* plat, const plat_config_t* cfg) {
   zr_posix_cap_override("ZIREAEL_CAP_SYNC_UPDATE", &plat->caps.supports_sync_update);
   zr_posix_cap_override("ZIREAEL_CAP_SCROLL_REGION", &plat->caps.supports_scroll_region);
   zr_posix_cap_override("ZIREAEL_CAP_CURSOR_SHAPE", &plat->caps.supports_cursor_shape);
+  zr_posix_cap_override("ZIREAEL_CAP_FOCUS_EVENTS", &plat->caps.supports_focus_events);
+
+  /* Optional attr-mask override (decimal or 0x... hex). */
+  zr_posix_cap_u32_override("ZIREAEL_CAP_SGR_ATTRS", &plat->caps.sgr_attrs_supported);
+  zr_posix_cap_u32_override("ZIREAEL_CAP_SGR_ATTRS_MASK", &plat->caps.sgr_attrs_supported);
+  plat->caps.sgr_attrs_supported &= ZR_STYLE_ATTR_ALL_MASK;
 
   plat->caps._pad0[0] = 0u;
   plat->caps._pad0[1] = 0u;
   plat->caps._pad0[2] = 0u;
-  plat->caps.sgr_attrs_supported = 0xFFFFFFFFu;
 }
 
 static void zr_posix_create_cleanup(plat_t* plat) {
@@ -794,6 +1104,18 @@ static zr_result_t zr_posix_create_bind_stdio_or_tty(plat_t* plat) {
   }
 
   if (isatty(plat->stdin_fd) != 0 && isatty(plat->stdout_fd) != 0) {
+    plat->explicit_pipe_mode = false;
+    return ZR_OK;
+  }
+
+  if (zr_posix_pipe_mode_enabled()) {
+    /*
+      Explicit non-TTY mode: keep stdio as-is and avoid /dev/tty fallback.
+
+      Why: Some wrappers intentionally run through pipes/redirected stdio and
+      still need deterministic engine creation and polling behavior.
+    */
+    plat->explicit_pipe_mode = true;
     return ZR_OK;
   }
 
@@ -806,6 +1128,7 @@ static zr_result_t zr_posix_create_bind_stdio_or_tty(plat_t* plat) {
     return ZR_ERR_PLATFORM;
   }
   (void)zr_posix_set_fd_cloexec(fd);
+  plat->explicit_pipe_mode = false;
   plat->tty_fd_owned = fd;
   plat->stdin_fd = fd;
   plat->stdout_fd = fd;
@@ -853,6 +1176,7 @@ zr_result_t zr_plat_posix_create(plat_t** out_plat, const plat_config_t* cfg) {
   plat->wake_read_fd = -1;
   plat->wake_write_fd = -1;
   plat->wake_slot_index = -1;
+  plat->explicit_pipe_mode = false;
 
   zr_result_t r = zr_posix_create_bind_stdio_or_tty(plat);
   if (r != ZR_OK) {
@@ -919,6 +1243,10 @@ zr_result_t plat_enter_raw(plat_t* plat) {
   if (plat->raw_active) {
     return ZR_OK;
   }
+  if (plat->explicit_pipe_mode) {
+    plat->raw_active = true;
+    return ZR_OK;
+  }
 
   if (!plat->termios_valid) {
     if (tcgetattr(plat->stdin_fd, &plat->termios_saved) != 0) {
@@ -962,6 +1290,10 @@ zr_result_t plat_leave_raw(plat_t* plat) {
   if (!plat) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
+  if (plat->explicit_pipe_mode) {
+    plat->raw_active = false;
+    return ZR_OK;
+  }
 
   /*
     Idempotent + best-effort:
@@ -986,6 +1318,11 @@ zr_result_t plat_leave_raw(plat_t* plat) {
 zr_result_t plat_get_size(plat_t* plat, plat_size_t* out_size) {
   if (!plat || !out_size) {
     return ZR_ERR_INVALID_ARGUMENT;
+  }
+  if (plat->explicit_pipe_mode) {
+    out_size->cols = ZR_POSIX_PIPE_MODE_DEFAULT_COLS;
+    out_size->rows = ZR_POSIX_PIPE_MODE_DEFAULT_ROWS;
+    return ZR_OK;
   }
 
   struct winsize ws;

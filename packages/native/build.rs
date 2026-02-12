@@ -47,6 +47,7 @@ fn main() {
   build.file(src_dir.join("util").join("zr_caps.c"));
   build.file(src_dir.join("util").join("zr_ring.c"));
   build.file(src_dir.join("util").join("zr_log.c"));
+  build.file(src_dir.join("util").join("zr_assert.c"));
   build.file(src_dir.join("util").join("zr_string_builder.c"));
   build.file(src_dir.join("util").join("zr_vec.c"));
 

@@ -79,6 +79,8 @@ typedef enum zr_key_t {
   ZR_KEY_DOWN = 21,
   ZR_KEY_LEFT = 22,
   ZR_KEY_RIGHT = 23,
+  ZR_KEY_FOCUS_IN = 30,
+  ZR_KEY_FOCUS_OUT = 31,
 
   ZR_KEY_F1 = 100,
   ZR_KEY_F2 = 101,
