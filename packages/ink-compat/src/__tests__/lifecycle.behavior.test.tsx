@@ -80,6 +80,30 @@ test("lifecycle_render_with_stream_shorthand (IKINV-009)", async () => {
   app.cleanup();
 });
 
+test("lifecycle_render_result_exposes_configured_streams (IKINV-009)", () => {
+  const io = createStreams(false);
+  const app = render(<Text>handles</Text>, { ...io, debug: true });
+
+  assert.equal(app.stdout, io.stdout);
+  assert.equal(app.stderr, io.stderr);
+  assert.equal(app.stdin, io.stdin);
+
+  app.unmount();
+  app.cleanup();
+});
+
+test("lifecycle_render_result_exposes_default_streams (IKINV-009)", () => {
+  const stdout = new MemoryWriteStream({ isTTY: false, columns: 80 });
+  const app = render(<Text>defaults</Text>, { stdout, debug: true });
+
+  assert.equal(app.stdout, stdout);
+  assert.equal(app.stderr, process.stderr);
+  assert.equal(app.stdin, process.stdin);
+
+  app.unmount();
+  app.cleanup();
+});
+
 test("lifecycle_rerender_writes_latest_frame (IKINV-001)", async () => {
   const io = createStreams(false);
   const app = render(<Text>first</Text>, { ...io, debug: true });

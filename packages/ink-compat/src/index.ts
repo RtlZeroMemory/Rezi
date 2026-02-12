@@ -17,7 +17,7 @@ export { Box, Text } from "./components.js";
 export type { BoxProps, TextProps } from "./components.js";
 
 export { render } from "./render.js";
-export type { RenderOptions } from "./render.js";
+export type { RenderOptions, RenderResult } from "./render.js";
 
 export { useInput } from "./useInput.js";
 export type { InputHandler } from "./useInput.js";
