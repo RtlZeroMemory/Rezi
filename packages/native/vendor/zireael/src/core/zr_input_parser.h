@@ -1,5 +1,5 @@
 /*
-  src/core/zr_input_parser.h — Deterministic input byte parser (VT subset).
+  src/core/zr_input_parser.h — Deterministic input byte parser (VT subset + focus/ext keys).
 
   Why: Converts platform-provided raw bytes into normalized events without
   relying on terminal/OS APIs, and without ever hanging on malformed inputs.
@@ -20,8 +20,9 @@
     - Unknown/malformed escape sequences are handled deterministically.
 
   Note: This parser intentionally supports a constrained VT/xterm subset
-  (arrows/home/end, basic controls, SGR mouse). Unknown sequences degrade
-  deterministically as Escape/text without hangs.
+  (arrows/home/end, focus in/out, basic controls, SGR mouse, CSI-u/modifier
+  key forms). Unknown sequences degrade deterministically as Escape/text
+  without hangs.
 */
 void zr_input_parse_bytes(zr_event_queue_t* q, const uint8_t* bytes, size_t len, uint32_t time_ms);
 

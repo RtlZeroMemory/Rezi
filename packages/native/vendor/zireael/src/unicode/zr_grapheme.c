@@ -93,7 +93,7 @@ static bool zr_grapheme_should_break(zr_gcb_class_t prev_class, bool prev_zwj_af
     return false;
   }
 
-  /* GB11: ... ZWJ x EP when ZWJ is preceded by EP (ignoring Extend). */
+  /* GB11: ... ZWJ x EP when that immediate ZWJ is preceded by EP (ignoring Extend). */
   if (prev_class == ZR_GCB_ZWJ && next_is_ep && prev_zwj_after_ep) {
     return false;
   }
@@ -173,9 +173,10 @@ static void zr_grapheme_state_advance(zr_grapheme_break_state_t* state, const zr
     state->ri_run = 0u;
   }
 
-  state->prev_zwj_after_ep = false;
-  if (cp->gcb_class == ZR_GCB_ZWJ) {
-    state->prev_zwj_after_ep = state->last_non_extend_is_ep;
+  if (cp->gcb_class == ZR_GCB_ZWJ && state->last_non_extend_is_ep) {
+    state->prev_zwj_after_ep = true;
+  } else if (cp->gcb_class != ZR_GCB_EXTEND) {
+    state->prev_zwj_after_ep = false;
   }
   if (cp->gcb_class != ZR_GCB_EXTEND) {
     state->last_non_extend_is_ep = cp->is_extended_pictographic;

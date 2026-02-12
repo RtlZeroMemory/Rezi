@@ -63,6 +63,22 @@ static int zr_engine_poll_pack(zr_engine_t* e, uint8_t* out_buf, int out_cap) {
 
   zr_event_t ev;
   while (zr_event_queue_peek(&e->evq, &ev)) {
+    /*
+      Focus events are gated by runtime config and backend capability.
+
+      Why: Even if raw input contains focus CSI tokens, wrappers that disable
+      focus mode (or run on backends that report it unsupported) must not
+      observe synthesized focus key events.
+    */
+    if (ev.type == ZR_EV_KEY) {
+      const bool focus_enabled =
+          (e->cfg_runtime.plat.enable_focus_events != 0u) && (e->caps.supports_focus_events != 0u);
+      if (!focus_enabled && (ev.u.key.key == (uint32_t)ZR_KEY_FOCUS_IN || ev.u.key.key == (uint32_t)ZR_KEY_FOCUS_OUT)) {
+        (void)zr_event_queue_pop(&e->evq, &ev);
+        continue;
+      }
+    }
+
     if (!zr_engine_pack_one_event(&w, &e->evq, &ev)) {
       break;
     }
