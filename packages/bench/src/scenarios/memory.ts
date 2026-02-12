@@ -15,6 +15,7 @@ import { type VNode, ui } from "@rezi-ui/core";
 import { NullReadable } from "../backends.js";
 import { createBenchBackend, createInkStdout } from "../io.js";
 import { computeStats, diffCpu, peakMemory, takeCpu, takeMemory, tryGc } from "../measure.js";
+import { optionalImport } from "../optionalImport.js";
 import type {
   BenchMetrics,
   Framework,
@@ -275,7 +276,7 @@ async function runInkCompat(config: ScenarioConfig): Promise<BenchMetrics> {
 
 async function runInk(config: ScenarioConfig): Promise<BenchMetrics> {
   const React = await import("react");
-  const Ink = await import("ink");
+  const Ink = await optionalImport("ink");
   const stdout = createInkStdout();
   const stdin = new NullReadable();
 

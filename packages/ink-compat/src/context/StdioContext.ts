@@ -1,34 +1,50 @@
-import type { UiEvent } from "@rezi-ui/core";
+import { EventEmitter } from "node:events";
+import process from "node:process";
 import React from "react";
-import { InkCompatError } from "../errors.js";
-import type { InputEventEmitter } from "../internal/emitter.js";
 
 export type StdioContextValue = Readonly<{
   stdin: NodeJS.ReadStream;
   stdout: NodeJS.WriteStream;
   stderr: NodeJS.WriteStream;
 
+  internal_writeToStdout: (data: string) => void;
+  internal_writeToStderr: (data: string) => void;
+
   setRawMode: (value: boolean) => void;
   isRawModeSupported: boolean;
 
   internal_exitOnCtrlC: boolean;
-  internal_eventEmitter: InputEventEmitter<UiEvent>;
+  internal_eventEmitter: EventEmitter;
 }>;
 
-function missing(): never {
-  throw new InkCompatError(
-    "INK_COMPAT_INTERNAL",
-    "useStdin/useStdout/useStderr/useInput was called outside of a render() root (StdioContext missing)",
-  );
-}
-
-// We use a null default so hooks can throw a tailored error message.
-const StdioContext = React.createContext<StdioContextValue | null>(null);
+const StdioContext = React.createContext<StdioContextValue>({
+  stdin: process.stdin,
+  stdout: process.stdout,
+  stderr: process.stderr,
+  internal_writeToStdout: (data: string) => {
+    try {
+      process.stdout.write(data);
+    } catch {
+      // ignore
+    }
+  },
+  internal_writeToStderr: (data: string) => {
+    try {
+      process.stderr.write(data);
+    } catch {
+      // ignore
+    }
+  },
+  setRawMode() {},
+  isRawModeSupported: false,
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  internal_exitOnCtrlC: true,
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  internal_eventEmitter: new EventEmitter(),
+});
 
 export function useRequiredStdioContext(): StdioContextValue {
-  const v = React.useContext(StdioContext);
-  if (v === null) missing();
-  return v;
+  return React.useContext(StdioContext);
 }
 
 export default StdioContext;

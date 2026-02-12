@@ -1,10 +1,9 @@
-import type { UiEvent } from "@rezi-ui/core";
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { EventEmitter } from "node:events";
 import React from "react";
 import FocusProvider from "../context/FocusProvider.js";
 import StdioContext, { type StdioContextValue } from "../context/StdioContext.js";
 import { Text, useFocus, useFocusManager } from "../index.js";
-import { createInputEventEmitter } from "../internal/emitter.js";
 import reconciler, {
   createRootContainer,
   updateRootContainer,
@@ -37,11 +36,13 @@ function mount(element: React.ReactNode, stdio: StdioContextValue) {
 
 describe("useFocusManager()", () => {
   test("exposes focus navigation methods", () => {
-    const emitter = createInputEventEmitter<UiEvent>();
+    const emitter = new EventEmitter();
     const stdio: StdioContextValue = Object.freeze({
       stdin: process.stdin,
       stdout: process.stdout,
       stderr: process.stderr,
+      internal_writeToStdout: () => {},
+      internal_writeToStderr: () => {},
       setRawMode: () => {},
       isRawModeSupported: false,
       internal_exitOnCtrlC: true,

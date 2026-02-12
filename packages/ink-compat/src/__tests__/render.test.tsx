@@ -12,7 +12,11 @@ describe("render()", () => {
   test("unmount() resolves waitUntilExit()", async () => {
     const backend = new StubBackend();
 
-    const inst = render(<Text>hi</Text>, { internal_backend: backend, exitOnCtrlC: false });
+    const inst = render(<Text>hi</Text>, {
+      internal_backend: backend,
+      exitOnCtrlC: false,
+      patchConsole: false,
+    } as any);
 
     // Let app.start() settle.
     await flushMicrotasks(10);
@@ -33,7 +37,11 @@ describe("render()", () => {
   test("rerender()/clear() trigger additional frames after initial resize", async () => {
     const backend = new StubBackend();
 
-    const inst = render(<Text>one</Text>, { internal_backend: backend, exitOnCtrlC: false });
+    const inst = render(<Text>one</Text>, {
+      internal_backend: backend,
+      exitOnCtrlC: false,
+      patchConsole: false,
+    } as any);
     await flushMicrotasks(10);
 
     backend.pushBatch(
@@ -64,7 +72,11 @@ describe("render()", () => {
 
   test("unmount() is idempotent", async () => {
     const backend = new StubBackend();
-    const inst = render(<Text>bye</Text>, { internal_backend: backend, exitOnCtrlC: false });
+    const inst = render(<Text>bye</Text>, {
+      internal_backend: backend,
+      exitOnCtrlC: false,
+      patchConsole: false,
+    } as any);
 
     await flushMicrotasks(10);
 

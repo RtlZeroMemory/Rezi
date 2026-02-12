@@ -1,9 +1,9 @@
-import { type UiEvent, type VNode, type ZrevEvent, ui } from "@rezi-ui/core";
+import { type VNode, ui } from "@rezi-ui/core";
+import { EventEmitter } from "node:events";
 import React from "react";
 import AppContext, { type AppContextValue } from "../../context/AppContext.js";
 import FocusProvider from "../../context/FocusProvider.js";
 import StdioContext, { type StdioContextValue } from "../../context/StdioContext.js";
-import { createInputEventEmitter } from "../../internal/emitter.js";
 import reconciler, {
   createRootContainer,
   updateRootContainer,
@@ -19,7 +19,6 @@ export type TestHarness = Readonly<{
   getLast: () => VNode;
   update: (node: React.ReactNode) => void;
   flush: () => void;
-  emitEngine: (ev: ZrevEvent) => void;
   unmount: () => void;
 }>;
 
@@ -28,19 +27,21 @@ export function createHarness(
 ): TestHarness {
   let last: VNode | null = null;
 
-  const emitter = createInputEventEmitter<UiEvent>();
+  const emitter = new EventEmitter();
 
   const stdio: StdioContextValue = Object.freeze({
     stdin: opts?.stdio?.stdin ?? process.stdin,
     stdout: opts?.stdio?.stdout ?? process.stdout,
     stderr: opts?.stdio?.stderr ?? process.stderr,
+    internal_writeToStdout: opts?.stdio?.internal_writeToStdout ?? (() => {}),
+    internal_writeToStderr: opts?.stdio?.internal_writeToStderr ?? (() => {}),
     setRawMode: opts?.stdio?.setRawMode ?? (() => {}),
     isRawModeSupported: opts?.stdio?.isRawModeSupported ?? false,
     internal_exitOnCtrlC: opts?.stdio?.internal_exitOnCtrlC ?? true,
     internal_eventEmitter: emitter,
   });
 
-  const app: AppContextValue = opts?.app ?? { exit: () => {}, rerender: () => {} };
+  const app: AppContextValue = opts?.app ?? { exit: () => {} };
 
   const root: HostRoot = {
     kind: "root",
@@ -84,9 +85,6 @@ export function createHarness(
     getLast: () => last ?? ui.text(""),
     update,
     flush,
-    emitEngine: (ev: ZrevEvent) => {
-      emitter.emit("input", { kind: "engine", event: ev });
-    },
     unmount,
   });
 }

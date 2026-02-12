@@ -1,6 +1,6 @@
 import { assert } from "@rezi-ui/testkit";
 import type React from "react";
-import { render } from "../../render.js";
+import render from "../../render.js";
 import {
   StubBackend,
   encodeZrevBatchV1,
@@ -13,7 +13,11 @@ export async function renderToLastFrameBytes(
   opts?: Readonly<{ cols?: number; rows?: number }>,
 ): Promise<Uint8Array> {
   const backend = new StubBackend();
-  const inst = render(tree, { internal_backend: backend, exitOnCtrlC: false, patchConsole: false });
+  const inst = render(tree, {
+    exitOnCtrlC: false,
+    patchConsole: false,
+    internal_backend: backend,
+  } as unknown as Parameters<typeof render>[1]);
 
   // Let app.start() settle (poll loop, view registration).
   await flushMicrotasks(10);

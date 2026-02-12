@@ -1,4 +1,3 @@
-import { ZR_KEY_ENTER } from "@rezi-ui/core/keybindings";
 import { assert, describe, test } from "@rezi-ui/testkit";
 import React from "react";
 import { Box, Text, useApp, useInput } from "../../index.js";
@@ -14,7 +13,6 @@ describe("integration: counter", () => {
         exit: () => {
           exited = true;
         },
-        rerender: () => {},
       },
     });
 
@@ -40,10 +38,10 @@ describe("integration: counter", () => {
     assert.equal(findText(h.getLast(), "Count: 0"), true);
     assert.equal(exited, false);
 
-    simulateKeyEvent(h.emitter, { key: ZR_KEY_ENTER });
+    simulateKeyEvent(h.emitter, { input: "\r" });
     assert.equal(findText(h.getLast(), "Count: 1"), true);
 
-    simulateTextEvent(h.emitter, { codepoint: "q".codePointAt(0) ?? 113 });
+    simulateTextEvent(h.emitter, { input: "q" });
     assert.equal(exited, true);
 
     h.unmount();

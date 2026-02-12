@@ -11,6 +11,7 @@ import { type VNode, ui } from "@rezi-ui/core";
 import { NullReadable } from "../backends.js";
 import { createBenchBackend, createInkStdout } from "../io.js";
 import { benchAsync, tryGc } from "../measure.js";
+import { optionalImport } from "../optionalImport.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 
 function reziTree(totalItems: number, viewport: number, offset: number, tick: number): VNode {
@@ -189,7 +190,7 @@ async function runInk(
   viewport: number,
 ): Promise<BenchMetrics> {
   const React = await import("react");
-  const Ink = await import("ink");
+  const Ink = await optionalImport("ink");
   const stdout = createInkStdout();
   const stdin = new NullReadable();
 

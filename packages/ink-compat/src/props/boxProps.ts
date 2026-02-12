@@ -10,12 +10,9 @@ export type MappedInkBox = Readonly<{
   stackKind: "row" | "column";
   stackProps: StackProps;
   reverseChildren: boolean;
-  overflow: "visible" | "hidden" | "scroll";
-  overflowX: "visible" | "hidden" | "scroll";
-  overflowY: "visible" | "hidden" | "scroll";
-  scrollTop: number;
-  scrollLeft: number;
-  scrollbarThumbColor?: string;
+  overflow: "visible" | "hidden";
+  overflowX: "visible" | "hidden";
+  overflowY: "visible" | "hidden";
 }>;
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] };
@@ -25,7 +22,6 @@ type ReziSizeConstraint = number | `${number}%` | "auto";
 function coerceSizeConstraint(v: number | string | undefined): ReziSizeConstraint | undefined {
   if (v === undefined) return undefined;
   if (typeof v === "number") return v;
-  if (v === "auto") return "auto";
   if (v.endsWith("%")) {
     const n = Number(v.slice(0, -1));
     if (!Number.isFinite(n)) return undefined;
@@ -44,13 +40,8 @@ function coerceNumber(v: number | string | undefined): number | undefined {
   return n;
 }
 
-function normalizeOverflow(v: unknown): "visible" | "hidden" | "scroll" {
-  return v === "hidden" || v === "scroll" ? v : "visible";
-}
-
-function coerceScrollOffset(v: unknown): number {
-  if (typeof v !== "number" || !Number.isFinite(v)) return 0;
-  return v <= 0 ? 0 : v;
+function normalizeOverflow(v: unknown): "visible" | "hidden" {
+  return v === "hidden" ? "hidden" : "visible";
 }
 
 function mapAlignItems(v: BoxProps["alignItems"]): StackProps["align"] | undefined {
@@ -70,14 +61,20 @@ function mapJustifyContent(v: BoxProps["justifyContent"]): StackProps["justify"]
   return "evenly";
 }
 
-function mapBorderStyle(v: string | undefined): ReziBoxProps["border"] | undefined {
+function mapBorderStyle(v: BoxProps["borderStyle"]): ReziBoxProps["border"] | undefined {
   if (!v) return undefined;
+  if (typeof v !== "string") {
+    warnOnce("custom BoxStyle objects are not supported by Rezi yet; using single border");
+    return "single";
+  }
   if (v === "single") return "single";
   if (v === "double") return "double";
   if (v === "round") return "rounded";
   if (v === "bold") return "heavy";
-  if (v === "dashed") return "dashed";
-  if (v === "heavy-dashed") return "heavy-dashed";
+  if (v === "singleDouble") return "single";
+  if (v === "doubleSingle") return "double";
+  if (v === "classic") return "single";
+  if (v === "arrow") return "single";
   return "single";
 }
 
@@ -125,8 +122,6 @@ export function mapBoxProps(p: BoxProps): MappedInkBox {
   const overflow = normalizeOverflow(p.overflow);
   const overflowX = normalizeOverflow(p.overflowX ?? overflow);
   const overflowY = normalizeOverflow(p.overflowY ?? overflow);
-  const scrollTop = coerceScrollOffset(p.scrollTop);
-  const scrollLeft = coerceScrollOffset(p.scrollLeft);
 
   const dir = p.flexDirection ?? "row";
   const isRow = dir === "row" || dir === "row-reverse";
@@ -152,28 +147,13 @@ export function mapBoxProps(p: BoxProps): MappedInkBox {
     }
   }
   const minWidth = coerceNumber(p.minWidth);
-  const maxWidth = coerceNumber(p.maxWidth);
   const minHeight = coerceNumber(p.minHeight);
-  const maxHeight = coerceNumber(p.maxHeight);
 
   const flex = typeof p.flexGrow === "number" ? p.flexGrow : undefined;
-
-  if (p.sticky === true) {
-    warnOnce("sticky is not fully supported by Rezi yet; rendering as regular content");
-  }
-  if (p.stickyChildren !== undefined) {
-    warnOnce("stickyChildren is not yet supported by Rezi; using regular children");
-  }
-  if (p.userSelect !== undefined && p.userSelect !== "auto") {
-    warnOnce("userSelect is not supported by Rezi yet");
-  }
 
   const border = mapBorderStyle(p.borderStyle);
   const backgroundColor = resolveInkColor(p.backgroundColor);
   const surfaceStyle = backgroundColor ? ({ bg: backgroundColor } as TextStyle) : undefined;
-  if (p.opaque === true && !surfaceStyle) {
-    warnOnce("opaque without backgroundColor is not supported by Rezi yet");
-  }
 
   const borderColor =
     resolveInkColor(p.borderColor) ??
@@ -196,14 +176,12 @@ export function mapBoxProps(p: BoxProps): MappedInkBox {
   const marginProps = mapMargin(p);
   const constraintProps: Pick<
     StackProps,
-    "width" | "height" | "minWidth" | "maxWidth" | "minHeight" | "maxHeight" | "flex"
+    "width" | "height" | "minWidth" | "minHeight" | "flex"
   > = {
     ...(width === undefined ? {} : { width }),
     ...(height === undefined ? {} : { height }),
     ...(minWidth === undefined ? {} : { minWidth }),
-    ...(maxWidth === undefined ? {} : { maxWidth }),
     ...(minHeight === undefined ? {} : { minHeight }),
-    ...(maxHeight === undefined ? {} : { maxHeight }),
     ...(flex === undefined ? {} : { flex }),
   };
 
@@ -241,8 +219,5 @@ export function mapBoxProps(p: BoxProps): MappedInkBox {
     overflow,
     overflowX,
     overflowY,
-    scrollTop,
-    scrollLeft,
-    ...(p.scrollbarThumbColor === undefined ? {} : { scrollbarThumbColor: p.scrollbarThumbColor }),
   };
 }

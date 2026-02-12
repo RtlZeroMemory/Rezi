@@ -1,17 +1,15 @@
 import React, { useLayoutEffect, useMemo, useState, type ReactNode } from "react";
-import type { BoxProps } from "../types.js";
-
-type BoxStyleProps = Omit<BoxProps, "children">;
+import type { Styles } from "../types.js";
 
 export type Props<T> = Readonly<{
   /**
    * Array of items of any type to render using a function you pass as a component child.
    */
-  items: readonly T[];
+  items: T[];
   /**
    * Styles to apply to a container of child elements. See `<Box>` for supported properties.
    */
-  style?: BoxStyleProps;
+  style?: Styles;
   /**
    * Function that is called to render every item in `items` array.
    * First argument is an item itself and second argument is index of that item in `items` array.

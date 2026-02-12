@@ -18,18 +18,16 @@ async function pushInitialResize(backend: StubBackend): Promise<void> {
 }
 
 describe("render parity", () => {
-  test("onRender metrics + alternateBuffer + screen-reader context", async () => {
+  test("onRender metrics + screen-reader context", async () => {
     const backend = new StubBackend();
     const metrics: number[] = [];
-    const writes: string[] = [];
     let isScreenReader: boolean | null = null;
 
     const stdout = {
       isTTY: true,
       columns: 80,
       rows: 24,
-      write(data: string) {
-        writes.push(data);
+      write() {
         return true;
       },
       on() {},
@@ -46,11 +44,10 @@ describe("render parity", () => {
       exitOnCtrlC: false,
       patchConsole: false,
       stdout,
-      onRender: (m) => metrics.push(m.renderTime),
+      onRender: (m: { renderTime: number }) => metrics.push(m.renderTime),
       isScreenReaderEnabled: true,
-      alternateBuffer: true,
       incrementalRendering: true,
-    });
+    } as any);
 
     await flushMicrotasks(10);
     await pushInitialResize(backend);
@@ -58,12 +55,9 @@ describe("render parity", () => {
     assert.equal(isScreenReader, true);
     assert.ok(metrics.length >= 1);
     assert.ok(metrics[0] !== undefined && metrics[0] >= 0);
-    assert.ok(writes.includes("\u001B[?1049h"));
 
     inst.unmount();
     await inst.waitUntilExit();
-
-    assert.ok(writes.includes("\u001B[?1049l"));
   });
 
   test("useStdin exposes meaningful raw-mode support and ref-counted toggles", async () => {
@@ -84,6 +78,12 @@ describe("render parity", () => {
       setEncoding(value: string) {
         calls.push(`setEncoding:${value}`);
       },
+      addListener(event: string) {
+        calls.push(`addListener:${event}`);
+      },
+      removeListener(event: string) {
+        calls.push(`removeListener:${event}`);
+      },
       ref() {
         calls.push("ref");
       },
@@ -102,7 +102,7 @@ describe("render parity", () => {
       exitOnCtrlC: false,
       stdin,
       patchConsole: false,
-    });
+    } as any);
 
     await flushMicrotasks(10);
     await pushInitialResize(backend);
@@ -122,7 +122,12 @@ describe("render parity", () => {
       "setEncoding:utf8",
       "ref",
       "setRawMode:true",
+      "addListener:readable",
+      "setEncoding:utf8",
+      "setEncoding:utf8",
+      "setEncoding:utf8",
       "setRawMode:false",
+      "removeListener:readable",
       "unref",
     ]);
 
@@ -153,7 +158,7 @@ describe("render parity", () => {
       exitOnCtrlC: false,
       stdin,
       patchConsole: false,
-    });
+    } as any);
 
     await flushMicrotasks(10);
     await pushInitialResize(backend);

@@ -14,6 +14,7 @@ import { createBlessedOutput } from "../frameworks/blessed.js";
 import { runRatatuiScenario } from "../frameworks/ratatui.js";
 import { createBenchBackend, createInkStdout } from "../io.js";
 import { benchAsync, tryGc } from "../measure.js";
+import { optionalImport } from "../optionalImport.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 
 type BlessedElement = Readonly<{ setContent: (s: string) => void }>;
@@ -130,7 +131,7 @@ async function runInkCompat(config: ScenarioConfig): Promise<BenchMetrics> {
 
 async function runInk(config: ScenarioConfig): Promise<BenchMetrics> {
   const React = await import("react");
-  const Ink = await import("ink");
+  const Ink = await optionalImport("ink");
   const stdout = createInkStdout();
   const stdin = new NullReadable();
 

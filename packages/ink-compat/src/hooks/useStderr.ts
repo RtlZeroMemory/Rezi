@@ -10,7 +10,7 @@ export default function useStderr() {
   return {
     stderr: ctx.stderr,
     write: (data: string): void => {
-      void ctx.stderr.write(data);
+      ctx.internal_writeToStderr(data);
     },
   };
 }

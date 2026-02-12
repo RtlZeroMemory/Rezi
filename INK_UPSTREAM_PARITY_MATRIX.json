@@ -1,0 +1,4186 @@
+{
+  "baseline": {
+    "repo": "https://github.com/vadimdemedes/ink",
+    "tag": "v6.7.0",
+    "commit": "135cb23ae3b7ca94918b1cd913682f6356f12c5c",
+    "fetched_at": "2026-02-11T20:38:05+04:00",
+    "fetch_commands": [
+      "git ls-remote --tags https://github.com/vadimdemedes/ink.git \"refs/tags/v6.7.0^{}\"",
+      "git clone --depth 1 --branch v6.7.0 https://github.com/vadimdemedes/ink.git <INK_DIR>",
+      "cd <INK_DIR>",
+      "git rev-parse HEAD"
+    ],
+    "notes": [
+      "v6.7.0 is an annotated tag; the baseline commit is taken from the dereferenced tag ref (^{}) output."
+    ]
+  },
+  "target": {
+    "module": "@rezi-ui/ink-compat",
+    "entrypoints": [
+      {
+        "file": "packages/ink-compat/src/index.ts",
+        "line_start": 1,
+        "line_end": 53
+      }
+    ]
+  },
+  "exports": [
+    {
+      "name": "RenderOptions",
+      "kind": "type",
+      "upstream": {
+        "file": "src/render.ts",
+        "line_start": 8,
+        "line_end": 101,
+        "signature": "export type RenderOptions = { stdout?: NodeJS.WriteStream; stdin?: NodeJS.ReadStream; stderr?: NodeJS.WriteStream; debug?: boolean; exitOnCtrlC?: boolean; patchConsole?: boolean; onRender?: (metrics: RenderMetrics) => void; isScreenReaderEnabled?: boolean; maxFps?: number; incrementalRendering?: boolean; concurrent?: boolean; kittyKeyboard?: KittyKeyboardOptions }"
+      },
+      "contracts": [
+        {
+          "id": "INK-TYPE-RENDEROPTIONS-001",
+          "summary": "RenderOptions exposes Ink's supported render() options (including concurrent and kittyKeyboard).",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/index.ts",
+              "line_start": 1,
+              "line_end": 2
+            },
+            {
+              "file": "src/render.ts",
+              "line_start": 8,
+              "line_end": 101
+            }
+          ],
+          "acceptance": [
+            "TypeScript: `RenderOptions` includes optional `stdout`, `stdin`, `stderr` stream fields.",
+            "TypeScript: `RenderOptions` includes optional booleans `debug`, `exitOnCtrlC`, `patchConsole`.",
+            "TypeScript: `RenderOptions` includes optional `onRender(metrics)` callback where `metrics.renderTime` is a number.",
+            "TypeScript: `RenderOptions` includes optional `isScreenReaderEnabled`, `maxFps`, `incrementalRendering`, `concurrent`.",
+            "TypeScript: `RenderOptions` includes optional `kittyKeyboard?: KittyKeyboardOptions`."
+          ],
+          "edge_cases": [
+            "Type-only contract: verify both excess and missing properties with compile-time tests (tsc/tsd)."
+          ],
+          "test_design": {
+            "type_tests": [
+              "Compile a fixture that imports `RenderOptions` and assigns objects containing each field; expect no TS errors.",
+              "Compile a fixture that uses `concurrent` and `kittyKeyboard` fields; expect no TS errors."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/index.ts",
+                "line_start": 5,
+                "line_end": 5
+              },
+              {
+                "file": "packages/ink-compat/src/types.ts",
+                "line_start": 547,
+                "line_end": 626
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/types.parity.test.ts",
+                "line_start": 31,
+                "line_end": 49
+              }
+            ],
+            "gaps": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Instance",
+      "kind": "type",
+      "upstream": {
+        "file": "src/render.ts",
+        "line_start": 103,
+        "line_end": 125,
+        "signature": "export type Instance = { rerender: (node: ReactNode) => void; unmount: (error?: Error | number | null) => void; waitUntilExit: () => Promise<void>; cleanup: () => void; clear: () => void }"
+      },
+      "contracts": [
+        {
+          "id": "INK-TYPE-INSTANCE-001",
+          "summary": "Instance exposes rerender/unmount/waitUntilExit/cleanup/clear (with Ink's unmount signature).",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/index.ts",
+              "line_start": 1,
+              "line_end": 2
+            },
+            {
+              "file": "src/render.ts",
+              "line_start": 103,
+              "line_end": 125
+            },
+            {
+              "file": "src/ink.tsx",
+              "line_start": 511,
+              "line_end": 611
+            },
+            {
+              "file": "src/render.ts",
+              "line_start": 155,
+              "line_end": 163
+            }
+          ],
+          "acceptance": [
+            "TypeScript: `Instance.rerender` accepts a ReactNode and returns void.",
+            "TypeScript: `Instance.unmount` accepts `(error?: Error | number | null)` and returns void.",
+            "TypeScript: `Instance.waitUntilExit()` returns `Promise<void>`.",
+            "TypeScript: `Instance.cleanup()` and `Instance.clear()` are functions returning void."
+          ],
+          "edge_cases": [
+            "Runtime: although the type allows passing an error to `instance.unmount`, the `render()` return object wraps `instance.unmount()` without forwarding parameters (argument is ignored)."
+          ],
+          "test_design": {
+            "type_tests": [
+              "Compile a fixture calling `instance.unmount(new Error('x'))` and ensure it type-checks (even though runtime ignores it)."
+            ],
+            "runtime_tests": [
+              "Call `render(<App/>)`, then call returned `unmount(new Error('x'))`; assert `waitUntilExit()` resolves (not rejects), demonstrating arg is ignored."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/index.ts",
+                "line_start": 5,
+                "line_end": 5
+              },
+              {
+                "file": "packages/ink-compat/src/types.ts",
+                "line_start": 628,
+                "line_end": 650
+              },
+              {
+                "file": "packages/ink-compat/src/render.ts",
+                "line_start": 278,
+                "line_end": 300
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/types.parity.test.ts",
+                "line_start": 53,
+                "line_end": 67
+              }
+            ],
+            "gaps": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "render",
+      "kind": "function",
+      "upstream": {
+        "file": "src/render.ts",
+        "line_start": 130,
+        "line_end": 199,
+        "signature": "render(node: ReactNode, options?: NodeJS.WriteStream | RenderOptions): Instance"
+      },
+      "contracts": [
+        {
+          "id": "INK-API-RENDER-001",
+          "summary": "render() applies option defaults and supports passing stdout stream as the second argument.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/render.ts",
+              "line_start": 130,
+              "line_end": 179
+            }
+          ],
+          "acceptance": [
+            "When called as `render(node)` with no options, stdout defaults to `process.stdout`, stdin to `process.stdin`, stderr to `process.stderr`.",
+            "Default option values: `debug=false`, `exitOnCtrlC=true`, `patchConsole=true`, `maxFps=30`, `incrementalRendering=false`, `concurrent=false`.",
+            "When called as `render(node, stdoutStream)`, Ink treats the second argument as `{stdout: stdoutStream, stdin: process.stdin}` (stderr remains `process.stderr`).",
+            "Options passed as an object override the defaults (shallow merge)."
+          ],
+          "edge_cases": [
+            "Passing a non-Stream object as the second argument does not trigger the stdoutStream overload; it is treated as options.",
+            "Unknown/experiment: behavior when `maxFps` is 0 or negative (throttle interval is computed from it); verify in runtime."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Use a mock WriteStream for stdout and assert it receives output; assert `options.stdin` defaults to process.stdin unless explicitly set (stream overload should set stdin to process.stdin).",
+              "Provide `{stdout, stdin, stderr}` and assert contexts use those streams (via `useStdout/useStderr/useStdin`).",
+              "Set `maxFps=1` and verify output updates are throttled (timestamps between writes).",
+              "Unknown experiment: set `maxFps=0` and observe whether updates are unthrottled or starved (document actual)."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/render/options.ts",
+                "line_start": 1,
+                "line_end": 17
+              },
+              {
+                "file": "packages/ink-compat/src/render.ts",
+                "line_start": 467,
+                "line_end": 487
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/render.options.test.ts",
+                "line_start": 5,
+                "line_end": 23
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/render.lifecycle.test.tsx",
+                "line_start": 41,
+                "line_end": 74
+              }
+            ],
+            "gaps": []
+          }
+        },
+        {
+          "id": "INK-API-RENDER-002",
+          "summary": "render() caches an Ink instance per stdout; concurrent mode mismatch emits a warning.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/instances.ts",
+              "line_start": 1,
+              "line_end": 10
+            },
+            {
+              "file": "src/render.ts",
+              "line_start": 147,
+              "line_end": 199
+            }
+          ],
+          "acceptance": [
+            "Calling `render()` multiple times with the same `stdout` reuses the same underlying Ink instance (shared lifecycle and throttling).",
+            "If `render()` is called again for the same `stdout` with a different `concurrent` value than the existing instance, Ink logs a warning and keeps the existing instance's rendering mode."
+          ],
+          "edge_cases": [
+            "WeakMap keying means only the exact `stdout` object identity participates in caching.",
+            "Concurrent mismatch warning is only observable when multiple renders share the same stdout without unmounting."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Create a fake stdout stream object and call `render(<A/>, {stdout})`, then `render(<B/>, {stdout})`; assert only one instance is created (e.g., by spying on Ink constructor or side effects like resize listeners).",
+              "Call first render with `concurrent=false`, second with `concurrent=true`; assert a warning is emitted and concurrent mode does not change."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/render.ts",
+                "line_start": 55,
+                "line_end": 75
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/render.instances.test.tsx",
+                "line_start": 32,
+                "line_end": 103
+              }
+            ],
+            "gaps": []
+          }
+        },
+        {
+          "id": "INK-API-RENDER-003",
+          "summary": "Concurrent rendering mode changes how React updates are committed; only takes effect on first render per stdout.",
+          "priority": "P2",
+          "upstream_evidence": [
+            {
+              "file": "src/render.ts",
+              "line_start": 79,
+              "line_end": 101
+            },
+            {
+              "file": "src/ink.tsx",
+              "line_start": 176,
+              "line_end": 191
+            },
+            {
+              "file": "src/ink.tsx",
+              "line_start": 422,
+              "line_end": 449
+            }
+          ],
+          "acceptance": [
+            "When `concurrent` is false, Ink commits updates synchronously (`updateContainerSync` + `flushSyncWork`).",
+            "When `concurrent` is true, Ink schedules updates with `updateContainer` (async scheduling).",
+            "`concurrent` only takes effect on the first render for a given stdout; subsequent renders with different values emit a warning and do not change the mode."
+          ],
+          "edge_cases": [
+            "Tests may need to use React `act()` when concurrent mode is enabled due to async timing.",
+            "Concurrent mode affects `useCursor` because it uses `useInsertionEffect` to prevent cursor leakage across abandoned renders."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Render a component that suspends; assert behavior differs between concurrent true/false (e.g., Suspense boundaries).",
+              "Render with concurrent=true then call render again with concurrent=false on same stdout; assert warning and no mode change."
+            ]
+          },
+          "rezi": {
+            "status": "Missing",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/types.ts",
+                "line_start": 157,
+                "line_end": 175
+              },
+              {
+                "file": "packages/ink-compat/src/reconciler.ts",
+                "line_start": 88,
+                "line_end": 111
+              }
+            ],
+            "gaps": [
+              "Rezi `RenderOptions` does not expose `concurrent` and `render()` always forces a synchronous flush (`flushAllUpdates()`).",
+              "Required: add `concurrent` option and support non-sync scheduling semantics (may require deeper changes to `packages/ink-compat/src/reconciler.ts`)."
+            ]
+          }
+        },
+        {
+          "id": "INK-API-RENDER-004",
+          "summary": "maxFps throttles render/onRender work and log updates unless debug or screen reader mode is enabled.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/ink.tsx",
+              "line_start": 111,
+              "line_end": 158
+            },
+            {
+              "file": "src/reconciler.ts",
+              "line_start": 124,
+              "line_end": 144
+            }
+          ],
+          "acceptance": [
+            "If `debug=true` OR `isScreenReaderEnabled=true`, Ink renders unthrottled (rootNode.onRender is `onRender` directly).",
+            "Otherwise, Ink throttles root renders with a throttle interval derived from `maxFps`.",
+            "Static output changes trigger `rootNode.onImmediateRender` (unthrottled) even if normal rendering is throttled."
+          ],
+          "edge_cases": [
+            "Unknown/experiment: behavior when `maxFps<=0` (throttle interval becomes 0); confirm whether throttling is disabled or behaves unexpectedly."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Render a component that updates state rapidly; assert write rate is capped near `maxFps` when not in debug/screen reader mode.",
+              "With `maxFps=1`, verify `<Static>` new items still appear immediately (unthrottled immediate render path).",
+              "With screen reader enabled, verify throttling is disabled."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/render.ts",
+                "line_start": 55,
+                "line_end": 89
+              }
+            ],
+            "gaps": [
+              "Rezi uses `fpsCap` in `@rezi-ui/core` (not Ink's throttle + log-update model); the exact equivalence is unknown.",
+              "Rezi default `maxFps` is 60 (Ink is 30).",
+              "Rezi does not implement Ink's `<Static>` immediate-render escape hatch semantics explicitly; if core scheduling can defer frames, parity requires ensuring static updates are not delayed."
+            ]
+          }
+        },
+        {
+          "id": "INK-API-RENDER-005",
+          "summary": "incrementalRendering switches to an incremental log-update algorithm (changed-lines updates) without changing final screen output.",
+          "priority": "P2",
+          "upstream_evidence": [
+            {
+              "file": "src/ink.tsx",
+              "line_start": 132,
+              "line_end": 135
+            },
+            {
+              "file": "src/log-update.ts",
+              "line_start": 322,
+              "line_end": 374
+            }
+          ],
+          "acceptance": [
+            "When `incrementalRendering=true`, Ink uses an incremental renderer for terminal updates.",
+            "When `incrementalRendering=false`, Ink uses standard erase-and-rewrite behavior.",
+            "Regardless of mode, the resulting visible screen contents are equivalent for the same tree at the same terminal size."
+          ],
+          "edge_cases": [
+            "Cursor positioning updates (`useCursor`) must remain correct under incremental rendering (cursor-only updates)."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Capture all writes to stdout for the same UI updates with incrementalRendering=true vs false; assert the final visible output matches, while write sequences differ.",
+              "Include a cursor-positioned component to ensure cursor updates remain correct."
+            ]
+          },
+          "rezi": {
+            "status": "Missing",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/types.ts",
+                "line_start": 157,
+                "line_end": 175
+              },
+              {
+                "file": "packages/ink-compat/src/render.ts",
+                "line_start": 43,
+                "line_end": 90
+              }
+            ],
+            "gaps": [
+              "Rezi exposes `incrementalRendering?` in its type surface but does not implement any behavior toggle for it.",
+              "Required: either remove the option (breaking compatibility) or implement equivalent incremental update behavior in the Rezi backend/output layer (likely `@rezi-ui/core` or `@rezi-ui/node`)."
+            ]
+          }
+        },
+        {
+          "id": "INK-API-RENDER-006",
+          "summary": "debug mode prints every frame without replacing previous output; console patching is disabled.",
+          "priority": "P2",
+          "upstream_evidence": [
+            {
+              "file": "src/render.ts",
+              "line_start": 29,
+              "line_end": 48
+            },
+            {
+              "file": "src/ink.tsx",
+              "line_start": 115,
+              "line_end": 158
+            },
+            {
+              "file": "src/ink.tsx",
+              "line_start": 289,
+              "line_end": 299
+            },
+            {
+              "file": "src/ink.tsx",
+              "line_start": 639,
+              "line_end": 657
+            }
+          ],
+          "acceptance": [
+            "When `debug=true`, each render writes output directly to stdout and does not attempt to erase/replace previous output.",
+            "When `debug=true`, console patching is a no-op (console output is not intercepted).",
+            "In debug mode, `<Static>` output is accumulated into `fullStaticOutput` and re-written every render."
+          ],
+          "edge_cases": [
+            "In debug mode, stdout and stderr external writes behave differently (`writeToStdout` and `writeToStderr` special-case debug)."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Render a component that updates twice; assert stdout contains two full frames (not erased).",
+              "Call `console.log` during a render loop; assert it is not patched/redirected when debug=true."
+            ]
+          },
+          "rezi": {
+            "status": "Missing",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/render.ts",
+                "line_start": 49,
+                "line_end": 58
+              },
+              {
+                "file": "packages/ink-compat/src/internal/warn.ts",
+                "line_start": 4,
+                "line_end": 16
+              }
+            ],
+            "gaps": [
+              "Rezi uses `debug` to enable warnOnce and to disable console patching, but it does not change rendering behavior to 'append-only frames'.",
+              "Required: implement Ink's debug semantics (append-only frames) or document incompatibility."
+            ]
+          }
+        },
+        {
+          "id": "INK-API-RENDER-007",
+          "summary": "CI mode (is-in-ci) avoids erase/cursor control and writes only the final frame on unmount.",
+          "priority": "P2",
+          "upstream_evidence": [
+            {
+              "file": "src/ink.tsx",
+              "line_start": 5,
+              "line_end": 6
+            },
+            {
+              "file": "src/ink.tsx",
+              "line_start": 301,
+              "line_end": 310
+            },
+            {
+              "file": "src/ink.tsx",
+              "line_start": 562,
+              "line_end": 568
+            }
+          ],
+          "acceptance": [
+            "When Ink detects CI, it avoids erase/cursor manipulation for normal rendering.",
+            "On unmount in CI, Ink writes the last output frame followed by a newline."
+          ],
+          "edge_cases": [
+            "CI behavior interacts with `<Static>` output (static output is still written when generated)."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Run tests with environment configured so `is-in-ci` returns true; render a component that updates multiple times; assert output is not erased and only final frame is present after exit."
+            ]
+          },
+          "rezi": {
+            "status": "Missing",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/render.ts",
+                "line_start": 1,
+                "line_end": 20
+              }
+            ],
+            "gaps": [
+              "Rezi has no CI-specific rendering behavior in ink-compat; core/node may have its own semantics but parity is not documented or guaranteed.",
+              "Required: add CI detection and match Ink's CI behavior, or mark as incompatible and provide a test-only rendering backend that matches Ink."
+            ]
+          }
+        },
+        {
+          "id": "INK-API-RENDER-008",
+          "summary": "Screen reader mode changes component behavior and uses screen-reader-specific renderer output.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/render.ts",
+              "line_start": 55,
+              "line_end": 60
+            },
+            {
+              "file": "src/ink.tsx",
+              "line_start": 111,
+              "line_end": 116
+            },
+            {
+              "file": "src/renderer.ts",
+              "line_start": 13,
+              "line_end": 35
+            },
+            {
+              "file": "src/render-node-to-output.ts",
+              "line_start": 32,
+              "line_end": 97
+            },
+            {
+              "file": "src/ink.tsx",
+              "line_start": 312,
+              "line_end": 365
+            }
+          ],
+          "acceptance": [
+            "When screen reader mode is enabled (`isScreenReaderEnabled=true`), Ink produces output via `renderNodeToScreenReaderOutput` (no borders/background/ANSI styling) and re-writes it in place using eraseLines + wrapAnsi.",
+            "Screen reader output joins children with ' ' when flexDirection is row/row-reverse, otherwise '\\n'.",
+            "Screen reader output includes accessibility role/state prefixes: `(state...) ...` and `role: ...` when role differs from parent role."
+          ],
+          "edge_cases": [
+            "Static output is rendered separately and included above interactive output in screen reader mode (renderer staticOutput path)."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Render a layout with Box/Text and borders/background; in screen reader mode, assert output contains only plain text with role/state formatting and no box-drawing characters or ANSI styles.",
+              "Test row vs column separators in screen reader output.",
+              "Test `aria-role` and `aria-state` formatting."
+            ]
+          },
+          "rezi": {
+            "status": "Missing",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/render.ts",
+                "line_start": 57,
+                "line_end": 61
+              },
+              {
+                "file": "packages/ink-compat/src/context/AccessibilityContext.ts",
+                "line_start": 1,
+                "line_end": 5
+              },
+              {
+                "file": "packages/ink-compat/src/components/Box.tsx",
+                "line_start": 1,
+                "line_end": 18
+              },
+              {
+                "file": "packages/ink-compat/src/components/Text.tsx",
+                "line_start": 1,
+                "line_end": 13
+              }
+            ],
+            "gaps": [
+              "Rezi computes and provides `isScreenReaderEnabled` in context, but does not implement Ink's screen-reader renderer output path.",
+              "Rezi components do not implement `aria-*` semantics that Ink applies when screen reader mode is enabled (e.g., aria-label replacement, aria-hidden suppression).",
+              "Required: implement a screen-reader rendering mode for ink-compat that matches Ink's output contract (likely as a separate conversion path in `packages/ink-compat/src/reconciler/convert.ts`)."
+            ]
+          }
+        },
+        {
+          "id": "INK-API-RENDER-009",
+          "summary": "patchConsole intercepts console output so it doesn't mix with Ink output; stderr filters React error prefix lines.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/ink.tsx",
+              "line_start": 206,
+              "line_end": 208
+            },
+            {
+              "file": "src/ink.tsx",
+              "line_start": 639,
+              "line_end": 657
+            },
+            {
+              "file": "src/ink.tsx",
+              "line_start": 452,
+              "line_end": 509
+            }
+          ],
+          "acceptance": [
+            "When `patchConsole=true` and not in debug mode, Ink patches console output so writes to stdout/stderr are routed via Ink's `writeToStdout`/`writeToStderr` to preserve the UI.",
+            "When patched, stderr messages that start with 'The above error occurred' are suppressed (not written).",
+            "Patch is reverted during unmount."
+          ],
+          "edge_cases": [
+            "In debug mode, patchConsole is disabled and external writes are not preserved.",
+            "In CI, patching still occurs (options.patchConsole), but writeToStdout/Stderr special-case CI."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Render a UI, call `console.log('x')` and `console.error('y')`; assert the terminal output has the log lines printed without corrupting the UI region.",
+              "Call `console.error('The above error occurred')`; assert it is not emitted.",
+              "Unmount and assert console methods are restored."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/render.ts",
+                "line_start": 151,
+                "line_end": 160
+              },
+              {
+                "file": "packages/ink-compat/src/render/consoleCapture.ts",
+                "line_start": 80,
+                "line_end": 103
+              }
+            ],
+            "gaps": [
+              "Rezi patches console by capturing console.* calls and re-rendering them inside the UI (not by writing to stdout/stderr while preserving output).",
+              "Rezi disables patchConsole when stdout is not TTY or when running Node's `--test`; Ink does not have these conditions.",
+              "Rezi does not filter stderr lines beginning with 'The above error occurred'.",
+              "Required: match Ink's patch-console routing semantics (likely requires implementing stdout/stderr interleaving behavior in `packages/ink-compat/src/render.ts` and/or `@rezi-ui/node`)."
+            ]
+          }
+        },
+        {
+          "id": "INK-API-RENDER-010",
+          "summary": "useStdout().write and useStderr().write print external strings while preserving Ink output.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/components/StdoutContext.ts",
+              "line_start": 4,
+              "line_end": 27
+            },
+            {
+              "file": "src/components/StderrContext.ts",
+              "line_start": 4,
+              "line_end": 27
+            },
+            {
+              "file": "src/components/App.tsx",
+              "line_start": 424,
+              "line_end": 438
+            },
+            {
+              "file": "src/ink.tsx",
+              "line_start": 452,
+              "line_end": 509
+            }
+          ],
+          "acceptance": [
+            "Calling `useStdout().write(data)` writes `data` to stdout without corrupting Ink's rendered output (Ink clears the UI, writes data, then restores the last frame).",
+            "Calling `useStderr().write(data)` writes `data` to stderr without corrupting Ink's rendered output."
+          ],
+          "edge_cases": [
+            "In debug mode, writeToStdout writes `data + fullStaticOutput + lastOutput`.",
+            "In CI mode, writeToStdout/writeToStderr write directly without UI preservation."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Render a stable UI and call `useStdout().write('HELLO\\n')`; assert output includes 'HELLO' above the UI and UI remains intact after.",
+              "Repeat for stderr.",
+              "Exercise debug and CI mode branches."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/hooks/useStdout.ts",
+                "line_start": 8,
+                "line_end": 16
+              },
+              {
+                "file": "packages/ink-compat/src/hooks/useStderr.ts",
+                "line_start": 8,
+                "line_end": 16
+              }
+            ],
+            "gaps": [
+              "Rezi's `useStdout().write` and `useStderr().write` write directly to streams and explicitly note they may interfere with UI output.",
+              "Required: implement Ink-style output preservation (clear + write + restore) in ink-compat render layer (likely needs integration with `@rezi-ui/core` drawlist flushing and cursor state)."
+            ]
+          }
+        },
+        {
+          "id": "INK-API-RENDER-011",
+          "summary": "Ink rerenders on terminal resize and uses a robust terminal width fallback for non-TTY streams.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/ink.tsx",
+              "line_start": 210,
+              "line_end": 246
+            }
+          ],
+          "acceptance": [
+            "Ink listens to `stdout` resize events when not in CI and re-renders on resize.",
+            "When terminal width decreases, Ink clears output state to prevent overlapping re-renders.",
+            "Ink determines terminal width using `stdout.columns` when available; otherwise uses `terminal-size` fallback and then defaults to 80."
+          ],
+          "edge_cases": [
+            "Unknown/experiment: behavior when stdout emits resize but `stdout.columns` is undefined; verify fallback behavior.",
+            "Resize behavior must not break static output or cursor positioning."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Provide a mock stdout stream with mutable `columns` and `rows` and an EventEmitter API; emit 'resize' and assert output reflows.",
+              "Decrease columns and assert Ink clears and redraws (no duplicated overlapping frames)."
+            ]
+          },
+          "rezi": {
+            "status": "Unknown",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/render.ts",
+                "line_start": 1,
+                "line_end": 20
+              }
+            ],
+            "gaps": [
+              "ink-compat does not explicitly subscribe to stdout resize events; resize behavior likely depends on `@rezi-ui/core`/`@rezi-ui/node` engine viewport updates.",
+              "Experiment required: render a wrapping layout, change terminal size (or simulate via backend), and verify reflow + no artifacts; document where resize is handled in Rezi stack."
+            ]
+          }
+        },
+        {
+          "id": "INK-API-RENDER-012",
+          "summary": "Ink adds a trailing newline except in fullscreen TTY cases and uses clearTerminal when previous output filled screen.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/ink.tsx",
+              "line_start": 371,
+              "line_end": 395
+            }
+          ],
+          "acceptance": [
+            "If stdout is a TTY and `outputHeight >= stdout.rows`, Ink treats output as fullscreen and does not append a trailing newline to the frame.",
+            "If the previous output height was >= stdout.rows, Ink uses `ansiEscapes.clearTerminal` before writing the next frame."
+          ],
+          "edge_cases": [
+            "If stdout is not a TTY, Ink always appends a trailing newline (fullscreen logic disabled)."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Use a mock stdout with `isTTY=true` and `rows=N`; render output with height N and assert no trailing newline is written.",
+              "Render a fullscreen frame, then a smaller frame; assert clearTerminal escape is used."
+            ]
+          },
+          "rezi": {
+            "status": "Unknown",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/render.ts",
+                "line_start": 75,
+                "line_end": 97
+              }
+            ],
+            "gaps": [
+              "Rezi's terminal clearing/newline handling is owned by the `@rezi-ui/node` backend and `@rezi-ui/core` renderer; ink-compat does not implement Ink's fullscreen/newline logic explicitly.",
+              "Experiment required: capture stdout bytes for a fullscreen-height layout and compare newline behavior to Ink."
+            ]
+          }
+        },
+        {
+          "id": "INK-API-RENDER-013",
+          "summary": "Instance lifecycle methods: waitUntilExit, unmount, cleanup, and clear semantics (including beforeExit behavior).",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/ink.tsx",
+              "line_start": 511,
+              "line_end": 628
+            },
+            {
+              "file": "src/render.ts",
+              "line_start": 155,
+              "line_end": 163
+            }
+          ],
+          "acceptance": [
+            "`waitUntilExit()` returns a promise that resolves when the app is unmounted; if `useApp().exit(error)` is used with an Error, the promise rejects with that Error.",
+            "`waitUntilExit()` registers a `process.beforeExit` handler that calls `unmount()` if the app is still mounted.",
+            "`unmount()` finalizes a last render, unsubscribes resize/exit hooks, flushes pending throttled work, and restores the cursor (logUpdate.done) unless in CI/debug branches.",
+            "`cleanup()` only deletes the per-stdout instance mapping (does not unmount the app).",
+            "`clear()` clears the interactive output region without removing previously printed static output."
+          ],
+          "edge_cases": [
+            "When called from signal-exit during process shutdown, `unmount(error)` resolves exit promise synchronously (no async callbacks).",
+            "`Instance.unmount(error)` (from render() return) ignores the argument due to wrapper implementation; `useApp().exit(error)` is the supported way to reject `waitUntilExit`."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Call `waitUntilExit()` without unmounting and then trigger process.beforeExit; assert app unmounts.",
+              "Call `useApp().exit(new Error('x'))` and assert `waitUntilExit()` rejects with that Error.",
+              "Call `instance.cleanup()` and then call `render()` again on the same stdout; assert a new Ink instance is created (e.g., concurrent mode warning behavior resets).",
+              "Render with `<Static>` output, call `clear()`, and assert static output remains in terminal output above the cleared interactive region."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/render.ts",
+                "line_start": 99,
+                "line_end": 318
+              }
+            ],
+            "gaps": [
+              "Rezi `waitUntilExit()` does not register `process.beforeExit` auto-unmount.",
+              "Rezi `cleanup()` unmounts/exits rather than only removing an instance mapping.",
+              "Rezi `clear()` resets the rendered vnode (and therefore removes `<Static>` content from the framebuffer), which differs from Ink where static output persists above the interactive region.",
+              "Required: implement per-stdout instance management + beforeExit handling and align `cleanup/clear` semantics; some aspects likely require deeper changes in `@rezi-ui/core`/`@rezi-ui/node` to preserve static output outside the framebuffer."
+            ]
+          }
+        },
+        {
+          "id": "INK-API-RENDER-014",
+          "summary": "Kitty keyboard protocol integration: optional handshake, auto-detection, and disable on unmount.",
+          "priority": "P2",
+          "upstream_evidence": [
+            {
+              "file": "src/ink.tsx",
+              "line_start": 659,
+              "line_end": 745
+            },
+            {
+              "file": "src/kitty-keyboard.ts",
+              "line_start": 1,
+              "line_end": 57
+            },
+            {
+              "file": "src/parse-keypress.ts",
+              "line_start": 153,
+              "line_end": 196
+            }
+          ],
+          "acceptance": [
+            "If `RenderOptions.kittyKeyboard` is not set, Ink does not attempt to enable the kitty keyboard protocol.",
+            "If enabled with `mode='enabled'`, Ink writes CSI `\\u001B[>${flags}u` to stdout to enable protocol.",
+            "If enabled with `mode='auto'`, Ink heuristically checks terminal env and then sends CSI `\\u001B[?u` query to stdout and waits up to 200ms for a response matching `/\\u001B\\[\\?\\d+u/` on stdin before enabling protocol.",
+            "On unmount, if protocol was enabled, Ink sends `\\u001B[<u` to disable the protocol (best-effort)."
+          ],
+          "edge_cases": [
+            "Auto-detection buffers stdin data during detection and re-emits non-protocol bytes via `stdin.unshift()` to avoid losing user input.",
+            "Auto-detection is skipped in CI."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "With kittyKeyboard enabled/auto and mock stdin/stdout TTY streams, assert enable query `\\u001B[?u` is written and that sending a response on stdin triggers enable write `\\u001B[>${flags}u`.",
+              "Ensure buffered input is unshifted if it contained other bytes beyond the kitty response.",
+              "Unmount and assert disable sequence `\\u001B[<u` is written when enabled."
+            ]
+          },
+          "rezi": {
+            "status": "Missing",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/types.ts",
+                "line_start": 157,
+                "line_end": 175
+              },
+              {
+                "file": "packages/ink-compat/src/index.ts",
+                "line_start": 1,
+                "line_end": 53
+              }
+            ],
+            "gaps": [
+              "Rezi ink-compat does not expose or implement kitty keyboard protocol options or constants.",
+              "Required: implement kitty keyboard protocol support or provide an equivalent high-fidelity key event stream in `@rezi-ui/node` with Ink-shaped Key fields (super/hyper/capsLock/numLock/eventType) and export kitty constants for compatibility."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "BoxProps",
+      "kind": "type",
+      "upstream": {
+        "file": "src/components/Box.tsx",
+        "line_start": 8,
+        "line_end": 56,
+        "signature": "export type BoxProps = Except<Styles, 'textWrap'> & { 'aria-label'?: string; 'aria-hidden'?: boolean; 'aria-role'?: ...; 'aria-state'?: ... }"
+      },
+      "contracts": [
+        {
+          "id": "INK-TYPE-BOXPROPS-001",
+          "summary": "BoxProps matches Ink's Box component Props type (Styles sans textWrap + aria fields).",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/index.ts",
+              "line_start": 3,
+              "line_end": 4
+            },
+            {
+              "file": "src/components/Box.tsx",
+              "line_start": 8,
+              "line_end": 56
+            },
+            {
+              "file": "src/styles.ts",
+              "line_start": 7,
+              "line_end": 303
+            }
+          ],
+          "acceptance": [
+            "TypeScript: `BoxProps` includes all supported layout/border/background/overflow props as defined by `Styles`, excluding `textWrap`.",
+            "TypeScript: `BoxProps` includes `aria-*` props as defined in `src/components/Box.tsx`."
+          ],
+          "edge_cases": [
+            "Type-only contract: ensure `borderStyle` accepts `keyof cli-boxes` and custom BoxStyle objects (not arbitrary strings)."
+          ],
+          "test_design": {
+            "type_tests": [
+              "Compile a fixture that passes `borderStyle` as a `cli-boxes` key and as a BoxStyle object; expect no TS errors.",
+              "Compile a fixture that passes unsupported props; expect TS errors."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/types.ts",
+                "line_start": 428,
+                "line_end": 476
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/types.parity.test.ts",
+                "line_start": 128,
+                "line_end": 133
+              }
+            ],
+            "gaps": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Box",
+      "kind": "component",
+      "upstream": {
+        "file": "src/components/Box.tsx",
+        "line_start": 61,
+        "line_end": 117,
+        "signature": "const Box: React.ForwardRefExoticComponent<PropsWithChildren<BoxProps> & RefAttributes<DOMElement>>"
+      },
+      "contracts": [
+        {
+          "id": "INK-COMP-BOX-001",
+          "summary": "<Box> sets default flex styles, normalizes overflowX/overflowY, and forwards ref to the host element.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/components/Box.tsx",
+              "line_start": 61,
+              "line_end": 99
+            }
+          ],
+          "acceptance": [
+            "<Box> renders an `ink-box` host element with `style` defaults: `flexWrap:'nowrap'`, `flexDirection:'row'`, `flexGrow:0`, `flexShrink:1`, overridden by user props.",
+            "`overflowX` defaults to `style.overflowX ?? style.overflow ?? 'visible'`; same for `overflowY`.",
+            "`ref` receives the underlying DOMElement backing the `ink-box` host node."
+          ],
+          "edge_cases": [
+            "If both `overflow` and `overflowX`/`overflowY` are set, the axis-specific props take precedence.",
+            "If `flexDirection` is provided, it overrides the default row direction."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Render `<Box>` with no props; capture computed layout and ensure it behaves like a row flex container with no wrapping.",
+              "Render `<Box overflow='hidden'>` and ensure both axes clip; render `<Box overflowX='hidden' overflowY='visible'>` and ensure only X clips (see clipping contract).",
+              "Use `ref` + `measureElement(ref.current)` to verify the ref object is a DOMElement and provides sizing."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/components/Box.tsx",
+                "line_start": 10,
+                "line_end": 18
+              },
+              {
+                "file": "packages/ink-compat/src/props/boxProps.ts",
+                "line_start": 123,
+                "line_end": 248
+              }
+            ],
+            "gaps": [
+              "Rezi `<Box>` does not apply Ink's default style values in the component layer; defaults depend on the downstream mapping/core layout.",
+              "Rezi supports additional overflow modes (scroll) and does not implement Ink's overflow hidden clipping at conversion/render time.",
+              "Required: ensure Ink defaults are applied exactly (either in component or in mapBoxProps) and that overflow hidden semantics match Ink."
+            ]
+          }
+        },
+        {
+          "id": "INK-COMP-BOX-002",
+          "summary": "Box layout props map to Yoga flexbox with defined precedence for shorthands.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/styles.ts",
+              "line_start": 17,
+              "line_end": 303
+            },
+            {
+              "file": "src/styles.ts",
+              "line_start": 305,
+              "line_end": 583
+            }
+          ],
+          "acceptance": [
+            "Ink uses Yoga layout; numeric widths/heights are treated as cell counts, while string widths/heights are treated as percentages via `parseInt`.",
+            "Precedence: `margin` is applied first, then `marginX`/`marginY`, then per-edge margins; similarly for padding.",
+            "Gap precedence: `gap` applied first, then `columnGap`/`rowGap` override."
+          ],
+          "edge_cases": [
+            "Percent strings use `Number.parseInt`, truncating decimals and ignoring trailing '%'. Example: '50.9%' -> 50.",
+            "If a property exists in the style object with value `undefined`, Yoga 'auto' branches may be applied; confirm with runtime experiment if needed."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Create layouts using combinations of margin/padding shorthands and confirm computed positions match precedence rules (snapshot computed x/y/width/height).",
+              "Test width='50%' with known parent width to assert percent sizing behavior matches parseInt semantics."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/props/boxProps.ts",
+                "line_start": 25,
+                "line_end": 208
+              }
+            ],
+            "gaps": [
+              "Rezi does not use Yoga; it maps a subset of Ink props to Rezi core layout props. Exact Yoga parity is not guaranteed (e.g., flexShrink is not supported and warns).",
+              "Required: either implement Yoga-compatible layout semantics in Rezi core, or build a Yoga-backed compat layout engine for ink-compat."
+            ]
+          }
+        },
+        {
+          "id": "INK-COMP-BOX-003",
+          "summary": "Borders: style selection (cli-boxes/custom), edge toggles, per-side color and dim behavior.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/styles.ts",
+              "line_start": 183,
+              "line_end": 275
+            },
+            {
+              "file": "src/styles.ts",
+              "line_start": 538,
+              "line_end": 558
+            },
+            {
+              "file": "src/render-border.ts",
+              "line_start": 1,
+              "line_end": 125
+            },
+            {
+              "file": "src/colorize.ts",
+              "line_start": 1,
+              "line_end": 72
+            }
+          ],
+          "acceptance": [
+            "If `borderStyle` is undefined, no border is rendered and Yoga border widths are 0.",
+            "If `borderStyle` is set, each visible border edge occupies 1 cell; edges can be hidden with `borderTop/borderBottom/borderLeft/borderRight=false`.",
+            "Border characters are selected from `cli-boxes[borderStyle]` when borderStyle is a string key; otherwise the provided BoxStyle object is used.",
+            "Border colors support `borderColor` shorthand and per-side overrides; `borderDimColor` shorthand and per-side dim overrides apply chalk.dim to the affected edges."
+          ],
+          "edge_cases": [
+            "Invalid `borderStyle` string at runtime would yield `cliBoxes[borderStyle] === undefined` and cause rendering failures; this is prevented by TS types but may occur in JS usage.",
+            "When a vertical edge is hidden, top/bottom borders omit the corresponding corner glyph."
+          ],
+          "test_design": {
+            "golden_tests": [
+              "Snapshot rendered output for each cli-boxes border style (single/double/round/bold/etc.) at fixed terminal size.",
+              "Test per-side edge toggles and verify corners/lines render correctly.",
+              "Test per-side colors and dim behavior; capture ANSI output (Ink) as golden strings."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/props/boxProps.ts",
+                "line_start": 73,
+                "line_end": 229
+              }
+            ],
+            "gaps": [
+              "Rezi maps only a small set of borderStyle strings and defaults unknown values to 'single'.",
+              "Rezi collapses per-side colors/dim into a single wrapper style and does not render side-specific colors/dimming.",
+              "Required: implement full cli-boxes style selection + per-side color/dim parity (may require enhancements in Rezi core border rendering)."
+            ]
+          }
+        },
+        {
+          "id": "INK-COMP-BOX-004",
+          "summary": "Background color: fills Box content area and provides inherited background for child Text when not overridden.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/render-background.ts",
+              "line_start": 1,
+              "line_end": 52
+            },
+            {
+              "file": "src/components/Box.tsx",
+              "line_start": 102,
+              "line_end": 108
+            },
+            {
+              "file": "src/components/Text.tsx",
+              "line_start": 85,
+              "line_end": 108
+            }
+          ],
+          "acceptance": [
+            "If `backgroundColor` is set on a Box, Ink fills the Box's inner content area (excluding borders) with spaces styled with that background color.",
+            "If a Box has `backgroundColor`, that color is provided to descendant Text nodes as an inherited default background when Text does not specify its own backgroundColor."
+          ],
+          "edge_cases": [
+            "If Box has borders and a backgroundColor, the background fill starts after left/top borders and excludes right/bottom borders.",
+            "If Box backgroundColor is set but Box content area is 0 in width or height (e.g., border-only), no background fill is written."
+          ],
+          "test_design": {
+            "golden_tests": [
+              "Render a bordered box with backgroundColor and fixed width/height; snapshot the ANSI output to ensure fill occurs only in content area.",
+              "Render nested Text without explicit backgroundColor inside a background-colored Box; snapshot to ensure Text output is background-colored.",
+              "Render nested Text with explicit backgroundColor; assert it overrides inherited Box background."
+            ]
+          },
+          "rezi": {
+            "status": "Unknown",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/props/boxProps.ts",
+                "line_start": 171,
+                "line_end": 216
+              }
+            ],
+            "gaps": [
+              "Rezi maps Box backgroundColor to a Rezi surface style (`bg`) on the stack/wrapper, but it is unclear whether this produces Ink-equivalent background fill of empty space in the Box content area.",
+              "Experiment required: render a fixed-size Box with backgroundColor and no children; compare visible fill to Ink (should show a solid background rectangle excluding borders)."
+            ]
+          }
+        },
+        {
+          "id": "INK-COMP-BOX-005",
+          "summary": "Overflow hidden clips child output to inside the Box border (x2/y2 treated as exclusive clip bounds).",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/components/Box.tsx",
+              "line_start": 80,
+              "line_end": 92
+            },
+            {
+              "file": "src/render-node-to-output.ts",
+              "line_start": 162,
+              "line_end": 210
+            },
+            {
+              "file": "src/output.ts",
+              "line_start": 117,
+              "line_end": 185
+            }
+          ],
+          "acceptance": [
+            "When `overflow='hidden'` or `overflowX='hidden'`, Ink clips horizontally so child content cannot draw outside the Box inner content area.",
+            "When `overflow='hidden'` or `overflowY='hidden'`, Ink clips vertically so child content cannot draw outside the Box inner content area.",
+            "Clip bounds are computed as: x1 = x + leftBorderWidth, x2 = x + boxWidth - rightBorderWidth; y1 = y + topBorderHeight, y2 = y + boxHeight - bottomBorderHeight; and are applied as exclusive end bounds (x2/y2)."
+          ],
+          "edge_cases": [
+            "Clipping is nested and stack-based: nested boxes can push/pop clips; output operations outside the clip are skipped early when possible.",
+            "Clipping uses slice-ansi and string-width, so ANSI-styled strings are clipped without breaking escape sequences."
+          ],
+          "test_design": {
+            "golden_tests": [
+              "Render a Box with overflow hidden and a child Text longer than the Box width; snapshot output to confirm truncation/clip within border.",
+              "Render nested overflow hidden boxes and verify clip stacks correctly.",
+              "Use ANSI-styled Text (colors) and ensure clipping does not corrupt styles."
+            ]
+          },
+          "rezi": {
+            "status": "Missing",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/reconciler/convert.ts",
+                "line_start": 108,
+                "line_end": 173
+              },
+              {
+                "file": "packages/ink-compat/src/props/boxProps.ts",
+                "line_start": 47,
+                "line_end": 49
+              }
+            ],
+            "gaps": [
+              "Rezi parses overflow props but only implements a vertical 'scrollTop' skip when overflowY === 'scroll'; overflow hidden clipping is not implemented in conversion or rendering.",
+              "Required: add clipping support to match Ink overflow hidden semantics (likely requires core drawlist clipping regions or a compat-layer clip stage in `convertRoot`)."
+            ]
+          }
+        },
+        {
+          "id": "INK-COMP-BOX-006",
+          "summary": "Accessibility props: aria-hidden/aria-label behavior under screen reader mode and role/state propagation for screen reader output.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/components/Box.tsx",
+              "line_start": 74,
+              "line_end": 99
+            },
+            {
+              "file": "src/render-node-to-output.ts",
+              "line_start": 79,
+              "line_end": 97
+            }
+          ],
+          "acceptance": [
+            "If screen reader mode is enabled and Box has `aria-hidden=true`, Box renders `null` (no output).",
+            "If screen reader mode is enabled and Box has `aria-label`, Box renders the label instead of children.",
+            "Box passes `{role, state}` into `internal_accessibility` so screen reader renderer can include role/state prefixes."
+          ],
+          "edge_cases": [
+            "Role prefixes are suppressed when role equals the parent role (renderNodeToScreenReaderOutput parentRole logic).",
+            "State description includes only truthy state keys and is formatted as `(k1, k2) ...`."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Enable screen reader mode and render `<Box aria-hidden><Text>hi</Text></Box>`; assert no output.",
+              "Enable screen reader mode and render `<Box aria-label='X'><Text>Y</Text></Box>`; assert output is 'X' (not 'Y').",
+              "Render nested roles and assert parentRole suppression works."
+            ]
+          },
+          "rezi": {
+            "status": "Missing",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/types.ts",
+                "line_start": 39,
+                "line_end": 138
+              },
+              {
+                "file": "packages/ink-compat/src/props/boxProps.ts",
+                "line_start": 123,
+                "line_end": 248
+              }
+            ],
+            "gaps": [
+              "Rezi types include `aria-*` props but conversion does not implement Ink's screen-reader-specific behaviors and does not generate Ink's role/state screen reader output.",
+              "Required: implement aria semantics and screen reader output formatting as in Ink (likely new conversion path for screen reader mode)."
+            ]
+          }
+        },
+        {
+          "id": "INK-COMP-BOX-007",
+          "summary": "Box ref returns a DOMElement compatible with measureElement() (yogaNode-backed in Ink).",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/components/Box.tsx",
+              "line_start": 61,
+              "line_end": 99
+            },
+            {
+              "file": "src/reconciler.ts",
+              "line_start": 220,
+              "line_end": 220
+            },
+            {
+              "file": "src/dom.ts",
+              "line_start": 89,
+              "line_end": 106
+            },
+            {
+              "file": "src/measure-element.ts",
+              "line_start": 18,
+              "line_end": 23
+            }
+          ],
+          "acceptance": [
+            "A ref attached to `<Box>` receives a DOMElement object representing the `ink-box` host node.",
+            "`measureElement(ref.current)` returns width/height from the DOMElement's Yoga node."
+          ],
+          "edge_cases": [
+            "Calling measureElement on a node without a yogaNode returns `{width:0,height:0}`."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Attach a ref to Box, render with fixed width/height, and assert `measureElement(ref.current)` returns those values after layout."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/components/Box.tsx",
+                "line_start": 10,
+                "line_end": 14
+              },
+              {
+                "file": "packages/ink-compat/src/types.ts",
+                "line_start": 240,
+                "line_end": 249
+              },
+              {
+                "file": "packages/ink-compat/src/measureElement.ts",
+                "line_start": 18,
+                "line_end": 25
+              }
+            ],
+            "gaps": [
+              "Rezi's Box ref type is `DOMElement` but the component comment says ref is 'currently unused'; ref behavior depends on hostConfig getPublicInstance returning HostNode.",
+              "Rezi `DOMElement` is not Yoga-backed; measureElement reads committed layout snapshots instead.",
+              "Required: ensure ref wiring works reliably (ref should point at host element) and document that measureElement uses committed layout; ensure it matches Ink's timing (after commit)."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TextProps",
+      "kind": "type",
+      "upstream": {
+        "file": "src/components/Text.tsx",
+        "line_start": 9,
+        "line_end": 66,
+        "signature": "export type TextProps = { 'aria-label'?: string; 'aria-hidden'?: boolean; color?: LiteralUnion<ForegroundColorName,string>; backgroundColor?: LiteralUnion<ForegroundColorName,string>; dimColor?: boolean; bold?: boolean; italic?: boolean; underline?: boolean; strikethrough?: boolean; inverse?: boolean; wrap?: Styles['textWrap']; children?: ReactNode }"
+      },
+      "contracts": [
+        {
+          "id": "INK-TYPE-TEXTPROPS-001",
+          "summary": "TextProps matches Ink Text component props (including color strings and wrap types).",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/index.ts",
+              "line_start": 5,
+              "line_end": 6
+            },
+            {
+              "file": "src/components/Text.tsx",
+              "line_start": 9,
+              "line_end": 66
+            },
+            {
+              "file": "src/styles.ts",
+              "line_start": 7,
+              "line_end": 15
+            }
+          ],
+          "acceptance": [
+            "TypeScript: `TextProps.wrap` accepts Ink textWrap values (wrap/end/middle/truncate-*).",
+            "TypeScript: `TextProps.color/backgroundColor` accept Chalk color names plus Ink extensions (#hex, rgb(...), ansi256(...))."
+          ],
+          "edge_cases": [
+            "Type-only: Ink uses `LiteralUnion<ForegroundColorName, string>`; JS usage can pass any string but may be ignored by Ink if unsupported (see colorize)."
+          ],
+          "test_design": {
+            "type_tests": [
+              "Compile a fixture passing named colors, #hex, rgb(), ansi256() as `color` and `backgroundColor`."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/types.ts",
+                "line_start": 478,
+                "line_end": 535
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/types.parity.test.ts",
+                "line_start": 135,
+                "line_end": 136
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/textProps.types.test.ts",
+                "line_start": 12,
+                "line_end": 13
+              }
+            ],
+            "gaps": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Text",
+      "kind": "component",
+      "upstream": {
+        "file": "src/components/Text.tsx",
+        "line_start": 71,
+        "line_end": 145,
+        "signature": "function Text(props: TextProps): JSX.Element | null"
+      },
+      "contracts": [
+        {
+          "id": "INK-COMP-TEXT-001",
+          "summary": "<Text> returns null when the (screen-reader-adjusted) children are null/undefined.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/components/Text.tsx",
+              "line_start": 85,
+              "line_end": 92
+            }
+          ],
+          "acceptance": [
+            "If `children` is `null` or `undefined` (and no screen-reader ariaLabel replacement applies), `<Text>` returns `null` and produces no output."
+          ],
+          "edge_cases": [
+            "If screen reader mode is enabled and `aria-label` is set, that label is used as children for the null/undefined check."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Render `<Text>{null}</Text>` and assert no output.",
+              "Enable screen reader mode and render `<Text aria-label='X'>{null}</Text>` and assert output contains 'X'."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/components/Text.tsx",
+                "line_start": 9,
+                "line_end": 13
+              }
+            ],
+            "gaps": [
+              "Rezi `<Text>` returns null when `children` is null/undefined, but does not implement Ink's screen reader aria-label replacement behavior.",
+              "Required: implement aria-label substitution (only when screen reader mode is enabled) to match Ink."
+            ]
+          }
+        },
+        {
+          "id": "INK-COMP-TEXT-002",
+          "summary": "Text style props are applied via an internal_transform that emits ANSI (chalk/colorize) and respects inherited background from Box.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/components/Text.tsx",
+              "line_start": 94,
+              "line_end": 145
+            },
+            {
+              "file": "src/colorize.ts",
+              "line_start": 12,
+              "line_end": 70
+            },
+            {
+              "file": "src/components/Box.tsx",
+              "line_start": 102,
+              "line_end": 108
+            }
+          ],
+          "acceptance": [
+            "Text styling is applied by a transformer function (internal_transform) that can emit ANSI sequences for dim/color/background/bold/italic/underline/strikethrough/inverse.",
+            "If Text has no explicit backgroundColor, it uses the background color inherited from the nearest ancestor Box with backgroundColor.",
+            "Text sets host style `textWrap` from `wrap` prop and uses a row-direction Yoga node with `flexGrow:0` and `flexShrink:1`."
+          ],
+          "edge_cases": [
+            "Ink applies transformations in a specific order: dim -> foreground colorize -> background colorize -> bold -> italic -> underline -> strikethrough -> inverse.",
+            "Color strings that are not recognized by Ink's colorize() result in no color change."
+          ],
+          "test_design": {
+            "golden_tests": [
+              "Snapshot ANSI output for each style flag individually and in combination (order-sensitive cases like inverse + background).",
+              "Test inherited background from Box and explicit background override.",
+              "Test named colors, #hex, rgb(), ansi256() forms."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/props/textProps.ts",
+                "line_start": 6,
+                "line_end": 49
+              },
+              {
+                "file": "packages/ink-compat/src/reconciler/textUtils.ts",
+                "line_start": 323,
+                "line_end": 435
+              }
+            ],
+            "gaps": [
+              "Rezi warns and ignores `strikethrough` (Ink supports it).",
+              "Rezi does not implement Ink's backgroundContext model explicitly; background inheritance depends on how Rezi core merges parent styles.",
+              "Required: add strikethrough support in Rezi core text styles or emulate via ANSI (if backend supports); ensure background inheritance matches Ink behavior exactly."
+            ]
+          }
+        },
+        {
+          "id": "INK-COMP-TEXT-003",
+          "summary": "Text wrapping/truncation semantics follow wrapText(): wrap-ansi for 'wrap' and cli-truncate for truncate-*; 'end'/'middle' are no-ops at this commit.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/wrap-text.ts",
+              "line_start": 7,
+              "line_end": 47
+            },
+            {
+              "file": "src/render-node-to-output.ts",
+              "line_start": 140,
+              "line_end": 155
+            },
+            {
+              "file": "src/styles.ts",
+              "line_start": 7,
+              "line_end": 15
+            }
+          ],
+          "acceptance": [
+            "If the widest line of rendered text exceeds the max width of its Yoga node content box, Ink applies wrapText(text, maxWidth, textWrap).",
+            "If `wrap='wrap'`, Ink wraps text using wrap-ansi with `{trim:false, hard:true}`.",
+            "If `wrap` starts with 'truncate', Ink truncates to maxWidth using cli-truncate with position end/middle/start depending on wrap type.",
+            "If `wrap` is 'end' or 'middle' (non-truncate), wrapText returns the original string unchanged at this commit."
+          ],
+          "edge_cases": [
+            "wrapText caches results by (text,maxWidth,wrapType).",
+            "wrapText operates on strings with ANSI sequences; underlying wrap-ansi/cli-truncate semantics apply."
+          ],
+          "test_design": {
+            "golden_tests": [
+              "Fixed-width layout: render long text with wrap='wrap' and assert hard wrapping matches Ink exactly.",
+              "Render truncate variants and assert output matches cli-truncate behavior.",
+              "Render wrap='end' and wrap='middle' and assert no wrapping/truncation occurs (baseline behavior at v6.7.0)."
+            ]
+          },
+          "rezi": {
+            "status": "Missing",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/props/textProps.ts",
+                "line_start": 39,
+                "line_end": 48
+              },
+              {
+                "file": "packages/core/src/renderer/renderToDrawlist/widgets/basic.ts",
+                "line_start": 391,
+                "line_end": 443
+              }
+            ],
+            "gaps": [
+              "Rezi core `text` widget is single-line and does not implement Ink-style wrapping; ink-compat only maps truncation to textOverflow and relies on core clipping/truncation.",
+              "Required: implement Ink wrapping semantics in ink-compat (wrap-ansi equivalent) based on computed maxWidth, producing multi-line output nodes; ensure behavior matches Ink's wrapText cache and hard wrap settings."
+            ]
+          }
+        },
+        {
+          "id": "INK-COMP-TEXT-004",
+          "summary": "Text nesting rules: raw strings must be inside <Text>; <Box> cannot be nested inside <Text>.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/reconciler.ts",
+              "line_start": 156,
+              "line_end": 212
+            }
+          ],
+          "acceptance": [
+            "Rendering a raw string outside of a Text/Transform context throws: `Text string \"...\" must be rendered inside <Text> component`.",
+            "Rendering a Box inside a Text throws: `<Box> can’t be nested inside <Text> component`."
+          ],
+          "edge_cases": [
+            "Nested `<Text>` inside `<Text>` is converted to an `ink-virtual-text` host node (no Yoga node), not an error."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Attempt to render `<Box>hi</Box>` and assert it throws with the exact message.",
+              "Attempt to render `<Text><Box /></Text>` and assert it throws with the exact message."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/reconciler/hostConfig.ts",
+                "line_start": 61,
+                "line_end": 96
+              }
+            ],
+            "gaps": [
+              "Rezi matches the throw conditions but uses different error codes/messages (`InkCompatError` and different wording for Box nesting).",
+              "Required: match Ink's error messages exactly for parity (or document as known divergence)."
+            ]
+          }
+        },
+        {
+          "id": "INK-COMP-TEXT-005",
+          "summary": "Nested Text/Transform produces virtual text nodes; squashTextNodes concatenates children and applies child internal_transform with sibling index; output transformers apply per line (line index).",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/reconciler.ts",
+              "line_start": 161,
+              "line_end": 164
+            },
+            {
+              "file": "src/dom.ts",
+              "line_start": 89,
+              "line_end": 106
+            },
+            {
+              "file": "src/squash-text-nodes.ts",
+              "line_start": 9,
+              "line_end": 45
+            },
+            {
+              "file": "src/render-node-to-output.ts",
+              "line_start": 132,
+              "line_end": 155
+            },
+            {
+              "file": "src/output.ts",
+              "line_start": 187,
+              "line_end": 225
+            }
+          ],
+          "acceptance": [
+            "A nested `<Text>` inside `<Text>` is represented as `ink-virtual-text` (no Yoga node) and is included in its ancestor ink-text's flattened text via squashTextNodes.",
+            "When flattening, if a nested ink-text/ink-virtual-text has an `internal_transform`, Ink applies it immediately with the nested node's sibling index (not the line index).",
+            "After flattening and wrapping, Ink applies the transformer stack per output line with the line index (0-based within the write operation)."
+          ],
+          "edge_cases": [
+            "This means `index` passed to a child transform (applied during squash) differs from the `index` passed to transforms applied by Output.get; parity must preserve this behavior even if it seems accidental.",
+            "Transform stacking order is inner-first: child internal_transform runs before parent internal_transform (render-node-to-output transformer array construction)."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Create nested transforms where the transform output depends on the `index` parameter and assert Ink's baseline behavior for nested vs non-nested transforms.",
+              "Test transform stacking order by composing multiple transforms and asserting the final string matches Ink."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/reconciler/hostConfig.ts",
+                "line_start": 71,
+                "line_end": 85
+              },
+              {
+                "file": "packages/ink-compat/src/reconciler/textUtils.ts",
+                "line_start": 54,
+                "line_end": 69
+              },
+              {
+                "file": "packages/ink-compat/src/reconciler/textUtils.ts",
+                "line_start": 323,
+                "line_end": 356
+              }
+            ],
+            "gaps": [
+              "Rezi converts nested ink-text inside ink-text to ink-virtual-text, but applies `internal_transform` per line index for nested nodes (not sibling index) and does not replicate Ink's squashTextNodes quirks.",
+              "Required: update text conversion to mirror Ink's exact transform indexing and stacking behavior (likely in `packages/ink-compat/src/reconciler/textUtils.ts`)."
+            ]
+          }
+        },
+        {
+          "id": "INK-COMP-TEXT-006",
+          "summary": "Text aria-label/aria-hidden semantics apply only in screen reader mode.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/components/Text.tsx",
+              "line_start": 85,
+              "line_end": 145
+            }
+          ],
+          "acceptance": [
+            "If screen reader mode is enabled and `aria-hidden=true`, Text returns null.",
+            "If screen reader mode is enabled and `aria-label` is set, Text outputs the aria-label instead of children."
+          ],
+          "edge_cases": [
+            "aria-label substitution happens before the null/undefined children check."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Enable screen reader mode and render `<Text aria-hidden>hi</Text>`; assert no output.",
+              "Enable screen reader mode and render `<Text aria-label='X'>Y</Text>`; assert output contains 'X', not 'Y'."
+            ]
+          },
+          "rezi": {
+            "status": "Missing",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/components/Text.tsx",
+                "line_start": 9,
+                "line_end": 13
+              },
+              {
+                "file": "packages/ink-compat/src/props/textProps.ts",
+                "line_start": 1,
+                "line_end": 49
+              }
+            ],
+            "gaps": [
+              "Rezi does not implement aria-label substitution or aria-hidden suppression for Text in screen reader mode.",
+              "Required: implement screen reader mode semantics for Text (likely requires a dedicated screen reader render path as in Ink)."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "AppProps",
+      "kind": "type",
+      "upstream": {
+        "file": "src/components/AppContext.ts",
+        "line_start": 3,
+        "line_end": 8,
+        "signature": "export type AppProps = { exit: (error?: Error) => void }"
+      },
+      "contracts": [
+        {
+          "id": "INK-TYPE-APPPROPS-001",
+          "summary": "AppProps exposes only `exit(error?)` (no rerender/selection) and default context exit is a no-op.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/index.ts",
+              "line_start": 7,
+              "line_end": 7
+            },
+            {
+              "file": "src/components/AppContext.ts",
+              "line_start": 3,
+              "line_end": 16
+            }
+          ],
+          "acceptance": [
+            "TypeScript: `AppProps` has a single method `exit(error?: Error): void`.",
+            "Runtime: if `useApp()` is called under the default AppContext (no provider), calling `exit()` is a no-op."
+          ],
+          "edge_cases": [
+            "Runtime no-op behavior matters primarily in tests or misuse scenarios; Ink does not throw for missing provider."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Render a component calling `useApp().exit()` during mount; assert app unmounts.",
+              "Call `useApp()` under a manually constructed AppContext default (or with missing provider) and assert `exit()` does not throw."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/types.ts",
+                "line_start": 655,
+                "line_end": 660
+              },
+              {
+                "file": "packages/ink-compat/src/context/AppContext.ts",
+                "line_start": 3,
+                "line_end": 12
+              },
+              {
+                "file": "packages/ink-compat/src/hooks/useApp.ts",
+                "line_start": 5,
+                "line_end": 7
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/useApp.test.tsx",
+                "line_start": 12,
+                "line_end": 23
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/types.parity.test.ts",
+                "line_start": 107,
+                "line_end": 108
+              }
+            ],
+            "gaps": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "StdinProps",
+      "kind": "type",
+      "upstream": {
+        "file": "src/components/StdinContext.ts",
+        "line_start": 5,
+        "line_end": 24,
+        "signature": "export type StdinProps = { stdin: NodeJS.ReadStream; setRawMode(value:boolean): void; isRawModeSupported: boolean; internal_exitOnCtrlC: boolean; internal_eventEmitter: EventEmitter }"
+      },
+      "contracts": [
+        {
+          "id": "INK-TYPE-STDINPROPS-001",
+          "summary": "StdinProps includes internal_exitOnCtrlC and internal_eventEmitter fields (publicly exported type).",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/index.ts",
+              "line_start": 8,
+              "line_end": 8
+            },
+            {
+              "file": "src/components/StdinContext.ts",
+              "line_start": 5,
+              "line_end": 38
+            }
+          ],
+          "acceptance": [
+            "TypeScript: `StdinProps` includes `internal_exitOnCtrlC: boolean` and `internal_eventEmitter: EventEmitter` in addition to stdin/setRawMode/isRawModeSupported."
+          ],
+          "edge_cases": [
+            "Ink exports these internal fields as part of the type; third-party Ink components may rely on them."
+          ],
+          "test_design": {
+            "type_tests": [
+              "Compile a fixture that accesses `useStdin().internal_eventEmitter` and `useStdin().internal_exitOnCtrlC` without TS errors."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/types.ts",
+                "line_start": 663,
+                "line_end": 669
+              },
+              {
+                "file": "packages/ink-compat/src/hooks/useStdin.ts",
+                "line_start": 8,
+                "line_end": 16
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/types.parity.test.ts",
+                "line_start": 110,
+                "line_end": 118
+              }
+            ],
+            "gaps": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "StdoutProps",
+      "kind": "type",
+      "upstream": {
+        "file": "src/components/StdoutContext.ts",
+        "line_start": 4,
+        "line_end": 14,
+        "signature": "export type StdoutProps = { stdout: NodeJS.WriteStream; write(data:string): void }"
+      },
+      "contracts": [
+        {
+          "id": "INK-TYPE-STDOUTPROPS-001",
+          "summary": "StdoutProps exposes stdout and write(data) helper.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/index.ts",
+              "line_start": 9,
+              "line_end": 9
+            },
+            {
+              "file": "src/components/StdoutContext.ts",
+              "line_start": 4,
+              "line_end": 23
+            }
+          ],
+          "acceptance": [
+            "TypeScript: `StdoutProps` includes `stdout` and `write(data: string): void`."
+          ],
+          "edge_cases": [
+            "See render contract INK-API-RENDER-010 for the required behavior of `write()`."
+          ],
+          "test_design": {
+            "type_tests": [
+              "Compile a fixture that uses `useStdout().write('x')`."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/types.ts",
+                "line_start": 671,
+                "line_end": 675
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/types.parity.test.ts",
+                "line_start": 120,
+                "line_end": 121
+              }
+            ],
+            "gaps": [
+              "Behavior of `write()` is not Ink-parity (see INK-API-RENDER-010)."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "StderrProps",
+      "kind": "type",
+      "upstream": {
+        "file": "src/components/StderrContext.ts",
+        "line_start": 4,
+        "line_end": 14,
+        "signature": "export type StderrProps = { stderr: NodeJS.WriteStream; write(data:string): void }"
+      },
+      "contracts": [
+        {
+          "id": "INK-TYPE-STDERRPROPS-001",
+          "summary": "StderrProps exposes stderr and write(data) helper.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/index.ts",
+              "line_start": 10,
+              "line_end": 10
+            },
+            {
+              "file": "src/components/StderrContext.ts",
+              "line_start": 4,
+              "line_end": 23
+            }
+          ],
+          "acceptance": [
+            "TypeScript: `StderrProps` includes `stderr` and `write(data: string): void`."
+          ],
+          "edge_cases": [
+            "See render contract INK-API-RENDER-010 for the required behavior of `write()`."
+          ],
+          "test_design": {
+            "type_tests": [
+              "Compile a fixture that uses `useStderr().write('x')`."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/types.ts",
+                "line_start": 677,
+                "line_end": 681
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/types.parity.test.ts",
+                "line_start": 123,
+                "line_end": 124
+              }
+            ],
+            "gaps": [
+              "Behavior of `write()` is not Ink-parity (see INK-API-RENDER-010)."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "StaticProps",
+      "kind": "type",
+      "upstream": {
+        "file": "src/components/Static.tsx",
+        "line_start": 4,
+        "line_end": 19,
+        "signature": "export type StaticProps<T> = { items: T[]; style?: Styles; children: (item:T, index:number)=>ReactNode }"
+      },
+      "contracts": [
+        {
+          "id": "INK-TYPE-STATICPROPS-001",
+          "summary": "StaticProps exposes items/style/children signature (items is mutable array in Ink types).",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/index.ts",
+              "line_start": 11,
+              "line_end": 12
+            },
+            {
+              "file": "src/components/Static.tsx",
+              "line_start": 4,
+              "line_end": 19
+            }
+          ],
+          "acceptance": [
+            "TypeScript: `StaticProps.items` is typed as `T[]` (mutable array) in Ink.",
+            "TypeScript: `StaticProps.style` accepts `Styles` (same supported style surface as Box)."
+          ],
+          "edge_cases": [
+            "Type-only: `items` mutability differences can affect assignability in TS across libraries."
+          ],
+          "test_design": {
+            "type_tests": [
+              "Compile a fixture that passes a mutable array to `<Static items={...} />`.",
+              "Compile a fixture that passes a readonly array; expect TS error in Ink baseline (and document if Ink actually permits it via inference)."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/types.ts",
+                "line_start": 684,
+                "line_end": 699
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/types.parity.test.ts",
+                "line_start": 138,
+                "line_end": 142
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/staticProps.types.test.ts",
+                "line_start": 11,
+                "line_end": 17
+              }
+            ],
+            "gaps": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Static",
+      "kind": "component",
+      "upstream": {
+        "file": "src/components/Static.tsx",
+        "line_start": 28,
+        "line_end": 58,
+        "signature": "function Static<T>(props: StaticProps<T>): JSX.Element"
+      },
+      "contracts": [
+        {
+          "id": "INK-COMP-STATIC-001",
+          "summary": "<Static> renders only new items since last commit (items.slice(index)) and calls children(item, absoluteIndex).",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/components/Static.tsx",
+              "line_start": 28,
+              "line_end": 42
+            }
+          ],
+          "acceptance": [
+            "On first render, Static renders all items (index starts at 0).",
+            "After commit, Static records `index = items.length` (useLayoutEffect).",
+            "On subsequent renders, Static renders `items.slice(index)` (only newly added items) and passes `index + itemIndex` to the render function."
+          ],
+          "edge_cases": [
+            "If the items array shrinks, items.slice(index) becomes empty; Ink does not re-render removed items in static output.",
+            "Static output is intended to be append-only; removing items is not supported by design."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Render `<Static items={[a,b]}>` and assert both appear.",
+              "Rerender with items `[a,b,c]` and assert only c is appended in static region."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/components/Static.tsx",
+                "line_start": 30,
+                "line_end": 52
+              }
+            ],
+            "gaps": [
+              "Downstream persistence semantics differ (see INK-COMP-STATIC-003)."
+            ]
+          }
+        },
+        {
+          "id": "INK-COMP-STATIC-002",
+          "summary": "<Static> uses an absolute-positioned column box and forwards optional style overrides.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/components/Static.tsx",
+              "line_start": 44,
+              "line_end": 57
+            }
+          ],
+          "acceptance": [
+            "Static wraps its rendered children in an `ink-box` with `internal_static` attribute.",
+            "The internal box style includes `{ position:'absolute', flexDirection:'column', ...customStyle }`."
+          ],
+          "edge_cases": [
+            "customStyle can override position/flexDirection if it contains those keys (spread order is ...customStyle after defaults)."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Pass a style override and verify it affects the static container layout.",
+              "Use a fixed-size layout and assert static output doesn't consume space in the main layout (absolute positioning)."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/components/Static.tsx",
+                "line_start": 42,
+                "line_end": 52
+              }
+            ],
+            "gaps": [
+              "Rezi passes style fields as top-level props rather than a nested `style` prop; ensure compat reconciler treats them equivalently."
+            ]
+          }
+        },
+        {
+          "id": "INK-COMP-STATIC-003",
+          "summary": "Static output is rendered above interactive output and persists in terminal scrollback across rerenders.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/reconciler.ts",
+              "line_start": 129,
+              "line_end": 139
+            },
+            {
+              "file": "src/renderer.ts",
+              "line_start": 46,
+              "line_end": 67
+            },
+            {
+              "file": "src/ink.tsx",
+              "line_start": 289,
+              "line_end": 415
+            }
+          ],
+          "acceptance": [
+            "Static output is rendered separately from interactive output and written to stdout such that it remains above the interactive region.",
+            "Static output is not redrawn every frame; it is appended when new items appear and persists in scrollback.",
+            "A newline is appended to staticOutput so interactive output does not overwrite the last static line."
+          ],
+          "edge_cases": [
+            "In debug mode, static output is accumulated into fullStaticOutput and reprinted every frame (still above interactive output)."
+          ],
+          "test_design": {
+            "golden_tests": [
+              "Render a UI with `<Static>` and a changing interactive region; verify static lines remain above without being erased or reflowed by subsequent interactive updates.",
+              "Ensure static output is not duplicated across rerenders except in debug mode."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/reconciler/convert.ts",
+                "line_start": 175,
+                "line_end": 201
+              }
+            ],
+            "gaps": [
+              "Rezi emulates `<Static>` by persisting static VNodes in memory and re-rendering them as part of the framebuffer; this does not match Ink's scrollback-persistent append-only behavior.",
+              "Required: implement true static-output persistence outside the framebuffer (likely requires backend support to append lines above the interactive region without re-rendering prior static lines)."
+            ]
+          }
+        },
+        {
+          "id": "INK-COMP-STATIC-004",
+          "summary": "Static output changes trigger an immediate unthrottled render (escape hatch) so static lines are written before they are removed from the tree.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/reconciler.ts",
+              "line_start": 124,
+              "line_end": 144
+            },
+            {
+              "file": "src/reconciler.ts",
+              "line_start": 188,
+              "line_end": 197
+            },
+            {
+              "file": "src/ink.tsx",
+              "line_start": 132,
+              "line_end": 135
+            }
+          ],
+          "acceptance": [
+            "When a Static node is created/updated, Ink marks rootNode.isStaticDirty and triggers `onImmediateRender` during resetAfterCommit.",
+            "Immediate render bypasses throttling so static output is written promptly."
+          ],
+          "edge_cases": [
+            "This behavior is required because Static children are rendered once and then deleted from the node tree."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Set `maxFps=1` and update `<Static items>`; assert the static line appears immediately (not delayed by throttling)."
+            ]
+          },
+          "rezi": {
+            "status": "NotApplicable",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/reconciler/hostConfig.ts",
+                "line_start": 143,
+                "line_end": 146
+              }
+            ],
+            "gaps": [
+              "Rezi does not delete static children in the same way; static persistence is handled in convertRoot and re-rendered each commit. If Rezi changes to Ink-style static append-only output, an equivalent escape hatch may become necessary."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TransformProps",
+      "kind": "type",
+      "upstream": {
+        "file": "src/components/Transform.tsx",
+        "line_start": 4,
+        "line_end": 16,
+        "signature": "export type TransformProps = { accessibilityLabel?: string; transform(children: string, index: number): string; children?: ReactNode }"
+      },
+      "contracts": [
+        {
+          "id": "INK-TYPE-TRANSFORMPROPS-001",
+          "summary": "TransformProps includes accessibilityLabel and transform(children, index).",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/index.ts",
+              "line_start": 13,
+              "line_end": 14
+            },
+            {
+              "file": "src/components/Transform.tsx",
+              "line_start": 4,
+              "line_end": 16
+            }
+          ],
+          "acceptance": [
+            "TypeScript: `TransformProps` includes optional `accessibilityLabel?: string` and required `transform(children: string, index: number): string`."
+          ],
+          "edge_cases": [
+            "Type-only: accessibilityLabel is only used when screen reader mode is enabled (see Transform component contract)."
+          ],
+          "test_design": {
+            "type_tests": [
+              "Compile a fixture that uses accessibilityLabel prop on <Transform>."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/index.ts",
+                "line_start": 19,
+                "line_end": 20
+              },
+              {
+                "file": "packages/ink-compat/src/components/Transform.tsx",
+                "line_start": 3,
+                "line_end": 14
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/types.parity.test.ts",
+                "line_start": 98,
+                "line_end": 103
+              }
+            ],
+            "gaps": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transform",
+      "kind": "component",
+      "upstream": {
+        "file": "src/components/Transform.tsx",
+        "line_start": 21,
+        "line_end": 42,
+        "signature": "function Transform(props: TransformProps): JSX.Element | null"
+      },
+      "contracts": [
+        {
+          "id": "INK-COMP-TRANSFORM-001",
+          "summary": "<Transform> returns null when children are null/undefined.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/components/Transform.tsx",
+              "line_start": 28,
+              "line_end": 30
+            }
+          ],
+          "acceptance": [
+            "If `children` is `null` or `undefined`, `<Transform>` returns `null`."
+          ],
+          "edge_cases": [
+            "Same null/undefined semantics as Text."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Render `<Transform transform={...}>{null}</Transform>` and assert no output."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/components/Transform.tsx",
+                "line_start": 18,
+                "line_end": 21
+              }
+            ],
+            "gaps": []
+          }
+        },
+        {
+          "id": "INK-COMP-TRANSFORM-002",
+          "summary": "Transform function is applied to the rendered string output per line with index; stacking order is inner-first.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/components/Transform.tsx",
+              "line_start": 32,
+              "line_end": 41
+            },
+            {
+              "file": "src/render-node-to-output.ts",
+              "line_start": 132,
+              "line_end": 155
+            },
+            {
+              "file": "src/output.ts",
+              "line_start": 189,
+              "line_end": 199
+            }
+          ],
+          "acceptance": [
+            "Transform's `transform(children, index)` is applied to each line of the final rendered text (after wrapping/clipping) with `index` being the 0-based line index within that text write operation.",
+            "When transforms are nested, the innermost transform runs first and the outermost runs last (transformer array construction is `[node.internal_transform, ...parentTransformers]`)."
+          ],
+          "edge_cases": [
+            "When nested under another ink-text and flattened via squashTextNodes, the child transform is applied early and receives sibling index instead of line index (see INK-COMP-TEXT-005)."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Create a Transform that prefixes each line with its index; render multi-line children and assert indices match Ink behavior.",
+              "Compose two Transforms and assert the order of application matches Ink."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/components/Transform.tsx",
+                "line_start": 18,
+                "line_end": 21
+              },
+              {
+                "file": "packages/ink-compat/src/reconciler/textUtils.ts",
+                "line_start": 61,
+                "line_end": 69
+              },
+              {
+                "file": "packages/ink-compat/src/reconciler/textUtils.ts",
+                "line_start": 323,
+                "line_end": 396
+              }
+            ],
+            "gaps": [
+              "Rezi applies internal_transform via `applyTransformPerLine` on concatenated text spans, but does not guarantee it runs after Ink-equivalent wrapping/clipping and does not reproduce Ink's sibling-index behavior for nested transforms.",
+              "Required: align transform timing and index semantics with Ink (text conversion and wrapping/clipping pipeline changes)."
+            ]
+          }
+        },
+        {
+          "id": "INK-COMP-TRANSFORM-003",
+          "summary": "In screen reader mode, accessibilityLabel overrides children output; outside screen reader mode it is ignored.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/components/Transform.tsx",
+              "line_start": 26,
+              "line_end": 40
+            }
+          ],
+          "acceptance": [
+            "If screen reader mode is enabled and `accessibilityLabel` is set, `<Transform>` outputs `accessibilityLabel` and ignores children.",
+            "If screen reader mode is disabled, `accessibilityLabel` has no effect."
+          ],
+          "edge_cases": [
+            "If children are null/undefined, Transform returns null regardless of accessibilityLabel."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Enable screen reader mode and render `<Transform accessibilityLabel='A'>B</Transform>`; assert output is 'A'.",
+              "Disable screen reader mode and assert output reflects children transformed output, not accessibilityLabel."
+            ]
+          },
+          "rezi": {
+            "status": "Missing",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/components/Transform.tsx",
+                "line_start": 3,
+                "line_end": 21
+              }
+            ],
+            "gaps": [
+              "Rezi Transform does not accept accessibilityLabel and does not implement screen reader mode behavior.",
+              "Required: extend TransformProps + component logic and add screen reader rendering mode (see INK-API-RENDER-008)."
+            ]
+          }
+        },
+        {
+          "id": "INK-COMP-TRANSFORM-004",
+          "summary": "<Transform> uses a row-direction text host style with flexGrow=0 and flexShrink=1.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/components/Transform.tsx",
+              "line_start": 32,
+              "line_end": 41
+            }
+          ],
+          "acceptance": [
+            "<Transform> renders an `ink-text` host node with style `{flexGrow:0, flexShrink:1, flexDirection:'row'}`."
+          ],
+          "edge_cases": [
+            "These defaults may affect layout sizing and wrapping behavior."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Render Transform inside a flex container and verify it behaves as a non-growing text node."
+            ]
+          },
+          "rezi": {
+            "status": "Missing",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/components/Transform.tsx",
+                "line_start": 18,
+                "line_end": 21
+              }
+            ],
+            "gaps": [
+              "Rezi Transform does not apply Ink's default style props.",
+              "Required: apply equivalent style defaults in Transform component or in downstream mapping."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "NewlineProps",
+      "kind": "type",
+      "upstream": {
+        "file": "src/components/Newline.tsx",
+        "line_start": 3,
+        "line_end": 10,
+        "signature": "export type NewlineProps = { count?: number }"
+      },
+      "contracts": [
+        {
+          "id": "INK-TYPE-NEWLINEPROPS-001",
+          "summary": "NewlineProps includes optional count with default 1.",
+          "priority": "P2",
+          "upstream_evidence": [
+            {
+              "file": "src/index.ts",
+              "line_start": 15,
+              "line_end": 16
+            },
+            {
+              "file": "src/components/Newline.tsx",
+              "line_start": 3,
+              "line_end": 10
+            }
+          ],
+          "acceptance": [
+            "TypeScript: `NewlineProps.count?: number`."
+          ],
+          "edge_cases": [],
+          "test_design": {
+            "type_tests": [
+              "Compile a fixture passing `count`."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/index.ts",
+                "line_start": 22,
+                "line_end": 23
+              },
+              {
+                "file": "packages/ink-compat/src/components/Newline.tsx",
+                "line_start": 3,
+                "line_end": 10
+              }
+            ],
+            "gaps": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Newline",
+      "kind": "component",
+      "upstream": {
+        "file": "src/components/Newline.tsx",
+        "line_start": 15,
+        "line_end": 17,
+        "signature": "function Newline(props: NewlineProps): JSX.Element"
+      },
+      "contracts": [
+        {
+          "id": "INK-COMP-NEWLINE-001",
+          "summary": "<Newline> inserts count newline characters via an ink-text host node.",
+          "priority": "P2",
+          "upstream_evidence": [
+            {
+              "file": "src/components/Newline.tsx",
+              "line_start": 15,
+              "line_end": 17
+            }
+          ],
+          "acceptance": [
+            "Default `count` is 1.",
+            "Newline renders an `ink-text` host node with children equal to `\\n`.repeat(count)."
+          ],
+          "edge_cases": [
+            "If count is 0, the repeated string is empty and Ink will not write any output for that ink-text node (text length check)."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Render `<Text>a<Newline/><Text>b</Text>` pattern and assert newline insertion splits lines.",
+              "Render `<Newline count={0} />` and assert it produces no visible output."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/components/Newline.tsx",
+                "line_start": 17,
+                "line_end": 19
+              }
+            ],
+            "gaps": []
+          }
+        },
+        {
+          "id": "INK-COMP-NEWLINE-002",
+          "summary": "Newline count edge cases: negative values throw via String.repeat.",
+          "priority": "P2",
+          "upstream_evidence": [
+            {
+              "file": "src/components/Newline.tsx",
+              "line_start": 15,
+              "line_end": 17
+            }
+          ],
+          "acceptance": [
+            "If `count` is negative, `\\n`.repeat(count) throws a RangeError (JS String.repeat semantics)."
+          ],
+          "edge_cases": [
+            "Non-integer counts are coerced by String.repeat; confirm behavior in runtime if needed."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Render `<Newline count={-1} />` and assert it throws RangeError."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/components/Newline.tsx",
+                "line_start": 17,
+                "line_end": 19
+              }
+            ],
+            "gaps": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Spacer",
+      "kind": "component",
+      "upstream": {
+        "file": "src/components/Spacer.tsx",
+        "line_start": 9,
+        "line_end": 11,
+        "signature": "function Spacer(): JSX.Element"
+      },
+      "contracts": [
+        {
+          "id": "INK-COMP-SPACER-001",
+          "summary": "<Spacer> is equivalent to `<Box flexGrow={1} />` (fills available space along major axis).",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/components/Spacer.tsx",
+              "line_start": 9,
+              "line_end": 11
+            }
+          ],
+          "acceptance": [
+            "Spacer renders a Box with `flexGrow=1`.",
+            "In a row flex container, Spacer expands horizontally to fill available space; in a column container, it expands vertically."
+          ],
+          "edge_cases": [
+            "If multiple Spacers exist in the same container, they share available space according to flex-grow rules."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Row layout: `<Box><Text>A</Text><Spacer/><Text>B</Text></Box>` should place B at the right edge in a fixed-width container.",
+              "Column layout: `<Box flexDirection='column'><Text>A</Text><Spacer/><Text>B</Text></Box>` should push B to the bottom in a fixed-height container."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/components/Spacer.tsx",
+                "line_start": 9,
+                "line_end": 11
+              },
+              {
+                "file": "packages/ink-compat/src/reconciler/convert.ts",
+                "line_start": 165,
+                "line_end": 173
+              }
+            ],
+            "gaps": [
+              "Rezi implements Spacer as `ink-spacer` mapped to `ui.spacer({flex:1})`, which should match intent but needs golden/layout parity verification against Ink's Yoga behavior.",
+              "Experiment required: run the two acceptance layout fixtures at fixed sizes and compare output to Ink."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Key",
+      "kind": "type",
+      "upstream": {
+        "file": "src/hooks/use-input.ts",
+        "line_start": 9,
+        "line_end": 124,
+        "signature": "export type Key = { upArrow; downArrow; leftArrow; rightArrow; pageDown; pageUp; home; end; return; escape; ctrl; shift; tab; backspace; delete; meta; super; hyper; capsLock; numLock; eventType? }"
+      },
+      "contracts": [
+        {
+          "id": "INK-TYPE-KEY-001",
+          "summary": "Key type includes navigation keys, meta modifiers, and kitty protocol fields (super/hyper/capsLock/numLock/eventType).",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/index.ts",
+              "line_start": 18,
+              "line_end": 19
+            },
+            {
+              "file": "src/hooks/use-input.ts",
+              "line_start": 9,
+              "line_end": 124
+            }
+          ],
+          "acceptance": [
+            "TypeScript: Key includes `home` and `end` booleans.",
+            "TypeScript: Key includes kitty protocol booleans `super`, `hyper`, `capsLock`, `numLock` and optional `eventType?: 'press'|'repeat'|'release'`."
+          ],
+          "edge_cases": [
+            "Consumers may rely on these additional fields when kitty keyboard protocol is enabled."
+          ],
+          "test_design": {
+            "type_tests": [
+              "Compile a fixture reading each Key field."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/types.ts",
+                "line_start": 13,
+                "line_end": 128
+              },
+              {
+                "file": "packages/ink-compat/src/hooks/useInput.ts",
+                "line_start": 23,
+                "line_end": 27
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/types.parity.test.ts",
+                "line_start": 71,
+                "line_end": 94
+              }
+            ],
+            "gaps": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "useInput",
+      "kind": "hook",
+      "upstream": {
+        "file": "src/hooks/use-input.ts",
+        "line_start": 158,
+        "line_end": 270,
+        "signature": "useInput(handler: (input: string, key: Key) => void, options?: {isActive?: boolean}): void"
+      },
+      "contracts": [
+        {
+          "id": "INK-HOOK-USEINPUT-001",
+          "summary": "useInput enables raw mode while active and disables on cleanup (isActive gate).",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/hooks/use-input.ts",
+              "line_start": 158,
+              "line_end": 173
+            },
+            {
+              "file": "src/components/App.tsx",
+              "line_start": 130,
+              "line_end": 172
+            }
+          ],
+          "acceptance": [
+            "By default (isActive not set), useInput calls `setRawMode(true)` on mount and `setRawMode(false)` on unmount.",
+            "If `options.isActive === false`, useInput does not call setRawMode and does not subscribe to input events."
+          ],
+          "edge_cases": [
+            "Multiple useInput hooks increment raw mode count; raw mode is disabled only when all have cleaned up (App rawModeEnabledCount)."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Mount two components each calling useInput; assert stdin.setRawMode(true) called once and disable occurs only after both unmount.",
+              "Toggle isActive false/true and assert raw mode toggling matches."
+            ]
+          },
+          "rezi": {
+            "status": "Missing",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/hooks/useInput.ts",
+                "line_start": 124,
+                "line_end": 161
+              }
+            ],
+            "gaps": [
+              "Rezi useInput does not call `setRawMode(true/false)` at all.",
+              "Required: implement Ink's raw-mode enable/disable behavior in `packages/ink-compat/src/hooks/useInput.ts` (and ensure it interacts safely with Rezi core/node backend input handling)."
+            ]
+          }
+        },
+        {
+          "id": "INK-HOOK-USEINPUT-002",
+          "summary": "useInput subscribes to internal_eventEmitter 'input' events and invokes handler in reconciler.batchedUpdates.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/hooks/use-input.ts",
+              "line_start": 175,
+              "line_end": 267
+            },
+            {
+              "file": "src/components/App.tsx",
+              "line_start": 121,
+              "line_end": 128
+            }
+          ],
+          "acceptance": [
+            "When active, useInput registers an 'input' listener on `internal_eventEmitter` and removes it on cleanup.",
+            "Input handler is invoked inside `reconciler.batchedUpdates`."
+          ],
+          "edge_cases": [
+            "If internal_eventEmitter is undefined/null, useInput becomes a no-op for events (defensive optional chaining)."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Spy on internal_eventEmitter listener counts and ensure add/remove matches mount/unmount.",
+              "Trigger an input event and ensure handler called exactly once per event, with batchedUpdates effect observable via React state batching."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/hooks/useInput.ts",
+                "line_start": 124,
+                "line_end": 161
+              }
+            ],
+            "gaps": [
+              "Rezi's internal_eventEmitter emits UiEvent objects, not raw stdin chunks; acceptance for key parsing differs (see Key contracts)."
+            ]
+          }
+        },
+        {
+          "id": "INK-HOOK-USEINPUT-003",
+          "summary": "Key object booleans are derived from parseKeypress name/modifiers, including home/end and kitty fields.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/hooks/use-input.ts",
+              "line_start": 180,
+              "line_end": 210
+            },
+            {
+              "file": "src/parse-keypress.ts",
+              "line_start": 10,
+              "line_end": 128
+            },
+            {
+              "file": "src/parse-keypress.ts",
+              "line_start": 153,
+              "line_end": 196
+            }
+          ],
+          "acceptance": [
+            "Key booleans reflect the parsed key name: arrow keys, pageup/pagedown, home/end, return, escape, tab, backspace, delete.",
+            "Modifier booleans reflect parseKeypress ctrl/shift/meta/option mapping.",
+            "Kitty fields (super/hyper/capsLock/numLock/eventType) are populated when kitty protocol sequences are received."
+          ],
+          "edge_cases": [
+            "Ink sets `meta=true` when name === 'escape' or keypress.option is true for backward compatibility.",
+            "Kitty protocol can provide eventType and modifiers even for non-printable keys."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Feed stdin sequences for each key name in parse-keypress keyName map (e.g., '\\u001B[A' for up) and assert Key fields.",
+              "Feed kitty protocol sequences and assert kitty fields and eventType."
+            ]
+          },
+          "rezi": {
+            "status": "Missing",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/hooks/useInput.ts",
+                "line_start": 28,
+                "line_end": 52
+              }
+            ],
+            "gaps": [
+              "Rezi Key construction does not include home/end and kitty fields, and is limited to a subset of keys represented by Rezi engine events.",
+              "Required: expand key mapping and add kitty-equivalent extended modifier/key support (likely needs node backend support for kitty protocol and/or richer engine events)."
+            ]
+          }
+        },
+        {
+          "id": "INK-HOOK-USEINPUT-004",
+          "summary": "Input string normalization: non-alphanumeric keys => '', ctrl uses key name, meta stripping, kitty printable vs non-printable behavior.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/hooks/use-input.ts",
+              "line_start": 212,
+              "line_end": 243
+            },
+            {
+              "file": "src/hooks/use-input.ts",
+              "line_start": 232,
+              "line_end": 237
+            },
+            {
+              "file": "src/parse-keypress.ts",
+              "line_start": 95,
+              "line_end": 96
+            }
+          ],
+          "acceptance": [
+            "For non-kitty input: if ctrl is pressed, `input` is the parsed key name; otherwise `input` is the raw sequence string.",
+            "For non-kitty non-alphanumeric keys (arrows, function keys, etc.), `input` is set to '' (empty string).",
+            "If `input` still starts with ESC (`\\u001B`) after parsing, Ink strips the leading ESC (meta stripping).",
+            "For kitty protocol: printable keys use `keypress.text ?? keypress.name`; non-printable keys yield `input=''` (except ctrl+letter uses name)."
+          ],
+          "edge_cases": [
+            "Meta+arrow sequences parsed as option=true can cause meta quirks; parity requires replicating Ink's workaround behavior.",
+            "Paste is delivered as a single chunk to useInput handler (see App readable loop); handler receives the whole string once."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Feed arrow keys and assert `input==''` and correct Key booleans.",
+              "Feed ESC-prefixed meta sequences and assert leading ESC stripped from input after meta normalization.",
+              "Simulate paste by emitting multi-character chunk and assert handler invoked once with full string."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/hooks/useInput.ts",
+                "line_start": 79,
+                "line_end": 119
+              }
+            ],
+            "gaps": [
+              "Rezi approximates input mapping using engine key/text/paste events; it does not implement Ink's meta stripping rules based on raw escape sequences.",
+              "Rezi 'non-text key' list differs from Ink's nonAlphanumericKeys and does not include home/end.",
+              "Required: implement Ink-equivalent input normalization, including escape-sequence-based meta behavior (may require exposing raw input sequences from backend)."
+            ]
+          }
+        },
+        {
+          "id": "INK-HOOK-USEINPUT-005",
+          "summary": "Ctrl+C: when exitOnCtrlC is enabled, Ink handles exit and useInput does not forward 'c' + ctrl to handlers.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/components/App.tsx",
+              "line_start": 98,
+              "line_end": 105
+            },
+            {
+              "file": "src/hooks/use-input.ts",
+              "line_start": 253,
+              "line_end": 259
+            }
+          ],
+          "acceptance": [
+            "If exitOnCtrlC is enabled, pressing Ctrl+C causes Ink to unmount the app.",
+            "When exitOnCtrlC is enabled, useInput does not invoke the user's handler for Ctrl+C (input 'c' with ctrl=true).",
+            "If exitOnCtrlC is disabled, useInput forwards Ctrl+C to the handler."
+          ],
+          "edge_cases": [
+            "App-level Ctrl+C exit is only triggered when raw stdin chunk equals '\\x03' (ETX) and exitOnCtrlC is true."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Enable exitOnCtrlC and simulate Ctrl+C; assert app exits and handler not called.",
+              "Disable exitOnCtrlC and simulate Ctrl+C; assert handler called with input 'c' and key.ctrl=true."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/render.ts",
+                "line_start": 189,
+                "line_end": 193
+              },
+              {
+                "file": "packages/ink-compat/src/hooks/useInput.ts",
+                "line_start": 143,
+                "line_end": 159
+              }
+            ],
+            "gaps": [
+              "Key mapping for Ctrl+C depends on Rezi engine keycode normalization; verify with runtime tests."
+            ]
+          }
+        },
+        {
+          "id": "INK-HOOK-USEINPUT-006",
+          "summary": "Shift inference: if input is a single uppercase ASCII letter, Ink forces key.shift=true.",
+          "priority": "P2",
+          "upstream_evidence": [
+            {
+              "file": "src/hooks/use-input.ts",
+              "line_start": 245,
+              "line_end": 251
+            }
+          ],
+          "acceptance": [
+            "If `input` is exactly one character and matches /[A-Z]/, Ink sets `key.shift = true` (even if parseKeypress did not set shift)."
+          ],
+          "edge_cases": [
+            "This is a compatibility quirk; it applies after meta stripping and non-alphanumeric filtering."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Simulate input 'A' and assert key.shift=true.",
+              "Simulate input 'a' and assert key.shift reflects actual shift state."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/hooks/useInput.ts",
+                "line_start": 146,
+                "line_end": 153
+              }
+            ],
+            "gaps": []
+          }
+        },
+        {
+          "id": "INK-HOOK-USEINPUT-007",
+          "summary": "Kitty protocol: Key.eventType and additional modifiers are provided; input selection uses kitty text-as-codepoints for printable keys.",
+          "priority": "P2",
+          "upstream_evidence": [
+            {
+              "file": "src/hooks/use-input.ts",
+              "line_start": 212,
+              "line_end": 226
+            },
+            {
+              "file": "src/parse-keypress.ts",
+              "line_start": 153,
+              "line_end": 196
+            }
+          ],
+          "acceptance": [
+            "When kitty protocol sequences are received and parsed, `key.eventType` is set to 'press'|'repeat'|'release' when available.",
+            "When kitty protocol is active, Key includes `super/hyper/capsLock/numLock` and their values reflect parsed modifier/lock state.",
+            "Printable kitty keys set `input` to `keypress.text ?? keypress.name`; non-printable set input '' (except ctrl+letter uses name)."
+          ],
+          "edge_cases": [
+            "Kitty flags can cause all keys to be reported as escape codes; Ink uses `text-as-codepoints` field to recover printable text."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Enable kitty protocol with reportEventTypes and feed CSI u sequences; assert eventType and modifiers populate.",
+              "Feed reportAllKeysAsEscapeCodes sequences and assert printable text input is preserved via keypress.text."
+            ]
+          },
+          "rezi": {
+            "status": "Missing",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/index.ts",
+                "line_start": 1,
+                "line_end": 53
+              }
+            ],
+            "gaps": [
+              "Rezi ink-compat has no kitty protocol implementation and cannot populate kitty-specific Key fields.",
+              "Required: implement kitty protocol input parsing or provide equivalent enriched key events in backend and map them to Ink Key."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "useApp",
+      "kind": "hook",
+      "upstream": {
+        "file": "src/hooks/use-app.ts",
+        "line_start": 4,
+        "line_end": 8,
+        "signature": "useApp(): AppProps"
+      },
+      "contracts": [
+        {
+          "id": "INK-HOOK-USEAPP-001",
+          "summary": "useApp returns AppContext (exit) and default context does not throw.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/hooks/use-app.ts",
+              "line_start": 4,
+              "line_end": 8
+            },
+            {
+              "file": "src/components/AppContext.ts",
+              "line_start": 14,
+              "line_end": 16
+            }
+          ],
+          "acceptance": [
+            "Calling `useApp()` inside an Ink render tree returns an object with `exit(error?)` that unmounts the app.",
+            "If `useApp()` is evaluated under the default AppContext value (no provider), calling `exit()` does not throw."
+          ],
+          "edge_cases": [
+            "Calling `exit(error)` with an Error causes `waitUntilExit()` to reject (when exit flows through App.handleExit)."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Render a component that calls `useApp().exit()` on a keypress and assert app exits.",
+              "Simulate missing provider (or call the default context value directly) and ensure no throw."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/hooks/useApp.ts",
+                "line_start": 5,
+                "line_end": 7
+              },
+              {
+                "file": "packages/ink-compat/src/context/AppContext.ts",
+                "line_start": 10,
+                "line_end": 27
+              }
+            ],
+            "gaps": [
+              "Rezi default AppContext throws when used outside a render() root; Ink default is a no-op.",
+              "Required: match Ink default (no-throw) behavior or document divergence."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "useStdin",
+      "kind": "hook",
+      "upstream": {
+        "file": "src/hooks/use-stdin.ts",
+        "line_start": 4,
+        "line_end": 8,
+        "signature": "useStdin(): StdinProps"
+      },
+      "contracts": [
+        {
+          "id": "INK-HOOK-USESTDIN-001",
+          "summary": "useStdin returns StdinContext value and does not throw by default; includes internal fields.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/hooks/use-stdin.ts",
+              "line_start": 4,
+              "line_end": 8
+            },
+            {
+              "file": "src/components/StdinContext.ts",
+              "line_start": 30,
+              "line_end": 38
+            }
+          ],
+          "acceptance": [
+            "useStdin returns `{stdin, setRawMode, isRawModeSupported, internal_exitOnCtrlC, internal_eventEmitter}`.",
+            "If evaluated under default context value, useStdin returns process.stdin and a no-op setRawMode without throwing."
+          ],
+          "edge_cases": [
+            "Calling setRawMode(true) under default context is a no-op (since isRawModeSupported=false and setRawMode() default is empty)."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Inside Ink render tree, read isRawModeSupported and assert it reflects stdin.isTTY.",
+              "Outside provider (misuse), ensure useStdin does not throw."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/hooks/useStdin.ts",
+                "line_start": 8,
+                "line_end": 16
+              },
+              {
+                "file": "packages/ink-compat/src/context/StdioContext.ts",
+                "line_start": 18,
+                "line_end": 32
+              }
+            ],
+            "gaps": [
+              "Rezi throws when useStdin/useInput/useStdout/useStderr are called outside a render() root; Ink returns default context values and does not throw.",
+              "Required: align default behavior (no-throw) for compatibility, or document divergence."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "useStdout",
+      "kind": "hook",
+      "upstream": {
+        "file": "src/hooks/use-stdout.ts",
+        "line_start": 4,
+        "line_end": 8,
+        "signature": "useStdout(): StdoutProps"
+      },
+      "contracts": [
+        {
+          "id": "INK-HOOK-USESTDOUT-001",
+          "summary": "useStdout returns StdoutContext value and write() preserves Ink output.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/hooks/use-stdout.ts",
+              "line_start": 4,
+              "line_end": 8
+            },
+            {
+              "file": "src/components/StdoutContext.ts",
+              "line_start": 20,
+              "line_end": 23
+            },
+            {
+              "file": "src/ink.tsx",
+              "line_start": 452,
+              "line_end": 479
+            }
+          ],
+          "acceptance": [
+            "useStdout returns `{stdout, write}` where write preserves the UI (see INK-API-RENDER-010)."
+          ],
+          "edge_cases": [
+            "Default context write() is a no-op when no provider is present."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "See INK-API-RENDER-010."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/hooks/useStdout.ts",
+                "line_start": 8,
+                "line_end": 16
+              }
+            ],
+            "gaps": [
+              "Rezi write() does not preserve UI output.",
+              "Rezi throws if used outside render root."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "useStderr",
+      "kind": "hook",
+      "upstream": {
+        "file": "src/hooks/use-stderr.ts",
+        "line_start": 4,
+        "line_end": 8,
+        "signature": "useStderr(): StderrProps"
+      },
+      "contracts": [
+        {
+          "id": "INK-HOOK-USESTDERR-001",
+          "summary": "useStderr returns StderrContext value and write() preserves Ink output.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/hooks/use-stderr.ts",
+              "line_start": 4,
+              "line_end": 8
+            },
+            {
+              "file": "src/components/StderrContext.ts",
+              "line_start": 20,
+              "line_end": 23
+            },
+            {
+              "file": "src/ink.tsx",
+              "line_start": 481,
+              "line_end": 509
+            }
+          ],
+          "acceptance": [
+            "useStderr returns `{stderr, write}` where write preserves the UI (see INK-API-RENDER-010)."
+          ],
+          "edge_cases": [
+            "Default context write() is a no-op when no provider is present."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "See INK-API-RENDER-010."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/hooks/useStderr.ts",
+                "line_start": 8,
+                "line_end": 16
+              }
+            ],
+            "gaps": [
+              "Rezi write() does not preserve UI output.",
+              "Rezi throws if used outside render root."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "useFocus",
+      "kind": "hook",
+      "upstream": {
+        "file": "src/hooks/use-focus.ts",
+        "line_start": 32,
+        "line_end": 83,
+        "signature": "useFocus(options?: {isActive?: boolean; autoFocus?: boolean; id?: string}): {isFocused: boolean; focus(id: string): void}"
+      },
+      "contracts": [
+        {
+          "id": "INK-HOOK-USEFOCUS-001",
+          "summary": "useFocus registers a focusable component and returns isFocused + focus(id).",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/hooks/use-focus.ts",
+              "line_start": 32,
+              "line_end": 82
+            },
+            {
+              "file": "src/components/FocusContext.ts",
+              "line_start": 3,
+              "line_end": 26
+            }
+          ],
+          "acceptance": [
+            "Calling useFocus makes the component focusable; the returned `isFocused` is true when this component's id matches the active focus id.",
+            "Returned `focus(id)` focuses the element with the given id (delegates to FocusContext)."
+          ],
+          "edge_cases": [
+            "If `id` option is not provided, Ink generates an id via Math.random().toString().slice(2,7)."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Render two focusable components and press Tab; assert focus cycles and isFocused toggles.",
+              "Use a custom id and call focus(id) to focus it."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/hooks/useFocus.ts",
+                "line_start": 33,
+                "line_end": 67
+              }
+            ],
+            "gaps": [
+              "Underlying key event source differs (engine events vs stdin chunks); verify Tab/Shift+Tab parity with runtime tests."
+            ]
+          }
+        },
+        {
+          "id": "INK-HOOK-USEFOCUS-002",
+          "summary": "useFocus isActive/autoFocus/id semantics and activation/deactivation behavior.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/hooks/use-focus.ts",
+              "line_start": 32,
+              "line_end": 76
+            }
+          ],
+          "acceptance": [
+            "If `isActive=false`, the component remains in the focusables list but is deactivated and cannot receive focus via Tab cycling.",
+            "If `autoFocus=true`, the component becomes active focus when there is no current active focus id.",
+            "If a focused component becomes inactive, it loses focus (activeId becomes undefined)."
+          ],
+          "edge_cases": [
+            "autoFocus only sets focus if there is no current active focus id at the time the focusable is added."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Render two focusables, deactivate one, and assert Tab skips it.",
+              "Render one focusable with autoFocus and assert it becomes focused when no active id exists."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/context/FocusProvider.tsx",
+                "line_start": 53,
+                "line_end": 101
+              }
+            ],
+            "gaps": []
+          }
+        },
+        {
+          "id": "INK-HOOK-USEFOCUS-003",
+          "summary": "Global focus management: Tab/Shift+Tab cycles focus; Esc clears focus when active; enable/disableFocus gates cycling.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/components/App.tsx",
+              "line_start": 21,
+              "line_end": 23
+            },
+            {
+              "file": "src/components/App.tsx",
+              "line_start": 107,
+              "line_end": 116
+            },
+            {
+              "file": "src/components/App.tsx",
+              "line_start": 257,
+              "line_end": 277
+            },
+            {
+              "file": "src/components/App.tsx",
+              "line_start": 279,
+              "line_end": 286
+            }
+          ],
+          "acceptance": [
+            "When focus is enabled and there is at least one focusable, pressing Tab focuses the next active focusable; Shift+Tab focuses the previous active focusable.",
+            "Pressing Escape clears focus if there is an active focused component; otherwise it is a no-op for focus state.",
+            "`disableFocus()` disables Tab cycling; `enableFocus()` re-enables it."
+          ],
+          "edge_cases": [
+            "Tab cycling wraps around from last to first and first to last.",
+            "Shift+Tab is recognized as the raw input sequence '\\u001B[Z'."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Simulate Tab/Shift+Tab inputs and verify focus order and wrapping.",
+              "Call disableFocus and assert Tab no longer changes focus.",
+              "Simulate Escape and assert focus is cleared only when there was an active focus."
+            ]
+          },
+          "rezi": {
+            "status": "Partial",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/context/FocusProvider.tsx",
+                "line_start": 144,
+                "line_end": 174
+              }
+            ],
+            "gaps": [
+              "Rezi implements focus cycling using engine key events (ZR_KEY_TAB + ZR_MOD_SHIFT) and ESC keycode; parity depends on backend key mapping for Shift+Tab and escape sequences.",
+              "Required: add input-event simulation tests that compare Ink's stdin sequences to Rezi engine events and ensure equivalent behavior."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "useFocusManager",
+      "kind": "hook",
+      "upstream": {
+        "file": "src/hooks/use-focus-manager.ts",
+        "line_start": 34,
+        "line_end": 46,
+        "signature": "useFocusManager(): { enableFocus; disableFocus; focusNext; focusPrevious; focus }"
+      },
+      "contracts": [
+        {
+          "id": "INK-HOOK-USEFOCUSMANAGER-001",
+          "summary": "useFocusManager exposes focus control methods from FocusContext.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/hooks/use-focus-manager.ts",
+              "line_start": 34,
+              "line_end": 46
+            }
+          ],
+          "acceptance": [
+            "useFocusManager returns enableFocus/disableFocus/focusNext/focusPrevious/focus methods that control global focus management."
+          ],
+          "edge_cases": [
+            "Disabling focus causes the current active component to lose focus."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Use the methods to cycle focus without keypresses and assert the correct component becomes focused."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/hooks/useFocusManager.ts",
+                "line_start": 7,
+                "line_end": 16
+              }
+            ],
+            "gaps": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "useIsScreenReaderEnabled",
+      "kind": "hook",
+      "upstream": {
+        "file": "src/hooks/use-is-screen-reader-enabled.ts",
+        "line_start": 7,
+        "line_end": 12,
+        "signature": "useIsScreenReaderEnabled(): boolean"
+      },
+      "contracts": [
+        {
+          "id": "INK-HOOK-USEISSCREENREADERENABLED-001",
+          "summary": "useIsScreenReaderEnabled returns the accessibilityContext boolean.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/hooks/use-is-screen-reader-enabled.ts",
+              "line_start": 7,
+              "line_end": 10
+            },
+            {
+              "file": "src/components/AccessibilityContext.ts",
+              "line_start": 3,
+              "line_end": 5
+            },
+            {
+              "file": "src/ink.tsx",
+              "line_start": 422,
+              "line_end": 440
+            }
+          ],
+          "acceptance": [
+            "When Ink is created with `isScreenReaderEnabled` option or INK_SCREEN_READER env var, the hook returns that value."
+          ],
+          "edge_cases": [
+            "When called outside provider, returns default false."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Render a component that reads the hook value; assert it matches `RenderOptions.isScreenReaderEnabled`.",
+              "Without option/env, assert it is false."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/hooks/useIsScreenReaderEnabled.ts",
+                "line_start": 4,
+                "line_end": 6
+              },
+              {
+                "file": "packages/ink-compat/src/render.ts",
+                "line_start": 57,
+                "line_end": 61
+              }
+            ],
+            "gaps": [
+              "Even though the hook returns a value, Rezi does not implement Ink's screen reader output mode (see INK-API-RENDER-008)."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "useCursor",
+      "kind": "hook",
+      "upstream": {
+        "file": "src/hooks/use-cursor.ts",
+        "line_start": 12,
+        "line_end": 37,
+        "signature": "useCursor(): { setCursorPosition(position?: CursorPosition): void }"
+      },
+      "contracts": [
+        {
+          "id": "INK-HOOK-USECURSOR-001",
+          "summary": "useCursor exposes setCursorPosition and propagates cursor intent during commit phase via useInsertionEffect; clears cursor on unmount.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/hooks/use-cursor.ts",
+              "line_start": 12,
+              "line_end": 35
+            }
+          ],
+          "acceptance": [
+            "useCursor returns `{setCursorPosition}`.",
+            "Calling setCursorPosition updates an internal ref; during commit, Ink calls CursorContext.setCursorPosition with the latest value.",
+            "On unmount/cleanup, Ink clears cursor position by calling CursorContext.setCursorPosition(undefined)."
+          ],
+          "edge_cases": [
+            "useInsertionEffect prevents cursor state from leaking across abandoned concurrent renders."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Render a component that sets cursor position; assert cursor is visible at expected coordinates (requires capturing stdout escape sequences).",
+              "Unmount the component and assert cursor is hidden (no stale cursor position).",
+              "In concurrent mode with Suspense, ensure cursor doesn't leak from abandoned renders."
+            ]
+          },
+          "rezi": {
+            "status": "Missing",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/index.ts",
+                "line_start": 11,
+                "line_end": 22
+              }
+            ],
+            "gaps": [
+              "Rezi ink-compat does not export `useCursor` and has no cursor-context plumbing matching Ink.",
+              "Required: implement `useCursor` and a cursor pipeline in Rezi renderer/backend (likely requires core support for terminal cursor positioning and visibility)."
+            ]
+          }
+        },
+        {
+          "id": "INK-HOOK-USECURSOR-002",
+          "summary": "Cursor positioning is relative to the Ink output origin and is expressed as ANSI cursor movement + show/hide sequences via log-update.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/components/CursorContext.ts",
+              "line_start": 4,
+              "line_end": 16
+            },
+            {
+              "file": "src/ink.tsx",
+              "line_start": 252,
+              "line_end": 255
+            },
+            {
+              "file": "src/cursor-helpers.ts",
+              "line_start": 21,
+              "line_end": 39
+            },
+            {
+              "file": "src/log-update.ts",
+              "line_start": 54,
+              "line_end": 58
+            }
+          ],
+          "acceptance": [
+            "When a cursor position is set, Ink makes the cursor visible and moves it to (x,y) relative to the top-left of the Ink output region.",
+            "When cursor position is undefined, Ink hides the cursor (default showCursor=false behavior)."
+          ],
+          "edge_cases": [
+            "Cursor updates can be cursor-only (output unchanged) and still emit ANSI sequences (buildCursorOnlySequence)."
+          ],
+          "test_design": {
+            "golden_tests": [
+              "Capture stdout writes and assert cursor movement escapes (`cursorUp`, `cursorTo`, show/hide) are emitted when cursor intent changes."
+            ]
+          },
+          "rezi": {
+            "status": "Missing",
+            "evidence": [],
+            "gaps": [
+              "No corresponding cursor escape emission path is implemented in ink-compat; would require support in core/node."
+            ]
+          }
+        },
+        {
+          "id": "INK-HOOK-USECURSOR-003",
+          "summary": "Cursor state is applied only if setCursorPosition was called since last render (cursorDirty), preventing stale positions after unmount.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/log-update.ts",
+              "line_start": 60,
+              "line_end": 67
+            },
+            {
+              "file": "src/log-update.ts",
+              "line_start": 215,
+              "line_end": 223
+            }
+          ],
+          "acceptance": [
+            "If setCursorPosition was not called since the last render, log-update treats cursor as inactive and does not keep showing/moving it.",
+            "When cursor intent is cleared on unmount, subsequent renders do not preserve the old cursor position."
+          ],
+          "edge_cases": [
+            "Incremental rendering mode must maintain the same cursorDirty semantics."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Set a cursor position once, then stop setting it on subsequent renders; assert cursor eventually hides per cursorDirty logic."
+            ]
+          },
+          "rezi": {
+            "status": "Missing",
+            "evidence": [],
+            "gaps": [
+              "Rezi has no cursorDirty/log-update equivalent for Ink cursor behavior."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "CursorPosition",
+      "kind": "type",
+      "upstream": {
+        "file": "src/cursor-helpers.ts",
+        "line_start": 3,
+        "line_end": 6,
+        "signature": "export type CursorPosition = { x: number; y: number }"
+      },
+      "contracts": [
+        {
+          "id": "INK-TYPE-CURSORPOSITION-001",
+          "summary": "CursorPosition is `{x:number,y:number}` and is exported from Ink.",
+          "priority": "P0",
+          "upstream_evidence": [
+            {
+              "file": "src/index.ts",
+              "line_start": 28,
+              "line_end": 28
+            },
+            {
+              "file": "src/log-update.ts",
+              "line_start": 13,
+              "line_end": 13
+            },
+            {
+              "file": "src/cursor-helpers.ts",
+              "line_start": 3,
+              "line_end": 6
+            }
+          ],
+          "acceptance": [
+            "TypeScript: CursorPosition has numeric `x` and `y` fields."
+          ],
+          "edge_cases": [],
+          "test_design": {
+            "type_tests": [
+              "Compile a fixture that imports CursorPosition and assigns `{x:0,y:0}`."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/index.ts",
+                "line_start": 38,
+                "line_end": 38
+              },
+              {
+                "file": "packages/ink-compat/src/logUpdate.ts",
+                "line_start": 1,
+                "line_end": 4
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/types.parity.test.ts",
+                "line_start": 160,
+                "line_end": 163
+              }
+            ],
+            "gaps": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "measureElement",
+      "kind": "function",
+      "upstream": {
+        "file": "src/measure-element.ts",
+        "line_start": 18,
+        "line_end": 23,
+        "signature": "measureElement(node: DOMElement): { width: number; height: number }"
+      },
+      "contracts": [
+        {
+          "id": "INK-MEASURE-MEASUREELEMENT-001",
+          "summary": "measureElement returns computed width/height from the element's Yoga node, or 0 when absent.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/measure-element.ts",
+              "line_start": 18,
+              "line_end": 23
+            }
+          ],
+          "acceptance": [
+            "If `node.yogaNode` exists, returns `{width: yogaNode.getComputedWidth(), height: yogaNode.getComputedHeight()}`.",
+            "If `node.yogaNode` is missing, returns `{width:0,height:0}`."
+          ],
+          "edge_cases": [
+            "measureElement does not throw for non-box nodes; it simply returns zeros if yogaNode is undefined."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Measure a rendered Box with known width/height.",
+              "Measure an ink-virtual-text node and assert 0,0."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/measureElement.ts",
+                "line_start": 18,
+                "line_end": 25
+              },
+              {
+                "file": "packages/ink-compat/src/measurement.ts",
+                "line_start": 178,
+                "line_end": 183
+              }
+            ],
+            "gaps": [
+              "Rezi measureElement reads committed layout (not Yoga) and therefore may differ in timing/rounding versus Ink; validate with parity tests."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "DOMElement",
+      "kind": "type",
+      "upstream": {
+        "file": "src/dom.ts",
+        "line_start": 25,
+        "line_end": 70,
+        "signature": "export type DOMElement = { nodeName: 'ink-root'|'ink-box'|'ink-text'|'ink-virtual-text'; attributes: Record<string, DOMNodeAttribute>; childNodes: DOMNode[]; parentNode: DOMElement|undefined; yogaNode?: YogaNode; internal_transform?; internal_accessibility?; ... }"
+      },
+      "contracts": [
+        {
+          "id": "INK-TYPE-DOMELEMENT-001",
+          "summary": "DOMElement is the public ref/measurement handle (Yoga-backed) and includes accessibility and transform internals.",
+          "priority": "P1",
+          "upstream_evidence": [
+            {
+              "file": "src/index.ts",
+              "line_start": 30,
+              "line_end": 30
+            },
+            {
+              "file": "src/dom.ts",
+              "line_start": 25,
+              "line_end": 70
+            }
+          ],
+          "acceptance": [
+            "TypeScript: DOMElement has `nodeName`, `attributes`, `childNodes`, and optional `yogaNode` fields.",
+            "TypeScript: DOMElement includes `internal_transform?` and `internal_accessibility?` fields as part of its public type."
+          ],
+          "edge_cases": [
+            "Although typed as public, many fields are internal; still, third-party Ink libraries may rely on them."
+          ],
+          "test_design": {
+            "type_tests": [
+              "Compile a fixture that reads `ref.current.yogaNode` and `ref.current.internal_accessibility`."
+            ],
+            "runtime_tests": [
+              "At runtime, attach a ref to Box and ensure returned object has expected properties."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/types.ts",
+                "line_start": 740,
+                "line_end": 785
+              },
+              {
+                "file": "packages/ink-compat/src/reconciler/types.ts",
+                "line_start": 66,
+                "line_end": 101
+              },
+              {
+                "file": "packages/ink-compat/src/reconciler/hostConfig.ts",
+                "line_start": 86,
+                "line_end": 203
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/types.parity.test.ts",
+                "line_start": 144,
+                "line_end": 158
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/measurement.test.tsx",
+                "line_start": 29,
+                "line_end": 52
+              }
+            ],
+            "gaps": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "kittyFlags",
+      "kind": "other",
+      "upstream": {
+        "file": "src/kitty-keyboard.ts",
+        "line_start": 3,
+        "line_end": 9,
+        "signature": "export const kittyFlags = { disambiguateEscapeCodes:1; reportEventTypes:2; reportAlternateKeys:4; reportAllKeysAsEscapeCodes:8; reportAssociatedText:16 }"
+      },
+      "contracts": [
+        {
+          "id": "INK-CONST-KITTYFLAGS-001",
+          "summary": "kittyFlags constant exposes kitty protocol flag bit values.",
+          "priority": "P2",
+          "upstream_evidence": [
+            {
+              "file": "src/index.ts",
+              "line_start": 31,
+              "line_end": 32
+            },
+            {
+              "file": "src/kitty-keyboard.ts",
+              "line_start": 3,
+              "line_end": 9
+            }
+          ],
+          "acceptance": [
+            "kittyFlags.disambiguateEscapeCodes === 1",
+            "kittyFlags.reportEventTypes === 2",
+            "kittyFlags.reportAlternateKeys === 4",
+            "kittyFlags.reportAllKeysAsEscapeCodes === 8",
+            "kittyFlags.reportAssociatedText === 16"
+          ],
+          "edge_cases": [],
+          "test_design": {
+            "runtime_tests": [
+              "Assert the exported numeric values exactly match Ink baseline."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/index.ts",
+                "line_start": 43,
+                "line_end": 44
+              },
+              {
+                "file": "packages/ink-compat/src/kittyKeyboard.ts",
+                "line_start": 4,
+                "line_end": 10
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/kittyKeyboard.test.ts",
+                "line_start": 5,
+                "line_end": 11
+              }
+            ],
+            "gaps": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "kittyModifiers",
+      "kind": "other",
+      "upstream": {
+        "file": "src/kitty-keyboard.ts",
+        "line_start": 28,
+        "line_end": 37,
+        "signature": "export const kittyModifiers = { shift:1; alt:2; ctrl:4; super:8; hyper:16; meta:32; capsLock:64; numLock:128 }"
+      },
+      "contracts": [
+        {
+          "id": "INK-CONST-KITTYMODIFIERS-001",
+          "summary": "kittyModifiers constant exposes kitty protocol modifier bit values.",
+          "priority": "P2",
+          "upstream_evidence": [
+            {
+              "file": "src/index.ts",
+              "line_start": 31,
+              "line_end": 32
+            },
+            {
+              "file": "src/kitty-keyboard.ts",
+              "line_start": 28,
+              "line_end": 37
+            }
+          ],
+          "acceptance": [
+            "kittyModifiers.shift === 1",
+            "kittyModifiers.alt === 2",
+            "kittyModifiers.ctrl === 4",
+            "kittyModifiers.super === 8",
+            "kittyModifiers.hyper === 16",
+            "kittyModifiers.meta === 32",
+            "kittyModifiers.capsLock === 64",
+            "kittyModifiers.numLock === 128"
+          ],
+          "edge_cases": [
+            "Ink notes that actual modifier value is (modifiers - 1) per kitty protocol; this is parse-keypress behavior."
+          ],
+          "test_design": {
+            "runtime_tests": [
+              "Assert the exported numeric values exactly match Ink baseline."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/index.ts",
+                "line_start": 43,
+                "line_end": 44
+              },
+              {
+                "file": "packages/ink-compat/src/kittyKeyboard.ts",
+                "line_start": 24,
+                "line_end": 33
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/kittyKeyboard.test.ts",
+                "line_start": 13,
+                "line_end": 22
+              }
+            ],
+            "gaps": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "KittyKeyboardOptions",
+      "kind": "type",
+      "upstream": {
+        "file": "src/kitty-keyboard.ts",
+        "line_start": 40,
+        "line_end": 57,
+        "signature": "export type KittyKeyboardOptions = { mode?: 'auto'|'enabled'|'disabled'; flags?: KittyFlagName[] }"
+      },
+      "contracts": [
+        {
+          "id": "INK-TYPE-KITTYKEYBOARDOPTIONS-001",
+          "summary": "KittyKeyboardOptions type is exported and matches Ink's kitty keyboard configuration shape.",
+          "priority": "P2",
+          "upstream_evidence": [
+            {
+              "file": "src/index.ts",
+              "line_start": 31,
+              "line_end": 32
+            },
+            {
+              "file": "src/kitty-keyboard.ts",
+              "line_start": 40,
+              "line_end": 57
+            }
+          ],
+          "acceptance": [
+            "TypeScript: KittyKeyboardOptions.mode accepts 'auto'|'enabled'|'disabled'.",
+            "TypeScript: KittyKeyboardOptions.flags is an optional array of KittyFlagName."
+          ],
+          "edge_cases": [],
+          "test_design": {
+            "type_tests": [
+              "Compile a fixture assigning each mode and flags."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/index.ts",
+                "line_start": 44,
+                "line_end": 44
+              },
+              {
+                "file": "packages/ink-compat/src/kittyKeyboard.ts",
+                "line_start": 35,
+                "line_end": 38
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/types.parity.test.ts",
+                "line_start": 167,
+                "line_end": 171
+              }
+            ],
+            "gaps": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "KittyFlagName",
+      "kind": "type",
+      "upstream": {
+        "file": "src/kitty-keyboard.ts",
+        "line_start": 11,
+        "line_end": 12,
+        "signature": "export type KittyFlagName = keyof typeof kittyFlags"
+      },
+      "contracts": [
+        {
+          "id": "INK-TYPE-KITTYFLAGNAME-001",
+          "summary": "KittyFlagName is the keyof kittyFlags and is exported.",
+          "priority": "P2",
+          "upstream_evidence": [
+            {
+              "file": "src/index.ts",
+              "line_start": 31,
+              "line_end": 32
+            },
+            {
+              "file": "src/kitty-keyboard.ts",
+              "line_start": 11,
+              "line_end": 12
+            }
+          ],
+          "acceptance": [
+            "TypeScript: KittyFlagName is a union of the keys of kittyFlags."
+          ],
+          "edge_cases": [],
+          "test_design": {
+            "type_tests": [
+              "Compile a fixture that assigns `const f: KittyFlagName = 'disambiguateEscapeCodes'`."
+            ]
+          },
+          "rezi": {
+            "status": "Implemented",
+            "evidence": [
+              {
+                "file": "packages/ink-compat/src/index.ts",
+                "line_start": 44,
+                "line_end": 44
+              },
+              {
+                "file": "packages/ink-compat/src/kittyKeyboard.ts",
+                "line_start": 12,
+                "line_end": 12
+              },
+              {
+                "file": "packages/ink-compat/src/__tests__/types.parity.test.ts",
+                "line_start": 173,
+                "line_end": 174
+              }
+            ],
+            "gaps": []
+          }
+        }
+      ]
+    }
+  ]
+}

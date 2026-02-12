@@ -1,4 +1,6 @@
 import type { VNode } from "@rezi-ui/core";
+import type { DOMNodeAttribute, Styles } from "../types.js";
+import type { Node as YogaNode } from "yoga-layout";
 
 export type HostType = "ink-box" | "ink-text" | "ink-virtual-text" | "ink-spacer";
 
@@ -22,12 +24,54 @@ export type HostResizeObserverLike = Readonly<{
   internalTrigger: (entries: readonly unknown[]) => void;
 }>;
 
+type OutputTransformer = (children: string, index: number) => string;
+
+type AccessibilityRole =
+  | "button"
+  | "checkbox"
+  | "combobox"
+  | "list"
+  | "listbox"
+  | "listitem"
+  | "menu"
+  | "menuitem"
+  | "option"
+  | "progressbar"
+  | "radio"
+  | "radiogroup"
+  | "tab"
+  | "tablist"
+  | "table"
+  | "textbox"
+  | "timer"
+  | "toolbar";
+
+type AccessibilityState = Readonly<{
+  busy?: boolean;
+  checked?: boolean;
+  disabled?: boolean;
+  expanded?: boolean;
+  multiline?: boolean;
+  multiselectable?: boolean;
+  readonly?: boolean;
+  required?: boolean;
+  selected?: boolean;
+}>;
+
+type Accessibility = Readonly<{
+  role?: AccessibilityRole;
+  state?: AccessibilityState;
+}>;
+
 export type HostText = {
   kind: "text";
   text: string;
   nodeName: "#text";
   nodeValue: string;
   parentNode?: HostElement;
+  yogaNode?: YogaNode;
+  internal_static?: boolean;
+  style: Styles;
 };
 
 export type HostElement = {
@@ -35,15 +79,25 @@ export type HostElement = {
   type: HostType;
   nodeName: HostType;
   props: Record<string, unknown>;
-  attributes: Record<string, unknown>;
+  attributes: Record<string, DOMNodeAttribute>;
   children: HostNode[];
   childNodes: HostNode[];
   parentNode?: HostElement;
   internal_id: string;
+  yogaNode?: YogaNode;
+  internal_static?: boolean;
+  style: Styles;
+  internal_transform?: OutputTransformer;
+  internal_accessibility?: Accessibility;
   internal_layout?: HostLayoutRect;
   internal_scrollState?: HostScrollState;
   resizeObservers?: Set<HostResizeObserverLike>;
   internal_lastMeasuredSize?: Readonly<{ width: number; height: number }>;
+  isStaticDirty?: boolean;
+  staticNode?: HostElement;
+  onComputeLayout?: () => void;
+  onRender?: () => void;
+  onImmediateRender?: () => void;
 };
 
 export type HostNode = HostElement | HostText;

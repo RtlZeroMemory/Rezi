@@ -9,5 +9,6 @@
     "types": ["node", "react", "react-reconciler"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["src/ink/**"],
   "references": [{ "path": "../core" }, { "path": "../node" }, { "path": "../testkit" }]
 }

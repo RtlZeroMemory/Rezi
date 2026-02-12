@@ -29,7 +29,7 @@ describe("ResizeObserver", () => {
           <Text>x</Text>
         </Box>
       </Box>,
-      { internal_backend: backend, exitOnCtrlC: false },
+      { internal_backend: backend, exitOnCtrlC: false } as any,
     );
 
     await flushMicrotasks(10);

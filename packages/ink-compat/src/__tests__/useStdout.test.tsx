@@ -1,4 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { EventEmitter } from "node:events";
 import React, { useEffect } from "react";
 import StdioContext, { type StdioContextValue } from "../context/StdioContext.js";
 import { Text, useStdout } from "../index.js";
@@ -38,16 +39,16 @@ describe("useStdout()", () => {
       },
     } as unknown as NodeJS.WriteStream;
 
-    const emitter: StdioContextValue["internal_eventEmitter"] = Object.freeze({
-      on: (_event, _listener) => {},
-      removeListener: (_event, _listener) => {},
-      emit: (_event, _value) => {},
-    });
+    const emitter: StdioContextValue["internal_eventEmitter"] = new EventEmitter();
 
     const stdio: StdioContextValue = Object.freeze({
       stdin: process.stdin,
       stdout,
       stderr: process.stderr,
+      internal_writeToStdout: (s: string) => {
+        writes.push(s);
+      },
+      internal_writeToStderr: () => {},
       setRawMode: () => {},
       isRawModeSupported: false,
       internal_exitOnCtrlC: true,

@@ -39,8 +39,9 @@ describe("api surface", () => {
         assert.ok(metrics.renderTime >= 0);
       },
       isScreenReaderEnabled: true,
-      alternateBuffer: true,
       incrementalRendering: true,
+      concurrent: true,
+      kittyKeyboard: { mode: "disabled" },
     };
 
     assert.equal(opts.isScreenReaderEnabled, true);

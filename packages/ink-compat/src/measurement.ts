@@ -43,7 +43,7 @@ function toLayout(rect: CoreRect | undefined): HostLayoutRect {
 }
 
 function readLayout(node: DOMElement): HostLayoutRect {
-  const layout = (node as HostElement).internal_layout;
+  const layout = (node as unknown as HostElement).internal_layout;
   return layout ?? ZERO_LAYOUT;
 }
 
@@ -198,7 +198,7 @@ export function getBoundingBox(node: DOMElement): Readonly<{
 }
 
 export function getInnerHeight(node: DOMElement): number {
-  const element = node as HostElement;
+  const element = node as unknown as HostElement;
   const scrollState = element.internal_scrollState;
   if (scrollState) return scrollState.clientHeight;
 
@@ -208,7 +208,7 @@ export function getInnerHeight(node: DOMElement): number {
 }
 
 export function getInnerWidth(node: DOMElement): number {
-  const element = node as HostElement;
+  const element = node as unknown as HostElement;
   const scrollState = element.internal_scrollState;
   if (scrollState) return scrollState.clientWidth;
 
@@ -218,12 +218,12 @@ export function getInnerWidth(node: DOMElement): number {
 }
 
 export function getScrollHeight(node: DOMElement): number {
-  const st = (node as HostElement).internal_scrollState;
+  const st = (node as unknown as HostElement).internal_scrollState;
   return st?.scrollHeight ?? 0;
 }
 
 export function getScrollWidth(node: DOMElement): number {
-  const st = (node as HostElement).internal_scrollState;
+  const st = (node as unknown as HostElement).internal_scrollState;
   return st?.scrollWidth ?? 0;
 }
 

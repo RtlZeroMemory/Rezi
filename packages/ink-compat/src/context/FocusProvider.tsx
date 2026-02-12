@@ -1,9 +1,11 @@
-import type { UiEvent } from "@rezi-ui/core";
-import { ZR_KEY_ESCAPE, ZR_KEY_TAB, ZR_MOD_SHIFT } from "@rezi-ui/core/keybindings";
 import React from "react";
 import { runWithSyncPriority } from "../reconciler.js";
 import FocusContext from "./FocusContext.js";
 import { useRequiredStdioContext } from "./StdioContext.js";
+
+const tab = "\t";
+const shiftTab = "\u001B[Z";
+const escape = "\u001B";
 
 type Focusable = Readonly<{ id: string; isActive: boolean }>;
 
@@ -142,16 +144,11 @@ export default function FocusProvider({ children }: Readonly<{ children: React.R
   }, [setStateSync]);
 
   React.useEffect(() => {
-    const onInput = (ev: UiEvent) => {
-      if (ev.kind !== "engine") return;
-      const e = ev.event;
-      if (e.kind !== "key") return;
-      if (e.action !== "down") return;
-
+    const onInput = (input: string) => {
       const s = stateRef.current;
 
       // Mirror Ink: ESC clears focus if there is an active focused component.
-      if (e.key === ZR_KEY_ESCAPE && s.activeId !== undefined) {
+      if (input === escape && s.activeId !== undefined) {
         setStateSync((prev) =>
           prev.activeId === undefined ? prev : { ...prev, activeId: undefined },
         );
@@ -161,10 +158,8 @@ export default function FocusProvider({ children }: Readonly<{ children: React.R
       if (!s.isFocusEnabled || s.focusables.length === 0) return;
 
       // Mirror Ink: TAB cycles focus; SHIFT+TAB reverses.
-      if (e.key === ZR_KEY_TAB) {
-        if ((e.mods & ZR_MOD_SHIFT) !== 0) focusPrevious();
-        else focusNext();
-      }
+      if (input === tab) focusNext();
+      if (input === shiftTab) focusPrevious();
     };
 
     internal_eventEmitter.on("input", onInput);

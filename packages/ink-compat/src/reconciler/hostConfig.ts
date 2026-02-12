@@ -15,6 +15,7 @@ import {
   insertBeforeNode,
   removeChildNode,
 } from "./types.js";
+import type { DOMNodeAttribute, Styles } from "../types.js";
 
 type Props = Record<string, unknown>;
 type Instance = HostElement;
@@ -31,6 +32,30 @@ type TransitionStatus = unknown;
 let currentUpdatePriority = DefaultEventPriority;
 const NotPendingTransition = null;
 const HostTransitionContext = React.createContext<unknown>(NotPendingTransition);
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function pickAttributes(props: Record<string, unknown>): Record<string, DOMNodeAttribute> {
+  const out: Record<string, DOMNodeAttribute> = {};
+  for (const [key, value] of Object.entries(props)) {
+    if (
+      key === "children" ||
+      key === "style" ||
+      key === "internal_transform" ||
+      key === "internal_static" ||
+      key === "internal_accessibility"
+    ) {
+      continue;
+    }
+
+    if (typeof value === "boolean" || typeof value === "string" || typeof value === "number") {
+      out[key] = value;
+    }
+  }
+  return out;
+}
 
 const hostConfig = {
   rendererVersion: "0.1.0",
@@ -64,25 +89,56 @@ const hostConfig = {
     root: HostRoot,
     hostContext: HostContext,
   ) {
-    if (hostContext.isInsideText && originalType === "ink-box") {
-      throw new InkCompatError("INK_COMPAT_INVALID_PROPS", "<Box> can't be nested inside <Text>");
+    if (hostContext.isInsideText && (originalType === "ink-box" || originalType === "ink-spacer")) {
+      throw new InkCompatError(
+        "INK_COMPAT_INVALID_PROPS",
+        "<Box> can’t be nested inside <Text> component",
+      );
     }
 
     const type: HostType =
       originalType === "ink-text" && hostContext.isInsideText ? "ink-virtual-text" : originalType;
 
-    const props = { ...newProps };
+    const { children: _children, ...rest } = newProps;
+    const props = { ...rest };
     const children: HostNode[] = [];
-    return {
+
+    const styleValue = props["style"];
+    const internalTransformValue = props["internal_transform"];
+    const internalAccessibilityValue = props["internal_accessibility"];
+    const internalStaticValue = props["internal_static"];
+
+    const internal_transform =
+      typeof internalTransformValue === "function" ? (internalTransformValue as never) : undefined;
+    const internal_static = internalStaticValue === true ? true : undefined;
+    const internal_accessibility = isPlainObject(internalAccessibilityValue)
+      ? (internalAccessibilityValue as never)
+      : {};
+
+    const element: HostElement = {
       kind: "element",
       type,
       nodeName: type,
       props,
-      attributes: props,
+      attributes: pickAttributes(props),
       children,
       childNodes: children,
       internal_id: allocateNodeId(root),
+      style: (isPlainObject(styleValue) ? (styleValue as Styles) : {}) as Styles,
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      internal_accessibility,
     };
+
+    if (internal_transform) {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      element.internal_transform = internal_transform;
+    }
+    if (internal_static) {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      element.internal_static = true;
+    }
+
+    return element;
   },
 
   createTextInstance(text: string, _root: HostRoot, hostContext: HostContext) {
@@ -92,7 +148,7 @@ const hostConfig = {
         `Text string "${text}" must be rendered inside <Text> component`,
       );
     }
-    return { kind: "text", text, nodeName: "#text", nodeValue: text };
+    return { kind: "text", text, nodeName: "#text", nodeValue: text, style: {} };
   },
 
   // -------------------
@@ -114,9 +170,36 @@ const hostConfig = {
     return null;
   },
   commitUpdate(instance: Instance, _type: HostType, _oldProps: Props, newProps: Props) {
-    const props = { ...newProps };
+    const { children: _children, ...rest } = newProps;
+    const props = { ...rest };
     instance.props = props;
-    instance.attributes = props;
+    instance.attributes = pickAttributes(props);
+
+    const styleValue = props["style"];
+    const internalTransformValue = props["internal_transform"];
+    const internalAccessibilityValue = props["internal_accessibility"];
+    const internalStaticValue = props["internal_static"];
+
+    instance.style = (isPlainObject(styleValue) ? (styleValue as Styles) : {}) as Styles;
+
+    if (typeof internalTransformValue === "function") {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      instance.internal_transform = internalTransformValue as never;
+    } else {
+      Reflect.deleteProperty(instance, "internal_transform");
+    }
+
+    if (internalStaticValue === true) {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      instance.internal_static = true;
+    } else {
+      Reflect.deleteProperty(instance, "internal_static");
+    }
+
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    instance.internal_accessibility = isPlainObject(internalAccessibilityValue)
+      ? (internalAccessibilityValue as never)
+      : instance.internal_accessibility ?? {};
   },
   commitTextUpdate(textInstance: TextInstance, _oldText: string, newText: string) {
     textInstance.text = newText;

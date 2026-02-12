@@ -9,20 +9,17 @@ import reconciler, {
 } from "../reconciler.js";
 
 describe("useApp()", () => {
-  test("throws when used outside render() root", () => {
+  test("does not throw when used outside render() root", () => {
     const root: HostRoot = { kind: "root", children: [], staticVNodes: [], onCommit: () => {} };
     const container = createRootContainer(root);
 
     function App() {
-      const { exit, rerender } = useApp();
-      rerender();
+      const { exit } = useApp();
       exit();
       return <Text>hi</Text>;
     }
 
-    assert.throws(() => {
-      updateRootContainer(container, <App />);
-    }, /AppContext missing/);
+    updateRootContainer(container, <App />);
   });
 
   test("delegates exit() to AppContext", () => {
@@ -44,7 +41,6 @@ describe("useApp()", () => {
           exit: (e) => {
             seen = e;
           },
-          rerender: () => {},
         },
       },
       <App />,
@@ -52,34 +48,5 @@ describe("useApp()", () => {
     updateRootContainer(container, wrapped);
 
     assert.equal(seen?.message, "boom");
-  });
-
-  test("delegates rerender() to AppContext", () => {
-    const root: HostRoot = { kind: "root", children: [], staticVNodes: [], onCommit: () => {} };
-    const container = createRootContainer(root);
-
-    let calls = 0;
-
-    function App() {
-      const { rerender } = useApp();
-      rerender();
-      return <Text>hi</Text>;
-    }
-
-    const wrapped = React.createElement(
-      AppContext.Provider,
-      {
-        value: {
-          exit: () => {},
-          rerender: () => {
-            calls++;
-          },
-        },
-      },
-      <App />,
-    );
-    updateRootContainer(container, wrapped);
-
-    assert.equal(calls, 1);
   });
 });

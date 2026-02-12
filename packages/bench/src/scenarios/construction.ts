@@ -12,6 +12,7 @@
 
 import { BenchBackend, MeasuringStream, NullReadable } from "../backends.js";
 import { benchAsync, benchSync, tryGc } from "../measure.js";
+import { optionalImport } from "../optionalImport.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 import {
   buildBlessedTree,
@@ -122,12 +123,13 @@ async function runInkCompat(config: ScenarioConfig, n: number): Promise<BenchMet
 
 async function runInk(config: ScenarioConfig, n: number): Promise<BenchMetrics> {
   let React: typeof import("react");
-  let Ink: typeof import("ink");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let Ink: any;
   try {
     React = await import("react");
-    Ink = await import("ink");
+    Ink = await optionalImport("ink");
   } catch {
-    throw new Error("ink or react not available — install: npm i ink react");
+    throw new Error('ink or react not available — install: npm i -w @rezi-ui/bench ink react');
   }
 
   const stdout = new MeasuringStream();

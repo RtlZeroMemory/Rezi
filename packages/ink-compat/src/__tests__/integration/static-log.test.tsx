@@ -1,4 +1,3 @@
-import { ZR_KEY_ENTER } from "@rezi-ui/core/keybindings";
 import { assert, describe, test } from "@rezi-ui/testkit";
 import React from "react";
 import { Box, Static, Text, useInput } from "../../index.js";
@@ -35,13 +34,13 @@ describe("integration: static log", () => {
     assert.equal(findText(initial, "tick:0"), true);
     assert.equal(findText(initial, "log1"), false);
 
-    simulateTextEvent(h.emitter, { codepoint: "a".codePointAt(0) ?? 97 });
+    simulateTextEvent(h.emitter, { input: "a" });
     const afterLog1 = h.getLast();
     assert.equal(findText(afterLog1, "log1"), true);
     assert.equal(findText(afterLog1, "tick:0"), true);
     const afterLog1Children = "children" in afterLog1 ? afterLog1.children.length : 0;
 
-    simulateKeyEvent(h.emitter, { key: ZR_KEY_ENTER });
+    simulateKeyEvent(h.emitter, { input: "\r" });
     const afterTick1 = h.getLast();
     assert.equal(findText(afterTick1, "log1"), true);
     assert.equal(findText(afterTick1, "tick:1"), true);
@@ -52,7 +51,7 @@ describe("integration: static log", () => {
       "dynamic updates should not append static output",
     );
 
-    simulateTextEvent(h.emitter, { codepoint: "a".codePointAt(0) ?? 97 });
+    simulateTextEvent(h.emitter, { input: "a" });
     const afterLog2 = h.getLast();
     assert.equal(findText(afterLog2, "log1"), true);
     assert.equal(findText(afterLog2, "log2"), true);

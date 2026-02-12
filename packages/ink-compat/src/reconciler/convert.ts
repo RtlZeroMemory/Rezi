@@ -127,6 +127,13 @@ function convertNode(node: HostNode, ctx: ConvertCtx): VNode | null {
       const mapped = mapBoxProps(node.props as unknown as BoxProps);
       if (mapped.hidden) return null;
 
+      // Ink's <Static> renders its children once and then re-renders with no children
+      // (via a layout effect). The static owner remains mounted, so we must keep any
+      // previously recorded static output even when there is no new content to append.
+      if (isStatic) {
+        ctx.seenStaticOwners.add(node.internal_id);
+      }
+
       const childVNodes: ConvertedChild[] = [];
       for (const c of node.children) {
         const v = convertNode(c, ctx);
@@ -135,10 +142,7 @@ function convertNode(node: HostNode, ctx: ConvertCtx): VNode | null {
       }
       if (isStatic && childVNodes.length === 0) return null;
       if (mapped.reverseChildren) childVNodes.reverse();
-      const visibleChildren =
-        mapped.overflowY === "scroll"
-          ? applyVerticalScroll(childVNodes, mapped.scrollTop)
-          : childVNodes.map((c) => c.vnode);
+      const visibleChildren = childVNodes.map((c) => c.vnode);
 
       const measuredId = node.internal_id;
       const stackPropsWithId = mapped.wrapper
@@ -153,7 +157,6 @@ function convertNode(node: HostNode, ctx: ConvertCtx): VNode | null {
       const vnode = wrapperWithId ? ui.box(wrapperWithId, [stack]) : stack;
 
       if (isStatic) {
-        ctx.seenStaticOwners.add(node.internal_id);
         const owned = ctx.staticByOwner.get(node.internal_id) ?? [];
         owned.push(vnode);
         ctx.staticByOwner.set(node.internal_id, owned);

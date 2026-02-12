@@ -25,6 +25,7 @@ import { createRequire } from "node:module";
 import * as os from "node:os";
 import { fileURLToPath } from "node:url";
 import { tryGc } from "./measure.js";
+import { optionalImport } from "./optionalImport.js";
 import { printTerminalTable, toJSON, toMarkdown } from "./report.js";
 import { scenarios } from "./scenarios/index.js";
 import type { BenchResult, BenchRun, Framework, ScenarioConfig } from "./types.js";
@@ -119,7 +120,7 @@ async function checkFramework(fw: Framework, io: "stub" | "pty"): Promise<boolea
         if (io === "pty") await import("@rezi-ui/node");
         return true;
       case "ink":
-        await import("ink");
+        await optionalImport("ink");
         return true;
       case "terminal-kit":
         await import("terminal-kit");

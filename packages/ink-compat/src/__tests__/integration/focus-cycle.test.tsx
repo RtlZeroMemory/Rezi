@@ -1,4 +1,3 @@
-import { ZR_KEY_ESCAPE, ZR_KEY_TAB, ZR_MOD_SHIFT } from "@rezi-ui/core/keybindings";
 import { assert, describe, test } from "@rezi-ui/testkit";
 import React from "react";
 import { Box, Text, useFocus } from "../../index.js";
@@ -30,19 +29,19 @@ describe("integration: focus cycle", () => {
     assert.equal(findText(h.getLast(), "a*"), false);
     assert.equal(findText(h.getLast(), "b*"), false);
 
-    simulateKeyEvent(h.emitter, { key: ZR_KEY_TAB });
+    simulateKeyEvent(h.emitter, { input: "\t" });
     assert.equal(findText(h.getLast(), "a*"), true);
     assert.equal(findText(h.getLast(), "b*"), false);
 
-    simulateKeyEvent(h.emitter, { key: ZR_KEY_TAB });
+    simulateKeyEvent(h.emitter, { input: "\t" });
     assert.equal(findText(h.getLast(), "a*"), false);
     assert.equal(findText(h.getLast(), "b*"), true);
 
-    simulateKeyEvent(h.emitter, { key: ZR_KEY_TAB, mods: ZR_MOD_SHIFT });
+    simulateKeyEvent(h.emitter, { input: "\u001B[Z" });
     assert.equal(findText(h.getLast(), "a*"), true);
     assert.equal(findText(h.getLast(), "b*"), false);
 
-    simulateKeyEvent(h.emitter, { key: ZR_KEY_ESCAPE });
+    simulateKeyEvent(h.emitter, { input: "\u001B" });
     assert.equal(findText(h.getLast(), "a*"), false);
     assert.equal(findText(h.getLast(), "b*"), false);
 

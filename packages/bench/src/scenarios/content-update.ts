@@ -17,6 +17,7 @@
 import { type VNode, ui } from "@rezi-ui/core";
 import { BenchBackend, MeasuringStream, NullReadable } from "../backends.js";
 import { benchAsync, benchSync, tryGc } from "../measure.js";
+import { optionalImport } from "../optionalImport.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 
 const LIST_SIZE = 500;
@@ -202,7 +203,7 @@ async function runInkCompat(config: ScenarioConfig): Promise<BenchMetrics> {
 
 async function runInk(config: ScenarioConfig): Promise<BenchMetrics> {
   const React = await import("react");
-  const Ink = await import("ink");
+  const Ink = await optionalImport("ink");
   const stdout = new MeasuringStream();
   stdout.rows = 540;
   const stdin = new NullReadable();

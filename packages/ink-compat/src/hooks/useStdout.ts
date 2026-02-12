@@ -10,7 +10,7 @@ export default function useStdout() {
   return {
     stdout: ctx.stdout,
     write: (data: string): void => {
-      void ctx.stdout.write(data);
+      ctx.internal_writeToStdout(data);
     },
   };
 }

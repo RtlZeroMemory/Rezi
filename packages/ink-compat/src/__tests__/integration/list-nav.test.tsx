@@ -1,4 +1,3 @@
-import { ZR_KEY_DOWN, ZR_KEY_UP } from "@rezi-ui/core/keybindings";
 import { assert, describe, test } from "@rezi-ui/testkit";
 import React from "react";
 import { Box, Text, useInput } from "../../index.js";
@@ -34,19 +33,19 @@ describe("integration: list navigation", () => {
     h.update(<App />);
     assert.equal(findText(h.getLast(), "> one"), true);
 
-    simulateKeyEvent(h.emitter, { key: ZR_KEY_DOWN });
+    simulateKeyEvent(h.emitter, { input: "\u001B[B" });
     h.flush();
     assert.equal(findText(h.getLast(), "> two"), true);
 
-    simulateKeyEvent(h.emitter, { key: ZR_KEY_DOWN });
+    simulateKeyEvent(h.emitter, { input: "\u001B[B" });
     h.flush();
     assert.equal(findText(h.getLast(), "> three"), true);
 
-    simulateKeyEvent(h.emitter, { key: ZR_KEY_DOWN });
+    simulateKeyEvent(h.emitter, { input: "\u001B[B" });
     h.flush();
     assert.equal(findText(h.getLast(), "> one"), true);
 
-    simulateKeyEvent(h.emitter, { key: ZR_KEY_UP });
+    simulateKeyEvent(h.emitter, { input: "\u001B[A" });
     h.flush();
     assert.equal(findText(h.getLast(), "> three"), true);
 

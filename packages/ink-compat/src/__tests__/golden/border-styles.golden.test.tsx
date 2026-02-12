@@ -15,8 +15,8 @@ describe("golden: ink-compat border styles", () => {
         <Box borderStyle="round">
           <Text>round</Text>
         </Box>
-        <Box borderStyle="dashed" borderTop={false}>
-          <Text>dashed (no top)</Text>
+        <Box borderStyle="double" borderTop={false}>
+          <Text>double (no top)</Text>
         </Box>
         <Box borderStyle="bold">
           <Text>heavy</Text>

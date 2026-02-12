@@ -1,44 +1,32 @@
-import type { UiEvent, ZrevEvent } from "@rezi-ui/core";
-import type { InputEventEmitter } from "../internal/emitter.js";
-import { flushAllUpdates } from "../reconciler.js";
+import { runWithSyncPriority } from "../reconciler.js";
 
-export function emitEngineEvent(emitter: InputEventEmitter<UiEvent>, event: ZrevEvent): void {
-  emitter.emit("input", { kind: "engine", event });
-  flushAllUpdates();
+type InputEventEmitter = Readonly<{
+  emit: (event: "input", value: string) => void;
+}>;
+
+export function emitInput(emitter: InputEventEmitter, input: string): void {
+  runWithSyncPriority(() => {
+    emitter.emit("input", input);
+  });
 }
 
 export function simulateKeyEvent(
-  emitter: InputEventEmitter<UiEvent>,
-  opts: Readonly<{
-    key: number;
-    mods?: number;
-    action?: "down" | "up" | "repeat";
-    timeMs?: number;
-  }>,
+  emitter: InputEventEmitter,
+  opts: Readonly<{ input: string }>,
 ): void {
-  emitEngineEvent(emitter, {
-    kind: "key",
-    timeMs: opts.timeMs ?? 0,
-    key: opts.key,
-    mods: opts.mods ?? 0,
-    action: opts.action ?? "down",
-  });
+  emitInput(emitter, opts.input);
 }
 
 export function simulateTextEvent(
-  emitter: InputEventEmitter<UiEvent>,
-  opts: Readonly<{ codepoint: number; timeMs?: number }>,
+  emitter: InputEventEmitter,
+  opts: Readonly<{ input: string }>,
 ): void {
-  emitEngineEvent(emitter, { kind: "text", timeMs: opts.timeMs ?? 0, codepoint: opts.codepoint });
+  emitInput(emitter, opts.input);
 }
 
 export function simulatePasteEvent(
-  emitter: InputEventEmitter<UiEvent>,
-  opts: Readonly<{ text: string; timeMs?: number }>,
+  emitter: InputEventEmitter,
+  opts: Readonly<{ input: string }>,
 ): void {
-  emitEngineEvent(emitter, {
-    kind: "paste",
-    timeMs: opts.timeMs ?? 0,
-    bytes: new TextEncoder().encode(opts.text),
-  });
+  emitInput(emitter, opts.input);
 }

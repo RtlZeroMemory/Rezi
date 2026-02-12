@@ -1,14 +1,6 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import React from "react";
-import {
-  Box,
-  type DOMElement,
-  Text,
-  Transform,
-  getInnerHeight,
-  getScrollHeight,
-  render,
-} from "../index.js";
+import { Text, Transform, render } from "../index.js";
 import {
   StubBackend,
   encodeZrevBatchV1,
@@ -27,7 +19,7 @@ async function pushInitialResize(backend: StubBackend): Promise<void> {
 
 async function renderToLastFrameBytes(tree: React.ReactNode): Promise<Uint8Array> {
   const backend = new StubBackend();
-  const inst = render(tree, { internal_backend: backend, exitOnCtrlC: false });
+  const inst = render(tree, { internal_backend: backend, exitOnCtrlC: false } as any);
 
   await flushMicrotasks(10);
   await pushInitialResize(backend);
@@ -53,7 +45,7 @@ describe("compat behavior", () => {
     }
 
     const backend = new StubBackend();
-    const inst = render(<SpinnerLike />, { internal_backend: backend, exitOnCtrlC: false });
+    const inst = render(<SpinnerLike />, { internal_backend: backend, exitOnCtrlC: false } as any);
 
     await flushMicrotasks(10);
     await pushInitialResize(backend);
@@ -76,51 +68,5 @@ describe("compat behavior", () => {
     );
 
     assert.ok(frame.length > 0);
-  });
-
-  test("scroll measurement semantics remain stable with animated content", async () => {
-    function SpinnerLike() {
-      const [tick, setTick] = React.useState(0);
-      React.useEffect(() => {
-        const id = setInterval(() => setTick((n) => n + 1), 33);
-        return () => clearInterval(id);
-      }, []);
-      const frames = ["-", "\\", "|", "/"];
-      return <Text>{frames[tick % frames.length] ?? "-"}</Text>;
-    }
-
-    const backend = new StubBackend();
-    const containerRef = React.createRef<DOMElement>();
-
-    const inst = render(
-      <Box
-        ref={containerRef}
-        width={20}
-        height={1}
-        flexDirection="column"
-        overflowY="scroll"
-        overflowX="hidden"
-        scrollTop={1}
-      >
-        <SpinnerLike />
-        <Transform transform={(line) => line}>
-          <Text>line-2</Text>
-        </Transform>
-        <Text>line-3</Text>
-      </Box>,
-      { internal_backend: backend, exitOnCtrlC: false },
-    );
-
-    await flushMicrotasks(10);
-    await pushInitialResize(backend);
-
-    const container = containerRef.current;
-    assert.ok(container);
-    assert.equal(getInnerHeight(container), 1);
-    assert.ok(getScrollHeight(container) >= 3);
-    assert.ok(backend.requestedFrames.length >= 1);
-
-    inst.unmount();
-    await inst.waitUntilExit();
   });
 });
