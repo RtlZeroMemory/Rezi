@@ -5,6 +5,7 @@
   "workspaces": [
     "packages/create-rezi",
     "packages/core",
+    "packages/ink-compat",
     "packages/node",
     "packages/testkit",
     "packages/native",

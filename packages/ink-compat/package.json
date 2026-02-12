@@ -1,0 +1,43 @@
+{
+  "name": "@rezi-ui/ink-compat",
+  "version": "0.1.0-alpha.0",
+  "description": "Fresh-start Ink compatibility adapter for Rezi.",
+  "license": "Apache-2.0",
+  "homepage": "https://rtlzeromemory.github.io/Rezi/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RtlZeroMemory/Rezi.git",
+    "directory": "packages/ink-compat"
+  },
+  "bugs": {
+    "url": "https://github.com/RtlZeroMemory/Rezi/issues"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test dist/__tests__/*.test.js"
+  },
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist/", "README.md"],
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ink": "6.7.0"
+  },
+  "peerDependencies": {
+    "react": ">=19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "ink-testing-library": "^4.0.0",
+    "react": "^19.2.0",
+    "typescript": "^5.7.0"
+  }
+}
