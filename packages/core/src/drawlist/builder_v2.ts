@@ -130,6 +130,7 @@ function encodeStyle(style: TextStyle | undefined): EncodedStyle {
   if (style.italic) attrs |= 1 << 1;
   if (style.underline) attrs |= 1 << 2;
   if (style.inverse) attrs |= 1 << 3;
+  if (style.dim) attrs |= 1 << 4;
 
   return { fg, bg, attrs };
 }

@@ -74,20 +74,21 @@ export function measureStackKinds(
       const forcedW = self.width === null ? null : clampWithin(self.width, minW, maxWCap);
       const forcedH = self.height === null ? null : clampWithin(self.height, minH, maxHCap);
 
-      const needsConstraintPass = vnode.children.some(
-        (c) => childHasFlexInMainAxis(c, "row") || childHasPercentInMainAxis(c, "row"),
-      );
-      const fillMain = forcedW === null && needsConstraintPass;
+      const hasFlexInMainAxis = vnode.children.some((c) => childHasFlexInMainAxis(c, "row"));
+      const hasPercentInMainAxis = vnode.children.some((c) => childHasPercentInMainAxis(c, "row"));
+      const needsConstraintPass = hasFlexInMainAxis || hasPercentInMainAxis;
+      const fillMain = forcedW === null && hasPercentInMainAxis;
       const fillCross =
         forcedH === null && vnode.children.some((c) => childHasPercentInCrossAxis(c, "row"));
 
-      const outerWLimit = forcedW ?? (fillMain ? maxWCap : maxWCap);
+      const outerWLimit = forcedW ?? maxWCap;
       const outerHLimit = forcedH ?? maxHCap;
 
       const cw = clampNonNegative(outerWLimit - padX);
       const chLimit = clampNonNegative(outerHLimit - padY);
 
       let maxChildH = 0;
+      let usedMainInConstraintPass = 0;
 
       if (needsConstraintPass) {
         const parentRect: Rect = { x: 0, y: 0, w: cw, h: chLimit };
@@ -193,6 +194,12 @@ export function measureStackKinds(
           const childH = align === "stretch" ? chLimit : sizeRes.value.h;
           if (childH > maxChildH) maxChildH = childH;
         }
+
+        for (let i = 0; i < mainSizes.length; i++) {
+          usedMainInConstraintPass += mainSizes[i] ?? 0;
+        }
+        usedMainInConstraintPass +=
+          vnode.children.length <= 1 ? 0 : gap * (vnode.children.length - 1);
       } else {
         let remainingWidth = cw;
         let cursorX = 0;
@@ -231,7 +238,8 @@ export function measureStackKinds(
         });
       }
 
-      const chosenW = forcedW ?? (fillMain ? maxWCap : maxWCap);
+      const shrinkW = padX + Math.min(cw, usedMainInConstraintPass);
+      const chosenW = forcedW ?? (fillMain ? maxWCap : Math.min(maxWCap, shrinkW));
       const chosenH = forcedH ?? (fillCross ? maxHCap : Math.min(maxHCap, padY + maxChildH));
       const innerW = clampWithin(chosenW, minW, maxWCap);
       const innerH = clampWithin(chosenH, minH, maxHCap);
@@ -268,20 +276,23 @@ export function measureStackKinds(
       const forcedW = self.width === null ? null : clampWithin(self.width, minW, maxWCap);
       const forcedH = self.height === null ? null : clampWithin(self.height, minH, maxHCap);
 
-      const needsConstraintPass = vnode.children.some(
-        (c) => childHasFlexInMainAxis(c, "column") || childHasPercentInMainAxis(c, "column"),
+      const hasFlexInMainAxis = vnode.children.some((c) => childHasFlexInMainAxis(c, "column"));
+      const hasPercentInMainAxis = vnode.children.some((c) =>
+        childHasPercentInMainAxis(c, "column"),
       );
-      const fillMain = forcedH === null && needsConstraintPass;
+      const needsConstraintPass = hasFlexInMainAxis || hasPercentInMainAxis;
+      const fillMain = forcedH === null && hasPercentInMainAxis;
       const fillCross =
         forcedW === null && vnode.children.some((c) => childHasPercentInCrossAxis(c, "column"));
 
       const outerWLimit = forcedW ?? maxWCap;
-      const outerHLimit = forcedH ?? (fillMain ? maxHCap : maxHCap);
+      const outerHLimit = forcedH ?? maxHCap;
 
       const cw = clampNonNegative(outerWLimit - padX);
       const ch = clampNonNegative(outerHLimit - padY);
 
       let maxChildW = 0;
+      let usedMainInConstraintPass = 0;
 
       if (needsConstraintPass) {
         const parentRect: Rect = { x: 0, y: 0, w: cw, h: ch };
@@ -387,6 +398,12 @@ export function measureStackKinds(
           const childW = align === "stretch" ? cw : sizeRes.value.w;
           if (childW > maxChildW) maxChildW = childW;
         }
+
+        for (let i = 0; i < mainSizes.length; i++) {
+          usedMainInConstraintPass += mainSizes[i] ?? 0;
+        }
+        usedMainInConstraintPass +=
+          vnode.children.length <= 1 ? 0 : gap * (vnode.children.length - 1);
       } else {
         let remainingHeight = ch;
         let cursorY = 0;
@@ -425,8 +442,9 @@ export function measureStackKinds(
         });
       }
 
+      const shrinkH = padY + Math.min(ch, usedMainInConstraintPass);
       const chosenW = forcedW ?? (fillCross ? maxWCap : Math.min(maxWCap, padX + maxChildW));
-      const chosenH = forcedH ?? (fillMain ? maxHCap : maxHCap);
+      const chosenH = forcedH ?? (fillMain ? maxHCap : Math.min(maxHCap, shrinkH));
       const innerW = clampWithin(chosenW, minW, maxWCap);
       const innerH = clampWithin(chosenH, minH, maxHCap);
       return ok({

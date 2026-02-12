@@ -4,6 +4,14 @@ import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
 import { createInstanceIdAllocator } from "../../runtime/instance.js";
+import {
+  type TableStateStore,
+  type TreeStateStore,
+  type VirtualListStateStore,
+  createTableStateStore,
+  createTreeStateStore,
+  createVirtualListStateStore,
+} from "../../runtime/localState.js";
 import { ui } from "../ui.js";
 
 function u16(bytes: Uint8Array, off: number): number {
@@ -60,6 +68,11 @@ function parseInternedStrings(bytes: Uint8Array): readonly string[] {
 function renderBytes(
   vnode: VNode,
   viewport: Readonly<{ cols: number; rows: number }> = { cols: 64, rows: 20 },
+  stores?: Readonly<{
+    virtualListStore?: VirtualListStateStore;
+    tableStore?: TableStateStore;
+    treeStore?: TreeStateStore;
+  }>,
 ): Uint8Array {
   const allocator = createInstanceIdAllocator(1);
   const committed = commitVNodeTree(null, vnode, { allocator });
@@ -84,6 +97,9 @@ function renderBytes(
     viewport,
     focusState: Object.freeze({ focusedId: null }),
     builder,
+    virtualListStore: stores?.virtualListStore,
+    tableStore: stores?.tableStore,
+    treeStore: stores?.treeStore,
   });
   const built = builder.build();
   assert.equal(built.ok, true, "drawlist should build");
@@ -92,6 +108,8 @@ function renderBytes(
 }
 
 describe("renderer regressions", () => {
+  const noop = (..._args: readonly unknown[]) => undefined;
+
   test("box shadow renders shade glyphs when enabled", () => {
     const withShadow = parseInternedStrings(
       renderBytes(
@@ -178,5 +196,252 @@ describe("renderer regressions", () => {
     const strings = parseInternedStrings(bytes);
     assert.equal(strings.includes("Ctrl+N"), true);
     assert.equal(strings.includes("Ctrl+O"), true);
+  });
+
+  test("virtualList clamps stale scrollTop after data shrink", () => {
+    const virtualListStore = createVirtualListStateStore();
+    const viewport = { cols: 40, rows: 6 } as const;
+    const id = "vl-shrink";
+    virtualListStore.set(id, { scrollTop: 15 });
+
+    renderBytes(
+      ui.virtualList({
+        id,
+        items: Array.from({ length: 20 }, (_, i) => `large-${String(i)}`),
+        itemHeight: 1,
+        renderItem: (item) => ui.text(item),
+      }),
+      viewport,
+      { virtualListStore },
+    );
+
+    const strings = parseInternedStrings(
+      renderBytes(
+        ui.virtualList({
+          id,
+          items: ["small-0", "small-1"],
+          itemHeight: 1,
+          renderItem: (item) => ui.text(item),
+        }),
+        viewport,
+        { virtualListStore },
+      ),
+    );
+
+    assert.equal(
+      strings.some((s) => s.includes("small-0")),
+      true,
+    );
+  });
+
+  test("table clamps stale scrollTop after data shrink", () => {
+    const tableStore = createTableStateStore();
+    const viewport = { cols: 40, rows: 6 } as const;
+    const id = "tbl-shrink";
+    tableStore.set(id, { scrollTop: 15 });
+
+    renderBytes(
+      ui.table({
+        id,
+        columns: [{ key: "name", header: "Name", width: 20 }],
+        data: Array.from({ length: 20 }, (_, i) => ({ name: `large-row-${String(i)}` })),
+        getRowKey: (row) => row.name,
+        border: "none",
+      }),
+      viewport,
+      { tableStore },
+    );
+
+    const strings = parseInternedStrings(
+      renderBytes(
+        ui.table({
+          id,
+          columns: [{ key: "name", header: "Name", width: 20 }],
+          data: [{ name: "small-row-0" }, { name: "small-row-1" }],
+          getRowKey: (row) => row.name,
+          border: "none",
+        }),
+        viewport,
+        { tableStore },
+      ),
+    );
+
+    assert.equal(
+      strings.some((s) => s.includes("small-row-0")),
+      true,
+    );
+  });
+
+  test("tree clamps stale scrollTop after data shrink", () => {
+    const treeStore = createTreeStateStore();
+    const viewport = { cols: 40, rows: 6 } as const;
+    const id = "tree-shrink";
+    treeStore.set(id, { scrollTop: 15 });
+
+    renderBytes(
+      ui.tree({
+        id,
+        data: Array.from({ length: 20 }, (_, i) =>
+          Object.freeze({ id: `large-node-${String(i)}`, children: [] as const }),
+        ),
+        getKey: (node) => node.id,
+        getChildren: (node) => node.children,
+        expanded: [],
+        onToggle: noop,
+        renderNode: (node) => ui.text(node.id),
+      }),
+      viewport,
+      { treeStore },
+    );
+
+    const strings = parseInternedStrings(
+      renderBytes(
+        ui.tree({
+          id,
+          data: Object.freeze([
+            Object.freeze({ id: "small-node-0", children: [] as const }),
+            Object.freeze({ id: "small-node-1", children: [] as const }),
+          ]),
+          getKey: (node) => node.id,
+          getChildren: (node) => node.children,
+          expanded: [],
+          onToggle: noop,
+          renderNode: (node) => ui.text(node.id),
+        }),
+        viewport,
+        { treeStore },
+      ),
+    );
+
+    assert.equal(
+      strings.some((s) => s.includes("small-node-0")),
+      true,
+    );
+  });
+
+  test("filePicker clamps stale scrollTop after data shrink", () => {
+    const treeStore = createTreeStateStore();
+    const viewport = { cols: 40, rows: 6 } as const;
+    const id = "picker-shrink";
+    treeStore.set(id, { scrollTop: 15 });
+
+    const largeData = Object.freeze({
+      name: "root",
+      path: "/",
+      type: "directory" as const,
+      children: Array.from({ length: 20 }, (_, i) =>
+        Object.freeze({
+          name: `large-file-${String(i)}`,
+          path: `/large-file-${String(i)}`,
+          type: "file" as const,
+        }),
+      ),
+    });
+    const smallData = Object.freeze({
+      name: "root",
+      path: "/",
+      type: "directory" as const,
+      children: Object.freeze([
+        Object.freeze({ name: "small-file-0", path: "/small-file-0", type: "file" as const }),
+        Object.freeze({ name: "small-file-1", path: "/small-file-1", type: "file" as const }),
+      ]),
+    });
+
+    renderBytes(
+      ui.filePicker({
+        id,
+        rootPath: "/",
+        data: largeData,
+        expandedPaths: ["/"],
+        onSelect: noop,
+        onToggle: noop,
+        onOpen: noop,
+      }),
+      viewport,
+      { treeStore },
+    );
+
+    const strings = parseInternedStrings(
+      renderBytes(
+        ui.filePicker({
+          id,
+          rootPath: "/",
+          data: smallData,
+          expandedPaths: ["/"],
+          onSelect: noop,
+          onToggle: noop,
+          onOpen: noop,
+        }),
+        viewport,
+        { treeStore },
+      ),
+    );
+
+    assert.equal(
+      strings.some((s) => s.includes("small-file-0")),
+      true,
+    );
+  });
+
+  test("fileTreeExplorer clamps stale scrollTop after data shrink", () => {
+    const treeStore = createTreeStateStore();
+    const viewport = { cols: 40, rows: 6 } as const;
+    const id = "explorer-shrink";
+    treeStore.set(id, { scrollTop: 15 });
+
+    const largeData = Object.freeze({
+      name: "root",
+      path: "/",
+      type: "directory" as const,
+      children: Array.from({ length: 20 }, (_, i) =>
+        Object.freeze({
+          name: `large-node-${String(i)}`,
+          path: `/large-node-${String(i)}`,
+          type: "file" as const,
+        }),
+      ),
+    });
+    const smallData = Object.freeze({
+      name: "root",
+      path: "/",
+      type: "directory" as const,
+      children: Object.freeze([
+        Object.freeze({ name: "small-node-0", path: "/small-node-0", type: "file" as const }),
+        Object.freeze({ name: "small-node-1", path: "/small-node-1", type: "file" as const }),
+      ]),
+    });
+
+    renderBytes(
+      ui.fileTreeExplorer({
+        id,
+        data: largeData,
+        expanded: ["/"],
+        onToggle: noop,
+        onSelect: noop,
+        onActivate: noop,
+      }),
+      viewport,
+      { treeStore },
+    );
+
+    const strings = parseInternedStrings(
+      renderBytes(
+        ui.fileTreeExplorer({
+          id,
+          data: smallData,
+          expanded: ["/"],
+          onToggle: noop,
+          onSelect: noop,
+          onActivate: noop,
+        }),
+        viewport,
+        { treeStore },
+      ),
+    );
+
+    assert.equal(
+      strings.some((s) => s.includes("small-node-0")),
+      true,
+    );
   });
 });

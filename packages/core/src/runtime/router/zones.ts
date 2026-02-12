@@ -72,8 +72,17 @@ export function routeKeyWithZones(
   if (event.kind !== "key") return Object.freeze({});
   if (event.action !== "down") return Object.freeze({});
 
-  const { focusedId, activeZoneId, zones, traps, trapStack, focusList, enabledById, pressableIds } =
-    ctx;
+  const {
+    focusedId,
+    activeZoneId,
+    zones,
+    lastFocusedByZone,
+    traps,
+    trapStack,
+    focusList,
+    enabledById,
+    pressableIds,
+  } = ctx;
 
   // Check if we're in an active trap
   const activeTrapIdMaybe = trapStack.length > 0 ? trapStack[trapStack.length - 1] : undefined;
@@ -97,7 +106,14 @@ export function routeKeyWithZones(
 
     // If zones exist, do zone-to-zone traversal
     if (zones.size > 0) {
-      const result = computeZoneTraversal(zones, activeZoneId, move, trapStack, traps);
+      const result = computeZoneTraversal(
+        zones,
+        activeZoneId,
+        move,
+        trapStack,
+        traps,
+        lastFocusedByZone,
+      );
       return Object.freeze({
         nextFocusedId: result.nextFocusedId,
         nextZoneId: result.nextZoneId,

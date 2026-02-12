@@ -133,8 +133,12 @@ export function fuzzyScore(item: CommandItem, query: string): number {
 export function sortByScore(items: readonly CommandItem[], query: string): readonly CommandItem[] {
   if (!query) return items;
 
-  const scored = items.map((item) => ({ item, score: fuzzyScore(item, query) }));
-  scored.sort((a, b) => b.score - a.score);
+  const scored = items.map((item, index) => ({ item, score: fuzzyScore(item, query), index }));
+  scored.sort((a, b) => {
+    const byScore = b.score - a.score;
+    if (byScore !== 0) return byScore;
+    return a.index - b.index;
+  });
   return Object.freeze(scored.filter((s) => s.score > 0).map((s) => s.item));
 }
 
@@ -181,9 +185,8 @@ export async function getFilteredItems(
   const results = await Promise.all(itemPromises);
   const allItems = results.flat();
 
-  // Filter and sort
-  const filtered = filterItems(allItems, effectiveQuery);
-  const sorted = sortByScore(filtered, effectiveQuery);
+  // Sort and remove non-matches via fuzzy score to allow non-substring fuzzy hits.
+  const sorted = sortByScore(allItems, effectiveQuery);
 
   return sorted;
 }

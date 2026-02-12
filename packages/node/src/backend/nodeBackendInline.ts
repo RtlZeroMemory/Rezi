@@ -112,6 +112,7 @@ const DEBUG_QUERY_MAX_RECORDS = 16384 as const;
 const EVENT_POOL_SIZE = 16 as const;
 const POLL_IDLE_MS = 2 as const;
 const POLL_BUSY_MS = 0 as const;
+const ZR_ERR_LIMIT = -3 as const;
 const RESOLVED_VOID = Promise.resolve();
 const SYNC_FRAME_ACK_MARKER = "__reziSyncFrameAck";
 const RESOLVED_SYNC_FRAME_ACK = Promise.resolve() as Promise<void> &
@@ -436,6 +437,12 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
       }
       if (PERF_ENABLED) {
         perfRecord("event_poll", performance.now() - startMs);
+      }
+      if (written === ZR_ERR_LIMIT) {
+        if (outBuf !== discardBuffer) eventPool.push(outBuf);
+        droppedSinceLast++;
+        schedulePoll(POLL_BUSY_MS);
+        return;
       }
       if (written < 0) {
         if (outBuf !== discardBuffer) eventPool.push(outBuf);

@@ -392,6 +392,7 @@ function getSortedZones(zones: ReadonlyMap<string, FocusZone>): readonly FocusZo
  * @param move TAB direction (next/prev)
  * @param trapStack Active trap stack (innermost trap is last)
  * @param traps All focus traps
+ * @param lastFocusedByZone Optional authoritative map of zone -> last focused id
  * @returns Next zone id and next focused id
  */
 export function computeZoneTraversal(
@@ -400,6 +401,7 @@ export function computeZoneTraversal(
   move: FocusMove,
   trapStack: readonly string[],
   traps: ReadonlyMap<string, CollectedTrap>,
+  lastFocusedByZone?: ReadonlyMap<string, string>,
 ): { nextZoneId: string | null; nextFocusedId: string | null } {
   // If in an active trap, constrain to trap's focusables
   const activeTrapIdMaybe = trapStack.length > 0 ? trapStack[trapStack.length - 1] : undefined;
@@ -448,8 +450,8 @@ export function computeZoneTraversal(
     return { nextZoneId: nextZone.id, nextFocusedId: null };
   }
 
-  // If zone has a lastFocusedId, prefer that - use Set for O(1) check
-  const lastFocused = nextZone.lastFocusedId;
+  // Prefer authoritative runtime last-focused map when available.
+  const lastFocused = lastFocusedByZone?.get(nextZone.id) ?? nextZone.lastFocusedId;
   if (lastFocused !== null) {
     // Use a Set for O(1) membership check instead of O(n) includes.
     const focusableSet = new Set(zoneFocusables);

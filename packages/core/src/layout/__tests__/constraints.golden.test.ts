@@ -67,6 +67,34 @@ describe("constraints (deterministic) - golden cases", () => {
     assert.equal(out.children[0]?.children[0]?.rect.h, 10);
   });
 
+  test("nested row with capped flex children does not starve sibling width", () => {
+    const tree = ui.row({}, [
+      ui.row({}, [
+        ui.box({ border: "none", flex: 1, maxWidth: 3 }, []),
+        ui.box({ border: "none", flex: 1, maxWidth: 3 }, []),
+      ]),
+      ui.box({ border: "none" }, [ui.text("z")]),
+    ]);
+
+    const out = mustLayout(tree, 20, 5);
+    assert.equal(out.children[0]?.rect.w, 6);
+    assert.equal(out.children[1]?.rect.w, 1);
+  });
+
+  test("nested column with capped flex children does not starve sibling height", () => {
+    const tree = ui.column({}, [
+      ui.column({}, [
+        ui.box({ border: "none", flex: 1, maxHeight: 2 }, []),
+        ui.box({ border: "none", flex: 1, maxHeight: 2 }, []),
+      ]),
+      ui.box({ border: "none" }, [ui.text("y")]),
+    ]);
+
+    const out = mustLayout(tree, 10, 10);
+    assert.equal(out.children[0]?.rect.h, 4);
+    assert.equal(out.children[1]?.rect.h, 1);
+  });
+
   test("row child margin reserves outer space and offsets child rect", () => {
     const tree = ui.row({}, [
       ui.box({ border: "none", width: 4, height: 2, m: 1 }, [ui.text("x")]),

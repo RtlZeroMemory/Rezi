@@ -13,6 +13,25 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
+function parseArgs(argv) {
+  let profile = "full";
+
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--profile") {
+      const v = argv[i + 1];
+      if (v === "full" || v === "reduced") {
+        profile = v;
+        i++;
+        continue;
+      }
+      throw new Error(`run-e2e: invalid --profile value: ${String(v)}`);
+    }
+  }
+
+  return { profile };
+}
+
 function listDirSorted(dir) {
   const entries = readdirSync(dir);
   entries.sort();
@@ -62,6 +81,7 @@ function collectPackageE2eTests(root) {
 }
 
 const root = process.cwd();
+const { profile } = parseArgs(process.argv.slice(2));
 const files = collectPackageE2eTests(root);
 
 if (files.length === 0) {
@@ -80,7 +100,10 @@ const args = ["--test", "--test-concurrency=1", ...relFiles];
 const res = spawnSync(cmd, args, {
   cwd: root,
   stdio: "inherit",
-  env: { ...process.env },
+  env: {
+    ...process.env,
+    REZI_E2E_PROFILE: profile,
+  },
 });
 
 process.exit(res.status ?? 1);

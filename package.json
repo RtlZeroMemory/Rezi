@@ -28,6 +28,7 @@
     "check": "npm run check:core-portability && npm run check:docs && npm run check:unicode",
     "test": "node scripts/run-tests.mjs",
     "test:e2e": "node scripts/run-e2e.mjs",
+    "test:e2e:reduced": "node scripts/run-e2e.mjs --profile reduced",
     "test:scripts": "node scripts/run-tests.mjs --scope scripts",
     "test:packages": "node scripts/run-tests.mjs --scope packages",
     "bench": "node --expose-gc packages/bench/dist/run.js",

@@ -77,11 +77,32 @@ jobs:
       - name: Build native addon
         run: npm run build:native
 
-      - name: Terminal e2e
+      - name: Terminal e2e (Linux full)
         if: runner.os == 'Linux'
         run: npm run test:e2e
 
-      - name: Native smoke + worker integration
+      - name: Terminal e2e equivalent (non-Linux reduced)
+        if: runner.os != 'Linux'
+        run: npm run test:e2e:reduced
+
+      - name: Native smoke + worker integration (Unix PTY)
+        if: runner.os != 'Windows'
+        run: |
+          python3 - <<'PY'
+          import os
+          import pty
+          import sys
+
+          status = pty.spawn(["bash", "-lc", "npm run test:native:smoke"])
+          if os.WIFEXITED(status):
+              sys.exit(os.WEXITSTATUS(status))
+          if os.WIFSIGNALED(status):
+              sys.exit(128 + os.WTERMSIG(status))
+          sys.exit(1)
+          PY
+
+      - name: Native smoke + worker integration (Windows)
+        if: runner.os == 'Windows'
         run: npm run test:native:smoke
 
   docs:

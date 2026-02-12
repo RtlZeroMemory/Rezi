@@ -278,6 +278,47 @@ describe("WidgetRenderer integration battery", () => {
     assert.deepEqual(events, ["enter:zone-1", "exit:zone-1", "enter:zone-2"]);
   });
 
+  test("focusZone restores latest focused widget when leaving and returning in same cycle", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const vnode = ui.column({}, [
+      ui.focusZone({ id: "zone-1", navigation: "linear", wrapAround: true }, [
+        ui.button({ id: "a", label: "A" }),
+        ui.button({ id: "b", label: "B" }),
+      ]),
+      ui.focusZone({ id: "zone-2", navigation: "linear", wrapAround: true }, [
+        ui.button({ id: "c", label: "C" }),
+        ui.button({ id: "d", label: "D" }),
+      ]),
+    ]);
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 40, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    // Same interaction cycle: move within zone-1, leave to zone-2, then return via TAB wrap.
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "a");
+
+    renderer.routeEngineEvent(keyEvent(21 /* DOWN */));
+    assert.equal(renderer.getFocusedId(), "b");
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "c");
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "b");
+  });
+
   test("focusZone onEnter/onExit swallow exceptions", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({

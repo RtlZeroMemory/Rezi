@@ -34,6 +34,7 @@ import {
  * Only active when REZI_PERF=1.
  */
 const PERF_ENABLED = (process.env as Readonly<{ REZI_PERF?: string }>).REZI_PERF === "1";
+const ZR_ERR_LIMIT = -3;
 type PerfSample = { phase: string; durationMs: number };
 const perfSamples: PerfSample[] = [];
 const PERF_MAX_SAMPLES = 1024;
@@ -747,6 +748,15 @@ function tick(): void {
     }
     if (PERF_ENABLED) {
       perfRecord("event_poll", performance.now() - pollStart);
+    }
+
+    if (written === ZR_ERR_LIMIT) {
+      if (outBuf !== discard) eventPool.push(outBuf);
+      // Oversized event batch for configured maxEventBytes: recover by dropping
+      // this batch and continuing the pump without aborting the backend.
+      droppedSinceLast++;
+      didEventWork = true;
+      break;
     }
 
     if (written < 0) {

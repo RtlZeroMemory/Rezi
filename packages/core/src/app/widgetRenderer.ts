@@ -2105,6 +2105,7 @@ export class WidgetRenderer<S> {
             activeZoneId: this.focusState.activeZoneId,
             focusList: this.focusList,
             zones: this.focusState.zones,
+            lastFocusedByZone: this.focusState.lastFocusedByZone,
             traps: this.traps,
             trapStack: this.focusState.trapStack,
             enabledById,

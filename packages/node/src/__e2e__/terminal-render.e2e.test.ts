@@ -11,6 +11,9 @@ const ROWS = 16;
 const TIMEOUT_MS = 5000;
 
 const isLinux = process.platform === "linux";
+const { REZI_E2E_PROFILE } = process.env;
+const e2eProfile = REZI_E2E_PROFILE === "reduced" ? "reduced" : "full";
+const runFullTerminalE2e = e2eProfile === "full";
 const hasPythonPty = (() => {
   if (!isLinux) return false;
   const probe = spawnSync("python3", ["-c", "import pty,sys"], { stdio: "ignore" });
@@ -42,7 +45,15 @@ function snapshotScreen(term: HeadlessTerminal, rows: number): string[] {
 
 test(
   "terminal e2e renders real output",
-  { skip: isLinux ? (hasPythonPty ? false : "python3 required for pty") : "linux-only" },
+  {
+    skip: runFullTerminalE2e
+      ? isLinux
+        ? hasPythonPty
+          ? false
+          : "python3 required for pty"
+        : "linux-only"
+      : "full-profile-only",
+  },
   async () => {
     const Terminal = await loadTerminalCtor();
     const term = new Terminal({ cols: COLS, rows: ROWS, allowProposedApi: true });

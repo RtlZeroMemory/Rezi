@@ -125,6 +125,98 @@ mod ffi {
   }
 
   #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct plat_caps_t {
+    pub color_mode: u8,
+    pub supports_mouse: u8,
+    pub supports_bracketed_paste: u8,
+    pub supports_focus_events: u8,
+    pub supports_osc52: u8,
+    pub supports_sync_update: u8,
+    pub supports_scroll_region: u8,
+    pub supports_cursor_shape: u8,
+    pub supports_output_wait_writable: u8,
+    pub _pad0: [u8; 3],
+    pub sgr_attrs_supported: u32,
+  }
+
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct zr_style_t {
+    pub fg_rgb: u32,
+    pub bg_rgb: u32,
+    pub attrs: u32,
+    pub reserved: u32,
+  }
+
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct zr_cell_t {
+    pub glyph: [u8; 32],
+    pub glyph_len: u8,
+    pub width: u8,
+    pub _pad0: u16,
+    pub style: zr_style_t,
+  }
+
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct zr_fb_t {
+    pub cols: u32,
+    pub rows: u32,
+    pub cells: *mut zr_cell_t,
+  }
+
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct zr_cursor_state_t {
+    pub x: i32,
+    pub y: i32,
+    pub shape: u8,
+    pub visible: u8,
+    pub blink: u8,
+    pub reserved0: u8,
+  }
+
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct zr_term_state_t {
+    pub cursor_x: u32,
+    pub cursor_y: u32,
+    pub cursor_visible: u8,
+    pub cursor_shape: u8,
+    pub cursor_blink: u8,
+    pub _pad0: u8,
+    pub style: zr_style_t,
+  }
+
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct zr_diff_stats_t {
+    pub dirty_lines: u32,
+    pub dirty_cells: u32,
+    pub damage_rects: u32,
+    pub damage_cells: u32,
+    pub damage_full_frame: u8,
+    pub path_sweep_used: u8,
+    pub path_damage_used: u8,
+    pub scroll_opt_attempted: u8,
+    pub scroll_opt_hit: u8,
+    pub collision_guard_hits: u32,
+    pub _pad0: u32,
+    pub bytes_emitted: usize,
+  }
+
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct zr_damage_rect_t {
+    pub x0: u32,
+    pub y0: u32,
+    pub x1: u32,
+    pub y1: u32,
+  }
+
+  #[repr(C)]
   pub struct zr_engine_t {
     _private: [u8; 0],
   }
@@ -192,6 +284,25 @@ mod ffi {
 
   extern "C" {
     pub fn zr_engine_config_default() -> zr_engine_config_t;
+    pub fn zr_fb_init(fb: *mut zr_fb_t, cols: u32, rows: u32) -> ZrResultT;
+    pub fn zr_fb_release(fb: *mut zr_fb_t);
+    pub fn zr_fb_cell(fb: *mut zr_fb_t, x: u32, y: u32) -> *mut zr_cell_t;
+    pub fn zr_diff_render(
+      prev: *const zr_fb_t,
+      next: *const zr_fb_t,
+      caps: *const plat_caps_t,
+      initial_term_state: *const zr_term_state_t,
+      desired_cursor_state: *const zr_cursor_state_t,
+      lim: *const zr_limits_t,
+      scratch_damage_rects: *mut zr_damage_rect_t,
+      scratch_damage_rect_cap: u32,
+      enable_scroll_optimizations: u8,
+      out_buf: *mut u8,
+      out_cap: usize,
+      out_len: *mut usize,
+      out_final_term_state: *mut zr_term_state_t,
+      out_stats: *mut zr_diff_stats_t,
+    ) -> ZrResultT;
 
     pub fn engine_create(out_engine: *mut *mut zr_engine_t, cfg: *const zr_engine_config_t) -> ZrResultT;
     pub fn engine_destroy(e: *mut zr_engine_t);
@@ -1023,6 +1134,18 @@ const DEBUG_QUERY_KEYS: &[(&str, &str)] = &[
   ("maxRecords", "max_records"),
 ];
 
+fn parse_debug_query_bigint_u64(sign_bit: bool, words: &[u64]) -> ParseResult<u64> {
+  // Reject negative values while still allowing canonical zero.
+  if sign_bit && words.iter().any(|w| *w != 0) {
+    return Err(());
+  }
+  match words {
+    [] => Ok(0),
+    [value] => Ok(*value),
+    _ => Err(()), // More than 64 bits.
+  }
+}
+
 fn js_u64(obj: &JsObject, primary: &str, alias: &str) -> ParseResult<Option<u64>> {
   for name in [primary, alias] {
     let v = match obj.get_named_property::<JsUnknown>(name) {
@@ -1033,8 +1156,8 @@ fn js_u64(obj: &JsObject, primary: &str, alias: &str) -> ParseResult<Option<u64>
       ValueType::Undefined => continue,
       ValueType::BigInt => {
         let mut bi = unsafe { v.cast::<napi::JsBigInt>() };
-        let (_, words) = bi.get_words().map_err(|_| ())?;
-        let val = if words.is_empty() { 0u64 } else { words[0] };
+        let (sign_bit, words) = bi.get_words().map_err(|_| ())?;
+        let val = parse_debug_query_bigint_u64(sign_bit, &words)?;
         return Ok(Some(val));
       }
       ValueType::Number => {
@@ -1301,4 +1424,208 @@ pub fn engine_debug_reset(engine_id: u32) -> i32 {
 
   unsafe { ffi::engine_debug_reset(guard.slot.engine) };
   ffi::ZR_OK
+}
+
+#[cfg(test)]
+mod tests {
+  use super::{ffi, parse_debug_query_bigint_u64};
+
+  const ATTR_BOLD: u32 = 1 << 0;
+  const ATTR_UNDERLINE: u32 = 1 << 2;
+  const ATTR_DIM: u32 = 1 << 4;
+
+  fn contains_subsequence(haystack: &[u8], needle: &[u8]) -> bool {
+    if needle.is_empty() {
+      return true;
+    }
+    haystack.windows(needle.len()).any(|w| w == needle)
+  }
+
+  fn style_with_attrs(attrs: u32) -> ffi::zr_style_t {
+    ffi::zr_style_t {
+      fg_rgb: 0,
+      bg_rgb: 0,
+      attrs,
+      reserved: 0,
+    }
+  }
+
+  struct SingleCellFramebuffer {
+    raw: ffi::zr_fb_t,
+  }
+
+  impl SingleCellFramebuffer {
+    fn with_attrs(attrs: u32) -> Self {
+      let mut raw = ffi::zr_fb_t {
+        cols: 0,
+        rows: 0,
+        cells: std::ptr::null_mut(),
+      };
+
+      let rc = unsafe { ffi::zr_fb_init(&mut raw as *mut _, 1, 1) };
+      assert_eq!(rc, ffi::ZR_OK, "zr_fb_init must succeed for test framebuffer");
+
+      let cell = unsafe { ffi::zr_fb_cell(&mut raw as *mut _, 0, 0) };
+      assert!(!cell.is_null(), "zr_fb_cell(0,0) must return a valid pointer");
+      unsafe {
+        (*cell).glyph = [0; 32];
+        (*cell).glyph[0] = b'X';
+        (*cell).glyph_len = 1;
+        (*cell).width = 1;
+        (*cell)._pad0 = 0;
+        (*cell).style = style_with_attrs(attrs);
+      }
+
+      Self { raw }
+    }
+  }
+
+  impl Drop for SingleCellFramebuffer {
+    fn drop(&mut self) {
+      unsafe { ffi::zr_fb_release(&mut self.raw as *mut _) };
+    }
+  }
+
+  fn render_style_transition(current_attrs: u32, desired_attrs: u32) -> Vec<u8> {
+    let prev = SingleCellFramebuffer::with_attrs(current_attrs);
+    let next = SingleCellFramebuffer::with_attrs(desired_attrs);
+
+    let caps = ffi::plat_caps_t {
+      color_mode: 3,
+      supports_mouse: 0,
+      supports_bracketed_paste: 0,
+      supports_focus_events: 0,
+      supports_osc52: 0,
+      supports_sync_update: 0,
+      supports_scroll_region: 0,
+      supports_cursor_shape: 1,
+      supports_output_wait_writable: 0,
+      _pad0: [0, 0, 0],
+      sgr_attrs_supported: u32::MAX,
+    };
+    let limits = unsafe { ffi::zr_engine_config_default() }.limits;
+    let initial_term_state = ffi::zr_term_state_t {
+      cursor_x: 0,
+      cursor_y: 0,
+      cursor_visible: 1,
+      cursor_shape: 0,
+      cursor_blink: 0,
+      _pad0: 0,
+      style: style_with_attrs(current_attrs),
+    };
+    let desired_cursor_state = ffi::zr_cursor_state_t {
+      x: -1,
+      y: -1,
+      shape: 0,
+      visible: 1,
+      blink: 0,
+      reserved0: 0,
+    };
+
+    let mut scratch_damage_rects = vec![
+      ffi::zr_damage_rect_t {
+        x0: 0,
+        y0: 0,
+        x1: 0,
+        y1: 0,
+      };
+      limits.diff_max_damage_rects as usize
+    ];
+    let mut out = [0u8; 256];
+    let mut out_len = 0usize;
+    let mut out_final_term_state: ffi::zr_term_state_t = unsafe { std::mem::zeroed() };
+    let mut out_stats: ffi::zr_diff_stats_t = unsafe { std::mem::zeroed() };
+
+    let rc = unsafe {
+      ffi::zr_diff_render(
+        &prev.raw as *const _,
+        &next.raw as *const _,
+        &caps as *const _,
+        &initial_term_state as *const _,
+        &desired_cursor_state as *const _,
+        &limits as *const _,
+        scratch_damage_rects.as_mut_ptr(),
+        scratch_damage_rects.len() as u32,
+        0,
+        out.as_mut_ptr(),
+        out.len(),
+        &mut out_len as *mut _,
+        &mut out_final_term_state as *mut _,
+        &mut out_stats as *mut _,
+      )
+    };
+    assert_eq!(rc, ffi::ZR_OK, "zr_diff_render must succeed for style transition tests");
+    assert!(out_len > 0, "zr_diff_render must emit output for style-only delta");
+
+    out[..out_len].to_vec()
+  }
+
+  #[test]
+  fn debug_query_bigint_u64_accepts_in_range_values() {
+    assert_eq!(parse_debug_query_bigint_u64(false, &[]), Ok(0));
+    assert_eq!(parse_debug_query_bigint_u64(false, &[0]), Ok(0));
+    assert_eq!(parse_debug_query_bigint_u64(false, &[123]), Ok(123));
+    assert_eq!(parse_debug_query_bigint_u64(false, &[u64::MAX]), Ok(u64::MAX));
+  }
+
+  #[test]
+  fn debug_query_bigint_u64_rejects_negative_values() {
+    assert!(parse_debug_query_bigint_u64(true, &[1]).is_err());
+    assert!(parse_debug_query_bigint_u64(true, &[u64::MAX]).is_err());
+  }
+
+  #[test]
+  fn debug_query_bigint_u64_rejects_overflow_values() {
+    assert!(parse_debug_query_bigint_u64(false, &[0, 1]).is_err());
+    assert!(parse_debug_query_bigint_u64(false, &[u64::MAX, 1]).is_err());
+  }
+
+  #[test]
+  fn diff_emits_dim_and_normal_intensity_sequences() {
+    let to_dim = render_style_transition(0, ATTR_DIM);
+    assert!(
+      contains_subsequence(&to_dim, b"\x1b[2m"),
+      "expected SGR dim sequence in output: {:?}",
+      String::from_utf8_lossy(&to_dim),
+    );
+
+    let to_normal = render_style_transition(ATTR_DIM, 0);
+    assert!(
+      contains_subsequence(&to_normal, b"\x1b[22m"),
+      "expected SGR normal-intensity sequence in output: {:?}",
+      String::from_utf8_lossy(&to_normal),
+    );
+  }
+
+  #[test]
+  fn diff_reapplies_intensity_when_switching_bold_and_dim() {
+    let dim_to_bold = render_style_transition(ATTR_DIM, ATTR_BOLD);
+    assert!(
+      contains_subsequence(&dim_to_bold, b"\x1b[22;1m"),
+      "expected dim->bold transition to emit 22;1: {:?}",
+      String::from_utf8_lossy(&dim_to_bold),
+    );
+
+    let bold_to_dim = render_style_transition(ATTR_BOLD, ATTR_DIM);
+    assert!(
+      contains_subsequence(&bold_to_dim, b"\x1b[22;2m"),
+      "expected bold->dim transition to emit 22;2: {:?}",
+      String::from_utf8_lossy(&bold_to_dim),
+    );
+  }
+
+  #[test]
+  fn diff_preserves_non_intensity_attr_delta_path() {
+    let dim_to_dim_underline = render_style_transition(ATTR_DIM, ATTR_DIM | ATTR_UNDERLINE);
+    assert!(
+      contains_subsequence(&dim_to_dim_underline, b"\x1b[4m"),
+      "expected underline add sequence in output: {:?}",
+      String::from_utf8_lossy(&dim_to_dim_underline),
+    );
+    assert!(
+      !contains_subsequence(&dim_to_dim_underline, b"\x1b[22m"),
+      "underline-only delta should not reset intensity: {:?}",
+      String::from_utf8_lossy(&dim_to_dim_underline),
+    );
+  }
 }

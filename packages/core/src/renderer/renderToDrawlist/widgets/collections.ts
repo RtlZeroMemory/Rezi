@@ -15,7 +15,12 @@ import type { Theme } from "../../../theme/theme.js";
 import { distributeColumnWidths } from "../../../widgets/table.js";
 import { type FlattenedNode, computeNodeState, flattenTree } from "../../../widgets/tree.js";
 import type { TableProps, TreeProps, VirtualListProps } from "../../../widgets/types.js";
-import { computeVisibleRange, getItemHeight, getItemOffset } from "../../../widgets/virtualList.js";
+import {
+  computeVisibleRange,
+  getItemHeight,
+  getItemOffset,
+  getTotalHeight,
+} from "../../../widgets/virtualList.js";
 import { renderBoxBorder } from "../boxBorder.js";
 import { isVisibleRect } from "../indices.js";
 import { renderVNodeSimple } from "../simpleVNode.js";
@@ -65,6 +70,17 @@ function alignCellContent(text: string, width: number, align: CellAlign): string
   return `${clipped}${cachedSpaces(pad)}`;
 }
 
+function clampScrollTop(scrollTop: number, totalHeight: number, viewportHeight: number): number {
+  const maxScrollTop = Math.max(0, totalHeight - viewportHeight);
+  if (!Number.isFinite(scrollTop) || scrollTop <= 0) return 0;
+  if (scrollTop >= maxScrollTop) return maxScrollTop;
+  return scrollTop;
+}
+
+function clampIndexScrollTop(scrollTop: number, totalRows: number, viewportHeight: number): number {
+  return Math.trunc(clampScrollTop(scrollTop, totalRows, viewportHeight));
+}
+
 export function renderCollectionWidget(
   builder: DrawlistBuilderV1,
   focusState: FocusState,
@@ -95,11 +111,14 @@ export function renderCollectionWidget(
         ? virtualListStore.get(props.id)
         : { scrollTop: 0, selectedIndex: 0, viewportHeight: rect.h, startIndex: 0, endIndex: 0 };
 
+      const totalHeight = getTotalHeight(items, itemHeight);
+      const effectiveScrollTop = clampScrollTop(state.scrollTop, totalHeight, rect.h);
+
       // Compute visible range with overscan
       const { startIndex, endIndex, itemOffsets } = computeVisibleRange(
         items,
         itemHeight,
-        state.scrollTop,
+        effectiveScrollTop,
         rect.h,
         overscan,
       );
@@ -124,7 +143,7 @@ export function renderCollectionWidget(
 
         const h = getItemHeight(items, itemHeight, i);
         const itemOffset = itemOffsets[i] ?? getItemOffset(items, itemHeight, i);
-        const itemY = rect.y + itemOffset - state.scrollTop;
+        const itemY = rect.y + itemOffset - effectiveScrollTop;
         const focused = i === state.selectedIndex;
 
         // Skip if item outside viewport (safety check)
@@ -225,7 +244,10 @@ export function renderCollectionWidget(
 
       // Visible rows
       const rowCount = props.data.length;
-      const effectiveScrollTop = virtualized ? tableState.scrollTop : 0;
+      const totalBodyHeight = rowCount * safeRowHeight;
+      const effectiveScrollTop = virtualized
+        ? clampScrollTop(tableState.scrollTop, totalBodyHeight, bodyH)
+        : 0;
       const startIndex = virtualized
         ? Math.max(0, Math.floor(effectiveScrollTop / safeRowHeight))
         : 0;
@@ -381,7 +403,8 @@ export function renderCollectionWidget(
         );
       }
 
-      const startIndex = Math.max(0, state.scrollTop);
+      const effectiveScrollTop = clampIndexScrollTop(state.scrollTop, flatNodes.length, rect.h);
+      const startIndex = Math.max(0, effectiveScrollTop);
       const endIndex = Math.min(flatNodes.length, startIndex + rect.h);
 
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
@@ -411,7 +434,7 @@ export function renderCollectionWidget(
           expandedSet,
         );
 
-        const yRow = rect.y + (i - state.scrollTop);
+        const yRow = rect.y + (i - effectiveScrollTop);
         const prefix = prefixes[i] ?? "";
         const prefixW = measureTextCells(prefix);
         builder.drawText(

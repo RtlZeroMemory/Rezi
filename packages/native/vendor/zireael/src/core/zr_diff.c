@@ -56,10 +56,12 @@ static const uint8_t ZR_ANSI16_PALETTE[16][3] = {
 /* SGR (Select Graphic Rendition) codes. */
 #define ZR_SGR_RESET 0u
 #define ZR_SGR_BOLD 1u
+#define ZR_SGR_DIM 2u
 #define ZR_SGR_ITALIC 3u
 #define ZR_SGR_UNDERLINE 4u
 #define ZR_SGR_REVERSE 7u
 #define ZR_SGR_STRIKETHROUGH 9u
+#define ZR_SGR_NORMAL_INTENSITY 22u
 #define ZR_SGR_FG_256 38u        /* Extended foreground color */
 #define ZR_SGR_BG_256 48u        /* Extended background color */
 #define ZR_SGR_COLOR_MODE_256 5u /* 256-color mode selector */
@@ -76,7 +78,9 @@ static const uint8_t ZR_ANSI16_PALETTE[16][3] = {
 #define ZR_STYLE_ATTR_ITALIC (1u << 1)
 #define ZR_STYLE_ATTR_UNDERLINE (1u << 2)
 #define ZR_STYLE_ATTR_REVERSE (1u << 3)
-#define ZR_STYLE_ATTR_STRIKE (1u << 4)
+#define ZR_STYLE_ATTR_DIM (1u << 4)
+#define ZR_STYLE_ATTR_STRIKE (1u << 5)
+#define ZR_STYLE_ATTR_INTENSITY_MASK (ZR_STYLE_ATTR_BOLD | ZR_STYLE_ATTR_DIM)
 
 /* Adaptive sweep threshold tuning (dirty-row density, percent). */
 #define ZR_DIFF_SWEEP_DIRTY_LINE_PCT_BASE 35u
@@ -103,6 +107,7 @@ typedef struct zr_attr_map_t {
 
 static const zr_attr_map_t ZR_SGR_ATTRS[] = {
     {ZR_STYLE_ATTR_BOLD, ZR_SGR_BOLD},
+    {ZR_STYLE_ATTR_DIM, ZR_SGR_DIM},
     {ZR_STYLE_ATTR_ITALIC, ZR_SGR_ITALIC},
     {ZR_STYLE_ATTR_UNDERLINE, ZR_SGR_UNDERLINE},
     {ZR_STYLE_ATTR_REVERSE, ZR_SGR_REVERSE},
@@ -570,25 +575,40 @@ static bool zr_emit_sgr_delta(zr_sb_t* sb, zr_term_state_t* ts, zr_style_t desir
 
   /*
     Delta-safe subset:
-      - add attrs (1/3/4/7/9) without reset
+      - add attrs (1/2/3/4/7/9) without reset
+      - clear intensity attrs (bold/dim) via 22 + desired intensity reapply
       - update fg/bg colors directly
     Attr clears require reset to avoid backend-specific off-code assumptions.
   */
-  if ((ts->style.attrs & ~desired.attrs) != 0u) {
+  const uint32_t current_attrs = ts->style.attrs;
+  const uint32_t desired_attrs = desired.attrs;
+  const uint32_t removed_attrs = current_attrs & ~desired_attrs;
+  if ((removed_attrs & ~ZR_STYLE_ATTR_INTENSITY_MASK) != 0u) {
     return zr_emit_sgr_absolute(sb, ts, desired, caps);
   }
+
+  const uint32_t current_intensity = current_attrs & ZR_STYLE_ATTR_INTENSITY_MASK;
+  const uint32_t desired_intensity = desired_attrs & ZR_STYLE_ATTR_INTENSITY_MASK;
+  const bool intensity_changed = (current_intensity != desired_intensity);
+  const bool intensity_needs_reset = intensity_changed && current_intensity != 0u;
 
   const bool fg_changed = (ts->style.fg_rgb != desired.fg_rgb);
   const bool bg_changed = (ts->style.bg_rgb != desired.bg_rgb);
   bool attrs_added = false;
+  if (!intensity_needs_reset && (desired_intensity & ~current_intensity) != 0u) {
+    attrs_added = true;
+  }
   for (size_t i = 0u; i < (sizeof(ZR_SGR_ATTRS) / sizeof(ZR_SGR_ATTRS[0])); i++) {
+    if ((ZR_SGR_ATTRS[i].bit & ZR_STYLE_ATTR_INTENSITY_MASK) != 0u) {
+      continue;
+    }
     if ((desired.attrs & ZR_SGR_ATTRS[i].bit) != 0u && (ts->style.attrs & ZR_SGR_ATTRS[i].bit) == 0u) {
       attrs_added = true;
       break;
     }
   }
 
-  if (!attrs_added && !fg_changed && !bg_changed) {
+  if (!attrs_added && !fg_changed && !bg_changed && !intensity_changed) {
     ts->style = desired;
     return true;
   }
@@ -598,7 +618,57 @@ static bool zr_emit_sgr_delta(zr_sb_t* sb, zr_term_state_t* ts, zr_style_t desir
   }
 
   bool wrote_any = false;
+  if (intensity_needs_reset) {
+    if (!zr_sb_write_u32_dec(sb, ZR_SGR_NORMAL_INTENSITY)) {
+      return false;
+    }
+    wrote_any = true;
+  }
+
+  if (intensity_needs_reset) {
+    if ((desired_intensity & ZR_STYLE_ATTR_BOLD) != 0u) {
+      if (wrote_any && !zr_sb_write_u8(sb, (uint8_t)';')) {
+        return false;
+      }
+      if (!zr_sb_write_u32_dec(sb, ZR_SGR_BOLD)) {
+        return false;
+      }
+      wrote_any = true;
+    }
+    if ((desired_intensity & ZR_STYLE_ATTR_DIM) != 0u) {
+      if (wrote_any && !zr_sb_write_u8(sb, (uint8_t)';')) {
+        return false;
+      }
+      if (!zr_sb_write_u32_dec(sb, ZR_SGR_DIM)) {
+        return false;
+      }
+      wrote_any = true;
+    }
+  } else {
+    if ((desired_intensity & ZR_STYLE_ATTR_BOLD) != 0u && (current_intensity & ZR_STYLE_ATTR_BOLD) == 0u) {
+      if (wrote_any && !zr_sb_write_u8(sb, (uint8_t)';')) {
+        return false;
+      }
+      if (!zr_sb_write_u32_dec(sb, ZR_SGR_BOLD)) {
+        return false;
+      }
+      wrote_any = true;
+    }
+    if ((desired_intensity & ZR_STYLE_ATTR_DIM) != 0u && (current_intensity & ZR_STYLE_ATTR_DIM) == 0u) {
+      if (wrote_any && !zr_sb_write_u8(sb, (uint8_t)';')) {
+        return false;
+      }
+      if (!zr_sb_write_u32_dec(sb, ZR_SGR_DIM)) {
+        return false;
+      }
+      wrote_any = true;
+    }
+  }
+
   for (size_t i = 0u; i < (sizeof(ZR_SGR_ATTRS) / sizeof(ZR_SGR_ATTRS[0])); i++) {
+    if ((ZR_SGR_ATTRS[i].bit & ZR_STYLE_ATTR_INTENSITY_MASK) != 0u) {
+      continue;
+    }
     if ((desired.attrs & ZR_SGR_ATTRS[i].bit) == 0u || (ts->style.attrs & ZR_SGR_ATTRS[i].bit) != 0u) {
       continue;
     }

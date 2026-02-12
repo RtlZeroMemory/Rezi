@@ -362,6 +362,60 @@ describe("Focus Traps - TAB containment", () => {
   });
 });
 
+describe("Focus Zones - routeKeyWithZones", () => {
+  test("TAB traversal prefers authoritative lastFocusedByZone over stale zone metadata", () => {
+    const zones = new Map<string, FocusZone>([
+      [
+        "zone1",
+        {
+          id: "zone1",
+          tabIndex: 0,
+          navigation: "linear",
+          columns: 1,
+          wrapAround: true,
+          focusableIds: ["a", "b"],
+          lastFocusedId: null,
+        },
+      ],
+      [
+        "zone2",
+        {
+          id: "zone2",
+          tabIndex: 1,
+          navigation: "linear",
+          columns: 1,
+          wrapAround: true,
+          focusableIds: ["c", "d"],
+          lastFocusedId: null,
+        },
+      ],
+    ]);
+
+    const ctx: KeyRoutingCtxWithZones = {
+      focusedId: "c",
+      activeZoneId: "zone2",
+      focusList: ["a", "b", "c", "d"],
+      zones,
+      lastFocusedByZone: new Map<string, string>([
+        ["zone1", "b"],
+        ["zone2", "c"],
+      ]),
+      traps: new Map(),
+      trapStack: [],
+      enabledById: new Map([
+        ["a", true],
+        ["b", true],
+        ["c", true],
+        ["d", true],
+      ]),
+    };
+
+    const result = routeKeyWithZones(keyEvent(ZR_KEY_TAB), ctx);
+    assert.equal(result.nextZoneId, "zone1");
+    assert.equal(result.nextFocusedId, "b");
+  });
+});
+
 describe("Focus Zones - VNode integration", () => {
   test("collectFocusZones extracts zone metadata", () => {
     const tree: VNode = {

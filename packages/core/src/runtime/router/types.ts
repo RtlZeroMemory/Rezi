@@ -67,6 +67,7 @@ export type KeyRoutingCtxWithZones = Readonly<{
   activeZoneId: string | null;
   focusList: readonly string[];
   zones: ReadonlyMap<string, FocusZone>;
+  lastFocusedByZone?: ReadonlyMap<string, string>;
   traps: ReadonlyMap<string, CollectedTrap>;
   trapStack: readonly string[];
   enabledById: EnabledById;

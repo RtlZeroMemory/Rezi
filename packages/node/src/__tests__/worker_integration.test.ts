@@ -354,6 +354,64 @@ test("worker: event pool backpressure + droppedSinceLast", async () => {
   }
 });
 
+test("worker: oversized event batch (ZR_ERR_LIMIT) is dropped without fatal", async () => {
+  const worker = makeWorker();
+  try {
+    post(worker, { type: "init", config: { maxEventBytes: 64, fpsCap: 1000 } });
+    await waitFor(worker, (m) => m.type === "ready");
+
+    const oversizedPayload = new Uint8Array(new ArrayBuffer(16));
+    oversizedPayload.set([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
+    post(
+      worker,
+      {
+        type: "postUserEvent",
+        tag: 7001,
+        payload: oversizedPayload.buffer,
+        byteLen: oversizedPayload.byteLength,
+      },
+      [oversizedPayload.buffer],
+    );
+
+    const smallPayload = new Uint8Array(new ArrayBuffer(1));
+    smallPayload[0] = 9;
+    post(
+      worker,
+      {
+        type: "postUserEvent",
+        tag: 7002,
+        payload: smallPayload.buffer,
+        byteLen: smallPayload.byteLength,
+      },
+      [smallPayload.buffer],
+    );
+
+    const next = await waitFor(worker, (m) => m.type === "events");
+    assert.equal(next.type, "events");
+    assert.equal(next.droppedSinceLast, 1);
+
+    const parsed = parseEventBatchV1(new Uint8Array(next.batch, 0, next.byteLen));
+    assert.equal(parsed.ok, true);
+    if (parsed.ok) {
+      assert.equal(parsed.value.events.length, 1);
+      const ev0 = parsed.value.events[0];
+      assert.ok(ev0 !== undefined);
+      const ev = ev0;
+      assert.equal(ev.kind, "user");
+      if (ev.kind !== "user") throw new Error("expected user event");
+      assert.equal(ev.tag, 7002);
+      assert.deepEqual(Array.from(ev.payload), [9]);
+    }
+
+    post(worker, { type: "eventsAck", buffer: next.batch }, [next.batch]);
+    post(worker, { type: "shutdown" });
+    await waitFor(worker, (m) => m.type === "shutdownComplete");
+    await once(worker, "exit");
+  } finally {
+    await worker.terminate();
+  }
+});
+
 test("worker: deterministic shutdownComplete + exit", async () => {
   const worker = makeWorker();
   try {
@@ -400,6 +458,47 @@ test("backend: createNodeBackendInternal integrates worker buffers + release", a
 
   const drawlist = new Uint8Array(new ArrayBuffer(8));
   drawlist.set([1, 1, 2, 3, 5, 8, 13, 21]);
+  await backend.requestFrame(drawlist);
+
+  await backend.stop();
+  backend.dispose();
+});
+
+test("backend: pollEvents recovers from oversized event batch (ZR_ERR_LIMIT)", async () => {
+  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const backend = createNodeBackendInternal({
+    config: { fpsCap: 1000, maxEventBytes: 64 },
+    nativeShimModule: shim,
+  });
+
+  await backend.start();
+
+  const oversizedPayload = new Uint8Array(new ArrayBuffer(16));
+  oversizedPayload.set([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
+  backend.postUserEvent(8101, oversizedPayload);
+
+  const smallPayload = new Uint8Array(new ArrayBuffer(1));
+  smallPayload[0] = 7;
+  backend.postUserEvent(8102, smallPayload);
+
+  const batch = await backend.pollEvents();
+  assert.equal(batch.droppedBatches, 1);
+
+  const parsed = parseEventBatchV1(batch.bytes);
+  assert.equal(parsed.ok, true);
+  if (parsed.ok) {
+    assert.equal(parsed.value.events.length, 1);
+    const ev0 = parsed.value.events[0];
+    assert.ok(ev0 !== undefined);
+    const ev = ev0;
+    assert.equal(ev.kind, "user");
+    if (ev.kind !== "user") throw new Error("expected user event");
+    assert.equal(ev.tag, 8102);
+    assert.deepEqual(Array.from(ev.payload), [7]);
+  }
+  batch.release();
+
+  const drawlist = Uint8Array.from([1, 2, 3, 4]);
   await backend.requestFrame(drawlist);
 
   await backend.stop();

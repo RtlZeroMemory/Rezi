@@ -15,6 +15,17 @@ import { mergeTextStyle } from "../textStyle.js";
 const EMPTY_STRING_ARRAY: readonly string[] = Object.freeze([]);
 const EMPTY_STRING_SET: ReadonlySet<string> = new Set<string>();
 
+function clampScrollTop(scrollTop: number, totalHeight: number, viewportHeight: number): number {
+  const maxScrollTop = Math.max(0, totalHeight - viewportHeight);
+  if (!Number.isFinite(scrollTop) || scrollTop <= 0) return 0;
+  if (scrollTop >= maxScrollTop) return maxScrollTop;
+  return scrollTop;
+}
+
+function clampIndexScrollTop(scrollTop: number, totalRows: number, viewportHeight: number): number {
+  return Math.trunc(clampScrollTop(scrollTop, totalRows, viewportHeight));
+}
+
 export function includesString(list: readonly string[] | undefined, value: string): boolean {
   if (!list || list.length === 0) return false;
   for (let i = 0; i < list.length; i++) {
@@ -172,14 +183,15 @@ export function renderFileWidgets(
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
       nodeStack.push(null);
 
-      const startIndex = Math.max(0, state.scrollTop);
+      const effectiveScrollTop = clampIndexScrollTop(state.scrollTop, flatNodes.length, rect.h);
+      const startIndex = Math.max(0, effectiveScrollTop);
       const endIndex = Math.min(flatNodes.length, startIndex + rect.h);
 
       for (let i = startIndex; i < endIndex; i++) {
         const fn = flatNodes[i];
         if (!fn) continue;
 
-        const yRow = rect.y + (i - state.scrollTop);
+        const yRow = rect.y + (i - effectiveScrollTop);
 
         const isSelected =
           props.multiSelect === true
@@ -330,14 +342,15 @@ export function renderFileWidgets(
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
       nodeStack.push(null);
 
-      const startIndex = Math.max(0, state.scrollTop);
+      const effectiveScrollTop = clampIndexScrollTop(state.scrollTop, flatNodes.length, rect.h);
+      const startIndex = Math.max(0, effectiveScrollTop);
       const endIndex = Math.min(flatNodes.length, startIndex + rect.h);
 
       for (let i = startIndex; i < endIndex; i++) {
         const fn = flatNodes[i];
         if (!fn) continue;
 
-        const yRow = rect.y + (i - state.scrollTop);
+        const yRow = rect.y + (i - effectiveScrollTop);
 
         const nodeState = Object.freeze({
           expanded: expandedSet.has(fn.key),
