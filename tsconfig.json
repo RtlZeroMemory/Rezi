@@ -5,7 +5,6 @@
     { "path": "./packages/core" },
     { "path": "./packages/node" },
     { "path": "./packages/testkit" },
-    { "path": "./packages/ink-compat" },
     { "path": "./packages/jsx" },
     { "path": "./packages/bench" },
     { "path": "./examples/hello-counter" },

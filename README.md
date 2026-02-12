@@ -34,25 +34,9 @@ The result is per-frame rendering costs closer to compiled TUI frameworks than t
 3. `@rezi-ui/node` transports drawlists/events to `@rezi-ui/native`.
 4. The Zireael engine diffs/presents output to the terminal.
 
-## Three ways to use it
+## Two ways to use it
 
-### 1) Ink compatibility (React)
-
-> ⚠️ **Experimental** — The Ink compatibility layer is in active development.  
-> Some Ink apps may not work yet. The target is complete drop-in compatibility.
-> 
-For existing Ink apps, the entry point is `@rezi-ui/ink-compat`:
-
-```diff
-- import { render, Box, Text, useInput, useApp } from "ink";
-+ import { render, Box, Text, useInput, useApp } from "@rezi-ui/ink-compat";
-```
-
-```bash
-npm install @rezi-ui/ink-compat @rezi-ui/core @rezi-ui/node react
-```
-
-### 2) JSX runtime (no React)
+### 1) JSX runtime (no React)
 
 `@rezi-ui/jsx` is a standalone JSX runtime that produces Rezi VNodes directly.
 
@@ -87,7 +71,7 @@ await app.start();
 npm install @rezi-ui/jsx @rezi-ui/core @rezi-ui/node
 ```
 
-### 3) Native `ui.*` API
+### 2) Native `ui.*` API
 
 Direct VNode authoring (no React, no JSX runtime):
 
@@ -138,6 +122,9 @@ Selected results from `benchmarks/2026-02-11-pty` (`--io pty`, measures the PTY/
 | Tree construction (items=1000) | 1.81ms | 11.27ms | 53.15ms |
 | Rerender (single update) | 353µs | 414µs | 16.52ms |
 
+Note: `Ink-on-Rezi` measurements above refer to the previous compatibility prototype.  
+A redesigned Ink compatibility layer is currently in progress and is intentionally withheld until it passes stricter correctness and stability validation.
+
 A separate terminal competitor suite compares Rezi against blessed (Node.js) and ratatui (Rust) on viewport-sized PTY workloads at 120×40. In these scenarios, Rezi is within 3–5x of ratatui while remaining roughly 30–50x faster than Ink (`benchmarks/2026-02-11-terminal`):
 
 | Scenario (PTY) | ratatui | blessed | Rezi (native) | Ink |
@@ -153,7 +140,6 @@ Full results, methodology, and limitations: [BENCHMARKS.md](BENCHMARKS.md)
 flowchart TB
   App["Application code"] --> Core["@rezi-ui/core"]
   JSX["@rezi-ui/jsx"] -.-> Core
-  InkCompat["@rezi-ui/ink-compat"] -.-> Core
   Core -->|"ZRDL drawlist"| Node["@rezi-ui/node"]
   Node -->|"SharedArrayBuffer / transfer"| Native["@rezi-ui/native"]
   Native --> Engine["Zireael (C)"]
@@ -176,10 +162,11 @@ Node.js 18+ required (18.18+ recommended). Prebuilt native binaries are publishe
 | [`@rezi-ui/core`](https://www.npmjs.com/package/@rezi-ui/core) | Runtime-agnostic widgets, layout, styling, input model |
 | [`@rezi-ui/node`](https://www.npmjs.com/package/@rezi-ui/node) | Node.js backend and transport (worker/inline) |
 | [`@rezi-ui/native`](https://www.npmjs.com/package/@rezi-ui/native) | N-API addon binding to the native engine |
-| [`@rezi-ui/ink-compat`](https://www.npmjs.com/package/@rezi-ui/ink-compat) | Ink API surface implemented on top of Rezi (React) |
 | [`@rezi-ui/jsx`](https://www.npmjs.com/package/@rezi-ui/jsx) | JSX runtime (no React reconciler) |
 | [`@rezi-ui/testkit`](https://www.npmjs.com/package/@rezi-ui/testkit) | Test utilities and fixtures |
 | [`create-rezi`](https://www.npmjs.com/package/create-rezi) | Scaffolding CLI |
+
+Ink compatibility is being redesigned and will be published again only after it is tested and proven across complex real-world workloads.
 
 ## Quick start
 
