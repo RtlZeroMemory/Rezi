@@ -52,6 +52,18 @@ export type RenderOptions = Omit<InkRenderOptions, "stdout" | "stderr" | "stdin"
   }>;
 
 type RenderTarget = Stream | RenderOptions | undefined;
+type ResolvedStreams = Readonly<{
+  stdout: NodeJS.WriteStream;
+  stderr: NodeJS.WriteStream;
+  stdin: NodeJS.ReadStream;
+}>;
+
+export type RenderResult = Instance &
+  Readonly<{
+    stdout: NodeJS.WriteStream;
+    stderr: NodeJS.WriteStream;
+    stdin: NodeJS.ReadStream;
+  }>;
 
 type ElementLike = Readonly<{
   $$typeof: unknown;
@@ -188,21 +200,28 @@ function getOnRender(options: RenderTarget): (() => void) | undefined {
   return undefined;
 }
 
-function resolveStdout(options: RenderTarget): NodeJS.WritableStream {
+function resolveStreams(options: RenderTarget): ResolvedStreams {
   if (options instanceof Stream) {
-    return options as unknown as NodeJS.WritableStream;
+    return {
+      stdout: options as unknown as NodeJS.WriteStream,
+      stderr: process.stderr,
+      stdin: process.stdin,
+    };
   }
 
-  if (options && typeof options === "object" && "stdout" in options && options.stdout) {
-    return options.stdout;
+  if (!options) {
+    return {
+      stdout: process.stdout,
+      stderr: process.stderr,
+      stdin: process.stdin,
+    };
   }
 
-  return process.stdout;
-}
-
-function isNonTtyOutput(options: RenderTarget): boolean {
-  const stdout = resolveStdout(options);
-  return (stdout as { isTTY?: unknown }).isTTY !== true;
+  return {
+    stdout: (options.stdout ?? process.stdout) as NodeJS.WriteStream,
+    stderr: (options.stderr ?? process.stderr) as NodeJS.WriteStream,
+    stdin: (options.stdin ?? process.stdin) as NodeJS.ReadStream,
+  };
 }
 
 function toInkOptions(options: RenderTarget): NodeJS.WriteStream | InkRenderOptions | undefined {
@@ -239,10 +258,11 @@ function toInkOptions(options: RenderTarget): NodeJS.WriteStream | InkRenderOpti
   return inkOptions;
 }
 
-export function render(node: InkNode, options?: Stream | RenderOptions): Instance {
+export function render(node: InkNode, options?: Stream | RenderOptions): RenderResult {
   const onRender = getOnRender(options);
+  const streams = resolveStreams(options);
   const instance = inkRender(normalizeReactNode(node) as InkNode, toInkOptions(options));
-  const swallowClearErrors = isNonTtyOutput(options);
+  const swallowClearErrors = (streams.stdout as { isTTY?: unknown }).isTTY !== true;
 
   onRender?.();
 
@@ -256,6 +276,9 @@ export function render(node: InkNode, options?: Stream | RenderOptions): Instanc
     rerender,
     unmount: instance.unmount,
     waitUntilExit: instance.waitUntilExit,
+    stdout: streams.stdout,
+    stderr: streams.stderr,
+    stdin: streams.stdin,
     clear: () => {
       try {
         instance.clear();

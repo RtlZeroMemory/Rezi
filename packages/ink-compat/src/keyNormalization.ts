@@ -8,10 +8,10 @@ type LegacyKeyFields = Readonly<{
   hyper: boolean;
   capsLock: boolean;
   numLock: boolean;
-  eventType: string | undefined;
+  eventType?: string;
 }>;
 
-type InkCompatKeyInput = Partial<InkKey> &
+type InkCompatKeyInput = Omit<Partial<InkKey>, "eventType"> &
   Readonly<{
     enter?: boolean;
     home?: boolean;
@@ -23,7 +23,7 @@ type InkCompatKeyInput = Partial<InkKey> &
     eventType?: unknown;
   }>;
 
-export type InkCompatKey = InkKey & LegacyKeyFields;
+export type InkCompatKey = Omit<InkKey, "eventType"> & LegacyKeyFields;
 
 function isTrue(value: unknown): boolean {
   return value === true;
@@ -35,8 +35,7 @@ export function normalizeKey(key: InkCompatKeyInput | null | undefined): InkComp
   const isDelete = isTrue(safe.delete);
   const isBackspace = isTrue(safe.backspace) || isDelete;
   const eventType = typeof safe.eventType === "string" ? safe.eventType : undefined;
-
-  return {
+  const normalized: Omit<InkCompatKey, "eventType"> = {
     upArrow: isTrue(safe.upArrow),
     downArrow: isTrue(safe.downArrow),
     leftArrow: isTrue(safe.leftArrow),
@@ -58,6 +57,14 @@ export function normalizeKey(key: InkCompatKeyInput | null | undefined): InkComp
     hyper: isTrue(safe.hyper),
     capsLock: isTrue(safe.capsLock),
     numLock: isTrue(safe.numLock),
+  };
+
+  if (eventType === undefined) {
+    return normalized;
+  }
+
+  return {
+    ...normalized,
     eventType,
   };
 }
