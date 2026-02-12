@@ -31,6 +31,7 @@ import {
   computeZoneTraversal,
   createFocusManagerState,
   finalizeFocusForCommittedTreeWithZones,
+  finalizeFocusWithPreCollectedMetadata,
 } from "../focus.js";
 import type { FocusDirection, FocusMove, FocusZone } from "../focus.js";
 import { createInstanceIdAllocator } from "../instance.js";
@@ -288,6 +289,55 @@ describe("Focus Zones - computeZoneTraversal", () => {
     const result = computeZoneTraversal(zones, "zone2", "next", [], new Map());
     assert.equal(result.nextZoneId, "zone1");
     assert.equal(result.nextFocusedId, "a");
+  });
+
+  test("TAB skips empty zones instead of clearing focus", () => {
+    const zones = new Map<string, FocusZone>([
+      [
+        "zone1",
+        {
+          id: "zone1",
+          tabIndex: 0,
+          navigation: "linear",
+          columns: 1,
+          wrapAround: true,
+          focusableIds: ["a", "b"],
+          lastFocusedId: null,
+        },
+      ],
+      [
+        "zone2",
+        {
+          id: "zone2",
+          tabIndex: 1,
+          navigation: "linear",
+          columns: 1,
+          wrapAround: true,
+          focusableIds: [],
+          lastFocusedId: null,
+        },
+      ],
+      [
+        "zone3",
+        {
+          id: "zone3",
+          tabIndex: 2,
+          navigation: "linear",
+          columns: 1,
+          wrapAround: true,
+          focusableIds: ["c"],
+          lastFocusedId: null,
+        },
+      ],
+    ]);
+
+    const next = computeZoneTraversal(zones, "zone1", "next", [], new Map());
+    assert.equal(next.nextZoneId, "zone3");
+    assert.equal(next.nextFocusedId, "c");
+
+    const prev = computeZoneTraversal(zones, "zone3", "prev", [], new Map());
+    assert.equal(prev.nextZoneId, "zone1");
+    assert.equal(prev.nextFocusedId, "b");
   });
 
   test("zone remembers last focused id", () => {
@@ -726,5 +776,73 @@ describe("FocusManagerState - finalizeFocusForCommittedTreeWithZones", () => {
 
     assert.equal(nextState.focusedId, "confirm");
     assert.deepEqual(nextState.trapStack, ["modal"]);
+  });
+});
+
+describe("FocusManagerState - finalizeFocusWithPreCollectedMetadata", () => {
+  test("trap reassignment clears stale active zone and blocks stale-zone arrow routing", () => {
+    const state = Object.freeze({
+      focusedId: "zone-item",
+      activeZoneId: "zone1",
+      zones: new Map<string, FocusZone>(),
+      trapStack: Object.freeze([]),
+      lastFocusedByZone: new Map<string, string>([["zone1", "zone-item"]]),
+    });
+
+    const focusList = ["zone-item", "modal-item"];
+    const collectedZones = new Map<string, CollectedZone>([
+      [
+        "zone1",
+        {
+          id: "zone1",
+          tabIndex: 0,
+          navigation: "linear",
+          columns: 1,
+          wrapAround: true,
+          focusableIds: ["zone-item"],
+        },
+      ],
+    ]);
+    const collectedTraps = new Map<string, CollectedTrap>([
+      [
+        "modal",
+        {
+          id: "modal",
+          active: true,
+          returnFocusTo: null,
+          initialFocus: "modal-item",
+          focusableIds: ["modal-item"],
+        },
+      ],
+    ]);
+
+    const nextState = finalizeFocusWithPreCollectedMetadata(
+      state,
+      focusList,
+      collectedZones,
+      collectedTraps,
+    );
+
+    assert.equal(nextState.focusedId, "modal-item");
+    assert.equal(nextState.activeZoneId, null);
+    assert.deepEqual(nextState.trapStack, ["modal"]);
+    assert.equal(nextState.lastFocusedByZone.get("zone1"), "zone-item");
+    assert.equal(nextState.zones.get("zone1")?.lastFocusedId, "zone-item");
+
+    const arrowResult = routeKeyWithZones(keyEvent(ZR_KEY_DOWN), {
+      focusedId: nextState.focusedId,
+      activeZoneId: nextState.activeZoneId,
+      focusList,
+      zones: nextState.zones,
+      lastFocusedByZone: nextState.lastFocusedByZone,
+      traps: collectedTraps,
+      trapStack: nextState.trapStack,
+      enabledById: new Map([
+        ["zone-item", true],
+        ["modal-item", true],
+      ]),
+    });
+    assert.equal(arrowResult.nextFocusedId, undefined);
+    assert.equal(arrowResult.nextZoneId, undefined);
   });
 });
