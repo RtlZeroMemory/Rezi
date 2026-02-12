@@ -7,7 +7,6 @@
     "packages/core",
     "packages/node",
     "packages/testkit",
-    "packages/ink-compat",
     "packages/native",
     "packages/jsx",
     "packages/bench",

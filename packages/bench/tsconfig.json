@@ -9,5 +9,5 @@
     "jsxImportSource": "react"
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "references": [{ "path": "../core" }, { "path": "../ink-compat" }]
+  "references": [{ "path": "../core" }]
 }
