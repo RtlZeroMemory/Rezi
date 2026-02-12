@@ -123,6 +123,12 @@ export type BoxProps = Readonly<
      * When `bg` is provided, the renderer fills the box rect.
      */
     style?: TextStyle;
+    /**
+     * Whether children should be clipped to the box inner content rect.
+     *
+     * @default true
+     */
+    clip?: boolean;
   } & SpacingProps &
     LayoutConstraints
 >;
@@ -150,6 +156,12 @@ export type StackProps = Readonly<
      * When `bg` is provided, the renderer fills the stack rect.
      */
     style?: TextStyle;
+    /**
+     * Whether children should be clipped to the stack content rect.
+     *
+     * @default true
+     */
+    clip?: boolean;
   } & SpacingProps &
     LayoutConstraints
 >;

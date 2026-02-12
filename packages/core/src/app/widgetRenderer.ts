@@ -369,6 +369,7 @@ function isDamageGranularityKind(kind: WidgetKind): boolean {
 export class WidgetRenderer<S> {
   private readonly backend: RuntimeBackend;
   private readonly builder: DrawlistBuilderV1 | DrawlistBuilderV2;
+  private readonly incrementalRendering: boolean;
   private readonly useV2Cursor: boolean;
   private readonly cursorShape: CursorShape;
   private readonly cursorBlink: boolean;
@@ -554,6 +555,7 @@ export class WidgetRenderer<S> {
       drawlistValidateParams?: boolean;
       drawlistReuseOutputBuffer?: boolean;
       drawlistEncodedStringCacheCap?: number;
+      incrementalRendering?: boolean;
       /** Called when composite widgets invalidate (useState/useEffect). */
       requestRender?: () => void;
       /** Called when composite widgets require a new view/commit pass. */
@@ -567,6 +569,7 @@ export class WidgetRenderer<S> {
     }>,
   ) {
     this.backend = opts.backend;
+    this.incrementalRendering = opts.incrementalRendering !== false;
     this.useV2Cursor = opts.useV2Cursor === true;
     this.cursorShape = opts.cursorShape ?? CURSOR_DEFAULTS.input.shape;
     this.cursorBlink = opts.cursorBlink ?? CURSOR_DEFAULTS.input.blink;
@@ -2273,6 +2276,7 @@ export class WidgetRenderer<S> {
     viewport: Viewport,
     theme: Theme,
   ): boolean {
+    if (!this.incrementalRendering) return false;
     if (!this._hasRenderedFrame) return false;
     if (doLayout) return false;
     if (

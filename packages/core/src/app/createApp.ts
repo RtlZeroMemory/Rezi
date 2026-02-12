@@ -74,6 +74,7 @@ type ResolvedAppConfig = Readonly<{
   fpsCap: number;
   maxEventBytes: number;
   maxDrawlistBytes: number;
+  incrementalRendering: boolean;
   useV2Cursor: boolean;
   drawlistValidateParams: boolean;
   drawlistReuseOutputBuffer: boolean;
@@ -88,6 +89,7 @@ const DEFAULT_CONFIG: ResolvedAppConfig = Object.freeze({
   fpsCap: 60,
   maxEventBytes: 1 << 20 /* 1 MiB */,
   maxDrawlistBytes: 2 << 20 /* 2 MiB */,
+  incrementalRendering: true,
   useV2Cursor: false,
   drawlistValidateParams: true,
   drawlistReuseOutputBuffer: true,
@@ -149,6 +151,10 @@ export function resolveAppConfig(config: AppConfig | undefined): ResolvedAppConf
     config.maxDrawlistBytes === undefined
       ? DEFAULT_CONFIG.maxDrawlistBytes
       : requirePositiveInt("maxDrawlistBytes", config.maxDrawlistBytes);
+  const incrementalRendering =
+    config.incrementalRendering === undefined
+      ? DEFAULT_CONFIG.incrementalRendering
+      : config.incrementalRendering === true;
   const useV2Cursor = config.useV2Cursor === true;
   const drawlistValidateParams =
     config.drawlistValidateParams === undefined
@@ -178,6 +184,7 @@ export function resolveAppConfig(config: AppConfig | undefined): ResolvedAppConf
     fpsCap,
     maxEventBytes,
     maxDrawlistBytes,
+    incrementalRendering,
     useV2Cursor,
     drawlistValidateParams,
     drawlistReuseOutputBuffer,
@@ -372,6 +379,7 @@ export function createApp<S>(
   const widgetRenderer = new WidgetRenderer<S>({
     backend,
     maxDrawlistBytes: config.maxDrawlistBytes,
+    incrementalRendering: config.incrementalRendering,
     useV2Cursor: config.useV2Cursor,
     ...(opts.config?.drawlistValidateParams === undefined
       ? {}

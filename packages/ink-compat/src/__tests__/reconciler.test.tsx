@@ -8,13 +8,17 @@ import reconciler, {
   type HostRoot,
 } from "../reconciler.js";
 
-function renderToVNode(element: React.ReactNode): VNode {
+function renderToVNode(
+  element: React.ReactNode,
+  options: Readonly<{ terminalWidth?: number }> = {},
+): VNode {
   let last: VNode | null = null;
 
   const root: HostRoot = {
     kind: "root",
     children: [],
     staticVNodes: [],
+    ...(typeof options.terminalWidth === "number" ? { internal_terminalWidth: options.terminalWidth } : {}),
     onCommit(vnode) {
       last = vnode;
     },
@@ -24,6 +28,23 @@ function renderToVNode(element: React.ReactNode): VNode {
   updateRootContainer(container, element);
 
   return last ?? ui.text("");
+}
+
+function expectText(vnode: VNode): string {
+  assert.equal(vnode.kind, "text");
+  return vnode.text;
+}
+
+function firstTextInSubtree(vnode: VNode): string | null {
+  if (vnode.kind === "text") return vnode.text;
+  if ("children" in vnode && Array.isArray(vnode.children)) {
+    for (const child of vnode.children) {
+      if (!child) continue;
+      const text = firstTextInSubtree(child);
+      if (text !== null) return text;
+    }
+  }
+  return null;
 }
 
 describe("reconciler: host tree -> Rezi VNode", () => {
@@ -108,5 +129,37 @@ describe("reconciler: host tree -> Rezi VNode", () => {
     assert.equal(vnode.children.length, 3);
     assert.equal(vnode.children[1]?.kind, "spacer");
     assert.equal(vnode.children[1]?.props.flex, 1);
+  });
+
+  test("<Text wrap='wrap'> wraps at terminal width fallback", () => {
+    const vnode = renderToVNode(<Text wrap="wrap">abcdef</Text>, { terminalWidth: 4 });
+    assert.equal(vnode.kind, "column");
+    assert.equal(vnode.children.length, 2);
+    assert.equal(expectText(vnode.children[0] as VNode), "abcd");
+    assert.equal(expectText(vnode.children[1] as VNode), "ef");
+  });
+
+  test("<Text wrap='truncate-*'> applies Ink truncate variants", () => {
+    const end = renderToVNode(<Text wrap="truncate">abcdefgh</Text>, { terminalWidth: 5 });
+    const middle = renderToVNode(<Text wrap="truncate-middle">abcdefgh</Text>, { terminalWidth: 5 });
+    const start = renderToVNode(<Text wrap="truncate-start">abcdefgh</Text>, { terminalWidth: 5 });
+
+    assert.equal(expectText(end), "abcd…");
+    assert.equal(expectText(middle), "ab…gh");
+    assert.equal(expectText(start), "…efgh");
+  });
+
+  test("Text width resolves from nearest Box width minus border/padding insets", () => {
+    const vnode = renderToVNode(
+      <Box width={10} borderStyle="single" paddingX={1}>
+        <Text wrap="truncate">abcdefghij</Text>
+      </Box>,
+      { terminalWidth: 40 },
+    );
+
+    assert.equal(vnode.kind, "box");
+    const content = vnode.children[0];
+    assert.ok(content);
+    assert.equal(firstTextInSubtree(content as VNode), "abcde…");
   });
 });

@@ -78,12 +78,6 @@ function mapBorderStyle(v: BoxProps["borderStyle"]): ReziBoxProps["border"] | un
   return "single";
 }
 
-function mergeStyle(a: TextStyle | undefined, b: TextStyle | undefined): TextStyle | undefined {
-  if (!a) return b;
-  if (!b) return a;
-  return { ...a, ...b };
-}
-
 function mapMargin(p: BoxProps): Pick<ReziBoxProps, "m" | "mx" | "my" | "mt" | "mr" | "mb" | "ml"> {
   const out: Mutable<Partial<Pick<ReziBoxProps, "m" | "mx" | "my" | "mt" | "mr" | "mb" | "ml">>> =
     {};
@@ -122,6 +116,7 @@ export function mapBoxProps(p: BoxProps): MappedInkBox {
   const overflow = normalizeOverflow(p.overflow);
   const overflowX = normalizeOverflow(p.overflowX ?? overflow);
   const overflowY = normalizeOverflow(p.overflowY ?? overflow);
+  const clipChildren = overflowX === "hidden" || overflowY === "hidden";
 
   const dir = p.flexDirection ?? "row";
   const isRow = dir === "row" || dir === "row-reverse";
@@ -168,10 +163,13 @@ export function mapBoxProps(p: BoxProps): MappedInkBox {
     p.borderBottomDimColor === true ||
     p.borderLeftDimColor === true;
 
-  const wrapperStyle = mergeStyle(surfaceStyle, {
-    ...(borderColor ? { fg: borderColor } : {}),
-    ...(borderDim ? { dim: true } : {}),
-  });
+  const wrapperStyle =
+    borderColor || borderDim
+      ? ({
+          ...(borderColor ? { fg: borderColor } : {}),
+          ...(borderDim ? { dim: true } : {}),
+        } as TextStyle)
+      : undefined;
   const paddingProps = mapPadding(p);
   const marginProps = mapMargin(p);
   const constraintProps: Pick<
@@ -190,6 +188,7 @@ export function mapBoxProps(p: BoxProps): MappedInkBox {
     ...(gap === undefined ? {} : { gap }),
     ...(align === undefined ? {} : { align }),
     ...(justify === undefined ? {} : { justify }),
+    clip: clipChildren,
     ...(surfaceStyle ? { style: surfaceStyle } : {}),
   };
 
@@ -200,6 +199,7 @@ export function mapBoxProps(p: BoxProps): MappedInkBox {
         ...(p.borderRight === false ? { borderRight: false } : {}),
         ...(p.borderBottom === false ? { borderBottom: false } : {}),
         ...(p.borderLeft === false ? { borderLeft: false } : {}),
+        clip: clipChildren,
         ...(wrapperStyle ? { style: wrapperStyle } : {}),
         ...constraintProps,
         ...marginProps,

@@ -166,6 +166,24 @@ describe("renderer - widget tree to deterministic ZRDL bytes", () => {
     assert.equal(bytesEqual(actual, noClip), false, "clip changes bytes");
   });
 
+  test("row clip=false disables container clipping", () => {
+    const child: VNode = { kind: "text", text: "hello", props: {} };
+    const clipped: VNode = { kind: "row", props: {}, children: Object.freeze([child]) };
+    const unclipped: VNode = {
+      kind: "row",
+      props: { clip: false },
+      children: Object.freeze([child]),
+    };
+
+    const clippedOps = parseOpcodes(renderBytes(clipped, Object.freeze({ focusedId: null })));
+    const unclippedOps = parseOpcodes(renderBytes(unclipped, Object.freeze({ focusedId: null })));
+
+    assert.equal(clippedOps.includes(4), true, "default row should include PUSH_CLIP");
+    assert.equal(clippedOps.includes(5), true, "default row should include POP_CLIP");
+    assert.equal(unclippedOps.includes(4), false, "row clip=false should not include PUSH_CLIP");
+    assert.equal(unclippedOps.includes(5), false, "row clip=false should not include POP_CLIP");
+  });
+
   test("text_overflow_clip.bin", async () => {
     const expected = await load("text_overflow_clip.bin");
 

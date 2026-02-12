@@ -18,6 +18,7 @@ describe("props: mapBoxProps()", () => {
     assert.equal(out.stackProps.p, 2);
     assert.equal(out.stackProps.px, 3);
     assert.equal(out.stackProps.gap, 1);
+    assert.equal(out.stackProps.clip, false);
   });
 
   test("columnGap/rowGap respect main axis by flexDirection", () => {
@@ -65,6 +66,29 @@ describe("props: mapBoxProps()", () => {
     assert.equal(out.wrapper?.borderRight, false);
     assert.equal(out.wrapper?.borderBottom, undefined);
     assert.equal(out.wrapper?.borderLeft, undefined);
+  });
+
+  test("overflow hidden maps to clip=true; visible maps to clip=false", () => {
+    const hidden = mapBoxProps({ overflow: "hidden" });
+    assert.equal(hidden.stackProps.clip, true);
+
+    const visible = mapBoxProps({ overflow: "visible" });
+    assert.equal(visible.stackProps.clip, false);
+
+    const borderedHidden = mapBoxProps({ borderStyle: "single", overflowX: "hidden" });
+    assert.equal(borderedHidden.wrapper?.clip, true);
+    assert.equal(borderedHidden.stackProps.clip, true);
+
+    const borderedVisible = mapBoxProps({ borderStyle: "single", overflow: "visible" });
+    assert.equal(borderedVisible.wrapper?.clip, false);
+    assert.equal(borderedVisible.stackProps.clip, false);
+  });
+
+  test("backgroundColor on bordered Box styles inner stack, not border wrapper", () => {
+    const out = mapBoxProps({ borderStyle: "single", backgroundColor: "red" });
+    assert.ok(out.wrapper !== null);
+    assert.equal(out.wrapper?.style?.bg, undefined);
+    assert.deepEqual(out.stackProps.style?.bg, { r: 128, g: 0, b: 0 });
   });
 
   test("no borderStyle keeps constraints on stack", () => {

@@ -37,6 +37,7 @@ const runtimeReconciler = reconciler as unknown as RuntimeReconciler;
 const noop = () => {};
 type ContainerErrorState = { error: Error | null };
 const containerErrors = new WeakMap<RootContainer, ContainerErrorState>();
+const containerConcurrency = new WeakMap<RootContainer, boolean>();
 
 function captureContainerError(container: RootContainer, error: unknown): void {
   const state = containerErrors.get(container);
@@ -62,7 +63,16 @@ export function runWithSyncPriority(fn: () => void): void {
 }
 
 export function createRootContainer(root: HostRoot, identifierPrefix = "id"): RootContainer {
+  return createRootContainerWithMode(root, { identifierPrefix, concurrent: false });
+}
+
+export function createRootContainerWithMode(
+  root: HostRoot,
+  options?: Readonly<{ identifierPrefix?: string; concurrent?: boolean }>,
+): RootContainer {
   let container: RootContainer | null = null;
+  const identifierPrefix = options?.identifierPrefix ?? "id";
+  const concurrent = options?.concurrent === true;
   const handleError = (error: Error) => {
     if (!container) return;
     captureContainerError(container, error);
@@ -70,7 +80,7 @@ export function createRootContainer(root: HostRoot, identifierPrefix = "id"): Ro
 
   container = runtimeReconciler.createContainer(
     root,
-    0,
+    concurrent ? 1 : 0,
     null,
     false,
     null,
@@ -82,6 +92,7 @@ export function createRootContainer(root: HostRoot, identifierPrefix = "id"): Ro
   );
 
   containerErrors.set(container, { error: null });
+  containerConcurrency.set(container, concurrent);
   return container;
 }
 
@@ -89,17 +100,22 @@ export function updateRootContainer(
   container: RootContainer,
   element: React.ReactNode | null,
   callback: (() => void) | null = noop,
+  options?: Readonly<{ sync?: boolean }>,
 ): void {
   const state = containerErrors.get(container);
   if (state) state.error = null;
 
-  if (typeof runtimeReconciler.updateContainerSync === "function") {
+  const syncDefault = containerConcurrency.get(container) !== true;
+  const shouldSync = options?.sync ?? syncDefault;
+
+  if (shouldSync && typeof runtimeReconciler.updateContainerSync === "function") {
     runtimeReconciler.updateContainerSync(element, container, null, null);
+    flushAllUpdates();
   } else {
     runtimeReconciler.updateContainer(element, container, null, null);
+    // For concurrent roots, avoid forcing sync work; commit is scheduler-driven.
+    reconciler.flushPassiveEffects();
   }
-
-  flushAllUpdates();
 
   if (state?.error) {
     const error = state.error;

@@ -115,6 +115,18 @@ export type HostRoot = {
    * Keyed by `HostElement.internal_id` of `<Static>` container nodes.
    */
   internal_staticByOwner?: Map<string, VNode[]>;
+  /**
+   * Screen-reader variant of static owner-scoped output chunks.
+   */
+  internal_screenReaderStaticByOwner?: Map<string, string[]>;
+  /**
+   * Render tree using screen-reader output semantics.
+   */
+  internal_isScreenReaderEnabled?: boolean;
+  /**
+   * Terminal width used for screen-reader line wrapping.
+   */
+  internal_terminalWidth?: number;
   internal_nextNodeId?: number;
   onCommit: (vnode: VNode | null) => void;
 };

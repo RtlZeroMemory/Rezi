@@ -731,6 +731,13 @@ export type AppConfig = Readonly<{
   fpsCap?: number;
   maxEventBytes?: number;
   maxDrawlistBytes?: number;
+  /**
+   * Enable incremental drawlist emission when possible.
+   * When disabled, renderer emits full frames.
+   *
+   * Default: true
+   */
+  incrementalRendering?: boolean;
   /** Enable v2 cursor protocol for native terminal cursor in Input widgets */
   useV2Cursor?: boolean;
   /**

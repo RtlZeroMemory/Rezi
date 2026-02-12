@@ -1,4 +1,5 @@
-import React, { type ReactNode } from "react";
+import React, { useContext, type ReactNode } from "react";
+import AccessibilityContext from "../context/AccessibilityContext.js";
 
 export type Props = Readonly<{
   /**
@@ -19,7 +20,21 @@ export type Props = Readonly<{
  * In Ink, this transforms the rendered string output. In the Rezi compat layer,
  * we apply the transform to the flattened text content (best-effort).
  */
-export default function Transform({ children, transform }: Props): React.JSX.Element | null {
+export default function Transform({
+  children,
+  transform,
+  accessibilityLabel,
+}: Props): React.JSX.Element | null {
+  const isScreenReaderEnabled = useContext(AccessibilityContext);
+
   if (children === undefined || children === null) return null;
-  return React.createElement("ink-text", { internal_transform: transform }, children);
+
+  return React.createElement(
+    "ink-text",
+    {
+      style: { flexGrow: 0, flexShrink: 1, flexDirection: "row" },
+      internal_transform: transform,
+    },
+    isScreenReaderEnabled && accessibilityLabel ? accessibilityLabel : children,
+  );
 }

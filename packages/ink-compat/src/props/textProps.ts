@@ -20,6 +20,14 @@ function mapTextStyle(
 
 export type MappedInkText = Readonly<{
   style: TextStyle | undefined;
+  wrap:
+    | "wrap"
+    | "end"
+    | "middle"
+    | "truncate-end"
+    | "truncate"
+    | "truncate-middle"
+    | "truncate-start";
   textOverflow: "clip" | "ellipsis" | "middle" | undefined;
 }>;
 
@@ -36,14 +44,15 @@ export function mapTextProps(p: TextProps): MappedInkText {
     ...(p.inverse ? { inverse: true } : {}),
   };
 
+  const wrap = p.wrap ?? "wrap";
   const textOverflow =
-    p.wrap === "truncate-start"
+    wrap === "truncate-start"
       ? "ellipsis"
-      : p.wrap === "truncate-middle"
+      : wrap === "truncate-middle"
         ? "middle"
-        : p.wrap === "truncate" || p.wrap === "truncate-end"
+        : wrap === "truncate" || wrap === "truncate-end"
           ? "ellipsis"
           : undefined;
 
-  return { style: Object.keys(style).length === 0 ? undefined : style, textOverflow };
+  return { style: Object.keys(style).length === 0 ? undefined : style, wrap, textOverflow };
 }

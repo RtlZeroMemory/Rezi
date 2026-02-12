@@ -142,4 +142,138 @@ describe("render(): patchConsole + output-preserving writes", () => {
     inst.unmount();
     await inst.waitUntilExit();
   });
+
+  test("debug mode writes do not schedule restoration rerenders", async () => {
+    const backend = new StubBackend();
+
+    const stdoutWrites: string[] = [];
+    const stderrWrites: string[] = [];
+
+    const stdout = {
+      isTTY: true,
+      columns: 80,
+      rows: 24,
+      write(data: string) {
+        stdoutWrites.push(String(data));
+        return true;
+      },
+      on() {},
+      off() {},
+    } as unknown as NodeJS.WriteStream;
+
+    const stderr = {
+      isTTY: true,
+      write(data: string) {
+        stderrWrites.push(String(data));
+        return true;
+      },
+    } as unknown as NodeJS.WriteStream;
+
+    let stdoutWrite: (data: string) => void = () => {
+      throw new Error("Expected stdout writer to be set");
+    };
+    let stderrWrite: (data: string) => void = () => {
+      throw new Error("Expected stderr writer to be set");
+    };
+
+    function Probe() {
+      stdoutWrite = useStdout().write;
+      stderrWrite = useStderr().write;
+      return <Text>ui</Text>;
+    }
+
+    const inst = render(<Probe />, {
+      internal_backend: backend,
+      stdout,
+      stderr,
+      debug: true,
+      patchConsole: false,
+      exitOnCtrlC: false,
+    } as any);
+
+    await flushMicrotasks(10);
+    await pushInitialResize(backend);
+
+    const framesBefore = backend.requestedFrames.length;
+    stdoutWrite("HELLO\n");
+    stderrWrite("ERR\n");
+    await flushMicrotasks(10);
+
+    assert.equal(stdoutWrites.includes("HELLO\n"), true);
+    assert.equal(stderrWrites.includes("ERR\n"), true);
+    assert.equal(backend.requestedFrames.length, framesBefore);
+
+    inst.unmount();
+    await inst.waitUntilExit();
+  });
+
+  test("CI mode writes do not schedule restoration rerenders", async () => {
+    const backend = new StubBackend();
+    const prevCI = process.env["CI"];
+    process.env["CI"] = "1";
+
+    const stdoutWrites: string[] = [];
+    const stderrWrites: string[] = [];
+
+    const stdout = {
+      isTTY: true,
+      columns: 80,
+      rows: 24,
+      write(data: string) {
+        stdoutWrites.push(String(data));
+        return true;
+      },
+      on() {},
+      off() {},
+    } as unknown as NodeJS.WriteStream;
+
+    const stderr = {
+      isTTY: true,
+      write(data: string) {
+        stderrWrites.push(String(data));
+        return true;
+      },
+    } as unknown as NodeJS.WriteStream;
+
+    let stdoutWrite: (data: string) => void = () => {
+      throw new Error("Expected stdout writer to be set");
+    };
+    let stderrWrite: (data: string) => void = () => {
+      throw new Error("Expected stderr writer to be set");
+    };
+
+    function Probe() {
+      stdoutWrite = useStdout().write;
+      stderrWrite = useStderr().write;
+      return <Text>ui</Text>;
+    }
+
+    try {
+      const inst = render(<Probe />, {
+        internal_backend: backend,
+        stdout,
+        stderr,
+        patchConsole: false,
+        exitOnCtrlC: false,
+      } as any);
+
+      await flushMicrotasks(10);
+      await pushInitialResize(backend);
+
+      const framesBefore = backend.requestedFrames.length;
+      stdoutWrite("HELLO\n");
+      stderrWrite("ERR\n");
+      await flushMicrotasks(10);
+
+      assert.equal(stdoutWrites.includes("HELLO\n"), true);
+      assert.equal(stderrWrites.includes("ERR\n"), true);
+      assert.equal(backend.requestedFrames.length, framesBefore);
+
+      inst.unmount();
+      await inst.waitUntilExit();
+    } finally {
+      if (prevCI === undefined) delete process.env["CI"];
+      else process.env["CI"] = prevCI;
+    }
+  });
 });

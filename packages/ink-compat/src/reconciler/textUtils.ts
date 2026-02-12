@@ -1,4 +1,6 @@
 import { type Rgb, type RichTextSpan, type TextStyle, type VNode, ui } from "@rezi-ui/core";
+import cliTruncate from "cli-truncate";
+import wrapAnsi from "wrap-ansi";
 import { resolveInkColor } from "../color.js";
 import { InkCompatError } from "../errors.js";
 import { mapTextProps } from "../props.js";
@@ -52,6 +54,14 @@ function pushSpan(out: RichTextSpan[], span: RichTextSpan): void {
 }
 
 type InternalTransform = (children: string, index: number) => string;
+type InkTextWrap =
+  | "wrap"
+  | "end"
+  | "middle"
+  | "truncate-end"
+  | "truncate"
+  | "truncate-middle"
+  | "truncate-start";
 
 function getInternalTransform(props: Record<string, unknown>): InternalTransform | null {
   const t = (props as { internal_transform?: unknown }).internal_transform;
@@ -375,7 +385,139 @@ export function splitSpansByNewline(spans: readonly RichTextSpan[]): RichTextSpa
   return lines;
 }
 
-export function convertText(node: HostElement): VNode | null {
+function toNonNegativeFinite(v: unknown): number | undefined {
+  if (typeof v === "number" && Number.isFinite(v) && v >= 0) return v;
+  if (typeof v === "string") {
+    const n = Number(v);
+    if (Number.isFinite(n) && n >= 0) return n;
+  }
+  return undefined;
+}
+
+function parsePercent(raw: unknown): number | undefined {
+  if (typeof raw !== "string") return undefined;
+  const match = /^\s*(-?\d+(?:\.\d+)?)%\s*$/u.exec(raw);
+  if (!match || !match[1]) return undefined;
+  const pct = Number.parseFloat(match[1]);
+  if (!Number.isFinite(pct) || pct < 0) return undefined;
+  return pct;
+}
+
+function resolveWidthValue(raw: unknown, base: number | undefined): number | undefined {
+  const absolute = toNonNegativeFinite(raw);
+  if (absolute !== undefined) return absolute;
+
+  const pct = parsePercent(raw);
+  if (pct === undefined || base === undefined || !Number.isFinite(base) || base < 0) return undefined;
+  return (base * pct) / 100;
+}
+
+function resolveHorizontalInsets(props: Record<string, unknown>): number {
+  const padding = toNonNegativeFinite(props["padding"]) ?? 0;
+  const paddingX = toNonNegativeFinite(props["paddingX"]) ?? padding;
+  const paddingLeft = toNonNegativeFinite(props["paddingLeft"]) ?? paddingX;
+  const paddingRight = toNonNegativeFinite(props["paddingRight"]) ?? paddingX;
+
+  const borderStyle = props["borderStyle"] ?? props["border"];
+  const hasBorder = borderStyle !== undefined && borderStyle !== "none";
+  const borderLeft = typeof props["borderLeft"] === "boolean" ? props["borderLeft"] : hasBorder;
+  const borderRight = typeof props["borderRight"] === "boolean" ? props["borderRight"] : hasBorder;
+
+  return paddingLeft + paddingRight + (borderLeft ? 1 : 0) + (borderRight ? 1 : 0);
+}
+
+function resolveTextWidth(node: HostElement, terminalWidth: number | undefined): number | undefined {
+  let width =
+    typeof terminalWidth === "number" && Number.isFinite(terminalWidth) && terminalWidth > 0
+      ? terminalWidth
+      : undefined;
+
+  const chain: HostElement[] = [];
+  let current: HostElement | undefined = node;
+  while (current) {
+    chain.push(current);
+    current = current.parentNode;
+  }
+
+  chain.reverse();
+  for (const el of chain) {
+    const props = el.props as Record<string, unknown>;
+    const style = el.style as Record<string, unknown>;
+    const resolvedWidth = resolveWidthValue(props["width"] ?? style["width"], width);
+    if (resolvedWidth !== undefined) width = resolvedWidth;
+
+    if (el.type === "ink-box" && width !== undefined) {
+      width -= resolveHorizontalInsets(props);
+      if (width < 1) width = 1;
+    }
+  }
+
+  if (width === undefined || !Number.isFinite(width) || width < 1) return undefined;
+  return Math.max(1, Math.floor(width));
+}
+
+function styleToSgr(style: TextStyle | undefined): string {
+  if (!style) return "";
+
+  const codes: number[] = [];
+  if (style.bold) codes.push(1);
+  if (style.dim) codes.push(2);
+  if (style.italic) codes.push(3);
+  if (style.underline) codes.push(4);
+  if (style.inverse) codes.push(7);
+  if (style.fg) codes.push(38, 2, clampByte(style.fg.r), clampByte(style.fg.g), clampByte(style.fg.b));
+  if (style.bg) codes.push(48, 2, clampByte(style.bg.r), clampByte(style.bg.g), clampByte(style.bg.b));
+
+  if (codes.length === 0) return "";
+  return `\u001b[${codes.join(";")}m`;
+}
+
+function spansToAnsi(spans: readonly RichTextSpan[]): string {
+  let out = "";
+  for (const span of spans) {
+    out += "\u001b[0m";
+    out += styleToSgr(span.style);
+    out += span.text;
+  }
+  out += "\u001b[0m";
+  return out;
+}
+
+function wrapText(text: string, maxWidth: number, wrapType: InkTextWrap): string {
+  if (maxWidth <= 0 || !Number.isFinite(maxWidth)) return "";
+  if (wrapType === "wrap") {
+    return wrapAnsi(text, maxWidth, { trim: false, hard: true });
+  }
+
+  if (wrapType.startsWith("truncate")) {
+    const position =
+      wrapType === "truncate-middle" ? "middle" : wrapType === "truncate-start" ? "start" : "end";
+    return cliTruncate(text, maxWidth, { position });
+  }
+
+  // Upstream "end" and "middle" are no-op in Ink v6.7.0.
+  return text;
+}
+
+function applyTextWrap(
+  spans: readonly RichTextSpan[],
+  node: HostElement,
+  wrapType: InkTextWrap,
+  terminalWidth: number | undefined,
+): RichTextSpan[] {
+  const maxWidth = resolveTextWidth(node, terminalWidth);
+  if (maxWidth === undefined) return [...spans];
+
+  const ansiText = spansToAnsi(spans);
+  const wrapped = wrapText(ansiText, maxWidth, wrapType);
+  const out: RichTextSpan[] = [];
+  pushSanitizedStyledText(wrapped, undefined, out);
+  return out;
+}
+
+export type ConvertTextOptions = Readonly<{ terminalWidth?: number }>;
+
+export function convertText(node: HostElement, options: ConvertTextOptions = {}): VNode | null {
   const mapped = mapTextProps(node.props as unknown as TextProps);
   const transform = getInternalTransform(node.props);
   let spans: RichTextSpan[] = [];
@@ -394,6 +536,8 @@ export function convertText(node: HostElement): VNode | null {
     collectTextSpans(node.children, mapped.style, spans);
   }
 
+  if (spans.length === 0) return null;
+  spans = applyTextWrap(spans, node, mapped.wrap, options.terminalWidth);
   if (spans.length === 0) return null;
 
   const isMultiline = spans.some((s) => s.text.includes("\n"));

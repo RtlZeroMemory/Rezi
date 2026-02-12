@@ -47,5 +47,35 @@ describe("render(): stdout resize parity", () => {
     inst.unmount();
     await inst.waitUntilExit();
   });
-});
 
+  test("CI mode does not subscribe to stdout resize", async () => {
+    const prevCI = process.env["CI"];
+    process.env["CI"] = "1";
+
+    const backend = new StubBackend();
+    const stdout = makeStdoutEmitter();
+
+    try {
+      const inst = render(<Text>ci</Text>, {
+        internal_backend: backend,
+        stdout,
+        exitOnCtrlC: false,
+        patchConsole: false,
+      } as any);
+
+      await flushMicrotasks(10);
+
+      assert.equal(stdout.listenerCount("resize"), 0);
+
+      stdout.emit("resize");
+      await flushMicrotasks(10);
+      assert.equal(backend.requestedFrames.length, 0);
+
+      inst.unmount();
+      await inst.waitUntilExit();
+    } finally {
+      if (prevCI === undefined) delete process.env["CI"];
+      else process.env["CI"] = prevCI;
+    }
+  });
+});

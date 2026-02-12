@@ -41,6 +41,10 @@ function readNonNegativeInt(v: unknown): number | undefined {
   return Math.trunc(n);
 }
 
+function readClipEnabled(v: unknown): boolean {
+  return v !== false;
+}
+
 function readTextOverflow(v: unknown): "clip" | "ellipsis" | "middle" {
   switch (v) {
     case "ellipsis":
@@ -568,11 +572,13 @@ export function renderVNodeSimple(
         my?: unknown;
         gap?: unknown;
         style?: unknown;
+        clip?: unknown;
       };
       const spacing = resolveSpacingFromProps(props);
       const margin = resolveMarginFromProps(props);
       const gap = readIntNonNegative(props.gap, 0);
       const ownStyle = asTextStyle(props.style);
+      const clipEnabled = readClipEnabled(props.clip);
       const style = mergeTextStyle(inheritedStyle, ownStyle);
       const stackX = x + margin.left;
       const stackY = y + margin.top;
@@ -587,7 +593,9 @@ export function renderVNodeSimple(
       const iw = Math.max(0, stackW - spacing.left - spacing.right);
       const ih = Math.max(0, stackH - spacing.top - spacing.bottom);
 
-      builder.pushClip(ix, iy, iw, ih);
+      if (clipEnabled) {
+        builder.pushClip(ix, iy, iw, ih);
+      }
 
       const children = vnode.children.filter((c): c is VNode => c !== null && c !== undefined);
 
@@ -715,7 +723,9 @@ export function renderVNodeSimple(
         }
       }
 
-      builder.popClip();
+      if (clipEnabled) {
+        builder.popClip();
+      }
       break;
     }
     case "divider": {
@@ -791,6 +801,7 @@ export function renderVNodeSimple(
         title?: unknown;
         shadow?: unknown;
         style?: unknown;
+        clip?: unknown;
       };
       const spacing = resolveSpacingFromProps(props);
       const margin = resolveMarginFromProps(props);
@@ -803,6 +814,7 @@ export function renderVNodeSimple(
       const borderLeft = typeof props.borderLeft === "boolean" ? props.borderLeft : defaultSide;
       const title = typeof props.title === "string" ? props.title : undefined;
       const ownStyle = asTextStyle(props.style);
+      const clipEnabled = readClipEnabled(props.clip);
       const style = mergeTextStyle(inheritedStyle, ownStyle);
       const boxX = x + margin.left;
       const boxY = y + margin.top;
@@ -836,7 +848,9 @@ export function renderVNodeSimple(
       const cw = Math.max(0, boxW - bl - br - spacing.left - spacing.right);
       const ch = Math.max(0, boxH - bt - bb - spacing.top - spacing.bottom);
 
-      builder.pushClip(cx, cy, cw, ch);
+      if (clipEnabled) {
+        builder.pushClip(cx, cy, cw, ch);
+      }
       let cursorY = cy;
       for (const child of vnode.children) {
         if (cursorY >= cy + ch) break;
@@ -844,7 +858,9 @@ export function renderVNodeSimple(
         renderVNodeSimple(builder, child, cx, cursorY, cw, childH, focused, tick, theme, style);
         cursorY += childH;
       }
-      builder.popClip();
+      if (clipEnabled) {
+        builder.popClip();
+      }
       break;
     }
     default:

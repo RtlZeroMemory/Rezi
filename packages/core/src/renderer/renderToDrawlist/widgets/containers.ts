@@ -120,6 +120,10 @@ function readShadowOffset(raw: unknown, fallback: number): number {
   return value <= 0 ? 0 : value;
 }
 
+function readClipEnabled(raw: unknown): boolean {
+  return raw !== false;
+}
+
 function resolveBoxShadowConfig(
   shadow: unknown,
   theme: Theme,
@@ -182,9 +186,11 @@ export function renderContainerWidget(
         pl?: unknown;
         pr?: unknown;
         style?: unknown;
+        clip?: unknown;
       };
       const ownStyle = asTextStyle(props.style);
       const style = ownStyle ? mergeTextStyle(parentStyle, ownStyle) : parentStyle;
+      const clipEnabled = readClipEnabled(props.clip);
       if (ownStyle && shouldFillForStyleOverride(ownStyle)) {
         builder.fillRect(rect.x, rect.y, rect.w, rect.h, style);
       }
@@ -193,7 +199,7 @@ export function renderContainerWidget(
 
       // Fast path: no spacing → childClip equals rect, avoid allocation.
       if (spacing.top === 0 && spacing.right === 0 && spacing.bottom === 0 && spacing.left === 0) {
-        if (!clipEquals(currentClip, rect)) {
+        if (clipEnabled && !clipEquals(currentClip, rect)) {
           builder.pushClip(rect.x, rect.y, rect.w, rect.h);
           nodeStack.push(null);
         }
@@ -205,7 +211,7 @@ export function renderContainerWidget(
           styleStack,
           layoutStack,
           clipStack,
-          rect,
+          clipEnabled ? rect : currentClip,
           damageRect,
           vnode.kind,
         );
@@ -218,7 +224,7 @@ export function renderContainerWidget(
       const ch = clampNonNegative(rect.h - spacing.top - spacing.bottom);
       const childClip: ClipRect = { x: cx, y: cy, w: cw, h: ch };
 
-      if (!clipEquals(currentClip, childClip)) {
+      if (clipEnabled && !clipEquals(currentClip, childClip)) {
         builder.pushClip(cx, cy, cw, ch);
         nodeStack.push(null);
       }
@@ -230,7 +236,7 @@ export function renderContainerWidget(
         styleStack,
         layoutStack,
         clipStack,
-        childClip,
+        clipEnabled ? childClip : currentClip,
         damageRect,
         vnode.kind,
       );
@@ -256,6 +262,7 @@ export function renderContainerWidget(
         titleAlign?: unknown;
         shadow?: unknown;
         style?: unknown;
+        clip?: unknown;
       };
       const spacing = resolveSpacingFromProps(props);
       const border = readBoxBorder(props.border);
@@ -269,6 +276,7 @@ export function renderContainerWidget(
       const titleAlign = readTitleAlign(props.titleAlign);
       const ownStyle = asTextStyle(props.style);
       const style = mergeTextStyle(parentStyle, ownStyle);
+      const clipEnabled = readClipEnabled(props.clip);
       const shadowConfig = resolveBoxShadowConfig(props.shadow, theme);
       if (shadowConfig) {
         renderShadow(builder, rect, shadowConfig, style);
@@ -295,7 +303,7 @@ export function renderContainerWidget(
       const ch = clampNonNegative(rect.h - bt - bb - spacing.top - spacing.bottom);
       const childClip: ClipRect = { x: cx, y: cy, w: cw, h: ch };
 
-      if (!clipEquals(currentClip, childClip)) {
+      if (clipEnabled && !clipEquals(currentClip, childClip)) {
         builder.pushClip(cx, cy, cw, ch);
         nodeStack.push(null);
       }
@@ -307,7 +315,7 @@ export function renderContainerWidget(
         styleStack,
         layoutStack,
         clipStack,
-        childClip,
+        clipEnabled ? childClip : currentClip,
         damageRect,
       );
       break;

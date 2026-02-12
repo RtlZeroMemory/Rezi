@@ -1,12 +1,9 @@
 import { type VNode, ui } from "@rezi-ui/core";
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type React from "react";
+import AccessibilityContext from "../context/AccessibilityContext.js";
 import { Text, Transform } from "../index.js";
-import reconciler, {
-  createRootContainer,
-  updateRootContainer,
-  type HostRoot,
-} from "../reconciler.js";
+import { createRootContainer, type HostElement, updateRootContainer, type HostRoot } from "../reconciler.js";
 
 function renderToVNode(element: React.ReactNode): VNode {
   let last: VNode | null = null;
@@ -24,6 +21,25 @@ function renderToVNode(element: React.ReactNode): VNode {
   updateRootContainer(container, element);
 
   return last ?? ui.text("");
+}
+
+function renderToRoot(element: React.ReactNode): HostRoot {
+  const root: HostRoot = {
+    kind: "root",
+    children: [],
+    staticVNodes: [],
+    onCommit() {},
+  };
+
+  const container = createRootContainer(root);
+  updateRootContainer(container, element);
+  return root;
+}
+
+function asElement(node: HostRoot["children"][number] | undefined): HostElement {
+  assert.ok(node !== undefined);
+  assert.equal(node.kind, "element");
+  return node;
 }
 
 describe("<Transform>", () => {
@@ -65,5 +81,31 @@ describe("<Transform>", () => {
     assert.equal(spans.length, 2);
     assert.deepEqual(spans[0], { text: "X", style: { fg: { r: 95, g: 175, b: 215 } } });
     assert.deepEqual(spans[1], { text: " plain" });
+  });
+
+  test("uses default row text style for host node", () => {
+    const root = renderToRoot(<Transform transform={(s) => s}>x</Transform>);
+    const node = asElement(root.children[0]);
+    assert.deepEqual(node.style, { flexGrow: 0, flexShrink: 1, flexDirection: "row" });
+  });
+
+  test("accessibilityLabel only overrides output when screen reader mode is enabled", () => {
+    const srVNode = renderToVNode(
+      <AccessibilityContext.Provider value={true}>
+        <Transform accessibilityLabel="screen-reader" transform={(s) => s}>
+          visual
+        </Transform>
+      </AccessibilityContext.Provider>,
+    );
+    assert.equal(srVNode.kind, "text");
+    assert.equal(srVNode.text, "screen-reader");
+
+    const nonSrVNode = renderToVNode(
+      <Transform accessibilityLabel="screen-reader" transform={(s) => s}>
+        visual
+      </Transform>,
+    );
+    assert.equal(nonSrVNode.kind, "text");
+    assert.equal(nonSrVNode.text, "visual");
   });
 });
