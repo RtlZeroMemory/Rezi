@@ -1301,9 +1301,23 @@ pub fn engine_debug_query(
     _pad0: 0,
   };
 
-  // Each header is 40 bytes
-  let headers_cap = (out_headers.len() / 40) as u32;
-  let headers_ptr = out_headers.as_mut().as_mut_ptr() as *mut ffi::zr_debug_record_header_t;
+  let out_headers_slice = out_headers.as_mut();
+  let header_size = std::mem::size_of::<ffi::zr_debug_record_header_t>();
+  let header_align = std::mem::align_of::<ffi::zr_debug_record_header_t>();
+  let headers_cap = (out_headers_slice.len() / header_size) as u32;
+
+  let headers_ptr: *mut ffi::zr_debug_record_header_t = if headers_cap == 0 {
+    std::ptr::null_mut()
+  } else {
+    let raw = out_headers_slice.as_mut_ptr();
+    if (raw as usize) % header_align != 0 {
+      return Err(Error::new(
+        Status::InvalidArg,
+        "engineDebugQuery: outHeaders must be aligned for debug record headers",
+      ));
+    }
+    raw as *mut ffi::zr_debug_record_header_t
+  };
 
   let rc = unsafe {
     ffi::engine_debug_query(
@@ -1339,10 +1353,12 @@ pub fn engine_debug_get_payload(
     return Err(Error::new(Status::InvalidArg, "ZR_ERR_INVALID_ARGUMENT"));
   }
 
-  if record_id.sign_bit {
-    return Err(Error::new(Status::InvalidArg, "engineDebugGetPayload: recordId must be non-negative"));
-  }
-  let rid = record_id.words.get(0).copied().unwrap_or(0u64);
+  let rid = parse_debug_query_bigint_u64(record_id.sign_bit, &record_id.words).map_err(|_| {
+    Error::new(
+      Status::InvalidArg,
+      "engineDebugGetPayload: recordId must be a non-negative u64",
+    )
+  })?;
 
   let mut out_size: u32 = 0;
   let out_cap = out_payload.len() as u32;
