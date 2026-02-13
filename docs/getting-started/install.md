@@ -4,7 +4,7 @@ Install Rezi packages from npm to start building terminal applications.
 
 ## Requirements
 
-- **Node.js**: 18.18.0 or later
+- **Runtime**: Node.js 18.18.0+ or Bun 1.3.0+
 - **Operating System**: Linux, macOS, or Windows
 - **Terminal**: Any terminal emulator with 256-color or true-color support
 
@@ -63,7 +63,7 @@ If a prebuilt binary is not available for your platform, the package will attemp
 | Package | Description | Required |
 |---------|-------------|----------|
 | `@rezi-ui/core` | Widgets, layout, themes, forms, keybindings | Yes |
-| `@rezi-ui/node` | Node.js backend with native rendering | Yes |
+| `@rezi-ui/node` | Node.js/Bun backend with native rendering | Yes |
 | `@rezi-ui/testkit` | Testing utilities and fixtures | Optional |
 
 ## Optional packages
@@ -162,6 +162,12 @@ Run with:
 
 ```bash
 npx tsx test.ts
+```
+
+Or with Bun:
+
+```bash
+bun run test.ts
 ```
 
 You should see "Rezi is working!" displayed in your terminal.

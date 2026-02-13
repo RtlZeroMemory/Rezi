@@ -1,6 +1,6 @@
 # `@rezi-ui/node`
 
-Node backend package:
+Node/Bun backend package:
 
 - worker-thread engine ownership
 - transfer of drawlists/events between core and native
@@ -10,6 +10,8 @@ Node backend package:
 
 ```bash
 npm i @rezi-ui/node
+# or
+bun add @rezi-ui/node
 ```
 
 ## What you get
@@ -29,7 +31,7 @@ const backend = createNodeBackend({
 });
 ```
 
-Pass the backend into `createApp` from `@rezi-ui/core`.
+Pass the backend into `createApp` from `@rezi-ui/core`. This backend is supported in Node.js and Bun runtimes.
 
 ## Native engine config passthrough
 
