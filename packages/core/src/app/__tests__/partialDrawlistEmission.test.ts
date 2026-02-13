@@ -556,6 +556,73 @@ describe("WidgetRenderer incremental drawlist emission", () => {
     );
   });
 
+  test("shadow toggle on layout-skipped commit matches full render", () => {
+    const viewport: Viewport = { cols: 40, rows: 10 };
+    const backend = createNoopBackend();
+
+    const viewFn = (s: Readonly<{ shadow: boolean }>) =>
+      ui.layers([
+        ui.column({}, [
+          ui.spacer({ size: 1 }),
+          ui.row({}, [ui.spacer({ size: 10 }), ui.text("X")]),
+        ]),
+        ui.box({ width: 10, height: 3, border: "single", shadow: s.shadow }, [ui.text("box")]),
+      ]);
+
+    const partialBuilder = new RecordingBuilder();
+    const partialRenderer = new WidgetRenderer<{ shadow: boolean }>({
+      backend,
+      builder: partialBuilder,
+      requestRender: () => {},
+    });
+
+    const fullBuilder = new RecordingBuilder();
+    const fullRenderer = new WidgetRenderer<{ shadow: boolean }>({
+      backend,
+      builder: fullBuilder,
+      requestRender: () => {},
+    });
+
+    const planBootstrap = { commit: true, layout: true, checkLayoutStability: true } as const;
+    const planUpdate = { commit: true, layout: false, checkLayoutStability: false } as const;
+
+    const opsA = submitOps(
+      partialRenderer,
+      partialBuilder,
+      viewFn,
+      { shadow: false },
+      viewport,
+      planBootstrap,
+    );
+    const framebufferA = applyOps(createFramebuffer(viewport), opsA);
+
+    const opsExpected = submitOps(
+      fullRenderer,
+      fullBuilder,
+      viewFn,
+      { shadow: true },
+      viewport,
+      planBootstrap,
+    );
+    const framebufferExpected = applyOps(createFramebuffer(viewport), opsExpected);
+
+    const opsPartial = submitOps(
+      partialRenderer,
+      partialBuilder,
+      viewFn,
+      { shadow: true },
+      viewport,
+      planUpdate,
+    );
+    const framebufferPartial = applyOps(framebufferA, opsPartial);
+
+    assertFramebuffersEqual(framebufferPartial, framebufferExpected);
+    assert.equal(
+      opsPartial.some((op) => op.kind === "clearTo"),
+      false,
+    );
+  });
+
   test("incremental v2 cursor is emitted even when focused input is outside damage rect", () => {
     const viewport: Viewport = { cols: 40, rows: 8 };
     const backend = createNoopBackend();

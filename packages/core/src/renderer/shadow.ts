@@ -153,7 +153,10 @@ export function getRectWithShadow(rect: Rect, config: ShadowBoundsConfig): Rect 
   return {
     x: rect.x,
     y: rect.y,
-    w: rect.w + config.offsetX,
+    // renderShadow() draws the bottom strip starting at x + offsetX and
+    // with length (rect.w + offsetX), so the rightmost painted cell extends
+    // by 2*offsetX beyond rect.x + rect.w - 1.
+    w: rect.w + config.offsetX * 2,
     h: rect.h + config.offsetY,
   };
 }

@@ -58,6 +58,7 @@ import { measureTextCells } from "../layout/textMeasure.js";
 import type { Rect } from "../layout/types.js";
 import { PERF_DETAIL_ENABLED, PERF_ENABLED, perfMarkEnd, perfMarkStart } from "../perf/perf.js";
 import { type CursorInfo, renderToDrawlist } from "../renderer/renderToDrawlist.js";
+import { getRuntimeNodeDamageRect } from "../renderer/renderToDrawlist/damageBounds.js";
 import { renderTree } from "../renderer/renderToDrawlist/renderTree.js";
 import { DEFAULT_BASE_STYLE } from "../renderer/renderToDrawlist/textStyle.js";
 import { type CommitOk, type RuntimeInstance, commitVNodeTree } from "../runtime/commit.js";
@@ -2486,6 +2487,33 @@ export class WidgetRenderer<S> {
     return false;
   }
 
+  private refreshDamageRectIndexesForLayoutSkippedCommit(runtimeRoot: RuntimeInstance): void {
+    this._pooledDamageRectByInstanceId.clear();
+    this._pooledDamageRectById.clear();
+    this._pooledRuntimeStack.length = 0;
+    this._pooledRuntimeStack.push(runtimeRoot);
+
+    while (this._pooledRuntimeStack.length > 0) {
+      const node = this._pooledRuntimeStack.pop();
+      if (!node) continue;
+
+      const rect = this._pooledRectByInstanceId.get(node.instanceId);
+      if (rect) {
+        const damageRect = getRuntimeNodeDamageRect(node, rect);
+        this._pooledDamageRectByInstanceId.set(node.instanceId, damageRect);
+        const id = (node.vnode as { props?: { id?: unknown } }).props?.id;
+        if (typeof id === "string" && id.length > 0 && !this._pooledDamageRectById.has(id)) {
+          this._pooledDamageRectById.set(id, damageRect);
+        }
+      }
+
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        const child = node.children[i];
+        if (child) this._pooledRuntimeStack.push(child);
+      }
+    }
+  }
+
   private collectSpinnerDamageRects(runtimeRoot: RuntimeInstance, layoutRoot: LayoutTree): void {
     this._pooledRuntimeStack.length = 0;
     this._pooledLayoutStack.length = 0;
@@ -2553,18 +2581,18 @@ export class WidgetRenderer<S> {
       for (const [instanceId, rect] of this._pooledRectByInstanceId) {
         this._prevFrameRectByInstanceId.set(instanceId, rect);
       }
-      this._prevFrameDamageRectByInstanceId.clear();
-      for (const [instanceId, rect] of this._pooledDamageRectByInstanceId) {
-        this._prevFrameDamageRectByInstanceId.set(instanceId, rect);
-      }
       this._prevFrameRectById.clear();
       for (const [id, rect] of this._pooledRectById) {
         this._prevFrameRectById.set(id, rect);
       }
-      this._prevFrameDamageRectById.clear();
-      for (const [id, rect] of this._pooledDamageRectById) {
-        this._prevFrameDamageRectById.set(id, rect);
-      }
+    }
+    this._prevFrameDamageRectByInstanceId.clear();
+    for (const [instanceId, rect] of this._pooledDamageRectByInstanceId) {
+      this._prevFrameDamageRectByInstanceId.set(instanceId, rect);
+    }
+    this._prevFrameDamageRectById.clear();
+    for (const [id, rect] of this._pooledDamageRectById) {
+      this._prevFrameDamageRectById.set(id, rect);
     }
     this._hasRenderedFrame = true;
     this._lastRenderedViewport = Object.freeze({ cols: viewport.cols, rows: viewport.rows });
@@ -2737,6 +2765,9 @@ export class WidgetRenderer<S> {
           code: "ZRUI_INVALID_PROPS",
           detail: "widgetRenderer: missing layout tree",
         };
+      }
+      if (doCommit && !doLayout) {
+        this.refreshDamageRectIndexesForLayoutSkippedCommit(this.committedRoot);
       }
 
       if (doCommit) {
