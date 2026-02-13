@@ -1,11 +1,11 @@
-import { createApp, ui } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { ui } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
 type State = { step: number };
 
-const app = createApp<State>({
-  backend: createNodeBackend({ executionMode: "inline", fpsCap: 30 }),
+const app = createNodeApp<State>({
   initialState: { step: 0 },
+  config: { executionMode: "inline", fpsCap: 30 },
 });
 
 app.view((state) =>

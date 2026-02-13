@@ -24,6 +24,9 @@
 
 import { ZrUiError, type ZrUiErrorCode } from "../abi.js";
 import {
+  BACKEND_DRAWLIST_V2_MARKER,
+  BACKEND_FPS_CAP_MARKER,
+  BACKEND_MAX_EVENT_BYTES_MARKER,
   type BackendEventBatch,
   FRAME_ACCEPTED_ACK_MARKER,
   type RuntimeBackend,
@@ -132,6 +135,30 @@ function getAcceptedFrameAck(p: Promise<void>): Promise<void> | null {
   if (typeof marker !== "object" || marker === null) return null;
   if (typeof (marker as { then?: unknown }).then !== "function") return null;
   return marker as Promise<void>;
+}
+
+function readBackendBooleanMarker(
+  backend: RuntimeBackend,
+  marker: typeof BACKEND_DRAWLIST_V2_MARKER,
+): boolean | null {
+  const value = (backend as RuntimeBackend & Readonly<Record<string, unknown>>)[marker];
+  if (value === undefined) return null;
+  if (typeof value !== "boolean") {
+    invalidProps(`backend marker ${marker} must be a boolean when present`);
+  }
+  return value;
+}
+
+function readBackendPositiveIntMarker(
+  backend: RuntimeBackend,
+  marker: typeof BACKEND_MAX_EVENT_BYTES_MARKER | typeof BACKEND_FPS_CAP_MARKER,
+): number | null {
+  const value = (backend as RuntimeBackend & Readonly<Record<string, unknown>>)[marker];
+  if (value === undefined) return null;
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+    invalidProps(`backend marker ${marker} must be a positive integer when present`);
+  }
+  return value;
 }
 
 /** Apply defaults to user-provided config, validating all values. */
@@ -268,6 +295,42 @@ export function createApp<S>(
 ): App<S> {
   const backend = opts.backend;
   const config = resolveAppConfig(opts.config);
+
+  const backendUseDrawlistV2 = readBackendBooleanMarker(backend, BACKEND_DRAWLIST_V2_MARKER);
+  if (backendUseDrawlistV2 !== null && backendUseDrawlistV2 !== config.useV2Cursor) {
+    if (config.useV2Cursor) {
+      invalidProps(
+        "config.useV2Cursor=true but backend.useDrawlistV2=false. " +
+          "Fix: set createNodeBackend({ useDrawlistV2: true }) or use createNodeApp({ config: { useV2Cursor: true } }).",
+      );
+    }
+    invalidProps(
+      "config.useV2Cursor=false but backend.useDrawlistV2=true. " +
+        "Fix: set createApp({ config: { useV2Cursor: true } }) or set createNodeBackend({ useDrawlistV2: false }).",
+    );
+  }
+
+  const backendMaxEventBytes = readBackendPositiveIntMarker(
+    backend,
+    BACKEND_MAX_EVENT_BYTES_MARKER,
+  );
+  if (backendMaxEventBytes !== null && backendMaxEventBytes !== config.maxEventBytes) {
+    invalidProps(
+      `config.maxEventBytes=${String(config.maxEventBytes)} must match backend maxEventBytes=${String(
+        backendMaxEventBytes,
+      )}. Fix: set the same maxEventBytes in createApp({ config }) and createNodeBackend({ maxEventBytes }), or use createNodeApp({ config: { maxEventBytes: ... } }).`,
+    );
+  }
+
+  const backendFpsCap = readBackendPositiveIntMarker(backend, BACKEND_FPS_CAP_MARKER);
+  if (backendFpsCap !== null && backendFpsCap !== config.fpsCap) {
+    invalidProps(
+      `config.fpsCap=${String(config.fpsCap)} must match backend fpsCap=${String(
+        backendFpsCap,
+      )}. Fix: set the same fpsCap in createApp({ config }) and createNodeBackend({ fpsCap }), or use createNodeApp({ config: { fpsCap: ... } }).`,
+    );
+  }
+
   let theme = coerceToLegacyTheme(opts.theme ?? defaultTheme);
 
   const sm = new AppStateMachine();

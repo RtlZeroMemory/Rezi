@@ -767,6 +767,17 @@ function tick(): void {
       break;
     }
 
+    if (!Number.isInteger(written) || written > outBuf.byteLength) {
+      if (outBuf !== discard) eventPool.push(outBuf);
+      fatal(
+        "enginePollEvents",
+        -1,
+        `engine_poll_events returned invalid byte count: written=${String(written)} capacity=${String(outBuf.byteLength)}`,
+      );
+      running = false;
+      return;
+    }
+
     if (written < 0) {
       if (outBuf !== discard) eventPool.push(outBuf);
       fatal("enginePollEvents", written, "engine_poll_events failed");
