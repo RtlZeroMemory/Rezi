@@ -6,12 +6,15 @@ Node.js/Bun backend for Rezi. This package owns:
 - frame scheduling and buffer pooling
 - transfer of drawlists/events between core and the native addon
 
-Typical usage:
+Recommended usage:
 
 ```ts
-import { createApp, ui } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { createNodeApp } from "@rezi-ui/node";
 ```
+
+Use `createNodeApp({ initialState, config })` as the default path. It wires
+`@rezi-ui/core` and `@rezi-ui/node` with matched cursor protocol, event caps,
+and fps settings.
 
 Install:
 

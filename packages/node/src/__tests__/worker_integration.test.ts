@@ -517,6 +517,46 @@ test("backend: maps fpsCap to native targetFps during init", async () => {
   backend.dispose();
 });
 
+test("backend: worker path fails deterministically on invalid engine_poll_events byte counts", async () => {
+  const shim = new URL("../worker/testShims/invalidPollBytesNative.js", import.meta.url).href;
+  const backend = createNodeBackendInternal({
+    config: { fpsCap: 1000, maxEventBytes: 64 },
+    nativeShimModule: shim,
+  });
+
+  await backend.start();
+  await assert.rejects(
+    backend.pollEvents(),
+    (err) =>
+      err instanceof ZrUiError &&
+      err.code === "ZRUI_BACKEND_ERROR" &&
+      err.message.includes(
+        "engine_poll_events returned invalid byte count: written=65 capacity=64",
+      ),
+  );
+  backend.dispose();
+});
+
+test("backend: inline path fails deterministically on invalid engine_poll_events byte counts", async () => {
+  const shim = new URL("../worker/testShims/invalidPollBytesNative.js", import.meta.url).href;
+  const backend = createNodeBackendInternal({
+    config: { executionMode: "inline", fpsCap: 1000, maxEventBytes: 64 },
+    nativeShimModule: shim,
+  });
+
+  await backend.start();
+  await assert.rejects(
+    backend.pollEvents(),
+    (err) =>
+      err instanceof ZrUiError &&
+      err.code === "ZRUI_BACKEND_ERROR" &&
+      err.message.includes(
+        "engine_poll_events returned invalid byte count: written=65 capacity=64",
+      ),
+  );
+  backend.dispose();
+});
+
 test("backend: mailbox resolves coalesced frame sequences", async () => {
   const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({

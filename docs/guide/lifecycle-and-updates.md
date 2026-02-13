@@ -2,25 +2,27 @@
 
 This guide explains how a Rezi app moves through its lifecycle, how updates are committed, and what “deterministic scheduling” means in practice.
 
-## `createApp`
+## `createNodeApp` (recommended)
 
-Apps are created via `createApp` from `@rezi-ui/core` and a backend from `@rezi-ui/node`:
+Apps are usually created through `createNodeApp` from `@rezi-ui/node`:
 
 ```typescript
-import { createApp, ui } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { ui } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
 type State = { count: number };
 
-const app = createApp<State>({
-  backend: createNodeBackend(),
+const app = createNodeApp<State>({
   initialState: { count: 0 },
-  config: { fpsCap: 60 },
+  config: { fpsCap: 60, maxEventBytes: 1 << 20, useV2Cursor: false },
 });
 
 app.view((state) => ui.text(`Count: ${state.count}`));
 await app.start();
 ```
+
+`createNodeApp` keeps app/backend cursor protocol, event caps, and fps knobs in
+sync by construction.
 
 ## State machine diagram
 

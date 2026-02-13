@@ -17,7 +17,12 @@ import type {
   RuntimeBackend,
   TerminalCaps,
 } from "@rezi-ui/core";
-import { DEFAULT_TERMINAL_CAPS } from "@rezi-ui/core";
+import {
+  BACKEND_DRAWLIST_V2_MARKER,
+  BACKEND_FPS_CAP_MARKER,
+  BACKEND_MAX_EVENT_BYTES_MARKER,
+  DEFAULT_TERMINAL_CAPS,
+} from "@rezi-ui/core";
 import {
   ZR_DRAWLIST_VERSION_V1,
   ZR_DRAWLIST_VERSION_V2,
@@ -155,9 +160,32 @@ function parsePositiveInt(n: unknown): number | null {
   return n;
 }
 
-function readNativeTargetFps(cfg: Readonly<Record<string, unknown>>): number | null {
+function readNativeTargetFpsValues(
+  cfg: Readonly<Record<string, unknown>>,
+): Readonly<{ camel: number | null; snake: number | null }> {
   const targetFpsCfg = cfg as Readonly<{ targetFps?: unknown; target_fps?: unknown }>;
-  return parsePositiveInt(targetFpsCfg.targetFps) ?? parsePositiveInt(targetFpsCfg.target_fps);
+  return {
+    camel: parsePositiveInt(targetFpsCfg.targetFps),
+    snake: parsePositiveInt(targetFpsCfg.target_fps),
+  };
+}
+
+function resolveTargetFps(fpsCap: number, nativeConfig: Readonly<Record<string, unknown>>): number {
+  const values = readNativeTargetFpsValues(nativeConfig);
+  if (values.camel !== null && values.snake !== null && values.camel !== values.snake) {
+    throw new ZrUiError(
+      "ZRUI_INVALID_PROPS",
+      `createNodeBackend config mismatch: nativeConfig.targetFps=${String(values.camel)} must match nativeConfig.target_fps=${String(values.snake)}.`,
+    );
+  }
+  const nativeTargetFps = values.camel ?? values.snake;
+  if (nativeTargetFps !== null && nativeTargetFps !== fpsCap) {
+    throw new ZrUiError(
+      "ZRUI_INVALID_PROPS",
+      `createNodeBackend config mismatch: fpsCap=${String(fpsCap)} must match nativeConfig.targetFps/target_fps=${String(nativeTargetFps)}. Fix: set nativeConfig.targetFps (or target_fps) to ${String(fpsCap)}, or remove the override and use fpsCap only.`,
+    );
+  }
+  return fpsCap;
 }
 
 function safeErr(err: unknown): Error {
@@ -236,10 +264,11 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
     !Array.isArray(cfg.nativeConfig)
       ? (cfg.nativeConfig as Record<string, unknown>)
       : Object.freeze({});
-  const nativeTargetFps = readNativeTargetFps(nativeConfig) ?? fpsCap;
+  const nativeTargetFps = resolveTargetFps(fpsCap, nativeConfig);
 
   const initConfig = {
     ...nativeConfig,
+    // fpsCap is the single frame-scheduling knob; native target fps must align.
     targetFps: nativeTargetFps,
     requestedEngineAbiMajor: ZR_ENGINE_ABI_MAJOR,
     requestedEngineAbiMinor: ZR_ENGINE_ABI_MINOR,
@@ -341,11 +370,10 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
     }
   }
 
-  function failWith(where: string, code: number, detail: string): never {
+  function failWith(where: string, code: number, detail: string): void {
     const err = new ZrUiError("ZRUI_BACKEND_ERROR", `${where} (${String(code)}): ${detail}`);
     fatal = err;
     rejectWaiters(err);
-    throw err;
   }
 
   function clearPollLoop(): void {
@@ -434,6 +462,7 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
         written = native.enginePollEvents(engineId, 0, new Uint8Array(outBuf));
       } catch (err) {
         failWith("enginePollEvents", -1, `engine_poll_events threw: ${safeDetail(err)}`);
+        return;
       }
       if (PERF_ENABLED) {
         perfRecord("event_poll", performance.now() - startMs);
@@ -444,9 +473,19 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
         schedulePoll(POLL_BUSY_MS);
         return;
       }
+      if (!Number.isInteger(written) || written > outBuf.byteLength) {
+        if (outBuf !== discardBuffer) eventPool.push(outBuf);
+        failWith(
+          "enginePollEvents",
+          -1,
+          `engine_poll_events returned invalid byte count: written=${String(written)} capacity=${String(outBuf.byteLength)}`,
+        );
+        return;
+      }
       if (written < 0) {
         if (outBuf !== discardBuffer) eventPool.push(outBuf);
         failWith("enginePollEvents", written, "engine_poll_events failed");
+        return;
       }
       if (written === 0) {
         if (outBuf !== discardBuffer) eventPool.push(outBuf);
@@ -833,5 +872,32 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
     perfSnapshot: async (): Promise<NodeBackendPerfSnapshot> => perfSnapshot(),
   };
 
-  return Object.freeze({ ...backend, debug, perf });
+  const out = { ...backend, debug, perf } as NodeBackend &
+    Record<
+      | typeof BACKEND_DRAWLIST_V2_MARKER
+      | typeof BACKEND_MAX_EVENT_BYTES_MARKER
+      | typeof BACKEND_FPS_CAP_MARKER,
+      boolean | number
+    >;
+  Object.defineProperties(out, {
+    [BACKEND_DRAWLIST_V2_MARKER]: {
+      value: useDrawlistV2,
+      writable: false,
+      enumerable: false,
+      configurable: false,
+    },
+    [BACKEND_MAX_EVENT_BYTES_MARKER]: {
+      value: maxEventBytes,
+      writable: false,
+      enumerable: false,
+      configurable: false,
+    },
+    [BACKEND_FPS_CAP_MARKER]: {
+      value: fpsCap,
+      writable: false,
+      enumerable: false,
+      configurable: false,
+    },
+  });
+  return Object.freeze(out);
 }

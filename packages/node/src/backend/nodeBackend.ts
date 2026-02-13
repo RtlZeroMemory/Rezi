@@ -18,7 +18,13 @@ import type {
   RuntimeBackend,
   TerminalCaps,
 } from "@rezi-ui/core";
-import { DEFAULT_TERMINAL_CAPS, FRAME_ACCEPTED_ACK_MARKER } from "@rezi-ui/core";
+import {
+  BACKEND_DRAWLIST_V2_MARKER,
+  BACKEND_FPS_CAP_MARKER,
+  BACKEND_MAX_EVENT_BYTES_MARKER,
+  DEFAULT_TERMINAL_CAPS,
+  FRAME_ACCEPTED_ACK_MARKER,
+} from "@rezi-ui/core";
 import {
   ZR_DRAWLIST_VERSION_V1,
   ZR_DRAWLIST_VERSION_V2,
@@ -153,9 +159,32 @@ function parsePositiveInt(n: unknown): number | null {
   return n;
 }
 
-function readNativeTargetFps(cfg: Readonly<Record<string, unknown>>): number | null {
+function readNativeTargetFpsValues(
+  cfg: Readonly<Record<string, unknown>>,
+): Readonly<{ camel: number | null; snake: number | null }> {
   const targetFpsCfg = cfg as Readonly<{ targetFps?: unknown; target_fps?: unknown }>;
-  return parsePositiveInt(targetFpsCfg.targetFps) ?? parsePositiveInt(targetFpsCfg.target_fps);
+  return {
+    camel: parsePositiveInt(targetFpsCfg.targetFps),
+    snake: parsePositiveInt(targetFpsCfg.target_fps),
+  };
+}
+
+function resolveTargetFps(fpsCap: number, nativeConfig: Readonly<Record<string, unknown>>): number {
+  const values = readNativeTargetFpsValues(nativeConfig);
+  if (values.camel !== null && values.snake !== null && values.camel !== values.snake) {
+    throw new ZrUiError(
+      "ZRUI_INVALID_PROPS",
+      `createNodeBackend config mismatch: nativeConfig.targetFps=${String(values.camel)} must match nativeConfig.target_fps=${String(values.snake)}.`,
+    );
+  }
+  const nativeTargetFps = values.camel ?? values.snake;
+  if (nativeTargetFps !== null && nativeTargetFps !== fpsCap) {
+    throw new ZrUiError(
+      "ZRUI_INVALID_PROPS",
+      `createNodeBackend config mismatch: fpsCap=${String(fpsCap)} must match nativeConfig.targetFps/target_fps=${String(nativeTargetFps)}. Fix: set nativeConfig.targetFps (or target_fps) to ${String(fpsCap)}, or remove the override and use fpsCap only.`,
+    );
+  }
+  return fpsCap;
 }
 
 function safeErr(err: unknown): Error {
@@ -320,12 +349,11 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
     !Array.isArray(cfg.nativeConfig)
       ? (cfg.nativeConfig as Record<string, unknown>)
       : Object.freeze({});
-  const nativeTargetFps = readNativeTargetFps(nativeConfig) ?? fpsCap;
+  const nativeTargetFps = resolveTargetFps(fpsCap, nativeConfig);
 
   const initConfig: EngineCreateConfig = {
     ...nativeConfig,
-    // Keep native tick generation aligned with app/backend fpsCap unless
-    // explicitly overridden in nativeConfig.
+    // fpsCap is the single frame-scheduling knob; native target fps must align.
     targetFps: nativeTargetFps,
     // Negotiation pins (docs/16 + docs/01)
     requestedEngineAbiMajor: ZR_ENGINE_ABI_MAJOR,
@@ -552,6 +580,38 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       }
 
       case "events": {
+        if (!Number.isInteger(msg.byteLen) || msg.byteLen < 0) {
+          fatal = new ZrUiError(
+            "ZRUI_BACKEND_ERROR",
+            `events: invalid byteLen=${String(msg.byteLen)}`,
+          );
+          failAll(fatal);
+          return;
+        }
+        if (msg.byteLen > msg.batch.byteLength) {
+          fatal = new ZrUiError(
+            "ZRUI_BACKEND_ERROR",
+            `events: byteLen=${String(msg.byteLen)} exceeds batch.byteLength=${String(msg.batch.byteLength)}`,
+          );
+          failAll(fatal);
+          return;
+        }
+        if (msg.byteLen > maxEventBytes) {
+          fatal = new ZrUiError(
+            "ZRUI_BACKEND_ERROR",
+            `events: byteLen=${String(msg.byteLen)} exceeds maxEventBytes=${String(maxEventBytes)}`,
+          );
+          failAll(fatal);
+          return;
+        }
+        if (!Number.isInteger(msg.droppedSinceLast) || msg.droppedSinceLast < 0) {
+          fatal = new ZrUiError(
+            "ZRUI_BACKEND_ERROR",
+            `events: invalid droppedSinceLast=${String(msg.droppedSinceLast)}`,
+          );
+          failAll(fatal);
+          return;
+        }
         const waiter = eventWaiters.shift();
         if (waiter !== undefined) {
           const buf = msg.batch;
@@ -1159,5 +1219,32 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       }),
   };
 
-  return Object.assign(backend, { debug, perf }) satisfies NodeBackend;
+  const out = Object.assign(backend, { debug, perf }) as NodeBackend &
+    Record<
+      | typeof BACKEND_DRAWLIST_V2_MARKER
+      | typeof BACKEND_MAX_EVENT_BYTES_MARKER
+      | typeof BACKEND_FPS_CAP_MARKER,
+      boolean | number
+    >;
+  Object.defineProperties(out, {
+    [BACKEND_DRAWLIST_V2_MARKER]: {
+      value: useDrawlistV2,
+      writable: false,
+      enumerable: false,
+      configurable: false,
+    },
+    [BACKEND_MAX_EVENT_BYTES_MARKER]: {
+      value: maxEventBytes,
+      writable: false,
+      enumerable: false,
+      configurable: false,
+    },
+    [BACKEND_FPS_CAP_MARKER]: {
+      value: fpsCap,
+      writable: false,
+      enumerable: false,
+      configurable: false,
+    },
+  });
+  return out;
 }

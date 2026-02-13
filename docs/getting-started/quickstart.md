@@ -48,14 +48,14 @@ bun add -d typescript tsx
 Create `index.ts`:
 
 ```typescript
-import { createApp, ui, rgb } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { ui, rgb } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
 type State = { count: number };
 
-const app = createApp<State>({
-  backend: createNodeBackend(),
+const app = createNodeApp<State>({
   initialState: { count: 0 },
+  config: { fpsCap: 60, maxEventBytes: 1 << 20, useV2Cursor: false },
 });
 
 app.view((state) =>
@@ -107,14 +107,14 @@ You should see a counter UI. Use Tab to navigate between buttons, Enter to activ
 ### Creating the Application
 
 ```typescript
-const app = createApp<State>({
-  backend: createNodeBackend(),
+const app = createNodeApp<State>({
   initialState: { count: 0 },
+  config: { fpsCap: 60, maxEventBytes: 1 << 20, useV2Cursor: false },
 });
 ```
 
-- `createApp<State>` creates a typed application instance
-- `backend` specifies the rendering backend (`@rezi-ui/node` for Node.js and Bun)
+- `createNodeApp<State>` creates a typed application instance and compatible Node backend
+- `config` controls app/backend runtime knobs in one place (`fpsCap`, `maxEventBytes`, `useV2Cursor`)
 - `initialState` provides the initial application state
 
 ### Defining the View

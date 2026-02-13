@@ -11,6 +11,24 @@ import type { TerminalCaps } from "./terminalCaps.js";
  */
 export const FRAME_ACCEPTED_ACK_MARKER = "__reziFrameAcceptedAckPromise" as const;
 
+/**
+ * Optional marker on RuntimeBackend objects exposing the backend drawlist protocol.
+ * Used by createApp() to reject core/backend cursor-protocol mismatches early.
+ */
+export const BACKEND_DRAWLIST_V2_MARKER = "__reziBackendUseDrawlistV2" as const;
+
+/**
+ * Optional marker on RuntimeBackend objects exposing the backend event-batch cap.
+ * Used by createApp() to reject event-buffer cap mismatches early.
+ */
+export const BACKEND_MAX_EVENT_BYTES_MARKER = "__reziBackendMaxEventBytes" as const;
+
+/**
+ * Optional marker on RuntimeBackend objects exposing the backend frame pacing cap.
+ * Used by createApp() to reject fps-cap mismatches early.
+ */
+export const BACKEND_FPS_CAP_MARKER = "__reziBackendFpsCap" as const;
+
 // =============================================================================
 // BackendEventBatch (from docs/guide/lifecycle-and-updates.md)
 // =============================================================================
