@@ -58,6 +58,18 @@ function readToastPosition(raw: unknown): ToastPosition {
   }
 }
 
+function isFiniteNumber(v: unknown): v is number {
+  return typeof v === "number" && Number.isFinite(v);
+}
+
+function hasFrameBorder(raw: unknown): boolean {
+  if (!raw || typeof raw !== "object") return false;
+  const border = (raw as { border?: unknown }).border;
+  if (!border || typeof border !== "object") return false;
+  const rgb = border as { r?: unknown; g?: unknown; b?: unknown };
+  return isFiniteNumber(rgb.r) && isFiniteNumber(rgb.g) && isFiniteNumber(rgb.b);
+}
+
 export function measureOverlays(
   vnode: VNode,
   maxW: number,
@@ -326,11 +338,16 @@ export function layoutOverlays(
       return ok({ vnode, rect: { x, y, w: 0, h: 0 }, children: Object.freeze([]) });
     }
     case "layer": {
-      const props = vnode.props as { content?: unknown };
+      const props = vnode.props as { content?: unknown; frameStyle?: unknown };
       const content = isVNode(props.content) ? props.content : null;
+      const borderInset = hasFrameBorder(props.frameStyle) ? 1 : 0;
+      const innerX = x + borderInset;
+      const innerY = y + borderInset;
+      const innerW = clampNonNegative(rectW - borderInset * 2);
+      const innerH = clampNonNegative(rectH - borderInset * 2);
       const children: LayoutTree[] = [];
       if (content) {
-        const childRes = layoutNode(content, x, y, rectW, rectH, axis, rectW, rectH);
+        const childRes = layoutNode(content, innerX, innerY, innerW, innerH, axis, innerW, innerH);
         if (!childRes.ok) return childRes;
         children.push(childRes.value);
       }

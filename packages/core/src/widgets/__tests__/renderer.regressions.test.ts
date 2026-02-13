@@ -72,6 +72,13 @@ type CommandStyle = Readonly<{
   attrs: number;
 }>;
 
+type ClipCommand = Readonly<{
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}>;
+
 function parseCommandStyles(bytes: Uint8Array): readonly CommandStyle[] {
   const cmdOffset = u32(bytes, 16);
   const cmdBytes = u32(bytes, 20);
@@ -95,6 +102,31 @@ function parseCommandStyles(bytes: Uint8Array): readonly CommandStyle[] {
         fg: u32(bytes, off + 28),
         bg: u32(bytes, off + 32),
         attrs: u32(bytes, off + 36),
+      });
+    }
+    off += size;
+  }
+
+  return Object.freeze(out);
+}
+
+function parsePushClips(bytes: Uint8Array): readonly ClipCommand[] {
+  const cmdOffset = u32(bytes, 16);
+  const cmdBytes = u32(bytes, 20);
+  const end = cmdOffset + cmdBytes;
+
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const out: ClipCommand[] = [];
+  let off = cmdOffset;
+  while (off < end) {
+    const opcode = dv.getUint16(off, true);
+    const size = dv.getUint32(off + 4, true);
+    if (opcode === 4 && size >= 24) {
+      out.push({
+        x: dv.getInt32(off + 8, true),
+        y: dv.getInt32(off + 12, true),
+        w: dv.getInt32(off + 16, true),
+        h: dv.getInt32(off + 20, true),
       });
     }
     off += size;
@@ -450,6 +482,27 @@ describe("renderer regressions", () => {
     );
     assert.equal(
       styles.some((s) => s.fg === packRgb(101, 102, 103)),
+      true,
+    );
+  });
+
+  test("layer frameStyle border clips child content to inner rect", () => {
+    const clips = parsePushClips(
+      renderBytes(
+        ui.layer({
+          id: "layer-clip-inner",
+          backdrop: "none",
+          frameStyle: {
+            border: { r: 130, g: 131, b: 132 },
+          },
+          content: ui.text("edge"),
+        }),
+        { cols: 20, rows: 6 },
+      ),
+    );
+
+    assert.equal(
+      clips.some((clip) => clip.x === 1 && clip.y === 1 && clip.w === 18 && clip.h === 4),
       true,
     );
   });

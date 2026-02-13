@@ -222,4 +222,21 @@ describe("layout edge cases", () => {
     if (!modalLayout) return;
     assert.equal(modalLayout.rect.w, 20);
   });
+
+  test("layer frame border insets content layout by one cell", () => {
+    const layer: VNode = {
+      kind: "layer",
+      props: {
+        id: "layer-border-inset",
+        frameStyle: { border: { r: 120, g: 121, b: 122 } },
+        content: { kind: "text", text: "edge", props: {} },
+      },
+    };
+    const laidOut = mustLayout(layer, 20, 6);
+    assert.deepEqual(laidOut.rect, { x: 0, y: 0, w: 20, h: 6 });
+    const content = laidOut.children[0];
+    assert.ok(content !== undefined, "expected layer content");
+    if (!content) return;
+    assert.deepEqual(content.rect, { x: 1, y: 1, w: 18, h: 4 });
+  });
 });

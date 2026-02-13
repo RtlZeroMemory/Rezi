@@ -548,6 +548,20 @@ export function renderContainerWidget(
         const borderStyle = mergeTextStyle(layerStyle, { fg: frame.border });
         renderBoxBorder(builder, rect, "single", undefined, "left", borderStyle);
       }
+      const borderInset = frame.border !== undefined ? 1 : 0;
+      const childClip: ClipRect | undefined =
+        borderInset > 0
+          ? {
+              x: rect.x + borderInset,
+              y: rect.y + borderInset,
+              w: clampNonNegative(rect.w - borderInset * 2),
+              h: clampNonNegative(rect.h - borderInset * 2),
+            }
+          : currentClip;
+      if (childClip && !clipEquals(currentClip, childClip)) {
+        builder.pushClip(childClip.x, childClip.y, childClip.w, childClip.h);
+        nodeStack.push(null);
+      }
       pushChildrenWithLayout(
         node,
         layoutNode,
@@ -556,7 +570,7 @@ export function renderContainerWidget(
         styleStack,
         layoutStack,
         clipStack,
-        currentClip,
+        childClip,
         damageRect,
       );
       break;
