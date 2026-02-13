@@ -28,17 +28,12 @@ knobs aligned:
 - `maxEventBytes` is applied to both app parsing and backend worker buffers.
 - `fpsCap` is the single scheduling knob.
 
-Advanced path:
+Legacy path deprecation:
 
-```ts
-import { createApp } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
-
-const backend = createNodeBackend({ fpsCap: 60 });
-const app = createApp({ backend, initialState: { count: 0 } });
-```
-
-If advanced config values conflict, Rezi now throws deterministic
-`ZRUI_INVALID_PROPS` errors with exact fixes.
+- `createNodeBackend()` + `createApp()` manual pairing is deprecated for normal
+  app setup.
+- Use `createNodeApp()` so related runtime knobs cannot drift.
+- If you still compose manually, Rezi throws deterministic `ZRUI_INVALID_PROPS`
+  errors when cursor/event/fps settings conflict.
 
 Next: [Worker model](worker-model.md).

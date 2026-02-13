@@ -24,14 +24,13 @@ Rezi provides a JSX runtime (`@rezi-ui/jsx`) that lets you write widget trees us
 ## Example
 
 ```tsx
-import { createApp, rgb } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { rgb } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
 type State = { count: number };
 
-const app = createApp<State>({
-  backend: createNodeBackend(),
-  initialState: { count: 0 },
+const app = createNodeApp<State>({
+    initialState: { count: 0 },
 });
 
 app.view((state) =>

@@ -15,8 +15,8 @@ Track loading state explicitly and render skeletons, spinners, or error messages
 This example simulates async work with `setTimeout` so it’s runnable without network access:
 
 ```typescript
-import { createApp, ui, rgb } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { ui, rgb } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
 type LoadingState<T> =
   | { status: "idle" }
@@ -30,9 +30,8 @@ type State = {
   users: LoadingState<User[]>;
 };
 
-const app = createApp<State>({
-  backend: createNodeBackend(),
-  initialState: { users: { status: "idle" } },
+const app = createNodeApp<State>({
+    initialState: { users: { status: "idle" } },
 });
 
 function fetchUsers(): void {

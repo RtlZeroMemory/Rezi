@@ -41,14 +41,13 @@ node examples/raw-draw-demo/dist/index.js
 A minimal counter application demonstrating state updates and button interactions.
 
 ```typescript
-import { createApp, ui, rgb } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { ui, rgb } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
 type State = { count: number };
 
-const app = createApp<State>({
-  backend: createNodeBackend(),
-  initialState: { count: 0 },
+const app = createNodeApp<State>({
+    initialState: { count: 0 },
 });
 
 app.view((state) =>
@@ -90,8 +89,8 @@ await app.start();
 A todo list with keyboard navigation, adding, and completing items.
 
 ```typescript
-import { createApp, ui, rgb } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { ui, rgb } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
 type Todo = { id: string; text: string; done: boolean };
 type State = {
@@ -100,9 +99,8 @@ type State = {
   input: string;
 };
 
-const app = createApp<State>({
-  backend: createNodeBackend(),
-  initialState: {
+const app = createNodeApp<State>({
+    initialState: {
     todos: [
       { id: "1", text: "Learn Rezi basics", done: false },
       { id: "2", text: "Build a real app", done: false },
@@ -193,8 +191,8 @@ await app.start();
 A login form demonstrating form fields, validation, and submission.
 
 ```typescript
-import { createApp, ui, rgb } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { ui, rgb } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
 type State = {
   email: string;
@@ -203,9 +201,8 @@ type State = {
   submitted: boolean;
 };
 
-const app = createApp<State>({
-  backend: createNodeBackend(),
-  initialState: {
+const app = createNodeApp<State>({
+    initialState: {
     email: "",
     password: "",
     errors: {},
@@ -304,12 +301,11 @@ await app.start();
 For advanced use cases, Rezi provides an escape hatch for direct drawing.
 
 ```typescript
-import { createApp, rgb } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { rgb } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
-const app = createApp({
-  backend: createNodeBackend(),
-  initialState: { tick: 0 },
+const app = createNodeApp({
+    initialState: { tick: 0 },
 });
 
 // Use draw() instead of view() for raw rendering

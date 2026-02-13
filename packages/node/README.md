@@ -16,6 +16,9 @@ Use `createNodeApp({ initialState, config })` as the default path. It wires
 `@rezi-ui/core` and `@rezi-ui/node` with matched cursor protocol, event caps,
 and fps settings.
 
+Legacy `createNodeBackend() + createApp()` wiring is deprecated for standard
+app construction.
+
 Install:
 
 ```bash

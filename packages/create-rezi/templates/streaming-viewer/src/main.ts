@@ -1,5 +1,5 @@
-import { createApp, rgb, ui } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { rgb, ui } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
 type Stream = {
   name: string;
@@ -29,8 +29,7 @@ type State = {
   follow: boolean;
 };
 
-const app = createApp<State>({
-  backend: createNodeBackend(),
+const app = createNodeApp<State>({
   initialState: {
     selected: 0,
     paused: false,

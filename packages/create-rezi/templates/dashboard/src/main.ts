@@ -1,5 +1,5 @@
-import { createApp, rgb, ui } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { rgb, ui } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
 type ServiceStatus = "healthy" | "warning" | "down";
 
@@ -41,8 +41,7 @@ type State = {
   showHelp: boolean;
 };
 
-const app = createApp<State>({
-  backend: createNodeBackend(),
+const app = createNodeApp<State>({
   initialState: {
     selected: 0,
     filter: "all",

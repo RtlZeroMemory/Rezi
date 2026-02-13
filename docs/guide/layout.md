@@ -37,12 +37,11 @@ Key props:
 ### Example: Row + Column
 
 ```typescript
-import { createApp, ui } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { ui } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
-const app = createApp({
-  backend: createNodeBackend(),
-  initialState: {},
+const app = createNodeApp({
+    initialState: {},
 });
 
 app.view(() =>

@@ -65,9 +65,20 @@ export type NodeBackendConfig = Readonly<{
    * - "inline": single-thread inline backend (no worker-hop transport)
    */
   executionMode?: "auto" | "worker" | "inline";
+  /**
+   * @deprecated Prefer createNodeApp({ config: { fpsCap } }) so app/core and backend
+   * remain aligned by construction.
+   */
   fpsCap?: number;
+  /**
+   * @deprecated Prefer createNodeApp({ config: { maxEventBytes } }) so app/core and backend
+   * remain aligned by construction.
+   */
   maxEventBytes?: number;
-  /** Request drawlist v2 for native cursor support (default: false for compatibility) */
+  /**
+   * Request drawlist v2 for native cursor support (default: false for compatibility).
+   * @deprecated Prefer createNodeApp({ config: { useV2Cursor: true } }).
+   */
   useDrawlistV2?: boolean;
   /**
    * Frame transport mode:

@@ -1,5 +1,5 @@
-import { createApp, rgb, ui } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { rgb, ui } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
 type Plan = "starter" | "growth" | "enterprise";
 
@@ -29,8 +29,7 @@ const initialState: State = {
   status: "Draft",
 };
 
-const app = createApp<State>({
-  backend: createNodeBackend(),
+const app = createNodeApp<State>({
   initialState,
 });
 

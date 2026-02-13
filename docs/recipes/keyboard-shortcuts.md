@@ -13,8 +13,8 @@ Use `app.keys()` for global shortcuts and `app.modes()` for modal (contextual) k
 ## Complete Example
 
 ```typescript
-import { createApp, ui } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { ui } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
 type State = {
   content: string;
@@ -22,9 +22,8 @@ type State = {
   mode: "insert" | "normal";
 };
 
-const app = createApp<State>({
-  backend: createNodeBackend(),
-  initialState: { content: "", saved: true, mode: "insert" },
+const app = createNodeApp<State>({
+    initialState: { content: "", saved: true, mode: "insert" },
 });
 
 app.view((state) =>
