@@ -7,7 +7,7 @@ Rezi includes a debug trace system for diagnosing rendering, events, and perform
 Create a debug controller to capture and analyze runtime behavior:
 
 ```typescript
-import { createDebugController, categoriesToMask } from "@rezi-ui/core";
+import { createDebugController, categoriesToMask, perfPhaseFromNum } from "@rezi-ui/core";
 
 const debug = createDebugController({ maxFrames: 1000 });
 
@@ -22,11 +22,113 @@ debug.on("error", (err) => console.error(err.message));
 
 // Subscribe to all records
 debug.on("record", (record) => {
-  if (record.category === "perf") {
-    console.log(`${record.phase}: ${record.durationMs}ms`);
+  if (record.header.category === "perf" && record.payload && "usElapsed" in record.payload) {
+    const phase = perfPhaseFromNum(record.payload.phase) ?? `phase_${record.payload.phase}`;
+    console.log(`${phase}: ${(record.payload.usElapsed / 1000).toFixed(2)}ms`);
   }
 });
 ```
+
+## Enable Inspector Overlay
+
+Use `createAppWithInspectorOverlay` to auto-install the overlay and runtime toggle.
+Default hotkey is `ctrl+shift+i`.
+
+```typescript
+import { createAppWithInspectorOverlay, createDebugController } from "@rezi-ui/core";
+import { createNodeBackend } from "@rezi-ui/node";
+
+const backend = createNodeBackend();
+
+const debug = createDebugController({
+  backend: backend.debug,
+  terminalCapsProvider: () => backend.getCaps(),
+});
+
+await debug.enable({
+  minSeverity: "info",
+  captureRawEvents: false,
+  captureDrawlistBytes: false,
+});
+
+const app = createAppWithInspectorOverlay({
+  backend,
+  initialState: { ready: true },
+  inspector: {
+    hotkey: "ctrl+shift+i",
+    debug, // auto-populates drawlist/diff/us_* timing rows from frame snapshots
+  },
+});
+```
+
+Overlay sections include:
+- Focus summary (`focusedId`, active zone, active trap)
+- Cursor target summary (position, shape, blink intent when cursor v2 is active)
+- Damage + frame summary (`mode`, rect/cell counts, commit/layout/incremental state)
+- Frame timing rows (`drawlistBytes`, `diffBytesEmitted`, `usDrawlist`, `usDiff`, `usWrite`)
+- Event routing breadcrumbs (last event kind, keybindings vs widget routing path, last action)
+
+## Export Debug Bundle
+
+Exporting a debug bundle is deterministic for the same debug state and options.
+The API never writes to disk; it returns either a JSON object or UTF-8 bytes.
+
+```typescript
+import { createDebugController } from "@rezi-ui/core/debug";
+import { createNodeBackend } from "@rezi-ui/node";
+
+const backend = createNodeBackend();
+const debug = createDebugController({
+  backend: backend.debug,
+  terminalCapsProvider: () => backend.getCaps(), // Optional
+});
+
+await debug.enable({
+  minSeverity: "info",
+  captureRawEvents: false,
+  captureDrawlistBytes: false,
+});
+
+const bundle = await debug.exportBundle({
+  maxRecords: 2000,
+  maxPayloadBytes: 4096,
+  maxTotalPayloadBytes: 262_144,
+  maxRecentFrames: 32,
+});
+
+console.log(bundle.schema); // "rezi-debug-bundle-v1"
+
+// If you want raw bytes (for transport or persistence):
+const bundleBytes = await debug.exportBundleBytes();
+```
+
+### Bundle Contents
+
+- `schema`: Versioned identifier. Current value: `rezi-debug-bundle-v1`.
+- `captureFlags`: Capture state used during export (`captureRawEvents`, `captureDrawlistBytes`).
+- `bounds`: Export bounds (`maxRecords`, per-record payload cap, total payload cap, frame summary cap).
+- `terminalCaps`: Terminal capability snapshot (or `null` if unavailable).
+- `stats`: Debug stats snapshot (`totalRecords`, `totalDropped`, counts, ring usage/capacity).
+- `queryWindow`: Trace query window metadata (`recordsReturned`, `recordsAvailable`, oldest/newest IDs).
+- `trace`: Deterministically ordered trace records (`header` + bounded payload snapshot).
+- `recentFrameSummaries`: Optional recent frame summaries when frame snapshots are available.
+
+Notes:
+- `u64` fields are serialized as decimal strings for JSON safety.
+- Payload snapshots are hex-encoded and truncated by configured bounds.
+
+### Privacy Note
+
+Raw event payloads and raw drawlist byte payloads can contain sensitive data
+(for example typed input or rendered text bytes).
+
+By default, bundle export follows debug capture flags:
+- Event payloads are omitted when `captureRawEvents` is `false`.
+- Raw drawlist byte payloads are omitted when `captureDrawlistBytes` is `false`.
+
+To minimize risk in production:
+- Keep `captureRawEvents` and `captureDrawlistBytes` disabled unless needed.
+- Share bundles only with trusted recipients.
 
 ## Debug Categories
 
@@ -70,23 +172,26 @@ const inspector = debug.frameInspector;
 // Get recent frame snapshots
 const frames = inspector.getSnapshots(10);
 for (const frame of frames) {
-  console.log(`Frame ${frame.frameId}: ${frame.renderMs}ms render, ${frame.drawCommands} commands`);
+  const totalUs = frame.usDrawlist + frame.usDiff + frame.usWrite;
+  console.log(`Frame ${frame.frameId}: ${(totalUs / 1000).toFixed(2)}ms total, ${frame.drawlistCmds} commands`);
 }
 
 // Compare two frames for changes
 const diff = inspector.compareFrames(frameA, frameB);
-for (const change of diff.changes) {
-  console.log(`${change.field}: ${change.oldValue} -> ${change.newValue}`);
+if (diff) {
+  for (const change of diff.changed) {
+    console.log(`${change.field}: ${change.before} -> ${change.after}`);
+  }
 }
 ```
 
 Frame snapshots include:
 
-- Frame ID and timestamp
-- Render duration
-- Draw command count
-- Widget tree depth
-- Visible widget count
+- `frameId` and `timestamp`
+- Terminal dimensions (`cols`, `rows`)
+- Drawlist metrics (`drawlistBytes`, `drawlistCmds`)
+- Diff/damage metrics (`diffBytesEmitted`, `dirtyLines`, `dirtyCells`, `damageRects`)
+- Timing metrics in microseconds (`usDrawlist`, `usDiff`, `usWrite`)
 
 ## Event Trace
 
@@ -98,12 +203,11 @@ const trace = debug.eventTrace;
 // Query recent events
 const keyEvents = trace.query({
   eventTypes: ["key"],
-  since: Date.now() - 5000,
-  limit: 100,
+  minFrameId: 100n,
 });
 
-for (const ev of keyEvents) {
-  console.log(`Key: ${ev.key} at ${ev.timestamp}`);
+for (const ev of keyEvents.slice(-100)) {
+  console.log(`${ev.eventType}: ${ev.parseResult} at ${ev.timestamp}ms`);
 }
 ```
 
@@ -193,7 +297,7 @@ Configure debug behavior at creation:
 const debug = createDebugController({
   maxFrames: 500,     // Frame history limit
   maxEvents: 1000,    // Event trace limit
-  maxErrors: 100,     // Error aggregation limit
+  maxStateChanges: 500, // State timeline limit
 });
 ```
 

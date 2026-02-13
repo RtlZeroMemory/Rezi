@@ -10,6 +10,8 @@
  * @see docs/guide/debugging.md
  */
 
+import type { TerminalCaps } from "../terminalCaps.js";
+
 /**
  * Debug record categories matching zr_debug_category_t.
  *
@@ -251,6 +253,147 @@ export type DebugStats = Readonly<{
   currentRingUsage: number;
   /** Ring buffer capacity */
   ringCapacity: number;
+}>;
+
+/**
+ * Stable schema identifier for JSON debug bundles.
+ */
+export type DebugBundleSchema = "rezi-debug-bundle-v1";
+
+/**
+ * Debug record header shape used in exported bundles.
+ * BigInt fields are serialized as decimal strings for JSON compatibility.
+ */
+export type DebugBundleHeader = Readonly<{
+  recordId: string;
+  timestampUs: string;
+  frameId: string;
+  category: DebugCategory;
+  severity: DebugSeverity;
+  code: number;
+  payloadSize: number;
+}>;
+
+/**
+ * Reasons a payload was intentionally omitted from a bundle.
+ */
+export type DebugBundlePayloadOmittedReason =
+  | "capture-raw-events-disabled"
+  | "capture-drawlist-bytes-disabled"
+  | "payload-unavailable";
+
+/**
+ * Payload snapshot for a trace record inside an exported bundle.
+ */
+export type DebugBundlePayloadSnapshot =
+  | Readonly<{
+      included: true;
+      encoding: "hex";
+      data: string;
+      bytesIncluded: number;
+      bytesTotal: number;
+      truncated: boolean;
+    }>
+  | Readonly<{
+      included: false;
+      reason: DebugBundlePayloadOmittedReason;
+      bytesTotal: number;
+    }>;
+
+/**
+ * Trace entry included in an exported bundle.
+ */
+export type DebugBundleTraceRecord = Readonly<{
+  header: DebugBundleHeader;
+  payload: DebugBundlePayloadSnapshot | null;
+}>;
+
+/**
+ * Debug statistics snapshot serialized for bundle export.
+ */
+export type DebugBundleStatsSnapshot = Readonly<{
+  totalRecords: string;
+  totalDropped: string;
+  errorCount: number;
+  warnCount: number;
+  currentRingUsage: number;
+  ringCapacity: number;
+}>;
+
+/**
+ * Capture flags active when the bundle was exported.
+ */
+export type DebugBundleCaptureFlags = Readonly<{
+  captureRawEvents: boolean;
+  captureDrawlistBytes: boolean;
+}>;
+
+/**
+ * Bounds applied while building the bundle.
+ */
+export type DebugBundleBounds = Readonly<{
+  maxRecords: number;
+  maxPayloadBytes: number;
+  maxTotalPayloadBytes: number;
+  maxRecentFrames: number;
+}>;
+
+/**
+ * Query window metadata for the exported trace set.
+ */
+export type DebugBundleQueryWindow = Readonly<{
+  recordsReturned: number;
+  recordsAvailable: number;
+  recordsDropped: number;
+  oldestRecordId: string;
+  newestRecordId: string;
+}>;
+
+/**
+ * Lightweight frame summary included when frame snapshots are available.
+ */
+export type DebugBundleFrameSummary = Readonly<{
+  frameId: string;
+  timestamp: number;
+  cols: number;
+  rows: number;
+  drawlistBytes: number;
+  drawlistCmds: number;
+  diffBytesEmitted: number;
+  dirtyLines: number;
+  dirtyCells: number;
+  damageRects: number;
+  usDrawlist: number;
+  usDiff: number;
+  usWrite: number;
+}>;
+
+/**
+ * Deterministic debug export bundle.
+ */
+export type DebugBundle = Readonly<{
+  schema: DebugBundleSchema;
+  captureFlags: DebugBundleCaptureFlags;
+  bounds: DebugBundleBounds;
+  terminalCaps: TerminalCaps | null;
+  stats: DebugBundleStatsSnapshot;
+  queryWindow: DebugBundleQueryWindow;
+  trace: readonly DebugBundleTraceRecord[];
+  recentFrameSummaries?: readonly DebugBundleFrameSummary[];
+}>;
+
+/**
+ * Options for debug bundle export.
+ */
+export type DebugBundleExportOptions = Readonly<{
+  maxRecords?: number;
+  maxPayloadBytes?: number;
+  maxTotalPayloadBytes?: number;
+  includeRecentFrames?: boolean;
+  maxRecentFrames?: number;
+  terminalCaps?: TerminalCaps | null;
+  includeRawEvents?: boolean;
+  includeDrawlistBytes?: boolean;
 }>;
 
 /**

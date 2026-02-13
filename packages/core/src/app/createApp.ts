@@ -63,6 +63,15 @@ import { coerceToLegacyTheme } from "../theme/interop.js";
 import type { Theme } from "../theme/theme.js";
 import type { ThemeDefinition } from "../theme/tokens.js";
 import { RawRenderer } from "./rawRenderer.js";
+import {
+  type RuntimeBreadcrumbAction,
+  type RuntimeBreadcrumbConsumptionPath,
+  type RuntimeBreadcrumbEventKind,
+  type RuntimeBreadcrumbSnapshot,
+  isRuntimeBreadcrumbEventKind,
+  mergeRuntimeBreadcrumbSnapshot,
+  toRuntimeBreadcrumbAction,
+} from "./runtimeBreadcrumbs.js";
 import { AppStateMachine } from "./stateMachine.js";
 import { TurnScheduler } from "./turnScheduler.js";
 import { type StateUpdater, UpdateQueue } from "./updateQueue.js";
@@ -86,6 +95,11 @@ type ResolvedAppConfig = Readonly<{
   internal_onLayout?: ((snapshot: AppLayoutSnapshot) => void) | undefined;
 }>;
 
+type InternalRenderMetricsWithBreadcrumbs = AppRenderMetrics &
+  Readonly<{ runtimeBreadcrumbs: RuntimeBreadcrumbSnapshot }>;
+type InternalLayoutSnapshotWithBreadcrumbs = AppLayoutSnapshot &
+  Readonly<{ runtimeBreadcrumbs: RuntimeBreadcrumbSnapshot }>;
+
 /** Default configuration values. */
 const DEFAULT_CONFIG: ResolvedAppConfig = Object.freeze({
   fpsCap: 60,
@@ -100,6 +114,13 @@ const DEFAULT_CONFIG: ResolvedAppConfig = Object.freeze({
   internal_onLayout: undefined,
 });
 const SYNC_FRAME_ACK_MARKER = "__reziSyncFrameAck";
+export const APP_INTERNAL_REQUEST_VIEW_LAYOUT_MARKER = "__reziRequestViewLayout";
+export const APP_INTERNAL_SET_RUNTIME_BREADCRUMB_HOOKS_MARKER = "__reziSetRuntimeBreadcrumbHooks";
+
+type InternalRuntimeBreadcrumbHooks = Readonly<{
+  onRender?: ((metrics: AppRenderMetrics) => void) | undefined;
+  onLayout?: ((snapshot: AppLayoutSnapshot) => void) | undefined;
+}>;
 
 function invalidProps(detail: string): never {
   throw new ZrUiError("ZRUI_INVALID_PROPS", detail);
@@ -423,6 +444,14 @@ export function createApp<S>(
     markDirty(DIRTY_VIEW);
   }
 
+  const baseInternalOnRender = config.internal_onRender;
+  const baseInternalOnLayout = config.internal_onLayout;
+  let inspectorInternalOnRender: ((metrics: AppRenderMetrics) => void) | undefined;
+  let inspectorInternalOnLayout: ((snapshot: AppLayoutSnapshot) => void) | undefined;
+
+  let runtimeBreadcrumbsEnabled =
+    baseInternalOnRender !== undefined || baseInternalOnLayout !== undefined;
+
   const rawRenderer = new RawRenderer({
     backend,
     maxDrawlistBytes: config.maxDrawlistBytes,
@@ -443,17 +472,74 @@ export function createApp<S>(
     drawlistEncodedStringCacheCap: config.drawlistEncodedStringCacheCap,
     requestRender: requestRenderFromRenderer,
     requestView: requestViewFromRenderer,
+    collectRuntimeBreadcrumbs: runtimeBreadcrumbsEnabled,
   });
 
   /* --- Keybinding State --- */
   let keybindingState: KeybindingManagerState<KeyContext<S>> = createManagerState();
   let keybindingsEnabled = false;
 
+  let breadcrumbLastEventKind: RuntimeBreadcrumbEventKind | null = null;
+  let breadcrumbLastConsumptionPath: RuntimeBreadcrumbConsumptionPath | null = null;
+  let breadcrumbLastAction: RuntimeBreadcrumbAction | null = null;
+  let breadcrumbEventTracked = false;
+
+  function recomputeRuntimeBreadcrumbCollection(): void {
+    const next =
+      baseInternalOnRender !== undefined ||
+      baseInternalOnLayout !== undefined ||
+      inspectorInternalOnRender !== undefined ||
+      inspectorInternalOnLayout !== undefined;
+    if (next === runtimeBreadcrumbsEnabled) return;
+    runtimeBreadcrumbsEnabled = next;
+    widgetRenderer.setRuntimeBreadcrumbCaptureEnabled(next);
+    if (!next) {
+      breadcrumbLastEventKind = null;
+      breadcrumbLastConsumptionPath = null;
+      breadcrumbLastAction = null;
+      breadcrumbEventTracked = false;
+    }
+  }
+
   function computeKeybindingsEnabled(state: KeybindingManagerState<KeyContext<S>>): boolean {
     for (const m of state.modes.values()) {
       if (m.bindings.length > 0) return true;
     }
     return false;
+  }
+
+  function noteBreadcrumbEvent(kind: string): void {
+    breadcrumbEventTracked = false;
+    if (!runtimeBreadcrumbsEnabled) return;
+    if (!isRuntimeBreadcrumbEventKind(kind)) return;
+    breadcrumbLastEventKind = kind;
+    breadcrumbLastConsumptionPath = null;
+    breadcrumbEventTracked = true;
+  }
+
+  function noteBreadcrumbConsumptionPath(path: RuntimeBreadcrumbConsumptionPath): void {
+    if (!runtimeBreadcrumbsEnabled) return;
+    if (!breadcrumbEventTracked) return;
+    breadcrumbLastConsumptionPath = path;
+  }
+
+  function noteBreadcrumbAction(action: NonNullable<WidgetRoutingOutcome["action"]>): void {
+    if (!runtimeBreadcrumbsEnabled) return;
+    if (!breadcrumbEventTracked) return;
+    breadcrumbLastAction = toRuntimeBreadcrumbAction(action);
+  }
+
+  function buildRuntimeBreadcrumbSnapshot(renderTimeMs: number): RuntimeBreadcrumbSnapshot | null {
+    if (!runtimeBreadcrumbsEnabled) return null;
+    const widgetSnapshot = widgetRenderer.getRuntimeBreadcrumbSnapshot();
+    if (!widgetSnapshot) return null;
+    return mergeRuntimeBreadcrumbSnapshot(
+      widgetSnapshot,
+      breadcrumbLastEventKind,
+      breadcrumbLastConsumptionPath,
+      breadcrumbLastAction,
+      renderTimeMs,
+    );
   }
 
   function throwCode(code: ZrUiErrorCode, detail: string): never {
@@ -601,6 +687,7 @@ export function createApp<S>(
         if (ev.kind === "key" || ev.kind === "text" || ev.kind === "paste" || ev.kind === "mouse") {
           interactiveBudget = 2;
         }
+        noteBreadcrumbEvent(ev.kind);
         emit({ kind: "engine", event: ev });
         if (sm.state !== "Running") return;
         if (ev.kind === "resize") {
@@ -630,7 +717,10 @@ export function createApp<S>(
                 });
                 const keyResult = routeKeyEvent(keybindingState, ev, keyCtx);
                 keybindingState = keyResult.nextState;
-                if (keyResult.consumed) continue; // Skip default widget routing
+                if (keyResult.consumed) {
+                  noteBreadcrumbConsumptionPath("keybindings");
+                  continue; // Skip default widget routing
+                }
               }
             }
 
@@ -653,13 +743,17 @@ export function createApp<S>(
                 });
                 const keyResult = routeKeyEvent(keybindingState, syntheticKeyEvent, keyCtx);
                 keybindingState = keyResult.nextState;
-                if (keyResult.consumed) continue; // Skip default widget routing
+                if (keyResult.consumed) {
+                  noteBreadcrumbConsumptionPath("keybindings");
+                  continue; // Skip default widget routing
+                }
               }
             }
           }
 
           let routed: WidgetRoutingOutcome;
           try {
+            noteBreadcrumbConsumptionPath("widgetRouting");
             routed = widgetRenderer.routeEngineEvent(ev);
           } catch (e: unknown) {
             enqueueFatal("ZRUI_USER_CODE_THROW", `widget routing threw: ${describeThrown(e)}`);
@@ -667,6 +761,7 @@ export function createApp<S>(
           }
           if (routed.needsRender) markDirty(DIRTY_RENDER);
           if (routed.action) {
+            noteBreadcrumbAction(routed.action);
             emit({ kind: "action", ...routed.action });
             if (sm.state !== "Running") return;
           }
@@ -757,10 +852,25 @@ export function createApp<S>(
     }
   }
 
-  function emitInternalRenderMetrics(renderTime: number): boolean {
-    if (config.internal_onRender === undefined) return true;
+  function emitInternalRenderMetrics(
+    renderTime: number,
+    runtimeBreadcrumbs: RuntimeBreadcrumbSnapshot | null = null,
+  ): boolean {
+    if (baseInternalOnRender === undefined && inspectorInternalOnRender === undefined) return true;
     try {
-      config.internal_onRender({ renderTime: Math.max(0, renderTime) });
+      const clampedRenderTime = Math.max(0, renderTime);
+      if (runtimeBreadcrumbs) {
+        const payload: InternalRenderMetricsWithBreadcrumbs = {
+          renderTime: clampedRenderTime,
+          runtimeBreadcrumbs,
+        };
+        baseInternalOnRender?.(payload);
+        inspectorInternalOnRender?.(payload);
+      } else {
+        const payload: AppRenderMetrics = { renderTime: clampedRenderTime };
+        baseInternalOnRender?.(payload);
+        inspectorInternalOnRender?.(payload);
+      }
       return true;
     } catch (e: unknown) {
       fatalNowOrEnqueue("ZRUI_USER_CODE_THROW", `onRender callback threw: ${describeThrown(e)}`);
@@ -768,10 +878,24 @@ export function createApp<S>(
     }
   }
 
-  function emitInternalLayoutSnapshot(): boolean {
-    if (config.internal_onLayout === undefined) return true;
+  function emitInternalLayoutSnapshot(
+    runtimeBreadcrumbs: RuntimeBreadcrumbSnapshot | null = null,
+  ): boolean {
+    if (baseInternalOnLayout === undefined && inspectorInternalOnLayout === undefined) return true;
     try {
-      config.internal_onLayout({ idRects: widgetRenderer.getRectByIdIndex() });
+      const idRects = widgetRenderer.getRectByIdIndex();
+      if (runtimeBreadcrumbs) {
+        const payload: InternalLayoutSnapshotWithBreadcrumbs = {
+          idRects,
+          runtimeBreadcrumbs,
+        };
+        baseInternalOnLayout?.(payload);
+        inspectorInternalOnLayout?.(payload);
+      } else {
+        const payload: AppLayoutSnapshot = { idRects };
+        baseInternalOnLayout?.(payload);
+        inspectorInternalOnLayout?.(payload);
+      }
       return true;
     } catch (e: unknown) {
       fatalNowOrEnqueue("ZRUI_USER_CODE_THROW", `onLayout callback threw: ${describeThrown(e)}`);
@@ -863,8 +987,10 @@ export function createApp<S>(
       fatalNowOrEnqueue(res.code, res.detail);
       return;
     }
-    if (!emitInternalRenderMetrics(perfNow() - renderStart)) return;
-    if (!emitInternalLayoutSnapshot()) return;
+    const renderTime = perfNow() - renderStart;
+    const runtimeBreadcrumbs = buildRuntimeBreadcrumbSnapshot(Math.max(0, renderTime));
+    if (!emitInternalRenderMetrics(renderTime, runtimeBreadcrumbs)) return;
+    if (!emitInternalLayoutSnapshot(runtimeBreadcrumbs)) return;
 
     submitFrameStartMs = PERF_ENABLED ? submitToken : null;
     const buildEndMs = PERF_ENABLED ? perfNow() : null;
@@ -1151,6 +1277,29 @@ export function createApp<S>(
       return getMode(keybindingState);
     },
   };
+
+  Object.defineProperty(app, APP_INTERNAL_REQUEST_VIEW_LAYOUT_MARKER, {
+    value: () => {
+      if (sm.state !== "Running") return;
+      markDirty(DIRTY_VIEW | DIRTY_LAYOUT);
+    },
+    enumerable: false,
+    configurable: false,
+    writable: false,
+  });
+
+  Object.defineProperty(app, APP_INTERNAL_SET_RUNTIME_BREADCRUMB_HOOKS_MARKER, {
+    value: (hooks: InternalRuntimeBreadcrumbHooks | null | undefined) => {
+      inspectorInternalOnRender =
+        typeof hooks?.onRender === "function" ? hooks.onRender : undefined;
+      inspectorInternalOnLayout =
+        typeof hooks?.onLayout === "function" ? hooks.onLayout : undefined;
+      recomputeRuntimeBreadcrumbCollection();
+    },
+    enumerable: false,
+    configurable: false,
+    writable: false,
+  });
 
   return app;
 }
