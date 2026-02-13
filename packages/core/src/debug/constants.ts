@@ -78,6 +78,23 @@ export const DEBUG_QUERY_RESULT_SIZE = 32;
 /** Size of zr_debug_stats_t in bytes. */
 export const DEBUG_STATS_SIZE = 32;
 
+/* --- Bundle Export Constants --- */
+
+/** Stable schema identifier for JSON debug bundles. */
+export const DEBUG_BUNDLE_SCHEMA_V1 = "rezi-debug-bundle-v1";
+
+/** Default maximum number of trace headers exported into a bundle. */
+export const DEBUG_BUNDLE_DEFAULT_MAX_RECORDS = 512;
+
+/** Default maximum payload bytes included per trace record. */
+export const DEBUG_BUNDLE_DEFAULT_MAX_PAYLOAD_BYTES = 4096;
+
+/** Default maximum payload bytes included across all records. */
+export const DEBUG_BUNDLE_DEFAULT_MAX_TOTAL_PAYLOAD_BYTES = 262_144;
+
+/** Default maximum recent frame summaries included when available. */
+export const DEBUG_BUNDLE_DEFAULT_MAX_RECENT_FRAMES = 32;
+
 /* --- Category Mapping --- */
 
 const CATEGORY_NUM_TO_STR: ReadonlyMap<number, DebugCategory> = new Map([

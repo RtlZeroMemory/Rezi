@@ -195,6 +195,12 @@ export type {
   ToastPosition,
 } from "./widgets/types.js";
 export { ui } from "./widgets/ui.js";
+export type {
+  InspectorOverlayFrameTiming,
+  InspectorOverlayPosition,
+  InspectorOverlayProps,
+} from "./widgets/inspectorOverlay.js";
+export { inspectorOverlay } from "./widgets/inspectorOverlay.js";
 
 // =============================================================================
 // Widget Composition API (GitHub issue #116)
@@ -958,6 +964,25 @@ export {
  * ```
  */
 export { createApp } from "./app/createApp.js";
+export type {
+  AppWithInspectorOverlay,
+  CreateAppWithInspectorOverlayOptions,
+  InspectorOverlayController,
+  InspectorOverlayHelperOptions,
+} from "./app/inspectorOverlayHelper.js";
+export { createAppWithInspectorOverlay } from "./app/inspectorOverlayHelper.js";
+export type {
+  RuntimeBreadcrumbAction,
+  RuntimeBreadcrumbConsumptionPath,
+  RuntimeBreadcrumbCursorSummary,
+  RuntimeBreadcrumbDamageMode,
+  RuntimeBreadcrumbDamageSummary,
+  RuntimeBreadcrumbEventKind,
+  RuntimeBreadcrumbFocusSummary,
+  RuntimeBreadcrumbFrameSummary,
+  RuntimeBreadcrumbSnapshot,
+  WidgetRuntimeBreadcrumbSnapshot,
+} from "./app/runtimeBreadcrumbs.js";
 
 // =============================================================================
 // Debug Trace System

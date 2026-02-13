@@ -19,6 +19,18 @@
 // =============================================================================
 
 export type {
+  DebugBundle,
+  DebugBundleBounds,
+  DebugBundleCaptureFlags,
+  DebugBundleExportOptions,
+  DebugBundleFrameSummary,
+  DebugBundleHeader,
+  DebugBundlePayloadOmittedReason,
+  DebugBundlePayloadSnapshot,
+  DebugBundleQueryWindow,
+  DebugBundleSchema,
+  DebugBundleStatsSnapshot,
+  DebugBundleTraceRecord,
   DebugCategory,
   DebugConfig,
   DebugParseError,
@@ -60,6 +72,11 @@ export {
   DEBUG_SEV_TRACE,
   DEBUG_SEV_WARN,
   // Size constants
+  DEBUG_BUNDLE_DEFAULT_MAX_PAYLOAD_BYTES,
+  DEBUG_BUNDLE_DEFAULT_MAX_RECORDS,
+  DEBUG_BUNDLE_DEFAULT_MAX_RECENT_FRAMES,
+  DEBUG_BUNDLE_DEFAULT_MAX_TOTAL_PAYLOAD_BYTES,
+  DEBUG_BUNDLE_SCHEMA_V1,
   DEBUG_CONFIG_SIZE,
   DEBUG_DRAWLIST_RECORD_SIZE,
   DEBUG_ERROR_RECORD_SIZE,

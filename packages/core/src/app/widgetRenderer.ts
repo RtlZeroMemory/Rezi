@@ -136,6 +136,12 @@ import type {
   VirtualListProps,
 } from "../widgets/types.js";
 import { computeVisibleRange, getTotalHeight } from "../widgets/virtualList.js";
+import {
+  EMPTY_WIDGET_RUNTIME_BREADCRUMBS,
+  type RuntimeBreadcrumbCursorSummary,
+  type RuntimeBreadcrumbDamageMode,
+  type WidgetRuntimeBreadcrumbSnapshot,
+} from "./runtimeBreadcrumbs.js";
 import { routeCodeEditorKeyDown } from "./widgetRenderer/codeEditorRouting.js";
 import {
   kickoffCommandPaletteItemFetches,
@@ -377,6 +383,7 @@ export class WidgetRenderer<S> {
   private readonly useV2Cursor: boolean;
   private readonly cursorShape: CursorShape;
   private readonly cursorBlink: boolean;
+  private collectRuntimeBreadcrumbs: boolean;
   private readonly requestRender: () => void;
   private readonly requestView: () => void;
 
@@ -555,6 +562,7 @@ export class WidgetRenderer<S> {
   private readonly _pooledPrevToolApprovalDialogIds = new Set<string>();
   private readonly _pooledPrevDiffViewerIds = new Set<string>();
   private readonly _pooledPrevLogsConsoleIds = new Set<string>();
+  private _runtimeBreadcrumbs: WidgetRuntimeBreadcrumbSnapshot = EMPTY_WIDGET_RUNTIME_BREADCRUMBS;
 
   constructor(
     opts: Readonly<{
@@ -574,12 +582,15 @@ export class WidgetRenderer<S> {
       cursorShape?: CursorShape;
       /** Whether cursor should blink (default: true) */
       cursorBlink?: boolean;
+      /** Collect runtime breadcrumb snapshots for inspector/export hooks. */
+      collectRuntimeBreadcrumbs?: boolean;
     }>,
   ) {
     this.backend = opts.backend;
     this.useV2Cursor = opts.useV2Cursor === true;
     this.cursorShape = opts.cursorShape ?? CURSOR_DEFAULTS.input.shape;
     this.cursorBlink = opts.cursorBlink ?? CURSOR_DEFAULTS.input.blink;
+    this.collectRuntimeBreadcrumbs = opts.collectRuntimeBreadcrumbs === true;
     this.requestRender = opts.requestRender ?? (() => {});
     this.requestView = opts.requestView ?? (() => {});
 
@@ -620,6 +631,26 @@ export class WidgetRenderer<S> {
    */
   getRectByIdIndex(): ReadonlyMap<string, Rect> {
     return this.rectById;
+  }
+
+  /**
+   * Get the latest runtime breadcrumb snapshot for inspector/export.
+   *
+   * Returns null when breadcrumb capture is disabled.
+   */
+  getRuntimeBreadcrumbSnapshot(): WidgetRuntimeBreadcrumbSnapshot | null {
+    return this.collectRuntimeBreadcrumbs ? this._runtimeBreadcrumbs : null;
+  }
+
+  /**
+   * Enable or disable runtime breadcrumb snapshot capture.
+   */
+  setRuntimeBreadcrumbCaptureEnabled(enabled: boolean): void {
+    if (this.collectRuntimeBreadcrumbs === enabled) return;
+    this.collectRuntimeBreadcrumbs = enabled;
+    if (!enabled) {
+      this._runtimeBreadcrumbs = EMPTY_WIDGET_RUNTIME_BREADCRUMBS;
+    }
   }
 
   /**
@@ -2467,25 +2498,100 @@ export class WidgetRenderer<S> {
     };
   }
 
-  private emitIncrementalCursor(cursorInfo: CursorInfo | undefined): void {
-    if (!cursorInfo || !this.useV2Cursor || !isV2Builder(this.builder)) return;
+  private resolveRuntimeCursorSummary(
+    cursorInfo: CursorInfo | undefined,
+  ): RuntimeBreadcrumbCursorSummary | null {
+    if (!cursorInfo || !this.useV2Cursor) return null;
+
+    const hidden: RuntimeBreadcrumbCursorSummary = Object.freeze({
+      visible: false,
+      shape: cursorInfo.shape,
+      blink: cursorInfo.blink,
+    });
+
+    const focusedId = this.focusState.focusedId;
+    if (!focusedId) return hidden;
+
+    const input = this.inputById.get(focusedId);
+    if (input && !input.disabled) {
+      const rect = this._pooledRectByInstanceId.get(input.instanceId);
+      if (!rect || rect.w <= 0 || rect.h <= 0) return hidden;
+
+      const graphemeOffset =
+        this.inputCursorByInstanceId.get(input.instanceId) ?? input.value.length;
+      const cursorX = measureTextCells(input.value.slice(0, graphemeOffset));
+      return Object.freeze({
+        visible: true,
+        x: rect.x + 1 + cursorX,
+        y: rect.y,
+        shape: cursorInfo.shape,
+        blink: cursorInfo.blink,
+      });
+    }
+
+    const editor = this.codeEditorById.get(focusedId);
+    if (editor) {
+      const rect = this.rectById.get(editor.id);
+      if (!rect || rect.w <= 0 || rect.h <= 0) return hidden;
+      const lineNumWidth =
+        this.codeEditorRenderCacheById.get(editor.id)?.lineNumWidth ??
+        (editor.lineNumbers === false ? 0 : Math.max(4, String(editor.lines.length).length + 1));
+      const cy = editor.cursor.line - editor.scrollTop;
+      if (cy < 0 || cy >= rect.h) return hidden;
+      const cx = editor.cursor.column - editor.scrollLeft;
+      const x = rect.x + lineNumWidth + cx;
+      if (x < rect.x + lineNumWidth || x >= rect.x + rect.w) return hidden;
+      return Object.freeze({
+        visible: true,
+        x,
+        y: rect.y + cy,
+        shape: cursorInfo.shape,
+        blink: cursorInfo.blink,
+      });
+    }
+
+    const palette = this.commandPaletteById.get(focusedId);
+    if (palette?.open === true) {
+      const rect = this.rectById.get(palette.id);
+      if (!rect || rect.w <= 0 || rect.h <= 0) return hidden;
+      const inputW = Math.max(0, rect.w - 6);
+      if (inputW <= 0) return hidden;
+      const qx = measureTextCells(palette.query);
+      return Object.freeze({
+        visible: true,
+        x: rect.x + 4 + Math.min(qx, Math.max(0, inputW - 1)),
+        y: rect.y + 1,
+        shape: cursorInfo.shape,
+        blink: cursorInfo.blink,
+      });
+    }
+
+    return hidden;
+  }
+
+  private emitIncrementalCursor(
+    cursorInfo: CursorInfo | undefined,
+  ): RuntimeBreadcrumbCursorSummary | null {
+    if (!cursorInfo || !this.useV2Cursor || !isV2Builder(this.builder)) {
+      return this.collectRuntimeBreadcrumbs ? this.resolveRuntimeCursorSummary(cursorInfo) : null;
+    }
 
     const focusedId = this.focusState.focusedId;
     if (!focusedId) {
       this.builder.hideCursor();
-      return;
+      return this.collectRuntimeBreadcrumbs ? this.resolveRuntimeCursorSummary(cursorInfo) : null;
     }
 
     const input = this.inputById.get(focusedId);
     if (!input || input.disabled) {
       this.builder.hideCursor();
-      return;
+      return this.collectRuntimeBreadcrumbs ? this.resolveRuntimeCursorSummary(cursorInfo) : null;
     }
 
     const rect = this._pooledRectByInstanceId.get(input.instanceId);
     if (!rect || rect.w <= 0 || rect.h <= 0) {
       this.builder.hideCursor();
-      return;
+      return this.collectRuntimeBreadcrumbs ? this.resolveRuntimeCursorSummary(cursorInfo) : null;
     }
 
     const graphemeOffset = this.inputCursorByInstanceId.get(input.instanceId) ?? input.value.length;
@@ -2496,6 +2602,47 @@ export class WidgetRenderer<S> {
       shape: cursorInfo.shape,
       visible: true,
       blink: cursorInfo.blink,
+    });
+
+    return this.collectRuntimeBreadcrumbs ? this.resolveRuntimeCursorSummary(cursorInfo) : null;
+  }
+
+  private updateRuntimeBreadcrumbSnapshot(
+    params: Readonly<{
+      tick: number;
+      commit: boolean;
+      layout: boolean;
+      incremental: boolean;
+      damageMode: RuntimeBreadcrumbDamageMode;
+      damageRectCount: number;
+      damageArea: number;
+      cursor: RuntimeBreadcrumbCursorSummary | null;
+    }>,
+  ): void {
+    if (!this.collectRuntimeBreadcrumbs) return;
+    const activeTrapId =
+      this.focusState.trapStack.length > 0
+        ? (this.focusState.trapStack[this.focusState.trapStack.length - 1] ?? null)
+        : null;
+    this._runtimeBreadcrumbs = Object.freeze({
+      focus: Object.freeze({
+        focusedId: this.focusState.focusedId,
+        activeZoneId: this.focusState.activeZoneId,
+        activeTrapId,
+      }),
+      cursor: params.cursor,
+      damage: Object.freeze({
+        mode: params.damageMode,
+        rectCount: Math.max(0, params.damageRectCount),
+        area: Math.max(0, params.damageArea),
+      }),
+      frame: Object.freeze({
+        tick: params.tick,
+        commit: params.commit,
+        layout: params.layout,
+        incremental: params.incremental,
+        renderTimeMs: 0,
+      }),
     });
   }
 
@@ -3492,6 +3639,11 @@ export class WidgetRenderer<S> {
 
       const renderToken = perfMarkStart("render");
       let usedIncrementalRender = false;
+      const captureRuntimeBreadcrumbs = this.collectRuntimeBreadcrumbs;
+      let runtimeCursorSummary: RuntimeBreadcrumbCursorSummary | null = null;
+      let runtimeDamageMode: RuntimeBreadcrumbDamageMode = "none";
+      let runtimeDamageRectCount = 0;
+      let runtimeDamageArea = 0;
       if (this.shouldAttemptIncrementalRender(doLayout, viewport, theme)) {
         this._pooledDamageRects.length = 0;
         let missingDamageRect = false;
@@ -3537,6 +3689,14 @@ export class WidgetRenderer<S> {
         if (!missingDamageRect) {
           const damageRects = this.normalizeDamageRects(viewport);
           if (damageRects.length > 0 && !this.isDamageAreaTooLarge(viewport)) {
+            if (captureRuntimeBreadcrumbs) {
+              runtimeDamageMode = "incremental";
+              runtimeDamageRectCount = damageRects.length;
+              runtimeDamageArea = 0;
+              for (const damageRect of damageRects) {
+                runtimeDamageArea += damageRect.w * damageRect.h;
+              }
+            }
             for (const damageRect of damageRects) {
               this.builder.fillRect(
                 damageRect.x,
@@ -3577,7 +3737,7 @@ export class WidgetRenderer<S> {
               );
               this.builder.popClip();
             }
-            this.emitIncrementalCursor(cursorInfo);
+            runtimeCursorSummary = this.emitIncrementalCursor(cursorInfo);
             usedIncrementalRender = true;
           }
         }
@@ -3610,6 +3770,12 @@ export class WidgetRenderer<S> {
           diffRenderCacheById: this.diffRenderCacheById,
           codeEditorRenderCacheById: this.codeEditorRenderCacheById,
         });
+        if (captureRuntimeBreadcrumbs) {
+          runtimeDamageMode = "full";
+          runtimeDamageRectCount = viewport.cols > 0 && viewport.rows > 0 ? 1 : 0;
+          runtimeDamageArea = viewport.cols * viewport.rows;
+          runtimeCursorSummary = this.resolveRuntimeCursorSummary(cursorInfo);
+        }
       }
       perfMarkEnd("render", renderToken);
 
@@ -3622,6 +3788,18 @@ export class WidgetRenderer<S> {
           code: "ZRUI_DRAWLIST_BUILD_ERROR",
           detail: `${built.error.code}: ${built.error.detail}`,
         };
+      }
+      if (captureRuntimeBreadcrumbs) {
+        this.updateRuntimeBreadcrumbSnapshot({
+          tick,
+          commit: doCommit,
+          layout: doLayout,
+          incremental: usedIncrementalRender,
+          damageMode: runtimeDamageMode,
+          damageRectCount: runtimeDamageRectCount,
+          damageArea: runtimeDamageArea,
+          cursor: runtimeCursorSummary,
+        });
       }
       this.snapshotRenderedFrameState(viewport, theme, doLayout);
 

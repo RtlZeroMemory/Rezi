@@ -17,14 +17,23 @@
  *   const frames = debug.frameInspector.getSnapshots(10);
  */
 
-import { DEBUG_CAT_ERROR, DEBUG_CAT_EVENT, DEBUG_CAT_FRAME } from "./constants.js";
+import type { TerminalCaps } from "../terminalCaps.js";
+import {
+  DEBUG_BUNDLE_DEFAULT_MAX_PAYLOAD_BYTES,
+  DEBUG_BUNDLE_DEFAULT_MAX_RECENT_FRAMES,
+  DEBUG_BUNDLE_DEFAULT_MAX_RECORDS,
+  DEBUG_BUNDLE_DEFAULT_MAX_TOTAL_PAYLOAD_BYTES,
+  DEBUG_BUNDLE_SCHEMA_V1,
+  DEBUG_DRAWLIST_RECORD_SIZE,
+  DEBUG_RECORD_HEADER_SIZE,
+} from "./constants.js";
 import {
   type AggregatedError,
   type ErrorAggregator,
   createErrorAggregator,
 } from "./errorAggregator.js";
 import { type EventTrace, createEventTrace } from "./eventTrace.js";
-import { type FrameInspector, createFrameInspector } from "./frameInspector.js";
+import { type FrameInspector, type FrameSnapshot, createFrameInspector } from "./frameInspector.js";
 import {
   parseErrorRecord,
   parseEventRecord,
@@ -34,6 +43,13 @@ import {
 } from "./parsers.js";
 import { type StateTimeline, createStateTimeline } from "./stateTimeline.js";
 import type {
+  DebugBundle,
+  DebugBundleExportOptions,
+  DebugBundleFrameSummary,
+  DebugBundleHeader,
+  DebugBundlePayloadSnapshot,
+  DebugBundleQueryWindow,
+  DebugBundleStatsSnapshot,
   DebugConfig,
   DebugPayload,
   DebugQuery,
@@ -57,6 +73,111 @@ export type DebugErrorHandler = (error: AggregatedError) => void;
  * Debug event types for subscriptions.
  */
 export type DebugEventType = "record" | "error";
+
+type TerminalCapsProvider = () => TerminalCaps | null | Promise<TerminalCaps | null>;
+
+function normalizeBound(value: number | undefined, fallback: number): number {
+  if (value === undefined) return fallback;
+  if (!Number.isFinite(value)) return fallback;
+  if (!Number.isInteger(value)) return fallback;
+  if (value < 0) return fallback;
+  return value;
+}
+
+function toHex(bytes: Uint8Array): string {
+  let out = "";
+  for (const byte of bytes) {
+    out += byte.toString(16).padStart(2, "0");
+  }
+  return out;
+}
+
+function compareBigInt(a: bigint, b: bigint): number {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
+function toBundleHeader(header: DebugRecordHeader): DebugBundleHeader {
+  return {
+    recordId: header.recordId.toString(),
+    timestampUs: header.timestampUs.toString(),
+    frameId: header.frameId.toString(),
+    category: header.category,
+    severity: header.severity,
+    code: header.code,
+    payloadSize: header.payloadSize,
+  };
+}
+
+function toBundleStats(stats: DebugStats): DebugBundleStatsSnapshot {
+  return {
+    totalRecords: stats.totalRecords.toString(),
+    totalDropped: stats.totalDropped.toString(),
+    errorCount: stats.errorCount,
+    warnCount: stats.warnCount,
+    currentRingUsage: stats.currentRingUsage,
+    ringCapacity: stats.ringCapacity,
+  };
+}
+
+function toBundleQueryWindow(query: DebugQueryResult): DebugBundleQueryWindow {
+  return {
+    recordsReturned: query.recordsReturned,
+    recordsAvailable: query.recordsAvailable,
+    recordsDropped: query.recordsDropped,
+    oldestRecordId: query.oldestRecordId.toString(),
+    newestRecordId: query.newestRecordId.toString(),
+  };
+}
+
+function toBundleFrameSummary(frame: FrameSnapshot): DebugBundleFrameSummary {
+  return {
+    frameId: frame.frameId.toString(),
+    timestamp: frame.timestamp,
+    cols: frame.cols,
+    rows: frame.rows,
+    drawlistBytes: frame.drawlistBytes,
+    drawlistCmds: frame.drawlistCmds,
+    diffBytesEmitted: frame.diffBytesEmitted,
+    dirtyLines: frame.dirtyLines,
+    dirtyCells: frame.dirtyCells,
+    damageRects: frame.damageRects,
+    usDrawlist: frame.usDrawlist,
+    usDiff: frame.usDiff,
+    usWrite: frame.usWrite,
+  };
+}
+
+function stableJson(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    let out = "[";
+    for (let i = 0; i < value.length; i++) {
+      if (i > 0) out += ",";
+      const item = value[i];
+      out += stableJson(item === undefined ? null : item);
+    }
+    out += "]";
+    return out;
+  }
+
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj).sort();
+  let out = "{";
+  let first = true;
+  for (const key of keys) {
+    const v = obj[key];
+    if (v === undefined) continue;
+    if (!first) out += ",";
+    first = false;
+    out += `${JSON.stringify(key)}:${stableJson(v)}`;
+  }
+  out += "}";
+  return out;
+}
 
 /**
  * Debug backend interface for engine communication.
@@ -154,6 +275,16 @@ export interface DebugController {
    */
   export(): Promise<Uint8Array>;
 
+  /**
+   * Export a deterministic, versioned JSON debug bundle.
+   */
+  exportBundle(options?: DebugBundleExportOptions): Promise<DebugBundle>;
+
+  /**
+   * Export the debug bundle as UTF-8 JSON bytes.
+   */
+  exportBundleBytes(options?: DebugBundleExportOptions): Promise<Uint8Array>;
+
   /* --- High-level Features --- */
 
   /**
@@ -220,6 +351,8 @@ export type CreateDebugControllerOptions = Readonly<{
   maxEvents?: number;
   /** Maximum state changes to retain */
   maxStateChanges?: number;
+  /** Optional provider used to snapshot terminal capabilities during bundle export. */
+  terminalCapsProvider?: TerminalCapsProvider;
 }>;
 
 /**
@@ -227,6 +360,7 @@ export type CreateDebugControllerOptions = Readonly<{
  */
 export function createDebugController(options: CreateDebugControllerOptions = {}): DebugController {
   const backend = options.backend ?? NULL_BACKEND;
+  const terminalCapsProvider = options.terminalCapsProvider;
   const frameInspector = createFrameInspector(options.maxFrames);
   const eventTrace = createEventTrace(options.maxEvents);
   const errorAggregator = createErrorAggregator();
@@ -243,6 +377,18 @@ export function createDebugController(options: CreateDebugControllerOptions = {}
       } catch {
         // Ignore handler errors
       }
+    }
+  }
+
+  async function resolveTerminalCaps(
+    override: TerminalCaps | null | undefined,
+  ): Promise<TerminalCaps | null> {
+    if (override !== undefined) return override;
+    if (!terminalCapsProvider) return null;
+    try {
+      return (await terminalCapsProvider()) ?? null;
+    } catch {
+      return null;
     }
   }
 
@@ -285,10 +431,9 @@ export function createDebugController(options: CreateDebugControllerOptions = {}
     }
 
     const records: DebugRecord[] = [];
-    const HEADER_SIZE = 40;
 
     for (let i = 0; i < result.recordsReturned; i++) {
-      const offset = i * HEADER_SIZE;
+      const offset = i * DEBUG_RECORD_HEADER_SIZE;
       const headerResult = parseRecordHeader(headers, offset);
 
       if (!headerResult.ok) {
@@ -338,12 +483,165 @@ export function createDebugController(options: CreateDebugControllerOptions = {}
     return backend.debugExport();
   }
 
-  function processRecords(headers: Uint8Array, payloads: Map<bigint, Uint8Array>): void {
-    const HEADER_SIZE = 40;
-    const count = Math.floor(headers.byteLength / HEADER_SIZE);
+  async function exportBundle(options?: DebugBundleExportOptions): Promise<DebugBundle> {
+    const maxRecords = normalizeBound(options?.maxRecords, DEBUG_BUNDLE_DEFAULT_MAX_RECORDS);
+    const maxPayloadBytes = normalizeBound(
+      options?.maxPayloadBytes,
+      DEBUG_BUNDLE_DEFAULT_MAX_PAYLOAD_BYTES,
+    );
+    const maxTotalPayloadBytes = normalizeBound(
+      options?.maxTotalPayloadBytes,
+      DEBUG_BUNDLE_DEFAULT_MAX_TOTAL_PAYLOAD_BYTES,
+    );
+    const maxRecentFrames = normalizeBound(
+      options?.maxRecentFrames,
+      DEBUG_BUNDLE_DEFAULT_MAX_RECENT_FRAMES,
+    );
+    const includeRecentFrames = options?.includeRecentFrames !== false;
+
+    const captureRawEvents = options?.includeRawEvents ?? currentConfig?.captureRawEvents ?? false;
+    const captureDrawlistBytes =
+      options?.includeDrawlistBytes ?? currentConfig?.captureDrawlistBytes ?? false;
+
+    const stats = await backend.debugGetStats();
+    const statsSnapshot = toBundleStats(stats);
+    const terminalCaps = await resolveTerminalCaps(options?.terminalCaps);
+
+    let queryResult: DebugQueryResult = {
+      recordsReturned: 0,
+      recordsAvailable: 0,
+      oldestRecordId: 0n,
+      newestRecordId: 0n,
+      recordsDropped: 0,
+    };
+    let headersBytes: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
+
+    if (maxRecords > 0) {
+      const queried = await backend.debugQuery({ maxRecords });
+      headersBytes = queried.headers;
+      queryResult = queried.result;
+    }
+
+    const parsedHeaders: DebugRecordHeader[] = [];
+    const count = Math.min(
+      queryResult.recordsReturned,
+      Math.floor(headersBytes.byteLength / DEBUG_RECORD_HEADER_SIZE),
+    );
 
     for (let i = 0; i < count; i++) {
-      const offset = i * HEADER_SIZE;
+      const offset = i * DEBUG_RECORD_HEADER_SIZE;
+      const parsed = parseRecordHeader(headersBytes, offset);
+      if (parsed.ok) {
+        parsedHeaders.push(parsed.value);
+      }
+    }
+
+    parsedHeaders.sort((a, b) => compareBigInt(a.recordId, b.recordId));
+
+    let payloadBudgetRemaining = maxTotalPayloadBytes;
+    const trace: Array<{
+      header: DebugBundleHeader;
+      payload: DebugBundlePayloadSnapshot | null;
+    }> = [];
+
+    for (const header of parsedHeaders) {
+      const headerSnapshot = toBundleHeader(header);
+      let payloadSnapshot: DebugBundlePayloadSnapshot | null = null;
+
+      if (header.payloadSize > 0) {
+        if (header.category === "event" && !captureRawEvents) {
+          payloadSnapshot = {
+            included: false,
+            reason: "capture-raw-events-disabled",
+            bytesTotal: header.payloadSize,
+          };
+        } else if (
+          header.category === "drawlist" &&
+          header.payloadSize !== DEBUG_DRAWLIST_RECORD_SIZE &&
+          !captureDrawlistBytes
+        ) {
+          payloadSnapshot = {
+            included: false,
+            reason: "capture-drawlist-bytes-disabled",
+            bytesTotal: header.payloadSize,
+          };
+        } else {
+          const payloadBytes = await backend.debugGetPayload(header.recordId);
+          if (!payloadBytes) {
+            payloadSnapshot = {
+              included: false,
+              reason: "payload-unavailable",
+              bytesTotal: header.payloadSize,
+            };
+          } else {
+            const bytesIncluded = Math.min(
+              maxPayloadBytes,
+              payloadBudgetRemaining,
+              payloadBytes.byteLength,
+            );
+            const truncated = bytesIncluded < payloadBytes.byteLength;
+            const bounded = payloadBytes.subarray(0, bytesIncluded);
+            payloadSnapshot = {
+              included: true,
+              encoding: "hex",
+              data: toHex(bounded),
+              bytesIncluded,
+              bytesTotal: payloadBytes.byteLength,
+              truncated,
+            };
+            payloadBudgetRemaining -= bytesIncluded;
+          }
+        }
+      }
+
+      trace.push({
+        header: headerSnapshot,
+        payload: payloadSnapshot,
+      });
+    }
+
+    const recentFrameSummaries = includeRecentFrames
+      ? frameInspector.getSnapshots(maxRecentFrames).map(toBundleFrameSummary)
+      : [];
+
+    const base: Omit<DebugBundle, "recentFrameSummaries"> = {
+      schema: DEBUG_BUNDLE_SCHEMA_V1,
+      captureFlags: {
+        captureRawEvents,
+        captureDrawlistBytes,
+      },
+      bounds: {
+        maxRecords,
+        maxPayloadBytes,
+        maxTotalPayloadBytes,
+        maxRecentFrames,
+      },
+      terminalCaps,
+      stats: statsSnapshot,
+      queryWindow: toBundleQueryWindow(queryResult),
+      trace,
+    };
+
+    if (recentFrameSummaries.length > 0) {
+      return {
+        ...base,
+        recentFrameSummaries,
+      };
+    }
+
+    return base;
+  }
+
+  async function exportBundleBytes(options?: DebugBundleExportOptions): Promise<Uint8Array> {
+    const bundle = await exportBundle(options);
+    return new TextEncoder().encode(stableJson(bundle));
+  }
+
+  function processRecords(headers: Uint8Array, payloads: Map<bigint, Uint8Array>): void {
+    const count = Math.floor(headers.byteLength / DEBUG_RECORD_HEADER_SIZE);
+
+    for (let i = 0; i < count; i++) {
+      const offset = i * DEBUG_RECORD_HEADER_SIZE;
       const headerResult = parseRecordHeader(headers, offset);
 
       if (!headerResult.ok) {
@@ -426,6 +724,8 @@ export function createDebugController(options: CreateDebugControllerOptions = {}
     getPayload,
     getStats,
     export: exportRecords,
+    exportBundle,
+    exportBundleBytes,
     frameInspector,
     eventTrace,
     errors: errorAggregator,
