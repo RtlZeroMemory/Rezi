@@ -1,6 +1,7 @@
 import type { LayoutTree } from "../../layout/layout.js";
 import { measureTextCells } from "../../layout/textMeasure.js";
 import type { Rect } from "../../layout/types.js";
+import { getRuntimeNodeDamageRect } from "../../renderer/renderToDrawlist/damageBounds.js";
 import type { RuntimeInstance } from "../../runtime/commit.js";
 import type { InstanceId } from "../../runtime/instance.js";
 
@@ -262,13 +263,17 @@ export function buildLayoutRectIndexes(
   layoutTree: LayoutTree,
   runtimeRoot: RuntimeInstance,
   pooledRectByInstanceId: Map<InstanceId, Rect>,
+  pooledDamageRectByInstanceId: Map<InstanceId, Rect>,
   pooledRectById: Map<string, Rect>,
+  pooledDamageRectById: Map<string, Rect>,
   pooledSplitPaneChildRectsById: Map<string, readonly Rect[]>,
   pooledLayoutStack: LayoutTree[],
   pooledRuntimeStack: RuntimeInstance[],
 ): void {
   pooledRectByInstanceId.clear();
+  pooledDamageRectByInstanceId.clear();
   pooledRectById.clear();
+  pooledDamageRectById.clear();
   pooledSplitPaneChildRectsById.clear();
   pooledLayoutStack.length = 0;
   pooledRuntimeStack.length = 0;
@@ -279,9 +284,12 @@ export function buildLayoutRectIndexes(
     const r = pooledRuntimeStack.pop();
     if (!n || !r) continue;
     pooledRectByInstanceId.set(r.instanceId, n.rect);
+    const damageRect = getRuntimeNodeDamageRect(r, n.rect);
+    pooledDamageRectByInstanceId.set(r.instanceId, damageRect);
     const id = (r.vnode as { props?: { id?: unknown } }).props?.id;
     if (typeof id === "string" && id.length > 0 && !pooledRectById.has(id)) {
       pooledRectById.set(id, n.rect);
+      pooledDamageRectById.set(id, damageRect);
     }
     if (r.vnode.kind === "splitPane") {
       const sid = (r.vnode.props as { id?: unknown }).id;

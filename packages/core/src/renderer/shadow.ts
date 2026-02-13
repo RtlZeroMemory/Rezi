@@ -36,6 +36,11 @@ export type ShadowConfig = Readonly<{
   density: ShadowDensity;
 }>;
 
+type ShadowBoundsConfig = Readonly<{
+  offsetX: number;
+  offsetY: number;
+}>;
+
 /**
  * Default shadow configuration.
  */
@@ -144,7 +149,7 @@ export function renderShadow(
  * @param config - Shadow configuration
  * @returns Rectangle including shadow area
  */
-export function getRectWithShadow(rect: Rect, config: ShadowConfig): Rect {
+export function getRectWithShadow(rect: Rect, config: ShadowBoundsConfig): Rect {
   return {
     x: rect.x,
     y: rect.y,

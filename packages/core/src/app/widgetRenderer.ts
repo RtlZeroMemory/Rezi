@@ -517,6 +517,10 @@ export class WidgetRenderer<S> {
   private readonly _pooledSplitPaneChildRectsById = new Map<string, readonly Rect[]>();
   private readonly _prevFrameRectByInstanceId = new Map<InstanceId, Rect>();
   private readonly _prevFrameRectById = new Map<string, Rect>();
+  private readonly _pooledDamageRectByInstanceId = new Map<InstanceId, Rect>();
+  private readonly _pooledDamageRectById = new Map<string, Rect>();
+  private readonly _prevFrameDamageRectByInstanceId = new Map<InstanceId, Rect>();
+  private readonly _prevFrameDamageRectById = new Map<string, Rect>();
   private readonly _pooledDamageRects: Rect[] = [];
   private readonly _pooledMergedDamageRects: Rect[] = [];
   private _hasRenderedFrame = false;
@@ -2455,12 +2459,12 @@ export class WidgetRenderer<S> {
   }
 
   private appendDamageRectForInstanceId(instanceId: InstanceId): boolean {
-    const current = this._pooledRectByInstanceId.get(instanceId);
+    const current = this._pooledDamageRectByInstanceId.get(instanceId);
     if (current && current.w > 0 && current.h > 0) {
       this._pooledDamageRects.push(current);
       return true;
     }
-    const prev = this._prevFrameRectByInstanceId.get(instanceId);
+    const prev = this._prevFrameDamageRectByInstanceId.get(instanceId);
     if (prev && prev.w > 0 && prev.h > 0) {
       this._pooledDamageRects.push(prev);
       return true;
@@ -2469,12 +2473,12 @@ export class WidgetRenderer<S> {
   }
 
   private appendDamageRectForId(id: string): boolean {
-    const current = this._pooledRectById.get(id);
+    const current = this._pooledDamageRectById.get(id);
     if (current && current.w > 0 && current.h > 0) {
       this._pooledDamageRects.push(current);
       return true;
     }
-    const prev = this._prevFrameRectById.get(id);
+    const prev = this._prevFrameDamageRectById.get(id);
     if (prev && prev.w > 0 && prev.h > 0) {
       this._pooledDamageRects.push(prev);
       return true;
@@ -2549,9 +2553,17 @@ export class WidgetRenderer<S> {
       for (const [instanceId, rect] of this._pooledRectByInstanceId) {
         this._prevFrameRectByInstanceId.set(instanceId, rect);
       }
+      this._prevFrameDamageRectByInstanceId.clear();
+      for (const [instanceId, rect] of this._pooledDamageRectByInstanceId) {
+        this._prevFrameDamageRectByInstanceId.set(instanceId, rect);
+      }
       this._prevFrameRectById.clear();
       for (const [id, rect] of this._pooledRectById) {
         this._prevFrameRectById.set(id, rect);
+      }
+      this._prevFrameDamageRectById.clear();
+      for (const [id, rect] of this._pooledDamageRectById) {
+        this._prevFrameDamageRectById.set(id, rect);
       }
     }
     this._hasRenderedFrame = true;
@@ -2707,7 +2719,9 @@ export class WidgetRenderer<S> {
           nextLayoutTree,
           this.committedRoot,
           this._pooledRectByInstanceId,
+          this._pooledDamageRectByInstanceId,
           this._pooledRectById,
+          this._pooledDamageRectById,
           this._pooledSplitPaneChildRectsById,
           this._pooledLayoutStack,
           this._pooledRuntimeStack,
