@@ -12,6 +12,14 @@ cd my-tui-app
 npm start
 ```
 
+With Bun:
+
+```bash
+bun create rezi my-tui-app
+cd my-tui-app
+bun start
+```
+
 Select a template when prompted (dashboard, form-app, file-browser, or streaming-viewer), or pass `--template` to choose directly:
 
 ```bash
@@ -24,6 +32,15 @@ npm create rezi my-tui-app -- --template dashboard
 mkdir my-tui-app && cd my-tui-app
 npm init -y
 npm install @rezi-ui/core @rezi-ui/node typescript tsx
+```
+
+With Bun:
+
+```bash
+mkdir my-tui-app && cd my-tui-app
+bun init -y
+bun add @rezi-ui/core @rezi-ui/node
+bun add -d typescript tsx
 ```
 
 ## Minimal Example
@@ -77,6 +94,12 @@ Run with:
 npx tsx index.ts
 ```
 
+Or with Bun:
+
+```bash
+bun run index.ts
+```
+
 You should see a counter UI. Use Tab to navigate between buttons, Enter to activate them, and 'q' to quit. You can also click the buttons with the mouse if your terminal supports mouse tracking.
 
 ## Understanding the Code
@@ -91,7 +114,7 @@ const app = createApp<State>({
 ```
 
 - `createApp<State>` creates a typed application instance
-- `backend` specifies the rendering backend (Node.js in this case)
+- `backend` specifies the rendering backend (`@rezi-ui/node` for Node.js and Bun)
 - `initialState` provides the initial application state
 
 ### Defining the View

@@ -4,7 +4,7 @@
 
 ### What is Rezi?
 
-Rezi is a code-first terminal UI framework for Node.js. It provides a declarative widget API for building rich terminal applications with features like automatic focus management, theming, and keyboard navigation.
+Rezi is a code-first terminal UI framework for Node.js and Bun. It provides a declarative widget API for building rich terminal applications with features like automatic focus management, theming, and keyboard navigation.
 
 ### Is Rezi like React for the terminal?
 
@@ -27,9 +27,12 @@ Rezi supports:
 
 Prebuilt native binaries are included for all supported platforms.
 
-### What Node.js versions are supported?
+### What runtime versions are supported?
 
-Rezi requires Node.js 18 or later (18.18+ recommended).
+Rezi supports:
+
+- Node.js 18+ (18.18+ recommended)
+- Bun 1.3+
 
 ## Architecture
 
@@ -48,7 +51,7 @@ This architecture enables high performance while keeping the TypeScript code por
 
 `@rezi-ui/core` is runtime-agnostic by design. It contains no Node.js-specific APIs (no `Buffer`, `worker_threads`, `fs`, etc.).
 
-The Node.js integration is provided by `@rezi-ui/node`. Additional backends for other runtimes (Deno, Bun, etc.) could be implemented using the same core package.
+Node.js and Bun integration is provided by `@rezi-ui/node`. Additional backends for other runtimes (for example Deno) could be implemented using the same core package.
 
 ### What is the binary protocol?
 

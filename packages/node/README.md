@@ -1,6 +1,6 @@
 # @rezi-ui/node
 
-Node.js backend for Rezi. This package owns:
+Node.js/Bun backend for Rezi. This package owns:
 
 - worker-thread engine ownership (native engine is never called on the main thread)
 - frame scheduling and buffer pooling
@@ -13,5 +13,12 @@ import { createApp, ui } from "@rezi-ui/core";
 import { createNodeBackend } from "@rezi-ui/node";
 ```
 
-Docs: `https://rtlzeromemory.github.io/Rezi/`
+Install:
 
+```bash
+npm i @rezi-ui/node
+# or
+bun add @rezi-ui/node
+```
+
+Docs: `https://rtlzeromemory.github.io/Rezi/`

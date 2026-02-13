@@ -24,7 +24,7 @@ flowchart TB
 | Package | Description | npm |
 |---------|-------------|-----|
 | [@rezi-ui/core](core.md) | Widgets, layout, themes, forms, keybindings | `npm i @rezi-ui/core` |
-| [@rezi-ui/node](node.md) | Node.js backend with worker threads | `npm i @rezi-ui/node` |
+| [@rezi-ui/node](node.md) | Node.js/Bun backend with worker threads | `npm i @rezi-ui/node` |
 | [@rezi-ui/native](native.md) | Native addon (napi-rs + Zireael) | Bundled with node |
 | [@rezi-ui/jsx](jsx.md) | JSX runtime for Rezi widgets | `npm i @rezi-ui/jsx` |
 | [@rezi-ui/testkit](testkit.md) | Testing utilities and fixtures | `npm i -D @rezi-ui/testkit` |
@@ -54,9 +54,9 @@ import { createApp, ui, rgb, darkTheme } from "@rezi-ui/core";
 
 ## @rezi-ui/node
 
-**Node.js runtime backend**
+**Node.js/Bun runtime backend**
 
-The Node.js backend provides the runtime integration:
+The `@rezi-ui/node` backend provides the runtime integration:
 
 - Worker thread management for async rendering
 - Event loop integration

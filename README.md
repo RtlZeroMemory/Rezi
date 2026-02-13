@@ -7,7 +7,7 @@
 
 > **Alpha** — under active development; APIs may change between releases.
 
-Rezi is a TypeScript/Node.js terminal UI framework with a native rendering engine (Zireael).
+Rezi is a TypeScript terminal UI framework for Node.js and Bun, with a native rendering engine (Zireael).
 You build UIs in TypeScript while Rezi emits compact drawlists and delegates terminal diff/present to native code.
 
 In our terminal benchmark suite (`120x40`, PTY mode), Rezi is consistently in the same performance class as native TUIs: slightly slower than ratatui (Rust) by a low single-digit multiplier, while remaining substantially faster than classic JS TUI stacks in the same scenarios.
@@ -69,6 +69,8 @@ await app.start();
 
 ```bash
 npm install @rezi-ui/jsx @rezi-ui/core @rezi-ui/node
+# or
+bun add @rezi-ui/jsx @rezi-ui/core @rezi-ui/node
 ```
 
 ### 2) Native `ui.*` API
@@ -100,6 +102,8 @@ await app.start();
 
 ```bash
 npm install @rezi-ui/core @rezi-ui/node
+# or
+bun add @rezi-ui/core @rezi-ui/node
 ```
 
 ## Performance overview
@@ -144,9 +148,9 @@ flowchart TB
 - Widget primitives: box/row/column, text, input, buttons, focus/keyboard handling
 - Higher-level widgets: tables, virtual lists, code editor, diff viewer, file picker, command palette
 - Protocols: ZRDL (drawlists) and ZREV (event batches)
-- Backends: Node worker/inline execution modes, native addon integration
+- Backends: Node/Bun worker/inline execution modes, native addon integration
 
-Node.js 18+ required (18.18+ recommended). Prebuilt native binaries are published for Linux, macOS, and Windows (x64/arm64).
+Node.js 18+ (18.18+ recommended) or Bun 1.3+ required. Prebuilt native binaries are published for Linux, macOS, and Windows (x64/arm64).
 
 ## Packages
 
@@ -165,6 +169,12 @@ Node.js 18+ required (18.18+ recommended). Prebuilt native binaries are publishe
 npm create rezi my-app
 cd my-app
 npm start
+```
+
+```bash
+bun create rezi my-app
+cd my-app
+bun start
 ```
 
 Templates: `dashboard`, `form-app`, `file-browser`, `streaming-viewer`.
