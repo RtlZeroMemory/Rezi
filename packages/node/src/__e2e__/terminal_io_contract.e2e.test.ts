@@ -510,7 +510,9 @@ async function createHarnessOrSkip(
 
 test("terminal io contract: keyboard + paste + focus + mouse + resize + split reads", async (t: TestContext) => {
   if (process.platform === "win32") {
-    t.skip("full terminal contract assertions run on Unix PTY; Windows uses ConPTY-specific coverage");
+    t.skip(
+      "full terminal contract assertions run on Unix PTY; Windows uses ConPTY-specific coverage",
+    );
     return;
   }
 
