@@ -42,11 +42,17 @@ export function routeFileTreeExplorerKeyDown(
       return next;
     })();
 
+  const routingFocusedKey = state.focusedKey ?? fte.focused ?? fte.selected ?? null;
+  const routingState =
+    routingFocusedKey === state.focusedKey
+      ? state
+      : Object.freeze({ ...state, focusedKey: routingFocusedKey });
+
   const r = routeTreeKey(event, {
     treeId: fte.id,
     flatNodes,
     expanded: fte.expanded,
-    state,
+    state: routingState,
     keyboardNavigation: true,
   });
 
@@ -117,6 +123,11 @@ export function routeFilePickerKeyDown(
 
   const focusedKey =
     state.focusedKey ?? fp.selectedPath ?? fp.selection?.[0] ?? flatNodes[0]?.key ?? null;
+  const routingFocusedKey = state.focusedKey ?? fp.selectedPath ?? fp.selection?.[0] ?? null;
+  const routingState =
+    routingFocusedKey === state.focusedKey
+      ? state
+      : Object.freeze({ ...state, focusedKey: routingFocusedKey });
 
   // Space toggles selection in multi-select mode.
   if (
@@ -137,7 +148,7 @@ export function routeFilePickerKeyDown(
     treeId: fp.id,
     flatNodes,
     expanded: fp.expandedPaths,
-    state,
+    state: routingState,
     keyboardNavigation: true,
   });
 

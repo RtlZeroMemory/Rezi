@@ -18,7 +18,6 @@ import {
   ZR_KEY_PAGE_UP,
   ZR_KEY_SPACE,
   ZR_KEY_UP,
-  ZR_MOD_CTRL,
   ZR_MOD_SHIFT,
 } from "../../keybindings/keyCodes.js";
 import type { TableLocalState } from "../../runtime/localState.js";
@@ -28,6 +27,7 @@ import {
   SORT_INDICATOR_DESC,
   type TableColumn,
   alignCellText,
+  buildRowKeyIndex,
   clearSelection,
   computeSelection,
   distributeColumnWidths,
@@ -64,6 +64,7 @@ function createTableCtx<T>(
   return {
     tableId: overrides.tableId ?? "test-table",
     rowKeys,
+    ...(overrides.rowKeyToIndex ? { rowKeyToIndex: overrides.rowKeyToIndex } : {}),
     data,
     rowHeight: overrides.rowHeight ?? 1,
     state,
@@ -72,9 +73,6 @@ function createTableCtx<T>(
     keyboardNavigation: overrides.keyboardNavigation ?? true,
   };
 }
-
-/* ========== Key Code Constants ========== */
-const ZR_KEY_A = 65;
 
 /* ========== Column Width Distribution Tests ========== */
 
@@ -153,6 +151,38 @@ describe("table - distributeColumnWidths", () => {
     // Both should get equal width
     assert.equal(result.widths[0], 50);
     assert.equal(result.widths[1], 50);
+  });
+
+  test("fractional flex widths are deterministic across runs", () => {
+    const columns: TableColumn<unknown>[] = [
+      { key: "a", header: "A", flex: 1 },
+      { key: "b", header: "B", flex: 1 },
+      { key: "c", header: "C", flex: 1 },
+    ];
+
+    const first = distributeColumnWidths(columns, 10);
+    const second = distributeColumnWidths(columns, 10);
+
+    assert.deepEqual([...first.widths], [3, 3, 3]);
+    assert.deepEqual([...second.widths], [3, 3, 3]);
+    assert.equal(first.totalWidth, 9);
+    assert.equal(second.totalWidth, 9);
+  });
+
+  test("mixed fixed/flex/min/max distribution is deterministic", () => {
+    const columns: TableColumn<unknown>[] = [
+      { key: "a", header: "A", flex: 3, minWidth: 10 },
+      { key: "b", header: "B", flex: 1, maxWidth: 5 },
+      { key: "c", header: "C", width: 7 },
+    ];
+
+    const first = distributeColumnWidths(columns, 31);
+    const second = distributeColumnWidths(columns, 31);
+
+    assert.deepEqual([...first.widths], [18, 5, 7]);
+    assert.deepEqual([...second.widths], [18, 5, 7]);
+    assert.equal(first.totalWidth, 30);
+    assert.equal(second.totalWidth, 30);
   });
 });
 
@@ -248,6 +278,29 @@ describe("table - selection", () => {
     assert.ok(result.selection.includes("r3"));
     assert.ok(result.selection.includes("r4"));
     assert.ok(result.selection.includes("r5"));
+    assert.equal(result.changed, true);
+  });
+
+  test("shift+click uses rowKeyToIndex fast-path (including index 0)", () => {
+    const keys = ["r1", "r2", "r3", "r4"];
+    Object.defineProperty(keys, "indexOf", {
+      value: () => {
+        throw new Error("indexOf fallback should not be used when map lookup succeeds");
+      },
+    });
+    const index = buildRowKeyIndex(keys);
+
+    const result = computeSelection(
+      ["r1"],
+      "r3",
+      "multi",
+      { shift: true, ctrl: false },
+      keys,
+      "r1",
+      index,
+    );
+
+    assert.deepEqual([...result.selection], ["r1", "r2", "r3"]);
     assert.equal(result.changed, true);
   });
 
@@ -379,6 +432,17 @@ describe("table - extractRowKeys", () => {
 
     assert.equal(keys.length, 3);
   });
+
+  test("stable row keys follow row identity after reorder", () => {
+    const rows = [{ id: "a" }, { id: "b" }, { id: "c" }] as const;
+    const reordered = [rows[2], rows[0], rows[1]];
+
+    const first = extractRowKeys(rows, (row) => row.id);
+    const second = extractRowKeys(reordered, (row) => row.id);
+
+    assert.deepEqual([...first], ["a", "b", "c"]);
+    assert.deepEqual([...second], ["c", "a", "b"]);
+  });
 });
 
 /* ========== Row Navigation Helpers ========== */
@@ -477,6 +541,53 @@ describe("table - keyboard navigation", () => {
     assert.equal(result.consumed, true);
   });
 
+  test("navigation keys do not mutate selection in multi mode", () => {
+    const ctx = createTableCtx({
+      focusedRowIndex: 2,
+      selection: ["r1", "r3"],
+      selectionMode: "multi",
+      viewportHeight: 3,
+      rowHeight: 1,
+      rowKeys: ["r1", "r2", "r3", "r4", "r5", "r6"],
+    });
+
+    for (const key of [
+      ZR_KEY_UP,
+      ZR_KEY_DOWN,
+      ZR_KEY_PAGE_UP,
+      ZR_KEY_PAGE_DOWN,
+      ZR_KEY_HOME,
+      ZR_KEY_END,
+    ]) {
+      const result = routeTableKey(createKeyEvent(key), ctx);
+      assert.equal(result.nextSelection, undefined);
+      assert.equal(result.consumed, true);
+    }
+  });
+
+  test("shift+space selection uses rowKeyToIndex fast-path", () => {
+    const rowKeys = ["r1", "r2", "r3", "r4"];
+    Object.defineProperty(rowKeys, "indexOf", {
+      value: () => {
+        throw new Error("indexOf fallback should not be used when map lookup succeeds");
+      },
+    });
+
+    const ctx = createTableCtx({
+      rowKeys,
+      focusedRowIndex: 2,
+      lastClickedKey: "r1",
+      selection: ["r1"],
+      selectionMode: "multi",
+      rowKeyToIndex: buildRowKeyIndex(rowKeys),
+    });
+    const result = routeTableKey(createKeyEvent(ZR_KEY_SPACE, "down", ZR_MOD_SHIFT), ctx);
+
+    assert.deepEqual(result.nextSelection, ["r1", "r2", "r3"]);
+    assert.equal(result.nextLastClickedKey, "r3");
+    assert.equal(result.consumed, true);
+  });
+
   test("page down moves by page", () => {
     const ctx = createTableCtx({
       focusedRowIndex: 0,
@@ -542,5 +653,33 @@ describe("table - scroll into view on navigation", () => {
 
     assert.equal(result.nextFocusedRowIndex, 4);
     assert.equal(result.nextScrollTop, 4);
+  });
+
+  test("stale scrollTop is clamped when viewport grows (resize contract)", () => {
+    const ctx = createTableCtx({
+      focusedRowIndex: 90,
+      scrollTop: 50,
+      viewportHeight: 80,
+      rowHeight: 1,
+      rowKeys: Array.from({ length: 100 }, (_, i) => `r${i}`),
+    });
+    const result = routeTableKey(createKeyEvent(ZR_KEY_DOWN), ctx);
+
+    assert.equal(result.nextFocusedRowIndex, 91);
+    assert.equal(result.nextScrollTop, 20);
+  });
+
+  test("non-positive rowHeight uses safe keyboard page size", () => {
+    const ctx = createTableCtx({
+      focusedRowIndex: 0,
+      scrollTop: 0,
+      viewportHeight: 4,
+      rowHeight: 0,
+      rowKeys: ["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10"],
+    });
+    const result = routeTableKey(createKeyEvent(ZR_KEY_PAGE_DOWN), ctx);
+
+    assert.equal(result.nextFocusedRowIndex, 4);
+    assert.equal(result.nextScrollTop, 1);
   });
 });

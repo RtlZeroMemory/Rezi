@@ -38,31 +38,43 @@ export function routeTableKey<T>(event: ZrevEvent, ctx: TableRoutingCtx<T>): Tab
 
   if (rowCount === 0) return Object.freeze({ consumed: false });
 
+  // Keep keyboard routing consistent with renderer math.
+  const safeRowHeight = rowHeight > 0 ? rowHeight : 1;
+  const safeViewportHeight = Math.max(0, viewportHeight);
+  const maxScrollTop = Math.max(0, rowCount * safeRowHeight - safeViewportHeight);
+  const normalizedScrollTop = Number.isFinite(scrollTop)
+    ? Math.max(0, Math.min(maxScrollTop, scrollTop))
+    : 0;
+  const consumedNoMove = (): TableRoutingResult =>
+    normalizedScrollTop !== scrollTop
+      ? Object.freeze({ consumed: true, nextScrollTop: normalizedScrollTop })
+      : Object.freeze({ consumed: true });
+
   // Helper to compute scroll position for a given row index
   const scrollToRow = (rowIndex: number): number => {
-    const rowTop = rowIndex * rowHeight;
-    const rowBottom = rowTop + rowHeight;
-    const viewportBottom = scrollTop + viewportHeight;
+    const rowTop = rowIndex * safeRowHeight;
+    const rowBottom = rowTop + safeRowHeight;
+    const viewportBottom = normalizedScrollTop + safeViewportHeight;
 
     // If row is above viewport, scroll up
-    if (rowTop < scrollTop) {
+    if (rowTop < normalizedScrollTop) {
       return rowTop;
     }
     // If row is below viewport, scroll down
     if (rowBottom > viewportBottom) {
-      return Math.max(0, rowBottom - viewportHeight);
+      return Math.max(0, Math.min(maxScrollTop, rowBottom - safeViewportHeight));
     }
     // Row is visible
-    return scrollTop;
+    return normalizedScrollTop;
   };
 
   // Compute page size
-  const pageSize = Math.max(1, Math.floor(viewportHeight / rowHeight));
+  const pageSize = Math.max(1, Math.floor(safeViewportHeight / safeRowHeight));
 
   // Arrow Up
   if (event.key === ZR_KEY_UP) {
     const nextIndex = Math.max(0, focusedRowIndex - 1);
-    if (nextIndex === focusedRowIndex) return Object.freeze({ consumed: true });
+    if (nextIndex === focusedRowIndex) return consumedNoMove();
 
     const newScrollTop = scrollToRow(nextIndex);
     const result: TableRoutingResult = {
@@ -79,7 +91,7 @@ export function routeTableKey<T>(event: ZrevEvent, ctx: TableRoutingCtx<T>): Tab
   // Arrow Down
   if (event.key === ZR_KEY_DOWN) {
     const nextIndex = Math.min(rowCount - 1, focusedRowIndex + 1);
-    if (nextIndex === focusedRowIndex) return Object.freeze({ consumed: true });
+    if (nextIndex === focusedRowIndex) return consumedNoMove();
 
     const newScrollTop = scrollToRow(nextIndex);
     const result: TableRoutingResult = {
@@ -96,7 +108,7 @@ export function routeTableKey<T>(event: ZrevEvent, ctx: TableRoutingCtx<T>): Tab
   // Page Up
   if (event.key === ZR_KEY_PAGE_UP) {
     const nextIndex = Math.max(0, focusedRowIndex - pageSize);
-    if (nextIndex === focusedRowIndex) return Object.freeze({ consumed: true });
+    if (nextIndex === focusedRowIndex) return consumedNoMove();
 
     const newScrollTop = scrollToRow(nextIndex);
     const result: TableRoutingResult = {
@@ -113,7 +125,7 @@ export function routeTableKey<T>(event: ZrevEvent, ctx: TableRoutingCtx<T>): Tab
   // Page Down
   if (event.key === ZR_KEY_PAGE_DOWN) {
     const nextIndex = Math.min(rowCount - 1, focusedRowIndex + pageSize);
-    if (nextIndex === focusedRowIndex) return Object.freeze({ consumed: true });
+    if (nextIndex === focusedRowIndex) return consumedNoMove();
 
     const newScrollTop = scrollToRow(nextIndex);
     const result: TableRoutingResult = {
@@ -129,7 +141,7 @@ export function routeTableKey<T>(event: ZrevEvent, ctx: TableRoutingCtx<T>): Tab
 
   // Home
   if (event.key === ZR_KEY_HOME) {
-    if (focusedRowIndex === 0) return Object.freeze({ consumed: true });
+    if (focusedRowIndex === 0) return consumedNoMove();
 
     return Object.freeze({
       nextFocusedRowIndex: 0,
@@ -141,7 +153,7 @@ export function routeTableKey<T>(event: ZrevEvent, ctx: TableRoutingCtx<T>): Tab
   // End
   if (event.key === ZR_KEY_END) {
     const lastIndex = rowCount - 1;
-    if (focusedRowIndex === lastIndex) return Object.freeze({ consumed: true });
+    if (focusedRowIndex === lastIndex) return consumedNoMove();
 
     const newScrollTop = scrollToRow(lastIndex);
     const result: TableRoutingResult = {

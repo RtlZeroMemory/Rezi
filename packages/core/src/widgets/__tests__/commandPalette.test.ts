@@ -1,6 +1,20 @@
 import { assert, test } from "@rezi-ui/testkit";
 import { computeCommandPaletteWindow, getFilteredItems, sortByScore } from "../commandPalette.js";
 
+function createDeferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolve: ((value: T) => void) | undefined;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return {
+    promise,
+    resolve: (value: T) => resolve?.(value),
+  };
+}
+
 test("commandPalette: computeCommandPaletteWindow keeps selection visible", () => {
   assert.deepEqual(computeCommandPaletteWindow(0, 0, 10), { start: 0, count: 0 });
   assert.deepEqual(computeCommandPaletteWindow(0, 5, 10), { start: 0, count: 5 });
@@ -40,5 +54,39 @@ test("commandPalette: sortByScore keeps original order for equal scores", () => 
   assert.deepEqual(
     sorted.map((item) => item.id),
     ["open", "opal"],
+  );
+});
+
+test("commandPalette: async sources keep declared source order regardless of resolution order", async () => {
+  const commands =
+    createDeferred<readonly Readonly<{ id: string; label: string; sourceId: string }>[]>();
+  const symbols =
+    createDeferred<readonly Readonly<{ id: string; label: string; sourceId: string }>[]>();
+
+  const sources = [
+    {
+      id: "commands",
+      name: "Commands",
+      getItems: () => commands.promise,
+    },
+    {
+      id: "symbols",
+      name: "Symbols",
+      getItems: () => symbols.promise,
+    },
+  ] as const;
+
+  const pending = getFilteredItems(sources, "");
+
+  symbols.resolve([{ id: "sym-1", label: "Symbol One", sourceId: "symbols" }] as const);
+  commands.resolve([
+    { id: "cmd-1", label: "Command One", sourceId: "commands" },
+    { id: "cmd-2", label: "Command Two", sourceId: "commands" },
+  ] as const);
+
+  const items = await pending;
+  assert.deepEqual(
+    items.map((item) => item.id),
+    ["cmd-1", "cmd-2", "sym-1"],
   );
 });
