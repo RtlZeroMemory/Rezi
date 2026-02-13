@@ -19,6 +19,7 @@ ui.layer({
 |------|------|---------|-------------|
 | `id` | `string` | **required** | Layer identifier |
 | `zIndex` | `number` | insertion order | Higher values render on top (clamped for deterministic ordering) |
+| `frameStyle` | `{ background?, foreground?, border? }` | - | Optional layer surface/frame colors (background fill, inherited text color, and border) |
 | `backdrop` | `"none" \| "dim" \| "opaque"` | `"none"` | Backdrop behind the layer |
 | `modal` | `boolean` | `false` | Block input to lower layers |
 | `closeOnEscape` | `boolean` | `true` | Close on Escape key |

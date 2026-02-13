@@ -89,6 +89,7 @@ function measureNode(vnode: VNode, maxW: number, maxH: number, axis: Axis): Layo
     case "text":
     case "button":
     case "input":
+    case "slider":
     case "spacer":
     case "divider":
     case "icon":
@@ -188,6 +189,16 @@ function measureNode(vnode: VNode, maxW: number, maxH: number, axis: Axis): Layo
       computed = measureOverlays(vnode, maxW, maxH, axis, measureNode);
       break;
     }
+    default: {
+      computed = {
+        ok: false,
+        fatal: {
+          code: "ZRUI_INVALID_PROPS",
+          detail: "measure: unexpected vnode kind",
+        },
+      };
+      break;
+    }
   }
 
   if (cache) {
@@ -257,6 +268,7 @@ function layoutNode(
     case "text":
     case "button":
     case "input":
+    case "slider":
     case "spacer":
     case "divider":
     case "icon":
@@ -348,6 +360,15 @@ function layoutNode(
     }
     case "toastContainer": {
       return layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+    }
+    default: {
+      return {
+        ok: false,
+        fatal: {
+          code: "ZRUI_INVALID_PROPS",
+          detail: "layout: unexpected vnode kind",
+        },
+      };
     }
   }
 }

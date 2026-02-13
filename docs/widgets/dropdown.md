@@ -20,6 +20,18 @@ ui.dropdown({
 })
 ```
 
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `id` | `string` | **required** | Unique dropdown identifier |
+| `anchorId` | `string` | **required** | ID of anchor widget used for positioning |
+| `position` | `DropdownPosition` | `"below-start"` | Placement relative to anchor |
+| `items` | `DropdownItem[]` | **required** | Menu rows (including optional dividers) |
+| `frameStyle` | `{ background?, foreground?, border? }` | - | Optional frame/surface colors for menu background, text, and border |
+| `onSelect` | `(item) => void` | - | Called when a selectable item is activated |
+| `onClose` | `() => void` | - | Called when dropdown should close |
+
 ## Behavior
 
 - **Arrow keys** navigate items. **Enter** selects the highlighted item.

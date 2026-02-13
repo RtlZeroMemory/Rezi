@@ -31,7 +31,8 @@ ui.layers([
 | `actions` | `VNode[]` | `[]` | Action row (typically buttons) |
 | `width` | `number \| "auto"` | `~70%` | Preferred modal width |
 | `maxWidth` | `number` | - | Maximum width constraint |
-| `backdrop` | `"none" \| "dim" \| "opaque"` | `"dim"` | Backdrop style |
+| `frameStyle` | `{ background?, foreground?, border? }` | - | Optional modal frame/surface colors |
+| `backdrop` | `"none" \| "dim" \| "opaque" \| { variant?, pattern?, foreground?, background? }` | `"dim"` | Backdrop preset or extended config |
 | `closeOnBackdrop` | `boolean` | `true` | Close when clicking backdrop |
 | `closeOnEscape` | `boolean` | `true` | Close on `Esc` |
 | `onClose` | `() => void` | - | Callback when modal requests close |
@@ -68,6 +69,7 @@ ui.modal({
 - Modals are rendered by conditionally including them in the tree (there is no `open` prop).
 - Render modals inside `ui.layers(...)` so they stack above base content.
 - Backdrops are rendered behind the modal. `"dim"` uses a light shade pattern; `"opaque"` clears the area behind the modal to the theme background color.
+- Extended backdrop config uses object form: `variant` (preset), `pattern` (dim glyph), and optional `foreground`/`background` colors.
 - `width: "auto"` sizes to content/actions and is clamped by `maxWidth` and the viewport.
 
 ## Related

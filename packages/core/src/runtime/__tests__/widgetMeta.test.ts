@@ -80,6 +80,23 @@ test("widgetMeta: SplitPane/PanelGroup are not focusable but their children are 
   assert.deepEqual(focusable, ["left", "right", "nested"]);
 });
 
+test("widgetMeta: slider participates in focusable/enabled metadata", () => {
+  const vnode = ui.column({}, [
+    ui.slider({ id: "s1", value: 5, min: 0, max: 10 }),
+    ui.slider({ id: "s2", value: 5, min: 0, max: 10, disabled: true }),
+    ui.slider({ id: "s3", value: 5, min: 0, max: 10, readOnly: true }),
+  ]);
+
+  const committed = commitTree(vnode);
+  const focusable = collectFocusableIds(committed);
+  assert.deepEqual(focusable, ["s1", "s3"]);
+
+  const enabled = collectEnabledMap(committed);
+  assert.equal(enabled.get("s1"), true);
+  assert.equal(enabled.get("s2"), false);
+  assert.equal(enabled.get("s3"), true);
+});
+
 test("widgetMeta: collectAllWidgetMetadata produces same results as individual collectors", () => {
   // Complex tree with buttons, inputs, zones, and traps
   const vnode = ui.column({}, [

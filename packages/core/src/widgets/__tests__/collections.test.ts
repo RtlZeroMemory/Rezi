@@ -45,7 +45,7 @@ describe("collections", () => {
   test("ui.table creates table VNode and preserves optional props", () => {
     const vnode = ui.table({
       id: "table",
-      columns: [{ key: "name", header: "Name", sortable: true }],
+      columns: [{ key: "name", header: "Name", sortable: true, overflow: "middle" }],
       data: [{ name: "A" }],
       getRowKey: (row) => row.name,
       rowHeight: 1,
@@ -57,8 +57,10 @@ describe("collections", () => {
       virtualized: true,
       overscan: 5,
       stripedRows: true,
+      stripeStyle: { odd: { r: 1, g: 2, b: 3 }, even: { r: 4, g: 5, b: 6 } },
       showHeader: true,
       border: "single",
+      borderStyle: { variant: "double", color: { r: 7, g: 8, b: 9 } },
       onSelectionChange: () => undefined,
       onSort: () => undefined,
       onRowPress: () => undefined,
@@ -71,6 +73,12 @@ describe("collections", () => {
     assert.equal(vnode.props.data.length, 1);
     assert.equal(vnode.props.selectionMode, "multi");
     assert.equal(vnode.props.border, "single");
+    assert.equal(vnode.props.columns[0]?.overflow, "middle");
+    assert.deepEqual(vnode.props.stripeStyle, {
+      odd: { r: 1, g: 2, b: 3 },
+      even: { r: 4, g: 5, b: 6 },
+    });
+    assert.deepEqual(vnode.props.borderStyle, { variant: "double", color: { r: 7, g: 8, b: 9 } });
   });
 
   test("ui.tree creates tree VNode with optional tree features", () => {

@@ -69,6 +69,53 @@ describe("container widgets - VNode construction", () => {
     assert.equal(layers.children.length, 3);
   });
 
+  test("modal and layer preserve frameStyle and extended modal backdrop config", () => {
+    const modal = ui.modal({
+      id: "styled-modal",
+      title: "Styled",
+      content: ui.text("Body"),
+      frameStyle: {
+        background: { r: 20, g: 22, b: 24 },
+        foreground: { r: 220, g: 222, b: 224 },
+        border: { r: 120, g: 122, b: 124 },
+      },
+      backdrop: {
+        variant: "dim",
+        pattern: "#",
+        foreground: { r: 60, g: 70, b: 80 },
+        background: { r: 4, g: 5, b: 6 },
+      },
+    });
+    assert.equal(modal.kind, "modal");
+    assert.deepEqual(modal.props.backdrop, {
+      variant: "dim",
+      pattern: "#",
+      foreground: { r: 60, g: 70, b: 80 },
+      background: { r: 4, g: 5, b: 6 },
+    });
+    assert.deepEqual(modal.props.frameStyle, {
+      background: { r: 20, g: 22, b: 24 },
+      foreground: { r: 220, g: 222, b: 224 },
+      border: { r: 120, g: 122, b: 124 },
+    });
+
+    const layer = ui.layer({
+      id: "styled-layer",
+      content: ui.text("overlay"),
+      frameStyle: {
+        background: { r: 10, g: 11, b: 12 },
+        foreground: { r: 230, g: 231, b: 232 },
+        border: { r: 90, g: 91, b: 92 },
+      },
+    });
+    assert.equal(layer.kind, "layer");
+    assert.deepEqual(layer.props.frameStyle, {
+      background: { r: 10, g: 11, b: 12 },
+      foreground: { r: 230, g: 231, b: 232 },
+      border: { r: 90, g: 91, b: 92 },
+    });
+  });
+
   test("splitPane, panelGroup, and resizablePanel create expected VNodes", () => {
     const left = ui.text("Left");
     const right = ui.text("Right");

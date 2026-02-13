@@ -1,4 +1,9 @@
 import type { VNode } from "../../index.js";
+import {
+  DEFAULT_SLIDER_TRACK_WIDTH,
+  formatSliderValue,
+  normalizeSliderState,
+} from "../../widgets/slider.js";
 import { layoutLeaf } from "../engine/layoutTree.js";
 import { ok } from "../engine/result.js";
 import type { LayoutTree } from "../engine/types.js";
@@ -49,6 +54,34 @@ export function measureLeaf(
       const w = Math.min(maxW, textW + 2);
       const h = Math.min(maxH, 1);
       return ok({ w, h });
+    }
+    case "slider": {
+      const props = vnode.props as {
+        value?: number;
+        min?: number;
+        max?: number;
+        step?: number;
+        width?: number;
+        label?: string;
+        showValue?: boolean;
+      };
+      const normalized = normalizeSliderState({
+        value: props.value ?? Number.NaN,
+        min: props.min,
+        max: props.max,
+        step: props.step,
+      });
+      const labelText =
+        typeof props.label === "string" && props.label.length > 0 ? `${props.label} ` : "";
+      const showValue = props.showValue !== false;
+      const valueText = showValue ? ` ${formatSliderValue(normalized.value, normalized.step)}` : "";
+      const explicitTrack =
+        typeof props.width === "number" && Number.isFinite(props.width) && props.width > 0
+          ? Math.trunc(props.width)
+          : undefined;
+      const trackWidth = explicitTrack ?? DEFAULT_SLIDER_TRACK_WIDTH;
+      const intrinsicW = measureTextCells(labelText) + 2 + trackWidth + measureTextCells(valueText);
+      return ok({ w: Math.min(maxW, intrinsicW), h: Math.min(maxH, 1) });
     }
     case "spacer": {
       const propsRes = validateSpacerProps(vnode.props);
@@ -393,6 +426,14 @@ export function layoutLeafKind(
     }
     case "select": {
       // Select dropdown is an interactive leaf widget.
+      return ok({
+        vnode,
+        rect: { x, y, w: rectW, h: Math.min(rectH, 1) },
+        children: Object.freeze([]),
+      });
+    }
+    case "slider": {
+      // Slider is an interactive leaf widget.
       return ok({
         vnode,
         rect: { x, y, w: rectW, h: Math.min(rectH, 1) },

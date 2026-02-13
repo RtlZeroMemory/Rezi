@@ -12,6 +12,18 @@ import type { ResolvedTextStyle } from "../textStyle.js";
 import { mergeTextStyle, shouldFillForStyleOverride } from "../textStyle.js";
 
 type ClipRect = Readonly<Rect>;
+type OverlayFrameColors = Readonly<{
+  foreground?: ResolvedTextStyle["fg"];
+  background?: ResolvedTextStyle["bg"];
+  border?: ResolvedTextStyle["fg"];
+}>;
+
+type ModalBackdropConfig = Readonly<{
+  variant: "none" | "dim" | "opaque";
+  pattern: string;
+  foreground?: ResolvedTextStyle["fg"];
+  background?: ResolvedTextStyle["bg"];
+}>;
 
 function clipEquals(a: ClipRect | undefined, b: ClipRect): boolean {
   return a !== undefined && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
@@ -149,6 +161,108 @@ function resolveBoxShadowConfig(
     offsetY,
     ...(density !== undefined ? { density } : {}),
   });
+}
+
+function readRgbChannel(raw: unknown): number | null {
+  if (typeof raw !== "number" || !Number.isFinite(raw)) {
+    return null;
+  }
+  const clamped = Math.max(0, Math.min(255, Math.trunc(raw)));
+  return clamped;
+}
+
+function readRgbColor(raw: unknown): ResolvedTextStyle["fg"] | undefined {
+  if (typeof raw !== "object" || raw === null) {
+    return undefined;
+  }
+  const color = raw as { r?: unknown; g?: unknown; b?: unknown };
+  const r = readRgbChannel(color.r);
+  const g = readRgbChannel(color.g);
+  const b = readRgbChannel(color.b);
+  if (r === null || g === null || b === null) {
+    return undefined;
+  }
+  return { r, g, b };
+}
+
+function readOverlayFrameColors(raw: unknown): OverlayFrameColors {
+  if (typeof raw !== "object" || raw === null) {
+    return {};
+  }
+  const frame = raw as {
+    foreground?: unknown;
+    background?: unknown;
+    border?: unknown;
+  };
+  const foreground = readRgbColor(frame.foreground);
+  const background = readRgbColor(frame.background);
+  const border = readRgbColor(frame.border);
+  return {
+    ...(foreground !== undefined ? { foreground } : {}),
+    ...(background !== undefined ? { background } : {}),
+    ...(border !== undefined ? { border } : {}),
+  };
+}
+
+function toOverlaySurfaceStyle(
+  frame: OverlayFrameColors,
+): Readonly<{ fg?: ResolvedTextStyle["fg"]; bg?: ResolvedTextStyle["bg"] }> | undefined {
+  if (frame.foreground === undefined && frame.background === undefined) {
+    return undefined;
+  }
+  return {
+    ...(frame.foreground !== undefined ? { fg: frame.foreground } : {}),
+    ...(frame.background !== undefined ? { bg: frame.background } : {}),
+  };
+}
+
+function readBackdropVariant(
+  raw: unknown,
+  fallback: ModalBackdropConfig["variant"],
+): ModalBackdropConfig["variant"] {
+  if (raw === "none" || raw === "dim" || raw === "opaque") {
+    return raw;
+  }
+  return fallback;
+}
+
+function readBackdropPattern(raw: unknown, fallback: string): string {
+  if (typeof raw !== "string") {
+    return fallback;
+  }
+  const first = Array.from(raw)[0];
+  if (first === undefined || first.length === 0) {
+    return fallback;
+  }
+  return first;
+}
+
+function resolveModalBackdrop(raw: unknown): ModalBackdropConfig {
+  if (raw === "none" || raw === "dim" || raw === "opaque") {
+    return { variant: raw, pattern: "░" };
+  }
+
+  if (typeof raw !== "object" || raw === null) {
+    return { variant: "dim", pattern: "░" };
+  }
+
+  const config = raw as {
+    variant?: unknown;
+    style?: unknown;
+    pattern?: unknown;
+    foreground?: unknown;
+    background?: unknown;
+    fg?: unknown;
+    bg?: unknown;
+  };
+  const foreground = readRgbColor(config.foreground ?? config.fg);
+  const background = readRgbColor(config.background ?? config.bg);
+  return {
+    variant: readBackdropVariant(config.variant ?? config.style, "dim"),
+    pattern: readBackdropPattern(config.pattern, "░"),
+    ...(foreground !== undefined ? { foreground } : {}),
+    ...(background !== undefined ? { background } : {}),
+  };
 }
 
 export function renderContainerWidget(
@@ -314,25 +428,39 @@ export function renderContainerWidget(
     }
     case "modal": {
       if (!isVisibleRect(rect)) break;
-      const props = vnode.props as { title?: unknown; backdrop?: unknown };
+      const props = vnode.props as { title?: unknown; backdrop?: unknown; frameStyle?: unknown };
       const title = typeof props.title === "string" ? props.title : undefined;
-      const backdrop =
-        props.backdrop === "none" ? "none" : props.backdrop === "opaque" ? "opaque" : "dim";
+      const frame = readOverlayFrameColors(props.frameStyle);
+      const surfaceStyle = mergeTextStyle(parentStyle, toOverlaySurfaceStyle(frame));
+      const borderStyle =
+        frame.border !== undefined
+          ? mergeTextStyle(surfaceStyle, { fg: frame.border })
+          : surfaceStyle;
+      const backdrop = resolveModalBackdrop(props.backdrop);
 
       const fill = currentClip ?? { x: 0, y: 0, w: viewport.cols, h: viewport.rows };
-      if (backdrop === "opaque") {
-        builder.fillRect(fill.x, fill.y, fill.w, fill.h, { bg: theme.colors.bg });
-      } else if (backdrop === "dim") {
+      if (backdrop.variant === "opaque") {
+        builder.fillRect(fill.x, fill.y, fill.w, fill.h, {
+          bg: backdrop.background ?? theme.colors.bg,
+        });
+      } else if (backdrop.variant === "dim") {
         if (fill.w > 0 && fill.h > 0) {
-          const line = "░".repeat(fill.w);
-          const style: ResolvedTextStyle = { fg: theme.colors.border, bg: theme.colors.bg };
+          const line = backdrop.pattern.repeat(fill.w);
+          const style: ResolvedTextStyle = {
+            fg: backdrop.foreground ?? theme.colors.border,
+            bg: backdrop.background ?? theme.colors.bg,
+          };
           for (let dy = 0; dy < fill.h; dy++) {
             builder.drawText(fill.x, fill.y + dy, line, style);
           }
         }
       }
 
-      renderBoxBorder(builder, rect, "single", title, "left", parentStyle);
+      if (frame.background !== undefined) {
+        builder.fillRect(rect.x, rect.y, rect.w, rect.h, surfaceStyle);
+      }
+
+      renderBoxBorder(builder, rect, "single", title, "left", borderStyle);
 
       // Clip modal interior (exclude border)
       const cx = rect.x + 1;
@@ -348,7 +476,7 @@ export function renderContainerWidget(
       pushChildrenWithLayout(
         node,
         layoutNode,
-        parentStyle,
+        surfaceStyle,
         nodeStack,
         styleStack,
         layoutStack,
@@ -392,7 +520,9 @@ export function renderContainerWidget(
     }
     case "layer": {
       // Generic layer: transparent container for its content VNode.
-      const props = vnode.props as { backdrop?: unknown };
+      const props = vnode.props as { backdrop?: unknown; frameStyle?: unknown };
+      const frame = readOverlayFrameColors(props.frameStyle);
+      const layerStyle = mergeTextStyle(parentStyle, toOverlaySurfaceStyle(frame));
       const backdrop =
         props.backdrop === "dim" || props.backdrop === "opaque" || props.backdrop === "none"
           ? props.backdrop
@@ -411,10 +541,17 @@ export function renderContainerWidget(
           }
         }
       }
+      if (frame.background !== undefined) {
+        builder.fillRect(rect.x, rect.y, rect.w, rect.h, layerStyle);
+      }
+      if (frame.border !== undefined) {
+        const borderStyle = mergeTextStyle(layerStyle, { fg: frame.border });
+        renderBoxBorder(builder, rect, "single", undefined, "left", borderStyle);
+      }
       pushChildrenWithLayout(
         node,
         layoutNode,
-        parentStyle,
+        layerStyle,
         nodeStack,
         styleStack,
         layoutStack,

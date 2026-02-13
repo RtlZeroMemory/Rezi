@@ -231,6 +231,53 @@ describe("WidgetRenderer integration battery", () => {
     assert.equal(renderer.getFocusedId(), "z3");
   });
 
+  test("focusZone grid navigation moves by columns deterministically", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const vnode = ui.column({}, [
+      ui.focusZone({ id: "grid", navigation: "grid", columns: 3, wrapAround: false }, [
+        ui.button({ id: "g1", label: "G1" }),
+        ui.button({ id: "g2", label: "G2" }),
+        ui.button({ id: "g3", label: "G3" }),
+        ui.button({ id: "g4", label: "G4" }),
+        ui.button({ id: "g5", label: "G5" }),
+        ui.button({ id: "g6", label: "G6" }),
+      ]),
+    ]);
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 60, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+    assert.equal(renderer.getFocusedId(), null);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "g1");
+
+    renderer.routeEngineEvent(keyEvent(21 /* DOWN */));
+    assert.equal(renderer.getFocusedId(), "g4");
+
+    renderer.routeEngineEvent(keyEvent(21 /* DOWN */));
+    assert.equal(renderer.getFocusedId(), "g4");
+
+    renderer.routeEngineEvent(keyEvent(23 /* RIGHT */));
+    assert.equal(renderer.getFocusedId(), "g5");
+
+    renderer.routeEngineEvent(keyEvent(20 /* UP */));
+    assert.equal(renderer.getFocusedId(), "g2");
+
+    renderer.routeEngineEvent(keyEvent(22 /* LEFT */));
+    assert.equal(renderer.getFocusedId(), "g1");
+  });
+
   test("focusZone onEnter/onExit fire on zone transitions", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({
@@ -466,6 +513,68 @@ describe("WidgetRenderer integration battery", () => {
     assert.equal(renderer.getFocusedId(), getToastActionFocusId("t0"));
     assert.deepEqual(events, ["exit:zone-1"]);
     assert.deepEqual(activated, ["t0"]);
+  });
+
+  test("slider routing clamps values and respects disabled/readOnly focus semantics", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const changes: number[] = [];
+
+    const vnode = ui.column({}, [
+      ui.slider({
+        id: "s-enabled",
+        value: 9,
+        min: 0,
+        max: 10,
+        step: 3,
+        onChange: (value) => changes.push(value),
+      }),
+      ui.slider({
+        id: "s-disabled",
+        value: 4,
+        min: 0,
+        max: 10,
+        disabled: true,
+        onChange: (value) => changes.push(value),
+      }),
+      ui.slider({
+        id: "s-readonly",
+        value: 4,
+        min: 0,
+        max: 10,
+        readOnly: true,
+        onChange: (value) => changes.push(value),
+      }),
+    ]);
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 50, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+    assert.equal(renderer.getFocusedId(), null);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "s-enabled");
+
+    renderer.routeEngineEvent(keyEvent(14 /* PAGE_UP */));
+    renderer.routeEngineEvent(keyEvent(12 /* HOME */));
+    assert.deepEqual(changes, [10, 0]);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "s-readonly");
+    renderer.routeEngineEvent(keyEvent(23 /* RIGHT */));
+    assert.deepEqual(changes, [10, 0]);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "s-enabled");
   });
 
   test("dropdown mouse click selects item and closes", () => {

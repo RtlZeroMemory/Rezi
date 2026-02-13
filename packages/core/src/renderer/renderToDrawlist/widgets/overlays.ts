@@ -39,8 +39,66 @@ type ToastPosition =
   | "bottom-center"
   | "bottom-right";
 
+type OverlayFrameColors = Readonly<{
+  foreground?: ResolvedTextStyle["fg"];
+  background?: ResolvedTextStyle["bg"];
+  border?: ResolvedTextStyle["fg"];
+}>;
+
 function readString(raw: unknown, fallback = ""): string {
   return typeof raw === "string" ? raw : fallback;
+}
+
+function readRgbChannel(raw: unknown): number | null {
+  if (typeof raw !== "number" || !Number.isFinite(raw)) {
+    return null;
+  }
+  return Math.max(0, Math.min(255, Math.trunc(raw)));
+}
+
+function readRgbColor(raw: unknown): ResolvedTextStyle["fg"] | undefined {
+  if (typeof raw !== "object" || raw === null) {
+    return undefined;
+  }
+  const color = raw as { r?: unknown; g?: unknown; b?: unknown };
+  const r = readRgbChannel(color.r);
+  const g = readRgbChannel(color.g);
+  const b = readRgbChannel(color.b);
+  if (r === null || g === null || b === null) {
+    return undefined;
+  }
+  return { r, g, b };
+}
+
+function readOverlayFrameColors(raw: unknown): OverlayFrameColors {
+  if (typeof raw !== "object" || raw === null) {
+    return {};
+  }
+  const frame = raw as {
+    foreground?: unknown;
+    background?: unknown;
+    border?: unknown;
+  };
+  const foreground = readRgbColor(frame.foreground);
+  const background = readRgbColor(frame.background);
+  const border = readRgbColor(frame.border);
+  return {
+    ...(foreground !== undefined ? { foreground } : {}),
+    ...(background !== undefined ? { background } : {}),
+    ...(border !== undefined ? { border } : {}),
+  };
+}
+
+function toOverlaySurfaceStyle(
+  frame: OverlayFrameColors,
+): Readonly<{ fg?: ResolvedTextStyle["fg"]; bg?: ResolvedTextStyle["bg"] }> | undefined {
+  if (frame.foreground === undefined && frame.background === undefined) {
+    return undefined;
+  }
+  return {
+    ...(frame.foreground !== undefined ? { fg: frame.foreground } : {}),
+    ...(frame.background !== undefined ? { bg: frame.background } : {}),
+  };
 }
 
 function readNonNegativeInt(raw: unknown, fallback: number): number {
@@ -124,6 +182,12 @@ export function renderOverlayWidget(
       const props = vnode.props as DropdownProps;
       const anchor = idRectIndex.get(props.anchorId) ?? null;
       if (!anchor) break;
+      const frame = readOverlayFrameColors(props.frameStyle);
+      const dropdownStyle = mergeTextStyle(parentStyle, toOverlaySurfaceStyle(frame));
+      const borderStyle =
+        frame.border !== undefined
+          ? mergeTextStyle(dropdownStyle, { fg: frame.border })
+          : dropdownStyle;
 
       const items = Array.isArray(props.items) ? props.items : [];
       const selectedIndex = dropdownSelectedIndexById?.get(props.id) ?? 0;
@@ -157,8 +221,18 @@ export function renderOverlayWidget(
       const dropdownRect = pos.rect;
       if (!isVisibleRect(dropdownRect)) break;
 
+      if (frame.background !== undefined) {
+        builder.fillRect(
+          dropdownRect.x,
+          dropdownRect.y,
+          dropdownRect.w,
+          dropdownRect.h,
+          dropdownStyle,
+        );
+      }
+
       // Render dropdown border
-      renderBoxBorder(builder, dropdownRect, "single", undefined, "left", parentStyle);
+      renderBoxBorder(builder, dropdownRect, "single", undefined, "left", borderStyle);
 
       // Render items
       const cx = dropdownRect.x + 1;
@@ -174,7 +248,7 @@ export function renderOverlayWidget(
         }
         if (item.divider) {
           // Render divider
-          builder.drawText(cx, cy, "\u2500".repeat(cw), parentStyle);
+          builder.drawText(cx, cy, "\u2500".repeat(cw), borderStyle);
         } else {
           const isSelected = index === selectedIndex;
           const disabled = item.disabled === true;
@@ -188,17 +262,20 @@ export function renderOverlayWidget(
           }
 
           const style = disabled
-            ? mergeTextStyle(parentStyle, { fg: theme.colors.muted })
+            ? mergeTextStyle(dropdownStyle, { fg: theme.colors.muted })
             : isSelected
-              ? mergeTextStyle(parentStyle, { fg: theme.colors.bg, bold: true })
-              : parentStyle;
+              ? mergeTextStyle(dropdownStyle, {
+                  fg: frame.background ?? theme.colors.bg,
+                  bold: true,
+                })
+              : dropdownStyle;
           builder.drawText(cx, cy, truncateWithEllipsis(label, labelW > 0 ? labelW : cw), style);
           if (shortcutW > 0 && cw > shortcutW) {
             const shortcutX = cx + cw - shortcutW;
             if (shortcutX > cx) {
               const shortcutStyle =
                 isSelected && !disabled
-                  ? mergeTextStyle(parentStyle, { fg: theme.colors.info })
+                  ? mergeTextStyle(dropdownStyle, { fg: theme.colors.info })
                   : mergeTextStyle(style, { dim: true });
               builder.drawText(shortcutX, cy, shortcut, shortcutStyle);
             }
@@ -223,29 +300,34 @@ export function renderOverlayWidget(
       const internalLoading =
         paletteId.length > 0 ? (commandPaletteLoadingById?.get(paletteId) ?? false) : false;
       const loading = props.loading === true || internalLoading;
+      const frame = readOverlayFrameColors(props.frameStyle);
 
       // Color palette for command palette
-      const paletteBg = theme.colors.bg;
-      const paletteBorder = theme.colors.border;
+      const paletteBg = frame.background ?? theme.colors.bg;
+      const paletteBorder = frame.border ?? theme.colors.border;
       const paletteAccent = theme.colors.primary;
-      const paletteText = theme.colors.fg;
+      const paletteText = frame.foreground ?? theme.colors.fg;
       const paletteMuted = theme.colors.muted;
       const paletteSelectedBg = theme.colors.secondary;
+      const paletteStyle = mergeTextStyle(parentStyle, {
+        fg: paletteText,
+        bg: paletteBg,
+      });
+      const paletteBorderStyle = mergeTextStyle(paletteStyle, { fg: paletteBorder });
+      const paletteMutedStyle = mergeTextStyle(paletteStyle, { fg: paletteMuted });
+      const paletteAccentStyle = mergeTextStyle(paletteStyle, { fg: paletteAccent });
 
       // Draw background
       builder.fillRect(rect.x, rect.y, rect.w, rect.h, { bg: paletteBg });
-      renderBoxBorder(builder, rect, "single", undefined, "left", {
-        ...parentStyle,
-        fg: paletteBorder,
-      });
+      renderBoxBorder(builder, rect, "single", undefined, "left", paletteBorderStyle);
 
       // Draw search icon and input field
       const inputY = rect.y + 1;
       const placeholder = readString(props.placeholder, "Search commands...");
       const query = readString(props.query);
-      builder.drawText(rect.x + 2, inputY, "◈", { fg: paletteAccent });
+      builder.drawText(rect.x + 2, inputY, "◈", paletteAccentStyle);
       const displayText = query.length > 0 ? query : placeholder;
-      const textStyle = query.length > 0 ? { fg: paletteText } : { fg: paletteMuted };
+      const textStyle = query.length > 0 ? paletteStyle : paletteMutedStyle;
       const inputW = clampNonNegative(rect.w - 6);
       builder.drawText(rect.x + 4, inputY, truncateWithEllipsis(displayText, inputW), textStyle);
 
@@ -266,12 +348,12 @@ export function renderOverlayWidget(
       // Draw separator with accent highlight
       const separatorW = clampNonNegative(rect.w - 2);
       if (separatorW > 0) {
-        builder.drawText(rect.x + 1, rect.y + 2, "─".repeat(separatorW), { fg: paletteBorder });
+        builder.drawText(rect.x + 1, rect.y + 2, "─".repeat(separatorW), paletteBorderStyle);
       }
 
       // Loading indicator
       if (loading && rect.w >= 5) {
-        builder.drawText(rect.x + rect.w - 5, inputY, "···", { fg: paletteAccent });
+        builder.drawText(rect.x + rect.w - 5, inputY, "···", paletteAccentStyle);
       }
 
       // Items list - explicit bounds calculation with extra safety margin
@@ -290,9 +372,12 @@ export function renderOverlayWidget(
       nodeStack.push(null);
 
       if (items.length === 0) {
-        builder.drawText(listX, listY, truncateWithEllipsis("No matching commands", listW), {
-          fg: paletteMuted,
-        });
+        builder.drawText(
+          listX,
+          listY,
+          truncateWithEllipsis("No matching commands", listW),
+          paletteMutedStyle,
+        );
         break;
       }
 
@@ -321,10 +406,10 @@ export function renderOverlayWidget(
         const iconText = readString(item.icon);
         const icon = iconText.length > 0 ? `${iconText} ` : "";
         const labelStyle = disabled
-          ? { fg: paletteMuted }
+          ? paletteMutedStyle
           : isSelected
-            ? { fg: theme.colors.bg, bold: true }
-            : { fg: paletteText };
+            ? mergeTextStyle(paletteStyle, { fg: frame.background ?? theme.colors.bg, bold: true })
+            : paletteStyle;
         const label = `${icon}${readString(item.label)}`;
         const truncatedLabel = truncateWithEllipsis(label, labelMaxWidth);
         builder.drawText(listX, y, truncatedLabel, labelStyle);
@@ -334,7 +419,9 @@ export function renderOverlayWidget(
           const sw = measureTextCells(shortcut);
           const sx = listX + listW - sw;
           if (sx > listX + measureTextCells(truncatedLabel) + 1) {
-            const shortcutStyle = isSelected ? { fg: theme.colors.info } : { fg: paletteMuted };
+            const shortcutStyle = isSelected
+              ? mergeTextStyle(paletteStyle, { fg: theme.colors.info })
+              : paletteMutedStyle;
             builder.drawText(sx, y, shortcut, shortcutStyle);
           }
         }
@@ -419,7 +506,10 @@ export function renderOverlayWidget(
         toasts?: unknown;
         position?: unknown;
         maxVisible?: unknown;
+        frameStyle?: unknown;
       };
+      const frame = readOverlayFrameColors(props.frameStyle);
+      const toastBaseStyle = mergeTextStyle(parentStyle, toOverlaySurfaceStyle(frame));
       const toasts = Array.isArray(props.toasts) ? props.toasts : EMPTY_TOASTS;
       const position = readToastPosition(props.position);
       const maxVisible = readNonNegativeInt(props.maxVisible, 5);
@@ -446,32 +536,35 @@ export function renderOverlayWidget(
           : rect.y + rect.h - (i + 1) * TOAST_HEIGHT;
 
         const icon = TOAST_ICONS[type];
-        const color = toastTypeToThemeColor(theme, type);
+        const color = frame.border ?? toastTypeToThemeColor(theme, type);
 
         // Toast background
-        builder.fillRect(rect.x, toastY, rect.w, TOAST_HEIGHT, { bg: theme.colors.bg });
+        builder.fillRect(rect.x, toastY, rect.w, TOAST_HEIGHT, {
+          bg: frame.background ?? theme.colors.bg,
+        });
 
         // Border
+        const borderStyle = mergeTextStyle(toastBaseStyle, { fg: color });
         if (rect.w === 1) {
-          builder.drawText(rect.x, toastY, "┌", { fg: color });
-          builder.drawText(rect.x, toastY + 1, "│", { fg: color });
-          builder.drawText(rect.x, toastY + 2, "└", { fg: color });
+          builder.drawText(rect.x, toastY, "┌", borderStyle);
+          builder.drawText(rect.x, toastY + 1, "│", borderStyle);
+          builder.drawText(rect.x, toastY + 2, "└", borderStyle);
         } else {
           const inner = rect.w > 2 ? "─".repeat(rect.w - 2) : "";
-          builder.drawText(rect.x, toastY, `┌${inner}┐`, { fg: color });
-          builder.drawText(rect.x, toastY + 1, "│", { fg: color });
-          builder.drawText(rect.x + rect.w - 1, toastY + 1, "│", { fg: color });
-          builder.drawText(rect.x, toastY + 2, `└${inner}┘`, { fg: color });
+          builder.drawText(rect.x, toastY, `┌${inner}┐`, borderStyle);
+          builder.drawText(rect.x, toastY + 1, "│", borderStyle);
+          builder.drawText(rect.x + rect.w - 1, toastY + 1, "│", borderStyle);
+          builder.drawText(rect.x, toastY + 2, `└${inner}┘`, borderStyle);
         }
 
         // Icon and message
-        builder.drawText(rect.x + 2, toastY + 1, icon, { fg: color });
+        builder.drawText(rect.x + 2, toastY + 1, icon, borderStyle);
         const messageMax = Math.max(0, rect.w - 6);
         builder.drawText(
           rect.x + 4,
           toastY + 1,
           truncateWithEllipsis(message, messageMax),
-          parentStyle,
+          toastBaseStyle,
         );
 
         const action =
@@ -488,7 +581,7 @@ export function renderOverlayWidget(
               ax,
               toastY + 1,
               truncateWithEllipsis(label, Math.max(0, rect.x + rect.w - 1 - ax)),
-              focused ? { fg: color, inverse: true } : { fg: color },
+              focused ? mergeTextStyle(toastBaseStyle, { fg: color, inverse: true }) : borderStyle,
             );
           }
         }

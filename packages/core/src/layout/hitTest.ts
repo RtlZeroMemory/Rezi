@@ -28,6 +28,7 @@ function isFocusable(v: VNode): string | null {
     case "virtualList":
     case "table":
     case "tree":
+    case "slider":
     case "select":
     case "checkbox":
     case "radioGroup":
@@ -50,6 +51,7 @@ function isFocusable(v: VNode): string | null {
       if (
         v.kind === "button" ||
         v.kind === "input" ||
+        v.kind === "slider" ||
         v.kind === "select" ||
         v.kind === "checkbox" ||
         v.kind === "radioGroup"

@@ -544,8 +544,32 @@ export type VirtualListProps<T = unknown> = Readonly<{
 
 /* ========== Layer System (GitHub issue #117) ========== */
 
-/** Backdrop style for modals and overlays. */
+/** Backdrop style presets for modals and overlays. */
 export type BackdropStyle = "none" | "dim" | "opaque";
+
+/** Shared frame/surface styling for overlay widgets. */
+export type OverlayFrameStyle = Readonly<{
+  /** Surface background color. */
+  background?: NonNullable<TextStyle["bg"]>;
+  /** Default text/icon color for overlay content. */
+  foreground?: NonNullable<TextStyle["fg"]>;
+  /** Border color for framed overlays. */
+  border?: NonNullable<TextStyle["fg"]>;
+}>;
+
+/** Extended modal backdrop config (preset-compatible). */
+export type ModalBackdrop =
+  | BackdropStyle
+  | Readonly<{
+      /** Backdrop variant (default: "dim"). */
+      variant?: BackdropStyle;
+      /** Optional dim-pattern character (default: "░", dim variant only). */
+      pattern?: string;
+      /** Optional backdrop foreground color. */
+      foreground?: NonNullable<TextStyle["fg"]>;
+      /** Optional backdrop background color. */
+      background?: NonNullable<TextStyle["bg"]>;
+    }>;
 
 /** Position for dropdown relative to anchor. */
 export type DropdownPosition =
@@ -575,8 +599,10 @@ export type ModalProps = Readonly<{
   width?: number | "auto";
   /** Maximum width constraint. */
   maxWidth?: number;
-  /** Backdrop style (default: "dim"). */
-  backdrop?: BackdropStyle;
+  /** Frame/surface colors for modal body and border. */
+  frameStyle?: OverlayFrameStyle;
+  /** Backdrop style/config (default: "dim"). */
+  backdrop?: ModalBackdrop;
   /** Close when backdrop is clicked (default: true). */
   closeOnBackdrop?: boolean;
   /** Close when ESC is pressed (default: true). */
@@ -607,6 +633,8 @@ export type DropdownProps = Readonly<{
   anchorId: string;
   /** Position relative to anchor (default: "below-start"). */
   position?: DropdownPosition;
+  /** Frame/surface colors for dropdown background, text, and border. */
+  frameStyle?: OverlayFrameStyle;
   /** Menu items to render. */
   items: readonly DropdownItem[];
   /** Callback when an item is selected. */
@@ -624,6 +652,8 @@ export type LayerProps = Readonly<{
    * Values are truncated to integers and clamped to `±9,007,199,253` for deterministic ordering.
    */
   zIndex?: number;
+  /** Frame/surface colors for the layer container. */
+  frameStyle?: OverlayFrameStyle;
   /** Backdrop to render behind content. */
   backdrop?: BackdropStyle;
   /** Whether layer blocks input to lower layers. */
@@ -637,6 +667,34 @@ export type LayerProps = Readonly<{
 }>;
 
 /* ========== Table Widget (GitHub issue #118) ========== */
+
+/** Overflow behavior for table header/cell text. */
+export type TableColumnOverflow = "clip" | "ellipsis" | "middle";
+
+/** Row stripe styling for table body backgrounds. */
+export type TableStripeStyle = Readonly<{
+  /** Background color for odd body rows (0-based index: 1, 3, 5, ...). */
+  odd?: NonNullable<TextStyle["bg"]>;
+  /** Background color for even body rows (0-based index: 0, 2, 4, ...). */
+  even?: NonNullable<TextStyle["bg"]>;
+}>;
+
+/** Border glyph variants supported by table borders. */
+export type TableBorderVariant =
+  | "single"
+  | "double"
+  | "rounded"
+  | "heavy"
+  | "dashed"
+  | "heavy-dashed";
+
+/** Border styling options for tables. */
+export type TableBorderStyle = Readonly<{
+  /** Border glyph variant (default: "single"). */
+  variant?: TableBorderVariant;
+  /** Border foreground color override. */
+  color?: NonNullable<TextStyle["fg"]>;
+}>;
 
 /** Column definition for table widget. */
 export type TableColumn<T = unknown> = Readonly<{
@@ -656,6 +714,8 @@ export type TableColumn<T = unknown> = Readonly<{
   render?: (value: unknown, row: T, index: number) => VNode;
   /** Cell content alignment. */
   align?: "left" | "center" | "right";
+  /** Overflow handling for this column (default: "ellipsis"). */
+  overflow?: TableColumnOverflow;
   /** Whether column is sortable. */
   sortable?: boolean;
 }>;
@@ -694,12 +754,16 @@ export type TableProps<T = unknown> = Readonly<{
   virtualized?: boolean;
   /** Number of rows to render outside viewport (default: 3). */
   overscan?: number;
-  /** Alternate row background colors. */
+  /** Legacy stripe toggle. */
   stripedRows?: boolean;
+  /** Stripe background styling for body rows. */
+  stripeStyle?: TableStripeStyle;
   /** Show header row (default: true). */
   showHeader?: boolean;
-  /** Border style. */
+  /** Legacy border toggle. */
   border?: "none" | "single";
+  /** Border styling for rendered table frame. */
+  borderStyle?: TableBorderStyle;
 }>;
 
 /* ========== Form Widgets (GitHub issue #119) ========== */
@@ -743,6 +807,34 @@ export type SelectProps = Readonly<{
   disabled?: boolean;
   /** Placeholder text when no value is selected. */
   placeholder?: string;
+}>;
+
+/** Props for slider widget. */
+export type SliderProps = Readonly<{
+  id: string;
+  key?: string;
+  /** Current slider value. */
+  value: number;
+  /** Minimum value (default: 0). */
+  min?: number;
+  /** Maximum value (default: 100). */
+  max?: number;
+  /** Step increment for keyboard changes (default: 1). */
+  step?: number;
+  /** Optional fixed track width in cells (default: fills available width). */
+  width?: number;
+  /** Optional label shown before the track. */
+  label?: string;
+  /** Show numeric value text (default: true). */
+  showValue?: boolean;
+  /** Callback when value changes. */
+  onChange?: (value: number) => void;
+  /** Whether the slider is disabled. */
+  disabled?: boolean;
+  /** Whether the slider is read-only (focusable but non-editable). */
+  readOnly?: boolean;
+  /** Optional style applied to label/value text. */
+  style?: TextStyle;
 }>;
 
 /** Props for checkbox widget. */
@@ -832,6 +924,8 @@ export type CommandPaletteProps = Readonly<{
   placeholder?: string;
   /** Maximum visible items (default: 10). */
   maxVisible?: number;
+  /** Frame/surface colors for palette background, text, and border. */
+  frameStyle?: OverlayFrameStyle;
   /** Callback when query changes. */
   onQueryChange: (query: string) => void;
   /** Callback when item is selected. */
@@ -1311,6 +1405,8 @@ export type ToastContainerProps = Readonly<{
   position?: ToastPosition;
   /** Maximum visible toasts (default: 5). */
   maxVisible?: number;
+  /** Frame/surface colors for toast backgrounds, text, and borders. */
+  frameStyle?: OverlayFrameStyle;
   /** Callback when toast is dismissed. */
   onDismiss: (id: string) => void;
 }>;
@@ -1395,6 +1491,7 @@ export type VNode =
   | Readonly<{ kind: "miniChart"; props: MiniChartProps }>
   | Readonly<{ kind: "button"; props: ButtonProps }>
   | Readonly<{ kind: "input"; props: InputProps }>
+  | Readonly<{ kind: "slider"; props: SliderProps }>
   | Readonly<{ kind: "focusZone"; props: FocusZoneProps; children: readonly VNode[] }>
   | Readonly<{ kind: "focusTrap"; props: FocusTrapProps; children: readonly VNode[] }>
   | Readonly<{ kind: "virtualList"; props: VirtualListProps<unknown> }>

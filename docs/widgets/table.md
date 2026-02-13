@@ -8,7 +8,7 @@ Renders tabular data with column definitions, optional sorting, and row selectio
 ui.table({
   id: "users",
   columns: [
-    { key: "name", header: "Name", flex: 1, sortable: true },
+    { key: "name", header: "Name", flex: 1, sortable: true, overflow: "middle" },
     { key: "role", header: "Role", width: 12 },
   ],
   data: state.users,
@@ -16,6 +16,8 @@ ui.table({
   selection: state.selection,
   selectionMode: "multi",
   onSelectionChange: (keys) => app.update((s) => ({ ...s, selection: keys })),
+  stripeStyle: { odd: { r: 34, g: 37, b: 45 } },
+  borderStyle: { variant: "double", color: { r: 120, g: 130, b: 145 } },
 })
 ```
 
@@ -24,9 +26,11 @@ ui.table({
 | Prop | Type | Default | Description |
 |---|---|---|---|
 | `id` | `string` | **required** | Unique identifier for focus and events |
-| `columns` | `TableColumn[]` | **required** | Column definitions (`key`, `header`, width/flex, sortability, renderers) |
+| `columns` | `TableColumn[]` | **required** | Column definitions (`key`, `header`, width/flex, sortability, renderers, `overflow`) |
 | `data` | `T[]` | **required** | Row data |
 | `getRowKey` | `(row: T, index: number) => string` | **required** | Stable key for each row |
+| `rowHeight` | `number` | `1` | Row height in cells. Use positive values for predictable keyboard and mouse navigation. |
+| `headerHeight` | `number` | `1` | Header row height in cells when `showHeader` is `true`. |
 | `selection` | `string[]` | `[]` | Currently selected row keys |
 | `selectionMode` | `"none" \| "single" \| "multi"` | `"none"` | Selection behavior |
 | `onSelectionChange` | `(keys: string[]) => void` | - | Called when selection changes |
@@ -38,8 +42,10 @@ ui.table({
 | `virtualized` | `boolean` | `true` | Enable windowed rendering for large datasets |
 | `overscan` | `number` | `3` | Extra rows rendered outside viewport |
 | `showHeader` | `boolean` | `true` | Show/hide header row |
-| `stripedRows` | `boolean` | `false` | Alternate row background styling |
-| `border` | `"none" \| "single"` | `"none"` | Optional border rendering |
+| `stripedRows` | `boolean` | `false` | Legacy stripe toggle (kept for compatibility) |
+| `stripeStyle` | `{ odd?, even? }` | - | Stripe background colors. Providing this enables stripes even when `stripedRows` is `false`. |
+| `border` | `"none" \| "single"` | `"none"` | Legacy border toggle (kept for compatibility) |
+| `borderStyle` | `{ variant?, color? }` | - | Border glyph variant (`single`, `double`, `rounded`, `heavy`, `dashed`, `heavy-dashed`) and optional border color |
 
 ## Examples
 
@@ -73,6 +79,9 @@ ui.table({
 
 - Tables can be virtualized; prefer virtualization for large datasets.
 - Selection is tracked by row keys. Provide a stable `getRowKey`.
+- `headerHeight` is ignored when `showHeader` is `false`.
+- Column `overflow` defaults to `"ellipsis"` and supports `"clip"` and `"middle"` per column.
+- `borderStyle` is applied only when `border !== "none"` to preserve legacy behavior.
 
 ## Related
 

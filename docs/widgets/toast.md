@@ -21,6 +21,7 @@ ui.toastContainer({
 | `toasts` | `Toast[]` | **required** | Active toasts |
 | `position` | `ToastPosition` | `"bottom-right"` | Container position |
 | `maxVisible` | `number` | `5` | Max visible toasts |
+| `frameStyle` | `{ background?, foreground?, border? }` | - | Optional frame/surface colors for toast background, message text, and border |
 | `onDismiss` | `(id) => void` | **required** | Dismiss callback |
 
 ## Mouse Behavior

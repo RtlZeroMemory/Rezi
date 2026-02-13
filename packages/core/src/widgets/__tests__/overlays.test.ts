@@ -28,6 +28,23 @@ describe("overlay widgets - VNode construction", () => {
     });
   });
 
+  test("dropdown preserves frameStyle colors", () => {
+    const frameStyle = {
+      background: { r: 12, g: 18, b: 24 },
+      foreground: { r: 200, g: 210, b: 220 },
+      border: { r: 80, g: 90, b: 100 },
+    } as const;
+    const vnode = ui.dropdown({
+      id: "styled-menu",
+      anchorId: "anchor",
+      items: [{ id: "one", label: "One" }],
+      frameStyle,
+    });
+
+    assert.equal(vnode.kind, "dropdown");
+    assert.deepEqual(vnode.props.frameStyle, frameStyle);
+  });
+
   test("commandPalette creates VNode and preserves query/open state", () => {
     const source = {
       id: "cmd",
@@ -58,6 +75,28 @@ describe("overlay widgets - VNode construction", () => {
     assert.equal(vnode.props.query, "ec");
     assert.equal(vnode.props.sources.length, 1);
     assert.equal(vnode.props.maxVisible, 15);
+  });
+
+  test("commandPalette preserves frameStyle colors", () => {
+    const frameStyle = {
+      background: { r: 11, g: 12, b: 13 },
+      foreground: { r: 210, g: 211, b: 212 },
+      border: { r: 100, g: 101, b: 102 },
+    } as const;
+    const vnode = ui.commandPalette({
+      id: "palette-styled",
+      open: true,
+      query: "run",
+      sources: [{ id: "cmd", name: "Commands", getItems: () => [] }],
+      selectedIndex: 0,
+      frameStyle,
+      onQueryChange: () => undefined,
+      onSelect: () => undefined,
+      onClose: () => undefined,
+    });
+
+    assert.equal(vnode.kind, "commandPalette");
+    assert.deepEqual(vnode.props.frameStyle, frameStyle);
   });
 
   test("toolApprovalDialog creates VNode and handles optional focused action", () => {
@@ -104,5 +143,21 @@ describe("overlay widgets - VNode construction", () => {
     assert.equal(vnode.props.toasts.length, 1);
     assert.equal(vnode.props.position, "top-left");
     assert.equal(vnode.props.maxVisible, 0);
+  });
+
+  test("toastContainer preserves frameStyle colors", () => {
+    const frameStyle = {
+      background: { r: 5, g: 6, b: 7 },
+      foreground: { r: 230, g: 231, b: 232 },
+      border: { r: 140, g: 141, b: 142 },
+    } as const;
+    const vnode = ui.toastContainer({
+      toasts: [],
+      onDismiss: () => undefined,
+      frameStyle,
+    });
+
+    assert.equal(vnode.kind, "toastContainer");
+    assert.deepEqual(vnode.props.frameStyle, frameStyle);
   });
 });

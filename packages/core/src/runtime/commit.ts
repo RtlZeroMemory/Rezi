@@ -377,6 +377,7 @@ function isInteractiveVNode(v: VNode): boolean {
   return (
     v.kind === "button" ||
     v.kind === "input" ||
+    v.kind === "slider" ||
     v.kind === "virtualList" ||
     v.kind === "table" ||
     v.kind === "tree" ||

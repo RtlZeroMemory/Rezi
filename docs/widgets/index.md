@@ -49,6 +49,7 @@ Interactive form controls:
 |--------|-------------|-----------|
 | [Button](button.md) | Clickable button with label | Yes |
 | [Input](input.md) | Single-line text input | Yes |
+| [Slider](slider.md) | Numeric range input | Yes |
 | [Checkbox](checkbox.md) | Toggle checkbox | Yes |
 | [Radio Group](radio-group.md) | Single-select options | Yes |
 | [Select](select.md) | Dropdown selection | Yes |

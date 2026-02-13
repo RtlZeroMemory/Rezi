@@ -11,6 +11,11 @@ import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { FocusState } from "../../../runtime/focus.js";
 import type { Theme } from "../../../theme/theme.js";
 import { resolveColor } from "../../../theme/theme.js";
+import {
+  DEFAULT_SLIDER_TRACK_WIDTH,
+  formatSliderValue,
+  normalizeSliderState,
+} from "../../../widgets/slider.js";
 import type { SelectOption } from "../../../widgets/types.js";
 import { asTextStyle, getButtonLabelStyle } from "../../styles.js";
 import { renderBoxBorder } from "../boxBorder.js";
@@ -81,6 +86,20 @@ function readNonNegativeInt(v: unknown): number | undefined {
   const n = readNumber(v);
   if (n === undefined || n < 0) return undefined;
   return Math.trunc(n);
+}
+
+function readTerminalCursorMeta(
+  props: Readonly<{
+    internal_terminalCursorFocus?: unknown;
+    internal_terminalCursorPosition?: unknown;
+    terminalCursorFocus?: unknown;
+    terminalCursorPosition?: unknown;
+  }>,
+): Readonly<{ focused: boolean; position?: number }> {
+  const focused = (props.internal_terminalCursorFocus ?? props.terminalCursorFocus) === true;
+  const rawPosition = props.internal_terminalCursorPosition ?? props.terminalCursorPosition;
+  const position = readNonNegativeInt(rawPosition);
+  return { focused, ...(position === undefined ? {} : { position }) };
 }
 
 function readPositiveInt(v: unknown): number | undefined {
@@ -395,6 +414,10 @@ export function renderBasicWidget(
         variant?: unknown;
         textOverflow?: unknown;
         maxWidth?: unknown;
+        internal_terminalCursorFocus?: unknown;
+        internal_terminalCursorPosition?: unknown;
+        terminalCursorFocus?: unknown;
+        terminalCursorPosition?: unknown;
       };
       const variantStyle = textVariantToStyle(props.variant);
       const ownStyle = asTextStyle(props.style);
@@ -408,6 +431,9 @@ export function renderBasicWidget(
       if (overflowW <= 0) break;
 
       const text = vnode.text;
+      const cursorMeta = readTerminalCursorMeta(props);
+      const cursorOffset = Math.min(text.length, Math.max(0, cursorMeta.position ?? text.length));
+      const cursorX = Math.min(overflowW, measureTextCells(text.slice(0, cursorOffset)));
 
       // Avoid measuring in the common ASCII case.
       const fits =
@@ -415,6 +441,14 @@ export function renderBasicWidget(
 
       if (fits) {
         builder.drawText(rect.x, rect.y, text, style);
+        if (cursorInfo && cursorMeta.focused) {
+          resolvedCursor = {
+            x: rect.x + cursorX,
+            y: rect.y,
+            shape: cursorInfo.shape,
+            blink: cursorInfo.blink,
+          };
+        }
         break;
       }
 
@@ -438,6 +472,14 @@ export function renderBasicWidget(
         builder.popClip();
       } else {
         builder.drawText(rect.x, rect.y, displayText, style);
+      }
+      if (cursorInfo && cursorMeta.focused) {
+        resolvedCursor = {
+          x: rect.x + cursorX,
+          y: rect.y,
+          shape: cursorInfo.shape,
+          blink: cursorInfo.blink,
+        };
       }
       break;
     }
@@ -568,6 +610,95 @@ export function renderBasicWidget(
           blink: cursorInfo.blink,
         };
       }
+      break;
+    }
+    case "slider": {
+      if (!isVisibleRect(rect)) break;
+      const props = vnode.props as {
+        id?: unknown;
+        value?: unknown;
+        min?: unknown;
+        max?: unknown;
+        step?: unknown;
+        width?: unknown;
+        label?: unknown;
+        showValue?: unknown;
+        disabled?: unknown;
+        readOnly?: unknown;
+        style?: unknown;
+      };
+      const id = readString(props.id);
+      const focused = id !== undefined && focusState.focusedId === id;
+      const disabled = props.disabled === true;
+      const readOnly = props.readOnly === true;
+      const label = readString(props.label) ?? "";
+      const showValue = props.showValue !== false;
+      const value = readNumber(props.value) ?? Number.NaN;
+      const min = readNumber(props.min);
+      const max = readNumber(props.max);
+      const step = readNumber(props.step);
+      const normalized = normalizeSliderState({ value, min, max, step });
+
+      const ownStyle = asTextStyle(props.style);
+      const style = mergeTextStyle(parentStyle, ownStyle);
+      maybeFillOwnBackground(builder, rect, ownStyle, style);
+
+      let stateStyle: { fg?: Theme["colors"][string]; underline?: true; bold?: true; dim?: true };
+      if (disabled) {
+        stateStyle = { fg: theme.colors.muted };
+      } else if (focused && readOnly) {
+        stateStyle = { underline: true, bold: true, dim: true };
+      } else if (focused) {
+        stateStyle = { underline: true, bold: true };
+      } else if (readOnly) {
+        stateStyle = { dim: true };
+      } else {
+        stateStyle = {};
+      }
+      const textStyle = mergeTextStyle(style, stateStyle);
+
+      const labelText = label.length > 0 ? `${label} ` : "";
+      const valueText =
+        showValue === true ? ` ${formatSliderValue(normalized.value, normalized.step)}` : "";
+      const dynamicTrack = rect.w - measureTextCells(labelText) - measureTextCells(valueText) - 2; // '[' + ']'
+      const explicitTrack = readPositiveInt(props.width);
+      const trackCells = Math.max(
+        1,
+        explicitTrack ?? Math.max(1, dynamicTrack > 0 ? dynamicTrack : DEFAULT_SLIDER_TRACK_WIDTH),
+      );
+      const span = normalized.max - normalized.min;
+      const ratio = span <= 0 ? 0 : clamp01((normalized.value - normalized.min) / span);
+      const thumbIndex =
+        trackCells <= 1
+          ? 0
+          : Math.max(0, Math.min(trackCells - 1, Math.round(ratio * (trackCells - 1))));
+      const fillCells = trackCells <= 1 ? 0 : thumbIndex;
+      const emptyCells = Math.max(0, trackCells - fillCells - 1);
+      const trackText = `${repeatCached("█", fillCells)}●${repeatCached("░", emptyCells)}`;
+
+      const trackStyle = mergeTextStyle(
+        textStyle,
+        disabled
+          ? { fg: theme.colors.muted }
+          : readOnly
+            ? { fg: theme.colors.info, dim: true }
+            : { fg: theme.colors.primary, bold: true },
+      );
+      const valueStyle = mergeTextStyle(
+        textStyle,
+        !disabled && readOnly ? { fg: theme.colors.muted } : undefined,
+      );
+
+      const segments: StyledSegment[] = [];
+      if (labelText.length > 0) segments.push({ text: labelText, style: textStyle });
+      segments.push({ text: "[", style: textStyle });
+      segments.push({ text: trackText, style: trackStyle });
+      segments.push({ text: "]", style: textStyle });
+      if (valueText.length > 0) segments.push({ text: valueText, style: valueStyle });
+
+      builder.pushClip(rect.x, rect.y, rect.w, rect.h);
+      drawSegments(builder, rect.x, rect.y, rect.w, segments);
+      builder.popClip();
       break;
     }
     case "spacer":
@@ -722,16 +853,24 @@ export function renderBasicWidget(
     }
     case "richText": {
       if (!isVisibleRect(rect)) break;
-      const props = vnode.props as { spans?: unknown };
+      const props = vnode.props as {
+        spans?: unknown;
+        internal_terminalCursorFocus?: unknown;
+        internal_terminalCursorPosition?: unknown;
+        terminalCursorFocus?: unknown;
+        terminalCursorPosition?: unknown;
+      };
       const spans = Array.isArray(props.spans)
         ? (props.spans as readonly { text?: unknown; style?: unknown }[])
         : [];
       if (spans.length === 0) break;
 
       const segments: StyledSegment[] = [];
+      let combinedText = "";
       for (const span of spans) {
         const text = readString(span.text) ?? "";
         if (text.length === 0) continue;
+        combinedText += text;
         segments.push({
           text,
           style: mergeTextStyle(parentStyle, asTextStyle(span.style)),
@@ -742,6 +881,20 @@ export function renderBasicWidget(
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
       drawSegments(builder, rect.x, rect.y, rect.w, segments);
       builder.popClip();
+      const cursorMeta = readTerminalCursorMeta(props);
+      if (cursorInfo && cursorMeta.focused) {
+        const cursorOffset = Math.min(
+          combinedText.length,
+          Math.max(0, cursorMeta.position ?? combinedText.length),
+        );
+        const cursorX = Math.min(rect.w, measureTextCells(combinedText.slice(0, cursorOffset)));
+        resolvedCursor = {
+          x: rect.x + cursorX,
+          y: rect.y,
+          shape: cursorInfo.shape,
+          blink: cursorInfo.blink,
+        };
+      }
       break;
     }
     case "badge": {

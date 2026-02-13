@@ -6,7 +6,7 @@
  * deterministic traversal-order collections of widget properties.
  *
  * Collections:
- *   - focusableIds: enabled Buttons + Inputs in traversal order
+ *   - focusableIds: enabled focusable widgets in traversal order
  *   - enabledMap: all interactive widgets mapped to enabled state
  *   - pressableIds: Buttons that can produce "press" actions
  *   - inputMetaById: Input widget metadata (value, cursor, etc.)
@@ -20,11 +20,12 @@ import type { FocusZoneNavigation } from "../widgets/types.js";
 import type { RuntimeInstance } from "./commit.js";
 import type { InstanceId } from "./instance.js";
 
-/** Extract interactive widget ID (Button or Input with valid id prop). */
+/** Extract interactive widget ID from a node with a valid `id` prop. */
 function readInteractiveId(v: RuntimeInstance["vnode"]): string | null {
   switch (v.kind) {
     case "button":
     case "input":
+    case "slider":
     case "virtualList":
     case "table":
     case "tree":
@@ -56,6 +57,7 @@ function isFocusableInteractive(v: RuntimeInstance["vnode"]): boolean {
   switch (v.kind) {
     case "button":
     case "input":
+    case "slider":
     case "virtualList":
     case "table":
     case "tree":
@@ -84,6 +86,7 @@ function isEnabledInteractive(v: RuntimeInstance["vnode"]): string | null {
   if (
     v.kind === "button" ||
     v.kind === "input" ||
+    v.kind === "slider" ||
     v.kind === "select" ||
     v.kind === "checkbox" ||
     v.kind === "radioGroup"
@@ -106,7 +109,7 @@ function isEnabledInteractive(v: RuntimeInstance["vnode"]): string | null {
  *
  * - Order: depth-first preorder
  * - Children: left-to-right
- * - Focusable set: enabled Buttons + Inputs
+ * - Focusable set: enabled focusable interactive widgets
  */
 export function collectFocusableIds(tree: RuntimeInstance): readonly string[] {
   const out: string[] = [];
@@ -131,7 +134,7 @@ export function collectFocusableIds(tree: RuntimeInstance): readonly string[] {
 /**
  * Collect a deterministic enabled map (interactive id -> enabled) from a committed runtime tree.
  *
- * Interactive widgets (Buttons + Inputs) are always included when their `id` is a non-empty string;
+ * Interactive widgets are always included when their `id` is a non-empty string;
  * enabled is `true` iff `disabled !== true`.
  */
 export function collectEnabledMap(tree: RuntimeInstance): ReadonlyMap<string, boolean> {
@@ -148,6 +151,7 @@ export function collectEnabledMap(tree: RuntimeInstance): ReadonlyMap<string, bo
       if (
         node.vnode.kind === "button" ||
         node.vnode.kind === "input" ||
+        node.vnode.kind === "slider" ||
         node.vnode.kind === "select" ||
         node.vnode.kind === "checkbox" ||
         node.vnode.kind === "radioGroup"
@@ -485,6 +489,7 @@ function requiresRoutingRebuild(vnode: RuntimeInstance["vnode"]): boolean {
   switch (vnode.kind) {
     case "dropdown":
     case "button":
+    case "slider":
     case "virtualList":
     case "table":
     case "tree":
@@ -609,6 +614,7 @@ export class WidgetMetadataCollector {
         if (
           vnode.kind === "button" ||
           vnode.kind === "input" ||
+          vnode.kind === "slider" ||
           vnode.kind === "select" ||
           vnode.kind === "checkbox" ||
           vnode.kind === "radioGroup"

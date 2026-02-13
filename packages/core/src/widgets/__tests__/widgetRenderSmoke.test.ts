@@ -109,6 +109,7 @@ describe("widget render smoke", () => {
     },
     { name: "button", vnode: ui.button("ok", "OK") },
     { name: "input", vnode: ui.input("name", "value") },
+    { name: "slider", vnode: ui.slider({ id: "volume", value: 50, min: 0, max: 100, step: 5 }) },
     {
       name: "focusZone",
       vnode: ui.focusZone({ id: "zone", navigation: "linear" }, [ui.button("z1", "One")]),

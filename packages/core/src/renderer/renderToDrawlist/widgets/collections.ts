@@ -1,5 +1,9 @@
 import type { DrawlistBuilderV1 } from "../../../index.js";
-import { measureTextCells, truncateWithEllipsis } from "../../../layout/textMeasure.js";
+import {
+  measureTextCells,
+  truncateMiddle,
+  truncateWithEllipsis,
+} from "../../../layout/textMeasure.js";
 import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { FocusState } from "../../../runtime/focus.js";
@@ -49,25 +53,93 @@ function cachedSpaces(count: number): string {
 }
 
 type CellAlign = "left" | "center" | "right";
+type CellOverflow = "clip" | "ellipsis" | "middle";
+type TableBorderGlyph = "single" | "double" | "rounded" | "heavy" | "dashed" | "heavy-dashed";
 
 function readCellAlign(raw: unknown): CellAlign {
   return raw === "center" || raw === "right" ? raw : "left";
 }
 
-function alignCellContent(text: string, width: number, align: CellAlign): string {
-  if (width <= 0) return "";
-  const clipped = measureTextCells(text) > width ? truncateWithEllipsis(text, width) : text;
+function readCellOverflow(raw: unknown): CellOverflow {
+  return raw === "clip" || raw === "middle" ? raw : "ellipsis";
+}
+
+function readTableBorderVariant(raw: unknown): TableBorderGlyph | undefined {
+  switch (raw) {
+    case "single":
+    case "double":
+    case "rounded":
+    case "heavy":
+    case "dashed":
+    case "heavy-dashed":
+      return raw;
+    default:
+      return undefined;
+  }
+}
+
+type AlignedCellText = Readonly<{
+  text: string;
+  xOffset: number;
+  clip: boolean;
+}>;
+
+function alignCellContent(
+  text: string,
+  width: number,
+  align: CellAlign,
+  overflow: CellOverflow,
+): AlignedCellText {
+  if (width <= 0) return { text: "", xOffset: 0, clip: false };
+  const textWidth = measureTextCells(text);
+  if (overflow === "clip" && textWidth > width) {
+    const xOffset =
+      align === "right"
+        ? width - textWidth
+        : align === "center"
+          ? Math.floor((width - textWidth) / 2)
+          : 0;
+    return { text, xOffset, clip: true };
+  }
+  const clipped =
+    textWidth > width
+      ? overflow === "middle"
+        ? truncateMiddle(text, width)
+        : truncateWithEllipsis(text, width)
+      : text;
   const contentWidth = measureTextCells(clipped);
   const pad = Math.max(0, width - contentWidth);
   if (align === "right") {
-    return `${cachedSpaces(pad)}${clipped}`;
+    return { text: `${cachedSpaces(pad)}${clipped}`, xOffset: 0, clip: false };
   }
   if (align === "center") {
     const leftPad = Math.floor(pad / 2);
     const rightPad = pad - leftPad;
-    return `${cachedSpaces(leftPad)}${clipped}${cachedSpaces(rightPad)}`;
+    return {
+      text: `${cachedSpaces(leftPad)}${clipped}${cachedSpaces(rightPad)}`,
+      xOffset: 0,
+      clip: false,
+    };
   }
-  return `${clipped}${cachedSpaces(pad)}`;
+  return { text: `${clipped}${cachedSpaces(pad)}`, xOffset: 0, clip: false };
+}
+
+function drawAlignedCellText(
+  builder: DrawlistBuilderV1,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  cell: AlignedCellText,
+  style: ResolvedTextStyle,
+): void {
+  if (cell.clip) {
+    builder.pushClip(x, y, w, h);
+    builder.drawText(x + cell.xOffset, y, cell.text, style);
+    builder.popClip();
+    return;
+  }
+  builder.drawText(x + cell.xOffset, y, cell.text, style);
 }
 
 function clampScrollTop(scrollTop: number, totalHeight: number, viewportHeight: number): number {
@@ -170,9 +242,15 @@ export function renderCollectionWidget(
       if (!isVisibleRect(rect)) break;
       const props = vnode.props as TableProps<unknown>;
 
-      const border = props.border === "none" ? "none" : "single";
-      if (border === "single")
-        renderBoxBorder(builder, rect, "single", undefined, "left", parentStyle);
+      const borderVariant = readTableBorderVariant(props.borderStyle?.variant);
+      const border =
+        props.border === "none" ? "none" : borderVariant === undefined ? "single" : borderVariant;
+      if (border !== "none") {
+        const borderStyle = props.borderStyle?.color
+          ? mergeTextStyle(parentStyle, { fg: props.borderStyle.color })
+          : parentStyle;
+        renderBoxBorder(builder, rect, border, undefined, "left", borderStyle);
+      }
 
       const headerHeight = props.showHeader === false ? 0 : (props.headerHeight ?? 1);
       const rowHeight = props.rowHeight ?? 1;
@@ -181,7 +259,9 @@ export function renderCollectionWidget(
       const selection = (props.selection ?? EMPTY_STRING_ARRAY) as readonly string[];
       const selectionMode = props.selectionMode ?? "none";
       const virtualized = props.virtualized !== false;
-      const stripedRows = props.stripedRows === true;
+      const stripedRows = props.stripedRows === true || props.stripeStyle !== undefined;
+      const stripeOddBg = props.stripeStyle?.odd ?? theme.colors.border;
+      const stripeEvenBg = props.stripeStyle?.even;
       const tableCache = tableRenderCacheById?.get(props.id);
       const cachedRowKeys = tableCache?.rowKeys;
       const cachedSelectionSet = tableCache?.selectionSet;
@@ -225,7 +305,8 @@ export function renderCollectionWidget(
               : "";
           const headerText = `${col.header ?? ""}${sortIndicator}`;
           const headerAlign = readCellAlign(col.align);
-          const cell = alignCellContent(headerText, w, headerAlign);
+          const overflow = readCellOverflow(col.overflow);
+          const cell = alignCellContent(headerText, w, headerAlign, overflow);
           const headerStyle0 =
             sortIndicator.length > 0
               ? mergeTextStyle(parentStyle, { bold: true, fg: theme.colors.info })
@@ -237,7 +318,7 @@ export function renderCollectionWidget(
           const headerStyle = isHeaderFocused
             ? mergeTextStyle(headerStyle0, { inverse: true })
             : headerStyle0;
-          builder.drawText(xCursor, innerY, cell, headerStyle);
+          drawAlignedCellText(builder, xCursor, innerY, w, headerHeight, cell, headerStyle);
           xCursor += w;
         }
       }
@@ -281,7 +362,7 @@ export function renderCollectionWidget(
         if (yRow >= bodyY + bodyH) break;
         if (yRow + safeRowHeight <= bodyY) continue;
 
-        const rowStripeBg = stripedRows && (i & 1) === 1 ? theme.colors.border : undefined;
+        const rowStripeBg = stripedRows ? ((i & 1) === 1 ? stripeOddBg : stripeEvenBg) : undefined;
         const rowBg = isFocusedRow ? undefined : isSelected ? theme.colors.secondary : rowStripeBg;
         if (rowBg) {
           builder.fillRect(innerX, yRow, innerW, safeRowHeight, { bg: rowBg });
@@ -321,8 +402,17 @@ export function renderCollectionWidget(
           } else {
             const t0 = cellText ?? "";
             const align = readCellAlign(col.align);
-            const cell = alignCellContent(t0, w, align);
-            builder.drawText(xCursor, yRow, cell, mergeTextStyle(parentStyle, style));
+            const overflow = readCellOverflow(col.overflow);
+            const cell = alignCellContent(t0, w, align, overflow);
+            drawAlignedCellText(
+              builder,
+              xCursor,
+              yRow,
+              w,
+              safeRowHeight,
+              cell,
+              mergeTextStyle(parentStyle, style),
+            );
           }
 
           xCursor += w;

@@ -132,6 +132,7 @@ export function renderTree(
       case "divider":
       case "button":
       case "input":
+      case "slider":
       case "select":
       case "checkbox":
       case "radioGroup":

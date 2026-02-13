@@ -46,6 +46,7 @@ import type {
   RichTextSpan,
   SelectProps,
   SkeletonProps,
+  SliderProps,
   SpacerProps,
   SparklineProps,
   SpinnerProps,
@@ -602,8 +603,8 @@ export const ui = {
    * ui.table({
    *   id: "files",
    *   columns: [
-   *     { key: "name", header: "Name", flex: 1, sortable: true },
-   *     { key: "size", header: "Size", width: 10, align: "right" },
+   *     { key: "name", header: "Name", flex: 1, sortable: true, overflow: "middle" },
+   *     { key: "size", header: "Size", width: 10, align: "right", overflow: "clip" },
    *     { key: "actions", header: "", width: 8, render: (_, row) =>
    *       ui.button({ id: `del-${row.id}`, label: "Del" }) },
    *   ],
@@ -615,6 +616,8 @@ export const ui = {
    *   sortColumn: state.sortCol,
    *   sortDirection: state.sortDir,
    *   onSort: (col, dir) => app.update({ sortCol: col, sortDir: dir }),
+   *   stripeStyle: { odd: { r: 30, g: 33, b: 41 } },
+   *   borderStyle: { variant: "double", color: { r: 130, g: 140, b: 150 } },
    * })
    * ```
    */
@@ -701,6 +704,26 @@ export const ui = {
    */
   select(props: SelectProps): VNode {
     return { kind: "select", props };
+  },
+
+  /**
+   * Create a slider widget.
+   * Supports keyboard adjustment with Left/Right (or Up/Down), Home/End, and PageUp/PageDown.
+   *
+   * @example
+   * ```ts
+   * ui.slider({
+   *   id: "volume",
+   *   value: state.volume,
+   *   min: 0,
+   *   max: 100,
+   *   step: 5,
+   *   onChange: (value) => app.update({ volume: value }),
+   * })
+   * ```
+   */
+  slider(props: SliderProps): VNode {
+    return { kind: "slider", props };
   },
 
   /**

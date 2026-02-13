@@ -24,6 +24,10 @@ describe("layout edge cases", () => {
         props: { id: "checkbox-0", checked: false, label: "Check" },
       },
       {
+        kind: "slider",
+        props: { id: "slider-0", value: 5, min: 0, max: 10 },
+      },
+      {
         kind: "radioGroup",
         props: {
           id: "radio-0",
@@ -49,7 +53,12 @@ describe("layout edge cases", () => {
       const tree = mustLayout(vnode, 12, 0);
       assert.equal(tree.rect.h, 0, `${vnode.kind} should clamp to 0 height`);
 
-      if (vnode.kind === "select" || vnode.kind === "checkbox" || vnode.kind === "radioGroup") {
+      if (
+        vnode.kind === "select" ||
+        vnode.kind === "checkbox" ||
+        vnode.kind === "slider" ||
+        vnode.kind === "radioGroup"
+      ) {
         const hit = hitTestFocusable(vnode, tree, 0, 0);
         assert.equal(hit, null, `${vnode.kind} with zero height should not be hit-testable`);
       }

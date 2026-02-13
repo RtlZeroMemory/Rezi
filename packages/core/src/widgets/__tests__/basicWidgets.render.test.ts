@@ -164,6 +164,35 @@ describe("basic widgets render to drawlist", () => {
     );
   });
 
+  test("slider renders track and clamps displayed value to range", () => {
+    const strings = parseInternedStrings(
+      renderBytes(
+        ui.slider({
+          id: "slider",
+          label: "Volume",
+          value: 999,
+          min: 0,
+          max: 10,
+          step: 2,
+          showValue: true,
+          width: 8,
+        }),
+      ),
+    );
+    assert.equal(
+      strings.some((s) => s.includes("Volume")),
+      true,
+    );
+    assert.equal(
+      strings.some((s) => s.includes("10")),
+      true,
+    );
+    assert.equal(
+      strings.some((s) => s.includes("●")),
+      true,
+    );
+  });
+
   test("skeleton emits placeholder glyphs", () => {
     const strings = parseInternedStrings(renderBytes(ui.skeleton(8, { variant: "rect" })));
     assert.equal(

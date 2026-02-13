@@ -102,6 +102,7 @@ import type { Theme } from "../theme/theme.js";
 import { deleteRange, insertText } from "../widgets/codeEditor.js";
 import { getHunkScrollPosition, navigateHunk } from "../widgets/diffViewer.js";
 import { applyFilters } from "../widgets/logsConsole.js";
+import { adjustSliderValue, normalizeSliderState } from "../widgets/slider.js";
 import {
   computePanelCellSizes,
   handleDividerDrag,
@@ -124,6 +125,7 @@ import type {
   LogsConsoleProps,
   RadioGroupProps,
   SelectProps,
+  SliderProps,
   SplitDirection,
   SplitPaneProps,
   TableProps,
@@ -285,6 +287,7 @@ function isRoutingRelevantKind(kind: WidgetKind): boolean {
   switch (kind) {
     case "button":
     case "input":
+    case "slider":
     case "focusZone":
     case "focusTrap":
     case "virtualList":
@@ -321,6 +324,7 @@ function isDamageGranularityKind(kind: WidgetKind): boolean {
     case "spacer":
     case "button":
     case "input":
+    case "slider":
     case "select":
     case "checkbox":
     case "radioGroup":
@@ -427,6 +431,7 @@ export class WidgetRenderer<S> {
   private readonly tableById = new Map<string, TableProps<unknown>>();
   private readonly treeById = new Map<string, TreeProps<unknown>>();
   private readonly dropdownById = new Map<string, DropdownProps>();
+  private readonly sliderById = new Map<string, SliderProps>();
   private readonly selectById = new Map<string, SelectProps>();
   private readonly checkboxById = new Map<string, CheckboxProps>();
   private readonly radioGroupById = new Map<string, RadioGroupProps>();
@@ -1573,6 +1578,41 @@ export class WidgetRenderer<S> {
           }
 
           return ROUTE_RENDER;
+        }
+      }
+
+      // Slider routing (arrows, page keys, home/end)
+      const slider = this.sliderById.get(focusedId);
+      if (slider && slider.disabled !== true) {
+        const adjustment =
+          event.key === ZR_KEY_LEFT || event.key === ZR_KEY_DOWN
+            ? "decrease"
+            : event.key === ZR_KEY_RIGHT || event.key === ZR_KEY_UP
+              ? "increase"
+              : event.key === ZR_KEY_PAGE_DOWN
+                ? "decreasePage"
+                : event.key === ZR_KEY_PAGE_UP
+                  ? "increasePage"
+                  : event.key === ZR_KEY_HOME
+                    ? "toMin"
+                    : event.key === ZR_KEY_END
+                      ? "toMax"
+                      : null;
+
+        if (adjustment !== null) {
+          if (slider.readOnly === true || !slider.onChange) return ROUTE_NO_RENDER;
+          const normalized = normalizeSliderState({
+            value: slider.value,
+            min: slider.min,
+            max: slider.max,
+            step: slider.step,
+          });
+          const nextValue = adjustSliderValue(normalized.value, normalized, adjustment);
+          if (nextValue !== normalized.value) {
+            slider.onChange(nextValue);
+            return ROUTE_RENDER;
+          }
+          return ROUTE_NO_RENDER;
         }
       }
 
@@ -2795,6 +2835,7 @@ export class WidgetRenderer<S> {
         this.tableById.clear();
         this.treeById.clear();
         this.dropdownById.clear();
+        this.sliderById.clear();
         this.selectById.clear();
         this.checkboxById.clear();
         this.radioGroupById.clear();
@@ -2964,6 +3005,10 @@ export class WidgetRenderer<S> {
                 } as const;
                 this.layerRegistry.register(cb ? { ...layerInput, onClose: cb } : layerInput);
               }
+              break;
+            }
+            case "slider": {
+              this.sliderById.set((v.props as SliderProps).id, v.props as SliderProps);
               break;
             }
             case "select": {

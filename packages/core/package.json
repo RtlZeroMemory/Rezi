@@ -13,6 +13,10 @@
     "url": "https://github.com/RtlZeroMemory/Rezi/issues"
   },
   "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --pretty false",
+    "test": "node --test --test-concurrency=1 $(find dist -type f -path '*/__tests__/*.test.js' | LC_ALL=C sort)"
+  },
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
