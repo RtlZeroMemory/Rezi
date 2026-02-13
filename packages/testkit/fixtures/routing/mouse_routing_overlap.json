@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "name": "sibling_overlap_later_sibling_routes_press",
+      "tree": {
+        "ref": "root",
+        "kind": "column",
+        "props": {},
+        "children": [
+          { "ref": "base", "kind": "button", "props": { "id": "base", "label": "Base" } },
+          { "ref": "top", "kind": "button", "props": { "id": "top", "label": "Top" } }
+        ]
+      },
+      "layoutRects": {
+        "root": { "x": 0, "y": 0, "w": 4, "h": 1 },
+        "base": { "x": 0, "y": 0, "w": 4, "h": 1 },
+        "top": { "x": 0, "y": 0, "w": 4, "h": 1 }
+      },
+      "enabledById": { "base": true, "top": true },
+      "initialFocusedId": null,
+      "initialPressedId": null,
+      "steps": [
+        {
+          "event": {
+            "kind": "mouse",
+            "timeMs": 0,
+            "x": 1,
+            "y": 0,
+            "mouseKind": 3,
+            "mods": 0,
+            "buttons": 1,
+            "wheelX": 0,
+            "wheelY": 0
+          },
+          "expected": {
+            "hitTestTargetId": "top",
+            "focusedId": "top",
+            "pressedId": "top",
+            "emittedKinds": ["engine"]
+          }
+        },
+        {
+          "event": {
+            "kind": "mouse",
+            "timeMs": 1,
+            "x": 1,
+            "y": 0,
+            "mouseKind": 4,
+            "mods": 0,
+            "buttons": 0,
+            "wheelX": 0,
+            "wheelY": 0
+          },
+          "expected": {
+            "hitTestTargetId": "top",
+            "focusedId": "top",
+            "pressedId": null,
+            "emittedKinds": ["engine", "action"],
+            "action": { "id": "top", "action": "press" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "nested_overlap_later_subtree_wins_for_routing",
+      "tree": {
+        "ref": "root",
+        "kind": "column",
+        "props": {},
+        "children": [
+          {
+            "ref": "left",
+            "kind": "box",
+            "props": {},
+            "children": [
+              { "ref": "inner", "kind": "button", "props": { "id": "inner", "label": "Inner" } }
+            ]
+          },
+          { "ref": "tail", "kind": "button", "props": { "id": "tail", "label": "Tail" } }
+        ]
+      },
+      "layoutRects": {
+        "root": { "x": 0, "y": 0, "w": 5, "h": 1 },
+        "left": { "x": 0, "y": 0, "w": 5, "h": 1 },
+        "inner": { "x": 0, "y": 0, "w": 5, "h": 1 },
+        "tail": { "x": 0, "y": 0, "w": 5, "h": 1 }
+      },
+      "enabledById": { "inner": true, "tail": true },
+      "initialFocusedId": null,
+      "initialPressedId": null,
+      "steps": [
+        {
+          "event": {
+            "kind": "mouse",
+            "timeMs": 0,
+            "x": 3,
+            "y": 0,
+            "mouseKind": 3,
+            "mods": 0,
+            "buttons": 1,
+            "wheelX": 0,
+            "wheelY": 0
+          },
+          "expected": {
+            "hitTestTargetId": "tail",
+            "focusedId": "tail",
+            "pressedId": "tail",
+            "emittedKinds": ["engine"]
+          }
+        },
+        {
+          "event": {
+            "kind": "mouse",
+            "timeMs": 1,
+            "x": 3,
+            "y": 0,
+            "mouseKind": 4,
+            "mods": 0,
+            "buttons": 0,
+            "wheelX": 0,
+            "wheelY": 0
+          },
+          "expected": {
+            "hitTestTargetId": "tail",
+            "focusedId": "tail",
+            "pressedId": null,
+            "emittedKinds": ["engine", "action"],
+            "action": { "id": "tail", "action": "press" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "disabled_later_overlap_falls_back_to_enabled_earlier",
+      "tree": {
+        "ref": "root",
+        "kind": "column",
+        "props": {},
+        "children": [
+          { "ref": "enabled", "kind": "button", "props": { "id": "enabled", "label": "Enabled" } },
+          {
+            "ref": "disabled",
+            "kind": "button",
+            "props": { "id": "disabled", "label": "Disabled", "disabled": true }
+          }
+        ]
+      },
+      "layoutRects": {
+        "root": { "x": 0, "y": 0, "w": 5, "h": 1 },
+        "enabled": { "x": 0, "y": 0, "w": 5, "h": 1 },
+        "disabled": { "x": 0, "y": 0, "w": 5, "h": 1 }
+      },
+      "enabledById": { "enabled": true, "disabled": false },
+      "initialFocusedId": null,
+      "initialPressedId": null,
+      "steps": [
+        {
+          "event": {
+            "kind": "mouse",
+            "timeMs": 0,
+            "x": 2,
+            "y": 0,
+            "mouseKind": 3,
+            "mods": 0,
+            "buttons": 1,
+            "wheelX": 0,
+            "wheelY": 0
+          },
+          "expected": {
+            "hitTestTargetId": "enabled",
+            "focusedId": "enabled",
+            "pressedId": "enabled",
+            "emittedKinds": ["engine"]
+          }
+        },
+        {
+          "event": {
+            "kind": "mouse",
+            "timeMs": 1,
+            "x": 2,
+            "y": 0,
+            "mouseKind": 4,
+            "mods": 0,
+            "buttons": 0,
+            "wheelX": 0,
+            "wheelY": 0
+          },
+          "expected": {
+            "hitTestTargetId": "enabled",
+            "focusedId": "enabled",
+            "pressedId": null,
+            "emittedKinds": ["engine", "action"],
+            "action": { "id": "enabled", "action": "press" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "overlap_target_change_between_down_up_cancels_press",
+      "tree": {
+        "ref": "root",
+        "kind": "column",
+        "props": {},
+        "children": [
+          { "ref": "a", "kind": "button", "props": { "id": "a", "label": "A" } },
+          { "ref": "b", "kind": "button", "props": { "id": "b", "label": "B" } }
+        ]
+      },
+      "layoutRects": {
+        "root": { "x": 0, "y": 0, "w": 4, "h": 1 },
+        "a": { "x": 0, "y": 0, "w": 3, "h": 1 },
+        "b": { "x": 1, "y": 0, "w": 3, "h": 1 }
+      },
+      "enabledById": { "a": true, "b": true },
+      "initialFocusedId": null,
+      "initialPressedId": null,
+      "steps": [
+        {
+          "event": {
+            "kind": "mouse",
+            "timeMs": 0,
+            "x": 2,
+            "y": 0,
+            "mouseKind": 3,
+            "mods": 0,
+            "buttons": 1,
+            "wheelX": 0,
+            "wheelY": 0
+          },
+          "expected": {
+            "hitTestTargetId": "b",
+            "focusedId": "b",
+            "pressedId": "b",
+            "emittedKinds": ["engine"]
+          }
+        },
+        {
+          "event": {
+            "kind": "mouse",
+            "timeMs": 1,
+            "x": 0,
+            "y": 0,
+            "mouseKind": 4,
+            "mods": 0,
+            "buttons": 0,
+            "wheelX": 0,
+            "wheelY": 0
+          },
+          "expected": {
+            "hitTestTargetId": "a",
+            "focusedId": "b",
+            "pressedId": null,
+            "emittedKinds": ["engine"]
+          }
+        }
+      ]
+    }
+  ]
+}

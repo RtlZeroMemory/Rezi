@@ -75,6 +75,9 @@ function assertRectsMatch(
   lNode: LayoutTree,
   rects: Record<string, FixtureRect>,
 ): void {
+  assert.ok(lNode.rect.w >= 0, `width must be non-negative for ref=${fNode.ref}`);
+  assert.ok(lNode.rect.h >= 0, `height must be non-negative for ref=${fNode.ref}`);
+
   const expected = rects[fNode.ref];
   assert.ok(expected !== undefined, `missing expected rect for ref=${fNode.ref}`);
   assert.deepEqual(lNode.rect, expected, `rect mismatch for ref=${fNode.ref}`);

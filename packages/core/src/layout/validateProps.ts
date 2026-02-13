@@ -7,7 +7,8 @@
  *
  * Validation rules:
  *   - Numeric props must be int32 >= 0 (pad, gap, size)
- *   - Spacing props accept int32 >= 0 OR spacing keys ("sm", "md", etc.)
+ *   - Padding props accept int32 >= 0 OR spacing keys ("sm", "md", etc.)
+ *   - Margin props accept signed int32 OR spacing keys ("sm", "md", etc.)
  *   - String props must be non-empty where required (id)
  *   - Enum props must be valid values (align, border)
  *   - Boolean props default to false if undefined
@@ -157,6 +158,7 @@ function invalid(detail: string): LayoutResult<never> {
   return { ok: false, fatal: { code: "ZRUI_INVALID_PROPS", detail } };
 }
 
+const I32_MIN = -2147483648;
 const I32_MAX = 2147483647;
 
 function requireIntNonNegative(
@@ -168,6 +170,19 @@ function requireIntNonNegative(
   const value = v === undefined ? def : v;
   if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > I32_MAX) {
     return invalid(`${kind}.${name} must be an int32 >= 0`);
+  }
+  return { ok: true, value: value as number };
+}
+
+function requireIntSigned(
+  kind: string,
+  name: string,
+  v: unknown,
+  def: number,
+): LayoutResult<number> {
+  const value = v === undefined ? def : v;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < I32_MIN || value > I32_MAX) {
+    return invalid(`${kind}.${name} must be an int32`);
   }
   return { ok: true, value: value as number };
 }
@@ -188,6 +203,24 @@ function requireSpacingIntNonNegative(
     return { ok: true, value: SPACING_SCALE[value] };
   }
   return requireIntNonNegative(kind, name, value, def);
+}
+
+function requireSpacingIntSigned(
+  kind: string,
+  name: string,
+  v: unknown,
+  def: number,
+): LayoutResult<number> {
+  const value = v === undefined ? def : v;
+  if (typeof value === "string") {
+    if (!isSpacingKey(value)) {
+      return invalid(
+        `${kind}.${name} must be an int32 or a spacing key ("none" | "xs" | "sm" | "md" | "lg" | "xl" | "2xl")`,
+      );
+    }
+    return { ok: true, value: SPACING_SCALE[value] };
+  }
+  return requireIntSigned(kind, name, value, def);
 }
 
 function requireOptionalIntNonNegative(
@@ -280,28 +313,22 @@ function validateSpacingProps(
   kind: string,
   p: Record<string, unknown>,
 ): LayoutResult<ValidatedSpacingProps> {
-  const keys = [
-    "p",
-    "px",
-    "py",
-    "pt",
-    "pb",
-    "pl",
-    "pr",
-    "m",
-    "mx",
-    "my",
-    "mt",
-    "mr",
-    "mb",
-    "ml",
-  ] as const;
+  const paddingKeys = ["p", "px", "py", "pt", "pb", "pl", "pr"] as const;
+  const marginKeys = ["m", "mx", "my", "mt", "mr", "mb", "ml"] as const;
   const out: Record<string, number> = {};
 
-  for (const k of keys) {
+  for (const k of paddingKeys) {
     const v = p[k];
     if (v === undefined) continue;
     const r = requireSpacingIntNonNegative(kind, k, v, 0);
+    if (!r.ok) return r;
+    out[k] = r.value;
+  }
+
+  for (const k of marginKeys) {
+    const v = p[k];
+    if (v === undefined) continue;
+    const r = requireSpacingIntSigned(kind, k, v, 0);
     if (!r.ok) return r;
     out[k] = r.value;
   }

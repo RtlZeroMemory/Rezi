@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "name": "higher_z_index_wins_overlap",
+      "layers": [
+        {
+          "id": "base",
+          "zIndex": 100,
+          "rect": { "x": 0, "y": 0, "w": 10, "h": 10 },
+          "modal": false,
+          "backdrop": "none"
+        },
+        {
+          "id": "top",
+          "zIndex": 200,
+          "rect": { "x": 0, "y": 0, "w": 10, "h": 10 },
+          "modal": false,
+          "backdrop": "none"
+        }
+      ],
+      "point": { "x": 5, "y": 5 },
+      "expected": { "layerId": "top", "blocked": false, "blockingLayerId": null }
+    },
+    {
+      "name": "equal_z_index_uses_registration_order_later_wins",
+      "layers": [
+        {
+          "id": "first",
+          "zIndex": 150,
+          "rect": { "x": 0, "y": 0, "w": 10, "h": 10 },
+          "modal": false,
+          "backdrop": "none"
+        },
+        {
+          "id": "second",
+          "zIndex": 150,
+          "rect": { "x": 0, "y": 0, "w": 10, "h": 10 },
+          "modal": false,
+          "backdrop": "none"
+        }
+      ],
+      "point": { "x": 4, "y": 4 },
+      "expected": { "layerId": "second", "blocked": false, "blockingLayerId": null }
+    },
+    {
+      "name": "equal_z_index_partial_overlap_later_wins_only_in_overlap",
+      "layers": [
+        {
+          "id": "left",
+          "zIndex": 150,
+          "rect": { "x": 0, "y": 0, "w": 8, "h": 8 },
+          "modal": false,
+          "backdrop": "none"
+        },
+        {
+          "id": "right",
+          "zIndex": 150,
+          "rect": { "x": 4, "y": 0, "w": 8, "h": 8 },
+          "modal": false,
+          "backdrop": "none"
+        }
+      ],
+      "point": { "x": 5, "y": 3 },
+      "expected": { "layerId": "right", "blocked": false, "blockingLayerId": null }
+    },
+    {
+      "name": "higher_modal_blocks_lower_layers_outside_modal_bounds",
+      "layers": [
+        {
+          "id": "content",
+          "zIndex": 100,
+          "rect": { "x": 0, "y": 0, "w": 12, "h": 8 },
+          "modal": false,
+          "backdrop": "none"
+        },
+        {
+          "id": "modal",
+          "zIndex": 200,
+          "rect": { "x": 20, "y": 0, "w": 8, "h": 6 },
+          "modal": true,
+          "backdrop": "none"
+        }
+      ],
+      "point": { "x": 3, "y": 3 },
+      "expected": { "layerId": null, "blocked": true, "blockingLayerId": "modal" }
+    },
+    {
+      "name": "equal_z_modal_registered_later_blocks_lower",
+      "layers": [
+        {
+          "id": "content",
+          "zIndex": 140,
+          "rect": { "x": 0, "y": 0, "w": 12, "h": 8 },
+          "modal": false,
+          "backdrop": "none"
+        },
+        {
+          "id": "modal",
+          "zIndex": 140,
+          "rect": { "x": 20, "y": 0, "w": 8, "h": 6 },
+          "modal": true,
+          "backdrop": "none"
+        }
+      ],
+      "point": { "x": 2, "y": 2 },
+      "expected": { "layerId": null, "blocked": true, "blockingLayerId": "modal" }
+    },
+    {
+      "name": "equal_z_modal_registered_earlier_does_not_block_later_non_modal",
+      "layers": [
+        {
+          "id": "modal",
+          "zIndex": 140,
+          "rect": { "x": 20, "y": 0, "w": 8, "h": 6 },
+          "modal": true,
+          "backdrop": "none"
+        },
+        {
+          "id": "content",
+          "zIndex": 140,
+          "rect": { "x": 0, "y": 0, "w": 12, "h": 8 },
+          "modal": false,
+          "backdrop": "none"
+        }
+      ],
+      "point": { "x": 3, "y": 3 },
+      "expected": { "layerId": "content", "blocked": false, "blockingLayerId": null }
+    },
+    {
+      "name": "equal_z_modal_registered_later_wins_when_both_contain_point",
+      "layers": [
+        {
+          "id": "content",
+          "zIndex": 140,
+          "rect": { "x": 0, "y": 0, "w": 12, "h": 8 },
+          "modal": false,
+          "backdrop": "none"
+        },
+        {
+          "id": "modal",
+          "zIndex": 140,
+          "rect": { "x": 0, "y": 0, "w": 12, "h": 8 },
+          "modal": true,
+          "backdrop": "none"
+        }
+      ],
+      "point": { "x": 6, "y": 4 },
+      "expected": { "layerId": "modal", "blocked": false, "blockingLayerId": null }
+    }
+  ]
+}

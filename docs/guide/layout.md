@@ -64,10 +64,12 @@ Container widgets accept spacing props (values are **cells**, or named keys like
 ### Padding (inside)
 
 - `p` (all), `px`/`py`, `pt`/`pr`/`pb`/`pl`
+- Must be non-negative (`>= 0`) when provided as numbers.
 
 ### Margin (outside)
 
-- `m` (all), `mx`/`my`
+- `m` (all), `mx`/`my`, `mt`/`mr`/`mb`/`ml`
+- May be negative (signed int32), which allows intentional overlap.
 
 Example:
 
@@ -83,6 +85,38 @@ Notes:
 
 - Padding reduces the available content area for children.
 - Margin affects how the widget is positioned inside its parent stack.
+- Negative margins can move a child outside the parent's origin and can cause overlap.
+
+### Negative margin examples
+
+Example 1: overlap siblings in a row
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.row({}, [
+  ui.box({ border: "none", width: 12, p: 1 }, [ui.text("Base")]),
+  ui.box({ border: "rounded", width: 10, ml: -6, p: 1 }, [ui.text("Overlay")]),
+]);
+```
+
+Example 2: pull content upward in a column
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.column({ gap: 1 }, [
+  ui.box({ border: "single", p: 1 }, [ui.text("Header block")]),
+  ui.box({ border: "rounded", mt: -1, p: 1 }, [ui.text("Raised panel")]),
+]);
+```
+
+Rules summary:
+
+- `m/mx/my/mt/mr/mb/ml` accept signed int32 numbers (and spacing keys).
+- `p/px/py/pt/pr/pb/pl`, legacy `pad`, and `gap` must stay non-negative.
+- Computed `w/h` are always clamped to non-negative values.
+- Computed `x/y` can be negative when margins pull widgets outward.
 
 ## Alignment
 
@@ -178,6 +212,22 @@ ui.box({ width: 20, border: "single", p: 1 }, [
   ui.text("This is a long line that will truncate", { textOverflow: "ellipsis" }),
 ]);
 ```
+
+## Overlap hit-testing
+
+When widgets overlap, input routing is deterministic:
+
+- Layers: higher `zIndex` wins.
+- Layers with equal `zIndex`: later registration wins.
+- Regular layout tree (no layer distinction): the last focusable widget in depth-first preorder tree order wins.
+  - This means later siblings win ties.
+
+## Gotchas
+
+- Negative margins can make `x/y` negative; this is expected and supported.
+- Large negative margins can significantly increase overlap. Keep fixtures for critical layouts.
+- `pad` and `gap` do not allow negatives; use margins when you need pull/overlap effects.
+- In overlap regions, tie-breaks follow deterministic order, not visual styling alone.
 
 ## Related
 
