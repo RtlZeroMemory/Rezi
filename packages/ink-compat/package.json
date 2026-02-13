@@ -1,6 +1,6 @@
 {
   "name": "@rezi-ui/ink-compat",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.11",
   "description": "Fresh-start Ink compatibility adapter for Rezi.",
   "license": "Apache-2.0",
   "homepage": "https://rtlzeromemory.github.io/Rezi/",
@@ -28,7 +28,10 @@
       "default": "./dist/testing.js"
     }
   },
-  "files": ["dist/", "README.md"],
+  "files": [
+    "dist/",
+    "README.md"
+  ],
   "engines": {
     "node": ">=18"
   },

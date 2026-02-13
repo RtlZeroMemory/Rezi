@@ -1,6 +1,6 @@
 {
   "name": "@rezi-ui/core",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.11",
   "description": "Runtime-agnostic TypeScript core for Rezi (widgets, layout, routing, drawlists, event parsing).",
   "license": "Apache-2.0",
   "homepage": "https://rtlzeromemory.github.io/Rezi/",
@@ -88,11 +88,14 @@
       "default": "./dist/widgets/index.js"
     }
   },
-  "files": ["dist/", "README.md"],
+  "files": [
+    "dist/",
+    "README.md"
+  ],
   "engines": {
     "node": ">=18"
   },
   "devDependencies": {
-    "@rezi-ui/testkit": "0.1.0-alpha.0"
+    "@rezi-ui/testkit": "0.1.0-alpha.11"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@rezi-ui/testkit",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.11",
   "description": "Test utilities and fixtures for Rezi.",
   "license": "Apache-2.0",
   "homepage": "https://rtlzeromemory.github.io/Rezi/",
@@ -20,7 +20,11 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist/", "fixtures/", "README.md"],
+  "files": [
+    "dist/",
+    "fixtures/",
+    "README.md"
+  ],
   "engines": {
     "node": ">=18"
   }
