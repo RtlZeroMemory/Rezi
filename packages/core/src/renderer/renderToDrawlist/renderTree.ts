@@ -10,6 +10,7 @@ import type {
 } from "../../runtime/localState.js";
 import type { Theme } from "../../theme/theme.js";
 import type { CommandItem } from "../../widgets/types.js";
+import { getRuntimeNodeDamageRect } from "./damageBounds.js";
 import type { IdRectIndex } from "./indices.js";
 import type { ResolvedTextStyle } from "./textStyle.js";
 import type {
@@ -93,7 +94,7 @@ export function renderTree(
     const node = nodeOrPop;
     const vnode = node.vnode;
     const rect: Rect = layoutNode.rect;
-    if (damageRect && !rectIntersects(rect, damageRect)) continue;
+    if (damageRect && !rectIntersects(getRuntimeNodeDamageRect(node, rect), damageRect)) continue;
 
     // Depth-first preorder: render node, then its children.
     switch (vnode.kind) {

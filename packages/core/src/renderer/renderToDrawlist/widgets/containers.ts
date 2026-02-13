@@ -6,6 +6,7 @@ import type { Theme } from "../../../theme/theme.js";
 import { createShadowConfig, renderShadow } from "../../shadow.js";
 import { asTextStyle } from "../../styles.js";
 import { readBoxBorder, readTitleAlign, renderBoxBorder } from "../boxBorder.js";
+import { getRuntimeNodeDamageRect } from "../damageBounds.js";
 import { isVisibleRect } from "../indices.js";
 import { clampNonNegative, resolveSpacingFromProps } from "../spacing.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
@@ -35,6 +36,7 @@ function rectIntersects(a: Rect, b: Rect): boolean {
 }
 
 function findStackChildRange(
+  runtimeChildren: readonly RuntimeInstance[],
   children: readonly LayoutTree[],
   childCount: number,
   direction: "row" | "column",
@@ -46,13 +48,15 @@ function findStackChildRange(
 
   let start = 0;
   while (start < childCount) {
+    const runtimeChild = runtimeChildren[start];
     const child = children[start];
-    if (!child) {
+    if (!runtimeChild || !child) {
       start++;
       continue;
     }
-    const childStart = direction === "column" ? child.rect.y : child.rect.x;
-    const childSize = direction === "column" ? child.rect.h : child.rect.w;
+    const childRect = getRuntimeNodeDamageRect(runtimeChild, child.rect);
+    const childStart = direction === "column" ? childRect.y : childRect.x;
+    const childSize = direction === "column" ? childRect.h : childRect.w;
     const childEnd = childStart + childSize;
     if (childEnd > damageStart) break;
     start++;
@@ -61,12 +65,14 @@ function findStackChildRange(
 
   let endExclusive = start;
   while (endExclusive < childCount) {
+    const runtimeChild = runtimeChildren[endExclusive];
     const child = children[endExclusive];
-    if (!child) {
+    if (!runtimeChild || !child) {
       endExclusive++;
       continue;
     }
-    const childStart = direction === "column" ? child.rect.y : child.rect.x;
+    const childRect = getRuntimeNodeDamageRect(runtimeChild, child.rect);
+    const childStart = direction === "column" ? childRect.y : childRect.x;
     if (childStart >= damageEnd) break;
     endExclusive++;
   }
@@ -94,6 +100,7 @@ function pushChildrenWithLayout(
   if (damageRect) {
     if (stackDirection) {
       const range = findStackChildRange(
+        node.children,
         layoutNode.children,
         childCount,
         stackDirection,
@@ -108,7 +115,11 @@ function pushChildrenWithLayout(
   for (let i = rangeEnd; i >= rangeStart; i--) {
     const c = node.children[i];
     const lc = layoutNode.children[i];
-    if (c && lc && (!damageRect || rectIntersects(lc.rect, damageRect))) {
+    if (
+      c &&
+      lc &&
+      (!damageRect || rectIntersects(getRuntimeNodeDamageRect(c, lc.rect), damageRect))
+    ) {
       nodeStack.push(c);
       styleStack.push(style);
       layoutStack.push(lc);
