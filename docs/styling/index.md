@@ -15,12 +15,11 @@ Rezi styling works at two levels:
 ## Quick Example
 
 ```typescript
-import { createApp, ui, rgb, darkTheme } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { ui, rgb, darkTheme } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
-const app = createApp({
-  backend: createNodeBackend(),
-  initialState: {},
+const app = createNodeApp({
+    initialState: {},
 });
 
 app.view(() =>
@@ -100,9 +99,8 @@ Rezi includes six built-in themes:
 import { darkTheme, lightTheme, nordTheme } from "@rezi-ui/core";
 
 // Set theme at startup
-const app = createApp({
-  backend: createNodeBackend(),
-  initialState: {},
+const app = createNodeApp({
+    initialState: {},
   theme: darkTheme,
 });
 

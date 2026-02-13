@@ -15,8 +15,8 @@ Use controlled inputs with validation functions that update error state.
 This is a complete, runnable example (save as `form.ts` and run with `npx tsx form.ts`):
 
 ```typescript
-import { createApp, ui, rgb } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { ui, rgb } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
 type FormState = {
   email: string;
@@ -37,9 +37,8 @@ function validatePassword(password: string): string | undefined {
   return undefined;
 }
 
-const app = createApp<FormState>({
-  backend: createNodeBackend(),
-  initialState: {
+const app = createNodeApp<FormState>({
+    initialState: {
     email: "",
     password: "",
     errors: {},

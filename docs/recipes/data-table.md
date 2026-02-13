@@ -13,8 +13,8 @@ Use the built-in `ui.table` widget, and keep sort/filter state in your app state
 ## Complete Example
 
 ```typescript
-import { createApp, ui } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { ui } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
 type User = { id: string; name: string; email: string; role: string };
 type SortDirection = "asc" | "desc";
@@ -34,9 +34,8 @@ function filterUsers(users: User[], filter: string): User[] {
   );
 }
 
-const app = createApp<State>({
-  backend: createNodeBackend(),
-  initialState: {
+const app = createNodeApp<State>({
+    initialState: {
     users: [
       { id: "1", name: "Ada", email: "ada@example.com", role: "Admin" },
       { id: "2", name: "Linus", email: "linus@example.com", role: "User" },

@@ -26,10 +26,10 @@ When a container (`row`, `column`, `box`) has a `style`, that style is inherited
 Themes provide consistent defaults (background/foreground, widget chrome, etc.) and are applied at the app level:
 
 ```typescript
-import { createApp, ui, darkTheme } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { ui, darkTheme } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
-const app = createApp({ backend: createNodeBackend(), initialState: {}, theme: darkTheme });
+const app = createNodeApp({ initialState: {}, theme: darkTheme });
 app.view(() => ui.text("Hello"));
 await app.start();
 ```

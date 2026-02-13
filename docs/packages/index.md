@@ -47,7 +47,7 @@ The core package is the heart of Rezi. It contains:
 Critically, this package has **no Node.js-specific dependencies**. It can theoretically run in any JavaScript runtime.
 
 ```typescript
-import { createApp, ui, rgb, darkTheme } from "@rezi-ui/core";
+import { ui, rgb, darkTheme } from "@rezi-ui/core";
 ```
 
 [Full documentation →](core.md)
@@ -64,11 +64,10 @@ The `@rezi-ui/node` backend provides the runtime integration:
 - Debug tracing and performance instrumentation
 
 ```typescript
-import { createNodeBackend } from "@rezi-ui/node";
+import { createNodeApp } from "@rezi-ui/node";
 
-const app = createApp({
-  backend: createNodeBackend(),
-  initialState: {},
+const app = createNodeApp({
+    initialState: {},
 });
 ```
 

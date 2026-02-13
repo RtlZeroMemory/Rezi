@@ -175,8 +175,8 @@ app.keys({
 Here's a todo list application demonstrating more features:
 
 ```typescript
-import { createApp, ui, rgb } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { ui, rgb } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
 type Todo = { id: string; text: string; done: boolean };
 type State = {
@@ -185,9 +185,8 @@ type State = {
   input: string;
 };
 
-const app = createApp<State>({
-  backend: createNodeBackend(),
-  initialState: {
+const app = createNodeApp<State>({
+    initialState: {
     todos: [
       { id: "1", text: "Learn Rezi", done: false },
       { id: "2", text: "Build an app", done: false },

@@ -1,5 +1,5 @@
-import { createApp, rgb, ui } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { rgb, ui } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
 type EntryType = "dir" | "file";
 
@@ -89,8 +89,7 @@ type State = {
   opened: string | null;
 };
 
-const app = createApp<State>({
-  backend: createNodeBackend(),
+const app = createNodeApp<State>({
   initialState: {
     path: "/",
     selected: 0,

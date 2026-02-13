@@ -82,6 +82,10 @@ export function createNodeApp<S>(opts: CreateNodeAppOptions<S>): App<S> {
   });
 }
 
+/**
+ * @deprecated Prefer createNodeApp() for normal Node/Bun apps.
+ * createNodeBackend() remains available for advanced runtime composition.
+ */
 export function createNodeBackend(config: NodeBackendConfig = {}): NodeBackend {
   return createNodeBackendInternal({ config });
 }

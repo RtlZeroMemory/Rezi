@@ -47,12 +47,11 @@ All `ui.*` widget functions are available as JSX intrinsic elements with capital
 ## Example
 
 ```tsx
-import { createApp, rgb } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { rgb } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
-const app = createApp({
-  backend: createNodeBackend(),
-  initialState: { count: 0 },
+const app = createNodeApp({
+    initialState: { count: 0 },
 });
 
 app.view((state) =>

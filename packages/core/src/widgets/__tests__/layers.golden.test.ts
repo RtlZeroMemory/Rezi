@@ -162,6 +162,43 @@ describe("Layer Registry - Basic Operations", () => {
     assert.equal(topmost.id, "second");
   });
 
+  test("re-registering equal z-index layer moves it to top deterministically", () => {
+    const registry = createLayerRegistry();
+
+    registry.register({
+      id: "a",
+      zIndex: 120,
+      rect: { x: 0, y: 0, w: 10, h: 10 },
+      backdrop: "none",
+      modal: false,
+      closeOnEscape: true,
+    });
+    registry.register({
+      id: "b",
+      zIndex: 120,
+      rect: { x: 0, y: 0, w: 10, h: 10 },
+      backdrop: "none",
+      modal: false,
+      closeOnEscape: true,
+    });
+
+    const before = hitTestLayers(registry, 2, 2);
+    assert.equal(before.layer?.id, "b");
+
+    registry.unregister("a");
+    registry.register({
+      id: "a",
+      zIndex: 120,
+      rect: { x: 0, y: 0, w: 10, h: 10 },
+      backdrop: "none",
+      modal: false,
+      closeOnEscape: true,
+    });
+
+    const after = hitTestLayers(registry, 2, 2);
+    assert.equal(after.layer?.id, "a");
+  });
+
   test("getTopmost returns highest z-index layer", () => {
     const registry = createLayerRegistry();
 
@@ -486,6 +523,46 @@ describe("Layer Hit Testing", () => {
     assert.ok(result3.layer);
     assert.equal(result3.layer.id, "modal1");
     assert.equal(result3.blocked, false);
+  });
+
+  test("equal-z modal re-registration updates blocking order deterministically", () => {
+    const registry = createLayerRegistry();
+
+    registry.register({
+      id: "modal",
+      zIndex: 140,
+      rect: { x: 20, y: 0, w: 8, h: 6 },
+      backdrop: "none",
+      modal: true,
+      closeOnEscape: true,
+    });
+    registry.register({
+      id: "content",
+      zIndex: 140,
+      rect: { x: 0, y: 0, w: 12, h: 8 },
+      backdrop: "none",
+      modal: false,
+      closeOnEscape: true,
+    });
+
+    const before = hitTestLayers(registry, 3, 3);
+    assert.equal(before.layer?.id ?? null, "content");
+    assert.equal(before.blocked, false);
+
+    registry.unregister("modal");
+    registry.register({
+      id: "modal",
+      zIndex: 140,
+      rect: { x: 20, y: 0, w: 8, h: 6 },
+      backdrop: "none",
+      modal: true,
+      closeOnEscape: true,
+    });
+
+    const after = hitTestLayers(registry, 3, 3);
+    assert.equal(after.layer, null);
+    assert.equal(after.blocked, true);
+    assert.equal(after.blockingLayer?.id ?? null, "modal");
   });
 });
 

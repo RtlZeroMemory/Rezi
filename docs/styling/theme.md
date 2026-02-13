@@ -80,12 +80,11 @@ The app runtime also uses a `Theme` object for:
 You can provide it at app creation time:
 
 ```typescript
-import { createApp, createTheme } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { createTheme } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
-const app = createApp({
-  backend: createNodeBackend(),
-  initialState: {},
+const app = createNodeApp({
+    initialState: {},
   theme: createTheme({ colors: { bg: { r: 10, g: 14, b: 20 } } }),
 });
 ```

@@ -15,17 +15,16 @@ Use state to control modal visibility and render a centered dialog box.
 This is a complete, runnable example:
 
 ```typescript
-import { createApp, ui, rgb } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { ui, rgb } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
 type State = {
   items: Array<{ id: string; name: string }>;
   confirmForId: string | null;
 };
 
-const app = createApp<State>({
-  backend: createNodeBackend(),
-  initialState: {
+const app = createNodeApp<State>({
+    initialState: {
     items: [
       { id: "1", name: "Alpha" },
       { id: "2", name: "Beta" },
