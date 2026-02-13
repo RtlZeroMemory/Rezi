@@ -9,6 +9,12 @@ function mustLayout(node: VNode, maxW: number, maxH: number): LayoutTree {
   return res.value;
 }
 
+function assertNonNegativeRectTree(node: LayoutTree): void {
+  assert.ok(node.rect.w >= 0, `width must be non-negative, got ${node.rect.w}`);
+  assert.ok(node.rect.h >= 0, `height must be non-negative, got ${node.rect.h}`);
+  for (const child of node.children) assertNonNegativeRectTree(child);
+}
+
 describe("constraints (deterministic) - golden cases", () => {
   test("flex:1 + flex:2 in row of width 90 => 30 + 60", () => {
     const tree = ui.row({}, [
@@ -124,5 +130,31 @@ describe("constraints (deterministic) - golden cases", () => {
 
     const out = mustLayout(tree, 10, 10);
     assert.deepEqual(out.rect, { x: 1, y: 1, w: 4, h: 2 });
+  });
+
+  test("aggressive negative row margins preserve non-negative computed sizes", () => {
+    const tree = ui.row({}, [
+      ui.box({ border: "none", width: 1, height: 1, ml: -3, mr: -3, mt: -2, mb: -2 }, []),
+      ui.box({ border: "none", width: 2, height: 1 }, []),
+    ]);
+
+    const out = mustLayout(tree, 5, 2);
+    assertNonNegativeRectTree(out);
+    assert.deepEqual(out.rect, { x: 0, y: 0, w: 2, h: 1 });
+    assert.deepEqual(out.children[0]?.rect, { x: -3, y: -2, w: 6, h: 4 });
+    assert.deepEqual(out.children[1]?.rect, { x: 0, y: 0, w: 2, h: 1 });
+  });
+
+  test("aggressive negative column margins preserve non-negative computed sizes", () => {
+    const tree = ui.column({}, [
+      ui.box({ border: "none", width: 2, height: 1, ml: -2, mr: -2, mt: -2, mb: -2 }, []),
+      ui.box({ border: "none", width: 1, height: 1 }, []),
+    ]);
+
+    const out = mustLayout(tree, 4, 3);
+    assertNonNegativeRectTree(out);
+    assert.deepEqual(out.rect, { x: 0, y: 0, w: 1, h: 1 });
+    assert.deepEqual(out.children[0]?.rect, { x: -2, y: -2, w: 4, h: 4 });
+    assert.deepEqual(out.children[1]?.rect, { x: 0, y: 0, w: 1, h: 1 });
   });
 });

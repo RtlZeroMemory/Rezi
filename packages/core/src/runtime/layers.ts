@@ -7,6 +7,7 @@
  *
  * Layer concepts:
  *   - Z-order: Higher z-index renders on top and receives input first
+ *   - Tie-break: Equal z-index uses registration order (later registration on top)
  *   - Backdrop: Optional overlay that can dim or block lower layers
  *   - Modal: Blocks input to layers below
  *   - Focus trapping: Modal layers trap focus within their bounds
@@ -45,6 +46,7 @@ export type Layer = Readonly<{
 type MutableLayer = {
   id: string;
   zIndex: number;
+  registrationOrder: number;
   rect: Rect;
   backdrop: BackdropStyle;
   modal: boolean;
@@ -73,7 +75,7 @@ export type LayerRegistry = Readonly<{
   unregister: (id: string) => void;
   /** Get a layer by ID. */
   get: (id: string) => Layer | undefined;
-  /** Get all layers sorted by z-index (lowest first). */
+  /** Get all layers sorted by z-index, then registration order (lowest first). */
   getAll: () => readonly Layer[];
   /** Get the topmost layer. */
   getTopmost: () => Layer | undefined;
@@ -93,6 +95,7 @@ let nextAutoZIndex = 1000;
  */
 export function createLayerRegistry(): LayerRegistry {
   const layers = new Map<string, MutableLayer>();
+  let nextRegistrationOrder = 0;
   let cacheDirty = true;
   let sortedSnapshot: readonly Layer[] = Object.freeze([]);
   let topmostSnapshot: Layer | undefined;
@@ -104,14 +107,25 @@ export function createLayerRegistry(): LayerRegistry {
 
   function refreshSnapshots(): void {
     if (!cacheDirty) return;
-    const sorted = Array.from(layers.values()).sort((a, b) => a.zIndex - b.zIndex);
+    const sorted = Array.from(layers.values()).sort((a, b) => {
+      if (a.zIndex !== b.zIndex) return a.zIndex - b.zIndex;
+      return a.registrationOrder - b.registrationOrder;
+    });
     const nextSorted: Layer[] = [];
     let nextTopmost: Layer | undefined;
     let nextTopmostModal: Layer | undefined;
     for (let i = 0; i < sorted.length; i++) {
       const layer = sorted[i];
       if (!layer) continue;
-      const snapshot = Object.freeze({ ...layer });
+      const snapshot: Layer = Object.freeze({
+        id: layer.id,
+        zIndex: layer.zIndex,
+        rect: layer.rect,
+        backdrop: layer.backdrop,
+        modal: layer.modal,
+        closeOnEscape: layer.closeOnEscape,
+        onClose: layer.onClose,
+      });
       nextSorted.push(snapshot);
       nextTopmost = snapshot;
       if (snapshot.modal) nextTopmostModal = snapshot;
@@ -128,6 +142,7 @@ export function createLayerRegistry(): LayerRegistry {
       const layer: MutableLayer = {
         id: layerInput.id,
         zIndex,
+        registrationOrder: nextRegistrationOrder++,
         rect: layerInput.rect,
         backdrop: layerInput.backdrop,
         modal: layerInput.modal,
@@ -145,7 +160,15 @@ export function createLayerRegistry(): LayerRegistry {
     get(id: string): Layer | undefined {
       const layer = layers.get(id);
       if (!layer) return undefined;
-      return Object.freeze({ ...layer });
+      return Object.freeze({
+        id: layer.id,
+        zIndex: layer.zIndex,
+        rect: layer.rect,
+        backdrop: layer.backdrop,
+        modal: layer.modal,
+        closeOnEscape: layer.closeOnEscape,
+        onClose: layer.onClose,
+      });
     },
 
     getAll(): readonly Layer[] {
@@ -204,6 +227,7 @@ export type LayerHitTestResult = Readonly<{
 /**
  * Hit test layers to find which layer contains a point.
  * Returns the topmost layer containing the point, respecting modal blocking.
+ * Order is deterministic: higher z-index first, then later registration for equal z-index.
  *
  * @param registry - Layer registry
  * @param x - X coordinate to test
@@ -213,15 +237,16 @@ export type LayerHitTestResult = Readonly<{
 export function hitTestLayers(registry: LayerRegistry, x: number, y: number): LayerHitTestResult {
   const layers = registry.getAll();
 
-  // Find topmost modal layer for blocking check
-  let topmostModal: Layer | null = null;
+  // Find topmost modal layer for blocking check.
+  let topmostModalIndex = -1;
   for (let i = layers.length - 1; i >= 0; i--) {
     const layer = layers[i];
     if (layer?.modal) {
-      topmostModal = layer;
+      topmostModalIndex = i;
       break;
     }
   }
+  const topmostModal = topmostModalIndex >= 0 ? (layers[topmostModalIndex] ?? null) : null;
   let blockingLayer: Layer | null = null;
 
   // Check from topmost to bottom
@@ -230,8 +255,8 @@ export function hitTestLayers(registry: LayerRegistry, x: number, y: number): La
     if (!layer) continue;
 
     if (containsPoint(layer.rect, x, y)) {
-      // Check if blocked by a higher modal layer
-      if (topmostModal && topmostModal.zIndex > layer.zIndex) {
+      // Block if the topmost modal is above this layer in resolved stack order.
+      if (topmostModal && topmostModalIndex > i) {
         blockingLayer = topmostModal;
         return Object.freeze({
           layer: null,

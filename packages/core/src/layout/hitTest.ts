@@ -5,8 +5,12 @@
  * position. Used for mouse-based focus changes and click routing.
  *
  * Tie-break rule: When multiple focusable widgets overlap at a point, the
- * LAST one in depth-first preorder traversal wins (typically the "topmost"
- * visually, though stacking is logical not visual in terminal UI).
+ * LAST node in depth-first preorder traversal wins.
+ *
+ * Explicit direction:
+ * - Children are traversed left-to-right (tree order).
+ * - Later tree-order nodes override earlier ones.
+ * - Among siblings, later siblings win ties.
  *
  * @see docs/guide/layout.md
  */
@@ -70,7 +74,7 @@ function isFocusable(v: VNode): string | null {
  * Hit test focusable widgets (enabled interactive ids).
  *
  * Tie-break is deterministic: if multiple focusable widgets contain the point,
- * the winner is the LAST focusable widget in depth-first preorder traversal order.
+ * the winner is the LAST focusable widget in depth-first preorder tree order.
  */
 export function hitTestFocusable(
   tree: VNode,
