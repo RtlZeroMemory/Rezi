@@ -509,6 +509,11 @@ async function createHarnessOrSkip(
 }
 
 test("terminal io contract: keyboard + paste + focus + mouse + resize + split reads", async (t: TestContext) => {
+  if (process.platform === "win32") {
+    t.skip("full terminal contract assertions run on Unix PTY; Windows uses ConPTY-specific coverage");
+    return;
+  }
+
   const harness = await createHarnessOrSkip(t, {
     env: {
       ZIREAEL_CAP_MOUSE: "1",
@@ -817,6 +822,11 @@ test("terminal io contract: keyboard + paste + focus + mouse + resize + split re
 });
 
 test("terminal io contract: focus gating when disabled", async (t: TestContext) => {
+  if (process.platform === "win32") {
+    t.skip("focus-gating contract assertion is covered on Unix PTY lanes");
+    return;
+  }
+
   const harness = await createHarnessOrSkip(t, {
     env: {
       ZIREAEL_CAP_FOCUS_EVENTS: "0",
