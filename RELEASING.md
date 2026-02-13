@@ -26,7 +26,7 @@ That's it. The `release` workflow will:
 4. Sync all `package.json` versions to match the tag (via `scripts/release-set-version.mjs`)
 5. Build TypeScript
 6. Assemble native binaries and verify pack contents
-7. Publish all 7 packages to npm in dependency order
+7. Publish all 6 packages to npm in dependency order
 
 ## Packages published
 
@@ -37,8 +37,7 @@ In order:
 3. `@rezi-ui/testkit` — no internal deps
 4. `@rezi-ui/node` — depends on core + native
 5. `@rezi-ui/jsx` — depends on core
-6. `@rezi-ui/ink-compat` — depends on core + node
-7. `create-rezi` — CLI scaffolding tool
+6. `create-rezi` — CLI scaffolding tool
 
 `@rezi-ui/bench` is private and never published.
 

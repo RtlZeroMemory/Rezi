@@ -16,11 +16,7 @@
   "bin": {
     "create-rezi": "dist/index.js"
   },
-  "files": [
-    "dist/",
-    "templates/",
-    "README.md"
-  ],
+  "files": ["dist/", "templates/", "README.md"],
   "engines": {
     "node": ">=18"
   },

@@ -3,11 +3,9 @@
   "references": [
     { "path": "./packages/create-rezi" },
     { "path": "./packages/core" },
-    { "path": "./packages/ink-compat" },
     { "path": "./packages/node" },
     { "path": "./packages/testkit" },
     { "path": "./packages/jsx" },
-    { "path": "./packages/bench" },
     { "path": "./examples/hello-counter" },
     { "path": "./examples/raw-draw-demo" }
   ]

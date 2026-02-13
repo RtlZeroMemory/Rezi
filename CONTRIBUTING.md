@@ -44,7 +44,6 @@ npm run test:native:smoke
 - `packages/node` — Node.js backend (worker-thread ownership, IO, buffers)
 - `packages/native` — Rust + N-API addon bundling the Zireael engine
 - `packages/testkit` — test utilities and fixtures
-- `packages/ink-compat` — Ink compatibility layer (React)
 - `packages/jsx` — JSX runtime
 - `packages/bench` — benchmark harness (not published)
 - `examples/*` — runnable examples

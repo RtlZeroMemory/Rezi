@@ -5,7 +5,6 @@ This roadmap is directional and may change; releases are driven by shipped, test
 ## Near term (alpha)
 
 - Stabilize remaining edge cases in createApp lifecycle
-- Complete ink-compat test coverage for all Ink edge cases
 - Performance optimization (frame coalescing, allocation reduction)
 - Expand example applications
 

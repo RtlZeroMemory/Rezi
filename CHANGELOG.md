@@ -8,22 +8,19 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ### Added
 
-- `@rezi-ui/ink-compat` — drop-in Ink compatibility layer with all 6 components and 7 hooks
 - `@rezi-ui/jsx` — native JSX runtime for Rezi widgets (no React required)
 - `@rezi-ui/bench` — comprehensive benchmark suite (Rezi native vs Ink-on-Rezi vs Ink)
-- Ink migration guide and JSX getting started guide in documentation
 - Benchmark results and performance documentation
 - Widget composition API (`defineWidget` with hooks)
 
 ### Changed
 
 - Documentation expanded with 90+ pages covering all features
-- README updated with performance data, Ink compat, JSX support, Zireael engine reference
+- README updated with performance data, JSX support, Zireael engine reference
 - ROADMAP updated to reflect current project state
 
 ### Fixed
 
-- ink-compat: key-up event filtering, Ctrl+C normalization, console patch cleanup, shutdown race
 - Benchmark harness: ZREV resize events, frame synchronization, Ink output deduplication
 - Benchmark accuracy: framesProduced/bytesProduced no longer inflated by initial render + warmup in async scenarios
 - Memory-profile: sampling off-by-one (sampled at iteration 0/50/100 instead of 49/99/149)
