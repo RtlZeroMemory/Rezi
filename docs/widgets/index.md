@@ -27,112 +27,112 @@ Tier labels used in this catalog:
 
 Foundation widgets for layout and content:
 
-| Widget | Description | Focusable |
-|--------|-------------|-----------|
-| [Text](text.md) | Display text with optional styling | No |
-| [Box](box.md) | Container with border, padding, and title | No |
-| [Row / Column](stack.md) | Horizontal and vertical stack layouts | No |
-| [Spacer](spacer.md) | Fixed-size or flexible spacing | No |
-| [Divider](divider.md) | Visual separator line | No |
+| Widget | Description | Focusable | Stability |
+|--------|-------------|-----------|-----------|
+| [Text](text.md) | Display text with optional styling | No | `stable` |
+| [Box](box.md) | Container with border, padding, and title | No | `stable` |
+| [Row / Column](stack.md) | Horizontal and vertical stack layouts | No | `stable` |
+| [Spacer](spacer.md) | Fixed-size or flexible spacing | No | `stable` |
+| [Divider](divider.md) | Visual separator line | No | `stable` |
 
 ### Indicators
 
 Visual feedback and status display:
 
-| Widget | Description | Focusable |
-|--------|-------------|-----------|
-| [Icon](icon.md) | Single-character icon from registry | No |
-| [Spinner](spinner.md) | Animated loading indicator | No |
-| [Progress](progress.md) | Progress bar with variants | No |
-| [Skeleton](skeleton.md) | Loading placeholder | No |
-| [RichText](rich-text.md) | Multi-styled text spans | No |
-| [Kbd](kbd.md) | Keyboard shortcut display | No |
-| [Badge](badge.md) | Small status indicator | No |
-| [Status](status.md) | Online/offline status dot | No |
-| [Tag](tag.md) | Inline label with background | No |
+| Widget | Description | Focusable | Stability |
+|--------|-------------|-----------|-----------|
+| [Icon](icon.md) | Single-character icon from registry | No | `beta` |
+| [Spinner](spinner.md) | Animated loading indicator | No | `beta` |
+| [Progress](progress.md) | Progress bar with variants | No | `beta` |
+| [Skeleton](skeleton.md) | Loading placeholder | No | `beta` |
+| [RichText](rich-text.md) | Multi-styled text spans | No | `beta` |
+| [Kbd](kbd.md) | Keyboard shortcut display | No | `beta` |
+| [Badge](badge.md) | Small status indicator | No | `beta` |
+| [Status](status.md) | Online/offline status dot | No | `beta` |
+| [Tag](tag.md) | Inline label with background | No | `beta` |
 
 ### Form Inputs
 
 Interactive form controls:
 
-| Widget | Description | Focusable |
-|--------|-------------|-----------|
-| [Button](button.md) | Clickable button with label | Yes |
-| [Input](input.md) | Single-line text input (`stable`) | Yes |
-| [Slider](slider.md) | Numeric range input | Yes |
-| [Checkbox](checkbox.md) | Toggle checkbox | Yes |
-| [Radio Group](radio-group.md) | Single-select options | Yes |
-| [Select](select.md) | Dropdown selection | Yes |
-| [Field](field.md) | Form field wrapper with label/error | No |
+| Widget | Description | Focusable | Stability |
+|--------|-------------|-----------|-----------|
+| [Button](button.md) | Clickable button with label | Yes | `beta` |
+| [Input](input.md) | Single-line text input | Yes | `stable` |
+| [Slider](slider.md) | Numeric range input | Yes | `beta` |
+| [Checkbox](checkbox.md) | Toggle checkbox | Yes | `beta` |
+| [Radio Group](radio-group.md) | Single-select options | Yes | `beta` |
+| [Select](select.md) | Dropdown selection | Yes | `beta` |
+| [Field](field.md) | Form field wrapper with label/error | No | `beta` |
 
 ### Data Display
 
 Tables, lists, and trees:
 
-| Widget | Description | Focusable |
-|--------|-------------|-----------|
-| [Table](table.md) | Tabular data with sorting and selection (`stable`) | Yes |
-| [Virtual List](virtual-list.md) | Efficiently render large lists (`stable`) | Yes |
-| [Tree](tree.md) | Hierarchical data with expand/collapse | Yes |
+| Widget | Description | Focusable | Stability |
+|--------|-------------|-----------|-----------|
+| [Table](table.md) | Tabular data with sorting and selection | Yes | `stable` |
+| [Virtual List](virtual-list.md) | Efficiently render large lists | Yes | `stable` |
+| [Tree](tree.md) | Hierarchical data with expand/collapse | Yes | `beta` |
 
 ### Overlays
 
 Modal and popup interfaces:
 
-| Widget | Description | Focusable |
-|--------|-------------|-----------|
-| [Layers](layers.md) | Layer stack container | No |
-| [Modal](modal.md) | Centered modal dialog | Yes |
-| [Dropdown](dropdown.md) | Positioned dropdown menu | Yes |
-| [Layer](layer.md) | Generic overlay layer | Varies |
-| [Toast](toast.md) | Non-blocking notifications | No |
-| [Focus Zone](focus-zone.md) | Focus group for Tab navigation | No |
-| [Focus Trap](focus-trap.md) | Constrain focus to region | No |
+| Widget | Description | Focusable | Stability |
+|--------|-------------|-----------|-----------|
+| [Layers](layers.md) | Layer stack container | No | `beta` |
+| [Modal](modal.md) | Centered modal dialog | Yes | `beta` |
+| [Dropdown](dropdown.md) | Positioned dropdown menu | Yes | `beta` |
+| [Layer](layer.md) | Generic overlay layer | Varies | `beta` |
+| [Toast](toast.md) | Non-blocking notifications | No | `beta` |
+| [Focus Zone](focus-zone.md) | Focus group for Tab navigation | No | `beta` |
+| [Focus Trap](focus-trap.md) | Constrain focus to region | No | `beta` |
 
 ### Layout
 
 Complex layout components:
 
-| Widget | Description | Focusable |
-|--------|-------------|-----------|
-| [Split Pane](split-pane.md) | Resizable split layout | Yes |
-| [Panel Group](panel-group.md) | Container for resizable panels | No |
-| [Resizable Panel](resizable-panel.md) | Panel within group | No |
+| Widget | Description | Focusable | Stability |
+|--------|-------------|-----------|-----------|
+| [Split Pane](split-pane.md) | Resizable split layout | Yes | `beta` |
+| [Panel Group](panel-group.md) | Container for resizable panels | No | `beta` |
+| [Resizable Panel](resizable-panel.md) | Panel within group | No | `beta` |
 
 ### Advanced
 
 Rich, specialized widgets:
 
-| Widget | Description | Focusable |
-|--------|-------------|-----------|
-| [Command Palette](command-palette.md) | Quick command search (`stable`) | Yes |
-| [File Picker](file-picker.md) | File browser with selection (`stable`) | Yes |
-| [File Tree Explorer](file-tree-explorer.md) | File system tree view (`stable`) | Yes |
-| [Code Editor](code-editor.md) | Multi-line code editing | Yes |
-| [Diff Viewer](diff-viewer.md) | Unified/side-by-side diff | Yes |
-| [Logs Console](logs-console.md) | Streaming log output | Yes |
-| [Tool Approval Dialog](tool-approval-dialog.md) | Tool execution review | Yes |
+| Widget | Description | Focusable | Stability |
+|--------|-------------|-----------|-----------|
+| [Command Palette](command-palette.md) | Quick command search | Yes | `stable` |
+| [File Picker](file-picker.md) | File browser with selection | Yes | `stable` |
+| [File Tree Explorer](file-tree-explorer.md) | File system tree view | Yes | `stable` |
+| [Code Editor](code-editor.md) | Multi-line code editing | Yes | `beta` |
+| [Diff Viewer](diff-viewer.md) | Unified/side-by-side diff | Yes | `beta` |
+| [Logs Console](logs-console.md) | Streaming log output | Yes | `beta` |
+| [Tool Approval Dialog](tool-approval-dialog.md) | Tool execution review | Yes | `experimental` |
 
 ### Charts
 
 Data visualization:
 
-| Widget | Description | Focusable |
-|--------|-------------|-----------|
-| [Gauge](gauge.md) | Compact progress with label | No |
-| [Sparkline](sparkline.md) | Inline mini chart | No |
-| [Bar Chart](bar-chart.md) | Horizontal/vertical bars | No |
-| [Mini Chart](mini-chart.md) | Compact multi-value display | No |
+| Widget | Description | Focusable | Stability |
+|--------|-------------|-----------|-----------|
+| [Gauge](gauge.md) | Compact progress with label | No | `beta` |
+| [Sparkline](sparkline.md) | Inline mini chart | No | `beta` |
+| [Bar Chart](bar-chart.md) | Horizontal/vertical bars | No | `beta` |
+| [Mini Chart](mini-chart.md) | Compact multi-value display | No | `beta` |
 
 ### Feedback
 
 User feedback and states:
 
-| Widget | Description | Focusable |
-|--------|-------------|-----------|
-| [Callout](callout.md) | Alert/info message box | No |
-| [Error Display](error-display.md) | Error message with retry | Yes |
-| [Empty](empty.md) | Empty state placeholder | No |
+| Widget | Description | Focusable | Stability |
+|--------|-------------|-----------|-----------|
+| [Callout](callout.md) | Alert/info message box | No | `beta` |
+| [Error Display](error-display.md) | Error message with retry | Yes | `beta` |
+| [Empty](empty.md) | Empty state placeholder | No | `beta` |
 
 ## Common Patterns
 
