@@ -1,6 +1,6 @@
 # Rezi
 
-Rezi is a **code-first terminal UI framework** for Node.js. Build rich, interactive terminal applications with a declarative widget API, automatic focus management, and native rendering performance.
+Rezi is a **code-first terminal UI framework** for Node.js and Bun. Build rich, interactive terminal applications with a declarative widget API, automatic focus management, and native rendering performance.
 
 ```typescript
 import { createApp, ui, rgb } from "@rezi-ui/core";
