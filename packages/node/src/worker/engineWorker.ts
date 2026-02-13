@@ -35,6 +35,7 @@ import {
  */
 const PERF_ENABLED = (process.env as Readonly<{ REZI_PERF?: string }>).REZI_PERF === "1";
 const ZR_ERR_LIMIT = -3;
+const IS_BUN_RUNTIME = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
 type PerfSample = { phase: string; durationMs: number };
 const perfSamples: PerfSample[] = [];
 const PERF_MAX_SAMPLES = 1024;
@@ -617,6 +618,13 @@ function shutdownNow(): void {
 
   // Let worker thread exit naturally once handles are cleared.
   if (parentPort !== null) parentPort.close();
+  // Bun worker_threads can keep the worker alive after parentPort.close().
+  // Force a clean worker exit after sending shutdownComplete.
+  if (IS_BUN_RUNTIME) {
+    setImmediate(() => {
+      process.exit(0);
+    });
+  }
 }
 
 function tick(): void {
