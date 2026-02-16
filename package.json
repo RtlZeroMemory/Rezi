@@ -32,7 +32,9 @@
     "test:scripts": "node scripts/run-tests.mjs --scope scripts",
     "test:packages": "node scripts/run-tests.mjs --scope packages",
     "bench": "node --expose-gc packages/bench/dist/run.js",
-    "bench:report": "node --expose-gc packages/bench/dist/run.js --markdown"
+    "bench:report": "node --expose-gc packages/bench/dist/run.js --markdown",
+    "bench:ci": "node scripts/run-bench-ci.mjs",
+    "bench:ci:compare": "node scripts/bench-ci-compare.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

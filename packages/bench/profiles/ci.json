@@ -1,0 +1,35 @@
+{
+  "name": "ci",
+  "description": "Reduced deterministic benchmark profile for PR regression gating.",
+  "suite": "terminal",
+  "requiredScenarios": [
+    "terminal-rerender",
+    "terminal-frame-fill",
+    "terminal-virtual-list",
+    "terminal-table"
+  ],
+  "requiredScenarioParams": {
+    "terminal-rerender": [{}],
+    "terminal-frame-fill": [
+      { "rows": 40, "cols": 120, "dirtyLines": 1 },
+      { "rows": 40, "cols": 120, "dirtyLines": 40 }
+    ],
+    "terminal-virtual-list": [{ "items": 100000, "viewport": 40 }],
+    "terminal-table": [{ "rows": 40, "cols": 8 }]
+  },
+  "framework": "rezi-native",
+  "io": "stub",
+  "warmup": 50,
+  "iterations": 800,
+  "outputDir": "out/bench-ci",
+  "output": {
+    "resultsJson": "results.json",
+    "resultsMarkdown": "results.md"
+  },
+  "deterministicOrdering": {
+    "execution": "sequential",
+    "scenarioOrder": "scenario-registry-order filtered by --suite terminal",
+    "frameworkOrder": "fixed-single-framework",
+    "paramSetOrder": "as-defined-in-scenario-source"
+  }
+}
