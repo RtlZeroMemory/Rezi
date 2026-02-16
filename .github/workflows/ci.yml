@@ -71,6 +71,10 @@ jobs:
       - name: Tests
         run: npm run test
 
+      - name: Repro replay fixtures (headless, explicit gate)
+        if: runner.os == 'Linux'
+        run: node --test --test-concurrency=1 packages/core/dist/repro/__tests__/replay.harness.test.js
+
       - name: Setup Rust (stable)
         uses: dtolnay/rust-toolchain@stable
 
@@ -151,6 +155,54 @@ jobs:
 
       - name: Terminal e2e (reduced)
         run: bun run test:e2e:reduced
+
+  perf-regression:
+    name: perf regression gate
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build packages
+        run: npm run build
+
+      - name: Run reduced benchmark suite
+        run: npm run bench:ci -- --output-dir .artifacts/bench/ci
+
+      - name: Compare reduced benchmark results against baseline
+        run: |
+          npm run bench:ci:compare -- \
+            --baseline benchmarks/ci-baseline/results.json \
+            --current .artifacts/bench/ci/results.json \
+            --config benchmarks/ci-baseline/config.json \
+            --report-json .artifacts/bench/ci/compare.json \
+            --report-md .artifacts/bench/ci/compare.md
+
+      - name: Upload perf regression artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-regression-artifacts
+          if-no-files-found: warn
+          path: |
+            .artifacts/bench/ci/results.json
+            .artifacts/bench/ci/results.md
+            .artifacts/bench/ci/compare.json
+            .artifacts/bench/ci/compare.md
+            .artifacts/bench/ci/manifest.json
+            .artifacts/bench/ci/profile.json
 
   docs:
     name: docs

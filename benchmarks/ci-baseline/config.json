@@ -1,0 +1,109 @@
+{
+  "meta": {
+    "profilePath": "packages/bench/profiles/ci.json",
+    "baselinePolicy": "Update only on intentional perf shifts or deliberate threshold tuning.",
+    "baselineGenerationCommand": "npm run bench:ci -- --output-dir benchmarks/ci-baseline",
+    "comparisonCommandTemplate": "npm run bench:ci:compare -- --current <run>/results.json --report-json <run>/compare.json --report-md <run>/compare.md",
+    "createdAt": "2026-02-16T06:42:55Z"
+  },
+  "requiredScenarios": [
+    {
+      "scenario": "terminal-rerender",
+      "framework": "rezi-native",
+      "params": {}
+    },
+    {
+      "scenario": "terminal-frame-fill",
+      "framework": "rezi-native",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "dirtyLines": 1
+      }
+    },
+    {
+      "scenario": "terminal-frame-fill",
+      "framework": "rezi-native",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "dirtyLines": 40
+      }
+    },
+    {
+      "scenario": "terminal-virtual-list",
+      "framework": "rezi-native",
+      "params": {
+        "items": 100000,
+        "viewport": 40
+      }
+    },
+    {
+      "scenario": "terminal-table",
+      "framework": "rezi-native",
+      "params": {
+        "rows": 40,
+        "cols": 8
+      }
+    }
+  ],
+  "metrics": {
+    "defaults": {
+      "timing.mean": {
+        "relativeRegression": 0.2,
+        "absoluteRegression": 0.03,
+        "severity": "hard",
+        "direction": "higher_is_worse"
+      },
+      "timing.p95": {
+        "relativeRegression": 0.35,
+        "absoluteRegression": 0.1,
+        "severity": "advisory",
+        "direction": "higher_is_worse"
+      }
+    },
+    "overrides": [
+      {
+        "match": {
+          "scenario": "terminal-frame-fill",
+          "framework": "rezi-native",
+          "params": {
+            "rows": 40,
+            "cols": 120,
+            "dirtyLines": 40
+          },
+          "metric": "timing.mean"
+        },
+        "rule": {
+          "relativeRegression": 0.22,
+          "absoluteRegression": 0.04
+        },
+        "reason": "Higher dirty-line density has slightly wider spread in CI."
+      },
+      {
+        "match": {
+          "scenario": "terminal-virtual-list",
+          "framework": "rezi-native",
+          "metric": "timing.mean"
+        },
+        "rule": {
+          "relativeRegression": 0.22,
+          "absoluteRegression": 0.06
+        },
+        "reason": "Large-list workload has greater host scheduler sensitivity."
+      },
+      {
+        "match": {
+          "scenario": "terminal-virtual-list",
+          "framework": "rezi-native",
+          "metric": "timing.p95"
+        },
+        "rule": {
+          "relativeRegression": 0.4,
+          "absoluteRegression": 0.12
+        },
+        "reason": "Tail latency is noisier for this scenario on shared CI hosts."
+      }
+    ]
+  }
+}
