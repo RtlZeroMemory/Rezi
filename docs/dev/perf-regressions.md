@@ -79,7 +79,7 @@ Baseline path:
 
 Update process:
 
-1. Run `npm run bench:ci -- --output-dir benchmarks/ci-baseline`.
+1. Prefer CI-host refresh: download `perf-regression-artifacts` from the PR/job run and copy `results.json`/`results.md` into `benchmarks/ci-baseline/`.
 2. Re-run compare against the updated baseline to verify zero hard regressions.
 3. Keep threshold changes (`benchmarks/ci-baseline/config.json`) explicit in the same PR only when justified.
 4. In PR description, include why baseline movement is intentional (feature/perf tradeoff, infra change, or expected engine shift).

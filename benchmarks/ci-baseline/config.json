@@ -1,10 +1,11 @@
 {
   "meta": {
     "profilePath": "packages/bench/profiles/ci.json",
-    "baselinePolicy": "Update only on intentional perf shifts or deliberate threshold tuning.",
-    "baselineGenerationCommand": "npm run bench:ci -- --output-dir benchmarks/ci-baseline",
+    "baselinePolicy": "Update only on intentional perf shifts or deliberate threshold tuning. Prefer refreshing from CI perf-regression artifacts to stay host-class consistent.",
+    "baselineGenerationCommand": "Use perf-regression GitHub Actions artifacts (results.json/results.md) and copy into benchmarks/ci-baseline/",
+    "baselineSource": "GitHub Actions run 22054843644 / perf regression gate artifact",
     "comparisonCommandTemplate": "npm run bench:ci:compare -- --current <run>/results.json --report-json <run>/compare.json --report-md <run>/compare.md",
-    "createdAt": "2026-02-16T06:42:55Z"
+    "createdAt": "2026-02-16T08:10:03Z"
   },
   "requiredScenarios": [
     {

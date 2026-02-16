@@ -1,14 +1,14 @@
 {
   "meta": {
-    "timestamp": "2026-02-16T06:57:58.155Z",
-    "nodeVersion": "v20.19.5",
+    "timestamp": "2026-02-16T08:10:03.477Z",
+    "nodeVersion": "v22.22.0",
     "platform": "linux",
     "arch": "x64",
     "osType": "Linux",
-    "osRelease": "6.6.87.2-microsoft-standard-WSL2",
-    "cpuModel": "AMD Ryzen 7 9800X3D 8-Core Processor",
-    "cpuCores": 12,
-    "memoryTotalMb": 15993
+    "osRelease": "6.14.0-1017-azure",
+    "cpuModel": "AMD EPYC 7763 64-Core Processor",
+    "cpuCores": 4,
+    "memoryTotalMb": 15990
   },
   "invocation": {
     "suite": "terminal",
@@ -27,55 +27,55 @@
       "metrics": {
         "timing": {
           "n": 800,
-          "mean": 0.025910159999999766,
-          "median": 0.016370999999992364,
-          "p95": 0.0790140000000008,
-          "p99": 0.11780600000000163,
-          "min": 0.00970999999998412,
-          "max": 0.42496099999999615,
-          "stddev": 0.034548499526925215,
-          "cv": 1.3333958388109346,
-          "meanCi95Low": 0.023927173750000003,
-          "meanCi95High": 0.028436486249999095
+          "mean": 0.07360876750000024,
+          "median": 0.07055650000000924,
+          "p95": 0.1044949999999858,
+          "p99": 0.12695700000000443,
+          "min": 0.04966299999998114,
+          "max": 0.48179700000000025,
+          "stddev": 0.02356119323885035,
+          "cv": 0.320086778233996,
+          "meanCi95Low": 0.0722970862499998,
+          "meanCi95High": 0.07557613500000024
         },
         "memBefore": {
-          "rssKb": 60324,
-          "heapUsedKb": 8345,
-          "heapTotalKb": 17448,
-          "externalKb": 1816,
-          "arrayBuffersKb": 44
+          "rssKb": 69036,
+          "heapUsedKb": 9570,
+          "heapTotalKb": 27300,
+          "externalKb": 1926,
+          "arrayBuffersKb": 52
         },
         "memAfter": {
-          "rssKb": 65532,
-          "heapUsedKb": 10767,
-          "heapTotalKb": 19240,
-          "externalKb": 1816,
-          "arrayBuffersKb": 44
+          "rssKb": 77960,
+          "heapUsedKb": 15784,
+          "heapTotalKb": 27812,
+          "externalKb": 1926,
+          "arrayBuffersKb": 52
         },
         "memPeak": {
-          "rssKb": 65532,
-          "heapUsedKb": 13549,
-          "heapTotalKb": 19240,
-          "externalKb": 1816,
-          "arrayBuffersKb": 44
+          "rssKb": 77960,
+          "heapUsedKb": 16619,
+          "heapTotalKb": 27812,
+          "externalKb": 1926,
+          "arrayBuffersKb": 52
         },
-        "rssGrowthKb": 5208,
-        "heapUsedGrowthKb": 2422,
+        "rssGrowthKb": 8924,
+        "heapUsedGrowthKb": 6214,
         "rssSlopeKbPerIter": null,
         "heapUsedSlopeKbPerIter": null,
         "memStable": null,
         "cpu": {
-          "userMs": 47.138000000000005,
-          "systemMs": 2.830000000000002
+          "userMs": 80.51500000000001,
+          "systemMs": 5.827999999999999
         },
         "iterations": 800,
-        "totalWallMs": 21.124217000000016,
-        "opsPerSec": 37871.22618556699,
+        "totalWallMs": 59.90091700000002,
+        "opsPerSec": 13355.38819881505,
         "framesProduced": 800,
         "bytesProduced": 185652
       },
-      "timestamp": "2026-02-16T06:57:58.271Z",
-      "nodeVersion": "v20.19.5",
+      "timestamp": "2026-02-16T08:10:03.608Z",
+      "nodeVersion": "v22.22.0",
       "platform": "linux",
       "arch": "x64"
     },
@@ -90,55 +90,55 @@
       "metrics": {
         "timing": {
           "n": 800,
-          "mean": 0.04680949749999994,
-          "median": 0.03033600000000547,
-          "p95": 0.11275600000000452,
-          "p99": 0.30505500000001007,
-          "min": 0.02400200000002428,
-          "max": 0.48030400000001805,
-          "stddev": 0.04769691433552194,
-          "cv": 1.0189580508853358,
-          "meanCi95Low": 0.04411405750000012,
-          "meanCi95High": 0.049964247500000204
+          "mean": 0.1549332012499995,
+          "median": 0.13179999999999836,
+          "p95": 0.3043260000000032,
+          "p99": 0.3960480000000075,
+          "min": 0.08166199999999435,
+          "max": 0.5906970000000058,
+          "stddev": 0.07791041018534198,
+          "cv": 0.5028645219795471,
+          "meanCi95Low": 0.15010021124999887,
+          "meanCi95High": 0.16005556249999997
         },
         "memBefore": {
-          "rssKb": 64416,
-          "heapUsedKb": 8507,
-          "heapTotalKb": 17960,
-          "externalKb": 1828,
-          "arrayBuffersKb": 57
+          "rssKb": 69456,
+          "heapUsedKb": 9719,
+          "heapTotalKb": 28068,
+          "externalKb": 1938,
+          "arrayBuffersKb": 63
         },
         "memAfter": {
-          "rssKb": 77060,
-          "heapUsedKb": 25188,
-          "heapTotalKb": 30248,
-          "externalKb": 1836,
+          "rssKb": 92244,
+          "heapUsedKb": 22275,
+          "heapTotalKb": 39844,
+          "externalKb": 1937,
           "arrayBuffersKb": 64
         },
         "memPeak": {
-          "rssKb": 77060,
-          "heapUsedKb": 25188,
-          "heapTotalKb": 30248,
-          "externalKb": 1836,
-          "arrayBuffersKb": 64
+          "rssKb": 92244,
+          "heapUsedKb": 24848,
+          "heapTotalKb": 39844,
+          "externalKb": 1952,
+          "arrayBuffersKb": 79
         },
-        "rssGrowthKb": 12644,
-        "heapUsedGrowthKb": 16681,
+        "rssGrowthKb": 22788,
+        "heapUsedGrowthKb": 12556,
         "rssSlopeKbPerIter": null,
         "heapUsedSlopeKbPerIter": null,
         "memStable": null,
         "cpu": {
-          "userMs": 62.85900000000001,
-          "systemMs": 14.193000000000005
+          "userMs": 192.20499999999998,
+          "systemMs": 17.858
         },
         "iterations": 800,
-        "totalWallMs": 37.875388,
-        "opsPerSec": 21121.89583377997,
+        "totalWallMs": 125.00502299999997,
+        "opsPerSec": 6399.742832734011,
         "framesProduced": 800,
         "bytesProduced": 275200
       },
-      "timestamp": "2026-02-16T06:57:58.417Z",
-      "nodeVersion": "v20.19.5",
+      "timestamp": "2026-02-16T08:10:03.845Z",
+      "nodeVersion": "v22.22.0",
       "platform": "linux",
       "arch": "x64"
     },
@@ -153,55 +153,55 @@
       "metrics": {
         "timing": {
           "n": 800,
-          "mean": 0.11282477749999989,
-          "median": 0.09059450000000879,
-          "p95": 0.2054510000000107,
-          "p99": 0.45930300000000557,
-          "min": 0.06829400000000874,
-          "max": 0.9811590000000194,
-          "stddev": 0.07118812704328271,
-          "cv": 0.630961820804679,
-          "meanCi95Low": 0.10867026499999985,
-          "meanCi95High": 0.11813537499999936
+          "mean": 0.2646597137499987,
+          "median": 0.2055080000000089,
+          "p95": 0.6717710000000068,
+          "p99": 0.8909590000000094,
+          "min": 0.17999500000001944,
+          "max": 1.1083440000000166,
+          "stddev": 0.15271748812435376,
+          "cv": 0.5770333760302214,
+          "meanCi95Low": 0.2553964587499987,
+          "meanCi95High": 0.2754517275000001
         },
         "memBefore": {
-          "rssKb": 64304,
-          "heapUsedKb": 8864,
-          "heapTotalKb": 17960,
-          "externalKb": 1939,
-          "arrayBuffersKb": 168
+          "rssKb": 71596,
+          "heapUsedKb": 9744,
+          "heapTotalKb": 28068,
+          "externalKb": 2049,
+          "arrayBuffersKb": 86
         },
         "memAfter": {
-          "rssKb": 81376,
-          "heapUsedKb": 14866,
-          "heapTotalKb": 32552,
-          "externalKb": 1904,
-          "arrayBuffersKb": 133
+          "rssKb": 99652,
+          "heapUsedKb": 31420,
+          "heapTotalKb": 46244,
+          "externalKb": 2058,
+          "arrayBuffersKb": 185
         },
         "memPeak": {
-          "rssKb": 87648,
-          "heapUsedKb": 26593,
-          "heapTotalKb": 39976,
-          "externalKb": 2235,
-          "arrayBuffersKb": 463
+          "rssKb": 99652,
+          "heapUsedKb": 31420,
+          "heapTotalKb": 46244,
+          "externalKb": 2246,
+          "arrayBuffersKb": 373
         },
-        "rssGrowthKb": 17072,
-        "heapUsedGrowthKb": 6002,
+        "rssGrowthKb": 28056,
+        "heapUsedGrowthKb": 21676,
         "rssSlopeKbPerIter": null,
         "heapUsedSlopeKbPerIter": null,
         "memStable": null,
         "cpu": {
-          "userMs": 131.20600000000002,
-          "systemMs": 17.587999999999997
+          "userMs": 318.20799999999997,
+          "systemMs": 34.279
         },
         "iterations": 800,
-        "totalWallMs": 90.722006,
-        "opsPerSec": 8818.147164867585,
+        "totalWallMs": 213.08038200000001,
+        "opsPerSec": 3754.451688565116,
         "framesProduced": 800,
         "bytesProduced": 5747200
       },
-      "timestamp": "2026-02-16T06:57:58.585Z",
-      "nodeVersion": "v20.19.5",
+      "timestamp": "2026-02-16T08:10:04.161Z",
+      "nodeVersion": "v22.22.0",
       "platform": "linux",
       "arch": "x64"
     },
@@ -215,55 +215,55 @@
       "metrics": {
         "timing": {
           "n": 800,
-          "mean": 0.26352908125000024,
-          "median": 0.22015100000001553,
-          "p95": 0.6459629999999947,
-          "p99": 0.9262669999999957,
-          "min": 0.17140899999998283,
-          "max": 1.5334569999999985,
-          "stddev": 0.15578726030507803,
-          "cv": 0.5911577559718673,
-          "meanCi95Low": 0.2545057762499992,
-          "meanCi95High": 0.27491137999999965
+          "mean": 0.634011616250002,
+          "median": 0.5162965000000099,
+          "p95": 1.5324840000000108,
+          "p99": 2.0287379999999757,
+          "min": 0.42571300000008705,
+          "max": 2.8421220000000176,
+          "stddev": 0.3608315920056282,
+          "cv": 0.5691245755714134,
+          "meanCi95Low": 0.6121057937500001,
+          "meanCi95High": 0.6599321362500022
         },
         "memBefore": {
-          "rssKb": 83656,
-          "heapUsedKb": 9458,
-          "heapTotalKb": 26664,
-          "externalKb": 1820,
-          "arrayBuffersKb": 48
+          "rssKb": 81516,
+          "heapUsedKb": 10501,
+          "heapTotalKb": 28068,
+          "externalKb": 1930,
+          "arrayBuffersKb": 56
         },
         "memAfter": {
-          "rssKb": 128284,
-          "heapUsedKb": 29371,
-          "heapTotalKb": 79656,
-          "externalKb": 1820,
-          "arrayBuffersKb": 49
+          "rssKb": 154428,
+          "heapUsedKb": 39734,
+          "heapTotalKb": 74916,
+          "externalKb": 1930,
+          "arrayBuffersKb": 57
         },
         "memPeak": {
-          "rssKb": 136332,
-          "heapUsedKb": 69042,
-          "heapTotalKb": 88104,
-          "externalKb": 1820,
-          "arrayBuffersKb": 49
+          "rssKb": 154428,
+          "heapUsedKb": 72075,
+          "heapTotalKb": 95140,
+          "externalKb": 1930,
+          "arrayBuffersKb": 57
         },
-        "rssGrowthKb": 44628,
-        "heapUsedGrowthKb": 19913,
+        "rssGrowthKb": 72912,
+        "heapUsedGrowthKb": 29233,
         "rssSlopeKbPerIter": null,
         "heapUsedSlopeKbPerIter": null,
         "memStable": null,
         "cpu": {
-          "userMs": 267.14699999999993,
-          "systemMs": 29.964000000000002
+          "userMs": 688.113,
+          "systemMs": 69.674
         },
         "iterations": 800,
-        "totalWallMs": 211.489891,
-        "opsPerSec": 3782.6867100706954,
+        "totalWallMs": 508.560597,
+        "opsPerSec": 1573.0672111036554,
         "framesProduced": 800,
         "bytesProduced": 3915584
       },
-      "timestamp": "2026-02-16T06:57:58.822Z",
-      "nodeVersion": "v20.19.5",
+      "timestamp": "2026-02-16T08:10:04.576Z",
+      "nodeVersion": "v22.22.0",
       "platform": "linux",
       "arch": "x64"
     },
@@ -277,55 +277,55 @@
       "metrics": {
         "timing": {
           "n": 800,
-          "mean": 0.0668960075000001,
-          "median": 0.04199199999999337,
-          "p95": 0.1597680000000139,
-          "p99": 0.4018700000000024,
-          "min": 0.029821999999995796,
-          "max": 0.9898000000000025,
-          "stddev": 0.07284240508409222,
-          "cv": 1.0888901715710328,
-          "meanCi95Low": 0.06280069249999957,
-          "meanCi95High": 0.07206160375000088
+          "mean": 0.1941018637499995,
+          "median": 0.16234249999999406,
+          "p95": 0.4190100000000143,
+          "p99": 0.4937900000000468,
+          "min": 0.09962600000000066,
+          "max": 0.8208989999999972,
+          "stddev": 0.09698325279806252,
+          "cv": 0.4996513218594109,
+          "meanCi95Low": 0.18804177374999997,
+          "meanCi95High": 0.2005880249999991
         },
         "memBefore": {
-          "rssKb": 63776,
-          "heapUsedKb": 8735,
-          "heapTotalKb": 17704,
-          "externalKb": 1830,
-          "arrayBuffersKb": 58
+          "rssKb": 71980,
+          "heapUsedKb": 9827,
+          "heapTotalKb": 28324,
+          "externalKb": 1939,
+          "arrayBuffersKb": 66
         },
         "memAfter": {
-          "rssKb": 77956,
-          "heapUsedKb": 15193,
-          "heapTotalKb": 35624,
-          "externalKb": 1889,
-          "arrayBuffersKb": 118
+          "rssKb": 93076,
+          "heapUsedKb": 25024,
+          "heapTotalKb": 40100,
+          "externalKb": 1999,
+          "arrayBuffersKb": 126
         },
         "memPeak": {
-          "rssKb": 77956,
-          "heapUsedKb": 23596,
-          "heapTotalKb": 37416,
-          "externalKb": 1889,
-          "arrayBuffersKb": 118
+          "rssKb": 93076,
+          "heapUsedKb": 28553,
+          "heapTotalKb": 40100,
+          "externalKb": 1999,
+          "arrayBuffersKb": 126
         },
-        "rssGrowthKb": 14180,
-        "heapUsedGrowthKb": 6458,
+        "rssGrowthKb": 21096,
+        "heapUsedGrowthKb": 15197,
         "rssSlopeKbPerIter": null,
         "heapUsedSlopeKbPerIter": null,
         "memStable": null,
         "cpu": {
-          "userMs": 107.134,
-          "systemMs": 12.023000000000003
+          "userMs": 260.919,
+          "systemMs": 20.800999999999995
         },
         "iterations": 800,
-        "totalWallMs": 53.926028,
-        "opsPerSec": 14835.136754370264,
+        "totalWallMs": 156.412731,
+        "opsPerSec": 5114.673178361677,
         "framesProduced": 800,
         "bytesProduced": 660640
       },
-      "timestamp": "2026-02-16T06:57:59.221Z",
-      "nodeVersion": "v20.19.5",
+      "timestamp": "2026-02-16T08:10:05.372Z",
+      "nodeVersion": "v22.22.0",
       "platform": "linux",
       "arch": "x64"
     }
