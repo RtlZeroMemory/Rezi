@@ -10,9 +10,18 @@ import {
   type NodeBackendConfig,
   createNodeBackendInternal,
 } from "./backend/nodeBackend.js";
+import { createReproRecorder } from "./repro/index.js";
 
 export type { NodeBackendConfig };
 export type { NodeBackend };
+export type {
+  CreateReproRecorderOptions,
+  ReproRecorder,
+  ReproRecorderBackendCapsOverrides,
+  ReproRecorderBounds,
+  ReproRecorderBuildResult,
+} from "./repro/index.js";
+export { createReproRecorder };
 
 export type NodeAppConfig = Readonly<
   AppConfig & Omit<NodeBackendConfig, "fpsCap" | "maxEventBytes" | "useDrawlistV2">

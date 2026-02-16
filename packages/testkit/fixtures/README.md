@@ -14,6 +14,7 @@ Fixtures live in `@rezi-ui/testkit` so that:
 - `layout/` — layout determinism fixtures (`*.json`)
 - `focus/` — focus traversal golden fixtures (`*.json`)
 - `routing/` — routing order fixtures (`*.json`)
+- `repro/` — record/replay bundle fixtures (`*.json`)
 
 ## Naming conventions
 
@@ -97,3 +98,17 @@ type HitTestCase = {
 
 type HitTestFixture = { schemaVersion: 1; cases: HitTestCase[] };
 ```
+
+### Repro replay: `repro/*.json`
+
+Files:
+- `repro/replay_resize_tab_text.json`
+
+Schema:
+```ts
+type ReproFixture = ReproBundleV1;
+```
+
+Notes:
+- Fixtures are full `rezi-repro-v1` bundles, not partial fragments.
+- `eventCapture.batches[*].bytesHex` stores the original ZREV bytes for deterministic replay.

@@ -1,0 +1,87 @@
+{
+  "schema": "rezi-repro-v1",
+  "captureConfig": {
+    "captureRawEvents": true,
+    "captureDrawlistBytes": false,
+    "maxEventBytes": 4096,
+    "maxDrawlistBytes": 0,
+    "maxFrames": 8,
+    "fpsCap": 60,
+    "cursorProtocolVersion": 2
+  },
+  "capsSnapshot": {
+    "terminalCaps": null,
+    "backendCaps": {
+      "maxEventBytes": 4096,
+      "fpsCap": 60,
+      "cursorProtocolVersion": 2
+    }
+  },
+  "timingModel": {
+    "kind": "deterministic",
+    "clock": "monotonic-ms",
+    "replayStrategy": "recorded-delta",
+    "timeUnit": "ms",
+    "baseTimeMs": 0
+  },
+  "eventCapture": {
+    "ordering": "poll-order",
+    "timing": "step-delta-ms",
+    "bounds": {
+      "maxBatches": 8,
+      "maxEvents": 32,
+      "maxBytes": 2048
+    },
+    "totals": {
+      "capturedBatches": 3,
+      "capturedEvents": 3,
+      "capturedBytes": 160,
+      "runtimeDroppedBatches": 0,
+      "omittedBatches": 0,
+      "omittedEvents": 0,
+      "omittedBytes": 0
+    },
+    "truncation": {
+      "mode": "drop-tail-batch",
+      "truncated": false,
+      "reason": null,
+      "firstOmittedStep": null
+    },
+    "batches": [
+      {
+        "step": 0,
+        "deltaMs": 0,
+        "byteLength": 56,
+        "bytesHex": "5a52455601000000380000000100000000000000000000000500000020000000881300000000000050000000180000000000000000000000",
+        "eventCount": 1,
+        "droppedBatches": 0,
+        "resizeEvents": [
+          {
+            "eventIndex": 0,
+            "cols": 80,
+            "rows": 24,
+            "timeMs": 5000
+          }
+        ]
+      },
+      {
+        "step": 1,
+        "deltaMs": 16,
+        "byteLength": 56,
+        "bytesHex": "5a52455601000000380000000100000000000000000000000100000020000000020000000000000003000000000000000100000000000000",
+        "eventCount": 1,
+        "droppedBatches": 0,
+        "resizeEvents": []
+      },
+      {
+        "step": 2,
+        "deltaMs": 16,
+        "byteLength": 48,
+        "bytesHex": "5a52455601000000300000000100000000000000000000000200000018000000d0070000000000004100000000000000",
+        "eventCount": 1,
+        "droppedBatches": 0,
+        "resizeEvents": []
+      }
+    ]
+  }
+}
