@@ -214,6 +214,51 @@ These behaviors are guaranteed by the current layout engine and validation pipel
 - If both `width` and `height` are already resolved, `aspectRatio` does not override them.
 - After derivation, min/max constraints clamp the chosen size, then final size is capped by available bounds and non-negative clamping.
 
+## Layout Stability & Caching
+
+### Stability signatures (commit-time relayout checks)
+
+- On commit turns with `checkLayoutStability: true`, the renderer compares per-instance layout signatures against the previous committed tree.
+- Signature coverage is currently limited to: `text`, `button`, `input`, `spacer`, `divider`, `row`, `column`, and `box`.
+- `row`/`column` signatures include layout constraints, spacing, `pad`, `gap`, `align`, `justify`, `items`, and child order (child instance ID sequence).
+- `box` signatures include layout constraints, spacing, border/title props, and child order.
+- `text`/`button`/`input` signatures track intrinsic width inputs (`text` + `maxWidth`, button `label` + `px`, input `value`).
+
+Intentionally excluded:
+
+- Render-only/style props are excluded from signature checks.
+- Routing/identity-only props that do not affect geometry (for example `button` `id`) are excluded.
+- Text is tracked by width impact, not full content identity; equal-width edits do not force relayout.
+
+Conservative fallback:
+
+- Unsupported widget kinds or unhashable tracked prop values force relayout for that turn.
+- On fallback, cached signature maps are cleared before continuing.
+
+### Measure cache design
+
+- `layout(...)` accepts an optional shared measure cache: `WeakMap<VNode, unknown>`.
+- Cache identity key is the VNode object; lookups are then bucketed by `(axis, maxW, maxH)`.
+- Internally this is: `VNode -> (row|column) -> maxW -> maxH -> LayoutResult<Size>`.
+- Same VNode identity + same axis + same constraints hits; changing any of those misses.
+- Structurally equal but distinct VNode objects do not share entries.
+- On commit+layout turns, the renderer resets its shared WeakMap to avoid stale cross-identity reuse.
+
+### Performance characteristics
+
+- Full layout computation is O(N) in visited nodes.
+- Signature comparison is O(N) when enabled.
+- When signatures are stable, the expensive `layout(...)` pass is skipped; the skip decision and reuse of the prior layout tree are O(1).
+- After a commit with skipped layout, damage-rect indexes are refreshed by walking runtime nodes.
+
+### Clarified invariants and edge cases
+
+- The first signature pass against an empty previous map reports changed (bootstrap relayout).
+- Child add/remove/reorder in `row`/`column`/`box` is always detected as layout-relevant.
+- Style-only changes on `text`/`row`/`box` do not trigger relayout.
+- `button` `id`-only changes do not trigger relayout; label/padding changes do.
+- If any committed node is outside signature coverage, relayout is forced conservatively.
+
 ## Borders
 
 `ui.box` can draw a border around its content:
