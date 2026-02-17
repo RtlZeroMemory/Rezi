@@ -156,6 +156,64 @@ ui.row({ gap: 1 }, [
 ]);
 ```
 
+## Layout Invariants
+
+These behaviors are guaranteed by the current layout engine and validation pipeline.
+
+### Coordinate system and int32 bounds
+
+- Rects are in terminal cell units: `x`, `y`, `w`, `h` with origin at top-left.
+- `layout(node, x, y, maxW, maxH, axis)` requires `x/y` to be int32 and `maxW/maxH` to be int32 `>= 0`.
+- `measure(node, maxW, maxH, axis)` requires `maxW/maxH` to be int32 `>= 0`.
+- Integer-valued size/spacing inputs are int32-bounded (signed for margins, non-negative where required). Out-of-range values fail with deterministic `ZRUI_INVALID_PROPS` rather than being wrapped.
+- Computed leaf rects are validated as int32 cells.
+
+### Non-negative dimension clamping
+
+- Width/height never go negative; dimension math uses non-negative clamps after subtraction steps (margin, border, padding, remaining space).
+- Final node sizes are bounded by available `maxW/maxH` and clamped to `>= 0`.
+
+### Two-phase measure -> layout behavior
+
+- `measure(...)` computes size only; it does not assign positions.
+- `layout(...)` measures first, then places nodes using the measured/forced size.
+- In `row`/`column`, if any child has main-axis `%` sizing or `flex > 0`, layout runs a constraint pass first (resolve main sizes, then place children with resolved sizes).
+- If that trigger is absent, stacks use the greedy path (measure in child order and place directly).
+- Even when remaining space reaches zero, the subtree is still measured with zero constraints for deterministic validation.
+
+### Flex distribution rules
+
+- Only children with `flex > 0` participate in flex allocation.
+- Fixed-size and non-flex children consume space before flex allocation.
+- Remaining space is distributed proportionally to flex weights, using integer cells: floor base shares first, then remainder cells by largest fractional share (ties by lower child index).
+- Per-child max constraints are enforced during distribution; leftover space is redistributed iteratively to still-active flex items.
+- No flex distribution occurs when remaining space is `0` or when effective total flex is `<= 0`.
+- Min constraints are a best-effort top-up after proportional allocation, only while space remains.
+
+### Percentage resolution, flooring, and clamping
+
+- Percentage constraints resolve with flooring: `floor(parentSize * percent / 100)`.
+- Percentages resolve against the parent size provided to constraint resolution for that axis (stack content bounds in stacks; box content bounds for boxed children).
+- Resolved percent values are then clamped by min/max constraints and by the currently available space.
+- Main-axis percentages in stacks trigger the constraint-pass path before final placement.
+
+### Margin behavior and interactions
+
+- Margin precedence is side -> axis -> all: `ml/mr/mt/mb` overrides `mx/my`, which overrides `m`.
+- Margins are outside the widget rect and affect both measured outer size and positioned offset.
+- Positive margins reserve outer space.
+- Negative margins are allowed (signed int32): they can move `x/y` negative and can expand computed rect size after subtraction.
+- Padding and borders are applied inside the margin-adjusted rect.
+
+### Aspect ratio resolution order
+
+- `width`/`height` are resolved first (number or percent; `"auto"` behaves as unspecified here).
+- If `aspectRatio > 0` and exactly one axis is resolved, the other is derived with flooring:
+  - `height = floor(width / aspectRatio)`
+  - `width = floor(height * aspectRatio)`
+- If both `width` and `height` are already resolved, `aspectRatio` does not override them.
+- After derivation, min/max constraints clamp the chosen size, then final size is capped by available bounds and non-negative clamping.
+
 ## Borders
 
 `ui.box` can draw a border around its content:
