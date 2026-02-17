@@ -10,9 +10,9 @@ Rezi is a code-first terminal UI framework for Node.js and Bun. It provides a de
 
 No. While Rezi uses a declarative widget tree similar to React's component model, it has a fundamentally different architecture:
 
-- No virtual DOM diffing
-- No hooks or component lifecycle
-- Binary protocol boundary with a native C engine
+- No virtual DOM diffing — rendering goes through a binary drawlist protocol to a native C engine
+- No React-style component lifecycle — the root `view` function is pure and stateless; stateful reusable widgets use `defineWidget` with hooks (`useState`, `useRef`, `useEffect`)
+- Binary protocol boundary with the Zireael C engine for terminal I/O
 - Deterministic rendering with no side effects in the view function
 
 Rezi is designed specifically for terminal UIs, not as a React port.
@@ -161,9 +161,7 @@ ui.layers([
 For small lists, use `ui.column()` with mapped items:
 
 ```typescript
-ui.column(items.map((item) =>
-  ui.text(item.name, { key: item.id })
-))
+ui.column({}, items.map((item) => ui.text(item.name, { key: item.id })))
 ```
 
 For large lists (hundreds or thousands of items), use `ui.virtualList()`:
@@ -184,23 +182,28 @@ ui.virtualList({
 
 Enable the debug controller:
 
+For normal apps, use `createNodeApp()`. `createNodeBackend()` is used here only
+for advanced debug-controller wiring.
+
 ```typescript
 import { createDebugController, categoriesToMask } from "@rezi-ui/core";
+import { createNodeBackend } from "@rezi-ui/node";
 
-const debug = createDebugController();
+const backend = createNodeBackend();
+const debug = createDebugController({ backend: backend.debug });
 await debug.enable({
   minSeverity: "info",
   categoryMask: categoriesToMask(["frame", "error"]),
 });
 
-// Listen for errors
-debug.on("error", (err) => console.error(err));
+// Pull recent records on demand:
+const records = await debug.query({ maxRecords: 200 });
 ```
 
 Use the debug panel widget:
 
 ```typescript
-import { debugPanel, fpsCounter, errorBadge } from "@rezi-ui/core";
+import { debugPanel } from "@rezi-ui/core";
 
 ui.layers([
   MainContent(),

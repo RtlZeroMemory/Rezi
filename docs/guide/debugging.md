@@ -4,12 +4,20 @@ Rezi includes a debug trace system for diagnosing rendering, events, and perform
 
 ## Debug Controller
 
-Create a debug controller to capture and analyze runtime behavior:
+Create a debug controller to capture and analyze runtime behavior. For regular
+apps, prefer `createNodeApp()`. `createNodeBackend()` is used here only to
+access the backend debug interface.
 
 ```typescript
 import { createDebugController, categoriesToMask, perfPhaseFromNum } from "@rezi-ui/core";
+import { createNodeBackend } from "@rezi-ui/node";
 
-const debug = createDebugController({ maxFrames: 1000 });
+const backend = createNodeBackend();
+const debug = createDebugController({
+  backend: backend.debug,
+  terminalCapsProvider: () => backend.getCaps(),
+  maxFrames: 1000,
+});
 
 // Enable tracing with specific categories
 await debug.enable({
@@ -17,16 +25,14 @@ await debug.enable({
   categoryMask: categoriesToMask(["frame", "error", "perf"]),
 });
 
-// Subscribe to errors
-debug.on("error", (err) => console.error(err.message));
-
-// Subscribe to all records
-debug.on("record", (record) => {
+// Query recent records on demand
+const records = await debug.query({ maxRecords: 200 });
+for (const record of records) {
   if (record.header.category === "perf" && record.payload && "usElapsed" in record.payload) {
     const phase = perfPhaseFromNum(record.payload.phase) ?? `phase_${record.payload.phase}`;
     console.log(`${phase}: ${(record.payload.usElapsed / 1000).toFixed(2)}ms`);
   }
-});
+}
 ```
 
 ## Enable Inspector Overlay
@@ -56,7 +62,7 @@ const app = createAppWithInspectorOverlay({
   initialState: { ready: true },
   inspector: {
     hotkey: "ctrl+shift+i",
-    debug, // auto-populates drawlist/diff/us_* timing rows from frame snapshots
+    debug, // optional: used for frame timing rows when snapshots are available
   },
 });
 ```
@@ -80,7 +86,7 @@ import { createNodeBackend } from "@rezi-ui/node";
 const backend = createNodeBackend();
 const debug = createDebugController({
   backend: backend.debug,
-  terminalCapsProvider: () => backend.getCaps(), // Optional
+  terminalCapsProvider: () => backend.getCaps(),
 });
 
 await debug.enable({
@@ -162,6 +168,46 @@ Filter by minimum severity:
 await debug.enable({ minSeverity: "warn" });
 ```
 
+## Feeding Records (Optional)
+
+`frameInspector`, `eventTrace`, `errors`, and `on("record")` are populated by `debug.processRecords(...)`.
+`debug.query()` returns parsed records but does not update these helpers.
+
+In Node/Bun you can pull headers/payloads from the backend and feed them into the controller:
+
+```typescript
+import { DEBUG_RECORD_HEADER_SIZE, parseRecordHeader } from "@rezi-ui/core/debug";
+
+let nextRecordId: bigint | undefined;
+
+async function pumpDebugRecords(): Promise<void> {
+  const { headers, result } = await backend.debug.debugQuery({
+    ...(nextRecordId !== undefined ? { minRecordId: nextRecordId } : {}),
+    maxRecords: 512,
+  });
+
+  const payloads = new Map<bigint, Uint8Array>();
+
+  for (let i = 0; i < result.recordsReturned; i++) {
+    const offset = i * DEBUG_RECORD_HEADER_SIZE;
+    const parsed = parseRecordHeader(headers, offset);
+    if (!parsed.ok) continue;
+    const h = parsed.value;
+
+    if (h.payloadSize > 0) {
+      const bytes = await backend.debug.debugGetPayload(h.recordId);
+      if (bytes) payloads.set(h.recordId, bytes);
+    }
+  }
+
+  if (result.recordsReturned > 0) {
+    nextRecordId = result.newestRecordId + 1n;
+  }
+
+  debug.processRecords(headers, payloads);
+}
+```
+
 ## Frame Inspector
 
 Analyze frame metrics and compare frames:
@@ -233,27 +279,16 @@ errors.clear();
 
 ## State Timeline
 
-Track application state changes:
-
-```typescript
-const timeline = debug.stateTimeline;
-
-// Get state history
-const history = timeline.getHistory(20);
-for (const entry of history) {
-  console.log(`State change at ${entry.timestamp}`);
-  for (const change of entry.changes) {
-    console.log(`  ${change.path}: ${change.from} -> ${change.to}`);
-  }
-}
-```
+`StateTimeline` is a TypeScript-side helper and is not populated automatically.
+If you want to use it, record changes from your own state management layer via
+`debug.stateTimeline.recordChange(...)` (or use `createStateTimeline()` directly).
 
 ## Debug Panel Widget
 
 Display debug information in your UI:
 
 ```typescript
-import { debugPanel, fpsCounter, errorBadge } from "@rezi-ui/core";
+import { debugPanel, errorBadge, fpsCounter } from "@rezi-ui/core";
 
 app.view((state) =>
   ui.column({}, [
@@ -261,32 +296,33 @@ app.view((state) =>
 
     // Debug panel in corner
     debugPanel({
-      debug,
+      stats: state.debugStats,
+      fps: state.fps,
+      frameTimeMs: state.frameTimeMs,
       position: "bottom-right",
     }),
 
     // Or individual components
-    fpsCounter({ debug }),
-    errorBadge({ debug }),
+    fpsCounter(state.fps),
+    errorBadge(state.errorCount),
   ])
 );
 ```
 
 ## Performance Instrumentation
 
-Track specific phases of your application:
+Perf instrumentation is opt-in via `REZI_PERF=1` (returns an empty snapshot when disabled):
 
 ```typescript
-import { perfMarkStart, perfMarkEnd, perfSnapshot } from "@rezi-ui/core";
+import { PERF_PHASES, perfSnapshot } from "@rezi-ui/core";
 
-// Mark a phase
-const token = perfMarkStart("data-fetch");
-await fetchData();
-perfMarkEnd(token);
-
-// Get performance snapshot
 const snapshot = perfSnapshot();
-console.log(`Data fetch: avg ${snapshot.phases["data-fetch"].avgMs}ms`);
+for (const phase of PERF_PHASES) {
+  const stats = snapshot.phases[phase];
+  if (stats) {
+    console.log(`${phase}: avg=${stats.avg.toFixed(2)}ms p95=${stats.p95.toFixed(2)}ms`);
+  }
+}
 ```
 
 ## Debug Configuration

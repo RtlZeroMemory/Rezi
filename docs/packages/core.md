@@ -114,12 +114,20 @@ Builders and parsers for the Zireael engine binary formats:
 
 ### Debug System
 
-Performance instrumentation and frame inspection:
+Performance instrumentation and frame inspection. For standard app entrypoints,
+prefer `createNodeApp()`. `createNodeBackend()` is used here only for advanced
+debug-controller wiring.
 
 ```typescript
 import { createDebugController, categoriesToMask } from "@rezi-ui/core";
+import { createNodeBackend } from "@rezi-ui/node";
 
-const debug = createDebugController({ maxFrames: 1000 });
+const backend = createNodeBackend();
+const debug = createDebugController({
+  backend: backend.debug,
+  terminalCapsProvider: () => backend.getCaps(),
+  maxFrames: 1000,
+});
 await debug.enable({
   minSeverity: "info",
   categoryMask: categoriesToMask(["frame", "error", "perf"]),
@@ -132,7 +140,7 @@ await debug.enable({
 
 | Export | Description |
 |--------|-------------|
-| `createApp` | Create application instance |
+| `createApp` | Create application instance (low-level; prefer `createNodeApp` from `@rezi-ui/node`) |
 | `App` | Application interface type |
 | `AppConfig` | Configuration options |
 
@@ -223,8 +231,8 @@ This package enforces strict runtime constraints:
 **Deterministic Behavior**
 : Same inputs must produce identical outputs. No random values, no time-dependent behavior in the core logic.
 
-**No Exceptions for Control Flow**
-: Failures return `Result<T>` types, not thrown exceptions.
+**Explicit results for binary APIs**
+: Parsers and builders return result objects (`ParseResult`, `DrawlistBuildResult`) rather than throwing on malformed input.
 
 ## TypeScript Configuration
 

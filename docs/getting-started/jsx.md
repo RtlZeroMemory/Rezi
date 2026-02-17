@@ -26,14 +26,15 @@ Rezi provides a JSX runtime (`@rezi-ui/jsx`) that lets you write widget trees us
 ```tsx
 import { rgb } from "@rezi-ui/core";
 import { createNodeApp } from "@rezi-ui/node";
+import { Button, Column, Divider, Row, Text } from "@rezi-ui/jsx";
 
 type State = { count: number };
 
 const app = createNodeApp<State>({
-    initialState: { count: 0 },
+  initialState: { count: 0 },
 });
 
-app.view((state) =>
+app.view((state) => (
   <Column p={1} gap={1}>
     <Text style={{ fg: rgb(120, 200, 255), bold: true }}>Counter</Text>
     <Row gap={2}>
@@ -43,7 +44,7 @@ app.view((state) =>
     <Divider />
     <Text style={{ dim: true }}>Press q to quit</Text>
   </Column>
-);
+));
 
 app.keys({
   q: () => app.stop(),
@@ -54,9 +55,9 @@ await app.start();
 
 ## Available JSX elements
 
-All `ui.*` widget functions are available as JSX intrinsic elements. The JSX element name matches the `ui.*` function name with a capital first letter:
+`@rezi-ui/jsx` exports one component per widget (`Text`, `Box`, `Column`, etc). Props match the corresponding `ui.*` function.
 
-| `ui.*` API | JSX element |
+| `ui.*` API | JSX component |
 |---|---|
 | `ui.text(...)` | `<Text>` |
 | `ui.box(...)` | `<Box>` |
@@ -66,7 +67,9 @@ All `ui.*` widget functions are available as JSX intrinsic elements. The JSX ele
 | `ui.input(...)` | `<Input>` |
 | `ui.table(...)` | `<Table>` |
 | `ui.modal(...)` | `<Modal>` |
-| ... | (all 50+ widgets) |
+| ... | (all 49 widgets) |
+
+Lowercase intrinsic elements are also supported (for example `<column>` and `<text>`). These map directly to the `ui.*` names and do not require importing components.
 
 ## JSX vs `ui.*` API
 

@@ -115,7 +115,7 @@ nav:
       - Record & Replay: guide/record-replay.md
   - Widgets:
       - Overview: widgets/index.md
-      - Stability Tiers: widgets/stability.md
+      - Stability: widgets/stability.md
       - Primitives:
           - Text: widgets/text.md
           - Box: widgets/box.md
@@ -188,6 +188,7 @@ nav:
       - Data Table: recipes/data-table.md
   - Architecture:
       - Overview: architecture/index.md
+      - Terminal I/O Contract: terminal-io-contract.md
       - Backend:
           - Node Backend: backend/node.md
           - Worker Model: backend/worker-model.md
@@ -196,7 +197,6 @@ nav:
           - Terminal Caps: backend/terminal-caps.md
       - Protocol:
           - Overview: protocol/index.md
-          - Terminal I/O Contract: terminal-io-contract.md
           - Event Batches (ZREV): protocol/zrev.md
           - Drawlists (ZRDL): protocol/zrdl.md
           - Cursor (v2): protocol/cursor-v2.md

@@ -1,27 +1,28 @@
 # Rezi
 
-Rezi is a **code-first terminal UI framework** for Node.js and Bun. Build interactive terminal applications with a declarative widget API, automatic focus management, and native-backed rendering.
+Rezi is a **code-first terminal UI framework** for Node.js and Bun. Build interactive terminal applications with a declarative widget API, automatic focus management, and native-backed rendering through the [Zireael](https://github.com/RtlZeroMemory/Zireael) C engine.
 
 ```typescript
 import { ui, rgb } from "@rezi-ui/core";
 import { createNodeApp } from "@rezi-ui/node";
 
-const app = createNodeApp({
+const app = createNodeApp<{ count: number }>({
   initialState: { count: 0 },
-  config: { fpsCap: 60, maxEventBytes: 1 << 20, useV2Cursor: false },
 });
 
 app.view((state) =>
   ui.column({ p: 1, gap: 1 }, [
     ui.text("Counter", { style: { fg: rgb(120, 200, 255), bold: true } }),
-    ui.button({
-      id: "inc",
-      label: `Count: ${state.count} (+1)`,
-      onPress: () => app.update((s) => ({ count: s.count + 1 })),
-    }),
+    ui.row({ gap: 2 }, [
+      ui.text(`Count: ${state.count}`),
+      ui.button("inc", "+1", {
+        onPress: () => app.update((s) => ({ count: s.count + 1 })),
+      }),
+    ]),
   ])
 );
 
+app.keys({ q: () => app.stop() });
 await app.start();
 ```
 
@@ -31,7 +32,7 @@ await app.start();
 : Define your UI as a function of state. Full TypeScript support with strict typing for props, state, and events.
 
 **Rich Widget Library**
-: 50+ widgets covering forms, tables, trees, modals, code editors, command palettes, charts, and more.
+: 49 built-in widgets covering forms, tables, trees, modals, code editors, command palettes, charts, and more.
 
 **Native Performance**
 : Powered by the Zireael C engine with a binary protocol boundary. No virtual DOM diffing overhead.
@@ -78,7 +79,7 @@ flowchart TB
 |-------|---------|
 | **@rezi-ui/core** | Widgets, layout, themes, forms, keybindings. No Node.js APIs. |
 | **@rezi-ui/node** | Node.js/Bun backend with worker and inline execution modes. |
-| **@rezi-ui/native** | napi-rs binding to the Zireael C rendering engine. |
+| **@rezi-ui/native** | N-API addon (napi-rs) binding to the Zireael C rendering engine. |
 | **@rezi-ui/jsx** | Optional JSX runtime for widget trees. |
 
 ## Getting Started
