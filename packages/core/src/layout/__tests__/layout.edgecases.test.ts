@@ -125,6 +125,98 @@ describe("layout edge cases", () => {
     assert.deepEqual(laidOut.value.rect, { x: 0, y: 0, w: 0, h: 2 });
   });
 
+  test("row/column tolerate sparse children arrays without throwing", () => {
+    const sparseRow = {
+      kind: "row",
+      props: {},
+      children: Object.freeze([{ kind: "text", text: "A", props: {} }, undefined]),
+    } as unknown as VNode;
+    const rowLayout = layout(sparseRow, 0, 0, 10, 5, "row");
+    assert.equal(rowLayout.ok, true, "row with sparse children should not throw");
+    if (rowLayout.ok) {
+      assert.equal(rowLayout.value.children.length, 1);
+      assert.equal(rowLayout.value.children[0]?.rect.w, 1);
+    }
+
+    const sparseColumn = {
+      kind: "column",
+      props: {},
+      children: Object.freeze([{ kind: "text", text: "B", props: {} }, undefined]),
+    } as unknown as VNode;
+    const columnLayout = layout(sparseColumn, 0, 0, 10, 5, "column");
+    assert.equal(columnLayout.ok, true, "column with sparse children should not throw");
+    if (columnLayout.ok) {
+      assert.equal(columnLayout.value.children.length, 1);
+      assert.equal(columnLayout.value.children[0]?.rect.h, 1);
+    }
+  });
+
+  test("sparse children do not consume justify/gap slots", () => {
+    const sparseRow = {
+      kind: "row",
+      props: { width: 10, gap: 1, justify: "end" },
+      children: Object.freeze([{ kind: "text", text: "A", props: {} }, undefined]),
+    } as unknown as VNode;
+    const rowLayout = layout(sparseRow, 0, 0, 10, 3, "row");
+    assert.equal(rowLayout.ok, true, "row with sparse children should layout");
+    if (rowLayout.ok) {
+      assert.equal(rowLayout.value.children.length, 1);
+      assert.deepEqual(rowLayout.value.children[0]?.rect, { x: 9, y: 0, w: 1, h: 1 });
+    }
+
+    const sparseColumn = {
+      kind: "column",
+      props: { height: 10, gap: 1, justify: "end" },
+      children: Object.freeze([{ kind: "text", text: "B", props: {} }, undefined]),
+    } as unknown as VNode;
+    const columnLayout = layout(sparseColumn, 0, 0, 3, 10, "column");
+    assert.equal(columnLayout.ok, true, "column with sparse children should layout");
+    if (columnLayout.ok) {
+      assert.equal(columnLayout.value.children.length, 1);
+      assert.deepEqual(columnLayout.value.children[0]?.rect, { x: 0, y: 9, w: 1, h: 1 });
+    }
+  });
+
+  test("sparse children do not consume flex/percent constraint slots", () => {
+    const sparseFlexRow = {
+      kind: "row",
+      props: { width: 10, gap: 1 },
+      children: Object.freeze([
+        { kind: "box", props: { border: "none", flex: 1 }, children: Object.freeze([]) },
+        undefined,
+        { kind: "box", props: { border: "none", flex: 1 }, children: Object.freeze([]) },
+      ]),
+    } as unknown as VNode;
+    const rowLayout = layout(sparseFlexRow, 0, 0, 10, 3, "row");
+    assert.equal(rowLayout.ok, true, "row constraint pass with sparse children should layout");
+    if (rowLayout.ok) {
+      assert.equal(rowLayout.value.children.length, 2);
+      assert.deepEqual(rowLayout.value.children[0]?.rect, { x: 0, y: 0, w: 5, h: 0 });
+      assert.deepEqual(rowLayout.value.children[1]?.rect, { x: 6, y: 0, w: 4, h: 0 });
+    }
+
+    const sparsePercentColumn = {
+      kind: "column",
+      props: { height: 10, gap: 1 },
+      children: Object.freeze([
+        { kind: "box", props: { border: "none", height: "50%" }, children: Object.freeze([]) },
+        undefined,
+        { kind: "box", props: { border: "none", height: "50%" }, children: Object.freeze([]) },
+      ]),
+    } as unknown as VNode;
+    const columnLayout = layout(sparsePercentColumn, 0, 0, 3, 10, "column");
+    assert.equal(
+      columnLayout.ok,
+      true,
+      "column constraint pass with sparse children should layout",
+    );
+    if (columnLayout.ok) {
+      assert.equal(columnLayout.value.children.length, 2);
+      assert.deepEqual(columnLayout.value.children[0]?.rect, { x: 0, y: 0, w: 0, h: 5 });
+      assert.deepEqual(columnLayout.value.children[1]?.rect, { x: 0, y: 6, w: 0, h: 4 });
+    }
+  });
+
   test("hit testing respects ancestor clip bounds", () => {
     const child: VNode = { kind: "button", props: { id: "clipped-btn", label: "Click" } };
     const root: VNode = {

@@ -38,6 +38,15 @@ type LayoutNodeFn = (
   forcedH?: number | null,
 ) => LayoutResult<LayoutTree>;
 
+function countNonEmptyChildren(children: readonly (VNode | undefined)[]): number {
+  let count = 0;
+  for (const child of children) {
+    if (!child) continue;
+    count++;
+  }
+  return count;
+}
+
 export function measureStackKinds(
   vnode: VNode,
   maxW: number,
@@ -80,6 +89,7 @@ export function measureStackKinds(
       const fillMain = forcedW === null && hasPercentInMainAxis;
       const fillCross =
         forcedH === null && vnode.children.some((c) => childHasPercentInCrossAxis(c, "row"));
+      const childCount = countNonEmptyChildren(vnode.children);
 
       const outerWLimit = forcedW ?? maxWCap;
       const outerHLimit = forcedH ?? maxHCap;
@@ -92,7 +102,7 @@ export function measureStackKinds(
 
       if (needsConstraintPass) {
         const parentRect: Rect = { x: 0, y: 0, w: cw, h: chLimit };
-        const gapTotal = vnode.children.length <= 1 ? 0 : gap * (vnode.children.length - 1);
+        const gapTotal = childCount <= 1 ? 0 : gap * (childCount - 1);
         const availableForChildren = clampNonNegative(cw - gapTotal);
 
         const mainSizes = new Array(vnode.children.length).fill(0);
@@ -198,14 +208,14 @@ export function measureStackKinds(
         for (let i = 0; i < mainSizes.length; i++) {
           usedMainInConstraintPass += mainSizes[i] ?? 0;
         }
-        usedMainInConstraintPass +=
-          vnode.children.length <= 1 ? 0 : gap * (vnode.children.length - 1);
+        usedMainInConstraintPass += childCount <= 1 ? 0 : gap * (childCount - 1);
       } else {
         let remainingWidth = cw;
         let cursorX = 0;
         let laidOutCount = 0;
 
         for (const child of vnode.children) {
+          if (!child) continue;
           if (remainingWidth === 0) {
             // Still validate subtree deterministically, even if it gets assigned {w:0,h:0}.
             const zeroRes = measureNode(child, 0, 0, "row");
@@ -284,6 +294,7 @@ export function measureStackKinds(
       const fillMain = forcedH === null && hasPercentInMainAxis;
       const fillCross =
         forcedW === null && vnode.children.some((c) => childHasPercentInCrossAxis(c, "column"));
+      const childCount = countNonEmptyChildren(vnode.children);
 
       const outerWLimit = forcedW ?? maxWCap;
       const outerHLimit = forcedH ?? maxHCap;
@@ -296,7 +307,7 @@ export function measureStackKinds(
 
       if (needsConstraintPass) {
         const parentRect: Rect = { x: 0, y: 0, w: cw, h: ch };
-        const gapTotal = vnode.children.length <= 1 ? 0 : gap * (vnode.children.length - 1);
+        const gapTotal = childCount <= 1 ? 0 : gap * (childCount - 1);
         const availableForChildren = clampNonNegative(ch - gapTotal);
 
         const mainSizes = new Array(vnode.children.length).fill(0);
@@ -402,14 +413,14 @@ export function measureStackKinds(
         for (let i = 0; i < mainSizes.length; i++) {
           usedMainInConstraintPass += mainSizes[i] ?? 0;
         }
-        usedMainInConstraintPass +=
-          vnode.children.length <= 1 ? 0 : gap * (vnode.children.length - 1);
+        usedMainInConstraintPass += childCount <= 1 ? 0 : gap * (childCount - 1);
       } else {
         let remainingHeight = ch;
         let cursorY = 0;
         let laidOutCount = 0;
 
         for (const child of vnode.children) {
+          if (!child) continue;
           if (remainingHeight === 0) {
             // Still validate subtree deterministically, even if it gets assigned {w:0,h:0}.
             const zeroRes = measureNode(child, 0, 0, "column");
@@ -490,6 +501,7 @@ export function layoutStackKinds(
       const ch = clampNonNegative(stackH - spacing.top - spacing.bottom);
 
       const count = vnode.children.length;
+      const childCount = countNonEmptyChildren(vnode.children);
       const children: LayoutTree[] = [];
 
       const needsConstraintPass = vnode.children.some(
@@ -517,12 +529,13 @@ export function layoutStackKinds(
         for (let i = 0; i < mainSizes.length; i++) {
           usedMain += mainSizes[i] ?? 0;
         }
-        usedMain += count <= 1 ? 0 : gap * (count - 1);
+        usedMain += childCount <= 1 ? 0 : gap * (childCount - 1);
         const extra = clampNonNegative(cw - usedMain);
-        const startOffset = computeJustifyStartOffset(justify, extra, count);
+        const startOffset = computeJustifyStartOffset(justify, extra, childCount);
 
         let cursorX = cx + startOffset;
         let remainingWidth = clampNonNegative(cw - startOffset);
+        let childOrdinal = 0;
 
         for (let i = 0; i < count; i++) {
           const child = vnode.children[i];
@@ -532,6 +545,7 @@ export function layoutStackKinds(
             const childRes = layoutNode(child, cursorX, cy, 0, 0, "row");
             if (!childRes.ok) return childRes;
             children.push(childRes.value);
+            childOrdinal++;
             continue;
           }
 
@@ -561,14 +575,18 @@ export function layoutStackKinds(
           if (!childRes.ok) return childRes;
           children.push(childRes.value);
 
-          const extraGap = i < count - 1 ? computeJustifyExtraGap(justify, extra, count, i) : 0;
-          const step = childW + (i < count - 1 ? gap + extraGap : 0);
+          const hasNextChild = childOrdinal < childCount - 1;
+          const extraGap = hasNextChild
+            ? computeJustifyExtraGap(justify, extra, childCount, childOrdinal)
+            : 0;
+          const step = childW + (hasNextChild ? gap + extraGap : 0);
           cursorX = cursorX + step;
           remainingWidth = clampNonNegative(remainingWidth - step);
+          childOrdinal++;
         }
       } else {
         const parentRect: Rect = { x: 0, y: 0, w: cw, h: ch };
-        const gapTotal = vnode.children.length <= 1 ? 0 : gap * (vnode.children.length - 1);
+        const gapTotal = childCount <= 1 ? 0 : gap * (childCount - 1);
         const availableForChildren = clampNonNegative(cw - gapTotal);
 
         const mainSizes = new Array(vnode.children.length).fill(0);
@@ -672,12 +690,13 @@ export function layoutStackKinds(
         for (let i = 0; i < mainSizes.length; i++) {
           usedMain += mainSizes[i] ?? 0;
         }
-        usedMain += count <= 1 ? 0 : gap * (count - 1);
+        usedMain += childCount <= 1 ? 0 : gap * (childCount - 1);
         const extra = clampNonNegative(cw - usedMain);
-        const startOffset = computeJustifyStartOffset(justify, extra, count);
+        const startOffset = computeJustifyStartOffset(justify, extra, childCount);
 
         let cursorX = cx + startOffset;
         let remainingWidth = clampNonNegative(cw - startOffset);
+        let childOrdinal = 0;
 
         for (let i = 0; i < count; i++) {
           const child = vnode.children[i];
@@ -687,6 +706,7 @@ export function layoutStackKinds(
             const childRes = layoutNode(child, cursorX, cy, 0, 0, "row");
             if (!childRes.ok) return childRes;
             children.push(childRes.value);
+            childOrdinal++;
             continue;
           }
 
@@ -711,10 +731,14 @@ export function layoutStackKinds(
           if (!childRes.ok) return childRes;
           children.push(childRes.value);
 
-          const extraGap = i < count - 1 ? computeJustifyExtraGap(justify, extra, count, i) : 0;
-          const step = main + (i < count - 1 ? gap + extraGap : 0);
+          const hasNextChild = childOrdinal < childCount - 1;
+          const extraGap = hasNextChild
+            ? computeJustifyExtraGap(justify, extra, childCount, childOrdinal)
+            : 0;
+          const step = main + (hasNextChild ? gap + extraGap : 0);
           cursorX = cursorX + step;
           remainingWidth = clampNonNegative(remainingWidth - step);
+          childOrdinal++;
         }
       }
 
@@ -743,6 +767,7 @@ export function layoutStackKinds(
       const ch = clampNonNegative(stackH - spacing.top - spacing.bottom);
 
       const count = vnode.children.length;
+      const childCount = countNonEmptyChildren(vnode.children);
       const children: LayoutTree[] = [];
 
       const needsConstraintPass = vnode.children.some(
@@ -770,12 +795,13 @@ export function layoutStackKinds(
         for (let i = 0; i < mainSizes.length; i++) {
           usedMain += mainSizes[i] ?? 0;
         }
-        usedMain += count <= 1 ? 0 : gap * (count - 1);
+        usedMain += childCount <= 1 ? 0 : gap * (childCount - 1);
         const extra = clampNonNegative(ch - usedMain);
-        const startOffset = computeJustifyStartOffset(justify, extra, count);
+        const startOffset = computeJustifyStartOffset(justify, extra, childCount);
 
         let cursorY = cy + startOffset;
         let remainingHeight = clampNonNegative(ch - startOffset);
+        let childOrdinal = 0;
 
         for (let i = 0; i < count; i++) {
           const child = vnode.children[i];
@@ -785,6 +811,7 @@ export function layoutStackKinds(
             const childRes = layoutNode(child, cx, cursorY, 0, 0, "column");
             if (!childRes.ok) return childRes;
             children.push(childRes.value);
+            childOrdinal++;
             continue;
           }
 
@@ -814,14 +841,18 @@ export function layoutStackKinds(
           if (!childRes.ok) return childRes;
           children.push(childRes.value);
 
-          const extraGap = i < count - 1 ? computeJustifyExtraGap(justify, extra, count, i) : 0;
-          const step = childH + (i < count - 1 ? gap + extraGap : 0);
+          const hasNextChild = childOrdinal < childCount - 1;
+          const extraGap = hasNextChild
+            ? computeJustifyExtraGap(justify, extra, childCount, childOrdinal)
+            : 0;
+          const step = childH + (hasNextChild ? gap + extraGap : 0);
           cursorY = cursorY + step;
           remainingHeight = clampNonNegative(remainingHeight - step);
+          childOrdinal++;
         }
       } else {
         const parentRect: Rect = { x: 0, y: 0, w: cw, h: ch };
-        const gapTotal = vnode.children.length <= 1 ? 0 : gap * (vnode.children.length - 1);
+        const gapTotal = childCount <= 1 ? 0 : gap * (childCount - 1);
         const availableForChildren = clampNonNegative(ch - gapTotal);
 
         const mainSizes = new Array(vnode.children.length).fill(0);
@@ -925,12 +956,13 @@ export function layoutStackKinds(
         for (let i = 0; i < mainSizes.length; i++) {
           usedMain += mainSizes[i] ?? 0;
         }
-        usedMain += count <= 1 ? 0 : gap * (count - 1);
+        usedMain += childCount <= 1 ? 0 : gap * (childCount - 1);
         const extra = clampNonNegative(ch - usedMain);
-        const startOffset = computeJustifyStartOffset(justify, extra, count);
+        const startOffset = computeJustifyStartOffset(justify, extra, childCount);
 
         let cursorY = cy + startOffset;
         let remainingHeight = clampNonNegative(ch - startOffset);
+        let childOrdinal = 0;
 
         for (let i = 0; i < count; i++) {
           const child = vnode.children[i];
@@ -940,6 +972,7 @@ export function layoutStackKinds(
             const childRes = layoutNode(child, cx, cursorY, 0, 0, "column");
             if (!childRes.ok) return childRes;
             children.push(childRes.value);
+            childOrdinal++;
             continue;
           }
 
@@ -964,10 +997,14 @@ export function layoutStackKinds(
           if (!childRes.ok) return childRes;
           children.push(childRes.value);
 
-          const extraGap = i < count - 1 ? computeJustifyExtraGap(justify, extra, count, i) : 0;
-          const step = main + (i < count - 1 ? gap + extraGap : 0);
+          const hasNextChild = childOrdinal < childCount - 1;
+          const extraGap = hasNextChild
+            ? computeJustifyExtraGap(justify, extra, childCount, childOrdinal)
+            : 0;
+          const step = main + (hasNextChild ? gap + extraGap : 0);
           cursorY = cursorY + step;
           remainingHeight = clampNonNegative(remainingHeight - step);
+          childOrdinal++;
         }
       }
 
