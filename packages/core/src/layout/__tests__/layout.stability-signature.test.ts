@@ -93,7 +93,9 @@ function expectSignatureUnchanged(base: RuntimeInstance, changed: RuntimeInstanc
   assert.equal(runSignatures(changed, prev), false);
 }
 
-function sortedEntries(map: ReadonlyMap<InstanceId, number>): readonly (readonly [string, number])[] {
+function sortedEntries(
+  map: ReadonlyMap<InstanceId, number>,
+): readonly (readonly [string, number])[] {
   return Object.freeze(
     [...map.entries()]
       .map(([instanceId, signature]) => [String(instanceId), signature] as const)
