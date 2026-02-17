@@ -8,6 +8,7 @@ export type TemplateDefinition = {
   key: TemplateKey;
   label: string;
   description: string;
+  highlights: readonly string[];
   dir: string;
 };
 
@@ -15,30 +16,52 @@ export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
   {
     key: "dashboard",
     label: "Dashboard",
-    description: "Multi-panel ops dashboard with status list",
+    description: "Live ops dashboard with deterministic table updates",
+    highlights: [
+      "live-updating table with stable row keys",
+      "filter/sort/pin controls + incident telemetry",
+    ],
     dir: "dashboard",
   },
   {
     key: "form-app",
     label: "Form app",
-    description: "Data entry flow with preview panel",
+    description: "Multi-step form with validation and command modes",
+    highlights: ["insert/command key modes with chords", "modal help and toast notifications"],
     dir: "form-app",
   },
   {
     key: "file-browser",
     label: "File browser",
-    description: "Split view with directory list + preview",
+    description: "Explorer with async command palette search",
+    highlights: [
+      "async palette results with cancellation",
+      "table browser with details and preview",
+    ],
     dir: "file-browser",
   },
   {
     key: "streaming-viewer",
     label: "Streaming viewer",
-    description: "Live stream list with chat + metrics",
+    description: "High-volume stream monitor with virtualized index",
+    highlights: ["virtual list over 15k streams", "live ingest feed with follow/pause controls"],
     dir: "streaming-viewer",
   },
 ] as const;
 
 const TEMPLATE_BY_KEY = new Map(TEMPLATE_DEFINITIONS.map((template) => [template.key, template]));
+const TEMPLATE_ALIASES = new Map<string, TemplateKey>(
+  TEMPLATE_DEFINITIONS.map((template) => [template.key, template.key]),
+);
+
+TEMPLATE_ALIASES.set("form", "form-app");
+TEMPLATE_ALIASES.set("formapp", "form-app");
+TEMPLATE_ALIASES.set("file", "file-browser");
+TEMPLATE_ALIASES.set("files", "file-browser");
+TEMPLATE_ALIASES.set("filebrowser", "file-browser");
+TEMPLATE_ALIASES.set("stream", "streaming-viewer");
+TEMPLATE_ALIASES.set("streaming", "streaming-viewer");
+TEMPLATE_ALIASES.set("streamingviewer", "streaming-viewer");
 
 const PACKAGE_NAME_RE = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
 
@@ -46,27 +69,10 @@ export function normalizeTemplateName(value: string): TemplateKey | null {
   const cleaned = value.trim().toLowerCase();
   if (!cleaned) return null;
   const slug = cleaned.replace(/[\s_]+/g, "-");
-
-  switch (slug) {
-    case "dashboard":
-      return "dashboard";
-    case "form":
-    case "form-app":
-    case "formapp":
-      return "form-app";
-    case "file":
-    case "files":
-    case "file-browser":
-    case "filebrowser":
-      return "file-browser";
-    case "stream":
-    case "streaming":
-    case "streaming-viewer":
-    case "streamingviewer":
-      return "streaming-viewer";
-    default:
-      return TEMPLATE_BY_KEY.has(slug as TemplateKey) ? (slug as TemplateKey) : null;
-  }
+  const normalized = TEMPLATE_ALIASES.get(slug);
+  if (normalized) return normalized;
+  const compact = slug.replace(/-/g, "");
+  return TEMPLATE_ALIASES.get(compact) ?? null;
 }
 
 export function toDisplayName(value: string): string {

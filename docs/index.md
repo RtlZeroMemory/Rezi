@@ -204,6 +204,7 @@ User feedback: `spinner`, `skeleton`, `callout`, `errorDisplay`, `empty`
 ## Learn More
 
 - [Concepts](guide/concepts.md) - Understanding Rezi's architecture
+- [Ink to Rezi Migration](migration/ink-to-rezi.md) - Mental model mapping and migration recipes
 - [Lifecycle & Updates](guide/lifecycle-and-updates.md) - State management patterns
 - [Layout](guide/layout.md) - Spacing, alignment, and constraints
 - [Input & Focus](guide/input-and-focus.md) - Keyboard navigation and focus management

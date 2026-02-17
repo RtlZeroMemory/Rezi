@@ -99,6 +99,8 @@ nav:
       - JSX: getting-started/jsx.md
       - Examples: getting-started/examples.md
       - FAQ: getting-started/faq.md
+  - Migration:
+      - Ink to Rezi: migration/ink-to-rezi.md
   - Guides:
       - Concepts: guide/concepts.md
       - Composition: guide/composition.md

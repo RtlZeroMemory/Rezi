@@ -86,19 +86,23 @@ function printHelp(): void {
   stdout.write("Usage:\n");
   stdout.write("  npm create rezi my-app\n\n");
   stdout.write("Options:\n");
-  stdout.write("  --template, -t <name>      Choose a template\n");
-  stdout.write("  --no-install               Skip dependency install\n");
+  stdout.write(
+    "  --template, -t <name>       dashboard | form-app | file-browser | streaming-viewer\n",
+  );
+  stdout.write("  --no-install                Skip dependency install\n");
   stdout.write("  --pm <npm|pnpm|yarn|bun>    Choose a package manager\n");
-  stdout.write("  --list-templates           Show available templates\n");
-  stdout.write("  --help, -h                 Show this help\n");
+  stdout.write("  --list-templates            Show templates and highlights\n");
+  stdout.write("  --help, -h                  Show this help\n");
 }
 
 function printTemplates(): void {
-  stdout.write("Available templates:\n");
+  stdout.write("Available templates (--template <name>):\n");
   TEMPLATE_DEFINITIONS.forEach((template, index) => {
-    stdout.write(
-      `  ${index + 1}. ${template.key.padEnd(16)} ${template.label} - ${template.description}\n`,
-    );
+    const defaultSuffix = index === 0 ? " (default)" : "";
+    const highlights = template.highlights.join(" | ");
+    stdout.write(`  ${index + 1}. ${template.key.padEnd(16)} ${template.label}${defaultSuffix}\n`);
+    stdout.write(`      ${template.description}\n`);
+    stdout.write(`      Highlights: ${highlights}\n`);
   });
 }
 
@@ -135,18 +139,23 @@ async function promptText(
 }
 
 async function promptTemplate(rl: ReturnType<typeof createInterface>): Promise<string> {
-  stdout.write("\nSelect a template:\n");
+  stdout.write("\nSelect a template (name or number):\n");
   TEMPLATE_DEFINITIONS.forEach((template, index) => {
-    stdout.write(`  ${index + 1}. ${template.label} - ${template.description}\n`);
+    const defaultSuffix = index === 0 ? " (default)" : "";
+    stdout.write(`  ${index + 1}. ${template.key.padEnd(16)} ${template.label}${defaultSuffix}\n`);
+    stdout.write(`      ${template.description}\n`);
+    stdout.write(`      Highlights: ${template.highlights.join(" | ")}\n`);
   });
 
-  const answer = await rl.question("Template (1-4, default 1): ");
+  const answer = await rl.question(`Template (1-${TEMPLATE_DEFINITIONS.length}, default 1): `);
   const trimmed = answer.trim();
-  if (!trimmed) return "dashboard";
+  if (!trimmed) {
+    return TEMPLATE_DEFINITIONS[0]?.key ?? "dashboard";
+  }
 
   const asNumber = Number(trimmed);
   if (!Number.isNaN(asNumber) && asNumber >= 1 && asNumber <= TEMPLATE_DEFINITIONS.length) {
-    return TEMPLATE_DEFINITIONS[asNumber - 1]?.key ?? "dashboard";
+    return TEMPLATE_DEFINITIONS[asNumber - 1]?.key ?? TEMPLATE_DEFINITIONS[0]?.key ?? "dashboard";
   }
 
   return trimmed;
@@ -167,15 +176,21 @@ function printNextSteps(
   packageManager: PackageManager,
   installRan: boolean,
 ): void {
+  const installCommand = `${packageManager} install`;
+  const startCommand =
+    packageManager === "npm" || packageManager === "bun"
+      ? `${packageManager} run start`
+      : `${packageManager} start`;
+
   const rel = relative(cwd(), resolve(targetDir)) || ".";
   stdout.write("\nNext steps:\n");
   if (rel !== ".") {
     stdout.write(`  cd ${rel}\n`);
   }
   if (!installRan) {
-    stdout.write(`  ${packageManager} install\n`);
+    stdout.write(`  ${installCommand}\n`);
   }
-  stdout.write(`  ${packageManager} start\n`);
+  stdout.write(`  ${startCommand}\n`);
 }
 
 async function main(): Promise<void> {
@@ -198,8 +213,10 @@ async function main(): Promise<void> {
     const templateInput = options.template || (await promptTemplate(rl));
     const templateKey = normalizeTemplateName(templateInput);
     if (!templateKey) {
+      const allowed = TEMPLATE_DEFINITIONS.map((template) => template.key).join(", ");
       stdout.write(`\nUnknown template: ${templateInput}\n`);
-      printTemplates();
+      stdout.write(`Use one of: ${allowed}\n`);
+      stdout.write("Run with --list-templates to see highlights.\n");
       throw new Error("Invalid template");
     }
 

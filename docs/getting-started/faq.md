@@ -17,6 +17,10 @@ No. While Rezi uses a declarative widget tree similar to React's component model
 
 Rezi is designed specifically for terminal UIs, not as a React port.
 
+### I'm using Ink. How do I migrate?
+
+Use the [Ink to Rezi migration guide](../migration/ink-to-rezi.md) for a direct mental-model map and practical migration recipes.
+
 ### What platforms does Rezi support?
 
 Rezi supports:

@@ -6,11 +6,12 @@
   "scripts": {
     "start": "tsx src/main.ts",
     "dev": "tsx watch src/main.ts",
+    "build": "tsc --pretty false",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@rezi-ui/core": "^0.1.0-alpha.0",
-    "@rezi-ui/node": "^0.1.0-alpha.0"
+    "@rezi-ui/core": "^0.1.0-alpha.11",
+    "@rezi-ui/node": "^0.1.0-alpha.11"
   },
   "devDependencies": {
     "@types/node": "^22.13.1",

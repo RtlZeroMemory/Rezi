@@ -7,12 +7,17 @@ Scaffold a new Rezi terminal UI app.
 ```bash
 npm create rezi my-app
 cd my-app
-npm start
+npm run start
+
+# or bun
+# npm create rezi my-app -- --pm bun
+# cd my-app
+# bun run start
 ```
 
 ## Templates
 
-Choose a template interactively, or pass `--template`.
+Choose a template interactively, or pass `--template` with a canonical name.
 
 ```bash
 npm create rezi my-app -- --template dashboard
@@ -21,10 +26,16 @@ npm create rezi my-app -- --template file-browser
 npm create rezi my-app -- --template streaming-viewer
 ```
 
+List templates and highlights from the CLI:
+
+```bash
+npm create rezi -- --list-templates
+```
+
 ## Options
 
-- `--template <name>`: Choose a template.
+- `--template <dashboard|form-app|file-browser|streaming-viewer>`: Choose a template.
 - `--no-install`: Skip dependency installation.
 - `--pm <npm|pnpm|yarn|bun>`: Choose a package manager.
-- `--list-templates`: Print available templates.
+- `--list-templates`: Print available templates and highlights.
 - `--help`: Show help.

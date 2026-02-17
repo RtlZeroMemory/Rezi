@@ -1,125 +1,292 @@
-import { rgb, ui } from "@rezi-ui/core";
-import { createNodeApp } from "@rezi-ui/node";
+import { type VNode, createApp, rgb, ui } from "@rezi-ui/core";
+import { createNodeBackend } from "@rezi-ui/node";
 
-type Stream = {
+type StreamStatus = "healthy" | "unstable" | "critical";
+
+type StreamSnapshot = Readonly<{
+  index: number;
   name: string;
+  region: string;
   category: string;
   viewers: number;
   bitrate: number;
-  health: "good" | "warning";
-};
-
-const streams: readonly Stream[] = [
-  { name: "city-cam-01", category: "Urban", viewers: 1280, bitrate: 6.4, health: "good" },
-  { name: "forest-node", category: "Nature", viewers: 860, bitrate: 4.8, health: "good" },
-  { name: "harbor-live", category: "Maritime", viewers: 420, bitrate: 3.9, health: "warning" },
-  { name: "lab-monitor", category: "Science", viewers: 96, bitrate: 2.1, health: "good" },
-];
-
-const chatByStream: Record<string, string[]> = {
-  "city-cam-01": ["switch to night mode?", "pan left a bit", "traffic spike @ 18:00"],
-  "forest-node": ["birdsong level: high", "new fox spotted", "wind noise up"],
-  "harbor-live": ["dock 3 unloading", "signal jitter", "fog incoming"],
-  "lab-monitor": ["temperature stable", "note: calibrate sensor", "airflow normal"],
-};
+  latency: number;
+  droppedFrames: number;
+  status: StreamStatus;
+}>;
 
 type State = {
-  selected: number;
+  selectedRow: number;
   paused: boolean;
   follow: boolean;
+  liveTick: number;
+  ingestPerSecond: number;
+  scrollTop: number;
+  visibleRange: [number, number];
+  feed: readonly string[];
+  statusLine: string;
 };
 
-const app = createNodeApp<State>({
+const STREAM_COUNT = 15360;
+const LIVE_TICK_MS = 260;
+const LIVE_FEED_LIMIT = 12;
+
+const regions = ["us-east", "us-west", "eu-central", "ap-south", "sa-east"] as const;
+const categories = ["Urban", "Nature", "Transit", "Retail", "Industrial", "Campus"] as const;
+
+const streamIndexes: readonly number[] = Object.freeze(
+  Array.from({ length: STREAM_COUNT }, (_value, index) => index),
+);
+
+const initialFeed: readonly string[] = Object.freeze([
+  "00:00.0 ingest connected",
+  "00:00.0 receiving edge events",
+  "00:00.0 virtual list warm and ready",
+]);
+
+const app = createApp<State>({
+  backend: createNodeBackend(),
   initialState: {
-    selected: 0,
+    selectedRow: 0,
     paused: false,
     follow: true,
+    liveTick: 0,
+    ingestPerSecond: 480,
+    scrollTop: 0,
+    visibleRange: [0, 0],
+    feed: initialFeed,
+    statusLine: "Live ingest started",
   },
 });
 
 const colors = {
-  accent: rgb(116, 200, 255),
-  muted: rgb(140, 150, 170),
-  panel: rgb(18, 22, 34),
-  panelAlt: rgb(22, 28, 44),
-  ok: rgb(130, 220, 170),
-  warn: rgb(255, 180, 120),
-  ink: rgb(10, 14, 24),
+  accent: rgb(112, 205, 248),
+  muted: rgb(139, 151, 173),
+  panel: rgb(17, 23, 34),
+  panelAlt: rgb(22, 30, 45),
+  ink: rgb(8, 12, 20),
+  inkSoft: rgb(34, 42, 60),
+  ok: rgb(120, 214, 163),
+  warn: rgb(249, 190, 114),
+  danger: rgb(255, 122, 124),
 };
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
-function panel(title: string, children: ReturnType<typeof ui.column>[], flex = 1) {
+function formatCount(value: number): string {
+  return value.toLocaleString("en-US");
+}
+
+function clockLabel(tick: number): string {
+  const totalMs = tick * LIVE_TICK_MS;
+  const totalSeconds = Math.floor(totalMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60)
+    .toString()
+    .padStart(2, "0");
+  const seconds = (totalSeconds % 60).toString().padStart(2, "0");
+  const tenths = Math.floor((totalMs % 1000) / 100);
+  return `${minutes}:${seconds}.${String(tenths)}`;
+}
+
+function statusColor(status: StreamStatus) {
+  if (status === "healthy") return colors.ok;
+  if (status === "unstable") return colors.warn;
+  return colors.danger;
+}
+
+function streamSnapshot(index: number, tick: number): StreamSnapshot {
+  const safeIndex = clamp(index, 0, STREAM_COUNT - 1);
+  const region = regions[safeIndex % regions.length] ?? "us-east";
+  const category = categories[safeIndex % categories.length] ?? "Urban";
+  const name = `${category.toLowerCase()}-${String(safeIndex).padStart(5, "0")}`;
+
+  const viewersBase = 220 + ((safeIndex * 113) % 9400);
+  const viewersWave = Math.round((Math.sin((tick + safeIndex) / 9) + 1) * 130);
+  const viewers = viewersBase + viewersWave;
+
+  const bitrateBase = 2.2 + (safeIndex % 9) * 0.45;
+  const bitrateWave = Math.sin((tick + safeIndex) / 13) * 0.35;
+  const bitrate = Math.max(1.1, Number((bitrateBase + bitrateWave).toFixed(2)));
+
+  const latencyBase = 16 + (safeIndex % 48);
+  const latencyWave = Math.round((Math.cos((tick + safeIndex) / 7) + 1) * 8);
+  const latency = latencyBase + latencyWave;
+
+  const dropDrift = Math.round((Math.sin((tick + safeIndex * 3) / 15) + 1) * 1.8);
+  const droppedFrames = Math.max(0, dropDrift - (safeIndex % 3 === 0 ? 1 : 0));
+
+  const status: StreamStatus =
+    droppedFrames >= 3 || latency > 68
+      ? "critical"
+      : droppedFrames >= 1 || latency > 52
+        ? "unstable"
+        : "healthy";
+
+  return {
+    index: safeIndex,
+    name,
+    region,
+    category,
+    viewers,
+    bitrate,
+    latency,
+    droppedFrames,
+    status,
+  };
+}
+
+function panel(title: string, children: readonly VNode[], flex = 1): VNode {
   return ui.box(
-    { title, flex, border: "rounded", px: 1, py: 0, style: { bg: colors.panel, fg: colors.muted } },
+    {
+      title,
+      flex,
+      border: "rounded",
+      px: 1,
+      py: 0,
+      style: { bg: colors.panel, fg: colors.muted },
+    },
     children,
   );
 }
 
+function pushFeed(state: Readonly<State>, line: string): readonly string[] {
+  return Object.freeze([line, ...state.feed].slice(0, LIVE_FEED_LIMIT));
+}
+
 app.view((state) => {
-  const current = streams[state.selected] ?? streams[0];
-  const chat = chatByStream[current?.name ?? ""] ?? [];
-  const bufferValue = state.paused ? 0.2 : current ? Math.min(1, current.bitrate / 7) : 0;
+  const selected = streamSnapshot(state.selectedRow, state.liveTick);
+  const quality = Math.max(0.05, 1 - selected.droppedFrames / 4);
+  const bitratePercent = Math.min(1, selected.bitrate / 8);
+  const visibleStart = state.visibleRange[0];
+  const visibleEnd = Math.max(visibleStart, state.visibleRange[1] - 1);
 
   return ui.column({ flex: 1, p: 1, gap: 1, items: "stretch" }, [
     ui.row({ justify: "between", items: "center" }, [
       ui.text("__APP_NAME__", { fg: colors.accent, bold: true }),
-      ui.row({ gap: 2 }, [
+      ui.row({ gap: 2, items: "center" }, [
         ui.text(`Mode: ${state.paused ? "Paused" : "Live"}`, {
           fg: state.paused ? colors.warn : colors.ok,
           bold: true,
         }),
-        ui.text(`Follow: ${state.follow ? "On" : "Off"}`, { fg: colors.muted }),
+        ui.text(`Follow: ${state.follow ? "On" : "Off"}`, {
+          fg: state.follow ? colors.accent : colors.muted,
+        }),
+        ui.text(`Ingest: ${formatCount(state.ingestPerSecond)}/s`, { fg: colors.muted }),
       ]),
     ]),
 
     ui.row({ flex: 1, gap: 1, items: "stretch" }, [
       panel(
-        "Streams",
+        "Global Stream Index (15,360 streams)",
         [
-          ui.column(
-            { gap: 0 },
-            streams.map((stream, index) => {
-              const active = index === state.selected;
-              const prefix = active ? ">" : " ";
-              return ui.text(`${prefix} ${stream.name}`, {
-                key: stream.name,
-                style: {
-                  fg: active ? colors.accent : colors.muted,
-                  bold: active,
-                },
-              });
+          ui.column({ flex: 1, gap: 1, items: "stretch" }, [
+            ui.row({ justify: "between", items: "center" }, [
+              ui.text(`Visible rows: ${String(visibleStart)}-${String(visibleEnd)}`),
+              ui.text(`Scroll: ${String(state.scrollTop)}`, { fg: colors.muted }),
+            ]),
+            ui.virtualList({
+              id: "streams-vlist",
+              items: streamIndexes,
+              itemHeight: 1,
+              overscan: 6,
+              renderItem: (item, index, focused) => {
+                const snapshot = streamSnapshot(item, state.liveTick);
+                const active = index === state.selectedRow;
+                return ui.row(
+                  {
+                    key: `stream-${String(item)}`,
+                    gap: 1,
+                    style: active
+                      ? { bg: colors.inkSoft, fg: colors.accent }
+                      : { fg: colors.muted },
+                  },
+                  [
+                    ui.text(active ? ">" : " "),
+                    ui.text(snapshot.name, { bold: active }),
+                    ui.text(snapshot.region, { fg: colors.muted }),
+                    ui.text(`${formatCount(snapshot.viewers)} viewers`),
+                    ui.text(`${String(snapshot.latency)}ms`, {
+                      fg: snapshot.latency > 58 ? colors.warn : colors.muted,
+                    }),
+                    ui.text(snapshot.status.toUpperCase(), {
+                      fg: statusColor(snapshot.status),
+                      bold: focused || snapshot.status !== "healthy",
+                    }),
+                  ],
+                );
+              },
+              onScroll: (scrollTop, visibleRange) =>
+                app.update((s) => {
+                  if (
+                    s.scrollTop === scrollTop &&
+                    s.visibleRange[0] === visibleRange[0] &&
+                    s.visibleRange[1] === visibleRange[1]
+                  ) {
+                    return s;
+                  }
+                  return {
+                    ...s,
+                    scrollTop,
+                    visibleRange: [visibleRange[0], visibleRange[1]],
+                  };
+                }),
+              onSelect: (_item, index) =>
+                app.update((s) => {
+                  const snapshot = streamSnapshot(index, s.liveTick);
+                  return {
+                    ...s,
+                    selectedRow: index,
+                    feed: pushFeed(s, `${clockLabel(s.liveTick)} pinned ${snapshot.name}`),
+                    statusLine: `Pinned ${snapshot.name}`,
+                  };
+                }),
             }),
-          ),
+          ]),
         ],
-        1,
+        2,
       ),
 
-      ui.column({ flex: 2, gap: 1, items: "stretch" }, [
+      ui.column({ flex: 1, gap: 1, items: "stretch" }, [
         panel(
-          "Viewer",
+          "Selected Stream",
           [
             ui.column({ gap: 1 }, [
-              ui.text(current ? current.name : "-", { fg: colors.accent, bold: true }),
-              ui.text(`Category: ${current?.category ?? "-"}`),
-              ui.text(`Viewers: ${current?.viewers ?? 0}`),
-              ui.text(`Health: ${current?.health ?? "-"}`, {
-                fg: current?.health === "warning" ? colors.warn : colors.ok,
+              ui.text(selected.name, { fg: colors.accent, bold: true }),
+              ui.row({ gap: 2 }, [
+                ui.text(`Region: ${selected.region}`),
+                ui.text(`Category: ${selected.category}`),
+              ]),
+              ui.row({ gap: 2 }, [
+                ui.text(`Viewers: ${formatCount(selected.viewers)}`),
+                ui.text(`Latency: ${String(selected.latency)}ms`, {
+                  fg: selected.latency > 58 ? colors.warn : colors.ok,
+                }),
+              ]),
+              ui.text(`Status: ${selected.status.toUpperCase()}`, {
+                fg: statusColor(selected.status),
+                bold: true,
               }),
-              ui.text(`Bitrate: ${current?.bitrate ?? 0} Mbps`),
-              ui.progress(bufferValue, { label: "Buffer", showPercent: true }),
+              ui.progress(bitratePercent, { label: "Bitrate headroom", showPercent: true }),
+              ui.progress(quality, { label: "Frame quality", showPercent: true }),
             ]),
           ],
           1,
         ),
         panel(
-          "Chat",
+          "Live Feed Context",
           [
             ui.column({ gap: 1 }, [
-              ui.text("Live chat", { fg: colors.muted }),
-              ...chat.map((line) => ui.text(`- ${line}`)),
+              ui.text(state.follow ? "Following pinned stream" : "Sampling global ingest", {
+                fg: colors.muted,
+              }),
+              ...state.feed.map((line, index) =>
+                ui.text(line, {
+                  key: `feed-${String(index)}`,
+                  style: { fg: index === 0 ? colors.accent : colors.muted },
+                }),
+              ),
             ]),
           ],
           1,
@@ -129,10 +296,18 @@ app.view((state) => {
 
     ui.box({ px: 1, py: 0, style: { bg: colors.ink, fg: colors.muted } }, [
       ui.row({ justify: "between", items: "center" }, [
-        ui.text("Streaming console ready"),
+        ui.text(state.statusLine),
         ui.row({ gap: 1 }, [
+          ui.kbd("tab"),
+          ui.text("Focus list"),
+          ui.kbd(["up", "down"]),
+          ui.text("Scroll"),
+          ui.kbd(["pageup", "pagedown"]),
+          ui.text("Fast scroll"),
+          ui.kbd("enter"),
+          ui.text("Pin"),
           ui.kbd("up"),
-          ui.text("Stream"),
+          ui.text("Navigate"),
           ui.kbd("space"),
           ui.text("Pause"),
           ui.kbd("f"),
@@ -148,28 +323,49 @@ app.view((state) => {
 app.keys({
   q: () => app.stop(),
   "ctrl+c": () => app.stop(),
-  up: () =>
+  space: () =>
     app.update((s) => ({
       ...s,
-      selected: clamp(s.selected - 1, 0, streams.length - 1),
+      paused: !s.paused,
+      statusLine: s.paused ? "Ingest resumed" : "Ingest paused",
     })),
-  down: () =>
+  f: () =>
     app.update((s) => ({
       ...s,
-      selected: clamp(s.selected + 1, 0, streams.length - 1),
+      follow: !s.follow,
+      statusLine: s.follow ? "Follow mode disabled" : "Follow mode enabled",
     })),
-  k: () =>
+  "ctrl+l": () =>
     app.update((s) => ({
       ...s,
-      selected: clamp(s.selected - 1, 0, streams.length - 1),
+      feed: initialFeed,
+      statusLine: "Live feed reset",
     })),
-  j: () =>
-    app.update((s) => ({
-      ...s,
-      selected: clamp(s.selected + 1, 0, streams.length - 1),
-    })),
-  space: () => app.update((s) => ({ ...s, paused: !s.paused })),
-  f: () => app.update((s) => ({ ...s, follow: !s.follow })),
 });
 
-await app.start();
+const liveTimer = setInterval(() => {
+  app.update((state) => {
+    if (state.paused) return state;
+
+    const nextTick = state.liveTick + 1;
+    const eventIndex = state.follow ? state.selectedRow : (nextTick * 17) % STREAM_COUNT;
+    const snapshot = streamSnapshot(eventIndex, nextTick);
+    const eventLine = `${clockLabel(nextTick)} ${snapshot.name} ${snapshot.status.toUpperCase()} ${
+      snapshot.latency
+    }ms`;
+
+    return {
+      ...state,
+      liveTick: nextTick,
+      ingestPerSecond: 360 + ((nextTick * 31) % 340),
+      feed: pushFeed(state, eventLine),
+      statusLine: state.follow ? `Following ${snapshot.name}` : "Sampling global ingest stream",
+    };
+  });
+}, LIVE_TICK_MS);
+
+try {
+  await app.start();
+} finally {
+  clearInterval(liveTimer);
+}
