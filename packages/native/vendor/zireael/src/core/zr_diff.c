@@ -56,6 +56,7 @@ static const uint8_t ZR_ANSI16_PALETTE[16][3] = {
 /* SGR (Select Graphic Rendition) codes. */
 #define ZR_SGR_RESET 0u
 #define ZR_SGR_BOLD 1u
+#define ZR_SGR_DIM 2u
 #define ZR_SGR_ITALIC 3u
 #define ZR_SGR_UNDERLINE 4u
 #define ZR_SGR_REVERSE 7u
@@ -76,7 +77,8 @@ static const uint8_t ZR_ANSI16_PALETTE[16][3] = {
 #define ZR_STYLE_ATTR_ITALIC (1u << 1)
 #define ZR_STYLE_ATTR_UNDERLINE (1u << 2)
 #define ZR_STYLE_ATTR_REVERSE (1u << 3)
-#define ZR_STYLE_ATTR_STRIKE (1u << 4)
+#define ZR_STYLE_ATTR_DIM (1u << 4)
+#define ZR_STYLE_ATTR_STRIKE (1u << 5)
 
 /* Adaptive sweep threshold tuning (dirty-row density, percent). */
 #define ZR_DIFF_SWEEP_DIRTY_LINE_PCT_BASE 35u
@@ -102,11 +104,9 @@ typedef struct zr_attr_map_t {
 } zr_attr_map_t;
 
 static const zr_attr_map_t ZR_SGR_ATTRS[] = {
-    {ZR_STYLE_ATTR_BOLD, ZR_SGR_BOLD},
-    {ZR_STYLE_ATTR_ITALIC, ZR_SGR_ITALIC},
-    {ZR_STYLE_ATTR_UNDERLINE, ZR_SGR_UNDERLINE},
-    {ZR_STYLE_ATTR_REVERSE, ZR_SGR_REVERSE},
-    {ZR_STYLE_ATTR_STRIKE, ZR_SGR_STRIKETHROUGH},
+    {ZR_STYLE_ATTR_BOLD, ZR_SGR_BOLD},       {ZR_STYLE_ATTR_DIM, ZR_SGR_DIM},
+    {ZR_STYLE_ATTR_ITALIC, ZR_SGR_ITALIC},   {ZR_STYLE_ATTR_UNDERLINE, ZR_SGR_UNDERLINE},
+    {ZR_STYLE_ATTR_REVERSE, ZR_SGR_REVERSE}, {ZR_STYLE_ATTR_STRIKE, ZR_SGR_STRIKETHROUGH},
 };
 
 static bool zr_style_eq(zr_style_t a, zr_style_t b) {
@@ -612,7 +612,7 @@ static bool zr_emit_sgr_delta(zr_sb_t* sb, zr_term_state_t* ts, zr_style_t desir
 
   /*
     Delta-safe subset:
-      - add attrs (1/3/4/7/9) without reset
+      - add attrs (1/2/3/4/7/9) without reset
       - update fg/bg colors directly
     Attr clears require reset to avoid backend-specific off-code assumptions.
   */
