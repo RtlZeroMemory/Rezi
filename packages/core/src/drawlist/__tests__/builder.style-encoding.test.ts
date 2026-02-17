@@ -1,218 +1,216 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { createDrawlistBuilderV1, createDrawlistBuilderV2 } from "../../index.js";
+import { createDrawlistBuilderV1, createDrawlistBuilderV2, type TextStyle } from "../../index.js";
 
 function u32(bytes: Uint8Array, off: number): number {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   return dv.getUint32(off, true);
 }
 
-function textRunAttrs(bytes: Uint8Array, segmentIndex: number): number {
-  const blobsBytesOffset = u32(bytes, 52);
-  return u32(bytes, blobsBytesOffset + 4 + segmentIndex * 28 + 8);
-}
-
 function firstCommandOffset(bytes: Uint8Array): number {
   return u32(bytes, 16);
+}
+
+function drawTextFg(bytes: Uint8Array): number {
+  return u32(bytes, firstCommandOffset(bytes) + 28);
+}
+
+function drawTextBg(bytes: Uint8Array): number {
+  return u32(bytes, firstCommandOffset(bytes) + 32);
 }
 
 function drawTextAttrs(bytes: Uint8Array): number {
   return u32(bytes, firstCommandOffset(bytes) + 36);
 }
 
-describe("drawlist style attrs encode text decorations", () => {
-  test("v1 drawText encodes strikethrough as bit 5", () => {
-    const b = createDrawlistBuilderV1();
-    b.drawText(0, 0, "strike", { strikethrough: true });
-    const res = b.build();
-    assert.equal(res.ok, true);
-    if (!res.ok) return;
+function textRunField(bytes: Uint8Array, segmentIndex: number, fieldOffset: number): number {
+  const blobsBytesOffset = u32(bytes, 52);
+  return u32(bytes, blobsBytesOffset + 4 + segmentIndex * 28 + fieldOffset);
+}
 
-    assert.equal(drawTextAttrs(res.bytes), 1 << 5);
-  });
+function textRunFg(bytes: Uint8Array, segmentIndex: number): number {
+  return textRunField(bytes, segmentIndex, 0);
+}
 
-  test("v2 drawText encodes strikethrough as bit 5", () => {
-    const b = createDrawlistBuilderV2();
-    b.drawText(0, 0, "strike", { strikethrough: true });
-    const res = b.build();
-    assert.equal(res.ok, true);
-    if (!res.ok) return;
+function textRunBg(bytes: Uint8Array, segmentIndex: number): number {
+  return textRunField(bytes, segmentIndex, 4);
+}
 
-    assert.equal(drawTextAttrs(res.bytes), 1 << 5);
-  });
+function textRunAttrs(bytes: Uint8Array, segmentIndex: number): number {
+  return textRunField(bytes, segmentIndex, 8);
+}
 
-  test("v1 drawText encodes overline as bit 6", () => {
-    const b = createDrawlistBuilderV1();
-    b.drawText(0, 0, "over", { overline: true });
-    const res = b.build();
-    assert.equal(res.ok, true);
-    if (!res.ok) return;
+const ATTRS = [
+  "bold",
+  "italic",
+  "underline",
+  "inverse",
+  "dim",
+  "strikethrough",
+  "overline",
+  "blink",
+] as const;
 
-    assert.equal(drawTextAttrs(res.bytes), 1 << 6);
-  });
+type AttrName = (typeof ATTRS)[number];
 
-  test("v2 drawText encodes overline as bit 6", () => {
-    const b = createDrawlistBuilderV2();
-    b.drawText(0, 0, "over", { overline: true });
-    const res = b.build();
-    assert.equal(res.ok, true);
-    if (!res.ok) return;
+const ATTR_BITS: ReadonlyArray<readonly [AttrName, number]> = ATTRS.map((attr, bit) => [attr, bit]);
 
-    assert.equal(drawTextAttrs(res.bytes), 1 << 6);
-  });
+const BUILDERS: ReadonlyArray<
+  Readonly<{
+    name: "v1" | "v2";
+    create: typeof createDrawlistBuilderV1;
+  }>
+> = [
+  { name: "v1", create: createDrawlistBuilderV1 },
+  { name: "v2", create: createDrawlistBuilderV2 },
+];
 
-  test("v1 drawText encodes blink as bit 7", () => {
-    const b = createDrawlistBuilderV1();
-    b.drawText(0, 0, "blink", { blink: true });
-    const res = b.build();
-    assert.equal(res.ok, true);
-    if (!res.ok) return;
+function singleAttrStyle(attr: AttrName): TextStyle {
+  return { [attr]: true } as TextStyle;
+}
 
-    assert.equal(drawTextAttrs(res.bytes), 1 << 7);
-  });
+function attrMaskStyle(mask: number): TextStyle {
+  const out: Partial<Record<AttrName, boolean>> = {};
+  for (let bit = 0; bit < ATTRS.length; bit++) {
+    if ((mask & (1 << bit)) !== 0) out[ATTRS[bit]!] = true;
+  }
+  return out;
+}
 
-  test("v2 drawText encodes blink as bit 7", () => {
-    const b = createDrawlistBuilderV2();
-    b.drawText(0, 0, "blink", { blink: true });
-    const res = b.build();
-    assert.equal(res.ok, true);
-    if (!res.ok) return;
+function packRgb(r: number, g: number, b: number): number {
+  return ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
+}
 
-    assert.equal(drawTextAttrs(res.bytes), 1 << 7);
-  });
+function encodeViaDrawText(
+  create: typeof createDrawlistBuilderV1,
+  style: TextStyle | undefined,
+): Readonly<{ fg: number; bg: number; attrs: number }> {
+  const b = create();
+  b.drawText(0, 0, "x", style);
+  const res = b.build();
+  assert.equal(res.ok, true);
+  if (!res.ok) throw new Error("build failed");
+  return {
+    fg: drawTextFg(res.bytes),
+    bg: drawTextBg(res.bytes),
+    attrs: drawTextAttrs(res.bytes),
+  };
+}
 
-  test("v1 text-run attrs keep existing bits and add strikethrough at bit 5", () => {
-    const b = createDrawlistBuilderV1();
-    const blobIndex = b.addTextRunBlob([
-      { text: "strike", style: { strikethrough: true } },
-      { text: "base", style: { bold: true, italic: true, underline: true, inverse: true, dim: true } },
-    ]);
-    assert.equal(blobIndex, 0);
-    if (blobIndex === null) return;
+function encodeViaTextRun(
+  create: typeof createDrawlistBuilderV1,
+  style: TextStyle | undefined,
+): Readonly<{ fg: number; bg: number; attrs: number }> {
+  const b = create();
+  const segment: { text: string; style?: TextStyle } =
+    style === undefined ? { text: "x" } : { text: "x", style };
+  const blobIndex = b.addTextRunBlob([segment]);
+  assert.equal(blobIndex, 0);
+  if (blobIndex === null) throw new Error("addTextRunBlob failed");
 
-    b.drawTextRun(0, 0, blobIndex);
-    const res = b.build();
-    assert.equal(res.ok, true);
-    if (!res.ok) return;
+  b.drawTextRun(0, 0, blobIndex);
+  const res = b.build();
+  assert.equal(res.ok, true);
+  if (!res.ok) throw new Error("build failed");
 
-    assert.equal(textRunAttrs(res.bytes, 0), 1 << 5);
-    assert.equal(textRunAttrs(res.bytes, 1), (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4));
-  });
+  return {
+    fg: textRunFg(res.bytes, 0),
+    bg: textRunBg(res.bytes, 0),
+    attrs: textRunAttrs(res.bytes, 0),
+  };
+}
 
-  test("v2 text-run attrs keep existing bits and add strikethrough at bit 5", () => {
-    const b = createDrawlistBuilderV2();
-    const blobIndex = b.addTextRunBlob([
-      { text: "strike", style: { strikethrough: true } },
-      { text: "base", style: { bold: true, italic: true, underline: true, inverse: true, dim: true } },
-    ]);
-    assert.equal(blobIndex, 0);
-    if (blobIndex === null) return;
+describe("drawlist style attrs bit mapping", () => {
+  for (const builder of BUILDERS) {
+    for (const [attr, bit] of ATTR_BITS) {
+      test(`${builder.name} drawText maps ${attr} to exactly bit ${bit}`, () => {
+        const encoded = encodeViaDrawText(builder.create, singleAttrStyle(attr));
+        assert.equal(encoded.attrs, 1 << bit);
+      });
 
-    b.drawTextRun(0, 0, blobIndex);
-    const res = b.build();
-    assert.equal(res.ok, true);
-    if (!res.ok) return;
+      test(`${builder.name} text-run maps ${attr} to exactly bit ${bit}`, () => {
+        const encoded = encodeViaTextRun(builder.create, singleAttrStyle(attr));
+        assert.equal(encoded.attrs, 1 << bit);
+      });
+    }
+  }
+});
 
-    assert.equal(textRunAttrs(res.bytes, 0), 1 << 5);
-    assert.equal(textRunAttrs(res.bytes, 1), (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4));
-  });
+describe("drawlist style attrs combination encoding", () => {
+  for (const builder of BUILDERS) {
+    test(`${builder.name} drawText encodes all attrs as 0xff`, () => {
+      const encoded = encodeViaDrawText(builder.create, attrMaskStyle(0xff));
+      assert.equal(encoded.attrs, 0xff);
+    });
 
-  test("v1 text-run attrs keep existing bits and add overline at bit 6", () => {
-    const b = createDrawlistBuilderV1();
-    const blobIndex = b.addTextRunBlob([
-      { text: "over", style: { overline: true } },
-      { text: "base", style: { bold: true, italic: true, underline: true, inverse: true, dim: true } },
-    ]);
-    assert.equal(blobIndex, 0);
-    if (blobIndex === null) return;
+    test(`${builder.name} drawText encodes mixed attr combinations`, () => {
+      const mask = (1 << 0) | (1 << 2) | (1 << 5) | (1 << 7);
+      const encoded = encodeViaDrawText(builder.create, attrMaskStyle(mask));
+      assert.equal(encoded.attrs, mask);
+    });
 
-    b.drawTextRun(0, 0, blobIndex);
-    const res = b.build();
-    assert.equal(res.ok, true);
-    if (!res.ok) return;
+    test(`${builder.name} text-run encodes all attrs as 0xff`, () => {
+      const encoded = encodeViaTextRun(builder.create, attrMaskStyle(0xff));
+      assert.equal(encoded.attrs, 0xff);
+    });
+  }
+});
 
-    assert.equal(textRunAttrs(res.bytes, 0), 1 << 6);
-    assert.equal(textRunAttrs(res.bytes, 1), (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4));
-  });
+describe("drawlist style fg/bg and undefined fg/bg encoding", () => {
+  for (const builder of BUILDERS) {
+    test(`${builder.name} drawText encodes fg/bg with attrs`, () => {
+      const encoded = encodeViaDrawText(builder.create, {
+        fg: { r: 10, g: 20, b: 30 },
+        bg: { r: 40, g: 50, b: 60 },
+        bold: true,
+        inverse: true,
+      });
+      assert.equal(encoded.fg, packRgb(10, 20, 30));
+      assert.equal(encoded.bg, packRgb(40, 50, 60));
+      assert.equal(encoded.attrs, (1 << 0) | (1 << 3));
+    });
 
-  test("v2 text-run attrs keep existing bits and add overline at bit 6", () => {
-    const b = createDrawlistBuilderV2();
-    const blobIndex = b.addTextRunBlob([
-      { text: "over", style: { overline: true } },
-      { text: "base", style: { bold: true, italic: true, underline: true, inverse: true, dim: true } },
-    ]);
-    assert.equal(blobIndex, 0);
-    if (blobIndex === null) return;
+    test(`${builder.name} drawText keeps fg/bg zero when undefined`, () => {
+      const encoded = encodeViaDrawText(builder.create, {
+        underline: true,
+        overline: true,
+      });
+      assert.equal(encoded.fg, 0);
+      assert.equal(encoded.bg, 0);
+      assert.equal(encoded.attrs, (1 << 2) | (1 << 6));
+    });
 
-    b.drawTextRun(0, 0, blobIndex);
-    const res = b.build();
-    assert.equal(res.ok, true);
-    if (!res.ok) return;
+    test(`${builder.name} text-run encodes fg/bg with attrs`, () => {
+      const encoded = encodeViaTextRun(builder.create, {
+        fg: { r: 1, g: 2, b: 3 },
+        bg: { r: 4, g: 5, b: 6 },
+        dim: true,
+        blink: true,
+      });
+      assert.equal(encoded.fg, packRgb(1, 2, 3));
+      assert.equal(encoded.bg, packRgb(4, 5, 6));
+      assert.equal(encoded.attrs, (1 << 4) | (1 << 7));
+    });
 
-    assert.equal(textRunAttrs(res.bytes, 0), 1 << 6);
-    assert.equal(textRunAttrs(res.bytes, 1), (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4));
-  });
+    test(`${builder.name} text-run keeps fg/bg zero when undefined`, () => {
+      const encoded = encodeViaTextRun(builder.create, {
+        italic: true,
+        strikethrough: true,
+      });
+      assert.equal(encoded.fg, 0);
+      assert.equal(encoded.bg, 0);
+      assert.equal(encoded.attrs, (1 << 1) | (1 << 5));
+    });
+  }
+});
 
-  test("v1 text-run attrs keep existing bits and add blink at bit 7", () => {
-    const b = createDrawlistBuilderV1();
-    const blobIndex = b.addTextRunBlob([
-      { text: "blink", style: { blink: true } },
-      {
-        text: "base",
-        style: {
-          bold: true,
-          italic: true,
-          underline: true,
-          inverse: true,
-          dim: true,
-          strikethrough: true,
-          overline: true,
-        },
-      },
-    ]);
-    assert.equal(blobIndex, 0);
-    if (blobIndex === null) return;
-
-    b.drawTextRun(0, 0, blobIndex);
-    const res = b.build();
-    assert.equal(res.ok, true);
-    if (!res.ok) return;
-
-    assert.equal(textRunAttrs(res.bytes, 0), 1 << 7);
-    assert.equal(
-      textRunAttrs(res.bytes, 1),
-      (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6),
-    );
-  });
-
-  test("v2 text-run attrs keep existing bits and add blink at bit 7", () => {
-    const b = createDrawlistBuilderV2();
-    const blobIndex = b.addTextRunBlob([
-      { text: "blink", style: { blink: true } },
-      {
-        text: "base",
-        style: {
-          bold: true,
-          italic: true,
-          underline: true,
-          inverse: true,
-          dim: true,
-          strikethrough: true,
-          overline: true,
-        },
-      },
-    ]);
-    assert.equal(blobIndex, 0);
-    if (blobIndex === null) return;
-
-    b.drawTextRun(0, 0, blobIndex);
-    const res = b.build();
-    assert.equal(res.ok, true);
-    if (!res.ok) return;
-
-    assert.equal(textRunAttrs(res.bytes, 0), 1 << 7);
-    assert.equal(
-      textRunAttrs(res.bytes, 1),
-      (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6),
-    );
-  });
+describe("drawlist style attrs exhaustive 256-mask encoding", () => {
+  for (const builder of BUILDERS) {
+    for (let mask = 0; mask < 256; mask++) {
+      const hex = mask.toString(16).padStart(2, "0");
+      test(`${builder.name} drawText attr mask 0x${hex} encodes exactly`, () => {
+        const encoded = encodeViaDrawText(builder.create, attrMaskStyle(mask));
+        assert.equal(encoded.attrs, mask);
+      });
+    }
+  }
 });

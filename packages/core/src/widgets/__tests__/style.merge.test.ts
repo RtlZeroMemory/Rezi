@@ -1,181 +1,328 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { DEFAULT_BASE_STYLE, mergeTextStyle } from "../../renderer/renderToDrawlist/textStyle.js";
+import type { TextStyle } from "../../index.js";
+import {
+  DEFAULT_BASE_STYLE,
+  mergeTextStyle,
+  type ResolvedTextStyle,
+} from "../../renderer/renderToDrawlist/textStyle.js";
 import { styled } from "../styled.js";
 
-describe("TextStyle merge with strikethrough", () => {
-  test("nested inheritance chain preserves and overrides strikethrough deterministically", () => {
-    const root = mergeTextStyle(DEFAULT_BASE_STYLE, { strikethrough: true });
-    const parent = mergeTextStyle(root, { bold: true });
-    const child = mergeTextStyle(parent, { strikethrough: false });
-    const leaf = mergeTextStyle(child, { italic: true });
+const BOOL_ATTRS = [
+  "bold",
+  "dim",
+  "italic",
+  "underline",
+  "inverse",
+  "strikethrough",
+  "overline",
+  "blink",
+] as const;
 
-    assert.equal(root.strikethrough, true);
-    assert.equal(parent.strikethrough, true);
-    assert.equal(child.strikethrough, false);
-    assert.equal(leaf.strikethrough, false);
+type BoolAttr = (typeof BOOL_ATTRS)[number];
+
+const ALL_TRUE_ATTRS: TextStyle = {
+  bold: true,
+  dim: true,
+  italic: true,
+  underline: true,
+  inverse: true,
+  strikethrough: true,
+  overline: true,
+  blink: true,
+};
+
+const ALL_FALSE_ATTRS: TextStyle = {
+  bold: false,
+  dim: false,
+  italic: false,
+  underline: false,
+  inverse: false,
+  strikethrough: false,
+  overline: false,
+  blink: false,
+};
+
+function boolOverride(attr: BoolAttr, value: boolean | undefined): TextStyle {
+  return { [attr]: value } as TextStyle;
+}
+
+function boolOverrides(values: Partial<Record<BoolAttr, boolean | undefined>>): TextStyle {
+  return values as TextStyle;
+}
+
+function maskStyle(mask: number, value: boolean): TextStyle {
+  const out: Partial<Record<BoolAttr, boolean>> = {};
+  for (let bit = 0; bit < BOOL_ATTRS.length; bit++) {
+    if ((mask & (1 << bit)) !== 0) out[BOOL_ATTRS[bit]!] = value;
+  }
+  return out;
+}
+
+describe("mergeTextStyle boolean merge correctness", () => {
+  for (let index = 0; index < BOOL_ATTRS.length; index++) {
+    const attr = BOOL_ATTRS[index]!;
+    const helperA = BOOL_ATTRS[(index + 1) % BOOL_ATTRS.length]!;
+    const helperB = BOOL_ATTRS[(index + 2) % BOOL_ATTRS.length]!;
+
+    test(`${attr}: independence from other attrs`, () => {
+      const merged = mergeTextStyle(DEFAULT_BASE_STYLE, {
+        [attr]: true,
+        [helperA]: false,
+      } as TextStyle);
+
+      assert.equal(merged[attr], true);
+      assert.equal(merged[helperA], false);
+      for (const other of BOOL_ATTRS) {
+        if (other !== attr && other !== helperA) assert.equal(merged[other], undefined);
+      }
+      assert.equal(merged.fg, DEFAULT_BASE_STYLE.fg);
+      assert.equal(merged.bg, DEFAULT_BASE_STYLE.bg);
+    });
+
+    test(`${attr}: undefined inherits existing value`, () => {
+      const base = mergeTextStyle(DEFAULT_BASE_STYLE, boolOverride(attr, true));
+      const merged = mergeTextStyle(base, boolOverride(attr, undefined));
+      assert.equal(merged === base, true);
+      assert.equal(merged[attr], true);
+    });
+
+    test(`${attr}: false override wins over true`, () => {
+      const base = mergeTextStyle(DEFAULT_BASE_STYLE, boolOverride(attr, true));
+      const merged = mergeTextStyle(base, boolOverride(attr, false));
+      assert.equal(merged[attr], false);
+    });
+
+    test(`${attr}: true override wins over false`, () => {
+      const base = mergeTextStyle(DEFAULT_BASE_STYLE, boolOverride(attr, false));
+      const merged = mergeTextStyle(base, boolOverride(attr, true));
+      assert.equal(merged[attr], true);
+    });
+
+    test(`${attr}: deep chain (5 levels) remains deterministic`, () => {
+      const root = mergeTextStyle(DEFAULT_BASE_STYLE, boolOverride(attr, true));
+      const level1 = mergeTextStyle(root, boolOverride(helperA, true));
+      const level2 = mergeTextStyle(level1, boolOverride(attr, false));
+      const level3 = mergeTextStyle(level2, boolOverride(helperB, true));
+      const level4 = mergeTextStyle(level3, boolOverride(attr, true));
+
+      assert.equal(root[attr], true);
+      assert.equal(level1[attr], true);
+      assert.equal(level2[attr], false);
+      assert.equal(level3[attr], false);
+      assert.equal(level4[attr], true);
+      assert.equal(level4[helperA], true);
+      assert.equal(level4[helperB], true);
+    });
+  }
+
+  test("full-all-attrs merge applies explicit overrides and undefined inheritance", () => {
+    const base = mergeTextStyle(DEFAULT_BASE_STYLE, {
+      bold: true,
+      dim: false,
+      italic: true,
+      underline: false,
+      inverse: true,
+      strikethrough: false,
+      overline: true,
+      blink: false,
+    });
+
+    const merged = mergeTextStyle(
+      base,
+      boolOverrides({
+        bold: false,
+        dim: true,
+        italic: undefined,
+        underline: true,
+        inverse: false,
+        strikethrough: true,
+        overline: undefined,
+        blink: true,
+      }),
+    );
+
+    assert.deepEqual(merged, {
+      fg: DEFAULT_BASE_STYLE.fg,
+      bg: DEFAULT_BASE_STYLE.bg,
+      bold: false,
+      dim: true,
+      italic: true,
+      underline: true,
+      inverse: false,
+      strikethrough: true,
+      overline: true,
+      blink: true,
+    });
   });
 
-  test("cache key distinguishes strikethrough from other boolean attrs", () => {
-    const withoutStrike = mergeTextStyle(DEFAULT_BASE_STYLE, { bold: true });
-    const withStrikeA = mergeTextStyle(DEFAULT_BASE_STYLE, { bold: true, strikethrough: true });
-    const withStrikeB = mergeTextStyle(DEFAULT_BASE_STYLE, { bold: true, strikethrough: true });
+  test("full-all-attrs merge supports all-false overrides", () => {
+    const allTrue = mergeTextStyle(DEFAULT_BASE_STYLE, ALL_TRUE_ATTRS);
+    const allFalse = mergeTextStyle(allTrue, ALL_FALSE_ATTRS);
 
-    assert.equal(withoutStrike === withStrikeA, false);
-    assert.equal(withStrikeA === withStrikeB, true);
+    assert.deepEqual(allFalse, {
+      fg: DEFAULT_BASE_STYLE.fg,
+      bg: DEFAULT_BASE_STYLE.bg,
+      bold: false,
+      dim: false,
+      italic: false,
+      underline: false,
+      inverse: false,
+      strikethrough: false,
+      overline: false,
+      blink: false,
+    });
   });
 });
 
-describe("styled variant merge with strikethrough", () => {
-  test("base -> variant -> user style merge order supports strikethrough overrides", () => {
-    const Button = styled("button", {
-      base: { bold: true, strikethrough: true },
-      variants: {
-        intent: {
-          primary: { fg: { r: 1, g: 2, b: 3 } },
-          danger: { fg: { r: 9, g: 8, b: 7 }, strikethrough: false },
-        },
-      },
-      defaults: { intent: "primary" },
+describe("mergeTextStyle cache correctness for DEFAULT_BASE_STYLE", () => {
+  for (let index = 0; index < BOOL_ATTRS.length; index++) {
+    const attr = BOOL_ATTRS[index]!;
+    const otherAttr = BOOL_ATTRS[(index + 1) % BOOL_ATTRS.length]!;
+
+    test(`${attr}: identical true key reuses cached object`, () => {
+      const a = mergeTextStyle(DEFAULT_BASE_STYLE, boolOverride(attr, true));
+      const b = mergeTextStyle(DEFAULT_BASE_STYLE, boolOverride(attr, true));
+      assert.equal(a === b, true);
     });
 
-    const defaultNode = Button({ id: "default", label: "Default" });
-    assert.deepEqual((defaultNode.props as { style?: unknown }).style, {
+    test(`${attr}: identical false key reuses cached object`, () => {
+      const a = mergeTextStyle(DEFAULT_BASE_STYLE, boolOverride(attr, false));
+      const b = mergeTextStyle(DEFAULT_BASE_STYLE, boolOverride(attr, false));
+      assert.equal(a === b, true);
+    });
+
+    test(`${attr}: key is separated from ${otherAttr}`, () => {
+      const a = mergeTextStyle(DEFAULT_BASE_STYLE, boolOverride(attr, true));
+      const b = mergeTextStyle(DEFAULT_BASE_STYLE, boolOverride(otherAttr, true));
+      assert.equal(a === b, false);
+    });
+
+    test(`${attr}: true and false map to different cache keys`, () => {
+      const a = mergeTextStyle(DEFAULT_BASE_STYLE, boolOverride(attr, true));
+      const b = mergeTextStyle(DEFAULT_BASE_STYLE, boolOverride(attr, false));
+      assert.equal(a === b, false);
+    });
+  }
+
+  test("all 256 true/unset 8-attr scenarios are stable and distinct", () => {
+    const firstPass: ResolvedTextStyle[] = [];
+    const seen = new Map<ResolvedTextStyle, number>();
+
+    for (let mask = 0; mask < 256; mask++) {
+      const merged = mergeTextStyle(DEFAULT_BASE_STYLE, maskStyle(mask, true));
+      firstPass.push(merged);
+
+      if (mask === 0) {
+        assert.equal(merged === DEFAULT_BASE_STYLE, true);
+      } else {
+        assert.equal(merged === DEFAULT_BASE_STYLE, false);
+      }
+
+      const prior = seen.get(merged);
+      assert.equal(prior, undefined);
+      seen.set(merged, mask);
+    }
+
+    assert.equal(seen.size, 256);
+
+    for (let mask = 0; mask < 256; mask++) {
+      const again = mergeTextStyle(DEFAULT_BASE_STYLE, maskStyle(mask, true));
+      assert.equal(again === firstPass[mask], true);
+    }
+  });
+
+  test("true/unset and false/unset scenarios do not share stale cache entries", () => {
+    for (let mask = 1; mask < 256; mask++) {
+      const trueStyle = mergeTextStyle(DEFAULT_BASE_STYLE, maskStyle(mask, true));
+      const falseStyleA = mergeTextStyle(DEFAULT_BASE_STYLE, maskStyle(mask, false));
+      const falseStyleB = mergeTextStyle(DEFAULT_BASE_STYLE, maskStyle(mask, false));
+
+      assert.equal(trueStyle === falseStyleA, false);
+      assert.equal(falseStyleA === falseStyleB, true);
+    }
+  });
+
+  test("non-default base path does not stale-reuse entries across differing colors", () => {
+    const redBase = mergeTextStyle(DEFAULT_BASE_STYLE, { fg: { r: 200, g: 10, b: 20 } });
+    const blueBase = mergeTextStyle(DEFAULT_BASE_STYLE, { fg: { r: 20, g: 10, b: 200 } });
+    const redBoldA = mergeTextStyle(redBase, { bold: true });
+    const redBoldB = mergeTextStyle(redBase, { bold: true });
+    const blueBold = mergeTextStyle(blueBase, { bold: true });
+
+    assert.equal(redBoldA === redBoldB, false);
+    assert.equal(redBoldA === blueBold, false);
+    assert.deepEqual(redBoldA.fg, { r: 200, g: 10, b: 20 });
+    assert.deepEqual(redBoldB.fg, { r: 200, g: 10, b: 20 });
+    assert.deepEqual(blueBold.fg, { r: 20, g: 10, b: 200 });
+  });
+});
+
+describe("styled variant behavior for new text attrs", () => {
+  test("variant applies strikethrough + overline + blink together", () => {
+    const Button = styled("button", {
+      base: { bold: true },
+      variants: {
+        mode: {
+          emphasis: {
+            strikethrough: true,
+            overline: true,
+            blink: true,
+          },
+          plain: {},
+        },
+      },
+      defaults: { mode: "plain" },
+    });
+
+    const vnode = Button({ id: "emphasis", label: "Emphasis", mode: "emphasis" });
+    assert.deepEqual((vnode.props as { style?: unknown }).style, {
       bold: true,
       strikethrough: true,
-      fg: { r: 1, g: 2, b: 3 },
-    });
-
-    const dangerNode = Button({
-      id: "danger",
-      label: "Danger",
-      intent: "danger",
-      style: { strikethrough: true, italic: true },
-    });
-    assert.deepEqual((dangerNode.props as { style?: unknown }).style, {
-      bold: true,
-      fg: { r: 9, g: 8, b: 7 },
-      strikethrough: true,
-      italic: true,
+      overline: true,
+      blink: true,
     });
   });
-});
 
-describe("TextStyle merge with overline", () => {
-  test("nested inheritance chain preserves and overrides overline deterministically", () => {
-    const root = mergeTextStyle(DEFAULT_BASE_STYLE, { overline: true });
-    const parent = mergeTextStyle(root, { bold: true });
-    const child = mergeTextStyle(parent, { overline: false });
-    const leaf = mergeTextStyle(child, { italic: true });
-
-    assert.equal(root.overline, true);
-    assert.equal(parent.overline, true);
-    assert.equal(child.overline, false);
-    assert.equal(leaf.overline, false);
-  });
-
-  test("cache key distinguishes overline from other boolean attrs", () => {
-    const withoutOverline = mergeTextStyle(DEFAULT_BASE_STYLE, { bold: true });
-    const withOverlineA = mergeTextStyle(DEFAULT_BASE_STYLE, { bold: true, overline: true });
-    const withOverlineB = mergeTextStyle(DEFAULT_BASE_STYLE, { bold: true, overline: true });
-    const withStrike = mergeTextStyle(DEFAULT_BASE_STYLE, { bold: true, strikethrough: true });
-
-    assert.equal(withoutOverline === withOverlineA, false);
-    assert.equal(withOverlineA === withOverlineB, true);
-    assert.equal(withOverlineA === withStrike, false);
-  });
-});
-
-describe("styled variant merge with overline", () => {
-  test("base -> variant -> user style merge order supports overline application and overrides", () => {
+  test("variant override wins when base has blink=true and variant sets blink=false", () => {
     const Button = styled("button", {
-      base: { bold: true, overline: true },
+      base: { blink: true, overline: true },
       variants: {
-        intent: {
-          primary: { fg: { r: 1, g: 2, b: 3 } },
-          danger: { fg: { r: 9, g: 8, b: 7 }, overline: false },
+        tone: {
+          calm: { blink: false },
+          loud: { strikethrough: true },
         },
       },
-      defaults: { intent: "primary" },
+      defaults: { tone: "calm" },
     });
 
-    const defaultNode = Button({ id: "default", label: "Default" });
-    assert.deepEqual((defaultNode.props as { style?: unknown }).style, {
-      bold: true,
+    const vnode = Button({ id: "calm", label: "Calm" });
+    assert.deepEqual((vnode.props as { style?: unknown }).style, {
+      blink: false,
       overline: true,
-      fg: { r: 1, g: 2, b: 3 },
-    });
-
-    const dangerNode = Button({
-      id: "danger",
-      label: "Danger",
-      intent: "danger",
-      style: { overline: true, italic: true },
-    });
-    assert.deepEqual((dangerNode.props as { style?: unknown }).style, {
-      bold: true,
-      fg: { r: 9, g: 8, b: 7 },
-      overline: true,
-      italic: true,
     });
   });
-});
 
-describe("TextStyle merge with blink", () => {
-  test("nested inheritance chain preserves and overrides blink deterministically", () => {
-    const root = mergeTextStyle(DEFAULT_BASE_STYLE, { blink: true });
-    const parent = mergeTextStyle(root, { bold: true });
-    const child = mergeTextStyle(parent, { blink: false });
-    const leaf = mergeTextStyle(child, { italic: true });
-
-    assert.equal(root.blink, true);
-    assert.equal(parent.blink, true);
-    assert.equal(child.blink, false);
-    assert.equal(leaf.blink, false);
-  });
-
-  test("cache key distinguishes blink from other boolean attrs", () => {
-    const withoutBlink = mergeTextStyle(DEFAULT_BASE_STYLE, { bold: true });
-    const withBlinkA = mergeTextStyle(DEFAULT_BASE_STYLE, { bold: true, blink: true });
-    const withBlinkB = mergeTextStyle(DEFAULT_BASE_STYLE, { bold: true, blink: true });
-    const withOverline = mergeTextStyle(DEFAULT_BASE_STYLE, { bold: true, overline: true });
-
-    assert.equal(withoutBlink === withBlinkA, false);
-    assert.equal(withBlinkA === withBlinkB, true);
-    assert.equal(withBlinkA === withOverline, false);
-  });
-});
-
-describe("styled variant merge with blink", () => {
-  test("base -> variant -> user style merge order supports blink application and overrides", () => {
+  test("user style overrides variant values for new attrs", () => {
     const Button = styled("button", {
-      base: { bold: true, blink: true },
+      base: { strikethrough: true },
       variants: {
-        intent: {
-          primary: { fg: { r: 1, g: 2, b: 3 } },
-          danger: { fg: { r: 9, g: 8, b: 7 }, blink: false },
+        mode: {
+          active: { overline: true, blink: true },
+          idle: {},
         },
       },
-      defaults: { intent: "primary" },
+      defaults: { mode: "active" },
     });
 
-    const defaultNode = Button({ id: "default", label: "Default" });
-    assert.deepEqual((defaultNode.props as { style?: unknown }).style, {
-      bold: true,
-      blink: true,
-      fg: { r: 1, g: 2, b: 3 },
+    const vnode = Button({
+      id: "active",
+      label: "Active",
+      style: { strikethrough: false, blink: false },
     });
-
-    const dangerNode = Button({
-      id: "danger",
-      label: "Danger",
-      intent: "danger",
-      style: { blink: true, italic: true },
-    });
-    assert.deepEqual((dangerNode.props as { style?: unknown }).style, {
-      bold: true,
-      fg: { r: 9, g: 8, b: 7 },
-      blink: true,
-      italic: true,
+    assert.deepEqual((vnode.props as { style?: unknown }).style, {
+      strikethrough: false,
+      overline: true,
+      blink: false,
     });
   });
 });
