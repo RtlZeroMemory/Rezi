@@ -1,6 +1,6 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import type { VNode } from "../../index.js";
 import { updateLayoutStabilitySignatures } from "../../app/widgetRenderer/submitFramePipeline.js";
+import type { VNode } from "../../index.js";
 import type { RuntimeInstance } from "../../runtime/commit.js";
 import type { InstanceId } from "../../runtime/instance.js";
 
@@ -12,10 +12,7 @@ function buttonNode(label: string, props: Record<string, unknown> = {}): VNode {
   return { kind: "button", props: { label, ...props } } as unknown as VNode;
 }
 
-function rowNode(
-  children: readonly VNode[],
-  props: Record<string, unknown> = {},
-): VNode {
+function rowNode(children: readonly VNode[], props: Record<string, unknown> = {}): VNode {
   return {
     kind: "row",
     props,
@@ -23,10 +20,7 @@ function rowNode(
   } as unknown as VNode;
 }
 
-function boxNode(
-  children: readonly VNode[],
-  props: Record<string, unknown> = {},
-): VNode {
+function boxNode(children: readonly VNode[], props: Record<string, unknown> = {}): VNode {
   return {
     kind: "box",
     props,
@@ -74,16 +68,10 @@ describe("layout stability signatures", () => {
   test("row style-only prop change is excluded", () => {
     const prev = new Map<InstanceId, number>();
     const child = runtimeNode(2, textNode("child"));
-    const base = runtimeNode(
-      1,
-      rowNode([child.vnode], { gap: 1, style: { fg: "red" } }),
-      [child],
-    );
-    const styleOnly = runtimeNode(
-      1,
-      rowNode([child.vnode], { gap: 1, style: { fg: "blue" } }),
-      [child],
-    );
+    const base = runtimeNode(1, rowNode([child.vnode], { gap: 1, style: { fg: "red" } }), [child]);
+    const styleOnly = runtimeNode(1, rowNode([child.vnode], { gap: 1, style: { fg: "blue" } }), [
+      child,
+    ]);
 
     assert.equal(runSignatures(base, prev), true);
     assert.equal(runSignatures(styleOnly, prev), false);
@@ -159,11 +147,10 @@ describe("layout stability signatures", () => {
     const childB = runtimeNode(3, textNode("B"));
 
     const base = runtimeNode(1, rowNode([childA.vnode], { gap: 0 }), [childA]);
-    const withAddedChild = runtimeNode(
-      1,
-      rowNode([childA.vnode, childB.vnode], { gap: 0 }),
-      [childA, childB],
-    );
+    const withAddedChild = runtimeNode(1, rowNode([childA.vnode, childB.vnode], { gap: 0 }), [
+      childA,
+      childB,
+    ]);
 
     assert.equal(runSignatures(base, prev), true);
     assert.equal(runSignatures(withAddedChild, prev), true);
@@ -174,7 +161,10 @@ describe("layout stability signatures", () => {
     const childA = runtimeNode(2, textNode("A"));
     const childB = runtimeNode(3, textNode("B"));
 
-    const base = runtimeNode(1, rowNode([childA.vnode, childB.vnode], { gap: 0 }), [childA, childB]);
+    const base = runtimeNode(1, rowNode([childA.vnode, childB.vnode], { gap: 0 }), [
+      childA,
+      childB,
+    ]);
     const withRemovedChild = runtimeNode(1, rowNode([childA.vnode], { gap: 0 }), [childA]);
 
     assert.equal(runSignatures(base, prev), true);
@@ -186,8 +176,14 @@ describe("layout stability signatures", () => {
     const childA = runtimeNode(2, textNode("A"));
     const childB = runtimeNode(3, textNode("B"));
 
-    const base = runtimeNode(1, rowNode([childA.vnode, childB.vnode], { gap: 0 }), [childA, childB]);
-    const reordered = runtimeNode(1, rowNode([childB.vnode, childA.vnode], { gap: 0 }), [childB, childA]);
+    const base = runtimeNode(1, rowNode([childA.vnode, childB.vnode], { gap: 0 }), [
+      childA,
+      childB,
+    ]);
+    const reordered = runtimeNode(1, rowNode([childB.vnode, childA.vnode], { gap: 0 }), [
+      childB,
+      childA,
+    ]);
 
     assert.equal(runSignatures(base, prev), true);
     assert.equal(runSignatures(reordered, prev), true);
@@ -199,13 +195,10 @@ describe("layout stability signatures", () => {
     assert.equal(runSignatures(supported, prev), true);
     assert.ok(prev.size > 0);
 
-    const unsupported = runtimeNode(
-      1,
-      {
-        kind: "select",
-        props: { id: "s", value: "", options: Object.freeze([]) },
-      } as unknown as VNode,
-    );
+    const unsupported = runtimeNode(1, {
+      kind: "select",
+      props: { id: "s", value: "", options: Object.freeze([]) },
+    } as unknown as VNode);
 
     assert.equal(runSignatures(unsupported, prev), true);
     assert.equal(prev.size, 0);

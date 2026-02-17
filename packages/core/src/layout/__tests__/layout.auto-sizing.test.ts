@@ -59,7 +59,7 @@ const CASES: readonly AutoCase[] = [
     expectedChildren: [{ x: 0, y: 0, w: 5, h: 1 }],
   },
   {
-    name: 'auto box includes padding in intrinsic size',
+    name: "auto box includes padding in intrinsic size",
     vnode: ui.box({ border: "none", width: "auto", height: "auto", p: 2 }, [ui.text("hello")]),
     axis: "column",
     maxW: 50,
@@ -68,7 +68,7 @@ const CASES: readonly AutoCase[] = [
     expectedChildren: [{ x: 2, y: 2, w: 5, h: 1 }],
   },
   {
-    name: 'row auto child without flex does not join flex distribution',
+    name: "row auto child without flex does not join flex distribution",
     vnode: ui.row({ width: 20, height: 4, gap: 1 }, [
       ui.box({ border: "none", width: "auto" }, [ui.text("abcd")]),
       ui.box({ border: "none", flex: 1 }, []),
@@ -132,7 +132,7 @@ const CASES: readonly AutoCase[] = [
     expectedChild0Children: [{ x: 0, y: 0, w: 2, h: 1 }],
   },
   {
-    name: 'column auto child without flex does not join flex distribution',
+    name: "column auto child without flex does not join flex distribution",
     vnode: ui.column({ width: 12, height: 12, gap: 1 }, [
       ui.box({ border: "none", height: "auto" }, [ui.text("x")]),
       ui.box({ border: "none", flex: 1 }, []),

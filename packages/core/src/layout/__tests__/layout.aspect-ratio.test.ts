@@ -4,12 +4,7 @@ import type { LayoutTree } from "../layout.js";
 import { layout } from "../layout.js";
 import type { Axis } from "../types.js";
 
-function mustLayout(
-  node: VNode,
-  maxW: number,
-  maxH: number,
-  axis: Axis = "column",
-): LayoutTree {
+function mustLayout(node: VNode, maxW: number, maxH: number, axis: Axis = "column"): LayoutTree {
   const res = layout(node, 0, 0, maxW, maxH, axis);
   assert.equal(res.ok, true, "layout should succeed");
   if (!res.ok) {
@@ -59,7 +54,7 @@ describe("layout aspect-ratio (deterministic)", () => {
     assert.deepEqual(out.rect, { x: 0, y: 0, w: 7, h: 3 });
   });
 
-  test('percent width with aspectRatio resolves against parent width', () => {
+  test("percent width with aspectRatio resolves against parent width", () => {
     const node: VNode = {
       kind: "box",
       props: { border: "none", width: "50%", aspectRatio: 2 },
@@ -69,7 +64,7 @@ describe("layout aspect-ratio (deterministic)", () => {
     assert.deepEqual(out.rect, { x: 0, y: 0, w: 7, h: 3 });
   });
 
-  test('percent height with aspectRatio resolves against parent height', () => {
+  test("percent height with aspectRatio resolves against parent height", () => {
     const node: VNode = {
       kind: "box",
       props: { border: "none", height: "25%", aspectRatio: 2 },
@@ -124,7 +119,11 @@ describe("layout aspect-ratio (deterministic)", () => {
       kind: "row",
       props: {},
       children: Object.freeze([
-        { kind: "box", props: { border: "none", height: 4, aspectRatio: 2 }, children: Object.freeze([]) },
+        {
+          kind: "box",
+          props: { border: "none", height: 4, aspectRatio: 2 },
+          children: Object.freeze([]),
+        },
         { kind: "box", props: { border: "none", flex: 1 }, children: Object.freeze([]) },
       ]),
     };
@@ -139,7 +138,11 @@ describe("layout aspect-ratio (deterministic)", () => {
       kind: "column",
       props: {},
       children: Object.freeze([
-        { kind: "box", props: { border: "none", width: 6, aspectRatio: 2 }, children: Object.freeze([]) },
+        {
+          kind: "box",
+          props: { border: "none", width: 6, aspectRatio: 2 },
+          children: Object.freeze([]),
+        },
         { kind: "box", props: { border: "none", flex: 1 }, children: Object.freeze([]) },
       ]),
     };

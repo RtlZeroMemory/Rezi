@@ -13,12 +13,7 @@ function mustMeasure(node: VNode, maxW: number, maxH: number, axis: Axis = "colu
   return res.value;
 }
 
-function mustLayout(
-  node: VNode,
-  maxW: number,
-  maxH: number,
-  axis: Axis = "column",
-): LayoutTree {
+function mustLayout(node: VNode, maxW: number, maxH: number, axis: Axis = "column"): LayoutTree {
   const res = layout(node, 0, 0, maxW, maxH, axis);
   assert.equal(res.ok, true, "layout should succeed");
   if (!res.ok) {

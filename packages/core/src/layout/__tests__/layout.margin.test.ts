@@ -13,12 +13,7 @@ function mustMeasure(node: VNode, maxW: number, maxH: number, axis: Axis = "colu
   return res.value;
 }
 
-function mustLayout(
-  node: VNode,
-  maxW: number,
-  maxH: number,
-  axis: Axis = "column",
-): LayoutTree {
+function mustLayout(node: VNode, maxW: number, maxH: number, axis: Axis = "column"): LayoutTree {
   const res = layout(node, 0, 0, maxW, maxH, axis);
   assert.equal(res.ok, true, "layout should succeed");
   if (!res.ok) {
@@ -92,7 +87,11 @@ describe("layout margin (deterministic)", () => {
           props: { border: "none", width: 1, height: 1, ml: -2, mr: -2, mt: -1, mb: -1 },
           children: Object.freeze([]),
         },
-        { kind: "box", props: { border: "none", width: 2, height: 1 }, children: Object.freeze([]) },
+        {
+          kind: "box",
+          props: { border: "none", width: 2, height: 1 },
+          children: Object.freeze([]),
+        },
       ]),
     };
     const out = mustLayout(row, 5, 2, "row");
@@ -111,7 +110,11 @@ describe("layout margin (deterministic)", () => {
           props: { border: "none", width: 2, height: 1, ml: -1, mr: -1, mt: -2, mb: -1 },
           children: Object.freeze([]),
         },
-        { kind: "box", props: { border: "none", width: 1, height: 1 }, children: Object.freeze([]) },
+        {
+          kind: "box",
+          props: { border: "none", width: 1, height: 1 },
+          children: Object.freeze([]),
+        },
       ]),
     };
     const out = mustLayout(column, 4, 3, "column");
@@ -125,7 +128,11 @@ describe("layout margin (deterministic)", () => {
       kind: "row",
       props: { p: 1 },
       children: Object.freeze([
-        { kind: "box", props: { border: "none", width: 2, height: 1, m: 1 }, children: Object.freeze([]) },
+        {
+          kind: "box",
+          props: { border: "none", width: 2, height: 1, m: 1 },
+          children: Object.freeze([]),
+        },
       ]),
     };
     const out = mustLayout(row, 20, 10, "row");
@@ -202,7 +209,18 @@ describe("layout margin (deterministic)", () => {
   test("per-side margins override mx/my/m in layout", () => {
     const box: VNode = {
       kind: "box",
-      props: { border: "none", width: 4, height: 2, m: 1, mx: 2, my: 3, mt: 4, mr: 5, mb: 6, ml: 7 },
+      props: {
+        border: "none",
+        width: 4,
+        height: 2,
+        m: 1,
+        mx: 2,
+        my: 3,
+        mt: 4,
+        mr: 5,
+        mb: 6,
+        ml: 7,
+      },
       children: Object.freeze([]),
     };
     const size = mustMeasure(box, 40, 40);

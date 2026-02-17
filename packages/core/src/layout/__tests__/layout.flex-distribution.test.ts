@@ -288,7 +288,10 @@ const CASES: readonly FlexCase[] = [
     name: "total flex is zero and oversized fixed children clamp without negatives",
     main: 5,
     cross: 5,
-    children: [{ main: 6, flex: 0 }, { main: 6, flex: 0 }],
+    children: [
+      { main: 6, flex: 0 },
+      { main: 6, flex: 0 },
+    ],
     expectedRowChildren: [
       { x: 0, y: 0, w: 5, h: 0 },
       { x: 5, y: 0, w: 0, h: 0 },
