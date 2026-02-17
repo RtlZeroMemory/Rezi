@@ -82,7 +82,9 @@ function readInternedStrings(bytes: Uint8Array): string[] {
   const spans = readStringSpans(bytes);
   const decoder = new TextDecoder();
   return spans.map((span) =>
-    decoder.decode(bytes.subarray(stringsBytesOffset + span.off, stringsBytesOffset + span.off + span.len)),
+    decoder.decode(
+      bytes.subarray(stringsBytesOffset + span.off, stringsBytesOffset + span.off + span.len),
+    ),
   );
 }
 
@@ -138,7 +140,11 @@ describe("drawlist string interning", () => {
       const drawText = readDrawTextEntries(bytes);
       assert.equal(drawText[0]?.stringIndex, 0, `${factory.name}: first index`);
       assert.equal(drawText[1]?.stringIndex, 0, `${factory.name}: second index`);
-      assert.deepEqual(readInternedStrings(bytes), ["same"], `${factory.name}: one interned string`);
+      assert.deepEqual(
+        readInternedStrings(bytes),
+        ["same"],
+        `${factory.name}: one interned string`,
+      );
     }
   });
 
@@ -232,7 +238,11 @@ describe("drawlist string interning", () => {
       const actualIndices = drawText.map((entry) => entry.stringIndex);
 
       assert.deepEqual(actualIndices, expectedIndices, `${factory.name}: index assignment`);
-      assert.deepEqual(readInternedStrings(bytes), expectedUnique, `${factory.name}: unique decode`);
+      assert.deepEqual(
+        readInternedStrings(bytes),
+        expectedUnique,
+        `${factory.name}: unique decode`,
+      );
     }
   });
 
@@ -271,7 +281,11 @@ describe("drawlist string interning", () => {
 
       assert.deepEqual(frame1Indices, [0, 1], `${factory.name}: frame 1 indices`);
       assert.deepEqual(frame2Indices, [0], `${factory.name}: frame 2 indices restart`);
-      assert.deepEqual(readInternedStrings(frame2), ["second"], `${factory.name}: no stale strings`);
+      assert.deepEqual(
+        readInternedStrings(frame2),
+        ["second"],
+        `${factory.name}: no stale strings`,
+      );
     }
   });
 

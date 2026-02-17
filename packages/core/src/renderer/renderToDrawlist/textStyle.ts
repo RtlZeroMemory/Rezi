@@ -40,7 +40,8 @@ export function mergeTextStyle(
     const s = encTriBool(override.strikethrough);
     const o = encTriBool(override.overline);
     const bl = encTriBool(override.blink);
-    const key = b | (d << 2) | (i << 4) | (u << 6) | (inv << 8) | (s << 10) | (o << 12) | (bl << 14);
+    const key =
+      b | (d << 2) | (i << 4) | (u << 6) | (inv << 8) | (s << 10) | (o << 12) | (bl << 14);
     if (key === 0) return base;
     const cached = BASE_BOOL_STYLE_CACHE[key];
     if (cached) return cached;

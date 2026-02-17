@@ -2,8 +2,8 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import type { TextStyle } from "../../index.js";
 import {
   DEFAULT_BASE_STYLE,
-  mergeTextStyle,
   type ResolvedTextStyle,
+  mergeTextStyle,
 } from "../../renderer/renderToDrawlist/textStyle.js";
 import { styled } from "../styled.js";
 
@@ -50,19 +50,26 @@ function boolOverrides(values: Partial<Record<BoolAttr, boolean | undefined>>): 
   return values as TextStyle;
 }
 
+function attrAt(index: number): BoolAttr {
+  const attr = BOOL_ATTRS[index];
+  if (!attr) throw new Error(`missing attr at index ${String(index)}`);
+  return attr;
+}
+
 function maskStyle(mask: number, value: boolean): TextStyle {
   const out: Partial<Record<BoolAttr, boolean>> = {};
   for (let bit = 0; bit < BOOL_ATTRS.length; bit++) {
-    if ((mask & (1 << bit)) !== 0) out[BOOL_ATTRS[bit]!] = value;
+    const attr = attrAt(bit);
+    if ((mask & (1 << bit)) !== 0) out[attr] = value;
   }
   return out;
 }
 
 describe("mergeTextStyle boolean merge correctness", () => {
   for (let index = 0; index < BOOL_ATTRS.length; index++) {
-    const attr = BOOL_ATTRS[index]!;
-    const helperA = BOOL_ATTRS[(index + 1) % BOOL_ATTRS.length]!;
-    const helperB = BOOL_ATTRS[(index + 2) % BOOL_ATTRS.length]!;
+    const attr = attrAt(index);
+    const helperA = attrAt((index + 1) % BOOL_ATTRS.length);
+    const helperB = attrAt((index + 2) % BOOL_ATTRS.length);
 
     test(`${attr}: independence from other attrs`, () => {
       const merged = mergeTextStyle(DEFAULT_BASE_STYLE, {
@@ -176,8 +183,8 @@ describe("mergeTextStyle boolean merge correctness", () => {
 
 describe("mergeTextStyle cache correctness for DEFAULT_BASE_STYLE", () => {
   for (let index = 0; index < BOOL_ATTRS.length; index++) {
-    const attr = BOOL_ATTRS[index]!;
-    const otherAttr = BOOL_ATTRS[(index + 1) % BOOL_ATTRS.length]!;
+    const attr = attrAt(index);
+    const otherAttr = attrAt((index + 1) % BOOL_ATTRS.length);
 
     test(`${attr}: identical true key reuses cached object`, () => {
       const a = mergeTextStyle(DEFAULT_BASE_STYLE, boolOverride(attr, true));

@@ -1,5 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { createDrawlistBuilderV1, createDrawlistBuilderV2, type TextStyle } from "../../index.js";
+import { type TextStyle, createDrawlistBuilderV1, createDrawlistBuilderV2 } from "../../index.js";
 
 function u32(bytes: Uint8Array, off: number): number {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -68,10 +68,17 @@ function singleAttrStyle(attr: AttrName): TextStyle {
   return { [attr]: true } as TextStyle;
 }
 
+function attrAt(index: number): AttrName {
+  const attr = ATTRS[index];
+  if (!attr) throw new Error(`missing attr at index ${String(index)}`);
+  return attr;
+}
+
 function attrMaskStyle(mask: number): TextStyle {
   const out: Partial<Record<AttrName, boolean>> = {};
   for (let bit = 0; bit < ATTRS.length; bit++) {
-    if ((mask & (1 << bit)) !== 0) out[ATTRS[bit]!] = true;
+    const attr = attrAt(bit);
+    if ((mask & (1 << bit)) !== 0) out[attr] = true;
   }
   return out;
 }

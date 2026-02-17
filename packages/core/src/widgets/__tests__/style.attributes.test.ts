@@ -50,7 +50,7 @@ describe("TextStyle attributes", () => {
       const merged = mergeStyles(ALL_TRUE_ATTRS, attrStyle(attr, false));
 
       for (const key of ATTRS) {
-        assert.equal(merged[key], key === attr ? false : true);
+        assert.equal(merged[key], key !== attr);
       }
     });
   }

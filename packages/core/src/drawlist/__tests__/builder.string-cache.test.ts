@@ -95,7 +95,11 @@ function encodeCallCount(calls: readonly string[], value: string): number {
 
 function withTextEncoderSpy<T>(run: (calls: string[]) => T): T {
   const OriginalTextEncoder = globalThis.TextEncoder;
-  assert.equal(typeof OriginalTextEncoder, "function", "TextEncoder should exist in the test runtime");
+  assert.equal(
+    typeof OriginalTextEncoder,
+    "function",
+    "TextEncoder should exist in the test runtime",
+  );
 
   const calls: string[] = [];
   class SpyTextEncoder {
@@ -268,9 +272,17 @@ describe("drawlist encoded string cache", () => {
         b.drawText(0, 0, bText);
         buildOk(b, `${factory.name} frame b again`);
 
-        assert.equal(encodeCallCount(calls, a), 1, `${factory.name}: A encoded only in first frame`);
+        assert.equal(
+          encodeCallCount(calls, a),
+          1,
+          `${factory.name}: A encoded only in first frame`,
+        );
         assert.equal(encodeCallCount(calls, c), 1, `${factory.name}: C encoded once`);
-        assert.equal(encodeCallCount(calls, bText), 2, `${factory.name}: B should miss after clear`);
+        assert.equal(
+          encodeCallCount(calls, bText),
+          2,
+          `${factory.name}: B should miss after clear`,
+        );
       });
     }
   });
@@ -296,7 +308,11 @@ describe("drawlist encoded string cache", () => {
         const frameA2 = buildOk(b, `${factory.name} frame a2`);
 
         assert.equal(encodeCallCount(calls, a), 2, `${factory.name}: A should be re-encoded`);
-        assert.equal(readDrawTextEntries(frameA2)[0]?.byteLen, expectedLen, `${factory.name}: byte_len`);
+        assert.equal(
+          readDrawTextEntries(frameA2)[0]?.byteLen,
+          expectedLen,
+          `${factory.name}: byte_len`,
+        );
         assert.deepEqual(readInternedStrings(frameA2), [a], `${factory.name}: decoded string`);
       });
     }
@@ -315,8 +331,16 @@ describe("drawlist encoded string cache", () => {
         b.drawText(0, 0, text);
         const frame2 = buildOk(b, `${factory.name} frame 2`);
 
-        assert.equal(readDrawTextEntries(frame1)[0]?.stringIndex, 0, `${factory.name}: frame1 index`);
-        assert.equal(readDrawTextEntries(frame2)[0]?.stringIndex, 0, `${factory.name}: frame2 index`);
+        assert.equal(
+          readDrawTextEntries(frame1)[0]?.stringIndex,
+          0,
+          `${factory.name}: frame1 index`,
+        );
+        assert.equal(
+          readDrawTextEntries(frame2)[0]?.stringIndex,
+          0,
+          `${factory.name}: frame2 index`,
+        );
         assert.equal(encodeCallCount(calls, text), 1, `${factory.name}: cache hit across frames`);
       });
     }

@@ -72,7 +72,11 @@ function expectOk(result: DrawlistBuildResult): Uint8Array {
   return result.bytes;
 }
 
-function readStringSpan(dv: DataView, stringsSpanOffset: number, index: number): { off: number; len: number } {
+function readStringSpan(
+  dv: DataView,
+  stringsSpanOffset: number,
+  index: number,
+): { off: number; len: number } {
   const spanOff = stringsSpanOffset + index * SPAN_SIZE;
   return {
     off: dv.getUint32(spanOff, true),

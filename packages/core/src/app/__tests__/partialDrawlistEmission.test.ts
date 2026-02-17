@@ -839,7 +839,10 @@ describe("WidgetRenderer incremental drawlist emission", () => {
     );
     assert.equal(
       opsPartial.some(
-        (op) => op.kind === "drawText" && op.text === "blink-target" && (op.style?.blink ?? false) === true,
+        (op) =>
+          op.kind === "drawText" &&
+          op.text === "blink-target" &&
+          (op.style?.blink ?? false) === true,
       ),
       true,
     );
