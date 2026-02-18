@@ -19,9 +19,18 @@ describe("splitPane.edge - normalization and bounds", () => {
   });
 
   test("computePanelCellSizes percent mode tolerates NaN/Infinity size specs", () => {
-    const result = computePanelCellSizes(3, [Number.NaN, Number.POSITIVE_INFINITY, 20], 90, "percent", 1);
+    const result = computePanelCellSizes(
+      3,
+      [Number.NaN, Number.POSITIVE_INFINITY, 20],
+      90,
+      "percent",
+      1,
+    );
     assert.equal(result.sizes.length, 3);
-    assert.equal(result.sizes.reduce((sum, value) => sum + value, 0), 88);
+    assert.equal(
+      result.sizes.reduce((sum, value) => sum + value, 0),
+      88,
+    );
   });
 
   test("computePanelCellSizes absolute mode clamps negative specs to zero", () => {

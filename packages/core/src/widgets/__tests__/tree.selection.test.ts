@@ -39,7 +39,13 @@ function ctx(
   const expanded = overrides.expanded ?? ["root", "a"];
   const flatNodes =
     overrides.flatNodes ??
-    flattenTree(tree(), (n) => n.id, (n) => n.children, (n) => (n.children?.length ?? 0) > 0, expanded);
+    flattenTree(
+      tree(),
+      (n) => n.id,
+      (n) => n.children,
+      (n) => (n.children?.length ?? 0) > 0,
+      expanded,
+    );
 
   const state: TreeLocalState = {
     focusedKey: overrides.focusedKey ?? "root",
@@ -75,7 +81,10 @@ describe("tree.selection - keyboard selection and activation", () => {
   });
 
   test("ArrowRight on expanded branch selects first child", () => {
-    const result = routeTreeKey(key(ZR_KEY_RIGHT), ctx({ focusedKey: "a", expanded: ["root", "a"] }));
+    const result = routeTreeKey(
+      key(ZR_KEY_RIGHT),
+      ctx({ focusedKey: "a", expanded: ["root", "a"] }),
+    );
     assert.equal(result.nextFocusedKey, "a1");
   });
 

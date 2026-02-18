@@ -23,12 +23,20 @@ describe("tree.render - prefix/indicator rendering", () => {
   });
 
   test("depth-1 non-last uses branch glyph", () => {
-    const prefix = getTreeLinePrefix(flatNode({ depth: 1, siblingIndex: 0, siblingCount: 2 }), true, 3);
+    const prefix = getTreeLinePrefix(
+      flatNode({ depth: 1, siblingIndex: 0, siblingCount: 2 }),
+      true,
+      3,
+    );
     assert.equal(prefix, TREE_CHARS.branch);
   });
 
   test("depth-1 last uses last-branch glyph", () => {
-    const prefix = getTreeLinePrefix(flatNode({ depth: 1, siblingIndex: 1, siblingCount: 2 }), true, 3);
+    const prefix = getTreeLinePrefix(
+      flatNode({ depth: 1, siblingIndex: 1, siblingCount: 2 }),
+      true,
+      3,
+    );
     assert.equal(prefix, TREE_CHARS.lastBranch);
   });
 
@@ -39,7 +47,12 @@ describe("tree.render - prefix/indicator rendering", () => {
 
   test("nested prefix keeps continuing ancestor lines", () => {
     const prefix = getTreeLinePrefix(
-      flatNode({ depth: 3, siblingIndex: 0, siblingCount: 2, ancestorIsLast: [false, false, false] }),
+      flatNode({
+        depth: 3,
+        siblingIndex: 0,
+        siblingCount: 2,
+        ancestorIsLast: [false, false, false],
+      }),
       true,
       3,
     );

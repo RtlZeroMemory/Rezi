@@ -44,7 +44,11 @@ function mustLayout(vnode: VNode, width: number, height: number) {
 
 describe("splitPane.nested - nested orientation and reflow", () => {
   test("horizontal split lays out three panes left-to-right", () => {
-    const root = splitPane("horizontal", [20, 30, 50], [leafPanel("A"), leafPanel("B"), leafPanel("C")]);
+    const root = splitPane(
+      "horizontal",
+      [20, 30, 50],
+      [leafPanel("A"), leafPanel("B"), leafPanel("C")],
+    );
     const tree = mustLayout(root, 100, 20);
 
     const a = tree.children[0];
@@ -107,7 +111,11 @@ describe("splitPane.nested - nested orientation and reflow", () => {
   });
 
   test("nested 3+ panes remain contiguous without gaps", () => {
-    const inner = splitPane("vertical", [25, 25, 50], [leafPanel("1"), leafPanel("2"), leafPanel("3")]);
+    const inner = splitPane(
+      "vertical",
+      [25, 25, 50],
+      [leafPanel("1"), leafPanel("2"), leafPanel("3")],
+    );
     const root = splitPane("horizontal", [30, 70], [leafPanel("left"), inner]);
     const tree = mustLayout(root, 90, 40);
 

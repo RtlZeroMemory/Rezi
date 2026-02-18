@@ -1,12 +1,12 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { createFormHarness } from "./harness.js";
+import type { UseFormOptions } from "../types.js";
 import {
   isValidationClean,
   mergeValidationErrors,
   runFieldValidation,
   runSyncValidation,
 } from "../validation.js";
-import type { UseFormOptions } from "../types.js";
+import { createFormHarness } from "./harness.js";
 
 type Values = {
   name: string;
@@ -29,31 +29,24 @@ describe("form.sync-validation - utility behavior", () => {
   });
 
   test("runSyncValidation returns validator output", () => {
-    const result = runSyncValidation(
-      { name: "", email: "x", age: "" },
-      (v: Values) => {
-        const errors: Partial<Record<keyof Values, string>> = {};
-        if (!v.name) {
-          errors.name = "required";
-        }
-        return errors;
-      },
-    );
+    const result = runSyncValidation({ name: "", email: "x", age: "" }, (v: Values) => {
+      const errors: Partial<Record<keyof Values, string>> = {};
+      if (!v.name) {
+        errors.name = "required";
+      }
+      return errors;
+    });
     assert.equal(result.name, "required");
   });
 
   test("runFieldValidation returns one field's error", () => {
-    const result = runFieldValidation(
-      { name: "", email: "x", age: "1" },
-      "name",
-      (v: Values) => {
-        const errors: Partial<Record<keyof Values, string>> = { email: "bad" };
-        if (!v.name) {
-          errors.name = "required";
-        }
-        return errors;
-      },
-    );
+    const result = runFieldValidation({ name: "", email: "x", age: "1" }, "name", (v: Values) => {
+      const errors: Partial<Record<keyof Values, string>> = { email: "bad" };
+      if (!v.name) {
+        errors.name = "required";
+      }
+      return errors;
+    });
     assert.equal(result, "required");
   });
 
@@ -142,9 +135,11 @@ describe("form.sync-validation - useForm trigger semantics", () => {
   test("handleSubmit blocks submit callback when sync errors exist", () => {
     const h = createFormHarness();
     let called = 0;
-    const opts = options({ onSubmit: () => {
-      called++;
-    } });
+    const opts = options({
+      onSubmit: () => {
+        called++;
+      },
+    });
     const form = h.render(opts);
 
     form.handleSubmit();

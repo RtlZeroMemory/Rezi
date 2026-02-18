@@ -1,10 +1,7 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { createFormHarness, flushMicrotasks } from "./harness.js";
-import {
-  createDebouncedAsyncValidator,
-  runAsyncValidation,
-} from "../validation.js";
 import type { UseFormOptions } from "../types.js";
+import { createDebouncedAsyncValidator, runAsyncValidation } from "../validation.js";
+import { createFormHarness, flushMicrotasks } from "./harness.js";
 
 type Values = {
   username: string;
@@ -66,9 +63,8 @@ describe("form.async-validation - utility behavior", () => {
   });
 
   test("runAsyncValidation swallows validator rejection", async () => {
-    const result = await runAsyncValidation(
-      { username: "x" },
-      async () => Promise.reject(new Error("network")),
+    const result = await runAsyncValidation({ username: "x" }, async () =>
+      Promise.reject(new Error("network")),
     );
     assert.deepEqual(result, {});
   });

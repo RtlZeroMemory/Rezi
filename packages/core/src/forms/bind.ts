@@ -12,7 +12,10 @@ function parseFieldPath(field: string): readonly string[] {
   return Object.freeze(segments);
 }
 
-function getFieldValue<S extends Record<string, unknown>>(state: S, field: keyof S | string): unknown {
+function getFieldValue<S extends Record<string, unknown>>(
+  state: S,
+  field: keyof S | string,
+): unknown {
   if (typeof field !== "string") {
     return state[field];
   }

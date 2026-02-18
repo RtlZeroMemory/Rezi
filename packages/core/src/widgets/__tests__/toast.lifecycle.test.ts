@@ -44,13 +44,22 @@ describe("toast.lifecycle - visibility and ordering", () => {
     const current = [toast("a"), toast("b"), toast("a", { message: "old" })];
     const next = addToast(current, toast("a", { message: "new", type: "success" }));
 
-    assert.deepEqual(next.map((t) => [t.id, t.message]), [["a", "new"], ["b", "b"]]);
+    assert.deepEqual(
+      next.map((t) => [t.id, t.message]),
+      [
+        ["a", "new"],
+        ["b", "b"],
+      ],
+    );
   });
 
   test("removeToast drops all matching ids", () => {
     const current = [toast("a"), toast("b"), toast("a", { message: "again" })];
     const next = removeToast(current, "a");
-    assert.deepEqual(next.map((t) => t.id), ["b"]);
+    assert.deepEqual(
+      next.map((t) => t.id),
+      ["b"],
+    );
   });
 });
 
@@ -68,12 +77,18 @@ describe("toast.lifecycle - duration and expiry", () => {
     const createdAt = new Map<string, number>([["t", 0]]);
 
     const result = filterExpiredToasts([toast("t", { duration: 0 })], now, createdAt);
-    assert.deepEqual(result.map((t) => t.id), ["t"]);
+    assert.deepEqual(
+      result.map((t) => t.id),
+      ["t"],
+    );
   });
 
   test("missing createdAt timestamps are treated as visible", () => {
     const result = filterExpiredToasts([toast("missing", { duration: 1 })], 99_999, new Map());
-    assert.deepEqual(result.map((t) => t.id), ["missing"]);
+    assert.deepEqual(
+      result.map((t) => t.id),
+      ["missing"],
+    );
   });
 
   test("updateToastProgress clamps to [0,100]", () => {

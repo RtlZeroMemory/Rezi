@@ -128,7 +128,10 @@ describe("virtualList.keyboard - boundary routing", () => {
   });
 
   test("non-down key action is ignored", () => {
-    const result = routeVirtualListKey(createKeyEvent(ZR_KEY_DOWN, "up"), ctx({ selectedIndex: 2 }));
+    const result = routeVirtualListKey(
+      createKeyEvent(ZR_KEY_DOWN, "up"),
+      ctx({ selectedIndex: 2 }),
+    );
     assert.deepEqual(result, {});
   });
 
@@ -138,7 +141,10 @@ describe("virtualList.keyboard - boundary routing", () => {
   });
 
   test("keyboardNavigation=false ignores keys", () => {
-    const result = routeVirtualListKey(createKeyEvent(ZR_KEY_DOWN), ctx({ keyboardNavigation: false }));
+    const result = routeVirtualListKey(
+      createKeyEvent(ZR_KEY_DOWN),
+      ctx({ keyboardNavigation: false }),
+    );
     assert.deepEqual(result, {});
   });
 

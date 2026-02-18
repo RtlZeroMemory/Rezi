@@ -12,10 +12,34 @@ describe("codeEditor.scroll - cursor follow and clamping", () => {
     { name: "cursor below viewport", scrollTop: 2, cursor: pos(8, 0), viewport: 4, expected: 5 },
     { name: "cursor inside viewport", scrollTop: 2, cursor: pos(3, 0), viewport: 4, expected: 2 },
     { name: "cursor on top boundary", scrollTop: 4, cursor: pos(4, 0), viewport: 6, expected: 4 },
-    { name: "cursor on bottom boundary", scrollTop: 4, cursor: pos(9, 0), viewport: 6, expected: 4 },
-    { name: "negative scrollTop is clamped", scrollTop: -3, cursor: pos(0, 0), viewport: 5, expected: 0 },
-    { name: "viewportHeight <= 0 coerces to 1", scrollTop: 2, cursor: pos(4, 0), viewport: 0, expected: 4 },
-    { name: "very large cursor line keeps deterministic math", scrollTop: 10, cursor: pos(9999, 0), viewport: 20, expected: 9980 },
+    {
+      name: "cursor on bottom boundary",
+      scrollTop: 4,
+      cursor: pos(9, 0),
+      viewport: 6,
+      expected: 4,
+    },
+    {
+      name: "negative scrollTop is clamped",
+      scrollTop: -3,
+      cursor: pos(0, 0),
+      viewport: 5,
+      expected: 0,
+    },
+    {
+      name: "viewportHeight <= 0 coerces to 1",
+      scrollTop: 2,
+      cursor: pos(4, 0),
+      viewport: 0,
+      expected: 4,
+    },
+    {
+      name: "very large cursor line keeps deterministic math",
+      scrollTop: 10,
+      cursor: pos(9999, 0),
+      viewport: 20,
+      expected: 9980,
+    },
   ] as const;
 
   for (const c of visibilityCases) {

@@ -64,9 +64,27 @@ describe("table.columns - width allocation and truncation", () => {
     { name: "center pad even", text: "ab", width: 6, align: "center" as const, expected: "  ab  " },
     { name: "center pad odd", text: "ab", width: 5, align: "center" as const, expected: " ab  " },
     { name: "exact width", text: "hello", width: 5, align: "left" as const, expected: "hello" },
-    { name: "truncate left", text: "longvalue", width: 4, align: "left" as const, expected: "long" },
-    { name: "truncate right", text: "longvalue", width: 4, align: "right" as const, expected: "long" },
-    { name: "truncate center", text: "longvalue", width: 4, align: "center" as const, expected: "long" },
+    {
+      name: "truncate left",
+      text: "longvalue",
+      width: 4,
+      align: "left" as const,
+      expected: "long",
+    },
+    {
+      name: "truncate right",
+      text: "longvalue",
+      width: 4,
+      align: "right" as const,
+      expected: "long",
+    },
+    {
+      name: "truncate center",
+      text: "longvalue",
+      width: 4,
+      align: "center" as const,
+      expected: "long",
+    },
     { name: "zero width", text: "abc", width: 0, align: "left" as const, expected: "" },
   ] as const;
 

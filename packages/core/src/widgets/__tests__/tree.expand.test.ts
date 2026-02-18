@@ -39,7 +39,13 @@ function makeCtx(
   const expanded = overrides.expanded ?? ["root"];
   const flatNodes =
     overrides.flatNodes ??
-    flattenTree(sampleTree(), (n) => n.id, (n) => n.children, (n) => (n.children?.length ?? 0) > 0, expanded);
+    flattenTree(
+      sampleTree(),
+      (n) => n.id,
+      (n) => n.children,
+      (n) => (n.children?.length ?? 0) > 0,
+      expanded,
+    );
 
   const state: TreeLocalState = {
     focusedKey: overrides.focusedKey ?? "root",
@@ -63,18 +69,45 @@ function makeCtx(
 
 describe("tree.expand - expand/collapse traversal", () => {
   test("flattenTree with no expanded keys shows only root", () => {
-    const flat = flattenTree(sampleTree(), (n) => n.id, (n) => n.children, (n) => !!n.children, []);
-    assert.deepEqual(flat.map((n) => n.key), ["root"]);
+    const flat = flattenTree(
+      sampleTree(),
+      (n) => n.id,
+      (n) => n.children,
+      (n) => !!n.children,
+      [],
+    );
+    assert.deepEqual(
+      flat.map((n) => n.key),
+      ["root"],
+    );
   });
 
   test("flattenTree with root expanded shows root children", () => {
-    const flat = flattenTree(sampleTree(), (n) => n.id, (n) => n.children, (n) => !!n.children, ["root"]);
-    assert.deepEqual(flat.map((n) => n.key), ["root", "a", "b", "c"]);
+    const flat = flattenTree(
+      sampleTree(),
+      (n) => n.id,
+      (n) => n.children,
+      (n) => !!n.children,
+      ["root"],
+    );
+    assert.deepEqual(
+      flat.map((n) => n.key),
+      ["root", "a", "b", "c"],
+    );
   });
 
   test("flattenTree with nested expansion shows grandchildren", () => {
-    const flat = flattenTree(sampleTree(), (n) => n.id, (n) => n.children, (n) => !!n.children, ["root", "a"]);
-    assert.deepEqual(flat.map((n) => n.key), ["root", "a", "a1", "a2", "b", "c"]);
+    const flat = flattenTree(
+      sampleTree(),
+      (n) => n.id,
+      (n) => n.children,
+      (n) => !!n.children,
+      ["root", "a"],
+    );
+    assert.deepEqual(
+      flat.map((n) => n.key),
+      ["root", "a", "a1", "a2", "b", "c"],
+    );
   });
 
   test("expandNode adds key once", () => {
@@ -108,7 +141,13 @@ describe("tree.expand - expand/collapse traversal", () => {
   });
 
   test("expandAllSiblings expands all sibling branches with children", () => {
-    const flat = flattenTree(sampleTree(), (n) => n.id, (n) => n.children, (n) => !!n.children, ["root"]);
+    const flat = flattenTree(
+      sampleTree(),
+      (n) => n.id,
+      (n) => n.children,
+      (n) => !!n.children,
+      ["root"],
+    );
     const index = findNodeIndex(flat, "a");
     const next = expandAllSiblings(flat, index, ["root"]);
     assert.ok(next.includes("a"));
@@ -117,7 +156,10 @@ describe("tree.expand - expand/collapse traversal", () => {
   });
 
   test("ArrowRight expands collapsed branch", () => {
-    const result = routeTreeKey(key(ZR_KEY_RIGHT), makeCtx({ focusedKey: "a", expanded: ["root"] }));
+    const result = routeTreeKey(
+      key(ZR_KEY_RIGHT),
+      makeCtx({ focusedKey: "a", expanded: ["root"] }),
+    );
     assert.ok(result.nextExpanded?.includes("a"));
     assert.equal(result.consumed, true);
   });
@@ -149,7 +191,10 @@ describe("tree.expand - expand/collapse traversal", () => {
   });
 
   test("collapsing parent from focused child path shifts focus to parent", () => {
-    const first = routeTreeKey(key(ZR_KEY_LEFT), makeCtx({ focusedKey: "a1", expanded: ["root", "a"] }));
+    const first = routeTreeKey(
+      key(ZR_KEY_LEFT),
+      makeCtx({ focusedKey: "a1", expanded: ["root", "a"] }),
+    );
     assert.equal(first.nextFocusedKey, "a");
 
     const second = routeTreeKey(

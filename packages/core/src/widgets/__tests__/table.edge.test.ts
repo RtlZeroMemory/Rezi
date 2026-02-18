@@ -1,6 +1,12 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type { ZrevEvent } from "../../events.js";
-import { ZR_KEY_DOWN, ZR_KEY_END, ZR_KEY_ENTER, ZR_KEY_HOME, ZR_KEY_UP } from "../../keybindings/keyCodes.js";
+import {
+  ZR_KEY_DOWN,
+  ZR_KEY_END,
+  ZR_KEY_ENTER,
+  ZR_KEY_HOME,
+  ZR_KEY_UP,
+} from "../../keybindings/keyCodes.js";
 import type { TableLocalState } from "../../runtime/localState.js";
 import { routeTableKey } from "../../runtime/router.js";
 import type { TableRoutingCtx } from "../../runtime/router/types.js";
@@ -49,13 +55,19 @@ describe("table.edge - empty/small/extreme cases", () => {
   });
 
   test("single-row table clamps ArrowDown", () => {
-    const result = routeTableKey(key(ZR_KEY_DOWN), context({ rowKeys: ["r1"], focusedRowIndex: 0 }));
+    const result = routeTableKey(
+      key(ZR_KEY_DOWN),
+      context({ rowKeys: ["r1"], focusedRowIndex: 0 }),
+    );
     assert.equal(result.nextFocusedRowIndex, undefined);
     assert.equal(result.consumed, true);
   });
 
   test("single-row table Home no-op stays consumed", () => {
-    const result = routeTableKey(key(ZR_KEY_HOME), context({ rowKeys: ["r1"], focusedRowIndex: 0 }));
+    const result = routeTableKey(
+      key(ZR_KEY_HOME),
+      context({ rowKeys: ["r1"], focusedRowIndex: 0 }),
+    );
     assert.equal(result.consumed, true);
   });
 
@@ -65,12 +77,18 @@ describe("table.edge - empty/small/extreme cases", () => {
   });
 
   test("single-row table Enter activates index 0", () => {
-    const result = routeTableKey(key(ZR_KEY_ENTER), context({ rowKeys: ["r1"], focusedRowIndex: 0 }));
+    const result = routeTableKey(
+      key(ZR_KEY_ENTER),
+      context({ rowKeys: ["r1"], focusedRowIndex: 0 }),
+    );
     assert.deepEqual(result.action, { id: "tbl", action: "rowPress", rowIndex: 0 });
   });
 
   test("non-positive rowHeight still produces deterministic movement", () => {
-    const result = routeTableKey(key(ZR_KEY_DOWN), context({ rowKeys: ["a", "b", "c"], rowHeight: 0 }));
+    const result = routeTableKey(
+      key(ZR_KEY_DOWN),
+      context({ rowKeys: ["a", "b", "c"], rowHeight: 0 }),
+    );
     assert.equal(result.nextFocusedRowIndex, 1);
   });
 

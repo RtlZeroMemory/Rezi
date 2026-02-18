@@ -56,12 +56,18 @@ describe("table.virtualization - scroll/focus invariants", () => {
   });
 
   test("PageDown uses viewport-derived page size", () => {
-    const result = routeTableKey(event(ZR_KEY_PAGE_DOWN), ctx({ focusedRowIndex: 0, viewportHeight: 25 }));
+    const result = routeTableKey(
+      event(ZR_KEY_PAGE_DOWN),
+      ctx({ focusedRowIndex: 0, viewportHeight: 25 }),
+    );
     assert.equal(result.nextFocusedRowIndex, 25);
   });
 
   test("PageUp clamps at top", () => {
-    const result = routeTableKey(event(ZR_KEY_PAGE_UP), ctx({ focusedRowIndex: 5, viewportHeight: 25 }));
+    const result = routeTableKey(
+      event(ZR_KEY_PAGE_UP),
+      ctx({ focusedRowIndex: 5, viewportHeight: 25 }),
+    );
     assert.equal(result.nextFocusedRowIndex, 0);
   });
 
@@ -77,7 +83,10 @@ describe("table.virtualization - scroll/focus invariants", () => {
   });
 
   test("scrollTop is clamped before navigation when viewport changes", () => {
-    const result = routeTableKey(event(ZR_KEY_DOWN), ctx({ focusedRowIndex: 50, scrollTop: 9_999, viewportHeight: 300 }));
+    const result = routeTableKey(
+      event(ZR_KEY_DOWN),
+      ctx({ focusedRowIndex: 50, scrollTop: 9_999, viewportHeight: 300 }),
+    );
     assert.equal(result.nextFocusedRowIndex, 51);
     assert.ok((result.nextScrollTop ?? 0) <= 9_700);
   });
@@ -91,12 +100,18 @@ describe("table.virtualization - scroll/focus invariants", () => {
   });
 
   test("Enter action emits clamped row index after data shrink", () => {
-    const result = routeTableKey(event(ZR_KEY_ENTER), ctx({ rowKeys: ["a", "b"], focusedRowIndex: 99 }));
+    const result = routeTableKey(
+      event(ZR_KEY_ENTER),
+      ctx({ rowKeys: ["a", "b"], focusedRowIndex: 99 }),
+    );
     assert.deepEqual(result.action, { id: "tbl", action: "rowPress", rowIndex: 1 });
   });
 
   test("selection state is preserved during navigation", () => {
-    const result = routeTableKey(event(ZR_KEY_DOWN), ctx({ focusedRowIndex: 8, selection: ["r8"] }));
+    const result = routeTableKey(
+      event(ZR_KEY_DOWN),
+      ctx({ focusedRowIndex: 8, selection: ["r8"] }),
+    );
     assert.equal(result.nextSelection, undefined);
     assert.equal(result.nextFocusedRowIndex, 9);
   });

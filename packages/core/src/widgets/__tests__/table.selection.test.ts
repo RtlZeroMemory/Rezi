@@ -4,12 +4,7 @@ import { ZR_KEY_SPACE, ZR_MOD_CTRL, ZR_MOD_SHIFT } from "../../keybindings/keyCo
 import type { TableLocalState } from "../../runtime/localState.js";
 import { routeTableKey } from "../../runtime/router.js";
 import type { TableRoutingCtx } from "../../runtime/router/types.js";
-import {
-  buildRowKeyIndex,
-  clearSelection,
-  computeSelection,
-  selectAll,
-} from "../table.js";
+import { buildRowKeyIndex, clearSelection, computeSelection, selectAll } from "../table.js";
 
 const ALL = ["r1", "r2", "r3", "r4", "r5"] as const;
 const ZR_KEY_A = 65;
@@ -46,18 +41,39 @@ function tableCtx(
 
 describe("table.selection - row selection semantics", () => {
   test("single mode selects exactly one row", () => {
-    const result = computeSelection(["r1"], "r3", "single", { shift: false, ctrl: false }, ALL, null);
+    const result = computeSelection(
+      ["r1"],
+      "r3",
+      "single",
+      { shift: false, ctrl: false },
+      ALL,
+      null,
+    );
     assert.deepEqual(result.selection, ["r3"]);
     assert.equal(result.changed, true);
   });
 
   test("single mode no-op when already selected", () => {
-    const result = computeSelection(["r2"], "r2", "single", { shift: false, ctrl: false }, ALL, null);
+    const result = computeSelection(
+      ["r2"],
+      "r2",
+      "single",
+      { shift: false, ctrl: false },
+      ALL,
+      null,
+    );
     assert.equal(result.changed, false);
   });
 
   test("multi plain click replaces selection", () => {
-    const result = computeSelection(["r1", "r2"], "r4", "multi", { shift: false, ctrl: false }, ALL, null);
+    const result = computeSelection(
+      ["r1", "r2"],
+      "r4",
+      "multi",
+      { shift: false, ctrl: false },
+      ALL,
+      null,
+    );
     assert.deepEqual(result.selection, ["r4"]);
   });
 
@@ -67,7 +83,14 @@ describe("table.selection - row selection semantics", () => {
   });
 
   test("multi ctrl-click toggles row off", () => {
-    const result = computeSelection(["r1", "r3"], "r3", "multi", { shift: false, ctrl: true }, ALL, null);
+    const result = computeSelection(
+      ["r1", "r3"],
+      "r3",
+      "multi",
+      { shift: false, ctrl: true },
+      ALL,
+      null,
+    );
     assert.deepEqual(result.selection, ["r1"]);
   });
 
@@ -83,7 +106,15 @@ describe("table.selection - row selection semantics", () => {
 
   test("shift range uses rowKeyToIndex map", () => {
     const map = buildRowKeyIndex(ALL);
-    const result = computeSelection(["r1"], "r4", "multi", { shift: true, ctrl: false }, ALL, "r1", map);
+    const result = computeSelection(
+      ["r1"],
+      "r4",
+      "multi",
+      { shift: true, ctrl: false },
+      ALL,
+      "r1",
+      map,
+    );
     assert.deepEqual(result.selection, ["r1", "r2", "r3", "r4"]);
   });
 

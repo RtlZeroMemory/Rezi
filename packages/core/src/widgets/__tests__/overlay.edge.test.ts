@@ -1,10 +1,10 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import type { VNode } from "../../index.js";
 import type { ZrevEvent } from "../../events.js";
+import type { VNode } from "../../index.js";
+import { ZR_KEY_ESCAPE } from "../../keybindings/keyCodes.js";
 import type { LayoutTree } from "../../layout/engine/types.js";
 import { layoutOverlays, measureOverlays } from "../../layout/kinds/overlays.js";
 import { calculateAnchorPosition } from "../../layout/positioning.js";
-import { ZR_KEY_ESCAPE } from "../../keybindings/keyCodes.js";
 import { routeDropdownKey, routeLayerEscape } from "../../runtime/router.js";
 import { TOAST_HEIGHT } from "../toast.js";
 import type { DropdownItem } from "../types.js";
@@ -13,9 +13,12 @@ function keyEvent(key: number): ZrevEvent {
   return { kind: "key", key, action: "down", mods: 0, timeMs: 0 };
 }
 
-function makeVNode(kind: VNode["kind"], props: Record<string, unknown> = {}): VNode {
+function makeVNode(
+  kind: VNode["kind"],
+  props: { text?: unknown } & Record<string, unknown> = {},
+): VNode {
   if (kind === "text") {
-    return { kind: "text", text: String(props["text"] ?? "x"), props } as unknown as VNode;
+    return { kind: "text", text: String(props.text ?? "x"), props } as unknown as VNode;
   }
   return { kind, props, children: Object.freeze([]) } as unknown as VNode;
 }
@@ -31,8 +34,10 @@ function okTree(vnode: VNode, x: number, y: number, w: number, h: number): Layou
 const measureNode = (vnode: VNode, maxW: number, maxH: number) => {
   const rawW = (vnode.props as { testW?: unknown }).testW;
   const rawH = (vnode.props as { testH?: unknown }).testH;
-  const w = typeof rawW === "number" ? Math.min(maxW, Math.max(0, Math.trunc(rawW))) : Math.max(1, maxW);
-  const h = typeof rawH === "number" ? Math.min(maxH, Math.max(0, Math.trunc(rawH))) : Math.max(1, maxH);
+  const w =
+    typeof rawW === "number" ? Math.min(maxW, Math.max(0, Math.trunc(rawW))) : Math.max(1, maxW);
+  const h =
+    typeof rawH === "number" ? Math.min(maxH, Math.max(0, Math.trunc(rawH))) : Math.max(1, maxH);
   return { ok: true as const, value: { w, h } };
 };
 
@@ -148,9 +153,14 @@ describe("overlay.edge - cross-overlay escape ordering", () => {
     const layerResult = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
       layerStack: ["modal"],
       closeOnEscape: new Map([["modal", true]]),
-      onClose: new Map([["modal", () => {
-        closed = true;
-      }]]),
+      onClose: new Map([
+        [
+          "modal",
+          () => {
+            closed = true;
+          },
+        ],
+      ]),
     });
 
     assert.equal(layerResult.consumed, true);
@@ -170,7 +180,10 @@ describe("overlay.edge - cross-overlay escape ordering", () => {
     const b = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), ctx);
     const c = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), ctx);
 
-    assert.deepEqual([a.closedLayerId, b.closedLayerId, c.closedLayerId], ["modal", "modal", "modal"]);
+    assert.deepEqual(
+      [a.closedLayerId, b.closedLayerId, c.closedLayerId],
+      ["modal", "modal", "modal"],
+    );
     assert.deepEqual(closed, ["modal", "modal", "modal"]);
   });
 

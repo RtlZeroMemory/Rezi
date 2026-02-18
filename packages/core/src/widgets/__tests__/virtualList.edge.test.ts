@@ -1,6 +1,11 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type { ZrevEvent } from "../../events.js";
-import { ZR_KEY_DOWN, ZR_KEY_ENTER, ZR_KEY_PAGE_UP, ZR_KEY_UP } from "../../keybindings/keyCodes.js";
+import {
+  ZR_KEY_DOWN,
+  ZR_KEY_ENTER,
+  ZR_KEY_PAGE_UP,
+  ZR_KEY_UP,
+} from "../../keybindings/keyCodes.js";
 import type { VirtualListLocalState } from "../../runtime/localState.js";
 import { routeVirtualListKey } from "../../runtime/router.js";
 import type { VirtualListRoutingCtx } from "../../runtime/router/types.js";
@@ -55,7 +60,14 @@ describe("virtualList.edge - clamp and visibility boundaries", () => {
   }
 
   const visibleCases = [
-    { name: "empty list", items: [] as number[], scrollTop: 0, viewport: 4, overscan: 2, expected: [0, 0] },
+    {
+      name: "empty list",
+      items: [] as number[],
+      scrollTop: 0,
+      viewport: 4,
+      overscan: 2,
+      expected: [0, 0],
+    },
     { name: "single item", items: [1], scrollTop: 0, viewport: 4, overscan: 2, expected: [0, 1] },
     {
       name: "exact bottom",

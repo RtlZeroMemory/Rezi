@@ -1,13 +1,10 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type { StateUpdater } from "../../app/updateQueue.js";
-import {
-  bind,
-  bindChecked,
-  bindSelect,
-  bindTransform,
-} from "../bind.js";
+import { bind, bindChecked, bindSelect, bindTransform } from "../bind.js";
 
-function createStateHarness<S extends Record<string, unknown>>(initial: S): {
+function createStateHarness<S extends Record<string, unknown>>(
+  initial: S,
+): {
   getState: () => S;
   update: (updater: StateUpdater<S>) => void;
   getUpdateCount: () => number;

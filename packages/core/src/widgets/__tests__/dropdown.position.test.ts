@@ -1,7 +1,13 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type { ZrevEvent } from "../../events.js";
+import {
+  ZR_KEY_DOWN,
+  ZR_KEY_ENTER,
+  ZR_KEY_ESCAPE,
+  ZR_KEY_SPACE,
+  ZR_KEY_UP,
+} from "../../keybindings/keyCodes.js";
 import { calculateAnchorPosition, createAnchorLookup } from "../../layout/positioning.js";
-import { ZR_KEY_DOWN, ZR_KEY_ENTER, ZR_KEY_ESCAPE, ZR_KEY_SPACE, ZR_KEY_UP } from "../../keybindings/keyCodes.js";
 import { routeDropdownKey } from "../../runtime/router.js";
 import type { DropdownItem } from "../types.js";
 

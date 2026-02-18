@@ -14,7 +14,13 @@ function key(keyCode: number): ZrevEvent {
 
 function lazyCtx(expanded: readonly string[] = []): TreeRoutingCtx<Node> {
   const lazyNode: Node = { id: "lazy" };
-  const flatNodes = flattenTree([lazyNode], (n) => n.id, (n) => n.children, () => true, expanded);
+  const flatNodes = flattenTree(
+    [lazyNode],
+    (n) => n.id,
+    (n) => n.children,
+    () => true,
+    expanded,
+  );
   const state: TreeLocalState = {
     focusedKey: "lazy",
     loadingKeys: new Set(),

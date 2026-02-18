@@ -1,6 +1,6 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { createFormHarness, flushMicrotasks } from "./harness.js";
 import type { UseFormOptions } from "../types.js";
+import { createFormHarness, flushMicrotasks } from "./harness.js";
 
 type Values = {
   name: string;

@@ -20,16 +20,7 @@ function selection(anchor: CursorPosition, active: CursorPosition): EditorSelect
 }
 
 describe("codeEditor.edge - empty and tiny documents", () => {
-  const directions = [
-    "up",
-    "down",
-    "left",
-    "right",
-    "home",
-    "end",
-    "docStart",
-    "docEnd",
-  ] as const;
+  const directions = ["up", "down", "left", "right", "home", "end", "docStart", "docEnd"] as const;
 
   for (const direction of directions) {
     test(`moveCursor on empty document is stable for ${direction}`, () => {

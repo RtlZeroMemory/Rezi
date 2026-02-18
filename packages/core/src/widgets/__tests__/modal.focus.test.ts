@@ -28,7 +28,12 @@ function mouseEvent(): ZrevEvent {
   };
 }
 
-function zone(id: string, tabIndex: number, focusableIds: readonly string[], lastFocusedId: string | null): FocusZone {
+function zone(
+  id: string,
+  tabIndex: number,
+  focusableIds: readonly string[],
+  lastFocusedId: string | null,
+): FocusZone {
   return Object.freeze({
     id,
     tabIndex,
@@ -40,7 +45,11 @@ function zone(id: string, tabIndex: number, focusableIds: readonly string[], las
   });
 }
 
-function collectedZone(id: string, tabIndex: number, focusableIds: readonly string[]): CollectedZone {
+function collectedZone(
+  id: string,
+  tabIndex: number,
+  focusableIds: readonly string[],
+): CollectedZone {
   return Object.freeze({
     id,
     tabIndex,
@@ -145,9 +154,14 @@ describe("modal.focus - layer escape routing", () => {
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
       layerStack: ["modal"],
       closeOnEscape: new Map([["modal", true]]),
-      onClose: new Map([["modal", () => {
-        throw new Error("boom");
-      }]]),
+      onClose: new Map([
+        [
+          "modal",
+          () => {
+            throw new Error("boom");
+          },
+        ],
+      ]),
     });
 
     assert.equal(result.consumed, true);
@@ -168,9 +182,14 @@ describe("modal.focus - layer escape routing", () => {
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
       layerStack: ["modal"],
       closeOnEscape: new Map(),
-      onClose: new Map([["modal", () => {
-        closed = true;
-      }]]),
+      onClose: new Map([
+        [
+          "modal",
+          () => {
+            closed = true;
+          },
+        ],
+      ]),
     });
     assert.equal(result.closedLayerId, "modal");
     assert.equal(closed, true);
@@ -199,7 +218,9 @@ describe("modal.focus - layer escape routing", () => {
 describe("modal.focus - focus trap and zone traversal", () => {
   test("active trap keeps traversal in current zone", () => {
     const zones = new Map<string, FocusZone>([["z", zone("z", 0, ["a", "b"], "a")]]);
-    const traps = new Map<string, CollectedTrap>([["trap", collectedTrap("trap", true, null, null, ["a"])]]);
+    const traps = new Map<string, CollectedTrap>([
+      ["trap", collectedTrap("trap", true, null, null, ["a"])],
+    ]);
 
     const result = computeZoneTraversal(zones, "z", "next", ["trap"], traps);
     assert.deepEqual(result, { nextZoneId: "z", nextFocusedId: null });
@@ -207,7 +228,9 @@ describe("modal.focus - focus trap and zone traversal", () => {
 
   test("active trap with zero focusables returns null traversal", () => {
     const zones = new Map<string, FocusZone>([["z", zone("z", 0, ["a"], "a")]]);
-    const traps = new Map<string, CollectedTrap>([["trap", collectedTrap("trap", true, null, null, [])]]);
+    const traps = new Map<string, CollectedTrap>([
+      ["trap", collectedTrap("trap", true, null, null, [])],
+    ]);
 
     const result = computeZoneTraversal(zones, "z", "next", ["trap"], traps);
     assert.deepEqual(result, { nextZoneId: null, nextFocusedId: null });
@@ -243,7 +266,11 @@ describe("modal.focus - focus trap and zone traversal", () => {
 describe("modal.focus - focus state finalization with traps", () => {
   test("applies pending focus when still focusable", () => {
     const base = createFocusManagerState();
-    const state: FocusManagerState = Object.freeze({ ...base, focusedId: "a", pendingFocusedId: "b" });
+    const state: FocusManagerState = Object.freeze({
+      ...base,
+      focusedId: "a",
+      pendingFocusedId: "b",
+    });
 
     const next = finalizeFocusWithPreCollectedMetadata(
       state,
@@ -326,7 +353,11 @@ describe("modal.focus - focus state finalization with traps", () => {
 
   test("activeZoneId follows finalized focused id", () => {
     const base = createFocusManagerState();
-    const state: FocusManagerState = Object.freeze({ ...base, focusedId: "a", pendingFocusedId: "b" });
+    const state: FocusManagerState = Object.freeze({
+      ...base,
+      focusedId: "a",
+      pendingFocusedId: "b",
+    });
     const zones = new Map<string, CollectedZone>([
       ["zoneA", collectedZone("zoneA", 0, ["a"])],
       ["zoneB", collectedZone("zoneB", 1, ["b"])],

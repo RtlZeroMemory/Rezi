@@ -18,14 +18,24 @@ function pos(line: number, column: number): CursorPosition {
   return { line, column };
 }
 
-function sel(anchorLine: number, anchorColumn: number, activeLine: number, activeColumn: number): EditorSelection {
+function sel(
+  anchorLine: number,
+  anchorColumn: number,
+  activeLine: number,
+  activeColumn: number,
+): EditorSelection {
   return {
     anchor: pos(anchorLine, anchorColumn),
     active: pos(activeLine, activeColumn),
   };
 }
 
-function assertEdit(result: EditResult, expectedLines: readonly string[], line: number, column: number): void {
+function assertEdit(
+  result: EditResult,
+  expectedLines: readonly string[],
+  line: number,
+  column: number,
+): void {
   assert.deepEqual(result.lines, expectedLines);
   assert.equal(result.cursor.line, line);
   assert.equal(result.cursor.column, column);
