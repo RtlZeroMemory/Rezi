@@ -52,6 +52,7 @@ import {
   getMode,
   registerBindings,
   registerModes,
+  resetChordState,
   routeKeyEvent,
   setMode,
 } from "../keybindings/index.js";
@@ -729,6 +730,17 @@ export function createApp<S>(
           ev.kind === "key" || ev.kind === "text" || ev.kind === "paste" || ev.kind === "mouse";
         if (mode === "widget" && isWidgetRoutableEvent) {
           if (keybindingsEnabled) {
+            if (
+              ev.kind === "mouse" &&
+              (ev.mouseKind === 3 || ev.mouseKind === 4) &&
+              keybindingState.chordState.pendingKeys.length > 0
+            ) {
+              keybindingState = Object.freeze({
+                ...keybindingState,
+                chordState: resetChordState(),
+              });
+            }
+
             // Route key events through keybinding system first
             if (ev.kind === "key") {
               const bypass = widgetRenderer.shouldBypassKeybindings(ev);
