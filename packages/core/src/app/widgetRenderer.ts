@@ -284,6 +284,10 @@ function unionRect(a: Rect, b: Rect): Rect {
   return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }
 
+function isNonEmptyRect(rect: Rect | undefined): rect is Rect {
+  return rect !== undefined && rect.w > 0 && rect.h > 0;
+}
+
 function rectEquals(a: Rect, b: Rect): boolean {
   return a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 }
@@ -2759,12 +2763,16 @@ export class WidgetRenderer<S> {
 
   private appendDamageRectForInstanceId(instanceId: InstanceId): boolean {
     const current = this._pooledDamageRectByInstanceId.get(instanceId);
-    if (current && current.w > 0 && current.h > 0) {
+    const prev = this._prevFrameDamageRectByInstanceId.get(instanceId);
+    if (isNonEmptyRect(current) && isNonEmptyRect(prev)) {
+      this._pooledDamageRects.push(unionRect(current, prev));
+      return true;
+    }
+    if (isNonEmptyRect(current)) {
       this._pooledDamageRects.push(current);
       return true;
     }
-    const prev = this._prevFrameDamageRectByInstanceId.get(instanceId);
-    if (prev && prev.w > 0 && prev.h > 0) {
+    if (isNonEmptyRect(prev)) {
       this._pooledDamageRects.push(prev);
       return true;
     }
@@ -2773,12 +2781,16 @@ export class WidgetRenderer<S> {
 
   private appendDamageRectForId(id: string): boolean {
     const current = this._pooledDamageRectById.get(id);
-    if (current && current.w > 0 && current.h > 0) {
+    const prev = this._prevFrameDamageRectById.get(id);
+    if (isNonEmptyRect(current) && isNonEmptyRect(prev)) {
+      this._pooledDamageRects.push(unionRect(current, prev));
+      return true;
+    }
+    if (isNonEmptyRect(current)) {
       this._pooledDamageRects.push(current);
       return true;
     }
-    const prev = this._prevFrameDamageRectById.get(id);
-    if (prev && prev.w > 0 && prev.h > 0) {
+    if (isNonEmptyRect(prev)) {
       this._pooledDamageRects.push(prev);
       return true;
     }

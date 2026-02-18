@@ -112,6 +112,7 @@ describe("basic widgets render to drawlist", () => {
       ui.badge("Live", { variant: "success" }),
       ui.spinner({ variant: "line", label: "Loading" }),
       ui.icon("status.check"),
+      ui.icon("ui.pause"),
       ui.kbd(["Ctrl", "S"]),
       ui.status("online", { label: "Ready" }),
       ui.tag("beta", { removable: true }),
@@ -128,6 +129,14 @@ describe("basic widgets render to drawlist", () => {
     assert.equal(
       strings.some((s) => s.includes("✓")),
       true,
+    );
+    assert.equal(
+      strings.some((s) => s.includes("||")),
+      true,
+    );
+    assert.equal(
+      strings.some((s) => s.includes("⏸")),
+      false,
     );
     assert.equal(strings.includes("Ctrl"), true);
     assert.equal(

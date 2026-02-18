@@ -158,6 +158,28 @@ static bool zr_cell_is_continuation(const zr_cell_t* c) {
   return c && c->width == 0u;
 }
 
+/*
+  Conservative cursor-drift guard:
+  - Some terminals/font stacks render non-ASCII symbols at widths that differ
+    from the engine's pinned model.
+  - After emitting such a cell, invalidate cached cursor position so the next
+    cell is anchored with an explicit CUP.
+*/
+static bool zr_cell_may_drift_cursor(const zr_cell_t* c) {
+  if (!c) {
+    return false;
+  }
+  if (c->width != 1u) {
+    return true;
+  }
+  for (uint8_t i = 0u; i < c->glyph_len; i++) {
+    if (c->glyph[i] >= 0x80u) {
+      return true;
+    }
+  }
+  return false;
+}
+
 static size_t zr_fb_row_bytes(const zr_fb_t* fb) {
   if (!fb || fb->cols == 0u) {
     return 0u;
@@ -1109,6 +1131,9 @@ static zr_result_t zr_diff_render_span(zr_diff_ctx_t* ctx, uint32_t y, uint32_t 
     }
 
     ctx->ts.cursor_x += (uint32_t)w;
+    if (zr_cell_may_drift_cursor(c)) {
+      ctx->ts.flags &= (uint8_t)~ZR_TERM_STATE_CURSOR_POS_VALID;
+    }
   }
 
   return zr_sb_truncated(&ctx->sb) ? ZR_ERR_LIMIT : ZR_OK;

@@ -1,3 +1,4 @@
+import { resolveIconGlyph } from "../../icons/index.js";
 import type { VNode } from "../../index.js";
 import {
   DEFAULT_SLIDER_TRACK_WIDTH,
@@ -93,10 +94,10 @@ export function measureLeaf(
       return ok({ w: Math.min(maxW, maxW), h: Math.min(maxH, 1) });
     }
     case "icon": {
-      // Icons are typically 1-2 cells wide
-      const label = (vnode.props as { label?: string }).label;
-      const labelW = label ? measureTextCells(label) + 1 : 0;
-      return ok({ w: Math.min(maxW, 1 + labelW), h: Math.min(maxH, 1) });
+      const props = vnode.props as { icon?: unknown; fallback?: unknown };
+      const iconPath = typeof props.icon === "string" ? props.icon : "";
+      const glyph = resolveIconGlyph(iconPath, props.fallback === true);
+      return ok({ w: Math.min(maxW, glyph.width), h: Math.min(maxH, 1) });
     }
     case "spinner": {
       // Spinner: 1 char + optional label

@@ -942,6 +942,50 @@ describe("WidgetRenderer incremental drawlist emission", () => {
     assert.equal(renderer.getFocusedId(), "btn");
   });
 
+  test("incremental damage merges previous and current rect footprints", () => {
+    const backend = createNoopBackend();
+    const builder = new RecordingBuilder();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      builder,
+      requestRender: () => {},
+    });
+
+    const probe = renderer as unknown as {
+      _pooledDamageRectByInstanceId: Map<string, { x: number; y: number; w: number; h: number }>;
+      _prevFrameDamageRectByInstanceId: Map<string, { x: number; y: number; w: number; h: number }>;
+      _pooledDamageRectById: Map<string, { x: number; y: number; w: number; h: number }>;
+      _prevFrameDamageRectById: Map<string, { x: number; y: number; w: number; h: number }>;
+      _pooledDamageRects: Array<{ x: number; y: number; w: number; h: number }>;
+      appendDamageRectForInstanceId: (instanceId: string) => boolean;
+      appendDamageRectForId: (id: string) => boolean;
+    };
+
+    const instanceId = "instance-1";
+    probe._pooledDamageRectByInstanceId.set(instanceId, { x: 12, y: 5, w: 4, h: 1 });
+    probe._prevFrameDamageRectByInstanceId.set(instanceId, { x: 10, y: 5, w: 8, h: 1 });
+
+    const byInstance = probe.appendDamageRectForInstanceId(instanceId);
+    assert.equal(byInstance, true);
+    const mergedInstance = probe._pooledDamageRects[0];
+    assert.equal(mergedInstance?.x, 10);
+    assert.equal(mergedInstance?.y, 5);
+    assert.equal(mergedInstance?.w, 8);
+    assert.equal(mergedInstance?.h, 1);
+
+    const id = "btn";
+    probe._pooledDamageRectById.set(id, { x: 22, y: 8, w: 3, h: 1 });
+    probe._prevFrameDamageRectById.set(id, { x: 22, y: 8, w: 7, h: 1 });
+
+    const byId = probe.appendDamageRectForId(id);
+    assert.equal(byId, true);
+    const mergedId = probe._pooledDamageRects[1];
+    assert.equal(mergedId?.x, 22);
+    assert.equal(mergedId?.y, 8);
+    assert.equal(mergedId?.w, 7);
+    assert.equal(mergedId?.h, 1);
+  });
+
   test("doLayout=true path falls back to full clear", () => {
     const viewport: Viewport = { cols: 40, rows: 8 };
     const backend = createNoopBackend();

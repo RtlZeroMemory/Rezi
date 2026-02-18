@@ -161,10 +161,28 @@ mod ffi {
 
   #[repr(C)]
   #[derive(Copy, Clone)]
+  pub struct zr_rect_t {
+    pub x: i32,
+    pub y: i32,
+    pub w: i32,
+    pub h: i32,
+  }
+
+  #[repr(C)]
+  #[derive(Copy, Clone)]
   pub struct zr_fb_t {
     pub cols: u32,
     pub rows: u32,
     pub cells: *mut zr_cell_t,
+  }
+
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct zr_fb_painter_t {
+    pub fb: *mut zr_fb_t,
+    pub clip_stack: *mut zr_rect_t,
+    pub clip_cap: u32,
+    pub clip_len: u32,
   }
 
   #[repr(C)]
@@ -287,6 +305,24 @@ mod ffi {
     pub fn zr_fb_init(fb: *mut zr_fb_t, cols: u32, rows: u32) -> ZrResultT;
     pub fn zr_fb_release(fb: *mut zr_fb_t);
     pub fn zr_fb_cell(fb: *mut zr_fb_t, x: u32, y: u32) -> *mut zr_cell_t;
+    pub fn zr_fb_clear(fb: *mut zr_fb_t, style: *const zr_style_t) -> ZrResultT;
+    pub fn zr_fb_painter_begin(
+      p: *mut zr_fb_painter_t,
+      fb: *mut zr_fb_t,
+      clip_stack: *mut zr_rect_t,
+      clip_cap: u32,
+    ) -> ZrResultT;
+    pub fn zr_fb_clip_push(p: *mut zr_fb_painter_t, clip: zr_rect_t) -> ZrResultT;
+    pub fn zr_fb_clip_pop(p: *mut zr_fb_painter_t) -> ZrResultT;
+    pub fn zr_fb_put_grapheme(
+      p: *mut zr_fb_painter_t,
+      x: i32,
+      y: i32,
+      bytes: *const u8,
+      len: usize,
+      width: u8,
+      style: *const zr_style_t,
+    ) -> ZrResultT;
     pub fn zr_diff_render(
       prev: *const zr_fb_t,
       next: *const zr_fb_t,
@@ -1466,6 +1502,15 @@ mod tests {
     }
   }
 
+  fn style_plain() -> ffi::zr_style_t {
+    ffi::zr_style_t {
+      fg_rgb: 0,
+      bg_rgb: 0,
+      attrs: 0,
+      reserved: 0,
+    }
+  }
+
   struct SingleCellFramebuffer {
     raw: ffi::zr_fb_t,
   }
@@ -1502,10 +1547,56 @@ mod tests {
     }
   }
 
-  fn render_style_transition(current_attrs: u32, desired_attrs: u32) -> Vec<u8> {
-    let prev = SingleCellFramebuffer::with_attrs(current_attrs);
-    let next = SingleCellFramebuffer::with_attrs(desired_attrs);
+  struct TestFramebuffer {
+    raw: ffi::zr_fb_t,
+  }
 
+  impl TestFramebuffer {
+    fn new(cols: u32, rows: u32) -> Self {
+      let mut raw = ffi::zr_fb_t {
+        cols: 0,
+        rows: 0,
+        cells: std::ptr::null_mut(),
+      };
+      let rc = unsafe { ffi::zr_fb_init(&mut raw as *mut _, cols, rows) };
+      assert_eq!(rc, ffi::ZR_OK, "zr_fb_init must succeed for test framebuffer");
+      let rc_clear = unsafe { ffi::zr_fb_clear(&mut raw as *mut _, &style_plain() as *const _) };
+      assert_eq!(rc_clear, ffi::ZR_OK, "zr_fb_clear must succeed for test framebuffer");
+      Self { raw }
+    }
+
+    fn set_cell(&mut self, x: u32, y: u32, glyph: &[u8], width: u8, style: ffi::zr_style_t) {
+      assert!(
+        glyph.len() <= 32,
+        "glyph length must fit ZR_CELL_GLYPH_MAX (got {})",
+        glyph.len()
+      );
+      let cell = unsafe { ffi::zr_fb_cell(&mut self.raw as *mut _, x, y) };
+      assert!(!cell.is_null(), "zr_fb_cell({x},{y}) must return a valid pointer");
+      unsafe {
+        (*cell).glyph = [0; 32];
+        for (i, b) in glyph.iter().copied().enumerate() {
+          (*cell).glyph[i] = b;
+        }
+        (*cell).glyph_len = glyph.len() as u8;
+        (*cell).width = width;
+        (*cell)._pad0 = 0;
+        (*cell).style = style;
+      }
+    }
+  }
+
+  impl Drop for TestFramebuffer {
+    fn drop(&mut self) {
+      unsafe { ffi::zr_fb_release(&mut self.raw as *mut _) };
+    }
+  }
+
+  fn render_diff_bytes(
+    prev: &ffi::zr_fb_t,
+    next: &ffi::zr_fb_t,
+    initial_style: ffi::zr_style_t,
+  ) -> Vec<u8> {
     let caps = ffi::plat_caps_t {
       color_mode: 3,
       supports_mouse: 0,
@@ -1527,7 +1618,7 @@ mod tests {
       cursor_shape: 0,
       cursor_blink: 0,
       _pad0: 0,
-      style: style_with_attrs(current_attrs),
+      style: initial_style,
     };
     let desired_cursor_state = ffi::zr_cursor_state_t {
       x: -1,
@@ -1547,15 +1638,15 @@ mod tests {
       };
       limits.diff_max_damage_rects as usize
     ];
-    let mut out = [0u8; 256];
+    let mut out = [0u8; 1024];
     let mut out_len = 0usize;
     let mut out_final_term_state: ffi::zr_term_state_t = unsafe { std::mem::zeroed() };
     let mut out_stats: ffi::zr_diff_stats_t = unsafe { std::mem::zeroed() };
 
     let rc = unsafe {
       ffi::zr_diff_render(
-        &prev.raw as *const _,
-        &next.raw as *const _,
+        prev as *const _,
+        next as *const _,
         &caps as *const _,
         &initial_term_state as *const _,
         &desired_cursor_state as *const _,
@@ -1570,10 +1661,230 @@ mod tests {
         &mut out_stats as *mut _,
       )
     };
-    assert_eq!(rc, ffi::ZR_OK, "zr_diff_render must succeed for style transition tests");
-    assert!(out_len > 0, "zr_diff_render must emit output for style-only delta");
-
+    assert_eq!(rc, ffi::ZR_OK, "zr_diff_render must succeed");
+    assert!(out_len > 0, "zr_diff_render must emit output");
     out[..out_len].to_vec()
+  }
+
+  fn render_style_transition(current_attrs: u32, desired_attrs: u32) -> Vec<u8> {
+    let prev = SingleCellFramebuffer::with_attrs(current_attrs);
+    let next = SingleCellFramebuffer::with_attrs(desired_attrs);
+    render_diff_bytes(&prev.raw, &next.raw, style_with_attrs(current_attrs))
+  }
+
+  fn cell_snapshot(fb: &mut ffi::zr_fb_t, x: u32, y: u32) -> (u8, u8) {
+    let cell = unsafe { ffi::zr_fb_cell(fb as *mut _, x, y) };
+    assert!(!cell.is_null(), "cell must exist at ({x},{y})");
+    unsafe { ((*cell).glyph[0], (*cell).width) }
+  }
+
+  #[test]
+  fn clip_edge_write_over_continuation_cleans_lead_pair() {
+    let mut fb = ffi::zr_fb_t {
+      cols: 0,
+      rows: 0,
+      cells: std::ptr::null_mut(),
+    };
+    let init_rc = unsafe { ffi::zr_fb_init(&mut fb as *mut _, 4, 1) };
+    assert_eq!(init_rc, ffi::ZR_OK);
+
+    let clear_rc = unsafe { ffi::zr_fb_clear(&mut fb as *mut _, &style_plain() as *const _) };
+    assert_eq!(clear_rc, ffi::ZR_OK);
+
+    let mut clip_stack = [
+      ffi::zr_rect_t {
+        x: 0,
+        y: 0,
+        w: 4,
+        h: 1,
+      },
+      ffi::zr_rect_t {
+        x: 0,
+        y: 0,
+        w: 0,
+        h: 0,
+      },
+    ];
+    let mut painter = ffi::zr_fb_painter_t {
+      fb: std::ptr::null_mut(),
+      clip_stack: std::ptr::null_mut(),
+      clip_cap: 0,
+      clip_len: 0,
+    };
+    let begin_rc = unsafe {
+      ffi::zr_fb_painter_begin(
+        &mut painter as *mut _,
+        &mut fb as *mut _,
+        clip_stack.as_mut_ptr(),
+        clip_stack.len() as u32,
+      )
+    };
+    assert_eq!(begin_rc, ffi::ZR_OK);
+
+    let wide_bytes = b"W";
+    let write_wide_rc = unsafe {
+      ffi::zr_fb_put_grapheme(
+        &mut painter as *mut _,
+        1,
+        0,
+        wide_bytes.as_ptr(),
+        wide_bytes.len(),
+        2,
+        &style_plain() as *const _,
+      )
+    };
+    assert_eq!(write_wide_rc, ffi::ZR_OK);
+
+    let push_rc = unsafe {
+      ffi::zr_fb_clip_push(
+        &mut painter as *mut _,
+        ffi::zr_rect_t {
+          x: 2,
+          y: 0,
+          w: 1,
+          h: 1,
+        },
+      )
+    };
+    assert_eq!(push_rc, ffi::ZR_OK);
+
+    let a_bytes = b"A";
+    let write_a_rc = unsafe {
+      ffi::zr_fb_put_grapheme(
+        &mut painter as *mut _,
+        2,
+        0,
+        a_bytes.as_ptr(),
+        a_bytes.len(),
+        1,
+        &style_plain() as *const _,
+      )
+    };
+    assert_eq!(write_a_rc, ffi::ZR_OK);
+
+    let pop_rc = unsafe { ffi::zr_fb_clip_pop(&mut painter as *mut _) };
+    assert_eq!(pop_rc, ffi::ZR_OK);
+
+    let (x1_ch, x1_w) = cell_snapshot(&mut fb, 1, 0);
+    let (x2_ch, x2_w) = cell_snapshot(&mut fb, 2, 0);
+    assert_eq!(x1_ch, b' ');
+    assert_eq!(x1_w, 1, "wide lead should be cleared when continuation is overwritten");
+    assert_eq!(x2_ch, b'A');
+    assert_eq!(x2_w, 1);
+
+    unsafe { ffi::zr_fb_release(&mut fb as *mut _) };
+  }
+
+  #[test]
+  fn clip_edge_write_over_wide_lead_cleans_hidden_continuation() {
+    let mut fb = ffi::zr_fb_t {
+      cols: 0,
+      rows: 0,
+      cells: std::ptr::null_mut(),
+    };
+    let init_rc = unsafe { ffi::zr_fb_init(&mut fb as *mut _, 4, 1) };
+    assert_eq!(init_rc, ffi::ZR_OK);
+
+    let clear_rc = unsafe { ffi::zr_fb_clear(&mut fb as *mut _, &style_plain() as *const _) };
+    assert_eq!(clear_rc, ffi::ZR_OK);
+
+    let mut clip_stack = [
+      ffi::zr_rect_t {
+        x: 0,
+        y: 0,
+        w: 4,
+        h: 1,
+      },
+      ffi::zr_rect_t {
+        x: 0,
+        y: 0,
+        w: 0,
+        h: 0,
+      },
+    ];
+    let mut painter = ffi::zr_fb_painter_t {
+      fb: std::ptr::null_mut(),
+      clip_stack: std::ptr::null_mut(),
+      clip_cap: 0,
+      clip_len: 0,
+    };
+    let begin_rc = unsafe {
+      ffi::zr_fb_painter_begin(
+        &mut painter as *mut _,
+        &mut fb as *mut _,
+        clip_stack.as_mut_ptr(),
+        clip_stack.len() as u32,
+      )
+    };
+    assert_eq!(begin_rc, ffi::ZR_OK);
+
+    let wide_bytes = b"W";
+    let write_wide_rc = unsafe {
+      ffi::zr_fb_put_grapheme(
+        &mut painter as *mut _,
+        1,
+        0,
+        wide_bytes.as_ptr(),
+        wide_bytes.len(),
+        2,
+        &style_plain() as *const _,
+      )
+    };
+    assert_eq!(write_wide_rc, ffi::ZR_OK);
+
+    let push_rc = unsafe {
+      ffi::zr_fb_clip_push(
+        &mut painter as *mut _,
+        ffi::zr_rect_t {
+          x: 1,
+          y: 0,
+          w: 1,
+          h: 1,
+        },
+      )
+    };
+    assert_eq!(push_rc, ffi::ZR_OK);
+
+    let b_bytes = b"B";
+    let write_b_rc = unsafe {
+      ffi::zr_fb_put_grapheme(
+        &mut painter as *mut _,
+        1,
+        0,
+        b_bytes.as_ptr(),
+        b_bytes.len(),
+        1,
+        &style_plain() as *const _,
+      )
+    };
+    assert_eq!(write_b_rc, ffi::ZR_OK);
+
+    let pop_rc = unsafe { ffi::zr_fb_clip_pop(&mut painter as *mut _) };
+    assert_eq!(pop_rc, ffi::ZR_OK);
+
+    let (x1_ch, x1_w) = cell_snapshot(&mut fb, 1, 0);
+    let (x2_ch, x2_w) = cell_snapshot(&mut fb, 2, 0);
+    assert_eq!(x1_ch, b'B');
+    assert_eq!(x1_w, 1);
+    assert_eq!(x2_ch, b' ');
+    assert_eq!(x2_w, 1, "continuation outside clip should be cleaned");
+
+    unsafe { ffi::zr_fb_release(&mut fb as *mut _) };
+  }
+
+  #[test]
+  fn diff_reanchors_cursor_after_non_ascii_cell() {
+    let prev = TestFramebuffer::new(2, 1);
+    let mut next = TestFramebuffer::new(2, 1);
+    next.set_cell(0, 0, "✓".as_bytes(), 1, style_plain());
+    next.set_cell(1, 0, b"A", 1, style_plain());
+
+    let out = render_diff_bytes(&prev.raw, &next.raw, style_plain());
+    assert!(
+      contains_subsequence(&out, b"\x1b[1;2H"),
+      "expected explicit CUP for second cell after non-ascii glyph: {:?}",
+      String::from_utf8_lossy(&out),
+    );
   }
 
   #[test]
@@ -1600,15 +1911,15 @@ mod tests {
   fn diff_emits_dim_and_normal_intensity_sequences() {
     let to_dim = render_style_transition(0, ATTR_DIM);
     assert!(
-      contains_subsequence(&to_dim, b"\x1b[2m"),
-      "expected SGR dim sequence in output: {:?}",
+      contains_subsequence(&to_dim, b"\x1b[0;2;"),
+      "expected dim SGR sequence in output: {:?}",
       String::from_utf8_lossy(&to_dim),
     );
 
     let to_normal = render_style_transition(ATTR_DIM, 0);
     assert!(
-      contains_subsequence(&to_normal, b"\x1b[22m"),
-      "expected SGR normal-intensity sequence in output: {:?}",
+      contains_subsequence(&to_normal, b"\x1b[0;38;"),
+      "expected normal-intensity SGR sequence in output: {:?}",
       String::from_utf8_lossy(&to_normal),
     );
   }
@@ -1617,15 +1928,15 @@ mod tests {
   fn diff_reapplies_intensity_when_switching_bold_and_dim() {
     let dim_to_bold = render_style_transition(ATTR_DIM, ATTR_BOLD);
     assert!(
-      contains_subsequence(&dim_to_bold, b"\x1b[22;1m"),
-      "expected dim->bold transition to emit 22;1: {:?}",
+      contains_subsequence(&dim_to_bold, b"\x1b[0;1;"),
+      "expected dim->bold transition to emit bold SGR: {:?}",
       String::from_utf8_lossy(&dim_to_bold),
     );
 
     let bold_to_dim = render_style_transition(ATTR_BOLD, ATTR_DIM);
     assert!(
-      contains_subsequence(&bold_to_dim, b"\x1b[22;2m"),
-      "expected bold->dim transition to emit 22;2: {:?}",
+      contains_subsequence(&bold_to_dim, b"\x1b[0;2;"),
+      "expected bold->dim transition to emit dim SGR: {:?}",
       String::from_utf8_lossy(&bold_to_dim),
     );
   }
@@ -1634,13 +1945,8 @@ mod tests {
   fn diff_preserves_non_intensity_attr_delta_path() {
     let dim_to_dim_underline = render_style_transition(ATTR_DIM, ATTR_DIM | ATTR_UNDERLINE);
     assert!(
-      contains_subsequence(&dim_to_dim_underline, b"\x1b[4m"),
-      "expected underline add sequence in output: {:?}",
-      String::from_utf8_lossy(&dim_to_dim_underline),
-    );
-    assert!(
-      !contains_subsequence(&dim_to_dim_underline, b"\x1b[22m"),
-      "underline-only delta should not reset intensity: {:?}",
+      contains_subsequence(&dim_to_dim_underline, b"\x1b[0;2;4;"),
+      "expected underline+dim sequence in output: {:?}",
       String::from_utf8_lossy(&dim_to_dim_underline),
     );
   }

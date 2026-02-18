@@ -1,4 +1,8 @@
-import { type SpinnerVariant, getIconChar, getSpinnerFrame } from "../../icons/index.js";
+import {
+  type SpinnerVariant,
+  getSpinnerFrame,
+  resolveIconGlyph as resolveIconRenderGlyph,
+} from "../../icons/index.js";
 import type { DrawlistBuilderV1, VNode } from "../../index.js";
 import {
   measureTextCells,
@@ -121,12 +125,8 @@ function readSpinnerVariant(v: unknown): SpinnerVariant {
   }
 }
 
-function resolveIconGlyph(iconPath: string, fallback: boolean): string {
-  const primary = getIconChar(iconPath, fallback);
-  if (primary.length > 0) return primary;
-  const secondary = getIconChar(iconPath, true);
-  if (secondary.length > 0) return secondary;
-  return iconPath;
+function resolveIconText(iconPath: string, fallback: boolean): string {
+  return resolveIconRenderGlyph(iconPath, fallback).glyph;
 }
 
 function readShadowDensity(raw: unknown): "light" | "medium" | "dense" | undefined {
@@ -330,7 +330,7 @@ export function renderVNodeSimple(
       const iconPath = readString(props.icon) ?? "";
       const ownStyle = asTextStyle(props.style);
       const style = mergeTextStyle(inheritedStyle, ownStyle);
-      const glyph = resolveIconGlyph(iconPath, props.fallback === true);
+      const glyph = resolveIconText(iconPath, props.fallback === true);
 
       builder.pushClip(x, y, w, h);
       const display = truncateToWidth(glyph, w);

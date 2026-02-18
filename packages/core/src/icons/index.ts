@@ -26,3 +26,5 @@ export {
   type UiIconName,
   type SpinnerVariant,
 } from "./registry.js";
+
+export { resolveIconGlyph, type ResolvedIconGlyph } from "./resolveGlyph.js";

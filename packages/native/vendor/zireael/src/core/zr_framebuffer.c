@@ -40,8 +40,12 @@ static zr_rect_t zr_rect_empty(void) {
   return r;
 }
 
-static int32_t zr_i32_max(int32_t a, int32_t b) { return (a > b) ? a : b; }
-static int64_t zr_i64_min(int64_t a, int64_t b) { return (a < b) ? a : b; }
+static int32_t zr_i32_max(int32_t a, int32_t b) {
+  return (a > b) ? a : b;
+}
+static int64_t zr_i64_min(int64_t a, int64_t b) {
+  return (a < b) ? a : b;
+}
 
 static zr_rect_t zr_fb_bounds_rect(const zr_fb_t* fb) {
   zr_rect_t r;
@@ -456,11 +460,13 @@ static bool zr_painter_can_write_width2(const zr_fb_painter_t* p, uint32_t x, ui
 /*
  * Overwrite a single cell with a width-1 grapheme while preserving wide invariants.
  *
- * Why: Overwriting any part of an existing wide glyph must clear the paired cell,
- * but only when both cells are writable within the current clip.
+ * Why: Overwriting any part of an existing wide glyph must clear the paired cell.
+ * Clip exception (LOCKED): paired-cell invariant repair may touch exactly one
+ * immediate neighbor cell (x-1 or x+1) even when that neighbor is outside clip.
+ * No other out-of-clip writes are allowed.
  */
-static bool zr_painter_write_width1(zr_fb_painter_t* p, uint32_t x, uint32_t y, const uint8_t* bytes,
-                                    size_t len, zr_style_t style) {
+static bool zr_painter_write_width1(zr_fb_painter_t* p, uint32_t x, uint32_t y, const uint8_t* bytes, size_t len,
+                                    zr_style_t style) {
   if (!p || !p->fb) {
     return false;
   }
@@ -478,9 +484,6 @@ static bool zr_painter_write_width1(zr_fb_painter_t* p, uint32_t x, uint32_t y, 
     if (x == 0u) {
       return false;
     }
-    if (!zr_painter_can_touch(p, (int32_t)(x - 1u), (int32_t)y)) {
-      return false;
-    }
     zr_cell_t* lead = zr_fb_cell(p->fb, x - 1u, y);
     if (!lead) {
       return false;
@@ -494,9 +497,6 @@ static bool zr_painter_write_width1(zr_fb_painter_t* p, uint32_t x, uint32_t y, 
     if (x + 1u >= p->fb->cols) {
       return false;
     }
-    if (!zr_painter_can_touch(p, (int32_t)(x + 1u), (int32_t)y)) {
-      return false;
-    }
     zr_cell_t* cont = zr_fb_cell(p->fb, x + 1u, y);
     if (!cont) {
       return false;
@@ -508,9 +508,6 @@ static bool zr_painter_write_width1(zr_fb_painter_t* p, uint32_t x, uint32_t y, 
   if (x + 1u < p->fb->cols) {
     zr_cell_t* next = zr_fb_cell(p->fb, x + 1u, y);
     if (zr_cell_is_continuation(next)) {
-      if (!zr_painter_can_touch(p, (int32_t)(x + 1u), (int32_t)y)) {
-        return false;
-      }
       zr_cell_set_space(next, style);
     }
   }
@@ -691,8 +688,8 @@ zr_result_t zr_fb_draw_box(zr_fb_painter_t* p, zr_rect_t r, const zr_style_t* st
 }
 
 /* Draw a vertical scrollbar with track background and '#' thumb; clip-aware. */
-zr_result_t zr_fb_draw_scrollbar_v(zr_fb_painter_t* p, zr_rect_t track, zr_rect_t thumb,
-                                   const zr_style_t* track_style, const zr_style_t* thumb_style) {
+zr_result_t zr_fb_draw_scrollbar_v(zr_fb_painter_t* p, zr_rect_t track, zr_rect_t thumb, const zr_style_t* track_style,
+                                   const zr_style_t* thumb_style) {
   if (!p || !track_style || !thumb_style) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
@@ -713,8 +710,8 @@ zr_result_t zr_fb_draw_scrollbar_v(zr_fb_painter_t* p, zr_rect_t track, zr_rect_
 }
 
 /* Draw a horizontal scrollbar (delegates to vertical implementation). */
-zr_result_t zr_fb_draw_scrollbar_h(zr_fb_painter_t* p, zr_rect_t track, zr_rect_t thumb,
-                                   const zr_style_t* track_style, const zr_style_t* thumb_style) {
+zr_result_t zr_fb_draw_scrollbar_h(zr_fb_painter_t* p, zr_rect_t track, zr_rect_t thumb, const zr_style_t* track_style,
+                                   const zr_style_t* thumb_style) {
   return zr_fb_draw_scrollbar_v(p, track, thumb, track_style, thumb_style);
 }
 
@@ -727,13 +724,8 @@ zr_result_t zr_fb_draw_scrollbar_h(zr_fb_painter_t* p, zr_rect_t track, zr_rect_
  *
  * This ensures wide glyphs are never split (no half-glyph state).
  */
-zr_result_t zr_fb_put_grapheme(zr_fb_painter_t* p,
-                               int32_t x,
-                               int32_t y,
-                               const uint8_t* bytes,
-                               size_t len,
-                               uint8_t width,
-                               const zr_style_t* style) {
+zr_result_t zr_fb_put_grapheme(zr_fb_painter_t* p, int32_t x, int32_t y, const uint8_t* bytes, size_t len,
+                               uint8_t width, const zr_style_t* style) {
   if (!p || !p->fb || !style) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
@@ -901,11 +893,7 @@ size_t zr_fb_count_cells_utf8(const uint8_t* bytes, size_t len) {
  * cannot fit within clip. Cursor advancement is stable regardless of clipping
  * to maintain deterministic layout.
  */
-zr_result_t zr_fb_draw_text_bytes(zr_fb_painter_t* p,
-                                  int32_t x,
-                                  int32_t y,
-                                  const uint8_t* bytes,
-                                  size_t len,
+zr_result_t zr_fb_draw_text_bytes(zr_fb_painter_t* p, int32_t x, int32_t y, const uint8_t* bytes, size_t len,
                                   const zr_style_t* style) {
   if (!p || !p->fb || !bytes || !style) {
     return ZR_ERR_INVALID_ARGUMENT;

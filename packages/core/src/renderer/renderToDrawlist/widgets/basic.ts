@@ -1,4 +1,8 @@
-import { type SpinnerVariant, getIconChar, getSpinnerFrame } from "../../../icons/index.js";
+import {
+  type SpinnerVariant,
+  getSpinnerFrame,
+  resolveIconGlyph as resolveIconRenderGlyph,
+} from "../../../icons/index.js";
 import type { DrawlistBuilderV1 } from "../../../index.js";
 import type { LayoutTree } from "../../../layout/layout.js";
 import {
@@ -280,13 +284,8 @@ function readSpinnerVariant(v: unknown): SpinnerVariant {
   }
 }
 
-function resolveIconGlyph(iconPath: string, useFallback: boolean): string {
-  if (iconPath.length === 0) return "";
-  const preferred = getIconChar(iconPath, useFallback);
-  if (preferred.length > 0) return preferred;
-  const fallback = getIconChar(iconPath, true);
-  if (fallback.length > 0) return fallback;
-  return iconPath;
+function resolveIconText(iconPath: string, useFallback: boolean): string {
+  return resolveIconRenderGlyph(iconPath, useFallback).glyph;
 }
 
 function maybeFillOwnBackground(
@@ -353,7 +352,8 @@ function sparklineForData(
 
 function firstChar(text: string): string {
   if (text.length === 0) return "";
-  return text.slice(0, 1);
+  const cp = text.codePointAt(0);
+  return cp === undefined ? "" : String.fromCodePoint(cp);
 }
 
 function readActionLabel(action: unknown): string | undefined {
@@ -380,7 +380,7 @@ function readActionLabel(action: unknown): string | undefined {
     case "icon": {
       const iconPath = props ? readString(props.icon) : undefined;
       if (!iconPath) return undefined;
-      return resolveIconGlyph(iconPath, false);
+      return resolveIconText(iconPath, false);
     }
     default:
       return undefined;
@@ -948,7 +948,7 @@ export function renderBasicWidget(
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
 
-      const glyph = resolveIconGlyph(iconPath, props.fallback === true);
+      const glyph = resolveIconText(iconPath, props.fallback === true);
       const display = truncateToWidth(glyph, rect.w);
       if (display.length === 0) break;
 
@@ -1218,7 +1218,7 @@ export function renderBasicWidget(
 
       const lines: StyledSegment[] = [];
       if (iconPath && iconPath.length > 0) {
-        const icon = resolveIconGlyph(iconPath, false);
+        const icon = resolveIconText(iconPath, false);
         if (icon.length > 0) {
           lines.push({
             text: icon,
@@ -1347,7 +1347,7 @@ export function renderBasicWidget(
       const iconOverride = readString(props.icon);
       const iconGlyph =
         iconOverride && iconOverride.length > 0
-          ? resolveIconGlyph(iconOverride, false)
+          ? resolveIconText(iconOverride, false)
           : calloutVariantIcon(variant);
 
       builder.pushClip(innerX, innerY, innerW, innerH);
