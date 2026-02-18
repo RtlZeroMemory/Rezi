@@ -140,7 +140,7 @@ describe("dropdown.position - keyboard routing", () => {
     assert.equal(result.consumed, true);
   });
 
-  test("Enter on disabled or divider item is consumed but not activated", () => {
+  test("Enter on disabled/divider index follows selectable fallback rules", () => {
     const disabledResult = routeDropdownKey(keyEvent(ZR_KEY_ENTER), {
       dropdownId: "dd",
       items: [item("a", "A", { disabled: true })],
@@ -156,7 +156,8 @@ describe("dropdown.position - keyboard routing", () => {
       selectedIndex: 0,
     });
     assert.equal(dividerResult.consumed, true);
-    assert.equal(dividerResult.activatedItem, undefined);
+    assert.equal(dividerResult.activatedItem?.id, "a");
+    assert.equal(dividerResult.shouldClose, true);
   });
 
   test("Escape always requests close", () => {

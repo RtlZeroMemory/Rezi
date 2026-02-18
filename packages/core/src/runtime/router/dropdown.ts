@@ -50,8 +50,8 @@ export function routeDropdownKey(event: ZrevEvent, ctx: DropdownRoutingCtx): Dro
     return Object.freeze({ consumed: false });
   }
 
-  // Find current selectable index
-  let currentSelectableIndex = selectableIndices.indexOf(selectedIndex);
+  const selectedIsSelectable = selectableIndices.includes(selectedIndex);
+  let currentSelectableIndex = selectedIsSelectable ? selectableIndices.indexOf(selectedIndex) : -1;
   if (currentSelectableIndex < 0) currentSelectableIndex = 0;
 
   // Handle keys
@@ -70,17 +70,23 @@ export function routeDropdownKey(event: ZrevEvent, ctx: DropdownRoutingCtx): Dro
     }
     case ZR_KEY_ENTER:
     case ZR_KEY_SPACE: {
-      const selectedItem = items[selectedIndex];
-      if (selectedItem && !selectedItem.divider && !selectedItem.disabled) {
+      const itemIndexToActivate = selectedIsSelectable
+        ? selectedIndex
+        : (selectableIndices[currentSelectableIndex] ?? -1);
+      const itemToActivate =
+        itemIndexToActivate >= 0 && itemIndexToActivate < items.length
+          ? (items[itemIndexToActivate] ?? null)
+          : null;
+      if (itemToActivate) {
         if (onSelect) {
           try {
-            onSelect(selectedItem);
+            onSelect(itemToActivate);
           } catch {
             // Swallow
           }
         }
         return Object.freeze({
-          activatedItem: selectedItem,
+          activatedItem: itemToActivate,
           shouldClose: true,
           consumed: true,
         });
