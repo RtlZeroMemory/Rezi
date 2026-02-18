@@ -7,10 +7,66 @@
  * conversion to keep the public API ergonomic.
  */
 
+import type { Rgb } from "../widgets/style.js";
 import { defaultTheme } from "./defaultTheme.js";
 import type { Theme } from "./theme.js";
 import type { ThemeDefinition } from "./tokens.js";
-import type { Rgb } from "../widgets/style.js";
+
+type BgOverride = {
+  base?: unknown;
+  elevated?: unknown;
+  overlay?: unknown;
+  subtle?: unknown;
+};
+
+type FgOverride = {
+  primary?: unknown;
+  secondary?: unknown;
+  muted?: unknown;
+  inverse?: unknown;
+};
+
+type AccentOverride = {
+  primary?: unknown;
+  secondary?: unknown;
+  tertiary?: unknown;
+};
+
+type FocusOverride = {
+  ring?: unknown;
+  bg?: unknown;
+};
+
+type SelectedOverride = {
+  bg?: unknown;
+  fg?: unknown;
+};
+
+type DisabledOverride = {
+  fg?: unknown;
+  bg?: unknown;
+};
+
+type BorderOverride = {
+  subtle?: unknown;
+  default?: unknown;
+  strong?: unknown;
+};
+
+type LegacyColorOverrideSource = {
+  bg?: unknown;
+  fg?: unknown;
+  accent?: unknown;
+  error?: unknown;
+  success?: unknown;
+  warning?: unknown;
+  info?: unknown;
+  focus?: unknown;
+  selected?: unknown;
+  disabled?: unknown;
+  border?: unknown;
+  [key: string]: unknown;
+};
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
@@ -47,11 +103,7 @@ function spacingEquals(a: Theme["spacing"], b: Theme["spacing"]): boolean {
   return true;
 }
 
-function setColor(
-  out: Record<string, Rgb>,
-  key: string,
-  value: unknown,
-): Rgb | undefined {
+function setColor(out: Record<string, Rgb>, key: string, value: unknown): Rgb | undefined {
   if (!isRgb(value)) return undefined;
   out[key] = value;
   return value;
@@ -60,67 +112,67 @@ function setColor(
 function extractLegacyColorOverrides(raw: unknown): Partial<Theme["colors"]> {
   if (!isObject(raw)) return {};
 
-  const source = raw as Readonly<Record<string, unknown>>;
+  const source = raw as Readonly<LegacyColorOverrideSource>;
   const out: Record<string, Rgb> = {};
 
-  const bg = isObject(source["bg"]) ? source["bg"] : null;
+  const bg = isObject(source.bg) ? (source.bg as BgOverride) : null;
   if (bg) {
-    const base = setColor(out, "bg.base", bg["base"]);
-    setColor(out, "bg.elevated", bg["elevated"]);
-    setColor(out, "bg.overlay", bg["overlay"]);
-    setColor(out, "bg.subtle", bg["subtle"]);
-    if (base) out["bg"] = base;
+    const base = setColor(out, "bg.base", bg.base);
+    setColor(out, "bg.elevated", bg.elevated);
+    setColor(out, "bg.overlay", bg.overlay);
+    setColor(out, "bg.subtle", bg.subtle);
+    if (base) setColor(out, "bg", base);
   }
 
-  const fg = isObject(source["fg"]) ? source["fg"] : null;
+  const fg = isObject(source.fg) ? (source.fg as FgOverride) : null;
   if (fg) {
-    const primary = setColor(out, "fg.primary", fg["primary"]);
-    setColor(out, "fg.secondary", fg["secondary"]);
-    const muted = setColor(out, "fg.muted", fg["muted"]);
-    setColor(out, "fg.inverse", fg["inverse"]);
-    if (primary) out["fg"] = primary;
-    if (muted) out["muted"] = muted;
+    const primary = setColor(out, "fg.primary", fg.primary);
+    setColor(out, "fg.secondary", fg.secondary);
+    const muted = setColor(out, "fg.muted", fg.muted);
+    setColor(out, "fg.inverse", fg.inverse);
+    if (primary) setColor(out, "fg", primary);
+    if (muted) setColor(out, "muted", muted);
   }
 
-  const accent = isObject(source["accent"]) ? source["accent"] : null;
+  const accent = isObject(source.accent) ? (source.accent as AccentOverride) : null;
   if (accent) {
-    const primary = setColor(out, "accent.primary", accent["primary"]);
-    const secondary = setColor(out, "accent.secondary", accent["secondary"]);
-    setColor(out, "accent.tertiary", accent["tertiary"]);
-    if (primary) out["primary"] = primary;
-    if (secondary) out["secondary"] = secondary;
+    const primary = setColor(out, "accent.primary", accent.primary);
+    const secondary = setColor(out, "accent.secondary", accent.secondary);
+    setColor(out, "accent.tertiary", accent.tertiary);
+    if (primary) setColor(out, "primary", primary);
+    if (secondary) setColor(out, "secondary", secondary);
   }
 
-  const error = setColor(out, "error", source["error"]);
-  if (error) out["danger"] = error;
-  setColor(out, "success", source["success"]);
-  setColor(out, "warning", source["warning"]);
-  setColor(out, "info", source["info"]);
+  const error = setColor(out, "error", source.error);
+  if (error) setColor(out, "danger", error);
+  setColor(out, "success", source.success);
+  setColor(out, "warning", source.warning);
+  setColor(out, "info", source.info);
 
-  const focus = isObject(source["focus"]) ? source["focus"] : null;
+  const focus = isObject(source.focus) ? (source.focus as FocusOverride) : null;
   if (focus) {
-    setColor(out, "focus.ring", focus["ring"]);
-    setColor(out, "focus.bg", focus["bg"]);
+    setColor(out, "focus.ring", focus.ring);
+    setColor(out, "focus.bg", focus.bg);
   }
 
-  const selected = isObject(source["selected"]) ? source["selected"] : null;
+  const selected = isObject(source.selected) ? (source.selected as SelectedOverride) : null;
   if (selected) {
-    setColor(out, "selected.bg", selected["bg"]);
-    setColor(out, "selected.fg", selected["fg"]);
+    setColor(out, "selected.bg", selected.bg);
+    setColor(out, "selected.fg", selected.fg);
   }
 
-  const disabled = isObject(source["disabled"]) ? source["disabled"] : null;
+  const disabled = isObject(source.disabled) ? (source.disabled as DisabledOverride) : null;
   if (disabled) {
-    setColor(out, "disabled.fg", disabled["fg"]);
-    setColor(out, "disabled.bg", disabled["bg"]);
+    setColor(out, "disabled.fg", disabled.fg);
+    setColor(out, "disabled.bg", disabled.bg);
   }
 
-  const border = isObject(source["border"]) ? source["border"] : null;
+  const border = isObject(source.border) ? (source.border as BorderOverride) : null;
   if (border) {
-    setColor(out, "border.subtle", border["subtle"]);
-    const borderDefault = setColor(out, "border.default", border["default"]);
-    setColor(out, "border.strong", border["strong"]);
-    if (borderDefault) out["border"] = borderDefault;
+    setColor(out, "border.subtle", border.subtle);
+    const borderDefault = setColor(out, "border.default", border.default);
+    setColor(out, "border.strong", border.strong);
+    if (borderDefault) setColor(out, "border", borderDefault);
   }
 
   // Flat legacy colors and custom token keys override derived aliases.

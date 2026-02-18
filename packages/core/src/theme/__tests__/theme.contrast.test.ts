@@ -93,7 +93,10 @@ describe("theme contrast", () => {
   }
 
   test("high-contrast primary fg/bg passes AAA", () => {
-    const ratio = contrastRatio(highContrastTheme.colors.fg.primary, highContrastTheme.colors.bg.base);
+    const ratio = contrastRatio(
+      highContrastTheme.colors.fg.primary,
+      highContrastTheme.colors.bg.base,
+    );
     assert.ok(
       ratio >= AAA_MIN,
       `Theme "high-contrast" fails AAA: primary fg/bg contrast ${formatRatio(ratio)} < ${AAA_MIN}`,

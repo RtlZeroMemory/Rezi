@@ -1,10 +1,14 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import {
+  encodeZrevBatchV1,
+  flushMicrotasks,
+  makeBackendBatch,
+} from "../../app/__tests__/helpers.js";
+import { StubBackend } from "../../app/__tests__/stubBackend.js";
+import { createApp } from "../../app/createApp.js";
+import type { DrawlistTextRunSegment } from "../../drawlist/types.js";
 import type { App, DrawlistBuildResult, DrawlistBuilderV1, TextStyle, VNode } from "../../index.js";
 import { createTheme, ui } from "../../index.js";
-import { createApp } from "../../app/createApp.js";
-import { encodeZrevBatchV1, flushMicrotasks, makeBackendBatch } from "../../app/__tests__/helpers.js";
-import { StubBackend } from "../../app/__tests__/stubBackend.js";
-import type { DrawlistTextRunSegment } from "../../drawlist/types.js";
 import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
@@ -74,7 +78,10 @@ class RecordingBuilder implements DrawlistBuilderV1 {
   reset(): void {}
 }
 
-function renderTextOps(vnode: VNode, theme: Theme): readonly Readonly<{ text: string; style?: TextStyle }>[] {
+function renderTextOps(
+  vnode: VNode,
+  theme: Theme,
+): readonly Readonly<{ text: string; style?: TextStyle }>[] {
   const committed = commitVNodeTree(null, vnode, { allocator: createInstanceIdAllocator(1) });
   assert.equal(committed.ok, true, "commit should succeed");
   if (!committed.ok) return [];
@@ -95,7 +102,10 @@ function renderTextOps(vnode: VNode, theme: Theme): readonly Readonly<{ text: st
   return builder.textOps;
 }
 
-function fgByText(ops: readonly Readonly<{ text: string; style?: TextStyle }>[], text: string): unknown {
+function fgByText(
+  ops: readonly Readonly<{ text: string; style?: TextStyle }>[],
+  text: string,
+): unknown {
   for (const op of ops) {
     if (op.text.includes(text)) return op.style?.fg;
   }

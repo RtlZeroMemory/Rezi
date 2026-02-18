@@ -82,7 +82,10 @@ function deepMerge(base: unknown, overrides: unknown): unknown {
   return merged;
 }
 
-export function extendTheme(base: ThemeDefinition, overrides: ThemeOverrides = {}): ThemeDefinition {
+export function extendTheme(
+  base: ThemeDefinition,
+  overrides: ThemeOverrides = {},
+): ThemeDefinition {
   const merged = deepMerge(base, overrides) as ThemeDefinition;
   validateTheme(merged);
   return merged;

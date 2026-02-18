@@ -45,10 +45,7 @@ const REQUIRED_SPACING_PATHS = [
   "spacing.2xl",
 ] as const;
 
-const REQUIRED_FOCUS_STYLE_PATHS = [
-  "focusIndicator.bold",
-  "focusIndicator.underline",
-] as const;
+const REQUIRED_FOCUS_STYLE_PATHS = ["focusIndicator.bold", "focusIndicator.underline"] as const;
 
 const REQUIRED_THEME_PATHS = [
   ...REQUIRED_COLOR_PATHS,

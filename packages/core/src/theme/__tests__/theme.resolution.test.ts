@@ -1,12 +1,12 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { themePresets } from "../presets.js";
 import {
+  type ColorPath,
   isValidColorPath,
   resolveColorOrRgb,
   resolveColorToken,
   tryResolveColorToken,
-  type ColorPath,
 } from "../resolve.js";
-import { themePresets } from "../presets.js";
 
 const ALL_COLOR_PATHS: readonly ColorPath[] = [
   "bg.base",
@@ -115,4 +115,3 @@ describe("theme resolution", () => {
     assert.equal(a, b);
   });
 });
-
