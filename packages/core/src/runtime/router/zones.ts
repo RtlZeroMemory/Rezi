@@ -106,6 +106,28 @@ export function routeKeyWithZones(
 
     // If zones exist, do zone-to-zone traversal
     if (zones.size > 0) {
+      // Mixed zone/non-zone focusables must remain reachable via TAB.
+      const zonedFocusables = new Set<string>();
+      for (const zone of zones.values()) {
+        for (const id of zone.focusableIds) {
+          zonedFocusables.add(id);
+        }
+      }
+
+      let hasNonZonedFocusable = false;
+      for (const id of focusList) {
+        if (!zonedFocusables.has(id)) {
+          hasNonZonedFocusable = true;
+          break;
+        }
+      }
+
+      if (hasNonZonedFocusable) {
+        const nextFocusedId = computeMovedFocusId(focusList, focusedId, move);
+        const nextZoneId = nextFocusedId === null ? null : findZoneForId(zones, nextFocusedId);
+        return Object.freeze({ nextFocusedId, nextZoneId });
+      }
+
       const result = computeZoneTraversal(
         zones,
         activeZoneId,

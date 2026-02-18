@@ -348,13 +348,13 @@ export function computeZoneMovement(
  * Get zones sorted by tabIndex.
  */
 function getSortedZones(zones: ReadonlyMap<string, FocusZone>): readonly FocusZone[] {
-  const arr = Array.from(zones.values());
-  arr.sort((a, b) => {
-    if (a.tabIndex !== b.tabIndex) return a.tabIndex - b.tabIndex;
-    // Stable sort by id for determinism
-    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  const indexed = Array.from(zones.values()).map((zone, index) => ({ zone, index }));
+  indexed.sort((a, b) => {
+    if (a.zone.tabIndex !== b.zone.tabIndex) return a.zone.tabIndex - b.zone.tabIndex;
+    // Preserve traversal order when tabIndex ties.
+    return a.index - b.index;
   });
-  return arr;
+  return indexed.map((entry) => entry.zone);
 }
 
 /**
@@ -511,14 +511,22 @@ export function finalizeFocusWithPreCollectedMetadata(
   for (const [trapId, trap] of collectedTraps) {
     if (trap.active && !previousTrapStackSet.has(trapId)) {
       trapStack.push(trapId);
-      // If trap has initialFocus, apply it
-      if (trap.initialFocus !== null && focusSet.has(trap.initialFocus)) {
-        nextFocusedId = trap.initialFocus;
-      } else if (trap.focusableIds.length > 0) {
-        // Focus first focusable in trap
-        const firstInTrap = trap.focusableIds[0];
-        if (firstInTrap !== undefined && focusSet.has(firstInTrap)) {
-          nextFocusedId = firstInTrap;
+      const trapFocusables = trap.focusableIds;
+      if (trapFocusables.length > 0) {
+        const initialFocus = trap.initialFocus;
+        // initialFocus must resolve to an id contained by this trap.
+        if (
+          initialFocus !== null &&
+          trapFocusables.includes(initialFocus) &&
+          focusSet.has(initialFocus)
+        ) {
+          nextFocusedId = initialFocus;
+        } else {
+          // Invalid/missing initialFocus falls back to the first trap focusable.
+          const firstInTrap = trapFocusables[0];
+          if (firstInTrap !== undefined && focusSet.has(firstInTrap)) {
+            nextFocusedId = firstInTrap;
+          }
         }
       }
     }
