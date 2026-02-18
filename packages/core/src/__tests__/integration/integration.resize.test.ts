@@ -505,11 +505,7 @@ describe("integration resize behavior", () => {
     const app = createApp({ backend, initialState: 0 });
 
     app.view(() =>
-      ui.column({}, [
-        ui.divider({ label: "wide" }),
-        ui.text("row-a"),
-        ui.text("row-b"),
-      ]),
+      ui.column({}, [ui.divider({ label: "wide" }), ui.text("row-a"), ui.text("row-b")]),
     );
 
     const viewport = { cols: 200, rows: 2 } as const;
@@ -531,11 +527,7 @@ describe("integration resize behavior", () => {
     const app = createApp({ backend, initialState: 0 });
 
     app.view(() =>
-      ui.column({}, [
-        ui.text("narrow-layout"),
-        ui.text("0123456789"),
-        ui.text("abcdef"),
-      ]),
+      ui.column({}, [ui.text("narrow-layout"), ui.text("0123456789"), ui.text("abcdef")]),
     );
 
     const viewport = { cols: 6, rows: 40 } as const;
@@ -551,6 +543,9 @@ describe("integration resize behavior", () => {
     assert.equal(fillRects.length > 0, true);
     assertRectsInViewport(fillRects, viewport, "fillRect");
     assertRectsInViewport(clips, viewport, "clipRect");
-    assert.equal(strings.some((s) => s.includes("narrow-layout")), true);
+    assert.equal(
+      strings.some((s) => s.includes("narrow-layout")),
+      true,
+    );
   });
 });

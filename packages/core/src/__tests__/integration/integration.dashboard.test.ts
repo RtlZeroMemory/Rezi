@@ -1,8 +1,17 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { createApp } from "../../app/createApp.js";
-import { encodeZrevBatchV1, flushMicrotasks, makeBackendBatch } from "../../app/__tests__/helpers.js";
+import {
+  encodeZrevBatchV1,
+  flushMicrotasks,
+  makeBackendBatch,
+} from "../../app/__tests__/helpers.js";
 import { StubBackend } from "../../app/__tests__/stubBackend.js";
-import { ZR_KEY_DOWN, ZR_KEY_ENTER, ZR_KEY_ESCAPE, ZR_KEY_TAB } from "../../keybindings/keyCodes.js";
+import { createApp } from "../../app/createApp.js";
+import {
+  ZR_KEY_DOWN,
+  ZR_KEY_ENTER,
+  ZR_KEY_ESCAPE,
+  ZR_KEY_TAB,
+} from "../../keybindings/keyCodes.js";
 import { ui } from "../../widgets/ui.js";
 
 type EncodedEvent = NonNullable<Parameters<typeof encodeZrevBatchV1>[0]["events"]>[number];
@@ -150,10 +159,7 @@ function mouseEvent(
 }
 
 function leftClickEvents(timeMs: number, x: number, y: number): readonly EncodedEvent[] {
-  return Object.freeze([
-    mouseEvent(timeMs, x, y, 3, 1),
-    mouseEvent(timeMs + 1, x, y, 4, 0),
-  ]);
+  return Object.freeze([mouseEvent(timeMs, x, y, 3, 1), mouseEvent(timeMs + 1, x, y, 4, 0)]);
 }
 
 function tableRowsFor(node: NodeId | null, section: SectionId): readonly DashboardTableRow[] {
@@ -549,8 +555,14 @@ describe("dashboard integration - tab through sections", () => {
       assert.equal(harness.backend.requestedFrames.length, before + 1);
 
       const strings = latestStrings(harness.backend);
-      assert.equal(strings.some((s) => s.includes("section:")), true);
-      assert.equal(harness.actionLog.some((entry) => entry.startsWith("nav.")), true);
+      assert.equal(
+        strings.some((s) => s.includes("section:")),
+        true,
+      );
+      assert.equal(
+        harness.actionLog.some((entry) => entry.startsWith("nav.")),
+        true,
+      );
 
       await settleNextFrame(harness.backend);
       await harness.app.stop();
@@ -654,7 +666,10 @@ describe("dashboard integration - modal focus trap and focus restore", () => {
     assert.equal(harness.backend.requestedFrames.length, beforeFrames + 1);
 
     const newActions = harness.actionLog.slice(beforeActions);
-    assert.equal(newActions.some((a) => a.startsWith("toolbar.")), false);
+    assert.equal(
+      newActions.some((a) => a.startsWith("toolbar.")),
+      false,
+    );
 
     const strings = latestStrings(harness.backend);
     assert.equal(strings.includes("modal:1"), true);
@@ -674,7 +689,10 @@ describe("dashboard integration - modal focus trap and focus restore", () => {
     await settleNextFrame(harness.backend);
 
     const beforeClose = harness.backend.requestedFrames.length;
-    await pushEvents(harness.backend, [keyDownEvent(720, ZR_KEY_TAB), keyDownEvent(721, ZR_KEY_ENTER)]);
+    await pushEvents(harness.backend, [
+      keyDownEvent(720, ZR_KEY_TAB),
+      keyDownEvent(721, ZR_KEY_ENTER),
+    ]);
     assert.equal(harness.backend.requestedFrames.length, beforeClose + 1);
     assert.equal(latestStrings(harness.backend).length > 0, true);
     await settleNextFrame(harness.backend);
@@ -882,7 +900,10 @@ describe("dashboard integration - no crash / no corrupt state", () => {
 
     for (let i = 0; i < 4; i++) {
       const closeBefore = harness.backend.requestedFrames.length;
-      await pushEvents(harness.backend, [keyDownEvent(1410 + i * 10, ZR_KEY_TAB), keyDownEvent(1411 + i * 10, ZR_KEY_ENTER)]);
+      await pushEvents(harness.backend, [
+        keyDownEvent(1410 + i * 10, ZR_KEY_TAB),
+        keyDownEvent(1411 + i * 10, ZR_KEY_ENTER),
+      ]);
       assert.equal(harness.backend.requestedFrames.length, closeBefore + 1);
       assert.equal(latestStrings(harness.backend).length > 0, true);
       await settleNextFrame(harness.backend);

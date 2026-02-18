@@ -351,7 +351,11 @@ describe("stress rapid events", () => {
 
     assert.deepEqual(b, a, `seed=${String(seed)} should replay identically`);
     assert.equal(a.actionCount > 0, true, "mixed stream should trigger press actions");
-    assert.equal(a.seenFocusIds.length > 6, true, "mixed stream should traverse many focus targets");
+    assert.equal(
+      a.seenFocusIds.length > 6,
+      true,
+      "mixed stream should traverse many focus targets",
+    );
   });
 
   test("rapid focus changes from alternating click + TAB remain exact", () => {
@@ -370,7 +374,9 @@ describe("stress rapid events", () => {
         if (!center) continue;
 
         const baseTime = i * 3;
-        harness.renderer.routeEngineEvent(mouseEvent(baseTime, center.x, center.y, 3, { buttons: 1 }));
+        harness.renderer.routeEngineEvent(
+          mouseEvent(baseTime, center.x, center.y, 3, { buttons: 1 }),
+        );
         harness.renderer.routeEngineEvent(
           mouseEvent(baseTime + 1, center.x, center.y, 4, { buttons: 0 }),
         );
@@ -405,6 +411,10 @@ describe("stress rapid events", () => {
     const summary = runMixedScenario(seed, 2000, false);
 
     assert.equal(summary.seenFocusIds.length > 0, true, "expected at least one focused id");
-    assert.equal(summary.seenFocusIds.length <= 24, true, "focus should remain within declared ids");
+    assert.equal(
+      summary.seenFocusIds.length <= 24,
+      true,
+      "focus should remain within declared ids",
+    );
   });
 });

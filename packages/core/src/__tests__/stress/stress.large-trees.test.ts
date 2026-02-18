@@ -298,11 +298,7 @@ function runVirtualListWheelSequence(seed: number, steps: number): VirtualScroll
     for (let i = 0; i < steps; i++) {
       const roll = nextInt(rng, 0, 99);
       const wheelY =
-        roll < 80
-          ? nextInt(rng, -3, 3)
-          : roll < 95
-            ? nextInt(rng, -8, 8)
-            : nextInt(rng, -20, 20);
+        roll < 80 ? nextInt(rng, -3, 3) : roll < 95 ? nextInt(rng, -8, 8) : nextInt(rng, -20, 20);
 
       const routed = routeVirtualListWheel(wheelEvent(i, wheelY), {
         scrollTop,
@@ -522,6 +518,10 @@ describe("stress large trees", () => {
       checksums.push(layoutChecksum(tree));
     }
 
-    assert.equal(new Set(checksums).size, 1, `checksums should match exactly: ${checksums.join(", ")}`);
+    assert.equal(
+      new Set(checksums).size,
+      1,
+      `checksums should match exactly: ${checksums.join(", ")}`,
+    );
   });
 });

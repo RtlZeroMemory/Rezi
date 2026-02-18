@@ -1,7 +1,11 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { createApp } from "../../app/createApp.js";
-import { encodeZrevBatchV1, flushMicrotasks, makeBackendBatch } from "../../app/__tests__/helpers.js";
+import {
+  encodeZrevBatchV1,
+  flushMicrotasks,
+  makeBackendBatch,
+} from "../../app/__tests__/helpers.js";
 import { StubBackend } from "../../app/__tests__/stubBackend.js";
+import { createApp } from "../../app/createApp.js";
 import type { RuntimeBreadcrumbSnapshot } from "../../app/runtimeBreadcrumbs.js";
 import type { App } from "../../index.js";
 import {
@@ -307,7 +311,11 @@ function parsePaletteData(data: unknown): PaletteData | null {
   if (typeof data !== "object" || data === null) return null;
   const candidate = data as { kind?: unknown; path?: unknown; id?: unknown };
 
-  if (candidate.kind === "file" && typeof candidate.path === "string" && isFilePath(candidate.path)) {
+  if (
+    candidate.kind === "file" &&
+    typeof candidate.path === "string" &&
+    isFilePath(candidate.path)
+  ) {
     return Object.freeze({ kind: "file", path: candidate.path });
   }
 
@@ -500,8 +508,9 @@ function createHarness(): Harness {
     initialState,
     config: {
       internal_onRender: (metrics) => {
-        const breadcrumbs = (metrics as Readonly<{ runtimeBreadcrumbs?: RuntimeBreadcrumbSnapshot }>)
-          .runtimeBreadcrumbs;
+        const breadcrumbs = (
+          metrics as Readonly<{ runtimeBreadcrumbs?: RuntimeBreadcrumbSnapshot }>
+        ).runtimeBreadcrumbs;
         if (breadcrumbs) renderSnapshots.push(breadcrumbs);
       },
     },
@@ -603,7 +612,8 @@ function createHarness(): Harness {
       treeProps.selected = state.selectedPath;
     }
 
-    const activeEditor = state.activeTab === null ? EMPTY_EDITOR_MODEL : state.editors[state.activeTab];
+    const activeEditor =
+      state.activeTab === null ? EMPTY_EDITOR_MODEL : state.editors[state.activeTab];
 
     const editorView = ui.codeEditor({
       id: "editor",
@@ -853,7 +863,9 @@ describe("file manager integration pipeline", () => {
       assert.equal(containsText(strings, "Active tab: /README.md"), true);
       assert.equal(containsText(strings, "# Workspace Readme"), true);
       assert.equal(
-        harness.actionEvents.some((event) => event.id === "tab:/README.md" && event.action === "press"),
+        harness.actionEvents.some(
+          (event) => event.id === "tab:/README.md" && event.action === "press",
+        ),
         true,
       );
       assertNoFatalEvents(harness);

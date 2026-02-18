@@ -1,10 +1,13 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { createApp } from "../../app/createApp.js";
-import { encodeZrevBatchV1, flushMicrotasks, makeBackendBatch } from "../../app/__tests__/helpers.js";
+import {
+  encodeZrevBatchV1,
+  flushMicrotasks,
+  makeBackendBatch,
+} from "../../app/__tests__/helpers.js";
 import { StubBackend } from "../../app/__tests__/stubBackend.js";
+import { createApp } from "../../app/createApp.js";
 import type { App, VNode } from "../../index.js";
 import { ui } from "../../index.js";
-import type { Rect } from "../../layout/types.js";
 import {
   ZR_KEY_DOWN,
   ZR_KEY_ENTER,
@@ -12,6 +15,7 @@ import {
   ZR_KEY_TAB,
   ZR_MOD_SHIFT,
 } from "../../keybindings/keyCodes.js";
+import type { Rect } from "../../layout/types.js";
 
 const VIEWPORT = Object.freeze({ cols: 96, rows: 30 });
 
@@ -532,10 +536,7 @@ async function clickOutside(h: Harness): Promise<void> {
 }
 
 function clickEventsAt(h: Harness, x: number, y: number): readonly EncodedEvent[] {
-  return [
-    mouseEvent(h, x, y, 3, 1),
-    mouseEvent(h, x, y, 4, 0),
-  ];
+  return [mouseEvent(h, x, y, 3, 1), mouseEvent(h, x, y, 4, 0)];
 }
 
 async function clickId(h: Harness, id: string): Promise<void> {
@@ -584,11 +585,7 @@ async function typeText(h: Harness, text: string): Promise<void> {
   await sendEvents(h, textEvents(h, text));
 }
 
-async function completeStep0(
-  h: Harness,
-  name = "Ada",
-  email = "ada@example.com",
-): Promise<void> {
+async function completeStep0(h: Harness, name = "Ada", email = "ada@example.com"): Promise<void> {
   await clickId(h, "input.name");
   await typeText(h, name);
   await clickId(h, "input.email");
@@ -703,11 +700,7 @@ describe("Form Editor integration (full pipeline)", () => {
     await withHarness(async (h) => {
       assert.equal(h.getState().step, 0);
       const strings = latestFrameStrings(h.backend);
-      assertStringsContain(
-        strings,
-        ["Form Editor Wizard", "Step 1 of 3", "Next"],
-        "bootstrap",
-      );
+      assertStringsContain(strings, ["Form Editor Wizard", "Step 1 of 3", "Next"], "bootstrap");
       assertNoFatal(h);
     });
   });
@@ -765,11 +758,7 @@ describe("Form Editor integration (full pipeline)", () => {
 
       assert.equal(h.getState().step, 1);
       const strings = latestFrameStrings(h.backend);
-      assertStringsContain(
-        strings,
-        ["Step 2 of 3", "Role *", "Plan *"],
-        "step2 shell",
-      );
+      assertStringsContain(strings, ["Step 2 of 3", "Role *", "Plan *"], "step2 shell");
       assertNoFatal(h);
     });
   });
@@ -957,7 +946,11 @@ describe("Form Editor integration (full pipeline)", () => {
         assert.equal(h.getState().errors.email, "Email must include @");
 
         const strings = latestFrameStrings(h.backend);
-        assertStringsContain(strings, ["Step 1 of 3", "Please fix validation errors."], "invalid submit route");
+        assertStringsContain(
+          strings,
+          ["Step 1 of 3", "Please fix validation errors."],
+          "invalid submit route",
+        );
         assertNoFatal(h);
       },
       {

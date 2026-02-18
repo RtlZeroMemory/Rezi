@@ -152,7 +152,11 @@ function decodeStringSlice(
   byteOff: number,
   byteLen: number,
 ): string {
-  assert.equal(stringIndex >= 0 && stringIndex < header.count, true, "string index must be in-bounds");
+  assert.equal(
+    stringIndex >= 0 && stringIndex < header.count,
+    true,
+    "string index must be in-bounds",
+  );
   const span = header.spanOffset + stringIndex * 8;
   const strOff = u32(bytes, span);
   const strLen = u32(bytes, span + 4);
@@ -328,7 +332,10 @@ describe("integration reflow behavior", () => {
     await startAndResize(app, backend, 72, 18, 1);
     const firstFrame = latestFrame(backend).slice();
     const firstStrings = parseInternedStrings(firstFrame);
-    assert.equal(firstStrings.some((s) => s.includes("Name")), true);
+    assert.equal(
+      firstStrings.some((s) => s.includes("Name")),
+      true,
+    );
     assert.equal(countOpcode(parseOpcodes(firstFrame), OP_DRAW_TEXT) > 0, true);
 
     await settleNextFrame(backend);
@@ -572,7 +579,10 @@ describe("integration reflow behavior", () => {
     const frame = latestFrame(backend);
     const strings = parseInternedStrings(frame);
     assert.equal(backend.requestedFrames.length, 1);
-    assert.equal(strings.some((s) => s.includes("toast-A")), true);
+    assert.equal(
+      strings.some((s) => s.includes("toast-A")),
+      true,
+    );
     assertRectsInViewport(parseFillRects(frame), viewport, "fillRect");
     assertRectsInViewport(parsePushClips(frame), viewport, "clipRect");
     assertTextCommandsInViewport(parseDrawTexts(frame), viewport, "drawText");

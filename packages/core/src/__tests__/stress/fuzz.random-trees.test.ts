@@ -49,7 +49,7 @@ function randomInt(rng: Rng, min: number, max: number): number {
 }
 
 function chance(rng: Rng, percent: number): boolean {
-  return (rng.u32() % 100) < percent;
+  return rng.u32() % 100 < percent;
 }
 
 function pick<T>(rng: Rng, values: readonly T[]): T {

@@ -1,7 +1,11 @@
 import { assert, createRng, describe, test } from "@rezi-ui/testkit";
-import { createApp } from "../../app/createApp.js";
-import { encodeZrevBatchV1, flushMicrotasks, makeBackendBatch } from "../../app/__tests__/helpers.js";
+import {
+  encodeZrevBatchV1,
+  flushMicrotasks,
+  makeBackendBatch,
+} from "../../app/__tests__/helpers.js";
 import { StubBackend } from "../../app/__tests__/stubBackend.js";
+import { createApp } from "../../app/createApp.js";
 import type { ZrevEvent } from "../../events.js";
 import {
   ZR_KEY_BACKSPACE,
@@ -19,12 +23,8 @@ import { ui } from "../../widgets/ui.js";
 
 const ITERATIONS = 1024;
 
-const LETTER_KEYS = Object.freeze(
-  Array.from({ length: 26 }, (_unused, idx) => 65 + idx),
-);
-const DIGIT_KEYS = Object.freeze(
-  Array.from({ length: 10 }, (_unused, idx) => 48 + idx),
-);
+const LETTER_KEYS = Object.freeze(Array.from({ length: 26 }, (_unused, idx) => 65 + idx));
+const DIGIT_KEYS = Object.freeze(Array.from({ length: 10 }, (_unused, idx) => 48 + idx));
 const NAV_KEYS = Object.freeze([
   ZR_KEY_TAB,
   ZR_KEY_ENTER,
@@ -114,7 +114,7 @@ function randomInt(rng: Rng, min: number, max: number): number {
 }
 
 function chance(rng: Rng, percent: number): boolean {
-  return (rng.u32() % 100) < percent;
+  return rng.u32() % 100 < percent;
 }
 
 function pick<T>(rng: Rng, values: readonly T[]): T {
@@ -427,7 +427,10 @@ function isInputEngineEvent(event: ZrevEvent): event is EngineInputEvent {
   return event.kind === "key" || event.kind === "mouse" || event.kind === "text";
 }
 
-async function pushBatch(backend: StubBackend, events: readonly EncodedBatchEvent[]): Promise<void> {
+async function pushBatch(
+  backend: StubBackend,
+  events: readonly EncodedBatchEvent[],
+): Promise<void> {
   backend.pushBatch(
     makeBackendBatch({
       bytes: encodeZrevBatchV1({ events }),
@@ -588,7 +591,9 @@ async function runEventFuzz(seed: number, profile: EventProfile): Promise<void> 
 
   await app.start();
   await flushMicrotasks(8);
-  await pushBatch(backend, [{ kind: "resize", timeMs: 1, cols: viewport.cols, rows: viewport.rows }]);
+  await pushBatch(backend, [
+    { kind: "resize", timeMs: 1, cols: viewport.cols, rows: viewport.rows },
+  ]);
   await flushMicrotasks(8);
 
   const stream: StreamState = {
