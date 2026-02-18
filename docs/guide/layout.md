@@ -33,6 +33,18 @@ Key props:
 - `gap` — spacing between children (cells or spacing key)
 - `align` — cross-axis alignment: `"start" | "center" | "end" | "stretch"`
 - `justify` — main-axis distribution: `"start" | "end" | "center" | "between" | "around" | "evenly"`
+- `wrap` — line wrapping for stacks (`false` by default)
+
+### Stack wrap (`wrap`)
+
+- `wrap` defaults to `false` (`row`/`column` stay single-line).
+- Set `wrap: true` to enable greedy line breaking in child order.
+- `row`: children wrap to the next visual line when adding the next child (`lineMain + gap + childWidth`) would exceed the row content width.
+- `column`: children wrap to the next visual column when adding the next child (`lineMain + gap + childHeight`) would exceed the column content height.
+- `gap` is used both between siblings in a line and between wrapped lines.
+- `justify` and `align` apply per line (not across the full wrapped block).
+- In wrap mode, flex distribution is line-local: each line distributes only its own remaining main-axis space.
+- In wrap mode, percentage child sizes resolve against the stack content box (container inner width/height), not per-line remainder. Line packing may still clamp a child to remaining line space.
 
 ### Example: Row + Column
 

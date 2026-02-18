@@ -189,6 +189,18 @@ export type StackProps = Readonly<
     LayoutConstraints
 >;
 
+/** Props for horizontal stacks. `wrap` controls line breaking (default: false). */
+export type RowProps = StackProps &
+  Readonly<{
+    wrap?: boolean;
+  }>;
+
+/** Props for vertical stacks. `wrap` controls line breaking (default: false). */
+export type ColumnProps = StackProps &
+  Readonly<{
+    wrap?: boolean;
+  }>;
+
 export type GridProps = {
   columns: number | string;
   rows?: number | string;
@@ -1511,8 +1523,8 @@ export type TreeProps<T = unknown> = Readonly<{
 export type VNode =
   | Readonly<{ kind: "text"; text: string; props: TextProps }>
   | Readonly<{ kind: "box"; props: BoxProps; children: readonly VNode[] }>
-  | Readonly<{ kind: "row"; props: StackProps; children: readonly VNode[] }>
-  | Readonly<{ kind: "column"; props: StackProps; children: readonly VNode[] }>
+  | Readonly<{ kind: "row"; props: RowProps; children: readonly VNode[] }>
+  | Readonly<{ kind: "column"; props: ColumnProps; children: readonly VNode[] }>
   | Readonly<{ kind: "grid"; props: GridProps; children: readonly VNode[] }>
   | Readonly<{ kind: "spacer"; props: SpacerProps }>
   | Readonly<{ kind: "divider"; props: DividerProps }>

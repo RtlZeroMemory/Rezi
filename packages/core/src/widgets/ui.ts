@@ -18,6 +18,7 @@ import type {
   CalloutProps,
   CheckboxProps,
   CodeEditorProps,
+  ColumnProps,
   CommandPaletteProps,
   DiffViewerProps,
   DividerProps,
@@ -45,6 +46,7 @@ import type {
   ResizablePanelProps,
   RichTextProps,
   RichTextSpan,
+  RowProps,
   SelectProps,
   SkeletonProps,
   SliderProps,
@@ -52,7 +54,6 @@ import type {
   SparklineProps,
   SpinnerProps,
   SplitPaneProps,
-  StackProps,
   StatusProps,
   TableProps,
   TagProps,
@@ -100,11 +101,11 @@ function box(props: BoxProps = {}, children: readonly UiChild[] = []): VNode {
   return { kind: "box", props, children: filterChildren(children) };
 }
 
-function row(props: StackProps = {}, children: readonly UiChild[] = []): VNode {
+function row(props: RowProps = {}, children: readonly UiChild[] = []): VNode {
   return { kind: "row", props, children: filterChildren(children) };
 }
 
-function column(props: StackProps = {}, children: readonly UiChild[] = []): VNode {
+function column(props: ColumnProps = {}, children: readonly UiChild[] = []): VNode {
   return { kind: "column", props, children: filterChildren(children) };
 }
 
