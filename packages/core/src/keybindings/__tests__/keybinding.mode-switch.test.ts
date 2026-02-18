@@ -70,3 +70,41 @@ test("mode switch inside a keybinding handler applies to the next event", async 
 
   assert.deepEqual(calls, ["normal:i", "insert:x"]);
 });
+
+test("unknown mode switch inside keybinding handler surfaces fatal error", async () => {
+  const backend = new StubBackend();
+  const calls: string[] = [];
+  const fatalCodes: string[] = [];
+  const fatalDetails: string[] = [];
+  const app = createApp({ backend, initialState: 0 });
+
+  const KEY_I = keyOf("i");
+
+  app.view(() => ui.text("mode error"));
+  app.modes({
+    normal: {
+      i: () => {
+        calls.push("normal:i");
+        app.setMode("inert");
+      },
+    },
+  });
+  app.setMode("normal");
+  app.onEvent((ev) => {
+    if (ev.kind !== "fatal") return;
+    fatalCodes.push(ev.code);
+    fatalDetails.push(ev.detail);
+  });
+
+  await app.start();
+  await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 40, rows: 10 }]);
+  await settleNextFrame(backend);
+
+  await pushEvents(backend, [{ kind: "key", timeMs: 2, key: KEY_I, action: "down" }]);
+  await flushMicrotasks(20);
+
+  assert.deepEqual(calls, ["normal:i"]);
+  assert.deepEqual(fatalCodes, ["ZRUI_USER_CODE_THROW"]);
+  assert.equal(fatalDetails[0]?.includes('unknown keybinding mode "inert"'), true);
+  assert.equal(backend.stopCalls, 1);
+});

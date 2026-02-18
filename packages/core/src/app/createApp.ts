@@ -741,6 +741,13 @@ export function createApp<S>(
                 const routeInputState = keybindingState;
                 const keyResult = routeKeyEvent(routeInputState, ev, keyCtx);
                 applyRoutedKeybindingState(routeInputState, keyResult.nextState);
+                if (keyResult.handlerError !== undefined) {
+                  enqueueFatal(
+                    "ZRUI_USER_CODE_THROW",
+                    `keybinding handler threw: ${describeThrown(keyResult.handlerError)}`,
+                  );
+                  return;
+                }
                 if (keyResult.consumed) {
                   noteBreadcrumbConsumptionPath("keybindings");
                   continue; // Skip default widget routing
@@ -768,6 +775,13 @@ export function createApp<S>(
                 const routeInputState = keybindingState;
                 const keyResult = routeKeyEvent(routeInputState, syntheticKeyEvent, keyCtx);
                 applyRoutedKeybindingState(routeInputState, keyResult.nextState);
+                if (keyResult.handlerError !== undefined) {
+                  enqueueFatal(
+                    "ZRUI_USER_CODE_THROW",
+                    `keybinding handler threw: ${describeThrown(keyResult.handlerError)}`,
+                  );
+                  return;
+                }
                 if (keyResult.consumed) {
                   noteBreadcrumbConsumptionPath("keybindings");
                   continue; // Skip default widget routing
