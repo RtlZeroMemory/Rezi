@@ -40,8 +40,18 @@ function box(props: {
 describe("layout wrap (deterministic)", () => {
   test("row wrap=true matches wrap=false when all children fit", () => {
     const children = [box({ width: 2, height: 2 }), box({ width: 3, height: 1 })];
-    const wrapped = mustLayout(ui.row({ width: 10, height: 4, gap: 1, wrap: true }, children), 10, 4, "row");
-    const unwrapped = mustLayout(ui.row({ width: 10, height: 4, gap: 1, wrap: false }, children), 10, 4, "row");
+    const wrapped = mustLayout(
+      ui.row({ width: 10, height: 4, gap: 1, wrap: true }, children),
+      10,
+      4,
+      "row",
+    );
+    const unwrapped = mustLayout(
+      ui.row({ width: 10, height: 4, gap: 1, wrap: false }, children),
+      10,
+      4,
+      "row",
+    );
     const expected: readonly Rect[] = [
       { x: 0, y: 0, w: 2, h: 2 },
       { x: 3, y: 0, w: 3, h: 1 },
