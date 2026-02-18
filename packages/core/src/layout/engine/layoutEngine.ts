@@ -29,6 +29,7 @@ import { layoutBoxKinds, measureBoxKinds } from "../kinds/box.js";
 import { layoutCollections, measureCollections } from "../kinds/collections.js";
 import { layoutGridKinds, measureGridKinds } from "../kinds/grid.js";
 import { layoutLeafKind, measureLeaf } from "../kinds/leaf.js";
+import { layoutNavigationKinds, measureNavigationKinds } from "../kinds/navigation.js";
 import { layoutOverlays, measureOverlays } from "../kinds/overlays.js";
 import { layoutSplitPaneKinds, measureSplitPaneKinds } from "../kinds/splitPane.js";
 import { layoutStackKinds, measureStackKinds } from "../kinds/stack.js";
@@ -157,6 +158,13 @@ function measureNode(vnode: VNode, maxW: number, maxH: number, axis: Axis): Layo
     case "checkbox":
     case "radioGroup": {
       computed = measureLeaf(vnode, maxW, maxH, axis);
+      break;
+    }
+    case "tabs":
+    case "accordion":
+    case "breadcrumb":
+    case "pagination": {
+      computed = measureNavigationKinds(vnode, maxW, maxH, measureNode);
       break;
     }
 
@@ -336,6 +344,12 @@ function layoutNode(
     }
     case "field": {
       return layoutBoxKinds(vnode, x, y, rectW, rectH, axis, layoutNode);
+    }
+    case "tabs":
+    case "accordion":
+    case "breadcrumb":
+    case "pagination": {
+      return layoutNavigationKinds(vnode, x, y, rectW, rectH, layoutNode);
     }
 
     /* ========== Advanced Widgets (GitHub issue #136) ========== */

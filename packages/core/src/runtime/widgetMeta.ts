@@ -273,6 +273,7 @@ export type CollectedZone = Readonly<{
   columns: number;
   wrapAround: boolean;
   focusableIds: readonly string[];
+  parentZoneId?: string;
   onEnter?: () => void;
   onExit?: () => void;
 }>;
@@ -323,10 +324,13 @@ function collectFocusableIdsInSubtree(node: RuntimeInstance): readonly string[] 
 export function collectFocusZones(tree: RuntimeInstance): ReadonlyMap<string, CollectedZone> {
   const m = new Map<string, CollectedZone>();
 
-  const stack: RuntimeInstance[] = [tree];
+  const stack: Array<{ node: RuntimeInstance; parentZoneId: string | null }> = [
+    { node: tree, parentZoneId: null },
+  ];
   while (stack.length > 0) {
-    const node = stack.pop();
-    if (!node) continue;
+    const item = stack.pop();
+    if (!item) continue;
+    const node = item.node;
 
     if (node.vnode.kind === "focusZone") {
       const props = node.vnode.props as {
@@ -373,6 +377,9 @@ export function collectFocusZones(tree: RuntimeInstance): ReadonlyMap<string, Co
           wrapAround,
           focusableIds: Object.freeze(focusableIds),
         };
+        if (item.parentZoneId !== null) {
+          (zone as { parentZoneId?: string }).parentZoneId = item.parentZoneId;
+        }
         if (onEnter !== undefined) {
           (zone as { onEnter?: () => void }).onEnter = onEnter;
         }
@@ -384,9 +391,16 @@ export function collectFocusZones(tree: RuntimeInstance): ReadonlyMap<string, Co
     }
 
     // Continue traversing children for nested zones
+    let childParentZoneId = item.parentZoneId;
+    if (node.vnode.kind === "focusZone") {
+      const zoneId = (node.vnode.props as { id?: unknown }).id;
+      if (typeof zoneId === "string" && zoneId.length > 0) {
+        childParentZoneId = zoneId;
+      }
+    }
     for (let i = node.children.length - 1; i >= 0; i--) {
       const c = node.children[i];
-      if (c) stack.push(c);
+      if (c) stack.push({ node: c, parentZoneId: childParentZoneId ?? null });
     }
   }
 
@@ -534,7 +548,11 @@ export class WidgetMetadataCollector {
   // Zone/trap intermediate data (reused)
   private readonly _zoneDataById = new Map<
     string,
-    Omit<CollectedZone, "focusableIds"> & { onEnter?: () => void; onExit?: () => void }
+    Omit<CollectedZone, "focusableIds"> & {
+      parentZoneId?: string;
+      onEnter?: () => void;
+      onExit?: () => void;
+    }
   >();
   private readonly _trapDataById = new Map<string, Omit<CollectedTrap, "focusableIds">>();
   private readonly _zoneFocusables = new Map<string, string[]>();
@@ -698,10 +716,23 @@ export class WidgetMetadataCollector {
           const onExit =
             typeof props.onExit === "function" ? (props.onExit as () => void) : undefined;
 
+          let parentZoneId: string | null = null;
+          for (let i = this._containerStack.length - 1; i >= 0; i--) {
+            const container = this._containerStack[i];
+            if (container?.kind === "zone") {
+              parentZoneId = container.id;
+              break;
+            }
+          }
+
           const zoneData: Omit<CollectedZone, "focusableIds"> & {
+            parentZoneId?: string;
             onEnter?: () => void;
             onExit?: () => void;
           } = { id, tabIndex, navigation, columns, wrapAround };
+          if (parentZoneId !== null) {
+            zoneData.parentZoneId = parentZoneId;
+          }
           if (onEnter !== undefined) {
             zoneData.onEnter = onEnter;
           }

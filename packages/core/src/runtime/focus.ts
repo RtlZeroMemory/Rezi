@@ -159,6 +159,7 @@ export type FocusZone = Readonly<{
   columns: number;
   wrapAround: boolean;
   focusableIds: readonly string[];
+  parentZoneId?: string;
   lastFocusedId: string | null;
 }>;
 
@@ -581,6 +582,7 @@ export function finalizeFocusWithPreCollectedMetadata(
         columns: collected.columns,
         wrapAround: collected.wrapAround,
         focusableIds: collected.focusableIds,
+        ...(collected.parentZoneId ? { parentZoneId: collected.parentZoneId } : {}),
         lastFocusedId,
       }),
     );

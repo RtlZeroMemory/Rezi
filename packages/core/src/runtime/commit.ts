@@ -456,6 +456,9 @@ function isInteractiveVNode(v: VNode): boolean {
     v.kind === "select" ||
     v.kind === "checkbox" ||
     v.kind === "radioGroup" ||
+    v.kind === "tabs" ||
+    v.kind === "accordion" ||
+    v.kind === "pagination" ||
     v.kind === "modal" ||
     v.kind === "layer" ||
     v.kind === "dropdown" ||
@@ -515,6 +518,10 @@ function commitChildrenForVNode(vnode: VNode): readonly VNode[] {
     vnode.kind === "focusTrap" ||
     vnode.kind === "layers" ||
     vnode.kind === "field" ||
+    vnode.kind === "tabs" ||
+    vnode.kind === "accordion" ||
+    vnode.kind === "breadcrumb" ||
+    vnode.kind === "pagination" ||
     // Advanced container widgets (GitHub issue #136)
     vnode.kind === "splitPane" ||
     vnode.kind === "panelGroup" ||
@@ -786,6 +793,10 @@ function commitNode(
       next.kind === "focusTrap" ||
       next.kind === "layers" ||
       next.kind === "field" ||
+      next.kind === "tabs" ||
+      next.kind === "accordion" ||
+      next.kind === "breadcrumb" ||
+      next.kind === "pagination" ||
       // Advanced container widgets (GitHub issue #136)
       next.kind === "splitPane" ||
       next.kind === "panelGroup" ||
@@ -809,6 +820,10 @@ function commitNode(
     vnode.kind === "focusTrap" ||
     vnode.kind === "layers" ||
     vnode.kind === "field" ||
+    vnode.kind === "tabs" ||
+    vnode.kind === "accordion" ||
+    vnode.kind === "breadcrumb" ||
+    vnode.kind === "pagination" ||
     // Advanced container widgets (GitHub issue #136)
     vnode.kind === "splitPane" ||
     vnode.kind === "panelGroup" ||

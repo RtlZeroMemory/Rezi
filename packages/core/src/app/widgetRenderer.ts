@@ -316,6 +316,10 @@ function isRoutingRelevantKind(kind: WidgetKind): boolean {
     case "select":
     case "checkbox":
     case "radioGroup":
+    case "tabs":
+    case "accordion":
+    case "breadcrumb":
+    case "pagination":
     case "commandPalette":
     case "filePicker":
     case "fileTreeExplorer":
@@ -344,6 +348,10 @@ function isDamageGranularityKind(kind: WidgetKind): boolean {
     case "select":
     case "checkbox":
     case "radioGroup":
+    case "tabs":
+    case "accordion":
+    case "breadcrumb":
+    case "pagination":
     case "richText":
     case "badge":
     case "spinner":
