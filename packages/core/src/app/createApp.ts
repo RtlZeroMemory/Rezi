@@ -1155,7 +1155,9 @@ export function createApp<S>(
       assertOperational("setTheme");
       if (inCommit) throwCode("ZRUI_REENTRANT_CALL", "setTheme: called during commit");
       if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", "setTheme: called during render");
-      theme = coerceToLegacyTheme(next);
+      const nextTheme = coerceToLegacyTheme(next);
+      if (nextTheme === theme) return;
+      theme = nextTheme;
       requestRenderFromRenderer();
     },
 

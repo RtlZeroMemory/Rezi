@@ -128,6 +128,30 @@ export type ColorTokens = Readonly<{
 }>;
 
 /**
+ * Required spacing scale for semantic themes.
+ *
+ * Mirrors docs/styling/index.md spacing keys.
+ */
+export type ThemeSpacingTokens = Readonly<{
+  xs: number;
+  sm: number;
+  md: number;
+  lg: number;
+  xl: number;
+  "2xl": number;
+}>;
+
+/**
+ * Focus indicator style tokens.
+ *
+ * Rezi default focus style is underline + bold.
+ */
+export type FocusIndicatorTokens = Readonly<{
+  bold: boolean;
+  underline: boolean;
+}>;
+
+/**
  * Theme definition with name and color tokens.
  */
 export type ThemeDefinition = Readonly<{
@@ -135,7 +159,37 @@ export type ThemeDefinition = Readonly<{
   name: string;
   /** Complete color token set */
   colors: ColorTokens;
+  /**
+   * Optional spacing scale for forward compatibility.
+   * Added by createThemeDefinition for built-in presets.
+   */
+  spacing?: ThemeSpacingTokens;
+  /**
+   * Optional focus indicator style tokens for forward compatibility.
+   * Added by createThemeDefinition for built-in presets.
+   */
+  focusIndicator?: FocusIndicatorTokens;
 }>;
+
+/**
+ * Default semantic spacing tokens used by createThemeDefinition.
+ */
+export const DEFAULT_THEME_SPACING: ThemeSpacingTokens = Object.freeze({
+  xs: 1,
+  sm: 1,
+  md: 2,
+  lg: 3,
+  xl: 4,
+  "2xl": 6,
+});
+
+/**
+ * Default focus indicator style used by createThemeDefinition.
+ */
+export const DEFAULT_FOCUS_INDICATOR: FocusIndicatorTokens = Object.freeze({
+  bold: true,
+  underline: true,
+});
 
 /**
  * Helper to create a frozen RGB color.
@@ -170,5 +224,7 @@ export function createThemeDefinition(name: string, colors: ColorTokens): ThemeD
   return Object.freeze({
     name,
     colors: createColorTokens(colors),
+    spacing: DEFAULT_THEME_SPACING,
+    focusIndicator: DEFAULT_FOCUS_INDICATOR,
   });
 }

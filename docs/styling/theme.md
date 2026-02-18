@@ -1,160 +1,135 @@
 # Theme
 
-Rezi provides a semantic color token system with built-in theme presets.
+Rezi supports two related theme shapes:
 
-## Built-in Theme Presets
+- `ThemeDefinition`: semantic tokens (`bg.base`, `fg.primary`, `accent.primary`, etc.)
+- `Theme`: runtime flat palette used by the renderer
 
-Six theme presets are available:
+`app.setTheme(...)` accepts either shape.
 
-| Preset | Description |
-|--------|-------------|
-| `darkTheme` | Ayu-inspired dark theme (default) |
-| `lightTheme` | Clean light theme |
-| `dimmedTheme` | Reduced contrast dark theme |
-| `highContrastTheme` | WCAG AAA compliant |
-| `nordTheme` | Nord color palette |
-| `draculaTheme` | Dracula color palette |
+## Built-in presets
+
+Rezi ships six semantic presets:
+
+- `darkTheme`
+- `lightTheme`
+- `dimmedTheme`
+- `highContrastTheme`
+- `nordTheme`
+- `draculaTheme`
 
 ```typescript
-import { darkTheme, lightTheme, nordTheme, draculaTheme } from "@rezi-ui/core";
+import { darkTheme, nordTheme } from "@rezi-ui/core";
 
+app.setTheme(darkTheme);
 app.setTheme(nordTheme);
 ```
 
-## Using Theme Colors
+## Validation
 
-Resolve theme tokens into RGB values for widget styling:
+Use `validateTheme(theme)` to enforce required theme structure before use:
 
 ```typescript
-import { darkTheme, resolveColorToken, ui } from "@rezi-ui/core";
+import { validateTheme } from "@rezi-ui/core";
 
-const primaryFg = resolveColorToken(darkTheme, "fg.primary");
-const accentColor = resolveColorToken(darkTheme, "accent.primary");
-
-ui.text("Hello", { style: { fg: primaryFg } })
-ui.button({
-  id: "submit",
-  label: "Submit",
-  style: { fg: accentColor, bold: true },
-})
+validateTheme(myTheme);
 ```
 
-## Color Token Paths
+Validation checks:
 
-Theme definitions provide semantic color tokens:
+- All required semantic color tokens exist
+- Every color token is valid RGB (`r/g/b` integer in `0..255`)
+- Required spacing entries exist: `xs`, `sm`, `md`, `lg`, `xl`, `2xl`
+- Focus indicator style tokens are present and valid
 
-| Token Path | Description |
-|------------|-------------|
-| `fg.primary` | Primary foreground text |
-| `fg.secondary` | Secondary/dimmed text |
-| `fg.muted` | Muted/disabled text |
-| `fg.inverse` | Inverted foreground (for filled backgrounds) |
-| `bg.base` | Base background |
-| `bg.elevated` | Elevated surface background |
-| `bg.overlay` | Overlay/popup background |
-| `bg.subtle` | Subtle background variation |
-| `accent.primary` | Primary accent color |
-| `accent.secondary` | Secondary accent |
-| `accent.tertiary` | Tertiary accent |
-| `success` | Success/positive state |
-| `warning` | Warning state |
-| `error` | Error/negative state |
-| `info` | Informational state |
-| `focus.ring` | Focus indicator color |
-| `focus.bg` | Focus background |
-| `selected.bg` | Selected item background |
-| `selected.fg` | Selected item foreground |
-| `disabled.fg` | Disabled foreground |
-| `disabled.bg` | Disabled background |
-| `border.subtle` | Subtle border |
-| `border.default` | Default border |
-| `border.strong` | Strong/emphasized border |
+Error messages are path-specific, for example:
 
-## Runtime Theme (`Theme`)
+- `Theme validation failed at colors.accent.primary.r: ...`
+- `Theme validation failed: missing required token path(s): colors.error, spacing.md`
 
-The app runtime also uses a `Theme` object for:
+## Extension / inheritance
 
-- A spacing scale
-- A small named color palette
-
-You can provide it at app creation time:
+Use `extendTheme(base, overrides)` to derive variants without cloning full objects:
 
 ```typescript
-import { createTheme } from "@rezi-ui/core";
-import { createNodeApp } from "@rezi-ui/node";
+import { darkTheme, extendTheme } from "@rezi-ui/core";
 
-const app = createNodeApp({
-    initialState: {},
-  theme: createTheme({ colors: { bg: { r: 10, g: 14, b: 20 } } }),
-});
-```
-
-Or change it at runtime:
-
-```typescript
-app.setTheme(createTheme({ colors: { primary: { r: 255, g: 180, b: 84 } } }));
-```
-
-## Creating Custom Themes
-
-Create custom themes with `createThemeDefinition()`:
-
-```typescript
-import { createThemeDefinition, color } from "@rezi-ui/core";
-
-const myTheme = createThemeDefinition("my-theme", {
-  bg: {
-    base: color(20, 20, 30),
-    elevated: color(30, 30, 40),
-    overlay: color(40, 40, 50),
-    subtle: color(25, 25, 35),
-  },
-  fg: {
-    primary: color(240, 240, 240),
-    secondary: color(180, 180, 180),
-    muted: color(100, 100, 100),
-    inverse: color(20, 20, 30),
-  },
-  accent: {
-    primary: color(100, 200, 255),
-    secondary: color(200, 100, 255),
-    tertiary: color(100, 255, 200),
-  },
-  success: color(100, 255, 100),
-  warning: color(255, 200, 100),
-  error: color(255, 100, 100),
-  info: color(100, 200, 255),
-  focus: {
-    ring: color(100, 200, 255),
-    bg: color(30, 40, 50),
-  },
-  selected: {
-    bg: color(50, 60, 80),
-    fg: color(240, 240, 240),
-  },
-  disabled: {
-    fg: color(80, 80, 80),
-    bg: color(25, 25, 35),
-  },
-  border: {
-    subtle: color(40, 40, 50),
-    default: color(60, 60, 70),
-    strong: color(100, 100, 110),
+const brandDark = extendTheme(darkTheme, {
+  colors: {
+    accent: {
+      primary: { r: 255, g: 180, b: 84 },
+    },
   },
 });
 ```
 
-## Resolution Helpers
+Guarantees:
 
-| Function | Description |
-|----------|-------------|
-| `resolveColorToken(theme, path)` | Resolve a token path to RGB |
-| `tryResolveColorToken(theme, path)` | Resolve or return undefined |
-| `resolveColorOrRgb(theme, colorOrPath)` | Accept RGB or token path |
-| `isValidColorPath(path)` | Check if path is valid |
+- deep merge (override wins, other tokens inherited)
+- returns a new theme object
+- does not mutate `base`
+- validates merged output
 
-## Related
+## Contrast utility and WCAG checks
 
-- [Style Props](style-props.md) - Styling widget props
-- [Focus Styles](focus-styles.md) - Focus indicator configuration
-- [Icons](icons.md) - Icon system
+Use `contrastRatio(fg, bg)` for WCAG 2.1 contrast calculations:
+
+```typescript
+import { contrastRatio } from "@rezi-ui/core";
+
+const ratio = contrastRatio({ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }); // 21
+```
+
+Built-in preset verification in tests:
+
+- all six presets pass WCAG AA (`>= 4.5:1`) for primary `fg/bg`
+- `highContrastTheme` passes WCAG AAA (`>= 7:1`) for primary `fg/bg`
+
+## Runtime switching guarantees
+
+`app.setTheme(nextTheme)` behavior:
+
+- allowed before `start()` and while running
+- throws on re-entrant render/commit calls (`ZRUI_UPDATE_DURING_RENDER`, `ZRUI_REENTRANT_CALL`)
+- no-op when effective theme identity is unchanged
+- theme changes trigger a full redraw (incremental reuse is bypassed on theme ref change)
+
+## Component-level scoped overrides
+
+`box`, `row`, and `column` support a scoped `theme` prop:
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.column({}, [
+  ui.text("parent"),
+  ui.box({ theme: { colors: { primary: { r: 80, g: 200, b: 120 } } } }, [
+    ui.text("scoped"),
+  ]),
+  ui.text("parent again"),
+]);
+```
+
+Rules:
+
+- scope applies to container subtree
+- nested overrides compose (inner scope wins)
+- leaving a scoped container restores parent theme
+- partial overrides inherit unspecified parent tokens
+
+## Color token helpers
+
+```typescript
+import { darkTheme, resolveColorToken, tryResolveColorToken } from "@rezi-ui/core";
+
+const fg = resolveColorToken(darkTheme, "fg.primary");
+const result = tryResolveColorToken(darkTheme, "accent.primary");
+```
+
+Related helpers:
+
+- `resolveColorToken(theme, path)`
+- `tryResolveColorToken(theme, path)`
+- `resolveColorOrRgb(theme, colorOrPath, fallback)`
+- `isValidColorPath(path)`
+

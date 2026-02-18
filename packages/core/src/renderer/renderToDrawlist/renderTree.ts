@@ -8,6 +8,7 @@ import type {
   TreeStateStore,
   VirtualListStateStore,
 } from "../../runtime/localState.js";
+import { mergeThemeOverride } from "../../theme/interop.js";
 import type { Theme } from "../../theme/theme.js";
 import type { CommandItem } from "../../widgets/types.js";
 import { getRuntimeNodeDamageRect } from "./damageBounds.js";
@@ -77,6 +78,8 @@ export function renderTree(
   const styleStack: ResolvedTextStyle[] = [inheritedStyle];
   const layoutStack: LayoutTree[] = [layoutTree];
   const clipStack: (ClipRect | undefined)[] = [undefined];
+  const themeByNode = new WeakMap<RuntimeInstance, Theme>();
+  themeByNode.set(tree, theme);
 
   while (nodeStack.length > 0) {
     const nodeOrPop = nodeStack.pop();
@@ -95,6 +98,16 @@ export function renderTree(
     const vnode = node.vnode;
     const rect: Rect = layoutNode.rect;
     if (damageRect && !rectIntersects(getRuntimeNodeDamageRect(node, rect), damageRect)) continue;
+
+    const currentTheme = themeByNode.get(node) ?? theme;
+    let renderTheme = currentTheme;
+    if (vnode.kind === "row" || vnode.kind === "column" || vnode.kind === "box") {
+      const props = vnode.props as { theme?: unknown };
+      renderTheme = mergeThemeOverride(currentTheme, props.theme);
+    }
+    for (const child of node.children) {
+      themeByNode.set(child, renderTheme);
+    }
 
     // Depth-first preorder: render node, then its children.
     switch (vnode.kind) {
@@ -115,7 +128,7 @@ export function renderTree(
           rect,
           currentClip,
           viewport,
-          theme,
+          renderTheme,
           parentStyle,
           node,
           layoutNode,
@@ -159,7 +172,7 @@ export function renderTree(
           builder,
           focusState,
           rect,
-          theme,
+          renderTheme,
           tick,
           parentStyle,
           node,
@@ -183,7 +196,7 @@ export function renderTree(
           builder,
           focusState,
           rect,
-          theme,
+          renderTheme,
           tick,
           parentStyle,
           node,
@@ -205,7 +218,7 @@ export function renderTree(
           builder,
           focusState,
           rect,
-          theme,
+          renderTheme,
           tick,
           parentStyle,
           node,
@@ -226,7 +239,7 @@ export function renderTree(
           focusState,
           rect,
           viewport,
-          theme,
+          renderTheme,
           parentStyle,
           node,
           nodeStack,
@@ -250,7 +263,7 @@ export function renderTree(
           builder,
           focusState,
           rect,
-          theme,
+          renderTheme,
           parentStyle,
           node,
           nodeStack,

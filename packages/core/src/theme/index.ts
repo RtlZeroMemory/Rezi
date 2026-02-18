@@ -21,14 +21,18 @@ export {
   color,
   createColorTokens,
   createThemeDefinition,
+  DEFAULT_FOCUS_INDICATOR,
+  DEFAULT_THEME_SPACING,
   type AccentTokens,
   type BgTokens,
   type BorderTokens,
   type ColorTokens,
   type DisabledTokens,
+  type FocusIndicatorTokens,
   type FgTokens,
   type FocusTokens,
   type SelectedTokens,
+  type ThemeSpacingTokens,
   type ThemeDefinition,
 } from "./tokens.js";
 
@@ -53,3 +57,10 @@ export {
   type ColorPath,
   type ResolveColorResult,
 } from "./resolve.js";
+
+// Validation and extension utilities
+export { validateTheme } from "./validate.js";
+export { extendTheme, type ThemeOverrides } from "./extend.js";
+
+// Accessibility utilities
+export { contrastRatio } from "./contrast.js";
