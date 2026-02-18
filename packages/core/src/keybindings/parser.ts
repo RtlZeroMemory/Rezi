@@ -48,6 +48,7 @@ function parseKeyPart(
   let alt = false;
   let meta = false;
   let keyName: string | undefined;
+  const seenModifiers = new Set<"shift" | "ctrl" | "alt" | "meta">();
 
   // Process each piece - all but last should be modifiers, last is the key
   for (let i = 0; i < pieces.length; i++) {
@@ -63,15 +64,19 @@ function parseKeyPart(
 
     if (MODIFIER_NAMES.has(piece)) {
       // It's a modifier
+      let modifier: "shift" | "ctrl" | "alt" | "meta" | null = null;
       switch (piece) {
         case "shift":
+          modifier = "shift";
           shift = true;
           break;
         case "ctrl":
         case "control":
+          modifier = "ctrl";
           ctrl = true;
           break;
         case "alt":
+          modifier = "alt";
           alt = true;
           break;
         case "meta":
@@ -79,9 +84,29 @@ function parseKeyPart(
         case "command":
         case "win":
         case "super":
+          modifier = "meta";
           meta = true;
           break;
       }
+      if (modifier === null) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_MODIFIER",
+            detail: `"${piece}" is not a valid modifier in "${part}"`,
+          },
+        };
+      }
+      if (seenModifiers.has(modifier)) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_MODIFIER",
+            detail: `duplicate modifier "${piece}" in "${part}"`,
+          },
+        };
+      }
+      seenModifiers.add(modifier);
       // If this is the last piece and it's a modifier, that's an error
       if (isLast) {
         return {

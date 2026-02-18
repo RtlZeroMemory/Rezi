@@ -18,7 +18,7 @@ import {
   resetChordState,
 } from "./chordMatcher.js";
 import { modsFromBitmask } from "./keyCodes.js";
-import { parseKeySequence } from "./parser.js";
+import { keysEqual, parseKeySequence } from "./parser.js";
 import type {
   ChordState,
   KeyBinding,
@@ -160,6 +160,33 @@ function parseBindings<C>(map: BindingMap<C>): ParseBindingsResult<C> {
   });
 }
 
+function keySequencesEqual(a: KeySequence, b: KeySequence): boolean {
+  if (a.keys.length !== b.keys.length) return false;
+  for (let i = 0; i < a.keys.length; i++) {
+    const aKey = a.keys[i];
+    const bKey = b.keys[i];
+    if (!aKey || !bKey || !keysEqual(aKey, bKey)) return false;
+  }
+  return true;
+}
+
+function mergeBindingsReplacingSequences<C>(
+  existing: readonly KeyBinding<C>[],
+  incoming: readonly KeyBinding<C>[],
+): KeyBinding<C>[] {
+  const merged = [...existing];
+  for (const next of incoming) {
+    for (let i = merged.length - 1; i >= 0; i--) {
+      const current = merged[i];
+      if (current && keySequencesEqual(current.sequence, next.sequence)) {
+        merged.splice(i, 1);
+      }
+    }
+    merged.push(next);
+  }
+  return merged;
+}
+
 /**
  * Result of registering bindings.
  */
@@ -190,8 +217,8 @@ export function registerBindings<C>(
   const existingMode = state.modes.get(modeName);
   const existingBindings = existingMode?.bindings ?? [];
 
-  // Merge bindings (new ones added after existing)
-  const mergedBindings = [...existingBindings, ...parsed.bindings];
+  // Merge bindings while replacing existing entries for the same key sequence.
+  const mergedBindings = mergeBindingsReplacingSequences(existingBindings, parsed.bindings);
   const mergedTrie = buildTrie(mergedBindings);
 
   const parentName = existingMode?.parent;
@@ -276,12 +303,11 @@ export function registerModes<C>(
     for (const inv of parsed.invalidKeys) {
       allInvalidKeys.push(inv);
     }
-    const newTrie = buildTrie(parsed.bindings);
 
     const existingMode = newState.modes.get(modeName);
-    const mergedBindings = existingMode
-      ? [...existingMode.bindings, ...parsed.bindings]
-      : parsed.bindings;
+    const existingBindings = existingMode?.bindings ?? [];
+    const mergedBindings = mergeBindingsReplacingSequences(existingBindings, parsed.bindings);
+    const mergedTrie = buildTrie(mergedBindings);
 
     const parentName = parent ?? existingMode?.parent;
     const newMode: CompiledMode<C> = parentName
@@ -289,12 +315,12 @@ export function registerModes<C>(
           name: modeName,
           bindings: Object.freeze(mergedBindings),
           parent: parentName,
-          trie: existingMode ? buildTrie(mergedBindings) : newTrie,
+          trie: mergedTrie,
         })
       : Object.freeze({
           name: modeName,
           bindings: Object.freeze(mergedBindings),
-          trie: existingMode ? buildTrie(mergedBindings) : newTrie,
+          trie: mergedTrie,
         });
 
     const newModes = new Map(newState.modes);
@@ -327,24 +353,18 @@ export function setMode<C>(
 ): KeybindingManagerState<C> {
   if (state.currentMode === modeName) return state;
 
-  // Verify mode exists (create empty if not)
-  let modes: ReadonlyMap<string, CompiledMode<C>> = state.modes;
-  if (!modes.has(modeName)) {
-    const newMode: CompiledMode<C> = Object.freeze({
-      name: modeName,
-      bindings: Object.freeze([]),
-      trie: buildTrie([]),
-    });
-    const mutableModes = new Map(modes);
-    mutableModes.set(modeName, newMode);
-    modes = mutableModes;
+  // Mode names must be registered up front.
+  if (!state.modes.has(modeName)) {
+    throw new Error(
+      `unknown keybinding mode "${modeName}" (register it first via app.modes() or registerBindings(..., { mode }))`,
+    );
   }
 
   return Object.freeze({
     ...state,
     currentMode: modeName,
     chordState: resetChordState(),
-    modes,
+    modes: state.modes,
   });
 }
 
