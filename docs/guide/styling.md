@@ -55,6 +55,59 @@ app.view(() => ui.text("Hello"));
 await app.start();
 ```
 
+Switching themes at runtime:
+
+```typescript
+app.setTheme(darkTheme);
+```
+
+Runtime guarantees for `setTheme`:
+
+- it can be called before `start()` and while running
+- it throws if called during render/commit
+- it is a no-op when the effective theme identity is unchanged
+- a theme change triggers a full redraw path
+
+## Theme validation and extension
+
+Theme hardening APIs are available from `@rezi-ui/core`:
+
+- `validateTheme(theme)` for strict token validation
+- `extendTheme(base, overrides)` for deep-merge inheritance + validation
+- `contrastRatio(fg, bg)` for WCAG contrast calculations
+
+Example:
+
+```typescript
+import { darkTheme, extendTheme, validateTheme } from "@rezi-ui/core";
+
+const brandTheme = extendTheme(darkTheme, {
+  colors: { accent: { primary: { r: 255, g: 180, b: 84 } } },
+});
+
+validateTheme(brandTheme);
+```
+
+## Scoped theme overrides
+
+`box`, `row`, and `column` accept a scoped `theme` override prop:
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.column({}, [
+  ui.text("parent"),
+  ui.box({ theme: { colors: { primary: { r: 90, g: 200, b: 140 } } } }, [ui.text("scoped")]),
+  ui.text("parent restored"),
+]);
+```
+
+Behavior:
+
+- nested scopes compose (inner override wins)
+- exiting a scoped subtree restores parent theme
+- partial overrides inherit unspecified parent tokens
+
 See: [Theme](../styling/theme.md).
 
 ## Decision guide
@@ -79,6 +132,8 @@ Style is merged from parent → child:
 - containers pass their resolved style to children
 - leaf widgets merge their own `style` on top
 - boolean attrs use tri-state semantics: `undefined` inherits, `false` disables, `true` enables
+- `box`/`row`/`column` can also apply scoped `theme` overrides to descendants
+- when container `style.bg` is set, that container rect is filled
 
 Example:
 

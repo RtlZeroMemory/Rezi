@@ -383,14 +383,18 @@ export {
   color,
   createColorTokens,
   createThemeDefinition,
+  DEFAULT_FOCUS_INDICATOR,
+  DEFAULT_THEME_SPACING,
   type AccentTokens,
   type BgTokens,
   type BorderTokens,
   type ColorTokens,
   type DisabledTokens,
+  type FocusIndicatorTokens,
   type FgTokens,
   type FocusTokens,
   type SelectedTokens,
+  type ThemeSpacingTokens,
   type ThemeDefinition,
   // Theme presets
   darkTheme,
@@ -408,6 +412,12 @@ export {
   isValidColorPath,
   type ColorPath,
   type ResolveColorResult,
+  // Validation and extension
+  validateTheme,
+  extendTheme,
+  type ThemeOverrides,
+  // Accessibility
+  contrastRatio,
 } from "./theme/index.js";
 
 // =============================================================================

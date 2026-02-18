@@ -19,6 +19,8 @@
 
 import type { SpacingValue } from "../layout/spacing-scale.js";
 import type { LayoutConstraints } from "../layout/types.js";
+import type { Theme } from "../theme/theme.js";
+import type { ThemeDefinition } from "../theme/tokens.js";
 import type { TextStyle } from "./style.js";
 
 /** Cross-axis alignment for stack layouts. */
@@ -58,6 +60,22 @@ export type SpacingProps = Readonly<{
   /** Left margin */
   ml?: SpacingValue;
 }>;
+
+type DeepPartial<T> = {
+  [K in keyof T]?: T[K] extends readonly (infer U)[]
+    ? readonly U[]
+    : T[K] extends object
+      ? DeepPartial<T[K]>
+      : T[K];
+};
+
+export type ScopedThemeOverride =
+  | Theme
+  | ThemeDefinition
+  | Readonly<{
+      colors?: DeepPartial<Theme["colors"]> | DeepPartial<ThemeDefinition["colors"]>;
+      spacing?: Theme["spacing"];
+    }>;
 
 /**
  * Text display variants with predefined styling.
@@ -123,6 +141,8 @@ export type BoxProps = Readonly<
      * When `bg` is provided, the renderer fills the box rect.
      */
     style?: TextStyle;
+    /** Optional scoped theme override for this container subtree. */
+    theme?: ScopedThemeOverride;
   } & SpacingProps &
     LayoutConstraints
 >;
@@ -150,6 +170,8 @@ export type StackProps = Readonly<
      * When `bg` is provided, the renderer fills the stack rect.
      */
     style?: TextStyle;
+    /** Optional scoped theme override for this container subtree. */
+    theme?: ScopedThemeOverride;
   } & SpacingProps &
     LayoutConstraints
 >;
