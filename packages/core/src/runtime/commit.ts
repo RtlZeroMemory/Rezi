@@ -667,8 +667,10 @@ function commitNode(
 
       const prevMeta = prev ? getCompositeMeta(prev.vnode) : null;
       const prevChild = prev?.children[0] ?? null;
+      const previousSelections = registry.getAppStateSelections(instanceId);
       const skipRenderEligible =
         !state.needsRender &&
+        previousSelections.length > 0 &&
         prevMeta !== null &&
         prevChild !== null &&
         prevMeta.widgetKey === activeCompositeMeta.widgetKey &&
@@ -676,10 +678,7 @@ function commitNode(
 
       let canSkipCompositeRender = false;
       if (skipRenderEligible) {
-        const evalRes = evaluateAppStateSelections(
-          registry.getAppStateSelections(instanceId),
-          compositeRuntime.appState,
-        );
+        const evalRes = evaluateAppStateSelections(previousSelections, compositeRuntime.appState);
         if (evalRes.threw !== null) {
           return {
             ok: false,
