@@ -161,6 +161,29 @@ describe("useForm wizard", () => {
     assert.equal(form.errors.age, undefined);
   });
 
+  test("nextStep called twice before rerender does not skip intermediate validation", () => {
+    const h = createTestContext();
+
+    const options = createWizardOptions({
+      initialValues: {
+        name: "Ada",
+        email: "",
+        age: 30,
+      },
+    });
+
+    let form = h.render(options);
+    const movedFirst = form.nextStep();
+    const movedSecond = form.nextStep();
+    form = h.render(options);
+
+    assert.equal(movedFirst, true);
+    assert.equal(movedSecond, false);
+    assert.equal(form.currentStep, 1);
+    assert.equal(form.touched.email, true);
+    assert.equal(form.errors.email, "Email required");
+  });
+
   test("nextStep applies custom per-step validation", () => {
     const h = createTestContext();
 
@@ -381,6 +404,33 @@ describe("useForm wizard", () => {
     assert.equal(submitCalls, 0);
     assert.equal(form.touched.name, true);
     assert.equal(form.errors.name, "Name required");
+  });
+
+  test("handleSubmit called twice before rerender does not skip step validation gates", () => {
+    const h = createTestContext();
+    let submitCalls = 0;
+
+    const options = createWizardOptions({
+      initialValues: {
+        name: "Ada",
+        email: "",
+        age: 30,
+      },
+      onSubmit: () => {
+        submitCalls++;
+      },
+    });
+
+    let form = h.render(options);
+    form.handleSubmit();
+    form.handleSubmit();
+    form = h.render(options);
+
+    assert.equal(form.currentStep, 1);
+    assert.equal(form.submitCount, 0);
+    assert.equal(submitCalls, 0);
+    assert.equal(form.touched.email, true);
+    assert.equal(form.errors.email, "Email required");
   });
 
   test("form state is preserved across steps and reset restores initial step and values", () => {

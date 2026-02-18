@@ -83,7 +83,11 @@ function createInitialState<T extends Record<string, unknown>>(
 function computeArrayFieldDirty(
   currentValue: ReadonlyArray<unknown>,
   initialValue: ReadonlyArray<unknown>,
-): boolean[] {
+): FieldBooleanValue {
+  if (currentValue.length !== initialValue.length) {
+    return true;
+  }
+
   const dirty: boolean[] = [];
   for (let i = 0; i < currentValue.length; i++) {
     dirty.push(!Object.is(currentValue[i], initialValue[i]));
@@ -900,28 +904,36 @@ export function useForm<T extends Record<string, unknown>, State = void>(
     if (!hasWizard) {
       return true;
     }
-    if (currentStep >= stepCount - 1) {
-      return true;
-    }
 
-    const step = getStep(currentStep);
-    const stepFields = getStepFields(step, state.values);
-    const stepErrors = runWizardStepValidation(state.values, currentStep, state);
+    let didAdvance = false;
+    setState((prev) => {
+      const prevStep = clampStepIndex(prev.currentStep, stepCount);
+      if (prevStep >= stepCount - 1) {
+        didAdvance = true;
+        return prev;
+      }
 
-    if (!isValidationClean(stepErrors)) {
-      setState((prev) => ({
+      const step = getStep(prevStep);
+      const stepFields = getStepFields(step, prev.values);
+      const stepErrors = runWizardStepValidation(prev.values, prevStep, prev);
+
+      if (!isValidationClean(stepErrors)) {
+        didAdvance = false;
+        return {
+          ...prev,
+          touched: markFieldsTouched(prev.touched, prev.values, stepFields),
+          errors: mergeStepErrors(prev.errors, stepFields, stepErrors),
+        };
+      }
+
+      didAdvance = true;
+      return {
         ...prev,
-        touched: markFieldsTouched(prev.touched, prev.values, stepFields),
-        errors: mergeStepErrors(prev.errors, stepFields, stepErrors),
-      }));
-      return false;
-    }
+        currentStep: clampStepIndex(prevStep + 1, stepCount),
+      };
+    });
 
-    setState((prev) => ({
-      ...prev,
-      currentStep: clampStepIndex(prev.currentStep + 1, stepCount),
-    }));
-    return true;
+    return didAdvance;
   };
 
   /**
