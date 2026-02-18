@@ -447,6 +447,7 @@ function commitChildrenForVNode(vnode: VNode): readonly VNode[] {
     vnode.kind === "box" ||
     vnode.kind === "row" ||
     vnode.kind === "column" ||
+    vnode.kind === "grid" ||
     vnode.kind === "focusZone" ||
     vnode.kind === "focusTrap" ||
     vnode.kind === "layers" ||
@@ -658,6 +659,7 @@ function commitNode(
       next.kind === "box" ||
       next.kind === "row" ||
       next.kind === "column" ||
+      next.kind === "grid" ||
       next.kind === "focusZone" ||
       next.kind === "focusTrap" ||
       next.kind === "layers" ||
@@ -680,6 +682,7 @@ function commitNode(
     vnode.kind === "box" ||
     vnode.kind === "row" ||
     vnode.kind === "column" ||
+    vnode.kind === "grid" ||
     vnode.kind === "focusZone" ||
     vnode.kind === "focusTrap" ||
     vnode.kind === "layers" ||

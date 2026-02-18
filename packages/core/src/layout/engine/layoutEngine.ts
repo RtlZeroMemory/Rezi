@@ -27,6 +27,7 @@ import type { LayoutResult } from "../validateProps.js";
 export type { LayoutTree } from "./types.js";
 import { layoutBoxKinds, measureBoxKinds } from "../kinds/box.js";
 import { layoutCollections, measureCollections } from "../kinds/collections.js";
+import { layoutGridKinds, measureGridKinds } from "../kinds/grid.js";
 import { layoutLeafKind, measureLeaf } from "../kinds/leaf.js";
 import { layoutOverlays, measureOverlays } from "../kinds/overlays.js";
 import { layoutSplitPaneKinds, measureSplitPaneKinds } from "../kinds/splitPane.js";
@@ -117,6 +118,10 @@ function measureNode(vnode: VNode, maxW: number, maxH: number, axis: Axis): Layo
     }
     case "column": {
       computed = measureStackKinds(vnode, maxW, maxH, axis, measureNode);
+      break;
+    }
+    case "grid": {
+      computed = measureGridKinds(vnode, maxW, maxH, axis, measureNode);
       break;
     }
     case "box": {
@@ -297,6 +302,9 @@ function layoutNode(
     }
     case "column": {
       return layoutStackKinds(vnode, x, y, rectW, rectH, axis, measureNode, layoutNode);
+    }
+    case "grid": {
+      return layoutGridKinds(vnode, x, y, rectW, rectH, axis, measureNode, layoutNode);
     }
     case "box": {
       return layoutBoxKinds(vnode, x, y, rectW, rectH, axis, layoutNode);

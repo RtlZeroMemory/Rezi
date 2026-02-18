@@ -101,7 +101,12 @@ export function renderTree(
 
     const currentTheme = themeByNode.get(node) ?? theme;
     let renderTheme = currentTheme;
-    if (vnode.kind === "row" || vnode.kind === "column" || vnode.kind === "box") {
+    if (
+      vnode.kind === "row" ||
+      vnode.kind === "column" ||
+      vnode.kind === "grid" ||
+      vnode.kind === "box"
+    ) {
       const props = vnode.props as { theme?: unknown };
       renderTheme = mergeThemeOverride(currentTheme, props.theme);
     }
@@ -114,6 +119,7 @@ export function renderTree(
       // Containers
       case "row":
       case "column":
+      case "grid":
       case "box":
       case "modal":
       case "focusZone":

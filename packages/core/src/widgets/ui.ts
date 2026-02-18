@@ -30,6 +30,7 @@ import type {
   FocusTrapProps,
   FocusZoneProps,
   GaugeProps,
+  GridProps,
   IconProps,
   InputProps,
   KbdProps,
@@ -105,6 +106,10 @@ function row(props: StackProps = {}, children: readonly UiChild[] = []): VNode {
 
 function column(props: StackProps = {}, children: readonly UiChild[] = []): VNode {
   return { kind: "column", props, children: filterChildren(children) };
+}
+
+function grid(props: GridProps, ...children: UiChild[]): VNode {
+  return { kind: "grid", props, children: filterChildren(children) };
 }
 
 function vstack(gap: number, children: readonly UiChild[]): VNode;
@@ -488,6 +493,7 @@ export const ui = {
   box,
   row,
   column,
+  grid,
   vstack,
   hstack,
   spacer,

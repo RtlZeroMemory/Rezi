@@ -189,6 +189,14 @@ export type StackProps = Readonly<
     LayoutConstraints
 >;
 
+export type GridProps = {
+  columns: number | string;
+  rows?: number | string;
+  gap?: number;
+  rowGap?: number;
+  columnGap?: number;
+};
+
 /** Props for spacer element. size is in cells along stack axis. */
 export type SpacerProps = Readonly<{
   key?: string;
@@ -1505,6 +1513,7 @@ export type VNode =
   | Readonly<{ kind: "box"; props: BoxProps; children: readonly VNode[] }>
   | Readonly<{ kind: "row"; props: StackProps; children: readonly VNode[] }>
   | Readonly<{ kind: "column"; props: StackProps; children: readonly VNode[] }>
+  | Readonly<{ kind: "grid"; props: GridProps; children: readonly VNode[] }>
   | Readonly<{ kind: "spacer"; props: SpacerProps }>
   | Readonly<{ kind: "divider"; props: DividerProps }>
   | Readonly<{ kind: "icon"; props: IconProps }>

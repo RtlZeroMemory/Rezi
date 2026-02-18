@@ -57,6 +57,63 @@ app.view(() =>
 await app.start();
 ```
 
+## Grid layout
+
+Use `ui.grid(...)` for 2D, dashboard-style TUIs (cards, stats, panels, and compact control surfaces).
+
+Key props:
+
+- `columns` (required): positive number or track string
+- `rows` (optional): non-negative number or track string
+- `gap`: default gap for both axes
+- `rowGap`: row gap override
+- `columnGap`: column gap override
+
+Track syntax (`columns` / `rows` strings):
+
+- Fixed numbers (cells): `12`, `24`
+- `auto`
+- `fr` fractions: `1fr`, `2fr`
+
+Behavior:
+
+- Numeric `columns` (for example `columns: 3`) create equal-width columns.
+- Placement is auto-flow row-major: left-to-right, then wraps to the next row.
+- When `rows` is explicit (`rows: 2` or a row track string), grid capacity is fixed; extra children are not rendered.
+- Measurement note: `fr` tracks have natural size `0` and grow from remaining space.
+
+### Example: Dashboard cards
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.grid(
+  { columns: 3, gap: 1 },
+  ui.box({ border: "rounded", p: 1 }, [ui.text("CPU 42%")]),
+  ui.box({ border: "rounded", p: 1 }, [ui.text("Mem 68%")]),
+  ui.box({ border: "rounded", p: 1 }, [ui.text("Disk 71%")]),
+  ui.box({ border: "rounded", p: 1 }, [ui.text("Net 12MB/s")]),
+  ui.box({ border: "rounded", p: 1 }, [ui.text("Queue 9")]),
+);
+```
+
+### Example: Explicit rows + mixed tracks
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.grid(
+  { columns: "14 auto 1fr", rows: 2, columnGap: 2, rowGap: 1 },
+  ui.text("Host"),
+  ui.text("rezi-prod-01"),
+  ui.text("healthy"),
+  ui.text("Region"),
+  ui.text("us-east-1"),
+  ui.text("ok"),
+  ui.text("Not rendered (overflow)"),
+);
+```
+
 ## Padding and margins
 
 Container widgets accept spacing props (values are **cells**, or named keys like `"sm"`, `"md"`, `"lg"`):
