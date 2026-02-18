@@ -8,6 +8,36 @@ import { ui } from "../ui.js";
 
 type TreeNode = Readonly<{ id: string; children: readonly TreeNode[] }>;
 
+function u32(bytes: Uint8Array, off: number): number {
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return dv.getUint32(off, true);
+}
+
+function parseInternedStrings(bytes: Uint8Array): readonly string[] {
+  const spanOffset = u32(bytes, 28);
+  const count = u32(bytes, 32);
+  const bytesOffset = u32(bytes, 36);
+  const bytesLen = u32(bytes, 40);
+
+  if (count === 0) return Object.freeze([]);
+
+  const tableEnd = bytesOffset + bytesLen;
+  assert.ok(tableEnd <= bytes.byteLength, "string table must be in-bounds");
+
+  const out: string[] = [];
+  const decoder = new TextDecoder();
+  for (let i = 0; i < count; i++) {
+    const span = spanOffset + i * 8;
+    const off = u32(bytes, span);
+    const len = u32(bytes, span + 4);
+    const start = bytesOffset + off;
+    const end = start + len;
+    assert.ok(end <= tableEnd, "string span must be in-bounds");
+    out.push(decoder.decode(bytes.subarray(start, end)));
+  }
+  return Object.freeze(out);
+}
+
 function renderBytes(
   vnode: VNode,
   viewport: Readonly<{ cols: number; rows: number }> = { cols: 100, rows: 40 },
@@ -77,6 +107,7 @@ describe("widget render smoke", () => {
     { name: "box", vnode: ui.box({}, [ui.text("inside")]) },
     { name: "row", vnode: ui.row({ gap: 1 }, [ui.text("a"), ui.text("b")]) },
     { name: "column", vnode: ui.column({ gap: 1 }, [ui.text("a"), ui.text("b")]) },
+    { name: "grid", vnode: ui.grid({ columns: 2 }, ui.text("a"), ui.text("b")) },
     { name: "spacer", vnode: ui.spacer({ size: 1 }) },
     { name: "divider", vnode: ui.divider({ label: "div" }) },
     { name: "icon", vnode: ui.icon("status.check") },
@@ -329,4 +360,11 @@ describe("widget render smoke", () => {
       assert.equal(bytes.byteLength > 0, true);
     });
   }
+
+  test("grid renders child text content", () => {
+    const bytes = renderBytes(ui.grid({ columns: 2 }, ui.text("cell-a"), ui.text("cell-b")));
+    const strings = parseInternedStrings(bytes);
+    assert.equal(strings.includes("cell-a"), true);
+    assert.equal(strings.includes("cell-b"), true);
+  });
 });

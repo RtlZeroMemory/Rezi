@@ -456,7 +456,8 @@ export function renderContainerWidget(
 
   switch (vnode.kind) {
     case "row":
-    case "column": {
+    case "column":
+    case "grid": {
       if (!isVisibleRect(rect)) break;
       const props = vnode.props as {
         pad?: unknown;
@@ -506,7 +507,7 @@ export function renderContainerWidget(
         clipStack,
         childClip,
         damageRect,
-        vnode.kind,
+        vnode.kind === "row" || vnode.kind === "column" ? vnode.kind : undefined,
       );
       break;
     }
