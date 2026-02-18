@@ -29,14 +29,30 @@ ui.input({
 Inputs are focusable when enabled. **Clicking** the input focuses it. When focused:
 
 - Text entry inserts at cursor position
-- **Left/Right** arrows move the cursor
+- **Left/Right** move by grapheme cluster
+- **Ctrl+Left/Ctrl+Right** move by word boundaries
 - **Home/End** move to start/end of input
-- **Backspace** deletes character before cursor
-- **Delete** deletes character after cursor
+- **Shift+Left/Shift+Right** extends selection by grapheme
+- **Shift+Home/Shift+End** extends selection to start/end
+- **Shift+Ctrl+Left/Shift+Ctrl+Right** extends selection by word
+- **Ctrl+A** selects all text
+- **Backspace/Delete** remove one grapheme cluster when no selection is active
+- **Backspace/Delete** delete the selected range when selection is active
+- Typing with an active selection replaces the selected range
+- Paste strips `\r`/`\n` (single-line input) and keeps tabs
 - **Tab** moves focus to next widget
-- **Ctrl+A** selects all (where supported)
 
 Inputs are always controlled - the `value` prop determines what is displayed.
+
+## Input Editor State
+
+Input editing is grapheme-aware and internally tracks:
+
+- `cursor`: current caret offset at a grapheme boundary
+- `selectionStart`: anchor offset, or `null` when no selection is active
+- `selectionEnd`: active/caret offset, or `null` when no selection is active
+
+Renderer integrations receive these through the runtime input editor result to support selection highlighting.
 
 ## Examples
 

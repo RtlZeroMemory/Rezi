@@ -194,6 +194,37 @@ Rezi exposes two event layers:
 - `{ kind: "action", id: "input", action: "input", value, cursor }` - Text input
 - `{ kind: "action", id: "select", action: "change", value }` - Selection change
 
+## Input Editor
+
+Single-line input editing is deterministic and grapheme-aware:
+
+- Cursor and selection offsets are snapped to grapheme cluster boundaries.
+- `Left/Right` move by grapheme; `Ctrl+Left/Ctrl+Right` move by word boundaries.
+- `Home/End` move to start/end; Shift-modified movement extends selection.
+- `Ctrl+A` selects the full input value.
+- Typing/paste with active selection replaces the selected range.
+- Backspace/Delete with active selection remove the selected range.
+- Paste decodes UTF-8 with replacement for invalid bytes, strips `\r`/`\n`, and keeps tabs.
+
+### Selection Model
+
+- No selection: `selectionStart = null`, `selectionEnd = null`.
+- Active selection: `selectionStart` is the anchor and `selectionEnd` is the active end (cursor).
+- Backward selections are represented by `selectionStart > selectionEnd`.
+- Non-shift movement collapses the active selection to an edge.
+
+### Renderer-Facing State API
+
+`applyInputEditEvent(...)` returns:
+
+- `nextValue`
+- `nextCursor`
+- `nextSelectionStart`
+- `nextSelectionEnd`
+- optional `action` (only when the value changes)
+
+Renderers can use `nextSelectionStart/nextSelectionEnd` to draw selection highlights.
+
 ## Determinism
 
 Rezi's focus and event routing is deterministic:
