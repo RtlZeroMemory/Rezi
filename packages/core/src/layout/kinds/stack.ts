@@ -765,7 +765,7 @@ export function layoutStackKinds(
         }
       }
 
-      const { contentWidth, contentHeight } = measureContentBounds(children);
+      const { contentWidth, contentHeight } = measureContentBounds(children, cx, cy);
       const overflow = resolveOverflow(propsRes.value, cw, ch, contentWidth, contentHeight);
       const shiftedChildren = shiftLayoutChildren(
         children,
@@ -1040,7 +1040,7 @@ export function layoutStackKinds(
         }
       }
 
-      const { contentWidth, contentHeight } = measureContentBounds(children);
+      const { contentWidth, contentHeight } = measureContentBounds(children, cx, cy);
       const overflow = resolveOverflow(propsRes.value, cw, ch, contentWidth, contentHeight);
       const shiftedChildren = shiftLayoutChildren(
         children,

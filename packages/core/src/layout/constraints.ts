@@ -116,33 +116,35 @@ function normalizeI32NonNegative(v: unknown): number {
  * Measure content bounds from laid-out direct children.
  *
  * The returned size excludes container padding/border and represents only
- * the child content footprint.
+ * the child content footprint measured from the content origin.
  */
-export function measureContentBounds(children: readonly RectNode[]): Readonly<{
+export function measureContentBounds(
+  children: readonly RectNode[],
+  contentOriginX: number,
+  contentOriginY: number,
+): Readonly<{
   contentWidth: number;
   contentHeight: number;
 }> {
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
+  let hasRenderableChild = false;
+  let maxRight = 0;
+  let maxBottom = 0;
 
   for (const child of children) {
     const { rect } = child;
     if (rect.w <= 0 && rect.h <= 0) continue;
-    minX = Math.min(minX, rect.x);
-    minY = Math.min(minY, rect.y);
-    maxX = Math.max(maxX, rect.x + rect.w);
-    maxY = Math.max(maxY, rect.y + rect.h);
+    hasRenderableChild = true;
+    maxRight = Math.max(maxRight, rect.x + rect.w - contentOriginX);
+    maxBottom = Math.max(maxBottom, rect.y + rect.h - contentOriginY);
   }
 
-  if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+  if (!hasRenderableChild) {
     return { contentWidth: 0, contentHeight: 0 };
   }
 
   return {
-    contentWidth: normalizeI32NonNegative(maxX - minX),
-    contentHeight: normalizeI32NonNegative(maxY - minY),
+    contentWidth: normalizeI32NonNegative(maxRight),
+    contentHeight: normalizeI32NonNegative(maxBottom),
   };
 }
 

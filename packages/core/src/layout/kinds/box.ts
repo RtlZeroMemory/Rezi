@@ -178,7 +178,7 @@ export function layoutBoxKinds(
         children.push(...innerRes.value.children);
       }
 
-      const { contentWidth, contentHeight } = measureContentBounds(children);
+      const { contentWidth, contentHeight } = measureContentBounds(children, cx, cy);
       const overflow = resolveOverflow(propsRes.value, cw, ch, contentWidth, contentHeight);
       const shiftedChildren = shiftLayoutChildren(
         children,

@@ -182,6 +182,33 @@ describe("layout edge cases", () => {
     assert.deepEqual(laidOut.children[0]?.rect, { x: -4, y: -1, w: 9, h: 4 });
   });
 
+  test("scroll clamp uses content-origin extent when children start after origin", () => {
+    const tree: VNode = {
+      kind: "row",
+      props: { width: 5, overflow: "scroll", scrollX: 99 },
+      children: Object.freeze<readonly VNode[]>([
+        {
+          kind: "box",
+          props: { border: "none", ml: 2, mr: -8 },
+          children: Object.freeze<readonly VNode[]>([
+            { kind: "text", text: "123456789", props: {} },
+          ]),
+        },
+      ]),
+    };
+
+    const laidOut = mustLayout(tree, 5, 2);
+    assert.deepEqual(laidOut.meta, {
+      scrollX: 6,
+      scrollY: 0,
+      contentWidth: 11,
+      contentHeight: 1,
+      viewportWidth: 5,
+      viewportHeight: 1,
+    });
+    assert.deepEqual(laidOut.children[0]?.rect, { x: -4, y: 0, w: 9, h: 1 });
+  });
+
   test("button fractional px is handled deterministically", () => {
     const button: VNode = {
       kind: "button",
