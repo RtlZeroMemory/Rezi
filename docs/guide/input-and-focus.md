@@ -74,89 +74,54 @@ ui.focusTrap({ id: "modal", active: state.showModal }, [
 ])
 ```
 
-## Keybindings
+## Keybinding System
 
-### Basic Keybindings
+### Key string syntax
 
-Register global keyboard shortcuts with `app.keys()`:
+- A binding string is one or more key parts separated by whitespace (for chords), for example `"g g"` or `"ctrl+x ctrl+s"`.
+- Each key part uses `modifier+...+key`. The final segment must be a key, not a modifier.
+- Parsing is case-insensitive for modifiers and named keys.
+- Letter case does not imply `shift`: `"a"` and `"A"` parse the same; require `shift+...` explicitly when Shift must match.
+- Supported modifiers: `shift`, `ctrl`/`control`, `alt`, `meta`/`cmd`/`command`/`win`/`super`.
+- Supported named keys: `escape`/`esc`, `enter`/`return`, `tab`, `backspace`, `space`, `insert`, `delete`/`del`, `home`, `end`, `pageup`, `pagedown`, `up`, `down`, `left`, `right`, `f1`-`f12`.
+- Single-character keys are supported for letters, digits, and most punctuation (`+` is reserved as the modifier separator). Use `space` (not a literal space) for the Space key.
+- Invalid key strings are skipped during registration; they do not throw.
 
-```typescript
-app.keys({
-  "ctrl+s": () => save(),
-  "ctrl+q": () => app.stop(),
-  "escape": () => closeModal(),
-  "f1": () => showHelp(),
-});
-```
+### Chord matching
 
-### Modifier Keys
+- Matching only considers `key` events with `action: "down"`.
+- A chord prefix enters pending state and consumes the key.
+- Timeout is `1000ms` from the first key in the pending chord.
+- If the next key does not continue the pending chord, pending state is cancelled and that same key is retried as a fresh start.
+- Any full match or full miss resets chord pending state.
+- Prefix conflicts are eager: if a sequence is both a complete match and a prefix of a longer sequence, the complete match fires immediately (no wait window for the longer sequence).
 
-Supported modifiers: `ctrl`, `alt`, `shift`, `meta`
+### Modes: definition, activation, inheritance
 
-```typescript
-app.keys({
-  "ctrl+s": () => save(),
-  "ctrl+shift+s": () => saveAs(),
-  "alt+f": () => openFileMenu(),
-  "meta+q": () => quit(),  // Cmd on macOS
-});
-```
+- `app.keys()` registers into the built-in `default` mode.
+- `app.modes()` accepts either:
+  - `{ modeName: { ...bindings } }`
+  - `{ modeName: { parent?: string, bindings: { ... } } }`
+- `app.setMode(name)` activates a previously-registered mode; unknown mode names throw.
+- `app.getMode()` returns the active mode name.
+- Mode lookup is current mode first, then `parent` chain fallback (cycle-safe).
+- Switching to a different mode resets pending chord state. Calling `setMode()` with the current mode is a no-op.
 
-### Chord Sequences
+### Binding conflicts and re-registration
 
-Chords are key sequences pressed in succession (like Vim's `gg` or Emacs's `C-x C-s`):
+- Registration is additive by mode, but re-registering the same sequence replaces the previous binding for that sequence.
+- For distinct sequences in one mode, higher `priority` wins (`priority` default is `0`).
+- Parent modes are only consulted when the active mode does not produce a usable match (or the active-mode winner's `when(ctx)` predicate returns `false`).
+- Handlers receive `ctx` with `state`, `update(...)`, and `focusedId`.
 
-```typescript
-app.keys({
-  "g g": () => scrollToTop(),     // Press g twice
-  "g e": () => scrollToEnd(),     // Press g then e
-  "ctrl+x ctrl+s": () => save(),  // Emacs-style
-  "d d": () => deleteLine(),      // Vim-style
-});
-```
+### Key event routing order
 
-Chord timeout is 1000ms by default.
+In widget mode, key routing is:
 
-### Key Context
-
-Key handlers receive a context object with state access:
-
-```typescript
-app.keys({
-  "j": (ctx) => ctx.update((s) => ({ ...s, cursor: s.cursor + 1 })),
-  "k": (ctx) => ctx.update((s) => ({ ...s, cursor: s.cursor - 1 })),
-});
-```
-
-### Modal Keybinding Modes
-
-For Vim-style modal editing, use `app.modes()`:
-
-```typescript
-app.modes({
-  normal: {
-    "i": () => app.setMode("insert"),
-    "v": () => app.setMode("visual"),
-    "j": (ctx) => ctx.update(moveCursorDown),
-    "k": (ctx) => ctx.update(moveCursorUp),
-    "d d": (ctx) => ctx.update(deleteLine),
-    ":": () => openCommandLine(),
-  },
-  insert: {
-    "escape": () => app.setMode("normal"),
-  },
-  visual: {
-    "escape": () => app.setMode("normal"),
-    "y": (ctx) => { yank(); app.setMode("normal"); },
-    "d": (ctx) => { deleteSelection(); app.setMode("normal"); },
-  },
-});
-
-// Start in normal mode
-app.setMode("normal");
-```
-
-Query current mode with `app.getMode()`.
+1. App keybindings (`app.keys` / `app.modes`) run first.
+2. Escape bypass: if key is `Escape` and a dropdown is open or any modal layer exists, app keybindings are skipped for that event.
+3. If keybindings consume the event (matched or pending chord), widget routing is skipped.
+4. Otherwise widget routing runs, in this order: top dropdown key handling, layer Escape close handling, focused-widget-specific key handlers, then generic focus/press/input routing.
 
 ## Mouse Input
 
