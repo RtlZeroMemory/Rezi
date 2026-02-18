@@ -1,8 +1,12 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { encodeZrevBatchV1, flushMicrotasks, makeBackendBatch } from "../../app/__tests__/helpers.js";
+import {
+  encodeZrevBatchV1,
+  flushMicrotasks,
+  makeBackendBatch,
+} from "../../app/__tests__/helpers.js";
 import { StubBackend } from "../../app/__tests__/stubBackend.js";
 import { createApp } from "../../app/createApp.js";
-import { defineWidget, type VNode, ui } from "../../index.js";
+import { type VNode, defineWidget, ui } from "../../index.js";
 import { type RuntimeInstance, commitVNodeTree } from "../commit.js";
 import { createInstanceIdAllocator } from "../instance.js";
 import { createCompositeInstanceRegistry, runPendingEffects } from "../instances.js";
@@ -47,7 +51,11 @@ function createHarness(start = 1) {
   };
 }
 
-function commitComposite(prevRoot: RuntimeInstance | null, vnode: VNode, harness: ReturnType<typeof createHarness>) {
+function commitComposite(
+  prevRoot: RuntimeInstance | null,
+  vnode: VNode,
+  harness: ReturnType<typeof createHarness>,
+) {
   const res = commitVNodeTree(prevRoot, vnode, {
     allocator: harness.allocator,
     collectLifecycleInstanceIds: true,
@@ -60,7 +68,6 @@ function commitComposite(prevRoot: RuntimeInstance | null, vnode: VNode, harness
     },
   });
 
-  assert.equal(res.ok, true);
   if (!res.ok) {
     assert.fail(`commit failed: ${res.fatal.code}: ${res.fatal.detail}`);
     throw new Error("unreachable");
@@ -84,10 +91,16 @@ function deleteUnmounted(
 describe("reconciliation - defineWidget/composite", () => {
   test("same widget + different props reuses widget instance", () => {
     const harness = createHarness();
-    const Banner = defineWidget<{ label: string; key?: string }>((props) => ui.text(`label:${props.label}`));
+    const Banner = defineWidget<{ label: string; key?: string }>((props) =>
+      ui.text(`label:${props.label}`),
+    );
 
     const c0 = commitComposite(null, widgetHost([Banner({ label: "a", key: "banner" })]), harness);
-    const c1 = commitComposite(c0.root, widgetHost([Banner({ label: "b", key: "banner" })]), harness);
+    const c1 = commitComposite(
+      c0.root,
+      widgetHost([Banner({ label: "b", key: "banner" })]),
+      harness,
+    );
 
     const id0 = firstChildId(c0.root);
     const id1 = firstChildId(c1.root);
@@ -109,18 +122,26 @@ describe("reconciliation - defineWidget/composite", () => {
       return ui.text(`count:${String(count)}`);
     });
 
-    const c0 = commitComposite(null, widgetHost([Counter({ initial: 1, key: "counter" })]), harness);
+    const c0 = commitComposite(
+      null,
+      widgetHost([Counter({ initial: 1, key: "counter" })]),
+      harness,
+    );
     const widgetId = firstChildId(c0.root);
 
-    assert.ok(setCount !== null, "expected setCount to be captured");
-    if (!setCount) {
+    const applySetCount = setCount as ((v: number) => void) | null;
+    if (applySetCount === null) {
       assert.fail("expected setCount to be captured");
       return;
     }
-    setCount(7);
+    applySetCount(7);
     assert.equal(harness.invalidated.includes(widgetId), true);
 
-    const c1 = commitComposite(c0.root, widgetHost([Counter({ initial: 999, key: "counter" })]), harness);
+    const c1 = commitComposite(
+      c0.root,
+      widgetHost([Counter({ initial: 999, key: "counter" })]),
+      harness,
+    );
 
     assert.equal(firstChildId(c1.root), widgetId);
     assert.deepEqual(seen, [1, 7]);
@@ -288,12 +309,12 @@ describe("reconciliation - defineWidget/composite", () => {
     const c1 = commitComposite(c0.root, widgetHost([New({ key: "slot" })]), harness);
 
     const invalidatedBefore = harness.invalidated.length;
-    assert.ok(staleSetter !== null, "expected stale setter from old widget");
-    if (!staleSetter) {
+    const invokeStaleSetter = staleSetter as ((v: number) => void) | null;
+    if (invokeStaleSetter === null) {
       assert.fail("expected stale setter from old widget");
       return;
     }
-    staleSetter(123);
+    invokeStaleSetter(123);
 
     commitComposite(c1.root, widgetHost([New({ key: "slot" })]), harness);
     assert.equal(harness.invalidated.length, invalidatedBefore);
@@ -325,7 +346,9 @@ describe("reconciliation - defineWidget/composite", () => {
 
   test("same unkeyed widget at same position is reused", () => {
     const harness = createHarness();
-    const Plain = defineWidget<{ value: number }>((props) => ui.text(`v:${String(props.value)}`));
+    const Plain = defineWidget<{ value: number; key?: string }>((props) =>
+      ui.text(`v:${String(props.value)}`),
+    );
 
     const c0 = commitComposite(null, widgetHost([Plain({ value: 1 })]), harness);
     const c1 = commitComposite(c0.root, widgetHost([Plain({ value: 2 })]), harness);
@@ -367,8 +390,16 @@ describe("reconciliation - defineWidget/composite", () => {
     const harness = createHarness();
     const Widget = defineWidget<{ key?: string }>(() => ui.text("stable"));
 
-    const c0 = commitComposite(null, widgetHost([Widget({ key: "w" }), ui.text("tick:0")]), harness);
-    const c1 = commitComposite(c0.root, widgetHost([Widget({ key: "w" }), ui.text("tick:1")]), harness);
+    const c0 = commitComposite(
+      null,
+      widgetHost([Widget({ key: "w" }), ui.text("tick:0")]),
+      harness,
+    );
+    const c1 = commitComposite(
+      c0.root,
+      widgetHost([Widget({ key: "w" }), ui.text("tick:1")]),
+      harness,
+    );
 
     assert.equal(childIdByKey(c1.root, "w"), childIdByKey(c0.root, "w"));
   });

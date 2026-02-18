@@ -18,7 +18,10 @@ function spacerNode(key?: string): VNode {
   };
 }
 
-function makePrevChildren(allocator: ReturnType<typeof createInstanceIdAllocator>, vnodes: readonly VNode[]) {
+function makePrevChildren(
+  allocator: ReturnType<typeof createInstanceIdAllocator>,
+  vnodes: readonly VNode[],
+) {
   return vnodes.map((vnode) => ({
     instanceId: allocator.allocate(),
     vnode,
@@ -26,7 +29,6 @@ function makePrevChildren(allocator: ReturnType<typeof createInstanceIdAllocator
 }
 
 function expectOk(res: ReturnType<typeof reconcileChildren>) {
-  assert.equal(res.ok, true);
   if (!res.ok) {
     assert.fail(`expected ok reconcile result, got ${res.fatal.code}: ${res.fatal.detail}`);
     throw new Error("unreachable");
@@ -37,9 +39,20 @@ function expectOk(res: ReturnType<typeof reconcileChildren>) {
 describe("reconcileChildren - mixed keyed and unkeyed", () => {
   test("keyed reorder can remount displaced unkeyed slot", () => {
     const allocator = createInstanceIdAllocator(1);
-    const prevChildren = makePrevChildren(allocator, [textNode("A", "a"), textNode("plain-1"), textNode("B", "b")]);
+    const prevChildren = makePrevChildren(allocator, [
+      textNode("A", "a"),
+      textNode("plain-1"),
+      textNode("B", "b"),
+    ]);
 
-    const res = expectOk(reconcileChildren(81, prevChildren, [textNode("plain-0"), textNode("B2", "b"), textNode("A2", "a")], allocator));
+    const res = expectOk(
+      reconcileChildren(
+        81,
+        prevChildren,
+        [textNode("plain-0"), textNode("B2", "b"), textNode("A2", "a")],
+        allocator,
+      ),
+    );
 
     assert.deepEqual(res.reusedInstanceIds, [3, 1]);
     assert.deepEqual(res.newInstanceIds, [4]);
@@ -48,13 +61,22 @@ describe("reconcileChildren - mixed keyed and unkeyed", () => {
 
   test("mixed insert adds keyed and unkeyed while preserving matched slots", () => {
     const allocator = createInstanceIdAllocator(1);
-    const prevChildren = makePrevChildren(allocator, [textNode("plain-0"), textNode("A", "a"), textNode("plain-2")]);
+    const prevChildren = makePrevChildren(allocator, [
+      textNode("plain-0"),
+      textNode("A", "a"),
+      textNode("plain-2"),
+    ]);
 
     const res = expectOk(
       reconcileChildren(
         82,
         prevChildren,
-        [textNode("plain-0-next"), textNode("B", "b"), textNode("A-next", "a"), textNode("plain-3")],
+        [
+          textNode("plain-0-next"),
+          textNode("B", "b"),
+          textNode("A-next", "a"),
+          textNode("plain-3"),
+        ],
         allocator,
       ),
     );
@@ -66,9 +88,20 @@ describe("reconcileChildren - mixed keyed and unkeyed", () => {
 
   test("removing a key while leaving unkeyed siblings keeps positional unkeyed reuse", () => {
     const allocator = createInstanceIdAllocator(1);
-    const prevChildren = makePrevChildren(allocator, [textNode("A", "a"), textNode("plain-1"), textNode("plain-2")]);
+    const prevChildren = makePrevChildren(allocator, [
+      textNode("A", "a"),
+      textNode("plain-1"),
+      textNode("plain-2"),
+    ]);
 
-    const res = expectOk(reconcileChildren(83, prevChildren, [textNode("plain-0"), textNode("plain-1"), textNode("plain-2")], allocator));
+    const res = expectOk(
+      reconcileChildren(
+        83,
+        prevChildren,
+        [textNode("plain-0"), textNode("plain-1"), textNode("plain-2")],
+        allocator,
+      ),
+    );
 
     assert.deepEqual(res.reusedInstanceIds, [2, 3]);
     assert.deepEqual(res.newInstanceIds, [4]);
@@ -79,7 +112,14 @@ describe("reconcileChildren - mixed keyed and unkeyed", () => {
     const allocator = createInstanceIdAllocator(1);
     const prevChildren = makePrevChildren(allocator, [textNode("plain-0"), textNode("plain-1")]);
 
-    const res = expectOk(reconcileChildren(84, prevChildren, [textNode("A", "a"), textNode("plain-1-next")], allocator));
+    const res = expectOk(
+      reconcileChildren(
+        84,
+        prevChildren,
+        [textNode("A", "a"), textNode("plain-1-next")],
+        allocator,
+      ),
+    );
 
     assert.deepEqual(res.reusedInstanceIds, [2]);
     assert.deepEqual(res.newInstanceIds, [3]);
@@ -89,7 +129,12 @@ describe("reconcileChildren - mixed keyed and unkeyed", () => {
   test("duplicate key fatal still triggers in mixed lists", () => {
     const allocator = createInstanceIdAllocator(1);
 
-    const res = reconcileChildren(85, [], [textNode("A", "dup"), textNode("plain"), spacerNode("dup")], allocator);
+    const res = reconcileChildren(
+      85,
+      [],
+      [textNode("A", "dup"), textNode("plain"), spacerNode("dup")],
+      allocator,
+    );
 
     assert.equal(res.ok, false);
     if (res.ok) return;
@@ -115,7 +160,13 @@ describe("reconcileChildren - mixed keyed and unkeyed", () => {
       reconcileChildren(
         86,
         prevChildren,
-        [textNode("plain-0-next"), textNode("B-next", "b"), textNode("plain-2-next"), textNode("A-next", "a"), textNode("plain-4-next")],
+        [
+          textNode("plain-0-next"),
+          textNode("B-next", "b"),
+          textNode("plain-2-next"),
+          textNode("A-next", "a"),
+          textNode("plain-4-next"),
+        ],
         allocator,
       ),
     );
@@ -127,9 +178,20 @@ describe("reconcileChildren - mixed keyed and unkeyed", () => {
 
   test("same key different kind remounts inside mixed lists", () => {
     const allocator = createInstanceIdAllocator(1);
-    const prevChildren = makePrevChildren(allocator, [textNode("plain-0"), textNode("A", "a"), textNode("plain-2")]);
+    const prevChildren = makePrevChildren(allocator, [
+      textNode("plain-0"),
+      textNode("A", "a"),
+      textNode("plain-2"),
+    ]);
 
-    const res = expectOk(reconcileChildren(87, prevChildren, [textNode("plain-0-next"), spacerNode("a"), textNode("plain-2-next")], allocator));
+    const res = expectOk(
+      reconcileChildren(
+        87,
+        prevChildren,
+        [textNode("plain-0-next"), spacerNode("a"), textNode("plain-2-next")],
+        allocator,
+      ),
+    );
 
     assert.deepEqual(res.reusedInstanceIds, [1, 3]);
     assert.deepEqual(res.newInstanceIds, [4]);
@@ -140,7 +202,9 @@ describe("reconcileChildren - mixed keyed and unkeyed", () => {
     const allocator = createInstanceIdAllocator(1);
     const prevChildren = makePrevChildren(allocator, [textNode("A", "a"), textNode("plain")]);
 
-    const res = expectOk(reconcileChildren(88, prevChildren, [textNode("A-next", "a"), spacerNode()], allocator));
+    const res = expectOk(
+      reconcileChildren(88, prevChildren, [textNode("A-next", "a"), spacerNode()], allocator),
+    );
 
     assert.deepEqual(res.reusedInstanceIds, [1]);
     assert.deepEqual(res.newInstanceIds, [3]);
@@ -149,8 +213,16 @@ describe("reconcileChildren - mixed keyed and unkeyed", () => {
 
   test("removing keyed child with undefined hole keeps stable unkeyed siblings", () => {
     const allocator = createInstanceIdAllocator(1);
-    const prevChildren = makePrevChildren(allocator, [textNode("plain-0"), textNode("A", "a"), textNode("plain-2")]);
-    const nextChildren = [textNode("plain-0-next"), undefined, textNode("plain-2-next")] as unknown as readonly VNode[];
+    const prevChildren = makePrevChildren(allocator, [
+      textNode("plain-0"),
+      textNode("A", "a"),
+      textNode("plain-2"),
+    ]);
+    const nextChildren = [
+      textNode("plain-0-next"),
+      undefined,
+      textNode("plain-2-next"),
+    ] as unknown as readonly VNode[];
 
     const res = expectOk(reconcileChildren(89, prevChildren, nextChildren, allocator));
 
@@ -161,7 +233,11 @@ describe("reconcileChildren - mixed keyed and unkeyed", () => {
 
   test("inserting unkeyed children around key keeps keyed identity", () => {
     const allocator = createInstanceIdAllocator(1);
-    const prevChildren = makePrevChildren(allocator, [textNode("plain-0"), textNode("A", "a"), textNode("plain-2")]);
+    const prevChildren = makePrevChildren(allocator, [
+      textNode("plain-0"),
+      textNode("A", "a"),
+      textNode("plain-2"),
+    ]);
 
     const res = expectOk(
       reconcileChildren(
@@ -192,7 +268,14 @@ describe("reconcileChildren - mixed keyed and unkeyed", () => {
       reconcileChildren(
         91,
         prevChildren,
-        [textNode("plain-0"), textNode("C-next", "c"), textNode("plain-2-next"), textNode("A-next", "a"), textNode("plain-4-next"), textNode("D", "d")],
+        [
+          textNode("plain-0"),
+          textNode("C-next", "c"),
+          textNode("plain-2-next"),
+          textNode("A-next", "a"),
+          textNode("plain-4-next"),
+          textNode("D", "d"),
+        ],
         allocator,
       ),
     );
@@ -204,9 +287,20 @@ describe("reconcileChildren - mixed keyed and unkeyed", () => {
 
   test("mixed to all-keyed remounts prior unkeyed slots", () => {
     const allocator = createInstanceIdAllocator(1);
-    const prevChildren = makePrevChildren(allocator, [textNode("plain-0"), textNode("A", "a"), textNode("plain-2")]);
+    const prevChildren = makePrevChildren(allocator, [
+      textNode("plain-0"),
+      textNode("A", "a"),
+      textNode("plain-2"),
+    ]);
 
-    const res = expectOk(reconcileChildren(92, prevChildren, [textNode("X", "x"), textNode("A-next", "a"), textNode("Y", "y")], allocator));
+    const res = expectOk(
+      reconcileChildren(
+        92,
+        prevChildren,
+        [textNode("X", "x"), textNode("A-next", "a"), textNode("Y", "y")],
+        allocator,
+      ),
+    );
 
     assert.deepEqual(res.reusedInstanceIds, [2]);
     assert.deepEqual(res.newInstanceIds, [4, 5]);

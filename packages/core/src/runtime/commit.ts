@@ -503,6 +503,19 @@ function deleteLocalStateForSubtree(
   }
 }
 
+function markCompositeSubtreeStale(
+  registry: CompositeInstanceRegistry,
+  node: RuntimeInstance,
+): void {
+  const stack: RuntimeInstance[] = [node];
+  while (stack.length > 0) {
+    const cur = stack.pop();
+    if (!cur) continue;
+    registry.incrementGeneration(cur.instanceId);
+    for (const c of cur.children) stack.push(c);
+  }
+}
+
 type CommitCtx = Readonly<{
   allocator: InstanceIdAllocator;
   localState: RuntimeLocalStateStore | undefined;
@@ -802,6 +815,9 @@ function commitNode(
     for (const unmountedId of res.value.unmountedInstanceIds) {
       const prevNode = byPrevInstanceId?.get(unmountedId);
       if (!prevNode) continue;
+      if (ctx.composite) {
+        markCompositeSubtreeStale(ctx.composite.registry, prevNode);
+      }
       deleteLocalStateForSubtree(ctx.localState, prevNode);
       collectSubtreeInstanceIds(prevNode, ctx.lists.unmounted);
     }

@@ -61,7 +61,6 @@ function requireNode(node: RuntimeInstance | null, label: string): RuntimeInstan
 }
 
 function expectCommitOk(res: ReturnType<typeof commitVNodeTree>) {
-  assert.equal(res.ok, true);
   if (!res.ok) {
     assert.fail(`commit failed: ${res.fatal.code}: ${res.fatal.detail}`);
     throw new Error("unreachable");
@@ -74,17 +73,24 @@ describe("reconciliation - deep trees", () => {
     const allocator = createInstanceIdAllocator(1);
 
     const prevTree = ui.column({}, [nest(10, textNode("leaf-a"))]);
-    const c0 = expectCommitOk(commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c0 = expectCommitOk(
+      commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     const nextTree = ui.column({}, [nest(10, textNode("leaf-b"))]);
-    const c1 = expectCommitOk(commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c1 = expectCommitOk(
+      commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     const path = Array.from({ length: 11 }, () => 0);
     assert.equal(nodeAtPath(c1.root, path).vnode.kind, "text");
 
     for (let depth = 0; depth <= path.length; depth++) {
       const partial = path.slice(0, depth);
-      assert.equal(nodeAtPath(c1.root, partial).instanceId, nodeAtPath(c0.root, partial).instanceId);
+      assert.equal(
+        nodeAtPath(c1.root, partial).instanceId,
+        nodeAtPath(c0.root, partial).instanceId,
+      );
     }
 
     assert.deepEqual(c1.mountedInstanceIds, []);
@@ -95,10 +101,14 @@ describe("reconciliation - deep trees", () => {
     const allocator = createInstanceIdAllocator(1);
 
     const prevTree = ui.column({}, [nest(10, textNode("left-a")), ui.box({}, [ui.text("stable")])]);
-    const c0 = expectCommitOk(commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c0 = expectCommitOk(
+      commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     const nextTree = ui.column({}, [nest(10, textNode("left-b")), ui.box({}, [ui.text("stable")])]);
-    const c1 = expectCommitOk(commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c1 = expectCommitOk(
+      commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     assert.equal(c1.root.children[1], c0.root.children[1]);
     assert.deepEqual(c1.unmountedInstanceIds, []);
@@ -108,13 +118,17 @@ describe("reconciliation - deep trees", () => {
     const allocator = createInstanceIdAllocator(1);
 
     const prevTree = ui.column({}, [keyedDeepBranch("a", "A"), keyedDeepBranch("b", "B")]);
-    const c0 = expectCommitOk(commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c0 = expectCommitOk(
+      commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     const a0 = requireNode(findByKey(c0.root, "a"), "a@c0");
     const b0 = requireNode(findByKey(c0.root, "b"), "b@c0");
 
     const nextTree = ui.column({}, [keyedDeepBranch("b", "B2"), keyedDeepBranch("a", "A2")]);
-    const c1 = expectCommitOk(commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c1 = expectCommitOk(
+      commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     const a1 = requireNode(findByKey(c1.root, "a"), "a@c1");
     const b1 = requireNode(findByKey(c1.root, "b"), "b@c1");
@@ -132,7 +146,9 @@ describe("reconciliation - deep trees", () => {
       ui.box({}, [keyedDeepBranch("inner-a", "A", 5), keyedDeepBranch("inner-b", "B", 5)]),
       ui.text("tail"),
     ]);
-    const c0 = expectCommitOk(commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c0 = expectCommitOk(
+      commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     const a0 = requireNode(findByKey(c0.root, "inner-a"), "inner-a@c0");
     const b0 = requireNode(findByKey(c0.root, "inner-b"), "inner-b@c0");
@@ -141,7 +157,9 @@ describe("reconciliation - deep trees", () => {
       ui.box({}, [keyedDeepBranch("inner-b", "B2", 5), keyedDeepBranch("inner-a", "A2", 5)]),
       ui.text("tail"),
     ]);
-    const c1 = expectCommitOk(commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c1 = expectCommitOk(
+      commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     const a1 = requireNode(findByKey(c1.root, "inner-a"), "inner-a@c1");
     const b1 = requireNode(findByKey(c1.root, "inner-b"), "inner-b@c1");
@@ -156,19 +174,28 @@ describe("reconciliation - deep trees", () => {
 
     const prevTree = ui.column({}, [
       ui.box({ key: "shallow" }, [textNode("keep", "keep"), textNode("remove", "remove")]),
-      ui.column({ key: "deep" }, [nest(7, ui.column({ key: "deep-tail" }, [textNode("base", "base")]))]),
+      ui.column({ key: "deep" }, [
+        nest(7, ui.column({ key: "deep-tail" }, [textNode("base", "base")])),
+      ]),
     ]);
-    const c0 = expectCommitOk(commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c0 = expectCommitOk(
+      commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     const removeNode = requireNode(findByKey(c0.root, "remove"), "remove@c0");
 
     const nextTree = ui.column({}, [
       ui.box({ key: "shallow" }, [textNode("keep", "keep")]),
       ui.column({ key: "deep" }, [
-        nest(7, ui.column({ key: "deep-tail" }, [textNode("base", "base"), textNode("added", "added")]))
+        nest(
+          7,
+          ui.column({ key: "deep-tail" }, [textNode("base", "base"), textNode("added", "added")]),
+        ),
       ]),
     ]);
-    const c1 = expectCommitOk(commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c1 = expectCommitOk(
+      commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     const addedNode = requireNode(findByKey(c1.root, "added"), "added@c1");
 
@@ -184,13 +211,17 @@ describe("reconciliation - deep trees", () => {
       keyedDeepBranch("target", "TARGET", 6),
       textNode("tail", "tail"),
     ]);
-    const c0 = expectCommitOk(commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c0 = expectCommitOk(
+      commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     const target0 = requireNode(findByKey(c0.root, "target"), "target@c0");
     const expectedUnmounted = collectSubtreeIds(target0);
 
     const nextTree = ui.column({}, [textNode("head", "head"), textNode("tail", "tail")]);
-    const c1 = expectCommitOk(commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c1 = expectCommitOk(
+      commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     assert.deepEqual(c1.unmountedInstanceIds, expectedUnmounted);
   });
@@ -199,14 +230,18 @@ describe("reconciliation - deep trees", () => {
     const allocator = createInstanceIdAllocator(1);
 
     const prevTree = ui.column({}, [textNode("head", "head"), textNode("tail", "tail")]);
-    const c0 = expectCommitOk(commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c0 = expectCommitOk(
+      commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     const nextTree = ui.column({}, [
       textNode("head", "head"),
       keyedDeepBranch("target", "TARGET", 6),
       textNode("tail", "tail"),
     ]);
-    const c1 = expectCommitOk(commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c1 = expectCommitOk(
+      commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     const target1 = requireNode(findByKey(c1.root, "target"), "target@c1");
     const expectedMounted = collectSubtreeIds(target1);
@@ -220,14 +255,18 @@ describe("reconciliation - deep trees", () => {
     const prevTree = ui.column({}, [
       nest(5, ui.box({ key: "swap" }, [nest(2, textNode("leaf", "swap-leaf"))])),
     ]);
-    const c0 = expectCommitOk(commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c0 = expectCommitOk(
+      commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     const swap0 = requireNode(findByKey(c0.root, "swap"), "swap@c0");
 
     const nextTree = ui.column({}, [
       nest(5, ui.row({ key: "swap" }, [nest(2, textNode("leaf-next", "swap-leaf"))])),
     ]);
-    const c1 = expectCommitOk(commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c1 = expectCommitOk(
+      commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     const swap1 = requireNode(findByKey(c1.root, "swap"), "swap@c1");
 
@@ -240,9 +279,14 @@ describe("reconciliation - deep trees", () => {
     const allocator = createInstanceIdAllocator(1);
 
     const prevTree = ui.column({}, [
-      nest(6, ui.column({ key: "mix" }, [textNode("A", "a"), textNode("plain"), textNode("B", "b")]))
+      nest(
+        6,
+        ui.column({ key: "mix" }, [textNode("A", "a"), textNode("plain"), textNode("B", "b")]),
+      ),
     ]);
-    const c0 = expectCommitOk(commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c0 = expectCommitOk(
+      commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     const mix0 = requireNode(findByKey(c0.root, "mix"), "mix@c0");
     const a0 = requireNode(findByKey(c0.root, "a"), "a@c0");
@@ -255,9 +299,18 @@ describe("reconciliation - deep trees", () => {
     }
 
     const nextTree = ui.column({}, [
-      nest(6, ui.column({ key: "mix" }, [textNode("plain-next"), textNode("B2", "b"), textNode("A2", "a")]))
+      nest(
+        6,
+        ui.column({ key: "mix" }, [
+          textNode("plain-next"),
+          textNode("B2", "b"),
+          textNode("A2", "a"),
+        ]),
+      ),
     ]);
-    const c1 = expectCommitOk(commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c1 = expectCommitOk(
+      commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     const mix1 = requireNode(findByKey(c1.root, "mix"), "mix@c1");
     const a1 = requireNode(findByKey(c1.root, "a"), "a@c1");
@@ -279,22 +332,36 @@ describe("reconciliation - deep trees", () => {
     const allocator = createInstanceIdAllocator(1);
 
     const prevTree = ui.column({}, [
-      ui.column({ key: "left" }, [nest(6, ui.column({ key: "left-tail" }, [textNode("L", "left-remove")]))]),
-      ui.column({ key: "right" }, [nest(6, ui.column({ key: "right-tail" }, [textNode("R", "right-base")]))]),
+      ui.column({ key: "left" }, [
+        nest(6, ui.column({ key: "left-tail" }, [textNode("L", "left-remove")])),
+      ]),
+      ui.column({ key: "right" }, [
+        nest(6, ui.column({ key: "right-tail" }, [textNode("R", "right-base")])),
+      ]),
     ]);
-    const c0 = expectCommitOk(commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c0 = expectCommitOk(
+      commitVNodeTree(null, prevTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     const leftRoot0 = requireNode(findByKey(c0.root, "left"), "left@c0");
     const rightRoot0 = requireNode(findByKey(c0.root, "right"), "right@c0");
     const leftRemoved = requireNode(findByKey(c0.root, "left-remove"), "left-remove@c0");
 
     const nextTree = ui.column({}, [
-      ui.column({ key: "left" }, [nest(6, ui.column({ key: "left-tail" }, [textNode("L")] ))]),
+      ui.column({ key: "left" }, [nest(6, ui.column({ key: "left-tail" }, [textNode("L")]))]),
       ui.column({ key: "right" }, [
-        nest(6, ui.column({ key: "right-tail" }, [textNode("R", "right-base"), textNode("new", "right-add")]))
+        nest(
+          6,
+          ui.column({ key: "right-tail" }, [
+            textNode("R", "right-base"),
+            textNode("new", "right-add"),
+          ]),
+        ),
       ]),
     ]);
-    const c1 = expectCommitOk(commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }));
+    const c1 = expectCommitOk(
+      commitVNodeTree(c0.root, nextTree, { allocator, collectLifecycleInstanceIds: true }),
+    );
 
     const leftRoot1 = requireNode(findByKey(c1.root, "left"), "left@c1");
     const rightRoot1 = requireNode(findByKey(c1.root, "right"), "right@c1");

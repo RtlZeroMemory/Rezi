@@ -41,7 +41,10 @@ function dividerNode(key?: string): VNode {
   } as unknown as VNode;
 }
 
-function makePrevChildren(allocator: ReturnType<typeof createInstanceIdAllocator>, vnodes: readonly VNode[]) {
+function makePrevChildren(
+  allocator: ReturnType<typeof createInstanceIdAllocator>,
+  vnodes: readonly VNode[],
+) {
   return vnodes.map((vnode) => ({
     instanceId: allocator.allocate(),
     vnode,
@@ -51,7 +54,6 @@ function makePrevChildren(allocator: ReturnType<typeof createInstanceIdAllocator
 function expectOk(
   res: ReturnType<typeof reconcileChildren>,
 ): Extract<ReturnType<typeof reconcileChildren>, { ok: true }>["value"] {
-  assert.equal(res.ok, true);
   if (!res.ok) {
     assert.fail(`expected ok reconcile result, got ${res.fatal.code}: ${res.fatal.detail}`);
     throw new Error("unreachable");
@@ -69,7 +71,12 @@ describe("reconcileChildren - keyed reconciliation", () => {
     ]);
 
     const res = expectOk(
-      reconcileChildren(11, prevChildren, [textNode("C1", "c"), textNode("A1", "a"), textNode("B1", "b")], allocator),
+      reconcileChildren(
+        11,
+        prevChildren,
+        [textNode("C1", "c"), textNode("A1", "a"), textNode("B1", "b")],
+        allocator,
+      ),
     );
 
     assert.deepEqual(
@@ -112,7 +119,9 @@ describe("reconcileChildren - keyed reconciliation", () => {
     const allocator = createInstanceIdAllocator(1);
     const prevChildren = makePrevChildren(allocator, [dividerNode("left"), dividerNode("right")]);
 
-    const res = expectOk(reconcileChildren(12_1, prevChildren, [dividerNode("right"), dividerNode("left")], allocator));
+    const res = expectOk(
+      reconcileChildren(12_1, prevChildren, [dividerNode("right"), dividerNode("left")], allocator),
+    );
 
     assert.deepEqual(
       res.nextChildren.map((child) => child.instanceId),
@@ -128,7 +137,12 @@ describe("reconcileChildren - keyed reconciliation", () => {
     const prevChildren = makePrevChildren(allocator, [textNode("A0", "a"), textNode("C0", "c")]);
 
     const res = expectOk(
-      reconcileChildren(13, prevChildren, [textNode("A1", "a"), textNode("B1", "b"), textNode("C1", "c")], allocator),
+      reconcileChildren(
+        13,
+        prevChildren,
+        [textNode("A1", "a"), textNode("B1", "b"), textNode("C1", "c")],
+        allocator,
+      ),
     );
 
     assert.deepEqual(res.reusedInstanceIds, [1, 2]);
@@ -145,7 +159,12 @@ describe("reconcileChildren - keyed reconciliation", () => {
     const prevChildren = makePrevChildren(allocator, [textNode("B0", "b"), textNode("C0", "c")]);
 
     const res = expectOk(
-      reconcileChildren(14, prevChildren, [textNode("A1", "a"), textNode("B1", "b"), textNode("C1", "c")], allocator),
+      reconcileChildren(
+        14,
+        prevChildren,
+        [textNode("A1", "a"), textNode("B1", "b"), textNode("C1", "c")],
+        allocator,
+      ),
     );
 
     assert.deepEqual(
@@ -161,7 +180,12 @@ describe("reconcileChildren - keyed reconciliation", () => {
     const prevChildren = makePrevChildren(allocator, [textNode("A0", "a"), textNode("B0", "b")]);
 
     const res = expectOk(
-      reconcileChildren(15, prevChildren, [textNode("A1", "a"), textNode("B1", "b"), textNode("C1", "c")], allocator),
+      reconcileChildren(
+        15,
+        prevChildren,
+        [textNode("A1", "a"), textNode("B1", "b"), textNode("C1", "c")],
+        allocator,
+      ),
     );
 
     assert.deepEqual(res.reusedInstanceIds, [1, 2]);
@@ -177,7 +201,9 @@ describe("reconcileChildren - keyed reconciliation", () => {
       textNode("C0", "c"),
     ]);
 
-    const res = expectOk(reconcileChildren(16, prevChildren, [textNode("A1", "a"), textNode("C1", "c")], allocator));
+    const res = expectOk(
+      reconcileChildren(16, prevChildren, [textNode("A1", "a"), textNode("C1", "c")], allocator),
+    );
 
     assert.deepEqual(res.reusedInstanceIds, [1, 3]);
     assert.deepEqual(res.newInstanceIds, []);
@@ -192,7 +218,9 @@ describe("reconcileChildren - keyed reconciliation", () => {
       textNode("C0", "c"),
     ]);
 
-    const res = expectOk(reconcileChildren(17, prevChildren, [textNode("B1", "b"), textNode("C1", "c")], allocator));
+    const res = expectOk(
+      reconcileChildren(17, prevChildren, [textNode("B1", "b"), textNode("C1", "c")], allocator),
+    );
 
     assert.deepEqual(res.reusedInstanceIds, [2, 3]);
     assert.deepEqual(res.newInstanceIds, []);
@@ -207,7 +235,9 @@ describe("reconcileChildren - keyed reconciliation", () => {
       textNode("C0", "c"),
     ]);
 
-    const res = expectOk(reconcileChildren(18, prevChildren, [textNode("A1", "a"), textNode("B1", "b")], allocator));
+    const res = expectOk(
+      reconcileChildren(18, prevChildren, [textNode("A1", "a"), textNode("B1", "b")], allocator),
+    );
 
     assert.deepEqual(res.reusedInstanceIds, [1, 2]);
     assert.deepEqual(res.newInstanceIds, []);
@@ -230,7 +260,9 @@ describe("reconcileChildren - keyed reconciliation", () => {
     const allocator = createInstanceIdAllocator(1);
     const prevChildren = makePrevChildren(allocator, [boxNode([textNode("x")], "swap")]);
 
-    const res = expectOk(reconcileChildren(20, prevChildren, [rowNode([textNode("x")], "swap")], allocator));
+    const res = expectOk(
+      reconcileChildren(20, prevChildren, [rowNode([textNode("x")], "swap")], allocator),
+    );
 
     assert.deepEqual(res.reusedInstanceIds, []);
     assert.deepEqual(res.newInstanceIds, [2]);
@@ -268,10 +300,16 @@ describe("reconcileChildren - keyed reconciliation", () => {
 
   test("large keyed reorder with 25 children reuses all instances", () => {
     const allocator = createInstanceIdAllocator(1);
-    const prevVChildren = Array.from({ length: 25 }, (_, index) => textNode(`prev-${String(index)}`, `k${String(index)}`));
+    const prevVChildren = Array.from({ length: 25 }, (_, index) =>
+      textNode(`prev-${String(index)}`, `k${String(index)}`),
+    );
     const prevChildren = makePrevChildren(allocator, prevVChildren);
-    const order = [24, 0, 12, 5, 19, 1, 23, 8, 4, 13, 2, 22, 10, 7, 21, 3, 20, 6, 18, 9, 17, 11, 16, 14, 15];
-    const nextChildren = order.map((index) => textNode(`next-${String(index)}`, `k${String(index)}`));
+    const order = [
+      24, 0, 12, 5, 19, 1, 23, 8, 4, 13, 2, 22, 10, 7, 21, 3, 20, 6, 18, 9, 17, 11, 16, 14, 15,
+    ];
+    const nextChildren = order.map((index) =>
+      textNode(`next-${String(index)}`, `k${String(index)}`),
+    );
 
     const res = expectOk(reconcileChildren(44, prevChildren, nextChildren, allocator));
 
@@ -279,16 +317,29 @@ describe("reconcileChildren - keyed reconciliation", () => {
       res.nextChildren.map((child) => child.instanceId),
       order.map((index) => index + 1),
     );
-    assert.deepEqual(res.reusedInstanceIds, order.map((index) => index + 1));
+    assert.deepEqual(
+      res.reusedInstanceIds,
+      order.map((index) => index + 1),
+    );
     assert.deepEqual(res.newInstanceIds, []);
     assert.deepEqual(res.unmountedInstanceIds, []);
   });
 
   test("keyed update with same keys keeps instances despite text changes", () => {
     const allocator = createInstanceIdAllocator(1);
-    const prevChildren = makePrevChildren(allocator, [textNode("old-a", "a"), textNode("old-b", "b")]);
+    const prevChildren = makePrevChildren(allocator, [
+      textNode("old-a", "a"),
+      textNode("old-b", "b"),
+    ]);
 
-    const res = expectOk(reconcileChildren(45, prevChildren, [textNode("new-a", "a"), textNode("new-b", "b")], allocator));
+    const res = expectOk(
+      reconcileChildren(
+        45,
+        prevChildren,
+        [textNode("new-a", "a"), textNode("new-b", "b")],
+        allocator,
+      ),
+    );
 
     assert.deepEqual(res.reusedInstanceIds, [1, 2]);
     assert.deepEqual(res.newInstanceIds, []);
@@ -313,7 +364,14 @@ describe("reconcileChildren - keyed reconciliation", () => {
   test("keyed add-all from empty mounts every next child", () => {
     const allocator = createInstanceIdAllocator(1);
 
-    const res = expectOk(reconcileChildren(47, [], [textNode("A", "a"), textNode("B", "b"), textNode("C", "c")], allocator));
+    const res = expectOk(
+      reconcileChildren(
+        47,
+        [],
+        [textNode("A", "a"), textNode("B", "b"), textNode("C", "c")],
+        allocator,
+      ),
+    );
 
     assert.deepEqual(res.reusedInstanceIds, []);
     assert.deepEqual(res.newInstanceIds, [1, 2, 3]);
@@ -329,7 +387,12 @@ describe("reconcileChildren - keyed reconciliation", () => {
     ]);
 
     const res = expectOk(
-      reconcileChildren(48, prevChildren, [textNode("B1", "b"), textNode("D1", "d"), textNode("C1", "c")], allocator),
+      reconcileChildren(
+        48,
+        prevChildren,
+        [textNode("B1", "b"), textNode("D1", "d"), textNode("C1", "c")],
+        allocator,
+      ),
     );
 
     assert.deepEqual(res.reusedInstanceIds, [2, 3]);
@@ -376,10 +439,19 @@ describe("reconcileChildren - keyed reconciliation", () => {
 
   test("keyed reconciliation keeps non-keyed siblings indexed by slot", () => {
     const allocator = createInstanceIdAllocator(1);
-    const prevChildren = makePrevChildren(allocator, [textNode("plain-0"), textNode("keyed", "k"), textNode("plain-2")]);
+    const prevChildren = makePrevChildren(allocator, [
+      textNode("plain-0"),
+      textNode("keyed", "k"),
+      textNode("plain-2"),
+    ]);
 
     const res = expectOk(
-      reconcileChildren(51, prevChildren, [textNode("plain-0-next"), textNode("keyed-next", "k"), textNode("plain-2-next")], allocator),
+      reconcileChildren(
+        51,
+        prevChildren,
+        [textNode("plain-0-next"), textNode("keyed-next", "k"), textNode("plain-2-next")],
+        allocator,
+      ),
     );
 
     assert.deepEqual(
@@ -393,7 +465,9 @@ describe("reconcileChildren - keyed reconciliation", () => {
     const allocator = createInstanceIdAllocator(1);
     const prevChildren = makePrevChildren(allocator, [textNode("old", "a"), textNode("keep", "b")]);
 
-    const res = expectOk(reconcileChildren(52, prevChildren, [spacerNode("a"), textNode("keep-next", "b")], allocator));
+    const res = expectOk(
+      reconcileChildren(52, prevChildren, [spacerNode("a"), textNode("keep-next", "b")], allocator),
+    );
 
     assert.deepEqual(res.reusedInstanceIds, [2]);
     assert.deepEqual(res.newInstanceIds, [3]);
@@ -406,10 +480,19 @@ describe("reconcileChildren - keyed reconciliation", () => {
 
   test("keyed replacement with same slot preserves deterministic ordering of lifecycle arrays", () => {
     const allocator = createInstanceIdAllocator(1);
-    const prevChildren = makePrevChildren(allocator, [textNode("A0", "a"), textNode("B0", "b"), textNode("C0", "c")]);
+    const prevChildren = makePrevChildren(allocator, [
+      textNode("A0", "a"),
+      textNode("B0", "b"),
+      textNode("C0", "c"),
+    ]);
 
     const res = expectOk(
-      reconcileChildren(53, prevChildren, [textNode("A1", "a"), spacerNode("b"), textNode("C1", "c")], allocator),
+      reconcileChildren(
+        53,
+        prevChildren,
+        [textNode("A1", "a"), spacerNode("b"), textNode("C1", "c")],
+        allocator,
+      ),
     );
 
     assert.deepEqual(res.reusedInstanceIds, [1, 3]);

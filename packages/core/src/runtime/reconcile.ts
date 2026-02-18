@@ -54,6 +54,25 @@ function getVNodeKey(v: VNode): string | undefined {
   return typeof key === "string" ? key : undefined;
 }
 
+function getCompositeWidgetKey(v: VNode): string | undefined {
+  const widgetKey = (v as { __composite?: { widgetKey?: unknown } }).__composite?.widgetKey;
+  return typeof widgetKey === "string" ? widgetKey : undefined;
+}
+
+function canReuseVNode(prev: VNode, next: VNode): boolean {
+  if (prev.kind !== next.kind) return false;
+
+  const prevWidgetKey = getCompositeWidgetKey(prev);
+  const nextWidgetKey = getCompositeWidgetKey(next);
+  if (prevWidgetKey !== undefined || nextWidgetKey !== undefined) {
+    return (
+      prevWidgetKey !== undefined && nextWidgetKey !== undefined && prevWidgetKey === nextWidgetKey
+    );
+  }
+
+  return true;
+}
+
 /** Compute the slot ID for a child: keyed if key present, indexed otherwise. */
 export function slotIdForChild(child: VNode, childIndex: number): SlotId {
   const key = getVNodeKey(child);
@@ -116,7 +135,7 @@ function reconcileUnkeyedChildren(
       continue;
     }
     const slotId: SlotId = `i:${i}`;
-    if (prev && prev.vnode.kind === vnode.kind) {
+    if (prev && canReuseVNode(prev.vnode, vnode)) {
       const instanceId = prev.instanceId;
       reusedInstanceIds.push(instanceId);
       nextChildren.push({
@@ -237,7 +256,7 @@ export function reconcileChildren(
       prevIndex !== undefined &&
       prevChild !== undefined &&
       usedPrev[prevIndex] === false &&
-      prevChild.vnode.kind === vnode.kind
+      canReuseVNode(prevChild.vnode, vnode)
     ) {
       usedPrev[prevIndex] = true;
       const instanceId = prevChild.instanceId;
