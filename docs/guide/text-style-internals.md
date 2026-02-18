@@ -93,3 +93,17 @@ Why this is used:
 - avoids per-merge object churn for common default-base boolean-only style merges
 - avoids hash-map overhead by using a fixed-size array lookup
 - keeps object identity stable for repeated equivalent style inputs on the hot path
+
+## Style Merge Cache Audit Notes
+
+- Keyspace: direct-indexed 16-bit key (`0..65535`) derived from 8 attrs with 2-bit tri-state slots; currently reachable combinations are `3^8 = 6561`.
+- Eviction policy: none. `BASE_BOOL_STYLE_CACHE` is fixed-size and entries remain resident for process lifetime once populated.
+- Deterministic testing approach: verify repeatable key-to-result behavior with identity checks on cache fast-path merges and value-equality assertions for semantically equivalent merges.
+
+### Baseline Lock
+
+- Timestamp (UTC): `2026-02-18T11:24:56Z`
+- Baseline branch: `style-merge-hardening` from `origin/main`
+- Baseline HEAD: `a441bba78ddc99ece4eb76965ce36c0aec9225fe`
+- Node/npm: `v20.19.5` / `10.8.2`
+- Baseline full test count: `2488` passing tests
