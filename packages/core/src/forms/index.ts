@@ -5,7 +5,14 @@
  */
 
 export type {
+  ArrayFieldItem,
+  ArrayFieldName,
+  FieldBooleanValue,
+  FieldErrorValue,
   FormState,
+  FormWizardOptions,
+  FormWizardStep,
+  UseFieldArrayReturn,
   UseFormOptions,
   UseFormReturn,
   ValidationContext,

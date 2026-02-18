@@ -41,7 +41,7 @@ export function runFieldValidation<T extends Record<string, unknown>>(
   values: T,
   field: keyof T,
   validate: ((values: T) => ValidationResult<T>) | undefined,
-): string | undefined {
+): ValidationResult<T>[keyof T] | undefined {
   if (!validate) {
     return undefined;
   }
@@ -75,8 +75,19 @@ export function isValidationClean<T extends Record<string, unknown>>(
 ): boolean {
   const keys = Object.keys(errors) as (keyof T)[];
   for (const key of keys) {
-    if (errors[key] !== undefined && errors[key] !== "") {
+    const value = errors[key];
+    if (value === undefined || value === "") {
+      continue;
+    }
+
+    if (typeof value === "string") {
       return false;
+    }
+
+    for (const item of value) {
+      if (item !== undefined && item !== "") {
+        return false;
+      }
     }
   }
   return true;

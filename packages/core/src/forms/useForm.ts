@@ -2,14 +2,25 @@
  * packages/core/src/forms/useForm.ts — Form management hook.
  *
  * Why: Provides a React-like form management hook for Rezi widgets.
- * Manages form values, validation, touched/dirty state, and submission.
- * Works with the widget composition API via WidgetContext hooks.
+ * Manages form values, validation, touched/dirty state, submission,
+ * dynamic array fields, wizard navigation, and disabled/read-only behavior.
  *
  * @see docs/recipes/form-validation.md (GitHub issue #119)
  */
 
 import type { WidgetContext } from "../widgets/composition.js";
-import type { FormState, UseFormOptions, UseFormReturn } from "./types.js";
+import type {
+  ArrayFieldItem,
+  ArrayFieldName,
+  FieldBooleanValue,
+  FieldErrorValue,
+  FormState,
+  FormWizardStep,
+  UseFieldArrayReturn,
+  UseFormOptions,
+  UseFormReturn,
+  ValidationResult,
+} from "./types.js";
 import {
   DEFAULT_ASYNC_DEBOUNCE_MS,
   createDebouncedAsyncValidator,
@@ -20,12 +31,33 @@ import {
   runSyncValidation,
 } from "./validation.js";
 
+type FieldOverrides<T extends Record<string, unknown>> = Partial<Record<keyof T, boolean>>;
+
+/**
+ * Clamp step index to available wizard range.
+ */
+function clampStepIndex(stepIndex: number, stepCount: number): number {
+  if (stepCount <= 0) {
+    return 0;
+  }
+  if (stepIndex < 0) {
+    return 0;
+  }
+  if (stepIndex >= stepCount) {
+    return stepCount - 1;
+  }
+  return stepIndex;
+}
+
 /**
  * Create initial form state from options.
  */
 function createInitialState<T extends Record<string, unknown>>(
   options: UseFormOptions<T>,
 ): FormState<T> {
+  const stepCount = options.wizard?.steps.length ?? 0;
+  const initialStep = clampStepIndex(options.wizard?.initialStep ?? 0, stepCount);
+
   return {
     values: { ...options.initialValues },
     errors: {},
@@ -33,7 +65,34 @@ function createInitialState<T extends Record<string, unknown>>(
     dirty: {},
     isSubmitting: false,
     submitCount: 0,
+    disabled: options.disabled ?? false,
+    readOnly: options.readOnly ?? false,
+    fieldDisabled: {
+      ...(options.fieldDisabled ?? {}),
+    } as Partial<Record<keyof T, boolean>>,
+    fieldReadOnly: {
+      ...(options.fieldReadOnly ?? {}),
+    } as Partial<Record<keyof T, boolean>>,
+    currentStep: initialStep,
   };
+}
+
+/**
+ * Compute dirty array flags by position.
+ */
+function computeArrayFieldDirty(
+  currentValue: ReadonlyArray<unknown>,
+  initialValue: ReadonlyArray<unknown>,
+): FieldBooleanValue {
+  if (currentValue.length !== initialValue.length) {
+    return true;
+  }
+
+  const dirty: boolean[] = [];
+  for (let i = 0; i < currentValue.length; i++) {
+    dirty.push(!Object.is(currentValue[i], initialValue[i]));
+  }
+  return dirty;
 }
 
 /**
@@ -43,19 +102,26 @@ function computeFieldDirty<T extends Record<string, unknown>>(
   field: keyof T,
   currentValue: T[keyof T],
   initialValues: T,
-): boolean {
-  return !Object.is(currentValue, initialValues[field]);
+): FieldBooleanValue {
+  const initialValue = initialValues[field];
+  if (Array.isArray(currentValue) && Array.isArray(initialValue)) {
+    return computeArrayFieldDirty(currentValue, initialValue);
+  }
+  return !Object.is(currentValue, initialValue);
 }
 
 /**
- * Compute overall dirty status from dirty map.
+ * Check if a field-level dirty/touched flag contains any true value.
  */
-function computeIsDirty<T extends Record<string, unknown>>(
-  dirty: Partial<Record<keyof T, boolean>>,
-): boolean {
-  const keys = Object.keys(dirty) as (keyof T)[];
-  for (const key of keys) {
-    if (dirty[key] === true) {
+function hasTruthyBooleanValue(value: FieldBooleanValue | undefined): boolean {
+  if (value === true) {
+    return true;
+  }
+  if (!Array.isArray(value)) {
+    return false;
+  }
+  for (const item of value) {
+    if (item === true) {
       return true;
     }
   }
@@ -63,45 +129,178 @@ function computeIsDirty<T extends Record<string, unknown>>(
 }
 
 /**
+ * Compute overall dirty status from dirty map.
+ */
+function computeIsDirty<T extends Record<string, unknown>>(
+  dirty: Partial<Record<keyof T, FieldBooleanValue>>,
+): boolean {
+  const keys = Object.keys(dirty) as (keyof T)[];
+  for (const key of keys) {
+    if (hasTruthyBooleanValue(dirty[key])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Normalize per-field boolean map value to an array.
+ */
+function normalizeBooleanArray(
+  value: FieldBooleanValue | undefined,
+  size: number,
+  defaultValue: boolean,
+): boolean[] {
+  if (Array.isArray(value)) {
+    const next = value.slice(0, size);
+    while (next.length < size) {
+      next.push(defaultValue);
+    }
+    return next;
+  }
+
+  if (value === true || value === false) {
+    return Array.from({ length: size }, () => value);
+  }
+
+  return Array.from({ length: size }, () => defaultValue);
+}
+
+/**
+ * Normalize per-field error map value to an array.
+ */
+function normalizeErrorArray(
+  value: FieldErrorValue | undefined,
+  size: number,
+): Array<string | undefined> {
+  if (Array.isArray(value)) {
+    const next = value.slice(0, size);
+    while (next.length < size) {
+      next.push(undefined);
+    }
+    return next;
+  }
+
+  return Array.from({ length: size }, () => undefined);
+}
+
+function removeAtIndex<TValue>(value: ReadonlyArray<TValue>, index: number): TValue[] {
+  const next = [...value];
+  next.splice(index, 1);
+  return next;
+}
+
+function moveIndex<TValue>(value: ReadonlyArray<TValue>, from: number, to: number): TValue[] {
+  const next = [...value];
+  const [moved] = next.splice(from, 1);
+  if (moved === undefined) {
+    return next;
+  }
+  next.splice(to, 0, moved);
+  return next;
+}
+
+/**
+ * Merge per-step errors into global error state.
+ */
+function mergeStepErrors<T extends Record<string, unknown>>(
+  prevErrors: ValidationResult<T>,
+  stepFields: ReadonlyArray<keyof T>,
+  stepErrors: ValidationResult<T>,
+): ValidationResult<T> {
+  const nextErrors: ValidationResult<T> = { ...prevErrors };
+
+  for (const field of stepFields) {
+    nextErrors[field] = undefined;
+  }
+
+  const stepErrorKeys = Object.keys(stepErrors) as (keyof T)[];
+  for (const field of stepErrorKeys) {
+    nextErrors[field] = stepErrors[field];
+  }
+
+  return nextErrors;
+}
+
+/**
+ * Pick a subset of validation errors by field list.
+ */
+function pickValidationFields<T extends Record<string, unknown>>(
+  errors: ValidationResult<T>,
+  fields: ReadonlyArray<keyof T>,
+): ValidationResult<T> {
+  const selected: ValidationResult<T> = {};
+  for (const field of fields) {
+    const value = errors[field];
+    if (value !== undefined) {
+      selected[field] = value;
+    }
+  }
+  return selected;
+}
+
+function resolveFieldOverride<T extends Record<string, unknown>>(
+  field: keyof T,
+  formFlag: boolean,
+  fieldOverrides: FieldOverrides<T>,
+): boolean {
+  const override = fieldOverrides[field];
+  if (override === undefined) {
+    return formFlag;
+  }
+  return override;
+}
+
+function setFieldOverride<T extends Record<string, unknown>>(
+  fieldOverrides: FieldOverrides<T>,
+  field: keyof T,
+  value: boolean | undefined,
+): FieldOverrides<T> {
+  const next = { ...fieldOverrides };
+  if (value === undefined) {
+    delete next[field];
+  } else {
+    next[field] = value;
+  }
+  return next;
+}
+
+function markFieldsTouched<T extends Record<string, unknown>>(
+  prevTouched: Partial<Record<keyof T, FieldBooleanValue>>,
+  values: T,
+  fields: ReadonlyArray<keyof T>,
+): Partial<Record<keyof T, FieldBooleanValue>> {
+  const nextTouched: Partial<Record<keyof T, FieldBooleanValue>> = { ...prevTouched };
+  for (const field of fields) {
+    const value = values[field];
+    if (Array.isArray(value)) {
+      nextTouched[field] = value.map(() => true);
+    } else {
+      nextTouched[field] = true;
+    }
+  }
+  return nextTouched;
+}
+
+function getArrayFieldValues<T extends Record<string, unknown>, K extends ArrayFieldName<T>>(
+  values: T,
+  field: K,
+): Array<ArrayFieldItem<T, K>> {
+  const raw = values[field];
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return [...(raw as Array<ArrayFieldItem<T, K>>)];
+}
+
+function nextFieldArrayKey(field: string, counterRef: { current: number }): string {
+  const next = counterRef.current;
+  counterRef.current += 1;
+  return `${field}_${next}`;
+}
+
+/**
  * Form management hook for Rezi widgets.
- *
- * Provides comprehensive form state management including:
- * - Field value tracking
- * - Touched/dirty state
- * - Sync and async validation
- * - Form submission handling
- *
- * @param ctx - Widget context from defineWidget render function
- * @param options - Form configuration options
- * @returns Form state and control methods
- *
- * @example
- * ```ts
- * const LoginForm = defineWidget<{ onLogin: (u: string, p: string) => void }>(
- *   (props, ctx) => {
- *     const form = useForm(ctx, {
- *       initialValues: { username: "", password: "" },
- *       validate: (v) => {
- *         const errors: Record<string, string> = {};
- *         if (!v.username) errors.username = "Required";
- *         if (v.password.length < 8) errors.password = "Min 8 chars";
- *         return errors;
- *       },
- *       onSubmit: (v) => props.onLogin(v.username, v.password),
- *     });
- *
- *     return ui.column([
- *       ui.input({
- *         id: ctx.id("username"),
- *         value: form.values.username,
- *         onInput: form.handleChange("username"),
- *         onBlur: form.handleBlur("username"),
- *       }),
- *       // ...
- *     ]);
- *   }
- * );
- * ```
  */
 export function useForm<T extends Record<string, unknown>, State = void>(
   ctx: WidgetContext<State>,
@@ -121,6 +320,146 @@ export function useForm<T extends Record<string, unknown>, State = void>(
   // Ref to safely pass values from setState callback to async validation
   const pendingAsyncValuesRef = ctx.useRef<T | null>(null);
 
+  // Stable key tracking for array fields
+  const fieldArrayKeysRef = ctx.useRef<Partial<Record<keyof T, string[]>>>({});
+  const fieldArrayKeyCounterRef = ctx.useRef<number>(0);
+
+  const wizardSteps = options.wizard?.steps ?? [];
+  const stepCount = wizardSteps.length;
+  const hasWizard = stepCount > 0;
+  const currentStep = hasWizard ? clampStepIndex(state.currentStep, stepCount) : 0;
+  const isFirstStep = !hasWizard || currentStep === 0;
+  const isLastStep = !hasWizard || currentStep === stepCount - 1;
+
+  const isFieldDisabledInternal = (
+    field: keyof T,
+    source: Pick<FormState<T>, "disabled" | "fieldDisabled"> = state,
+  ): boolean => resolveFieldOverride(field, source.disabled, source.fieldDisabled);
+
+  const isFieldReadOnlyInternal = (
+    field: keyof T,
+    source: Pick<FormState<T>, "readOnly" | "fieldReadOnly"> = state,
+  ): boolean => resolveFieldOverride(field, source.readOnly, source.fieldReadOnly);
+
+  const isFieldEditableInternal = (
+    field: keyof T,
+    source: Pick<FormState<T>, "disabled" | "fieldDisabled" | "readOnly" | "fieldReadOnly"> = state,
+  ): boolean => !isFieldDisabledInternal(field, source) && !isFieldReadOnlyInternal(field, source);
+
+  const filterDisabledValidationErrors = (
+    errors: ValidationResult<T>,
+    source: Pick<FormState<T>, "disabled" | "fieldDisabled"> = state,
+  ): ValidationResult<T> => {
+    const keys = Object.keys(errors) as (keyof T)[];
+    if (keys.length === 0) {
+      return errors;
+    }
+
+    const nextErrors: ValidationResult<T> = { ...errors };
+    for (const key of keys) {
+      if (isFieldDisabledInternal(key, source)) {
+        nextErrors[key] = undefined;
+      }
+    }
+    return nextErrors;
+  };
+
+  const runSyncValidationFiltered = (
+    values: T,
+    source: Pick<FormState<T>, "disabled" | "fieldDisabled"> = state,
+  ): ValidationResult<T> =>
+    filterDisabledValidationErrors(runSyncValidation(values, options.validate), source);
+
+  const runAsyncValidationFiltered = async (
+    values: T,
+    source: Pick<FormState<T>, "disabled" | "fieldDisabled"> = state,
+  ): Promise<ValidationResult<T>> =>
+    filterDisabledValidationErrors(await runAsyncValidation(values, options.validateAsync), source);
+
+  const getStep = (stepIndex: number): FormWizardStep<T> | undefined => {
+    if (!hasWizard) {
+      return undefined;
+    }
+    const resolvedStep = clampStepIndex(stepIndex, stepCount);
+    return wizardSteps[resolvedStep];
+  };
+
+  const getStepFields = (step: FormWizardStep<T> | undefined, values: T): Array<keyof T> => {
+    if (step?.fields && step.fields.length > 0) {
+      return [...step.fields];
+    }
+    return Object.keys(values) as Array<keyof T>;
+  };
+
+  const runWizardStepValidation = (
+    values: T,
+    stepIndex: number,
+    source: Pick<FormState<T>, "disabled" | "fieldDisabled"> = state,
+  ): ValidationResult<T> => {
+    const step = getStep(stepIndex);
+    if (!step) {
+      return {};
+    }
+
+    const stepFields = getStepFields(step, values);
+    const syncStepErrors = pickValidationFields(
+      runSyncValidationFiltered(values, source),
+      stepFields,
+    );
+
+    if (!step.validate) {
+      return syncStepErrors;
+    }
+
+    const customStepErrors = filterDisabledValidationErrors(
+      pickValidationFields(step.validate(values), stepFields),
+      source,
+    );
+    return mergeValidationErrors(syncStepErrors, customStepErrors);
+  };
+
+  const ensureFieldArrayKeys = (field: keyof T, length: number): string[] => {
+    const existing = [...(fieldArrayKeysRef.current[field] ?? [])];
+
+    if (existing.length > length) {
+      existing.length = length;
+    }
+    while (existing.length < length) {
+      existing.push(nextFieldArrayKey(String(field), fieldArrayKeyCounterRef));
+    }
+
+    fieldArrayKeysRef.current[field] = existing;
+    return existing;
+  };
+
+  const appendFieldArrayKey = (field: keyof T): void => {
+    const existing = [...(fieldArrayKeysRef.current[field] ?? [])];
+    existing.push(nextFieldArrayKey(String(field), fieldArrayKeyCounterRef));
+    fieldArrayKeysRef.current[field] = existing;
+  };
+
+  const removeFieldArrayKey = (field: keyof T, index: number): void => {
+    const existing = [...(fieldArrayKeysRef.current[field] ?? [])];
+    if (index < 0 || index >= existing.length) {
+      return;
+    }
+    existing.splice(index, 1);
+    fieldArrayKeysRef.current[field] = existing;
+  };
+
+  const moveFieldArrayKey = (field: keyof T, from: number, to: number): void => {
+    const existing = [...(fieldArrayKeysRef.current[field] ?? [])];
+    if (from < 0 || to < 0 || from >= existing.length || to >= existing.length || from === to) {
+      return;
+    }
+    const [moved] = existing.splice(from, 1);
+    if (moved === undefined) {
+      return;
+    }
+    existing.splice(to, 0, moved);
+    fieldArrayKeysRef.current[field] = existing;
+  };
+
   // Initialize or update async validator when options change
   ctx.useEffect(() => {
     if (options.validateAsync) {
@@ -131,8 +470,8 @@ export function useForm<T extends Record<string, unknown>, State = void>(
           setState((prev) => ({
             ...prev,
             errors: mergeValidationErrors(
-              runSyncValidation(prev.values, options.validate),
-              asyncErrors,
+              runSyncValidationFiltered(prev.values, prev),
+              filterDisabledValidationErrors(asyncErrors, prev),
             ),
           }));
         },
@@ -152,8 +491,8 @@ export function useForm<T extends Record<string, unknown>, State = void>(
   /**
    * Validate form and update errors.
    */
-  const validateForm = (): Partial<Record<keyof T, string>> => {
-    const errors = runSyncValidation(state.values, options.validate);
+  const validateForm = (): ValidationResult<T> => {
+    const errors = runSyncValidationFiltered(state.values, state);
     setState((prev) => ({
       ...prev,
       errors,
@@ -164,7 +503,18 @@ export function useForm<T extends Record<string, unknown>, State = void>(
   /**
    * Validate a single field.
    */
-  const validateField = (field: keyof T): string | undefined => {
+  const validateField = (field: keyof T): FieldErrorValue | undefined => {
+    if (isFieldDisabledInternal(field, state)) {
+      setState((prev) => ({
+        ...prev,
+        errors: {
+          ...prev.errors,
+          [field]: undefined,
+        },
+      }));
+      return undefined;
+    }
+
     const error = runFieldValidation(state.values, field, options.validate);
     setState((prev) => ({
       ...prev,
@@ -180,9 +530,15 @@ export function useForm<T extends Record<string, unknown>, State = void>(
    * Set a specific field's value.
    */
   const setFieldValue = (field: keyof T, value: T[keyof T]): void => {
+    pendingAsyncValuesRef.current = null;
+
     const newDirty = computeFieldDirty(field, value, initialValuesRef.current);
 
     setState((prev) => {
+      if (!isFieldEditableInternal(field, prev)) {
+        return prev;
+      }
+
       const newValues = { ...prev.values, [field]: value };
       // Store in ref for async validation (safe handoff from callback)
       pendingAsyncValuesRef.current = newValues;
@@ -190,7 +546,7 @@ export function useForm<T extends Record<string, unknown>, State = void>(
 
       // Run validation on change if enabled
       if (options.validateOnChange) {
-        newErrors = runSyncValidation(newValues, options.validate);
+        newErrors = runSyncValidationFiltered(newValues, prev);
       }
 
       return {
@@ -215,7 +571,7 @@ export function useForm<T extends Record<string, unknown>, State = void>(
   /**
    * Set a specific field's error.
    */
-  const setFieldError = (field: keyof T, error: string | undefined): void => {
+  const setFieldError = (field: keyof T, error: FieldErrorValue | undefined): void => {
     setState((prev) => ({
       ...prev,
       errors: {
@@ -251,12 +607,16 @@ export function useForm<T extends Record<string, unknown>, State = void>(
    * Handle blur for a specific field.
    */
   const handleBlur = (field: keyof T) => (): void => {
+    if (isFieldDisabledInternal(field, state)) {
+      return;
+    }
+
     setFieldTouched(field, true);
 
     // Run validation on blur if enabled (default: true)
     const validateOnBlur = options.validateOnBlur ?? true;
     if (validateOnBlur) {
-      const errors = runSyncValidation(state.values, options.validate);
+      const errors = runSyncValidationFiltered(state.values, state);
       setState((prev) => ({
         ...prev,
         touched: {
@@ -274,10 +634,369 @@ export function useForm<T extends Record<string, unknown>, State = void>(
   };
 
   /**
+   * Set or clear form-level disabled state.
+   */
+  const setDisabled = (disabled: boolean): void => {
+    setState((prev) => ({
+      ...prev,
+      disabled,
+    }));
+  };
+
+  /**
+   * Set or clear form-level readOnly state.
+   */
+  const setReadOnly = (readOnly: boolean): void => {
+    setState((prev) => ({
+      ...prev,
+      readOnly,
+    }));
+  };
+
+  /**
+   * Set or clear field-level disabled override.
+   */
+  const setFieldDisabled = (field: keyof T, disabled: boolean | undefined): void => {
+    setState((prev) => ({
+      ...prev,
+      fieldDisabled: setFieldOverride(prev.fieldDisabled, field, disabled),
+    }));
+  };
+
+  /**
+   * Set or clear field-level readOnly override.
+   */
+  const setFieldReadOnly = (field: keyof T, readOnly: boolean | undefined): void => {
+    setState((prev) => ({
+      ...prev,
+      fieldReadOnly: setFieldOverride(prev.fieldReadOnly, field, readOnly),
+    }));
+  };
+
+  /**
+   * Dynamic array helper for array-valued fields.
+   */
+  const useFieldArray = <K extends ArrayFieldName<T>>(field: K): UseFieldArrayReturn<T, K> => {
+    const fieldKey = field as keyof T;
+    const values = getArrayFieldValues(state.values, field);
+    const keys = ensureFieldArrayKeys(fieldKey, values.length);
+
+    const append = (item: ArrayFieldItem<T, K>): void => {
+      pendingAsyncValuesRef.current = null;
+
+      setState((prev) => {
+        if (!isFieldEditableInternal(fieldKey, prev)) {
+          return prev;
+        }
+
+        const currentValues = getArrayFieldValues(prev.values, field);
+        const nextValuesArray = [...currentValues, item];
+        const nextValues = {
+          ...prev.values,
+          [field]: nextValuesArray as unknown as T[K],
+        };
+        pendingAsyncValuesRef.current = nextValues;
+
+        const nextTouched = [
+          ...normalizeBooleanArray(prev.touched[fieldKey], currentValues.length, false),
+          false,
+        ];
+        const previousDirty = normalizeBooleanArray(
+          prev.dirty[fieldKey],
+          currentValues.length,
+          false,
+        );
+        const initialArray = Array.isArray(initialValuesRef.current[fieldKey])
+          ? (initialValuesRef.current[fieldKey] as ReadonlyArray<unknown>)
+          : [];
+        const appendedDirty = !Object.is(item as unknown, initialArray[nextValuesArray.length - 1]);
+        const nextDirty = [...previousDirty, appendedDirty];
+
+        let nextErrors = prev.errors;
+        if (options.validateOnChange) {
+          nextErrors = runSyncValidationFiltered(nextValues, prev);
+        } else {
+          const currentErrors = normalizeErrorArray(prev.errors[fieldKey], currentValues.length);
+          nextErrors = {
+            ...prev.errors,
+            [fieldKey]: [...currentErrors, undefined],
+          };
+        }
+
+        appendFieldArrayKey(fieldKey);
+
+        return {
+          ...prev,
+          values: nextValues,
+          errors: nextErrors,
+          touched: {
+            ...prev.touched,
+            [fieldKey]: nextTouched,
+          },
+          dirty: {
+            ...prev.dirty,
+            [fieldKey]: nextDirty,
+          },
+        };
+      });
+
+      const asyncValues = pendingAsyncValuesRef.current;
+      pendingAsyncValuesRef.current = null;
+      if (options.validateOnChange && asyncValidatorRef.current && asyncValues) {
+        asyncValidatorRef.current.run(asyncValues);
+      }
+    };
+
+    const remove = (index: number): void => {
+      pendingAsyncValuesRef.current = null;
+
+      setState((prev) => {
+        if (!isFieldEditableInternal(fieldKey, prev)) {
+          return prev;
+        }
+
+        const currentValues = getArrayFieldValues(prev.values, field);
+        if (index < 0 || index >= currentValues.length) {
+          return prev;
+        }
+
+        const nextValuesArray = removeAtIndex(currentValues, index);
+        const nextValues = {
+          ...prev.values,
+          [field]: nextValuesArray as unknown as T[K],
+        };
+        pendingAsyncValuesRef.current = nextValues;
+
+        const nextTouched = removeAtIndex(
+          normalizeBooleanArray(prev.touched[fieldKey], currentValues.length, false),
+          index,
+        );
+        const nextDirty = removeAtIndex(
+          normalizeBooleanArray(prev.dirty[fieldKey], currentValues.length, false),
+          index,
+        );
+
+        let nextErrors = prev.errors;
+        if (options.validateOnChange) {
+          nextErrors = runSyncValidationFiltered(nextValues, prev);
+        } else {
+          const nextErrorArray = removeAtIndex(
+            normalizeErrorArray(prev.errors[fieldKey], currentValues.length),
+            index,
+          );
+          nextErrors = {
+            ...prev.errors,
+            [fieldKey]: nextErrorArray,
+          };
+        }
+
+        removeFieldArrayKey(fieldKey, index);
+
+        return {
+          ...prev,
+          values: nextValues,
+          errors: nextErrors,
+          touched: {
+            ...prev.touched,
+            [fieldKey]: nextTouched,
+          },
+          dirty: {
+            ...prev.dirty,
+            [fieldKey]: nextDirty,
+          },
+        };
+      });
+
+      const asyncValues = pendingAsyncValuesRef.current;
+      pendingAsyncValuesRef.current = null;
+      if (options.validateOnChange && asyncValidatorRef.current && asyncValues) {
+        asyncValidatorRef.current.run(asyncValues);
+      }
+    };
+
+    const move = (from: number, to: number): void => {
+      pendingAsyncValuesRef.current = null;
+
+      setState((prev) => {
+        if (!isFieldEditableInternal(fieldKey, prev)) {
+          return prev;
+        }
+
+        const currentValues = getArrayFieldValues(prev.values, field);
+        if (
+          from < 0 ||
+          to < 0 ||
+          from >= currentValues.length ||
+          to >= currentValues.length ||
+          from === to
+        ) {
+          return prev;
+        }
+
+        const nextValuesArray = moveIndex(currentValues, from, to);
+        const nextValues = {
+          ...prev.values,
+          [field]: nextValuesArray as unknown as T[K],
+        };
+        pendingAsyncValuesRef.current = nextValues;
+
+        const nextTouched = moveIndex(
+          normalizeBooleanArray(prev.touched[fieldKey], currentValues.length, false),
+          from,
+          to,
+        );
+        const nextDirty = moveIndex(
+          normalizeBooleanArray(prev.dirty[fieldKey], currentValues.length, false),
+          from,
+          to,
+        );
+        const nextErrorArray = moveIndex(
+          normalizeErrorArray(prev.errors[fieldKey], currentValues.length),
+          from,
+          to,
+        );
+
+        let nextErrors = {
+          ...prev.errors,
+          [fieldKey]: nextErrorArray,
+        } as ValidationResult<T>;
+        if (options.validateOnChange) {
+          nextErrors = runSyncValidationFiltered(nextValues, prev);
+        }
+
+        moveFieldArrayKey(fieldKey, from, to);
+
+        return {
+          ...prev,
+          values: nextValues,
+          errors: nextErrors,
+          touched: {
+            ...prev.touched,
+            [fieldKey]: nextTouched,
+          },
+          dirty: {
+            ...prev.dirty,
+            [fieldKey]: nextDirty,
+          },
+        };
+      });
+
+      const asyncValues = pendingAsyncValuesRef.current;
+      pendingAsyncValuesRef.current = null;
+      if (options.validateOnChange && asyncValidatorRef.current && asyncValues) {
+        asyncValidatorRef.current.run(asyncValues);
+      }
+    };
+
+    return Object.freeze({
+      values,
+      keys,
+      append,
+      remove,
+      move,
+    });
+  };
+
+  /**
+   * Advance wizard by one step when current step validates cleanly.
+   */
+  const nextStep = (): boolean => {
+    if (!hasWizard) {
+      return true;
+    }
+
+    let didAdvance = false;
+    setState((prev) => {
+      const prevStep = clampStepIndex(prev.currentStep, stepCount);
+      if (prevStep >= stepCount - 1) {
+        didAdvance = true;
+        return prev;
+      }
+
+      const step = getStep(prevStep);
+      const stepFields = getStepFields(step, prev.values);
+      const stepErrors = runWizardStepValidation(prev.values, prevStep, prev);
+
+      if (!isValidationClean(stepErrors)) {
+        didAdvance = false;
+        return {
+          ...prev,
+          touched: markFieldsTouched(prev.touched, prev.values, stepFields),
+          errors: mergeStepErrors(prev.errors, stepFields, stepErrors),
+        };
+      }
+
+      didAdvance = true;
+      return {
+        ...prev,
+        currentStep: clampStepIndex(prevStep + 1, stepCount),
+      };
+    });
+
+    return didAdvance;
+  };
+
+  /**
+   * Navigate to previous wizard step without validation.
+   */
+  const previousStep = (): void => {
+    if (!hasWizard) {
+      return;
+    }
+    setState((prev) => ({
+      ...prev,
+      currentStep: clampStepIndex(prev.currentStep - 1, stepCount),
+    }));
+  };
+
+  /**
+   * Navigate to a specific wizard step with validation gates on forward moves.
+   */
+  const goToStep = (stepIndex: number): boolean => {
+    if (!hasWizard) {
+      return false;
+    }
+
+    const targetStep = clampStepIndex(stepIndex, stepCount);
+    if (targetStep === currentStep) {
+      return true;
+    }
+
+    if (targetStep < currentStep) {
+      setState((prev) => ({
+        ...prev,
+        currentStep: targetStep,
+      }));
+      return true;
+    }
+
+    for (let step = currentStep; step < targetStep; step++) {
+      const stepDef = getStep(step);
+      const stepFields = getStepFields(stepDef, state.values);
+      const stepErrors = runWizardStepValidation(state.values, step, state);
+      if (!isValidationClean(stepErrors)) {
+        setState((prev) => ({
+          ...prev,
+          touched: markFieldsTouched(prev.touched, prev.values, stepFields),
+          errors: mergeStepErrors(prev.errors, stepFields, stepErrors),
+        }));
+        return false;
+      }
+    }
+
+    setState((prev) => ({
+      ...prev,
+      currentStep: targetStep,
+    }));
+    return true;
+  };
+
+  /**
    * Reset form to initial state.
    */
   const reset = (): void => {
     asyncValidatorRef.current?.cancel();
+    fieldArrayKeysRef.current = {};
     setState(createInitialState(options));
   };
 
@@ -285,20 +1004,27 @@ export function useForm<T extends Record<string, unknown>, State = void>(
    * Handle form submission.
    */
   const handleSubmit = (): void => {
-    // Don't submit if already submitting
-    if (state.isSubmitting) {
+    // Don't submit if disabled or already submitting
+    if (state.disabled || state.isSubmitting) {
+      return;
+    }
+
+    // In wizard mode, submit action advances steps until the last step.
+    if (hasWizard && !isLastStep) {
+      nextStep();
       return;
     }
 
     // Mark all fields as touched
-    const allTouched: Partial<Record<keyof T, boolean>> = {};
+    const allTouched: Partial<Record<keyof T, FieldBooleanValue>> = {};
     const keys = Object.keys(state.values) as (keyof T)[];
     for (const key of keys) {
-      allTouched[key] = true;
+      const value = state.values[key];
+      allTouched[key] = Array.isArray(value) ? value.map(() => true) : true;
     }
 
     // Run sync validation
-    const syncErrors = runSyncValidation(state.values, options.validate);
+    const syncErrors = runSyncValidationFiltered(state.values, state);
 
     // Update state with touched and sync errors
     setState((prev) => ({
@@ -322,7 +1048,7 @@ export function useForm<T extends Record<string, unknown>, State = void>(
     // Run async validation and submit
     const submitAsync = async (): Promise<void> => {
       try {
-        const asyncErrors = await runAsyncValidation(state.values, options.validateAsync);
+        const asyncErrors = await runAsyncValidationFiltered(state.values, state);
 
         const allErrors = mergeValidationErrors(syncErrors, asyncErrors);
 
@@ -370,6 +1096,13 @@ export function useForm<T extends Record<string, unknown>, State = void>(
     isDirty,
     isSubmitting: state.isSubmitting,
     submitCount: state.submitCount,
+    disabled: state.disabled,
+    readOnly: state.readOnly,
+    currentStep,
+    stepCount,
+    hasWizard,
+    isFirstStep,
+    isLastStep,
     handleChange,
     handleBlur,
     handleSubmit,
@@ -379,5 +1112,15 @@ export function useForm<T extends Record<string, unknown>, State = void>(
     setFieldTouched,
     validateField,
     validateForm,
+    setDisabled,
+    setReadOnly,
+    setFieldDisabled,
+    setFieldReadOnly,
+    isFieldDisabled: (field: keyof T) => isFieldDisabledInternal(field, state),
+    isFieldReadOnly: (field: keyof T) => isFieldReadOnlyInternal(field, state),
+    useFieldArray,
+    nextStep,
+    previousStep,
+    goToStep,
   });
 }

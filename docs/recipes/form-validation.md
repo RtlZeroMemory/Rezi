@@ -118,6 +118,52 @@ await app.start();
 - Validation runs inside the update function so it stays deterministic and doesn’t run during render.
 - `touched` is set on `onBlur` so errors only display after the user leaves a field.
 
+## `useForm` Advanced Features
+
+`@rezi-ui/core` also provides a richer `useForm` API for more complex flows:
+
+- **Field arrays** with deterministic keys and state-preserving mutations:
+  - `const fields = form.useFieldArray("items")`
+  - `fields.append(item)`, `fields.remove(index)`, `fields.move(from, to)`
+- **Wizard flow** with step gates:
+  - configure `wizard.steps` in `useForm` options
+  - navigate with `form.nextStep()`, `form.previousStep()`, `form.goToStep(index)`
+  - backward navigation does not re-run validation
+- **Form-level disabled/readOnly** with per-field overrides:
+  - `form.setDisabled(true)` / `form.setReadOnly(true)`
+  - `form.setFieldDisabled("name", false)` and `form.setFieldReadOnly("name", false)` override form-level flags
+
+### Example: Wizard + Field Array
+
+```typescript
+import { useForm } from "@rezi-ui/core/forms";
+
+type Values = {
+  name: string;
+  emails: string[];
+};
+
+const form = useForm(ctx, {
+  initialValues: { name: "", emails: [""] },
+  validate: (v) => ({
+    name: v.name ? undefined : "Required",
+    emails: v.emails.map((email) => (email.includes("@") ? undefined : "Invalid email")),
+  }),
+  wizard: {
+    steps: [
+      { id: "profile", fields: ["name"] },
+      { id: "emails", fields: ["emails"] },
+    ],
+  },
+  onSubmit: (values) => {
+    // handle values
+  },
+});
+
+const emails = form.useFieldArray("emails");
+emails.append("");
+```
+
 ## Related
 
 - [Input](../widgets/input.md) - Text input widget

@@ -197,6 +197,24 @@ describe("useForm hook", () => {
     assert.equal(form.dirty.name, true);
   });
 
+  test("dirty tracking remains true when array value shrinks with unchanged prefix", () => {
+    const h = createTestContext();
+
+    const options: UseFormOptions<{ items: string[] }> = {
+      initialValues: { items: ["a", "b"] },
+      onSubmit: () => {},
+    };
+
+    let form = h.render(options);
+    assert.equal(form.isDirty, false);
+
+    form.setFieldValue("items", ["a"]);
+    form = h.render(options);
+
+    assert.equal(form.isDirty, true);
+    assert.equal(form.dirty.items, true);
+  });
+
   test("handleSubmit does not call onSubmit when invalid", () => {
     const h = createTestContext();
 
