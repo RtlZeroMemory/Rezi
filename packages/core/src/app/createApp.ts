@@ -732,7 +732,7 @@ export function createApp<S>(
           if (keybindingsEnabled) {
             if (
               ev.kind === "mouse" &&
-              (ev.mouseKind === 3 || ev.mouseKind === 4) &&
+              ev.mouseKind === 3 &&
               keybindingState.chordState.pendingKeys.length > 0
             ) {
               keybindingState = Object.freeze({

@@ -409,6 +409,30 @@ describe("app routing precedence", () => {
     assert.equal(chordHits, 0);
   });
 
+  test("mouse up does not clear chord started after mouse down", async () => {
+    const backend = new StubBackend();
+    let chordHits = 0;
+
+    const app = createApp({ backend, initialState: 0 });
+    app.keys({
+      "g g": () => {
+        chordHits++;
+      },
+    });
+    app.view(() => ui.text("No focusable widgets"));
+
+    await app.start();
+    await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 40, rows: 10 }]);
+    await settleNextFrame(backend);
+
+    await pushEvents(backend, [{ kind: "mouse", timeMs: 2, x: 0, y: 0, mouseKind: 3, buttons: 1 }]);
+    await pushEvents(backend, [{ kind: "key", timeMs: 3, key: KEY_G, action: "down" }]);
+    await pushEvents(backend, [{ kind: "mouse", timeMs: 4, x: 0, y: 0, mouseKind: 4, buttons: 0 }]);
+    await pushEvents(backend, [{ kind: "key", timeMs: 5, key: KEY_G, action: "down" }]);
+
+    assert.equal(chordHits, 1);
+  });
+
   test("app-level keybinding consumes Enter before widget-level button routing", async () => {
     const backend = new StubBackend();
     let keybindingHits = 0;
