@@ -43,6 +43,12 @@ ui.column({}, [
 ])
 ```
 
+Focus persistence is ID-based across commits:
+
+- If the currently focused `id` still exists after re-render, focus stays on that `id` even if position changes.
+- If that `id` disappears, focus falls back to the first focusable widget in traversal order (or `null` if none remain).
+- Deferred/pending focus requests are resolved during finalize against the newly committed tree using the same rules.
+
 ### Focus Zones
 
 Group related widgets with focus zones for organized Tab navigation:
@@ -62,6 +68,12 @@ ui.column({}, [
 
 Tab moves between zones; arrow keys navigate within zones.
 
+Zone traversal order is deterministic:
+
+- Zones are traversed by ascending `tabIndex`.
+- Ties on `tabIndex` preserve tree traversal order.
+- Empty zones are skipped during Tab/Shift+Tab traversal.
+
 ### Focus Traps
 
 Constrain focus within modals and overlays:
@@ -73,6 +85,11 @@ ui.focusTrap({ id: "modal", active: state.showModal }, [
   ui.button({ id: "cancel", label: "Cancel" }),
 ])
 ```
+
+Trap activation focus rules:
+
+- `initialFocus` should point to an element inside the trap for guaranteed containment.
+- If `initialFocus` is not focusable in the committed tree, focus falls back to the first focusable element inside the trap.
 
 ## Keybinding System
 
