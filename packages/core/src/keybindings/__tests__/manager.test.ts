@@ -227,13 +227,10 @@ describe("setMode", () => {
     assert.equal(state.currentMode, "custom");
   });
 
-  test("creates mode if it does not exist", () => {
-    let state = createManagerState<TestContext>();
+  test("throws for unknown mode", () => {
+    const state = createManagerState<TestContext>();
 
-    state = setMode(state, "newmode");
-
-    assert.equal(state.currentMode, "newmode");
-    assert.equal(state.modes.has("newmode"), true);
+    assert.throws(() => setMode(state, "newmode"));
   });
 
   test("resets chord state when switching", () => {
@@ -249,6 +246,8 @@ describe("setMode", () => {
 
     // Should have pending keys
     assert.equal(state.chordState.pendingKeys.length, 1);
+
+    state = registerModes(state, { other: { a: () => {} } }).state;
 
     // Switch mode
     state = setMode(state, "other");
@@ -272,6 +271,7 @@ describe("getMode", () => {
     let state = createManagerState<TestContext>();
     assert.equal(getMode(state), DEFAULT_MODE);
 
+    state = registerModes(state, { custom: { a: () => {} } }).state;
     state = setMode(state, "custom");
     assert.equal(getMode(state), "custom");
   });

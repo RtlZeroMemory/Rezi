@@ -508,6 +508,29 @@ export function createApp<S>(
     return false;
   }
 
+  function applyRoutedKeybindingState(
+    routeInputState: KeybindingManagerState<KeyContext<S>>,
+    routeNextState: KeybindingManagerState<KeyContext<S>>,
+  ): void {
+    // If handlers did not mutate keybinding state, take the routed state directly.
+    if (keybindingState === routeInputState) {
+      keybindingState = routeNextState;
+      return;
+    }
+
+    // Preserve handler-triggered mode changes (for example app.setMode() in a binding).
+    if (keybindingState.currentMode !== routeInputState.currentMode) {
+      return;
+    }
+
+    // For non-mode mutations (e.g. app.keys/app.modes in a handler), keep those
+    // edits but still advance chord state from the routed event.
+    keybindingState = Object.freeze({
+      ...keybindingState,
+      chordState: routeNextState.chordState,
+    });
+  }
+
   function noteBreadcrumbEvent(kind: string): void {
     breadcrumbEventTracked = false;
     if (!runtimeBreadcrumbsEnabled) return;
@@ -715,8 +738,16 @@ export function createApp<S>(
                   update: app.update,
                   focusedId: widgetRenderer.getFocusedId(),
                 });
-                const keyResult = routeKeyEvent(keybindingState, ev, keyCtx);
-                keybindingState = keyResult.nextState;
+                const routeInputState = keybindingState;
+                const keyResult = routeKeyEvent(routeInputState, ev, keyCtx);
+                applyRoutedKeybindingState(routeInputState, keyResult.nextState);
+                if (keyResult.handlerError !== undefined) {
+                  enqueueFatal(
+                    "ZRUI_USER_CODE_THROW",
+                    `keybinding handler threw: ${describeThrown(keyResult.handlerError)}`,
+                  );
+                  return;
+                }
                 if (keyResult.consumed) {
                   noteBreadcrumbConsumptionPath("keybindings");
                   continue; // Skip default widget routing
@@ -741,8 +772,16 @@ export function createApp<S>(
                   update: app.update,
                   focusedId: widgetRenderer.getFocusedId(),
                 });
-                const keyResult = routeKeyEvent(keybindingState, syntheticKeyEvent, keyCtx);
-                keybindingState = keyResult.nextState;
+                const routeInputState = keybindingState;
+                const keyResult = routeKeyEvent(routeInputState, syntheticKeyEvent, keyCtx);
+                applyRoutedKeybindingState(routeInputState, keyResult.nextState);
+                if (keyResult.handlerError !== undefined) {
+                  enqueueFatal(
+                    "ZRUI_USER_CODE_THROW",
+                    `keybinding handler threw: ${describeThrown(keyResult.handlerError)}`,
+                  );
+                  return;
+                }
                 if (keyResult.consumed) {
                   noteBreadcrumbConsumptionPath("keybindings");
                   continue; // Skip default widget routing
