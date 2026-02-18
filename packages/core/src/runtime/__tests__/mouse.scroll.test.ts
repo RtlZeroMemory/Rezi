@@ -1,6 +1,6 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type { ZrevEvent } from "../../events.js";
-import { routeVirtualListWheel, type VirtualListWheelCtx } from "../router.js";
+import { type VirtualListWheelCtx, routeVirtualListWheel } from "../router.js";
 
 function wheelEvent(
   wheelY: number,

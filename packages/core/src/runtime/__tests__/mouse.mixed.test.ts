@@ -1,9 +1,13 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { encodeZrevBatchV1, flushMicrotasks, makeBackendBatch } from "../../app/__tests__/helpers.js";
+import {
+  encodeZrevBatchV1,
+  flushMicrotasks,
+  makeBackendBatch,
+} from "../../app/__tests__/helpers.js";
 import { StubBackend } from "../../app/__tests__/stubBackend.js";
 import { createApp } from "../../app/createApp.js";
 import type { ZrevEvent } from "../../events.js";
-import { ui, type VNode } from "../../index.js";
+import { type VNode, ui } from "../../index.js";
 import { ZR_KEY_ENTER, ZR_KEY_TAB, ZR_MOD_CTRL, ZR_MOD_SHIFT } from "../../keybindings/keyCodes.js";
 import { createManagerState, registerBindings, routeKeyEvent } from "../../keybindings/manager.js";
 import type { KeyContext } from "../../keybindings/types.js";
@@ -104,7 +108,10 @@ function layoutNode(vnode: VNode, rect: Rect, children: readonly LayoutTree[] = 
   };
 }
 
-function createRoutingState(focusedId: string | null, pressedId: string | null = null): MixedRoutingState {
+function createRoutingState(
+  focusedId: string | null,
+  pressedId: string | null = null,
+): MixedRoutingState {
   return Object.freeze({
     focusState: Object.freeze({ focusedId }),
     pressedId,
@@ -718,9 +725,7 @@ describe("hit-test integration boundaries", () => {
     const root = containerNode([mid]);
 
     const tree = layoutNode(root, { x: 0, y: 0, w: 5, h: 3 }, [
-      layoutNode(mid, { x: 0, y: 0, w: 3, h: 2 }, [
-        layoutNode(leaf, { x: 0, y: 0, w: 4, h: 2 }),
-      ]),
+      layoutNode(mid, { x: 0, y: 0, w: 3, h: 2 }, [layoutNode(leaf, { x: 0, y: 0, w: 4, h: 2 })]),
     ]);
 
     assert.equal(hitTestFocusable(root, tree, 0, 0), "leaf");
