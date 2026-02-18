@@ -3,6 +3,7 @@ import type { LayoutTree } from "../../../layout/layout.js";
 import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { Theme } from "../../../theme/theme.js";
+import { SCROLLBAR_CONFIGS, renderHorizontalScrollbar, renderVerticalScrollbar } from "../../scrollbar.js";
 import { createShadowConfig, renderShadow } from "../../shadow.js";
 import { asTextStyle } from "../../styles.js";
 import { readBoxBorder, readTitleAlign, renderBoxBorder } from "../boxBorder.js";
@@ -25,6 +26,31 @@ type ModalBackdropConfig = Readonly<{
   foreground?: ResolvedTextStyle["fg"];
   background?: ResolvedTextStyle["bg"];
 }>;
+
+type OverflowMode = "visible" | "hidden" | "scroll";
+type OverflowMetadata = Readonly<{
+  scrollX: number;
+  scrollY: number;
+  contentWidth: number;
+  contentHeight: number;
+  viewportWidth: number;
+  viewportHeight: number;
+}>;
+
+type ScrollViewport = Readonly<{
+  viewportRect: Rect;
+  showVertical: boolean;
+  showHorizontal: boolean;
+  scrollX: number;
+  scrollY: number;
+  contentWidth: number;
+  contentHeight: number;
+}>;
+
+const SCROLLBAR_RENDER_CONFIG = {
+  ...SCROLLBAR_CONFIGS.minimal,
+  minThumbSize: 1,
+};
 
 function clipEquals(a: ClipRect | undefined, b: ClipRect): boolean {
   return a !== undefined && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
@@ -276,6 +302,135 @@ function resolveModalBackdrop(raw: unknown): ModalBackdropConfig {
   };
 }
 
+function clampNonNegativeInt(raw: unknown): number {
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return 0;
+  const n = Math.trunc(raw);
+  return n <= 0 ? 0 : n;
+}
+
+function readOverflowMode(raw: unknown): OverflowMode {
+  if (raw === "hidden" || raw === "scroll") {
+    return raw;
+  }
+  return "visible";
+}
+
+function readOverflowMetadata(layoutNode: LayoutTree, contentRect: Rect): OverflowMetadata {
+  const meta = layoutNode.meta as
+    | {
+        scrollX?: unknown;
+        scrollY?: unknown;
+        contentWidth?: unknown;
+        contentHeight?: unknown;
+        viewportWidth?: unknown;
+        viewportHeight?: unknown;
+      }
+    | undefined;
+  const viewportWidth = clampNonNegativeInt(meta?.viewportWidth) || contentRect.w;
+  const viewportHeight = clampNonNegativeInt(meta?.viewportHeight) || contentRect.h;
+  const contentWidth = Math.max(clampNonNegativeInt(meta?.contentWidth), viewportWidth);
+  const contentHeight = Math.max(clampNonNegativeInt(meta?.contentHeight), viewportHeight);
+  const maxScrollX = Math.max(0, contentWidth - viewportWidth);
+  const maxScrollY = Math.max(0, contentHeight - viewportHeight);
+  return {
+    scrollX: Math.min(clampNonNegativeInt(meta?.scrollX), maxScrollX),
+    scrollY: Math.min(clampNonNegativeInt(meta?.scrollY), maxScrollY),
+    contentWidth,
+    contentHeight,
+    viewportWidth,
+    viewportHeight,
+  };
+}
+
+function resolveScrollViewport(contentRect: Rect, meta: OverflowMetadata): ScrollViewport {
+  let showVertical = meta.contentHeight > contentRect.h;
+  let showHorizontal = meta.contentWidth > contentRect.w;
+
+  for (let i = 0; i < 2; i++) {
+    const nextViewportW = clampNonNegative(contentRect.w - (showVertical ? 1 : 0));
+    const nextViewportH = clampNonNegative(contentRect.h - (showHorizontal ? 1 : 0));
+    const nextVertical = meta.contentHeight > nextViewportH;
+    const nextHorizontal = meta.contentWidth > nextViewportW;
+    if (nextVertical === showVertical && nextHorizontal === showHorizontal) {
+      break;
+    }
+    showVertical = nextVertical;
+    showHorizontal = nextHorizontal;
+  }
+
+  const viewportW = clampNonNegative(contentRect.w - (showVertical ? 1 : 0));
+  const viewportH = clampNonNegative(contentRect.h - (showHorizontal ? 1 : 0));
+  const maxScrollX = Math.max(0, meta.contentWidth - viewportW);
+  const maxScrollY = Math.max(0, meta.contentHeight - viewportH);
+
+  return {
+    viewportRect: {
+      x: contentRect.x,
+      y: contentRect.y,
+      w: viewportW,
+      h: viewportH,
+    },
+    showVertical,
+    showHorizontal,
+    scrollX: Math.min(meta.scrollX, maxScrollX),
+    scrollY: Math.min(meta.scrollY, maxScrollY),
+    contentWidth: meta.contentWidth,
+    contentHeight: meta.contentHeight,
+  };
+}
+
+function drawScrollbars(
+  builder: DrawlistBuilderV1,
+  viewport: ScrollViewport,
+  style: ResolvedTextStyle,
+  theme: Theme,
+): void {
+  const scrollbarStyle = mergeTextStyle(style, { fg: theme.colors.border });
+
+  if (viewport.showVertical && viewport.viewportRect.h > 0) {
+    const maxScrollY = Math.max(0, viewport.contentHeight - viewport.viewportRect.h);
+    const position = maxScrollY > 0 ? viewport.scrollY / maxScrollY : 0;
+    const viewportRatio =
+      viewport.contentHeight > 0 ? Math.min(1, viewport.viewportRect.h / viewport.contentHeight) : 1;
+    const glyphs = renderVerticalScrollbar(
+      viewport.viewportRect.h,
+      { position, viewportRatio },
+      SCROLLBAR_RENDER_CONFIG,
+    );
+    const x = viewport.viewportRect.x + viewport.viewportRect.w;
+    for (let dy = 0; dy < glyphs.length; dy++) {
+      const glyph = glyphs[dy];
+      if (!glyph) continue;
+      builder.drawText(x, viewport.viewportRect.y + dy, glyph, scrollbarStyle);
+    }
+  }
+
+  if (viewport.showHorizontal && viewport.viewportRect.w > 0) {
+    const maxScrollX = Math.max(0, viewport.contentWidth - viewport.viewportRect.w);
+    const position = maxScrollX > 0 ? viewport.scrollX / maxScrollX : 0;
+    const viewportRatio =
+      viewport.contentWidth > 0 ? Math.min(1, viewport.viewportRect.w / viewport.contentWidth) : 1;
+    const glyphs = renderHorizontalScrollbar(
+      viewport.viewportRect.w,
+      { position, viewportRatio },
+      SCROLLBAR_RENDER_CONFIG,
+    );
+    const y = viewport.viewportRect.y + viewport.viewportRect.h;
+    for (let dx = 0; dx < glyphs.length; dx++) {
+      const glyph = glyphs[dx];
+      if (!glyph) continue;
+      builder.drawText(viewport.viewportRect.x + dx, y, glyph, scrollbarStyle);
+    }
+  }
+
+  if (viewport.showVertical && viewport.showHorizontal) {
+    const x = viewport.viewportRect.x + viewport.viewportRect.w;
+    const y = viewport.viewportRect.y + viewport.viewportRect.h;
+    const corner = SCROLLBAR_RENDER_CONFIG.glyphs?.track ?? " ";
+    builder.drawText(x, y, corner, scrollbarStyle);
+  }
+}
+
 export function renderContainerWidget(
   builder: DrawlistBuilderV1,
   rect: Rect,
@@ -306,6 +461,7 @@ export function renderContainerWidget(
         pb?: unknown;
         pl?: unknown;
         pr?: unknown;
+        overflow?: unknown;
         style?: unknown;
       };
       const ownStyle = asTextStyle(props.style);
@@ -315,36 +471,23 @@ export function renderContainerWidget(
       }
 
       const spacing = resolveSpacingFromProps(props);
-
-      // Fast path: no spacing → childClip equals rect, avoid allocation.
-      if (spacing.top === 0 && spacing.right === 0 && spacing.bottom === 0 && spacing.left === 0) {
-        if (!clipEquals(currentClip, rect)) {
-          builder.pushClip(rect.x, rect.y, rect.w, rect.h);
-          nodeStack.push(null);
-        }
-        pushChildrenWithLayout(
-          node,
-          layoutNode,
-          style,
-          nodeStack,
-          styleStack,
-          layoutStack,
-          clipStack,
-          rect,
-          damageRect,
-          vnode.kind,
-        );
-        break;
-      }
-
       const cx = rect.x + spacing.left;
       const cy = rect.y + spacing.top;
       const cw = clampNonNegative(rect.w - spacing.left - spacing.right);
       const ch = clampNonNegative(rect.h - spacing.top - spacing.bottom);
-      const childClip: ClipRect = { x: cx, y: cy, w: cw, h: ch };
+      const contentRect: ClipRect = { x: cx, y: cy, w: cw, h: ch };
+      const overflowMode = readOverflowMode(props.overflow);
+
+      let childClip: ClipRect = contentRect;
+      if (overflowMode === "scroll") {
+        const meta = readOverflowMetadata(layoutNode, contentRect);
+        const viewportWithScrollbars = resolveScrollViewport(contentRect, meta);
+        drawScrollbars(builder, viewportWithScrollbars, style, theme);
+        childClip = viewportWithScrollbars.viewportRect;
+      }
 
       if (!clipEquals(currentClip, childClip)) {
-        builder.pushClip(cx, cy, cw, ch);
+        builder.pushClip(childClip.x, childClip.y, childClip.w, childClip.h);
         nodeStack.push(null);
       }
       pushChildrenWithLayout(
@@ -380,6 +523,7 @@ export function renderContainerWidget(
         title?: unknown;
         titleAlign?: unknown;
         shadow?: unknown;
+        overflow?: unknown;
         style?: unknown;
       };
       const spacing = resolveSpacingFromProps(props);
@@ -418,10 +562,19 @@ export function renderContainerWidget(
       const cy = rect.y + bt + spacing.top;
       const cw = clampNonNegative(rect.w - bl - br - spacing.left - spacing.right);
       const ch = clampNonNegative(rect.h - bt - bb - spacing.top - spacing.bottom);
-      const childClip: ClipRect = { x: cx, y: cy, w: cw, h: ch };
+      const contentRect: ClipRect = { x: cx, y: cy, w: cw, h: ch };
+      const overflowMode = readOverflowMode(props.overflow);
+      let childClip: ClipRect = contentRect;
+
+      if (overflowMode === "scroll") {
+        const meta = readOverflowMetadata(layoutNode, contentRect);
+        const viewportWithScrollbars = resolveScrollViewport(contentRect, meta);
+        drawScrollbars(builder, viewportWithScrollbars, style, theme);
+        childClip = viewportWithScrollbars.viewportRect;
+      }
 
       if (!clipEquals(currentClip, childClip)) {
-        builder.pushClip(cx, cy, cw, ch);
+        builder.pushClip(childClip.x, childClip.y, childClip.w, childClip.h);
         nodeStack.push(null);
       }
       pushChildrenWithLayout(

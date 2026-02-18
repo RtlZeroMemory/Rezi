@@ -4,6 +4,7 @@ import {
   truncateMiddle,
   truncateWithEllipsis,
 } from "../../../layout/textMeasure.js";
+import type { LayoutTree } from "../../../layout/layout.js";
 import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { FocusState } from "../../../runtime/focus.js";
@@ -153,6 +154,43 @@ function clampIndexScrollTop(scrollTop: number, totalRows: number, viewportHeigh
   return Math.trunc(clampScrollTop(scrollTop, totalRows, viewportHeight));
 }
 
+function setLayoutScrollMetadata(
+  layoutNode: LayoutTree,
+  patch: Readonly<{
+    scrollX?: number;
+    scrollY?: number;
+    contentWidth?: number;
+    contentHeight?: number;
+    viewportWidth?: number;
+    viewportHeight?: number;
+  }>,
+): void {
+  const prev = layoutNode.meta as
+    | {
+        scrollX?: unknown;
+        scrollY?: unknown;
+        contentWidth?: unknown;
+        contentHeight?: unknown;
+        viewportWidth?: unknown;
+        viewportHeight?: unknown;
+      }
+    | undefined;
+  const next = Object.freeze({
+    scrollX: patch.scrollX ?? (typeof prev?.scrollX === "number" ? prev.scrollX : 0),
+    scrollY: patch.scrollY ?? (typeof prev?.scrollY === "number" ? prev.scrollY : 0),
+    contentWidth:
+      patch.contentWidth ?? (typeof prev?.contentWidth === "number" ? prev.contentWidth : 0),
+    contentHeight:
+      patch.contentHeight ?? (typeof prev?.contentHeight === "number" ? prev.contentHeight : 0),
+    viewportWidth:
+      patch.viewportWidth ?? (typeof prev?.viewportWidth === "number" ? prev.viewportWidth : 0),
+    viewportHeight:
+      patch.viewportHeight ??
+      (typeof prev?.viewportHeight === "number" ? prev.viewportHeight : 0),
+  });
+  (layoutNode as { meta?: unknown }).meta = next;
+}
+
 export function renderCollectionWidget(
   builder: DrawlistBuilderV1,
   focusState: FocusState,
@@ -161,6 +199,7 @@ export function renderCollectionWidget(
   tick: number,
   parentStyle: ResolvedTextStyle,
   node: RuntimeInstance,
+  layoutNode: LayoutTree,
   nodeStack: (RuntimeInstance | null)[],
   styleStack: ResolvedTextStyle[],
   virtualListStore: VirtualListStateStore | undefined,
@@ -185,6 +224,14 @@ export function renderCollectionWidget(
 
       const totalHeight = getTotalHeight(items, itemHeight);
       const effectiveScrollTop = clampScrollTop(state.scrollTop, totalHeight, rect.h);
+      setLayoutScrollMetadata(layoutNode, {
+        scrollX: 0,
+        scrollY: effectiveScrollTop,
+        contentWidth: rect.w,
+        contentHeight: totalHeight,
+        viewportWidth: rect.w,
+        viewportHeight: rect.h,
+      });
 
       // Compute visible range with overscan
       const { startIndex, endIndex, itemOffsets } = computeVisibleRange(
@@ -329,6 +376,14 @@ export function renderCollectionWidget(
       const effectiveScrollTop = virtualized
         ? clampScrollTop(tableState.scrollTop, totalBodyHeight, bodyH)
         : 0;
+      setLayoutScrollMetadata(layoutNode, {
+        scrollX: 0,
+        scrollY: effectiveScrollTop,
+        contentWidth: innerW,
+        contentHeight: totalBodyHeight,
+        viewportWidth: innerW,
+        viewportHeight: bodyH,
+      });
       const startIndex = virtualized
         ? Math.max(0, Math.floor(effectiveScrollTop / safeRowHeight))
         : 0;
@@ -496,6 +551,14 @@ export function renderCollectionWidget(
       const effectiveScrollTop = clampIndexScrollTop(state.scrollTop, flatNodes.length, rect.h);
       const startIndex = Math.max(0, effectiveScrollTop);
       const endIndex = Math.min(flatNodes.length, startIndex + rect.h);
+      setLayoutScrollMetadata(layoutNode, {
+        scrollX: 0,
+        scrollY: effectiveScrollTop,
+        contentWidth: rect.w,
+        contentHeight: flatNodes.length,
+        viewportWidth: rect.w,
+        viewportHeight: rect.h,
+      });
 
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
       nodeStack.push(null);
