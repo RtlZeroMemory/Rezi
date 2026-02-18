@@ -125,16 +125,15 @@ In widget mode, key routing is:
 
 ## Mouse Input
 
-Rezi supports mouse interaction when the terminal supports mouse tracking. Mouse events are routed through the same focus system as keyboard input:
+Mouse input shares the same focus state as keyboard navigation:
 
-- **Click** any focusable widget to focus it. Clicking a button also activates its `onPress` callback.
-- **Scroll wheel** scrolls focused or hovered scrollable widgets (VirtualList, CodeEditor, LogsConsole, DiffViewer).
-- **Drag** split pane dividers to resize panels.
-- **Click** a modal backdrop to close the modal (when `closeOnBackdrop` is enabled).
+- Mouse down transfers focus immediately to the hit, enabled focusable widget.
+- Button activation is press/release based (down + up on the same enabled button).
+- Wheel routing prefers a `VirtualList` under cursor, then focused scrollables; wheel deltas are step-based and clamped.
+- `SplitPane` dividers use dedicated drag routing (split panes are not focusable targets).
+- Mouse events do not run keybinding chord matching directly.
 
-Mouse and keyboard input can be freely mixed. Clicking a widget updates the same focus state that Tab navigation uses.
-
-For the complete mouse support reference, see the [Mouse Support](mouse-support.md) guide.
+For complete click/scroll/drag and hit-testing invariants, see [Mouse Support](mouse-support.md).
 
 ## Event Handling
 
