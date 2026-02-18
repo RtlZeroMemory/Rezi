@@ -11,7 +11,6 @@ const ZR_KEY_END = 13;
 const ZR_KEY_LEFT = 22;
 const ZR_KEY_RIGHT = 23;
 
-const ZR_MOD_SHIFT = 1 << 0;
 const ZR_MOD_CTRL = 1 << 1;
 const ZR_MOD_ALT = 1 << 2;
 const ZR_MOD_META = 1 << 3;
@@ -44,8 +43,18 @@ function utf8Bytes(s: string): Uint8Array {
 function edit(
   event: ZrevEvent,
   ctx: Readonly<{ id: string; value: string; cursor: number }>,
-): ReturnType<typeof applyInputEditEvent> {
-  return applyInputEditEvent(event, ctx);
+): Readonly<{
+  nextValue: string;
+  nextCursor: number;
+  action?: Readonly<{ id: string; action: "input"; value: string; cursor: number }>;
+}> | null {
+  const next = applyInputEditEvent(event, ctx);
+  if (!next) return null;
+  return Object.freeze({
+    nextValue: next.nextValue,
+    nextCursor: next.nextCursor,
+    ...(next.action ? { action: next.action } : {}),
+  });
 }
 
 function routeInputWithFocus(
@@ -296,38 +305,52 @@ describe("input editor contract", () => {
     });
   });
 
-  test("modifier handling: modifiers do not alter supported edit/navigation keys", () => {
-    const mods = ZR_MOD_SHIFT | ZR_MOD_CTRL | ZR_MOD_ALT | ZR_MOD_META;
+  test("modifier handling: ctrl changes word movement; non-shift modifiers keep edits deterministic", () => {
+    const plainMods = ZR_MOD_ALT | ZR_MOD_META;
 
-    const leftWithMods = edit(keyEvent(ZR_KEY_LEFT, { mods }), {
+    const leftWithMods = edit(keyEvent(ZR_KEY_LEFT, { mods: plainMods }), {
       id: "input",
       value: "abcd",
       cursor: 2,
     });
     assert.deepEqual(leftWithMods, { nextValue: "abcd", nextCursor: 1 });
 
-    const rightWithMods = edit(keyEvent(ZR_KEY_RIGHT, { mods }), {
+    const rightWithMods = edit(keyEvent(ZR_KEY_RIGHT, { mods: plainMods }), {
       id: "input",
       value: "abcd",
       cursor: 2,
     });
     assert.deepEqual(rightWithMods, { nextValue: "abcd", nextCursor: 3 });
 
-    const homeWithMods = edit(keyEvent(ZR_KEY_HOME, { mods }), {
+    const homeWithMods = edit(keyEvent(ZR_KEY_HOME, { mods: plainMods }), {
       id: "input",
       value: "abcd",
       cursor: 3,
     });
     assert.deepEqual(homeWithMods, { nextValue: "abcd", nextCursor: 0 });
 
-    const endWithMods = edit(keyEvent(ZR_KEY_END, { mods }), {
+    const endWithMods = edit(keyEvent(ZR_KEY_END, { mods: plainMods }), {
       id: "input",
       value: "abcd",
       cursor: 1,
     });
     assert.deepEqual(endWithMods, { nextValue: "abcd", nextCursor: 4 });
 
-    const backspaceWithMods = edit(keyEvent(ZR_KEY_BACKSPACE, { mods }), {
+    const ctrlLeft = edit(keyEvent(ZR_KEY_LEFT, { mods: ZR_MOD_CTRL }), {
+      id: "input",
+      value: "hello world",
+      cursor: 11,
+    });
+    assert.deepEqual(ctrlLeft, { nextValue: "hello world", nextCursor: 6 });
+
+    const ctrlRight = edit(keyEvent(ZR_KEY_RIGHT, { mods: ZR_MOD_CTRL }), {
+      id: "input",
+      value: "hello world",
+      cursor: 0,
+    });
+    assert.deepEqual(ctrlRight, { nextValue: "hello world", nextCursor: 5 });
+
+    const backspaceWithMods = edit(keyEvent(ZR_KEY_BACKSPACE, { mods: plainMods }), {
       id: "input",
       value: "abcd",
       cursor: 2,
@@ -338,7 +361,7 @@ describe("input editor contract", () => {
       action: { id: "input", action: "input", value: "acd", cursor: 1 },
     });
 
-    const deleteWithMods = edit(keyEvent(ZR_KEY_DELETE, { mods }), {
+    const deleteWithMods = edit(keyEvent(ZR_KEY_DELETE, { mods: plainMods }), {
       id: "input",
       value: "abcd",
       cursor: 1,
@@ -349,7 +372,7 @@ describe("input editor contract", () => {
       action: { id: "input", action: "input", value: "acd", cursor: 1 },
     });
 
-    const keyUpBubbles = edit(keyEvent(ZR_KEY_LEFT, { mods, action: "up" }), {
+    const keyUpBubbles = edit(keyEvent(ZR_KEY_LEFT, { mods: plainMods, action: "up" }), {
       id: "input",
       value: "abcd",
       cursor: 2,
