@@ -922,6 +922,73 @@ export type RadioGroupProps = Readonly<{
   disabled?: boolean;
 }>;
 
+/* ========== Navigation Widgets ========== */
+
+/** Tabs visual style variant. */
+export type TabsVariant = "line" | "enclosed" | "pills";
+
+/** Tabs bar position relative to content. */
+export type TabsPosition = "top" | "bottom";
+
+/** Tab item descriptor. */
+export type TabsItem = Readonly<{
+  key: string;
+  label: string;
+  content: VNode;
+}>;
+
+/** Props for tabs widget. */
+export type TabsProps = Readonly<{
+  id: string;
+  key?: string;
+  tabs: readonly TabsItem[];
+  activeTab: string;
+  onChange: (key: string) => void;
+  variant?: TabsVariant;
+  position?: TabsPosition;
+}>;
+
+/** Accordion item descriptor. */
+export type AccordionItem = Readonly<{
+  key: string;
+  title: string;
+  content: VNode;
+}>;
+
+/** Props for accordion widget. */
+export type AccordionProps = Readonly<{
+  id: string;
+  key?: string;
+  items: readonly AccordionItem[];
+  expanded: readonly string[];
+  onChange: (expanded: readonly string[]) => void;
+  allowMultiple?: boolean;
+}>;
+
+/** Breadcrumb item descriptor. */
+export type BreadcrumbItem = Readonly<{
+  label: string;
+  onPress?: () => void;
+}>;
+
+/** Props for breadcrumb widget. */
+export type BreadcrumbProps = Readonly<{
+  id?: string;
+  key?: string;
+  items: readonly BreadcrumbItem[];
+  separator?: string;
+}>;
+
+/** Props for pagination widget. */
+export type PaginationProps = Readonly<{
+  id: string;
+  key?: string;
+  page: number;
+  totalPages: number;
+  onChange: (page: number) => void;
+  showFirstLast?: boolean;
+}>;
+
 /* ========== Advanced Widgets (GitHub issue #136) ========== */
 
 /* ---------- CommandPalette Widget ---------- */
@@ -1561,6 +1628,10 @@ export type VNode =
   | Readonly<{ kind: "select"; props: SelectProps }>
   | Readonly<{ kind: "checkbox"; props: CheckboxProps }>
   | Readonly<{ kind: "radioGroup"; props: RadioGroupProps }>
+  | Readonly<{ kind: "tabs"; props: TabsProps; children: readonly VNode[] }>
+  | Readonly<{ kind: "accordion"; props: AccordionProps; children: readonly VNode[] }>
+  | Readonly<{ kind: "breadcrumb"; props: BreadcrumbProps; children: readonly VNode[] }>
+  | Readonly<{ kind: "pagination"; props: PaginationProps; children: readonly VNode[] }>
   // Advanced widgets (GitHub issue #136)
   | Readonly<{ kind: "commandPalette"; props: CommandPaletteProps }>
   | Readonly<{ kind: "filePicker"; props: FilePickerProps }>

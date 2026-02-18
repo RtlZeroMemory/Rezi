@@ -8,12 +8,18 @@
  * @see docs/widgets/index.md
  */
 
+import { createAccordionWidgetVNode } from "./accordion.js";
+import { createBreadcrumbWidgetVNode } from "./breadcrumb.js";
+import { createPaginationWidgetVNode } from "./pagination.js";
 import type { TextStyle } from "./style.js";
+import { createTabsWidgetVNode } from "./tabs.js";
 import type {
+  AccordionProps,
   BadgeProps,
   BarChartItem,
   BarChartProps,
   BoxProps,
+  BreadcrumbProps,
   ButtonProps,
   CalloutProps,
   CheckboxProps,
@@ -40,6 +46,7 @@ import type {
   LogsConsoleProps,
   MiniChartProps,
   ModalProps,
+  PaginationProps,
   PanelGroupProps,
   ProgressProps,
   RadioGroupProps,
@@ -56,6 +63,7 @@ import type {
   SplitPaneProps,
   StatusProps,
   TableProps,
+  TabsProps,
   TagProps,
   TextProps,
   ToastContainerProps,
@@ -818,6 +826,40 @@ export const ui = {
    */
   radioGroup(props: RadioGroupProps): VNode {
     return { kind: "radioGroup", props };
+  },
+
+  /* ========== Navigation Widgets ========== */
+
+  /**
+   * Create a tabs widget.
+   * Supports Left/Right tab switching and scoped content focus.
+   */
+  tabs(props: TabsProps): VNode {
+    return createTabsWidgetVNode(props);
+  },
+
+  /**
+   * Create an accordion widget.
+   * Supports Up/Down header navigation and Enter/Space toggles.
+   */
+  accordion(props: AccordionProps): VNode {
+    return createAccordionWidgetVNode(props);
+  },
+
+  /**
+   * Create a breadcrumb widget.
+   * The last item is rendered as the current page (non-clickable).
+   */
+  breadcrumb(props: BreadcrumbProps): VNode {
+    return createBreadcrumbWidgetVNode(props);
+  },
+
+  /**
+   * Create a pagination widget.
+   * Supports Left/Right navigation and optional Home/End first/last jumps.
+   */
+  pagination(props: PaginationProps): VNode {
+    return createPaginationWidgetVNode(props);
   },
 
   /* ========== Advanced Widgets (GitHub issue #136) ========== */

@@ -36,3 +36,5 @@ export { routeLayerEscape } from "./router/layer.js";
 export { routeDropdownKey } from "./router/dropdown.js";
 export { routeTableKey } from "./router/table.js";
 export { routeTreeKey } from "./router/tree.js";
+export { routeTabsKey } from "./router/tabs.js";
+export { routePaginationKey } from "./router/pagination.js";

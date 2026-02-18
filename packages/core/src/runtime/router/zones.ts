@@ -1,6 +1,8 @@
 import type { ZrevEvent } from "../../events.js";
 import type { FocusDirection, FocusMove, FocusZone } from "../focus.js";
 import { computeMovedFocusId, computeZoneMovement, computeZoneTraversal } from "../focus.js";
+import { routePaginationKey } from "./pagination.js";
+import { routeTabsKey } from "./tabs.js";
 import type {
   EnabledById,
   KeyRoutingCtxWithZones,
@@ -83,6 +85,25 @@ export function routeKeyWithZones(
     enabledById,
     pressableIds,
   } = ctx;
+
+  const tabsRouting = routeTabsKey(event, {
+    focusedId,
+    activeZoneId,
+    zones,
+    enabledById,
+    ...(lastFocusedByZone ? { lastFocusedByZone } : {}),
+    ...(pressableIds ? { pressableIds } : {}),
+  });
+  if (tabsRouting !== null) return tabsRouting;
+
+  const paginationRouting = routePaginationKey(event, {
+    focusedId,
+    activeZoneId,
+    zones,
+    enabledById,
+    ...(pressableIds ? { pressableIds } : {}),
+  });
+  if (paginationRouting !== null) return paginationRouting;
 
   // Check if we're in an active trap
   const activeTrapIdMaybe = trapStack.length > 0 ? trapStack[trapStack.length - 1] : undefined;

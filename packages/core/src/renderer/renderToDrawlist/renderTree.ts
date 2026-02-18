@@ -26,6 +26,7 @@ import { renderCollectionWidget } from "./widgets/collections.js";
 import { renderContainerWidget } from "./widgets/containers.js";
 import { renderEditorWidget } from "./widgets/editors.js";
 import { renderFileWidgets } from "./widgets/files.js";
+import { renderNavigationWidget } from "./widgets/navigation.js";
 import { renderOverlayWidget } from "./widgets/overlays.js";
 
 type RenderNodeTask = RuntimeInstance | null;
@@ -168,6 +169,26 @@ export function renderTree(
           damageRect,
           skipCleanSubtrees,
           node.selfDirty,
+        );
+        break;
+      }
+
+      // Navigation widgets
+      case "tabs":
+      case "accordion":
+      case "breadcrumb":
+      case "pagination": {
+        renderNavigationWidget(
+          builder,
+          rect,
+          parentStyle,
+          node,
+          layoutNode,
+          nodeStack,
+          styleStack,
+          layoutStack,
+          clipStack,
+          currentClip,
         );
         break;
       }

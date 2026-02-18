@@ -65,6 +65,17 @@ Interactive form controls:
 | [Select](select.md) | Dropdown selection | Yes | `beta` |
 | [Field](field.md) | Form field wrapper with label/error | No | `beta` |
 
+### Navigation
+
+Navigation and wayfinding widgets:
+
+| Widget | Description | Focusable | Stability |
+|--------|-------------|-----------|-----------|
+| [Tabs](tabs.md) | Switch between related content panels | Yes | `beta` |
+| [Accordion](accordion.md) | Expand/collapse stacked sections | Yes | `beta` |
+| [Breadcrumb](breadcrumb.md) | Hierarchical location path with jumps | Yes | `beta` |
+| [Pagination](pagination.md) | Navigate paged datasets | Yes | `beta` |
+
 ### Data Display
 
 Tables, lists, and trees:
