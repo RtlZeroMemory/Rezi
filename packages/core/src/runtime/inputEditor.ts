@@ -330,25 +330,32 @@ function nextWordBoundary(value: string, cursor: number): number {
 
 function prevWordBoundary(value: string, cursor: number): number {
   if (cursor <= 0) return 0;
-  let position = cursor;
+  const clamped = clampInputCursor(value, cursor);
 
-  while (position > 0) {
-    const start = prevBoundary(value, position);
-    const cls = classifyCluster(value.slice(start, position));
-    if (cls === "word") break;
-    position = start;
+  // One pass over clusters up to the cursor, then constant-time resolution.
+  let off = 0;
+  let prevClass: WordClass | null = null;
+  let currentWordRunStart = 0;
+  let lastCompletedWordRunStart = -1;
+
+  while (off < value.length) {
+    const end = nextClusterEnd(value, off);
+    if (end > clamped) break;
+    const cls = classifyCluster(value.slice(off, end));
+
+    if (cls === "word") {
+      if (prevClass !== "word") currentWordRunStart = off;
+    } else if (prevClass === "word") {
+      lastCompletedWordRunStart = currentWordRunStart;
+    }
+
+    prevClass = cls;
+    off = end;
+    if (off === clamped) break;
   }
 
-  if (position <= 0) return 0;
-
-  while (position > 0) {
-    const start = prevBoundary(value, position);
-    const cls = classifyCluster(value.slice(start, position));
-    if (cls !== "word") break;
-    position = start;
-  }
-
-  return position;
+  if (prevClass === "word") return currentWordRunStart;
+  return lastCompletedWordRunStart >= 0 ? lastCompletedWordRunStart : 0;
 }
 
 function normalizeSelectionRange(selection: InputSelection): readonly [number, number] {
