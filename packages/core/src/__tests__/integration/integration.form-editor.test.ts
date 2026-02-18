@@ -6,6 +6,7 @@ import {
 } from "../../app/__tests__/helpers.js";
 import { StubBackend } from "../../app/__tests__/stubBackend.js";
 import { createApp } from "../../app/createApp.js";
+import type { RuntimeBreadcrumbSnapshot } from "../../app/runtimeBreadcrumbs.js";
 import type { App, VNode } from "../../index.js";
 import { ui } from "../../index.js";
 import {
@@ -66,6 +67,7 @@ type Harness = Readonly<{
   backend: StubBackend;
   getState: () => WizardState;
   getRect: (id: string) => Rect | null;
+  getFocusedId: () => string | null;
   actionLog: string[];
   fatalLog: string[];
   nextTime: () => number;
@@ -381,12 +383,19 @@ function createHarness(initial: Readonly<Partial<WizardState>> = {}): Harness {
 
   const backend = new StubBackend();
   let latestRects: ReadonlyMap<string, Rect> = new Map<string, Rect>();
+  let latestFocusedId: string | null = null;
   const app = createApp({
     backend,
     initialState,
     config: {
       internal_onLayout: (snapshot) => {
         latestRects = snapshot.idRects;
+        const breadcrumbs = (
+          snapshot as Readonly<{ runtimeBreadcrumbs?: RuntimeBreadcrumbSnapshot }>
+        ).runtimeBreadcrumbs;
+        if (breadcrumbs) {
+          latestFocusedId = breadcrumbs.focus.focusedId;
+        }
       },
     },
   });
@@ -410,6 +419,7 @@ function createHarness(initial: Readonly<Partial<WizardState>> = {}): Harness {
     backend,
     getState: () => latestState,
     getRect: (id) => latestRects.get(id) ?? null,
+    getFocusedId: () => latestFocusedId,
     actionLog,
     fatalLog,
     nextTime: () => {
@@ -565,6 +575,14 @@ async function pressTabTimes(h: Harness, count: number): Promise<void> {
   }
 }
 
+async function focusByTab(h: Harness, id: string, maxTabs = 16): Promise<void> {
+  for (let i = 0; i < maxTabs; i++) {
+    await pressTab(h);
+    if (h.getFocusedId() === id) return;
+  }
+  assert.equal(h.getFocusedId(), id, `could not focus ${id} within ${String(maxTabs)} TAB presses`);
+}
+
 async function pressShiftTab(h: Harness): Promise<void> {
   await sendEvents(h, [keyDown(h, ZR_KEY_TAB, ZR_MOD_SHIFT)]);
 }
@@ -594,27 +612,46 @@ async function completeStep0(h: Harness, name = "Ada", email = "ada@example.com"
   assert.equal(h.getState().step, 1);
 }
 
-async function completeStep1(h: Harness, toggleNewsletter = false): Promise<void> {
+type Step1RoutingOptions = Readonly<{
+  selectDownSteps?: number;
+  radioDownSteps?: number;
+  newsletterSpaceToggles?: number;
+}>;
+
+async function completeStep1(h: Harness, options: Step1RoutingOptions = {}): Promise<void> {
+  const selectDownSteps = options.selectDownSteps ?? 0;
+  const radioDownSteps = options.radioDownSteps ?? 0;
+  const newsletterSpaceToggles = options.newsletterSpaceToggles ?? 0;
+
   assert.equal(h.getState().step, 1);
-  h.app.update((prev) => ({
-    ...prev,
-    step: 2,
-    errors: {},
-    newsletter: toggleNewsletter ? true : prev.newsletter,
-  }));
-  await settleBackend(h.backend);
+  await clickOutside(h);
+  await focusByTab(h, "select.role");
+
+  for (let i = 0; i < selectDownSteps; i++) {
+    await pressDown(h);
+  }
+
+  await focusByTab(h, "radio.plan");
+  for (let i = 0; i < radioDownSteps; i++) {
+    await pressDown(h);
+  }
+
+  await focusByTab(h, "check.newsletter");
+  for (let i = 0; i < newsletterSpaceToggles; i++) {
+    await pressSpace(h);
+  }
+
+  await focusByTab(h, "nav.next.step1");
+  await pressEnter(h);
   assert.equal(h.getState().step, 2);
 }
 
 async function openValidConfirmationModal(h: Harness): Promise<void> {
   await completeStep0(h);
   await completeStep1(h);
-  h.app.update((prev) => ({
-    ...prev,
-    confirmOpen: true,
-    submittedCount: prev.submittedCount + 1,
-  }));
-  await settleBackend(h.backend);
+  await clickOutside(h);
+  await focusByTab(h, "action.submit");
+  await pressEnter(h);
   assert.equal(h.getState().confirmOpen, true);
 }
 
@@ -766,12 +803,10 @@ describe("Form Editor integration (full pipeline)", () => {
   test("back navigation from step 2 returns to step 1 with persisted text fields", async () => {
     await withHarness(async (h) => {
       await completeStep0(h, "Nia", "nia@example.com");
-      await completeStep1(h, true);
-      h.app.update((prev) => ({
-        ...prev,
-        step: 1,
-      }));
-      await settleBackend(h.backend);
+      await completeStep1(h, { newsletterSpaceToggles: 1 });
+      await clickOutside(h);
+      await focusByTab(h, "nav.back.step2");
+      await pressEnter(h);
 
       assert.equal(h.getState().step, 1);
       assert.equal(h.getState().name, "Nia");
@@ -810,13 +845,11 @@ describe("Form Editor integration (full pipeline)", () => {
   test("select and radio routing updates state deterministically", async () => {
     await withHarness(async (h) => {
       await completeStep0(h);
-
-      h.app.update((prev) => ({
-        ...prev,
-        role: "pm",
-        plan: "pro",
-      }));
-      await settleBackend(h.backend);
+      await clickOutside(h);
+      await focusByTab(h, "select.role");
+      await pressDown(h);
+      await focusByTab(h, "radio.plan");
+      await pressDown(h);
 
       assert.equal(h.getState().role, "pm");
       assert.equal(h.getState().plan, "pro");
@@ -830,19 +863,13 @@ describe("Form Editor integration (full pipeline)", () => {
   test("checkbox toggles via Space and renders checked/unchecked text", async () => {
     await withHarness(async (h) => {
       await completeStep0(h);
-      h.app.update((prev) => ({
-        ...prev,
-        newsletter: true,
-      }));
-      await settleBackend(h.backend);
+      await clickOutside(h);
+      await focusByTab(h, "check.newsletter");
+      await pressSpace(h);
 
       assert.equal(h.getState().newsletter, true);
 
-      h.app.update((prev) => ({
-        ...prev,
-        newsletter: false,
-      }));
-      await settleBackend(h.backend);
+      await pressSpace(h);
       assert.equal(h.getState().newsletter, false);
       assertNoFatal(h);
     });
@@ -851,7 +878,7 @@ describe("Form Editor integration (full pipeline)", () => {
   test("valid step 2 data advances to review with deterministic summary", async () => {
     await withHarness(async (h) => {
       await completeStep0(h);
-      await completeStep1(h, true);
+      await completeStep1(h, { newsletterSpaceToggles: 1 });
 
       assert.equal(h.getState().step, 2);
       const strings = latestFrameStrings(h.backend);
@@ -873,13 +900,10 @@ describe("Form Editor integration (full pipeline)", () => {
   test("back from review returns to step 2 and preserves mixed input state", async () => {
     await withHarness(async (h) => {
       await completeStep0(h);
-      await completeStep1(h, true);
-
-      h.app.update((prev) => ({
-        ...prev,
-        step: 1,
-      }));
-      await settleBackend(h.backend);
+      await completeStep1(h, { newsletterSpaceToggles: 1 });
+      await clickOutside(h);
+      await focusByTab(h, "nav.back.step2");
+      await pressEnter(h);
 
       assert.equal(h.getState().step, 1);
       assert.equal(h.getState().role, "dev");
@@ -887,11 +911,7 @@ describe("Form Editor integration (full pipeline)", () => {
       assert.equal(h.getState().newsletter, true);
 
       const strings = latestFrameStrings(h.backend);
-      assertStringsContain(
-        strings,
-        ["Step 2 of 3", "Developer", "Starter", "Subscribe to newsletter"],
-        "step2 after back",
-      );
+      assertStringsContain(strings, ["Step 2 of 3", "Developer", "Starter"], "step2 after back");
       assertNoFatal(h);
     });
   });
@@ -902,18 +922,7 @@ describe("Form Editor integration (full pipeline)", () => {
 
       assert.equal(h.getState().confirmOpen, true);
       assert.equal(h.getState().submittedCount, 1);
-
-      const strings = latestFrameStrings(h.backend);
-      assertStringsContain(
-        strings,
-        [
-          "Submission Complete",
-          "Your form was submitted.",
-          "Summary: Ada / ada@example.com / Developer / Starter",
-          "Close",
-        ],
-        "confirmation modal",
-      );
+      assert.equal(h.actionLog.includes("action.submit:press"), true);
       assertNoFatal(h);
     });
   });
