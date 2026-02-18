@@ -67,7 +67,12 @@ import {
   createFocusManagerState,
   finalizeFocusWithPreCollectedMetadata,
 } from "../runtime/focus.js";
-import { applyInputEditEvent, normalizeInputCursor } from "../runtime/inputEditor.js";
+import {
+  type InputSelection,
+  applyInputEditEvent,
+  normalizeInputCursor,
+  normalizeInputSelection,
+} from "../runtime/inputEditor.js";
 import { type InstanceId, createInstanceIdAllocator } from "../runtime/instance.js";
 import { createCompositeInstanceRegistry, runPendingEffects } from "../runtime/instances.js";
 import { createLayerRegistry, hitTestLayers } from "../runtime/layers.js";
@@ -418,6 +423,7 @@ export class WidgetRenderer<S> {
   /* --- Input Widget State --- */
   private inputById: ReadonlyMap<string, InputMeta> = new Map<string, InputMeta>();
   private readonly inputCursorByInstanceId = new Map<InstanceId, number>();
+  private readonly inputSelectionByInstanceId = new Map<InstanceId, InputSelection>();
   private readonly inputWorkingValueByInstanceId = new Map<InstanceId, string>();
 
   /* --- Complex Widget Local State --- */
@@ -2261,10 +2267,28 @@ export class WidgetRenderer<S> {
           const instanceId = meta.instanceId;
           const value = this.inputWorkingValueByInstanceId.get(instanceId) ?? meta.value;
           const cursor = this.inputCursorByInstanceId.get(instanceId) ?? value.length;
-          const edit = applyInputEditEvent(event, { id: focusedId, value, cursor });
+          const selection = this.inputSelectionByInstanceId.get(instanceId);
+          const edit = applyInputEditEvent(event, {
+            id: focusedId,
+            value,
+            cursor,
+            selectionStart: selection?.start ?? null,
+            selectionEnd: selection?.end ?? null,
+          });
           if (edit) {
             this.inputWorkingValueByInstanceId.set(instanceId, edit.nextValue);
             this.inputCursorByInstanceId.set(instanceId, edit.nextCursor);
+            if (edit.nextSelectionStart === null || edit.nextSelectionEnd === null) {
+              this.inputSelectionByInstanceId.delete(instanceId);
+            } else {
+              this.inputSelectionByInstanceId.set(
+                instanceId,
+                Object.freeze({
+                  start: edit.nextSelectionStart,
+                  end: edit.nextSelectionEnd,
+                }),
+              );
+            }
             if (edit.action) {
               if (meta.onInput) meta.onInput(edit.action.value, edit.action.cursor);
               return Object.freeze({ needsRender, action: edit.action });
@@ -2889,6 +2913,7 @@ export class WidgetRenderer<S> {
         }
         for (const unmountedId of commitRes.unmountedInstanceIds) {
           this.inputCursorByInstanceId.delete(unmountedId);
+          this.inputSelectionByInstanceId.delete(unmountedId);
           this.inputWorkingValueByInstanceId.delete(unmountedId);
           // Composite instances: invalidate stale closures and run effect cleanups.
           this.compositeRegistry.incrementGeneration(unmountedId);
@@ -3594,7 +3619,20 @@ export class WidgetRenderer<S> {
           this.inputWorkingValueByInstanceId.set(instanceId, meta.value);
           const prev = this.inputCursorByInstanceId.get(instanceId);
           const init = prev === undefined ? meta.value.length : prev;
-          this.inputCursorByInstanceId.set(instanceId, normalizeInputCursor(meta.value, init));
+          const nextCursor = normalizeInputCursor(meta.value, init);
+          this.inputCursorByInstanceId.set(instanceId, nextCursor);
+
+          const prevSelection = this.inputSelectionByInstanceId.get(instanceId);
+          if (prevSelection) {
+            const normalizedSelection = normalizeInputSelection(
+              meta.value,
+              prevSelection.start,
+              prevSelection.end,
+            );
+            if (normalizedSelection)
+              this.inputSelectionByInstanceId.set(instanceId, normalizedSelection);
+            else this.inputSelectionByInstanceId.delete(instanceId);
+          }
         }
       }
 
