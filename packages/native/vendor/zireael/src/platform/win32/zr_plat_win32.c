@@ -56,7 +56,9 @@ enum {
   ZR_STYLE_ATTR_REVERSE = 1u << 3u,
   ZR_STYLE_ATTR_DIM = 1u << 4u,
   ZR_STYLE_ATTR_STRIKE = 1u << 5u,
-  ZR_STYLE_ATTR_ALL_MASK = (1u << 6u) - 1u,
+  ZR_STYLE_ATTR_OVERLINE = 1u << 6u,
+  ZR_STYLE_ATTR_BLINK = 1u << 7u,
+  ZR_STYLE_ATTR_ALL_MASK = (1u << 8u) - 1u,
   ZR_WIN32_OUTPUT_WAIT_MODE_UNSUPPORTED = 0u,
   ZR_WIN32_OUTPUT_WAIT_MODE_IMMEDIATE_READY = 1u,
   ZR_WIN32_OUTPUT_WAIT_MODE_WAIT_HANDLE = 2u,
@@ -228,7 +230,7 @@ static uint8_t zr_win32_detect_focus_events(void) {
 static uint32_t zr_win32_detect_sgr_attrs_supported(void) {
   uint32_t attrs = ZR_STYLE_ATTR_BOLD | ZR_STYLE_ATTR_UNDERLINE | ZR_STYLE_ATTR_REVERSE | ZR_STYLE_ATTR_DIM;
   if (zr_win32_detect_modern_vt_host()) {
-    attrs |= ZR_STYLE_ATTR_ITALIC | ZR_STYLE_ATTR_STRIKE;
+    attrs |= ZR_STYLE_ATTR_ITALIC | ZR_STYLE_ATTR_STRIKE | ZR_STYLE_ATTR_OVERLINE | ZR_STYLE_ATTR_BLINK;
   }
   return attrs;
 }

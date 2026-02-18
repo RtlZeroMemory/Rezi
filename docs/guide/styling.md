@@ -25,7 +25,7 @@ New attribute SGR target mappings:
 - `overline` -> SGR `53`
 - `blink` -> SGR `5`
 
-These codes are the intended terminal mapping for these attrs. Current drawlist encoding carries all three attrs; current backend emission includes `strikethrough`, while `overline` and `blink` remain encoded but may not be emitted until backend support is enabled.
+These codes are the terminal mapping used by the backend emitter. Drawlist encoding carries all three attrs, and backend emission now supports `strikethrough`, `overline`, and `blink` end-to-end (terminal rendering still depends on terminal support).
 
 ## Inline styles
 

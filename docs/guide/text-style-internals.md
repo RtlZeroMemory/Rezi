@@ -51,7 +51,7 @@ Terminal target SGR codes for the new attrs are:
 - `overline` -> `53`
 - `blink` -> `5`
 
-Drawlist encoding carries these bits in `style.attrs`. Current backend emission includes `strikethrough`; `overline` and `blink` are encoded and reserved for backend support expansion.
+Drawlist encoding carries these bits in `style.attrs`, and backend emission supports all three attrs (`strikethrough`, `overline`, `blink`) end-to-end. Terminal-visible behavior still depends on terminal support.
 
 ## Renderer Merge Cache (Fast Path)
 

@@ -68,7 +68,9 @@ enum {
   ZR_STYLE_ATTR_REVERSE = 1u << 3u,
   ZR_STYLE_ATTR_DIM = 1u << 4u,
   ZR_STYLE_ATTR_STRIKE = 1u << 5u,
-  ZR_STYLE_ATTR_ALL_MASK = (1u << 6u) - 1u,
+  ZR_STYLE_ATTR_OVERLINE = 1u << 6u,
+  ZR_STYLE_ATTR_BLINK = 1u << 7u,
+  ZR_STYLE_ATTR_ALL_MASK = (1u << 8u) - 1u,
 };
 
 static _Atomic int g_posix_wake_fd_slots[ZR_POSIX_SIGWINCH_MAX_WAKE_FDS];
@@ -460,7 +462,7 @@ static uint32_t zr_posix_detect_sgr_attrs_supported(void) {
 
   uint32_t attrs = ZR_STYLE_ATTR_BOLD | ZR_STYLE_ATTR_UNDERLINE | ZR_STYLE_ATTR_REVERSE | ZR_STYLE_ATTR_DIM;
   if (zr_posix_detect_truecolor_env()) {
-    attrs |= ZR_STYLE_ATTR_ITALIC | ZR_STYLE_ATTR_STRIKE;
+    attrs |= ZR_STYLE_ATTR_ITALIC | ZR_STYLE_ATTR_STRIKE | ZR_STYLE_ATTR_OVERLINE | ZR_STYLE_ATTR_BLINK;
     return attrs;
   }
 
@@ -468,7 +470,7 @@ static uint32_t zr_posix_detect_sgr_attrs_supported(void) {
   static const char* kRichAttrTerms[] = {"xterm",   "screen", "tmux", "rxvt", "alacritty", "kitty",
                                          "wezterm", "foot",   "st",   "rio",  "ghostty"};
   if (zr_posix_str_has_any_ci(term, kRichAttrTerms, sizeof(kRichAttrTerms) / sizeof(kRichAttrTerms[0]))) {
-    attrs |= ZR_STYLE_ATTR_ITALIC | ZR_STYLE_ATTR_STRIKE;
+    attrs |= ZR_STYLE_ATTR_ITALIC | ZR_STYLE_ATTR_STRIKE | ZR_STYLE_ATTR_OVERLINE | ZR_STYLE_ATTR_BLINK;
   }
   return attrs;
 }
