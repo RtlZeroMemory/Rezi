@@ -65,6 +65,18 @@ function rectIntersects(a: Rect, b: Rect): boolean {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
+function usesVisibleOverflow(node: RuntimeInstance): boolean {
+  const kind = node.vnode.kind;
+  if (kind !== "row" && kind !== "column" && kind !== "grid" && kind !== "box") {
+    return false;
+  }
+  if (node.children.length === 0) {
+    return false;
+  }
+  const props = node.vnode.props as { overflow?: unknown };
+  return props.overflow !== "hidden" && props.overflow !== "scroll";
+}
+
 function findStackChildRange(
   runtimeChildren: readonly RuntimeInstance[],
   children: readonly LayoutTree[],
@@ -131,27 +143,40 @@ function pushChildrenWithLayout(
   let rangeEnd = childCount - 1;
   if (damageRect) {
     if (stackDirection) {
-      const range = findStackChildRange(
-        node.children,
-        layoutNode.children,
-        childCount,
-        stackDirection,
-        damageRect,
-      );
-      if (!range) return;
-      rangeStart = range.start;
-      rangeEnd = range.end;
+      let hasVisibleOverflowChild = false;
+      for (let i = 0; i < childCount; i++) {
+        const child = node.children[i];
+        if (child && usesVisibleOverflow(child)) {
+          hasVisibleOverflowChild = true;
+          break;
+        }
+      }
+      if (!hasVisibleOverflowChild) {
+        const range = findStackChildRange(
+          node.children,
+          layoutNode.children,
+          childCount,
+          stackDirection,
+          damageRect,
+        );
+        if (!range) return;
+        rangeStart = range.start;
+        rangeEnd = range.end;
+      }
     }
   }
 
   for (let i = rangeEnd; i >= rangeStart; i--) {
     const c = node.children[i];
     const lc = layoutNode.children[i];
+    const childCanOverflow = c ? usesVisibleOverflow(c) : false;
     if (
       c &&
       lc &&
       (!skipCleanSubtrees || forceSubtreeRender || c.dirty) &&
-      (!damageRect || rectIntersects(getRuntimeNodeDamageRect(c, lc.rect), damageRect))
+      (!damageRect ||
+        childCanOverflow ||
+        rectIntersects(getRuntimeNodeDamageRect(c, lc.rect), damageRect))
     ) {
       if (forceSubtreeRender) {
         c.dirty = true;
@@ -495,7 +520,7 @@ export function renderContainerWidget(
       const contentRect: ClipRect = { x: cx, y: cy, w: cw, h: ch };
       const overflowMode = readOverflowMode(props.overflow);
 
-      let childClip: ClipRect = contentRect;
+      let childClip: ClipRect | undefined = overflowMode === "visible" ? currentClip : contentRect;
       if (overflowMode === "scroll") {
         const meta = readOverflowMetadata(layoutNode, contentRect);
         const viewportWithScrollbars = resolveScrollViewport(contentRect, meta);
@@ -503,7 +528,7 @@ export function renderContainerWidget(
         childClip = viewportWithScrollbars.viewportRect;
       }
 
-      if (!clipEquals(currentClip, childClip)) {
+      if (childClip && !clipEquals(currentClip, childClip)) {
         builder.pushClip(childClip.x, childClip.y, childClip.w, childClip.h);
         nodeStack.push(null);
       }
@@ -583,7 +608,7 @@ export function renderContainerWidget(
       const ch = clampNonNegative(rect.h - bt - bb - spacing.top - spacing.bottom);
       const contentRect: ClipRect = { x: cx, y: cy, w: cw, h: ch };
       const overflowMode = readOverflowMode(props.overflow);
-      let childClip: ClipRect = contentRect;
+      let childClip: ClipRect | undefined = overflowMode === "visible" ? currentClip : contentRect;
 
       if (overflowMode === "scroll") {
         const meta = readOverflowMetadata(layoutNode, contentRect);
@@ -592,7 +617,7 @@ export function renderContainerWidget(
         childClip = viewportWithScrollbars.viewportRect;
       }
 
-      if (!clipEquals(currentClip, childClip)) {
+      if (childClip && !clipEquals(currentClip, childClip)) {
         builder.pushClip(childClip.x, childClip.y, childClip.w, childClip.h);
         nodeStack.push(null);
       }

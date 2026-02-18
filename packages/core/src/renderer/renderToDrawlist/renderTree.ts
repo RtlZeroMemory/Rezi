@@ -47,6 +47,18 @@ function rectIntersects(a: Rect, b: Rect): boolean {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
+function usesVisibleOverflow(node: RuntimeInstance): boolean {
+  const kind = node.vnode.kind;
+  if (kind !== "row" && kind !== "column" && kind !== "grid" && kind !== "box") {
+    return false;
+  }
+  if (node.children.length === 0) {
+    return false;
+  }
+  const props = node.vnode.props as { overflow?: unknown };
+  return props.overflow !== "hidden" && props.overflow !== "scroll";
+}
+
 export function renderTree(
   builder: DrawlistBuilderV1,
   focusState: FocusState,
@@ -102,7 +114,13 @@ export function renderTree(
     const vnode = node.vnode;
     const rect: Rect = layoutNode.rect;
     if (skipCleanSubtrees && !node.dirty) continue;
-    if (damageRect && !rectIntersects(getRuntimeNodeDamageRect(node, rect), damageRect)) continue;
+    if (
+      damageRect &&
+      !rectIntersects(getRuntimeNodeDamageRect(node, rect), damageRect) &&
+      !usesVisibleOverflow(node)
+    ) {
+      continue;
+    }
 
     const currentTheme = themeByNode.get(node) ?? theme;
     let renderTheme = currentTheme;
