@@ -18,12 +18,14 @@
 
 import {
   type CompositeWidgetMeta,
-  createWidgetContext,
+  type WidgetContext,
   getCompositeMeta,
+  scopedId,
 } from "../widgets/composition.js";
 import type { VNode } from "../widgets/types.js";
 import type { InstanceId, InstanceIdAllocator } from "./instance.js";
 import {
+  type AppStateSelection,
   type CompositeInstanceRegistry,
   type EffectState,
   createHookContext,
@@ -196,6 +198,47 @@ function layoutConstraintsEqual(a: unknown, b: unknown): boolean {
     ao.flex === bo.flex &&
     ao.aspectRatio === bo.aspectRatio
   );
+}
+
+function shallowRecordEqual(
+  a: Readonly<Record<string, unknown>>,
+  b: Readonly<Record<string, unknown>>,
+): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  for (const key of aKeys) {
+    if (!(key in b)) return false;
+    if (!Object.is(a[key], b[key])) return false;
+  }
+  return true;
+}
+
+function compositePropsEqual(prev: unknown, next: unknown): boolean {
+  if (Object.is(prev, next)) return true;
+  if (typeof prev !== "object" || prev === null) return false;
+  if (typeof next !== "object" || next === null) return false;
+  return shallowRecordEqual(
+    prev as Readonly<Record<string, unknown>>,
+    next as Readonly<Record<string, unknown>>,
+  );
+}
+
+function evaluateAppStateSelections(
+  selections: readonly AppStateSelection[],
+  appState: unknown,
+): { changed: boolean; threw: unknown | null } {
+  for (const selection of selections) {
+    try {
+      const nextValue = selection.selector(appState);
+      if (!Object.is(nextValue, selection.value)) {
+        return { changed: true, threw: null };
+      }
+    } catch (e: unknown) {
+      return { changed: true, threw: e };
+    }
+  }
+  return { changed: false, threw: null };
 }
 
 function spacingPropsEqual(a: unknown, b: unknown): boolean {
@@ -568,6 +611,8 @@ function commitNode(
   if (ctx.composite) {
     compositeMeta = getCompositeMeta(vnode);
     if (compositeMeta) {
+      const compositeRuntime = ctx.composite;
+      const activeCompositeMeta = compositeMeta;
       const registry = ctx.composite.registry;
       const existing = registry.get(instanceId);
 
@@ -602,45 +647,87 @@ function commitNode(
         };
       }
 
-      registry.beginRender(instanceId);
-      const hookCtx = createHookContext(state, () => {
+      const invalidateInstance = () => {
         registry.invalidate(instanceId);
         ctx.composite?.onInvalidate(instanceId);
-      });
-      const widgetCtx = createWidgetContext(
-        compositeMeta.widgetKey,
-        instanceId,
-        hookCtx,
-        ctx.composite.appState,
-        () => {
-          registry.invalidate(instanceId);
-          ctx.composite?.onInvalidate(instanceId);
-        },
-      );
+      };
 
-      try {
-        compositeChild = compositeMeta.render(widgetCtx);
-      } catch (e: unknown) {
-        return {
-          ok: false,
-          fatal: {
-            code: "ZRUI_USER_CODE_THROW",
-            detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
-          },
-        };
+      const prevMeta = prev ? getCompositeMeta(prev.vnode) : null;
+      const prevChild = prev?.children[0] ?? null;
+      let selectionsStable = false;
+      if (!state.needsRender) {
+        const evalRes = evaluateAppStateSelections(
+          registry.getAppStateSelections(instanceId),
+          compositeRuntime.appState,
+        );
+        if (evalRes.threw !== null) {
+          return {
+            ok: false,
+            fatal: {
+              code: "ZRUI_USER_CODE_THROW",
+              detail:
+                evalRes.threw instanceof Error
+                  ? `${evalRes.threw.name}: ${evalRes.threw.message}`
+                  : String(evalRes.threw),
+            },
+          };
+        }
+        selectionsStable = !evalRes.changed;
       }
+      const canSkipCompositeRender =
+        prevMeta !== null &&
+        prevChild !== null &&
+        prevMeta.widgetKey === activeCompositeMeta.widgetKey &&
+        compositePropsEqual(prevMeta.props, activeCompositeMeta.props) &&
+        selectionsStable;
 
-      try {
-        const pending = registry.endRender(instanceId);
-        for (const eff of pending) ctx.pendingEffects.push(eff);
-      } catch (e: unknown) {
-        return {
-          ok: false,
-          fatal: {
-            code: "ZRUI_USER_CODE_THROW",
-            detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+      if (canSkipCompositeRender) {
+        compositeChild = prevChild.vnode;
+      } else {
+        registry.beginRender(instanceId);
+        const hookCtx = createHookContext(state, invalidateInstance);
+        const nextSelections: AppStateSelection[] = [];
+        const widgetCtx: WidgetContext<unknown> = Object.freeze({
+          id: (suffix: string) => scopedId(activeCompositeMeta.widgetKey, instanceId, suffix),
+          useState: hookCtx.useState,
+          useRef: hookCtx.useRef,
+          useEffect: hookCtx.useEffect,
+          useAppState: <T>(selector: (s: unknown) => T): T => {
+            const selected = selector(compositeRuntime.appState);
+            nextSelections.push({
+              selector: selector as (state: unknown) => unknown,
+              value: selected,
+            });
+            return selected;
           },
-        };
+          invalidate: invalidateInstance,
+        });
+
+        try {
+          compositeChild = activeCompositeMeta.render(widgetCtx);
+        } catch (e: unknown) {
+          return {
+            ok: false,
+            fatal: {
+              code: "ZRUI_USER_CODE_THROW",
+              detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+            },
+          };
+        }
+
+        try {
+          const pending = registry.endRender(instanceId);
+          for (const eff of pending) ctx.pendingEffects.push(eff);
+          registry.setAppStateSelections(instanceId, nextSelections);
+        } catch (e: unknown) {
+          return {
+            ok: false,
+            fatal: {
+              code: "ZRUI_USER_CODE_THROW",
+              detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+            },
+          };
+        }
       }
     }
   }

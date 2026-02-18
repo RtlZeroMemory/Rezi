@@ -33,7 +33,11 @@ Composite widgets receive a `WidgetContext` with:
 - `id()` to create scoped IDs for focusable widgets
 - `invalidate()` to request a re-render
 
-Hook rules follow the same constraints as React: call hooks in a consistent order on every render.
+Behavior details:
+
+- `useEffect` cleanup runs before an effect re-fires, and unmount cleanups run in reverse declaration order.
+- `useAppState` uses selector snapshots and `Object.is` equality; widgets only re-render when selected values change.
+- Hook rules follow React constraints: keep both hook order and hook count consistent on every render.
 
 ## Related
 
