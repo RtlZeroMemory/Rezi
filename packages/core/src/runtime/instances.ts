@@ -29,6 +29,12 @@ export type EffectState = Readonly<{
 /** Stored ref state for useRef. */
 export type RefState<T = unknown> = { current: T };
 
+/** Snapshot of a useAppState selector and its last selected value. */
+export type AppStateSelection = Readonly<{
+  selector: (state: unknown) => unknown;
+  value: unknown;
+}>;
+
 /** Per-hook-index state storage. */
 export type HookState =
   | {
@@ -58,6 +64,10 @@ export type CompositeInstanceState = Readonly<{
   needsRender: boolean;
   /** Pending effects to run after commit. */
   pendingEffects: EffectState[];
+  /** Hook count expected from previous successful render (for order invariants). */
+  expectedHookCount: number | null;
+  /** Last committed useAppState selector snapshots for rerender gating. */
+  appStateSelections: AppStateSelection[];
   /** Generation counter for detecting stale updates. */
   generation: number;
 }>;
@@ -70,6 +80,8 @@ type MutableInstanceState = {
   hookIndex: number;
   needsRender: boolean;
   pendingEffects: EffectState[];
+  expectedHookCount: number | null;
+  appStateSelections: AppStateSelection[];
   generation: number;
 };
 
@@ -98,6 +110,12 @@ export type CompositeInstanceRegistry = Readonly<{
 
   /** Get all instance IDs (for debugging/testing). */
   getAllIds: () => readonly InstanceId[];
+
+  /** Read last committed useAppState selector snapshots for this instance. */
+  getAppStateSelections: (instanceId: InstanceId) => readonly AppStateSelection[];
+
+  /** Replace useAppState selector snapshots for this instance. */
+  setAppStateSelections: (instanceId: InstanceId, selections: readonly AppStateSelection[]) => void;
 }>;
 
 /**
@@ -136,10 +154,11 @@ function runEffectCleanup(effect: EffectState): void {
  * Run all cleanups for an instance's effects.
  */
 function runAllCleanups(state: MutableInstanceState): void {
-  for (const hook of state.hooks) {
-    if (hook.kind === "effect") {
-      runEffectCleanup(hook.effect);
-    }
+  // React-compatible: unmount cleanups run in reverse declaration order.
+  for (let i = state.hooks.length - 1; i >= 0; i--) {
+    const hook = state.hooks[i];
+    if (!hook || hook.kind !== "effect") continue;
+    runEffectCleanup(hook.effect);
   }
 }
 
@@ -164,6 +183,8 @@ export function createCompositeInstanceRegistry(): CompositeInstanceRegistry {
         hookIndex: 0,
         needsRender: true,
         pendingEffects: [],
+        expectedHookCount: null,
+        appStateSelections: [],
         generation: 0,
       };
 
@@ -175,8 +196,12 @@ export function createCompositeInstanceRegistry(): CompositeInstanceRegistry {
       const state = instances.get(instanceId);
       if (!state) return false;
 
+      // Bump generation before cleanup so stale closures become no-ops even if
+      // called during cleanup or after this deletion path.
+      state.generation++;
       // Run all effect cleanups
       runAllCleanups(state);
+      state.appStateSelections = [];
 
       instances.delete(instanceId);
       return true;
@@ -201,6 +226,15 @@ export function createCompositeInstanceRegistry(): CompositeInstanceRegistry {
       const state = instances.get(instanceId);
       if (!state) return [];
 
+      const usedHookCount = state.hookIndex;
+      if (state.expectedHookCount === null) {
+        state.expectedHookCount = usedHookCount;
+      } else if (usedHookCount !== state.expectedHookCount) {
+        throw new Error(
+          `Hook count mismatch for instance ${String(instanceId)}: expected ${state.expectedHookCount}, got ${usedHookCount}`,
+        );
+      }
+
       state.needsRender = false;
       // No slice needed: beginRender replaces the array rather than mutating it
       return Object.freeze(state.pendingEffects);
@@ -216,6 +250,18 @@ export function createCompositeInstanceRegistry(): CompositeInstanceRegistry {
 
     getAllIds(): readonly InstanceId[] {
       return Object.freeze(Array.from(instances.keys()));
+    },
+
+    getAppStateSelections(instanceId: InstanceId): readonly AppStateSelection[] {
+      const state = instances.get(instanceId);
+      if (!state) return Object.freeze([]);
+      return Object.freeze(state.appStateSelections);
+    },
+
+    setAppStateSelections(instanceId: InstanceId, selections: readonly AppStateSelection[]): void {
+      const state = instances.get(instanceId);
+      if (!state) return;
+      state.appStateSelections = selections.slice();
     },
   });
 }
@@ -245,6 +291,14 @@ export function createHookContext(
 ): HookContext {
   const mutableState = state as MutableInstanceState;
 
+  function assertCanCreateHook(index: number, kind: HookState["kind"]): void {
+    if (mutableState.expectedHookCount !== null && index >= mutableState.expectedHookCount) {
+      throw new Error(
+        `Hook count mismatch at index ${index}: rendered more hooks than previous render while reading ${kind}`,
+      );
+    }
+  }
+
   function getHookIndex(): number {
     const index = mutableState.hookIndex;
     mutableState.hookIndex++;
@@ -257,6 +311,7 @@ export function createHookContext(
       const existing = mutableState.hooks[index];
 
       if (existing === undefined) {
+        assertCanCreateHook(index, "state");
         // First render: initialize state
         const initialValue = typeof initial === "function" ? (initial as () => T)() : initial;
 
@@ -295,6 +350,7 @@ export function createHookContext(
       const existing = mutableState.hooks[index];
 
       if (existing === undefined) {
+        assertCanCreateHook(index, "ref");
         // First render: initialize ref
         const ref: RefState<T> = { current: initial };
         mutableState.hooks[index] = {
@@ -319,6 +375,7 @@ export function createHookContext(
       };
 
       if (existing === undefined) {
+        assertCanCreateHook(index, "effect");
         // First render: schedule effect
         const effectState: EffectState = {
           deps,
