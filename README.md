@@ -47,7 +47,7 @@ cd my-app
 bun start
 ```
 
-Four starter templates: `dashboard`, `form-app`, `file-browser`, `streaming-viewer`.
+Starter template (current): `dashboard` (EdgeOps control-plane console).
 
 ## Example
 
