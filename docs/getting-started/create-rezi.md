@@ -20,19 +20,22 @@ bun run start
 
 If `--template` is omitted, the CLI prompts you to choose (default: `dashboard`).
 
-- `dashboard`: Product-grade EdgeOps console with deterministic live updates.
-  Highlights: fleet services table, service inspector, active events feed, and escalation runbook.
+- `dashboard`: Live ops dashboard with deterministic table updates.
+  Highlights: live-updating table with stable row keys, filter/sort/pin controls + incident telemetry.
+- `stress-test`: Visual benchmark matrix with deterministic simulation + real runtime diagnostics.
+  Highlights: three visual stress lanes (geometry/text/matrix), phase escalation, measured CPU/RSS/lag/sink I/O.
   Alias: `dash` (also accepted in interactive prompt).
+- `stress-test`: Visual benchmark matrix with deterministic simulation + real runtime diagnostics.
+  Highlights: three visual stress lanes (geometry/text/matrix), phase escalation, measured CPU/RSS/lag/sink I/O.
+  Aliases: `stress`, `chaos`, `bench`.
 
 Choose directly with `--template`:
 
 ```bash
 npm create rezi my-app -- --template dashboard
-npm create rezi my-app -- --template dash
-
-# Bun
+npm create rezi my-app -- --template stress-test
 bun create rezi my-app -- --template dashboard
-bun create rezi my-app -- --template dash
+bun create rezi my-app -- --template stress-test
 ```
 
 Inspect all templates and highlights from the CLI:
@@ -45,7 +48,7 @@ bun create rezi -- --list-templates
 
 ## Options
 
-- `--template, -t <name>`: Select a template (`dashboard` or alias `dash`).
+- `--template, -t <name>`: Select a template (`dashboard` or `stress-test`; aliases: `dash`, `stress`, `chaos`, `bench`).
 - `--no-install, --skip-install`: Skip dependency installation.
 - `--pm, --package-manager <npm|pnpm|yarn|bun>`: Choose a package manager.
 - `--list-templates, --templates`: Print available templates and highlights.

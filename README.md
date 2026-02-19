@@ -120,7 +120,7 @@ cd my-app
 bun start
 ```
 
-Starter template: **EdgeOps control-plane dashboard**
+Starter templates: **EdgeOps control-plane dashboard** and **Visual benchmark stress test**.
 
 ---
 

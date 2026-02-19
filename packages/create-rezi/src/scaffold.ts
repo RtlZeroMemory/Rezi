@@ -2,7 +2,7 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export type TemplateKey = "dashboard";
+export type TemplateKey = "dashboard" | "stress-test";
 
 export type TemplateDefinition = {
   key: TemplateKey;
@@ -23,6 +23,17 @@ export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
     ],
     dir: "dashboard",
   },
+  {
+    key: "stress-test",
+    label: "Visual Benchmark Matrix",
+    description:
+      "Three-lane visual benchmark with deterministic sim model + real runtime diagnostics",
+    highlights: [
+      "geometry + text/file activity + matrix rain lanes with phase-based intensity ramp",
+      "deterministic sim scorecard and measured CPU/RSS/lag/timing/sink throughput",
+    ],
+    dir: "stress-test",
+  },
 ] as const;
 
 const TEMPLATE_BY_KEY = new Map(TEMPLATE_DEFINITIONS.map((template) => [template.key, template]));
@@ -31,6 +42,9 @@ const TEMPLATE_ALIASES = new Map<string, TemplateKey>(
 );
 
 TEMPLATE_ALIASES.set("dash", "dashboard");
+TEMPLATE_ALIASES.set("stress", "stress-test");
+TEMPLATE_ALIASES.set("chaos", "stress-test");
+TEMPLATE_ALIASES.set("bench", "stress-test");
 
 const PACKAGE_NAME_RE = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
 

@@ -25,7 +25,10 @@ The CLI prompts for any missing values (project name/template) when run interact
 Canonical template names:
 
 - `dashboard`
+- `stress-test`
   - Alias: `dash`
+- `stress-test`
+  - Aliases: `stress`, `chaos`, `bench`
 
 Use a specific template:
 
@@ -50,7 +53,7 @@ For template descriptions and highlights, use the canonical guide: [Getting Star
 
 ## Options
 
-- `--template, -t <name>`: Select a template (`dashboard` or alias `dash`).
+- `--template, -t <name>`: Select a template (`dashboard` or `stress-test`, plus aliases).
 - `--no-install, --skip-install`: Skip dependency installation.
 - `--pm, --package-manager <npm|pnpm|yarn|bun>`: Choose a package manager.
 - `--list-templates, --templates`: Print available templates and highlights.
