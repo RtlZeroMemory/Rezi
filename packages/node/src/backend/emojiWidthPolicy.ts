@@ -6,7 +6,7 @@ export type ResolvedEmojiWidthPolicy = "wide" | "narrow";
 const NATIVE_WIDTH_POLICY_NARROW = 0 as const;
 const NATIVE_WIDTH_POLICY_WIDE = 1 as const;
 const PROBE_TIMEOUT_MS_DEFAULT = 80;
-const PROBE_GLYPHS = Object.freeze(["👁", "😀", "🧪"]);
+const PROBE_GLYPHS = Object.freeze(["😀", "🚀", "🧪"]);
 const ENV_EMOJI_WIDTH_POLICY = "ZRUI_EMOJI_WIDTH_POLICY" as const;
 const ENV_EMOJI_WIDTH_PROBE = "ZRUI_EMOJI_WIDTH_PROBE" as const;
 

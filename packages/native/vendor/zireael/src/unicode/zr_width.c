@@ -19,6 +19,7 @@ enum {
   ZR_WIDTH_ASCII_ASTERISK = 0x2Au,
   ZR_WIDTH_ASCII_DIGIT_0 = 0x30u,
   ZR_WIDTH_ASCII_DIGIT_9 = 0x39u,
+  ZR_WIDTH_VARIATION_SELECTOR_15 = 0xFE0Eu,
   ZR_WIDTH_VARIATION_SELECTOR_16 = 0xFE0Fu,
   ZR_WIDTH_COMBINING_ENCLOSING_KEYCAP = 0x20E3u,
 };
@@ -99,9 +100,14 @@ uint8_t zr_width_grapheme_utf8(const uint8_t* bytes, size_t len, zr_width_policy
     return 0u;
   }
 
-  uint8_t width = 0u;
+  uint8_t width_text = 0u;
+  uint8_t width_emoji_norm = 0u;
   size_t off = 0u;
-  bool has_emoji = false;
+  bool has_emoji_presentation = false;
+  bool has_extended_pictographic = false;
+  bool has_zwj = false;
+  bool has_vs15 = false;
+  bool has_vs16 = false;
   zr_width_keycap_state_t keycap_state = ZR_WIDTH_KEYCAP_STATE_START;
 
   while (off < len) {
@@ -111,27 +117,63 @@ uint8_t zr_width_grapheme_utf8(const uint8_t* bytes, size_t len, zr_width_policy
     }
     off += (size_t)d.size;
 
-    const bool is_emoji = zr_unicode_is_extended_pictographic(d.scalar) || zr_unicode_is_emoji_presentation(d.scalar);
-    if (is_emoji) {
-      has_emoji = true;
+    const bool is_emoji_presentation = zr_unicode_is_emoji_presentation(d.scalar);
+    const bool is_extended_pictographic = zr_unicode_is_extended_pictographic(d.scalar);
+    const bool is_emoji_capable = is_emoji_presentation || is_extended_pictographic;
+    const zr_gcb_class_t gcb = zr_unicode_gcb_class(d.scalar);
+
+    if (is_emoji_presentation) {
+      has_emoji_presentation = true;
+    }
+    if (is_extended_pictographic) {
+      has_extended_pictographic = true;
+    }
+    if (gcb == ZR_GCB_ZWJ) {
+      has_zwj = true;
+    }
+    if (d.scalar == ZR_WIDTH_VARIATION_SELECTOR_15) {
+      has_vs15 = true;
+    }
+    if (d.scalar == ZR_WIDTH_VARIATION_SELECTOR_16) {
+      has_vs16 = true;
     }
     keycap_state = zr_width_keycap_next(keycap_state, d.scalar);
 
     /*
       Emoji policy must be able to force emoji to narrow width even when the
-      codepoint is EastAsianWidth=Wide. Treat emoji codepoints as width 1 for
-      the per-codepoint accumulator and apply policy after scanning.
+      codepoint is EastAsianWidth=Wide. Keep both accumulators:
+      - width_text: raw scalar widths for text/default presentation
+      - width_emoji_norm: emoji-capable scalars normalized to width 1
     */
-    const uint8_t w = is_emoji ? 1u : zr_width_codepoint(d.scalar);
-    if (w > width) {
-      width = w;
+    const uint8_t w_text = zr_width_codepoint(d.scalar);
+    if (w_text > width_text) {
+      width_text = w_text;
+    }
+    const uint8_t w_emoji = is_emoji_capable ? 1u : w_text;
+    if (w_emoji > width_emoji_norm) {
+      width_emoji_norm = w_emoji;
     }
   }
 
-  if (keycap_state == ZR_WIDTH_KEYCAP_STATE_MATCHED) {
+  const bool keycap_emoji = (keycap_state == ZR_WIDTH_KEYCAP_STATE_MATCHED);
+  bool has_emoji = false;
+  if (keycap_emoji) {
+    has_emoji = true;
+  } else if (has_emoji_presentation) {
+    has_emoji = true;
+  } else if (has_extended_pictographic && (has_vs16 || has_zwj)) {
     has_emoji = true;
   }
 
+  /*
+    FE0E (text presentation) should suppress "emoji-min-width" coercion for
+    text-default pictographs when no stronger emoji signal is present.
+  */
+  if (has_vs15 && !has_vs16 && !has_emoji_presentation && !keycap_emoji) {
+    has_emoji = false;
+  }
+
+  uint8_t width = has_emoji ? width_emoji_norm : width_text;
   if (has_emoji) {
     const uint8_t emoji_w = (policy == ZR_WIDTH_EMOJI_WIDE) ? 2u : 1u;
     if (emoji_w > width) {

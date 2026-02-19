@@ -13,6 +13,19 @@
       "width": 2
     },
     { "name": "regional_indicator_pair_flag", "text": "\ud83c\uddfa\ud83c\uddf8", "width": 2 },
-    { "name": "cjk_wide", "text": "\u754c", "width": 2 }
+    { "name": "cjk_wide", "text": "\u754c", "width": 2 },
+    { "name": "text_default_eye", "text": "\ud83d\udc41", "width": 1 },
+    { "name": "emoji_eye_vs16", "text": "\ud83d\udc41\ufe0f", "width": 2 },
+    { "name": "text_default_satellite", "text": "\ud83d\udef0", "width": 1 },
+    { "name": "emoji_satellite_vs16", "text": "\ud83d\udef0\ufe0f", "width": 2 },
+    { "name": "text_default_airplane", "text": "\u2708", "width": 1 },
+    { "name": "emoji_airplane_vs16", "text": "\u2708\ufe0f", "width": 2 },
+    { "name": "text_airplane_vs15", "text": "\u2708\ufe0e", "width": 1 },
+    { "name": "text_default_heart", "text": "\u2764", "width": 1 },
+    { "name": "emoji_heart_vs16", "text": "\u2764\ufe0f", "width": 2 },
+    { "name": "keycap_digit", "text": "1\ufe0f\u20e3", "width": 2 },
+    { "name": "keycap_hash", "text": "#\ufe0f\u20e3", "width": 2 },
+    { "name": "keycap_asterisk", "text": "*\ufe0f\u20e3", "width": 2 },
+    { "name": "emoji_zwj_rainbow_flag", "text": "\ud83c\udff3\ufe0f\u200d\ud83c\udf08", "width": 2 }
   ]
 }
