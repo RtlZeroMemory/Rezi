@@ -185,6 +185,14 @@ static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_
     zr_engine_fb_swap(&e->fb_prev, &e->fb_stage);
   } else {
     zr_engine_fb_swap(&e->fb_prev, &e->fb_next);
+    /*
+      Keep fb_next synchronized with the last committed app frame.
+
+      Why: Incremental drawlists apply against fb_next in engine_submit_drawlist().
+      If fb_next is left as the pre-swap "old prev" frame, incremental updates
+      are applied on a stale base and can oscillate full-screen output.
+    */
+    zr_engine_fb_copy(&e->fb_prev, &e->fb_next);
   }
   zr_engine_swap_diff_hashes_on_commit(e);
   e->term_state = *final_ts;
