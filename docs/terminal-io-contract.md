@@ -124,3 +124,11 @@ Examples (explicitly tested):
 - Linux/macOS: full contract suite runs through real PTY.
 - Windows: ConPTY-guarded test covers at least arrows/modifiers + bracketed paste.
   - If ConPTY path is unavailable in environment, tests skip with explicit reason.
+
+## Startup input safety note (emoji width probe)
+
+- By default, Rezi does **not** perform startup CPR probing for emoji width.
+- CPR probing is opt-in (`ZRUI_EMOJI_WIDTH_PROBE=1`) because probing temporarily
+  reads stdin bytes and can race startup-time input streams.
+- The default contract therefore keeps startup input handling deterministic and
+  unaffected by width probing.

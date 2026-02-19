@@ -20,9 +20,11 @@ npm run start
 Currently available template:
 
 - `dashboard` - EdgeOps-style operations console starter
+  - Alias: `dash`
 
 ```bash
 npm create rezi my-app -- --template dashboard
+npm create rezi my-app -- --template dash
 ```
 
 List templates and highlights from the CLI:
@@ -33,7 +35,7 @@ npm create rezi -- --list-templates
 
 ## Options
 
-- `--template, -t <dashboard>`: Select a template.
+- `--template, -t <name>`: Select a template (`dashboard` or alias `dash`).
 - `--no-install, --skip-install`: Skip dependency installation.
 - `--pm, --package-manager <npm|pnpm|yarn|bun>`: Choose a package manager.
 - `--list-templates, --templates`: Print available templates and highlights.

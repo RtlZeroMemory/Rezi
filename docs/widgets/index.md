@@ -1,6 +1,6 @@
 # Widget Catalog
 
-Rezi provides a comprehensive set of widgets for building terminal UIs. Widgets are plain TypeScript functions that return VNode objects.
+Rezi provides 54 built-in widgets for building terminal UIs. Widgets are plain TypeScript functions that return VNode objects.
 
 ```typescript
 app.view((state) =>

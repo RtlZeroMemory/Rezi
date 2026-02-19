@@ -20,8 +20,10 @@ bun run start
 - `f`: Cycle health filter (`all`, `warning`, `down`, `healthy`)
 - `s`: Cycle sort field (`service`, `latency`, `errors`, `traffic`)
 - `o`: Toggle sort direction
+- `t`: Cycle theme preset
 - `p` or `space`: Pause/resume live updates
 - `enter`: Pin/unpin selected service
+- `c`: Clear active events feed
 - `d`: Toggle debug counters panel
 - `h`: Open command help modal
 - `q`: Quit

@@ -21,11 +21,13 @@ The CLI prompts for any missing values (project name/template) when run interact
 Canonical template names:
 
 - `dashboard`
+  - Alias: `dash`
 
 Use a specific template:
 
 ```bash
 npm create rezi my-app -- --template dashboard
+npm create rezi my-app -- --template dash
 ```
 
 List templates and highlights:
@@ -38,7 +40,7 @@ For template descriptions and highlights, use the canonical guide: [Getting Star
 
 ## Options
 
-- `--template, -t <dashboard>`: Select a template.
+- `--template, -t <name>`: Select a template (`dashboard` or alias `dash`).
 - `--no-install, --skip-install`: Skip dependency installation.
 - `--pm, --package-manager <npm|pnpm|yarn|bun>`: Choose a package manager.
 - `--list-templates, --templates`: Print available templates and highlights.

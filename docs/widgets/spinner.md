@@ -20,6 +20,16 @@ ui.spinner({ variant: "dots", label: "Loading..." });
 | `style` | `TextStyle` | - | Optional style override |
 | `key` | `string` | - | Reconciliation key |
 
+## Animation cadence
+
+Spinner animation is tick-driven and intentionally bounded for stability.
+
+- Repaint cadence is capped by `min(fpsCap, 8)` in widget mode.
+- Effective minimum spinner interval is `floor(1000 / min(fpsCap, 8))` ms.
+- Tick events only dirty render when an animated widget is present and the interval elapsed.
+
+This prevents startup flicker and repaint storms while keeping input responsive under load.
+
 ## Examples
 
 ### 1) Loading header

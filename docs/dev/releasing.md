@@ -24,7 +24,7 @@ The repo uses a single version across these publishable packages.
 Update all workspace versions (including inter-package dependency pins):
 
 ```bash
-node scripts/release-set-version.mjs 0.1.0-alpha.1
+node scripts/release-set-version.mjs 0.1.0-alpha.16
 ```
 
 ## Release checklist
@@ -57,8 +57,8 @@ node scripts/release-set-version.mjs 0.1.0-alpha.1
 4. Commit release metadata and tag:
 
    ```bash
-   git tag v0.1.0-alpha.1
-   git push origin v0.1.0-alpha.1
+   git tag v0.1.0-alpha.16
+   git push origin v0.1.0-alpha.16
    ```
 
 5. Confirm CI release workflow completes:
