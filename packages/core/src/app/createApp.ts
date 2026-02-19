@@ -369,6 +369,7 @@ export function createApp<S>(
   const DIRTY_RENDER = 1 << 0;
   const DIRTY_LAYOUT = 1 << 1;
   const DIRTY_VIEW = 1 << 2;
+  const spinnerTickMinIntervalMs = Math.max(1, Math.floor(1000 / Math.min(config.fpsCap, 8)));
 
   let dirtyFlags = 0;
   let dirtyRenderVersion = 0;
@@ -376,6 +377,9 @@ export function createApp<S>(
   let dirtyViewVersion = 0;
   let framesInFlight = 0;
   let interactiveBudget = 0;
+  let lastSpinnerRenderTickMs = Number.NEGATIVE_INFINITY;
+  let lastObservedSpinnerTickEventMs = Number.NEGATIVE_INFINITY;
+  let lastSpinnerRenderPerfMs = Number.NEGATIVE_INFINITY;
   let viewport: Readonly<{ cols: number; rows: number }> | null = null;
   const timeUnwrap: EventTimeUnwrapState = { epochMs: 0, lastRawMs: null };
 
@@ -722,8 +726,26 @@ export function createApp<S>(
           }
         }
         if (ev.kind === "tick" && mode === "widget") {
-          // Tick events drive render-only animation frames (e.g., Spinner).
-          markDirty(DIRTY_RENDER);
+          // Tick events drive render-only animation frames for animated widgets
+          // (currently spinner). Throttle to avoid repaint storms/flicker.
+          //
+          // Prefer backend tick timestamps when they advance, but fall back to
+          // local monotonic time for runtimes/terminals where tick time is
+          // constant or non-monotonic.
+          if (widgetRenderer.hasAnimatedWidgets()) {
+            const tickMs = ev.timeMs;
+            const perfMs = perfNow();
+            const eventClockAdvances = tickMs > lastObservedSpinnerTickEventMs;
+            if (eventClockAdvances) lastObservedSpinnerTickEventMs = tickMs;
+            const elapsedMs = eventClockAdvances
+              ? tickMs - lastSpinnerRenderTickMs
+              : perfMs - lastSpinnerRenderPerfMs;
+            if (elapsedMs >= spinnerTickMinIntervalMs) {
+              lastSpinnerRenderTickMs = tickMs;
+              lastSpinnerRenderPerfMs = perfMs;
+              markDirty(DIRTY_RENDER);
+            }
+          }
         }
 
         const isWidgetRoutableEvent =

@@ -55,11 +55,14 @@ import {
 
 export {
   ZRUI_TEXT_MEASURE_VERSION,
+  type TextMeasureEmojiPolicy,
   measureTextCells,
   truncateWithEllipsis,
   truncateMiddle,
   clearTextMeasureCache,
   getTextMeasureCacheSize,
+  setTextMeasureEmojiPolicy,
+  getTextMeasureEmojiPolicy,
 } from "./layout/textMeasure.js";
 
 export const ZR_ENGINE_ABI = {

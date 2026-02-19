@@ -1,6 +1,6 @@
 {
   "name": "@rezi-ui/bench",
-  "version": "0.1.0-alpha.11",
+  "version": "0.1.0-alpha.16",
   "description": "Comprehensive benchmark suite for terminal UI runtimes",
   "private": true,
   "type": "module",
@@ -16,7 +16,7 @@
   },
   "types": "./dist/index.d.ts",
   "dependencies": {
-    "@rezi-ui/core": "0.1.0-alpha.11",
+    "@rezi-ui/core": "0.1.0-alpha.16",
     "blessed": "^0.1.81",
     "ink": "^4.0.0",
     "react": "^18.0.0",

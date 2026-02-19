@@ -1,37 +1,95 @@
 <h1 align="center">Rezi</h1>
 
 <p align="center">
-  <strong>Terminal UI framework for TypeScript with a native rendering engine.</strong>
+  <strong>TypeScript TUI, Near-Native Performance.</strong><br/>
+  High-level developer experience powered by a deterministic C rendering engine.
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@rezi-ui/core"><img src="https://img.shields.io/npm/v/@rezi-ui/core.svg" alt="npm version"></a>
-  <a href="https://github.com/RtlZeroMemory/Rezi/actions/workflows/ci.yml"><img src="https://github.com/RtlZeroMemory/Rezi/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://rtlzeromemory.github.io/Rezi/"><img src="https://github.com/RtlZeroMemory/Rezi/actions/workflows/docs.yml/badge.svg" alt="docs"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License"></a>
+  <a href="https://www.npmjs.com/package/@rezi-ui/core">
+    <img src="https://img.shields.io/npm/v/@rezi-ui/core.svg" alt="npm version">
+  </a>
+  <a href="https://github.com/RtlZeroMemory/Rezi/actions/workflows/ci.yml">
+    <img src="https://github.com/RtlZeroMemory/Rezi/actions/workflows/ci.yml/badge.svg" alt="CI">
+  </a>
+  <a href="https://rtlzeromemory.github.io/Rezi/">
+    <img src="https://github.com/RtlZeroMemory/Rezi/actions/workflows/docs.yml/badge.svg" alt="docs">
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License">
+  </a>
 </p>
 
 <p align="center">
   <a href="https://rtlzeromemory.github.io/Rezi/">Docs</a> ·
   <a href="https://rtlzeromemory.github.io/Rezi/getting-started/quickstart/">Quickstart</a> ·
   <a href="https://rtlzeromemory.github.io/Rezi/widgets/">Widgets</a> ·
-  <a href="https://rtlzeromemory.github.io/Rezi/api/">API Reference</a> ·
+  <a href="https://rtlzeromemory.github.io/Rezi/api/">API</a> ·
   <a href="BENCHMARKS.md">Benchmarks</a>
 </p>
 
+---
+
 > **Status: Alpha** — under active development. APIs may change between releases.
 
-Rezi is a TypeScript terminal UI framework for Node.js and Bun. You write declarative widget trees in TypeScript; Rezi computes layout, emits binary drawlists, and delegates framebuffer diffing and terminal output to [Zireael](https://github.com/RtlZeroMemory/Zireael), a purpose-built C rendering engine.
+---
 
-The result: TypeScript ergonomics with rendering performance in the same class as native TUIs.
+## Showcase — EdgeOps Control Plane
 
-![Rezi overview](Assets/REZI_MAIN.png)
+A production-style terminal control console built entirely with Rezi.
 
-![Rezi core demo](Assets/REZICORE.gif)
+![Rezi demo](Assets/REZICONSOLE3.gif)
+
+---
+
+## What is Rezi?
+
+Rezi is a high-performance terminal UI framework for **TypeScript**.
+
+You write declarative widget trees in TypeScript.  
+Rezi computes layout and emits a compact binary drawlist (ZRDL).  
+A native C engine — [Zireael](https://github.com/RtlZeroMemory/Zireael) — diffs framebuffers and writes only changed cells to the terminal.
+
+The result:
+
+- TypeScript ergonomics  
+- Deterministic rendering  
+- Near-native performance  
+- No React runtime  
+- No virtual DOM overhead  
+
+---
+
+## Why Rezi?
+
+Most JavaScript terminal frameworks generate ANSI escape sequences in userland on every update. Rendering cost scales with tree size and update frequency.
+
+Rezi moves the hot path out of JavaScript.
+
+1. **Application code** builds a declarative widget tree.
+2. **@rezi-ui/core** computes layout and encodes a compact binary drawlist.
+3. **Zireael (C engine)** diffs framebuffer state and writes only changed cells.
+
+Rendering remains ergonomic at the top — and native-speed at the bottom.
+
+In PTY-mode benchmarks (120×40 viewport), Rezi operates within ~2×–5× of a native Rust baseline (ratatui) and significantly outperforms React-based terminal frameworks:
+
+| Scenario | ratatui (Rust) | Rezi | Ink |
+|---|---:|---:|---:|
+| `terminal-rerender` | 74 µs | 322 µs | 16.39 ms |
+| `terminal-frame-fill` (1 dirty line) | 197 µs | 567 µs | 17.73 ms |
+| `terminal-frame-fill` (40 dirty lines) | 211 µs | 610 µs | 17.66 ms |
+| `terminal-virtual-list` | 126 µs | 584 µs | 18.88 ms |
+| `terminal-table` | 178 µs | 493 µs | 17.44 ms |
+
+Full methodology and reproduction steps:  
+👉 **[BENCHMARKS.md](BENCHMARKS.md)**
 
 ---
 
 ## Quick Start
+
+Get running in under a minute:
 
 ```bash
 npm create rezi my-app
@@ -47,7 +105,9 @@ cd my-app
 bun start
 ```
 
-Four starter templates: `dashboard`, `form-app`, `file-browser`, `streaming-viewer`.
+Starter template: **EdgeOps control-plane dashboard**
+
+---
 
 ## Example
 
@@ -77,13 +137,17 @@ app.keys({ q: () => app.stop() });
 await app.start();
 ```
 
+Install:
+
 ```bash
 npm install @rezi-ui/core @rezi-ui/node
 ```
 
-### JSX (no React)
+---
 
-`@rezi-ui/jsx` maps JSX syntax directly to Rezi VNodes — no React runtime involved.
+### JSX (No React Runtime)
+
+`@rezi-ui/jsx` maps JSX directly to Rezi VNodes.
 
 ```tsx
 /** @jsxImportSource @rezi-ui/jsx */
@@ -99,7 +163,11 @@ app.view((s) => (
     <Text style={{ bold: true }}>Counter</Text>
     <Row gap={2}>
       <Text>Count: {s.count}</Text>
-      <Button id="inc" label="+1" onPress={() => app.update((prev) => ({ count: prev.count + 1 }))} />
+      <Button
+        id="inc"
+        label="+1"
+        onPress={() => app.update((prev) => ({ count: prev.count + 1 }))}
+      />
     </Row>
   </Column>
 ));
@@ -112,80 +180,94 @@ await app.start();
 npm install @rezi-ui/jsx @rezi-ui/core @rezi-ui/node
 ```
 
-## Why Rezi?
-
-Most JavaScript terminal frameworks generate ANSI escape sequences in userland on every update. This works, but rendering cost scales with tree size and update frequency.
-
-Rezi takes a different approach:
-
-1. **Your code** builds a declarative widget tree in TypeScript.
-2. **Rezi** computes layout and encodes a compact binary drawlist (ZRDL).
-3. **Zireael** (native C engine) diffs framebuffer state and writes only changed cells to the terminal.
-
-This keeps authoring ergonomic while moving the hot rendering path to native code. In our PTY-mode benchmark suite (`120x40` viewport), Rezi is ~2x–5x from a native Rust baseline (ratatui) and 30x–50x ahead of Ink:
-
-| Scenario | ratatui (Rust) | Rezi | Ink |
-|---|---:|---:|---:|
-| `terminal-rerender` | 74 µs | 322 µs | 16.39 ms |
-| `terminal-frame-fill` (1 dirty line) | 197 µs | 567 µs | 17.73 ms |
-| `terminal-frame-fill` (40 dirty lines) | 211 µs | 610 µs | 17.66 ms |
-| `terminal-virtual-list` | 126 µs | 584 µs | 18.88 ms |
-| `terminal-table` | 178 µs | 493 µs | 17.44 ms |
-
-Full methodology, caveats, and reproduction steps: **[BENCHMARKS.md](BENCHMARKS.md)**
+---
 
 ## Features
 
 **53+ built-in widgets** — primitives (box, row, column, text, grid), form inputs (input, button, checkbox, select, slider), data display (table, virtual list, tree), navigation (tabs, accordion, breadcrumb, pagination), overlays (modal, dropdown, toast, command palette), advanced (code editor, diff viewer, file picker, logs console), and charts (gauge, sparkline, bar chart).
 
-**Focus management** — automatic Tab/Shift+Tab navigation, focus zones, focus traps for modals, and mouse click-to-focus.
+### Focus & Input
+- Automatic tab navigation
+- Focus traps for modals
+- Global keybindings
+- Vim-style and chord sequences
+- Mouse support (click, scroll, drag)
 
-**Keybindings** — global shortcuts, modal modes (Vim-style `g g`, Emacs-style `C-x C-s`), and chord sequences.
+### Theming
+Six built-in themes:
+`dark`, `light`, `dimmed`, `high-contrast`, `nord`, `dracula`
 
-**Theming** — six built-in themes (dark, light, dimmed, high-contrast, nord, dracula) with semantic color tokens. Switch at runtime with `app.setTheme()`.
+Switch at runtime:
 
-**Mouse support** — click to focus, scroll wheel for lists and editors, drag to resize split panes. Detected automatically.
+```ts
+app.setTheme("nord");
+```
 
-**Composition** — `defineWidget` provides stateful reusable components with hooks (`useState`, `useRef`, `useEffect`).
+### Deterministic Rendering
+- Same state + same events = same frames
+- Versioned binary protocol
+- Pinned Unicode version
+- Strict update semantics
 
-**Deterministic rendering** — same state + same events = same frames. Pinned Unicode version, versioned binary protocols, strict update semantics.
+### Record & Replay
+Capture input sessions as deterministic bundles for debugging and testing.
 
-**Record & replay** — capture input sessions as deterministic bundles for testing and debugging.
+---
+
+## Who is Rezi for?
+
+Rezi is built for:
+
+- Real-time dashboards
+- Developer tooling
+- Control planes
+- Log viewers
+- Terminal-first applications
+- Teams who want TypeScript ergonomics without sacrificing performance
+
+---
 
 ## Architecture
 
+Rezi separates authoring from rendering:
+
 ```
-  Application Code
+Application Code (TypeScript)
         │
         ▼
-  @rezi-ui/core          Runtime-agnostic: widgets, layout, themes,
-        │                keybindings, forms, protocol builders
+@rezi-ui/core      Layout, widgets, protocol builders
         │ ZRDL drawlist
         ▼
-  @rezi-ui/node          Node.js/Bun backend: worker thread, event loop,
-        │                SharedArrayBuffer transport
-        ▼
-  @rezi-ui/native        N-API addon (napi-rs) binding to Zireael
+@rezi-ui/node      Node.js/Bun backend
         │
         ▼
-  Zireael (C engine)     Framebuffer diff, ANSI emission, terminal I/O
-        │ ZREV events
-        ▲
-      Terminal
+@rezi-ui/native    N-API binding
+        │
+        ▼
+Zireael (C engine) Framebuffer diff, ANSI emission
+        │
+        ▼
+Terminal
 ```
 
-Data flows down as drawlists (ZRDL). Input events flow up as event batches (ZREV). Both are versioned, little-endian binary formats validated at the boundary.
+Data flows down as drawlists (ZRDL).  
+Input events flow up as event batches (ZREV).  
+Both are versioned binary formats validated at the boundary.
+
+---
 
 ## Packages
 
 | Package | Description |
 |---|---|
-| [`@rezi-ui/core`](https://www.npmjs.com/package/@rezi-ui/core) | Widgets, layout, themes, keybindings, forms. Runtime-agnostic — no Node.js APIs. |
-| [`@rezi-ui/node`](https://www.npmjs.com/package/@rezi-ui/node) | Node.js/Bun backend with worker and inline execution modes. |
-| [`@rezi-ui/native`](https://www.npmjs.com/package/@rezi-ui/native) | N-API addon binding to the Zireael C rendering engine. |
-| [`@rezi-ui/jsx`](https://www.npmjs.com/package/@rezi-ui/jsx) | JSX runtime mapping to Rezi VNodes. No React. |
-| [`@rezi-ui/testkit`](https://www.npmjs.com/package/@rezi-ui/testkit) | Test utilities, fixtures, and golden test helpers. |
-| [`create-rezi`](https://www.npmjs.com/package/create-rezi) | Project scaffolding CLI. |
+| `@rezi-ui/core` | Runtime-agnostic widgets, layout, themes |
+| `@rezi-ui/node` | Node.js/Bun backend |
+| `@rezi-ui/native` | N-API binding to Zireael |
+| `@rezi-ui/jsx` | JSX runtime (no React) |
+| `@rezi-ui/testkit` | Testing utilities |
+| `create-rezi` | Project scaffolding CLI |
+
+---
 
 ## Requirements
 
@@ -210,14 +292,19 @@ build from a repository checkout with `npm run build:native`.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Short version:
-
 ```bash
 git clone https://github.com/RtlZeroMemory/Rezi.git
-cd Rezi && git submodule update --init --recursive
-npm ci && npm run build && npm test
+cd Rezi
+git submodule update --init --recursive
+npm ci
+npm run build
+npm test
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
 
 ## License
 
-[Apache-2.0](LICENSE)
+Apache-2.0

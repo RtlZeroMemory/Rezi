@@ -29,7 +29,7 @@ node examples/raw-draw-demo/dist/index.js
 
 ## Looking for Larger App Examples?
 
-Use `create-rezi` templates (`dashboard`, `form-app`, `file-browser`, `streaming-viewer`) for full multi-panel starter apps:
+Use the `create-rezi` dashboard template for a full multi-panel starter app:
 
 - [Create Rezi (canonical template overview)](create-rezi.md)
 - [create-rezi package reference](../packages/create-rezi.md)

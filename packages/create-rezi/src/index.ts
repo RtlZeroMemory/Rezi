@@ -86,9 +86,7 @@ function printHelp(): void {
   stdout.write("Usage:\n");
   stdout.write("  npm create rezi my-app\n\n");
   stdout.write("Options:\n");
-  stdout.write(
-    "  --template, -t <name>       dashboard | form-app | file-browser | streaming-viewer\n",
-  );
+  stdout.write("  --template, -t <name>       dashboard\n");
   stdout.write("  --no-install                Skip dependency install\n");
   stdout.write("  --pm <npm|pnpm|yarn|bun>    Choose a package manager\n");
   stdout.write("  --list-templates            Show templates and highlights\n");

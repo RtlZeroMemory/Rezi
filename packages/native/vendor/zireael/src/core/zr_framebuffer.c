@@ -9,6 +9,7 @@
 #include "core/zr_framebuffer.h"
 
 #include "unicode/zr_grapheme.h"
+#include "unicode/zr_utf8.h"
 #include "unicode/zr_width.h"
 
 #include "util/zr_checked.h"
@@ -21,6 +22,38 @@
 /* U+FFFD replacement character in UTF-8. */
 static const uint8_t ZR_UTF8_REPLACEMENT[] = {0xEFu, 0xBFu, 0xBDu};
 #define ZR_UTF8_REPLACEMENT_LEN 3u
+
+enum {
+  ZR_FB_UTF8_ASCII_CONTROL_MAX = 0x20u,
+  ZR_FB_UTF8_ASCII_DEL = 0x7Fu,
+  ZR_FB_UTF8_C1_MIN = 0x80u,
+  ZR_FB_UTF8_C1_MAX_EXCL = 0xA0u,
+};
+
+static bool zr_fb_utf8_grapheme_bytes_safe_for_terminal(const uint8_t* bytes, size_t len) {
+  if (!bytes || len == 0u) {
+    return false;
+  }
+
+  size_t off = 0u;
+  while (off < len) {
+    const zr_utf8_decode_result_t d = zr_utf8_decode_one(bytes + off, len - off);
+    if (d.size == 0u) {
+      return false;
+    }
+    if (d.valid == 0u) {
+      return false;
+    }
+    const uint32_t s = d.scalar;
+    if (s < (uint32_t)ZR_FB_UTF8_ASCII_CONTROL_MAX || s == (uint32_t)ZR_FB_UTF8_ASCII_DEL ||
+        (s >= (uint32_t)ZR_FB_UTF8_C1_MIN && s < (uint32_t)ZR_FB_UTF8_C1_MAX_EXCL)) {
+      return false;
+    }
+    off += (size_t)d.size;
+  }
+
+  return true;
+}
 
 static zr_style_t zr_style_default(void) {
   zr_style_t s;
@@ -740,11 +773,38 @@ zr_result_t zr_fb_put_grapheme(zr_fb_painter_t* p, int32_t x, int32_t y, const u
   }
 
   const zr_style_t s = *style;
+  const uint8_t space = (uint8_t)' ';
   const uint8_t* out_bytes = bytes;
   size_t out_len = len;
   bool try_wide = (width == 2u);
 
+  /*
+   * Canonicalize empty graphemes to a drawable width-1 space.
+   *
+   * Why: width-1 cells with glyph_len==0 are non-drawable and can desynchronize
+   * terminal cursor state in strict renderers when diff emits style + no bytes.
+   */
+  if (out_len == 0u) {
+    out_bytes = &space;
+    out_len = 1u;
+    try_wide = false;
+  }
+
   if (out_len > (size_t)ZR_CELL_GLYPH_MAX) {
+    out_bytes = ZR_UTF8_REPLACEMENT;
+    out_len = ZR_UTF8_REPLACEMENT_LEN;
+    try_wide = false;
+  }
+
+  /*
+   * Ensure framebuffer never stores bytes that could be interpreted as terminal
+   * control output (invalid UTF-8, ASCII controls, or C1 controls).
+   *
+   * Why: The diff renderer emits glyph bytes verbatim. Strict terminals can
+   * treat control bytes as cursor movement or mode changes, causing drift and
+   * visual artifacts.
+   */
+  if (!zr_fb_utf8_grapheme_bytes_safe_for_terminal(out_bytes, out_len)) {
     out_bytes = ZR_UTF8_REPLACEMENT;
     out_len = ZR_UTF8_REPLACEMENT_LEN;
     try_wide = false;

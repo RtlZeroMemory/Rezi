@@ -20,14 +20,8 @@ bun run start
 
 If `--template` is omitted, the CLI prompts you to choose (default: `dashboard`).
 
-- `dashboard`: Live ops dashboard with deterministic table updates.
-  Highlights: live-updating table with stable row keys, filter/sort/pin controls + incident telemetry.
-- `form-app`: Multi-step form with validation and command modes.
-  Highlights: insert/command key modes with chords, modal help and toast notifications.
-- `file-browser`: Explorer with async command palette search.
-  Highlights: async palette results with cancellation, table browser with details and preview.
-- `streaming-viewer`: High-volume stream monitor with virtualized index.
-  Highlights: virtual list over 15k streams, live ingest feed with follow/pause controls.
+- `dashboard`: Product-grade EdgeOps console with deterministic live updates.
+  Highlights: fleet services table, service inspector, active events feed, and escalation runbook.
 
 Choose directly with `--template`:
 
@@ -43,7 +37,7 @@ npm create rezi -- --list-templates
 
 ## Options
 
-- `--template, -t <dashboard|form-app|file-browser|streaming-viewer>`: Select a template.
+- `--template, -t <dashboard>`: Select a template.
 - `--no-install, --skip-install`: Skip dependency installation.
 - `--pm, --package-manager <npm|pnpm|yarn|bun>`: Choose a package manager.
 - `--list-templates, --templates`: Print available templates and highlights.

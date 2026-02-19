@@ -9,7 +9,7 @@
  *   - Unicode version: 15.1.0
  *   - Grapheme segmentation: UAX #29 (core rules)
  *   - East Asian Width: based on EAW property
- *   - Emoji width: wide (2 cells) for Extended_Pictographic sequences
+ *   - Emoji width: policy-controlled for emoji-presented graphemes
  *
  * Width rules:
  *   - ASCII printable: 1 cell
@@ -22,10 +22,43 @@
  * @see docs/guide/layout.md
  */
 
-import { GCB, gcbClass, isEawWide, isEmoji, isExtendedPictographic } from "./unicode/props.js";
+import {
+  GCB,
+  gcbClass,
+  isEawWide,
+  isEmojiPresentation,
+  isExtendedPictographic,
+} from "./unicode/props.js";
 
 /** Version pin for text measurement algorithm. Increment on any change. */
-export const ZRUI_TEXT_MEASURE_VERSION = 1 as const;
+export const ZRUI_TEXT_MEASURE_VERSION = 2 as const;
+
+/**
+ * Emoji width policy used by text measurement.
+ *
+ * - "wide": emoji grapheme clusters occupy at least 2 cells.
+ * - "narrow": emoji grapheme clusters occupy at least 1 cell.
+ */
+export type TextMeasureEmojiPolicy = "wide" | "narrow";
+
+let textMeasureEmojiPolicy: TextMeasureEmojiPolicy = "wide";
+
+/**
+ * Set emoji width policy used by measureTextCells().
+ *
+ * Clearing the cache is required because previous widths may have been computed
+ * under a different policy.
+ */
+export function setTextMeasureEmojiPolicy(policy: TextMeasureEmojiPolicy): void {
+  if (policy === textMeasureEmojiPolicy) return;
+  textMeasureEmojiPolicy = policy;
+  clearTextMeasureCache();
+}
+
+/** Get current emoji width policy used by measureTextCells(). */
+export function getTextMeasureEmojiPolicy(): TextMeasureEmojiPolicy {
+  return textMeasureEmojiPolicy;
+}
 
 /* ========== Text Measurement Cache ========== */
 
@@ -100,6 +133,31 @@ function decodeUtf16One(text: string, off: number): DecodeOne {
 
 function isAsciiControl(scalar: number): boolean {
   return scalar < 0x20 || scalar === 0x7f;
+}
+
+const VARIATION_SELECTOR_15 = 0xfe0e;
+const VARIATION_SELECTOR_16 = 0xfe0f;
+const COMBINING_ENCLOSING_KEYCAP = 0x20e3;
+
+type KeycapState = "start" | "after-base" | "after-base-vs16" | "matched" | "invalid";
+
+function isKeycapBase(scalar: number): boolean {
+  if (scalar === 0x23 || scalar === 0x2a) return true;
+  return scalar >= 0x30 && scalar <= 0x39;
+}
+
+function keycapNext(state: KeycapState, scalar: number): KeycapState {
+  if (state === "start") return isKeycapBase(scalar) ? "after-base" : "invalid";
+  if (state === "after-base") {
+    if (scalar === VARIATION_SELECTOR_16) return "after-base-vs16";
+    if (scalar === COMBINING_ENCLOSING_KEYCAP) return "matched";
+    return "invalid";
+  }
+  if (state === "after-base-vs16") {
+    if (scalar === COMBINING_ENCLOSING_KEYCAP) return "matched";
+    return "invalid";
+  }
+  return "invalid";
 }
 
 /**
@@ -249,14 +307,21 @@ function scanGraphemeClusters(text: string, onCluster?: GraphemeVisitor): number
     let lastNonExtendIsEp = prevClass !== GCB.EXTEND ? prevIsEp : false;
     let prevZwjAfterEp = prevClass === GCB.ZWJ ? lastNonExtendIsEp : false;
 
-    // Grapheme width tracking (engine policy: max codepoint width, then apply emoji override)
-    let width = 0 as 0 | 1 | 2;
-    let hasEmoji = false;
+    // Grapheme width tracking mirrors native engine behavior.
+    let widthText = 0 as 0 | 1 | 2;
+    let widthEmojiNormalized = 0 as 0 | 1 | 2;
+    let hasEmojiPresentation = isEmojiPresentation(prevDec.scalar);
+    let hasExtendedPictographic = prevIsEp;
+    let hasZwj = prevClass === GCB.ZWJ;
+    let hasVs15 = prevDec.scalar === VARIATION_SELECTOR_15;
+    let hasVs16 = prevDec.scalar === VARIATION_SELECTOR_16;
+    let keycapState: KeycapState = keycapNext("start", prevDec.scalar);
 
-    const firstIsEmoji = isEmoji(prevDec.scalar);
-    if (firstIsEmoji) hasEmoji = true;
-    const firstW = firstIsEmoji ? 1 : widthCodepoint(prevDec.scalar);
-    if (firstW > width) width = firstW;
+    const firstWText = widthCodepoint(prevDec.scalar);
+    if (firstWText > widthText) widthText = firstWText;
+    const firstEmojiCapable = hasEmojiPresentation || hasExtendedPictographic;
+    const firstWEmoji = firstEmojiCapable ? 1 : firstWText;
+    if (firstWEmoji > widthEmojiNormalized) widthEmojiNormalized = firstWEmoji;
 
     while (off < text.length) {
       const nextOff = off;
@@ -279,13 +344,35 @@ function scanGraphemeClusters(text: string, onCluster?: GraphemeVisitor): number
 
       prevClass = nextClass;
 
-      const nextIsEmoji = isEmoji(nextDec.scalar);
-      if (nextIsEmoji) hasEmoji = true;
-      const nextW = nextIsEmoji ? 1 : widthCodepoint(nextDec.scalar);
-      if (nextW > width) width = nextW;
+      const nextIsEmojiPresentation = isEmojiPresentation(nextDec.scalar);
+      if (nextIsEmojiPresentation) hasEmojiPresentation = true;
+      if (nextIsEp) hasExtendedPictographic = true;
+      if (nextClass === GCB.ZWJ) hasZwj = true;
+      if (nextDec.scalar === VARIATION_SELECTOR_15) hasVs15 = true;
+      if (nextDec.scalar === VARIATION_SELECTOR_16) hasVs16 = true;
+      keycapState = keycapNext(keycapState, nextDec.scalar);
+
+      const nextWText = widthCodepoint(nextDec.scalar);
+      if (nextWText > widthText) widthText = nextWText;
+      const nextEmojiCapable = nextIsEmojiPresentation || nextIsEp;
+      const nextWEmoji = nextEmojiCapable ? 1 : nextWText;
+      if (nextWEmoji > widthEmojiNormalized) widthEmojiNormalized = nextWEmoji;
     }
 
-    if (hasEmoji && width < 2) width = 2;
+    const keycapEmoji = keycapState === "matched";
+    let hasEmoji = false;
+    if (keycapEmoji) hasEmoji = true;
+    else if (hasEmojiPresentation) hasEmoji = true;
+    else if (hasExtendedPictographic && (hasVs16 || hasZwj)) hasEmoji = true;
+
+    // FE0E (text presentation) suppresses emoji coercion for text-default pictographs.
+    if (hasVs15 && !hasVs16 && !hasEmojiPresentation && !keycapEmoji) {
+      hasEmoji = false;
+    }
+
+    let width = hasEmoji ? widthEmojiNormalized : widthText;
+    const emojiMinWidth: 1 | 2 = textMeasureEmojiPolicy === "wide" ? 2 : 1;
+    if (hasEmoji && width < emojiMinWidth) width = emojiMinWidth as 1 | 2;
     total += width;
     onCluster?.(start, off, width);
 

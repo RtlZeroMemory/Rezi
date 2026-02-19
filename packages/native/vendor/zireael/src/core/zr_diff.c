@@ -97,6 +97,7 @@ static const uint8_t ZR_ANSI16_PALETTE[16][3] = {
 #define ZR_SCROLL_MIN_DIRTY_LINES 4u
 #define ZR_DIFF_DIRTY_ROW_COUNT_UNKNOWN 0xFFFFFFFFu
 #define ZR_DIFF_RECT_INDEX_NONE 0xFFFFFFFFu
+#define ZR_DIFF_BASELINE_SPACE ((uint8_t)' ')
 
 /* FNV-1a 64-bit row fingerprint constants. */
 #define ZR_FNV64_OFFSET_BASIS 14695981039346656037ull
@@ -116,6 +117,15 @@ static const zr_attr_map_t ZR_SGR_ATTRS[] = {
 
 static bool zr_style_eq(zr_style_t a, zr_style_t b) {
   return a.fg_rgb == b.fg_rgb && a.bg_rgb == b.bg_rgb && a.attrs == b.attrs && a.reserved == b.reserved;
+}
+
+static zr_style_t zr_diff_baseline_style(void) {
+  zr_style_t style;
+  style.fg_rgb = 0u;
+  style.bg_rgb = 0u;
+  style.attrs = 0u;
+  style.reserved = 0u;
+  return style;
 }
 
 static bool zr_term_style_is_valid(const zr_term_state_t* ts) {
@@ -626,90 +636,13 @@ static bool zr_emit_sgr_absolute(zr_sb_t* sb, zr_term_state_t* ts, zr_style_t de
 }
 
 static bool zr_emit_sgr_delta(zr_sb_t* sb, zr_term_state_t* ts, zr_style_t desired, const plat_caps_t* caps) {
-  if (!sb || !ts) {
-    return false;
-  }
-  desired = zr_style_apply_caps(desired, caps);
-  if (!zr_term_style_is_valid(ts)) {
-    return zr_emit_sgr_absolute(sb, ts, desired, caps);
-  }
-  if (zr_style_eq(ts->style, desired)) {
-    return true;
-  }
-
   /*
-    Delta-safe subset:
-      - add attrs (1/2/3/4/5/7/9/53) without reset
-      - update fg/bg colors directly
-    Attr clears require reset to avoid backend-specific off-code assumptions.
+    Compatibility-first policy:
+    strict terminals/renderers (notably some GPU-backed ones) may expose visual artifacts
+    when incremental style transitions rely on retained renderer state. To keep output
+    deterministic across terminals, use absolute reset-based SGR for every style transition.
   */
-  if ((ts->style.attrs & ~desired.attrs) != 0u) {
-    return zr_emit_sgr_absolute(sb, ts, desired, caps);
-  }
-
-  const bool fg_changed = (ts->style.fg_rgb != desired.fg_rgb);
-  const bool bg_changed = (ts->style.bg_rgb != desired.bg_rgb);
-  bool attrs_added = false;
-  for (size_t i = 0u; i < (sizeof(ZR_SGR_ATTRS) / sizeof(ZR_SGR_ATTRS[0])); i++) {
-    if ((desired.attrs & ZR_SGR_ATTRS[i].bit) != 0u && (ts->style.attrs & ZR_SGR_ATTRS[i].bit) == 0u) {
-      attrs_added = true;
-      break;
-    }
-  }
-
-  if (!attrs_added && !fg_changed && !bg_changed) {
-    ts->style = desired;
-    return true;
-  }
-
-  if (!zr_sb_write_u8(sb, 0x1Bu) || !zr_sb_write_u8(sb, (uint8_t)'[')) {
-    return false;
-  }
-
-  bool wrote_any = false;
-  for (size_t i = 0u; i < (sizeof(ZR_SGR_ATTRS) / sizeof(ZR_SGR_ATTRS[0])); i++) {
-    if ((desired.attrs & ZR_SGR_ATTRS[i].bit) == 0u || (ts->style.attrs & ZR_SGR_ATTRS[i].bit) != 0u) {
-      continue;
-    }
-    if (wrote_any && !zr_sb_write_u8(sb, (uint8_t)';')) {
-      return false;
-    }
-    if (!zr_sb_write_u32_dec(sb, ZR_SGR_ATTRS[i].sgr)) {
-      return false;
-    }
-    wrote_any = true;
-  }
-
-  if (fg_changed) {
-    if (wrote_any && !zr_sb_write_u8(sb, (uint8_t)';')) {
-      return false;
-    }
-    if (!zr_emit_sgr_color_param(sb, desired, caps, true)) {
-      return false;
-    }
-    wrote_any = true;
-  }
-  if (bg_changed) {
-    if (wrote_any && !zr_sb_write_u8(sb, (uint8_t)';')) {
-      return false;
-    }
-    if (!zr_emit_sgr_color_param(sb, desired, caps, false)) {
-      return false;
-    }
-    wrote_any = true;
-  }
-
-  if (!wrote_any) {
-    ts->style = desired;
-    return true;
-  }
-
-  if (!zr_sb_write_u8(sb, (uint8_t)'m')) {
-    return false;
-  }
-  ts->style = desired;
-  ts->flags |= ZR_TERM_STATE_STYLE_VALID;
-  return true;
+  return zr_emit_sgr_absolute(sb, ts, desired, caps);
 }
 
 /* Check if cell at (x,y) differs between prev and next framebuffers.
@@ -733,6 +666,45 @@ static bool zr_line_dirty_at(const zr_fb_t* prev, const zr_fb_t* next, uint32_t 
     }
   }
   return false;
+}
+
+static bool zr_cell_is_blank_baseline(const zr_cell_t* c) {
+  if (!c) {
+    return false;
+  }
+  if (c->width != 1u || c->glyph_len != 1u || c->glyph[0] != ZR_DIFF_BASELINE_SPACE) {
+    return false;
+  }
+  return zr_style_eq(c->style, zr_diff_baseline_style());
+}
+
+/*
+ * Check whether framebuffer contents match the baseline clear model.
+ *
+ * Why: When terminal screen validity is unknown, the renderer first emits a
+ * baseline clear. Sparse prev->next diffing remains correct only if prev
+ * already represents that same cleared baseline.
+ */
+static bool zr_fb_is_blank_baseline(const zr_fb_t* fb) {
+  if (!fb) {
+    return false;
+  }
+  if (fb->cols == 0u || fb->rows == 0u) {
+    return true;
+  }
+  if (!fb->cells) {
+    return false;
+  }
+
+  for (uint32_t y = 0u; y < fb->rows; y++) {
+    for (uint32_t x = 0u; x < fb->cols; x++) {
+      const zr_cell_t* c = zr_fb_cell_const(fb, x, y);
+      if (!zr_cell_is_blank_baseline(c)) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 typedef struct zr_diff_ctx_t {
@@ -1098,6 +1070,45 @@ static bool zr_emit_decstbm_reset(zr_sb_t* sb, zr_term_state_t* ts) {
   return true;
 }
 
+static bool zr_emit_ed2_clear_screen(zr_sb_t* sb) {
+  if (!sb) {
+    return false;
+  }
+  const uint8_t seq[] = "\x1b[2J";
+  return zr_sb_write_bytes(sb, seq, sizeof(seq) - 1u);
+}
+
+/*
+ * Establish a known blank baseline when screen contents are not trusted.
+ *
+ * Why: After a resize, the terminal often preserves prior glyphs while the
+ * engine reallocates and clears its prev/next buffers. Without an explicit
+ * clear, a sparse redraw can leave stale cells visible in strict terminals.
+ */
+static zr_result_t zr_diff_establish_blank_screen_baseline(zr_diff_ctx_t* ctx) {
+  if (!ctx) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+
+  ctx->ts.flags &= (uint8_t) ~(ZR_TERM_STATE_STYLE_VALID | ZR_TERM_STATE_CURSOR_POS_VALID);
+
+  /* Reset scroll margins (homes cursor) and clear using a deterministic baseline style. */
+  if (!zr_emit_decstbm_reset(&ctx->sb, &ctx->ts)) {
+    return ZR_ERR_LIMIT;
+  }
+
+  const zr_style_t baseline = zr_diff_baseline_style();
+  if (!zr_emit_sgr_absolute(&ctx->sb, &ctx->ts, baseline, ctx->caps)) {
+    return ZR_ERR_LIMIT;
+  }
+  if (!zr_emit_ed2_clear_screen(&ctx->sb)) {
+    return ZR_ERR_LIMIT;
+  }
+
+  ctx->ts.flags |= ZR_TERM_STATE_SCREEN_VALID;
+  return zr_sb_truncated(&ctx->sb) ? ZR_ERR_LIMIT : ZR_OK;
+}
+
 /* Render a contiguous span of dirty cells [start, end] on row y. */
 static zr_result_t zr_diff_render_span(zr_diff_ctx_t* ctx, uint32_t y, uint32_t start, uint32_t end) {
   if (!ctx || !ctx->prev || !ctx->next) {
@@ -1127,6 +1138,19 @@ static zr_result_t zr_diff_render_span(zr_diff_ctx_t* ctx, uint32_t y, uint32_t 
     if (c->glyph_len != 0u) {
       if (!zr_sb_write_bytes(&ctx->sb, c->glyph, (size_t)c->glyph_len)) {
         return ZR_ERR_LIMIT;
+      }
+    } else {
+      /*
+       * Defensive normalization for non-continuation empty cells.
+       *
+       * Why: a styled cell must emit at least one printable byte per display
+       * column. Otherwise internal cursor accounting advances while the terminal
+       * cursor does not, producing strict-renderer artifacts.
+       */
+      for (uint8_t i = 0u; i < w; i++) {
+        if (!zr_sb_write_u8(&ctx->sb, (uint8_t)' ')) {
+          return ZR_ERR_LIMIT;
+        }
       }
     }
 
@@ -1619,6 +1643,36 @@ static void zr_diff_finalize_damage_stats_sweep(zr_diff_ctx_t* ctx) {
   ctx->stats._pad0 = 0u;
 }
 
+/*
+ * Render a full-frame redraw from `next`.
+ *
+ * Why: If a baseline clear was forced while `prev` was non-blank, sparse
+ * prev->next damage is invalid. Rendering all lines re-synchronizes output.
+ */
+static zr_result_t zr_diff_render_full_frame(zr_diff_ctx_t* ctx) {
+  if (!ctx || !ctx->next) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+
+  for (uint32_t y = 0u; y < ctx->next->rows; y++) {
+    const zr_result_t rc = zr_diff_render_full_line(ctx, y);
+    if (rc != ZR_OK) {
+      return rc;
+    }
+  }
+
+  const uint32_t full_cells = zr_u32_mul_clamp(ctx->next->cols, ctx->next->rows);
+  ctx->stats.path_sweep_used = 1u;
+  ctx->stats.path_damage_used = 0u;
+  ctx->stats.damage_full_frame = (full_cells != 0u) ? 1u : 0u;
+  ctx->stats.damage_rects = (full_cells != 0u) ? 1u : 0u;
+  ctx->stats.damage_cells = full_cells;
+  ctx->stats.dirty_lines = (ctx->next->cols != 0u) ? ctx->next->rows : 0u;
+  ctx->stats.dirty_cells = full_cells;
+  ctx->stats._pad0 = 0u;
+  return zr_sb_truncated(&ctx->sb) ? ZR_ERR_LIMIT : ZR_OK;
+}
+
 static zr_result_t zr_diff_render_sweep_rows(zr_diff_ctx_t* ctx, uint32_t skip_top, uint32_t skip_bottom,
                                              bool has_skip) {
   if (!ctx || !ctx->next) {
@@ -1740,10 +1794,32 @@ zr_result_t zr_diff_render_ex(const zr_fb_t* prev, const zr_fb_t* next, const pl
   ctx.ts = *initial_term_state;
   zr_diff_prepare_row_cache(&ctx, scratch);
 
+  bool force_full_redraw = false;
+  if ((ctx.ts.flags & ZR_TERM_STATE_SCREEN_VALID) == 0u) {
+    const zr_term_state_t pre_baseline_ts = ctx.ts;
+    const zr_result_t rc = zr_diff_establish_blank_screen_baseline(&ctx);
+    if (rc == ZR_OK) {
+      force_full_redraw = !zr_fb_is_blank_baseline(prev);
+    } else if (rc == ZR_ERR_LIMIT) {
+      /*
+       * Keep low out-cap configurations operational.
+       *
+       * Why: If baseline bytes do not fit this frame, failing hard causes a
+       * persistent ERR_LIMIT loop after resize. Falling back preserves prior
+       * behavior (best-effort sparse redraw with unknown screen validity).
+       */
+      zr_sb_reset(&ctx.sb);
+      ctx.ts = pre_baseline_ts;
+    } else {
+      zr_diff_zero_outputs(out_len, out_final_term_state, out_stats);
+      return rc;
+    }
+  }
+
   bool skip = false;
   uint32_t skip_top = 0u;
   uint32_t skip_bottom = 0u;
-  if (enable_scroll_optimizations != 0u && caps->supports_scroll_region != 0u) {
+  if (!force_full_redraw && enable_scroll_optimizations != 0u && caps->supports_scroll_region != 0u) {
     const zr_result_t rc = zr_diff_try_scroll_opt(&ctx, &skip, &skip_top, &skip_bottom);
     if (rc != ZR_OK) {
       zr_diff_zero_outputs(out_len, out_final_term_state, out_stats);
@@ -1751,7 +1827,13 @@ zr_result_t zr_diff_render_ex(const zr_fb_t* prev, const zr_fb_t* next, const pl
     }
   }
 
-  if (skip) {
+  if (force_full_redraw) {
+    const zr_result_t rc = zr_diff_render_full_frame(&ctx);
+    if (rc != ZR_OK) {
+      zr_diff_zero_outputs(out_len, out_final_term_state, out_stats);
+      return rc;
+    }
+  } else if (skip) {
     /* Conservative: treat scroll-move frames as full-frame damage for metrics. */
     ctx.stats.damage_full_frame = 1u;
     ctx.stats.damage_rects = 1u;

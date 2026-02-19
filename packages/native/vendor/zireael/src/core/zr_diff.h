@@ -42,9 +42,19 @@ typedef struct zr_term_state_t {
 #define ZR_TERM_STATE_CURSOR_POS_VALID ((uint8_t)0x02u)
 #define ZR_TERM_STATE_CURSOR_VIS_VALID ((uint8_t)0x04u)
 #define ZR_TERM_STATE_CURSOR_SHAPE_VALID ((uint8_t)0x08u)
+/*
+  Indicates whether the renderer can assume the terminal's *screen contents*
+  are synchronized with `prev`.
+
+  Why: Resizes (and some external terminal events) can preserve prior on-screen
+  glyphs even when the engine reallocates/clears its internal buffers. When this
+  bit is not set, the diff renderer must establish a known blank baseline (clear
+  screen) before applying sparse diffs; otherwise stale cells can remain visible.
+*/
+#define ZR_TERM_STATE_SCREEN_VALID ((uint8_t)0x10u)
 #define ZR_TERM_STATE_VALID_ALL                                                                                        \
   ((uint8_t)(ZR_TERM_STATE_STYLE_VALID | ZR_TERM_STATE_CURSOR_POS_VALID | ZR_TERM_STATE_CURSOR_VIS_VALID |             \
-             ZR_TERM_STATE_CURSOR_SHAPE_VALID))
+             ZR_TERM_STATE_CURSOR_SHAPE_VALID | ZR_TERM_STATE_SCREEN_VALID))
 
 typedef struct zr_diff_stats_t {
   uint32_t dirty_lines;

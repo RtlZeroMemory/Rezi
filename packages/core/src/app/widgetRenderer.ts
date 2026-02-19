@@ -504,6 +504,7 @@ export class WidgetRenderer<S> {
 
   // Tracks whether the currently committed tree needs routing rebuild traversals.
   private hadRoutingWidgets = false;
+  private hasAnimatedWidgetsInCommittedTree = false;
 
   /* --- Render Caches (avoid per-frame recompute) --- */
   private readonly tableRenderCacheById = new Map<string, TableRenderCache>();
@@ -637,6 +638,29 @@ export class WidgetRenderer<S> {
     } else {
       this.builder = createDrawlistBuilderV1(builderOpts);
     }
+  }
+
+  hasAnimatedWidgets(): boolean {
+    return this.hasAnimatedWidgetsInCommittedTree;
+  }
+
+  private recomputeAnimatedWidgetPresence(runtimeRoot: RuntimeInstance): void {
+    this._pooledRuntimeStack.length = 0;
+    this._pooledRuntimeStack.push(runtimeRoot);
+    while (this._pooledRuntimeStack.length > 0) {
+      const node = this._pooledRuntimeStack.pop();
+      if (!node) continue;
+      if (node.vnode.kind === "spinner") {
+        this.hasAnimatedWidgetsInCommittedTree = true;
+        this._pooledRuntimeStack.length = 0;
+        return;
+      }
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        const child = node.children[i];
+        if (child) this._pooledRuntimeStack.push(child);
+      }
+    }
+    this.hasAnimatedWidgetsInCommittedTree = false;
   }
 
   /**
@@ -2988,6 +3012,7 @@ export class WidgetRenderer<S> {
         }
         commitRes = commitRes0.value;
         this.committedRoot = commitRes.root;
+        this.recomputeAnimatedWidgetPresence(this.committedRoot);
 
         const damageToken = PERF_DETAIL_ENABLED ? perfMarkStart("damage_identity_diff") : 0;
         identityDamageFromCommit = this.computeIdentityDiffDamage(

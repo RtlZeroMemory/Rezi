@@ -17,18 +17,12 @@ npm run start
 
 ## Templates
 
-Choose a template interactively, or pass `--template` with a canonical name:
+Currently available template:
 
-- `dashboard`
-- `form-app`
-- `file-browser`
-- `streaming-viewer`
+- `dashboard` - EdgeOps-style operations console starter
 
 ```bash
 npm create rezi my-app -- --template dashboard
-npm create rezi my-app -- --template form-app
-npm create rezi my-app -- --template file-browser
-npm create rezi my-app -- --template streaming-viewer
 ```
 
 List templates and highlights from the CLI:
@@ -39,7 +33,7 @@ npm create rezi -- --list-templates
 
 ## Options
 
-- `--template, -t <dashboard|form-app|file-browser|streaming-viewer>`: Select a template.
+- `--template, -t <dashboard>`: Select a template.
 - `--no-install, --skip-install`: Skip dependency installation.
 - `--pm, --package-manager <npm|pnpm|yarn|bun>`: Choose a package manager.
 - `--list-templates, --templates`: Print available templates and highlights.
