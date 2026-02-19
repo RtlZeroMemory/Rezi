@@ -186,7 +186,7 @@ async function probeTerminalEmojiWidthPolicy(
  * 1) explicit `requested` ("wide"/"narrow")
  * 2) explicit native override (`nativeConfig.widthPolicy|width_policy`)
  * 3) env override (`ZRUI_EMOJI_WIDTH_POLICY`)
- * 4) auto probe (CPR-based)
+ * 4) optional probe (CPR-based) when `ZRUI_EMOJI_WIDTH_PROBE=1`
  * 5) deterministic default ("wide")
  */
 export async function resolveBackendEmojiWidthPolicy(
@@ -211,7 +211,11 @@ export async function resolveBackendEmojiWidthPolicy(
   const envOverride = normalizePolicy(process.env[ENV_EMOJI_WIDTH_POLICY]);
   if (envOverride === "wide" || envOverride === "narrow") return envOverride;
 
-  const probeEnabled = process.env[ENV_EMOJI_WIDTH_PROBE] !== "0";
+  /*
+    CPR probing is opt-in because it temporarily consumes stdin bytes while
+    collecting CPR responses, which can race startup-time key streams.
+  */
+  const probeEnabled = process.env[ENV_EMOJI_WIDTH_PROBE] === "1";
   if (probeEnabled) {
     const probed = await probeTerminalEmojiWidthPolicy(PROBE_TIMEOUT_MS_DEFAULT);
     if (probed !== null) return probed;

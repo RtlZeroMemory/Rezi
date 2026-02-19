@@ -22,10 +22,10 @@ function snapshotEnv(): EnvSnapshot {
 }
 
 function restoreEnv(snapshot: EnvSnapshot): void {
-  if (snapshot.emojiWidthPolicy === undefined) process.env[ENV_EMOJI_WIDTH_POLICY] = undefined;
+  if (snapshot.emojiWidthPolicy === undefined) delete process.env[ENV_EMOJI_WIDTH_POLICY];
   else process.env[ENV_EMOJI_WIDTH_POLICY] = snapshot.emojiWidthPolicy;
 
-  if (snapshot.emojiWidthProbe === undefined) process.env[ENV_EMOJI_WIDTH_PROBE] = undefined;
+  if (snapshot.emojiWidthProbe === undefined) delete process.env[ENV_EMOJI_WIDTH_PROBE];
   else process.env[ENV_EMOJI_WIDTH_PROBE] = snapshot.emojiWidthProbe;
 }
 
@@ -68,11 +68,11 @@ test("emoji width policy: env override applies when auto and no native override"
   }
 });
 
-test("emoji width policy: falls back to wide when probe disabled", async () => {
+test("emoji width policy: falls back to wide when probe is not explicitly enabled", async () => {
   const prev = snapshotEnv();
   try {
-    process.env[ENV_EMOJI_WIDTH_POLICY] = undefined;
-    process.env[ENV_EMOJI_WIDTH_PROBE] = "0";
+    delete process.env[ENV_EMOJI_WIDTH_POLICY];
+    delete process.env[ENV_EMOJI_WIDTH_PROBE];
     const resolved = await resolveBackendEmojiWidthPolicy("auto", Object.freeze({}));
     assert.equal(resolved, "wide");
   } finally {

@@ -100,7 +100,8 @@ export type NodeBackendConfig = Readonly<{
   nativeConfig?: Readonly<Record<string, unknown>>;
   /**
    * Emoji width policy used to keep core layout measurement and native rendering aligned.
-   * - "auto": probe terminal behavior, fallback to deterministic "wide"
+   * - "auto": use native/env overrides; optional probe when `ZRUI_EMOJI_WIDTH_PROBE=1`
+   *   then fallback to deterministic "wide"
    * - "wide": emoji clusters consume 2 cells
    * - "narrow": emoji clusters consume 1 cell
    *
