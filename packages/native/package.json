@@ -1,6 +1,6 @@
 {
   "name": "@rezi-ui/native",
-  "version": "0.1.0-alpha.11",
+  "version": "0.1.0-alpha.16",
   "description": "Native addon for Rezi (napi-rs + Zireael engine).",
   "license": "Apache-2.0",
   "homepage": "https://rtlzeromemory.github.io/Rezi/",
@@ -21,7 +21,13 @@
       "default": "./index.js"
     }
   },
-  "files": ["index.js", "index.d.ts", "*.node", "scripts/*.mjs", "package.json"],
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "*.node",
+    "scripts/*.mjs",
+    "package.json"
+  ],
   "scripts": {
     "build:native": "node ./scripts/build-native.mjs",
     "test:native:smoke": "node ./scripts/smoke.mjs"

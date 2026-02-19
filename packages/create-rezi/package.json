@@ -1,6 +1,6 @@
 {
   "name": "create-rezi",
-  "version": "0.1.0-alpha.11",
+  "version": "0.1.0-alpha.16",
   "description": "Scaffold a Rezi terminal UI app.",
   "license": "Apache-2.0",
   "homepage": "https://rtlzeromemory.github.io/Rezi/",
@@ -16,11 +16,15 @@
   "bin": {
     "create-rezi": "dist/index.js"
   },
-  "files": ["dist/", "templates/", "README.md"],
+  "files": [
+    "dist/",
+    "templates/",
+    "README.md"
+  ],
   "engines": {
     "node": ">=18"
   },
   "devDependencies": {
-    "@rezi-ui/testkit": "0.1.0-alpha.11"
+    "@rezi-ui/testkit": "0.1.0-alpha.16"
   }
 }
