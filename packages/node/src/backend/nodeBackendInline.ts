@@ -31,8 +31,10 @@ import {
   ZR_ENGINE_ABI_PATCH,
   ZR_EVENT_BATCH_VERSION_V1,
   ZrUiError,
+  setTextMeasureEmojiPolicy,
   severityToNum,
 } from "@rezi-ui/core";
+import { applyEmojiWidthPolicy, resolveBackendEmojiWidthPolicy } from "./emojiWidthPolicy.js";
 import type {
   NodeBackend,
   NodeBackendInternalOpts,
@@ -118,6 +120,7 @@ const EVENT_POOL_SIZE = 16 as const;
 const POLL_IDLE_MS = 2 as const;
 const POLL_BUSY_MS = 0 as const;
 const ZR_ERR_LIMIT = -3 as const;
+const WIDTH_POLICY_KEY = "widthPolicy" as const;
 const RESOLVED_VOID = Promise.resolve();
 const SYNC_FRAME_ACK_MARKER = "__reziSyncFrameAck";
 const RESOLVED_SYNC_FRAME_ACK = Promise.resolve() as Promise<void> &
@@ -266,7 +269,7 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
       : Object.freeze({});
   const nativeTargetFps = resolveTargetFps(fpsCap, nativeConfig);
 
-  const initConfig = {
+  const initConfigBase = {
     ...nativeConfig,
     // fpsCap is the single frame-scheduling knob; native target fps must align.
     targetFps: nativeTargetFps,
@@ -276,6 +279,7 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
     requestedDrawlistVersion: useDrawlistV2 ? ZR_DRAWLIST_VERSION_V2 : ZR_DRAWLIST_VERSION_V1,
     requestedEventBatchVersion: ZR_EVENT_BATCH_VERSION_V1,
   };
+  let initConfigResolved: Record<string, unknown> | null = null;
 
   let native: NativeApi | null = null;
   let nativePromise: Promise<NativeApi> | null = null;
@@ -560,10 +564,27 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
       stopRequested = false;
 
       try {
+        if (initConfigResolved === null) {
+          const resolvedEmojiWidthPolicy = await resolveBackendEmojiWidthPolicy(
+            cfg.emojiWidthPolicy,
+            nativeConfig,
+          );
+          const nativeWidthPolicy = applyEmojiWidthPolicy(resolvedEmojiWidthPolicy);
+          initConfigResolved = {
+            ...initConfigBase,
+            widthPolicy: nativeWidthPolicy,
+          };
+        } else {
+          const widthPolicy = initConfigResolved[WIDTH_POLICY_KEY];
+          if (typeof widthPolicy === "number") {
+            setTextMeasureEmojiPolicy(widthPolicy === 0 ? "narrow" : "wide");
+          }
+        }
+
         const api = await ensureNativeLoaded();
         let id = 0;
         try {
-          id = api.engineCreate(initConfig);
+          id = api.engineCreate(initConfigResolved);
         } catch (err) {
           throw new Error(`engine_create threw: ${safeDetail(err)}`);
         }

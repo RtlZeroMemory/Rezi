@@ -27,6 +27,33 @@ import { GCB, gcbClass, isEawWide, isEmoji, isExtendedPictographic } from "./uni
 /** Version pin for text measurement algorithm. Increment on any change. */
 export const ZRUI_TEXT_MEASURE_VERSION = 1 as const;
 
+/**
+ * Emoji width policy used by text measurement.
+ *
+ * - "wide": emoji grapheme clusters occupy at least 2 cells.
+ * - "narrow": emoji grapheme clusters occupy at least 1 cell.
+ */
+export type TextMeasureEmojiPolicy = "wide" | "narrow";
+
+let textMeasureEmojiPolicy: TextMeasureEmojiPolicy = "wide";
+
+/**
+ * Set emoji width policy used by measureTextCells().
+ *
+ * Clearing the cache is required because previous widths may have been computed
+ * under a different policy.
+ */
+export function setTextMeasureEmojiPolicy(policy: TextMeasureEmojiPolicy): void {
+  if (policy === textMeasureEmojiPolicy) return;
+  textMeasureEmojiPolicy = policy;
+  clearTextMeasureCache();
+}
+
+/** Get current emoji width policy used by measureTextCells(). */
+export function getTextMeasureEmojiPolicy(): TextMeasureEmojiPolicy {
+  return textMeasureEmojiPolicy;
+}
+
 /* ========== Text Measurement Cache ========== */
 
 /** Maximum number of cached text measurements before eviction. */
@@ -285,7 +312,8 @@ function scanGraphemeClusters(text: string, onCluster?: GraphemeVisitor): number
       if (nextW > width) width = nextW;
     }
 
-    if (hasEmoji && width < 2) width = 2;
+    const emojiMinWidth: 1 | 2 = textMeasureEmojiPolicy === "wide" ? 2 : 1;
+    if (hasEmoji && width < emojiMinWidth) width = emojiMinWidth;
     total += width;
     onCluster?.(start, off, width);
 
