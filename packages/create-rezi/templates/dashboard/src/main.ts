@@ -108,7 +108,20 @@ const PRODUCT_ENVIRONMENT = "Production";
 const PRODUCT_CLUSTER = "global-edge";
 const SHOWCASE_MODE = true;
 const LIVE_SPINNER_VARIANT = "dots" as const;
-const CADENCE_PULSE_FRAMES = Object.freeze(["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█", "▇", "▆", "▅", "▄"]);
+const CADENCE_PULSE_FRAMES = Object.freeze([
+  "▁",
+  "▂",
+  "▃",
+  "▄",
+  "▅",
+  "▆",
+  "▇",
+  "█",
+  "▇",
+  "▆",
+  "▅",
+  "▄",
+]);
 const PANEL_PADDING_X = 1;
 const PANEL_PADDING_Y = 0;
 const KPI_SPARKLINE_WIDTH = 20;
@@ -262,13 +275,15 @@ const initialNowMs = Date.now();
 
 function averageLatency(services: readonly Service[]): number {
   return Math.round(
-    services.reduce((total, service) => total + service.latencyMs, 0) / Math.max(1, services.length),
+    services.reduce((total, service) => total + service.latencyMs, 0) /
+      Math.max(1, services.length),
   );
 }
 
 function averageErrorRate(services: readonly Service[]): number {
   return round2(
-    services.reduce((total, service) => total + service.errorRate, 0) / Math.max(1, services.length),
+    services.reduce((total, service) => total + service.errorRate, 0) /
+      Math.max(1, services.length),
   );
 }
 
@@ -370,7 +385,11 @@ function signedDelta(value: number, digits = 0): string {
   return digits === 0 ? "0" : Number(value).toFixed(digits);
 }
 
-function deltaSeverity(value: number, warningThreshold: number, criticalThreshold: number): BadgeVariant {
+function deltaSeverity(
+  value: number,
+  warningThreshold: number,
+  criticalThreshold: number,
+): BadgeVariant {
   const magnitude = Math.abs(value);
   if (magnitude >= criticalThreshold) return "error";
   if (magnitude >= warningThreshold) return "warning";
@@ -470,13 +489,15 @@ function panel(
           py: PANEL_PADDING_Y,
           style,
         };
-  return ui.box(
-    props,
-    children,
-  );
+  return ui.box(props, children);
 }
 
-function toolbarAction(_iconPath: string, buttonId: string, label: string, onPress: () => void): VNode {
+function toolbarAction(
+  _iconPath: string,
+  buttonId: string,
+  label: string,
+  onPress: () => void,
+): VNode {
   return ui.button({ id: buttonId, label, onPress });
 }
 
@@ -678,7 +699,12 @@ function clearIncidentsAction(): void {
 
 function togglePinAction(): void {
   app.update((state) => {
-    const visible = visibleServicesFor(state.services, state.filter, state.sort, state.sortDirection);
+    const visible = visibleServicesFor(
+      state.services,
+      state.filter,
+      state.sort,
+      state.sortDirection,
+    );
     const selected = selectedFromVisible(visible, state.selectedId);
     if (!selected) return state;
     return {
@@ -721,7 +747,9 @@ function simulateTick(state: State, nowMs: number): State {
     const satSwing = SHOWCASE_MODE ? 3 : 4;
 
     const targetLatency = clamp(
-      Math.round(service.latencyMs + Math.sin(phaseA) * latencySwingA + Math.cos(phaseB) * latencySwingB),
+      Math.round(
+        service.latencyMs + Math.sin(phaseA) * latencySwingA + Math.cos(phaseB) * latencySwingB,
+      ),
       12,
       280,
     );
@@ -731,7 +759,9 @@ function simulateTick(state: State, nowMs: number): State {
     const errorRate = round2(clamp(smoothFloat(service.errorRate, targetError, 0.2), 0.03, 9.9));
 
     const targetTraffic = clamp(
-      Math.round(service.trafficRpm + Math.sin(phaseA) * trafficSwingA + Math.cos(phaseB) * trafficSwingB),
+      Math.round(
+        service.trafficRpm + Math.sin(phaseA) * trafficSwingA + Math.cos(phaseB) * trafficSwingB,
+      ),
       400,
       34000,
     );
@@ -809,10 +839,12 @@ app.view((state) => {
   const healthyCount = state.services.filter((service) => service.status === "healthy").length;
   const warningCount = state.services.filter((service) => service.status === "warning").length;
   const downCount = state.services.filter((service) => service.status === "down").length;
-  const overallStatus: ServiceStatus = downCount > 0 ? "down" : warningCount > 0 ? "warning" : "healthy";
+  const overallStatus: ServiceStatus =
+    downCount > 0 ? "down" : warningCount > 0 ? "warning" : "healthy";
 
   const overallBadge = statusBadge(overallStatus);
-  const clusterHealthLabel = overallStatus === "down" ? "Critical" : overallStatus === "warning" ? "Degraded" : "Healthy";
+  const clusterHealthLabel =
+    overallStatus === "down" ? "Critical" : overallStatus === "warning" ? "Degraded" : "Healthy";
 
   const themeSpec = themeCatalog[state.themeName];
   const palette = themeSpec.theme.colors;
@@ -836,10 +868,12 @@ app.view((state) => {
   const cadencePulse = animationFrame(CADENCE_PULSE_FRAMES, state.ticks);
 
   const avgCpu = Math.round(
-    state.services.reduce((total, service) => total + service.cpuPct, 0) / Math.max(1, state.services.length),
+    state.services.reduce((total, service) => total + service.cpuPct, 0) /
+      Math.max(1, state.services.length),
   );
   const avgMem = Math.round(
-    state.services.reduce((total, service) => total + service.memoryPct, 0) / Math.max(1, state.services.length),
+    state.services.reduce((total, service) => total + service.memoryPct, 0) /
+      Math.max(1, state.services.length),
   );
 
   const wallNowMs = state.paused ? Date.now() : state.nowMs;
@@ -859,7 +893,11 @@ app.view((state) => {
   const filterBadgeLabel = fixedLabel(filterLabel(state.filter), 7, 7);
   const sortBadgeLabel = `${fixedLabel(sortLabel(state.sort), 10, 10)} ${state.sortDirection === "asc" ? "↑" : "↓"}`;
   const sortPanelLabel = `${fixedLabel(sortLabel(state.sort), SORT_PANEL_LABEL_WIDTH, SORT_PANEL_LABEL_WIDTH)} ${state.sortDirection === "asc" ? "↑" : "↓"}`;
-  const clusterHealthFixedLabel = fixedLabel(clusterHealthLabel.toUpperCase(), CLUSTER_HEALTH_LABEL_WIDTH, CLUSTER_HEALTH_LABEL_WIDTH);
+  const clusterHealthFixedLabel = fixedLabel(
+    clusterHealthLabel.toUpperCase(),
+    CLUSTER_HEALTH_LABEL_WIDTH,
+    CLUSTER_HEALTH_LABEL_WIDTH,
+  );
   const refreshLabel = state.paused
     ? fixedLabel("paused", REFRESH_LABEL_WIDTH, REFRESH_LABEL_WIDTH)
     : fixedLabel(cadenceLabel.trimStart(), REFRESH_LABEL_WIDTH, REFRESH_LABEL_WIDTH);
@@ -876,7 +914,8 @@ app.view((state) => {
   const latencyDeltaVariant = deltaSeverity(latencyDelta, 6, 12);
   const errorDeltaVariant = deltaSeverity(errorDelta, 0.15, 0.4);
   const trafficDeltaVariant = deltaSeverity(trafficDelta, 500, 1100);
-  const loadVariant: BadgeVariant = avgCpu >= 85 || avgMem >= 88 ? "error" : avgCpu >= 72 ? "warning" : "success";
+  const loadVariant: BadgeVariant =
+    avgCpu >= 85 || avgMem >= 88 ? "error" : avgCpu >= 72 ? "warning" : "success";
   const freshnessRatio = state.paused
     ? 0
     : clamp(1 - stalenessMs / Math.max(TELEMETRY_CADENCE_MS * 2, liveCadenceMs * 2), 0, 1);
@@ -897,7 +936,8 @@ app.view((state) => {
     title: string;
     message: string;
     variant: BadgeVariant;
-  }> = downCount > 0
+  }> =
+    downCount > 0
       ? {
           icon: "status.cross",
           title: "CRITICAL OUTAGE",
@@ -911,12 +951,12 @@ app.view((state) => {
             message: `${String(warningCount).padStart(2, " ")} services degraded - monitor burn and prepare mitigation.`,
             variant: "warning",
           }
-      : {
-          icon: "status.check",
-          title: "HEALTHY FLEET",
-          message: "All services are within expected SLO bounds.",
-          variant: "success",
-        };
+        : {
+            icon: "status.check",
+            title: "HEALTHY FLEET",
+            message: "All services are within expected SLO bounds.",
+            variant: "success",
+          };
 
   const runbookPlan: Readonly<{
     title: string;
@@ -925,7 +965,8 @@ app.view((state) => {
     step1: string;
     step2: string;
     step3: string;
-  }> = overallStatus === "down"
+  }> =
+    overallStatus === "down"
       ? {
           title: "Incident Commander",
           variant: "error",
@@ -959,7 +1000,14 @@ app.view((state) => {
     body: readonly VNode[],
   ): VNode =>
     ui.box(
-      { border: "rounded", px: PANEL_PADDING_X, py: PANEL_PADDING_Y, flex: 1, minWidth: 24, style: panelStyle },
+      {
+        border: "rounded",
+        px: PANEL_PADDING_X,
+        py: PANEL_PADDING_Y,
+        flex: 1,
+        minWidth: 24,
+        style: panelStyle,
+      },
       [
         ui.column({ gap: 1 }, [
           ui.row({ gap: 1, items: "center" }, [
@@ -1022,7 +1070,8 @@ app.view((state) => {
       width: 8,
       align: "right",
       sortable: true,
-      render: (_, row) => ui.text(`${row.latencyMs}`.padStart(3, " "), { style: { bold: row.latencyMs >= 110 } }),
+      render: (_, row) =>
+        ui.text(`${row.latencyMs}`.padStart(3, " "), { style: { bold: row.latencyMs >= 110 } }),
     },
     {
       key: "errorRate",
@@ -1030,7 +1079,10 @@ app.view((state) => {
       width: 8,
       align: "right",
       sortable: true,
-      render: (_, row) => ui.text(row.errorRate.toFixed(2).padStart(5, " "), { style: { bold: row.errorRate >= 1.4 } }),
+      render: (_, row) =>
+        ui.text(row.errorRate.toFixed(2).padStart(5, " "), {
+          style: { bold: row.errorRate >= 1.4 },
+        }),
     },
     {
       key: "trafficRpm",
@@ -1057,23 +1109,24 @@ app.view((state) => {
     title: string;
     message: string;
     variant: BadgeVariant;
-  }> = !selected || selected.status === "healthy"
-    ? {
-        title: "Nominal Service",
-        message: "No escalation required. Continue observing baseline telemetry.",
-        variant: "success",
-      }
-    : selected.status === "warning"
+  }> =
+    !selected || selected.status === "healthy"
       ? {
-          title: "Watch Closely",
-          message: "Track latency and error trend. Prepare mitigation if burn accelerates.",
-          variant: "warning",
+          title: "Nominal Service",
+          message: "No escalation required. Continue observing baseline telemetry.",
+          variant: "success",
         }
-      : {
-          title: "Escalate Immediately",
-          message: "Page on-call SRE, shift traffic, and inspect queue + dependency health.",
-          variant: "error",
-        };
+      : selected.status === "warning"
+        ? {
+            title: "Watch Closely",
+            message: "Track latency and error trend. Prepare mitigation if burn accelerates.",
+            variant: "warning",
+          }
+        : {
+            title: "Escalate Immediately",
+            message: "Page on-call SRE, shift traffic, and inspect queue + dependency health.",
+            variant: "error",
+          };
 
   const incidentBadgeLabel = (severity: Incident["severity"]): string =>
     fixedLabel(incidentBadge(severity).text, INCIDENT_BADGE_WIDTH, INCIDENT_BADGE_WIDTH);
@@ -1120,9 +1173,12 @@ app.view((state) => {
     ui.box({ border: "rounded", px: PANEL_PADDING_X, py: PANEL_PADDING_Y, style: stripStyle }, [
       ui.row({ gap: 1, items: "center", wrap: true }, [
         ui.icon(summaryBanner.icon),
-        ui.badge(`[ ${fixedLabel(summaryBanner.title, SUMMARY_ALERT_LABEL_WIDTH, SUMMARY_ALERT_LABEL_WIDTH)} ]`, {
-          variant: summaryBanner.variant,
-        }),
+        ui.badge(
+          `[ ${fixedLabel(summaryBanner.title, SUMMARY_ALERT_LABEL_WIDTH, SUMMARY_ALERT_LABEL_WIDTH)} ]`,
+          {
+            variant: summaryBanner.variant,
+          },
+        ),
         ui.text(summaryBanner.message, {
           textOverflow: "ellipsis",
           maxWidth: 92,
@@ -1133,15 +1189,28 @@ app.view((state) => {
     ui.box({ border: "rounded", px: PANEL_PADDING_X, py: PANEL_PADDING_Y, style: stripStyle }, [
       ui.column({ gap: 1 }, [
         ui.row({ gap: 2, items: "center", wrap: true }, [
-          toolbarAction(state.paused ? "ui.play" : "status.dot", "toggle-pause", "⏯  Stream", togglePauseAction),
+          toolbarAction(
+            state.paused ? "ui.play" : "status.dot",
+            "toggle-pause",
+            "⏯  Stream",
+            togglePauseAction,
+          ),
           toolbarAction("ui.refresh", "cycle-theme", "🎨 Theme", cycleThemeAction),
           toolbarAction("status.question", "help", "❓ Help", openHelpAction),
           toolbarAction("ui.close", "clear-incidents", "🧹 Clear Events", clearIncidentsAction),
         ]),
         ui.row({ gap: 2, items: "center", wrap: true }, [
-          ui.button({ id: "cycle-filter", label: `🧭 Filter ${filterLabel(state.filter)}`, onPress: cycleFilterAction }),
+          ui.button({
+            id: "cycle-filter",
+            label: `🧭 Filter ${filterLabel(state.filter)}`,
+            onPress: cycleFilterAction,
+          }),
           ui.button({ id: "cycle-sort", label: "⇅ Sort Field", onPress: cycleSortAction }),
-          ui.button({ id: "toggle-order", label: "⇵ Sort Direction", onPress: toggleSortDirectionAction }),
+          ui.button({
+            id: "toggle-order",
+            label: "⇵ Sort Direction",
+            onPress: toggleSortDirectionAction,
+          }),
           ui.button({ id: "toggle-pin", label: "📌 Pin Service", onPress: togglePinAction }),
           ui.button({ id: "toggle-debug", label: "🧪 Debug", onPress: toggleDebugAction }),
         ]),
@@ -1158,7 +1227,9 @@ app.view((state) => {
                 label: cadencePulse,
                 style: { fg: palette.accent.primary },
               }),
-          ui.text(state.paused ? `Stale ${staleLabel}` : `Rate ${updateRateLabel}`, { style: metaStyle }),
+          ui.text(state.paused ? `Stale ${staleLabel}` : `Rate ${updateRateLabel}`, {
+            style: metaStyle,
+          }),
         ]),
         ui.progress(freshnessRatio, {
           variant: "blocks",
@@ -1213,7 +1284,12 @@ app.view((state) => {
             ui.spacer({ flex: 1 }),
             ui.row({ gap: 1, items: "center" }, [
               ui.badge(`Filter ${filterBadgeLabel}`, {
-                variant: state.filter === "all" ? "default" : state.filter === "down" ? "error" : "warning",
+                variant:
+                  state.filter === "all"
+                    ? "default"
+                    : state.filter === "down"
+                      ? "error"
+                      : "warning",
               }),
               ui.badge(`Sort ${sortPanelLabel}`, { variant: "info" }),
             ]),
@@ -1282,7 +1358,9 @@ app.view((state) => {
                   ui.row({ gap: 1, wrap: true }, [
                     ui.tag(`🧭 Region ${selectedPanelRegion}`, { variant: "info" }),
                     ui.tag(`🧱 Tier ${selectedPanelTier}`, { variant: "default" }),
-                    ui.tag(`📶 Traffic ${formatTrafficFixed(selected.trafficRpm)} rpm`, { variant: "warning" }),
+                    ui.tag(`📶 Traffic ${formatTrafficFixed(selected.trafficRpm)} rpm`, {
+                      variant: "warning",
+                    }),
                   ]),
                   ui.row({ gap: 1, wrap: true }, [
                     ui.tag(`👤 Owner ${selectedOwner}`, { variant: "default" }),
@@ -1292,7 +1370,9 @@ app.view((state) => {
                     ui.tag(`🎯 SLO ${selectedSlo}`, { variant: "info" }),
                   ]),
                   ui.row({ gap: 1, items: "center" }, [
-                    ui.badge(fixedLabel(inspectorGuidance.title, 20, 20), { variant: inspectorGuidance.variant }),
+                    ui.badge(fixedLabel(inspectorGuidance.title, 20, 20), {
+                      variant: inspectorGuidance.variant,
+                    }),
                     ui.text(inspectorGuidance.message, {
                       style: metaStyle,
                       textOverflow: "ellipsis",
@@ -1334,7 +1414,9 @@ app.view((state) => {
                       max: 240,
                     }),
                   ]),
-                  ui.text(`Latency SLO utilization ${Math.round(selectedLatencyBudget * 100)}%`, { style: quietStyle }),
+                  ui.text(`Latency SLO utilization ${Math.round(selectedLatencyBudget * 100)}%`, {
+                    style: quietStyle,
+                  }),
                 ])
               : ui.empty("No selected service", {
                   description: "Choose a row in Fleet Services to inspect details.",
@@ -1399,7 +1481,9 @@ app.view((state) => {
       state.debug ? "Active Events + Debug" : "Active Events",
       [
         ui.column({ gap: 1 }, [
-          ui.text("Newest events first. Feed updates continuously while stream is active.", { style: metaStyle }),
+          ui.text("Newest events first. Feed updates continuously while stream is active.", {
+            style: metaStyle,
+          }),
           ...Array.from({ length: INCIDENT_VISIBLE_ROWS }, (_, index) => {
             const incident = state.incidents[index];
             if (!incident) return ui.text(" ", { style: quietStyle });
@@ -1442,13 +1526,19 @@ app.view((state) => {
             ui.text(state.paused ? "Live stream paused" : "Live stream active"),
             selected
               ? ui.tag(`Selected ${selectedLabel}`, {
-                  variant: selected.status === "down" ? "error" : selected.status === "warning" ? "warning" : "info",
+                  variant:
+                    selected.status === "down"
+                      ? "error"
+                      : selected.status === "warning"
+                        ? "warning"
+                        : "info",
                 })
               : null,
           ]),
           ui.row({ gap: 1, items: "center" }, [
             ui.badge(`Filter ${filterBadgeLabel}`, {
-              variant: state.filter === "all" ? "default" : state.filter === "down" ? "error" : "warning",
+              variant:
+                state.filter === "all" ? "default" : state.filter === "down" ? "error" : "warning",
             }),
             ui.badge(`Sort ${sortBadgeLabel}`, { variant: "info" }),
             ui.badge(`${incidentCountLabel} events`, {
@@ -1514,7 +1604,12 @@ app.view((state) => {
               ]),
             ]),
             ui.divider({ char: "·" }),
-            ui.column({ gap: 1 }, HELP_SHORTCUTS.map((shortcut) => helpShortcutRow(shortcut.keys, shortcut.description))),
+            ui.column(
+              { gap: 1 },
+              HELP_SHORTCUTS.map((shortcut) =>
+                helpShortcutRow(shortcut.keys, shortcut.description),
+              ),
+            ),
           ]),
           actions: [
             ui.button({
