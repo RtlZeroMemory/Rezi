@@ -1,0 +1,5 @@
+# Exclude compiled test artifacts from published tarballs.
+dist/**/__tests__/
+dist/**/__tests__/**
+dist/**/__e2e__/
+dist/**/__e2e__/**
