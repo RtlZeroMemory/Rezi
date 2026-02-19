@@ -28,7 +28,7 @@
       "default": "./dist/jsx-dev-runtime.js"
     }
   },
-  "files": ["dist/", "README.md"],
+  "files": ["dist/", "README.md", "!dist/**/__tests__/**", "!dist/**/__e2e__/**"],
   "engines": {
     "node": ">=18",
     "bun": ">=1.3.0"
