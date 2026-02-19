@@ -12,7 +12,7 @@ The authoritative benchmark write-up and the latest committed results live in th
 
 - `BENCHMARKS.md`
 - `benchmarks/` (structured JSON + generated Markdown)
-- Latest dataset: `benchmarks/2026-02-19-terminal-v2/`
+- Latest dataset: `benchmarks/2026-02-19-terminal-v3/`
 - GitHub: https://github.com/RtlZeroMemory/Rezi/blob/main/BENCHMARKS.md
 
 ## Running benchmarks
@@ -52,10 +52,10 @@ node --expose-gc packages/bench/dist/run.js \
   --replicates 7 \
   --discard-first-replicate \
   --shuffle-framework-order \
-  --shuffle-seed local-terminal-v2 \
+  --shuffle-seed local-terminal-v3 \
   --cpu-affinity 0-7 \
   --env-check warn \
-  --output-dir benchmarks/local-terminal-v2
+  --output-dir benchmarks/local-terminal-v3
 ```
 
 OpenTUI rows are executed through `packages/bench/opentui-bench/run.ts`, which requires Bun:

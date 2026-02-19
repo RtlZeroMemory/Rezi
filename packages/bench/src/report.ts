@@ -271,7 +271,7 @@ export function printTerminalTable(results: readonly BenchResult[]): void {
         pad(fmtKb(m.memPeak.rssKb), 10, "right"),
         pad(fmtKbOpt(m.memPeak.heapUsedKb), 10, "right"),
         pad(fmtKb(bytesPerFrameKb), 11, "right"),
-        pad(m.ptyBytesObserved === null ? "n/a" : fmtKb(m.ptyBytesObserved), 12, "right"),
+        pad(m.ptyBytesObserved === null ? "n/a" : fmtKb(m.ptyBytesObserved / 1024), 12, "right"),
       ].join("");
 
       console.log(`  ${row}${speedup}`);
@@ -305,7 +305,7 @@ export function toMarkdown(run: BenchRun): string {
     for (const r of items) {
       const m = r.metrics;
       lines.push(
-        `| ${FRAMEWORK_LABELS[r.framework]} | ${r.runs.length} | ${fmtMs(m.timing.mean)} | ${(r.replicateStats.cv * 100).toFixed(1)}% | ${fmtCi95(m.timing.meanCi95Low, m.timing.meanCi95High)} | ${fmtOps(m.opsPerSec)} | ${fmtMs(m.totalWallMs)} | ${fmtMs(m.cpu.userMs)} | ${fmtMs(m.cpu.systemMs)} | ${fmtKb(m.memPeak.rssKb)} | ${fmtKbOpt(m.memPeak.heapUsedKb)} | ${fmtKb(m.bytesProduced / 1024)} | ${m.ptyBytesObserved === null ? "n/a" : fmtKb(m.ptyBytesObserved)} |`,
+        `| ${FRAMEWORK_LABELS[r.framework]} | ${r.runs.length} | ${fmtMs(m.timing.mean)} | ${(r.replicateStats.cv * 100).toFixed(1)}% | ${fmtCi95(m.timing.meanCi95Low, m.timing.meanCi95High)} | ${fmtOps(m.opsPerSec)} | ${fmtMs(m.totalWallMs)} | ${fmtMs(m.cpu.userMs)} | ${fmtMs(m.cpu.systemMs)} | ${fmtKb(m.memPeak.rssKb)} | ${fmtKbOpt(m.memPeak.heapUsedKb)} | ${fmtKb(m.bytesProduced / 1024)} | ${m.ptyBytesObserved === null ? "n/a" : fmtKb(m.ptyBytesObserved / 1024)} |`,
       );
     }
     lines.push("");

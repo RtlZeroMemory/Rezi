@@ -72,24 +72,24 @@ Rezi moves the hot path out of JavaScript.
 
 Rendering remains ergonomic at the top and fast on real terminal workloads.
 
-In the latest PTY-mode benchmark suite (120×40 viewport, `benchmarks/2026-02-19-terminal-v2`), Rezi is:
-- **7.3×–62.2× faster than Ink**
-- **1.4×–49.5× faster than OpenTUI**
-- **1.7×–14.5× slower than native Rust (`ratatui`)** (expected for native baseline)
+In the latest PTY-mode benchmark suite (120×40 viewport, `benchmarks/2026-02-19-terminal-v3`), Rezi is:
+- **7.3×–59.1× faster than Ink**
+- **1.4×–52.5× faster than OpenTUI**
+- **1.9×–14.8× slower than native Rust (`ratatui`)** (expected for native baseline)
 
 This run uses `7` replicates with first-replicate discard (`6` measured), framework-order shuffling, CPU pinning, and CI/range reporting in the generated markdown.
 
 | Scenario | Rezi | Ink | OpenTUI | Rezi vs Ink | Rezi vs OpenTUI |
 |---|---:|---:|---:|---:|---:|
-| `terminal-rerender` | 316 µs | 17.55 ms | 2.58 ms | 55.5× faster | 8.2× faster |
-| `terminal-frame-fill` (1 dirty line) | 353 µs | 21.97 ms | 3.97 ms | 62.2× faster | 11.2× faster |
-| `terminal-frame-fill` (40 dirty lines) | 673 µs | 22.11 ms | 3.91 ms | 32.8× faster | 5.8× faster |
-| `terminal-screen-transition` | 739 µs | 22.03 ms | 4.28 ms | 29.8× faster | 5.8× faster |
-| `terminal-fps-stream` | 3.42 ms | 25.09 ms | 4.67 ms | 7.3× faster | 1.4× faster |
-| `terminal-input-latency` | 662 µs | 22.34 ms | 4.37 ms | 33.8× faster | 6.6× faster |
-| `terminal-memory-soak` | 641 µs | 22.04 ms | 4.62 ms | 34.4× faster | 7.2× faster |
-| `terminal-virtual-list` | 674 µs | 22.52 ms | 33.38 ms | 33.4× faster | 49.5× faster |
-| `terminal-table` | 383 µs | 21.20 ms | 3.66 ms | 55.4× faster | 9.6× faster |
+| `terminal-rerender` | 316 µs | 17.54 ms | 2.57 ms | 55.5× faster | 8.1× faster |
+| `terminal-frame-fill` (1 dirty line) | 372 µs | 21.96 ms | 4.03 ms | 59.1× faster | 10.8× faster |
+| `terminal-frame-fill` (40 dirty lines) | 679 µs | 22.08 ms | 3.92 ms | 32.5× faster | 5.8× faster |
+| `terminal-screen-transition` | 749 µs | 22.14 ms | 4.56 ms | 29.6× faster | 6.1× faster |
+| `terminal-fps-stream` | 3.40 ms | 24.96 ms | 4.66 ms | 7.3× faster | 1.4× faster |
+| `terminal-input-latency` | 659 µs | 22.32 ms | 4.24 ms | 33.9× faster | 6.4× faster |
+| `terminal-memory-soak` | 641 µs | 22.09 ms | 4.62 ms | 34.4× faster | 7.2× faster |
+| `terminal-virtual-list` | 681 µs | 22.82 ms | 35.73 ms | 33.5× faster | 52.5× faster |
+| `terminal-table` | 400 µs | 21.46 ms | 3.82 ms | 53.6× faster | 9.5× faster |
 
 Full methodology and reproduction steps:  
 👉 **[BENCHMARKS.md](BENCHMARKS.md)**

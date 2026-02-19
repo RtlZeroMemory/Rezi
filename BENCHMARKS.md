@@ -16,14 +16,14 @@ Active competitor matrix:
 ## Latest Dataset
 
 Primary dataset:
-- `benchmarks/2026-02-19-terminal-v2/results.json`
-- `benchmarks/2026-02-19-terminal-v2/results.md`
+- `benchmarks/2026-02-19-terminal-v3/results.json`
+- `benchmarks/2026-02-19-terminal-v3/results.md`
 
 Run metadata (from dataset header):
 - Date: **2026-02-19**
 - Mode: `--suite terminal --io pty`
 - Replicates: `7` with `--discard-first-replicate` (6 measured runs per scenario/framework)
-- Ordering: `--shuffle-framework-order --shuffle-seed 2026-02-19-terminal-v2`
+- Ordering: `--shuffle-framework-order --shuffle-seed 2026-02-19-terminal-v3`
 - Affinity: `--cpu-affinity 0-7`
 - Host: Linux (WSL2), Node `v20.19.5`, Bun `1.3.9`, Rust `1.93.0`
 
@@ -41,24 +41,24 @@ Terminal suite scenarios (all measured in PTY mode):
 
 ## Results Summary (Rezi Positioning)
 
-From `benchmarks/2026-02-19-terminal-v2/results.md`:
+From `benchmarks/2026-02-19-terminal-v3/results.md`:
 
 | Scenario | Rezi | Ink | OpenTUI | Rezi vs Ink | Rezi vs OpenTUI |
 |---|---:|---:|---:|---:|---:|
-| `terminal-rerender` | 316µs | 17.55ms | 2.58ms | 55.5x faster | 8.2x faster |
-| `terminal-frame-fill` (`dirtyLines=1`) | 353µs | 21.97ms | 3.97ms | 62.2x faster | 11.2x faster |
-| `terminal-frame-fill` (`dirtyLines=40`) | 673µs | 22.11ms | 3.91ms | 32.8x faster | 5.8x faster |
-| `terminal-screen-transition` | 739µs | 22.03ms | 4.28ms | 29.8x faster | 5.8x faster |
-| `terminal-fps-stream` | 3.42ms | 25.09ms | 4.67ms | 7.3x faster | 1.4x faster |
-| `terminal-input-latency` | 662µs | 22.34ms | 4.37ms | 33.8x faster | 6.6x faster |
-| `terminal-memory-soak` | 641µs | 22.04ms | 4.62ms | 34.4x faster | 7.2x faster |
-| `terminal-virtual-list` | 674µs | 22.52ms | 33.38ms | 33.4x faster | 49.5x faster |
-| `terminal-table` | 383µs | 21.20ms | 3.66ms | 55.4x faster | 9.6x faster |
+| `terminal-rerender` | 316µs | 17.54ms | 2.57ms | 55.5x faster | 8.1x faster |
+| `terminal-frame-fill` (`dirtyLines=1`) | 372µs | 21.96ms | 4.03ms | 59.1x faster | 10.8x faster |
+| `terminal-frame-fill` (`dirtyLines=40`) | 679µs | 22.08ms | 3.92ms | 32.5x faster | 5.8x faster |
+| `terminal-screen-transition` | 749µs | 22.14ms | 4.56ms | 29.6x faster | 6.1x faster |
+| `terminal-fps-stream` | 3.40ms | 24.96ms | 4.66ms | 7.3x faster | 1.4x faster |
+| `terminal-input-latency` | 659µs | 22.32ms | 4.24ms | 33.9x faster | 6.4x faster |
+| `terminal-memory-soak` | 641µs | 22.09ms | 4.62ms | 34.4x faster | 7.2x faster |
+| `terminal-virtual-list` | 681µs | 22.82ms | 35.73ms | 33.5x faster | 52.5x faster |
+| `terminal-table` | 400µs | 21.46ms | 3.82ms | 53.6x faster | 9.5x faster |
 
 Aggregate positioning in this dataset:
-- Rezi is **7.3x to 62.2x faster than Ink**.
-- Rezi is **1.4x to 49.5x faster than OpenTUI**.
-- Rezi remains slower than native Rust (`ratatui`) in these microbenchmarks (**1.7x to 14.5x**, scenario-dependent).
+- Rezi is **7.3x to 59.1x faster than Ink**.
+- Rezi is **1.4x to 52.5x faster than OpenTUI**.
+- Rezi remains slower than native Rust (`ratatui`) in these microbenchmarks (**1.9x to 14.8x**, scenario-dependent).
 
 Memory observations:
 - OpenTUI shows high memory pressure on larger churn workloads (for example `terminal-virtual-list` peak RSS around **3.45GB** in this run).
@@ -100,10 +100,10 @@ npm run bench -- \
   --replicates 7 \
   --discard-first-replicate \
   --shuffle-framework-order \
-  --shuffle-seed 2026-02-19-terminal-v2 \
+  --shuffle-seed 2026-02-19-terminal-v3 \
   --cpu-affinity 0-7 \
   --env-check warn \
-  --output-dir benchmarks/local-terminal-v2
+  --output-dir benchmarks/local-terminal-v3
 ```
 
 Optional tool path overrides:
