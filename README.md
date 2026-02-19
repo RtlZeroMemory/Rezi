@@ -93,6 +93,20 @@ These benchmark numbers are a snapshot, not a final ceiling. Optimization work i
 | `terminal-virtual-list` | 681 µs | 22.82 ms | 35.73 ms | 33.5× faster | 52.5× faster |
 | `terminal-table` | 400 µs | 21.46 ms | 3.82 ms | 53.6× faster | 9.5× faster |
 
+Native baseline reference (`ratatui`), reported separately to keep the React-in-terminal comparison focused:
+
+| Scenario | Rezi | Ratatui | Rezi vs Ratatui |
+|---|---:|---:|---:|
+| `terminal-rerender` | 316 µs | 75 µs | 4.2× slower |
+| `terminal-frame-fill` (1 dirty line) | 372 µs | 197 µs | 1.9× slower |
+| `terminal-frame-fill` (40 dirty lines) | 679 µs | 213 µs | 3.2× slower |
+| `terminal-screen-transition` | 749 µs | 282 µs | 2.7× slower |
+| `terminal-fps-stream` | 3.40 ms | 231 µs | 14.8× slower |
+| `terminal-input-latency` | 659 µs | 199 µs | 3.3× slower |
+| `terminal-memory-soak` | 641 µs | 209 µs | 3.1× slower |
+| `terminal-virtual-list` | 681 µs | 127 µs | 5.4× slower |
+| `terminal-table` | 400 µs | 175 µs | 2.3× slower |
+
 Full methodology and reproduction steps:  
 👉 **[BENCHMARKS.md](BENCHMARKS.md)**
 
