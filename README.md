@@ -27,7 +27,7 @@ The result: TypeScript ergonomics with rendering performance in the same class a
 
 Dashboard demo
 
-![Rezi core demo](Assets/REZI-CONSOLE.gif)
+![Rezi core demo](Assets/REZICONSOLE.gif)
 
 ---
 
