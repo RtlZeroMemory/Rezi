@@ -2,7 +2,7 @@
 
 import { ui } from "@rezi-ui/core";
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { Button, Checkbox, Input, RadioGroup, Select } from "../index.js";
+import { Button, Checkbox, Input, RadioGroup, Select, Slider } from "../index.js";
 
 describe("interactive widgets", () => {
   test("Button and Input map to matching VNodes", () => {
@@ -19,7 +19,7 @@ describe("interactive widgets", () => {
     );
   });
 
-  test("Select, Checkbox, RadioGroup map to matching VNodes", () => {
+  test("Select, Slider, Checkbox, RadioGroup map to matching VNodes", () => {
     const options = [
       { value: "us", label: "United States" },
       { value: "ca", label: "Canada" },
@@ -28,6 +28,19 @@ describe("interactive widgets", () => {
     assert.deepEqual(
       <Select id="country" value="us" options={options} />,
       ui.select({ id: "country", value: "us", options }),
+    );
+
+    assert.deepEqual(
+      <Slider id="volume" value={25} min={0} max={100} step={5} label="Volume" showValue={false} />,
+      ui.slider({
+        id: "volume",
+        value: 25,
+        min: 0,
+        max: 100,
+        step: 5,
+        label: "Volume",
+        showValue: false,
+      }),
     );
 
     assert.deepEqual(

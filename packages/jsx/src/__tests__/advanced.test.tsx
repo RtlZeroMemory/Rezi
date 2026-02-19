@@ -122,6 +122,22 @@ describe("advanced widgets", () => {
     );
   });
 
+  test("SplitPane normalizes primitive children in nested panels", () => {
+    const onResize = () => {};
+    const vnode = (
+      <SplitPane id="split-primitive" direction="horizontal" sizes={[100]} onResize={onResize}>
+        <ResizablePanel defaultSize={100}>{1}</ResizablePanel>
+      </SplitPane>
+    );
+
+    assert.deepEqual(
+      vnode,
+      ui.splitPane({ id: "split-primitive", direction: "horizontal", sizes: [100], onResize }, [
+        ui.resizablePanel({ defaultSize: 100 }, [ui.text("1")]),
+      ]),
+    );
+  });
+
   test("editor and diff widgets map to matching VNodes", () => {
     const cursor: CursorPosition = { line: 0, column: 0 };
     const selection: EditorSelection | null = null;

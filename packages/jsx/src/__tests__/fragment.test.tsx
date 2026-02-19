@@ -27,6 +27,16 @@ describe("Fragment", () => {
     assert.deepEqual(vnode, ui.column({}, [ui.text("one"), ui.text("two")]));
   });
 
+  test("Fragment preserves key", () => {
+    const vnode = (
+      <Fragment key="frag-key">
+        <Text>keyed</Text>
+      </Fragment>
+    );
+
+    assert.deepEqual(vnode, ui.column({ key: "frag-key" }, [ui.text("keyed")]));
+  });
+
   test("Fragment handles single/no/nested children", () => {
     assert.deepEqual(
       <Fragment>
