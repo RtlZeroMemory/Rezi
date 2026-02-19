@@ -85,31 +85,17 @@ This run uses `7` replicates with first-replicate discard (`6` measured), framew
 
 These benchmark numbers are a snapshot, not a final ceiling. Optimization work is ongoing during development, and we expect to keep improving performance while gradually narrowing the gap to pure native renderers.
 
-| Scenario | Rezi | Ink | OpenTUI | Rezi vs Ink | Rezi vs OpenTUI |
-|---|---:|---:|---:|---:|---:|
-| `terminal-rerender` | 316 µs | 17.54 ms | 2.57 ms | 55.5× faster | 8.1× faster |
-| `terminal-frame-fill` (1 dirty line) | 372 µs | 21.96 ms | 4.03 ms | 59.1× faster | 10.8× faster |
-| `terminal-frame-fill` (40 dirty lines) | 679 µs | 22.08 ms | 3.92 ms | 32.5× faster | 5.8× faster |
-| `terminal-screen-transition` | 749 µs | 22.14 ms | 4.56 ms | 29.6× faster | 6.1× faster |
-| `terminal-fps-stream` | 3.40 ms | 24.96 ms | 4.66 ms | 7.3× faster | 1.4× faster |
-| `terminal-input-latency` | 659 µs | 22.32 ms | 4.24 ms | 33.9× faster | 6.4× faster |
-| `terminal-memory-soak` | 641 µs | 22.09 ms | 4.62 ms | 34.4× faster | 7.2× faster |
-| `terminal-virtual-list` | 681 µs | 22.82 ms | 35.73 ms | 33.5× faster | 52.5× faster |
-| `terminal-table` | 400 µs | 21.46 ms | 3.82 ms | 53.6× faster | 9.5× faster |
+Representative scenarios (full per-scenario table is in `BENCHMARKS.md`):
 
-Native baseline reference (`ratatui`), reported separately to keep the React-in-terminal comparison focused:
+| Scenario | Rezi | Ink | OpenTUI | Ratatui | Rezi vs Ink | Rezi vs OpenTUI | Rezi vs Ratatui |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `terminal-frame-fill` (1 dirty line) | 372 µs | 21.96 ms | 4.03 ms | 197 µs | 59.1× faster | 10.8× faster | 1.9× slower |
+| `terminal-fps-stream` | 3.40 ms | 24.96 ms | 4.66 ms | 231 µs | 7.3× faster | 1.4× faster | 14.8× slower |
+| `terminal-virtual-list` | 681 µs | 22.82 ms | 35.73 ms | 127 µs | 33.5× faster | 52.5× faster | 5.4× slower |
 
-| Scenario | Rezi | Ratatui | Rezi vs Ratatui |
-|---|---:|---:|---:|
-| `terminal-rerender` | 316 µs | 75 µs | 4.2× slower |
-| `terminal-frame-fill` (1 dirty line) | 372 µs | 197 µs | 1.9× slower |
-| `terminal-frame-fill` (40 dirty lines) | 679 µs | 213 µs | 3.2× slower |
-| `terminal-screen-transition` | 749 µs | 282 µs | 2.7× slower |
-| `terminal-fps-stream` | 3.40 ms | 231 µs | 14.8× slower |
-| `terminal-input-latency` | 659 µs | 199 µs | 3.3× slower |
-| `terminal-memory-soak` | 641 µs | 209 µs | 3.1× slower |
-| `terminal-virtual-list` | 681 µs | 127 µs | 5.4× slower |
-| `terminal-table` | 400 µs | 175 µs | 2.3× slower |
+Full benchmark table (all scenarios, confidence bands, memory, and methodology):
+- `BENCHMARKS.md`
+- `benchmarks/2026-02-19-terminal-v3/results.md`
 
 Full methodology and reproduction steps:  
 👉 **[BENCHMARKS.md](BENCHMARKS.md)**
