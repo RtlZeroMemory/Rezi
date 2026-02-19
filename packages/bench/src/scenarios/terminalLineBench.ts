@@ -24,7 +24,10 @@ type BlessedModule = Readonly<{
 }>;
 
 export type UpdateMode = "direct" | "event-loop";
-export type LineBuilder = (tick: number, params: Record<string, number | string>) => readonly string[];
+export type LineBuilder = (
+  tick: number,
+  params: Record<string, number | string>,
+) => readonly string[];
 
 async function loadBlessed(): Promise<BlessedModule> {
   const mod = (await import("blessed")) as unknown as { default?: unknown };

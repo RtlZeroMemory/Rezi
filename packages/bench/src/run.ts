@@ -57,6 +57,10 @@ interface CliOpts {
   quick: boolean;
 }
 
+type BenchEnv = NodeJS.ProcessEnv & {
+  REZI_BENCH_CPU_AFFINITY?: string;
+};
+
 function parseArgs(argv: string[]): CliOpts {
   const opts: CliOpts = {
     suite: "all",
@@ -112,8 +116,7 @@ function parseArgs(argv: string[]): CliOpts {
         break;
       case "--env-check": {
         const mode = (argv[++i] ?? "warn").toLowerCase();
-        opts.envCheck =
-          mode === "off" || mode === "strict" || mode === "warn" ? mode : "warn";
+        opts.envCheck = mode === "off" || mode === "strict" || mode === "warn" ? mode : "warn";
         break;
       }
       case "--cpu-affinity":
@@ -168,7 +171,9 @@ function shuffleDeterministic<T>(items: readonly T[], seedText: string): T[] {
   const rnd = makeRng(hashSeed(seedText));
   for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(rnd() * (i + 1));
-    [out[i], out[j]] = [out[j]!, out[i]!];
+    const current = out[i] as T;
+    out[i] = out[j] as T;
+    out[j] = current;
   }
   return out;
 }
@@ -197,9 +202,7 @@ function withAffinity(
   if (!cpuAffinity) return { file, args: [...args] };
   const taskset = resolveTaskset();
   if (!taskset) {
-    throw new Error(
-      `--cpu-affinity requires taskset on Linux; taskset not available on this host`,
-    );
+    throw new Error("--cpu-affinity requires taskset on Linux; taskset not available on this host");
   }
   return { file: taskset, args: ["-c", cpuAffinity, file, ...args] };
 }
@@ -303,8 +306,8 @@ async function runIsolated(
   const payloadB64 = Buffer.from(JSON.stringify(payload), "utf-8").toString("base64");
 
   return new Promise<BenchResult>((resolve, reject) => {
-    const env = { ...process.env } as Record<string, string | undefined>;
-    if (cpuAffinity) env["REZI_BENCH_CPU_AFFINITY"] = cpuAffinity;
+    const env: BenchEnv = { ...process.env };
+    if (cpuAffinity) env.REZI_BENCH_CPU_AFFINITY = cpuAffinity;
     const command = withAffinity(
       process.execPath,
       ["--expose-gc", workerPath, "--payload", payloadB64],
@@ -394,28 +397,24 @@ async function runIsolatedPty(
   const resultPath = `${os.tmpdir()}/rezi-bench-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.json`;
 
   return new Promise<BenchResult>((resolve, reject) => {
-    const env = { ...process.env } as Record<string, string | undefined>;
-    if (cpuAffinity) env["REZI_BENCH_CPU_AFFINITY"] = cpuAffinity;
+    const env: BenchEnv = { ...process.env };
+    if (cpuAffinity) env.REZI_BENCH_CPU_AFFINITY = cpuAffinity;
     const command = withAffinity(
       process.execPath,
       ["--expose-gc", workerPath, "--payload", payloadB64, "--result-path", resultPath],
       cpuAffinity,
     );
-    const pty = ptySpawn(
-      command.file,
-      command.args,
-      {
-        name: "xterm-256color",
-        cols: 120,
-        rows: 40,
-        cwd: process.cwd(),
-        env: {
-          ...env,
-          REZI_BENCH_IO: "terminal",
-          TERM: "xterm-256color",
-        },
+    const pty = ptySpawn(command.file, command.args, {
+      name: "xterm-256color",
+      cols: 120,
+      rows: 40,
+      cwd: process.cwd(),
+      env: {
+        ...env,
+        REZI_BENCH_IO: "terminal",
+        TERM: "xterm-256color",
       },
-    );
+    });
 
     let observedPtyBytes = 0;
     pty.onData((data) => {
@@ -573,9 +572,7 @@ async function main(): Promise<void> {
             iterations: opts.iterations ?? (opts.quick ? 50 : scenario.defaultConfig.iterations),
           };
 
-          process.stdout.write(
-            `  ${label} / ${fw} [rep ${replicate + 1}/${opts.replicates}] ... `,
-          );
+          process.stdout.write(`  ${label} / ${fw} [rep ${replicate + 1}/${opts.replicates}] ... `);
           tryGc();
 
           try {
@@ -589,14 +586,7 @@ async function main(): Promise<void> {
                     replicate,
                     opts.cpuAffinity,
                   )
-                : await runIsolated(
-                    scenario.name,
-                    fw,
-                    config,
-                    params,
-                    replicate,
-                    opts.cpuAffinity,
-                  );
+                : await runIsolated(scenario.name, fw, config, params, replicate, opts.cpuAffinity);
 
             if (discardThisReplicate) {
               console.log(

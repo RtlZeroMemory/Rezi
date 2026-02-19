@@ -316,9 +316,7 @@ function main() {
   const profile = loadCiProfile(PROFILE_PATH);
 
   if (!existsSync(BENCH_RUNNER_PATH)) {
-    fail(
-      `missing bench runner: ${BENCH_RUNNER_PATH}. Run \"npx tsc -b packages/bench\" first.`,
-    );
+    fail(`missing bench runner: ${BENCH_RUNNER_PATH}. Run \"npx tsc -b packages/bench\" first.`);
   }
 
   const outputDir = toAbsPath(outputDirArg ?? profile.outputDir);

@@ -4,7 +4,7 @@ import { writeFileSync } from "node:fs";
 import { Writable } from "node:stream";
 import { createCliRenderer } from "@opentui/core";
 import { createRoot, flushSync } from "@opentui/react";
-import { createElement, type ReactNode } from "react";
+import { type ReactNode, createElement } from "react";
 
 type CliArgs = Readonly<{
   scenario: string;
@@ -191,8 +191,8 @@ function terminalScreenTransitionLines(
   tick: number,
   params: Record<string, number | string>,
 ): string[] {
-  const rows = Number(params["rows"] ?? 40);
-  const cols = Number(params["cols"] ?? 120);
+  const rows = Number(params.rows ?? 40);
+  const cols = Number(params.cols ?? 120);
   const mode = tick % 3;
   const lines: string[] = [];
 
@@ -240,9 +240,9 @@ function terminalScreenTransitionLines(
 }
 
 function terminalFpsStreamLines(tick: number, params: Record<string, number | string>): string[] {
-  const rows = Number(params["rows"] ?? 40);
-  const cols = Number(params["cols"] ?? 120);
-  const channels = Number(params["channels"] ?? 12);
+  const rows = Number(params.rows ?? 40);
+  const cols = Number(params.cols ?? 120);
+  const channels = Number(params.channels ?? 12);
   const lines: string[] = [];
 
   lines.push(clipPad(`terminal-fps-stream tick=${tick} target=60fps channels=${channels}`, cols));
@@ -253,9 +253,8 @@ function terminalFpsStreamLines(tick: number, params: Record<string, number | st
     const ch = i % channels;
     const v = ((tick * (17 + ch) + i * 31) % 1000) / 1000;
     const trendSeed = (tick + i * 13 + ch * 11) % 16;
-    const trend = Array.from(
-      { length: 16 },
-      (_, j) => (((trendSeed + j * 3) % 16) / 15 < v ? "▮" : "▯"),
+    const trend = Array.from({ length: 16 }, (_, j) =>
+      ((trendSeed + j * 3) % 16) / 15 < v ? "▮" : "▯",
     ).join("");
     lines.push(
       clipPad(
@@ -271,13 +270,16 @@ function terminalInputLatencyLines(
   tick: number,
   params: Record<string, number | string>,
 ): string[] {
-  const rows = Number(params["rows"] ?? 40);
-  const cols = Number(params["cols"] ?? 120);
+  const rows = Number(params.rows ?? 40);
+  const cols = Number(params.cols ?? 120);
   const lines: string[] = [];
 
   lines.push(clipPad("terminal-input-latency synthetic-key-event -> frame", cols));
   lines.push(
-    clipPad(`tick=${tick} active=${tick % 16} token=${((tick * 1103515245) >>> 0).toString(16)}`, cols),
+    clipPad(
+      `tick=${tick} active=${tick % 16} token=${((tick * 1103515245) >>> 0).toString(16)}`,
+      cols,
+    ),
   );
   for (let i = 0; i < rows - 2; i++) {
     const active = i === tick % Math.max(1, rows - 2);
@@ -292,8 +294,8 @@ function terminalInputLatencyLines(
 }
 
 function terminalMemorySoakLines(tick: number, params: Record<string, number | string>): string[] {
-  const rows = Number(params["rows"] ?? 40);
-  const cols = Number(params["cols"] ?? 120);
+  const rows = Number(params.rows ?? 40);
+  const cols = Number(params.cols ?? 120);
   const lines: string[] = [];
 
   lines.push(clipPad(`terminal-memory-soak tick=${tick}`, cols));
@@ -322,7 +324,12 @@ function terminalRerenderTree(tick: number): ReactNode {
   );
 }
 
-function terminalFrameFillTree(rows: number, cols: number, dirtyLines: number, tick: number): ReactNode {
+function terminalFrameFillTree(
+  rows: number,
+  cols: number,
+  dirtyLines: number,
+  tick: number,
+): ReactNode {
   const lines: ReactNode[] = [];
   for (let r = 0; r < rows; r++) {
     const content = r < dirtyLines ? makeLineContent(r, tick, cols) : makeStaticLine(r, cols);
@@ -353,7 +360,11 @@ function terminalVirtualListTree(totalItems: number, viewport: number, tick: num
     "box",
     { flexDirection: "column", paddingX: 1, gap: 1 },
     createElement("text", null, "terminal-virtual-list"),
-    createElement("text", null, `total=${totalItems} viewport=${viewport} offset=${offset} tick=${tick}`),
+    createElement(
+      "text",
+      null,
+      `total=${totalItems} viewport=${viewport} offset=${offset} tick=${tick}`,
+    ),
     ...rows,
   );
 }
@@ -373,19 +384,19 @@ function scenarioTree(
       return terminalRerenderTree(tick);
     case "terminal-frame-fill":
       return terminalFrameFillTree(
-        Number(params["rows"] ?? 40),
-        Number(params["cols"] ?? 120),
-        Number(params["dirtyLines"] ?? 1),
+        Number(params.rows ?? 40),
+        Number(params.cols ?? 120),
+        Number(params.dirtyLines ?? 1),
         tick,
       );
     case "terminal-virtual-list":
       return terminalVirtualListTree(
-        Number(params["items"] ?? 100_000),
-        Number(params["viewport"] ?? 40),
+        Number(params.items ?? 100_000),
+        Number(params.viewport ?? 40),
         tick,
       );
     case "terminal-table":
-      return terminalTableTree(Number(params["rows"] ?? 40), Number(params["cols"] ?? 8), tick);
+      return terminalTableTree(Number(params.rows ?? 40), Number(params.cols ?? 8), tick);
     case "terminal-screen-transition":
       return lineTree(terminalScreenTransitionLines(tick, params));
     case "terminal-fps-stream":

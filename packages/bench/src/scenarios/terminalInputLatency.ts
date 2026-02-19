@@ -9,13 +9,13 @@
 import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { runRatatuiScenario } from "../frameworks/ratatui.js";
 import { tryGc } from "../measure.js";
+import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 import {
   runBlessedLineScenario,
   runInkLineScenario,
   runReziLineScenario,
 } from "./terminalLineBench.js";
 import { buildTerminalInputLatencyLines } from "./terminalWorkloads.js";
-import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 
 export const terminalInputLatencyScenario: Scenario = {
   name: "terminal-input-latency",
