@@ -88,10 +88,7 @@
       "default": "./dist/widgets/index.js"
     }
   },
-  "files": [
-    "dist/",
-    "README.md"
-  ],
+  "files": ["dist/", "README.md"],
   "engines": {
     "node": ">=18"
   },

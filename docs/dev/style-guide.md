@@ -37,7 +37,7 @@ Ignored paths: `.venv-docs/`, `out/`, `**/dist/`, `**/node_modules/`,
 ### Pre-commit
 
 The `scripts/guardrails.sh` script runs repository hygiene pattern checks
-(legacy scope/name strings, TODO/FIXME markers, AI-generated markers). Run it
+(legacy scope/name strings, unresolved task markers, and synthetic-content markers). Run it
 before committing to catch prohibited text patterns early:
 
 ```bash

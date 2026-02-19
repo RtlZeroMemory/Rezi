@@ -140,7 +140,7 @@ Build, test, and CI automation scripts.
 | `run-bench-ci.mjs`                | Runs benchmarks in CI with stable configuration. |
 | `bench-ci-compare.mjs`            | Compares benchmark results across CI runs. |
 | `docs.sh`                          | Documentation build/serve with automatic venv management. |
-| `guardrails.sh`                    | Repository hygiene checks for forbidden patterns (legacy scope/name, TODO/FIXME, AI-generated markers). |
+| `guardrails.sh`                    | Repository hygiene checks for forbidden patterns (legacy scope/name, unresolved task markers, and synthetic-content markers). |
 | `check-core-portability.mjs`      | Scans `@rezi-ui/core` for prohibited Node.js imports. |
 | `check-unicode-sync.mjs`          | Verifies Unicode table versions are consistent. |
 | `check-create-rezi-templates.mjs` | Validates scaffolding templates are up to date. |

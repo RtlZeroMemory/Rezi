@@ -20,11 +20,7 @@
       "default": "./dist/index.js"
     }
   },
-  "files": [
-    "dist/",
-    "fixtures/",
-    "README.md"
-  ],
+  "files": ["dist/", "fixtures/", "README.md"],
   "engines": {
     "node": ">=18"
   }
