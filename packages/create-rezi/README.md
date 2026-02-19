@@ -9,10 +9,10 @@ npm create rezi my-app
 cd my-app
 npm run start
 
-# or bun
-# npm create rezi my-app -- --pm bun
-# cd my-app
-# bun run start
+# Bun
+bun create rezi my-app
+cd my-app
+bun run start
 ```
 
 ## Templates

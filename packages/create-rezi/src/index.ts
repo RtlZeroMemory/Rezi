@@ -84,7 +84,8 @@ function parseArgs(argv: string[]): CliOptions {
 function printHelp(): void {
   stdout.write("create-rezi\n\n");
   stdout.write("Usage:\n");
-  stdout.write("  npm create rezi my-app\n\n");
+  stdout.write("  npm create rezi my-app\n");
+  stdout.write("  bun create rezi my-app\n\n");
   stdout.write("Options:\n");
   stdout.write(
     "  --template, -t <name>       dashboard | form-app | file-browser | streaming-viewer\n",

@@ -4,7 +4,7 @@ Rezi supports three backend execution modes via `config.executionMode`:
 
 - `auto` (default): inline when `fpsCap <= 30`, worker otherwise
 - `worker`: run native engine/polling on a worker thread
-- `inline`: run native engine inline on the Node main thread
+- `inline`: run native engine inline on the main JS thread
 
 High-level goals:
 
@@ -14,6 +14,6 @@ High-level goals:
 
 Related:
 
-- [Node backend](node.md)
+- [Node/Bun backend](node.md)
 - [Native addon](native.md)
 - [Event batches (ZREV)](../protocol/zrev.md)

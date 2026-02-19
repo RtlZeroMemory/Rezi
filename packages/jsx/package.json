@@ -30,7 +30,8 @@
   },
   "files": ["dist/", "README.md"],
   "engines": {
-    "node": ">=18"
+    "node": ">=18",
+    "bun": ">=1.3.0"
   },
   "dependencies": {
     "@rezi-ui/core": "0.1.0-alpha.11"

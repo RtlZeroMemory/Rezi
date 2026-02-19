@@ -140,7 +140,7 @@ await debug.enable({
 
 | Export | Description |
 |--------|-------------|
-| `createApp` | Create application instance (low-level; prefer `createNodeApp` from `@rezi-ui/node`) |
+| `createApp` | Create application instance (low-level; for normal apps prefer `createNodeApp` from `@rezi-ui/node`) |
 | `App` | Application interface type |
 | `AppConfig` | Configuration options |
 
@@ -250,6 +250,6 @@ The package is compiled with strict TypeScript settings:
 
 ## Related Packages
 
-- [@rezi-ui/node](node.md) - Node.js backend
+- [@rezi-ui/node](node.md) - Node.js/Bun backend
 - [@rezi-ui/native](native.md) - Native addon
 - [@rezi-ui/testkit](testkit.md) - Testing utilities

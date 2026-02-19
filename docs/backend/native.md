@@ -10,6 +10,6 @@ Responsibilities:
 
 See also:
 
-- [Node backend](node.md)
+- [Node/Bun backend](node.md)
 - [Worker model](worker-model.md)
 - [Protocol overview](../protocol/index.md)

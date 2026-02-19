@@ -11,7 +11,7 @@ npm run start
 If you prefer Bun:
 
 ```bash
-npm create rezi my-app -- --pm bun
+bun create rezi my-app
 cd my-app
 bun run start
 ```
@@ -33,12 +33,16 @@ Choose directly with `--template`:
 
 ```bash
 npm create rezi my-app -- --template dashboard
+# or
+bun create rezi my-app -- --template dashboard
 ```
 
 Inspect all templates and highlights from the CLI:
 
 ```bash
 npm create rezi -- --list-templates
+# or
+bun create rezi -- --list-templates
 ```
 
 ## Options

@@ -1,6 +1,6 @@
-# Node backend
+# Node/Bun backend
 
-The Node backend owns:
+The Node/Bun backend owns:
 
 - native engine execution mode (`auto` | `worker` | `inline`)
 - frame scheduling and buffer pooling
@@ -34,13 +34,13 @@ Execution mode details:
 
 - `auto` (default): select inline for low-fps workloads (`fpsCap <= 30`), worker otherwise.
 - `worker`: force worker-thread engine execution.
-- `inline`: run the engine inline on the Node main thread.
+- `inline`: run the engine inline on the main JS thread.
 
 Legacy path deprecation:
 
-- `createNodeBackend()` + `createApp()` manual pairing is deprecated for normal
-  app setup.
-- Use `createNodeApp()` so related runtime knobs cannot drift.
+- `createNodeBackend()` + `createApp()` (`@rezi-ui/core`) manual pairing is
+  deprecated for normal app setup.
+- Use `createNodeApp()` from `@rezi-ui/node` so related runtime knobs cannot drift.
 - If you still compose manually, Rezi throws deterministic `ZRUI_INVALID_PROPS`
   errors when cursor/event/fps settings conflict.
 
