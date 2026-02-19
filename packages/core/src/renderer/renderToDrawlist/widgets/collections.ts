@@ -411,13 +411,20 @@ export function renderCollectionWidget(
           }
         }
         const isFocusedRow = focusState.focusedId === props.id && i === tableState.focusedRowIndex;
+        const suppressFocusedStyle =
+          selectionMode === "single" && needsSelection && isFocusedRow && !isSelected;
+        const showFocusedStyle = isFocusedRow && !suppressFocusedStyle;
 
         const yRow = bodyY + i * safeRowHeight - effectiveScrollTop;
         if (yRow >= bodyY + bodyH) break;
         if (yRow + safeRowHeight <= bodyY) continue;
 
         const rowStripeBg = stripedRows ? ((i & 1) === 1 ? stripeOddBg : stripeEvenBg) : undefined;
-        const rowBg = isFocusedRow ? undefined : isSelected ? theme.colors.secondary : rowStripeBg;
+        const rowBg = showFocusedStyle
+          ? undefined
+          : isSelected
+            ? theme.colors.secondary
+            : rowStripeBg;
         if (rowBg) {
           builder.fillRect(innerX, yRow, innerW, safeRowHeight, { bg: rowBg });
         }
@@ -437,7 +444,7 @@ export function renderCollectionWidget(
                   ? rawValue
                   : String(rawValue);
 
-          const style = isFocusedRow ? { inverse: true } : rowBg ? { bg: rowBg } : undefined;
+          const style = showFocusedStyle ? { inverse: true } : rowBg ? { bg: rowBg } : undefined;
 
           if (col.render) {
             const cellVNode = col.render(rawValue, row, i);

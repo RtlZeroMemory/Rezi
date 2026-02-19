@@ -112,7 +112,7 @@ bun add -d @rezi-ui/testkit
 
 **Project scaffolding CLI**
 
-Generate a ready-to-run Rezi app with TypeScript configured and a multi-panel template:
+Generate a ready-to-run Rezi app with TypeScript configured and the polished dashboard template:
 
 ```bash
 npm create rezi my-app

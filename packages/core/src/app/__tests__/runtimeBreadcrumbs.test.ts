@@ -105,6 +105,8 @@ test("runtime breadcrumbs capture event path/action/focus/cursor deterministical
             presses++;
           },
         }),
+        // Keep an animated widget in-tree so tick events produce render snapshots.
+        ui.spinner({ variant: "dots", label: "" }),
       ],
     ),
   );
@@ -167,7 +169,7 @@ test("runtime breadcrumbs capture event path/action/focus/cursor deterministical
   assert.deepEqual(actionEvents, [{ id: "save", action: "press" }]);
   assert.equal(presses, 1);
 
-  await pushEvents(backend, [{ kind: "tick", timeMs: 6, dtMs: 16 }]);
+  await pushEvents(backend, [{ kind: "tick", timeMs: 200, dtMs: 16 }]);
   assert.equal(renderSnapshots.length, 4);
   const fourth = renderSnapshots[3];
   assert.ok(fourth);

@@ -16,7 +16,7 @@ const slate = rgb(20, 24, 32);
 Type:
 
 ```typescript
-type Rgb = { r: number; g: number; b: number };
+type Rgb = Readonly<{ r: number; g: number; b: number }>;
 ```
 
 ## `TextStyle`
@@ -24,7 +24,7 @@ type Rgb = { r: number; g: number; b: number };
 Most widgets that render text accept a `style` prop of type `TextStyle`:
 
 ```typescript
-type TextStyle = {
+type TextStyle = Readonly<{
   fg?: Rgb;
   bg?: Rgb;
   bold?: boolean;
@@ -32,7 +32,10 @@ type TextStyle = {
   italic?: boolean;
   underline?: boolean;
   inverse?: boolean;
-};
+  strikethrough?: boolean;
+  overline?: boolean;
+  blink?: boolean;
+}>;
 ```
 
 Example:
@@ -82,6 +85,7 @@ Containers and some layout widgets accept spacing props:
 | `pt`, `pr`, `pb`, `pl` | Padding per side |
 | `m` | Margin (all sides) |
 | `mx`, `my` | Margin horizontal / vertical |
+| `mt`, `mr`, `mb`, `ml` | Margin per side |
 
 Values are `SpacingValue`:
 

@@ -1,6 +1,13 @@
 # Icons
 
-Rezi includes a small icon registry for common UI glyphs. Icons are rendered as **text**, so they work in any terminal.
+Rezi includes a small icon registry for common UI glyphs. Icons are rendered as
+**text**, so they work in any terminal.
+
+Glyph resolution is deterministic and stability-first:
+
+- Rezi prefers single-cell, non-emoji primary glyphs when available.
+- If a primary glyph is risky (emoji/ZWJ/ambiguous width), Rezi uses the ASCII fallback.
+- Layout width is measured from the resolved glyph, not from the icon key alone.
 
 ## Usage
 
@@ -28,6 +35,7 @@ Each icon has:
 
 - a primary glyph (may be Unicode and may be intentionally unset for some icons)
 - an ASCII fallback
+- deterministic risk-aware resolution (primary vs fallback) based on width stability
 
 Use `fallback: true` to force the ASCII-safe glyph:
 
@@ -40,13 +48,22 @@ ui.icon("file.folder", { fallback: true });
 
 If the primary glyph is unset (`(none)` in the tables below), you should use `fallback: true` until a glyph set is provided.
 
+## Width semantics
+
+Layout consumes the resolved glyph width at runtime. This means fallback glyphs
+can be wider than one cell (for example, `ui.pause` may resolve to `||`, width
+2 in deterministic mode).
+
+The catalog tables below show **nominal single-glyph width intent**, not a hard
+layout contract. For exact runtime behavior, rely on resolved glyph measurement.
+
 ## Icon registry
 
 The following tables list every registered icon path, its primary glyph, and its fallback.
 
 ### file.*
 
-| Icon path | Glyph | Fallback | Width |
+| Icon path | Glyph | Fallback | Nominal Width |
 |---|---:|---:|---:|
 | `file.file` | `(none)` | `[]` | `1` |
 | `file.fileCode` | `(none)` | `<>` | `1` |
@@ -59,7 +76,7 @@ The following tables list every registered icon path, its primary glyph, and its
 
 ### status.*
 
-| Icon path | Glyph | Fallback | Width |
+| Icon path | Glyph | Fallback | Nominal Width |
 |---|---:|---:|---:|
 | `status.check` | `✓` | `[x]` | `1` |
 | `status.cross` | `✗` | `[X]` | `1` |
@@ -77,7 +94,7 @@ The following tables list every registered icon path, its primary glyph, and its
 
 ### arrow.*
 
-| Icon path | Glyph | Fallback | Width |
+| Icon path | Glyph | Fallback | Nominal Width |
 |---|---:|---:|---:|
 | `arrow.up` | `↑` | `^` | `1` |
 | `arrow.down` | `↓` | `v` | `1` |
@@ -98,7 +115,7 @@ The following tables list every registered icon path, its primary glyph, and its
 
 ### git.*
 
-| Icon path | Glyph | Fallback | Width |
+| Icon path | Glyph | Fallback | Nominal Width |
 |---|---:|---:|---:|
 | `git.modified` | `●` | `M` | `1` |
 | `git.added` | `+` | `+` | `1` |
@@ -116,7 +133,7 @@ The following tables list every registered icon path, its primary glyph, and its
 
 ### ui.*
 
-| Icon path | Glyph | Fallback | Width |
+| Icon path | Glyph | Fallback | Nominal Width |
 |---|---:|---:|---:|
 | `ui.menu` | `☰` | `=` | `1` |
 | `ui.close` | `×` | `x` | `1` |

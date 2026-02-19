@@ -2,7 +2,7 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export type TemplateKey = "dashboard" | "form-app" | "file-browser" | "streaming-viewer";
+export type TemplateKey = "dashboard";
 
 export type TemplateDefinition = {
   key: TemplateKey;
@@ -15,37 +15,13 @@ export type TemplateDefinition = {
 export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
   {
     key: "dashboard",
-    label: "Dashboard",
-    description: "Live ops dashboard with deterministic table updates",
+    label: "EdgeOps Dashboard",
+    description: "Product-grade operations console with deterministic updates",
     highlights: [
-      "live-updating table with stable row keys",
-      "filter/sort/pin controls + incident telemetry",
+      "fleet control plane with stable live telemetry",
+      "incident feed + inspector + escalation runbook",
     ],
     dir: "dashboard",
-  },
-  {
-    key: "form-app",
-    label: "Form app",
-    description: "Multi-step form with validation and command modes",
-    highlights: ["insert/command key modes with chords", "modal help and toast notifications"],
-    dir: "form-app",
-  },
-  {
-    key: "file-browser",
-    label: "File browser",
-    description: "Explorer with async command palette search",
-    highlights: [
-      "async palette results with cancellation",
-      "table browser with details and preview",
-    ],
-    dir: "file-browser",
-  },
-  {
-    key: "streaming-viewer",
-    label: "Streaming viewer",
-    description: "High-volume stream monitor with virtualized index",
-    highlights: ["virtual list over 15k streams", "live ingest feed with follow/pause controls"],
-    dir: "streaming-viewer",
   },
 ] as const;
 
@@ -54,14 +30,7 @@ const TEMPLATE_ALIASES = new Map<string, TemplateKey>(
   TEMPLATE_DEFINITIONS.map((template) => [template.key, template.key]),
 );
 
-TEMPLATE_ALIASES.set("form", "form-app");
-TEMPLATE_ALIASES.set("formapp", "form-app");
-TEMPLATE_ALIASES.set("file", "file-browser");
-TEMPLATE_ALIASES.set("files", "file-browser");
-TEMPLATE_ALIASES.set("filebrowser", "file-browser");
-TEMPLATE_ALIASES.set("stream", "streaming-viewer");
-TEMPLATE_ALIASES.set("streaming", "streaming-viewer");
-TEMPLATE_ALIASES.set("streamingviewer", "streaming-viewer");
+TEMPLATE_ALIASES.set("dash", "dashboard");
 
 const PACKAGE_NAME_RE = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
 

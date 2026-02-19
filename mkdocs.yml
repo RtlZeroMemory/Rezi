@@ -23,6 +23,7 @@ theme:
     - navigation.sections
     - navigation.top
     - navigation.indexes
+    - navigation.footer
     - toc.follow
     - search.suggest
     - search.highlight
@@ -89,6 +90,10 @@ extra:
     - icon: fontawesome/brands/github
       link: https://github.com/RtlZeroMemory/Rezi
   generator: false
+  version:
+    provider: mike
+
+copyright: Copyright &copy; 2025-2026 RtlZeroMemory
 
 nav:
   - Home: index.md
@@ -140,6 +145,11 @@ nav:
           - Radio Group: widgets/radio-group.md
           - Select: widgets/select.md
           - Field: widgets/field.md
+      - Navigation:
+          - Tabs: widgets/tabs.md
+          - Accordion: widgets/accordion.md
+          - Breadcrumb: widgets/breadcrumb.md
+          - Pagination: widgets/pagination.md
       - Data:
           - Table: widgets/table.md
           - Virtual List: widgets/virtual-list.md
@@ -153,6 +163,7 @@ nav:
           - Focus Zone: widgets/focus-zone.md
           - Focus Trap: widgets/focus-trap.md
       - Layout:
+          - Grid: widgets/grid.md
           - Split Pane: widgets/split-pane.md
           - Panel Group: widgets/panel-group.md
           - Resizable Panel: widgets/resizable-panel.md
