@@ -10,6 +10,13 @@
     { "name": "emoji_in_string", "text": "A\ud83d\ude00B", "width": 4 },
     { "name": "combining_clusters", "text": "a\u0301b", "width": 2 },
     { "name": "leading_combining_mark", "text": "\u0301a", "width": 1 },
-    { "name": "two_flags", "text": "\ud83c\uddfa\ud83c\uddf8\ud83c\udde8\ud83c\udde6", "width": 4 }
+    { "name": "two_flags", "text": "\ud83c\uddfa\ud83c\uddf8\ud83c\udde8\ud83c\udde6", "width": 4 },
+    { "name": "text_default_eye_in_string", "text": "A\ud83d\udc41B", "width": 3 },
+    { "name": "emoji_eye_vs16_in_string", "text": "A\ud83d\udc41\ufe0fB", "width": 4 },
+    { "name": "text_default_satellite_in_string", "text": "A\ud83d\udef0B", "width": 3 },
+    { "name": "emoji_satellite_vs16_in_string", "text": "A\ud83d\udef0\ufe0fB", "width": 4 },
+    { "name": "keycap_in_string", "text": "A1\ufe0f\u20e3B", "width": 4 },
+    { "name": "text_heart_in_string", "text": "A\u2764B", "width": 3 },
+    { "name": "emoji_heart_in_string", "text": "A\u2764\ufe0fB", "width": 4 }
   ]
 }
