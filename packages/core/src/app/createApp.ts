@@ -394,9 +394,8 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   let drawFn: DrawFn | null = null;
   let viewFn: ViewFn<S> | null = null;
 
-  const initialState =
-    "initialState" in opts ? (opts.initialState as S | undefined) : (undefined as S | undefined);
-  let committedState: S = (initialState ?? (Object.freeze({}) as S)) as S;
+  const hasInitialState = "initialState" in opts;
+  let committedState: S = hasInitialState ? (opts.initialState as S) : (Object.freeze({}) as S);
   const updates = new UpdateQueue<S>();
 
   const handlers: HandlerSlot[] = [];

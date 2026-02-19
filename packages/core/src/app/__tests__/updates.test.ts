@@ -88,3 +88,39 @@ test("app API calls during commit throw ZRUI_REENTRANT_CALL (#57)", async () => 
   await flushMicrotasks(3);
   assert.deepEqual(codes, ["ZRUI_REENTRANT_CALL"]);
 });
+
+test("explicit undefined initialState is preserved", async () => {
+  const backend = new StubBackend();
+  const app = createApp<undefined>({ backend, initialState: undefined });
+  app.draw((g) => g.clear());
+  await app.start();
+
+  const seen: unknown[] = [];
+  app.update((prev) => {
+    seen.push(prev);
+    return prev;
+  });
+
+  await flushMicrotasks(3);
+  assert.deepEqual(seen, [undefined]);
+
+  app.dispose();
+});
+
+test("explicit null initialState is preserved", async () => {
+  const backend = new StubBackend();
+  const app = createApp<null>({ backend, initialState: null });
+  app.draw((g) => g.clear());
+  await app.start();
+
+  const seen: unknown[] = [];
+  app.update((prev) => {
+    seen.push(prev);
+    return prev;
+  });
+
+  await flushMicrotasks(3);
+  assert.deepEqual(seen, [null]);
+
+  app.dispose();
+});
