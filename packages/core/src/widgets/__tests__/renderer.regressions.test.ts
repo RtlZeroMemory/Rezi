@@ -262,7 +262,10 @@ describe("renderer regressions", () => {
       ui.table({
         id: "tbl-single-active",
         columns: [{ key: "name", header: "Name", width: 10 }],
-        data: [{ id: "r0", name: "A" }, { id: "r1", name: "B" }],
+        data: [
+          { id: "r0", name: "A" },
+          { id: "r1", name: "B" },
+        ],
         getRowKey: (row) => row.id,
         selectionMode: "single",
         selection: ["r0"],
@@ -285,7 +288,10 @@ describe("renderer regressions", () => {
       ui.table({
         id: "tbl-single-active-selected",
         columns: [{ key: "name", header: "Name", width: 10 }],
-        data: [{ id: "r0", name: "A" }, { id: "r1", name: "B" }],
+        data: [
+          { id: "r0", name: "A" },
+          { id: "r1", name: "B" },
+        ],
         getRowKey: (row) => row.id,
         selectionMode: "single",
         selection: ["r1"],

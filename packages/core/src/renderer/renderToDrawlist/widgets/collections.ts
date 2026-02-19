@@ -420,7 +420,11 @@ export function renderCollectionWidget(
         if (yRow + safeRowHeight <= bodyY) continue;
 
         const rowStripeBg = stripedRows ? ((i & 1) === 1 ? stripeOddBg : stripeEvenBg) : undefined;
-        const rowBg = showFocusedStyle ? undefined : isSelected ? theme.colors.secondary : rowStripeBg;
+        const rowBg = showFocusedStyle
+          ? undefined
+          : isSelected
+            ? theme.colors.secondary
+            : rowStripeBg;
         if (rowBg) {
           builder.fillRect(innerX, yRow, innerW, safeRowHeight, { bg: rowBg });
         }

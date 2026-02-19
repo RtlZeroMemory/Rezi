@@ -1,8 +1,8 @@
 import { assert, test } from "@rezi-ui/testkit";
+import { ui } from "../../widgets/ui.js";
 import { createApp } from "../createApp.js";
 import { encodeZrevBatchV1, flushMicrotasks, makeBackendBatch } from "./helpers.js";
 import { StubBackend } from "./stubBackend.js";
-import { ui } from "../../widgets/ui.js";
 
 test("interactive input can overcommit one frame under backpressure", async () => {
   const backend = new StubBackend();
