@@ -1,6 +1,8 @@
 import type {
+  AccordionProps,
   BadgeProps,
   BarChartProps,
+  BreadcrumbProps,
   BoxProps,
   ButtonProps,
   CalloutProps,
@@ -24,6 +26,7 @@ import type {
   LogsConsoleProps,
   MiniChartProps,
   ModalProps,
+  PaginationProps,
   PanelGroupProps,
   ProgressProps,
   RadioGroupProps,
@@ -31,13 +34,14 @@ import type {
   RichTextProps,
   SelectProps,
   SkeletonProps,
+  SliderProps,
   SpacerProps,
   SparklineProps,
   SpinnerProps,
   SplitPaneProps,
-  StackProps,
   StatusProps,
   TableProps,
+  TabsProps,
   TagProps,
   TextProps,
   ToastContainerProps,
@@ -46,6 +50,7 @@ import type {
   VNode,
   VirtualListProps,
 } from "@rezi-ui/core";
+import { ui } from "@rezi-ui/core";
 import { type JsxChildren, normalizeContainerChildren, normalizeTextChildren } from "./children.js";
 import type {
   BadgeJsxProps,
@@ -54,6 +59,8 @@ import type {
   ButtonJsxProps,
   CalloutJsxProps,
   CheckboxJsxProps,
+  AccordionJsxProps,
+  BreadcrumbJsxProps,
   CodeEditorJsxProps,
   ColumnJsxProps,
   CommandPaletteJsxProps,
@@ -68,6 +75,8 @@ import type {
   FocusTrapJsxProps,
   FocusZoneJsxProps,
   GaugeJsxProps,
+  GridJsxProps,
+  HStackJsxProps,
   IconJsxProps,
   InputJsxProps,
   KbdJsxProps,
@@ -76,6 +85,7 @@ import type {
   LogsConsoleJsxProps,
   MiniChartJsxProps,
   ModalJsxProps,
+  PaginationJsxProps,
   PanelGroupJsxProps,
   ProgressJsxProps,
   RadioGroupJsxProps,
@@ -84,6 +94,7 @@ import type {
   RowJsxProps,
   SelectJsxProps,
   SkeletonJsxProps,
+  SliderJsxProps,
   SpacerJsxProps,
   SparklineJsxProps,
   SpinnerJsxProps,
@@ -94,12 +105,18 @@ import type {
   TextJsxProps,
   ToastContainerJsxProps,
   ToolApprovalDialogJsxProps,
+  TabsJsxProps,
   TreeJsxProps,
+  VStackJsxProps,
   VirtualListJsxProps,
 } from "./types.js";
 
 type FocusZoneProps = Extract<VNode, { kind: "focusZone" }>["props"];
 type FocusTrapProps = Extract<VNode, { kind: "focusTrap" }>["props"];
+type RowProps = Extract<VNode, { kind: "row" }>["props"];
+type ColumnProps = Extract<VNode, { kind: "column" }>["props"];
+type GridProps = Extract<VNode, { kind: "grid" }>["props"];
+type GridPropsWithOptionalKey = GridProps & { key?: string };
 
 function withOptionalKey<P extends { key?: string }>(
   props: Omit<P, "key">,
@@ -124,7 +141,7 @@ export function Row(props: RowJsxProps): VNode {
   const { children, key, ...rest } = props;
   return {
     kind: "row",
-    props: withOptionalKey<StackProps>(rest, key),
+    props: withOptionalKey<RowProps>(rest, key),
     children: normalizeContainerChildren(children),
   };
 }
@@ -133,9 +150,27 @@ export function Column(props: ColumnJsxProps): VNode {
   const { children, key, ...rest } = props;
   return {
     kind: "column",
-    props: withOptionalKey<StackProps>(rest, key),
+    props: withOptionalKey<ColumnProps>(rest, key),
     children: normalizeContainerChildren(children),
   };
+}
+
+export function Grid(props: GridJsxProps): VNode {
+  const { children, key, ...rest } = props;
+  return ui.grid(
+    withOptionalKey<GridPropsWithOptionalKey>(rest, key),
+    ...normalizeContainerChildren(children),
+  );
+}
+
+export function HStack(props: HStackJsxProps): VNode {
+  const { children, key, ...rest } = props;
+  return ui.hstack(withOptionalKey<RowProps>(rest, key), normalizeContainerChildren(children));
+}
+
+export function VStack(props: VStackJsxProps): VNode {
+  const { children, key, ...rest } = props;
+  return ui.vstack(withOptionalKey<ColumnProps>(rest, key), normalizeContainerChildren(children));
 }
 
 export function Layers(props: LayersJsxProps): VNode {
@@ -371,6 +406,11 @@ export function Input(props: InputJsxProps): VNode {
   };
 }
 
+export function Slider(props: SliderJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return ui.slider(withOptionalKey<SliderProps>(rest, key));
+}
+
 export function VirtualList<T = unknown>(props: VirtualListJsxProps<T>): VNode {
   const { key, children: _children, ...rest } = props;
   return {
@@ -443,6 +483,26 @@ export function RadioGroup(props: RadioGroupJsxProps): VNode {
   };
 }
 
+export function Tabs(props: TabsJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return ui.tabs(withOptionalKey<TabsProps>(rest, key));
+}
+
+export function Accordion(props: AccordionJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return ui.accordion(withOptionalKey<AccordionProps>(rest, key));
+}
+
+export function Breadcrumb(props: BreadcrumbJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return ui.breadcrumb(withOptionalKey<BreadcrumbProps>(rest, key));
+}
+
+export function Pagination(props: PaginationJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return ui.pagination(withOptionalKey<PaginationProps>(rest, key));
+}
+
 export function CommandPalette(props: CommandPaletteJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
   return {
@@ -507,10 +567,10 @@ export function ToastContainer(props: ToastContainerJsxProps): VNode {
   };
 }
 
-export function Fragment(props: { children?: JsxChildren }): VNode {
+export function Fragment(props: { children?: JsxChildren; key?: string }): VNode {
   return {
     kind: "column",
-    props: {},
+    props: withOptionalKey<ColumnProps>({}, props.key),
     children: normalizeContainerChildren(props.children),
   };
 }

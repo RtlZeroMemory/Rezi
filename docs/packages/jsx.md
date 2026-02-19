@@ -29,7 +29,7 @@ Use `.tsx` file extensions for files containing JSX.
 
 ## Available elements
 
-`@rezi-ui/jsx` exports one component per widget (`Text`, `Box`, `Column`, etc). Props match the corresponding `ui.*` function.
+`@rezi-ui/jsx` exports components for all core widgets. Props match the corresponding `ui.*` function.
 
 | `ui.*` API | JSX component |
 |---|---|
@@ -37,14 +37,24 @@ Use `.tsx` file extensions for files containing JSX.
 | `ui.box(...)` | `<Box>` |
 | `ui.row(...)` | `<Row>` |
 | `ui.column(...)` | `<Column>` |
+| `ui.grid(...)` | `<Grid>` |
+| `ui.hstack(...)` | `<HStack>` |
+| `ui.vstack(...)` | `<VStack>` |
 | `ui.button(...)` | `<Button>` |
 | `ui.input(...)` | `<Input>` |
+| `ui.slider(...)` | `<Slider>` |
+| `ui.tabs(...)` | `<Tabs>` |
+| `ui.accordion(...)` | `<Accordion>` |
+| `ui.breadcrumb(...)` | `<Breadcrumb>` |
+| `ui.pagination(...)` | `<Pagination>` |
 | `ui.table(...)` | `<Table>` |
 | `ui.modal(...)` | `<Modal>` |
 | `ui.divider(...)` | `<Divider>` |
-| ... | (all 49 widgets) |
+| ... | (all core widgets through `<ToastContainer>`) |
 
-Lowercase intrinsic elements are also supported (for example `<column>` and `<text>`). These map directly to the `ui.*` names and do not require importing components.
+Lowercase intrinsic elements are also supported (for example `<column>`, `<grid>`, `<hstack>`, and `<tabs>`). These map directly to the JSX runtime factories and do not require importing components.
+
+`<HStack>`/`<VStack>` (and `<hstack>`/`<vstack>`) preserve the `ui.hstack`/`ui.vstack` default `gap: 1` behavior.
 
 ## Example
 

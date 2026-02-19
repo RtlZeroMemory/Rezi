@@ -1,6 +1,8 @@
 import type {
+  AccordionProps,
   BadgeProps,
   BarChartProps,
+  BreadcrumbProps,
   BoxProps,
   ButtonProps,
   CalloutProps,
@@ -24,6 +26,7 @@ import type {
   LogsConsoleProps,
   MiniChartProps,
   ModalProps,
+  PaginationProps,
   PanelGroupProps,
   ProgressProps,
   RadioGroupProps,
@@ -31,13 +34,14 @@ import type {
   RichTextProps,
   SelectProps,
   SkeletonProps,
+  SliderProps,
   SpacerProps,
   SparklineProps,
   SpinnerProps,
   SplitPaneProps,
-  StackProps,
   StatusProps,
   TableProps,
+  TabsProps,
   TagProps,
   TextProps,
   ToastContainerProps,
@@ -64,6 +68,10 @@ export interface ReziIntrinsicAttributes {
 
 type FocusZoneProps = Extract<VNode, { kind: "focusZone" }>["props"];
 type FocusTrapProps = Extract<VNode, { kind: "focusTrap" }>["props"];
+type RowProps = Extract<VNode, { kind: "row" }>["props"];
+type ColumnProps = Extract<VNode, { kind: "column" }>["props"];
+type GridProps = Extract<VNode, { kind: "grid" }>["props"];
+type GridPropsWithOptionalKey = GridProps & { key?: string };
 
 type WithOptionalKey<P extends { key?: string }> = Omit<P, "key"> & {
   key?: string;
@@ -90,8 +98,11 @@ export type WithSingleChild<P extends { key?: string; children: VNode }> = Omit<
 };
 
 export type BoxJsxProps = WithContainerChildren<BoxProps>;
-export type RowJsxProps = WithContainerChildren<StackProps>;
-export type ColumnJsxProps = WithContainerChildren<StackProps>;
+export type RowJsxProps = WithContainerChildren<RowProps>;
+export type ColumnJsxProps = WithContainerChildren<ColumnProps>;
+export type GridJsxProps = WithContainerChildren<GridPropsWithOptionalKey>;
+export type HStackJsxProps = WithContainerChildren<RowProps>;
+export type VStackJsxProps = WithContainerChildren<ColumnProps>;
 export type LayersJsxProps = WithContainerChildren<LayersProps>;
 export type FocusZoneJsxProps = WithContainerChildren<FocusZoneProps>;
 export type FocusTrapJsxProps = WithContainerChildren<FocusTrapProps>;
@@ -123,12 +134,17 @@ export type BarChartJsxProps = LeafProps<BarChartProps>;
 export type MiniChartJsxProps = LeafProps<MiniChartProps>;
 export type ButtonJsxProps = LeafProps<ButtonProps>;
 export type InputJsxProps = LeafProps<InputProps>;
+export type SliderJsxProps = LeafProps<SliderProps>;
 export type ModalJsxProps = LeafProps<ModalProps>;
 export type DropdownJsxProps = LeafProps<DropdownProps>;
 export type LayerJsxProps = LeafProps<LayerProps>;
 export type SelectJsxProps = LeafProps<SelectProps>;
 export type CheckboxJsxProps = LeafProps<CheckboxProps>;
 export type RadioGroupJsxProps = LeafProps<RadioGroupProps>;
+export type TabsJsxProps = LeafProps<TabsProps>;
+export type AccordionJsxProps = LeafProps<AccordionProps>;
+export type BreadcrumbJsxProps = LeafProps<BreadcrumbProps>;
+export type PaginationJsxProps = LeafProps<PaginationProps>;
 export type CommandPaletteJsxProps = LeafProps<CommandPaletteProps>;
 export type FilePickerJsxProps = LeafProps<FilePickerProps>;
 export type FileTreeExplorerJsxProps = LeafProps<FileTreeExplorerProps>;
@@ -150,6 +166,9 @@ export interface ReziIntrinsicElements {
   box: BoxJsxProps;
   row: RowJsxProps;
   column: ColumnJsxProps;
+  grid: GridJsxProps;
+  hstack: HStackJsxProps;
+  vstack: VStackJsxProps;
   layers: LayersJsxProps;
   focusZone: FocusZoneJsxProps;
   focusTrap: FocusTrapJsxProps;
@@ -178,6 +197,7 @@ export interface ReziIntrinsicElements {
   miniChart: MiniChartJsxProps;
   button: ButtonJsxProps;
   input: InputJsxProps;
+  slider: SliderJsxProps;
   virtualList: VirtualListJsxProps;
   modal: ModalJsxProps;
   dropdown: DropdownJsxProps;
@@ -187,6 +207,10 @@ export interface ReziIntrinsicElements {
   select: SelectJsxProps;
   checkbox: CheckboxJsxProps;
   radioGroup: RadioGroupJsxProps;
+  tabs: TabsJsxProps;
+  accordion: AccordionJsxProps;
+  breadcrumb: BreadcrumbJsxProps;
+  pagination: PaginationJsxProps;
   commandPalette: CommandPaletteJsxProps;
   filePicker: FilePickerJsxProps;
   fileTreeExplorer: FileTreeExplorerJsxProps;
@@ -195,7 +219,7 @@ export interface ReziIntrinsicElements {
   toolApprovalDialog: ToolApprovalDialogJsxProps;
   logsConsole: LogsConsoleJsxProps;
   toastContainer: ToastContainerJsxProps;
-  fragment: { children?: JsxChildren };
+  fragment: { key?: string; children?: JsxChildren };
 }
 
 export type ReziIntrinsicElementName = keyof ReziIntrinsicElements;
