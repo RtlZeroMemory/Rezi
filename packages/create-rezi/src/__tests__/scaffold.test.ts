@@ -17,10 +17,14 @@ test("normalizeTemplateName accepts friendly aliases", () => {
   assert.equal(normalizeTemplateName("stress"), "stress-test");
   assert.equal(normalizeTemplateName("chaos"), "stress-test");
   assert.equal(normalizeTemplateName("bench"), "stress-test");
+  assert.equal(normalizeTemplateName("cli-tool"), "cli-tool");
+  assert.equal(normalizeTemplateName("cli"), "cli-tool");
+  assert.equal(normalizeTemplateName("tool"), "cli-tool");
+  assert.equal(normalizeTemplateName("multi_screen"), "cli-tool");
 });
 
 test("template keys match template directories and include highlights", async () => {
-  const expectedKeys = ["dashboard", "stress-test"];
+  const expectedKeys = ["dashboard", "stress-test", "cli-tool"];
   const keys = TEMPLATE_DEFINITIONS.map((template) => template.key);
   assert.equal(keys.join(","), expectedKeys.join(","));
 
