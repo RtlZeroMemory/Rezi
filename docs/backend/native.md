@@ -163,7 +163,7 @@ npm -w @rezi-ui/native run test:native:smoke
 
 ## See Also
 
-- [Node backend](node.md)
+- [Node/Bun backend](node.md)
 - [Worker model](worker-model.md)
 - [Engine configuration](engine-config.md)
 - [Protocol overview](../protocol/index.md)

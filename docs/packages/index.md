@@ -8,6 +8,8 @@ Most applications need only two packages:
 
 ```bash
 npm install @rezi-ui/core @rezi-ui/node
+# or
+bun add @rezi-ui/core @rezi-ui/node
 ```
 
 ## Package Overview
@@ -100,6 +102,8 @@ Helper package for testing Rezi applications:
 
 ```bash
 npm install --save-dev @rezi-ui/testkit
+# or
+bun add -d @rezi-ui/testkit
 ```
 
 [Full documentation →](testkit.md)
@@ -112,6 +116,8 @@ Generate a ready-to-run Rezi app with TypeScript configured and the polished das
 
 ```bash
 npm create rezi my-app
+# or
+bun create rezi my-app
 ```
 
 [Full documentation →](create-rezi.md)
@@ -124,6 +130,8 @@ Native JSX runtime that maps JSX elements directly to Rezi VNodes (no React requ
 
 ```bash
 npm install @rezi-ui/jsx
+# or
+bun add @rezi-ui/jsx
 ```
 
 [Full documentation →](jsx.md) | [Getting started →](../getting-started/jsx.md)

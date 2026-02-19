@@ -166,6 +166,6 @@ See the API reference for the `ZrUiErrorCode` type and related helpers.
 
 - [Concepts](concepts.md) - Pure view, VNodes, and reconciliation
 - [Performance](performance.md) - Why coalescing and keys matter
-- [Node backend](../backend/node.md) - Runtime/backend integration details
+- [Node/Bun backend](../backend/node.md) - Runtime/backend integration details
 
 Next: [Layout](layout.md).

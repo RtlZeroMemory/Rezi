@@ -6,12 +6,16 @@
 
 ```bash
 npm create rezi my-app
+# or
+bun create rezi my-app
 ```
 
 Equivalent direct invocation:
 
 ```bash
 npx create-rezi my-app
+# or
+bunx create-rezi my-app
 ```
 
 The CLI prompts for any missing values (project name/template) when run interactively.
@@ -28,12 +32,18 @@ Use a specific template:
 ```bash
 npm create rezi my-app -- --template dashboard
 npm create rezi my-app -- --template dash
+
+# Bun
+bun create rezi my-app -- --template dashboard
+bun create rezi my-app -- --template dash
 ```
 
 List templates and highlights:
 
 ```bash
 npm create rezi -- --list-templates
+# or
+bun create rezi -- --list-templates
 ```
 
 For template descriptions and highlights, use the canonical guide: [Getting Started → Create Rezi](../getting-started/create-rezi.md).

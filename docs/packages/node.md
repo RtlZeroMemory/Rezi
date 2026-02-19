@@ -27,7 +27,7 @@ Set `config.executionMode` on `createNodeApp(...)`:
 
 - `auto` (default): inline when `fpsCap <= 30`, worker otherwise
 - `worker`: always run the engine on a worker thread
-- `inline`: run the engine inline on the Node main thread
+- `inline`: run the engine inline on the main JS thread
 
 ## Creating an app (recommended)
 
@@ -54,9 +54,9 @@ lockstep:
 
 ## Deprecated legacy path
 
-Manual `createNodeBackend()` + `createApp()` wiring is deprecated for standard
-Node/Bun app construction. Prefer `createNodeApp()` so app/core and backend
-settings stay aligned automatically.
+Manual `createNodeBackend()` + `createApp()` (`@rezi-ui/core`) wiring is
+deprecated for standard Node/Bun app construction. Prefer `createNodeApp()` from
+`@rezi-ui/node` so app/core and backend settings stay aligned automatically.
 
 ## Native engine config passthrough
 
@@ -84,6 +84,6 @@ const app = createNodeApp({
 
 See:
 
-- [Node backend](../backend/node.md)
+- [Node/Bun backend](../backend/node.md)
 - [Worker model](../backend/worker-model.md)
 - [Engine config](../backend/engine-config.md)

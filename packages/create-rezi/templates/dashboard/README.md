@@ -1,6 +1,6 @@
 # __APP_NAME__
 
-Scaffolded with `npm create rezi` using the **__TEMPLATE_LABEL__** template.
+Scaffolded with `create-rezi` using the **__TEMPLATE_LABEL__** template.
 
 ## Quickstart
 

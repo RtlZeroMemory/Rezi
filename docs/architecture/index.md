@@ -1,6 +1,6 @@
 # Architecture
 
-Rezi is a layered system: a runtime-agnostic UI core, a Node.js backend, and a native C rendering engine connected by versioned binary protocols.
+Rezi is a layered system: a runtime-agnostic UI core, a Node.js/Bun backend, and a native C rendering engine connected by versioned binary protocols.
 
 ## Runtime Stack
 
@@ -16,7 +16,7 @@ flowchart TB
     Core
   end
 
-  subgraph Node.js Runtime
+  subgraph Node.js/Bun Runtime
     Node
     Native
   end
@@ -67,7 +67,7 @@ Both formats are little-endian, 4-byte aligned, and versioned. Mismatched versio
 
 ### Execution Modes
 
-The Node backend supports three execution modes:
+The Node/Bun backend supports three execution modes:
 
 - **`"auto"`** (default): selects `"inline"` when `fpsCap <= 30`, otherwise `"worker"`.
 - **`"worker"`**: native engine runs on a dedicated worker thread. Main thread is never blocked by terminal I/O.
@@ -87,7 +87,7 @@ The Node backend supports three execution modes:
 
 ## Related Docs
 
-- [Node backend](../backend/node.md) — backend lifecycle and `createNodeApp`
+- [Node/Bun backend](../backend/node.md) — backend lifecycle and `createNodeApp`
 - [Worker model](../backend/worker-model.md) — thread ownership and backpressure
 - [Native addon](../backend/native.md) — N-API binding details
 - [Protocol overview](../protocol/index.md) — binary format specs

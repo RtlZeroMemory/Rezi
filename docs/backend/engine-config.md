@@ -213,6 +213,6 @@ config: {
 
 ## See Also
 
-- [Node backend](node.md)
+- [Node/Bun backend](node.md)
 - [Terminal capabilities](terminal-caps.md)
 - [Packages: @rezi-ui/node](../packages/node.md)
