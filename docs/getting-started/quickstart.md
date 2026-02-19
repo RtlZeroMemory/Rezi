@@ -20,7 +20,7 @@ cd my-tui-app
 bun start
 ```
 
-Select a template when prompted (dashboard, form-app, file-browser, or streaming-viewer), or pass `--template` to choose directly:
+Select a template when prompted (dashboard, stress-test, form-app, file-browser, or streaming-viewer), or pass `--template` to choose directly:
 
 ```bash
 npm create rezi my-tui-app -- --template dashboard

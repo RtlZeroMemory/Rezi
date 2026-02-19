@@ -108,7 +108,7 @@ npm install --save-dev @rezi-ui/testkit
 
 **Project scaffolding CLI**
 
-Generate a ready-to-run Rezi app with TypeScript configured and a multi-panel template:
+Generate a ready-to-run Rezi app with TypeScript configured and starter templates (including `dashboard` and `stress-test`):
 
 ```bash
 npm create rezi my-app

@@ -21,6 +21,7 @@ The CLI prompts for any missing values (project name/template) when run interact
 Canonical template names:
 
 - `dashboard`
+- `stress-test`
 - `form-app`
 - `file-browser`
 - `streaming-viewer`
@@ -41,7 +42,7 @@ For template descriptions and highlights, use the canonical guide: [Getting Star
 
 ## Options
 
-- `--template, -t <dashboard|form-app|file-browser|streaming-viewer>`: Select a template.
+- `--template, -t <dashboard|stress-test|form-app|file-browser|streaming-viewer>`: Select a template.
 - `--no-install, --skip-install`: Skip dependency installation.
 - `--pm, --package-manager <npm|pnpm|yarn|bun>`: Choose a package manager.
 - `--list-templates, --templates`: Print available templates and highlights.

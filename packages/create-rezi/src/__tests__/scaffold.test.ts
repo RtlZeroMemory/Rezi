@@ -12,6 +12,11 @@ import {
 
 test("normalizeTemplateName accepts friendly aliases", () => {
   assert.equal(normalizeTemplateName("dashboard"), "dashboard");
+  assert.equal(normalizeTemplateName("dash"), "dashboard");
+  assert.equal(normalizeTemplateName("stress-test"), "stress-test");
+  assert.equal(normalizeTemplateName("stress"), "stress-test");
+  assert.equal(normalizeTemplateName("chaos"), "stress-test");
+  assert.equal(normalizeTemplateName("bench"), "stress-test");
   assert.equal(normalizeTemplateName("form-app"), "form-app");
   assert.equal(normalizeTemplateName("form app"), "form-app");
   assert.equal(normalizeTemplateName("file-browser"), "file-browser");
@@ -21,7 +26,7 @@ test("normalizeTemplateName accepts friendly aliases", () => {
 });
 
 test("template keys match template directories and include highlights", async () => {
-  const expectedKeys = ["dashboard", "form-app", "file-browser", "streaming-viewer"];
+  const expectedKeys = ["dashboard", "stress-test", "form-app", "file-browser", "streaming-viewer"];
   const keys = TEMPLATE_DEFINITIONS.map((template) => template.key);
   assert.equal(keys.join(","), expectedKeys.join(","));
 

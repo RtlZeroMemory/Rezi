@@ -22,6 +22,8 @@ If `--template` is omitted, the CLI prompts you to choose (default: `dashboard`)
 
 - `dashboard`: Live ops dashboard with deterministic table updates.
   Highlights: live-updating table with stable row keys, filter/sort/pin controls + incident telemetry.
+- `stress-test`: Visual benchmark matrix with deterministic simulation + real runtime diagnostics.
+  Highlights: three visual stress lanes (geometry/text/matrix), phase escalation, measured CPU/RSS/lag/sink I/O.
 - `form-app`: Multi-step form with validation and command modes.
   Highlights: insert/command key modes with chords, modal help and toast notifications.
 - `file-browser`: Explorer with async command palette search.
@@ -33,6 +35,7 @@ Choose directly with `--template`:
 
 ```bash
 npm create rezi my-app -- --template dashboard
+npm create rezi my-app -- --template stress-test
 ```
 
 Inspect all templates and highlights from the CLI:
@@ -43,7 +46,7 @@ npm create rezi -- --list-templates
 
 ## Options
 
-- `--template, -t <dashboard|form-app|file-browser|streaming-viewer>`: Select a template.
+- `--template, -t <dashboard|stress-test|form-app|file-browser|streaming-viewer>`: Select a template.
 - `--no-install, --skip-install`: Skip dependency installation.
 - `--pm, --package-manager <npm|pnpm|yarn|bun>`: Choose a package manager.
 - `--list-templates, --templates`: Print available templates and highlights.

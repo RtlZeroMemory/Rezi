@@ -2,7 +2,12 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export type TemplateKey = "dashboard" | "form-app" | "file-browser" | "streaming-viewer";
+export type TemplateKey =
+  | "dashboard"
+  | "stress-test"
+  | "form-app"
+  | "file-browser"
+  | "streaming-viewer";
 
 export type TemplateDefinition = {
   key: TemplateKey;
@@ -22,6 +27,16 @@ export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
       "filter/sort/pin controls + incident telemetry",
     ],
     dir: "dashboard",
+  },
+  {
+    key: "stress-test",
+    label: "Visual Benchmark Matrix",
+    description: "Three-lane visual benchmark with deterministic sim model + real runtime diagnostics",
+    highlights: [
+      "geometry + text/file activity + matrix rain lanes with phase-based intensity ramp",
+      "deterministic sim scorecard and measured CPU/RSS/lag/timing/sink throughput",
+    ],
+    dir: "stress-test",
   },
   {
     key: "form-app",
@@ -56,6 +71,10 @@ const TEMPLATE_ALIASES = new Map<string, TemplateKey>(
 
 TEMPLATE_ALIASES.set("form", "form-app");
 TEMPLATE_ALIASES.set("formapp", "form-app");
+TEMPLATE_ALIASES.set("dash", "dashboard");
+TEMPLATE_ALIASES.set("stress", "stress-test");
+TEMPLATE_ALIASES.set("chaos", "stress-test");
+TEMPLATE_ALIASES.set("bench", "stress-test");
 TEMPLATE_ALIASES.set("file", "file-browser");
 TEMPLATE_ALIASES.set("files", "file-browser");
 TEMPLATE_ALIASES.set("filebrowser", "file-browser");

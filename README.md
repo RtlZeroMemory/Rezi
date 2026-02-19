@@ -47,7 +47,7 @@ cd my-app
 bun start
 ```
 
-Four starter templates: `dashboard`, `form-app`, `file-browser`, `streaming-viewer`.
+Five starter templates: `dashboard`, `stress-test`, `form-app`, `file-browser`, `streaming-viewer`.
 
 ## Example
 
