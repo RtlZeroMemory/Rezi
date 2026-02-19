@@ -32,7 +32,7 @@ await app.start();
 : Define your UI as a function of state. Full TypeScript support with strict typing for props, state, and events.
 
 **Rich Widget Library**
-: 49 built-in widgets covering forms, tables, trees, modals, code editors, command palettes, charts, and more.
+: 54 built-in widgets covering forms, tables, trees, modals, code editors, command palettes, charts, and more.
 
 **Native Performance**
 : Powered by the Zireael C engine with a binary protocol boundary. No virtual DOM diffing overhead.

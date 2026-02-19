@@ -6,11 +6,17 @@
  *   node --expose-gc packages/bench/dist/run.js [options]
  *
  * Options:
- *   --suite <name>          "all" (default) or "terminal" (includes blessed + ratatui)
+ *   --suite <name>          "all" (default) or "terminal" (includes OpenTUI + blessed + ratatui)
  *   --scenario <name>       Run only this scenario (default: all)
  *   --framework <name>      Run only this framework (default: all)
  *   --iterations <n>        Override iteration count
  *   --warmup <n>            Override warmup count
+ *   --replicates <n>        Repeat each scenario/framework N times
+ *   --discard-first-replicate  Run first replicate as warmup and exclude from reports
+ *   --shuffle-framework-order   Randomize framework execution order per replicate
+ *   --shuffle-seed <seed>   Seed used for deterministic framework shuffling
+ *   --env-check <mode>      "off" | "warn" (default) | "strict"
+ *   --cpu-affinity <list>   Pin child processes via taskset, e.g. "0-3"
  *   --json                  Output raw JSON instead of table
  *   --markdown              Output markdown report
  *   --output <path>         Write results to file
@@ -19,7 +25,7 @@
  *   --quick                 Quick mode: fewer iterations (good for CI)
  */
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { constants, accessSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import * as os from "node:os";
@@ -37,6 +43,12 @@ interface CliOpts {
   framework: Framework | null;
   iterations: number | null;
   warmup: number | null;
+  replicates: number;
+  discardFirstReplicate: boolean;
+  shuffleFrameworkOrder: boolean;
+  shuffleSeed: string;
+  envCheck: "off" | "warn" | "strict";
+  cpuAffinity: string | null;
   json: boolean;
   markdown: boolean;
   output: string | null;
@@ -45,6 +57,10 @@ interface CliOpts {
   quick: boolean;
 }
 
+type BenchEnv = NodeJS.ProcessEnv & {
+  REZI_BENCH_CPU_AFFINITY?: string;
+};
+
 function parseArgs(argv: string[]): CliOpts {
   const opts: CliOpts = {
     suite: "all",
@@ -52,6 +68,12 @@ function parseArgs(argv: string[]): CliOpts {
     framework: null,
     iterations: null,
     warmup: null,
+    replicates: 1,
+    discardFirstReplicate: false,
+    shuffleFrameworkOrder: false,
+    shuffleSeed: "rezi-bench-seed",
+    envCheck: "warn",
+    cpuAffinity: null,
     json: false,
     markdown: false,
     output: null,
@@ -80,6 +102,26 @@ function parseArgs(argv: string[]): CliOpts {
       case "--warmup":
         opts.warmup = Number.parseInt(argv[++i] ?? "", 10) || null;
         break;
+      case "--replicates":
+        opts.replicates = Math.max(1, Number.parseInt(argv[++i] ?? "", 10) || 1);
+        break;
+      case "--discard-first-replicate":
+        opts.discardFirstReplicate = true;
+        break;
+      case "--shuffle-framework-order":
+        opts.shuffleFrameworkOrder = true;
+        break;
+      case "--shuffle-seed":
+        opts.shuffleSeed = argv[++i] ?? opts.shuffleSeed;
+        break;
+      case "--env-check": {
+        const mode = (argv[++i] ?? "warn").toLowerCase();
+        opts.envCheck = mode === "off" || mode === "strict" || mode === "warn" ? mode : "warn";
+        break;
+      }
+      case "--cpu-affinity":
+        opts.cpuAffinity = argv[++i] ?? null;
+        break;
       case "--json":
         opts.json = true;
         break;
@@ -105,6 +147,119 @@ function parseArgs(argv: string[]): CliOpts {
   return opts;
 }
 
+function hashSeed(text: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function makeRng(seed: number): () => number {
+  let x = seed >>> 0;
+  return () => {
+    x ^= x << 13;
+    x ^= x >>> 17;
+    x ^= x << 5;
+    return (x >>> 0) / 0x1_0000_0000;
+  };
+}
+
+function shuffleDeterministic<T>(items: readonly T[], seedText: string): T[] {
+  const out = [...items];
+  const rnd = makeRng(hashSeed(seedText));
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    const current = out[i] as T;
+    out[i] = out[j] as T;
+    out[j] = current;
+  }
+  return out;
+}
+
+let cachedTaskset: string | null | undefined;
+function resolveTaskset(): string | null {
+  if (cachedTaskset !== undefined) return cachedTaskset;
+  if (process.platform !== "linux") {
+    cachedTaskset = null;
+    return cachedTaskset;
+  }
+  try {
+    const probe = spawnSync("taskset", ["--version"], { stdio: "ignore" });
+    cachedTaskset = (probe.status ?? 1) === 0 ? "taskset" : null;
+  } catch {
+    cachedTaskset = null;
+  }
+  return cachedTaskset;
+}
+
+function withAffinity(
+  file: string,
+  args: readonly string[],
+  cpuAffinity: string | null,
+): Readonly<{ file: string; args: string[] }> {
+  if (!cpuAffinity) return { file, args: [...args] };
+  const taskset = resolveTaskset();
+  if (!taskset) {
+    throw new Error("--cpu-affinity requires taskset on Linux; taskset not available on this host");
+  }
+  return { file: taskset, args: ["-c", cpuAffinity, file, ...args] };
+}
+
+function readCpuGovernor(): string | null {
+  if (process.platform !== "linux") return null;
+  try {
+    return readFileSync("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor", "utf-8").trim();
+  } catch {
+    return null;
+  }
+}
+
+function isWslHost(): boolean {
+  const rel = os.release().toLowerCase();
+  return rel.includes("microsoft") || rel.includes("wsl") || "WSL_DISTRO_NAME" in process.env;
+}
+
+function detectToolVersion(command: string, args: readonly string[]): string | null {
+  try {
+    const out = spawnSync(command, args, { encoding: "utf-8" });
+    if ((out.status ?? 1) !== 0) return null;
+    const text = String(out.stdout ?? "").trim();
+    if (!text) return null;
+    return text.split(/\r?\n/)[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function runEnvironmentChecks(opts: CliOpts): void {
+  if (opts.envCheck === "off") return;
+
+  const warnings: string[] = [];
+  if (process.platform === "linux") {
+    const governor = readCpuGovernor();
+    if (governor && governor !== "performance") {
+      warnings.push(`CPU governor is "${governor}" (recommended: "performance")`);
+    }
+  }
+  if (isWslHost()) {
+    warnings.push("Running on WSL/virtualized kernel can increase benchmark jitter");
+  }
+  if (opts.cpuAffinity && !resolveTaskset()) {
+    warnings.push("--cpu-affinity requested but taskset is unavailable");
+  }
+
+  if (warnings.length === 0) return;
+
+  const message = warnings.map((w) => `  [env] ${w}`).join("\n");
+  if (opts.envCheck === "strict") {
+    throw new Error(`Environment checks failed in strict mode:\n${message}`);
+  }
+  console.log(message);
+  console.log("  [env] continue (env-check=warn)\n");
+}
+
 // ── Availability checks ─────────────────────────────────────────────
 
 async function checkFramework(fw: Framework, io: "stub" | "pty"): Promise<boolean> {
@@ -115,12 +270,13 @@ async function checkFramework(fw: Framework, io: "stub" | "pty"): Promise<boolea
         if (io === "pty") await import("@rezi-ui/node");
         return true;
       case "ink-compat":
-        await import("@rezi-ui/ink-compat");
-        if (io === "pty") await import("@rezi-ui/node");
-        return true;
+        return false;
       case "ink":
         await import("ink");
         return true;
+      case "opentui":
+        if (io !== "pty") return false;
+        return (await import("./frameworks/opentui.js")).checkOpenTui();
       case "terminal-kit":
         await import("terminal-kit");
         return true;
@@ -142,15 +298,24 @@ async function runIsolated(
   framework: Framework,
   config: ScenarioConfig,
   params: Record<string, number | string>,
+  replicate: number,
+  cpuAffinity: string | null,
 ): Promise<BenchResult> {
   const workerPath = fileURLToPath(new URL("./worker.js", import.meta.url));
-  const payload = { scenario: scenarioName, framework, config, params };
+  const payload = { scenario: scenarioName, framework, config, params, replicate };
   const payloadB64 = Buffer.from(JSON.stringify(payload), "utf-8").toString("base64");
 
   return new Promise<BenchResult>((resolve, reject) => {
-    const child = spawn(process.execPath, ["--expose-gc", workerPath, "--payload", payloadB64], {
+    const env: BenchEnv = { ...process.env };
+    if (cpuAffinity) env.REZI_BENCH_CPU_AFFINITY = cpuAffinity;
+    const command = withAffinity(
+      process.execPath,
+      ["--expose-gc", workerPath, "--payload", payloadB64],
+      cpuAffinity,
+    );
+    const child = spawn(command.file, command.args, {
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env },
+      env,
     });
 
     let stdout = "";
@@ -172,6 +337,9 @@ async function runIsolated(
           | { ok: true; result: BenchResult }
           | { ok: false; error: string; timestamp?: string };
         if ("ok" in parsed && parsed.ok) {
+          if (parsed.result.metrics.ptyBytesObserved === undefined) {
+            parsed.result.metrics.ptyBytesObserved = null;
+          }
           resolve(parsed.result);
           return;
         }
@@ -198,6 +366,8 @@ async function runIsolatedPty(
   framework: Framework,
   config: ScenarioConfig,
   params: Record<string, number | string>,
+  replicate: number,
+  cpuAffinity: string | null,
 ): Promise<BenchResult> {
   type PtyExit = Readonly<{ exitCode: number; signal?: number }>;
   type PtyProcess = Readonly<{
@@ -222,28 +392,34 @@ async function runIsolatedPty(
   }
 
   const workerPath = fileURLToPath(new URL("./worker.js", import.meta.url));
-  const payload = { scenario: scenarioName, framework, config, params };
+  const payload = { scenario: scenarioName, framework, config, params, replicate };
   const payloadB64 = Buffer.from(JSON.stringify(payload), "utf-8").toString("base64");
   const resultPath = `${os.tmpdir()}/rezi-bench-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.json`;
 
   return new Promise<BenchResult>((resolve, reject) => {
-    const pty = ptySpawn(
+    const env: BenchEnv = { ...process.env };
+    if (cpuAffinity) env.REZI_BENCH_CPU_AFFINITY = cpuAffinity;
+    const command = withAffinity(
       process.execPath,
       ["--expose-gc", workerPath, "--payload", payloadB64, "--result-path", resultPath],
-      {
-        name: "xterm-256color",
-        cols: 120,
-        rows: 40,
-        cwd: process.cwd(),
-        env: {
-          ...process.env,
-          REZI_BENCH_IO: "terminal",
-          TERM: "xterm-256color",
-        },
-      },
+      cpuAffinity,
     );
+    const pty = ptySpawn(command.file, command.args, {
+      name: "xterm-256color",
+      cols: 120,
+      rows: 40,
+      cwd: process.cwd(),
+      env: {
+        ...env,
+        REZI_BENCH_IO: "terminal",
+        TERM: "xterm-256color",
+      },
+    });
 
-    pty.onData(() => {});
+    let observedPtyBytes = 0;
+    pty.onData((data) => {
+      observedPtyBytes += Buffer.byteLength(data, "utf-8");
+    });
 
     pty.onExit(({ exitCode, signal }) => {
       try {
@@ -252,6 +428,14 @@ async function runIsolatedPty(
           | { ok: true; result: BenchResult }
           | { ok: false; error: string };
         if ("ok" in parsed && parsed.ok) {
+          parsed.result.metrics.ptyBytesObserved = observedPtyBytes;
+          if (
+            parsed.result.framework === "opentui" &&
+            parsed.result.metrics.bytesProduced === 0 &&
+            observedPtyBytes > 0
+          ) {
+            parsed.result.metrics.bytesProduced = observedPtyBytes;
+          }
           resolve(parsed.result);
           return;
         }
@@ -287,12 +471,14 @@ async function main(): Promise<void> {
     console.log("  (hint: run with --expose-gc for more accurate memory measurements)\n");
   }
 
+  runEnvironmentChecks(opts);
+
   // Check which frameworks are available
   const availableFrameworks = new Map<Framework, boolean>();
   for (const fw of [
     "rezi-native",
-    "ink-compat",
     "ink",
+    "opentui",
     "terminal-kit",
     "blessed",
     "ratatui",
@@ -324,6 +510,7 @@ async function main(): Promise<void> {
   }
 
   const results: BenchResult[] = [];
+  const bunBin = (process.env as Readonly<{ REZI_BUN_BIN?: string }>).REZI_BUN_BIN ?? "bun";
   const run: BenchRun = {
     meta: {
       timestamp: new Date().toISOString(),
@@ -335,6 +522,11 @@ async function main(): Promise<void> {
       cpuModel: os.cpus()[0]?.model ?? "unknown",
       cpuCores: os.cpus().length,
       memoryTotalMb: Math.round(os.totalmem() / (1024 * 1024)),
+      bunVersion: detectToolVersion(bunBin, ["--version"]),
+      rustcVersion: detectToolVersion("rustc", ["--version"]),
+      cargoVersion: detectToolVersion("cargo", ["--version"]),
+      cpuGovernor: readCpuGovernor(),
+      isWsl: isWslHost(),
     },
     invocation: {
       suite: opts.suite,
@@ -344,6 +536,12 @@ async function main(): Promise<void> {
       warmupOverride: opts.warmup,
       quick: opts.quick,
       ioMode: opts.io,
+      replicates: opts.replicates,
+      discardFirstReplicate: opts.discardFirstReplicate,
+      shuffleFrameworkOrder: opts.shuffleFrameworkOrder,
+      shuffleSeed: opts.shuffleSeed,
+      envCheck: opts.envCheck,
+      cpuAffinity: opts.cpuAffinity,
     },
     results,
   };
@@ -356,29 +554,53 @@ async function main(): Promise<void> {
         .map(([k, v]) => `${k}=${v}`)
         .join(", ");
       const label = paramStr ? `${scenario.name} (${paramStr})` : scenario.name;
+      const runnableFrameworks = scenario.frameworks.filter((fw) => availableFrameworks.get(fw));
+      if (runnableFrameworks.length === 0) continue;
 
-      for (const fw of scenario.frameworks) {
-        if (!availableFrameworks.get(fw)) continue;
+      for (let replicate = 0; replicate < opts.replicates; replicate++) {
+        const discardThisReplicate =
+          opts.discardFirstReplicate && opts.replicates > 1 && replicate === 0;
 
-        const config: ScenarioConfig = {
-          warmup: opts.warmup ?? (opts.quick ? 10 : scenario.defaultConfig.warmup),
-          iterations: opts.iterations ?? (opts.quick ? 50 : scenario.defaultConfig.iterations),
-        };
+        const orderSeed = `${opts.shuffleSeed}|${label}|replicate=${replicate}`;
+        const frameworkOrder = opts.shuffleFrameworkOrder
+          ? shuffleDeterministic(runnableFrameworks, orderSeed)
+          : [...runnableFrameworks];
 
-        process.stdout.write(`  ${label} / ${fw} ... `);
-        tryGc();
+        for (const fw of frameworkOrder) {
+          const config: ScenarioConfig = {
+            warmup: opts.warmup ?? (opts.quick ? 10 : scenario.defaultConfig.warmup),
+            iterations: opts.iterations ?? (opts.quick ? 50 : scenario.defaultConfig.iterations),
+          };
 
-        try {
-          const r =
-            opts.io === "pty"
-              ? await runIsolatedPty(scenario.name, fw, config, params)
-              : await runIsolated(scenario.name, fw, config, params);
-          results.push(r);
-          console.log(
-            `done (${r.metrics.timing.mean.toFixed(3)}ms avg, ${Math.round(r.metrics.opsPerSec)} ops/s)`,
-          );
-        } catch (err) {
-          console.log(`FAILED: ${err instanceof Error ? err.message : String(err)}`);
+          process.stdout.write(`  ${label} / ${fw} [rep ${replicate + 1}/${opts.replicates}] ... `);
+          tryGc();
+
+          try {
+            const r =
+              opts.io === "pty"
+                ? await runIsolatedPty(
+                    scenario.name,
+                    fw,
+                    config,
+                    params,
+                    replicate,
+                    opts.cpuAffinity,
+                  )
+                : await runIsolated(scenario.name, fw, config, params, replicate, opts.cpuAffinity);
+
+            if (discardThisReplicate) {
+              console.log(
+                `warmup discard (${r.metrics.timing.mean.toFixed(3)}ms avg, ${Math.round(r.metrics.opsPerSec)} ops/s)`,
+              );
+            } else {
+              results.push(r);
+              console.log(
+                `done (${r.metrics.timing.mean.toFixed(3)}ms avg, ${Math.round(r.metrics.opsPerSec)} ops/s)`,
+              );
+            }
+          } catch (err) {
+            console.log(`FAILED: ${err instanceof Error ? err.message : String(err)}`);
+          }
         }
       }
     }

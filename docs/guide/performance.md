@@ -31,6 +31,8 @@ Patterns:
 - Precompute derived data in state updates instead of inside `view`.
 - Keep large static arrays/constants outside the view closure.
 - Prefer event handlers that call `app.update(...)` without doing heavy work in render.
+- For animation, prefer tick-driven widget updates over ad-hoc timer loops; Rezi
+  bounds animation cadence to keep render and input responsive.
 
 ## Virtual lists
 

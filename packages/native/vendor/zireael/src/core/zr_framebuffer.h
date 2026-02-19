@@ -116,6 +116,7 @@ size_t zr_fb_count_cells_utf8(const uint8_t* bytes, size_t len);
   zr_fb_put_grapheme:
     - bytes are already grapheme-segmented (caller responsibility).
     - width is provided by caller (0/1/2); width==0 is invalid for put.
+    - len==0 is normalized to a single ASCII space (width 1).
     - Paired-cell invariant repair may clear one adjacent pair cell outside clip
       (bounded exception; no broader out-of-clip mutation).
     - Replacement policy (LOCKED):

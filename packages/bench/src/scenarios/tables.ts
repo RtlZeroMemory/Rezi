@@ -233,7 +233,7 @@ export const tableScenario: Scenario = {
   description: "Fixed-size table; updates a single changing cell per iteration",
   defaultConfig: { warmup: 50, iterations: 300 },
   paramSets: [{ rows: 100, cols: 8 }],
-  frameworks: ["rezi-native", "ink-compat", "ink"],
+  frameworks: ["rezi-native", "ink"],
 
   async run(framework: Framework, config: ScenarioConfig, params) {
     const { rows, cols } = params as { rows: number; cols: number };
@@ -241,8 +241,6 @@ export const tableScenario: Scenario = {
     switch (framework) {
       case "rezi-native":
         return runRezi(config, rows, cols);
-      case "ink-compat":
-        return runInkCompat(config, rows, cols);
       case "ink":
         return runInk(config, rows, cols);
       default:

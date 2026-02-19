@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { constants, accessSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import { getBenchIoMode } from "../io.js";
@@ -40,6 +40,23 @@ function memWithRss(rssKb: number): MemorySnapshot {
   };
 }
 
+function withAffinity(
+  file: string,
+  args: readonly string[],
+): Readonly<{ file: string; args: string[] }> {
+  const env = process.env as Readonly<{ REZI_BENCH_CPU_AFFINITY?: string }>;
+  const affinity = env.REZI_BENCH_CPU_AFFINITY?.trim();
+  if (!affinity) return { file, args: [...args] };
+  if (process.platform !== "linux") {
+    throw new Error("--cpu-affinity is only supported on Linux hosts");
+  }
+  const probe = spawnSync("taskset", ["--version"], { stdio: "ignore" });
+  if ((probe.status ?? 1) !== 0) {
+    throw new Error("--cpu-affinity requested but taskset is unavailable");
+  }
+  return { file: "taskset", args: ["-c", affinity, file, ...args] };
+}
+
 export async function runRatatuiScenario(
   scenario: string,
   config: Readonly<{ warmup: number; iterations: number }>,
@@ -70,7 +87,8 @@ export async function runRatatuiScenario(
     mode === "pty" ? ["ignore", "inherit", "inherit"] : ["ignore", "ignore", "inherit"];
 
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(bin, args, { stdio });
+    const command = withAffinity(bin, args);
+    const child = spawn(command.file, command.args, { stdio });
     child.on("error", (err) => reject(err));
     child.on("exit", (code, signal) => {
       if (code === 0) resolve();
@@ -111,6 +129,7 @@ export async function runRatatuiScenario(
       opsPerSec: timing.n / (d.totalWallMs / 1000),
       framesProduced: d.frames,
       bytesProduced: d.bytesWritten,
+      ptyBytesObserved: null,
     };
   } finally {
     try {

@@ -257,7 +257,7 @@ export const virtualListScenario: Scenario = {
   description: "Large logical list with virtualization window (viewport only)",
   defaultConfig: { warmup: 100, iterations: 1000 },
   paramSets: [{ items: 100_000, viewport: 40 }],
-  frameworks: ["rezi-native", "ink-compat", "ink"],
+  frameworks: ["rezi-native", "ink"],
 
   async run(framework: Framework, config: ScenarioConfig, params) {
     const { items, viewport } = params as { items: number; viewport: number };
@@ -265,8 +265,6 @@ export const virtualListScenario: Scenario = {
     switch (framework) {
       case "rezi-native":
         return runRezi(config, items, viewport);
-      case "ink-compat":
-        return runInkCompat(config, items, viewport);
       case "ink":
         return runInk(config, items, viewport);
       default:

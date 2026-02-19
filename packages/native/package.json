@@ -1,6 +1,6 @@
 {
   "name": "@rezi-ui/native",
-  "version": "0.1.0-alpha.11",
+  "version": "0.1.0-alpha.16",
   "description": "Native addon for Rezi (napi-rs + Zireael engine).",
   "license": "Apache-2.0",
   "homepage": "https://rtlzeromemory.github.io/Rezi/",
@@ -30,7 +30,8 @@
     "@napi-rs/cli": "^2.18.4"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=18",
+    "bun": ">=1.3.0"
   },
   "napi": {
     "name": "rezi_ui_native"

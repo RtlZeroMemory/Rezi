@@ -358,4 +358,4 @@ const debug = createDebugController({
 
 - [Record and Replay](record-replay.md) - Repro bundle schema and deterministic export helpers
 - [Performance](performance.md) - Optimization techniques
-- [Node backend](../backend/node.md) - Runtime backend behavior
+- [Node/Bun backend](../backend/node.md) - Runtime backend behavior

@@ -1,10 +1,7 @@
-import type {
-  BadgeVariant,
-  RichTextSpan,
-  TextStyle,
-  ThemeDefinition,
-  VNode,
-} from "@rezi-ui/core";
+import * as fs from "node:fs";
+import { devNull, tmpdir } from "node:os";
+import * as path from "node:path";
+import type { BadgeVariant, RichTextSpan, TextStyle, ThemeDefinition, VNode } from "@rezi-ui/core";
 import {
   createApp,
   darkTheme,
@@ -17,9 +14,6 @@ import {
   ui,
 } from "@rezi-ui/core";
 import { createNodeBackend } from "@rezi-ui/node";
-import * as fs from "node:fs";
-import { devNull, tmpdir } from "node:os";
-import * as path from "node:path";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -111,7 +105,8 @@ type State = {
 
 const PRODUCT_NAME = "__APP_NAME__";
 const APP_NAME_PLACEHOLDER = "__APP" + "_NAME__";
-const PRODUCT_DISPLAY_NAME = PRODUCT_NAME === APP_NAME_PLACEHOLDER ? "Rezi Visual Benchmark" : PRODUCT_NAME;
+const PRODUCT_DISPLAY_NAME =
+  PRODUCT_NAME === APP_NAME_PLACEHOLDER ? "Rezi Visual Benchmark" : PRODUCT_NAME;
 
 const UI_FPS_CAP = 30;
 const SPARKLINE_HISTORY_SIZE = 24;
@@ -120,7 +115,20 @@ const MEMORY_SAMPLE_INTERVAL = 2;
 const BACKEND_PERF_SAMPLE_INTERVAL_MS = 2_000;
 const PANEL_PX = 1;
 const PANEL_PY = 0;
-const CADENCE_PULSE_FRAMES = Object.freeze(["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█", "▇", "▆", "▅", "▄"]);
+const CADENCE_PULSE_FRAMES = Object.freeze([
+  "▁",
+  "▂",
+  "▃",
+  "▄",
+  "▅",
+  "▆",
+  "▇",
+  "█",
+  "▇",
+  "▆",
+  "▅",
+  "▄",
+]);
 
 const LANE_MIN_WIDTH = 40;
 const LANE_MAX_WIDTH = 92;
@@ -135,11 +143,51 @@ const REAL_IO_BLOCK_BYTES = 64 * 1024;
 const REAL_IO_BUFFER = Buffer.alloc(REAL_IO_BLOCK_BYTES, 0x5a);
 
 const PHASE_SPECS: readonly PhaseSpec[] = Object.freeze([
-  { name: "Boot", hz: 2, durationMs: 10_000, intensity: 0.18, cpuBurnIters: 20_000, ioBlocks: 1, ballastMb: 128 },
-  { name: "Build", hz: 4, durationMs: 12_000, intensity: 0.34, cpuBurnIters: 48_000, ioBlocks: 2, ballastMb: 256 },
-  { name: "Load", hz: 8, durationMs: 16_000, intensity: 0.56, cpuBurnIters: 88_000, ioBlocks: 4, ballastMb: 512 },
-  { name: "Surge", hz: 9, durationMs: 20_000, intensity: 0.78, cpuBurnIters: 108_000, ioBlocks: 5, ballastMb: 896 },
-  { name: "Overdrive", hz: 14, durationMs: 24_000, intensity: 1.0, cpuBurnIters: 170_000, ioBlocks: 6, ballastMb: 1280 },
+  {
+    name: "Boot",
+    hz: 2,
+    durationMs: 10_000,
+    intensity: 0.18,
+    cpuBurnIters: 20_000,
+    ioBlocks: 1,
+    ballastMb: 128,
+  },
+  {
+    name: "Build",
+    hz: 4,
+    durationMs: 12_000,
+    intensity: 0.34,
+    cpuBurnIters: 48_000,
+    ioBlocks: 2,
+    ballastMb: 256,
+  },
+  {
+    name: "Load",
+    hz: 8,
+    durationMs: 16_000,
+    intensity: 0.56,
+    cpuBurnIters: 88_000,
+    ioBlocks: 4,
+    ballastMb: 512,
+  },
+  {
+    name: "Surge",
+    hz: 9,
+    durationMs: 20_000,
+    intensity: 0.78,
+    cpuBurnIters: 108_000,
+    ioBlocks: 5,
+    ballastMb: 896,
+  },
+  {
+    name: "Overdrive",
+    hz: 14,
+    durationMs: 24_000,
+    intensity: 1.0,
+    cpuBurnIters: 170_000,
+    ioBlocks: 6,
+    ballastMb: 1280,
+  },
 ]);
 
 const FILE_ENTRIES = Object.freeze([
@@ -183,7 +231,12 @@ const themeCatalog: Record<ThemeName, ThemeSpec> = {
 };
 
 const themeOrder: readonly ThemeName[] = Object.freeze([
-  "nord", "dracula", "dimmed", "dark", "light", "high-contrast",
+  "nord",
+  "dracula",
+  "dimmed",
+  "dark",
+  "light",
+  "high-contrast",
 ]);
 
 type ShortcutSpec = Readonly<{ keys: string | readonly string[]; description: string }>;
@@ -217,9 +270,12 @@ function smoothFloat(current: number, target: number, gain: number): number {
 }
 
 function fixedLabel(value: string, maxChars: number, width = maxChars): string {
-  const clipped = value.length > maxChars
-    ? (maxChars <= 1 ? value.slice(0, 1) : `${value.slice(0, maxChars - 1)}\u2026`)
-    : value;
+  const clipped =
+    value.length > maxChars
+      ? maxChars <= 1
+        ? value.slice(0, 1)
+        : `${value.slice(0, maxChars - 1)}\u2026`
+      : value;
   return clipped.padEnd(width, " ");
 }
 
@@ -244,7 +300,11 @@ function timeStamp(date = new Date()): string {
   return date.toLocaleTimeString("en-US", { hour12: false });
 }
 
-function pushSeries(history: readonly number[], value: number, maxSize = SPARKLINE_HISTORY_SIZE): readonly number[] {
+function pushSeries(
+  history: readonly number[],
+  value: number,
+  maxSize = SPARKLINE_HISTORY_SIZE,
+): readonly number[] {
   return Object.freeze([...history, value].slice(-maxSize));
 }
 
@@ -253,7 +313,17 @@ function repeatSeries(value: number, size = SPARKLINE_HISTORY_SIZE): readonly nu
 }
 
 function phaseSpec(phase: Phase): PhaseSpec {
-  return PHASE_SPECS[phase - 1] ?? PHASE_SPECS[0]!;
+  const spec = PHASE_SPECS[phase - 1];
+  if (spec) return spec;
+  return {
+    name: "Boot",
+    hz: 2,
+    durationMs: 10_000,
+    intensity: 0.18,
+    cpuBurnIters: 20_000,
+    ioBlocks: 1,
+    ballastMb: 128,
+  };
 }
 
 function nextThemeName(current: ThemeName): ThemeName {
@@ -280,12 +350,12 @@ function hash32(value: number): number {
 }
 
 function noise4(a: number, b: number, c: number, d = 0): number {
-  const seed = (
-    Math.imul(a + 1, 374761393)
-    ^ Math.imul(b + 1, 668265263)
-    ^ Math.imul(c + 1, 362437)
-    ^ Math.imul(d + 1, 1274126177)
-  ) >>> 0;
+  const seed =
+    (Math.imul(a + 1, 374761393) ^
+      Math.imul(b + 1, 668265263) ^
+      Math.imul(c + 1, 362437) ^
+      Math.imul(d + 1, 1274126177)) >>>
+    0;
   return hash32(seed) / 0xffffffff;
 }
 
@@ -366,7 +436,11 @@ function resolveLaneSize(): LaneSize {
   const rows = terminalRows();
 
   const width = clamp(Math.floor((cols - 8) / 3), LANE_MIN_WIDTH, LANE_MAX_WIDTH);
-  const reservedRows = clamp(Math.floor(rows * 0.42), LAYOUT_RESERVED_ROWS - 4, LAYOUT_RESERVED_ROWS + 10);
+  const reservedRows = clamp(
+    Math.floor(rows * 0.42),
+    LAYOUT_RESERVED_ROWS - 4,
+    LAYOUT_RESERVED_ROWS + 10,
+  );
   const availableRows = Math.max(LANE_MIN_HEIGHT, rows - reservedRows);
   const height = clamp(availableRows, LANE_MIN_HEIGHT, LANE_MAX_HEIGHT);
   return { width, height };
@@ -428,22 +502,32 @@ function renderGeometryLane(tick: number, intensity: number, lane: LaneSize): re
       const radius = Math.hypot(nx * 1.08, ny * 1.36);
       const angle = Math.atan2(ny, nx);
       const baseRing = 0.32 + 0.11 * Math.sin(t * 0.7 + angle * 1.6);
-      const ring = Math.exp(-Math.pow((radius - baseRing) * 6.8, 2));
+      const ring = Math.exp(-(((radius - baseRing) * 6.8) ** 2));
       const swirl = 0.5 + 0.5 * Math.sin(radius * 18 - t * 3.2 + Math.cos(angle * 4 + t) * 2.2);
-      const ridge = 0.5 + 0.5 * Math.sin((nx * 10.8 - ny * 7.9) + t * 2.1);
+      const ridge = 0.5 + 0.5 * Math.sin(nx * 10.8 - ny * 7.9 + t * 2.1);
       const spark = noise4(x, y, tick, 13);
-      const checker = (((Math.floor((nx + 1.2) * 6 + t * 0.8) + Math.floor((ny + 1.1) * 4 - t * 0.7)) & 1) === 0)
-        ? 0.16
-        : -0.08;
+      const checker =
+        ((Math.floor((nx + 1.2) * 6 + t * 0.8) + Math.floor((ny + 1.1) * 4 - t * 0.7)) & 1) === 0
+          ? 0.16
+          : -0.08;
 
       let signal = clamp(
-        0.22 + ring * 0.44 + swirl * 0.31 + ridge * 0.24 + checker + spark * 0.16 + intensity * 0.15,
+        0.22 +
+          ring * 0.44 +
+          swirl * 0.31 +
+          ridge * 0.24 +
+          checker +
+          spark * 0.16 +
+          intensity * 0.15,
         0,
         1,
       );
       const gridX = Math.max(4, Math.round(13 - intensity * 6));
       const gridY = Math.max(3, Math.round(9 - intensity * 4));
-      if ((x + Math.floor(tick * 0.7)) % gridX === 0 || (y + Math.floor(tick * 0.5)) % gridY === 0) {
+      if (
+        (x + Math.floor(tick * 0.7)) % gridX === 0 ||
+        (y + Math.floor(tick * 0.5)) % gridY === 0
+      ) {
         signal = Math.max(signal, 0.66 + 0.24 * spark);
       }
 
@@ -481,29 +565,50 @@ function renderTextLabLane(tick: number, intensity: number, lane: LaneSize): rea
   const typed = typePos <= cmd.length ? cmd.slice(0, typePos) : cmd;
   const cursor = tick % 2 === 0 ? "▌" : " ";
 
-  rows.push(ui.richText([
-    { text: "$ ", style: { fg: rgb(120, 210, 255), bold: true } },
-    { text: typed, style: { fg: rgb(195, 225, 255) } },
-    { text: cursor, style: { fg: rgb(255, 216, 98), bold: true } },
-  ]));
+  rows.push(
+    ui.richText([
+      { text: "$ ", style: { fg: rgb(120, 210, 255), bold: true } },
+      { text: typed, style: { fg: rgb(195, 225, 255) } },
+      { text: cursor, style: { fg: rgb(255, 216, 98), bold: true } },
+    ]),
+  );
 
   const readRate = Math.round(44 + intensity * 235 + 18 * Math.sin(tick / 8));
   const writeRate = Math.round(16 + intensity * 176 + 22 * Math.cos(tick / 10));
   const parseRate = Math.round(18 + intensity * 84 + 12 * Math.sin(tick / 11 + 0.6));
-  rows.push(ui.richText([
-    { text: `sim read ${readRate.toString().padStart(4, " ")} MB/s`, style: { fg: rgb(150, 220, 255) } },
-    { text: "  |  " },
-    { text: `sim write ${writeRate.toString().padStart(4, " ")} MB/s`, style: { fg: rgb(255, 188, 110) } },
-    { text: "  |  " },
-    { text: `parse ${parseRate.toString().padStart(3, " ")} op/s`, style: { fg: rgb(165, 206, 255) } },
-  ]));
+  rows.push(
+    ui.richText([
+      {
+        text: `sim read ${readRate.toString().padStart(4, " ")} MB/s`,
+        style: { fg: rgb(150, 220, 255) },
+      },
+      { text: "  |  " },
+      {
+        text: `sim write ${writeRate.toString().padStart(4, " ")} MB/s`,
+        style: { fg: rgb(255, 188, 110) },
+      },
+      { text: "  |  " },
+      {
+        text: `parse ${parseRate.toString().padStart(3, " ")} op/s`,
+        style: { fg: rgb(165, 206, 255) },
+      },
+    ]),
+  );
 
   const queueDepth = clamp(0.22 + intensity * 0.68 + 0.12 * Math.sin(tick / 7), 0, 1);
-  rows.push(ui.richText([
-    { text: "queue ", style: { fg: rgb(148, 178, 212) } },
-    { text: smoothBar(queueDepth, clamp(Math.floor(width * 0.25), 10, 24)), style: { fg: rgb(98, 168, 230) } },
-    { text: ` ${(queueDepth * 100).toFixed(0).padStart(3, " ")}%`, style: { fg: rgb(120, 196, 255) } },
-  ]));
+  rows.push(
+    ui.richText([
+      { text: "queue ", style: { fg: rgb(148, 178, 212) } },
+      {
+        text: smoothBar(queueDepth, clamp(Math.floor(width * 0.25), 10, 24)),
+        style: { fg: rgb(98, 168, 230) },
+      },
+      {
+        text: ` ${(queueDepth * 100).toFixed(0).padStart(3, " ")}%`,
+        style: { fg: rgb(120, 196, 255) },
+      },
+    ]),
+  );
 
   const rowsForFiles = Math.max(3, height - 5);
   for (let i = 0; i < rowsForFiles; i++) {
@@ -513,24 +618,32 @@ function renderTextLabLane(tick: number, intensity: number, lane: LaneSize): rea
     const load = clamp(noise4(i, tick, idx, 71) * 0.62 + pulse * 0.28 + intensity * 0.18, 0, 1);
     const op = load > 0.82 ? "WRITE" : load > 0.62 ? "READ " : load > 0.38 ? "PARSE" : "IDLE ";
     const opStyle: TextStyle =
-      op === "WRITE" ? { fg: rgb(255, 132, 132), bold: true }
-      : op === "READ " ? { fg: rgb(255, 214, 120), bold: true }
-      : op === "PARSE" ? { fg: rgb(130, 215, 255) }
-      : { fg: rgb(134, 152, 174), dim: true };
+      op === "WRITE"
+        ? { fg: rgb(255, 132, 132), bold: true }
+        : op === "READ "
+          ? { fg: rgb(255, 214, 120), bold: true }
+          : op === "PARSE"
+            ? { fg: rgb(130, 215, 255) }
+            : { fg: rgb(134, 152, 174), dim: true };
     const pct = Math.round(load * 100);
     const bar = smoothBar(load, barWidth);
     const heatGlyph = SHAPE_GLYPHS[Math.round(load * (SHAPE_GLYPHS.length - 1))] ?? ".";
-    rows.push(ui.richText([
-      { text: fixedLabel(name, fileNameWidth, fileNameWidth), style: { fg: rgb(192, 204, 224) } },
-      { text: " " },
-      { text: op, style: opStyle },
-      { text: " " },
-      { text: fixedLabel(`${pct.toString().padStart(3, " ")}%`, 4, 4), style: { fg: rgb(110, 196, 255) } },
-      { text: " " },
-      { text: bar, style: { fg: rgb(98, 170, 225) } },
-      { text: " " },
-      { text: `${heatGlyph}${heatGlyph}`, style: { fg: rgb(168, 216, 255), dim: load < 0.42 } },
-    ]));
+    rows.push(
+      ui.richText([
+        { text: fixedLabel(name, fileNameWidth, fileNameWidth), style: { fg: rgb(192, 204, 224) } },
+        { text: " " },
+        { text: op, style: opStyle },
+        { text: " " },
+        {
+          text: fixedLabel(`${pct.toString().padStart(3, " ")}%`, 4, 4),
+          style: { fg: rgb(110, 196, 255) },
+        },
+        { text: " " },
+        { text: bar, style: { fg: rgb(98, 170, 225) } },
+        { text: " " },
+        { text: `${heatGlyph}${heatGlyph}`, style: { fg: rgb(168, 216, 255), dim: load < 0.42 } },
+      ]),
+    );
   }
 
   return rows.slice(0, height);
@@ -554,14 +667,17 @@ function renderMatrixLane(tick: number, intensity: number, lane: LaneSize): read
       let style: TextStyle | undefined;
 
       if (distance >= 0 && distance < tailLen) {
-        const g = MATRIX_GLYPHS[(x * 13 + y * 7 + tick + Math.floor(columnSeed * 23)) % MATRIX_GLYPHS.length] ?? "#";
+        const g =
+          MATRIX_GLYPHS[
+            (x * 13 + y * 7 + tick + Math.floor(columnSeed * 23)) % MATRIX_GLYPHS.length
+          ] ?? "#";
         glyph = g;
         if (distance < 1.1) {
           style = { fg: rgb(232, 255, 236), bold: true };
         } else if (distance < 3.8) {
           style = { fg: rgb(166, 255, 174), bold: intensity > 0.85 };
         } else {
-          const fade = 1 - (distance / tailLen);
+          const fade = 1 - distance / tailLen;
           const green = lerpChannel(74, 210, fade);
           const blue = lerpChannel(20, 110, fade * 0.65 + columnSeed * 0.35);
           style = { fg: rgb(24, green, blue), dim: fade < 0.25 };
@@ -725,7 +841,9 @@ function simulateTick(state: State, nowMs: number): State {
   const tick = state.ticks + 1;
   const tickDeltaMs = Math.max(1, nowMs - state.nowMs);
   const instantHz = 1000 / tickDeltaMs;
-  const liveUpdateHz = round2(smoothFloat(state.liveUpdateHz <= 0 ? instantHz : state.liveUpdateHz, instantHz, 0.35));
+  const liveUpdateHz = round2(
+    smoothFloat(state.liveUpdateHz <= 0 ? instantHz : state.liveUpdateHz, instantHz, 0.35),
+  );
 
   const prevSpec = phaseSpec(state.phase);
   const elapsed = nowMs - state.phaseStartedAt;
@@ -773,7 +891,8 @@ function simulateTick(state: State, nowMs: number): State {
     heapUsedBytes = mem.heapUsed;
 
     const usageNow = process.cpuUsage();
-    const cpuUsageUs = (usageNow.user - _lastCpuUsage.user) + (usageNow.system - _lastCpuUsage.system);
+    const cpuUsageUs =
+      usageNow.user - _lastCpuUsage.user + (usageNow.system - _lastCpuUsage.system);
     const elapsedCpuMs = Math.max(1, nowMs - _lastCpuSampleAtMs);
     processCpuPct = round2(clamp((cpuUsageUs / 1000 / elapsedCpuMs) * 100, 0, 999));
     _lastCpuUsage = usageNow;
@@ -781,9 +900,9 @@ function simulateTick(state: State, nowMs: number): State {
   }
 
   if (
-    !_backendPerfInFlight
-    && nowMs - _lastBackendPerfSampleMs >= BACKEND_PERF_SAMPLE_INTERVAL_MS
-    && _backend !== null
+    !_backendPerfInFlight &&
+    nowMs - _lastBackendPerfSampleMs >= BACKEND_PERF_SAMPLE_INTERVAL_MS &&
+    _backend !== null
   ) {
     _backendPerfInFlight = true;
     _lastBackendPerfSampleMs = nowMs;
@@ -810,7 +929,10 @@ function simulateTick(state: State, nowMs: number): State {
   };
 
   if (phase !== state.phase) {
-    addEvent("info", `Phase ${phase} ${spec.name}: ${spec.hz} Hz, intensity ${(spec.intensity * 100).toFixed(0)}%.`);
+    addEvent(
+      "info",
+      `Phase ${phase} ${spec.name}: ${spec.hz} Hz, intensity ${(spec.intensity * 100).toFixed(0)}%.`,
+    );
   }
 
   if (tick % Math.max(8, Math.round(34 / Math.max(1, spec.hz))) === 0) {
@@ -1074,11 +1196,8 @@ app.view((state) => {
   const ioDelta = metricDelta(state.ioHistory);
 
   const statusVariant = statusBadgeVariant(state.processCpuPct, state.lastEventLoopLagMs);
-  const statusLabel = statusVariant === "error"
-    ? "HOT"
-    : statusVariant === "warning"
-    ? "RISING"
-    : "STABLE";
+  const statusLabel =
+    statusVariant === "error" ? "HOT" : statusVariant === "warning" ? "RISING" : "STABLE";
 
   const intensity = clamp(spec.intensity * (state.turbo ? 1.45 : 1), 0, 1.8);
   const lane = resolveLaneSize();
@@ -1089,10 +1208,14 @@ app.view((state) => {
   const hzLast = state.throughputHistory[state.throughputHistory.length - 1] ?? state.liveUpdateHz;
   const hzPrev = state.throughputHistory[state.throughputHistory.length - 2] ?? hzLast;
   const drawOpsPerSec = round2(drawLastPerTick * hzLast);
-  const drawDeltaPerSec = drawOpsPerSec - (drawPrevPerTick * hzPrev);
+  const drawDeltaPerSec = drawOpsPerSec - drawPrevPerTick * hzPrev;
 
   const realIoAvailable = _realIoFd !== null;
-  const realIoSinkTypeLabel = !realIoAvailable ? "no sink" : _realIoSinkIsNullDevice ? "null sink" : "file sink";
+  const realIoSinkTypeLabel = !realIoAvailable
+    ? "no sink"
+    : _realIoSinkIsNullDevice
+      ? "null sink"
+      : "file sink";
   const realIoSinkLabel = realIoAvailable ? _realIoSinkLabel : "unavailable";
 
   const rssGoalHit = state.rssBytes >= 1024 * 1024 * 1024;
@@ -1116,13 +1239,20 @@ app.view((state) => {
 
   const phaseStrip = ui.row({ gap: 1, items: "center", wrap: true }, [
     ...([1, 2, 3, 4, 5] as const).map((phase) =>
-      ui.badge(`${phase === state.phase ? "LIVE " : ""}${phase} ${fixedLabel(phaseSpec(phase).name, 9, 9)}`, {
-        variant: phaseBadgeVariant(phase, state.phase),
-      }),
+      ui.badge(
+        `${phase === state.phase ? "LIVE " : ""}${phase} ${fixedLabel(phaseSpec(phase).name, 9, 9)}`,
+        {
+          variant: phaseBadgeVariant(phase, state.phase),
+        },
+      ),
     ),
     ui.spacer({ flex: 1 }),
-    ui.text(`turbo ${state.turbo ? "on" : "off"}`, { style: state.turbo ? accentStyle : metaStyle }),
-    ui.text(`write-flood ${state.writeFlood ? "on" : "off"}`, { style: state.writeFlood ? accentStyle : metaStyle }),
+    ui.text(`turbo ${state.turbo ? "on" : "off"}`, {
+      style: state.turbo ? accentStyle : metaStyle,
+    }),
+    ui.text(`write-flood ${state.writeFlood ? "on" : "off"}`, {
+      style: state.writeFlood ? accentStyle : metaStyle,
+    }),
   ]);
 
   const progressStrip = ui.row({ gap: 1, items: "center" }, [
@@ -1133,7 +1263,9 @@ app.view((state) => {
       style: { fg: palette.accent.primary },
     }),
     ui.text(
-      state.phase === 5 ? "final phase" : `${Math.round(phaseProgress * 100)}% -> phase ${state.phase + 1}`,
+      state.phase === 5
+        ? "final phase"
+        : `${Math.round(phaseProgress * 100)}% -> phase ${state.phase + 1}`,
       { style: metaStyle },
     ),
   ]);
@@ -1149,50 +1281,85 @@ app.view((state) => {
     ui.text("keys: p +/- z w t h q", { style: quietStyle }),
   ]);
 
-  const diagnosticsText = ui.box({ border: "rounded", px: PANEL_PX, py: PANEL_PY, style: panelStyle, title: "DIAGNOSTICS / BENCHMARKS" }, [
-    ui.column({ gap: 0 }, [
-      ui.row({ gap: 1, items: "center", wrap: true }, [
-        ui.badge("SIM", { variant: "warning" }),
-        ui.text("deterministic visual model (draw/color/text/motion scorecard)", { style: quietStyle }),
-        ui.badge("REAL", { variant: "success" }),
-        ui.text("process CPU/RSS + update/render timings + sink I/O", { style: quietStyle }),
+  const diagnosticsText = ui.box(
+    {
+      border: "rounded",
+      px: PANEL_PX,
+      py: PANEL_PY,
+      style: panelStyle,
+      title: "DIAGNOSTICS / BENCHMARKS",
+    },
+    [
+      ui.column({ gap: 0 }, [
+        ui.row({ gap: 1, items: "center", wrap: true }, [
+          ui.badge("SIM", { variant: "warning" }),
+          ui.text("deterministic visual model (draw/color/text/motion scorecard)", {
+            style: quietStyle,
+          }),
+          ui.badge("REAL", { variant: "success" }),
+          ui.text("process CPU/RSS + update/render timings + sink I/O", { style: quietStyle }),
+        ]),
+        ui.row({ gap: 1, items: "center", wrap: true }, [
+          ui.text(`tick ${state.liveUpdateHz.toFixed(1)} Hz (${signedDelta(throughputDelta, 1)})`, {
+            style: metaStyle,
+          }),
+          ui.text(
+            `sim-draw ${Math.round(drawOpsPerSec).toLocaleString()}/s (${signedDelta(drawDeltaPerSec, 0)})`,
+            { style: metaStyle },
+          ),
+          ui.text(`cpu(proc) ${state.processCpuPct.toFixed(1)}% (${signedDelta(cpuDelta, 1)})`, {
+            style: metaStyle,
+          }),
+          ui.text(
+            `rss ${(state.rssBytes / (1024 * 1024)).toFixed(0)} MB (${signedDelta(rssDelta, 1)})`,
+            { style: metaStyle },
+          ),
+        ]),
+        ui.row({ gap: 1, items: "center", wrap: true }, [
+          ui.text(
+            `loop-lag ${state.lastEventLoopLagMs.toFixed(2)} ms (${signedDelta(lagDelta, 2)})`,
+            { style: metaStyle },
+          ),
+          ui.text(`io ${state.lastRealIoWriteMBs.toFixed(1)} MB/s (${signedDelta(ioDelta, 1)})`, {
+            style: metaStyle,
+          }),
+          ui.text(`color ${state.simColorChurnPct.toFixed(0)}%`, { style: metaStyle }),
+          ui.text(`text ${state.simTextChurnPct.toFixed(0)}%`, { style: metaStyle }),
+          ui.text(`motion ${state.simMotionPct.toFixed(0)}%`, { style: metaStyle }),
+        ]),
+        ui.row({ gap: 1, items: "center", wrap: true }, [
+          ui.text("cpu(proc)", { style: quietStyle }),
+          ui.sparkline(state.processCpuHistory, { width: 16, min: 0, max: 100 }),
+          ui.text("rss", { style: quietStyle }),
+          ui.sparkline(state.rssHistory, { width: 16, min: 0, max: 1400 }),
+          ui.text("lag", { style: quietStyle }),
+          ui.sparkline(state.lagHistory, { width: 16, min: 0, max: 40 }),
+          ui.text("sim-draw", { style: quietStyle }),
+          ui.sparkline(state.drawHistory, { width: 16, min: 0, max: drawSparkMax }),
+        ]),
+        ui.row({ gap: 1, items: "center", wrap: true }, [
+          ui.text(
+            `model deterministic lane ${lane.width}x${lane.height} (cells ${laneCellCount})`,
+            { style: quietStyle },
+          ),
+          ui.text(`update ${state.lastUpdateMs.toFixed(2)} ms`, { style: quietStyle }),
+          ui.text(`view ${_lastViewMs.toFixed(2)} ms`, { style: quietStyle }),
+          ui.text(`render ${state.lastRenderMs.toFixed(2)} ms`, { style: quietStyle }),
+          ui.text(`event_poll p95 ${state.backendEventPollP95Ms.toFixed(2)} ms`, {
+            style: quietStyle,
+          }),
+          ui.text(`sink ${realIoSinkLabel}`, {
+            style: quietStyle,
+            textOverflow: "ellipsis",
+            maxWidth: 44,
+          }),
+          ui.text(rssGoalHit ? "RSS >= 1GB reached" : "RSS >= 1GB pending", {
+            style: rssGoalHit ? { fg: palette.error, bold: true } : quietStyle,
+          }),
+        ]),
       ]),
-      ui.row({ gap: 1, items: "center", wrap: true }, [
-        ui.text(`tick ${state.liveUpdateHz.toFixed(1)} Hz (${signedDelta(throughputDelta, 1)})`, { style: metaStyle }),
-        ui.text(`sim-draw ${Math.round(drawOpsPerSec).toLocaleString()}/s (${signedDelta(drawDeltaPerSec, 0)})`, { style: metaStyle }),
-        ui.text(`cpu(proc) ${state.processCpuPct.toFixed(1)}% (${signedDelta(cpuDelta, 1)})`, { style: metaStyle }),
-        ui.text(`rss ${(state.rssBytes / (1024 * 1024)).toFixed(0)} MB (${signedDelta(rssDelta, 1)})`, { style: metaStyle }),
-      ]),
-      ui.row({ gap: 1, items: "center", wrap: true }, [
-        ui.text(`loop-lag ${state.lastEventLoopLagMs.toFixed(2)} ms (${signedDelta(lagDelta, 2)})`, { style: metaStyle }),
-        ui.text(`io ${state.lastRealIoWriteMBs.toFixed(1)} MB/s (${signedDelta(ioDelta, 1)})`, { style: metaStyle }),
-        ui.text(`color ${state.simColorChurnPct.toFixed(0)}%`, { style: metaStyle }),
-        ui.text(`text ${state.simTextChurnPct.toFixed(0)}%`, { style: metaStyle }),
-        ui.text(`motion ${state.simMotionPct.toFixed(0)}%`, { style: metaStyle }),
-      ]),
-      ui.row({ gap: 1, items: "center", wrap: true }, [
-        ui.text("cpu(proc)", { style: quietStyle }),
-        ui.sparkline(state.processCpuHistory, { width: 16, min: 0, max: 100 }),
-        ui.text("rss", { style: quietStyle }),
-        ui.sparkline(state.rssHistory, { width: 16, min: 0, max: 1400 }),
-        ui.text("lag", { style: quietStyle }),
-        ui.sparkline(state.lagHistory, { width: 16, min: 0, max: 40 }),
-        ui.text("sim-draw", { style: quietStyle }),
-        ui.sparkline(state.drawHistory, { width: 16, min: 0, max: drawSparkMax }),
-      ]),
-      ui.row({ gap: 1, items: "center", wrap: true }, [
-        ui.text(`model deterministic lane ${lane.width}x${lane.height} (cells ${laneCellCount})`, { style: quietStyle }),
-        ui.text(`update ${state.lastUpdateMs.toFixed(2)} ms`, { style: quietStyle }),
-        ui.text(`view ${_lastViewMs.toFixed(2)} ms`, { style: quietStyle }),
-        ui.text(`render ${state.lastRenderMs.toFixed(2)} ms`, { style: quietStyle }),
-        ui.text(`event_poll p95 ${state.backendEventPollP95Ms.toFixed(2)} ms`, { style: quietStyle }),
-        ui.text(`sink ${realIoSinkLabel}`, { style: quietStyle, textOverflow: "ellipsis", maxWidth: 44 }),
-        ui.text(rssGoalHit ? "RSS >= 1GB reached" : "RSS >= 1GB pending", {
-          style: rssGoalHit ? { fg: palette.error, bold: true } : quietStyle,
-        }),
-      ]),
-    ]),
-  ]);
+    ],
+  );
 
   const demoPanel = ui.box(
     {
@@ -1205,41 +1372,80 @@ app.view((state) => {
     },
     [
       ui.row({ gap: 1, items: "stretch" }, [
-        ui.box({ border: "rounded", px: PANEL_PX, py: PANEL_PY, flex: 1, style: panelStyle, title: "Shapes / Geometry Lane" }, [
-          ui.column({ gap: 0 }, [
-            ui.text("Rectangles, circles, grids, color waves", { style: metaStyle }),
-            ...renderGeometryLane(state.ticks, intensity, lane),
-          ]),
-        ]),
-        ui.box({ border: "rounded", px: PANEL_PX, py: PANEL_PY, flex: 1, style: panelStyle, title: "Text / File Activity Lane" }, [
-          ui.column({ gap: 0 }, [
-            ui.text("Typing, file churn, stream-style updates", { style: metaStyle }),
-            ...renderTextLabLane(state.ticks, intensity, lane),
-          ]),
-        ]),
-        ui.box({ border: "rounded", px: PANEL_PX, py: PANEL_PY, flex: 1, style: panelStyle, title: "Matrix Lane" }, [
-          ui.column({ gap: 0 }, [
-            ui.text("Matrix-style rain with varying tails", { style: metaStyle }),
-            ...renderMatrixLane(state.ticks, intensity, lane),
-          ]),
-        ]),
+        ui.box(
+          {
+            border: "rounded",
+            px: PANEL_PX,
+            py: PANEL_PY,
+            flex: 1,
+            style: panelStyle,
+            title: "Shapes / Geometry Lane",
+          },
+          [
+            ui.column({ gap: 0 }, [
+              ui.text("Rectangles, circles, grids, color waves", { style: metaStyle }),
+              ...renderGeometryLane(state.ticks, intensity, lane),
+            ]),
+          ],
+        ),
+        ui.box(
+          {
+            border: "rounded",
+            px: PANEL_PX,
+            py: PANEL_PY,
+            flex: 1,
+            style: panelStyle,
+            title: "Text / File Activity Lane",
+          },
+          [
+            ui.column({ gap: 0 }, [
+              ui.text("Typing, file churn, stream-style updates", { style: metaStyle }),
+              ...renderTextLabLane(state.ticks, intensity, lane),
+            ]),
+          ],
+        ),
+        ui.box(
+          {
+            border: "rounded",
+            px: PANEL_PX,
+            py: PANEL_PY,
+            flex: 1,
+            style: panelStyle,
+            title: "Matrix Lane",
+          },
+          [
+            ui.column({ gap: 0 }, [
+              ui.text("Matrix-style rain with varying tails", { style: metaStyle }),
+              ...renderMatrixLane(state.ticks, intensity, lane),
+            ]),
+          ],
+        ),
       ]),
     ],
   );
 
-  const eventsStrip = ui.box({ border: "rounded", px: PANEL_PX, py: PANEL_PY, style: panelStyle, title: "EVENTS" }, [
-    ui.column({ gap: 0 }, [
-      ...Array.from({ length: 6 }, (_, i) => {
-        const ev = state.events[i];
-        if (!ev) return ui.text(" ", { key: `ev-empty-${i}`, style: quietStyle });
-        return ui.row({ key: `ev-${ev.id}`, gap: 1, items: "center" }, [
-          ui.icon(eventIcon(ev.severity)),
-          ui.badge(fixedLabel(ev.severity.toUpperCase(), 8, 8), { variant: eventVariant(ev.severity) }),
-          ui.text(`[${ev.at}] ${ev.message}`, { style: metaStyle, textOverflow: "ellipsis", maxWidth: 108 }),
-        ]);
-      }),
-    ]),
-  ]);
+  const eventsStrip = ui.box(
+    { border: "rounded", px: PANEL_PX, py: PANEL_PY, style: panelStyle, title: "EVENTS" },
+    [
+      ui.column({ gap: 0 }, [
+        ...Array.from({ length: 6 }, (_, i) => {
+          const ev = state.events[i];
+          if (!ev) return ui.text(" ", { key: `ev-empty-${i}`, style: quietStyle });
+          return ui.row({ key: `ev-${ev.id}`, gap: 1, items: "center" }, [
+            ui.icon(eventIcon(ev.severity)),
+            ui.badge(fixedLabel(ev.severity.toUpperCase(), 8, 8), {
+              variant: eventVariant(ev.severity),
+            }),
+            ui.text(`[${ev.at}] ${ev.message}`, {
+              style: metaStyle,
+              textOverflow: "ellipsis",
+              maxWidth: 108,
+            }),
+          ]);
+        }),
+      ]),
+    ],
+  );
 
   const footer = ui.row({ gap: 1, items: "center", wrap: true }, [
     ui.text("keys", { style: quietStyle }),
@@ -1388,6 +1594,7 @@ app.keys({
   "-": retreatPhaseAction,
   r: resetAction,
   t: cycleThemeAction,
+  T: cycleThemeAction,
   "shift+t": cycleThemeAction,
   z: toggleTurboAction,
   w: toggleWriteFloodAction,

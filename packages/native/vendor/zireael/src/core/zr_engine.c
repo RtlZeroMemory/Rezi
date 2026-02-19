@@ -558,7 +558,8 @@ static zr_result_t zr_engine_resize_framebuffers(zr_engine_t* e, uint32_t cols, 
     Why: The terminal cursor/style state can drift relative to our internal
     bookkeeping; clearing these bits forces re-establishment only when needed.
   */
-  e->term_state.flags &= (uint8_t) ~(ZR_TERM_STATE_STYLE_VALID | ZR_TERM_STATE_CURSOR_POS_VALID);
+  e->term_state.flags &=
+      (uint8_t) ~(ZR_TERM_STATE_STYLE_VALID | ZR_TERM_STATE_CURSOR_POS_VALID | ZR_TERM_STATE_SCREEN_VALID);
 
   return ZR_OK;
 }
@@ -1106,6 +1107,7 @@ static zr_result_t zr_engine_init_runtime_state(zr_engine_t* e) {
   */
   e->term_state.cursor_visible = 0u;
   e->term_state.flags |= ZR_TERM_STATE_CURSOR_VIS_VALID;
+  e->term_state.flags |= ZR_TERM_STATE_SCREEN_VALID;
 
   e->last_tick_ms = zr_engine_now_ms_u32();
   return ZR_OK;

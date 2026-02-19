@@ -34,4 +34,4 @@ For the most common APIs, see:
 
 - [Widget Catalog](widgets/index.md) - All widget types and props
 - [@rezi-ui/core](packages/core.md) - Core package exports
-- [@rezi-ui/node](packages/node.md) - Node.js backend
+- [@rezi-ui/node](packages/node.md) - Node.js/Bun backend

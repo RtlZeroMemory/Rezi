@@ -305,15 +305,13 @@ export const rerenderScenario: Scenario = {
   description: "State update → new frame (small counter app, isolates per-update cost)",
   defaultConfig: { warmup: 100, iterations: 1000 },
   paramSets: [{}],
-  frameworks: ["rezi-native", "ink-compat", "ink", "terminal-kit", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "terminal-kit", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig) {
     tryGc();
     switch (framework) {
       case "rezi-native":
         return runRezi(config);
-      case "ink-compat":
-        return runInkCompat(config);
       case "ink":
         return runInk(config);
       case "terminal-kit":
@@ -322,6 +320,8 @@ export const rerenderScenario: Scenario = {
         return runBlessed(config);
       case "ratatui":
         return runRatatui(config);
+      default:
+        throw new Error(`rerender: unsupported framework "${framework}"`);
     }
   },
 };

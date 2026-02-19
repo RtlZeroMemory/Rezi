@@ -45,7 +45,7 @@ await app.start();
 Every widget that displays text supports a `style` prop:
 
 ```typescript
-type TextStyle = {
+type TextStyle = Readonly<{
   fg?: Rgb;              // Foreground (text) color
   bg?: Rgb;              // Background color
   bold?: boolean;        // Bold text
@@ -53,7 +53,10 @@ type TextStyle = {
   italic?: boolean;      // Italic text
   underline?: boolean;   // Underlined text
   inverse?: boolean;     // Swap fg/bg colors
-};
+  strikethrough?: boolean; // Strikethrough text
+  overline?: boolean;    // Overline text
+  blink?: boolean;       // Blinking text
+}>;
 ```
 
 ### RGB Colors
@@ -77,6 +80,9 @@ ui.text("Bold text", { style: { bold: true } });
 ui.text("Italic text", { style: { italic: true } });
 ui.text("Underlined", { style: { underline: true } });
 ui.text("Dim text", { style: { dim: true } });
+ui.text("Struck through", { style: { strikethrough: true } });
+ui.text("Overlined", { style: { overline: true } });
+ui.text("Blinking", { style: { blink: true } });
 ui.text("Inverted", { style: { inverse: true } });
 ```
 
@@ -158,6 +164,7 @@ ui.box({ border: "double" }, [...])   // Double line
 ui.box({ border: "rounded" }, [...])  // Rounded corners
 ui.box({ border: "heavy" }, [...])    // Heavy/thick line
 ui.box({ border: "dashed" }, [...])   // Dashed line
+ui.box({ border: "heavy-dashed" }, [...]) // Heavy dashed line
 ui.box({ border: "none" }, [...])     // No border
 ```
 
@@ -194,7 +201,9 @@ Use the spacing scale for consistent layouts:
 | `"2xl"` | 6 | Page margins |
 
 ```typescript
-ui.box({ p: "md", gap: "sm" }, [...])
+ui.box({ p: "md", border: "rounded" }, [
+  ui.column({ gap: "sm" }, [...]),
+])
 ui.column({ py: "lg", px: "xl" }, [...])
 ```
 

@@ -31,6 +31,31 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 - Internal prototyping artifacts and debug traces from repository
 
+## [0.1.0-alpha.16] - 2026-02-19
+
+### Added
+
+- `create-rezi` now ships a flagship dashboard template as the canonical starter, with updated scaffolding/docs and retired legacy starter templates (`#95`).
+- Core regression coverage for spinner tick throttling and single-selection table focus rendering (`#94`).
+
+### Changed
+
+- Native engine vendor updated to Zireael `v1.3.8-alpha.4` (`#93`).
+- Dashboard template polish and stability pass (layout hierarchy, stable animation cadence, help modal behavior, keyboard/mouse flow) (`#95`).
+
+### Fixed
+
+- Unicode/emoji width handling hardened with presentation-aware grapheme width rules (`#92`).
+- Widget-mode animation repaints are throttled to prevent tick-driven render storms and input lag (`#94`).
+- Table single-selection focus styling now keeps only the selected row visually active (`#94`).
+
+### Merged Pull Requests
+
+- [#92](https://github.com/RtlZeroMemory/Rezi/pull/92) fix(unicode): use presentation-aware grapheme width rules
+- [#93](https://github.com/RtlZeroMemory/Rezi/pull/93) native: bump vendored zireael to v1.3.8-alpha.4
+- [#94](https://github.com/RtlZeroMemory/Rezi/pull/94) core: stabilize animation tick cadence and single-select table focus
+- [#95](https://github.com/RtlZeroMemory/Rezi/pull/95) create-rezi: flagship polished dashboard template + dashboard-only scaffolding
+
 ## [0.1.0-alpha.13] - 2026-02-18
 
 ### Added

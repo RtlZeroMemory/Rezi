@@ -38,6 +38,11 @@ describe("jsx runtime", () => {
     assert.deepEqual(keyedFn, ui.text("fn-key"));
   });
 
+  test("key argument is preserved when intrinsic props are null", () => {
+    const vnode = jsx("box", null, "box-key");
+    assert.deepEqual(vnode, ui.box({ key: "box-key" }, []));
+  });
+
   test("key argument takes precedence over props.key", () => {
     const intrinsicFromProps = jsx("button", { id: "ok", label: "OK", key: "props-key" });
     assert.deepEqual(intrinsicFromProps, ui.button("ok", "OK", { key: "props-key" }));
@@ -55,6 +60,12 @@ describe("jsx runtime", () => {
 
   test("unknown intrinsic element type throws", () => {
     assert.throws(() => jsx("does-not-exist", {}));
+  });
+
+  test("new intrinsic names route through the JSX runtime", () => {
+    const onChange = () => {};
+    const vnode = jsx("slider", { id: "volume", value: 15, onChange });
+    assert.deepEqual(vnode, ui.slider({ id: "volume", value: 15, onChange }));
   });
 
   test("jsxDEV() matches jsx() behavior", () => {

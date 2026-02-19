@@ -13,7 +13,13 @@ import type { VNode } from "../../index.js";
 import { hitTestFocusable } from "../hitTest.js";
 import type { LayoutTree } from "../layout.js";
 import { layout, measure } from "../layout.js";
-import { measureTextCells, truncateMiddle, truncateWithEllipsis } from "../textMeasure.js";
+import {
+  getTextMeasureEmojiPolicy,
+  measureTextCells,
+  setTextMeasureEmojiPolicy,
+  truncateMiddle,
+  truncateWithEllipsis,
+} from "../textMeasure.js";
 
 function mustMeasure(vnode: VNode, maxW: number, maxH: number, axis: "row" | "column" = "column") {
   const res = measure(vnode, maxW, maxH, axis);
@@ -332,6 +338,28 @@ describe("text measurement edge cases", () => {
 
   test("emoji measures 2 cells", () => {
     assert.equal(measureTextCells("😀"), 2);
+  });
+
+  test("text-default pictograph stays narrow unless emoji-presented", () => {
+    assert.equal(measureTextCells("👁"), 1);
+    assert.equal(measureTextCells("👁️"), 2);
+  });
+
+  test("keycap sequence measures as emoji width", () => {
+    assert.equal(measureTextCells("1️⃣"), 2);
+  });
+
+  test("emoji width policy can be set to narrow", () => {
+    const prev = getTextMeasureEmojiPolicy();
+    try {
+      setTextMeasureEmojiPolicy("narrow");
+      assert.equal(measureTextCells("😀"), 1);
+      assert.equal(measureTextCells("👁"), 1);
+      assert.equal(measureTextCells("👁️"), 1);
+      assert.equal(measureTextCells("1️⃣"), 1);
+    } finally {
+      setTextMeasureEmojiPolicy(prev);
+    }
   });
 
   test("surrogate pair at string boundary", () => {

@@ -55,7 +55,7 @@ await app.start();
 
 ## Available JSX elements
 
-`@rezi-ui/jsx` exports one component per widget (`Text`, `Box`, `Column`, etc). Props match the corresponding `ui.*` function.
+`@rezi-ui/jsx` exports components for all core widgets. Props match the corresponding `ui.*` function.
 
 | `ui.*` API | JSX component |
 |---|---|
@@ -63,13 +63,23 @@ await app.start();
 | `ui.box(...)` | `<Box>` |
 | `ui.row(...)` | `<Row>` |
 | `ui.column(...)` | `<Column>` |
+| `ui.grid(...)` | `<Grid>` |
+| `ui.hstack(...)` | `<HStack>` |
+| `ui.vstack(...)` | `<VStack>` |
 | `ui.button(...)` | `<Button>` |
 | `ui.input(...)` | `<Input>` |
+| `ui.slider(...)` | `<Slider>` |
+| `ui.tabs(...)` | `<Tabs>` |
+| `ui.accordion(...)` | `<Accordion>` |
+| `ui.breadcrumb(...)` | `<Breadcrumb>` |
+| `ui.pagination(...)` | `<Pagination>` |
 | `ui.table(...)` | `<Table>` |
 | `ui.modal(...)` | `<Modal>` |
-| ... | (all 49 widgets) |
+| ... | (all core widgets through `<ToastContainer>`) |
 
-Lowercase intrinsic elements are also supported (for example `<column>` and `<text>`). These map directly to the `ui.*` names and do not require importing components.
+Lowercase intrinsic elements are also supported (for example `<column>`, `<grid>`, `<hstack>`, and `<tabs>`). These map directly to the JSX runtime factories and do not require importing components.
+
+`<HStack>`/`<VStack>` (and `<hstack>`/`<vstack>`) follow `ui.hstack`/`ui.vstack` behavior: they emit row/column VNodes with a default `gap` of `1` when no `gap` is provided.
 
 ## JSX vs `ui.*` API
 

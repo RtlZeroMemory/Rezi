@@ -146,6 +146,7 @@ function renderBytes(
     virtualListStore?: VirtualListStateStore;
     tableStore?: TableStateStore;
     treeStore?: TreeStateStore;
+    focusedId?: string | null;
   }>,
 ): Uint8Array {
   const allocator = createInstanceIdAllocator(1);
@@ -169,7 +170,7 @@ function renderBytes(
     tree: committed.value.root,
     layout: layoutRes.value,
     viewport,
-    focusState: Object.freeze({ focusedId: null }),
+    focusState: Object.freeze({ focusedId: stores?.focusedId ?? null }),
     builder,
     virtualListStore: stores?.virtualListStore,
     tableStore: stores?.tableStore,
@@ -183,6 +184,7 @@ function renderBytes(
 
 describe("renderer regressions", () => {
   const noop = (..._args: readonly unknown[]) => undefined;
+  const ATTR_INVERSE = 1 << 3;
 
   test("box shadow renders shade glyphs when enabled", () => {
     const withShadow = parseInternedStrings(
@@ -250,6 +252,58 @@ describe("renderer regressions", () => {
     const withFillCount = withStripedOpcodes.filter((op) => op === 2).length;
     const withoutFillCount = withoutStripedOpcodes.filter((op) => op === 2).length;
     assert.equal(withFillCount > withoutFillCount, true);
+  });
+
+  test("table single-selection suppresses focused inverse style when focused row is not selected", () => {
+    const tableStore = createTableStateStore();
+    tableStore.set("tbl-single-active", { focusedRowIndex: 1 });
+
+    const bytes = renderBytes(
+      ui.table({
+        id: "tbl-single-active",
+        columns: [{ key: "name", header: "Name", width: 10 }],
+        data: [
+          { id: "r0", name: "A" },
+          { id: "r1", name: "B" },
+        ],
+        getRowKey: (row) => row.id,
+        selectionMode: "single",
+        selection: ["r0"],
+        border: "none",
+      }),
+      { cols: 40, rows: 8 },
+      { tableStore, focusedId: "tbl-single-active" },
+    );
+
+    const styles = parseCommandStyles(bytes);
+    const hasInverse = styles.some((s) => (s.attrs & ATTR_INVERSE) !== 0);
+    assert.equal(hasInverse, false);
+  });
+
+  test("table keeps focused inverse style when focused row is selected", () => {
+    const tableStore = createTableStateStore();
+    tableStore.set("tbl-single-active-selected", { focusedRowIndex: 1 });
+
+    const bytes = renderBytes(
+      ui.table({
+        id: "tbl-single-active-selected",
+        columns: [{ key: "name", header: "Name", width: 10 }],
+        data: [
+          { id: "r0", name: "A" },
+          { id: "r1", name: "B" },
+        ],
+        getRowKey: (row) => row.id,
+        selectionMode: "single",
+        selection: ["r1"],
+        border: "none",
+      }),
+      { cols: 40, rows: 8 },
+      { tableStore, focusedId: "tbl-single-active-selected" },
+    );
+
+    const styles = parseCommandStyles(bytes);
+    const hasInverse = styles.some((s) => (s.attrs & ATTR_INVERSE) !== 0);
+    assert.equal(hasInverse, true);
   });
 
   test("table column overflow policies render ellipsis, middle, and clip deterministically", () => {

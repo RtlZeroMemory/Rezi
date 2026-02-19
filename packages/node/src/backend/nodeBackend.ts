@@ -33,6 +33,7 @@ import {
   ZR_ENGINE_ABI_PATCH,
   ZR_EVENT_BATCH_VERSION_V1,
   ZrUiError,
+  setTextMeasureEmojiPolicy,
   severityToNum,
 } from "@rezi-ui/core";
 import {
@@ -55,6 +56,7 @@ import {
   type PerfSnapshotWire,
   type WorkerToMainMessage,
 } from "../worker/protocol.js";
+import { applyEmojiWidthPolicy, resolveBackendEmojiWidthPolicy } from "./emojiWidthPolicy.js";
 import { createNodeBackendInlineInternal } from "./nodeBackendInline.js";
 
 export type NodeBackendConfig = Readonly<{
@@ -96,6 +98,16 @@ export type NodeBackendConfig = Readonly<{
    * Keys are forwarded as-is (camelCase or snake_case accepted by the native parser).
    */
   nativeConfig?: Readonly<Record<string, unknown>>;
+  /**
+   * Emoji width policy used to keep core layout measurement and native rendering aligned.
+   * - "auto": use native/env overrides; optional probe when `ZRUI_EMOJI_WIDTH_PROBE=1`
+   *   then fallback to deterministic "wide"
+   * - "wide": emoji clusters consume 2 cells
+   * - "narrow": emoji clusters consume 1 cell
+   *
+   * This sets core text measurement policy and native `widthPolicy` together.
+   */
+  emojiWidthPolicy?: "auto" | "wide" | "narrow";
 }>;
 
 export type NodeBackendInternalOpts = Readonly<{
@@ -143,6 +155,8 @@ type SabFrameTransport = Readonly<{
   dataBytes: Uint8Array;
   nextSlot: { value: number };
 }>;
+
+const WIDTH_POLICY_KEY = "widthPolicy" as const;
 
 function deferred<T>(): Deferred<T> {
   let resolve!: (v: T) => void;
@@ -362,7 +376,7 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       : Object.freeze({});
   const nativeTargetFps = resolveTargetFps(fpsCap, nativeConfig);
 
-  const initConfig: EngineCreateConfig = {
+  const initConfigBase: EngineCreateConfig = {
     ...nativeConfig,
     // fpsCap is the single frame-scheduling knob; native target fps must align.
     targetFps: nativeTargetFps,
@@ -378,6 +392,7 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
     maxEventBytes,
     frameTransport: frameTransportWire,
   };
+  let initConfigResolved: EngineCreateConfig | null = null;
 
   let worker: Worker | null = null;
   let disposed = false;
@@ -847,6 +862,24 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       if (started) return;
 
       if (worker === null) {
+        if (initConfigResolved === null) {
+          const resolvedEmojiWidthPolicy = await resolveBackendEmojiWidthPolicy(
+            cfg.emojiWidthPolicy,
+            nativeConfig,
+          );
+          const nativeWidthPolicy = applyEmojiWidthPolicy(resolvedEmojiWidthPolicy);
+          initConfigResolved = {
+            ...initConfigBase,
+            widthPolicy: nativeWidthPolicy,
+          };
+        } else {
+          // Keep core measurement policy deterministic across stop/start cycles.
+          const widthPolicy = initConfigResolved[WIDTH_POLICY_KEY];
+          if (typeof widthPolicy === "number") {
+            setTextMeasureEmojiPolicy(widthPolicy === 0 ? "narrow" : "wide");
+          }
+        }
+
         startDef = deferred<void>();
         startSettled = false;
         stopDef = null;
@@ -871,7 +904,7 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
           handleWorkerExit(code);
         });
 
-        send({ type: "init", config: initConfig });
+        send({ type: "init", config: initConfigResolved });
       }
 
       if (startDef === null) throw new Error("NodeBackend: invariant violated (startDef is null)");

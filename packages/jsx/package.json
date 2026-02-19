@@ -1,6 +1,6 @@
 {
   "name": "@rezi-ui/jsx",
-  "version": "0.1.0-alpha.11",
+  "version": "0.1.0-alpha.16",
   "description": "JSX runtime for Rezi TUI framework.",
   "license": "Apache-2.0",
   "homepage": "https://rtlzeromemory.github.io/Rezi/",
@@ -30,12 +30,13 @@
   },
   "files": ["dist/", "README.md"],
   "engines": {
-    "node": ">=18"
+    "node": ">=18",
+    "bun": ">=1.3.0"
   },
   "dependencies": {
-    "@rezi-ui/core": "0.1.0-alpha.11"
+    "@rezi-ui/core": "0.1.0-alpha.16"
   },
   "devDependencies": {
-    "@rezi-ui/testkit": "0.1.0-alpha.11"
+    "@rezi-ui/testkit": "0.1.0-alpha.16"
   }
 }

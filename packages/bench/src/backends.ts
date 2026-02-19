@@ -1,7 +1,7 @@
 /**
  * Benchmark backends.
  *
- * - BenchBackend: RuntimeBackend stub for Rezi/ink-compat benchmarks (no terminal I/O).
+ * - BenchBackend: RuntimeBackend stub for Rezi benchmark paths (no terminal I/O).
  * - MeasuringStream: Writable that captures write timing for Ink benchmarks.
  */
 
@@ -63,7 +63,7 @@ function resizeZrevBatch(cols: number, rows: number): BackendEventBatch {
 // ── BenchBackend ────────────────────────────────────────────────────
 
 /**
- * In-memory RuntimeBackend for benchmarking Rezi and ink-compat.
+ * In-memory RuntimeBackend for benchmarking Rezi paths.
  *
  * - Captures submitted drawlists (frame count + byte count).
  * - pollEvents yields empty batches on a short timer so the frame loop

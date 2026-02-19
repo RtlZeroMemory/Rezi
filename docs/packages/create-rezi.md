@@ -6,12 +6,16 @@
 
 ```bash
 npm create rezi my-app
+# or
+bun create rezi my-app
 ```
 
 Equivalent direct invocation:
 
 ```bash
 npx create-rezi my-app
+# or
+bunx create-rezi my-app
 ```
 
 The CLI prompts for any missing values (project name/template) when run interactively.
@@ -22,27 +26,34 @@ Canonical template names:
 
 - `dashboard`
 - `stress-test`
-- `form-app`
-- `file-browser`
-- `streaming-viewer`
+  - Alias: `dash`
+- `stress-test`
+  - Aliases: `stress`, `chaos`, `bench`
 
 Use a specific template:
 
 ```bash
 npm create rezi my-app -- --template dashboard
+npm create rezi my-app -- --template dash
+
+# Bun
+bun create rezi my-app -- --template dashboard
+bun create rezi my-app -- --template dash
 ```
 
 List templates and highlights:
 
 ```bash
 npm create rezi -- --list-templates
+# or
+bun create rezi -- --list-templates
 ```
 
 For template descriptions and highlights, use the canonical guide: [Getting Started → Create Rezi](../getting-started/create-rezi.md).
 
 ## Options
 
-- `--template, -t <dashboard|stress-test|form-app|file-browser|streaming-viewer>`: Select a template.
+- `--template, -t <name>`: Select a template (`dashboard` or `stress-test`, plus aliases).
 - `--no-install, --skip-install`: Skip dependency installation.
 - `--pm, --package-manager <npm|pnpm|yarn|bun>`: Choose a package manager.
 - `--list-templates, --templates`: Print available templates and highlights.

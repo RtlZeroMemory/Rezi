@@ -1,16 +1,123 @@
 # Testing
 
-Run the full test suite:
+Rezi uses the built-in `node:test` runner via a deterministic test discovery
+script. The test suite currently contains **873+ tests** across multiple
+categories.
+
+## Running Tests
+
+### Full Suite
 
 ```bash
 npm test
 ```
 
-The repo uses:
+This executes `node scripts/run-tests.mjs`, which deterministically discovers
+and runs all test files. Discovery is based on sorted directory walks -- no shell
+globs or non-deterministic ordering.
 
-- unit tests for pure modules
-- golden tests for drawlists/layout/routing where byte-level stability matters
-- fuzz-lite tests for binary parsers (bounded, never-throw)
+### Scoped Runs
+
+Run only package tests (compiled `.test.js` files under `packages/*/dist/`):
+
+```bash
+npm run test:packages
+```
+
+Run only script tests (`.test.mjs` files under `scripts/__tests__/`):
+
+```bash
+npm run test:scripts
+```
+
+### Individual Test Files
+
+Run a single test file directly with Node's test runner:
+
+```bash
+node --test packages/core/dist/runtime/__tests__/reconcile.keyed.test.js
+```
+
+Note that tests run against compiled output in `dist/`, so you must build first:
+
+```bash
+npm run build && node --test packages/core/dist/path/to/test.js
+```
+
+### End-to-End Tests
+
+```bash
+npm run test:e2e
+
+# Reduced profile (fewer scenarios, faster)
+npm run test:e2e:reduced
+```
+
+## Test Categories
+
+### Unit Tests
+
+Standard unit tests for pure functions and isolated modules. These make up the
+majority of the test suite and cover:
+
+- Layout calculations
+- Text measurement
+- Theme resolution
+- Keybinding matching
+- State machine transitions
+- Update queue ordering
+
+### Golden Tests (ZRDL/ZREV Fixtures)
+
+Golden tests compare binary output byte-for-byte against committed fixture
+files. They are used where **byte-level stability** matters:
+
+- **ZRDL fixtures** -- Drawlist output. The renderer produces a ZRDL binary
+  drawlist for a given widget tree, and the test asserts it matches a committed
+  `.zrdl` fixture file exactly.
+- **ZREV fixtures** -- Event batch parsing. A committed `.zrev` binary is
+  parsed, and the result is compared against expected structured output.
+
+Golden tests catch unintentional changes to the binary protocol. When a
+legitimate protocol change is made, the fixtures must be regenerated and
+committed alongside the code change.
+
+### Fuzz-Lite Tests (Property-Based)
+
+Bounded property-based tests for binary parsers and encoders. These tests
+generate random inputs within defined bounds and verify invariants:
+
+- Parsers never throw (they return `ParseResult`).
+- Round-trip encoding/decoding produces the original value.
+- Out-of-bounds inputs produce structured error results, not crashes.
+
+Fuzz-lite tests are fast (bounded iteration count) and run as part of the
+normal test suite -- they do not require external fuzzing infrastructure.
+
+### Integration Tests
+
+End-to-end tests that exercise the full rendering pipeline from state through
+view function to drawlist output. These tests use the `@rezi-ui/testkit`
+headless backend to run without a real terminal.
+
+Integration tests cover:
+
+- Full app lifecycle (create, render, update, destroy)
+- Widget interaction sequences (focus, input, navigation)
+- Routing and navigation
+- Resize and reflow behavior
+
+### Stress Tests
+
+Tests designed to exercise the system under extreme conditions:
+
+- Deep widget trees (hundreds of nesting levels)
+- Wide widget trees (thousands of siblings)
+- Rapid state update sequences
+- Large text content
+
+Stress tests verify that the runtime does not crash, exceed memory bounds, or
+exhibit non-linear performance degradation.
 
 ## Reconciliation Hardening Matrix
 
@@ -22,28 +129,14 @@ Reconciliation edge-cases are covered by dedicated runtime suites:
 - `packages/core/src/runtime/__tests__/reconcile.composite.test.ts`
 - `packages/core/src/runtime/__tests__/reconcile.deep.test.ts`
 
-These suites lock deterministic behavior for keyed reorder/insert/remove, unkeyed grow/shrink,
-mixed keyed+unkeyed slots, `defineWidget` hook/state persistence, and deep-tree reconciliation.
+These suites lock deterministic behavior for keyed reorder/insert/remove,
+unkeyed grow/shrink, mixed keyed+unkeyed slots, `defineWidget` hook/state
+persistence, and deep-tree reconciliation.
 
-Related CI gates:
+## Renderer Correctness Audit (Baseline Lock)
 
-- [Perf Regressions](./perf-regressions.md)
-- [Repro Replay](./repro-replay.md)
-
-## Renderer correctness audit (baseline lock)
-
-Baseline lock fields template:
-
-```yaml
-timestamp_utc: <YYYY-MM-DDTHH:MM:SSZ>
-head: <git-commit-sha>
-branch: <git-branch>
-node: <node -v>
-npm: <npm -v>
-baseline_test_count: <integer>
-```
-
-Current lock:
+The renderer correctness audit maintains a baseline lock to track the known-good
+state of renderer tests:
 
 ```yaml
 timestamp_utc: 2026-02-18T11:07:15Z
@@ -54,24 +147,88 @@ npm: 10.8.2
 baseline_test_count: 2488
 ```
 
-Audited areas:
+Audited areas and their dedicated test suites:
 
-- clip
-- border
-- text
-- damage
-- scrollbar
+| Area       | Test file                                    | Tests |
+|------------|----------------------------------------------|-------|
+| Clip       | `renderer/__tests__/renderer.clip.test.ts`   | 18    |
+| Border     | `renderer/__tests__/renderer.border.test.ts` | 45    |
+| Text       | `renderer/__tests__/renderer.text.test.ts`   | 28    |
+| Damage     | `renderer/__tests__/renderer.damage.test.ts` | 17    |
+| Scrollbar  | `renderer/__tests__/renderer.scrollbar.test.ts` | 24 |
+| **Total**  |                                              | **132** |
 
-Bug-fix summary and rationale:
+Notable bug fix captured by the audit: `overflow: "visible"` behavior for
+`row`/`column`/`grid`/`box` containers was fixed to inherit the parent clip
+instead of always creating a local content clip.
 
-- `packages/core/src/renderer/renderToDrawlist/widgets/containers.ts`: fixed `overflow: "visible"` behavior for `row`/`column`/`grid`/`box` containers so they inherit the parent clip instead of always creating a local content clip. This prevents visible overflow from being incorrectly treated as hidden overflow.
+## Test Discovery
 
-New deterministic test suites inventory:
+The `scripts/run-tests.mjs` script discovers test files deterministically:
 
-- `packages/core/src/renderer/__tests__/renderer.clip.test.ts` (18 tests)
-- `packages/core/src/renderer/__tests__/renderer.border.test.ts` (45 tests)
-- `packages/core/src/renderer/__tests__/renderer.text.test.ts` (28 tests)
-- `packages/core/src/renderer/__tests__/renderer.damage.test.ts` (17 tests)
-- `packages/core/src/renderer/__tests__/renderer.scrollbar.test.ts` (24 tests)
+1. **Script tests:** Recursively walks `scripts/__tests__/` for `.test.mjs`
+   files.
+2. **Package tests:** For each package in `packages/*/`, recursively walks
+   `dist/` for files matching `**/__tests__/**/*.test.js`.
+3. All discovered paths are sorted lexicographically.
+4. The combined list is passed to `node --test` as explicit file arguments.
 
-Total new deterministic tests in these suites: 132.
+This avoids shell glob non-determinism and ensures consistent test ordering
+across platforms.
+
+## Adding New Tests
+
+1. **Create the test file.** Place it in a `__tests__/` directory adjacent to
+   the module being tested:
+
+    ```
+    packages/core/src/layout/__tests__/myModule.test.ts
+    ```
+
+2. **Use `node:test` APIs.** Import `describe`, `it`, and `assert` from
+   `node:test` and `node:assert`:
+
+    ```typescript
+    import { describe, it } from "node:test";
+    import assert from "node:assert/strict";
+
+    describe("myModule", () => {
+      it("should compute the correct value", () => {
+        assert.strictEqual(myFunction(1, 2), 3);
+      });
+    });
+    ```
+
+3. **Build.** Run `npm run build` so the TypeScript test file is compiled to
+   `dist/`.
+
+4. **Run.** Execute the full suite or just your new file:
+
+    ```bash
+    npm test
+    # or
+    node --test packages/core/dist/layout/__tests__/myModule.test.js
+    ```
+
+## CI Integration
+
+Tests run automatically on every push and pull request via the `ci.yml` GitHub
+Actions workflow. The CI pipeline executes:
+
+1. `guardrails` job: `bash scripts/guardrails.sh`.
+2. Install dependencies (`npm ci` on Linux, `npm install` on non-Linux matrix jobs).
+3. `npm run lint`.
+4. `npm run typecheck`.
+5. `npm run build`.
+6. `npm run check:core-portability`.
+7. `npm run check:unicode` (Linux only).
+8. `npm run test`.
+9. Native/e2e stages (`npm run build:native`, `npm run test:e2e*`, `npm run test:native:smoke`).
+
+Test failures block pull request merges.
+
+## Related
+
+- [Perf Regressions](./perf-regressions.md)
+- [Repro Replay](./repro-replay.md)
+- [Build](build.md)

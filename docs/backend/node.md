@@ -1,6 +1,6 @@
-# Node backend
+# Node/Bun backend
 
-The Node backend owns:
+The Node/Bun backend owns:
 
 - native engine execution mode (`auto` | `worker` | `inline`)
 - frame scheduling and buffer pooling
@@ -34,13 +34,24 @@ Execution mode details:
 
 - `auto` (default): select inline for low-fps workloads (`fpsCap <= 30`), worker otherwise.
 - `worker`: force worker-thread engine execution.
-- `inline`: run the engine inline on the Node main thread.
+- `inline`: run the engine inline on the main JS thread.
+
+Emoji width policy:
+
+- `emojiWidthPolicy` keeps core text measurement and native rendering aligned.
+- Allowed values:
+  - `"auto"` (default): resolve from native overrides/env, optional probe, then fallback to `"wide"`.
+  - `"wide"`: emoji clusters occupy at least 2 cells.
+  - `"narrow"`: emoji clusters occupy at least 1 cell.
+- Native overrides (`nativeConfig.widthPolicy` / `width_policy`) must match explicit policy values.
+- Optional terminal probe is disabled by default and only runs when
+  `ZRUI_EMOJI_WIDTH_PROBE=1` (opt-in to avoid startup input races).
 
 Legacy path deprecation:
 
-- `createNodeBackend()` + `createApp()` manual pairing is deprecated for normal
-  app setup.
-- Use `createNodeApp()` so related runtime knobs cannot drift.
+- `createNodeBackend()` + `createApp()` (`@rezi-ui/core`) manual pairing is
+  deprecated for normal app setup.
+- Use `createNodeApp()` from `@rezi-ui/node` so related runtime knobs cannot drift.
 - If you still compose manually, Rezi throws deterministic `ZRUI_INVALID_PROPS`
   errors when cursor/event/fps settings conflict.
 

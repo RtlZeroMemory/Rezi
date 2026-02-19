@@ -98,6 +98,7 @@ async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
     opsPerSec: config.iterations / (totalWallMs / 1000),
     framesProduced: config.iterations,
     bytesProduced: totalBytes,
+    ptyBytesObserved: null,
   };
 }
 
@@ -165,6 +166,7 @@ async function runInkCompat(config: ScenarioConfig): Promise<BenchMetrics> {
     opsPerSec: config.iterations / (totalWallMs / 1000),
     framesProduced: config.iterations,
     bytesProduced: totalBytes,
+    ptyBytesObserved: null,
   };
 }
 
@@ -239,6 +241,7 @@ async function runInk(config: ScenarioConfig): Promise<BenchMetrics> {
     opsPerSec: config.iterations / (totalWallMs / 1000),
     framesProduced: config.iterations,
     bytesProduced: totalBytes,
+    ptyBytesObserved: null,
   };
 }
 
@@ -299,6 +302,7 @@ async function runTermkit(config: ScenarioConfig): Promise<BenchMetrics> {
     opsPerSec: config.iterations / (totalWallMs / 1000),
     framesProduced: config.iterations,
     bytesProduced: totalBytes,
+    ptyBytesObserved: null,
   };
 }
 
@@ -360,6 +364,7 @@ async function runBlessed(config: ScenarioConfig): Promise<BenchMetrics> {
     opsPerSec: config.iterations / (totalWallMs / 1000),
     framesProduced: config.iterations,
     bytesProduced: totalBytes,
+    ptyBytesObserved: null,
   };
 }
 
@@ -373,15 +378,13 @@ export const startupScenario: Scenario = {
   description: "Time to first frame: full lifecycle from create → first visible output",
   defaultConfig: { warmup: 10, iterations: 100 },
   paramSets: [{}],
-  frameworks: ["rezi-native", "ink-compat", "ink", "terminal-kit", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "terminal-kit", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig) {
     tryGc();
     switch (framework) {
       case "rezi-native":
         return runRezi(config);
-      case "ink-compat":
-        return runInkCompat(config);
       case "ink":
         return runInk(config);
       case "terminal-kit":
@@ -390,6 +393,8 @@ export const startupScenario: Scenario = {
         return runBlessed(config);
       case "ratatui":
         return runRatatui(config);
+      default:
+        throw new Error(`startup: unsupported framework "${framework}"`);
     }
   },
 };

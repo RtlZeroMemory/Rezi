@@ -1,6 +1,6 @@
 # Widget Catalog
 
-Rezi provides a comprehensive set of widgets for building terminal UIs. Widgets are plain TypeScript functions that return VNode objects.
+Rezi provides 54 built-in widgets for building terminal UIs. Widgets are plain TypeScript functions that return VNode objects.
 
 ```typescript
 app.view((state) =>
@@ -73,7 +73,7 @@ Navigation and wayfinding widgets:
 |--------|-------------|-----------|-----------|
 | [Tabs](tabs.md) | Switch between related content panels | Yes | `beta` |
 | [Accordion](accordion.md) | Expand/collapse stacked sections | Yes | `beta` |
-| [Breadcrumb](breadcrumb.md) | Hierarchical location path with jumps | Yes | `beta` |
+| [Breadcrumb](breadcrumb.md) | Hierarchical location path with jumps | Optional (`id`) | `beta` |
 | [Pagination](pagination.md) | Navigate paged datasets | Yes | `beta` |
 
 ### Data Display
@@ -95,10 +95,10 @@ Modal and popup interfaces:
 | [Layers](layers.md) | Layer stack container | No | `beta` |
 | [Modal](modal.md) | Centered modal dialog | Yes | `beta` |
 | [Dropdown](dropdown.md) | Positioned dropdown menu | Yes | `beta` |
-| [Layer](layer.md) | Generic overlay layer | Varies | `beta` |
-| [Toast](toast.md) | Non-blocking notifications | No | `beta` |
-| [Focus Zone](focus-zone.md) | Focus group for Tab navigation | No | `beta` |
-| [Focus Trap](focus-trap.md) | Constrain focus to region | No | `beta` |
+| [Layer](layer.md) | Generic overlay layer | Yes | `beta` |
+| [Toast Container](toast.md) | Non-blocking notifications | No | `beta` |
+| [Focus Zone](focus-zone.md) | Focus group for Tab navigation | Yes | `beta` |
+| [Focus Trap](focus-trap.md) | Constrain focus to region | Yes | `beta` |
 
 ### Layout
 
@@ -106,8 +106,9 @@ Complex layout components:
 
 | Widget | Description | Focusable | Stability |
 |--------|-------------|-----------|-----------|
+| [Grid](grid.md) | Two-dimensional grid layout | No | `stable` |
 | [Split Pane](split-pane.md) | Resizable split layout | Yes | `beta` |
-| [Panel Group](panel-group.md) | Container for resizable panels | No | `beta` |
+| [Panel Group](panel-group.md) | Container for resizable panels | Yes | `beta` |
 | [Resizable Panel](resizable-panel.md) | Panel within group | No | `beta` |
 
 ### Advanced
@@ -142,7 +143,7 @@ User feedback and states:
 | Widget | Description | Focusable | Stability |
 |--------|-------------|-----------|-----------|
 | [Callout](callout.md) | Alert/info message box | No | `beta` |
-| [Error Display](error-display.md) | Error message with retry | Yes | `beta` |
+| [Error Display](error-display.md) | Error message with retry | No | `beta` |
 | [Empty](empty.md) | Empty state placeholder | No | `beta` |
 
 ## Common Patterns
@@ -164,7 +165,7 @@ style?: TextStyle
 
 ### Layout Props
 
-Container widgets support layout properties:
+`Box`, `Row`, and `Column` support spacing props:
 
 ```typescript
 // Padding (all sides, or specific)
@@ -183,6 +184,9 @@ gap?: SpacingValue
 align?: "start" | "center" | "end" | "stretch"
 justify?: "start" | "end" | "center" | "between" | "around" | "evenly"
 ```
+
+`Grid` has its own layout props (`columns`, `rows`, `gap`, `rowGap`,
+`columnGap`) and does not accept spacing props like `p`/`m`.
 
 ### Spacing Values
 
@@ -227,12 +231,12 @@ Falsy values (`false`, `null`, `undefined`) are filtered from children.
 - Container-style child arrays filter `null`, `false`, and `undefined` values.
 - Nested child arrays are flattened before VNode children are stored.
 - Interactive widgets validate required runtime props before layout:
-  - `button`: non-empty `id`, `label`
-  - `input`: non-empty `id`, `value`
-  - `select`: non-empty `id`, `value`, `options` array
+  - `button`: non-empty `id`; `label` must be a string (empty allowed)
+  - `input`: non-empty `id`; `value` must be a string
+  - `select`: non-empty `id`; `value` must be a string; `options` must be an array (empty allowed)
   - `slider`: non-empty `id`, finite numeric range with `min <= max`, `step > 0`
   - `checkbox`: non-empty `id`, boolean `checked`
-  - `radioGroup`: non-empty `id`, `value`, non-empty `options`
+  - `radioGroup`: non-empty `id`; `value` must be a string; `options` must be non-empty
 
 ### Dynamic Lists
 

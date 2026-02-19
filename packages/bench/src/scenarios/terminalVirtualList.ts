@@ -9,6 +9,7 @@
 import { type VNode, ui } from "@rezi-ui/core";
 import { NullReadable } from "../backends.js";
 import { createBlessedOutput } from "../frameworks/blessed.js";
+import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { runRatatuiScenario } from "../frameworks/ratatui.js";
 import { createBenchBackend, createInkStdout } from "../io.js";
 import { benchAsync, tryGc } from "../measure.js";
@@ -269,6 +270,14 @@ async function runInk(
   }
 }
 
+async function runOpenTui(
+  config: ScenarioConfig,
+  totalItems: number,
+  viewport: number,
+): Promise<BenchMetrics> {
+  return runOpenTuiScenario("terminal-virtual-list", config, { items: totalItems, viewport });
+}
+
 async function runBlessed(
   config: ScenarioConfig,
   totalItems: number,
@@ -366,7 +375,7 @@ export const terminalVirtualListScenario: Scenario = {
   description: "Virtual list (viewport-only) across terminal UI frameworks",
   defaultConfig: { warmup: 100, iterations: 1000 },
   paramSets: [{ items: 100_000, viewport: 40 }],
-  frameworks: ["rezi-native", "ink-compat", "ink", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig, params): Promise<BenchMetrics> {
     const { items, viewport } = params as { items: number; viewport: number };
@@ -374,10 +383,10 @@ export const terminalVirtualListScenario: Scenario = {
     switch (framework) {
       case "rezi-native":
         return runRezi(config, items, viewport);
-      case "ink-compat":
-        return runInkCompat(config, items, viewport);
       case "ink":
         return runInk(config, items, viewport);
+      case "opentui":
+        return runOpenTui(config, items, viewport);
       case "blessed":
         return runBlessed(config, items, viewport);
       case "ratatui":

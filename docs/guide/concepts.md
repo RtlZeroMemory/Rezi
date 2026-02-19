@@ -125,7 +125,7 @@ Rezi uses a layered architecture with strict boundaries:
                   ▼
 ┌─────────────────────────────────────┐
 │          @rezi-ui/node              │
-│  (Node.js Runtime Integration)      │
+│  (Node.js/Bun Runtime Integration)      │
 │  • Worker threads                   │
 │  • Event loop integration           │
 └─────────────────────────────────────┘

@@ -20,7 +20,7 @@ cd my-tui-app
 bun start
 ```
 
-Select a template when prompted (dashboard, stress-test, form-app, file-browser, or streaming-viewer), or pass `--template` to choose directly:
+Select a template when prompted (`dashboard` or `stress-test`), or pass `--template` to choose directly:
 
 ```bash
 npm create rezi my-tui-app -- --template dashboard
@@ -113,7 +113,7 @@ const app = createNodeApp<State>({
 });
 ```
 
-- `createNodeApp<State>` creates a typed application instance and compatible Node backend
+- `createNodeApp<State>` creates a typed application instance and compatible Node/Bun backend
 - `config` controls app/backend runtime knobs in one place (`fpsCap`, `maxEventBytes`, `useV2Cursor`)
 - `initialState` provides the initial application state
 

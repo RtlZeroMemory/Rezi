@@ -124,6 +124,7 @@ Rezi coalesces work:
 - rendering occurs after the commit
 - in-flight submissions are bounded by `config.maxFramesInFlight` (default `1`, clamped to `1..4`)
 - interactive input (`key`/`text`/`paste`/`mouse`) gets a short urgent burst that allows one additional in-flight frame
+- tick-driven animation updates are bounded (spinner cadence is capped to avoid repaint storms)
 
 This keeps runtime behavior bounded and prevents unbounded “render storms”.
 
@@ -165,6 +166,6 @@ See the API reference for the `ZrUiErrorCode` type and related helpers.
 
 - [Concepts](concepts.md) - Pure view, VNodes, and reconciliation
 - [Performance](performance.md) - Why coalescing and keys matter
-- [Node backend](../backend/node.md) - Runtime/backend integration details
+- [Node/Bun backend](../backend/node.md) - Runtime/backend integration details
 
 Next: [Layout](layout.md).

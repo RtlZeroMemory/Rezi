@@ -20,7 +20,7 @@ function assertFixture(f: TextMeasureFixture, rel: string): void {
 
 describe("measureTextCells (pinned) - golden fixtures", () => {
   test("ZRUI_TEXT_MEASURE_VERSION is pinned", () => {
-    assert.equal(ZRUI_TEXT_MEASURE_VERSION, 1);
+    assert.equal(ZRUI_TEXT_MEASURE_VERSION, 2);
   });
 
   test("graphemes.json", async () => {

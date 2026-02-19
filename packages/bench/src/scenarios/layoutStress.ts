@@ -214,7 +214,7 @@ export const layoutStressScenario: Scenario = {
   description: "Nested flex layout with changing text widths (forces re-layout)",
   defaultConfig: { warmup: 50, iterations: 300 },
   paramSets: [{ rows: 40, cols: 4 }],
-  frameworks: ["rezi-native", "ink-compat", "ink"],
+  frameworks: ["rezi-native", "ink"],
 
   async run(framework: Framework, config: ScenarioConfig, params) {
     const { rows, cols } = params as { rows: number; cols: number };
@@ -222,8 +222,6 @@ export const layoutStressScenario: Scenario = {
     switch (framework) {
       case "rezi-native":
         return runRezi(config, rows, cols);
-      case "ink-compat":
-        return runInkCompat(config, rows, cols);
       case "ink":
         return runInk(config, rows, cols);
       default:

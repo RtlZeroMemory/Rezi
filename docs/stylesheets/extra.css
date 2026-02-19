@@ -43,3 +43,73 @@
 .md-banner {
   font-size: 0.8rem;
 }
+
+/* --- Widget category cards --- */
+
+.widget-category {
+  border-left: 3px solid var(--md-accent-fg-color);
+  padding-left: 0.8em;
+  margin-bottom: 1.2em;
+}
+
+/* --- Admonition refinements --- */
+
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* --- Code block contrast --- */
+
+.md-typeset pre > code {
+  border-radius: 4px;
+}
+
+[data-md-color-scheme="slate"] .md-typeset pre > code {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* --- Navigation tab hover --- */
+
+.md-tabs__link:hover {
+  opacity: 0.8;
+}
+
+/* --- Responsive tables --- */
+
+@media screen and (max-width: 76.25em) {
+  .md-typeset table:not([class]) {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* --- Footer nav --- */
+
+.md-footer__link {
+  transition: opacity 0.15s;
+}
+
+.md-footer__link:hover {
+  opacity: 0.8;
+}
+
+/* --- Hero section (homepage) --- */
+
+.hero-section {
+  text-align: center;
+  padding: 2em 1em;
+}
+
+.hero-section h1 {
+  font-size: 2.4em;
+  margin-bottom: 0.3em;
+}
+
+/* --- Accent underline for active nav tabs --- */
+
+.md-tabs__link--active {
+  border-bottom: 2px solid var(--md-accent-fg-color);
+}

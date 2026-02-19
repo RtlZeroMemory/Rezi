@@ -192,6 +192,7 @@ async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
       opsPerSec: config.iterations / (totalWallMs / 1000),
       framesProduced: backend.frameCount - frameBase,
       bytesProduced: backend.totalFrameBytes - bytesBase,
+      ptyBytesObserved: null,
     };
   } finally {
     await app.stop();
@@ -267,6 +268,7 @@ async function runInkCompat(config: ScenarioConfig): Promise<BenchMetrics> {
       opsPerSec: config.iterations / (totalWallMs / 1000),
       framesProduced: backend.frameCount - frameBase,
       bytesProduced: backend.totalFrameBytes - bytesBase,
+      ptyBytesObserved: null,
     };
   } finally {
     instance.unmount();
@@ -344,6 +346,7 @@ async function runInk(config: ScenarioConfig): Promise<BenchMetrics> {
       opsPerSec: config.iterations / (totalWallMs / 1000),
       framesProduced: stdout.writeCount - writeBase,
       bytesProduced: stdout.totalBytes - bytesBase,
+      ptyBytesObserved: null,
     };
   } finally {
     instance.unmount();
@@ -427,6 +430,7 @@ async function runTermkit(config: ScenarioConfig): Promise<BenchMetrics> {
     opsPerSec: config.iterations / (totalWallMs / 1000),
     framesProduced: config.iterations,
     bytesProduced: ctx.totalBytes,
+    ptyBytesObserved: null,
   };
 
   ctx.dispose();
@@ -533,6 +537,7 @@ async function runBlessed(config: ScenarioConfig): Promise<BenchMetrics> {
     opsPerSec: config.iterations / (totalWallMs / 1000),
     framesProduced: config.iterations,
     bytesProduced: ctx.totalBytes,
+    ptyBytesObserved: null,
   };
 
   ctx.dispose();
@@ -549,15 +554,13 @@ export const memoryScenario: Scenario = {
   description: "Sustained workload measuring memory footprint, growth, CPU usage, and stability",
   defaultConfig: { warmup: 50, iterations: 2000 },
   paramSets: [{}],
-  frameworks: ["rezi-native", "ink-compat", "ink", "terminal-kit", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "terminal-kit", "blessed", "ratatui"],
 
   async run(framework, config) {
     tryGc();
     switch (framework) {
       case "rezi-native":
         return runRezi(config);
-      case "ink-compat":
-        return runInkCompat(config);
       case "ink":
         return runInk(config);
       case "terminal-kit":
@@ -566,6 +569,8 @@ export const memoryScenario: Scenario = {
         return runBlessed(config);
       case "ratatui":
         return runRatatui(config);
+      default:
+        throw new Error(`memory-profile: unsupported framework "${framework}"`);
     }
   },
 };

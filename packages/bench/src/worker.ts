@@ -15,6 +15,7 @@ type Payload = Readonly<{
   framework: Framework;
   config: ScenarioConfig;
   params: Record<string, number | string>;
+  replicate: number;
 }>;
 
 function parseArgs(argv: string[]): { payloadB64: string | null; resultPath: string | null } {
@@ -79,6 +80,7 @@ async function main(): Promise<void> {
       framework: payload.framework,
       params: { ...payload.params },
       metrics,
+      replicate: payload.replicate,
       timestamp,
       nodeVersion: process.version,
       platform: process.platform,
