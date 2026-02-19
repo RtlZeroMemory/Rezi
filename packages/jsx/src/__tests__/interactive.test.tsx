@@ -32,7 +32,15 @@ describe("interactive widgets", () => {
 
     assert.deepEqual(
       <Slider id="volume" value={25} min={0} max={100} step={5} label="Volume" showValue={false} />,
-      ui.slider({ id: "volume", value: 25, min: 0, max: 100, step: 5, label: "Volume", showValue: false }),
+      ui.slider({
+        id: "volume",
+        value: 25,
+        min: 0,
+        max: 100,
+        step: 5,
+        label: "Volume",
+        showValue: false,
+      }),
     );
 
     assert.deepEqual(
