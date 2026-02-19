@@ -10,9 +10,13 @@ import { memoryScenario } from "./memory.js";
 import { rerenderScenario } from "./rerender.js";
 import { scrollStressScenario } from "./scrollStress.js";
 import { startupScenario } from "./startup.js";
+import { terminalFpsStreamScenario } from "./terminalFpsStream.js";
 import { tableScenario } from "./tables.js";
 import { terminalFrameFillScenario } from "./terminalFrameFill.js";
+import { terminalInputLatencyScenario } from "./terminalInputLatency.js";
+import { terminalMemorySoakScenario } from "./terminalMemorySoak.js";
 import { terminalRerenderScenario } from "./terminalRerender.js";
+import { terminalScreenTransitionScenario } from "./terminalScreenTransition.js";
 import { terminalTableScenario } from "./terminalTable.js";
 import { terminalVirtualListScenario } from "./terminalVirtualList.js";
 import { virtualListScenario } from "./virtualList.js";
@@ -27,9 +31,13 @@ export const scenarios: readonly Scenario[] = [
   virtualListScenario,
   tableScenario,
   memoryScenario,
-  // Cross-framework competitor suite (blessed, ratatui) — run with: --suite terminal --io pty
+  // Cross-framework competitor suite (OpenTUI, blessed, ratatui) — run with: --suite terminal --io pty
   terminalRerenderScenario,
   terminalFrameFillScenario,
+  terminalScreenTransitionScenario,
+  terminalFpsStreamScenario,
+  terminalInputLatencyScenario,
+  terminalMemorySoakScenario,
   terminalVirtualListScenario,
   terminalTableScenario,
 ];

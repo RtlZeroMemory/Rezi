@@ -5,12 +5,14 @@
  * - Rezi native
  * - Ink-on-Rezi
  * - Ink
+ * - OpenTUI
  * - blessed
  * - ratatui (Rust)
  */
 
 import { NullReadable } from "../backends.js";
 import { createBlessedOutput } from "../frameworks/blessed.js";
+import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { runRatatuiScenario } from "../frameworks/ratatui.js";
 import { createBenchBackend, createInkStdout } from "../io.js";
 import { benchAsync, tryGc } from "../measure.js";
@@ -182,6 +184,10 @@ async function runInk(config: ScenarioConfig): Promise<BenchMetrics> {
   }
 }
 
+async function runOpenTui(config: ScenarioConfig): Promise<BenchMetrics> {
+  return runOpenTuiScenario("terminal-rerender", config, {});
+}
+
 async function runBlessed(config: ScenarioConfig): Promise<BenchMetrics> {
   const blessed = await loadBlessed();
   const output = createBlessedOutput();
@@ -248,17 +254,17 @@ export const terminalRerenderScenario: Scenario = {
   description: "Small update benchmark across terminal UI frameworks (includes PTY output path)",
   defaultConfig: { warmup: 100, iterations: 1000 },
   paramSets: [],
-  frameworks: ["rezi-native", "ink-compat", "ink", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig): Promise<BenchMetrics> {
     tryGc();
     switch (framework) {
       case "rezi-native":
         return runRezi(config);
-      case "ink-compat":
-        return runInkCompat(config);
       case "ink":
         return runInk(config);
+      case "opentui":
+        return runOpenTui(config);
       case "blessed":
         return runBlessed(config);
       case "ratatui":

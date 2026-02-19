@@ -214,6 +214,7 @@ export function benchSync(
     opsPerSec: iterations / (totalWallMs / 1000),
     framesProduced: iterations,
     bytesProduced: 0,
+    ptyBytesObserved: null,
   };
 }
 
@@ -271,6 +272,7 @@ export async function benchAsync(
     opsPerSec: iterations / (totalWallMs / 1000),
     framesProduced: iterations,
     bytesProduced: 0,
+    ptyBytesObserved: null,
   };
 }
 
@@ -284,9 +286,12 @@ export function fmtMs(ms: number): string {
 }
 
 export function fmtKb(kb: number): string {
-  if (kb < 1024) return `${kb}KB`;
-  if (kb < 1024 * 1024) return `${(kb / 1024).toFixed(1)}MB`;
-  return `${(kb / (1024 * 1024)).toFixed(2)}GB`;
+  const sign = kb < 0 ? "-" : "";
+  const abs = Math.abs(kb);
+  if (abs < 10) return `${sign}${abs.toFixed(2)}KB`;
+  if (abs < 1024) return `${sign}${abs.toFixed(1)}KB`;
+  if (abs < 1024 * 1024) return `${sign}${(abs / 1024).toFixed(1)}MB`;
+  return `${sign}${(abs / (1024 * 1024)).toFixed(2)}GB`;
 }
 
 export function fmtOps(ops: number): string {

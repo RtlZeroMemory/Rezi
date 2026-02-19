@@ -4,7 +4,6 @@
  * Measures the time to construct a complete widget tree from scratch.
  *
  * - Rezi native: createApp → state update → view rebuild → diff → drawlist → requestFrame.
- * - ink-compat: React reconciler → VNode pipeline (via renderToVNode-style approach).
  * - Ink: React reconciler → Yoga layout → ANSI output (via render + MeasuringStream).
  *
  * Parameterized by tree size: 10, 100, 500, 1000, 5000 items.
@@ -240,7 +239,7 @@ export const constructionScenario: Scenario = {
   description: "Build a widget tree from scratch (parameterized by item count)",
   defaultConfig: { warmup: 50, iterations: 500 },
   paramSets: [{ items: 10 }, { items: 100 }, { items: 500 }, { items: 1000 }],
-  frameworks: ["rezi-native", "ink-compat", "ink", "terminal-kit", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "terminal-kit", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig, params) {
     const { items: n } = params as { items: number };
@@ -249,8 +248,6 @@ export const constructionScenario: Scenario = {
     switch (framework) {
       case "rezi-native":
         return runRezi(config, n);
-      case "ink-compat":
-        return runInkCompat(config, n);
       case "ink":
         return runInk(config, n);
       case "terminal-kit":
@@ -259,6 +256,8 @@ export const constructionScenario: Scenario = {
         return runBlessed(config, n);
       case "ratatui":
         return runRatatui(config, n);
+      default:
+        throw new Error(`tree-construction: unsupported framework "${framework}"`);
     }
   },
 };

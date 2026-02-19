@@ -215,6 +215,162 @@ fn table_lines(rows: u64, cols: u64, tick: u64) -> Vec<String> {
   out
 }
 
+fn clip_pad(s: String, cols: usize) -> String {
+  if s.len() >= cols {
+    s[..cols].to_string()
+  } else {
+    format!("{s: <width$}", width = cols)
+  }
+}
+
+fn bar(value: f64, width: usize) -> String {
+  let filled = (value * (width as f64)).round() as isize;
+  let filled = filled.clamp(0, width as isize) as usize;
+  format!("{}{}", "#".repeat(filled), "-".repeat(width - filled))
+}
+
+fn screen_transition_lines(rows: u64, cols: u64, tick: u64) -> Vec<String> {
+  let rows = rows as usize;
+  let cols = cols as usize;
+  let mode = tick % 3;
+  let mut out = Vec::with_capacity(rows);
+
+  if mode == 0 {
+    out.push(clip_pad("terminal-screen-transition [dashboard]".to_string(), cols));
+    for i in 0..rows.saturating_sub(1) {
+      let v = (((tick as usize) * 37 + i * 97) % 1000) as f64 / 1000.0;
+      out.push(clip_pad(
+        format!("svc-{i:02} {} {:.1}%", bar(v, 24), v * 100.0),
+        cols,
+      ));
+    }
+    return out;
+  }
+
+  if mode == 1 {
+    out.push(clip_pad("terminal-screen-transition [table]".to_string(), cols));
+    out.push(clip_pad(
+      "ID        NAME                 STATE     LAT(ms)   ERR".to_string(),
+      cols,
+    ));
+    for i in 0..rows.saturating_sub(2) {
+      let id = format!("node-{:03}", ((tick as usize) + i) % 512);
+      let state = if ((tick as usize) + i) % 7 == 0 {
+        "degraded"
+      } else {
+        "healthy "
+      };
+      let lat = 10 + (((tick as usize) * 13 + i * 7) % 190);
+      let err = if ((tick as usize) + i * 3) % 53 == 0 {
+        "yes"
+      } else {
+        "no "
+      };
+      out.push(clip_pad(
+        format!("{id}   backend-{i:02}        {state}     {lat:>3}      {err}"),
+        cols,
+      ));
+    }
+    return out;
+  }
+
+  out.push(clip_pad("terminal-screen-transition [logs]".to_string(), cols));
+  for i in 0..rows.saturating_sub(1) {
+    let seq = (tick as usize) * rows + i;
+    let lvl = if seq % 11 == 0 {
+      "WARN"
+    } else if seq % 23 == 0 {
+      "ERROR"
+    } else {
+      "INFO "
+    };
+    out.push(clip_pad(
+      format!("{lvl} ts={} service={} msg=transition-{seq}", 1_700_000_000_000u64 + seq as u64 * 17, seq % 17),
+      cols,
+    ));
+  }
+  out
+}
+
+fn fps_stream_lines(rows: u64, cols: u64, channels: u64, tick: u64) -> Vec<String> {
+  let rows = rows as usize;
+  let cols = cols as usize;
+  let channels = channels.max(1) as usize;
+  let mut out = Vec::with_capacity(rows);
+
+  out.push(clip_pad(
+    format!("terminal-fps-stream tick={tick} target=60fps channels={channels}"),
+    cols,
+  ));
+  out.push(clip_pad("Channel  Value      Trend".to_string(), cols));
+
+  let body_rows = rows.saturating_sub(2).max(1);
+  for i in 0..body_rows {
+    let ch = i % channels;
+    let v = (((tick as usize) * (17 + ch) + i * 31) % 1000) as f64 / 1000.0;
+    let trend_seed = ((tick as usize) + i * 13 + ch * 11) % 16;
+    let mut trend = String::with_capacity(16 * 3);
+    for j in 0..16 {
+      let level = ((trend_seed + j * 3) % 16) as f64 / 15.0;
+      if level < v {
+        trend.push('▮');
+      } else {
+        trend.push('▯');
+      }
+    }
+    out.push(clip_pad(
+      format!("ch-{ch:02}    {:>6.2}%    {trend}", v * 100.0),
+      cols,
+    ));
+  }
+
+  out
+}
+
+fn input_latency_lines(rows: u64, cols: u64, tick: u64) -> Vec<String> {
+  let rows = rows as usize;
+  let cols = cols as usize;
+  let mut out = Vec::with_capacity(rows);
+  out.push(clip_pad(
+    "terminal-input-latency synthetic-key-event -> frame".to_string(),
+    cols,
+  ));
+  out.push(clip_pad(
+    format!(
+      "tick={tick} active={} token={:x}",
+      tick % 16,
+      ((tick as u32).wrapping_mul(1_103_515_245))
+    ),
+    cols,
+  ));
+  let body_rows = rows.saturating_sub(2);
+  for i in 0..body_rows {
+    let active = i == (tick as usize) % body_rows.max(1);
+    out.push(clip_pad(
+      format!(
+        "{} command-{i:02}  value={}",
+        if active { ">" } else { " " },
+        ((tick as usize) + i * 9) % 10_000
+      ),
+      cols,
+    ));
+  }
+  out
+}
+
+fn memory_soak_lines(rows: u64, cols: u64, tick: u64) -> Vec<String> {
+  let rows = rows as usize;
+  let cols = cols as usize;
+  let mut out = Vec::with_capacity(rows);
+  out.push(clip_pad(format!("terminal-memory-soak tick={tick}"), cols));
+  for i in 0..rows.saturating_sub(1) {
+    let id = ((tick as usize) * 7 + i * 19) % 100_000;
+    let payload = format!("{id:05} {} {}", "x".repeat((i % 7) + 8), ((tick as usize) + i) % 997);
+    out.push(clip_pad(payload, cols));
+  }
+  out
+}
+
 fn to_text(lines: Vec<String>) -> Text<'static> {
   let v: Vec<Line<'static>> = lines.into_iter().map(|s| Line::from(s)).collect();
   Text::from(v)
@@ -225,6 +381,10 @@ enum ScenarioSpec {
   TerminalFrameFill { rows: u64, cols: u64, dirty_lines: u64 },
   TerminalVirtualList { items: u64, viewport: u64 },
   TerminalTable { rows: u64, cols: u64 },
+  TerminalScreenTransition { rows: u64, cols: u64 },
+  TerminalFpsStream { rows: u64, cols: u64, channels: u64 },
+  TerminalInputLatency { rows: u64, cols: u64 },
+  TerminalMemorySoak { rows: u64, cols: u64 },
 }
 
 fn scenario_spec(
@@ -243,6 +403,23 @@ fn scenario_spec(
       viewport: get_u64(params, "viewport")?,
     }),
     "terminal-table" => Ok(ScenarioSpec::TerminalTable {
+      rows: get_u64(params, "rows")?,
+      cols: get_u64(params, "cols")?,
+    }),
+    "terminal-screen-transition" => Ok(ScenarioSpec::TerminalScreenTransition {
+      rows: get_u64(params, "rows")?,
+      cols: get_u64(params, "cols")?,
+    }),
+    "terminal-fps-stream" => Ok(ScenarioSpec::TerminalFpsStream {
+      rows: get_u64(params, "rows")?,
+      cols: get_u64(params, "cols")?,
+      channels: get_u64(params, "channels")?,
+    }),
+    "terminal-input-latency" => Ok(ScenarioSpec::TerminalInputLatency {
+      rows: get_u64(params, "rows")?,
+      cols: get_u64(params, "cols")?,
+    }),
+    "terminal-memory-soak" => Ok(ScenarioSpec::TerminalMemorySoak {
       rows: get_u64(params, "rows")?,
       cols: get_u64(params, "cols")?,
     }),
@@ -278,6 +455,20 @@ fn run_stub(
             to_text(virtual_list_lines(items, viewport, tick))
           }
           ScenarioSpec::TerminalTable { rows, cols } => to_text(table_lines(rows, cols, tick)),
+          ScenarioSpec::TerminalScreenTransition { rows, cols } => {
+            to_text(screen_transition_lines(rows, cols, tick))
+          }
+          ScenarioSpec::TerminalFpsStream {
+            rows,
+            cols,
+            channels,
+          } => to_text(fps_stream_lines(rows, cols, channels, tick)),
+          ScenarioSpec::TerminalInputLatency { rows, cols } => {
+            to_text(input_latency_lines(rows, cols, tick))
+          }
+          ScenarioSpec::TerminalMemorySoak { rows, cols } => {
+            to_text(memory_soak_lines(rows, cols, tick))
+          }
         };
         f.render_widget(Paragraph::new(text), area);
       })
@@ -331,6 +522,20 @@ fn run_pty(
             to_text(virtual_list_lines(items, viewport, tick))
           }
           ScenarioSpec::TerminalTable { rows, cols } => to_text(table_lines(rows, cols, tick)),
+          ScenarioSpec::TerminalScreenTransition { rows, cols } => {
+            to_text(screen_transition_lines(rows, cols, tick))
+          }
+          ScenarioSpec::TerminalFpsStream {
+            rows,
+            cols,
+            channels,
+          } => to_text(fps_stream_lines(rows, cols, channels, tick)),
+          ScenarioSpec::TerminalInputLatency { rows, cols } => {
+            to_text(input_latency_lines(rows, cols, tick))
+          }
+          ScenarioSpec::TerminalMemorySoak { rows, cols } => {
+            to_text(memory_soak_lines(rows, cols, tick))
+          }
         };
         f.render_widget(Paragraph::new(text), area);
       })

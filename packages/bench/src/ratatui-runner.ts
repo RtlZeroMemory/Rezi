@@ -154,5 +154,6 @@ export function runRatatui(
     opsPerSec: output.ops_per_sec,
     framesProduced: output.iterations,
     bytesProduced: 0,
+    ptyBytesObserved: null,
   };
 }

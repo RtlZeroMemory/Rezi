@@ -2,7 +2,7 @@
  * Shared tree builders for all scenarios.
  *
  * Each builder creates an equivalent visual tree at a given size N,
- * using either Rezi native, ink-compat (React), or Ink (React).
+ * using either Rezi native or Ink (React).
  *
  * The trees are semantically identical:
  *   Column(p=1, gap=1) [
@@ -36,7 +36,7 @@ export function buildReziTree(n: number, seed = 0): VNode {
   ]);
 }
 
-// ── React tree builders (used for both Ink and ink-compat) ──────────
+// ── React tree builders (used for Ink paths) ─────────────────────────
 
 // ── terminal-kit ────────────────────────────────────────────────────
 
@@ -117,7 +117,7 @@ export function buildBlessedTree(
   }
 }
 
-// ── React tree builders (used for both Ink and ink-compat) ──────────
+// ── React tree builders (used for Ink paths) ─────────────────────────
 
 /**
  * Build a React element tree using the given component set.

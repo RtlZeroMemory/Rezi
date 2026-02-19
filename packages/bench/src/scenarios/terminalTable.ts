@@ -7,6 +7,7 @@
 import { type VNode, ui } from "@rezi-ui/core";
 import { NullReadable } from "../backends.js";
 import { createBlessedOutput } from "../frameworks/blessed.js";
+import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { runRatatuiScenario } from "../frameworks/ratatui.js";
 import { createBenchBackend, createInkStdout } from "../io.js";
 import { benchAsync, tryGc } from "../measure.js";
@@ -207,6 +208,14 @@ async function runInk(config: ScenarioConfig, rows: number, cols: number): Promi
   }
 }
 
+async function runOpenTui(
+  config: ScenarioConfig,
+  rows: number,
+  cols: number,
+): Promise<BenchMetrics> {
+  return runOpenTuiScenario("terminal-table", config, { rows, cols });
+}
+
 async function runBlessed(
   config: ScenarioConfig,
   rows: number,
@@ -276,7 +285,7 @@ export const terminalTableScenario: Scenario = {
   description: "Viewport-sized table update (single cell change) across terminal UI frameworks",
   defaultConfig: { warmup: 50, iterations: 500 },
   paramSets: [{ rows: 40, cols: 8 }],
-  frameworks: ["rezi-native", "ink-compat", "ink", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig, params): Promise<BenchMetrics> {
     const { rows, cols } = params as { rows: number; cols: number };
@@ -284,10 +293,10 @@ export const terminalTableScenario: Scenario = {
     switch (framework) {
       case "rezi-native":
         return runRezi(config, rows, cols);
-      case "ink-compat":
-        return runInkCompat(config, rows, cols);
       case "ink":
         return runInk(config, rows, cols);
+      case "opentui":
+        return runOpenTui(config, rows, cols);
       case "blessed":
         return runBlessed(config, rows, cols);
       case "ratatui":
