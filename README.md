@@ -79,6 +79,8 @@ In the latest PTY-mode benchmark suite (120×40 viewport, `benchmarks/2026-02-19
 
 This run uses `7` replicates with first-replicate discard (`6` measured), framework-order shuffling, CPU pinning, and CI/range reporting in the generated markdown.
 
+These benchmark numbers are a snapshot, not a final ceiling. Optimization work is ongoing during development, and we expect to keep improving performance while gradually narrowing the gap to pure native renderers.
+
 | Scenario | Rezi | Ink | OpenTUI | Rezi vs Ink | Rezi vs OpenTUI |
 |---|---:|---:|---:|---:|---:|
 | `terminal-rerender` | 316 µs | 17.54 ms | 2.57 ms | 55.5× faster | 8.1× faster |
