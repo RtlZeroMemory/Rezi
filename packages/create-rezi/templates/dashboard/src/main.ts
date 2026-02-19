@@ -1666,9 +1666,17 @@ function stopTelemetryLoop(): void {
   clearTelemetryTimer();
 }
 
-function stopDashboardAction(): void {
+let dashboardStopRequested = false;
+
+function requestDashboardStop(): void {
   stopTelemetryLoop();
-  void app.stop();
+  if (dashboardStopRequested) return;
+  dashboardStopRequested = true;
+
+  // Defer app.stop() outside event/key handlers to avoid reentrant-stop fatals.
+  setTimeout(() => {
+    void app.stop();
+  }, 0);
 }
 
 app.onEvent((ev) => {
@@ -1682,22 +1690,22 @@ app.onEvent((ev) => {
       // non-standard key paths/modifier combos.
       if (raw.key === 81 || raw.key === 113 || (raw.mods & 0b0010) !== 0) {
         if (raw.key === 81 || raw.key === 113 || raw.key === 67 || raw.key === 99) {
-          stopDashboardAction();
+          requestDashboardStop();
         }
       }
     }
     if (raw.kind === "text" && raw.codepoint >= 0 && raw.codepoint <= 0x10ffff) {
       const ch = String.fromCodePoint(raw.codepoint).toLowerCase();
-      if (ch === "q") stopDashboardAction();
+      if (ch === "q") requestDashboardStop();
     }
   }
   if (ev.kind === "fatal") stopTelemetryLoop();
 });
 
 app.keys({
-  q: stopDashboardAction,
-  "shift+q": stopDashboardAction,
-  "ctrl+c": stopDashboardAction,
+  q: requestDashboardStop,
+  "shift+q": requestDashboardStop,
+  "ctrl+c": requestDashboardStop,
   up: (ctx) => {
     if (ctx.focusedId === "service-table") return;
     ctx.update((s) => moveSelection(s, -1));
