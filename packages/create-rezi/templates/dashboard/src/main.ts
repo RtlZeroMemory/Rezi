@@ -100,7 +100,7 @@ const themeOrder: readonly ThemeName[] = [
 const UI_FPS_CAP = 30;
 const TELEMETRY_CADENCE_MS = 1000;
 const TELEMETRY_MAX_DRIFT_MS = TELEMETRY_CADENCE_MS * 2;
-const PRODUCT_NAME = "EdgeOps Control Plane";
+const PRODUCT_NAME = "__APP_NAME__";
 const PRODUCT_TAGLINE = "Streaming edge reliability console";
 const PRODUCT_MISSION =
   "Operate fleet health, incident response, and service recovery from one deterministic terminal console.";
