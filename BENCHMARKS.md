@@ -1,93 +1,130 @@
 # Benchmarks
 
-This repository keeps benchmark data focused on production-relevant comparisons for the current runtime surface.
+Rezi benchmarks focus on cross-framework terminal rendering performance with reproducible methodology and confidence-aware reporting.
 
 ## Scope
 
-Active benchmark comparisons:
-- **Rezi** (TypeScript + native C terminal engine)
-- **ratatui** (Rust)
-- **blessed** (Node.js)
-- **Ink** (Node.js)
+Active competitor matrix:
+- **Rezi** (`@rezi-ui/core` + native Zireael engine)
+- **Ink** (React in terminal, Node.js)
+- **OpenTUI** (React in terminal, Bun)
+- **blessed** (imperative Node.js baseline)
+- **ratatui** (native Rust baseline)
 
-## Benchmark suites
+`ink-compat` is no longer part of the active benchmark matrix.
 
-### Terminal suite (primary)
+## Latest Dataset
 
-The primary dataset is the terminal competitor suite in PTY mode.
+Primary dataset:
+- `benchmarks/2026-02-19-terminal-v3/results.json`
+- `benchmarks/2026-02-19-terminal-v3/results.md`
 
-Artifacts:
-- `benchmarks/2026-02-11-terminal/results.json`
-- `benchmarks/2026-02-11-terminal/results.md`
+Run metadata (from dataset header):
+- Date: **2026-02-19**
+- Mode: `--suite terminal --io pty`
+- Replicates: `7` with `--discard-first-replicate` (6 measured runs per scenario/framework)
+- Ordering: `--shuffle-framework-order --shuffle-seed 2026-02-19-terminal-v3`
+- Affinity: `--cpu-affinity 0-7`
+- Host: Linux (WSL2), Node `v20.19.5`, Bun `1.3.9`, Rust `1.93.0`
 
-What it measures:
-- End-to-end frame delivery through PTY-backed terminal paths for each framework.
-- Viewport-sized workloads implemented with equivalent visual outcomes.
+## Scenario Set
 
-What it does not measure:
-- Terminal emulator pixel paint time.
-- Full app logic/IO outside rendering loops.
+Terminal suite scenarios (all measured in PTY mode):
+- `terminal-rerender`
+- `terminal-frame-fill` (`dirtyLines=1`, `dirtyLines=40`)
+- `terminal-screen-transition`
+- `terminal-fps-stream`
+- `terminal-input-latency`
+- `terminal-memory-soak`
+- `terminal-virtual-list`
+- `terminal-table`
 
-### Full and PTY historical datasets
+## Results Summary (Rezi Positioning)
 
-Additional datasets exist under:
-- `benchmarks/2026-02-11-full/`
-- `benchmarks/2026-02-11-pty/`
+From `benchmarks/2026-02-19-terminal-v3/results.md`:
 
-These are retained as historical artifacts. This document intentionally centers terminal-suite positioning.
+| Scenario | Rezi | Ink | OpenTUI | Rezi vs Ink | Rezi vs OpenTUI |
+|---|---:|---:|---:|---:|---:|
+| `terminal-rerender` | 316µs | 17.54ms | 2.57ms | 55.5x faster | 8.1x faster |
+| `terminal-frame-fill` (`dirtyLines=1`) | 372µs | 21.96ms | 4.03ms | 59.1x faster | 10.8x faster |
+| `terminal-frame-fill` (`dirtyLines=40`) | 679µs | 22.08ms | 3.92ms | 32.5x faster | 5.8x faster |
+| `terminal-screen-transition` | 749µs | 22.14ms | 4.56ms | 29.6x faster | 6.1x faster |
+| `terminal-fps-stream` | 3.40ms | 24.96ms | 4.66ms | 7.3x faster | 1.4x faster |
+| `terminal-input-latency` | 659µs | 22.32ms | 4.24ms | 33.9x faster | 6.4x faster |
+| `terminal-memory-soak` | 641µs | 22.09ms | 4.62ms | 34.4x faster | 7.2x faster |
+| `terminal-virtual-list` | 681µs | 22.82ms | 35.73ms | 33.5x faster | 52.5x faster |
+| `terminal-table` | 400µs | 21.46ms | 3.82ms | 53.6x faster | 9.5x faster |
 
-## Reproducing terminal suite
+Aggregate positioning in this dataset:
+- Rezi is **7.3x to 59.1x faster than Ink**.
+- Rezi is **1.4x to 52.5x faster than OpenTUI**.
+- Rezi remains slower than native Rust (`ratatui`) in these microbenchmarks (**1.9x to 14.8x**, scenario-dependent).
 
-Build the Rust comparison binary:
+Memory observations:
+- OpenTUI shows high memory pressure on larger churn workloads (for example `terminal-virtual-list` peak RSS around **3.45GB** in this run).
+- Rezi remains in low hundreds of MB peak RSS across this suite on this host.
 
-```bash
-cd benchmarks/native/ratatui-bench
-cargo build --release
-```
+## Reliability / Precision
 
-Run terminal benchmarks:
+This suite now reports precision-oriented signals directly:
+- **Replicate CV** per framework/scenario (run-to-run stability).
+- **95% CI of means** in each scenario table.
+- **Ratio confidence bands** in the relative comparison table (vs Rezi native).
+
+Interpretation rules used in report output:
+- Ratio rows are based on CI bands, not only single means.
+- Rows marked `(inconclusive)` indicate CI overlap with parity (`1x`).
+- In this dataset, Rezi vs Ink/OpenTUI rows are not CI-overlap cases.
+
+## Reproducing
+
+Build dependencies:
 
 ```bash
 npm ci
 npm run build
-npm run bench -- --suite terminal --io pty --output-dir benchmarks/local-terminal
+npm run build:native
+npx tsc -b packages/bench
+
+cd benchmarks/native/ratatui-bench
+cargo build --release
+cd -
 ```
 
-Optional override for ratatui binary path:
+Run the full terminal suite with the same methodology:
 
 ```bash
-REZI_RATATUI_BENCH_BIN=/path/to/ratatui-bench npm run bench -- --suite terminal --io pty
+npm run bench -- \
+  --suite terminal \
+  --io pty \
+  --replicates 7 \
+  --discard-first-replicate \
+  --shuffle-framework-order \
+  --shuffle-seed 2026-02-19-terminal-v3 \
+  --cpu-affinity 0-7 \
+  --env-check warn \
+  --output-dir benchmarks/local-terminal-v3
 ```
 
-## Results summary (2026-02-11 terminal suite)
+Optional tool path overrides:
 
-Selected means from `benchmarks/2026-02-11-terminal/results.json`:
+```bash
+REZI_BUN_BIN=/path/to/bun \
+REZI_RATATUI_BENCH_BIN=/path/to/ratatui-bench \
+npm run bench -- --suite terminal --io pty
+```
 
-| Scenario | ratatui (Rust) | blessed (Node) | Rezi | Ink |
-|---|---:|---:|---:|---:|
-| `terminal-rerender` | 74µs | 126µs | 322µs | 16.39ms |
-| `terminal-frame-fill` (`dirtyLines=1`) | 197µs | 137µs | 567µs | 17.73ms |
-| `terminal-frame-fill` (`dirtyLines=40`) | 211µs | 256µs | 610µs | 17.66ms |
-| `terminal-virtual-list` | 126µs | 218µs | 584µs | 18.88ms |
-| `terminal-table` | 178µs | 188µs | 493µs | 17.44ms |
+## Notes and Limits
 
-## Interpretation
+- PTY mode measures framework render + terminal write-path bytes, but not terminal emulator pixel paint.
+- Absolute timings are environment-specific; compare ratios and CI bands within the same dataset.
+- WSL/VM hosts can add jitter; native Linux/macOS bare-metal is preferable for release claims.
+- Rezi supports both Node and Bun runtimes; this suite runs Rezi and Ink on Node for direct comparability, while OpenTUI is executed by Bun via `packages/bench/opentui-bench/run.ts`.
+- These are rendering microbenchmarks, not end-to-end app throughput benchmarks.
 
-- Rezi is generally in a low single-digit multiplier range vs native Rust on these workloads.
-- Rezi is consistently much closer to native TUI behavior than high-level JS ANSI pipelines.
-- Relative gaps vary by workload shape (rerender, frame fill, list virtualization, table updates).
+## Historical Artifacts
 
-This is the expected design target: TypeScript ergonomics with native-engine rendering characteristics.
-
-## Methodology notes
-
-- Fixed viewport for this run: `120x40`.
-- PTY mode adds realistic write-path overhead and is noisier than pure in-memory benchmarking.
-- `ratatui` reports RSS; V8 heap metrics do not apply.
-- Comparisons are most meaningful within the same dataset/run header and host environment.
-
-## Limitations
-
-- Microbenchmarks are sensitive to host load, scheduler behavior, VM/WSL effects, and Node/toolchain versions.
-- Absolute timings should be treated as environment-specific; cross-run trend direction is usually more stable than exact values.
-- Real applications may be bottlenecked by network, storage, parsing, or business logic not represented here.
+Older committed datasets are retained for trend history:
+- `benchmarks/2026-02-11-terminal/`
+- `benchmarks/2026-02-11-pty/`
+- `benchmarks/2026-02-11-full/`

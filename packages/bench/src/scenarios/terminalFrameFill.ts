@@ -8,6 +8,7 @@
 import { type VNode, ui } from "@rezi-ui/core";
 import { NullReadable } from "../backends.js";
 import { createBlessedOutput } from "../frameworks/blessed.js";
+import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { runRatatuiScenario } from "../frameworks/ratatui.js";
 import { createBenchBackend, createInkStdout } from "../io.js";
 import { benchAsync, tryGc } from "../measure.js";
@@ -215,6 +216,15 @@ async function runInk(
   }
 }
 
+async function runOpenTui(
+  config: ScenarioConfig,
+  rows: number,
+  cols: number,
+  dirtyLines: number,
+): Promise<BenchMetrics> {
+  return runOpenTuiScenario("terminal-frame-fill", config, { rows, cols, dirtyLines });
+}
+
 async function runBlessed(
   config: ScenarioConfig,
   rows: number,
@@ -291,7 +301,7 @@ export const terminalFrameFillScenario: Scenario = {
     { rows: 40, cols: 120, dirtyLines: 1 },
     { rows: 40, cols: 120, dirtyLines: 40 },
   ],
-  frameworks: ["rezi-native", "ink-compat", "ink", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig, params): Promise<BenchMetrics> {
     const { rows, cols, dirtyLines } = params as { rows: number; cols: number; dirtyLines: number };
@@ -299,10 +309,10 @@ export const terminalFrameFillScenario: Scenario = {
     switch (framework) {
       case "rezi-native":
         return runRezi(config, rows, cols, dirtyLines);
-      case "ink-compat":
-        return runInkCompat(config, rows, cols, dirtyLines);
       case "ink":
         return runInk(config, rows, cols, dirtyLines);
+      case "opentui":
+        return runOpenTui(config, rows, cols, dirtyLines);
       case "blessed":
         return runBlessed(config, rows, cols, dirtyLines);
       case "ratatui":

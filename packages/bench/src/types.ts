@@ -2,7 +2,7 @@
  * Benchmark suite types.
  *
  * Covers timing, memory, CPU, and stability metrics for comparing
- * Rezi native, ink-compat, Ink, and terminal-kit rendering pipelines.
+ * Rezi native, Ink, OpenTUI, and other terminal rendering pipelines.
  */
 
 // ── Metric Primitives ──────────────────────────────────────────────
@@ -91,14 +91,21 @@ export interface BenchMetrics {
   framesProduced: number;
   /** Total bytes produced (drawlist or ANSI) */
   bytesProduced: number;
+  /**
+   * PTY bytes observed by the parent process for this run (if measured).
+   * Useful when framework-local byte counters are unavailable.
+   */
+  ptyBytesObserved: number | null;
 }
 
 // ── Result Envelope ────────────────────────────────────────────────
 
 export type Framework =
   | "ink"
+  /** Deprecated: kept for historical result compatibility; not part of active suite. */
   | "ink-compat"
   | "rezi-native"
+  | "opentui"
   | "terminal-kit"
   | "blessed"
   | "ratatui";
@@ -108,6 +115,8 @@ export interface BenchResult {
   framework: Framework;
   params: Record<string, number | string>;
   metrics: BenchMetrics;
+  /** 0-based replicate index for this scenario/framework/params run. */
+  replicate: number;
   timestamp: string;
   nodeVersion: string;
   platform: string;
@@ -124,6 +133,11 @@ export interface BenchMeta {
   cpuModel: string;
   cpuCores: number;
   memoryTotalMb: number;
+  bunVersion: string | null;
+  rustcVersion: string | null;
+  cargoVersion: string | null;
+  cpuGovernor: string | null;
+  isWsl: boolean;
 }
 
 export interface BenchInvocation {
@@ -134,6 +148,12 @@ export interface BenchInvocation {
   warmupOverride: number | null;
   quick: boolean;
   ioMode: "stub" | "pty";
+  replicates: number;
+  discardFirstReplicate: boolean;
+  shuffleFrameworkOrder: boolean;
+  shuffleSeed: string;
+  envCheck: "off" | "warn" | "strict";
+  cpuAffinity: string | null;
 }
 
 export interface BenchRun {

@@ -201,7 +201,7 @@ export const scrollStressScenario: Scenario = {
   description: "Non-virtualized list: full list render with moving active row",
   defaultConfig: { warmup: 10, iterations: 50 },
   paramSets: [{ items: 2000 }],
-  frameworks: ["rezi-native", "ink-compat", "ink"],
+  frameworks: ["rezi-native", "ink"],
 
   async run(framework: Framework, config: ScenarioConfig, params) {
     const { items } = params as { items: number };
@@ -209,8 +209,6 @@ export const scrollStressScenario: Scenario = {
     switch (framework) {
       case "rezi-native":
         return runRezi(config, items);
-      case "ink-compat":
-        return runInkCompat(config, items);
       case "ink":
         return runInk(config, items);
       default:

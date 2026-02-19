@@ -442,15 +442,13 @@ export const contentUpdateScenario: Scenario = {
   description: "Partial screen update: move selection in a 500-row list (measures diff efficiency)",
   defaultConfig: { warmup: 50, iterations: 500 },
   paramSets: [{}],
-  frameworks: ["rezi-native", "ink-compat", "ink", "terminal-kit", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "terminal-kit", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig) {
     tryGc();
     switch (framework) {
       case "rezi-native":
         return runRezi(config);
-      case "ink-compat":
-        return runInkCompat(config);
       case "ink":
         return runInk(config);
       case "terminal-kit":
@@ -459,6 +457,8 @@ export const contentUpdateScenario: Scenario = {
         return runBlessed(config);
       case "ratatui":
         return runRatatui(config);
+      default:
+        throw new Error(`content-update: unsupported framework "${framework}"`);
     }
   },
 };

@@ -1,11 +1,11 @@
 import { spawn, spawnSync } from "node:child_process";
-import { constants, accessSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { constants, accessSync, readFileSync, unlinkSync } from "node:fs";
 import * as os from "node:os";
 import { getBenchIoMode } from "../io.js";
 import { computeStats } from "../measure.js";
 import type { BenchMetrics, MemorySnapshot } from "../types.js";
 
-type RatatuiResultData = Readonly<{
+type OpenTuiResultData = Readonly<{
   samplesMs: readonly number[];
   totalWallMs: number;
   cpuUserMs: number;
@@ -13,27 +13,32 @@ type RatatuiResultData = Readonly<{
   rssBeforeKb: number;
   rssAfterKb: number;
   rssPeakKb: number;
+  heapBeforeKb: number;
+  heapAfterKb: number;
+  heapPeakKb: number;
   bytesWritten: number;
   frames: number;
 }>;
 
-type RatatuiResultFile =
-  | Readonly<{ ok: true; data: RatatuiResultData }>
+type OpenTuiResultFile =
+  | Readonly<{ ok: true; data: OpenTuiResultData }>
   | Readonly<{ ok: false; error: string }>;
 
-function resolveRatatuiBenchBinary(): string {
-  const env = process.env as Readonly<{ REZI_RATATUI_BENCH_BIN?: string }>;
-  const candidate =
-    env.REZI_RATATUI_BENCH_BIN ??
-    `${process.cwd()}/benchmarks/native/ratatui-bench/target/release/ratatui-bench`;
-  accessSync(candidate, constants.X_OK);
+function resolveOpenTuiRunnerScript(): string {
+  const candidate = `${process.cwd()}/packages/bench/opentui-bench/run.ts`;
+  accessSync(candidate, constants.R_OK);
   return candidate;
 }
 
-function memWithRss(rssKb: number): MemorySnapshot {
+function resolveBunBin(): string {
+  const env = process.env as Readonly<{ REZI_BUN_BIN?: string }>;
+  return env.REZI_BUN_BIN ?? "bun";
+}
+
+function memWithRssHeap(rssKb: number, heapUsedKb: number): MemorySnapshot {
   return {
     rssKb,
-    heapUsedKb: null,
+    heapUsedKb,
     heapTotalKb: null,
     externalKb: null,
     arrayBuffersKb: null,
@@ -57,16 +62,43 @@ function withAffinity(
   return { file: "taskset", args: ["-c", affinity, file, ...args] };
 }
 
-export async function runRatatuiScenario(
+export function checkOpenTui(): boolean {
+  try {
+    resolveOpenTuiRunnerScript();
+  } catch {
+    return false;
+  }
+  try {
+    const bunBin = resolveBunBin();
+    const versionProbe = spawnSync(bunBin, ["--version"], { stdio: "ignore" });
+    if ((versionProbe.status ?? 1) !== 0 || versionProbe.error) return false;
+    const importProbe = spawnSync(
+      bunBin,
+      ["-e", "import '@opentui/core'; import '@opentui/react';"],
+      { cwd: `${process.cwd()}/packages/bench`, stdio: "ignore" },
+    );
+    return (importProbe.status ?? 1) === 0 && !importProbe.error;
+  } catch {
+    return false;
+  }
+}
+
+export async function runOpenTuiScenario(
   scenario: string,
   config: Readonly<{ warmup: number; iterations: number }>,
   params: Record<string, number | string>,
 ): Promise<BenchMetrics> {
-  const bin = resolveRatatuiBenchBinary();
   const mode = getBenchIoMode() === "terminal" ? "pty" : "stub";
-  const resultPath = `${os.tmpdir()}/rezi-ratatui-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.json`;
+  if (mode !== "pty") {
+    throw new Error("OpenTUI benchmarks currently require PTY mode");
+  }
+
+  const bunBin = resolveBunBin();
+  const runnerScript = resolveOpenTuiRunnerScript();
+  const resultPath = `${os.tmpdir()}/rezi-opentui-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.json`;
 
   const args: string[] = [
+    runnerScript,
     "--scenario",
     scenario,
     "--warmup",
@@ -82,36 +114,40 @@ export async function runRatatuiScenario(
     args.push(`--${k}`, String(v));
   }
 
-  // Avoid any stdout/stderr JSON. The native bench writes results to a file.
-  const stdio: ("ignore" | "inherit")[] =
-    mode === "pty" ? ["ignore", "inherit", "inherit"] : ["ignore", "ignore", "inherit"];
-
   await new Promise<void>((resolve, reject) => {
-    const command = withAffinity(bin, args);
-    const child = spawn(command.file, command.args, { stdio });
+    const command = withAffinity(bunBin, args);
+    const child = spawn(command.file, command.args, {
+      stdio: ["ignore", "inherit", "inherit"],
+      env: { ...process.env },
+    });
     child.on("error", (err) => reject(err));
     child.on("exit", (code, signal) => {
       if (code === 0) resolve();
-      else
+      else {
         reject(
           new Error(
-            `ratatui bench failed (exit=${String(code ?? "?")}, signal=${String(signal ?? "")})`,
+            `opentui bench failed (exit=${String(code ?? "?")}, signal=${String(signal ?? "")})`,
           ),
         );
+      }
     });
   });
 
   try {
-    const parsed = JSON.parse(readFileSync(resultPath, "utf-8")) as RatatuiResultFile;
+    const parsed = JSON.parse(readFileSync(resultPath, "utf-8")) as OpenTuiResultFile;
     if (!("ok" in parsed) || parsed.ok !== true) {
       throw new Error("ok" in parsed ? parsed.error : "invalid result payload");
     }
 
     const d = parsed.data;
     const timing = computeStats(d.samplesMs);
-    const memBefore = memWithRss(d.rssBeforeKb);
-    const memAfter = memWithRss(d.rssAfterKb);
-    const memPeak = memWithRss(d.rssPeakKb);
+    const memBefore = memWithRssHeap(d.rssBeforeKb, d.heapBeforeKb);
+    const memAfter = memWithRssHeap(d.rssAfterKb, d.heapAfterKb);
+    const memPeak = memWithRssHeap(d.rssPeakKb, d.heapPeakKb);
+    const heapUsedGrowthKb =
+      memAfter.heapUsedKb === null || memBefore.heapUsedKb === null
+        ? null
+        : memAfter.heapUsedKb - memBefore.heapUsedKb;
 
     return {
       timing,
@@ -119,7 +155,7 @@ export async function runRatatuiScenario(
       memAfter,
       memPeak,
       rssGrowthKb: memAfter.rssKb - memBefore.rssKb,
-      heapUsedGrowthKb: null,
+      heapUsedGrowthKb,
       rssSlopeKbPerIter: null,
       heapUsedSlopeKbPerIter: null,
       memStable: null,
@@ -138,23 +174,4 @@ export async function runRatatuiScenario(
       // ignore
     }
   }
-}
-
-// Convenience helper for local development: emit a stub result file for schema checks.
-export function writeRatatuiSchemaStub(path: string): void {
-  const stub: RatatuiResultFile = {
-    ok: true,
-    data: {
-      samplesMs: [1, 1, 1],
-      totalWallMs: 3,
-      cpuUserMs: 3,
-      cpuSysMs: 0,
-      rssBeforeKb: 0,
-      rssAfterKb: 0,
-      rssPeakKb: 0,
-      bytesWritten: 0,
-      frames: 3,
-    },
-  };
-  writeFileSync(path, JSON.stringify(stub, null, 2), "utf-8");
 }
