@@ -118,7 +118,11 @@ Using `auto` to size columns to their content:
 ```ts
 ui.grid({ columns: "auto 1fr auto", gap: 1 }, [
   ui.text("Label:"),
-  ui.input("name-input", { value: state.name, onChange: (v) => app.update({ name: v }) }),
+  ui.input({
+    id: "name-input",
+    value: state.name,
+    onInput: (value) => app.update((s) => ({ ...s, name: value })),
+  }),
   ui.button("save", "Save"),
 ])
 ```
