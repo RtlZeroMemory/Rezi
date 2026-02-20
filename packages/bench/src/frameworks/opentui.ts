@@ -1,10 +1,10 @@
 import { spawn, spawnSync } from "node:child_process";
 import { constants, accessSync, readFileSync, unlinkSync } from "node:fs";
 import * as os from "node:os";
-import { runBubbleTeaScenario } from "./bubbletea.js";
 import { getBenchIoMode } from "../io.js";
 import { computeStats } from "../measure.js";
 import type { BenchMetrics, MemorySnapshot } from "../types.js";
+import { runBubbleTeaScenario } from "./bubbletea.js";
 
 export type OpenTuiDriver = "react" | "core";
 type OpenTuiProvider = "opentui" | "bubbletea";
@@ -93,11 +93,10 @@ export function checkOpenTui(driver: OpenTuiDriver = "react"): boolean {
       driver === "core"
         ? "import '@opentui/core';"
         : "import '@opentui/core'; import '@opentui/react';";
-    const importProbe = spawnSync(
-      bunBin,
-      ["-e", importStmt],
-      { cwd: `${process.cwd()}/packages/bench`, stdio: "ignore" },
-    );
+    const importProbe = spawnSync(bunBin, ["-e", importStmt], {
+      cwd: `${process.cwd()}/packages/bench`,
+      stdio: "ignore",
+    });
     return (importProbe.status ?? 1) === 0 && !importProbe.error;
   } catch {
     return false;

@@ -404,18 +404,22 @@ function scrollStressLines(items: number, active: number, tick: number, cols: nu
   return lines;
 }
 
-function virtualListLines(totalItems: number, viewport: number, tick: number, cols: number): string[] {
+function virtualListLines(
+  totalItems: number,
+  viewport: number,
+  tick: number,
+  cols: number,
+): string[] {
   const lines: string[] = [];
   const offset = safeMod(tick, totalItems - viewport);
   const end = Math.min(totalItems, offset + viewport);
   lines.push(clipPad("Virtual list", cols));
-  lines.push(clipPad(`total=${totalItems} viewport=${viewport} offset=${offset} tick=${tick}`, cols));
+  lines.push(
+    clipPad(`total=${totalItems} viewport=${viewport} offset=${offset} tick=${tick}`, cols),
+  );
   for (let i = offset; i < end; i++) {
     lines.push(
-      clipPad(
-        `${String(i).padStart(6, " ")} • Item ${i} v=${(tick + i * 97) % 1000}`,
-        cols,
-      ),
+      clipPad(`${String(i).padStart(6, " ")} • Item ${i} v=${(tick + i * 97) % 1000}`, cols),
     );
   }
   return lines;
@@ -426,10 +430,7 @@ function tablesLines(rows: number, cols: number, tick: number, termCols: number)
   lines.push(clipPad("Table update", termCols));
   lines.push(clipPad(`rows=${rows} cols=${cols} tick=${tick}`, termCols));
   lines.push(
-    clipPad(
-      ["row", ...Array.from({ length: cols }, (_, c) => `Col ${c}`)].join("  "),
-      termCols,
-    ),
+    clipPad(["row", ...Array.from({ length: cols }, (_, c) => `Col ${c}`)].join("  "), termCols),
   );
   for (let r = 0; r < rows; r++) {
     const cells: string[] = [];
@@ -468,7 +469,9 @@ function terminalVirtualListLines(
   const offset = safeMod(tick, totalItems - viewport);
   const end = Math.min(totalItems, offset + viewport);
   lines.push(clipPad("terminal-virtual-list", cols));
-  lines.push(clipPad(`total=${totalItems} viewport=${viewport} offset=${offset} tick=${tick}`, cols));
+  lines.push(
+    clipPad(`total=${totalItems} viewport=${viewport} offset=${offset} tick=${tick}`, cols),
+  );
   for (let i = offset; i < end; i++) {
     const active = i === offset + safeMod(tick, viewport);
     lines.push(
@@ -497,13 +500,23 @@ function scenarioLines(
     case "content-update":
       return contentUpdateLines(safeMod(tick, CONTENT_UPDATE_LIST_SIZE), cols);
     case "layout-stress":
-      return layoutStressLines(numberParam(params.rows, 40), numberParam(params.cols, 4), tick, cols);
+      return layoutStressLines(
+        numberParam(params.rows, 40),
+        numberParam(params.cols, 4),
+        tick,
+        cols,
+      );
     case "scroll-stress": {
       const items = numberParam(params.items, 2000);
       return scrollStressLines(items, safeMod(tick, items), tick, cols);
     }
     case "virtual-list":
-      return virtualListLines(numberParam(params.items, 100_000), numberParam(params.viewport, 40), tick, cols);
+      return virtualListLines(
+        numberParam(params.items, 100_000),
+        numberParam(params.viewport, 40),
+        tick,
+        cols,
+      );
     case "tables":
       return tablesLines(numberParam(params.rows, 100), numberParam(params.cols, 8), tick, cols);
     case "memory-profile":
@@ -571,7 +584,12 @@ function benchmarkTree(items: number, seed: number): ReactNode {
     "box",
     { flexDirection: "column", paddingX: 1, gap: 1 },
     createElement("text", null, `Benchmark: ${items} items (#${seed})`),
-    createElement("box", { flexDirection: "row", gap: 2 }, createElement("text", null, `Total: ${items}`), createElement("text", null, "Page 1")),
+    createElement(
+      "box",
+      { flexDirection: "row", gap: 2 },
+      createElement("text", null, `Total: ${items}`),
+      createElement("text", null, "Page 1"),
+    ),
     ...rows,
   );
 }
@@ -699,7 +717,11 @@ function virtualListTree(totalItems: number, viewport: number, tick: number): Re
     "box",
     { flexDirection: "column", paddingX: 1, gap: 1 },
     createElement("text", null, "Virtual list"),
-    createElement("text", null, `total=${totalItems} viewport=${viewport} offset=${offset} tick=${tick}`),
+    createElement(
+      "text",
+      null,
+      `total=${totalItems} viewport=${viewport} offset=${offset} tick=${tick}`,
+    ),
     ...rows,
   );
 }
@@ -769,7 +791,12 @@ function terminalRerenderTree(tick: number): ReactNode {
   );
 }
 
-function terminalFrameFillTree(rows: number, cols: number, dirtyLines: number, tick: number): ReactNode {
+function terminalFrameFillTree(
+  rows: number,
+  cols: number,
+  dirtyLines: number,
+  tick: number,
+): ReactNode {
   const lines: ReactNode[] = [];
   for (let r = 0; r < rows; r++) {
     const content = r < dirtyLines ? makeLineContent(r, tick, cols) : makeStaticLine(r, cols);
@@ -800,7 +827,11 @@ function terminalVirtualListTree(totalItems: number, viewport: number, tick: num
     "box",
     { flexDirection: "column", paddingX: 1, gap: 1 },
     createElement("text", null, "terminal-virtual-list"),
-    createElement("text", null, `total=${totalItems} viewport=${viewport} offset=${offset} tick=${tick}`),
+    createElement(
+      "text",
+      null,
+      `total=${totalItems} viewport=${viewport} offset=${offset} tick=${tick}`,
+    ),
     ...rows,
   );
 }
@@ -830,7 +861,11 @@ function scenarioTree(
       return scrollStressTree(items, safeMod(tick, items), tick);
     }
     case "virtual-list":
-      return virtualListTree(numberParam(params.items, 100_000), numberParam(params.viewport, 40), tick);
+      return virtualListTree(
+        numberParam(params.items, 100_000),
+        numberParam(params.viewport, 40),
+        tick,
+      );
     case "tables":
       return tablesTree(numberParam(params.rows, 100), numberParam(params.cols, 8), tick);
     case "memory-profile":
@@ -866,7 +901,10 @@ function scenarioTree(
   }
 }
 
-function scenarioViewportRows(scenario: string, params: Readonly<Record<string, number | string>>): number {
+function scenarioViewportRows(
+  scenario: string,
+  params: Readonly<Record<string, number | string>>,
+): number {
   switch (scenario) {
     case "startup":
       return Math.max(40, STARTUP_TREE_SIZE + 5);
@@ -1036,7 +1074,9 @@ async function runStartupBenchReact(args: CliArgs): Promise<BenchResultData> {
   const rows = scenarioViewportRows(args.scenario, args.params);
   const cols = scenarioViewportCols();
 
-  const runIteration = async (seed: number): Promise<Readonly<{ elapsedMs: number; bytes: number }>> => {
+  const runIteration = async (
+    seed: number,
+  ): Promise<Readonly<{ elapsedMs: number; bytes: number }>> => {
     const stdout = new MeasuringStdout();
     const { renderer, root } = await createRendererForBench(stdout, rows, cols);
 
@@ -1173,7 +1213,9 @@ async function runStartupBenchCore(args: CliArgs): Promise<BenchResultData> {
   const rows = scenarioViewportRows(args.scenario, args.params);
   const cols = scenarioViewportCols();
 
-  const runIteration = async (seed: number): Promise<Readonly<{ elapsedMs: number; bytes: number }>> => {
+  const runIteration = async (
+    seed: number,
+  ): Promise<Readonly<{ elapsedMs: number; bytes: number }>> => {
     const stdout = new MeasuringStdout();
     const renderer = await createCoreRendererForBench(stdout, rows, cols);
     const scene = createCoreScene(renderer, cols);

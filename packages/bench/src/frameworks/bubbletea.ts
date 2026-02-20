@@ -90,7 +90,9 @@ function ensureBuilt(): string {
     env: { ...process.env },
   });
   if ((built.status ?? 1) !== 0 || built.error) {
-    throw new Error(`bubbletea build failed (${built.error?.message ?? `exit=${built.status ?? 1}`})`);
+    throw new Error(
+      `bubbletea build failed (${built.error?.message ?? `exit=${built.status ?? 1}`})`,
+    );
   }
   cachedBuiltBinary = binary;
   return binary;

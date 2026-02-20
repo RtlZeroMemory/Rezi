@@ -210,7 +210,11 @@ async function runInk(config: ScenarioConfig, rows: number, cols: number): Promi
   }
 }
 
-async function runOpenTui(config: ScenarioConfig, rows: number, cols: number): Promise<BenchMetrics> {
+async function runOpenTui(
+  config: ScenarioConfig,
+  rows: number,
+  cols: number,
+): Promise<BenchMetrics> {
   return runOpenTuiScenario("layout-stress", config, { rows, cols });
 }
 
