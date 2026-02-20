@@ -59,6 +59,8 @@ import {
 import { PERF_ENABLED, perfMarkEnd, perfMarkStart, perfNow, perfRecord } from "../perf/perf.js";
 import type { EventTimeUnwrapState } from "../protocol/types.js";
 import { parseEventBatchV1 } from "../protocol/zrev_v1.js";
+import { type RouterIntegration, createRouterIntegration } from "../router/integration.js";
+import type { RouteDefinition } from "../router/types.js";
 import { defaultTheme } from "../theme/defaultTheme.js";
 import { coerceToLegacyTheme } from "../theme/interop.js";
 import type { Theme } from "../theme/theme.js";
@@ -287,6 +289,28 @@ function codepointToKeyCode(codepoint: number): number | null {
   return null;
 }
 
+type CreateAppBaseOptions = Readonly<{
+  backend: RuntimeBackend;
+  config?: AppConfig;
+  theme?: Theme | ThemeDefinition;
+}>;
+
+type CreateAppStateOptions<S> = CreateAppBaseOptions &
+  Readonly<{
+    initialState: S;
+    routes?: readonly RouteDefinition<S>[];
+    initialRoute?: string;
+    routeHistoryMaxDepth?: number;
+  }>;
+
+type CreateAppRoutesOnlyOptions = CreateAppBaseOptions &
+  Readonly<{
+    routes: readonly RouteDefinition<Record<string, never>>[];
+    initialRoute: string;
+    initialState?: Record<string, never>;
+    routeHistoryMaxDepth?: number;
+  }>;
+
 /**
  * Create a Rezi application instance.
  *
@@ -307,14 +331,9 @@ function codepointToKeyCode(codepoint: number): number | null {
  * await app.start();
  * ```
  */
-export function createApp<S>(
-  opts: Readonly<{
-    backend: RuntimeBackend;
-    initialState: S;
-    config?: AppConfig;
-    theme?: Theme | ThemeDefinition;
-  }>,
-): App<S> {
+export function createApp(opts: CreateAppRoutesOnlyOptions): App<Record<string, never>>;
+export function createApp<S>(opts: CreateAppStateOptions<S>): App<S>;
+export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnlyOptions): App<S> {
   const backend = opts.backend;
   const config = resolveAppConfig(opts.config);
 
@@ -357,11 +376,26 @@ export function createApp<S>(
 
   const sm = new AppStateMachine();
 
+  const routes = opts.routes as readonly RouteDefinition<S>[] | undefined;
+  if (routes !== undefined && routes.length === 0) {
+    invalidProps("routes must contain at least one route");
+  }
+  if (routes === undefined && opts.initialRoute !== undefined) {
+    invalidProps("initialRoute requires routes");
+  }
+  if (routes !== undefined && opts.initialRoute === undefined) {
+    invalidProps("initialRoute is required when routes are provided");
+  }
+  if (opts.routeHistoryMaxDepth !== undefined) {
+    requirePositiveInt("routeHistoryMaxDepth", opts.routeHistoryMaxDepth);
+  }
+
   let mode: Mode | null = null;
   let drawFn: DrawFn | null = null;
   let viewFn: ViewFn<S> | null = null;
 
-  let committedState: S = opts.initialState;
+  const hasInitialState = "initialState" in opts;
+  let committedState: S = hasInitialState ? (opts.initialState as S) : (Object.freeze({}) as S);
   const updates = new UpdateQueue<S>();
 
   const handlers: HandlerSlot[] = [];
@@ -480,6 +514,19 @@ export function createApp<S>(
     collectRuntimeBreadcrumbs: runtimeBreadcrumbsEnabled,
   });
 
+  let routeStateUpdater: ((updater: StateUpdater<S>) => void) | null = null;
+  let routerIntegration: RouterIntegration<S> | null = null;
+
+  if (routes !== undefined) {
+    mode = "widget";
+    viewFn = (state) => {
+      if (!routerIntegration || !routeStateUpdater) {
+        throw new ZrUiError("ZRUI_INVALID_STATE", "router integration is not initialized");
+      }
+      return routerIntegration.renderCurrentScreen(state, routeStateUpdater);
+    };
+  }
+
   /* --- Keybinding State --- */
   let keybindingState: KeybindingManagerState<KeyContext<S>> = createManagerState();
   let keybindingsEnabled = false;
@@ -597,6 +644,28 @@ export function createApp<S>(
       return;
     }
     enqueueFatal(code, detail);
+  }
+
+  function assertRouterMutationAllowed(method: string): void {
+    assertOperational(method);
+    if (inCommit) throwCode("ZRUI_REENTRANT_CALL", `${method}: called during commit`);
+    if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", `${method}: called during render`);
+  }
+
+  if (routes !== undefined) {
+    routerIntegration = createRouterIntegration<S>({
+      routes,
+      initialRoute: opts.initialRoute as string,
+      ...(opts.routeHistoryMaxDepth === undefined
+        ? {}
+        : { maxHistoryDepth: opts.routeHistoryMaxDepth }),
+      // Route transitions can swap the entire screen tree; force both commit
+      // and layout so id->rect indexes and focus metadata stay in sync.
+      requestRouteRender: () => markDirty(DIRTY_VIEW | DIRTY_LAYOUT),
+      captureFocusSnapshot: () => widgetRenderer.captureFocusSnapshot(),
+      restoreFocusSnapshot: (snapshot) => widgetRenderer.restoreFocusSnapshot(snapshot),
+      assertCanMutate: assertRouterMutationAllowed,
+    });
   }
 
   function emit(ev: UiEvent): void {
@@ -1187,6 +1256,12 @@ export function createApp<S>(
       assertOperational("view");
       sm.assertOneOf(["Created", "Stopped"], "view: must be Created or Stopped");
       assertNotReentrant("view");
+      if (routes !== undefined) {
+        throwCode(
+          "ZRUI_MODE_CONFLICT",
+          "view: routes are configured in createApp(); screen rendering is managed by router",
+        );
+      }
       if (mode === "raw") throwCode("ZRUI_MODE_CONFLICT", "view: draw mode already selected");
       mode = "widget";
       viewFn = fn;
@@ -1351,7 +1426,17 @@ export function createApp<S>(
     getMode(): string {
       return getMode(keybindingState);
     },
+
+    ...(routerIntegration ? { router: routerIntegration.router } : {}),
   };
+
+  routeStateUpdater = app.update;
+  if (routerIntegration) {
+    const routeKeybindings = routerIntegration.routeKeybindings;
+    if (Object.keys(routeKeybindings).length > 0) {
+      app.keys(routeKeybindings);
+    }
+  }
 
   Object.defineProperty(app, APP_INTERNAL_REQUEST_VIEW_LAYOUT_MARKER, {
     value: () => {

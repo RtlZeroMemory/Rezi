@@ -227,6 +227,20 @@ export type WidgetRoutingOutcome = Readonly<{
   action?: RoutedAction;
 }>;
 
+/**
+ * Focus snapshot used by app-level page routing for back-navigation restore.
+ */
+export type WidgetFocusSnapshot = Readonly<{
+  focusState: FocusManagerState;
+  focusList: readonly string[];
+  baseFocusList: readonly string[];
+  enabledById: ReadonlyMap<string, boolean>;
+  baseEnabledById: ReadonlyMap<string, boolean>;
+  pressableIds: ReadonlySet<string>;
+  traps: ReadonlyMap<string, CollectedTrap>;
+  zoneMetaById: ReadonlyMap<string, CollectedZone>;
+}>;
+
 /** Format thrown value for error message. */
 function describeThrown(v: unknown): string {
   if (v instanceof Error) return `${v.name}: ${v.message}`;
@@ -294,6 +308,17 @@ function rectEquals(a: Rect, b: Rect): boolean {
 
 function isV2Builder(builder: DrawlistBuilderV1 | DrawlistBuilderV2): builder is DrawlistBuilderV2 {
   return typeof (builder as DrawlistBuilderV2).setCursor === "function";
+}
+
+function cloneFocusManagerState(state: FocusManagerState): FocusManagerState {
+  return Object.freeze({
+    focusedId: state.focusedId,
+    activeZoneId: state.activeZoneId,
+    ...(state.pendingFocusedId === undefined ? {} : { pendingFocusedId: state.pendingFocusedId }),
+    zones: new Map(state.zones),
+    trapStack: Object.freeze([...state.trapStack]),
+    lastFocusedByZone: new Map(state.lastFocusedByZone),
+  });
 }
 
 type WidgetKind = RuntimeInstance["vnode"]["kind"];
@@ -670,6 +695,36 @@ export class WidgetRenderer<S> {
    */
   getFocusedId(): string | null {
     return this.focusState.focusedId;
+  }
+
+  /**
+   * Capture the current focus/routing metadata for app-level route restoration.
+   */
+  captureFocusSnapshot(): WidgetFocusSnapshot {
+    return Object.freeze({
+      focusState: cloneFocusManagerState(this.focusState),
+      focusList: Object.freeze([...this.focusList]),
+      baseFocusList: Object.freeze([...this.baseFocusList]),
+      enabledById: new Map(this.enabledById),
+      baseEnabledById: new Map(this.baseEnabledById),
+      pressableIds: new Set(this.pressableIds),
+      traps: new Map(this.traps),
+      zoneMetaById: new Map(this.zoneMetaById),
+    });
+  }
+
+  /**
+   * Restore a previously captured focus snapshot.
+   */
+  restoreFocusSnapshot(snapshot: WidgetFocusSnapshot): void {
+    this.focusState = cloneFocusManagerState(snapshot.focusState);
+    this.focusList = Object.freeze([...snapshot.focusList]);
+    this.baseFocusList = Object.freeze([...snapshot.baseFocusList]);
+    this.enabledById = new Map(snapshot.enabledById);
+    this.baseEnabledById = new Map(snapshot.baseEnabledById);
+    this.pressableIds = new Set(snapshot.pressableIds);
+    this.traps = new Map(snapshot.traps);
+    this.zoneMetaById = new Map(snapshot.zoneMetaById);
   }
 
   /**

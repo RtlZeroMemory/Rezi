@@ -274,6 +274,7 @@ export function createAppWithInspectorOverlay<S>(
     getMode(): string {
       return app.getMode();
     },
+    ...(app.router ? { router: app.router } : {}),
     inspectorOverlay: controller,
   };
 

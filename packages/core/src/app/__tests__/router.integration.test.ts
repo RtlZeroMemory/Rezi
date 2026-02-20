@@ -1,0 +1,322 @@
+import { assert, describe, test } from "@rezi-ui/testkit";
+import { ZrUiError } from "../../abi.js";
+import { ZR_KEY_DOWN, ZR_KEY_TAB, ZR_MOD_CTRL } from "../../keybindings/keyCodes.js";
+import { ui } from "../../widgets/ui.js";
+import { createApp } from "../createApp.js";
+import { encodeZrevBatchV1, flushMicrotasks, makeBackendBatch } from "./helpers.js";
+import { StubBackend } from "./stubBackend.js";
+
+async function bootWithResize(
+  backend: StubBackend,
+  app: Readonly<{ start: () => Promise<void> }>,
+): Promise<void> {
+  await app.start();
+  backend.pushBatch(
+    makeBackendBatch({
+      bytes: encodeZrevBatchV1({
+        events: [{ kind: "resize", timeMs: 1, cols: 100, rows: 30 }],
+      }),
+    }),
+  );
+  await flushMicrotasks(20);
+  backend.resolveNextFrame();
+  await flushMicrotasks(10);
+}
+
+describe("createApp routes integration", () => {
+  test("full lifecycle routing: initial route, keybinding navigation, push/back", async () => {
+    const backend = new StubBackend();
+    const rendered: string[] = [];
+
+    const app = createApp({
+      backend,
+      initialState: Object.freeze({ count: 0 }),
+      routes: [
+        {
+          id: "home",
+          title: "Home",
+          keybinding: "ctrl+1",
+          screen: () => {
+            rendered.push("home");
+            return ui.button({ id: "home-btn", label: "Home" });
+          },
+        },
+        {
+          id: "logs",
+          title: "Logs",
+          keybinding: "ctrl+2",
+          screen: () => {
+            rendered.push("logs");
+            return ui.button({ id: "logs-btn", label: "Logs" });
+          },
+        },
+        {
+          id: "settings",
+          title: "Settings",
+          keybinding: "ctrl+3",
+          screen: (params) => {
+            const pane = (params as Readonly<{ pane?: string }>).pane;
+            rendered.push(`settings:${pane ?? "none"}`);
+            return ui.button({ id: "settings-btn", label: "Settings" });
+          },
+        },
+      ],
+      initialRoute: "home",
+    });
+
+    assert.ok(app.router);
+
+    await bootWithResize(backend, app);
+
+    assert.equal(app.router?.currentRoute().id, "home");
+    assert.equal(rendered.includes("home"), true);
+
+    backend.pushBatch(
+      makeBackendBatch({
+        bytes: encodeZrevBatchV1({
+          events: [{ kind: "key", timeMs: 2, key: 50, mods: ZR_MOD_CTRL, action: "down" }],
+        }),
+      }),
+    );
+    await flushMicrotasks(20);
+
+    assert.equal(app.router?.currentRoute().id, "logs");
+    assert.equal(backend.requestedFrames.length, 2);
+
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+
+    app.router?.navigate("settings", Object.freeze({ pane: "network" }));
+    await flushMicrotasks(20);
+
+    assert.deepEqual(app.router?.currentRoute(), {
+      id: "settings",
+      params: Object.freeze({ pane: "network" }),
+    });
+
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+
+    app.router?.back();
+    await flushMicrotasks(20);
+
+    assert.equal(app.router?.currentRoute().id, "logs");
+    assert.equal(app.router?.canGoBack(), true);
+    assert.deepEqual(app.router?.history(), [
+      { id: "home", params: Object.freeze({}) },
+      { id: "logs", params: Object.freeze({}) },
+    ]);
+
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+
+    backend.pushBatch(
+      makeBackendBatch({
+        bytes: encodeZrevBatchV1({
+          events: [{ kind: "key", timeMs: 9, key: 56, mods: ZR_MOD_CTRL, action: "down" }],
+        }),
+      }),
+    );
+    await flushMicrotasks(10);
+
+    // No route bound to ctrl+8.
+    assert.equal(app.router?.currentRoute().id, "logs");
+
+    app.dispose();
+  });
+
+  test("route transitions recompute layout indexes", async () => {
+    const backend = new StubBackend();
+    let lastLayoutIds: readonly string[] = Object.freeze([]);
+
+    const app = createApp({
+      backend,
+      initialState: Object.freeze({}),
+      config: {
+        internal_onLayout: (snapshot) => {
+          lastLayoutIds = Object.freeze(Array.from(snapshot.idRects.keys()).sort());
+        },
+      },
+      routes: [
+        {
+          id: "home",
+          title: "Home",
+          keybinding: "ctrl+1",
+          screen: () =>
+            ui.column({ id: "home-layout", gap: 1 }, [
+              ui.button({ id: "home-btn", label: "Home" }),
+            ]),
+        },
+        {
+          id: "logs",
+          title: "Logs",
+          keybinding: "ctrl+2",
+          screen: () =>
+            ui.column({ id: "logs-layout", gap: 1 }, [
+              ui.button({ id: "logs-btn", label: "Logs" }),
+            ]),
+        },
+      ],
+      initialRoute: "home",
+    });
+
+    await bootWithResize(backend, app);
+
+    assert.equal(lastLayoutIds.includes("home-btn"), true);
+    assert.equal(lastLayoutIds.includes("logs-btn"), false);
+
+    backend.pushBatch(
+      makeBackendBatch({
+        bytes: encodeZrevBatchV1({
+          events: [{ kind: "key", timeMs: 2, key: 50, mods: ZR_MOD_CTRL, action: "down" }],
+        }),
+      }),
+    );
+    await flushMicrotasks(20);
+
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+
+    assert.equal(app.router?.currentRoute().id, "logs");
+    assert.equal(lastLayoutIds.includes("home-btn"), false);
+    assert.equal(lastLayoutIds.includes("logs-btn"), true);
+
+    app.dispose();
+  });
+
+  test("back() restores focus from previous route snapshot", async () => {
+    const backend = new StubBackend();
+    let sampledFocusedId: string | null = null;
+
+    const app = createApp({
+      backend,
+      initialState: Object.freeze({}),
+      routes: [
+        {
+          id: "home",
+          title: "Home",
+          screen: () =>
+            ui.focusZone({ id: "home-zone", navigation: "linear", wrapAround: true }, [
+              ui.button({ id: "home-1", label: "One" }),
+              ui.button({ id: "home-2", label: "Two" }),
+            ]),
+        },
+        {
+          id: "logs",
+          title: "Logs",
+          screen: () => ui.button({ id: "logs-1", label: "Logs" }),
+        },
+      ],
+      initialRoute: "home",
+    });
+
+    app.keys({
+      "ctrl+9": (ctx) => {
+        sampledFocusedId = ctx.focusedId;
+      },
+    });
+
+    await bootWithResize(backend, app);
+
+    backend.pushBatch(
+      makeBackendBatch({
+        bytes: encodeZrevBatchV1({
+          events: [
+            { kind: "key", timeMs: 10, key: ZR_KEY_TAB, action: "down" },
+            { kind: "key", timeMs: 11, key: ZR_KEY_DOWN, action: "down" },
+          ],
+        }),
+      }),
+    );
+    await flushMicrotasks(20);
+
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+
+    app.router?.navigate("logs");
+    await flushMicrotasks(20);
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+
+    app.router?.back();
+    await flushMicrotasks(20);
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+
+    backend.pushBatch(
+      makeBackendBatch({
+        bytes: encodeZrevBatchV1({
+          events: [{ kind: "key", timeMs: 20, key: 57, mods: ZR_MOD_CTRL, action: "down" }],
+        }),
+      }),
+    );
+    await flushMicrotasks(10);
+
+    assert.equal(sampledFocusedId, "home-2");
+
+    app.dispose();
+  });
+
+  test("router rejects unknown route ids", () => {
+    const backend = new StubBackend();
+    const app = createApp({
+      backend,
+      initialState: Object.freeze({}),
+      routes: [
+        {
+          id: "home",
+          screen: () => ui.text("Home"),
+        },
+      ],
+      initialRoute: "home",
+    });
+
+    assert.throws(
+      () => app.router?.navigate("missing"),
+      (err: unknown) => err instanceof ZrUiError && err.code === "ZRUI_INVALID_PROPS",
+    );
+  });
+
+  test("navigate during route render is rejected and surfaces as fatal", async () => {
+    const backend = new StubBackend();
+    const fatalCodes: string[] = [];
+
+    const app = createApp({
+      backend,
+      initialState: Object.freeze({}),
+      routes: [
+        {
+          id: "home",
+          screen: (_params, ctx) => {
+            ctx.router.navigate("logs");
+            return ui.text("Home");
+          },
+        },
+        {
+          id: "logs",
+          screen: () => ui.text("Logs"),
+        },
+      ],
+      initialRoute: "home",
+    });
+
+    app.onEvent((ev) => {
+      if (ev.kind === "fatal") {
+        fatalCodes.push(ev.code);
+      }
+    });
+
+    await app.start();
+
+    backend.pushBatch(
+      makeBackendBatch({
+        bytes: encodeZrevBatchV1({
+          events: [{ kind: "resize", timeMs: 1, cols: 80, rows: 24 }],
+        }),
+      }),
+    );
+    await flushMicrotasks(20);
+
+    assert.deepEqual(fatalCodes, ["ZRUI_USER_CODE_THROW"]);
+  });
+});

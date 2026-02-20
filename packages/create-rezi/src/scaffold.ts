@@ -2,7 +2,7 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export type TemplateKey = "dashboard" | "stress-test";
+export type TemplateKey = "dashboard" | "stress-test" | "cli-tool";
 
 export type TemplateDefinition = {
   key: TemplateKey;
@@ -34,6 +34,16 @@ export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
     ],
     dir: "stress-test",
   },
+  {
+    key: "cli-tool",
+    label: "Multi-Screen CLI Tool",
+    description: "Task-oriented multi-screen TUI with first-party page routing",
+    highlights: [
+      "home/logs/settings/detail screens with router history and focus restoration",
+      "global route keybindings plus breadcrumb + tabs helpers wired to router state",
+    ],
+    dir: "cli-tool",
+  },
 ] as const;
 
 const TEMPLATE_BY_KEY = new Map(TEMPLATE_DEFINITIONS.map((template) => [template.key, template]));
@@ -45,6 +55,9 @@ TEMPLATE_ALIASES.set("dash", "dashboard");
 TEMPLATE_ALIASES.set("stress", "stress-test");
 TEMPLATE_ALIASES.set("chaos", "stress-test");
 TEMPLATE_ALIASES.set("bench", "stress-test");
+TEMPLATE_ALIASES.set("cli", "cli-tool");
+TEMPLATE_ALIASES.set("tool", "cli-tool");
+TEMPLATE_ALIASES.set("multiscreen", "cli-tool");
 
 const PACKAGE_NAME_RE = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
 

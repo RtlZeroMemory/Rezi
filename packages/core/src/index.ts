@@ -807,6 +807,24 @@ export {
 export type { BindingMap, ModeBindingMap } from "./keybindings/index.js";
 
 // =============================================================================
+// Page Router
+// =============================================================================
+
+export {
+  defaultRouteHistoryDepth,
+  routerBreadcrumb,
+  routerTabs,
+} from "./router/index.js";
+export type {
+  RouteDefinition,
+  RouteLocation,
+  RouteParams,
+  RouteRenderContext,
+  RouterApi,
+  RouterStateSnapshot,
+} from "./router/index.js";
+
+// =============================================================================
 // App Types
 // =============================================================================
 
@@ -814,6 +832,7 @@ import type { DrawApi } from "./drawApi.js";
 import type { UiEvent } from "./events.js";
 import type { BindingMap, KeyContext, ModeBindingMap } from "./keybindings/index.js";
 import type { Rect } from "./layout/types.js";
+import type { RouterApi } from "./router/types.js";
 import type { Theme } from "./theme/theme.js";
 import type { ThemeDefinition } from "./theme/tokens.js";
 import type { VNode } from "./widgets/types.js";
@@ -918,6 +937,11 @@ export interface App<S> {
    * @returns Current mode name (default: "default")
    */
   getMode(): string;
+
+  /**
+   * Page router API when `createApp({ routes, initialRoute })` is used.
+   */
+  readonly router?: RouterApi;
 }
 
 // =============================================================================

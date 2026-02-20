@@ -8,6 +8,13 @@
  * @see docs/widgets/index.md
  */
 
+import {
+  type RouterBreadcrumbProps,
+  type RouterTabsProps,
+  routerBreadcrumb as buildRouterBreadcrumb,
+  routerTabs as buildRouterTabs,
+} from "../router/helpers.js";
+import type { RouteDefinition, RouterApi } from "../router/types.js";
 import { createAccordionWidgetVNode } from "./accordion.js";
 import { createBreadcrumbWidgetVNode } from "./breadcrumb.js";
 import { createPaginationWidgetVNode } from "./pagination.js";
@@ -836,6 +843,28 @@ export const ui = {
    */
   tabs(props: TabsProps): VNode {
     return createTabsWidgetVNode(props);
+  },
+
+  /**
+   * Create breadcrumbs from current router history.
+   */
+  routerBreadcrumb<S>(
+    router: RouterApi,
+    routes: readonly RouteDefinition<S>[],
+    props: RouterBreadcrumbProps = {},
+  ): VNode {
+    return buildRouterBreadcrumb(router, routes, props);
+  },
+
+  /**
+   * Create tabs from registered routes with current route selection.
+   */
+  routerTabs<S>(
+    router: RouterApi,
+    routes: readonly RouteDefinition<S>[],
+    props: RouterTabsProps = {},
+  ): VNode {
+    return buildRouterTabs(router, routes, props);
   },
 
   /**

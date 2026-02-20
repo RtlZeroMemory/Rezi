@@ -207,6 +207,7 @@ User feedback: `spinner`, `skeleton`, `callout`, `errorDisplay`, `empty`
 - [Concepts](guide/concepts.md) - Understanding Rezi's architecture
 - [Ink to Rezi Migration](migration/ink-to-rezi.md) - Mental model mapping and migration recipes
 - [Lifecycle & Updates](guide/lifecycle-and-updates.md) - State management patterns
+- [Routing](guide/routing.md) - Page-level navigation and screen history
 - [Layout](guide/layout.md) - Spacing, alignment, and constraints
 - [Input & Focus](guide/input-and-focus.md) - Keyboard navigation and focus management
 - [Mouse Support](guide/mouse-support.md) - Click, scroll, and drag interactions

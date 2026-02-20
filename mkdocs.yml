@@ -107,10 +107,12 @@ nav:
   - Migration:
       - Ink to Rezi: migration/ink-to-rezi.md
   - Guides:
+      - Index: guide/index.md
       - Concepts: guide/concepts.md
       - Composition: guide/composition.md
       - Runtime & Layout: guide/runtime-and-layout.md
       - Lifecycle & Updates: guide/lifecycle-and-updates.md
+      - Routing: guide/routing.md
       - Layout: guide/layout.md
       - Input & Focus: guide/input-and-focus.md
       - Mouse Support: guide/mouse-support.md
