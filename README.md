@@ -63,6 +63,10 @@ A production-style terminal control console built entirely with Rezi.
 
 ![Rezi benchmark demo](Assets/REZIBENCHMARK.gif)
 
+### Image Rendering
+
+![Rezi benchmark demo](Assets/RENDERING.png)
+
 ---
 
 ## How It Works
