@@ -9,6 +9,7 @@ import type {
   TreeStateStore,
   VirtualListStateStore,
 } from "../../runtime/localState.js";
+import type { TerminalProfile } from "../../terminalProfile.js";
 import type { Theme } from "../../theme/theme.js";
 import type { CommandItem } from "../../widgets/types.js";
 
@@ -69,6 +70,8 @@ export type RenderToDrawlistParams = Readonly<{
   tick?: number | undefined;
   /** Optional app theme for themed widgets (e.g., divider). */
   theme?: Theme | undefined;
+  /** Optional terminal profile for capability-gated widget rendering decisions. */
+  terminalProfile?: TerminalProfile | undefined;
   /** Optional v2 cursor info for native cursor support */
   cursorInfo?: CursorInfo | undefined;
   /** Optional virtual list state store for virtualList widgets */

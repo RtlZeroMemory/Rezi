@@ -260,7 +260,7 @@ export function renderVNodeSimple(
         maxWidth?: unknown;
       };
       const variantStyle = textVariantToStyle(props.variant);
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style =
         variantStyle === undefined && ownStyle === undefined
           ? inheritedStyle
@@ -293,7 +293,7 @@ export function renderVNodeSimple(
       const props = vnode.props as { label?: unknown; disabled?: unknown; style?: unknown };
       const label = typeof props.label === "string" ? props.label : "";
       const disabled = props.disabled === true;
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       builder.pushClip(x, y, w, h);
       builder.drawText(
         x + 1,
@@ -311,7 +311,7 @@ export function renderVNodeSimple(
       const props = vnode.props as { value?: unknown; disabled?: unknown; style?: unknown };
       const value = typeof props.value === "string" ? props.value : "";
       const disabled = props.disabled === true;
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       builder.pushClip(x, y, w, h);
       builder.drawText(
         x + 1,
@@ -328,7 +328,7 @@ export function renderVNodeSimple(
     case "icon": {
       const props = vnode.props as { icon?: unknown; fallback?: unknown; style?: unknown };
       const iconPath = readString(props.icon) ?? "";
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(inheritedStyle, ownStyle);
       const glyph = resolveIconText(iconPath, props.fallback === true);
 
@@ -342,7 +342,7 @@ export function renderVNodeSimple(
       const props = vnode.props as { variant?: unknown; label?: unknown; style?: unknown };
       const variant = readSpinnerVariant(props.variant);
       const label = readString(props.label);
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(inheritedStyle, ownStyle);
       const frameStyle = mergeTextStyle(style, { fg: theme.colors.primary, bold: true });
       const frame = getSpinnerFrame(variant, tick);
@@ -376,7 +376,7 @@ export function renderVNodeSimple(
         if (text.length === 0) continue;
         segments.push({
           text,
-          style: mergeTextStyle(inheritedStyle, asTextStyle(span.style)),
+          style: mergeTextStyle(inheritedStyle, asTextStyle(span.style, theme)),
         });
       }
       if (segments.length === 0) break;
@@ -389,7 +389,7 @@ export function renderVNodeSimple(
     case "badge": {
       const props = vnode.props as { text?: unknown; variant?: unknown; style?: unknown };
       const text = readString(props.text) ?? "";
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const color = variantToThemeColor(theme, props.variant, "primary");
       const style = mergeTextStyle(
         mergeTextStyle(inheritedStyle, { fg: theme.colors.bg, bg: color, bold: true }),
@@ -410,7 +410,7 @@ export function renderVNodeSimple(
       const props = vnode.props as { keys?: unknown; separator?: unknown; style?: unknown };
       const keys = props.keys;
       const separator = readString(props.separator) ?? "+";
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(inheritedStyle, ownStyle);
       const keyStyle = mergeTextStyle(style, { bold: true });
       const mutedStyle = mergeTextStyle(keyStyle, { fg: theme.colors.muted });
@@ -446,7 +446,7 @@ export function renderVNodeSimple(
       const label = readString(props.label);
       const showLabel =
         props.showLabel === true || (props.showLabel !== false && label !== undefined);
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(inheritedStyle, ownStyle);
       const dotStyle = mergeTextStyle(style, {
         fg: statusToThemeColor(theme, props.status),
@@ -471,7 +471,7 @@ export function renderVNodeSimple(
       };
       const text = readString(props.text) ?? "";
       const removable = props.removable === true;
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const variantColor = variantToThemeColor(theme, props.variant, "secondary");
       const tagStyle = mergeTextStyle(
         mergeTextStyle(inheritedStyle, { fg: theme.colors.bg, bg: variantColor, bold: true }),
@@ -501,7 +501,7 @@ export function renderVNodeSimple(
       const value = clamp01(readNumber(props.value) ?? 0);
       const label = readString(props.label) ?? "";
       const showPercent = props.showPercent === true;
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(inheritedStyle, ownStyle);
       const variant =
         props.variant === "blocks" ? "blocks" : props.variant === "minimal" ? "minimal" : "bar";
@@ -521,7 +521,7 @@ export function renderVNodeSimple(
       const fillStyle = mergeTextStyle(style, { fg: theme.colors.primary, bold: true });
       const trackStyle = mergeTextStyle(
         mergeTextStyle(style, { fg: theme.colors.muted }),
-        asTextStyle(props.trackStyle),
+        asTextStyle(props.trackStyle, theme),
       );
 
       const segments: StyledSegment[] = [];
@@ -572,7 +572,7 @@ export function renderVNodeSimple(
       const spacing = resolveSpacingFromProps(props);
       const margin = resolveMarginFromProps(props);
       const gap = readIntNonNegative(props.gap, 0);
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(inheritedStyle, ownStyle);
       const stackX = x + margin.left;
       const stackY = y + margin.top;
@@ -802,7 +802,7 @@ export function renderVNodeSimple(
         typeof props.borderBottom === "boolean" ? props.borderBottom : defaultSide;
       const borderLeft = typeof props.borderLeft === "boolean" ? props.borderLeft : defaultSide;
       const title = typeof props.title === "string" ? props.title : undefined;
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(inheritedStyle, ownStyle);
       const boxX = x + margin.left;
       const boxY = y + margin.top;

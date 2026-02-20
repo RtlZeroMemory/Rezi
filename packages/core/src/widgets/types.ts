@@ -512,6 +512,10 @@ export type ImageProps = Readonly<{
   key?: string;
   /** Image bytes (PNG or RGBA payload). */
   src: Uint8Array;
+  /** Optional source width in pixels (recommended for raw RGBA inputs). */
+  sourceWidth?: number;
+  /** Optional source height in pixels (recommended for raw RGBA inputs). */
+  sourceHeight?: number;
   /** Width in terminal columns. */
   width: number;
   /** Height in terminal rows. */

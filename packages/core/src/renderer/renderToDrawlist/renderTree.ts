@@ -8,6 +8,7 @@ import type {
   TreeStateStore,
   VirtualListStateStore,
 } from "../../runtime/localState.js";
+import type { TerminalProfile } from "../../terminalProfile.js";
 import { mergeThemeOverride } from "../../theme/interop.js";
 import type { Theme } from "../../theme/theme.js";
 import type { CommandItem } from "../../widgets/types.js";
@@ -86,6 +87,7 @@ export function renderTree(
   diffRenderCacheById: ReadonlyMap<string, DiffRenderCache> | undefined,
   codeEditorRenderCacheById: ReadonlyMap<string, CodeEditorRenderCache> | undefined,
   opts: RenderTreeOptions | undefined = undefined,
+  terminalProfile: TerminalProfile | undefined = undefined,
 ): ResolvedCursor | null {
   let resolvedCursor: ResolvedCursor | null = null;
   const damageRect = opts?.damageRect;
@@ -241,6 +243,7 @@ export function renderTree(
           clipStack,
           currentClip,
           cursorInfo,
+          terminalProfile,
         );
         if (nextCursor) resolvedCursor = nextCursor;
         break;

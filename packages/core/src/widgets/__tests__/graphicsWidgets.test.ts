@@ -5,6 +5,7 @@ import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
 import { createInstanceIdAllocator } from "../../runtime/instance.js";
+import { DEFAULT_TERMINAL_PROFILE, type TerminalProfile } from "../../terminalProfile.js";
 import { hashImageBytes } from "../image.js";
 import { ui } from "../ui.js";
 
@@ -95,10 +96,17 @@ function makePngHeader(width: number, height: number): Uint8Array {
   return out;
 }
 
+const ITERM2_TERMINAL_PROFILE: TerminalProfile = Object.freeze({
+  ...DEFAULT_TERMINAL_PROFILE,
+  id: "iterm2",
+  supportsIterm2Images: true,
+});
+
 function renderBytes(
   vnode: VNode,
   createBuilder: () => DrawlistBuilderV1,
   viewport: Readonly<{ cols: number; rows: number }> = { cols: 80, rows: 30 },
+  terminalProfile: TerminalProfile | undefined = undefined,
 ): Uint8Array {
   const allocator = createInstanceIdAllocator(1);
   const committed = commitVNodeTree(null, vnode, { allocator });
@@ -121,6 +129,7 @@ function renderBytes(
     viewport,
     focusState: Object.freeze({ focusedId: null }),
     builder,
+    terminalProfile,
   });
   const built = builder.build();
   assert.equal(built.ok, true);
@@ -210,6 +219,8 @@ describe("graphics widgets", () => {
     const bytes = renderBytes(
       ui.image({ src: pngLike, width: 10, height: 4, fit: "contain" }),
       () => createDrawlistBuilderV3(),
+      { cols: 80, rows: 30 },
+      ITERM2_TERMINAL_PROFILE,
     );
     const payloadOff = findCommandPayload(bytes, 9);
     assert.equal(payloadOff !== null, true);
@@ -219,8 +230,21 @@ describe("graphics widgets", () => {
     }
   });
 
+  test("image PNG auto degrades without iTerm2 profile support", () => {
+    const pngLike = makePngHeader(2, 1);
+    const bytes = renderBytes(
+      ui.image({ src: pngLike, width: 10, height: 4, fit: "contain", alt: "Logo" }),
+      () => createDrawlistBuilderV3(),
+    );
+    assert.equal(parseOpcodes(bytes).includes(9), false);
+    assert.equal(
+      parseStrings(bytes).some((value) => value.includes("Logo")),
+      true,
+    );
+  });
+
   test("image forwards protocol/fit/z-layer/imageId fields to DRAW_IMAGE", () => {
-    const src = makePngHeader(2, 1);
+    const src = new Uint8Array(10 * 4 * 4).fill(255);
     const bytes = renderBytes(
       ui.image({
         src,
@@ -236,7 +260,7 @@ describe("graphics widgets", () => {
     const payloadOff = findCommandPayload(bytes, 9);
     assert.equal(payloadOff !== null, true);
     if (payloadOff === null) return;
-    assert.equal(u8(bytes, payloadOff + 24), 1);
+    assert.equal(u8(bytes, payloadOff + 24), 0);
     assert.equal(u8(bytes, payloadOff + 25), 2);
     assert.equal(i8(bytes, payloadOff + 26), -1);
     assert.equal(u8(bytes, payloadOff + 27), 2);
@@ -277,6 +301,46 @@ describe("graphics widgets", () => {
     assert.equal(u16(bytes, payloadOff + 8), 2);
     assert.equal(u16(bytes, payloadOff + 10), 2);
     assert.equal(u8(bytes, payloadOff + 20), 2);
+  });
+
+  test("image protocol=blitter honors explicit source dimensions", () => {
+    const src = new Uint8Array(96 * 48 * 4).fill(255);
+    const bytes = renderBytes(
+      ui.image({
+        src,
+        width: 58,
+        height: 8,
+        protocol: "blitter",
+        sourceWidth: 96,
+        sourceHeight: 48,
+      }),
+      () => createDrawlistBuilderV3(),
+    );
+    const payloadOff = findCommandPayload(bytes, 8);
+    assert.equal(payloadOff !== null, true);
+    if (payloadOff === null) return;
+    assert.equal(u16(bytes, payloadOff + 8), 96);
+    assert.equal(u16(bytes, payloadOff + 10), 48);
+  });
+
+  test("image rejects partial explicit source dimensions", () => {
+    const src = new Uint8Array(96 * 48 * 4).fill(255);
+    const bytes = renderBytes(
+      ui.image({
+        src,
+        width: 58,
+        height: 8,
+        protocol: "blitter",
+        sourceWidth: 96,
+      }),
+      () => createDrawlistBuilderV3(),
+    );
+    assert.equal(parseOpcodes(bytes).includes(8), false);
+    assert.equal(parseOpcodes(bytes).includes(9), false);
+    assert.equal(
+      parseStrings(bytes).some((value) => value.includes("sourceWidth/sourceHeight")),
+      true,
+    );
   });
 
   test("image protocol=blitter degrades PNG source to placeholder", () => {

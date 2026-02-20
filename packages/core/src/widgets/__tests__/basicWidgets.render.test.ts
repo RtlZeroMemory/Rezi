@@ -396,6 +396,33 @@ describe("basic widgets render to drawlist", () => {
     assert.equal((docs.attrs & ATTR_BOLD) !== 0, true);
   });
 
+  test("link underlineColor theme token resolves on v3", () => {
+    const theme = createTheme({
+      colors: {
+        "diagnostic.info": { r: 1, g: 2, b: 3 },
+      },
+    });
+    const bytes = renderBytesV3(
+      ui.link({
+        id: "docs-link",
+        url: "https://example.com",
+        label: "Docs",
+        style: {
+          underline: true,
+          underlineStyle: "double",
+          underlineColor: "diagnostic.info",
+        },
+      }),
+      { cols: 40, rows: 4 },
+      { theme },
+    );
+    const styles = parseDrawTextCommands(bytes);
+    const docs = styles.find((style) => style.text === "Docs");
+    assert.ok(docs);
+    if (!docs) return;
+    assert.equal(docs.underlineColorRgb, 0x010203);
+  });
+
   test("link encodes hyperlink refs on v3 and degrades on v1", () => {
     const v3 = renderBytesV3(ui.link("https://example.com", "Docs"), { cols: 40, rows: 4 });
     const v1 = renderBytes(ui.link("https://example.com", "Docs"), { cols: 40, rows: 4 });

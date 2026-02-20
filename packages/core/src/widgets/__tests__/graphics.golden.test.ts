@@ -4,6 +4,7 @@ import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
 import { createInstanceIdAllocator } from "../../runtime/instance.js";
+import { DEFAULT_TERMINAL_PROFILE, type TerminalProfile } from "../../terminalProfile.js";
 
 const OP_DRAW_TEXT = 3;
 const OP_DRAW_TEXT_RUN = 6;
@@ -81,9 +82,16 @@ function makePngHeader(width: number, height: number): Uint8Array {
   return out;
 }
 
+const ITERM2_TERMINAL_PROFILE: TerminalProfile = Object.freeze({
+  ...DEFAULT_TERMINAL_PROFILE,
+  id: "iterm2",
+  supportsIterm2Images: true,
+});
+
 function renderBytes(
   vnode: VNode,
   viewport: Readonly<{ cols: number; rows: number }> = { cols: 80, rows: 30 },
+  terminalProfile: TerminalProfile | undefined = undefined,
 ): Uint8Array {
   const allocator = createInstanceIdAllocator(1);
   const committed = commitVNodeTree(null, vnode, { allocator });
@@ -108,6 +116,7 @@ function renderBytes(
     viewport,
     focusState: Object.freeze({ focusedId: null }),
     builder,
+    terminalProfile,
   });
   const built = builder.build();
   assert.equal(built.ok, true);
@@ -175,6 +184,7 @@ describe("graphics/widgets/style (locked) - zrdl-v3 golden fixtures", () => {
         alt: "logo",
       }),
       { cols: 40, rows: 10 },
+      ITERM2_TERMINAL_PROFILE,
     );
     assertBytesEqual(actual, expected, "image_png_contain.bin");
     assert.equal(parseOpcodes(actual).includes(OP_DRAW_IMAGE), true);

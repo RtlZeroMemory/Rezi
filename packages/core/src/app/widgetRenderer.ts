@@ -106,6 +106,7 @@ import {
   type WidgetMetadataCollector,
   createWidgetMetadataCollector,
 } from "../runtime/widgetMeta.js";
+import { DEFAULT_TERMINAL_PROFILE, type TerminalProfile } from "../terminalProfile.js";
 import type { Theme } from "../theme/theme.js";
 import { deleteRange, insertText } from "../widgets/codeEditor.js";
 import { getHunkScrollPosition, navigateHunk } from "../widgets/diffViewer.js";
@@ -443,6 +444,7 @@ export class WidgetRenderer<S> {
   private layoutTree: LayoutTree | null = null;
   private renderTick = 0;
   private lastViewport: Viewport = Object.freeze({ cols: 0, rows: 0 });
+  private terminalProfile: TerminalProfile = DEFAULT_TERMINAL_PROFILE;
 
   /* --- Focus/Interaction State --- */
   private focusState: FocusManagerState = createFocusManagerState();
@@ -631,6 +633,8 @@ export class WidgetRenderer<S> {
       requestRender?: () => void;
       /** Called when composite widgets require a new view/commit pass. */
       requestView?: () => void;
+      /** Optional terminal capability profile for capability-gated widgets. */
+      terminalProfile?: TerminalProfile;
       /** Enable v2 cursor protocol for native cursor support */
       useV2Cursor?: boolean;
       /** Cursor shape for focused inputs (default: bar) */
@@ -648,6 +652,7 @@ export class WidgetRenderer<S> {
     this.collectRuntimeBreadcrumbs = opts.collectRuntimeBreadcrumbs === true;
     this.requestRender = opts.requestRender ?? (() => {});
     this.requestView = opts.requestView ?? (() => {});
+    this.terminalProfile = opts.terminalProfile ?? DEFAULT_TERMINAL_PROFILE;
 
     // Widget rendering is generated from validated layout/runtime data, so we
     // default builder param validation off here to reduce per-command overhead.
@@ -749,6 +754,10 @@ export class WidgetRenderer<S> {
    */
   getRectByIdIndex(): ReadonlyMap<string, Rect> {
     return this.rectById;
+  }
+
+  setTerminalProfile(next: TerminalProfile): void {
+    this.terminalProfile = next;
   }
 
   /**
@@ -3987,6 +3996,7 @@ export class WidgetRenderer<S> {
                 this.diffRenderCacheById,
                 this.codeEditorRenderCacheById,
                 { damageRect },
+                this.terminalProfile,
               );
               this.builder.popClip();
             }
@@ -4005,6 +4015,7 @@ export class WidgetRenderer<S> {
           builder: this.builder,
           tick,
           theme,
+          terminalProfile: this.terminalProfile,
           cursorInfo,
           virtualListStore: this.virtualListStore,
           tableStore: this.tableStore,

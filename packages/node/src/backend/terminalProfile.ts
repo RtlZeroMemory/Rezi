@@ -99,8 +99,8 @@ function detectTerminalHints(env: EnvMap): TerminalProfileHints {
   const itermOverride = envBool(env, "REZI_TERMINAL_SUPPORTS_ITERM2");
   const osc8Override = envBool(env, "REZI_TERMINAL_SUPPORTS_OSC8");
 
-  const supportsKittyGraphics = kittyOverride ?? (isKitty || isWezTerm || isGhostty);
-  const supportsSixel = sixelOverride ?? term.includes("sixel");
+  const supportsKittyGraphics = kittyOverride ?? (isKitty || isGhostty);
+  const supportsSixel = sixelOverride ?? (isWezTerm || term.includes("sixel"));
   const supportsIterm2Images = itermOverride ?? isIterm2;
   const supportsHyperlinks =
     osc8Override ?? (isKitty || isWezTerm || isGhostty || isIterm2 || isWindowsTerminal || isXterm);

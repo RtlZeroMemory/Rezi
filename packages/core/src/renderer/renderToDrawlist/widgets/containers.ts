@@ -506,7 +506,7 @@ export function renderContainerWidget(
         overflow?: unknown;
         style?: unknown;
       };
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = ownStyle ? mergeTextStyle(parentStyle, ownStyle) : parentStyle;
       if (ownStyle && shouldFillForStyleOverride(ownStyle)) {
         builder.fillRect(rect.x, rect.y, rect.w, rect.h, style);
@@ -580,7 +580,7 @@ export function renderContainerWidget(
       const borderLeft = typeof props.borderLeft === "boolean" ? props.borderLeft : defaultSide;
       const title = typeof props.title === "string" ? props.title : undefined;
       const titleAlign = readTitleAlign(props.titleAlign);
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       const shadowConfig = resolveBoxShadowConfig(props.shadow, theme);
       if (shadowConfig) {

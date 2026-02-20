@@ -79,6 +79,8 @@ export function renderToDrawlist(params: RenderToDrawlistParams): void {
     params.logsConsoleRenderCacheById,
     params.diffRenderCacheById,
     params.codeEditorRenderCacheById,
+    undefined,
+    params.terminalProfile,
   );
 
   /* v2 cursor protocol: emit SET_CURSOR for focused input */

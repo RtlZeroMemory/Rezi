@@ -54,3 +54,25 @@ test("terminalProfileFromNodeEnv is deterministic", () => {
   const second = terminalProfileFromNodeEnv(DEFAULT_TERMINAL_CAPS, env);
   assert.deepEqual(second, first);
 });
+
+test("terminalProfileFromNodeEnv does not assume kitty graphics for wezterm without override", () => {
+  const profile = terminalProfileFromNodeEnv(DEFAULT_TERMINAL_CAPS, {
+    TERM_PROGRAM: "wezterm",
+    WEZTERM_PANE: "1",
+  });
+  assert.equal(profile.id, "wezterm");
+  assert.equal(profile.supportsKittyGraphics, false);
+  assert.equal(profile.supportsSixel, true);
+  assert.equal(profile.supportsHyperlinks, true);
+});
+
+test("terminalProfileFromNodeEnv auto-enables sixel for wezterm", () => {
+  const profile = terminalProfileFromNodeEnv(DEFAULT_TERMINAL_CAPS, {
+    TERM_PROGRAM: "wezterm",
+    WEZTERM_PANE: "1",
+  });
+  assert.equal(profile.id, "wezterm");
+  assert.equal(profile.supportsSixel, true);
+  assert.equal(profile.supportsHyperlinks, true);
+  assert.equal(profile.supportsKittyGraphics, false);
+});

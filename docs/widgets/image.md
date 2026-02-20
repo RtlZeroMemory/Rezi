@@ -20,6 +20,8 @@ ui.image({
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `src` | `Uint8Array` | **required** | PNG bytes or raw RGBA bytes |
+| `sourceWidth` | `number` | - | Source pixel width (recommended for raw RGBA) |
+| `sourceHeight` | `number` | - | Source pixel height (recommended for raw RGBA) |
 | `width` | `number` | **required** | Width in terminal columns |
 | `height` | `number` | **required** | Height in terminal rows |
 | `fit` | `"fill" \| "contain" \| "cover"` | `"contain"` | Content fit mode |
@@ -33,6 +35,8 @@ ui.image({
 ## Notes
 
 - PNG is auto-detected by signature; non-PNG payloads are treated as RGBA bytes.
+- PNG payloads are routed through iTerm2 image protocol; kitty/sixel paths require RGBA.
+- For raw RGBA payloads, providing `sourceWidth` + `sourceHeight` avoids heuristic dimension inference.
 - Unsupported builders or invalid sources render a text placeholder (uses `alt` when present).
 - In Node/Bun, use `loadImage(path)` from `@rezi-ui/node` to read file paths into `Uint8Array`.
 

@@ -13,6 +13,7 @@ import {
 import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { FocusState } from "../../../runtime/focus.js";
+import type { TerminalProfile } from "../../../terminalProfile.js";
 import type { Theme } from "../../../theme/theme.js";
 import { resolveColor } from "../../../theme/theme.js";
 import { createCanvasDrawingSurface, resolveCanvasBlitter } from "../../../widgets/canvas.js";
@@ -22,6 +23,7 @@ import {
   normalizeHeatmapScale,
 } from "../../../widgets/heatmap.js";
 import {
+  type ImageBinaryFormat,
   analyzeImageSource,
   hashImageBytes,
   inferRgbaDimensions,
@@ -488,6 +490,39 @@ function readImageProtocol(
   }
 }
 
+function resolveProtocolForImageSource(
+  requested: "auto" | "kitty" | "sixel" | "iterm2" | "blitter",
+  format: ImageBinaryFormat,
+  terminalProfile: TerminalProfile | undefined,
+): Readonly<
+  | { ok: true; protocol: "auto" | "kitty" | "sixel" | "iterm2" | "blitter" }
+  | { ok: false; reason: string }
+> {
+  if (format !== "png") return Object.freeze({ ok: true, protocol: requested });
+  if (requested === "kitty" || requested === "sixel") {
+    return Object.freeze({
+      ok: false,
+      reason: "PNG source requires RGBA when using kitty/sixel",
+    });
+  }
+  if (requested === "auto") {
+    const supportsKitty = terminalProfile?.supportsKittyGraphics === true;
+    const supportsSixel = terminalProfile?.supportsSixel === true;
+    const supportsIterm2 = terminalProfile?.supportsIterm2Images === true;
+    if (supportsIterm2 && (supportsKitty || supportsSixel)) {
+      return Object.freeze({ ok: true, protocol: "iterm2" });
+    }
+    if (supportsIterm2) {
+      return Object.freeze({ ok: true, protocol: "auto" });
+    }
+    return Object.freeze({
+      ok: false,
+      reason: "PNG source requires iTerm2 image support (or switch to RGBA)",
+    });
+  }
+  return Object.freeze({ ok: true, protocol: requested });
+}
+
 function readZLayer(v: unknown): -1 | 0 | 1 {
   if (v === -1 || v === 1) return v;
   return 0;
@@ -556,6 +591,7 @@ export function renderBasicWidget(
   clipStack: (Readonly<Rect> | undefined)[],
   currentClip: Readonly<Rect> | undefined,
   cursorInfo: CursorInfo | undefined,
+  terminalProfile: TerminalProfile | undefined,
 ): ResolvedCursor | null {
   const vnode = node.vnode;
   let resolvedCursor: ResolvedCursor | null = null;
@@ -574,7 +610,7 @@ export function renderBasicWidget(
         terminalCursorPosition?: unknown;
       };
       const variantStyle = textVariantToStyle(props.variant);
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style =
         variantStyle === undefined && ownStyle === undefined
           ? parentStyle
@@ -714,7 +750,7 @@ export function renderBasicWidget(
           : measureTextCells(label) > availableLabelW
             ? truncateWithEllipsis(label, availableLabelW)
             : label;
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       if (displayLabel.length > 0) {
         builder.drawText(
           rect.x + px,
@@ -740,7 +776,7 @@ export function renderBasicWidget(
       const value = typeof props.value === "string" ? props.value : "";
       const disabled = props.disabled === true;
       const focused = id !== null && focusState.focusedId === id;
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(
         mergeTextStyle(parentStyle, ownStyle),
         getButtonLabelStyle({ focused, disabled }),
@@ -793,7 +829,7 @@ export function renderBasicWidget(
       const step = readNumber(props.step);
       const normalized = normalizeSliderState({ value, min, max, step });
 
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
 
@@ -1027,7 +1063,7 @@ export function renderBasicWidget(
         combinedText += text;
         segments.push({
           text,
-          style: mergeTextStyle(parentStyle, asTextStyle(span.style)),
+          style: mergeTextStyle(parentStyle, asTextStyle(span.style, theme)),
         });
       }
       if (segments.length === 0) break;
@@ -1055,7 +1091,7 @@ export function renderBasicWidget(
       if (!isVisibleRect(rect)) break;
       const props = vnode.props as { text?: unknown; variant?: unknown; style?: unknown };
       const text = readString(props.text) ?? "";
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const color = variantToThemeColor(theme, props.variant, "primary");
       const style = mergeTextStyle(
         mergeTextStyle(parentStyle, { fg: theme.colors.bg, bg: color, bold: true }),
@@ -1078,7 +1114,7 @@ export function renderBasicWidget(
       const props = vnode.props as { variant?: unknown; style?: unknown; label?: unknown };
       const variant = readSpinnerVariant(props.variant);
       const label = readString(props.label);
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
 
@@ -1098,7 +1134,7 @@ export function renderBasicWidget(
       if (!isVisibleRect(rect)) break;
       const props = vnode.props as { icon?: unknown; fallback?: unknown; style?: unknown };
       const iconPath = readString(props.icon) ?? "";
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
 
@@ -1116,7 +1152,7 @@ export function renderBasicWidget(
       const props = vnode.props as { keys?: unknown; separator?: unknown; style?: unknown };
       const keysProp = props.keys;
       const separator = readString(props.separator) ?? "+";
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
 
@@ -1156,7 +1192,7 @@ export function renderBasicWidget(
       const label = readString(props.label);
       const showLabel =
         props.showLabel === true || (props.showLabel !== false && label !== undefined);
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
 
@@ -1184,7 +1220,7 @@ export function renderBasicWidget(
       };
       const text = readString(props.text) ?? "";
       const removable = props.removable === true;
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const variantColor = variantToThemeColor(theme, props.variant, "secondary");
       const style = mergeTextStyle(
         mergeTextStyle(parentStyle, { fg: theme.colors.bg, bg: variantColor, bold: true }),
@@ -1216,7 +1252,7 @@ export function renderBasicWidget(
       const drawH = Math.max(0, Math.min(rect.h, targetH));
       if (drawW <= 0 || drawH <= 0) break;
 
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
       const skeletonStyle = mergeTextStyle(style, { fg: theme.colors.muted, dim: true });
@@ -1251,7 +1287,7 @@ export function renderBasicWidget(
       const value = clamp01(readNumber(props.value) ?? 0);
       const label = readString(props.label) ?? "";
       const showPercent = props.showPercent === true;
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
 
@@ -1269,7 +1305,7 @@ export function renderBasicWidget(
       const fillStyle = mergeTextStyle(style, { fg: theme.colors.primary, bold: true });
       const trackStyle = mergeTextStyle(
         mergeTextStyle(style, { fg: theme.colors.muted }),
-        asTextStyle(props.trackStyle),
+        asTextStyle(props.trackStyle, theme),
       );
       const segments: StyledSegment[] = [];
       if (labelText.length > 0) segments.push({ text: labelText, style });
@@ -1307,7 +1343,7 @@ export function renderBasicWidget(
       };
       const value = clamp01(readNumber(props.value) ?? 0);
       const label = readString(props.label) ?? "";
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
 
@@ -1366,7 +1402,7 @@ export function renderBasicWidget(
       const iconPath = readString(props.icon);
       const actionLabel = readActionLabel(props.action);
 
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
 
@@ -1429,7 +1465,7 @@ export function renderBasicWidget(
       const showStack = props.showStack === true;
       const showRetry = typeof props.onRetry === "function";
 
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
 
@@ -1479,7 +1515,7 @@ export function renderBasicWidget(
       const variant = props.variant;
       const title = readString(props.title);
       const message = readString(props.message) ?? "";
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
 
@@ -1550,7 +1586,7 @@ export function renderBasicWidget(
       if (url.length === 0) break;
       const label = readString(props.label);
       const text = linkLabel({ url, ...(label ? { label } : {}) });
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const baseLinkStyle = mergeTextStyle(parentStyle, {
         underline: true,
         fg: theme.colors.primary,
@@ -1614,6 +1650,8 @@ export function renderBasicWidget(
       if (!isVisibleRect(rect)) break;
       const props = vnode.props as {
         src?: unknown;
+        sourceWidth?: unknown;
+        sourceHeight?: unknown;
         fit?: unknown;
         protocol?: unknown;
         alt?: unknown;
@@ -1657,15 +1695,61 @@ export function renderBasicWidget(
       }
 
       const fit = normalizeImageFit(readImageFit(props.fit));
-      const protocol = normalizeImageProtocol(readImageProtocol(props.protocol));
+      const requestedProtocol = normalizeImageProtocol(readImageProtocol(props.protocol));
+      const resolvedProtocol = resolveProtocolForImageSource(
+        requestedProtocol,
+        analyzed.format,
+        terminalProfile,
+      );
+      if (!resolvedProtocol.ok) {
+        drawPlaceholderBox(
+          builder,
+          rect,
+          parentStyle,
+          "Image",
+          fallbackBody(resolvedProtocol.reason),
+        );
+        break;
+      }
+      const protocol = resolvedProtocol.protocol;
       const zLayer = readZLayer(props.zLayer);
       const imageId = readNonNegativeInt(props.imageId) ?? hashImageBytes(analyzed.bytes) ?? 0;
+      const explicitSourceWidth = readPositiveInt(props.sourceWidth);
+      const explicitSourceHeight = readPositiveInt(props.sourceHeight);
+      if ((explicitSourceWidth === undefined) !== (explicitSourceHeight === undefined)) {
+        drawPlaceholderBox(
+          builder,
+          rect,
+          parentStyle,
+          "Image",
+          fallbackBody("sourceWidth/sourceHeight must be provided together"),
+        );
+        break;
+      }
+      const explicitDims =
+        explicitSourceWidth !== undefined && explicitSourceHeight !== undefined
+          ? { width: explicitSourceWidth, height: explicitSourceHeight }
+          : null;
+      if (explicitDims && analyzed.format === "rgba") {
+        const expectedLen = explicitDims.width * explicitDims.height * 4;
+        if (!Number.isSafeInteger(expectedLen) || expectedLen !== analyzed.bytes.byteLength) {
+          drawPlaceholderBox(
+            builder,
+            rect,
+            parentStyle,
+            "Image",
+            fallbackBody("RGBA source size does not match sourceWidth/sourceHeight"),
+          );
+          break;
+        }
+      }
       const dims =
-        analyzed.format === "png"
+        explicitDims ??
+        (analyzed.format === "png"
           ? analyzed.width !== undefined && analyzed.height !== undefined
             ? { width: analyzed.width, height: analyzed.height }
             : null
-          : inferRgbaDimensions(analyzed.bytes.byteLength, rect.w, rect.h);
+          : inferRgbaDimensions(analyzed.bytes.byteLength, rect.w, rect.h));
       if (!dims) {
         drawPlaceholderBox(
           builder,
@@ -1972,9 +2056,10 @@ export function renderBasicWidget(
       }
       if (data.length === 0) break;
 
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
+      const sparkColor = ownStyle?.fg ?? theme.colors.info;
 
       const width = Math.max(1, Math.min(rect.w, readPositiveInt(props.width) ?? data.length));
       const autoMin = Math.min(...data);
@@ -1995,7 +2080,7 @@ export function renderBasicWidget(
           resolveColor(theme, color),
         );
         const range = max - min;
-        const color = rgbToHex(theme.colors.info);
+        const color = rgbToHex(sparkColor);
         if (sampledData.length <= 1) {
           const only = sampledData[0] ?? min;
           const y = Math.round(
@@ -2037,7 +2122,7 @@ export function renderBasicWidget(
         rect.x,
         rect.y,
         truncateToWidth(line, rect.w),
-        mergeTextStyle(style, { fg: theme.colors.info }),
+        mergeTextStyle(style, { fg: sparkColor }),
       );
       builder.popClip();
       break;
@@ -2063,7 +2148,7 @@ export function renderBasicWidget(
       const orientation = props.orientation === "vertical" ? "vertical" : "horizontal";
       const showValues = props.showValues !== false;
       const showLabels = props.showLabels !== false;
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
 
@@ -2215,7 +2300,7 @@ export function renderBasicWidget(
       if (values.length === 0) break;
 
       const variant = props.variant === "pills" ? "pills" : "bars";
-      const ownStyle = asTextStyle(props.style);
+      const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
 
