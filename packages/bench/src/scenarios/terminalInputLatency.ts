@@ -22,7 +22,7 @@ export const terminalInputLatencyScenario: Scenario = {
   description: "Synthetic input event -> frame latency (event-loop scheduled updates)",
   defaultConfig: { warmup: 100, iterations: 1000 },
   paramSets: [{ rows: 40, cols: 120 }],
-  frameworks: ["rezi-native", "ink", "opentui", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "bubbletea", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig, params): Promise<BenchMetrics> {
     tryGc();

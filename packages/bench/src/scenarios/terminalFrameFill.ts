@@ -301,7 +301,7 @@ export const terminalFrameFillScenario: Scenario = {
     { rows: 40, cols: 120, dirtyLines: 1 },
     { rows: 40, cols: 120, dirtyLines: 40 },
   ],
-  frameworks: ["rezi-native", "ink", "opentui", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "bubbletea", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig, params): Promise<BenchMetrics> {
     const { rows, cols, dirtyLines } = params as { rows: number; cols: number; dirtyLines: number };

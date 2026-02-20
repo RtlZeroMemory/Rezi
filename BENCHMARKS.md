@@ -1,84 +1,61 @@
 # Benchmarks
 
-Rezi benchmarks focus on cross-framework terminal rendering performance with reproducible methodology and confidence-aware reporting.
+This document tracks terminal rendering benchmark methodology and committed result artifacts.
 
 ## Scope
 
-Active competitor matrix:
-- **Rezi** (`@rezi-ui/core` + native Zireael engine)
-- **Ink** (React in terminal, Node.js)
-- **OpenTUI** (React in terminal, Bun)
-- **blessed** (imperative Node.js baseline)
-- **ratatui** (native Rust baseline)
+Frameworks currently covered:
+- Rezi native (`@rezi-ui/core` + `@rezi-ui/node`)
+- OpenTUI React driver (`@opentui/react` on top of `@opentui/core`, Bun runner)
+- OpenTUI core-imperative driver (`@opentui/core` renderables, Bun runner)
+- Bubble Tea (`github.com/charmbracelet/bubbletea`, Go runner)
+- Ink / blessed / ratatui in the terminal competitor suite
 
-`ink-compat` is no longer part of the active benchmark matrix.
+`ink-compat` remains deprecated and is not part of the active matrix.
 
-## Latest Dataset
+## Latest Artifacts
 
-Primary dataset:
+Rigorous terminal-suite dataset (multi-replicate, confidence-focused):
 - `benchmarks/2026-02-19-terminal-v3/results.json`
 - `benchmarks/2026-02-19-terminal-v3/results.md`
 
-Run metadata (from dataset header):
-- Date: **2026-02-19**
-- Mode: `--suite terminal --io pty`
-- Replicates: `7` with `--discard-first-replicate` (6 measured runs per scenario/framework)
-- Ordering: `--shuffle-framework-order --shuffle-seed 2026-02-19-terminal-v3`
-- Affinity: `--cpu-affinity 0-7`
-- Host: Linux (WSL2), Node `v20.19.5`, Bun `1.3.9`, Rust `1.93.0`
+Latest driver/framework matchup snapshots (quick mode, single replicate):
+- Rezi vs OpenTUI React: `benchmarks/2026-02-20-rezi-opentui-react-all-quick-v6/results.json`
+- Rezi vs OpenTUI Core: `benchmarks/2026-02-20-rezi-opentui-core-all-quick-v4/results.json`
+- Rezi vs OpenTUI Core vs Bubble Tea: `benchmarks/2026-02-20-rezi-opentui-bubbletea-core-all-quick-v3/results.json`
 
-## Scenario Set
+## Summary (2026-02-20 Quick Matchups)
 
-Terminal suite scenarios (all measured in PTY mode):
-- `terminal-rerender`
-- `terminal-frame-fill` (`dirtyLines=1`, `dirtyLines=40`)
-- `terminal-screen-transition`
-- `terminal-fps-stream`
-- `terminal-input-latency`
-- `terminal-memory-soak`
-- `terminal-virtual-list`
-- `terminal-table`
+These are directional quick runs (`--quick`, one replicate), not publication-grade confidence claims:
 
-## Results Summary (Rezi Positioning)
-
-From `benchmarks/2026-02-19-terminal-v3/results.md`:
-
-| Scenario | Rezi | Ink | OpenTUI | Rezi vs Ink | Rezi vs OpenTUI |
+| Matchup | Cases | Rezi Faster | Opponent Faster | Geomean (opponent/Rezi) | Implied Rezi Advantage |
 |---|---:|---:|---:|---:|---:|
-| `terminal-rerender` | 316µs | 17.54ms | 2.57ms | 55.5x faster | 8.1x faster |
-| `terminal-frame-fill` (`dirtyLines=1`) | 372µs | 21.96ms | 4.03ms | 59.1x faster | 10.8x faster |
-| `terminal-frame-fill` (`dirtyLines=40`) | 679µs | 22.08ms | 3.92ms | 32.5x faster | 5.8x faster |
-| `terminal-screen-transition` | 749µs | 22.14ms | 4.56ms | 29.6x faster | 6.1x faster |
-| `terminal-fps-stream` | 3.40ms | 24.96ms | 4.66ms | 7.3x faster | 1.4x faster |
-| `terminal-input-latency` | 659µs | 22.32ms | 4.24ms | 33.9x faster | 6.4x faster |
-| `terminal-memory-soak` | 641µs | 22.09ms | 4.62ms | 34.4x faster | 7.2x faster |
-| `terminal-virtual-list` | 681µs | 22.82ms | 35.73ms | 33.5x faster | 52.5x faster |
-| `terminal-table` | 400µs | 21.46ms | 3.82ms | 53.6x faster | 9.5x faster |
+| Rezi vs OpenTUI React | 21 | 21 | 0 | 0.096x | ~10.4x faster |
+| Rezi vs OpenTUI Core | 21 | 19 | 2 | 0.383x | ~2.6x faster |
+| Rezi vs Bubble Tea (3-way run) | 21 | 20 | 1 | 0.118x | ~8.5x faster |
 
-Aggregate positioning in this dataset:
-- Rezi is **7.3x to 59.1x faster than Ink**.
-- Rezi is **1.4x to 52.5x faster than OpenTUI**.
-- Rezi remains slower than native Rust (`ratatui`) in these microbenchmarks (**1.9x to 14.8x**, scenario-dependent).
+Case-level notes:
+- OpenTUI Core wins vs Rezi in:
+  - `layout-stress` (`~1.12x`)
+  - `terminal-fps-stream` (`~2.41x`)
+- Bubble Tea wins vs Rezi in:
+  - `scroll-stress` (`~1.67x`)
+- OpenTUI Core vs OpenTUI React (same scenario set):
+  - Core is faster in `21/21` cases
+  - Geomean core/react speedup: `~4.0x`
 
-Memory observations:
-- OpenTUI shows high memory pressure on larger churn workloads (for example `terminal-virtual-list` peak RSS around **3.45GB** in this run).
-- Rezi remains in low hundreds of MB peak RSS across this suite on this host.
+## Fairness Notes
 
-## Reliability / Precision
-
-This suite now reports precision-oriented signals directly:
-- **Replicate CV** per framework/scenario (run-to-run stability).
-- **95% CI of means** in each scenario table.
-- **Ratio confidence bands** in the relative comparison table (vs Rezi native).
-
-Interpretation rules used in report output:
-- Ratio rows are based on CI bands, not only single means.
-- Rows marked `(inconclusive)` indicate CI overlap with parity (`1x`).
-- In this dataset, Rezi vs Ink/OpenTUI rows are not CI-overlap cases.
+- OpenTUI now has explicit driver selection in the harness:
+  - `--opentui-driver react` (default)
+  - `--opentui-driver core` (imperative)
+- Bubble Tea is executed through `packages/bench/bubbletea-bench/main.go` using Bubble Tea's normal program loop and terminal renderer.
+- In these runs, Bubble Tea throughput clusters around ~120 fps-equivalent in many scenarios. This behavior is visible directly in per-scenario ops/s and should be considered when interpreting throughput-style loops.
+- PTY mode (`--io pty`) is required for OpenTUI and Bubble Tea measurements in this suite.
 
 ## Reproducing
 
-Build dependencies:
+### 1) Rigorous terminal suite (replicates + shuffle + affinity)
 
 ```bash
 npm ci
@@ -89,12 +66,8 @@ npx tsc -b packages/bench
 cd benchmarks/native/ratatui-bench
 cargo build --release
 cd -
-```
 
-Run the full terminal suite with the same methodology:
-
-```bash
-npm run bench -- \
+node --expose-gc packages/bench/dist/run.js \
   --suite terminal \
   --io pty \
   --replicates 7 \
@@ -106,25 +79,43 @@ npm run bench -- \
   --output-dir benchmarks/local-terminal-v3
 ```
 
-Optional tool path overrides:
+### 2) Rezi vs OpenTUI React (quick)
 
 ```bash
-REZI_BUN_BIN=/path/to/bun \
-REZI_RATATUI_BENCH_BIN=/path/to/ratatui-bench \
-npm run bench -- --suite terminal --io pty
+node --expose-gc packages/bench/dist/run.js \
+  --matchup rezi-opentui \
+  --opentui-driver react \
+  --io pty \
+  --quick \
+  --output-dir benchmarks/local-rezi-opentui-react-quick
 ```
 
-## Notes and Limits
+### 3) Rezi vs OpenTUI Core (quick)
 
-- PTY mode measures framework render + terminal write-path bytes, but not terminal emulator pixel paint.
-- Absolute timings are environment-specific; compare ratios and CI bands within the same dataset.
-- WSL/VM hosts can add jitter; native Linux/macOS bare-metal is preferable for release claims.
-- Rezi supports both Node and Bun runtimes; this suite runs Rezi and Ink on Node for direct comparability, while OpenTUI is executed by Bun via `packages/bench/opentui-bench/run.ts`.
-- These are rendering microbenchmarks, not end-to-end app throughput benchmarks.
+```bash
+node --expose-gc packages/bench/dist/run.js \
+  --matchup rezi-opentui \
+  --opentui-driver core \
+  --io pty \
+  --quick \
+  --output-dir benchmarks/local-rezi-opentui-core-quick
+```
 
-## Historical Artifacts
+### 4) Rezi vs OpenTUI Core vs Bubble Tea (quick)
 
-Older committed datasets are retained for trend history:
-- `benchmarks/2026-02-11-terminal/`
-- `benchmarks/2026-02-11-pty/`
-- `benchmarks/2026-02-11-full/`
+```bash
+# Bubble Tea runner currently requires Go >= 1.24
+REZI_GO_BIN=/path/to/go \
+node --expose-gc packages/bench/dist/run.js \
+  --matchup rezi-opentui-bubbletea \
+  --opentui-driver core \
+  --io pty \
+  --quick \
+  --output-dir benchmarks/local-rezi-opentui-bubbletea-core-quick
+```
+
+## Limits
+
+- PTY benchmarks include framework render + terminal write path, not terminal emulator pixel paint.
+- Absolute numbers are host-specific; compare within the same dataset and mode.
+- Quick-mode single-replicate outputs are useful for trend checks, not confidence-grade claims.

@@ -70,6 +70,7 @@ const FRAMEWORK_ORDER: Framework[] = [
   "rezi-native",
   "ink",
   "opentui",
+  "bubbletea",
   "terminal-kit",
   "blessed",
   "ratatui",
@@ -80,6 +81,7 @@ const FRAMEWORK_LABELS: Record<Framework, string> = {
   "ink-compat": "Ink-Compat (removed)",
   ink: "Ink",
   opentui: "OpenTUI",
+  bubbletea: "Bubble Tea (Go)",
   "terminal-kit": "terminal-kit",
   blessed: "blessed",
   ratatui: "Ratatui (Rust)",
@@ -290,7 +292,7 @@ export function toMarkdown(run: BenchRun): string {
     `> ${meta.timestamp} | Node ${meta.nodeVersion} | Bun ${meta.bunVersion ?? "n/a"} | rustc ${meta.rustcVersion ?? "n/a"} | cargo ${meta.cargoVersion ?? "n/a"} | ${meta.osType} ${meta.osRelease} | ${meta.platform} ${meta.arch} | ${meta.cpuModel} (${meta.cpuCores} cores) | RAM ${meta.memoryTotalMb}MB | governor=${meta.cpuGovernor ?? "n/a"} | wsl=${meta.isWsl ? "yes" : "no"}\n`,
   );
   lines.push(
-    `> Invocation: suite=${invocation.suite} scenario=${invocation.scenarioFilter ?? "all"} framework=${invocation.frameworkFilter ?? "all"} warmup=${invocation.warmupOverride ?? "default"} iterations=${invocation.iterationsOverride ?? "default"} quick=${invocation.quick ? "yes" : "no"} io=${invocation.ioMode} replicates=${invocation.replicates} discardFirstReplicate=${invocation.discardFirstReplicate ? "yes" : "no"} shuffleFrameworkOrder=${invocation.shuffleFrameworkOrder ? "yes" : "no"} shuffleSeed=${invocation.shuffleSeed} envCheck=${invocation.envCheck} cpuAffinity=${invocation.cpuAffinity ?? "none"}\n`,
+    `> Invocation: suite=${invocation.suite} matchup=${invocation.matchup} scenario=${invocation.scenarioFilter ?? "all"} framework=${invocation.frameworkFilter ?? "all"} warmup=${invocation.warmupOverride ?? "default"} iterations=${invocation.iterationsOverride ?? "default"} quick=${invocation.quick ? "yes" : "no"} io=${invocation.ioMode} opentuiDriver=${invocation.opentuiDriver} replicates=${invocation.replicates} discardFirstReplicate=${invocation.discardFirstReplicate ? "yes" : "no"} shuffleFrameworkOrder=${invocation.shuffleFrameworkOrder ? "yes" : "no"} shuffleSeed=${invocation.shuffleSeed} envCheck=${invocation.envCheck} cpuAffinity=${invocation.cpuAffinity ?? "none"}\n`,
   );
 
   const groups = aggregateResultsByScenario(results);

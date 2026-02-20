@@ -7,6 +7,7 @@
 
 import { type VNode, ui } from "@rezi-ui/core";
 import { NullReadable } from "../backends.js";
+import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { createBenchBackend, createInkStdout } from "../io.js";
 import { benchAsync, tryGc } from "../measure.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
@@ -228,12 +229,20 @@ async function runInk(config: ScenarioConfig, rows: number, cols: number): Promi
   }
 }
 
+async function runOpenTui(
+  config: ScenarioConfig,
+  rows: number,
+  cols: number,
+): Promise<BenchMetrics> {
+  return runOpenTuiScenario("tables", config, { rows, cols });
+}
+
 export const tableScenario: Scenario = {
   name: "tables",
   description: "Fixed-size table; updates a single changing cell per iteration",
   defaultConfig: { warmup: 50, iterations: 300 },
   paramSets: [{ rows: 100, cols: 8 }],
-  frameworks: ["rezi-native", "ink"],
+  frameworks: ["rezi-native", "ink", "opentui", "bubbletea"],
 
   async run(framework: Framework, config: ScenarioConfig, params) {
     const { rows, cols } = params as { rows: number; cols: number };
@@ -243,6 +252,8 @@ export const tableScenario: Scenario = {
         return runRezi(config, rows, cols);
       case "ink":
         return runInk(config, rows, cols);
+      case "opentui":
+        return runOpenTui(config, rows, cols);
       default:
         throw new Error(`tables: unsupported framework "${framework}"`);
     }

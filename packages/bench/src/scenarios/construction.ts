@@ -10,6 +10,7 @@
  */
 
 import { BenchBackend, MeasuringStream, NullReadable } from "../backends.js";
+import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { benchAsync, benchSync, tryGc } from "../measure.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 import {
@@ -234,12 +235,16 @@ async function runRatatui(config: ScenarioConfig, n: number): Promise<BenchMetri
   return exec("construction", config, { items: n });
 }
 
+async function runOpenTui(config: ScenarioConfig, n: number): Promise<BenchMetrics> {
+  return runOpenTuiScenario("tree-construction", config, { items: n });
+}
+
 export const constructionScenario: Scenario = {
   name: "tree-construction",
   description: "Build a widget tree from scratch (parameterized by item count)",
   defaultConfig: { warmup: 50, iterations: 500 },
   paramSets: [{ items: 10 }, { items: 100 }, { items: 500 }, { items: 1000 }],
-  frameworks: ["rezi-native", "ink", "terminal-kit", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "bubbletea", "terminal-kit", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig, params) {
     const { items: n } = params as { items: number };
@@ -250,6 +255,8 @@ export const constructionScenario: Scenario = {
         return runRezi(config, n);
       case "ink":
         return runInk(config, n);
+      case "opentui":
+        return runOpenTui(config, n);
       case "terminal-kit":
         return runTermkit(config, n);
       case "blessed":

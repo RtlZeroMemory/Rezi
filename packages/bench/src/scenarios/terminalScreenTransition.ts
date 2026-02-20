@@ -21,7 +21,7 @@ export const terminalScreenTransitionScenario: Scenario = {
   description: "Cycle between dashboard/table/log screens (full-tree transition workload)",
   defaultConfig: { warmup: 100, iterations: 1000 },
   paramSets: [{ rows: 40, cols: 120 }],
-  frameworks: ["rezi-native", "ink", "opentui", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "bubbletea", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig, params): Promise<BenchMetrics> {
     tryGc();

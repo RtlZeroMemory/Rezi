@@ -16,6 +16,7 @@
  */
 
 import { BenchBackend, MeasuringStream, NullReadable } from "../backends.js";
+import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { computeStats, diffCpu, peakMemory, takeCpu, takeMemory, tryGc } from "../measure.js";
 import type {
   BenchMetrics,
@@ -373,12 +374,16 @@ async function runRatatui(config: ScenarioConfig): Promise<BenchMetrics> {
   return exec("startup", config);
 }
 
+async function runOpenTui(config: ScenarioConfig): Promise<BenchMetrics> {
+  return runOpenTuiScenario("startup", config, {});
+}
+
 export const startupScenario: Scenario = {
   name: "startup",
   description: "Time to first frame: full lifecycle from create → first visible output",
   defaultConfig: { warmup: 10, iterations: 100 },
   paramSets: [{}],
-  frameworks: ["rezi-native", "ink", "terminal-kit", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "bubbletea", "terminal-kit", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig) {
     tryGc();
@@ -387,6 +392,8 @@ export const startupScenario: Scenario = {
         return runRezi(config);
       case "ink":
         return runInk(config);
+      case "opentui":
+        return runOpenTui(config);
       case "terminal-kit":
         return runTermkit(config);
       case "blessed":

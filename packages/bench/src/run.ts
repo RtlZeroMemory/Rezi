@@ -6,7 +6,9 @@
  *   node --expose-gc packages/bench/dist/run.js [options]
  *
  * Options:
- *   --suite <name>          "all" (default) or "terminal" (includes OpenTUI + blessed + ratatui)
+ *   --suite <name>          "all" (default) or "terminal" (includes OpenTUI + Bubble Tea + blessed + ratatui)
+ *   --matchup <name>        optional matchup preset: "rezi-opentui" | "rezi-opentui-bubbletea"
+ *   --opentui-driver <name> OpenTUI backend: "react" (default) or "core" (imperative)
  *   --scenario <name>       Run only this scenario (default: all)
  *   --framework <name>      Run only this framework (default: all)
  *   --iterations <n>        Override iteration count
@@ -39,6 +41,8 @@ import type { BenchResult, BenchRun, Framework, ScenarioConfig } from "./types.j
 
 interface CliOpts {
   suite: "all" | "terminal";
+  matchup: "none" | "rezi-opentui" | "rezi-opentui-bubbletea";
+  opentuiDriver: "react" | "core";
   scenario: string | null;
   framework: Framework | null;
   iterations: number | null;
@@ -59,11 +63,15 @@ interface CliOpts {
 
 type BenchEnv = NodeJS.ProcessEnv & {
   REZI_BENCH_CPU_AFFINITY?: string;
+  REZI_BENCH_OPENTUI_DRIVER?: string;
+  REZI_BENCH_OPENTUI_PROVIDER?: string;
 };
 
 function parseArgs(argv: string[]): CliOpts {
   const opts: CliOpts = {
     suite: "all",
+    matchup: "none",
+    opentuiDriver: "react",
     scenario: null,
     framework: null,
     iterations: null,
@@ -93,6 +101,18 @@ function parseArgs(argv: string[]): CliOpts {
       case "--scenario":
         opts.scenario = argv[++i] ?? null;
         break;
+      case "--matchup": {
+        const v = (argv[++i] ?? "").toLowerCase();
+        if (v === "rezi-opentui") opts.matchup = "rezi-opentui";
+        else if (v === "rezi-opentui-bubbletea") opts.matchup = "rezi-opentui-bubbletea";
+        else opts.matchup = "none";
+        break;
+      }
+      case "--opentui-driver": {
+        const v = (argv[++i] ?? "").toLowerCase();
+        opts.opentuiDriver = v === "core" ? "core" : "react";
+        break;
+      }
       case "--framework":
         opts.framework = (argv[++i] ?? null) as Framework | null;
         break;
@@ -262,7 +282,11 @@ function runEnvironmentChecks(opts: CliOpts): void {
 
 // ── Availability checks ─────────────────────────────────────────────
 
-async function checkFramework(fw: Framework, io: "stub" | "pty"): Promise<boolean> {
+async function checkFramework(
+  fw: Framework,
+  io: "stub" | "pty",
+  opentuiDriver: "react" | "core",
+): Promise<boolean> {
   try {
     switch (fw) {
       case "rezi-native":
@@ -276,7 +300,10 @@ async function checkFramework(fw: Framework, io: "stub" | "pty"): Promise<boolea
         return true;
       case "opentui":
         if (io !== "pty") return false;
-        return (await import("./frameworks/opentui.js")).checkOpenTui();
+        return (await import("./frameworks/opentui.js")).checkOpenTui(opentuiDriver);
+      case "bubbletea":
+        if (io !== "pty") return false;
+        return (await import("./frameworks/bubbletea.js")).checkBubbleTea();
       case "terminal-kit":
         await import("terminal-kit");
         return true;
@@ -300,6 +327,7 @@ async function runIsolated(
   params: Record<string, number | string>,
   replicate: number,
   cpuAffinity: string | null,
+  opentuiDriver: "react" | "core",
 ): Promise<BenchResult> {
   const workerPath = fileURLToPath(new URL("./worker.js", import.meta.url));
   const payload = { scenario: scenarioName, framework, config, params, replicate };
@@ -308,6 +336,8 @@ async function runIsolated(
   return new Promise<BenchResult>((resolve, reject) => {
     const env: BenchEnv = { ...process.env };
     if (cpuAffinity) env.REZI_BENCH_CPU_AFFINITY = cpuAffinity;
+    env.REZI_BENCH_OPENTUI_DRIVER = opentuiDriver;
+    env.REZI_BENCH_OPENTUI_PROVIDER = framework === "bubbletea" ? "bubbletea" : "opentui";
     const command = withAffinity(
       process.execPath,
       ["--expose-gc", workerPath, "--payload", payloadB64],
@@ -368,6 +398,7 @@ async function runIsolatedPty(
   params: Record<string, number | string>,
   replicate: number,
   cpuAffinity: string | null,
+  opentuiDriver: "react" | "core",
 ): Promise<BenchResult> {
   type PtyExit = Readonly<{ exitCode: number; signal?: number }>;
   type PtyProcess = Readonly<{
@@ -399,6 +430,8 @@ async function runIsolatedPty(
   return new Promise<BenchResult>((resolve, reject) => {
     const env: BenchEnv = { ...process.env };
     if (cpuAffinity) env.REZI_BENCH_CPU_AFFINITY = cpuAffinity;
+    env.REZI_BENCH_OPENTUI_DRIVER = opentuiDriver;
+    env.REZI_BENCH_OPENTUI_PROVIDER = framework === "bubbletea" ? "bubbletea" : "opentui";
     const command = withAffinity(
       process.execPath,
       ["--expose-gc", workerPath, "--payload", payloadB64, "--result-path", resultPath],
@@ -479,15 +512,29 @@ async function main(): Promise<void> {
     "rezi-native",
     "ink",
     "opentui",
+    "bubbletea",
     "terminal-kit",
     "blessed",
     "ratatui",
   ] as Framework[]) {
+    if (opts.matchup === "rezi-opentui" && fw !== "rezi-native" && fw !== "opentui") {
+      availableFrameworks.set(fw, false);
+      continue;
+    }
+    if (
+      opts.matchup === "rezi-opentui-bubbletea" &&
+      fw !== "rezi-native" &&
+      fw !== "opentui" &&
+      fw !== "bubbletea"
+    ) {
+      availableFrameworks.set(fw, false);
+      continue;
+    }
     if (opts.framework && opts.framework !== fw) {
       availableFrameworks.set(fw, false);
       continue;
     }
-    const ok = await checkFramework(fw, opts.io);
+    const ok = await checkFramework(fw, opts.io, opts.opentuiDriver);
     availableFrameworks.set(fw, ok);
     if (!ok) {
       console.log(`  [skip] ${fw}: not installed`);
@@ -530,6 +577,8 @@ async function main(): Promise<void> {
     },
     invocation: {
       suite: opts.suite,
+      matchup: opts.matchup,
+      opentuiDriver: opts.opentuiDriver,
       scenarioFilter: opts.scenario,
       frameworkFilter: opts.framework,
       iterationsOverride: opts.iterations,
@@ -585,8 +634,17 @@ async function main(): Promise<void> {
                     params,
                     replicate,
                     opts.cpuAffinity,
+                    opts.opentuiDriver,
                   )
-                : await runIsolated(scenario.name, fw, config, params, replicate, opts.cpuAffinity);
+                : await runIsolated(
+                    scenario.name,
+                    fw,
+                    config,
+                    params,
+                    replicate,
+                    opts.cpuAffinity,
+                    opts.opentuiDriver,
+                  );
 
             if (discardThisReplicate) {
               console.log(

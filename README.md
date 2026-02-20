@@ -43,7 +43,7 @@ Rezi is a high-performance terminal UI framework for TypeScript. You write decla
 - **Charts & visualization** — line charts, scatter plots, heatmaps, sparklines, bar charts, gauges, and mini charts — all rendered at sub-character resolution
 - **Inline image rendering** — display PNG, JPEG, and raw RGBA buffers using Kitty, Sixel, or iTerm2 graphics protocols, with automatic blitter fallback
 - **Terminal auto-detection** — identifies Kitty, WezTerm, iTerm2, Ghostty, Windows Terminal, and tmux; enables the best graphics protocol automatically, with env-var overrides for any capability
-- **Near-native performance** — 7×–59× faster than Ink, 1.4×–52× faster than OpenTUI; binary drawlists + native C framebuffer diffing
+- **Performance-focused architecture** — binary drawlists + native C framebuffer diffing; benchmark details and caveats are documented in the Benchmarks section
 - **JSX without React** — optional `@rezi-ui/jsx` maps JSX directly to Rezi VNodes with zero React runtime overhead
 - **Deterministic rendering** — same state + same events = same frames; versioned binary protocol, pinned Unicode tables
 - **6 built-in themes** — dark, light, dimmed, high-contrast, nord, dracula; switch at runtime with one call
@@ -77,26 +77,38 @@ Most JavaScript TUI frameworks generate ANSI escape sequences in userland on eve
 
 ## Benchmarks
 
-In the latest PTY-mode benchmark suite (120×40 viewport, `benchmarks/2026-02-19-terminal-v3`), Rezi is:
+Two different benchmark datasets are committed and should not be mixed:
+
+1. **Rigorous terminal suite** (replicates + confidence reporting): `benchmarks/2026-02-19-terminal-v3`
+2. **Quick driver/framework matchups** (single replicate, directional): `benchmarks/2026-02-20-*`
+
+From the **rigorous** suite (`benchmarks/2026-02-19-terminal-v3`), Rezi is:
 - **7.3×–59.1× faster than Ink**
-- **1.4×–52.5× faster than OpenTUI**
+- **1.4×–52.5× faster than OpenTUI React**
 - **1.9×–14.8× slower than native Rust (`ratatui`)** (expected for native baseline)
 
-This run uses `7` replicates with first-replicate discard (`6` measured), framework-order shuffling, CPU pinning, and CI/range reporting in the generated markdown.
+That suite uses `7` replicates with first-replicate discard (`6` measured), framework-order shuffling, CPU pinning, and confidence-aware ratio reporting.
 
-These benchmark numbers are a snapshot, not a final ceiling. Optimization work is ongoing during development, and we expect to keep improving performance while gradually narrowing the gap to pure native renderers.
+From the **quick** matchup snapshots (directional only):
+- Rezi vs OpenTUI React (`benchmarks/2026-02-20-rezi-opentui-react-all-quick-v6`): Rezi faster in `21/21` scenarios (geomean ~`10.4×`)
+- Rezi vs OpenTUI Core (`benchmarks/2026-02-20-rezi-opentui-core-all-quick-v4`): Rezi faster in `19/21` scenarios (geomean ~`2.6×`)
+- OpenTUI Core vs OpenTUI React: Core faster in `21/21` scenarios (geomean ~`4.0×`)
+- Rezi vs Bubble Tea (`benchmarks/2026-02-20-rezi-opentui-bubbletea-core-all-quick-v3`): Rezi faster in `20/21` scenarios (geomean ~`8.5×`); Bubble Tea wins `scroll-stress`
 
-Representative scenarios (full per-scenario table is in `BENCHMARKS.md`):
+Representative rows below are from the **rigorous** suite (OpenTUI column here means **OpenTUI React**):
 
-| Scenario | Rezi | Ink | OpenTUI | Ratatui | Rezi vs Ink | Rezi vs OpenTUI | Rezi vs Ratatui |
+| Scenario | Rezi | Ink | OpenTUI (React) | Ratatui | Rezi vs Ink | Rezi vs OpenTUI (React) | Rezi vs Ratatui |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | `terminal-frame-fill` (1 dirty line) | 372 µs | 21.96 ms | 4.03 ms | 197 µs | 59.1× faster | 10.8× faster | 1.9× slower |
 | `terminal-fps-stream` | 3.40 ms | 24.96 ms | 4.66 ms | 231 µs | 7.3× faster | 1.4× faster | 14.8× slower |
 | `terminal-virtual-list` | 681 µs | 22.82 ms | 35.73 ms | 127 µs | 33.5× faster | 52.5× faster | 5.4× slower |
 
-Full benchmark table (all scenarios, confidence bands, memory, and methodology):
+Full benchmark artifacts (methodology, confidence bands, and raw result tables):
 - `BENCHMARKS.md`
 - `benchmarks/2026-02-19-terminal-v3/results.md`
+- `benchmarks/2026-02-20-rezi-opentui-react-all-quick-v6/results.md`
+- `benchmarks/2026-02-20-rezi-opentui-core-all-quick-v4/results.md`
+- `benchmarks/2026-02-20-rezi-opentui-bubbletea-core-all-quick-v3/results.md`
 
 Full methodology and reproduction steps:
 👉 **[BENCHMARKS.md](BENCHMARKS.md)**

@@ -12,6 +12,7 @@
 
 import { type VNode, ui } from "@rezi-ui/core";
 import { NullReadable } from "../backends.js";
+import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { createBenchBackend, createInkStdout } from "../io.js";
 import { benchAsync, benchSync, tryGc } from "../measure.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
@@ -300,12 +301,16 @@ async function runRatatui(config: ScenarioConfig): Promise<BenchMetrics> {
   return exec("rerender", config);
 }
 
+async function runOpenTui(config: ScenarioConfig): Promise<BenchMetrics> {
+  return runOpenTuiScenario("rerender", config, {});
+}
+
 export const rerenderScenario: Scenario = {
   name: "rerender",
   description: "State update → new frame (small counter app, isolates per-update cost)",
   defaultConfig: { warmup: 100, iterations: 1000 },
   paramSets: [{}],
-  frameworks: ["rezi-native", "ink", "terminal-kit", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "bubbletea", "terminal-kit", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig) {
     tryGc();
@@ -314,6 +319,8 @@ export const rerenderScenario: Scenario = {
         return runRezi(config);
       case "ink":
         return runInk(config);
+      case "opentui":
+        return runOpenTui(config);
       case "terminal-kit":
         return runTermkit(config);
       case "blessed":

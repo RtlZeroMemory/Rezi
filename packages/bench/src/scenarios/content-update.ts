@@ -16,6 +16,7 @@
 
 import { type VNode, ui } from "@rezi-ui/core";
 import { BenchBackend, MeasuringStream, NullReadable } from "../backends.js";
+import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { benchAsync, benchSync, tryGc } from "../measure.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 
@@ -437,12 +438,16 @@ async function runRatatui(config: ScenarioConfig): Promise<BenchMetrics> {
   return exec("content-update", config);
 }
 
+async function runOpenTui(config: ScenarioConfig): Promise<BenchMetrics> {
+  return runOpenTuiScenario("content-update", config, {});
+}
+
 export const contentUpdateScenario: Scenario = {
   name: "content-update",
   description: "Partial screen update: move selection in a 500-row list (measures diff efficiency)",
   defaultConfig: { warmup: 50, iterations: 500 },
   paramSets: [{}],
-  frameworks: ["rezi-native", "ink", "terminal-kit", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "bubbletea", "terminal-kit", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig) {
     tryGc();
@@ -451,6 +456,8 @@ export const contentUpdateScenario: Scenario = {
         return runRezi(config);
       case "ink":
         return runInk(config);
+      case "opentui":
+        return runOpenTui(config);
       case "terminal-kit":
         return runTermkit(config);
       case "blessed":

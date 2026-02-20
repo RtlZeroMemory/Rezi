@@ -21,7 +21,7 @@ export const terminalMemorySoakScenario: Scenario = {
   description: "Sustained churn workload to observe memory growth and long-run stability",
   defaultConfig: { warmup: 150, iterations: 1200 },
   paramSets: [{ rows: 40, cols: 120 }],
-  frameworks: ["rezi-native", "ink", "opentui", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "bubbletea", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig, params): Promise<BenchMetrics> {
     tryGc();

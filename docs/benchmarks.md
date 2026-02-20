@@ -5,6 +5,7 @@ Rezi includes a benchmark suite comparing terminal UI pipelines:
 - **Rezi (native)**: `@rezi-ui/core` via `ui.*` VNodes
 - **Ink**: `ink` (React + Yoga + ANSI output)
 - **OpenTUI**: `@opentui/core` + `@opentui/react` (Bun runner integration)
+- **Bubble Tea**: `github.com/charmbracelet/bubbletea` (Go runner integration)
 - **blessed**: imperative Node terminal UI baseline
 - **ratatui**: native Rust baseline
 
@@ -12,7 +13,10 @@ The authoritative benchmark write-up and the latest committed results live in th
 
 - `BENCHMARKS.md`
 - `benchmarks/` (structured JSON + generated Markdown)
-- Latest dataset: `benchmarks/2026-02-19-terminal-v3/`
+- Latest rigorous terminal-suite dataset: `benchmarks/2026-02-19-terminal-v3/`
+- Latest OpenTUI React matchup dataset: `benchmarks/2026-02-20-rezi-opentui-react-all-quick-v6/`
+- Latest OpenTUI Core matchup dataset: `benchmarks/2026-02-20-rezi-opentui-core-all-quick-v4/`
+- Latest Bubble Tea matchup dataset: `benchmarks/2026-02-20-rezi-opentui-bubbletea-core-all-quick-v3/`
 - GitHub: https://github.com/RtlZeroMemory/Rezi/blob/main/BENCHMARKS.md
 
 ## Running benchmarks
@@ -30,6 +34,36 @@ For a faster smoke run:
 
 ```bash
 node --expose-gc packages/bench/dist/run.js --quick --output-dir benchmarks/local-quick
+```
+
+Rezi vs OpenTUI across the full scenario set:
+
+```bash
+node --expose-gc packages/bench/dist/run.js \
+  --matchup rezi-opentui \
+  --io pty \
+  --output-dir benchmarks/local-rezi-opentui
+```
+
+Rezi vs OpenTUI core-imperative (no React adapter):
+
+```bash
+node --expose-gc packages/bench/dist/run.js \
+  --matchup rezi-opentui \
+  --opentui-driver core \
+  --io pty \
+  --output-dir benchmarks/local-rezi-opentui-core
+```
+
+Rezi vs OpenTUI vs Bubble Tea (same scenario set, PTY mode):
+
+```bash
+REZI_GO_BIN=/path/to/go \
+node --expose-gc packages/bench/dist/run.js \
+  --matchup rezi-opentui-bubbletea \
+  --opentui-driver core \
+  --io pty \
+  --output-dir benchmarks/local-rezi-opentui-bubbletea
 ```
 
 Optional PTY mode (real TTY path; requires `node-pty`):
@@ -58,11 +92,20 @@ node --expose-gc packages/bench/dist/run.js \
   --output-dir benchmarks/local-terminal-v3
 ```
 
-OpenTUI rows are executed through `packages/bench/opentui-bench/run.ts`, which requires Bun:
+OpenTUI rows are executed through `packages/bench/opentui-bench/run.ts`, which requires Bun.
+Default driver is `react`; use `--opentui-driver core` for imperative-core mode.
 
 ```bash
 bun --version
 ```
+
+Bubble Tea rows are executed through `packages/bench/bubbletea-bench/main.go`, which requires Go:
+
+```bash
+go version
+```
+
+Recommended: Go `>= 1.24`.
 
 ## Interpreting results
 

@@ -13,6 +13,7 @@
 
 import { type VNode, ui } from "@rezi-ui/core";
 import { NullReadable } from "../backends.js";
+import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { createBenchBackend, createInkStdout } from "../io.js";
 import { computeStats, diffCpu, peakMemory, takeCpu, takeMemory, tryGc } from "../measure.js";
 import type {
@@ -549,12 +550,16 @@ async function runRatatui(config: ScenarioConfig): Promise<BenchMetrics> {
   return exec("memory-profile", config);
 }
 
+async function runOpenTui(config: ScenarioConfig): Promise<BenchMetrics> {
+  return runOpenTuiScenario("memory-profile", config, {});
+}
+
 export const memoryScenario: Scenario = {
   name: "memory-profile",
   description: "Sustained workload measuring memory footprint, growth, CPU usage, and stability",
   defaultConfig: { warmup: 50, iterations: 2000 },
   paramSets: [{}],
-  frameworks: ["rezi-native", "ink", "terminal-kit", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "bubbletea", "terminal-kit", "blessed", "ratatui"],
 
   async run(framework, config) {
     tryGc();
@@ -563,6 +568,8 @@ export const memoryScenario: Scenario = {
         return runRezi(config);
       case "ink":
         return runInk(config);
+      case "opentui":
+        return runOpenTui(config);
       case "terminal-kit":
         return runTermkit(config);
       case "blessed":

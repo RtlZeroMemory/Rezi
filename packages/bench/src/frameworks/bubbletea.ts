@@ -1,15 +1,11 @@
 import { spawn, spawnSync } from "node:child_process";
-import { constants, accessSync, readFileSync, unlinkSync } from "node:fs";
+import { constants, accessSync, mkdirSync, readFileSync, unlinkSync } from "node:fs";
 import * as os from "node:os";
 import { getBenchIoMode } from "../io.js";
 import { computeStats } from "../measure.js";
 import type { BenchMetrics, MemorySnapshot } from "../types.js";
-import { runBubbleTeaScenario } from "./bubbletea.js";
 
-export type OpenTuiDriver = "react" | "core";
-type OpenTuiProvider = "opentui" | "bubbletea";
-
-type OpenTuiResultData = Readonly<{
+type BubbleTeaResultData = Readonly<{
   samplesMs: readonly number[];
   totalWallMs: number;
   cpuUserMs: number;
@@ -24,42 +20,31 @@ type OpenTuiResultData = Readonly<{
   frames: number;
 }>;
 
-type OpenTuiResultFile =
-  | Readonly<{ ok: true; data: OpenTuiResultData }>
+type BubbleTeaResultFile =
+  | Readonly<{ ok: true; data: BubbleTeaResultData }>
   | Readonly<{ ok: false; error: string }>;
 
-function resolveOpenTuiRunnerScript(): string {
-  const candidate = `${process.cwd()}/packages/bench/opentui-bench/run.ts`;
+function resolveBubbleTeaBenchDir(): string {
+  const candidate = `${process.cwd()}/packages/bench/bubbletea-bench`;
   accessSync(candidate, constants.R_OK);
   return candidate;
 }
 
-function resolveBunBin(): string {
-  const env = process.env as Readonly<{ REZI_BUN_BIN?: string }>;
-  return env.REZI_BUN_BIN ?? "bun";
+function resolveGoBin(): string {
+  const env = process.env as Readonly<{ REZI_GO_BIN?: string }>;
+  return env.REZI_GO_BIN ?? "go";
 }
 
-function resolveOpenTuiDriver(): OpenTuiDriver {
-  const env = process.env as Readonly<{ REZI_BENCH_OPENTUI_DRIVER?: string }>;
-  const value = (env.REZI_BENCH_OPENTUI_DRIVER ?? "react").trim().toLowerCase();
-  if (value === "core") return "core";
-  return "react";
-}
-
-function resolveOpenTuiProvider(): OpenTuiProvider {
-  const env = process.env as Readonly<{ REZI_BENCH_OPENTUI_PROVIDER?: string }>;
-  const value = (env.REZI_BENCH_OPENTUI_PROVIDER ?? "opentui").trim().toLowerCase();
-  return value === "bubbletea" ? "bubbletea" : "opentui";
-}
-
-function memWithRssHeap(rssKb: number, heapUsedKb: number): MemorySnapshot {
-  return {
-    rssKb,
-    heapUsedKb,
-    heapTotalKb: null,
-    externalKb: null,
-    arrayBuffersKb: null,
-  };
+function resolveBubbleTeaBenchBinaryPath(): string {
+  const env = process.env as Readonly<{ REZI_BUBBLETEA_BENCH_BIN?: string }>;
+  if (env.REZI_BUBBLETEA_BENCH_BIN) {
+    accessSync(env.REZI_BUBBLETEA_BENCH_BIN, constants.X_OK);
+    return env.REZI_BUBBLETEA_BENCH_BIN;
+  }
+  const benchDir = resolveBubbleTeaBenchDir();
+  const outDir = `${benchDir}/.bin`;
+  mkdirSync(outDir, { recursive: true });
+  return `${outDir}/bubbletea-bench`;
 }
 
 function withAffinity(
@@ -79,52 +64,72 @@ function withAffinity(
   return { file: "taskset", args: ["-c", affinity, file, ...args] };
 }
 
-export function checkOpenTui(driver: OpenTuiDriver = "react"): boolean {
+function memWithRssHeap(rssKb: number, heapUsedKb: number): MemorySnapshot {
+  return {
+    rssKb,
+    heapUsedKb,
+    heapTotalKb: null,
+    externalKb: null,
+    arrayBuffersKb: null,
+  };
+}
+
+let cachedBuiltBinary: string | null = null;
+
+function ensureBuilt(): string {
+  const env = process.env as Readonly<{ REZI_BUBBLETEA_BENCH_BIN?: string }>;
+  const binary = resolveBubbleTeaBenchBinaryPath();
+  if (env.REZI_BUBBLETEA_BENCH_BIN) return binary;
+  if (cachedBuiltBinary === binary) return binary;
+
+  const goBin = resolveGoBin();
+  const benchDir = resolveBubbleTeaBenchDir();
+  const built = spawnSync(goBin, ["build", "-mod=mod", "-o", binary, "."], {
+    cwd: benchDir,
+    stdio: ["ignore", "ignore", "inherit"],
+    env: { ...process.env },
+  });
+  if ((built.status ?? 1) !== 0 || built.error) {
+    throw new Error(
+      `bubbletea build failed (${built.error?.message ?? `exit=${built.status ?? 1}`})`,
+    );
+  }
+  cachedBuiltBinary = binary;
+  return binary;
+}
+
+export function checkBubbleTea(): boolean {
   try {
-    resolveOpenTuiRunnerScript();
+    resolveBubbleTeaBenchDir();
   } catch {
     return false;
   }
+
   try {
-    const bunBin = resolveBunBin();
-    const versionProbe = spawnSync(bunBin, ["--version"], { stdio: "ignore" });
-    if ((versionProbe.status ?? 1) !== 0 || versionProbe.error) return false;
-    const importStmt =
-      driver === "core"
-        ? "import '@opentui/core';"
-        : "import '@opentui/core'; import '@opentui/react';";
-    const importProbe = spawnSync(bunBin, ["-e", importStmt], {
-      cwd: `${process.cwd()}/packages/bench`,
-      stdio: "ignore",
-    });
-    return (importProbe.status ?? 1) === 0 && !importProbe.error;
+    const goBin = resolveGoBin();
+    const probe = spawnSync(goBin, ["version"], { stdio: "ignore" });
+    if ((probe.status ?? 1) !== 0 || probe.error) return false;
+    resolveBubbleTeaBenchBinaryPath();
+    return true;
   } catch {
     return false;
   }
 }
 
-export async function runOpenTuiScenario(
+export async function runBubbleTeaScenario(
   scenario: string,
   config: Readonly<{ warmup: number; iterations: number }>,
   params: Record<string, number | string>,
 ): Promise<BenchMetrics> {
-  const provider = resolveOpenTuiProvider();
-  if (provider === "bubbletea") {
-    return runBubbleTeaScenario(scenario, config, params);
-  }
-
   const mode = getBenchIoMode() === "terminal" ? "pty" : "stub";
   if (mode !== "pty") {
-    throw new Error("OpenTUI benchmarks currently require PTY mode");
+    throw new Error("Bubble Tea benchmarks currently require PTY mode");
   }
 
-  const bunBin = resolveBunBin();
-  const driver = resolveOpenTuiDriver();
-  const runnerScript = resolveOpenTuiRunnerScript();
-  const resultPath = `${os.tmpdir()}/rezi-opentui-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.json`;
+  const binary = ensureBuilt();
+  const resultPath = `${os.tmpdir()}/rezi-bubbletea-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.json`;
 
   const args: string[] = [
-    runnerScript,
     "--scenario",
     scenario,
     "--warmup",
@@ -133,17 +138,16 @@ export async function runOpenTuiScenario(
     String(config.iterations),
     "--io",
     mode,
-    "--driver",
-    driver,
     "--result-path",
     resultPath,
   ];
+
   for (const [k, v] of Object.entries(params)) {
     args.push(`--${k}`, String(v));
   }
 
   await new Promise<void>((resolve, reject) => {
-    const command = withAffinity(bunBin, args);
+    const command = withAffinity(binary, args);
     const child = spawn(command.file, command.args, {
       stdio: ["ignore", "inherit", "inherit"],
       env: { ...process.env },
@@ -154,7 +158,7 @@ export async function runOpenTuiScenario(
       else {
         reject(
           new Error(
-            `opentui bench failed (driver=${driver}, exit=${String(code ?? "?")}, signal=${String(signal ?? "")})`,
+            `bubbletea bench failed (exit=${String(code ?? "?")}, signal=${String(signal ?? "")})`,
           ),
         );
       }
@@ -162,7 +166,7 @@ export async function runOpenTuiScenario(
   });
 
   try {
-    const parsed = JSON.parse(readFileSync(resultPath, "utf-8")) as OpenTuiResultFile;
+    const parsed = JSON.parse(readFileSync(resultPath, "utf-8")) as BubbleTeaResultFile;
     if (!("ok" in parsed) || parsed.ok !== true) {
       throw new Error("ok" in parsed ? parsed.error : "invalid result payload");
     }

@@ -254,7 +254,7 @@ export const terminalRerenderScenario: Scenario = {
   description: "Small update benchmark across terminal UI frameworks (includes PTY output path)",
   defaultConfig: { warmup: 100, iterations: 1000 },
   paramSets: [],
-  frameworks: ["rezi-native", "ink", "opentui", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "bubbletea", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig): Promise<BenchMetrics> {
     tryGc();

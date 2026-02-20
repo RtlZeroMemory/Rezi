@@ -9,6 +9,7 @@
 
 import { type VNode, ui } from "@rezi-ui/core";
 import { NullReadable } from "../backends.js";
+import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { createBenchBackend, createInkStdout } from "../io.js";
 import { benchAsync, tryGc } from "../measure.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
@@ -252,12 +253,20 @@ async function runInk(
   }
 }
 
+async function runOpenTui(
+  config: ScenarioConfig,
+  totalItems: number,
+  viewport: number,
+): Promise<BenchMetrics> {
+  return runOpenTuiScenario("virtual-list", config, { items: totalItems, viewport });
+}
+
 export const virtualListScenario: Scenario = {
   name: "virtual-list",
   description: "Large logical list with virtualization window (viewport only)",
   defaultConfig: { warmup: 100, iterations: 1000 },
   paramSets: [{ items: 100_000, viewport: 40 }],
-  frameworks: ["rezi-native", "ink"],
+  frameworks: ["rezi-native", "ink", "opentui", "bubbletea"],
 
   async run(framework: Framework, config: ScenarioConfig, params) {
     const { items, viewport } = params as { items: number; viewport: number };
@@ -267,6 +276,8 @@ export const virtualListScenario: Scenario = {
         return runRezi(config, items, viewport);
       case "ink":
         return runInk(config, items, viewport);
+      case "opentui":
+        return runOpenTui(config, items, viewport);
       default:
         throw new Error(`virtual-list: unsupported framework "${framework}"`);
     }

@@ -9,6 +9,7 @@
 
 import { type VNode, ui } from "@rezi-ui/core";
 import { NullReadable } from "../backends.js";
+import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { createBenchBackend, createInkStdout } from "../io.js";
 import { benchAsync, tryGc } from "../measure.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
@@ -209,12 +210,20 @@ async function runInk(config: ScenarioConfig, rows: number, cols: number): Promi
   }
 }
 
+async function runOpenTui(
+  config: ScenarioConfig,
+  rows: number,
+  cols: number,
+): Promise<BenchMetrics> {
+  return runOpenTuiScenario("layout-stress", config, { rows, cols });
+}
+
 export const layoutStressScenario: Scenario = {
   name: "layout-stress",
   description: "Nested flex layout with changing text widths (forces re-layout)",
   defaultConfig: { warmup: 50, iterations: 300 },
   paramSets: [{ rows: 40, cols: 4 }],
-  frameworks: ["rezi-native", "ink"],
+  frameworks: ["rezi-native", "ink", "opentui", "bubbletea"],
 
   async run(framework: Framework, config: ScenarioConfig, params) {
     const { rows, cols } = params as { rows: number; cols: number };
@@ -224,6 +233,8 @@ export const layoutStressScenario: Scenario = {
         return runRezi(config, rows, cols);
       case "ink":
         return runInk(config, rows, cols);
+      case "opentui":
+        return runOpenTui(config, rows, cols);
       default:
         throw new Error(`layout-stress: unsupported framework "${framework}"`);
     }

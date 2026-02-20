@@ -9,6 +9,7 @@
 
 import { type VNode, ui } from "@rezi-ui/core";
 import { NullReadable } from "../backends.js";
+import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { createBenchBackend, createInkStdout } from "../io.js";
 import { benchAsync, tryGc } from "../measure.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
@@ -196,12 +197,16 @@ async function runInk(config: ScenarioConfig, items: number): Promise<BenchMetri
   }
 }
 
+async function runOpenTui(config: ScenarioConfig, items: number): Promise<BenchMetrics> {
+  return runOpenTuiScenario("scroll-stress", config, { items });
+}
+
 export const scrollStressScenario: Scenario = {
   name: "scroll-stress",
   description: "Non-virtualized list: full list render with moving active row",
   defaultConfig: { warmup: 10, iterations: 50 },
   paramSets: [{ items: 2000 }],
-  frameworks: ["rezi-native", "ink"],
+  frameworks: ["rezi-native", "ink", "opentui", "bubbletea"],
 
   async run(framework: Framework, config: ScenarioConfig, params) {
     const { items } = params as { items: number };
@@ -211,6 +216,8 @@ export const scrollStressScenario: Scenario = {
         return runRezi(config, items);
       case "ink":
         return runInk(config, items);
+      case "opentui":
+        return runOpenTui(config, items);
       default:
         throw new Error(`scroll-stress: unsupported framework "${framework}"`);
     }

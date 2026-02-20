@@ -106,6 +106,7 @@ export type Framework =
   | "ink-compat"
   | "rezi-native"
   | "opentui"
+  | "bubbletea"
   | "terminal-kit"
   | "blessed"
   | "ratatui";
@@ -142,6 +143,8 @@ export interface BenchMeta {
 
 export interface BenchInvocation {
   suite: "all" | "terminal";
+  matchup: "none" | "rezi-opentui" | "rezi-opentui-bubbletea";
+  opentuiDriver: "react" | "core";
   scenarioFilter: string | null;
   frameworkFilter: Framework | null;
   iterationsOverride: number | null;
