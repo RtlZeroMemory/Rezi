@@ -659,7 +659,9 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       ...(opts.routeHistoryMaxDepth === undefined
         ? {}
         : { maxHistoryDepth: opts.routeHistoryMaxDepth }),
-      requestRouteRender: () => markDirty(DIRTY_VIEW),
+      // Route transitions can swap the entire screen tree; force both commit
+      // and layout so id->rect indexes and focus metadata stay in sync.
+      requestRouteRender: () => markDirty(DIRTY_VIEW | DIRTY_LAYOUT),
       captureFocusSnapshot: () => widgetRenderer.captureFocusSnapshot(),
       restoreFocusSnapshot: (snapshot) => widgetRenderer.restoreFocusSnapshot(snapshot),
       assertCanMutate: assertRouterMutationAllowed,

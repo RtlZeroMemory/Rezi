@@ -158,22 +158,32 @@ let isStopping = false;
 
 function renderShell(title: string, context: RouteRenderContext<AppState>, body: VNode): VNode {
   return ui.column({ p: 1, gap: 1 }, [
-    ui.row({ justify: "between" }, [
-      ui.text(`${PRODUCT_NAME} · ${title}`),
-      ui.badge(`env:${context.state.environment}`, {
-        variant: context.state.environment === "production" ? "warning" : "info",
+    ui.box({ border: "rounded", p: 1 }, [
+      ui.row({ justify: "between", items: "center" }, [
+        ui.text(`${PRODUCT_NAME} · ${title}`, { variant: "heading" }),
+        ui.row({ gap: 1 }, [
+          ui.badge(`env:${context.state.environment}`, {
+            variant: context.state.environment === "production" ? "warning" : "info",
+          }),
+          ui.badge(`tick:${String(context.state.tick)}`, { variant: "default" }),
+        ]),
+      ]),
+      ui.text(`operator:${context.state.operatorName} · time:${formatTime(context.state.nowMs)}`, {
+        variant: "caption",
       }),
     ]),
-    ui.routerTabs(context.router, routes, {
-      id: "app-route-tabs",
-      variant: "line",
-    }),
-    ui.routerBreadcrumb(context.router, routes, {
-      id: "app-route-breadcrumb",
-      separator: " > ",
-    }),
-    body,
-    ui.text("ctrl+1 Home · ctrl+2 Logs · ctrl+3 Settings · q Quit"),
+    ui.box({ border: "single", p: 1 }, [
+      ui.routerTabs(context.router, topLevelRoutes, {
+        id: "app-route-tabs",
+        variant: "pills",
+      }),
+      ui.routerBreadcrumb(context.router, routes, {
+        id: "app-route-breadcrumb",
+        separator: " > ",
+      }),
+    ]),
+    ui.box({ border: "single", p: 1 }, [body]),
+    ui.text("ctrl+1 Home · ctrl+2 Logs · ctrl+3 Settings · q Quit", { variant: "caption" }),
   ]);
 }
 
@@ -187,37 +197,39 @@ function renderHome(
   return renderShell(
     "Home",
     context,
-    ui.column({ gap: 1 }, [
-      ui.callout(
-        "This app uses first-party page routing with keybindings, history, and focus restoration.",
-        {
-          title: "Router-ready CLI Template",
-          variant: "info",
-        },
-      ),
-      ui.row({ gap: 1 }, [
-        ui.status(state.autoRefresh ? "online" : "away", {
-          label: state.autoRefresh ? "Live stream enabled" : "Live stream paused",
-        }),
-        ui.badge(`logs:${String(state.logs.length)}`, { variant: "default" }),
-        ui.badge(`tick:${String(state.tick)}`, { variant: "info" }),
-      ]),
-      ui.text(
-        latest
-          ? `Latest: [${latest.level.toUpperCase()}] ${latest.message} @ ${formatTime(latest.timestamp)}`
-          : "No log entries yet.",
-      ),
-      ui.row({ gap: 1 }, [
-        ui.button({
-          id: "home-open-logs",
-          label: "Open Logs",
-          onPress: () => context.router.navigate("logs"),
-        }),
-        ui.button({
-          id: "home-open-settings",
-          label: "Open Settings",
-          onPress: () => context.router.navigate("settings"),
-        }),
+    ui.box({ border: "single", p: 1 }, [
+      ui.column({ gap: 1 }, [
+        ui.callout(
+          "This app uses first-party page routing with keybindings, history, and focus restoration.",
+          {
+            title: "Router-ready CLI Template",
+            variant: "info",
+          },
+        ),
+        ui.row({ gap: 1 }, [
+          ui.status(state.autoRefresh ? "online" : "away", {
+            label: state.autoRefresh ? "Live stream enabled" : "Live stream paused",
+          }),
+          ui.badge(`logs:${String(state.logs.length)}`, { variant: "default" }),
+          ui.badge(`tick:${String(state.tick)}`, { variant: "info" }),
+        ]),
+        ui.text(
+          latest
+            ? `Latest: [${latest.level.toUpperCase()}] ${latest.message} @ ${formatTime(latest.timestamp)}`
+            : "No log entries yet.",
+        ),
+        ui.row({ gap: 1 }, [
+          ui.button({
+            id: "home-open-logs",
+            label: "Open Logs",
+            onPress: () => context.router.navigate("logs"),
+          }),
+          ui.button({
+            id: "home-open-settings",
+            label: "Open Settings",
+            onPress: () => context.router.navigate("settings"),
+          }),
+        ]),
       ]),
     ]),
   );
@@ -265,10 +277,10 @@ function renderLogs(
     "Logs",
     context,
     ui.row({ gap: 2 }, [
-      ui.box({ flex: 2 }, [logsConsole]),
-      ui.box({ flex: 1 }, [
+      ui.box({ flex: 2, border: "single", p: 1 }, [logsConsole]),
+      ui.box({ flex: 1, border: "single", p: 1 }, [
         ui.column({ gap: 1 }, [
-          ui.text("Recent entries"),
+          ui.text("Recent entries", { variant: "label" }),
           ...recent.map((entry) =>
             ui.button({
               id: `open-${entry.id}`,
@@ -276,6 +288,9 @@ function renderLogs(
               onPress: () => context.router.navigate("detail", Object.freeze({ id: entry.id })),
             }),
           ),
+          ...(recent.length === 0
+            ? [ui.text("No entries in history.", { variant: "caption" })]
+            : []),
           ui.button({
             id: "logs-open-settings",
             label: "Settings",
@@ -296,82 +311,84 @@ function renderSettings(
   return renderShell(
     "Settings",
     context,
-    ui.column({ gap: 1 }, [
-      ui.field({
-        label: "Operator",
-        children: ui.input({
-          id: "settings-operator",
-          value: state.operatorName,
-          onInput: (value) => {
-            context.update((prev) => Object.freeze({ ...prev, operatorName: value }));
+    ui.box({ border: "single", p: 1 }, [
+      ui.column({ gap: 1 }, [
+        ui.field({
+          label: "Operator",
+          children: ui.input({
+            id: "settings-operator",
+            value: state.operatorName,
+            onInput: (value) => {
+              context.update((prev) => Object.freeze({ ...prev, operatorName: value }));
+            },
+          }),
+        }),
+        ui.field({
+          label: "Environment",
+          children: ui.select({
+            id: "settings-environment",
+            value: state.environment,
+            options: ENV_OPTIONS,
+            onChange: (value) => {
+              if (!isEnvironment(value)) return;
+              context.update((prev) => Object.freeze({ ...prev, environment: value }));
+            },
+          }),
+        }),
+        ui.field({
+          label: "Theme",
+          children: ui.select({
+            id: "settings-theme",
+            value: state.themeName,
+            options: THEME_OPTIONS,
+            onChange: (value) => {
+              if (!isThemeName(value)) return;
+              context.update((prev) => Object.freeze({ ...prev, themeName: value }));
+              app.setTheme(THEME_BY_NAME[value]);
+            },
+          }),
+        }),
+        ui.checkbox({
+          id: "settings-auto-refresh",
+          checked: state.autoRefresh,
+          label: "Auto-refresh log stream",
+          onChange: (checked) => {
+            context.update((prev) => Object.freeze({ ...prev, autoRefresh: checked }));
           },
         }),
-      }),
-      ui.field({
-        label: "Environment",
-        children: ui.select({
-          id: "settings-environment",
-          value: state.environment,
-          options: ENV_OPTIONS,
-          onChange: (value) => {
-            if (!isEnvironment(value)) return;
-            context.update((prev) => Object.freeze({ ...prev, environment: value }));
+        ui.checkbox({
+          id: "settings-include-debug",
+          checked: state.includeDebug,
+          label: "Include debug level entries",
+          onChange: (checked) => {
+            context.update((prev) => Object.freeze({ ...prev, includeDebug: checked }));
           },
         }),
-      }),
-      ui.field({
-        label: "Theme",
-        children: ui.select({
-          id: "settings-theme",
-          value: state.themeName,
-          options: THEME_OPTIONS,
-          onChange: (value) => {
-            if (!isThemeName(value)) return;
-            context.update((prev) => Object.freeze({ ...prev, themeName: value }));
-            app.setTheme(THEME_BY_NAME[value]);
-          },
+        ui.field({
+          label: `Command timeout: ${String(state.commandTimeoutSec)}s`,
+          children: ui.slider({
+            id: "settings-timeout",
+            value: state.commandTimeoutSec,
+            min: 5,
+            max: 120,
+            step: 5,
+            onChange: (value) => {
+              context.update((prev) => Object.freeze({ ...prev, commandTimeoutSec: value }));
+            },
+          }),
         }),
-      }),
-      ui.checkbox({
-        id: "settings-auto-refresh",
-        checked: state.autoRefresh,
-        label: "Auto-refresh log stream",
-        onChange: (checked) => {
-          context.update((prev) => Object.freeze({ ...prev, autoRefresh: checked }));
-        },
-      }),
-      ui.checkbox({
-        id: "settings-include-debug",
-        checked: state.includeDebug,
-        label: "Include debug level entries",
-        onChange: (checked) => {
-          context.update((prev) => Object.freeze({ ...prev, includeDebug: checked }));
-        },
-      }),
-      ui.field({
-        label: `Command timeout: ${String(state.commandTimeoutSec)}s`,
-        children: ui.slider({
-          id: "settings-timeout",
-          value: state.commandTimeoutSec,
-          min: 5,
-          max: 120,
-          step: 5,
-          onChange: (value) => {
-            context.update((prev) => Object.freeze({ ...prev, commandTimeoutSec: value }));
-          },
-        }),
-      }),
-      ui.row({ gap: 1 }, [
-        ui.button({
-          id: "settings-open-logs",
-          label: "Logs",
-          onPress: () => context.router.navigate("logs"),
-        }),
-        ui.button({
-          id: "settings-open-home",
-          label: "Home",
-          onPress: () => context.router.navigate("home"),
-        }),
+        ui.row({ gap: 1 }, [
+          ui.button({
+            id: "settings-open-logs",
+            label: "Logs",
+            onPress: () => context.router.navigate("logs"),
+          }),
+          ui.button({
+            id: "settings-open-home",
+            label: "Home",
+            onPress: () => context.router.navigate("home"),
+          }),
+        ]),
       ]),
     ]),
   );
@@ -413,46 +430,48 @@ function renderDetail(
   return renderShell(
     "Log Detail",
     context,
-    ui.column({ gap: 1 }, [
-      ui.row({ gap: 1 }, [
-        ui.badge(entry.level.toUpperCase(), {
-          variant: entry.level === "error" ? "error" : "info",
+    ui.box({ border: "single", p: 1 }, [
+      ui.column({ gap: 1 }, [
+        ui.row({ gap: 1 }, [
+          ui.badge(entry.level.toUpperCase(), {
+            variant: entry.level === "error" ? "error" : "info",
+          }),
+          ui.text(`source:${entry.source}`),
+          ui.text(`time:${formatTime(entry.timestamp)}`),
+        ]),
+        ui.text(entry.message),
+        ui.callout(entry.details ?? "No extra details", {
+          title: "Details",
+          variant: "info",
         }),
-        ui.text(`source:${entry.source}`),
-        ui.text(`time:${formatTime(entry.timestamp)}`),
-      ]),
-      ui.text(entry.message),
-      ui.callout(entry.details ?? "No extra details", {
-        title: "Details",
-        variant: "info",
-      }),
-      ui.row({ gap: 1 }, [
-        ui.button({
-          id: "detail-prev",
-          label: "Previous",
-          disabled: previous === undefined,
-          onPress: () => {
-            if (!previous) return;
-            context.router.replace("detail", Object.freeze({ id: previous.id }));
-          },
-        }),
-        ui.button({
-          id: "detail-next",
-          label: "Next",
-          disabled: next === undefined,
-          onPress: () => {
-            if (!next) return;
-            context.router.replace("detail", Object.freeze({ id: next.id }));
-          },
-        }),
-        ui.button({
-          id: "detail-back",
-          label: "Back",
-          onPress: () => {
-            if (context.router.canGoBack()) context.router.back();
-            else context.router.navigate("logs");
-          },
-        }),
+        ui.row({ gap: 1 }, [
+          ui.button({
+            id: "detail-prev",
+            label: "Previous",
+            disabled: previous === undefined,
+            onPress: () => {
+              if (!previous) return;
+              context.router.replace("detail", Object.freeze({ id: previous.id }));
+            },
+          }),
+          ui.button({
+            id: "detail-next",
+            label: "Next",
+            disabled: next === undefined,
+            onPress: () => {
+              if (!next) return;
+              context.router.replace("detail", Object.freeze({ id: next.id }));
+            },
+          }),
+          ui.button({
+            id: "detail-back",
+            label: "Back",
+            onPress: () => {
+              if (context.router.canGoBack()) context.router.back();
+              else context.router.navigate("logs");
+            },
+          }),
+        ]),
       ]),
     ]),
   );
@@ -483,6 +502,10 @@ const routes: readonly RouteDefinition<AppState>[] = Object.freeze([
     screen: renderDetail,
   },
 ]);
+
+const topLevelRoutes: readonly RouteDefinition<AppState>[] = Object.freeze(
+  routes.filter((route) => route.id !== "detail"),
+);
 
 app = createApp({
   backend: createNodeBackend({

@@ -125,6 +125,65 @@ describe("createApp routes integration", () => {
     app.dispose();
   });
 
+  test("route transitions recompute layout indexes", async () => {
+    const backend = new StubBackend();
+    let lastLayoutIds: readonly string[] = Object.freeze([]);
+
+    const app = createApp({
+      backend,
+      initialState: Object.freeze({}),
+      config: {
+        internal_onLayout: (snapshot) => {
+          lastLayoutIds = Object.freeze(Array.from(snapshot.idRects.keys()).sort());
+        },
+      },
+      routes: [
+        {
+          id: "home",
+          title: "Home",
+          keybinding: "ctrl+1",
+          screen: () =>
+            ui.column({ id: "home-layout", gap: 1 }, [
+              ui.button({ id: "home-btn", label: "Home" }),
+            ]),
+        },
+        {
+          id: "logs",
+          title: "Logs",
+          keybinding: "ctrl+2",
+          screen: () =>
+            ui.column({ id: "logs-layout", gap: 1 }, [
+              ui.button({ id: "logs-btn", label: "Logs" }),
+            ]),
+        },
+      ],
+      initialRoute: "home",
+    });
+
+    await bootWithResize(backend, app);
+
+    assert.equal(lastLayoutIds.includes("home-btn"), true);
+    assert.equal(lastLayoutIds.includes("logs-btn"), false);
+
+    backend.pushBatch(
+      makeBackendBatch({
+        bytes: encodeZrevBatchV1({
+          events: [{ kind: "key", timeMs: 2, key: 50, mods: ZR_MOD_CTRL, action: "down" }],
+        }),
+      }),
+    );
+    await flushMicrotasks(20);
+
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+
+    assert.equal(app.router?.currentRoute().id, "logs");
+    assert.equal(lastLayoutIds.includes("home-btn"), false);
+    assert.equal(lastLayoutIds.includes("logs-btn"), true);
+
+    app.dispose();
+  });
+
   test("back() restores focus from previous route snapshot", async () => {
     const backend = new StubBackend();
     let sampledFocusedId: string | null = null;

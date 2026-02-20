@@ -15,7 +15,7 @@ Scaffolded with `create-rezi` using the **__TEMPLATE_LABEL__** template.
 - `home`: Status summary and quick actions.
 - `logs`: Streaming logs console + entry list.
 - `settings`: Form controls (`input`, `checkbox`, `select`, `slider`).
-- `detail`: Parameterized log detail screen.
+- `detail`: Parameterized log detail screen (opened from Logs entries).
 
 ## Controls
 
