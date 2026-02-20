@@ -4,6 +4,7 @@ import type {
   LogEntry,
   RouteDefinition,
   RouteRenderContext,
+  RouterApi,
   TextStyle,
   ThemeDefinition,
   VNode,
@@ -13,6 +14,7 @@ import { createNodeBackend } from "@rezi-ui/node";
 
 type ThemeName = "nord" | "dark" | "light";
 type EnvironmentName = "development" | "staging" | "production";
+type TopLevelRouteId = "home" | "logs" | "settings";
 
 type AppState = {
   nowMs: number;
@@ -41,6 +43,10 @@ const LOG_TICK_MS = 900;
 const STACKED_LAYOUT_COLS = 118;
 const COMPACT_LAYOUT_COLS = 96;
 const COMPACT_LAYOUT_ROWS = 28;
+const HISTORY_MAX_ITEMS_COMPACT = 5;
+const HISTORY_MAX_ITEMS_DEFAULT = 9;
+
+const TOP_LEVEL_ROUTES: readonly TopLevelRouteId[] = Object.freeze(["home", "logs", "settings"]);
 
 const THEME_BY_NAME: Record<ThemeName, ThemeDefinition> = {
   nord: nordTheme,
@@ -159,6 +165,66 @@ function isEnvironment(value: string): value is EnvironmentName {
   return value === "development" || value === "staging" || value === "production";
 }
 
+function toTopLevelRouteLabel(routeId: TopLevelRouteId): string {
+  if (routeId === "home") return "Home";
+  if (routeId === "logs") return "Logs";
+  return "Settings";
+}
+
+function toTopLevelRouteShortcut(routeId: TopLevelRouteId): string {
+  if (routeId === "home") return "f1";
+  if (routeId === "logs") return "f2";
+  return "f3";
+}
+
+function routeLabelFromId(routeId: string): string {
+  if (routeId === "home") return "Home";
+  if (routeId === "logs") return "Logs";
+  if (routeId === "settings") return "Settings";
+  if (routeId === "detail") return "Detail";
+  return routeId[0] ? routeId[0].toUpperCase() + routeId.slice(1) : routeId;
+}
+
+function trimMiddle(value: string, maxChars: number): string {
+  if (value.length <= maxChars) return value;
+  if (maxChars <= 3) return value.slice(0, maxChars);
+  const sideWidth = Math.max(1, Math.floor((maxChars - 1) / 2));
+  return `${value.slice(0, sideWidth)}…${value.slice(value.length - sideWidth)}`;
+}
+
+function formatHistoryTrail(
+  router: RouterApi,
+  viewportCols: number,
+  compact: boolean,
+): Readonly<{ summary: string; count: number }> {
+  const entries = router.history();
+  const labels: string[] = [];
+  for (const entry of entries) {
+    const label = routeLabelFromId(entry.id);
+    if (labels[labels.length - 1] === label) continue;
+    labels.push(label);
+  }
+  const maxItems = compact ? HISTORY_MAX_ITEMS_COMPACT : HISTORY_MAX_ITEMS_DEFAULT;
+  const tail = labels.slice(-maxItems);
+  const prefix = labels.length > tail.length ? ["…"] : [];
+  const text = [...prefix, ...tail].join(" > ");
+  const maxChars = Math.max(24, viewportCols - 20);
+  return Object.freeze({
+    summary: trimMiddle(text, maxChars),
+    count: entries.length,
+  });
+}
+
+function navigateTopLevel(router: RouterApi, routeId: TopLevelRouteId): void {
+  const current = router.currentRoute();
+  if (current.id === routeId) return;
+  if (current.id === "detail") {
+    router.navigate(routeId);
+    return;
+  }
+  router.replace(routeId);
+}
+
 function isStackedLayout(state: Readonly<AppState>): boolean {
   return state.viewportCols < STACKED_LAYOUT_COLS;
 }
@@ -265,10 +331,8 @@ function renderShell(
   const styles = getViewStyles(state.themeName);
   const compact = isCompactLayout(state);
   const stacked = isStackedLayout(state);
-  const historyPath = context.router
-    .history()
-    .map((entry) => entry.id[0]?.toUpperCase() + entry.id.slice(1))
-    .join(" > ");
+  const history = formatHistoryTrail(context.router, state.viewportCols, compact);
+  const currentRouteId = context.router.currentRoute().id;
 
   return ui.column({ p: 1, gap: 1, items: "stretch", style: styles.rootStyle }, [
     ui.box(
@@ -306,20 +370,23 @@ function renderShell(
       { border: "rounded", px: PANEL_PADDING_X, py: PANEL_PADDING_Y, style: styles.stripStyle },
       [
         ui.column({ gap: 1 }, [
-          ui.routerTabs(context.router, topLevelRoutes, {
-            id: "app-route-tabs",
-            variant: "pills",
+          ui.row(
+            { gap: 1, wrap: true, items: "center" },
+            TOP_LEVEL_ROUTES.flatMap((routeId) => [
+              ui.button({
+                id: `nav-${routeId}`,
+                label:
+                  currentRouteId === routeId
+                    ? `[${toTopLevelRouteLabel(routeId)}]`
+                    : toTopLevelRouteLabel(routeId),
+                onPress: () => navigateTopLevel(context.router, routeId),
+              }),
+              ui.kbd(toTopLevelRouteShortcut(routeId)),
+            ]),
+          ),
+          ui.text(`History (${String(history.count)}): ${history.summary}`, {
+            style: styles.metaStyle,
           }),
-          ...(compact
-            ? []
-            : [
-                ui.routerBreadcrumb(context.router, routes, {
-                  id: "app-route-breadcrumb",
-                  separator: " > ",
-                }),
-                ui.text(`Backstack: ${historyPath}`, { style: styles.metaStyle }),
-              ]),
-          ...(compact ? [ui.text(`History: ${historyPath}`, { style: styles.metaStyle })] : []),
           ...(stacked
             ? [
                 ui.text("Adaptive layout: stacked panels enabled", {
@@ -378,12 +445,12 @@ function renderHome(
             ui.button({
               id: "home-open-logs",
               label: "Open Logs",
-              onPress: () => context.router.navigate("logs"),
+              onPress: () => navigateTopLevel(context.router, "logs"),
             }),
             ui.button({
               id: "home-open-settings",
               label: "Open Settings",
-              onPress: () => context.router.navigate("settings"),
+              onPress: () => navigateTopLevel(context.router, "settings"),
             }),
             ui.button({
               id: "home-open-latest-detail",
@@ -504,7 +571,7 @@ function renderLogs(
           ui.button({
             id: "logs-open-settings",
             label: "Settings",
-            onPress: () => context.router.navigate("settings"),
+            onPress: () => navigateTopLevel(context.router, "settings"),
           }),
         ]),
       ]),
@@ -701,12 +768,12 @@ function renderSettings(
         ui.button({
           id: "settings-open-logs",
           label: "Logs",
-          onPress: () => context.router.navigate("logs"),
+          onPress: () => navigateTopLevel(context.router, "logs"),
         }),
         ui.button({
           id: "settings-open-home",
           label: "Home",
-          onPress: () => context.router.navigate("home"),
+          onPress: () => navigateTopLevel(context.router, "home"),
         }),
       ]),
     ]),
@@ -739,7 +806,7 @@ function renderDetail(
             label: "Back to Logs",
             onPress: () => {
               if (context.router.canGoBack()) context.router.back();
-              else context.router.navigate("logs");
+              else navigateTopLevel(context.router, "logs");
             },
           }),
         ]),
@@ -793,7 +860,7 @@ function renderDetail(
             label: "Back",
             onPress: () => {
               if (context.router.canGoBack()) context.router.back();
-              else context.router.navigate("logs");
+              else navigateTopLevel(context.router, "logs");
             },
           }),
         ]),
@@ -807,19 +874,16 @@ const routes: readonly RouteDefinition<AppState>[] = Object.freeze([
   {
     id: "home",
     title: "Home",
-    keybinding: "f1",
     screen: renderHome,
   },
   {
     id: "logs",
     title: "Logs",
-    keybinding: "f2",
     screen: renderLogs,
   },
   {
     id: "settings",
     title: "Settings",
-    keybinding: "f3",
     screen: renderSettings,
   },
   {
@@ -828,10 +892,6 @@ const routes: readonly RouteDefinition<AppState>[] = Object.freeze([
     screen: renderDetail,
   },
 ]);
-
-const topLevelRoutes: readonly RouteDefinition<AppState>[] = Object.freeze(
-  routes.filter((route) => route.id !== "detail"),
-);
 
 app = createApp({
   backend: createNodeBackend({
@@ -866,19 +926,58 @@ app.keys({
   "ctrl+c": () => {
     void shutdown();
   },
-  "alt+1": () => app.router?.navigate("home"),
-  "alt+2": () => app.router?.navigate("logs"),
-  "alt+3": () => app.router?.navigate("settings"),
-  "ctrl+1": () => app.router?.navigate("home"),
-  "ctrl+2": () => app.router?.navigate("logs"),
-  "ctrl+3": () => app.router?.navigate("settings"),
+  f1: () => {
+    const router = app.router;
+    if (!router) return;
+    navigateTopLevel(router, "home");
+  },
+  f2: () => {
+    const router = app.router;
+    if (!router) return;
+    navigateTopLevel(router, "logs");
+  },
+  f3: () => {
+    const router = app.router;
+    if (!router) return;
+    navigateTopLevel(router, "settings");
+  },
+  "alt+1": () => {
+    const router = app.router;
+    if (!router) return;
+    navigateTopLevel(router, "home");
+  },
+  "alt+2": () => {
+    const router = app.router;
+    if (!router) return;
+    navigateTopLevel(router, "logs");
+  },
+  "alt+3": () => {
+    const router = app.router;
+    if (!router) return;
+    navigateTopLevel(router, "settings");
+  },
+  "ctrl+1": () => {
+    const router = app.router;
+    if (!router) return;
+    navigateTopLevel(router, "home");
+  },
+  "ctrl+2": () => {
+    const router = app.router;
+    if (!router) return;
+    navigateTopLevel(router, "logs");
+  },
+  "ctrl+3": () => {
+    const router = app.router;
+    if (!router) return;
+    navigateTopLevel(router, "settings");
+  },
   escape: () => {
     const router = app.router;
     if (!router) return;
     const route = router.currentRoute();
     if (route?.id === "detail") {
       if (router.canGoBack()) router.back();
-      else router.navigate("logs");
+      else navigateTopLevel(router, "logs");
     }
   },
 });
