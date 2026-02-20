@@ -34,47 +34,48 @@
 
 ---
 
-## Showcase — EdgeOps Control Plane
+## What Rezi Can Do
+
+Rezi is a high-performance terminal UI framework for TypeScript. You write declarative widget trees — a native C engine handles layout diffing and rendering.
+
+- **56 built-in widgets** — layout primitives, form controls, data tables, virtual lists, navigation, overlays, a code editor, diff viewer, and more
+- **Canvas drawing** — sub-character resolution via braille (2×4), sextant (2×3), quadrant (2×2), and halfblock (1×2) blitters; draw lines, shapes, and gradients within a single terminal cell grid
+- **Charts & visualization** — line charts, scatter plots, heatmaps, sparklines, bar charts, gauges, and mini charts — all rendered at sub-character resolution
+- **Inline image rendering** — display PNG, JPEG, and raw RGBA buffers using Kitty, Sixel, or iTerm2 graphics protocols, with automatic blitter fallback
+- **Terminal auto-detection** — identifies Kitty, WezTerm, iTerm2, Ghostty, Windows Terminal, and tmux; enables the best graphics protocol automatically, with env-var overrides for any capability
+- **Near-native performance** — 7×–59× faster than Ink, 1.4×–52× faster than OpenTUI; binary drawlists + native C framebuffer diffing
+- **JSX without React** — optional `@rezi-ui/jsx` maps JSX directly to Rezi VNodes with zero React runtime overhead
+- **Deterministic rendering** — same state + same events = same frames; versioned binary protocol, pinned Unicode tables
+- **6 built-in themes** — dark, light, dimmed, high-contrast, nord, dracula; switch at runtime with one call
+- **Record & replay** — capture input sessions as deterministic bundles for debugging and automated testing
+
+---
+
+## Showcase
+
+### EdgeOps Control Plane
 
 A production-style terminal control console built entirely with Rezi.
 
-![Rezi demo](Assets/REZICONSOLE3.gif)
+![Rezi EdgeOps demo](Assets/REZICONSOLE3.gif)
 
-Visual Matrix Stress Test 
+### Visual Stress Test
 
-![Rezi demo](Assets/REZIBENCHMARK.gif)
+![Rezi benchmark demo](Assets/REZIBENCHMARK.gif)
 
 ---
 
-## What is Rezi?
+## How It Works
 
-Rezi is a high-performance terminal UI framework for **TypeScript**.
-
-You write declarative widget trees in TypeScript.  
-Rezi computes layout and emits a compact binary drawlist (ZRDL).  
+You write declarative widget trees in TypeScript.
+Rezi computes layout and emits a compact binary drawlist (ZRDL).
 A native C engine — [Zireael](https://github.com/RtlZeroMemory/Zireael) — diffs framebuffers and writes only changed cells to the terminal.
 
-The result:
-
-- TypeScript ergonomics  
-- Deterministic rendering  
-- Near-native performance  
-- No React runtime  
-- No virtual DOM overhead  
+Most JavaScript TUI frameworks generate ANSI escape sequences in userland on every frame. Rezi moves the hot path out of JavaScript — rendering stays ergonomic at the top and fast on real workloads.
 
 ---
 
-## Why Rezi?
-
-Most JavaScript terminal frameworks generate ANSI escape sequences in userland on every update. Rendering cost scales with tree size and update frequency.
-
-Rezi moves the hot path out of JavaScript.
-
-1. **Application code** builds a declarative widget tree.
-2. **@rezi-ui/core** computes layout and encodes a compact binary drawlist.
-3. **Zireael (C engine)** diffs framebuffer state and writes only changed cells.
-
-Rendering remains ergonomic at the top and fast on real terminal workloads.
+## Benchmarks
 
 In the latest PTY-mode benchmark suite (120×40 viewport, `benchmarks/2026-02-19-terminal-v3`), Rezi is:
 - **7.3×–59.1× faster than Ink**
@@ -97,7 +98,7 @@ Full benchmark table (all scenarios, confidence bands, memory, and methodology):
 - `BENCHMARKS.md`
 - `benchmarks/2026-02-19-terminal-v3/results.md`
 
-Full methodology and reproduction steps:  
+Full methodology and reproduction steps:
 👉 **[BENCHMARKS.md](BENCHMARKS.md)**
 
 ---
@@ -199,7 +200,38 @@ npm install @rezi-ui/jsx @rezi-ui/core @rezi-ui/node
 
 ## Features
 
-**54 built-in widgets** — primitives (box, row, column, text, grid), form inputs (input, button, checkbox, select, slider), data display (table, virtual list, tree), navigation (tabs, accordion, breadcrumb, pagination), overlays (modal, dropdown, toast, command palette), advanced (code editor, diff viewer, file picker, logs console), and charts (gauge, sparkline, bar chart).
+**56 built-in widgets** — primitives (box, row, column, text, grid), form inputs (input, button, checkbox, select, slider), data display (table, virtual list, tree), navigation (tabs, accordion, breadcrumb, pagination), overlays (modal, dropdown, toast, command palette), advanced (code editor, diff viewer, file picker, logs console), and visualization (canvas, image, line chart, scatter, heatmap, sparkline, bar chart, gauge, mini chart).
+
+### Graphics & Visualization
+
+| Widget | Description |
+|---|---|
+| `ui.canvas` | Programmable drawing surface with braille, sextant, quadrant, halfblock, or ASCII blitters |
+| `ui.image` | Inline images via Kitty, Sixel, iTerm2, or blitter fallback |
+| `ui.lineChart` | Multi-series line charts at sub-character resolution |
+| `ui.scatter` | Scatter plots with configurable point styles |
+| `ui.heatmap` | Heatmap grids with automatic color scaling |
+| `ui.sparkline` | Inline sparklines (text mode or high-res canvas mode) |
+| `ui.barChart` | Horizontal bar charts |
+| `ui.gauge` | Progress and percentage gauges |
+| `ui.miniChart` | Compact inline charts |
+
+### Terminal Graphics Protocol Support
+
+Rezi auto-detects your terminal emulator and enables the best available graphics protocol:
+
+| Terminal | Graphics Protocol | Hyperlinks (OSC 8) |
+|---|---|---|
+| Kitty | Kitty graphics | Yes |
+| WezTerm | Sixel | Yes |
+| iTerm2 | iTerm2 inline images | Yes |
+| Ghostty | Kitty graphics | Yes |
+| Windows Terminal | — | Yes |
+
+Canvas and chart widgets work in **any** terminal via Unicode blitters — no graphics protocol required. Image widgets fall back to blitter rendering when no protocol is available.
+
+Override any capability with environment variables:
+`REZI_TERMINAL_SUPPORTS_KITTY`, `REZI_TERMINAL_SUPPORTS_SIXEL`, `REZI_TERMINAL_SUPPORTS_ITERM2`, `REZI_TERMINAL_SUPPORTS_OSC8`
 
 ### Focus & Input
 - Automatic tab navigation
@@ -265,8 +297,8 @@ Zireael (C engine) Framebuffer diff, ANSI emission
 Terminal
 ```
 
-Data flows down as drawlists (ZRDL).  
-Input events flow up as event batches (ZREV).  
+Data flows down as drawlists (ZRDL).
+Input events flow up as event batches (ZREV).
 Both are versioned binary formats validated at the boundary.
 
 ---
@@ -289,6 +321,7 @@ Both are versioned binary formats validated at the boundary.
 - **Runtime**: Node.js 18+ (18.18+ recommended) or Bun 1.3+
 - **Platforms**: Linux x64/arm64, macOS x64/arm64, Windows x64/arm64
 - **Terminal**: 256-color or true-color support recommended
+- **Graphics**: For inline images, a terminal supporting Kitty graphics, Sixel, or iTerm2 inline images. Canvas and chart widgets work in any terminal via Unicode blitters.
 
 Prebuilt native binaries are published for all supported platforms above. The
 package does not compile from source at install time; for unsupported targets,
@@ -301,7 +334,7 @@ build from a repository checkout with `npm run build:native`.
 | Docs home | [rtlzeromemory.github.io/Rezi](https://rtlzeromemory.github.io/Rezi/) |
 | Getting started | [Install](https://rtlzeromemory.github.io/Rezi/getting-started/install/) · [Quickstart](https://rtlzeromemory.github.io/Rezi/getting-started/quickstart/) · [JSX](https://rtlzeromemory.github.io/Rezi/getting-started/jsx/) |
 | Guides | [Concepts](https://rtlzeromemory.github.io/Rezi/guide/concepts/) · [Layout](https://rtlzeromemory.github.io/Rezi/guide/layout/) · [Input & Focus](https://rtlzeromemory.github.io/Rezi/guide/input-and-focus/) · [Styling](https://rtlzeromemory.github.io/Rezi/guide/styling/) |
-| Widget catalog | [54 widgets](https://rtlzeromemory.github.io/Rezi/widgets/) |
+| Widget catalog | [56 widgets](https://rtlzeromemory.github.io/Rezi/widgets/) |
 | API reference | [TypeDoc](https://rtlzeromemory.github.io/Rezi/api/) |
 | Architecture | [Overview](https://rtlzeromemory.github.io/Rezi/architecture/) · [Protocol](https://rtlzeromemory.github.io/Rezi/protocol/) |
 
