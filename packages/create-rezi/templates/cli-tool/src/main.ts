@@ -406,10 +406,9 @@ function renderShell(
       ],
     ),
     panel(bodyTitle, [body], styles.panelStyle, { flex: 1 }),
-    ui.text(
-      "Shortcuts: F1/F2/F3 or Alt+1/2/3 · Esc from Detail goes back · q quits",
-      { style: styles.quietStyle },
-    ),
+    ui.text("Shortcuts: F1/F2/F3 or Alt+1/2/3 · Esc from Detail goes back · q quits", {
+      style: styles.quietStyle,
+    }),
   ]);
 }
 
@@ -494,7 +493,9 @@ function renderHome(
       ),
       ui.row({ gap: 1, wrap: true }, [
         ui.badge(`timeout:${String(state.commandTimeoutSec)}s`, { variant: "info" }),
-        ui.badge(`theme:${themeLabel(state.themeName)}`, { variant: themeBadgeVariant(state.themeName) }),
+        ui.badge(`theme:${themeLabel(state.themeName)}`, {
+          variant: themeBadgeVariant(state.themeName),
+        }),
         ui.tag(`debug:${state.includeDebug ? "on" : "off"}`, {
           variant: state.includeDebug ? "info" : "default",
         }),
@@ -554,7 +555,8 @@ function renderLogs(
       ui.column({ gap: 1 }, [
         ...recent.map((entry) => {
           const when = formatTime(entry.timestamp);
-          const sourceLabel = entry.source.length > 10 ? `${entry.source.slice(0, 10)}…` : entry.source;
+          const sourceLabel =
+            entry.source.length > 10 ? `${entry.source.slice(0, 10)}…` : entry.source;
           return ui.row({ gap: 1, items: "center", wrap: true }, [
             ui.badge(entry.level.toUpperCase(), { variant: levelBadgeVariant(entry.level) }),
             ui.button({
@@ -564,7 +566,9 @@ function renderLogs(
             }),
           ]);
         }),
-        ...(recent.length === 0 ? [ui.text("No entries in history.", { style: styles.metaStyle })] : []),
+        ...(recent.length === 0
+          ? [ui.text("No entries in history.", { style: styles.metaStyle })]
+          : []),
         ui.row({ gap: 1, wrap: true }, [
           ui.button({
             id: "logs-open-latest-detail",
@@ -629,7 +633,10 @@ function renderLogs(
       ]),
       stacked
         ? ui.column({ gap: 1 }, [streamPanel, recentPanel])
-        : ui.row({ gap: compact ? 1 : 2, wrap: true, items: "stretch" }, [streamPanel, recentPanel]),
+        : ui.row({ gap: compact ? 1 : 2, wrap: true, items: "stretch" }, [
+            streamPanel,
+            recentPanel,
+          ]),
     ]),
     compact ? "Logs (compact)" : "Live Logs",
   );
@@ -753,7 +760,10 @@ function renderSettings(
       ),
       stacked
         ? ui.column({ gap: 1 }, [profilePanel, runtimePanel])
-        : ui.row({ gap: compact ? 1 : 2, wrap: true, items: "stretch" }, [profilePanel, runtimePanel]),
+        : ui.row({ gap: compact ? 1 : 2, wrap: true, items: "stretch" }, [
+            profilePanel,
+            runtimePanel,
+          ]),
       panel(
         "Current session",
         [
