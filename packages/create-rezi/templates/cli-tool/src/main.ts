@@ -26,6 +26,8 @@ type AppState = {
   environment: EnvironmentName;
   themeName: ThemeName;
   commandTimeoutSec: number;
+  viewportCols: number;
+  viewportRows: number;
 };
 
 const PRODUCT_NAME = "__APP_NAME__";
@@ -33,6 +35,12 @@ const PRODUCT_TAGLINE = "Task-oriented multi-screen workflow with first-party ro
 const UI_FPS_CAP = 30;
 const PANEL_PADDING_X = 1;
 const PANEL_PADDING_Y = 0;
+const LOG_SEED_COUNT = 24;
+const LOG_HISTORY_LIMIT = 200;
+const LOG_TICK_MS = 900;
+const STACKED_LAYOUT_COLS = 118;
+const COMPACT_LAYOUT_COLS = 96;
+const COMPACT_LAYOUT_ROWS = 28;
 
 const THEME_BY_NAME: Record<ThemeName, ThemeDefinition> = {
   nord: nordTheme,
@@ -114,15 +122,21 @@ function getViewStyles(themeName: ThemeName): ViewStyles {
   });
 }
 
-function panel(title: string, children: readonly VNode[], style: TextStyle, flex = 1): VNode {
+function panel(
+  title: string,
+  children: readonly VNode[],
+  style: TextStyle,
+  opts: Readonly<{ flex?: number; minWidth?: number }> = Object.freeze({}),
+): VNode {
   return ui.box(
     {
       title,
-      flex,
       border: "rounded",
       px: PANEL_PADDING_X,
       py: PANEL_PADDING_Y,
       style,
+      ...(opts.flex === undefined ? {} : { flex: opts.flex }),
+      ...(opts.minWidth === undefined ? {} : { minWidth: opts.minWidth }),
     },
     children,
   );
@@ -145,16 +159,24 @@ function isEnvironment(value: string): value is EnvironmentName {
   return value === "development" || value === "staging" || value === "production";
 }
 
+function isStackedLayout(state: Readonly<AppState>): boolean {
+  return state.viewportCols < STACKED_LAYOUT_COLS;
+}
+
+function isCompactLayout(state: Readonly<AppState>): boolean {
+  return state.viewportCols < COMPACT_LAYOUT_COLS || state.viewportRows < COMPACT_LAYOUT_ROWS;
+}
+
 function buildLogEntry(
   tick: number,
   environment: EnvironmentName,
   includeDebug: boolean,
+  timestamp = Date.now(),
 ): LogEntry {
   const source = LOG_SOURCES[tick % LOG_SOURCES.length] ?? "core";
   const message = LOG_MESSAGES[tick % LOG_MESSAGES.length] ?? "Updated background task";
   const baseLevel = LOG_LEVELS[tick % LOG_LEVELS.length] ?? "info";
   const level = includeDebug || baseLevel !== "debug" ? baseLevel : "info";
-  const timestamp = Date.now();
 
   return Object.freeze({
     id: `log-${String(tick)}`,
@@ -170,10 +192,16 @@ function buildLogEntry(
   });
 }
 
-function initialLogs(): readonly LogEntry[] {
+function initialLogs(
+  seedCount = LOG_SEED_COUNT,
+  environment: EnvironmentName = "staging",
+): readonly LogEntry[] {
+  const nowMs = Date.now();
   const seed: LogEntry[] = [];
-  for (let i = 0; i < 6; i++) {
-    seed.push(buildLogEntry(i + 1, "staging", true));
+  for (let i = 0; i < seedCount; i++) {
+    const tick = i + 1;
+    const timestamp = nowMs - (seedCount - tick) * 1200;
+    seed.push(buildLogEntry(tick, environment, true, timestamp));
   }
   return Object.freeze(seed);
 }
@@ -181,7 +209,7 @@ function initialLogs(): readonly LogEntry[] {
 function appendTickLog(prev: Readonly<AppState>): AppState {
   const nextTick = prev.tick + 1;
   const nextEntry = buildLogEntry(nextTick, prev.environment, prev.includeDebug);
-  const nextLogs = Object.freeze([...prev.logs, nextEntry].slice(-200));
+  const nextLogs = Object.freeze([...prev.logs, nextEntry].slice(-LOG_HISTORY_LIMIT));
   const nextExpanded = Object.freeze(
     prev.expandedLogIds.filter((entryId) => nextLogs.some((entry) => entry.id === entryId)),
   );
@@ -209,8 +237,8 @@ function updateExpanded(
 
 const initialState: AppState = Object.freeze({
   nowMs: Date.now(),
-  tick: 6,
-  logs: initialLogs(),
+  tick: LOG_SEED_COUNT,
+  logs: initialLogs(LOG_SEED_COUNT),
   logsScrollTop: 0,
   expandedLogIds: Object.freeze([]),
   autoRefresh: true,
@@ -219,6 +247,8 @@ const initialState: AppState = Object.freeze({
   environment: "staging",
   themeName: "nord",
   commandTimeoutSec: 30,
+  viewportCols: 120,
+  viewportRows: 36,
 });
 
 // biome-ignore lint/style/useConst: app is assigned after route declarations for route-screen closures.
@@ -233,6 +263,8 @@ function renderShell(
 ): VNode {
   const state = context.state;
   const styles = getViewStyles(state.themeName);
+  const compact = isCompactLayout(state);
+  const stacked = isStackedLayout(state);
   const historyPath = context.router
     .history()
     .map((entry) => entry.id[0]?.toUpperCase() + entry.id.slice(1))
@@ -244,28 +276,29 @@ function renderShell(
       [
         ui.column({ gap: 1 }, [
           ui.row({ items: "center", gap: 1, wrap: true }, [
-            ui.text(PRODUCT_NAME, { variant: "heading" }),
-            ui.tag("CLI Tool", { variant: "info" }),
-            ui.status(state.autoRefresh ? "online" : "away", {
-              label: state.autoRefresh ? "Streaming" : "Paused",
-            }),
-            ui.spacer({ flex: 1 }),
+            ui.text(`${PRODUCT_NAME} · ${title}`, { variant: "heading" }),
             ui.badge(`Env ${state.environment.toUpperCase()}`, {
               variant: environmentBadgeVariant(state.environment),
             }),
+            ui.tag(`Theme ${themeLabel(state.themeName)}`, {
+              variant: themeBadgeVariant(state.themeName),
+            }),
+            ui.status(state.autoRefresh ? "online" : "away", {
+              label: state.autoRefresh ? "Streaming" : "Paused",
+            }),
+            ui.badge(`${String(state.viewportCols)}×${String(state.viewportRows)}`, {
+              variant: "default",
+            }),
+            ui.badge(`tick:${String(state.tick)}`, { variant: "default" }),
           ]),
-          ui.row({ justify: "between", items: "center", gap: 1, wrap: true }, [
-            ui.text(PRODUCT_TAGLINE, { style: styles.sectionLabelStyle }),
-            ui.row({ gap: 1, items: "center", wrap: true }, [
-              ui.tag(`Theme ${themeLabel(state.themeName)}`, {
-                variant: themeBadgeVariant(state.themeName),
-              }),
-              ui.badge(`Tick ${String(state.tick)}`, { variant: "default" }),
-            ]),
-          ]),
-          ui.text(`Operator ${state.operatorName} · ${formatTime(state.nowMs)}`, {
-            style: styles.metaStyle,
-          }),
+          ...(compact
+            ? []
+            : [
+                ui.text(PRODUCT_TAGLINE, { style: styles.sectionLabelStyle }),
+                ui.text(`Operator ${state.operatorName} · ${formatTime(state.nowMs)}`, {
+                  style: styles.metaStyle,
+                }),
+              ]),
         ]),
       ],
     ),
@@ -277,16 +310,31 @@ function renderShell(
             id: "app-route-tabs",
             variant: "pills",
           }),
-          ui.routerBreadcrumb(context.router, routes, {
-            id: "app-route-breadcrumb",
-            separator: " > ",
-          }),
-          ui.text(`Backstack: ${historyPath}`, { style: styles.metaStyle }),
+          ...(compact
+            ? []
+            : [
+                ui.routerBreadcrumb(context.router, routes, {
+                  id: "app-route-breadcrumb",
+                  separator: " > ",
+                }),
+                ui.text(`Backstack: ${historyPath}`, { style: styles.metaStyle }),
+              ]),
+          ...(compact ? [ui.text(`History: ${historyPath}`, { style: styles.metaStyle })] : []),
+          ...(stacked
+            ? [
+                ui.text("Adaptive layout: stacked panels enabled", {
+                  style: styles.quietStyle,
+                }),
+              ]
+            : []),
         ]),
       ],
     ),
-    panel(bodyTitle, [body], styles.panelStyle),
-    ui.text("ctrl+1 Home · ctrl+2 Logs · ctrl+3 Settings · q Quit", { style: styles.quietStyle }),
+    panel(bodyTitle, [body], styles.panelStyle, { flex: 1 }),
+    ui.text(
+      "Shortcuts: F1/F2/F3 or Alt+1/2/3 · Esc from Detail goes back · q quits",
+      { style: styles.quietStyle },
+    ),
   ]);
 }
 
@@ -296,8 +344,67 @@ function renderHome(
 ): VNode {
   const state = context.state;
   const styles = getViewStyles(state.themeName);
+  const stacked = isStackedLayout(state);
   const latest = state.logs[state.logs.length - 1];
   const hasLatest = latest !== undefined;
+  const telemetryPanels = [
+    panel(
+      "Live stream",
+      [
+        ui.column({ gap: 1 }, [
+          ui.row({ gap: 1, wrap: true }, [
+            ui.status(state.autoRefresh ? "online" : "away", {
+              label: state.autoRefresh ? "Live stream enabled" : "Live stream paused",
+            }),
+            ui.badge(`logs:${String(state.logs.length)}`, { variant: "info" }),
+            ui.badge(`tick:${String(state.tick)}`, { variant: "info" }),
+            ui.badge(`history:${String(context.router.history().length)}`, { variant: "success" }),
+          ]),
+          ui.text(
+            latest
+              ? `Latest: [${latest.level.toUpperCase()}] ${latest.message} @ ${formatTime(latest.timestamp)}`
+              : "Latest: no log entries yet",
+          ),
+        ]),
+      ],
+      styles.stripStyle,
+      { flex: 2, minWidth: 44 },
+    ),
+    panel(
+      "Quick actions",
+      [
+        ui.column({ gap: 1 }, [
+          ui.row({ gap: 1, wrap: true }, [
+            ui.button({
+              id: "home-open-logs",
+              label: "Open Logs",
+              onPress: () => context.router.navigate("logs"),
+            }),
+            ui.button({
+              id: "home-open-settings",
+              label: "Open Settings",
+              onPress: () => context.router.navigate("settings"),
+            }),
+            ui.button({
+              id: "home-open-latest-detail",
+              label: "Open Latest Detail",
+              disabled: !hasLatest,
+              onPress: () => {
+                if (!latest) return;
+                context.router.navigate("detail", Object.freeze({ id: latest.id }));
+              },
+            }),
+          ]),
+          ui.text(
+            "Tip: open a detail entry, then press Esc/Back to verify focus/history behavior.",
+            { style: styles.quietStyle },
+          ),
+        ]),
+      ],
+      styles.stripStyle,
+      { flex: 1, minWidth: 32 },
+    ),
+  ];
 
   return renderShell(
     "Home",
@@ -311,50 +418,15 @@ function renderHome(
         },
       ),
       ui.row({ gap: 1, wrap: true }, [
-        ui.badge(`Logs ${String(state.logs.length)}`, { variant: "default" }),
-        ui.badge(`Timeout ${String(state.commandTimeoutSec)}s`, { variant: "info" }),
-        ui.tag(`Debug ${state.includeDebug ? "ON" : "OFF"}`, {
+        ui.badge(`timeout:${String(state.commandTimeoutSec)}s`, { variant: "info" }),
+        ui.badge(`theme:${themeLabel(state.themeName)}`, { variant: themeBadgeVariant(state.themeName) }),
+        ui.tag(`debug:${state.includeDebug ? "on" : "off"}`, {
           variant: state.includeDebug ? "info" : "default",
         }),
       ]),
-      ui.box({ border: "single", px: 1, py: 0, style: styles.stripStyle }, [
-        ui.column({ gap: 1 }, [
-          ui.text("Latest Event", { style: styles.sectionLabelStyle }),
-          ui.text(
-            latest ? `[${latest.level.toUpperCase()}] ${latest.message}` : "No log entries yet.",
-          ),
-          ui.text(
-            latest
-              ? `source:${latest.source} · time:${formatTime(latest.timestamp)}`
-              : "Start streaming to populate activity.",
-            { style: styles.metaStyle },
-          ),
-        ]),
-      ]),
-      ui.row({ gap: 1 }, [
-        ui.button({
-          id: "home-open-logs",
-          label: "Open Logs",
-          onPress: () => context.router.navigate("logs"),
-        }),
-        ui.button({
-          id: "home-open-settings",
-          label: "Open Settings",
-          onPress: () => context.router.navigate("settings"),
-        }),
-        ui.button({
-          id: "home-open-latest-detail",
-          label: "Open Latest Detail",
-          disabled: !hasLatest,
-          onPress: () => {
-            if (!latest) return;
-            context.router.navigate("detail", Object.freeze({ id: latest.id }));
-          },
-        }),
-      ]),
-      ui.text("Tip: open a detail entry, then press Esc/Back to verify focus/history behavior.", {
-        style: styles.quietStyle,
-      }),
+      stacked
+        ? ui.column({ gap: 1 }, telemetryPanels)
+        : ui.row({ gap: 1, wrap: true, items: "stretch" }, telemetryPanels),
     ]),
     "Overview",
   );
@@ -366,6 +438,8 @@ function renderLogs(
 ): VNode {
   const state = context.state;
   const styles = getViewStyles(state.themeName);
+  const stacked = isStackedLayout(state);
+  const compact = isCompactLayout(state);
   const recent = [...state.logs].slice(-8).reverse();
 
   const logsConsole = ui.logsConsole({
@@ -399,6 +473,51 @@ function renderLogs(
     },
   });
 
+  const recentPanel = panel(
+    "Open recent entry",
+    [
+      ui.column({ gap: 1 }, [
+        ...recent.map((entry) => {
+          const when = formatTime(entry.timestamp);
+          const sourceLabel = entry.source.length > 10 ? `${entry.source.slice(0, 10)}…` : entry.source;
+          return ui.row({ gap: 1, items: "center", wrap: true }, [
+            ui.badge(entry.level.toUpperCase(), { variant: levelBadgeVariant(entry.level) }),
+            ui.button({
+              id: `open-${entry.id}`,
+              label: `${sourceLabel} ${when}`,
+              onPress: () => context.router.navigate("detail", Object.freeze({ id: entry.id })),
+            }),
+          ]);
+        }),
+        ...(recent.length === 0 ? [ui.text("No entries in history.", { style: styles.metaStyle })] : []),
+        ui.row({ gap: 1, wrap: true }, [
+          ui.button({
+            id: "logs-open-latest-detail",
+            label: "Latest detail",
+            disabled: recent.length === 0,
+            onPress: () => {
+              const latest = recent[0];
+              if (!latest) return;
+              context.router.navigate("detail", Object.freeze({ id: latest.id }));
+            },
+          }),
+          ui.button({
+            id: "logs-open-settings",
+            label: "Settings",
+            onPress: () => context.router.navigate("settings"),
+          }),
+        ]),
+      ]),
+    ],
+    styles.stripStyle,
+    stacked ? { minWidth: 34 } : { flex: 2, minWidth: 34 },
+  );
+
+  const streamPanel = panel("Log stream", [logsConsole], styles.stripStyle, {
+    ...(stacked ? {} : { flex: 3 }),
+    minWidth: 52,
+  });
+
   return renderShell(
     "Logs",
     context,
@@ -410,6 +529,7 @@ function renderLogs(
         ui.tag(`refresh:${state.autoRefresh ? "on" : "off"}`, {
           variant: state.autoRefresh ? "success" : "warning",
         }),
+        ui.badge(`entries:${String(state.logs.length)}`, { variant: "default" }),
         ui.button({
           id: "logs-toggle-refresh",
           label: state.autoRefresh ? "Pause stream" : "Resume stream",
@@ -432,54 +552,11 @@ function renderLogs(
           },
         }),
       ]),
-      ui.row({ gap: 2, wrap: true, items: "stretch" }, [
-        panel("Log Stream", [logsConsole], styles.stripStyle, 3),
-        panel(
-          "Open recent entry",
-          [
-            ui.column({ gap: 1 }, [
-              ...recent.map((entry) => {
-                const when = formatTime(entry.timestamp);
-                const sourceLabel =
-                  entry.source.length > 6 ? `${entry.source.slice(0, 6)}…` : entry.source;
-                return ui.row({ gap: 1, items: "center" }, [
-                  ui.badge(entry.level.toUpperCase(), { variant: levelBadgeVariant(entry.level) }),
-                  ui.button({
-                    id: `open-${entry.id}`,
-                    label: `${sourceLabel} ${when}`,
-                    onPress: () =>
-                      context.router.navigate("detail", Object.freeze({ id: entry.id })),
-                  }),
-                ]);
-              }),
-              ...(recent.length === 0
-                ? [ui.text("No entries in history.", { style: styles.metaStyle })]
-                : []),
-              ui.row({ gap: 1 }, [
-                ui.button({
-                  id: "logs-open-latest-detail",
-                  label: "Latest detail",
-                  disabled: recent.length === 0,
-                  onPress: () => {
-                    const latest = recent[0];
-                    if (!latest) return;
-                    context.router.navigate("detail", Object.freeze({ id: latest.id }));
-                  },
-                }),
-                ui.button({
-                  id: "logs-open-settings",
-                  label: "Settings",
-                  onPress: () => context.router.navigate("settings"),
-                }),
-              ]),
-            ]),
-          ],
-          styles.stripStyle,
-          2,
-        ),
-      ]),
+      stacked
+        ? ui.column({ gap: 1 }, [streamPanel, recentPanel])
+        : ui.row({ gap: compact ? 1 : 2, wrap: true, items: "stretch" }, [streamPanel, recentPanel]),
     ]),
-    "Live Logs",
+    compact ? "Logs (compact)" : "Live Logs",
   );
 }
 
@@ -489,6 +566,89 @@ function renderSettings(
 ): VNode {
   const state = context.state;
   const styles = getViewStyles(state.themeName);
+  const stacked = isStackedLayout(state);
+  const compact = isCompactLayout(state);
+
+  const profilePanel = panel(
+    "Profile",
+    [
+      ui.column({ gap: 1 }, [
+        ui.text("Operator", { style: styles.sectionLabelStyle }),
+        ui.input({
+          id: "settings-operator",
+          value: state.operatorName,
+          onInput: (value) => {
+            context.update((prev) => Object.freeze({ ...prev, operatorName: value }));
+          },
+        }),
+        ui.text("Environment", { style: styles.sectionLabelStyle }),
+        ui.select({
+          id: "settings-environment",
+          value: state.environment,
+          options: ENV_OPTIONS,
+          onChange: (value) => {
+            if (!isEnvironment(value)) return;
+            context.update((prev) => Object.freeze({ ...prev, environment: value }));
+          },
+        }),
+        ui.text("Theme", { style: styles.sectionLabelStyle }),
+        ui.select({
+          id: "settings-theme",
+          value: state.themeName,
+          options: THEME_OPTIONS,
+          onChange: (value) => {
+            if (!isThemeName(value)) return;
+            applyTheme(context, value);
+          },
+        }),
+      ]),
+    ],
+    styles.stripStyle,
+    stacked ? { minWidth: 34 } : { flex: 1, minWidth: 34 },
+  );
+
+  const runtimePanel = panel(
+    "Runtime",
+    [
+      ui.column({ gap: 1 }, [
+        ui.checkbox({
+          id: "settings-auto-refresh",
+          checked: state.autoRefresh,
+          label: "Auto-refresh log stream",
+          onChange: (checked) => {
+            context.update((prev) => Object.freeze({ ...prev, autoRefresh: checked }));
+          },
+        }),
+        ui.checkbox({
+          id: "settings-include-debug",
+          checked: state.includeDebug,
+          label: "Include debug level entries",
+          onChange: (checked) => {
+            context.update((prev) => Object.freeze({ ...prev, includeDebug: checked }));
+          },
+        }),
+        ui.text(`Command timeout: ${String(state.commandTimeoutSec)}s`, {
+          style: styles.sectionLabelStyle,
+        }),
+        ui.slider({
+          id: "settings-timeout",
+          value: state.commandTimeoutSec,
+          min: 5,
+          max: 120,
+          step: 5,
+          onChange: (value) => {
+            context.update((prev) => Object.freeze({ ...prev, commandTimeoutSec: value }));
+          },
+        }),
+        ui.text(
+          `Current preset: ${themeLabel(state.themeName)} · ${state.environment.toUpperCase()}`,
+          { style: styles.metaStyle },
+        ),
+      ]),
+    ],
+    styles.stripStyle,
+    stacked ? { minWidth: 34 } : { flex: 1, minWidth: 34 },
+  );
 
   return renderShell(
     "Settings",
@@ -498,87 +658,6 @@ function renderSettings(
         title: "Preferences",
         variant: "info",
       }),
-      ui.row({ gap: 2, wrap: true, items: "stretch" }, [
-        panel(
-          "Profile",
-          [
-            ui.column({ gap: 1 }, [
-              ui.text("Operator", { style: styles.sectionLabelStyle }),
-              ui.input({
-                id: "settings-operator",
-                value: state.operatorName,
-                onInput: (value) => {
-                  context.update((prev) => Object.freeze({ ...prev, operatorName: value }));
-                },
-              }),
-              ui.text("Environment", { style: styles.sectionLabelStyle }),
-              ui.select({
-                id: "settings-environment",
-                value: state.environment,
-                options: ENV_OPTIONS,
-                onChange: (value) => {
-                  if (!isEnvironment(value)) return;
-                  context.update((prev) => Object.freeze({ ...prev, environment: value }));
-                },
-              }),
-              ui.text("Theme", { style: styles.sectionLabelStyle }),
-              ui.select({
-                id: "settings-theme",
-                value: state.themeName,
-                options: THEME_OPTIONS,
-                onChange: (value) => {
-                  if (!isThemeName(value)) return;
-                  applyTheme(context, value);
-                },
-              }),
-            ]),
-          ],
-          styles.stripStyle,
-          2,
-        ),
-        panel(
-          "Runtime",
-          [
-            ui.column({ gap: 1 }, [
-              ui.checkbox({
-                id: "settings-auto-refresh",
-                checked: state.autoRefresh,
-                label: "Auto-refresh log stream",
-                onChange: (checked) => {
-                  context.update((prev) => Object.freeze({ ...prev, autoRefresh: checked }));
-                },
-              }),
-              ui.checkbox({
-                id: "settings-include-debug",
-                checked: state.includeDebug,
-                label: "Include debug level entries",
-                onChange: (checked) => {
-                  context.update((prev) => Object.freeze({ ...prev, includeDebug: checked }));
-                },
-              }),
-              ui.text(`Command timeout: ${String(state.commandTimeoutSec)}s`, {
-                style: styles.sectionLabelStyle,
-              }),
-              ui.slider({
-                id: "settings-timeout",
-                value: state.commandTimeoutSec,
-                min: 5,
-                max: 120,
-                step: 5,
-                onChange: (value) => {
-                  context.update((prev) => Object.freeze({ ...prev, commandTimeoutSec: value }));
-                },
-              }),
-              ui.text(
-                `Current preset: ${themeLabel(state.themeName)} · ${state.environment.toUpperCase()}`,
-                { style: styles.metaStyle },
-              ),
-            ]),
-          ],
-          styles.stripStyle,
-          2,
-        ),
-      ]),
       panel(
         "Theme presets",
         [
@@ -595,8 +674,30 @@ function renderSettings(
           ),
         ],
         styles.stripStyle,
+        { minWidth: 34 },
       ),
-      ui.row({ gap: 1 }, [
+      stacked
+        ? ui.column({ gap: 1 }, [profilePanel, runtimePanel])
+        : ui.row({ gap: compact ? 1 : 2, wrap: true, items: "stretch" }, [profilePanel, runtimePanel]),
+      panel(
+        "Current session",
+        [
+          ui.row({ gap: 1, wrap: true }, [
+            ui.badge(`env:${state.environment}`, {
+              variant: environmentBadgeVariant(state.environment),
+            }),
+            ui.badge(`theme:${themeLabel(state.themeName)}`, {
+              variant: themeBadgeVariant(state.themeName),
+            }),
+            ui.badge(`timeout:${String(state.commandTimeoutSec)}s`, { variant: "info" }),
+            ui.tag(`debug:${state.includeDebug ? "on" : "off"}`, {
+              variant: state.includeDebug ? "info" : "default",
+            }),
+          ]),
+        ],
+        styles.stripStyle,
+      ),
+      ui.row({ gap: 1, wrap: true }, [
         ui.button({
           id: "settings-open-logs",
           label: "Logs",
@@ -609,7 +710,7 @@ function renderSettings(
         }),
       ]),
     ]),
-    "Configuration",
+    compact ? "Settings (compact)" : "Configuration",
   );
 }
 
@@ -655,7 +756,7 @@ function renderDetail(
     context,
     ui.box({ border: "single", p: 1, style: styles.stripStyle }, [
       ui.column({ gap: 1 }, [
-        ui.row({ gap: 1 }, [
+        ui.row({ gap: 1, wrap: true }, [
           ui.badge(entry.level.toUpperCase(), {
             variant: levelBadgeVariant(entry.level),
           }),
@@ -668,7 +769,7 @@ function renderDetail(
           title: "Details",
           variant: "info",
         }),
-        ui.row({ gap: 1 }, [
+        ui.row({ gap: 1, wrap: true }, [
           ui.button({
             id: "detail-prev",
             label: "Previous",
@@ -706,19 +807,19 @@ const routes: readonly RouteDefinition<AppState>[] = Object.freeze([
   {
     id: "home",
     title: "Home",
-    keybinding: "ctrl+1",
+    keybinding: "f1",
     screen: renderHome,
   },
   {
     id: "logs",
     title: "Logs",
-    keybinding: "ctrl+2",
+    keybinding: "f2",
     screen: renderLogs,
   },
   {
     id: "settings",
     title: "Settings",
-    keybinding: "ctrl+3",
+    keybinding: "f3",
     screen: renderSettings,
   },
   {
@@ -765,9 +866,41 @@ app.keys({
   "ctrl+c": () => {
     void shutdown();
   },
+  "alt+1": () => app.router?.navigate("home"),
+  "alt+2": () => app.router?.navigate("logs"),
+  "alt+3": () => app.router?.navigate("settings"),
+  "ctrl+1": () => app.router?.navigate("home"),
+  "ctrl+2": () => app.router?.navigate("logs"),
+  "ctrl+3": () => app.router?.navigate("settings"),
+  escape: () => {
+    const router = app.router;
+    if (!router) return;
+    const route = router.currentRoute();
+    if (route?.id === "detail") {
+      if (router.canGoBack()) router.back();
+      else router.navigate("logs");
+    }
+  },
 });
 
 app.onEvent((event) => {
+  if (event.kind === "engine") {
+    const raw = event.event;
+    if (raw.kind === "resize") {
+      app.update((prev) => {
+        if (prev.viewportCols === raw.cols && prev.viewportRows === raw.rows) return prev;
+        return Object.freeze({
+          ...prev,
+          viewportCols: raw.cols,
+          viewportRows: raw.rows,
+        });
+      });
+    }
+    if (raw.kind === "text" && raw.codepoint >= 0 && raw.codepoint <= 0x10ffff) {
+      const ch = String.fromCodePoint(raw.codepoint).toLowerCase();
+      if (ch === "q") void shutdown();
+    }
+  }
   if (event.kind === "fatal") {
     clearInterval(logTimer);
   }
@@ -778,6 +911,6 @@ const logTimer = setInterval(() => {
     if (!prev.autoRefresh) return prev;
     return appendTickLog(prev);
   });
-}, 1000);
+}, LOG_TICK_MS);
 
 await app.start();
