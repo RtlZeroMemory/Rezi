@@ -1,8 +1,10 @@
 import { exit } from "node:process";
 import type {
+  BadgeVariant,
   LogEntry,
   RouteDefinition,
   RouteRenderContext,
+  TextStyle,
   ThemeDefinition,
   VNode,
 } from "@rezi-ui/core";
@@ -27,6 +29,10 @@ type AppState = {
 };
 
 const PRODUCT_NAME = "__APP_NAME__";
+const PRODUCT_TAGLINE = "Task-oriented multi-screen workflow with first-party routing";
+const UI_FPS_CAP = 30;
+const PANEL_PADDING_X = 1;
+const PANEL_PADDING_Y = 0;
 
 const THEME_BY_NAME: Record<ThemeName, ThemeDefinition> = {
   nord: nordTheme,
@@ -63,6 +69,64 @@ const THEME_OPTIONS: readonly Readonly<{ value: ThemeName; label: string }>[] = 
   { value: "dark", label: "Dark" },
   { value: "light", label: "Light" },
 ]);
+
+type ViewStyles = Readonly<{
+  rootStyle: TextStyle;
+  panelStyle: TextStyle;
+  stripStyle: TextStyle;
+  sectionLabelStyle: TextStyle;
+  metaStyle: TextStyle;
+  quietStyle: TextStyle;
+}>;
+
+function themeLabel(themeName: ThemeName): string {
+  return THEME_OPTIONS.find((option) => option.value === themeName)?.label ?? themeName;
+}
+
+function themeBadgeVariant(themeName: ThemeName): BadgeVariant {
+  if (themeName === "light") return "success";
+  if (themeName === "dark") return "default";
+  return "info";
+}
+
+function environmentBadgeVariant(environment: EnvironmentName): BadgeVariant {
+  if (environment === "production") return "warning";
+  if (environment === "staging") return "info";
+  return "success";
+}
+
+function levelBadgeVariant(level: LogEntry["level"]): BadgeVariant {
+  if (level === "error") return "error";
+  if (level === "warn") return "warning";
+  if (level === "debug") return "info";
+  return "default";
+}
+
+function getViewStyles(themeName: ThemeName): ViewStyles {
+  const colors = THEME_BY_NAME[themeName].colors;
+  return Object.freeze({
+    rootStyle: { bg: colors.bg.base, fg: colors.fg.primary },
+    panelStyle: { bg: colors.bg.elevated, fg: colors.fg.primary },
+    stripStyle: { bg: colors.bg.subtle, fg: colors.fg.primary },
+    sectionLabelStyle: { fg: colors.fg.secondary, bold: true },
+    metaStyle: { fg: colors.fg.secondary, dim: true },
+    quietStyle: { fg: colors.fg.muted, dim: true },
+  });
+}
+
+function panel(title: string, children: readonly VNode[], style: TextStyle, flex = 1): VNode {
+  return ui.box(
+    {
+      title,
+      flex,
+      border: "rounded",
+      px: PANEL_PADDING_X,
+      py: PANEL_PADDING_Y,
+      style,
+    },
+    children,
+  );
+}
 
 function formatTime(timestampMs: number): string {
   return new Date(timestampMs).toLocaleTimeString("en-US", { hour12: false });
@@ -156,34 +220,63 @@ const initialState: AppState = Object.freeze({
 let app!: ReturnType<typeof createApp<AppState>>;
 let isStopping = false;
 
-function renderShell(title: string, context: RouteRenderContext<AppState>, body: VNode): VNode {
-  return ui.column({ p: 1, gap: 1 }, [
-    ui.box({ border: "rounded", p: 1 }, [
-      ui.row({ justify: "between", items: "center" }, [
-        ui.text(`${PRODUCT_NAME} · ${title}`, { variant: "heading" }),
-        ui.row({ gap: 1 }, [
-          ui.badge(`env:${context.state.environment}`, {
-            variant: context.state.environment === "production" ? "warning" : "info",
+function renderShell(
+  title: string,
+  context: RouteRenderContext<AppState>,
+  body: VNode,
+  bodyTitle = title,
+): VNode {
+  const state = context.state;
+  const styles = getViewStyles(state.themeName);
+
+  return ui.column({ p: 1, gap: 1, items: "stretch", style: styles.rootStyle }, [
+    ui.box(
+      { border: "rounded", px: PANEL_PADDING_X, py: PANEL_PADDING_Y, style: styles.stripStyle },
+      [
+        ui.column({ gap: 1 }, [
+          ui.row({ items: "center", gap: 1, wrap: true }, [
+            ui.text(PRODUCT_NAME, { variant: "heading" }),
+            ui.tag("CLI Tool", { variant: "info" }),
+            ui.status(state.autoRefresh ? "online" : "away", {
+              label: state.autoRefresh ? "Streaming" : "Paused",
+            }),
+            ui.spacer({ flex: 1 }),
+            ui.badge(`Env ${state.environment.toUpperCase()}`, {
+              variant: environmentBadgeVariant(state.environment),
+            }),
+          ]),
+          ui.row({ justify: "between", items: "center", gap: 1, wrap: true }, [
+            ui.text(PRODUCT_TAGLINE, { style: styles.sectionLabelStyle }),
+            ui.row({ gap: 1, items: "center", wrap: true }, [
+              ui.tag(`Theme ${themeLabel(state.themeName)}`, {
+                variant: themeBadgeVariant(state.themeName),
+              }),
+              ui.badge(`Tick ${String(state.tick)}`, { variant: "default" }),
+            ]),
+          ]),
+          ui.text(`Operator ${state.operatorName} · ${formatTime(state.nowMs)}`, {
+            style: styles.metaStyle,
           }),
-          ui.badge(`tick:${String(context.state.tick)}`, { variant: "default" }),
         ]),
-      ]),
-      ui.text(`operator:${context.state.operatorName} · time:${formatTime(context.state.nowMs)}`, {
-        variant: "caption",
-      }),
-    ]),
-    ui.box({ border: "single", p: 1 }, [
-      ui.routerTabs(context.router, topLevelRoutes, {
-        id: "app-route-tabs",
-        variant: "pills",
-      }),
-      ui.routerBreadcrumb(context.router, routes, {
-        id: "app-route-breadcrumb",
-        separator: " > ",
-      }),
-    ]),
-    ui.box({ border: "single", p: 1 }, [body]),
-    ui.text("ctrl+1 Home · ctrl+2 Logs · ctrl+3 Settings · q Quit", { variant: "caption" }),
+      ],
+    ),
+    ui.box(
+      { border: "rounded", px: PANEL_PADDING_X, py: PANEL_PADDING_Y, style: styles.stripStyle },
+      [
+        ui.column({ gap: 1 }, [
+          ui.routerTabs(context.router, topLevelRoutes, {
+            id: "app-route-tabs",
+            variant: "pills",
+          }),
+          ui.routerBreadcrumb(context.router, routes, {
+            id: "app-route-breadcrumb",
+            separator: " > ",
+          }),
+        ]),
+      ],
+    ),
+    panel(bodyTitle, [body], styles.panelStyle),
+    ui.text("ctrl+1 Home · ctrl+2 Logs · ctrl+3 Settings · q Quit", { style: styles.quietStyle }),
   ]);
 }
 
@@ -192,46 +285,55 @@ function renderHome(
   context: RouteRenderContext<AppState>,
 ): VNode {
   const state = context.state;
+  const styles = getViewStyles(state.themeName);
   const latest = state.logs[state.logs.length - 1];
 
   return renderShell(
     "Home",
     context,
-    ui.box({ border: "single", p: 1 }, [
-      ui.column({ gap: 1 }, [
-        ui.callout(
-          "This app uses first-party page routing with keybindings, history, and focus restoration.",
-          {
-            title: "Router-ready CLI Template",
-            variant: "info",
-          },
-        ),
-        ui.row({ gap: 1 }, [
-          ui.status(state.autoRefresh ? "online" : "away", {
-            label: state.autoRefresh ? "Live stream enabled" : "Live stream paused",
-          }),
-          ui.badge(`logs:${String(state.logs.length)}`, { variant: "default" }),
-          ui.badge(`tick:${String(state.tick)}`, { variant: "info" }),
-        ]),
-        ui.text(
-          latest
-            ? `Latest: [${latest.level.toUpperCase()}] ${latest.message} @ ${formatTime(latest.timestamp)}`
-            : "No log entries yet.",
-        ),
-        ui.row({ gap: 1 }, [
-          ui.button({
-            id: "home-open-logs",
-            label: "Open Logs",
-            onPress: () => context.router.navigate("logs"),
-          }),
-          ui.button({
-            id: "home-open-settings",
-            label: "Open Settings",
-            onPress: () => context.router.navigate("settings"),
-          }),
+    ui.column({ gap: 1 }, [
+      ui.callout(
+        "This app uses first-party page routing with keybindings, history, and focus restoration.",
+        {
+          title: "Router-ready CLI Template",
+          variant: "info",
+        },
+      ),
+      ui.row({ gap: 1, wrap: true }, [
+        ui.badge(`Logs ${String(state.logs.length)}`, { variant: "default" }),
+        ui.badge(`Timeout ${String(state.commandTimeoutSec)}s`, { variant: "info" }),
+        ui.tag(`Debug ${state.includeDebug ? "ON" : "OFF"}`, {
+          variant: state.includeDebug ? "info" : "default",
+        }),
+      ]),
+      ui.box({ border: "single", px: 1, py: 0, style: styles.stripStyle }, [
+        ui.column({ gap: 1 }, [
+          ui.text("Latest Event", { style: styles.sectionLabelStyle }),
+          ui.text(
+            latest ? `[${latest.level.toUpperCase()}] ${latest.message}` : "No log entries yet.",
+          ),
+          ui.text(
+            latest
+              ? `source:${latest.source} · time:${formatTime(latest.timestamp)}`
+              : "Start streaming to populate activity.",
+            { style: styles.metaStyle },
+          ),
         ]),
       ]),
+      ui.row({ gap: 1 }, [
+        ui.button({
+          id: "home-open-logs",
+          label: "Open Logs",
+          onPress: () => context.router.navigate("logs"),
+        }),
+        ui.button({
+          id: "home-open-settings",
+          label: "Open Settings",
+          onPress: () => context.router.navigate("settings"),
+        }),
+      ]),
     ]),
+    "Overview",
   );
 }
 
@@ -240,6 +342,7 @@ function renderLogs(
   context: RouteRenderContext<AppState>,
 ): VNode {
   const state = context.state;
+  const styles = getViewStyles(state.themeName);
   const recent = [...state.logs].slice(-8).reverse();
 
   const logsConsole = ui.logsConsole({
@@ -277,19 +380,23 @@ function renderLogs(
     "Logs",
     context,
     ui.row({ gap: 2 }, [
-      ui.box({ flex: 2, border: "single", p: 1 }, [logsConsole]),
-      ui.box({ flex: 1, border: "single", p: 1 }, [
+      ui.box({ flex: 2, border: "single", p: 1, style: styles.stripStyle }, [logsConsole]),
+      ui.box({ flex: 1, border: "single", p: 1, style: styles.stripStyle }, [
         ui.column({ gap: 1 }, [
-          ui.text("Recent entries", { variant: "label" }),
-          ...recent.map((entry) =>
-            ui.button({
-              id: `open-${entry.id}`,
-              label: `${entry.level.toUpperCase()} · ${entry.source}`,
-              onPress: () => context.router.navigate("detail", Object.freeze({ id: entry.id })),
-            }),
-          ),
+          ui.text("Recent entries", { style: styles.sectionLabelStyle }),
+          ...recent.map((entry) => {
+            const when = formatTime(entry.timestamp);
+            return ui.row({ gap: 1, items: "center" }, [
+              ui.badge(entry.level.toUpperCase(), { variant: levelBadgeVariant(entry.level) }),
+              ui.button({
+                id: `open-${entry.id}`,
+                label: `${entry.source} @ ${when}`,
+                onPress: () => context.router.navigate("detail", Object.freeze({ id: entry.id })),
+              }),
+            ]);
+          }),
           ...(recent.length === 0
-            ? [ui.text("No entries in history.", { variant: "caption" })]
+            ? [ui.text("No entries in history.", { style: styles.metaStyle })]
             : []),
           ui.button({
             id: "logs-open-settings",
@@ -299,6 +406,7 @@ function renderLogs(
         ]),
       ]),
     ]),
+    "Live Logs",
   );
 }
 
@@ -307,90 +415,98 @@ function renderSettings(
   context: RouteRenderContext<AppState>,
 ): VNode {
   const state = context.state;
+  const styles = getViewStyles(state.themeName);
 
   return renderShell(
     "Settings",
     context,
-    ui.box({ border: "single", p: 1 }, [
-      ui.column({ gap: 1 }, [
-        ui.field({
-          label: "Operator",
-          children: ui.input({
-            id: "settings-operator",
-            value: state.operatorName,
-            onInput: (value) => {
-              context.update((prev) => Object.freeze({ ...prev, operatorName: value }));
+    ui.column({ gap: 1 }, [
+      ui.callout("Adjust runtime behavior, filtering, and presentation preferences.", {
+        title: "Preferences",
+        variant: "info",
+      }),
+      ui.box({ border: "single", p: 1, style: styles.stripStyle }, [
+        ui.column({ gap: 1 }, [
+          ui.field({
+            label: "Operator",
+            children: ui.input({
+              id: "settings-operator",
+              value: state.operatorName,
+              onInput: (value) => {
+                context.update((prev) => Object.freeze({ ...prev, operatorName: value }));
+              },
+            }),
+          }),
+          ui.field({
+            label: "Environment",
+            children: ui.select({
+              id: "settings-environment",
+              value: state.environment,
+              options: ENV_OPTIONS,
+              onChange: (value) => {
+                if (!isEnvironment(value)) return;
+                context.update((prev) => Object.freeze({ ...prev, environment: value }));
+              },
+            }),
+          }),
+          ui.field({
+            label: "Theme",
+            children: ui.select({
+              id: "settings-theme",
+              value: state.themeName,
+              options: THEME_OPTIONS,
+              onChange: (value) => {
+                if (!isThemeName(value)) return;
+                context.update((prev) => Object.freeze({ ...prev, themeName: value }));
+                app.setTheme(THEME_BY_NAME[value]);
+              },
+            }),
+          }),
+          ui.checkbox({
+            id: "settings-auto-refresh",
+            checked: state.autoRefresh,
+            label: "Auto-refresh log stream",
+            onChange: (checked) => {
+              context.update((prev) => Object.freeze({ ...prev, autoRefresh: checked }));
             },
           }),
-        }),
-        ui.field({
-          label: "Environment",
-          children: ui.select({
-            id: "settings-environment",
-            value: state.environment,
-            options: ENV_OPTIONS,
-            onChange: (value) => {
-              if (!isEnvironment(value)) return;
-              context.update((prev) => Object.freeze({ ...prev, environment: value }));
+          ui.checkbox({
+            id: "settings-include-debug",
+            checked: state.includeDebug,
+            label: "Include debug level entries",
+            onChange: (checked) => {
+              context.update((prev) => Object.freeze({ ...prev, includeDebug: checked }));
             },
           }),
-        }),
-        ui.field({
-          label: "Theme",
-          children: ui.select({
-            id: "settings-theme",
-            value: state.themeName,
-            options: THEME_OPTIONS,
-            onChange: (value) => {
-              if (!isThemeName(value)) return;
-              context.update((prev) => Object.freeze({ ...prev, themeName: value }));
-              app.setTheme(THEME_BY_NAME[value]);
-            },
+          ui.field({
+            label: `Command timeout: ${String(state.commandTimeoutSec)}s`,
+            children: ui.slider({
+              id: "settings-timeout",
+              value: state.commandTimeoutSec,
+              min: 5,
+              max: 120,
+              step: 5,
+              onChange: (value) => {
+                context.update((prev) => Object.freeze({ ...prev, commandTimeoutSec: value }));
+              },
+            }),
           }),
-        }),
-        ui.checkbox({
-          id: "settings-auto-refresh",
-          checked: state.autoRefresh,
-          label: "Auto-refresh log stream",
-          onChange: (checked) => {
-            context.update((prev) => Object.freeze({ ...prev, autoRefresh: checked }));
-          },
-        }),
-        ui.checkbox({
-          id: "settings-include-debug",
-          checked: state.includeDebug,
-          label: "Include debug level entries",
-          onChange: (checked) => {
-            context.update((prev) => Object.freeze({ ...prev, includeDebug: checked }));
-          },
-        }),
-        ui.field({
-          label: `Command timeout: ${String(state.commandTimeoutSec)}s`,
-          children: ui.slider({
-            id: "settings-timeout",
-            value: state.commandTimeoutSec,
-            min: 5,
-            max: 120,
-            step: 5,
-            onChange: (value) => {
-              context.update((prev) => Object.freeze({ ...prev, commandTimeoutSec: value }));
-            },
-          }),
-        }),
-        ui.row({ gap: 1 }, [
-          ui.button({
-            id: "settings-open-logs",
-            label: "Logs",
-            onPress: () => context.router.navigate("logs"),
-          }),
-          ui.button({
-            id: "settings-open-home",
-            label: "Home",
-            onPress: () => context.router.navigate("home"),
-          }),
+          ui.row({ gap: 1 }, [
+            ui.button({
+              id: "settings-open-logs",
+              label: "Logs",
+              onPress: () => context.router.navigate("logs"),
+            }),
+            ui.button({
+              id: "settings-open-home",
+              label: "Home",
+              onPress: () => context.router.navigate("home"),
+            }),
+          ]),
         ]),
       ]),
     ]),
+    "Configuration",
   );
 }
 
@@ -398,6 +514,7 @@ function renderDetail(
   params: Readonly<Record<string, string>>,
   context: RouteRenderContext<AppState>,
 ): VNode {
+  const styles = getViewStyles(context.state.themeName);
   const entryId = (params as Readonly<{ id?: string }>).id;
   const logs = context.state.logs;
   const index = entryId ? logs.findIndex((entry) => entry.id === entryId) : -1;
@@ -407,20 +524,23 @@ function renderDetail(
     return renderShell(
       "Log Detail",
       context,
-      ui.column({ gap: 1 }, [
-        ui.callout("The selected log entry no longer exists in the bounded history window.", {
-          title: "Entry unavailable",
-          variant: "warning",
-        }),
-        ui.button({
-          id: "detail-missing-back",
-          label: "Back to Logs",
-          onPress: () => {
-            if (context.router.canGoBack()) context.router.back();
-            else context.router.navigate("logs");
-          },
-        }),
+      ui.box({ border: "single", px: 1, py: 0, style: styles.stripStyle }, [
+        ui.column({ gap: 1 }, [
+          ui.callout("The selected log entry no longer exists in the bounded history window.", {
+            title: "Entry unavailable",
+            variant: "warning",
+          }),
+          ui.button({
+            id: "detail-missing-back",
+            label: "Back to Logs",
+            onPress: () => {
+              if (context.router.canGoBack()) context.router.back();
+              else context.router.navigate("logs");
+            },
+          }),
+        ]),
       ]),
+      "Log Detail",
     );
   }
 
@@ -430,14 +550,15 @@ function renderDetail(
   return renderShell(
     "Log Detail",
     context,
-    ui.box({ border: "single", p: 1 }, [
+    ui.box({ border: "single", p: 1, style: styles.stripStyle }, [
       ui.column({ gap: 1 }, [
         ui.row({ gap: 1 }, [
           ui.badge(entry.level.toUpperCase(), {
-            variant: entry.level === "error" ? "error" : "info",
+            variant: levelBadgeVariant(entry.level),
           }),
-          ui.text(`source:${entry.source}`),
-          ui.text(`time:${formatTime(entry.timestamp)}`),
+          ui.tag(`source:${entry.source}`, { variant: "default" }),
+          ui.tag(`time:${formatTime(entry.timestamp)}`, { variant: "default" }),
+          ui.badge(`index ${String(index + 1)} / ${String(logs.length)}`, { variant: "default" }),
         ]),
         ui.text(entry.message),
         ui.callout(entry.details ?? "No extra details", {
@@ -474,6 +595,7 @@ function renderDetail(
         ]),
       ]),
     ]),
+    "Log Detail",
   );
 }
 
@@ -509,13 +631,13 @@ const topLevelRoutes: readonly RouteDefinition<AppState>[] = Object.freeze(
 
 app = createApp({
   backend: createNodeBackend({
-    fpsCap: 30,
+    fpsCap: UI_FPS_CAP,
   }),
   initialState,
   routes,
   initialRoute: "home",
   config: {
-    fpsCap: 30,
+    fpsCap: UI_FPS_CAP,
   },
   theme: THEME_BY_NAME[initialState.themeName],
 });
