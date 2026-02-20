@@ -28,6 +28,7 @@ import { CURSOR_DEFAULTS } from "../cursor/index.js";
 import {
   type DrawlistBuilderV1,
   type DrawlistBuilderV2,
+  type DrawlistBuilderV3,
   createDrawlistBuilderV1,
   createDrawlistBuilderV2,
 } from "../drawlist/index.js";
@@ -128,6 +129,7 @@ import type {
   FileNode,
   FilePickerProps,
   FileTreeExplorerProps,
+  LinkProps,
   LogsConsoleProps,
   RadioGroupProps,
   SelectProps,
@@ -331,6 +333,7 @@ type IdentityDiffDamageResult = Readonly<{
 function isRoutingRelevantKind(kind: WidgetKind): boolean {
   switch (kind) {
     case "button":
+    case "link":
     case "input":
     case "slider":
     case "focusZone":
@@ -372,6 +375,7 @@ function isDamageGranularityKind(kind: WidgetKind): boolean {
     case "divider":
     case "spacer":
     case "button":
+    case "link":
     case "input":
     case "slider":
     case "select":
@@ -425,7 +429,7 @@ function isDamageGranularityKind(kind: WidgetKind): boolean {
  */
 export class WidgetRenderer<S> {
   private readonly backend: RuntimeBackend;
-  private readonly builder: DrawlistBuilderV1 | DrawlistBuilderV2;
+  private readonly builder: DrawlistBuilderV1 | DrawlistBuilderV2 | DrawlistBuilderV3;
   private readonly useV2Cursor: boolean;
   private readonly cursorShape: CursorShape;
   private readonly cursorBlink: boolean;
@@ -483,6 +487,7 @@ export class WidgetRenderer<S> {
   /* --- Complex Widget Metadata (rebuilt each commit) --- */
   private readonly virtualListById = new Map<string, VirtualListProps<unknown>>();
   private readonly buttonById = new Map<string, ButtonProps>();
+  private readonly linkById = new Map<string, LinkProps>();
   private readonly tableById = new Map<string, TableProps<unknown>>();
   private readonly treeById = new Map<string, TreeProps<unknown>>();
   private readonly dropdownById = new Map<string, DropdownProps>();
@@ -615,7 +620,7 @@ export class WidgetRenderer<S> {
   constructor(
     opts: Readonly<{
       backend: RuntimeBackend;
-      builder?: DrawlistBuilderV1 | DrawlistBuilderV2;
+      builder?: DrawlistBuilderV1 | DrawlistBuilderV2 | DrawlistBuilderV3;
       maxDrawlistBytes?: number;
       drawlistValidateParams?: boolean;
       drawlistReuseOutputBuffer?: boolean;
@@ -2349,6 +2354,8 @@ export class WidgetRenderer<S> {
       if (res.action.action === "press") {
         const btn = this.buttonById.get(res.action.id);
         if (btn?.onPress) btn.onPress();
+        const link = this.linkById.get(res.action.id);
+        if (link?.onPress) link.onPress();
       }
       return Object.freeze({ needsRender, action: res.action });
     }
@@ -3229,6 +3236,7 @@ export class WidgetRenderer<S> {
 
         this.virtualListById.clear();
         this.buttonById.clear();
+        this.linkById.clear();
         this.tableById.clear();
         this.treeById.clear();
         this.dropdownById.clear();
@@ -3271,6 +3279,13 @@ export class WidgetRenderer<S> {
             case "button": {
               const p = v.props as ButtonProps;
               this.buttonById.set(p.id, p);
+              break;
+            }
+            case "link": {
+              const p = v.props as LinkProps;
+              if (typeof p.id === "string" && p.id.length > 0) {
+                this.linkById.set(p.id, p);
+              }
               break;
             }
             case "virtualList": {

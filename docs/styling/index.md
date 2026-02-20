@@ -56,6 +56,8 @@ type TextStyle = Readonly<{
   strikethrough?: boolean; // Strikethrough text
   overline?: boolean;    // Overline text
   blink?: boolean;       // Blinking text
+  underlineStyle?: "none" | "straight" | "double" | "curly" | "dotted" | "dashed";
+  underlineColor?: string | ThemeColor;
 }>;
 ```
 
@@ -79,12 +81,28 @@ ui.text("Colored text", { style: { fg: red, bg: customBlue } });
 ui.text("Bold text", { style: { bold: true } });
 ui.text("Italic text", { style: { italic: true } });
 ui.text("Underlined", { style: { underline: true } });
+ui.text("Curly underline", {
+  style: { underlineStyle: "curly", underlineColor: "#ff6b6b" },
+});
 ui.text("Dim text", { style: { dim: true } });
 ui.text("Struck through", { style: { strikethrough: true } });
 ui.text("Overlined", { style: { overline: true } });
 ui.text("Blinking", { style: { blink: true } });
 ui.text("Inverted", { style: { inverse: true } });
 ```
+
+## Graphics Styling
+
+Graphics widgets use color strings and rendering protocol options in addition to `TextStyle`.
+
+| Widget | Styling knobs |
+|-------|----------------|
+| `link` | `style`, focus state, theme primary/underline defaults |
+| `canvas` | draw colors (`#rrggbb` or theme tokens), `blitter` quality |
+| `image` | `fit`, `protocol`, `zLayer`, `imageId` caching |
+| `lineChart` / `sparkline` / `barChart` | series colors, `blitter`, optional `highRes` rendering |
+
+Use lower-resolution blitters (`quadrant`, `halfblock`) for speed; use `braille` for maximum detail.
 
 ## Built-in Themes
 
@@ -140,6 +158,12 @@ Themes use semantic color tokens for consistent styling:
 - `warning` - Warning states
 - `error` - Error states
 - `info` - Informational states
+
+### Diagnostic Colors (`diagnostic.*`)
+- `diagnostic.error` - Diagnostic error underline/color
+- `diagnostic.warning` - Diagnostic warning underline/color
+- `diagnostic.info` - Diagnostic info underline/color
+- `diagnostic.hint` - Diagnostic hint underline/color
 
 ### State Colors
 - `focus.ring` - Focus ring color

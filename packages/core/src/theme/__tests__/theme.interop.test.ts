@@ -78,4 +78,35 @@ describe("theme.interop spacing", () => {
     assert.equal(merged.spacing, parentTheme.spacing);
     assert.notEqual(merged, parentTheme);
   });
+
+  test("coerceToLegacyTheme carries diagnostic semantic colors", () => {
+    const semanticTheme = extendTheme(darkTheme, {
+      colors: {
+        diagnostic: {
+          warning: { r: 1, g: 2, b: 3 },
+        },
+      },
+    });
+
+    const legacyTheme = coerceToLegacyTheme(semanticTheme);
+    assert.deepEqual(legacyTheme.colors["diagnostic.warning"], { r: 1, g: 2, b: 3 });
+  });
+
+  test("mergeThemeOverride accepts nested legacy diagnostic overrides", () => {
+    const parentTheme = createTheme({
+      colors: {
+        "diagnostic.error": { r: 9, g: 9, b: 9 },
+      },
+    });
+
+    const merged = mergeThemeOverride(parentTheme, {
+      colors: {
+        diagnostic: {
+          error: { r: 7, g: 8, b: 9 },
+        },
+      },
+    });
+
+    assert.deepEqual(merged.colors["diagnostic.error"], { r: 7, g: 8, b: 9 });
+  });
 });

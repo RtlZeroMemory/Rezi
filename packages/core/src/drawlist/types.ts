@@ -145,3 +145,63 @@ export interface DrawlistBuilderV2 extends DrawlistBuilderV1 {
    */
   hideCursor(): void;
 }
+
+// =============================================================================
+// Graphics Types (ZRDL v3)
+// =============================================================================
+
+export type DrawlistCanvasBlitter =
+  | "auto"
+  | "braille"
+  | "sextant"
+  | "quadrant"
+  | "halfblock"
+  | "ascii";
+
+export type DrawlistImageFormat = "rgba" | "png";
+
+export type DrawlistImageProtocol = "auto" | "kitty" | "sixel" | "iterm2" | "blitter";
+
+export type DrawlistImageFit = "fill" | "contain" | "cover";
+
+/**
+ * ZRDL v3 drawlist builder interface.
+ *
+ * Extends v2 with hyperlink and graphics commands.
+ */
+export interface DrawlistBuilderV3 extends DrawlistBuilderV2 {
+  /**
+   * Set the active terminal hyperlink.
+   *
+   * Pass `uri=null` to clear the active hyperlink.
+   */
+  setLink(uri: string | null, id?: string): void;
+
+  /**
+   * Draw a canvas RGBA blob.
+   */
+  drawCanvas(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    blobIndex: number,
+    blitter: DrawlistCanvasBlitter,
+  ): void;
+
+  /**
+   * Draw an image blob.
+   */
+  drawImage(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    blobIndex: number,
+    format: DrawlistImageFormat,
+    protocol: DrawlistImageProtocol,
+    zLayer: -1 | 0 | 1,
+    fit: DrawlistImageFit,
+    imageId: number,
+  ): void;
+}

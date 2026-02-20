@@ -175,6 +175,51 @@ const factoryCases: readonly FactoryCase[] = [
     optionalAbsent: "title",
   },
   {
+    name: "link",
+    expectedKind: "link",
+    build: () => ui.link("https://example.com", "Example"),
+    optionalAbsent: "style",
+  },
+  {
+    name: "canvas",
+    expectedKind: "canvas",
+    build: () => ui.canvas({ width: 10, height: 4, draw: () => undefined }),
+    optionalAbsent: "blitter",
+  },
+  {
+    name: "image",
+    expectedKind: "image",
+    build: () => ui.image({ src: new Uint8Array([0, 0, 0, 0]), width: 4, height: 2 }),
+    optionalAbsent: "fit",
+  },
+  {
+    name: "lineChart",
+    expectedKind: "lineChart",
+    build: () =>
+      ui.lineChart({ width: 20, height: 6, series: [{ data: [1, 2, 3], color: "#fff" }] }),
+    optionalAbsent: "axes",
+  },
+  {
+    name: "scatter",
+    expectedKind: "scatter",
+    build: () => ui.scatter({ width: 20, height: 6, points: [{ x: 1, y: 2 }] }),
+    optionalAbsent: "color",
+  },
+  {
+    name: "heatmap",
+    expectedKind: "heatmap",
+    build: () =>
+      ui.heatmap({
+        width: 10,
+        height: 4,
+        data: [
+          [1, 2],
+          [3, 4],
+        ],
+      }),
+    optionalAbsent: "colorScale",
+  },
+  {
     name: "sparkline",
     expectedKind: "sparkline",
     build: () => ui.sparkline([1, 2, 3]),

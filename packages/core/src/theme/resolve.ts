@@ -46,7 +46,12 @@ export type ColorPath =
   // Border paths
   | "border.subtle"
   | "border.default"
-  | "border.strong";
+  | "border.strong"
+  // Diagnostic paths
+  | "diagnostic.error"
+  | "diagnostic.warning"
+  | "diagnostic.info"
+  | "diagnostic.hint";
 
 /**
  * Result of color resolution.
@@ -133,6 +138,13 @@ function resolveNestedToken(colors: ColorTokens, group: string, key: string): Rg
       if (key === "default") return colors.border.default;
       if (key === "strong") return colors.border.strong;
       break;
+    case "diagnostic":
+      if (!colors.diagnostic) return null;
+      if (key === "error") return colors.diagnostic.error;
+      if (key === "warning") return colors.diagnostic.warning;
+      if (key === "info") return colors.diagnostic.info;
+      if (key === "hint") return colors.diagnostic.hint;
+      break;
   }
   return null;
 }
@@ -203,6 +215,10 @@ export function isValidColorPath(path: string): path is ColorPath {
     "border.subtle",
     "border.default",
     "border.strong",
+    "diagnostic.error",
+    "diagnostic.warning",
+    "diagnostic.info",
+    "diagnostic.hint",
   ]);
   return validPaths.has(path);
 }

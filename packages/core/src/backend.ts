@@ -4,6 +4,7 @@
  */
 
 import type { TerminalCaps } from "./terminalCaps.js";
+import type { TerminalProfile } from "./terminalProfile.js";
 
 /**
  * Optional marker on requestFrame() promises for backends that can signal
@@ -129,4 +130,12 @@ export interface RuntimeBackend {
    * @returns Terminal capabilities
    */
   getCaps(): Promise<TerminalCaps>;
+
+  /**
+   * Optional detailed terminal profile.
+   *
+   * Backends that do not expose this may omit it; callers should fall back to
+   * `getCaps()` and derive a conservative profile.
+   */
+  getTerminalProfile?: () => Promise<TerminalProfile>;
 }

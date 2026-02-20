@@ -119,6 +119,20 @@ function packRgb(v: unknown): number {
   return ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
 }
 
+function hasUnderlineVariant(style: TextStyle): boolean {
+  const underlineStyle = (style as { underlineStyle?: unknown }).underlineStyle;
+  switch (underlineStyle) {
+    case "straight":
+    case "double":
+    case "curly":
+    case "dotted":
+    case "dashed":
+      return true;
+    default:
+      return false;
+  }
+}
+
 function encodeStyle(style: TextStyle | undefined): EncodedStyle {
   if (!style) return { fg: 0, bg: 0, attrs: 0 };
 
@@ -128,7 +142,7 @@ function encodeStyle(style: TextStyle | undefined): EncodedStyle {
   let attrs = 0;
   if (style.bold) attrs |= 1 << 0;
   if (style.italic) attrs |= 1 << 1;
-  if (style.underline) attrs |= 1 << 2;
+  if (style.underline || hasUnderlineVariant(style)) attrs |= 1 << 2;
   if (style.inverse) attrs |= 1 << 3;
   if (style.dim) attrs |= 1 << 4;
   if (style.strikethrough) attrs |= 1 << 5;

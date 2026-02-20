@@ -76,6 +76,17 @@ export function renderEditorWidget(
       const selection = props.selection;
       const selectionBg = theme.colors.secondary;
       const lineNumberStyle = mergeTextStyle(parentStyle, { fg: theme.colors.muted });
+      const diagnostics = Array.isArray(
+        (props as CodeEditorProps & Readonly<{ diagnostics?: unknown }>).diagnostics,
+      )
+        ? ((props as CodeEditorProps & Readonly<{ diagnostics?: unknown }>)
+            .diagnostics as readonly {
+            line?: unknown;
+            startColumn?: unknown;
+            endColumn?: unknown;
+            severity?: unknown;
+          }[])
+        : [];
 
       const normalizedSelection = (() => {
         if (!selection) return null;
@@ -122,6 +133,46 @@ export function renderEditorWidget(
         // Line content
         const displayLine = line.slice(scrollLeft, scrollLeft + textW);
         builder.drawText(textX, y, displayLine, parentStyle);
+
+        // Diagnostics underlines (curly + semantic color)
+        if (diagnostics.length > 0 && textW > 0) {
+          for (const diagnostic of diagnostics) {
+            const lineIndex =
+              typeof diagnostic.line === "number" && Number.isFinite(diagnostic.line)
+                ? Math.trunc(diagnostic.line)
+                : -1;
+            if (lineIndex !== i) continue;
+            const startRaw =
+              typeof diagnostic.startColumn === "number" && Number.isFinite(diagnostic.startColumn)
+                ? Math.trunc(diagnostic.startColumn)
+                : 0;
+            const endRaw =
+              typeof diagnostic.endColumn === "number" && Number.isFinite(diagnostic.endColumn)
+                ? Math.trunc(diagnostic.endColumn)
+                : startRaw + 1;
+            const startCol = Math.max(0, Math.min(line.length, startRaw));
+            const endCol = Math.max(startCol + 1, Math.min(line.length, endRaw));
+            const visStart = Math.max(0, startCol - scrollLeft);
+            const visEnd = Math.max(visStart, Math.min(textW, endCol - scrollLeft));
+            if (visEnd <= visStart) continue;
+            const segment = line.slice(scrollLeft + visStart, scrollLeft + visEnd);
+            if (segment.length === 0) continue;
+            const severity = diagnostic.severity;
+            const underlineColor =
+              severity === "warning"
+                ? (theme.colors["diagnostic.warning"] ?? theme.colors.warning)
+                : severity === "info"
+                  ? (theme.colors["diagnostic.info"] ?? theme.colors.info)
+                  : severity === "hint"
+                    ? (theme.colors["diagnostic.hint"] ?? theme.colors.success)
+                    : (theme.colors["diagnostic.error"] ?? theme.colors.danger);
+            builder.drawText(textX + visStart, y, segment, {
+              underline: true,
+              underlineStyle: "curly",
+              underlineColor,
+            });
+          }
+        }
       }
 
       builder.popClip();

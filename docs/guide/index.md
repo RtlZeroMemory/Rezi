@@ -11,6 +11,7 @@ Core Rezi guides:
 - [Input & Focus](input-and-focus.md)
 - [Mouse Support](mouse-support.md)
 - [Styling](styling.md)
+- [Graphics](graphics.md)
 - [Performance](performance.md)
 - [Debugging](debugging.md)
 - [Record & Replay](record-replay.md)

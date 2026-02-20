@@ -1,9 +1,17 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { type VNode, createDrawlistBuilderV1 } from "../../index.js";
+import {
+  type DrawlistBuilderV1,
+  type Theme,
+  type VNode,
+  createDrawlistBuilderV1,
+  createDrawlistBuilderV3,
+  createTheme,
+} from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
 import { createInstanceIdAllocator } from "../../runtime/instance.js";
+import { defaultTheme } from "../../theme/defaultTheme.js";
 import { ui } from "../ui.js";
 
 function u16(bytes: Uint8Array, off: number): number {
@@ -58,9 +66,80 @@ function parseInternedStrings(bytes: Uint8Array): readonly string[] {
   return Object.freeze(out);
 }
 
+type DrawTextCommand = Readonly<{
+  text: string;
+  fg: number;
+  bg: number;
+  attrs: number;
+  ext: number;
+}>;
+
+function parseDrawTextCommands(bytes: Uint8Array): readonly DrawTextCommand[] {
+  const strings = parseInternedStrings(bytes);
+  const cmdOffset = u32(bytes, 16);
+  const cmdBytes = u32(bytes, 20);
+  const end = cmdOffset + cmdBytes;
+
+  const out: DrawTextCommand[] = [];
+  let off = cmdOffset;
+  while (off < end) {
+    const opcode = u16(bytes, off);
+    const size = u32(bytes, off + 4);
+    if (opcode === 3 && size >= 48) {
+      const stringIndex = u32(bytes, off + 16);
+      out.push({
+        text: strings[stringIndex] ?? "",
+        fg: u32(bytes, off + 28),
+        bg: u32(bytes, off + 32),
+        attrs: u32(bytes, off + 36),
+        ext: u32(bytes, off + 40),
+      });
+    }
+    off += size;
+  }
+  return Object.freeze(out);
+}
+
+function packRgb(color: Readonly<{ r: number; g: number; b: number }>): number {
+  return ((color.r & 0xff) << 16) | ((color.g & 0xff) << 8) | (color.b & 0xff);
+}
+
+function decodeUnderlineExt(ext: number): Readonly<{
+  underlineStyle: number;
+  hasUnderlineColor: number;
+  underlineColorRgb: number;
+}> {
+  return Object.freeze({
+    underlineStyle: ext & 0x7,
+    hasUnderlineColor: (ext >> 3) & 0x1,
+    underlineColorRgb: (ext >> 8) & 0x00ff_ffff,
+  });
+}
+
+const ATTR_BOLD = 1 << 0;
+const ATTR_UNDERLINE = 1 << 2;
+
 function renderBytes(
   vnode: VNode,
   viewport: Readonly<{ cols: number; rows: number }> = { cols: 64, rows: 20 },
+  opts: Readonly<{ focusedId?: string | null; theme?: Theme }> = {},
+): Uint8Array {
+  return renderBytesWithBuilder(vnode, () => createDrawlistBuilderV1(), viewport, opts);
+}
+
+function renderBytesV3(
+  vnode: VNode,
+  viewport: Readonly<{ cols: number; rows: number }> = { cols: 64, rows: 20 },
+  opts: Readonly<{ focusedId?: string | null; theme?: Theme }> = {},
+): Uint8Array {
+  return renderBytesWithBuilder(vnode, () => createDrawlistBuilderV3(), viewport, opts);
+}
+
+function renderBytesWithBuilder(
+  vnode: VNode,
+  createBuilder: () => DrawlistBuilderV1,
+  viewport: Readonly<{ cols: number; rows: number }>,
+  opts: Readonly<{ focusedId?: string | null; theme?: Theme }> = {},
 ): Uint8Array {
   const allocator = createInstanceIdAllocator(1);
   const committed = commitVNodeTree(null, vnode, { allocator });
@@ -78,13 +157,14 @@ function renderBytes(
   assert.equal(layoutRes.ok, true, "layout should succeed");
   if (!layoutRes.ok) return new Uint8Array();
 
-  const builder = createDrawlistBuilderV1();
+  const builder = createBuilder();
   renderToDrawlist({
     tree: committed.value.root,
     layout: layoutRes.value,
     viewport,
-    focusState: Object.freeze({ focusedId: null }),
+    focusState: Object.freeze({ focusedId: opts.focusedId ?? null }),
     builder,
+    ...(opts.theme ? { theme: opts.theme } : {}),
   });
   const built = builder.build();
   assert.equal(built.ok, true, "drawlist should build");
@@ -290,6 +370,118 @@ describe("basic widgets render to drawlist", () => {
       strings.some((s) => s.includes("%")),
       true,
     );
+  });
+
+  test("link default style uses theme primary + underline", () => {
+    const bytes = renderBytes(
+      ui.link({ id: "docs-link", url: "https://example.com", label: "Docs" }),
+      { cols: 40, rows: 4 },
+    );
+    const styles = parseDrawTextCommands(bytes);
+    const docs = styles.find((style) => style.text === "Docs");
+    assert.ok(docs);
+    if (!docs) return;
+    assert.equal((docs.attrs & ATTR_UNDERLINE) !== 0, true);
+    assert.equal((docs.attrs & ATTR_BOLD) !== 0, false);
+    assert.equal(docs.fg, packRgb(defaultTheme.colors.primary));
+  });
+
+  test("focused link adds bold style", () => {
+    const bytes = renderBytes(
+      ui.link({ id: "docs-link", url: "https://example.com", label: "Docs" }),
+      { cols: 40, rows: 4 },
+      { focusedId: "docs-link" },
+    );
+    const styles = parseDrawTextCommands(bytes);
+    const docs = styles.find((style) => style.text === "Docs");
+    assert.ok(docs);
+    if (!docs) return;
+    assert.equal((docs.attrs & ATTR_UNDERLINE) !== 0, true);
+    assert.equal((docs.attrs & ATTR_BOLD) !== 0, true);
+  });
+
+  test("link emits SET_LINK on v3 and degrades on v1", () => {
+    const v3 = renderBytesV3(ui.link("https://example.com", "Docs"), { cols: 40, rows: 4 });
+    const v1 = renderBytes(ui.link("https://example.com", "Docs"), { cols: 40, rows: 4 });
+    assert.equal(parseOpcodes(v3).includes(8), true);
+    assert.equal(parseOpcodes(v1).includes(8), false);
+    assert.equal(parseInternedStrings(v3).includes("https://example.com"), true);
+  });
+
+  test("codeEditor diagnostics use curly underline + token color on v3", () => {
+    const theme = createTheme({
+      colors: {
+        "diagnostic.warning": { r: 1, g: 2, b: 3 },
+      },
+    });
+    const vnode = ui.codeEditor({
+      id: "editor",
+      lines: ["warn"],
+      cursor: { line: 0, column: 0 },
+      selection: null,
+      scrollTop: 0,
+      scrollLeft: 0,
+      lineNumbers: false,
+      diagnostics: [{ line: 0, startColumn: 0, endColumn: 4, severity: "warning" }],
+      onChange: () => undefined,
+      onSelectionChange: () => undefined,
+      onScroll: () => undefined,
+    });
+    const v3 = renderBytesV3(vnode, { cols: 30, rows: 4 }, { theme });
+    const v1 = renderBytes(vnode, { cols: 30, rows: 4 }, { theme });
+
+    const v3WarnStyles = parseDrawTextCommands(v3).filter((cmd) => cmd.text === "warn");
+    assert.equal(
+      v3WarnStyles.some((cmd) => {
+        const ext = decodeUnderlineExt(cmd.ext);
+        return (
+          (cmd.attrs & ATTR_UNDERLINE) !== 0 &&
+          ext.underlineStyle === 3 &&
+          ext.hasUnderlineColor === 1 &&
+          ext.underlineColorRgb === 0x010203
+        );
+      }),
+      true,
+    );
+
+    const v1WarnStyles = parseDrawTextCommands(v1).filter((cmd) => cmd.text === "warn");
+    assert.equal(
+      v1WarnStyles.some((cmd) => (cmd.attrs & ATTR_UNDERLINE) !== 0),
+      true,
+    );
+    assert.equal(
+      v1WarnStyles.some((cmd) => cmd.ext !== 0),
+      false,
+    );
+  });
+
+  test("canvas emits DRAW_CANVAS opcode with v3 builder", () => {
+    const bytes = renderBytesV3(
+      ui.canvas({
+        width: 20,
+        height: 6,
+        draw: (ctx) => {
+          ctx.line(0, 0, ctx.width - 1, ctx.height - 1, "#ffffff");
+        },
+      }),
+      { cols: 40, rows: 10 },
+    );
+    const opcodes = parseOpcodes(bytes);
+    assert.equal(opcodes.includes(9), true);
+  });
+
+  test("image emits DRAW_IMAGE opcode with v3 builder", () => {
+    const bytes = renderBytesV3(
+      ui.image({
+        src: new Uint8Array([0, 0, 0, 0]),
+        width: 8,
+        height: 4,
+        alt: "Logo",
+      }),
+      { cols: 20, rows: 8 },
+    );
+    const opcodes = parseOpcodes(bytes);
+    assert.equal(opcodes.includes(10), true);
   });
 
   test("tag emits fill rect for pill background", () => {

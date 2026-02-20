@@ -217,6 +217,12 @@ export function renderTree(
       case "empty":
       case "errorDisplay":
       case "callout":
+      case "link":
+      case "canvas":
+      case "image":
+      case "lineChart":
+      case "scatter":
+      case "heatmap":
       case "sparkline":
       case "barChart":
       case "miniChart": {

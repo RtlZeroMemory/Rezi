@@ -333,3 +333,31 @@ describe("styled variant behavior for new text attrs", () => {
     });
   });
 });
+
+describe("mergeTextStyle extended underline fields", () => {
+  test("merge applies underlineStyle and underlineColor overrides deterministically", () => {
+    const base = mergeTextStyle(DEFAULT_BASE_STYLE, {
+      underline: true,
+      underlineStyle: "double",
+      underlineColor: { r: 1, g: 2, b: 3 },
+    });
+    const merged = mergeTextStyle(base, {
+      underlineStyle: "curly",
+      underlineColor: { r: 4, g: 5, b: 6 },
+    });
+
+    assert.equal(merged.underline, true);
+    assert.equal(merged.underlineStyle, "curly");
+    assert.deepEqual(merged.underlineColor, { r: 4, g: 5, b: 6 });
+  });
+
+  test("merge retains token-string underlineColor values", () => {
+    const merged = mergeTextStyle(DEFAULT_BASE_STYLE, {
+      underlineStyle: "dotted",
+      underlineColor: "diagnostic.warning",
+    });
+
+    assert.equal(merged.underlineStyle, "dotted");
+    assert.equal(merged.underlineColor, "diagnostic.warning");
+  });
+});

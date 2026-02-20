@@ -117,6 +117,7 @@ nav:
       - Input & Focus: guide/input-and-focus.md
       - Mouse Support: guide/mouse-support.md
       - Styling: guide/styling.md
+      - Graphics: guide/graphics.md
       - Performance: guide/performance.md
       - Debugging: guide/debugging.md
       - Record & Replay: guide/record-replay.md
@@ -151,6 +152,7 @@ nav:
           - Tabs: widgets/tabs.md
           - Accordion: widgets/accordion.md
           - Breadcrumb: widgets/breadcrumb.md
+          - Link: widgets/link.md
           - Pagination: widgets/pagination.md
       - Data:
           - Table: widgets/table.md
@@ -182,6 +184,12 @@ nav:
           - Sparkline: widgets/sparkline.md
           - Bar Chart: widgets/bar-chart.md
           - Mini Chart: widgets/mini-chart.md
+      - Graphics:
+          - Canvas: widgets/canvas.md
+          - Image: widgets/image.md
+          - Line Chart: widgets/line-chart.md
+          - Scatter: widgets/scatter.md
+          - Heatmap: widgets/heatmap.md
       - Feedback:
           - Callout: widgets/callout.md
           - Error Display: widgets/error-display.md

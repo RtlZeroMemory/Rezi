@@ -231,6 +231,77 @@ describe("WidgetRenderer integration battery", () => {
     assert.equal(renderer.getFocusedId(), "z3");
   });
 
+  test("link is focusable and fires onPress with Enter/Space", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    let presses = 0;
+    const vnode = ui.column({}, [
+      ui.link({
+        id: "docs-link",
+        url: "https://example.com",
+        label: "Docs",
+        onPress: () => presses++,
+      }),
+    ]);
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 40, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+    assert.equal(renderer.getFocusedId(), null);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "docs-link");
+
+    renderer.routeEngineEvent(keyEvent(2 /* ENTER */));
+    renderer.routeEngineEvent(keyEvent(32 /* SPACE */));
+    assert.equal(presses, 2);
+  });
+
+  test("disabled link is not focusable and ignores Enter/Space", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    let presses = 0;
+    const vnode = ui.column({}, [
+      ui.link({
+        id: "docs-link",
+        url: "https://example.com",
+        label: "Docs",
+        disabled: true,
+        onPress: () => presses++,
+      }),
+    ]);
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 40, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+    assert.equal(renderer.getFocusedId(), null);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), null);
+
+    renderer.routeEngineEvent(keyEvent(2 /* ENTER */));
+    renderer.routeEngineEvent(keyEvent(32 /* SPACE */));
+    assert.equal(presses, 0);
+  });
+
   test("focusZone grid navigation moves by columns deterministically", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({

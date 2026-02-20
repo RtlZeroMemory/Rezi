@@ -226,6 +226,26 @@ export function measureLeaf(
       const h = props.title ? 4 : 3; // Border top/bottom + content
       return ok({ w: Math.min(maxW, w), h: Math.min(maxH, h) });
     }
+    case "link": {
+      const props = vnode.props as { url?: string; label?: string };
+      const text = props.label && props.label.length > 0 ? props.label : (props.url ?? "");
+      return ok({ w: Math.min(maxW, measureTextCells(text)), h: Math.min(maxH, 1) });
+    }
+    case "canvas":
+    case "image":
+    case "lineChart":
+    case "scatter":
+    case "heatmap": {
+      const props = vnode.props as { width?: unknown; height?: unknown };
+      const width =
+        typeof props.width === "number" && Number.isFinite(props.width) ? props.width : 0;
+      const height =
+        typeof props.height === "number" && Number.isFinite(props.height) ? props.height : 0;
+      return ok({
+        w: Math.min(maxW, Math.max(0, Math.trunc(width))),
+        h: Math.min(maxH, Math.max(0, Math.trunc(height))),
+      });
+    }
     case "sparkline": {
       // Sparkline: mini inline chart using block characters
       const props = vnode.props as { data: readonly number[]; width?: number };
@@ -392,6 +412,24 @@ export function layoutLeafKind(
       return ok({
         vnode,
         rect: { x, y, w: rectW, h: Math.min(rectH, 1) },
+        children: Object.freeze([]),
+      });
+    }
+    case "link": {
+      return ok({
+        vnode,
+        rect: { x, y, w: rectW, h: Math.min(rectH, 1) },
+        children: Object.freeze([]),
+      });
+    }
+    case "canvas":
+    case "image":
+    case "lineChart":
+    case "scatter":
+    case "heatmap": {
+      return ok({
+        vnode,
+        rect: { x, y, w: rectW, h: rectH },
         children: Object.freeze([]),
       });
     }

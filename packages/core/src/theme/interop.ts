@@ -53,6 +53,13 @@ type BorderOverride = {
   strong?: unknown;
 };
 
+type DiagnosticOverride = {
+  error?: unknown;
+  warning?: unknown;
+  info?: unknown;
+  hint?: unknown;
+};
+
 type ThemeDefinitionSpacingOverride = {
   xs?: unknown;
   sm?: unknown;
@@ -74,6 +81,7 @@ type LegacyColorOverrideSource = {
   selected?: unknown;
   disabled?: unknown;
   border?: unknown;
+  diagnostic?: unknown;
   [key: string]: unknown;
 };
 
@@ -212,6 +220,14 @@ function extractLegacyColorOverrides(raw: unknown): Partial<Theme["colors"]> {
     if (borderDefault) setColor(out, "border", borderDefault);
   }
 
+  const diagnostic = isObject(source.diagnostic) ? (source.diagnostic as DiagnosticOverride) : null;
+  if (diagnostic) {
+    setColor(out, "diagnostic.error", diagnostic.error);
+    setColor(out, "diagnostic.warning", diagnostic.warning);
+    setColor(out, "diagnostic.info", diagnostic.info);
+    setColor(out, "diagnostic.hint", diagnostic.hint);
+  }
+
   // Flat legacy colors and custom token keys override derived aliases.
   for (const [key, value] of Object.entries(source)) {
     if (isRgb(value)) out[key] = value;
@@ -305,6 +321,10 @@ export function coerceToLegacyTheme(theme: Theme | ThemeDefinition): Theme {
     "border.subtle": c.border.subtle,
     "border.default": c.border.default,
     "border.strong": c.border.strong,
+    "diagnostic.error": c.diagnostic?.error ?? c.error,
+    "diagnostic.warning": c.diagnostic?.warning ?? c.warning,
+    "diagnostic.info": c.diagnostic?.info ?? c.info,
+    "diagnostic.hint": c.diagnostic?.hint ?? c.accent.tertiary,
   });
 
   const legacyTheme = Object.freeze({ colors, spacing });

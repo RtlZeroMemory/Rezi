@@ -24,6 +24,7 @@ import type { InstanceId } from "./instance.js";
 function readInteractiveId(v: RuntimeInstance["vnode"]): string | null {
   switch (v.kind) {
     case "button":
+    case "link":
     case "input":
     case "slider":
     case "virtualList":
@@ -56,6 +57,7 @@ function isFocusableInteractive(v: RuntimeInstance["vnode"]): boolean {
   // but are explicitly NOT focusable (PLAN.md).
   switch (v.kind) {
     case "button":
+    case "link":
     case "input":
     case "slider":
     case "virtualList":
@@ -85,6 +87,7 @@ function isEnabledInteractive(v: RuntimeInstance["vnode"]): string | null {
   // Disabled applies only to a subset of interactive widgets.
   if (
     v.kind === "button" ||
+    v.kind === "link" ||
     v.kind === "input" ||
     v.kind === "slider" ||
     v.kind === "select" ||
@@ -198,7 +201,7 @@ export function collectPressableIds(tree: RuntimeInstance): ReadonlySet<string> 
     const node = stack.pop();
     if (!node) continue;
 
-    if (node.vnode.kind === "button") {
+    if (node.vnode.kind === "button" || node.vnode.kind === "link") {
       const id = (node.vnode.props as { id?: unknown }).id;
       if (typeof id === "string" && id.length > 0) s.add(id);
     }
@@ -503,6 +506,7 @@ function requiresRoutingRebuild(vnode: RuntimeInstance["vnode"]): boolean {
   switch (vnode.kind) {
     case "dropdown":
     case "button":
+    case "link":
     case "slider":
     case "virtualList":
     case "table":
@@ -631,6 +635,7 @@ export class WidgetMetadataCollector {
         let enabled = true;
         if (
           vnode.kind === "button" ||
+          vnode.kind === "link" ||
           vnode.kind === "input" ||
           vnode.kind === "slider" ||
           vnode.kind === "select" ||
@@ -647,8 +652,8 @@ export class WidgetMetadataCollector {
         this._enabledById.set(interactiveId, enabled);
       }
 
-      // --- Collect pressable IDs (buttons) ---
-      if (vnode.kind === "button") {
+      // --- Collect pressable IDs ---
+      if (vnode.kind === "button" || vnode.kind === "link") {
         const id = (vnode.props as { id?: unknown }).id;
         if (typeof id === "string" && id.length > 0) {
           this._pressableIds.add(id);

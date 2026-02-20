@@ -1,5 +1,10 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { type TextStyle, createDrawlistBuilderV1, createDrawlistBuilderV2 } from "../../index.js";
+import {
+  type TextStyle,
+  createDrawlistBuilderV1,
+  createDrawlistBuilderV2,
+  createDrawlistBuilderV3,
+} from "../../index.js";
 
 function u32(bytes: Uint8Array, off: number): number {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -56,12 +61,13 @@ const ATTR_BITS: ReadonlyArray<readonly [AttrName, number]> = ATTRS.map((attr, b
 
 const BUILDERS: ReadonlyArray<
   Readonly<{
-    name: "v1" | "v2";
+    name: "v1" | "v2" | "v3";
     create: typeof createDrawlistBuilderV1;
   }>
 > = [
   { name: "v1", create: createDrawlistBuilderV1 },
   { name: "v2", create: createDrawlistBuilderV2 },
+  { name: "v3", create: createDrawlistBuilderV3 },
 ];
 
 function singleAttrStyle(attr: AttrName): TextStyle {
@@ -206,6 +212,31 @@ describe("drawlist style fg/bg and undefined fg/bg encoding", () => {
       assert.equal(encoded.fg, 0);
       assert.equal(encoded.bg, 0);
       assert.equal(encoded.attrs, (1 << 1) | (1 << 5));
+    });
+  }
+});
+
+describe("drawlist extended underline degradation", () => {
+  for (const builder of BUILDERS) {
+    test(`${builder.name} drawText treats underlineStyle variant as underline attr`, () => {
+      const encoded = encodeViaDrawText(builder.create, {
+        underlineStyle: "dashed",
+      });
+      assert.equal(encoded.attrs, 1 << 2);
+    });
+
+    test(`${builder.name} text-run treats underlineStyle variant as underline attr`, () => {
+      const encoded = encodeViaTextRun(builder.create, {
+        underlineStyle: "double",
+      });
+      assert.equal(encoded.attrs, 1 << 2);
+    });
+
+    test(`${builder.name} underlineStyle=none does not set underline attr`, () => {
+      const encoded = encodeViaDrawText(builder.create, {
+        underlineStyle: "none",
+      });
+      assert.equal(encoded.attrs, 0);
     });
   }
 });

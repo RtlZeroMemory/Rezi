@@ -19,13 +19,18 @@ Rezi styling is designed to be:
 - `overline`
 - `blink`
 
+Extended underline fields:
+
+- `underlineStyle?: "none" | "straight" | "double" | "curly" | "dotted" | "dashed"`
+- `underlineColor?: string | ThemeColor`
+
 New attribute SGR target mappings:
 
 - `strikethrough` -> SGR `9`
 - `overline` -> SGR `53`
 - `blink` -> SGR `5`
 
-These codes are the terminal mapping used by the backend emitter. Drawlist encoding carries all three attrs, and backend emission now supports `strikethrough`, `overline`, and `blink` end-to-end (terminal rendering still depends on terminal support).
+These codes are the terminal mapping used by the backend emitter. Drawlist encoding carries all three attrs, and backend emission now supports `strikethrough`, `overline`, and `blink` end-to-end (terminal rendering still depends on terminal support). Underline variants and underline color use extended style fields on compatible drawlist versions.
 
 ## Inline styles
 
@@ -75,6 +80,13 @@ Theme hardening APIs are available from `@rezi-ui/core`:
 - `validateTheme(theme)` for strict token validation
 - `extendTheme(base, overrides)` for deep-merge inheritance + validation
 - `contrastRatio(fg, bg)` for WCAG contrast calculations
+
+Theme tokens include a diagnostic palette:
+
+- `diagnostic.error`
+- `diagnostic.warning`
+- `diagnostic.info`
+- `diagnostic.hint`
 
 Example:
 

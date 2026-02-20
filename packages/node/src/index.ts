@@ -22,6 +22,7 @@ export type {
   ReproRecorderBuildResult,
 } from "./repro/index.js";
 export { createReproRecorder };
+export { loadImage } from "./image.js";
 
 export type NodeAppConfig = Readonly<
   AppConfig & Omit<NodeBackendConfig, "fpsCap" | "maxEventBytes" | "useDrawlistV2">

@@ -11,6 +11,12 @@
 /** RGB color with components in range 0-255. */
 export type Rgb = Readonly<{ r: number; g: number; b: number }>;
 
+/** Theme color token path (e.g. "accent.primary", "diagnostic.error"). */
+export type ThemeColor = string;
+
+/** Underline style variants. */
+export type UnderlineStyle = "none" | "straight" | "double" | "curly" | "dotted" | "dashed";
+
 /**
  * Text styling options.
  *   - fg/bg: foreground/background colors
@@ -27,6 +33,16 @@ export type TextStyle = Readonly<{
   strikethrough?: boolean;
   overline?: boolean;
   blink?: boolean;
+  /**
+   * Underline style variant.
+   * Terminals that do not support underline variants should fall back to straight underline.
+   */
+  underlineStyle?: UnderlineStyle | undefined;
+  /**
+   * Underline color.
+   * Accepts direct RGB or a theme token path.
+   */
+  underlineColor?: Rgb | ThemeColor | undefined;
 }>;
 
 /**

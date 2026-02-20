@@ -27,6 +27,7 @@ export {
   type BgTokens,
   type BorderTokens,
   type ColorTokens,
+  type DiagnosticTokens,
   type DisabledTokens,
   type FocusIndicatorTokens,
   type FgTokens,

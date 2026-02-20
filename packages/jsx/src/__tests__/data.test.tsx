@@ -2,7 +2,19 @@
 
 import { ui } from "@rezi-ui/core";
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { BarChart, Gauge, MiniChart, Progress, Skeleton, Sparkline, Spinner } from "../index.js";
+import {
+  BarChart,
+  Canvas,
+  Gauge,
+  Image,
+  LineChart,
+  Link,
+  MiniChart,
+  Progress,
+  Skeleton,
+  Sparkline,
+  Spinner,
+} from "../index.js";
 
 describe("data visualization widgets", () => {
   test("Progress and Gauge map to matching VNodes", () => {
@@ -31,6 +43,29 @@ describe("data visualization widgets", () => {
       { label: "MEM", value: 70, max: 100 },
     ];
     assert.deepEqual(<MiniChart values={values} />, ui.miniChart(values));
+  });
+
+  test("Link, Canvas, Image, LineChart map to matching VNodes", () => {
+    const draw = () => undefined;
+    const src = new Uint8Array([0, 0, 0, 0]);
+    const series = [{ data: [1, 2, 3], color: "#4ecdc4", label: "CPU" }] as const;
+
+    assert.deepEqual(
+      <Link url="https://example.com/docs" label="Docs" />,
+      ui.link("https://example.com/docs", "Docs"),
+    );
+    assert.deepEqual(
+      <Canvas width={12} height={4} draw={draw} />,
+      ui.canvas({ width: 12, height: 4, draw }),
+    );
+    assert.deepEqual(
+      <Image src={src} width={8} height={3} fit="contain" />,
+      ui.image({ src, width: 8, height: 3, fit: "contain" }),
+    );
+    assert.deepEqual(
+      <LineChart width={20} height={6} series={series} />,
+      ui.lineChart({ width: 20, height: 6, series }),
+    );
   });
 
   test("Skeleton and Spinner map to matching VNodes", () => {

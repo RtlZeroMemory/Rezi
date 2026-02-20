@@ -60,6 +60,7 @@ import type {
   BreadcrumbJsxProps,
   ButtonJsxProps,
   CalloutJsxProps,
+  CanvasJsxProps,
   CheckboxJsxProps,
   CodeEditorJsxProps,
   ColumnJsxProps,
@@ -77,11 +78,15 @@ import type {
   GaugeJsxProps,
   GridJsxProps,
   HStackJsxProps,
+  HeatmapJsxProps,
   IconJsxProps,
+  ImageJsxProps,
   InputJsxProps,
   KbdJsxProps,
   LayerJsxProps,
   LayersJsxProps,
+  LineChartJsxProps,
+  LinkJsxProps,
   LogsConsoleJsxProps,
   MiniChartJsxProps,
   ModalJsxProps,
@@ -92,6 +97,7 @@ import type {
   ResizablePanelJsxProps,
   RichTextJsxProps,
   RowJsxProps,
+  ScatterJsxProps,
   SelectJsxProps,
   SkeletonJsxProps,
   SliderJsxProps,
@@ -116,6 +122,12 @@ type FocusTrapProps = Extract<VNode, { kind: "focusTrap" }>["props"];
 type RowProps = Extract<VNode, { kind: "row" }>["props"];
 type ColumnProps = Extract<VNode, { kind: "column" }>["props"];
 type GridProps = Extract<VNode, { kind: "grid" }>["props"];
+type LinkProps = Extract<VNode, { kind: "link" }>["props"];
+type CanvasProps = Extract<VNode, { kind: "canvas" }>["props"];
+type ImageProps = Extract<VNode, { kind: "image" }>["props"];
+type LineChartProps = Extract<VNode, { kind: "lineChart" }>["props"];
+type ScatterProps = Extract<VNode, { kind: "scatter" }>["props"];
+type HeatmapProps = Extract<VNode, { kind: "heatmap" }>["props"];
 type GridPropsWithOptionalKey = GridProps & { key?: string };
 
 function withOptionalKey<P extends { key?: string }>(
@@ -363,6 +375,54 @@ export function Callout(props: CalloutJsxProps): VNode {
   return {
     kind: "callout",
     props: withOptionalKey<CalloutProps>(rest, key),
+  };
+}
+
+export function Link(props: LinkJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return {
+    kind: "link",
+    props: withOptionalKey<LinkProps>(rest, key),
+  };
+}
+
+export function Canvas(props: CanvasJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return {
+    kind: "canvas",
+    props: withOptionalKey<CanvasProps>(rest, key),
+  };
+}
+
+export function Image(props: ImageJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return {
+    kind: "image",
+    props: withOptionalKey<ImageProps>(rest, key),
+  };
+}
+
+export function LineChart(props: LineChartJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return {
+    kind: "lineChart",
+    props: withOptionalKey<LineChartProps>(rest, key),
+  };
+}
+
+export function Scatter(props: ScatterJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return {
+    kind: "scatter",
+    props: withOptionalKey<ScatterProps>(rest, key),
+  };
+}
+
+export function Heatmap(props: HeatmapJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return {
+    kind: "heatmap",
+    props: withOptionalKey<HeatmapProps>(rest, key),
   };
 }
 

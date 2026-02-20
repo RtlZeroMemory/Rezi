@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "name": "default caps -> conservative profile",
+      "caps": {
+        "colorMode": 0,
+        "supportsMouse": false,
+        "supportsBracketedPaste": false,
+        "supportsFocusEvents": false,
+        "supportsOsc52": false,
+        "supportsSyncUpdate": false,
+        "supportsScrollRegion": false,
+        "supportsCursorShape": false,
+        "supportsOutputWaitWritable": false,
+        "sgrAttrsSupported": 0
+      },
+      "expect": {
+        "id": "unknown",
+        "versionString": "",
+        "supportsKittyGraphics": false,
+        "supportsSixel": false,
+        "supportsIterm2Images": false,
+        "supportsUnderlineStyles": false,
+        "supportsColoredUnderlines": false,
+        "supportsHyperlinks": false,
+        "cellWidthPx": 0,
+        "cellHeightPx": 0
+      }
+    },
+    {
+      "name": "OSC52 only enables hyperlinks",
+      "caps": {
+        "colorMode": 2,
+        "supportsMouse": true,
+        "supportsBracketedPaste": true,
+        "supportsFocusEvents": true,
+        "supportsOsc52": true,
+        "supportsSyncUpdate": true,
+        "supportsScrollRegion": true,
+        "supportsCursorShape": true,
+        "supportsOutputWaitWritable": true,
+        "sgrAttrsSupported": 0
+      },
+      "expect": {
+        "id": "unknown",
+        "versionString": "",
+        "supportsKittyGraphics": false,
+        "supportsSixel": false,
+        "supportsIterm2Images": false,
+        "supportsUnderlineStyles": false,
+        "supportsColoredUnderlines": false,
+        "supportsHyperlinks": true,
+        "cellWidthPx": 0,
+        "cellHeightPx": 0
+      }
+    },
+    {
+      "name": "underline sgr bit enables underline profile flags",
+      "caps": {
+        "colorMode": 3,
+        "supportsMouse": true,
+        "supportsBracketedPaste": true,
+        "supportsFocusEvents": true,
+        "supportsOsc52": false,
+        "supportsSyncUpdate": true,
+        "supportsScrollRegion": true,
+        "supportsCursorShape": true,
+        "supportsOutputWaitWritable": true,
+        "sgrAttrsSupported": 4
+      },
+      "expect": {
+        "id": "unknown",
+        "versionString": "",
+        "supportsKittyGraphics": false,
+        "supportsSixel": false,
+        "supportsIterm2Images": false,
+        "supportsUnderlineStyles": true,
+        "supportsColoredUnderlines": true,
+        "supportsHyperlinks": false,
+        "cellWidthPx": 0,
+        "cellHeightPx": 0
+      }
+    },
+    {
+      "name": "osc52 and underline bit both enabled",
+      "caps": {
+        "colorMode": 3,
+        "supportsMouse": true,
+        "supportsBracketedPaste": true,
+        "supportsFocusEvents": true,
+        "supportsOsc52": true,
+        "supportsSyncUpdate": true,
+        "supportsScrollRegion": true,
+        "supportsCursorShape": true,
+        "supportsOutputWaitWritable": true,
+        "sgrAttrsSupported": 12
+      },
+      "expect": {
+        "id": "unknown",
+        "versionString": "",
+        "supportsKittyGraphics": false,
+        "supportsSixel": false,
+        "supportsIterm2Images": false,
+        "supportsUnderlineStyles": true,
+        "supportsColoredUnderlines": true,
+        "supportsHyperlinks": true,
+        "cellWidthPx": 0,
+        "cellHeightPx": 0
+      }
+    }
+  ]
+}

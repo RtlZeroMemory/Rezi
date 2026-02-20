@@ -71,6 +71,12 @@ type FocusTrapProps = Extract<VNode, { kind: "focusTrap" }>["props"];
 type RowProps = Extract<VNode, { kind: "row" }>["props"];
 type ColumnProps = Extract<VNode, { kind: "column" }>["props"];
 type GridProps = Extract<VNode, { kind: "grid" }>["props"];
+type LinkProps = Extract<VNode, { kind: "link" }>["props"];
+type CanvasProps = Extract<VNode, { kind: "canvas" }>["props"];
+type ImageProps = Extract<VNode, { kind: "image" }>["props"];
+type LineChartProps = Extract<VNode, { kind: "lineChart" }>["props"];
+type ScatterProps = Extract<VNode, { kind: "scatter" }>["props"];
+type HeatmapProps = Extract<VNode, { kind: "heatmap" }>["props"];
 type GridPropsWithOptionalKey = GridProps & { key?: string };
 
 type WithOptionalKey<P extends { key?: string }> = Omit<P, "key"> & {
@@ -129,6 +135,12 @@ export type GaugeJsxProps = LeafProps<GaugeProps>;
 export type EmptyJsxProps = LeafProps<EmptyProps>;
 export type ErrorDisplayJsxProps = LeafProps<ErrorDisplayProps>;
 export type CalloutJsxProps = LeafProps<CalloutProps>;
+export type LinkJsxProps = LeafProps<LinkProps>;
+export type CanvasJsxProps = LeafProps<CanvasProps>;
+export type ImageJsxProps = LeafProps<ImageProps>;
+export type LineChartJsxProps = LeafProps<LineChartProps>;
+export type ScatterJsxProps = LeafProps<ScatterProps>;
+export type HeatmapJsxProps = LeafProps<HeatmapProps>;
 export type SparklineJsxProps = LeafProps<SparklineProps>;
 export type BarChartJsxProps = LeafProps<BarChartProps>;
 export type MiniChartJsxProps = LeafProps<MiniChartProps>;
@@ -192,6 +204,12 @@ export interface ReziIntrinsicElements {
   empty: EmptyJsxProps;
   errorDisplay: ErrorDisplayJsxProps;
   callout: CalloutJsxProps;
+  link: LinkJsxProps;
+  canvas: CanvasJsxProps;
+  image: ImageJsxProps;
+  lineChart: LineChartJsxProps;
+  scatter: ScatterJsxProps;
+  heatmap: HeatmapJsxProps;
   sparkline: SparklineJsxProps;
   barChart: BarChartJsxProps;
   miniChart: MiniChartJsxProps;

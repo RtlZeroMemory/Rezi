@@ -19,6 +19,10 @@ export const defaultTheme: Theme = Object.freeze({
     bg: Object.freeze({ r: 30, g: 30, b: 30 }),
     fg: Object.freeze({ r: 255, g: 255, b: 255 }),
     border: Object.freeze({ r: 60, g: 60, b: 60 }),
+    "diagnostic.error": Object.freeze({ r: 220, g: 53, b: 69 }),
+    "diagnostic.warning": Object.freeze({ r: 255, g: 193, b: 7 }),
+    "diagnostic.info": Object.freeze({ r: 23, g: 162, b: 184 }),
+    "diagnostic.hint": Object.freeze({ r: 40, g: 167, b: 69 }),
   }),
   spacing: Object.freeze([0, 1, 2, 4, 8, 16]),
 });

@@ -87,6 +87,10 @@
       "types": "./dist/terminalCaps.d.ts",
       "default": "./dist/terminalCaps.js"
     },
+    "./terminalProfile": {
+      "types": "./dist/terminalProfile.d.ts",
+      "default": "./dist/terminalProfile.js"
+    },
     "./ui": {
       "types": "./dist/ui.d.ts",
       "default": "./dist/ui.js"

@@ -17,6 +17,7 @@ import type {
   DebugStats,
   RuntimeBackend,
   TerminalCaps,
+  TerminalProfile,
 } from "@rezi-ui/core";
 import {
   BACKEND_DRAWLIST_V2_MARKER,
@@ -58,6 +59,7 @@ import {
 } from "../worker/protocol.js";
 import { applyEmojiWidthPolicy, resolveBackendEmojiWidthPolicy } from "./emojiWidthPolicy.js";
 import { createNodeBackendInlineInternal } from "./nodeBackendInline.js";
+import { terminalProfileFromNodeEnv } from "./terminalProfile.js";
 
 export type NodeBackendConfig = Readonly<{
   /**
@@ -1075,6 +1077,11 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       capsWaiters.push(d);
       send({ type: "getCaps" });
       return d.promise;
+    },
+
+    async getTerminalProfile(): Promise<TerminalProfile> {
+      const caps = await backend.getCaps();
+      return terminalProfileFromNodeEnv(caps);
     },
   };
 

@@ -27,6 +27,10 @@ const REQUIRED_PATHS = [
   "colors.border.subtle",
   "colors.border.default",
   "colors.border.strong",
+  "colors.diagnostic.error",
+  "colors.diagnostic.warning",
+  "colors.diagnostic.info",
+  "colors.diagnostic.hint",
   "spacing.xs",
   "spacing.sm",
   "spacing.md",
@@ -107,6 +111,16 @@ describe("theme.validateTheme", () => {
     expectValidationError(
       theme,
       "Theme validation failed: missing required token path(s): colors.bg.base",
+    );
+  });
+
+  test("throws when a required diagnostic semantic token is missing", () => {
+    const theme = cloneDarkTheme();
+    setPath(theme, ["colors", "diagnostic", "error"], undefined);
+
+    expectValidationError(
+      theme,
+      "Theme validation failed: missing required token path(s): colors.diagnostic.error",
     );
   });
 

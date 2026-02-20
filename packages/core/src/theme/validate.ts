@@ -34,6 +34,10 @@ const REQUIRED_COLOR_PATHS = [
   "colors.border.subtle",
   "colors.border.default",
   "colors.border.strong",
+  "colors.diagnostic.error",
+  "colors.diagnostic.warning",
+  "colors.diagnostic.info",
+  "colors.diagnostic.hint",
 ] as const;
 
 const REQUIRED_SPACING_PATHS = [

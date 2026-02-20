@@ -16,6 +16,7 @@ import type {
   DebugStats,
   RuntimeBackend,
   TerminalCaps,
+  TerminalProfile,
 } from "@rezi-ui/core";
 import {
   BACKEND_DRAWLIST_V2_MARKER,
@@ -40,6 +41,7 @@ import type {
   NodeBackendInternalOpts,
   NodeBackendPerfSnapshot,
 } from "./nodeBackend.js";
+import { terminalProfileFromNodeEnv } from "./terminalProfile.js";
 
 type Deferred<T> = Readonly<{
   promise: Promise<T>;
@@ -765,6 +767,11 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
       });
       cachedCaps = nextCaps;
       return nextCaps;
+    },
+
+    async getTerminalProfile(): Promise<TerminalProfile> {
+      const caps = await backend.getCaps();
+      return terminalProfileFromNodeEnv(caps);
     },
   };
 

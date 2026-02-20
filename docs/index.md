@@ -32,7 +32,7 @@ await app.start();
 : Define your UI as a function of state. Full TypeScript support with strict typing for props, state, and events.
 
 **Rich Widget Library**
-: 54 built-in widgets covering forms, tables, trees, modals, code editors, command palettes, charts, and more.
+: 50+ built-in widgets covering forms, tables, trees, modals, code editors, command palettes, charts, and more.
 
 **Native Performance**
 : Powered by the Zireael C engine with a binary protocol boundary. No virtual DOM diffing overhead.
@@ -184,6 +184,9 @@ Layout building blocks: `text`, `box`, `row`, `column`, `spacer`, `divider`
 ### Form Inputs
 Interactive controls: `button`, `input`, `checkbox`, `radioGroup`, `select`, `field`
 
+### Navigation
+Routing and wayfinding: `tabs`, `accordion`, `breadcrumb`, `link`, `pagination`
+
 ### Data Display
 Data presentation: `table`, `virtualList`, `tree`, `richText`, `badge`, `tag`, `status`
 
@@ -199,6 +202,9 @@ Rich functionality: `commandPalette`, `codeEditor`, `diffViewer`, `logsConsole`,
 ### Charts
 Data visualization: `gauge`, `progress`, `sparkline`, `barChart`, `miniChart`
 
+### Graphics Components
+Graphics rendering: `canvas`, `image`, `lineChart`, `scatter`, `heatmap`
+
 ### Feedback
 User feedback: `spinner`, `skeleton`, `callout`, `errorDisplay`, `empty`
 
@@ -212,6 +218,7 @@ User feedback: `spinner`, `skeleton`, `callout`, `errorDisplay`, `empty`
 - [Input & Focus](guide/input-and-focus.md) - Keyboard navigation and focus management
 - [Mouse Support](guide/mouse-support.md) - Click, scroll, and drag interactions
 - [Styling](guide/styling.md) - Colors, themes, and visual customization
+- [Graphics](guide/graphics.md) - Capability-aware rendering and progressive enhancement
 - [Performance](guide/performance.md) - Optimization techniques
 - [Debugging](guide/debugging.md) - Debug tools and frame inspection
 - [Architecture](architecture/index.md) - Runtime stack and data flow

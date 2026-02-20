@@ -3,7 +3,7 @@ import {
   getSpinnerFrame,
   resolveIconGlyph as resolveIconRenderGlyph,
 } from "../../../icons/index.js";
-import type { DrawlistBuilderV1 } from "../../../index.js";
+import type { DrawlistBuilderV1, DrawlistBuilderV3 } from "../../../index.js";
 import type { LayoutTree } from "../../../layout/layout.js";
 import {
   measureTextCells,
@@ -15,12 +15,31 @@ import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { FocusState } from "../../../runtime/focus.js";
 import type { Theme } from "../../../theme/theme.js";
 import { resolveColor } from "../../../theme/theme.js";
+import { createCanvasDrawingSurface, resolveCanvasBlitter } from "../../../widgets/canvas.js";
+import {
+  colorForHeatmapValue,
+  getHeatmapRange,
+  normalizeHeatmapScale,
+} from "../../../widgets/heatmap.js";
+import {
+  analyzeImageSource,
+  hashImageBytes,
+  normalizeImageFit,
+  normalizeImageProtocol,
+} from "../../../widgets/image.js";
+import {
+  getLegendLabels,
+  getLineChartRange,
+  mapSeriesToPoints,
+} from "../../../widgets/lineChart.js";
+import { linkLabel } from "../../../widgets/link.js";
+import { getScatterRange, mapScatterPointsToPixels } from "../../../widgets/scatter.js";
 import {
   DEFAULT_SLIDER_TRACK_WIDTH,
   formatSliderValue,
   normalizeSliderState,
 } from "../../../widgets/slider.js";
-import type { SelectOption } from "../../../widgets/types.js";
+import type { GraphicsBlitter, SelectOption } from "../../../widgets/types.js";
 import { asTextStyle, getButtonLabelStyle } from "../../styles.js";
 import { renderBoxBorder } from "../boxBorder.js";
 import { isVisibleRect } from "../indices.js";
@@ -79,6 +98,38 @@ function clamp01(value: number): number {
   if (value <= 0) return 0;
   if (value >= 1) return 1;
   return value;
+}
+
+function parseHexRgb(value: string): Readonly<{ r: number; g: number; b: number }> | null {
+  const raw = value.startsWith("#") ? value.slice(1) : value;
+  if (/^[0-9a-fA-F]{6}$/.test(raw)) {
+    const parsed = Number.parseInt(raw, 16);
+    return Object.freeze({
+      r: (parsed >> 16) & 0xff,
+      g: (parsed >> 8) & 0xff,
+      b: parsed & 0xff,
+    });
+  }
+  if (/^[0-9a-fA-F]{3}$/.test(raw)) {
+    const r = Number.parseInt(raw[0] ?? "0", 16);
+    const g = Number.parseInt(raw[1] ?? "0", 16);
+    const b = Number.parseInt(raw[2] ?? "0", 16);
+    return Object.freeze({
+      r: (r << 4) | r,
+      g: (g << 4) | g,
+      b: (b << 4) | b,
+    });
+  }
+  return null;
+}
+
+function resolveCanvasOverlayColor(
+  theme: Theme,
+  color: string,
+): Readonly<{ r: number; g: number; b: number }> {
+  const parsedHex = parseHexRgb(color);
+  if (parsedHex) return parsedHex;
+  return resolveColor(theme, color);
 }
 
 function readNumber(v: unknown): number | undefined {
@@ -385,6 +436,108 @@ function readActionLabel(action: unknown): string | undefined {
     default:
       return undefined;
   }
+}
+
+function isV3Builder(builder: DrawlistBuilderV1): builder is DrawlistBuilderV3 {
+  const maybe = builder as Partial<DrawlistBuilderV3>;
+  return (
+    typeof maybe.drawCanvas === "function" &&
+    typeof maybe.drawImage === "function" &&
+    typeof maybe.setLink === "function"
+  );
+}
+
+function readGraphicsBlitter(v: unknown): GraphicsBlitter | undefined {
+  switch (v) {
+    case "auto":
+    case "braille":
+    case "sextant":
+    case "quadrant":
+    case "halfblock":
+    case "ascii":
+      return v;
+    default:
+      return undefined;
+  }
+}
+
+function readImageFit(v: unknown): "fill" | "contain" | "cover" | undefined {
+  switch (v) {
+    case "fill":
+    case "contain":
+    case "cover":
+      return v;
+    default:
+      return undefined;
+  }
+}
+
+function readImageProtocol(
+  v: unknown,
+): "auto" | "kitty" | "sixel" | "iterm2" | "blitter" | undefined {
+  switch (v) {
+    case "auto":
+    case "kitty":
+    case "sixel":
+    case "iterm2":
+    case "blitter":
+      return v;
+    default:
+      return undefined;
+  }
+}
+
+function readZLayer(v: unknown): -1 | 0 | 1 {
+  if (v === -1 || v === 1) return v;
+  return 0;
+}
+
+function drawPlaceholderBox(
+  builder: DrawlistBuilderV1,
+  rect: Rect,
+  style: ResolvedTextStyle,
+  title: string,
+  body: string,
+): void {
+  if (rect.w <= 0 || rect.h <= 0) return;
+  builder.pushClip(rect.x, rect.y, rect.w, rect.h);
+  if (rect.w >= 2 && rect.h >= 2) {
+    const top = `┌${repeatCached("─", Math.max(0, rect.w - 2))}┐`;
+    const mid = `│${repeatCached(" ", Math.max(0, rect.w - 2))}│`;
+    const bottom = `└${repeatCached("─", Math.max(0, rect.w - 2))}┘`;
+    builder.drawText(rect.x, rect.y, truncateToWidth(top, rect.w), style);
+    for (let row = 1; row < rect.h - 1; row++) {
+      builder.drawText(rect.x, rect.y + row, truncateToWidth(mid, rect.w), style);
+    }
+    builder.drawText(rect.x, rect.y + rect.h - 1, truncateToWidth(bottom, rect.w), style);
+    if (rect.h >= 3) {
+      const titleLine = truncateToWidth(title, Math.max(0, rect.w - 2));
+      const bodyLine = truncateToWidth(body, Math.max(0, rect.w - 2));
+      builder.drawText(rect.x + 1, rect.y + 1, titleLine, style);
+      if (rect.h >= 4) builder.drawText(rect.x + 1, rect.y + 2, bodyLine, style);
+    }
+  } else {
+    builder.drawText(rect.x, rect.y, truncateToWidth(`[${title}]`, rect.w), style);
+  }
+  builder.popClip();
+}
+
+function align4(value: number): number {
+  return (value + 3) & ~3;
+}
+
+function addBlobAligned(builder: DrawlistBuilderV1, bytes: Uint8Array): number | null {
+  if ((bytes.byteLength & 3) === 0) return builder.addBlob(bytes);
+  const padded = new Uint8Array(align4(bytes.byteLength));
+  padded.set(bytes);
+  return builder.addBlob(padded);
+}
+
+function rgbToHex(color: ReturnType<typeof resolveColor>): string {
+  const r = color.r.toString(16).padStart(2, "0");
+  const g = color.g.toString(16).padStart(2, "0");
+  const b = color.b.toString(16).padStart(2, "0");
+  return `#${r}${g}${b}`;
 }
 
 export function renderBasicWidget(
@@ -1383,6 +1536,357 @@ export function renderBasicWidget(
       builder.popClip();
       break;
     }
+    case "link": {
+      if (!isVisibleRect(rect)) break;
+      const props = vnode.props as {
+        id?: unknown;
+        url?: unknown;
+        label?: unknown;
+        style?: unknown;
+        disabled?: unknown;
+      };
+      const url = readString(props.url) ?? "";
+      if (url.length === 0) break;
+      const label = readString(props.label);
+      const text = linkLabel({ url, ...(label ? { label } : {}) });
+      const ownStyle = asTextStyle(props.style);
+      const baseLinkStyle = mergeTextStyle(parentStyle, {
+        underline: true,
+        fg: theme.colors.primary,
+      });
+      const styledLink = ownStyle ? mergeTextStyle(baseLinkStyle, ownStyle) : baseLinkStyle;
+      const id = readString(props.id);
+      const disabled = props.disabled === true;
+      const focused = !disabled && id !== undefined && focusState.focusedId === id;
+      const finalStyle = focused ? mergeTextStyle(styledLink, { bold: true }) : styledLink;
+
+      builder.pushClip(rect.x, rect.y, rect.w, rect.h);
+      if (isV3Builder(builder) && !disabled) {
+        builder.setLink(url, id);
+        builder.drawText(rect.x, rect.y, truncateToWidth(text, rect.w), finalStyle);
+        builder.setLink(null);
+      } else {
+        builder.drawText(rect.x, rect.y, truncateToWidth(text, rect.w), finalStyle);
+      }
+      builder.popClip();
+      break;
+    }
+    case "canvas": {
+      if (!isVisibleRect(rect)) break;
+      const props = vnode.props as {
+        draw?: unknown;
+        blitter?: unknown;
+      };
+      if (typeof props.draw !== "function") break;
+      const requestedBlitter = readGraphicsBlitter(props.blitter);
+      const blitter = resolveCanvasBlitter(requestedBlitter, true);
+      const surface = createCanvasDrawingSurface(rect.w, rect.h, blitter, (color) =>
+        resolveColor(theme, color),
+      );
+      (props.draw as (ctx: typeof surface.ctx) => void)(surface.ctx);
+
+      if (isV3Builder(builder) && rect.w > 0 && rect.h > 0) {
+        const blobIndex = addBlobAligned(builder, surface.rgba);
+        if (blobIndex !== null) {
+          builder.drawCanvas(rect.x, rect.y, rect.w, rect.h, blobIndex, surface.blitter);
+        } else {
+          drawPlaceholderBox(builder, rect, parentStyle, "Canvas", "blob allocation failed");
+        }
+      } else {
+        drawPlaceholderBox(builder, rect, parentStyle, "Canvas", "graphics not supported");
+      }
+
+      if (surface.overlays.length > 0) {
+        builder.pushClip(rect.x, rect.y, rect.w, rect.h);
+        for (const overlay of surface.overlays) {
+          const color =
+            overlay.color === undefined
+              ? undefined
+              : { fg: resolveCanvasOverlayColor(theme, overlay.color) };
+          builder.drawText(rect.x + overlay.x, rect.y + overlay.y, overlay.text, color);
+        }
+        builder.popClip();
+      }
+      break;
+    }
+    case "image": {
+      if (!isVisibleRect(rect)) break;
+      const props = vnode.props as {
+        src?: unknown;
+        fit?: unknown;
+        protocol?: unknown;
+        alt?: unknown;
+        imageId?: unknown;
+        zLayer?: unknown;
+      };
+      const alt = readString(props.alt);
+      const fallbackBody = (reason: string): string => {
+        if (alt !== undefined) {
+          const trimmed = alt.trim();
+          if (trimmed.length > 0) return trimmed;
+        }
+        return reason;
+      };
+      const src = props.src;
+      if (!(src instanceof Uint8Array)) {
+        drawPlaceholderBox(builder, rect, parentStyle, "Image", fallbackBody("invalid source"));
+        break;
+      }
+      const analyzed = analyzeImageSource(src);
+      if (!analyzed.ok || !analyzed.bytes || !analyzed.format) {
+        drawPlaceholderBox(
+          builder,
+          rect,
+          parentStyle,
+          "Image",
+          fallbackBody(analyzed.error ?? "decode failed"),
+        );
+        break;
+      }
+
+      if (!isV3Builder(builder) || rect.w <= 0 || rect.h <= 0) {
+        drawPlaceholderBox(
+          builder,
+          rect,
+          parentStyle,
+          "Image",
+          fallbackBody("graphics not supported"),
+        );
+        break;
+      }
+
+      const fit = normalizeImageFit(readImageFit(props.fit));
+      const protocol = normalizeImageProtocol(readImageProtocol(props.protocol));
+      const zLayer = readZLayer(props.zLayer);
+      const imageId = readNonNegativeInt(props.imageId) ?? hashImageBytes(analyzed.bytes) ?? 0;
+      const blobIndex = addBlobAligned(builder, analyzed.bytes);
+      if (blobIndex === null) {
+        drawPlaceholderBox(
+          builder,
+          rect,
+          parentStyle,
+          "Image",
+          fallbackBody("blob allocation failed"),
+        );
+        break;
+      }
+
+      builder.drawImage(
+        rect.x,
+        rect.y,
+        rect.w,
+        rect.h,
+        blobIndex,
+        analyzed.format,
+        protocol,
+        zLayer,
+        fit,
+        imageId >>> 0,
+      );
+      break;
+    }
+    case "lineChart": {
+      if (!isVisibleRect(rect)) break;
+      const props = vnode.props as {
+        series?: unknown;
+        blitter?: unknown;
+        axes?: unknown;
+        showLegend?: unknown;
+      };
+      const rawSeries = Array.isArray(props.series) ? props.series : [];
+      const series = rawSeries.filter(
+        (entry): entry is { data?: unknown; color?: unknown; label?: unknown } => isRecord(entry),
+      );
+      if (series.length === 0) break;
+      const showLegend = props.showLegend ?? series.length > 1;
+      const legendRows = showLegend ? 1 : 0;
+      const chartRows = Math.max(0, rect.h - legendRows);
+      if (chartRows <= 0) break;
+      const blitter = resolveCanvasBlitter(readGraphicsBlitter(props.blitter) ?? "braille", true);
+      const surface = createCanvasDrawingSurface(rect.w, chartRows, blitter, (color) =>
+        resolveColor(theme, color),
+      );
+
+      const normalizedSeries = series.map((entry) => ({
+        data: Array.isArray(entry.data)
+          ? entry.data
+              .map((value) => readNumber(value) ?? 0)
+              .filter((value) => Number.isFinite(value))
+          : ([] as number[]),
+        color: readString(entry.color) ?? rgbToHex(theme.colors.primary),
+        label: readString(entry.label),
+      }));
+      const range = getLineChartRange(
+        normalizedSeries.map((entry) => ({
+          data: Object.freeze(entry.data),
+          color: entry.color,
+          ...(entry.label ? { label: entry.label } : {}),
+        })),
+        isRecord(props.axes) && isRecord((props.axes as { y?: unknown }).y)
+          ? ((props.axes as { y?: unknown }).y as { label?: string; min?: number; max?: number })
+          : undefined,
+      );
+
+      for (const entry of normalizedSeries) {
+        const points = mapSeriesToPoints(entry.data, surface.widthPx, surface.heightPx, range);
+        for (let index = 1; index < points.length; index++) {
+          const prev = points[index - 1];
+          const curr = points[index];
+          if (!prev || !curr) continue;
+          surface.ctx.line(prev.x, prev.y, curr.x, curr.y, entry.color);
+        }
+      }
+
+      if (isV3Builder(builder)) {
+        const blobIndex = addBlobAligned(builder, surface.rgba);
+        if (blobIndex !== null) {
+          builder.drawCanvas(rect.x, rect.y, rect.w, chartRows, blobIndex, surface.blitter);
+        } else {
+          drawPlaceholderBox(builder, rect, parentStyle, "Line Chart", "blob allocation failed");
+        }
+      } else {
+        drawPlaceholderBox(builder, rect, parentStyle, "Line Chart", "graphics not supported");
+      }
+
+      if (showLegend && rect.h > chartRows) {
+        const labels = getLegendLabels(
+          normalizedSeries.map((entry) => ({
+            data: Object.freeze(entry.data),
+            color: entry.color,
+            ...(entry.label ? { label: entry.label } : {}),
+          })),
+        );
+        const legend = labels.join("  ");
+        builder.drawText(rect.x, rect.y + chartRows, truncateToWidth(legend, rect.w), parentStyle);
+      }
+      break;
+    }
+    case "scatter": {
+      if (!isVisibleRect(rect)) break;
+      const props = vnode.props as {
+        points?: unknown;
+        axes?: unknown;
+        color?: unknown;
+        blitter?: unknown;
+      };
+      const rawPoints = Array.isArray(props.points) ? props.points : [];
+      const points = rawPoints.filter(
+        (entry): entry is { x?: unknown; y?: unknown; color?: unknown } => isRecord(entry),
+      );
+      if (points.length === 0 || rect.w <= 0 || rect.h <= 0) break;
+      const blitter = resolveCanvasBlitter(readGraphicsBlitter(props.blitter), true);
+      const surface = createCanvasDrawingSurface(rect.w, rect.h, blitter, (color) =>
+        resolveColor(theme, color),
+      );
+      const normalized = points.map((entry) => {
+        const pointColor = readString(entry.color);
+        return {
+          x: readNumber(entry.x) ?? 0,
+          y: readNumber(entry.y) ?? 0,
+          ...(pointColor === undefined ? {} : { color: pointColor }),
+        };
+      });
+      const parseAxis = (
+        axis: unknown,
+      ): { label?: string; min?: number; max?: number } | undefined => {
+        if (!isRecord(axis)) return undefined;
+        const label = readString((axis as { label?: unknown }).label);
+        const min = readNumber((axis as { min?: unknown }).min);
+        const max = readNumber((axis as { max?: unknown }).max);
+        return {
+          ...(label === undefined ? {} : { label }),
+          ...(min === undefined ? {} : { min }),
+          ...(max === undefined ? {} : { max }),
+        };
+      };
+      const axes = isRecord(props.axes) ? (props.axes as { x?: unknown; y?: unknown }) : undefined;
+      const xAxis = parseAxis(axes?.x);
+      const yAxis = parseAxis(axes?.y);
+      const range = getScatterRange(
+        normalized,
+        axes === undefined
+          ? undefined
+          : {
+              ...(xAxis === undefined ? {} : { x: xAxis }),
+              ...(yAxis === undefined ? {} : { y: yAxis }),
+            },
+      );
+      const mapped = mapScatterPointsToPixels(normalized, surface.widthPx, surface.heightPx, range);
+      const fallbackColor = readString(props.color) ?? rgbToHex(theme.colors.primary);
+      for (const point of mapped) {
+        surface.ctx.setPixel(point.x, point.y, point.color ?? fallbackColor);
+      }
+
+      if (isV3Builder(builder)) {
+        const blobIndex = addBlobAligned(builder, surface.rgba);
+        if (blobIndex !== null) {
+          builder.drawCanvas(rect.x, rect.y, rect.w, rect.h, blobIndex, surface.blitter);
+        } else {
+          drawPlaceholderBox(builder, rect, parentStyle, "Scatter", "blob allocation failed");
+        }
+      } else {
+        drawPlaceholderBox(builder, rect, parentStyle, "Scatter", "graphics not supported");
+      }
+      break;
+    }
+    case "heatmap": {
+      if (!isVisibleRect(rect)) break;
+      const props = vnode.props as {
+        data?: unknown;
+        min?: unknown;
+        max?: unknown;
+        colorScale?: unknown;
+      };
+      const rows = Array.isArray(props.data) ? props.data : [];
+      const matrix = rows.map((row) =>
+        Array.isArray(row) ? row.map((value) => readNumber(value) ?? 0) : [],
+      );
+      if (matrix.length === 0 || rect.w <= 0 || rect.h <= 0) break;
+      const columns = Math.max(0, ...matrix.map((row) => row.length));
+      if (columns <= 0) break;
+      const scale = normalizeHeatmapScale(
+        (typeof props.colorScale === "string" ? props.colorScale : undefined) as
+          | "viridis"
+          | "plasma"
+          | "inferno"
+          | "magma"
+          | "turbo"
+          | "grayscale"
+          | undefined,
+      );
+      const range = getHeatmapRange(matrix, readNumber(props.min), readNumber(props.max));
+      const blitter = resolveCanvasBlitter("quadrant", true);
+      const surface = createCanvasDrawingSurface(rect.w, rect.h, blitter, (color) =>
+        resolveColor(theme, color),
+      );
+
+      for (let rowIndex = 0; rowIndex < matrix.length; rowIndex++) {
+        const row = matrix[rowIndex] ?? [];
+        for (let colIndex = 0; colIndex < columns; colIndex++) {
+          const value = row[colIndex] ?? range.min;
+          const rgb = colorForHeatmapValue(value, range, scale);
+          const x0 = Math.floor((colIndex * surface.widthPx) / columns);
+          const x1 = Math.floor(((colIndex + 1) * surface.widthPx) / columns);
+          const y0 = Math.floor((rowIndex * surface.heightPx) / matrix.length);
+          const y1 = Math.floor(((rowIndex + 1) * surface.heightPx) / matrix.length);
+          const cellW = Math.max(1, x1 - x0);
+          const cellH = Math.max(1, y1 - y0);
+          surface.ctx.fillRect(x0, y0, cellW, cellH, rgbToHex(rgb));
+        }
+      }
+
+      if (isV3Builder(builder)) {
+        const blobIndex = addBlobAligned(builder, surface.rgba);
+        if (blobIndex !== null) {
+          builder.drawCanvas(rect.x, rect.y, rect.w, rect.h, blobIndex, surface.blitter);
+        } else {
+          drawPlaceholderBox(builder, rect, parentStyle, "Heatmap", "blob allocation failed");
+        }
+      } else {
+        drawPlaceholderBox(builder, rect, parentStyle, "Heatmap", "graphics not supported");
+      }
+      break;
+    }
     case "sparkline": {
       if (!isVisibleRect(rect)) break;
       const props = vnode.props as {
@@ -1390,6 +1894,8 @@ export function renderBasicWidget(
         width?: unknown;
         min?: unknown;
         max?: unknown;
+        highRes?: unknown;
+        blitter?: unknown;
         style?: unknown;
       };
       const rawData = Array.isArray(props.data) ? props.data : [];
@@ -1409,7 +1915,56 @@ export function renderBasicWidget(
       const autoMax = Math.max(...data);
       const min = readNumber(props.min) ?? autoMin;
       const max = readNumber(props.max) ?? autoMax;
+      const sampledData: number[] = [];
+      for (let index = 0; index < width; index++) {
+        const sourceIndex = Math.min(data.length - 1, Math.floor((index * data.length) / width));
+        sampledData.push(data[sourceIndex] ?? min);
+      }
       const line = sparklineForData(data, width, min, max);
+
+      const highRes = props.highRes === true;
+      if (highRes && isV3Builder(builder) && rect.w > 0 && rect.h > 0) {
+        const blitter = resolveCanvasBlitter(readGraphicsBlitter(props.blitter) ?? "braille", true);
+        const surface = createCanvasDrawingSurface(rect.w, rect.h, blitter, (color) =>
+          resolveColor(theme, color),
+        );
+        const range = max - min;
+        const color = rgbToHex(theme.colors.info);
+        if (sampledData.length <= 1) {
+          const only = sampledData[0] ?? min;
+          const y = Math.round(
+            (1 - (range <= 0 ? 0.5 : clamp01((only - min) / range))) * (surface.heightPx - 1),
+          );
+          if (surface.widthPx > 1) {
+            surface.ctx.line(0, y, surface.widthPx - 1, y, color);
+          } else {
+            surface.ctx.setPixel(0, y, color);
+          }
+        } else {
+          for (let index = 1; index < sampledData.length; index++) {
+            const prev = sampledData[index - 1] ?? min;
+            const curr = sampledData[index] ?? min;
+            const x0 = Math.round(
+              ((index - 1) / Math.max(1, sampledData.length - 1)) * (surface.widthPx - 1),
+            );
+            const x1 = Math.round(
+              (index / Math.max(1, sampledData.length - 1)) * (surface.widthPx - 1),
+            );
+            const y0 = Math.round(
+              (1 - (range <= 0 ? 0.5 : clamp01((prev - min) / range))) * (surface.heightPx - 1),
+            );
+            const y1 = Math.round(
+              (1 - (range <= 0 ? 0.5 : clamp01((curr - min) / range))) * (surface.heightPx - 1),
+            );
+            surface.ctx.line(x0, y0, x1, y1, color);
+          }
+        }
+        const blobIndex = addBlobAligned(builder, surface.rgba);
+        if (blobIndex !== null) {
+          builder.drawCanvas(rect.x, rect.y, rect.w, rect.h, blobIndex, surface.blitter);
+          break;
+        }
+      }
 
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
       builder.drawText(
@@ -1429,6 +1984,8 @@ export function renderBasicWidget(
         showValues?: unknown;
         showLabels?: unknown;
         maxBarLength?: unknown;
+        highRes?: unknown;
+        blitter?: unknown;
         style?: unknown;
       };
       const rawData = Array.isArray(props.data) ? props.data : [];
@@ -1446,6 +2003,44 @@ export function renderBasicWidget(
 
       const values = data.map((item) => Math.max(0, readNumber(item.value) ?? 0));
       const maxValue = Math.max(1, ...values);
+
+      if (props.highRes === true && isV3Builder(builder) && rect.w > 0 && rect.h > 0) {
+        const blitter = resolveCanvasBlitter(readGraphicsBlitter(props.blitter), true);
+        const surface = createCanvasDrawingSurface(rect.w, rect.h, blitter, (color) =>
+          resolveColor(theme, color),
+        );
+        if (orientation === "horizontal") {
+          const rowHeight = Math.max(1, Math.floor(surface.heightPx / Math.max(1, data.length)));
+          for (let row = 0; row < data.length; row++) {
+            const item = data[row];
+            if (!item) continue;
+            const value = Math.max(0, readNumber(item.value) ?? 0);
+            const ratio = clamp01(value / maxValue);
+            const fillW = Math.max(0, Math.round(ratio * surface.widthPx));
+            const y = row * rowHeight;
+            const color = variantToThemeColor(theme, item.variant, "primary");
+            surface.ctx.fillRect(0, y, fillW, rowHeight, rgbToHex(color));
+          }
+        } else {
+          const colWidth = Math.max(1, Math.floor(surface.widthPx / Math.max(1, data.length)));
+          for (let col = 0; col < data.length; col++) {
+            const item = data[col];
+            if (!item) continue;
+            const value = Math.max(0, readNumber(item.value) ?? 0);
+            const ratio = clamp01(value / maxValue);
+            const fillH = Math.max(0, Math.round(ratio * surface.heightPx));
+            const x = col * colWidth;
+            const y = Math.max(0, surface.heightPx - fillH);
+            const color = variantToThemeColor(theme, item.variant, "primary");
+            surface.ctx.fillRect(x, y, colWidth, fillH, rgbToHex(color));
+          }
+        }
+        const blobIndex = addBlobAligned(builder, surface.rgba);
+        if (blobIndex !== null) {
+          builder.drawCanvas(rect.x, rect.y, rect.w, rect.h, blobIndex, surface.blitter);
+          break;
+        }
+      }
 
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
       if (orientation === "horizontal") {

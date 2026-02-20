@@ -33,6 +33,10 @@ const ALL_COLOR_PATHS: readonly ColorPath[] = [
   "border.subtle",
   "border.default",
   "border.strong",
+  "diagnostic.error",
+  "diagnostic.warning",
+  "diagnostic.info",
+  "diagnostic.hint",
 ];
 
 describe("theme resolution", () => {
@@ -57,6 +61,17 @@ describe("theme resolution", () => {
     assert.deepEqual(resolveColorToken(theme, "warning"), theme.colors.warning);
     assert.deepEqual(resolveColorToken(theme, "error"), theme.colors.error);
     assert.deepEqual(resolveColorToken(theme, "info"), theme.colors.info);
+  });
+
+  test("diagnostic semantic tokens resolve to expected colors", () => {
+    const theme = themePresets.dark;
+    const diagnostic = theme.colors.diagnostic;
+    assert.ok(diagnostic);
+    if (!diagnostic) return;
+    assert.deepEqual(resolveColorToken(theme, "diagnostic.error"), diagnostic.error);
+    assert.deepEqual(resolveColorToken(theme, "diagnostic.warning"), diagnostic.warning);
+    assert.deepEqual(resolveColorToken(theme, "diagnostic.info"), diagnostic.info);
+    assert.deepEqual(resolveColorToken(theme, "diagnostic.hint"), diagnostic.hint);
   });
 
   test("resolveColorToken returns null for invalid token paths", () => {

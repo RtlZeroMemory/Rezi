@@ -29,6 +29,7 @@ import type {
   BreadcrumbProps,
   ButtonProps,
   CalloutProps,
+  CanvasProps,
   CheckboxProps,
   CodeEditorProps,
   ColumnProps,
@@ -45,11 +46,15 @@ import type {
   FocusZoneProps,
   GaugeProps,
   GridProps,
+  HeatmapProps,
   IconProps,
+  ImageProps,
   InputProps,
   KbdProps,
   LayerProps,
   LayersProps,
+  LineChartProps,
+  LinkProps,
   LogsConsoleProps,
   MiniChartProps,
   ModalProps,
@@ -61,6 +66,7 @@ import type {
   RichTextProps,
   RichTextSpan,
   RowProps,
+  ScatterProps,
   SelectProps,
   SkeletonProps,
   SliderProps,
@@ -431,6 +437,46 @@ function callout(message: string, props: Omit<CalloutProps, "message"> = {}): VN
   return { kind: "callout", props: { message, ...props } };
 }
 
+function link(props: LinkProps): VNode;
+function link(url: string, label?: string, props?: Omit<LinkProps, "url" | "label">): VNode;
+function link(
+  urlOrProps: string | LinkProps,
+  label?: string,
+  props: Omit<LinkProps, "url" | "label"> = {},
+): VNode {
+  if (typeof urlOrProps === "string") {
+    return {
+      kind: "link",
+      props: {
+        url: urlOrProps,
+        ...(label === undefined ? {} : { label }),
+        ...props,
+      },
+    };
+  }
+  return { kind: "link", props: urlOrProps };
+}
+
+function canvas(props: CanvasProps): VNode {
+  return { kind: "canvas", props };
+}
+
+function image(props: ImageProps): VNode {
+  return { kind: "image", props };
+}
+
+function lineChart(props: LineChartProps): VNode {
+  return { kind: "lineChart", props };
+}
+
+function scatter(props: ScatterProps): VNode {
+  return { kind: "scatter", props };
+}
+
+function heatmap(props: HeatmapProps): VNode {
+  return { kind: "heatmap", props };
+}
+
 /**
  * Create a sparkline widget (mini inline chart using block characters).
  *
@@ -588,6 +634,12 @@ export const ui = {
   empty,
   errorDisplay,
   callout,
+  link,
+  canvas,
+  image,
+  lineChart,
+  scatter,
+  heatmap,
   sparkline,
   barChart,
   miniChart,

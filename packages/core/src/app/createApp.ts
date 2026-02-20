@@ -61,6 +61,11 @@ import type { EventTimeUnwrapState } from "../protocol/types.js";
 import { parseEventBatchV1 } from "../protocol/zrev_v1.js";
 import { type RouterIntegration, createRouterIntegration } from "../router/integration.js";
 import type { RouteDefinition } from "../router/types.js";
+import {
+  DEFAULT_TERMINAL_PROFILE,
+  type TerminalProfile,
+  terminalProfileFromCaps,
+} from "../terminalProfile.js";
 import { defaultTheme } from "../theme/defaultTheme.js";
 import { coerceToLegacyTheme } from "../theme/interop.js";
 import type { Theme } from "../theme/theme.js";
@@ -183,6 +188,23 @@ function readBackendPositiveIntMarker(
     invalidProps(`backend marker ${marker} must be a positive integer when present`);
   }
   return value;
+}
+
+async function loadTerminalProfile(backend: RuntimeBackend): Promise<TerminalProfile> {
+  try {
+    if (typeof backend.getTerminalProfile === "function") {
+      return await backend.getTerminalProfile();
+    }
+  } catch {
+    // fall through to caps-derived profile
+  }
+
+  try {
+    const caps = await backend.getCaps();
+    return terminalProfileFromCaps(caps);
+  } catch {
+    return DEFAULT_TERMINAL_PROFILE;
+  }
 }
 
 /** Apply defaults to user-provided config, validating all values. */
@@ -373,6 +395,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   }
 
   let theme = coerceToLegacyTheme(opts.theme ?? defaultTheme);
+  let terminalProfile: TerminalProfile = DEFAULT_TERMINAL_PROFILE;
 
   const sm = new AppStateMachine();
 
@@ -1327,8 +1350,9 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       }
 
       return p.then(
-        () => {
+        async () => {
           lifecycleBusy = null;
+          terminalProfile = await loadTerminalProfile(backend);
           sm.toRunning();
           markDirty(DIRTY_VIEW, false);
           pollToken++;
@@ -1425,6 +1449,10 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
     getMode(): string {
       return getMode(keybindingState);
+    },
+
+    getTerminalProfile(): TerminalProfile {
+      return terminalProfile;
     },
 
     ...(routerIntegration ? { router: routerIntegration.router } : {}),

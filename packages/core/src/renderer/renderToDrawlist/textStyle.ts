@@ -6,7 +6,16 @@ export type ResolvedTextStyle = Readonly<
     bg: NonNullable<TextStyle["bg"]>;
   } & Pick<
     TextStyle,
-    "bold" | "dim" | "italic" | "underline" | "inverse" | "strikethrough" | "overline" | "blink"
+    | "bold"
+    | "dim"
+    | "italic"
+    | "underline"
+    | "inverse"
+    | "strikethrough"
+    | "overline"
+    | "blink"
+    | "underlineStyle"
+    | "underlineColor"
   >
 >;
 
@@ -31,7 +40,13 @@ export function mergeTextStyle(
   override: TextStyle | undefined,
 ): ResolvedTextStyle {
   if (!override) return base;
-  if (base === DEFAULT_BASE_STYLE && override.fg === undefined && override.bg === undefined) {
+  if (
+    base === DEFAULT_BASE_STYLE &&
+    override.fg === undefined &&
+    override.bg === undefined &&
+    override.underlineStyle === undefined &&
+    override.underlineColor === undefined
+  ) {
     const b = encTriBool(override.bold);
     const d = encTriBool(override.dim);
     const i = encTriBool(override.italic);
@@ -57,6 +72,8 @@ export function mergeTextStyle(
       strikethrough?: boolean;
       overline?: boolean;
       blink?: boolean;
+      underlineStyle?: TextStyle["underlineStyle"];
+      underlineColor?: TextStyle["underlineColor"];
     } = { fg: base.fg, bg: base.bg };
 
     if (override.bold !== undefined) merged.bold = override.bold;
@@ -82,7 +99,9 @@ export function mergeTextStyle(
     override.inverse === undefined &&
     override.strikethrough === undefined &&
     override.overline === undefined &&
-    override.blink === undefined
+    override.blink === undefined &&
+    override.underlineStyle === undefined &&
+    override.underlineColor === undefined
   ) {
     return base;
   }
@@ -96,6 +115,8 @@ export function mergeTextStyle(
   const strikethrough = override.strikethrough ?? base.strikethrough;
   const overline = override.overline ?? base.overline;
   const blink = override.blink ?? base.blink;
+  const underlineStyle = override.underlineStyle ?? base.underlineStyle;
+  const underlineColor = override.underlineColor ?? base.underlineColor;
 
   if (
     fg.r === base.fg.r &&
@@ -111,7 +132,9 @@ export function mergeTextStyle(
     inverse === base.inverse &&
     strikethrough === base.strikethrough &&
     overline === base.overline &&
-    blink === base.blink
+    blink === base.blink &&
+    underlineStyle === base.underlineStyle &&
+    underlineColor === base.underlineColor
   ) {
     return base;
   }
@@ -127,6 +150,8 @@ export function mergeTextStyle(
     strikethrough?: boolean;
     overline?: boolean;
     blink?: boolean;
+    underlineStyle?: TextStyle["underlineStyle"];
+    underlineColor?: TextStyle["underlineColor"];
   } = {
     fg,
     bg,
@@ -140,6 +165,8 @@ export function mergeTextStyle(
   if (strikethrough !== undefined) merged.strikethrough = strikethrough;
   if (overline !== undefined) merged.overline = overline;
   if (blink !== undefined) merged.blink = blink;
+  if (underlineStyle !== undefined) merged.underlineStyle = underlineStyle;
+  if (underlineColor !== undefined) merged.underlineColor = underlineColor;
   return merged;
 }
 

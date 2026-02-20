@@ -461,6 +461,127 @@ export type CalloutProps = Readonly<{
   style?: TextStyle;
 }>;
 
+export type GraphicsBlitter = "auto" | "braille" | "sextant" | "quadrant" | "halfblock" | "ascii";
+
+export type CanvasContext = Readonly<{
+  readonly width: number;
+  readonly height: number;
+  line: (x0: number, y0: number, x1: number, y1: number, color: string) => void;
+  fillRect: (x: number, y: number, w: number, h: number, color: string) => void;
+  strokeRect: (x: number, y: number, w: number, h: number, color: string) => void;
+  circle: (cx: number, cy: number, radius: number, color: string) => void;
+  fillCircle: (cx: number, cy: number, radius: number, color: string) => void;
+  setPixel: (x: number, y: number, color: string) => void;
+  text: (x: number, y: number, str: string, color?: string) => void;
+  clear: (color?: string) => void;
+}>;
+
+export type LinkProps = Readonly<{
+  id?: string;
+  key?: string;
+  /** URL to open in terminal hyperlink-capable renderers. */
+  url: string;
+  /** Link label text. Defaults to url. */
+  label?: string;
+  /** Optional text style for the link. */
+  style?: TextStyle;
+  /** Optional local press handler. */
+  onPress?: () => void;
+  /** Disabled links are rendered but not focusable/pressable. */
+  disabled?: boolean;
+}>;
+
+export type CanvasProps = Readonly<{
+  id?: string;
+  key?: string;
+  /** Width in terminal columns. */
+  width: number;
+  /** Height in terminal rows. */
+  height: number;
+  /** Drawing callback, called every frame with a fresh context. */
+  draw: (ctx: CanvasContext) => void;
+  /** Preferred blitter. */
+  blitter?: GraphicsBlitter;
+}>;
+
+export type ImageFit = "fill" | "contain" | "cover";
+export type ImageProtocol = "auto" | "kitty" | "sixel" | "iterm2" | "blitter";
+
+export type ImageProps = Readonly<{
+  id?: string;
+  key?: string;
+  /** Image bytes (PNG or RGBA payload). */
+  src: Uint8Array;
+  /** Width in terminal columns. */
+  width: number;
+  /** Height in terminal rows. */
+  height: number;
+  /** Fit mode (default: contain). */
+  fit?: ImageFit;
+  /** Alt text for unsupported terminals or decode failures. */
+  alt?: string;
+  /** Preferred image protocol. */
+  protocol?: ImageProtocol;
+  /** Z-layer for compositing. */
+  zLayer?: -1 | 0 | 1;
+  /** Stable image id for protocol-level caching. */
+  imageId?: number;
+}>;
+
+export type LineChartSeries = Readonly<{
+  data: readonly number[];
+  color: string;
+  label?: string;
+}>;
+
+export type ChartAxis = Readonly<{
+  label?: string;
+  min?: number;
+  max?: number;
+}>;
+
+export type LineChartProps = Readonly<{
+  id?: string;
+  key?: string;
+  width: number;
+  height: number;
+  series: readonly LineChartSeries[];
+  axes?: Readonly<{ x?: ChartAxis; y?: ChartAxis }>;
+  blitter?: Exclude<GraphicsBlitter, "ascii">;
+  showLegend?: boolean;
+}>;
+
+export type ScatterPoint = Readonly<{
+  x: number;
+  y: number;
+  color?: string;
+}>;
+
+export type ScatterProps = Readonly<{
+  id?: string;
+  key?: string;
+  width: number;
+  height: number;
+  points: readonly ScatterPoint[];
+  axes?: Readonly<{ x?: ChartAxis; y?: ChartAxis }>;
+  color?: string;
+  blitter?: Exclude<GraphicsBlitter, "ascii">;
+}>;
+
+export type HeatmapColorScale = "viridis" | "plasma" | "inferno" | "magma" | "turbo" | "grayscale";
+
+export type HeatmapProps = Readonly<{
+  id?: string;
+  key?: string;
+  width: number;
+  height: number;
+  /** 2D value matrix [row][col]. */
+  data: readonly (readonly number[])[];
+  colorScale?: HeatmapColorScale;
+  min?: number;
+  max?: number;
+}>;
+
 /**
  * Props for sparkline widget.
  * Mini inline chart using block characters.
@@ -475,6 +596,10 @@ export type SparklineProps = Readonly<{
   min?: number;
   /** Maximum value for scaling (default: auto) */
   max?: number;
+  /** Enables sub-cell rendering when supported. */
+  highRes?: boolean;
+  /** Blitter for highRes mode. */
+  blitter?: Exclude<GraphicsBlitter, "auto" | "ascii">;
   /** Optional style override */
   style?: TextStyle;
 }>;
@@ -507,6 +632,10 @@ export type BarChartProps = Readonly<{
   showLabels?: boolean;
   /** Maximum bar length in cells */
   maxBarLength?: number;
+  /** Enables sub-cell rendering when supported. */
+  highRes?: boolean;
+  /** Blitter for highRes mode. */
+  blitter?: Exclude<GraphicsBlitter, "auto" | "ascii">;
   /** Optional style override */
   style?: TextStyle;
 }>;
@@ -1240,6 +1369,23 @@ export type SearchMatch = Readonly<{
   endColumn: number;
 }>;
 
+/** Diagnostic severity for CodeEditor inline markers. */
+export type CodeEditorDiagnosticSeverity = "error" | "warning" | "info" | "hint";
+
+/** Inline diagnostic range rendered in CodeEditor. */
+export type CodeEditorDiagnostic = Readonly<{
+  /** 0-based line index. */
+  line: number;
+  /** 0-based start column. */
+  startColumn: number;
+  /** 0-based end column (exclusive). */
+  endColumn: number;
+  /** Severity bucket controlling underline color. */
+  severity: CodeEditorDiagnosticSeverity;
+  /** Optional diagnostic message. */
+  message?: string;
+}>;
+
 /** Props for CodeEditor widget. Multiline text editing with selections. */
 export type CodeEditorProps = Readonly<{
   /** REQUIRED - Interactive widget identifier. */
@@ -1271,6 +1417,8 @@ export type CodeEditorProps = Readonly<{
   searchMatches?: readonly SearchMatch[];
   /** Currently highlighted match index. */
   currentMatchIndex?: number;
+  /** Optional diagnostics rendered as styled underlines. */
+  diagnostics?: readonly CodeEditorDiagnostic[];
   /** Callback when content changes. */
   onChange: (lines: readonly string[], cursor: CursorPosition) => void;
   /** Callback when selection changes. */
@@ -1612,6 +1760,12 @@ export type VNode =
   | Readonly<{ kind: "sparkline"; props: SparklineProps }>
   | Readonly<{ kind: "barChart"; props: BarChartProps }>
   | Readonly<{ kind: "miniChart"; props: MiniChartProps }>
+  | Readonly<{ kind: "link"; props: LinkProps }>
+  | Readonly<{ kind: "canvas"; props: CanvasProps }>
+  | Readonly<{ kind: "image"; props: ImageProps }>
+  | Readonly<{ kind: "lineChart"; props: LineChartProps }>
+  | Readonly<{ kind: "scatter"; props: ScatterProps }>
+  | Readonly<{ kind: "heatmap"; props: HeatmapProps }>
   | Readonly<{ kind: "button"; props: ButtonProps }>
   | Readonly<{ kind: "input"; props: InputProps }>
   | Readonly<{ kind: "slider"; props: SliderProps }>

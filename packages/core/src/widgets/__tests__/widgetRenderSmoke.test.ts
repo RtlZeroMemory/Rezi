@@ -123,6 +123,56 @@ describe("widget render smoke", () => {
     { name: "empty", vnode: ui.empty("No data", { description: "nothing here" }) },
     { name: "errorDisplay", vnode: ui.errorDisplay("failed") },
     { name: "callout", vnode: ui.callout("watch out", { variant: "warning" }) },
+    { name: "link", vnode: ui.link("https://example.com", "Example", { id: "lnk" }) },
+    {
+      name: "canvas",
+      vnode: ui.canvas({
+        width: 16,
+        height: 4,
+        draw: (ctx) => {
+          ctx.line(0, 0, ctx.width - 1, ctx.height - 1, "#ffffff");
+        },
+      }),
+    },
+    {
+      name: "image",
+      vnode: ui.image({
+        src: new Uint8Array([0, 0, 0, 0]),
+        width: 8,
+        height: 4,
+        alt: "demo",
+      }),
+    },
+    {
+      name: "lineChart",
+      vnode: ui.lineChart({
+        width: 30,
+        height: 8,
+        series: [{ data: [1, 2, 3, 2], color: "#4ecdc4", label: "CPU" }],
+      }),
+    },
+    {
+      name: "scatter",
+      vnode: ui.scatter({
+        width: 20,
+        height: 8,
+        points: [
+          { x: 0, y: 0 },
+          { x: 1, y: 1, color: "#ff6b6b" },
+        ],
+      }),
+    },
+    {
+      name: "heatmap",
+      vnode: ui.heatmap({
+        width: 20,
+        height: 6,
+        data: [
+          [0, 0.5, 1],
+          [0.2, 0.6, 0.9],
+        ],
+      }),
+    },
     { name: "sparkline", vnode: ui.sparkline([1, 2, 3, 2, 1]) },
     {
       name: "barChart",

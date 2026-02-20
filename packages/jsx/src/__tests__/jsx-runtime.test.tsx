@@ -64,8 +64,27 @@ describe("jsx runtime", () => {
 
   test("new intrinsic names route through the JSX runtime", () => {
     const onChange = () => {};
+    const draw = () => undefined;
+    const src = new Uint8Array([0, 0, 0, 0]);
+    const series = [{ data: [1, 2, 3], color: "#4ecdc4" }] as const;
     const vnode = jsx("slider", { id: "volume", value: 15, onChange });
     assert.deepEqual(vnode, ui.slider({ id: "volume", value: 15, onChange }));
+    assert.deepEqual(
+      jsx("link", { url: "https://example.com", label: "Docs" }),
+      ui.link("https://example.com", "Docs"),
+    );
+    assert.deepEqual(
+      jsx("canvas", { width: 10, height: 4, draw }),
+      ui.canvas({ width: 10, height: 4, draw }),
+    );
+    assert.deepEqual(
+      jsx("image", { src, width: 6, height: 3 }),
+      ui.image({ src, width: 6, height: 3 }),
+    );
+    assert.deepEqual(
+      jsx("lineChart", { width: 18, height: 6, series }),
+      ui.lineChart({ width: 18, height: 6, series }),
+    );
   });
 
   test("jsxDEV() matches jsx() behavior", () => {

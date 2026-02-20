@@ -1,6 +1,6 @@
 # Widget Catalog
 
-Rezi provides 54 built-in widgets for building terminal UIs. Widgets are plain TypeScript functions that return VNode objects.
+Rezi provides a broad built-in widget catalog for building terminal UIs. Widgets are plain TypeScript functions that return VNode objects.
 
 ```typescript
 app.view((state) =>
@@ -74,6 +74,7 @@ Navigation and wayfinding widgets:
 | [Tabs](tabs.md) | Switch between related content panels | Yes | `beta` |
 | [Accordion](accordion.md) | Expand/collapse stacked sections | Yes | `beta` |
 | [Breadcrumb](breadcrumb.md) | Hierarchical location path with jumps | Optional (`id`) | `beta` |
+| [Link](link.md) | Hyperlink text with optional press behavior | Optional (`id`) | `beta` |
 | [Pagination](pagination.md) | Navigate paged datasets | Yes | `beta` |
 
 ### Data Display
@@ -135,6 +136,18 @@ Data visualization:
 | [Sparkline](sparkline.md) | Inline mini chart | No | `beta` |
 | [Bar Chart](bar-chart.md) | Horizontal/vertical bars | No | `beta` |
 | [Mini Chart](mini-chart.md) | Compact multi-value display | No | `beta` |
+
+### Graphics
+
+Graphics-oriented rendering widgets:
+
+| Widget | Description | Focusable | Stability |
+|--------|-------------|-----------|-----------|
+| [Canvas](canvas.md) | Pixel-level drawing surface | No | `beta` |
+| [Image](image.md) | Binary image rendering (PNG/RGBA) | No | `beta` |
+| [Line Chart](line-chart.md) | Multi-series line visualization | No | `beta` |
+| [Scatter](scatter.md) | Cartesian scatter plot | No | `beta` |
+| [Heatmap](heatmap.md) | Matrix heat map with color scales | No | `beta` |
 
 ### Feedback
 

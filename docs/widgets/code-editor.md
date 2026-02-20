@@ -38,6 +38,7 @@ ui.codeEditor({
 | `searchQuery` | `string` | - | Search text |
 | `searchMatches` | `SearchMatch[]` | - | Match ranges |
 | `currentMatchIndex` | `number` | - | Highlighted match |
+| `diagnostics` | `{ range: { start: { line: number; column: number }; end: { line: number; column: number } }; severity?: "error" \| "warning" \| "info" \| "hint"; message?: string }[]` | - | Inline diagnostics rendered with curly underlines |
 | `onChange` | `(lines, cursor) => void` | **required** | Content change callback |
 | `onSelectionChange` | `(selection) => void` | **required** | Selection change callback |
 | `onScroll` | `(scrollTop, scrollLeft) => void` | **required** | Scroll callback |
@@ -52,6 +53,7 @@ ui.codeEditor({
 ## Notes
 
 - `lines` is the source of truth; update it in `onChange` to keep the editor controlled.
+- Diagnostic ranges render with themed curly underlines when provided.
 
 ## Related
 

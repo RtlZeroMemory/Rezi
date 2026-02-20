@@ -107,6 +107,12 @@ function measureNode(vnode: VNode, maxW: number, maxH: number, axis: Axis): Layo
     case "empty":
     case "errorDisplay":
     case "callout":
+    case "link":
+    case "canvas":
+    case "image":
+    case "lineChart":
+    case "scatter":
+    case "heatmap":
     case "sparkline":
     case "barChart":
     case "miniChart": {
@@ -297,6 +303,12 @@ function layoutNode(
     case "empty":
     case "errorDisplay":
     case "callout":
+    case "link":
+    case "canvas":
+    case "image":
+    case "lineChart":
+    case "scatter":
+    case "heatmap":
     case "sparkline":
     case "barChart":
     case "miniChart":
