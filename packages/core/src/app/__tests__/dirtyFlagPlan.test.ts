@@ -245,8 +245,8 @@ test("state update that changes intrinsic width triggers relayout for mouse hit-
     makeBackendBatch({
       bytes: encodeZrevBatchV1({
         events: [
-          { kind: "mouse", timeMs: 20, x: 5, y: 0, mouseKind: 3, buttons: 1 },
-          { kind: "mouse", timeMs: 21, x: 5, y: 0, mouseKind: 4, buttons: 0 },
+          { kind: "mouse", timeMs: 20, x: 6, y: 0, mouseKind: 3, buttons: 1 },
+          { kind: "mouse", timeMs: 21, x: 6, y: 0, mouseKind: 4, buttons: 0 },
         ],
       }),
     }),
@@ -300,8 +300,8 @@ test("interactive text-driven state update re-layouts before mouse hit-testing",
     makeBackendBatch({
       bytes: encodeZrevBatchV1({
         events: [
-          { kind: "mouse", timeMs: 20, x: 5, y: 0, mouseKind: 3, buttons: 1 },
-          { kind: "mouse", timeMs: 21, x: 5, y: 0, mouseKind: 4, buttons: 0 },
+          { kind: "mouse", timeMs: 20, x: 6, y: 0, mouseKind: 3, buttons: 1 },
+          { kind: "mouse", timeMs: 21, x: 6, y: 0, mouseKind: 4, buttons: 0 },
         ],
       }),
     }),

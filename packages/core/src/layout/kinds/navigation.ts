@@ -27,9 +27,9 @@ type NavigationVNode = Extract<
 
 function toSyntheticContainer(vnode: NavigationVNode): VNode {
   if (vnode.kind === "tabs" || vnode.kind === "accordion") {
-    return { kind: "column", props: {}, children: vnode.children };
+    return { kind: "column", props: { gap: 0 }, children: vnode.children };
   }
-  return { kind: "row", props: {}, children: vnode.children };
+  return { kind: "row", props: { gap: 0 }, children: vnode.children };
 }
 
 function syntheticAxis(vnode: NavigationVNode): Axis {

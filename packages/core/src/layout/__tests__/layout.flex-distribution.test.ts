@@ -67,7 +67,7 @@ function buildStack(axis: Axis, c: FlexCase): VNode {
     props.width = c.cross;
     props.height = c.main;
   }
-  if (c.gap !== undefined) props.gap = c.gap;
+  props.gap = c.gap ?? 0;
 
   const children = c.children.map((spec) => buildChild(axis, spec));
   return axis === "row" ? ui.row(props, children) : ui.column(props, children);

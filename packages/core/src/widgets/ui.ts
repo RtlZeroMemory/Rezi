@@ -87,6 +87,39 @@ import type {
 } from "./types.js";
 
 type UiChild = VNode | false | null | undefined | readonly UiChild[];
+type PanelOptions = Readonly<{
+  id?: string;
+  key?: string;
+  title?: string;
+  variant?: BoxProps["border"];
+  p?: BoxProps["p"];
+  gap?: ColumnProps["gap"];
+  style?: BoxProps["style"];
+}>;
+type FormOptions = Readonly<{
+  id?: string;
+  key?: string;
+  gap?: ColumnProps["gap"];
+}>;
+type ActionsOptions = Readonly<{
+  id?: string;
+  key?: string;
+  gap?: RowProps["gap"];
+}>;
+type CenterOptions = Readonly<{
+  id?: string;
+  key?: string;
+  p?: ColumnProps["p"];
+}>;
+type PageOptions = Readonly<{
+  id?: string;
+  key?: string;
+  header?: VNode | null;
+  body: VNode;
+  footer?: VNode | null;
+  gap?: ColumnProps["gap"];
+  p?: ColumnProps["p"];
+}>;
 
 function isUiChildren(value: unknown): value is readonly UiChild[] {
   return Array.isArray(value);
@@ -103,6 +136,14 @@ function filterChildren(children: readonly UiChild[]): readonly VNode[] {
     out.push(child as VNode);
   }
   return out;
+}
+
+function maybeReverseChildren(
+  children: readonly VNode[],
+  reverse: boolean | undefined,
+): readonly VNode[] {
+  if (reverse !== true || children.length <= 1) return children;
+  return Object.freeze([...children].reverse());
 }
 
 function isTextProps(v: TextStyle | TextProps): v is TextProps {
@@ -132,18 +173,30 @@ function box(props: BoxProps = {}, children: readonly UiChild[] = []): VNode {
 }
 
 function row(props: RowProps = {}, children: readonly UiChild[] = []): VNode {
-  return { kind: "row", props, children: filterChildren(children) };
+  const resolved = props.gap === undefined ? { gap: DEFAULT_STACK_GAP, ...props } : props;
+  const filtered = filterChildren(children);
+  return {
+    kind: "row",
+    props: resolved,
+    children: maybeReverseChildren(filtered, resolved.reverse),
+  };
 }
 
 function column(props: ColumnProps = {}, children: readonly UiChild[] = []): VNode {
-  return { kind: "column", props, children: filterChildren(children) };
+  const resolved = props.gap === undefined ? { gap: DEFAULT_STACK_GAP, ...props } : props;
+  const filtered = filterChildren(children);
+  return {
+    kind: "column",
+    props: resolved,
+    children: maybeReverseChildren(filtered, resolved.reverse),
+  };
 }
 
 function grid(props: GridProps, ...children: UiChild[]): VNode {
   return { kind: "grid", props, children: filterChildren(children) };
 }
 
-const DEFAULT_STACK_GAP = 0;
+const DEFAULT_STACK_GAP = 1;
 const DEFAULT_SPACED_STACK_GAP = 1;
 
 function vstack(props: ColumnProps, children?: readonly UiChild[]): VNode;
@@ -168,10 +221,11 @@ function vstack(
     };
   }
   const props = gapOrPropsOrChildren;
+  const filtered = filterChildren(children);
   return {
     kind: "column",
     props: props.gap === undefined ? { gap: DEFAULT_STACK_GAP, ...props } : props,
-    children: filterChildren(children),
+    children: maybeReverseChildren(filtered, props.reverse),
   };
 }
 
@@ -197,10 +251,11 @@ function hstack(
     };
   }
   const props = gapOrPropsOrChildren;
+  const filtered = filterChildren(children);
   return {
     kind: "row",
     props: props.gap === undefined ? { gap: DEFAULT_STACK_GAP, ...props } : props,
-    children: filterChildren(children),
+    children: maybeReverseChildren(filtered, props.reverse),
   };
 }
 
@@ -635,6 +690,99 @@ function layers(
   return { kind: "layers", props: propsOrChildren, children: filterChildren(children) };
 }
 
+function panel(title: string, children: readonly UiChild[]): VNode;
+function panel(options: PanelOptions, children: readonly UiChild[]): VNode;
+function panel(titleOrOptions: string | PanelOptions, children: readonly UiChild[] = []): VNode {
+  const options: PanelOptions =
+    typeof titleOrOptions === "string" ? { title: titleOrOptions } : titleOrOptions;
+  const resolvedChildren = filterChildren(children);
+  const inner =
+    resolvedChildren.length <= 1
+      ? resolvedChildren
+      : [column({ gap: options.gap ?? 1 }, resolvedChildren)];
+  return box(
+    {
+      ...(options.id === undefined ? {} : { id: options.id }),
+      ...(options.key === undefined ? {} : { key: options.key }),
+      ...(options.title === undefined ? {} : { title: options.title }),
+      border: options.variant ?? "rounded",
+      p: options.p ?? 1,
+      ...(options.style === undefined ? {} : { style: options.style }),
+    },
+    inner,
+  );
+}
+
+function form(children: readonly UiChild[]): VNode;
+function form(options: FormOptions, children: readonly UiChild[]): VNode;
+function form(
+  optionsOrChildren: FormOptions | readonly UiChild[],
+  children: readonly UiChild[] = [],
+): VNode {
+  if (isUiChildren(optionsOrChildren)) {
+    return column({ gap: 1 }, optionsOrChildren);
+  }
+  const options = optionsOrChildren;
+  return column(
+    {
+      ...(options.id === undefined ? {} : { id: options.id }),
+      ...(options.key === undefined ? {} : { key: options.key }),
+      gap: options.gap ?? 1,
+    },
+    children,
+  );
+}
+
+function actions(children: readonly UiChild[]): VNode;
+function actions(options: ActionsOptions, children: readonly UiChild[]): VNode;
+function actions(
+  optionsOrChildren: ActionsOptions | readonly UiChild[],
+  children: readonly UiChild[] = [],
+): VNode {
+  if (isUiChildren(optionsOrChildren)) {
+    return row({ justify: "end", gap: 1 }, optionsOrChildren);
+  }
+  const options = optionsOrChildren;
+  return row(
+    {
+      ...(options.id === undefined ? {} : { id: options.id }),
+      ...(options.key === undefined ? {} : { key: options.key }),
+      justify: "end",
+      gap: options.gap ?? 1,
+    },
+    children,
+  );
+}
+
+function center(child: VNode, options: CenterOptions = {}): VNode {
+  return column(
+    {
+      ...(options.id === undefined ? {} : { id: options.id }),
+      ...(options.key === undefined ? {} : { key: options.key }),
+      width: "100%",
+      height: "100%",
+      align: "center",
+      justify: "center",
+      ...(options.p === undefined ? {} : { p: options.p }),
+    },
+    [child],
+  );
+}
+
+function page(options: PageOptions): VNode {
+  return column(
+    {
+      ...(options.id === undefined ? {} : { id: options.id }),
+      ...(options.key === undefined ? {} : { key: options.key }),
+      width: "100%",
+      height: "100%",
+      gap: options.gap ?? 1,
+      ...(options.p === undefined ? {} : { p: options.p }),
+    },
+    [options.header ?? null, box({ flex: 1 }, [options.body]), options.footer ?? null],
+  );
+}
+
 /**
  * Widget factory functions for building VNode trees.
  *
@@ -686,6 +834,11 @@ export const ui = {
   focusTrap,
   virtualList,
   layers,
+  panel,
+  form,
+  actions,
+  center,
+  page,
 
   /**
    * Create a modal overlay.

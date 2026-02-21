@@ -27,7 +27,7 @@ function mustLayout(node: VNode, maxW: number, maxH: number, axis: Axis): Layout
 const ROW_CASES: readonly PercentageCase[] = [
   {
     name: 'row main-axis "100%" consumes full width',
-    vnode: ui.row({ width: 20, height: 6 }, [ui.box({ border: "none", width: "100%" }, [])]),
+    vnode: ui.row({ gap: 0,  width: 20, height: 6 }, [ui.box({ border: "none", width: "100%" }, [])]),
     maxW: 20,
     maxH: 6,
     axis: "row",
@@ -36,7 +36,7 @@ const ROW_CASES: readonly PercentageCase[] = [
   },
   {
     name: 'row main-axis "0%" yields zero-width sibling',
-    vnode: ui.row({ width: 20, height: 6 }, [
+    vnode: ui.row({ gap: 0,  width: 20, height: 6 }, [
       ui.box({ border: "none", width: "0%" }, []),
       ui.box({ border: "none", width: 4 }, []),
     ]),
@@ -51,7 +51,7 @@ const ROW_CASES: readonly PercentageCase[] = [
   },
   {
     name: 'row main-axis "150%" clamps to available width',
-    vnode: ui.row({ width: 20, height: 6 }, [ui.box({ border: "none", width: "150%" }, [])]),
+    vnode: ui.row({ gap: 0,  width: 20, height: 6 }, [ui.box({ border: "none", width: "150%" }, [])]),
     maxW: 20,
     maxH: 6,
     axis: "row",
@@ -60,7 +60,7 @@ const ROW_CASES: readonly PercentageCase[] = [
   },
   {
     name: 'row "150%" first child can starve later fixed sibling',
-    vnode: ui.row({ width: 20, height: 6 }, [
+    vnode: ui.row({ gap: 0,  width: 20, height: 6 }, [
       ui.box({ border: "none", width: "150%" }, []),
       ui.box({ border: "none", width: 3 }, []),
     ]),
@@ -75,7 +75,7 @@ const ROW_CASES: readonly PercentageCase[] = [
   },
   {
     name: "row nested percentages 50% -> 50% resolve recursively",
-    vnode: ui.row({ width: 40, height: 8 }, [
+    vnode: ui.row({ gap: 0,  width: 40, height: 8 }, [
       ui.box({ border: "none", width: "50%" }, [
         ui.box({ border: "none", width: "50%" }, [ui.text("x")]),
       ]),
@@ -89,7 +89,7 @@ const ROW_CASES: readonly PercentageCase[] = [
   },
   {
     name: "row nested 100% parent + 150% child clamps at parent content",
-    vnode: ui.row({ width: 20, height: 8 }, [
+    vnode: ui.row({ gap: 0,  width: 20, height: 8 }, [
       ui.box({ border: "none", width: "100%" }, [
         ui.box({ border: "none", width: "150%" }, [ui.text("x")]),
       ]),
@@ -103,7 +103,7 @@ const ROW_CASES: readonly PercentageCase[] = [
   },
   {
     name: "row cross-axis 50% height triggers parent fill-cross behavior",
-    vnode: ui.row({ width: 20 }, [ui.box({ border: "none", width: 4, height: "50%" }, [])]),
+    vnode: ui.row({ gap: 0,  width: 20 }, [ui.box({ border: "none", width: 4, height: "50%" }, [])]),
     maxW: 20,
     maxH: 10,
     axis: "row",
@@ -112,7 +112,7 @@ const ROW_CASES: readonly PercentageCase[] = [
   },
   {
     name: 'row cross-axis "0%" height resolves to zero',
-    vnode: ui.row({ width: 20, height: 10 }, [
+    vnode: ui.row({ gap: 0,  width: 20, height: 10 }, [
       ui.box({ border: "none", width: 4, height: "0%" }, []),
     ]),
     maxW: 20,
@@ -123,7 +123,7 @@ const ROW_CASES: readonly PercentageCase[] = [
   },
   {
     name: 'row cross-axis "150%" height clamps to container height',
-    vnode: ui.row({ width: 20, height: 10 }, [
+    vnode: ui.row({ gap: 0,  width: 20, height: 10 }, [
       ui.box({ border: "none", width: 4, height: "150%" }, []),
     ]),
     maxW: 20,
@@ -149,7 +149,7 @@ const ROW_CASES: readonly PercentageCase[] = [
   },
   {
     name: "row percent + flex ordering is stable",
-    vnode: ui.row({ width: 20, height: 5 }, [
+    vnode: ui.row({ gap: 0,  width: 20, height: 5 }, [
       ui.box({ border: "none", width: "25%" }, []),
       ui.box({ border: "none", flex: 1 }, []),
       ui.box({ border: "none", width: "25%" }, []),
@@ -171,7 +171,7 @@ const ROW_CASES: readonly PercentageCase[] = [
 const COLUMN_CASES: readonly PercentageCase[] = [
   {
     name: 'column main-axis "100%" consumes full height',
-    vnode: ui.column({ height: 20, width: 6 }, [ui.box({ border: "none", height: "100%" }, [])]),
+    vnode: ui.column({ gap: 0,  height: 20, width: 6 }, [ui.box({ border: "none", height: "100%" }, [])]),
     maxW: 6,
     maxH: 20,
     axis: "column",
@@ -180,7 +180,7 @@ const COLUMN_CASES: readonly PercentageCase[] = [
   },
   {
     name: 'column main-axis "0%" yields zero-height sibling',
-    vnode: ui.column({ height: 20, width: 6 }, [
+    vnode: ui.column({ gap: 0,  height: 20, width: 6 }, [
       ui.box({ border: "none", height: "0%" }, []),
       ui.box({ border: "none", height: 4 }, []),
     ]),
@@ -195,7 +195,7 @@ const COLUMN_CASES: readonly PercentageCase[] = [
   },
   {
     name: 'column main-axis "150%" clamps to available height',
-    vnode: ui.column({ height: 20, width: 6 }, [ui.box({ border: "none", height: "150%" }, [])]),
+    vnode: ui.column({ gap: 0,  height: 20, width: 6 }, [ui.box({ border: "none", height: "150%" }, [])]),
     maxW: 6,
     maxH: 20,
     axis: "column",
@@ -204,7 +204,7 @@ const COLUMN_CASES: readonly PercentageCase[] = [
   },
   {
     name: 'column "150%" first child can starve later fixed sibling',
-    vnode: ui.column({ height: 20, width: 6 }, [
+    vnode: ui.column({ gap: 0,  height: 20, width: 6 }, [
       ui.box({ border: "none", height: "150%" }, []),
       ui.box({ border: "none", height: 3 }, []),
     ]),
@@ -219,7 +219,7 @@ const COLUMN_CASES: readonly PercentageCase[] = [
   },
   {
     name: "column nested percentages 50% -> 50% resolve recursively",
-    vnode: ui.column({ height: 40, width: 8 }, [
+    vnode: ui.column({ gap: 0,  height: 40, width: 8 }, [
       ui.box({ border: "none", height: "50%" }, [
         ui.box({ border: "none", height: "50%" }, [ui.text("x")]),
       ]),
@@ -233,7 +233,7 @@ const COLUMN_CASES: readonly PercentageCase[] = [
   },
   {
     name: "column nested 100% parent + 150% child clamps at parent content",
-    vnode: ui.column({ height: 20, width: 8 }, [
+    vnode: ui.column({ gap: 0,  height: 20, width: 8 }, [
       ui.box({ border: "none", height: "100%" }, [
         ui.box({ border: "none", height: "150%" }, [ui.text("x")]),
       ]),
@@ -247,7 +247,7 @@ const COLUMN_CASES: readonly PercentageCase[] = [
   },
   {
     name: "column cross-axis 50% width triggers parent fill-cross behavior",
-    vnode: ui.column({ height: 20 }, [ui.box({ border: "none", height: 4, width: "50%" }, [])]),
+    vnode: ui.column({ gap: 0,  height: 20 }, [ui.box({ border: "none", height: 4, width: "50%" }, [])]),
     maxW: 10,
     maxH: 20,
     axis: "column",
@@ -256,7 +256,7 @@ const COLUMN_CASES: readonly PercentageCase[] = [
   },
   {
     name: 'column cross-axis "0%" width resolves to zero',
-    vnode: ui.column({ height: 20, width: 10 }, [
+    vnode: ui.column({ gap: 0,  height: 20, width: 10 }, [
       ui.box({ border: "none", height: 4, width: "0%" }, []),
     ]),
     maxW: 10,
@@ -267,7 +267,7 @@ const COLUMN_CASES: readonly PercentageCase[] = [
   },
   {
     name: 'column cross-axis "150%" width clamps to container width',
-    vnode: ui.column({ height: 20, width: 10 }, [
+    vnode: ui.column({ gap: 0,  height: 20, width: 10 }, [
       ui.box({ border: "none", height: 4, width: "150%" }, []),
     ]),
     maxW: 10,
@@ -293,7 +293,7 @@ const COLUMN_CASES: readonly PercentageCase[] = [
   },
   {
     name: "column percent + flex ordering is stable",
-    vnode: ui.column({ height: 20, width: 5 }, [
+    vnode: ui.column({ gap: 0,  height: 20, width: 5 }, [
       ui.box({ border: "none", height: "25%" }, []),
       ui.box({ border: "none", flex: 1 }, []),
       ui.box({ border: "none", height: "25%" }, []),
