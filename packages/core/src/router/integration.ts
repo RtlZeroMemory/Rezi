@@ -114,53 +114,68 @@ export function createRouterIntegration<S>(
     const seen = new Set<string>();
 
     for (let depth = 0; depth <= GUARD_MAX_REDIRECT_DEPTH; depth += 1) {
-      const route = routeMap.get(resolvedRouteId);
-      if (!route) {
+      const record = recordById.get(resolvedRouteId);
+      if (!record) {
         throw new ZrUiError(
           "ZRUI_INVALID_STATE",
           `route id "${resolvedRouteId}" is not registered`,
         );
       }
-      const guard = route.guard;
-      if (!guard) {
-        return Object.freeze({ routeId: resolvedRouteId, params: resolvedParams });
-      }
-
       const to = Object.freeze({ id: resolvedRouteId, params: resolvedParams });
-      const guardResult = guard(
-        resolvedParams,
-        opts.getState(),
-        Object.freeze({
-          from,
-          to,
-          action,
-        }),
-      );
+      let redirected = false;
+      for (const ancestryRouteId of record.ancestry) {
+        const ancestryRoute = routeMap.get(ancestryRouteId);
+        if (!ancestryRoute) {
+          throw new ZrUiError(
+            "ZRUI_INVALID_STATE",
+            `route id "${ancestryRouteId}" is not registered`,
+          );
+        }
 
-      if (guardResult === true) {
+        const guard = ancestryRoute.guard;
+        if (!guard) continue;
+
+        const guardResult = guard(
+          resolvedParams,
+          opts.getState(),
+          Object.freeze({
+            from,
+            to,
+            action,
+          }),
+        );
+
+        if (guardResult === true) {
+          continue;
+        }
+        if (guardResult === false) {
+          return null;
+        }
+        if (!isGuardRedirect(guardResult)) {
+          throw new ZrUiError(
+            "ZRUI_INVALID_PROPS",
+            `guard for route "${ancestryRouteId}" must return true, false, or { redirect }`,
+          );
+        }
+
+        resolvedRouteId = normalizeKnownRouteId(guardResult.redirect);
+        resolvedParams = normalizeRouteParams(guardResult.params);
+
+        const marker = `${resolvedRouteId}\u0000${JSON.stringify(resolvedParams)}`;
+        if (seen.has(marker)) {
+          throw new ZrUiError(
+            "ZRUI_INVALID_PROPS",
+            `route guard redirect loop detected at route "${resolvedRouteId}"`,
+          );
+        }
+        seen.add(marker);
+        redirected = true;
+        break;
+      }
+
+      if (!redirected) {
         return Object.freeze({ routeId: resolvedRouteId, params: resolvedParams });
       }
-      if (guardResult === false) {
-        return null;
-      }
-      if (!isGuardRedirect(guardResult)) {
-        throw new ZrUiError(
-          "ZRUI_INVALID_PROPS",
-          `guard for route "${resolvedRouteId}" must return true, false, or { redirect }`,
-        );
-      }
-
-      resolvedRouteId = normalizeKnownRouteId(guardResult.redirect);
-      resolvedParams = normalizeRouteParams(guardResult.params);
-
-      const marker = `${resolvedRouteId}\u0000${JSON.stringify(resolvedParams)}`;
-      if (seen.has(marker)) {
-        throw new ZrUiError(
-          "ZRUI_INVALID_PROPS",
-          `route guard redirect loop detected at route "${resolvedRouteId}"`,
-        );
-      }
-      seen.add(marker);
     }
 
     throw new ZrUiError(

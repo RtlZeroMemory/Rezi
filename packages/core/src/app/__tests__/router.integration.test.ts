@@ -422,6 +422,66 @@ describe("createApp routes integration", () => {
     app.dispose();
   });
 
+  test("nested child navigation evaluates parent guard before child route", async () => {
+    const backend = new StubBackend();
+    const rendered: string[] = [];
+
+    const app = createApp({
+      backend,
+      initialState: Object.freeze({ canAccessSettings: false }),
+      routes: [
+        {
+          id: "home",
+          screen: () => {
+            rendered.push("home");
+            return ui.text("Home");
+          },
+        },
+        {
+          id: "settings",
+          guard: (_params, state) =>
+            state.canAccessSettings ? true : Object.freeze({ redirect: "home" }),
+          screen: (_params, ctx) =>
+            ui.column({ id: "settings-shell", gap: 1 }, [
+              ui.text("Settings"),
+              ctx.outlet ?? ui.text("None"),
+            ]),
+          children: [
+            {
+              id: "profile",
+              screen: () => {
+                rendered.push("profile");
+                return ui.text("Profile");
+              },
+            },
+          ],
+        },
+      ],
+      initialRoute: "home",
+    });
+
+    await bootWithResize(backend, app);
+
+    app.router?.navigate("profile");
+    await flushMicrotasks(20);
+
+    assert.equal(app.router?.currentRoute().id, "home");
+    assert.equal(rendered.includes("profile"), false);
+
+    app.update((prev) => Object.freeze({ ...prev, canAccessSettings: true }));
+    await flushMicrotasks(20);
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+
+    app.router?.navigate("profile");
+    await flushMicrotasks(20);
+
+    assert.equal(app.router?.currentRoute().id, "profile");
+    assert.equal(rendered.includes("profile"), true);
+
+    app.dispose();
+  });
+
   test("router rejects unknown route ids", () => {
     const backend = new StubBackend();
     const app = createApp({

@@ -138,6 +138,7 @@ Use `guard` to block or redirect before navigation commits:
 - Return `false` to cancel.
 - Return `{ redirect: "routeId" }` to reroute before rendering the blocked target.
 - Guards run for `navigate`, `replace`, and `back` destination resolution.
+- For nested routes, guards run in ancestry order (parent to child).
 
 `RouteGuardContext` includes:
 
