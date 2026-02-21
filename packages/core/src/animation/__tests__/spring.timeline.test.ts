@@ -30,7 +30,7 @@ describe("animation/spring", () => {
   });
 
   test("stepSpring snaps on invalid input", () => {
-    const cfg = normalizeSpringConfig();
+    const cfg = normalizeSpringConfig(undefined);
     const next = stepSpring({ value: Number.NaN, velocity: 0 }, 10, 1 / 60, cfg);
     assert.equal(next.value, 10);
     assert.equal(next.velocity, 0);

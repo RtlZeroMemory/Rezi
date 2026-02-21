@@ -66,6 +66,7 @@ export function normalizeSequence(
 
   for (let i = 0; i < keyframes.length - 1; i++) {
     const frame = keyframes[i];
+    if (frame === undefined) continue;
     const durationMs = normalizeDurationMs(readKeyframeDuration(frame), fallbackDurationMs);
     const easingInput = readKeyframeEasing(frame) ?? defaults.easing;
     segments.push(
@@ -132,4 +133,3 @@ export function sampleSequence(
     done: true,
   });
 }
-

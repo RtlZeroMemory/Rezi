@@ -379,7 +379,11 @@ export function useSequence(
   }, [config.duration, config.easing, config.loop, keyframes]);
 
   const sequence = ctx.useMemo(
-    () => normalizeSequence(keyframes, { duration: config.duration, easing: config.easing }),
+    () =>
+      normalizeSequence(keyframes, {
+        ...(config.duration === undefined ? {} : { duration: config.duration }),
+        ...(config.easing === undefined ? {} : { easing: config.easing }),
+      }),
     [signature],
   );
 
