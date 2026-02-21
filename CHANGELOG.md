@@ -12,6 +12,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - `@rezi-ui/bench` — comprehensive benchmark suite (Rezi native vs Ink-on-Rezi vs Ink)
 - Benchmark results and performance documentation
 - Widget composition API (`defineWidget` with hooks)
+- Composition utility hooks: `useDebounce`, `useAsync`, `usePrevious`
 
 ### Changed
 

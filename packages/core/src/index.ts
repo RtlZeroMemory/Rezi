@@ -305,6 +305,9 @@ export { inspectorOverlay } from "./widgets/inspectorOverlay.js";
 export {
   defineWidget,
   createWidgetContext,
+  useAsync,
+  useDebounce,
+  usePrevious,
   isCompositeVNode,
   getCompositeMeta,
   scopedId,
@@ -312,6 +315,7 @@ export {
   type CompositeVNode,
   type CompositeWidgetMeta,
   type DefineWidgetOptions,
+  type UseAsyncState,
   type WidgetContext,
   type WidgetFactory,
   type WidgetWrapperKind,
