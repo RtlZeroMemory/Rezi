@@ -5,6 +5,7 @@ import {
   type ThemeDefinition,
   createApp,
   defaultTheme,
+  setDefaultTailSourceFactory,
 } from "@rezi-ui/core";
 import {
   type NodeBackend,
@@ -12,6 +13,7 @@ import {
   createNodeBackendInternal,
 } from "./backend/nodeBackend.js";
 import { createReproRecorder } from "./repro/index.js";
+import { createNodeTailSource } from "./streams/tail.js";
 
 export type { NodeBackendConfig };
 export type { NodeBackend };
@@ -24,6 +26,9 @@ export type {
 } from "./repro/index.js";
 export { createReproRecorder };
 export { loadImage } from "./image.js";
+export { createNodeTailSource } from "./streams/tail.js";
+
+setDefaultTailSourceFactory(createNodeTailSource);
 
 export type NodeAppConfig = Readonly<
   AppConfig & Omit<NodeBackendConfig, "fpsCap" | "maxEventBytes" | "useDrawlistV2">

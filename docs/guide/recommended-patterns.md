@@ -587,6 +587,20 @@ ui.virtualList<LogEntry>({
 })
 ```
 
+When row height depends on rendered content, switch to estimate mode:
+
+```typescript
+ui.virtualList<LogEntry>({
+  id: "log-view",
+  items: logEntries,
+  estimateItemHeight: (entry) => (entry.expanded ? 4 : 1),
+  renderItem: (entry) =>
+    entry.expanded
+      ? ui.column({}, [ui.text(entry.message), ui.text(entry.details)])
+      : ui.text(entry.message),
+})
+```
+
 ### Minimize State Size
 
 Keep your state flat and minimal. Deeply nested state leads to more spread operations and harder-to-maintain reducers. Extract computed values in the view function rather than storing them in state.

@@ -76,7 +76,9 @@ describe("composition animation hooks - useTransition", () => {
 
     let mid = 0;
     await waitFor(() => {
-      const next = h.render((hooks) => useTransition(hooks, 10, { duration: 80, easing: "linear" }));
+      const next = h.render((hooks) =>
+        useTransition(hooks, 10, { duration: 80, easing: "linear" }),
+      );
       mid = next.result;
       h.runPending(next.pendingEffects);
       return mid > 0 && mid < 10;
@@ -85,7 +87,9 @@ describe("composition animation hooks - useTransition", () => {
 
     let finalValue = 0;
     await waitFor(() => {
-      const next = h.render((hooks) => useTransition(hooks, 10, { duration: 80, easing: "linear" }));
+      const next = h.render((hooks) =>
+        useTransition(hooks, 10, { duration: 80, easing: "linear" }),
+      );
       finalValue = next.result;
       h.runPending(next.pendingEffects);
       return Math.abs(finalValue - 10) <= 0.05;
@@ -315,7 +319,7 @@ describe("composition animation hooks - useSequence", () => {
     const keyframes = [0, 10, 20];
     const config = { duration: 60, easing: "linear" as const };
 
-    let render = h.render((hooks) => useSequence(hooks, keyframes, config));
+    const render = h.render((hooks) => useSequence(hooks, keyframes, config));
     assert.equal(render.result, 0);
     h.runPending(render.pendingEffects);
 
@@ -356,7 +360,7 @@ describe("composition animation hooks - useSequence", () => {
     const keyframes = [0, 10, 0];
     const config = { duration: 40, easing: "linear" as const, loop: true };
 
-    let render = h.render((hooks) => useSequence(hooks, keyframes, config));
+    const render = h.render((hooks) => useSequence(hooks, keyframes, config));
     h.runPending(render.pendingEffects);
 
     let minValue = Number.POSITIVE_INFINITY;
@@ -411,7 +415,7 @@ describe("composition animation hooks - useStagger", () => {
     const items = ["a", "b", "c"];
     const config = { delay: 40, duration: 80, easing: "linear" as const };
 
-    let render = h.render((hooks) => useStagger(hooks, items, config));
+    const render = h.render((hooks) => useStagger(hooks, items, config));
     assert.equal(render.result.length, 3);
     h.runPending(render.pendingEffects);
 
@@ -484,7 +488,7 @@ describe("composition animation hooks - useStagger", () => {
     const items = ["x", "y", "z"];
     const config = { delay: 0, duration: 0, easing: "linear" as const };
 
-    let render = h.render((hooks) => useStagger(hooks, items, config));
+    const render = h.render((hooks) => useStagger(hooks, items, config));
     h.runPending(render.pendingEffects);
 
     let latest: readonly number[] = [];

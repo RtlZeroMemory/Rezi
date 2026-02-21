@@ -58,4 +58,28 @@ describe("renderer/textStyle opacity blending", () => {
     assert.equal(applyOpacityToStyle(style, Number.NaN), style);
     assert.equal(applyOpacityToStyle(style, Number.NEGATIVE_INFINITY), style);
   });
+
+  test("blends against custom backdrop when provided", () => {
+    const backdrop = { r: 90, g: 100, b: 110 };
+    const style = mergeTextStyle(DEFAULT_BASE_STYLE, {
+      fg: { r: 240, g: 80, b: 20 },
+      bg: { r: 10, g: 30, b: 50 },
+    });
+
+    const hidden = applyOpacityToStyle(style, 0, backdrop);
+    assert.deepEqual(hidden.fg, backdrop);
+    assert.deepEqual(hidden.bg, backdrop);
+
+    const half = applyOpacityToStyle(style, 0.5, backdrop);
+    assert.deepEqual(half.fg, {
+      r: Math.round(backdrop.r + (style.fg.r - backdrop.r) * 0.5),
+      g: Math.round(backdrop.g + (style.fg.g - backdrop.g) * 0.5),
+      b: Math.round(backdrop.b + (style.fg.b - backdrop.b) * 0.5),
+    });
+    assert.deepEqual(half.bg, {
+      r: Math.round(backdrop.r + (style.bg.r - backdrop.r) * 0.5),
+      g: Math.round(backdrop.g + (style.bg.g - backdrop.g) * 0.5),
+      b: Math.round(backdrop.b + (style.bg.b - backdrop.b) * 0.5),
+    });
+  });
 });

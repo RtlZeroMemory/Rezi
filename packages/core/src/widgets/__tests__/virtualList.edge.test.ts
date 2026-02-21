@@ -157,6 +157,17 @@ describe("virtualList.edge - helper math and dynamic data changes", () => {
     assert.equal(getTotalHeight(items, 0), 3);
   });
 
+  test("measured height overrides are respected by offset/total helpers", () => {
+    const items = [0, 1, 2, 3];
+    const measured = new Map<number, number>([
+      [1, 4],
+      [2, 2],
+    ]);
+    assert.equal(getItemOffset(items, 1, 2, measured), 5);
+    assert.equal(getItemHeight(items, 1, 1, measured), 4);
+    assert.equal(getTotalHeight(items, 1, measured), 8);
+  });
+
   test("routeVirtualListKey clamps stale selectedIndex on arrow keys after shrink", () => {
     const ctx = ctxWith({ items: [0, 1], selectedIndex: 9, viewportHeight: 1, scrollTop: 10 });
     const up = routeVirtualListKey(keyEvent(ZR_KEY_UP), ctx);

@@ -411,6 +411,24 @@ describe("collection scroll metadata wiring", () => {
     });
   });
 
+  test("virtualList estimateItemHeight mode patches metadata from measured heights", () => {
+    const vnode = ui.virtualList({
+      id: "vl-est",
+      items: Object.freeze(["a", "b", "c", "d"]),
+      estimateItemHeight: 1,
+      renderItem: (item) => ui.column({}, [ui.text(String(item)), ui.text(`${String(item)}-2`)]),
+    });
+    const tree = renderAndGetLayoutTree(vnode, { cols: 12, rows: 3 });
+    assert.deepEqual(requireMeta(tree), {
+      scrollX: 0,
+      scrollY: 0,
+      contentWidth: 12,
+      contentHeight: 10,
+      viewportWidth: 12,
+      viewportHeight: 3,
+    });
+  });
+
   test("table layout baseline metadata matches viewport rect", () => {
     const vnode = ui.table({
       id: "tbl-base",

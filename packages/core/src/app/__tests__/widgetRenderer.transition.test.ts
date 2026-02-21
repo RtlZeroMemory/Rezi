@@ -1,7 +1,7 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type { RuntimeBackend } from "../../backend.js";
-import type { Rect } from "../../layout/types.js";
 import { ui } from "../../index.js";
+import type { Rect } from "../../layout/types.js";
 import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
 import type { TransitionProperty } from "../../widgets/types.js";
@@ -27,61 +27,52 @@ function noRenderHooks(): { enterRender: () => void; exitRender: () => void } {
 }
 
 function view(offset: number, animated: boolean) {
-  return ui.row(
-    { id: "root", gap: 0 },
-    [
-      ui.spacer({ size: offset }),
-      ui.box(
-        animated
-          ? {
-              id: "moving",
-              width: 4,
-              height: 1,
-              border: "none",
-              transition: { duration: 120, easing: "linear", properties: ["position"] },
-            }
-          : { id: "moving", width: 4, height: 1, border: "none" },
-        [ui.text("X", { id: "label" })],
-      ),
-    ],
-  );
+  return ui.row({ id: "root", gap: 0 }, [
+    ui.spacer({ size: offset }),
+    ui.box(
+      animated
+        ? {
+            id: "moving",
+            width: 4,
+            height: 1,
+            border: "none",
+            transition: { duration: 120, easing: "linear", properties: ["position"] },
+          }
+        : { id: "moving", width: 4, height: 1, border: "none" },
+      [ui.text("X", { id: "label" })],
+    ),
+  ]);
 }
 
 function viewSize(width: number) {
-  return ui.row(
-    { id: "root", gap: 0 },
-    [
-      ui.box(
-        {
-          id: "sized",
-          width,
-          height: 3,
-          border: "single",
-          transition: { duration: 120, easing: "linear", properties: ["size"] },
-        },
-        [ui.text("box", { id: "sized-label" })],
-      ),
-    ],
-  );
+  return ui.row({ id: "root", gap: 0 }, [
+    ui.box(
+      {
+        id: "sized",
+        width,
+        height: 3,
+        border: "single",
+        transition: { duration: 120, easing: "linear", properties: ["size"] },
+      },
+      [ui.text("box", { id: "sized-label" })],
+    ),
+  ]);
 }
 
 function viewOpacity(opacity: number) {
-  return ui.row(
-    { id: "root", gap: 0 },
-    [
-      ui.box(
-        {
-          id: "fading",
-          width: 8,
-          height: 2,
-          border: "single",
-          opacity,
-          transition: { duration: 120, easing: "linear", properties: ["opacity"] },
-        },
-        [ui.text("fade", { id: "fade-label" })],
-      ),
-    ],
-  );
+  return ui.row({ id: "root", gap: 0 }, [
+    ui.box(
+      {
+        id: "fading",
+        width: 8,
+        height: 2,
+        border: "single",
+        opacity,
+        transition: { duration: 120, easing: "linear", properties: ["opacity"] },
+      },
+      [ui.text("fade", { id: "fade-label" })],
+    ),
+  ]);
 }
 
 type PrivateTransitionTrack = Readonly<{
@@ -140,23 +131,20 @@ function viewCompositeTransition(
     ...(opts.properties === undefined ? {} : { properties: opts.properties }),
   };
 
-  return ui.row(
-    { id: "root", gap: 0 },
-    [
-      ui.spacer({ size: opts.offset }),
-      ui.box(
-        {
-          id: "combo",
-          width: opts.width,
-          height: 2,
-          border: "single",
-          opacity: opts.opacity,
-          transition,
-        },
-        [ui.text("combo", { id: "combo-label" })],
-      ),
-    ],
-  );
+  return ui.row({ id: "root", gap: 0 }, [
+    ui.spacer({ size: opts.offset }),
+    ui.box(
+      {
+        id: "combo",
+        width: opts.width,
+        height: 2,
+        border: "single",
+        opacity: opts.opacity,
+        transition,
+      },
+      [ui.text("combo", { id: "combo-label" })],
+    ),
+  ]);
 }
 
 describe("WidgetRenderer transitions", () => {
@@ -434,7 +422,8 @@ describe("WidgetRenderer transitions", () => {
       });
 
       const frame1 = renderer.submitFrame(
-        () => viewCompositeTransition({ offset: 0, width: 6, opacity: 1, properties: c.properties }),
+        () =>
+          viewCompositeTransition({ offset: 0, width: 6, opacity: 1, properties: c.properties }),
         undefined,
         { cols: 40, rows: 10 },
         defaultTheme,
@@ -444,7 +433,8 @@ describe("WidgetRenderer transitions", () => {
       assert.ok(frame1.ok, `${c.name}: bootstrap frame failed`);
 
       const frame2 = renderer.submitFrame(
-        () => viewCompositeTransition({ offset: 5, width: 12, opacity: 0.2, properties: c.properties }),
+        () =>
+          viewCompositeTransition({ offset: 5, width: 12, opacity: 0.2, properties: c.properties }),
         undefined,
         { cols: 40, rows: 10 },
         defaultTheme,
@@ -460,7 +450,8 @@ describe("WidgetRenderer transitions", () => {
       assert.equal(track?.animateOpacity, c.expectOpacity, `${c.name}: opacity flag mismatch`);
 
       const midFrame = renderer.submitFrame(
-        () => viewCompositeTransition({ offset: 5, width: 12, opacity: 0.2, properties: c.properties }),
+        () =>
+          viewCompositeTransition({ offset: 5, width: 12, opacity: 0.2, properties: c.properties }),
         undefined,
         { cols: 40, rows: 10 },
         defaultTheme,
@@ -604,7 +595,14 @@ describe("WidgetRenderer transitions", () => {
     });
 
     const frame1 = renderer.submitFrame(
-      () => viewCompositeTransition({ offset: 0, width: 6, opacity: 1, duration: 0, properties: "all" }),
+      () =>
+        viewCompositeTransition({
+          offset: 0,
+          width: 6,
+          opacity: 1,
+          duration: 0,
+          properties: "all",
+        }),
       undefined,
       { cols: 40, rows: 10 },
       defaultTheme,
@@ -614,7 +612,14 @@ describe("WidgetRenderer transitions", () => {
     assert.ok(frame1.ok);
 
     const frame2 = renderer.submitFrame(
-      () => viewCompositeTransition({ offset: 8, width: 12, opacity: 0.3, duration: 0, properties: "all" }),
+      () =>
+        viewCompositeTransition({
+          offset: 8,
+          width: 12,
+          opacity: 0.3,
+          duration: 0,
+          properties: "all",
+        }),
       undefined,
       { cols: 40, rows: 10 },
       defaultTheme,

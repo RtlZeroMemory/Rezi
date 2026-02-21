@@ -31,6 +31,9 @@ function createTestCtx(
     virtualListId: overrides.virtualListId ?? "list",
     items,
     itemHeight: overrides.itemHeight ?? 1,
+    ...(overrides.measuredHeights === undefined
+      ? {}
+      : { measuredHeights: overrides.measuredHeights }),
     state,
     keyboardNavigation: overrides.keyboardNavigation ?? true,
     wrapAround: overrides.wrapAround ?? false,
@@ -81,6 +84,19 @@ describe("virtualList contracts - visible range/window", () => {
     assert.equal(middle.endIndex, 4);
     assert.equal(atEnd.startIndex, 2);
     assert.equal(atEnd.endIndex, 5);
+  });
+
+  test("measured heights override estimated offsets deterministically", () => {
+    const items = Array.from({ length: 4 }, (_, i) => i);
+    const measuredHeights = new Map<number, number>([
+      [1, 3],
+      [3, 2],
+    ]);
+
+    const range = computeVisibleRange(items, 1, 0, 3, 0, measuredHeights);
+    assert.deepEqual([...range.itemOffsets], [0, 1, 4, 5, 7]);
+    assert.equal(range.startIndex, 0);
+    assert.equal(range.endIndex, 2);
   });
 });
 
@@ -167,6 +183,27 @@ describe("virtualList contracts - keyboard navigation", () => {
     assert.equal(up.nextSelectedIndex, 3);
   });
 
+  test("page-size fallback uses measured heights for numeric estimate mode", () => {
+    const items = Array.from({ length: 30 }, (_, i) => i);
+    const measuredHeights = new Map<number, number>();
+    for (let i = 0; i < 10; i++) measuredHeights.set(i, 3);
+
+    const ctx = createTestCtx({
+      items,
+      itemHeight: 1,
+      measuredHeights,
+      selectedIndex: 3,
+      scrollTop: 0,
+      viewportHeight: 9,
+      startIndex: 5,
+      endIndex: 5,
+    });
+
+    const result = routeVirtualListKey(createKeyEvent(ZR_KEY_PAGE_DOWN), ctx);
+    assert.equal(result.nextSelectedIndex, 6);
+    assert.equal(result.nextScrollTop, 12);
+  });
+
   test("end key jumps to last item and scrolls to max", () => {
     const items = Array.from({ length: 10 }, (_, i) => i);
     const ctx = createTestCtx({
@@ -179,5 +216,25 @@ describe("virtualList contracts - keyboard navigation", () => {
     const result = routeVirtualListKey(createKeyEvent(ZR_KEY_END), ctx);
     assert.equal(result.nextSelectedIndex, 9);
     assert.equal(result.nextScrollTop, 15);
+  });
+
+  test("end key uses measured heights when estimate mode cache is available", () => {
+    const items = Array.from({ length: 4 }, (_, i) => i);
+    const ctx = createTestCtx({
+      items,
+      itemHeight: 1,
+      measuredHeights: new Map<number, number>([
+        [0, 2],
+        [1, 1],
+        [2, 2],
+        [3, 1],
+      ]),
+      selectedIndex: 0,
+      viewportHeight: 3,
+    });
+
+    const result = routeVirtualListKey(createKeyEvent(ZR_KEY_END), ctx);
+    assert.equal(result.nextSelectedIndex, 3);
+    assert.equal(result.nextScrollTop, 3);
   });
 });

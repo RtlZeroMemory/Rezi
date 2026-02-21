@@ -140,6 +140,16 @@ grouped in the same order.
 
 Biome enforces import sorting automatically during formatting.
 
+## Streaming Hook Conventions
+
+When adding or using streaming hooks (`useStream`, `useEventSource`, `useWebSocket`, `useInterval`, `useTail`), keep behavior deterministic and cleanup-safe:
+
+- Always return cleanup logic for timers/subscriptions in effects.
+- Keep `@rezi-ui/core` runtime-agnostic by using adapter/factory injection instead of importing runtime-specific APIs.
+- Expose bounded buffers for unbounded streams (for example, `maxBuffer` in tail/log flows) so memory usage stays predictable.
+- Ensure parser callbacks are total and defensive (`unknown` input, explicit narrowing, deterministic fallback behavior).
+- Test stale-update races (dependency changes/unmount before async completion) for every new streaming hook.
+
 ## Allocation Constraints in Hot Paths
 
 The rendering pipeline runs every frame (up to 60 fps by default). Allocations
@@ -160,6 +170,8 @@ performance-critical code:
 - Mutating existing objects where ownership is clear.
 - `for` loops over array methods in hot paths.
 - Caching computed values across frames (e.g., `drawlistEncodedStringCacheCap`).
+- For `virtualList` estimate mode, update measured-height caches incrementally
+  (clone once only when visible-item measurements actually change).
 
 ### Example
 

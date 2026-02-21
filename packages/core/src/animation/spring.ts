@@ -69,9 +69,7 @@ export function isSpringAtRest(
   velocity: number,
   config: NormalizedSpringConfig,
 ): boolean {
-  return (
-    Math.abs(velocity) <= config.restSpeed && Math.abs(target - value) <= config.restDelta
-  );
+  return Math.abs(velocity) <= config.restSpeed && Math.abs(target - value) <= config.restDelta;
 }
 
 export function stepSpring(

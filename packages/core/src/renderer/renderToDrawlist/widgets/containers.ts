@@ -15,7 +15,7 @@ import { getRuntimeNodeDamageRect } from "../damageBounds.js";
 import { isVisibleRect } from "../indices.js";
 import { clampNonNegative, resolveSpacingFromProps } from "../spacing.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
-import { mergeTextStyle, shouldFillForStyleOverride } from "../textStyle.js";
+import { applyOpacityToStyle, mergeTextStyle, shouldFillForStyleOverride } from "../textStyle.js";
 
 type ClipRect = Readonly<Rect>;
 type OverlayFrameColors = Readonly<{
@@ -485,6 +485,7 @@ export function renderContainerWidget(
   damageRect: Rect | undefined,
   skipCleanSubtrees: boolean,
   forceSubtreeRender: boolean,
+  boxOpacityOverride: number | undefined,
 ): void {
   const vnode = node.vnode;
   const forceChildrenRender = forceSubtreeRender || node.selfDirty;
@@ -587,7 +588,11 @@ export function renderContainerWidget(
       const ownStyle = asTextStyle(props.style, theme);
       const inheritedStyle = asTextStyle(props.inheritStyle, theme);
       const baseStyle = inheritedStyle ? mergeTextStyle(parentStyle, inheritedStyle) : parentStyle;
-      const style = mergeTextStyle(baseStyle, ownStyle);
+      const mergedStyle = mergeTextStyle(baseStyle, ownStyle);
+      const style =
+        boxOpacityOverride === undefined
+          ? mergedStyle
+          : applyOpacityToStyle(mergedStyle, boxOpacityOverride, parentStyle.bg);
       const shadowConfig = resolveBoxShadowConfig(props.shadow, theme);
       if (shadowConfig) {
         renderShadow(builder, rect, shadowConfig, style);

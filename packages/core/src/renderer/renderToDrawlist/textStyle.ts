@@ -189,13 +189,16 @@ function blendChannel(from: number, to: number, opacity: number): number {
 }
 
 /**
- * Apply opacity to a resolved style by blending fg/bg toward the base background.
+ * Apply opacity to a resolved style by blending fg/bg toward the provided backdrop color.
  */
-export function applyOpacityToStyle(style: ResolvedTextStyle, opacity: number): ResolvedTextStyle {
+export function applyOpacityToStyle(
+  style: ResolvedTextStyle,
+  opacity: number,
+  backdrop: ResolvedTextStyle["bg"] = DEFAULT_BASE_STYLE.bg,
+): ResolvedTextStyle {
   const clamped = clampOpacity(opacity);
   if (clamped >= 1) return style;
 
-  const backdrop = DEFAULT_BASE_STYLE.bg;
   const fg = Object.freeze({
     r: blendChannel(backdrop.r, style.fg.r, clamped),
     g: blendChannel(backdrop.g, style.fg.g, clamped),

@@ -106,4 +106,3 @@ export const native = {
     };
   },
 } as const;
-

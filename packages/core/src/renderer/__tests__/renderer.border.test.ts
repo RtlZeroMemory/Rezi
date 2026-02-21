@@ -470,4 +470,43 @@ describe("renderer border rendering (deterministic)", () => {
     });
     assert.equal(drawOps.length, 0);
   });
+
+  test("box opacity blends merged own style against parent backdrop", () => {
+    const backdrop = { r: 32, g: 48, b: 64 };
+    const childFg = { r: 250, g: 180, b: 110 };
+    const childBg = { r: 10, g: 20, b: 30 };
+    const ops = renderOps(
+      ui.column({ id: "root", style: { bg: backdrop } }, [
+        ui.box(
+          {
+            id: "fading-box",
+            width: 8,
+            height: 4,
+            border: "single",
+            opacity: 0,
+            style: { fg: childFg, bg: childBg },
+          },
+          [],
+        ),
+      ]),
+      { cols: 20, rows: 8 },
+      "column",
+    );
+
+    const childFill = ops.find(
+      (op) => op.kind === "fillRect" && op.x === 0 && op.y === 0 && op.w === 8 && op.h === 4,
+    );
+    assert.ok(childFill !== undefined, "child fill should exist");
+    if (!childFill || childFill.kind !== "fillRect" || !childFill.style) return;
+    assert.deepEqual(childFill.style.fg, backdrop);
+    assert.deepEqual(childFill.style.bg, backdrop);
+
+    const topBorder = ops.find(
+      (op) => op.kind === "drawText" && op.x === 0 && op.y === 0 && op.text.includes("┌"),
+    );
+    assert.ok(topBorder !== undefined, "top border should exist");
+    if (!topBorder || topBorder.kind !== "drawText" || !topBorder.style) return;
+    assert.deepEqual(topBorder.style.fg, backdrop);
+    assert.deepEqual(topBorder.style.bg, backdrop);
+  });
 });

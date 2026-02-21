@@ -1,6 +1,6 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { sampleSequence, normalizeSequence } from "../timeline.js";
 import { isSpringAtRest, normalizeSpringConfig, stepSpring } from "../spring.js";
+import { normalizeSequence, sampleSequence } from "../timeline.js";
 
 describe("animation/spring", () => {
   test("normalizeSpringConfig applies defaults and safety clamps", () => {
@@ -98,10 +98,10 @@ describe("animation/timeline", () => {
   });
 
   test("sampleSequence interpolates non-looping timelines and marks completion", () => {
-    const seq = normalizeSequence(
-      [0, { value: 10, duration: 100 }, { value: 20, duration: 50 }],
-      { duration: 50, easing: "linear" },
-    );
+    const seq = normalizeSequence([0, { value: 10, duration: 100 }, { value: 20, duration: 50 }], {
+      duration: 50,
+      easing: "linear",
+    });
     const at0 = sampleSequence(seq, 0, false);
     const at50 = sampleSequence(seq, 50, false);
     const at125 = sampleSequence(seq, 125, false);
@@ -124,10 +124,10 @@ describe("animation/timeline", () => {
   });
 
   test("sampleSequence handles degenerate and invalid elapsed values", () => {
-    const zeroDuration = normalizeSequence(
-      [{ value: 0, duration: 0 }, { value: 10 }],
-      { duration: 0, easing: "linear" },
-    );
+    const zeroDuration = normalizeSequence([{ value: 0, duration: 0 }, { value: 10 }], {
+      duration: 0,
+      easing: "linear",
+    });
     const sampledZero = sampleSequence(zeroDuration, 50, false);
     assert.equal(sampledZero.value, 10);
     assert.equal(sampledZero.done, true);

@@ -56,14 +56,16 @@ export type NormalizedSpringConfig = Readonly<{
 }>;
 
 /** Sequence keyframe input for `useSequence`. */
-export type SequenceKeyframe = number | Readonly<{
-  /** Keyframe numeric value. */
-  value: number;
-  /** Segment duration (ms) to the next keyframe. */
-  duration?: number;
-  /** Easing used for the segment to the next keyframe. */
-  easing?: EasingInput;
-}>;
+export type SequenceKeyframe =
+  | number
+  | Readonly<{
+      /** Keyframe numeric value. */
+      value: number;
+      /** Segment duration (ms) to the next keyframe. */
+      duration?: number;
+      /** Easing used for the segment to the next keyframe. */
+      easing?: EasingInput;
+    }>;
 
 /** Sequence timeline configuration. */
 export type SequenceConfig = Readonly<{

@@ -54,6 +54,7 @@ npm run test:native:smoke
 - `packages/core` must not import `node:*`, use `Buffer`, or depend on Node runtime semantics.
 - Binary parsing/building must follow the safety rules in the docs (bounded reads, alignment checks, deterministic failure).
 - Public APIs should be documented and stable within a release line.
+- Streaming hooks in `packages/core` must use runtime adapters/factories for environment-specific sources (`EventSource`, `WebSocket`, file tailing) and include cleanup + stale-update guards.
 
 ## Pull requests
 
@@ -74,6 +75,7 @@ PRs may be rejected if they:
 - Formatting and linting: Biome (`npm run fmt`, `npm run lint`)
 - TypeScript: strict mode (`npm run typecheck`)
 - Tests: `npm test` (keep tests deterministic and fast)
+- Hook changes: add/adjust hook docs (`docs/guide/hooks-reference.md`) and include race/cleanup tests.
 
 ## Interaction guidelines
 

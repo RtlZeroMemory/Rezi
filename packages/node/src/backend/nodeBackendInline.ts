@@ -100,6 +100,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 function mergeNativeLimits(
   nativeConfig: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> {
+  // biome-ignore lint/complexity/useLiteralKeys: bracket access is required by noPropertyAccessFromIndexSignature.
   const limitsValue = nativeConfig["limits"];
   const existingLimits = isPlainObject(limitsValue)
     ? (limitsValue as Record<string, unknown>)

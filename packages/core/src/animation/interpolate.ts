@@ -21,4 +21,3 @@ export function normalizeDurationMs(durationMs: number | undefined, fallbackMs: 
 export function interpolateNumber(from: number, to: number, t: number): number {
   return from + (to - from) * clamp01(t);
 }
-

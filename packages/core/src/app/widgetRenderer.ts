@@ -23,6 +23,8 @@
  */
 
 import type { CursorShape } from "../abi.js";
+import { resolveEasing } from "../animation/easing.js";
+import { interpolateNumber, normalizeDurationMs } from "../animation/interpolate.js";
 import { BACKEND_RAW_WRITE_MARKER, type BackendRawWrite, type RuntimeBackend } from "../backend.js";
 import { CURSOR_DEFAULTS } from "../cursor/index.js";
 import {
@@ -33,8 +35,6 @@ import {
   createDrawlistBuilderV2,
   createDrawlistBuilderV3,
 } from "../drawlist/index.js";
-import { resolveEasing } from "../animation/easing.js";
-import { interpolateNumber, normalizeDurationMs } from "../animation/interpolate.js";
 import type { ZrevEvent } from "../events.js";
 import type { VNode, ViewFn } from "../index.js";
 import {
@@ -157,7 +157,11 @@ import type {
   TreeProps,
   VirtualListProps,
 } from "../widgets/types.js";
-import { computeVisibleRange, getTotalHeight } from "../widgets/virtualList.js";
+import {
+  computeVisibleRange,
+  getTotalHeight,
+  resolveVirtualListItemHeightSpec,
+} from "../widgets/virtualList.js";
 import {
   EMPTY_WIDGET_RUNTIME_BREADCRUMBS,
   type RuntimeBreadcrumbCursorSummary,
@@ -778,7 +782,10 @@ export class WidgetRenderer<S> {
   private hasAnimatedWidgetsInCommittedTree = false;
   private hasActivePositionTransitions = false;
   private hasViewportAwareCompositesInCommittedTree = false;
-  private readonly positionTransitionTrackByInstanceId = new Map<InstanceId, PositionTransitionTrack>();
+  private readonly positionTransitionTrackByInstanceId = new Map<
+    InstanceId,
+    PositionTransitionTrack
+  >();
   private readonly animatedRectByInstanceId = new Map<InstanceId, Rect>();
   private readonly animatedOpacityByInstanceId = new Map<InstanceId, number>();
 
@@ -1046,9 +1053,7 @@ export class WidgetRenderer<S> {
     return clampOpacity(props?.opacity);
   }
 
-  private resolvePositionTransition(
-    node: RuntimeInstance,
-  ): Readonly<{
+  private resolvePositionTransition(node: RuntimeInstance): Readonly<{
     durationMs: number;
     easing: (t: number) => number;
     animatePosition: boolean;
@@ -1111,7 +1116,8 @@ export class WidgetRenderer<S> {
           this.positionTransitionTrackByInstanceId.delete(instanceId);
         } else if (existingTrack && targetChanged) {
           const fromRect = this.animatedRectByInstanceId.get(instanceId) ?? existingTrack.to;
-          const fromOpacity = this.animatedOpacityByInstanceId.get(instanceId) ?? existingTrack.toOpacity;
+          const fromOpacity =
+            this.animatedOpacityByInstanceId.get(instanceId) ?? existingTrack.toOpacity;
           const animatePosition =
             transition.animatePosition && (fromRect.x !== nextRect.x || fromRect.y !== nextRect.y);
           const animateSize =
@@ -1237,14 +1243,19 @@ export class WidgetRenderer<S> {
             ? Math.round(interpolateNumber(track.from.y, track.to.y, eased))
             : baseRect.y;
           if (track.animateSize) {
-            animatedWidth = Math.max(0, Math.round(interpolateNumber(track.from.w, track.to.w, eased)));
+            animatedWidth = Math.max(
+              0,
+              Math.round(interpolateNumber(track.from.w, track.to.w, eased)),
+            );
             animatedHeight = Math.max(
               0,
               Math.round(interpolateNumber(track.from.h, track.to.h, eased)),
             );
           }
           if (track.animateOpacity) {
-            animatedOpacity = clampOpacity(interpolateNumber(track.fromOpacity, track.toOpacity, eased));
+            animatedOpacity = clampOpacity(
+              interpolateNumber(track.fromOpacity, track.toOpacity, eased),
+            );
           }
           localOffsetX = animatedX - baseRect.x;
           localOffsetY = animatedY - baseRect.y;
@@ -2115,11 +2126,19 @@ export class WidgetRenderer<S> {
       const vlist = this.virtualListById.get(focusedId);
       if (vlist) {
         const state: VirtualListLocalState = this.virtualListStore.get(vlist.id);
+        const itemHeight = resolveVirtualListItemHeightSpec(vlist);
+        const measuredHeights =
+          vlist.estimateItemHeight !== undefined &&
+          state.measuredHeights !== undefined &&
+          state.measuredItemCount === vlist.items.length
+            ? state.measuredHeights
+            : undefined;
         const prevScrollTop = state.scrollTop;
         const r = routeVirtualListKey(event, {
           virtualListId: vlist.id,
           items: vlist.items,
-          itemHeight: vlist.itemHeight,
+          itemHeight,
+          ...(measuredHeights === undefined ? {} : { measuredHeights }),
           state,
           keyboardNavigation: vlist.keyboardNavigation !== false,
           wrapAround: vlist.wrapAround === true,
@@ -2142,10 +2161,11 @@ export class WidgetRenderer<S> {
           const overscan = vlist.overscan ?? 3;
           const { startIndex, endIndex } = computeVisibleRange(
             vlist.items,
-            vlist.itemHeight,
+            itemHeight,
             r.nextScrollTop,
             state.viewportHeight,
             overscan,
+            measuredHeights,
           );
           vlist.onScroll(r.nextScrollTop, [startIndex, endIndex]);
         }
@@ -2547,7 +2567,14 @@ export class WidgetRenderer<S> {
       const vlist = this.virtualListById.get(targetId);
       if (vlist) {
         const state = this.virtualListStore.get(vlist.id);
-        const totalHeight = getTotalHeight(vlist.items, vlist.itemHeight);
+        const itemHeight = resolveVirtualListItemHeightSpec(vlist);
+        const measuredHeights =
+          vlist.estimateItemHeight !== undefined &&
+          state.measuredHeights !== undefined &&
+          state.measuredItemCount === vlist.items.length
+            ? state.measuredHeights
+            : undefined;
+        const totalHeight = getTotalHeight(vlist.items, itemHeight, measuredHeights);
 
         const r = routeVirtualListWheel(event, {
           scrollTop: state.scrollTop,
@@ -2561,10 +2588,11 @@ export class WidgetRenderer<S> {
             const overscan = vlist.overscan ?? 3;
             const { startIndex, endIndex } = computeVisibleRange(
               vlist.items,
-              vlist.itemHeight,
+              itemHeight,
               r.nextScrollTop,
               state.viewportHeight,
               overscan,
+              measuredHeights,
             );
             vlist.onScroll(r.nextScrollTop, [startIndex, endIndex]);
           }
@@ -2676,6 +2704,13 @@ export class WidgetRenderer<S> {
         const rect = this.rectById.get(targetId);
         if (vlist && rect) {
           const state = this.virtualListStore.get(targetId);
+          const itemHeight = resolveVirtualListItemHeightSpec(vlist);
+          const measuredHeights =
+            vlist.estimateItemHeight !== undefined &&
+            state.measuredHeights !== undefined &&
+            state.measuredItemCount === vlist.items.length
+              ? state.measuredHeights
+              : undefined;
           const localY = event.y - rect.y;
           const inBounds = localY >= 0 && localY < rect.h;
 
@@ -2685,18 +2720,19 @@ export class WidgetRenderer<S> {
             if (yInContent < 0) return null;
             if (vlist.items.length === 0) return null;
 
-            if (typeof vlist.itemHeight === "number") {
-              const h = vlist.itemHeight;
+            if (typeof itemHeight === "number" && measuredHeights === undefined) {
+              const h = itemHeight;
               if (h <= 0) return null;
               return Math.floor(yInContent / h);
             }
 
             const { itemOffsets } = computeVisibleRange(
               vlist.items,
-              vlist.itemHeight,
+              itemHeight,
               0,
               Number.MAX_SAFE_INTEGER,
               0,
+              measuredHeights,
             );
             let lo = 0;
             let hi = vlist.items.length - 1;
@@ -4783,7 +4819,9 @@ export class WidgetRenderer<S> {
       }
 
       const frameNowMs =
-        typeof plan.nowMs === "number" && Number.isFinite(plan.nowMs) ? plan.nowMs : monotonicNowMs();
+        typeof plan.nowMs === "number" && Number.isFinite(plan.nowMs)
+          ? plan.nowMs
+          : monotonicNowMs();
       if (doCommit || doLayout || this.positionTransitionTrackByInstanceId.size > 0) {
         this.refreshPositionTransitionTracks(this.committedRoot, this.layoutTree, frameNowMs);
       }

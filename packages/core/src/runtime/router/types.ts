@@ -79,6 +79,7 @@ export type VirtualListRoutingCtx<T = unknown> = Readonly<{
   virtualListId: string;
   items: readonly T[];
   itemHeight: ItemHeightSpec<T>;
+  measuredHeights?: ReadonlyMap<number, number>;
   state: VirtualListLocalState;
   keyboardNavigation: boolean;
   wrapAround: boolean;
