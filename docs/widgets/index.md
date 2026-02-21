@@ -42,8 +42,8 @@ Container and spacing primitives for arranging widgets.
 | [`ui.spacer(props?)`](spacer.md) | Fixed-size or flexible spacing | No | `stable` |
 | [`ui.divider(props?)`](divider.md) | Visual separator line | No | `stable` |
 | [`ui.layers(children)` / `ui.layers(props, children)`](layers.md) | Layer stack container (z-ordering) | No | `beta` |
-| [`ui.splitPane(props, children)`](split-pane.md) | Resizable split layout with draggable dividers | Yes | `beta` |
-| [`ui.panelGroup(props, children)`](panel-group.md) | Container for resizable panels | Yes | `beta` |
+| [`ui.splitPane(props, children)`](split-pane.md) | Resizable split layout with draggable dividers | No | `beta` |
+| [`ui.panelGroup(props, children)`](panel-group.md) | Container for resizable panels | No | `beta` |
 | [`ui.resizablePanel(props?, children?)`](resizable-panel.md) | Panel within a panel group | No | `beta` |
 
 > **Convenience aliases:** `ui.spacedVStack(children)` and `ui.spacedHStack(children)` are shorthand for `vstack`/`hstack` with a default gap. They also accept an explicit gap number as the first argument: `ui.spacedVStack(2, children)`.
@@ -241,14 +241,14 @@ Modal dialogs, dropdown menus, toast notifications, and focus management.
 
 | Factory | Description | Focusable | Stability |
 |---------|-------------|-----------|-----------|
-| [`ui.modal(props)`](modal.md) | Centered modal dialog with backdrop and focus trap | Yes | `beta` |
-| [`ui.dialog(props)`](modal.md) | Declarative dialog sugar over modal (multi-action) | Yes | `beta` |
-| [`ui.dropdown(props)`](dropdown.md) | Positioned dropdown menu with auto-flip | Yes | `beta` |
-| [`ui.layer(props)`](layer.md) | Generic overlay layer with z-order control | Yes | `beta` |
+| [`ui.modal(props)`](modal.md) | Centered modal dialog with backdrop and focus trap | No | `beta` |
+| [`ui.dialog(props)`](modal.md) | Declarative dialog sugar over modal (multi-action) | No | `beta` |
+| [`ui.dropdown(props)`](dropdown.md) | Positioned dropdown menu with auto-flip | No | `beta` |
+| [`ui.layer(props)`](layer.md) | Generic overlay layer with z-order control | No | `beta` |
 | [`ui.toastContainer(props)`](toast.md) | Non-blocking notification stack | No | `beta` |
 | [`ui.commandPalette(props)`](command-palette.md) | Quick command search with async sources | Yes | `stable` |
-| [`ui.focusZone(props, children?)`](focus-zone.md) | Focus group for Tab navigation | Yes | `beta` |
-| [`ui.focusTrap(props, children?)`](focus-trap.md) | Constrain focus to region | Yes | `beta` |
+| [`ui.focusZone(props, children?)`](focus-zone.md) | Focus group for Tab navigation | No | `beta` |
+| [`ui.focusTrap(props, children?)`](focus-trap.md) | Constrain focus to region | No | `beta` |
 | [`ui.focusAnnouncer(props?)`](focus-announcer.md) | Live text summary of the currently focused widget | No | `beta` |
 
 **Quick example:**
@@ -327,12 +327,12 @@ The `ui` namespace includes convenience wrappers that compose lower-level widget
 
 | Helper | Expands to | Purpose |
 |--------|-----------|---------|
-| `ui.panel(title, children)` | `ui.box({ border: "rounded", p: 1, title }, ...)` | Bordered panel with title |
-| `ui.form(children)` | `ui.column({ gap: 1 }, children)` | Vertically stacked form layout |
-| `ui.actions(children)` | `ui.row({ justify: "end", gap: 1 }, children)` | Right-aligned action button row |
-| `ui.center(child)` | `ui.column({ width: "100%", height: "100%", align: "center", justify: "center" }, ...)` | Center a single widget |
+| `ui.panel(titleOrOptions, children)` | `ui.box({ border: "rounded", p: 1, title }, ...)` | Bordered panel with title; options support `id`, `key`, `title`, `gap`, `p`, `variant`, `style` |
+| `ui.form(children)` / `ui.form(options, children)` | `ui.column({ gap: 1 }, children)` | Vertically stacked form layout; options support `id`, `key`, `gap` |
+| `ui.actions(children)` / `ui.actions(options, children)` | `ui.row({ justify: "end", gap: 1 }, children)` | Right-aligned action button row; options support `id`, `key`, `gap` |
+| `ui.center(child, options?)` | `ui.column({ width: "100%", height: "100%", align: "center", justify: "center" }, ...)` | Center a single widget; options support `id`, `key`, `p` |
 | `ui.page(options)` | `ui.column(...)` with optional header/body/footer | Full-page layout scaffold |
-| `ui.keybindingHelp(bindings)` | Formatted table of keyboard shortcuts | Keyboard shortcut reference |
+| `ui.keybindingHelp(bindings, options?)` | Formatted table of keyboard shortcuts | Keyboard shortcut reference; options: `title` (`"Keyboard Shortcuts"`), `emptyText` (`"No shortcuts registered."`), `showMode` (auto), `sort` (`true`) |
 
 ```typescript
 ui.page({

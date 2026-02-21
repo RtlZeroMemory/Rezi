@@ -20,7 +20,7 @@ Use this skill when:
 
 - `packages/core/src/widgets/ui.ts` — all `ui.*` factory functions
 - `packages/core/src/router/` — router and route definitions
-- `packages/core/src/input/` — keybinding system
+- `packages/core/src/keybindings/` — keybinding system
 
 ## Steps
 
@@ -39,7 +39,7 @@ Use this skill when:
 
 2. **Use `ui.column()` or `ui.row()`** as the root container
 
-3. **If using router**, add a route definition (see `/rezi-routing` skill)
+3. **If using router**, add a route definition (see `rezi-routing` skill)
 
 4. **Add keybindings** for screen-specific actions in the app's key handler
 

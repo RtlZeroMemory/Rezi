@@ -80,7 +80,7 @@ packages/create-rezi/templates/
 ## Architecture — Render Pipeline
 
 ```
-State -> view(state) -> VNode tree -> commitVNodeTree -> layout -> metadata_collect -> renderToDrawlist -> builder.build() -> backend.requestFrame()
+State -> view(state) -> VNode tree -> commitVNodeTree -> layout -> metadata_collect (when tree/routing/focus changes; otherwise reused) -> renderToDrawlist -> builder.build() -> backend.requestFrame()
 ```
 
 1. **State**: Application state managed via `app.update()` or `useReducer` pattern.
@@ -88,7 +88,7 @@ State -> view(state) -> VNode tree -> commitVNodeTree -> layout -> metadata_coll
 3. **VNode tree**: Declarative widget descriptions (discriminated union by `kind`).
 4. **commitVNodeTree**: Reconciles new VNodes against previous RuntimeInstance tree (keyed/unkeyed diffing).
 5. **layout**: Constraint-based engine computes absolute position/size for every widget.
-6. **metadata_collect**: Gathers focus targets, hit-test regions, and accessibility info.
+6. **metadata_collect**: Gathers focus targets, hit-test regions, and accessibility info when needed; layout-only passes can reuse prior metadata.
 7. **renderToDrawlist**: Stack-based DFS walks the layout tree, emitting draw operations.
 8. **builder.build()**: Serializes draw operations into ZRDL binary format.
 9. **backend.requestFrame()**: Sends binary drawlist to the native Zireael renderer.

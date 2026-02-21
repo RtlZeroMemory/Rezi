@@ -19,7 +19,7 @@ Use this skill when:
 
 ## Source of truth
 
-- `packages/core/src/test/` — test utilities (`createTestRenderer`, etc.)
+- `packages/core/src/testing/` — test utilities (`createTestRenderer`, etc.)
 - `packages/core/src/widgets/__tests__/` — existing widget tests (use as examples)
 - `scripts/run-tests.mjs` — test runner
 

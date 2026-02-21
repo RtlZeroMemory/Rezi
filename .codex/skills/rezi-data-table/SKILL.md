@@ -13,7 +13,7 @@ Use this skill when:
 
 ## Source of truth
 
-- `packages/core/src/hooks/useTable.ts` — `useTable()` hook
+- `packages/core/src/widgets/useTable.ts` — `useTable()` hook
 - `packages/core/src/widgets/types.ts` — `TableProps`
 - `packages/core/src/widgets/ui.ts` — `ui.table()`
 

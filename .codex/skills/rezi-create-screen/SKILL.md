@@ -15,7 +15,7 @@ Use this skill when:
 
 - `packages/core/src/widgets/ui.ts` — all `ui.*` factory functions
 - `packages/core/src/router/` — router and route definitions
-- `packages/core/src/input/` — keybinding system
+- `packages/core/src/keybindings/` — keybinding system
 
 ## Steps
 

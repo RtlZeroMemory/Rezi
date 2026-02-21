@@ -38,7 +38,7 @@ Use this skill when:
 
    | Bottleneck | Fix |
    |-----------|-----|
-   | View phase slow | `useMemo()` for expensive computations |
+   | View phase slow | `ctx.useMemo(() => expensiveComputation, [deps])` for expensive computations |
    | Commit phase slow | Add `key` props on list items for stable reconciliation |
    | Layout phase slow | Reduce nesting depth; layout stability signatures skip relayout when tree is stable |
    | Render phase slow | Use `ui.virtualList()` for large datasets |
@@ -51,7 +51,7 @@ Use this skill when:
 
 ## Key optimization patterns
 
-- `useMemo(ctx, () => expensiveComputation, [deps])` — skip recomputation
+- `ctx.useMemo(() => expensiveComputation, [deps])` — skip recomputation
 - `key` on every list item — enables O(1) reconciliation
 - `ui.virtualList()` — only renders visible rows
-- Avoid creating new closures/objects in render — use `useCallback(ctx, fn, [deps])`
+- Avoid creating new closures/objects in render — use `ctx.useCallback(fn, [deps])`

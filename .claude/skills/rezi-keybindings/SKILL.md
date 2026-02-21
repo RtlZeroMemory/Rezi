@@ -19,7 +19,7 @@ Use this skill when:
 
 ## Source of truth
 
-- `packages/core/src/input/` — keybinding system implementation
+- `packages/core/src/keybindings/` — keybinding system implementation
 - `packages/core/src/widgets/ui.ts` — `ui.keybindingHelp()` widget
 
 ## Steps
@@ -33,22 +33,19 @@ Use this skill when:
    });
    ```
 
-2. **For modal modes**, pass a mode name as first argument:
+2. **For modal modes**, register mode maps with `app.modes()`:
    ```typescript
-   app.keys("edit-mode", {
-     "Escape": () => exitEditMode(),
-     "Ctrl+s": () => saveAndExit(),
+   app.modes({
+     "edit-mode": {
+       "Escape": () => exitEditMode(),
+       "Ctrl+s": () => saveAndExit(),
+     },
    });
    ```
 
 3. **Add discoverability** with `ui.keybindingHelp()`:
    ```typescript
-   ui.keybindingHelp({
-     bindings: [
-       { key: "q", label: "Quit" },
-       { key: "Ctrl+s", label: "Save" },
-     ],
-   })
+   ui.keybindingHelp(app.getBindings())
    ```
 
 ## Key format reference

@@ -255,6 +255,21 @@ const UserBadge = defineWidget<{ key?: string }, AppState>((props, ctx) => {
 });
 ```
 
+### `ctx.useViewport`
+
+Read the widget's current viewport snapshot.
+
+**Signature:**
+
+```typescript
+ctx.useViewport(): ResponsiveViewportSnapshot
+```
+
+**Description:**
+
+- Returns the current renderer viewport snapshot for responsive/layout-aware rendering.
+- The runtime triggers viewport usage tracking when available and falls back to the default viewport snapshot.
+
 ---
 
 ## Utility Hooks
@@ -604,7 +619,7 @@ type UseFormOptions<T> = {
 | `useFieldArray(field)` | `UseFieldArrayReturn` | Dynamic array field helpers |
 | `nextStep` | `() => boolean` | Wizard: advance (validates current step) |
 | `previousStep` | `() => void` | Wizard: go back (no validation) |
-| `goToStep(index)` | `() => boolean` | Wizard: jump to step (validates forward) |
+| `goToStep(stepIndex)` | `(stepIndex: number) => boolean` | Wizard: jump to step (validates forward) |
 
 **Example:**
 

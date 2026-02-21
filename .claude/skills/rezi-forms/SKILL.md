@@ -18,7 +18,7 @@ Use this skill when:
 
 ## Source of truth
 
-- `packages/core/src/hooks/useForm.ts` — `useForm()` hook
+- `packages/core/src/forms/useForm.ts` — `useForm()` hook
 - `packages/core/src/widgets/types.ts` — `InputProps`, `FieldProps`, `CheckboxProps`, `SelectProps`
 - `packages/core/src/widgets/ui.ts` — `ui.input()`, `ui.field()`, `ui.checkbox()`, `ui.select()`
 

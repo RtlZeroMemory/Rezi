@@ -20,26 +20,31 @@ Use this skill when:
 
 1. **Define routes** with optional guards and nested children:
    ```typescript
-   const routes = {
-     home: { view: (state) => HomeScreen(state) },
-     settings: {
-       view: (state) => SettingsScreen(state),
-       guard: (from, to, meta) => {
-         if (!meta.isAuthenticated) return { redirect: "home" };
-         return { allow: true };
+   const routes = [
+     {
+       id: "home",
+       screen: (_params, context) => HomeScreen(context.state),
+     },
+     {
+       id: "settings",
+       screen: (_params, context) => SettingsScreen(context.state),
+       guard: (_params, state) => {
+         if (!state.meta.isAuthenticated) return { redirect: "home" };
+         return true;
        },
      },
-     dashboard: {
-       view: (state, context) => ui.column([
-         Header(state),
+     {
+       id: "dashboard",
+       screen: (_params, context) => ui.column([
+         Header(context.state),
          context.outlet,
        ]),
-       children: {
-         overview: { view: (state) => OverviewPanel(state) },
-         stats: { view: (state) => StatsPanel(state) },
-       },
+       children: [
+         { id: "dashboard.overview", screen: (_params, context) => OverviewPanel(context.state) },
+         { id: "dashboard.stats", screen: (_params, context) => StatsPanel(context.state) },
+       ],
      },
-   };
+   ] as const;
    ```
 
 2. **Pass to app**:
@@ -57,8 +62,10 @@ Use this skill when:
 
 5. **Add navigation widgets** (optional):
    ```typescript
-   ui.routerBreadcrumb(router, routes)
-   ui.routerTabs(router, routes)
+   if (app.router) {
+     ui.routerBreadcrumb(app.router, routes)
+     ui.routerTabs(app.router, routes)
+   }
    ```
 
 ## Verification

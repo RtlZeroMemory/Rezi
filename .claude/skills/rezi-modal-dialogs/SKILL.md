@@ -18,7 +18,7 @@ Use this skill when:
 
 ## Source of truth
 
-- `packages/core/src/hooks/useModalStack.ts` — `useModalStack()` hook
+- `packages/core/src/widgets/useModalStack.ts` — `useModalStack()` hook
 - `packages/core/src/widgets/types.ts` — `ModalProps`, `LayersProps`
 - `packages/core/src/widgets/ui.ts` — `ui.modal()`, `ui.layers()`
 

@@ -145,10 +145,10 @@ Each screen is a **pure view function** that takes state and returns a VNode tre
 import { ui, rgb } from "@rezi-ui/core";
 import type { App } from "@rezi-ui/core";
 import type { State, Action } from "../types.js";
-import { reduce } from "../helpers/actions.js";
+import { reduceCliState } from "../helpers/state.js";
 
 export function mainScreen(app: App<State>) {
-  const dispatch = (action: Action) => app.update(s => reduce(s, action));
+  const dispatch = (action: Action) => app.update(s => reduceCliState(s, action));
 
   return (state: State) => {
     const { todos, selectedIndex, filter, input } = state;
