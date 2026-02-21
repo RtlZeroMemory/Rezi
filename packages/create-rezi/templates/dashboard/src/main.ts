@@ -1482,7 +1482,7 @@ app.view((state) => {
           ui.text("Newest events first. Feed updates continuously while stream is active.", {
             style: metaStyle,
           }),
-          ...Array.from({ length: INCIDENT_VISIBLE_ROWS }, (_, index) => {
+          ...Array.from({ length: state.debug ? Math.max(3, INCIDENT_VISIBLE_ROWS - 3) : INCIDENT_VISIBLE_ROWS }, (_, index) => {
             const incident = state.incidents[index];
             if (!incident) return ui.text(" ", { style: quietStyle });
             const badge = incidentBadge(incident.severity);
@@ -1496,17 +1496,16 @@ app.view((state) => {
             ]);
           }),
           state.debug
-            ? ui.column({ gap: 1 }, [
-                ui.divider({ char: "-" }),
-                ui.callout("Render loop instrumentation", {
-                  variant: "info",
-                  title: "Debug Counters",
-                }),
-                ui.row({ gap: 2, items: "center", wrap: true }, [
+            ? ui.box({ border: "rounded", px: 1, py: 0, style: stripStyle }, [
+                ui.row({ gap: 1, items: "center", wrap: true }, [
+                  ui.badge("Debug counters", { variant: "info" }),
                   ui.text(`Ticks ${state.ticks}`),
+                  ui.text("·", { style: quietStyle }),
                   ui.text(`Applied ${state.updatesApplied}`),
+                  ui.text("·", { style: quietStyle }),
                   ui.text(`Rate ${updateRate.toFixed(2)} Hz`),
-                  ui.text(`Last update age ${stalenessMs} ms`),
+                  ui.text("·", { style: quietStyle }),
+                  ui.text(`Age ${stalenessMs} ms`),
                 ]),
               ])
             : ui.text("Press d to open render/debug counters.", { style: quietStyle }),

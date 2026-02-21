@@ -36,6 +36,7 @@ import {
   setTextMeasureEmojiPolicy,
   severityToNum,
 } from "@rezi-ui/core";
+import { buildEngineCreateFailureDetail } from "./engineCreateDiagnostics.js";
 import { applyEmojiWidthPolicy, resolveBackendEmojiWidthPolicy } from "./emojiWidthPolicy.js";
 import type {
   NodeBackend,
@@ -313,6 +314,10 @@ async function loadNative(shimModule: string | undefined): Promise<NativeApi> {
 
 export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = {}): NodeBackend {
   const cfg = opts.config ?? {};
+  const nativeModuleHint =
+    typeof opts.nativeShimModule === "string" && opts.nativeShimModule.length > 0
+      ? opts.nativeShimModule
+      : "@rezi-ui/native";
   const requestedDrawlistVersion = resolveRequestedDrawlistVersion(cfg);
   const fpsCap = parseBoundedPositiveIntOrThrow(
     "fpsCap",
@@ -654,7 +659,15 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
           throw new Error(`engine_create threw: ${safeDetail(err)}`);
         }
         if (!Number.isInteger(id) || id <= 0) {
-          throw new Error(`engine_create failed: code=${String(id)}`);
+          throw new Error(
+            buildEngineCreateFailureDetail(id, initConfigResolved, {
+              nativeModuleHint,
+              probeFns: {
+                probe: (probeConfig) => api.engineCreate(probeConfig),
+                destroy: (probeEngineId) => api.engineDestroy(probeEngineId),
+              },
+            }),
+          );
         }
         engineId = id;
         started = true;
