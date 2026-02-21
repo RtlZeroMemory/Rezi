@@ -118,7 +118,11 @@ const ATTR_UNDERLINE = 1 << 2;
 function renderBytes(
   vnode: VNode,
   viewport: Readonly<{ cols: number; rows: number }> = { cols: 64, rows: 20 },
-  opts: Readonly<{ focusedId?: string | null; theme?: Theme; focusAnnouncement?: string | null }> = {},
+  opts: Readonly<{
+    focusedId?: string | null;
+    theme?: Theme;
+    focusAnnouncement?: string | null;
+  }> = {},
 ): Uint8Array {
   return renderBytesWithBuilder(vnode, () => createDrawlistBuilderV1(), viewport, opts);
 }
@@ -126,7 +130,11 @@ function renderBytes(
 function renderBytesV3(
   vnode: VNode,
   viewport: Readonly<{ cols: number; rows: number }> = { cols: 64, rows: 20 },
-  opts: Readonly<{ focusedId?: string | null; theme?: Theme; focusAnnouncement?: string | null }> = {},
+  opts: Readonly<{
+    focusedId?: string | null;
+    theme?: Theme;
+    focusAnnouncement?: string | null;
+  }> = {},
 ): Uint8Array {
   return renderBytesWithBuilder(vnode, () => createDrawlistBuilderV3(), viewport, opts);
 }
@@ -135,7 +143,11 @@ function renderBytesWithBuilder(
   vnode: VNode,
   createBuilder: () => DrawlistBuilderV1,
   viewport: Readonly<{ cols: number; rows: number }>,
-  opts: Readonly<{ focusedId?: string | null; theme?: Theme; focusAnnouncement?: string | null }> = {},
+  opts: Readonly<{
+    focusedId?: string | null;
+    theme?: Theme;
+    focusAnnouncement?: string | null;
+  }> = {},
 ): Uint8Array {
   const allocator = createInstanceIdAllocator(1);
   const committed = commitVNodeTree(null, vnode, { allocator });
@@ -228,9 +240,13 @@ describe("basic widgets render to drawlist", () => {
 
   test("focusAnnouncer renders focus summary and empty fallback", () => {
     const announced = parseInternedStrings(
-      renderBytes(ui.focusAnnouncer({ emptyText: "No focus" }), { cols: 40, rows: 4 }, {
-        focusAnnouncement: "Email input — Required — Invalid format",
-      }),
+      renderBytes(
+        ui.focusAnnouncer({ emptyText: "No focus" }),
+        { cols: 40, rows: 4 },
+        {
+          focusAnnouncement: "Email input — Required — Invalid format",
+        },
+      ),
     );
     assert.equal(announced.includes("Email input — Required — Invalid format"), true);
 

@@ -183,6 +183,67 @@ test("runtime breadcrumbs capture event path/action/focus/cursor deterministical
   await settleNextFrame(backend);
 });
 
+test("runtime breadcrumbs refresh focus announcements when field metadata changes", async () => {
+  const backend = new StubBackend();
+  const renderSnapshots: RuntimeBreadcrumbSnapshot[] = [];
+
+  const app = createApp({
+    backend,
+    initialState: { value: "", error: null as string | null },
+    config: {
+      internal_onRender: (metrics) => {
+        const breadcrumbs = (
+          metrics as Readonly<{ runtimeBreadcrumbs?: RuntimeBreadcrumbSnapshot }>
+        ).runtimeBreadcrumbs;
+        if (breadcrumbs) renderSnapshots.push(breadcrumbs);
+      },
+    },
+  });
+
+  app.view((state) =>
+    ui.focusTrap(
+      {
+        id: "trap",
+        active: true,
+        initialFocus: "email",
+      },
+      [
+        ui.field({
+          label: "Email",
+          required: true,
+          ...(state.error === null ? {} : { error: state.error }),
+          children: ui.input({
+            id: "email",
+            value: state.value,
+            accessibleLabel: "Email input",
+          }),
+        }),
+      ],
+    ),
+  );
+
+  await app.start();
+  await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 40, rows: 10 }]);
+  assert.equal(renderSnapshots.length, 1);
+  const first = renderSnapshots[0];
+  assert.ok(first);
+  assert.equal(first.focus.focusedId, "email");
+  assert.equal(first.focus.announcement?.includes("Required"), true);
+  assert.equal(first.focus.announcement?.includes("Invalid format"), false);
+
+  await settleNextFrame(backend);
+
+  app.update((prev) => ({ ...prev, error: "Invalid format" }));
+  await flushMicrotasks(20);
+  assert.equal(renderSnapshots.length, 2);
+  const second = renderSnapshots[1];
+  assert.ok(second);
+  assert.equal(second.focus.focusedId, "email");
+  assert.equal(second.focus.announcement?.includes("Invalid format"), true);
+
+  await settleNextFrame(backend);
+});
+
 test("enabling breadcrumb capture does not change widget routing outcomes", () => {
   const backend = createNoopBackend();
   const rendererWithout = new WidgetRenderer<void>({

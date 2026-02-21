@@ -3401,7 +3401,9 @@ export class WidgetRenderer<S> {
           prevCommittedRoot !== null &&
           hadRoutingWidgets === false &&
           identityDamageFromCommit !== null &&
-          identityDamageFromCommit.routingRelevantChanged === false;
+          identityDamageFromCommit.routingRelevantChanged === false &&
+          this.baseFocusList.length === 0 &&
+          this.focusState.focusedId === null;
 
         if (!canSkipMetadataCollect) {
           const metaToken = PERF_DETAIL_ENABLED ? perfMarkStart("metadata_collect") : 0;

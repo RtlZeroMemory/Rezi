@@ -5,20 +5,25 @@ import { ZrUiError } from "@rezi-ui/core";
 import { createNodeApp, createNodeBackend } from "../index.js";
 
 function withNoColor(value: string | undefined, fn: () => void): void {
-  const had = Object.prototype.hasOwnProperty.call(process.env, "NO_COLOR");
-  const prev = process.env["NO_COLOR"];
+  const env = process.env as NodeJS.ProcessEnv & { NO_COLOR?: string };
+  const had = Object.prototype.hasOwnProperty.call(env, "NO_COLOR");
+  const prev = env.NO_COLOR;
   try {
     if (value === undefined) {
-      delete process.env["NO_COLOR"];
+      Reflect.deleteProperty(env, "NO_COLOR");
     } else {
-      process.env["NO_COLOR"] = value;
+      env.NO_COLOR = value;
     }
     fn();
   } finally {
     if (had) {
-      process.env["NO_COLOR"] = prev;
+      if (prev === undefined) {
+        Reflect.deleteProperty(env, "NO_COLOR");
+      } else {
+        env.NO_COLOR = prev;
+      }
     } else {
-      delete process.env["NO_COLOR"];
+      Reflect.deleteProperty(env, "NO_COLOR");
     }
   }
 }

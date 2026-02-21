@@ -397,7 +397,8 @@ function buildFocusInfo(
   const visibleLabel = widgetLabel ?? fieldLabel;
   const required = resolveFieldRequired(fieldStack);
   const errors = resolveFieldErrors(fieldStack);
-  const primary = accessibleLabel ?? visibleLabel ?? `${kindToAnnouncementPrefix(vnode.kind)} ${id}`;
+  const primary =
+    accessibleLabel ?? visibleLabel ?? `${kindToAnnouncementPrefix(vnode.kind)} ${id}`;
   return Object.freeze({
     id,
     kind: vnode.kind,
@@ -854,7 +855,10 @@ export class WidgetMetadataCollector {
       if (focusableId !== null) {
         this._focusableIds.push(focusableId);
         if (!this._focusInfoById.has(focusableId)) {
-          this._focusInfoById.set(focusableId, buildFocusInfo(vnode, focusableId, this._fieldStack));
+          this._focusInfoById.set(
+            focusableId,
+            buildFocusInfo(vnode, focusableId, this._fieldStack),
+          );
         }
         // Attribute to current container (innermost zone/trap)
         if (this._containerStack.length > 0) {
