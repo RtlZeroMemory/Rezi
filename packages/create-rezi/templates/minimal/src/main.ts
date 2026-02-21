@@ -111,15 +111,6 @@ app.keys({
   },
 });
 
-app.onEvent((event) => {
-  if (event.kind !== "engine") return;
-  const raw = event.event;
-  if (raw.kind === "text" && raw.codepoint >= 0 && raw.codepoint <= 0x10ffff) {
-    const ch = String.fromCodePoint(raw.codepoint).toLowerCase();
-    applyCommand(resolveMinimalCommand(ch));
-  }
-});
-
 const onSignal = () => {
   void shutdown();
 };
