@@ -505,9 +505,12 @@ export function renderContainerWidget(
         pr?: unknown;
         overflow?: unknown;
         style?: unknown;
+        inheritStyle?: unknown;
       };
       const ownStyle = asTextStyle(props.style, theme);
-      const style = ownStyle ? mergeTextStyle(parentStyle, ownStyle) : parentStyle;
+      const inheritedStyle = asTextStyle(props.inheritStyle, theme);
+      const baseStyle = inheritedStyle ? mergeTextStyle(parentStyle, inheritedStyle) : parentStyle;
+      const style = ownStyle ? mergeTextStyle(baseStyle, ownStyle) : baseStyle;
       if (ownStyle && shouldFillForStyleOverride(ownStyle)) {
         builder.fillRect(rect.x, rect.y, rect.w, rect.h, style);
       }
@@ -569,6 +572,7 @@ export function renderContainerWidget(
         shadow?: unknown;
         overflow?: unknown;
         style?: unknown;
+        inheritStyle?: unknown;
       };
       const spacing = resolveSpacingFromProps(props);
       const border = readBoxBorder(props.border);
@@ -581,7 +585,9 @@ export function renderContainerWidget(
       const title = typeof props.title === "string" ? props.title : undefined;
       const titleAlign = readTitleAlign(props.titleAlign);
       const ownStyle = asTextStyle(props.style, theme);
-      const style = mergeTextStyle(parentStyle, ownStyle);
+      const inheritedStyle = asTextStyle(props.inheritStyle, theme);
+      const baseStyle = inheritedStyle ? mergeTextStyle(parentStyle, inheritedStyle) : parentStyle;
+      const style = mergeTextStyle(baseStyle, ownStyle);
       const shadowConfig = resolveBoxShadowConfig(props.shadow, theme);
       if (shadowConfig) {
         renderShadow(builder, rect, shadowConfig, style);

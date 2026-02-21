@@ -142,6 +142,11 @@ export type BoxProps = Readonly<
      * When `bg` is provided, the renderer fills the box rect.
      */
     style?: TextStyle;
+    /**
+     * Style inherited by descendants when they do not override their own style.
+     * Unlike `style`, this does not force container background fill.
+     */
+    inheritStyle?: TextStyle;
     /** Child overflow behavior. Defaults to "visible". */
     overflow?: Overflow;
     /** Horizontal scroll offset in cells. Clamped by layout metadata bounds. */
@@ -177,6 +182,11 @@ export type StackProps = Readonly<
      * When `bg` is provided, the renderer fills the stack rect.
      */
     style?: TextStyle;
+    /**
+     * Style inherited by descendants when they do not override their own style.
+     * Unlike `style`, this does not force stack background fill.
+     */
+    inheritStyle?: TextStyle;
     /** Child overflow behavior. Defaults to "visible". */
     overflow?: Overflow;
     /** Horizontal scroll offset in cells. Clamped by layout metadata bounds. */
