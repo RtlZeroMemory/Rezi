@@ -60,3 +60,22 @@ test("duplicate advanced widget ids trigger deterministic fatal ZRUI_DUPLICATE_I
     'duplicate interactive id "dup" on instanceId=4 (already used by instanceId=2)',
   );
 });
+
+test("reused interactive id index is cleared at the start of each commit cycle", () => {
+  const allocator = createInstanceIdAllocator(1);
+  const interactiveIdIndex = new Map<string, number>();
+
+  const first = commitVNodeTree(null, column([button("stable")]), {
+    allocator,
+    interactiveIdIndex,
+  });
+  assert.equal(first.ok, true);
+
+  if (first.ok) {
+    const second = commitVNodeTree(first.value.root, column([button("stable")]), {
+      allocator,
+      interactiveIdIndex,
+    });
+    assert.equal(second.ok, true);
+  }
+});

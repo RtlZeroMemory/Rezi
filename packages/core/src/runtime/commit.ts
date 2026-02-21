@@ -455,6 +455,36 @@ type MutableLists = {
   unmounted: InstanceId[];
 };
 
+const NODE_ENV =
+  (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ??
+  "development";
+const DEV_MODE = NODE_ENV !== "production";
+const LAYOUT_DEPTH_WARN_THRESHOLD = 200;
+const MAX_LAYOUT_NESTING_DEPTH = 500;
+const MAX_LAYOUT_DEPTH_PATH_SEGMENTS = 32;
+
+function warnDev(message: string): void {
+  const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
+  c?.warn?.(message);
+}
+
+function widgetPathEntry(vnode: VNode): string {
+  const props = vnode.props as { id?: unknown; key?: unknown } | undefined;
+  const id = typeof props?.id === "string" && props.id.length > 0 ? `#${props.id}` : "";
+  const key =
+    typeof props?.key === "string" || typeof props?.key === "number"
+      ? `[key=${String(props.key)}]`
+      : "";
+  return `${vnode.kind}${id}${key}`;
+}
+
+function formatWidgetPath(path: readonly string[]): string {
+  if (path.length === 0) return "(root)";
+  if (path.length <= MAX_LAYOUT_DEPTH_PATH_SEGMENTS) return path.join(" -> ");
+  const tail = path.slice(path.length - MAX_LAYOUT_DEPTH_PATH_SEGMENTS);
+  return `... -> ${tail.join(" -> ")}`;
+}
+
 function isInteractiveVNode(v: VNode): boolean {
   // Interactive set: widgets with required `id` that participate in focus/routing.
   return (
@@ -601,6 +631,8 @@ type CommitCtx = Readonly<{
   allocator: InstanceIdAllocator;
   localState: RuntimeLocalStateStore | undefined;
   seenInteractiveIds: Map<string, InstanceId>;
+  layoutPath: string[];
+  emittedWarnings: Set<string>;
   lists: MutableLists;
   collectLifecycleInstanceIds: boolean;
   composite: Readonly<{
@@ -628,7 +660,35 @@ function commitNode(
   ctx: CommitCtx,
 ): CommitNodeResult {
   let popCompositeStack = false;
+  ctx.layoutPath.push(widgetPathEntry(vnode));
   try {
+    const layoutDepth = ctx.layoutPath.length;
+    if (
+      DEV_MODE &&
+      layoutDepth > LAYOUT_DEPTH_WARN_THRESHOLD &&
+      !ctx.emittedWarnings.has("layout_depth")
+    ) {
+      ctx.emittedWarnings.add("layout_depth");
+      warnDev(
+        `[rezi][commit] layout depth ${String(layoutDepth)} exceeds warning threshold ${String(
+          LAYOUT_DEPTH_WARN_THRESHOLD,
+        )}. Deep trees may fail near depth ${String(
+          MAX_LAYOUT_NESTING_DEPTH,
+        )}. Path: ${formatWidgetPath(ctx.layoutPath)}`,
+      );
+    }
+    if (layoutDepth > MAX_LAYOUT_NESTING_DEPTH) {
+      return {
+        ok: false,
+        fatal: {
+          code: "ZRUI_INVALID_PROPS",
+          detail: `ZRUI_MAX_DEPTH: layout nesting depth ${String(layoutDepth)} exceeds max ${String(
+            MAX_LAYOUT_NESTING_DEPTH,
+          )}. Path: ${formatWidgetPath(ctx.layoutPath)}`,
+        },
+      };
+    }
+
     // Leaf nodes — fast path: reuse previous RuntimeInstance when content is unchanged.
     // Do this before any bookkeeping so unchanged leaf-heavy subtrees (lists, tables)
     // don't pay per-node validation overhead.
@@ -1055,6 +1115,7 @@ function commitNode(
     if (popCompositeStack) {
       ctx.compositeRenderStack.pop();
     }
+    ctx.layoutPath.pop();
   }
 }
 
@@ -1074,6 +1135,11 @@ export function commitVNodeTree(
     localState?: RuntimeLocalStateStore;
     /** Skip mounted/reused instanceId tracking (unmounted tracking remains). */
     collectLifecycleInstanceIds?: boolean;
+    /**
+     * Optional reusable map for interactive id uniqueness checks.
+     * Cleared at the start of each commit cycle.
+     */
+    interactiveIdIndex?: Map<string, InstanceId>;
     composite?: Readonly<{
       registry: CompositeInstanceRegistry;
       appState: unknown;
@@ -1084,10 +1150,14 @@ export function commitVNodeTree(
   }>,
 ): CommitResult {
   const collectLifecycleInstanceIds = opts.collectLifecycleInstanceIds !== false;
+  const interactiveIdIndex = opts.interactiveIdIndex ?? new Map<string, InstanceId>();
+  interactiveIdIndex.clear();
   const ctx: CommitCtx = {
     allocator: opts.allocator,
     localState: opts.localState,
-    seenInteractiveIds: new Map<string, InstanceId>(),
+    seenInteractiveIds: interactiveIdIndex,
+    layoutPath: [],
+    emittedWarnings: new Set<string>(),
     lists: { mounted: [], reused: [], unmounted: [] },
     collectLifecycleInstanceIds,
     composite: opts.composite ?? null,

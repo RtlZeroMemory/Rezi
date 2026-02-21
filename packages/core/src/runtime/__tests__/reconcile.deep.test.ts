@@ -68,6 +68,22 @@ function expectCommitOk(res: ReturnType<typeof commitVNodeTree>) {
   return res.value;
 }
 
+function captureConsoleWarn<T>(run: (warnings: string[]) => T): T {
+  const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
+  const warnings: string[] = [];
+  const originalWarn = c?.warn;
+  if (c) {
+    c.warn = (msg: string) => {
+      warnings.push(msg);
+    };
+  }
+  try {
+    return run(warnings);
+  } finally {
+    if (c) c.warn = originalWarn;
+  }
+}
+
 describe("reconciliation - deep trees", () => {
   test("10-level leaf update keeps instance ids stable and has no mounts/unmounts", () => {
     const allocator = createInstanceIdAllocator(1);
@@ -371,5 +387,36 @@ describe("reconciliation - deep trees", () => {
     assert.equal(rightRoot1.instanceId, rightRoot0.instanceId);
     assert.equal(c1.unmountedInstanceIds.includes(leftRemoved.instanceId), true);
     assert.equal(c1.mountedInstanceIds.includes(rightAdded.instanceId), true);
+  });
+
+  test("dev-mode warning when layout nesting exceeds threshold", () => {
+    const allocator = createInstanceIdAllocator(1);
+    const root = nest(201, textNode("leaf"));
+
+    const warnings = captureConsoleWarn((messages) => {
+      const res = commitVNodeTree(null, root, { allocator });
+      assert.equal(res.ok, true);
+      return messages;
+    });
+
+    assert.equal(warnings.length > 0, true);
+    const hasDepthWarning = warnings.some(
+      (msg) => msg.includes("[rezi][commit] layout depth") && msg.includes("threshold 200"),
+    );
+    assert.equal(hasDepthWarning, true);
+  });
+
+  test("fatal when layout nesting exceeds max depth includes path trace", () => {
+    const allocator = createInstanceIdAllocator(1);
+    const root = nest(501, textNode("leaf"));
+
+    const res = commitVNodeTree(null, root, { allocator });
+    assert.equal(res.ok, false);
+    if (res.ok) return;
+
+    assert.equal(res.fatal.code, "ZRUI_INVALID_PROPS");
+    assert.equal(res.fatal.detail.includes("ZRUI_MAX_DEPTH: layout nesting depth"), true);
+    assert.equal(res.fatal.detail.includes("exceeds max 500"), true);
+    assert.equal(res.fatal.detail.includes("Path:"), true);
   });
 });
