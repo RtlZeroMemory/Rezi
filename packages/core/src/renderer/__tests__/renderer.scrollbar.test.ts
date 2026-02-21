@@ -162,6 +162,8 @@ function renderScene(
     undefined,
     undefined,
     undefined,
+    undefined,
+    undefined,
   );
 
   return builder.getOps();

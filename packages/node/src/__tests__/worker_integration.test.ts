@@ -517,6 +517,39 @@ test("backend: maps fpsCap to native targetFps during init", async () => {
   backend.dispose();
 });
 
+test("backend: applies default native drawlist/output limits when nativeConfig.limits is absent", async () => {
+  const shim = new URL("../worker/testShims/limitsNative.js", import.meta.url).href;
+  const backend = createNodeBackendInternal({
+    config: { fpsCap: 777, maxEventBytes: 1024 },
+    nativeShimModule: shim,
+  });
+
+  await backend.start();
+  await backend.stop();
+  backend.dispose();
+});
+
+test("backend: preserves explicit nativeConfig.limits overrides", async () => {
+  const shim = new URL("../worker/testShims/limitsExpectNative.js", import.meta.url).href;
+  const backend = createNodeBackendInternal({
+    config: {
+      fpsCap: 777,
+      maxEventBytes: 1024,
+      nativeConfig: {
+        limits: {
+          outMaxBytesPerFrame: 3333333,
+          dlMaxTotalBytes: 2222222,
+        },
+      },
+    },
+    nativeShimModule: shim,
+  });
+
+  await backend.start();
+  await backend.stop();
+  backend.dispose();
+});
+
 test("backend: worker path fails deterministically on invalid engine_poll_events byte counts", async () => {
   const shim = new URL("../worker/testShims/invalidPollBytesNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({

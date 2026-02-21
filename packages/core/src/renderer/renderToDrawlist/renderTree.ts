@@ -3,6 +3,7 @@ import type { LayoutTree } from "../../layout/layout.js";
 import type { Rect } from "../../layout/types.js";
 import type { RuntimeInstance } from "../../runtime/commit.js";
 import type { FocusState } from "../../runtime/focus.js";
+import type { InstanceId } from "../../runtime/instance.js";
 import type {
   TableStateStore,
   TreeStateStore,
@@ -80,6 +81,8 @@ export function renderTree(
   tick: number,
   inheritedStyle: ResolvedTextStyle,
   tree: RuntimeInstance,
+  animatedRectByInstanceId: ReadonlyMap<InstanceId, Rect> | undefined,
+  animatedOpacityByInstanceId: ReadonlyMap<InstanceId, number> | undefined,
   cursorInfo: CursorInfo | undefined,
   virtualListStore: VirtualListStateStore | undefined,
   tableStore: TableStateStore | undefined,
@@ -103,6 +106,10 @@ export function renderTree(
   let lastRenderedNodeKind = tree.vnode.kind;
   const damageRect = opts?.damageRect;
   const skipCleanSubtrees = opts?.skipCleanSubtrees ?? damageRect !== undefined;
+  const hasAnimatedRects =
+    animatedRectByInstanceId !== undefined && animatedRectByInstanceId.size > 0;
+  const hasAnimatedOpacity =
+    animatedOpacityByInstanceId !== undefined && animatedOpacityByInstanceId.size > 0;
 
   const nodeStack: RenderNodeTask[] = [tree];
   const styleStack: ResolvedTextStyle[] = [inheritedStyle];
@@ -127,7 +134,9 @@ export function renderTree(
     const node = nodeOrPop;
     const vnode = node.vnode;
     lastRenderedNodeKind = vnode.kind;
-    const rect: Rect = layoutNode.rect;
+    const rect: Rect = hasAnimatedRects
+      ? (animatedRectByInstanceId?.get(node.instanceId) ?? layoutNode.rect)
+      : layoutNode.rect;
     if (skipCleanSubtrees && !node.dirty) continue;
     if (
       damageRect &&
@@ -183,6 +192,15 @@ export function renderTree(
           damageRect,
           skipCleanSubtrees,
           node.selfDirty,
+          vnode.kind === "box"
+            ? ((hasAnimatedOpacity
+                ? (animatedOpacityByInstanceId?.get(node.instanceId) ?? undefined)
+                : undefined) ??
+                ((vnode.props as Readonly<{ opacity?: unknown }> | undefined)?.opacity as
+                  | number
+                  | undefined) ??
+                undefined)
+            : undefined,
         );
         break;
       }

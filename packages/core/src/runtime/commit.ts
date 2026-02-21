@@ -176,6 +176,31 @@ function boxShadowEqual(a: unknown, b: unknown): boolean {
   return ao.offsetX === bo.offsetX && ao.offsetY === bo.offsetY && ao.density === bo.density;
 }
 
+function transitionPropertiesEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined) return false;
+  if (a === "all" || b === "all") return a === b;
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+function transitionSpecEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined) return false;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+  const ao = a as { duration?: unknown; easing?: unknown; properties?: unknown };
+  const bo = b as typeof ao;
+  return (
+    ao.duration === bo.duration &&
+    ao.easing === bo.easing &&
+    transitionPropertiesEqual(ao.properties, bo.properties)
+  );
+}
+
 function layoutConstraintsEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   const ao = (a ?? {}) as {
@@ -293,6 +318,8 @@ function boxPropsEqual(a: unknown, b: unknown): boolean {
     shadow?: unknown;
     style?: unknown;
     inheritStyle?: unknown;
+    opacity?: unknown;
+    transition?: unknown;
   };
   const bo = (b ?? {}) as typeof ao;
   return (
@@ -313,6 +340,8 @@ function boxPropsEqual(a: unknown, b: unknown): boolean {
       ao.inheritStyle as Parameters<typeof textStyleEqual>[0],
       bo.inheritStyle as Parameters<typeof textStyleEqual>[0],
     ) &&
+    ao.opacity === bo.opacity &&
+    transitionSpecEqual(ao.transition, bo.transition) &&
     spacingPropsEqual(ao, bo) &&
     layoutConstraintsEqual(ao, bo)
   );

@@ -64,6 +64,8 @@ export function renderToDrawlist(params: RenderToDrawlistParams): void {
     tick,
     DEFAULT_BASE_STYLE,
     params.tree,
+    params.animatedRectByInstanceId,
+    params.animatedOpacityByInstanceId,
     params.cursorInfo,
     params.virtualListStore,
     params.tableStore,

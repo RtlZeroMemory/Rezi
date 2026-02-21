@@ -170,6 +170,20 @@ type SabFrameTransport = Readonly<{
 
 const WIDTH_POLICY_KEY = "widthPolicy" as const;
 
+const DEFAULT_NATIVE_LIMITS: Readonly<Record<string, number>> = Object.freeze({
+  // Align native validation caps with JS drawlist builder defaults.
+  //
+  // Native defaults are intentionally conservative; however, @rezi-ui/core's
+  // drawlist builders default to 2 MiB max drawlist bytes and large command
+  // budgets. Without overriding, moderately large frames (e.g. images/canvas)
+  // can fail with ZR_ERR_LIMIT (-3) at submit time.
+  outMaxBytesPerFrame: 2 * 1024 * 1024,
+  dlMaxTotalBytes: 2 * 1024 * 1024,
+  dlMaxCmds: 100_000,
+  dlMaxStrings: 10_000,
+  dlMaxBlobs: 10_000,
+});
+
 function deferred<T>(): Deferred<T> {
   let resolve!: (v: T) => void;
   let reject!: (err: Error) => void;
@@ -178,6 +192,36 @@ function deferred<T>(): Deferred<T> {
     reject = (err: unknown) => rej(err instanceof Error ? err : new Error(String(err)));
   });
   return { promise, resolve, reject };
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+function mergeNativeLimits(
+  nativeConfig: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  // biome-ignore lint/complexity/useLiteralKeys: bracket access is required by noPropertyAccessFromIndexSignature.
+  const limitsValue = nativeConfig["limits"];
+  const existingLimits = isPlainObject(limitsValue)
+    ? (limitsValue as Record<string, unknown>)
+    : null;
+  const limits: Record<string, unknown> = { ...(existingLimits ?? {}) };
+
+  const has = (camel: string): boolean => {
+    const snake = camel.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
+    return (
+      Object.prototype.hasOwnProperty.call(limits, camel) ||
+      Object.prototype.hasOwnProperty.call(limits, snake)
+    );
+  };
+
+  for (const [camel, value] of Object.entries(DEFAULT_NATIVE_LIMITS)) {
+    if (has(camel)) continue;
+    limits[camel] = value;
+  }
+
+  return Object.freeze({ ...nativeConfig, limits: Object.freeze(limits) });
 }
 
 function parsePositiveIntOr(n: unknown, fallback: number): number {
@@ -441,8 +485,8 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
     typeof cfg.nativeConfig === "object" &&
     cfg.nativeConfig !== null &&
     !Array.isArray(cfg.nativeConfig)
-      ? (cfg.nativeConfig as Record<string, unknown>)
-      : Object.freeze({});
+      ? mergeNativeLimits(cfg.nativeConfig as Record<string, unknown>)
+      : mergeNativeLimits(Object.freeze({}));
   const nativeTargetFps = resolveTargetFps(fpsCap, nativeConfig);
 
   const initConfigBase: EngineCreateConfig = {

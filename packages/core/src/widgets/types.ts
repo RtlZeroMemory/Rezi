@@ -17,6 +17,7 @@
  * @see docs/widgets/index.md
  */
 
+import type { EasingInput } from "../animation/types.js";
 import type { SpacingValue } from "../layout/spacing-scale.js";
 import type { LayoutConstraints } from "../layout/types.js";
 import type { Theme } from "../theme/theme.js";
@@ -82,6 +83,22 @@ export type ScopedThemeOverride =
  * Text display variants with predefined styling.
  */
 export type TextVariant = "body" | "heading" | "caption" | "code" | "label";
+
+/** Properties that can be animated via widget transition props. */
+export type TransitionProperty = "position" | "size" | "opacity";
+
+/** Declarative transition settings for render-time widget animation. */
+export type TransitionSpec = Readonly<{
+  /** Transition duration in milliseconds. */
+  duration?: number;
+  /** Easing curve for interpolation. */
+  easing?: EasingInput;
+  /**
+   * Transitioned properties. Defaults to `"all"` when omitted.
+   * Phase 1 implementation supports `"position"` (x/y).
+   */
+  properties?: "all" | readonly TransitionProperty[];
+}>;
 
 /** Props for text widget. key is for reconciliation; style for visual appearance. */
 export type TextProps = Readonly<{
@@ -155,6 +172,10 @@ export type BoxProps = Readonly<
     scrollY?: number;
     /** Optional scoped theme override for this container subtree. */
     theme?: ScopedThemeOverride;
+    /** Surface opacity in [0..1]. Defaults to 1. */
+    opacity?: number;
+    /** Optional declarative transition settings for this container. */
+    transition?: TransitionSpec;
   } & SpacingProps &
     LayoutConstraints
 >;

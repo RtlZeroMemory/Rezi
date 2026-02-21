@@ -28,6 +28,9 @@ If `--template` is omitted, the CLI prompts you to choose (default: `dashboard`)
 - `cli-tool`: Multi-screen product workflow app with first-party page routing.
   Highlights: home/logs/settings routes, shared route shell, logs console, and global route keybindings.
   Aliases: `cli`, `tool`, `multiscreen`.
+- `animation-lab`: Declarative animation starter with responsive reactor visuals.
+  Highlights: transition/spring/sequence/stagger hooks, canvas + chart composition, and live resize adaptation.
+  Aliases: `animation`, `anim`, `lab`, `motion`.
 - `minimal`: Single-screen utility starter for focused tooling.
   Highlights: lean reducer flow, keybindings (`q`, `?`, `+/-`, `t`), theme cycling, and signal-safe shutdown pattern.
   Aliases: `mini`, `basic`, `utility`.
@@ -38,10 +41,12 @@ Choose directly with `--template`:
 npm create rezi my-app -- --template dashboard
 npm create rezi my-app -- --template stress-test
 npm create rezi my-app -- --template cli-tool
+npm create rezi my-app -- --template animation-lab
 npm create rezi my-app -- --template minimal
 bun create rezi my-app -- --template dashboard
 bun create rezi my-app -- --template stress-test
 bun create rezi my-app -- --template cli-tool
+bun create rezi my-app -- --template animation-lab
 bun create rezi my-app -- --template minimal
 ```
 
@@ -56,7 +61,7 @@ bun create rezi -- --list-templates
 ## Options
 
 - `--template, -t <name>`:
-  Select a template (`dashboard`, `stress-test`, `cli-tool`, `minimal`; aliases: `dash`, `stress`, `chaos`, `bench`, `cli`, `tool`, `multiscreen`, `mini`, `basic`, `utility`).
+  Select a template (`dashboard`, `stress-test`, `cli-tool`, `animation-lab`, `minimal`; aliases: `dash`, `stress`, `chaos`, `bench`, `cli`, `tool`, `multiscreen`, `animation`, `anim`, `lab`, `motion`, `mini`, `basic`, `utility`).
 - `--no-install, --skip-install`: Skip dependency installation.
 - `--pm, --package-manager <npm|pnpm|yarn|bun>`: Choose a package manager.
 - `--list-templates, --templates`: Print available templates and highlights.

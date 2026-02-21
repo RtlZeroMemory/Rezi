@@ -176,3 +176,54 @@ export function shouldFillForStyleOverride(override: TextStyle | undefined): boo
   if (!override) return false;
   return override.bg !== undefined;
 }
+
+function clampOpacity(opacity: number): number {
+  if (!Number.isFinite(opacity)) return 1;
+  if (opacity <= 0) return 0;
+  if (opacity >= 1) return 1;
+  return opacity;
+}
+
+function blendChannel(from: number, to: number, opacity: number): number {
+  return Math.round(from + (to - from) * opacity);
+}
+
+/**
+ * Apply opacity to a resolved style by blending fg/bg toward the provided backdrop color.
+ */
+export function applyOpacityToStyle(
+  style: ResolvedTextStyle,
+  opacity: number,
+  backdrop: ResolvedTextStyle["bg"] = DEFAULT_BASE_STYLE.bg,
+): ResolvedTextStyle {
+  const clamped = clampOpacity(opacity);
+  if (clamped >= 1) return style;
+
+  const fg = Object.freeze({
+    r: blendChannel(backdrop.r, style.fg.r, clamped),
+    g: blendChannel(backdrop.g, style.fg.g, clamped),
+    b: blendChannel(backdrop.b, style.fg.b, clamped),
+  });
+  const bg = Object.freeze({
+    r: blendChannel(backdrop.r, style.bg.r, clamped),
+    g: blendChannel(backdrop.g, style.bg.g, clamped),
+    b: blendChannel(backdrop.b, style.bg.b, clamped),
+  });
+
+  if (
+    fg.r === style.fg.r &&
+    fg.g === style.fg.g &&
+    fg.b === style.fg.b &&
+    bg.r === style.bg.r &&
+    bg.g === style.bg.g &&
+    bg.b === style.bg.b
+  ) {
+    return style;
+  }
+
+  return Object.freeze({
+    ...style,
+    fg,
+    bg,
+  });
+}

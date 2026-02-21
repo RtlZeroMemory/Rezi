@@ -19,6 +19,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - `ui.textarea(...)` multi-line text input widget with wrapping and line-aware editing
 - OSC 52 clipboard copy/cut for Input/CodeEditor selections (`Ctrl+C`, `Ctrl+X`)
 - Keybinding metadata/introspection: optional `description` in binding definitions, `app.getBindings(mode?)`, `app.pendingChord`, and `ui.keybindingHelp(...)` for auto-generated shortcut overlays
+- `create-rezi` `animation-lab` template with declarative animation hooks, responsive reactor canvas scene, and scaffolded tests/docs
 - `ui.virtualList(...)` estimate mode via `estimateItemHeight` with measured-height correction/cache and optional `measureItemHeight` override for variable-height rows
 
 ### Changed
