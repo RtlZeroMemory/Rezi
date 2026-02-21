@@ -320,6 +320,19 @@ export function createHotStateReload<S>(opts: HotStateReloadOptions<S>): HotStat
   let refreshTimer: ReturnType<typeof setTimeout> | null = null;
   let reloadChain: Promise<boolean> = Promise.resolve(false);
 
+  function getSessionRoot(): string {
+    if (sessionRoot === null) {
+      sessionRoot = mkdtempSync(join(tmpdir(), "rezi-hsr-"));
+    }
+    return sessionRoot;
+  }
+
+  function cleanupSessionRoot(): void {
+    if (sessionRoot === null) return;
+    rmSync(sessionRoot, { recursive: true, force: true });
+    sessionRoot = null;
+  }
+
   function clearDebounce(): void {
     if (debounceTimer === null) return;
     clearTimeout(debounceTimer);
@@ -536,15 +549,3 @@ export function createHotStateReload<S>(opts: HotStateReloadOptions<S>): HotStat
     isRunning: () => running,
   });
 }
-  function getSessionRoot(): string {
-    if (sessionRoot === null) {
-      sessionRoot = mkdtempSync(join(tmpdir(), "rezi-hsr-"));
-    }
-    return sessionRoot;
-  }
-
-  function cleanupSessionRoot(): void {
-    if (sessionRoot === null) return;
-    rmSync(sessionRoot, { recursive: true, force: true });
-    sessionRoot = null;
-  }
