@@ -121,6 +121,8 @@ nav:
       - Performance: guide/performance.md
       - Debugging: guide/debugging.md
       - Record & Replay: guide/record-replay.md
+      - Hooks Reference: guide/hooks-reference.md
+      - Recommended Patterns: guide/recommended-patterns.md
   - Widgets:
       - Overview: widgets/index.md
       - Stability: widgets/stability.md
