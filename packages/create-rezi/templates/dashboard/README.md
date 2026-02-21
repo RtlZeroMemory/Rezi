@@ -58,4 +58,4 @@ bun run dev
 ```
 
 `npm run dev` / `bun run dev` starts the app with `--hsr` so view edits hot-swap via
-`app.replaceView(...)` while preserving app state, focus, and form/input context.
+`createNodeApp({ hotReload: ... })` + `app.replaceView(...)` while preserving app state, focus, and form/input context.

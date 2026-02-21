@@ -60,7 +60,7 @@ For full template descriptions and highlights, use: [Getting Started -> Create R
 Template dev workflow notes:
 
 - `minimal`, `dashboard`, and `cli-tool` templates run `tsx src/main.ts --hsr` for `npm run dev` / `bun run dev`.
-- This enables in-process hot state-preserving reload through `@rezi-ui/node` `createHotStateReload(...)`.
+- This enables in-process hot state-preserving reload through `@rezi-ui/node` `createNodeApp({ hotReload: ... })`.
 
 ## Options
 

@@ -64,4 +64,4 @@ bun run dev
 ```
 
 `npm run dev` / `bun run dev` starts the app with `--hsr` so route edits hot-swap via
-`app.replaceRoutes(...)` while preserving app state, focus, and form input.
+`createNodeApp({ hotReload: ... })` + `app.replaceRoutes(...)` while preserving app state, focus, and form input.

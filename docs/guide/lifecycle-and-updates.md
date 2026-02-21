@@ -72,32 +72,34 @@ When a new view function is applied, Rezi keeps:
 
 ```ts
 import { ui } from "@rezi-ui/core";
-import { createNodeApp, createHotStateReload } from "@rezi-ui/node";
+import { createNodeApp } from "@rezi-ui/node";
 
-const app = createNodeApp({ initialState: { count: 0 } });
-app.view((state) => ui.text(`count=${String(state.count)}`));
-
-const hsr = createHotStateReload({
-  app,
-  viewModule: new URL("./screens/main-screen.ts", import.meta.url),
-  moduleRoot: new URL("./src", import.meta.url),
+const app = createNodeApp({
+  initialState: { count: 0 },
+  hotReload: {
+    viewModule: new URL("./screens/main-screen.ts", import.meta.url),
+    moduleRoot: new URL("./src", import.meta.url),
+  },
 });
-
-await hsr.start();
-await app.start();
+app.view((state) => ui.text(`count=${String(state.count)}`));
+await app.run();
 ```
 
 Route-managed apps can hot-swap route tables instead:
 
 ```ts
-const hsr = createHotStateReload({
-  app,
-  routesModule: new URL("./screens/index.ts", import.meta.url),
-  moduleRoot: new URL("./src", import.meta.url),
-  resolveRoutes: (moduleNs) => {
-    const routes = (moduleNs as { routes?: unknown }).routes;
-    if (!Array.isArray(routes)) throw new Error("Expected `routes` array export");
-    return routes;
+const app = createNodeApp({
+  initialState,
+  routes,
+  initialRoute: "home",
+  hotReload: {
+    routesModule: new URL("./screens/index.ts", import.meta.url),
+    moduleRoot: new URL("./src", import.meta.url),
+    resolveRoutes: (moduleNs) => {
+      const routesExport = (moduleNs as { routes?: unknown }).routes;
+      if (!Array.isArray(routesExport)) throw new Error("Expected `routes` array export");
+      return routesExport;
+    },
   },
 });
 ```

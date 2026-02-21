@@ -17,6 +17,12 @@ Use `createNodeApp({ initialState, config })` as the default path. It wires
 and fps settings. `executionMode` defaults to `auto` (`fpsCap <= 30` -> inline,
 otherwise worker); set `executionMode: "worker"` or `"inline"` to force a mode.
 
+For development-time hot swapping, pass `hotReload` to `createNodeApp(...)`:
+- `viewModule` for widget-view apps
+- `routesModule` for route-managed apps
+
+`app.hotReload` exposes the controller for optional manual `reloadNow()` calls.
+
 Legacy `createNodeBackend() + createApp()` wiring is deprecated for standard
 app construction.
 

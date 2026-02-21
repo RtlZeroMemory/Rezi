@@ -15,6 +15,20 @@ function readScriptSource(name) {
 }
 
 describe("HSR demo entrypoints", () => {
+  test("widget demo wires HSR through createNodeApp hotReload option", () => {
+    const source = readDemoSource("widget-app.mjs");
+    assert.match(source, /createNodeApp/);
+    assert.match(source, /hotReload:/);
+    assert.doesNotMatch(source, /createHotStateReload/);
+  });
+
+  test("router demo wires HSR through createNodeApp hotReload option", () => {
+    const source = readDemoSource("router-app.mjs");
+    assert.match(source, /createNodeApp/);
+    assert.match(source, /hotReload:/);
+    assert.doesNotMatch(source, /createHotStateReload/);
+  });
+
   test("widget demo keeps HSR watcher alive by awaiting app.run()", () => {
     const source = readDemoSource("widget-app.mjs");
     assert.match(source, /await app\.run\(\);/);

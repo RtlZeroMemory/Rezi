@@ -109,7 +109,7 @@ Integration tests cover:
 
 ### Hot State-Preserving Reload (HSR) Tests
 
-When changing `app.replaceView(...)`, `app.replaceRoutes(...)`, or `createHotStateReload(...)`, include:
+When changing `app.replaceView(...)`, `app.replaceRoutes(...)`, `createNodeApp({ hotReload })`, or `createHotStateReload(...)`, include:
 
 - successful runtime widget-view swap test (`replaceView` while `Running`)
 - successful runtime route-table swap test (`replaceRoutes` while `Running` in route mode)

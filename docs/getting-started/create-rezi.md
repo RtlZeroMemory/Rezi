@@ -89,7 +89,7 @@ Each template includes example tests for reducer logic, widget rendering, and ke
 `npm run dev` / `bun run dev`:
 
 - dev script runs `tsx src/main.ts --hsr`
-- source changes hot-swap via:
+- source changes hot-swap through `createNodeApp({ hotReload: ... })` via:
   - `app.replaceView(...)` in widget-view templates (`minimal`, `dashboard`)
   - `app.replaceRoutes(...)` in route-managed template (`cli-tool`)
 - app state, focus, and stable widget local state are preserved across edits

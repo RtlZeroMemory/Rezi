@@ -12,6 +12,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - `@rezi-ui/bench` — comprehensive benchmark suite (Rezi native vs Ink-on-Rezi vs Ink)
 - Benchmark results and performance documentation
 - Hot State-Preserving Reload (HSR): `App.replaceView(...)`/`App.replaceRoutes(...)` in core and `createHotStateReload(...)` in `@rezi-ui/node` for in-process widget view and route-table hot swapping during development
+- `@rezi-ui/node` `createNodeApp(...)` now supports first-class `hotReload` wiring (auto lifecycle start/stop + `app.hotReload` controller) and route passthrough (`routes`, `initialRoute`)
 - Code-editor syntax tokenizer utilities in `@rezi-ui/core`: `tokenizeCodeEditorLine(...)`, `tokenizeCodeEditorLineWithCustom(...)`, `normalizeCodeEditorTokens(...)`, language presets (`typescript`, `javascript`, `json`, `go`, `rust`, `c`, `cpp`/`c++`, `csharp`/`c#`, `java`, `python`, `bash`)
 - Widget composition API (`defineWidget` with hooks)
 - Page router route guards (`guard`) and nested route trees (`children`) with `context.outlet` rendering
@@ -31,6 +32,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - Documentation expanded with 90+ pages covering all features
 - README updated with performance data, JSX support, Zireael engine reference
 - ROADMAP updated to reflect current project state
+- HSR demos and `create-rezi` templates now use `createNodeApp({ hotReload: ... })` instead of manual controller lifecycle wiring
 - Input widgets now include local undo/redo history (`Ctrl+Z`, `Ctrl+Shift+Z`, `Ctrl+Y`) with 300ms typing-grouping
 - Virtual-list routing and scroll math now consume measured-height caches when estimate mode is active, improving End/Page navigation and wheel behavior for variable-height content
 

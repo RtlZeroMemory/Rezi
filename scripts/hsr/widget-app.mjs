@@ -1,5 +1,4 @@
-import { createApp } from "@rezi-ui/core";
-import { createHotStateReload, createNodeBackend } from "@rezi-ui/node";
+import { createNodeApp } from "@rezi-ui/node";
 import {
   clampCodeCursor,
   createCodeEditorState,
@@ -22,6 +21,7 @@ import { SELF_EDIT_BANNER, renderWidgetScreen } from "./widget-view.mjs";
 const widgetViewModuleUrl = new URL("./widget-view.mjs", import.meta.url);
 const CODE_EDITOR_ID = "self-edit-code";
 const SAVE_VIEW_FILE_ID = "save-view-file";
+const enableHsr = !process.argv.includes("--no-hsr");
 
 function readInitialViewport() {
   const cols =
@@ -64,18 +64,92 @@ const initialState = Object.freeze({
   showHelp: true,
 });
 
-const app = createApp({
-  backend: createNodeBackend({ fpsCap: 30 }),
-  initialState,
-  config: { fpsCap: 30 },
-});
-
-const enableHsr = !process.argv.includes("--no-hsr");
-let hsrController = null;
 let stopping = false;
 let latestState = initialState;
 let suppressHsrModalUntilMs = 0;
 let hsrReadyAtMs = 0;
+
+const app = createNodeApp({
+  initialState,
+  config: { fpsCap: 30 },
+  ...(enableHsr
+    ? {
+        hotReload: {
+          viewModule: widgetViewModuleUrl,
+          moduleRoot: new URL("./", import.meta.url),
+          resolveView: (moduleNs) => {
+            const render = moduleNs.renderWidgetScreen;
+            if (typeof render !== "function") {
+              throw new Error("Expected renderWidgetScreen export from widget-view.mjs");
+            }
+            return buildView(render);
+          },
+          onError: (error, context) => {
+            const detail =
+              error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+            updateState((prev) =>
+              Object.freeze({
+                ...prev,
+                selfEditStatus: Object.freeze({
+                  level: "error",
+                  message: "HSR reload failed. Fix code and save again.",
+                }),
+                feedbackModal: createModalState({
+                  tone: "error",
+                  title: "HSR Reload Error",
+                  message: "The previous view stayed active to preserve running state.",
+                  detail,
+                }),
+                activityFeed: appendActivityFeed(
+                  prev.activityFeed,
+                  `HSR error (${context.phase}): ${detail}`,
+                  ACTIVITY_FEED_LIMIT,
+                ),
+              }),
+            );
+          },
+          log: (event) => {
+            const summary = summarizeHsrEvent(event);
+            const now = Date.now();
+            updateState((prev) =>
+              Object.freeze({
+                ...prev,
+                activityFeed: appendActivityFeed(prev.activityFeed, summary, ACTIVITY_FEED_LIMIT),
+              }),
+            );
+
+            const hasChangedPath =
+              typeof event.changedPath === "string" && event.changedPath.length > 0;
+            const isReloadApplied =
+              event.level === "info" &&
+              typeof event.message === "string" &&
+              event.message.includes("reload applied") &&
+              hasChangedPath;
+
+            if (isReloadApplied && now >= hsrReadyAtMs && now >= suppressHsrModalUntilMs) {
+              suppressHsrModalUntilMs = now + 1200;
+              updateState((prev) =>
+                Object.freeze({
+                  ...prev,
+                  selfEditStatus: Object.freeze({
+                    level: "success",
+                    message: "External file change reloaded live.",
+                  }),
+                  feedbackModal: createModalState({
+                    tone: "info",
+                    title: "External Hot Swap Applied",
+                    message: "Detected a file save and swapped the view module live.",
+                    detail: event.changedPath ?? "",
+                    autoCloseAtMs: now + 1500,
+                  }),
+                }),
+              );
+            }
+          },
+        },
+      }
+    : {}),
+});
 
 function updateState(updater) {
   const next = typeof updater === "function" ? updater(latestState) : updater;
@@ -126,9 +200,9 @@ async function saveBannerToWidgetFile() {
   try {
     const result = rewriteWidgetViewBanner(widgetViewModuleUrl, draft);
     let reloaded = false;
-    if (hsrController) {
-      if (!hsrController.isRunning()) await hsrController.start();
-      reloaded = await hsrController.reloadNow();
+    if (app.hotReload) {
+      if (!app.hotReload.isRunning()) await app.hotReload.start();
+      reloaded = await app.hotReload.reloadNow();
     }
 
     const now = Date.now();
@@ -382,11 +456,6 @@ async function shutdown() {
   if (stopping) return;
   stopping = true;
 
-  if (hsrController) {
-    await hsrController.stop();
-    hsrController = null;
-  }
-
   try {
     await app.stop();
   } catch {
@@ -406,88 +475,11 @@ console.log(
 );
 
 try {
-  if (enableHsr) {
-    hsrController = createHotStateReload({
-      app,
-      viewModule: widgetViewModuleUrl,
-      moduleRoot: new URL("./", import.meta.url),
-      resolveView: (moduleNs) => {
-        const render = moduleNs.renderWidgetScreen;
-        if (typeof render !== "function") {
-          throw new Error("Expected renderWidgetScreen export from widget-view.mjs");
-        }
-        return buildView(render);
-      },
-      onError: (error, context) => {
-        const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-        updateState((prev) =>
-          Object.freeze({
-            ...prev,
-            selfEditStatus: Object.freeze({
-              level: "error",
-              message: "HSR reload failed. Fix code and save again.",
-            }),
-            feedbackModal: createModalState({
-              tone: "error",
-              title: "HSR Reload Error",
-              message: "The previous view stayed active to preserve running state.",
-              detail,
-            }),
-            activityFeed: appendActivityFeed(
-              prev.activityFeed,
-              `HSR error (${context.phase}): ${detail}`,
-              ACTIVITY_FEED_LIMIT,
-            ),
-          }),
-        );
-      },
-      log: (event) => {
-        const summary = summarizeHsrEvent(event);
-        const now = Date.now();
-        updateState((prev) =>
-          Object.freeze({
-            ...prev,
-            activityFeed: appendActivityFeed(prev.activityFeed, summary, ACTIVITY_FEED_LIMIT),
-          }),
-        );
-
-        const hasChangedPath =
-          typeof event.changedPath === "string" && event.changedPath.length > 0;
-        const isReloadApplied =
-          event.level === "info" &&
-          typeof event.message === "string" &&
-          event.message.includes("reload applied") &&
-          hasChangedPath;
-
-        if (isReloadApplied && now >= hsrReadyAtMs && now >= suppressHsrModalUntilMs) {
-          suppressHsrModalUntilMs = now + 1200;
-          updateState((prev) =>
-            Object.freeze({
-              ...prev,
-              selfEditStatus: Object.freeze({
-                level: "success",
-                message: "External file change reloaded live.",
-              }),
-              feedbackModal: createModalState({
-                tone: "info",
-                title: "External Hot Swap Applied",
-                message: "Detected a file save and swapped the view module live.",
-                detail: event.changedPath ?? "",
-                autoCloseAtMs: now + 1500,
-              }),
-            }),
-          );
-        }
-      },
-    });
-    await hsrController.start();
+  if (app.hotReload) {
     hsrReadyAtMs = Date.now() + 1200;
   }
 
   await app.run();
 } finally {
-  if (hsrController) {
-    await hsrController.stop();
-    hsrController = null;
-  }
+  // app.run() signal/quit lifecycle owns stop/dispose.
 }
