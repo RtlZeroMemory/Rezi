@@ -12,7 +12,7 @@
   <a href="https://github.com/RtlZeroMemory/Rezi/actions/workflows/ci.yml">
     <img src="https://github.com/RtlZeroMemory/Rezi/actions/workflows/ci.yml/badge.svg" alt="CI">
   </a>
-  <a href="https://rtlzeromemory.github.io/Rezi/">
+  <a href="https://rezitui.dev/docs">
     <img src="https://github.com/RtlZeroMemory/Rezi/actions/workflows/docs.yml/badge.svg" alt="docs">
   </a>
   <a href="LICENSE">
@@ -21,10 +21,11 @@
 </p>
 
 <p align="center">
-  <a href="https://rtlzeromemory.github.io/Rezi/">Docs</a> ·
-  <a href="https://rtlzeromemory.github.io/Rezi/getting-started/quickstart/">Quickstart</a> ·
-  <a href="https://rtlzeromemory.github.io/Rezi/widgets/">Widgets</a> ·
-  <a href="https://rtlzeromemory.github.io/Rezi/api/">API</a> ·
+  <a href="https://rezitui.dev">Website</a> ·
+  <a href="https://rezitui.dev/docs">Docs</a> ·
+  <a href="https://rezitui.dev/docs/getting-started/quickstart/">Quickstart</a> ·
+  <a href="https://rezitui.dev/docs/widgets/">Widgets</a> ·
+  <a href="https://rezitui.dev/docs/api/">API</a> ·
   <a href="BENCHMARKS.md">Benchmarks</a>
 </p>
 
@@ -347,12 +348,12 @@ build from a repository checkout with `npm run build:native`.
 
 | Resource | Link |
 |---|---|
-| Docs home | [rtlzeromemory.github.io/Rezi](https://rtlzeromemory.github.io/Rezi/) |
-| Getting started | [Install](https://rtlzeromemory.github.io/Rezi/getting-started/install/) · [Quickstart](https://rtlzeromemory.github.io/Rezi/getting-started/quickstart/) · [JSX](https://rtlzeromemory.github.io/Rezi/getting-started/jsx/) |
-| Guides | [Concepts](https://rtlzeromemory.github.io/Rezi/guide/concepts/) · [Layout](https://rtlzeromemory.github.io/Rezi/guide/layout/) · [Input & Focus](https://rtlzeromemory.github.io/Rezi/guide/input-and-focus/) · [Styling](https://rtlzeromemory.github.io/Rezi/guide/styling/) |
-| Widget catalog | [56 widgets](https://rtlzeromemory.github.io/Rezi/widgets/) |
-| API reference | [TypeDoc](https://rtlzeromemory.github.io/Rezi/api/) |
-| Architecture | [Overview](https://rtlzeromemory.github.io/Rezi/architecture/) · [Protocol](https://rtlzeromemory.github.io/Rezi/protocol/) |
+| Website & Docs | [rezitui.dev](https://rezitui.dev) |
+| Getting started | [Install](https://rezitui.dev/docs/getting-started/install/) · [Quickstart](https://rezitui.dev/docs/getting-started/quickstart/) · [JSX](https://rezitui.dev/docs/getting-started/jsx/) |
+| Guides | [Concepts](https://rezitui.dev/docs/guide/concepts/) · [Layout](https://rezitui.dev/docs/guide/layout/) · [Input & Focus](https://rezitui.dev/docs/guide/input-and-focus/) · [Styling](https://rezitui.dev/docs/guide/styling/) |
+| Widget catalog | [56 widgets](https://rezitui.dev/docs/widgets/) |
+| API reference | [TypeDoc](https://rezitui.dev/docs/api/) |
+| Architecture | [Overview](https://rezitui.dev/docs/architecture/) · [Protocol](https://rezitui.dev/docs/protocol/) |
 
 ## Contributing
 

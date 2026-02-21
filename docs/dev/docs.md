@@ -153,7 +153,7 @@ Deployment is triggered on every push to `main`, every pull request, and manual
 `workflow_dispatch`. The workflow does not use path filters.
 
 The live site is available at:
-[https://rtlzeromemory.github.io/Rezi/](https://rtlzeromemory.github.io/Rezi/)
+[rezitui.dev](https://rezitui.dev)
 
 ## See Also
 
