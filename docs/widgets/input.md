@@ -70,6 +70,12 @@ app.view((state) =>
 );
 ```
 
+### With `useForm` binding
+
+```typescript
+ui.input(form.bind("email"));
+```
+
 ### Validation on blur
 
 Use `onBlur` to trigger validation when the user leaves the field:

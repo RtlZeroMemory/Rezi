@@ -118,10 +118,53 @@ await app.start();
 - Validation runs inside the update function so it stays deterministic and doesn’t run during render.
 - `touched` is set on `onBlur` so errors only display after the user leaves a field.
 
+## Boilerplate-Free `useForm` Wiring
+
+For larger forms, prefer `useForm` helpers that auto-wire `id`, `value`, `onInput`, `onBlur`, and touched error display:
+
+```typescript
+import { ui, useForm } from "@rezi-ui/core";
+
+type LoginValues = {
+  email: string;
+  password: string;
+};
+
+const form = useForm(ctx, {
+  initialValues: { email: "", password: "" },
+  validate: (values) => ({
+    email: values.email.includes("@") ? undefined : "Enter a valid email",
+    password: values.password.length >= 8 ? undefined : "Minimum 8 characters",
+  }),
+  onSubmit: (values) => {
+    // submit values
+  },
+});
+
+return ui.vstack([
+  form.field("email", { label: "Email", required: true }),
+  form.field("password", { label: "Password", required: true, hint: "Minimum 8 characters" }),
+  ui.button({
+    id: "submit",
+    label: "Sign in",
+    onPress: form.handleSubmit,
+  }),
+]);
+```
+
+Use `form.bind("fieldName")` when you only need the input itself:
+
+```typescript
+ui.input(form.bind("email"));
+```
+
 ## `useForm` Advanced Features
 
 `@rezi-ui/core` also provides a richer `useForm` API for more complex flows:
 
+- **Ergonomic input wiring**:
+  - `ui.input(form.bind("email"))`
+  - `form.field("email", { label: "Email", required: true })`
 - **Field arrays** with deterministic keys and state-preserving mutations:
   - `const fields = form.useFieldArray("items")`
   - `fields.append(item)`, `fields.remove(index)`, `fields.move(from, to)`

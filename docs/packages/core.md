@@ -59,7 +59,7 @@ Create custom themes with `createThemeDefinition()`.
 Form state management with validation:
 
 ```typescript
-import { useForm, bind } from "@rezi-ui/core";
+import { ui, useForm } from "@rezi-ui/core";
 
 const form = useForm(ctx, {
   initialValues: { email: "", password: "" },
@@ -70,6 +70,12 @@ const form = useForm(ctx, {
   },
   onSubmit: (values) => handleLogin(values),
 });
+
+const view = ui.vstack([
+  form.field("email", { label: "Email", required: true }),
+  form.field("password", { label: "Password", required: true }),
+  ui.input(form.bind("email", { id: "email-inline" })),
+]);
 ```
 
 ### Keybindings
@@ -177,7 +183,8 @@ await debug.enable({
 | Export | Description |
 |--------|-------------|
 | `useForm` | Form state hook |
-| `bind`, `bindChecked`, `bindSelect` | Binding helpers |
+| `form.bind(...)`, `form.field(...)` | One-line input/field wiring helpers on `useForm` return |
+| `bind`, `bindChecked`, `bindSelect` | Standalone binding helpers for plain state objects |
 | `FormState`, `UseFormReturn` | Form types |
 
 ### Keybindings
