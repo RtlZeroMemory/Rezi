@@ -51,6 +51,24 @@ ui.virtualList({
 });
 ```
 
+For variable-height rows, use estimate mode and let Rezi correct from measured
+visible items:
+
+```typescript
+ui.virtualList({
+  id: "chat",
+  items: state.messages,
+  estimateItemHeight: (msg) => (msg.hasPreview ? 3 : 2),
+  renderItem: (msg) => ui.column({}, [ui.text(msg.author), ui.text(msg.body)]),
+});
+```
+
+Guidelines for estimate mode:
+
+- Keep `estimateItemHeight` close to the real average to reduce correction churn.
+- Prefer stable item identity/order; large reorders increase correction work.
+- If you know exact heights ahead of time, keep using `itemHeight`.
+
 This keeps render + layout work proportional to the visible window rather than the full dataset size.
 
 ## Caps and limits

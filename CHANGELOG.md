@@ -18,6 +18,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - `ui.textarea(...)` multi-line text input widget with wrapping and line-aware editing
 - OSC 52 clipboard copy/cut for Input/CodeEditor selections (`Ctrl+C`, `Ctrl+X`)
 - Keybinding metadata/introspection: optional `description` in binding definitions, `app.getBindings(mode?)`, `app.pendingChord`, and `ui.keybindingHelp(...)` for auto-generated shortcut overlays
+- `ui.virtualList(...)` estimate mode via `estimateItemHeight` with measured-height correction/cache and optional `measureItemHeight` override for variable-height rows
 
 ### Changed
 
@@ -25,6 +26,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - README updated with performance data, JSX support, Zireael engine reference
 - ROADMAP updated to reflect current project state
 - Input widgets now include local undo/redo history (`Ctrl+Z`, `Ctrl+Shift+Z`, `Ctrl+Y`) with 300ms typing-grouping
+- Virtual-list routing and scroll math now consume measured-height caches when estimate mode is active, improving End/Page navigation and wheel behavior for variable-height content
 
 ### Fixed
 

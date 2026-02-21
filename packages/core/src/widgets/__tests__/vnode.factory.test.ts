@@ -290,6 +290,18 @@ const factoryCases: readonly FactoryCase[] = [
     optionalAbsent: "overscan",
   },
   {
+    name: "virtualList estimate mode",
+    expectedKind: "virtualList",
+    build: () =>
+      ui.virtualList({
+        id: "list-est",
+        items: [1, 2],
+        estimateItemHeight: 1,
+        renderItem: (item) => ui.text(String(item)),
+      }),
+    optionalAbsent: "itemHeight",
+  },
+  {
     name: "layers",
     expectedKind: "layers",
     build: () => ui.layers([ui.text("base")]),

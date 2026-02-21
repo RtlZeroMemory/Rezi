@@ -1114,6 +1114,39 @@ describe("WidgetRenderer integration battery", () => {
     ]);
   });
 
+  test("virtualList estimateItemHeight mode uses measured heights for End key scroll", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const scrolled: Array<Readonly<{ scrollTop: number; range: [number, number] }>> = [];
+
+    const vnode = ui.virtualList({
+      id: "v",
+      items: ["a", "b", "c", "d"],
+      estimateItemHeight: 1,
+      renderItem: (item, index) =>
+        index % 2 === 0 ? ui.column({}, [ui.text(item), ui.text(`${item}-2`)]) : ui.text(item),
+      onScroll: (scrollTop, range) => scrolled.push(Object.freeze({ scrollTop, range })),
+    });
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 20, rows: 3 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    renderer.routeEngineEvent(keyEvent(13 /* END */));
+
+    assert.deepEqual(scrolled, [{ scrollTop: 5, range: [0, 4] }]);
+  });
+
   test("routing rebuild GC clears virtualList/table local state for removed ids", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({

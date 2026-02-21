@@ -160,6 +160,8 @@ performance-critical code:
 - Mutating existing objects where ownership is clear.
 - `for` loops over array methods in hot paths.
 - Caching computed values across frames (e.g., `drawlistEncodedStringCacheCap`).
+- For `virtualList` estimate mode, update measured-height caches incrementally
+  (clone once only when visible-item measurements actually change).
 
 ### Example
 
