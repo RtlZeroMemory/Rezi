@@ -55,6 +55,11 @@ function parseStackFramePath(line: string): string | null {
   return raw;
 }
 
+function isInternalHelperFrame(framePath: string): boolean {
+  const base = path.basename(framePath);
+  return /^(?:nodeTest|snapshot)\.(?:[cm]?js|[cm]?ts)$/u.test(base);
+}
+
 function resolveCallerFile(): string | null {
   const stack = new Error().stack;
   if (!stack) return null;
@@ -66,8 +71,7 @@ function resolveCallerFile(): string | null {
     const framePath = parseStackFramePath(line);
     if (!framePath) continue;
     if (framePath.startsWith("node:")) continue;
-    if (framePath.includes(`${path.sep}nodeTest.`)) continue;
-    if (framePath.includes(`${path.sep}snapshot.`)) continue;
+    if (isInternalHelperFrame(framePath)) continue;
     return framePath;
   }
   return null;

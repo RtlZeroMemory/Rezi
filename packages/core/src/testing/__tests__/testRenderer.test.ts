@@ -37,6 +37,21 @@ describe("createTestRenderer", () => {
     assert.equal(second.toText().includes("Count: 2"), true);
   });
 
+  test("render focusedId:null overrides renderer default focus", () => {
+    const renderer = createTestRenderer({
+      viewport: { cols: 24, rows: 6 },
+      focusedId: "submit",
+    });
+
+    const focused = renderer.render(ui.button({ id: "submit", label: "Submit" }));
+    assert.equal(focused.focusedId, "submit");
+
+    const cleared = renderer.render(ui.button({ id: "submit", label: "Submit" }), {
+      focusedId: null,
+    });
+    assert.equal(cleared.focusedId, null);
+  });
+
   test("toText snapshots frame output", () => {
     const renderer = createTestRenderer({ viewport: { cols: 20, rows: 6 } });
     const frame = renderer.render(

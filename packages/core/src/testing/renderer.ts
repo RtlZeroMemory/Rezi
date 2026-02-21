@@ -50,6 +50,7 @@ export type TestRenderNode = Readonly<{
 
 export type TestRenderResult = Readonly<{
   viewport: TestViewport;
+  focusedId: string | null;
   nodes: readonly TestRenderNode[];
   findText: (text: string) => TestRenderNode | null;
   findById: (id: string) => TestRenderNode | null;
@@ -341,7 +342,7 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
 
   const render = (vnode: VNode, renderOpts: TestRenderOptions = {}): TestRenderResult => {
     const viewport = normalizeViewport(renderOpts.viewport ?? defaultViewport);
-    const focusedId = renderOpts.focusedId ?? defaultFocusedId;
+    const focusedId = renderOpts.focusedId === undefined ? defaultFocusedId : renderOpts.focusedId;
     const tick = renderOpts.tick ?? defaultTick;
     const theme = renderOpts.theme ?? rendererTheme;
 
@@ -369,6 +370,7 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
     const screenText = opsToText(builder.snapshotOps(), viewport);
     return Object.freeze({
       viewport,
+      focusedId,
       nodes,
       findText: (text: string) => findText(nodes, text),
       findById: (id: string) => findById(nodes, id),

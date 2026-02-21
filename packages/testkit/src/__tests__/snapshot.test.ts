@@ -68,3 +68,24 @@ test("matchesSnapshot throws readable mismatch error", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("matchesSnapshot default path keeps snapshot.test.ts caller frames", () => {
+  const snapshotName = "snapshot-caller-resolution";
+  const snapshotFile = path.resolve(
+    process.cwd(),
+    "packages",
+    "testkit",
+    "src",
+    "__tests__",
+    "__snapshots__",
+    `${snapshotName}.txt`,
+  );
+
+  rmSync(snapshotFile, { force: true });
+  try {
+    matchesSnapshot("caller frame preserved", snapshotName, { update: true });
+    assert.equal(readFileSync(snapshotFile, "utf8"), "caller frame preserved\n");
+  } finally {
+    rmSync(snapshotFile, { force: true });
+  }
+});
