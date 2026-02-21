@@ -89,6 +89,14 @@ describe("spacing", () => {
     assert.equal(res.value.pad, 1);
   });
 
+  test("validate spacing rejects negative fractional non-negative fields", () => {
+    const res = validateBoxProps({ p: "-0.4" });
+    assert.equal(res.ok, false);
+    if (res.ok) throw new Error("expected fatal");
+    assert.equal(res.fatal.code, "ZRUI_INVALID_PROPS");
+    assert.equal(res.fatal.detail, "box.p must be an int32 >= 0");
+  });
+
   test("stack enum values are normalized for casing/whitespace", () => {
     const res = validateStackProps("row", {
       align: " Center ",

@@ -7,6 +7,25 @@
 import type { TextStyle } from "./style.js";
 import type { Rgb } from "./style.js";
 
+type RgbInput = {
+  r?: unknown;
+  g?: unknown;
+  b?: unknown;
+};
+
+type TextStyleInput = {
+  fg?: unknown;
+  bg?: unknown;
+  bold?: unknown;
+  dim?: unknown;
+  italic?: unknown;
+  underline?: unknown;
+  inverse?: unknown;
+  strikethrough?: unknown;
+  overline?: unknown;
+  blink?: unknown;
+};
+
 function parseChannel(value: unknown): number | undefined {
   let n: number | undefined;
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -36,10 +55,10 @@ function parseBoolean(value: unknown): boolean | undefined {
  */
 export function sanitizeRgb(value: unknown): Rgb | undefined {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
-  const source = value as Record<string, unknown>;
-  const r = parseChannel(source["r"]);
-  const g = parseChannel(source["g"]);
-  const b = parseChannel(source["b"]);
+  const source = value as RgbInput;
+  const r = parseChannel(source.r);
+  const g = parseChannel(source.g);
+  const b = parseChannel(source.b);
   if (r === undefined || g === undefined || b === undefined) return undefined;
   return { r, g, b };
 }
@@ -53,7 +72,7 @@ export function sanitizeTextStyle(style: unknown): TextStyle {
     return {};
   }
 
-  const src = style as Record<string, unknown>;
+  const src = style as TextStyleInput;
   const sanitized: {
     fg?: Rgb;
     bg?: Rgb;
@@ -67,26 +86,26 @@ export function sanitizeTextStyle(style: unknown): TextStyle {
     blink?: boolean;
   } = {};
 
-  const fg = sanitizeRgb(src["fg"]);
+  const fg = sanitizeRgb(src.fg);
   if (fg !== undefined) sanitized.fg = fg;
-  const bg = sanitizeRgb(src["bg"]);
+  const bg = sanitizeRgb(src.bg);
   if (bg !== undefined) sanitized.bg = bg;
 
-  const bold = parseBoolean(src["bold"]);
+  const bold = parseBoolean(src.bold);
   if (bold !== undefined) sanitized.bold = bold;
-  const dim = parseBoolean(src["dim"]);
+  const dim = parseBoolean(src.dim);
   if (dim !== undefined) sanitized.dim = dim;
-  const italic = parseBoolean(src["italic"]);
+  const italic = parseBoolean(src.italic);
   if (italic !== undefined) sanitized.italic = italic;
-  const underline = parseBoolean(src["underline"]);
+  const underline = parseBoolean(src.underline);
   if (underline !== undefined) sanitized.underline = underline;
-  const inverse = parseBoolean(src["inverse"]);
+  const inverse = parseBoolean(src.inverse);
   if (inverse !== undefined) sanitized.inverse = inverse;
-  const strikethrough = parseBoolean(src["strikethrough"]);
+  const strikethrough = parseBoolean(src.strikethrough);
   if (strikethrough !== undefined) sanitized.strikethrough = strikethrough;
-  const overline = parseBoolean(src["overline"]);
+  const overline = parseBoolean(src.overline);
   if (overline !== undefined) sanitized.overline = overline;
-  const blink = parseBoolean(src["blink"]);
+  const blink = parseBoolean(src.blink);
   if (blink !== undefined) sanitized.blink = blink;
 
   return sanitized;

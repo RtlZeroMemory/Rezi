@@ -96,10 +96,10 @@ describe("style utils contracts", () => {
   });
 
   test("mergeStyles sanitizes incoming style values", () => {
-    const merged = mergeStyles(
-      { fg: { r: 0, g: 0, b: 0 }, bold: true },
-      { fg: { r: 512, g: "-10", b: "3.2" }, bold: "false" } as unknown as TextStyle,
-    );
+    const merged = mergeStyles({ fg: { r: 0, g: 0, b: 0 }, bold: true }, {
+      fg: { r: 512, g: "-10", b: "3.2" },
+      bold: "false",
+    } as unknown as TextStyle);
 
     assert.deepEqual(merged, {
       fg: { r: 255, g: 0, b: 3 },

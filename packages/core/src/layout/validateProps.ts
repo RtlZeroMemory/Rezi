@@ -241,10 +241,12 @@ function requireIntNonNegative(
   def: number,
 ): LayoutResult<number> {
   const value = v === undefined ? def : v;
-  const parsed = parseCoercedInt(value);
-  if (parsed === undefined || parsed < 0 || parsed > I32_MAX) {
+  const n = parseFiniteNumber(value);
+  if (n === undefined || n < 0) {
     return invalid(`${kind}.${name} must be an int32 >= 0`);
   }
+  const parsed = Math.trunc(n);
+  if (parsed > I32_MAX) return invalid(`${kind}.${name} must be an int32 >= 0`);
   return { ok: true, value: parsed };
 }
 
