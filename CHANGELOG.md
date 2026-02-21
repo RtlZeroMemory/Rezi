@@ -31,6 +31,33 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 - Internal prototyping artifacts and debug traces from repository
 
+## [0.1.0-alpha.22] - 2026-02-21
+
+### Added
+
+- `create-rezi` adds scaffold safety metadata and stress guardrails so generated dashboards start with safer defaults (`#113`).
+
+### Changed
+
+- Theme extension adds diagnostic token resolution and immutable merge behavior for safer composition (`#109`).
+- Widget collection helpers tighten keying/stack guardrails for more reliable dynamic layout updates (`#111`).
+- README was restructured to a features-first layout with cleaner graphics and benchmark framing (`#107`, `#108`).
+
+### Fixed
+
+- Core prop normalization now rejects negative fractional values in non-negative fields instead of silently coercing them to `0` (`#110`).
+- Node runtime now enforces explicit safe upper bounds for `fpsCap` and event payload size (`#112`).
+
+### Merged Pull Requests
+
+- [#107](https://github.com/RtlZeroMemory/Rezi/pull/107) Restructure README with features-first layout and graphics documentation
+- [#108](https://github.com/RtlZeroMemory/Rezi/pull/108) Readme update
+- [#109](https://github.com/RtlZeroMemory/Rezi/pull/109) theme: add diagnostic token resolution and immutable extension
+- [#110](https://github.com/RtlZeroMemory/Rezi/pull/110) core: add AI-safe prop/style normalization guardrails
+- [#111](https://github.com/RtlZeroMemory/Rezi/pull/111) widgets: add safer collection/stack guardrails
+- [#112](https://github.com/RtlZeroMemory/Rezi/pull/112) runtime: enforce safe caps for fps and event payload size
+- [#113](https://github.com/RtlZeroMemory/Rezi/pull/113) create-rezi: add scaffold safety metadata and stress guardrails
+
 ## [0.1.0-alpha.17] - 2026-02-19
 
 ### Added
