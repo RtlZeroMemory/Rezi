@@ -1,10 +1,27 @@
 import {
+  darkTheme,
+  dimmedTheme,
+  draculaTheme,
   type App,
   type AppConfig,
   type Theme,
   type ThemeDefinition,
   createApp,
+  highContrastTheme,
+  lightTheme,
+  nordTheme,
+  ui,
 } from "@rezi-ui/core";
+export {
+  darkTheme,
+  dimmedTheme,
+  draculaTheme,
+  highContrastTheme,
+  lightTheme,
+  nordTheme,
+  ui,
+} from "@rezi-ui/core";
+export type { TextStyle, VNode } from "@rezi-ui/core";
 import {
   type NodeBackend,
   type NodeBackendConfig,
@@ -34,12 +51,25 @@ export type CreateNodeAppOptions<S> = Readonly<{
   theme?: Theme | ThemeDefinition;
 }>;
 
+let didWarnLegacyCreateNodeBackend = false;
+
+function warnLegacyCreateNodeBackend(): void {
+  if (didWarnLegacyCreateNodeBackend) return;
+  if (process.env["NODE_ENV"] === "production") return;
+  didWarnLegacyCreateNodeBackend = true;
+  console.warn(
+    "[rezi] createNodeBackend() is deprecated for standard app setup. Prefer createNodeApp().",
+  );
+}
+
 function toAppConfig(config: NodeAppConfig | undefined): AppConfig | undefined {
   if (config === undefined) return undefined;
   return {
     ...(config.fpsCap !== undefined ? { fpsCap: config.fpsCap } : {}),
     ...(config.maxEventBytes !== undefined ? { maxEventBytes: config.maxEventBytes } : {}),
     ...(config.maxDrawlistBytes !== undefined ? { maxDrawlistBytes: config.maxDrawlistBytes } : {}),
+    ...(config.rootPadding !== undefined ? { rootPadding: config.rootPadding } : {}),
+    ...(config.breakpoints !== undefined ? { breakpoints: config.breakpoints } : {}),
     ...(config.useV2Cursor !== undefined ? { useV2Cursor: config.useV2Cursor } : {}),
     ...(config.drawlistValidateParams !== undefined
       ? { drawlistValidateParams: config.drawlistValidateParams }
@@ -82,13 +112,17 @@ function toBackendConfig(config: NodeAppConfig | undefined): NodeBackendConfig {
 
 export function createNodeApp<S>(opts: CreateNodeAppOptions<S>): App<S> {
   const appConfig = toAppConfig(opts.config);
-  const backend = createNodeBackend(toBackendConfig(opts.config));
+  const resolvedAppConfig: AppConfig = {
+    rootPadding: 1,
+    ...(appConfig ?? {}),
+  };
+  const backend = createNodeBackendInternal({ config: toBackendConfig(opts.config) });
 
   return createApp({
     backend,
     initialState: opts.initialState,
-    ...(appConfig !== undefined ? { config: appConfig } : {}),
-    ...(opts.theme !== undefined ? { theme: opts.theme } : {}),
+    config: resolvedAppConfig,
+    theme: opts.theme ?? darkTheme,
   });
 }
 
@@ -97,5 +131,34 @@ export function createNodeApp<S>(opts: CreateNodeAppOptions<S>): App<S> {
  * createNodeBackend() remains available for advanced runtime composition.
  */
 export function createNodeBackend(config: NodeBackendConfig = {}): NodeBackend {
+  warnLegacyCreateNodeBackend();
   return createNodeBackendInternal({ config });
 }
+
+export const rezi: Readonly<{
+  ui: typeof ui;
+  createNodeApp: typeof createNodeApp;
+  createNodeBackend: typeof createNodeBackend;
+  createReproRecorder: typeof createReproRecorder;
+  themes: Readonly<{
+    dark: typeof darkTheme;
+    light: typeof lightTheme;
+    dimmed: typeof dimmedTheme;
+    highContrast: typeof highContrastTheme;
+    nord: typeof nordTheme;
+    dracula: typeof draculaTheme;
+  }>;
+}> = Object.freeze({
+  ui,
+  createNodeApp,
+  createNodeBackend,
+  createReproRecorder,
+  themes: Object.freeze({
+    dark: darkTheme,
+    light: lightTheme,
+    dimmed: dimmedTheme,
+    highContrast: highContrastTheme,
+    nord: nordTheme,
+    dracula: draculaTheme,
+  }),
+});
