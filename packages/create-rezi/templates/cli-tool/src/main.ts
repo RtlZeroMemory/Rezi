@@ -136,14 +136,6 @@ app.onEvent((event) => {
       logTimer = null;
     }
   }
-
-  if (event.kind === "engine") {
-    const raw = event.event;
-    if (raw.kind === "text" && raw.codepoint >= 0 && raw.codepoint <= 0x10ffff) {
-      const ch = String.fromCodePoint(raw.codepoint).toLowerCase();
-      applyCommand(resolveCliCommand(ch));
-    }
-  }
 });
 
 logTimer = setInterval(() => {
