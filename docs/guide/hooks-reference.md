@@ -276,6 +276,176 @@ ctx.useViewport(): ResponsiveViewportSnapshot
 
 These are standalone functions (not on `ctx`) that accept a context argument. They compose core hooks internally.
 
+### Animation Hooks
+
+These hooks animate numeric values declaratively inside `defineWidget(...)`.
+
+### `useTransition`
+
+Animate from the current numeric value to a new target over a duration/easing curve.
+
+**Signature:**
+
+```typescript
+import { useTransition, type UseTransitionConfig } from "@rezi-ui/core";
+
+useTransition(
+  ctx: WidgetContext,
+  value: number,
+  config?: UseTransitionConfig,
+): number
+```
+
+**Description:**
+
+- Returns the current interpolated value.
+- Retargeting while in motion starts from the current interpolated value (no jump back).
+- Default duration is `160ms`.
+- Non-positive durations snap on the next effect pass.
+- Non-finite targets are handled safely by snapping.
+
+**Example:**
+
+```typescript
+import { defineWidget, ui, useTransition } from "@rezi-ui/core";
+
+const Meter = defineWidget<{ target: number; key?: string }>((props, ctx) => {
+  const value = useTransition(ctx, props.target, { duration: 180, easing: "easeOutCubic" });
+  return ui.text(`Value: ${value.toFixed(1)}`);
+});
+```
+
+---
+
+### `useSpring`
+
+Animate a numeric target with spring physics.
+
+**Signature:**
+
+```typescript
+import { useSpring, type UseSpringConfig } from "@rezi-ui/core";
+
+useSpring(
+  ctx: WidgetContext,
+  target: number,
+  config?: UseSpringConfig,
+): number
+```
+
+**Description:**
+
+- Returns the spring-simulated value for the current render.
+- Handles retargeting mid-flight without resetting.
+- Defaults: `stiffness=170`, `damping=26`, `mass=1`, `restDelta=0.001`, `restSpeed=0.001`, `maxDeltaMs=32`.
+- Non-finite values snap safely.
+
+**Example:**
+
+```typescript
+import { defineWidget, ui, useSpring } from "@rezi-ui/core";
+
+const SpringGauge = defineWidget<{ target: number; key?: string }>((props, ctx) => {
+  const animated = useSpring(ctx, props.target, { stiffness: 190, damping: 22 });
+  return ui.text(`Spring: ${animated.toFixed(2)}`);
+});
+```
+
+---
+
+### `useSequence`
+
+Run a numeric keyframe timeline and return the current interpolated value.
+
+**Signature:**
+
+```typescript
+import {
+  useSequence,
+  type UseSequenceConfig,
+} from "@rezi-ui/core";
+
+type SequenceFrame =
+  | number
+  | Readonly<{
+      value: number;
+      duration?: number;
+      easing?: UseSequenceConfig["easing"];
+    }>;
+
+useSequence(
+  ctx: WidgetContext,
+  keyframes: readonly SequenceFrame[],
+  config?: UseSequenceConfig,
+): number
+```
+
+**Description:**
+
+- Accepts numeric keyframes or `{ value, duration?, easing? }` keyframes.
+- `config.duration`/`config.easing` act as defaults for segments.
+- `config.loop` repeats the timeline.
+- Empty keyframes return `0`.
+- Default segment duration is `160ms` when not overridden.
+
+**Example:**
+
+```typescript
+import { defineWidget, ui, useSequence } from "@rezi-ui/core";
+
+const Pulse = defineWidget<{ key?: string }>((props, ctx) => {
+  const alpha = useSequence(ctx, [0.2, 1, 0.35, 0.9], { duration: 120, loop: true });
+  return ui.box({ border: "rounded", opacity: alpha, p: 1 }, [ui.text("Pulse")]);
+});
+```
+
+---
+
+### `useStagger`
+
+Animate a list with staggered starts and return per-item eased progress in `[0..1]`.
+
+**Signature:**
+
+```typescript
+import { useStagger, type UseStaggerConfig } from "@rezi-ui/core";
+
+useStagger<T>(
+  ctx: WidgetContext,
+  items: readonly T[],
+  config?: UseStaggerConfig,
+): readonly number[]
+```
+
+**Description:**
+
+- Returns one progress value per item.
+- Useful for staggered opacity/position/scale-style numeric effects.
+- Defaults: `delay=40ms`, `duration=180ms`.
+- Empty item lists return an empty frozen array.
+
+**Example:**
+
+```typescript
+import { defineWidget, ui, useStagger } from "@rezi-ui/core";
+
+const Rail = defineWidget<{ labels: readonly string[]; key?: string }>((props, ctx) => {
+  const progress = useStagger(ctx, props.labels, { delay: 36, duration: 160 });
+
+  return ui.row(
+    { gap: 1 },
+    props.labels.map((label, i) =>
+      ui.box(
+        { key: label, border: "single", p: 1, opacity: 0.25 + 0.75 * (progress[i] ?? 0) },
+        [ui.text(label)],
+      ),
+    ),
+  );
+});
+```
+
+---
+
 ### `useDebounce`
 
 Return a debounced copy of a value that updates only after a delay.
@@ -1005,7 +1175,7 @@ const [selected, setSelected] = ctx.useState<Set<string>>(new Set());
 
 ### 4. Utility hooks consume multiple hook slots
 
-Functions like `useDebounce`, `usePrevious`, `useAsync`, `useStream`, `useEventSource`, `useWebSocket`, `useInterval`, `useTail`, `useTable`, `useModalStack`, and `useForm` internally call multiple core hooks. Their position in the call sequence matters just like any other hook.
+Functions like `useTransition`, `useSpring`, `useSequence`, `useStagger`, `useDebounce`, `usePrevious`, `useAsync`, `useStream`, `useEventSource`, `useWebSocket`, `useInterval`, `useTail`, `useTable`, `useModalStack`, and `useForm` internally call multiple core hooks. Their position in the call sequence matters just like any other hook.
 
 ### 5. Effect cleanup runs before re-execution
 

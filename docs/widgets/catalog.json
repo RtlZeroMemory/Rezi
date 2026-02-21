@@ -11,7 +11,7 @@
     {
       "name": "box",
       "requiredProps": [],
-      "commonProps": ["border", "p", "style", "children"],
+      "commonProps": ["border", "p", "style", "opacity", "transition", "children"],
       "example": "ui.box({ border: 'rounded', p: 1 }, [ui.text('Body')])"
     },
     {

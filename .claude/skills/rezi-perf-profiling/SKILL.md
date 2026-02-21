@@ -22,6 +22,7 @@ Use this skill when:
 - `packages/core/src/app/widgetRenderer.ts` — render pipeline with phase timing
 - `packages/core/src/runtime/commit.ts` — reconciliation (leaf/container reuse)
 - `packages/core/src/layout/` — layout engine (FNV-1a stability signatures)
+- `packages/core/src/widgets/composition.ts` — animation utility hooks
 - `packages/bench/src/` — profiling scripts
 
 ## Steps
@@ -47,6 +48,7 @@ Use this skill when:
    | Commit phase slow | Add `key` props on list items for stable reconciliation |
    | Layout phase slow | Reduce nesting depth; layout stability signatures skip relayout when tree is stable |
    | Render phase slow | Use `ui.virtualList()` for large datasets |
+   | Animation-heavy screen slow | Limit transition scope (`properties`), animate only visible rows, avoid per-frame object churn |
    | Overall slow | Flatten unnecessary wrapper nodes |
 
 5. **Depth guardrails**:
@@ -59,4 +61,6 @@ Use this skill when:
 - `ctx.useMemo(() => expensiveComputation, [deps])` — skip recomputation
 - `key` on every list item — enables O(1) reconciliation
 - `ui.virtualList()` — only renders visible rows
+- `useStagger(...)` + `ui.virtualList(...)` — stagger only the visible window
+- `ui.box({ transition: { properties: [...] } })` — animate only required dimensions
 - Avoid creating new closures/objects in render — use `ctx.useCallback(fn, [deps])`

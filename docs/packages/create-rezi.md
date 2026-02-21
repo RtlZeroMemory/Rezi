@@ -30,6 +30,8 @@ Canonical template names:
 - `animation-lab` (aliases: `animation`, `anim`, `lab`, `motion`)
 - `minimal` (aliases: `mini`, `basic`, `utility`)
 
+`animation-lab` is the canonical reference for Rezi's declarative motion APIs (`useTransition`, `useSpring`, `useSequence`, `useStagger`) plus `ui.box` transition props.
+
 Use a specific template:
 
 ```bash

@@ -56,6 +56,11 @@ const onSubmit = ctx.useCallback(() => save(filteredRows), [save, filteredRows])
 
 Rezi ships a small utility-hook layer for common composition patterns:
 
+- Animation hooks for numeric motion and sequencing:
+  - `useTransition(ctx, value, config?)` interpolates toward a numeric target over duration/easing.
+  - `useSpring(ctx, target, config?)` animates toward a target with spring physics.
+  - `useSequence(ctx, keyframes, config?)` runs keyframe timelines (optional loop).
+  - `useStagger(ctx, items, config?)` returns per-item eased progress for staggered entrances.
 - `useDebounce(ctx, value, delayMs)` returns a debounced value.
 - `useAsync(ctx, task, deps)` runs async tasks with loading/error state and stale-result protection.
 - `usePrevious(ctx, value)` returns the previous render value.
@@ -71,6 +76,10 @@ import {
   ui,
   useAsync,
   useDebounce,
+  useSequence,
+  useSpring,
+  useStagger,
+  useTransition,
   usePrevious,
   useStream,
 } from "@rezi-ui/core";
@@ -96,6 +105,17 @@ const SearchResults = defineWidget<SearchProps>((props, ctx) => {
   ]);
 });
 
+const AnimatedValue = defineWidget<{ value: number; key?: string }>((props, ctx) => {
+  const eased = useTransition(ctx, props.value, { duration: 160, easing: "easeOutCubic" });
+  const spring = useSpring(ctx, props.value, { stiffness: 180, damping: 22 });
+  const pulse = useSequence(ctx, [0.2, 1, 0.4, 1], { duration: 120, loop: true });
+  const stagger = useStagger(ctx, [0, 1, 2], { delay: 30, duration: 140 });
+
+  return ui.text(
+    `eased=${eased.toFixed(1)} spring=${spring.toFixed(1)} pulse=${pulse.toFixed(2)} stagger0=${(stagger[0] ?? 0).toFixed(2)}`,
+  );
+});
+
 async function fetchResults(query: string): Promise<string[]> {
   return query.length > 0 ? [query] : [];
 }
@@ -117,6 +137,7 @@ const LiveMetric = defineWidget<{ key?: string }>((props, ctx) => {
 ## Related
 
 - [Concepts](concepts.md)
+- [Animation](animation.md)
 - [Lifecycle & updates](lifecycle-and-updates.md)
 - [Widget catalog](../widgets/index.md)
 - [API reference](../api/reference/index.html)

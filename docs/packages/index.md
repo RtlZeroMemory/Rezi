@@ -41,6 +41,7 @@ The core package defines Rezi's runtime-agnostic API and contains:
 - All widget constructors (`ui.text`, `ui.button`, `ui.table`, etc.)
 - Layout engine with flexbox-like semantics
 - Theme system with six built-in presets
+- Declarative animation hooks and `ui.box` transition props
 - Form management and validation
 - Keybinding parser with chord support
 - Focus management utilities

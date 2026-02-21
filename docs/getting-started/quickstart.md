@@ -241,5 +241,6 @@ Key takeaways:
 - [Using JSX](jsx.md) - Prefer JSX syntax? Use `@rezi-ui/jsx` for a JSX-based widget API
 - [Widget Catalog](../widgets/index.md) - Browse all available widgets
 - [Layout Guide](../guide/layout.md) - Learn about spacing and alignment
+- [Animation Guide](../guide/animation.md) - Declarative motion with hooks and box transitions
 - [Styling Guide](../guide/styling.md) - Customize colors and themes
 - [Examples](examples.md) - More example applications
