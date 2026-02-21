@@ -85,6 +85,10 @@ describe("jsx runtime", () => {
       jsx("lineChart", { width: 18, height: 6, series }),
       ui.lineChart({ width: 18, height: 6, series }),
     );
+    assert.deepEqual(
+      jsx("textarea", { id: "notes", value: "hello", rows: 4 }),
+      ui.textarea({ id: "notes", value: "hello", rows: 4 }),
+    );
   });
 
   test("jsxDEV() matches jsx() behavior", () => {

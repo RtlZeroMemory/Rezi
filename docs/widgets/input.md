@@ -37,6 +37,10 @@ Inputs are focusable when enabled. **Clicking** the input focuses it. When focus
 - **Shift+Home/Shift+End** extends selection to start/end
 - **Shift+Ctrl+Left/Shift+Ctrl+Right** extends selection by word
 - **Ctrl+A** selects all text
+- **Ctrl+C** copies active selection to system clipboard (OSC 52)
+- **Ctrl+X** cuts active selection to system clipboard (OSC 52)
+- **Ctrl+Z** undoes the last edit
+- **Ctrl+Shift+Z** or **Ctrl+Y** redoes the last undone edit
 - **Backspace/Delete** remove one grapheme cluster when no selection is active
 - **Backspace/Delete** delete the selected range when selection is active
 - Typing with an active selection replaces the selected range
@@ -44,6 +48,7 @@ Inputs are focusable when enabled. **Clicking** the input focuses it. When focus
 - **Tab** moves focus to next widget
 
 Inputs are always controlled - the `value` prop determines what is displayed.
+For multi-line text, use [`ui.textarea`](textarea.md).
 
 ## Input Editor State
 
@@ -118,5 +123,6 @@ Text editing is based on grapheme clusters using a pinned Unicode version. This 
 ## Related
 
 - [Field](field.md) - Form field wrapper
+- [Textarea](textarea.md) - Multi-line controlled input
 - [Button](button.md) - Clickable button
 - [Checkbox](checkbox.md) - Toggle checkbox

@@ -732,6 +732,34 @@ export type InputProps = Readonly<{
   onInput?: (value: string, cursor: number) => void;
   /** Optional callback invoked when the input loses focus. */
   onBlur?: () => void;
+  /** Internal multiline mode used by ui.textarea(). */
+  multiline?: boolean;
+  /** Visible line count when multiline mode is enabled (default: 3). */
+  rows?: number;
+  /** Wrap long lines in multiline mode (default: true). */
+  wordWrap?: boolean;
+}>;
+
+/** Props for ui.textarea(). Multi-line controlled text input. */
+export type TextareaProps = Readonly<{
+  id: string;
+  key?: string;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
+  value: string;
+  disabled?: boolean;
+  /** Opt out of Tab focus order while keeping id-based routing available. */
+  focusable?: boolean;
+  /** Visible line count (default: 3). */
+  rows?: number;
+  /** Wrap long lines (default: true). */
+  wordWrap?: boolean;
+  /** Optional style applied to the textarea value (merged with focus/disabled state). */
+  style?: TextStyle;
+  /** Optional callback invoked on input edits. */
+  onInput?: (value: string, cursor: number) => void;
+  /** Optional callback invoked when the textarea loses focus. */
+  onBlur?: () => void;
 }>;
 
 /** Props for focus announcer widget. Renders a live summary for the focused element. */

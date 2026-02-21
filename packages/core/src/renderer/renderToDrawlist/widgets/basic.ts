@@ -208,6 +208,117 @@ function truncateToWidth(text: string, width: number): string {
   return measureTextCells(text) > width ? truncateWithEllipsis(text, width) : text;
 }
 
+function wrapLineByCells(line: string, width: number): readonly string[] {
+  if (width <= 0) return Object.freeze([""]);
+  if (line.length === 0) return Object.freeze([""]);
+
+  const cps = Array.from(line);
+  const out: string[] = [];
+  let chunk = "";
+  let chunkWidth = 0;
+
+  for (const cp of cps) {
+    const cpWidth = Math.max(0, measureTextCells(cp));
+    if (chunk.length > 0 && chunkWidth + cpWidth > width) {
+      out.push(chunk);
+      chunk = cp;
+      chunkWidth = cpWidth;
+      continue;
+    }
+    chunk += cp;
+    chunkWidth += cpWidth;
+  }
+
+  if (chunk.length > 0) out.push(chunk);
+  return Object.freeze(out.length > 0 ? out : [""]);
+}
+
+type InputLineMeta = Readonly<{
+  lines: readonly string[];
+  starts: readonly number[];
+  ends: readonly number[];
+}>;
+
+function buildInputLineMeta(value: string): InputLineMeta {
+  const starts: number[] = [];
+  const ends: number[] = [];
+  const lines: string[] = [];
+  let lineStart = 0;
+  for (let i = 0; i < value.length; i++) {
+    if (value.charCodeAt(i) === 0x0a) {
+      starts.push(lineStart);
+      ends.push(i);
+      lines.push(value.slice(lineStart, i));
+      lineStart = i + 1;
+    }
+  }
+  starts.push(lineStart);
+  ends.push(value.length);
+  lines.push(value.slice(lineStart));
+  return Object.freeze({
+    lines: Object.freeze(lines),
+    starts: Object.freeze(starts),
+    ends: Object.freeze(ends),
+  });
+}
+
+function findInputLineIndex(meta: InputLineMeta, cursor: number): number {
+  const c = Math.max(0, cursor);
+  for (let i = 0; i < meta.ends.length; i++) {
+    const end = meta.ends[i] ?? 0;
+    if (c <= end) return i;
+  }
+  return Math.max(0, meta.ends.length - 1);
+}
+
+function resolveMultilineCursorPosition(
+  value: string,
+  cursor: number,
+  contentWidth: number,
+  wordWrap: boolean,
+): Readonly<{ visualLine: number; visualX: number; visualLines: readonly string[] }> {
+  const width = Math.max(1, contentWidth);
+  const meta = buildInputLineMeta(value);
+  const visualLines: string[] = [];
+  const wrappedCountByLine: number[] = [];
+
+  for (const line of meta.lines) {
+    const wrapped = wordWrap ? wrapLineByCells(line, width) : Object.freeze([line]);
+    wrappedCountByLine.push(wrapped.length);
+    for (const segment of wrapped) {
+      visualLines.push(segment);
+    }
+  }
+
+  const lineIndex = findInputLineIndex(meta, cursor);
+  const lineStart = meta.starts[lineIndex] ?? 0;
+  const lineEnd = meta.ends[lineIndex] ?? value.length;
+  const col = Math.max(0, Math.min(Math.max(0, lineEnd - lineStart), cursor - lineStart));
+  const lineText = meta.lines[lineIndex] ?? "";
+
+  let visualLine = 0;
+  for (let i = 0; i < lineIndex; i++) {
+    visualLine += wrappedCountByLine[i] ?? 1;
+  }
+
+  if (!wordWrap) {
+    return Object.freeze({
+      visualLine,
+      visualX: measureTextCells(lineText.slice(0, col)),
+      visualLines: Object.freeze(visualLines.length > 0 ? visualLines : [""]),
+    });
+  }
+
+  const wrappedPrefix = wrapLineByCells(lineText.slice(0, col), width);
+  const wrappedLineOffset = Math.max(0, wrappedPrefix.length - 1);
+  const visualX = measureTextCells(wrappedPrefix[wrappedLineOffset] ?? "");
+  return Object.freeze({
+    visualLine: visualLine + wrappedLineOffset,
+    visualX,
+    visualLines: Object.freeze(visualLines.length > 0 ? visualLines : [""]),
+  });
+}
+
 function clipSegmentsToWidth(
   segments: readonly StyledSegment[],
   maxWidth: number,
@@ -817,35 +928,73 @@ export function renderBasicWidget(
         value?: unknown;
         disabled?: unknown;
         style?: unknown;
+        multiline?: unknown;
+        wordWrap?: unknown;
       };
       const id = typeof props.id === "string" ? props.id : null;
       const value = typeof props.value === "string" ? props.value : "";
       const disabled = props.disabled === true;
+      const multiline = props.multiline === true;
+      const wordWrap = props.wordWrap !== false;
       const focused = id !== null && focusState.focusedId === id;
       const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(
         mergeTextStyle(parentStyle, ownStyle),
         getButtonLabelStyle({ focused, disabled }),
       );
-      builder.pushClip(rect.x, rect.y, rect.w, rect.h);
-      builder.drawText(rect.x + 1, rect.y, value, style);
-      builder.popClip();
 
-      // v2 cursor: resolve cursor position for focused enabled input
-      if (focused && !disabled && cursorInfo && rect.w > 1) {
-        // Cursor offset is stored as grapheme index; convert to cell position
-        const graphemeOffset = cursorInfo.cursorByInstanceId.get(node.instanceId);
-        const cursorX =
-          graphemeOffset !== undefined
-            ? measureTextCells(value.slice(0, graphemeOffset))
-            : measureTextCells(value);
-        const maxCursorX = Math.max(0, rect.w - 2);
-        resolvedCursor = {
-          x: rect.x + 1 + clampInt(cursorX, 0, maxCursorX),
-          y: rect.y,
-          shape: cursorInfo.shape,
-          blink: cursorInfo.blink,
-        };
+      if (multiline) {
+        const contentW = Math.max(1, rect.w - 2);
+        const graphemeOffset = cursorInfo?.cursorByInstanceId.get(node.instanceId) ?? value.length;
+        const wrapped = resolveMultilineCursorPosition(value, graphemeOffset, contentW, wordWrap);
+        const maxStartVisual = Math.max(0, wrapped.visualLines.length - rect.h);
+        const startVisual =
+          focused && !disabled
+            ? Math.max(0, Math.min(maxStartVisual, wrapped.visualLine - rect.h + 1))
+            : 0;
+
+        builder.pushClip(rect.x, rect.y, rect.w, rect.h);
+        for (let row = 0; row < rect.h; row++) {
+          const rawLine = wrapped.visualLines[startVisual + row] ?? "";
+          const line = wordWrap ? rawLine : truncateToWidth(rawLine, contentW);
+          if (line.length === 0) continue;
+          builder.drawText(rect.x + 1, rect.y + row, line, style);
+        }
+        builder.popClip();
+
+        if (focused && !disabled && cursorInfo && rect.w > 1) {
+          const localY = wrapped.visualLine - startVisual;
+          if (localY >= 0 && localY < rect.h) {
+            const maxCursorX = Math.max(0, rect.w - 2);
+            resolvedCursor = {
+              x: rect.x + 1 + clampInt(wrapped.visualX, 0, maxCursorX),
+              y: rect.y + localY,
+              shape: cursorInfo.shape,
+              blink: cursorInfo.blink,
+            };
+          }
+        }
+      } else {
+        builder.pushClip(rect.x, rect.y, rect.w, rect.h);
+        builder.drawText(rect.x + 1, rect.y, value, style);
+        builder.popClip();
+
+        // v2 cursor: resolve cursor position for focused enabled input
+        if (focused && !disabled && cursorInfo && rect.w > 1) {
+          // Cursor offset is stored as grapheme index; convert to cell position
+          const graphemeOffset = cursorInfo.cursorByInstanceId.get(node.instanceId);
+          const cursorX =
+            graphemeOffset !== undefined
+              ? measureTextCells(value.slice(0, graphemeOffset))
+              : measureTextCells(value);
+          const maxCursorX = Math.max(0, rect.w - 2);
+          resolvedCursor = {
+            x: rect.x + 1 + clampInt(cursorX, 0, maxCursorX),
+            y: rect.y,
+            shape: cursorInfo.shape,
+            blink: cursorInfo.blink,
+          };
+        }
       }
       break;
     }

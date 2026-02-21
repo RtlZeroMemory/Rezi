@@ -67,6 +67,7 @@ Interactive form controls:
 |--------|-------------|-----------|-----------|
 | [Button](button.md) | Clickable button with label | Yes | `beta` |
 | [Input](input.md) | Single-line text input | Yes | `stable` |
+| [Textarea](textarea.md) | Multi-line text input | Yes | `beta` |
 | [Slider](slider.md) | Numeric range input | Yes | `beta` |
 | [Checkbox](checkbox.md) | Toggle checkbox | Yes | `beta` |
 | [Radio Group](radio-group.md) | Single-select options | Yes | `beta` |
@@ -258,6 +259,7 @@ Falsy values (`false`, `null`, `undefined`) are filtered from children.
 - Interactive widgets validate required runtime props before layout:
   - `button`: non-empty `id`; `label` must be a string (empty allowed)
   - `input`: non-empty `id`; `value` must be a string
+  - `textarea`: non-empty `id`; `value` must be a string; optional `rows` controls visible height
   - `select`: non-empty `id`; `value` must be a string; `options` must be an array (empty allowed)
   - `slider`: non-empty `id`, finite numeric range with `min <= max`, `step > 0`
   - `checkbox`: non-empty `id`, boolean `checked`

@@ -10,6 +10,7 @@
 import { Worker } from "node:worker_threads";
 import type {
   BackendEventBatch,
+  BackendRawWrite,
   DebugBackend,
   DebugConfig,
   DebugQuery,
@@ -24,6 +25,7 @@ import {
   BACKEND_DRAWLIST_VERSION_MARKER,
   BACKEND_FPS_CAP_MARKER,
   BACKEND_MAX_EVENT_BYTES_MARKER,
+  BACKEND_RAW_WRITE_MARKER,
   DEFAULT_TERMINAL_CAPS,
   FRAME_ACCEPTED_ACK_MARKER,
 } from "@rezi-ui/core";
@@ -1343,8 +1345,9 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       | typeof BACKEND_DRAWLIST_V2_MARKER
       | typeof BACKEND_DRAWLIST_VERSION_MARKER
       | typeof BACKEND_MAX_EVENT_BYTES_MARKER
-      | typeof BACKEND_FPS_CAP_MARKER,
-      boolean | number
+      | typeof BACKEND_FPS_CAP_MARKER
+      | typeof BACKEND_RAW_WRITE_MARKER,
+      boolean | number | BackendRawWrite
     >;
   Object.defineProperties(out, {
     [BACKEND_DRAWLIST_V2_MARKER]: {
@@ -1367,6 +1370,19 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
     },
     [BACKEND_FPS_CAP_MARKER]: {
       value: fpsCap,
+      writable: false,
+      enumerable: false,
+      configurable: false,
+    },
+    [BACKEND_RAW_WRITE_MARKER]: {
+      value: ((text: string): void => {
+        if (typeof text !== "string" || text.length === 0) return;
+        try {
+          process.stdout.write(text);
+        } catch {
+          // Preserve backend determinism: clipboard write failures are non-fatal.
+        }
+      }) satisfies BackendRawWrite,
       writable: false,
       enumerable: false,
       configurable: false,

@@ -44,6 +44,7 @@ import type {
   TabsProps,
   TagProps,
   TextProps,
+  TextareaProps,
   ToastContainerProps,
   ToolApprovalDialogProps,
   TreeProps,
@@ -110,6 +111,7 @@ import type {
   TabsJsxProps,
   TagJsxProps,
   TextJsxProps,
+  TextareaJsxProps,
   ToastContainerJsxProps,
   ToolApprovalDialogJsxProps,
   TreeJsxProps,
@@ -456,6 +458,11 @@ export function Input(props: InputJsxProps): VNode {
     kind: "input",
     props: withOptionalKey<InputProps>(rest, key),
   };
+}
+
+export function Textarea(props: TextareaJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return ui.textarea(withOptionalKey<TextareaProps>(rest, key));
 }
 
 export function Slider(props: SliderJsxProps): VNode {

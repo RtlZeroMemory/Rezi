@@ -189,6 +189,12 @@
       "example": "ui.input('name', state.name)"
     },
     {
+      "name": "textarea",
+      "requiredProps": ["id", "value"],
+      "commonProps": ["rows", "onInput"],
+      "example": "ui.textarea({ id: 'notes', value: state.notes, rows: 5 })"
+    },
+    {
       "name": "slider",
       "requiredProps": ["id", "value", "onChange"],
       "commonProps": ["min", "max", "step"],

@@ -81,6 +81,7 @@ import type {
   TabsProps,
   TagProps,
   TextProps,
+  TextareaProps,
   ToastContainerProps,
   ToolApprovalDialogProps,
   TreeProps,
@@ -656,6 +657,18 @@ function input(
   return { kind: "input", props: idOrProps };
 }
 
+function textarea(props: TextareaProps): VNode {
+  return {
+    kind: "input",
+    props: {
+      ...props,
+      multiline: true,
+      rows: props.rows ?? 3,
+      wordWrap: props.wordWrap ?? true,
+    },
+  };
+}
+
 function focusAnnouncer(props: FocusAnnouncerProps = {}): VNode {
   return { kind: "focusAnnouncer", props };
 }
@@ -840,6 +853,7 @@ export const ui = {
   miniChart,
   button,
   input,
+  textarea,
   focusAnnouncer,
   focusZone,
   focusTrap,

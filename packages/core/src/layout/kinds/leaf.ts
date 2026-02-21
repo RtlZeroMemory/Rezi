@@ -55,6 +55,9 @@ export function measureLeaf(
     case "input": {
       const propsRes = validateInputProps(vnode.props);
       if (!propsRes.ok) return propsRes;
+      if (propsRes.value.multiline) {
+        return ok({ w: maxW, h: Math.min(maxH, propsRes.value.rows) });
+      }
       const textW = measureTextCells(propsRes.value.value);
       const w = Math.min(maxW, textW + 2);
       const h = Math.min(maxH, 1);

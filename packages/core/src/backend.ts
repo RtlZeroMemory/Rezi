@@ -35,6 +35,18 @@ export const BACKEND_MAX_EVENT_BYTES_MARKER = "__reziBackendMaxEventBytes" as co
  */
 export const BACKEND_FPS_CAP_MARKER = "__reziBackendFpsCap" as const;
 
+/**
+ * Optional marker on RuntimeBackend objects exposing raw terminal control writes.
+ *
+ * Why: Some runtime features (for example OSC 52 clipboard writes) need to
+ * emit short terminal control sequences outside drawlist frames. Backends that
+ * can safely write to the terminal may expose this marker.
+ */
+export const BACKEND_RAW_WRITE_MARKER = "__reziBackendWriteRaw" as const;
+
+/** Signature for optional backend raw terminal control writes. */
+export type BackendRawWrite = (text: string) => void;
+
 // =============================================================================
 // BackendEventBatch (from docs/guide/lifecycle-and-updates.md)
 // =============================================================================

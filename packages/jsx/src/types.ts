@@ -44,6 +44,7 @@ import type {
   TabsProps,
   TagProps,
   TextProps,
+  TextareaProps,
   ToastContainerProps,
   ToolApprovalDialogProps,
   TreeProps,
@@ -146,6 +147,7 @@ export type BarChartJsxProps = LeafProps<BarChartProps>;
 export type MiniChartJsxProps = LeafProps<MiniChartProps>;
 export type ButtonJsxProps = LeafProps<ButtonProps>;
 export type InputJsxProps = LeafProps<InputProps>;
+export type TextareaJsxProps = LeafProps<TextareaProps>;
 export type SliderJsxProps = LeafProps<SliderProps>;
 export type ModalJsxProps = LeafProps<ModalProps>;
 export type DropdownJsxProps = LeafProps<DropdownProps>;
@@ -215,6 +217,7 @@ export interface ReziIntrinsicElements {
   miniChart: MiniChartJsxProps;
   button: ButtonJsxProps;
   input: InputJsxProps;
+  textarea: TextareaJsxProps;
   slider: SliderJsxProps;
   virtualList: VirtualListJsxProps;
   modal: ModalJsxProps;

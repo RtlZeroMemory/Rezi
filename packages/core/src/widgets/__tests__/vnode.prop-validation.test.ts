@@ -67,7 +67,14 @@ describe("vnode interactive prop validation - button/input", () => {
     const res = validateInputProps({ id: "query", value: "" });
     assert.equal(res.ok, true);
     if (!res.ok) return;
-    assert.deepEqual(res.value, { id: "query", value: "", disabled: false });
+    assert.deepEqual(res.value, {
+      id: "query",
+      value: "",
+      disabled: false,
+      multiline: false,
+      rows: 1,
+      wordWrap: false,
+    });
   });
 
   test("input id cannot be empty", () => {
