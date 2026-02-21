@@ -1,4 +1,5 @@
-import type { TextStyle } from "../../index.js";
+import type { TextStyle } from "../../widgets/style.js";
+import { sanitizeTextStyle } from "../../widgets/styleUtils.js";
 
 export type ResolvedTextStyle = Readonly<
   {
@@ -40,21 +41,22 @@ export function mergeTextStyle(
   override: TextStyle | undefined,
 ): ResolvedTextStyle {
   if (!override) return base;
+  const normalized = sanitizeTextStyle(override);
   if (
     base === DEFAULT_BASE_STYLE &&
-    override.fg === undefined &&
-    override.bg === undefined &&
+    normalized.fg === undefined &&
+    normalized.bg === undefined &&
     override.underlineStyle === undefined &&
     override.underlineColor === undefined
   ) {
-    const b = encTriBool(override.bold);
-    const d = encTriBool(override.dim);
-    const i = encTriBool(override.italic);
-    const u = encTriBool(override.underline);
-    const inv = encTriBool(override.inverse);
-    const s = encTriBool(override.strikethrough);
-    const o = encTriBool(override.overline);
-    const bl = encTriBool(override.blink);
+    const b = encTriBool(normalized.bold);
+    const d = encTriBool(normalized.dim);
+    const i = encTriBool(normalized.italic);
+    const u = encTriBool(normalized.underline);
+    const inv = encTriBool(normalized.inverse);
+    const s = encTriBool(normalized.strikethrough);
+    const o = encTriBool(normalized.overline);
+    const bl = encTriBool(normalized.blink);
     const key =
       b | (d << 2) | (i << 4) | (u << 6) | (inv << 8) | (s << 10) | (o << 12) | (bl << 14);
     if (key === 0) return base;
@@ -76,45 +78,45 @@ export function mergeTextStyle(
       underlineColor?: TextStyle["underlineColor"];
     } = { fg: base.fg, bg: base.bg };
 
-    if (override.bold !== undefined) merged.bold = override.bold;
-    if (override.dim !== undefined) merged.dim = override.dim;
-    if (override.italic !== undefined) merged.italic = override.italic;
-    if (override.underline !== undefined) merged.underline = override.underline;
-    if (override.inverse !== undefined) merged.inverse = override.inverse;
-    if (override.strikethrough !== undefined) merged.strikethrough = override.strikethrough;
-    if (override.overline !== undefined) merged.overline = override.overline;
-    if (override.blink !== undefined) merged.blink = override.blink;
+    if (normalized.bold !== undefined) merged.bold = normalized.bold;
+    if (normalized.dim !== undefined) merged.dim = normalized.dim;
+    if (normalized.italic !== undefined) merged.italic = normalized.italic;
+    if (normalized.underline !== undefined) merged.underline = normalized.underline;
+    if (normalized.inverse !== undefined) merged.inverse = normalized.inverse;
+    if (normalized.strikethrough !== undefined) merged.strikethrough = normalized.strikethrough;
+    if (normalized.overline !== undefined) merged.overline = normalized.overline;
+    if (normalized.blink !== undefined) merged.blink = normalized.blink;
 
     const frozenMerged = Object.freeze(merged);
     BASE_BOOL_STYLE_CACHE[key] = frozenMerged;
     return frozenMerged;
   }
   if (
-    override.fg === undefined &&
-    override.bg === undefined &&
-    override.bold === undefined &&
-    override.dim === undefined &&
-    override.italic === undefined &&
-    override.underline === undefined &&
-    override.inverse === undefined &&
-    override.strikethrough === undefined &&
-    override.overline === undefined &&
-    override.blink === undefined &&
+    normalized.fg === undefined &&
+    normalized.bg === undefined &&
+    normalized.bold === undefined &&
+    normalized.dim === undefined &&
+    normalized.italic === undefined &&
+    normalized.underline === undefined &&
+    normalized.inverse === undefined &&
+    normalized.strikethrough === undefined &&
+    normalized.overline === undefined &&
+    normalized.blink === undefined &&
     override.underlineStyle === undefined &&
     override.underlineColor === undefined
   ) {
     return base;
   }
-  const fg = override.fg ?? base.fg;
-  const bg = override.bg ?? base.bg;
-  const bold = override.bold ?? base.bold;
-  const dim = override.dim ?? base.dim;
-  const italic = override.italic ?? base.italic;
-  const underline = override.underline ?? base.underline;
-  const inverse = override.inverse ?? base.inverse;
-  const strikethrough = override.strikethrough ?? base.strikethrough;
-  const overline = override.overline ?? base.overline;
-  const blink = override.blink ?? base.blink;
+  const fg = normalized.fg ?? base.fg;
+  const bg = normalized.bg ?? base.bg;
+  const bold = normalized.bold ?? base.bold;
+  const dim = normalized.dim ?? base.dim;
+  const italic = normalized.italic ?? base.italic;
+  const underline = normalized.underline ?? base.underline;
+  const inverse = normalized.inverse ?? base.inverse;
+  const strikethrough = normalized.strikethrough ?? base.strikethrough;
+  const overline = normalized.overline ?? base.overline;
+  const blink = normalized.blink ?? base.blink;
   const underlineStyle = override.underlineStyle ?? base.underlineStyle;
   const underlineColor = override.underlineColor ?? base.underlineColor;
 

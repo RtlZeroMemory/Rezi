@@ -262,6 +262,21 @@ describe("mergeTextStyle cache correctness for DEFAULT_BASE_STYLE", () => {
     assert.deepEqual(redBoldB.fg, { r: 200, g: 10, b: 20 });
     assert.deepEqual(blueBold.fg, { r: 20, g: 10, b: 200 });
   });
+
+  test("invalid style channels are sanitized before merge", () => {
+    const merged = mergeTextStyle(DEFAULT_BASE_STYLE, {
+      fg: { r: 999, g: -5, b: "15.6" as unknown as number },
+      bg: { r: "4" as unknown as number, g: 5, b: 6 },
+      blink: "true" as unknown as boolean,
+      underline: 1 as unknown as boolean,
+    });
+
+    assert.deepEqual(merged, {
+      fg: { r: 255, g: 0, b: 16 },
+      bg: { r: 4, g: 5, b: 6 },
+      blink: true,
+    });
+  });
 });
 
 describe("styled variant behavior for new text attrs", () => {
