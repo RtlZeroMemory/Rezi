@@ -183,6 +183,27 @@ describe("virtualList contracts - keyboard navigation", () => {
     assert.equal(up.nextSelectedIndex, 3);
   });
 
+  test("page-size fallback uses measured heights for numeric estimate mode", () => {
+    const items = Array.from({ length: 30 }, (_, i) => i);
+    const measuredHeights = new Map<number, number>();
+    for (let i = 0; i < 10; i++) measuredHeights.set(i, 3);
+
+    const ctx = createTestCtx({
+      items,
+      itemHeight: 1,
+      measuredHeights,
+      selectedIndex: 3,
+      scrollTop: 0,
+      viewportHeight: 9,
+      startIndex: 5,
+      endIndex: 5,
+    });
+
+    const result = routeVirtualListKey(createKeyEvent(ZR_KEY_PAGE_DOWN), ctx);
+    assert.equal(result.nextSelectedIndex, 6);
+    assert.equal(result.nextScrollTop, 12);
+  });
+
   test("end key jumps to last item and scrolls to max", () => {
     const items = Array.from({ length: 10 }, (_, i) => i);
     const ctx = createTestCtx({

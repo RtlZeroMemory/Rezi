@@ -64,7 +64,10 @@ export function routeVirtualListKey<T>(
 
   // Compute items per page for PageUp/PageDown
   const computePageSize = (): number => {
-    if (typeof itemHeight === "number") {
+    if (
+      typeof itemHeight === "number" &&
+      (measuredHeights === undefined || measuredHeights.size === 0)
+    ) {
       const safeItemHeight = itemHeight > 0 ? itemHeight : 1;
       const safeViewportHeight = Math.max(0, viewportHeight);
       return Math.max(1, Math.floor(safeViewportHeight / safeItemHeight));
