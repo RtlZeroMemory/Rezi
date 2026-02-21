@@ -86,3 +86,72 @@ test("commit: container fast reuse does not ignore inheritStyle changes", () => 
   assert.deepEqual(nextProps.inheritStyle?.fg, { r: 0, g: 255, b: 0 });
   assert.equal(c1.value.root.children[0], c0.value.root.children[0]);
 });
+
+test("commit: container fast reuse does not ignore box opacity changes", () => {
+  const allocator = createInstanceIdAllocator(1);
+
+  const v0 = ui.box({ border: "none", opacity: 1 }, [ui.text("x")]);
+  const c0 = commitVNodeTree(null, v0, { allocator });
+  if (!c0.ok) assert.fail(`commit failed: ${c0.fatal.code}: ${c0.fatal.detail}`);
+
+  const v1 = ui.box({ border: "none", opacity: 0.4 }, [ui.text("x")]);
+  const c1 = commitVNodeTree(c0.value.root, v1, { allocator });
+  if (!c1.ok) assert.fail(`commit failed: ${c1.fatal.code}: ${c1.fatal.detail}`);
+
+  assert.notEqual(c1.value.root, c0.value.root);
+  const nextProps = c1.value.root.vnode.props as { opacity?: unknown };
+  assert.equal(nextProps.opacity, 0.4);
+  assert.equal(c1.value.root.children[0], c0.value.root.children[0]);
+});
+
+test("commit: container fast reuse does not ignore box transition changes", () => {
+  const allocator = createInstanceIdAllocator(1);
+
+  const v0 = ui.box(
+    { border: "none", transition: { duration: 120, easing: "linear", properties: ["position"] } },
+    [ui.text("x")],
+  );
+  const c0 = commitVNodeTree(null, v0, { allocator });
+  if (!c0.ok) assert.fail(`commit failed: ${c0.fatal.code}: ${c0.fatal.detail}`);
+
+  const v1 = ui.box(
+    {
+      border: "none",
+      transition: { duration: 200, easing: "easeOutQuad", properties: ["position", "opacity"] },
+    },
+    [ui.text("x")],
+  );
+  const c1 = commitVNodeTree(c0.value.root, v1, { allocator });
+  if (!c1.ok) assert.fail(`commit failed: ${c1.fatal.code}: ${c1.fatal.detail}`);
+
+  assert.notEqual(c1.value.root, c0.value.root);
+  const nextProps = c1.value.root.vnode.props as { transition?: { duration?: unknown } };
+  assert.equal(nextProps.transition?.duration, 200);
+  assert.equal(c1.value.root.children[0], c0.value.root.children[0]);
+});
+
+test("commit: semantically equal box transition keeps fast reuse", () => {
+  const allocator = createInstanceIdAllocator(1);
+
+  const v0 = ui.box(
+    {
+      border: "none",
+      transition: { duration: 150, easing: "linear", properties: ["position", "size"] },
+    },
+    [ui.text("x")],
+  );
+  const c0 = commitVNodeTree(null, v0, { allocator });
+  if (!c0.ok) assert.fail(`commit failed: ${c0.fatal.code}: ${c0.fatal.detail}`);
+
+  const v1 = ui.box(
+    {
+      border: "none",
+      transition: { duration: 150, easing: "linear", properties: ["position", "size"] },
+    },
+    [ui.text("x")],
+  );
+  const c1 = commitVNodeTree(c0.value.root, v1, { allocator });
+  if (!c1.ok) assert.fail(`commit failed: ${c1.fatal.code}: ${c1.fatal.detail}`);
+
+  assert.equal(c1.value.root, c0.value.root);
+});

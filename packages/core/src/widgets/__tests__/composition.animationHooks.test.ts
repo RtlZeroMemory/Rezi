@@ -16,9 +16,11 @@ function createHarness(instanceId = 1): {
   };
   runPending: (effects: readonly EffectState[]) => void;
   unmount: () => boolean;
+  getInvalidateCount: () => number;
 } {
   const registry = createCompositeInstanceRegistry();
   registry.create(instanceId, "CompositionAnimationHooksHarness");
+  let invalidateCount = 0;
 
   const getState = (): CompositeInstanceState => {
     const state = registry.get(instanceId);
@@ -31,6 +33,7 @@ function createHarness(instanceId = 1): {
   ): { result: T; pendingEffects: readonly EffectState[] } => {
     registry.beginRender(instanceId);
     const hooks = createHookContext(getState(), () => {
+      invalidateCount++;
       registry.invalidate(instanceId);
     });
     const result = program(hooks);
@@ -42,6 +45,7 @@ function createHarness(instanceId = 1): {
     render,
     runPending: runPendingEffects,
     unmount: () => registry.delete(instanceId),
+    getInvalidateCount: () => invalidateCount,
   };
 }
 
@@ -105,6 +109,91 @@ describe("composition animation hooks - useTransition", () => {
     assert.equal(render.result, 3);
     assert.equal(h.unmount(), true);
   });
+
+  test("retargets from the current interpolated value", async () => {
+    const h = createHarness();
+
+    let render = h.render((hooks) => useTransition(hooks, 0, { duration: 180, easing: "linear" }));
+    h.runPending(render.pendingEffects);
+
+    render = h.render((hooks) => useTransition(hooks, 20, { duration: 180, easing: "linear" }));
+    h.runPending(render.pendingEffects);
+
+    let mid = 0;
+    await waitFor(() => {
+      const next = h.render((hooks) =>
+        useTransition(hooks, 20, { duration: 180, easing: "linear" }),
+      );
+      mid = next.result;
+      h.runPending(next.pendingEffects);
+      return mid > 1 && mid < 19;
+    });
+
+    render = h.render((hooks) => useTransition(hooks, -6, { duration: 180, easing: "linear" }));
+    h.runPending(render.pendingEffects);
+
+    let movedTowardNewTarget = mid;
+    await waitFor(() => {
+      const next = h.render((hooks) =>
+        useTransition(hooks, -6, { duration: 180, easing: "linear" }),
+      );
+      movedTowardNewTarget = next.result;
+      h.runPending(next.pendingEffects);
+      return movedTowardNewTarget < mid - 0.25;
+    });
+    assert.ok(movedTowardNewTarget < mid);
+
+    let finalValue = 0;
+    await waitFor(() => {
+      const next = h.render((hooks) =>
+        useTransition(hooks, -6, { duration: 180, easing: "linear" }),
+      );
+      finalValue = next.result;
+      h.runPending(next.pendingEffects);
+      return Math.abs(finalValue + 6) <= 0.1;
+    });
+    assert.ok(Math.abs(finalValue + 6) <= 0.1);
+    assert.equal(h.unmount(), true);
+  });
+
+  test("handles non-finite values by snapping on effect", () => {
+    const h = createHarness();
+
+    let render = h.render((hooks) => useTransition(hooks, 1, { duration: 80 }));
+    h.runPending(render.pendingEffects);
+
+    render = h.render((hooks) => useTransition(hooks, Number.NaN, { duration: 80 }));
+    assert.equal(render.result, 1);
+    h.runPending(render.pendingEffects);
+
+    render = h.render((hooks) => useTransition(hooks, Number.NaN, { duration: 80 }));
+    assert.equal(Number.isNaN(render.result), true);
+    h.runPending(render.pendingEffects);
+
+    render = h.render((hooks) => useTransition(hooks, 5, { duration: 80 }));
+    assert.equal(Number.isNaN(render.result), true);
+    h.runPending(render.pendingEffects);
+
+    render = h.render((hooks) => useTransition(hooks, 5, { duration: 80 }));
+    assert.equal(render.result, 5);
+    assert.equal(h.unmount(), true);
+  });
+
+  test("cleans up timers on unmount", async () => {
+    const h = createHarness();
+
+    let render = h.render((hooks) => useTransition(hooks, 0, { duration: 200, easing: "linear" }));
+    h.runPending(render.pendingEffects);
+    render = h.render((hooks) => useTransition(hooks, 100, { duration: 200, easing: "linear" }));
+    h.runPending(render.pendingEffects);
+
+    await sleep(30);
+    assert.ok(h.getInvalidateCount() > 0);
+    assert.equal(h.unmount(), true);
+    const atUnmount = h.getInvalidateCount();
+    await sleep(80);
+    assert.equal(h.getInvalidateCount(), atUnmount);
+  });
 });
 
 describe("composition animation hooks - useSpring", () => {
@@ -139,6 +228,85 @@ describe("composition animation hooks - useSpring", () => {
     assert.ok(Math.abs(finalValue - 12) <= 0.1);
     assert.equal(h.unmount(), true);
   });
+
+  test("retargets while in motion", async () => {
+    const h = createHarness();
+    const config = { stiffness: 180, damping: 20, restDelta: 0.01, restSpeed: 0.01 };
+
+    let render = h.render((hooks) => useSpring(hooks, 0, config));
+    h.runPending(render.pendingEffects);
+    render = h.render((hooks) => useSpring(hooks, 16, config));
+    h.runPending(render.pendingEffects);
+
+    let mid = 0;
+    await waitFor(() => {
+      const next = h.render((hooks) => useSpring(hooks, 16, config));
+      mid = next.result;
+      h.runPending(next.pendingEffects);
+      return mid > 1 && mid < 15;
+    });
+
+    render = h.render((hooks) => useSpring(hooks, -4, config));
+    h.runPending(render.pendingEffects);
+
+    let retargeted = mid;
+    await waitFor(() => {
+      const next = h.render((hooks) => useSpring(hooks, -4, config));
+      retargeted = next.result;
+      h.runPending(next.pendingEffects);
+      return retargeted < mid - 0.25;
+    });
+    assert.ok(retargeted < mid);
+
+    let finalValue = 0;
+    await waitFor(() => {
+      const next = h.render((hooks) => useSpring(hooks, -4, config));
+      finalValue = next.result;
+      h.runPending(next.pendingEffects);
+      return Math.abs(finalValue + 4) <= 0.1;
+    });
+    assert.ok(Math.abs(finalValue + 4) <= 0.1);
+    assert.equal(h.unmount(), true);
+  });
+
+  test("non-finite target snaps on effect pass", () => {
+    const h = createHarness();
+    const config = { stiffness: 160, damping: 18 };
+
+    let render = h.render((hooks) => useSpring(hooks, 1, config));
+    h.runPending(render.pendingEffects);
+
+    render = h.render((hooks) => useSpring(hooks, Number.POSITIVE_INFINITY, config));
+    assert.equal(render.result, 1);
+    h.runPending(render.pendingEffects);
+
+    render = h.render((hooks) => useSpring(hooks, Number.POSITIVE_INFINITY, config));
+    assert.equal(render.result, Number.POSITIVE_INFINITY);
+    h.runPending(render.pendingEffects);
+
+    render = h.render((hooks) => useSpring(hooks, 7, config));
+    h.runPending(render.pendingEffects);
+    render = h.render((hooks) => useSpring(hooks, 7, config));
+    assert.equal(render.result, 7);
+    assert.equal(h.unmount(), true);
+  });
+
+  test("cleans up spring timers on unmount", async () => {
+    const h = createHarness();
+    const config = { stiffness: 200, damping: 20 };
+
+    let render = h.render((hooks) => useSpring(hooks, 0, config));
+    h.runPending(render.pendingEffects);
+    render = h.render((hooks) => useSpring(hooks, 50, config));
+    h.runPending(render.pendingEffects);
+
+    await sleep(30);
+    assert.ok(h.getInvalidateCount() > 0);
+    assert.equal(h.unmount(), true);
+    const atUnmount = h.getInvalidateCount();
+    await sleep(80);
+    assert.equal(h.getInvalidateCount(), atUnmount);
+  });
 });
 
 describe("composition animation hooks - useSequence", () => {
@@ -168,6 +336,71 @@ describe("composition animation hooks - useSequence", () => {
       return Math.abs(finalValue - 20) <= 0.05;
     });
     assert.ok(Math.abs(finalValue - 20) <= 0.05);
+    assert.equal(h.unmount(), true);
+  });
+
+  test("empty keyframes resolve to zero", () => {
+    const h = createHarness();
+
+    let render = h.render((hooks) => useSequence(hooks, [], { duration: 40 }));
+    assert.equal(render.result, 0);
+    h.runPending(render.pendingEffects);
+
+    render = h.render((hooks) => useSequence(hooks, [], { duration: 40 }));
+    assert.equal(render.result, 0);
+    assert.equal(h.unmount(), true);
+  });
+
+  test("loop mode keeps values bounded and changing", async () => {
+    const h = createHarness();
+    const keyframes = [0, 10, 0];
+    const config = { duration: 40, easing: "linear" as const, loop: true };
+
+    let render = h.render((hooks) => useSequence(hooks, keyframes, config));
+    h.runPending(render.pendingEffects);
+
+    let minValue = Number.POSITIVE_INFINITY;
+    let maxValue = Number.NEGATIVE_INFINITY;
+    await waitFor(() => {
+      const next = h.render((hooks) => useSequence(hooks, keyframes, config));
+      const value = next.result;
+      h.runPending(next.pendingEffects);
+      if (value < minValue) minValue = value;
+      if (value > maxValue) maxValue = value;
+      return maxValue - minValue > 4;
+    });
+
+    assert.ok(minValue >= -0.1);
+    assert.ok(maxValue <= 10.1);
+    assert.equal(h.unmount(), true);
+  });
+
+  test("changing keyframes rebinds sequence progression", async () => {
+    const h = createHarness();
+    const config = { duration: 70, easing: "linear" as const };
+
+    let keyframes: readonly number[] = [0, 10];
+    let render = h.render((hooks) => useSequence(hooks, keyframes, config));
+    h.runPending(render.pendingEffects);
+
+    await waitFor(() => {
+      const next = h.render((hooks) => useSequence(hooks, keyframes, config));
+      h.runPending(next.pendingEffects);
+      return next.result > 1;
+    });
+
+    keyframes = [100, 120];
+    render = h.render((hooks) => useSequence(hooks, keyframes, config));
+    h.runPending(render.pendingEffects);
+
+    let reboundValue = 0;
+    await waitFor(() => {
+      const next = h.render((hooks) => useSequence(hooks, keyframes, config));
+      reboundValue = next.result;
+      h.runPending(next.pendingEffects);
+      return reboundValue > 100;
+    });
+    assert.ok(reboundValue > 100);
     assert.equal(h.unmount(), true);
   });
 });
@@ -201,6 +434,67 @@ describe("composition animation hooks - useStagger", () => {
       return completed.every((value) => Math.abs(value - 1) <= 0.01);
     });
     assert.ok(completed.every((value) => Math.abs(value - 1) <= 0.01));
+    assert.equal(h.unmount(), true);
+  });
+
+  test("empty item lists resolve to empty progress arrays", () => {
+    const h = createHarness();
+
+    let render = h.render((hooks) => useStagger(hooks, [], { delay: 20, duration: 50 }));
+    assert.deepEqual(render.result, []);
+    h.runPending(render.pendingEffects);
+
+    render = h.render((hooks) => useStagger(hooks, [], { delay: 20, duration: 50 }));
+    assert.deepEqual(render.result, []);
+    assert.equal(h.unmount(), true);
+  });
+
+  test("item count changes update progress vector shape", async () => {
+    const h = createHarness();
+    const config = { delay: 25, duration: 70, easing: "linear" as const };
+
+    let items: readonly string[] = ["a", "b"];
+    let render = h.render((hooks) => useStagger(hooks, items, config));
+    assert.equal(render.result.length, 2);
+    h.runPending(render.pendingEffects);
+
+    await waitFor(() => {
+      const next = h.render((hooks) => useStagger(hooks, items, config));
+      h.runPending(next.pendingEffects);
+      return (next.result[0] ?? 0) > (next.result[1] ?? 0);
+    });
+
+    items = ["a", "b", "c", "d"];
+    render = h.render((hooks) => useStagger(hooks, items, config));
+    h.runPending(render.pendingEffects);
+
+    let latest: readonly number[] = [];
+    await waitFor(() => {
+      const next = h.render((hooks) => useStagger(hooks, items, config));
+      latest = next.result;
+      h.runPending(next.pendingEffects);
+      return latest.length === 4 && (latest[0] ?? 0) > (latest[3] ?? 0);
+    });
+    assert.equal(latest.length, 4);
+    assert.equal(h.unmount(), true);
+  });
+
+  test("zero duration eventually completes all items", async () => {
+    const h = createHarness();
+    const items = ["x", "y", "z"];
+    const config = { delay: 0, duration: 0, easing: "linear" as const };
+
+    let render = h.render((hooks) => useStagger(hooks, items, config));
+    h.runPending(render.pendingEffects);
+
+    let latest: readonly number[] = [];
+    await waitFor(() => {
+      const next = h.render((hooks) => useStagger(hooks, items, config));
+      latest = next.result;
+      h.runPending(next.pendingEffects);
+      return latest.every((value) => value === 1);
+    });
+    assert.deepEqual(latest, [1, 1, 1]);
     assert.equal(h.unmount(), true);
   });
 });
