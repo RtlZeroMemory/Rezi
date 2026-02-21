@@ -23,7 +23,7 @@
  */
 
 import type { CursorShape } from "../abi.js";
-import type { RuntimeBackend } from "../backend.js";
+import { BACKEND_RAW_WRITE_MARKER, type BackendRawWrite, type RuntimeBackend } from "../backend.js";
 import { CURSOR_DEFAULTS } from "../cursor/index.js";
 import {
   type DrawlistBuilderV1,
@@ -76,8 +76,11 @@ import {
   finalizeFocusWithPreCollectedMetadata,
 } from "../runtime/focus.js";
 import {
+  type InputEditorSnapshot,
   type InputSelection,
+  InputUndoStack,
   applyInputEditEvent,
+  getInputSelectionText,
   normalizeInputCursor,
   normalizeInputSelection,
 } from "../runtime/inputEditor.js";
@@ -115,7 +118,7 @@ import {
 } from "../runtime/widgetMeta.js";
 import { DEFAULT_TERMINAL_PROFILE, type TerminalProfile } from "../terminalProfile.js";
 import type { Theme } from "../theme/theme.js";
-import { deleteRange, insertText } from "../widgets/codeEditor.js";
+import { deleteRange, getSelectedText, insertText } from "../widgets/codeEditor.js";
 import { getHunkScrollPosition, navigateHunk } from "../widgets/diffViewer.js";
 import { applyFilters } from "../widgets/logsConsole.js";
 import { adjustSliderValue, normalizeSliderState } from "../widgets/slider.js";
@@ -194,6 +197,38 @@ export type WidgetRendererHooks = Readonly<{
 }>;
 
 const UTF8_DECODER = new TextDecoder();
+const UTF8_ENCODER = new TextEncoder();
+const BASE64_TABLE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+function encodeBase64(bytes: Uint8Array): string {
+  if (bytes.length === 0) return "";
+  let out = "";
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i] ?? 0;
+    const b = bytes[i + 1] ?? 0;
+    const c = bytes[i + 2] ?? 0;
+    const triple = (a << 16) | (b << 8) | c;
+    out += BASE64_TABLE[(triple >> 18) & 0x3f] ?? "";
+    out += BASE64_TABLE[(triple >> 12) & 0x3f] ?? "";
+    out += i + 1 < bytes.length ? (BASE64_TABLE[(triple >> 6) & 0x3f] ?? "") : "=";
+    out += i + 2 < bytes.length ? (BASE64_TABLE[triple & 0x3f] ?? "") : "=";
+  }
+  return out;
+}
+
+function buildOsc52ClipboardSequence(text: string): string {
+  if (text.length === 0) return "";
+  const encoded = encodeBase64(UTF8_ENCODER.encode(text));
+  if (encoded.length === 0) return "";
+  return `\u001b]52;c;${encoded}\u0007`;
+}
+
+function getBackendRawWriter(backend: RuntimeBackend): BackendRawWrite | null {
+  const marker = (
+    backend as RuntimeBackend & Readonly<Partial<Record<typeof BACKEND_RAW_WRITE_MARKER, unknown>>>
+  )[BACKEND_RAW_WRITE_MARKER];
+  return typeof marker === "function" ? (marker as BackendRawWrite) : null;
+}
 
 /** Terminal viewport dimensions in columns and rows. */
 export type Viewport = Readonly<{ cols: number; rows: number }>;
@@ -366,6 +401,97 @@ function cloneFocusManagerState(state: FocusManagerState): FocusManagerState {
   });
 }
 
+function wrapInputLineForCursor(line: string, width: number): readonly string[] {
+  if (width <= 0) return Object.freeze([""]);
+  if (line.length === 0) return Object.freeze([""]);
+
+  const out: string[] = [];
+  const cps = Array.from(line);
+  let chunk = "";
+  let chunkWidth = 0;
+  for (const cp of cps) {
+    const cpWidth = Math.max(0, measureTextCells(cp));
+    if (chunk.length > 0 && chunkWidth + cpWidth > width) {
+      out.push(chunk);
+      chunk = cp;
+      chunkWidth = cpWidth;
+      continue;
+    }
+    chunk += cp;
+    chunkWidth += cpWidth;
+  }
+  if (chunk.length > 0) out.push(chunk);
+  return Object.freeze(out.length > 0 ? out : [""]);
+}
+
+function resolveInputMultilineCursor(
+  value: string,
+  cursorOffset: number,
+  contentWidth: number,
+  wordWrap: boolean,
+): Readonly<{ visualLine: number; visualX: number; totalVisualLines: number }> {
+  const width = Math.max(1, contentWidth);
+  const lineStarts: number[] = [];
+  const lineEnds: number[] = [];
+  const lines: string[] = [];
+  let lineStart = 0;
+  for (let i = 0; i < value.length; i++) {
+    if (value.charCodeAt(i) === 0x0a) {
+      lineStarts.push(lineStart);
+      lineEnds.push(i);
+      lines.push(value.slice(lineStart, i));
+      lineStart = i + 1;
+    }
+  }
+  lineStarts.push(lineStart);
+  lineEnds.push(value.length);
+  lines.push(value.slice(lineStart));
+
+  let lineIndex = Math.max(0, lines.length - 1);
+  for (let i = 0; i < lineEnds.length; i++) {
+    const end = lineEnds[i] ?? 0;
+    if (cursorOffset <= end) {
+      lineIndex = i;
+      break;
+    }
+  }
+
+  let visualLine = 0;
+  for (let i = 0; i < lineIndex; i++) {
+    const line = lines[i] ?? "";
+    visualLine += wordWrap ? wrapInputLineForCursor(line, width).length : 1;
+  }
+
+  const currentLine = lines[lineIndex] ?? "";
+  const currentStart = lineStarts[lineIndex] ?? 0;
+  const currentEnd = lineEnds[lineIndex] ?? value.length;
+  const col = Math.max(
+    0,
+    Math.min(Math.max(0, currentEnd - currentStart), cursorOffset - currentStart),
+  );
+
+  if (!wordWrap) {
+    let totalVisualLines = 0;
+    for (const line of lines) totalVisualLines += 1;
+    return Object.freeze({
+      visualLine,
+      visualX: measureTextCells(currentLine.slice(0, col)),
+      totalVisualLines,
+    });
+  }
+
+  const wrappedPrefix = wrapInputLineForCursor(currentLine.slice(0, col), width);
+  const localWrappedLine = Math.max(0, wrappedPrefix.length - 1);
+  const visualX = measureTextCells(wrappedPrefix[localWrappedLine] ?? "");
+  let totalVisualLines = 0;
+  for (const line of lines) totalVisualLines += wrapInputLineForCursor(line, width).length;
+  return Object.freeze({
+    visualLine: visualLine + localWrappedLine,
+    visualX,
+    totalVisualLines,
+  });
+}
+
 type WidgetKind = RuntimeInstance["vnode"]["kind"];
 type IdentityDiffDamageResult = Readonly<{
   changedInstanceIds: readonly InstanceId[];
@@ -520,6 +646,7 @@ export class WidgetRenderer<S> {
   private readonly inputCursorByInstanceId = new Map<InstanceId, number>();
   private readonly inputSelectionByInstanceId = new Map<InstanceId, InputSelection>();
   private readonly inputWorkingValueByInstanceId = new Map<InstanceId, string>();
+  private readonly inputUndoByInstanceId = new Map<InstanceId, InputUndoStack>();
 
   /* --- Complex Widget Local State --- */
   private readonly virtualListStore = createVirtualListStateStore();
@@ -959,6 +1086,60 @@ export class WidgetRenderer<S> {
     // Modal layers should receive Escape (even if closeOnEscape=false, the
     // focused widget inside the modal may handle Escape, e.g. CommandPalette).
     return this.layerRegistry.getTopmostModal() !== undefined;
+  }
+
+  private writeSelectedTextToClipboard(text: string): void {
+    if (text.length === 0) return;
+    const writeRaw = getBackendRawWriter(this.backend);
+    if (!writeRaw) return;
+    const seq = buildOsc52ClipboardSequence(text);
+    if (seq.length === 0) return;
+    try {
+      writeRaw(seq);
+    } catch {
+      // Clipboard writes are best-effort and must not break event routing.
+    }
+  }
+
+  private readInputSnapshot(meta: InputMeta): InputEditorSnapshot {
+    const value = this.inputWorkingValueByInstanceId.get(meta.instanceId) ?? meta.value;
+    const cursor = normalizeInputCursor(
+      value,
+      this.inputCursorByInstanceId.get(meta.instanceId) ?? value.length,
+    );
+    const selection = this.inputSelectionByInstanceId.get(meta.instanceId);
+    const normalizedSelection = normalizeInputSelection(
+      value,
+      selection?.start ?? null,
+      selection?.end ?? null,
+    );
+    return Object.freeze({
+      value,
+      cursor,
+      selectionStart: normalizedSelection?.start ?? null,
+      selectionEnd: normalizedSelection?.end ?? null,
+    });
+  }
+
+  private applyInputSnapshot(instanceId: InstanceId, snap: InputEditorSnapshot): void {
+    this.inputWorkingValueByInstanceId.set(instanceId, snap.value);
+    this.inputCursorByInstanceId.set(instanceId, snap.cursor);
+    if (snap.selectionStart === null || snap.selectionEnd === null) {
+      this.inputSelectionByInstanceId.delete(instanceId);
+      return;
+    }
+    this.inputSelectionByInstanceId.set(
+      instanceId,
+      Object.freeze({ start: snap.selectionStart, end: snap.selectionEnd }),
+    );
+  }
+
+  private getInputUndoStack(instanceId: InstanceId): InputUndoStack {
+    const existing = this.inputUndoByInstanceId.get(instanceId);
+    if (existing) return existing;
+    const stack = new InputUndoStack();
+    this.inputUndoByInstanceId.set(instanceId, stack);
+    return stack;
   }
 
   /**
@@ -1460,6 +1641,28 @@ export class WidgetRenderer<S> {
       // Code editor routing (GitHub issue #136)
       const editor = this.codeEditorById.get(focusedId);
       if (editor) {
+        const isCtrl = (event.mods & ZR_MOD_CTRL) !== 0;
+        const isCopy = event.key === 67;
+        const isCut = event.key === 88;
+        const selection = editor.selection;
+        const hasSelection =
+          selection !== null &&
+          (selection.anchor.line !== selection.active.line ||
+            selection.anchor.column !== selection.active.column);
+        if (isCtrl && hasSelection && (isCopy || isCut)) {
+          const selected = selection ? getSelectedText(editor.lines, selection) : "";
+          if (selected.length > 0) this.writeSelectedTextToClipboard(selected);
+
+          if (isCut && editor.readOnly !== true) {
+            const cut = selection ? deleteRange(editor.lines, selection) : null;
+            if (!cut) return ROUTE_NO_RENDER;
+            editor.onSelectionChange(null);
+            editor.onChange(cut.lines, cut.cursor);
+            return ROUTE_RENDER;
+          }
+          return ROUTE_NO_RENDER;
+        }
+
         const rect = this.rectById.get(editor.id) ?? null;
         const r = routeCodeEditorKeyDown(event, editor, rect);
         if (r) return r;
@@ -2550,34 +2753,98 @@ export class WidgetRenderer<S> {
         const meta = this.inputById.get(focusedId);
         if (meta) {
           const instanceId = meta.instanceId;
-          const value = this.inputWorkingValueByInstanceId.get(instanceId) ?? meta.value;
-          const cursor = this.inputCursorByInstanceId.get(instanceId) ?? value.length;
-          const selection = this.inputSelectionByInstanceId.get(instanceId);
+          const current = this.readInputSnapshot(meta);
+          const history = this.getInputUndoStack(instanceId);
+
+          if (
+            event.kind === "key" &&
+            (event.action === "down" || event.action === "repeat") &&
+            (event.mods & ZR_MOD_CTRL) !== 0
+          ) {
+            const isShift = (event.mods & ZR_MOD_SHIFT) !== 0;
+
+            if (event.key === 67 /* C */ || event.key === 88 /* X */) {
+              const selected = getInputSelectionText(
+                current.value,
+                current.selectionStart,
+                current.selectionEnd,
+              );
+              if (selected && selected.length > 0) {
+                this.writeSelectedTextToClipboard(selected);
+                if (event.key === 88 /* X */) {
+                  const selection = normalizeInputSelection(
+                    current.value,
+                    current.selectionStart,
+                    current.selectionEnd,
+                  );
+                  if (selection) {
+                    const start = Math.min(selection.start, selection.end);
+                    const end = Math.max(selection.start, selection.end);
+                    const nextValue = current.value.slice(0, start) + current.value.slice(end);
+                    const nextCursor = normalizeInputCursor(nextValue, start);
+                    const next: InputEditorSnapshot = Object.freeze({
+                      value: nextValue,
+                      cursor: nextCursor,
+                      selectionStart: null,
+                      selectionEnd: null,
+                    });
+                    this.applyInputSnapshot(instanceId, next);
+                    history.push(current, next, event.timeMs, false);
+
+                    if (meta.onInput) meta.onInput(next.value, next.cursor);
+                    const action: RoutedAction = Object.freeze({
+                      id: focusedId,
+                      action: "input",
+                      value: next.value,
+                      cursor: next.cursor,
+                    });
+                    return Object.freeze({ needsRender: true, action });
+                  }
+                }
+                return ROUTE_NO_RENDER;
+              }
+            }
+
+            if (event.key === 90 /* Z */ || event.key === 89 /* Y */) {
+              const snap =
+                event.key === 89 || isShift ? history.redoSnapshot() : history.undoSnapshot();
+              if (snap) {
+                this.applyInputSnapshot(instanceId, snap);
+                if (meta.onInput) meta.onInput(snap.value, snap.cursor);
+                const action: RoutedAction = Object.freeze({
+                  id: focusedId,
+                  action: "input",
+                  value: snap.value,
+                  cursor: snap.cursor,
+                });
+                return Object.freeze({ needsRender: true, action });
+              }
+              return ROUTE_NO_RENDER;
+            }
+          }
+
           const edit = applyInputEditEvent(event, {
             id: focusedId,
-            value,
-            cursor,
-            selectionStart: selection?.start ?? null,
-            selectionEnd: selection?.end ?? null,
+            value: current.value,
+            cursor: current.cursor,
+            selectionStart: current.selectionStart,
+            selectionEnd: current.selectionEnd,
+            multiline: meta.multiline,
           });
           if (edit) {
-            this.inputWorkingValueByInstanceId.set(instanceId, edit.nextValue);
-            this.inputCursorByInstanceId.set(instanceId, edit.nextCursor);
-            if (edit.nextSelectionStart === null || edit.nextSelectionEnd === null) {
-              this.inputSelectionByInstanceId.delete(instanceId);
-            } else {
-              this.inputSelectionByInstanceId.set(
-                instanceId,
-                Object.freeze({
-                  start: edit.nextSelectionStart,
-                  end: edit.nextSelectionEnd,
-                }),
-              );
-            }
+            const next: InputEditorSnapshot = Object.freeze({
+              value: edit.nextValue,
+              cursor: edit.nextCursor,
+              selectionStart: edit.nextSelectionStart,
+              selectionEnd: edit.nextSelectionEnd,
+            });
+            this.applyInputSnapshot(instanceId, next);
             if (edit.action) {
+              history.push(current, next, event.timeMs, event.kind === "text");
               if (meta.onInput) meta.onInput(edit.action.value, edit.action.cursor);
-              return Object.freeze({ needsRender, action: edit.action });
+              return Object.freeze({ needsRender: true, action: edit.action });
             }
+            return ROUTE_RENDER;
           }
         }
       }
@@ -2903,14 +3170,32 @@ export class WidgetRenderer<S> {
 
       const graphemeOffset =
         this.inputCursorByInstanceId.get(input.instanceId) ?? input.value.length;
-      const cursorX = Math.max(
-        0,
-        Math.min(Math.max(0, rect.w - 2), measureTextCells(input.value.slice(0, graphemeOffset))),
-      );
+      let cursorX = 0;
+      let cursorY = rect.y;
+      if (input.multiline) {
+        const contentW = Math.max(1, rect.w - 2);
+        const resolved = resolveInputMultilineCursor(
+          input.value,
+          graphemeOffset,
+          contentW,
+          input.wordWrap,
+        );
+        const maxStartVisual = Math.max(0, resolved.totalVisualLines - rect.h);
+        const startVisual = Math.max(0, Math.min(maxStartVisual, resolved.visualLine - rect.h + 1));
+        const localY = resolved.visualLine - startVisual;
+        if (localY < 0 || localY >= rect.h) return hidden;
+        cursorX = Math.max(0, Math.min(Math.max(0, rect.w - 2), resolved.visualX));
+        cursorY = rect.y + localY;
+      } else {
+        cursorX = Math.max(
+          0,
+          Math.min(Math.max(0, rect.w - 2), measureTextCells(input.value.slice(0, graphemeOffset))),
+        );
+      }
       return Object.freeze({
         visible: true,
         x: rect.x + 1 + cursorX,
-        y: rect.y,
+        y: cursorY,
         shape: cursorInfo.shape,
         blink: cursorInfo.blink,
       });
@@ -2982,13 +3267,34 @@ export class WidgetRenderer<S> {
     }
 
     const graphemeOffset = this.inputCursorByInstanceId.get(input.instanceId) ?? input.value.length;
-    const cursorX = Math.max(
-      0,
-      Math.min(Math.max(0, rect.w - 2), measureTextCells(input.value.slice(0, graphemeOffset))),
-    );
+    let cursorX = 0;
+    let cursorY = rect.y;
+    if (input.multiline) {
+      const contentW = Math.max(1, rect.w - 2);
+      const resolved = resolveInputMultilineCursor(
+        input.value,
+        graphemeOffset,
+        contentW,
+        input.wordWrap,
+      );
+      const maxStartVisual = Math.max(0, resolved.totalVisualLines - rect.h);
+      const startVisual = Math.max(0, Math.min(maxStartVisual, resolved.visualLine - rect.h + 1));
+      const localY = resolved.visualLine - startVisual;
+      if (localY < 0 || localY >= rect.h) {
+        this.builder.hideCursor();
+        return this.collectRuntimeBreadcrumbs ? this.resolveRuntimeCursorSummary(cursorInfo) : null;
+      }
+      cursorX = Math.max(0, Math.min(Math.max(0, rect.w - 2), resolved.visualX));
+      cursorY = rect.y + localY;
+    } else {
+      cursorX = Math.max(
+        0,
+        Math.min(Math.max(0, rect.w - 2), measureTextCells(input.value.slice(0, graphemeOffset))),
+      );
+    }
     this.builder.setCursor({
       x: rect.x + 1 + cursorX,
-      y: rect.y,
+      y: cursorY,
       shape: cursorInfo.shape,
       visible: true,
       blink: cursorInfo.blink,
@@ -3326,6 +3632,7 @@ export class WidgetRenderer<S> {
           this.inputCursorByInstanceId.delete(unmountedId);
           this.inputSelectionByInstanceId.delete(unmountedId);
           this.inputWorkingValueByInstanceId.delete(unmountedId);
+          this.inputUndoByInstanceId.delete(unmountedId);
           // Composite instances: invalidate stale closures and run effect cleanups.
           this.compositeRegistry.incrementGeneration(unmountedId);
           this.compositeRegistry.delete(unmountedId);
@@ -4046,9 +4353,14 @@ export class WidgetRenderer<S> {
       }
 
       if (doCommit) {
-        // Reset per-commit working values to the committed props.value, and normalize cursor (docs/18).
+        // Reset per-commit working values to committed props.value, and normalize cursor (docs/18).
+        // If the controlled value diverged from local working state, clear undo/redo to avoid stale history.
         for (const meta of this.inputById.values()) {
           const instanceId = meta.instanceId;
+          const prevWorkingValue = this.inputWorkingValueByInstanceId.get(instanceId);
+          if (prevWorkingValue !== undefined && prevWorkingValue !== meta.value) {
+            this.inputUndoByInstanceId.get(instanceId)?.clear();
+          }
           this.inputWorkingValueByInstanceId.set(instanceId, meta.value);
           const prev = this.inputCursorByInstanceId.get(instanceId);
           const init = prev === undefined ? meta.value.length : prev;

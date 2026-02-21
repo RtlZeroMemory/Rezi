@@ -15,6 +15,8 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - Page router route guards (`guard`) and nested route trees (`children`) with `context.outlet` rendering
 - Composition utility hooks: `useDebounce`, `useAsync`, `usePrevious`
 - `useForm` ergonomic helpers: `form.bind(field)` for spread-ready input props and `form.field(field, options)` for fully wired field+input rendering
+- `ui.textarea(...)` multi-line text input widget with wrapping and line-aware editing
+- OSC 52 clipboard copy/cut for Input/CodeEditor selections (`Ctrl+C`, `Ctrl+X`)
 - Keybinding metadata/introspection: optional `description` in binding definitions, `app.getBindings(mode?)`, `app.pendingChord`, and `ui.keybindingHelp(...)` for auto-generated shortcut overlays
 
 ### Changed
@@ -22,6 +24,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - Documentation expanded with 90+ pages covering all features
 - README updated with performance data, JSX support, Zireael engine reference
 - ROADMAP updated to reflect current project state
+- Input widgets now include local undo/redo history (`Ctrl+Z`, `Ctrl+Shift+Z`, `Ctrl+Y`) with 300ms typing-grouping
 
 ### Fixed
 

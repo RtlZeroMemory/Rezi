@@ -50,6 +50,11 @@ ui.codeEditor({
 - **Mouse scroll wheel** scrolls the editor vertically and horizontally, firing the `onScroll` callback.
 - **Clicking** the editor area focuses the widget.
 
+## Keyboard Clipboard
+
+- **Ctrl+C** copies the active selection to system clipboard via OSC 52.
+- **Ctrl+X** cuts the active selection (when `readOnly !== true`) and writes it to system clipboard via OSC 52.
+
 ## Notes
 
 - `lines` is the source of truth; update it in `onChange` to keep the editor controlled.

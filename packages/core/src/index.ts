@@ -91,7 +91,9 @@ export {
   BACKEND_DRAWLIST_V2_MARKER,
   BACKEND_FPS_CAP_MARKER,
   BACKEND_MAX_EVENT_BYTES_MARKER,
+  BACKEND_RAW_WRITE_MARKER,
   FRAME_ACCEPTED_ACK_MARKER,
+  type BackendRawWrite,
   type BackendEventBatch,
   type RuntimeBackend,
 } from "./backend.js";
@@ -209,6 +211,7 @@ export type {
   ImageProps,
   ImageProtocol,
   InputProps,
+  TextareaProps,
   ItemHeightSpec,
   JustifyContent,
   KbdProps,

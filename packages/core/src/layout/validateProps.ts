@@ -102,7 +102,14 @@ export type ValidatedBoxProps = Readonly<
 >;
 export type ValidatedSpacerProps = Readonly<{ size: number; flex: number }>;
 export type ValidatedButtonProps = Readonly<{ id: string; label: string; disabled: boolean }>;
-export type ValidatedInputProps = Readonly<{ id: string; value: string; disabled: boolean }>;
+export type ValidatedInputProps = Readonly<{
+  id: string;
+  value: string;
+  disabled: boolean;
+  multiline: boolean;
+  rows: number;
+  wordWrap: boolean;
+}>;
 export type ValidatedSelectOption = Readonly<{ value: string; label: string; disabled: boolean }>;
 export type ValidatedSelectProps = Readonly<{
   id: string;
@@ -711,16 +718,40 @@ export function validateButtonProps(
 
 /** Validate Input props: id (required, non-empty), value (required), disabled (default false). */
 export function validateInputProps(props: InputProps | unknown): LayoutResult<ValidatedInputProps> {
-  const p = (props ?? {}) as { id?: unknown; value?: unknown; disabled?: unknown };
+  const p = (props ?? {}) as {
+    id?: unknown;
+    value?: unknown;
+    disabled?: unknown;
+    multiline?: unknown;
+    rows?: unknown;
+    wordWrap?: unknown;
+  };
   const idRes = requireNonEmptyString("input", "id", p.id);
   if (!idRes.ok) return idRes;
   const valueRes = requireString("input", "value", p.value);
   if (!valueRes.ok) return valueRes;
   const disabledRes = requireBoolean("input", "disabled", p.disabled, false);
   if (!disabledRes.ok) return disabledRes;
+  const multilineRes = requireBoolean("input", "multiline", p.multiline, false);
+  if (!multilineRes.ok) return multilineRes;
+  const rowsRes = requireOptionalIntNonNegative("input", "rows", p.rows);
+  if (!rowsRes.ok) return rowsRes;
+  const wordWrapRes = requireBoolean("input", "wordWrap", p.wordWrap, true);
+  if (!wordWrapRes.ok) return wordWrapRes;
+
+  const multiline = multilineRes.value;
+  const rows = multiline ? Math.max(1, rowsRes.value ?? 3) : 1;
+  const wordWrap = multiline ? wordWrapRes.value : false;
   return {
     ok: true,
-    value: { id: idRes.value, value: valueRes.value, disabled: disabledRes.value },
+    value: {
+      id: idRes.value,
+      value: valueRes.value,
+      disabled: disabledRes.value,
+      multiline,
+      rows,
+      wordWrap,
+    },
   };
 }
 

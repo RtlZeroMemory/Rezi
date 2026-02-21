@@ -241,6 +241,22 @@ describe("ui helper functions", () => {
     assert.deepEqual(full.props, { id: "path", value: "/tmp", style: { italic: true } });
   });
 
+  test("ui.textarea creates multiline input vnode", () => {
+    const vnode = ui.textarea({
+      id: "notes",
+      value: "line1\nline2",
+      rows: 5,
+    });
+    assert.equal(vnode.kind, "input");
+    assert.deepEqual(vnode.props, {
+      id: "notes",
+      value: "line1\nline2",
+      rows: 5,
+      multiline: true,
+      wordWrap: true,
+    });
+  });
+
   test("ui.field creates field VNode", () => {
     const child = ui.text("input");
     const vnode = ui.field({

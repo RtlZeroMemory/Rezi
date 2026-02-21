@@ -1,5 +1,9 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import type { RuntimeBackend } from "../../backend.js";
+import {
+  BACKEND_RAW_WRITE_MARKER,
+  type BackendRawWrite,
+  type RuntimeBackend,
+} from "../../backend.js";
 import type { ZrevEvent } from "../../events.js";
 import { type VNode, defineWidget, ui } from "../../index.js";
 import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
@@ -14,8 +18,12 @@ function noRenderHooks(): { enterRender: () => void; exitRender: () => void } {
   return { enterRender: () => {}, exitRender: () => {} };
 }
 
-function keyEvent(key: number, mods = 0): ZrevEvent {
-  return { kind: "key", timeMs: 0, key, mods, action: "down" };
+function keyEvent(key: number, mods = 0, timeMs = 0): ZrevEvent {
+  return { kind: "key", timeMs, key, mods, action: "down" };
+}
+
+function textEvent(codepoint: number, timeMs = 0): ZrevEvent {
+  return { kind: "text", timeMs, codepoint };
 }
 
 function mouseEvent(
@@ -54,6 +62,18 @@ function createNoopBackend(): RuntimeBackend {
     postUserEvent: () => {},
     getCaps: async () => DEFAULT_TERMINAL_CAPS,
   };
+}
+
+function createNoopBackendWithRawWrite(writeRaw: (text: string) => void): RuntimeBackend {
+  const backend = createNoopBackend() as RuntimeBackend &
+    Record<typeof BACKEND_RAW_WRITE_MARKER, BackendRawWrite>;
+  Object.defineProperty(backend, BACKEND_RAW_WRITE_MARKER, {
+    value: writeRaw as BackendRawWrite,
+    writable: false,
+    enumerable: false,
+    configurable: false,
+  });
+  return backend;
 }
 
 describe("WidgetRenderer integration (composition/hooks)", () => {
@@ -160,6 +180,239 @@ describe("WidgetRenderer integration (composition/hooks)", () => {
 });
 
 describe("WidgetRenderer integration battery", () => {
+  test("input copy/cut emits OSC52 and cut updates value", () => {
+    const writes: string[] = [];
+    const backend = createNoopBackendWithRawWrite((text) => writes.push(text));
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const inputs: Array<readonly [string, number]> = [];
+    const vnode = ui.input({
+      id: "inp",
+      value: "hello world",
+      onInput: (value, cursor) => inputs.push([value, cursor]),
+    });
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 40, rows: 5 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    renderer.routeEngineEvent(keyEvent(22 /* LEFT */, (1 << 0) | (1 << 1))); // Shift+Ctrl+Left
+
+    renderer.routeEngineEvent(keyEvent(67 /* C */, 1 << 1)); // Ctrl+C
+    assert.equal(writes.length, 1);
+    assert.equal(writes[0]?.includes("d29ybGQ="), true);
+
+    const cut = renderer.routeEngineEvent(keyEvent(88 /* X */, 1 << 1)); // Ctrl+X
+    assert.equal(writes.length, 2);
+    assert.equal(writes[1]?.includes("d29ybGQ="), true);
+    assert.deepEqual(cut.action, {
+      id: "inp",
+      action: "input",
+      value: "hello ",
+      cursor: 6,
+    });
+    assert.deepEqual(inputs, [["hello ", 6]]);
+  });
+
+  test("input undo/redo groups rapid typing", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const values: string[] = [];
+    const vnode = ui.input({
+      id: "inp",
+      value: "",
+      onInput: (value) => values.push(value),
+    });
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 40, rows: 5 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    renderer.routeEngineEvent(textEvent(97, 100));
+    renderer.routeEngineEvent(textEvent(98, 200));
+    renderer.routeEngineEvent(textEvent(99, 300));
+
+    const undo = renderer.routeEngineEvent(keyEvent(90 /* Z */, 1 << 1, 700));
+    assert.deepEqual(undo.action, {
+      id: "inp",
+      action: "input",
+      value: "",
+      cursor: 0,
+    });
+
+    const redo = renderer.routeEngineEvent(keyEvent(89 /* Y */, 1 << 1, 800));
+    assert.deepEqual(redo.action, {
+      id: "inp",
+      action: "input",
+      value: "abc",
+      cursor: 3,
+    });
+
+    assert.deepEqual(values, ["a", "ab", "abc", "", "abc"]);
+  });
+
+  test("input undo/redo clears stale history after external controlled value change", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    let value = "";
+    const values: string[] = [];
+    const view = () =>
+      ui.input({
+        id: "inp",
+        value,
+        onInput: (nextValue) => {
+          value = nextValue;
+          values.push(nextValue);
+        },
+      });
+
+    let res = renderer.submitFrame(
+      () => view(),
+      undefined,
+      { cols: 40, rows: 5 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    renderer.routeEngineEvent(textEvent(97, 100));
+    renderer.routeEngineEvent(textEvent(98, 200));
+    renderer.routeEngineEvent(textEvent(99, 300));
+    assert.equal(value, "abc");
+
+    value = "server-loaded";
+    res = renderer.submitFrame(
+      () => view(),
+      undefined,
+      { cols: 40, rows: 5 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    const valuesBeforeUndo = values.length;
+    const undo = renderer.routeEngineEvent(keyEvent(90 /* Z */, 1 << 1, 900));
+    assert.equal(undo.action, undefined);
+    assert.equal(value, "server-loaded");
+    assert.equal(values.length, valuesBeforeUndo);
+  });
+
+  test("codeEditor copy/cut emits OSC52 and cut edits selection", () => {
+    const writes: string[] = [];
+    const backend = createNoopBackendWithRawWrite((text) => writes.push(text));
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    let lines: readonly string[] = Object.freeze(["hello world"]);
+    let cursor: { line: number; column: number } = Object.freeze({ line: 0, column: 11 });
+    let selection: {
+      anchor: { line: number; column: number };
+      active: { line: number; column: number };
+    } | null = Object.freeze({
+      anchor: Object.freeze({ line: 0, column: 6 }),
+      active: Object.freeze({ line: 0, column: 11 }),
+    });
+
+    const view = () =>
+      ui.codeEditor({
+        id: "ed",
+        lines,
+        cursor,
+        selection,
+        scrollTop: 0,
+        scrollLeft: 0,
+        onChange: (nextLines, nextCursor) => {
+          lines = nextLines;
+          cursor = nextCursor;
+        },
+        onSelectionChange: (nextSelection) => {
+          selection = nextSelection;
+        },
+        onScroll: () => {},
+      });
+
+    const res = renderer.submitFrame(
+      () => view(),
+      undefined,
+      { cols: 40, rows: 8 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    renderer.routeEngineEvent(keyEvent(67 /* C */, 1 << 1)); // Ctrl+C
+    assert.equal(writes.length, 1);
+    assert.equal(writes[0]?.includes("d29ybGQ="), true);
+
+    renderer.routeEngineEvent(keyEvent(88 /* X */, 1 << 1)); // Ctrl+X
+    assert.equal(writes.length, 2);
+    assert.deepEqual(lines, ["hello "]);
+    assert.deepEqual(cursor, { line: 0, column: 6 });
+    assert.equal(selection, null);
+  });
+
+  test("textarea routes multiline editing through input pipeline", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const values: string[] = [];
+    const vnode = ui.textarea({
+      id: "ta",
+      value: "ab",
+      rows: 4,
+      onInput: (value) => values.push(value),
+    });
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 40, rows: 8 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    const enter = renderer.routeEngineEvent(keyEvent(2 /* ENTER */));
+    assert.deepEqual(enter.action, {
+      id: "ta",
+      action: "input",
+      value: "ab\n",
+      cursor: 3,
+    });
+    assert.deepEqual(values, ["ab\n"]);
+  });
+
   test("focusTrap wraps TAB within active trap", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({

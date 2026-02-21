@@ -2,7 +2,7 @@
 
 import { ui } from "@rezi-ui/core";
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { Button, Checkbox, Input, RadioGroup, Select, Slider } from "../index.js";
+import { Button, Checkbox, Input, RadioGroup, Select, Slider, Textarea } from "../index.js";
 
 describe("interactive widgets", () => {
   test("Button and Input map to matching VNodes", () => {
@@ -16,6 +16,11 @@ describe("interactive widgets", () => {
     assert.deepEqual(
       <Input id="name" value="" disabled />,
       ui.input("name", "", { disabled: true }),
+    );
+
+    assert.deepEqual(
+      <Textarea id="notes" value="hi" rows={4} />,
+      ui.textarea({ id: "notes", value: "hi", rows: 4 }),
     );
   });
 

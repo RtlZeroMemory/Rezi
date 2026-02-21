@@ -143,6 +143,7 @@ nav:
       - Inputs:
           - Button: widgets/button.md
           - Input: widgets/input.md
+          - Textarea: widgets/textarea.md
           - Slider: widgets/slider.md
           - Checkbox: widgets/checkbox.md
           - Radio Group: widgets/radio-group.md

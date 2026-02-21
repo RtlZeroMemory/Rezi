@@ -26,8 +26,11 @@ import { GCB, gcbClass, isExtendedPictographic } from "../layout/unicode/props.j
 /* See: docs/protocol/abi.md */
 const ZR_KEY_LEFT = 22;
 const ZR_KEY_RIGHT = 23;
+const ZR_KEY_UP = 20;
+const ZR_KEY_DOWN = 21;
 const ZR_KEY_HOME = 12;
 const ZR_KEY_END = 13;
+const ZR_KEY_ENTER = 2;
 const ZR_KEY_A = 65;
 const ZR_KEY_BACKSPACE = 4;
 const ZR_KEY_DELETE = 11;
@@ -247,6 +250,21 @@ export function normalizeInputSelection(
   return Object.freeze({ start, end });
 }
 
+export function getInputSelectionText(
+  value: string,
+  selectionStart: number | null | undefined,
+  selectionEnd: number | null | undefined,
+): string | null {
+  const selection = normalizeInputSelection(value, selectionStart, selectionEnd);
+  if (!selection) return null;
+  const [start, end] =
+    selection.start <= selection.end
+      ? [selection.start, selection.end]
+      : [selection.end, selection.start];
+  if (start >= end) return null;
+  return value.slice(start, end);
+}
+
 function asUnicodeScalarString(codepoint: number): string {
   if (!Number.isFinite(codepoint)) return "\ufffd";
   const cp = Math.trunc(codepoint);
@@ -273,6 +291,31 @@ function removeCrLf(s: string): string {
   for (let i = firstBreak; i < s.length; i++) {
     const ch = s.charCodeAt(i);
     if (ch === 0x0a || ch === 0x0d) continue;
+    out.push(s[i] ?? "");
+  }
+  return out.join("");
+}
+
+function normalizeLineBreaks(s: string): string {
+  if (s.length === 0) return s;
+  let firstCr = -1;
+  for (let i = 0; i < s.length; i++) {
+    if (s.charCodeAt(i) === 0x0d) {
+      firstCr = i;
+      break;
+    }
+  }
+  if (firstCr < 0) return s;
+
+  const out: string[] = [];
+  for (let i = 0; i < firstCr; i++) out.push(s[i] ?? "");
+  for (let i = firstCr; i < s.length; i++) {
+    const ch = s.charCodeAt(i);
+    if (ch === 0x0d) {
+      out.push("\n");
+      if (i + 1 < s.length && s.charCodeAt(i + 1) === 0x0a) i++;
+      continue;
+    }
     out.push(s[i] ?? "");
   }
   return out.join("");
@@ -358,6 +401,58 @@ function prevWordBoundary(value: string, cursor: number): number {
   return lastCompletedWordRunStart >= 0 ? lastCompletedWordRunStart : 0;
 }
 
+type InputLineRanges = Readonly<{
+  starts: readonly number[];
+  ends: readonly number[];
+}>;
+
+function buildInputLineRanges(value: string): InputLineRanges {
+  const starts: number[] = [];
+  const ends: number[] = [];
+  let lineStart = 0;
+  for (let i = 0; i < value.length; i++) {
+    if (value.charCodeAt(i) === 0x0a) {
+      starts.push(lineStart);
+      ends.push(i);
+      lineStart = i + 1;
+    }
+  }
+  starts.push(lineStart);
+  ends.push(value.length);
+  return Object.freeze({ starts: Object.freeze(starts), ends: Object.freeze(ends) });
+}
+
+function findLineIndexAtCursor(lines: InputLineRanges, cursor: number): number {
+  const c = Math.max(0, cursor);
+  for (let i = 0; i < lines.ends.length; i++) {
+    const end = lines.ends[i] ?? 0;
+    if (c <= end) return i;
+  }
+  return Math.max(0, lines.ends.length - 1);
+}
+
+function moveCursorToLineEdge(value: string, cursor: number, edge: "home" | "end"): number {
+  const lines = buildInputLineRanges(value);
+  const line = findLineIndexAtCursor(lines, cursor);
+  const start = lines.starts[line] ?? 0;
+  const end = lines.ends[line] ?? value.length;
+  return normalizeInputCursor(value, edge === "home" ? start : end);
+}
+
+function moveCursorVertical(value: string, cursor: number, dir: -1 | 1): number {
+  const lines = buildInputLineRanges(value);
+  const line = findLineIndexAtCursor(lines, cursor);
+  const targetLine = Math.max(0, Math.min(lines.starts.length - 1, line + dir));
+  if (targetLine === line) return normalizeInputCursor(value, cursor);
+
+  const lineStart = lines.starts[line] ?? 0;
+  const lineEnd = lines.ends[line] ?? value.length;
+  const targetStart = lines.starts[targetLine] ?? 0;
+  const targetEnd = lines.ends[targetLine] ?? value.length;
+  const column = Math.max(0, Math.min(Math.max(0, lineEnd - lineStart), cursor - lineStart));
+  return normalizeInputCursor(value, targetStart + Math.min(column, targetEnd - targetStart));
+}
+
 function normalizeSelectionRange(selection: InputSelection): readonly [number, number] {
   return selection.start <= selection.end
     ? [selection.start, selection.end]
@@ -389,6 +484,103 @@ export type InputEditResult = Readonly<{
   action?: InputEditAction;
 }>;
 
+export type InputEditorSnapshot = Readonly<{
+  value: string;
+  cursor: number;
+  selectionStart: number | null;
+  selectionEnd: number | null;
+}>;
+
+type InputUndoEntry = Readonly<{
+  before: InputEditorSnapshot;
+  after: InputEditorSnapshot;
+  timestamp: number;
+  groupable: boolean;
+}>;
+
+/** Maximum undo entries for Input/Textarea local history. */
+export const INPUT_UNDO_STACK_CAP = 50;
+/** Edit grouping window for rapid typing (ms). */
+export const INPUT_UNDO_GROUP_WINDOW_MS = 300;
+
+export class InputUndoStack {
+  private readonly undo: InputUndoEntry[] = [];
+  private readonly redo: InputUndoEntry[] = [];
+
+  push(
+    before: InputEditorSnapshot,
+    after: InputEditorSnapshot,
+    timestamp: number,
+    groupable = false,
+  ): void {
+    if (
+      before.value === after.value &&
+      before.cursor === after.cursor &&
+      before.selectionStart === after.selectionStart &&
+      before.selectionEnd === after.selectionEnd
+    ) {
+      return;
+    }
+
+    const t = Number.isFinite(timestamp) ? Math.trunc(timestamp) : 0;
+    const last = this.undo[this.undo.length - 1];
+    if (
+      groupable &&
+      last &&
+      last.groupable &&
+      t - last.timestamp <= INPUT_UNDO_GROUP_WINDOW_MS &&
+      t >= last.timestamp
+    ) {
+      this.undo[this.undo.length - 1] = Object.freeze({
+        before: last.before,
+        after,
+        timestamp: t,
+        groupable: true,
+      });
+      this.redo.length = 0;
+      return;
+    }
+
+    this.undo.push(
+      Object.freeze({
+        before,
+        after,
+        timestamp: t,
+        groupable,
+      }),
+    );
+    if (this.undo.length > INPUT_UNDO_STACK_CAP) this.undo.shift();
+    this.redo.length = 0;
+  }
+
+  undoSnapshot(): InputEditorSnapshot | null {
+    const entry = this.undo.pop();
+    if (!entry) return null;
+    this.redo.push(entry);
+    return entry.before;
+  }
+
+  redoSnapshot(): InputEditorSnapshot | null {
+    const entry = this.redo.pop();
+    if (!entry) return null;
+    this.undo.push(entry);
+    return entry.after;
+  }
+
+  canUndo(): boolean {
+    return this.undo.length > 0;
+  }
+
+  canRedo(): boolean {
+    return this.redo.length > 0;
+  }
+
+  clear(): void {
+    this.undo.length = 0;
+    this.redo.length = 0;
+  }
+}
+
 /**
  * Apply a key/text/paste event to an input widget.
  *
@@ -404,10 +596,12 @@ export function applyInputEditEvent(
     cursor: number;
     selectionStart?: number | null;
     selectionEnd?: number | null;
+    multiline?: boolean;
   }>,
 ): InputEditResult | null {
   const id = ctx.id;
   const value = ctx.value;
+  const multiline = ctx.multiline === true;
   const selection0 = normalizeInputSelection(value, ctx.selectionStart, ctx.selectionEnd);
   const cursorBase = normalizeInputCursor(value, ctx.cursor);
   const cursor0 = cursorBase;
@@ -458,7 +652,9 @@ export function applyInputEditEvent(
       event.key === ZR_KEY_LEFT ||
       event.key === ZR_KEY_RIGHT ||
       event.key === ZR_KEY_HOME ||
-      event.key === ZR_KEY_END
+      event.key === ZR_KEY_END ||
+      event.key === ZR_KEY_UP ||
+      event.key === ZR_KEY_DOWN
     ) {
       if (hasShift) {
         const anchor = selection0 ? resolveSelectionAnchor(selection0, cursor0) : cursor0;
@@ -469,9 +665,15 @@ export function applyInputEditEvent(
         } else if (event.key === ZR_KEY_RIGHT) {
           moved = hasCtrl ? nextWordBoundary(value, active) : nextBoundary(value, active);
         } else if (event.key === ZR_KEY_HOME) {
-          moved = 0;
+          moved = multiline && !hasCtrl ? moveCursorToLineEdge(value, active, "home") : 0;
+        } else if (event.key === ZR_KEY_END) {
+          moved = multiline && !hasCtrl ? moveCursorToLineEdge(value, active, "end") : value.length;
+        } else if (event.key === ZR_KEY_UP) {
+          if (!multiline) return null;
+          moved = moveCursorVertical(value, active, -1);
         } else {
-          moved = value.length;
+          if (!multiline) return null;
+          moved = moveCursorVertical(value, active, 1);
         }
         if (moved === anchor) {
           return Object.freeze({
@@ -491,7 +693,9 @@ export function applyInputEditEvent(
 
       if (selection0) {
         const collapsed =
-          event.key === ZR_KEY_LEFT || event.key === ZR_KEY_HOME ? selectionMin : selectionMax;
+          event.key === ZR_KEY_LEFT || event.key === ZR_KEY_HOME || event.key === ZR_KEY_UP
+            ? selectionMin
+            : selectionMax;
         return Object.freeze({
           nextValue: value,
           nextCursor: collapsed,
@@ -525,7 +729,26 @@ export function applyInputEditEvent(
       if (event.key === ZR_KEY_HOME) {
         return Object.freeze({
           nextValue: value,
-          nextCursor: 0,
+          nextCursor: multiline && !hasCtrl ? moveCursorToLineEdge(value, cursor0, "home") : 0,
+          nextSelectionStart: null,
+          nextSelectionEnd: null,
+        });
+      }
+      if (event.key === ZR_KEY_END) {
+        return Object.freeze({
+          nextValue: value,
+          nextCursor:
+            multiline && !hasCtrl ? moveCursorToLineEdge(value, cursor0, "end") : value.length,
+          nextSelectionStart: null,
+          nextSelectionEnd: null,
+        });
+      }
+      if (event.key === ZR_KEY_UP || event.key === ZR_KEY_DOWN) {
+        if (!multiline) return null;
+        const nextCursor = moveCursorVertical(value, cursor0, event.key === ZR_KEY_UP ? -1 : 1);
+        return Object.freeze({
+          nextValue: value,
+          nextCursor,
           nextSelectionStart: null,
           nextSelectionEnd: null,
         });
@@ -578,14 +801,25 @@ export function applyInputEditEvent(
       return result(nextValue, nextCursor, null, null);
     }
 
-    // ENTER/TAB and all other keys do not edit.
+    if (event.key === ZR_KEY_ENTER && multiline) {
+      const start = selection0 ? selectionMin : cursor0;
+      const end = selection0 ? selectionMax : cursor0;
+      const nextValue = `${value.slice(0, start)}\n${value.slice(end)}`;
+      const nextCursor = normalizeInputCursorForward(nextValue, start + 1);
+      return result(nextValue, nextCursor, null, null);
+    }
+
+    // TAB and all other keys do not edit.
     return null;
   }
 
   if (event.kind === "text") {
-    const s = asUnicodeScalarString(event.codepoint);
+    let s = asUnicodeScalarString(event.codepoint);
     const ch = s.charCodeAt(0);
-    if (ch === 0x0a || ch === 0x0d) return null;
+    if (ch === 0x0a || ch === 0x0d) {
+      if (!multiline) return null;
+      s = "\n";
+    }
 
     const start = selection0 ? selectionMin : cursor0;
     const end = selection0 ? selectionMax : cursor0;
@@ -596,7 +830,7 @@ export function applyInputEditEvent(
 
   if (event.kind === "paste") {
     const decoded = UTF8_DECODER.decode(event.bytes);
-    const inserted = removeCrLf(decoded);
+    const inserted = multiline ? normalizeLineBreaks(decoded) : removeCrLf(decoded);
     if (inserted.length === 0) return null;
 
     const start = selection0 ? selectionMin : cursor0;

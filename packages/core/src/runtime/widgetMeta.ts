@@ -187,6 +187,9 @@ export type InputMeta = Readonly<{
   instanceId: InstanceId;
   value: string;
   disabled: boolean;
+  multiline: boolean;
+  rows: number;
+  wordWrap: boolean;
   onInput?: (value: string, cursor: number) => void;
   onBlur?: () => void;
 }>;
@@ -455,6 +458,9 @@ export function collectInputMetaById(tree: RuntimeInstance): ReadonlyMap<string,
         id?: unknown;
         value?: unknown;
         disabled?: unknown;
+        multiline?: unknown;
+        rows?: unknown;
+        wordWrap?: unknown;
         onInput?: unknown;
         onBlur?: unknown;
       };
@@ -462,13 +468,25 @@ export function collectInputMetaById(tree: RuntimeInstance): ReadonlyMap<string,
       const value = typeof props.value === "string" ? props.value : null;
       if (id !== null && value !== null && !m.has(id)) {
         const disabled = props.disabled === true;
+        const multiline = props.multiline === true;
+        const rowsRaw =
+          typeof props.rows === "number" && Number.isFinite(props.rows) ? props.rows : 3;
+        const rows = multiline ? Math.max(1, Math.trunc(rowsRaw)) : 1;
+        const wordWrap = multiline ? props.wordWrap !== false : false;
         const onInput =
           typeof props.onInput === "function"
             ? (props.onInput as (v: string, c: number) => void)
             : undefined;
         const onBlur =
           typeof props.onBlur === "function" ? (props.onBlur as () => void) : undefined;
-        const metaBase: InputMeta = { instanceId: node.instanceId, value, disabled };
+        const metaBase: InputMeta = {
+          instanceId: node.instanceId,
+          value,
+          disabled,
+          multiline,
+          rows,
+          wordWrap,
+        };
         const meta: InputMeta =
           onInput || onBlur
             ? Object.freeze({
@@ -910,6 +928,9 @@ export class WidgetMetadataCollector {
           id?: unknown;
           value?: unknown;
           disabled?: unknown;
+          multiline?: unknown;
+          rows?: unknown;
+          wordWrap?: unknown;
           onInput?: unknown;
           onBlur?: unknown;
         };
@@ -917,13 +938,25 @@ export class WidgetMetadataCollector {
         const value = typeof props.value === "string" ? props.value : null;
         if (id !== null && value !== null && !this._inputById.has(id)) {
           const disabled = props.disabled === true;
+          const multiline = props.multiline === true;
+          const rowsRaw =
+            typeof props.rows === "number" && Number.isFinite(props.rows) ? props.rows : 3;
+          const rows = multiline ? Math.max(1, Math.trunc(rowsRaw)) : 1;
+          const wordWrap = multiline ? props.wordWrap !== false : false;
           const onInput =
             typeof props.onInput === "function"
               ? (props.onInput as (v: string, c: number) => void)
               : undefined;
           const onBlur =
             typeof props.onBlur === "function" ? (props.onBlur as () => void) : undefined;
-          const metaBase: InputMeta = { instanceId: node.instanceId, value, disabled };
+          const metaBase: InputMeta = {
+            instanceId: node.instanceId,
+            value,
+            disabled,
+            multiline,
+            rows,
+            wordWrap,
+          };
           const meta: InputMeta =
             onInput || onBlur
               ? Object.freeze({

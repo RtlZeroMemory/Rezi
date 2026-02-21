@@ -10,8 +10,11 @@ const ZR_KEY_BACKSPACE = 4;
 const ZR_KEY_DELETE = 11;
 const ZR_KEY_HOME = 12;
 const ZR_KEY_END = 13;
+const ZR_KEY_UP = 20;
+const ZR_KEY_DOWN = 21;
 const ZR_KEY_LEFT = 22;
 const ZR_KEY_RIGHT = 23;
+const ZR_KEY_ENTER = 2;
 const ZR_MOD_SHIFT = 1 << 0;
 
 function keyEvent(key: number, mods = 0): ZrevEvent {
@@ -258,5 +261,65 @@ describe("input editor state consistency", () => {
       }),
       null,
     );
+  });
+
+  test("multiline enter inserts newline", () => {
+    const res = applyInputEditEvent(keyEvent(ZR_KEY_ENTER), {
+      id: "input",
+      value: "abc",
+      cursor: 1,
+      multiline: true,
+    });
+    assert.deepEqual(res, {
+      nextValue: "a\nbc",
+      nextCursor: 2,
+      nextSelectionStart: null,
+      nextSelectionEnd: null,
+      action: { id: "input", action: "input", value: "a\nbc", cursor: 2 },
+    });
+  });
+
+  test("multiline up/down keep visual column per logical line", () => {
+    const down = applyInputEditEvent(keyEvent(ZR_KEY_DOWN), {
+      id: "input",
+      value: "abcd\nef",
+      cursor: 3,
+      multiline: true,
+    });
+    assert.deepEqual(down, {
+      nextValue: "abcd\nef",
+      nextCursor: 7,
+      nextSelectionStart: null,
+      nextSelectionEnd: null,
+    });
+
+    const up = applyInputEditEvent(keyEvent(ZR_KEY_UP), {
+      id: "input",
+      value: "abcd\nef",
+      cursor: 7,
+      multiline: true,
+    });
+    assert.deepEqual(up, {
+      nextValue: "abcd\nef",
+      nextCursor: 2,
+      nextSelectionStart: null,
+      nextSelectionEnd: null,
+    });
+  });
+
+  test("multiline paste preserves line breaks", () => {
+    const res = applyInputEditEvent(pasteEvent("1\r\n2\r3"), {
+      id: "input",
+      value: "ab",
+      cursor: 1,
+      multiline: true,
+    });
+    assert.deepEqual(res, {
+      nextValue: "a1\n2\n3b",
+      nextCursor: 6,
+      nextSelectionStart: null,
+      nextSelectionEnd: null,
+      action: { id: "input", action: "input", value: "a1\n2\n3b", cursor: 6 },
+    });
   });
 });
