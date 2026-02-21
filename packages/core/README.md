@@ -8,5 +8,5 @@ Runtime-agnostic TypeScript core for Rezi:
 
 Most applications should use the Node backend package (`@rezi-ui/node`), which depends on this package.
 
-Docs: `https://rtlzeromemory.github.io/Rezi/`
+Docs: `https://rezitui.dev/docs`
 

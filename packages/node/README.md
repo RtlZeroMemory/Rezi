@@ -28,4 +28,4 @@ npm i @rezi-ui/node
 bun add @rezi-ui/node
 ```
 
-Docs: `https://rtlzeromemory.github.io/Rezi/`
+Docs: `https://rezitui.dev/docs`

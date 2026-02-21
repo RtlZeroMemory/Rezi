@@ -3,7 +3,7 @@
   "version": "0.1.0-alpha.17",
   "description": "Node.js/Bun backend for Rezi (worker-thread engine ownership, scheduling, IO).",
   "license": "Apache-2.0",
-  "homepage": "https://rtlzeromemory.github.io/Rezi/",
+  "homepage": "https://rezitui.dev",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/RtlZeroMemory/Rezi.git",

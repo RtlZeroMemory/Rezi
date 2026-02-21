@@ -61,4 +61,4 @@ Scaffolded templates now follow the same baseline structure:
 - `src/__tests__/`
 
 For template descriptions and highlights, see:
-https://rtlzeromemory.github.io/Rezi/getting-started/create-rezi/
+https://rezitui.dev/docs/getting-started/create-rezi/
