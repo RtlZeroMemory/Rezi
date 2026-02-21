@@ -240,14 +240,35 @@ export function renderCollectionWidget(
       const totalHeight = getTotalHeight(items, itemHeight, measuredHeights);
       const effectiveScrollTop = clampScrollTop(state.scrollTop, totalHeight, rect.h);
 
-      let { startIndex, endIndex, itemOffsets } = computeVisibleRange(
-        items,
-        itemHeight,
-        effectiveScrollTop,
-        rect.h,
-        overscan,
-        measuredHeights,
-      );
+      const fixedItemHeight =
+        !estimateMode && measuredHeights === undefined && typeof itemHeight === "number"
+          ? itemHeight > 0
+            ? itemHeight
+            : 1
+          : null;
+
+      let startIndex = 0;
+      let endIndex = 0;
+      let itemOffsets: readonly number[] = [];
+      if (fixedItemHeight === null) {
+        const computed = computeVisibleRange(
+          items,
+          itemHeight,
+          effectiveScrollTop,
+          rect.h,
+          overscan,
+          measuredHeights,
+        );
+        startIndex = computed.startIndex;
+        endIndex = computed.endIndex;
+        itemOffsets = computed.itemOffsets;
+      } else {
+        const safeOverscan = Math.max(0, overscan);
+        const rawStart = Math.floor(effectiveScrollTop / fixedItemHeight);
+        const rawEnd = Math.ceil((effectiveScrollTop + rect.h) / fixedItemHeight);
+        startIndex = Math.max(0, rawStart - safeOverscan);
+        endIndex = Math.min(items.length, rawEnd + safeOverscan);
+      }
 
       let nextScrollTop = effectiveScrollTop;
       let nextMeasuredHeights: ReadonlyMap<number, number> | undefined;
@@ -282,8 +303,11 @@ export function renderCollectionWidget(
         const item = items[i];
         if (item === undefined) continue;
 
-        const h = getItemHeight(items, itemHeight, i, measuredHeights);
-        const itemOffset = itemOffsets[i] ?? getItemOffset(items, itemHeight, i, measuredHeights);
+        const h = fixedItemHeight ?? getItemHeight(items, itemHeight, i, measuredHeights);
+        const itemOffset =
+          fixedItemHeight === null
+            ? (itemOffsets[i] ?? getItemOffset(items, itemHeight, i, measuredHeights))
+            : i * fixedItemHeight;
         const itemY = rect.y + itemOffset - effectiveScrollTop;
         const focused = i === state.selectedIndex;
 
