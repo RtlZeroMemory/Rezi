@@ -515,4 +515,31 @@ describe("reconciliation - defineWidget/composite", () => {
     await app.stop();
     await flushMicrotasks(20);
   });
+
+  test("fatal when composite nesting exceeds max depth", () => {
+    const harness = createHarness();
+    const Deep: (props: { remaining: number; key?: string }) => VNode = defineWidget<{
+      remaining: number;
+      key?: string;
+    }>((props) =>
+      props.remaining <= 0 ? ui.text("done") : Deep({ remaining: props.remaining - 1 }),
+    );
+
+    const res = commitVNodeTree(null, widgetHost([Deep({ remaining: 101, key: "deep" })]), {
+      allocator: harness.allocator,
+      collectLifecycleInstanceIds: true,
+      composite: {
+        registry: harness.registry,
+        appState: {},
+        onInvalidate: (instanceId) => {
+          harness.invalidated.push(instanceId);
+        },
+      },
+    });
+
+    assert.equal(res.ok, false);
+    if (res.ok) return;
+    assert.equal(res.fatal.code, "ZRUI_INVALID_PROPS");
+    assert.equal(res.fatal.detail.includes("ZRUI_MAX_DEPTH"), true);
+  });
 });
