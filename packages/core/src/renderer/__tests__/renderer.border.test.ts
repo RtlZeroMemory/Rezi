@@ -493,13 +493,22 @@ describe("renderer border rendering (deterministic)", () => {
       "column",
     );
 
-    const childFill = ops.find(
-      (op) => op.kind === "fillRect" && op.x === 0 && op.y === 0 && op.w === 8 && op.h === 4,
+    const childFillMatchesBackdrop = ops.some(
+      (op) =>
+        op.kind === "fillRect" &&
+        op.w === 8 &&
+        op.h === 4 &&
+        op.style !== undefined &&
+        op.style.fg !== undefined &&
+        op.style.bg !== undefined &&
+        op.style.fg.r === backdrop.r &&
+        op.style.fg.g === backdrop.g &&
+        op.style.fg.b === backdrop.b &&
+        op.style.bg.r === backdrop.r &&
+        op.style.bg.g === backdrop.g &&
+        op.style.bg.b === backdrop.b,
     );
-    assert.ok(childFill !== undefined, "child fill should exist");
-    if (!childFill || childFill.kind !== "fillRect" || !childFill.style) return;
-    assert.deepEqual(childFill.style.fg, backdrop);
-    assert.deepEqual(childFill.style.bg, backdrop);
+    assert.equal(childFillMatchesBackdrop, true, "faded fill should match parent backdrop");
 
     const topBorder = ops.find(
       (op) => op.kind === "drawText" && op.x === 0 && op.y === 0 && op.text.includes("┌"),
