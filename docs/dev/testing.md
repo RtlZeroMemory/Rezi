@@ -107,6 +107,75 @@ Integration tests cover:
 - Routing and navigation
 - Resize and reflow behavior
 
+### Hot State-Preserving Reload (HSR) Tests
+
+When changing `app.replaceView(...)`, `app.replaceRoutes(...)`, or `createHotStateReload(...)`, include:
+
+- successful runtime widget-view swap test (`replaceView` while `Running`)
+- successful runtime route-table swap test (`replaceRoutes` while `Running` in route mode)
+- preservation test for local widget state/focus/cursor with stable ids/keys
+- failure-path test proving previous view/routes remain active after reload import errors
+- mode guard tests (raw mode and incompatible API usage)
+
+### Code Editor Syntax Tokenizer Tests
+
+When changing `syntaxLanguage`, tokenizer exports, or code-editor token paint behavior, include:
+
+- preset coverage for mainstream language tokenization (`typescript`, `javascript`, `json`, `go`, `rust`, `c`, `cpp`/`c++`, `csharp`/`c#`, `java`, `python`, `bash`)
+- fallback coverage for unsupported languages (`plain`)
+- custom-tokenizer override coverage (`tokenizeLine` and `tokenizeCodeEditorLineWithCustom(...)`)
+- renderer integration coverage proving tokens and active cursor-cell highlighting render together safely
+
+Quick scoped run:
+
+```bash
+node scripts/run-tests.mjs --filter "codeEditor.syntax"
+```
+
+### Manual HSR + GIF Workflow
+
+Use the built-in demos under `scripts/hsr/`:
+
+```bash
+npm run hsr:demo:widget
+npm run hsr:demo:router
+```
+
+Preferred widget-demo quit keys: `F10` / `Alt+Q` / `Ctrl+C` / `Ctrl+X`.
+
+Live-edit these files while each demo is running:
+
+- widget demo: `scripts/hsr/widget-view.mjs`
+- router demo: `scripts/hsr/router-routes.mjs`
+
+Widget demo shortcut:
+
+- the in-app `self-edit-code` editor is focused on startup and shows the TypeScript snippet used for the title banner
+- edit `SELF_EDIT_BANNER = "..."` and save with `F6` (fallback: `Ctrl+O`, then `Ctrl+S`; `Enter` works on the save button) to rewrite `widget-view.mjs` from inside the demo
+- save/reload status appears in a modal overlay to avoid log noise in the capture surface
+- the banner text in the header is sourced from `widget-view.mjs` `SELF_EDIT_BANNER`, so successful HSR swaps are visually obvious
+- if your terminal uses XON/XOFF flow control, prefer `F6`/`Ctrl+O` because `Ctrl+S` may be swallowed by the terminal
+
+One-command recording:
+
+```bash
+npm run hsr:record:widget
+npm run hsr:record:router
+```
+
+`hsr:record:*` uses manual capture by default so you can type/edit freely during recording.
+
+Use scripted mode for deterministic multi-scene showcase captures:
+
+```bash
+npm run hsr:record:widget:auto
+node scripts/record-hsr-gif.mjs --mode widget --scripted
+node scripts/record-hsr-gif.mjs --mode widget --scripted --scene-text "My custom headline"
+```
+
+The recorder writes an asciinema cast and attempts GIF conversion via `agg` (or
+`asciinema gif` when available).
+
 ### High-level Widget Rendering Tests
 
 For widget-level tests, prefer `createTestRenderer()` from `@rezi-ui/core` so

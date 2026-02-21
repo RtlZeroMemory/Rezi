@@ -83,3 +83,7 @@ PRs may be rejected if they:
 - For complex table flows, prefer `useTable(...)` over manually wiring selection/sort state in each widget.
 - For stacked modal flows, prefer `useModalStack(...)` to keep push/pop behavior and focus restoration deterministic.
 - In composite widgets, use `ctx.useMemo(...)` and `ctx.useCallback(...)` when dependency-driven memoization is needed.
+- For hot state-preserving reload workflows (`app.replaceView` / `app.replaceRoutes` / `createHotStateReload`), keep widget ids/keys stable so local state and focus survive edits.
+- Use `npm run hsr:demo:widget` / `npm run hsr:demo:router` for manual HSR validation, and `npm run hsr:record:widget` / `npm run hsr:record:router` for GIF capture.
+- In widget demo validation, edit the `self-edit-code` snippet and save with `Enter` or `F6` to confirm hot-swap without terminal restart.
+- For code-editor syntax changes, keep tokenization deterministic and line-based; use `syntaxLanguage` presets or `tokenizeLine` + `tokenizeCodeEditorLine(...)`, then add/adjust tests in `codeEditor.syntax` suites.

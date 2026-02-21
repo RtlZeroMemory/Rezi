@@ -1607,6 +1607,46 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       viewFn = fn;
     },
 
+    replaceView(fn: ViewFn<S>): void {
+      assertOperational("replaceView");
+      assertNotReentrant("replaceView");
+      if (routes !== undefined) {
+        throwCode(
+          "ZRUI_MODE_CONFLICT",
+          "replaceView: routes are configured in createApp(); screen rendering is managed by router",
+        );
+      }
+      if (mode === "raw") {
+        throwCode("ZRUI_MODE_CONFLICT", "replaceView: draw mode already selected");
+      }
+      if (mode === null) mode = "widget";
+      viewFn = fn;
+      topLevelViewError = null;
+      if (sm.state === "Running") {
+        markDirty(DIRTY_VIEW);
+      }
+    },
+
+    replaceRoutes(nextRoutes: readonly RouteDefinition<S>[]): void {
+      assertOperational("replaceRoutes");
+      assertNotReentrant("replaceRoutes");
+      if (!routerIntegration || routes === undefined) {
+        throwCode(
+          "ZRUI_MODE_CONFLICT",
+          "replaceRoutes: app was created without routes; use replaceView for view-mode apps",
+        );
+      }
+      if (mode === "raw") {
+        throwCode("ZRUI_MODE_CONFLICT", "replaceRoutes: draw mode already selected");
+      }
+      const nextRouteKeybindings = routerIntegration.replaceRoutes(nextRoutes);
+      app.keys(nextRouteKeybindings);
+      topLevelViewError = null;
+      if (sm.state === "Running") {
+        markDirty(DIRTY_VIEW);
+      }
+    },
+
     draw(fn: DrawFn): void {
       assertOperational("draw");
       sm.assertOneOf(["Created", "Stopped"], "draw: must be Created or Stopped");

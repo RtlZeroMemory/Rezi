@@ -1,4 +1,5 @@
 import { assert, test } from "@rezi-ui/testkit";
+import { ZrUiError } from "../../abi.js";
 import { ZR_MOD_CTRL, ZR_MOD_SHIFT, charToKeyCode } from "../../keybindings/keyCodes.js";
 import { ui } from "../../widgets/ui.js";
 import { createAppWithInspectorOverlay } from "../inspectorOverlayHelper.js";
@@ -116,4 +117,52 @@ test("createAppWithInspectorOverlay toggles overlay/hotkey and captures only whi
   assert.equal(fifthFrameStrings.includes("inspector overlay"), false);
 
   await settleNextFrame(backend);
+});
+
+test("createAppWithInspectorOverlay forwards replaceView while running", async () => {
+  const backend = new StubBackend();
+  const app = createAppWithInspectorOverlay({
+    backend,
+    initialState: 0,
+    inspector: { enabled: false, hotkey: false },
+  });
+
+  app.view(() => ui.text("old-view"));
+
+  await app.start();
+  await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 80, rows: 24 }]);
+  assert.equal(
+    parseInternedStrings(backend.requestedFrames[0] ?? new Uint8Array()).includes("old-view"),
+    true,
+  );
+
+  await settleNextFrame(backend);
+
+  app.replaceView(() => ui.text("new-view"));
+  await flushMicrotasks(20);
+  assert.equal(backend.requestedFrames.length, 2);
+  assert.equal(
+    parseInternedStrings(backend.requestedFrames[1] ?? new Uint8Array()).includes("new-view"),
+    true,
+  );
+});
+
+test("createAppWithInspectorOverlay forwards replaceRoutes", () => {
+  const backend = new StubBackend();
+  const app = createAppWithInspectorOverlay({
+    backend,
+    initialState: 0,
+    inspector: { enabled: false, hotkey: false },
+  });
+
+  assert.throws(
+    () =>
+      app.replaceRoutes([
+        {
+          id: "home",
+          screen: () => ui.text("home"),
+        },
+      ]),
+    (error: unknown) => error instanceof ZrUiError && error.code === "ZRUI_MODE_CONFLICT",
+  );
 });

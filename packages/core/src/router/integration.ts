@@ -44,6 +44,7 @@ export type RouterIntegrationOptions<S> = Readonly<{
 export type RouterIntegration<S> = Readonly<{
   router: RouterApi;
   routeKeybindings: BindingMap<KeyContext<S>>;
+  replaceRoutes: (routes: readonly RouteDefinition<S>[]) => BindingMap<KeyContext<S>>;
   renderCurrentScreen: (
     state: Readonly<S>,
     update: (updater: S | ((prev: Readonly<S>) => S)) => void,
@@ -70,15 +71,36 @@ function isGuardRedirect(
   return typeof result === "object" && result !== null && typeof result.redirect === "string";
 }
 
+function buildRouteKeybindingTargets<S>(
+  routes: readonly RouteDefinition<S>[],
+): ReadonlyMap<string, string> {
+  const byKeybinding = new Map<string, string>();
+
+  function visit(routeList: readonly RouteDefinition<S>[]): void {
+    for (const route of routeList) {
+      const keybinding = route.keybinding?.trim();
+      if (keybinding) {
+        byKeybinding.set(keybinding, route.id);
+      }
+      if (route.children !== undefined) {
+        visit(route.children);
+      }
+    }
+  }
+
+  visit(routes);
+  return byKeybinding;
+}
+
 /**
  * Create an app-bound router integration.
  */
 export function createRouterIntegration<S>(
   opts: RouterIntegrationOptions<S>,
 ): RouterIntegration<S> {
-  const routeRegistry = createRouteRegistry(opts.routes);
-  const routeMap = routeRegistry.routeMap;
-  const recordById = routeRegistry.recordById;
+  let routeRegistry = createRouteRegistry(opts.routes);
+  let routeMap = routeRegistry.routeMap;
+  let recordById = routeRegistry.recordById;
   if (!routeMap.has(opts.initialRoute)) {
     throw new ZrUiError(
       "ZRUI_INVALID_PROPS",
@@ -209,6 +231,34 @@ export function createRouterIntegration<S>(
     opts.requestRouteRender();
   }
 
+  function coerceFirstRouteId(routes: readonly RouteDefinition<S>[]): string {
+    const first = routes[0];
+    if (!first || typeof first.id !== "string" || first.id.trim().length === 0) {
+      throw new ZrUiError("ZRUI_INVALID_PROPS", "routes must contain at least one route");
+    }
+    return first.id.trim();
+  }
+
+  function remapStateToRouteRegistry(
+    nextRouteMap: ReadonlyMap<string, RouteDefinition<S>>,
+    nextRoutes: readonly RouteDefinition<S>[],
+  ): RouterState {
+    const keptEntries = state.entries.filter((entry) => nextRouteMap.has(entry.id));
+    if (keptEntries.length === state.entries.length) {
+      return state;
+    }
+
+    if (keptEntries.length === 0) {
+      return createRouterState(coerceFirstRouteId(nextRoutes), { maxDepth: state.maxDepth });
+    }
+
+    return Object.freeze({
+      maxDepth: state.maxDepth,
+      nextVisitId: state.nextVisitId,
+      entries: Object.freeze([...keptEntries]),
+    });
+  }
+
   const router: RouterApi = Object.freeze({
     navigate(routeId: string, params?: RouteParams) {
       opts.assertCanMutate("router.navigate");
@@ -256,11 +306,38 @@ export function createRouterIntegration<S>(
     },
   });
 
-  const routeKeybindings = createRouteKeybindings(opts.routes, router);
+  let routeKeybindingTargets = buildRouteKeybindingTargets(opts.routes);
+  const resolveRouteIdForKeybinding = (keybinding: string): string | undefined => {
+    return routeKeybindingTargets.get(keybinding);
+  };
+
+  const routeKeybindings = createRouteKeybindings(opts.routes, router, {
+    resolveRouteIdForKeybinding,
+  });
 
   return Object.freeze({
     router,
     routeKeybindings,
+    replaceRoutes: (routes: readonly RouteDefinition<S>[]) => {
+      const nextRegistry = createRouteRegistry(routes);
+      const nextRouteMap = nextRegistry.routeMap;
+      if (nextRouteMap.size === 0) {
+        throw new ZrUiError("ZRUI_INVALID_PROPS", "routes must contain at least one route");
+      }
+
+      routeRegistry = nextRegistry;
+      routeMap = routeRegistry.routeMap;
+      recordById = routeRegistry.recordById;
+      routeKeybindingTargets = buildRouteKeybindingTargets(routes);
+
+      state = remapStateToRouteRegistry(routeMap, routes);
+      pruneUnusedFocusSnapshots(focusSnapshotsByVisitId, state);
+      opts.requestRouteRender();
+
+      return createRouteKeybindings(routes, router, {
+        resolveRouteIdForKeybinding,
+      });
+    },
     renderCurrentScreen: (appState, update) => {
       const current = currentRouteFromState(state);
       const record = recordById.get(current.id);

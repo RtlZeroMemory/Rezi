@@ -55,6 +55,11 @@ bun create rezi -- --list-templates
 
 For full template descriptions and highlights, use: [Getting Started -> Create Rezi](../getting-started/create-rezi.md).
 
+Template dev workflow notes:
+
+- `minimal`, `dashboard`, and `cli-tool` templates run `tsx src/main.ts --hsr` for `npm run dev` / `bun run dev`.
+- This enables in-process hot state-preserving reload through `@rezi-ui/node` `createHotStateReload(...)`.
+
 ## Options
 
 - `--template, -t <name>`: Select a template (`dashboard`, `stress-test`, `cli-tool`, `animation-lab`, `minimal`, plus aliases).

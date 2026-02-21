@@ -517,6 +517,70 @@ describe("basic widgets render to drawlist", () => {
     );
   });
 
+  test("codeEditor applies syntax token colors for mainstream language presets", () => {
+    const theme = createTheme({
+      colors: {
+        "syntax.keyword": { r: 10, g: 20, b: 30 },
+        "syntax.function": { r: 30, g: 40, b: 50 },
+        "syntax.string": { r: 60, g: 70, b: 80 },
+      },
+    });
+    const vnode = ui.codeEditor({
+      id: "editor",
+      lines: ['func greet(name string) { return "ok"; }'],
+      cursor: { line: 0, column: 0 },
+      selection: null,
+      scrollTop: 0,
+      scrollLeft: 0,
+      lineNumbers: false,
+      syntaxLanguage: "go",
+      onChange: () => undefined,
+      onSelectionChange: () => undefined,
+      onScroll: () => undefined,
+    });
+
+    const v3 = renderBytesV3(vnode, { cols: 80, rows: 4 }, { theme });
+    const commands = parseDrawTextCommands(v3);
+    const keyword = commands.find((cmd) => cmd.text === "func");
+    const fn = commands.find((cmd) => cmd.text === "greet");
+    const literal = commands.find((cmd) => cmd.text === '"ok"');
+    assert.ok(keyword);
+    assert.ok(fn);
+    assert.ok(literal);
+    assert.equal(keyword?.fg, 0x0a141e);
+    assert.equal(fn?.fg, 0x1e2832);
+    assert.equal(literal?.fg, 0x3c4650);
+  });
+
+  test("codeEditor draws a highlighted cursor cell for focused editor", () => {
+    const theme = createTheme({
+      colors: {
+        "syntax.cursor.bg": { r: 1, g: 2, b: 3 },
+        "syntax.cursor.fg": { r: 4, g: 5, b: 6 },
+      },
+    });
+    const vnode = ui.codeEditor({
+      id: "editor",
+      lines: ["abc"],
+      cursor: { line: 0, column: 1 },
+      selection: null,
+      scrollTop: 0,
+      scrollLeft: 0,
+      lineNumbers: false,
+      syntaxLanguage: "plain",
+      onChange: () => undefined,
+      onSelectionChange: () => undefined,
+      onScroll: () => undefined,
+    });
+
+    const v3 = renderBytesV3(vnode, { cols: 20, rows: 4 }, { focusedId: "editor", theme });
+    const styles = parseDrawTextCommands(v3);
+    const highlightedB = styles.find(
+      (cmd) => cmd.text === "b" && cmd.bg === 0x010203 && cmd.fg === 0x040506,
+    );
+    assert.ok(highlightedB);
+  });
+
   test("canvas emits DRAW_CANVAS opcode with v3 builder", () => {
     const bytes = renderBytesV3(
       ui.canvas({

@@ -83,6 +83,17 @@ Templates now demonstrate a shared starter architecture:
 
 Each template includes example tests for reducer logic, widget rendering, and keybinding mapping.
 
+## Dev Loop (HSR)
+
+`minimal`, `dashboard`, and `cli-tool` templates ship with hot state-preserving reload enabled in
+`npm run dev` / `bun run dev`:
+
+- dev script runs `tsx src/main.ts --hsr`
+- source changes hot-swap via:
+  - `app.replaceView(...)` in widget-view templates (`minimal`, `dashboard`)
+  - `app.replaceRoutes(...)` in route-managed template (`cli-tool`)
+- app state, focus, and stable widget local state are preserved across edits
+
 For package-level CLI reference (invocation forms and options), see [packages/create-rezi](../packages/create-rezi.md).
 
 ## Next Steps

@@ -1441,6 +1441,7 @@ export const ui = {
    *   selection: state.selection,
    *   scrollTop: state.scrollTop,
    *   scrollLeft: state.scrollLeft,
+   *   syntaxLanguage: "typescript",
    *   lineNumbers: true,
    *   tabSize: 2,
    *   onChange: (lines, cursor) => app.update({ lines, cursor }),

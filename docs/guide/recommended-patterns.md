@@ -41,6 +41,19 @@ registerKeybindings(app);
 await app.run();
 ```
 
+## HSR-Safe Identity Rules
+
+If you use hot state-preserving reload (`app.replaceView(...)`, `app.replaceRoutes(...)`, or
+`createHotStateReload(...)`),
+preservation quality depends on stable widget identity:
+
+- keep interactive widget `id` values stable across edits
+- keep `defineWidget` instance keys stable in dynamic lists
+- avoid deriving ids from unstable values (timestamps/random)
+
+These rules let Rezi reconcile old/new trees while preserving focus, local hook state,
+and widget-local editor metadata.
+
 ## State Management
 
 Use a **reducer pattern** with typed actions. This is the single most impactful pattern for keeping Rezi apps maintainable.

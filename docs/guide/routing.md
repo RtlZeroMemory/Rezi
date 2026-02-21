@@ -59,6 +59,8 @@ Notes:
 
 - When routes are configured, `createApp` manages the widget `view` internally.
 - Calling `app.view(...)` in route mode throws `ZRUI_MODE_CONFLICT`.
+- Use `app.replaceRoutes(nextRoutes)` for development-time route hot swaps
+  without restarting the process.
 
 ## Route Definition
 

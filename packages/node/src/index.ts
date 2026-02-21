@@ -12,11 +12,20 @@ import {
   type NodeBackendConfig,
   createNodeBackendInternal,
 } from "./backend/nodeBackend.js";
+import { createHotStateReload } from "./dev/hotStateReload.js";
 import { createReproRecorder } from "./repro/index.js";
 import { createNodeTailSource } from "./streams/tail.js";
 
 export type { NodeBackendConfig };
 export type { NodeBackend };
+export type {
+  HotStateReloadController,
+  HotStateReloadErrorContext,
+  HotStateReloadLogEvent,
+  HotStateReloadOptions,
+  HotStateReloadRoutesOptions,
+  HotStateReloadViewOptions,
+} from "./dev/hotStateReload.js";
 export type {
   CreateReproRecorderOptions,
   ReproRecorder,
@@ -24,6 +33,7 @@ export type {
   ReproRecorderBounds,
   ReproRecorderBuildResult,
 } from "./repro/index.js";
+export { createHotStateReload };
 export { createReproRecorder };
 export { loadImage } from "./image.js";
 export { createNodeTailSource } from "./streams/tail.js";

@@ -47,6 +47,8 @@ Rezi is a high-performance terminal UI framework for TypeScript. You write decla
 - **Performance-focused architecture** — binary drawlists + native C framebuffer diffing; benchmark details and caveats are documented in the Benchmarks section
 - **JSX without React** — optional `@rezi-ui/jsx` maps JSX directly to Rezi VNodes with zero React runtime overhead
 - **Deterministic rendering** — same state + same events = same frames; versioned binary protocol, pinned Unicode tables
+- **Hot state-preserving reload** — swap widget views or route tables in-process during development without losing app state or focus context
+- **Syntax tokenizer utilities** — shared lexical highlighters for TypeScript/JS/JSON/Go/Rust/C/C++/C#/Java/Python/Bash with custom-tokenizer hooks
 - **6 built-in themes** — dark, light, dimmed, high-contrast, nord, dracula; switch at runtime with one call
 - **Record & replay** — capture input sessions as deterministic bundles for debugging and automated testing
 
@@ -217,7 +219,7 @@ npm install @rezi-ui/jsx @rezi-ui/core @rezi-ui/node
 
 ## Features
 
-**56 built-in widgets** — primitives (box, row, column, text, grid), form inputs (input, button, checkbox, select, slider), data display (table, virtual list, tree), navigation (tabs, accordion, breadcrumb, pagination), overlays (modal, dropdown, toast, command palette), advanced (code editor, diff viewer, file picker, logs console), and visualization (canvas, image, line chart, scatter, heatmap, sparkline, bar chart, gauge, mini chart).
+**56 built-in widgets** — primitives (box, row, column, text, grid), form inputs (input, button, checkbox, select, slider), data display (table, virtual list, tree), navigation (tabs, accordion, breadcrumb, pagination), overlays (modal, dropdown, toast, command palette), advanced (code editor with built-in/custom syntax tokenization, diff viewer, file picker, logs console), and visualization (canvas, image, line chart, scatter, heatmap, sparkline, bar chart, gauge, mini chart).
 
 ### Graphics & Visualization
 

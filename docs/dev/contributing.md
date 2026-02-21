@@ -39,6 +39,22 @@ node --test packages/core/src/layout/__tests__/layout.overflow-scroll.test.ts
 node --test packages/core/src/app/__tests__/widgetRenderer.integration.test.ts
 ```
 
+## HSR Change Checklist
+
+If your change touches `app.view`, route integration, reconciliation identity, or `createHotStateReload`:
+
+- add app runtime tests for `app.replaceView(...)` / `app.replaceRoutes(...)` behavior
+- verify widget local state survives reload with stable ids/keys
+- verify failure paths keep the previous working view/routes
+- update user docs when API/limitations change
+- manually run `npm run hsr:demo:widget` once and confirm in-app code-editor save (`self-edit-code` + F6/Ctrl+O or save button + Enter) triggers reload without process restart
+
+If your change touches code-editor syntax behavior (`syntaxLanguage`, tokenizer exports, or renderer token painting):
+
+- add/extend unit tests for built-in language presets and custom tokenizer override paths
+- verify fallback behavior for unsupported language names (`plain`)
+- update [widgets/code-editor](../widgets/code-editor.md) and [packages/core](../packages/core.md) API docs
+
 ## Where to look next
 
 - [Repo layout](repo-layout.md)

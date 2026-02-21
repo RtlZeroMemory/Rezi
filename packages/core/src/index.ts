@@ -274,6 +274,7 @@ export type {
   CommandItem,
   CodeEditorDiagnostic,
   CodeEditorDiagnosticSeverity,
+  CodeEditorLineTokenizer,
   FilePickerProps,
   FileTreeExplorerProps,
   FileNode,
@@ -283,6 +284,10 @@ export type {
   PanelGroupProps,
   ResizablePanelProps,
   CodeEditorProps,
+  CodeEditorSyntaxLanguage,
+  CodeEditorSyntaxToken,
+  CodeEditorSyntaxTokenKind,
+  CodeEditorTokenizeContext,
   CursorPosition,
   EditorSelection,
   SearchMatch,
@@ -303,6 +308,11 @@ export type {
   ToastPosition,
 } from "./widgets/types.js";
 export { ui } from "./widgets/ui.js";
+export {
+  normalizeCodeEditorTokens,
+  tokenizeCodeEditorLine,
+  tokenizeCodeEditorLineWithCustom,
+} from "./widgets/codeEditorSyntax.js";
 export type {
   InspectorOverlayFrameTiming,
   InspectorOverlayPosition,
@@ -987,7 +997,7 @@ import type {
   RegisteredBinding,
 } from "./keybindings/index.js";
 import type { Rect } from "./layout/types.js";
-import type { RouterApi } from "./router/types.js";
+import type { RouteDefinition, RouterApi } from "./router/types.js";
 import type { FocusInfo } from "./runtime/widgetMeta.js";
 import type { TerminalProfile } from "./terminalProfile.js";
 import type { Theme } from "./theme/theme.js";
@@ -1054,6 +1064,29 @@ export type AppConfig = Readonly<{
 
 export interface App<S> {
   view(fn: ViewFn<S>): void;
+  /**
+   * Replace the active widget view function.
+   *
+   * Unlike `view(...)`, this can be called while the app is running and is
+   * intended for development-time hot reload flows.
+   *
+   * Constraints:
+   * - Available only in widget mode (not draw mode)
+   * - Not available when app routes are configured in `createApp(...)`
+   */
+  replaceView(fn: ViewFn<S>): void;
+  /**
+   * Replace the active route table for route-managed apps.
+   *
+   * Unlike initial `createApp({ routes, initialRoute })` setup, this can be
+   * called while the app is running and is intended for development-time hot
+   * reload workflows.
+   *
+   * Constraints:
+   * - Available only when app routes are configured in `createApp(...)`
+   * - Not available in draw mode
+   */
+  replaceRoutes(routes: readonly RouteDefinition<S>[]): void;
   draw(fn: DrawFn): void;
   onEvent(handler: EventHandler): () => void;
   onFocusChange(handler: FocusChangeHandler): () => void;

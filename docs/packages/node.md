@@ -52,6 +52,63 @@ lockstep:
 - app/backend `maxEventBytes`
 - app/backend `fpsCap`
 
+## Hot State-Preserving Reload (HSR)
+
+`@rezi-ui/node` ships `createHotStateReload(...)` for development-time widget-view
+or route-table swaps.
+
+```ts
+import { ui } from "@rezi-ui/core";
+import { createHotStateReload, createNodeApp } from "@rezi-ui/node";
+
+const app = createNodeApp({ initialState: { count: 0 } });
+app.view((state) => ui.text(`count=${String(state.count)}`));
+
+const hsr = createHotStateReload({
+  app,
+  viewModule: new URL("./screens/main-screen.ts", import.meta.url),
+  moduleRoot: new URL("./src", import.meta.url),
+});
+
+await hsr.start();
+await app.start();
+```
+
+Route-managed apps use `routesModule` + `app.replaceRoutes(...)`:
+
+```ts
+const hsr = createHotStateReload({
+  app,
+  routesModule: new URL("./screens/index.ts", import.meta.url),
+  moduleRoot: new URL("./src", import.meta.url),
+  resolveRoutes: (moduleNs) => {
+    const routes = (moduleNs as { routes?: unknown }).routes;
+    if (!Array.isArray(routes)) {
+      throw new Error("Expected `routes` array export");
+    }
+    return routes;
+  },
+});
+```
+
+What this does:
+
+- watches source paths for changes
+- re-imports the target module from a fresh module snapshot
+- calls either `app.replaceView(...)` or `app.replaceRoutes(...)` without restarting the process
+
+What stays intact across reload:
+
+- app state (`app.update`)
+- focused widget (when the same `id` still exists)
+- local widget hook state (`defineWidget`) when keys/ids remain stable
+
+Current scope:
+
+- widget-mode apps (`app.view`/`app.replaceView`)
+- route-managed apps (`createApp({ routes, initialRoute })` + `app.replaceRoutes`)
+- not raw draw mode
+
 ## `NO_COLOR` behavior
 
 `createNodeApp(...)` checks `process.env.NO_COLOR` at app construction time.

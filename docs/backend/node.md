@@ -30,6 +30,13 @@ knobs aligned:
 - `fpsCap` is the single scheduling knob.
 - `executionMode: "auto"` resolves to inline when `fpsCap <= 30`, worker otherwise.
 
+Development hot reload:
+
+- `createHotStateReload(...)` watches source files and hot-swaps either:
+  - widget views via `app.replaceView(...)`, or
+  - route tables via `app.replaceRoutes(...)` for route-managed apps.
+- Raw draw mode remains excluded.
+
 Execution mode details:
 
 - `auto` (default): select inline for low-fps workloads (`fpsCap <= 30`), worker otherwise.

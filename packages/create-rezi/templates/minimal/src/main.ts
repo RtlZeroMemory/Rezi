@@ -1,11 +1,11 @@
 import { exit } from "node:process";
 import { createApp } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { createHotStateReload, createNodeBackend } from "@rezi-ui/node";
 import { resolveMinimalCommand } from "./helpers/keybindings.js";
 import { createInitialState, reduceMinimalState } from "./helpers/state.js";
 import { renderMainScreen } from "./screens/main-screen.js";
 import { themeSpec } from "./theme.js";
-import type { MinimalAction } from "./types.js";
+import type { MinimalAction, MinimalState } from "./types.js";
 
 const initialState = createInitialState();
 
@@ -15,6 +15,24 @@ const app = createApp({
   config: { fpsCap: 30 },
   theme: themeSpec(initialState.themeName).theme,
 });
+const enableHsr = process.argv.includes("--hsr") || process.env.REZI_HSR === "1";
+let hsrController: ReturnType<typeof createHotStateReload<MinimalState>> | null = null;
+
+type MainScreenRenderer = typeof renderMainScreen;
+type MainScreenModule = Readonly<{
+  renderMainScreen?: MainScreenRenderer;
+}>;
+
+function buildMainView(renderer: MainScreenRenderer) {
+  return (state: MinimalState) =>
+    renderer(state, {
+      onIncrement: () => dispatch({ type: "increment" }),
+      onDecrement: () => dispatch({ type: "decrement" }),
+      onCycleTheme: () => dispatch({ type: "cycle-theme" }),
+      onToggleHelp: () => dispatch({ type: "toggle-help" }),
+      onClearError: () => dispatch({ type: "set-error", message: null }),
+    });
+}
 
 function dispatch(action: MinimalAction): void {
   let nextThemeName = initialState.themeName;
@@ -39,6 +57,11 @@ let stopping = false;
 async function shutdown(): Promise<void> {
   if (stopping) return;
   stopping = true;
+
+  if (hsrController) {
+    await hsrController.stop();
+    hsrController = null;
+  }
 
   try {
     await app.stop();
@@ -86,15 +109,7 @@ function applyCommand(command: ReturnType<typeof resolveMinimalCommand>): void {
   }
 }
 
-app.view((state) =>
-  renderMainScreen(state, {
-    onIncrement: () => dispatch({ type: "increment" }),
-    onDecrement: () => dispatch({ type: "decrement" }),
-    onCycleTheme: () => dispatch({ type: "cycle-theme" }),
-    onToggleHelp: () => dispatch({ type: "toggle-help" }),
-    onClearError: () => dispatch({ type: "set-error", message: null }),
-  }),
-);
+app.view(buildMainView(renderMainScreen));
 
 app.keys({
   q: () => applyCommand(resolveMinimalCommand("q")),
@@ -119,8 +134,29 @@ process.once("SIGINT", onSignal);
 process.once("SIGTERM", onSignal);
 
 try {
+  if (enableHsr) {
+    hsrController = createHotStateReload<MinimalState>({
+      app,
+      viewModule: new URL("./screens/main-screen.ts", import.meta.url),
+      moduleRoot: new URL("./", import.meta.url),
+      resolveView: (moduleNs) => {
+        const render = (moduleNs as MainScreenModule).renderMainScreen;
+        if (typeof render !== "function") {
+          throw new Error(
+            "HSR: ./screens/main-screen.ts must export renderMainScreen(state, actions)",
+          );
+        }
+        return buildMainView(render);
+      },
+    });
+    await hsrController.start();
+  }
   await app.start();
 } finally {
+  if (hsrController) {
+    await hsrController.stop();
+    hsrController = null;
+  }
   process.off("SIGINT", onSignal);
   process.off("SIGTERM", onSignal);
 }

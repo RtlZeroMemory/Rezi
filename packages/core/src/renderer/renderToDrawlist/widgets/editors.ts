@@ -4,13 +4,20 @@ import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { FocusState } from "../../../runtime/focus.js";
 import type { Theme } from "../../../theme/theme.js";
+import { tokenizeCodeEditorLineWithCustom } from "../../../widgets/codeEditorSyntax.js";
 import {
   formatCost,
   formatDuration,
   formatTimestamp,
   formatTokenCount,
 } from "../../../widgets/logsConsole.js";
-import type { CodeEditorProps, DiffViewerProps, LogsConsoleProps } from "../../../widgets/types.js";
+import type {
+  CodeEditorLineTokenizer,
+  CodeEditorProps,
+  CodeEditorSyntaxTokenKind,
+  DiffViewerProps,
+  LogsConsoleProps,
+} from "../../../widgets/types.js";
 import { isVisibleRect } from "../indices.js";
 import { clampNonNegative } from "../spacing.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
@@ -37,6 +44,101 @@ function logLevelToThemeColor(theme: Theme, level: LogsConsoleProps["entries"][n
       return theme.colors.fg;
     default:
       return theme.colors.muted;
+  }
+}
+
+type CodeEditorSyntaxStyleMap = Readonly<Record<CodeEditorSyntaxTokenKind, ResolvedTextStyle>>;
+
+function resolveSyntaxThemeColor(
+  theme: Theme,
+  key: string,
+  fallback: Readonly<{ r: number; g: number; b: number }>,
+) {
+  return theme.colors[key] ?? fallback;
+}
+
+function createCodeEditorSyntaxStyleMap(
+  parentStyle: ResolvedTextStyle,
+  theme: Theme,
+): CodeEditorSyntaxStyleMap {
+  return Object.freeze({
+    plain: parentStyle,
+    keyword: mergeTextStyle(parentStyle, {
+      fg: resolveSyntaxThemeColor(theme, "syntax.keyword", theme.colors.info),
+      bold: true,
+    }),
+    type: mergeTextStyle(parentStyle, {
+      fg: resolveSyntaxThemeColor(theme, "syntax.type", theme.colors.warning),
+      bold: true,
+    }),
+    string: mergeTextStyle(parentStyle, {
+      fg: resolveSyntaxThemeColor(theme, "syntax.string", theme.colors.success),
+    }),
+    number: mergeTextStyle(parentStyle, {
+      fg: resolveSyntaxThemeColor(theme, "syntax.number", theme.colors.warning),
+    }),
+    comment: mergeTextStyle(parentStyle, {
+      fg: resolveSyntaxThemeColor(theme, "syntax.comment", theme.colors.muted),
+      italic: true,
+    }),
+    operator: mergeTextStyle(parentStyle, {
+      fg: resolveSyntaxThemeColor(theme, "syntax.operator", theme.colors.primary),
+    }),
+    punctuation: mergeTextStyle(parentStyle, {
+      fg: resolveSyntaxThemeColor(theme, "syntax.punctuation", theme.colors.fg),
+    }),
+    function: mergeTextStyle(parentStyle, {
+      fg: resolveSyntaxThemeColor(theme, "syntax.function", theme.colors.primary),
+      bold: true,
+    }),
+    variable: mergeTextStyle(parentStyle, {
+      fg: resolveSyntaxThemeColor(theme, "syntax.variable", theme.colors.secondary),
+      bold: true,
+    }),
+  });
+}
+
+function drawCodeEditorSyntaxLine(
+  builder: DrawlistBuilderV1,
+  x: number,
+  y: number,
+  width: number,
+  scrollLeft: number,
+  line: string,
+  styles: CodeEditorSyntaxStyleMap,
+  language: NonNullable<CodeEditorProps["syntaxLanguage"]>,
+  lineNumber: number,
+  customTokenizer: CodeEditorLineTokenizer | null,
+): void {
+  if (width <= 0) return;
+  const viewStart = Math.max(0, scrollLeft);
+  const viewEnd = viewStart + width;
+  const tokens = tokenizeCodeEditorLineWithCustom(
+    line,
+    Object.freeze({ language, lineNumber }),
+    customTokenizer,
+  );
+  let sourceOffset = 0;
+  let drawX = x;
+
+  for (const token of tokens) {
+    const tokenStart = sourceOffset;
+    const tokenText = token.text;
+    const tokenEnd = tokenStart + tokenText.length;
+    sourceOffset = tokenEnd;
+
+    if (tokenEnd <= viewStart || tokenStart >= viewEnd) continue;
+
+    const sliceStart = Math.max(0, viewStart - tokenStart);
+    const sliceEnd = Math.min(tokenText.length, viewEnd - tokenStart);
+    if (sliceEnd <= sliceStart) continue;
+
+    const fragment = tokenText.slice(sliceStart, sliceEnd);
+    if (fragment.length === 0) continue;
+
+    builder.drawText(drawX, y, fragment, styles[token.kind] ?? styles.plain);
+    drawX += measureTextCells(fragment);
+    if (drawX >= x + width) return;
   }
 }
 
@@ -72,6 +174,9 @@ export function renderEditorWidget(
       const lineNums = editorCache?.lineNums;
       const textX = rect.x + lineNumWidth;
       const textW = clampNonNegative(rect.w - lineNumWidth);
+      const syntaxLanguage = props.syntaxLanguage ?? "plain";
+      const syntaxStyles = createCodeEditorSyntaxStyleMap(parentStyle, theme);
+      const customTokenizer = typeof props.tokenizeLine === "function" ? props.tokenizeLine : null;
 
       const selection = props.selection;
       const selectionBg = theme.colors.secondary;
@@ -130,9 +235,19 @@ export function renderEditorWidget(
           }
         }
 
-        // Line content
-        const displayLine = line.slice(scrollLeft, scrollLeft + textW);
-        builder.drawText(textX, y, displayLine, parentStyle);
+        // Line content (syntax-highlighted).
+        drawCodeEditorSyntaxLine(
+          builder,
+          textX,
+          y,
+          textW,
+          scrollLeft,
+          line,
+          syntaxStyles,
+          syntaxLanguage,
+          i,
+          customTokenizer,
+        );
 
         // Diagnostics underlines (curly + semantic color)
         if (diagnostics.length > 0 && textW > 0) {
@@ -192,6 +307,23 @@ export function renderEditorWidget(
               blink: cursorInfo.blink,
             };
           }
+        }
+      }
+
+      if (focused && props.highlightActiveCursorCell !== false && textW > 0) {
+        const localY = cursor.line - scrollTop;
+        const localX = cursor.column - scrollLeft;
+        if (localY >= 0 && localY < rect.h && localX >= 0 && localX < textW) {
+          const cursorLine = lines[cursor.line] ?? "";
+          const cursorGlyph = cursorLine.slice(cursor.column, cursor.column + 1) || " ";
+          const cursorCellStyle = mergeTextStyle(parentStyle, {
+            fg: resolveSyntaxThemeColor(theme, "syntax.cursor.fg", theme.colors.bg),
+            bg: resolveSyntaxThemeColor(theme, "syntax.cursor.bg", theme.colors.primary),
+            bold: true,
+          });
+          builder.pushClip(textX, rect.y, textW, rect.h);
+          builder.drawText(textX + localX, rect.y + localY, cursorGlyph, cursorCellStyle);
+          builder.popClip();
         }
       }
       break;

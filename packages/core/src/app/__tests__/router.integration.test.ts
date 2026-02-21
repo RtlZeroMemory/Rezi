@@ -184,6 +184,163 @@ describe("createApp routes integration", () => {
     app.dispose();
   });
 
+  test("replaceRoutes refreshes route keybindings and disables removed shortcuts", async () => {
+    const backend = new StubBackend();
+
+    const app = createApp({
+      backend,
+      initialState: Object.freeze({}),
+      routes: [
+        {
+          id: "home",
+          title: "Home",
+          keybinding: "ctrl+1",
+          screen: () => ui.button({ id: "home-btn", label: "Home" }),
+        },
+        {
+          id: "logs",
+          title: "Logs",
+          keybinding: "ctrl+2",
+          screen: () => ui.button({ id: "logs-btn", label: "Logs" }),
+        },
+      ],
+      initialRoute: "home",
+    });
+
+    await bootWithResize(backend, app);
+
+    backend.pushBatch(
+      makeBackendBatch({
+        bytes: encodeZrevBatchV1({
+          events: [{ kind: "key", timeMs: 2, key: 50, mods: ZR_MOD_CTRL, action: "down" }],
+        }),
+      }),
+    );
+    await flushMicrotasks(20);
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+    assert.equal(app.router?.currentRoute().id, "logs");
+
+    app.replaceRoutes([
+      {
+        id: "home",
+        title: "Home",
+        keybinding: "ctrl+7",
+        screen: () => ui.button({ id: "home-btn", label: "Home v2" }),
+      },
+      {
+        id: "logs",
+        title: "Logs",
+        keybinding: "ctrl+8",
+        screen: () => ui.button({ id: "logs-btn", label: "Logs v2" }),
+      },
+      {
+        id: "settings",
+        title: "Settings",
+        keybinding: "ctrl+3",
+        screen: () => ui.button({ id: "settings-btn", label: "Settings v2" }),
+      },
+    ]);
+    await flushMicrotasks(20);
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+    assert.equal(app.router?.currentRoute().id, "logs");
+
+    backend.pushBatch(
+      makeBackendBatch({
+        bytes: encodeZrevBatchV1({
+          events: [{ kind: "key", timeMs: 3, key: 50, mods: ZR_MOD_CTRL, action: "down" }],
+        }),
+      }),
+    );
+    await flushMicrotasks(20);
+    assert.equal(app.router?.currentRoute().id, "logs");
+
+    backend.pushBatch(
+      makeBackendBatch({
+        bytes: encodeZrevBatchV1({
+          events: [{ kind: "key", timeMs: 4, key: 51, mods: ZR_MOD_CTRL, action: "down" }],
+        }),
+      }),
+    );
+    await flushMicrotasks(20);
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+    assert.equal(app.router?.currentRoute().id, "settings");
+
+    backend.pushBatch(
+      makeBackendBatch({
+        bytes: encodeZrevBatchV1({
+          events: [{ kind: "key", timeMs: 5, key: 55, mods: ZR_MOD_CTRL, action: "down" }],
+        }),
+      }),
+    );
+    await flushMicrotasks(20);
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+    assert.equal(app.router?.currentRoute().id, "home");
+
+    app.dispose();
+  });
+
+  test("replaceRoutes remaps history when current routes are removed", async () => {
+    const backend = new StubBackend();
+
+    const app = createApp({
+      backend,
+      initialState: Object.freeze({}),
+      routes: [
+        {
+          id: "home",
+          keybinding: "ctrl+1",
+          screen: () => ui.text("Home"),
+        },
+        {
+          id: "logs",
+          keybinding: "ctrl+2",
+          screen: () => ui.text("Logs"),
+        },
+      ],
+      initialRoute: "logs",
+    });
+
+    await bootWithResize(backend, app);
+
+    app.router?.navigate("home");
+    await flushMicrotasks(20);
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+    assert.equal(app.router?.currentRoute().id, "home");
+
+    app.replaceRoutes([
+      {
+        id: "settings",
+        keybinding: "ctrl+3",
+        screen: () => ui.text("Settings"),
+      },
+    ]);
+    await flushMicrotasks(20);
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+
+    assert.equal(app.router?.currentRoute().id, "settings");
+    assert.deepEqual(app.router?.history(), [{ id: "settings", params: Object.freeze({}) }]);
+
+    backend.pushBatch(
+      makeBackendBatch({
+        bytes: encodeZrevBatchV1({
+          events: [{ kind: "key", timeMs: 8, key: 49, mods: ZR_MOD_CTRL, action: "down" }],
+        }),
+      }),
+    );
+    await flushMicrotasks(20);
+
+    // Removed shortcut stays inert after route replacement.
+    assert.equal(app.router?.currentRoute().id, "settings");
+
+    app.dispose();
+  });
+
   test("back() restores focus from previous route snapshot", async () => {
     const backend = new StubBackend();
     let sampledFocusedId: string | null = null;

@@ -1610,6 +1610,58 @@ export type CodeEditorDiagnostic = Readonly<{
   message?: string;
 }>;
 
+/** Built-in syntax language presets for CodeEditor tokenization. */
+export type CodeEditorSyntaxLanguage =
+  | "plain"
+  | "typescript"
+  | "javascript"
+  | "json"
+  | "go"
+  | "rust"
+  | "c"
+  | "cpp"
+  | "c++"
+  | "csharp"
+  | "c#"
+  | "java"
+  | "python"
+  | "bash";
+
+/** Semantic token buckets produced by CodeEditor syntax tokenizers. */
+export type CodeEditorSyntaxTokenKind =
+  | "plain"
+  | "keyword"
+  | "type"
+  | "string"
+  | "number"
+  | "comment"
+  | "operator"
+  | "punctuation"
+  | "function"
+  | "variable";
+
+/** Single syntax token emitted by a CodeEditor line tokenizer. */
+export type CodeEditorSyntaxToken = Readonly<{
+  /** Token text (must map back to the source line). */
+  text: string;
+  /** Semantic token kind used for style mapping. */
+  kind: CodeEditorSyntaxTokenKind;
+}>;
+
+/** Context passed to custom CodeEditor line tokenizers. */
+export type CodeEditorTokenizeContext = Readonly<{
+  /** Active syntax language preset. */
+  language: CodeEditorSyntaxLanguage;
+  /** 0-based document line index. */
+  lineNumber: number;
+}>;
+
+/** Optional custom per-line tokenizer for CodeEditor. */
+export type CodeEditorLineTokenizer = (
+  line: string,
+  context: CodeEditorTokenizeContext,
+) => readonly CodeEditorSyntaxToken[];
+
 /** Props for CodeEditor widget. Multiline text editing with selections. */
 export type CodeEditorProps = Readonly<{
   /** REQUIRED - Interactive widget identifier. */
@@ -1647,6 +1699,12 @@ export type CodeEditorProps = Readonly<{
   currentMatchIndex?: number;
   /** Optional diagnostics rendered as styled underlines. */
   diagnostics?: readonly CodeEditorDiagnostic[];
+  /** Built-in syntax language preset (default: "plain"). */
+  syntaxLanguage?: CodeEditorSyntaxLanguage;
+  /** Optional custom tokenizer for per-line syntax highlighting. */
+  tokenizeLine?: CodeEditorLineTokenizer;
+  /** Render a visible highlighted cursor cell (default: true). */
+  highlightActiveCursorCell?: boolean;
   /** Callback when content changes. */
   onChange: (lines: readonly string[], cursor: CursorPosition) => void;
   /** Callback when selection changes. */

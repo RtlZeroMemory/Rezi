@@ -31,6 +31,43 @@ ui.table({ id: "tbl", columns: [...], data: [...] })
 
 See the [Widget Catalog](../widgets/index.md) for the complete list.
 
+### Code Editor Syntax Tokenization
+
+`@rezi-ui/core` also exports reusable tokenizer helpers used by `ui.codeEditor(...)`.
+These are deterministic, line-based lexical tokenizers that support common language presets:
+
+- `typescript`, `javascript`, `json`
+- `go`, `rust`
+- `c`, `cpp`/`c++`, `csharp`/`c#`, `java`
+- `python`, `bash`
+- `plain` fallback
+
+```typescript
+import {
+  tokenizeCodeEditorLine,
+  tokenizeCodeEditorLineWithCustom,
+  type CodeEditorTokenizeContext,
+} from "@rezi-ui/core";
+
+const builtIn = tokenizeCodeEditorLine('const n = 1;', {
+  language: "typescript",
+  lineNumber: 0,
+  previousLineState: null,
+});
+
+const mixed = tokenizeCodeEditorLineWithCustom("SELECT * FROM users", {
+  language: "plain",
+  lineNumber: 0,
+  previousLineState: null,
+  customTokenizer: (line, ctx) => {
+    if (line.startsWith("SELECT")) {
+      return [{ start: 0, end: 6, kind: "keyword" }];
+    }
+    return tokenizeCodeEditorLine(line, ctx);
+  },
+});
+```
+
 ### Layout Engine
 
 Flexbox-like layout with:
@@ -177,6 +214,8 @@ await debug.enable({
 | `createApp` | Create application instance (low-level; for normal apps prefer `createNodeApp` from `@rezi-ui/node`) |
 | `App` | Application interface type |
 | `AppConfig` | Configuration options |
+| `App.replaceView(fn)` | Runtime-safe view swap for widget-mode hot reload workflows |
+| `App.replaceRoutes(routes)` | Runtime-safe route table swap for route-managed hot reload workflows |
 
 ### Widgets
 
@@ -185,6 +224,10 @@ await debug.enable({
 | `ui` | Widget factory namespace |
 | `VNode` | Virtual node type |
 | `*Props` | Widget prop types (TextProps, ButtonProps, etc.) |
+| `tokenizeCodeEditorLine(...)` | Built-in lexical tokenizer for code-editor syntax highlighting |
+| `tokenizeCodeEditorLineWithCustom(...)` | Built-in tokenizer wrapper that prefers custom token output when provided |
+| `normalizeCodeEditorTokens(...)` | Clamps/sorts token ranges into a render-safe form |
+| `CodeEditorSyntaxLanguage`, `CodeEditorSyntaxToken`, `CodeEditorTokenizeContext`, `CodeEditorLineTokenizer` | Tokenizer language and token types |
 
 ### Styling
 

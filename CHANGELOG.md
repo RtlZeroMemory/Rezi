@@ -11,6 +11,8 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - `@rezi-ui/jsx` — native JSX runtime for Rezi widgets (no React required)
 - `@rezi-ui/bench` — comprehensive benchmark suite (Rezi native vs Ink-on-Rezi vs Ink)
 - Benchmark results and performance documentation
+- Hot State-Preserving Reload (HSR): `App.replaceView(...)`/`App.replaceRoutes(...)` in core and `createHotStateReload(...)` in `@rezi-ui/node` for in-process widget view and route-table hot swapping during development
+- Code-editor syntax tokenizer utilities in `@rezi-ui/core`: `tokenizeCodeEditorLine(...)`, `tokenizeCodeEditorLineWithCustom(...)`, `normalizeCodeEditorTokens(...)`, language presets (`typescript`, `javascript`, `json`, `go`, `rust`, `c`, `cpp`/`c++`, `csharp`/`c#`, `java`, `python`, `bash`)
 - Widget composition API (`defineWidget` with hooks)
 - Page router route guards (`guard`) and nested route trees (`children`) with `context.outlet` rendering
 - Composition utility hooks: `useDebounce`, `useAsync`, `usePrevious`

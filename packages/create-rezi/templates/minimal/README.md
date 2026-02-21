@@ -31,6 +31,19 @@ bun install
 bun run start
 ```
 
+## Dev Loop (HSR)
+
+```bash
+# npm
+npm run dev
+
+# bun
+bun run dev
+```
+
+`npm run dev` / `bun run dev` starts the app with `--hsr` so view edits hot-swap via
+`app.replaceView(...)` while preserving app state, focus, and form/input context.
+
 ## Controls
 
 - `q` or `ctrl+c`: Quit

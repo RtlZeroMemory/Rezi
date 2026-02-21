@@ -17,6 +17,7 @@ import type {
   DrawFn,
   EventHandler,
   FocusChangeHandler,
+  RouteDefinition,
   ViewFn,
 } from "../index.js";
 import { defaultTheme } from "../theme/defaultTheme.js";
@@ -240,6 +241,12 @@ export function createAppWithInspectorOverlay<S>(
   const wrapped: AppWithInspectorOverlay<S> = {
     view(fn: ViewFn<S>): void {
       app.view(wrapView(fn));
+    },
+    replaceView(fn: ViewFn<S>): void {
+      app.replaceView(wrapView(fn));
+    },
+    replaceRoutes(routes: readonly RouteDefinition<S>[]): void {
+      app.replaceRoutes(routes);
     },
     draw(fn: DrawFn): void {
       app.draw(fn);

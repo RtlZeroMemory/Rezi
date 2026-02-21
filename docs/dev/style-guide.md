@@ -192,6 +192,34 @@ The `@rezi-ui/core` package uses content-addressed stability signatures
 (FNV-1a hashes) to skip relayout when the widget tree structure has not changed,
 further reducing per-frame allocation.
 
+## HSR Identity Stability
+
+For code that should work with hot state-preserving reload (`app.replaceView` / `app.replaceRoutes`):
+
+- Treat widget `id` and reconciliation `key` values as stable API contracts.
+- Do not generate ids with `Math.random()`, timestamps, or render counters.
+- Keep `defineWidget` keys stable for list items so local hooks persist.
+- In HSR demos/tools, keep editor ids stable (`self-edit-code`, `save-view-file`) so startup focus and save shortcuts remain deterministic across swaps.
+- Prefer modal/callout state in the view tree for reload feedback instead of `console.log` while an alt-screen app is running; stdout logging can corrupt visual diff captures.
+
+HSR swaps widget views or route tables; state preservation depends on
+reconciliation matching old/new instances by stable identity.
+
+## Code Editor Tokenizer Guidelines
+
+When touching code-editor syntax highlighting (`syntaxLanguage`, `tokenizeLine`,
+or `codeEditorSyntax.ts`):
+
+- Keep tokenization deterministic and lexical (line-based). No hidden global state.
+- Keep token spans bounded and non-overlapping; normalize ranges before painting.
+- Favor shared tokenizer exports (`tokenizeCodeEditorLine`, `tokenizeCodeEditorLineWithCustom`)
+  rather than ad-hoc tokenizers embedded in render code.
+- Preserve compatibility across the built-in preset family:
+  `plain`, `typescript`, `javascript`, `json`, `go`, `rust`, `c`, `cpp`/`c++`,
+  `csharp`/`c#`, `java`, `python`, `bash`.
+- Keep unknown language inputs safe by falling back to `plain`.
+- Wire colors through theme tokens so syntax rendering remains theme-portable.
+
 ## Error Handling
 
 ### Structured Errors

@@ -52,3 +52,16 @@ npm run start
 bun install
 bun run start
 ```
+
+## Dev Loop (HSR)
+
+```bash
+# npm
+npm run dev
+
+# bun
+bun run dev
+```
+
+`npm run dev` / `bun run dev` starts the app with `--hsr` so route edits hot-swap via
+`app.replaceRoutes(...)` while preserving app state, focus, and form input.

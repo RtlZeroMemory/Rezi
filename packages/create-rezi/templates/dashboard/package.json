@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "tsx src/main.ts",
-    "dev": "tsx watch src/main.ts",
+    "dev": "tsx src/main.ts --hsr",
     "build": "tsc --pretty false",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test src/__tests__"

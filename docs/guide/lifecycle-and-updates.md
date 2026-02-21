@@ -55,6 +55,55 @@ Rezi supports two render modes (exactly one is active):
 
 Set one mode before calling `start()`. Switching modes while running is rejected deterministically.
 
+## Hot State-Preserving Reload (HSR)
+
+Rezi supports development-time view hot swapping without process restarts.
+
+- `app.view(fn)` remains the initial setup API (`Created`/`Stopped` states)
+- `app.replaceView(fn)` swaps the active widget view while `Running`
+- `app.replaceRoutes(routes)` swaps route definitions for route-managed apps while `Running`
+
+When a new view function is applied, Rezi keeps:
+
+- committed app state (`app.update(...)` data)
+- widget instance local state (`defineWidget` hooks with stable keys/ids)
+- focus routing state (when focused widget id still exists)
+- widget-local editor/focus metadata (for stable widget ids)
+
+```ts
+import { ui } from "@rezi-ui/core";
+import { createNodeApp, createHotStateReload } from "@rezi-ui/node";
+
+const app = createNodeApp({ initialState: { count: 0 } });
+app.view((state) => ui.text(`count=${String(state.count)}`));
+
+const hsr = createHotStateReload({
+  app,
+  viewModule: new URL("./screens/main-screen.ts", import.meta.url),
+  moduleRoot: new URL("./src", import.meta.url),
+});
+
+await hsr.start();
+await app.start();
+```
+
+Route-managed apps can hot-swap route tables instead:
+
+```ts
+const hsr = createHotStateReload({
+  app,
+  routesModule: new URL("./screens/index.ts", import.meta.url),
+  moduleRoot: new URL("./src", import.meta.url),
+  resolveRoutes: (moduleNs) => {
+    const routes = (moduleNs as { routes?: unknown }).routes;
+    if (!Array.isArray(routes)) throw new Error("Expected `routes` array export");
+    return routes;
+  },
+});
+```
+
+HSR is intentionally rejected for raw draw mode (`app.draw(...)`).
+
 ## Update patterns
 
 State is owned by the app. You update it via `app.update(...)`:
