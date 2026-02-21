@@ -612,14 +612,12 @@ type CommitCtx = Readonly<{
   }> | null;
   compositeRenderStack: Array<Readonly<{ widgetKey: string; instanceId: InstanceId }>>;
   pendingEffects: EffectState[];
-  errorBoundary:
-    | Readonly<{
-        errorsByPath: Map<string, CommitErrorBoundaryState>;
-        retryRequestedPaths: Set<string>;
-        activePaths: Set<string>;
-        requestRetry: (path: string) => void;
-      }>
-    | null;
+  errorBoundary: Readonly<{
+    errorsByPath: Map<string, CommitErrorBoundaryState>;
+    retryRequestedPaths: Set<string>;
+    activePaths: Set<string>;
+    requestRetry: (path: string) => void;
+  }> | null;
 }>;
 
 const MAX_COMPOSITE_RENDER_DEPTH = 100;
@@ -648,6 +646,7 @@ function commitErrorBoundaryFallback(
   prev: RuntimeInstance | null,
   instanceId: InstanceId,
   boundaryPath: string,
+  fallbackPath: string,
   props: Readonly<{ fallback?: unknown }>,
   state: CommitErrorBoundaryState,
   ctx: CommitCtx,
@@ -703,7 +702,7 @@ function commitErrorBoundaryFallback(
       },
     };
   }
-  return commitNode(prev, instanceId, fallbackVNode, ctx, boundaryPath);
+  return commitNode(prev, instanceId, fallbackVNode, ctx, fallbackPath);
 }
 
 function commitNode(
@@ -742,15 +741,25 @@ function commitNode(
         };
       }
 
-      const retryRequested =
-        ctx.errorBoundary?.retryRequestedPaths.delete(nodePath) === true;
+      const protectedPath = `${nodePath}/b:protected`;
+      const fallbackPath = `${nodePath}/b:fallback`;
+
+      const retryRequested = ctx.errorBoundary?.retryRequestedPaths.delete(nodePath) === true;
       const existingState = ctx.errorBoundary?.errorsByPath.get(nodePath);
 
       if (existingState && !retryRequested) {
-        return commitErrorBoundaryFallback(prev, instanceId, nodePath, props, existingState, ctx);
+        return commitErrorBoundaryFallback(
+          prev,
+          instanceId,
+          nodePath,
+          fallbackPath,
+          props,
+          existingState,
+          ctx,
+        );
       }
 
-      const committedProtected = commitNode(prev, instanceId, protectedChild, ctx, nodePath);
+      const committedProtected = commitNode(prev, instanceId, protectedChild, ctx, protectedPath);
       if (committedProtected.ok) {
         ctx.errorBoundary?.errorsByPath.delete(nodePath);
         return committedProtected;
@@ -762,7 +771,15 @@ function commitNode(
 
       const trappedState = captureErrorBoundaryState(committedProtected.fatal.detail);
       ctx.errorBoundary?.errorsByPath.set(nodePath, trappedState);
-      return commitErrorBoundaryFallback(prev, instanceId, nodePath, props, trappedState, ctx);
+      return commitErrorBoundaryFallback(
+        prev,
+        instanceId,
+        nodePath,
+        fallbackPath,
+        props,
+        trappedState,
+        ctx,
+      );
     }
 
     const idFatal = ensureInteractiveId(ctx.seenInteractiveIds, instanceId, vnode);

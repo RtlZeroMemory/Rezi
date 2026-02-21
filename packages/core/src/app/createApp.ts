@@ -998,6 +998,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
           } catch {
             // ignore
           }
+          settleActiveRun?.();
         });
     } catch {
       try {
@@ -1005,6 +1006,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       } catch {
         // ignore
       }
+      settleActiveRun?.();
     }
   }
 

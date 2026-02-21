@@ -90,7 +90,10 @@ test("errorBoundary isolates subtree throws and recovers via retry()", async () 
   assert.equal(framesAfterInitialRender >= 1, true);
   let strings = latestFrameStrings(backend);
   assert.equal(strings.includes("safe-root"), true);
-  assert.equal(strings.some((s) => s.includes("fallback:Error: boundary boom")), true);
+  assert.equal(
+    strings.some((s) => s.includes("fallback:Error: boundary boom")),
+    true,
+  );
   assert.equal(backend.stopCalls, 0);
   assert.equal(backend.disposeCalls, 0);
   assert.equal(viewCalls, 1);
@@ -134,7 +137,10 @@ test("top-level view throw renders built-in error screen and retries on R", asyn
 
   assert.equal(backend.requestedFrames.length, 1);
   let strings = latestFrameStrings(backend);
-  assert.equal(strings.some((s) => s.includes("Press R to retry")), true);
+  assert.equal(
+    strings.some((s) => s.includes("Press R to retry")),
+    true,
+  );
   assert.equal(strings.includes("Message: top-level boom"), true);
   assert.equal(backend.stopCalls, 0);
   assert.equal(backend.disposeCalls, 0);
@@ -146,7 +152,10 @@ test("top-level view throw renders built-in error screen and retries on R", asyn
   await flushMicrotasks(30);
   assert.equal(backend.requestedFrames.length, 2);
   strings = latestFrameStrings(backend);
-  assert.equal(strings.some((s) => s.includes("Press R to retry")), true);
+  assert.equal(
+    strings.some((s) => s.includes("Press R to retry")),
+    true,
+  );
   assert.equal(viewCalls, 1);
 
   await settleNextFrame(backend);
@@ -269,4 +278,165 @@ test("app.run() resolves when app is stopped manually", async () => {
   } finally {
     g.process = prevProcess;
   }
+});
+
+test("app.run() resolves when app transitions to Faulted", async () => {
+  const backend = new StubBackend();
+  const app = createApp({ backend, initialState: { count: 0 } });
+  app.draw((g) => g.clear());
+
+  const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
+  const exitCodes: number[] = [];
+  const fakeProcess = {
+    on: (signal: string, handler: (...args: unknown[]) => void) => {
+      const set = listeners.get(signal) ?? new Set<(...args: unknown[]) => void>();
+      set.add(handler);
+      listeners.set(signal, set);
+    },
+    off: (signal: string, handler: (...args: unknown[]) => void) => {
+      listeners.get(signal)?.delete(handler);
+    },
+    exit: (code = 0) => {
+      exitCodes.push(code);
+    },
+  };
+  const g = globalThis as { process?: unknown };
+  const prevProcess = g.process;
+  g.process = fakeProcess;
+  try {
+    const runPromise = app.run();
+    await flushMicrotasks(30);
+    app.update(() => {
+      throw new Error("fatal-updater");
+    });
+    await flushMicrotasks(60);
+    await runPromise;
+    await flushMicrotasks(30);
+
+    assert.equal(backend.stopCalls >= 1, true);
+    assert.equal(backend.disposeCalls >= 1, true);
+    assert.deepEqual(exitCodes, []);
+    assert.equal(listeners.get("SIGINT")?.size ?? 0, 0);
+    assert.equal(listeners.get("SIGTERM")?.size ?? 0, 0);
+    assert.equal(listeners.get("SIGHUP")?.size ?? 0, 0);
+  } finally {
+    g.process = prevProcess;
+  }
+});
+
+test("nested errorBoundary retry state remains isolated", async () => {
+  const backend = new StubBackend();
+  const app = createApp({
+    backend,
+    initialState: { innerCrash: true, outerCrash: false },
+  });
+
+  let innerRenders = 0;
+  let outerRenders = 0;
+  let sawInnerRetry = false;
+  let sawOuterRetry = false;
+  let retryInner: () => void = () => {
+    throw new Error("missing inner retry callback");
+  };
+  let retryOuter: () => void = () => {
+    throw new Error("missing outer retry callback");
+  };
+
+  const InnerRisky = defineWidget<{ crash: boolean; key?: string }>((props) => {
+    innerRenders++;
+    if (props.crash) throw new Error("inner boom");
+    return ui.text("inner-ok");
+  });
+
+  const OuterRisky = defineWidget<{ outerCrash: boolean; innerCrash: boolean; key?: string }>(
+    (props) => {
+      outerRenders++;
+      if (props.outerCrash) throw new Error("outer boom");
+      return ui.errorBoundary({
+        children: InnerRisky({ crash: props.innerCrash }),
+        fallback: (error) => {
+          sawInnerRetry = true;
+          retryInner = error.retry;
+          return ui.text(`inner-fallback:${error.message}`);
+        },
+      });
+    },
+  );
+
+  app.view((state) =>
+    ui.errorBoundary({
+      children: OuterRisky({ outerCrash: state.outerCrash, innerCrash: state.innerCrash }),
+      fallback: (error) => {
+        sawOuterRetry = true;
+        retryOuter = error.retry;
+        return ui.text(`outer-fallback:${error.message}`);
+      },
+    }),
+  );
+
+  await app.start();
+  await emitResize(backend, 1);
+
+  let strings = latestFrameStrings(backend);
+  assert.equal(
+    strings.some((s) => s.includes("inner-fallback:Error: inner boom")),
+    true,
+  );
+  assert.equal(
+    strings.some((s) => s.includes("outer-fallback")),
+    false,
+  );
+  assert.equal(innerRenders, 1);
+  assert.equal(outerRenders, 1);
+  assert.equal(sawInnerRetry, true);
+
+  await settleNextFrame(backend);
+
+  app.update((state) => ({ ...state, innerCrash: false }));
+  await flushMicrotasks(30);
+  strings = latestFrameStrings(backend);
+  assert.equal(
+    strings.some((s) => s.includes("inner-fallback:Error: inner boom")),
+    true,
+  );
+  assert.equal(innerRenders, 1);
+
+  await settleNextFrame(backend);
+
+  retryInner();
+  await flushMicrotasks(30);
+  strings = latestFrameStrings(backend);
+  assert.equal(strings.includes("inner-ok"), true);
+  assert.equal(innerRenders, 2);
+
+  await settleNextFrame(backend);
+
+  app.update((state) => ({ ...state, outerCrash: true }));
+  await flushMicrotasks(30);
+  strings = latestFrameStrings(backend);
+  assert.equal(
+    strings.some((s) => s.includes("outer-fallback:Error: outer boom")),
+    true,
+  );
+  assert.equal(sawOuterRetry, true);
+  const outerRendersWhileFaulted = outerRenders;
+
+  await settleNextFrame(backend);
+
+  app.update((state) => ({ ...state, outerCrash: false }));
+  await flushMicrotasks(30);
+  strings = latestFrameStrings(backend);
+  assert.equal(
+    strings.some((s) => s.includes("outer-fallback:Error: outer boom")),
+    true,
+  );
+  assert.equal(outerRenders, outerRendersWhileFaulted);
+
+  await settleNextFrame(backend);
+
+  retryOuter();
+  await flushMicrotasks(30);
+  strings = latestFrameStrings(backend);
+  assert.equal(strings.includes("inner-ok"), true);
+  assert.equal(outerRenders, outerRendersWhileFaulted + 1);
 });
