@@ -57,6 +57,10 @@ import {
 } from "../keybindings/keyCodes.js";
 import { hitTestFocusable } from "../layout/hitTest.js";
 import { type LayoutTree, layout } from "../layout/layout.js";
+import {
+  computeDirtyLayoutSet,
+  instanceDirtySetToVNodeDirtySet,
+} from "../layout/engine/dirtySet.js";
 import { calculateAnchorPosition } from "../layout/positioning.js";
 import {
   type ResponsiveBreakpointThresholds,
@@ -860,6 +864,7 @@ export class WidgetRenderer<S> {
   private readonly _pooledRuntimeStack: RuntimeInstance[] = [];
   private readonly _pooledOffsetXStack: number[] = [];
   private readonly _pooledOffsetYStack: number[] = [];
+  private readonly _pooledDirtyLayoutInstanceIds: InstanceId[] = [];
   private readonly _pooledPrevRuntimeStack: RuntimeInstance[] = [];
   private readonly _pooledDamageRuntimeStack: RuntimeInstance[] = [];
   private readonly _pooledVisitedTransitionIds = new Set<InstanceId>();
@@ -3351,6 +3356,22 @@ export class WidgetRenderer<S> {
     });
   }
 
+  private collectSelfDirtyInstanceIds(runtimeRoot: RuntimeInstance, out: InstanceId[]): void {
+    out.length = 0;
+    this._pooledRuntimeStack.length = 0;
+    this._pooledRuntimeStack.push(runtimeRoot);
+
+    while (this._pooledRuntimeStack.length > 0) {
+      const node = this._pooledRuntimeStack.pop();
+      if (!node) continue;
+      if (node.selfDirty) out.push(node.instanceId);
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        const child = node.children[i];
+        if (child) this._pooledRuntimeStack.push(child);
+      }
+    }
+  }
+
   private markTransientDirtyNodes(
     runtimeRoot: RuntimeInstance,
     prevFocusedId: string | null,
@@ -3949,6 +3970,7 @@ export class WidgetRenderer<S> {
       let hasRoutingWidgets = hadRoutingWidgets;
       let didRoutingRebuild = false;
       let identityDamageFromCommit: IdentityDiffDamageResult | null = null;
+      let layoutDirtyVNodeSet: Set<VNode> | null = null;
 
       if (doCommit) {
         let commitReadViewport = false;
@@ -4047,6 +4069,22 @@ export class WidgetRenderer<S> {
         };
       }
 
+      const forceFullRelayout =
+        !this._hasRenderedFrame ||
+        this._lastRenderedViewport.cols !== viewport.cols ||
+        this._lastRenderedViewport.rows !== viewport.rows ||
+        this._lastRenderedThemeRef !== theme;
+
+      if (doLayout && doCommit && commitRes !== null && !forceFullRelayout) {
+        this.collectSelfDirtyInstanceIds(this.committedRoot, this._pooledDirtyLayoutInstanceIds);
+        const dirtyInstanceIds = computeDirtyLayoutSet(
+          this.committedRoot,
+          commitRes.mountedInstanceIds,
+          this._pooledDirtyLayoutInstanceIds,
+        );
+        layoutDirtyVNodeSet = instanceDirtySetToVNodeDirtySet(this.committedRoot, dirtyInstanceIds);
+      }
+
       if (doLayout) {
         const rootPad = this.rootPadding;
         const rootW = Math.max(0, viewport.cols - rootPad * 2);
@@ -4061,6 +4099,7 @@ export class WidgetRenderer<S> {
           "column",
           this._layoutMeasureCache,
           this._layoutTreeCache,
+          layoutDirtyVNodeSet,
         );
         perfMarkEnd("layout", layoutToken);
         if (!layoutRes.ok) {

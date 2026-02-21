@@ -34,6 +34,7 @@ import { layoutOverlays, measureOverlays } from "../kinds/overlays.js";
 import { layoutSplitPaneKinds, measureSplitPaneKinds } from "../kinds/splitPane.js";
 import { layoutStackKinds, measureStackKinds } from "../kinds/stack.js";
 import { clampNonNegative, isI32 } from "./bounds.js";
+import { getActiveDirtySet, popDirtySet, pushDirtySet } from "./dirtySet.js";
 import type { LayoutTree } from "./types.js";
 
 type MeasureCacheEntry = Readonly<{
@@ -312,12 +313,16 @@ function layoutNode(
 
   const cache = activeLayoutCache;
   const cacheKey = layoutCacheKey(maxW, maxH, forcedW, forcedH, x, y);
+  const dirtySet = getActiveDirtySet();
+  let cacheHit: LayoutResult<LayoutTree> | null = null;
   if (cache) {
     const entry = cache.get(vnode);
     if (entry) {
       const axisMap = axis === "row" ? entry.row : entry.column;
-      const hit = axisMap.get(cacheKey);
-      if (hit) return hit;
+      cacheHit = axisMap.get(cacheKey) ?? null;
+      if (cacheHit && (dirtySet === null || !dirtySet.has(vnode))) {
+        return cacheHit;
+      }
     }
   }
 
@@ -516,6 +521,7 @@ export function layout(
   axis: Axis,
   measureCache?: WeakMap<VNode, unknown>,
   layoutCache?: WeakMap<VNode, unknown>,
+  dirtySet?: Set<VNode> | null,
 ): LayoutResult<LayoutTree> {
   const resolvedMeasureCache: MeasureCache = measureCache
     ? (measureCache as MeasureCache)
@@ -525,9 +531,11 @@ export function layout(
     : new WeakMap<VNode, LayoutCacheEntry>();
   pushMeasureCache(resolvedMeasureCache);
   pushLayoutCache(resolvedLayoutCache);
+  pushDirtySet(dirtySet ?? null);
   try {
     return layoutNode(node, x, y, maxW, maxH, axis);
   } finally {
+    popDirtySet();
     popLayoutCache();
     popMeasureCache();
   }

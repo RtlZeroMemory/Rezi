@@ -14,6 +14,7 @@ import {
   childHasPercentInMainAxis,
   getConstraintProps,
 } from "../engine/guards.js";
+import { getActiveDirtySet } from "../engine/dirtySet.js";
 import { releaseArray } from "../engine/pool.js";
 import { ok } from "../engine/result.js";
 import type { LayoutTree } from "../engine/types.js";
@@ -88,6 +89,36 @@ type WrapLineLayout = Readonly<{
   main: number;
   cross: number;
 }>;
+
+const previousChildSizeCache = new WeakMap<VNode, Size>();
+
+function recordChildLayoutSize(child: VNode, layout: LayoutTree): void {
+  previousChildSizeCache.set(child, { w: layout.rect.w, h: layout.rect.h });
+}
+
+function maybePruneRemainingDirtySiblings(
+  children: readonly (VNode | undefined)[],
+  index: number,
+  child: VNode,
+  laidOut: LayoutTree,
+): void {
+  const dirtySet = getActiveDirtySet();
+  if (dirtySet === null || !dirtySet.has(child)) {
+    recordChildLayoutSize(child, laidOut);
+    return;
+  }
+
+  const prev = previousChildSizeCache.get(child);
+  recordChildLayoutSize(child, laidOut);
+  if (!prev) return;
+  if (prev.w !== laidOut.rect.w || prev.h !== laidOut.rect.h) return;
+
+  for (let i = index + 1; i < children.length; i++) {
+    const sibling = children[i];
+    if (!sibling) continue;
+    dirtySet.delete(sibling);
+  }
+}
 
 function isWrapEnabled(props: unknown): boolean {
   if (typeof props !== "object" || props === null) return false;
@@ -1743,6 +1774,7 @@ export function layoutStackKinds(
             const childRes = layoutNode(child, cursorX, cy, 0, 0, "row", null, null, precomputed);
             if (!childRes.ok) return childRes;
             children.push(childRes.value);
+            maybePruneRemainingDirtySiblings(vnode.children, i, child, childRes.value);
             childOrdinal++;
             continue;
           }
@@ -1771,6 +1803,7 @@ export function layoutStackKinds(
           const childRes = layoutNode(child, cursorX, childY, mm, ch, "row", main, forceH, childSize);
           if (!childRes.ok) return childRes;
           children.push(childRes.value);
+          maybePruneRemainingDirtySiblings(vnode.children, i, child, childRes.value);
 
           const hasNextChild = childOrdinal < childCount - 1;
           const extraGap = hasNextChild
@@ -2200,6 +2233,7 @@ export function layoutStackKinds(
             );
             if (!childRes.ok) return childRes;
             children.push(childRes.value);
+            maybePruneRemainingDirtySiblings(vnode.children, i, child, childRes.value);
             childOrdinal++;
             continue;
           }
@@ -2238,6 +2272,7 @@ export function layoutStackKinds(
           );
           if (!childRes.ok) return childRes;
           children.push(childRes.value);
+          maybePruneRemainingDirtySiblings(vnode.children, i, child, childRes.value);
 
           const hasNextChild = childOrdinal < childCount - 1;
           const extraGap = hasNextChild
