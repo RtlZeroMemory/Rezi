@@ -199,6 +199,26 @@ result.toText();                   // Render to plain text for snapshots
 
 Test runner: `node:test`. Run all tests with `node scripts/run-tests.mjs`.
 
+## Skills (Repeatable Recipes)
+
+Project-level skills for both Claude Code and Codex:
+
+| Skill | Claude Code | Codex |
+|-------|-------------|-------|
+| Add Widget | `.claude/skills/rezi-add-widget/` | `.codex/skills/rezi-add-widget/` |
+| Create Screen | `.claude/skills/rezi-create-screen/` | `.codex/skills/rezi-create-screen/` |
+| Keybindings | `.claude/skills/rezi-keybindings/` | `.codex/skills/rezi-keybindings/` |
+| Data Table | `.claude/skills/rezi-data-table/` | `.codex/skills/rezi-data-table/` |
+| Modal Dialogs | `.claude/skills/rezi-modal-dialogs/` | `.codex/skills/rezi-modal-dialogs/` |
+| Forms | `.claude/skills/rezi-forms/` | `.codex/skills/rezi-forms/` |
+| Write Tests | `.claude/skills/rezi-write-tests/` | `.codex/skills/rezi-write-tests/` |
+| Debug Rendering | `.claude/skills/rezi-debug-rendering/` | `.codex/skills/rezi-debug-rendering/` |
+| Perf Profiling | `.claude/skills/rezi-perf-profiling/` | `.codex/skills/rezi-perf-profiling/` |
+| Routing | `.claude/skills/rezi-routing/` | `.codex/skills/rezi-routing/` |
+
+Claude Code: invoke via `/rezi-add-widget`, `/rezi-write-tests`, etc.
+Codex: invoke via `$rezi-add-widget` or implicitly via description matching.
+
 ## Performance Notes
 
 - Layout stability signatures (FNV-1a hash) auto-skip relayout for unchanged subtrees.
