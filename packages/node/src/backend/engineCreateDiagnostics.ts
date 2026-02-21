@@ -28,11 +28,7 @@ function asPositiveInt(v: unknown): number | null {
   return v;
 }
 
-function readRequestedPin(
-  config: EngineCreateConfigLike,
-  key: string,
-  fallback: number,
-): number {
+function readRequestedPin(config: EngineCreateConfigLike, key: string, fallback: number): number {
   const parsed = asPositiveInt(config[key]);
   return parsed === null ? fallback : parsed;
 }

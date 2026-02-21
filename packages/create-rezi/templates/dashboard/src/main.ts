@@ -1482,19 +1482,24 @@ app.view((state) => {
           ui.text("Newest events first. Feed updates continuously while stream is active.", {
             style: metaStyle,
           }),
-          ...Array.from({ length: state.debug ? Math.max(3, INCIDENT_VISIBLE_ROWS - 3) : INCIDENT_VISIBLE_ROWS }, (_, index) => {
-            const incident = state.incidents[index];
-            if (!incident) return ui.text(" ", { style: quietStyle });
-            const badge = incidentBadge(incident.severity);
-            return ui.row({ key: `incident-row-${incident.id}`, gap: 1, items: "center" }, [
-              ui.icon(incidentIcon(incident.severity)),
-              ui.badge(incidentBadgeLabel(incident.severity), { variant: badge.variant }),
-              ui.text(`[${incident.at}] ${incident.message}`, {
-                textOverflow: "ellipsis",
-                maxWidth: INCIDENT_TEXT_MAX_WIDTH,
-              }),
-            ]);
-          }),
+          ...Array.from(
+            {
+              length: state.debug ? Math.max(3, INCIDENT_VISIBLE_ROWS - 3) : INCIDENT_VISIBLE_ROWS,
+            },
+            (_, index) => {
+              const incident = state.incidents[index];
+              if (!incident) return ui.text(" ", { style: quietStyle });
+              const badge = incidentBadge(incident.severity);
+              return ui.row({ key: `incident-row-${incident.id}`, gap: 1, items: "center" }, [
+                ui.icon(incidentIcon(incident.severity)),
+                ui.badge(incidentBadgeLabel(incident.severity), { variant: badge.variant }),
+                ui.text(`[${incident.at}] ${incident.message}`, {
+                  textOverflow: "ellipsis",
+                  maxWidth: INCIDENT_TEXT_MAX_WIDTH,
+                }),
+              ]);
+            },
+          ),
           state.debug
             ? ui.box({ border: "rounded", px: 1, py: 0, style: stripStyle }, [
                 ui.row({ gap: 1, items: "center", wrap: true }, [

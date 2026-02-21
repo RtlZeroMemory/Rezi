@@ -17,10 +17,16 @@ test("engineCreate diagnostics: unsupported includes actionable ABI mismatch gui
       nativeModuleHint: "@rezi-ui/native",
       probeFns: {
         probe: (cfg) => {
-          const abiMajor = cfg["requestedEngineAbiMajor"];
-          const abiMinor = cfg["requestedEngineAbiMinor"];
-          const abiPatch = cfg["requestedEngineAbiPatch"];
-          const drawlistVersion = cfg["requestedDrawlistVersion"];
+          const typedCfg = cfg as {
+            requestedEngineAbiMajor?: number;
+            requestedEngineAbiMinor?: number;
+            requestedEngineAbiPatch?: number;
+            requestedDrawlistVersion?: number;
+          };
+          const abiMajor = typedCfg.requestedEngineAbiMajor;
+          const abiMinor = typedCfg.requestedEngineAbiMinor;
+          const abiPatch = typedCfg.requestedEngineAbiPatch;
+          const drawlistVersion = typedCfg.requestedDrawlistVersion;
           if (abiMajor === 1 && abiMinor === 1 && abiPatch === 0 && drawlistVersion === 2) {
             return 7;
           }
@@ -36,7 +42,10 @@ test("engineCreate diagnostics: unsupported includes actionable ABI mismatch gui
   assert.match(detail, /engine_create failed: code=-4 \(ZR_ERR_UNSUPPORTED\)\./);
   assert.match(detail, /Requested pins: engine ABI 1\.2\.0, drawlist v5, event batch v1\./);
   assert.match(detail, /Current Rezi pins: engine ABI 1\.2\.0, drawlist v5, event batch v1\./);
-  assert.match(detail, /Detected native compatibility with legacy pins engine ABI 1\.1\.0 \+ drawlist v2\./);
+  assert.match(
+    detail,
+    /Detected native compatibility with legacy pins engine ABI 1\.1\.0 \+ drawlist v2\./,
+  );
   assert.match(detail, /build:native/);
   assert.match(detail, /Native module: @rezi-ui\/native\./);
   assert.equal(destroyedEngineId, 7);

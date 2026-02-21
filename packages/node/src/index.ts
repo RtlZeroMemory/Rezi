@@ -1,12 +1,12 @@
 import {
-  darkTheme,
-  dimmedTheme,
-  draculaTheme,
   type App,
   type AppConfig,
   type Theme,
   type ThemeDefinition,
   createApp,
+  darkTheme,
+  dimmedTheme,
+  draculaTheme,
   highContrastTheme,
   lightTheme,
   nordTheme,
@@ -55,7 +55,8 @@ let didWarnLegacyCreateNodeBackend = false;
 
 function warnLegacyCreateNodeBackend(): void {
   if (didWarnLegacyCreateNodeBackend) return;
-  if (process.env["NODE_ENV"] === "production") return;
+  const env = process.env as { NODE_ENV?: string };
+  if (env.NODE_ENV === "production") return;
   didWarnLegacyCreateNodeBackend = true;
   console.warn(
     "[rezi] createNodeBackend() is deprecated for standard app setup. Prefer createNodeApp().",
@@ -98,9 +99,7 @@ function toBackendConfig(config: NodeAppConfig | undefined): NodeBackendConfig {
     ...(config.executionMode !== undefined ? { executionMode: config.executionMode } : {}),
     ...(config.fpsCap !== undefined ? { fpsCap: config.fpsCap } : {}),
     ...(config.maxEventBytes !== undefined ? { maxEventBytes: config.maxEventBytes } : {}),
-    ...(config.emojiWidthPolicy !== undefined
-      ? { emojiWidthPolicy: config.emojiWidthPolicy }
-      : {}),
+    ...(config.emojiWidthPolicy !== undefined ? { emojiWidthPolicy: config.emojiWidthPolicy } : {}),
     ...(config.drawlistVersion !== undefined ? { drawlistVersion: config.drawlistVersion } : {}),
     ...(config.frameTransport !== undefined ? { frameTransport: config.frameTransport } : {}),
     ...(config.frameSabSlotCount !== undefined
