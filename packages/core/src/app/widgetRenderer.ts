@@ -627,6 +627,7 @@ export class WidgetRenderer<S> {
   /* --- Pooled Collections (reused per-frame to reduce GC pressure) --- */
   private readonly _metadataCollector: WidgetMetadataCollector = createWidgetMetadataCollector();
   private readonly _pooledRectByInstanceId = new Map<InstanceId, Rect>();
+  private readonly _pooledInteractiveIdIndex = new Map<string, InstanceId>();
   private readonly _pooledLayoutSigByInstanceId = new Map<InstanceId, number>();
   private readonly _pooledNextLayoutSigByInstanceId = new Map<InstanceId, number>();
   private readonly _pooledChangedRenderInstanceIds: InstanceId[] = [];
@@ -3278,6 +3279,7 @@ export class WidgetRenderer<S> {
         const commitRes0 = commitVNodeTree(this.committedRoot, vnode, {
           allocator: this.allocator,
           collectLifecycleInstanceIds: false,
+          interactiveIdIndex: this._pooledInteractiveIdIndex,
           composite: {
             registry: this.compositeRegistry,
             appState: snapshot,

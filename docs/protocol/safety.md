@@ -180,7 +180,7 @@ Error codes:
 | `ZRUI_UPDATE_DURING_RENDER` | State mutation during render phase |
 | `ZRUI_DUPLICATE_KEY` | Two siblings share the same key |
 | `ZRUI_DUPLICATE_ID` | Two widgets share the same ID |
-| `ZRUI_INVALID_PROPS` | Configuration/props validation failure |
+| `ZRUI_INVALID_PROPS` | Configuration/props validation failure (includes `ZRUI_MAX_DEPTH` detail for excessive composite/layout nesting) |
 | `ZRUI_PROTOCOL_ERROR` | Binary protocol violation from engine |
 | `ZRUI_DRAWLIST_BUILD_ERROR` | Builder returned an error result |
 | `ZRUI_BACKEND_ERROR` | Backend operation failed |
