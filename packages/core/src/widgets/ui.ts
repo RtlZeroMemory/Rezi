@@ -779,7 +779,11 @@ function page(options: PageOptions): VNode {
       gap: options.gap ?? 1,
       ...(options.p === undefined ? {} : { p: options.p }),
     },
-    [options.header ?? null, box({ flex: 1 }, [options.body]), options.footer ?? null],
+    [
+      options.header ?? null,
+      box({ border: "none", flex: 1 }, [options.body]),
+      options.footer ?? null,
+    ],
   );
 }
 

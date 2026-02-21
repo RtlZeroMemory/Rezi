@@ -13,7 +13,7 @@ describe("Fragment", () => {
       </Fragment>
     );
 
-    assert.deepEqual(vnode, ui.column({}, [ui.text("A"), ui.text("B")]));
+    assert.deepEqual(vnode, ui.column({ gap: 0 }, [ui.text("A"), ui.text("B")]));
   });
 
   test("Fragment shorthand works", () => {
@@ -24,7 +24,7 @@ describe("Fragment", () => {
       </>
     );
 
-    assert.deepEqual(vnode, ui.column({}, [ui.text("one"), ui.text("two")]));
+    assert.deepEqual(vnode, ui.column({ gap: 0 }, [ui.text("one"), ui.text("two")]));
   });
 
   test("Fragment preserves key", () => {
@@ -34,7 +34,7 @@ describe("Fragment", () => {
       </Fragment>
     );
 
-    assert.deepEqual(vnode, ui.column({ key: "frag-key" }, [ui.text("keyed")]));
+    assert.deepEqual(vnode, ui.column({ key: "frag-key", gap: 0 }, [ui.text("keyed")]));
   });
 
   test("Fragment handles single/no/nested children", () => {
@@ -42,10 +42,10 @@ describe("Fragment", () => {
       <Fragment>
         <Text>single</Text>
       </Fragment>,
-      ui.column({}, [ui.text("single")]),
+      ui.column({ gap: 0 }, [ui.text("single")]),
     );
 
-    assert.deepEqual(<Fragment />, ui.column({}, []));
+    assert.deepEqual(<Fragment />, ui.column({ gap: 0 }, []));
 
     assert.deepEqual(
       <Fragment>
@@ -53,7 +53,7 @@ describe("Fragment", () => {
           <Text>nested</Text>
         </Fragment>
       </Fragment>,
-      ui.column({}, [ui.column({}, [ui.text("nested")])]),
+      ui.column({ gap: 0 }, [ui.column({ gap: 0 }, [ui.text("nested")])]),
     );
   });
 });

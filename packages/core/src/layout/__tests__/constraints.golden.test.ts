@@ -34,7 +34,9 @@ describe("constraints (deterministic) - golden cases", () => {
   });
 
   test("flex:1 with minWidth:20, maxWidth:50 in space 100 => 50", () => {
-    const tree = ui.row({ gap: 0 }, [ui.box({ border: "none", flex: 1, minWidth: 20, maxWidth: 50 }, [])]);
+    const tree = ui.row({ gap: 0 }, [
+      ui.box({ border: "none", flex: 1, minWidth: 20, maxWidth: 50 }, []),
+    ]);
     const out = mustLayout(tree, 100, 10);
     assert.equal(out.children[0]?.rect.w, 50);
   });

@@ -229,16 +229,16 @@ function drawDepths(ops: readonly DrawOp[]): readonly DrawDepth[] {
 function makeDeepNestedRows(levels: number, step: number, leaf: VNode): VNode {
   let node = leaf;
   for (let i = 0; i < levels; i++) {
-    node = ui.row({ gap: 0,  width: 12, height: 1, ml: step, overflow: "hidden" }, [node]);
+    node = ui.row({ gap: 0, width: 12, height: 1, ml: step, overflow: "hidden" }, [node]);
   }
-  return ui.row({ gap: 0,  width: 12, height: 1, overflow: "hidden" }, [node]);
+  return ui.row({ gap: 0, width: 12, height: 1, overflow: "hidden" }, [node]);
 }
 
 describe("renderer clipping (deterministic)", () => {
   test("row overflow visible does not clip child hidden content to parent bounds", () => {
     const viewport = { cols: 20, rows: 4 };
-    const vnode = ui.row({ gap: 0,  width: 4, height: 1, overflow: "visible" }, [
-      ui.row({ gap: 0,  width: 4, height: 1, ml: 2, overflow: "hidden" }, [ui.text("ABCD")]),
+    const vnode = ui.row({ gap: 0, width: 4, height: 1, overflow: "visible" }, [
+      ui.row({ gap: 0, width: 4, height: 1, ml: 2, overflow: "hidden" }, [ui.text("ABCD")]),
     ]);
 
     const ops = renderOps(vnode, viewport, "row");
@@ -260,7 +260,7 @@ describe("renderer clipping (deterministic)", () => {
   test("box overflow visible does not clip child hidden content to parent bounds", () => {
     const viewport = { cols: 20, rows: 4 };
     const vnode = ui.box({ width: 4, height: 1, border: "none", overflow: "visible" }, [
-      ui.row({ gap: 0,  width: 4, height: 1, ml: 2, overflow: "hidden" }, [ui.text("ABCD")]),
+      ui.row({ gap: 0, width: 4, height: 1, ml: 2, overflow: "hidden" }, [ui.text("ABCD")]),
     ]);
 
     const ops = renderOps(vnode, viewport, "column");
@@ -281,8 +281,8 @@ describe("renderer clipping (deterministic)", () => {
 
   test("two-level nested clips constrain overflow to overlap", () => {
     const viewport = { cols: 20, rows: 4 };
-    const vnode = ui.row({ gap: 0,  width: 8, height: 1, overflow: "hidden" }, [
-      ui.row({ gap: 0,  width: 6, height: 1, ml: 6, overflow: "hidden" }, [ui.text("ABCD")]),
+    const vnode = ui.row({ gap: 0, width: 8, height: 1, overflow: "hidden" }, [
+      ui.row({ gap: 0, width: 6, height: 1, ml: 6, overflow: "hidden" }, [ui.text("ABCD")]),
     ]);
 
     const ops = renderOps(vnode, viewport, "row");
@@ -296,8 +296,8 @@ describe("renderer clipping (deterministic)", () => {
 
   test("right clip boundary is exclusive at overlap edge", () => {
     const viewport = { cols: 20, rows: 4 };
-    const vnode = ui.row({ gap: 0,  width: 8, height: 1, overflow: "hidden" }, [
-      ui.row({ gap: 0,  width: 3, height: 1, ml: 7, overflow: "hidden" }, [ui.text("XYZ")]),
+    const vnode = ui.row({ gap: 0, width: 8, height: 1, overflow: "hidden" }, [
+      ui.row({ gap: 0, width: 3, height: 1, ml: 7, overflow: "hidden" }, [ui.text("XYZ")]),
     ]);
 
     const frame = frameFromOps(renderOps(vnode, viewport, "row"), viewport);
@@ -307,9 +307,9 @@ describe("renderer clipping (deterministic)", () => {
 
   test("triple nested clips keep only one-cell overlap visible", () => {
     const viewport = { cols: 20, rows: 4 };
-    const vnode = ui.row({ gap: 0,  width: 10, height: 1, overflow: "hidden" }, [
-      ui.row({ gap: 0,  width: 8, height: 1, ml: 2, overflow: "hidden" }, [
-        ui.row({ gap: 0,  width: 6, height: 1, ml: 7, overflow: "hidden" }, [ui.text("XYZ")]),
+    const vnode = ui.row({ gap: 0, width: 10, height: 1, overflow: "hidden" }, [
+      ui.row({ gap: 0, width: 8, height: 1, ml: 2, overflow: "hidden" }, [
+        ui.row({ gap: 0, width: 6, height: 1, ml: 7, overflow: "hidden" }, [ui.text("XYZ")]),
       ]),
     ]);
 
@@ -320,7 +320,7 @@ describe("renderer clipping (deterministic)", () => {
 
   test("box border and padding move the child clip origin deterministically", () => {
     const viewport = { cols: 20, rows: 8 };
-    const vnode = ui.row({ gap: 0,  width: 12, height: 5, overflow: "hidden" }, [
+    const vnode = ui.row({ gap: 0, width: 12, height: 5, overflow: "hidden" }, [
       ui.box({ width: 8, height: 5, border: "single", p: 1, overflow: "hidden" }, [ui.text("L")]),
     ]);
 
@@ -353,8 +353,8 @@ describe("renderer clipping (deterministic)", () => {
 
   test("inner clip pop restores parent depth before sibling draw", () => {
     const viewport = { cols: 20, rows: 4 };
-    const vnode = ui.row({ gap: 0,  width: 12, height: 1, overflow: "hidden" }, [
-      ui.row({ gap: 0,  width: 4, height: 1, overflow: "hidden" }, [ui.text("123456")]),
+    const vnode = ui.row({ gap: 0, width: 12, height: 1, overflow: "hidden" }, [
+      ui.row({ gap: 0, width: 4, height: 1, overflow: "hidden" }, [ui.text("123456")]),
       ui.text("ZZ"),
     ]);
 
@@ -378,9 +378,9 @@ describe("renderer clipping (deterministic)", () => {
 
   test("later sibling text remains visible after deeper nested clipping", () => {
     const viewport = { cols: 24, rows: 4 };
-    const vnode = ui.row({ gap: 0,  width: 14, height: 1, overflow: "hidden" }, [
-      ui.row({ gap: 0,  width: 5, height: 1, overflow: "hidden" }, [
-        ui.row({ gap: 0,  width: 5, height: 1, ml: 3, overflow: "hidden" }, [ui.text("ABCDE")]),
+    const vnode = ui.row({ gap: 0, width: 14, height: 1, overflow: "hidden" }, [
+      ui.row({ gap: 0, width: 5, height: 1, overflow: "hidden" }, [
+        ui.row({ gap: 0, width: 5, height: 1, ml: 3, overflow: "hidden" }, [ui.text("ABCDE")]),
       ]),
       ui.text("OK"),
     ]);
@@ -391,11 +391,11 @@ describe("renderer clipping (deterministic)", () => {
 
   test("push and pop operations remain balanced in mixed clip trees", () => {
     const viewport = { cols: 30, rows: 12 };
-    const vnode = ui.column({ gap: 0,  width: 20, height: 8, overflow: "hidden" }, [
+    const vnode = ui.column({ gap: 0, width: 20, height: 8, overflow: "hidden" }, [
       ui.box({ width: 10, height: 5, border: "single", p: 1, overflow: "hidden" }, [
         ui.text("abcdef", { textOverflow: "clip", maxWidth: 2 }),
       ]),
-      ui.row({ gap: 0,  width: 5, height: 1, overflow: "hidden" }, [ui.text("x")]),
+      ui.row({ gap: 0, width: 5, height: 1, overflow: "hidden" }, [ui.text("x")]),
     ]);
 
     const ops = renderOps(vnode, viewport, "column");
@@ -440,7 +440,7 @@ describe("renderer clipping (deterministic)", () => {
 
   test("padding can create a 0-width row clip deterministically", () => {
     const viewport = { cols: 12, rows: 4 };
-    const vnode = ui.row({ gap: 0,  width: 1, height: 1, p: 1, overflow: "hidden" }, [ui.text("Q")]);
+    const vnode = ui.row({ gap: 0, width: 1, height: 1, p: 1, overflow: "hidden" }, [ui.text("Q")]);
 
     const ops = renderOps(vnode, viewport, "row");
     const frame = frameFromOps(ops, viewport);
@@ -454,8 +454,8 @@ describe("renderer clipping (deterministic)", () => {
 
   test("nested clips can collapse to an empty intersection", () => {
     const viewport = { cols: 20, rows: 4 };
-    const vnode = ui.row({ gap: 0,  width: 3, height: 1, overflow: "hidden" }, [
-      ui.row({ gap: 0,  width: 4, height: 1, ml: 2, overflow: "hidden" }, [ui.text("QWER")]),
+    const vnode = ui.row({ gap: 0, width: 3, height: 1, overflow: "hidden" }, [
+      ui.row({ gap: 0, width: 4, height: 1, ml: 2, overflow: "hidden" }, [ui.text("QWER")]),
     ]);
 
     const ops = renderOps(vnode, viewport, "row");
@@ -483,7 +483,7 @@ describe("renderer clipping (deterministic)", () => {
     const vnode = makeDeepNestedRows(
       11,
       1,
-      ui.row({ gap: 0,  width: 12, height: 1, ml: 12, overflow: "hidden" }, [ui.text("Z")]),
+      ui.row({ gap: 0, width: 12, height: 1, ml: 12, overflow: "hidden" }, [ui.text("Z")]),
     );
 
     const ops = renderOps(vnode, viewport, "row");
@@ -508,7 +508,7 @@ describe("renderer clipping (deterministic)", () => {
   test("bottom boundary stays exclusive for content shifted below a one-row clip", () => {
     const viewport = { cols: 16, rows: 6 };
     const vnode = ui.box({ width: 6, height: 3, border: "single", overflow: "hidden" }, [
-      ui.row({ gap: 0,  width: 4, height: 1, mt: 1, overflow: "hidden" }, [ui.text("B")]),
+      ui.row({ gap: 0, width: 4, height: 1, mt: 1, overflow: "hidden" }, [ui.text("B")]),
     ]);
 
     const ops = renderOps(vnode, viewport, "column");

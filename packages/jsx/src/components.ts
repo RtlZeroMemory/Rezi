@@ -621,7 +621,7 @@ export function ToastContainer(props: ToastContainerJsxProps): VNode {
 
 export function Fragment(props: { children?: JsxChildren; key?: string }): VNode {
   return ui.column(
-    withOptionalKey<ColumnProps>({}, props.key),
+    withOptionalKey<ColumnProps>({ gap: 0 }, props.key),
     normalizeContainerChildren(props.children),
   );
 }
