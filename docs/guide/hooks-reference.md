@@ -414,6 +414,258 @@ const UserProfile = defineWidget<{ userId: string; key?: string }>(
 
 ---
 
+### `useStream`
+
+Subscribe to an async iterable and re-render on each value.
+
+**Signature:**
+
+```typescript
+import { useStream, type UseStreamState } from "@rezi-ui/core";
+
+useStream<T>(
+  ctx: WidgetContext,
+  stream: AsyncIterable<T> | undefined,
+  deps?: readonly unknown[],
+): UseStreamState<T>
+
+type UseStreamState<T> = Readonly<{
+  value: T | undefined;
+  loading: boolean;
+  error: unknown;
+  done: boolean;
+}>;
+```
+
+**Description:**
+
+- Subscribes to an async iterable and stores the latest value in `value`.
+- Sets `loading` while waiting for the first value.
+- Marks `done` once the iterable completes.
+- Ignores stale values from older subscriptions after dependency changes.
+
+**Example:**
+
+```typescript
+import { defineWidget, useStream, ui } from "@rezi-ui/core";
+
+async function* telemetryStream(): AsyncGenerator<number> {
+  while (true) {
+    await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+    yield Math.round(Math.random() * 100);
+  }
+}
+
+const Metrics = defineWidget<{ key?: string }>((props, ctx) => {
+  const stream = ctx.useMemo(() => telemetryStream(), []);
+  const metric = useStream(ctx, stream, [stream]);
+  return ui.text(`CPU: ${String(metric.value ?? 0)}%`);
+});
+```
+
+---
+
+### `useEventSource`
+
+Subscribe to an SSE endpoint with automatic reconnect.
+
+**Signature:**
+
+```typescript
+import { useEventSource, type UseEventSourceOptions } from "@rezi-ui/core";
+
+useEventSource<T = string>(
+  ctx: WidgetContext,
+  url: string,
+  options?: UseEventSourceOptions<T>,
+): Readonly<{
+  value: T | undefined;
+  loading: boolean;
+  connected: boolean;
+  reconnectAttempts: number;
+  error: unknown;
+}>
+```
+
+**Description:**
+
+- Opens an `EventSource` stream (or a custom `factory` from options).
+- Reconnects automatically after connection failures.
+- Supports custom parsing with `options.parse(message)`.
+- Exposes connection status and retry count.
+
+**Example:**
+
+```typescript
+import { defineWidget, useEventSource, ui } from "@rezi-ui/core";
+
+const Alerts = defineWidget<{ key?: string }>((props, ctx) => {
+  const alerts = useEventSource<{ severity: string; message: string }>(
+    ctx,
+    "https://ops.example.com/alerts",
+    {
+      parse: (message) => JSON.parse(message.data) as { severity: string; message: string },
+      reconnectMs: 1500,
+    },
+  );
+
+  if (!alerts.connected && alerts.loading) return ui.text("Connecting alerts feed...");
+  if (alerts.error) return ui.errorDisplay("Alerts feed disconnected");
+  return ui.text(alerts.value?.message ?? "No alerts");
+});
+```
+
+---
+
+### `useWebSocket`
+
+Subscribe to a websocket endpoint with parsed messages and reconnect support.
+
+**Signature:**
+
+```typescript
+import { useWebSocket, type UseWebSocketOptions } from "@rezi-ui/core";
+
+useWebSocket<T = string>(
+  ctx: WidgetContext,
+  url: string,
+  protocol?: string | readonly string[],
+  options?: UseWebSocketOptions<T>,
+): Readonly<{
+  value: T | undefined;
+  loading: boolean;
+  connected: boolean;
+  reconnectAttempts: number;
+  error: unknown;
+  send: (payload: string | ArrayBuffer | ArrayBufferView) => boolean;
+  close: (code?: number, reason?: string) => void;
+}>
+```
+
+**Description:**
+
+- Connects to `url` with optional protocol(s).
+- Parses incoming `message` payloads via `options.parse`.
+- Auto-reconnects after unexpected connection closure.
+- Provides `send(...)` and `close(...)` helpers.
+
+**Example:**
+
+```typescript
+import { defineWidget, useWebSocket, ui } from "@rezi-ui/core";
+
+const LiveQueue = defineWidget<{ key?: string }>((props, ctx) => {
+  const socket = useWebSocket<{ queued: number }>(ctx, "wss://ops.example.com/queue", "json", {
+    parse: (payload) => JSON.parse(String(payload)) as { queued: number },
+  });
+
+  return ui.text(`Queued jobs: ${String(socket.value?.queued ?? 0)}`);
+});
+```
+
+---
+
+### `useInterval`
+
+Run an interval callback with automatic cleanup and latest-callback semantics.
+
+**Signature:**
+
+```typescript
+import { useInterval } from "@rezi-ui/core";
+
+useInterval(ctx: WidgetContext, fn: () => void, ms: number): void
+```
+
+**Description:**
+
+- Registers a repeating callback every `ms`.
+- Automatically clears the interval on dependency change/unmount.
+- Always invokes the latest callback without forcing interval recreation.
+
+**Example:**
+
+```typescript
+import { defineWidget, useInterval, ui } from "@rezi-ui/core";
+
+const Clock = defineWidget<{ key?: string }>((props, ctx) => {
+  const [now, setNow] = ctx.useState(() => Date.now());
+  useInterval(ctx, () => setNow(Date.now()), 1000);
+  return ui.text(new Date(now).toISOString());
+});
+```
+
+---
+
+### `useTail`
+
+Tail a file stream and keep a bounded line buffer with drop accounting.
+
+**Signature:**
+
+```typescript
+import { useTail, type UseTailOptions } from "@rezi-ui/core";
+
+useTail<T = string>(
+  ctx: WidgetContext,
+  filePath: string,
+  options?: UseTailOptions<T>,
+): Readonly<{
+  latest: T | undefined;
+  lines: readonly T[];
+  dropped: number;
+  loading: boolean;
+  error: unknown;
+}>
+```
+
+```typescript
+type UseTailOptions<T> = Readonly<{
+  enabled?: boolean;
+  maxBuffer?: number;
+  fromEnd?: boolean;
+  pollMs?: number;
+  parse?: (chunk: string) => T;
+  sourceFactory?: TailSourceFactory<string>;
+}>
+```
+
+**Description:**
+
+- Streams new file lines from a runtime-specific tail source.
+- Keeps only the most recent `maxBuffer` lines in memory.
+- Increments `dropped` when old lines are evicted under heavy throughput.
+- In Node apps, importing `@rezi-ui/node` configures a default tail source.
+- For custom runtimes, register a global tail adapter with `setDefaultTailSourceFactory(...)` or pass `options.sourceFactory` per hook call.
+
+**Example:**
+
+```typescript
+import { defineWidget, useTail, ui } from "@rezi-ui/core";
+
+const Logs = defineWidget<{ key?: string }>((props, ctx) => {
+  const tail = useTail(ctx, "/var/log/app.log", { maxBuffer: 200 });
+
+  if (tail.error) return ui.errorDisplay("Tail stream unavailable");
+  return ui.column(
+    tail.lines.map((line, i) => ui.text(line, { key: `${String(i)}-${line}` })),
+  );
+});
+```
+
+**Custom runtime registration:**
+
+```typescript
+import { setDefaultTailSourceFactory } from "@rezi-ui/core";
+
+setDefaultTailSourceFactory((filePath, options) => {
+  // Return an AsyncIterable<string> for your runtime.
+  return myRuntimeTailSource(filePath, options);
+});
+```
+
+---
+
 ## Widget Hooks
 
 Higher-level hooks that manage complex widget state patterns. These are standalone functions that accept a `WidgetContext` as their first argument.
@@ -753,7 +1005,7 @@ const [selected, setSelected] = ctx.useState<Set<string>>(new Set());
 
 ### 4. Utility hooks consume multiple hook slots
 
-Functions like `useDebounce`, `usePrevious`, `useAsync`, `useTable`, `useModalStack`, and `useForm` internally call multiple core hooks. Their position in the call sequence matters just like any other hook.
+Functions like `useDebounce`, `usePrevious`, `useAsync`, `useStream`, `useEventSource`, `useWebSocket`, `useInterval`, `useTail`, `useTable`, `useModalStack`, and `useForm` internally call multiple core hooks. Their position in the call sequence matters just like any other hook.
 
 ### 5. Effect cleanup runs before re-execution
 

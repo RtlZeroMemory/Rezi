@@ -227,6 +227,11 @@ Additional utility hooks are exported from `@rezi-ui/core`:
 - `useDebounce(ctx, value, delayMs)` -- Debounce a value
 - `usePrevious(ctx, value)` -- Track the previous render's value
 - `useAsync(ctx, asyncFn, deps)` -- Manage async data loading
+- `useStream(ctx, asyncIterable, deps?)` -- Consume async iterables and stream updates
+- `useEventSource(ctx, url, options?)` -- Subscribe to SSE streams with reconnect
+- `useWebSocket(ctx, url, protocol?, options?)` -- Subscribe to websocket streams with parsing
+- `useInterval(ctx, fn, ms)` -- Interval callbacks with automatic cleanup
+- `useTail(ctx, filePath, options?)` -- Tail file streams with bounded line buffers
 
 ## Keybinding System
 

@@ -5,7 +5,7 @@ Scaffolded with `create-rezi` using the **__TEMPLATE_LABEL__** template.
 ## What This Template Demonstrates
 
 - Multi-file dashboard architecture from day one (`types`, `theme`, `helpers`, `screens`, `main`).
-- Deterministic telemetry updates with a reducer-based state transition model.
+- Deterministic telemetry updates via `useStream(...)` + async iterable ingestion.
 - Operator dashboard patterns: fleet summary, filtered list, service inspector, and help modal.
 - Theme cycling and keyboard-driven controls designed for fast operational workflows.
 
@@ -13,9 +13,9 @@ Scaffolded with `create-rezi` using the **__TEMPLATE_LABEL__** template.
 
 - `src/types.ts`: state/action/service model.
 - `src/theme.ts`: template identity + theme catalog.
-- `src/helpers/`: formatters, reducer logic, and keybinding resolver.
+- `src/helpers/`: formatters, reducer logic, telemetry stream, and keybinding resolver.
 - `src/screens/overview.ts`: dashboard UI composition.
-- `src/main.ts`: app init, keybindings, telemetry loop, shutdown handling.
+- `src/main.ts`: app init, keybindings, stream-driven telemetry, shutdown handling.
 - `src/__tests__/`: reducer, widget render, and keybinding tests.
 
 ## Controls

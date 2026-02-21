@@ -190,8 +190,8 @@ Widgets for navigating between views, sections, and pages.
 | [`ui.breadcrumb(props)`](breadcrumb.md) | Hierarchical location path with jumps | Optional (`id`) | `beta` |
 | [`ui.link(url, label?)` / `ui.link(props)`](link.md) | Hyperlink text with optional press behavior | Optional (`id`) | `beta` |
 | [`ui.pagination(props)`](pagination.md) | Navigate paged datasets | Yes | `beta` |
-| [`ui.routerBreadcrumb(router, routes, props?)`](router-breadcrumb.md) | Breadcrumbs derived from current router history | No | `beta` |
-| [`ui.routerTabs(router, routes, props?)`](router-tabs.md) | Tabs derived from registered routes with current route selection | No | `beta` |
+| [`ui.routerBreadcrumb(router, routes, props?)`](breadcrumb.md) | Breadcrumbs derived from current router history | No | `beta` |
+| [`ui.routerTabs(router, routes, props?)`](tabs.md) | Tabs derived from registered routes with current route selection | No | `beta` |
 
 **Quick example:**
 
