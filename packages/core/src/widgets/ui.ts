@@ -34,8 +34,8 @@ import type {
   CodeEditorProps,
   ColumnProps,
   CommandPaletteProps,
-  DiffViewerProps,
   DialogProps,
+  DiffViewerProps,
   DividerProps,
   DropdownProps,
   EmptyProps,
@@ -865,16 +865,11 @@ export const ui = {
    */
   dialog(props: DialogProps): VNode {
     const { message, actions, onClose, ...modalProps } = props;
-    const fallbackOnClose = actions[actions.length - 1]?.onPress;
     return {
       kind: "modal",
       props: {
         ...modalProps,
-        ...(onClose !== undefined
-          ? { onClose }
-          : fallbackOnClose
-            ? { onClose: fallbackOnClose }
-            : {}),
+        ...(onClose !== undefined ? { onClose } : {}),
         content: typeof message === "string" ? text(message) : message,
         actions: actions.map((action, index) => {
           void action.intent;

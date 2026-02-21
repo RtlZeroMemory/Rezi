@@ -3,8 +3,8 @@
  */
 
 import type { VNode } from "../types.js";
-import type { ConfirmDialogProps } from "./types.js";
 import { dialog } from "./dialog.js";
+import type { ConfirmDialogProps } from "./types.js";
 
 export function confirmDialog(props: ConfirmDialogProps): VNode {
   const {

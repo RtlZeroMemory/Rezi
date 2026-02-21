@@ -44,11 +44,11 @@ export type UseTableResult<T> = Readonly<{
   setSort: (column: string, direction: SortDirection) => void;
 }>;
 
-type RecordLike = Record<string, unknown>;
+type RecordLike = Readonly<{ id?: unknown }> & Record<string, unknown>;
 
 function defaultGetRowKey<T>(row: T, index: number): string {
   const record = row as RecordLike;
-  const maybeId = record["id"];
+  const maybeId = record.id;
   if (typeof maybeId === "string" && maybeId.length > 0) return maybeId;
   if (typeof maybeId === "number") return String(maybeId);
   return String(index);
@@ -164,13 +164,19 @@ export function useTable<T, State = void>(
 
   ctx.useEffect(() => {
     const liveKeys = new Set(rows.map((row, index) => getRowKey(row, index)));
+    let prunedSelection: readonly string[] | null = null;
     setSelection((prev) => {
       if (prev.length === 0) return prev;
       const next = prev.filter((key) => liveKeys.has(key));
       if (next.length === prev.length) return prev;
-      return Object.freeze(next);
+      const frozen = Object.freeze(next);
+      prunedSelection = frozen;
+      return frozen;
     });
-  }, [rows, getRowKey]);
+    if (prunedSelection) {
+      onSelectionChange?.(prunedSelection);
+    }
+  }, [rows, getRowKey, onSelectionChange]);
 
   ctx.useEffect(() => {
     if (!sortable) {

@@ -5,8 +5,8 @@ import {
   runPendingEffects,
 } from "../../runtime/instances.js";
 import { createWidgetContext } from "../composition.js";
-import { useModalStack } from "../useModalStack.js";
 import { ui } from "../ui.js";
+import { useModalStack } from "../useModalStack.js";
 
 function createHarness() {
   const registry = createCompositeInstanceRegistry();

@@ -65,4 +65,34 @@ describe("dialogs", () => {
     assert.equal(action?.kind, "button");
     assert.equal(action?.props?.id, "x-action-0");
   });
+
+  test("ui.dialog does not map implicit close to last action", () => {
+    const close = () => {};
+    const v = ui.dialog({
+      id: "dangerous",
+      title: "Confirm",
+      message: "Delete record?",
+      actions: [
+        { label: "Keep", onPress: () => {} },
+        { label: "Delete", intent: "danger", onPress: close },
+      ],
+    });
+
+    const props = v.props as { onClose?: unknown };
+    assert.equal(props.onClose, undefined);
+  });
+
+  test("ui.dialog forwards explicit onClose callback", () => {
+    const close = () => {};
+    const v = ui.dialog({
+      id: "dialog",
+      title: "Title",
+      message: "Body",
+      actions: [{ label: "OK", onPress: () => {} }],
+      onClose: close,
+    });
+
+    const props = v.props as { onClose?: unknown };
+    assert.equal(props.onClose, close);
+  });
 });

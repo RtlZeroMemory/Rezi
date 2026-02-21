@@ -28,7 +28,7 @@ function createHarness(instanceId = 1) {
 describe("runtime hooks - useCallback", () => {
   test("returns stable callback when deps are stable", () => {
     const h = createHarness();
-    let dep = 1;
+    const dep = 1;
 
     const a = h.render((hooks) => hooks.useCallback(() => dep, [dep]));
     const b = h.render((hooks) => hooks.useCallback(() => dep, [dep]));

@@ -36,9 +36,11 @@ export type MemoState = Readonly<{
 }>;
 
 /** Stored callback state for useCallback. */
+type UnknownCallback = (...args: never[]) => unknown;
+
 export type CallbackState = Readonly<{
   deps: readonly unknown[] | undefined;
-  callback: (...args: any[]) => unknown;
+  callback: UnknownCallback;
 }>;
 
 /** Snapshot of a useAppState selector and its last selected value. */
@@ -304,7 +306,7 @@ export type HookContext = Readonly<{
   useMemo: <T>(factory: () => T, deps?: readonly unknown[]) => T;
 
   /** Memoize a callback reference using dependency array semantics (React-compatible). */
-  useCallback: <T extends (...args: any[]) => unknown>(callback: T, deps?: readonly unknown[]) => T;
+  useCallback: <T extends UnknownCallback>(callback: T, deps?: readonly unknown[]) => T;
 }>;
 
 /**
@@ -477,7 +479,7 @@ export function createHookContext(
       return prevMemo.value as T;
     },
 
-    useCallback<T extends (...args: any[]) => unknown>(callback: T, deps?: readonly unknown[]): T {
+    useCallback<T extends UnknownCallback>(callback: T, deps?: readonly unknown[]): T {
       const index = getHookIndex();
       const existing = mutableState.hooks[index];
 

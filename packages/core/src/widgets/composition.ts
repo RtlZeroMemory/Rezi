@@ -19,6 +19,8 @@ import type { VNode } from "./types.js";
 
 /* ========== Widget Context Type ========== */
 
+type UnknownCallback = (...args: never[]) => unknown;
+
 /**
  * Context provided to widget render functions.
  * Contains hooks for managing local state and side effects.
@@ -68,7 +70,7 @@ export type WidgetContext<State = void> = Readonly<{
    * Memoize a callback reference until dependencies change.
    * Matches React `useCallback` dependency semantics (`Object.is` comparison).
    */
-  useCallback: <T extends (...args: any[]) => unknown>(callback: T, deps?: readonly unknown[]) => T;
+  useCallback: <T extends UnknownCallback>(callback: T, deps?: readonly unknown[]) => T;
 
   /**
    * Register a side effect to run after commit.

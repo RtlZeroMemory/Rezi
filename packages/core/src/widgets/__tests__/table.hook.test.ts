@@ -1,12 +1,12 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import {
-  createHookContext,
   createCompositeInstanceRegistry,
+  createHookContext,
   runPendingEffects,
 } from "../../runtime/instances.js";
 import { createWidgetContext } from "../composition.js";
 import type { TableColumn } from "../types.js";
-import { useTable, type UseTableOptions } from "../useTable.js";
+import { type UseTableOptions, useTable } from "../useTable.js";
 
 type Row = Readonly<{
   id: string;
@@ -144,5 +144,37 @@ describe("useTable", () => {
     h.render(optionsB); // render where pruning effect runs
     table = h.render(optionsB);
     assert.deepEqual(table.selection, ["a"]);
+  });
+
+  test("selection prune notifies onSelectionChange with pruned keys", () => {
+    const h = createUseTableHarness();
+    const selectionChanges: string[][] = [];
+    const optionsA: UseTableOptions<Row> = {
+      id: "files",
+      rows: [
+        { id: "a", name: "Alpha", size: 1 },
+        { id: "b", name: "Beta", size: 2 },
+      ],
+      columns: BASE_COLUMNS,
+      selectable: "multi",
+      onSelectionChange: (keys) => {
+        selectionChanges.push(keys.slice());
+      },
+    };
+    const optionsB: UseTableOptions<Row> = {
+      ...optionsA,
+      rows: [{ id: "a", name: "Alpha", size: 1 }],
+    };
+
+    let table = h.render(optionsA);
+    table.props.onSelectionChange?.(["a", "b"]);
+    table = h.render(optionsA);
+    assert.deepEqual(table.selection, ["a", "b"]);
+
+    h.render(optionsB);
+    table = h.render(optionsB);
+
+    assert.deepEqual(table.selection, ["a"]);
+    assert.deepEqual(selectionChanges, [["a", "b"], ["a"]]);
   });
 });
