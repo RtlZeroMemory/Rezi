@@ -372,6 +372,12 @@ type IdentityDiffDamageResult = Readonly<{
   removedInstanceIds: readonly InstanceId[];
   routingRelevantChanged: boolean;
 }>;
+type ErrorBoundaryState = Readonly<{
+  code: "ZRUI_USER_CODE_THROW";
+  detail: string;
+  message: string;
+  stack?: string;
+}>;
 
 function isRoutingRelevantKind(kind: WidgetKind): boolean {
   switch (kind) {
@@ -514,6 +520,9 @@ export class WidgetRenderer<S> {
 
   /* --- Composite Widget State --- */
   private readonly compositeRegistry = createCompositeInstanceRegistry();
+  private readonly errorBoundaryStatesByPath = new Map<string, ErrorBoundaryState>();
+  private readonly retryErrorBoundaryPaths = new Set<string>();
+  private readonly committedErrorBoundaryPathsScratch = new Set<string>();
 
   /* --- Input Widget State --- */
   private inputById: ReadonlyMap<string, InputMeta> = new Map<string, InputMeta>();
@@ -3275,6 +3284,7 @@ export class WidgetRenderer<S> {
         if (PERF_DETAIL_ENABLED) perfMarkEnd("view", viewToken);
 
         const commitToken = PERF_DETAIL_ENABLED ? perfMarkStart("vnode_commit") : 0;
+        this.committedErrorBoundaryPathsScratch.clear();
         const commitRes0 = commitVNodeTree(this.committedRoot, vnode, {
           allocator: this.allocator,
           collectLifecycleInstanceIds: false,
@@ -3285,6 +3295,15 @@ export class WidgetRenderer<S> {
             onInvalidate: () => this.requestView(),
             onUseViewport: () => {
               commitReadViewport = true;
+            },
+          },
+          errorBoundary: {
+            errorsByPath: this.errorBoundaryStatesByPath,
+            retryRequestedPaths: this.retryErrorBoundaryPaths,
+            activePaths: this.committedErrorBoundaryPathsScratch,
+            requestRetry: (retryPath: string) => {
+              this.retryErrorBoundaryPaths.add(retryPath);
+              this.requestView();
             },
           },
         });
@@ -3327,6 +3346,17 @@ export class WidgetRenderer<S> {
           // Composite instances: invalidate stale closures and run effect cleanups.
           this.compositeRegistry.incrementGeneration(unmountedId);
           this.compositeRegistry.delete(unmountedId);
+        }
+
+        for (const path of this.errorBoundaryStatesByPath.keys()) {
+          if (!this.committedErrorBoundaryPathsScratch.has(path)) {
+            this.errorBoundaryStatesByPath.delete(path);
+          }
+        }
+        for (const path of this.retryErrorBoundaryPaths) {
+          if (!this.committedErrorBoundaryPathsScratch.has(path)) {
+            this.retryErrorBoundaryPaths.delete(path);
+          }
         }
       }
 

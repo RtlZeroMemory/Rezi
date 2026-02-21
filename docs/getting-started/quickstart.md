@@ -79,13 +79,12 @@ app.view((state) =>
   ])
 );
 
-// Press 'q' to quit
+// Press 'q' to quit. Ctrl+C/SIGTERM/SIGHUP are handled by app.run().
 app.keys({
   "q": () => app.stop(),
-  "ctrl+c": () => app.stop(),
 });
 
-await app.start();
+await app.run();
 ```
 
 Run with:
@@ -164,13 +163,13 @@ app.update((s) => ({ count: s.count + 1 }));
 ```typescript
 app.keys({
   "q": () => app.stop(),
-  "ctrl+c": () => app.stop(),
 });
 ```
 
 - `app.keys()` registers global keybindings
 - Keys can include modifiers: `ctrl`, `alt`, `shift`, `meta`
 - Chord sequences are supported: `"g g"` (press g twice)
+- `app.run()` automatically handles `Ctrl+C`/`SIGTERM`/`SIGHUP` and performs graceful shutdown
 
 ## A More Complete Example
 
@@ -283,7 +282,7 @@ app.keys({
   q: () => app.stop(),
 });
 
-await app.start();
+await app.run();
 ```
 
 ## Next Steps

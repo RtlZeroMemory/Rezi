@@ -456,6 +456,34 @@ export type ErrorDisplayProps = Readonly<{
 }>;
 
 /**
+ * Error payload passed to `errorBoundary` fallbacks.
+ */
+export type ErrorBoundaryError = Readonly<{
+  /** Runtime error code for the trapped boundary failure. */
+  code: "ZRUI_USER_CODE_THROW";
+  /** Friendly error message (for display in fallbacks). */
+  message: string;
+  /** Full detail string emitted by runtime error reporting. */
+  detail: string;
+  /** Optional stack trace when available. */
+  stack?: string;
+  /** Retry this boundary subtree on the next commit turn. */
+  retry: () => void;
+}>;
+
+/**
+ * Props for error boundary container widget.
+ * Isolates subtree render failures and renders a fallback instead of faulting the app.
+ */
+export type ErrorBoundaryProps = Readonly<{
+  key?: string;
+  /** Risky subtree to protect. */
+  children: VNode;
+  /** Fallback renderer invoked when the protected subtree throws. */
+  fallback: (error: ErrorBoundaryError) => VNode;
+}>;
+
+/**
  * Props for callout/alert widget.
  * Highlighted message box for important information.
  */
@@ -1898,6 +1926,7 @@ export type VNode =
   | Readonly<{ kind: "gauge"; props: GaugeProps }>
   | Readonly<{ kind: "empty"; props: EmptyProps }>
   | Readonly<{ kind: "errorDisplay"; props: ErrorDisplayProps }>
+  | Readonly<{ kind: "errorBoundary"; props: ErrorBoundaryProps }>
   | Readonly<{ kind: "callout"; props: CalloutProps }>
   // Data visualization widgets (Phase 9)
   | Readonly<{ kind: "sparkline"; props: SparklineProps }>

@@ -197,6 +197,8 @@ export type {
   DialogActionIntent,
   DialogProps,
   EmptyProps,
+  ErrorBoundaryError,
+  ErrorBoundaryProps,
   ErrorDisplayProps,
   FieldProps,
   FocusAnnouncerProps,
@@ -1020,6 +1022,7 @@ export interface App<S> {
    */
   debugLayout(enabled?: boolean): boolean;
   start(): Promise<void>;
+  run(): Promise<void>;
   stop(): Promise<void>;
   dispose(): void;
 

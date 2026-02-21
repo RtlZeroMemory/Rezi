@@ -166,6 +166,7 @@ User feedback and states:
 |--------|-------------|-----------|-----------|
 | [Callout](callout.md) | Alert/info message box | No | `beta` |
 | [Error Display](error-display.md) | Error message with retry | No | `beta` |
+| [Error Boundary](error-boundary.md) | Isolates subtree runtime errors with fallback UI | No | `beta` |
 | [Empty](empty.md) | Empty state placeholder | No | `beta` |
 
 ## Common Patterns

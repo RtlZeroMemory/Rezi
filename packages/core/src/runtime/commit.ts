@@ -612,6 +612,14 @@ type CommitCtx = Readonly<{
   }> | null;
   compositeRenderStack: Array<Readonly<{ widgetKey: string; instanceId: InstanceId }>>;
   pendingEffects: EffectState[];
+  errorBoundary:
+    | Readonly<{
+        errorsByPath: Map<string, CommitErrorBoundaryState>;
+        retryRequestedPaths: Set<string>;
+        activePaths: Set<string>;
+        requestRetry: (path: string) => void;
+      }>
+    | null;
 }>;
 
 const MAX_COMPOSITE_RENDER_DEPTH = 100;
@@ -621,11 +629,89 @@ const DEFAULT_VIEWPORT_SNAPSHOT: ResponsiveViewportSnapshot = Object.freeze({
   breakpoint: "sm",
 });
 
+type CommitErrorBoundaryState = Readonly<{
+  code: "ZRUI_USER_CODE_THROW";
+  detail: string;
+  message: string;
+  stack?: string;
+}>;
+
+function captureErrorBoundaryState(detail: string): CommitErrorBoundaryState {
+  return Object.freeze({
+    code: "ZRUI_USER_CODE_THROW",
+    detail,
+    message: detail,
+  });
+}
+
+function commitErrorBoundaryFallback(
+  prev: RuntimeInstance | null,
+  instanceId: InstanceId,
+  boundaryPath: string,
+  props: Readonly<{ fallback?: unknown }>,
+  state: CommitErrorBoundaryState,
+  ctx: CommitCtx,
+): CommitNodeResult {
+  const fallback = props.fallback;
+  if (typeof fallback !== "function") {
+    return {
+      ok: false,
+      fatal: {
+        code: "ZRUI_INVALID_PROPS",
+        detail: "errorBoundary fallback must be a function",
+      },
+    };
+  }
+
+  let fallbackVNode: VNode;
+  try {
+    fallbackVNode = (
+      fallback as (error: {
+        code: "ZRUI_USER_CODE_THROW";
+        message: string;
+        detail: string;
+        stack?: string;
+        retry: () => void;
+      }) => VNode
+    )(
+      Object.freeze({
+        code: state.code,
+        message: state.message,
+        detail: state.detail,
+        ...(state.stack ? { stack: state.stack } : {}),
+        retry: () => {
+          ctx.errorBoundary?.requestRetry(boundaryPath);
+        },
+      }),
+    );
+  } catch (e: unknown) {
+    return {
+      ok: false,
+      fatal: {
+        code: "ZRUI_USER_CODE_THROW",
+        detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+      },
+    };
+  }
+
+  if (!isVNode(fallbackVNode)) {
+    return {
+      ok: false,
+      fatal: {
+        code: "ZRUI_INVALID_PROPS",
+        detail: "errorBoundary fallback must return a VNode",
+      },
+    };
+  }
+  return commitNode(prev, instanceId, fallbackVNode, ctx, boundaryPath);
+}
+
 function commitNode(
   prev: RuntimeInstance | null,
   instanceId: InstanceId,
   vnode: VNode,
   ctx: CommitCtx,
+  nodePath: string,
 ): CommitNodeResult {
   let popCompositeStack = false;
   try {
@@ -637,6 +723,46 @@ function commitNode(
       prev.dirty = false;
       prev.selfDirty = false;
       return { ok: true, value: { root: prev } };
+    }
+
+    if (vnode.kind === "errorBoundary") {
+      ctx.errorBoundary?.activePaths.add(nodePath);
+      const props = vnode.props as Readonly<{
+        children?: unknown;
+        fallback?: unknown;
+      }>;
+      const protectedChild = props.children;
+      if (!isVNode(protectedChild)) {
+        return {
+          ok: false,
+          fatal: {
+            code: "ZRUI_INVALID_PROPS",
+            detail: "errorBoundary children must be a VNode",
+          },
+        };
+      }
+
+      const retryRequested =
+        ctx.errorBoundary?.retryRequestedPaths.delete(nodePath) === true;
+      const existingState = ctx.errorBoundary?.errorsByPath.get(nodePath);
+
+      if (existingState && !retryRequested) {
+        return commitErrorBoundaryFallback(prev, instanceId, nodePath, props, existingState, ctx);
+      }
+
+      const committedProtected = commitNode(prev, instanceId, protectedChild, ctx, nodePath);
+      if (committedProtected.ok) {
+        ctx.errorBoundary?.errorsByPath.delete(nodePath);
+        return committedProtected;
+      }
+
+      if (committedProtected.fatal.code !== "ZRUI_USER_CODE_THROW") {
+        return committedProtected;
+      }
+
+      const trappedState = captureErrorBoundaryState(committedProtected.fatal.detail);
+      ctx.errorBoundary?.errorsByPath.set(nodePath, trappedState);
+      return commitErrorBoundaryFallback(prev, instanceId, nodePath, props, trappedState, ctx);
     }
 
     const idFatal = ensureInteractiveId(ctx.seenInteractiveIds, instanceId, vnode);
@@ -939,7 +1065,13 @@ function commitNode(
           const child = res.value.nextChildren[i];
           if (!child) continue;
           const prevChild = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
-          const committed = commitNode(prevChild ?? null, child.instanceId, child.vnode, ctx);
+          const committed = commitNode(
+            prevChild ?? null,
+            child.instanceId,
+            child.vnode,
+            ctx,
+            `${nodePath}/${child.slotId}`,
+          );
           if (!committed.ok) return committed;
 
           if (allChildrenSame && committed.value.root !== prevChild) {
@@ -994,7 +1126,13 @@ function commitNode(
         const committedChildVNodesArr: VNode[] = [];
         for (const child of res.value.nextChildren) {
           const prevChild = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
-          const committed = commitNode(prevChild ?? null, child.instanceId, child.vnode, ctx);
+          const committed = commitNode(
+            prevChild ?? null,
+            child.instanceId,
+            child.vnode,
+            ctx,
+            `${nodePath}/${child.slotId}`,
+          );
           if (!committed.ok) return committed;
           nextChildrenArr.push(committed.value.root);
           committedChildVNodesArr.push(committed.value.root.vnode);
@@ -1081,6 +1219,12 @@ export function commitVNodeTree(
       onInvalidate: (instanceId: InstanceId) => void;
       onUseViewport?: () => void;
     }>;
+    errorBoundary?: Readonly<{
+      errorsByPath: Map<string, CommitErrorBoundaryState>;
+      retryRequestedPaths: Set<string>;
+      activePaths: Set<string>;
+      requestRetry: (path: string) => void;
+    }>;
   }>,
 ): CommitResult {
   const collectLifecycleInstanceIds = opts.collectLifecycleInstanceIds !== false;
@@ -1093,6 +1237,7 @@ export function commitVNodeTree(
     composite: opts.composite ?? null,
     compositeRenderStack: [],
     pendingEffects: [],
+    errorBoundary: opts.errorBoundary ?? null,
   };
 
   const prevChildren = prevRoot ? [{ instanceId: prevRoot.instanceId, vnode: prevRoot.vnode }] : [];
@@ -1115,7 +1260,7 @@ export function commitVNodeTree(
   }
 
   const prevMatch = rootPlan.prevIndex === 0 ? prevRoot : null;
-  const committedRoot = commitNode(prevMatch, rootPlan.instanceId, rootPlan.vnode, ctx);
+  const committedRoot = commitNode(prevMatch, rootPlan.instanceId, rootPlan.vnode, ctx, "root");
   if (!committedRoot.ok) return committedRoot;
 
   return {

@@ -169,6 +169,16 @@ const factoryCases: readonly FactoryCase[] = [
     optionalAbsent: "title",
   },
   {
+    name: "errorBoundary",
+    expectedKind: "errorBoundary",
+    build: () =>
+      ui.errorBoundary({
+        children: ui.text("risky"),
+        fallback: (error) => ui.text(error.message),
+      }),
+    optionalAbsent: "key",
+  },
+  {
     name: "callout",
     expectedKind: "callout",
     build: () => ui.callout("Saved"),

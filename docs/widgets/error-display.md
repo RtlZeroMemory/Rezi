@@ -30,5 +30,6 @@ ui.errorDisplay("Build failed", {
 
 ## Related
 
+- [Error boundary](error-boundary.md)
 - [Callout](callout.md)
 - [Empty state](empty.md)

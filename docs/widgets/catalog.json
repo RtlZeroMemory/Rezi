@@ -117,6 +117,12 @@
       "example": "ui.errorDisplay('Request failed')"
     },
     {
+      "name": "errorBoundary",
+      "requiredProps": ["children", "fallback"],
+      "commonProps": ["key"],
+      "example": "ui.errorBoundary({ children: RiskyWidget(), fallback: (error) => ui.errorDisplay(error.message, { onRetry: error.retry }) })"
+    },
+    {
       "name": "callout",
       "requiredProps": ["message"],
       "commonProps": ["variant", "title"],
