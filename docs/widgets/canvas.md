@@ -10,7 +10,18 @@ ui.canvas({
   height: 8,
   blitter: "braille",
   draw: (ctx) => {
+    ctx.roundedRect(0, 0, ctx.width, ctx.height, 4, "#2a9d8f");
     ctx.line(0, 0, ctx.width - 1, ctx.height - 1, "#4ecdc4");
+    ctx.polyline(
+      [
+        { x: 1, y: ctx.height - 2 },
+        { x: 8, y: 6 },
+        { x: 14, y: 9 },
+      ],
+      "#ffd166",
+    );
+    ctx.arc(12, 10, 5, 0, Math.PI, "#06d6a0");
+    ctx.fillTriangle(18, 3, 22, 10, 14, 10, "#ef476f");
     ctx.fillRect(2, 2, 6, 3, "#ff6b6b");
   },
 })
@@ -31,11 +42,14 @@ ui.canvas({
 
 `draw` receives a `CanvasContext` with:
 
-- `line`, `fillRect`, `strokeRect`
-- `circle`, `fillCircle`
+- `line`, `polyline`
+- `fillRect`, `strokeRect`, `roundedRect`
+- `circle`, `arc`, `fillCircle`
+- `fillTriangle`
 - `setPixel`, `text`, `clear`
 
 Coordinates are in sub-cell pixel space (`ctx.width`/`ctx.height`), not terminal cell space.
+Arc angles are in radians.
 
 ## Notes
 
