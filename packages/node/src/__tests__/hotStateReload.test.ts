@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -15,6 +15,13 @@ async function withTempDir<T>(run: (dir: string) => Promise<T> | T): Promise<T> 
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+function listHsrSessionDirs(): readonly string[] {
+  return readdirSync(tmpdir(), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name.startsWith("rezi-hsr-"))
+    .map((entry) => entry.name)
+    .sort();
 }
 
 function writeViewModule(root: string): string {
@@ -361,6 +368,27 @@ test("createHotStateReload reloadNow returns false when watcher is not started",
     } finally {
       await controller.stop();
     }
+  });
+});
+
+test("createHotStateReload stop before start does not leak temp session directories", async () => {
+  await withTempDir(async (dir) => {
+    writeWidgetModule(dir, "v1");
+    const viewModule = writeViewModule(dir);
+    const before = new Set(listHsrSessionDirs());
+    const controller = createHotStateReload<State>({
+      app: {
+        replaceView: () => {},
+      },
+      viewModule,
+      moduleRoot: dir,
+    });
+
+    await controller.stop();
+
+    const after = listHsrSessionDirs();
+    const leaked = after.filter((name) => !before.has(name));
+    assert.deepEqual(leaked, []);
   });
 });
 

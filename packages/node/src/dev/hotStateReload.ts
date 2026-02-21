@@ -311,7 +311,7 @@ export function createHotStateReload<S>(opts: HotStateReloadOptions<S>): HotStat
   const targetLabel = reloadAdapter.targetLabel;
   const hostNodeModulesPath = findNearestNodeModules(moduleRoot);
 
-  const sessionRoot = mkdtempSync(join(tmpdir(), "rezi-hsr-"));
+  let sessionRoot: string | null = null;
   const watchers = new Map<string, FSWatcher>();
   let running = false;
   let revision = 0;
@@ -352,8 +352,9 @@ export function createHotStateReload<S>(opts: HotStateReloadOptions<S>): HotStat
   }
 
   async function importLatestModule(): Promise<unknown> {
+    const activeSessionRoot = getSessionRoot();
     revision++;
-    const revisionDir = join(sessionRoot, `rev-${String(revision)}`);
+    const revisionDir = join(activeSessionRoot, `rev-${String(revision)}`);
     await cp(moduleRoot, revisionDir, { recursive: true, filter: copyFilter });
     if (hostNodeModulesPath) {
       const snapshotNodeModules = join(revisionDir, "node_modules");
@@ -371,7 +372,7 @@ export function createHotStateReload<S>(opts: HotStateReloadOptions<S>): HotStat
 
     const staleRevision = revision - PRESERVED_SNAPSHOT_REVISIONS;
     if (staleRevision > 0) {
-      const staleDir = join(sessionRoot, `rev-${String(staleRevision)}`);
+      const staleDir = join(activeSessionRoot, `rev-${String(staleRevision)}`);
       rmSync(staleDir, { recursive: true, force: true });
     }
 
@@ -511,7 +512,10 @@ export function createHotStateReload<S>(opts: HotStateReloadOptions<S>): HotStat
   }
 
   async function stop(): Promise<void> {
-    if (!running) return;
+    if (!running) {
+      cleanupSessionRoot();
+      return;
+    }
     running = false;
     clearDebounce();
     clearRefresh();
@@ -521,7 +525,7 @@ export function createHotStateReload<S>(opts: HotStateReloadOptions<S>): HotStat
     } catch {
       // ignore pending reload failures during shutdown
     }
-    rmSync(sessionRoot, { recursive: true, force: true });
+    cleanupSessionRoot();
     log({ level: "info", message: "HSR watcher stopped" });
   }
 
@@ -532,3 +536,15 @@ export function createHotStateReload<S>(opts: HotStateReloadOptions<S>): HotStat
     isRunning: () => running,
   });
 }
+  function getSessionRoot(): string {
+    if (sessionRoot === null) {
+      sessionRoot = mkdtempSync(join(tmpdir(), "rezi-hsr-"));
+    }
+    return sessionRoot;
+  }
+
+  function cleanupSessionRoot(): void {
+    if (sessionRoot === null) return;
+    rmSync(sessionRoot, { recursive: true, force: true });
+    sessionRoot = null;
+  }
