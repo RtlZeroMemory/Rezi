@@ -118,6 +118,30 @@ Builders and parsers for the Zireael engine binary formats:
 - **ZRDL**: Drawlist builder for rendering commands
 - **ZREV**: Event batch parser for input events
 
+### Testing Utilities
+
+High-level test helpers are exported from `@rezi-ui/core`:
+
+```typescript
+import { createTestRenderer, TestEventBuilder, ui } from "@rezi-ui/core";
+
+const renderer = createTestRenderer({ viewport: { cols: 80, rows: 24 } });
+const frame = renderer.render(
+  ui.column({}, [
+    ui.text("Hello"),
+    ui.button({ id: "submit", label: "Submit" }),
+  ]),
+);
+
+frame.findText("Hello");
+frame.findById("submit");
+frame.findAll("button");
+frame.toText();
+
+const events = new TestEventBuilder();
+events.pressKey("Enter").type("hello@example.com").click(10, 5).resize(120, 40);
+```
+
 ### Debug System
 
 Performance instrumentation and frame inspection. For standard app entrypoints,
@@ -186,6 +210,15 @@ await debug.enable({
 | `form.bind(...)`, `form.field(...)` | One-line input/field wiring helpers on `useForm` return |
 | `bind`, `bindChecked`, `bindSelect` | Standalone binding helpers for plain state objects |
 | `FormState`, `UseFormReturn` | Form types |
+
+### Testing
+
+| Export | Description |
+|--------|-------------|
+| `createTestRenderer` | Runs commit/layout/render pipeline with query helpers (`findText`, `findById`, `findAll`, `toText`) |
+| `TestEventBuilder` | Fluent builder for readable ZREV integration-test input sequences |
+| `encodeZrevBatchV1` | Low-level deterministic ZREV v1 encoder for test events |
+| `makeBackendBatch` | Helper to wrap encoded bytes as `BackendEventBatch` |
 
 ### Keybindings
 

@@ -833,6 +833,31 @@ export {
 } from "./widgets/radioGroup.js";
 
 // =============================================================================
+// Testing Utilities
+// =============================================================================
+
+export {
+  TEST_MOUSE_KIND_DOWN,
+  TEST_MOUSE_KIND_SCROLL,
+  TEST_MOUSE_KIND_UP,
+  TestEventBuilder,
+  createTestRenderer,
+  encodeZrevBatchV1,
+  makeBackendBatch,
+} from "./testing/index.js";
+export type {
+  TestEventBuilderOptions,
+  TestEventInput,
+  TestRenderNode,
+  TestRenderOptions,
+  TestRenderResult,
+  TestRenderer,
+  TestRendererOptions,
+  TestViewport,
+  TestZrevEvent,
+} from "./testing/index.js";
+
+// =============================================================================
 // Binary Safety Utilities
 // =============================================================================
 

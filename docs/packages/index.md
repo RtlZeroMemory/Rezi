@@ -99,6 +99,7 @@ Helper package for testing Rezi applications:
 - Mock backends for unit testing
 - Test fixtures for protocol testing
 - Golden file comparison utilities
+- Text snapshot assertions for rendered frames
 
 ```bash
 npm install --save-dev @rezi-ui/testkit

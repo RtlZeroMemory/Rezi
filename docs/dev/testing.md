@@ -107,6 +107,64 @@ Integration tests cover:
 - Routing and navigation
 - Resize and reflow behavior
 
+### High-level Widget Rendering Tests
+
+For widget-level tests, prefer `createTestRenderer()` from `@rezi-ui/core` so
+tests do not need manual `commitVNodeTree() -> layout() -> renderToDrawlist()`
+setup:
+
+```typescript
+import { createTestRenderer, ui } from "@rezi-ui/core";
+
+const renderer = createTestRenderer({ viewport: { cols: 80, rows: 24 } });
+const frame = renderer.render(
+  ui.column({}, [
+    ui.text("Hello"),
+    ui.button({ id: "submit", label: "Submit" }),
+  ]),
+);
+
+frame.findText("Hello");
+frame.findById("submit");
+frame.findAll("button");
+```
+
+`frame.toText()` returns a deterministic text snapshot of the rendered screen.
+
+### Fluent Event Simulation
+
+For integration tests that need input batches, use `TestEventBuilder` instead
+of hand-encoding ZREV bytes:
+
+```typescript
+import { TestEventBuilder } from "@rezi-ui/core";
+
+const events = new TestEventBuilder();
+events.pressKey("Enter").type("hello@example.com").click(10, 5).resize(120, 40);
+
+backend.pushBatch(events.buildBatch());
+```
+
+This keeps event sequences readable and protocol-safe.
+
+### Text Snapshot Assertions
+
+Use `matchesSnapshot(...)` from `@rezi-ui/testkit` to lock rendered text frames:
+
+```typescript
+import { matchesSnapshot } from "@rezi-ui/testkit";
+
+matchesSnapshot(frame.toText(), "my-widget-default");
+```
+
+Snapshots are read from:
+
+```
+<test-directory>/__snapshots__/my-widget-default.txt
+```
+
+Set `UPDATE_SNAPSHOTS=1` when intentionally updating snapshot outputs.
+
 ### Stress Tests
 
 Tests designed to exercise the system under extreme conditions:

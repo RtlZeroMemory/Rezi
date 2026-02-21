@@ -91,6 +91,10 @@
       "types": "./dist/terminalProfile.d.ts",
       "default": "./dist/terminalProfile.js"
     },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    },
     "./ui": {
       "types": "./dist/ui.d.ts",
       "default": "./dist/ui.js"
