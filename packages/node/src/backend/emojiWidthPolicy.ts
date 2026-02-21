@@ -11,6 +11,8 @@ const ENV_EMOJI_WIDTH_POLICY = "ZRUI_EMOJI_WIDTH_POLICY" as const;
 const ENV_EMOJI_WIDTH_PROBE = "ZRUI_EMOJI_WIDTH_PROBE" as const;
 
 type Cpr = Readonly<{ row: number; col: number }>;
+let cachedProbePolicy: ResolvedEmojiWidthPolicy | null = null;
+let cachedProbePromise: Promise<ResolvedEmojiWidthPolicy | null> | null = null;
 
 function normalizePolicy(raw: unknown): BackendEmojiWidthPolicy | null {
   if (typeof raw !== "string") return null;
@@ -179,6 +181,22 @@ async function probeTerminalEmojiWidthPolicy(
   return "wide";
 }
 
+async function probeTerminalEmojiWidthPolicyCached(
+  timeoutMs: number,
+): Promise<ResolvedEmojiWidthPolicy | null> {
+  if (cachedProbePolicy !== null) return cachedProbePolicy;
+  if (cachedProbePromise) return cachedProbePromise;
+  cachedProbePromise = probeTerminalEmojiWidthPolicy(timeoutMs)
+    .then((probed) => {
+      if (probed !== null) cachedProbePolicy = probed;
+      return probed;
+    })
+    .finally(() => {
+      cachedProbePromise = null;
+    });
+  return cachedProbePromise;
+}
+
 /**
  * Resolve backend emoji width policy and align core/native width models.
  *
@@ -217,7 +235,7 @@ export async function resolveBackendEmojiWidthPolicy(
   */
   const probeEnabled = process.env[ENV_EMOJI_WIDTH_PROBE] === "1";
   if (probeEnabled) {
-    const probed = await probeTerminalEmojiWidthPolicy(PROBE_TIMEOUT_MS_DEFAULT);
+    const probed = await probeTerminalEmojiWidthPolicyCached(PROBE_TIMEOUT_MS_DEFAULT);
     if (probed !== null) return probed;
   }
 
