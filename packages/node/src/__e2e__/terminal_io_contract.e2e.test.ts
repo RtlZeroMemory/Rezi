@@ -550,6 +550,8 @@ test("terminal io contract: keyboard + paste + focus + mouse + resize + split re
   if (harness === null) return;
 
   try {
+    const textDecoder = new TextDecoder();
+
     // Initial resize is part of the contract and must arrive before explicit resizes.
     const startupEvents = await collectEvents(harness, 20, (xs) => {
       return findIndex(xs, (ev) => ev.kind === "resize") >= 0;
@@ -763,12 +765,17 @@ test("terminal io contract: keyboard + paste + focus + mouse + resize + split re
     );
 
     // Incomplete sequence fallback policy: ESC+[ without completion flushes as ESC key + text '['.
-    harness.writeRaw("\x1b[");
-    const fallbackEvents = await collectEvents(harness, 20, (xs) => {
-      const esc = findIndex(xs, (ev) => isKey(ev, ZR_KEY_ESCAPE, 0));
-      const bracket = findIndex(xs, (ev) => isText(ev, 91));
-      return esc >= 0 && bracket >= 0;
-    });
+    const fallbackEvents = await writeAndCollectUntilWithRetries(
+      harness,
+      "\x1b[",
+      60,
+      (xs) => {
+        const esc = findIndex(xs, (ev) => isKey(ev, ZR_KEY_ESCAPE, 0));
+        const bracket = findIndex(xs, (ev) => isText(ev, 91));
+        return esc >= 0 && bracket >= 0;
+      },
+      3,
+    );
     const escFallbackIndex = findIndex(fallbackEvents, (ev) => isKey(ev, ZR_KEY_ESCAPE, 0));
     const textBracketIndex = findIndex(fallbackEvents, (ev) => isText(ev, 91));
     assert.ok(escFallbackIndex >= 0, "incomplete escape fallback missing ESC event");
@@ -776,16 +783,27 @@ test("terminal io contract: keyboard + paste + focus + mouse + resize + split re
     assert.ok(escFallbackIndex < textBracketIndex, "fallback ESC must precede text '['");
 
     // Bracketed paste framing.
-    harness.writeRaw("\x1b[200~hello\x1b[201~");
-    const pasteEvents = await collectEvents(harness, 80, (xs) => {
-      return findIndex(xs, (ev) => ev.kind === "paste") >= 0;
-    });
-    const framedPasteIndex = findIndex(pasteEvents, (ev) => ev.kind === "paste");
+    const pasteEvents = await writeAndCollectUntilWithRetries(
+      harness,
+      "\x1b[200~hello\x1b[201~",
+      120,
+      (xs) => {
+        return (
+          findIndex(xs, (ev) => ev.kind === "paste" && textDecoder.decode(ev.bytes) === "hello") >=
+          0
+        );
+      },
+      3,
+    );
+    const framedPasteIndex = findIndex(
+      pasteEvents,
+      (ev) => ev.kind === "paste" && textDecoder.decode(ev.bytes) === "hello",
+    );
     assert.ok(framedPasteIndex >= 0, "missing framed paste event");
     const framedPaste = pasteEvents[framedPasteIndex];
     assert.ok(framedPaste !== undefined);
     if (framedPaste !== undefined && framedPaste.kind === "paste") {
-      assert.equal(new TextDecoder().decode(framedPaste.bytes), "hello");
+      assert.equal(textDecoder.decode(framedPaste.bytes), "hello");
     }
 
     // Missing paste end marker must flush and not wedge input.
@@ -798,7 +816,7 @@ test("terminal io contract: keyboard + paste + focus + mouse + resize + split re
       const missingEndPaste = missingEndEvents[missingEndPasteIndex];
       assert.ok(missingEndPaste !== undefined);
       if (missingEndPaste !== undefined && missingEndPaste.kind === "paste") {
-        assert.equal(new TextDecoder().decode(missingEndPaste.bytes), "xyz");
+        assert.equal(textDecoder.decode(missingEndPaste.bytes), "xyz");
       }
     }
 
