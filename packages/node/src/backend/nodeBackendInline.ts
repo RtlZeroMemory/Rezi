@@ -100,8 +100,9 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 function mergeNativeLimits(
   nativeConfig: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> {
-  const existingLimits = isPlainObject(nativeConfig.limits)
-    ? (nativeConfig.limits as Record<string, unknown>)
+  const limitsValue = nativeConfig["limits"];
+  const existingLimits = isPlainObject(limitsValue)
+    ? (limitsValue as Record<string, unknown>)
     : null;
   const limits: Record<string, unknown> = { ...(existingLimits ?? {}) };
 
