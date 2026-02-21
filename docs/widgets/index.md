@@ -11,8 +11,6 @@ app.view((state) =>
 );
 ```
 
-Machine-readable widget reference: [`catalog.json`](catalog.json).
-
 High-level composition helpers are available on `ui`:
 
 - `ui.panel(...)`
