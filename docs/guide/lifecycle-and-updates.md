@@ -148,7 +148,7 @@ Deterministic violations throw `ZrUiError` with a `code`:
 - `ZRUI_UPDATE_DURING_RENDER`: `update()` called during render
 - `ZRUI_DUPLICATE_KEY`: duplicate VNode `key` among siblings
 - `ZRUI_DUPLICATE_ID`: duplicate widget `id` for focus routing
-- `ZRUI_INVALID_PROPS`: widget props failed validation
+- `ZRUI_INVALID_PROPS`: widget props failed validation (includes `ZRUI_MAX_DEPTH` details for overly deep composite/layout nesting)
 - `ZRUI_PROTOCOL_ERROR`: backend protocol parse/validation failure
 - `ZRUI_DRAWLIST_BUILD_ERROR`: drawlist build failure
 - `ZRUI_BACKEND_ERROR`: backend reported a fatal error

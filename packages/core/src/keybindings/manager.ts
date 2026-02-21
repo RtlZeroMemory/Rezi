@@ -18,7 +18,7 @@ import {
   resetChordState,
 } from "./chordMatcher.js";
 import { modsFromBitmask } from "./keyCodes.js";
-import { keysEqual, parseKeySequence } from "./parser.js";
+import { keyToString, keysEqual, parseKeySequence, sequenceToString } from "./parser.js";
 import type {
   ChordState,
   KeyBinding,
@@ -89,6 +89,7 @@ export type BindingDefinition<C> =
       handler: KeyHandler<C>;
       priority?: number;
       when?: (ctx: C) => boolean;
+      description?: string;
     }>;
 
 /**
@@ -138,6 +139,7 @@ function parseBindings<C>(map: BindingMap<C>): ParseBindingsResult<C> {
     let handler: KeyHandler<C>;
     let priority = 0;
     let when: ((ctx: C) => boolean) | undefined;
+    let description: string | undefined;
 
     if (typeof def === "function") {
       handler = def;
@@ -145,11 +147,17 @@ function parseBindings<C>(map: BindingMap<C>): ParseBindingsResult<C> {
       handler = def.handler;
       priority = def.priority ?? 0;
       when = def.when;
+      description = def.description;
     }
 
-    const binding: KeyBinding<C> = when
-      ? Object.freeze({ sequence: parsed.value, priority, handler, when })
-      : Object.freeze({ sequence: parsed.value, priority, handler });
+    const binding: KeyBinding<C> =
+      when !== undefined && description !== undefined
+        ? Object.freeze({ sequence: parsed.value, priority, handler, when, description })
+        : when !== undefined
+          ? Object.freeze({ sequence: parsed.value, priority, handler, when })
+          : description !== undefined
+            ? Object.freeze({ sequence: parsed.value, priority, handler, description })
+            : Object.freeze({ sequence: parsed.value, priority, handler });
 
     bindings.push(binding);
   }
@@ -376,6 +384,77 @@ export function setMode<C>(
  */
 export function getMode<C>(state: KeybindingManagerState<C>): string {
   return state.currentMode;
+}
+
+/**
+ * Introspection record for a registered keybinding.
+ */
+export type RegisteredBinding = Readonly<{
+  sequence: string;
+  description?: string;
+  mode: string;
+}>;
+
+/**
+ * Get registered keybindings as user-facing sequence strings.
+ *
+ * @param state - Manager state
+ * @param mode - Optional mode name to filter by
+ * @returns Bindings in registration order (grouped by mode insertion order)
+ */
+export function getBindings<C>(
+  state: KeybindingManagerState<C>,
+  mode?: string,
+): readonly RegisteredBinding[] {
+  const out: RegisteredBinding[] = [];
+
+  if (mode !== undefined) {
+    const compiled = state.modes.get(mode);
+    if (!compiled) return Object.freeze(out);
+    for (const binding of compiled.bindings) {
+      out.push(
+        binding.description === undefined
+          ? Object.freeze({
+              sequence: sequenceToString(binding.sequence),
+              mode,
+            })
+          : Object.freeze({
+              sequence: sequenceToString(binding.sequence),
+              description: binding.description,
+              mode,
+            }),
+      );
+    }
+    return Object.freeze(out);
+  }
+
+  for (const [modeName, compiled] of state.modes) {
+    for (const binding of compiled.bindings) {
+      out.push(
+        binding.description === undefined
+          ? Object.freeze({
+              sequence: sequenceToString(binding.sequence),
+              mode: modeName,
+            })
+          : Object.freeze({
+              sequence: sequenceToString(binding.sequence),
+              description: binding.description,
+              mode: modeName,
+            }),
+      );
+    }
+  }
+
+  return Object.freeze(out);
+}
+
+/**
+ * Get pending chord as a sequence string, or null when idle.
+ */
+export function getPendingChord<C>(state: KeybindingManagerState<C>): string | null {
+  const pendingKeys = state.chordState.pendingKeys;
+  if (pendingKeys.length === 0) return null;
+  return pendingKeys.map((key) => keyToString(key)).join(" ");
 }
 
 /**

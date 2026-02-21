@@ -163,6 +163,68 @@ describe("ui.basic widgets - VNode construction", () => {
     assert.deepEqual(vnode.props, { keys: "Ctrl+P" });
   });
 
+  test("keybindingHelp builds a formatted shortcut list", () => {
+    const vnode = ui.keybindingHelp(
+      [
+        { sequence: "ctrl+k ctrl+c", description: "Comment line", mode: "normal" },
+        { sequence: "g g", mode: "normal" },
+      ],
+      { title: "Help", showMode: true, sort: false },
+    );
+
+    assert.equal(vnode.kind, "column");
+    assert.deepEqual(vnode.props, { gap: 1 });
+
+    const header = vnode.children[0];
+    assert.ok(header);
+    if (!header) return;
+    assert.equal(header.kind, "text");
+    if (header.kind !== "text") return;
+    assert.equal(header.text, "Help");
+
+    const rows = vnode.children[2];
+    assert.ok(rows);
+    if (!rows) return;
+    assert.equal(rows.kind, "column");
+    if (rows.kind !== "column") return;
+    assert.equal(rows.children.length, 2);
+
+    const firstRow = rows.children[0];
+    assert.ok(firstRow);
+    if (!firstRow) return;
+    assert.equal(firstRow.kind, "row");
+    if (firstRow.kind !== "row") return;
+    const firstShortcut = firstRow.children[0];
+    assert.ok(firstShortcut);
+    if (!firstShortcut) return;
+    assert.equal(firstShortcut.kind, "kbd");
+    if (firstShortcut.kind !== "kbd") return;
+    assert.deepEqual(firstShortcut.props, { keys: ["ctrl+k", "ctrl+c"], separator: " " });
+
+    const secondRow = rows.children[1];
+    assert.ok(secondRow);
+    if (!secondRow) return;
+    assert.equal(secondRow.kind, "row");
+    if (secondRow.kind !== "row") return;
+    const description = secondRow.children[2];
+    assert.ok(description);
+    if (!description) return;
+    assert.equal(description.kind, "text");
+    if (description.kind !== "text") return;
+    assert.equal(description.text, "No description");
+  });
+
+  test("keybindingHelp renders empty state text when no bindings exist", () => {
+    const vnode = ui.keybindingHelp([], { emptyText: "Nothing bound" });
+    assert.equal(vnode.kind, "column");
+    const emptyNode = vnode.children[2];
+    assert.ok(emptyNode);
+    if (!emptyNode) return;
+    assert.equal(emptyNode.kind, "text");
+    if (emptyNode.kind !== "text") return;
+    assert.equal(emptyNode.text, "Nothing bound");
+  });
+
   test("status creates kind and forwards status/options", () => {
     const vnode = ui.status("away", { label: "AFK", showLabel: true, style: { italic: true } });
     assert.equal(vnode.kind, "status");

@@ -8,6 +8,7 @@
  * @see docs/widgets/index.md
  */
 
+import type { RegisteredBinding } from "../keybindings/index.js";
 import {
   type RouterBreadcrumbProps,
   type RouterTabsProps,
@@ -122,6 +123,12 @@ type PageOptions = Readonly<{
   footer?: VNode | null;
   gap?: ColumnProps["gap"];
   p?: ColumnProps["p"];
+}>;
+type KeybindingHelpOptions = Readonly<{
+  title?: string;
+  emptyText?: string;
+  showMode?: boolean;
+  sort?: boolean;
 }>;
 
 function isUiChildren(value: unknown): value is readonly UiChild[] {
@@ -391,6 +398,75 @@ function richText(spans: readonly RichTextSpan[], props: Omit<RichTextProps, "sp
  */
 function kbd(keys: string | readonly string[], props: Omit<KbdProps, "keys"> = {}): VNode {
   return { kind: "kbd", props: { keys, ...props } };
+}
+
+function keybindingSequenceToKbdInput(sequence: string): string | readonly string[] {
+  const normalized = sequence.trim();
+  if (normalized.length === 0) return "";
+  const parts = normalized.split(/\s+/);
+  if (parts.length <= 1) return normalized;
+  return Object.freeze(parts);
+}
+
+function keybindingComparator(a: RegisteredBinding, b: RegisteredBinding): number {
+  const byMode = a.mode.localeCompare(b.mode);
+  if (byMode !== 0) return byMode;
+  return a.sequence.localeCompare(b.sequence);
+}
+
+/**
+ * Render keybindings as a formatted help table.
+ *
+ * Accepts output from `app.getBindings()` directly.
+ */
+function keybindingHelp(
+  bindings: readonly RegisteredBinding[],
+  options: KeybindingHelpOptions = {},
+): VNode {
+  const title = options.title ?? "Keyboard Shortcuts";
+  const emptyText = options.emptyText ?? "No shortcuts registered.";
+  const showMode =
+    options.showMode ??
+    (() => {
+      const firstMode = bindings[0]?.mode;
+      if (firstMode === undefined) return false;
+      return bindings.some((binding) => binding.mode !== firstMode);
+    })();
+
+  const rows = options.sort === false ? [...bindings] : [...bindings].sort(keybindingComparator);
+
+  return column({ gap: 1 }, [
+    text(title, { style: { bold: true } }),
+    divider({ char: "·" }),
+    rows.length > 0
+      ? column(
+          { gap: 0 },
+          rows.map((binding, i) => {
+            const keyTokens = keybindingSequenceToKbdInput(binding.sequence);
+            const sequenceNode = Array.isArray(keyTokens)
+              ? kbd(keyTokens, { separator: " " })
+              : kbd(keyTokens);
+            const descriptionNode =
+              binding.description === undefined
+                ? text("No description", { dim: true })
+                : text(binding.description);
+            return row(
+              {
+                key: `keybinding-help-${binding.mode}-${binding.sequence}-${String(i)}`,
+                gap: 1,
+                items: "center",
+                wrap: true,
+              },
+              [
+                sequenceNode,
+                showMode ? text(`[${binding.mode}]`, { dim: true }) : null,
+                descriptionNode,
+              ],
+            );
+          }),
+        )
+      : text(emptyText, { dim: true }),
+  ]);
 }
 
 /**
@@ -835,6 +911,7 @@ export const ui = {
   skeleton,
   richText,
   kbd,
+  keybindingHelp,
   badge,
   status,
   tag,
