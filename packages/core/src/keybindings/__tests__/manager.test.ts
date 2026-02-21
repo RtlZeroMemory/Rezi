@@ -3,7 +3,9 @@ import type { ZrevEvent } from "../../events.js";
 import {
   DEFAULT_MODE,
   createManagerState,
+  getBindings,
   getMode,
+  getPendingChord,
   registerBindings,
   registerModes,
   routeKeyEvent,
@@ -118,6 +120,26 @@ describe("registerBindings", () => {
 
     assert.equal(binding.priority, 10);
     assert.ok(binding.when);
+  });
+
+  test("stores optional binding descriptions", () => {
+    const state = createManagerState<TestContext>();
+
+    const result = registerBindings(state, {
+      "ctrl+s": {
+        handler: () => {},
+        description: "Save document",
+      },
+    });
+
+    const mode = result.state.modes.get(DEFAULT_MODE);
+    assert.ok(mode);
+    if (!mode) return;
+    const binding = mode.bindings[0];
+    assert.ok(binding);
+    if (!binding) return;
+
+    assert.equal(binding.description, "Save document");
   });
 
   test("returns invalid keys without throwing", () => {
@@ -274,6 +296,65 @@ describe("getMode", () => {
     state = registerModes(state, { custom: { a: () => {} } }).state;
     state = setMode(state, "custom");
     assert.equal(getMode(state), "custom");
+  });
+});
+
+describe("getBindings", () => {
+  test("returns flattened bindings across modes with descriptions", () => {
+    let state = createManagerState<TestContext>();
+    state = registerBindings(state, {
+      a: () => {},
+      "ctrl+s": {
+        handler: () => {},
+        description: "Save document",
+      },
+    }).state;
+    state = registerModes(state, {
+      normal: {
+        q: {
+          handler: () => {},
+          description: "Quit",
+        },
+      },
+    }).state;
+
+    const bindings = getBindings(state);
+    assert.deepEqual(bindings, [
+      { sequence: "a", mode: "default" },
+      { sequence: "ctrl+s", description: "Save document", mode: "default" },
+      { sequence: "q", description: "Quit", mode: "normal" },
+    ]);
+  });
+
+  test("filters by mode and returns empty for unknown mode", () => {
+    let state = createManagerState<TestContext>();
+    state = registerBindings(state, { a: () => {} }).state;
+    state = registerModes(state, {
+      normal: {
+        q: () => {},
+      },
+    }).state;
+
+    assert.deepEqual(getBindings(state, "normal"), [{ sequence: "q", mode: "normal" }]);
+    assert.deepEqual(getBindings(state, "missing"), []);
+  });
+});
+
+describe("getPendingChord", () => {
+  test("returns null with no pending chord", () => {
+    const state = createManagerState<TestContext>();
+    assert.equal(getPendingChord(state), null);
+  });
+
+  test("returns pending chord sequence while chord is in progress", () => {
+    let state = createManagerState<TestContext>();
+    state = registerBindings(state, { "ctrl+k ctrl+c": () => {} }).state;
+
+    const first = routeKeyEvent(state, makeKeyDownEvent(75, 2, 10), makeContext());
+    assert.equal(getPendingChord(first.nextState), "ctrl+k");
+
+    const second = routeKeyEvent(first.nextState, makeKeyDownEvent(67, 2, 20), makeContext());
+    assert.equal(getPendingChord(second.nextState), null);
   });
 });
 

@@ -15,6 +15,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - Page router route guards (`guard`) and nested route trees (`children`) with `context.outlet` rendering
 - Composition utility hooks: `useDebounce`, `useAsync`, `usePrevious`
 - `useForm` ergonomic helpers: `form.bind(field)` for spread-ready input props and `form.field(field, options)` for fully wired field+input rendering
+- Keybinding metadata/introspection: optional `description` in binding definitions, `app.getBindings(mode?)`, `app.pendingChord`, and `ui.keybindingHelp(...)` for auto-generated shortcut overlays
 
 ### Changed
 

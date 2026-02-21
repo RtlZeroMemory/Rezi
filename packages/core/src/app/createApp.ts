@@ -51,7 +51,9 @@ import type {
 } from "../keybindings/index.js";
 import {
   createManagerState,
+  getBindings,
   getMode,
+  getPendingChord,
   registerBindings,
   registerModes,
   resetChordState,
@@ -668,9 +670,14 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     routeInputState: KeybindingManagerState<KeyContext<S>>,
     routeNextState: KeybindingManagerState<KeyContext<S>>,
   ): void {
+    const previousChordState = keybindingState.chordState;
+
     // If handlers did not mutate keybinding state, take the routed state directly.
     if (keybindingState === routeInputState) {
       keybindingState = routeNextState;
+      if (keybindingState.chordState !== previousChordState) {
+        markDirty(DIRTY_VIEW);
+      }
       return;
     }
 
@@ -685,6 +692,10 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       ...keybindingState,
       chordState: routeNextState.chordState,
     });
+
+    if (keybindingState.chordState !== previousChordState) {
+      markDirty(DIRTY_VIEW);
+    }
   }
 
   function noteBreadcrumbEvent(kind: string): void {
@@ -1593,6 +1604,14 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
     getMode(): string {
       return getMode(keybindingState);
+    },
+
+    getBindings(mode?: string) {
+      return getBindings(keybindingState, mode);
+    },
+
+    get pendingChord(): string | null {
+      return getPendingChord(keybindingState);
     },
 
     getTerminalProfile(): TerminalProfile {

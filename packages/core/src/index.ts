@@ -900,11 +900,14 @@ export type {
   ModeDefinition,
   Modifiers,
   ParsedKey,
+  RegisteredBinding,
 } from "./keybindings/index.js";
 
 export {
   CHORD_TIMEOUT_MS,
   DEFAULT_MODE,
+  getPendingChord,
+  getBindings,
   parseKeySequence,
 } from "./keybindings/index.js";
 
@@ -938,7 +941,12 @@ export type {
 
 import type { DrawApi } from "./drawApi.js";
 import type { UiEvent } from "./events.js";
-import type { BindingMap, KeyContext, ModeBindingMap } from "./keybindings/index.js";
+import type {
+  BindingMap,
+  KeyContext,
+  ModeBindingMap,
+  RegisteredBinding,
+} from "./keybindings/index.js";
 import type { Rect } from "./layout/types.js";
 import type { RouterApi } from "./router/types.js";
 import type { FocusInfo } from "./runtime/widgetMeta.js";
@@ -1031,7 +1039,7 @@ export interface App<S> {
    * @example
    * ```ts
    * app.keys({
-   *   "ctrl+s": (ctx) => ctx.update(save),
+   *   "ctrl+s": { handler: (ctx) => ctx.update(save), description: "Save document" },
    *   "ctrl+q": () => app.stop(),
    *   "g g": (ctx) => ctx.update(scrollToTop),
    * });
@@ -1071,6 +1079,16 @@ export interface App<S> {
    * @returns Current mode name (default: "default")
    */
   getMode(): string;
+
+  /**
+   * List registered keybindings, optionally filtered by mode.
+   */
+  getBindings(mode?: string): readonly RegisteredBinding[];
+
+  /**
+   * Current pending chord prefix (e.g. "g"), or null when idle.
+   */
+  readonly pendingChord: string | null;
 
   /**
    * Get the latest terminal profile snapshot.

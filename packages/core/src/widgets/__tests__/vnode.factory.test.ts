@@ -133,6 +133,12 @@ const factoryCases: readonly FactoryCase[] = [
     optionalAbsent: "separator",
   },
   {
+    name: "keybindingHelp",
+    expectedKind: "column",
+    build: () => ui.keybindingHelp([{ sequence: "ctrl+s", mode: "default" }]),
+    optionalAbsent: "height",
+  },
+  {
     name: "badge",
     expectedKind: "badge",
     build: () => ui.badge("new"),

@@ -182,6 +182,23 @@ apps. See [Focus Announcer](../widgets/focus-announcer.md) for details.
 - Mode lookup is current mode first, then `parent` chain fallback (cycle-safe).
 - Switching to a different mode resets pending chord state. Calling `setMode()` with the current mode is a no-op.
 
+### Metadata and introspection
+
+- Object-style bindings may include `description` metadata:
+  - `app.keys({ "ctrl+s": { handler: save, description: "Save document" } })`
+- `app.getBindings(mode?)` returns registered bindings as:
+  - `{ sequence: string, description?: string, mode: string }[]`
+- `ui.keybindingHelp(app.getBindings())` renders a formatted help table with zero manual duplication.
+
+### Pending chord state
+
+- `app.pendingChord` exposes the current chord prefix as a string (for example `"g"` or `"ctrl+k"`), or `null` when no chord is in progress.
+- This makes status-bar UX straightforward:
+
+```typescript
+ui.text(app.pendingChord ? `Waiting for: ${app.pendingChord}` : "Ready");
+```
+
 ### Binding conflicts and re-registration
 
 - Registration is additive by mode, but re-registering the same sequence replaces the previous binding for that sequence.

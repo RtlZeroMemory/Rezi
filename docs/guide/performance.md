@@ -57,6 +57,15 @@ This keeps render + layout work proportional to the visible window rather than t
 
 The runtime enforces hard limits (drawlist sizes, event batch validation, etc.). These failures are deterministic and surfaced as fatal errors in development to prevent “slow corruption” or non-deterministic behavior.
 
+Commit-time guardrails also keep large widget trees predictable:
+
+- Interactive widget `id` uniqueness is checked with a hash index during each
+  commit cycle (`O(1)` lookups) to keep duplicate detection fast even for large
+  dashboards.
+- Layout nesting depth emits a dev warning after depth `200`, and fails fast
+  with a `ZRUI_MAX_DEPTH` diagnostic (in `ZRUI_INVALID_PROPS` detail) after
+  depth `500` to avoid opaque JavaScript stack overflows.
+
 If you hit limits:
 
 - reduce per-frame draw commands (simplify UI or virtualize)
