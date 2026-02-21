@@ -636,6 +636,7 @@ export function renderBasicWidget(
   clipStack: (Readonly<Rect> | undefined)[],
   currentClip: Readonly<Rect> | undefined,
   cursorInfo: CursorInfo | undefined,
+  focusAnnouncement: string | null | undefined,
   terminalProfile: TerminalProfile | undefined,
 ): ResolvedCursor | null {
   const vnode = node.vnode;
@@ -846,6 +847,20 @@ export function renderBasicWidget(
           blink: cursorInfo.blink,
         };
       }
+      break;
+    }
+    case "focusAnnouncer": {
+      if (!isVisibleRect(rect)) break;
+      const props = vnode.props as { emptyText?: unknown; style?: unknown };
+      const ownStyle = asTextStyle(props.style, theme);
+      const style = mergeTextStyle(parentStyle, ownStyle);
+      maybeFillOwnBackground(builder, rect, ownStyle, style);
+      const fallback = readString(props.emptyText) ?? "";
+      const text = focusAnnouncement ?? fallback;
+      if (text.length === 0) break;
+      builder.pushClip(rect.x, rect.y, rect.w, rect.h);
+      builder.drawText(rect.x, rect.y, truncateToWidth(text, rect.w), style);
+      builder.popClip();
       break;
     }
     case "slider": {

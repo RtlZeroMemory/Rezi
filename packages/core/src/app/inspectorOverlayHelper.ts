@@ -16,6 +16,7 @@ import type {
   AppRenderMetrics,
   DrawFn,
   EventHandler,
+  FocusChangeHandler,
   ViewFn,
 } from "../index.js";
 import { defaultTheme } from "../theme/defaultTheme.js";
@@ -245,6 +246,9 @@ export function createAppWithInspectorOverlay<S>(
     },
     onEvent(handler: EventHandler): () => void {
       return app.onEvent(handler);
+    },
+    onFocusChange(handler: FocusChangeHandler): () => void {
+      return app.onFocusChange(handler);
     },
     update(updater: S | ((prev: Readonly<S>) => S)): void {
       app.update(updater);

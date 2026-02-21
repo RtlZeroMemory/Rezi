@@ -102,6 +102,53 @@ Trap activation focus rules:
 - `initialFocus` should point to an element inside the trap for guaranteed containment.
 - If `initialFocus` is not focusable in the committed tree, focus falls back to the first focusable element inside the trap.
 
+## Semantic Focus Labels
+
+Interactive widgets support an optional `accessibleLabel` prop. This is useful
+when visible text is ambiguous (for example, `"X"` as a close button):
+
+```typescript
+ui.button({ id: "close", label: "X", accessibleLabel: "Close dialog" })
+```
+
+When provided, `accessibleLabel` is used for focus metadata, inspector output,
+and focus announcements.
+
+## Focus Change Callbacks
+
+Use `app.onFocusChange(...)` to observe focus transitions:
+
+```typescript
+const unsubscribe = app.onFocusChange((info) => {
+  console.log("Focused:", info.announcement);
+});
+```
+
+`info` includes:
+
+- `id` - focused widget id (or `null`)
+- `kind` - focused widget kind (when known)
+- `accessibleLabel` / `visibleLabel`
+- `required` and `errors` (derived from surrounding `field` metadata)
+- `announcement` - prebuilt user-facing summary string
+
+Focus starts as `null` unless your UI sets it (for example with
+`focusTrap.initialFocus`), so callbacks fire when focus actually changes.
+
+## Focus Announcer Widget
+
+`ui.focusAnnouncer()` renders the current focus announcement as text:
+
+```typescript
+ui.column({}, [
+  ui.focusAnnouncer({ emptyText: "No focus" }),
+  ui.input({ id: "email", value: state.email, accessibleLabel: "Email input" }),
+]);
+```
+
+This is useful for debugging and accessibility-oriented UI hints in terminal
+apps. See [Focus Announcer](../widgets/focus-announcer.md) for details.
+
 ## Keybinding System
 
 ### Key string syntax

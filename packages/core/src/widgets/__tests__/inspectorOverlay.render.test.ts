@@ -81,6 +81,7 @@ describe("inspectorOverlay render shape", () => {
         focusedId: "input.name",
         activeZoneId: "zone.editor",
         activeTrapId: "trap.modal",
+        announcement: "Email input — Required — Invalid format",
       }),
       cursor: Object.freeze({
         visible: true,
@@ -131,6 +132,10 @@ describe("inspectorOverlay render shape", () => {
     assert.equal(strings.includes("inspector overlay"), true);
     assert.equal(strings.includes("focus: id=input.name zone=zone.editor trap=trap.modal"), true);
     assert.equal(
+      strings.includes("focus_announcement: Email input — Required — Invalid format"),
+      true,
+    );
+    assert.equal(
       strings.includes(
         `cursor: (12,4) shape=${String(ZR_CURSOR_SHAPE_BAR)} blink=${String("yes")}`,
       ),
@@ -157,6 +162,7 @@ describe("inspectorOverlay render shape", () => {
     );
 
     assert.equal(strings.includes("focus: id=<none> zone=<none> trap=<none>"), true);
+    assert.equal(strings.includes("focus_announcement: <none>"), true);
     assert.equal(strings.includes("cursor: n/a"), true);
     assert.equal(strings.includes("damage: mode=none rects=n/a cells=n/a"), true);
     assert.equal(strings.includes("event: kind=<none> path=<none>"), true);

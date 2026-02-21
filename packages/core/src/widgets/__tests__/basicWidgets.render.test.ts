@@ -118,7 +118,7 @@ const ATTR_UNDERLINE = 1 << 2;
 function renderBytes(
   vnode: VNode,
   viewport: Readonly<{ cols: number; rows: number }> = { cols: 64, rows: 20 },
-  opts: Readonly<{ focusedId?: string | null; theme?: Theme }> = {},
+  opts: Readonly<{ focusedId?: string | null; theme?: Theme; focusAnnouncement?: string | null }> = {},
 ): Uint8Array {
   return renderBytesWithBuilder(vnode, () => createDrawlistBuilderV1(), viewport, opts);
 }
@@ -126,7 +126,7 @@ function renderBytes(
 function renderBytesV3(
   vnode: VNode,
   viewport: Readonly<{ cols: number; rows: number }> = { cols: 64, rows: 20 },
-  opts: Readonly<{ focusedId?: string | null; theme?: Theme }> = {},
+  opts: Readonly<{ focusedId?: string | null; theme?: Theme; focusAnnouncement?: string | null }> = {},
 ): Uint8Array {
   return renderBytesWithBuilder(vnode, () => createDrawlistBuilderV3(), viewport, opts);
 }
@@ -135,7 +135,7 @@ function renderBytesWithBuilder(
   vnode: VNode,
   createBuilder: () => DrawlistBuilderV1,
   viewport: Readonly<{ cols: number; rows: number }>,
-  opts: Readonly<{ focusedId?: string | null; theme?: Theme }> = {},
+  opts: Readonly<{ focusedId?: string | null; theme?: Theme; focusAnnouncement?: string | null }> = {},
 ): Uint8Array {
   const allocator = createInstanceIdAllocator(1);
   const committed = commitVNodeTree(null, vnode, { allocator });
@@ -161,6 +161,7 @@ function renderBytesWithBuilder(
     focusState: Object.freeze({ focusedId: opts.focusedId ?? null }),
     builder,
     ...(opts.theme ? { theme: opts.theme } : {}),
+    ...(opts.focusAnnouncement !== undefined ? { focusAnnouncement: opts.focusAnnouncement } : {}),
   });
   const built = builder.build();
   assert.equal(built.ok, true, "drawlist should build");
@@ -223,6 +224,20 @@ describe("basic widgets render to drawlist", () => {
       strings.some((s) => s.includes("beta")),
       true,
     );
+  });
+
+  test("focusAnnouncer renders focus summary and empty fallback", () => {
+    const announced = parseInternedStrings(
+      renderBytes(ui.focusAnnouncer({ emptyText: "No focus" }), { cols: 40, rows: 4 }, {
+        focusAnnouncement: "Email input — Required — Invalid format",
+      }),
+    );
+    assert.equal(announced.includes("Email input — Required — Invalid format"), true);
+
+    const fallback = parseInternedStrings(
+      renderBytes(ui.focusAnnouncer({ emptyText: "No focus" }), { cols: 40, rows: 4 }, {}),
+    );
+    assert.equal(fallback.includes("No focus"), true);
   });
 
   test("progress and gauge render bars and percentages", () => {

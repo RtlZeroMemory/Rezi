@@ -36,6 +36,22 @@ Execution mode details:
 - `worker`: force worker-thread engine execution.
 - `inline`: run the engine inline on the main JS thread.
 
+`NO_COLOR` support:
+
+- If `NO_COLOR` is present in the process environment, `createNodeApp(...)`
+  forces a monochrome theme (no semantic color accents).
+- `createNodeApp(...)` returns an app object with `app.isNoColor` so app code
+  can detect this mode.
+
+```ts
+import { createNodeApp } from "@rezi-ui/node";
+
+const app = createNodeApp({ initialState: {} });
+if (app.isNoColor) {
+  // Optional app-level behavior for colorless terminals/CI.
+}
+```
+
 Emoji width policy:
 
 - `emojiWidthPolicy` keeps core text measurement and native rendering aligned.

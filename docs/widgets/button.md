@@ -20,6 +20,7 @@ ui.button({
 |------|------|---------|-------------|
 | `id` | `string` | **required** | Unique identifier for focus and event routing |
 | `label` | `string` | **required** | Button text |
+| `accessibleLabel` | `string` | - | Optional semantic label for focus announcements and debugging |
 | `disabled` | `boolean` | `false` | Disable interaction and dim appearance |
 | `px` | `number` | `1` | Horizontal padding in cells |
 | `style` | `TextStyle` | - | Custom styling (merged with focus/disabled state) |

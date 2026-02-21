@@ -1,6 +1,7 @@
 import {
   type App,
   type AppConfig,
+  defaultTheme,
   type Theme,
   type ThemeDefinition,
   createApp,
@@ -33,6 +34,47 @@ export type CreateNodeAppOptions<S> = Readonly<{
   config?: NodeAppConfig;
   theme?: Theme | ThemeDefinition;
 }>;
+
+export type NodeApp<S> = App<S> &
+  Readonly<{
+    /** True when NO_COLOR is present in the process environment. */
+    isNoColor: boolean;
+  }>;
+
+type ProcessEnv = Readonly<Record<string, string | undefined>>;
+
+const NO_COLOR_THEME: Theme = Object.freeze({
+  colors: Object.freeze({
+    ...defaultTheme.colors,
+    primary: defaultTheme.colors.fg,
+    secondary: defaultTheme.colors.fg,
+    success: defaultTheme.colors.fg,
+    danger: defaultTheme.colors.fg,
+    warning: defaultTheme.colors.fg,
+    info: defaultTheme.colors.fg,
+    muted: defaultTheme.colors.fg,
+    border: defaultTheme.colors.fg,
+    "diagnostic.error": defaultTheme.colors.fg,
+    "diagnostic.warning": defaultTheme.colors.fg,
+    "diagnostic.info": defaultTheme.colors.fg,
+    "diagnostic.hint": defaultTheme.colors.fg,
+  }),
+  spacing: defaultTheme.spacing,
+});
+
+function readProcessEnv(): ProcessEnv | null {
+  const processRef = (globalThis as { process?: { env?: Record<string, string | undefined> } })
+    .process;
+  if (!processRef || typeof processRef !== "object") return null;
+  const env = processRef.env;
+  if (!env || typeof env !== "object") return null;
+  return env;
+}
+
+function hasNoColorEnv(env: ProcessEnv | null): boolean {
+  if (!env) return false;
+  return Object.prototype.hasOwnProperty.call(env, "NO_COLOR");
+}
 
 function toAppConfig(config: NodeAppConfig | undefined): AppConfig | undefined {
   if (config === undefined) return undefined;
@@ -80,16 +122,24 @@ function toBackendConfig(config: NodeAppConfig | undefined): NodeBackendConfig {
   };
 }
 
-export function createNodeApp<S>(opts: CreateNodeAppOptions<S>): App<S> {
+export function createNodeApp<S>(opts: CreateNodeAppOptions<S>): NodeApp<S> {
   const appConfig = toAppConfig(opts.config);
   const backend = createNodeBackend(toBackendConfig(opts.config));
+  const isNoColor = hasNoColorEnv(readProcessEnv());
+  const theme = isNoColor ? NO_COLOR_THEME : opts.theme;
 
-  return createApp({
+  const app = createApp({
     backend,
     initialState: opts.initialState,
     ...(appConfig !== undefined ? { config: appConfig } : {}),
-    ...(opts.theme !== undefined ? { theme: opts.theme } : {}),
+    ...(theme !== undefined ? { theme } : {}),
   });
+  return Object.defineProperty(app, "isNoColor", {
+    value: isNoColor,
+    enumerable: true,
+    configurable: false,
+    writable: false,
+  }) as NodeApp<S>;
 }
 
 /**

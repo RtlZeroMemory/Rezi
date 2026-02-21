@@ -226,6 +226,60 @@ test("widgetMeta: collectAllWidgetMetadata produces same results as individual c
   }
 });
 
+test("widgetMeta: collectAllWidgetMetadata includes accessible focus semantics", () => {
+  const vnode = ui.column({}, [
+    ui.button({ id: "close", label: "X", accessibleLabel: "Close dialog" }),
+    ui.field({
+      label: "Email input",
+      required: true,
+      error: "Invalid format",
+      children: ui.input({
+        id: "email",
+        value: "",
+      }),
+    }),
+    ui.field({
+      label: "Age",
+      required: true,
+      children: ui.slider({
+        id: "age",
+        value: 30,
+        min: 0,
+        max: 100,
+      }),
+    }),
+  ]);
+
+  const committed = commitTree(vnode);
+  const allMeta = collectAllWidgetMetadata(committed);
+
+  const closeInfo = allMeta.focusInfoById.get("close");
+  assert.ok(closeInfo);
+  assert.equal(closeInfo.id, "close");
+  assert.equal(closeInfo.accessibleLabel, "Close dialog");
+  assert.equal(closeInfo.visibleLabel, "X");
+  assert.equal(closeInfo.required, false);
+  assert.deepEqual(closeInfo.errors, []);
+  assert.equal(closeInfo.announcement, "Close dialog");
+
+  const emailInfo = allMeta.focusInfoById.get("email");
+  assert.ok(emailInfo);
+  assert.equal(emailInfo.id, "email");
+  assert.equal(emailInfo.accessibleLabel, null);
+  assert.equal(emailInfo.visibleLabel, "Email input");
+  assert.equal(emailInfo.required, true);
+  assert.deepEqual(emailInfo.errors, ["Invalid format"]);
+  assert.equal(emailInfo.announcement, "Email input — Required — Invalid format");
+
+  const ageInfo = allMeta.focusInfoById.get("age");
+  assert.ok(ageInfo);
+  assert.equal(ageInfo.id, "age");
+  assert.equal(ageInfo.visibleLabel, "Age");
+  assert.equal(ageInfo.required, true);
+  assert.deepEqual(ageInfo.errors, []);
+  assert.equal(ageInfo.announcement, "Age — Required");
+});
+
 /* ========== Performance Tests ========== */
 
 /**

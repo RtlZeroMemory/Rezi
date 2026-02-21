@@ -199,6 +199,7 @@ export type {
   EmptyProps,
   ErrorDisplayProps,
   FieldProps,
+  FocusAnnouncerProps,
   GraphicsBlitter,
   GaugeProps,
   HeatmapColorScale,
@@ -939,6 +940,7 @@ import type { DrawApi } from "./drawApi.js";
 import type { UiEvent } from "./events.js";
 import type { BindingMap, KeyContext, ModeBindingMap } from "./keybindings/index.js";
 import type { Rect } from "./layout/types.js";
+import type { FocusInfo } from "./runtime/widgetMeta.js";
 import type { RouterApi } from "./router/types.js";
 import type { TerminalProfile } from "./terminalProfile.js";
 import type { Theme } from "./theme/theme.js";
@@ -948,6 +950,7 @@ import type { VNode } from "./widgets/types.js";
 export type ViewFn<S> = (state: Readonly<S>) => VNode;
 export type DrawFn = (g: DrawApi) => void;
 export type EventHandler = (ev: UiEvent) => void;
+export type FocusChangeHandler = (info: FocusInfo) => void;
 export type AppRenderMetrics = Readonly<{ renderTime: number }>;
 export type AppLayoutSnapshot = Readonly<{ idRects: ReadonlyMap<string, Rect> }>;
 
@@ -1006,6 +1009,7 @@ export interface App<S> {
   view(fn: ViewFn<S>): void;
   draw(fn: DrawFn): void;
   onEvent(handler: EventHandler): () => void;
+  onFocusChange(handler: FocusChangeHandler): () => void;
   update(updater: S | ((prev: Readonly<S>) => S)): void;
   setTheme(theme: Theme | ThemeDefinition): void;
   /**
@@ -1225,6 +1229,7 @@ export type {
   RuntimeBreadcrumbSnapshot,
   WidgetRuntimeBreadcrumbSnapshot,
 } from "./app/runtimeBreadcrumbs.js";
+export type { FocusInfo } from "./runtime/widgetMeta.js";
 
 // =============================================================================
 // Debug Trace System

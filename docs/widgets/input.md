@@ -18,6 +18,7 @@ ui.input({
 |------|------|---------|-------------|
 | `id` | `string` | **required** | Unique identifier for focus and event routing |
 | `value` | `string` | **required** | Current input value (controlled) |
+| `accessibleLabel` | `string` | - | Optional semantic label for focus announcements and debugging |
 | `disabled` | `boolean` | `false` | Disable editing and dim appearance |
 | `style` | `TextStyle` | - | Custom styling (merged with focus/disabled state) |
 | `onInput` | `(value: string, cursor: number) => void` | - | Callback when value changes |

@@ -124,6 +124,7 @@ test("runtime breadcrumbs capture event path/action/focus/cursor deterministical
   assert.equal(first.focus.focusedId, "name");
   assert.equal(first.focus.activeZoneId, null);
   assert.equal(first.focus.activeTrapId, "trap");
+  assert.equal(typeof first.focus.announcement === "string", true);
   assert.equal(first.cursor?.visible, true);
   assert.equal(first.damage.mode, "full");
   assert.equal(first.frame.commit, true);
@@ -147,6 +148,7 @@ test("runtime breadcrumbs capture event path/action/focus/cursor deterministical
   assert.equal(second.focus.focusedId, "name");
   assert.equal(second.focus.activeZoneId, null);
   assert.equal(second.focus.activeTrapId, "trap");
+  assert.equal(typeof second.focus.announcement === "string", true);
   assert.equal(second.frame.commit, false);
   assert.equal(second.frame.layout, false);
 
@@ -161,6 +163,7 @@ test("runtime breadcrumbs capture event path/action/focus/cursor deterministical
   assert.equal(third.focus.focusedId, "save");
   assert.equal(third.focus.activeZoneId, null);
   assert.equal(third.focus.activeTrapId, "trap");
+  assert.equal(typeof third.focus.announcement === "string", true);
 
   await settleNextFrame(backend);
 

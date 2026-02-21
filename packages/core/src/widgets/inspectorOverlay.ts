@@ -73,6 +73,7 @@ function buildRows(props: InspectorOverlayProps): readonly string[] {
   const focusId = summarize(snapshot?.focus.focusedId ?? null);
   const zoneId = summarize(snapshot?.focus.activeZoneId ?? null);
   const trapId = summarize(snapshot?.focus.activeTrapId ?? null);
+  const focusAnnouncement = summarize(snapshot?.focus.announcement ?? null);
 
   const damageMode = snapshot?.damage.mode ?? "none";
   const damageRects = frameTiming?.damageRects ?? snapshot?.damage.rectCount;
@@ -93,6 +94,7 @@ function buildRows(props: InspectorOverlayProps): readonly string[] {
   const rows: string[] = [];
   rows.push("inspector overlay");
   rows.push(`focus: id=${focusId} zone=${zoneId} trap=${trapId}`);
+  rows.push(`focus_announcement: ${focusAnnouncement}`);
   rows.push(buildCursorSummary(snapshot));
   rows.push(
     `damage: mode=${damageMode} rects=${fmtMaybeInt(damageRects)} cells=${fmtMaybeInt(damageCells)}`,

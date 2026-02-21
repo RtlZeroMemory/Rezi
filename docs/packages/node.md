@@ -52,6 +52,19 @@ lockstep:
 - app/backend `maxEventBytes`
 - app/backend `fpsCap`
 
+## `NO_COLOR` behavior
+
+`createNodeApp(...)` checks `process.env.NO_COLOR` at app construction time.
+When present, Rezi forces a monochrome theme and exposes:
+
+```ts
+const app = createNodeApp({ initialState: {} });
+app.isNoColor; // boolean
+```
+
+This supports CI and accessibility tooling that relies on the
+[no-color.org](https://no-color.org/) convention.
+
 ## Deprecated legacy path
 
 Manual `createNodeBackend()` + `createApp()` (`@rezi-ui/core`) wiring is
