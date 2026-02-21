@@ -133,7 +133,9 @@ export type UseAsyncState<T> = Readonly<{
  * input value. Non-positive or non-finite delays apply on the next effect pass.
  */
 export function useDebounce<T>(ctx: DebounceHookContext, value: T, delayMs: number): T {
-  const [debounced, setDebounced] = ctx.useState<T>(value);
+  // Wrap to preserve function values; this hook runtime treats function inputs
+  // as lazy initializers.
+  const [debounced, setDebounced] = ctx.useState<T>(() => value);
 
   ctx.useEffect(() => {
     if (!Number.isFinite(delayMs) || delayMs <= 0) {

@@ -106,6 +106,21 @@ describe("composition utility hooks - usePrevious", () => {
 });
 
 describe("composition utility hooks - useDebounce", () => {
+  test("preserves function values without invoking them during state init", () => {
+    const h = createHarness();
+    let callCount = 0;
+
+    const callback = () => {
+      callCount++;
+      return "called";
+    };
+
+    const render = h.render((hooks) => useDebounce(hooks, callback, 25));
+
+    assert.equal(render.result, callback);
+    assert.equal(callCount, 0);
+  });
+
   test("delays updates until the timeout completes", async () => {
     const h = createHarness();
 
