@@ -25,6 +25,12 @@ npm test
 npm run docs:build
 ```
 
+## Hook/API changes
+
+- For public hook changes, update `docs/guide/hooks-reference.md` and `docs/guide/composition.md` in the same PR.
+- Add deterministic lifecycle tests (mount, dependency change, unmount cleanup, stale async result guards).
+- If the hook depends on runtime capabilities, keep adapters in runtime packages (`@rezi-ui/node`, etc.), not in `@rezi-ui/core`.
+
 For `ui.virtualList` behavior changes, also run focused suites before full tests:
 
 ```bash

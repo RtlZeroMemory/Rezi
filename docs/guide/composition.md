@@ -59,9 +59,21 @@ Rezi ships a small utility-hook layer for common composition patterns:
 - `useDebounce(ctx, value, delayMs)` returns a debounced value.
 - `useAsync(ctx, task, deps)` runs async tasks with loading/error state and stale-result protection.
 - `usePrevious(ctx, value)` returns the previous render value.
+- `useStream(ctx, asyncIterable, deps?)` subscribes to async iterables and re-renders on each value.
+- `useEventSource(ctx, url, options?)` consumes SSE feeds with automatic reconnect.
+- `useWebSocket(ctx, url, protocol?, options?)` consumes websocket feeds with message parsing.
+- `useInterval(ctx, fn, ms)` runs cleanup-safe intervals with latest-callback semantics.
+- `useTail(ctx, filePath, options?)` tails file sources with bounded in-memory backpressure.
 
 ```typescript
-import { defineWidget, ui, useAsync, useDebounce, usePrevious } from "@rezi-ui/core";
+import {
+  defineWidget,
+  ui,
+  useAsync,
+  useDebounce,
+  usePrevious,
+  useStream,
+} from "@rezi-ui/core";
 
 type SearchProps = { query: string };
 
@@ -87,6 +99,19 @@ const SearchResults = defineWidget<SearchProps>((props, ctx) => {
 async function fetchResults(query: string): Promise<string[]> {
   return query.length > 0 ? [query] : [];
 }
+
+async function* fetchMetrics(): AsyncGenerator<number> {
+  while (true) {
+    await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+    yield Math.round(Math.random() * 100);
+  }
+}
+
+const LiveMetric = defineWidget<{ key?: string }>((props, ctx) => {
+  const metricsStream = ctx.useMemo(() => fetchMetrics(), []);
+  const metric = useStream(ctx, metricsStream, [metricsStream]);
+  return ui.text(`Live metric: ${String(metric.value ?? 0)}`);
+});
 ```
 
 ## Related

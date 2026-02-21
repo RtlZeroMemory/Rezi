@@ -1,12 +1,13 @@
 import { exit } from "node:process";
-import { createApp } from "@rezi-ui/core";
+import { createApp, defineWidget, useStream } from "@rezi-ui/core";
 import { createNodeBackend } from "@rezi-ui/node";
 import { resolveDashboardCommand } from "./helpers/keybindings.js";
 import { reduceDashboardState, selectedService } from "./helpers/state.js";
 import { createInitialState } from "./helpers/state.js";
+import { createTelemetryStream } from "./helpers/telemetry.js";
 import { renderOverviewScreen } from "./screens/overview.js";
 import { themeSpec } from "./theme.js";
-import type { DashboardAction } from "./types.js";
+import type { DashboardAction, DashboardState } from "./types.js";
 
 const UI_FPS_CAP = 30;
 const TICK_MS = 900;
@@ -42,17 +43,40 @@ function dispatch(action: DashboardAction): void {
   }
 }
 
+const DashboardRoot = defineWidget<{
+  key?: string;
+  state: DashboardState;
+  dispatch: (action: DashboardAction) => void;
+}>(
+  (props, ctx) => {
+    const telemetryStream = ctx.useMemo(() => createTelemetryStream(TICK_MS), []);
+    const telemetry = useStream(ctx, telemetryStream, [telemetryStream]);
+    const lastTickRef = ctx.useRef<number | undefined>(undefined);
+
+    ctx.useEffect(() => {
+      const nextTick = telemetry.value;
+      if (!nextTick) return;
+      if (lastTickRef.current === nextTick.nowMs) return;
+      lastTickRef.current = nextTick.nowMs;
+      props.dispatch({ type: "tick", nowMs: nextTick.nowMs });
+    }, [telemetry.value, props.dispatch]);
+
+    return renderOverviewScreen(props.state, {
+      onTogglePause: () => props.dispatch({ type: "toggle-pause" }),
+      onCycleFilter: () => props.dispatch({ type: "cycle-filter" }),
+      onCycleTheme: () => props.dispatch({ type: "cycle-theme" }),
+      onToggleHelp: () => props.dispatch({ type: "toggle-help" }),
+      onSelectService: (serviceId) => props.dispatch({ type: "set-selected-id", serviceId }),
+    });
+  },
+  { name: "DashboardRoot" },
+);
+
 let stopping = false;
-let telemetryTimer: ReturnType<typeof setInterval> | null = null;
 
 async function stopApp(): Promise<void> {
   if (stopping) return;
   stopping = true;
-
-  if (telemetryTimer) {
-    clearInterval(telemetryTimer);
-    telemetryTimer = null;
-  }
 
   try {
     await app.stop();
@@ -103,12 +127,9 @@ function applyCommand(command: ReturnType<typeof resolveDashboardCommand>): void
 }
 
 app.view((state) =>
-  renderOverviewScreen(state, {
-    onTogglePause: () => dispatch({ type: "toggle-pause" }),
-    onCycleFilter: () => dispatch({ type: "cycle-filter" }),
-    onCycleTheme: () => dispatch({ type: "cycle-theme" }),
-    onToggleHelp: () => dispatch({ type: "toggle-help" }),
-    onSelectService: (serviceId) => dispatch({ type: "set-selected-id", serviceId }),
+  DashboardRoot({
+    state,
+    dispatch,
   }),
 );
 
@@ -137,24 +158,4 @@ app.keys({
   },
 });
 
-app.onEvent((event) => {
-  if (event.kind === "fatal") {
-    if (telemetryTimer) {
-      clearInterval(telemetryTimer);
-      telemetryTimer = null;
-    }
-  }
-});
-
-telemetryTimer = setInterval(() => {
-  dispatch({ type: "tick", nowMs: Date.now() });
-}, TICK_MS);
-
-try {
-  await app.start();
-} finally {
-  if (telemetryTimer) {
-    clearInterval(telemetryTimer);
-    telemetryTimer = null;
-  }
-}
+await app.start();

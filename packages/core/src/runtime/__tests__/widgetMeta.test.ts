@@ -315,34 +315,47 @@ test("widgetMeta: collectAllWidgetMetadata performance - single traversal vs 6 s
     collectFocusTraps(committed);
   }
 
-  // Measure single-pass collector
-  const iterations = 20;
-  const singlePassStart = performance.now();
-  for (let i = 0; i < iterations; i++) {
-    collectAllWidgetMetadata(committed);
-  }
-  const singlePassMs = (performance.now() - singlePassStart) / iterations;
+  const measureAverageMs = (fn: () => void, iterations: number): number => {
+    const start = performance.now();
+    for (let i = 0; i < iterations; i++) {
+      fn();
+    }
+    return (performance.now() - start) / iterations;
+  };
 
-  // Measure 6 separate traversals (old approach)
-  const separateStart = performance.now();
-  for (let i = 0; i < iterations; i++) {
-    collectFocusableIds(committed);
-    collectEnabledMap(committed);
-    collectPressableIds(committed);
-    collectInputMetaById(committed);
-    collectFocusZones(committed);
-    collectFocusTraps(committed);
+  // Measure across multiple rounds and compare best-case timings.
+  // This preserves regression coverage while avoiding false failures from
+  // one-off CI scheduling/GC pauses (especially on Windows runners).
+  const rounds = 6;
+  const iterations = 12;
+  let singlePassBestMs = Number.POSITIVE_INFINITY;
+  let separateBestMs = Number.POSITIVE_INFINITY;
+
+  for (let round = 0; round < rounds; round++) {
+    const singlePassMs = measureAverageMs(() => {
+      collectAllWidgetMetadata(committed);
+    }, iterations);
+    if (singlePassMs < singlePassBestMs) singlePassBestMs = singlePassMs;
+
+    const separateMs = measureAverageMs(() => {
+      collectFocusableIds(committed);
+      collectEnabledMap(committed);
+      collectPressableIds(committed);
+      collectInputMetaById(committed);
+      collectFocusZones(committed);
+      collectFocusTraps(committed);
+    }, iterations);
+    if (separateMs < separateBestMs) separateBestMs = separateMs;
   }
-  const separateMs = (performance.now() - separateStart) / iterations;
 
   // Single-pass should not be dramatically slower than 6 separate traversals.
   // Leave generous headroom for CI timing noise across operating systems, while
   // still failing clear regressions. Fast baselines can make pure ratio checks
   // unstable, so include a small absolute allowance.
-  const allowedMs = Math.max(separateMs * 3, separateMs + 8);
+  const allowedMs = Math.max(separateBestMs * 3, separateBestMs + 8);
   assert.ok(
-    singlePassMs <= allowedMs,
-    `Single-pass (${singlePassMs.toFixed(2)}ms) should not exceed allowed ${allowedMs.toFixed(2)}ms (separate ${separateMs.toFixed(2)}ms)`,
+    singlePassBestMs <= allowedMs,
+    `Single-pass best (${singlePassBestMs.toFixed(2)}ms) should not exceed allowed ${allowedMs.toFixed(2)}ms (separate best ${separateBestMs.toFixed(2)}ms)`,
   );
 });
 

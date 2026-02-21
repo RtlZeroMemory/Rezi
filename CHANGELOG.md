@@ -14,6 +14,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - Widget composition API (`defineWidget` with hooks)
 - Page router route guards (`guard`) and nested route trees (`children`) with `context.outlet` rendering
 - Composition utility hooks: `useDebounce`, `useAsync`, `usePrevious`
+- Streaming data hooks: `useStream`, `useEventSource`, `useWebSocket`, `useInterval`, and `useTail` (with Node tail-source integration)
 - `useForm` ergonomic helpers: `form.bind(field)` for spread-ready input props and `form.field(field, options)` for fully wired field+input rendering
 - `ui.textarea(...)` multi-line text input widget with wrapping and line-aware editing
 - OSC 52 clipboard copy/cut for Input/CodeEditor selections (`Ctrl+C`, `Ctrl+X`)
