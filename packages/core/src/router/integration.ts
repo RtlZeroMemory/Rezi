@@ -6,14 +6,23 @@ import { createRouteKeybindings } from "./keybindings.js";
 import {
   backRouterState,
   canGoBackFromState,
-  createRouteMap,
+  createRouteRegistry,
   createRouterState,
   currentRouteFromState,
   historyFromState,
   navigateRouterState,
+  normalizeRouteParams,
   replaceRouterState,
 } from "./router.js";
-import type { RouteDefinition, RouteParams, RouterApi, RouterState } from "./types.js";
+import type {
+  RouteDefinition,
+  RouteGuardResult,
+  RouteParams,
+  RouterApi,
+  RouterState,
+} from "./types.js";
+
+const GUARD_MAX_REDIRECT_DEPTH = 16;
 
 /**
  * Integration options for binding the router to `createApp` lifecycle.
@@ -22,6 +31,7 @@ export type RouterIntegrationOptions<S> = Readonly<{
   routes: readonly RouteDefinition<S>[];
   initialRoute: string;
   maxHistoryDepth?: number;
+  getState: () => Readonly<S>;
   requestRouteRender: () => void;
   captureFocusSnapshot: () => WidgetFocusSnapshot;
   restoreFocusSnapshot: (snapshot: WidgetFocusSnapshot) => void;
@@ -54,13 +64,21 @@ function pruneUnusedFocusSnapshots(
   }
 }
 
+function isGuardRedirect(
+  result: RouteGuardResult,
+): result is Exclude<RouteGuardResult, true | false> {
+  return typeof result === "object" && result !== null && typeof result.redirect === "string";
+}
+
 /**
  * Create an app-bound router integration.
  */
 export function createRouterIntegration<S>(
   opts: RouterIntegrationOptions<S>,
 ): RouterIntegration<S> {
-  const routeMap = createRouteMap(opts.routes);
+  const routeRegistry = createRouteRegistry(opts.routes);
+  const routeMap = routeRegistry.routeMap;
+  const recordById = routeRegistry.recordById;
   if (!routeMap.has(opts.initialRoute)) {
     throw new ZrUiError(
       "ZRUI_INVALID_PROPS",
@@ -73,6 +91,98 @@ export function createRouterIntegration<S>(
   });
 
   const focusSnapshotsByVisitId = new Map<number, WidgetFocusSnapshot>();
+
+  function normalizeKnownRouteId(routeId: string): string {
+    const normalized = routeId.trim();
+    if (!normalized) {
+      throw new ZrUiError("ZRUI_INVALID_PROPS", "route id must be a non-empty string");
+    }
+    if (!routeMap.has(normalized)) {
+      throw new ZrUiError("ZRUI_INVALID_PROPS", `unknown route id: ${normalized}`);
+    }
+    return normalized;
+  }
+
+  function resolveGuardedNavigation(
+    routeId: string,
+    params: RouteParams | undefined,
+    action: "navigate" | "replace" | "back",
+  ): Readonly<{ routeId: string; params: RouteParams }> | null {
+    const from = currentRouteFromState(state);
+    let resolvedRouteId = normalizeKnownRouteId(routeId);
+    let resolvedParams = normalizeRouteParams(params);
+    const seen = new Set<string>();
+
+    for (let depth = 0; depth <= GUARD_MAX_REDIRECT_DEPTH; depth += 1) {
+      const record = recordById.get(resolvedRouteId);
+      if (!record) {
+        throw new ZrUiError(
+          "ZRUI_INVALID_STATE",
+          `route id "${resolvedRouteId}" is not registered`,
+        );
+      }
+      const to = Object.freeze({ id: resolvedRouteId, params: resolvedParams });
+      let redirected = false;
+      for (const ancestryRouteId of record.ancestry) {
+        const ancestryRoute = routeMap.get(ancestryRouteId);
+        if (!ancestryRoute) {
+          throw new ZrUiError(
+            "ZRUI_INVALID_STATE",
+            `route id "${ancestryRouteId}" is not registered`,
+          );
+        }
+
+        const guard = ancestryRoute.guard;
+        if (!guard) continue;
+
+        const guardResult = guard(
+          resolvedParams,
+          opts.getState(),
+          Object.freeze({
+            from,
+            to,
+            action,
+          }),
+        );
+
+        if (guardResult === true) {
+          continue;
+        }
+        if (guardResult === false) {
+          return null;
+        }
+        if (!isGuardRedirect(guardResult)) {
+          throw new ZrUiError(
+            "ZRUI_INVALID_PROPS",
+            `guard for route "${ancestryRouteId}" must return true, false, or { redirect }`,
+          );
+        }
+
+        resolvedRouteId = normalizeKnownRouteId(guardResult.redirect);
+        resolvedParams = normalizeRouteParams(guardResult.params);
+
+        const marker = `${resolvedRouteId}\u0000${JSON.stringify(resolvedParams)}`;
+        if (seen.has(marker)) {
+          throw new ZrUiError(
+            "ZRUI_INVALID_PROPS",
+            `route guard redirect loop detected at route "${resolvedRouteId}"`,
+          );
+        }
+        seen.add(marker);
+        redirected = true;
+        break;
+      }
+
+      if (!redirected) {
+        return Object.freeze({ routeId: resolvedRouteId, params: resolvedParams });
+      }
+    }
+
+    throw new ZrUiError(
+      "ZRUI_INVALID_PROPS",
+      `route guard redirect depth exceeded ${String(GUARD_MAX_REDIRECT_DEPTH)}`,
+    );
+  }
 
   function captureCurrentFocusSnapshot(): void {
     const currentEntry = state.entries[state.entries.length - 1];
@@ -102,30 +212,35 @@ export function createRouterIntegration<S>(
   const router: RouterApi = Object.freeze({
     navigate(routeId: string, params?: RouteParams) {
       opts.assertCanMutate("router.navigate");
-      if (!routeMap.has(routeId)) {
-        throw new ZrUiError("ZRUI_INVALID_PROPS", `unknown route id: ${routeId}`);
-      }
+      const resolved = resolveGuardedNavigation(routeId, params, "navigate");
+      if (!resolved) return;
 
       captureCurrentFocusSnapshot();
-      commitState(navigateRouterState(state, routeId, params), false);
+      commitState(navigateRouterState(state, resolved.routeId, resolved.params), false);
     },
 
     replace(routeId: string, params?: RouteParams) {
       opts.assertCanMutate("router.replace");
-      if (!routeMap.has(routeId)) {
-        throw new ZrUiError("ZRUI_INVALID_PROPS", `unknown route id: ${routeId}`);
-      }
+      const resolved = resolveGuardedNavigation(routeId, params, "replace");
+      if (!resolved) return;
 
       captureCurrentFocusSnapshot();
-      commitState(replaceRouterState(state, routeId, params), false);
+      commitState(replaceRouterState(state, resolved.routeId, resolved.params), false);
     },
 
     back() {
       opts.assertCanMutate("router.back");
       if (!canGoBackFromState(state)) return;
 
+      const previous = state.entries[state.entries.length - 2];
+      if (!previous) return;
+      const resolved = resolveGuardedNavigation(previous.id, previous.params, "back");
+      if (!resolved) return;
+
       captureCurrentFocusSnapshot();
-      commitState(backRouterState(state), true);
+      const poppedState = backRouterState(state);
+      const redirectedState = replaceRouterState(poppedState, resolved.routeId, resolved.params);
+      commitState(redirectedState, redirectedState === poppedState);
     },
 
     currentRoute() {
@@ -148,22 +263,43 @@ export function createRouterIntegration<S>(
     routeKeybindings,
     renderCurrentScreen: (appState, update) => {
       const current = currentRouteFromState(state);
-      const route = routeMap.get(current.id);
-      if (!route) {
+      const record = recordById.get(current.id);
+      if (!record) {
         throw new ZrUiError(
           "ZRUI_INVALID_STATE",
-          `route id \"${current.id}\" is not registered in the route map`,
+          `route id "${current.id}" is not registered in the route map`,
         );
       }
 
-      return route.screen(
-        current.params,
-        Object.freeze({
-          router,
-          state: appState,
-          update,
-        }),
-      );
+      let outlet: VNode | null = null;
+      for (let i = record.ancestry.length - 1; i >= 0; i -= 1) {
+        const routeId = record.ancestry[i];
+        if (!routeId) {
+          throw new ZrUiError("ZRUI_INVALID_STATE", "route ancestry contains an empty id");
+        }
+        const route = routeMap.get(routeId);
+        if (!route) {
+          throw new ZrUiError(
+            "ZRUI_INVALID_STATE",
+            `route id "${routeId}" is not registered in the route map`,
+          );
+        }
+
+        outlet = route.screen(
+          current.params,
+          Object.freeze({
+            router,
+            state: appState,
+            update,
+            outlet,
+          }),
+        );
+      }
+
+      if (!outlet) {
+        throw new ZrUiError("ZRUI_INVALID_STATE", "failed to render route outlet");
+      }
+      return outlet;
     },
   });
 }

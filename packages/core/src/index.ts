@@ -878,6 +878,10 @@ export {
 } from "./router/index.js";
 export type {
   RouteDefinition,
+  RouteGuard,
+  RouteGuardContext,
+  RouteGuardRedirect,
+  RouteGuardResult,
   RouteLocation,
   RouteParams,
   RouteRenderContext,

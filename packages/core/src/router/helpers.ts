@@ -43,10 +43,40 @@ function buildRouteTitleById<S>(
   routes: readonly RouteDefinition<S>[],
 ): ReadonlyMap<string, string> {
   const titleById = new Map<string, string>();
-  for (const route of routes) {
-    titleById.set(route.id, route.title ?? route.id);
+
+  function visit(routeList: readonly RouteDefinition<S>[]): void {
+    for (const route of routeList) {
+      titleById.set(route.id, route.title ?? route.id);
+      if (route.children !== undefined) {
+        visit(route.children);
+      }
+    }
   }
+
+  visit(routes);
   return titleById;
+}
+
+function routeTreeContainsId<S>(route: RouteDefinition<S>, targetId: string): boolean {
+  if (route.id === targetId) return true;
+  const children = route.children;
+  if (!children) return false;
+  for (const child of children) {
+    if (routeTreeContainsId(child, targetId)) return true;
+  }
+  return false;
+}
+
+function resolveTopLevelTabRouteId<S>(
+  routes: readonly RouteDefinition<S>[],
+  activeRouteId: string,
+): string {
+  for (const route of routes) {
+    if (routeTreeContainsId(route, activeRouteId)) {
+      return route.id;
+    }
+  }
+  return activeRouteId;
 }
 
 /**
@@ -117,6 +147,8 @@ export function buildRouterTabsProps<S>(
   props: RouterTabsProps = {},
 ): TabsProps {
   const historyMode = props.historyMode ?? "replace";
+  const activeRouteId = router.currentRoute().id;
+  const activeTopLevelRouteId = resolveTopLevelTabRouteId(routes, activeRouteId);
 
   return Object.freeze({
     id: props.id ?? "router-tabs",
@@ -124,9 +156,9 @@ export function buildRouterTabsProps<S>(
     ...(props.variant === undefined ? {} : { variant: props.variant }),
     ...(props.position === undefined ? {} : { position: props.position }),
     tabs: buildRouterTabsItems(routes),
-    activeTab: router.currentRoute().id,
+    activeTab: activeTopLevelRouteId,
     onChange: (nextRouteId: string) => {
-      if (nextRouteId === router.currentRoute().id) return;
+      if (nextRouteId === activeTopLevelRouteId) return;
       if (historyMode === "push") {
         router.navigate(nextRouteId);
         return;

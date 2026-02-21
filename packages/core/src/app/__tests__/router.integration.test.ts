@@ -257,6 +257,231 @@ describe("createApp routes integration", () => {
     app.dispose();
   });
 
+  test("route guards can block navigation until state changes", async () => {
+    const backend = new StubBackend();
+    const rendered: string[] = [];
+
+    const app = createApp({
+      backend,
+      initialState: Object.freeze({ isAdmin: false }),
+      routes: [
+        {
+          id: "home",
+          screen: () => {
+            rendered.push("home");
+            return ui.text("Home");
+          },
+        },
+        {
+          id: "admin",
+          guard: (_params, state) => state.isAdmin,
+          screen: () => {
+            rendered.push("admin");
+            return ui.text("Admin");
+          },
+        },
+      ],
+      initialRoute: "home",
+    });
+
+    await bootWithResize(backend, app);
+
+    app.router?.navigate("admin");
+    await flushMicrotasks(20);
+
+    assert.equal(app.router?.currentRoute().id, "home");
+    assert.equal(rendered.includes("admin"), false);
+
+    app.update((prev) => Object.freeze({ ...prev, isAdmin: true }));
+    await flushMicrotasks(20);
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+
+    app.router?.navigate("admin");
+    await flushMicrotasks(20);
+
+    assert.equal(app.router?.currentRoute().id, "admin");
+
+    app.dispose();
+  });
+
+  test("route guard redirects before committing target route", async () => {
+    const backend = new StubBackend();
+    const rendered: string[] = [];
+
+    const app = createApp({
+      backend,
+      initialState: Object.freeze({ isAdmin: false }),
+      routes: [
+        {
+          id: "home",
+          screen: () => {
+            rendered.push("home");
+            return ui.text("Home");
+          },
+        },
+        {
+          id: "logs",
+          screen: () => {
+            rendered.push("logs");
+            return ui.text("Logs");
+          },
+        },
+        {
+          id: "admin",
+          guard: (_params, state) => (state.isAdmin ? true : Object.freeze({ redirect: "home" })),
+          screen: () => {
+            rendered.push("admin");
+            return ui.text("Admin");
+          },
+        },
+      ],
+      initialRoute: "logs",
+    });
+
+    await bootWithResize(backend, app);
+
+    app.router?.navigate("admin");
+    await flushMicrotasks(20);
+
+    assert.equal(app.router?.currentRoute().id, "home");
+    assert.deepEqual(app.router?.history(), [
+      { id: "logs", params: Object.freeze({}) },
+      { id: "home", params: Object.freeze({}) },
+    ]);
+    assert.equal(rendered.includes("admin"), false);
+
+    app.dispose();
+  });
+
+  test("nested child routes render parent shell outlet", async () => {
+    const backend = new StubBackend();
+    let lastLayoutIds: readonly string[] = Object.freeze([]);
+
+    const app = createApp({
+      backend,
+      initialState: Object.freeze({}),
+      config: {
+        internal_onLayout: (snapshot) => {
+          lastLayoutIds = Object.freeze(Array.from(snapshot.idRects.keys()).sort());
+        },
+      },
+      routes: [
+        {
+          id: "home",
+          screen: () => ui.button({ id: "home-btn", label: "Home" }),
+        },
+        {
+          id: "settings",
+          screen: (_params, ctx) =>
+            ui.column({ id: "settings-shell", gap: 1 }, [
+              ui.button({ id: "settings-shell-btn", label: "Settings" }),
+              ctx.outlet ?? ui.text("No outlet"),
+            ]),
+          children: [
+            {
+              id: "profile",
+              screen: () => ui.button({ id: "profile-btn", label: "Profile" }),
+            },
+            {
+              id: "appearance",
+              screen: () => ui.button({ id: "appearance-btn", label: "Appearance" }),
+            },
+          ],
+        },
+      ],
+      initialRoute: "settings",
+    });
+
+    await bootWithResize(backend, app);
+
+    assert.equal(lastLayoutIds.includes("settings-shell-btn"), true);
+    assert.equal(lastLayoutIds.includes("profile-btn"), false);
+    assert.equal(lastLayoutIds.includes("appearance-btn"), false);
+
+    app.router?.navigate("profile");
+    await flushMicrotasks(20);
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+
+    assert.equal(app.router?.currentRoute().id, "profile");
+    assert.equal(lastLayoutIds.includes("settings-shell-btn"), true);
+    assert.equal(lastLayoutIds.includes("profile-btn"), true);
+    assert.equal(lastLayoutIds.includes("appearance-btn"), false);
+
+    app.router?.navigate("appearance");
+    await flushMicrotasks(20);
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+
+    assert.equal(app.router?.currentRoute().id, "appearance");
+    assert.equal(lastLayoutIds.includes("settings-shell-btn"), true);
+    assert.equal(lastLayoutIds.includes("profile-btn"), false);
+    assert.equal(lastLayoutIds.includes("appearance-btn"), true);
+
+    app.dispose();
+  });
+
+  test("nested child navigation evaluates parent guard before child route", async () => {
+    const backend = new StubBackend();
+    const rendered: string[] = [];
+
+    const app = createApp({
+      backend,
+      initialState: Object.freeze({ canAccessSettings: false }),
+      routes: [
+        {
+          id: "home",
+          screen: () => {
+            rendered.push("home");
+            return ui.text("Home");
+          },
+        },
+        {
+          id: "settings",
+          guard: (_params, state) =>
+            state.canAccessSettings ? true : Object.freeze({ redirect: "home" }),
+          screen: (_params, ctx) =>
+            ui.column({ id: "settings-shell", gap: 1 }, [
+              ui.text("Settings"),
+              ctx.outlet ?? ui.text("None"),
+            ]),
+          children: [
+            {
+              id: "profile",
+              screen: () => {
+                rendered.push("profile");
+                return ui.text("Profile");
+              },
+            },
+          ],
+        },
+      ],
+      initialRoute: "home",
+    });
+
+    await bootWithResize(backend, app);
+
+    app.router?.navigate("profile");
+    await flushMicrotasks(20);
+
+    assert.equal(app.router?.currentRoute().id, "home");
+    assert.equal(rendered.includes("profile"), false);
+
+    app.update((prev) => Object.freeze({ ...prev, canAccessSettings: true }));
+    await flushMicrotasks(20);
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+
+    app.router?.navigate("profile");
+    await flushMicrotasks(20);
+
+    assert.equal(app.router?.currentRoute().id, "profile");
+    assert.equal(rendered.includes("profile"), true);
+
+    app.dispose();
+  });
+
   test("router rejects unknown route ids", () => {
     const backend = new StubBackend();
     const app = createApp({
