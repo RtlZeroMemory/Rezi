@@ -10,6 +10,17 @@ import type {
 
 const DEFAULT_HISTORY_DEPTH = 50;
 
+export type RouteRecord<S> = Readonly<{
+  route: RouteDefinition<S>;
+  parentId: string | null;
+  ancestry: readonly string[];
+}>;
+
+export type RouteRegistry<S> = Readonly<{
+  routeMap: ReadonlyMap<string, RouteDefinition<S>>;
+  recordById: ReadonlyMap<string, RouteRecord<S>>;
+}>;
+
 function throwInvalidProps(detail: string): never {
   throw new ZrUiError("ZRUI_INVALID_PROPS", detail);
 }
@@ -70,26 +81,65 @@ function createState(
   });
 }
 
+function collectRouteDefinitions<S>(
+  routes: readonly RouteDefinition<S>[],
+  parentId: string | null,
+  ancestryPrefix: readonly string[],
+  routeMap: Map<string, RouteDefinition<S>>,
+  recordById: Map<string, RouteRecord<S>>,
+): void {
+  for (const route of routes) {
+    const routeId = normalizeRouteId(route.id);
+    if (routeMap.has(routeId)) {
+      throwInvalidProps(`duplicate route id: ${routeId}`);
+    }
+
+    const ancestry = Object.freeze([...ancestryPrefix, routeId]);
+    routeMap.set(routeId, route);
+    recordById.set(
+      routeId,
+      Object.freeze({
+        route,
+        parentId,
+        ancestry,
+      }),
+    );
+
+    const children = route.children;
+    if (children !== undefined) {
+      if (!Array.isArray(children)) {
+        throwInvalidProps(`children for route "${routeId}" must be an array when provided`);
+      }
+      collectRouteDefinitions(children, routeId, ancestry, routeMap, recordById);
+    }
+  }
+}
+
+/**
+ * Build and validate route registry metadata.
+ */
+export function createRouteRegistry<S>(routes: readonly RouteDefinition<S>[]): RouteRegistry<S> {
+  if (routes.length === 0) {
+    throwInvalidProps("routes must contain at least one route");
+  }
+
+  const routeMap = new Map<string, RouteDefinition<S>>();
+  const recordById = new Map<string, RouteRecord<S>>();
+  collectRouteDefinitions(routes, null, [], routeMap, recordById);
+
+  return Object.freeze({
+    routeMap,
+    recordById,
+  });
+}
+
 /**
  * Build and validate a route map.
  */
 export function createRouteMap<S>(
   routes: readonly RouteDefinition<S>[],
 ): ReadonlyMap<string, RouteDefinition<S>> {
-  if (routes.length === 0) {
-    throwInvalidProps("routes must contain at least one route");
-  }
-
-  const map = new Map<string, RouteDefinition<S>>();
-  for (const route of routes) {
-    const routeId = normalizeRouteId(route.id);
-    if (map.has(routeId)) {
-      throwInvalidProps(`duplicate route id: ${routeId}`);
-    }
-    map.set(routeId, route);
-  }
-
-  return map;
+  return createRouteRegistry(routes).routeMap;
 }
 
 /**

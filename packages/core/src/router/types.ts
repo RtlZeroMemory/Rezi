@@ -35,6 +35,41 @@ export interface RouterApi {
 }
 
 /**
+ * Optional redirect outcome from a route guard.
+ */
+export type RouteGuardRedirect = Readonly<{
+  redirect: string;
+  params?: RouteParams;
+}>;
+
+/**
+ * Return contract for route guards.
+ *
+ * - `true`: allow navigation
+ * - `false`: block navigation
+ * - `{ redirect }`: reroute before committing navigation
+ */
+export type RouteGuardResult = true | false | RouteGuardRedirect;
+
+/**
+ * Extra metadata passed to route guards.
+ */
+export type RouteGuardContext = Readonly<{
+  from: RouteLocation;
+  to: RouteLocation;
+  action: "navigate" | "replace" | "back";
+}>;
+
+/**
+ * Route guard callback for pre-navigation checks.
+ */
+export type RouteGuard<S> = (
+  params: RouteParams,
+  state: Readonly<S>,
+  context: RouteGuardContext,
+) => RouteGuardResult;
+
+/**
  * Context passed to route screen render functions.
  *
  * A route screen can ignore this context and use only `params`, or use it to
@@ -44,6 +79,10 @@ export type RouteRenderContext<S> = Readonly<{
   router: RouterApi;
   state: Readonly<S>;
   update: (updater: S | ((prev: Readonly<S>) => S)) => void;
+  /**
+   * Nested route outlet. Null for leaf routes.
+   */
+  outlet: VNode | null;
 }>;
 
 /**
@@ -54,6 +93,10 @@ export type RouteDefinition<S = unknown> = Readonly<{
   id: string;
   /** Route screen render function. */
   screen: (params: RouteParams, context: RouteRenderContext<S>) => VNode;
+  /** Optional navigation guard run before entering the route. */
+  guard?: RouteGuard<S>;
+  /** Optional nested child routes rendered through `context.outlet`. */
+  children?: readonly RouteDefinition<S>[];
   /** Human-readable title for breadcrumbs/tabs/navigation UI. */
   title?: string;
   /** Optional global keybinding (e.g. "ctrl+1"). */

@@ -308,6 +308,9 @@ export { inspectorOverlay } from "./widgets/inspectorOverlay.js";
 export {
   defineWidget,
   createWidgetContext,
+  useAsync,
+  useDebounce,
+  usePrevious,
   isCompositeVNode,
   getCompositeMeta,
   scopedId,
@@ -315,6 +318,7 @@ export {
   type CompositeVNode,
   type CompositeWidgetMeta,
   type DefineWidgetOptions,
+  type UseAsyncState,
   type WidgetContext,
   type WidgetFactory,
   type WidgetWrapperKind,
@@ -794,6 +798,9 @@ export {
   bindSelect,
   bindTransform,
   type FormState,
+  type UseFormBindOptions,
+  type UseFormFieldOptions,
+  type UseFormInputBinding,
   type UseFormOptions,
   type UseFormReturn,
   type ValidationContext,
@@ -888,6 +895,10 @@ export {
 } from "./router/index.js";
 export type {
   RouteDefinition,
+  RouteGuard,
+  RouteGuardContext,
+  RouteGuardRedirect,
+  RouteGuardResult,
   RouteLocation,
   RouteParams,
   RouteRenderContext,

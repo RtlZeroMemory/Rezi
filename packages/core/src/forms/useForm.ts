@@ -9,6 +9,7 @@
  */
 
 import type { WidgetContext } from "../widgets/composition.js";
+import { ui } from "../widgets/ui.js";
 import type {
   ArrayFieldItem,
   ArrayFieldName,
@@ -17,6 +18,9 @@ import type {
   FormState,
   FormWizardStep,
   UseFieldArrayReturn,
+  UseFormBindOptions,
+  UseFormFieldOptions,
+  UseFormInputBinding,
   UseFormOptions,
   UseFormReturn,
   ValidationResult,
@@ -126,6 +130,28 @@ function hasTruthyBooleanValue(value: FieldBooleanValue | undefined): boolean {
     }
   }
   return false;
+}
+
+function toInputValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  return String(value);
+}
+
+function toFieldErrorString(value: FieldErrorValue | undefined): string | undefined {
+  if (typeof value === "string") {
+    return value.length > 0 ? value : undefined;
+  }
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  for (const item of value) {
+    if (item !== undefined && item.length > 0) {
+      return item;
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -636,6 +662,45 @@ export function useForm<T extends Record<string, unknown>, State = void>(
     }
   };
 
+  const bind = <K extends keyof T>(
+    field: K,
+    options?: UseFormBindOptions,
+  ): UseFormInputBinding => ({
+    id: options?.id ?? ctx.id(String(field)),
+    value: toInputValue(state.values[field]),
+    disabled: !isFieldEditableInternal(field, state),
+    onInput: (value: string) => {
+      setFieldValue(field, value as unknown as T[keyof T]);
+    },
+    onBlur: handleBlur(field),
+  });
+
+  const field = <K extends keyof T>(fieldName: K, options?: UseFormFieldOptions) => {
+    const inputOverrides = {
+      ...(options?.disabled !== undefined ? { disabled: options.disabled } : {}),
+      ...(options?.style !== undefined ? { style: options.style } : {}),
+    };
+    const inputBinding = bind(
+      fieldName,
+      options?.id === undefined ? undefined : { id: options.id },
+    );
+    const touched = hasTruthyBooleanValue(state.touched[fieldName]);
+    const derivedError = touched ? toFieldErrorString(state.errors[fieldName]) : undefined;
+    const resolvedError = options?.error ?? derivedError;
+
+    return ui.field({
+      ...(options?.key !== undefined ? { key: options.key } : {}),
+      label: options?.label ?? String(fieldName),
+      ...(options?.required !== undefined ? { required: options.required } : {}),
+      ...(options?.hint !== undefined ? { hint: options.hint } : {}),
+      ...(resolvedError !== undefined ? { error: resolvedError } : {}),
+      children: ui.input({
+        ...inputBinding,
+        ...inputOverrides,
+      }),
+    });
+  };
+
   /**
    * Set or clear form-level disabled state.
    */
@@ -1113,6 +1178,8 @@ export function useForm<T extends Record<string, unknown>, State = void>(
     isLastStep,
     handleChange,
     handleBlur,
+    bind,
+    field,
     handleSubmit,
     reset,
     setFieldValue,

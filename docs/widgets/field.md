@@ -18,6 +18,12 @@ ui.field({
 })
 ```
 
+With `useForm`, you can generate the same structure in one call:
+
+```ts
+form.field("name", { label: "Name", required: true, hint: "Your display name" })
+```
+
 ## Props
 
 | Prop | Type | Default | Description |
