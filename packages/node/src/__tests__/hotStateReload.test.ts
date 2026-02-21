@@ -26,11 +26,11 @@ function listHsrSessionDirs(): readonly string[] {
 
 function writeViewModule(root: string): string {
   mkdirSync(root, { recursive: true });
-  const viewFile = join(root, "view.js");
+  const viewFile = join(root, "view.mjs");
   writeFileSync(
     viewFile,
     [
-      'import { widgetLabel } from "./widget.js";',
+      'import { widgetLabel } from "./widget.mjs";',
       "export function view(state) {",
       '  return { kind: "text", text: `${widgetLabel()}:${String(state.count)}`, props: {} };',
       "}",
@@ -43,12 +43,12 @@ function writeViewModule(root: string): string {
 
 function writeViewModuleWithBareImport(root: string): string {
   mkdirSync(root, { recursive: true });
-  const viewFile = join(root, "view-bare.js");
+  const viewFile = join(root, "view-bare.mjs");
   writeFileSync(
     viewFile,
     [
       'import { packageLabel } from "@demo/hsr-pkg";',
-      'import { widgetLabel } from "./widget.js";',
+      'import { widgetLabel } from "./widget.mjs";',
       "export function view(state) {",
       '  return { kind: "text", text: `${packageLabel()}:${widgetLabel()}:${String(state.count)}`, props: {} };',
       "}",
@@ -61,7 +61,7 @@ function writeViewModuleWithBareImport(root: string): string {
 
 function writeWidgetModule(root: string, label: string): void {
   mkdirSync(root, { recursive: true });
-  const widgetFile = join(root, "widget.js");
+  const widgetFile = join(root, "widget.mjs");
   writeFileSync(
     widgetFile,
     [`export function widgetLabel() { return ${JSON.stringify(label)}; }`, ""].join("\n"),
@@ -94,7 +94,7 @@ function writeBarePackageModule(workspaceRoot: string, label: string): void {
 
 function writeRouteLabelModule(root: string, label: string): void {
   mkdirSync(root, { recursive: true });
-  const routeLabelFile = join(root, "route-label.js");
+  const routeLabelFile = join(root, "route-label.mjs");
   writeFileSync(
     routeLabelFile,
     [`export function routeLabel() { return ${JSON.stringify(label)}; }`, ""].join("\n"),
@@ -104,11 +104,11 @@ function writeRouteLabelModule(root: string, label: string): void {
 
 function writeRoutesModule(root: string): string {
   mkdirSync(root, { recursive: true });
-  const routesFile = join(root, "routes.js");
+  const routesFile = join(root, "routes.mjs");
   writeFileSync(
     routesFile,
     [
-      'import { routeLabel } from "./route-label.js";',
+      'import { routeLabel } from "./route-label.mjs";',
       "export const routes = Object.freeze([",
       "  {",
       '    id: "home",',
@@ -124,11 +124,11 @@ function writeRoutesModule(root: string): string {
 
 function writeRoutesDefaultModule(root: string): string {
   mkdirSync(root, { recursive: true });
-  const routesFile = join(root, "routes-default.js");
+  const routesFile = join(root, "routes-default.mjs");
   writeFileSync(
     routesFile,
     [
-      'import { routeLabel } from "./route-label.js";',
+      'import { routeLabel } from "./route-label.mjs";',
       "export default Object.freeze([",
       "  {",
       '    id: "home",',
@@ -144,7 +144,7 @@ function writeRoutesDefaultModule(root: string): string {
 
 function writeInvalidRoutesModule(root: string): string {
   mkdirSync(root, { recursive: true });
-  const routesFile = join(root, "routes-invalid.js");
+  const routesFile = join(root, "routes-invalid.mjs");
   writeFileSync(routesFile, ['export const routes = "not-an-array";', ""].join("\n"), "utf8");
   return routesFile;
 }
@@ -291,7 +291,7 @@ test("createHotStateReload keeps previous view when reload fails", async () => {
       assert.equal(readRenderedText(firstView), "stable:7");
 
       writeFileSync(
-        join(dir, "widget.js"),
+        join(dir, "widget.mjs"),
         'export function widgetLabel() { return "broken"\n',
         "utf8",
       );
@@ -499,7 +499,7 @@ test("createHotStateReload keeps previous routes when route reload fails", async
       assert.equal(readRouteLabel(firstRoutes), "stable-routes");
 
       writeFileSync(
-        join(dir, "route-label.js"),
+        join(dir, "route-label.mjs"),
         'export function routeLabel() { return "broken"\\n',
         "utf8",
       );
