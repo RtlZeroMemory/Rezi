@@ -346,4 +346,32 @@ describe("layout percentages (deterministic)", () => {
       }
     });
   }
+
+  test('"full" width on row remains width-constrained inside column parent', () => {
+    const tree = mustLayout(
+      ui.column({ width: 20, height: 10 }, [
+        ui.row({ width: "full" }, [ui.box({ border: "none", width: 1, height: 1 }, [])]),
+        ui.box({ border: "none", height: 2 }, []),
+      ]),
+      20,
+      10,
+      "column",
+    );
+    assert.equal(tree.children[0]?.rect.w, 20);
+    assert.equal(tree.children[0]?.rect.h, 1);
+  });
+
+  test('"full" height on column remains height-constrained inside row parent', () => {
+    const tree = mustLayout(
+      ui.row({ width: 20, height: 10 }, [
+        ui.column({ height: "full" }, [ui.box({ border: "none", width: 1, height: 1 }, [])]),
+        ui.box({ border: "none", width: 2 }, []),
+      ]),
+      20,
+      10,
+      "row",
+    );
+    assert.equal(tree.children[0]?.rect.h, 10);
+    assert.equal(tree.children[0]?.rect.w, 1);
+  });
 });

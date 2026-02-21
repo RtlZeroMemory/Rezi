@@ -57,10 +57,10 @@ import { hitTestFocusable } from "../layout/hitTest.js";
 import { type LayoutTree, layout } from "../layout/layout.js";
 import { calculateAnchorPosition } from "../layout/positioning.js";
 import {
+  type ResponsiveBreakpointThresholds,
   getResponsiveViewport,
   normalizeBreakpointThresholds,
   setResponsiveViewport,
-  type ResponsiveBreakpointThresholds,
 } from "../layout/responsive.js";
 import { measureTextCells } from "../layout/textMeasure.js";
 import type { Rect } from "../layout/types.js";
@@ -284,9 +284,25 @@ const ROUTE_RENDER: WidgetRoutingOutcome = Object.freeze({ needsRender: true });
 const ROUTE_NO_RENDER: WidgetRoutingOutcome = Object.freeze({ needsRender: false });
 const ZERO_RECT: Rect = Object.freeze({ x: 0, y: 0, w: 0, h: 0 });
 const INCREMENTAL_DAMAGE_AREA_FRACTION = 0.45;
-const DEV_MODE =
-  ((globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ??
-    "development") !== "production";
+const NODE_ENV =
+  (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ??
+  "development";
+const DEV_MODE = NODE_ENV !== "production";
+const LAYOUT_WARNINGS_ENV_RAW =
+  (
+    globalThis as {
+      process?: { env?: { REZI_LAYOUT_WARNINGS?: string; ZRUI_LAYOUT_WARNINGS?: string } };
+    }
+  ).process?.env?.REZI_LAYOUT_WARNINGS ??
+  (
+    globalThis as {
+      process?: { env?: { REZI_LAYOUT_WARNINGS?: string; ZRUI_LAYOUT_WARNINGS?: string } };
+    }
+  ).process?.env?.ZRUI_LAYOUT_WARNINGS ??
+  "";
+const LAYOUT_WARNINGS_ENV = LAYOUT_WARNINGS_ENV_RAW.toLowerCase();
+const DEV_LAYOUT_WARNINGS =
+  DEV_MODE && (LAYOUT_WARNINGS_ENV === "1" || LAYOUT_WARNINGS_ENV === "true");
 
 function warnDev(message: string): void {
   const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
@@ -454,7 +470,7 @@ export class WidgetRenderer<S> {
   private readonly requestView: () => void;
   private readonly rootPadding: number;
   private readonly breakpointThresholds: ResponsiveBreakpointThresholds;
-  private readonly devMode = DEV_MODE;
+  private readonly devMode = DEV_LAYOUT_WARNINGS;
   private readonly warnedLayoutIssues = new Set<string>();
 
   /* --- Committed Tree State --- */
@@ -556,6 +572,7 @@ export class WidgetRenderer<S> {
   // Tracks whether the currently committed tree needs routing rebuild traversals.
   private hadRoutingWidgets = false;
   private hasAnimatedWidgetsInCommittedTree = false;
+  private hasViewportAwareCompositesInCommittedTree = false;
 
   /* --- Render Caches (avoid per-frame recompute) --- */
   private readonly tableRenderCacheById = new Map<string, TableRenderCache>();
@@ -713,6 +730,17 @@ export class WidgetRenderer<S> {
 
   hasAnimatedWidgets(): boolean {
     return this.hasAnimatedWidgetsInCommittedTree;
+  }
+
+  hasViewportAwareComposites(): boolean {
+    return this.hasViewportAwareCompositesInCommittedTree;
+  }
+
+  invalidateCompositeWidgets(): void {
+    const ids = this.compositeRegistry.getAllIds();
+    for (const id of ids) {
+      this.compositeRegistry.invalidate(id);
+    }
   }
 
   private describeLayoutNode(node: LayoutTree): string {
@@ -3163,6 +3191,7 @@ export class WidgetRenderer<S> {
       let identityDamageFromCommit: IdentityDiffDamageResult | null = null;
 
       if (doCommit) {
+        let commitReadViewport = false;
         const viewToken = PERF_DETAIL_ENABLED ? perfMarkStart("view") : 0;
         const vnode = viewFn(snapshot);
         if (PERF_DETAIL_ENABLED) perfMarkEnd("view", viewToken);
@@ -3176,6 +3205,9 @@ export class WidgetRenderer<S> {
             appState: snapshot,
             viewport: getResponsiveViewport(),
             onInvalidate: () => this.requestView(),
+            onUseViewport: () => {
+              commitReadViewport = true;
+            },
           },
         });
         if (PERF_DETAIL_ENABLED) perfMarkEnd("vnode_commit", commitToken);
@@ -3183,6 +3215,9 @@ export class WidgetRenderer<S> {
           return { ok: false, code: commitRes0.fatal.code, detail: commitRes0.fatal.detail };
         }
         commitRes = commitRes0.value;
+        if (commitReadViewport) {
+          this.hasViewportAwareCompositesInCommittedTree = true;
+        }
         this.committedRoot = commitRes.root;
         this.recomputeAnimatedWidgetPresence(this.committedRoot);
 
