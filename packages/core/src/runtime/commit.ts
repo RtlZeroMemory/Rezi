@@ -318,6 +318,7 @@ function boxPropsEqual(a: unknown, b: unknown): boolean {
     shadow?: unknown;
     style?: unknown;
     inheritStyle?: unknown;
+    opacity?: unknown;
     transition?: unknown;
   };
   const bo = (b ?? {}) as typeof ao;
@@ -339,6 +340,7 @@ function boxPropsEqual(a: unknown, b: unknown): boolean {
       ao.inheritStyle as Parameters<typeof textStyleEqual>[0],
       bo.inheritStyle as Parameters<typeof textStyleEqual>[0],
     ) &&
+    ao.opacity === bo.opacity &&
     transitionSpecEqual(ao.transition, bo.transition) &&
     spacingPropsEqual(ao, bo) &&
     layoutConstraintsEqual(ao, bo)

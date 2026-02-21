@@ -15,7 +15,7 @@ import type { Theme } from "../../theme/theme.js";
 import type { CommandItem } from "../../widgets/types.js";
 import { getRuntimeNodeDamageRect } from "./damageBounds.js";
 import type { IdRectIndex } from "./indices.js";
-import type { ResolvedTextStyle } from "./textStyle.js";
+import { applyOpacityToStyle, type ResolvedTextStyle } from "./textStyle.js";
 import type {
   CodeEditorRenderCache,
   CursorInfo,
@@ -82,6 +82,7 @@ export function renderTree(
   inheritedStyle: ResolvedTextStyle,
   tree: RuntimeInstance,
   animatedRectByInstanceId: ReadonlyMap<InstanceId, Rect> | undefined,
+  animatedOpacityByInstanceId: ReadonlyMap<InstanceId, number> | undefined,
   cursorInfo: CursorInfo | undefined,
   virtualListStore: VirtualListStateStore | undefined,
   tableStore: TableStateStore | undefined,
@@ -130,6 +131,14 @@ export function renderTree(
     const vnode = node.vnode;
     lastRenderedNodeKind = vnode.kind;
     const rect: Rect = animatedRectByInstanceId?.get(node.instanceId) ?? layoutNode.rect;
+    const opacityOverride =
+      animatedOpacityByInstanceId?.get(node.instanceId) ??
+      (vnode.kind === "box"
+        ? (((vnode.props as Readonly<{ opacity?: unknown }> | undefined)?.opacity as number | undefined) ??
+          undefined)
+        : undefined);
+    const effectiveParentStyle =
+      opacityOverride === undefined ? parentStyle : applyOpacityToStyle(parentStyle, opacityOverride);
     if (skipCleanSubtrees && !node.dirty) continue;
     if (
       damageRect &&
@@ -175,7 +184,7 @@ export function renderTree(
           currentClip,
           viewport,
           renderTheme,
-          parentStyle,
+          effectiveParentStyle,
           node,
           layoutNode,
           nodeStack,
@@ -197,7 +206,7 @@ export function renderTree(
         renderNavigationWidget(
           builder,
           rect,
-          parentStyle,
+          effectiveParentStyle,
           node,
           layoutNode,
           nodeStack,
@@ -249,7 +258,7 @@ export function renderTree(
           rect,
           renderTheme,
           tick,
-          parentStyle,
+          effectiveParentStyle,
           node,
           layoutNode,
           nodeStack,
@@ -275,7 +284,7 @@ export function renderTree(
           rect,
           renderTheme,
           tick,
-          parentStyle,
+          effectiveParentStyle,
           node,
           layoutNode,
           nodeStack,
@@ -298,7 +307,7 @@ export function renderTree(
           rect,
           renderTheme,
           tick,
-          parentStyle,
+          effectiveParentStyle,
           node,
           nodeStack,
           styleStack,
@@ -318,7 +327,7 @@ export function renderTree(
           rect,
           viewport,
           renderTheme,
-          parentStyle,
+          effectiveParentStyle,
           node,
           nodeStack,
           styleStack,
@@ -342,7 +351,7 @@ export function renderTree(
           focusState,
           rect,
           renderTheme,
-          parentStyle,
+          effectiveParentStyle,
           node,
           nodeStack,
           styleStack,

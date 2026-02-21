@@ -338,6 +338,7 @@ function renderScene(
     undefined,
     undefined,
     undefined,
+    undefined,
     opts.damageRect ? { damageRect: opts.damageRect } : undefined,
   );
 

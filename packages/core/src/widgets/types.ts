@@ -172,6 +172,8 @@ export type BoxProps = Readonly<
     scrollY?: number;
     /** Optional scoped theme override for this container subtree. */
     theme?: ScopedThemeOverride;
+    /** Surface opacity in [0..1]. Defaults to 1. */
+    opacity?: number;
     /** Optional declarative transition settings for this container. */
     transition?: TransitionSpec;
   } & SpacingProps &

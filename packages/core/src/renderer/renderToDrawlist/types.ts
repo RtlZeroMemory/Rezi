@@ -104,6 +104,8 @@ export type RenderToDrawlistParams = Readonly<{
   idRectIndex?: ReadonlyMap<string, Rect> | undefined;
   /** Optional animated rect overrides (instanceId -> rect). */
   animatedRectByInstanceId?: ReadonlyMap<InstanceId, Rect> | undefined;
+  /** Optional animated opacity overrides (instanceId -> opacity in [0..1]). */
+  animatedOpacityByInstanceId?: ReadonlyMap<InstanceId, number> | undefined;
   /** Optional table render caches (per table id). */
   tableRenderCacheById?: ReadonlyMap<string, TableRenderCache> | undefined;
   /** Optional logs console render caches (per console id). */

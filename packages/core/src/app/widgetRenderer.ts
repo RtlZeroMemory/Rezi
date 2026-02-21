@@ -271,9 +271,14 @@ export type WidgetRenderPlan = Readonly<{
 type PositionTransitionTrack = Readonly<{
   from: Rect;
   to: Rect;
+  fromOpacity: number;
+  toOpacity: number;
   startMs: number;
   durationMs: number;
   easing: (t: number) => number;
+  animatePosition: boolean;
+  animateSize: boolean;
+  animateOpacity: boolean;
 }>;
 
 /**
@@ -412,6 +417,27 @@ function transitionSupportsPosition(transition: TransitionSpec): boolean {
   if (properties === undefined || properties === "all") return true;
   if (!Array.isArray(properties)) return false;
   return properties.includes("position");
+}
+
+function transitionSupportsSize(transition: TransitionSpec): boolean {
+  const properties = transition.properties;
+  if (properties === undefined || properties === "all") return true;
+  if (!Array.isArray(properties)) return false;
+  return properties.includes("size");
+}
+
+function transitionSupportsOpacity(transition: TransitionSpec): boolean {
+  const properties = transition.properties;
+  if (properties === undefined || properties === "all") return true;
+  if (!Array.isArray(properties)) return false;
+  return properties.includes("opacity");
+}
+
+function clampOpacity(opacity: unknown): number {
+  if (typeof opacity !== "number" || !Number.isFinite(opacity)) return 1;
+  if (opacity <= 0) return 0;
+  if (opacity >= 1) return 1;
+  return opacity;
 }
 
 function isV2Builder(builder: DrawlistBuilderV1 | DrawlistBuilderV2): builder is DrawlistBuilderV2 {
@@ -754,6 +780,7 @@ export class WidgetRenderer<S> {
   private hasViewportAwareCompositesInCommittedTree = false;
   private readonly positionTransitionTrackByInstanceId = new Map<InstanceId, PositionTransitionTrack>();
   private readonly animatedRectByInstanceId = new Map<InstanceId, Rect>();
+  private readonly animatedOpacityByInstanceId = new Map<InstanceId, number>();
 
   /* --- Render Caches (avoid per-frame recompute) --- */
   private readonly tableRenderCacheById = new Map<string, TableRenderCache>();
@@ -802,6 +829,7 @@ export class WidgetRenderer<S> {
   private readonly _pooledRectById = new Map<string, Rect>();
   private readonly _pooledSplitPaneChildRectsById = new Map<string, readonly Rect[]>();
   private readonly _prevFrameRectByInstanceId = new Map<InstanceId, Rect>();
+  private readonly _prevFrameOpacityByInstanceId = new Map<InstanceId, number>();
   private readonly _prevFrameRectById = new Map<string, Rect>();
   private readonly _pooledDamageRectByInstanceId = new Map<InstanceId, Rect>();
   private readonly _pooledDamageRectById = new Map<string, Rect>();
@@ -1012,16 +1040,35 @@ export class WidgetRenderer<S> {
     this.hasAnimatedWidgetsInCommittedTree = false;
   }
 
+  private readBoxOpacity(node: RuntimeInstance): number {
+    if (node.vnode.kind !== "box") return 1;
+    const props = node.vnode.props as Readonly<{ opacity?: unknown }> | undefined;
+    return clampOpacity(props?.opacity);
+  }
+
   private resolvePositionTransition(
     node: RuntimeInstance,
-  ): Readonly<{ durationMs: number; easing: (t: number) => number }> | null {
+  ): Readonly<{
+    durationMs: number;
+    easing: (t: number) => number;
+    animatePosition: boolean;
+    animateSize: boolean;
+    animateOpacity: boolean;
+  }> | null {
     if (node.vnode.kind !== "box") return null;
     const props = node.vnode.props as Readonly<{ transition?: TransitionSpec }> | undefined;
     const transition = props?.transition;
-    if (!transition || !transitionSupportsPosition(transition)) return null;
+    if (!transition) return null;
+    const animatePosition = transitionSupportsPosition(transition);
+    const animateSize = transitionSupportsSize(transition);
+    const animateOpacity = transitionSupportsOpacity(transition);
+    if (!animatePosition && !animateSize && !animateOpacity) return null;
     return Object.freeze({
       durationMs: normalizeDurationMs(transition.duration, DEFAULT_POSITION_TRANSITION_DURATION_MS),
       easing: resolveEasing(transition.easing),
+      animatePosition,
+      animateSize,
+      animateOpacity,
     });
   }
 
@@ -1047,46 +1094,70 @@ export class WidgetRenderer<S> {
         this._pooledVisitedTransitionIds.add(instanceId);
 
         const nextRect = layoutNode.rect;
+        const nextOpacity = this.readBoxOpacity(runtimeNode);
         const existingTrack = this.positionTransitionTrackByInstanceId.get(instanceId);
         const previousRect = this._prevFrameRectByInstanceId.get(instanceId);
+        const previousOpacity = this._prevFrameOpacityByInstanceId.get(instanceId) ?? nextOpacity;
 
         const targetChanged =
           existingTrack !== undefined &&
-          (existingTrack.to.x !== nextRect.x || existingTrack.to.y !== nextRect.y);
+          (existingTrack.to.x !== nextRect.x ||
+            existingTrack.to.y !== nextRect.y ||
+            existingTrack.to.w !== nextRect.w ||
+            existingTrack.to.h !== nextRect.h ||
+            !Object.is(existingTrack.toOpacity, nextOpacity));
 
         if (transition.durationMs <= 0) {
           this.positionTransitionTrackByInstanceId.delete(instanceId);
         } else if (existingTrack && targetChanged) {
           const fromRect = this.animatedRectByInstanceId.get(instanceId) ?? existingTrack.to;
-          if (fromRect.x !== nextRect.x || fromRect.y !== nextRect.y) {
+          const fromOpacity = this.animatedOpacityByInstanceId.get(instanceId) ?? existingTrack.toOpacity;
+          const animatePosition =
+            transition.animatePosition && (fromRect.x !== nextRect.x || fromRect.y !== nextRect.y);
+          const animateSize =
+            transition.animateSize && (fromRect.w !== nextRect.w || fromRect.h !== nextRect.h);
+          const animateOpacity = transition.animateOpacity && !Object.is(fromOpacity, nextOpacity);
+          if (animatePosition || animateSize || animateOpacity) {
             this.positionTransitionTrackByInstanceId.set(
               instanceId,
               Object.freeze({
                 from: fromRect,
                 to: nextRect,
+                fromOpacity,
+                toOpacity: nextOpacity,
                 startMs: frameNowMs,
                 durationMs: transition.durationMs,
                 easing: transition.easing,
+                animatePosition,
+                animateSize,
+                animateOpacity,
               }),
             );
           } else {
             this.positionTransitionTrackByInstanceId.delete(instanceId);
           }
-        } else if (
-          !existingTrack &&
-          previousRect &&
-          (previousRect.x !== nextRect.x || previousRect.y !== nextRect.y)
-        ) {
+        } else if (!existingTrack && previousRect) {
           const fromRect = this.animatedRectByInstanceId.get(instanceId) ?? previousRect;
-          if (fromRect.x !== nextRect.x || fromRect.y !== nextRect.y) {
+          const fromOpacity = previousOpacity;
+          const animatePosition =
+            transition.animatePosition && (fromRect.x !== nextRect.x || fromRect.y !== nextRect.y);
+          const animateSize =
+            transition.animateSize && (fromRect.w !== nextRect.w || fromRect.h !== nextRect.h);
+          const animateOpacity = transition.animateOpacity && !Object.is(fromOpacity, nextOpacity);
+          if (animatePosition || animateSize || animateOpacity) {
             this.positionTransitionTrackByInstanceId.set(
               instanceId,
               Object.freeze({
                 from: fromRect,
                 to: nextRect,
+                fromOpacity,
+                toOpacity: nextOpacity,
                 startMs: frameNowMs,
                 durationMs: transition.durationMs,
                 easing: transition.easing,
+                animatePosition,
+                animateSize,
+                animateOpacity,
               }),
             );
           }
@@ -1118,6 +1189,7 @@ export class WidgetRenderer<S> {
     frameNowMs: number,
   ): void {
     this.animatedRectByInstanceId.clear();
+    this.animatedOpacityByInstanceId.clear();
     this._pooledRuntimeStack.length = 0;
     this._pooledLayoutStack.length = 0;
     this._pooledOffsetXStack.length = 0;
@@ -1146,6 +1218,9 @@ export class WidgetRenderer<S> {
       const track = this.positionTransitionTrackByInstanceId.get(runtimeNode.instanceId);
       let localOffsetX = 0;
       let localOffsetY = 0;
+      let animatedWidth = baseRect.w;
+      let animatedHeight = baseRect.h;
+      let animatedOpacity: number | null = null;
 
       if (track) {
         const elapsedMs = Math.max(0, frameNowMs - track.startMs);
@@ -1155,8 +1230,22 @@ export class WidgetRenderer<S> {
         } else {
           activeCount++;
           const eased = track.easing(progress);
-          const animatedX = Math.round(interpolateNumber(track.from.x, track.to.x, eased));
-          const animatedY = Math.round(interpolateNumber(track.from.y, track.to.y, eased));
+          const animatedX = track.animatePosition
+            ? Math.round(interpolateNumber(track.from.x, track.to.x, eased))
+            : baseRect.x;
+          const animatedY = track.animatePosition
+            ? Math.round(interpolateNumber(track.from.y, track.to.y, eased))
+            : baseRect.y;
+          if (track.animateSize) {
+            animatedWidth = Math.max(0, Math.round(interpolateNumber(track.from.w, track.to.w, eased)));
+            animatedHeight = Math.max(
+              0,
+              Math.round(interpolateNumber(track.from.h, track.to.h, eased)),
+            );
+          }
+          if (track.animateOpacity) {
+            animatedOpacity = clampOpacity(interpolateNumber(track.fromOpacity, track.toOpacity, eased));
+          }
           localOffsetX = animatedX - baseRect.x;
           localOffsetY = animatedY - baseRect.y;
         }
@@ -1164,16 +1253,24 @@ export class WidgetRenderer<S> {
 
       const totalOffsetX = parentOffsetX + localOffsetX;
       const totalOffsetY = parentOffsetY + localOffsetY;
-      if (totalOffsetX !== 0 || totalOffsetY !== 0) {
+      if (
+        totalOffsetX !== 0 ||
+        totalOffsetY !== 0 ||
+        animatedWidth !== baseRect.w ||
+        animatedHeight !== baseRect.h
+      ) {
         this.animatedRectByInstanceId.set(
           runtimeNode.instanceId,
           Object.freeze({
             x: baseRect.x + totalOffsetX,
             y: baseRect.y + totalOffsetY,
-            w: baseRect.w,
-            h: baseRect.h,
+            w: animatedWidth,
+            h: animatedHeight,
           }),
         );
+      }
+      if (animatedOpacity !== null) {
+        this.animatedOpacityByInstanceId.set(runtimeNode.instanceId, animatedOpacity);
       }
 
       const childCount = Math.min(runtimeNode.children.length, layoutNode.children.length);
@@ -1192,6 +1289,7 @@ export class WidgetRenderer<S> {
     this.hasActivePositionTransitions = activeCount > 0;
     if (!this.hasActivePositionTransitions) {
       this.animatedRectByInstanceId.clear();
+      this.animatedOpacityByInstanceId.clear();
     }
   }
 
@@ -3714,6 +3812,7 @@ export class WidgetRenderer<S> {
   }
 
   private snapshotRenderedFrameState(
+    runtimeRoot: RuntimeInstance,
     viewport: Viewport,
     theme: Theme,
     doLayout: boolean,
@@ -3736,6 +3835,20 @@ export class WidgetRenderer<S> {
     this._prevFrameDamageRectById.clear();
     for (const [id, rect] of this._pooledDamageRectById) {
       this._prevFrameDamageRectById.set(id, rect);
+    }
+    this._prevFrameOpacityByInstanceId.clear();
+    this._pooledRuntimeStack.length = 0;
+    this._pooledRuntimeStack.push(runtimeRoot);
+    while (this._pooledRuntimeStack.length > 0) {
+      const node = this._pooledRuntimeStack.pop();
+      if (!node) continue;
+      if (node.vnode.kind === "box") {
+        this._prevFrameOpacityByInstanceId.set(node.instanceId, this.readBoxOpacity(node));
+      }
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        const child = node.children[i];
+        if (child) this._pooledRuntimeStack.push(child);
+      }
     }
     this._hasRenderedFrame = true;
     this._lastRenderedViewport = Object.freeze({ cols: viewport.cols, rows: viewport.rows });
@@ -3872,6 +3985,8 @@ export class WidgetRenderer<S> {
           this.inputUndoByInstanceId.delete(unmountedId);
           this.positionTransitionTrackByInstanceId.delete(unmountedId);
           this.animatedRectByInstanceId.delete(unmountedId);
+          this.animatedOpacityByInstanceId.delete(unmountedId);
+          this._prevFrameOpacityByInstanceId.delete(unmountedId);
           // Composite instances: invalidate stale closures and run effect cleanups.
           this.compositeRegistry.incrementGeneration(unmountedId);
           this.compositeRegistry.delete(unmountedId);
@@ -4778,6 +4893,7 @@ export class WidgetRenderer<S> {
                 DEFAULT_BASE_STYLE,
                 this.committedRoot,
                 this.animatedRectByInstanceId,
+                this.animatedOpacityByInstanceId,
                 cursorInfo,
                 this.virtualListStore,
                 this.tableStore,
@@ -4830,6 +4946,7 @@ export class WidgetRenderer<S> {
           layoutIndex: this._pooledRectByInstanceId,
           idRectIndex: this._pooledRectById,
           animatedRectByInstanceId: this.animatedRectByInstanceId,
+          animatedOpacityByInstanceId: this.animatedOpacityByInstanceId,
           tableRenderCacheById: this.tableRenderCacheById,
           logsConsoleRenderCacheById: this.logsConsoleRenderCacheById,
           diffRenderCacheById: this.diffRenderCacheById,
@@ -4867,7 +4984,13 @@ export class WidgetRenderer<S> {
           cursor: runtimeCursorSummary,
         });
       }
-      this.snapshotRenderedFrameState(viewport, theme, doLayout, focusAnnouncement);
+      this.snapshotRenderedFrameState(
+        this.committedRoot,
+        viewport,
+        theme,
+        doLayout,
+        focusAnnouncement,
+      );
 
       // Render hooks are for preventing re-entrant app API calls during user render.
       hooks.exitRender();
