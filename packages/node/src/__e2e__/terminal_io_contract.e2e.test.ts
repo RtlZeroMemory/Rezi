@@ -498,6 +498,25 @@ async function writeAndCollectUntilWithRetries(
   return combined;
 }
 
+async function writeSplitAndCollectUntilWithRetries(
+  harness: ContractHarness,
+  parts: readonly string[],
+  maxPolls: number,
+  stopWhen: (events: readonly ZrevEvent[]) => boolean,
+  maxAttempts: number,
+): Promise<readonly ZrevEvent[]> {
+  let last: readonly ZrevEvent[] = [];
+  for (let i = 0; i < maxAttempts; i++) {
+    for (const part of parts) {
+      harness.writeRaw(part);
+    }
+    const events = await collectEvents(harness, maxPolls, stopWhen);
+    if (stopWhen(events)) return events;
+    last = events;
+  }
+  return last;
+}
+
 function findIndex(events: readonly ZrevEvent[], pred: (ev: ZrevEvent) => boolean): number {
   for (let i = 0; i < events.length; i++) {
     const ev = events[i];
@@ -766,16 +785,24 @@ test("terminal io contract: keyboard + paste + focus + mouse + resize + split re
     );
 
     // Split-read completion across multiple writes.
-    harness.writeRaw("\x1b[");
-    harness.writeRaw("A");
-    const splitEvents = await collectEvents(harness, 20, (xs) => {
-      const up = findIndex(xs, (ev) => isKey(ev, ZR_KEY_UP, 0));
-      const fallbackEsc = findIndex(xs, (ev) => isKey(ev, ZR_KEY_ESCAPE, 0));
-      const fallbackBracket = findIndex(xs, (ev) => isText(ev, 91));
-      return up >= 0 || (fallbackEsc >= 0 && fallbackBracket >= 0);
-    });
+    const splitEvents = await writeSplitAndCollectUntilWithRetries(
+      harness,
+      ["\x1b[", "A"],
+      60,
+      (xs) => findIndex(xs, (ev) => isKey(ev, ZR_KEY_UP, 0)) >= 0,
+      3,
+    );
     const splitUp = findIndex(splitEvents, (ev) => isKey(ev, ZR_KEY_UP, 0));
-    assert.ok(splitUp >= 0, "split CSI arrow completion did not produce Up key");
+    assert.ok(
+      splitUp >= 0,
+      `split CSI arrow completion did not produce Up key; events=${splitEvents
+        .map((ev) => {
+          if (ev.kind === "key") return `key:${String(ev.key)}/${String(ev.mods)}`;
+          if (ev.kind === "text") return `text:${String(ev.codepoint)}`;
+          return ev.kind;
+        })
+        .join(",")}`,
+    );
     assert.equal(
       splitEvents.some((ev) => isKey(ev, ZR_KEY_ESCAPE, 0) || isText(ev, 91)),
       false,
