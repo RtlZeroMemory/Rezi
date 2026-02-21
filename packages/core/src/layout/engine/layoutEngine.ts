@@ -252,6 +252,7 @@ function layoutNode(
   axis: Axis,
   forcedW: number | null = null,
   forcedH: number | null = null,
+  precomputedSize: Size | null = null,
 ): LayoutResult<LayoutTree> {
   if (!isI32(x)) {
     return {
@@ -278,7 +279,8 @@ function layoutNode(
     };
   }
 
-  const sizeRes = measureNode(vnode, maxW, maxH, axis);
+  const sizeRes: LayoutResult<Size> =
+    precomputedSize === null ? measureNode(vnode, maxW, maxH, axis) : { ok: true, value: precomputedSize };
   if (!sizeRes.ok) return sizeRes;
 
   const rectW = clampNonNegative(Math.min(maxW, forcedW ?? sizeRes.value.w));

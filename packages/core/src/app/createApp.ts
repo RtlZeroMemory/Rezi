@@ -132,7 +132,7 @@ const DEFAULT_CONFIG: ResolvedAppConfig = Object.freeze({
   useV2Cursor: false,
   drawlistValidateParams: true,
   drawlistReuseOutputBuffer: true,
-  drawlistEncodedStringCacheCap: 1024,
+  drawlistEncodedStringCacheCap: 131072,
   maxFramesInFlight: 1,
   internal_onRender: undefined,
   internal_onLayout: undefined,

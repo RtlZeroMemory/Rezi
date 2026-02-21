@@ -926,9 +926,7 @@ export class WidgetRenderer<S> {
       ...(opts.drawlistReuseOutputBuffer === undefined
         ? {}
         : { reuseOutputBuffer: opts.drawlistReuseOutputBuffer }),
-      ...(opts.drawlistEncodedStringCacheCap === undefined
-        ? {}
-        : { encodedStringCacheCap: opts.drawlistEncodedStringCacheCap }),
+      encodedStringCacheCap: opts.drawlistEncodedStringCacheCap ?? 131072,
     };
 
     if (opts.builder) {
@@ -4049,10 +4047,6 @@ export class WidgetRenderer<S> {
       }
 
       if (doLayout) {
-        if (doCommit) {
-          // Commit can replace vnode identities; reset cross-frame measure memoization.
-          this._layoutMeasureCache = new WeakMap<VNode, unknown>();
-        }
         const rootPad = this.rootPadding;
         const rootW = Math.max(0, viewport.cols - rootPad * 2);
         const rootH = Math.max(0, viewport.rows - rootPad * 2);

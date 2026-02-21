@@ -22,7 +22,26 @@ type LayoutNodeFn = (
   axis: Axis,
   forcedW?: number | null,
   forcedH?: number | null,
+  precomputedSize?: Size | null,
 ) => LayoutResult<LayoutTree>;
+
+type SyntheticColumnCacheEntry = Readonly<{
+  childrenRef: readonly VNode[];
+  columnNode: VNode;
+}>;
+
+const syntheticColumnCache = new WeakMap<VNode, SyntheticColumnCacheEntry>();
+
+type VNodeWithChildren = VNode & Readonly<{ children: readonly VNode[] }>;
+
+function getSyntheticColumn(vnode: VNodeWithChildren): VNode {
+  const hit = syntheticColumnCache.get(vnode);
+  if (hit && hit.childrenRef === vnode.children) return hit.columnNode;
+
+  const columnNode: VNode = { kind: "column", props: { gap: 0 }, children: vnode.children };
+  syntheticColumnCache.set(vnode, Object.freeze({ childrenRef: vnode.children, columnNode }));
+  return columnNode;
+}
 
 function shiftLayoutTree(node: LayoutTree, dx: number, dy: number): LayoutTree {
   if (dx === 0 && dy === 0) return node;
@@ -96,7 +115,7 @@ export function measureBoxKinds(
       let contentUsedH = 0;
 
       if (vnode.children.length > 0) {
-        const columnNode: VNode = { kind: "column", props: { gap: 0 }, children: vnode.children };
+        const columnNode = getSyntheticColumn(vnode);
         const innerRes = measureNode(columnNode, cw, ch, "column");
         if (!innerRes.ok) return innerRes;
         contentUsedW = innerRes.value.w;
@@ -169,7 +188,7 @@ export function layoutBoxKinds(
 
       const children: LayoutTree[] = [];
       if (vnode.children.length > 0) {
-        const columnNode: VNode = { kind: "column", props: { gap: 0 }, children: vnode.children };
+        const columnNode = getSyntheticColumn(vnode);
         // The synthetic column wrapper must fill the box content rect so that
         // percentage constraints resolve against the actual available space.
         const innerRes = layoutNode(columnNode, cx, cy, cw, ch, "column", cw, ch);

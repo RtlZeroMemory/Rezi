@@ -36,6 +36,7 @@ type LayoutNodeFn = (
   axis: Axis,
   forcedW?: number | null,
   forcedH?: number | null,
+  precomputedSize?: Size | null,
 ) => LayoutResult<LayoutTree>;
 
 function countNonEmptyChildren(children: readonly (VNode | undefined)[]): number {
@@ -1618,6 +1619,7 @@ export function layoutStackKinds(
 
         const mainSizes = new Array(vnode.children.length).fill(0);
         const measureMaxMain = new Array(vnode.children.length).fill(0);
+        const precomputedSizes = new Array<Size | null>(vnode.children.length).fill(null);
 
         const flexItems: FlexItem[] = [];
         let remaining = availableForChildren;
@@ -1691,6 +1693,7 @@ export function layoutStackKinds(
           if (!childRes.ok) return childRes;
           mainSizes[i] = childRes.value.w;
           measureMaxMain[i] = childRes.value.w;
+          precomputedSizes[i] = childRes.value;
           remaining = clampNonNegative(remaining - childRes.value.w);
         }
 
@@ -1730,7 +1733,14 @@ export function layoutStackKinds(
           if (!child) continue;
 
           if (remainingWidth === 0) {
-            const childRes = layoutNode(child, cursorX, cy, 0, 0, "row");
+            let precomputed = precomputedSizes[i];
+            if (precomputed == null) {
+              const zeroSizeRes = measureNode(child, 0, 0, "row");
+              if (!zeroSizeRes.ok) return zeroSizeRes;
+              precomputed = zeroSizeRes.value;
+              precomputedSizes[i] = precomputed;
+            }
+            const childRes = layoutNode(child, cursorX, cy, 0, 0, "row", null, null, precomputed);
             if (!childRes.ok) return childRes;
             children.push(childRes.value);
             childOrdinal++;
@@ -1739,10 +1749,14 @@ export function layoutStackKinds(
 
           const main = mainSizes[i] ?? 0;
           const mm = measureMaxMain[i] ?? 0;
-
-          const childSizeRes = measureNode(child, mm, ch, "row");
-          if (!childSizeRes.ok) return childSizeRes;
-          const childH = childSizeRes.value.h;
+          let childSize = precomputedSizes[i];
+          if (childSize == null) {
+            const childSizeRes = measureNode(child, mm, ch, "row");
+            if (!childSizeRes.ok) return childSizeRes;
+            childSize = childSizeRes.value;
+            precomputedSizes[i] = childSize;
+          }
+          const childH = childSize.h;
 
           let childY = cy;
           let forceH: number | null = null;
@@ -1754,7 +1768,7 @@ export function layoutStackKinds(
             forceH = ch;
           }
 
-          const childRes = layoutNode(child, cursorX, childY, mm, ch, "row", main, forceH);
+          const childRes = layoutNode(child, cursorX, childY, mm, ch, "row", main, forceH, childSize);
           if (!childRes.ok) return childRes;
           children.push(childRes.value);
 
@@ -2052,6 +2066,7 @@ export function layoutStackKinds(
 
         const mainSizes = new Array(vnode.children.length).fill(0);
         const measureMaxMain = new Array(vnode.children.length).fill(0);
+        const precomputedSizes = new Array<Size | null>(vnode.children.length).fill(null);
 
         const flexItems: FlexItem[] = [];
         let remaining = availableForChildren;
@@ -2125,6 +2140,7 @@ export function layoutStackKinds(
           if (!childRes.ok) return childRes;
           mainSizes[i] = childRes.value.h;
           measureMaxMain[i] = childRes.value.h;
+          precomputedSizes[i] = childRes.value;
           remaining = clampNonNegative(remaining - childRes.value.h);
         }
 
@@ -2164,7 +2180,24 @@ export function layoutStackKinds(
           if (!child) continue;
 
           if (remainingHeight === 0) {
-            const childRes = layoutNode(child, cx, cursorY, 0, 0, "column");
+            let precomputed = precomputedSizes[i];
+            if (precomputed == null) {
+              const zeroSizeRes = measureNode(child, 0, 0, "column");
+              if (!zeroSizeRes.ok) return zeroSizeRes;
+              precomputed = zeroSizeRes.value;
+              precomputedSizes[i] = precomputed;
+            }
+            const childRes = layoutNode(
+              child,
+              cx,
+              cursorY,
+              0,
+              0,
+              "column",
+              null,
+              null,
+              precomputed,
+            );
             if (!childRes.ok) return childRes;
             children.push(childRes.value);
             childOrdinal++;
@@ -2173,10 +2206,14 @@ export function layoutStackKinds(
 
           const main = mainSizes[i] ?? 0;
           const mm = measureMaxMain[i] ?? 0;
-
-          const childSizeRes = measureNode(child, cw, mm, "column");
-          if (!childSizeRes.ok) return childSizeRes;
-          const childW = childSizeRes.value.w;
+          let childSize = precomputedSizes[i];
+          if (childSize == null) {
+            const childSizeRes = measureNode(child, cw, mm, "column");
+            if (!childSizeRes.ok) return childSizeRes;
+            childSize = childSizeRes.value;
+            precomputedSizes[i] = childSize;
+          }
+          const childW = childSize.w;
 
           let childX = cx;
           let forceW: number | null = null;
@@ -2188,7 +2225,17 @@ export function layoutStackKinds(
             forceW = cw;
           }
 
-          const childRes = layoutNode(child, childX, cursorY, cw, mm, "column", forceW, main);
+          const childRes = layoutNode(
+            child,
+            childX,
+            cursorY,
+            cw,
+            mm,
+            "column",
+            forceW,
+            main,
+            childSize,
+          );
           if (!childRes.ok) return childRes;
           children.push(childRes.value);
 

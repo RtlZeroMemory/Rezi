@@ -19,9 +19,28 @@ type LayoutNodeFn = (
   axis: Axis,
   forcedW?: number | null,
   forcedH?: number | null,
+  precomputedSize?: Size | null,
 ) => LayoutResult<LayoutTree>;
 
 const I32_MAX = 2147483647;
+
+type SyntheticColumnCacheEntry = Readonly<{
+  childrenRef: readonly VNode[];
+  columnNode: VNode;
+}>;
+
+const syntheticColumnCache = new WeakMap<VNode, SyntheticColumnCacheEntry>();
+
+type VNodeWithChildren = VNode & Readonly<{ children: readonly VNode[] }>;
+
+function getSyntheticColumn(vnode: VNodeWithChildren): VNode {
+  const hit = syntheticColumnCache.get(vnode);
+  if (hit && hit.childrenRef === vnode.children) return hit.columnNode;
+
+  const columnNode: VNode = { kind: "column", props: { gap: 0 }, children: vnode.children };
+  syntheticColumnCache.set(vnode, Object.freeze({ childrenRef: vnode.children, columnNode }));
+  return columnNode;
+}
 
 type ToastPosition =
   | "top-left"
@@ -91,7 +110,7 @@ export function measureOverlays(
       }
 
       // Children are laid out as a Column inside the container.
-      const columnNode: VNode = { kind: "column", props: { gap: 0 }, children: vnode.children };
+      const columnNode = getSyntheticColumn(vnode);
       const innerRes = measureNode(columnNode, cw, ch, "column");
       if (!innerRes.ok) return innerRes;
       return ok({ w: innerRes.value.w, h: innerRes.value.h });
@@ -185,7 +204,7 @@ export function layoutOverlays(
       // but exist only for focus management, not layout purposes.
       const children: LayoutTree[] = [];
       if (vnode.children.length > 0) {
-        const columnNode: VNode = { kind: "column", props: { gap: 0 }, children: vnode.children };
+        const columnNode = getSyntheticColumn(vnode);
         const innerRes = layoutNode(columnNode, x, y, rectW, rectH, "column", rectW, rectH);
         if (!innerRes.ok) return innerRes;
         // Attach the zone/trap's children (not the synthetic column wrapper).
