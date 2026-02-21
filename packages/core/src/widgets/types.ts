@@ -826,6 +826,16 @@ export type FocusTrapProps = Readonly<{
 /** Height specification for virtual list items: fixed number or callback for variable heights. */
 export type ItemHeightSpec<T> = number | ((item: T, index: number) => number);
 
+/** Context passed to custom virtual-list measurement callbacks. */
+export type VirtualListMeasureItemHeightCtx = Readonly<{
+  /** Available content width in terminal cells for this item. */
+  width: number;
+  /** Estimated height used for initial windowing before correction. */
+  estimatedHeight: number;
+  /** Rendered VNode returned by `renderItem`. */
+  vnode: VNode;
+}>;
+
 /** Props for virtualList widget. Efficiently renders large datasets with windowed virtualization. */
 export type VirtualListProps<T = unknown> = Readonly<{
   id: string;
@@ -835,7 +845,21 @@ export type VirtualListProps<T = unknown> = Readonly<{
   /** Optional semantic label used for accessibility/debug announcements. */
   accessibleLabel?: string;
   items: readonly T[];
-  itemHeight: ItemHeightSpec<T>;
+  /**
+   * Exact item height specification (fixed or callback).
+   * Use this for fixed-height or precomputed variable-height rows.
+   */
+  itemHeight?: ItemHeightSpec<T>;
+  /**
+   * Estimated item height used for variable-height virtualization.
+   * When provided, visible items are measured and cached to correct offsets.
+   */
+  estimateItemHeight?: ItemHeightSpec<T>;
+  /**
+   * Optional custom measurement callback for estimate mode.
+   * Return the measured height in cells for the rendered VNode.
+   */
+  measureItemHeight?: (item: T, index: number, ctx: VirtualListMeasureItemHeightCtx) => number;
   /** Number of items to render outside the visible viewport (default: 3) */
   overscan?: number;
   renderItem: (item: T, index: number, focused: boolean) => VNode;

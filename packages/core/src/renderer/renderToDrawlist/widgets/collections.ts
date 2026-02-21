@@ -25,10 +25,11 @@ import {
   getItemHeight,
   getItemOffset,
   getTotalHeight,
+  resolveVirtualListItemHeightSpec,
 } from "../../../widgets/virtualList.js";
 import { renderBoxBorder } from "../boxBorder.js";
 import { isVisibleRect } from "../indices.js";
-import { renderVNodeSimple } from "../simpleVNode.js";
+import { measureVNodeSimpleHeight, renderVNodeSimple } from "../simpleVNode.js";
 import { clampNonNegative } from "../spacing.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
 import { mergeTextStyle } from "../textStyle.js";
@@ -154,6 +155,11 @@ function clampIndexScrollTop(scrollTop: number, totalRows: number, viewportHeigh
   return Math.trunc(clampScrollTop(scrollTop, totalRows, viewportHeight));
 }
 
+function normalizeMeasuredItemHeight(height: number): number | undefined {
+  if (!Number.isFinite(height) || height <= 0) return undefined;
+  return Math.max(1, Math.trunc(height));
+}
+
 function setLayoutScrollMetadata(
   layoutNode: LayoutTree,
   patch: Readonly<{
@@ -214,41 +220,58 @@ export function renderCollectionWidget(
       if (!isVisibleRect(rect)) break;
 
       const props = vnode.props as VirtualListProps<unknown>;
-      const { items, itemHeight, overscan = 3, renderItem } = props;
+      const { items, overscan = 3, renderItem } = props;
+      const itemHeight = resolveVirtualListItemHeightSpec(props);
+      const estimateMode = props.estimateItemHeight !== undefined;
 
       // Get virtual list state (scrollTop, selectedIndex)
       const state: VirtualListLocalState = virtualListStore
         ? virtualListStore.get(props.id)
         : { scrollTop: 0, selectedIndex: 0, viewportHeight: rect.h, startIndex: 0, endIndex: 0 };
 
-      const totalHeight = getTotalHeight(items, itemHeight);
-      const effectiveScrollTop = clampScrollTop(state.scrollTop, totalHeight, rect.h);
-      setLayoutScrollMetadata(layoutNode, {
-        scrollX: 0,
-        scrollY: effectiveScrollTop,
-        contentWidth: rect.w,
-        contentHeight: totalHeight,
-        viewportWidth: rect.w,
-        viewportHeight: rect.h,
-      });
+      const measuredHeights =
+        estimateMode &&
+        state.measuredHeights !== undefined &&
+        state.measuredWidth === rect.w &&
+        state.measuredItemCount === items.length
+          ? state.measuredHeights
+          : undefined;
 
-      // Compute visible range with overscan
-      const { startIndex, endIndex, itemOffsets } = computeVisibleRange(
+      const totalHeight = getTotalHeight(items, itemHeight, measuredHeights);
+      const effectiveScrollTop = clampScrollTop(state.scrollTop, totalHeight, rect.h);
+
+      let { startIndex, endIndex, itemOffsets } = computeVisibleRange(
         items,
         itemHeight,
         effectiveScrollTop,
         rect.h,
         overscan,
+        measuredHeights,
       );
 
-      // Update state with viewport dimensions if store is available
-      if (virtualListStore) {
-        virtualListStore.set(props.id, {
-          viewportHeight: rect.h,
-          startIndex,
-          endIndex,
-        });
-      }
+      let nextScrollTop = effectiveScrollTop;
+      let nextMeasuredHeights: ReadonlyMap<number, number> | undefined;
+      let changedMeasuredHeights = false;
+      let deltaAboveViewport = 0;
+
+      const updateMeasuredHeight = (index: number, value: number): void => {
+        const normalized = normalizeMeasuredItemHeight(value);
+        if (normalized === undefined) return;
+        const current = normalizeMeasuredItemHeight(
+          (nextMeasuredHeights ?? measuredHeights)?.get(index) ?? 0,
+        );
+        if (current === normalized) return;
+        if (nextMeasuredHeights === undefined) {
+          nextMeasuredHeights = new Map<number, number>(measuredHeights ?? []);
+        }
+        (nextMeasuredHeights as Map<number, number>).set(index, normalized);
+        changedMeasuredHeights = true;
+        const priorHeight = getItemHeight(items, itemHeight, index, measuredHeights);
+        const itemBottom = itemOffsets[index + 1] ?? 0;
+        if (itemBottom <= effectiveScrollTop) {
+          deltaAboveViewport += normalized - priorHeight;
+        }
+      };
 
       // Apply clip rect for viewport
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
@@ -259,8 +282,8 @@ export function renderCollectionWidget(
         const item = items[i];
         if (item === undefined) continue;
 
-        const h = getItemHeight(items, itemHeight, i);
-        const itemOffset = itemOffsets[i] ?? getItemOffset(items, itemHeight, i);
+        const h = getItemHeight(items, itemHeight, i, measuredHeights);
+        const itemOffset = itemOffsets[i] ?? getItemOffset(items, itemHeight, i, measuredHeights);
         const itemY = rect.y + itemOffset - effectiveScrollTop;
         const focused = i === state.selectedIndex;
 
@@ -281,6 +304,73 @@ export function renderCollectionWidget(
           theme,
           parentStyle,
         );
+
+        if (estimateMode) {
+          const measuredHeight =
+            typeof props.measureItemHeight === "function"
+              ? props.measureItemHeight(item, i, {
+                  width: rect.w,
+                  estimatedHeight: h,
+                  vnode: itemVNode,
+                })
+              : measureVNodeSimpleHeight(itemVNode, rect.w);
+          updateMeasuredHeight(i, measuredHeight);
+        }
+      }
+
+      let finalMeasuredHeights = measuredHeights;
+      let finalTotalHeight = totalHeight;
+      if (changedMeasuredHeights && nextMeasuredHeights !== undefined) {
+        finalMeasuredHeights = nextMeasuredHeights;
+        finalTotalHeight = getTotalHeight(items, itemHeight, finalMeasuredHeights);
+        nextScrollTop = clampScrollTop(
+          effectiveScrollTop + deltaAboveViewport,
+          finalTotalHeight,
+          rect.h,
+        );
+        const recomputed = computeVisibleRange(
+          items,
+          itemHeight,
+          nextScrollTop,
+          rect.h,
+          overscan,
+          finalMeasuredHeights,
+        );
+        startIndex = recomputed.startIndex;
+        endIndex = recomputed.endIndex;
+      }
+
+      setLayoutScrollMetadata(layoutNode, {
+        scrollX: 0,
+        scrollY: nextScrollTop,
+        contentWidth: rect.w,
+        contentHeight: finalTotalHeight,
+        viewportWidth: rect.w,
+        viewportHeight: rect.h,
+      });
+
+      // Update state with viewport dimensions if store is available
+      if (virtualListStore) {
+        const patch: {
+          viewportHeight: number;
+          startIndex: number;
+          endIndex: number;
+          scrollTop?: number;
+          measuredHeights?: ReadonlyMap<number, number>;
+          measuredWidth?: number;
+          measuredItemCount?: number;
+        } = {
+          viewportHeight: rect.h,
+          startIndex,
+          endIndex,
+        };
+        if (nextScrollTop !== state.scrollTop) patch.scrollTop = nextScrollTop;
+        if (estimateMode) {
+          patch.measuredHeights = finalMeasuredHeights ?? new Map<number, number>();
+          patch.measuredWidth = rect.w;
+          patch.measuredItemCount = items.length;
+        }
+        virtualListStore.set(props.id, patch);
       }
       break;
     }

@@ -227,7 +227,7 @@
     {
       "name": "virtualList",
       "requiredProps": ["id", "items", "renderItem"],
-      "commonProps": ["itemHeight", "overscan"],
+      "commonProps": ["itemHeight", "estimateItemHeight", "measureItemHeight", "overscan"],
       "example": "ui.virtualList({ id: 'list', items, renderItem: (it) => ui.text(String(it)) })"
     },
     {

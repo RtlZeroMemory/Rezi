@@ -38,6 +38,15 @@ export type VirtualListLocalState = Readonly<{
   startIndex: number;
   /** One past last visible item index (derived from scrollTop + viewportHeight). */
   endIndex: number;
+  /**
+   * Cached measured heights (index -> height) used by estimateItemHeight mode.
+   * Internal detail; consumers should treat this as read-only snapshot state.
+   */
+  measuredHeights?: ReadonlyMap<number, number>;
+  /** Width used when building `measuredHeights`. */
+  measuredWidth?: number;
+  /** Item count used when building `measuredHeights`. */
+  measuredItemCount?: number;
 }>;
 
 /** Partial update to local state (undefined fields are not changed). */
@@ -121,6 +130,9 @@ export type VirtualListLocalStatePatch = Readonly<{
   viewportHeight?: number;
   startIndex?: number;
   endIndex?: number;
+  measuredHeights?: ReadonlyMap<number, number>;
+  measuredWidth?: number;
+  measuredItemCount?: number;
 }>;
 
 /** Store interface for per-instance virtual list state. */
@@ -138,6 +150,12 @@ export function createVirtualListStateStore(): VirtualListStateStore {
     get: (id) => table.get(id) ?? DEFAULT_VLIST_STATE,
     set: (id, patch) => {
       const prev = table.get(id) ?? DEFAULT_VLIST_STATE;
+      const measuredHeights =
+        patch.measuredHeights !== undefined ? patch.measuredHeights : prev.measuredHeights;
+      const measuredWidth =
+        patch.measuredWidth !== undefined ? patch.measuredWidth : prev.measuredWidth;
+      const measuredItemCount =
+        patch.measuredItemCount !== undefined ? patch.measuredItemCount : prev.measuredItemCount;
       const next: VirtualListLocalState = Object.freeze({
         scrollTop: patch.scrollTop !== undefined ? patch.scrollTop : prev.scrollTop,
         selectedIndex: patch.selectedIndex !== undefined ? patch.selectedIndex : prev.selectedIndex,
@@ -145,6 +163,9 @@ export function createVirtualListStateStore(): VirtualListStateStore {
           patch.viewportHeight !== undefined ? patch.viewportHeight : prev.viewportHeight,
         startIndex: patch.startIndex !== undefined ? patch.startIndex : prev.startIndex,
         endIndex: patch.endIndex !== undefined ? patch.endIndex : prev.endIndex,
+        ...(measuredHeights === undefined ? {} : { measuredHeights }),
+        ...(measuredWidth === undefined ? {} : { measuredWidth }),
+        ...(measuredItemCount === undefined ? {} : { measuredItemCount }),
       });
       table.set(id, next);
       return next;

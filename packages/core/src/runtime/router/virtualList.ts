@@ -40,7 +40,7 @@ export function routeVirtualListKey<T>(
   if (event.action !== "down") return Object.freeze({});
   if (!ctx.keyboardNavigation) return Object.freeze({});
 
-  const { items, itemHeight, state, wrapAround, virtualListId } = ctx;
+  const { items, itemHeight, measuredHeights, state, wrapAround, virtualListId } = ctx;
   const { selectedIndex, scrollTop, viewportHeight } = state;
   const itemCount = items.length;
 
@@ -55,16 +55,19 @@ export function routeVirtualListKey<T>(
 
   // Helper to compute scroll position for a given selection
   const scrollToIndex = (index: number): number => {
-    const offset = getItemOffset(items, itemHeight, index);
-    const height = getItemHeight(items, itemHeight, index);
-    const totalHeight = getTotalHeight(items, itemHeight);
+    const offset = getItemOffset(items, itemHeight, index, measuredHeights);
+    const height = getItemHeight(items, itemHeight, index, measuredHeights);
+    const totalHeight = getTotalHeight(items, itemHeight, measuredHeights);
     const newScrollTop = ensureVisible(scrollTop, viewportHeight, offset, height);
     return clampScrollTop(newScrollTop, totalHeight, viewportHeight);
   };
 
   // Compute items per page for PageUp/PageDown
   const computePageSize = (): number => {
-    if (typeof itemHeight === "number") {
+    if (
+      typeof itemHeight === "number" &&
+      (measuredHeights === undefined || measuredHeights.size === 0)
+    ) {
       const safeItemHeight = itemHeight > 0 ? itemHeight : 1;
       const safeViewportHeight = Math.max(0, viewportHeight);
       return Math.max(1, Math.floor(safeViewportHeight / safeItemHeight));
@@ -81,7 +84,7 @@ export function routeVirtualListKey<T>(
     for (let i = 0; i < sampleCount; i++) {
       const item = items[i];
       if (item !== undefined) {
-        sampleHeight += itemHeight(item, i);
+        sampleHeight += getItemHeight(items, itemHeight, i, measuredHeights);
       }
     }
     const avgHeight = sampleCount > 0 ? sampleHeight / sampleCount : 1;
@@ -159,7 +162,7 @@ export function routeVirtualListKey<T>(
     const lastIndex = itemCount - 1;
     if (clampedSelectedIndex === lastIndex) return repairStaleSelection();
 
-    const totalHeight = getTotalHeight(items, itemHeight);
+    const totalHeight = getTotalHeight(items, itemHeight, measuredHeights);
     const nextScrollTop = clampScrollTop(totalHeight, totalHeight, viewportHeight);
     return Object.freeze({
       nextSelectedIndex: lastIndex,

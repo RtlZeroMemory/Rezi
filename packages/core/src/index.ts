@@ -263,6 +263,7 @@ export type {
   TextProps,
   TextVariant,
   TreeProps,
+  VirtualListMeasureItemHeightCtx,
   VirtualListProps,
   VNode,
   // Advanced widgets (GitHub issue #136)
@@ -421,7 +422,9 @@ export {
   getItemOffset,
   getTotalHeight,
   clampScrollTop,
+  resolveVirtualListItemHeightSpec,
   type VisibleRangeResult,
+  type MeasuredItemHeights,
 } from "./widgets/virtualList.js";
 export { rgb, type Rgb, type TextStyle } from "./widgets/style.js";
 

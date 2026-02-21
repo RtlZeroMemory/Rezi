@@ -37,6 +37,35 @@ import {
 
 /* ========== Helper Functions ========== */
 
+function nowMs(): number {
+  const perf = (globalThis as { performance?: { now: () => number } }).performance;
+  return perf ? perf.now() : Date.now();
+}
+
+function median(values: readonly number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const left = sorted[mid - 1];
+  const right = sorted[mid];
+  if (sorted.length % 2 === 0 && left !== undefined && right !== undefined) {
+    return (left + right) / 2;
+  }
+  return right ?? 0;
+}
+
+function measureMedianMs(run: () => void, warmupRuns = 2, measuredRuns = 5): number {
+  for (let i = 0; i < warmupRuns; i++) {
+    run();
+  }
+  const samples: number[] = [];
+  for (let i = 0; i < measuredRuns; i++) {
+    const start = nowMs();
+    run();
+    samples.push(nowMs() - start);
+  }
+  return median(samples);
+}
+
 function createKeyEvent(key: number, action: "down" | "up" = "down"): ZrevEvent {
   return { kind: "key", timeMs: 0, key, mods: 0, action };
 }
@@ -420,21 +449,33 @@ describe("virtualList - mouse wheel", () => {
 /* ========== Performance Tests ========== */
 
 describe("virtualList - performance", () => {
-  test("100k items renders in <5ms", () => {
+  const env = process.env as NodeJS.ProcessEnv & { CI?: string };
+  const IS_CI = env.CI === "true";
+  const IS_WINDOWS = process.platform === "win32";
+  const FIXED_HEIGHT_BUDGET_MS = IS_WINDOWS ? (IS_CI ? 7 : 6) : 5;
+  const VARIABLE_HEIGHT_BUDGET_MS = IS_WINDOWS ? (IS_CI ? 90 : 70) : 50;
+
+  test("100k items renders under fixed-height budget", () => {
     const items = Array.from({ length: 100000 }, (_, i) => i);
-    const start = performance.now();
-    computeVisibleRange(items, 1, 50000, 25, 3);
-    const elapsed = performance.now() - start;
-    assert.ok(elapsed < 5, `Expected <5ms, got ${elapsed}ms`);
+    const elapsed = measureMedianMs(() => {
+      computeVisibleRange(items, 1, 50000, 25, 3);
+    });
+    assert.ok(
+      elapsed < FIXED_HEIGHT_BUDGET_MS,
+      `Expected fixed-height median <${FIXED_HEIGHT_BUDGET_MS}ms, got ${elapsed}ms`,
+    );
   });
 
   test("variable height 10k items performance", () => {
     const items = Array.from({ length: 10000 }, (_, i) => ({ h: (i % 5) + 1 }));
     const heightFn = (it: { h: number }) => it.h;
-    const start = performance.now();
-    computeVisibleRange(items, heightFn, 5000, 50, 5);
-    const elapsed = performance.now() - start;
+    const elapsed = measureMedianMs(() => {
+      computeVisibleRange(items, heightFn, 5000, 50, 5);
+    });
     // Variable height has O(n) offset building, should still be fast
-    assert.ok(elapsed < 50, `Expected <50ms for variable height, got ${elapsed}ms`);
+    assert.ok(
+      elapsed < VARIABLE_HEIGHT_BUDGET_MS,
+      `Expected variable-height median <${VARIABLE_HEIGHT_BUDGET_MS}ms, got ${elapsed}ms`,
+    );
   });
 });

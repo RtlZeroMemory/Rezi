@@ -349,10 +349,13 @@ test("widgetMeta: collectAllWidgetMetadata performance - single traversal vs 6 s
   }
 
   // Single-pass should not be dramatically slower than 6 separate traversals.
-  const maxAllowedMs = separateBestMs * 3 + 2;
+  // Leave generous headroom for CI timing noise across operating systems, while
+  // still failing clear regressions. Fast baselines can make pure ratio checks
+  // unstable, so include a small absolute allowance.
+  const allowedMs = Math.max(separateBestMs * 3, separateBestMs + 8);
   assert.ok(
-    singlePassBestMs <= maxAllowedMs,
-    `Single-pass best (${singlePassBestMs.toFixed(2)}ms) should not exceed 3x+2ms separate best (${separateBestMs.toFixed(2)}ms)`,
+    singlePassBestMs <= allowedMs,
+    `Single-pass best (${singlePassBestMs.toFixed(2)}ms) should not exceed allowed ${allowedMs.toFixed(2)}ms (separate best ${separateBestMs.toFixed(2)}ms)`,
   );
 });
 
