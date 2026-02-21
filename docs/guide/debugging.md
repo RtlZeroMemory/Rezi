@@ -74,6 +74,18 @@ Overlay sections include:
 - Frame timing rows (`drawlistBytes`, `diffBytesEmitted`, `usDrawlist`, `usDiff`, `usWrite`)
 - Event routing breadcrumbs (last event kind, keybindings vs widget routing path, last action)
 
+## Quick Layout Overlay
+
+For quick in-app layout diagnostics (without the full inspector), toggle:
+
+```typescript
+app.debugLayout(true);  // enable
+app.debugLayout(false); // disable
+```
+
+When enabled, Rezi renders a live layout summary overlay with widget ids and
+resolved rects.
+
 ## Export Debug Bundle
 
 Exporting a debug bundle is deterministic for the same debug state and options.

@@ -155,7 +155,16 @@ export type BoxProps = Readonly<
 >;
 
 /** Props for row/column stack layouts. pad is internal, gap is between children. */
-export type JustifyContent = "start" | "end" | "center" | "between" | "around" | "evenly";
+export type JustifyContent =
+  | "start"
+  | "end"
+  | "center"
+  | "between"
+  | "around"
+  | "evenly"
+  | "space-between"
+  | "space-around"
+  | "space-evenly";
 
 export type AlignItems = "start" | "end" | "center" | "stretch";
 
@@ -169,6 +178,8 @@ export type StackProps = Readonly<
     pad?: SpacingValue;
     /** Gap between children. Accepts number or spacing key. */
     gap?: SpacingValue;
+    /** Reverse visual order of children (row-reverse / column-reverse behavior). */
+    reverse?: boolean;
     align?: Align;
     justify?: JustifyContent;
     items?: AlignItems;

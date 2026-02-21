@@ -29,6 +29,7 @@ import type {
   StackProps,
   TextProps,
 } from "../index.js";
+import { resolveResponsiveValue } from "./responsive.js";
 import { SPACING_SCALE, isSpacingKey } from "./spacing-scale.js";
 import type { SizeConstraint } from "./types.js";
 
@@ -240,7 +241,8 @@ function requireIntNonNegative(
   v: unknown,
   def: number,
 ): LayoutResult<number> {
-  const value = v === undefined ? def : v;
+  const resolved = resolveResponsiveValue(v);
+  const value = resolved === undefined ? def : resolved;
   const n = parseFiniteNumber(value);
   if (n === undefined || n < 0) {
     return invalid(`${kind}.${name} must be an int32 >= 0`);
@@ -256,7 +258,8 @@ function requireIntSigned(
   v: unknown,
   def: number,
 ): LayoutResult<number> {
-  const value = v === undefined ? def : v;
+  const resolved = resolveResponsiveValue(v);
+  const value = resolved === undefined ? def : resolved;
   const parsed = parseCoercedInt(value);
   if (parsed === undefined || parsed < I32_MIN || parsed > I32_MAX) {
     return invalid(`${kind}.${name} must be an int32`);
@@ -270,7 +273,8 @@ function requireSpacingIntNonNegative(
   v: unknown,
   def: number,
 ): LayoutResult<number> {
-  const value = v === undefined ? def : v;
+  const resolved = resolveResponsiveValue(v);
+  const value = resolved === undefined ? def : resolved;
   if (typeof value === "string") {
     const normalized = normalizeStringToken(value);
     if (typeof normalized === "string" && isSpacingKey(normalized)) {
@@ -286,7 +290,8 @@ function requireSpacingIntSigned(
   v: unknown,
   def: number,
 ): LayoutResult<number> {
-  const value = v === undefined ? def : v;
+  const resolved = resolveResponsiveValue(v);
+  const value = resolved === undefined ? def : resolved;
   if (typeof value === "string") {
     const normalized = normalizeStringToken(value);
     if (typeof normalized === "string" && isSpacingKey(normalized)) {
@@ -301,8 +306,9 @@ function requireOptionalIntNonNegative(
   name: string,
   v: unknown,
 ): LayoutResult<number | undefined> {
-  if (v === undefined) return { ok: true, value: undefined };
-  const res = requireIntNonNegative(kind, name, v, 0);
+  const resolved = resolveResponsiveValue(v);
+  if (resolved === undefined) return { ok: true, value: undefined };
+  const res = requireIntNonNegative(kind, name, resolved, 0);
   if (!res.ok) return res;
   return { ok: true, value: res.value };
 }
@@ -331,7 +337,7 @@ function requireOptionalString(
 }
 
 function requireFiniteNumber(kind: string, name: string, v: unknown): LayoutResult<number> {
-  const parsed = parseFiniteNumber(v);
+  const parsed = parseFiniteNumber(resolveResponsiveValue(v));
   if (parsed === undefined) {
     return invalid(`${kind}.${name} must be a finite number`);
   }
@@ -366,7 +372,8 @@ function requireOverflow(
   v: unknown,
   def: "visible" | "hidden" | "scroll",
 ): LayoutResult<"visible" | "hidden" | "scroll"> {
-  const value = v === undefined ? def : v;
+  const resolved = resolveResponsiveValue(v);
+  const value = resolved === undefined ? def : resolved;
   const normalized = normalizeStringToken(value);
   if (normalized === "visible" || normalized === "hidden" || normalized === "scroll") {
     return { ok: true, value: normalized };
@@ -375,14 +382,14 @@ function requireOverflow(
 }
 
 function parsePercent(kind: string, name: string, raw: string): LayoutResult<`${number}%`> {
-  if (raw === "auto") {
-    return invalid(`${kind}.${name} must be a number | "<n>%" | "auto"`);
+  if (raw === "auto" || raw === "full") {
+    return invalid(`${kind}.${name} must be a number | "<n>%" | "full" | "auto"`);
   }
   const m = /^(\d+(?:\.\d+)?)%$/.exec(raw);
-  if (!m) return invalid(`${kind}.${name} must be a number | "<n>%" | "auto"`);
+  if (!m) return invalid(`${kind}.${name} must be a number | "<n>%" | "full" | "auto"`);
   const n = Number.parseFloat(m[1] ?? "");
   if (!Number.isFinite(n) || n < 0)
-    return invalid(`${kind}.${name} must be a number | "<n>%" | "auto"`);
+    return invalid(`${kind}.${name} must be a number | "<n>%" | "full" | "auto"`);
   return { ok: true, value: raw as `${number}%` };
 }
 
@@ -391,10 +398,12 @@ function requireSizeConstraint(
   name: string,
   v: unknown,
 ): LayoutResult<SizeConstraint | undefined> {
-  if (v === undefined) return { ok: true, value: undefined };
-  if (typeof v === "string") {
-    const normalized = normalizeStringToken(v);
+  const resolved = resolveResponsiveValue(v);
+  if (resolved === undefined) return { ok: true, value: undefined };
+  if (typeof resolved === "string") {
+    const normalized = normalizeStringToken(resolved);
     if (normalized === "auto") return { ok: true, value: "auto" };
+    if (normalized === "full") return { ok: true, value: "full" };
     if (typeof normalized === "string" && normalized.endsWith("%")) {
       const pct = parsePercent(kind, name, normalized);
       if (!pct.ok) return pct;
@@ -402,34 +411,36 @@ function requireSizeConstraint(
     }
     const parsed = parseCoercedInt(normalized);
     if (parsed === undefined || parsed < 0 || parsed > I32_MAX) {
-      return invalid(`${kind}.${name} must be a number | "<n>%" | "auto"`);
+      return invalid(`${kind}.${name} must be a number | "<n>%" | "full" | "auto"`);
     }
     return { ok: true, value: parsed };
   }
-  if (typeof v === "number") {
-    const parsed = parseCoercedInt(v);
+  if (typeof resolved === "number") {
+    const parsed = parseCoercedInt(resolved);
     if (parsed === undefined || parsed < 0 || parsed > I32_MAX) {
       return invalid(`${kind}.${name} must be an int32 >= 0`);
     }
     return { ok: true, value: parsed };
   }
-  return invalid(`${kind}.${name} must be a number | "<n>%" | "auto"`);
+  return invalid(`${kind}.${name} must be a number | "<n>%" | "full" | "auto"`);
 }
 
 function requireFlex(kind: string, v: unknown): LayoutResult<number | undefined> {
-  if (v === undefined) return { ok: true, value: undefined };
-  if (typeof v !== "number" || !Number.isFinite(v) || v < 0) {
+  const resolved = resolveResponsiveValue(v);
+  if (resolved === undefined) return { ok: true, value: undefined };
+  if (typeof resolved !== "number" || !Number.isFinite(resolved) || resolved < 0) {
     return invalid(`${kind}.flex must be a number >= 0`);
   }
-  return { ok: true, value: v };
+  return { ok: true, value: resolved };
 }
 
 function requireAspectRatio(kind: string, v: unknown): LayoutResult<number | undefined> {
-  if (v === undefined) return { ok: true, value: undefined };
-  if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) {
+  const resolved = resolveResponsiveValue(v);
+  if (resolved === undefined) return { ok: true, value: undefined };
+  if (typeof resolved !== "number" || !Number.isFinite(resolved) || resolved <= 0) {
     return invalid(`${kind}.aspectRatio must be a finite number > 0`);
   }
-  return { ok: true, value: v };
+  return { ok: true, value: resolved };
 }
 
 function validateSpacingProps(
@@ -533,7 +544,7 @@ export function validateStackProps(
   const gapRes = requireSpacingIntNonNegative(kind, "gap", p.gap, 0);
   if (!gapRes.ok) return gapRes;
 
-  const alignRaw = p.items ?? p.align;
+  const alignRaw = resolveResponsiveValue(p.items ?? p.align);
   const alignValue = alignRaw === undefined ? "start" : normalizeStringToken(alignRaw);
   if (
     alignValue !== "start" &&
@@ -544,7 +555,16 @@ export function validateStackProps(
     return invalid(`${kind}.align must be one of "start" | "center" | "end" | "stretch"`);
   }
 
-  const justifyValue = p.justify === undefined ? "start" : normalizeStringToken(p.justify);
+  const justifySource = resolveResponsiveValue(p.justify);
+  const justifyRaw = justifySource === undefined ? "start" : normalizeStringToken(justifySource);
+  const justifyValue =
+    justifyRaw === "space-between"
+      ? "between"
+      : justifyRaw === "space-around"
+        ? "around"
+        : justifyRaw === "space-evenly"
+          ? "evenly"
+          : justifyRaw;
   if (
     justifyValue !== "start" &&
     justifyValue !== "end" &&
@@ -554,12 +574,38 @@ export function validateStackProps(
     justifyValue !== "evenly"
   ) {
     return invalid(
-      `${kind}.justify must be one of "start" | "end" | "center" | "between" | "around" | "evenly"`,
+      `${kind}.justify must be one of "start" | "end" | "center" | "between" | "around" | "evenly" (also accepts CSS aliases: "space-between" | "space-around" | "space-evenly")`,
     );
   }
 
   const lcRes = validateLayoutConstraints(kind, p);
   if (!lcRes.ok) return lcRes;
+  const normalizedConstraints: {
+    width?: SizeConstraint;
+    height?: SizeConstraint;
+    minWidth?: number;
+    maxWidth?: number;
+    minHeight?: number;
+    maxHeight?: number;
+    flex?: number;
+    aspectRatio?: number;
+  } = { ...lcRes.value };
+  const widthIsFull = normalizedConstraints.width === "full";
+  const heightIsFull = normalizedConstraints.height === "full";
+  if (kind === "row" && widthIsFull) {
+    delete normalizedConstraints.width;
+    if (normalizedConstraints.flex === undefined) normalizedConstraints.flex = 1;
+  }
+  if (kind === "column" && heightIsFull) {
+    delete normalizedConstraints.height;
+    if (normalizedConstraints.flex === undefined) normalizedConstraints.flex = 1;
+  }
+  if (kind === "row" && heightIsFull) {
+    normalizedConstraints.height = "100%";
+  }
+  if (kind === "column" && widthIsFull) {
+    normalizedConstraints.width = "100%";
+  }
   const overflowRes = requireOverflow(kind, "overflow", p.overflow, "visible");
   if (!overflowRes.ok) return overflowRes;
   const scrollXRes = requireIntNonNegative(kind, "scrollX", p.scrollX, 0);
@@ -581,7 +627,7 @@ export function validateStackProps(
       scrollX: scrollXRes.value,
       scrollY: scrollYRes.value,
       ...spRes.value,
-      ...lcRes.value,
+      ...normalizedConstraints,
     },
   };
 }

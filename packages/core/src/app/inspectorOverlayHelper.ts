@@ -253,6 +253,9 @@ export function createAppWithInspectorOverlay<S>(
       lastThemeInput = theme;
       app.setTheme(theme);
     },
+    debugLayout(enabled?: boolean): boolean {
+      return app.debugLayout(enabled);
+    },
     start(): Promise<void> {
       return app.start();
     },

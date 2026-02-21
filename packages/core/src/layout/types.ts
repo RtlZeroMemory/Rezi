@@ -6,6 +6,7 @@
  *
  * @see docs/guide/layout.md
  */
+import type { ResponsiveValue } from "./responsive.js";
 
 /** Rectangle with position (x,y) and dimensions (w,h) in terminal cells. */
 export type Rect = Readonly<{ x: number; y: number; w: number; h: number }>;
@@ -16,8 +17,10 @@ export type Size = Readonly<{ w: number; h: number }>;
 /** Layout axis: row (horizontal) or column (vertical) stacking. */
 export type Axis = "row" | "column";
 
-/** Size constraint: fixed cell count, percentage of parent size, or "auto". */
-export type SizeConstraint = number | `${number}%` | "auto";
+/** Base size constraint scalar value. */
+export type SizeConstraintAtom = number | `${number}%` | "full" | "auto";
+/** Size constraint: scalar value or responsive breakpoint map. */
+export type SizeConstraint = ResponsiveValue<SizeConstraintAtom>;
 
 /**
  * Generic layout constraints supported by container widgets.

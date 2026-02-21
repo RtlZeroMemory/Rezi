@@ -15,6 +15,7 @@
  */
 
 import type { VNode } from "./types.js";
+import type { ResponsiveViewportSnapshot } from "../layout/responsive.js";
 
 /* ========== Widget Context Type ========== */
 
@@ -86,6 +87,11 @@ export type WidgetContext<State = void> = Readonly<{
    * const userName = ctx.useAppState(s => s.user.name);
    */
   useAppState: <T>(selector: (s: State) => T) => T;
+
+  /**
+   * Read current viewport size and responsive breakpoint.
+   */
+  useViewport?: () => ResponsiveViewportSnapshot;
 
   /**
    * Request a re-render of this widget instance.
@@ -274,6 +280,7 @@ export function createWidgetContext<State>(
   instanceIndex: number,
   hookContext: Pick<WidgetContext<State>, "useState" | "useRef" | "useEffect">,
   appState: State,
+  viewport: ResponsiveViewportSnapshot,
   onInvalidate: () => void,
 ): WidgetContext<State> {
   return Object.freeze({
@@ -282,6 +289,7 @@ export function createWidgetContext<State>(
     useRef: hookContext.useRef,
     useEffect: hookContext.useEffect,
     useAppState: <T>(selector: (s: State) => T): T => selector(appState),
+    useViewport: () => viewport,
     invalidate: onInvalidate,
   });
 }

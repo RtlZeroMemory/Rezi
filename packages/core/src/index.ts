@@ -401,6 +401,12 @@ export {
   type SpacingKey,
   type SpacingValue,
 } from "./layout/spacing-scale.js";
+export type {
+  ResponsiveBreakpointThresholds,
+  ResponsiveValue,
+  ResponsiveViewportSnapshot,
+  ViewportBreakpoint,
+} from "./layout/responsive.js";
 
 // =============================================================================
 // Theme
@@ -896,6 +902,21 @@ export type AppConfig = Readonly<{
   fpsCap?: number;
   maxEventBytes?: number;
   maxDrawlistBytes?: number;
+  /**
+   * Apply padding around the root layout viewport in terminal cells.
+   * Default: 0 in core `createApp()`.
+   * `createNodeApp()` applies `rootPadding: 1` unless overridden.
+   */
+  rootPadding?: number;
+  /**
+   * Responsive breakpoint thresholds (inclusive max widths).
+   * Defaults: sm<=79, md<=119, lg<=159, otherwise xl.
+   */
+  breakpoints?: Readonly<{
+    smMax?: number;
+    mdMax?: number;
+    lgMax?: number;
+  }>;
   /** Enable v2 cursor protocol for native terminal cursor in Input widgets */
   useV2Cursor?: boolean;
   /**
@@ -934,6 +955,13 @@ export interface App<S> {
   onEvent(handler: EventHandler): () => void;
   update(updater: S | ((prev: Readonly<S>) => S)): void;
   setTheme(theme: Theme | ThemeDefinition): void;
+  /**
+   * Toggle or set in-app layout diagnostics overlay.
+   * When enabled, app view is wrapped with a live layout summary panel.
+   *
+   * @returns Current enabled state
+   */
+  debugLayout(enabled?: boolean): boolean;
   start(): Promise<void>;
   stop(): Promise<void>;
   dispose(): void;

@@ -62,6 +62,7 @@ function commitComposite(
     composite: {
       registry: harness.registry,
       appState: {},
+      viewport: { width: 80, height: 24, breakpoint: "md" },
       onInvalidate: (instanceId) => {
         harness.invalidated.push(instanceId);
       },

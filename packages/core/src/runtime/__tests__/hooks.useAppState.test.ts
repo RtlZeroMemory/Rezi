@@ -24,6 +24,7 @@ function createCompositeHarness<State>(): CompositeHarness<State> {
         composite: {
           registry,
           appState,
+          viewport: { width: 80, height: 24, breakpoint: "md" },
           onInvalidate: (instanceId: InstanceId) => {
             invalidatedInstanceIds.push(instanceId);
           },

@@ -15,6 +15,7 @@
  *
  * @see docs/guide/layout.md
  */
+import { resolveResponsiveValue, type ResponsiveValue } from "./responsive.js";
 
 /**
  * Named spacing scale keys.
@@ -38,7 +39,8 @@ export const SPACING_SCALE: Readonly<Record<SpacingKey, number>> = Object.freeze
 /**
  * Type for spacing values - either a number or a scale key.
  */
-export type SpacingValue = number | SpacingKey;
+type BaseSpacingValue = number | SpacingKey;
+export type SpacingValue = ResponsiveValue<BaseSpacingValue>;
 
 /**
  * Check if a value is a valid spacing key.
@@ -71,9 +73,11 @@ export function isSpacingKey(value: unknown): value is SpacingKey {
  * ```
  */
 export function resolveSpacingValue(value: SpacingValue | undefined): number {
-  if (value === undefined) return 0;
-  if (typeof value === "number") return value;
-  return SPACING_SCALE[value];
+  const resolved = resolveResponsiveValue(value);
+  if (resolved === undefined) return 0;
+  if (typeof resolved === "number") return resolved;
+  if (isSpacingKey(resolved)) return SPACING_SCALE[resolved];
+  return 0;
 }
 
 /**
@@ -87,7 +91,9 @@ export function resolveSpacingWithDefault(
   value: SpacingValue | undefined,
   fallback: number,
 ): number {
-  if (value === undefined) return fallback;
-  if (typeof value === "number") return value;
-  return SPACING_SCALE[value];
+  const resolved = resolveResponsiveValue(value);
+  if (resolved === undefined) return fallback;
+  if (typeof resolved === "number") return resolved;
+  if (isSpacingKey(resolved)) return SPACING_SCALE[resolved];
+  return fallback;
 }

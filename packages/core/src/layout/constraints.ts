@@ -5,7 +5,7 @@
  * into concrete cell sizes for a given parent rectangle.
  */
 
-import type { LayoutConstraints, Rect, SizeConstraint } from "./types.js";
+import type { LayoutConstraints, Rect, SizeConstraint, SizeConstraintAtom } from "./types.js";
 
 export type ResolvedConstraints = Readonly<{
   width: number | null;
@@ -51,8 +51,9 @@ const I32_MAX = 2147483647;
  * - percentages are floored to an integer cell count
  * - "auto" resolves to `NaN` (caller decides meaning)
  */
-export function resolveConstraint(value: SizeConstraint, parentSize: number): number {
+export function resolveConstraint(value: SizeConstraintAtom, parentSize: number): number {
   if (value === "auto") return Number.NaN;
+  if (value === "full") return parentSize;
   if (typeof value === "number") return value;
   const raw = Number.parseFloat(value.slice(0, -1));
   if (!Number.isFinite(raw)) return Number.NaN;
@@ -60,6 +61,7 @@ export function resolveConstraint(value: SizeConstraint, parentSize: number): nu
 }
 
 function resolveOptional(value: SizeConstraint | undefined, parentSize: number): number | null {
+  if (typeof value === "object" && value !== null) return null;
   if (value === undefined) return null;
   const n = resolveConstraint(value, parentSize);
   return Number.isFinite(n) ? (n as number) : null;

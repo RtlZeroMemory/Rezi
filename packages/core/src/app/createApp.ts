@@ -57,6 +57,11 @@ import {
   routeKeyEvent,
   setMode,
 } from "../keybindings/index.js";
+import {
+  normalizeBreakpointThresholds,
+  type ResponsiveBreakpointThresholds,
+} from "../layout/responsive.js";
+import type { Rect } from "../layout/types.js";
 import { PERF_ENABLED, perfMarkEnd, perfMarkStart, perfNow, perfRecord } from "../perf/perf.js";
 import type { EventTimeUnwrapState } from "../protocol/types.js";
 import { parseEventBatchV1 } from "../protocol/zrev_v1.js";
@@ -71,6 +76,8 @@ import { defaultTheme } from "../theme/defaultTheme.js";
 import { coerceToLegacyTheme } from "../theme/interop.js";
 import type { Theme } from "../theme/theme.js";
 import type { ThemeDefinition } from "../theme/tokens.js";
+import type { VNode } from "../widgets/types.js";
+import { ui } from "../widgets/ui.js";
 import { RawRenderer } from "./rawRenderer.js";
 import {
   type RuntimeBreadcrumbAction,
@@ -95,6 +102,8 @@ type ResolvedAppConfig = Readonly<{
   fpsCap: number;
   maxEventBytes: number;
   maxDrawlistBytes: number;
+  rootPadding: number;
+  breakpointThresholds: ResponsiveBreakpointThresholds;
   useV2Cursor: boolean;
   drawlistValidateParams: boolean;
   drawlistReuseOutputBuffer: boolean;
@@ -114,6 +123,8 @@ const DEFAULT_CONFIG: ResolvedAppConfig = Object.freeze({
   fpsCap: 60,
   maxEventBytes: 1 << 20 /* 1 MiB */,
   maxDrawlistBytes: 2 << 20 /* 2 MiB */,
+  rootPadding: 0,
+  breakpointThresholds: normalizeBreakpointThresholds(undefined),
   useV2Cursor: false,
   drawlistValidateParams: true,
   drawlistReuseOutputBuffer: true,
@@ -232,6 +243,29 @@ async function loadTerminalProfile(backend: RuntimeBackend): Promise<TerminalPro
   }
 }
 
+function buildLayoutDebugOverlay(rectById: ReadonlyMap<string, Rect>): VNode | null {
+  if (rectById.size === 0) return null;
+  const rows = [...rectById.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .slice(0, 18)
+    .map(([id, rect]) =>
+      ui.text(`${id}  ${String(rect.x)},${String(rect.y)}  ${String(rect.w)}x${String(rect.h)}`),
+    );
+  const panel = ui.box({ border: "single", title: `Layout (${String(rectById.size)})`, p: 1 }, [
+    ui.column({ gap: 0 }, rows),
+  ]);
+  return ui.layer({
+    id: "rezi.layout.debug.overlay",
+    zIndex: 2_000_000_000,
+    modal: false,
+    backdrop: "none",
+    closeOnEscape: false,
+    content: ui.column({ width: "100%", height: "100%", justify: "end", p: 1 }, [
+      ui.row({ width: "100%", justify: "start" }, [panel]),
+    ]),
+  });
+}
+
 /** Apply defaults to user-provided config, validating all values. */
 export function resolveAppConfig(config: AppConfig | undefined): ResolvedAppConfig {
   if (!config) return DEFAULT_CONFIG;
@@ -247,6 +281,11 @@ export function resolveAppConfig(config: AppConfig | undefined): ResolvedAppConf
     config.maxDrawlistBytes === undefined
       ? DEFAULT_CONFIG.maxDrawlistBytes
       : requirePositiveInt("maxDrawlistBytes", config.maxDrawlistBytes);
+  const rootPadding =
+    config.rootPadding === undefined
+      ? DEFAULT_CONFIG.rootPadding
+      : requireNonNegativeInt("rootPadding", config.rootPadding);
+  const breakpointThresholds = normalizeBreakpointThresholds(config.breakpoints);
   const useV2Cursor = config.useV2Cursor === true;
   const drawlistValidateParams =
     config.drawlistValidateParams === undefined
@@ -276,6 +315,8 @@ export function resolveAppConfig(config: AppConfig | undefined): ResolvedAppConf
     fpsCap,
     maxEventBytes,
     maxDrawlistBytes,
+    rootPadding,
+    breakpointThresholds,
     useV2Cursor,
     drawlistValidateParams,
     drawlistReuseOutputBuffer,
@@ -445,6 +486,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   let mode: Mode | null = null;
   let drawFn: DrawFn | null = null;
   let viewFn: ViewFn<S> | null = null;
+  let debugLayoutEnabled = false;
 
   const hasInitialState = "initialState" in opts;
   let committedState: S = hasInitialState ? (opts.initialState as S) : (Object.freeze({}) as S);
@@ -557,6 +599,8 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     backend,
     drawlistVersion,
     maxDrawlistBytes: config.maxDrawlistBytes,
+    rootPadding: config.rootPadding,
+    breakpointThresholds: config.breakpointThresholds,
     terminalProfile,
     useV2Cursor: config.useV2Cursor,
     ...(opts.config?.drawlistValidateParams === undefined
@@ -1177,7 +1221,15 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
     const renderStart = perfNow();
     const submitToken = perfMarkStart("submit_frame");
-    const res = widgetRenderer.submitFrame(vf, snapshot, viewport, theme, hooks, plan);
+    const frameView: ViewFn<S> = debugLayoutEnabled
+      ? (state) => {
+          const root = vf(state);
+          const overlay = buildLayoutDebugOverlay(widgetRenderer.getRectByIdIndex());
+          if (!overlay) return root;
+          return ui.layers([root, overlay]);
+        }
+      : vf;
+    const res = widgetRenderer.submitFrame(frameView, snapshot, viewport, theme, hooks, plan);
     perfMarkEnd("submit_frame", submitToken);
     if (!res.ok) {
       fatalNowOrEnqueue(res.code, res.detail);
@@ -1361,6 +1413,18 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       if (nextTheme === theme) return;
       theme = nextTheme;
       requestRenderFromRenderer();
+    },
+
+    debugLayout(enabled?: boolean): boolean {
+      assertOperational("debugLayout");
+      if (mode === "raw") {
+        throwCode("ZRUI_MODE_CONFLICT", "debugLayout: not available in draw mode");
+      }
+      const next = enabled === undefined ? !debugLayoutEnabled : enabled === true;
+      if (next === debugLayoutEnabled) return debugLayoutEnabled;
+      debugLayoutEnabled = next;
+      requestRenderFromRenderer();
+      return debugLayoutEnabled;
     },
 
     start(): Promise<void> {

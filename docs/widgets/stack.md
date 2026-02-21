@@ -17,16 +17,18 @@ ui.column({ gap: 1, p: 1 }, [ui.text("A"), ui.text("B")]);
 |---|---|---|---|
 | `id` | `string` | - | Optional identity (not focusable) |
 | `key` | `string` | - | Reconciliation key |
-| `gap` | `SpacingValue` | - | Spacing between children |
+| `gap` | `SpacingValue` | `1` | Spacing between children |
+| `reverse` | `boolean` | `false` | Reverse child visual order |
 | `align` | `"start" \| "center" \| "end" \| "stretch"` | `"start"` | Cross-axis alignment |
-| `justify` | `"start" \| "end" \| "center" \| "between" \| "around" \| "evenly"` | `"start"` | Main-axis distribution |
+| `justify` | `"start" \| "end" \| "center" \| "between" \| "around" \| "evenly"` (also CSS aliases: `"space-between"`, `"space-around"`, `"space-evenly"`) | `"start"` | Main-axis distribution |
 | `p`, `px`, `py`, `pt`, `pr`, `pb`, `pl` | `SpacingValue` | - | Padding props |
 | `m`, `mx`, `my` | `SpacingValue` | - | Margin props |
-| `width`, `height` | `number \| \"auto\" \| \"${number}%\"` | - | Size constraints |
+| `width`, `height` | `number \| \"auto\" \| \"full\" \| \"${number}%\"` | - | Size constraints |
 | `minWidth`, `maxWidth`, `minHeight`, `maxHeight` | `number` | - | Size bounds (cells) |
 | `flex` | `number` | - | Main-axis flex in parent stack |
 | `aspectRatio` | `number` | - | Enforce width/height ratio |
-| `style` | `TextStyle` | - | Inherited style for children; bg fills rect |
+| `style` | `TextStyle` | - | Container style override; bg fills rect |
+| `inheritStyle` | `TextStyle` | - | Descendant default style without fill |
 
 ## Examples
 
@@ -57,10 +59,10 @@ ui.column({ height: 6, justify: "between" }, [
 
 Rezi also includes:
 
-- `ui.hstack(...)` — shorthand row with default `gap: 0`
-- `ui.vstack(...)` — shorthand column with default `gap: 0`
-- `ui.spacedHStack(...)` — shorthand row with default `gap: 1`
-- `ui.spacedVStack(...)` — shorthand column with default `gap: 1`
+- `ui.hstack(...)` — shorthand row with default `gap: 1`
+- `ui.vstack(...)` — shorthand column with default `gap: 1`
+- `ui.spacedHStack(...)` — shorthand row with default `gap: 1` (alias)
+- `ui.spacedVStack(...)` — shorthand column with default `gap: 1` (alias)
 
 ## Related
 
