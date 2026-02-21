@@ -7,7 +7,6 @@ import type {
   VNode,
 } from "@rezi-ui/core";
 import {
-  createApp,
   darkTheme,
   dimmedTheme,
   draculaTheme,
@@ -16,7 +15,7 @@ import {
   nordTheme,
   ui,
 } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { createNodeApp } from "@rezi-ui/node";
 
 type ServiceStatus = "healthy" | "warning" | "down";
 type Filter = "all" | ServiceStatus;
@@ -295,15 +294,14 @@ function repeatSeries(value: number, size = 28): readonly number[] {
   return Object.freeze(Array.from({ length: size }, () => value));
 }
 
-const app = createApp<State>({
-  backend: createNodeBackend({
+const app = createNodeApp<State>({
+  config: {
     emojiWidthPolicy: "auto",
     fpsCap: UI_FPS_CAP,
     // Keep engine present/poll off the app thread so animated frames don't
     // delay keyboard/mouse routing under load.
     executionMode: "worker",
-  }),
-  config: { fpsCap: UI_FPS_CAP },
+  },
   theme: themeCatalog.nord.theme,
   initialState: {
     services: initialServices,
