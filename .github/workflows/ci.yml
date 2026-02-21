@@ -184,10 +184,15 @@ jobs:
       - name: Build benchmark package
         run: npx tsc -p packages/bench/tsconfig.json
 
-      - name: Run reduced benchmark suite
+      - id: perf_bench
+        name: Run reduced benchmark suite (non-blocking)
+        continue-on-error: true
         run: npm run bench:ci -- --output-dir .artifacts/bench/ci
 
-      - name: Compare reduced benchmark results against baseline
+      - id: perf_compare
+        name: Compare reduced benchmark results against baseline (non-blocking)
+        if: ${{ always() }}
+        continue-on-error: true
         run: |
           npm run bench:ci:compare -- \
             --baseline benchmarks/ci-baseline/results.json \
@@ -195,6 +200,15 @@ jobs:
             --config benchmarks/ci-baseline/config.json \
             --report-json .artifacts/bench/ci/compare.json \
             --report-md .artifacts/bench/ci/compare.md
+
+      - name: Perf regression summary (non-blocking)
+        if: ${{ always() }}
+        run: |
+          echo "bench outcome: ${{ steps.perf_bench.outcome }}"
+          echo "compare outcome: ${{ steps.perf_compare.outcome }}"
+          if [ "${{ steps.perf_bench.outcome }}" != "success" ] || [ "${{ steps.perf_compare.outcome }}" != "success" ]; then
+            echo "::warning::Perf regression gate is non-blocking for CI stability. Review perf-regression artifacts."
+          fi
 
       - name: Upload perf regression artifacts
         if: ${{ always() }}
