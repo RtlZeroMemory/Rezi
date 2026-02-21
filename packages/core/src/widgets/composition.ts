@@ -23,7 +23,14 @@ import {
   stepSpring,
   type NormalizedSpringConfig,
 } from "../animation/spring.js";
-import type { SpringConfig, TransitionConfig } from "../animation/types.js";
+import { normalizeSequence, sampleSequence } from "../animation/timeline.js";
+import type {
+  SequenceConfig,
+  SequenceKeyframe,
+  SpringConfig,
+  StaggerConfig,
+  TransitionConfig,
+} from "../animation/types.js";
 import type { VNode } from "./types.js";
 
 /* ========== Widget Context Type ========== */
@@ -154,6 +161,19 @@ type TransitionHookContext = Pick<
 type SpringHookContext = Pick<WidgetContext<unknown>, "useEffect" | "useMemo" | "useRef" | "useState">;
 
 /**
+ * Minimal context required by `useSequence`.
+ */
+type SequenceHookContext = Pick<
+  WidgetContext<unknown>,
+  "useEffect" | "useMemo" | "useRef" | "useState"
+>;
+
+/**
+ * Minimal context required by `useStagger`.
+ */
+type StaggerHookContext = Pick<WidgetContext<unknown>, "useEffect" | "useMemo" | "useRef" | "useState">;
+
+/**
  * Transition configuration accepted by `useTransition`.
  */
 export type UseTransitionConfig = TransitionConfig;
@@ -162,6 +182,16 @@ export type UseTransitionConfig = TransitionConfig;
  * Spring configuration accepted by `useSpring`.
  */
 export type UseSpringConfig = SpringConfig;
+
+/**
+ * Sequence configuration accepted by `useSequence`.
+ */
+export type UseSequenceConfig = SequenceConfig;
+
+/**
+ * Stagger configuration accepted by `useStagger`.
+ */
+export type UseStaggerConfig = StaggerConfig;
 
 /**
  * Async state returned by `useAsync`.
@@ -321,6 +351,135 @@ export function useSpring(
   }, [springConfig, target]);
 
   return current;
+}
+
+/**
+ * Run a keyframe sequence and return the current interpolated value.
+ */
+export function useSequence(
+  ctx: SequenceHookContext,
+  keyframes: readonly SequenceKeyframe[],
+  config: UseSequenceConfig = {},
+): number {
+  const timerRef = ctx.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const signature = ctx.useMemo(() => {
+    const parts: string[] = [];
+    for (const frame of keyframes) {
+      if (typeof frame === "number") {
+        parts.push(`n:${String(frame)}`);
+        continue;
+      }
+      parts.push(
+        `k:${String(frame.value)}:${String(frame.duration ?? "")}:${String(frame.easing ?? "")}`,
+      );
+    }
+    parts.push(`cfg:${String(config.duration ?? "")}:${String(config.easing ?? "")}`);
+    parts.push(`loop:${config.loop === true ? "1" : "0"}`);
+    return parts.join("|");
+  }, [config.duration, config.easing, config.loop, keyframes]);
+
+  const sequence = ctx.useMemo(
+    () => normalizeSequence(keyframes, { duration: config.duration, easing: config.easing }),
+    [signature],
+  );
+
+  const [current, setCurrent] = ctx.useState<number>(() => sequence.initialValue);
+
+  ctx.useEffect(() => {
+    clearAnimationTimer(timerRef);
+
+    if (sequence.segments.length === 0) {
+      setCurrent(sequence.initialValue);
+      return;
+    }
+
+    const loop = config.loop === true;
+    const startMs = nowMs();
+
+    const tick = () => {
+      const elapsedMs = nowMs() - startMs;
+      const sample = sampleSequence(sequence, elapsedMs, loop);
+      setCurrent(sample.value);
+      if (sample.done && !loop) {
+        timerRef.current = null;
+        return;
+      }
+      timerRef.current = setTimeout(tick, ANIMATION_FRAME_MS);
+    };
+
+    timerRef.current = setTimeout(tick, ANIMATION_FRAME_MS);
+
+    return () => {
+      clearAnimationTimer(timerRef);
+    };
+  }, [config.loop, sequence]);
+
+  return current;
+}
+
+function arraysShallowEqual(a: readonly number[], b: readonly number[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (!Object.is(a[i], b[i])) return false;
+  }
+  return true;
+}
+
+/**
+ * Animate item entrances with staggered delays.
+ *
+ * Returns eased progress for each item in [0..1].
+ */
+export function useStagger<T>(
+  ctx: StaggerHookContext,
+  items: readonly T[],
+  config: UseStaggerConfig = {},
+): readonly number[] {
+  const timerRef = ctx.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const count = items.length;
+  const delayMs = normalizeDurationMs(config.delay, 40);
+  const durationMs = normalizeDurationMs(config.duration, 180);
+  const easing = ctx.useMemo(() => resolveEasing(config.easing), [config.easing]);
+  const [progresses, setProgresses] = ctx.useState<readonly number[]>(() =>
+    Object.freeze(new Array<number>(count).fill(0)),
+  );
+
+  ctx.useEffect(() => {
+    clearAnimationTimer(timerRef);
+
+    if (count <= 0) {
+      setProgresses(Object.freeze([]));
+      return;
+    }
+
+    const startMs = nowMs();
+    const totalDurationMs = delayMs * Math.max(0, count - 1) + durationMs;
+
+    const tick = () => {
+      const elapsedMs = nowMs() - startMs;
+      const next: number[] = new Array<number>(count);
+      for (let i = 0; i < count; i++) {
+        const localElapsedMs = elapsedMs - delayMs * i;
+        const localProgress = durationMs <= 0 ? 1 : clamp01(localElapsedMs / durationMs);
+        next[i] = easing(localProgress);
+      }
+      const frozen = Object.freeze(next);
+      setProgresses((prev) => (arraysShallowEqual(prev, frozen) ? prev : frozen));
+      if (elapsedMs >= totalDurationMs) {
+        timerRef.current = null;
+        return;
+      }
+      timerRef.current = setTimeout(tick, ANIMATION_FRAME_MS);
+    };
+
+    timerRef.current = setTimeout(tick, ANIMATION_FRAME_MS);
+
+    return () => {
+      clearAnimationTimer(timerRef);
+    };
+  }, [count, delayMs, durationMs, easing]);
+
+  return progresses;
 }
 
 /**

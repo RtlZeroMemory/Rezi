@@ -5,7 +5,7 @@ import {
   createHookContext,
   runPendingEffects,
 } from "../../runtime/instances.js";
-import { useSpring, useTransition } from "../composition.js";
+import { useSequence, useSpring, useStagger, useTransition } from "../composition.js";
 
 type HookProgram<T> = (hooks: HookContext) => T;
 
@@ -137,6 +137,70 @@ describe("composition animation hooks - useSpring", () => {
       return Math.abs(finalValue - 12) <= 0.1;
     });
     assert.ok(Math.abs(finalValue - 12) <= 0.1);
+    assert.equal(h.unmount(), true);
+  });
+});
+
+describe("composition animation hooks - useSequence", () => {
+  test("steps through keyframes over time", async () => {
+    const h = createHarness();
+    const keyframes = [0, 10, 20];
+    const config = { duration: 60, easing: "linear" as const };
+
+    let render = h.render((hooks) => useSequence(hooks, keyframes, config));
+    assert.equal(render.result, 0);
+    h.runPending(render.pendingEffects);
+
+    let mid = 0;
+    await waitFor(() => {
+      const next = h.render((hooks) => useSequence(hooks, keyframes, config));
+      mid = next.result;
+      h.runPending(next.pendingEffects);
+      return mid > 0 && mid < 20;
+    });
+    assert.ok(mid > 0 && mid < 20);
+
+    let finalValue = 0;
+    await waitFor(() => {
+      const next = h.render((hooks) => useSequence(hooks, keyframes, config));
+      finalValue = next.result;
+      h.runPending(next.pendingEffects);
+      return Math.abs(finalValue - 20) <= 0.05;
+    });
+    assert.ok(Math.abs(finalValue - 20) <= 0.05);
+    assert.equal(h.unmount(), true);
+  });
+});
+
+describe("composition animation hooks - useStagger", () => {
+  test("returns staggered per-item progress values", async () => {
+    const h = createHarness();
+    const items = ["a", "b", "c"];
+    const config = { delay: 40, duration: 80, easing: "linear" as const };
+
+    let render = h.render((hooks) => useStagger(hooks, items, config));
+    assert.equal(render.result.length, 3);
+    h.runPending(render.pendingEffects);
+
+    let staggered: readonly number[] = [];
+    await waitFor(() => {
+      const next = h.render((hooks) => useStagger(hooks, items, config));
+      staggered = next.result;
+      h.runPending(next.pendingEffects);
+      const first = staggered[0] ?? 0;
+      const second = staggered[1] ?? 0;
+      return first > second;
+    });
+    assert.ok((staggered[0] ?? 0) > (staggered[1] ?? 0));
+
+    let completed: readonly number[] = [];
+    await waitFor(() => {
+      const next = h.render((hooks) => useStagger(hooks, items, config));
+      completed = next.result;
+      h.runPending(next.pendingEffects);
+      return completed.every((value) => Math.abs(value - 1) <= 0.01);
+    });
+    assert.ok(completed.every((value) => Math.abs(value - 1) <= 0.01));
     assert.equal(h.unmount(), true);
   });
 });

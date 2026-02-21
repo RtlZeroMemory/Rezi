@@ -55,3 +55,32 @@ export type NormalizedSpringConfig = Readonly<{
   maxDeltaMs: number;
 }>;
 
+/** Sequence keyframe input for `useSequence`. */
+export type SequenceKeyframe = number | Readonly<{
+  /** Keyframe numeric value. */
+  value: number;
+  /** Segment duration (ms) to the next keyframe. */
+  duration?: number;
+  /** Easing used for the segment to the next keyframe. */
+  easing?: EasingInput;
+}>;
+
+/** Sequence timeline configuration. */
+export type SequenceConfig = Readonly<{
+  /** Default per-segment duration in milliseconds. */
+  duration?: number;
+  /** Default easing for segments without per-keyframe easing. */
+  easing?: EasingInput;
+  /** Loop sequence timeline when it reaches the end. */
+  loop?: boolean;
+}>;
+
+/** Staggered list animation configuration. */
+export type StaggerConfig = Readonly<{
+  /** Delay between each item start in milliseconds. */
+  delay?: number;
+  /** Duration for each item in milliseconds. */
+  duration?: number;
+  /** Easing curve applied to each item's local progress. */
+  easing?: EasingInput;
+}>;
