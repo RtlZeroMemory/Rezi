@@ -140,23 +140,6 @@ const REFRESH_LABEL_WIDTH = 8;
 const SORT_PANEL_LABEL_WIDTH = 11;
 const RATE_LABEL_WIDTH = 7;
 const SUMMARY_ALERT_LABEL_WIDTH = 16;
-type ShortcutSpec = Readonly<{
-  keys: string | readonly string[];
-  description: string;
-}>;
-
-const HELP_SHORTCUTS: readonly ShortcutSpec[] = Object.freeze([
-  { keys: ["up", "down", "j", "k"], description: "Move service selection" },
-  { keys: "enter", description: "Pin or unpin selected service" },
-  { keys: ["p", "space"], description: "Pause or resume live stream" },
-  { keys: "f", description: "Cycle status filter" },
-  { keys: "s", description: "Cycle sort field" },
-  { keys: "o", description: "Toggle sort direction" },
-  { keys: "t", description: "Cycle theme preset" },
-  { keys: "d", description: "Toggle debug counters" },
-  { keys: "c", description: "Clear active events feed" },
-  { keys: "q", description: "Exit console" },
-]);
 
 function timeStamp(date = new Date()): string {
   return date.toLocaleTimeString("en-US", { hour12: false });
@@ -499,11 +482,6 @@ function toolbarAction(
   onPress: () => void,
 ): VNode {
   return ui.button({ id: buttonId, label, onPress });
-}
-
-function shortcutLabel(keys: string | readonly string[]): string {
-  const parts = Array.isArray(keys) ? keys : [keys];
-  return parts.join(" + ");
 }
 
 function applyFilter(services: readonly Service[], filter: Filter): Service[] {
@@ -1131,12 +1109,6 @@ app.view((state) => {
   const incidentBadgeLabel = (severity: Incident["severity"]): string =>
     fixedLabel(incidentBadge(severity).text, INCIDENT_BADGE_WIDTH, INCIDENT_BADGE_WIDTH);
 
-  const helpShortcutRow = (keys: string | readonly string[], description: string): VNode =>
-    ui.row({ gap: 2, items: "center" }, [
-      ui.badge(fixedLabel(shortcutLabel(keys), 19, 19), { variant: "info" }),
-      ui.text(description, { style: metaStyle }),
-    ]);
-
   const mainContent = ui.column({ flex: 1, p: 1, gap: 1, items: "stretch", style: rootStyle }, [
     ui.box({ border: "rounded", px: PANEL_PADDING_X, py: PANEL_PADDING_Y, style: stripStyle }, [
       ui.column({ gap: 1 }, [
@@ -1604,12 +1576,9 @@ app.view((state) => {
               ]),
             ]),
             ui.divider({ char: "·" }),
-            ui.column(
-              { gap: 1 },
-              HELP_SHORTCUTS.map((shortcut) =>
-                helpShortcutRow(shortcut.keys, shortcut.description),
-              ),
-            ),
+            ui.keybindingHelp(app.getBindings(), {
+              title: "Keyboard Shortcuts",
+            }),
           ]),
           actions: [
             ui.button({
@@ -1703,30 +1672,84 @@ app.onEvent((ev) => {
 });
 
 app.keys({
-  q: requestDashboardStop,
-  "shift+q": requestDashboardStop,
-  "ctrl+c": requestDashboardStop,
-  up: (ctx) => {
-    if (ctx.focusedId === "service-table") return;
-    ctx.update((s) => moveSelection(s, -1));
+  q: {
+    handler: requestDashboardStop,
+    description: "Exit console",
   },
-  down: (ctx) => {
-    if (ctx.focusedId === "service-table") return;
-    ctx.update((s) => moveSelection(s, 1));
+  "shift+q": {
+    handler: requestDashboardStop,
+    description: "Exit console",
   },
-  k: () => app.update((s) => moveSelection(s, -1)),
-  j: () => app.update((s) => moveSelection(s, 1)),
-  f: cycleFilterAction,
-  s: cycleSortAction,
-  o: toggleSortDirectionAction,
-  t: cycleThemeAction,
-  p: togglePauseAction,
-  space: togglePauseAction,
-  enter: togglePinAction,
-  d: toggleDebugAction,
-  c: clearIncidentsAction,
-  h: openHelpAction,
-  escape: closeHelpAction,
+  "ctrl+c": {
+    handler: requestDashboardStop,
+    description: "Exit console",
+  },
+  up: {
+    handler: (ctx) => {
+      if (ctx.focusedId === "service-table") return;
+      ctx.update((s) => moveSelection(s, -1));
+    },
+    description: "Move service selection up",
+  },
+  down: {
+    handler: (ctx) => {
+      if (ctx.focusedId === "service-table") return;
+      ctx.update((s) => moveSelection(s, 1));
+    },
+    description: "Move service selection down",
+  },
+  k: {
+    handler: () => app.update((s) => moveSelection(s, -1)),
+    description: "Move service selection up",
+  },
+  j: {
+    handler: () => app.update((s) => moveSelection(s, 1)),
+    description: "Move service selection down",
+  },
+  f: {
+    handler: cycleFilterAction,
+    description: "Cycle status filter",
+  },
+  s: {
+    handler: cycleSortAction,
+    description: "Cycle sort field",
+  },
+  o: {
+    handler: toggleSortDirectionAction,
+    description: "Toggle sort direction",
+  },
+  t: {
+    handler: cycleThemeAction,
+    description: "Cycle theme preset",
+  },
+  p: {
+    handler: togglePauseAction,
+    description: "Pause or resume live stream",
+  },
+  space: {
+    handler: togglePauseAction,
+    description: "Pause or resume live stream",
+  },
+  enter: {
+    handler: togglePinAction,
+    description: "Pin or unpin selected service",
+  },
+  d: {
+    handler: toggleDebugAction,
+    description: "Toggle debug counters",
+  },
+  c: {
+    handler: clearIncidentsAction,
+    description: "Clear active events feed",
+  },
+  h: {
+    handler: openHelpAction,
+    description: "Open help",
+  },
+  escape: {
+    handler: closeHelpAction,
+    description: "Close help",
+  },
 });
 
 try {

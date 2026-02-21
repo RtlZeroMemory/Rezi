@@ -239,20 +239,6 @@ const themeOrder: readonly ThemeName[] = Object.freeze([
   "high-contrast",
 ]);
 
-type ShortcutSpec = Readonly<{ keys: string | readonly string[]; description: string }>;
-
-const HELP_SHORTCUTS: readonly ShortcutSpec[] = Object.freeze([
-  { keys: ["p", "space"], description: "Pause / resume" },
-  { keys: ["+", "-"], description: "Phase up / down" },
-  { keys: "r", description: "Reset benchmark" },
-  { keys: "t", description: "Cycle theme" },
-  { keys: "z", description: "Toggle turbo mode" },
-  { keys: "w", description: "Toggle write flood" },
-  { keys: "h", description: "Open help" },
-  { keys: "escape", description: "Close help" },
-  { keys: "q", description: "Quit" },
-]);
-
 // ---------------------------------------------------------------------------
 // Utilities
 // ---------------------------------------------------------------------------
@@ -289,11 +275,6 @@ function signedDelta(value: number, digits = 0): string {
 function animationFrame(frames: readonly string[], tick: number): string {
   if (frames.length === 0) return "";
   return frames[Math.abs(tick) % frames.length] ?? "";
-}
-
-function shortcutLabel(keys: string | readonly string[]): string {
-  const parts = Array.isArray(keys) ? keys : [keys];
-  return parts.join(" + ");
 }
 
 function timeStamp(date = new Date()): string {
@@ -1495,14 +1476,9 @@ app.view((state) => {
           initialFocus: "help-close",
           returnFocusTo: "toggle-pause",
           content: ui.column({ gap: 1 }, [
-            ui.text("Keyboard Controls", { style: accentStyle }),
-            ui.divider({ char: "·" }),
-            ...HELP_SHORTCUTS.map((shortcut, i) =>
-              ui.row({ key: `shortcut-${i}`, gap: 1, items: "center" }, [
-                ui.kbd(shortcutLabel(shortcut.keys)),
-                ui.text(shortcut.description, { style: metaStyle }),
-              ]),
-            ),
+            ui.keybindingHelp(app.getBindings(), {
+              title: "Keyboard Controls",
+            }),
           ]),
           actions: [
             ui.button({ id: "help-close", label: "Close (Esc)", onPress: closeHelpAction }),
@@ -1585,21 +1561,66 @@ app.onEvent((ev) => {
 });
 
 app.keys({
-  q: stopAction,
-  "ctrl+c": stopAction,
-  p: togglePauseAction,
-  space: togglePauseAction,
-  "+": advancePhaseAction,
-  "=": advancePhaseAction,
-  "-": retreatPhaseAction,
-  r: resetAction,
-  t: cycleThemeAction,
-  T: cycleThemeAction,
-  "shift+t": cycleThemeAction,
-  z: toggleTurboAction,
-  w: toggleWriteFloodAction,
-  h: openHelpAction,
-  escape: closeHelpAction,
+  q: {
+    handler: stopAction,
+    description: "Quit",
+  },
+  "ctrl+c": {
+    handler: stopAction,
+    description: "Quit",
+  },
+  p: {
+    handler: togglePauseAction,
+    description: "Pause / resume",
+  },
+  space: {
+    handler: togglePauseAction,
+    description: "Pause / resume",
+  },
+  "+": {
+    handler: advancePhaseAction,
+    description: "Phase up",
+  },
+  "=": {
+    handler: advancePhaseAction,
+    description: "Phase up",
+  },
+  "-": {
+    handler: retreatPhaseAction,
+    description: "Phase down",
+  },
+  r: {
+    handler: resetAction,
+    description: "Reset benchmark",
+  },
+  t: {
+    handler: cycleThemeAction,
+    description: "Cycle theme",
+  },
+  T: {
+    handler: cycleThemeAction,
+    description: "Cycle theme",
+  },
+  "shift+t": {
+    handler: cycleThemeAction,
+    description: "Cycle theme",
+  },
+  z: {
+    handler: toggleTurboAction,
+    description: "Toggle turbo mode",
+  },
+  w: {
+    handler: toggleWriteFloodAction,
+    description: "Toggle write flood",
+  },
+  h: {
+    handler: openHelpAction,
+    description: "Open help",
+  },
+  escape: {
+    handler: closeHelpAction,
+    description: "Close help",
+  },
 });
 
 // ---------------------------------------------------------------------------

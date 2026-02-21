@@ -51,7 +51,9 @@ import type {
 } from "../keybindings/index.js";
 import {
   createManagerState,
+  getBindings,
   getMode,
+  getPendingChord,
   registerBindings,
   registerModes,
   resetChordState,
@@ -1593,6 +1595,14 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
     getMode(): string {
       return getMode(keybindingState);
+    },
+
+    getBindings(mode?: string) {
+      return getBindings(keybindingState, mode);
+    },
+
+    get pendingChord(): string | null {
+      return getPendingChord(keybindingState);
     },
 
     getTerminalProfile(): TerminalProfile {

@@ -18,6 +18,7 @@ export function createRouteKeybindings<S>(
       if (keybinding) {
         bindings[keybinding] = {
           priority: -100,
+          ...(route.title === undefined ? {} : { description: `Navigate to ${route.title}` }),
           handler: () => {
             if (router.currentRoute().id === route.id) return;
             router.navigate(route.id);
