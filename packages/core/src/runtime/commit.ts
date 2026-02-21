@@ -597,8 +597,11 @@ type CommitCtx = Readonly<{
     appState: unknown;
     onInvalidate: (instanceId: InstanceId) => void;
   }> | null;
+  compositeRenderStack: Array<Readonly<{ widgetKey: string; instanceId: InstanceId }>>;
   pendingEffects: EffectState[];
 }>;
+
+const MAX_COMPOSITE_RENDER_DEPTH = 100;
 
 function commitNode(
   prev: RuntimeInstance | null,
@@ -704,6 +707,22 @@ function commitNode(
       if (canSkipCompositeRender && prevChild !== null) {
         compositeChild = prevChild.vnode;
       } else {
+        const compositeDepth = ctx.compositeRenderStack.length + 1;
+        if (compositeDepth > MAX_COMPOSITE_RENDER_DEPTH) {
+          const chain = ctx.compositeRenderStack
+            .map((entry) => entry.widgetKey)
+            .concat(activeCompositeMeta.widgetKey)
+            .join(" -> ");
+          return {
+            ok: false,
+            fatal: {
+              code: "ZRUI_INVALID_PROPS",
+              detail: `ZRUI_MAX_DEPTH: composite render depth ${String(compositeDepth)} exceeds max ${String(
+                MAX_COMPOSITE_RENDER_DEPTH,
+              )}. Chain: ${chain}`,
+            },
+          };
+        }
         registry.beginRender(instanceId);
         const hookCtx = createHookContext(state, invalidateInstance);
         const nextSelections: AppStateSelection[] = [];
@@ -723,6 +742,10 @@ function commitNode(
           invalidate: invalidateInstance,
         });
 
+        ctx.compositeRenderStack.push({
+          widgetKey: activeCompositeMeta.widgetKey,
+          instanceId,
+        });
         try {
           compositeChild = activeCompositeMeta.render(widgetCtx);
         } catch (e: unknown) {
@@ -733,6 +756,8 @@ function commitNode(
               detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
             },
           };
+        } finally {
+          ctx.compositeRenderStack.pop();
         }
 
         try {
@@ -1030,6 +1055,7 @@ export function commitVNodeTree(
     lists: { mounted: [], reused: [], unmounted: [] },
     collectLifecycleInstanceIds,
     composite: opts.composite ?? null,
+    compositeRenderStack: [],
     pendingEffects: [],
   };
 
