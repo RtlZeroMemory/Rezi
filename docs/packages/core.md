@@ -86,20 +86,24 @@ Modal keybinding system with chord support:
 import { parseKeySequence } from "@rezi-ui/core";
 
 app.keys({
-  "ctrl+s": () => save(),
-  "ctrl+q": () => app.stop(),
-  "g g": () => scrollToTop(),  // Chord: press g twice
+  "ctrl+s": { handler: () => save(), description: "Save document" },
+  "ctrl+q": { handler: () => app.stop(), description: "Quit application" },
+  "g g": { handler: () => scrollToTop(), description: "Scroll to top" }, // Chord: press g twice
 });
 
 app.modes({
   normal: {
-    "i": () => app.setMode("insert"),
-    "j": () => moveCursorDown(),
+    "i": { handler: () => app.setMode("insert"), description: "Enter insert mode" },
+    "j": { handler: () => moveCursorDown(), description: "Move cursor down" },
   },
   insert: {
-    "escape": () => app.setMode("normal"),
+    "escape": { handler: () => app.setMode("normal"), description: "Exit insert mode" },
   },
 });
+
+const allBindings = app.getBindings();
+const normalModeBindings = app.getBindings("normal");
+const pending = app.pendingChord; // string | null
 ```
 
 ### Focus Management

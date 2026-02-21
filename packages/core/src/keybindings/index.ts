@@ -28,6 +28,7 @@ export type {
   BindingDefinition,
   BindingMap,
   InvalidKey,
+  RegisteredBinding,
   KeybindingManagerState,
   KeyHandler,
   ModeBindingMap,
@@ -121,7 +122,9 @@ export {
 export {
   DEFAULT_MODE,
   createManagerState,
+  getBindings,
   registerBindings,
+  getPendingChord,
   registerModes,
   setMode,
   getMode,

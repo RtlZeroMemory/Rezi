@@ -281,6 +281,12 @@ export function createAppWithInspectorOverlay<S>(
     getMode(): string {
       return app.getMode();
     },
+    getBindings(mode?: string) {
+      return app.getBindings(mode);
+    },
+    get pendingChord(): string | null {
+      return app.pendingChord;
+    },
     getTerminalProfile() {
       return app.getTerminalProfile();
     },

@@ -72,6 +72,8 @@ export type KeyBinding<C> = Readonly<{
    * When present, binding only matches if when(ctx) returns true.
    */
   when?: (ctx: C) => boolean;
+  /** Optional user-facing description for help overlays/introspection. */
+  description?: string;
 }>;
 
 /**
