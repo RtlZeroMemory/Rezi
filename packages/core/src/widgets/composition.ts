@@ -19,6 +19,8 @@ import type { VNode } from "./types.js";
 
 /* ========== Widget Context Type ========== */
 
+type UnknownCallback = (...args: never[]) => unknown;
+
 /**
  * Context provided to widget render functions.
  * Contains hooks for managing local state and side effects.
@@ -57,6 +59,18 @@ export type WidgetContext<State = void> = Readonly<{
    * const inputRef = ctx.useRef<string>("");
    */
   useRef: <T>(initial: T) => { current: T };
+
+  /**
+   * Memoize a computed value until dependencies change.
+   * Matches React `useMemo` dependency semantics (`Object.is` comparison).
+   */
+  useMemo: <T>(factory: () => T, deps?: readonly unknown[]) => T;
+
+  /**
+   * Memoize a callback reference until dependencies change.
+   * Matches React `useCallback` dependency semantics (`Object.is` comparison).
+   */
+  useCallback: <T extends UnknownCallback>(callback: T, deps?: readonly unknown[]) => T;
 
   /**
    * Register a side effect to run after commit.
@@ -398,7 +412,10 @@ export function scopedId(widgetKey: string, instanceIndex: number, suffix: strin
 export function createWidgetContext<State>(
   widgetKey: string,
   instanceIndex: number,
-  hookContext: Pick<WidgetContext<State>, "useState" | "useRef" | "useEffect">,
+  hookContext: Pick<
+    WidgetContext<State>,
+    "useState" | "useRef" | "useEffect" | "useMemo" | "useCallback"
+  >,
   appState: State,
   viewport: ResponsiveViewportSnapshot,
   onInvalidate: () => void,
@@ -408,6 +425,8 @@ export function createWidgetContext<State>(
     useState: hookContext.useState,
     useRef: hookContext.useRef,
     useEffect: hookContext.useEffect,
+    useMemo: hookContext.useMemo,
+    useCallback: hookContext.useCallback,
     useAppState: <T>(selector: (s: State) => T): T => selector(appState),
     useViewport: () => viewport,
     invalidate: onInvalidate,

@@ -29,6 +29,7 @@ Composite widgets receive a `WidgetContext` with:
 
 - `useState` and `useRef` for local state
 - `useEffect` for post-commit effects with cleanup
+- `useMemo` and `useCallback` for memoization with React-compatible dependency semantics
 - `useAppState` to select a slice of app state
 - `id()` to create scoped IDs for focusable widgets
 - `invalidate()` to request a re-render
@@ -36,8 +37,20 @@ Composite widgets receive a `WidgetContext` with:
 Behavior details:
 
 - `useEffect` cleanup runs before an effect re-fires, and unmount cleanups run in reverse declaration order.
+- `useMemo` and `useCallback` compare dependencies with `Object.is` (including `NaN` equality and `+0/-0` distinction).
 - `useAppState` uses selector snapshots and `Object.is` equality; widgets only re-render when selected values change.
 - Hook rules follow React constraints: keep both hook order and hook count consistent on every render.
+
+## Example: memoized table data
+
+```typescript
+const filteredRows = ctx.useMemo(
+  () => rows.filter((row) => row.name.includes(query)),
+  [rows, query],
+);
+
+const onSubmit = ctx.useCallback(() => save(filteredRows), [save, filteredRows]);
+```
 
 ## Utility hooks
 

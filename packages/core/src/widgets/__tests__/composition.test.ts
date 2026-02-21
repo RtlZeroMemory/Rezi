@@ -558,6 +558,8 @@ describe("Composition API - createWidgetContext", () => {
     assert.equal(typeof ctx.useState, "function");
     assert.equal(typeof ctx.useRef, "function");
     assert.equal(typeof ctx.useEffect, "function");
+    assert.equal(typeof ctx.useMemo, "function");
+    assert.equal(typeof ctx.useCallback, "function");
     assert.equal(typeof ctx.useAppState, "function");
     assert.equal(typeof ctx.invalidate, "function");
   });

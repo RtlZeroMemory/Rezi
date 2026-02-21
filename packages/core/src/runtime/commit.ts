@@ -751,6 +751,8 @@ function commitNode(
             useState: hookCtx.useState,
             useRef: hookCtx.useRef,
             useEffect: hookCtx.useEffect,
+            useMemo: hookCtx.useMemo,
+            useCallback: hookCtx.useCallback,
             useAppState: <T>(selector: (s: unknown) => T): T => {
               const selected = selector(compositeRuntime.appState);
               nextSelections.push({

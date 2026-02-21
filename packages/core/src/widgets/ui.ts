@@ -34,6 +34,7 @@ import type {
   CodeEditorProps,
   ColumnProps,
   CommandPaletteProps,
+  DialogProps,
   DiffViewerProps,
   DividerProps,
   DropdownProps,
@@ -843,6 +844,46 @@ export const ui = {
   actions,
   center,
   page,
+
+  /**
+   * Create a declarative dialog with arbitrary actions.
+   * Sugar over `ui.modal(...)` for common confirmation/message flows.
+   *
+   * @example
+   * ```ts
+   * ui.dialog({
+   *   id: "save",
+   *   title: "Unsaved Changes",
+   *   message: "Save before closing?",
+   *   actions: [
+   *     { label: "Save", intent: "primary", onPress: save },
+   *     { label: "Don't Save", intent: "danger", onPress: discard },
+   *     { label: "Cancel", onPress: cancel },
+   *   ],
+   * })
+   * ```
+   */
+  dialog(props: DialogProps): VNode {
+    const { message, actions, onClose, ...modalProps } = props;
+    return {
+      kind: "modal",
+      props: {
+        ...modalProps,
+        ...(onClose !== undefined ? { onClose } : {}),
+        content: typeof message === "string" ? text(message) : message,
+        actions: actions.map((action, index) => {
+          void action.intent;
+          return button({
+            id: action.id ?? `${modalProps.id}-action-${String(index)}`,
+            label: action.label,
+            onPress: action.onPress,
+            ...(action.disabled === true ? { disabled: true } : {}),
+            ...(action.focusable === false ? { focusable: false } : {}),
+          });
+        }),
+      },
+    };
+  },
 
   /**
    * Create a modal overlay.

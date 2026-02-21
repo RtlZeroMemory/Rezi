@@ -37,6 +37,8 @@ export function createFormHarness<State = void>(): {
         useState: hookCtx.useState,
         useRef: hookCtx.useRef,
         useEffect: hookCtx.useEffect,
+        useMemo: hookCtx.useMemo,
+        useCallback: hookCtx.useCallback,
         useAppState: <U>(_selector: (s: State) => U): U => undefined as U,
         invalidate: () => {
           invalidateCount++;

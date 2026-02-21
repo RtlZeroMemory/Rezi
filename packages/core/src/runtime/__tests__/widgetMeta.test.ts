@@ -55,6 +55,34 @@ test("widgetMeta: collectFocusableIds + collectEnabledMap (Buttons + Inputs) (#8
   assert.equal(enabled.get("i3"), true);
 });
 
+test("widgetMeta: form widgets are focusable by default with focusable:false opt-out", () => {
+  const vnode = ui.column({}, [
+    ui.select({
+      id: "country",
+      value: "us",
+      options: [{ value: "us", label: "United States" }],
+    }),
+    ui.checkbox({ id: "terms", checked: true }),
+    ui.radioGroup({
+      id: "plan",
+      value: "free",
+      options: [
+        { value: "free", label: "Free" },
+        { value: "pro", label: "Pro" },
+      ],
+    }),
+    ui.slider({ id: "volume", value: 42 }),
+    ui.slider({ id: "hidden", value: 0, focusable: false }),
+  ]);
+
+  const committed = commitTree(vnode);
+  const focusable = collectFocusableIds(committed);
+  assert.deepEqual(focusable, ["country", "terms", "plan", "volume"]);
+
+  const enabled = collectEnabledMap(committed);
+  assert.equal(enabled.get("hidden"), true, "focusable opt-out should not disable routing");
+});
+
 test("widgetMeta: SplitPane/PanelGroup are not focusable but their children are (#136)", () => {
   const vnode = ui.column({}, [
     ui.splitPane(

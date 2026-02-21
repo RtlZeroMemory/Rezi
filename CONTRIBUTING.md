@@ -74,3 +74,10 @@ PRs may be rejected if they:
 - Formatting and linting: Biome (`npm run fmt`, `npm run lint`)
 - TypeScript: strict mode (`npm run typecheck`)
 - Tests: `npm test` (keep tests deterministic and fast)
+
+## Interaction guidelines
+
+- Interactive widgets with an `id` should be keyboard reachable via `Tab` unless there is a deliberate opt-out (`focusable: false`).
+- For complex table flows, prefer `useTable(...)` over manually wiring selection/sort state in each widget.
+- For stacked modal flows, prefer `useModalStack(...)` to keep push/pop behavior and focus restoration deterministic.
+- In composite widgets, use `ctx.useMemo(...)` and `ctx.useCallback(...)` when dependency-driven memoization is needed.

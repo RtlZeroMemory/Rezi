@@ -53,6 +53,9 @@ function readInteractiveId(v: RuntimeInstance["vnode"]): string | null {
 }
 
 function isFocusableInteractive(v: RuntimeInstance["vnode"]): boolean {
+  const focusable = (v.props as { focusable?: unknown }).focusable;
+  if (focusable === false) return false;
+
   // Note: Some interactive widgets require an id for routing (e.g. SplitPane dividers),
   // but are explicitly NOT focusable (PLAN.md).
   switch (v.kind) {
@@ -306,7 +309,7 @@ function collectFocusableIdsInSubtree(node: RuntimeInstance): readonly string[] 
       continue;
     }
 
-    const id = isEnabledInteractive(cur.vnode);
+    const id = isFocusableInteractive(cur.vnode) ? isEnabledInteractive(cur.vnode) : null;
     if (id !== null) out.push(id);
 
     for (let i = cur.children.length - 1; i >= 0; i--) {

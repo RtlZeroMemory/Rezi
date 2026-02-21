@@ -94,6 +94,59 @@ describe("focus traversal - computeFocusList", () => {
     assert.deepEqual(focusList, ["i1"]);
   });
 
+  test("includes form widgets and honors focusable opt-out", () => {
+    const tree: VNode = {
+      kind: "column",
+      props: {},
+      children: [
+        {
+          kind: "select",
+          props: {
+            id: "country",
+            value: "us",
+            options: [{ value: "us", label: "United States" }],
+          },
+        },
+        {
+          kind: "checkbox",
+          props: {
+            id: "tos",
+            checked: true,
+          },
+        },
+        {
+          kind: "radioGroup",
+          props: {
+            id: "plan",
+            value: "pro",
+            options: [
+              { value: "free", label: "Free" },
+              { value: "pro", label: "Pro" },
+            ],
+          },
+        },
+        {
+          kind: "slider",
+          props: {
+            id: "volume",
+            value: 50,
+          },
+        },
+        {
+          kind: "slider",
+          props: {
+            id: "hidden-slider",
+            value: 25,
+            focusable: false,
+          },
+        },
+      ],
+    };
+
+    const focusList = computeFocusList(commitTree(tree));
+    assert.deepEqual(focusList, ["country", "tos", "plan", "volume"]);
+  });
+
   test("ignores hidden width=0 non-focusable widgets", () => {
     const tree: VNode = {
       kind: "column",

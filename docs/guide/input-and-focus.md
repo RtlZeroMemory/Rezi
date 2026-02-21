@@ -20,13 +20,24 @@ These must not be conflated:
 
 ## Focus Navigation
 
-Focusable widgets (buttons, inputs, selects) participate in Tab and mouse navigation:
+Focusable widgets (interactive widgets with an `id`) participate in Tab and mouse navigation:
 
 - **Tab** - Move focus forward
 - **Shift+Tab** - Move focus backward
 - **Enter/Space** - Activate focused widget
 - **Arrow keys** - Navigate within widgets (lists, tables)
 - **Mouse click** - Focus and activate the clicked widget
+
+Form widgets are Tab-reachable by default, including `select`, `checkbox`, `radioGroup`, and `slider`.
+For edge cases, opt out explicitly with `focusable: false` while keeping id-based routing:
+
+```typescript
+ui.slider({
+  id: "preview-only",
+  value: state.previewValue,
+  focusable: false,
+})
+```
 
 ### Focus Order
 
