@@ -28,6 +28,7 @@ import {
   type MainToWorkerMessage,
   type WorkerToMainMessage,
 } from "./protocol.js";
+import { buildEngineCreateFailureDetail } from "../backend/engineCreateDiagnostics.js";
 
 /**
  * Perf tracking for worker-side event polling.
@@ -832,6 +833,12 @@ function onMessage(msg: MainToWorkerMessage): void {
   switch (msg.type) {
     case "init": {
       if (engineId !== null) return;
+      const wd: WorkerData =
+        workerData && typeof workerData === "object"
+          ? (workerData as WorkerData)
+          : Object.freeze({});
+      const shim = typeof wd.nativeShimModule === "string" ? wd.nativeShimModule : "";
+      const nativeModuleHint = shim.length > 0 ? shim : "@rezi-ui/native";
       const maxEventBytes = parsePositiveInt(msg.config.maxEventBytes);
       if (maxEventBytes === null) {
         fatal("init", -1, "config.maxEventBytes must be a positive integer");
@@ -841,6 +848,7 @@ function onMessage(msg: MainToWorkerMessage): void {
       frameTransport = parseFrameTransportConfig(msg.config.frameTransport);
 
       let id = 0;
+      let nativeCfg: Readonly<Record<string, unknown>> = Object.freeze({});
       try {
         // Worker protocol includes Node-only keys (maxEventBytes, fpsCap). Strip
         // those before handing config to the native addon so the addon can
@@ -849,8 +857,9 @@ function onMessage(msg: MainToWorkerMessage): void {
           maxEventBytes: _maxEventBytes,
           fpsCap: _fpsCap,
           frameTransport: _frameTransport,
-          ...nativeCfg
+          ...nativeCfgResolved
         } = msg.config;
+        nativeCfg = nativeCfgResolved;
         id = native.engineCreate(nativeCfg);
       } catch (err) {
         fatal("engineCreate", -1, `engine_create threw: ${safeDetail(err)}`);
@@ -858,7 +867,17 @@ function onMessage(msg: MainToWorkerMessage): void {
         return;
       }
       if (!Number.isInteger(id) || id <= 0) {
-        fatal("engineCreate", id, "engine_create failed");
+        fatal(
+          "engineCreate",
+          id,
+          buildEngineCreateFailureDetail(id, nativeCfg, {
+            nativeModuleHint,
+            probeFns: {
+              probe: (probeConfig) => native.engineCreate(probeConfig),
+              destroy: (probeEngineId) => native.engineDestroy(probeEngineId),
+            },
+          }),
+        );
         shutdownNow();
         return;
       }
@@ -891,12 +910,7 @@ function onMessage(msg: MainToWorkerMessage): void {
       //
       // Skip this when a test shim is injected, to keep worker tests fully
       // deterministic (and avoid consuming buffers without ACKs).
-      const wd: WorkerData =
-        workerData && typeof workerData === "object"
-          ? (workerData as WorkerData)
-          : Object.freeze({});
-      const shim = typeof wd.nativeShimModule === "string" ? wd.nativeShimModule : null;
-      if (shim === null || shim.length === 0) {
+      if (shim.length === 0) {
         maybeInjectInitialResize(maxEventBytes);
       }
 
