@@ -61,7 +61,7 @@ function deepMerge(base: unknown, overrides: unknown): unknown {
 
     const overrideValue = overrides[key];
     if (overrideValue === undefined) {
-      merged[key] = base[key];
+      merged[key] = deepMerge(base[key], undefined);
       continue;
     }
 
@@ -82,11 +82,30 @@ function deepMerge(base: unknown, overrides: unknown): unknown {
   return merged;
 }
 
+function deepFreeze<T>(value: T): T {
+  if (typeof value !== "object" || value === null) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      deepFreeze(item);
+    }
+    return Object.freeze(value);
+  }
+
+  const record = value as Record<string, unknown>;
+  for (const key of Object.keys(record)) {
+    deepFreeze(record[key]);
+  }
+  return Object.freeze(record) as T;
+}
+
 export function extendTheme(
   base: ThemeDefinition,
   overrides: ThemeOverrides = {},
 ): ThemeDefinition {
   const merged = deepMerge(base, overrides) as ThemeDefinition;
-  validateTheme(merged);
-  return merged;
+  const validated = validateTheme(merged);
+  return deepFreeze(validated);
 }

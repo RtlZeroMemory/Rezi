@@ -31,13 +31,13 @@ const REQUIRED_COLOR_PATHS = [
   "colors.selected.fg",
   "colors.disabled.fg",
   "colors.disabled.bg",
-  "colors.border.subtle",
-  "colors.border.default",
-  "colors.border.strong",
   "colors.diagnostic.error",
   "colors.diagnostic.warning",
   "colors.diagnostic.info",
   "colors.diagnostic.hint",
+  "colors.border.subtle",
+  "colors.border.default",
+  "colors.border.strong",
 ] as const;
 
 const REQUIRED_SPACING_PATHS = [

@@ -43,15 +43,15 @@ export type ColorPath =
   // Disabled paths
   | "disabled.fg"
   | "disabled.bg"
-  // Border paths
-  | "border.subtle"
-  | "border.default"
-  | "border.strong"
   // Diagnostic paths
   | "diagnostic.error"
   | "diagnostic.warning"
   | "diagnostic.info"
-  | "diagnostic.hint";
+  | "diagnostic.hint"
+  // Border paths
+  | "border.subtle"
+  | "border.default"
+  | "border.strong";
 
 /**
  * Result of color resolution.
@@ -133,17 +133,16 @@ function resolveNestedToken(colors: ColorTokens, group: string, key: string): Rg
       if (key === "fg") return colors.disabled.fg;
       if (key === "bg") return colors.disabled.bg;
       break;
-    case "border":
-      if (key === "subtle") return colors.border.subtle;
-      if (key === "default") return colors.border.default;
-      if (key === "strong") return colors.border.strong;
-      break;
     case "diagnostic":
-      if (!colors.diagnostic) return null;
       if (key === "error") return colors.diagnostic.error;
       if (key === "warning") return colors.diagnostic.warning;
       if (key === "info") return colors.diagnostic.info;
       if (key === "hint") return colors.diagnostic.hint;
+      break;
+    case "border":
+      if (key === "subtle") return colors.border.subtle;
+      if (key === "default") return colors.border.default;
+      if (key === "strong") return colors.border.strong;
       break;
   }
   return null;
@@ -212,13 +211,13 @@ export function isValidColorPath(path: string): path is ColorPath {
     "selected.fg",
     "disabled.fg",
     "disabled.bg",
-    "border.subtle",
-    "border.default",
-    "border.strong",
     "diagnostic.error",
     "diagnostic.warning",
     "diagnostic.info",
     "diagnostic.hint",
+    "border.subtle",
+    "border.default",
+    "border.strong",
   ]);
   return validPaths.has(path);
 }

@@ -24,13 +24,13 @@ const REQUIRED_PATHS = [
   "colors.selected.fg",
   "colors.disabled.fg",
   "colors.disabled.bg",
-  "colors.border.subtle",
-  "colors.border.default",
-  "colors.border.strong",
   "colors.diagnostic.error",
   "colors.diagnostic.warning",
   "colors.diagnostic.info",
   "colors.diagnostic.hint",
+  "colors.border.subtle",
+  "colors.border.default",
+  "colors.border.strong",
   "spacing.xs",
   "spacing.sm",
   "spacing.md",
@@ -161,6 +161,16 @@ describe("theme.validateTheme", () => {
     expectValidationError(
       theme,
       "Theme validation failed: missing required token path(s): focusIndicator.underline",
+    );
+  });
+
+  test("throws when colors.diagnostic.error is missing", () => {
+    const theme = cloneDarkTheme();
+    setPath(theme, ["colors", "diagnostic", "error"], undefined);
+
+    expectValidationError(
+      theme,
+      "Theme validation failed: missing required token path(s): colors.diagnostic.error",
     );
   });
 

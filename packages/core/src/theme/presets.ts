@@ -55,6 +55,12 @@ export const darkTheme: ThemeDefinition = createThemeDefinition("dark", {
     fg: color(62, 75, 89), // #3e4b59
     bg: color(15, 20, 25), // #0f1419
   },
+  diagnostic: {
+    error: color(240, 113, 120), // #f07178
+    warning: color(255, 180, 84), // #ffb454
+    info: color(89, 194, 255), // #59c2ff
+    hint: color(149, 230, 203), // #95e6cb
+  },
   border: {
     subtle: color(26, 31, 38), // #1a1f26
     default: color(62, 75, 89), // #3e4b59
@@ -99,6 +105,12 @@ export const lightTheme: ThemeDefinition = createThemeDefinition("light", {
   disabled: {
     fg: color(149, 157, 165), // #959da5
     bg: color(250, 250, 250), // #fafafa
+  },
+  diagnostic: {
+    error: color(215, 58, 73), // #d73a49
+    warning: color(227, 98, 9), // #e36209
+    info: color(3, 102, 214), // #0366d6
+    hint: color(111, 66, 193), // #6f42c1
   },
   border: {
     subtle: color(234, 236, 239), // #eaecef
@@ -145,6 +157,12 @@ export const dimmedTheme: ThemeDefinition = createThemeDefinition("dimmed", {
     fg: color(84, 96, 108), // #54606c
     bg: color(40, 46, 54), // #282e36
   },
+  diagnostic: {
+    error: color(229, 83, 75), // #e5534b
+    warning: color(204, 139, 67), // #cc8b43
+    info: color(82, 156, 202), // #529cca
+    hint: color(174, 124, 199), // #ae7cc7
+  },
   border: {
     subtle: color(56, 62, 71), // #383e47
     default: color(68, 76, 86), // #444c56
@@ -189,6 +207,12 @@ export const highContrastTheme: ThemeDefinition = createThemeDefinition("high-co
   disabled: {
     fg: color(100, 100, 100), // #646464
     bg: color(20, 20, 20), // #141414
+  },
+  diagnostic: {
+    error: color(255, 80, 80), // #ff5050
+    warning: color(255, 220, 0), // #ffdc00
+    info: color(0, 200, 255), // #00c8ff
+    hint: color(0, 255, 150), // #00ff96
   },
   border: {
     subtle: color(50, 50, 50), // #323232
@@ -235,6 +259,12 @@ export const nordTheme: ThemeDefinition = createThemeDefinition("nord", {
     fg: color(76, 86, 106), // #4c566a (nord3)
     bg: color(53, 59, 73), // #353b49
   },
+  diagnostic: {
+    error: color(191, 97, 106), // #bf616a (nord11)
+    warning: color(235, 203, 139), // #ebcb8b (nord13)
+    info: color(136, 192, 208), // #88c0d0 (nord8)
+    hint: color(129, 161, 193), // #81a1c1 (nord9)
+  },
   border: {
     subtle: color(59, 66, 82), // #3b4252 (nord1)
     default: color(67, 76, 94), // #434c5e (nord2)
@@ -279,6 +309,12 @@ export const draculaTheme: ThemeDefinition = createThemeDefinition("dracula", {
   disabled: {
     fg: color(98, 114, 164), // #6272a4 (comment)
     bg: color(48, 50, 63), // #30323f
+  },
+  diagnostic: {
+    error: color(255, 85, 85), // #ff5555 (red)
+    warning: color(241, 250, 140), // #f1fa8c (yellow)
+    info: color(139, 233, 253), // #8be9fd (cyan)
+    hint: color(189, 147, 249), // #bd93f9 (purple)
   },
   border: {
     subtle: color(55, 57, 72), // #373948

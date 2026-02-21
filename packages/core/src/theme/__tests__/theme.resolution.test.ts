@@ -30,13 +30,13 @@ const ALL_COLOR_PATHS: readonly ColorPath[] = [
   "selected.fg",
   "disabled.fg",
   "disabled.bg",
-  "border.subtle",
-  "border.default",
-  "border.strong",
   "diagnostic.error",
   "diagnostic.warning",
   "diagnostic.info",
   "diagnostic.hint",
+  "border.subtle",
+  "border.default",
+  "border.strong",
 ];
 
 describe("theme resolution", () => {
@@ -63,15 +63,15 @@ describe("theme resolution", () => {
     assert.deepEqual(resolveColorToken(theme, "info"), theme.colors.info);
   });
 
-  test("diagnostic semantic tokens resolve to expected colors", () => {
+  test("diagnostic tokens resolve to expected colors", () => {
     const theme = themePresets.dark;
-    const diagnostic = theme.colors.diagnostic;
-    assert.ok(diagnostic);
-    if (!diagnostic) return;
-    assert.deepEqual(resolveColorToken(theme, "diagnostic.error"), diagnostic.error);
-    assert.deepEqual(resolveColorToken(theme, "diagnostic.warning"), diagnostic.warning);
-    assert.deepEqual(resolveColorToken(theme, "diagnostic.info"), diagnostic.info);
-    assert.deepEqual(resolveColorToken(theme, "diagnostic.hint"), diagnostic.hint);
+    assert.deepEqual(resolveColorToken(theme, "diagnostic.error"), theme.colors.diagnostic.error);
+    assert.deepEqual(
+      resolveColorToken(theme, "diagnostic.warning"),
+      theme.colors.diagnostic.warning,
+    );
+    assert.deepEqual(resolveColorToken(theme, "diagnostic.info"), theme.colors.diagnostic.info);
+    assert.deepEqual(resolveColorToken(theme, "diagnostic.hint"), theme.colors.diagnostic.hint);
   });
 
   test("resolveColorToken returns null for invalid token paths", () => {

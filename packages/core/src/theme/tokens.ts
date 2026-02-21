@@ -100,12 +100,16 @@ export type BorderTokens = Readonly<{
 }>;
 
 /**
- * Diagnostic underline/annotation colors.
+ * Diagnostic color tokens.
  */
 export type DiagnosticTokens = Readonly<{
+  /** Error diagnostics (squiggles, banners) */
   error: Rgb;
+  /** Warning diagnostics */
   warning: Rgb;
+  /** Informational diagnostics */
   info: Rgb;
+  /** Hint diagnostics */
   hint: Rgb;
 }>;
 
@@ -133,11 +137,11 @@ export type ColorTokens = Readonly<{
   selected: SelectedTokens;
   disabled: DisabledTokens;
 
+  // Diagnostics
+  diagnostic: DiagnosticTokens;
+
   // Borders
   border: BorderTokens;
-
-  // Diagnostic tokens
-  diagnostic?: DiagnosticTokens;
 }>;
 
 /**
@@ -215,14 +219,6 @@ export function color(r: number, g: number, b: number): Rgb {
  * Helper to create a complete, frozen color token set.
  */
 export function createColorTokens(tokens: ColorTokens): ColorTokens {
-  const diagnostic: DiagnosticTokens =
-    tokens.diagnostic ??
-    Object.freeze({
-      error: tokens.error,
-      warning: tokens.warning,
-      info: tokens.info,
-      hint: tokens.accent.tertiary,
-    });
   return Object.freeze({
     bg: Object.freeze({ ...tokens.bg }),
     fg: Object.freeze({ ...tokens.fg }),
@@ -234,8 +230,8 @@ export function createColorTokens(tokens: ColorTokens): ColorTokens {
     focus: Object.freeze({ ...tokens.focus }),
     selected: Object.freeze({ ...tokens.selected }),
     disabled: Object.freeze({ ...tokens.disabled }),
+    diagnostic: Object.freeze({ ...tokens.diagnostic }),
     border: Object.freeze({ ...tokens.border }),
-    diagnostic: Object.freeze({ ...diagnostic }),
   });
 }
 
