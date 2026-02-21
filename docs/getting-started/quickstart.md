@@ -20,14 +20,15 @@ cd my-tui-app
 bun start
 ```
 
-Select a template when prompted (`dashboard`, `stress-test`, `cli-tool`, or `minimal`), or pass `--template` to choose directly:
+Select a template when prompted (`dashboard`, `stress-test`, `cli-tool`, `animation-lab`, or `minimal`), or pass `--template` to choose directly:
 
 ```bash
 npm create rezi my-tui-app -- --template dashboard
+npm create rezi my-tui-app -- --template animation-lab
 npm create rezi my-tui-app -- --template minimal
 ```
 
-The templates demonstrate the recommended project structure and patterns. Start with `minimal` to learn the basics, or `dashboard` for a full-featured example.
+The templates demonstrate the recommended project structure and patterns. Start with `minimal` to learn the basics, `dashboard` for operations workflows, or `animation-lab` for declarative motion patterns.
 
 ### Option 2: Manual setup
 

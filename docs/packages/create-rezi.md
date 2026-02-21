@@ -27,6 +27,7 @@ Canonical template names:
 - `dashboard` (alias: `dash`)
 - `stress-test` (aliases: `stress`, `chaos`, `bench`)
 - `cli-tool` (aliases: `cli`, `tool`, `multiscreen`)
+- `animation-lab` (aliases: `animation`, `anim`, `lab`, `motion`)
 - `minimal` (aliases: `mini`, `basic`, `utility`)
 
 Use a specific template:
@@ -34,11 +35,13 @@ Use a specific template:
 ```bash
 npm create rezi my-app -- --template dashboard
 npm create rezi my-app -- --template cli-tool
+npm create rezi my-app -- --template animation-lab
 npm create rezi my-app -- --template minimal
 
 # Bun
 bun create rezi my-app -- --template dashboard
 bun create rezi my-app -- --template cli-tool
+bun create rezi my-app -- --template animation-lab
 bun create rezi my-app -- --template minimal
 ```
 
@@ -54,7 +57,7 @@ For full template descriptions and highlights, use: [Getting Started -> Create R
 
 ## Options
 
-- `--template, -t <name>`: Select a template (`dashboard`, `stress-test`, `cli-tool`, `minimal`, plus aliases).
+- `--template, -t <name>`: Select a template (`dashboard`, `stress-test`, `cli-tool`, `animation-lab`, `minimal`, plus aliases).
 - `--no-install, --skip-install`: Skip dependency installation.
 - `--pm, --package-manager <npm|pnpm|yarn|bun>`: Choose a package manager.
 - `--list-templates, --templates`: Print available templates and highlights.

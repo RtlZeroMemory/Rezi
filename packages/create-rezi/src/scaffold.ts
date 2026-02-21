@@ -2,7 +2,7 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export type TemplateKey = "dashboard" | "stress-test" | "cli-tool" | "minimal";
+export type TemplateKey = "dashboard" | "stress-test" | "cli-tool" | "animation-lab" | "minimal";
 
 export type TemplateDefinition = {
   key: TemplateKey;
@@ -53,6 +53,19 @@ export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
     dir: "cli-tool",
   },
   {
+    key: "animation-lab",
+    label: "Declarative Animation Lab",
+    description:
+      "Responsive animation playground showcasing transition/spring/sequence/stagger hooks",
+    safetyTag: "safe-default",
+    safetyNote: "Visual-first starter with moderate CPU usage and deterministic animation targets.",
+    highlights: [
+      "reactor command deck combining canvas visuals, charts, gauges, and staggered module rails",
+      "keyboard-driven autoplay + vector nudging + burst impulses with resize-aware layout adaptation",
+    ],
+    dir: "animation-lab",
+  },
+  {
     key: "minimal",
     label: "Minimal Utility TUI",
     description: "Single-screen starter for focused tools with essential patterns only",
@@ -78,6 +91,10 @@ TEMPLATE_ALIASES.set("bench", "stress-test");
 TEMPLATE_ALIASES.set("cli", "cli-tool");
 TEMPLATE_ALIASES.set("tool", "cli-tool");
 TEMPLATE_ALIASES.set("multiscreen", "cli-tool");
+TEMPLATE_ALIASES.set("animation", "animation-lab");
+TEMPLATE_ALIASES.set("anim", "animation-lab");
+TEMPLATE_ALIASES.set("lab", "animation-lab");
+TEMPLATE_ALIASES.set("motion", "animation-lab");
 TEMPLATE_ALIASES.set("mini", "minimal");
 TEMPLATE_ALIASES.set("basic", "minimal");
 TEMPLATE_ALIASES.set("utility", "minimal");

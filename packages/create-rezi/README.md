@@ -25,6 +25,8 @@ Currently available templates:
   - Aliases: `stress`, `chaos`, `bench`
 - `cli-tool` - Multi-screen CLI workflow starter with route-based screens
   - Aliases: `cli`, `tool`, `multiscreen`
+- `animation-lab` - Declarative animation playground with responsive reactor visuals
+  - Aliases: `animation`, `anim`, `lab`, `motion`
 - `minimal` - Single-screen utility starter for small tools
   - Aliases: `mini`, `basic`, `utility`
 
@@ -32,6 +34,7 @@ Currently available templates:
 npm create rezi my-app -- --template dashboard
 npm create rezi my-app -- --template stress-test
 npm create rezi my-app -- --template cli-tool
+npm create rezi my-app -- --template animation-lab
 npm create rezi my-app -- --template minimal
 ```
 
@@ -43,7 +46,7 @@ npm create rezi -- --list-templates
 
 ## Options
 
-- `--template, -t <name>`: Select a template (`dashboard`, `stress-test`, `cli-tool`, `minimal`, plus aliases).
+- `--template, -t <name>`: Select a template (`dashboard`, `stress-test`, `cli-tool`, `animation-lab`, `minimal`, plus aliases).
 - `--no-install, --skip-install`: Skip dependency installation.
 - `--pm, --package-manager <npm|pnpm|yarn|bun>`: Choose a package manager.
 - `--list-templates, --templates`: Print available templates and highlights.
