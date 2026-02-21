@@ -210,6 +210,30 @@ function invalid(detail: string): LayoutResult<never> {
 const I32_MIN = -2147483648;
 const I32_MAX = 2147483647;
 
+function normalizeStringToken(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  return value.trim().toLowerCase();
+}
+
+function parseFiniteNumber(value: unknown): number | undefined {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) return undefined;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
+function parseCoercedInt(value: unknown): number | undefined {
+  const n = parseFiniteNumber(value);
+  if (n === undefined) return undefined;
+  return Math.trunc(n);
+}
+
 function requireIntNonNegative(
   kind: string,
   name: string,
@@ -217,10 +241,11 @@ function requireIntNonNegative(
   def: number,
 ): LayoutResult<number> {
   const value = v === undefined ? def : v;
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > I32_MAX) {
+  const parsed = parseCoercedInt(value);
+  if (parsed === undefined || parsed < 0 || parsed > I32_MAX) {
     return invalid(`${kind}.${name} must be an int32 >= 0`);
   }
-  return { ok: true, value: value as number };
+  return { ok: true, value: parsed };
 }
 
 function requireIntSigned(
@@ -230,10 +255,11 @@ function requireIntSigned(
   def: number,
 ): LayoutResult<number> {
   const value = v === undefined ? def : v;
-  if (typeof value !== "number" || !Number.isInteger(value) || value < I32_MIN || value > I32_MAX) {
+  const parsed = parseCoercedInt(value);
+  if (parsed === undefined || parsed < I32_MIN || parsed > I32_MAX) {
     return invalid(`${kind}.${name} must be an int32`);
   }
-  return { ok: true, value: value as number };
+  return { ok: true, value: parsed };
 }
 
 function requireSpacingIntNonNegative(
@@ -244,12 +270,10 @@ function requireSpacingIntNonNegative(
 ): LayoutResult<number> {
   const value = v === undefined ? def : v;
   if (typeof value === "string") {
-    if (!isSpacingKey(value)) {
-      return invalid(
-        `${kind}.${name} must be an int32 >= 0 or a spacing key ("none" | "xs" | "sm" | "md" | "lg" | "xl" | "2xl")`,
-      );
+    const normalized = normalizeStringToken(value);
+    if (typeof normalized === "string" && isSpacingKey(normalized)) {
+      return { ok: true, value: SPACING_SCALE[normalized] };
     }
-    return { ok: true, value: SPACING_SCALE[value] };
   }
   return requireIntNonNegative(kind, name, value, def);
 }
@@ -262,12 +286,10 @@ function requireSpacingIntSigned(
 ): LayoutResult<number> {
   const value = v === undefined ? def : v;
   if (typeof value === "string") {
-    if (!isSpacingKey(value)) {
-      return invalid(
-        `${kind}.${name} must be an int32 or a spacing key ("none" | "xs" | "sm" | "md" | "lg" | "xl" | "2xl")`,
-      );
+    const normalized = normalizeStringToken(value);
+    if (typeof normalized === "string" && isSpacingKey(normalized)) {
+      return { ok: true, value: SPACING_SCALE[normalized] };
     }
-    return { ok: true, value: SPACING_SCALE[value] };
   }
   return requireIntSigned(kind, name, value, def);
 }
@@ -307,10 +329,11 @@ function requireOptionalString(
 }
 
 function requireFiniteNumber(kind: string, name: string, v: unknown): LayoutResult<number> {
-  if (typeof v !== "number" || !Number.isFinite(v)) {
+  const parsed = parseFiniteNumber(v);
+  if (parsed === undefined) {
     return invalid(`${kind}.${name} must be a finite number`);
   }
-  return { ok: true, value: v };
+  return { ok: true, value: parsed };
 }
 
 function requireOptionalFiniteNumber(
@@ -342,8 +365,9 @@ function requireOverflow(
   def: "visible" | "hidden" | "scroll",
 ): LayoutResult<"visible" | "hidden" | "scroll"> {
   const value = v === undefined ? def : v;
-  if (value === "visible" || value === "hidden" || value === "scroll") {
-    return { ok: true, value };
+  const normalized = normalizeStringToken(value);
+  if (normalized === "visible" || normalized === "hidden" || normalized === "scroll") {
+    return { ok: true, value: normalized };
   }
   return invalid(`${kind}.${name} must be one of "visible" | "hidden" | "scroll"`);
 }
@@ -366,16 +390,26 @@ function requireSizeConstraint(
   v: unknown,
 ): LayoutResult<SizeConstraint | undefined> {
   if (v === undefined) return { ok: true, value: undefined };
-  if (v === "auto") return { ok: true, value: "auto" };
-  if (typeof v === "number") {
-    if (!Number.isInteger(v) || v < 0 || v > I32_MAX)
-      return invalid(`${kind}.${name} must be an int32 >= 0`);
-    return { ok: true, value: v };
-  }
   if (typeof v === "string") {
-    const pct = parsePercent(kind, name, v);
-    if (!pct.ok) return pct;
-    return { ok: true, value: pct.value };
+    const normalized = normalizeStringToken(v);
+    if (normalized === "auto") return { ok: true, value: "auto" };
+    if (typeof normalized === "string" && normalized.endsWith("%")) {
+      const pct = parsePercent(kind, name, normalized);
+      if (!pct.ok) return pct;
+      return { ok: true, value: pct.value };
+    }
+    const parsed = parseCoercedInt(normalized);
+    if (parsed === undefined || parsed < 0 || parsed > I32_MAX) {
+      return invalid(`${kind}.${name} must be a number | "<n>%" | "auto"`);
+    }
+    return { ok: true, value: parsed };
+  }
+  if (typeof v === "number") {
+    const parsed = parseCoercedInt(v);
+    if (parsed === undefined || parsed < 0 || parsed > I32_MAX) {
+      return invalid(`${kind}.${name} must be an int32 >= 0`);
+    }
+    return { ok: true, value: parsed };
   }
   return invalid(`${kind}.${name} must be a number | "<n>%" | "auto"`);
 }
@@ -498,7 +532,7 @@ export function validateStackProps(
   if (!gapRes.ok) return gapRes;
 
   const alignRaw = p.items ?? p.align;
-  const alignValue = alignRaw === undefined ? "start" : alignRaw;
+  const alignValue = alignRaw === undefined ? "start" : normalizeStringToken(alignRaw);
   if (
     alignValue !== "start" &&
     alignValue !== "center" &&
@@ -508,7 +542,7 @@ export function validateStackProps(
     return invalid(`${kind}.align must be one of "start" | "center" | "end" | "stretch"`);
   }
 
-  const justifyValue = p.justify === undefined ? "start" : p.justify;
+  const justifyValue = p.justify === undefined ? "start" : normalizeStringToken(p.justify);
   if (
     justifyValue !== "start" &&
     justifyValue !== "end" &&
@@ -557,7 +591,7 @@ export function validateBoxProps(props: BoxProps | unknown): LayoutResult<Valida
   const padRes = requireSpacingIntNonNegative("box", "pad", p.pad, 0);
   if (!padRes.ok) return padRes;
 
-  const borderValue = p.border === undefined ? "single" : p.border;
+  const borderValue = p.border === undefined ? "single" : normalizeStringToken(p.border);
   if (
     borderValue !== "none" &&
     borderValue !== "single" &&
@@ -832,7 +866,7 @@ export function validateRadioGroupProps(
   if (!valueRes.ok) return valueRes;
   const optionsRes = validateInteractiveOptions("radioGroup", p.options, true);
   if (!optionsRes.ok) return optionsRes;
-  const directionValue = p.direction === undefined ? "vertical" : p.direction;
+  const directionValue = p.direction === undefined ? "vertical" : normalizeStringToken(p.direction);
   if (directionValue !== "horizontal" && directionValue !== "vertical") {
     return invalid('radioGroup.direction must be one of "horizontal" | "vertical"');
   }

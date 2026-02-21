@@ -79,4 +79,53 @@ describe("spacing", () => {
     assert.equal(res.fatal.code, "ZRUI_INVALID_PROPS");
     assert.equal(res.fatal.detail, "row.gap must be an int32 >= 0");
   });
+
+  test("validate spacing accepts numeric strings and truncates finite numbers", () => {
+    const res = validateBoxProps({ p: "2.9", m: "-3.4", pad: 1.8 });
+    assert.equal(res.ok, true);
+    if (!res.ok) throw new Error("expected ok");
+    assert.equal(res.value.p, 2);
+    assert.equal(res.value.m, -3);
+    assert.equal(res.value.pad, 1);
+  });
+
+  test("stack enum values are normalized for casing/whitespace", () => {
+    const res = validateStackProps("row", {
+      align: " Center ",
+      justify: " BETWEEN ",
+      overflow: " Scroll ",
+    });
+    assert.equal(res.ok, true);
+    if (!res.ok) throw new Error("expected ok");
+    assert.equal(res.value.align, "center");
+    assert.equal(res.value.justify, "between");
+    assert.equal(res.value.overflow, "scroll");
+  });
+
+  test("box border enum is normalized for casing/whitespace", () => {
+    const res = validateBoxProps({ border: " Heavy-Dashed " });
+    assert.equal(res.ok, true);
+    if (!res.ok) throw new Error("expected ok");
+    assert.equal(res.value.border, "heavy-dashed");
+  });
+
+  test("layout size constraints normalize string numbers, percentages, and auto", () => {
+    const numeric = validateBoxProps({
+      width: " 12.8 ",
+      minWidth: "2.9",
+      maxWidth: "20",
+      height: "50%",
+    });
+    assert.equal(numeric.ok, true);
+    if (!numeric.ok) throw new Error("expected ok");
+    assert.equal(numeric.value.width, 12);
+    assert.equal(numeric.value.minWidth, 2);
+    assert.equal(numeric.value.maxWidth, 20);
+    assert.equal(numeric.value.height, "50%");
+
+    const auto = validateBoxProps({ width: " AUTO " });
+    assert.equal(auto.ok, true);
+    if (!auto.ok) throw new Error("expected ok");
+    assert.equal(auto.value.width, "auto");
+  });
 });

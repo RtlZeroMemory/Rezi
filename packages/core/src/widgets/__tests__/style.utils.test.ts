@@ -1,6 +1,6 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type { TextStyle } from "../style.js";
-import { mergeStyles, styleWhen, styles } from "../styleUtils.js";
+import { mergeStyles, sanitizeRgb, sanitizeTextStyle, styleWhen, styles } from "../styleUtils.js";
 
 describe("style utils contracts", () => {
   test("mergeStyles performs a deterministic 3-way left-to-right merge", () => {
@@ -71,5 +71,39 @@ describe("style utils contracts", () => {
 
     assert.deepEqual(first, { inverse: false, blink: true });
     assert.deepEqual(second, { inverse: false, blink: true });
+  });
+
+  test("sanitizeRgb clamps channels and accepts numeric strings", () => {
+    const out = sanitizeRgb({ r: "260", g: -2, b: "127.6" });
+    assert.deepEqual(out, { r: 255, g: 0, b: 128 });
+  });
+
+  test("sanitizeTextStyle drops invalid fields and coerces booleans", () => {
+    const out = sanitizeTextStyle({
+      fg: { r: 1.4, g: "2", b: 3.6 },
+      bg: { r: "bad", g: 10, b: 20 },
+      bold: "TRUE",
+      italic: "false",
+      underline: 1,
+      extra: "ignored",
+    });
+
+    assert.deepEqual(out, {
+      fg: { r: 1, g: 2, b: 4 },
+      bold: true,
+      italic: false,
+    });
+  });
+
+  test("mergeStyles sanitizes incoming style values", () => {
+    const merged = mergeStyles(
+      { fg: { r: 0, g: 0, b: 0 }, bold: true },
+      { fg: { r: 512, g: "-10", b: "3.2" }, bold: "false" } as unknown as TextStyle,
+    );
+
+    assert.deepEqual(merged, {
+      fg: { r: 255, g: 0, b: 3 },
+      bold: false,
+    });
   });
 });

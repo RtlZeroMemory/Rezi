@@ -462,7 +462,14 @@ export {
 export { each, type EachOptions } from "./widgets/collections.js";
 export { match, maybe, show, when } from "./widgets/conditionals.js";
 export { styled } from "./widgets/styled.js";
-export { extendStyle, mergeStyles, styleWhen, styles } from "./widgets/styleUtils.js";
+export {
+  extendStyle,
+  mergeStyles,
+  sanitizeRgb,
+  sanitizeTextStyle,
+  styleWhen,
+  styles,
+} from "./widgets/styleUtils.js";
 export {
   alertDialog,
   confirmDialog,

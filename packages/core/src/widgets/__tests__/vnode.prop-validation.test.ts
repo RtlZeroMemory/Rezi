@@ -268,6 +268,23 @@ describe("vnode interactive prop validation - slider", () => {
     );
   });
 
+  test("slider finite numeric strings are accepted and normalized", () => {
+    const res = validateSliderProps({
+      id: "volume",
+      value: "10.9" as unknown as number,
+      min: "0" as unknown as number,
+      max: "20.4" as unknown as number,
+      step: "0.5" as unknown as number,
+      width: "15.8" as unknown as number,
+    });
+    assert.equal(res.ok, true);
+    if (!res.ok) return;
+    assert.equal(res.value.value, 10.9);
+    assert.equal(res.value.max, 20.4);
+    assert.equal(res.value.step, 0.5);
+    assert.equal(res.value.width, 15);
+  });
+
   test("slider showValue must be boolean", () => {
     expectMeasureFatal(
       { kind: "slider", props: { id: "s", value: 1, showValue: "yes" } } as unknown as VNode,
@@ -376,6 +393,18 @@ describe("vnode interactive prop validation - checkbox/radioGroup", () => {
       } as unknown as VNode,
       'radioGroup.direction must be one of "horizontal" | "vertical"',
     );
+  });
+
+  test("radioGroup direction accepts casing and whitespace variants", () => {
+    const res = validateRadioGroupProps({
+      id: "plan",
+      value: "free",
+      options: [{ value: "free", label: "Free" }],
+      direction: " Horizontal ",
+    });
+    assert.equal(res.ok, true);
+    if (!res.ok) return;
+    assert.equal(res.value.direction, "horizontal");
   });
 
   test("radioGroup option label must be string", () => {
