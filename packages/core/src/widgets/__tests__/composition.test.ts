@@ -541,11 +541,18 @@ describe("Composition API - createWidgetContext", () => {
     const hookCtx = createHookContext(instance, () => {});
     const appState = { user: { name: "Test" } };
 
-    const ctx = createWidgetContext("Counter", 0, hookCtx, appState, {
-      width: 80,
-      height: 24,
-      breakpoint: "md",
-    }, () => {});
+    const ctx = createWidgetContext(
+      "Counter",
+      0,
+      hookCtx,
+      appState,
+      {
+        width: 80,
+        height: 24,
+        breakpoint: "md",
+      },
+      () => {},
+    );
 
     assert.equal(typeof ctx.id, "function");
     assert.equal(typeof ctx.useState, "function");
@@ -563,11 +570,18 @@ describe("Composition API - createWidgetContext", () => {
     const instance = registry.get(1);
     assert.ok(instance !== undefined);
     const hookCtx = createHookContext(instance, () => {});
-    const ctx = createWidgetContext("Counter", 5, hookCtx, {}, {
-      width: 80,
-      height: 24,
-      breakpoint: "md",
-    }, () => {});
+    const ctx = createWidgetContext(
+      "Counter",
+      5,
+      hookCtx,
+      {},
+      {
+        width: 80,
+        height: 24,
+        breakpoint: "md",
+      },
+      () => {},
+    );
 
     assert.equal(ctx.id("button"), "Counter_5_button");
     assert.equal(ctx.id("input"), "Counter_5_input");
@@ -583,11 +597,18 @@ describe("Composition API - createWidgetContext", () => {
     const hookCtx = createHookContext(instance, () => {});
     const appState = { count: 42, name: "Test" };
 
-    const ctx = createWidgetContext("Counter", 0, hookCtx, appState, {
-      width: 80,
-      height: 24,
-      breakpoint: "md",
-    }, () => {});
+    const ctx = createWidgetContext(
+      "Counter",
+      0,
+      hookCtx,
+      appState,
+      {
+        width: 80,
+        height: 24,
+        breakpoint: "md",
+      },
+      () => {},
+    );
 
     const count = ctx.useAppState((s) => s.count);
     const name = ctx.useAppState((s) => s.name);
@@ -606,13 +627,20 @@ describe("Composition API - createWidgetContext", () => {
     const hookCtx = createHookContext(instance, () => {});
 
     let invalidateCalled = false;
-    const ctx = createWidgetContext("Counter", 0, hookCtx, {}, {
-      width: 80,
-      height: 24,
-      breakpoint: "md",
-    }, () => {
-      invalidateCalled = true;
-    });
+    const ctx = createWidgetContext(
+      "Counter",
+      0,
+      hookCtx,
+      {},
+      {
+        width: 80,
+        height: 24,
+        breakpoint: "md",
+      },
+      () => {
+        invalidateCalled = true;
+      },
+    );
 
     ctx.invalidate();
 

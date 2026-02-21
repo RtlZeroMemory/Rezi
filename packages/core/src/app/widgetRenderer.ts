@@ -57,10 +57,10 @@ import { hitTestFocusable } from "../layout/hitTest.js";
 import { type LayoutTree, layout } from "../layout/layout.js";
 import { calculateAnchorPosition } from "../layout/positioning.js";
 import {
+  type ResponsiveBreakpointThresholds,
   getResponsiveViewport,
   normalizeBreakpointThresholds,
   setResponsiveViewport,
-  type ResponsiveBreakpointThresholds,
 } from "../layout/responsive.js";
 import { measureTextCells } from "../layout/textMeasure.js";
 import type { Rect } from "../layout/types.js";
@@ -556,6 +556,7 @@ export class WidgetRenderer<S> {
   // Tracks whether the currently committed tree needs routing rebuild traversals.
   private hadRoutingWidgets = false;
   private hasAnimatedWidgetsInCommittedTree = false;
+  private hasViewportAwareCompositesInCommittedTree = false;
 
   /* --- Render Caches (avoid per-frame recompute) --- */
   private readonly tableRenderCacheById = new Map<string, TableRenderCache>();
@@ -713,6 +714,17 @@ export class WidgetRenderer<S> {
 
   hasAnimatedWidgets(): boolean {
     return this.hasAnimatedWidgetsInCommittedTree;
+  }
+
+  hasViewportAwareComposites(): boolean {
+    return this.hasViewportAwareCompositesInCommittedTree;
+  }
+
+  invalidateCompositeWidgets(): void {
+    const ids = this.compositeRegistry.getAllIds();
+    for (const id of ids) {
+      this.compositeRegistry.invalidate(id);
+    }
   }
 
   private describeLayoutNode(node: LayoutTree): string {
@@ -3163,6 +3175,7 @@ export class WidgetRenderer<S> {
       let identityDamageFromCommit: IdentityDiffDamageResult | null = null;
 
       if (doCommit) {
+        let commitReadViewport = false;
         const viewToken = PERF_DETAIL_ENABLED ? perfMarkStart("view") : 0;
         const vnode = viewFn(snapshot);
         if (PERF_DETAIL_ENABLED) perfMarkEnd("view", viewToken);
@@ -3176,6 +3189,9 @@ export class WidgetRenderer<S> {
             appState: snapshot,
             viewport: getResponsiveViewport(),
             onInvalidate: () => this.requestView(),
+            onUseViewport: () => {
+              commitReadViewport = true;
+            },
           },
         });
         if (PERF_DETAIL_ENABLED) perfMarkEnd("vnode_commit", commitToken);
@@ -3183,6 +3199,9 @@ export class WidgetRenderer<S> {
           return { ok: false, code: commitRes0.fatal.code, detail: commitRes0.fatal.detail };
         }
         commitRes = commitRes0.value;
+        if (commitReadViewport) {
+          this.hasViewportAwareCompositesInCommittedTree = true;
+        }
         this.committedRoot = commitRes.root;
         this.recomputeAnimatedWidgetPresence(this.committedRoot);
 

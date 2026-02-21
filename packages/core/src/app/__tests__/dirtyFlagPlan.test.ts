@@ -1,5 +1,5 @@
 import { assert, test } from "@rezi-ui/testkit";
-import { ui } from "../../index.js";
+import { defineWidget, ui } from "../../index.js";
 import { createApp } from "../createApp.js";
 import { encodeZrevBatchV1, flushMicrotasks, makeBackendBatch } from "./helpers.js";
 import { StubBackend } from "./stubBackend.js";
@@ -106,6 +106,59 @@ test("resize (DIRTY_LAYOUT) re-layouts without calling view", async () => {
   assert.equal(ctx.backend.requestedFrames.length, 2, "layout frame submitted");
   // View NOT called: widget tree structure unchanged, only viewport changed.
   assert.equal(ctx.getViewCalls(), 1, "view NOT re-invoked for layout-only dirty");
+});
+
+test("debugLayout toggle marks view dirty and re-runs commit path", async () => {
+  const ctx = setup();
+  await bootstrap(ctx);
+
+  ctx.app.debugLayout(true);
+  await flushMicrotasks(10);
+
+  assert.equal(ctx.backend.requestedFrames.length, 2, "debug toggle submitted a frame");
+  assert.equal(ctx.getViewCalls(), 2, "debug toggle re-invoked view immediately");
+});
+
+test("resize re-invokes view when composite widgets read viewport", async () => {
+  const backend = new StubBackend();
+  let viewCalls = 0;
+  const app = createApp({ backend, initialState: {} });
+
+  const ViewportAware = defineWidget<{ key?: string }>((_props, ctx) => {
+    const vp = ctx.useViewport?.();
+    return ui.text(`vp:${String(vp?.width ?? 0)}x${String(vp?.height ?? 0)}`);
+  });
+
+  app.view(() => {
+    viewCalls++;
+    return ui.column({}, [ViewportAware({ key: "vp" })]);
+  });
+
+  await app.start();
+  backend.pushBatch(
+    makeBackendBatch({
+      bytes: encodeZrevBatchV1({
+        events: [{ kind: "resize", timeMs: 1, cols: 40, rows: 10 }],
+      }),
+    }),
+  );
+  await flushMicrotasks(10);
+  assert.equal(backend.requestedFrames.length, 1);
+  assert.equal(viewCalls, 1);
+  backend.resolveNextFrame();
+  await flushMicrotasks(5);
+
+  backend.pushBatch(
+    makeBackendBatch({
+      bytes: encodeZrevBatchV1({
+        events: [{ kind: "resize", timeMs: 2, cols: 80, rows: 20 }],
+      }),
+    }),
+  );
+  await flushMicrotasks(10);
+
+  assert.equal(backend.requestedFrames.length, 2, "second resize submitted a commit frame");
+  assert.equal(viewCalls, 2, "viewport-aware composite forced view re-run on resize");
 });
 
 test("first frame always runs full pipeline regardless of dirty flags", async () => {

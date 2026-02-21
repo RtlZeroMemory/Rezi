@@ -590,22 +590,6 @@ export function validateStackProps(
     flex?: number;
     aspectRatio?: number;
   } = { ...lcRes.value };
-  const widthIsFull = normalizedConstraints.width === "full";
-  const heightIsFull = normalizedConstraints.height === "full";
-  if (kind === "row" && widthIsFull) {
-    delete normalizedConstraints.width;
-    if (normalizedConstraints.flex === undefined) normalizedConstraints.flex = 1;
-  }
-  if (kind === "column" && heightIsFull) {
-    delete normalizedConstraints.height;
-    if (normalizedConstraints.flex === undefined) normalizedConstraints.flex = 1;
-  }
-  if (kind === "row" && heightIsFull) {
-    normalizedConstraints.height = "100%";
-  }
-  if (kind === "column" && widthIsFull) {
-    normalizedConstraints.width = "100%";
-  }
   const overflowRes = requireOverflow(kind, "overflow", p.overflow, "visible");
   if (!overflowRes.ok) return overflowRes;
   const scrollXRes = requireIntNonNegative(kind, "scrollX", p.scrollX, 0);

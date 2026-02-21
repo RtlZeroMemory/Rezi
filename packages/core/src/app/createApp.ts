@@ -58,8 +58,8 @@ import {
   setMode,
 } from "../keybindings/index.js";
 import {
-  normalizeBreakpointThresholds,
   type ResponsiveBreakpointThresholds,
+  normalizeBreakpointThresholds,
 } from "../layout/responsive.js";
 import type { Rect } from "../layout/types.js";
 import { PERF_ENABLED, perfMarkEnd, perfMarkStart, perfNow, perfRecord } from "../perf/perf.js";
@@ -890,7 +890,12 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
           const prev = viewport;
           if (prev === null || prev.cols !== ev.cols || prev.rows !== ev.rows) {
             viewport = Object.freeze({ cols: ev.cols, rows: ev.rows });
-            markDirty(DIRTY_LAYOUT);
+            if (widgetRenderer.hasViewportAwareComposites()) {
+              widgetRenderer.invalidateCompositeWidgets();
+              markDirty(DIRTY_LAYOUT | DIRTY_VIEW);
+            } else {
+              markDirty(DIRTY_LAYOUT);
+            }
           }
         }
         if (ev.kind === "tick" && mode === "widget") {
@@ -1423,7 +1428,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       const next = enabled === undefined ? !debugLayoutEnabled : enabled === true;
       if (next === debugLayoutEnabled) return debugLayoutEnabled;
       debugLayoutEnabled = next;
-      requestRenderFromRenderer();
+      requestViewFromRenderer();
       return debugLayoutEnabled;
     },
 

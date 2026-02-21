@@ -14,8 +14,8 @@
  * @see docs/guide/composition.md (GitHub issue #116)
  */
 
-import type { VNode } from "./types.js";
 import type { ResponsiveViewportSnapshot } from "../layout/responsive.js";
+import type { VNode } from "./types.js";
 
 /* ========== Widget Context Type ========== */
 

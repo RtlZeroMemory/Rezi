@@ -15,7 +15,7 @@
  *
  * @see docs/guide/layout.md
  */
-import { resolveResponsiveValue, type ResponsiveValue } from "./responsive.js";
+import { type ResponsiveValue, resolveResponsiveValue } from "./responsive.js";
 
 /**
  * Named spacing scale keys.

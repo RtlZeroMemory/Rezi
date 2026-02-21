@@ -16,13 +16,13 @@
  * @see docs/guide/runtime-and-layout.md
  */
 
+import type { ResponsiveViewportSnapshot } from "../layout/responsive.js";
 import {
   type CompositeWidgetMeta,
   type WidgetContext,
   getCompositeMeta,
   scopedId,
 } from "../widgets/composition.js";
-import type { ResponsiveViewportSnapshot } from "../layout/responsive.js";
 import type { VNode } from "../widgets/types.js";
 import type { InstanceId, InstanceIdAllocator } from "./instance.js";
 import {
@@ -598,6 +598,7 @@ type CommitCtx = Readonly<{
     appState: unknown;
     viewport: ResponsiveViewportSnapshot;
     onInvalidate: (instanceId: InstanceId) => void;
+    onUseViewport?: () => void;
   }> | null;
   pendingEffects: EffectState[];
 }>;
@@ -722,7 +723,10 @@ function commitNode(
             });
             return selected;
           },
-          useViewport: () => compositeRuntime.viewport,
+          useViewport: () => {
+            compositeRuntime.onUseViewport?.();
+            return compositeRuntime.viewport;
+          },
           invalidate: invalidateInstance,
         });
 
@@ -1023,6 +1027,7 @@ export function commitVNodeTree(
       appState: unknown;
       viewport: ResponsiveViewportSnapshot;
       onInvalidate: (instanceId: InstanceId) => void;
+      onUseViewport?: () => void;
     }>;
   }>,
 ): CommitResult {
