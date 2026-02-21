@@ -291,6 +291,7 @@ function boxPropsEqual(a: unknown, b: unknown): boolean {
     borderLeft?: unknown;
     shadow?: unknown;
     style?: unknown;
+    inheritStyle?: unknown;
   };
   const bo = (b ?? {}) as typeof ao;
   return (
@@ -307,6 +308,10 @@ function boxPropsEqual(a: unknown, b: unknown): boolean {
       ao.style as Parameters<typeof textStyleEqual>[0],
       bo.style as Parameters<typeof textStyleEqual>[0],
     ) &&
+    textStyleEqual(
+      ao.inheritStyle as Parameters<typeof textStyleEqual>[0],
+      bo.inheritStyle as Parameters<typeof textStyleEqual>[0],
+    ) &&
     spacingPropsEqual(ao, bo) &&
     layoutConstraintsEqual(ao, bo)
   );
@@ -321,6 +326,7 @@ function stackPropsEqual(a: unknown, b: unknown): boolean {
     justify?: unknown;
     items?: unknown;
     style?: unknown;
+    inheritStyle?: unknown;
   };
   const bo = (b ?? {}) as typeof ao;
   return (
@@ -332,6 +338,10 @@ function stackPropsEqual(a: unknown, b: unknown): boolean {
     textStyleEqual(
       ao.style as Parameters<typeof textStyleEqual>[0],
       bo.style as Parameters<typeof textStyleEqual>[0],
+    ) &&
+    textStyleEqual(
+      ao.inheritStyle as Parameters<typeof textStyleEqual>[0],
+      bo.inheritStyle as Parameters<typeof textStyleEqual>[0],
     ) &&
     spacingPropsEqual(ao, bo) &&
     layoutConstraintsEqual(ao, bo)

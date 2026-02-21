@@ -69,3 +69,20 @@ test("commit: container fast reuse does not ignore parent prop changes", () => {
   // Child leaf is unchanged, so it should still be eligible for leaf fast reuse.
   assert.equal(c1.value.root.children[0], c0.value.root.children[0]);
 });
+
+test("commit: container fast reuse does not ignore inheritStyle changes", () => {
+  const allocator = createInstanceIdAllocator(1);
+
+  const v0 = ui.column({ inheritStyle: { fg: { r: 136, g: 136, b: 136 } } }, [ui.text("x")]);
+  const c0 = commitVNodeTree(null, v0, { allocator });
+  if (!c0.ok) assert.fail(`commit failed: ${c0.fatal.code}: ${c0.fatal.detail}`);
+
+  const v1 = ui.column({ inheritStyle: { fg: { r: 0, g: 255, b: 0 } } }, [ui.text("x")]);
+  const c1 = commitVNodeTree(c0.value.root, v1, { allocator });
+  if (!c1.ok) assert.fail(`commit failed: ${c1.fatal.code}: ${c1.fatal.detail}`);
+
+  assert.notEqual(c1.value.root, c0.value.root);
+  const nextProps = c1.value.root.vnode.props as { inheritStyle?: { fg?: unknown } };
+  assert.deepEqual(nextProps.inheritStyle?.fg, { r: 0, g: 255, b: 0 });
+  assert.equal(c1.value.root.children[0], c0.value.root.children[0]);
+});
