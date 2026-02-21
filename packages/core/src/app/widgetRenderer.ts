@@ -4351,9 +4351,14 @@ export class WidgetRenderer<S> {
       }
 
       if (doCommit) {
-        // Reset per-commit working values to the committed props.value, and normalize cursor (docs/18).
+        // Reset per-commit working values to committed props.value, and normalize cursor (docs/18).
+        // If the controlled value diverged from local working state, clear undo/redo to avoid stale history.
         for (const meta of this.inputById.values()) {
           const instanceId = meta.instanceId;
+          const prevWorkingValue = this.inputWorkingValueByInstanceId.get(instanceId);
+          if (prevWorkingValue !== undefined && prevWorkingValue !== meta.value) {
+            this.inputUndoByInstanceId.get(instanceId)?.clear();
+          }
           this.inputWorkingValueByInstanceId.set(instanceId, meta.value);
           const prev = this.inputCursorByInstanceId.get(instanceId);
           const init = prev === undefined ? meta.value.length : prev;

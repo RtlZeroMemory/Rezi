@@ -270,6 +270,57 @@ describe("WidgetRenderer integration battery", () => {
     assert.deepEqual(values, ["a", "ab", "abc", "", "abc"]);
   });
 
+  test("input undo/redo clears stale history after external controlled value change", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    let value = "";
+    const values: string[] = [];
+    const view = () =>
+      ui.input({
+        id: "inp",
+        value,
+        onInput: (nextValue) => {
+          value = nextValue;
+          values.push(nextValue);
+        },
+      });
+
+    let res = renderer.submitFrame(
+      () => view(),
+      undefined,
+      { cols: 40, rows: 5 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    renderer.routeEngineEvent(textEvent(97, 100));
+    renderer.routeEngineEvent(textEvent(98, 200));
+    renderer.routeEngineEvent(textEvent(99, 300));
+    assert.equal(value, "abc");
+
+    value = "server-loaded";
+    res = renderer.submitFrame(
+      () => view(),
+      undefined,
+      { cols: 40, rows: 5 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    const valuesBeforeUndo = values.length;
+    const undo = renderer.routeEngineEvent(keyEvent(90 /* Z */, 1 << 1, 900));
+    assert.equal(undo.action, undefined);
+    assert.equal(value, "server-loaded");
+    assert.equal(values.length, valuesBeforeUndo);
+  });
+
   test("codeEditor copy/cut emits OSC52 and cut edits selection", () => {
     const writes: string[] = [];
     const backend = createNoopBackendWithRawWrite((text) => writes.push(text));
