@@ -475,14 +475,38 @@ export type CalloutProps = Readonly<{
 
 export type GraphicsBlitter = "auto" | "braille" | "sextant" | "quadrant" | "halfblock" | "ascii";
 
+export type CanvasPoint = Readonly<{
+  x: number;
+  y: number;
+}>;
+
 export type CanvasContext = Readonly<{
   readonly width: number;
   readonly height: number;
   line: (x0: number, y0: number, x1: number, y1: number, color: string) => void;
+  polyline: (points: readonly CanvasPoint[], color: string) => void;
   fillRect: (x: number, y: number, w: number, h: number, color: string) => void;
   strokeRect: (x: number, y: number, w: number, h: number, color: string) => void;
+  roundedRect: (x: number, y: number, w: number, h: number, radius: number, color: string) => void;
   circle: (cx: number, cy: number, radius: number, color: string) => void;
+  arc: (
+    cx: number,
+    cy: number,
+    radius: number,
+    startAngle: number,
+    endAngle: number,
+    color: string,
+  ) => void;
   fillCircle: (cx: number, cy: number, radius: number, color: string) => void;
+  fillTriangle: (
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    color: string,
+  ) => void;
   setPixel: (x: number, y: number, color: string) => void;
   text: (x: number, y: number, str: string, color?: string) => void;
   clear: (color?: string) => void;

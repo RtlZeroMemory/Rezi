@@ -497,37 +497,75 @@ function readImageProtocol(
   }
 }
 
+type ImageRenderRoute = Readonly<
+  | { ok: true; mode: "drawImage"; protocol: "auto" | "kitty" | "sixel" | "iterm2" }
+  | { ok: true; mode: "drawCanvas" }
+  | { ok: false; reason: string }
+>;
+
 function resolveProtocolForImageSource(
   requested: "auto" | "kitty" | "sixel" | "iterm2" | "blitter",
   format: ImageBinaryFormat,
   terminalProfile: TerminalProfile | undefined,
-): Readonly<
-  | { ok: true; protocol: "auto" | "kitty" | "sixel" | "iterm2" | "blitter" }
-  | { ok: false; reason: string }
-> {
-  if (format !== "png") return Object.freeze({ ok: true, protocol: requested });
+  canDrawCanvas: boolean,
+): ImageRenderRoute {
+  if (requested === "blitter") {
+    if (!canDrawCanvas) {
+      return Object.freeze({ ok: false, reason: "blitter protocol requires drawlist v4" });
+    }
+    if (format !== "rgba") {
+      return Object.freeze({ ok: false, reason: "blitter protocol requires RGBA source" });
+    }
+    return Object.freeze({ ok: true, mode: "drawCanvas" });
+  }
+
   if (requested === "kitty" || requested === "sixel") {
+    if (format !== "png")
+      return Object.freeze({ ok: true, mode: "drawImage", protocol: requested });
     return Object.freeze({
       ok: false,
       reason: "PNG source requires RGBA when using kitty/sixel",
     });
   }
-  if (requested === "auto") {
-    const supportsKitty = terminalProfile?.supportsKittyGraphics === true;
-    const supportsSixel = terminalProfile?.supportsSixel === true;
-    const supportsIterm2 = terminalProfile?.supportsIterm2Images === true;
-    if (supportsIterm2 && (supportsKitty || supportsSixel)) {
-      return Object.freeze({ ok: true, protocol: "iterm2" });
+
+  if (requested === "iterm2") {
+    return Object.freeze({ ok: true, mode: "drawImage", protocol: "iterm2" });
+  }
+
+  if (requested !== "auto") {
+    return Object.freeze({ ok: false, reason: "unsupported image protocol" });
+  }
+
+  if (!terminalProfile) {
+    if (format === "png") {
+      return Object.freeze({
+        ok: false,
+        reason: "PNG source requires iTerm2 image support (or switch to RGBA)",
+      });
     }
-    if (supportsIterm2) {
-      return Object.freeze({ ok: true, protocol: "auto" });
-    }
+    return Object.freeze({ ok: true, mode: "drawImage", protocol: "auto" });
+  }
+
+  const supportsKitty = terminalProfile.supportsKittyGraphics === true;
+  const supportsIterm2 = terminalProfile.supportsIterm2Images === true;
+  const supportsSixel = terminalProfile.supportsSixel === true;
+
+  if (format === "rgba") {
+    if (supportsKitty) return Object.freeze({ ok: true, mode: "drawImage", protocol: "kitty" });
+    if (supportsIterm2) return Object.freeze({ ok: true, mode: "drawImage", protocol: "iterm2" });
+    if (supportsSixel) return Object.freeze({ ok: true, mode: "drawImage", protocol: "sixel" });
+    if (canDrawCanvas) return Object.freeze({ ok: true, mode: "drawCanvas" });
     return Object.freeze({
       ok: false,
-      reason: "PNG source requires iTerm2 image support (or switch to RGBA)",
+      reason: "no supported image protocol and blitter fallback unavailable",
     });
   }
-  return Object.freeze({ ok: true, protocol: requested });
+
+  if (supportsIterm2) return Object.freeze({ ok: true, mode: "drawImage", protocol: "iterm2" });
+  return Object.freeze({
+    ok: false,
+    reason: "PNG source requires iTerm2 image support (or switch to RGBA)",
+  });
 }
 
 function readZLayer(v: unknown): -1 | 0 | 1 {
@@ -1709,6 +1747,7 @@ export function renderBasicWidget(
         requestedProtocol,
         analyzed.format,
         terminalProfile,
+        builder.drawlistVersion >= 4,
       );
       if (!resolvedProtocol.ok) {
         drawPlaceholderBox(
@@ -1720,7 +1759,6 @@ export function renderBasicWidget(
         );
         break;
       }
-      const protocol = resolvedProtocol.protocol;
       const zLayer = readZLayer(props.zLayer);
       const imageId = readNonNegativeInt(props.imageId) ?? hashImageBytes(analyzed.bytes) ?? 0;
       const explicitSourceWidth = readPositiveInt(props.sourceWidth);
@@ -1770,27 +1808,7 @@ export function renderBasicWidget(
         break;
       }
 
-      if (protocol === "blitter") {
-        if (builder.drawlistVersion < 4) {
-          drawPlaceholderBox(
-            builder,
-            rect,
-            parentStyle,
-            "Image",
-            fallbackBody("blitter protocol requires drawlist v4"),
-          );
-          break;
-        }
-        if (analyzed.format !== "rgba") {
-          drawPlaceholderBox(
-            builder,
-            rect,
-            parentStyle,
-            "Image",
-            fallbackBody("blitter protocol requires RGBA source"),
-          );
-          break;
-        }
+      if (resolvedProtocol.mode === "drawCanvas") {
         const canvasBlobIndex = addBlobAligned(builder, analyzed.bytes);
         if (canvasBlobIndex === null) {
           drawPlaceholderBox(
@@ -1828,6 +1846,7 @@ export function renderBasicWidget(
         break;
       }
 
+      const protocol = resolvedProtocol.protocol;
       builder.drawImage(
         rect.x,
         rect.y,

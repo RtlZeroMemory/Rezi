@@ -35,7 +35,10 @@ ui.image({
 ## Notes
 
 - PNG is auto-detected by signature; non-PNG payloads are treated as RGBA bytes.
-- PNG payloads are routed through iTerm2 image protocol; kitty/sixel paths require RGBA.
+- `protocol: "auto"` uses an internal fallback chain:
+  - RGBA: `kitty -> iterm2 -> sixel -> canvas blitter -> alt placeholder`
+  - PNG: `iterm2 -> alt placeholder` (kitty/sixel require RGBA)
+- Explicit `protocol` values still force that path (or render placeholder if incompatible).
 - For raw RGBA payloads, providing `sourceWidth` + `sourceHeight` avoids heuristic dimension inference.
 - Unsupported builders or invalid sources render a text placeholder (uses `alt` when present).
 - In Node/Bun, use `loadImage(path)` from `@rezi-ui/node` to read file paths into `Uint8Array`.

@@ -102,6 +102,34 @@ const ITERM2_TERMINAL_PROFILE: TerminalProfile = Object.freeze({
   supportsIterm2Images: true,
 });
 
+const SIXEL_TERMINAL_PROFILE: TerminalProfile = Object.freeze({
+  ...DEFAULT_TERMINAL_PROFILE,
+  id: "sixel",
+  supportsSixel: true,
+});
+
+const KITTY_ITERM2_TERMINAL_PROFILE: TerminalProfile = Object.freeze({
+  ...DEFAULT_TERMINAL_PROFILE,
+  id: "kitty-iterm2",
+  supportsKittyGraphics: true,
+  supportsIterm2Images: true,
+});
+
+const ITERM2_SIXEL_TERMINAL_PROFILE: TerminalProfile = Object.freeze({
+  ...DEFAULT_TERMINAL_PROFILE,
+  id: "iterm2-sixel",
+  supportsIterm2Images: true,
+  supportsSixel: true,
+});
+
+const ALL_IMAGE_PROTOCOLS_TERMINAL_PROFILE: TerminalProfile = Object.freeze({
+  ...DEFAULT_TERMINAL_PROFILE,
+  id: "all-image-protocols",
+  supportsKittyGraphics: true,
+  supportsIterm2Images: true,
+  supportsSixel: true,
+});
+
 function renderBytes(
   vnode: VNode,
   createBuilder: () => DrawlistBuilderV1,
@@ -228,6 +256,74 @@ describe("graphics widgets", () => {
       const format = u8(bytes, payloadOff + 24);
       assert.equal(format, 1);
     }
+  });
+
+  test("image protocol=auto on RGBA prefers kitty when available", () => {
+    const src = new Uint8Array([1, 2, 3, 4]);
+    const bytes = renderBytes(
+      ui.image({ src, width: 10, height: 4 }),
+      () => createDrawlistBuilderV3(),
+      { cols: 80, rows: 30 },
+      ALL_IMAGE_PROTOCOLS_TERMINAL_PROFILE,
+    );
+    const payloadOff = findCommandPayload(bytes, 9);
+    assert.equal(payloadOff !== null, true);
+    if (payloadOff === null) return;
+    assert.equal(u8(bytes, payloadOff + 25), 1);
+  });
+
+  test("image protocol=auto on RGBA prefers iTerm2 ahead of sixel", () => {
+    const src = new Uint8Array([1, 2, 3, 4]);
+    const bytes = renderBytes(
+      ui.image({ src, width: 10, height: 4 }),
+      () => createDrawlistBuilderV3(),
+      { cols: 80, rows: 30 },
+      ITERM2_SIXEL_TERMINAL_PROFILE,
+    );
+    const payloadOff = findCommandPayload(bytes, 9);
+    assert.equal(payloadOff !== null, true);
+    if (payloadOff === null) return;
+    assert.equal(u8(bytes, payloadOff + 25), 3);
+  });
+
+  test("image protocol=auto on RGBA selects sixel when it is the first supported path", () => {
+    const src = new Uint8Array([1, 2, 3, 4]);
+    const bytes = renderBytes(
+      ui.image({ src, width: 10, height: 4 }),
+      () => createDrawlistBuilderV3(),
+      { cols: 80, rows: 30 },
+      SIXEL_TERMINAL_PROFILE,
+    );
+    const payloadOff = findCommandPayload(bytes, 9);
+    assert.equal(payloadOff !== null, true);
+    if (payloadOff === null) return;
+    assert.equal(u8(bytes, payloadOff + 25), 2);
+  });
+
+  test("image protocol=auto on RGBA falls back to DRAW_CANVAS when no protocol is supported", () => {
+    const src = new Uint8Array([1, 2, 3, 4]);
+    const bytes = renderBytes(
+      ui.image({ src, width: 10, height: 4 }),
+      () => createDrawlistBuilderV3(),
+      { cols: 80, rows: 30 },
+      DEFAULT_TERMINAL_PROFILE,
+    );
+    assert.equal(parseOpcodes(bytes).includes(8), true);
+    assert.equal(parseOpcodes(bytes).includes(9), false);
+  });
+
+  test("image protocol=auto on PNG resolves to iTerm2 when kitty+iTerm2 are both supported", () => {
+    const pngLike = makePngHeader(2, 1);
+    const bytes = renderBytes(
+      ui.image({ src: pngLike, width: 10, height: 4, fit: "contain" }),
+      () => createDrawlistBuilderV3(),
+      { cols: 80, rows: 30 },
+      KITTY_ITERM2_TERMINAL_PROFILE,
+    );
+    const payloadOff = findCommandPayload(bytes, 9);
+    assert.equal(payloadOff !== null, true);
+    if (payloadOff === null) return;
+    assert.equal(u8(bytes, payloadOff + 25), 3);
   });
 
   test("image PNG auto degrades without iTerm2 profile support", () => {

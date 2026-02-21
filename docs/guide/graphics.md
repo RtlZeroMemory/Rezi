@@ -10,13 +10,13 @@ Use `app.getTerminalProfile()` to inspect runtime capabilities:
 - `supportsUnderlineStyles`, `supportsColoredUnderlines`, `supportsHyperlinks`
 - terminal identity/version and optional cell pixel size hints
 
-This allows explicit capability gating in your own render logic.
+This is useful for diagnostics and telemetry. Most apps do not need manual image protocol gating.
 
 ## Progressive enhancement strategy
 
 1. Start with semantic content that works as text (`ui.text`, placeholder labels).
 2. Upgrade to `ui.canvas()`/chart widgets when drawlist v3 graphics is available.
-3. Upgrade to `ui.image()` protocol rendering when image protocol support is present.
+3. Upgrade to `ui.image()` for binary image rendering. `protocol: "auto"` resolves protocol/fallback internally.
 
 When graphics are unavailable, Rezi widgets render deterministic placeholder boxes instead of failing.
 
@@ -25,6 +25,7 @@ When graphics are unavailable, Rezi widgets render deterministic placeholder box
 - Use `ui.canvas()` for custom primitives and one-off visuals.
 - Use `ui.lineChart()`, `ui.scatter()`, and `ui.heatmap()` for data visualization.
 - Use `ui.image()` for binary PNG/RGBA assets and protocol-backed rendering.
+- `ui.image({ protocol: "auto" })` fallback order is `kitty -> iterm2 -> sixel -> canvas blitter -> alt`.
 
 ## Performance notes
 
@@ -36,9 +37,5 @@ When graphics are unavailable, Rezi widgets render deterministic placeholder box
 ## Example
 
 ```typescript
-const profile = app.getTerminalProfile();
-const logoNode =
-  profile.supportsKittyGraphics || profile.supportsSixel || profile.supportsIterm2Images
-    ? ui.image({ src: logoBytes, width: 20, height: 8, alt: "Logo" })
-    : ui.text("[Logo]");
+const logoNode = ui.image({ src: logoBytes, width: 20, height: 8, alt: "Logo" });
 ```

@@ -26,6 +26,7 @@ export type CanvasColorResolver = (color: string) => Rgb;
 
 const TRANSPARENT_PIXEL = Object.freeze({ r: 0, g: 0, b: 0, a: 0 });
 const DEFAULT_SOLID_PIXEL = Object.freeze({ r: 255, g: 255, b: 255, a: 255 });
+const TAU = Math.PI * 2;
 
 function toI32(v: number): number {
   if (!Number.isFinite(v)) return 0;
@@ -42,6 +43,14 @@ function clampU8(v: number): number {
   if (v <= 0) return 0;
   if (v >= 255) return 255;
   return Math.round(v);
+}
+
+function clampInt(v: number, min: number, max: number): number {
+  if (!Number.isFinite(v)) return min;
+  const n = Math.trunc(v);
+  if (n <= min) return min;
+  if (n >= max) return max;
+  return n;
 }
 
 function parseHexColor(input: string): Rgb | null {
@@ -204,6 +213,22 @@ function strokeRect(
   drawLine(rgba, widthPx, heightPx, x1, y0, x1, y1, pixel);
 }
 
+function drawPolyline(
+  rgba: Uint8Array,
+  widthPx: number,
+  heightPx: number,
+  points: readonly Readonly<{ x: number; y: number }>[],
+  pixel: Readonly<{ r: number; g: number; b: number; a: number }>,
+): void {
+  if (points.length < 2) return;
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1];
+    const next = points[i];
+    if (!prev || !next) continue;
+    drawLine(rgba, widthPx, heightPx, prev.x, prev.y, next.x, next.y, pixel);
+  }
+}
+
 function circlePlot8(
   rgba: Uint8Array,
   widthPx: number,
@@ -250,6 +275,97 @@ function drawCircleOutline(
   }
 }
 
+function drawArcOutline(
+  rgba: Uint8Array,
+  widthPx: number,
+  heightPx: number,
+  cx: number,
+  cy: number,
+  radius: number,
+  startAngle: number,
+  endAngle: number,
+  pixel: Readonly<{ r: number; g: number; b: number; a: number }>,
+): void {
+  if (!Number.isFinite(startAngle) || !Number.isFinite(endAngle)) return;
+  const centerX = toI32(cx);
+  const centerY = toI32(cy);
+  const r = Math.max(0, toI32(radius));
+  if (r === 0) {
+    writePixel(rgba, widthPx, heightPx, centerX, centerY, pixel);
+    return;
+  }
+
+  const start = startAngle;
+  let end = endAngle;
+  let sweep = end - start;
+  if (!Number.isFinite(sweep)) return;
+  if (sweep === 0) {
+    const x = toI32(centerX + Math.cos(start) * r);
+    const y = toI32(centerY + Math.sin(start) * r);
+    writePixel(rgba, widthPx, heightPx, x, y, pixel);
+    return;
+  }
+  if (Math.abs(sweep) >= TAU) {
+    drawCircleOutline(rgba, widthPx, heightPx, centerX, centerY, r, pixel);
+    return;
+  }
+
+  if (sweep < 0) {
+    const turns = Math.ceil(-sweep / TAU);
+    end += turns * TAU;
+    sweep = end - start;
+  }
+
+  const steps = Math.max(1, Math.ceil(Math.abs(sweep) * Math.max(1, r * 2)));
+  let prevX = toI32(centerX + Math.cos(start) * r);
+  let prevY = toI32(centerY + Math.sin(start) * r);
+  for (let step = 1; step <= steps; step++) {
+    const t = start + (sweep * step) / steps;
+    const nextX = toI32(centerX + Math.cos(t) * r);
+    const nextY = toI32(centerY + Math.sin(t) * r);
+    drawLine(rgba, widthPx, heightPx, prevX, prevY, nextX, nextY, pixel);
+    prevX = nextX;
+    prevY = nextY;
+  }
+}
+
+function strokeRoundedRect(
+  rgba: Uint8Array,
+  widthPx: number,
+  heightPx: number,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  radius: number,
+  pixel: Readonly<{ r: number; g: number; b: number; a: number }>,
+): void {
+  const left = toI32(x);
+  const top = toI32(y);
+  const right = toI32(x + w - 1);
+  const bottom = toI32(y + h - 1);
+  if (right < left || bottom < top) return;
+
+  const rectWidth = right - left + 1;
+  const rectHeight = bottom - top + 1;
+  const maxRadius = Math.floor(Math.min(rectWidth, rectHeight) / 2);
+  const r = clampInt(radius, 0, Math.max(0, maxRadius));
+  if (r === 0) {
+    strokeRect(rgba, widthPx, heightPx, left, top, rectWidth, rectHeight, pixel);
+    return;
+  }
+
+  drawLine(rgba, widthPx, heightPx, left + r, top, right - r, top, pixel);
+  drawLine(rgba, widthPx, heightPx, left + r, bottom, right - r, bottom, pixel);
+  drawLine(rgba, widthPx, heightPx, left, top + r, left, bottom - r, pixel);
+  drawLine(rgba, widthPx, heightPx, right, top + r, right, bottom - r, pixel);
+
+  drawArcOutline(rgba, widthPx, heightPx, left + r, top + r, r, Math.PI, Math.PI * 1.5, pixel);
+  drawArcOutline(rgba, widthPx, heightPx, right - r, top + r, r, Math.PI * 1.5, TAU, pixel);
+  drawArcOutline(rgba, widthPx, heightPx, right - r, bottom - r, r, 0, Math.PI * 0.5, pixel);
+  drawArcOutline(rgba, widthPx, heightPx, left + r, bottom - r, r, Math.PI * 0.5, Math.PI, pixel);
+}
+
 function drawCircleFill(
   rgba: Uint8Array,
   widthPx: number,
@@ -275,6 +391,58 @@ function drawCircleFill(
   }
 }
 
+function edgeSign(ax: number, ay: number, bx: number, by: number, px: number, py: number): number {
+  return (px - ax) * (by - ay) - (py - ay) * (bx - ax);
+}
+
+function fillTriangle(
+  rgba: Uint8Array,
+  widthPx: number,
+  heightPx: number,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  pixel: Readonly<{ r: number; g: number; b: number; a: number }>,
+): void {
+  const ax = toI32(x0);
+  const ay = toI32(y0);
+  const bx = toI32(x1);
+  const by = toI32(y1);
+  const cx = toI32(x2);
+  const cy = toI32(y2);
+  const area = edgeSign(ax, ay, bx, by, cx, cy);
+  if (area === 0) {
+    drawLine(rgba, widthPx, heightPx, ax, ay, bx, by, pixel);
+    drawLine(rgba, widthPx, heightPx, bx, by, cx, cy, pixel);
+    drawLine(rgba, widthPx, heightPx, cx, cy, ax, ay, pixel);
+    return;
+  }
+
+  const minX = Math.max(0, Math.min(ax, bx, cx));
+  const minY = Math.max(0, Math.min(ay, by, cy));
+  const maxX = Math.min(widthPx - 1, Math.max(ax, bx, cx));
+  const maxY = Math.min(heightPx - 1, Math.max(ay, by, cy));
+  if (maxX < minX || maxY < minY) return;
+
+  const isPositiveArea = area > 0;
+  for (let py = minY; py <= maxY; py++) {
+    for (let px = minX; px <= maxX; px++) {
+      const e0 = edgeSign(bx, by, cx, cy, px, py);
+      const e1 = edgeSign(cx, cy, ax, ay, px, py);
+      const e2 = edgeSign(ax, ay, bx, by, px, py);
+      if (
+        (isPositiveArea && e0 >= 0 && e1 >= 0 && e2 >= 0) ||
+        (!isPositiveArea && e0 <= 0 && e1 <= 0 && e2 <= 0)
+      ) {
+        writePixel(rgba, widthPx, heightPx, px, py, pixel);
+      }
+    }
+  }
+}
+
 export function createCanvasDrawingSurface(
   cols: number,
   rows: number,
@@ -296,17 +464,60 @@ export function createCanvasDrawingSurface(
     line(x0, y0, x1, y1, color) {
       drawLine(rgba, widthPx, heightPx, x0, y0, x1, y1, resolvePixel(color, resolveColor));
     },
+    polyline(points, color) {
+      drawPolyline(rgba, widthPx, heightPx, points, resolvePixel(color, resolveColor));
+    },
     fillRect(x, y, w, h, color) {
       fillRect(rgba, widthPx, heightPx, x, y, w, h, resolvePixel(color, resolveColor));
     },
     strokeRect(x, y, w, h, color) {
       strokeRect(rgba, widthPx, heightPx, x, y, w, h, resolvePixel(color, resolveColor));
     },
+    roundedRect(x, y, w, h, radius, color) {
+      strokeRoundedRect(
+        rgba,
+        widthPx,
+        heightPx,
+        x,
+        y,
+        w,
+        h,
+        radius,
+        resolvePixel(color, resolveColor),
+      );
+    },
     circle(cx, cy, radius, color) {
       drawCircleOutline(rgba, widthPx, heightPx, cx, cy, radius, resolvePixel(color, resolveColor));
     },
+    arc(cx, cy, radius, startAngle, endAngle, color) {
+      drawArcOutline(
+        rgba,
+        widthPx,
+        heightPx,
+        cx,
+        cy,
+        radius,
+        startAngle,
+        endAngle,
+        resolvePixel(color, resolveColor),
+      );
+    },
     fillCircle(cx, cy, radius, color) {
       drawCircleFill(rgba, widthPx, heightPx, cx, cy, radius, resolvePixel(color, resolveColor));
+    },
+    fillTriangle(x0, y0, x1, y1, x2, y2, color) {
+      fillTriangle(
+        rgba,
+        widthPx,
+        heightPx,
+        x0,
+        y0,
+        x1,
+        y1,
+        x2,
+        y2,
+        resolvePixel(color, resolveColor),
+      );
     },
     setPixel(x, y, color) {
       writePixel(rgba, widthPx, heightPx, toI32(x), toI32(y), resolvePixel(color, resolveColor));

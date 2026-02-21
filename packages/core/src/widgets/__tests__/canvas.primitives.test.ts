@@ -65,6 +65,29 @@ describe("canvas primitives", () => {
     assert.equal(rgbaAt(surface, 2, 2).a, 0);
   });
 
+  test("polyline connects each point with line segments", () => {
+    const surface = createCanvasDrawingSurface(7, 7, "ascii", () => ({ r: 255, g: 255, b: 255 }));
+    surface.ctx.polyline(
+      [
+        { x: 0, y: 0 },
+        { x: 3, y: 3 },
+        { x: 6, y: 0 },
+      ],
+      "#ffffff",
+    );
+    assert.equal(rgbaAt(surface, 0, 0).a, 255);
+    assert.equal(rgbaAt(surface, 3, 3).a, 255);
+    assert.equal(rgbaAt(surface, 6, 0).a, 255);
+  });
+
+  test("roundedRect draws rounded corners and straight edges", () => {
+    const surface = createCanvasDrawingSurface(9, 7, "ascii", () => ({ r: 255, g: 255, b: 255 }));
+    surface.ctx.roundedRect(1, 1, 7, 5, 2, "#ffffff");
+    assert.equal(rgbaAt(surface, 4, 3).a, 0);
+    assert.equal(rgbaAt(surface, 3, 1).a, 255);
+    assert.equal(rgbaAt(surface, 1, 3).a, 255);
+  });
+
   test("circle outlines are symmetric", () => {
     const surface = createCanvasDrawingSurface(11, 11, "ascii", () => ({ r: 255, g: 255, b: 255 }));
     surface.ctx.circle(5, 5, 3, "#ffffff");
@@ -81,6 +104,21 @@ describe("canvas primitives", () => {
     assert.equal(rgbaAt(surface, 4, 2).g, 255);
     assert.equal(rgbaAt(surface, 6, 4).g, 255);
     assert.equal(rgbaAt(surface, 1, 1).a, 0);
+  });
+
+  test("arc draws a partial circle segment", () => {
+    const surface = createCanvasDrawingSurface(11, 11, "ascii", () => ({ r: 255, g: 255, b: 255 }));
+    surface.ctx.arc(5, 5, 3, 0, Math.PI * 0.5, "#ffffff");
+    assert.equal(rgbaAt(surface, 8, 5).a, 255);
+    assert.equal(rgbaAt(surface, 5, 8).a, 255);
+    assert.equal(rgbaAt(surface, 2, 5).a, 0);
+  });
+
+  test("fillTriangle paints enclosed pixels", () => {
+    const surface = createCanvasDrawingSurface(8, 6, "ascii", () => ({ r: 255, g: 255, b: 255 }));
+    surface.ctx.fillTriangle(1, 1, 6, 1, 3, 4, "#ffffff");
+    assert.equal(rgbaAt(surface, 3, 2).a, 255);
+    assert.equal(rgbaAt(surface, 0, 0).a, 0);
   });
 
   test("text overlays map subcell coordinates to cell coordinates", () => {
