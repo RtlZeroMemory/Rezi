@@ -230,6 +230,13 @@ function readBackendDrawlistVersionMarker(backend: RuntimeBackend): 1 | 2 | 3 | 
   return value as 1 | 2 | 3 | 4 | 5;
 }
 
+function monotonicNowMs(): number {
+  const perf = (globalThis as { performance?: { now?: () => number } }).performance;
+  const perfNow = perf?.now;
+  if (typeof perfNow === "function") return perfNow.call(perf);
+  return Date.now();
+}
+
 async function loadTerminalProfile(backend: RuntimeBackend): Promise<TerminalProfile> {
   try {
     if (typeof backend.getTerminalProfile === "function") {
@@ -1421,6 +1428,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     // First-frame/bootstrap safety is handled inside submitFrame(): it falls back
     // to full pipeline when committedRoot or layoutTree is null.
     const pendingDirtyFlags = dirtyFlags;
+    const frameNowMs = monotonicNowMs();
     const plan: WidgetRenderPlan = {
       commit: (pendingDirtyFlags & DIRTY_VIEW) !== 0,
       layout: (pendingDirtyFlags & DIRTY_LAYOUT) !== 0,
@@ -1429,6 +1437,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       // newly-committed tree against stale layout nodes until the next resize.
       checkLayoutStability:
         (pendingDirtyFlags & DIRTY_LAYOUT) === 0 && (pendingDirtyFlags & DIRTY_VIEW) !== 0,
+      nowMs: frameNowMs,
     };
 
     const resilientView: ViewFn<S> = (state) => {

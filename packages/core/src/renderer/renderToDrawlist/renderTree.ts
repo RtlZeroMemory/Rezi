@@ -3,6 +3,7 @@ import type { LayoutTree } from "../../layout/layout.js";
 import type { Rect } from "../../layout/types.js";
 import type { RuntimeInstance } from "../../runtime/commit.js";
 import type { FocusState } from "../../runtime/focus.js";
+import type { InstanceId } from "../../runtime/instance.js";
 import type {
   TableStateStore,
   TreeStateStore,
@@ -80,6 +81,7 @@ export function renderTree(
   tick: number,
   inheritedStyle: ResolvedTextStyle,
   tree: RuntimeInstance,
+  animatedRectByInstanceId: ReadonlyMap<InstanceId, Rect> | undefined,
   cursorInfo: CursorInfo | undefined,
   virtualListStore: VirtualListStateStore | undefined,
   tableStore: TableStateStore | undefined,
@@ -127,7 +129,7 @@ export function renderTree(
     const node = nodeOrPop;
     const vnode = node.vnode;
     lastRenderedNodeKind = vnode.kind;
-    const rect: Rect = layoutNode.rect;
+    const rect: Rect = animatedRectByInstanceId?.get(node.instanceId) ?? layoutNode.rect;
     if (skipCleanSubtrees && !node.dirty) continue;
     if (
       damageRect &&

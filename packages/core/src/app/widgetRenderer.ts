@@ -33,6 +33,8 @@ import {
   createDrawlistBuilderV2,
   createDrawlistBuilderV3,
 } from "../drawlist/index.js";
+import { resolveEasing } from "../animation/easing.js";
+import { interpolateNumber, normalizeDurationMs } from "../animation/interpolate.js";
 import type { ZrevEvent } from "../events.js";
 import type { VNode, ViewFn } from "../index.js";
 import {
@@ -151,6 +153,7 @@ import type {
   TableProps,
   ToastContainerProps,
   ToolApprovalDialogProps,
+  TransitionSpec,
   TreeProps,
   VirtualListProps,
 } from "../widgets/types.js";
@@ -261,6 +264,16 @@ export type WidgetRenderPlan = Readonly<{
    * When true, the renderer may still relayout even if `layout` is false.
    */
   checkLayoutStability: boolean;
+  /** Monotonic frame timestamp in milliseconds for animation sampling. */
+  nowMs?: number;
+}>;
+
+type PositionTransitionTrack = Readonly<{
+  from: Rect;
+  to: Rect;
+  startMs: number;
+  durationMs: number;
+  easing: (t: number) => number;
 }>;
 
 /**
@@ -320,6 +333,7 @@ const ROUTE_RENDER: WidgetRoutingOutcome = Object.freeze({ needsRender: true });
 const ROUTE_NO_RENDER: WidgetRoutingOutcome = Object.freeze({ needsRender: false });
 const ZERO_RECT: Rect = Object.freeze({ x: 0, y: 0, w: 0, h: 0 });
 const INCREMENTAL_DAMAGE_AREA_FRACTION = 0.45;
+const DEFAULT_POSITION_TRANSITION_DURATION_MS = 180;
 const EMPTY_FOCUS_ERRORS: readonly string[] = Object.freeze([]);
 const EMPTY_FOCUS_INFO: FocusInfo = Object.freeze({
   id: null,
@@ -384,6 +398,20 @@ function isNonEmptyRect(rect: Rect | undefined): rect is Rect {
 
 function rectEquals(a: Rect, b: Rect): boolean {
   return a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
+}
+
+function monotonicNowMs(): number {
+  const perf = (globalThis as { performance?: { now?: () => number } }).performance;
+  const perfNow = perf?.now;
+  if (typeof perfNow === "function") return perfNow.call(perf);
+  return Date.now();
+}
+
+function transitionSupportsPosition(transition: TransitionSpec): boolean {
+  const properties = transition.properties;
+  if (properties === undefined || properties === "all") return true;
+  if (!Array.isArray(properties)) return false;
+  return properties.includes("position");
 }
 
 function isV2Builder(builder: DrawlistBuilderV1 | DrawlistBuilderV2): builder is DrawlistBuilderV2 {
@@ -722,7 +750,10 @@ export class WidgetRenderer<S> {
   // Tracks whether the currently committed tree needs routing rebuild traversals.
   private hadRoutingWidgets = false;
   private hasAnimatedWidgetsInCommittedTree = false;
+  private hasActivePositionTransitions = false;
   private hasViewportAwareCompositesInCommittedTree = false;
+  private readonly positionTransitionTrackByInstanceId = new Map<InstanceId, PositionTransitionTrack>();
+  private readonly animatedRectByInstanceId = new Map<InstanceId, Rect>();
 
   /* --- Render Caches (avoid per-frame recompute) --- */
   private readonly tableRenderCacheById = new Map<string, TableRenderCache>();
@@ -791,8 +822,11 @@ export class WidgetRenderer<S> {
   private readonly _pooledToastActionLabelByFocusId = new Map<string, string>();
   private readonly _pooledLayoutStack: LayoutTree[] = [];
   private readonly _pooledRuntimeStack: RuntimeInstance[] = [];
+  private readonly _pooledOffsetXStack: number[] = [];
+  private readonly _pooledOffsetYStack: number[] = [];
   private readonly _pooledPrevRuntimeStack: RuntimeInstance[] = [];
   private readonly _pooledDamageRuntimeStack: RuntimeInstance[] = [];
+  private readonly _pooledVisitedTransitionIds = new Set<InstanceId>();
   private readonly _pooledDropdownStack: string[] = [];
   private readonly _pooledToastContainers: { rect: Rect; props: ToastContainerProps }[] = [];
   private readonly _pooledToastFocusableActionIds: string[] = [];
@@ -882,7 +916,7 @@ export class WidgetRenderer<S> {
   }
 
   hasAnimatedWidgets(): boolean {
-    return this.hasAnimatedWidgetsInCommittedTree;
+    return this.hasAnimatedWidgetsInCommittedTree || this.hasActivePositionTransitions;
   }
 
   hasViewportAwareComposites(): boolean {
@@ -976,6 +1010,189 @@ export class WidgetRenderer<S> {
       }
     }
     this.hasAnimatedWidgetsInCommittedTree = false;
+  }
+
+  private resolvePositionTransition(
+    node: RuntimeInstance,
+  ): Readonly<{ durationMs: number; easing: (t: number) => number }> | null {
+    if (node.vnode.kind !== "box") return null;
+    const props = node.vnode.props as Readonly<{ transition?: TransitionSpec }> | undefined;
+    const transition = props?.transition;
+    if (!transition || !transitionSupportsPosition(transition)) return null;
+    return Object.freeze({
+      durationMs: normalizeDurationMs(transition.duration, DEFAULT_POSITION_TRANSITION_DURATION_MS),
+      easing: resolveEasing(transition.easing),
+    });
+  }
+
+  private refreshPositionTransitionTracks(
+    runtimeRoot: RuntimeInstance,
+    layoutRoot: LayoutTree,
+    frameNowMs: number,
+  ): void {
+    this._pooledVisitedTransitionIds.clear();
+    this._pooledRuntimeStack.length = 0;
+    this._pooledLayoutStack.length = 0;
+    this._pooledRuntimeStack.push(runtimeRoot);
+    this._pooledLayoutStack.push(layoutRoot);
+
+    while (this._pooledRuntimeStack.length > 0 && this._pooledLayoutStack.length > 0) {
+      const runtimeNode = this._pooledRuntimeStack.pop();
+      const layoutNode = this._pooledLayoutStack.pop();
+      if (!runtimeNode || !layoutNode) continue;
+
+      const transition = this.resolvePositionTransition(runtimeNode);
+      if (transition) {
+        const instanceId = runtimeNode.instanceId;
+        this._pooledVisitedTransitionIds.add(instanceId);
+
+        const nextRect = layoutNode.rect;
+        const existingTrack = this.positionTransitionTrackByInstanceId.get(instanceId);
+        const previousRect = this._prevFrameRectByInstanceId.get(instanceId);
+
+        const targetChanged =
+          existingTrack !== undefined &&
+          (existingTrack.to.x !== nextRect.x || existingTrack.to.y !== nextRect.y);
+
+        if (transition.durationMs <= 0) {
+          this.positionTransitionTrackByInstanceId.delete(instanceId);
+        } else if (existingTrack && targetChanged) {
+          const fromRect = this.animatedRectByInstanceId.get(instanceId) ?? existingTrack.to;
+          if (fromRect.x !== nextRect.x || fromRect.y !== nextRect.y) {
+            this.positionTransitionTrackByInstanceId.set(
+              instanceId,
+              Object.freeze({
+                from: fromRect,
+                to: nextRect,
+                startMs: frameNowMs,
+                durationMs: transition.durationMs,
+                easing: transition.easing,
+              }),
+            );
+          } else {
+            this.positionTransitionTrackByInstanceId.delete(instanceId);
+          }
+        } else if (
+          !existingTrack &&
+          previousRect &&
+          (previousRect.x !== nextRect.x || previousRect.y !== nextRect.y)
+        ) {
+          const fromRect = this.animatedRectByInstanceId.get(instanceId) ?? previousRect;
+          if (fromRect.x !== nextRect.x || fromRect.y !== nextRect.y) {
+            this.positionTransitionTrackByInstanceId.set(
+              instanceId,
+              Object.freeze({
+                from: fromRect,
+                to: nextRect,
+                startMs: frameNowMs,
+                durationMs: transition.durationMs,
+                easing: transition.easing,
+              }),
+            );
+          }
+        }
+      }
+
+      const childCount = Math.min(runtimeNode.children.length, layoutNode.children.length);
+      for (let i = childCount - 1; i >= 0; i--) {
+        const runtimeChild = runtimeNode.children[i];
+        const layoutChild = layoutNode.children[i];
+        if (runtimeChild && layoutChild) {
+          this._pooledRuntimeStack.push(runtimeChild);
+          this._pooledLayoutStack.push(layoutChild);
+        }
+      }
+    }
+
+    for (const instanceId of this.positionTransitionTrackByInstanceId.keys()) {
+      if (!this._pooledVisitedTransitionIds.has(instanceId)) {
+        this.positionTransitionTrackByInstanceId.delete(instanceId);
+      }
+    }
+    this._pooledVisitedTransitionIds.clear();
+  }
+
+  private rebuildAnimatedRectOverrides(
+    runtimeRoot: RuntimeInstance,
+    layoutRoot: LayoutTree,
+    frameNowMs: number,
+  ): void {
+    this.animatedRectByInstanceId.clear();
+    this._pooledRuntimeStack.length = 0;
+    this._pooledLayoutStack.length = 0;
+    this._pooledOffsetXStack.length = 0;
+    this._pooledOffsetYStack.length = 0;
+    this._pooledRuntimeStack.push(runtimeRoot);
+    this._pooledLayoutStack.push(layoutRoot);
+    this._pooledOffsetXStack.push(0);
+    this._pooledOffsetYStack.push(0);
+
+    let activeCount = 0;
+
+    while (
+      this._pooledRuntimeStack.length > 0 &&
+      this._pooledLayoutStack.length > 0 &&
+      this._pooledOffsetXStack.length > 0 &&
+      this._pooledOffsetYStack.length > 0
+    ) {
+      const runtimeNode = this._pooledRuntimeStack.pop();
+      const layoutNode = this._pooledLayoutStack.pop();
+      const parentOffsetX = this._pooledOffsetXStack.pop();
+      const parentOffsetY = this._pooledOffsetYStack.pop();
+      if (runtimeNode === undefined || layoutNode === undefined) continue;
+      if (parentOffsetX === undefined || parentOffsetY === undefined) continue;
+
+      const baseRect = layoutNode.rect;
+      const track = this.positionTransitionTrackByInstanceId.get(runtimeNode.instanceId);
+      let localOffsetX = 0;
+      let localOffsetY = 0;
+
+      if (track) {
+        const elapsedMs = Math.max(0, frameNowMs - track.startMs);
+        const progress = track.durationMs <= 0 ? 1 : Math.min(1, elapsedMs / track.durationMs);
+        if (progress >= 1) {
+          this.positionTransitionTrackByInstanceId.delete(runtimeNode.instanceId);
+        } else {
+          activeCount++;
+          const eased = track.easing(progress);
+          const animatedX = Math.round(interpolateNumber(track.from.x, track.to.x, eased));
+          const animatedY = Math.round(interpolateNumber(track.from.y, track.to.y, eased));
+          localOffsetX = animatedX - baseRect.x;
+          localOffsetY = animatedY - baseRect.y;
+        }
+      }
+
+      const totalOffsetX = parentOffsetX + localOffsetX;
+      const totalOffsetY = parentOffsetY + localOffsetY;
+      if (totalOffsetX !== 0 || totalOffsetY !== 0) {
+        this.animatedRectByInstanceId.set(
+          runtimeNode.instanceId,
+          Object.freeze({
+            x: baseRect.x + totalOffsetX,
+            y: baseRect.y + totalOffsetY,
+            w: baseRect.w,
+            h: baseRect.h,
+          }),
+        );
+      }
+
+      const childCount = Math.min(runtimeNode.children.length, layoutNode.children.length);
+      for (let i = childCount - 1; i >= 0; i--) {
+        const runtimeChild = runtimeNode.children[i];
+        const layoutChild = layoutNode.children[i];
+        if (runtimeChild && layoutChild) {
+          this._pooledRuntimeStack.push(runtimeChild);
+          this._pooledLayoutStack.push(layoutChild);
+          this._pooledOffsetXStack.push(totalOffsetX);
+          this._pooledOffsetYStack.push(totalOffsetY);
+        }
+      }
+    }
+
+    this.hasActivePositionTransitions = activeCount > 0;
+    if (!this.hasActivePositionTransitions) {
+      this.animatedRectByInstanceId.clear();
+    }
   }
 
   /**
@@ -2937,6 +3154,7 @@ export class WidgetRenderer<S> {
   ): boolean {
     if (!this._hasRenderedFrame) return false;
     if (doLayout) return false;
+    if (this.hasActivePositionTransitions) return false;
     if (
       this._lastRenderedViewport.cols !== viewport.cols ||
       this._lastRenderedViewport.rows !== viewport.rows
@@ -3652,6 +3870,8 @@ export class WidgetRenderer<S> {
           this.inputSelectionByInstanceId.delete(unmountedId);
           this.inputWorkingValueByInstanceId.delete(unmountedId);
           this.inputUndoByInstanceId.delete(unmountedId);
+          this.positionTransitionTrackByInstanceId.delete(unmountedId);
+          this.animatedRectByInstanceId.delete(unmountedId);
           // Composite instances: invalidate stale closures and run effect cleanups.
           this.compositeRegistry.incrementGeneration(unmountedId);
           this.compositeRegistry.delete(unmountedId);
@@ -4447,6 +4667,16 @@ export class WidgetRenderer<S> {
         );
       }
 
+      const frameNowMs =
+        typeof plan.nowMs === "number" && Number.isFinite(plan.nowMs) ? plan.nowMs : monotonicNowMs();
+      if (doCommit || doLayout || this.positionTransitionTrackByInstanceId.size > 0) {
+        this.refreshPositionTransitionTracks(this.committedRoot, this.layoutTree, frameNowMs);
+      }
+      this.rebuildAnimatedRectOverrides(this.committedRoot, this.layoutTree, frameNowMs);
+      if (this.hasActivePositionTransitions) {
+        this.requestRender();
+      }
+
       const tick = this.renderTick;
       this.renderTick = (this.renderTick + 1) >>> 0;
       const focusAnnouncement = this.getFocusAnnouncement();
@@ -4547,6 +4777,7 @@ export class WidgetRenderer<S> {
                 tick,
                 DEFAULT_BASE_STYLE,
                 this.committedRoot,
+                this.animatedRectByInstanceId,
                 cursorInfo,
                 this.virtualListStore,
                 this.tableStore,
@@ -4598,6 +4829,7 @@ export class WidgetRenderer<S> {
           focusAnnouncement,
           layoutIndex: this._pooledRectByInstanceId,
           idRectIndex: this._pooledRectById,
+          animatedRectByInstanceId: this.animatedRectByInstanceId,
           tableRenderCacheById: this.tableRenderCacheById,
           logsConsoleRenderCacheById: this.logsConsoleRenderCacheById,
           diffRenderCacheById: this.diffRenderCacheById,

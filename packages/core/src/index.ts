@@ -262,6 +262,8 @@ export type {
   TableStripeStyle,
   TextProps,
   TextVariant,
+  TransitionProperty,
+  TransitionSpec,
   TreeProps,
   VirtualListProps,
   VNode,
