@@ -8,11 +8,12 @@
 
 import { execFileSync, execSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { computeStats, takeMemory } from "./measure.js";
 import type { BenchMetrics, ScenarioConfig } from "./types.js";
 
-const BENCH_DIR = resolve(import.meta.dirname ?? ".", "..", "ratatui-bench");
+const BENCH_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..", "ratatui-bench");
 const BINARY = resolve(BENCH_DIR, "target", "release", "ratatui-bench");
 
 /** Check if we can build/run the ratatui benchmark. */

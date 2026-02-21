@@ -21,12 +21,13 @@ jobs:
         run: bash scripts/guardrails.sh
 
   ci:
-    name: node / ${{ matrix.os }}
+    name: node ${{ matrix.node-version }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        node-version: ["18", "20", "22"]
 
     steps:
       - name: Checkout (with submodules)
@@ -37,7 +38,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: ${{ matrix.node-version }}
           cache: npm
 
       - name: Install (Linux)
@@ -73,7 +74,9 @@ jobs:
 
       - name: Repro replay fixtures (headless, explicit gate)
         if: runner.os == 'Linux'
-        run: node --test --test-concurrency=1 packages/core/dist/repro/__tests__/replay.harness.test.js
+        run: |
+          CONCURRENCY=$(node -p "parseInt(process.versions.node)>=19?'--test-concurrency=1':''")
+          node --test $CONCURRENCY packages/core/dist/repro/__tests__/replay.harness.test.js
 
       - name: Setup Rust (stable)
         uses: dtolnay/rust-toolchain@stable

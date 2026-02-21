@@ -15,7 +15,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json --pretty false",
-    "test": "node --test --test-concurrency=1 $(find dist -type f -path '*/__tests__/*.test.js' | LC_ALL=C sort)"
+    "test": "CONCURRENCY=$(node -p \"parseInt(process.versions.node)>=19?'--test-concurrency=1':''\") && node --test $CONCURRENCY $(find dist -type f -path '*/__tests__/*.test.js' | LC_ALL=C sort)"
   },
   "types": "./dist/index.d.ts",
   "exports": {

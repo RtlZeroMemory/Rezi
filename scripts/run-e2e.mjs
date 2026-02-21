@@ -95,7 +95,8 @@ if (files.length === 0) {
 const relFiles = files.map((f) => relative(root, f));
 
 const cmd = process.execPath;
-const args = ["--test", "--test-concurrency=1", ...relFiles];
+const nodeMajor = Number.parseInt(process.versions.node.split(".")[0], 10);
+const args = ["--test", ...(nodeMajor >= 19 ? ["--test-concurrency=1"] : []), ...relFiles];
 
 const res = spawnSync(cmd, args, {
   cwd: root,

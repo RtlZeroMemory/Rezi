@@ -22,6 +22,54 @@ function createDeferred<T>(): {
   return { promise, resolve, reject };
 }
 
+/**
+ * Minimal fake-timer utility compatible with Node 18+.
+ * Replaces global setTimeout/clearTimeout with a synchronous queue drained by tick().
+ */
+function useFakeTimers(): { tick: (ms: number) => void; restore: () => void } {
+  const origSetTimeout = globalThis.setTimeout;
+  const origClearTimeout = globalThis.clearTimeout;
+  const queue: Array<{ id: number; cb: () => void; at: number }> = [];
+  let now = 0;
+  let nextId = 1;
+
+  globalThis.setTimeout = ((cb: () => void, delay?: number) => {
+    const id = nextId++;
+    const at = now + Math.max(0, delay ?? 0);
+    queue.push({ id, cb, at });
+    return id as unknown as ReturnType<typeof globalThis.setTimeout>;
+  }) as unknown as typeof globalThis.setTimeout;
+
+  globalThis.clearTimeout = ((timerId?: number) => {
+    if (typeof timerId !== "number") {
+      return;
+    }
+    const idx = queue.findIndex((entry) => entry.id === timerId);
+    if (idx >= 0) {
+      queue.splice(idx, 1);
+    }
+  }) as unknown as typeof globalThis.clearTimeout;
+
+  return {
+    tick(ms: number) {
+      now += Math.max(0, ms);
+      while (true) {
+        queue.sort((a, b) => (a.at === b.at ? a.id - b.id : a.at - b.at));
+        const entry = queue[0];
+        if (!entry || entry.at > now) {
+          break;
+        }
+        queue.shift();
+        entry.cb();
+      }
+    },
+    restore() {
+      globalThis.setTimeout = origSetTimeout;
+      globalThis.clearTimeout = origClearTimeout;
+    },
+  };
+}
+
 function options(overrides: Partial<UseFormOptions<Values>> = {}): UseFormOptions<Values> {
   return {
     initialValues: { username: "", email: "" },
@@ -69,239 +117,266 @@ describe("form.async-validation - utility behavior", () => {
     assert.deepEqual(result, {});
   });
 
-  test("createDebouncedAsyncValidator executes only after debounce window", async (t) => {
-    t.mock.timers.enable({ apis: ["setTimeout"] });
+  test("createDebouncedAsyncValidator executes only after debounce window", async () => {
+    const timers = useFakeTimers();
+    try {
+      const calls: string[] = [];
+      let received: ValidationResult<Values> = {};
+      const validator = createDebouncedAsyncValidator<Values>(
+        async (values) => {
+          calls.push(values.username);
+          return values.username === "bad" ? { username: "Bad" } : {};
+        },
+        25,
+        (errors) => {
+          received = errors;
+        },
+      );
 
-    const calls: string[] = [];
-    let received: ValidationResult<Values> = {};
-    const validator = createDebouncedAsyncValidator<Values>(
-      async (values) => {
-        calls.push(values.username);
-        return values.username === "bad" ? { username: "Bad" } : {};
-      },
-      25,
-      (errors) => {
-        received = errors;
-      },
-    );
+      validator.run({ username: "bad", email: "" });
+      timers.tick(24);
+      await flushMicrotasks();
+      assert.equal(calls.length, 0);
 
-    validator.run({ username: "bad", email: "" });
-    t.mock.timers.tick(24);
-    await flushMicrotasks();
-    assert.equal(calls.length, 0);
-
-    t.mock.timers.tick(1);
-    await flushMicrotasks();
-    assert.deepEqual(calls, ["bad"]);
-    assert.deepEqual(received, { username: "Bad" });
+      timers.tick(1);
+      await flushMicrotasks();
+      assert.deepEqual(calls, ["bad"]);
+      assert.deepEqual(received, { username: "Bad" });
+    } finally {
+      timers.restore();
+    }
   });
 
-  test("createDebouncedAsyncValidator debounces rapid calls and keeps latest value", async (t) => {
-    t.mock.timers.enable({ apis: ["setTimeout"] });
+  test("createDebouncedAsyncValidator debounces rapid calls and keeps latest value", async () => {
+    const timers = useFakeTimers();
+    try {
+      const calls: string[] = [];
+      const validator = createDebouncedAsyncValidator<Values>(
+        async (values) => {
+          calls.push(values.username);
+          return {};
+        },
+        30,
+        () => {},
+      );
 
-    const calls: string[] = [];
-    const validator = createDebouncedAsyncValidator<Values>(
-      async (values) => {
-        calls.push(values.username);
-        return {};
-      },
-      30,
-      () => {},
-    );
+      validator.run({ username: "a", email: "" });
+      validator.run({ username: "ab", email: "" });
+      validator.run({ username: "abc", email: "" });
+      timers.tick(30);
+      await flushMicrotasks();
 
-    validator.run({ username: "a", email: "" });
-    validator.run({ username: "ab", email: "" });
-    validator.run({ username: "abc", email: "" });
-    t.mock.timers.tick(30);
-    await flushMicrotasks();
-
-    assert.deepEqual(calls, ["abc"]);
+      assert.deepEqual(calls, ["abc"]);
+    } finally {
+      timers.restore();
+    }
   });
 
-  test("createDebouncedAsyncValidator ignores stale in-flight results", async (t) => {
-    t.mock.timers.enable({ apis: ["setTimeout"] });
+  test("createDebouncedAsyncValidator ignores stale in-flight results", async () => {
+    const timers = useFakeTimers();
+    try {
+      const first = createDeferred<ValidationResult<Values>>();
+      const second = createDeferred<ValidationResult<Values>>();
+      const results: ValidationResult<Values>[] = [];
 
-    const first = createDeferred<ValidationResult<Values>>();
-    const second = createDeferred<ValidationResult<Values>>();
-    const results: ValidationResult<Values>[] = [];
+      let call = 0;
+      const validator = createDebouncedAsyncValidator<Values>(
+        async () => {
+          call++;
+          return call === 1 ? first.promise : second.promise;
+        },
+        0,
+        (errors) => {
+          results.push(errors);
+        },
+      );
 
-    let call = 0;
-    const validator = createDebouncedAsyncValidator<Values>(
-      async () => {
-        call++;
-        return call === 1 ? first.promise : second.promise;
-      },
-      0,
-      (errors) => {
-        results.push(errors);
-      },
-    );
+      validator.run({ username: "first", email: "" });
+      timers.tick(0);
 
-    validator.run({ username: "first", email: "" });
-    t.mock.timers.tick(0);
+      validator.run({ username: "second", email: "" });
+      timers.tick(0);
 
-    validator.run({ username: "second", email: "" });
-    t.mock.timers.tick(0);
+      first.resolve({ username: "stale" });
+      await flushMicrotasks();
+      assert.equal(results.length, 0);
 
-    first.resolve({ username: "stale" });
-    await flushMicrotasks();
-    assert.equal(results.length, 0);
-
-    second.resolve({ username: "fresh" });
-    await flushMicrotasks();
-    assert.deepEqual(results, [{ username: "fresh" }]);
+      second.resolve({ username: "fresh" });
+      await flushMicrotasks();
+      assert.deepEqual(results, [{ username: "fresh" }]);
+    } finally {
+      timers.restore();
+    }
   });
 
-  test("createDebouncedAsyncValidator cancel drops pending invocation", async (t) => {
-    t.mock.timers.enable({ apis: ["setTimeout"] });
+  test("createDebouncedAsyncValidator cancel drops pending invocation", async () => {
+    const timers = useFakeTimers();
+    try {
+      let called = 0;
+      const validator = createDebouncedAsyncValidator<Values>(
+        async () => {
+          called++;
+          return { username: "Bad" };
+        },
+        10,
+        () => {
+          called++;
+        },
+      );
 
-    let called = 0;
-    const validator = createDebouncedAsyncValidator<Values>(
-      async () => {
-        called++;
-        return { username: "Bad" };
-      },
-      10,
-      () => {
-        called++;
-      },
-    );
+      validator.run({ username: "x", email: "" });
+      validator.cancel();
+      timers.tick(10);
+      await flushMicrotasks();
 
-    validator.run({ username: "x", email: "" });
-    validator.cancel();
-    t.mock.timers.tick(10);
-    await flushMicrotasks();
-
-    assert.equal(called, 0);
+      assert.equal(called, 0);
+    } finally {
+      timers.restore();
+    }
   });
 
-  test("createDebouncedAsyncValidator can run again after cancel", async (t) => {
-    t.mock.timers.enable({ apis: ["setTimeout"] });
+  test("createDebouncedAsyncValidator can run again after cancel", async () => {
+    const timers = useFakeTimers();
+    try {
+      const seen: string[] = [];
+      const validator = createDebouncedAsyncValidator<Values>(
+        async (values) => {
+          seen.push(values.username);
+          return {};
+        },
+        10,
+        () => {},
+      );
 
-    const seen: string[] = [];
-    const validator = createDebouncedAsyncValidator<Values>(
-      async (values) => {
-        seen.push(values.username);
-        return {};
-      },
-      10,
-      () => {},
-    );
+      validator.run({ username: "first", email: "" });
+      validator.cancel();
+      validator.run({ username: "second", email: "" });
+      timers.tick(10);
+      await flushMicrotasks();
 
-    validator.run({ username: "first", email: "" });
-    validator.cancel();
-    validator.run({ username: "second", email: "" });
-    t.mock.timers.tick(10);
-    await flushMicrotasks();
-
-    assert.deepEqual(seen, ["second"]);
+      assert.deepEqual(seen, ["second"]);
+    } finally {
+      timers.restore();
+    }
   });
 });
 
 describe("form.async-validation - useForm behavior", () => {
-  test("validateAsync updates async field errors on change", async (t) => {
-    t.mock.timers.enable({ apis: ["setTimeout"] });
+  test("validateAsync updates async field errors on change", async () => {
+    const timers = useFakeTimers();
+    try {
+      const h = createFormHarness();
+      let form = h.render(options());
 
-    const h = createFormHarness();
-    let form = h.render(options());
+      form.setFieldValue("username", "ok");
+      form.setFieldValue("email", "taken@example.com");
+      timers.tick(20);
+      await flushMicrotasks();
 
-    form.setFieldValue("username", "ok");
-    form.setFieldValue("email", "taken@example.com");
-    t.mock.timers.tick(20);
-    await flushMicrotasks();
-
-    form = h.render(options());
-    assert.equal(form.errors.email, "Email already taken");
+      form = h.render(options());
+      assert.equal(form.errors.email, "Email already taken");
+    } finally {
+      timers.restore();
+    }
   });
 
-  test("validateAsync debounce coalesces rapid changes in useForm", async (t) => {
-    t.mock.timers.enable({ apis: ["setTimeout"] });
+  test("validateAsync debounce coalesces rapid changes in useForm", async () => {
+    const timers = useFakeTimers();
+    try {
+      const seen: string[] = [];
+      const h = createFormHarness();
+      const opts = options({
+        validateAsyncDebounce: 50,
+        validateAsync: async (values) => {
+          seen.push(values.email);
+          return {};
+        },
+      });
 
-    const seen: string[] = [];
-    const h = createFormHarness();
-    const opts = options({
-      validateAsyncDebounce: 50,
-      validateAsync: async (values) => {
-        seen.push(values.email);
-        return {};
-      },
-    });
+      const form = h.render(opts);
+      form.setFieldValue("username", "ok");
+      form.setFieldValue("email", "a@example.com");
+      form.setFieldValue("email", "b@example.com");
+      form.setFieldValue("email", "c@example.com");
 
-    const form = h.render(opts);
-    form.setFieldValue("username", "ok");
-    form.setFieldValue("email", "a@example.com");
-    form.setFieldValue("email", "b@example.com");
-    form.setFieldValue("email", "c@example.com");
+      timers.tick(50);
+      await flushMicrotasks();
 
-    t.mock.timers.tick(50);
-    await flushMicrotasks();
-
-    assert.deepEqual(seen, ["c@example.com"]);
+      assert.deepEqual(seen, ["c@example.com"]);
+    } finally {
+      timers.restore();
+    }
   });
 
-  test("latest async result wins in useForm race", async (t) => {
-    t.mock.timers.enable({ apis: ["setTimeout"] });
+  test("latest async result wins in useForm race", async () => {
+    const timers = useFakeTimers();
+    try {
+      const h = createFormHarness();
+      const first = createDeferred<Partial<Record<keyof Values, string>>>();
+      const second = createDeferred<Partial<Record<keyof Values, string>>>();
+      let call = 0;
+      const opts = options({
+        validateAsyncDebounce: 0,
+        validateAsync: async () => {
+          call++;
+          return call === 1 ? first.promise : second.promise;
+        },
+      });
 
-    const h = createFormHarness();
-    const first = createDeferred<Partial<Record<keyof Values, string>>>();
-    const second = createDeferred<Partial<Record<keyof Values, string>>>();
-    let call = 0;
-    const opts = options({
-      validateAsyncDebounce: 0,
-      validateAsync: async () => {
-        call++;
-        return call === 1 ? first.promise : second.promise;
-      },
-    });
+      let form = h.render(opts);
+      form.setFieldValue("username", "ok");
+      form.setFieldValue("email", "first@example.com");
+      timers.tick(0);
 
-    let form = h.render(opts);
-    form.setFieldValue("username", "ok");
-    form.setFieldValue("email", "first@example.com");
-    t.mock.timers.tick(0);
+      form.setFieldValue("email", "second@example.com");
+      timers.tick(0);
 
-    form.setFieldValue("email", "second@example.com");
-    t.mock.timers.tick(0);
+      first.resolve({ email: "stale error" });
+      await flushMicrotasks();
+      form = h.render(opts);
+      assert.equal(form.errors.email, undefined);
 
-    first.resolve({ email: "stale error" });
-    await flushMicrotasks();
-    form = h.render(opts);
-    assert.equal(form.errors.email, undefined);
-
-    second.resolve({ email: "fresh error" });
-    await flushMicrotasks();
-    form = h.render(opts);
-    assert.equal(form.errors.email, "fresh error");
+      second.resolve({ email: "fresh error" });
+      await flushMicrotasks();
+      form = h.render(opts);
+      assert.equal(form.errors.email, "fresh error");
+    } finally {
+      timers.restore();
+    }
   });
 
-  test("async validator rejection clears prior async error", async (t) => {
-    t.mock.timers.enable({ apis: ["setTimeout"] });
+  test("async validator rejection clears prior async error", async () => {
+    const timers = useFakeTimers();
+    try {
+      const h = createFormHarness();
+      let call = 0;
+      const opts = options({
+        validateAsyncDebounce: 0,
+        validateAsync: async () => {
+          call++;
+          if (call === 1) {
+            return { email: "server error" };
+          }
+          throw new Error("network");
+        },
+      });
 
-    const h = createFormHarness();
-    let call = 0;
-    const opts = options({
-      validateAsyncDebounce: 0,
-      validateAsync: async () => {
-        call++;
-        if (call === 1) {
-          return { email: "server error" };
-        }
-        throw new Error("network");
-      },
-    });
+      let form = h.render(opts);
+      form.setFieldValue("username", "ok");
+      form.setFieldValue("email", "first@example.com");
+      timers.tick(0);
+      await flushMicrotasks();
+      form = h.render(opts);
+      assert.equal(form.errors.email, "server error");
 
-    let form = h.render(opts);
-    form.setFieldValue("username", "ok");
-    form.setFieldValue("email", "first@example.com");
-    t.mock.timers.tick(0);
-    await flushMicrotasks();
-    form = h.render(opts);
-    assert.equal(form.errors.email, "server error");
-
-    form.setFieldValue("email", "second@example.com");
-    t.mock.timers.tick(0);
-    await flushMicrotasks();
-    form = h.render(opts);
-    assert.equal(form.errors.email, undefined);
+      form.setFieldValue("email", "second@example.com");
+      timers.tick(0);
+      await flushMicrotasks();
+      form = h.render(opts);
+      assert.equal(form.errors.email, undefined);
+    } finally {
+      timers.restore();
+    }
   });
 
   test("handleSubmit sets isSubmitting during async submit lifecycle", async () => {
@@ -394,49 +469,55 @@ describe("form.async-validation - useForm behavior", () => {
     assert.equal(form.isSubmitting, false);
   });
 
-  test("async validation overrides sync error for same field", async (t) => {
-    t.mock.timers.enable({ apis: ["setTimeout"] });
+  test("async validation overrides sync error for same field", async () => {
+    const timers = useFakeTimers();
+    try {
+      const h = createFormHarness();
+      const opts = options({
+        validateAsyncDebounce: 0,
+        validate: () => ({ email: "sync email error" }),
+        validateAsync: async () => ({ email: "async email error" }),
+      });
 
-    const h = createFormHarness();
-    const opts = options({
-      validateAsyncDebounce: 0,
-      validate: () => ({ email: "sync email error" }),
-      validateAsync: async () => ({ email: "async email error" }),
-    });
+      let form = h.render(opts);
+      form.setFieldValue("username", "ok");
+      form.setFieldValue("email", "a@example.com");
+      timers.tick(0);
+      await flushMicrotasks();
+      form = h.render(opts);
 
-    let form = h.render(opts);
-    form.setFieldValue("username", "ok");
-    form.setFieldValue("email", "a@example.com");
-    t.mock.timers.tick(0);
-    await flushMicrotasks();
-    form = h.render(opts);
-
-    assert.equal(form.errors.email, "async email error");
+      assert.equal(form.errors.email, "async email error");
+    } finally {
+      timers.restore();
+    }
   });
 
-  test("async validation preserves sync errors on other fields", async (t) => {
-    t.mock.timers.enable({ apis: ["setTimeout"] });
+  test("async validation preserves sync errors on other fields", async () => {
+    const timers = useFakeTimers();
+    try {
+      const h = createFormHarness();
+      const opts = options({
+        validateAsyncDebounce: 0,
+        validate: (values) => {
+          const errors: Partial<Record<keyof Values, string>> = {};
+          if (!values.username.trim()) {
+            errors.username = "username missing";
+          }
+          return errors;
+        },
+        validateAsync: async () => ({ email: "email async error" }),
+      });
 
-    const h = createFormHarness();
-    const opts = options({
-      validateAsyncDebounce: 0,
-      validate: (values) => {
-        const errors: Partial<Record<keyof Values, string>> = {};
-        if (!values.username.trim()) {
-          errors.username = "username missing";
-        }
-        return errors;
-      },
-      validateAsync: async () => ({ email: "email async error" }),
-    });
+      let form = h.render(opts);
+      form.setFieldValue("email", "x@example.com");
+      timers.tick(0);
+      await flushMicrotasks();
+      form = h.render(opts);
 
-    let form = h.render(opts);
-    form.setFieldValue("email", "x@example.com");
-    t.mock.timers.tick(0);
-    await flushMicrotasks();
-    form = h.render(opts);
-
-    assert.equal(form.errors.username, "username missing");
-    assert.equal(form.errors.email, "email async error");
+      assert.equal(form.errors.username, "username missing");
+      assert.equal(form.errors.email, "email async error");
+    } finally {
+      timers.restore();
+    }
   });
 });
