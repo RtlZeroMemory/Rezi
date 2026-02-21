@@ -106,6 +106,10 @@ export function renderTree(
   let lastRenderedNodeKind = tree.vnode.kind;
   const damageRect = opts?.damageRect;
   const skipCleanSubtrees = opts?.skipCleanSubtrees ?? damageRect !== undefined;
+  const hasAnimatedRects =
+    animatedRectByInstanceId !== undefined && animatedRectByInstanceId.size > 0;
+  const hasAnimatedOpacity =
+    animatedOpacityByInstanceId !== undefined && animatedOpacityByInstanceId.size > 0;
 
   const nodeStack: RenderNodeTask[] = [tree];
   const styleStack: ResolvedTextStyle[] = [inheritedStyle];
@@ -130,14 +134,9 @@ export function renderTree(
     const node = nodeOrPop;
     const vnode = node.vnode;
     lastRenderedNodeKind = vnode.kind;
-    const rect: Rect = animatedRectByInstanceId?.get(node.instanceId) ?? layoutNode.rect;
-    const opacityOverride =
-      animatedOpacityByInstanceId?.get(node.instanceId) ??
-      (vnode.kind === "box"
-        ? (((vnode.props as Readonly<{ opacity?: unknown }> | undefined)?.opacity as
-            | number
-            | undefined) ?? undefined)
-        : undefined);
+    const rect: Rect = hasAnimatedRects
+      ? (animatedRectByInstanceId?.get(node.instanceId) ?? layoutNode.rect)
+      : layoutNode.rect;
     if (skipCleanSubtrees && !node.dirty) continue;
     if (
       damageRect &&
@@ -193,7 +192,15 @@ export function renderTree(
           damageRect,
           skipCleanSubtrees,
           node.selfDirty,
-          opacityOverride,
+          vnode.kind === "box"
+            ? ((hasAnimatedOpacity
+                ? (animatedOpacityByInstanceId?.get(node.instanceId) ?? undefined)
+                : undefined) ??
+                ((vnode.props as Readonly<{ opacity?: unknown }> | undefined)?.opacity as
+                  | number
+                  | undefined) ??
+                undefined)
+            : undefined,
         );
         break;
       }
