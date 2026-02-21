@@ -2,6 +2,39 @@
 
 Scaffolded with `create-rezi` using the **__TEMPLATE_LABEL__** template.
 
+## What This Template Demonstrates
+
+- Multi-file dashboard architecture from day one (`types`, `theme`, `helpers`, `screens`, `main`).
+- Deterministic telemetry updates with a reducer-based state transition model.
+- Operator dashboard patterns: fleet summary, filtered list, service inspector, and help modal.
+- Theme cycling and keyboard-driven controls designed for fast operational workflows.
+
+## File Layout
+
+- `src/types.ts`: state/action/service model.
+- `src/theme.ts`: template identity + theme catalog.
+- `src/helpers/`: formatters, reducer logic, and keybinding resolver.
+- `src/screens/overview.ts`: dashboard UI composition.
+- `src/main.ts`: app init, keybindings, telemetry loop, shutdown handling.
+- `src/__tests__/`: reducer, widget render, and keybinding tests.
+
+## Controls
+
+- `up` / `down` or `j` / `k`: Move selection
+- `f`: Cycle fleet filter (`all`, `warning`, `down`, `healthy`)
+- `t`: Cycle theme preset
+- `p` or `space`: Pause/resume telemetry stream
+- `h` or `?`: Toggle help modal
+- `q` or `ctrl+c`: Quit
+
+## Testing
+
+```bash
+npm run test
+# or
+bun run test
+```
+
 ## Quickstart
 
 ```bash
@@ -13,34 +46,3 @@ npm run start
 bun install
 bun run start
 ```
-
-## Controls
-
-- `up` / `down` or `j` / `k`: Move service selection
-- `f`: Cycle health filter (`all`, `warning`, `down`, `healthy`)
-- `s`: Cycle sort field (`service`, `latency`, `errors`, `traffic`)
-- `o`: Toggle sort direction
-- `t`: Cycle theme preset
-- `p` or `space`: Pause/resume live updates
-- `enter`: Pin/unpin selected service
-- `c`: Clear active events feed
-- `d`: Toggle debug counters panel
-- `h`: Open command help modal
-- `q`: Quit
-
-## What This Template Demonstrates
-
-- A production-style EdgeOps control-plane dashboard with deterministic live telemetry.
-- Stable table + inspector + active events workflow using high-level Rezi widgets only.
-- Escalation-oriented UX: critical banner, service inspector guidance, and runbook panel.
-
-## Runtime Guardrails
-
-- Keep the scaffolded app config defaults (`fpsCap`, `maxEventBytes`, `executionMode`) unless you have a measured reason to change them.
-- The defaults are tuned for predictable local iteration and stable CI behavior.
-
-## Key Code Patterns
-
-- Bounded live update loop and lifecycle cleanup in `src/main.ts` (`simulateTick`, interval setup/teardown).
-- Stable diffing patterns in `src/main.ts` (`ui.table` + `getRowKey` + immutable service updates + fixed-width labels).
-- Interaction and command model in `src/main.ts` (`app.keys`, selection/filter/sort helpers, modal help).

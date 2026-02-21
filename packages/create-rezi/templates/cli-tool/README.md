@@ -4,30 +4,42 @@ Scaffolded with `create-rezi` using the **__TEMPLATE_LABEL__** template.
 
 ## What This Template Demonstrates
 
-- A first-party multi-screen app powered by `createApp({ routes, initialRoute })`.
-- Screen navigation via router API (`navigate`, `replace`, `back`) and global keybindings.
-- Route-aware helpers (`ui.routerTabs`, `ui.routerBreadcrumb`) wired to live router state.
-- Focus restoration when returning to a previous screen with `back()`.
-- A parameterized detail route (`detail` with `id` param) for drill-down flows.
+- Multi-screen CLI workflow powered by first-party `createApp({ routes })` routing.
+- Multi-file structure for maintainability (`types`, `theme`, `helpers`, `screens`, `main`).
+- Streamed logs + settings forms + global route keybindings.
+- Route shell pattern you can extend for additional screens.
 
 ## Screens
 
-- `home`: Status summary and quick actions.
-- `logs`: Streaming logs console + entry list.
-- `settings`: Form controls (`input`, `checkbox`, `select`, `slider`).
-- `detail`: Parameterized log detail screen (opened from Logs entries).
+- `home`: status overview + quick actions.
+- `logs`: streaming console and recent entry list.
+- `settings`: environment/theme/operator controls.
+
+## File Layout
+
+- `src/types.ts`: route/state/action contracts.
+- `src/theme.ts`: theme catalog and template identity constants.
+- `src/helpers/`: log helpers, reducer, and keybinding resolver.
+- `src/screens/`: one file per route + shared shell wrapper.
+- `src/main.ts`: route wiring, runtime loop, keybindings, and shutdown.
+- `src/__tests__/`: reducer, render, and keybinding examples.
 
 ## Controls
 
-- `ctrl+1`: Home
-- `ctrl+2`: Logs
-- `ctrl+3`: Settings
+- `f1` / `alt+1` / `ctrl+1`: Home
+- `f2` / `alt+2` / `ctrl+2`: Logs
+- `f3` / `alt+3` / `ctrl+3`: Settings
+- `p`: Pause/resume stream
+- `h` or `?`: Toggle help modal
 - `q` or `ctrl+c`: Quit
 
-From the Logs screen:
+## Testing
 
-- Activate a log entry to open the `detail` route.
-- Use `back()` from Detail to restore the previous Logs focus state.
+```bash
+npm run test
+# or
+bun run test
+```
 
 ## Quickstart
 

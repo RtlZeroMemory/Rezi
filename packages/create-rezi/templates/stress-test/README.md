@@ -76,6 +76,22 @@ No random external input or external host telemetry is used.
   if unavailable it falls back to a temp-file sink under the OS temp directory.
 - Later phases raise update rate and memory ballast. Use `r` to reset back to phase 1.
 
+## Testing
+
+The scaffold now includes example tests in `src/__tests__/`:
+
+- reducer behavior (`reducer.test.ts`)
+- widget render smoke (`render.test.ts`)
+- keybinding mapping (`keybindings.test.ts`)
+
+Run them with:
+
+```bash
+npm run test
+# or
+bun run test
+```
+
 ## Quickstart
 
 ```bash

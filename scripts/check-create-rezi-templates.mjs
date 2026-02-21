@@ -143,6 +143,18 @@ for (const template of templates) {
   if (typeof scripts.typecheck !== "string") {
     fail(`Template ${template.key} package.json must include a typecheck script.`);
   }
+  if (typeof scripts.test !== "string") {
+    fail(`Template ${template.key} package.json must include a test script.`);
+  }
+
+  const testsDir = join(templateDir, "src", "__tests__");
+  if (!existsSync(testsDir)) {
+    fail(`Template ${template.key} must include src/__tests__ example tests.`);
+  }
+  const testFiles = readdirSync(testsDir).filter((entry) => entry.endsWith(".test.ts"));
+  if (testFiles.length < 2) {
+    fail(`Template ${template.key} must include at least two example tests.`);
+  }
 
   const deps = packageJson.dependencies ?? {};
   if (typeof deps["@rezi-ui/core"] !== "string" || typeof deps["@rezi-ui/node"] !== "string") {

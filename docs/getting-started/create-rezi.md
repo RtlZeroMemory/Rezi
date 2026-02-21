@@ -20,14 +20,17 @@ bun run start
 
 If `--template` is omitted, the CLI prompts you to choose (default: `dashboard`).
 
-- `dashboard`: Live ops dashboard with deterministic table updates.
-  Highlights: live-updating table with stable row keys, filter/sort/pin controls + incident telemetry.
+- `dashboard`: Live ops dashboard with deterministic telemetry updates.
+  Highlights: reducer-driven updates, fleet filter/selection workflow, inspector panel, and help overlay.
 - `stress-test`: Visual benchmark matrix with deterministic simulation + real runtime diagnostics.
-  Highlights: three visual stress lanes (geometry/text/matrix), phase escalation, measured CPU/RSS/lag/sink I/O.
+  Highlights: geometry/text/matrix stress lanes, phase escalation, measured CPU/RSS/lag/sink I/O.
   Aliases: `stress`, `chaos`, `bench`.
 - `cli-tool`: Multi-screen product workflow app with first-party page routing.
-  Highlights: home/logs/settings/detail routes, breadcrumb+tabs helpers wired to live router state.
+  Highlights: home/logs/settings routes, shared route shell, logs console, and global route keybindings.
   Aliases: `cli`, `tool`, `multiscreen`.
+- `minimal`: Single-screen utility starter for focused tooling.
+  Highlights: lean reducer flow, keybindings (`q`, `?`, `+/-`, `t`), theme cycling, and signal-safe shutdown pattern.
+  Aliases: `mini`, `basic`, `utility`.
 
 Choose directly with `--template`:
 
@@ -35,9 +38,11 @@ Choose directly with `--template`:
 npm create rezi my-app -- --template dashboard
 npm create rezi my-app -- --template stress-test
 npm create rezi my-app -- --template cli-tool
+npm create rezi my-app -- --template minimal
 bun create rezi my-app -- --template dashboard
 bun create rezi my-app -- --template stress-test
 bun create rezi my-app -- --template cli-tool
+bun create rezi my-app -- --template minimal
 ```
 
 Inspect all templates and highlights from the CLI:
@@ -51,14 +56,27 @@ bun create rezi -- --list-templates
 ## Options
 
 - `--template, -t <name>`:
-  Select a template (`dashboard`, `stress-test`, `cli-tool`; aliases: `dash`, `stress`, `chaos`, `bench`, `cli`, `tool`, `multiscreen`).
+  Select a template (`dashboard`, `stress-test`, `cli-tool`, `minimal`; aliases: `dash`, `stress`, `chaos`, `bench`, `cli`, `tool`, `multiscreen`, `mini`, `basic`, `utility`).
 - `--no-install, --skip-install`: Skip dependency installation.
 - `--pm, --package-manager <npm|pnpm|yarn|bun>`: Choose a package manager.
 - `--list-templates, --templates`: Print available templates and highlights.
 - `--help, -h`: Show help.
 
 When `stress-test` is selected, the CLI asks for explicit confirmation because
-the generated app intentionally drives higher CPU/IO pressure.
+that template intentionally drives higher CPU/IO pressure.
+
+## Scaffold Layout + Tests
+
+Templates now demonstrate a shared starter architecture:
+
+- `src/types.ts`
+- `src/theme.ts`
+- `src/helpers/`
+- `src/screens/`
+- `src/main.ts`
+- `src/__tests__/`
+
+Each template includes example tests for reducer logic, widget rendering, and keybinding mapping.
 
 For package-level CLI reference (invocation forms and options), see [packages/create-rezi](../packages/create-rezi.md).
 

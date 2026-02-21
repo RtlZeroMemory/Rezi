@@ -7,11 +7,12 @@
     "start": "tsx src/main.ts",
     "dev": "tsx watch src/main.ts",
     "build": "tsc --pretty false",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/__tests__"
   },
   "dependencies": {
-    "@rezi-ui/core": "^0.1.0-alpha.11",
-    "@rezi-ui/node": "^0.1.0-alpha.11"
+    "@rezi-ui/core": "^0.1.0-alpha.17",
+    "@rezi-ui/node": "^0.1.0-alpha.17"
   },
   "devDependencies": {
     "@types/node": "^22.13.1",

@@ -20,10 +20,11 @@ cd my-tui-app
 bun start
 ```
 
-Select a template when prompted (`dashboard` or `stress-test`), or pass `--template` to choose directly:
+Select a template when prompted (`dashboard`, `stress-test`, `cli-tool`, or `minimal`), or pass `--template` to choose directly:
 
 ```bash
 npm create rezi my-tui-app -- --template dashboard
+npm create rezi my-tui-app -- --template minimal
 ```
 
 ### Option 2: Manual setup

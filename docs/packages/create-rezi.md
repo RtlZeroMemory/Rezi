@@ -24,21 +24,22 @@ The CLI prompts for any missing values (project name/template) when run interact
 
 Canonical template names:
 
-- `dashboard`
-- `stress-test`
-  - Alias: `dash`
-- `stress-test`
-  - Aliases: `stress`, `chaos`, `bench`
+- `dashboard` (alias: `dash`)
+- `stress-test` (aliases: `stress`, `chaos`, `bench`)
+- `cli-tool` (aliases: `cli`, `tool`, `multiscreen`)
+- `minimal` (aliases: `mini`, `basic`, `utility`)
 
 Use a specific template:
 
 ```bash
 npm create rezi my-app -- --template dashboard
-npm create rezi my-app -- --template dash
+npm create rezi my-app -- --template cli-tool
+npm create rezi my-app -- --template minimal
 
 # Bun
 bun create rezi my-app -- --template dashboard
-bun create rezi my-app -- --template dash
+bun create rezi my-app -- --template cli-tool
+bun create rezi my-app -- --template minimal
 ```
 
 List templates and highlights:
@@ -49,11 +50,11 @@ npm create rezi -- --list-templates
 bun create rezi -- --list-templates
 ```
 
-For template descriptions and highlights, use the canonical guide: [Getting Started → Create Rezi](../getting-started/create-rezi.md).
+For full template descriptions and highlights, use: [Getting Started -> Create Rezi](../getting-started/create-rezi.md).
 
 ## Options
 
-- `--template, -t <name>`: Select a template (`dashboard` or `stress-test`, plus aliases).
+- `--template, -t <name>`: Select a template (`dashboard`, `stress-test`, `cli-tool`, `minimal`, plus aliases).
 - `--no-install, --skip-install`: Skip dependency installation.
 - `--pm, --package-manager <npm|pnpm|yarn|bun>`: Choose a package manager.
 - `--list-templates, --templates`: Print available templates and highlights.
@@ -61,7 +62,7 @@ For template descriptions and highlights, use the canonical guide: [Getting Star
 
 ## Template Smoke Check
 
-Run deterministic template smoke checks (metadata consistency + build/typecheck expectations):
+Run deterministic template smoke checks (metadata consistency + build/typecheck + test scaffolding expectations):
 
 ```bash
 npm run check:create-rezi-templates

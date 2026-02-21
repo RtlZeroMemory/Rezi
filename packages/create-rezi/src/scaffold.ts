@@ -2,7 +2,7 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export type TemplateKey = "dashboard" | "stress-test" | "cli-tool";
+export type TemplateKey = "dashboard" | "stress-test" | "cli-tool" | "minimal";
 
 export type TemplateDefinition = {
   key: TemplateKey;
@@ -52,6 +52,18 @@ export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
     ],
     dir: "cli-tool",
   },
+  {
+    key: "minimal",
+    label: "Minimal Utility TUI",
+    description: "Single-screen starter for focused tools with essential patterns only",
+    safetyTag: "safe-default",
+    safetyNote: "Small footprint template intended for quick utility workflows.",
+    highlights: [
+      "single-screen state flow with keybindings, theme cycling, and inline error handling",
+      "lean multi-file structure plus reducer/render/keybinding test examples",
+    ],
+    dir: "minimal",
+  },
 ] as const;
 
 const TEMPLATE_BY_KEY = new Map(TEMPLATE_DEFINITIONS.map((template) => [template.key, template]));
@@ -66,6 +78,9 @@ TEMPLATE_ALIASES.set("bench", "stress-test");
 TEMPLATE_ALIASES.set("cli", "cli-tool");
 TEMPLATE_ALIASES.set("tool", "cli-tool");
 TEMPLATE_ALIASES.set("multiscreen", "cli-tool");
+TEMPLATE_ALIASES.set("mini", "minimal");
+TEMPLATE_ALIASES.set("basic", "minimal");
+TEMPLATE_ALIASES.set("utility", "minimal");
 
 const PACKAGE_NAME_RE = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
 

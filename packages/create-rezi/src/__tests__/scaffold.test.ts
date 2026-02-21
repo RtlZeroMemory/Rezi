@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, readdir } from "node:fs/promises";
+import { access, mkdtemp, readFile, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, test } from "@rezi-ui/testkit";
@@ -21,10 +21,14 @@ test("normalizeTemplateName accepts friendly aliases", () => {
   assert.equal(normalizeTemplateName("cli"), "cli-tool");
   assert.equal(normalizeTemplateName("tool"), "cli-tool");
   assert.equal(normalizeTemplateName("multi_screen"), "cli-tool");
+  assert.equal(normalizeTemplateName("minimal"), "minimal");
+  assert.equal(normalizeTemplateName("mini"), "minimal");
+  assert.equal(normalizeTemplateName("basic"), "minimal");
+  assert.equal(normalizeTemplateName("utility"), "minimal");
 });
 
 test("template keys match template directories and include highlights", async () => {
-  const expectedKeys = ["dashboard", "stress-test", "cli-tool"];
+  const expectedKeys = ["dashboard", "stress-test", "cli-tool", "minimal"];
   const keys = TEMPLATE_DEFINITIONS.map((template) => template.key);
   assert.equal(keys.join(","), expectedKeys.join(","));
 
@@ -61,8 +65,23 @@ test("createProject scaffolds each template with substitutions", async () => {
     assert.equal(pkg.name, packageName);
 
     const main = await readFile(join(targetDir, "src", "main.ts"), "utf8");
-    assert.ok(main.includes(displayName));
-    assert.ok(!main.includes("__APP_NAME__"));
+    let appNameSource = main;
+    let appNamePath = join(targetDir, "src", "main.ts");
+
+    const themePath = join(targetDir, "src", "theme.ts");
+    try {
+      await access(themePath);
+      appNameSource = await readFile(themePath, "utf8");
+      appNamePath = themePath;
+    } catch {
+      // Fallback to main.ts for legacy templates.
+    }
+
+    assert.ok(
+      appNameSource.includes(displayName),
+      `Expected ${appNamePath} to include scaffolded display name`,
+    );
+    assert.ok(!appNameSource.includes("__APP_NAME__"));
 
     const readme = await readFile(join(targetDir, "README.md"), "utf8");
     assert.ok(readme.includes(template.label));
