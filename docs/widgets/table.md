@@ -21,6 +21,38 @@ ui.table({
 })
 ```
 
+## Boilerplate-free: `useTable`
+
+Use `useTable(ctx, ...)` inside composite widgets to auto-manage selection, sorting, and wiring:
+
+```ts
+import { defineWidget, ui, useTable } from "@rezi-ui/core";
+
+const FilesTable = defineWidget<{ rows: readonly { id: string; name: string; size: number }[] }>(
+  (props, ctx) => {
+    const table = useTable(ctx, {
+      id: "files",
+      rows: props.rows,
+      columns: [
+        { key: "name", header: "Name", flex: 1 },
+        { key: "size", header: "Size", width: 10, align: "right" },
+      ],
+      selectable: "multi",
+      sortable: true,
+    });
+
+    return ui.table(table.props);
+  },
+);
+```
+
+`useTable` returns:
+
+- `props`: ready for `ui.table(...)`
+- `selection`, `clearSelection`
+- `sortColumn`, `sortDirection`, `setSort`
+- `rows`: sorted rows currently rendered by `props`
+
 ## Props
 
 | Prop | Type | Default | Description |

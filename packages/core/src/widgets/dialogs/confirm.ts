@@ -3,8 +3,8 @@
  */
 
 import type { VNode } from "../types.js";
-import { ui } from "../ui.js";
 import type { ConfirmDialogProps } from "./types.js";
+import { dialog } from "./dialog.js";
 
 export function confirmDialog(props: ConfirmDialogProps): VNode {
   const {
@@ -20,21 +20,22 @@ export function confirmDialog(props: ConfirmDialogProps): VNode {
 
   void intent;
 
-  return ui.modal({
+  return dialog({
     id,
     title,
-    content: ui.text(message),
+    message,
     actions: [
-      ui.button({
+      {
         id: `${id}-confirm`,
         label: confirmLabel,
+        intent,
         onPress: onConfirm,
-      }),
-      ui.button({
+      },
+      {
         id: `${id}-cancel`,
         label: cancelLabel,
         onPress: onCancel,
-      }),
+      },
     ],
     onClose: onCancel,
   });

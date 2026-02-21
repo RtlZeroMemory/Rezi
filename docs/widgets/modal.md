@@ -58,6 +58,43 @@ ui.modal({
 })
 ```
 
+### Multi-action dialogs with `ui.dialog`
+
+```ts
+ui.dialog({
+  id: "save",
+  title: "Unsaved Changes",
+  message: "Save before closing?",
+  actions: [
+    { label: "Save", intent: "primary", onPress: save },
+    { label: "Don't Save", intent: "danger", onPress: discard },
+    { label: "Cancel", onPress: cancel },
+  ],
+})
+```
+
+### Stacked overlays with `useModalStack`
+
+```ts
+const modals = useModalStack(ctx);
+
+modals.push("login", {
+  title: "Login",
+  content: ui.text("Enter credentials"),
+  actions: [ui.button({ id: "login-ok", label: "Continue" })],
+});
+
+modals.push("mfa", {
+  title: "2FA",
+  content: ui.text("Enter your code"),
+  actions: [ui.button({ id: "mfa-ok", label: "Verify" })],
+});
+
+return ui.layers([MainContent(), ...modals.render()]);
+```
+
+`useModalStack` provides `push`, `pop`, `clear`, `current`, `size`, and `render`.
+
 ## Mouse Behavior
 
 - **Clicking the backdrop** closes the modal when `closeOnBackdrop` is `true` (the default).
@@ -71,6 +108,7 @@ ui.modal({
 - Backdrops are rendered behind the modal. `"dim"` uses a light shade pattern; `"opaque"` clears the area behind the modal to the theme background color.
 - Extended backdrop config uses object form: `variant` (preset), `pattern` (dim glyph), and optional `foreground`/`background` colors.
 - `width: "auto"` sizes to content/actions and is clamped by `maxWidth` and the viewport.
+- `useModalStack` applies focus-return wiring between stacked dialogs and keeps modal layering LIFO.
 
 ## Related
 

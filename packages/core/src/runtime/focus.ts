@@ -6,7 +6,7 @@
  * and computes focus traversal (Tab/Shift+Tab).
  *
  * Focus rules:
- *   - Focusable set: enabled Buttons + Inputs
+ *   - Focusable set: enabled interactive widgets with an `id` (unless `focusable: false`)
  *   - Traversal order: depth-first preorder, left-to-right children
  *   - Tab cycles forward through list; Shift+Tab cycles backward
  *   - Focus persists across renders if ID still exists; else jumps to first
@@ -44,7 +44,7 @@ export type FocusState = Readonly<{
  *
  * - Order: depth-first preorder traversal
  * - Children: left-to-right in `children[]` order
- * - Focusable set (MVP): enabled Buttons only (docs/10 + docs/11)
+ * - Focusable set: enabled interactive widgets with an `id` (unless `focusable: false`)
  */
 export function computeFocusList(committedTree: RuntimeInstance): readonly string[] {
   return collectFocusableIds(committedTree);

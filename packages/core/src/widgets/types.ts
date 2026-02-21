@@ -501,6 +501,8 @@ export type LinkProps = Readonly<{
   onPress?: () => void;
   /** Disabled links are rendered but not focusable/pressable. */
   disabled?: boolean;
+  /** Opt out of Tab focus order while keeping id-based routing available. */
+  focusable?: boolean;
 }>;
 
 export type CanvasProps = Readonly<{
@@ -676,6 +678,8 @@ export type ButtonProps = Readonly<{
   key?: string;
   label: string;
   disabled?: boolean;
+  /** Opt out of Tab focus order while keeping id-based routing available. */
+  focusable?: boolean;
   /** Horizontal padding in cells (default: 1). */
   px?: number;
   /** Optional style applied to the button label (merged with focus/disabled state). */
@@ -690,6 +694,8 @@ export type InputProps = Readonly<{
   key?: string;
   value: string;
   disabled?: boolean;
+  /** Opt out of Tab focus order while keeping id-based routing available. */
+  focusable?: boolean;
   /** Optional style applied to the input value (merged with focus/disabled state). */
   style?: TextStyle;
   /** Optional callback invoked on input edits (docs/18). */
@@ -729,6 +735,8 @@ export type ItemHeightSpec<T> = number | ((item: T, index: number) => number);
 export type VirtualListProps<T = unknown> = Readonly<{
   id: string;
   key?: string;
+  /** Opt out of Tab focus order while keeping id-based routing available. */
+  focusable?: boolean;
   items: readonly T[];
   itemHeight: ItemHeightSpec<T>;
   /** Number of items to render outside the visible viewport (default: 3) */
@@ -814,6 +822,28 @@ export type ModalProps = Readonly<{
   /** ID of element to return focus to when modal closes. */
   returnFocusTo?: string;
 }>;
+
+/** Intent hint for declarative dialog actions. */
+export type DialogActionIntent = "primary" | "danger";
+
+/** Action descriptor for declarative dialog buttons. */
+export type DialogAction = Readonly<{
+  id?: string;
+  label: string;
+  intent?: DialogActionIntent;
+  onPress: () => void;
+  disabled?: boolean;
+  /** Opt out of Tab focus order while keeping id-based routing available. */
+  focusable?: boolean;
+}>;
+
+/** Declarative dialog props sugar over `ui.modal(...)`. */
+export type DialogProps = Readonly<
+  Omit<ModalProps, "content" | "actions"> & {
+    message: string | VNode;
+    actions: readonly DialogAction[];
+  }
+>;
 
 /** Dropdown menu item. */
 export type DropdownItem = Readonly<{
@@ -924,6 +954,8 @@ export type TableColumn<T = unknown> = Readonly<{
 export type TableProps<T = unknown> = Readonly<{
   id: string;
   key?: string;
+  /** Opt out of Tab focus order while keeping id-based routing available. */
+  focusable?: boolean;
   /** Column definitions. */
   columns: readonly TableColumn<T>[];
   /** Row data array. */
@@ -997,6 +1029,8 @@ export type FieldProps = Readonly<{
 export type SelectProps = Readonly<{
   id: string;
   key?: string;
+  /** Opt out of Tab focus order while keeping id-based routing available. */
+  focusable?: boolean;
   /** Currently selected value. */
   value: string;
   /** Available options. */
@@ -1013,6 +1047,8 @@ export type SelectProps = Readonly<{
 export type SliderProps = Readonly<{
   id: string;
   key?: string;
+  /** Opt out of Tab focus order while keeping id-based routing available. */
+  focusable?: boolean;
   /** Current slider value. */
   value: number;
   /** Minimum value (default: 0). */
@@ -1041,6 +1077,8 @@ export type SliderProps = Readonly<{
 export type CheckboxProps = Readonly<{
   id: string;
   key?: string;
+  /** Opt out of Tab focus order while keeping id-based routing available. */
+  focusable?: boolean;
   /** Whether the checkbox is checked. */
   checked: boolean;
   /** Label displayed next to the checkbox. */
@@ -1055,6 +1093,8 @@ export type CheckboxProps = Readonly<{
 export type RadioGroupProps = Readonly<{
   id: string;
   key?: string;
+  /** Opt out of Tab focus order while keeping id-based routing available. */
+  focusable?: boolean;
   /** Currently selected value. */
   value: string;
   /** Available options. */
@@ -1177,6 +1217,8 @@ export type CommandPaletteProps = Readonly<{
   /** REQUIRED - Interactive widget identifier. */
   id: string;
   key?: string;
+  /** Opt out of Tab focus order while keeping id-based routing available. */
+  focusable?: boolean;
   /** Visible state. */
   open: boolean;
   /** Current search query. */
@@ -1242,6 +1284,8 @@ export type FilePickerProps = Readonly<{
   /** REQUIRED - Interactive widget identifier. */
   id: string;
   key?: string;
+  /** Opt out of Tab focus order while keeping id-based routing available. */
+  focusable?: boolean;
   /** Root path for file browsing. */
   rootPath: string;
   /** File tree data to render (provided by app/runtime; core does not read the filesystem). */
@@ -1277,6 +1321,8 @@ export type FileTreeExplorerProps = Readonly<{
   /** REQUIRED - Interactive widget identifier. */
   id: string;
   key?: string;
+  /** Opt out of Tab focus order while keeping id-based routing available. */
+  focusable?: boolean;
   /** File tree data. */
   data: FileNode | readonly FileNode[];
   /** Expanded node paths. */
@@ -1407,6 +1453,8 @@ export type CodeEditorProps = Readonly<{
   /** REQUIRED - Interactive widget identifier. */
   id: string;
   key?: string;
+  /** Opt out of Tab focus order while keeping id-based routing available. */
+  focusable?: boolean;
   /** Document content (lines). */
   lines: readonly string[];
   /** Cursor position. */
@@ -1498,6 +1546,8 @@ export type DiffViewerProps = Readonly<{
   /** REQUIRED - Interactive widget identifier. */
   id: string;
   key?: string;
+  /** Opt out of Tab focus order while keeping id-based routing available. */
+  focusable?: boolean;
   /** Diff data to display. */
   diff: DiffData;
   /** View mode. */
@@ -1563,6 +1613,8 @@ export type ToolApprovalDialogProps = Readonly<{
   /** REQUIRED - Interactive widget identifier. */
   id: string;
   key?: string;
+  /** Opt out of Tab focus order while keeping id-based routing available. */
+  focusable?: boolean;
   /** Tool request being approved. */
   request: ToolRequest;
   /** Visible state. */
@@ -1621,6 +1673,8 @@ export type LogsConsoleProps = Readonly<{
   /** REQUIRED - Interactive widget identifier. */
   id: string;
   key?: string;
+  /** Opt out of Tab focus order while keeping id-based routing available. */
+  focusable?: boolean;
   /** Log entries. */
   entries: readonly LogEntry[];
   /** Auto-scroll to bottom (default: true). */
@@ -1723,6 +1777,8 @@ export type NodeState = Readonly<{
 export type TreeProps<T = unknown> = Readonly<{
   id: string;
   key?: string;
+  /** Opt out of Tab focus order while keeping id-based routing available. */
+  focusable?: boolean;
   /** Root node(s). Can be a single root or array of roots. */
   data: T | readonly T[];
   /** Function to get unique key for each node. */

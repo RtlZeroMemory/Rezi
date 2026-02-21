@@ -29,6 +29,18 @@ export type EffectState = Readonly<{
 /** Stored ref state for useRef. */
 export type RefState<T = unknown> = { current: T };
 
+/** Stored memoized value state for useMemo. */
+export type MemoState = Readonly<{
+  deps: readonly unknown[] | undefined;
+  value: unknown;
+}>;
+
+/** Stored callback state for useCallback. */
+export type CallbackState = Readonly<{
+  deps: readonly unknown[] | undefined;
+  callback: (...args: any[]) => unknown;
+}>;
+
 /** Snapshot of a useAppState selector and its last selected value. */
 export type AppStateSelection = Readonly<{
   selector: (state: unknown) => unknown;
@@ -48,6 +60,14 @@ export type HookState =
   | {
       kind: "effect";
       effect: EffectState;
+    }
+  | {
+      kind: "memo";
+      memo: MemoState;
+    }
+  | {
+      kind: "callback";
+      callbackState: CallbackState;
     };
 
 /** Complete instance state for a composite widget. */
@@ -279,6 +299,12 @@ export type HookContext = Readonly<{
     (effect: () => void, deps?: readonly unknown[]): void;
     (effect: () => EffectCleanup, deps?: readonly unknown[]): void;
   };
+
+  /** Memoize a computed value using dependency array semantics (React-compatible). */
+  useMemo: <T>(factory: () => T, deps?: readonly unknown[]) => T;
+
+  /** Memoize a callback reference using dependency array semantics (React-compatible). */
+  useCallback: <T extends (...args: any[]) => unknown>(callback: T, deps?: readonly unknown[]) => T;
 }>;
 
 /**
@@ -410,6 +436,84 @@ export function createHookContext(
           mutableState.pendingEffects.push(effectState);
         }
       }
+    },
+
+    useMemo<T>(factory: () => T, deps?: readonly unknown[]): T {
+      const index = getHookIndex();
+      const existing = mutableState.hooks[index];
+
+      if (existing === undefined) {
+        assertCanCreateHook(index, "memo");
+        const memoState: MemoState = {
+          deps,
+          value: factory(),
+        };
+        mutableState.hooks[index] = {
+          kind: "memo",
+          memo: memoState,
+        };
+        return memoState.value as T;
+      }
+
+      if (existing.kind !== "memo") {
+        throw new Error(
+          `Hook order mismatch at index ${index}: expected memo, got ${existing.kind}`,
+        );
+      }
+
+      const prevMemo = existing.memo;
+      if (!depsEqual(prevMemo.deps, deps)) {
+        const nextMemo: MemoState = {
+          deps,
+          value: factory(),
+        };
+        mutableState.hooks[index] = {
+          kind: "memo",
+          memo: nextMemo,
+        };
+        return nextMemo.value as T;
+      }
+
+      return prevMemo.value as T;
+    },
+
+    useCallback<T extends (...args: any[]) => unknown>(callback: T, deps?: readonly unknown[]): T {
+      const index = getHookIndex();
+      const existing = mutableState.hooks[index];
+
+      if (existing === undefined) {
+        assertCanCreateHook(index, "callback");
+        const callbackState: CallbackState = {
+          deps,
+          callback,
+        };
+        mutableState.hooks[index] = {
+          kind: "callback",
+          callbackState,
+        };
+        return callback;
+      }
+
+      if (existing.kind !== "callback") {
+        throw new Error(
+          `Hook order mismatch at index ${index}: expected callback, got ${existing.kind}`,
+        );
+      }
+
+      const prevState = existing.callbackState;
+      if (!depsEqual(prevState.deps, deps)) {
+        const nextState: CallbackState = {
+          deps,
+          callback,
+        };
+        mutableState.hooks[index] = {
+          kind: "callback",
+          callbackState: nextState,
+        };
+        return callback;
+      }
+
+      return prevState.callback as T;
     },
   });
 }

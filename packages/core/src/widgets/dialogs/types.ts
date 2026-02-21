@@ -2,6 +2,8 @@
  * packages/core/src/widgets/dialogs/types.ts — Dialog prop types.
  */
 
+export type { DialogAction, DialogActionIntent, DialogProps } from "../types.js";
+
 export type ConfirmDialogProps = Readonly<{
   id: string;
   title: string;

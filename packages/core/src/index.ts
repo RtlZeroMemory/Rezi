@@ -193,6 +193,9 @@ export type {
   DropdownItem,
   DropdownPosition,
   DropdownProps,
+  DialogAction,
+  DialogActionIntent,
+  DialogProps,
   EmptyProps,
   ErrorDisplayProps,
   FieldProps,
@@ -329,10 +332,12 @@ export {
   runPendingEffects,
   type CompositeInstanceRegistry,
   type CompositeInstanceState,
+  type CallbackState,
   type EffectCleanup,
   type EffectState,
   type HookContext,
   type HookState,
+  type MemoState,
   type RefState,
 } from "./runtime/instances.js";
 
@@ -486,11 +491,17 @@ export {
 export {
   alertDialog,
   confirmDialog,
+  dialog,
   promptDialog,
   type AlertDialogProps,
   type ConfirmDialogProps,
   type PromptDialogProps,
 } from "./widgets/dialogs/index.js";
+export {
+  useModalStack,
+  type ModalStackEntry,
+  type UseModalStack,
+} from "./widgets/useModalStack.js";
 export { debug, inspect } from "./debug/debug.js";
 
 // =============================================================================
@@ -706,6 +717,12 @@ export {
   type SortResult,
   type TableSelectionMode,
 } from "./widgets/table.js";
+
+export {
+  useTable,
+  type UseTableOptions,
+  type UseTableResult,
+} from "./widgets/useTable.js";
 
 export {
   createTableStateStore,
