@@ -32,6 +32,15 @@ import { renderOverlayWidget } from "./widgets/overlays.js";
 
 type RenderNodeTask = RuntimeInstance | null;
 type ClipRect = Readonly<Rect>;
+const DEV_MODE =
+  ((globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ??
+    "development") !== "production";
+
+function warnDev(message: string): void {
+  const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
+  c?.warn?.(message);
+}
+
 export type RenderTreeOptions = Readonly<{
   damageRect?: Rect | undefined;
   skipCleanSubtrees?: boolean | undefined;
@@ -90,6 +99,7 @@ export function renderTree(
   terminalProfile: TerminalProfile | undefined = undefined,
 ): ResolvedCursor | null {
   let resolvedCursor: ResolvedCursor | null = null;
+  let lastRenderedNodeKind = tree.vnode.kind;
   const damageRect = opts?.damageRect;
   const skipCleanSubtrees = opts?.skipCleanSubtrees ?? damageRect !== undefined;
 
@@ -115,6 +125,7 @@ export function renderTree(
 
     const node = nodeOrPop;
     const vnode = node.vnode;
+    lastRenderedNodeKind = vnode.kind;
     const rect: Rect = layoutNode.rect;
     if (skipCleanSubtrees && !node.dirty) continue;
     if (
@@ -344,6 +355,14 @@ export function renderTree(
       default:
         break;
     }
+  }
+
+  if (DEV_MODE && clipStack.length !== 0) {
+    warnDev(
+      `[rezi][render] clip stack imbalance after frame: depth=${String(
+        clipStack.length,
+      )}, lastNode=${lastRenderedNodeKind}.`,
+    );
   }
 
   return resolvedCursor;
