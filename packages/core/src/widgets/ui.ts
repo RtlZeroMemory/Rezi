@@ -986,10 +986,7 @@ export const ui = {
    *   required: true,
    *   error: form.touched.username && form.errors.username,
    *   hint: "Enter your email address",
-   *   children: ui.input({
-   *     id: "username",
-   *     value: form.values.username,
-   *   }),
+   *   children: ui.input(form.bind("username")),
    * })
    * ```
    */
