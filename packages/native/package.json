@@ -21,14 +21,7 @@
       "default": "./index.js"
     }
   },
-  "files": [
-    "index.js",
-    "loader.cjs",
-    "index.d.ts",
-    "*.node",
-    "scripts/*.mjs",
-    "package.json"
-  ],
+  "files": ["index.js", "loader.cjs", "index.d.ts", "*.node", "scripts/*.mjs", "package.json"],
   "scripts": {
     "build:native": "node ./scripts/build-native.mjs",
     "test:native:smoke": "node ./scripts/smoke.mjs"
