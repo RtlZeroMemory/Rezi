@@ -19,6 +19,9 @@
 
 import type { ItemHeightSpec } from "./types.js";
 
+/** Per-index measured heights used to correct estimated virtualization math. */
+export type MeasuredItemHeights = ReadonlyMap<number, number>;
+
 /** Result of computing the visible range for a virtual list. */
 export type VisibleRangeResult = Readonly<{
   /** First visible item index (inclusive, including overscan). */
@@ -29,6 +32,52 @@ export type VisibleRangeResult = Readonly<{
   itemOffsets: readonly number[];
 }>;
 
+/** Resolve item-height mode for virtual list props. */
+export function resolveVirtualListItemHeightSpec<T>(
+  input: Readonly<{
+    itemHeight?: ItemHeightSpec<T>;
+    estimateItemHeight?: ItemHeightSpec<T>;
+  }>,
+): ItemHeightSpec<T> {
+  if (input.estimateItemHeight !== undefined) return input.estimateItemHeight;
+  if (input.itemHeight !== undefined) return input.itemHeight;
+  return 1;
+}
+
+function hasMeasuredHeights(measuredHeights: MeasuredItemHeights | undefined): boolean {
+  return measuredHeights !== undefined && measuredHeights.size > 0;
+}
+
+function normalizeMeasuredHeight(height: number | undefined): number | undefined {
+  if (height === undefined || !Number.isFinite(height) || height <= 0) return undefined;
+  return Math.max(1, Math.trunc(height));
+}
+
+function readHeightFromSpec<T>(
+  items: readonly T[],
+  itemHeight: ItemHeightSpec<T>,
+  index: number,
+): number {
+  if (typeof itemHeight === "number") {
+    return itemHeight > 0 ? itemHeight : 1;
+  }
+  const item = items[index];
+  if (item === undefined) return 0;
+  return itemHeight(item, index);
+}
+
+function readHeightAtIndex<T>(
+  items: readonly T[],
+  itemHeight: ItemHeightSpec<T>,
+  index: number,
+  measuredHeights: MeasuredItemHeights | undefined,
+): number {
+  if (index < 0 || index >= items.length) return 0;
+  const measured = normalizeMeasuredHeight(measuredHeights?.get(index));
+  if (measured !== undefined) return measured;
+  return readHeightFromSpec(items, itemHeight, index);
+}
+
 /**
  * Build cumulative offset array for items.
  *
@@ -37,26 +86,26 @@ export type VisibleRangeResult = Readonly<{
  *
  * @returns Array of length items.length + 1, where offsets[i] is the Y position of item i.
  */
-function buildOffsets<T>(items: readonly T[], itemHeight: ItemHeightSpec<T>): number[] {
+function buildOffsets<T>(
+  items: readonly T[],
+  itemHeight: ItemHeightSpec<T>,
+  measuredHeights: MeasuredItemHeights | undefined,
+): number[] {
   const n = items.length;
   const offsets = new Array<number>(n + 1);
   offsets[0] = 0;
 
-  if (typeof itemHeight === "number") {
+  if (typeof itemHeight === "number" && !hasMeasuredHeights(measuredHeights)) {
     // Fixed height: simple multiplication
+    const safeItemHeight = itemHeight > 0 ? itemHeight : 1;
     for (let i = 0; i < n; i++) {
-      offsets[i + 1] = (i + 1) * itemHeight;
+      offsets[i + 1] = (i + 1) * safeItemHeight;
     }
   } else {
-    // Variable height: accumulate
+    // Variable or measured: accumulate
     let y = 0;
     for (let i = 0; i < n; i++) {
-      const item = items[i];
-      if (item === undefined) {
-        offsets[i + 1] = y;
-        continue;
-      }
-      y += itemHeight(item, i);
+      y += readHeightAtIndex(items, itemHeight, i, measuredHeights);
       offsets[i + 1] = y;
     }
   }
@@ -126,6 +175,7 @@ export function computeVisibleRange<T>(
   scrollTop: number,
   viewportHeight: number,
   overscan: number,
+  measuredHeights?: MeasuredItemHeights,
 ): VisibleRangeResult {
   const n = items.length;
   const safeViewportHeight = Math.max(0, viewportHeight);
@@ -140,7 +190,7 @@ export function computeVisibleRange<T>(
   }
 
   // Fixed height: O(1) calculation without building full offset array
-  if (typeof itemHeight === "number") {
+  if (typeof itemHeight === "number" && !hasMeasuredHeights(measuredHeights)) {
     const safeItemHeight = itemHeight > 0 ? itemHeight : 1;
     const totalHeight = n * safeItemHeight;
     const clampedScrollTop = clampScrollTop(scrollTop, totalHeight, safeViewportHeight);
@@ -169,7 +219,7 @@ export function computeVisibleRange<T>(
   }
 
   // Variable height: O(n) offset building + binary search
-  const offsets = buildOffsets(items, itemHeight);
+  const offsets = buildOffsets(items, itemHeight, measuredHeights);
   const totalHeight = offsets[n] ?? 0;
   const clampedScrollTop = clampScrollTop(scrollTop, totalHeight, safeViewportHeight);
 
@@ -202,23 +252,21 @@ export function getItemOffset<T>(
   items: readonly T[],
   itemHeight: ItemHeightSpec<T>,
   index: number,
+  measuredHeights?: MeasuredItemHeights,
 ): number {
   if (index < 0 || index >= items.length) {
     return 0;
   }
 
-  if (typeof itemHeight === "number") {
+  if (typeof itemHeight === "number" && !hasMeasuredHeights(measuredHeights)) {
     const safeItemHeight = itemHeight > 0 ? itemHeight : 1;
     return index * safeItemHeight;
   }
 
-  // Variable height: sum heights up to index
+  // Variable or measured: sum heights up to index
   let offset = 0;
   for (let i = 0; i < index; i++) {
-    const item = items[i];
-    if (item !== undefined) {
-      offset += itemHeight(item, i);
-    }
+    offset += readHeightAtIndex(items, itemHeight, i, measuredHeights);
   }
   return offset;
 }
@@ -235,21 +283,9 @@ export function getItemHeight<T>(
   items: readonly T[],
   itemHeight: ItemHeightSpec<T>,
   index: number,
+  measuredHeights?: MeasuredItemHeights,
 ): number {
-  if (index < 0 || index >= items.length) {
-    return 0;
-  }
-
-  if (typeof itemHeight === "number") {
-    return itemHeight > 0 ? itemHeight : 1;
-  }
-
-  const item = items[index];
-  if (item === undefined) {
-    return 0;
-  }
-
-  return itemHeight(item, index);
+  return readHeightAtIndex(items, itemHeight, index, measuredHeights);
 }
 
 /**
@@ -259,22 +295,23 @@ export function getItemHeight<T>(
  * @param itemHeight - Fixed height or height function
  * @returns Total height in cells
  */
-export function getTotalHeight<T>(items: readonly T[], itemHeight: ItemHeightSpec<T>): number {
+export function getTotalHeight<T>(
+  items: readonly T[],
+  itemHeight: ItemHeightSpec<T>,
+  measuredHeights?: MeasuredItemHeights,
+): number {
   if (items.length === 0) {
     return 0;
   }
 
-  if (typeof itemHeight === "number") {
+  if (typeof itemHeight === "number" && !hasMeasuredHeights(measuredHeights)) {
     const safeItemHeight = itemHeight > 0 ? itemHeight : 1;
     return items.length * safeItemHeight;
   }
 
   let total = 0;
   for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    if (item !== undefined) {
-      total += itemHeight(item, i);
-    }
+    total += readHeightAtIndex(items, itemHeight, i, measuredHeights);
   }
   return total;
 }

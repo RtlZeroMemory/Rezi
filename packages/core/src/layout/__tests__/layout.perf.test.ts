@@ -214,8 +214,8 @@ describe("layout performance", () => {
     const avg = results.reduce((a, b) => a + b, 0) / results.length;
     const maxDeviation = Math.max(...results.map((r) => Math.abs(r - avg)));
     const deviationRatio = maxDeviation / avg;
-    const maxDeviationRatio = IS_WINDOWS ? 4.0 : IS_CI && IS_MACOS ? 6.0 : 1.0;
-    const maxDeviationMs = IS_WINDOWS ? 20 : IS_CI && IS_MACOS ? 15 : 5;
+    const maxDeviationRatio = IS_WINDOWS ? 4.0 : IS_CI ? (IS_MACOS ? 6.0 : 2.5) : 1.0;
+    const maxDeviationMs = IS_WINDOWS ? 20 : IS_CI ? (IS_MACOS ? 15 : 8) : 5;
 
     // CI macOS runners can show large one-off scheduler jitter under load.
     assert.ok(

@@ -233,6 +233,117 @@ function drawSegments(
   }
 }
 
+const SIMPLE_VNODE_MEASURE_MAX_DEPTH = 64;
+
+function measureVNodeSimpleHeightInternal(vnode: VNode, w: number, depth: number): number {
+  if (depth > SIMPLE_VNODE_MEASURE_MAX_DEPTH) return 1;
+  if (w <= 0) return 1;
+
+  switch (vnode.kind) {
+    case "row":
+    case "column": {
+      const props = vnode.props as {
+        pad?: unknown;
+        p?: unknown;
+        px?: unknown;
+        py?: unknown;
+        pt?: unknown;
+        pb?: unknown;
+        pl?: unknown;
+        pr?: unknown;
+        m?: unknown;
+        mx?: unknown;
+        my?: unknown;
+        gap?: unknown;
+      };
+      const spacing = resolveSpacingFromProps(props);
+      const margin = resolveMarginFromProps(props);
+      const gap = readIntNonNegative(props.gap, 0);
+      const stackW = Math.max(0, w - margin.left - margin.right);
+      const innerW = Math.max(0, stackW - spacing.left - spacing.right);
+      const children = vnode.children.filter((c): c is VNode => c !== null && c !== undefined);
+      if (children.length === 0) {
+        return Math.max(1, margin.top + margin.bottom + spacing.top + spacing.bottom);
+      }
+
+      if (vnode.kind === "row") {
+        let maxChildHeight = 1;
+        for (const child of children) {
+          maxChildHeight = Math.max(
+            maxChildHeight,
+            measureVNodeSimpleHeightInternal(child, innerW, depth + 1),
+          );
+        }
+        return Math.max(
+          1,
+          margin.top + margin.bottom + spacing.top + spacing.bottom + maxChildHeight,
+        );
+      }
+
+      let total = 0;
+      for (const child of children) {
+        total += measureVNodeSimpleHeightInternal(child, innerW, depth + 1);
+      }
+      total += gap * Math.max(0, children.length - 1);
+      return Math.max(1, margin.top + margin.bottom + spacing.top + spacing.bottom + total);
+    }
+    case "box": {
+      const props = vnode.props as {
+        pad?: unknown;
+        p?: unknown;
+        px?: unknown;
+        py?: unknown;
+        pt?: unknown;
+        pb?: unknown;
+        pl?: unknown;
+        pr?: unknown;
+        m?: unknown;
+        mx?: unknown;
+        my?: unknown;
+        border?: unknown;
+        borderTop?: unknown;
+        borderRight?: unknown;
+        borderBottom?: unknown;
+        borderLeft?: unknown;
+      };
+      const spacing = resolveSpacingFromProps(props);
+      const margin = resolveMarginFromProps(props);
+      const border = readBoxBorder(props.border);
+      const defaultSide = border !== "none";
+      const borderTop = typeof props.borderTop === "boolean" ? props.borderTop : defaultSide;
+      const borderRight = typeof props.borderRight === "boolean" ? props.borderRight : defaultSide;
+      const borderBottom =
+        typeof props.borderBottom === "boolean" ? props.borderBottom : defaultSide;
+      const borderLeft = typeof props.borderLeft === "boolean" ? props.borderLeft : defaultSide;
+      const bt = border === "none" || !borderTop ? 0 : 1;
+      const br = border === "none" || !borderRight ? 0 : 1;
+      const bb = border === "none" || !borderBottom ? 0 : 1;
+      const bl = border === "none" || !borderLeft ? 0 : 1;
+      const boxW = Math.max(0, w - margin.left - margin.right);
+      const innerW = Math.max(0, boxW - bl - br - spacing.left - spacing.right);
+
+      let childTotal = 0;
+      for (const child of vnode.children) {
+        childTotal += measureVNodeSimpleHeightInternal(child, innerW, depth + 1);
+      }
+
+      return Math.max(
+        1,
+        margin.top + margin.bottom + bt + bb + spacing.top + spacing.bottom + childTotal,
+      );
+    }
+    default:
+      return 1;
+  }
+}
+
+/**
+ * Measure the minimum height needed to render a VNode using simple virtual-list rendering.
+ */
+export function measureVNodeSimpleHeight(vnode: VNode, w: number): number {
+  return measureVNodeSimpleHeightInternal(vnode, Math.max(0, Math.trunc(w)), 0);
+}
+
 /**
  * Simple VNode renderer for virtual list items.
  * This renders a VNode at the given position without going through the full layout system.
@@ -708,7 +819,8 @@ export function renderVNodeSimple(
           if (!child) continue;
           if (cursorY >= limitY) break;
           const remaining = limitY - cursorY;
-          const childH = Math.min(remaining, 1);
+          const measuredChildH = measureVNodeSimpleHeight(child, iw);
+          const childH = Math.min(remaining, measuredChildH);
           renderVNodeSimple(builder, child, ix, cursorY, iw, childH, focused, tick, theme, style);
           cursorY += childH;
           if (i < count - 1) cursorY += gap;
@@ -840,7 +952,7 @@ export function renderVNodeSimple(
       let cursorY = cy;
       for (const child of vnode.children) {
         if (cursorY >= cy + ch) break;
-        const childH = 1; // Default height for child items
+        const childH = Math.min(ch - (cursorY - cy), measureVNodeSimpleHeight(child, cw));
         renderVNodeSimple(builder, child, cx, cursorY, cw, childH, focused, tick, theme, style);
         cursorY += childH;
       }

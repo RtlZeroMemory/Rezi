@@ -154,7 +154,11 @@ import type {
   TreeProps,
   VirtualListProps,
 } from "../widgets/types.js";
-import { computeVisibleRange, getTotalHeight } from "../widgets/virtualList.js";
+import {
+  computeVisibleRange,
+  getTotalHeight,
+  resolveVirtualListItemHeightSpec,
+} from "../widgets/virtualList.js";
 import {
   EMPTY_WIDGET_RUNTIME_BREADCRUMBS,
   type RuntimeBreadcrumbCursorSummary,
@@ -1800,11 +1804,19 @@ export class WidgetRenderer<S> {
       const vlist = this.virtualListById.get(focusedId);
       if (vlist) {
         const state: VirtualListLocalState = this.virtualListStore.get(vlist.id);
+        const itemHeight = resolveVirtualListItemHeightSpec(vlist);
+        const measuredHeights =
+          vlist.estimateItemHeight !== undefined &&
+          state.measuredHeights !== undefined &&
+          state.measuredItemCount === vlist.items.length
+            ? state.measuredHeights
+            : undefined;
         const prevScrollTop = state.scrollTop;
         const r = routeVirtualListKey(event, {
           virtualListId: vlist.id,
           items: vlist.items,
-          itemHeight: vlist.itemHeight,
+          itemHeight,
+          ...(measuredHeights === undefined ? {} : { measuredHeights }),
           state,
           keyboardNavigation: vlist.keyboardNavigation !== false,
           wrapAround: vlist.wrapAround === true,
@@ -1827,10 +1839,11 @@ export class WidgetRenderer<S> {
           const overscan = vlist.overscan ?? 3;
           const { startIndex, endIndex } = computeVisibleRange(
             vlist.items,
-            vlist.itemHeight,
+            itemHeight,
             r.nextScrollTop,
             state.viewportHeight,
             overscan,
+            measuredHeights,
           );
           vlist.onScroll(r.nextScrollTop, [startIndex, endIndex]);
         }
@@ -2232,7 +2245,14 @@ export class WidgetRenderer<S> {
       const vlist = this.virtualListById.get(targetId);
       if (vlist) {
         const state = this.virtualListStore.get(vlist.id);
-        const totalHeight = getTotalHeight(vlist.items, vlist.itemHeight);
+        const itemHeight = resolveVirtualListItemHeightSpec(vlist);
+        const measuredHeights =
+          vlist.estimateItemHeight !== undefined &&
+          state.measuredHeights !== undefined &&
+          state.measuredItemCount === vlist.items.length
+            ? state.measuredHeights
+            : undefined;
+        const totalHeight = getTotalHeight(vlist.items, itemHeight, measuredHeights);
 
         const r = routeVirtualListWheel(event, {
           scrollTop: state.scrollTop,
@@ -2246,10 +2266,11 @@ export class WidgetRenderer<S> {
             const overscan = vlist.overscan ?? 3;
             const { startIndex, endIndex } = computeVisibleRange(
               vlist.items,
-              vlist.itemHeight,
+              itemHeight,
               r.nextScrollTop,
               state.viewportHeight,
               overscan,
+              measuredHeights,
             );
             vlist.onScroll(r.nextScrollTop, [startIndex, endIndex]);
           }
@@ -2361,6 +2382,13 @@ export class WidgetRenderer<S> {
         const rect = this.rectById.get(targetId);
         if (vlist && rect) {
           const state = this.virtualListStore.get(targetId);
+          const itemHeight = resolveVirtualListItemHeightSpec(vlist);
+          const measuredHeights =
+            vlist.estimateItemHeight !== undefined &&
+            state.measuredHeights !== undefined &&
+            state.measuredItemCount === vlist.items.length
+              ? state.measuredHeights
+              : undefined;
           const localY = event.y - rect.y;
           const inBounds = localY >= 0 && localY < rect.h;
 
@@ -2370,18 +2398,19 @@ export class WidgetRenderer<S> {
             if (yInContent < 0) return null;
             if (vlist.items.length === 0) return null;
 
-            if (typeof vlist.itemHeight === "number") {
-              const h = vlist.itemHeight;
+            if (typeof itemHeight === "number" && measuredHeights === undefined) {
+              const h = itemHeight;
               if (h <= 0) return null;
               return Math.floor(yInContent / h);
             }
 
             const { itemOffsets } = computeVisibleRange(
               vlist.items,
-              vlist.itemHeight,
+              itemHeight,
               0,
               Number.MAX_SAFE_INTEGER,
               0,
+              measuredHeights,
             );
             let lo = 0;
             let hi = vlist.items.length - 1;
