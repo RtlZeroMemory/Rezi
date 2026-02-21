@@ -695,8 +695,8 @@ export function useForm<T extends Record<string, unknown>, State = void>(
       ...(options?.hint !== undefined ? { hint: options.hint } : {}),
       ...(resolvedError !== undefined ? { error: resolvedError } : {}),
       children: ui.input({
-        ...inputOverrides,
         ...inputBinding,
+        ...inputOverrides,
       }),
     });
   };

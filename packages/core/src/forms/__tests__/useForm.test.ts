@@ -190,6 +190,7 @@ describe("useForm hook", () => {
       required: true,
       hint: "Use your work email",
       style: { italic: true },
+      disabled: true,
     });
     assert.equal(vnode.kind, "field");
     if (vnode.kind === "field") {
@@ -204,6 +205,7 @@ describe("useForm hook", () => {
       if (child?.kind === "input") {
         assert.equal(child.props.value, "");
         assert.deepEqual(child.props.style, { italic: true });
+        assert.equal(child.props.disabled, true);
         child.props.onBlur?.();
       }
     }
@@ -224,6 +226,16 @@ describe("useForm hook", () => {
     const fallback = form.field("email");
     if (fallback.kind === "field") {
       assert.equal(fallback.props.label, "email");
+    }
+
+    form.setDisabled(true);
+    form = h.render(options);
+    const forceEnabled = form.field("email", { disabled: false });
+    if (forceEnabled.kind === "field") {
+      const child = forceEnabled.children[0];
+      if (child && child.kind === "input") {
+        assert.equal(child.props.disabled, false);
+      }
     }
   });
 
