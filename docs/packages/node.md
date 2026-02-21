@@ -52,6 +52,14 @@ lockstep:
 - app/backend `maxEventBytes`
 - app/backend `fpsCap`
 
+`createNodeApp` also applies presentation defaults for first-run UX:
+
+- `config.rootPadding` defaults to `1` (full-bleed opt-out: `rootPadding: 0`)
+- `theme` defaults to `darkTheme` when omitted
+
+Core `createApp()` keeps `rootPadding: 0` and `defaultTheme` unless you set
+them explicitly.
+
 ## Deprecated legacy path
 
 Manual `createNodeBackend()` + `createApp()` (`@rezi-ui/core`) wiring is
