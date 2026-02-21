@@ -42,7 +42,7 @@ node --test packages/core/src/app/__tests__/widgetRenderer.integration.test.ts
 
 ## HSR Change Checklist
 
-If your change touches `app.view`, route integration, reconciliation identity, or `createHotStateReload`:
+If your change touches `app.view`, route integration, reconciliation identity, `createNodeApp({ hotReload })`, or `createHotStateReload`:
 
 - add app runtime tests for `app.replaceView(...)` / `app.replaceRoutes(...)` behavior
 - verify widget local state survives reload with stable ids/keys

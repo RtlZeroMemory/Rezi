@@ -32,9 +32,12 @@ knobs aligned:
 
 Development hot reload:
 
-- `createHotStateReload(...)` watches source files and hot-swaps either:
+- `createNodeApp({ hotReload: ... })` watches source files and hot-swaps either:
   - widget views via `app.replaceView(...)`, or
   - route tables via `app.replaceRoutes(...)` for route-managed apps.
+- lifecycle is automatic: watcher starts/stops with `app.start()/stop()/run()`.
+- `app.hotReload` exposes manual `reloadNow()` when needed.
+- low-level `createHotStateReload(...)` remains available for advanced manual wiring.
 - Raw draw mode remains excluded.
 
 Execution mode details:

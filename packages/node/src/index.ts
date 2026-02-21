@@ -1,6 +1,7 @@
 import {
   type App,
   type AppConfig,
+  type RouteDefinition,
   type Theme,
   type ThemeDefinition,
   createApp,
@@ -12,7 +13,12 @@ import {
   type NodeBackendConfig,
   createNodeBackendInternal,
 } from "./backend/nodeBackend.js";
-import { createHotStateReload } from "./dev/hotStateReload.js";
+import { type HotStateReloadController, createHotStateReload } from "./dev/hotStateReload.js";
+import {
+  type NodeAppHotReloadOptions,
+  attachNodeAppHotReloadLifecycle,
+  createNodeAppHotReloadController,
+} from "./dev/nodeAppHotReload.js";
 import { createReproRecorder } from "./repro/index.js";
 import { createNodeTailSource } from "./streams/tail.js";
 
@@ -26,6 +32,11 @@ export type {
   HotStateReloadRoutesOptions,
   HotStateReloadViewOptions,
 } from "./dev/hotStateReload.js";
+export type {
+  NodeAppHotReloadOptions,
+  NodeAppHotReloadRoutesOptions,
+  NodeAppHotReloadViewOptions,
+} from "./dev/nodeAppHotReload.js";
 export type {
   CreateReproRecorderOptions,
   ReproRecorder,
@@ -46,14 +57,28 @@ export type NodeAppConfig = Readonly<
 
 export type CreateNodeAppOptions<S> = Readonly<{
   initialState: S;
+  routes?: readonly RouteDefinition<S>[];
+  initialRoute?: string;
   config?: NodeAppConfig;
   theme?: Theme | ThemeDefinition;
+  /**
+   * Development-only hot state-preserving reload wiring.
+   *
+   * When configured, createNodeApp automatically starts/stops the HSR watcher
+   * together with app lifecycle and exposes the controller on `app.hotReload`.
+   */
+  hotReload?: NodeAppHotReloadOptions<S>;
 }>;
 
 export type NodeApp<S> = App<S> &
   Readonly<{
     /** True when NO_COLOR is present in the process environment. */
     isNoColor: boolean;
+    /**
+     * Built-in HSR controller when `createNodeApp({ hotReload })` is configured.
+     * `null` when hot reload is not configured.
+     */
+    hotReload: HotStateReloadController | null;
   }>;
 
 type ProcessEnv = Readonly<Record<string, string | undefined>>;
@@ -214,9 +239,24 @@ export function createNodeApp<S>(opts: CreateNodeAppOptions<S>): NodeApp<S> {
   const app = createApp({
     backend,
     initialState: opts.initialState,
+    ...(opts.routes !== undefined ? { routes: opts.routes } : {}),
+    ...(opts.initialRoute !== undefined ? { initialRoute: opts.initialRoute } : {}),
     ...(appConfig !== undefined ? { config: appConfig } : {}),
     ...(theme !== undefined ? { theme } : {}),
   });
+  const hotReload =
+    opts.hotReload === undefined ? null : createNodeAppHotReloadController(app, opts.hotReload);
+  if (hotReload) {
+    attachNodeAppHotReloadLifecycle(app, hotReload);
+  }
+
+  Object.defineProperty(app, "hotReload", {
+    value: hotReload,
+    enumerable: true,
+    configurable: false,
+    writable: false,
+  });
+
   return Object.defineProperty(app, "isNoColor", {
     value: isNoColor,
     enumerable: true,

@@ -87,6 +87,11 @@ test("createProject scaffolds each template with substitutions", async () => {
     );
     assert.ok(!appNameSource.includes("__APP_NAME__"));
 
+    if (template.key === "minimal" || template.key === "dashboard" || template.key === "cli-tool") {
+      assert.ok(main.includes("createNodeApp"));
+      assert.ok(main.includes("hotReload"));
+    }
+
     const readme = await readFile(join(targetDir, "README.md"), "utf8");
     assert.ok(readme.includes(template.label));
     assert.ok(!readme.includes("__TEMPLATE_LABEL__"));

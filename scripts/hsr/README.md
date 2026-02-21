@@ -23,6 +23,9 @@ Then edit and save:
 State, focus, and input values should survive each save.
 Quit with `F10` / `Alt+Q` / `Ctrl+C` / `Ctrl+X` (or `q` when focus is outside editor fields).
 
+Both demos are wired through `createNodeApp({ hotReload: ... })`, so watcher lifecycle
+is managed automatically by app `run()/start()/stop()`.
+
 ### Widget self-edit mode
 
 The widget demo includes an in-app code editor panel:

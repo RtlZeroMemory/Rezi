@@ -54,42 +54,48 @@ lockstep:
 
 ## Hot State-Preserving Reload (HSR)
 
-`@rezi-ui/node` ships `createHotStateReload(...)` for development-time widget-view
-or route-table swaps.
+`createNodeApp(...)` has first-class HSR wiring through `hotReload`.
 
 ```ts
 import { ui } from "@rezi-ui/core";
-import { createHotStateReload, createNodeApp } from "@rezi-ui/node";
+import { createNodeApp } from "@rezi-ui/node";
 
-const app = createNodeApp({ initialState: { count: 0 } });
-app.view((state) => ui.text(`count=${String(state.count)}`));
-
-const hsr = createHotStateReload({
-  app,
-  viewModule: new URL("./screens/main-screen.ts", import.meta.url),
-  moduleRoot: new URL("./src", import.meta.url),
+const app = createNodeApp({
+  initialState: { count: 0 },
+  hotReload: {
+    viewModule: new URL("./screens/main-screen.ts", import.meta.url),
+    moduleRoot: new URL("./src", import.meta.url),
+  },
 });
 
-await hsr.start();
-await app.start();
+app.view((state) => ui.text(`count=${String(state.count)}`));
+await app.run(); // starts/stops hot reload watcher with app lifecycle
 ```
 
-Route-managed apps use `routesModule` + `app.replaceRoutes(...)`:
+Route-managed apps use `routesModule`:
 
 ```ts
-const hsr = createHotStateReload({
-  app,
-  routesModule: new URL("./screens/index.ts", import.meta.url),
-  moduleRoot: new URL("./src", import.meta.url),
-  resolveRoutes: (moduleNs) => {
-    const routes = (moduleNs as { routes?: unknown }).routes;
-    if (!Array.isArray(routes)) {
-      throw new Error("Expected `routes` array export");
-    }
-    return routes;
+const app = createNodeApp({
+  initialState: { count: 0 },
+  routes,
+  initialRoute: "home",
+  hotReload: {
+    routesModule: new URL("./screens/index.ts", import.meta.url),
+    moduleRoot: new URL("./src", import.meta.url),
+    resolveRoutes: (moduleNs) => {
+      const routesExport = (moduleNs as { routes?: unknown }).routes;
+      if (!Array.isArray(routesExport)) {
+        throw new Error("Expected `routes` array export");
+      }
+      return routesExport;
+    },
   },
 });
 ```
+
+`app.hotReload` exposes the controller (`reloadNow()`, `isRunning()`) when you need
+manual trigger points. For advanced/custom lifecycle control, low-level
+`createHotStateReload(...)` remains available.
 
 What this does:
 
@@ -106,7 +112,7 @@ What stays intact across reload:
 Current scope:
 
 - widget-mode apps (`app.view`/`app.replaceView`)
-- route-managed apps (`createApp({ routes, initialRoute })` + `app.replaceRoutes`)
+- route-managed apps (`createNodeApp({ routes, initialRoute })` + `app.replaceRoutes`)
 - not raw draw mode
 
 ## `NO_COLOR` behavior

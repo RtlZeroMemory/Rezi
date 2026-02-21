@@ -1,6 +1,5 @@
 import { exit } from "node:process";
-import { createApp } from "@rezi-ui/core";
-import { createHotStateReload, createNodeBackend } from "@rezi-ui/node";
+import { createNodeApp } from "@rezi-ui/node";
 import { resolveDashboardCommand } from "./helpers/keybindings.js";
 import { reduceDashboardState, selectedService } from "./helpers/state.js";
 import { createInitialState } from "./helpers/state.js";
@@ -12,24 +11,39 @@ const UI_FPS_CAP = 30;
 const TICK_MS = 900;
 
 const initialState = createInitialState();
-
-const app = createApp({
-  backend: createNodeBackend({
-    fpsCap: UI_FPS_CAP,
-    emojiWidthPolicy: "auto",
-    executionMode: "worker",
-  }),
-  config: { fpsCap: UI_FPS_CAP },
-  initialState,
-  theme: themeSpec(initialState.themeName).theme,
-});
 const enableHsr = process.argv.includes("--hsr") || process.env.REZI_HSR === "1";
-let hsrController: ReturnType<typeof createHotStateReload<DashboardState>> | null = null;
 
 type OverviewRenderer = typeof renderOverviewScreen;
 type OverviewModule = Readonly<{
   renderOverviewScreen?: OverviewRenderer;
 }>;
+
+const app = createNodeApp({
+  config: {
+    fpsCap: UI_FPS_CAP,
+    emojiWidthPolicy: "auto",
+    executionMode: "worker",
+  },
+  initialState,
+  theme: themeSpec(initialState.themeName).theme,
+  ...(enableHsr
+    ? {
+        hotReload: {
+          viewModule: new URL("./screens/overview.ts", import.meta.url),
+          moduleRoot: new URL("./", import.meta.url),
+          resolveView: (moduleNs: unknown) => {
+            const render = (moduleNs as OverviewModule).renderOverviewScreen;
+            if (typeof render !== "function") {
+              throw new Error(
+                "HSR: ./screens/overview.ts must export renderOverviewScreen(state, actions)",
+              );
+            }
+            return buildOverviewView(render);
+          },
+        },
+      }
+    : {}),
+});
 
 function buildOverviewView(renderer: OverviewRenderer) {
   return (state: DashboardState) =>
@@ -66,11 +80,6 @@ let telemetryTimer: ReturnType<typeof setInterval> | null = null;
 async function stopApp(): Promise<void> {
   if (stopping) return;
   stopping = true;
-
-  if (hsrController) {
-    await hsrController.stop();
-    hsrController = null;
-  }
 
   if (telemetryTimer) {
     clearInterval(telemetryTimer);
@@ -166,29 +175,8 @@ telemetryTimer = setInterval(() => {
 }, TICK_MS);
 
 try {
-  if (enableHsr) {
-    hsrController = createHotStateReload<DashboardState>({
-      app,
-      viewModule: new URL("./screens/overview.ts", import.meta.url),
-      moduleRoot: new URL("./", import.meta.url),
-      resolveView: (moduleNs) => {
-        const render = (moduleNs as OverviewModule).renderOverviewScreen;
-        if (typeof render !== "function") {
-          throw new Error(
-            "HSR: ./screens/overview.ts must export renderOverviewScreen(state, actions)",
-          );
-        }
-        return buildOverviewView(render);
-      },
-    });
-    await hsrController.start();
-  }
   await app.start();
 } finally {
-  if (hsrController) {
-    await hsrController.stop();
-    hsrController = null;
-  }
   if (telemetryTimer) {
     clearInterval(telemetryTimer);
     telemetryTimer = null;

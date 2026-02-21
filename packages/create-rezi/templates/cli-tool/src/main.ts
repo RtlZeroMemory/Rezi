@@ -1,6 +1,5 @@
 import { exit } from "node:process";
-import { createApp } from "@rezi-ui/core";
-import { createHotStateReload, createNodeBackend } from "@rezi-ui/node";
+import { createNodeApp } from "@rezi-ui/node";
 import { resolveCliCommand } from "./helpers/keybindings.js";
 import { createInitialState, reduceCliState } from "./helpers/state.js";
 import { createCliRoutes } from "./screens/index.js";
@@ -12,9 +11,8 @@ const LOG_TICK_MS = 1000;
 
 const initialState = createInitialState();
 
-let app!: ReturnType<typeof createApp<typeof initialState>>;
+let app!: ReturnType<typeof createNodeApp<typeof initialState>>;
 const enableHsr = process.argv.includes("--hsr") || process.env.REZI_HSR === "1";
-let hsrController: ReturnType<typeof createHotStateReload<typeof initialState>> | null = null;
 let stopping = false;
 let logTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -60,11 +58,6 @@ function buildCliRoutes(routeFactory: CreateCliRoutesFn) {
 async function stopApp(): Promise<void> {
   if (stopping) return;
   stopping = true;
-
-  if (hsrController) {
-    await hsrController.stop();
-    hsrController = null;
-  }
 
   if (logTimer) {
     clearInterval(logTimer);
@@ -116,13 +109,27 @@ function applyCommand(command: ReturnType<typeof resolveCliCommand>): void {
 
 const routes = buildCliRoutes(createCliRoutes);
 
-app = createApp({
-  backend: createNodeBackend({ fpsCap: UI_FPS_CAP }),
+app = createNodeApp({
   initialState,
   routes,
   initialRoute: "home",
   config: { fpsCap: UI_FPS_CAP },
   theme: themeSpec(initialState.themeName).theme,
+  ...(enableHsr
+    ? {
+        hotReload: {
+          routesModule: new URL("./screens/index.ts", import.meta.url),
+          moduleRoot: new URL("./", import.meta.url),
+          resolveRoutes: (moduleNs: unknown) => {
+            const createRoutes = (moduleNs as CliRoutesModule).createCliRoutes;
+            if (typeof createRoutes !== "function") {
+              throw new Error("HSR: ./screens/index.ts must export createCliRoutes(deps)");
+            }
+            return buildCliRoutes(createRoutes);
+          },
+        },
+      }
+    : {}),
 });
 
 app.keys({
@@ -159,29 +166,8 @@ logTimer = setInterval(() => {
 }, LOG_TICK_MS);
 
 try {
-  if (enableHsr) {
-    hsrController = createHotStateReload<typeof initialState>({
-      app,
-      routesModule: new URL("./screens/index.ts", import.meta.url),
-      moduleRoot: new URL("./", import.meta.url),
-      resolveRoutes: (moduleNs) => {
-        const createRoutes = (moduleNs as CliRoutesModule).createCliRoutes;
-        if (typeof createRoutes !== "function") {
-          throw new Error("HSR: ./screens/index.ts must export createCliRoutes(deps)");
-        }
-        return buildCliRoutes(createRoutes);
-      },
-    });
-    await hsrController.start();
-  }
-
   await app.start();
 } finally {
-  if (hsrController) {
-    await hsrController.stop();
-    hsrController = null;
-  }
-
   if (logTimer) {
     clearInterval(logTimer);
     logTimer = null;
