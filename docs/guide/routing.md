@@ -66,15 +66,31 @@ Notes:
 type RouteDefinition<S = unknown> = {
   id: string;
   screen: (params: RouteParams, context: RouteRenderContext<S>) => VNode;
+  guard?: (params: RouteParams, state: Readonly<S>, ctx: RouteGuardContext) => RouteGuardResult;
+  children?: readonly RouteDefinition<S>[];
   title?: string;
   keybinding?: string;
 };
 
 type RouteParams = Readonly<Record<string, string>>;
+type RouteGuardResult = true | false | { redirect: string; params?: RouteParams };
+type RouteGuardContext = {
+  from: RouteLocation;
+  to: RouteLocation;
+  action: "navigate" | "replace" | "back";
+};
+type RouteRenderContext<S> = {
+  router: RouterApi;
+  state: Readonly<S>;
+  update: (updater: S | ((prev: Readonly<S>) => S)) => void;
+  outlet: VNode | null;
+};
 ```
 
 - `id` must be unique.
 - `params` are immutable string maps.
+- `guard` runs before entering a route.
+- `children` enables nested parent/child layouts.
 - `title` is used by route-aware UI helpers.
 - `keybinding` registers global navigation bindings.
 
@@ -99,6 +115,62 @@ Semantics:
 - `replace`: replace current entry in-place
 - `back`: pop one entry when available
 - `navigate` to the same `id+params`: no-op
+
+## Route Guards
+
+Use `guard` to block or redirect before navigation commits:
+
+```ts
+{
+  id: "admin",
+  title: "Admin",
+  guard: (_params, state) => {
+    if (!state.isAdmin) {
+      return { redirect: "home" };
+    }
+    return true;
+  },
+  screen: () => ui.text("Admin"),
+}
+```
+
+- Return `true` to allow.
+- Return `false` to cancel.
+- Return `{ redirect: "routeId" }` to reroute before rendering the blocked target.
+- Guards run for `navigate`, `replace`, and `back` destination resolution.
+
+`RouteGuardContext` includes:
+
+- `from`: current route location
+- `to`: attempted destination location
+- `action`: `"navigate" | "replace" | "back"`
+
+## Nested Routes and Outlet Rendering
+
+Use `children` to define nested route trees:
+
+```ts
+const routes: readonly RouteDefinition<State>[] = [
+  {
+    id: "settings",
+    title: "Settings",
+    screen: (_params, ctx) =>
+      ui.column({ gap: 1 }, [
+        ui.text("Settings"),
+        ctx.outlet ?? ui.text("Select a tab"),
+      ]),
+    children: [
+      { id: "profile", title: "Profile", screen: () => ui.text("Profile") },
+      { id: "appearance", title: "Appearance", screen: () => ui.text("Appearance") },
+    ],
+  },
+];
+```
+
+- Child routes render through `context.outlet` in the parent screen.
+- Child route ids are still globally unique in the route tree.
+- Route helpers (`routerBreadcrumb`, `routerTabs`) resolve nested titles correctly.
+- `routerTabs` keeps the top-level parent tab active when a nested child route is selected.
 
 ## History Stack
 

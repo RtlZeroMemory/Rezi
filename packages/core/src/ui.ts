@@ -7,4 +7,12 @@ export {
   type RouterTabsProps,
 } from "./router/helpers.js";
 
-export type { RouteDefinition, RouteParams, RouterApi } from "./router/types.js";
+export type {
+  RouteDefinition,
+  RouteGuard,
+  RouteGuardContext,
+  RouteGuardRedirect,
+  RouteGuardResult,
+  RouteParams,
+  RouterApi,
+} from "./router/types.js";

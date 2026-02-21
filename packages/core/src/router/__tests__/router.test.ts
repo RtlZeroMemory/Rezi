@@ -16,9 +16,10 @@ import type { RouteDefinition, RouteParams } from "../types.js";
 
 const EMPTY_PARAMS: RouteParams = Object.freeze({});
 
-function route<S>(id: string): RouteDefinition<S> {
+function route<S>(id: string, children?: readonly RouteDefinition<S>[]): RouteDefinition<S> {
   return Object.freeze({
     id,
+    ...(children === undefined ? {} : { children }),
     screen: () => ({ kind: "text" as const, text: id, props: {} }),
   });
 }
@@ -128,6 +129,24 @@ describe("router core state machine", () => {
     const map = createRouteMap([route("home"), route("settings")]);
     assert.equal(map.get("home")?.id, "home");
     assert.equal(map.get("settings")?.id, "settings");
+  });
+
+  test("createRouteMap indexes nested child route definitions", () => {
+    const map = createRouteMap([
+      route("home"),
+      route("settings", [route("profile"), route("appearance")]),
+    ]);
+
+    assert.equal(map.get("settings")?.id, "settings");
+    assert.equal(map.get("profile")?.id, "profile");
+    assert.equal(map.get("appearance")?.id, "appearance");
+  });
+
+  test("createRouteMap validates duplicate nested ids", () => {
+    assert.throws(
+      () => createRouteMap([route("settings", [route("profile")]), route("profile")]),
+      (err: unknown) => err instanceof ZrUiError && err.code === "ZRUI_INVALID_PROPS",
+    );
   });
 
   test("invalid maxDepth throws", () => {

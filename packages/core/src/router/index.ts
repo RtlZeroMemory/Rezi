@@ -29,6 +29,10 @@ export { createRouterIntegration, type RouterIntegration } from "./integration.j
 
 export type {
   RouteDefinition,
+  RouteGuard,
+  RouteGuardContext,
+  RouteGuardRedirect,
+  RouteGuardResult,
   RouteLocation,
   RouteParams,
   RouteRenderContext,

@@ -12,18 +12,26 @@ export function createRouteKeybindings<S>(
 ): BindingMap<KeyContext<S>> {
   const bindings: Record<string, BindingMap<KeyContext<S>>[string]> = {};
 
-  for (const route of routes) {
-    const keybinding = route.keybinding?.trim();
-    if (!keybinding) continue;
+  function visit(routeList: readonly RouteDefinition<S>[]): void {
+    for (const route of routeList) {
+      const keybinding = route.keybinding?.trim();
+      if (keybinding) {
+        bindings[keybinding] = {
+          priority: -100,
+          handler: () => {
+            if (router.currentRoute().id === route.id) return;
+            router.navigate(route.id);
+          },
+        };
+      }
 
-    bindings[keybinding] = {
-      priority: -100,
-      handler: () => {
-        if (router.currentRoute().id === route.id) return;
-        router.navigate(route.id);
-      },
-    };
+      if (route.children !== undefined) {
+        visit(route.children);
+      }
+    }
   }
+
+  visit(routes);
 
   return Object.freeze(bindings);
 }

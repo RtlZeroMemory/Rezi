@@ -51,10 +51,11 @@ function makeRouter(
   return { router, calls };
 }
 
-function route(id: string, title: string): RouteDefinition {
+function route(id: string, title: string, children?: readonly RouteDefinition[]): RouteDefinition {
   return Object.freeze({
     id,
     title,
+    ...(children === undefined ? {} : { children }),
     screen: () => ({ kind: "text" as const, text: title, props: {} }),
   });
 }
@@ -133,6 +134,43 @@ describe("router helper wrappers", () => {
         params: undefined,
       },
     ]);
+  });
+
+  test("buildRouterBreadcrumbItems resolves nested route titles", () => {
+    const history = Object.freeze([
+      Object.freeze({ id: "home", params: Object.freeze({}) }),
+      Object.freeze({ id: "profile", params: Object.freeze({}) }),
+    ]);
+    const routes = [
+      route("home", "Home"),
+      route("settings", "Settings", [
+        route("profile", "Profile"),
+        route("appearance", "Appearance"),
+      ]),
+    ];
+    const { router } = makeRouter("profile", history);
+
+    const items = buildRouterBreadcrumbItems(router, routes);
+
+    assert.equal(items[1]?.label, "Profile");
+  });
+
+  test("buildRouterTabsProps marks top-level parent tab active for nested child routes", () => {
+    const history = Object.freeze([Object.freeze({ id: "profile", params: Object.freeze({}) })]);
+    const routes = [
+      route("home", "Home"),
+      route("settings", "Settings", [
+        route("profile", "Profile"),
+        route("appearance", "Appearance"),
+      ]),
+    ];
+    const { router, calls } = makeRouter("profile", history);
+
+    const props = buildRouterTabsProps(router, routes, Object.freeze({ id: "route-tabs" }));
+    assert.equal(props.activeTab, "settings");
+
+    props.onChange("settings");
+    assert.equal(calls.length, 0);
   });
 
   test("routerBreadcrumb and routerTabs return navigation widgets", () => {
