@@ -36,8 +36,8 @@ import {
   setTextMeasureEmojiPolicy,
   severityToNum,
 } from "@rezi-ui/core";
-import { buildEngineCreateFailureDetail } from "./engineCreateDiagnostics.js";
 import { applyEmojiWidthPolicy, resolveBackendEmojiWidthPolicy } from "./emojiWidthPolicy.js";
+import { buildEngineCreateFailureDetail } from "./engineCreateDiagnostics.js";
 import type {
   NodeBackend,
   NodeBackendInternalOpts,

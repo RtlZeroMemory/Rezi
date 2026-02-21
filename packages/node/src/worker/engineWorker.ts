@@ -8,6 +8,7 @@
 
 import { performance } from "node:perf_hooks";
 import { parentPort, workerData } from "node:worker_threads";
+import { buildEngineCreateFailureDetail } from "../backend/engineCreateDiagnostics.js";
 import {
   EVENT_POOL_SIZE,
   FRAME_SAB_CONTROL_CONSUMED_SEQ_WORD,
@@ -28,7 +29,6 @@ import {
   type MainToWorkerMessage,
   type WorkerToMainMessage,
 } from "./protocol.js";
-import { buildEngineCreateFailureDetail } from "../backend/engineCreateDiagnostics.js";
 
 /**
  * Perf tracking for worker-side event polling.
