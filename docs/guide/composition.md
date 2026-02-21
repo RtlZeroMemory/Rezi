@@ -39,6 +39,43 @@ Behavior details:
 - `useAppState` uses selector snapshots and `Object.is` equality; widgets only re-render when selected values change.
 - Hook rules follow React constraints: keep both hook order and hook count consistent on every render.
 
+## Utility hooks
+
+Rezi ships a small utility-hook layer for common composition patterns:
+
+- `useDebounce(ctx, value, delayMs)` returns a debounced value.
+- `useAsync(ctx, task, deps)` runs async tasks with loading/error state and stale-result protection.
+- `usePrevious(ctx, value)` returns the previous render value.
+
+```typescript
+import { defineWidget, ui, useAsync, useDebounce, usePrevious } from "@rezi-ui/core";
+
+type SearchProps = { query: string };
+
+const SearchResults = defineWidget<SearchProps>((props, ctx) => {
+  const debouncedQuery = useDebounce(ctx, props.query, 250);
+  const prevQuery = usePrevious(ctx, debouncedQuery);
+
+  const { data, loading, error } = useAsync(
+    ctx,
+    () => fetchResults(debouncedQuery),
+    [debouncedQuery],
+  );
+
+  if (loading) return ui.text("Loading...");
+  if (error) return ui.text("Request failed");
+
+  return ui.column([
+    ui.text(`Previous query: ${prevQuery ?? "(none)"}`),
+    ui.text(`Results: ${String(data?.length ?? 0)}`),
+  ]);
+});
+
+async function fetchResults(query: string): Promise<string[]> {
+  return query.length > 0 ? [query] : [];
+}
+```
+
 ## Related
 
 - [Concepts](concepts.md)

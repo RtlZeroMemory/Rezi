@@ -13,6 +13,8 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - Benchmark results and performance documentation
 - Widget composition API (`defineWidget` with hooks)
 - Page router route guards (`guard`) and nested route trees (`children`) with `context.outlet` rendering
+- Composition utility hooks: `useDebounce`, `useAsync`, `usePrevious`
+- `useForm` ergonomic helpers: `form.bind(field)` for spread-ready input props and `form.field(field, options)` for fully wired field+input rendering
 
 ### Changed
 

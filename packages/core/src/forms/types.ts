@@ -7,6 +7,8 @@
  * @see docs/recipes/form-validation.md (GitHub issue #119)
  */
 
+import type { InputProps, VNode } from "../widgets/types.js";
+
 /**
  * Error value for a single form field.
  * Array fields can carry per-item error messages.
@@ -104,6 +106,42 @@ export type UseFormOptions<T extends Record<string, unknown>> = Readonly<{
 }>;
 
 /**
+ * Spread-ready input props returned by form.bind(field).
+ */
+export type UseFormInputBinding = Pick<
+  InputProps,
+  "id" | "value" | "onInput" | "onBlur" | "disabled"
+>;
+
+/**
+ * Options for form.bind(field).
+ */
+export type UseFormBindOptions = Readonly<{
+  /** Override generated input id. */
+  id?: string;
+}>;
+
+/**
+ * Options for form.field(field, options).
+ */
+export type UseFormFieldOptions = Readonly<
+  {
+    /** Override generated input id. */
+    id?: string;
+    /** Reconciliation key for the outer field wrapper. */
+    key?: string;
+    /** Field label shown above the input. Defaults to the field name. */
+    label?: string;
+    /** Show required indicator beside the label. */
+    required?: boolean;
+    /** Help text shown when no error is rendered. */
+    hint?: string;
+    /** Optional explicit error override. */
+    error?: string;
+  } & Omit<InputProps, "id" | "value" | "onInput" | "onBlur" | "key">
+>;
+
+/**
  * Dynamic field array helper return type.
  */
 export type UseFieldArrayReturn<
@@ -186,6 +224,18 @@ export type UseFormReturn<T extends Record<string, unknown>> = Readonly<{
    * Marks field as touched and may trigger validation.
    */
   handleBlur: (field: keyof T) => () => void;
+
+  /**
+   * Returns spread-ready input props for a specific field.
+   * Equivalent to wiring id/value/onInput/onBlur manually.
+   */
+  bind: <K extends keyof T>(field: K, options?: UseFormBindOptions) => UseFormInputBinding;
+
+  /**
+   * Returns a fully wired ui.field(...) node with a child ui.input(...).
+   * Auto-wires bind props and touched error display.
+   */
+  field: <K extends keyof T>(field: K, options?: UseFormFieldOptions) => VNode;
 
   /**
    * Submits the form if validation passes.

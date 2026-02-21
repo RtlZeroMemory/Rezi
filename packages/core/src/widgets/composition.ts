@@ -100,6 +100,126 @@ export type WidgetContext<State = void> = Readonly<{
   invalidate: () => void;
 }>;
 
+/* ========== Utility Hooks ========== */
+
+/**
+ * Minimal context required by `useDebounce`.
+ */
+type DebounceHookContext = Pick<WidgetContext<unknown>, "useEffect" | "useState">;
+
+/**
+ * Minimal context required by `usePrevious`.
+ */
+type PreviousHookContext = Pick<WidgetContext<unknown>, "useEffect" | "useRef">;
+
+/**
+ * Minimal context required by `useAsync`.
+ */
+type AsyncHookContext = Pick<WidgetContext<unknown>, "useEffect" | "useRef" | "useState">;
+
+/**
+ * Async state returned by `useAsync`.
+ */
+export type UseAsyncState<T> = Readonly<{
+  data: T | undefined;
+  loading: boolean;
+  error: unknown;
+}>;
+
+/**
+ * Return a debounced copy of a value.
+ *
+ * The returned value updates only after `delayMs` has elapsed without a new
+ * input value. Non-positive or non-finite delays apply on the next effect pass.
+ */
+export function useDebounce<T>(ctx: DebounceHookContext, value: T, delayMs: number): T {
+  // Wrap to preserve function values; this hook runtime treats function inputs
+  // as lazy initializers.
+  const [debounced, setDebounced] = ctx.useState<T>(() => value);
+
+  ctx.useEffect(() => {
+    if (!Number.isFinite(delayMs) || delayMs <= 0) {
+      setDebounced(value);
+      return;
+    }
+
+    const timeoutId: ReturnType<typeof setTimeout> = setTimeout(() => {
+      setDebounced(value);
+    }, delayMs);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [value, delayMs]);
+
+  return debounced;
+}
+
+/**
+ * Track the previous render's value.
+ */
+export function usePrevious<T>(ctx: PreviousHookContext, value: T): T | undefined {
+  const ref = ctx.useRef<T | undefined>(undefined);
+  const previousValue = ref.current;
+
+  ctx.useEffect(() => {
+    ref.current = value;
+  }, [value]);
+
+  return previousValue;
+}
+
+/**
+ * Run an async operation when dependencies change.
+ *
+ * - Sets `loading` to `true` while the operation is in-flight
+ * - Stores resolved value in `data`
+ * - Stores thrown/rejected value in `error`
+ * - Ignores stale completions from older dependency runs
+ */
+export function useAsync<T>(
+  ctx: AsyncHookContext,
+  task: () => Promise<T>,
+  deps: readonly unknown[],
+): UseAsyncState<T> {
+  const [data, setData] = ctx.useState<T | undefined>(undefined);
+  const [loading, setLoading] = ctx.useState<boolean>(true);
+  const [error, setError] = ctx.useState<unknown>(undefined);
+  const runIdRef = ctx.useRef(0);
+
+  ctx.useEffect(() => {
+    let cancelled = false;
+    runIdRef.current += 1;
+    const runId = runIdRef.current;
+
+    setLoading(true);
+    setError(undefined);
+
+    Promise.resolve()
+      .then(() => task())
+      .then((nextData) => {
+        if (cancelled || runIdRef.current !== runId) return;
+        setData(nextData);
+        setLoading(false);
+      })
+      .catch((nextError) => {
+        if (cancelled || runIdRef.current !== runId) return;
+        setError(nextError);
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, deps);
+
+  return {
+    data,
+    loading,
+    error,
+  };
+}
+
 /* ========== Composite Widget Types ========== */
 
 /**

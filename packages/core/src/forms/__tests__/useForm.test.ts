@@ -126,6 +126,119 @@ describe("useForm hook", () => {
     assert.equal(form.values.email, "john@example.com");
   });
 
+  test("bind returns spread-ready input props and updates field state", () => {
+    const h = createTestContext();
+    const options: UseFormOptions<{ email: string }> = {
+      initialValues: { email: "" },
+      validate: (values) => (values.email.includes("@") ? {} : { email: "Invalid email" }),
+      onSubmit: () => {},
+    };
+
+    let form = h.render(options);
+    const binding = form.bind("email");
+    assert.equal(typeof binding.id, "string");
+    assert.equal(binding.value, "");
+    assert.equal(binding.disabled, false);
+
+    binding.onInput?.("ada", 3);
+    form = h.render(options);
+    assert.equal(form.values.email, "ada");
+
+    form.bind("email").onBlur?.();
+    form = h.render(options);
+    assert.equal(form.touched.email, true);
+    assert.equal(form.errors.email, "Invalid email");
+
+    const custom = form.bind("email", { id: "custom-email" });
+    assert.equal(custom.id, "custom-email");
+  });
+
+  test("bind disables input when field is not editable", () => {
+    const h = createTestContext();
+    const options: UseFormOptions<{ email: string }> = {
+      initialValues: { email: "a@example.com" },
+      onSubmit: () => {},
+    };
+
+    let form = h.render(options);
+    assert.equal(form.bind("email").disabled, false);
+
+    form.setReadOnly(true);
+    form = h.render(options);
+    assert.equal(form.bind("email").disabled, true);
+
+    form.setFieldReadOnly("email", false);
+    form = h.render(options);
+    assert.equal(form.bind("email").disabled, false);
+
+    form.setDisabled(true);
+    form = h.render(options);
+    assert.equal(form.bind("email").disabled, true);
+  });
+
+  test("field returns a wired field wrapper with input child", () => {
+    const h = createTestContext();
+    const options: UseFormOptions<{ email: string }> = {
+      initialValues: { email: "" },
+      validate: (values) => (values.email ? {} : { email: "Required" }),
+      onSubmit: () => {},
+    };
+
+    let form = h.render(options);
+    let vnode = form.field("email", {
+      label: "Email",
+      required: true,
+      hint: "Use your work email",
+      style: { italic: true },
+      disabled: true,
+    });
+    assert.equal(vnode.kind, "field");
+    if (vnode.kind === "field") {
+      assert.equal(vnode.props.label, "Email");
+      assert.equal(vnode.props.required, true);
+      assert.equal(vnode.props.hint, "Use your work email");
+      assert.equal(vnode.props.error, undefined);
+      assert.equal(vnode.children.length, 1);
+
+      const child = vnode.children[0];
+      assert.equal(child?.kind, "input");
+      if (child?.kind === "input") {
+        assert.equal(child.props.value, "");
+        assert.deepEqual(child.props.style, { italic: true });
+        assert.equal(child.props.disabled, true);
+        child.props.onBlur?.();
+      }
+    }
+
+    form = h.render(options);
+    vnode = form.field("email", { label: "Email" });
+    if (vnode.kind === "field") {
+      assert.equal(vnode.props.error, "Required");
+      const child = vnode.children[0];
+      if (child && child.kind === "input") {
+        child.props.onInput?.("ada@example.com", 15);
+      }
+    }
+
+    form = h.render(options);
+    assert.equal(form.values.email, "ada@example.com");
+
+    const fallback = form.field("email");
+    if (fallback.kind === "field") {
+      assert.equal(fallback.props.label, "email");
+    }
+
+    form.setDisabled(true);
+    form = h.render(options);
+    const forceEnabled = form.field("email", { disabled: false });
+    if (forceEnabled.kind === "field") {
+      const child = forceEnabled.children[0];
+      if (child && child.kind === "input") {
+        assert.equal(child.props.disabled, false);
+      }
+    }
+  });
+
   test("validation on blur when validateOnBlur is true (default)", () => {
     const h = createTestContext();
 
