@@ -850,6 +850,7 @@ export class WidgetRenderer<S> {
   private _lastRenderedFocusedId: string | null = null;
   private _lastRenderedFocusAnnouncement: string | null = null;
   private _layoutMeasureCache: WeakMap<VNode, unknown> = new WeakMap<VNode, unknown>();
+  private _layoutTreeCache: WeakMap<VNode, unknown> = new WeakMap<VNode, unknown>();
   private readonly _pooledCloseOnEscape = new Map<string, boolean>();
   private readonly _pooledCloseOnBackdrop = new Map<string, boolean>();
   private readonly _pooledOnClose = new Map<string, () => void>();
@@ -4059,6 +4060,7 @@ export class WidgetRenderer<S> {
           rootH,
           "column",
           this._layoutMeasureCache,
+          this._layoutTreeCache,
         );
         perfMarkEnd("layout", layoutToken);
         if (!layoutRes.ok) {

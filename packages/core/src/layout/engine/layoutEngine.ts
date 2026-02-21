@@ -42,9 +42,16 @@ type MeasureCacheEntry = Readonly<{
 }>;
 
 type MeasureCache = WeakMap<VNode, MeasureCacheEntry>;
+type LayoutCacheEntry = Readonly<{
+  row: Map<string, LayoutResult<LayoutTree>>;
+  column: Map<string, LayoutResult<LayoutTree>>;
+}>;
+type LayoutCache = WeakMap<VNode, LayoutCacheEntry>;
 
 let activeMeasureCache: MeasureCache | null = null;
 const measureCacheStack: MeasureCache[] = [];
+let activeLayoutCache: LayoutCache | null = null;
+const layoutCacheStack: LayoutCache[] = [];
 
 function pushMeasureCache(cache: MeasureCache): void {
   measureCacheStack.push(cache);
@@ -55,6 +62,30 @@ function popMeasureCache(): void {
   measureCacheStack.pop();
   activeMeasureCache =
     measureCacheStack.length > 0 ? (measureCacheStack[measureCacheStack.length - 1] ?? null) : null;
+}
+
+function pushLayoutCache(cache: LayoutCache): void {
+  layoutCacheStack.push(cache);
+  activeLayoutCache = cache;
+}
+
+function popLayoutCache(): void {
+  layoutCacheStack.pop();
+  activeLayoutCache =
+    layoutCacheStack.length > 0 ? (layoutCacheStack[layoutCacheStack.length - 1] ?? null) : null;
+}
+
+function layoutCacheKey(
+  maxW: number,
+  maxH: number,
+  forcedW: number | null,
+  forcedH: number | null,
+  x: number,
+  y: number,
+): string {
+  return `${String(maxW)}:${String(maxH)}:${forcedW === null ? "n" : String(forcedW)}:${
+    forcedH === null ? "n" : String(forcedH)
+  }:${String(x)}:${String(y)}`;
 }
 
 /**
@@ -279,6 +310,17 @@ function layoutNode(
     };
   }
 
+  const cache = activeLayoutCache;
+  const cacheKey = layoutCacheKey(maxW, maxH, forcedW, forcedH, x, y);
+  if (cache) {
+    const entry = cache.get(vnode);
+    if (entry) {
+      const axisMap = axis === "row" ? entry.row : entry.column;
+      const hit = axisMap.get(cacheKey);
+      if (hit) return hit;
+    }
+  }
+
   const sizeRes: LayoutResult<Size> =
     precomputedSize === null ? measureNode(vnode, maxW, maxH, axis) : { ok: true, value: precomputedSize };
   if (!sizeRes.ok) return sizeRes;
@@ -286,6 +328,7 @@ function layoutNode(
   const rectW = clampNonNegative(Math.min(maxW, forcedW ?? sizeRes.value.w));
   const rectH = clampNonNegative(Math.min(maxH, forcedH ?? sizeRes.value.h));
 
+  let computed: LayoutResult<LayoutTree>;
   switch (vnode.kind) {
     case "text":
     case "button":
@@ -319,96 +362,133 @@ function layoutNode(
     case "select":
     case "checkbox":
     case "radioGroup": {
-      return layoutLeafKind(vnode, x, y, rectW, rectH);
+      computed = layoutLeafKind(vnode, x, y, rectW, rectH);
+      break;
     }
     case "row": {
-      return layoutStackKinds(vnode, x, y, rectW, rectH, axis, measureNode, layoutNode);
+      computed = layoutStackKinds(vnode, x, y, rectW, rectH, axis, measureNode, layoutNode);
+      break;
     }
     case "column": {
-      return layoutStackKinds(vnode, x, y, rectW, rectH, axis, measureNode, layoutNode);
+      computed = layoutStackKinds(vnode, x, y, rectW, rectH, axis, measureNode, layoutNode);
+      break;
     }
     case "grid": {
-      return layoutGridKinds(vnode, x, y, rectW, rectH, axis, measureNode, layoutNode);
+      computed = layoutGridKinds(vnode, x, y, rectW, rectH, axis, measureNode, layoutNode);
+      break;
     }
     case "box": {
-      return layoutBoxKinds(vnode, x, y, rectW, rectH, axis, layoutNode);
+      computed = layoutBoxKinds(vnode, x, y, rectW, rectH, axis, layoutNode);
+      break;
     }
     case "focusZone":
     case "focusTrap": {
-      return layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      computed = layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      break;
     }
     case "virtualList": {
-      return layoutCollections(vnode, x, y, rectW, rectH);
+      computed = layoutCollections(vnode, x, y, rectW, rectH);
+      break;
     }
     case "layers": {
-      return layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      computed = layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      break;
     }
     case "modal": {
-      return layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      computed = layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      break;
     }
     case "dropdown": {
-      return layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      computed = layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      break;
     }
     case "layer": {
-      return layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      computed = layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      break;
     }
     case "table": {
-      return layoutCollections(vnode, x, y, rectW, rectH);
+      computed = layoutCollections(vnode, x, y, rectW, rectH);
+      break;
     }
     case "tree": {
-      return layoutCollections(vnode, x, y, rectW, rectH);
+      computed = layoutCollections(vnode, x, y, rectW, rectH);
+      break;
     }
     case "field": {
-      return layoutBoxKinds(vnode, x, y, rectW, rectH, axis, layoutNode);
+      computed = layoutBoxKinds(vnode, x, y, rectW, rectH, axis, layoutNode);
+      break;
     }
     case "tabs":
     case "accordion":
     case "breadcrumb":
     case "pagination": {
-      return layoutNavigationKinds(vnode, x, y, rectW, rectH, layoutNode);
+      computed = layoutNavigationKinds(vnode, x, y, rectW, rectH, layoutNode);
+      break;
     }
 
     /* ========== Advanced Widgets (GitHub issue #136) ========== */
 
     case "commandPalette": {
-      return layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      computed = layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      break;
     }
     case "filePicker": {
-      return layoutCollections(vnode, x, y, rectW, rectH);
+      computed = layoutCollections(vnode, x, y, rectW, rectH);
+      break;
     }
     case "fileTreeExplorer": {
-      return layoutCollections(vnode, x, y, rectW, rectH);
+      computed = layoutCollections(vnode, x, y, rectW, rectH);
+      break;
     }
     case "splitPane":
     case "panelGroup":
     case "resizablePanel": {
-      return layoutSplitPaneKinds(vnode, x, y, maxW, maxH, rectW, rectH, axis, layoutNode);
+      computed = layoutSplitPaneKinds(vnode, x, y, maxW, maxH, rectW, rectH, axis, layoutNode);
+      break;
     }
     case "codeEditor": {
-      return layoutCollections(vnode, x, y, rectW, rectH);
+      computed = layoutCollections(vnode, x, y, rectW, rectH);
+      break;
     }
     case "diffViewer": {
-      return layoutCollections(vnode, x, y, rectW, rectH);
+      computed = layoutCollections(vnode, x, y, rectW, rectH);
+      break;
     }
     case "toolApprovalDialog": {
-      return layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      computed = layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      break;
     }
     case "logsConsole": {
-      return layoutCollections(vnode, x, y, rectW, rectH);
+      computed = layoutCollections(vnode, x, y, rectW, rectH);
+      break;
     }
     case "toastContainer": {
-      return layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      computed = layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      break;
     }
     default: {
-      return {
+      computed = {
         ok: false,
         fatal: {
           code: "ZRUI_INVALID_PROPS",
           detail: "layout: unexpected vnode kind",
         },
       };
+      break;
     }
   }
+
+  if (cache) {
+    let entry = cache.get(vnode);
+    if (!entry) {
+      entry = Object.freeze({ row: new Map(), column: new Map() });
+      cache.set(vnode, entry);
+    }
+    const axisMap = axis === "row" ? entry.row : entry.column;
+    axisMap.set(cacheKey, computed);
+  }
+
+  return computed;
 }
 
 /** Measure a VNode tree without positioning (public API). */
@@ -435,14 +515,20 @@ export function layout(
   maxH: number,
   axis: Axis,
   measureCache?: WeakMap<VNode, unknown>,
+  layoutCache?: WeakMap<VNode, unknown>,
 ): LayoutResult<LayoutTree> {
-  const cache: MeasureCache = measureCache
+  const resolvedMeasureCache: MeasureCache = measureCache
     ? (measureCache as MeasureCache)
     : new WeakMap<VNode, MeasureCacheEntry>();
-  pushMeasureCache(cache);
+  const resolvedLayoutCache: LayoutCache = layoutCache
+    ? (layoutCache as LayoutCache)
+    : new WeakMap<VNode, LayoutCacheEntry>();
+  pushMeasureCache(resolvedMeasureCache);
+  pushLayoutCache(resolvedLayoutCache);
   try {
     return layoutNode(node, x, y, maxW, maxH, axis);
   } finally {
+    popLayoutCache();
     popMeasureCache();
   }
 }
