@@ -101,6 +101,7 @@ function printTemplates(): void {
     const highlights = template.highlights.join(" | ");
     stdout.write(`  ${index + 1}. ${template.key.padEnd(16)} ${template.label}${defaultSuffix}\n`);
     stdout.write(`      ${template.description}\n`);
+    stdout.write(`      Safety: ${template.safetyTag} — ${template.safetyNote}\n`);
     stdout.write(`      Highlights: ${highlights}\n`);
   });
 }
@@ -143,6 +144,7 @@ async function promptTemplate(rl: ReturnType<typeof createInterface>): Promise<s
     const defaultSuffix = index === 0 ? " (default)" : "";
     stdout.write(`  ${index + 1}. ${template.key.padEnd(16)} ${template.label}${defaultSuffix}\n`);
     stdout.write(`      ${template.description}\n`);
+    stdout.write(`      Safety: ${template.safetyTag} — ${template.safetyNote}\n`);
     stdout.write(`      Highlights: ${template.highlights.join(" | ")}\n`);
   });
 
@@ -158,6 +160,15 @@ async function promptTemplate(rl: ReturnType<typeof createInterface>): Promise<s
   }
 
   return trimmed;
+}
+
+async function confirmStressTemplate(rl: ReturnType<typeof createInterface>): Promise<boolean> {
+  stdout.write("\nSafety check for stress-test template:\n");
+  stdout.write("  - This template intentionally drives heavy CPU and optional disk I/O load.\n");
+  stdout.write("  - Turbo/write-flood modes increase system pressure.\n");
+  const answer = await rl.question("Continue with stress-test? (y/N): ");
+  const normalized = answer.trim().toLowerCase();
+  return normalized === "y" || normalized === "yes";
 }
 
 function runInstall(pm: PackageManager, targetDir: string): void {
@@ -194,6 +205,7 @@ function printNextSteps(
 
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
+  const isInteractive = Boolean(stdin.isTTY && stdout.isTTY);
 
   if (options.help) {
     printHelp();
@@ -217,6 +229,20 @@ async function main(): Promise<void> {
       stdout.write(`Use one of: ${allowed}\n`);
       stdout.write("Run with --list-templates to see highlights.\n");
       throw new Error("Invalid template");
+    }
+
+    if (templateKey === "stress-test") {
+      if (isInteractive) {
+        const confirmed = await confirmStressTemplate(rl);
+        if (!confirmed) {
+          stdout.write("\nTemplate selection cancelled.\n");
+          return;
+        }
+      } else {
+        stdout.write(
+          "\nSafety notice: stress-test template selected in non-interactive mode; skipping prompt.\n",
+        );
+      }
     }
 
     const rawName = resolveTargetName(targetDir);

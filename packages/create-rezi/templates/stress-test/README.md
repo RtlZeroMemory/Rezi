@@ -68,6 +68,14 @@ No random external input or external host telemetry is used.
 - `escape`: Close help modal
 - `q`: Quit
 
+## Safety Notes
+
+- This template is a benchmark rig, not a normal starter app.
+- `z` (`turbo`) and `w` (`write-flood`) increase CPU and I/O pressure on purpose.
+- The real I/O sink targets the null device when available (`/dev/null` or `NUL`);
+  if unavailable it falls back to a temp-file sink under the OS temp directory.
+- Later phases raise update rate and memory ballast. Use `r` to reset back to phase 1.
+
 ## Quickstart
 
 ```bash

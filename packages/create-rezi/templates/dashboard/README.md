@@ -34,6 +34,11 @@ bun run start
 - Stable table + inspector + active events workflow using high-level Rezi widgets only.
 - Escalation-oriented UX: critical banner, service inspector guidance, and runbook panel.
 
+## Runtime Guardrails
+
+- Keep the scaffolded app config defaults (`fpsCap`, `maxEventBytes`, `executionMode`) unless you have a measured reason to change them.
+- The defaults are tuned for predictable local iteration and stable CI behavior.
+
 ## Key Code Patterns
 
 - Bounded live update loop and lifecycle cleanup in `src/main.ts` (`simulateTick`, interval setup/teardown).

@@ -8,6 +8,8 @@ export type TemplateDefinition = {
   key: TemplateKey;
   label: string;
   description: string;
+  safetyTag: string;
+  safetyNote: string;
   highlights: readonly string[];
   dir: string;
 };
@@ -17,6 +19,8 @@ export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
     key: "dashboard",
     label: "EdgeOps Dashboard",
     description: "Product-grade operations console with deterministic updates",
+    safetyTag: "safe-default",
+    safetyNote: "Balanced runtime profile for everyday app development.",
     highlights: [
       "fleet control plane with stable live telemetry",
       "incident feed + inspector + escalation runbook",
@@ -28,6 +32,8 @@ export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
     label: "Visual Benchmark Matrix",
     description:
       "Three-lane visual benchmark with deterministic sim model + real runtime diagnostics",
+    safetyTag: "high-cpu-io",
+    safetyNote: "Generates heavy CPU/IO pressure; intended for benchmarking only.",
     highlights: [
       "geometry + text/file activity + matrix rain lanes with phase-based intensity ramp",
       "deterministic sim scorecard and measured CPU/RSS/lag/timing/sink throughput",
@@ -38,6 +44,8 @@ export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
     key: "cli-tool",
     label: "Multi-Screen CLI Tool",
     description: "Task-oriented multi-screen TUI with first-party page routing",
+    safetyTag: "safe-default",
+    safetyNote: "Lightweight template focused on product workflows and routing.",
     highlights: [
       "home/logs/settings/detail screens with router history and focus restoration",
       "global route keybindings plus breadcrumb + tabs helpers wired to router state",
