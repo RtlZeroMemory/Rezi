@@ -52,7 +52,7 @@ export function each<T>(
 
   return {
     kind: options.container ?? "column",
-    props: {},
+    props: { gap: 0 },
     children: collectEachChildren(items, render, options.key),
   };
 }

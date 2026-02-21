@@ -17,7 +17,7 @@ function assertNonNegativeRectTree(node: LayoutTree): void {
 
 describe("constraints (deterministic) - golden cases", () => {
   test("flex:1 + flex:2 in row of width 90 => 30 + 60", () => {
-    const tree = ui.row({}, [
+    const tree = ui.row({ gap: 0 }, [
       ui.box({ border: "none", flex: 1 }, []),
       ui.box({ border: "none", flex: 2 }, []),
     ]);
@@ -28,19 +28,21 @@ describe("constraints (deterministic) - golden cases", () => {
   });
 
   test('width:"50%" in parent width 80 => 40', () => {
-    const tree = ui.row({}, [ui.box({ border: "none", width: "50%" }, [])]);
+    const tree = ui.row({ gap: 0 }, [ui.box({ border: "none", width: "50%" }, [])]);
     const out = mustLayout(tree, 80, 10);
     assert.equal(out.children[0]?.rect.w, 40);
   });
 
   test("flex:1 with minWidth:20, maxWidth:50 in space 100 => 50", () => {
-    const tree = ui.row({}, [ui.box({ border: "none", flex: 1, minWidth: 20, maxWidth: 50 }, [])]);
+    const tree = ui.row({ gap: 0 }, [
+      ui.box({ border: "none", flex: 1, minWidth: 20, maxWidth: 50 }, []),
+    ]);
     const out = mustLayout(tree, 100, 10);
     assert.equal(out.children[0]?.rect.w, 50);
   });
 
   test("nested percentages: 100 -> 50% -> 50% = 25", () => {
-    const tree = ui.row({}, [
+    const tree = ui.row({ gap: 0 }, [
       ui.box({ border: "none", width: "50%" }, [
         ui.box({ border: "none", width: "50%" }, [ui.text("x")]),
       ]),
@@ -51,7 +53,7 @@ describe("constraints (deterministic) - golden cases", () => {
   });
 
   test("flex allocation respects maxWidth across iterations", () => {
-    const tree = ui.row({}, [
+    const tree = ui.row({ gap: 0 }, [
       ui.box({ border: "none", flex: 100, maxWidth: 10 }, []),
       ui.box({ border: "none", flex: 1 }, []),
       ui.box({ border: "none", flex: 1, maxWidth: 30 }, []),
@@ -64,7 +66,7 @@ describe("constraints (deterministic) - golden cases", () => {
   });
 
   test('row align:"stretch" propagates forced cross-size to descendants', () => {
-    const tree = ui.row({ width: 20, height: 10, align: "stretch" }, [
+    const tree = ui.row({ width: 20, height: 10, align: "stretch", gap: 0 }, [
       ui.box({ border: "none", height: "50%" }, [ui.box({ border: "none", height: "100%" }, [])]),
     ]);
 
@@ -74,8 +76,8 @@ describe("constraints (deterministic) - golden cases", () => {
   });
 
   test("nested row with capped flex children does not starve sibling width", () => {
-    const tree = ui.row({}, [
-      ui.row({}, [
+    const tree = ui.row({ gap: 0 }, [
+      ui.row({ gap: 0 }, [
         ui.box({ border: "none", flex: 1, maxWidth: 3 }, []),
         ui.box({ border: "none", flex: 1, maxWidth: 3 }, []),
       ]),
@@ -88,8 +90,8 @@ describe("constraints (deterministic) - golden cases", () => {
   });
 
   test("nested column with capped flex children does not starve sibling height", () => {
-    const tree = ui.column({}, [
-      ui.column({}, [
+    const tree = ui.column({ gap: 0 }, [
+      ui.column({ gap: 0 }, [
         ui.box({ border: "none", flex: 1, maxHeight: 2 }, []),
         ui.box({ border: "none", flex: 1, maxHeight: 2 }, []),
       ]),
@@ -102,7 +104,7 @@ describe("constraints (deterministic) - golden cases", () => {
   });
 
   test("row child margin reserves outer space and offsets child rect", () => {
-    const tree = ui.row({}, [
+    const tree = ui.row({ gap: 0 }, [
       ui.box({ border: "none", width: 4, height: 2, m: 1 }, [ui.text("x")]),
       ui.box({ border: "none", width: 2, height: 1 }, []),
     ]);
@@ -114,7 +116,7 @@ describe("constraints (deterministic) - golden cases", () => {
   });
 
   test("row child per-side margin reserves outer space and offsets child rect", () => {
-    const tree = ui.row({}, [
+    const tree = ui.row({ gap: 0 }, [
       ui.box({ border: "none", width: 4, height: 2, mt: 1, mr: 2, ml: 3 }, [ui.text("x")]),
       ui.box({ border: "none", width: 2, height: 1 }, []),
     ]);
@@ -133,7 +135,7 @@ describe("constraints (deterministic) - golden cases", () => {
   });
 
   test("aggressive negative row margins preserve non-negative computed sizes", () => {
-    const tree = ui.row({}, [
+    const tree = ui.row({ gap: 0 }, [
       ui.box({ border: "none", width: 1, height: 1, ml: -3, mr: -3, mt: -2, mb: -2 }, []),
       ui.box({ border: "none", width: 2, height: 1 }, []),
     ]);
@@ -146,7 +148,7 @@ describe("constraints (deterministic) - golden cases", () => {
   });
 
   test("aggressive negative column margins preserve non-negative computed sizes", () => {
-    const tree = ui.column({}, [
+    const tree = ui.column({ gap: 0 }, [
       ui.box({ border: "none", width: 2, height: 1, ml: -2, mr: -2, mt: -2, mb: -2 }, []),
       ui.box({ border: "none", width: 1, height: 1 }, []),
     ]);

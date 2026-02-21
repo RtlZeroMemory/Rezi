@@ -142,6 +142,11 @@ export type BoxProps = Readonly<
      * When `bg` is provided, the renderer fills the box rect.
      */
     style?: TextStyle;
+    /**
+     * Style inherited by descendants when they do not override their own style.
+     * Unlike `style`, this does not force container background fill.
+     */
+    inheritStyle?: TextStyle;
     /** Child overflow behavior. Defaults to "visible". */
     overflow?: Overflow;
     /** Horizontal scroll offset in cells. Clamped by layout metadata bounds. */
@@ -155,16 +160,7 @@ export type BoxProps = Readonly<
 >;
 
 /** Props for row/column stack layouts. pad is internal, gap is between children. */
-export type JustifyContent =
-  | "start"
-  | "end"
-  | "center"
-  | "between"
-  | "around"
-  | "evenly"
-  | "space-between"
-  | "space-around"
-  | "space-evenly";
+export type JustifyContent = "start" | "end" | "center" | "between" | "around" | "evenly";
 
 export type AlignItems = "start" | "end" | "center" | "stretch";
 
@@ -178,7 +174,7 @@ export type StackProps = Readonly<
     pad?: SpacingValue;
     /** Gap between children. Accepts number or spacing key. */
     gap?: SpacingValue;
-    /** Reverse visual order of children (row-reverse / column-reverse behavior). */
+    /** Render children in reverse order while preserving original child arrays. */
     reverse?: boolean;
     align?: Align;
     justify?: JustifyContent;
@@ -188,6 +184,11 @@ export type StackProps = Readonly<
      * When `bg` is provided, the renderer fills the stack rect.
      */
     style?: TextStyle;
+    /**
+     * Style inherited by descendants when they do not override their own style.
+     * Unlike `style`, this does not force stack background fill.
+     */
+    inheritStyle?: TextStyle;
     /** Child overflow behavior. Defaults to "visible". */
     overflow?: Overflow;
     /** Horizontal scroll offset in cells. Clamped by layout metadata bounds. */

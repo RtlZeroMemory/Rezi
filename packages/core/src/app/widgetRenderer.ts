@@ -2852,11 +2852,14 @@ export class WidgetRenderer<S> {
     const input = this.inputById.get(focusedId);
     if (input && !input.disabled) {
       const rect = this._pooledRectByInstanceId.get(input.instanceId);
-      if (!rect || rect.w <= 0 || rect.h <= 0) return hidden;
+      if (!rect || rect.w <= 1 || rect.h <= 0) return hidden;
 
       const graphemeOffset =
         this.inputCursorByInstanceId.get(input.instanceId) ?? input.value.length;
-      const cursorX = measureTextCells(input.value.slice(0, graphemeOffset));
+      const cursorX = Math.max(
+        0,
+        Math.min(Math.max(0, rect.w - 2), measureTextCells(input.value.slice(0, graphemeOffset))),
+      );
       return Object.freeze({
         visible: true,
         x: rect.x + 1 + cursorX,
@@ -2926,13 +2929,16 @@ export class WidgetRenderer<S> {
     }
 
     const rect = this._pooledRectByInstanceId.get(input.instanceId);
-    if (!rect || rect.w <= 0 || rect.h <= 0) {
+    if (!rect || rect.w <= 1 || rect.h <= 0) {
       this.builder.hideCursor();
       return this.collectRuntimeBreadcrumbs ? this.resolveRuntimeCursorSummary(cursorInfo) : null;
     }
 
     const graphemeOffset = this.inputCursorByInstanceId.get(input.instanceId) ?? input.value.length;
-    const cursorX = measureTextCells(input.value.slice(0, graphemeOffset));
+    const cursorX = Math.max(
+      0,
+      Math.min(Math.max(0, rect.w - 2), measureTextCells(input.value.slice(0, graphemeOffset))),
+    );
     this.builder.setCursor({
       x: rect.x + 1 + cursorX,
       y: rect.y,

@@ -96,7 +96,7 @@ export function measureBoxKinds(
       let contentUsedH = 0;
 
       if (vnode.children.length > 0) {
-        const columnNode: VNode = { kind: "column", props: {}, children: vnode.children };
+        const columnNode: VNode = { kind: "column", props: { gap: 0 }, children: vnode.children };
         const innerRes = measureNode(columnNode, cw, ch, "column");
         if (!innerRes.ok) return innerRes;
         contentUsedW = innerRes.value.w;
@@ -169,7 +169,7 @@ export function layoutBoxKinds(
 
       const children: LayoutTree[] = [];
       if (vnode.children.length > 0) {
-        const columnNode: VNode = { kind: "column", props: {}, children: vnode.children };
+        const columnNode: VNode = { kind: "column", props: { gap: 0 }, children: vnode.children };
         // The synthetic column wrapper must fill the box content rect so that
         // percentage constraints resolve against the actual available space.
         const innerRes = layoutNode(columnNode, cx, cy, cw, ch, "column", cw, ch);

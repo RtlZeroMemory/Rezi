@@ -91,7 +91,7 @@ export function measureOverlays(
       }
 
       // Children are laid out as a Column inside the container.
-      const columnNode: VNode = { kind: "column", props: {}, children: vnode.children };
+      const columnNode: VNode = { kind: "column", props: { gap: 0 }, children: vnode.children };
       const innerRes = measureNode(columnNode, cw, ch, "column");
       if (!innerRes.ok) return innerRes;
       return ok({ w: innerRes.value.w, h: innerRes.value.h });
@@ -185,7 +185,7 @@ export function layoutOverlays(
       // but exist only for focus management, not layout purposes.
       const children: LayoutTree[] = [];
       if (vnode.children.length > 0) {
-        const columnNode: VNode = { kind: "column", props: {}, children: vnode.children };
+        const columnNode: VNode = { kind: "column", props: { gap: 0 }, children: vnode.children };
         const innerRes = layoutNode(columnNode, x, y, rectW, rectH, "column", rectW, rectH);
         if (!innerRes.ok) return innerRes;
         // Attach the zone/trap's children (not the synthetic column wrapper).
