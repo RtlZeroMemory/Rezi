@@ -4,7 +4,7 @@ Build your first Rezi terminal application in minutes.
 
 ## Create a New Project
 
-### Option 1: Scaffold with create-rezi
+### Option 1: Scaffold with create-rezi (Recommended)
 
 ```bash
 npm create rezi my-tui-app
@@ -27,6 +27,8 @@ npm create rezi my-tui-app -- --template dashboard
 npm create rezi my-tui-app -- --template minimal
 ```
 
+The templates demonstrate the recommended project structure and patterns. Start with `minimal` to learn the basics, or `dashboard` for a full-featured example.
+
 ### Option 2: Manual setup
 
 ```bash
@@ -46,45 +48,23 @@ bun add -d typescript tsx
 
 ## Minimal Example
 
-Create `index.ts`:
+The simplest working Rezi app in 10 lines. Create `index.ts`:
 
 ```typescript
-import { ui, rgb } from "@rezi-ui/core";
+import { ui } from "@rezi-ui/core";
 import { createNodeApp } from "@rezi-ui/node";
 
 type State = { count: number };
+const app = createNodeApp<State>({ initialState: { count: 0 } });
 
-const app = createNodeApp<State>({
-  initialState: { count: 0 },
-  config: { fpsCap: 60, maxEventBytes: 1 << 20, useV2Cursor: false },
-});
-
-app.view((state) =>
+app.view(state =>
   ui.column({ p: 1, gap: 1 }, [
-    ui.text("Rezi Counter", { style: { fg: rgb(120, 200, 255), bold: true } }),
-    ui.box({ title: "Controls", p: 1 }, [
-      ui.row({ gap: 2 }, [
-        ui.text(`Count: ${state.count}`),
-        ui.button({
-          id: "inc",
-          label: "+1",
-          onPress: () => app.update((s) => ({ count: s.count + 1 })),
-        }),
-        ui.button({
-          id: "dec",
-          label: "-1",
-          onPress: () => app.update((s) => ({ count: s.count - 1 })),
-        }),
-      ]),
-    ]),
+    ui.text(`Count: ${state.count}`),
+    ui.button({ id: "inc", label: "+1", onPress: () => app.update(s => ({ count: s.count + 1 })) }),
   ])
 );
 
-// Press 'q' to quit. Ctrl+C/SIGTERM/SIGHUP are handled by app.run().
-app.keys({
-  "q": () => app.stop(),
-});
-
+app.keys({ q: () => app.stop() });
 await app.run();
 ```
 
@@ -100,29 +80,24 @@ Or with Bun:
 bun run index.ts
 ```
 
-You should see a counter UI. Use Tab to navigate between buttons, Enter to activate them, and 'q' to quit. You can also click the buttons with the mouse if your terminal supports mouse tracking.
+You should see a counter UI. Use Tab to navigate to the button, Enter to activate it, and `q` to quit. Mouse clicks also work if your terminal supports mouse tracking.
 
 ## Understanding the Code
 
 ### Creating the Application
 
 ```typescript
-const app = createNodeApp<State>({
-  initialState: { count: 0 },
-  config: { fpsCap: 60, maxEventBytes: 1 << 20, useV2Cursor: false },
-});
+const app = createNodeApp<State>({ initialState: { count: 0 } });
 ```
 
-- `createNodeApp<State>` creates a typed application instance and compatible Node/Bun backend
-- `config` controls app/backend runtime knobs in one place (`fpsCap`, `maxEventBytes`, `useV2Cursor`)
-- `fpsCap` must be a positive integer `<= 1000` (default `60`)
-- `maxEventBytes` must be a positive integer `<= 4 MiB` (default `1 MiB`)
-- `initialState` provides the initial application state
+- `createNodeApp<State>` creates a typed application instance with a compatible Node/Bun backend
+- `initialState` provides the starting application state
+- An optional `config` object controls runtime knobs (`fpsCap`, `maxEventBytes`, `useV2Cursor`)
 
 ### Defining the View
 
 ```typescript
-app.view((state) =>
+app.view(state =>
   ui.column({ p: 1, gap: 1 }, [
     // Widgets go here
   ])
@@ -131,9 +106,12 @@ app.view((state) =>
 
 - `app.view()` registers a function that returns the UI tree
 - The function receives the current state and returns a `VNode`
-- The view is re-rendered whenever state changes
+- The view re-renders automatically whenever state changes
+- View functions should be **pure** -- same state in, same UI out
 
-### Widgets and Layout
+### Using the `ui.*` API
+
+Always use the `ui.*` widget factories to build your UI. They create properly typed VNodes without manual object construction:
 
 ```typescript
 ui.column({ p: 1, gap: 1 }, [
@@ -149,147 +127,117 @@ ui.column({ p: 1, gap: 1 }, [
 - `p: 1` adds 1 cell of padding
 - `gap: 1` adds 1 cell between children
 
+See the [Widget Catalog](../widgets/index.md) for the full list of available widgets.
+
 ### State Updates
 
 ```typescript
-app.update((s) => ({ count: s.count + 1 }));
+app.update(s => ({ count: s.count + 1 }));
 ```
 
-- `app.update()` updates the state and triggers a re-render
-- Pass a function that receives the previous state and returns the new state
-- Updates are batched and coalesced for efficiency
+- `app.update()` takes a function that receives the previous state and returns the new state
+- Updates are batched and coalesced -- multiple `update()` calls in the same tick produce a single re-render
+- Prefer the functional update form to avoid stale closures
 
 ### Keybindings
 
 ```typescript
 app.keys({
-  "q": () => app.stop(),
+  q: () => app.stop(),
 });
 ```
 
 - `app.keys()` registers global keybindings
-- Keys can include modifiers: `ctrl`, `alt`, `shift`, `meta`
+- Keys can include modifiers: `ctrl+s`, `alt+x`, `shift+tab`
 - Chord sequences are supported: `"g g"` (press g twice)
-- `app.run()` automatically handles `Ctrl+C`/`SIGTERM`/`SIGHUP` and performs graceful shutdown
+- `app.run()` automatically handles `Ctrl+C`/`SIGTERM`/`SIGHUP` for graceful shutdown
+
+## Recommended App Structure
+
+For anything beyond a quick prototype, follow the template project structure:
+
+```
+my-tui-app/
+  src/
+    types.ts          # State type, action types
+    theme.ts          # Theme configuration
+    helpers/
+      keybindings.ts  # Centralized key mappings
+      actions.ts      # Reducer / action handlers
+    screens/
+      main.ts         # Screen view functions
+    index.ts          # App entry point
+```
+
+This separation keeps your app testable and maintainable. See [Recommended Patterns](../guide/recommended-patterns.md) for details.
 
 ## A More Complete Example
 
-Here's a todo list application demonstrating more features:
+Here is a counter app using the **reducer pattern** for state management -- the recommended approach for non-trivial apps:
 
 ```typescript
 import { ui, rgb } from "@rezi-ui/core";
 import { createNodeApp } from "@rezi-ui/node";
 
-type Todo = { id: string; text: string; done: boolean };
-type State = {
-  todos: Todo[];
-  selected: number;
-  input: string;
-};
+// --- Types ---
+type State = { count: number };
+type Action = { type: "increment" } | { type: "decrement" } | { type: "reset" };
 
-const app = createNodeApp<State>({
-    initialState: {
-    todos: [
-      { id: "1", text: "Learn Rezi", done: false },
-      { id: "2", text: "Build an app", done: false },
-    ],
-    selected: 0,
-    input: "",
-  },
-});
+// --- Reducer ---
+function reduce(state: State, action: Action): State {
+  switch (action.type) {
+    case "increment": return { count: state.count + 1 };
+    case "decrement": return { count: state.count - 1 };
+    case "reset":     return { count: 0 };
+  }
+}
 
-app.view((state) => {
-  const { todos, selected, input } = state;
+function dispatch(action: Action) {
+  app.update(s => reduce(s, action));
+}
 
-  return ui.column({ p: 1, gap: 1 }, [
-    // Title
-    ui.text("Todo List", { style: { fg: rgb(100, 200, 255), bold: true } }),
+// --- App ---
+const app = createNodeApp<State>({ initialState: { count: 0 } });
 
-    // Todo items
-    ui.box({ title: `Items (${todos.length})`, p: 1 }, [
-      todos.length === 0
-        ? ui.text("No todos yet", { style: { fg: rgb(128, 128, 128) } })
-        : ui.column(
-            { gap: 0 },
-            todos.map((todo, i) => {
-              const isSel = i === selected;
-              const prefix = isSel ? "> " : "  ";
-              const check = todo.done ? "[x]" : "[ ]";
-              return ui.text(`${prefix}${check} ${todo.text}`, {
-                key: todo.id,
-                style: {
-                  bold: isSel,
-                  dim: todo.done,
-                  fg: todo.done ? rgb(128, 128, 128) : undefined,
-                },
-              });
-            })
-          ),
+app.view(state =>
+  ui.column({ p: 1, gap: 1 }, [
+    ui.text("Rezi Counter", { style: { fg: rgb(120, 200, 255), bold: true } }),
+    ui.box({ title: "Controls", p: 1 }, [
+      ui.row({ gap: 2 }, [
+        ui.text(`Count: ${state.count}`),
+        ui.button({ id: "inc", label: "+1", onPress: () => dispatch({ type: "increment" }) }),
+        ui.button({ id: "dec", label: "-1", onPress: () => dispatch({ type: "decrement" }) }),
+        ui.button({ id: "reset", label: "Reset", onPress: () => dispatch({ type: "reset" }) }),
+      ]),
     ]),
-
-    // Add new todo
-    ui.row({ gap: 1 }, [
-      ui.input({
-        id: "new-todo",
-        value: input,
-        onInput: (v) => app.update((s) => ({ ...s, input: v })),
-      }),
-      ui.button({
-        id: "add",
-        label: "Add",
-        onPress: () => {
-          if (input.trim()) {
-            app.update((s) => ({
-              ...s,
-              todos: [...s.todos, { id: Date.now().toString(), text: input.trim(), done: false }],
-              input: "",
-            }));
-          }
-        },
-      }),
-    ]),
-
-    // Help text
-    ui.text("j/k: navigate | space: toggle | d: delete | q: quit", {
+    ui.text("j: increment | k: decrement | r: reset | q: quit", {
       style: { fg: rgb(100, 100, 100) },
     }),
-  ]);
-});
+  ])
+);
 
 app.keys({
-  j: (ctx) =>
-    ctx.update((s) => ({
-      ...s,
-      selected: Math.min(s.selected + 1, s.todos.length - 1),
-    })),
-  k: (ctx) =>
-    ctx.update((s) => ({
-      ...s,
-      selected: Math.max(s.selected - 1, 0),
-    })),
-  space: (ctx) =>
-    ctx.update((s) => ({
-      ...s,
-      todos: s.todos.map((t, i) =>
-        i === s.selected ? { ...t, done: !t.done } : t
-      ),
-    })),
-  d: (ctx) =>
-    ctx.update((s) => ({
-      ...s,
-      todos: s.todos.filter((_, i) => i !== s.selected),
-      selected: Math.max(0, Math.min(s.selected, s.todos.length - 2)),
-    })),
+  j: () => dispatch({ type: "increment" }),
+  k: () => dispatch({ type: "decrement" }),
+  r: () => dispatch({ type: "reset" }),
   q: () => app.stop(),
 });
 
 await app.run();
 ```
 
+Key takeaways:
+
+- **Typed actions** make state transitions explicit and testable
+- **`reduce()` is a pure function** -- easy to unit test without any UI
+- **`dispatch()`** provides a clean interface between UI events and state logic
+- **Keybindings** and **button presses** use the same `dispatch()` call
+
 ## Next Steps
 
+- [Concepts](../guide/concepts.md) - Understand Rezi's architecture and core ideas
+- [Recommended Patterns](../guide/recommended-patterns.md) - Best practices for production apps
 - [Using JSX](jsx.md) - Prefer JSX syntax? Use `@rezi-ui/jsx` for a JSX-based widget API
-- [Concepts](../guide/concepts.md) - Understand Rezi's architecture
 - [Widget Catalog](../widgets/index.md) - Browse all available widgets
 - [Layout Guide](../guide/layout.md) - Learn about spacing and alignment
 - [Styling Guide](../guide/styling.md) - Customize colors and themes
