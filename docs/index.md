@@ -46,6 +46,9 @@ await app.start();
 **Theming**
 : Six built-in themes (dark, light, dimmed, high-contrast, nord, dracula) with semantic color tokens.
 
+**Declarative Animation**
+: Built-in animation hooks (`useTransition`, `useSpring`, `useSequence`, `useStagger`) plus container transition props on `ui.box(...)`.
+
 **Keybindings**
 : First-class support for modal keybindings with chord sequences (Vim-style `g g`, Emacs-style `C-x C-s`).
 
@@ -217,6 +220,7 @@ User feedback: `spinner`, `skeleton`, `callout`, `errorDisplay`, `empty`
 - [Layout](guide/layout.md) - Spacing, alignment, and constraints
 - [Input & Focus](guide/input-and-focus.md) - Keyboard navigation and focus management
 - [Mouse Support](guide/mouse-support.md) - Click, scroll, and drag interactions
+- [Animation](guide/animation.md) - Declarative motion hooks and box transitions
 - [Styling](guide/styling.md) - Colors, themes, and visual customization
 - [Graphics](guide/graphics.md) - Capability-aware rendering and progressive enhancement
 - [Performance](guide/performance.md) - Optimization techniques

@@ -48,6 +48,7 @@ Rezi is a high-performance terminal UI framework for TypeScript. You write decla
 - **JSX without React** — optional `@rezi-ui/jsx` maps JSX directly to Rezi VNodes with zero React runtime overhead
 - **Deterministic rendering** — same state + same events = same frames; versioned binary protocol, pinned Unicode tables
 - **6 built-in themes** — dark, light, dimmed, high-contrast, nord, dracula; switch at runtime with one call
+- **Declarative animation APIs** — numeric hooks (`useTransition`, `useSpring`, `useSequence`, `useStagger`) and `ui.box` transition props for position/size/opacity motion
 - **Record & replay** — capture input sessions as deterministic bundles for debugging and automated testing
 
 ---
@@ -138,7 +139,7 @@ cd my-app
 bun start
 ```
 
-Starter templates: **EdgeOps control-plane dashboard** and **Visual benchmark stress test**.
+Starter templates: **dashboard**, **stress-test**, **cli-tool**, **animation-lab**, and **minimal**.
 
 ---
 

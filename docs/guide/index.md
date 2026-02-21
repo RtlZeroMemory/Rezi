@@ -4,6 +4,7 @@ Core Rezi guides:
 
 - [Concepts](concepts.md)
 - [Composition](composition.md)
+- [Animation](animation.md)
 - [Runtime & Layout](runtime-and-layout.md)
 - [Lifecycle & Updates](lifecycle-and-updates.md)
 - [Routing](routing.md)
@@ -15,3 +16,4 @@ Core Rezi guides:
 - [Performance](performance.md)
 - [Debugging](debugging.md)
 - [Record & Replay](record-replay.md)
+- [Hooks Reference](hooks-reference.md)

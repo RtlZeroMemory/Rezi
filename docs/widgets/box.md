@@ -23,6 +23,8 @@ ui.box({ title: "Settings", border: "rounded", p: 1 }, [
 | `border` | `"none" \| "single" \| "double" \| "rounded" \| "heavy" \| "dashed" \| "heavy-dashed"` | `"single"` | Border style |
 | `shadow` | `boolean \| { offsetX?: number; offsetY?: number; density?: \"light\" \| \"medium\" \| \"dense\" }` | - | Shadow effect for depth |
 | `style` | `TextStyle` | - | Style applied to the box surface (bg fills the rect) |
+| `opacity` | `number` | `1` | Surface opacity in `[0..1]` (values are clamped) |
+| `transition` | `TransitionSpec` | - | Declarative render-time transition for `position`, `size`, and/or `opacity` |
 | `p`, `px`, `py`, `pt`, `pr`, `pb`, `pl` | `SpacingValue` | - | Padding props |
 | `m`, `mx`, `my` | `SpacingValue` | - | Margin props |
 | `width`, `height` | `number \| \"auto\" \| \"${number}%\"` | - | Size constraints |
@@ -58,12 +60,37 @@ ui.row({ gap: 1 }, [
 ]);
 ```
 
+### 3) Declarative transition (size + opacity)
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.box(
+  {
+    id: "details-panel",
+    width: state.expanded ? 48 : 28,
+    opacity: state.expanded ? 1 : 0.65,
+    border: "rounded",
+    p: 1,
+    transition: {
+      duration: 220,
+      easing: "easeInOutCubic",
+      properties: ["size", "opacity"],
+    },
+  },
+  [ui.text("Animated container")],
+);
+```
+
 ## Notes
 
 - Borders consume 1 cell on each edge (unless `border: "none"`).
 - Padding is applied inside the border and reduces child content area.
+- `transition.properties` defaults to `"all"` when omitted (`position`, `size`, `opacity`).
+- `transition.properties: []` disables animation tracks for that box.
 
 ## Related
 
 - [Layout](../guide/layout.md) - Borders, padding, nesting
+- [Animation](../guide/animation.md) - Motion hooks and transition props
 - [Row / Column](stack.md) - Stack layouts

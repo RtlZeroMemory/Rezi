@@ -28,6 +28,7 @@ npm run docs:build
 ## Hook/API changes
 
 - For public hook changes, update `docs/guide/hooks-reference.md` and `docs/guide/composition.md` in the same PR.
+- For animation hook changes (`useTransition`, `useSpring`, `useSequence`, `useStagger`) or `ui.box` transition behavior, also update `docs/guide/animation.md` and `docs/widgets/box.md`.
 - Add deterministic lifecycle tests (mount, dependency change, unmount cleanup, stale async result guards).
 - If the hook depends on runtime capabilities, keep adapters in runtime packages (`@rezi-ui/node`, etc.), not in `@rezi-ui/core`.
 

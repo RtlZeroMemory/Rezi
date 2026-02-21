@@ -54,6 +54,30 @@ app.setTheme(nordTheme);
 
 Create custom themes with `createThemeDefinition()`.
 
+### Animation Primitives
+
+Declarative animation hooks and container transitions:
+
+```typescript
+import { defineWidget, ui, useSpring, useTransition } from "@rezi-ui/core";
+
+const AnimatedMeter = defineWidget<{ target: number; key?: string }>((props, ctx) => {
+  const eased = useTransition(ctx, props.target, { duration: 160, easing: "easeOutCubic" });
+  const spring = useSpring(ctx, props.target, { stiffness: 180, damping: 22 });
+
+  return ui.box(
+    {
+      width: Math.round(16 + eased),
+      opacity: Math.max(0.35, Math.min(1, spring / 100)),
+      transition: { duration: 180, properties: ["size", "opacity"] },
+    },
+    [ui.text(`Target: ${props.target}`)],
+  );
+});
+```
+
+Hooks: `useTransition`, `useSpring`, `useSequence`, `useStagger`.
+
 ### Form Management
 
 Form state management with validation:
@@ -214,6 +238,16 @@ await debug.enable({
 | `form.bind(...)`, `form.field(...)` | One-line input/field wiring helpers on `useForm` return |
 | `bind`, `bindChecked`, `bindSelect` | Standalone binding helpers for plain state objects |
 | `FormState`, `UseFormReturn` | Form types |
+
+### Animation
+
+| Export | Description |
+|--------|-------------|
+| `useTransition`, `UseTransitionConfig` | Time-based numeric interpolation hook + config type |
+| `useSpring`, `UseSpringConfig` | Spring-physics numeric animation hook + config type |
+| `useSequence`, `UseSequenceConfig` | Keyframe timeline hook + config type |
+| `useStagger`, `UseStaggerConfig` | Staggered per-item progress hook + config type |
+| `TransitionSpec`, `TransitionProperty` | `ui.box` transition prop type + allowed properties |
 
 ### Testing
 

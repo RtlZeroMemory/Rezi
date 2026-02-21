@@ -102,7 +102,31 @@ ui.box({ p: "md", border: "rounded" }, [
 ]);
 ```
 
+## Container opacity and transitions
+
+`ui.box(...)` also supports surface opacity and declarative transitions:
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.box(
+  {
+    width: state.open ? 40 : 24,
+    opacity: state.open ? 1 : 0.6,
+    transition: { duration: 180, easing: "easeOutCubic", properties: ["size", "opacity"] },
+  },
+  [ui.text("Panel")],
+);
+```
+
+Notes:
+
+- `opacity` is clamped to `[0..1]`.
+- `transition.properties` defaults to `"all"` (`position`, `size`, `opacity`) when omitted.
+- Use `properties: []` to disable animated tracks explicitly.
+
 ## Related
 
 - [Theme](theme.md) - Theme structure and presets
 - [Styling overview](index.md) - How themes and style props work together
+- [Animation guide](../guide/animation.md) - Hook and transition patterns

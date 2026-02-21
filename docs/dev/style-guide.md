@@ -150,6 +150,17 @@ When adding or using streaming hooks (`useStream`, `useEventSource`, `useWebSock
 - Ensure parser callbacks are total and defensive (`unknown` input, explicit narrowing, deterministic fallback behavior).
 - Test stale-update races (dependency changes/unmount before async completion) for every new streaming hook.
 
+## Animation Hook Conventions
+
+When adding or changing animation hooks (`useTransition`, `useSpring`, `useSequence`, `useStagger`) or `ui.box` transition behavior:
+
+- Keep interpolation deterministic for identical state + frame-time inputs.
+- Normalize durations/configs defensively (finite, non-negative, integer-ms where applicable).
+- Retarget from current animated state (avoid reset jumps on mid-flight updates).
+- Clamp bounded values (for example, `opacity` in `[0..1]`).
+- Ensure timers/subscriptions are cleaned up on dependency change and unmount.
+- Cover mount/update/retarget/unmount behavior in dedicated unit tests.
+
 ## Allocation Constraints in Hot Paths
 
 The rendering pipeline runs every frame (up to 60 fps by default). Allocations

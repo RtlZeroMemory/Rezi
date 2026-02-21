@@ -20,9 +20,11 @@ Use this skill when:
 ## Source of truth
 
 - `packages/core/src/app/widgetRenderer.ts` — full render pipeline
+- `packages/core/src/app/__tests__/widgetRenderer.transition.test.ts` — transition behavior expectations
 - `packages/core/src/runtime/commit.ts` — VNode → RuntimeInstance tree
 - `packages/core/src/layout/` — layout engine
 - `packages/core/src/renderer/renderToDrawlist/` — draw operations
+- `packages/core/src/widgets/composition.ts` — animation hook implementations
 
 ## Debugging steps
 
@@ -52,6 +54,12 @@ Use this skill when:
 
 7. **Review layout props**: `width`, `height`, `flex`, `p`, `gap`, `align`
 
+8. **If animation is involved**, verify:
+   - `ui.box` uses `transition` with expected `properties` (`position`, `size`, `opacity`)
+   - `properties: []` is not accidentally disabling tracks
+   - `opacity` stays within `[0..1]`
+   - animation hooks are not conditionally called
+
 ## Common causes
 
 | Symptom | Likely cause |
@@ -60,4 +68,6 @@ Use this skill when:
 | Overlapping widgets | Wrong container type (use `column`/`row` not `box`) |
 | Content truncated | Fixed width too small, missing `flex` |
 | Flicker/full re-render | Missing `key` on list items |
+| Transition not animating | `transition` missing, wrong `properties`, or no actual value delta |
+| Opacity animation looks wrong | `opacity` outside `[0..1]` (clamped) or `properties` excludes `opacity` |
 | Crash on deep tree | Nesting depth > 500 |

@@ -89,3 +89,4 @@ For package-level CLI reference (invocation forms and options), see [packages/cr
 
 - [Quickstart](quickstart.md) for manual setup.
 - [Examples](examples.md) for runnable repository examples.
+- [Animation Guide](../guide/animation.md) for transition/spring/sequence/stagger usage patterns.

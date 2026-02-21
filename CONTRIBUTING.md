@@ -55,6 +55,7 @@ npm run test:native:smoke
 - Binary parsing/building must follow the safety rules in the docs (bounded reads, alignment checks, deterministic failure).
 - Public APIs should be documented and stable within a release line.
 - Streaming hooks in `packages/core` must use runtime adapters/factories for environment-specific sources (`EventSource`, `WebSocket`, file tailing) and include cleanup + stale-update guards.
+- Animation hooks (`useTransition`, `useSpring`, `useSequence`, `useStagger`) and `ui.box` transition behavior must remain deterministic and be documented in docs + templates when user-visible behavior changes.
 
 ## Pull requests
 
@@ -76,6 +77,7 @@ PRs may be rejected if they:
 - TypeScript: strict mode (`npm run typecheck`)
 - Tests: `npm test` (keep tests deterministic and fast)
 - Hook changes: add/adjust hook docs (`docs/guide/hooks-reference.md`) and include race/cleanup tests.
+- Animation changes: update `docs/guide/animation.md` and `docs/widgets/box.md`, and add/adjust transition/hook tests.
 
 ## Interaction guidelines
 

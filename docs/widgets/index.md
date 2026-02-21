@@ -33,7 +33,7 @@ Container and spacing primitives for arranging widgets.
 
 | Factory | Description | Focusable | Stability |
 |---------|-------------|-----------|-----------|
-| [`ui.box(props, children)`](box.md) | Container with border, padding, title | No | `stable` |
+| [`ui.box(props, children)`](box.md) | Container with border, padding, title, and optional transition/opacity props | No | `stable` |
 | [`ui.row(props, children)`](stack.md) | Horizontal stack layout | No | `stable` |
 | [`ui.column(props, children)`](stack.md) | Vertical stack layout | No | `stable` |
 | [`ui.hstack(...)`](stack.md) | Shorthand horizontal stack (accepts gap number, props, or just children) | No | `stable` |

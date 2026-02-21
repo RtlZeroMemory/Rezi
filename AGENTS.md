@@ -25,8 +25,9 @@ When investigating Rezi code, follow this order:
 1. **Start with exports.** Read `packages/core/src/index.ts` to understand the full public API surface. This is the single source of truth for what the framework exposes.
 2. **Widget API.** `packages/core/src/widgets/ui.ts` has all 60+ widget factory functions (`ui.text()`, `ui.box()`, `ui.column()`, etc.).
 3. **Types.** `packages/core/src/widgets/types.ts` has all prop interfaces (`TextProps`, `BoxProps`, `ButtonProps`, etc.).
-4. **Templates are reference implementations.** Check `packages/create-rezi/templates/` for canonical app patterns. Four templates exist: `minimal`, `dashboard`, `cli-tool`, `stress-test`.
-5. **Tests show expected behavior.** `packages/core/src/**/__tests__/` contains 240+ test files. Read tests before making assumptions about how a module works.
+4. **Composition + hook APIs.** `packages/core/src/widgets/composition.ts` contains `defineWidget` hooks, including animation hooks (`useTransition`, `useSpring`, `useSequence`, `useStagger`).
+5. **Templates are reference implementations.** Check `packages/create-rezi/templates/` for canonical app patterns. Five templates exist: `minimal`, `dashboard`, `cli-tool`, `stress-test`, `animation-lab`.
+6. **Tests show expected behavior.** `packages/core/src/**/__tests__/` contains 240+ test files. Read tests before making assumptions about how a module works.
 
 **Render pipeline (execution order):**
 
@@ -154,12 +155,13 @@ src/
 3. Create pure screen functions in `screens/` (each returns a `VNode`).
 4. Wire keybindings via `app.keys()` in `main.ts`.
 5. Use `createNodeBackend({ fpsCap: 30 })` for production apps.
+6. For animated screens, prefer declarative hooks (`useTransition`, `useSpring`, `useSequence`, `useStagger`) and `ui.box` transition props over ad-hoc timers in view code.
 
 **Widget usage hierarchy (prefer higher):**
 
 1. `ui.*` factory functions — `text`, `box`, `column`, `row`, `button`, `input`, `select`, `table`, etc.
 2. `defineWidget()` — for stateful reusable components with hooks.
-3. `useTable()`, `useModalStack()`, `useForm()` — for complex interaction patterns.
+3. `useTransition()/useSpring()/useSequence()/useStagger()`, `useTable()`, `useModalStack()`, `useForm()` — for complex interaction patterns.
 4. `each()`, `show()`, `when()`, `maybe()`, `match()` — rendering control flow utilities.
 
 ## PR and Commit Protocol
@@ -174,9 +176,10 @@ src/
 
 1. **Importing from internal paths** instead of package exports. Always import from `@rezi-ui/core`, not from `@rezi-ui/core/dist/widgets/ui.js`.
 2. **Forgetting `id` prop on interactive widgets.** Buttons, inputs, checkboxes, selects, and other focusable widgets require a unique `id`. Omitting it causes a runtime crash.
-3. **Calling hooks conditionally.** `defineWidget` hooks (`useAsync`, `useDebounce`, `usePrevious`, etc.) must be called in the same order every render. No conditional hook calls.
+3. **Calling hooks conditionally.** `defineWidget` hooks (`useTransition`, `useSpring`, `useSequence`, `useStagger`, `useAsync`, `useDebounce`, `usePrevious`, etc.) must be called in the same order every render. No conditional hook calls.
 4. **Mutating state directly.** Always use `app.update()` with an updater function or new state object. Never mutate the state reference.
 5. **Creating duplicate widget IDs.** Two widgets with the same `id` in the same render tree will cause a fatal error. Use `ctx.id()` for dynamic lists inside `defineWidget`.
 6. **Using `pnpm`.** This project uses `npm` workspaces. Running `pnpm install` will break the workspace links.
 7. **Skipping tests after pipeline changes.** Any change to commit, reconcile, layout, or renderer files requires running the full test suite. Subtle regressions are common.
 8. **Breaking module boundaries.** Core must remain runtime-agnostic. Never add Node.js-specific imports (`Buffer`, `worker_threads`, `node:*`) to `@rezi-ui/core`.
+9. **Misconfiguring box transitions.** `ui.box` transition defaults to animating `position`, `size`, and `opacity`; use explicit `properties` filters (or `[]` to disable) when behavior should be constrained.

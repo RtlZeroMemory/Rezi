@@ -177,6 +177,16 @@ Tests designed to exercise the system under extreme conditions:
 Stress tests verify that the runtime does not crash, exceed memory bounds, or
 exhibit non-linear performance degradation.
 
+## Animation Regression Suites
+
+Animation behavior has dedicated deterministic suites and should be run for any motion-related change:
+
+- `node --test packages/core/src/widgets/__tests__/composition.animationHooks.test.ts`
+- `node --test packages/core/src/app/__tests__/widgetRenderer.transition.test.ts`
+- `node --test packages/core/src/runtime/__tests__/commit.fastReuse.regression.test.ts`
+
+These suites cover hook retargeting/timer cleanup, `ui.box` transition property filters (`position`/`size`/`opacity`), and reconciliation fast-reuse correctness with transition props.
+
 ## Reconciliation Hardening Matrix
 
 Reconciliation edge-cases are covered by dedicated runtime suites:

@@ -42,5 +42,6 @@ Use `create-rezi` templates (`dashboard`, `stress-test`, `cli-tool`, `animation-
 ## Next Steps
 
 - [Quickstart](quickstart.md) - Build your first app
+- [Animation Guide](../guide/animation.md) - Learn the declarative motion APIs used by `animation-lab`
 - [Widget Catalog](../widgets/index.md) - Browse available widgets
 - [Keybindings](../guide/input-and-focus.md) - Advanced input handling

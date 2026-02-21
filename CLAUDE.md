@@ -74,6 +74,7 @@ packages/create-rezi/templates/
   cli-tool/                   # Multi-screen app with routing
   dashboard/                  # Real-time dashboard with charts
   stress-test/                # Stress/performance testing template
+  animation-lab/              # Declarative animation + responsive reactor lab
   (each template follows: main.ts, types.ts, theme.ts, helpers/, screens/)
 ```
 
@@ -121,12 +122,13 @@ const Counter = defineWidget<{ initial: number; key?: string }>((props, ctx) => 
 });
 ```
 
-Available hooks: `ctx.useState()`, `ctx.useEffect()`, `ctx.useRef()`, `ctx.useMemo()`, `ctx.useCallback()`, `ctx.id()`.
+Available hooks: `ctx.useState()`, `ctx.useEffect()`, `ctx.useRef()`, `ctx.useMemo()`, `ctx.useCallback()`, `ctx.useAppState()`, `ctx.useViewport()`, `ctx.id()`.
+Animation utility hooks: `useTransition()`, `useSpring()`, `useSequence()`, `useStagger()`.
 
-### Layer 3 — Domain Hooks (for complex state)
+### Layer 3 — Domain Hooks (for complex state and motion)
 
 ```typescript
-import { useTable, useModalStack, useForm } from "@rezi-ui/core";
+import { useTransition, useSpring, useSequence, useStagger, useTable, useModalStack, useForm } from "@rezi-ui/core";
 ```
 
 ### Layer 4 — Raw VNodes (avoid unless necessary)
@@ -154,6 +156,7 @@ each(items, (item) => ui.text(item.name), { key: (item) => item.id });
 
 - All interactive widgets MUST have a unique `id` prop.
 - Hooks must be called in consistent order (no conditional hooks, no hooks in loops).
+- `ui.box` transition properties default to animating `position`, `size`, and `opacity`; constrain with explicit `properties` when needed.
 - Use `key` prop for list items to enable stable reconciliation.
 - State updates during render are forbidden (throws `ZRUI_UPDATE_DURING_RENDER`).
 - Duplicate interactive widget IDs are fatal (throws `ZRUI_DUPLICATE_ID`).
@@ -169,8 +172,9 @@ each(items, (item) => ui.text(item.name), { key: (item) => item.id });
 - Use `each()` / `eachInline()` for list rendering with keys.
 - Use `show()` / `when()` / `maybe()` / `match()` for conditional rendering.
 - Use `defineWidget()` for reusable stateful components.
+- Use `useTransition()` / `useSpring()` / `useSequence()` / `useStagger()` for declarative numeric motion.
 - Use `useTable()` for table state, `useModalStack()` for modal state.
-- Follow template structure: separate `screens/`, `helpers/state.ts`, `helpers/keybindings.ts`, `theme.ts`, `types.ts`.
+- Follow template structure: separate `screens/`, `helpers/state.ts`, `helpers/keybindings.ts`, `theme.ts`, `types.ts` (see `animation-lab` for motion-heavy screens).
 - Test with `createTestRenderer()` from the testing module.
 
 ### DON'T

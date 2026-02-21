@@ -110,6 +110,7 @@ nav:
       - Index: guide/index.md
       - Concepts: guide/concepts.md
       - Composition: guide/composition.md
+      - Animation: guide/animation.md
       - Runtime & Layout: guide/runtime-and-layout.md
       - Lifecycle & Updates: guide/lifecycle-and-updates.md
       - Routing: guide/routing.md

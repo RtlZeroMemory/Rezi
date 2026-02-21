@@ -21,6 +21,8 @@ Use this skill when:
 
 - `packages/core/src/testing/` — test utilities (`createTestRenderer`, etc.)
 - `packages/core/src/widgets/__tests__/` — existing widget tests (use as examples)
+- `packages/core/src/widgets/__tests__/composition.animationHooks.test.ts` — animation hook test patterns
+- `packages/core/src/app/__tests__/widgetRenderer.transition.test.ts` — `ui.box` transition expectations
 - `scripts/run-tests.mjs` — test runner
 
 ## Steps
@@ -53,6 +55,12 @@ Use this skill when:
 
 5. **Use `result.findById()`** to locate specific nodes in the render tree
 
+6. **For animation features**, cover:
+   - mount value
+   - retarget while running
+   - cleanup on unmount (no timer leak)
+   - property filtering (`position` / `size` / `opacity`) for `ui.box` transitions
+
 ## Running tests
 
 ```bash
@@ -67,4 +75,4 @@ node --test path/to/test.ts
 
 - All new tests pass
 - No existing tests broken
-- Tests are deterministic (no timers, no randomness)
+- Tests are deterministic (bounded timers/explicit waits, no randomness)
