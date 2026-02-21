@@ -15,6 +15,15 @@
  */
 
 import type { ResponsiveViewportSnapshot } from "../layout/responsive.js";
+import { resolveEasing } from "../animation/easing.js";
+import { clamp01, interpolateNumber, normalizeDurationMs } from "../animation/interpolate.js";
+import {
+  isSpringAtRest,
+  normalizeSpringConfig,
+  stepSpring,
+  type NormalizedSpringConfig,
+} from "../animation/spring.js";
+import type { SpringConfig, TransitionConfig } from "../animation/types.js";
 import type { VNode } from "./types.js";
 
 /* ========== Widget Context Type ========== */
@@ -132,6 +141,29 @@ type PreviousHookContext = Pick<WidgetContext<unknown>, "useEffect" | "useRef">;
 type AsyncHookContext = Pick<WidgetContext<unknown>, "useEffect" | "useRef" | "useState">;
 
 /**
+ * Minimal context required by `useTransition`.
+ */
+type TransitionHookContext = Pick<
+  WidgetContext<unknown>,
+  "useEffect" | "useMemo" | "useRef" | "useState"
+>;
+
+/**
+ * Minimal context required by `useSpring`.
+ */
+type SpringHookContext = Pick<WidgetContext<unknown>, "useEffect" | "useMemo" | "useRef" | "useState">;
+
+/**
+ * Transition configuration accepted by `useTransition`.
+ */
+export type UseTransitionConfig = TransitionConfig;
+
+/**
+ * Spring configuration accepted by `useSpring`.
+ */
+export type UseSpringConfig = SpringConfig;
+
+/**
  * Async state returned by `useAsync`.
  */
 export type UseAsyncState<T> = Readonly<{
@@ -139,6 +171,157 @@ export type UseAsyncState<T> = Readonly<{
   loading: boolean;
   error: unknown;
 }>;
+
+const ANIMATION_FRAME_MS = 16;
+const DEFAULT_TRANSITION_DURATION_MS = 160;
+
+function nowMs(): number {
+  const perf = (globalThis as { performance?: { now?: () => number } }).performance;
+  const perfNow = perf?.now;
+  if (typeof perfNow === "function") return perfNow.call(perf);
+  return Date.now();
+}
+
+function clearAnimationTimer(ref: { current: ReturnType<typeof setTimeout> | null }): void {
+  if (ref.current !== null) {
+    clearTimeout(ref.current);
+    ref.current = null;
+  }
+}
+
+/**
+ * Animate from the current numeric value to `value` over time.
+ *
+ * Returns the interpolated number for the current render.
+ */
+export function useTransition(
+  ctx: TransitionHookContext,
+  value: number,
+  config: UseTransitionConfig = {},
+): number {
+  const [current, setCurrent] = ctx.useState<number>(() => value);
+  const timerRef = ctx.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentRef = ctx.useRef<number>(current);
+  currentRef.current = current;
+
+  const durationMs = normalizeDurationMs(config.duration, DEFAULT_TRANSITION_DURATION_MS);
+  const easing = ctx.useMemo(() => resolveEasing(config.easing), [config.easing]);
+
+  ctx.useEffect(() => {
+    clearAnimationTimer(timerRef);
+
+    if (!Number.isFinite(value) || !Number.isFinite(currentRef.current)) {
+      setCurrent(value);
+      return;
+    }
+
+    if (durationMs <= 0 || Object.is(currentRef.current, value)) {
+      setCurrent(value);
+      return;
+    }
+
+    const from = currentRef.current;
+    const to = value;
+    const startMs = nowMs();
+
+    const tick = () => {
+      const elapsedMs = nowMs() - startMs;
+      const progress = clamp01(elapsedMs / durationMs);
+      const next = interpolateNumber(from, to, easing(progress));
+      setCurrent(next);
+      if (progress >= 1) {
+        timerRef.current = null;
+        return;
+      }
+      timerRef.current = setTimeout(tick, ANIMATION_FRAME_MS);
+    };
+
+    timerRef.current = setTimeout(tick, ANIMATION_FRAME_MS);
+
+    return () => {
+      clearAnimationTimer(timerRef);
+    };
+  }, [durationMs, easing, value]);
+
+  return current;
+}
+
+/**
+ * Animate a numeric target with spring physics.
+ *
+ * Returns the spring-simulated value for the current render.
+ */
+export function useSpring(
+  ctx: SpringHookContext,
+  target: number,
+  config: UseSpringConfig = {},
+): number {
+  const [current, setCurrent] = ctx.useState<number>(() => target);
+  const timerRef = ctx.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const valueRef = ctx.useRef<number>(current);
+  const velocityRef = ctx.useRef<number>(0);
+  const targetRef = ctx.useRef<number>(target);
+  const lastStepMsRef = ctx.useRef<number | null>(null);
+  valueRef.current = current;
+  targetRef.current = target;
+
+  const springConfig: NormalizedSpringConfig = ctx.useMemo(
+    () => normalizeSpringConfig(config),
+    [
+      config.stiffness,
+      config.damping,
+      config.mass,
+      config.restDelta,
+      config.restSpeed,
+      config.maxDeltaMs,
+    ],
+  );
+
+  ctx.useEffect(() => {
+    clearAnimationTimer(timerRef);
+    lastStepMsRef.current = nowMs();
+
+    if (!Number.isFinite(target) || !Number.isFinite(valueRef.current)) {
+      velocityRef.current = 0;
+      setCurrent(target);
+      return;
+    }
+
+    if (isSpringAtRest(valueRef.current, target, velocityRef.current, springConfig)) {
+      velocityRef.current = 0;
+      if (!Object.is(valueRef.current, target)) setCurrent(target);
+      return;
+    }
+
+    const tick = () => {
+      const stepNowMs = nowMs();
+      const prevMs = lastStepMsRef.current ?? stepNowMs;
+      lastStepMsRef.current = stepNowMs;
+      const dtMs = Math.max(1, Math.min(springConfig.maxDeltaMs, stepNowMs - prevMs));
+      const step = stepSpring(
+        { value: valueRef.current, velocity: velocityRef.current },
+        targetRef.current,
+        dtMs / 1000,
+        springConfig,
+      );
+      velocityRef.current = step.velocity;
+      setCurrent(step.value);
+      if (step.done) {
+        timerRef.current = null;
+        return;
+      }
+      timerRef.current = setTimeout(tick, ANIMATION_FRAME_MS);
+    };
+
+    timerRef.current = setTimeout(tick, ANIMATION_FRAME_MS);
+
+    return () => {
+      clearAnimationTimer(timerRef);
+    };
+  }, [springConfig, target]);
+
+  return current;
+}
 
 /**
  * Return a debounced copy of a value.
