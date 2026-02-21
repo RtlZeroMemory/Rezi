@@ -103,6 +103,13 @@ function clamp01(value: number): number {
   return value;
 }
 
+function clampInt(value: number, min: number, max: number): number {
+  const n = Number.isFinite(value) ? Math.trunc(value) : min;
+  if (n <= min) return min;
+  if (n >= max) return max;
+  return n;
+}
+
 function parseHexRgb(value: string): Readonly<{ r: number; g: number; b: number }> | null {
   const raw = value.startsWith("#") ? value.slice(1) : value;
   if (/^[0-9a-fA-F]{6}$/.test(raw)) {
@@ -786,15 +793,16 @@ export function renderBasicWidget(
       builder.popClip();
 
       // v2 cursor: resolve cursor position for focused enabled input
-      if (focused && !disabled && cursorInfo) {
+      if (focused && !disabled && cursorInfo && rect.w > 1) {
         // Cursor offset is stored as grapheme index; convert to cell position
         const graphemeOffset = cursorInfo.cursorByInstanceId.get(node.instanceId);
         const cursorX =
           graphemeOffset !== undefined
             ? measureTextCells(value.slice(0, graphemeOffset))
             : measureTextCells(value);
+        const maxCursorX = Math.max(0, rect.w - 2);
         resolvedCursor = {
-          x: rect.x + 1 + cursorX,
+          x: rect.x + 1 + clampInt(cursorX, 0, maxCursorX),
           y: rect.y,
           shape: cursorInfo.shape,
           blink: cursorInfo.blink,
@@ -1077,9 +1085,10 @@ export function renderBasicWidget(
           combinedText.length,
           Math.max(0, cursorMeta.position ?? combinedText.length),
         );
-        const cursorX = Math.min(rect.w, measureTextCells(combinedText.slice(0, cursorOffset)));
+        const cursorX = measureTextCells(combinedText.slice(0, cursorOffset));
+        const maxCursorX = Math.max(0, rect.w - 1);
         resolvedCursor = {
-          x: rect.x + cursorX,
+          x: rect.x + clampInt(cursorX, 0, maxCursorX),
           y: rect.y,
           shape: cursorInfo.shape,
           blink: cursorInfo.blink,
