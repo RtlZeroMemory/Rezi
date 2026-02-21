@@ -195,6 +195,7 @@ nav:
       - Feedback:
           - Callout: widgets/callout.md
           - Error Display: widgets/error-display.md
+          - Error Boundary: widgets/error-boundary.md
           - Empty: widgets/empty.md
   - Styling:
       - Overview: styling/index.md

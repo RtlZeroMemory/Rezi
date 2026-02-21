@@ -502,7 +502,7 @@ describe("createApp routes integration", () => {
     );
   });
 
-  test("navigate during route render is rejected and surfaces as fatal", async () => {
+  test("navigate during route render is rejected and captured by top-level error screen", async () => {
     const backend = new StubBackend();
     const fatalCodes: string[] = [];
 
@@ -542,6 +542,8 @@ describe("createApp routes integration", () => {
     );
     await flushMicrotasks(20);
 
-    assert.deepEqual(fatalCodes, ["ZRUI_USER_CODE_THROW"]);
+    assert.deepEqual(fatalCodes, []);
+    assert.equal(backend.stopCalls, 0);
+    assert.equal(backend.disposeCalls, 0);
   });
 });

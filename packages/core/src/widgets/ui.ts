@@ -40,6 +40,7 @@ import type {
   DividerProps,
   DropdownProps,
   EmptyProps,
+  ErrorBoundaryProps,
   ErrorDisplayProps,
   FieldProps,
   FilePickerProps,
@@ -587,6 +588,27 @@ function errorDisplay(message: string, props: Omit<ErrorDisplayProps, "message">
 }
 
 /**
+ * Create an error boundary widget.
+ *
+ * @param props - Boundary config with protected children and fallback renderer
+ *
+ * @example
+ * ```ts
+ * ui.errorBoundary({
+ *   children: RiskyWidget(),
+ *   fallback: (error) =>
+ *     ui.column({}, [
+ *       ui.errorDisplay(error.message, { title: error.code }),
+ *       ui.button({ id: "retry", label: "Retry", onPress: error.retry }),
+ *     ]),
+ * })
+ * ```
+ */
+function errorBoundary(props: ErrorBoundaryProps): VNode {
+  return { kind: "errorBoundary", props };
+}
+
+/**
  * Create a callout/alert widget.
  *
  * @param message - Callout message
@@ -918,6 +940,7 @@ export const ui = {
   gauge,
   empty,
   errorDisplay,
+  errorBoundary,
   callout,
   link,
   canvas,

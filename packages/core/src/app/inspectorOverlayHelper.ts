@@ -263,6 +263,9 @@ export function createAppWithInspectorOverlay<S>(
     start(): Promise<void> {
       return app.start();
     },
+    run(): Promise<void> {
+      return app.run();
+    },
     stop(): Promise<void> {
       return app.stop();
     },

@@ -122,6 +122,13 @@ describe("widget render smoke", () => {
     { name: "gauge", vnode: ui.gauge(0.7, { label: "cpu" }) },
     { name: "empty", vnode: ui.empty("No data", { description: "nothing here" }) },
     { name: "errorDisplay", vnode: ui.errorDisplay("failed") },
+    {
+      name: "errorBoundary",
+      vnode: ui.errorBoundary({
+        children: ui.text("risky"),
+        fallback: (error) => ui.text(`fallback:${error.message}`),
+      }),
+    },
     { name: "callout", vnode: ui.callout("watch out", { variant: "warning" }) },
     { name: "link", vnode: ui.link("https://example.com", "Example", { id: "lnk" }) },
     {

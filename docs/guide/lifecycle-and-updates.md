@@ -18,11 +18,19 @@ const app = createNodeApp<State>({
 });
 
 app.view((state) => ui.text(`Count: ${state.count}`));
-await app.start();
+await app.run();
 ```
 
 `createNodeApp` keeps app/backend cursor protocol, event caps, and fps knobs in
 sync by construction.
+
+Use `run()` for batteries-included lifecycle wiring in Node/Bun apps:
+
+- `run()` wraps `start()`
+- registers `SIGINT` / `SIGTERM` / `SIGHUP`
+- on signal: `stop()` then `dispose()` best-effort, then exits with code `0`
+
+Use `start()` directly when you need manual signal/process control.
 
 ## State machine diagram
 
@@ -135,7 +143,13 @@ There are two main classes of errors:
 - **Synchronous misuse errors**: thrown immediately from the API call (invalid state, update during render, etc.)
 - **Asynchronous fatal errors**: emitted to `onEvent` handlers as `{ kind: "fatal", ... }`, then the app transitions to `Faulted` and the backend is stopped/disposed best-effort
 
-If you register `onEvent`, treat fatal events as terminal for that app instance.
+Render-throw behavior in widget mode is resilience-first:
+
+- `ui.errorBoundary(...)` can isolate subtree throws and render a fallback without faulting the app
+- top-level `view()` throws render a built-in diagnostic screen (code/message/stack) with `R` retry and `Q` quit controls
+- these recoverable view errors do **not** transition the app to `Faulted`
+
+If you register `onEvent`, treat emitted fatal events as terminal for that app instance.
 
 ## Runtime error codes
 
@@ -160,6 +174,7 @@ See the API reference for the `ZrUiErrorCode` type and related helpers.
 
 - `stop()` leaves the app in a safe stopped state; you can `start()` again
 - `dispose()` releases resources and is idempotent (terminal state)
+- `run()` is recommended for Node/Bun CLIs so signal shutdown and terminal cleanup are handled automatically
 - `onEvent(...)` returns an unsubscribe function; call it when your app no longer needs the handler
 
 ## Related

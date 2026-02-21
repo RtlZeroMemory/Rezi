@@ -347,6 +347,24 @@ describe("ui.basic widgets - VNode construction", () => {
     assert.deepEqual(vnode.props, { message: "" });
   });
 
+  test("errorBoundary creates kind and forwards child/fallback", () => {
+    const child = ui.text("risky");
+    const fallback = (error: {
+      code: "ZRUI_USER_CODE_THROW";
+      message: string;
+      detail: string;
+      retry: () => void;
+    }) =>
+      ui.column({}, [
+        ui.text(error.code),
+        ui.text(error.message),
+        ui.button({ id: "retry", label: "Retry", onPress: error.retry }),
+      ]);
+    const vnode = ui.errorBoundary({ key: "eb", children: child, fallback });
+    assert.equal(vnode.kind, "errorBoundary");
+    assert.deepEqual(vnode.props, { key: "eb", children: child, fallback });
+  });
+
   test("callout creates kind and forwards message/options", () => {
     const vnode = ui.callout("Action required", {
       variant: "warning",

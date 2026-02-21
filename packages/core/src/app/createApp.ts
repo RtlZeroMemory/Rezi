@@ -32,7 +32,7 @@ import {
   FRAME_ACCEPTED_ACK_MARKER,
   type RuntimeBackend,
 } from "../backend.js";
-import type { UiEvent } from "../events.js";
+import type { UiEvent, ZrevEvent } from "../events.js";
 import type {
   App,
   AppConfig,
@@ -60,6 +60,7 @@ import {
   routeKeyEvent,
   setMode,
 } from "../keybindings/index.js";
+import { ZR_MOD_ALT, ZR_MOD_CTRL, ZR_MOD_META } from "../keybindings/keyCodes.js";
 import {
   type ResponsiveBreakpointThresholds,
   normalizeBreakpointThresholds,
@@ -360,6 +361,120 @@ function describeThrown(v: unknown): string {
   return String(v);
 }
 
+type TopLevelViewError = Readonly<{
+  code: "ZRUI_USER_CODE_THROW";
+  detail: string;
+  message: string;
+  stack?: string;
+}>;
+
+const KEY_Q = 81;
+const KEY_R = 82;
+
+function captureTopLevelViewError(value: unknown): TopLevelViewError {
+  if (value instanceof Error) {
+    return Object.freeze({
+      code: "ZRUI_USER_CODE_THROW",
+      detail: `${value.name}: ${value.message}`,
+      message: value.message,
+      ...(typeof value.stack === "string" && value.stack.length > 0 ? { stack: value.stack } : {}),
+    });
+  }
+  const detail = String(value);
+  return Object.freeze({
+    code: "ZRUI_USER_CODE_THROW",
+    detail,
+    message: detail,
+  });
+}
+
+function buildTopLevelViewErrorScreen(error: TopLevelViewError): VNode {
+  const lines = [`Code: ${error.code}`, `Message: ${error.message}`];
+  if (error.stack === undefined || error.stack.length === 0) {
+    lines.push(`Detail: ${error.detail}`);
+  }
+  return ui.column({ width: "100%", height: "100%", justify: "center", align: "center", p: 1 }, [
+    ui.box(
+      {
+        width: "100%",
+        height: "100%",
+        border: "single",
+        title: "Runtime Error",
+        p: 1,
+      },
+      [
+        ui.errorDisplay(lines.join("\n"), {
+          title: "Top-level view() threw",
+          ...(error.stack === undefined || error.stack.length === 0
+            ? {}
+            : { stack: error.stack, showStack: true }),
+        }),
+        ui.callout("Press R to retry, Q to quit", { variant: "warning" }),
+      ],
+    ),
+  ]);
+}
+
+function isUnmodifiedLetterKey(mods: number): boolean {
+  return (mods & (ZR_MOD_CTRL | ZR_MOD_ALT | ZR_MOD_META)) === 0;
+}
+
+function isTopLevelRetryEvent(ev: ZrevEvent): boolean {
+  if (ev.kind === "key") {
+    return ev.action === "down" && isUnmodifiedLetterKey(ev.mods) && ev.key === KEY_R;
+  }
+  if (ev.kind === "text") {
+    return ev.codepoint === KEY_R || ev.codepoint === 114;
+  }
+  return false;
+}
+
+function isTopLevelQuitEvent(ev: ZrevEvent): boolean {
+  if (ev.kind === "key") {
+    return ev.action === "down" && isUnmodifiedLetterKey(ev.mods) && ev.key === KEY_Q;
+  }
+  if (ev.kind === "text") {
+    return ev.codepoint === KEY_Q || ev.codepoint === 113;
+  }
+  return false;
+}
+
+type ProcessLike = Readonly<{
+  on?: ((event: string, handler: (...args: unknown[]) => void) => unknown) | undefined;
+  off?: ((event: string, handler: (...args: unknown[]) => void) => unknown) | undefined;
+  removeListener?: ((event: string, handler: (...args: unknown[]) => void) => unknown) | undefined;
+  exit?: ((code?: number) => void) | undefined;
+}>;
+
+function readProcessLike(): ProcessLike | null {
+  const processRef = (
+    globalThis as {
+      process?: {
+        on?: (event: string, handler: (...args: unknown[]) => void) => unknown;
+        off?: (event: string, handler: (...args: unknown[]) => void) => unknown;
+        removeListener?: (event: string, handler: (...args: unknown[]) => void) => unknown;
+        exit?: (code?: number) => void;
+      };
+    }
+  ).process;
+  if (!processRef || typeof processRef !== "object") return null;
+  return processRef;
+}
+
+function removeSignalHandler(
+  proc: ProcessLike,
+  signal: string,
+  handler: (...args: unknown[]) => void,
+): void {
+  if (typeof proc.off === "function") {
+    proc.off(signal, handler);
+    return;
+  }
+  if (typeof proc.removeListener === "function") {
+    proc.removeListener(signal, handler);
+  }
+}
+
 /**
  * Convert a text codepoint to a key code for keybinding matching.
  * Letters are normalized to uppercase (A-Z = 65-90).
@@ -490,6 +605,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   let mode: Mode | null = null;
   let drawFn: DrawFn | null = null;
   let viewFn: ViewFn<S> | null = null;
+  let topLevelViewError: TopLevelViewError | null = null;
   let debugLayoutEnabled = false;
 
   const hasInitialState = "initialState" in opts;
@@ -523,6 +639,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
   let lifecycleBusy: "start" | "stop" | null = null;
   let pollToken = 0;
+  let settleActiveRun: (() => void) | null = null;
 
   let userCommitScheduled = false;
 
@@ -719,6 +836,32 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     breadcrumbLastAction = toRuntimeBreadcrumbAction(action);
   }
 
+  function retryTopLevelViewError(): void {
+    topLevelViewError = null;
+    markDirty(DIRTY_VIEW | DIRTY_LAYOUT);
+  }
+
+  function quitFromTopLevelViewError(): void {
+    let stopPromise: Promise<void>;
+    try {
+      stopPromise = app.stop();
+    } catch {
+      try {
+        app.dispose();
+      } catch {
+        // ignore
+      }
+      return;
+    }
+    void stopPromise.finally(() => {
+      try {
+        app.dispose();
+      } catch {
+        // ignore
+      }
+    });
+  }
+
   function buildRuntimeBreadcrumbSnapshot(renderTimeMs: number): RuntimeBreadcrumbSnapshot | null {
     if (!runtimeBreadcrumbsEnabled) return null;
     const widgetSnapshot = widgetRenderer.getRuntimeBreadcrumbSnapshot();
@@ -866,6 +1009,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
           } catch {
             // ignore
           }
+          settleActiveRun?.();
         });
     } catch {
       try {
@@ -873,6 +1017,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       } catch {
         // ignore
       }
+      settleActiveRun?.();
     }
   }
 
@@ -957,6 +1102,28 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
               lastSpinnerRenderPerfMs = perfMs;
               markDirty(DIRTY_RENDER);
             }
+          }
+        }
+
+        if (mode === "widget" && topLevelViewError !== null) {
+          if (isTopLevelRetryEvent(ev)) {
+            noteBreadcrumbConsumptionPath("widgetRouting");
+            retryTopLevelViewError();
+            continue;
+          }
+          if (isTopLevelQuitEvent(ev)) {
+            noteBreadcrumbConsumptionPath("widgetRouting");
+            quitFromTopLevelViewError();
+            continue;
+          }
+          if (
+            ev.kind === "key" ||
+            ev.kind === "text" ||
+            ev.kind === "paste" ||
+            ev.kind === "mouse"
+          ) {
+            noteBreadcrumbConsumptionPath("widgetRouting");
+            continue;
           }
         }
 
@@ -1264,16 +1431,28 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
         (pendingDirtyFlags & DIRTY_LAYOUT) === 0 && (pendingDirtyFlags & DIRTY_VIEW) !== 0,
     };
 
+    const resilientView: ViewFn<S> = (state) => {
+      if (topLevelViewError !== null) {
+        return buildTopLevelViewErrorScreen(topLevelViewError);
+      }
+      try {
+        return vf(state);
+      } catch (e: unknown) {
+        topLevelViewError = captureTopLevelViewError(e);
+        return buildTopLevelViewErrorScreen(topLevelViewError);
+      }
+    };
+
     const renderStart = perfNow();
     const submitToken = perfMarkStart("submit_frame");
     const frameView: ViewFn<S> = debugLayoutEnabled
       ? (state) => {
-          const root = vf(state);
+          const root = resilientView(state);
           const overlay = buildLayoutDebugOverlay(widgetRenderer.getRectByIdIndex());
           if (!overlay) return root;
           return ui.layers([root, overlay]);
         }
-      : vf;
+      : resilientView;
     const res = widgetRenderer.submitFrame(frameView, snapshot, viewport, theme, hooks, plan);
     perfMarkEnd("submit_frame", submitToken);
     if (!res.ok) {
@@ -1506,6 +1685,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       return p.then(
         async () => {
           lifecycleBusy = null;
+          topLevelViewError = null;
           terminalProfile = await loadTerminalProfile(backend);
           widgetRenderer.setTerminalProfile(terminalProfile);
           sm.toRunning();
@@ -1517,6 +1697,93 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
         (e: unknown) => {
           lifecycleBusy = null;
           throw new ZrUiError("ZRUI_BACKEND_ERROR", `backend.start rejected: ${describeThrown(e)}`);
+        },
+      );
+    },
+
+    run(): Promise<void> {
+      assertOperational("run");
+      assertNotReentrant("run");
+      if (lifecycleBusy)
+        throwCode("ZRUI_INVALID_STATE", "run: lifecycle operation already in flight");
+      sm.assertOneOf(["Created", "Stopped"], "run: must be Created or Stopped");
+      if (mode === null) throwCode("ZRUI_NO_RENDER_MODE", "run: no render mode selected");
+
+      const proc = readProcessLike();
+      const addSignalHandler =
+        proc !== null && typeof proc.on === "function" ? proc.on.bind(proc) : null;
+      const canRegisterSignals = addSignalHandler !== null;
+      const signals = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
+      const handlers: Array<Readonly<{ signal: string; handler: (...args: unknown[]) => void }>> =
+        [];
+
+      let runSettled = false;
+      let resolveRun!: () => void;
+      const runPromise = new Promise<void>((resolve) => {
+        resolveRun = resolve;
+      });
+
+      const cleanupSignalHandlers = (): void => {
+        if (!proc) return;
+        for (const entry of handlers) {
+          removeSignalHandler(proc, entry.signal, entry.handler);
+        }
+        handlers.length = 0;
+      };
+
+      const settleRun = (): void => {
+        if (runSettled) return;
+        runSettled = true;
+        cleanupSignalHandlers();
+        if (settleActiveRun === settleRun) settleActiveRun = null;
+        resolveRun();
+      };
+
+      const onSignal = (): void => {
+        if (runSettled) return;
+        runSettled = true;
+        cleanupSignalHandlers();
+        if (settleActiveRun === settleRun) settleActiveRun = null;
+        void (async () => {
+          try {
+            if (sm.state === "Running") await app.stop();
+          } catch {
+            // ignore
+          }
+          try {
+            app.dispose();
+          } catch {
+            // ignore
+          }
+          try {
+            proc?.exit?.(0);
+          } catch {
+            // ignore
+          }
+          resolveRun();
+        })();
+      };
+
+      if (canRegisterSignals) {
+        for (const signal of signals) {
+          const handler = () => onSignal();
+          handlers.push(Object.freeze({ signal, handler }));
+          addSignalHandler(signal, handler);
+        }
+      }
+      settleActiveRun = settleRun;
+
+      return app.start().then(
+        () => {
+          if (!canRegisterSignals) {
+            settleRun();
+          }
+          return runPromise;
+        },
+        (e: unknown) => {
+          cleanupSignalHandlers();
+          if (settleActiveRun === settleRun) settleActiveRun = null;
+          throw e;
         },
       );
     },
@@ -1547,6 +1814,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
         () => {
           lifecycleBusy = null;
           sm.toStopped();
+          settleActiveRun?.();
         },
         (e: unknown) => {
           lifecycleBusy = null;
@@ -1581,6 +1849,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       } catch {
         // ignore
       }
+      settleActiveRun?.();
     },
 
     /* --- Keybinding API --- */
