@@ -544,6 +544,69 @@ describe("composition streaming hooks - useWebSocket", () => {
     assert.deepEqual(render.result.value, { value: 11 });
     assert.equal(render.result.reconnectAttempts, 1);
   });
+
+  test("reads message payload when data is exposed via prototype getter", async () => {
+    const h = createHarness();
+    const harness = createWebSocketFactoryHarness();
+
+    let render = h.render((hooks) =>
+      useWebSocket(hooks, "ws://example.test/live", "plain", {
+        factory: harness.factory,
+      }),
+    );
+    h.runPending(render.pendingEffects);
+
+    const first = harness.instances[0];
+    if (!first) throw new Error("expected first WebSocket instance");
+    first.emit("open", {});
+    const prototypeMessage = Object.create({
+      get data() {
+        return "proto-data";
+      },
+    });
+    first.emit("message", prototypeMessage);
+    await flushAsyncUpdates();
+
+    render = h.render((hooks) =>
+      useWebSocket(hooks, "ws://example.test/live", "plain", {
+        factory: harness.factory,
+      }),
+    );
+
+    assert.equal(render.result.value, "proto-data");
+    assert.equal(render.result.error, undefined);
+  });
+
+  test("manual close cancels pending reconnect timer", async () => {
+    const h = createHarness();
+    const harness = createWebSocketFactoryHarness();
+
+    let render = h.render((hooks) =>
+      useWebSocket(hooks, "ws://example.test/live", "plain", {
+        factory: harness.factory,
+        reconnectMs: 30,
+      }),
+    );
+    h.runPending(render.pendingEffects);
+
+    const first = harness.instances[0];
+    if (!first) throw new Error("expected first WebSocket instance");
+    first.emit("open", {});
+    await flushAsyncUpdates();
+
+    render = h.render((hooks) =>
+      useWebSocket(hooks, "ws://example.test/live", "plain", {
+        factory: harness.factory,
+        reconnectMs: 30,
+      }),
+    );
+
+    first.emit("close", { code: 1006 });
+    render.result.close();
+    await waitMs(60);
+
+    assert.equal(harness.instances.length, 1);
+  });
 });
 
 describe("composition streaming hooks - useTail", () => {

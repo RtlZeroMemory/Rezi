@@ -419,7 +419,7 @@ function resolveWebSocketFactory(
 
 function toWebSocketPayload(event: unknown): unknown {
   if (!event || typeof event !== "object") return event;
-  if (!Object.prototype.hasOwnProperty.call(event, "data")) return event;
+  if (!("data" in event)) return event;
   return readUnknownProperty(event, "data");
 }
 
@@ -794,6 +794,7 @@ export function useWebSocket<T = string>(
   const runIdRef = ctx.useRef(0);
   const socketRef = ctx.useRef<WebSocketLike | null>(null);
   const manualCloseRef = ctx.useRef(false);
+  const reconnectTimerRef = ctx.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const sendRef = ctx.useRef<((payload: WebSocketSendPayload) => boolean) | undefined>(undefined);
   const closeRef = ctx.useRef<((code?: number, reason?: string) => void) | undefined>(undefined);
 
@@ -814,6 +815,10 @@ export function useWebSocket<T = string>(
   if (!closeRef.current) {
     closeRef.current = (code?: number, reason?: string): void => {
       manualCloseRef.current = true;
+      if (reconnectTimerRef.current !== undefined) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = undefined;
+      }
       const socket = socketRef.current;
       if (!socket) return;
       try {
@@ -852,7 +857,6 @@ export function useWebSocket<T = string>(
     }
 
     let cancelled = false;
-    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
     let detachListeners: (() => void) | undefined;
     let attempt = 0;
 
@@ -881,17 +885,17 @@ export function useWebSocket<T = string>(
       attempt += 1;
       setReconnectAttempts(attempt);
 
-      if (reconnectTimer !== undefined) {
-        clearTimeout(reconnectTimer);
+      if (reconnectTimerRef.current !== undefined) {
+        clearTimeout(reconnectTimerRef.current);
       }
-      reconnectTimer = setTimeout(() => {
-        reconnectTimer = undefined;
+      reconnectTimerRef.current = setTimeout(() => {
+        reconnectTimerRef.current = undefined;
         connect();
       }, reconnectMs);
     };
 
     const connect = () => {
-      if (cancelled || runIdRef.current !== runId) return;
+      if (cancelled || runIdRef.current !== runId || manualCloseRef.current) return;
 
       let socket: WebSocketLike;
       try {
@@ -961,8 +965,9 @@ export function useWebSocket<T = string>(
     return () => {
       cancelled = true;
       manualCloseRef.current = true;
-      if (reconnectTimer !== undefined) {
-        clearTimeout(reconnectTimer);
+      if (reconnectTimerRef.current !== undefined) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = undefined;
       }
       closeSocket();
     };

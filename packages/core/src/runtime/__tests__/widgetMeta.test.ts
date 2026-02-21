@@ -336,10 +336,11 @@ test("widgetMeta: collectAllWidgetMetadata performance - single traversal vs 6 s
   const separateMs = (performance.now() - separateStart) / iterations;
 
   // Single-pass should not be dramatically slower than 6 separate traversals.
-  // Leave generous headroom for CI timing noise across operating systems.
+  // Keep ratio guard plus a fixed CI jitter allowance for low-latency runners.
+  const maxAllowedMs = separateMs * 3 + 2;
   assert.ok(
-    singlePassMs <= separateMs * 3,
-    `Single-pass (${singlePassMs.toFixed(2)}ms) should not exceed 3x separate (${separateMs.toFixed(2)}ms)`,
+    singlePassMs <= maxAllowedMs,
+    `Single-pass (${singlePassMs.toFixed(2)}ms) should not exceed 3x+2ms separate (${separateMs.toFixed(2)}ms)`,
   );
 });
 
