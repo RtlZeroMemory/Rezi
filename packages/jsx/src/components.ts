@@ -151,20 +151,12 @@ export function Box(props: BoxJsxProps): VNode {
 
 export function Row(props: RowJsxProps): VNode {
   const { children, key, ...rest } = props;
-  return {
-    kind: "row",
-    props: withOptionalKey<RowProps>(rest, key),
-    children: normalizeContainerChildren(children),
-  };
+  return ui.row(withOptionalKey<RowProps>(rest, key), normalizeContainerChildren(children));
 }
 
 export function Column(props: ColumnJsxProps): VNode {
   const { children, key, ...rest } = props;
-  return {
-    kind: "column",
-    props: withOptionalKey<ColumnProps>(rest, key),
-    children: normalizeContainerChildren(children),
-  };
+  return ui.column(withOptionalKey<ColumnProps>(rest, key), normalizeContainerChildren(children));
 }
 
 export function Grid(props: GridJsxProps): VNode {
@@ -628,9 +620,8 @@ export function ToastContainer(props: ToastContainerJsxProps): VNode {
 }
 
 export function Fragment(props: { children?: JsxChildren; key?: string }): VNode {
-  return {
-    kind: "column",
-    props: withOptionalKey<ColumnProps>({}, props.key),
-    children: normalizeContainerChildren(props.children),
-  };
+  return ui.column(
+    withOptionalKey<ColumnProps>({ gap: 0 }, props.key),
+    normalizeContainerChildren(props.children),
+  );
 }

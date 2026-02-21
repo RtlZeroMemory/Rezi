@@ -174,6 +174,8 @@ export type StackProps = Readonly<
     pad?: SpacingValue;
     /** Gap between children. Accepts number or spacing key. */
     gap?: SpacingValue;
+    /** Render children in reverse order while preserving original child arrays. */
+    reverse?: boolean;
     align?: Align;
     justify?: JustifyContent;
     items?: AlignItems;
