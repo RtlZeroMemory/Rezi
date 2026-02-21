@@ -71,6 +71,7 @@ function expectCommitOk(res: ReturnType<typeof commitVNodeTree>) {
 function captureConsoleWarn<T>(run: (warnings: string[]) => T): T {
   const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
   const warnings: string[] = [];
+  const hadWarn = c ? "warn" in c : false;
   const originalWarn = c?.warn;
   if (c) {
     c.warn = (msg: string) => {
@@ -80,7 +81,13 @@ function captureConsoleWarn<T>(run: (warnings: string[]) => T): T {
   try {
     return run(warnings);
   } finally {
-    if (c) c.warn = originalWarn;
+    if (!c) {
+      // no-op
+    } else if (hadWarn && originalWarn) {
+      c.warn = originalWarn;
+    } else {
+      delete c.warn;
+    }
   }
 }
 
