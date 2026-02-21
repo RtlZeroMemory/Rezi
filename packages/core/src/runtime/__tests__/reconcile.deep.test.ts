@@ -86,7 +86,7 @@ function captureConsoleWarn<T>(run: (warnings: string[]) => T): T {
     } else if (hadWarn && originalWarn) {
       c.warn = originalWarn;
     } else {
-      delete c.warn;
+      (c as { warn: ((msg: string) => void) | undefined }).warn = undefined;
     }
   }
 }

@@ -462,6 +462,10 @@ const DEV_MODE = NODE_ENV !== "production";
 const LAYOUT_DEPTH_WARN_THRESHOLD = 200;
 const MAX_LAYOUT_NESTING_DEPTH = 500;
 const MAX_LAYOUT_DEPTH_PATH_SEGMENTS = 32;
+const LAYOUT_DEPTH_PATH_TRACK_START = Math.max(
+  1,
+  LAYOUT_DEPTH_WARN_THRESHOLD - MAX_LAYOUT_DEPTH_PATH_SEGMENTS + 2,
+);
 
 function warnDev(message: string): void {
   const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
@@ -478,11 +482,10 @@ function widgetPathEntry(vnode: VNode): string {
   return `${vnode.kind}${id}${key}`;
 }
 
-function formatWidgetPath(path: readonly string[]): string {
-  if (path.length === 0) return "(root)";
-  if (path.length <= MAX_LAYOUT_DEPTH_PATH_SEGMENTS) return path.join(" -> ");
-  const tail = path.slice(path.length - MAX_LAYOUT_DEPTH_PATH_SEGMENTS);
-  return `... -> ${tail.join(" -> ")}`;
+function formatWidgetPath(depth: number, tailPath: readonly string[]): string {
+  if (tailPath.length === 0) return "(root)";
+  const path = tailPath.join(" -> ");
+  return depth > tailPath.length ? `... -> ${path}` : path;
 }
 
 function isInteractiveVNode(v: VNode): boolean {
@@ -631,7 +634,8 @@ type CommitCtx = Readonly<{
   allocator: InstanceIdAllocator;
   localState: RuntimeLocalStateStore | undefined;
   seenInteractiveIds: Map<string, InstanceId>;
-  layoutPath: string[];
+  layoutDepthRef: { value: number };
+  layoutPathTail: string[];
   emittedWarnings: Set<string>;
   lists: MutableLists;
   collectLifecycleInstanceIds: boolean;
@@ -660,9 +664,11 @@ function commitNode(
   ctx: CommitCtx,
 ): CommitNodeResult {
   let popCompositeStack = false;
-  ctx.layoutPath.push(widgetPathEntry(vnode));
+  ctx.layoutDepthRef.value += 1;
+  const layoutDepth = ctx.layoutDepthRef.value;
+  const trackPath = layoutDepth >= LAYOUT_DEPTH_PATH_TRACK_START;
+  if (trackPath) ctx.layoutPathTail.push(widgetPathEntry(vnode));
   try {
-    const layoutDepth = ctx.layoutPath.length;
     if (
       DEV_MODE &&
       layoutDepth > LAYOUT_DEPTH_WARN_THRESHOLD &&
@@ -674,7 +680,7 @@ function commitNode(
           LAYOUT_DEPTH_WARN_THRESHOLD,
         )}. Deep trees may fail near depth ${String(
           MAX_LAYOUT_NESTING_DEPTH,
-        )}. Path: ${formatWidgetPath(ctx.layoutPath)}`,
+        )}. Path: ${formatWidgetPath(layoutDepth, ctx.layoutPathTail)}`,
       );
     }
     if (layoutDepth > MAX_LAYOUT_NESTING_DEPTH) {
@@ -684,7 +690,7 @@ function commitNode(
           code: "ZRUI_INVALID_PROPS",
           detail: `ZRUI_MAX_DEPTH: layout nesting depth ${String(layoutDepth)} exceeds max ${String(
             MAX_LAYOUT_NESTING_DEPTH,
-          )}. Path: ${formatWidgetPath(ctx.layoutPath)}`,
+          )}. Path: ${formatWidgetPath(layoutDepth, ctx.layoutPathTail)}`,
         },
       };
     }
@@ -1115,7 +1121,8 @@ function commitNode(
     if (popCompositeStack) {
       ctx.compositeRenderStack.pop();
     }
-    ctx.layoutPath.pop();
+    if (trackPath) ctx.layoutPathTail.pop();
+    ctx.layoutDepthRef.value -= 1;
   }
 }
 
@@ -1156,7 +1163,8 @@ export function commitVNodeTree(
     allocator: opts.allocator,
     localState: opts.localState,
     seenInteractiveIds: interactiveIdIndex,
-    layoutPath: [],
+    layoutDepthRef: { value: 0 },
+    layoutPathTail: [],
     emittedWarnings: new Set<string>(),
     lists: { mounted: [], reused: [], unmounted: [] },
     collectLifecycleInstanceIds,
