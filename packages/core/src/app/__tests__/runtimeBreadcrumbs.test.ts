@@ -124,6 +124,7 @@ test("runtime breadcrumbs capture event path/action/focus/cursor deterministical
   assert.equal(first.focus.focusedId, "name");
   assert.equal(first.focus.activeZoneId, null);
   assert.equal(first.focus.activeTrapId, "trap");
+  assert.equal(typeof first.focus.announcement === "string", true);
   assert.equal(first.cursor?.visible, true);
   assert.equal(first.damage.mode, "full");
   assert.equal(first.frame.commit, true);
@@ -147,6 +148,7 @@ test("runtime breadcrumbs capture event path/action/focus/cursor deterministical
   assert.equal(second.focus.focusedId, "name");
   assert.equal(second.focus.activeZoneId, null);
   assert.equal(second.focus.activeTrapId, "trap");
+  assert.equal(typeof second.focus.announcement === "string", true);
   assert.equal(second.frame.commit, false);
   assert.equal(second.frame.layout, false);
 
@@ -161,6 +163,7 @@ test("runtime breadcrumbs capture event path/action/focus/cursor deterministical
   assert.equal(third.focus.focusedId, "save");
   assert.equal(third.focus.activeZoneId, null);
   assert.equal(third.focus.activeTrapId, "trap");
+  assert.equal(typeof third.focus.announcement === "string", true);
 
   await settleNextFrame(backend);
 
@@ -176,6 +179,67 @@ test("runtime breadcrumbs capture event path/action/focus/cursor deterministical
   assert.deepEqual(fourth.lastAction, { id: "save", action: "press" });
   assert.equal(fourth.event.kind, "key");
   assert.equal(fourth.event.path, "widgetRouting");
+
+  await settleNextFrame(backend);
+});
+
+test("runtime breadcrumbs refresh focus announcements when field metadata changes", async () => {
+  const backend = new StubBackend();
+  const renderSnapshots: RuntimeBreadcrumbSnapshot[] = [];
+
+  const app = createApp({
+    backend,
+    initialState: { value: "", error: null as string | null },
+    config: {
+      internal_onRender: (metrics) => {
+        const breadcrumbs = (
+          metrics as Readonly<{ runtimeBreadcrumbs?: RuntimeBreadcrumbSnapshot }>
+        ).runtimeBreadcrumbs;
+        if (breadcrumbs) renderSnapshots.push(breadcrumbs);
+      },
+    },
+  });
+
+  app.view((state) =>
+    ui.focusTrap(
+      {
+        id: "trap",
+        active: true,
+        initialFocus: "email",
+      },
+      [
+        ui.field({
+          label: "Email",
+          required: true,
+          ...(state.error === null ? {} : { error: state.error }),
+          children: ui.input({
+            id: "email",
+            value: state.value,
+            accessibleLabel: "Email input",
+          }),
+        }),
+      ],
+    ),
+  );
+
+  await app.start();
+  await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 40, rows: 10 }]);
+  assert.equal(renderSnapshots.length, 1);
+  const first = renderSnapshots[0];
+  assert.ok(first);
+  assert.equal(first.focus.focusedId, "email");
+  assert.equal(first.focus.announcement?.includes("Required"), true);
+  assert.equal(first.focus.announcement?.includes("Invalid format"), false);
+
+  await settleNextFrame(backend);
+
+  app.update((prev) => ({ ...prev, error: "Invalid format" }));
+  await flushMicrotasks(20);
+  assert.equal(renderSnapshots.length, 2);
+  const second = renderSnapshots[1];
+  assert.ok(second);
+  assert.equal(second.focus.focusedId, "email");
+  assert.equal(second.focus.announcement?.includes("Invalid format"), true);
 
   await settleNextFrame(backend);
 });

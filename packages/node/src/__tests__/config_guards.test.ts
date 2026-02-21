@@ -4,6 +4,30 @@ import { createApp } from "@rezi-ui/core";
 import { ZrUiError } from "@rezi-ui/core";
 import { createNodeApp, createNodeBackend } from "../index.js";
 
+function withNoColor(value: string | undefined, fn: () => void): void {
+  const env = process.env as NodeJS.ProcessEnv & { NO_COLOR?: string };
+  const had = Object.prototype.hasOwnProperty.call(env, "NO_COLOR");
+  const prev = env.NO_COLOR;
+  try {
+    if (value === undefined) {
+      Reflect.deleteProperty(env, "NO_COLOR");
+    } else {
+      env.NO_COLOR = value;
+    }
+    fn();
+  } finally {
+    if (had) {
+      if (prev === undefined) {
+        Reflect.deleteProperty(env, "NO_COLOR");
+      } else {
+        env.NO_COLOR = prev;
+      }
+    } else {
+      Reflect.deleteProperty(env, "NO_COLOR");
+    }
+  }
+}
+
 test("config guard: app useV2Cursor=true requires backend drawlist version >= 2", () => {
   const backend = createNodeBackend({ drawlistVersion: 1 });
   try {
@@ -126,6 +150,45 @@ test("createNodeApp constructs a compatible app/backend pair", () => {
     },
   });
   app.dispose();
+});
+
+test("createNodeApp exposes isNoColor=true when NO_COLOR is present", () => {
+  withNoColor("1", () => {
+    const app = createNodeApp({
+      initialState: { value: 0 },
+      theme: {
+        colors: {
+          primary: { r: 255, g: 0, b: 0 },
+          secondary: { r: 0, g: 255, b: 0 },
+          success: { r: 0, g: 0, b: 255 },
+          danger: { r: 255, g: 0, b: 255 },
+          warning: { r: 255, g: 255, b: 0 },
+          info: { r: 0, g: 255, b: 255 },
+          muted: { r: 120, g: 120, b: 120 },
+          bg: { r: 10, g: 10, b: 10 },
+          fg: { r: 240, g: 240, b: 240 },
+          border: { r: 64, g: 64, b: 64 },
+          "diagnostic.error": { r: 255, g: 90, b: 90 },
+          "diagnostic.warning": { r: 255, g: 200, b: 90 },
+          "diagnostic.info": { r: 90, g: 180, b: 255 },
+          "diagnostic.hint": { r: 140, g: 255, b: 120 },
+        },
+        spacing: [0, 1, 2, 4, 8, 16],
+      },
+    });
+    assert.equal(app.isNoColor, true);
+    app.dispose();
+  });
+});
+
+test("createNodeApp exposes isNoColor=false when NO_COLOR is absent", () => {
+  withNoColor(undefined, () => {
+    const app = createNodeApp({
+      initialState: { value: 0 },
+    });
+    assert.equal(app.isNoColor, false);
+    app.dispose();
+  });
 });
 
 test("config guard: createNodeBackend rejects fpsCap above safe bound", () => {

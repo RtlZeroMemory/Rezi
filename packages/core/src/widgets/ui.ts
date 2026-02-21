@@ -43,6 +43,7 @@ import type {
   FieldProps,
   FilePickerProps,
   FileTreeExplorerProps,
+  FocusAnnouncerProps,
   FocusTrapProps,
   FocusZoneProps,
   GaugeProps,
@@ -655,6 +656,10 @@ function input(
   return { kind: "input", props: idOrProps };
 }
 
+function focusAnnouncer(props: FocusAnnouncerProps = {}): VNode {
+  return { kind: "focusAnnouncer", props };
+}
+
 function focusZone(props: FocusZoneProps, children: readonly UiChild[] = []): VNode {
   return { kind: "focusZone", props, children: filterChildren(children) };
 }
@@ -835,6 +840,7 @@ export const ui = {
   miniChart,
   button,
   input,
+  focusAnnouncer,
   focusZone,
   focusTrap,
   virtualList,

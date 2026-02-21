@@ -108,6 +108,7 @@ import {
 import {
   type CollectedTrap,
   type CollectedZone,
+  type FocusInfo,
   type InputMeta,
   type WidgetMetadataCollector,
   createWidgetMetadataCollector,
@@ -284,6 +285,16 @@ const ROUTE_RENDER: WidgetRoutingOutcome = Object.freeze({ needsRender: true });
 const ROUTE_NO_RENDER: WidgetRoutingOutcome = Object.freeze({ needsRender: false });
 const ZERO_RECT: Rect = Object.freeze({ x: 0, y: 0, w: 0, h: 0 });
 const INCREMENTAL_DAMAGE_AREA_FRACTION = 0.45;
+const EMPTY_FOCUS_ERRORS: readonly string[] = Object.freeze([]);
+const EMPTY_FOCUS_INFO: FocusInfo = Object.freeze({
+  id: null,
+  kind: null,
+  accessibleLabel: null,
+  visibleLabel: null,
+  required: false,
+  errors: EMPTY_FOCUS_ERRORS,
+  announcement: null,
+});
 const NODE_ENV =
   (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ??
   "development";
@@ -409,6 +420,7 @@ function isDamageGranularityKind(kind: WidgetKind): boolean {
     case "button":
     case "link":
     case "input":
+    case "focusAnnouncer":
     case "slider":
     case "select":
     case "checkbox":
@@ -495,6 +507,7 @@ export class WidgetRenderer<S> {
   private lastTableClick: Readonly<{ id: string; rowIndex: number; timeMs: number }> | null = null;
   private traps: ReadonlyMap<string, CollectedTrap> = new Map<string, CollectedTrap>();
   private zoneMetaById: ReadonlyMap<string, CollectedZone> = new Map<string, CollectedZone>();
+  private focusInfoById: ReadonlyMap<string, FocusInfo> = new Map<string, FocusInfo>();
 
   /* --- Instance ID Allocation --- */
   private readonly allocator = createInstanceIdAllocator(1);
@@ -551,6 +564,7 @@ export class WidgetRenderer<S> {
   private toastContainers: readonly Readonly<{ rect: Rect; props: ToastContainerProps }>[] =
     Object.freeze([]);
   private toastActionByFocusId: ReadonlyMap<string, () => void> = new Map<string, () => void>();
+  private toastActionLabelByFocusId: ReadonlyMap<string, string> = new Map<string, string>();
   private toastFocusableActionIds: readonly string[] = Object.freeze([]);
 
   private readonly commandPaletteItemsById = new Map<string, readonly CommandItem[]>();
@@ -631,11 +645,13 @@ export class WidgetRenderer<S> {
   private _lastRenderedViewport: Viewport = Object.freeze({ cols: 0, rows: 0 });
   private _lastRenderedThemeRef: Theme | null = null;
   private _lastRenderedFocusedId: string | null = null;
+  private _lastRenderedFocusAnnouncement: string | null = null;
   private _layoutMeasureCache: WeakMap<VNode, unknown> = new WeakMap<VNode, unknown>();
   private readonly _pooledCloseOnEscape = new Map<string, boolean>();
   private readonly _pooledCloseOnBackdrop = new Map<string, boolean>();
   private readonly _pooledOnClose = new Map<string, () => void>();
   private readonly _pooledToastActionByFocusId = new Map<string, () => void>();
+  private readonly _pooledToastActionLabelByFocusId = new Map<string, string>();
   private readonly _pooledLayoutStack: LayoutTree[] = [];
   private readonly _pooledRuntimeStack: RuntimeInstance[] = [];
   private readonly _pooledPrevRuntimeStack: RuntimeInstance[] = [];
@@ -832,6 +848,36 @@ export class WidgetRenderer<S> {
    */
   getFocusedId(): string | null {
     return this.focusState.focusedId;
+  }
+
+  private buildFallbackFocusInfo(id: string): FocusInfo {
+    const toastActionLabel = this.toastActionLabelByFocusId.get(id) ?? null;
+    const primary = toastActionLabel ?? id;
+    return Object.freeze({
+      id,
+      kind: null,
+      accessibleLabel: toastActionLabel,
+      visibleLabel: toastActionLabel,
+      required: false,
+      errors: EMPTY_FOCUS_ERRORS,
+      announcement: primary,
+    });
+  }
+
+  /**
+   * Get structured focus semantics for the currently focused widget.
+   */
+  getCurrentFocusInfo(): FocusInfo {
+    const focusedId = this.focusState.focusedId;
+    if (focusedId === null) return EMPTY_FOCUS_INFO;
+    return this.focusInfoById.get(focusedId) ?? this.buildFallbackFocusInfo(focusedId);
+  }
+
+  /**
+   * Get the user-facing announcement string for the current focus target.
+   */
+  getFocusAnnouncement(): string | null {
+    return this.getCurrentFocusInfo().announcement;
   }
 
   /**
@@ -2972,6 +3018,7 @@ export class WidgetRenderer<S> {
         focusedId: this.focusState.focusedId,
         activeZoneId: this.focusState.activeZoneId,
         activeTrapId,
+        announcement: this.getFocusAnnouncement(),
       }),
       cursor: params.cursor,
       damage: Object.freeze({
@@ -3077,6 +3124,25 @@ export class WidgetRenderer<S> {
     }
   }
 
+  private appendDamageRectsForFocusAnnouncers(runtimeRoot: RuntimeInstance): boolean {
+    this._pooledRuntimeStack.length = 0;
+    this._pooledRuntimeStack.push(runtimeRoot);
+    while (this._pooledRuntimeStack.length > 0) {
+      const node = this._pooledRuntimeStack.pop();
+      if (!node) continue;
+      if (node.vnode.kind === "focusAnnouncer") {
+        if (!this.appendDamageRectForInstanceId(node.instanceId)) {
+          return false;
+        }
+      }
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        const child = node.children[i];
+        if (child) this._pooledRuntimeStack.push(child);
+      }
+    }
+    return true;
+  }
+
   private normalizeDamageRects(viewport: Viewport): readonly Rect[] {
     this._pooledMergedDamageRects.length = 0;
     for (const raw of this._pooledDamageRects) {
@@ -3113,7 +3179,12 @@ export class WidgetRenderer<S> {
     return area > totalCells * INCREMENTAL_DAMAGE_AREA_FRACTION;
   }
 
-  private snapshotRenderedFrameState(viewport: Viewport, theme: Theme, doLayout: boolean): void {
+  private snapshotRenderedFrameState(
+    viewport: Viewport,
+    theme: Theme,
+    doLayout: boolean,
+    focusAnnouncement: string | null,
+  ): void {
     if (doLayout) {
       this._prevFrameRectByInstanceId.clear();
       for (const [instanceId, rect] of this._pooledRectByInstanceId) {
@@ -3136,6 +3207,7 @@ export class WidgetRenderer<S> {
     this._lastRenderedViewport = Object.freeze({ cols: viewport.cols, rows: viewport.rows });
     this._lastRenderedThemeRef = theme;
     this._lastRenderedFocusedId = this.focusState.focusedId;
+    this._lastRenderedFocusAnnouncement = focusAnnouncement;
   }
 
   /**
@@ -3329,7 +3401,9 @@ export class WidgetRenderer<S> {
           prevCommittedRoot !== null &&
           hadRoutingWidgets === false &&
           identityDamageFromCommit !== null &&
-          identityDamageFromCommit.routingRelevantChanged === false;
+          identityDamageFromCommit.routingRelevantChanged === false &&
+          this.baseFocusList.length === 0 &&
+          this.focusState.focusedId === null;
 
         if (!canSkipMetadataCollect) {
           const metaToken = PERF_DETAIL_ENABLED ? perfMarkStart("metadata_collect") : 0;
@@ -3349,6 +3423,7 @@ export class WidgetRenderer<S> {
           this.baseFocusList = widgetMeta.focusableIds;
           this.baseEnabledById = widgetMeta.enabledById;
           this.focusList = widgetMeta.focusableIds;
+          this.focusInfoById = widgetMeta.focusInfoById;
           this.enabledById = widgetMeta.enabledById;
           this.pressableIds = widgetMeta.pressableIds;
           this.inputById = widgetMeta.inputById;
@@ -3609,6 +3684,7 @@ export class WidgetRenderer<S> {
 
         // Build toast action maps using pooled collections.
         this._pooledToastActionByFocusId.clear();
+        this._pooledToastActionLabelByFocusId.clear();
         this._pooledToastFocusableActionIds.length = 0;
 
         for (const tc of this._pooledToastContainers) {
@@ -3625,11 +3701,13 @@ export class WidgetRenderer<S> {
             if (!toast?.action) continue;
             const fid = getToastActionFocusId(toast.id);
             this._pooledToastActionByFocusId.set(fid, toast.action.onAction);
+            this._pooledToastActionLabelByFocusId.set(fid, toast.action.label);
             this._pooledToastFocusableActionIds.push(fid);
           }
         }
 
         this.toastActionByFocusId = this._pooledToastActionByFocusId;
+        this.toastActionLabelByFocusId = this._pooledToastActionLabelByFocusId;
         this.toastFocusableActionIds = Object.freeze(this._pooledToastFocusableActionIds.slice());
 
         const baseFocusList = this.baseFocusList;
@@ -3797,6 +3875,7 @@ export class WidgetRenderer<S> {
         this.toastContainers = Object.freeze(this._pooledToastContainers.slice());
 
         this._pooledToastActionByFocusId.clear();
+        this._pooledToastActionLabelByFocusId.clear();
         this._pooledToastFocusableActionIds.length = 0;
 
         for (const tc of this._pooledToastContainers) {
@@ -3813,11 +3892,13 @@ export class WidgetRenderer<S> {
             if (!toast?.action) continue;
             const fid = getToastActionFocusId(toast.id);
             this._pooledToastActionByFocusId.set(fid, toast.action.onAction);
+            this._pooledToastActionLabelByFocusId.set(fid, toast.action.label);
             this._pooledToastFocusableActionIds.push(fid);
           }
         }
 
         this.toastActionByFocusId = this._pooledToastActionByFocusId;
+        this.toastActionLabelByFocusId = this._pooledToastActionLabelByFocusId;
         this.toastFocusableActionIds = Object.freeze(this._pooledToastFocusableActionIds.slice());
 
         const baseFocusList = this.baseFocusList;
@@ -4024,6 +4105,7 @@ export class WidgetRenderer<S> {
 
       const tick = this.renderTick;
       this.renderTick = (this.renderTick + 1) >>> 0;
+      const focusAnnouncement = this.getFocusAnnouncement();
 
       const renderToken = perfMarkStart("render");
       let usedIncrementalRender = false;
@@ -4081,6 +4163,13 @@ export class WidgetRenderer<S> {
             missingDamageRect = true;
           }
         }
+        if (
+          !missingDamageRect &&
+          this._lastRenderedFocusAnnouncement !== focusAnnouncement &&
+          !this.appendDamageRectsForFocusAnnouncers(this.committedRoot)
+        ) {
+          missingDamageRect = true;
+        }
 
         if (!missingDamageRect) {
           const damageRects = this.normalizeDamageRects(viewport);
@@ -4129,6 +4218,7 @@ export class WidgetRenderer<S> {
                 this.logsConsoleRenderCacheById,
                 this.diffRenderCacheById,
                 this.codeEditorRenderCacheById,
+                focusAnnouncement,
                 { damageRect },
                 this.terminalProfile,
               );
@@ -4161,6 +4251,7 @@ export class WidgetRenderer<S> {
           dropdownSelectedIndexById: this.dropdownSelectedIndexById,
           diffViewerFocusedHunkById: this.diffViewerFocusedHunkById,
           diffViewerExpandedHunksById: this.diffViewerExpandedHunksById,
+          focusAnnouncement,
           layoutIndex: this._pooledRectByInstanceId,
           idRectIndex: this._pooledRectById,
           tableRenderCacheById: this.tableRenderCacheById,
@@ -4200,7 +4291,7 @@ export class WidgetRenderer<S> {
           cursor: runtimeCursorSummary,
         });
       }
-      this.snapshotRenderedFrameState(viewport, theme, doLayout);
+      this.snapshotRenderedFrameState(viewport, theme, doLayout, focusAnnouncement);
 
       // Render hooks are for preventing re-entrant app API calls during user render.
       hooks.exitRender();

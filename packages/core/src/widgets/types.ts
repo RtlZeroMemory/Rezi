@@ -515,6 +515,8 @@ export type CanvasContext = Readonly<{
 export type LinkProps = Readonly<{
   id?: string;
   key?: string;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
   /** URL to open in terminal hyperlink-capable renderers. */
   url: string;
   /** Link label text. Defaults to url. */
@@ -700,6 +702,8 @@ export type MiniChartProps = Readonly<{
 export type ButtonProps = Readonly<{
   id: string;
   key?: string;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
   label: string;
   disabled?: boolean;
   /** Opt out of Tab focus order while keeping id-based routing available. */
@@ -716,6 +720,8 @@ export type ButtonProps = Readonly<{
 export type InputProps = Readonly<{
   id: string;
   key?: string;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
   value: string;
   disabled?: boolean;
   /** Opt out of Tab focus order while keeping id-based routing available. */
@@ -726,6 +732,15 @@ export type InputProps = Readonly<{
   onInput?: (value: string, cursor: number) => void;
   /** Optional callback invoked when the input loses focus. */
   onBlur?: () => void;
+}>;
+
+/** Props for focus announcer widget. Renders a live summary for the focused element. */
+export type FocusAnnouncerProps = Readonly<{
+  key?: string;
+  /** Optional fallback text when no widget is focused. */
+  emptyText?: string;
+  /** Optional style applied to the announcement line. */
+  style?: TextStyle;
 }>;
 
 /** Navigation mode for focus zones. */
@@ -761,6 +776,8 @@ export type VirtualListProps<T = unknown> = Readonly<{
   key?: string;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
   items: readonly T[];
   itemHeight: ItemHeightSpec<T>;
   /** Number of items to render outside the visible viewport (default: 3) */
@@ -980,6 +997,8 @@ export type TableProps<T = unknown> = Readonly<{
   key?: string;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
   /** Column definitions. */
   columns: readonly TableColumn<T>[];
   /** Row data array. */
@@ -1055,6 +1074,8 @@ export type SelectProps = Readonly<{
   key?: string;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
   /** Currently selected value. */
   value: string;
   /** Available options. */
@@ -1073,6 +1094,8 @@ export type SliderProps = Readonly<{
   key?: string;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
   /** Current slider value. */
   value: number;
   /** Minimum value (default: 0). */
@@ -1103,6 +1126,8 @@ export type CheckboxProps = Readonly<{
   key?: string;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
   /** Whether the checkbox is checked. */
   checked: boolean;
   /** Label displayed next to the checkbox. */
@@ -1119,6 +1144,8 @@ export type RadioGroupProps = Readonly<{
   key?: string;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
   /** Currently selected value. */
   value: string;
   /** Available options. */
@@ -1243,6 +1270,8 @@ export type CommandPaletteProps = Readonly<{
   key?: string;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
   /** Visible state. */
   open: boolean;
   /** Current search query. */
@@ -1310,6 +1339,8 @@ export type FilePickerProps = Readonly<{
   key?: string;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
   /** Root path for file browsing. */
   rootPath: string;
   /** File tree data to render (provided by app/runtime; core does not read the filesystem). */
@@ -1347,6 +1378,8 @@ export type FileTreeExplorerProps = Readonly<{
   key?: string;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
   /** File tree data. */
   data: FileNode | readonly FileNode[];
   /** Expanded node paths. */
@@ -1383,6 +1416,8 @@ export type SplitPaneProps = Readonly<{
   /** REQUIRED - Interactive widget identifier. */
   id: string;
   key?: string;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
   /** Split direction. */
   direction: SplitDirection;
   /** Panel sizes (percentages 0-100 or absolute cells). */
@@ -1423,6 +1458,8 @@ export type PanelGroupProps = Readonly<{
   /** REQUIRED - Interactive widget identifier. */
   id: string;
   key?: string;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
   /** Layout direction. */
   direction: SplitDirection;
 }>;
@@ -1479,6 +1516,8 @@ export type CodeEditorProps = Readonly<{
   key?: string;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
   /** Document content (lines). */
   lines: readonly string[];
   /** Cursor position. */
@@ -1572,6 +1611,8 @@ export type DiffViewerProps = Readonly<{
   key?: string;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
   /** Diff data to display. */
   diff: DiffData;
   /** View mode. */
@@ -1639,6 +1680,8 @@ export type ToolApprovalDialogProps = Readonly<{
   key?: string;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
   /** Tool request being approved. */
   request: ToolRequest;
   /** Visible state. */
@@ -1699,6 +1742,8 @@ export type LogsConsoleProps = Readonly<{
   key?: string;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
   /** Log entries. */
   entries: readonly LogEntry[];
   /** Auto-scroll to bottom (default: true). */
@@ -1803,6 +1848,8 @@ export type TreeProps<T = unknown> = Readonly<{
   key?: string;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
+  /** Optional semantic label used for accessibility/debug announcements. */
+  accessibleLabel?: string;
   /** Root node(s). Can be a single root or array of roots. */
   data: T | readonly T[];
   /** Function to get unique key for each node. */
@@ -1864,6 +1911,7 @@ export type VNode =
   | Readonly<{ kind: "heatmap"; props: HeatmapProps }>
   | Readonly<{ kind: "button"; props: ButtonProps }>
   | Readonly<{ kind: "input"; props: InputProps }>
+  | Readonly<{ kind: "focusAnnouncer"; props: FocusAnnouncerProps }>
   | Readonly<{ kind: "slider"; props: SliderProps }>
   | Readonly<{ kind: "focusZone"; props: FocusZoneProps; children: readonly VNode[] }>
   | Readonly<{ kind: "focusTrap"; props: FocusTrapProps; children: readonly VNode[] }>

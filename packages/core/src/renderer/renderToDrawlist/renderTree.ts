@@ -95,6 +95,7 @@ export function renderTree(
   logsConsoleRenderCacheById: ReadonlyMap<string, LogsConsoleRenderCache> | undefined,
   diffRenderCacheById: ReadonlyMap<string, DiffRenderCache> | undefined,
   codeEditorRenderCacheById: ReadonlyMap<string, CodeEditorRenderCache> | undefined,
+  focusAnnouncement: string | null | undefined,
   opts: RenderTreeOptions | undefined = undefined,
   terminalProfile: TerminalProfile | undefined = undefined,
 ): ResolvedCursor | null {
@@ -211,6 +212,7 @@ export function renderTree(
       case "divider":
       case "button":
       case "input":
+      case "focusAnnouncer":
       case "slider":
       case "select":
       case "checkbox":
@@ -254,6 +256,7 @@ export function renderTree(
           clipStack,
           currentClip,
           cursorInfo,
+          focusAnnouncement,
           terminalProfile,
         );
         if (nextCursor) resolvedCursor = nextCursor;

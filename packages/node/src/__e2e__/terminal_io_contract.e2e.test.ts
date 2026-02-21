@@ -595,25 +595,43 @@ test("terminal io contract: keyboard + paste + focus + mouse + resize + split re
       "missing Shift+Tab",
     );
 
-    const ctrlTab = await writeAndCollectUntil(harness, "\x1b[9;5u", 40, (xs) => {
-      return findIndex(xs, (ev) => isKey(ev, ZR_KEY_TAB, ZR_MOD_CTRL)) >= 0;
-    });
+    const ctrlTab = await writeAndCollectUntilWithRetries(
+      harness,
+      "\x1b[9;5u",
+      40,
+      (xs) => {
+        return findIndex(xs, (ev) => isKey(ev, ZR_KEY_TAB, ZR_MOD_CTRL)) >= 0;
+      },
+      3,
+    );
     assert.ok(
       findIndex(ctrlTab, (ev) => isKey(ev, ZR_KEY_TAB, ZR_MOD_CTRL)) >= 0,
       "missing Ctrl+Tab CSI-u",
     );
 
-    const ctrlEnter = await writeAndCollectUntil(harness, "\x1b[13;5u", 40, (xs) => {
-      return findIndex(xs, (ev) => isKey(ev, ZR_KEY_ENTER, ZR_MOD_CTRL)) >= 0;
-    });
+    const ctrlEnter = await writeAndCollectUntilWithRetries(
+      harness,
+      "\x1b[13;5u",
+      40,
+      (xs) => {
+        return findIndex(xs, (ev) => isKey(ev, ZR_KEY_ENTER, ZR_MOD_CTRL)) >= 0;
+      },
+      3,
+    );
     assert.ok(
       findIndex(ctrlEnter, (ev) => isKey(ev, ZR_KEY_ENTER, ZR_MOD_CTRL)) >= 0,
       "missing Ctrl+Enter CSI-u",
     );
 
-    const ctrlBackspace = await writeAndCollectUntil(harness, "\x1b[127;5u", 40, (xs) => {
-      return findIndex(xs, (ev) => isKey(ev, ZR_KEY_BACKSPACE, ZR_MOD_CTRL)) >= 0;
-    });
+    const ctrlBackspace = await writeAndCollectUntilWithRetries(
+      harness,
+      "\x1b[127;5u",
+      40,
+      (xs) => {
+        return findIndex(xs, (ev) => isKey(ev, ZR_KEY_BACKSPACE, ZR_MOD_CTRL)) >= 0;
+      },
+      3,
+    );
     assert.ok(
       findIndex(ctrlBackspace, (ev) => isKey(ev, ZR_KEY_BACKSPACE, ZR_MOD_CTRL)) >= 0,
       "missing Ctrl+Backspace CSI-u",

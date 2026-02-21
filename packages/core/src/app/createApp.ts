@@ -40,6 +40,7 @@ import type {
   AppRenderMetrics,
   DrawFn,
   EventHandler,
+  FocusChangeHandler,
   ViewFn,
 } from "../index.js";
 import type {
@@ -350,6 +351,7 @@ type WorkItem =
 
 /** Event handler registration with deactivation flag. */
 type HandlerSlot = Readonly<{ fn: EventHandler; active: { value: boolean } }>;
+type FocusHandlerSlot = Readonly<{ fn: FocusChangeHandler; active: { value: boolean } }>;
 
 function describeThrown(v: unknown): string {
   if (v instanceof Error) return `${v.name}: ${v.message}`;
@@ -493,6 +495,8 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   const updates = new UpdateQueue<S>();
 
   const handlers: HandlerSlot[] = [];
+  const focusHandlers: FocusHandlerSlot[] = [];
+  let lastEmittedFocusId: string | null = null;
 
   const DIRTY_RENDER = 1 << 0;
   const DIRTY_LAYOUT = 1 << 1;
@@ -612,6 +616,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     requestView: requestViewFromRenderer,
     collectRuntimeBreadcrumbs: runtimeBreadcrumbsEnabled,
   });
+  lastEmittedFocusId = widgetRenderer.getFocusedId();
 
   let routeStateUpdater: ((updater: StateUpdater<S>) => void) | null = null;
   let routerIntegration: RouterIntegration<S> | null = null;
@@ -788,6 +793,28 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     } finally {
       inEventHandlerDepth--;
     }
+  }
+
+  function emitFocusChangeIfNeeded(): boolean {
+    const focusedId = widgetRenderer.getFocusedId();
+    if (focusedId === lastEmittedFocusId) return true;
+    lastEmittedFocusId = focusedId;
+
+    const info = widgetRenderer.getCurrentFocusInfo();
+    const snapshot: FocusChangeHandler[] = [];
+    for (const slot of focusHandlers) {
+      if (slot.active.value) snapshot.push(slot.fn);
+    }
+
+    for (const fn of snapshot) {
+      try {
+        fn(info);
+      } catch (e: unknown) {
+        enqueueFatal("ZRUI_USER_CODE_THROW", `onFocusChange handler threw: ${describeThrown(e)}`);
+        return false;
+      }
+    }
+    return true;
   }
 
   function doFatal(code: ZrUiErrorCode, detail: string): void {
@@ -1006,6 +1033,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
             enqueueFatal("ZRUI_USER_CODE_THROW", `widget routing threw: ${describeThrown(e)}`);
             return;
           }
+          if (!emitFocusChangeIfNeeded()) return;
           if (routed.needsRender) markDirty(DIRTY_RENDER);
           if (routed.action) {
             noteBreadcrumbAction(routed.action);
@@ -1241,6 +1269,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       fatalNowOrEnqueue(res.code, res.detail);
       return;
     }
+    if (!emitFocusChangeIfNeeded()) return;
     const renderTime = perfNow() - renderStart;
     const runtimeBreadcrumbs = buildRuntimeBreadcrumbSnapshot(Math.max(0, renderTime));
     if (!emitInternalRenderMetrics(renderTime, runtimeBreadcrumbs)) return;
@@ -1394,6 +1423,19 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
       const active = { value: true };
       handlers.push({ fn: handler, active });
+      return () => {
+        active.value = false;
+      };
+    },
+
+    onFocusChange(handler: FocusChangeHandler): () => void {
+      assertOperational("onFocusChange");
+      if (inCommit || inRender) {
+        throwCode("ZRUI_REENTRANT_CALL", "onFocusChange: re-entrant call");
+      }
+
+      const active = { value: true };
+      focusHandlers.push({ fn: handler, active });
       return () => {
         active.value = false;
       };

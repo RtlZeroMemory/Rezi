@@ -25,6 +25,7 @@ export type RuntimeBreadcrumbFocusSummary = Readonly<{
   focusedId: string | null;
   activeZoneId: string | null;
   activeTrapId: string | null;
+  announcement: string | null;
 }>;
 
 /** Cursor intent summary when v2 cursor protocol is enabled. */
@@ -84,6 +85,7 @@ const EMPTY_FOCUS: RuntimeBreadcrumbFocusSummary = Object.freeze({
   focusedId: null,
   activeZoneId: null,
   activeTrapId: null,
+  announcement: null,
 });
 
 const EMPTY_DAMAGE: RuntimeBreadcrumbDamageSummary = Object.freeze({

@@ -91,6 +91,7 @@ function measureNode(vnode: VNode, maxW: number, maxH: number, axis: Axis): Layo
     case "text":
     case "button":
     case "input":
+    case "focusAnnouncer":
     case "slider":
     case "spacer":
     case "divider":
@@ -287,6 +288,7 @@ function layoutNode(
     case "text":
     case "button":
     case "input":
+    case "focusAnnouncer":
     case "slider":
     case "spacer":
     case "divider":

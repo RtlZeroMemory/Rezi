@@ -106,6 +106,7 @@ Modal and popup interfaces:
 | [Dropdown](dropdown.md) | Positioned dropdown menu | Yes | `beta` |
 | [Layer](layer.md) | Generic overlay layer | Yes | `beta` |
 | [Toast Container](toast.md) | Non-blocking notifications | No | `beta` |
+| [Focus Announcer](focus-announcer.md) | Live text summary of the current focused widget | No | `beta` |
 | [Focus Zone](focus-zone.md) | Focus group for Tab navigation | Yes | `beta` |
 | [Focus Trap](focus-trap.md) | Constrain focus to region | Yes | `beta` |
 
@@ -179,6 +180,9 @@ key?: string
 
 // Interactive widget ID (required for focusable widgets)
 id: string
+
+// Optional semantic label for accessibility/debug focus announcements
+accessibleLabel?: string
 
 // Visual styling
 style?: TextStyle

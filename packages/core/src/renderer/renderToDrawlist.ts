@@ -79,6 +79,7 @@ export function renderToDrawlist(params: RenderToDrawlistParams): void {
     params.logsConsoleRenderCacheById,
     params.diffRenderCacheById,
     params.codeEditorRenderCacheById,
+    params.focusAnnouncement,
     undefined,
     params.terminalProfile,
   );

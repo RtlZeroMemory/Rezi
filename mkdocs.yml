@@ -164,6 +164,7 @@ nav:
           - Dropdown: widgets/dropdown.md
           - Layer: widgets/layer.md
           - Toast: widgets/toast.md
+          - Focus Announcer: widgets/focus-announcer.md
           - Focus Zone: widgets/focus-zone.md
           - Focus Trap: widgets/focus-trap.md
       - Layout:

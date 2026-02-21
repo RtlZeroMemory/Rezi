@@ -96,6 +96,8 @@ export type RenderToDrawlistParams = Readonly<{
   diffViewerFocusedHunkById?: ReadonlyMap<string, number> | undefined;
   /** Optional DiffViewer expanded hunks (per viewer id). */
   diffViewerExpandedHunksById?: ReadonlyMap<string, ReadonlySet<number>> | undefined;
+  /** Optional focus announcement text for `ui.focusAnnouncer()`. */
+  focusAnnouncement?: string | null | undefined;
   /** Optional precomputed layout index (instanceId -> rect). */
   layoutIndex?: ReadonlyMap<InstanceId, Rect> | undefined;
   /** Optional precomputed id->rect index. */

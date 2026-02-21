@@ -195,6 +195,12 @@
       "example": "ui.slider({ id: 'vol', value: 42, onChange: setVol })"
     },
     {
+      "name": "focusAnnouncer",
+      "requiredProps": [],
+      "commonProps": ["emptyText", "style"],
+      "example": "ui.focusAnnouncer({ emptyText: 'No focus' })"
+    },
+    {
       "name": "focusZone",
       "requiredProps": ["id"],
       "commonProps": ["children"],

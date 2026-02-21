@@ -60,6 +60,9 @@ export function measureLeaf(
       const h = Math.min(maxH, 1);
       return ok({ w, h });
     }
+    case "focusAnnouncer": {
+      return ok({ w: maxW, h: Math.min(maxH, 1) });
+    }
     case "slider": {
       const propsRes = validateSliderProps(vnode.props);
       if (!propsRes.ok) return propsRes;
@@ -360,6 +363,7 @@ export function layoutLeafKind(
     case "text":
     case "button":
     case "input":
+    case "focusAnnouncer":
     case "spacer":
     case "divider":
     case "icon":
