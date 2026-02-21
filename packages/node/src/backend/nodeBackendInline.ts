@@ -85,6 +85,42 @@ type NativeDebugQueryResult = Readonly<{
   recordsDropped: number;
 }>;
 
+const DEFAULT_NATIVE_LIMITS: Readonly<Record<string, number>> = Object.freeze({
+  outMaxBytesPerFrame: 2 * 1024 * 1024,
+  dlMaxTotalBytes: 2 * 1024 * 1024,
+  dlMaxCmds: 100_000,
+  dlMaxStrings: 10_000,
+  dlMaxBlobs: 10_000,
+});
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+function mergeNativeLimits(
+  nativeConfig: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  const existingLimits = isPlainObject(nativeConfig.limits)
+    ? (nativeConfig.limits as Record<string, unknown>)
+    : null;
+  const limits: Record<string, unknown> = { ...(existingLimits ?? {}) };
+
+  const has = (camel: string): boolean => {
+    const snake = camel.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
+    return (
+      Object.prototype.hasOwnProperty.call(limits, camel) ||
+      Object.prototype.hasOwnProperty.call(limits, snake)
+    );
+  };
+
+  for (const [camel, value] of Object.entries(DEFAULT_NATIVE_LIMITS)) {
+    if (has(camel)) continue;
+    limits[camel] = value;
+  }
+
+  return Object.freeze({ ...nativeConfig, limits: Object.freeze(limits) });
+}
+
 type NativeApi = Readonly<{
   engineCreate: (config?: object | null) => number;
   engineDestroy: (engineId: number) => void;
@@ -332,8 +368,8 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
     typeof cfg.nativeConfig === "object" &&
     cfg.nativeConfig !== null &&
     !Array.isArray(cfg.nativeConfig)
-      ? (cfg.nativeConfig as Record<string, unknown>)
-      : Object.freeze({});
+      ? mergeNativeLimits(cfg.nativeConfig as Record<string, unknown>)
+      : mergeNativeLimits(Object.freeze({}));
   const nativeTargetFps = resolveTargetFps(fpsCap, nativeConfig);
 
   const initConfigBase = {
