@@ -25,6 +25,7 @@ ui.progress(0.3, { label: "Downloading:", width: 20 });
 | `label` | `string` | - | Optional label before the bar |
 | `style` | `TextStyle` | - | Style for the filled portion |
 | `trackStyle` | `TextStyle` | - | Style for the track/unfilled portion |
+| `dsTone` | `"default" \| "primary" \| "danger" \| "success" \| "warning"` | - | Design system tone for the filled portion |
 | `key` | `string` | - | Reconciliation key |
 
 ## Examples
@@ -53,6 +54,8 @@ ui.progress(0.42, {
 ## Notes
 
 - Prefer progress values derived from state, not timers inside `view`.
+- When the active theme provides semantic color tokens, progress bars use the progress recipe by default. Manual `style` / `trackStyle` overrides are merged on top of the recipe result (they do not disable recipes).
+- If the active theme does not provide semantic color tokens, progress bars fall back to non-recipe rendering.
 
 ## Related
 

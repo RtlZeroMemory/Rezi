@@ -3,166 +3,160 @@ import { describe, it } from "node:test";
 import { createTestRenderer } from "../../testing/renderer.js";
 import { coerceToLegacyTheme } from "../../theme/interop.js";
 import { darkTheme } from "../../theme/presets.js";
+import type { VNode } from "../../widgets/types.js";
 import { ui } from "../../widgets/ui.js";
 
 const theme = coerceToLegacyTheme(darkTheme);
-const viewport = { cols: 40, rows: 5 };
+const viewport = { cols: 40, rows: 6 };
 
-function renderButtonText(vnode: ReturnType<typeof ui.button>): string {
+function renderText(vnode: VNode): string {
   const renderer = createTestRenderer({ viewport, theme });
   return renderer.render(vnode).toText();
 }
 
 describe("design system rendering", () => {
-  it("renders DS button output differently from legacy button output", () => {
-    const dsText = renderButtonText(
-      ui.button({
-        id: "btn-ds",
-        label: "Compare",
-        dsVariant: "solid",
-        dsTone: "primary",
-        dsSize: "lg",
-      }),
-    );
-    const legacyText = renderButtonText(
-      ui.button({
-        id: "btn-legacy",
-        label: "Compare",
-        px: 0,
-      }),
-    );
-    assert.notEqual(dsText, legacyText);
-  });
-
-  it("renders a button with dsVariant=solid", () => {
-    const renderer = createTestRenderer({
-      viewport,
-      theme,
-    });
+  it("uses recipe styling for button even when a manual style override is provided", () => {
+    const renderer = createTestRenderer({ viewport, theme });
     const result = renderer.render(
       ui.button({
         id: "btn",
-        label: "Click Me",
-        dsVariant: "solid",
-        dsTone: "primary",
-        dsSize: "md",
+        label: "Save",
+        style: { fg: theme.colors.fg },
       }),
     );
-    const btn = result.findById("btn");
-    assert.ok(btn, "button should be found by id");
+    const node = result.findById("btn");
+    assert.ok(node, "button should render");
+    assert.ok(
+      result.ops.some(
+        (op) =>
+          op.kind === "fillRect" &&
+          op.x === node.rect.x &&
+          op.y === node.rect.y &&
+          op.w === node.rect.w &&
+          op.h === node.rect.h,
+      ),
+      "button should still fill recipe background",
+    );
+  });
+
+  it("does not truncate short button labels due to recipe padding", () => {
+    assert.ok(renderText(ui.button("b-ok", "OK")).includes("OK"));
+    assert.ok(renderText(ui.button("b-save", "Save")).includes("Save"));
+  });
+
+  it("honors `px` overrides when button recipe styling is active", () => {
+    const renderer = createTestRenderer({ viewport: { cols: 20, rows: 3 }, theme });
+    const result = renderer.render(
+      ui.column({ width: 20, gap: 0, items: "stretch" }, [
+        ui.button({ id: "b-recipe", label: "Save", dsVariant: "soft" }),
+        ui.button({ id: "b-recipe-px0", label: "Save", dsVariant: "soft", px: 0 }),
+      ]),
+    );
+    const [line1, line2] = result.toText().split("\n");
+    assert.match(line1 ?? "", /^ {2}Save/);
+    assert.match(line2 ?? "", /^Save/);
+  });
+
+  it("renders input with recipe border/background when stretched", () => {
+    const renderer = createTestRenderer({ viewport: { cols: 40, rows: 5 }, theme });
+    const result = renderer.render(
+      ui.row({ height: 3, items: "stretch" }, [ui.input("name", "", { placeholder: "Name" })]),
+    );
+    const input = result.findById("name");
+    assert.ok(input, "input should render");
     const text = result.toText();
-    // Label may be truncated depending on layout width, but should contain "Click"
-    assert.ok(text.includes("Click"), "button label should be visible (possibly truncated)");
+    assert.ok(text.includes("┌"), "input should render border");
   });
 
-  it("renders a button with dsVariant=outline", () => {
-    const renderer = createTestRenderer({
-      viewport,
-      theme,
-    });
+  it("uses recipe styling for input even when a manual style override is provided", () => {
+    const renderer = createTestRenderer({ viewport: { cols: 40, rows: 5 }, theme });
     const result = renderer.render(
-      ui.button({
-        id: "btn-outline",
-        label: "Outline",
-        dsVariant: "outline",
-        dsTone: "danger",
-      }),
+      ui.row({ height: 3, items: "stretch" }, [
+        ui.input({ id: "name", value: "", placeholder: "Name", style: { fg: theme.colors.fg } }),
+      ]),
     );
-    const btn = result.findById("btn-outline");
-    assert.ok(btn, "outline button should be found");
+    const input = result.findById("name");
+    assert.ok(input, "input should render");
+    assert.ok(result.toText().includes("┌"), "input should render border even with style override");
   });
 
-  it("renders a button with dsVariant=ghost", () => {
-    const renderer = createTestRenderer({
-      viewport,
-      theme,
-    });
+  it("does not overwrite borders when input height is too small for framed rendering", () => {
+    const renderer = createTestRenderer({ viewport: { cols: 40, rows: 4 }, theme });
     const result = renderer.render(
-      ui.button({
-        id: "btn-ghost",
-        label: "Ghost",
-        dsVariant: "ghost",
-      }),
+      ui.row({ height: 2, items: "stretch" }, [ui.input("i", "Hello")]),
     );
-    const btn = result.findById("btn-ghost");
-    assert.ok(btn, "ghost button should be found");
-  });
-
-  it("renders buttons without ds props using legacy path", () => {
-    const renderer = createTestRenderer({
-      viewport,
-      theme,
-    });
-    const result = renderer.render(
-      ui.button({
-        id: "btn-legacy",
-        label: "Legacy",
-        px: 2,
-      }),
-    );
-    const btn = result.findById("btn-legacy");
-    assert.ok(btn, "legacy button should be found");
     const text = result.toText();
-    assert.ok(text.includes("Legacy"), "legacy button label should be visible");
+    assert.ok(text.includes("Hello"), "input should render value text");
+    assert.ok(!text.includes("┌") && !text.includes("└"), "input should not draw a broken border");
   });
 
-  it("falls back to legacy rendering when dsVariant is invalid at runtime", () => {
-    const legacyText = renderButtonText(
-      ui.button({
-        id: "legacy-safe",
-        label: "Legacy",
-      }),
-    );
-
-    const invalidDsText = renderButtonText(
-      ui.button({
-        id: "invalid-ds",
-        label: "Legacy",
-        // Simulate JS/untyped input; renderer must guard and avoid crashing.
-        dsVariant: "not-a-variant" as unknown as "solid",
-      }),
-    );
-
-    assert.equal(invalidDsText, legacyText);
+  it("renders checkbox via recipe path", () => {
+    const renderer = createTestRenderer({ viewport, theme });
+    const result = renderer.render(ui.checkbox({ id: "cb", checked: true, label: "Option" }));
+    assert.ok(result.findById("cb"), "checkbox should render");
+    assert.ok(result.toText().includes("[x]"), "checkbox indicator should render");
   });
 
-  it("applies DS outline border styling when button is stretched to multiple rows", () => {
-    const renderer = createTestRenderer({
-      viewport: { cols: 40, rows: 6 },
-      theme,
-    });
+  it("renders select trigger with recipe padding and caret", () => {
+    const renderer = createTestRenderer({ viewport: { cols: 40, rows: 5 }, theme });
     const result = renderer.render(
-      ui.row({ height: 3, align: "stretch" }, [
-        ui.button({
-          id: "outline-stretch",
-          label: "Outline",
-          dsVariant: "outline",
-          dsTone: "primary",
+      ui.row({ height: 3, items: "stretch" }, [
+        ui.select({
+          id: "sel",
+          value: "a",
+          options: [{ value: "a", label: "Alpha" }],
         }),
       ]),
     );
+    assert.ok(result.findById("sel"), "select should render");
     const text = result.toText();
-    assert.ok(text.includes("┌"), "outline button should draw a top border");
-    assert.ok(text.includes("└"), "outline button should draw a bottom border");
+    assert.ok(text.includes("▼"), "select should render indicator");
+    assert.ok(text.includes("Alpha"), "select should render selected label");
   });
 
-  it("renders a column of DS buttons", () => {
-    const renderer = createTestRenderer({
-      viewport: { cols: 40, rows: 10 },
-      theme,
-    });
-    const result = renderer.render(
-      ui.column({ gap: 1 }, [
-        ui.button({ id: "solid", label: "Solid", dsVariant: "solid", dsTone: "primary" }),
-        ui.button({ id: "soft", label: "Soft", dsVariant: "soft", dsTone: "default" }),
-        ui.button({ id: "outline", label: "Outline", dsVariant: "outline", dsTone: "danger" }),
-        ui.button({ id: "ghost", label: "Ghost", dsVariant: "ghost" }),
-      ]),
-    );
+  it("renders progress using recipe path", () => {
+    const renderer = createTestRenderer({ viewport, theme });
+    const result = renderer.render(ui.progress(0.5, { dsTone: "warning", showPercent: true }));
+    assert.ok(result.toText().includes("50%"), "progress should render percent text");
+  });
 
-    assert.ok(result.findById("solid"));
-    assert.ok(result.findById("soft"));
-    assert.ok(result.findById("outline"));
-    assert.ok(result.findById("ghost"));
+  it("renders callout with recipe styling", () => {
+    const renderer = createTestRenderer({ viewport: { cols: 50, rows: 6 }, theme });
+    const result = renderer.render(
+      ui.callout("Message", { variant: "warning", title: "Heads up" }),
+    );
+    assert.ok(result.toText().includes("Heads up"));
+    assert.ok(result.toText().includes("Message"));
+  });
+
+  it("maps button intent primary to solid primary styling props", () => {
+    const vnode = ui.button({ id: "b", label: "Save", intent: "primary" });
+    if (vnode.kind !== "button") throw new Error("expected button vnode");
+    assert.equal(vnode.props.dsVariant, "solid");
+    assert.equal(vnode.props.dsTone, "primary");
+  });
+
+  it("maps button intent secondary to soft default styling props", () => {
+    const vnode = ui.button({ id: "b2", label: "Cancel", intent: "secondary" });
+    if (vnode.kind !== "button") throw new Error("expected button vnode");
+    assert.equal(vnode.props.dsVariant, "soft");
+    assert.equal(vnode.props.dsTone, "default");
+  });
+
+  it("applies box preset defaults", () => {
+    const vnode = ui.box({ preset: "card" }, [ui.text("content")]);
+    if (vnode.kind !== "box") throw new Error("expected box vnode");
+    assert.equal(vnode.props.border, "rounded");
+  });
+
+  it("keeps explicit dsVariant over intent mapping", () => {
+    const vnode = ui.button({
+      id: "b3",
+      label: "Custom",
+      intent: "primary",
+      dsVariant: "ghost",
+    });
+    if (vnode.kind !== "button") throw new Error("expected button vnode");
+    assert.equal(vnode.props.dsVariant, "ghost");
   });
 });

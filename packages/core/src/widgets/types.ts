@@ -129,6 +129,8 @@ export type BoxShadow =
       density?: "light" | "medium" | "dense";
     }>;
 
+export type BoxPreset = "card" | "surface" | "well" | "elevated";
+
 /** Props for box container. border defaults to "single". */
 export type BoxProps = Readonly<
   {
@@ -141,6 +143,8 @@ export type BoxProps = Readonly<
      * @deprecated Use `p`/`px`/`py`/`pt`/`pr`/`pb`/`pl` instead. Will be removed in v2.0.
      */
     pad?: SpacingValue;
+    /** Style preset. Applied before explicit border/style props. */
+    preset?: BoxPreset;
     /** Border style. */
     border?: "none" | "single" | "double" | "rounded" | "heavy" | "dashed" | "heavy-dashed";
     /**
@@ -328,6 +332,8 @@ export type ProgressProps = Readonly<{
   style?: TextStyle;
   /** Style for track/unfilled portion */
   trackStyle?: TextStyle;
+  /** Design system: color tone. */
+  dsTone?: WidgetTone;
 }>;
 
 /**
@@ -765,6 +771,8 @@ export type MiniChartProps = Readonly<{
   style?: TextStyle;
 }>;
 
+export type ButtonIntent = "primary" | "secondary" | "danger" | "success" | "warning" | "link";
+
 /** Props for button widget. id is required for focus/routing; label is display text. */
 export type ButtonProps = Readonly<{
   id: string;
@@ -775,7 +783,11 @@ export type ButtonProps = Readonly<{
   disabled?: boolean;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
-  /** Horizontal padding in cells (default: 1). */
+  /**
+   * Horizontal padding in cells.
+   * - Legacy/manual path default: 1
+   * - Recipe path: derived from `dsSize` unless overridden by `px`
+   */
   px?: number;
   /** Optional style applied to the button label (merged with focus/disabled state). */
   style?: TextStyle;
@@ -804,6 +816,8 @@ export type ButtonProps = Readonly<{
    * @default "md"
    */
   dsSize?: WidgetSize;
+  /** Shorthand for dsVariant + dsTone. Overridden by explicit dsVariant/dsTone. */
+  intent?: ButtonIntent;
 }>;
 
 /** Props for input widget. id is required; value is controlled by app state. */
@@ -1045,6 +1059,87 @@ export type DialogProps = Readonly<
   }
 >;
 
+export type AppShellSidebar = Readonly<{
+  content: VNode;
+  width?: number;
+}>;
+
+export type AppShellOptions = Readonly<{
+  id?: string;
+  key?: string;
+  /** Header content — typically title text, badges, action buttons */
+  header?: VNode | null;
+  /** Sidebar content — typically navigation */
+  sidebar?: AppShellSidebar | null;
+  /** Main body content */
+  body: VNode;
+  /** Footer/status bar content */
+  footer?: VNode | null;
+  /** Padding around the shell (default: 1) */
+  p?: SpacingValue;
+  /** Gap between sections (default: 1) */
+  gap?: number;
+}>;
+
+export type CardOptions = Readonly<{
+  id?: string;
+  key?: string;
+  title?: string;
+  subtitle?: string;
+  actions?: readonly VNode[];
+  border?: BoxProps["border"];
+  p?: SpacingValue;
+  gap?: number;
+  style?: TextStyle;
+}>;
+
+export type ToolbarOptions = Readonly<{
+  id?: string;
+  key?: string;
+  gap?: number;
+}>;
+
+export type StatusBarOptions = Readonly<{
+  id?: string;
+  key?: string;
+  left?: readonly VNode[];
+  right?: readonly VNode[];
+  style?: TextStyle;
+}>;
+
+export type HeaderOptions = Readonly<{
+  id?: string;
+  key?: string;
+  title: string;
+  subtitle?: string;
+  actions?: readonly VNode[];
+}>;
+
+export type SidebarItem = Readonly<{
+  id: string;
+  label: string;
+  icon?: string;
+}>;
+
+export type SidebarOptions = Readonly<{
+  id?: string;
+  key?: string;
+  items: readonly SidebarItem[];
+  selected?: string;
+  onSelect?: (id: string) => void;
+  width?: number;
+  title?: string;
+}>;
+
+export type MasterDetailOptions = Readonly<{
+  id?: string;
+  key?: string;
+  master: VNode;
+  detail: VNode;
+  masterWidth?: number;
+  gap?: number;
+}>;
+
 /** Dropdown menu item. */
 export type DropdownItem = Readonly<{
   id: string;
@@ -1251,6 +1346,8 @@ export type SelectProps = Readonly<{
   placeholder?: string;
   /** Optional focus appearance configuration. */
   focusConfig?: FocusConfig;
+  /** Design system: size preset. */
+  dsSize?: WidgetSize;
 }>;
 
 /** Props for slider widget. */

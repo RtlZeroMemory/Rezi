@@ -26,6 +26,12 @@ ui.checkbox({
 | `disabled` | `boolean` | `false` | Disable focus and interaction |
 | `key` | `string` | - | Reconciliation key |
 
+## Design System Styling
+
+Checkboxes are design-system styled by default when the active theme provides semantic color tokens. The indicator and label use the checkbox recipe for consistent checked/focus/disabled styling.
+
+If the active theme does not provide semantic color tokens, checkboxes fall back to non-recipe rendering.
+
 ## Behavior
 
 - Focusable when enabled.

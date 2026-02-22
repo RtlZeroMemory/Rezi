@@ -181,6 +181,70 @@ src/
 3. `useTransition()/useSpring()/useSequence()/useStagger()`, `useTable()`, `useModalStack()`, `useForm()` — for complex interaction patterns.
 4. `each()`, `show()`, `when()`, `maybe()`, `match()` — rendering control flow utilities.
 
+## TUI Aesthetics Protocol
+
+When building or modifying Rezi TUI applications, follow these visual design rules to ensure professional output.
+
+### Mandatory Structure
+1. Root view MUST use `ui.page()` or `ui.appShell()` — never a bare `ui.column()`.
+2. Root MUST have `p: 1` (minimum 1-cell padding from terminal edges).
+3. Content sections MUST be wrapped in `ui.panel("Title", [...])` for visual grouping.
+4. Button groups MUST use `ui.actions([...])` for right-aligned layout.
+5. Forms MUST use `ui.form([...])` with `ui.field()` wrappers.
+
+### Widget Styling Defaults
+When the active theme provides semantic color tokens, core interactive widgets use design system recipes by default:
+- **Buttons**: Auto-styled with `soft` variant. Use `intent: "primary"` for main CTA.
+- **Inputs**: Auto-styled with border + elevated background. No manual styling needed.
+- **Selects**: Auto-styled with border + background.
+- **Checkboxes**: Auto-styled with accent color when checked.
+- **Progress bars**: Auto-styled with theme accent color.
+- **Callouts**: Auto-styled with semantic border color based on variant.
+
+If the active theme does not provide semantic color tokens, these widgets fall back to non-recipe rendering.
+
+Notes:
+- A framed border for input/select requires at least 3 rows of height; at 1 row they still use recipe text/background styling but render without a box border.
+- For buttons, `px` overrides recipe padding when recipe styling is active; use `dsSize` for standard size presets.
+
+### Button Intent Shorthand
+Instead of `dsVariant` + `dsTone` + `dsSize`, use the `intent` prop:
+| Intent | Maps to | Use for |
+|--------|---------|---------|
+| `"primary"` | solid + primary | Main call-to-action (Save, Submit) |
+| `"secondary"` | soft + default | Secondary actions (Cancel, Back) |
+| `"danger"` | outline + danger | Destructive actions (Delete, Remove) |
+| `"success"` | soft + success | Positive confirmations |
+| `"warning"` | soft + warning | Caution actions |
+| `"link"` | ghost + default + sm | Minimal/link-style actions |
+
+### Spacing Scale
+| Value | Use for |
+|-------|---------|
+| `gap: 0` | Tightly coupled items only |
+| `gap: 1` | Related items (fields, buttons, list items) |
+| `gap: 2` | Distinct sections within a panel |
+| `p: 1` | Standard container/panel padding |
+| `p: 2` | Prominent/spacious panels |
+
+### Visual Hierarchy (text variants)
+- `variant: "heading"` — page/section titles (bold, primary)
+- `variant: "caption"` — labels, descriptions (dim, secondary)
+- `variant: "code"` — code/mono content
+- No variant — regular body text
+
+### Verification Checklist
+Before finalizing any TUI implementation, verify:
+- [ ] Root uses `ui.page()` or `ui.appShell()` with `p: 1`
+- [ ] All content sections use `ui.panel()` or `ui.card()`
+- [ ] Primary action button has `intent: "primary"`
+- [ ] Destructive buttons have `intent: "danger"`
+- [ ] Forms use `ui.field()` wrappers with labels
+- [ ] Button groups use `ui.actions()`
+- [ ] No hardcoded RGB colors (use theme/design system)
+- [ ] Consistent gap values (1 for items, 2 for sections)
+- [ ] Status/state shown with `ui.badge()` or `ui.status()`
+
 ## PR and Commit Protocol
 
 - Run full test suite before commits: `node scripts/run-tests.mjs`

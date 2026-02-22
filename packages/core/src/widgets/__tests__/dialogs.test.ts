@@ -53,7 +53,7 @@ describe("dialogs", () => {
       id: "x",
       title: "Title",
       message: ui.text("Body"),
-      actions: [{ label: "OK", onPress: () => {} }],
+      actions: [{ label: "OK", intent: "primary", onPress: () => {} }],
     });
 
     assert.equal(v.kind, "modal");
@@ -64,6 +64,12 @@ describe("dialogs", () => {
     )[0];
     assert.equal(action?.kind, "button");
     assert.equal(action?.props?.id, "x-action-0");
+    const actionProps = action?.props as
+      | { intent?: unknown; dsVariant?: unknown; dsTone?: unknown }
+      | undefined;
+    assert.equal(actionProps?.intent, "primary");
+    assert.equal(actionProps?.dsVariant, "solid");
+    assert.equal(actionProps?.dsTone, "primary");
   });
 
   test("ui.dialog does not map implicit close to last action", () => {

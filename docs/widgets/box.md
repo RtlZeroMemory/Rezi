@@ -20,6 +20,7 @@ ui.box({ title: "Settings", border: "rounded", p: 1 }, [
 | `key` | `string` | - | Reconciliation key |
 | `title` | `string` | - | Optional title rendered in the top border |
 | `titleAlign` | `"left" \| "center" \| "right"` | `"left"` | Title alignment |
+| `preset` | `"card" \| "surface" \| "well" \| "elevated"` | - | Style preset applied before explicit props (e.g. `card` → rounded + `p: 1`) |
 | `border` | `"none" \| "single" \| "double" \| "rounded" \| "heavy" \| "dashed" \| "heavy-dashed"` | `"single"` | Border style |
 | `shadow` | `boolean \| { offsetX?: number; offsetY?: number; density?: \"light\" \| \"medium\" \| \"dense\" }` | - | Shadow effect for depth |
 | `style` | `TextStyle` | - | Style applied to the box surface and inherited by children (bg fills the rect) |
@@ -34,6 +35,17 @@ ui.box({ title: "Settings", border: "rounded", p: 1 }, [
 | `aspectRatio` | `number` | - | Enforce width/height ratio |
 
 ## Examples
+
+### 0) Preset card (recommended)
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.box({ preset: "card" }, [
+  ui.text("Card title", { variant: "heading" }),
+  ui.text("Body text"),
+]);
+```
 
 ### 1) Card-like panel with background
 

@@ -28,14 +28,18 @@ ui.input({
 
 ## Design System Styling
 
-Inputs support design-system-based styling via `ds*` props.
+Inputs are design-system styled by default when the active theme provides semantic color tokens. The design system affects padding and focus appearance; inputs render with an elevated background and (when there's enough height) a border.
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `dsSize` | `"sm" \| "md" \| "lg"` | `"md"` | Size preset (controls padding and height) |
 | `placeholder` | `string` | - | Placeholder text shown when value is empty |
 
-When `dsSize` is present, the input uses the theme's recipe system for consistent sizing across all interactive widgets.
+Manual `style` overrides are merged on top of the recipe result (they do not disable recipes).
+
+If the active theme does not provide semantic color tokens, inputs fall back to non-recipe rendering.
+
+> Note: single-line inputs are typically 1 row tall. To render a framed input (top/bottom border + interior), give the input at least 3 rows of height (for example: `ui.row({ height: 3, items: "stretch" }, [ui.input(...)])`).
 
 ## Behavior
 

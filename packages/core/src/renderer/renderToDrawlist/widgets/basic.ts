@@ -18,7 +18,14 @@ import type { Theme } from "../../../theme/theme.js";
 import { resolveColor } from "../../../theme/theme.js";
 import type { ColorTokens } from "../../../theme/tokens.js";
 import type { WidgetSize, WidgetTone, WidgetVariant } from "../../../ui/designTokens.js";
-import { buttonRecipe, inputRecipe } from "../../../ui/recipes.js";
+import {
+  buttonRecipe,
+  calloutRecipe,
+  checkboxRecipe,
+  inputRecipe,
+  progressRecipe,
+  selectRecipe,
+} from "../../../ui/recipes.js";
 import { createCanvasDrawingSurface, resolveCanvasBlitter } from "../../../widgets/canvas.js";
 import {
   colorForHeatmapValue,
@@ -154,6 +161,19 @@ function readDsButtonSize(value: unknown): WidgetSize | undefined {
     return value;
   }
   return undefined;
+}
+
+function calloutVariantToTone(variant: unknown): WidgetTone | "info" {
+  switch (variant) {
+    case "success":
+      return "success";
+    case "warning":
+      return "warning";
+    case "error":
+      return "danger";
+    default:
+      return "info";
+  }
 }
 
 type ResolvedCursor = Readonly<{
@@ -1013,10 +1033,10 @@ export function renderBasicWidget(
       const effectiveFocused = focused && focusIndicatorEnabled(focusConfig);
 
       // Design system recipe path
-      const dsVariant = readDsButtonVariant(props.dsVariant);
-      const colorTokens = dsVariant !== undefined ? getColorTokens(theme) : null;
+      const colorTokens = getColorTokens(theme);
+      const dsVariant = readDsButtonVariant(props.dsVariant) ?? "soft";
 
-      if (colorTokens !== null && dsVariant !== undefined) {
+      if (colorTokens !== null) {
         // Use design system recipe
         const dsTone = readDsButtonTone(props.dsTone) ?? "default";
         const dsSize = readDsButtonSize(props.dsSize) ?? "md";
@@ -1038,7 +1058,20 @@ export function renderBasicWidget(
         const contentX = insetContent ? rect.x + 1 : rect.x;
         const contentW = insetContent ? Math.max(0, rect.w - 2) : rect.w;
         const contentY = insetContent ? rect.y + Math.floor((rect.h - 1) / 2) : rect.y;
-        const px = recipeResult.px;
+        const requestedPx =
+          typeof props.px === "number" && Number.isFinite(props.px) && props.px >= 0
+            ? Math.trunc(props.px)
+            : undefined;
+        const recipePx = requestedPx ?? recipeResult.px;
+        const labelW = measureTextCells(label);
+        const maxPxForAtLeastOneCell =
+          contentW <= 0 ? 0 : Math.max(0, Math.floor((contentW - 1) / 2));
+        let px = Math.min(recipePx, maxPxForAtLeastOneCell);
+        // If the label would fit without padding but is truncated by recipe padding, reduce px so it fits.
+        if (labelW > 0 && labelW <= contentW) {
+          const maxPxToFitFullLabel = Math.max(0, Math.floor((contentW - labelW) / 2));
+          px = Math.min(px, maxPxToFitFullLabel);
+        }
         const availableLabelW = Math.max(0, contentW - px * 2);
         const displayLabel =
           availableLabelW <= 0
@@ -1066,12 +1099,17 @@ export function renderBasicWidget(
           // Keep text cells on the same background as the filled button surface.
           // Without this, inherited parent bg would repaint label cells and leave
           // only side padding visibly filled.
-          const labelStyle = mergeTextStyle(
+          let labelStyle = mergeTextStyle(
             parentStyle,
             recipeResult.bg.bg
               ? { ...recipeResult.label, bg: recipeResult.bg.bg }
               : recipeResult.label,
           );
+          // Allow label overrides (merged on top of the recipe result).
+          const ownStyle = asTextStyle(props.style, theme);
+          if (ownStyle) labelStyle = mergeTextStyle(labelStyle, ownStyle);
+          const pressedStyle = asTextStyle(props.pressedStyle, theme);
+          if (pressedStyle && pressed) labelStyle = mergeTextStyle(labelStyle, pressedStyle);
           builder.drawText(contentX + px, contentY, displayLabel, labelStyle);
         }
       } else {
@@ -1116,6 +1154,7 @@ export function renderBasicWidget(
         multiline?: unknown;
         wordWrap?: unknown;
         focusConfig?: unknown;
+        dsSize?: unknown;
       };
       const focusConfig = readFocusConfig(props.focusConfig);
       const id = typeof props.id === "string" ? props.id : null;
@@ -1127,28 +1166,96 @@ export function renderBasicWidget(
       const focused = id !== null && focusState.focusedId === id;
       const focusVisible = focused && focusIndicatorEnabled(focusConfig);
       const showPlaceholder = value.length === 0 && placeholder.length > 0;
-      const ownStyle = asTextStyle(props.style, theme);
-      const baseInputStyle = mergeTextStyle(
-        mergeTextStyle(parentStyle, ownStyle),
-        getButtonLabelStyle({ focused: focusVisible, disabled }),
-      );
-      const style = focusVisible
-        ? resolveFocusedContentStyle(baseInputStyle, theme, focusConfig)
-        : baseInputStyle;
-      const placeholderStyle = mergeTextStyle(style, { fg: theme.colors.muted, dim: true });
+      const colorTokens = getColorTokens(theme);
+      const dsSize = readDsButtonSize(props.dsSize) ?? "md";
+      let textX = rect.x + 1;
+      let textY = rect.y;
+      let contentW = Math.max(1, rect.w - 2);
+      let contentH = Math.max(1, rect.h);
+      let style: ResolvedTextStyle;
+      let placeholderStyle: ResolvedTextStyle;
+
+      if (colorTokens !== null) {
+        const state = disabled
+          ? ("disabled" as const)
+          : focusVisible
+            ? ("focus" as const)
+            : ("default" as const);
+        const recipeResult = inputRecipe(colorTokens, { state, size: dsSize });
+        // Only draw a border when there's at least a 1x1 interior (avoid overwriting border with content).
+        const hasBorder = recipeResult.border !== "none" && rect.w >= 3 && rect.h >= 3;
+        const borderInset = hasBorder ? 1 : 0;
+        const innerW = Math.max(0, rect.w - borderInset * 2);
+        const maxPxForAtLeastOneCell = innerW <= 0 ? 0 : Math.max(0, Math.floor((innerW - 1) / 2));
+        let px = Math.min(recipeResult.px, maxPxForAtLeastOneCell);
+        // For single-line inputs, try to keep the full value/placeholder visible by reducing px when possible.
+        if (!multiline) {
+          const displayText = showPlaceholder ? placeholder : value;
+          const displayW = measureTextCells(displayText);
+          if (displayW > 0 && displayW <= innerW) {
+            const maxPxToFitFullText = Math.max(0, Math.floor((innerW - displayW) / 2));
+            px = Math.min(px, maxPxToFitFullText);
+          }
+        }
+        const startXInset = borderInset + px;
+        const endXInset = borderInset + px;
+
+        textX = rect.x + startXInset;
+        textY = rect.y + borderInset;
+        contentW = Math.max(0, rect.w - startXInset - endXInset);
+        contentH = Math.max(0, rect.h - borderInset * 2);
+
+        if (recipeResult.bg.bg) {
+          const bgStyle = mergeTextStyle(parentStyle, recipeResult.bg);
+          builder.fillRect(rect.x, rect.y, rect.w, rect.h, bgStyle);
+        }
+        if (hasBorder) {
+          let borderStyle = mergeTextStyle(parentStyle, recipeResult.borderStyle);
+          if (recipeResult.bg.bg) {
+            borderStyle = mergeTextStyle(borderStyle, { bg: recipeResult.bg.bg });
+          }
+          renderBoxBorder(builder, rect, recipeResult.border, undefined, "left", borderStyle);
+        }
+
+        const recipeTextStyle = recipeResult.bg.bg
+          ? { ...recipeResult.text, bg: recipeResult.bg.bg }
+          : recipeResult.text;
+        const recipePlaceholderStyle = recipeResult.bg.bg
+          ? { ...recipeResult.placeholder, bg: recipeResult.bg.bg, dim: true }
+          : { ...recipeResult.placeholder, dim: true };
+
+        const ownStyle = asTextStyle(props.style, theme);
+        const baseStyle = mergeTextStyle(parentStyle, recipeTextStyle);
+        const basePlaceholderStyle = mergeTextStyle(parentStyle, recipePlaceholderStyle);
+        style = ownStyle ? mergeTextStyle(baseStyle, ownStyle) : baseStyle;
+        placeholderStyle = ownStyle
+          ? mergeTextStyle(basePlaceholderStyle, ownStyle)
+          : basePlaceholderStyle;
+      } else {
+        const ownStyle = asTextStyle(props.style, theme);
+        const baseInputStyle = mergeTextStyle(
+          mergeTextStyle(parentStyle, ownStyle),
+          getButtonLabelStyle({ focused: focusVisible, disabled }),
+        );
+        style = focusVisible
+          ? resolveFocusedContentStyle(baseInputStyle, theme, focusConfig)
+          : baseInputStyle;
+        placeholderStyle = mergeTextStyle(style, { fg: theme.colors.muted, dim: true });
+      }
+
+      if (contentW <= 0 || contentH <= 0) break;
 
       if (multiline) {
-        const contentW = Math.max(1, rect.w - 2);
         const graphemeOffset = cursorInfo?.cursorByInstanceId.get(node.instanceId) ?? value.length;
         const wrapped = resolveMultilineCursorPosition(value, graphemeOffset, contentW, wordWrap);
-        const maxStartVisual = Math.max(0, wrapped.visualLines.length - rect.h);
+        const maxStartVisual = Math.max(0, wrapped.visualLines.length - contentH);
         const startVisual =
           focused && !disabled
-            ? Math.max(0, Math.min(maxStartVisual, wrapped.visualLine - rect.h + 1))
+            ? Math.max(0, Math.min(maxStartVisual, wrapped.visualLine - contentH + 1))
             : 0;
 
-        builder.pushClip(rect.x, rect.y, rect.w, rect.h);
-        for (let row = 0; row < rect.h; row++) {
+        builder.pushClip(textX, textY, contentW, contentH);
+        for (let row = 0; row < contentH; row++) {
           const rawLine = showPlaceholder
             ? row === 0
               ? placeholder
@@ -1156,22 +1263,17 @@ export function renderBasicWidget(
             : (wrapped.visualLines[startVisual + row] ?? "");
           const line = wordWrap ? rawLine : truncateToWidth(rawLine, contentW);
           if (line.length === 0) continue;
-          builder.drawText(
-            rect.x + 1,
-            rect.y + row,
-            line,
-            showPlaceholder ? placeholderStyle : style,
-          );
+          builder.drawText(textX, textY + row, line, showPlaceholder ? placeholderStyle : style);
         }
         builder.popClip();
 
-        if (focused && !disabled && cursorInfo && rect.w > 1) {
+        if (focused && !disabled && cursorInfo && contentW > 0) {
           const localY = wrapped.visualLine - startVisual;
-          if (localY >= 0 && localY < rect.h) {
-            const maxCursorX = Math.max(0, rect.w - 2);
+          if (localY >= 0 && localY < contentH) {
+            const maxCursorX = Math.max(0, contentW - 1);
             resolvedCursor = {
-              x: rect.x + 1 + clampInt(wrapped.visualX, 0, maxCursorX),
-              y: rect.y + localY,
+              x: textX + clampInt(wrapped.visualX, 0, maxCursorX),
+              y: textY + localY,
               shape: cursorInfo.shape,
               blink: cursorInfo.blink,
             };
@@ -1179,22 +1281,22 @@ export function renderBasicWidget(
         }
       } else {
         const text = showPlaceholder ? placeholder : value;
-        builder.pushClip(rect.x, rect.y, rect.w, rect.h);
-        builder.drawText(rect.x + 1, rect.y, text, showPlaceholder ? placeholderStyle : style);
+        builder.pushClip(textX, textY, contentW, contentH);
+        builder.drawText(textX, textY, text, showPlaceholder ? placeholderStyle : style);
         builder.popClip();
 
         // v2 cursor: resolve cursor position for focused enabled input
-        if (focused && !disabled && cursorInfo && rect.w > 1) {
+        if (focused && !disabled && cursorInfo && contentW > 0) {
           // Cursor offset is stored as grapheme index; convert to cell position
           const graphemeOffset = cursorInfo.cursorByInstanceId.get(node.instanceId);
           const cursorX =
             graphemeOffset !== undefined
               ? measureTextCells(value.slice(0, graphemeOffset))
               : measureTextCells(value);
-          const maxCursorX = Math.max(0, rect.w - 2);
+          const maxCursorX = Math.max(0, contentW - 1);
           resolvedCursor = {
-            x: rect.x + 1 + clampInt(cursorX, 0, maxCursorX),
-            y: rect.y,
+            x: textX + clampInt(cursorX, 0, maxCursorX),
+            y: textY,
             shape: cursorInfo.shape,
             blink: cursorInfo.blink,
           };
@@ -1359,6 +1461,7 @@ export function renderBasicWidget(
         placeholder?: unknown;
         disabled?: unknown;
         focusConfig?: unknown;
+        dsSize?: unknown;
       };
       const focusConfig = readFocusConfig(props.focusConfig);
       const id = typeof props.id === "string" ? props.id : null;
@@ -1380,19 +1483,91 @@ export function renderBasicWidget(
       }
       if (label.length === 0) label = placeholder;
 
-      const focusStyle = focusVisible ? { underline: true, bold: true } : undefined;
-      const baseStyle = mergeTextStyle(
-        parentStyle,
-        disabled ? { fg: theme.colors.muted, ...focusStyle } : focusStyle,
-      );
-      const style = focusVisible
-        ? resolveFocusedContentStyle(baseStyle, theme, focusConfig)
-        : baseStyle;
+      const colorTokens = getColorTokens(theme);
+      const dsSize = readDsButtonSize(props.dsSize) ?? "md";
+      if (colorTokens !== null) {
+        const state = disabled
+          ? ("disabled" as const)
+          : focusVisible
+            ? ("focus" as const)
+            : ("default" as const);
+        const recipeResult = selectRecipe(colorTokens, { state, size: dsSize });
+        const hasBorder = recipeResult.border !== "none" && rect.w >= 3 && rect.h >= 3;
+        const borderInset = hasBorder ? 1 : 0;
+        const innerW = Math.max(0, rect.w - borderInset * 2);
+        const innerH = Math.max(0, rect.h - borderInset * 2);
+        const indicator = "▼";
+        const indicatorWidth = measureTextCells(indicator);
+        // Ensure at least the indicator fits; reduce px when possible to fit full label.
+        const minContentW = Math.max(0, indicatorWidth);
+        const maxPxForMinContent =
+          innerW <= minContentW ? 0 : Math.max(0, Math.floor((innerW - minContentW) / 2));
+        let px = Math.min(recipeResult.px, maxPxForMinContent);
+        const labelW = measureTextCells(label);
+        const requiredWToFitLabel = labelW + indicatorWidth + (labelW > 0 ? 1 : 0);
+        if (labelW > 0 && requiredWToFitLabel <= innerW) {
+          const maxPxToFitFullLabel = Math.max(0, Math.floor((innerW - requiredWToFitLabel) / 2));
+          px = Math.min(px, maxPxToFitFullLabel);
+        }
 
-      builder.pushClip(rect.x, rect.y, rect.w, rect.h);
-      const text = ` ${label} ▼`;
-      builder.drawText(rect.x, rect.y, text, style);
-      builder.popClip();
+        const contentX = rect.x + borderInset + px;
+        const contentW = Math.max(0, innerW - px * 2);
+        const contentY =
+          rect.y + borderInset + Math.max(0, Math.floor((Math.max(1, innerH) - 1) / 2));
+
+        if (recipeResult.triggerBg.bg) {
+          const bgStyle = mergeTextStyle(parentStyle, recipeResult.triggerBg);
+          builder.fillRect(rect.x, rect.y, rect.w, rect.h, bgStyle);
+        }
+        if (hasBorder) {
+          let borderStyle = mergeTextStyle(parentStyle, recipeResult.borderStyle);
+          if (recipeResult.triggerBg.bg) {
+            borderStyle = mergeTextStyle(borderStyle, { bg: recipeResult.triggerBg.bg });
+          }
+          renderBoxBorder(builder, rect, recipeResult.border, undefined, "left", borderStyle);
+        }
+
+        const triggerStyle = mergeTextStyle(
+          parentStyle,
+          recipeResult.triggerBg.bg
+            ? { ...recipeResult.trigger, bg: recipeResult.triggerBg.bg }
+            : recipeResult.trigger,
+        );
+        const availableLabelW =
+          contentW <= 0
+            ? 0
+            : Math.max(0, contentW - indicatorWidth - (contentW > indicatorWidth ? 1 : 0));
+        const displayLabel =
+          availableLabelW <= 0
+            ? ""
+            : measureTextCells(label) > availableLabelW
+              ? truncateWithEllipsis(label, availableLabelW)
+              : label;
+        const text =
+          displayLabel.length > 0
+            ? `${displayLabel}${availableLabelW > 0 ? " " : ""}${indicator}`
+            : indicator;
+
+        if (innerW > 0 && innerH > 0) {
+          builder.pushClip(rect.x + borderInset, rect.y + borderInset, innerW, innerH);
+          builder.drawText(contentX, contentY, text, triggerStyle);
+          builder.popClip();
+        }
+      } else {
+        const focusStyle = focusVisible ? { underline: true, bold: true } : undefined;
+        const baseStyle = mergeTextStyle(
+          parentStyle,
+          disabled ? { fg: theme.colors.muted, ...focusStyle } : focusStyle,
+        );
+        const style = focusVisible
+          ? resolveFocusedContentStyle(baseStyle, theme, focusConfig)
+          : baseStyle;
+
+        builder.pushClip(rect.x, rect.y, rect.w, rect.h);
+        const text = ` ${label} ▼`;
+        builder.drawText(rect.x, rect.y, text, style);
+        builder.popClip();
+      }
       break;
     }
     case "checkbox": {
@@ -1408,15 +1583,31 @@ export function renderBasicWidget(
       const disabled = props.disabled === true;
       const checked = props.checked === true;
       const label = typeof props.label === "string" ? props.label : "";
-      const box = checked ? "[x]" : "[ ]";
-      const text = label.length > 0 ? `${box} ${label}` : box;
-      const focusStyle = focused ? { underline: true, bold: true } : undefined;
-      const style = mergeTextStyle(
-        parentStyle,
-        disabled ? { fg: theme.colors.muted, ...focusStyle } : focusStyle,
-      );
+      const indicator = checked ? "[x]" : "[ ]";
+      const colorTokens = getColorTokens(theme);
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
-      builder.drawText(rect.x, rect.y, text, style);
+      if (colorTokens !== null) {
+        const state = disabled
+          ? ("disabled" as const)
+          : focused
+            ? ("focus" as const)
+            : ("default" as const);
+        const recipeResult = checkboxRecipe(colorTokens, { state, checked });
+        const indicatorStyle = mergeTextStyle(parentStyle, recipeResult.indicator);
+        const labelStyle = mergeTextStyle(parentStyle, recipeResult.label);
+        builder.drawText(rect.x, rect.y, indicator, indicatorStyle);
+        if (label.length > 0) {
+          builder.drawText(rect.x + measureTextCells(indicator) + 1, rect.y, label, labelStyle);
+        }
+      } else {
+        const text = label.length > 0 ? `${indicator} ${label}` : indicator;
+        const focusStyle = focused ? { underline: true, bold: true } : undefined;
+        const style = mergeTextStyle(
+          parentStyle,
+          disabled ? { fg: theme.colors.muted, ...focusStyle } : focusStyle,
+        );
+        builder.drawText(rect.x, rect.y, text, style);
+      }
       builder.popClip();
       break;
     }
@@ -1704,13 +1895,13 @@ export function renderBasicWidget(
         label?: unknown;
         style?: unknown;
         trackStyle?: unknown;
+        dsTone?: unknown;
       };
       const value = clamp01(readNumber(props.value) ?? 0);
       const label = readString(props.label) ?? "";
       const showPercent = props.showPercent === true;
       const ownStyle = asTextStyle(props.style, theme);
-      const style = mergeTextStyle(parentStyle, ownStyle);
-      maybeFillOwnBackground(builder, rect, ownStyle, style);
+      const style = parentStyle;
 
       const variant =
         props.variant === "blocks" ? "blocks" : props.variant === "minimal" ? "minimal" : "bar";
@@ -1723,11 +1914,24 @@ export function renderBasicWidget(
 
       const fillGlyph = variant === "minimal" ? "━" : variant === "blocks" ? "▓" : "█";
       const emptyGlyph = variant === "minimal" ? "╌" : "░";
-      const fillStyle = mergeTextStyle(style, { fg: theme.colors.primary, bold: true });
-      const trackStyle = mergeTextStyle(
-        mergeTextStyle(style, { fg: theme.colors.muted }),
-        asTextStyle(props.trackStyle, theme),
-      );
+      const colorTokens = getColorTokens(theme);
+      const dsTone = readDsButtonTone(props.dsTone);
+      const recipeResult =
+        colorTokens !== null
+          ? progressRecipe(colorTokens, dsTone === undefined ? {} : { tone: dsTone })
+          : null;
+      const ownTrackStyle = asTextStyle(props.trackStyle, theme);
+
+      const fillStyle =
+        recipeResult !== null
+          ? mergeTextStyle(mergeTextStyle(parentStyle, recipeResult.filled), ownStyle)
+          : mergeTextStyle(style, { fg: theme.colors.primary, bold: true });
+
+      let trackStyle =
+        recipeResult !== null
+          ? mergeTextStyle(parentStyle, recipeResult.track)
+          : mergeTextStyle(style, { fg: theme.colors.muted });
+      if (ownTrackStyle) trackStyle = mergeTextStyle(trackStyle, ownTrackStyle);
       const segments: StyledSegment[] = [];
       if (labelText.length > 0) segments.push({ text: labelText, style });
 
@@ -1940,9 +2144,29 @@ export function renderBasicWidget(
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
 
-      const accentColor = calloutVariantToColor(theme, variant);
-      const borderStyle = mergeTextStyle(style, { fg: theme.colors.border });
+      const colorTokens = getColorTokens(theme);
+      const recipeResult =
+        colorTokens !== null
+          ? calloutRecipe(colorTokens, { tone: calloutVariantToTone(variant) })
+          : null;
+
+      const baseBorderStyle =
+        recipeResult !== null
+          ? mergeTextStyle(parentStyle, recipeResult.borderStyle)
+          : mergeTextStyle(style, { fg: theme.colors.border });
+      const borderBaseWithOverrides = ownStyle
+        ? mergeTextStyle(baseBorderStyle, ownStyle)
+        : baseBorderStyle;
+      if (recipeResult?.bg.bg) {
+        const bgBase = mergeTextStyle(parentStyle, recipeResult.bg);
+        const bgStyle = ownStyle ? mergeTextStyle(bgBase, ownStyle) : bgBase;
+        builder.fillRect(rect.x, rect.y, rect.w, rect.h, bgStyle);
+      }
       if (rect.w >= 2 && rect.h >= 2) {
+        const borderStyle =
+          recipeResult?.bg.bg !== undefined
+            ? mergeTextStyle(borderBaseWithOverrides, { bg: recipeResult.bg.bg })
+            : borderBaseWithOverrides;
         renderBoxBorder(builder, rect, "single", undefined, "left", borderStyle);
       }
 
@@ -1953,8 +2177,27 @@ export function renderBasicWidget(
       const innerH = Math.max(0, rect.h - inset * 2);
       if (innerW <= 0 || innerH <= 0) break;
 
-      const accentStyle = mergeTextStyle(style, { fg: accentColor, bold: true });
-      const titleStyle = mergeTextStyle(style, { fg: accentColor, bold: true });
+      const accentBaseStyle =
+        recipeResult !== null
+          ? mergeTextStyle(
+              parentStyle,
+              recipeResult.bg.bg
+                ? { ...recipeResult.borderStyle, bg: recipeResult.bg.bg, bold: true }
+                : { ...recipeResult.borderStyle, bold: true },
+            )
+          : mergeTextStyle(style, { fg: calloutVariantToColor(theme, variant), bold: true });
+      const accentStyle = ownStyle ? mergeTextStyle(accentBaseStyle, ownStyle) : accentBaseStyle;
+      const titleStyle = accentStyle;
+      const textBaseStyle =
+        recipeResult !== null
+          ? mergeTextStyle(
+              parentStyle,
+              recipeResult.bg.bg
+                ? { ...recipeResult.text, bg: recipeResult.bg.bg }
+                : recipeResult.text,
+            )
+          : style;
+      const textStyle = ownStyle ? mergeTextStyle(textBaseStyle, ownStyle) : textBaseStyle;
       const iconOverride = readString(props.icon);
       const iconGlyph =
         iconOverride && iconOverride.length > 0
@@ -1985,7 +2228,7 @@ export function renderBasicWidget(
           for (let i = 0; i < lines.length; i++) {
             if (y >= innerY + innerH) break;
             const line = i === 0 ? `${firstLinePrefix}${lines[i] ?? ""}` : (lines[i] ?? "");
-            builder.drawText(contentX, y, truncateToWidth(line, contentW), style);
+            builder.drawText(contentX, y, truncateToWidth(line, contentW), textStyle);
             y += 1;
           }
         }
