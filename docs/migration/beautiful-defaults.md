@@ -45,7 +45,7 @@ New layout helpers reduce boilerplate:
 - `ui.appShell`, `ui.sidebar`, `ui.masterDetail`
 - `ui.card`, `ui.toolbar`
 
-## Manual overrides (no legacy mode)
+## Manual overrides
 
 Manual styling props do **not** disable recipes.
 

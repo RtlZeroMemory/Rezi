@@ -210,17 +210,17 @@ events.pressKey("Enter").type("hello@example.com").click(10, 5).resize(120, 40);
 ### Debug System
 
 Performance instrumentation and frame inspection. For standard app entrypoints,
-prefer `createNodeApp()`. `createNodeBackend()` is used here only for advanced
-debug-controller wiring.
+prefer `createNodeApp()`. `createNodeApp(...)` exposes the underlying backend
+via `app.backend` when you need debug/perf instrumentation.
 
 ```typescript
 import { createDebugController, categoriesToMask } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { createNodeApp } from "@rezi-ui/node";
 
-const backend = createNodeBackend();
+const app = createNodeApp({ initialState: {} });
 const debug = createDebugController({
-  backend: backend.debug,
-  terminalCapsProvider: () => backend.getCaps(),
+  backend: app.backend.debug,
+  terminalCapsProvider: () => app.backend.getCaps(),
   maxFrames: 1000,
 });
 await debug.enable({

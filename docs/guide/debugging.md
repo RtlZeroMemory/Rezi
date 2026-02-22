@@ -5,17 +5,17 @@ Rezi includes a debug trace system for diagnosing rendering, events, and perform
 ## Debug Controller
 
 Create a debug controller to capture and analyze runtime behavior. For regular
-apps, prefer `createNodeApp()`. `createNodeBackend()` is used here only to
-access the backend debug interface.
+apps, prefer `createNodeApp()`. `createNodeApp(...)` exposes the backend via
+`app.backend` when you need direct debug/perf access.
 
 ```typescript
 import { createDebugController, categoriesToMask, perfPhaseFromNum } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { createNodeApp } from "@rezi-ui/node";
 
-const backend = createNodeBackend();
+const app = createNodeApp({ initialState: {} });
 const debug = createDebugController({
-  backend: backend.debug,
-  terminalCapsProvider: () => backend.getCaps(),
+  backend: app.backend.debug,
+  terminalCapsProvider: () => app.backend.getCaps(),
   maxFrames: 1000,
 });
 
@@ -93,12 +93,12 @@ The API never writes to disk; it returns either a JSON object or UTF-8 bytes.
 
 ```typescript
 import { createDebugController } from "@rezi-ui/core/debug";
-import { createNodeBackend } from "@rezi-ui/node";
+import { createNodeApp } from "@rezi-ui/node";
 
-const backend = createNodeBackend();
+const app = createNodeApp({ initialState: {} });
 const debug = createDebugController({
-  backend: backend.debug,
-  terminalCapsProvider: () => backend.getCaps(),
+  backend: app.backend.debug,
+  terminalCapsProvider: () => app.backend.getCaps(),
 });
 
 await debug.enable({

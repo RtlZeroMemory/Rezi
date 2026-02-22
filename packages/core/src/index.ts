@@ -483,7 +483,7 @@ export type {
 // =============================================================================
 
 export {
-  // Legacy theme system
+  // Runtime theme (resolved theme shape)
   createTheme,
   defaultTheme,
   resolveColor,
@@ -533,7 +533,7 @@ export {
   contrastRatio,
 } from "./theme/index.js";
 
-// Theme interop (ThemeDefinition <-> legacy Theme conversion)
+// Theme interop (ThemeDefinition <-> runtime Theme conversion)
 export {
   coerceToLegacyTheme,
   mergeThemeOverride,
@@ -1387,10 +1387,11 @@ export {
  *
  * @example
  * ```ts
- * const app = createApp({
- *   backend: createNodeBackend(),
- *   initialState: { count: 0 },
- * });
+ * // For Node/Bun apps, prefer createNodeApp() from @rezi-ui/node:
+ * // const app = createNodeApp({ initialState: { count: 0 } });
+ *
+ * // For custom runtimes/backends, compose manually:
+ * const app = createApp({ backend, initialState: { count: 0 } });
  *
  * app.view((state) =>
  *   ui.column({ p: 1 }, [
@@ -1399,7 +1400,7 @@ export {
  *   ])
  * );
  *
- * await app.start();
+ * await app.run();
  * ```
  */
 export { createApp } from "./app/createApp.js";

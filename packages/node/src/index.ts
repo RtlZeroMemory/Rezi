@@ -72,6 +72,8 @@ export type CreateNodeAppOptions<S> = Readonly<{
 
 export type NodeApp<S> = App<S> &
   Readonly<{
+    /** Node/Bun runtime backend instance. */
+    backend: NodeBackend;
     /** True when NO_COLOR is present in the process environment. */
     isNoColor: boolean;
     /**
@@ -257,6 +259,13 @@ export function createNodeApp<S>(opts: CreateNodeAppOptions<S>): NodeApp<S> {
     writable: false,
   });
 
+  Object.defineProperty(app, "backend", {
+    value: backend,
+    enumerable: true,
+    configurable: false,
+    writable: false,
+  });
+
   return Object.defineProperty(app, "isNoColor", {
     value: isNoColor,
     enumerable: true,
@@ -266,8 +275,10 @@ export function createNodeApp<S>(opts: CreateNodeAppOptions<S>): NodeApp<S> {
 }
 
 /**
- * @deprecated Prefer createNodeApp() for normal Node/Bun apps.
- * createNodeBackend() remains available for advanced runtime composition.
+ * Low-level Node/Bun backend constructor.
+ *
+ * Prefer `createNodeApp()` for standard app construction so core/backend config
+ * stays aligned automatically.
  */
 export function createNodeBackend(config: NodeBackendConfig = {}): NodeBackend {
   return createNodeBackendInternal({ config });

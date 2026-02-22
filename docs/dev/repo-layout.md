@@ -67,8 +67,8 @@ Key subdirectories:
 
 ### node -- `@rezi-ui/node`
 
-The Node.js / Bun backend. Provides `createNodeBackend()` and the convenience
-`createNodeApp()` wrapper. Manages terminal raw mode, alternate screen, signal
+The Node.js / Bun backend. Provides `createNodeApp()` for typical apps and
+`createNodeBackend()` as a low-level building block. Manages terminal raw mode, alternate screen, signal
 handling, and the poll/submit loop against the native addon.
 
 ### native -- `@rezi-ui/native`

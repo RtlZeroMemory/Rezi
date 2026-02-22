@@ -23,8 +23,8 @@ For development-time hot swapping, pass `hotReload` to `createNodeApp(...)`:
 
 `app.hotReload` exposes the controller for optional manual `reloadNow()` calls.
 
-Legacy `createNodeBackend() + createApp()` wiring is deprecated for standard
-app construction.
+`createNodeBackend()` is available when you need direct access to a backend
+instance (benchmarks/custom runners). Most apps should use `createNodeApp()`.
 
 Install:
 

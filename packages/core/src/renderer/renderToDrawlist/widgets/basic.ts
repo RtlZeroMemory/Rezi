@@ -67,8 +67,8 @@ import {
 } from "./focusConfig.js";
 
 /**
- * Extract ColorTokens from a legacy Theme for design system recipe use.
- * The legacy Theme stores semantic token paths as flat keys (e.g. "bg.base").
+ * Extract ColorTokens from the runtime Theme for design system recipe use.
+ * The runtime Theme stores semantic token paths as flat keys (e.g. "bg.base").
  * This reconstructs the structured ColorTokens shape.
  */
 function extractColorTokens(theme: Theme): ColorTokens | null {

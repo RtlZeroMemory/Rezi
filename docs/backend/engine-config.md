@@ -101,16 +101,18 @@ widgets.
 
 Both the app config and the backend must agree on this setting. If you set
 `useV2Cursor: true` in the app config, the backend must also be created with
-`useDrawlistV2: true`, or the runtime will throw a validation error.
+drawlist v2+ support, or the runtime will throw a validation error.
+
+The default Node/Bun backend supports cursor v2 (drawlist v5 by default). You
+only need to change backend configuration if you intentionally force an older
+drawlist version.
 
 ```typescript
-import { createNodeApp, createNodeBackend } from "@rezi-ui/node";
+import { createNodeApp } from "@rezi-ui/node";
 
 const app = createNodeApp({
   initialState: {},
   config: { useV2Cursor: true },
-  // The backend must also opt in:
-  // createNodeBackend({ useDrawlistV2: true })
 });
 ```
 

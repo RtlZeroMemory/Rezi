@@ -182,15 +182,12 @@ ui.virtualList({
 
 Enable the debug controller:
 
-For normal apps, use `createNodeApp()`. `createNodeBackend()` is used here only
-for advanced debug-controller wiring.
-
 ```typescript
 import { createDebugController, categoriesToMask } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { createNodeApp } from "@rezi-ui/node";
 
-const backend = createNodeBackend();
-const debug = createDebugController({ backend: backend.debug });
+const app = createNodeApp({ initialState: {} });
+const debug = createDebugController({ backend: app.backend.debug });
 await debug.enable({
   minSeverity: "info",
   categoryMask: categoriesToMask(["frame", "error"]),

@@ -1,12 +1,9 @@
-import { createApp, ui } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { ui } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
 type State = { count: number };
 
-const app = createApp<State>({
-  backend: createNodeBackend(),
-  initialState: { count: 0 },
-});
+const app = createNodeApp<State>({ initialState: { count: 0 } });
 
 app.view((state) =>
   ui.page({
@@ -37,4 +34,4 @@ app.view((state) =>
   }),
 );
 
-await app.start();
+await app.run();

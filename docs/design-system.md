@@ -47,7 +47,7 @@ When the active theme provides semantic color tokens (see [Color Semantic Slots]
 - `ui.progress(...)`
 - `ui.callout(...)`
 
-### Manual overrides (no legacy mode)
+### Manual overrides
 
 Manual styling props do **not** disable recipe styling.
 
@@ -476,7 +476,7 @@ All themes define the complete `ColorTokens` set and work at every capability ti
 | `packages/core/src/theme/tokens.ts` | Token type definitions + helpers |
 | `packages/core/src/theme/presets.ts` | 6 built-in theme definitions |
 | `packages/core/src/theme/resolve.ts` | Token path → RGB resolution |
-| `packages/core/src/theme/interop.ts` | ThemeDefinition ↔ legacy Theme conversion |
+| `packages/core/src/theme/interop.ts` | ThemeDefinition ↔ runtime Theme conversion |
 | `packages/core/src/ui/designTokens.ts` | Extended design tokens (typography, elevation) |
 | `packages/core/src/ui/capabilities.ts` | Tier A/B/C detection and adaptation |
 | `packages/core/src/ui/recipes.ts` | Style recipes for all widget families |

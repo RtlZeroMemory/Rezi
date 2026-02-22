@@ -3,7 +3,6 @@ import { devNull, tmpdir } from "node:os";
 import * as path from "node:path";
 import type { BadgeVariant, RichTextSpan, TextStyle, ThemeDefinition, VNode } from "@rezi-ui/core";
 import {
-  createApp,
   darkTheme,
   dimmedTheme,
   draculaTheme,
@@ -13,7 +12,7 @@ import {
   rgb,
   ui,
 } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { type NodeBackend, createNodeApp } from "@rezi-ui/node";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -693,7 +692,7 @@ let _lastViewMs = 0;
 
 let _backendPerfInFlight = false;
 let _lastBackendPerfSampleMs = 0;
-let _backend: ReturnType<typeof createNodeBackend> | null = null;
+let _backend: NodeBackend | null = null;
 
 let _memoryBallast: Buffer[] = [];
 let _memoryBallastBytes = 0;
@@ -976,16 +975,10 @@ function simulateTick(state: State, nowMs: number): State {
 // ---------------------------------------------------------------------------
 
 const initialNowMs = Date.now();
-const backend = createNodeBackend({
-  fpsCap: UI_FPS_CAP,
-  executionMode: "worker",
-});
-_backend = backend;
-
-const app = createApp<State>({
-  backend,
+const app = createNodeApp<State>({
   config: {
     fpsCap: UI_FPS_CAP,
+    executionMode: "worker",
     internal_onRender: (metrics) => {
       _lastRenderMs = round2(metrics.renderTime);
     },
@@ -1036,6 +1029,8 @@ const app = createApp<State>({
     renderTimeHistory: repeatSeries(0),
   },
 });
+
+_backend = app.backend;
 
 // ---------------------------------------------------------------------------
 // Actions

@@ -171,7 +171,7 @@ src/
 2. Create reducer in `helpers/state.ts`.
 3. Create pure screen functions in `screens/` (each returns a `VNode`).
 4. Wire keybindings via `app.keys()` in `main.ts`.
-5. Use `createNodeBackend({ fpsCap: 30 })` for production apps.
+5. Use `createNodeApp({ config: { fpsCap: 30 } })` for production apps.
 6. For animated screens, prefer declarative hooks (`useTransition`, `useSpring`, `useSequence`, `useStagger`) and `ui.box` transition props over ad-hoc timers in view code.
 
 **Widget usage hierarchy (prefer higher):**
