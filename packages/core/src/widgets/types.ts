@@ -1793,6 +1793,10 @@ export type CodeEditorProps = Readonly<{
   onRedo?: () => void;
   /** Optional focus appearance configuration. */
   focusConfig?: FocusConfig;
+  /** Scrollbar glyph variant (default: "minimal"). */
+  scrollbarVariant?: "minimal" | "classic" | "modern" | "dots" | "thin";
+  /** Optional style override for rendered scrollbar. */
+  scrollbarStyle?: TextStyle;
 }>;
 
 /* ---------- DiffViewer Widget ---------- */
@@ -1880,6 +1884,10 @@ export type DiffViewerProps = Readonly<{
   onRevertHunk?: (hunkIndex: number) => void;
   /** Optional focus appearance configuration. */
   focusConfig?: FocusConfig;
+  /** Scrollbar glyph variant (default: "minimal"). */
+  scrollbarVariant?: "minimal" | "classic" | "modern" | "dots" | "thin";
+  /** Optional style override for rendered scrollbar. */
+  scrollbarStyle?: TextStyle;
 }>;
 
 /* ---------- ToolApprovalDialog Widget ---------- */
@@ -2013,6 +2021,10 @@ export type LogsConsoleProps = Readonly<{
   onClear?: () => void;
   /** Optional focus appearance configuration. */
   focusConfig?: FocusConfig;
+  /** Scrollbar glyph variant (default: "minimal"). */
+  scrollbarVariant?: "minimal" | "classic" | "modern" | "dots" | "thin";
+  /** Optional style override for rendered scrollbar. */
+  scrollbarStyle?: TextStyle;
 }>;
 
 /* ---------- Toast/Notifications Widget ---------- */

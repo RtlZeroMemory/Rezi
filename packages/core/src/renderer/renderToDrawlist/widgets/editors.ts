@@ -18,6 +18,7 @@ import type {
   DiffViewerProps,
   LogsConsoleProps,
 } from "../../../widgets/types.js";
+import { SCROLLBAR_CONFIGS, renderVerticalScrollbar } from "../../scrollbar.js";
 import { asTextStyle } from "../../styles.js";
 import { renderBoxBorder } from "../boxBorder.js";
 import { isVisibleRect } from "../indices.js";
@@ -345,6 +346,27 @@ export function renderEditorWidget(
           builder.popClip();
         }
       }
+
+      // Vertical scrollbar
+      if (rect.h > 0 && lines.length > rect.h) {
+        const scrollbarVariant = props.scrollbarVariant ?? "minimal";
+        const scrollbarOwnStyle = asTextStyle(props.scrollbarStyle, theme);
+        const scrollbarBaseStyle = mergeTextStyle(parentStyle, { fg: theme.colors.border });
+        const scrollbarStyle = scrollbarOwnStyle
+          ? mergeTextStyle(scrollbarBaseStyle, scrollbarOwnStyle)
+          : scrollbarBaseStyle;
+        const maxScrollTop = Math.max(0, lines.length - rect.h);
+        const position = maxScrollTop > 0 ? scrollTop / maxScrollTop : 0;
+        const viewportRatio = lines.length > 0 ? Math.min(1, rect.h / lines.length) : 1;
+        const variantConfig = SCROLLBAR_CONFIGS[scrollbarVariant];
+        const glyphs = renderVerticalScrollbar(rect.h, { position, viewportRatio }, variantConfig);
+        const scrollbarX = rect.x + rect.w - 1;
+        for (let dy = 0; dy < glyphs.length; dy++) {
+          const glyph = glyphs[dy];
+          if (!glyph) continue;
+          builder.drawText(scrollbarX, rect.y + dy, glyph, scrollbarStyle);
+        }
+      }
       break;
     }
     case "diffViewer": {
@@ -644,67 +666,98 @@ export function renderEditorWidget(
             lineIndex++;
           }
         }
-        break;
+      } else {
+        // Unified mode (or fallback if too narrow)
+        let lineIndex = 0;
+        for (let hunkIndex = 0; hunkIndex < diff.hunks.length; hunkIndex++) {
+          const hunk = diff.hunks[hunkIndex];
+          if (!hunk) continue;
+
+          if (lineIndex >= scrollTop && lineIndex < scrollTop + rect.h) {
+            const y = rect.y + (lineIndex - scrollTop);
+            const header =
+              diffCache?.headerByHunk[hunkIndex] ??
+              `@@ -${hunk.oldStart},${hunk.oldCount} +${hunk.newStart},${hunk.newCount} @@${
+                hunk.header ? ` ${hunk.header}` : ""
+              }`;
+            const focused = showFocusIndicator && hunkIndex === focusedHunk;
+            builder.drawText(
+              rect.x,
+              y,
+              header.slice(0, rect.w),
+              focused ? focusedHeaderStyle : focusedHeaderBaseStyle,
+            );
+          }
+          lineIndex++;
+
+          if (!isExpandedHunk(hunkIndex)) {
+            if (lineIndex >= scrollTop && lineIndex < scrollTop + rect.h) {
+              const y = rect.y + (lineIndex - scrollTop);
+              const msg =
+                diffCache?.collapsedByHunk[hunkIndex] ?? `… ${String(hunk.lines.length)} lines …`;
+              builder.drawText(rect.x, y, msg.slice(0, rect.w), collapsedStyle);
+            }
+            lineIndex++;
+            continue;
+          }
+
+          let oldLine = hunk.oldStart;
+          let newLine = hunk.newStart;
+          for (const line of hunk.lines) {
+            if (!line) continue;
+            if (lineIndex >= scrollTop && lineIndex < scrollTop + rect.h) {
+              const y = rect.y + (lineIndex - scrollTop);
+              if (line.type === "context") {
+                drawUnifiedLine(y, oldLine, newLine, "context", line.content, line.highlights);
+              } else if (line.type === "delete") {
+                drawUnifiedLine(y, oldLine, null, "delete", line.content, line.highlights);
+              } else {
+                drawUnifiedLine(y, null, newLine, "add", line.content, line.highlights);
+              }
+            }
+
+            if (line.type === "context") {
+              oldLine++;
+              newLine++;
+            } else if (line.type === "delete") {
+              oldLine++;
+            } else {
+              newLine++;
+            }
+            lineIndex++;
+          }
+        }
       }
 
-      // Unified mode (or fallback if too narrow)
-      let lineIndex = 0;
-      for (let hunkIndex = 0; hunkIndex < diff.hunks.length; hunkIndex++) {
-        const hunk = diff.hunks[hunkIndex];
-        if (!hunk) continue;
-
-        if (lineIndex >= scrollTop && lineIndex < scrollTop + rect.h) {
-          const y = rect.y + (lineIndex - scrollTop);
-          const header =
-            diffCache?.headerByHunk[hunkIndex] ??
-            `@@ -${hunk.oldStart},${hunk.oldCount} +${hunk.newStart},${hunk.newCount} @@${
-              hunk.header ? ` ${hunk.header}` : ""
-            }`;
-          const focused = showFocusIndicator && hunkIndex === focusedHunk;
-          builder.drawText(
-            rect.x,
-            y,
-            header.slice(0, rect.w),
-            focused ? focusedHeaderStyle : focusedHeaderBaseStyle,
+      // Vertical scrollbar
+      {
+        let totalLines = 0;
+        for (const h of diff.hunks) {
+          if (!h) continue;
+          totalLines += 1 + h.lines.length;
+        }
+        if (rect.h > 0 && totalLines > rect.h) {
+          const scrollbarVariant = props.scrollbarVariant ?? "minimal";
+          const scrollbarOwnStyle = asTextStyle(props.scrollbarStyle, theme);
+          const scrollbarBaseStyle = mergeTextStyle(parentStyle, { fg: theme.colors.border });
+          const scrollbarStyle = scrollbarOwnStyle
+            ? mergeTextStyle(scrollbarBaseStyle, scrollbarOwnStyle)
+            : scrollbarBaseStyle;
+          const maxScroll = Math.max(0, totalLines - rect.h);
+          const position = maxScroll > 0 ? scrollTop / maxScroll : 0;
+          const viewportRatio = totalLines > 0 ? Math.min(1, rect.h / totalLines) : 1;
+          const variantConfig = SCROLLBAR_CONFIGS[scrollbarVariant];
+          const glyphs = renderVerticalScrollbar(
+            rect.h,
+            { position, viewportRatio },
+            variantConfig,
           );
-        }
-        lineIndex++;
-
-        if (!isExpandedHunk(hunkIndex)) {
-          if (lineIndex >= scrollTop && lineIndex < scrollTop + rect.h) {
-            const y = rect.y + (lineIndex - scrollTop);
-            const msg =
-              diffCache?.collapsedByHunk[hunkIndex] ?? `… ${String(hunk.lines.length)} lines …`;
-            builder.drawText(rect.x, y, msg.slice(0, rect.w), collapsedStyle);
+          const scrollbarX = rect.x + rect.w - 1;
+          for (let dy = 0; dy < glyphs.length; dy++) {
+            const glyph = glyphs[dy];
+            if (!glyph) continue;
+            builder.drawText(scrollbarX, rect.y + dy, glyph, scrollbarStyle);
           }
-          lineIndex++;
-          continue;
-        }
-
-        let oldLine = hunk.oldStart;
-        let newLine = hunk.newStart;
-        for (const line of hunk.lines) {
-          if (!line) continue;
-          if (lineIndex >= scrollTop && lineIndex < scrollTop + rect.h) {
-            const y = rect.y + (lineIndex - scrollTop);
-            if (line.type === "context") {
-              drawUnifiedLine(y, oldLine, newLine, "context", line.content, line.highlights);
-            } else if (line.type === "delete") {
-              drawUnifiedLine(y, oldLine, null, "delete", line.content, line.highlights);
-            } else {
-              drawUnifiedLine(y, null, newLine, "add", line.content, line.highlights);
-            }
-          }
-
-          if (line.type === "context") {
-            oldLine++;
-            newLine++;
-          } else if (line.type === "delete") {
-            oldLine++;
-          } else {
-            newLine++;
-          }
-          lineIndex++;
         }
       }
       break;
@@ -860,6 +913,32 @@ export function renderEditorWidget(
       }
 
       builder.popClip();
+
+      // Vertical scrollbar
+      if (contentRect.h > 0 && filtered.length > contentRect.h) {
+        const scrollbarVariant = props.scrollbarVariant ?? "minimal";
+        const scrollbarOwnStyle = asTextStyle(props.scrollbarStyle, theme);
+        const scrollbarBaseStyle = mergeTextStyle(parentStyle, { fg: theme.colors.border });
+        const scrollbarStyle = scrollbarOwnStyle
+          ? mergeTextStyle(scrollbarBaseStyle, scrollbarOwnStyle)
+          : scrollbarBaseStyle;
+        const maxScroll = Math.max(0, filtered.length - contentRect.h);
+        const position = maxScroll > 0 ? props.scrollTop / maxScroll : 0;
+        const viewportRatio =
+          filtered.length > 0 ? Math.min(1, contentRect.h / filtered.length) : 1;
+        const variantConfig = SCROLLBAR_CONFIGS[scrollbarVariant];
+        const glyphs = renderVerticalScrollbar(
+          contentRect.h,
+          { position, viewportRatio },
+          variantConfig,
+        );
+        const scrollbarX = contentRect.x + contentRect.w - 1;
+        for (let dy = 0; dy < glyphs.length; dy++) {
+          const glyph = glyphs[dy];
+          if (!glyph) continue;
+          builder.drawText(scrollbarX, contentRect.y + dy, glyph, scrollbarStyle);
+        }
+      }
       break;
     }
     default:

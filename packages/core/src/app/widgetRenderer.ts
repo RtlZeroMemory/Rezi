@@ -2647,8 +2647,13 @@ export class WidgetRenderer<S> {
         }
       }
 
-      if (focusedId !== null) {
-        const editor = this.codeEditorById.get(focusedId);
+      // Prefer editor widget under mouse cursor; fall back to focused widget.
+      // mouseTargetId may point at a non-editor widget (e.g. a button), so we
+      // must check each editor map and only fall back when the target isn't one.
+      for (const candidateId of [mouseTargetId, focusedId]) {
+        if (candidateId === null) continue;
+
+        const editor = this.codeEditorById.get(candidateId);
         if (editor) {
           const rect = this.rectById.get(editor.id) ?? null;
           const viewportHeight = rect ? Math.max(1, rect.h) : 1;
@@ -2662,9 +2667,10 @@ export class WidgetRenderer<S> {
             editor.onScroll(nextScrollTop, nextScrollLeft);
             return ROUTE_RENDER;
           }
+          break;
         }
 
-        const logs = this.logsConsoleById.get(focusedId);
+        const logs = this.logsConsoleById.get(candidateId);
         if (logs) {
           const rect = this.rectById.get(logs.id) ?? null;
           const viewportHeight = rect ? Math.max(1, rect.h) : 1;
@@ -2679,9 +2685,10 @@ export class WidgetRenderer<S> {
             logs.onScroll(nextScrollTop);
             return ROUTE_RENDER;
           }
+          break;
         }
 
-        const diff = this.diffViewerById.get(focusedId);
+        const diff = this.diffViewerById.get(candidateId);
         if (diff) {
           const rect = this.rectById.get(diff.id) ?? null;
           const viewportHeight = rect ? Math.max(1, rect.h) : 1;
@@ -2696,6 +2703,7 @@ export class WidgetRenderer<S> {
             diff.onScroll(nextScrollTop);
             return ROUTE_RENDER;
           }
+          break;
         }
       }
     }
