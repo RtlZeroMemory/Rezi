@@ -347,6 +347,21 @@ describe("basic widgets render to drawlist", () => {
     );
   });
 
+  test("progress style overrides apply to filled segment without semantic tokens", () => {
+    const bytes = renderBytes(
+      ui.progress(1, {
+        variant: "minimal",
+        width: 10,
+        style: { fg: { r: 1, g: 2, b: 3 } },
+      }),
+      { cols: 24, rows: 3 },
+      { theme: createTheme(defaultTheme) },
+    );
+    const drawText = parseDrawTextCommands(bytes).find((cmd) => cmd.text.includes("━"));
+    assert.ok(drawText, "expected drawText for filled progress glyphs");
+    assert.equal(drawText.fg, packRgb({ r: 1, g: 2, b: 3 }));
+  });
+
   test("slider renders track and clamps displayed value to range", () => {
     const strings = parseInternedStrings(
       renderBytes(

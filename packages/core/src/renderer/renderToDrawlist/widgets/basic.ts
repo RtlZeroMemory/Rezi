@@ -1925,7 +1925,10 @@ export function renderBasicWidget(
       const fillStyle =
         recipeResult !== null
           ? mergeTextStyle(mergeTextStyle(parentStyle, recipeResult.filled), ownStyle)
-          : mergeTextStyle(style, { fg: theme.colors.primary, bold: true });
+          : mergeTextStyle(
+              mergeTextStyle(parentStyle, { fg: theme.colors.primary, bold: true }),
+              ownStyle,
+            );
 
       let trackStyle =
         recipeResult !== null
