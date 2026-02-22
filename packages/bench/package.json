@@ -1,6 +1,6 @@
 {
   "name": "@rezi-ui/bench",
-  "version": "0.1.0-alpha.29",
+  "version": "0.1.0-alpha.30",
   "description": "Comprehensive benchmark suite for terminal UI runtimes",
   "private": true,
   "type": "module",
@@ -18,7 +18,7 @@
   "dependencies": {
     "@opentui/core": "^0.1.81",
     "@opentui/react": "^0.1.80",
-    "@rezi-ui/core": "0.1.0-alpha.29",
+    "@rezi-ui/core": "0.1.0-alpha.30",
     "blessed": "^0.1.81",
     "ink": "^6.8.0",
     "react": "^19.0.0",

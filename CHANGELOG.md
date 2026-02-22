@@ -10,6 +10,28 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 - _No unreleased changes yet._
 
+## [0.1.0-alpha.30] - 2026-02-22
+
+### Added
+
+- **Incremental layout engine** (3-phase optimization):
+  - Phase 1: measure cache reuse, leaf/container node reuse for unchanged subtrees
+  - Phase 2: layout tree caching keyed by constraint tuple, skips re-layout when inputs unchanged
+  - Phase 3: dirty-aware incremental layout via `dirtySet.ts`, skips clean subtrees entirely
+- **Drawlist code generation**: `scripts/drawlist-spec.ts` as single source of truth for ZRDL v3 commands, auto-generates typed writer functions with CI guardrail (`codegen:check`)
+- **Benchmark harness expansion**:
+  - `opentui-core` as first-class framework (OpenTUI React and Core drivers in a single run)
+  - Strict apples-to-apples scenarios: `terminal-strict-ui`, `terminal-strict-ui-navigation`
+  - Full-app composition scenarios: `terminal-full-ui`, `terminal-full-ui-navigation`
+  - CI perf regression guardrails via `scripts/run-bench-ci.mjs`
+- Full 8-framework benchmark results (Rezi, Ink, OpenTUI React/Core, Bubble Tea, terminal-kit, blessed, Ratatui) across 22 scenarios
+- Benchmark documentation rewrite (`BENCHMARKS.md`, `README.md`, `docs/benchmarks.md`)
+
+### Fixed
+
+- PTY bytesProduced validation: frameworks writing directly to fd (OpenTUI) no longer rejected; falls back to PTY-observed byte count
+- `--opentui-driver` CLI flag now correctly forwarded for the `opentui` framework entry
+
 ## [0.1.0-alpha.29] - 2026-02-22
 
 ### Added
