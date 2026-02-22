@@ -919,7 +919,9 @@ export function renderVNodeSimple(
       const borderOwnStyle = asTextStyle(props.borderStyle, theme);
       const contentStyle = mergeTextStyle(inheritedStyle, ownStyle);
       const borderRenderStyle =
-        borderOwnStyle === undefined ? contentStyle : mergeTextStyle(inheritedStyle, borderOwnStyle);
+        borderOwnStyle === undefined
+          ? contentStyle
+          : mergeTextStyle(inheritedStyle, borderOwnStyle);
       const boxX = x + margin.left;
       const boxY = y + margin.top;
       const boxW = Math.max(0, w - margin.left - margin.right);

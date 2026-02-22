@@ -320,12 +320,7 @@ export function renderEditorWidget(
         }
       }
 
-      if (
-        focused &&
-        showFocusIndicator &&
-        props.highlightActiveCursorCell !== false &&
-        textW > 0
-      ) {
+      if (focused && showFocusIndicator && props.highlightActiveCursorCell !== false && textW > 0) {
         const localY = cursor.line - scrollTop;
         const localX = cursor.column - scrollLeft;
         if (localY >= 0 && localY < rect.h && localX >= 0 && localX < textW) {
@@ -830,7 +825,9 @@ export function renderEditorWidget(
           x,
           y,
           levelLabel,
-          isError ? { fg: levelColor, bold: true } : mergeTextStyle(contentStyle, { fg: levelColor }),
+          isError
+            ? { fg: levelColor, bold: true }
+            : mergeTextStyle(contentStyle, { fg: levelColor }),
         );
         x += 8;
 
@@ -853,7 +850,9 @@ export function renderEditorWidget(
             x,
             y,
             msg.slice(0, remaining),
-            isError ? { fg: levelColor, bold: true } : mergeTextStyle(contentStyle, { fg: levelColor }),
+            isError
+              ? { fg: levelColor, bold: true }
+              : mergeTextStyle(contentStyle, { fg: levelColor }),
           );
         }
 

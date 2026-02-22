@@ -27,6 +27,7 @@ import {
   getTotalHeight,
   resolveVirtualListItemHeightSpec,
 } from "../../../widgets/virtualList.js";
+import { asTextStyle } from "../../styles.js";
 import { renderBoxBorder } from "../boxBorder.js";
 import { isVisibleRect } from "../indices.js";
 import { measureVNodeSimpleHeight, renderVNodeSimple } from "../simpleVNode.js";
@@ -34,7 +35,6 @@ import { clampNonNegative } from "../spacing.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
 import { mergeTextStyle } from "../textStyle.js";
 import type { TableRenderCache } from "../types.js";
-import { asTextStyle } from "../../styles.js";
 import { getExpandedSet, getTreePrefixes } from "./files.js";
 import {
   focusIndicatorEnabled,
@@ -598,11 +598,7 @@ export function renderCollectionWidget(
           : parentStyle;
         const focusedRowBg = focusedRowStyle.bg;
         const rowStripeBg = stripedRows ? ((i & 1) === 1 ? stripeOddBg : stripeEvenBg) : undefined;
-        const rowBg = showFocusedStyle
-          ? focusedRowBg
-          : isSelected
-            ? selectionBg
-            : rowStripeBg;
+        const rowBg = showFocusedStyle ? focusedRowBg : isSelected ? selectionBg : rowStripeBg;
         if (rowBg) {
           builder.fillRect(innerX, yRow, innerW, safeRowHeight, { bg: rowBg });
         }

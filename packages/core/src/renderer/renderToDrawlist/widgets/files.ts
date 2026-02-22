@@ -254,12 +254,7 @@ export function renderFileWidgets(
         const icon = fn.node.type === "directory" ? "D " : "F ";
         const checkbox = props.multiSelect === true ? (isSelected ? "[x] " : "[ ] ") : "";
 
-        builder.drawText(
-          x0,
-          yRow,
-          `${checkbox}${twisty}${icon}${fn.node.name}`,
-          rowStyle,
-        );
+        builder.drawText(x0, yRow, `${checkbox}${twisty}${icon}${fn.node.name}`, rowStyle);
 
         const status =
           stagedSet !== null
@@ -460,12 +455,7 @@ export function renderFileWidgets(
                       ? "R"
                       : "";
 
-          builder.drawText(
-            x0,
-            yRow,
-            `${twisty}${icon}${fn.node.name}`,
-            rowStyle,
-          );
+          builder.drawText(x0, yRow, `${twisty}${icon}${fn.node.name}`, rowStyle);
 
           if (showStatus && status && rect.w >= 2) {
             builder.drawText(

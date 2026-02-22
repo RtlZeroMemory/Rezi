@@ -710,19 +710,27 @@ export class WidgetRenderer<S> {
   private lastTableClick: Readonly<{ id: string; rowIndex: number; timeMs: number }> | null = null;
   private pressedFileTree: Readonly<{ id: string; nodeIndex: number; nodeKey: string }> | null =
     null;
-  private lastFileTreeClick:
-    | Readonly<{ id: string; nodeIndex: number; nodeKey: string; timeMs: number }>
-    | null = null;
-  private pressedFilePicker:
-    | Readonly<{ id: string; nodeIndex: number; nodeKey: string }>
-    | null = null;
-  private lastFilePickerClick:
-    | Readonly<{ id: string; nodeIndex: number; nodeKey: string; timeMs: number }>
-    | null = null;
+  private lastFileTreeClick: Readonly<{
+    id: string;
+    nodeIndex: number;
+    nodeKey: string;
+    timeMs: number;
+  }> | null = null;
+  private pressedFilePicker: Readonly<{ id: string; nodeIndex: number; nodeKey: string }> | null =
+    null;
+  private lastFilePickerClick: Readonly<{
+    id: string;
+    nodeIndex: number;
+    nodeKey: string;
+    timeMs: number;
+  }> | null = null;
   private pressedTree: Readonly<{ id: string; nodeIndex: number; nodeKey: string }> | null = null;
-  private lastTreeClick:
-    | Readonly<{ id: string; nodeIndex: number; nodeKey: string; timeMs: number }>
-    | null = null;
+  private lastTreeClick: Readonly<{
+    id: string;
+    nodeIndex: number;
+    nodeKey: string;
+    timeMs: number;
+  }> | null = null;
   private traps: ReadonlyMap<string, CollectedTrap> = new Map<string, CollectedTrap>();
   private zoneMetaById: ReadonlyMap<string, CollectedZone> = new Map<string, CollectedZone>();
   private focusInfoById: ReadonlyMap<string, FocusInfo> = new Map<string, FocusInfo>();

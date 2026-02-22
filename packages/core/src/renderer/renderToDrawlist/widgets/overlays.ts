@@ -430,7 +430,12 @@ export function renderOverlayWidget(
         const focusedSelectedStyle =
           showFocusIndicator && focused
             ? resolveFocusedContentStyle(
-                resolveFocusIndicatorStyle(selectedBaseStyle, theme, focusConfig, selectedBaseStyle),
+                resolveFocusIndicatorStyle(
+                  selectedBaseStyle,
+                  theme,
+                  focusConfig,
+                  selectedBaseStyle,
+                ),
                 theme,
                 focusConfig,
               )

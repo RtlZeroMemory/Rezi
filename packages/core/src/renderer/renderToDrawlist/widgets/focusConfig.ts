@@ -26,7 +26,9 @@ export function readFocusConfig(raw: unknown): FocusConfig | undefined {
   return raw as FocusConfig;
 }
 
-export function readFocusIndicator(config: FocusConfig | undefined): FocusIndicatorType | undefined {
+export function readFocusIndicator(
+  config: FocusConfig | undefined,
+): FocusIndicatorType | undefined {
   const raw = (config as FocusConfigShape | undefined)?.indicator;
   if (typeof raw !== "string") return undefined;
   if (!VALID_FOCUS_INDICATORS.has(raw as FocusIndicatorType)) return undefined;
@@ -60,4 +62,3 @@ export function resolveFocusedContentStyle(
   if (override) out = mergeTextStyle(out, override);
   return out;
 }
-

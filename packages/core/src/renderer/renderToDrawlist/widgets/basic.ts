@@ -931,12 +931,7 @@ export function renderBasicWidget(
         labelStyle = mergeTextStyle(labelStyle, pressedStyle);
       }
       if (displayLabel.length > 0) {
-        builder.drawText(
-          rect.x + px,
-          rect.y,
-          displayLabel,
-          labelStyle,
-        );
+        builder.drawText(rect.x + px, rect.y, displayLabel, labelStyle);
       }
       break;
     }

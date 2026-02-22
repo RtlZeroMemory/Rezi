@@ -1431,7 +1431,9 @@ describe("WidgetRenderer integration battery", () => {
 
     assert.doesNotThrow(() => renderer.routeEngineEvent(mouseEvent(0, 0, 3, { buttons: 1 })));
     assert.doesNotThrow(() => renderer.routeEngineEvent(mouseEvent(0, 0, 4, { timeMs: 1 })));
-    assert.doesNotThrow(() => renderer.routeEngineEvent(mouseEvent(0, 0, 3, { timeMs: 50, buttons: 1 })));
+    assert.doesNotThrow(() =>
+      renderer.routeEngineEvent(mouseEvent(0, 0, 3, { timeMs: 50, buttons: 1 })),
+    );
     assert.doesNotThrow(() => renderer.routeEngineEvent(mouseEvent(0, 0, 4, { timeMs: 51 })));
   });
 
