@@ -767,7 +767,7 @@ test("terminal io contract: keyboard + paste + focus + mouse + resize + split re
             ev.mouseKind === 5 &&
             ev.x === 399 &&
             ev.y === 499 &&
-            ev.wheelY === 1,
+            ev.wheelY === -1,
         ) >= 0
       );
     });
@@ -779,7 +779,7 @@ test("terminal io contract: keyboard + paste + focus + mouse + resize + split re
           ev.mouseKind === 5 &&
           ev.x === 399 &&
           ev.y === 499 &&
-          ev.wheelY === 1,
+          ev.wheelY === -1,
       ) >= 0,
       "missing mouse wheel with high coordinates",
     );

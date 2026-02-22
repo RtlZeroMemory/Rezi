@@ -2647,8 +2647,10 @@ export class WidgetRenderer<S> {
         }
       }
 
-      if (focusedId !== null) {
-        const editor = this.codeEditorById.get(focusedId);
+      // Prefer widget under mouse cursor; fall back to focused widget.
+      const editorTargetId = mouseTargetId ?? focusedId;
+      if (editorTargetId !== null) {
+        const editor = this.codeEditorById.get(editorTargetId);
         if (editor) {
           const rect = this.rectById.get(editor.id) ?? null;
           const viewportHeight = rect ? Math.max(1, rect.h) : 1;
@@ -2664,7 +2666,7 @@ export class WidgetRenderer<S> {
           }
         }
 
-        const logs = this.logsConsoleById.get(focusedId);
+        const logs = this.logsConsoleById.get(editorTargetId);
         if (logs) {
           const rect = this.rectById.get(logs.id) ?? null;
           const viewportHeight = rect ? Math.max(1, rect.h) : 1;
@@ -2681,7 +2683,7 @@ export class WidgetRenderer<S> {
           }
         }
 
-        const diff = this.diffViewerById.get(focusedId);
+        const diff = this.diffViewerById.get(editorTargetId);
         if (diff) {
           const rect = this.rectById.get(diff.id) ?? null;
           const viewportHeight = rect ? Math.max(1, rect.h) : 1;
