@@ -1,10 +1,6 @@
-import { createApp } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { createNodeApp } from "@rezi-ui/node";
 
-const app = createApp({
-  backend: createNodeBackend(),
-  initialState: null as null,
-});
+const app = createNodeApp({ initialState: null as null });
 
 app.draw((g) => {
   g.clear();
@@ -12,4 +8,4 @@ app.draw((g) => {
   g.drawText(2, 2, "Hello from raw draw!");
 });
 
-await app.start();
+await app.run();

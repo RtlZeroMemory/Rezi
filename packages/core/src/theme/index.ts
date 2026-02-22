@@ -1,11 +1,11 @@
 /**
  * packages/core/src/theme/index.ts — Theme public exports.
  *
- * Exports both the legacy theme system (Theme, createTheme) and the new
+ * Exports both the runtime theme system (Theme, createTheme) and the new
  * semantic token system (ThemeDefinition, ColorTokens, etc.).
  */
 
-// Legacy theme system (backwards compatible)
+// Runtime theme system (resolved theme shape)
 export { defaultTheme } from "./defaultTheme.js";
 export {
   createTheme,

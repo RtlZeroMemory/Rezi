@@ -16,7 +16,7 @@ Design system adoption is not optional for core widgets. The following rules are
 
 - **Token-first styling:** Core widgets must use semantic `ColorTokens` and recipes, not ad-hoc RGB literals.
 - **Recipe coverage:** New or updated visual primitives must include recipe tests in `packages/core/src/ui/__tests__/recipes.test.ts`.
-- **Renderer parity:** When DS props are added, legacy rendering behavior must remain stable for non-DS props.
+- **Renderer compatibility:** Manual style overrides are merged on top of recipe results; recipe defaults should remain stable and deterministic.
 - **Snapshot stability:** Gallery snapshots under `snapshots/` are the golden source for visual regressions.
 - **Portability:** UI and snapshot helpers in `packages/core/src/ui/` and `packages/core/src/testing/snapshot.ts` must stay Node-agnostic.
 
@@ -31,6 +31,33 @@ node scripts/check-core-portability.mjs
 ```
 
 ---
+
+## Beautiful Defaults (No Hidden Styling)
+
+Core widgets are wired to the design system so they look professional without manual styling.
+
+### Default recipe styling
+
+When the active theme provides semantic color tokens (see [Color Semantic Slots](#color-semantic-slots)), these widgets use recipes by default:
+
+- `ui.button(...)` (defaults to `"soft"` variant)
+- `ui.input(...)` / `ui.textarea(...)`
+- `ui.select(...)`
+- `ui.checkbox(...)`
+- `ui.progress(...)`
+- `ui.callout(...)`
+
+### Manual overrides
+
+Manual styling props do **not** disable recipe styling.
+
+When semantic color tokens are available, recipe styles are always applied, and manual props like `style`, `pressedStyle`, `px`, and `trackStyle` are merged on top to override specific attributes (for example `fg`, `bold`, `underline`).
+
+> Breaking (alpha): older builds treated some manual `style` props as an opt-out from recipe styling. That opt-out is removed to keep defaults consistent and avoid hidden behavior.
+
+### Height constraints for framed controls
+
+Some recipe-styled widgets can draw a framed control (border + interior). A framed border requires at least **3 rows** of height; in a 1-row layout, widgets still use recipe text/background styling, but they render without a box border.
 
 ## Design Tokens
 
@@ -449,7 +476,7 @@ All themes define the complete `ColorTokens` set and work at every capability ti
 | `packages/core/src/theme/tokens.ts` | Token type definitions + helpers |
 | `packages/core/src/theme/presets.ts` | 6 built-in theme definitions |
 | `packages/core/src/theme/resolve.ts` | Token path → RGB resolution |
-| `packages/core/src/theme/interop.ts` | ThemeDefinition ↔ legacy Theme conversion |
+| `packages/core/src/theme/interop.ts` | ThemeDefinition ↔ runtime Theme conversion |
 | `packages/core/src/ui/designTokens.ts` | Extended design tokens (typography, elevation) |
 | `packages/core/src/ui/capabilities.ts` | Tier A/B/C detection and adaptation |
 | `packages/core/src/ui/recipes.ts` | Style recipes for all widget families |

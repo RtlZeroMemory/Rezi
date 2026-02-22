@@ -148,20 +148,37 @@ const app = createNodeApp<{ count: number }>({
 });
 
 app.view((s) =>
-  ui.column({ p: 1, gap: 1 }, [
-    ui.text("Counter", { style: { bold: true } }),
-    ui.row({ gap: 2 }, [
-      ui.text(`Count: ${s.count}`),
-      ui.button("inc", "+1", {
-        onPress: () => app.update((prev) => ({ count: prev.count + 1 })),
-      }),
+  ui.page({
+    p: 1,
+    gap: 1,
+    header: ui.header({ title: "Counter", subtitle: "Beautiful defaults" }),
+    body: ui.panel("Count", [
+      ui.row({ gap: 1, items: "center" }, [
+        ui.text(String(s.count), { variant: "heading" }),
+        ui.spacer({ flex: 1 }),
+        ui.button("inc", "+1", {
+          intent: "primary",
+          onPress: () => app.update((prev) => ({ count: prev.count + 1 })),
+        }),
+      ]),
     ]),
-  ]),
+  }),
 );
 
 app.keys({ q: () => app.stop() });
 await app.start();
 ```
+
+## Beautiful Defaults
+
+When the active theme provides semantic color tokens, Rezi uses design system recipes by default for:
+`ui.button`, `ui.input`/`ui.textarea`, `ui.select`, `ui.checkbox`, `ui.progress`, and `ui.callout`.
+
+- Use `intent` on buttons for common “primary/danger/link” patterns.
+- Use `preset` on `ui.box` (or `ui.card`/`ui.panel`) for consistent container defaults.
+- Use manual `style` props to override specific attributes (they do not disable recipes).
+
+Docs: [Design System](docs/design-system.md) · [Migration: Beautiful Defaults](docs/migration/beautiful-defaults.md)
 
 Install:
 
@@ -178,7 +195,7 @@ npm install @rezi-ui/core @rezi-ui/node
 ```tsx
 /** @jsxImportSource @rezi-ui/jsx */
 import { createNodeApp } from "@rezi-ui/node";
-import { Column, Row, Text, Button } from "@rezi-ui/jsx";
+import { Column, Row, Spacer, Text, Button } from "@rezi-ui/jsx";
 
 const app = createNodeApp<{ count: number }>({
   initialState: { count: 0 },
@@ -186,12 +203,14 @@ const app = createNodeApp<{ count: number }>({
 
 app.view((s) => (
   <Column p={1} gap={1}>
-    <Text style={{ bold: true }}>Counter</Text>
-    <Row gap={2}>
-      <Text>Count: {s.count}</Text>
+    <Text variant="heading">Counter</Text>
+    <Row gap={1} items="center">
+      <Text variant="heading">{String(s.count)}</Text>
+      <Spacer flex={1} />
       <Button
         id="inc"
         label="+1"
+        intent="primary"
         onPress={() => app.update((prev) => ({ count: prev.count + 1 }))}
       />
     </Row>

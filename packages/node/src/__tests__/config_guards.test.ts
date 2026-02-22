@@ -219,6 +219,8 @@ test("createNodeApp exposes hotReload=null when not configured", () => {
     initialState: { value: 0 },
   });
   assert.equal(app.hotReload, null);
+  assert.ok(app.backend);
+  assert.equal(typeof app.backend.getCaps, "function");
   app.dispose();
 });
 

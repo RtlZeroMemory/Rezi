@@ -59,10 +59,23 @@ type State = { count: number };
 const app = createNodeApp<State>({ initialState: { count: 0 } });
 
 app.view(state =>
-  ui.column({ p: 1, gap: 1 }, [
-    ui.text(`Count: ${state.count}`),
-    ui.button({ id: "inc", label: "+1", onPress: () => app.update(s => ({ count: s.count + 1 })) }),
-  ])
+  ui.page({
+    p: 1,
+    gap: 1,
+    header: ui.header({ title: "Counter" }),
+    body: ui.panel("Count", [
+      ui.row({ gap: 1, items: "center" }, [
+        ui.text(String(state.count), { variant: "heading" }),
+        ui.spacer({ flex: 1 }),
+        ui.button({
+          id: "inc",
+          label: "+1",
+          intent: "primary",
+          onPress: () => app.update(s => ({ count: s.count + 1 })),
+        }),
+      ]),
+    ]),
+  })
 );
 
 app.keys({ q: () => app.stop() });
@@ -99,9 +112,14 @@ const app = createNodeApp<State>({ initialState: { count: 0 } });
 
 ```typescript
 app.view(state =>
-  ui.column({ p: 1, gap: 1 }, [
-    // Widgets go here
-  ])
+  ui.page({
+    p: 1,
+    gap: 1,
+    header: ui.header({ title: "My App" }),
+    body: ui.panel("Main", [
+      // Widgets go here
+    ]),
+  })
 );
 ```
 
@@ -115,16 +133,18 @@ app.view(state =>
 Always use the `ui.*` widget factories to build your UI. They create properly typed VNodes without manual object construction:
 
 ```typescript
-ui.column({ p: 1, gap: 1 }, [
-  ui.text("Title"),
-  ui.row({ gap: 2 }, [
-    ui.button({ id: "btn", label: "Click" }),
+ui.page({
+  p: 1,
+  gap: 1,
+  header: ui.header({ title: "Title" }),
+  body: ui.panel("Actions", [
+    ui.actions([ui.button({ id: "btn", label: "Click", intent: "primary" })]),
   ]),
-])
+})
 ```
 
-- `ui.column()` arranges children vertically
-- `ui.row()` arranges children horizontally
+- `ui.page()` provides a full-screen scaffold (optional header/body/footer)
+- `ui.panel()` groups related content with a titled container
 - `p: 1` adds 1 cell of padding
 - `gap: 1` adds 1 cell between children
 
@@ -177,7 +197,7 @@ This separation keeps your app testable and maintainable. See [Recommended Patte
 Here is a counter app using the **reducer pattern** for state management -- the recommended approach for non-trivial apps:
 
 ```typescript
-import { ui, rgb } from "@rezi-ui/core";
+import { ui } from "@rezi-ui/core";
 import { createNodeApp } from "@rezi-ui/node";
 
 // --- Types ---
@@ -201,20 +221,24 @@ function dispatch(action: Action) {
 const app = createNodeApp<State>({ initialState: { count: 0 } });
 
 app.view(state =>
-  ui.column({ p: 1, gap: 1 }, [
-    ui.text("Rezi Counter", { style: { fg: rgb(120, 200, 255), bold: true } }),
-    ui.box({ title: "Controls", p: 1 }, [
+  ui.page({
+    p: 1,
+    gap: 1,
+    header: ui.header({ title: "Rezi Counter" }),
+    body: ui.panel("Controls", [
       ui.row({ gap: 2 }, [
-        ui.text(`Count: ${state.count}`),
-        ui.button({ id: "inc", label: "+1", onPress: () => dispatch({ type: "increment" }) }),
+        ui.text(`Count: ${state.count}`, { variant: "heading" }),
+        ui.spacer({ flex: 1 }),
+        ui.button({ id: "inc", label: "+1", intent: "primary", onPress: () => dispatch({ type: "increment" }) }),
         ui.button({ id: "dec", label: "-1", onPress: () => dispatch({ type: "decrement" }) }),
-        ui.button({ id: "reset", label: "Reset", onPress: () => dispatch({ type: "reset" }) }),
+        ui.button({ id: "reset", label: "Reset", intent: "link", onPress: () => dispatch({ type: "reset" }) }),
       ]),
     ]),
-    ui.text("j: increment | k: decrement | r: reset | q: quit", {
-      style: { fg: rgb(100, 100, 100) },
+    footer: ui.statusBar({
+      left: [ui.text("Ready")],
+      right: [ui.text("j: inc · k: dec · r: reset · q: quit")],
     }),
-  ])
+  })
 );
 
 app.keys({

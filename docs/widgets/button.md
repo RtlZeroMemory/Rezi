@@ -22,15 +22,23 @@ ui.button({
 | `label` | `string` | **required** | Button text |
 | `accessibleLabel` | `string` | - | Optional semantic label for focus announcements and debugging |
 | `disabled` | `boolean` | `false` | Disable interaction and dim appearance |
-| `px` | `number` | `1` | Horizontal padding in cells |
+| `px` | `number` | `dsSize` / `1` fallback | Horizontal padding in cells. When recipe styling is active, this overrides recipe padding; use `dsSize` for standard presets. |
 | `style` | `TextStyle` | - | Custom styling (merged with focus/disabled state) |
+| `intent` | `"primary" \| "secondary" \| "danger" \| "success" \| "warning" \| "link"` | - | Shorthand for design system styling. Explicit `dsVariant`/`dsTone` override it. |
 | `onPress` | `() => void` | - | Callback when button is activated |
 | `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused label style |
 | `key` | `string` | - | Reconciliation key for dynamic lists |
 
 ## Design System Styling
 
-Buttons support design-system-based styling via `ds*` props. When present, these override manual `style`/`px` props with theme-aware, recipe-computed styles.
+Buttons are design-system styled by default when the active theme provides semantic color tokens. This means:
+
+- `ui.button({ id, label })` renders with recipe-based styling (defaults to a `"soft"` look).
+- `dsVariant` / `dsTone` / `dsSize` customize the recipe styling.
+- `intent` is a shorthand for common `dsVariant`/`dsTone` combinations.
+- `px` overrides recipe padding (use `dsSize` for standard presets).
+- Manual `style` / `pressedStyle` props are merged on top of the recipe result (they do not disable recipes).
+- If the active theme does not provide semantic color tokens, buttons fall back to non-recipe rendering.
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
@@ -55,16 +63,16 @@ The `onPress` callback fires regardless of whether the button was activated by k
 
 ```typescript
 // Primary action
-ui.button({ id: "save", label: "Save", dsVariant: "solid", dsTone: "primary", dsSize: "md" })
+ui.button({ id: "save", label: "Save", intent: "primary" })
 
 // Destructive action
-ui.button({ id: "delete", label: "Delete", dsVariant: "outline", dsTone: "danger" })
+ui.button({ id: "delete", label: "Delete", intent: "danger" })
 
 // Subtle action
-ui.button({ id: "cancel", label: "Cancel", dsVariant: "ghost" })
+ui.button({ id: "cancel", label: "Cancel" })
 ```
 
-When `ds*` props are present, styling is computed automatically by the theme's recipe system. The button adapts to theme changes, capability tiers, and focus/disabled states without manual styling.
+When recipe styling is active, the button adapts to theme changes, capability tiers, and focus/disabled states without manual styling.
 
 ### Callback props (recommended)
 

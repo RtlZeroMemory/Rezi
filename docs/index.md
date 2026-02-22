@@ -3,7 +3,7 @@
 Rezi is a **code-first terminal UI framework** for Node.js and Bun. Build interactive terminal applications with a declarative widget API, automatic focus management, and native-backed rendering through the [Zireael](https://github.com/RtlZeroMemory/Zireael) C engine.
 
 ```typescript
-import { ui, rgb } from "@rezi-ui/core";
+import { ui } from "@rezi-ui/core";
 import { createNodeApp } from "@rezi-ui/node";
 
 const app = createNodeApp<{ count: number }>({
@@ -11,15 +11,21 @@ const app = createNodeApp<{ count: number }>({
 });
 
 app.view((state) =>
-  ui.column({ p: 1, gap: 1 }, [
-    ui.text("Counter", { style: { fg: rgb(120, 200, 255), bold: true } }),
-    ui.row({ gap: 2 }, [
-      ui.text(`Count: ${state.count}`),
-      ui.button("inc", "+1", {
-        onPress: () => app.update((s) => ({ count: s.count + 1 })),
-      }),
+  ui.page({
+    p: 1,
+    gap: 1,
+    header: ui.header({ title: "Counter", subtitle: "Beautiful defaults" }),
+    body: ui.panel("Count", [
+      ui.row({ gap: 1, items: "center" }, [
+        ui.text(String(state.count), { variant: "heading" }),
+        ui.spacer({ flex: 1 }),
+        ui.button("inc", "+1", {
+          intent: "primary",
+          onPress: () => app.update((s) => ({ count: s.count + 1 })),
+        }),
+      ]),
     ]),
-  ])
+  })
 );
 
 app.keys({ q: () => app.stop() });
@@ -161,7 +167,7 @@ ui.box({ title: "User Form", p: 1 }, [
     ui.input({ id: "name", value: state.name })
   }),
   ui.row({ gap: 2 }, [
-    ui.button({ id: "submit", label: "Submit" }),
+    ui.button({ id: "submit", label: "Submit", intent: "primary" }),
     ui.button({ id: "cancel", label: "Cancel" }),
   ]),
 ])
@@ -214,6 +220,7 @@ User feedback: `spinner`, `skeleton`, `callout`, `errorDisplay`, `empty`
 ## Learn More
 
 - [Concepts](guide/concepts.md) - Understanding Rezi's architecture
+- [Beautiful Defaults migration](migration/beautiful-defaults.md) - Design system styling defaults and manual overrides
 - [Ink to Rezi Migration](migration/ink-to-rezi.md) - Mental model mapping and migration recipes
 - [Lifecycle & Updates](guide/lifecycle-and-updates.md) - State management patterns
 - [Routing](guide/routing.md) - Page-level navigation and screen history
@@ -221,7 +228,7 @@ User feedback: `spinner`, `skeleton`, `callout`, `errorDisplay`, `empty`
 - [Input & Focus](guide/input-and-focus.md) - Keyboard navigation and focus management
 - [Mouse Support](guide/mouse-support.md) - Click, scroll, and drag interactions
 - [Animation](guide/animation.md) - Declarative motion hooks and box transitions
-- [Styling](guide/styling.md) - Colors, themes, and visual customization
+- [Styling](styling/index.md) - Colors, themes, and visual customization
 - [Graphics](guide/graphics.md) - Capability-aware rendering and progressive enhancement
 - [Performance](guide/performance.md) - Optimization techniques
 - [Debugging](guide/debugging.md) - Debug tools and frame inspection

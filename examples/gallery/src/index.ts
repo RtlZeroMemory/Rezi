@@ -14,7 +14,6 @@
 import {
   type ThemeDefinition,
   type VNode,
-  createApp,
   darkTheme,
   dimmedTheme,
   draculaTheme,
@@ -23,7 +22,7 @@ import {
   nordTheme,
   ui,
 } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { createNodeApp } from "@rezi-ui/node";
 import { type Scene, getScene, scenes } from "./scenes.js";
 
 // ---------------------------------------------------------------------------
@@ -91,14 +90,14 @@ if (isHeadless) {
 // Interactive mode
 // ---------------------------------------------------------------------------
 
-const app = createApp<State>({
-  // Inline mode avoids worker/native crash during live theme switches in demo flow.
-  backend: createNodeBackend({ executionMode: "inline" }),
+const app = createNodeApp<State>({
   theme: THEMES.dark,
   initialState: {
     activeScene: 0,
     themeName: "dark",
   },
+  // Inline mode avoids worker/native crash during live theme switches in demo flow.
+  config: { executionMode: "inline" },
 });
 
 function resolveSceneTabWindow(

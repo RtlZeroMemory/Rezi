@@ -73,12 +73,11 @@ Emoji width policy:
 - Optional terminal probe is disabled by default and only runs when
   `ZRUI_EMOJI_WIDTH_PROBE=1` (opt-in to avoid startup input races).
 
-Legacy path deprecation:
+Manual composition (advanced):
 
-- `createNodeBackend()` + `createApp()` (`@rezi-ui/core`) manual pairing is
-  deprecated for normal app setup.
-- Use `createNodeApp()` from `@rezi-ui/node` so related runtime knobs cannot drift.
-- If you still compose manually, Rezi throws deterministic `ZRUI_INVALID_PROPS`
-  errors when cursor/event/fps settings conflict.
+- Prefer `createNodeApp()` for typical apps so related runtime knobs cannot drift.
+- If you compose manually with `createNodeBackend()` + `createApp()` (`@rezi-ui/core`),
+  Rezi throws deterministic `ZRUI_INVALID_PROPS` errors when cursor/event/fps
+  settings conflict.
 
 Next: [Worker model](worker-model.md).

@@ -55,20 +55,20 @@ function renderMyWidget(colors: ColorTokens, isFocused: boolean) {
 
 ### Using Design System Props
 
-Interactive widgets support `ds*` props that automatically apply recipe-based styling:
+Interactive widgets support `ds*` props (and `intent` shorthands) that customize recipe-based styling.
+
+Core interactive widgets are now recipe-styled by default when the active theme provides semantic color tokens (see [Design System](../design-system.md)). Manual `style` props remain available to override specific attributes (they do not disable recipes).
 
 ```typescript
-// Design system button — automatically styled by theme
+// Recipe-styled button (default) + intent shorthand
 ui.button({
   id: "save",
   label: "Save",
-  dsVariant: "solid",      // "solid" | "soft" | "outline" | "ghost"
-  dsTone: "primary",       // "default" | "primary" | "danger" | "success" | "warning"
-  dsSize: "md",            // "sm" | "md" | "lg"
+  intent: "primary",
   onPress: handleSave,
 });
 
-// Legacy button — manual styling (still works)
+// Manual override (merged on top of recipes)
 ui.button({
   id: "save",
   label: "Save",
@@ -78,7 +78,7 @@ ui.button({
 });
 ```
 
-When `ds*` props are present, the renderer uses the recipe system. When absent, the legacy styling path is used. Both work simultaneously.
+When recipe styling is active, the widget adapts to theme changes, capability tiers, and focus/disabled states without manual styling.
 
 ## Building Custom Widgets
 
@@ -88,11 +88,11 @@ When `ds*` props are present, the renderer uses the recipe system. When absent, 
 import { ui, type VNode } from "@rezi-ui/core";
 
 function StatusCard(title: string, value: string, tone: "success" | "danger"): VNode {
-  const badgeTone = tone === "success" ? "success" : "error";
-  return ui.box({ border: "rounded", p: 1 }, [
+  const badgeVariant = tone === "success" ? "success" : "error";
+  return ui.box({ preset: "card" }, [
     ui.text(title, { variant: "label" }),
     ui.text(value, { style: { bold: true } }),
-    ui.badge(badgeTone),
+    ui.badge(tone === "success" ? "Success" : "Danger", { variant: badgeVariant }),
   ]);
 }
 ```
@@ -110,17 +110,13 @@ const Counter = defineWidget<{ initial: number }>((props, ctx) => {
     ui.button({
       id: ctx.id("inc"),
       label: "+1",
-      dsVariant: "solid",
-      dsTone: "primary",
-      dsSize: "sm",
+      intent: "primary",
       onPress: () => setCount((c) => c + 1),
     }),
     ui.button({
       id: ctx.id("dec"),
       label: "-1",
-      dsVariant: "outline",
-      dsTone: "danger",
-      dsSize: "sm",
+      intent: "danger",
       onPress: () => setCount((c) => c - 1),
     }),
   ]);
@@ -131,9 +127,9 @@ const Counter = defineWidget<{ initial: number }>((props, ctx) => {
 
 ### DO
 
-- Use `dsVariant` / `dsTone` / `dsSize` for interactive widgets
+- Prefer `intent` for buttons; use `dsVariant` / `dsTone` / `dsSize` when you need finer control
 - Use `variant: "heading"` / `"caption"` / `"label"` for text roles
-- Use `ui.box({ border: "rounded" })` for cards/panels
+- Prefer `ui.box({ preset: "card" })` (or `ui.card(...)`) for cards/panels
 - Use semantic colors from theme tokens (not raw RGB)
 - Ensure all interactive widgets have a unique `id`
 - Test your widget across at least 2 themes

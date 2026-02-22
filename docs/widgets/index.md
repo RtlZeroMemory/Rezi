@@ -10,10 +10,14 @@ Always build your views through the `ui` namespace. These factories are the **sa
 import { ui } from "@rezi-ui/core";
 
 app.view((state) =>
-  ui.column({ p: 1, gap: 1 }, [
-    ui.text("Hello, World!"),
-    ui.button({ id: "ok", label: "OK" }),
-  ])
+  ui.page({
+    p: 1,
+    gap: 1,
+    header: ui.header({ title: "Hello, World!" }),
+    body: ui.panel("Actions", [
+      ui.actions([ui.button({ id: "ok", label: "OK", intent: "primary" })]),
+    ]),
+  })
 );
 ```
 
@@ -24,6 +28,10 @@ Benefits of `ui.*` factories:
 - Automatic flattening of nested child arrays.
 - Default `gap: 1` applied to `row`/`column`/`hstack`/`vstack` when omitted.
 - Interactive widget props validated before layout (e.g. `button` requires non-empty `id`).
+
+## Beautiful Defaults
+
+When the active theme provides semantic color tokens, core interactive widgets are recipe-styled by default (buttons, inputs, selects, checkboxes, progress bars, callouts). Use `intent` on buttons for common patterns (primary/danger/link), and use manual `style` props to override specific attributes (they do not disable recipes).
 
 ## Quick-Reference Table
 
@@ -332,17 +340,24 @@ The `ui` namespace includes convenience wrappers that compose lower-level widget
 | `ui.actions(children)` / `ui.actions(options, children)` | `ui.row({ justify: "end", gap: 1 }, children)` | Right-aligned action button row; options support `id`, `key`, `gap` |
 | `ui.center(child, options?)` | `ui.column({ width: "100%", height: "100%", align: "center", justify: "center" }, ...)` | Center a single widget; options support `id`, `key`, `p` |
 | `ui.page(options)` | `ui.column(...)` with optional header/body/footer | Full-page layout scaffold |
+| `ui.appShell(options)` | `ui.page(...)` with standard header/sidebar/body/footer layout | Full app scaffold (header + optional sidebar + body + footer) |
+| `ui.card(titleOrOptions, children)` | `ui.box({ border: "rounded", p: 1 }, ...)` | Elevated content block with optional title/subtitle/actions |
+| `ui.toolbar(children)` / `ui.toolbar(options, children)` | `ui.row({ items: "center", wrap: true }, ...)` | Inline action bar |
+| `ui.statusBar(options)` | `ui.row({ width: "100%" }, [...left, spacer(1), ...right])` | Left/right status strip |
+| `ui.header(options)` | `ui.box({ border: "rounded", px: 1 }, ...)` | Standard header bar (title/subtitle/actions) |
+| `ui.sidebar(options)` | `ui.box({ border: \"rounded\", width, p: 1 }, ...)` | Navigation panel with selectable buttons |
+| `ui.masterDetail(options)` | `ui.row([...master, detail])` | Split master/detail layout |
 | `ui.keybindingHelp(bindings, options?)` | Formatted table of keyboard shortcuts | Keyboard shortcut reference; options: `title` (`"Keyboard Shortcuts"`), `emptyText` (`"No shortcuts registered."`), `showMode` (auto), `sort` (`true`) |
 
 ```typescript
 ui.page({
-  header: ui.text("My App", { style: { bold: true } }),
+  header: ui.header({ title: "My App" }),
   body: ui.panel("Content", [
     ui.text("Main content goes here"),
     ui.form([
       ui.field({ label: "Name", children: ui.input("name", state.name) }),
       ui.actions([
-        ui.button("save", "Save"),
+        ui.button("save", "Save", { intent: "primary" }),
         ui.button("cancel", "Cancel"),
       ]),
     ]),

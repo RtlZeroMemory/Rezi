@@ -93,15 +93,14 @@ If you hit limits:
 ## Profiling
 
 Use the debug trace system to inspect frame timing and hotspots. For normal
-apps, use `createNodeApp()`. `createNodeBackend()` is used here only to wire
-the debug backend explicitly.
+apps, use `createNodeApp()` and read the backend debug interface from `app.backend`.
 
 ```typescript
 import { createDebugController, categoriesToMask } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { createNodeApp } from "@rezi-ui/node";
 
-const backend = createNodeBackend();
-const debug = createDebugController({ backend: backend.debug, maxFrames: 300 });
+const app = createNodeApp({ initialState: {} });
+const debug = createDebugController({ backend: app.backend.debug, maxFrames: 300 });
 await debug.enable({ categoryMask: categoriesToMask(["perf", "frame"]) });
 ```
 

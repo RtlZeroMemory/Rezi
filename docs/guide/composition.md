@@ -12,13 +12,17 @@ type CounterProps = { label: string };
 export const Counter = defineWidget<CounterProps>((props, ctx) => {
   const [count, setCount] = ctx.useState(0);
 
-  return ui.row({ gap: 1 }, [
-    ui.text(`${props.label}: ${count}`),
-    ui.button({
-      id: ctx.id("inc"),
-      label: "+1",
-      onPress: () => setCount((c) => c + 1),
-    }),
+  return ui.card(`${props.label}`, [
+    ui.row({ gap: 1, items: "center" }, [
+      ui.text(`Count: ${count}`, { variant: "heading" }),
+      ui.spacer({ flex: 1 }),
+      ui.button({
+        id: ctx.id("inc"),
+        label: "+1",
+        intent: "primary",
+        onPress: () => setCount((c) => c + 1),
+      }),
+    ]),
   ]);
 });
 ```

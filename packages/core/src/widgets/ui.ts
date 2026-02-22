@@ -23,6 +23,7 @@ import type { TextStyle } from "./style.js";
 import { createTabsWidgetVNode } from "./tabs.js";
 import type {
   AccordionProps,
+  AppShellOptions,
   BadgeProps,
   BarChartItem,
   BarChartProps,
@@ -31,6 +32,7 @@ import type {
   ButtonProps,
   CalloutProps,
   CanvasProps,
+  CardOptions,
   CheckboxProps,
   CodeEditorProps,
   ColumnProps,
@@ -50,6 +52,7 @@ import type {
   FocusZoneProps,
   GaugeProps,
   GridProps,
+  HeaderOptions,
   HeatmapProps,
   IconProps,
   ImageProps,
@@ -60,6 +63,7 @@ import type {
   LineChartProps,
   LinkProps,
   LogsConsoleProps,
+  MasterDetailOptions,
   MiniChartProps,
   ModalProps,
   PaginationProps,
@@ -72,12 +76,14 @@ import type {
   RowProps,
   ScatterProps,
   SelectProps,
+  SidebarOptions,
   SkeletonProps,
   SliderProps,
   SpacerProps,
   SparklineProps,
   SpinnerProps,
   SplitPaneProps,
+  StatusBarOptions,
   StatusProps,
   TableProps,
   TabsProps,
@@ -86,6 +92,7 @@ import type {
   TextareaProps,
   ToastContainerProps,
   ToolApprovalDialogProps,
+  ToolbarOptions,
   TreeProps,
   VNode,
   VirtualListProps,
@@ -170,6 +177,44 @@ function isTextProps(v: TextStyle | TextProps): v is TextProps {
   );
 }
 
+function resolveButtonIntent(props: ButtonProps): ButtonProps {
+  if (props.intent === undefined || props.dsVariant !== undefined) return props;
+  switch (props.intent) {
+    case "primary":
+      return { ...props, dsVariant: "solid", dsTone: props.dsTone ?? "primary" };
+    case "secondary":
+      return { ...props, dsVariant: "soft", dsTone: props.dsTone ?? "default" };
+    case "danger":
+      return { ...props, dsVariant: "outline", dsTone: props.dsTone ?? "danger" };
+    case "success":
+      return { ...props, dsVariant: "soft", dsTone: props.dsTone ?? "success" };
+    case "warning":
+      return { ...props, dsVariant: "soft", dsTone: props.dsTone ?? "warning" };
+    case "link":
+      return {
+        ...props,
+        dsVariant: "ghost",
+        dsTone: props.dsTone ?? "default",
+        dsSize: props.dsSize ?? "sm",
+      };
+  }
+}
+
+function resolveBoxPreset(props: BoxProps): BoxProps {
+  const { preset, ...rest } = props;
+  if (preset === undefined) return props;
+  switch (preset) {
+    case "card":
+      return { border: "rounded", p: 1, ...rest };
+    case "surface":
+      return { p: 1, ...rest };
+    case "well":
+      return { border: "single", p: 1, ...rest };
+    case "elevated":
+      return { border: "rounded", p: 1, shadow: true, ...rest };
+  }
+}
+
 function text(content: string): VNode;
 function text(content: string, style: TextStyle): VNode;
 function text(content: string, props: TextProps): VNode;
@@ -180,7 +225,7 @@ function text(content: string, styleOrProps?: TextStyle | TextProps): VNode {
 }
 
 function box(props: BoxProps = {}, children: readonly UiChild[] = []): VNode {
-  return { kind: "box", props, children: filterChildren(children) };
+  return { kind: "box", props: resolveBoxPreset(props), children: filterChildren(children) };
 }
 
 function row(props: RowProps = {}, children: readonly UiChild[] = []): VNode {
@@ -736,9 +781,12 @@ function button(
   props?: Omit<ButtonProps, "id" | "label">,
 ): VNode {
   if (typeof idOrProps === "string") {
-    return { kind: "button", props: { id: idOrProps, label: label ?? "", ...(props ?? {}) } };
+    return {
+      kind: "button",
+      props: resolveButtonIntent({ id: idOrProps, label: label ?? "", ...(props ?? {}) }),
+    };
   }
-  return { kind: "button", props: idOrProps };
+  return { kind: "button", props: resolveButtonIntent(idOrProps) };
 }
 
 function input(id: string, value: string): VNode;
@@ -904,6 +952,167 @@ function page(options: PageOptions): VNode {
   );
 }
 
+function appShell(options: AppShellOptions): VNode {
+  const headerNode = options.header
+    ? box({ border: "rounded", px: 1, py: 0 }, [options.header])
+    : null;
+  const bodyNode = options.sidebar
+    ? row({ gap: 1, items: "stretch" }, [
+        box({ border: "rounded", width: options.sidebar.width ?? 25, p: 1 }, [
+          options.sidebar.content,
+        ]),
+        box({ flex: 1 }, [options.body]),
+      ])
+    : options.body;
+  const footerNode = options.footer
+    ? row({ gap: 1, items: "center", wrap: true }, [options.footer])
+    : null;
+
+  return page({
+    ...(options.id === undefined ? {} : { id: options.id }),
+    ...(options.key === undefined ? {} : { key: options.key }),
+    header: headerNode,
+    body: bodyNode,
+    footer: footerNode,
+    gap: options.gap ?? 1,
+    p: options.p ?? 1,
+  });
+}
+
+function card(options: CardOptions, children: readonly UiChild[]): VNode;
+function card(title: string, children: readonly UiChild[]): VNode;
+function card(optionsOrTitle: CardOptions | string, children: readonly UiChild[] = []): VNode {
+  const options: CardOptions =
+    typeof optionsOrTitle === "string" ? { title: optionsOrTitle } : optionsOrTitle;
+  const bodyChildren = filterChildren(children);
+  const headerActions = options.actions ?? [];
+
+  const cardChildren: UiChild[] = [];
+  if (options.title !== undefined || headerActions.length > 0) {
+    cardChildren.push(
+      row({ gap: 1, items: "center", wrap: true }, [
+        ...(options.title === undefined ? [] : [text(options.title, { variant: "heading" })]),
+        ...(headerActions.length === 0 ? [] : [spacer({ flex: 1 }), ...headerActions]),
+      ]),
+    );
+  }
+  if (options.subtitle !== undefined) {
+    cardChildren.push(text(options.subtitle, { dim: true }));
+  }
+  cardChildren.push(...bodyChildren);
+
+  return box(
+    {
+      ...(options.id === undefined ? {} : { id: options.id }),
+      ...(options.key === undefined ? {} : { key: options.key }),
+      border: options.border ?? "rounded",
+      p: options.p ?? 1,
+      ...(options.style === undefined ? {} : { style: options.style }),
+    },
+    [column({ gap: options.gap ?? 1 }, cardChildren)],
+  );
+}
+
+function toolbar(children: readonly UiChild[]): VNode;
+function toolbar(options: ToolbarOptions, children: readonly UiChild[]): VNode;
+function toolbar(
+  optionsOrChildren: ToolbarOptions | readonly UiChild[],
+  children: readonly UiChild[] = [],
+): VNode {
+  if (isUiChildren(optionsOrChildren)) {
+    return row({ gap: 1, items: "center", wrap: true }, optionsOrChildren);
+  }
+  const options = optionsOrChildren;
+  return row(
+    {
+      ...(options.id === undefined ? {} : { id: options.id }),
+      ...(options.key === undefined ? {} : { key: options.key }),
+      gap: options.gap ?? 1,
+      items: "center",
+      wrap: true,
+    },
+    children,
+  );
+}
+
+function statusBar(options: StatusBarOptions): VNode {
+  return row(
+    {
+      ...(options.id === undefined ? {} : { id: options.id }),
+      ...(options.key === undefined ? {} : { key: options.key }),
+      width: "100%",
+      items: "center",
+      ...(options.style === undefined ? {} : { style: options.style }),
+    },
+    [...(options.left ?? []), spacer({ flex: 1 }), ...(options.right ?? [])],
+  );
+}
+
+function header(options: HeaderOptions): VNode {
+  return box(
+    {
+      ...(options.id === undefined ? {} : { id: options.id }),
+      ...(options.key === undefined ? {} : { key: options.key }),
+      border: "rounded",
+      px: 1,
+      py: 0,
+    },
+    [
+      row({ gap: 1, items: "center", wrap: true }, [
+        text(options.title, { variant: "heading" }),
+        options.subtitle ? text(options.subtitle, { dim: true }) : null,
+        spacer({ flex: 1 }),
+        ...(options.actions ?? []),
+      ]),
+    ],
+  );
+}
+
+function sidebar(options: SidebarOptions): VNode {
+  const buttonNodes = options.items.map((item) =>
+    button({
+      id: `${options.id ?? "sidebar"}-${item.id}`,
+      label: item.icon ? `${item.icon} ${item.label}` : item.label,
+      onPress: () => {
+        options.onSelect?.(item.id);
+      },
+      dsVariant: options.selected === item.id ? "soft" : "ghost",
+      dsTone: options.selected === item.id ? "primary" : "default",
+    }),
+  );
+
+  return box(
+    {
+      ...(options.id === undefined ? {} : { id: options.id }),
+      ...(options.key === undefined ? {} : { key: options.key }),
+      border: "rounded",
+      width: options.width ?? 25,
+      p: 1,
+    },
+    [
+      column({ gap: 1 }, [
+        options.title ? text(options.title, { variant: "heading" }) : null,
+        column({ gap: 0 }, buttonNodes),
+      ]),
+    ],
+  );
+}
+
+function masterDetail(options: MasterDetailOptions): VNode {
+  return row(
+    {
+      ...(options.id === undefined ? {} : { id: options.id }),
+      ...(options.key === undefined ? {} : { key: options.key }),
+      gap: options.gap ?? 1,
+      items: "stretch",
+    },
+    [
+      box({ width: options.masterWidth ?? 30 }, [options.master]),
+      box({ flex: 1 }, [options.detail]),
+    ],
+  );
+}
+
 /**
  * Widget factory functions for building VNode trees.
  *
@@ -964,6 +1173,13 @@ export const ui = {
   actions,
   center,
   page,
+  appShell,
+  card,
+  toolbar,
+  statusBar,
+  header,
+  sidebar,
+  masterDetail,
 
   /**
    * Create a declarative dialog with arbitrary actions.
@@ -992,11 +1208,15 @@ export const ui = {
         ...(onClose !== undefined ? { onClose } : {}),
         content: typeof message === "string" ? text(message) : message,
         actions: actions.map((action, index) => {
-          void action.intent;
           return button({
             id: action.id ?? `${modalProps.id}-action-${String(index)}`,
             label: action.label,
             onPress: action.onPress,
+            ...(action.intent === "primary"
+              ? { intent: "primary" as const }
+              : action.intent === "danger"
+                ? { intent: "danger" as const }
+                : {}),
             ...(action.disabled === true ? { disabled: true } : {}),
             ...(action.focusable === false ? { focusable: false } : {}),
           });

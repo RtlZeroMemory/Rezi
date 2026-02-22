@@ -51,6 +51,8 @@ export type TestRenderNode = Readonly<{
 export type TestRenderResult = Readonly<{
   viewport: TestViewport;
   focusedId: string | null;
+  /** Low-level draw ops recorded by the test builder. Useful for asserting rendering behavior. */
+  ops: readonly TestRecordedOp[];
   nodes: readonly TestRenderNode[];
   findText: (text: string) => TestRenderNode | null;
   findById: (id: string) => TestRenderNode | null;
@@ -63,7 +65,7 @@ export type TestRenderer = Readonly<{
   reset: () => void;
 }>;
 
-type RecordedOp =
+export type TestRecordedOp =
   | Readonly<{ kind: "clear" }>
   | Readonly<{ kind: "clearTo"; cols: number; rows: number }>
   | Readonly<{ kind: "fillRect"; x: number; y: number; w: number; h: number }>
@@ -87,7 +89,7 @@ function asPropsRecord(value: unknown): TestNodeProps {
 }
 
 class RecordingDrawlistBuilder implements DrawlistBuilderV1 {
-  private readonly ops: RecordedOp[] = [];
+  private readonly ops: TestRecordedOp[] = [];
   private readonly textRunBlobs: Array<readonly DrawlistTextRunSegment[]> = [];
 
   clear(): void {
@@ -147,7 +149,7 @@ class RecordingDrawlistBuilder implements DrawlistBuilderV1 {
     this.textRunBlobs.length = 0;
   }
 
-  snapshotOps(): readonly RecordedOp[] {
+  snapshotOps(): readonly TestRecordedOp[] {
     return Object.freeze(this.ops.slice());
   }
 }
@@ -237,7 +239,7 @@ function fillGridRect(
   }
 }
 
-function opsToText(ops: readonly RecordedOp[], viewport: TestViewport): string {
+function opsToText(ops: readonly TestRecordedOp[], viewport: TestViewport): string {
   const grid: string[][] = [];
   for (let y = 0; y < viewport.rows; y++) {
     grid.push(new Array(viewport.cols).fill(" "));
@@ -367,10 +369,12 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
     });
 
     const nodes = collectNodes(layoutTree);
-    const screenText = opsToText(builder.snapshotOps(), viewport);
+    const ops = builder.snapshotOps();
+    const screenText = opsToText(ops, viewport);
     return Object.freeze({
       viewport,
       focusedId,
+      ops,
       nodes,
       findText: (text: string) => findText(nodes, text),
       findById: (id: string) => findById(nodes, id),

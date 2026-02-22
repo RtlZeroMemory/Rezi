@@ -1,27 +1,37 @@
-import { createApp, rgb, ui } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { ui } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
 
 type State = { count: number };
 
-const app = createApp<State>({
-  backend: createNodeBackend(),
-  initialState: { count: 0 },
-});
+const app = createNodeApp<State>({ initialState: { count: 0 } });
 
 app.view((state) =>
-  ui.column({ p: 1, gap: 1 }, [
-    ui.text("Title", { fg: rgb(120, 200, 255), bold: true }),
-    ui.box({ title: "Panel" }, [
-      ui.row({ gap: 2 }, [
-        ui.text(`Count: ${state.count}`),
+  ui.page({
+    p: 1,
+    gap: 1,
+    header: ui.header({
+      title: "Hello Counter",
+      subtitle: "Beautiful defaults",
+    }),
+    body: ui.panel("Counter", [
+      ui.row({ gap: 1, items: "center" }, [
+        ui.text(`Count: ${state.count}`, { variant: "heading" }),
+        ui.spacer({ flex: 1 }),
+        ui.button({
+          id: "dec",
+          label: "-1",
+          intent: "secondary",
+          onPress: () => app.update((s) => ({ ...s, count: s.count - 1 })),
+        }),
         ui.button({
           id: "inc",
           label: "+1",
+          intent: "primary",
           onPress: () => app.update((s) => ({ ...s, count: s.count + 1 })),
         }),
       ]),
     ]),
-  ]),
+  }),
 );
 
-await app.start();
+await app.run();

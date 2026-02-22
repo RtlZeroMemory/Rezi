@@ -25,23 +25,21 @@ ui.select({
 |---|---|---|---|
 | `id` | `string` | **required** | Unique identifier for focus and event routing |
 | `value` | `string` | **required** | Currently selected value |
-| `options` | `{ value: string; label: string }[]` | **required** | Available options |
+| `options` | `{ value: string; label: string; disabled?: boolean }[]` | **required** | Available options |
 | `onChange` | `(value: string) => void` | - | Called when selection changes |
 | `disabled` | `boolean` | `false` | Disable focus and interaction |
 | `placeholder` | `string` | - | Text shown when no matching option label is found |
 | `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused select decoration |
+| `dsSize` | `"sm" \| "md" \| "lg"` | `"md"` | Design system size preset (controls padding) |
 | `key` | `string` | - | Reconciliation key |
 
 ## Design System Styling
 
-Selects can be styled via the recipe system. While direct `ds*` props are planned, you can use the `recipe.select()` function in custom rendering:
+Selects are design-system styled by default when the active theme provides semantic color tokens. Use `dsSize` to adjust padding.
 
-```typescript
-import { recipe } from "@rezi-ui/core";
-// recipe.select(colors, { state, size })
-```
+If the active theme does not provide semantic color tokens, selects fall back to non-recipe rendering.
 
-See [Widget Authoring Guide](../guide/widget-authoring.md) for design system integration patterns.
+> Note: like inputs, framed select chrome (border + interior) needs at least 3 rows of height. In a 1-row layout, the select still renders with recipe text/background styling, but without a box border.
 
 ## Behavior
 

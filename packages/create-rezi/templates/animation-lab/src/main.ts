@@ -1,6 +1,5 @@
 import { exit } from "node:process";
-import { createApp } from "@rezi-ui/core";
-import { createNodeBackend } from "@rezi-ui/node";
+import { createNodeApp } from "@rezi-ui/node";
 import { resolveAnimationLabCommand } from "./helpers/keybindings.js";
 import { createInitialState, reduceAnimationLabState } from "./helpers/state.js";
 import { renderReactorLab } from "./screens/reactor-lab.js";
@@ -11,16 +10,12 @@ function describeThrown(error: unknown): string {
   return String(error);
 }
 
-const app = createApp({
-  backend: createNodeBackend({
-    fpsCap: 30,
-    executionMode: "inline",
-  }),
+const app = createNodeApp({
   initialState: createInitialState({
     cols: typeof process.stdout.columns === "number" ? process.stdout.columns : 96,
     rows: typeof process.stdout.rows === "number" ? process.stdout.rows : 32,
   }),
-  config: { fpsCap: 30 },
+  config: { fpsCap: 30, executionMode: "inline" },
 });
 
 function dispatch(action: AnimationLabAction): void {

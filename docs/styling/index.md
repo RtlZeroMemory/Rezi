@@ -12,6 +12,10 @@ Rezi styling works at two levels:
 **Semantic Themes**
 : Use predefined theme tokens for consistent colors across your application.
 
+## Beautiful Defaults
+
+When the active theme provides semantic color tokens, core interactive widgets are recipe-styled by default (buttons, inputs, selects, checkboxes, progress, callouts). Use `intent` on buttons for common “primary/danger/link” patterns, and use manual `style` props to override specific attributes (they do not disable recipes).
+
 ## Quick Example
 
 ```typescript
@@ -23,15 +27,21 @@ const app = createNodeApp({
 });
 
 app.view(() =>
-  ui.column({ p: 1, gap: 1 }, [
-    // Direct RGB styling
-    ui.text("Error!", { style: { fg: rgb(255, 100, 100), bold: true } }),
+  ui.page({
+    p: 1,
+    gap: 1,
+    header: ui.header({ title: "Styling" }),
+    body: ui.column({ gap: 1 }, [
+      // Direct RGB styling
+      ui.text("Error!", { style: { fg: rgb(255, 100, 100), bold: true } }),
 
-    // Theme-aware styling
-    ui.box({ title: "Panel", border: "rounded", p: 1 }, [
-      ui.text("Content here"),
+      // Theme-aware styling + composition helpers
+      ui.panel("Panel", [
+        ui.text("Content here"),
+        ui.actions([ui.button({ id: "ok", label: "OK", intent: "primary" })]),
+      ]),
     ]),
-  ])
+  })
 );
 
 // Apply a built-in theme

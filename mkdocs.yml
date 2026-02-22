@@ -106,6 +106,7 @@ nav:
       - FAQ: getting-started/faq.md
   - Migration:
       - Ink to Rezi: migration/ink-to-rezi.md
+      - Beautiful Defaults: migration/beautiful-defaults.md
   - Guides:
       - Index: guide/index.md
       - Concepts: guide/concepts.md

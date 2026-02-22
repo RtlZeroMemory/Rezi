@@ -128,11 +128,16 @@ app.isNoColor; // boolean
 This supports CI and accessibility tooling that relies on the
 [no-color.org](https://no-color.org/) convention.
 
-## Deprecated legacy path
+## Backend access (advanced)
 
-Manual `createNodeBackend()` + `createApp()` (`@rezi-ui/core`) wiring is
-deprecated for standard Node/Bun app construction. Prefer `createNodeApp()` from
-`@rezi-ui/node` so app/core and backend settings stay aligned automatically.
+Most apps should use `createNodeApp()` so app/core and backend settings stay
+aligned automatically.
+
+If you need direct backend access (benchmarks/custom runners), you can either:
+
+- read it off `createNodeApp(...)` via `app.backend`, or
+- construct it directly with `createNodeBackend()` and pass it to `createApp()`
+  from `@rezi-ui/core`.
 
 ## Native engine config passthrough
 

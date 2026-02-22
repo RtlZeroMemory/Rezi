@@ -8,7 +8,15 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ### Added
 
-- _No unreleased changes yet._
+- Beautiful-by-default widget styling via design system recipes:
+  - Buttons, inputs/textareas, selects, checkboxes, progress bars, and callouts now render with recipe styling by default when semantic theme tokens are available.
+- `intent` prop on `ButtonProps` (`"primary" | "secondary" | "danger" | "success" | "warning" | "link"`) as a shorthand for `dsVariant`/`dsTone` (and `dsSize` for link).
+- `preset` prop on `BoxProps` (`"card" | "surface" | "well" | "elevated"`) for consistent container defaults.
+- Composition helpers: `ui.appShell`, `ui.card`, `ui.toolbar`, `ui.statusBar`, `ui.header`, `ui.sidebar`, `ui.masterDetail`.
+
+### Changed
+
+- **Breaking (alpha):** manual styling props (`style`, `pressedStyle`, `trackStyle`, `px`) no longer opt out of recipe styling when semantic tokens are available; they are merged on top of the recipe result.
 
 ## [0.1.0-alpha.30] - 2026-02-22
 

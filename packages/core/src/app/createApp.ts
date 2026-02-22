@@ -529,20 +529,20 @@ type CreateAppRoutesOnlyOptions = CreateAppBaseOptions &
  * Create a Rezi application instance.
  *
  * @typeParam S - Application state type
- * @param opts.backend - Runtime backend (e.g., createNodeBackend())
+ * @param opts.backend - Runtime backend implementation
  * @param opts.initialState - Initial application state
  * @param opts.config - Optional configuration overrides
  * @returns App instance with view/draw, update, start/stop/dispose methods
  *
  * @example
  * ```ts
- * const app = createApp({
- *   backend: createNodeBackend(),
- *   initialState: { count: 0 },
- * });
+ * // For Node/Bun apps, prefer createNodeApp() from @rezi-ui/node:
+ * // const app = createNodeApp({ initialState: { count: 0 } });
  *
+ * // For custom runtimes/backends, compose manually:
+ * const app = createApp({ backend, initialState: { count: 0 } });
  * app.view((state) => ui.text(`Count: ${state.count}`));
- * await app.start();
+ * await app.run();
  * ```
  */
 export function createApp(opts: CreateAppRoutesOnlyOptions): App<Record<string, never>>;
@@ -555,7 +555,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   if (config.useV2Cursor && backendUseDrawlistV2 === false) {
     invalidProps(
       "config.useV2Cursor=true but backend.useDrawlistV2=false. " +
-        "Fix: set createNodeBackend({ useDrawlistV2: true }) or configure a backend drawlist version >= 2.",
+        "Fix: enable cursor-v2 support in the backend (drawlistVersion >= 2).",
     );
   }
 
@@ -577,7 +577,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     invalidProps(
       `config.maxEventBytes=${String(config.maxEventBytes)} must match backend maxEventBytes=${String(
         backendMaxEventBytes,
-      )}. Fix: set the same maxEventBytes in createApp({ config }) and createNodeBackend({ maxEventBytes }), or use createNodeApp({ config: { maxEventBytes: ... } }).`,
+      )}. Fix: align maxEventBytes between app config and backend, or prefer createNodeApp({ config }) for Node/Bun apps to keep them aligned automatically.`,
     );
   }
 
@@ -586,7 +586,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     invalidProps(
       `config.fpsCap=${String(config.fpsCap)} must match backend fpsCap=${String(
         backendFpsCap,
-      )}. Fix: set the same fpsCap in createApp({ config }) and createNodeBackend({ fpsCap }), or use createNodeApp({ config: { fpsCap: ... } }).`,
+      )}. Fix: align fpsCap between app config and backend, or prefer createNodeApp({ config }) for Node/Bun apps to keep them aligned automatically.`,
     );
   }
 

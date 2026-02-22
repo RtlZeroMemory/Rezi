@@ -113,13 +113,21 @@ See [docs/design-system.md](docs/design-system.md) for the full specification.
 - **DS Props**: `dsVariant`, `dsTone`, `dsSize` on interactive widgets for recipe-based styling
 - **Snapshot Testing**: `captureSnapshot()` + `rezi-snap` CLI for visual regression
 
+### Beautiful Defaults (Design System by Default)
+
+When the active theme provides semantic color tokens, these widgets are recipe-styled by default:
+`ui.button`, `ui.input`/`ui.textarea`, `ui.select`, `ui.checkbox`, `ui.progress`, `ui.callout`.
+
+- **Manual overrides**: `style` / `pressedStyle` / `px` / `trackStyle` are merged on top of recipe results (they do not disable recipes).
+- **Framed inputs/selects**: Drawing a full border + interior requires at least **3 rows** of height; at 1 row they still use recipe text/background styling but render without a box border.
+
 ### Design System Buttons
 
 ```typescript
-// Design-system-styled button
-ui.button({ id: "save", label: "Save", dsVariant: "solid", dsTone: "primary", dsSize: "md" })
-ui.button({ id: "cancel", label: "Cancel", dsVariant: "ghost" })
-ui.button({ id: "delete", label: "Delete", dsVariant: "outline", dsTone: "danger" })
+// Intent-based button styling
+ui.button({ id: "save", label: "Save", intent: "primary" })
+ui.button({ id: "cancel", label: "Cancel" })
+ui.button({ id: "delete", label: "Delete", intent: "danger" })
 ```
 
 ### Widget Gallery
@@ -139,10 +147,22 @@ node scripts/rezi-snap.mjs --verify            # Verify snapshots
 import { ui, createApp } from "@rezi-ui/core";
 
 const view = (state: AppState) =>
-  ui.column({ gap: 1 }, [
-    ui.text(`Count: ${state.count}`),
-    ui.button({ id: "inc", label: "+1", onPress: () => app.update(s => ({ ...s, count: s.count + 1 })) }),
-  ]);
+  ui.page({
+    p: 1,
+    gap: 1,
+    body: ui.panel("Counter", [
+      ui.row({ gap: 1, items: "center" }, [
+        ui.text(`Count: ${state.count}`, { variant: "heading" }),
+        ui.spacer({ flex: 1 }),
+        ui.button({
+          id: "inc",
+          label: "+1",
+          intent: "primary",
+          onPress: () => app.update((s) => ({ ...s, count: s.count + 1 })),
+        }),
+      ]),
+    ]),
+  });
 ```
 
 ### Layer 2 — Composition API (for reusable widgets)
@@ -152,9 +172,17 @@ import { defineWidget } from "@rezi-ui/core";
 
 const Counter = defineWidget<{ initial: number; key?: string }>((props, ctx) => {
   const [count, setCount] = ctx.useState(props.initial);
-  return ui.column({ gap: 1 }, [
-    ui.text(`Count: ${count}`),
-    ui.button({ id: ctx.id("inc"), label: "+1", onPress: () => setCount(c => c + 1) }),
+  return ui.card("Counter", [
+    ui.row({ gap: 1, items: "center" }, [
+      ui.text(`Count: ${count}`),
+      ui.spacer({ flex: 1 }),
+      ui.button({
+        id: ctx.id("inc"),
+        label: "+1",
+        intent: "primary",
+        onPress: () => setCount((c) => c + 1),
+      }),
+    ]),
   ]);
 });
 ```
@@ -235,6 +263,141 @@ CI runs `codegen:check`; stale generated writers fail the build.
 - Don't duplicate widget IDs across the tree.
 - Don't exceed 500 nesting depth.
 - Don't import from internal paths (use package exports only).
+
+## TUI Aesthetics Rulebook
+
+Follow these rules when building Rezi TUI applications to produce professional, visually appealing interfaces.
+
+### Layout Rules
+- ALWAYS wrap the root view in `ui.page({ p: 1, gap: 1, header, body, footer })` for proper page structure with breathing room from terminal edges.
+- Use `ui.appShell()` for apps with sidebar navigation. Use `ui.page()` for simpler layouts.
+- Group related content in `ui.panel("Section Title", [...])` — this gives you rounded borders, padding, and a title automatically.
+- Use `ui.card("Title", [...])` for standalone elevated content blocks.
+- Never let content touch terminal edges — always have at least `p: 1` on the outermost container.
+
+### Spacing Rhythm
+- `gap: 0` — tightly coupled items only (label + value on same line, radio options)
+- `gap: 1` — related items (form fields, list items, buttons in a row)
+- `gap: 2` — distinct sections within a panel (form groups, content blocks)
+- Use `ui.divider()` between major sections instead of large gaps.
+- Use `ui.spacer({ flex: 1 })` to push content apart (e.g., left/right in a row).
+
+### Button Styling
+- Primary action (Save, Submit, Confirm): `intent: "primary"` or `dsVariant: "solid", dsTone: "primary"`
+- Secondary action (Cancel, Back): `intent: "secondary"` or `dsVariant: "soft"` (this is the default — just `ui.button("id", "Label")` works)
+- Destructive action (Delete, Remove): `intent: "danger"` or `dsVariant: "outline", dsTone: "danger"`
+- Minimal/link action (Learn more, Skip): `intent: "link"` or `dsVariant: "ghost"`
+- Place buttons in `ui.actions([...])` for right-aligned button rows
+- ONLY ONE solid/primary button per visible section — it's the main call to action.
+
+### Visual Hierarchy
+- Page title: `ui.text("Title", { variant: "heading" })` — bold, primary color
+- Section titles: use `ui.panel("Section Name", [...])` to get automatic titled panels
+- Labels/captions: `ui.text("label", { variant: "caption" })` — dim, secondary color
+- Body text: `ui.text("content")` — default, no variant needed
+- Code/mono: `ui.text("code", { variant: "code" })`
+- De-emphasized: `ui.text("muted", { dim: true })`
+
+### Status & Indicators
+- Use `ui.badge("text", { variant: "success" })` for status labels (success/error/warning/info)
+- Use `ui.status("online")` for connection/presence indicators
+- Use `ui.tag("label", { variant: "info" })` for categorization tags
+- Use `ui.callout("message", { variant: "warning" })` for inline alerts
+- Use `ui.progress(value)` for progress bars — recipe-styled by default when semantic tokens are present
+
+### Form Patterns
+- Wrap each field in `ui.field({ label: "Name", children: ui.input(...) })` for label + error + hint
+- Group fields in `ui.form([...])` for consistent spacing
+- End forms with `ui.actions([cancelBtn, submitBtn])` — cancel first, primary submit last
+- Inputs are recipe-styled by default when semantic tokens are present (use 3+ rows for a framed border)
+- Use `placeholder` prop on inputs for guidance text
+
+### Color Usage
+- NEVER hardcode RGB values — let the theme handle colors via tokens
+- Use `variant` props on badges, tags, callouts, status indicators for semantic colors
+- Use `dsVariant`/`dsTone` on buttons and interactive widgets for consistent theming
+- If you need manual colors, use theme token paths, not raw `{ r, g, b }` objects
+- Trust the design system — 6 built-in themes all work with the semantic color system
+
+### Common Layout Patterns
+
+```typescript
+// Standard app layout with header and footer
+ui.page({
+  p: 1,
+  gap: 1,
+  header: ui.row({ gap: 1, items: "center" }, [
+    ui.text("My App", { variant: "heading" }),
+    ui.badge("v1.0", { variant: "info" }),
+    ui.spacer({ flex: 1 }),
+    ui.button("settings", "Settings", { intent: "link" }),
+  ]),
+  body: ui.column({ gap: 2 }, [
+    ui.panel("Section 1", [
+      ui.text("Content goes here"),
+    ]),
+    ui.panel("Section 2", [
+      ui.form([
+        ui.field({ label: "Name", children: ui.input("name", state.name) }),
+        ui.field({ label: "Email", children: ui.input("email", state.email) }),
+      ]),
+    ]),
+  ]),
+  footer: ui.actions([
+    ui.button("cancel", "Cancel"),
+    ui.button("save", "Save", { intent: "primary" }),
+  ]),
+})
+```
+
+```typescript
+// Dashboard with sidebar navigation
+ui.appShell({
+  header: ui.row({ gap: 1, items: "center" }, [
+    ui.text("Dashboard", { variant: "heading" }),
+    ui.badge("Live", { variant: "success" }),
+  ]),
+  sidebar: {
+    content: ui.sidebar({
+      items: [
+        { id: "overview", label: "Overview" },
+        { id: "users", label: "Users" },
+        { id: "settings", label: "Settings" },
+      ],
+      selected: state.currentPage,
+      onSelect: (id) => dispatch({ type: "navigate", page: id }),
+    }),
+    width: 22,
+  },
+  body: renderCurrentPage(state),
+  footer: ui.statusBar({
+    left: [ui.status("online"), ui.text("Connected")],
+    right: [ui.text("v1.0.0")],
+  }),
+})
+```
+
+```typescript
+// Confirmation dialog
+ui.dialog({
+  id: "confirm-delete",
+  title: "Delete Item",
+  message: "Are you sure you want to delete this item? This action cannot be undone.",
+  actions: [
+    { label: "Cancel", onPress: () => dispatch({ type: "close-dialog" }) },
+    { label: "Delete", intent: "danger", onPress: () => dispatch({ type: "delete" }) },
+  ],
+})
+```
+
+### Anti-Patterns (DO NOT)
+- Don't use `ui.column` as your root — use `ui.page()` or `ui.appShell()` instead.
+- Don't manually set `fg`/`bg` colors on every widget — use the design system.
+- Don't use `gap: 0` everywhere — it makes the UI cramped and hard to read.
+- Don't put buttons without `ui.actions()` — they'll be left-aligned and look scattered.
+- Don't skip `ui.panel()` for content sections — bare text with no container looks unfinished.
+- Don't use `dsVariant: "solid"` on every button — only the primary CTA should be solid.
+- Don't nest more than 3 levels of bordered containers — it gets visually noisy.
 
 ## Testing
 
