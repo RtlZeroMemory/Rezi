@@ -22,6 +22,18 @@ export type BenchFrameBackend = RuntimeBackend &
     reset: () => void;
   }>;
 
+const BACKEND_MARKER_PREFIX = "__reziBackend";
+
+function copyBackendMarkers(target: object, source: object): void {
+  // Preserve backend capability markers used by createApp() for drawlist/event negotiation.
+  for (const key of Object.getOwnPropertyNames(source)) {
+    if (!key.startsWith(BACKEND_MARKER_PREFIX)) continue;
+    const desc = Object.getOwnPropertyDescriptor(source, key);
+    if (!desc) continue;
+    Object.defineProperty(target, key, desc);
+  }
+}
+
 export class LatchingBackend implements BenchFrameBackend {
   frameCount = 0;
   totalFrameBytes = 0;
@@ -32,6 +44,7 @@ export class LatchingBackend implements BenchFrameBackend {
 
   constructor(inner: RuntimeBackend) {
     this.inner = inner;
+    copyBackendMarkers(this, inner as object);
   }
 
   async start(): Promise<void> {
