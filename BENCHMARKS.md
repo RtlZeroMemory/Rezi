@@ -13,6 +13,13 @@ Frameworks currently covered:
 
 `ink-compat` remains deprecated and is not part of the active matrix.
 
+Terminal suite coverage includes both primitive and full-app workloads:
+- primitives: rerender, frame-fill, virtual-list, table, screen-transition, fps-stream, input-latency, memory-soak
+- full-app: `terminal-full-ui` (composite shell) and `terminal-full-ui-navigation` (route/page flow)
+- strict apples-to-apples: `terminal-strict-ui` and `terminal-strict-ui-navigation`
+  - goal: compare structured panel composition across frameworks (not only line-level primitives)
+  - fairness intent: reduce bias when comparing Rezi against lower-level backends (notably blessed/ratatui)
+
 ## Latest Artifacts
 
 Rigorous terminal-suite dataset (multi-replicate, confidence-focused):
@@ -52,6 +59,25 @@ Case-level notes:
 - Bubble Tea is executed through `packages/bench/bubbletea-bench/main.go` using Bubble Tea's normal program loop and terminal renderer.
 - In these runs, Bubble Tea throughput clusters around ~120 fps-equivalent in many scenarios. This behavior is visible directly in per-scenario ops/s and should be considered when interpreting throughput-style loops.
 - PTY mode (`--io pty`) is required for OpenTUI and Bubble Tea measurements in this suite.
+
+### Known Comparability Caveats
+
+- Runtime mismatch:
+  - OpenTUI rows are executed in a Bun subprocess.
+  - Rezi / Ink / blessed rows execute in Node worker processes.
+  - Ratatui and Bubble Tea execute in native subprocesses (Rust / Go).
+  - Cross-framework results therefore include both framework cost and runtime/toolchain effects.
+- Strict scenario implementation parity:
+  - `terminal-strict-ui` and `terminal-strict-ui-navigation` are structured-panel composition scenarios by intent.
+  - Rezi / Ink / OpenTUI (React and core) / blessed / ratatui execute structured panel composition paths.
+  - Bubble Tea uses lipgloss-composed bordered panel layouts in its `View()` string path (not a separate widget-tree runtime), with shared strict workload sections.
+  - Keep this distinction explicit when publishing strict-scenario comparisons.
+- Byte metrics:
+  - `bytesProduced` is framework-local and not semantically identical across frameworks.
+  - Prefer `ptyBytesObserved` for cross-framework terminal I/O comparisons in PTY mode.
+- Environment jitter:
+  - WSL/virtualized hosts can materially increase jitter and scheduler noise.
+  - Treat WSL-collected artifacts as directional unless confirmed on bare-metal Linux.
 
 ## Reproducing
 

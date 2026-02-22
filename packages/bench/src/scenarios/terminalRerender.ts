@@ -216,8 +216,6 @@ async function runBlessed(config: ScenarioConfig): Promise<BenchMetrics> {
     box.setContent(`terminal-rerender\n\ntick=${tick}\n`);
     screen.render();
     await renderP;
-    await new Promise<void>((resolve) => process.nextTick(resolve));
-    await new Promise<void>((resolve) => setImmediate(resolve));
   };
 
   try {
@@ -264,6 +262,7 @@ export const terminalRerenderScenario: Scenario = {
       case "ink":
         return runInk(config);
       case "opentui":
+      case "bubbletea":
         return runOpenTui(config);
       case "blessed":
         return runBlessed(config);

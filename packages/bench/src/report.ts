@@ -245,8 +245,8 @@ export function printTerminalTable(results: readonly BenchResult[]): void {
       pad("CPU (u+s)", 12, "right"),
       pad("RSS", 10, "right"),
       pad("Heap", 10, "right"),
-      pad("Bytes", 11, "right"),
-      pad("PTY Bytes", 12, "right"),
+      pad("Bytes(local)", 12, "right"),
+      pad("Bytes(pty)", 12, "right"),
     ].join("");
     console.log(`  ${header}`);
     console.log(`  ${"─".repeat(132)}`);
@@ -272,7 +272,7 @@ export function printTerminalTable(results: readonly BenchResult[]): void {
         pad(fmtMs(m.cpu.userMs + m.cpu.systemMs), 12, "right"),
         pad(fmtKb(m.memPeak.rssKb), 10, "right"),
         pad(fmtKbOpt(m.memPeak.heapUsedKb), 10, "right"),
-        pad(fmtKb(bytesPerFrameKb), 11, "right"),
+        pad(fmtKb(bytesPerFrameKb), 12, "right"),
         pad(m.ptyBytesObserved === null ? "n/a" : fmtKb(m.ptyBytesObserved / 1024), 12, "right"),
       ].join("");
 
@@ -291,8 +291,14 @@ export function toMarkdown(run: BenchRun): string {
   lines.push(
     `> ${meta.timestamp} | Node ${meta.nodeVersion} | Bun ${meta.bunVersion ?? "n/a"} | rustc ${meta.rustcVersion ?? "n/a"} | cargo ${meta.cargoVersion ?? "n/a"} | ${meta.osType} ${meta.osRelease} | ${meta.platform} ${meta.arch} | ${meta.cpuModel} (${meta.cpuCores} cores) | RAM ${meta.memoryTotalMb}MB | governor=${meta.cpuGovernor ?? "n/a"} | wsl=${meta.isWsl ? "yes" : "no"}\n`,
   );
+  if (meta.environmentCaveat) {
+    lines.push(`> WARNING: ${meta.environmentCaveat}\n`);
+  }
   lines.push(
     `> Invocation: suite=${invocation.suite} matchup=${invocation.matchup} scenario=${invocation.scenarioFilter ?? "all"} framework=${invocation.frameworkFilter ?? "all"} warmup=${invocation.warmupOverride ?? "default"} iterations=${invocation.iterationsOverride ?? "default"} quick=${invocation.quick ? "yes" : "no"} io=${invocation.ioMode} opentuiDriver=${invocation.opentuiDriver} replicates=${invocation.replicates} discardFirstReplicate=${invocation.discardFirstReplicate ? "yes" : "no"} shuffleFrameworkOrder=${invocation.shuffleFrameworkOrder ? "yes" : "no"} shuffleSeed=${invocation.shuffleSeed} envCheck=${invocation.envCheck} cpuAffinity=${invocation.cpuAffinity ?? "none"}\n`,
+  );
+  lines.push(
+    '> Byte columns: "Bytes(local)" = framework-local counter; "Bytes(pty)" = observed PTY bytes (cross-framework comparable in PTY mode).\n',
   );
 
   const groups = aggregateResultsByScenario(results);
@@ -300,7 +306,7 @@ export function toMarkdown(run: BenchRun): string {
   for (const [group, items] of groups) {
     lines.push(`## ${group}\n`);
     lines.push(
-      "| Framework | Runs | Mean | Run CV | Mean CI95 | ops/s | Wall | CPU user | CPU sys | Peak RSS | Peak Heap | Bytes | PTY Bytes |",
+      "| Framework | Runs | Mean | Run CV | Mean CI95 | ops/s | Wall | CPU user | CPU sys | Peak RSS | Peak Heap | Bytes(local) | Bytes(pty) |",
     );
     lines.push("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
 

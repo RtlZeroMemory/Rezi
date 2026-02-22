@@ -203,6 +203,7 @@ export async function runInkLineScenario(
     }
 
     const bytesBase = stdout.totalBytes;
+    const writesBase = stdout.writeCount;
     const metrics = await benchAsync(
       async (i) => {
         const tick = config.warmup + i + 1;
@@ -216,7 +217,7 @@ export async function runInkLineScenario(
       config.iterations,
     );
 
-    metrics.framesProduced = config.iterations;
+    metrics.framesProduced = Math.max(0, stdout.writeCount - writesBase);
     metrics.bytesProduced = stdout.totalBytes - bytesBase;
     return metrics;
   } finally {
@@ -265,8 +266,6 @@ export async function runBlessedLineScenario(
     const renderP = new Promise<void>((resolve) => screen.once("render", () => resolve()));
     await delayTrigger(mode, doRender);
     await renderP;
-    await new Promise<void>((resolve) => process.nextTick(resolve));
-    await new Promise<void>((resolve) => setImmediate(resolve));
   };
 
   try {

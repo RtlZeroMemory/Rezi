@@ -32,6 +32,7 @@ export const terminalInputLatencyScenario: Scenario = {
       case "ink":
         return runInkLineScenario(config, params, buildTerminalInputLatencyLines, "event-loop");
       case "opentui":
+      case "bubbletea":
         return runOpenTuiScenario("terminal-input-latency", config, params);
       case "blessed":
         return runBlessedLineScenario(config, params, buildTerminalInputLatencyLines, "event-loop");

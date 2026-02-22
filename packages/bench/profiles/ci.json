@@ -5,6 +5,8 @@
   "requiredScenarios": [
     "terminal-rerender",
     "terminal-frame-fill",
+    "terminal-full-ui",
+    "terminal-strict-ui",
     "terminal-virtual-list",
     "terminal-table"
   ],
@@ -14,8 +16,18 @@
       { "rows": 40, "cols": 120, "dirtyLines": 1 },
       { "rows": 40, "cols": 120, "dirtyLines": 40 }
     ],
+    "terminal-full-ui": [{ "rows": 40, "cols": 120, "services": 24 }],
+    "terminal-strict-ui": [{ "rows": 40, "cols": 120, "services": 24 }],
     "terminal-virtual-list": [{ "items": 100000, "viewport": 40 }],
     "terminal-table": [{ "rows": 40, "cols": 8 }]
+  },
+  "explicitExclusions": {
+    "terminal-screen-transition": "Excluded from PR gate due higher route-mode variance; covered in manual/nightly PTY runs.",
+    "terminal-fps-stream": "Excluded from PR gate due host-dependent scheduler noise in high-frequency stream workloads.",
+    "terminal-input-latency": "Excluded from PR gate due event-loop scheduling sensitivity across CI hosts.",
+    "terminal-memory-soak": "Excluded from PR gate to keep PR runtime bounded; tracked in dedicated profiling runs.",
+    "terminal-full-ui-navigation": "Excluded to keep PR perf runtime bounded; full-ui navigation is tracked outside the reduced gate.",
+    "terminal-strict-ui-navigation": "Excluded to keep PR perf runtime bounded; strict navigation parity is tracked outside the reduced gate."
   },
   "framework": "rezi-native",
   "io": "stub",

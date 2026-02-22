@@ -35,6 +35,22 @@ function resolveGoBin(): string {
   return env.REZI_GO_BIN ?? "go";
 }
 
+function resolveBubbleTeaFps(): number | null {
+  const env = process.env as Readonly<{
+    REZI_BUBBLETEA_BENCH_FPS?: string;
+    REZI_BUBBLETEA_FPS?: string;
+  }>;
+  const raw = (env.REZI_BUBBLETEA_BENCH_FPS ?? env.REZI_BUBBLETEA_FPS ?? "").trim();
+  if (raw.length === 0) return null;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(
+      `invalid Bubble Tea FPS override: ${raw} (expected positive integer via REZI_BUBBLETEA_BENCH_FPS)`,
+    );
+  }
+  return parsed;
+}
+
 function resolveBubbleTeaBenchBinaryPath(): string {
   const env = process.env as Readonly<{ REZI_BUBBLETEA_BENCH_BIN?: string }>;
   if (env.REZI_BUBBLETEA_BENCH_BIN) {
@@ -141,6 +157,10 @@ export async function runBubbleTeaScenario(
     "--result-path",
     resultPath,
   ];
+  const fps = resolveBubbleTeaFps();
+  if (fps !== null) {
+    args.push("--fps", String(fps));
+  }
 
   for (const [k, v] of Object.entries(params)) {
     args.push(`--${k}`, String(v));

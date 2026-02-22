@@ -112,5 +112,15 @@ Recommended: Go `>= 1.24`.
 See `BENCHMARKS.md` for:
 
 - Terminal scenario definitions (`terminal-rerender`, `frame-fill`, `screen-transition`, `fps-stream`, `input-latency`, `memory-soak`, `virtual-list`, `table`)
+- Full-app scenarios (`terminal-full-ui`, `terminal-full-ui-navigation`) for end-to-end shell + route-flow coverage
+- Strict apples-to-apples scenarios (`terminal-strict-ui`, `terminal-strict-ui-navigation`) for structured panel-composition fairness
 - Methodology notes (process isolation, replicates, CI bands, shuffle order, CPU affinity)
 - CPU/wall/memory interpretation and precision limits
+
+Also treat these caveats as first-order when comparing frameworks:
+
+- OpenTUI rows run under Bun; Rezi/Ink/blessed run under Node; Bubble Tea/Ratatui run in native subprocesses.
+- Bubble Tea often clusters around ~120 fps-equivalent throughput in these harness runs.
+- `bytesProduced` is framework-local and not directly comparable; prefer PTY-observed bytes for cross-framework I/O views.
+- Strict scenarios are implemented as structured panel workloads across providers; Bubble Tea still renders via its string `View()` path (lipgloss-composed layout), so keep runtime-path caveats from `BENCHMARKS.md` in mind.
+- WSL-host results are useful for directional analysis but can be noisier than bare-metal Linux.

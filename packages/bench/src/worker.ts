@@ -72,11 +72,9 @@ async function main(): Promise<void> {
   }
 
   const timestamp = new Date().toISOString();
-  const executionFramework: Framework =
-    payload.framework === "bubbletea" ? "opentui" : payload.framework;
 
   try {
-    const metrics = await scenario.run(executionFramework, payload.config, payload.params);
+    const metrics = await scenario.run(payload.framework, payload.config, payload.params);
     const result: BenchResult = {
       scenario: scenario.name,
       framework: payload.framework,

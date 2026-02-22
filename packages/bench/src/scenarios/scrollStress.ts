@@ -217,6 +217,7 @@ export const scrollStressScenario: Scenario = {
       case "ink":
         return runInk(config, items);
       case "opentui":
+      case "bubbletea":
         return runOpenTui(config, items);
       default:
         throw new Error(`scroll-stress: unsupported framework "${framework}"`);

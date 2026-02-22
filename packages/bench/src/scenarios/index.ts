@@ -13,10 +13,14 @@ import { startupScenario } from "./startup.js";
 import { tableScenario } from "./tables.js";
 import { terminalFpsStreamScenario } from "./terminalFpsStream.js";
 import { terminalFrameFillScenario } from "./terminalFrameFill.js";
+import { terminalFullUiNavigationScenario } from "./terminalFullUiNavigation.js";
+import { terminalFullUiScenario } from "./terminalFullUi.js";
 import { terminalInputLatencyScenario } from "./terminalInputLatency.js";
 import { terminalMemorySoakScenario } from "./terminalMemorySoak.js";
 import { terminalRerenderScenario } from "./terminalRerender.js";
 import { terminalScreenTransitionScenario } from "./terminalScreenTransition.js";
+import { terminalStrictUiNavigationScenario } from "./terminalStrictUiNavigation.js";
+import { terminalStrictUiScenario } from "./terminalStrictUi.js";
 import { terminalTableScenario } from "./terminalTable.js";
 import { terminalVirtualListScenario } from "./terminalVirtualList.js";
 import { virtualListScenario } from "./virtualList.js";
@@ -38,6 +42,10 @@ export const scenarios: readonly Scenario[] = [
   terminalFpsStreamScenario,
   terminalInputLatencyScenario,
   terminalMemorySoakScenario,
+  terminalFullUiScenario,
+  terminalFullUiNavigationScenario,
+  terminalStrictUiScenario,
+  terminalStrictUiNavigationScenario,
   terminalVirtualListScenario,
   terminalTableScenario,
 ];

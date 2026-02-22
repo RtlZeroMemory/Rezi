@@ -327,8 +327,6 @@ async function runBlessed(
 
     screen.render();
     await renderP;
-    await new Promise<void>((resolve) => process.nextTick(resolve));
-    await new Promise<void>((resolve) => setImmediate(resolve));
   };
 
   try {
@@ -386,6 +384,7 @@ export const terminalVirtualListScenario: Scenario = {
       case "ink":
         return runInk(config, items, viewport);
       case "opentui":
+      case "bubbletea":
         return runOpenTui(config, items, viewport);
       case "blessed":
         return runBlessed(config, items, viewport);

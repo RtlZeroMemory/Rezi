@@ -253,6 +253,7 @@ export const tableScenario: Scenario = {
       case "ink":
         return runInk(config, rows, cols);
       case "opentui":
+      case "bubbletea":
         return runOpenTui(config, rows, cols);
       default:
         throw new Error(`tables: unsupported framework "${framework}"`);

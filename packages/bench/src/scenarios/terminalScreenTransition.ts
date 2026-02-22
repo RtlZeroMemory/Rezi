@@ -31,6 +31,7 @@ export const terminalScreenTransitionScenario: Scenario = {
       case "ink":
         return runInkLineScenario(config, params, buildTerminalScreenTransitionLines);
       case "opentui":
+      case "bubbletea":
         return runOpenTuiScenario("terminal-screen-transition", config, params);
       case "blessed":
         return runBlessedLineScenario(config, params, buildTerminalScreenTransitionLines);

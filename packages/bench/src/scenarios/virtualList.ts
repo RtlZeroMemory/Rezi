@@ -277,6 +277,7 @@ export const virtualListScenario: Scenario = {
       case "ink":
         return runInk(config, items, viewport);
       case "opentui":
+      case "bubbletea":
         return runOpenTui(config, items, viewport);
       default:
         throw new Error(`virtual-list: unsupported framework "${framework}"`);

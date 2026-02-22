@@ -5,6 +5,10 @@ import { Writable } from "node:stream";
 import { BoxRenderable, TextRenderable, createCliRenderer } from "@opentui/core";
 import { createRoot, flushSync } from "@opentui/react";
 import { type ReactNode, createElement } from "react";
+import {
+  buildStrictPaneLines,
+  buildStrictSections,
+} from "../src/scenarios/terminalStrictWorkloads.ts";
 
 type CliArgs = Readonly<{
   scenario: string;
@@ -484,6 +488,238 @@ function terminalVirtualListLines(
   return lines;
 }
 
+function fullUiPaneWidths(cols: number): Readonly<{ left: number; center: number; right: number }> {
+  const left = Math.max(22, Math.floor(cols * 0.24));
+  const right = Math.max(24, Math.floor(cols * 0.28));
+  const center = Math.max(24, cols - left - right - 6);
+  return { left, center, right };
+}
+
+function paneLine(
+  cols: number,
+  widths: Readonly<{ left: number; center: number; right: number }>,
+  left: string,
+  center: string,
+  right: string,
+): string {
+  return clipPad(
+    `${clipPad(left, widths.left)} │ ${clipPad(center, widths.center)} │ ${clipPad(right, widths.right)}`,
+    cols,
+  );
+}
+
+function spark(seed: number, width: number): string {
+  let out = "";
+  for (let i = 0; i < width; i++) out += (seed + i * 3) % 7 > 2 ? "#" : ".";
+  return out;
+}
+
+function terminalFullUiLines(
+  tick: number,
+  params: Readonly<Record<string, number | string>>,
+): string[] {
+  const rows = Math.max(12, numberParam(params.rows, 40));
+  const cols = Math.max(80, numberParam(params.cols, 120));
+  const services = Math.max(12, numberParam(params.services, 24));
+  const widths = fullUiPaneWidths(cols);
+  const modes = ["overview", "services", "deploy", "incidents"] as const;
+  const mode = modes[tick % modes.length];
+  const navItems = [
+    "Dashboard",
+    "Services",
+    "Deployments",
+    "Incidents",
+    "Queues",
+    "Logs",
+    "Audit",
+    "Settings",
+  ] as const;
+
+  const lines: string[] = [];
+  lines.push(clipPad(`terminal-full-ui mode=${mode} tick=${tick}`, cols));
+  lines.push(
+    clipPad(
+      `cluster=prod-us-east budget=16.6ms cpu=${35 + ((tick * 7) % 40)}% mem=${42 + ((tick * 11) % 49)}% qps=${900 + ((tick * 29) % 1500)}`,
+      cols,
+    ),
+  );
+
+  const bodyRows = Math.max(1, rows - 4);
+  const activeNav = tick % navItems.length;
+  const visibleTableRows = Math.max(6, Math.min(18, bodyRows - 6));
+  const viewportOffset = tick % Math.max(1, services - visibleTableRows + 1);
+  const activeSvc = tick % services;
+
+  for (let r = 0; r < bodyRows; r++) {
+    let left = "";
+    let center = "";
+    let right = "";
+
+    if (r === 0) left = "NAV";
+    else if (r <= navItems.length) {
+      const idx = r - 1;
+      left = `${idx === activeNav ? ">" : " "} ${navItems[idx]}`;
+    } else if (r === navItems.length + 1) {
+      left = `env=${["prod", "stage", "dev"][tick % 3]} region=${["use1", "usw2", "euw1"][tick % 3]}`;
+    } else if (r === navItems.length + 2) {
+      left = `focus=svc-${String(activeSvc).padStart(3, "0")} alerts=${(tick * 3) % 19}`;
+    } else {
+      left = `saved-view-${String((tick + r) % 12).padStart(2, "0")} ${spark(tick + r, 10)}`;
+    }
+
+    if (r === 0) center = "SERVICES";
+    else if (r === 1) center = "id      state      lat   rps   err";
+    else if (r >= 2 && r < 2 + visibleTableRows) {
+      const svc = viewportOffset + (r - 2);
+      const degraded = (tick + svc * 5) % 17 === 0;
+      const lat = 12 + ((tick * 13 + svc * 7) % 180);
+      const rps = 100 + ((tick * 19 + svc * 37) % 2500);
+      const err = ((tick + svc * 11) % 70) / 10;
+      center = `${svc === activeSvc ? ">" : " "} svc-${String(svc).padStart(3, "0")} ${degraded ? "degraded" : "healthy "} ${String(lat).padStart(3, " ")}ms ${String(rps).padStart(4, " ")} ${err.toFixed(1)}%`;
+    } else if (r === 2 + visibleTableRows) {
+      const cpu = ((tick * 17) % 1000) / 1000;
+      center = `cpu ${bar(cpu, 20)} ${(cpu * 100).toFixed(1)}%  io ${(45 + ((tick * 23) % 50)).toString().padStart(2, " ")}%`;
+    } else if (r === 3 + visibleTableRows) {
+      const mem = ((tick * 31 + 211) % 1000) / 1000;
+      center = `mem ${bar(mem, 20)} ${(mem * 100).toFixed(1)}%  gc ${(tick * 97) % 999}ms`;
+    } else if (r === 4 + visibleTableRows) {
+      center = `queue depth=${(tick * 7) % 180} retries=${(tick * 11) % 37} dropped=${(tick * 13) % 9}`;
+    } else {
+      center = `timeline ${spark(tick * 3 + r, Math.max(16, widths.center - 10))}`;
+    }
+
+    if (r === 0) right = "INSPECTOR";
+    else if (r === 1) right = `service=svc-${String(activeSvc).padStart(3, "0")} owner=team-${activeSvc % 7}`;
+    else if (r === 2) right = `slo p95<120ms  now=${45 + ((tick * 5 + activeSvc * 3) % 110)}ms`;
+    else if (r === 3) right = `deploy=${(tick * 3 + activeSvc) % 2 === 0 ? "green" : "canary"} zone=az-${(activeSvc % 3) + 1}`;
+    else {
+      const seq = tick * bodyRows + r;
+      const lvl = seq % 19 === 0 ? "ERROR" : seq % 11 === 0 ? "WARN " : "INFO ";
+      right = `${lvl} t+${String(seq).padStart(5, "0")} op=${String((seq * 7) % 97).padStart(2, "0")} msg=event-${seq}`;
+    }
+
+    lines.push(paneLine(cols, widths, left, center, right));
+  }
+
+  lines.push(
+    clipPad(
+      `status=online conn=${1200 + ((tick * 17) % 800)} sync=${(tick * 29) % 9999} pending=${(tick * 5) % 48} diff=${(tick * 7) % 21}`,
+      cols,
+    ),
+  );
+  lines.push(
+    clipPad(
+      "hotkeys: [1]overview [2]services [3]deploy [4]incidents [/]filter [enter]open [q]quit",
+      cols,
+    ),
+  );
+
+  return lines.slice(0, rows);
+}
+
+function terminalFullUiNavigationLines(
+  tick: number,
+  params: Readonly<Record<string, number | string>>,
+): string[] {
+  const rows = Math.max(12, numberParam(params.rows, 40));
+  const cols = Math.max(80, numberParam(params.cols, 120));
+  const services = Math.max(10, numberParam(params.services, 24));
+  const dwell = Math.max(2, numberParam(params.dwell, 8));
+  const pages = ["overview", "services", "deployments", "incidents", "logs", "command"] as const;
+  const pageIndex = Math.floor(tick / dwell) % pages.length;
+  const page = pages[pageIndex];
+  const localTick = tick % dwell;
+
+  const lines: string[] = [];
+  lines.push(
+    clipPad(
+      `terminal-full-ui-navigation page=${page} tick=${tick} local=${localTick}/${dwell - 1}`,
+      cols,
+    ),
+  );
+  lines.push(
+    clipPad(
+      `tabs: ${pages.map((p, i) => `${i === pageIndex ? "[" : ""}${p}${i === pageIndex ? "]" : ""}`).join(" | ")}`,
+      cols,
+    ),
+  );
+
+  const bodyRows = Math.max(1, rows - 4);
+  for (let i = 0; i < bodyRows; i++) {
+    let line = "";
+
+    if (page === "overview") {
+      if (i === 0) line = "overview: global health + throughput + alerts";
+      else if (i <= 8) {
+        const svc = i - 1;
+        const healthy = (tick + svc * 5) % 9 !== 0;
+        const v = ((tick * 23 + svc * 41) % 1000) / 1000;
+        line = `card svc-${String(svc).padStart(2, "0")} ${healthy ? "healthy " : "degraded"} ${bar(v, 24)} ${(v * 100).toFixed(1)}%`;
+      } else if (i === 9) line = `alerts open=${(tick * 3) % 11} acked=${(tick * 7) % 17} muted=${(tick * 5) % 5}`;
+      else line = `trend ${spark(tick + i * 3, Math.max(16, cols - 10))}`;
+    } else if (page === "services") {
+      if (i === 0) line = "services: inventory + selection + per-row telemetry";
+      else if (i === 1) line = "id      state      lat   rps   err";
+      else {
+        const row = i - 2;
+        const svc = (tick + row) % services;
+        const selected = row === (tick % Math.max(1, bodyRows - 2));
+        const degraded = (tick + svc * 3) % 15 === 0;
+        const lat = 10 + ((tick * 13 + svc * 9) % 220);
+        const rps = 80 + ((tick * 17 + svc * 31) % 3000);
+        const err = ((tick + svc * 7) % 80) / 10;
+        line = `${selected ? ">" : " "} svc-${String(svc).padStart(3, "0")} ${degraded ? "degraded" : "healthy "} ${String(lat).padStart(3, " ")}ms ${String(rps).padStart(4, " ")} ${err.toFixed(1)}%`;
+      }
+    } else if (page === "deployments") {
+      if (i === 0) line = "deployments: staged rollout + promotion gates";
+      else {
+        const step = i % 12;
+        const pct = (tick * 7 + i * 9) % 101;
+        const gate = (tick + step) % 5 === 0 ? "blocked" : "ready  ";
+        line = `pipeline-${String(step).padStart(2, "0")} ${gate} ${bar(pct / 100, 18)} ${String(pct).padStart(3, " ")}% canary=${(tick + step) % 2 === 0 ? "on" : "off"}`;
+      }
+    } else if (page === "incidents") {
+      if (i === 0) line = "incidents: queue + assignee + response status";
+      else {
+        const incident = tick * bodyRows + i;
+        const sev = incident % 13 === 0 ? "sev1" : incident % 7 === 0 ? "sev2" : "sev3";
+        const state =
+          incident % 5 === 0 ? "mitigating" : incident % 3 === 0 ? "triaging  " : "open      ";
+        line = `${sev} inc-${String(incident % 10000).padStart(4, "0")} ${state} owner=oncall-${incident % 9} age=${(incident * 3) % 180}m`;
+      }
+    } else if (page === "logs") {
+      const seq = tick * bodyRows + i;
+      const lvl = seq % 17 === 0 ? "ERROR" : seq % 9 === 0 ? "WARN " : "INFO ";
+      line = `${lvl} trace=${String((seq * 19) % 100000).padStart(5, "0")} shard=${seq % 12} msg=stream-${seq}`;
+    } else {
+      if (i < 2) line = "command palette: type to filter actions";
+      else if (i < 10) {
+        const cmd = i - 2;
+        const selected = cmd === tick % 8;
+        line = `${selected ? ">" : " "} /command-${String(cmd).padStart(2, "0")} target=svc-${String((tick + cmd) % services).padStart(3, "0")} preview=${(tick + cmd) % 2 === 0 ? "safe" : "risky"}`;
+      } else {
+        line = `preview: ${spark(tick * 5 + i, Math.max(16, cols - 10))}`;
+      }
+    }
+
+    lines.push(clipPad(line, cols));
+  }
+
+  lines.push(
+    clipPad(
+      `route=${page} navLatency=${1 + ((tick * 7) % 9)}ms commit=${(tick * 97) % 10000} pending=${(tick * 13) % 33}`,
+      cols,
+    ),
+  );
+  lines.push(
+    clipPad(
+      "flow: [tab]next-page [shift+tab]prev-page [enter]open [esc]close [/]command [ctrl+c]quit",
+      cols,
+    ),
+  );
+  return lines.slice(0, rows);
+}
+
 function scenarioLines(
   scenario: string,
   params: Readonly<Record<string, number | string>>,
@@ -553,6 +789,14 @@ function scenarioLines(
       return terminalInputLatencyLines(tick, params);
     case "terminal-memory-soak":
       return terminalMemorySoakLines(tick, params);
+    case "terminal-full-ui":
+      return terminalFullUiLines(tick, params);
+    case "terminal-full-ui-navigation":
+      return terminalFullUiNavigationLines(tick, params);
+    case "terminal-strict-ui":
+      return [...buildStrictPaneLines(tick, params, "dashboard")];
+    case "terminal-strict-ui-navigation":
+      return [...buildStrictPaneLines(tick, params, "navigation")];
     default:
       throw new Error(`unsupported OpenTUI scenario "${scenario}"`);
   }
@@ -840,6 +1084,52 @@ function terminalTableTree(rows: number, cols: number, tick: number): ReactNode 
   return lineTree(tableLines(rows, cols, tick));
 }
 
+function strictPanelTree(
+  title: string,
+  lines: readonly string[],
+  width?: number,
+): ReactNode {
+  return createElement(
+    "box",
+    { flexDirection: "column", borderStyle: "single", overflow: "hidden", width },
+    createElement("text", { bold: true }, title),
+    ...lines.map((line, i) => createElement("text", { key: `${title}:${i}` }, line)),
+  );
+}
+
+function terminalStrictUiTree(
+  tick: number,
+  params: Readonly<Record<string, number | string>>,
+  variant: "dashboard" | "navigation",
+): ReactNode {
+  const sections = buildStrictSections(tick, params, variant);
+  const leftWidth = 24;
+  const rightWidth = 32;
+
+  return createElement(
+    "box",
+    { flexDirection: "column", width: sections.cols, height: sections.rows, overflow: "hidden" },
+    createElement(
+      "box",
+      { borderStyle: "single", height: 3, overflow: "hidden" },
+      createElement("text", null, sections.header),
+    ),
+    createElement(
+      "box",
+      { flexDirection: "row", flexGrow: 1, overflow: "hidden" },
+      strictPanelTree(sections.leftTitle, sections.leftLines, leftWidth),
+      strictPanelTree(sections.centerTitle, sections.centerLines),
+      strictPanelTree(sections.rightTitle, sections.rightLines, rightWidth),
+    ),
+    createElement(
+      "box",
+      { borderStyle: "single", height: 2, flexDirection: "column", overflow: "hidden" },
+      createElement("text", null, sections.status),
+      createElement("text", null, sections.footer),
+    ),
+  );
+}
+
 function scenarioTree(
   scenario: string,
   params: Readonly<Record<string, number | string>>,
@@ -896,6 +1186,14 @@ function scenarioTree(
       return lineTree(terminalInputLatencyLines(tick, params));
     case "terminal-memory-soak":
       return lineTree(terminalMemorySoakLines(tick, params));
+    case "terminal-full-ui":
+      return lineTree(terminalFullUiLines(tick, params));
+    case "terminal-full-ui-navigation":
+      return lineTree(terminalFullUiNavigationLines(tick, params));
+    case "terminal-strict-ui":
+      return terminalStrictUiTree(tick, params, "dashboard");
+    case "terminal-strict-ui-navigation":
+      return terminalStrictUiTree(tick, params, "navigation");
     default:
       throw new Error(`unsupported OpenTUI scenario "${scenario}"`);
   }
@@ -927,11 +1225,29 @@ function usesEventLoopScheduling(scenario: string): boolean {
 
 type OpenTuiRoot = ReturnType<typeof createRoot>;
 type OpenTuiRenderer = Awaited<ReturnType<typeof createCliRenderer>>;
+type OpenTuiStrictScene = Readonly<{
+  header: BoxRenderable;
+  headerText: TextRenderable;
+  body: BoxRenderable;
+  leftPanel: BoxRenderable;
+  leftTitle: TextRenderable;
+  leftLines: TextRenderable[];
+  centerPanel: BoxRenderable;
+  centerTitle: TextRenderable;
+  centerLines: TextRenderable[];
+  rightPanel: BoxRenderable;
+  rightTitle: TextRenderable;
+  rightLines: TextRenderable[];
+  footer: BoxRenderable;
+  footerStatus: TextRenderable;
+  footerHelp: TextRenderable;
+}>;
 type OpenTuiCoreScene = {
   renderer: OpenTuiRenderer;
   container: BoxRenderable;
   lines: TextRenderable[];
   cols: number;
+  strict: OpenTuiStrictScene | null;
 };
 
 async function createRendererForBench(
@@ -985,10 +1301,13 @@ function createCoreScene(renderer: OpenTuiRenderer, cols: number): OpenTuiCoreSc
     gap: 0,
   });
   renderer.root.add(container);
-  return { renderer, container, lines: [], cols };
+  return { renderer, container, lines: [], cols, strict: null };
 }
 
 function setCoreLines(scene: OpenTuiCoreScene, lines: readonly string[]): void {
+  if (scene.strict) {
+    throw new Error("line-mode render requested while strict core scene is active");
+  }
   while (scene.lines.length < lines.length) {
     const node = new TextRenderable(scene.renderer, {
       content: "",
@@ -1021,13 +1340,255 @@ function setCoreLines(scene: OpenTuiCoreScene, lines: readonly string[]): void {
   }
 }
 
+function ensureTextNodes(
+  renderer: OpenTuiRenderer,
+  panel: BoxRenderable,
+  nodes: TextRenderable[],
+  targetCount: number,
+): void {
+  while (nodes.length < targetCount) {
+    const node = new TextRenderable(renderer, {
+      content: "",
+      truncate: true,
+      wrapMode: "none",
+    });
+    nodes.push(node);
+    panel.add(node);
+  }
+  while (nodes.length > targetCount) {
+    const node = nodes.pop();
+    if (!node) break;
+    try {
+      panel.remove(node.id);
+    } catch {
+      // ignore
+    }
+    try {
+      node.destroy();
+    } catch {
+      // ignore
+    }
+  }
+}
+
+function strictScenarioVariant(scenario: string): "dashboard" | "navigation" | null {
+  if (scenario === "terminal-strict-ui") return "dashboard";
+  if (scenario === "terminal-strict-ui-navigation") return "navigation";
+  return null;
+}
+
+function ensureStrictCoreScene(scene: OpenTuiCoreScene): OpenTuiStrictScene {
+  if (scene.strict) return scene.strict;
+  if (scene.lines.length > 0) {
+    for (const node of scene.lines) {
+      try {
+        scene.container.remove(node.id);
+      } catch {
+        // ignore
+      }
+      try {
+        node.destroy();
+      } catch {
+        // ignore
+      }
+    }
+    scene.lines.length = 0;
+  }
+
+  const header = new BoxRenderable(scene.renderer, {
+    flexDirection: "column",
+    border: true,
+    borderStyle: "single",
+    overflow: "hidden",
+    height: 3,
+  });
+  const headerText = new TextRenderable(scene.renderer, {
+    content: "",
+    truncate: true,
+    wrapMode: "none",
+  });
+  header.add(headerText);
+
+  const body = new BoxRenderable(scene.renderer, {
+    flexDirection: "row",
+    overflow: "hidden",
+  });
+
+  const leftPanel = new BoxRenderable(scene.renderer, {
+    flexDirection: "column",
+    border: true,
+    borderStyle: "single",
+    overflow: "hidden",
+    width: 24,
+  });
+  const leftTitle = new TextRenderable(scene.renderer, {
+    content: "",
+    truncate: true,
+    wrapMode: "none",
+  });
+  leftPanel.add(leftTitle);
+
+  const centerPanel = new BoxRenderable(scene.renderer, {
+    flexDirection: "column",
+    border: true,
+    borderStyle: "single",
+    overflow: "hidden",
+  });
+  const centerTitle = new TextRenderable(scene.renderer, {
+    content: "",
+    truncate: true,
+    wrapMode: "none",
+  });
+  centerPanel.add(centerTitle);
+
+  const rightPanel = new BoxRenderable(scene.renderer, {
+    flexDirection: "column",
+    border: true,
+    borderStyle: "single",
+    overflow: "hidden",
+    width: 32,
+  });
+  const rightTitle = new TextRenderable(scene.renderer, {
+    content: "",
+    truncate: true,
+    wrapMode: "none",
+  });
+  rightPanel.add(rightTitle);
+
+  body.add(leftPanel);
+  body.add(centerPanel);
+  body.add(rightPanel);
+
+  const footer = new BoxRenderable(scene.renderer, {
+    flexDirection: "column",
+    border: true,
+    borderStyle: "single",
+    overflow: "hidden",
+    height: 4,
+  });
+  const footerStatus = new TextRenderable(scene.renderer, {
+    content: "",
+    truncate: true,
+    wrapMode: "none",
+  });
+  const footerHelp = new TextRenderable(scene.renderer, {
+    content: "",
+    truncate: true,
+    wrapMode: "none",
+  });
+  footer.add(footerStatus);
+  footer.add(footerHelp);
+
+  scene.container.add(header);
+  scene.container.add(body);
+  scene.container.add(footer);
+
+  scene.strict = {
+    header,
+    headerText,
+    body,
+    leftPanel,
+    leftTitle,
+    leftLines: [],
+    centerPanel,
+    centerTitle,
+    centerLines: [],
+    rightPanel,
+    rightTitle,
+    rightLines: [],
+    footer,
+    footerStatus,
+    footerHelp,
+  };
+  return scene.strict;
+}
+
+function setStrictPanelLines(
+  renderer: OpenTuiRenderer,
+  panel: BoxRenderable,
+  nodes: TextRenderable[],
+  lines: readonly string[],
+  dataRows: number,
+): void {
+  const rows = Math.max(0, dataRows);
+  ensureTextNodes(renderer, panel, nodes, rows);
+  for (let i = 0; i < rows; i++) {
+    const node = nodes[i];
+    if (!node) continue;
+    node.content = lines[i] ?? "";
+  }
+}
+
+function setCoreStrictSections(scene: OpenTuiCoreScene, sections: ReturnType<typeof buildStrictSections>): void {
+  const strict = ensureStrictCoreScene(scene);
+  const headerHeight = 3;
+  const footerHeight = 4;
+  const bodyHeight = Math.max(3, sections.rows - headerHeight - footerHeight);
+  const leftWidth = 24;
+  const rightWidth = 32;
+  const centerWidth = Math.max(28, sections.cols - leftWidth - rightWidth);
+
+  scene.container.width = sections.cols;
+  scene.container.height = sections.rows;
+
+  strict.header.width = sections.cols;
+  strict.header.height = headerHeight;
+  strict.body.width = sections.cols;
+  strict.body.height = bodyHeight;
+  strict.footer.width = sections.cols;
+  strict.footer.height = footerHeight;
+
+  strict.leftPanel.width = leftWidth;
+  strict.leftPanel.height = bodyHeight;
+  strict.centerPanel.width = centerWidth;
+  strict.centerPanel.height = bodyHeight;
+  strict.rightPanel.width = rightWidth;
+  strict.rightPanel.height = bodyHeight;
+
+  strict.headerText.content = sections.header;
+  strict.leftTitle.content = sections.leftTitle;
+  strict.centerTitle.content = sections.centerTitle;
+  strict.rightTitle.content = sections.rightTitle;
+
+  const panelDataRows = Math.max(0, bodyHeight - 3);
+  setStrictPanelLines(
+    scene.renderer,
+    strict.leftPanel,
+    strict.leftLines,
+    sections.leftLines,
+    panelDataRows,
+  );
+  setStrictPanelLines(
+    scene.renderer,
+    strict.centerPanel,
+    strict.centerLines,
+    sections.centerLines,
+    panelDataRows,
+  );
+  setStrictPanelLines(
+    scene.renderer,
+    strict.rightPanel,
+    strict.rightLines,
+    sections.rightLines,
+    panelDataRows,
+  );
+
+  strict.footerStatus.content = sections.status;
+  strict.footerHelp.content = sections.footer;
+}
+
 async function renderCoreTickDirect(
   scene: OpenTuiCoreScene,
   scenario: string,
   params: Readonly<Record<string, number | string>>,
   tick: number,
 ): Promise<void> {
-  setCoreLines(scene, scenarioLines(scenario, params, tick, scene.cols));
+  const strictVariant = strictScenarioVariant(scenario);
+  if (strictVariant) {
+    setCoreStrictSections(scene, buildStrictSections(tick, params, strictVariant));
+  } else {
+    setCoreLines(scene, scenarioLines(scenario, params, tick, scene.cols));
+  }
   scene.renderer.requestRender();
   await scene.renderer.idle();
 }

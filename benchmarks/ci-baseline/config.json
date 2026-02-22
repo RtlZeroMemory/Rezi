@@ -3,9 +3,9 @@
     "profilePath": "packages/bench/profiles/ci.json",
     "baselinePolicy": "Update only on intentional perf shifts or deliberate threshold tuning. Prefer refreshing from CI perf-regression artifacts to stay host-class consistent.",
     "baselineGenerationCommand": "Use perf-regression GitHub Actions artifacts (results.json/results.md) and copy into benchmarks/ci-baseline/",
-    "baselineSource": "GitHub Actions run 22054843644 / perf regression gate artifact",
+    "baselineSource": "Local refresh via scripts/run-bench-ci.mjs after CI profile expansion (terminal-full-ui + terminal-strict-ui)",
     "comparisonCommandTemplate": "npm run bench:ci:compare -- --current <run>/results.json --report-json <run>/compare.json --report-md <run>/compare.md",
-    "createdAt": "2026-02-16T08:10:03Z"
+    "createdAt": "2026-02-22T10:42:00Z"
   },
   "requiredScenarios": [
     {
@@ -29,6 +29,24 @@
         "rows": 40,
         "cols": 120,
         "dirtyLines": 40
+      }
+    },
+    {
+      "scenario": "terminal-full-ui",
+      "framework": "rezi-native",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "services": 24
+      }
+    },
+    {
+      "scenario": "terminal-strict-ui",
+      "framework": "rezi-native",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "services": 24
       }
     },
     {

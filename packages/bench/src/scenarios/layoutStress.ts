@@ -234,6 +234,7 @@ export const layoutStressScenario: Scenario = {
       case "ink":
         return runInk(config, rows, cols);
       case "opentui":
+      case "bubbletea":
         return runOpenTui(config, rows, cols);
       default:
         throw new Error(`layout-stress: unsupported framework "${framework}"`);

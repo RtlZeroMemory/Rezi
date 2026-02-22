@@ -246,8 +246,6 @@ async function runBlessed(
     for (const [i, ln] of lines.entries()) lineNodes[i]?.setContent(ln);
     screen.render();
     await renderP;
-    await new Promise<void>((resolve) => process.nextTick(resolve));
-    await new Promise<void>((resolve) => setImmediate(resolve));
   };
 
   try {
@@ -296,6 +294,7 @@ export const terminalTableScenario: Scenario = {
       case "ink":
         return runInk(config, rows, cols);
       case "opentui":
+      case "bubbletea":
         return runOpenTui(config, rows, cols);
       case "blessed":
         return runBlessed(config, rows, cols);

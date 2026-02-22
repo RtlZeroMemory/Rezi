@@ -3,11 +3,12 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const PROFILE_PATH = join(ROOT, "packages", "bench", "profiles", "ci.json");
 const BENCH_RUNNER_PATH = join(ROOT, "packages", "bench", "dist", "run.js");
+const BENCH_SCENARIO_INDEX_PATH = join(ROOT, "packages", "bench", "dist", "scenarios", "index.js");
 const DEFAULT_JSON_OUTPUT = "results.json";
 const DEFAULT_MARKDOWN_OUTPUT = "results.md";
 
@@ -184,6 +185,26 @@ function loadCiProfile(profilePath) {
     requiredScenarioParams.set(scenario, normalized);
   }
 
+  if (!isPlainObject(profile.explicitExclusions)) {
+    fail("profile.explicitExclusions must be an object");
+  }
+  const explicitExclusions = new Map();
+  for (const [scenario, reason] of Object.entries(profile.explicitExclusions)) {
+    if (typeof scenario !== "string" || scenario.length === 0) {
+      fail("profile.explicitExclusions keys must be non-empty strings");
+    }
+    if (!scenario.startsWith("terminal-")) {
+      fail(`profile.explicitExclusions key must be a terminal scenario: ${scenario}`);
+    }
+    if (typeof reason !== "string" || reason.trim().length === 0) {
+      fail(`profile.explicitExclusions.${scenario} must be a non-empty reason string`);
+    }
+    if (seenScenarios.has(scenario)) {
+      fail(`profile.explicitExclusions.${scenario} duplicates requiredScenarios`);
+    }
+    explicitExclusions.set(scenario, reason.trim());
+  }
+
   const outputBlock = isPlainObject(profile.output) ? profile.output : {};
   const resultsJson =
     typeof outputBlock.resultsJson === "string" && outputBlock.resultsJson.length > 0
@@ -213,6 +234,7 @@ function loadCiProfile(profilePath) {
     output: { resultsJson, resultsMarkdown },
     requiredScenarios,
     requiredScenarioParams,
+    explicitExclusions,
     deterministicOrdering: profile.deterministicOrdering,
   };
 }
@@ -265,6 +287,77 @@ function loadBenchRun(path) {
   return raw;
 }
 
+async function loadTerminalScenarioManifest() {
+  if (!existsSync(BENCH_SCENARIO_INDEX_PATH)) {
+    fail(
+      `missing scenario registry: ${BENCH_SCENARIO_INDEX_PATH}. Run "npx tsc -b packages/bench" first.`,
+    );
+  }
+
+  let mod;
+  try {
+    mod = await import(pathToFileURL(BENCH_SCENARIO_INDEX_PATH).href);
+  } catch (error) {
+    fail(
+      `failed to load scenario registry from ${BENCH_SCENARIO_INDEX_PATH}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+
+  const scenarioRows = mod?.scenarios;
+  if (!Array.isArray(scenarioRows)) {
+    fail(`scenario registry did not export scenarios[]: ${BENCH_SCENARIO_INDEX_PATH}`);
+  }
+
+  const names = [];
+  for (const row of scenarioRows) {
+    if (!isPlainObject(row)) continue;
+    const name = typeof row.name === "string" ? row.name : "";
+    if (!name.startsWith("terminal-")) continue;
+    names.push(name);
+  }
+  names.sort();
+  return names;
+}
+
+function verifyScenarioManifest(profile, terminalScenarioNames) {
+  const required = new Set(profile.requiredScenarios);
+  const excluded = profile.explicitExclusions;
+
+  const missingCoverage = [];
+  for (const scenario of terminalScenarioNames) {
+    if (required.has(scenario) || excluded.has(scenario)) continue;
+    missingCoverage.push(scenario);
+  }
+  if (missingCoverage.length > 0) {
+    fail(
+      [
+        "every terminal scenario must be either requiredScenarios or explicitExclusions in packages/bench/profiles/ci.json",
+        `missing: ${missingCoverage.join(", ")}`,
+      ].join("\n"),
+    );
+  }
+
+  const staleExclusions = [];
+  for (const scenario of excluded.keys()) {
+    if (!terminalScenarioNames.includes(scenario)) {
+      staleExclusions.push(scenario);
+    }
+  }
+  if (staleExclusions.length > 0) {
+    fail(
+      `profile.explicitExclusions contains unknown terminal scenario(s): ${staleExclusions.join(", ")}`,
+    );
+  }
+
+  return {
+    terminalScenarioCount: terminalScenarioNames.length,
+    requiredScenarios: profile.requiredScenarios.length,
+    explicitExclusions: excluded.size,
+  };
+}
+
 function verifyCoverage(profile, run) {
   const index = new Map();
 
@@ -311,13 +404,15 @@ function verifyCoverage(profile, run) {
   };
 }
 
-function main() {
+async function main() {
   const { outputDir: outputDirArg } = parseArgs(process.argv.slice(2));
   const profile = loadCiProfile(PROFILE_PATH);
 
   if (!existsSync(BENCH_RUNNER_PATH)) {
     fail(`missing bench runner: ${BENCH_RUNNER_PATH}. Run \"npx tsc -b packages/bench\" first.`);
   }
+  const terminalScenarioNames = await loadTerminalScenarioManifest();
+  const scenarioManifest = verifyScenarioManifest(profile, terminalScenarioNames);
 
   const outputDir = toAbsPath(outputDirArg ?? profile.outputDir);
   mkdirSync(outputDir, { recursive: true });
@@ -354,6 +449,7 @@ function main() {
       resultsMarkdown: resultsMarkdownPath,
     },
     deterministicOrdering: profile.deterministicOrdering,
+    scenarioManifest,
     coverage,
   };
 
@@ -364,6 +460,7 @@ function main() {
       {
         ...profile,
         requiredScenarioParams: Object.fromEntries(profile.requiredScenarioParams.entries()),
+        explicitExclusions: Object.fromEntries(profile.explicitExclusions.entries()),
       },
       null,
       2,
@@ -376,4 +473,4 @@ function main() {
   );
 }
 
-main();
+main().catch((error) => fail(error instanceof Error ? error.message : String(error)));

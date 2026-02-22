@@ -15,10 +15,18 @@ The gate runs a reduced, deterministic benchmark profile:
 - required scenarios:
   - `terminal-rerender`
   - `terminal-frame-fill` (`dirtyLines=1` and `dirtyLines=40`)
+  - `terminal-full-ui`
+  - `terminal-strict-ui`
   - `terminal-virtual-list`
   - `terminal-table`
 
 Profile source: `packages/bench/profiles/ci.json`
+
+Coverage guardrail:
+- `scripts/run-bench-ci.mjs` now validates terminal scenario manifest coverage.
+- Every `terminal-*` scenario in the registry must be either:
+  - listed in `requiredScenarios`, or
+  - listed in `explicitExclusions` with a reason.
 
 ## Local Commands
 

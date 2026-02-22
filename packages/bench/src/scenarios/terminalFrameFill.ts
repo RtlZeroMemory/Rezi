@@ -258,8 +258,6 @@ async function runBlessed(
     }
     screen.render();
     await renderP;
-    await new Promise<void>((resolve) => process.nextTick(resolve));
-    await new Promise<void>((resolve) => setImmediate(resolve));
   };
 
   try {
@@ -312,6 +310,7 @@ export const terminalFrameFillScenario: Scenario = {
       case "ink":
         return runInk(config, rows, cols, dirtyLines);
       case "opentui":
+      case "bubbletea":
         return runOpenTui(config, rows, cols, dirtyLines);
       case "blessed":
         return runBlessed(config, rows, cols, dirtyLines);

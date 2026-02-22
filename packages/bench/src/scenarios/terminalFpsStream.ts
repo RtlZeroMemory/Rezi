@@ -31,6 +31,7 @@ export const terminalFpsStreamScenario: Scenario = {
       case "ink":
         return runInkLineScenario(config, params, buildTerminalFpsStreamLines);
       case "opentui":
+      case "bubbletea":
         return runOpenTuiScenario("terminal-fps-stream", config, params);
       case "blessed":
         return runBlessedLineScenario(config, params, buildTerminalFpsStreamLines);

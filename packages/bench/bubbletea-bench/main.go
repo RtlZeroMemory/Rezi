@@ -14,6 +14,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 const (
@@ -25,6 +26,7 @@ type cliArgs struct {
 	scenario   string
 	warmup     int
 	iterations int
+	fps        int
 	ioMode     string
 	resultPath string
 	params     map[string]string
@@ -41,18 +43,18 @@ type memorySnapshot struct {
 }
 
 type benchResultData struct {
-	SamplesMs   []float64 `json:"samplesMs"`
-	TotalWallMs float64   `json:"totalWallMs"`
-	CPUUserMs   float64   `json:"cpuUserMs"`
-	CPUSysMs    float64   `json:"cpuSysMs"`
-	RSSBeforeKb int64     `json:"rssBeforeKb"`
-	RSSAfterKb  int64     `json:"rssAfterKb"`
-	RSSPeakKb   int64     `json:"rssPeakKb"`
-	HeapBeforeKb int64    `json:"heapBeforeKb"`
-	HeapAfterKb  int64    `json:"heapAfterKb"`
-	HeapPeakKb   int64    `json:"heapPeakKb"`
-	BytesWritten int64    `json:"bytesWritten"`
-	Frames       int      `json:"frames"`
+	SamplesMs    []float64 `json:"samplesMs"`
+	TotalWallMs  float64   `json:"totalWallMs"`
+	CPUUserMs    float64   `json:"cpuUserMs"`
+	CPUSysMs     float64   `json:"cpuSysMs"`
+	RSSBeforeKb  int64     `json:"rssBeforeKb"`
+	RSSAfterKb   int64     `json:"rssAfterKb"`
+	RSSPeakKb    int64     `json:"rssPeakKb"`
+	HeapBeforeKb int64     `json:"heapBeforeKb"`
+	HeapAfterKb  int64     `json:"heapAfterKb"`
+	HeapPeakKb   int64     `json:"heapPeakKb"`
+	BytesWritten int64     `json:"bytesWritten"`
+	Frames       int       `json:"frames"`
 }
 
 type benchResultFile struct {
@@ -66,6 +68,7 @@ func parseArgs(argv []string) (cliArgs, error) {
 		scenario:   "",
 		warmup:     100,
 		iterations: 1000,
+		fps:        1000,
 		ioMode:     "pty",
 		resultPath: "",
 		params:     map[string]string{},
@@ -98,6 +101,12 @@ func parseArgs(argv []string) (cliArgs, error) {
 				return out, fmt.Errorf("invalid --iterations: %w", err)
 			}
 			out.iterations = n
+		case "fps":
+			n, err := strconv.Atoi(value)
+			if err != nil {
+				return out, fmt.Errorf("invalid --fps: %w", err)
+			}
+			out.fps = n
 		case "io":
 			if value == "stub" {
 				out.ioMode = "stub"
@@ -119,6 +128,9 @@ func parseArgs(argv []string) (cliArgs, error) {
 	}
 	if out.warmup < 0 {
 		return out, errors.New("--warmup must be >= 0")
+	}
+	if out.fps <= 0 {
+		return out, errors.New("--fps must be > 0")
 	}
 
 	return out, nil
@@ -308,6 +320,7 @@ func startBenchSession(
 	params map[string]string,
 	rows int,
 	cols int,
+	fps int,
 	writer *measuringWriter,
 ) (*benchSession, error) {
 	ready := make(chan struct{})
@@ -323,7 +336,7 @@ func startBenchSession(
 		model,
 		tea.WithInput(nil),
 		tea.WithOutput(writer),
-		tea.WithFPS(1000),
+		tea.WithFPS(fps),
 		tea.WithAltScreen(),
 		tea.WithoutSignalHandler(),
 	)
@@ -753,6 +766,617 @@ func terminalVirtualListLines(totalItems int, viewport int, tick int, cols int) 
 	return lines
 }
 
+func fullUiPaneWidths(cols int) (int, int, int) {
+	left := maxInt(22, int(float64(cols)*0.24))
+	right := maxInt(24, int(float64(cols)*0.28))
+	center := maxInt(24, cols-left-right-6)
+	return left, center, right
+}
+
+func paneLine(cols int, leftW int, centerW int, rightW int, left string, center string, right string) string {
+	return clipPad(fmt.Sprintf("%s │ %s │ %s", clipPad(left, leftW), clipPad(center, centerW), clipPad(right, rightW)), cols)
+}
+
+func spark(seed int, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.Grow(width)
+	for i := 0; i < width; i++ {
+		if safeMod(seed+i*3, 7) > 2 {
+			b.WriteByte('#')
+		} else {
+			b.WriteByte('.')
+		}
+	}
+	return b.String()
+}
+
+func terminalFullUiLines(tick int, params map[string]string) []string {
+	rows := maxInt(12, intParam(params, "rows", 40))
+	cols := maxInt(80, intParam(params, "cols", 120))
+	services := maxInt(12, intParam(params, "services", 24))
+	leftW, centerW, rightW := fullUiPaneWidths(cols)
+	modes := []string{"overview", "services", "deploy", "incidents"}
+	mode := modes[safeMod(tick, len(modes))]
+	navItems := []string{"Dashboard", "Services", "Deployments", "Incidents", "Queues", "Logs", "Audit", "Settings"}
+
+	lines := make([]string, 0, rows)
+	lines = append(lines, clipPad(fmt.Sprintf("terminal-full-ui mode=%s tick=%d", mode, tick), cols))
+	lines = append(lines, clipPad(fmt.Sprintf("cluster=prod-us-east budget=16.6ms cpu=%d%% mem=%d%% qps=%d", 35+safeMod(tick*7, 40), 42+safeMod(tick*11, 49), 900+safeMod(tick*29, 1500)), cols))
+
+	bodyRows := maxInt(1, rows-4)
+	activeNav := safeMod(tick, len(navItems))
+	visibleTableRows := maxInt(6, minInt(18, bodyRows-6))
+	viewportOffset := safeMod(tick, maxInt(1, services-visibleTableRows+1))
+	activeSvc := safeMod(tick, services)
+
+	for r := 0; r < bodyRows; r++ {
+		left := ""
+		center := ""
+		right := ""
+
+		if r == 0 {
+			left = "NAV"
+		} else if r <= len(navItems) {
+			idx := r - 1
+			if idx == activeNav {
+				left = fmt.Sprintf("> %s", navItems[idx])
+			} else {
+				left = fmt.Sprintf("  %s", navItems[idx])
+			}
+		} else if r == len(navItems)+1 {
+			envs := []string{"prod", "stage", "dev"}
+			regions := []string{"use1", "usw2", "euw1"}
+			left = fmt.Sprintf("env=%s region=%s", envs[safeMod(tick, len(envs))], regions[safeMod(tick, len(regions))])
+		} else if r == len(navItems)+2 {
+			left = fmt.Sprintf("focus=svc-%03d alerts=%d", activeSvc, safeMod(tick*3, 19))
+		} else {
+			left = fmt.Sprintf("saved-view-%02d %s", safeMod(tick+r, 12), spark(tick+r, 10))
+		}
+
+		if r == 0 {
+			center = "SERVICES"
+		} else if r == 1 {
+			center = "id      state      lat   rps   err"
+		} else if r >= 2 && r < 2+visibleTableRows {
+			svc := viewportOffset + (r - 2)
+			degraded := safeMod(tick+svc*5, 17) == 0
+			lat := 12 + safeMod(tick*13+svc*7, 180)
+			rps := 100 + safeMod(tick*19+svc*37, 2500)
+			errPct := float64(safeMod(tick+svc*11, 70)) / 10.0
+			state := "healthy "
+			if degraded {
+				state = "degraded"
+			}
+			marker := " "
+			if svc == activeSvc {
+				marker = ">"
+			}
+			center = fmt.Sprintf("%s svc-%03d %s %3dms %4d %.1f%%", marker, svc, state, lat, rps, errPct)
+		} else if r == 2+visibleTableRows {
+			cpu := float64(safeMod(tick*17, 1000)) / 1000.0
+			center = fmt.Sprintf("cpu %s %.1f%%  io %2d%%", bar(cpu, 20), cpu*100.0, 45+safeMod(tick*23, 50))
+		} else if r == 3+visibleTableRows {
+			mem := float64(safeMod(tick*31+211, 1000)) / 1000.0
+			center = fmt.Sprintf("mem %s %.1f%%  gc %dms", bar(mem, 20), mem*100.0, safeMod(tick*97, 999))
+		} else if r == 4+visibleTableRows {
+			center = fmt.Sprintf("queue depth=%d retries=%d dropped=%d", safeMod(tick*7, 180), safeMod(tick*11, 37), safeMod(tick*13, 9))
+		} else {
+			center = fmt.Sprintf("timeline %s", spark(tick*3+r, maxInt(16, centerW-10)))
+		}
+
+		if r == 0 {
+			right = "INSPECTOR"
+		} else if r == 1 {
+			right = fmt.Sprintf("service=svc-%03d owner=team-%d", activeSvc, safeMod(activeSvc, 7))
+		} else if r == 2 {
+			right = fmt.Sprintf("slo p95<120ms  now=%dms", 45+safeMod(tick*5+activeSvc*3, 110))
+		} else if r == 3 {
+			deploy := "canary"
+			if safeMod(tick*3+activeSvc, 2) == 0 {
+				deploy = "green"
+			}
+			right = fmt.Sprintf("deploy=%s zone=az-%d", deploy, safeMod(activeSvc, 3)+1)
+		} else {
+			seq := tick*bodyRows + r
+			level := "INFO "
+			if safeMod(seq, 19) == 0 {
+				level = "ERROR"
+			} else if safeMod(seq, 11) == 0 {
+				level = "WARN "
+			}
+			right = fmt.Sprintf("%s t+%05d op=%02d msg=event-%d", level, seq, safeMod(seq*7, 97), seq)
+		}
+
+		lines = append(lines, paneLine(cols, leftW, centerW, rightW, left, center, right))
+	}
+
+	lines = append(lines, clipPad(fmt.Sprintf("status=online conn=%d sync=%d pending=%d diff=%d", 1200+safeMod(tick*17, 800), safeMod(tick*29, 9999), safeMod(tick*5, 48), safeMod(tick*7, 21)), cols))
+	lines = append(lines, clipPad("hotkeys: [1]overview [2]services [3]deploy [4]incidents [/]filter [enter]open [q]quit", cols))
+	if len(lines) > rows {
+		return lines[:rows]
+	}
+	return lines
+}
+
+func terminalFullUiNavigationLines(tick int, params map[string]string) []string {
+	rows := maxInt(12, intParam(params, "rows", 40))
+	cols := maxInt(80, intParam(params, "cols", 120))
+	services := maxInt(10, intParam(params, "services", 24))
+	dwell := maxInt(2, intParam(params, "dwell", 8))
+	pages := []string{"overview", "services", "deployments", "incidents", "logs", "command"}
+	pageIndex := safeMod(tick/dwell, len(pages))
+	page := pages[pageIndex]
+	localTick := safeMod(tick, dwell)
+
+	lines := make([]string, 0, rows)
+	lines = append(lines, clipPad(fmt.Sprintf("terminal-full-ui-navigation page=%s tick=%d local=%d/%d", page, tick, localTick, dwell-1), cols))
+	tabParts := make([]string, 0, len(pages))
+	for i, p := range pages {
+		if i == pageIndex {
+			tabParts = append(tabParts, fmt.Sprintf("[%s]", p))
+		} else {
+			tabParts = append(tabParts, p)
+		}
+	}
+	lines = append(lines, clipPad(fmt.Sprintf("tabs: %s", strings.Join(tabParts, " | ")), cols))
+
+	bodyRows := maxInt(1, rows-4)
+	for i := 0; i < bodyRows; i++ {
+		line := ""
+
+		switch page {
+		case "overview":
+			if i == 0 {
+				line = "overview: global health + throughput + alerts"
+			} else if i <= 8 {
+				svc := i - 1
+				healthy := safeMod(tick+svc*5, 9) != 0
+				v := float64(safeMod(tick*23+svc*41, 1000)) / 1000.0
+				state := "degraded"
+				if healthy {
+					state = "healthy "
+				}
+				line = fmt.Sprintf("card svc-%02d %s %s %.1f%%", svc, state, bar(v, 24), v*100.0)
+			} else if i == 9 {
+				line = fmt.Sprintf("alerts open=%d acked=%d muted=%d", safeMod(tick*3, 11), safeMod(tick*7, 17), safeMod(tick*5, 5))
+			} else {
+				line = fmt.Sprintf("trend %s", spark(tick+i*3, maxInt(16, cols-10)))
+			}
+		case "services":
+			if i == 0 {
+				line = "services: inventory + selection + per-row telemetry"
+			} else if i == 1 {
+				line = "id      state      lat   rps   err"
+			} else {
+				row := i - 2
+				svc := safeMod(tick+row, services)
+				selected := row == safeMod(tick, maxInt(1, bodyRows-2))
+				degraded := safeMod(tick+svc*3, 15) == 0
+				lat := 10 + safeMod(tick*13+svc*9, 220)
+				rps := 80 + safeMod(tick*17+svc*31, 3000)
+				errPct := float64(safeMod(tick+svc*7, 80)) / 10.0
+				state := "healthy "
+				if degraded {
+					state = "degraded"
+				}
+				marker := " "
+				if selected {
+					marker = ">"
+				}
+				line = fmt.Sprintf("%s svc-%03d %s %3dms %4d %.1f%%", marker, svc, state, lat, rps, errPct)
+			}
+		case "deployments":
+			if i == 0 {
+				line = "deployments: staged rollout + promotion gates"
+			} else {
+				step := safeMod(i, 12)
+				pct := safeMod(tick*7+i*9, 101)
+				gate := "ready  "
+				if safeMod(tick+step, 5) == 0 {
+					gate = "blocked"
+				}
+				canary := "off"
+				if safeMod(tick+step, 2) == 0 {
+					canary = "on"
+				}
+				line = fmt.Sprintf("pipeline-%02d %s %s %3d%% canary=%s", step, gate, bar(float64(pct)/100.0, 18), pct, canary)
+			}
+		case "incidents":
+			if i == 0 {
+				line = "incidents: queue + assignee + response status"
+			} else {
+				incident := tick*bodyRows + i
+				sev := "sev3"
+				if safeMod(incident, 13) == 0 {
+					sev = "sev1"
+				} else if safeMod(incident, 7) == 0 {
+					sev = "sev2"
+				}
+				state := "open      "
+				if safeMod(incident, 5) == 0 {
+					state = "mitigating"
+				} else if safeMod(incident, 3) == 0 {
+					state = "triaging  "
+				}
+				line = fmt.Sprintf("%s inc-%04d %s owner=oncall-%d age=%dm", sev, safeMod(incident, 10000), state, safeMod(incident, 9), safeMod(incident*3, 180))
+			}
+		case "logs":
+			seq := tick*bodyRows + i
+			level := "INFO "
+			if safeMod(seq, 17) == 0 {
+				level = "ERROR"
+			} else if safeMod(seq, 9) == 0 {
+				level = "WARN "
+			}
+			line = fmt.Sprintf("%s trace=%05d shard=%d msg=stream-%d", level, safeMod(seq*19, 100000), safeMod(seq, 12), seq)
+		default:
+			if i < 2 {
+				line = "command palette: type to filter actions"
+			} else if i < 10 {
+				cmd := i - 2
+				selected := cmd == safeMod(tick, 8)
+				marker := " "
+				if selected {
+					marker = ">"
+				}
+				preview := "risky"
+				if safeMod(tick+cmd, 2) == 0 {
+					preview = "safe"
+				}
+				line = fmt.Sprintf("%s /command-%02d target=svc-%03d preview=%s", marker, cmd, safeMod(tick+cmd, services), preview)
+			} else {
+				line = fmt.Sprintf("preview: %s", spark(tick*5+i, maxInt(16, cols-10)))
+			}
+		}
+
+		lines = append(lines, clipPad(line, cols))
+	}
+
+	lines = append(lines, clipPad(fmt.Sprintf("route=%s navLatency=%dms commit=%d pending=%d", page, 1+safeMod(tick*7, 9), safeMod(tick*97, 10000), safeMod(tick*13, 33)), cols))
+	lines = append(lines, clipPad("flow: [tab]next-page [shift+tab]prev-page [enter]open [esc]close [/]command [ctrl+c]quit", cols))
+	if len(lines) > rows {
+		return lines[:rows]
+	}
+	return lines
+}
+
+func strictPaneWidths(cols int) (int, int, int) {
+	left := 24
+	right := 32
+	center := maxInt(28, cols-left-right-6)
+	return left, center, right
+}
+
+func strictPaneLine(cols int, leftW int, centerW int, rightW int, left string, center string, right string) string {
+	return clipPad(fmt.Sprintf("%s | %s | %s", clipPad(left, leftW), clipPad(center, centerW), clipPad(right, rightW)), cols)
+}
+
+func strictNavLines(page string, tick int) []string {
+	tabs := []string{"dashboard", "services", "deploy", "incidents", "logs", "settings"}
+	active := 0
+	for i, tab := range tabs {
+		if strings.HasPrefix(page, tab) || page == tab {
+			active = i
+			break
+		}
+	}
+	lines := make([]string, 0, len(tabs)+2)
+	for i, tab := range tabs {
+		marker := " "
+		if i == active {
+			marker = ">"
+		}
+		lines = append(lines, fmt.Sprintf("%s %s", marker, tab))
+	}
+	lines = append(lines, fmt.Sprintf("env=%s region=%s", []string{"prod", "stage", "dev"}[safeMod(tick, 3)], []string{"use1", "usw2", "euw1"}[safeMod(tick, 3)]))
+	lines = append(lines, fmt.Sprintf("window=%dm filter=%s", 15+safeMod(tick*7, 30), map[bool]string{true: "on", false: "off"}[safeMod(tick, 2) == 0]))
+	return lines
+}
+
+func strictServiceLines(services int, tick int, rowBudget int) []string {
+	lines := []string{"id      state      lat   rps   err"}
+	viewportRows := maxInt(4, rowBudget-4)
+	offset := safeMod(tick, maxInt(1, services-viewportRows+1))
+	active := safeMod(tick, services)
+	for r := 0; r < viewportRows; r++ {
+		svc := offset + r
+		degraded := safeMod(tick+svc*5, 17) == 0
+		lat := 10 + safeMod(tick*13+svc*7, 220)
+		rps := 80 + safeMod(tick*19+svc*37, 3000)
+		errPct := float64(safeMod(tick+svc*11, 90)) / 10.0
+		state := "healthy "
+		if degraded {
+			state = "degraded"
+		}
+		marker := " "
+		if svc == active {
+			marker = ">"
+		}
+		lines = append(lines, fmt.Sprintf("%s svc-%03d %s %3dms %4d %.1f%%", marker, svc, state, lat, rps, errPct))
+	}
+	cpu := float64(safeMod(tick*17, 1000)) / 1000.0
+	mem := float64(safeMod(tick*31+211, 1000)) / 1000.0
+	lines = append(lines, fmt.Sprintf("cpu %s %.1f%% io %2d%%", bar(cpu, 18), cpu*100.0, 30+safeMod(tick*11, 60)))
+	lines = append(lines, fmt.Sprintf("mem %s %.1f%% gc %dms", bar(mem, 18), mem*100.0, safeMod(tick*97, 999)))
+	lines = append(lines, fmt.Sprintf("queue=%d retry=%d drop=%d", safeMod(tick*7, 200), safeMod(tick*11, 40), safeMod(tick*13, 9)))
+	return lines
+}
+
+func strictDeploymentLines(tick int, rowBudget int) []string {
+	lines := []string{"pipeline rollout and gate state"}
+	for i := 1; i < rowBudget; i++ {
+		step := safeMod(i, 12)
+		pct := safeMod(tick*7+i*9, 101)
+		gate := "ready  "
+		if safeMod(tick+step, 5) == 0 {
+			gate = "blocked"
+		}
+		canary := "off"
+		if safeMod(tick+step, 2) == 0 {
+			canary = "on"
+		}
+		lines = append(lines, fmt.Sprintf("pipe-%02d %s %s %3d%% canary=%s", step, gate, bar(float64(pct)/100.0, 16), pct, canary))
+	}
+	return lines
+}
+
+func strictIncidentLines(tick int, rowBudget int) []string {
+	lines := []string{"incident queue and ownership"}
+	for i := 1; i < rowBudget; i++ {
+		seq := tick*rowBudget + i
+		sev := "sev3"
+		if safeMod(seq, 13) == 0 {
+			sev = "sev1"
+		} else if safeMod(seq, 7) == 0 {
+			sev = "sev2"
+		}
+		state := "open      "
+		if safeMod(seq, 5) == 0 {
+			state = "mitigating"
+		} else if safeMod(seq, 3) == 0 {
+			state = "triaging  "
+		}
+		lines = append(lines, fmt.Sprintf("%s inc-%04d %s owner=oncall-%d age=%dm", sev, safeMod(seq, 10000), state, safeMod(seq, 9), safeMod(seq*3, 180)))
+	}
+	return lines
+}
+
+func strictLogLines(tick int, rowBudget int) []string {
+	lines := []string{"streamed logs"}
+	for i := 1; i < rowBudget; i++ {
+		seq := tick*rowBudget + i
+		level := "INFO "
+		if safeMod(seq, 17) == 0 {
+			level = "ERROR"
+		} else if safeMod(seq, 9) == 0 {
+			level = "WARN "
+		}
+		lines = append(lines, fmt.Sprintf("%s trace=%05d shard=%d msg=event-%d", level, safeMod(seq*19, 100000), safeMod(seq, 12), seq))
+	}
+	return lines
+}
+
+func strictCommandLines(services int, tick int, rowBudget int) []string {
+	lines := []string{"command palette actions"}
+	for i := 1; i < rowBudget; i++ {
+		cmd := i - 1
+		selected := cmd == safeMod(tick, maxInt(1, rowBudget-1))
+		preview := "risky"
+		if safeMod(tick+cmd, 2) == 0 {
+			preview = "safe"
+		}
+		marker := " "
+		if selected {
+			marker = ">"
+		}
+		lines = append(lines, fmt.Sprintf("%s /command-%02d target=svc-%03d preview=%s", marker, cmd, safeMod(tick+cmd, services), preview))
+	}
+	return lines
+}
+
+func strictRightLines(page string, tick int, rowBudget int) []string {
+	lines := []string{
+		fmt.Sprintf("page=%s focus=svc-%03d", page, safeMod(tick*3, 24)),
+		fmt.Sprintf("slo p95<120ms now=%dms", 40+safeMod(tick*5, 120)),
+		fmt.Sprintf("deploy=%s zone=az-%d", map[bool]string{true: "green", false: "canary"}[safeMod(tick, 2) == 0], safeMod(tick, 3)+1),
+	}
+	for i := 3; i < rowBudget; i++ {
+		seq := tick*rowBudget + i
+		level := "INFO "
+		if safeMod(seq, 19) == 0 {
+			level = "ERROR"
+		} else if safeMod(seq, 11) == 0 {
+			level = "WARN "
+		}
+		lines = append(lines, fmt.Sprintf("%s t+%05d op=%02d note=%s", level, seq, safeMod(seq*7, 97), spark(seq, 10)))
+	}
+	return lines
+}
+
+func strictFitLines(lines []string, target int) []string {
+	if target <= 0 {
+		return []string{}
+	}
+	if len(lines) >= target {
+		return lines[:target]
+	}
+	for len(lines) < target {
+		lines = append(lines, "")
+	}
+	return lines
+}
+
+func atOrEmpty(lines []string, idx int) string {
+	if idx < 0 || idx >= len(lines) {
+		return ""
+	}
+	return lines[idx]
+}
+
+type strictSections struct {
+	rows       int
+	cols       int
+	header     string
+	leftTitle  string
+	leftLines  []string
+	centerTitle string
+	centerLines []string
+	rightTitle string
+	rightLines []string
+	status     string
+	footer     string
+}
+
+func buildStrictSections(tick int, params map[string]string, navigation bool) strictSections {
+	rows := maxInt(16, intParam(params, "rows", 40))
+	cols := maxInt(100, intParam(params, "cols", 120))
+	services := maxInt(12, intParam(params, "services", 24))
+	dwell := maxInt(2, intParam(params, "dwell", 8))
+	pages := []string{"dashboard", "services", "deployments", "incidents", "logs", "commands"}
+	page := "dashboard"
+	if navigation {
+		page = pages[safeMod(tick/dwell, len(pages))]
+	}
+	bodyRows := maxInt(4, rows-5)
+	leftRows := maxInt(1, bodyRows-1)
+	centerRows := maxInt(1, bodyRows-1)
+	rightRows := maxInt(1, bodyRows-1)
+
+	center := strictServiceLines(services, tick, centerRows)
+	if navigation {
+		switch page {
+		case "deployments":
+			center = strictDeploymentLines(tick, centerRows)
+		case "incidents":
+			center = strictIncidentLines(tick, centerRows)
+		case "logs":
+			center = strictLogLines(tick, centerRows)
+		case "commands":
+			center = strictCommandLines(services, tick, centerRows)
+		default:
+			center = strictServiceLines(services, tick, centerRows)
+		}
+	}
+
+	header := fmt.Sprintf("terminal-strict-ui%s page=%s tick=%d", map[bool]string{true: "-navigation", false: ""}[navigation], page, tick)
+	if !navigation {
+		header = fmt.Sprintf("%s cpu=%d%% mem=%d%% qps=%d", header, 35+safeMod(tick*7, 40), 42+safeMod(tick*11, 49), 900+safeMod(tick*29, 1500))
+	} else {
+		header = fmt.Sprintf("%s local=%d/%d", header, safeMod(tick, dwell), dwell-1)
+	}
+	status := fmt.Sprintf("status=online conn=%d sync=%d pending=%d", 1200+safeMod(tick*17, 800), safeMod(tick*29, 9999), safeMod(tick*5, 48))
+	if navigation {
+		status = fmt.Sprintf("route=%s navLatency=%dms commit=%d pending=%d", page, 1+safeMod(tick*7, 9), safeMod(tick*97, 10000), safeMod(tick*13, 33))
+	}
+	footer := "keys: [tab] move [enter] open [/] command [q] quit"
+	if navigation {
+		footer = "flow: [tab] next-page [shift+tab] prev-page [enter] open [esc] close"
+	}
+
+	leftTitle := "NAV"
+	if navigation {
+		leftTitle = "NAVIGATION"
+	}
+	centerTitle := "SERVICES"
+	if navigation {
+		centerTitle = strings.ToUpper(page)
+	}
+
+	left := strictFitLines(strictNavLines(page, tick), leftRows)
+	center = strictFitLines(center, centerRows)
+	right := strictFitLines(strictRightLines(page, tick, rightRows), rightRows)
+
+	return strictSections{
+		rows:        rows,
+		cols:        cols,
+		header:      header,
+		leftTitle:   leftTitle,
+		leftLines:   left,
+		centerTitle: centerTitle,
+		centerLines: center,
+		rightTitle:  "DETAILS",
+		rightLines:  right,
+		status:      status,
+		footer:      footer,
+	}
+}
+
+func strictPanelBlock(title string, lines []string, width int, height int) string {
+	innerRows := maxInt(1, height-2)
+	content := make([]string, 0, innerRows)
+	content = append(content, lipgloss.NewStyle().Bold(true).Render(clipPad(title, maxInt(1, width-2))))
+	content = append(content, lines...)
+	content = strictFitLines(content, innerRows)
+	if len(content) > innerRows {
+		content = content[:innerRows]
+	}
+	return lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder()).
+		Width(width).
+		Height(height).
+		Render(strings.Join(content, "\n"))
+}
+
+func strictFrameLines(sections strictSections) []string {
+	headerHeight := 3
+	footerHeight := 4
+	bodyHeight := maxInt(3, sections.rows-headerHeight-footerHeight)
+	leftWidth := 24
+	rightWidth := 32
+	centerWidth := maxInt(28, sections.cols-leftWidth-rightWidth)
+	totalWidth := leftWidth + centerWidth + rightWidth
+	if totalWidth != sections.cols {
+		centerWidth += sections.cols - totalWidth
+		if centerWidth < 12 {
+			centerWidth = 12
+		}
+	}
+
+	headerBox := lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder()).
+		Width(sections.cols).
+		Height(headerHeight).
+		Render(clipPad(sections.header, maxInt(1, sections.cols-2)))
+
+	leftPanel := strictPanelBlock(sections.leftTitle, sections.leftLines, leftWidth, bodyHeight)
+	centerPanel := strictPanelBlock(sections.centerTitle, sections.centerLines, centerWidth, bodyHeight)
+	rightPanel := strictPanelBlock(sections.rightTitle, sections.rightLines, rightWidth, bodyHeight)
+	body := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, centerPanel, rightPanel)
+
+	footerContent := strings.Join(
+		[]string{
+			clipPad(sections.status, maxInt(1, sections.cols-2)),
+			clipPad(sections.footer, maxInt(1, sections.cols-2)),
+		},
+		"\n",
+	)
+	footerBox := lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder()).
+		Width(sections.cols).
+		Height(footerHeight).
+		Render(footerContent)
+
+	joined := lipgloss.JoinVertical(lipgloss.Left, headerBox, body, footerBox)
+	rawLines := strings.Split(joined, "\n")
+	lines := make([]string, 0, sections.rows)
+	for i := 0; i < sections.rows; i++ {
+		if i < len(rawLines) {
+			lines = append(lines, clipPad(rawLines[i], sections.cols))
+		} else {
+			lines = append(lines, strings.Repeat(" ", sections.cols))
+		}
+	}
+	return lines
+}
+
+func terminalStrictPaneLines(tick int, params map[string]string, navigation bool) []string {
+	sections := buildStrictSections(tick, params, navigation)
+	return strictFrameLines(sections)
+}
+
 func scenarioLines(
 	scenario string,
 	params map[string]string,
@@ -810,6 +1434,14 @@ func scenarioLines(
 		return terminalInputLatencyLines(tick, params)
 	case "terminal-memory-soak":
 		return terminalMemorySoakLines(tick, params)
+	case "terminal-full-ui":
+		return terminalFullUiLines(tick, params)
+	case "terminal-full-ui-navigation":
+		return terminalFullUiNavigationLines(tick, params)
+	case "terminal-strict-ui":
+		return terminalStrictPaneLines(tick, params, false)
+	case "terminal-strict-ui-navigation":
+		return terminalStrictPaneLines(tick, params, true)
 	default:
 		return []string{clipPad(fmt.Sprintf("unsupported Bubble Tea scenario: %s", scenario), cols)}
 	}
@@ -842,7 +1474,7 @@ func runStartupBench(args cliArgs) (benchResultData, error) {
 
 	runIteration := func(seed int) (float64, int64, error) {
 		writer := newMeasuringWriter(os.Stdout)
-		session, err := startBenchSession(args.scenario, args.params, rows, cols, writer)
+		session, err := startBenchSession(args.scenario, args.params, rows, cols, args.fps, writer)
 		if err != nil {
 			return 0, 0, err
 		}
@@ -917,7 +1549,7 @@ func runSteadyStateBench(args cliArgs) (benchResultData, error) {
 	cols := scenarioViewportCols()
 	writer := newMeasuringWriter(os.Stdout)
 
-	session, err := startBenchSession(args.scenario, args.params, rows, cols, writer)
+	session, err := startBenchSession(args.scenario, args.params, rows, cols, args.fps, writer)
 	if err != nil {
 		return benchResultData{}, err
 	}

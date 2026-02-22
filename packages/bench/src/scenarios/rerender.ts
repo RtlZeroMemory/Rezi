@@ -320,6 +320,7 @@ export const rerenderScenario: Scenario = {
       case "ink":
         return runInk(config);
       case "opentui":
+      case "bubbletea":
         return runOpenTui(config);
       case "terminal-kit":
         return runTermkit(config);

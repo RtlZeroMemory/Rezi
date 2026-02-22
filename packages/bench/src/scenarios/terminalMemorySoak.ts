@@ -31,6 +31,7 @@ export const terminalMemorySoakScenario: Scenario = {
       case "ink":
         return runInkLineScenario(config, params, buildTerminalMemorySoakLines);
       case "opentui":
+      case "bubbletea":
         return runOpenTuiScenario("terminal-memory-soak", config, params);
       case "blessed":
         return runBlessedLineScenario(config, params, buildTerminalMemorySoakLines);

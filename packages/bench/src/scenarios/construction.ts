@@ -256,6 +256,7 @@ export const constructionScenario: Scenario = {
       case "ink":
         return runInk(config, n);
       case "opentui":
+      case "bubbletea":
         return runOpenTui(config, n);
       case "terminal-kit":
         return runTermkit(config, n);

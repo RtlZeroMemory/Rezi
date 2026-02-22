@@ -462,12 +462,13 @@ async function runIsolatedPty(
           | { ok: false; error: string };
         if ("ok" in parsed && parsed.ok) {
           parsed.result.metrics.ptyBytesObserved = observedPtyBytes;
-          if (
-            parsed.result.framework === "opentui" &&
-            parsed.result.metrics.bytesProduced === 0 &&
-            observedPtyBytes > 0
-          ) {
-            parsed.result.metrics.bytesProduced = observedPtyBytes;
+          if (observedPtyBytes > 0 && parsed.result.metrics.bytesProduced <= 0) {
+            reject(
+              new Error(
+                `invalid bytesProduced=0 for ${parsed.result.scenario}/${parsed.result.framework} in PTY mode while observedPtyBytes=${observedPtyBytes}`,
+              ),
+            );
+            return;
           }
           resolve(parsed.result);
           return;
@@ -558,6 +559,7 @@ async function main(): Promise<void> {
 
   const results: BenchResult[] = [];
   const bunBin = (process.env as Readonly<{ REZI_BUN_BIN?: string }>).REZI_BUN_BIN ?? "bun";
+  const isWsl = isWslHost();
   const run: BenchRun = {
     meta: {
       timestamp: new Date().toISOString(),
@@ -573,7 +575,10 @@ async function main(): Promise<void> {
       rustcVersion: detectToolVersion("rustc", ["--version"]),
       cargoVersion: detectToolVersion("cargo", ["--version"]),
       cpuGovernor: readCpuGovernor(),
-      isWsl: isWslHost(),
+      isWsl,
+      environmentCaveat: isWsl
+        ? "Results collected on WSL/virtualized kernel; expect higher timer and I/O jitter."
+        : null,
     },
     invocation: {
       suite: opts.suite,

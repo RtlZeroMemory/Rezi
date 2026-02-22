@@ -139,6 +139,8 @@ export interface BenchMeta {
   cargoVersion: string | null;
   cpuGovernor: string | null;
   isWsl: boolean;
+  /** Host caveat text for virtualized/jitter-prone environments (e.g. WSL), else null. */
+  environmentCaveat: string | null;
 }
 
 export interface BenchInvocation {
