@@ -19,7 +19,7 @@ Rezi enables mouse routing when terminal capabilities report mouse support.
 Wheel routing order:
 
 1. `VirtualList` under cursor (`hitTestTargetId`), else focused `VirtualList`.
-2. If no `VirtualList` handled the event: focused `CodeEditor`, `LogsConsole`, then `DiffViewer`.
+2. If no `VirtualList` handled the event: `CodeEditor`, `LogsConsole`, or `DiffViewer` under cursor (`hitTestTargetId`), else the focused one.
 3. If none match, the wheel event is ignored.
 
 Wheel step size (where implemented):

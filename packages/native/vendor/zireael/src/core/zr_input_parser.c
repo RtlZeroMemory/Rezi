@@ -654,9 +654,9 @@ static void zr__decode_sgr_mouse_event(uint32_t button_code, uint8_t terminator,
   if (is_wheel) {
     *out_kind = (uint32_t)ZR_MOUSE_WHEEL;
     if (base == ZR_XTERM_WHEEL_UP) {
-      *out_wheel_y = 1;
-    } else if (base == ZR_XTERM_WHEEL_DOWN) {
       *out_wheel_y = -1;
+    } else if (base == ZR_XTERM_WHEEL_DOWN) {
+      *out_wheel_y = 1;
     } else if (base == ZR_XTERM_WHEEL_RIGHT) {
       *out_wheel_x = 1;
     } else {

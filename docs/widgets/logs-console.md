@@ -35,10 +35,16 @@ ui.logsConsole({
 | `onEntryToggle` | `(id, expanded) => void` | - | Expand/collapse callback |
 | `onClear` | `() => void` | - | Clear entries callback |
 | `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focus decoration |
+| `scrollbarVariant` | `"minimal" \| "classic" \| "modern" \| "dots" \| "thin"` | `"minimal"` | Scrollbar glyph variant |
+| `scrollbarStyle` | `TextStyle` | - | Style override for scrollbar |
+
+## Scrollbar
+
+A vertical scrollbar is rendered on the right edge when entries exceed the viewport height. Set `scrollbarVariant` to choose a glyph style. Use `scrollbarStyle` to override scrollbar colors.
 
 ## Mouse Behavior
 
-- **Mouse scroll wheel** scrolls log entries, firing the `onScroll` callback.
+- **Mouse scroll wheel** scrolls log entries, firing the `onScroll` callback. Scroll works when hovering over the widget, even without focus.
 - **Clicking** the console area focuses the widget.
 
 ## Notes
