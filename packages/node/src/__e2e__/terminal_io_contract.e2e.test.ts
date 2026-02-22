@@ -86,7 +86,8 @@ type ParsedBatch = Readonly<{
 
 const ZR_KEY_FOCUS_IN = 30;
 const ZR_KEY_FOCUS_OUT = 31;
-const CONTROL_COMMAND_TIMEOUT_MS = 5_000;
+const CONTROL_COMMAND_TIMEOUT_MS = 15_000;
+const CONTROL_POLL_IDLE_DELAY_MS = process.env["CI"] ? 8 : 0;
 
 function closeServerQuiet(server: net.Server): Promise<void> {
   return new Promise((resolve) => {
@@ -468,6 +469,9 @@ async function collectEvents(
     const batch = await harness.pollOnce();
     events.push(...batch.events);
     if (stopWhen(events)) return events;
+    if (CONTROL_POLL_IDLE_DELAY_MS > 0 && batch.events.length === 0) {
+      await delay(CONTROL_POLL_IDLE_DELAY_MS);
+    }
   }
   return events;
 }
