@@ -111,6 +111,10 @@ function drawTextOps(ops: readonly DrawOp[]): readonly DrawTextOp[] {
   return Object.freeze(out);
 }
 
+function containsShadeGlyph(text: string): boolean {
+  return text.includes("░") || text.includes("▒") || text.includes("▓");
+}
+
 function renderBorderBox(
   props: Readonly<{
     border: BorderStyle;
@@ -301,7 +305,7 @@ describe("renderer border rendering (deterministic)", () => {
       shadow: true,
     });
 
-    const shadowIndex = drawOps.findIndex((op) => op.text.includes("▒"));
+    const shadowIndex = drawOps.findIndex((op) => containsShadeGlyph(op.text));
     const borderTopIndex = drawOps.findIndex((op) => op.text === `┌${"─".repeat(6)}┐`);
 
     assert.equal(shadowIndex >= 0, true);
@@ -317,7 +321,7 @@ describe("renderer border rendering (deterministic)", () => {
       height: 4,
     });
     assert.equal(
-      drawOps.some((op) => op.text.includes("▒")),
+      drawOps.some((op) => containsShadeGlyph(op.text)),
       false,
     );
   });

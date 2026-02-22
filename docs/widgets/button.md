@@ -28,6 +28,16 @@ ui.button({
 | `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused label style |
 | `key` | `string` | - | Reconciliation key for dynamic lists |
 
+## Design System Styling
+
+Buttons support design-system-based styling via `ds*` props. When present, these override manual `style`/`px` props with theme-aware, recipe-computed styles.
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `dsVariant` | `"solid" \| "soft" \| "outline" \| "ghost"` | `"soft"` | Visual variant |
+| `dsTone` | `"default" \| "primary" \| "danger" \| "success" \| "warning"` | `"default"` | Semantic tone |
+| `dsSize` | `"sm" \| "md" \| "lg"` | `"md"` | Size preset (controls padding) |
+
 ## Behavior
 
 Buttons are focusable when enabled. They can be activated by keyboard or mouse:
@@ -40,6 +50,21 @@ Buttons are focusable when enabled. They can be activated by keyboard or mouse:
 The `onPress` callback fires regardless of whether the button was activated by keyboard or mouse. Buttons can be handled either via callback props or in a global `app.onEvent` handler.
 
 ## Examples
+
+### Design system buttons (recommended)
+
+```typescript
+// Primary action
+ui.button({ id: "save", label: "Save", dsVariant: "solid", dsTone: "primary", dsSize: "md" })
+
+// Destructive action
+ui.button({ id: "delete", label: "Delete", dsVariant: "outline", dsTone: "danger" })
+
+// Subtle action
+ui.button({ id: "cancel", label: "Cancel", dsVariant: "ghost" })
+```
+
+When `ds*` props are present, styling is computed automatically by the theme's recipe system. The button adapts to theme changes, capability tiers, and focus/disabled states without manual styling.
 
 ### Callback props (recommended)
 

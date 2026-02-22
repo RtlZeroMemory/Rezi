@@ -16,9 +16,9 @@
   },
   "types": "./dist/index.d.ts",
   "dependencies": {
-    "@rezi-ui/core": "0.1.0-alpha.26",
-    "@opentui/core": "^0.1.80",
+    "@opentui/core": "^0.1.81",
     "@opentui/react": "^0.1.80",
+    "@rezi-ui/core": "0.1.0-alpha.26",
     "blessed": "^0.1.81",
     "ink": "^6.8.0",
     "react": "^19.0.0",

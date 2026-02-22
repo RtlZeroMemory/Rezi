@@ -1,6 +1,11 @@
 ---
 name: rezi-write-tests
 description: Write tests for Rezi widgets, screens, or app logic using createTestRenderer and node:test.
+user-invocable: true
+allowed-tools: Read, Glob, Grep, Edit, Write, Bash(node scripts/run-tests.mjs*), Bash(node --test *)
+argument-hint: "[file-or-widget-to-test]"
+metadata:
+  short-description: Write tests
 ---
 
 ## When to use
@@ -19,6 +24,8 @@ Use this skill when:
 - `packages/core/src/widgets/__tests__/composition.animationHooks.test.ts` — animation hook test patterns
 - `packages/core/src/app/__tests__/widgetRenderer.transition.test.ts` — `ui.box` transition expectations
 - `scripts/run-tests.mjs` — test runner
+- `packages/core/src/testing/snapshot.ts` — golden frame snapshot utilities (`captureSnapshot`, `serializeSnapshot`, `diffSnapshots`)
+- `scripts/rezi-snap.mjs` — CLI for snapshot capture and verification
 
 ## Steps
 
@@ -26,7 +33,8 @@ Use this skill when:
 
 2. **Use `createTestRenderer()`** for widget/render tests:
    ```typescript
-   import { describe, it, assert } from "node:test";
+   import { describe, it } from "node:test";
+   import * as assert from "node:assert/strict";
    import { createTestRenderer, ui } from "@rezi-ui/core";
 
    describe("MyWidget", () => {
@@ -50,7 +58,22 @@ Use this skill when:
 
 5. **Use `result.findById()`** to locate specific nodes in the render tree
 
-6. **For animation features**, cover:
+6. **Use golden frame snapshots** for visual regression:
+   ```typescript
+   import { captureSnapshot, serializeSnapshot, diffSnapshots, parseSnapshot } from "@rezi-ui/core";
+
+   const snapshot = captureSnapshot("my-scene", myView(state), { viewport: { cols: 80, rows: 24 }, theme }, "dark");
+   const text = serializeSnapshot(snapshot);
+   // Compare with stored snapshot using diffSnapshots()
+   ```
+
+7. **Run snapshot CLI** for bulk capture/verify:
+   ```bash
+   node scripts/rezi-snap.mjs --update    # Capture new snapshots
+   node scripts/rezi-snap.mjs --verify    # Verify against stored
+   ```
+
+8. **For animation features**, cover:
    - mount value
    - retarget while running
    - cleanup on unmount (no timer leak)
@@ -71,3 +94,4 @@ node --test path/to/test.ts
 - All new tests pass
 - No existing tests broken
 - Tests are deterministic (bounded timers/explicit waits, no randomness)
+- Golden snapshots match expected output (if applicable)

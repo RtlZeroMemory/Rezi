@@ -23,6 +23,7 @@ import type { SpacingValue } from "../layout/spacing-scale.js";
 import type { LayoutConstraints } from "../layout/types.js";
 import type { Theme } from "../theme/theme.js";
 import type { ThemeDefinition } from "../theme/tokens.js";
+import type { WidgetSize, WidgetTone, WidgetVariant } from "../ui/designTokens.js";
 import type { TextStyle } from "./style.js";
 
 /** Cross-axis alignment for stack layouts. */
@@ -124,7 +125,7 @@ export type BoxShadow =
       offsetX?: number;
       /** Vertical offset (default: 1) */
       offsetY?: number;
-      /** Shadow density: "light", "medium", "dense" (default: "medium") */
+      /** Shadow density: "light", "medium", "dense" (default: "light") */
       density?: "light" | "medium" | "dense";
     }>;
 
@@ -784,6 +785,25 @@ export type ButtonProps = Readonly<{
   onPress?: () => void;
   /** Optional focus appearance configuration. */
   focusConfig?: FocusConfig;
+  /**
+   * Design system: visual variant.
+   * - "solid": Accent background, inverse text (primary CTA)
+   * - "soft": Subtle background, accent text (secondary)
+   * - "outline": Border, no fill (tertiary)
+   * - "ghost": No background or border (minimal)
+   * @default "soft"
+   */
+  dsVariant?: WidgetVariant;
+  /**
+   * Design system: color tone.
+   * @default "default"
+   */
+  dsTone?: WidgetTone;
+  /**
+   * Design system: size preset.
+   * @default "md"
+   */
+  dsSize?: WidgetSize;
 }>;
 
 /** Props for input widget. id is required; value is controlled by app state. */
@@ -810,6 +830,15 @@ export type InputProps = Readonly<{
   wordWrap?: boolean;
   /** Optional focus appearance configuration. */
   focusConfig?: FocusConfig;
+  /**
+   * Design system: size preset.
+   * @default "md"
+   */
+  dsSize?: WidgetSize;
+  /**
+   * Design system: placeholder text displayed when value is empty.
+   */
+  placeholder?: string;
 }>;
 
 /** Props for ui.textarea(). Multi-line controlled text input. */

@@ -60,6 +60,12 @@ packages/core/src/
   testing/
     renderer.ts               # createTestRenderer() — full pipeline test helper
     events.ts                 # TestEventBuilder, encodeZrevBatchV1
+    snapshot.ts               # Golden frame snapshot system (captureSnapshot, diffSnapshots)
+  ui/
+    capabilities.ts           # Capability tier detection (A/B/C)
+    designTokens.ts           # Typography, elevation, size, variant, tone tokens
+    recipes.ts                # Style recipes for all widget families
+    index.ts                  # Design system public exports
   __tests__/
     integration/              # Integration test suites (dashboard, form-editor, etc.)
     stress/                   # Fuzzing and stress tests (large trees, rapid events)
@@ -93,6 +99,37 @@ State -> view(state) -> VNode tree -> commitVNodeTree -> layout -> metadata_coll
 7. **renderToDrawlist**: Stack-based DFS walks the layout tree, emitting draw operations.
 8. **builder.build()**: Serializes draw operations into ZRDL binary format.
 9. **backend.requestFrame()**: Sends binary drawlist to the native Zireael renderer.
+
+## Design System
+
+Rezi includes a cohesive design system with tokens, recipes, and capability tiers.
+See [docs/design-system.md](docs/design-system.md) for the full specification.
+
+### Key Concepts
+
+- **Tokens**: Semantic color slots (`bg.base`, `fg.primary`, `accent.primary`, etc.) defined per theme
+- **Recipes**: `recipe.button()`, `recipe.input()`, etc. — compute styles from tokens
+- **Capability Tiers**: A (256-color), B (truecolor), C (enhanced/images)
+- **DS Props**: `dsVariant`, `dsTone`, `dsSize` on interactive widgets for recipe-based styling
+- **Snapshot Testing**: `captureSnapshot()` + `rezi-snap` CLI for visual regression
+
+### Design System Buttons
+
+```typescript
+// Design-system-styled button
+ui.button({ id: "save", label: "Save", dsVariant: "solid", dsTone: "primary", dsSize: "md" })
+ui.button({ id: "cancel", label: "Cancel", dsVariant: "ghost" })
+ui.button({ id: "delete", label: "Delete", dsVariant: "outline", dsTone: "danger" })
+```
+
+### Widget Gallery
+
+```bash
+npx tsx examples/gallery/src/index.ts          # Interactive
+npx tsx examples/gallery/src/index.ts --headless  # Headless CI
+node scripts/rezi-snap.mjs --update            # Update snapshots
+node scripts/rezi-snap.mjs --verify            # Verify snapshots
+```
 
 ## API Layers (safest to lowest-level)
 

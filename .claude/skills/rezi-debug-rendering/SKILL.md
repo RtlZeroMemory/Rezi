@@ -25,6 +25,7 @@ Use this skill when:
 - `packages/core/src/layout/` — layout engine
 - `packages/core/src/renderer/renderToDrawlist/` — draw operations
 - `packages/core/src/widgets/composition.ts` — animation hook implementations
+- `packages/core/src/ui/` — design tokens, recipes, and capability tiers
 
 ## Debugging steps
 
@@ -71,3 +72,4 @@ Use this skill when:
 | Transition not animating | `transition` missing, wrong `properties`, or no actual value delta |
 | Opacity animation looks wrong | `opacity` outside `[0..1]` (clamped) or `properties` excludes `opacity` |
 | Crash on deep tree | Nesting depth > 500 |
+| DS styling not applied | `dsVariant` prop missing, or theme was not created from `ThemeDefinition` |

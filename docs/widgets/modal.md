@@ -39,6 +39,18 @@ ui.layers([
 | `initialFocus` | `string` | - | ID to focus when modal opens |
 | `returnFocusTo` | `string` | - | ID to restore focus on close |
 
+## Design System Styling
+
+Modals can be styled via the recipe system for consistent surface, title, and backdrop treatment:
+
+```typescript
+import { recipe } from "@rezi-ui/core";
+// recipe.modal(colors, { focused: true | false })
+// recipe.surface(colors, { elevation: 3, focused: true | false })
+```
+
+The recipe system provides elevation-aware styling that respects the active theme. See the [Design System specification](../design-system.md) for details.
+
 ## Examples
 
 ### Confirmation dialog with explicit focus target

@@ -21,6 +21,7 @@ Use this skill when:
 - `packages/core/src/forms/useForm.ts` — `useForm()` hook
 - `packages/core/src/widgets/types.ts` — `InputProps`, `FieldProps`, `CheckboxProps`, `SelectProps`
 - `packages/core/src/widgets/ui.ts` — `ui.input()`, `ui.field()`, `ui.checkbox()`, `ui.select()`
+- `packages/core/src/ui/recipes.ts` — `recipe.input()`, `recipe.button()`, `recipe.select()` for design-system styling
 
 ## Steps
 
@@ -44,14 +45,14 @@ Use this skill when:
        ui.field({
          label: "Name",
          error: form.errors.name,
-         content: ui.input({ ...form.bind("name") }),
+         children: ui.input({ ...form.bind("name") }),
        }),
        ui.field({
          label: "Email",
          error: form.errors.email,
-         content: ui.input({ ...form.bind("email") }),
+         children: ui.input({ ...form.bind("email") }),
        }),
-       ui.button({ label: "Submit", onPress: form.submit }),
+       ui.button({ id: "submit", label: "Submit", dsVariant: "solid", dsTone: "primary", onPress: form.submit }),
      ]);
    }, { name: "MyForm" });
    ```

@@ -80,6 +80,17 @@ const FilesTable = defineWidget<{ rows: readonly { id: string; name: string; siz
 | `borderStyle` | `{ variant?, color? }` | - | Border glyph variant (`single`, `double`, `rounded`, `heavy`, `dashed`, `heavy-dashed`) and optional border color |
 | `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused row highlight |
 
+## Design System Styling
+
+Tables can be styled via the recipe system for consistent header, cell, and stripe colors:
+
+```typescript
+import { recipe } from "@rezi-ui/core";
+// recipe.table(colors, { state: "header" | "row" | "selectedRow" | "focusedRow" | "stripe" })
+```
+
+This ensures table styling adapts automatically when users switch themes. See the [Design System specification](../design-system.md) for details.
+
 ## Examples
 
 ### Sortable table

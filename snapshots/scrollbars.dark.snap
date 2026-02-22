@@ -1,0 +1,35 @@
+# Snapshot: scrollbars
+# Theme: dark
+# Viewport: 80x40
+# Version: 1.0.0
+# Captured: 2026-02-22T07:51:54.790Z
+---
+
+ Scrollbars
+
+ ──────────────────────────────────────────────────────────────────────────────
+
+ variant: minimal
+ Line 2 (minimal) ┃
+ Line 3 (minimal) │
+ ┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃││
+
+ variant: classic
+ Line 2 (classic) ▲
+ Line 3 (classic) ▼
+ ◄██████████████░►░
+
+ variant: modern
+ Line 2 (modern)  ▐
+ Line 3 (modern)  ▕
+ ▐▐▐▐▐▐▐▐▐▐▐▐▐▐▐▐▕▕
+
+ variant: dots
+ Line 2 (dots)    ⣿
+ Line 3 (dots)    ⡇
+ ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⡇
+
+ variant: thin
+ Line 2 (thin)    ▎
+ Line 3 (thin)    ▏
+ ▎▎▎▎▎▎▎▎▎▎▎▎▎▎▎▎▏▏

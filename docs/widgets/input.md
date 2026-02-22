@@ -26,6 +26,17 @@ ui.input({
 | `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused input decoration |
 | `key` | `string` | - | Reconciliation key for dynamic lists |
 
+## Design System Styling
+
+Inputs support design-system-based styling via `ds*` props.
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `dsSize` | `"sm" \| "md" \| "lg"` | `"md"` | Size preset (controls padding and height) |
+| `placeholder` | `string` | - | Placeholder text shown when value is empty |
+
+When `dsSize` is present, the input uses the theme's recipe system for consistent sizing across all interactive widgets.
+
 ## Behavior
 
 Inputs are focusable when enabled. **Clicking** the input focuses it. When focused:

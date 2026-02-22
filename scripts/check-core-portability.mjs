@@ -50,6 +50,8 @@ function collectTsFiles(dir) {
   try {
     const entries = readdirSync(dir);
     for (const entry of entries) {
+      // Skip test directories — they are allowed to use node:* imports
+      if (entry === "__tests__") continue;
       const fullPath = join(dir, entry);
       const stat = statSync(fullPath);
       if (stat.isDirectory()) {

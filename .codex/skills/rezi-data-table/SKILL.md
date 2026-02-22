@@ -1,6 +1,11 @@
 ---
 name: rezi-data-table
 description: Add a data table with sorting, selection, and keyboard navigation. Use when displaying tabular data.
+user-invocable: true
+allowed-tools: Read, Glob, Grep, Edit, Write
+argument-hint: "[data-source]"
+metadata:
+  short-description: Add data table
 ---
 
 ## When to use
@@ -16,6 +21,7 @@ Use this skill when:
 - `packages/core/src/widgets/useTable.ts` — `useTable()` hook
 - `packages/core/src/widgets/types.ts` — `TableProps`
 - `packages/core/src/widgets/ui.ts` — `ui.table()`
+- `packages/core/src/ui/recipes.ts` — `recipe.table()` for design-system-consistent table styling
 
 ## Steps
 

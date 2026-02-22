@@ -139,6 +139,10 @@ function packRgb(r: number, g: number, b: number): number {
   return ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
 }
 
+function containsShadeGlyph(text: string): boolean {
+  return text.includes("░") || text.includes("▒") || text.includes("▓");
+}
+
 function renderBytes(
   vnode: VNode,
   viewport: Readonly<{ cols: number; rows: number }> = { cols: 64, rows: 20 },
@@ -201,11 +205,11 @@ describe("renderer regressions", () => {
     );
 
     assert.equal(
-      withShadow.some((s) => s.includes("▒")),
+      withShadow.some((s) => containsShadeGlyph(s)),
       true,
     );
     assert.equal(
-      withoutShadow.some((s) => s.includes("▒")),
+      withoutShadow.some((s) => containsShadeGlyph(s)),
       false,
     );
   });

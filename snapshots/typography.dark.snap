@@ -1,0 +1,20 @@
+# Snapshot: typography
+# Theme: dark
+# Viewport: 80x40
+# Version: 1.0.0
+# Captured: 2026-02-22T07:51:54.770Z
+---
+
+ Typography
+
+ ──────────────────────────────────────────────────────────────────────────────
+
+ Title Role — Bold Primary
+
+ Label Role — Bold Primary
+
+ Body Role — Regular Primary
+
+ Caption Role — Dim Secondary
+
+ Code Role — Monospace Accent

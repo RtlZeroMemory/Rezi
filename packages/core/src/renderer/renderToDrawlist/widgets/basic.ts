@@ -54,6 +54,79 @@ import {
   readFocusConfig,
   resolveFocusedContentStyle,
 } from "./focusConfig.js";
+import { buttonRecipe, inputRecipe } from "../../../ui/recipes.js";
+import type { ColorTokens } from "../../../theme/tokens.js";
+import type { Rgb } from "../../../widgets/style.js";
+
+/**
+ * Extract ColorTokens from a legacy Theme for design system recipe use.
+ * The legacy Theme stores semantic token paths as flat keys (e.g. "bg.base").
+ * This reconstructs the structured ColorTokens shape.
+ */
+function extractColorTokens(theme: Theme): ColorTokens | null {
+  const c = theme.colors;
+  // Check if semantic tokens exist (they do when theme was coerced from ThemeDefinition)
+  const bgBase = c["bg.base"] as Rgb | undefined;
+  if (!bgBase) return null;
+
+  return {
+    bg: {
+      base: bgBase,
+      elevated: (c["bg.elevated"] as Rgb) ?? bgBase,
+      overlay: (c["bg.overlay"] as Rgb) ?? bgBase,
+      subtle: (c["bg.subtle"] as Rgb) ?? bgBase,
+    },
+    fg: {
+      primary: (c["fg.primary"] as Rgb) ?? c.fg,
+      secondary: (c["fg.secondary"] as Rgb) ?? c.muted,
+      muted: (c["fg.muted"] as Rgb) ?? c.muted,
+      inverse: (c["fg.inverse"] as Rgb) ?? c.bg,
+    },
+    accent: {
+      primary: (c["accent.primary"] as Rgb) ?? c.primary,
+      secondary: (c["accent.secondary"] as Rgb) ?? c.secondary,
+      tertiary: (c["accent.tertiary"] as Rgb) ?? c.info,
+    },
+    success: c.success,
+    warning: c.warning,
+    error: c["danger"] ?? c["error"] ?? { r: 220, g: 53, b: 69 },
+    info: c.info,
+    focus: {
+      ring: (c["focus.ring"] as Rgb) ?? c.primary,
+      bg: (c["focus.bg"] as Rgb) ?? c.bg,
+    },
+    selected: {
+      bg: (c["selected.bg"] as Rgb) ?? c.primary,
+      fg: (c["selected.fg"] as Rgb) ?? c.fg,
+    },
+    disabled: {
+      fg: (c["disabled.fg"] as Rgb) ?? c.muted,
+      bg: (c["disabled.bg"] as Rgb) ?? c.bg,
+    },
+    diagnostic: {
+      error: (c["diagnostic.error"] as Rgb) ?? c.danger ?? { r: 220, g: 53, b: 69 },
+      warning: (c["diagnostic.warning"] as Rgb) ?? c.warning,
+      info: (c["diagnostic.info"] as Rgb) ?? c.info,
+      hint: (c["diagnostic.hint"] as Rgb) ?? c.success,
+    },
+    border: {
+      subtle: (c["border.subtle"] as Rgb) ?? c.border,
+      default: (c["border.default"] as Rgb) ?? c.border,
+      strong: (c["border.strong"] as Rgb) ?? c.border,
+    },
+  };
+}
+
+/** Cache to avoid repeated extraction */
+const colorTokensCache = new WeakMap<Theme["colors"], ColorTokens | null>();
+
+function getColorTokens(theme: Theme): ColorTokens | null {
+  const cached = colorTokensCache.get(theme.colors);
+  if (cached !== undefined) return cached;
+  const tokens = extractColorTokens(theme);
+  colorTokensCache.set(theme.colors, tokens);
+  return tokens;
+}
 
 type ResolvedCursor = Readonly<{
   x: number;
@@ -899,6 +972,9 @@ export function renderBasicWidget(
         style?: unknown;
         focusConfig?: unknown;
         pressedStyle?: unknown;
+        dsVariant?: unknown;
+        dsTone?: unknown;
+        dsSize?: unknown;
       };
       const focusConfig = readFocusConfig(props.focusConfig);
       const id = typeof props.id === "string" ? props.id : null;
@@ -907,31 +983,79 @@ export function renderBasicWidget(
       const focused = id !== null && focusState.focusedId === id;
       const pressed = !disabled && id !== null && pressedId === id;
       const effectiveFocused = focused && focusIndicatorEnabled(focusConfig);
-      const px =
-        typeof props.px === "number" && Number.isFinite(props.px) && props.px >= 0
-          ? Math.trunc(props.px)
-          : 1;
-      const availableLabelW = Math.max(0, rect.w - px * 2);
-      const displayLabel =
-        availableLabelW <= 0
-          ? ""
-          : measureTextCells(label) > availableLabelW
-            ? truncateWithEllipsis(label, availableLabelW)
-            : label;
-      const ownStyle = asTextStyle(props.style, theme);
-      const baseLabelStyle = mergeTextStyle(
-        mergeTextStyle(parentStyle, ownStyle),
-        getButtonLabelStyle({ focused: effectiveFocused, disabled }),
-      );
-      let labelStyle = effectiveFocused
-        ? resolveFocusedContentStyle(baseLabelStyle, theme, focusConfig)
-        : baseLabelStyle;
-      const pressedStyle = asTextStyle(props.pressedStyle, theme);
-      if (pressedStyle && pressed) {
-        labelStyle = mergeTextStyle(labelStyle, pressedStyle);
-      }
-      if (displayLabel.length > 0) {
-        builder.drawText(rect.x + px, rect.y, displayLabel, labelStyle);
+
+      // Design system recipe path
+      const dsVariant = props.dsVariant as "solid" | "soft" | "outline" | "ghost" | undefined;
+      const colorTokens = dsVariant !== undefined ? getColorTokens(theme) : null;
+
+      if (colorTokens !== null && dsVariant !== undefined) {
+        // Use design system recipe
+        const dsTone = (props.dsTone as "default" | "primary" | "danger" | "success" | "warning") ?? "default";
+        const dsSize = (props.dsSize as "sm" | "md" | "lg") ?? "md";
+        const state = disabled ? "disabled" as const
+          : pressed ? "pressed" as const
+          : effectiveFocused ? "focus" as const
+          : "default" as const;
+        const recipeResult = buttonRecipe(colorTokens, {
+          variant: dsVariant,
+          tone: dsTone,
+          size: dsSize,
+          state,
+        });
+        const px = recipeResult.px;
+        const availableLabelW = Math.max(0, rect.w - px * 2);
+        const displayLabel =
+          availableLabelW <= 0
+            ? ""
+            : measureTextCells(label) > availableLabelW
+              ? truncateWithEllipsis(label, availableLabelW)
+              : label;
+
+        // Fill background if solid/soft variant provides bg color
+        if (recipeResult.bg.bg) {
+          const bgStyle = mergeTextStyle(parentStyle, recipeResult.bg);
+          builder.fillRect(rect.x, rect.y, rect.w, rect.h, bgStyle);
+        }
+
+        // Draw label
+        if (displayLabel.length > 0) {
+          // Keep text cells on the same background as the filled button surface.
+          // Without this, inherited parent bg would repaint label cells and leave
+          // only side padding visibly filled.
+          const labelStyle = mergeTextStyle(
+            parentStyle,
+            recipeResult.bg.bg ? { ...recipeResult.label, bg: recipeResult.bg.bg } : recipeResult.label,
+          );
+          builder.drawText(rect.x + px, rect.y, displayLabel, labelStyle);
+        }
+      } else {
+        // Legacy path: original ad-hoc styling
+        const px =
+          typeof props.px === "number" && Number.isFinite(props.px) && props.px >= 0
+            ? Math.trunc(props.px)
+            : 1;
+        const availableLabelW = Math.max(0, rect.w - px * 2);
+        const displayLabel =
+          availableLabelW <= 0
+            ? ""
+            : measureTextCells(label) > availableLabelW
+              ? truncateWithEllipsis(label, availableLabelW)
+              : label;
+        const ownStyle = asTextStyle(props.style, theme);
+        const baseLabelStyle = mergeTextStyle(
+          mergeTextStyle(parentStyle, ownStyle),
+          getButtonLabelStyle({ focused: effectiveFocused, disabled }),
+        );
+        let labelStyle = effectiveFocused
+          ? resolveFocusedContentStyle(baseLabelStyle, theme, focusConfig)
+          : baseLabelStyle;
+        const pressedStyle = asTextStyle(props.pressedStyle, theme);
+        if (pressedStyle && pressed) {
+          labelStyle = mergeTextStyle(labelStyle, pressedStyle);
+        }
+        if (displayLabel.length > 0) {
+          builder.drawText(rect.x + px, rect.y, displayLabel, labelStyle);
+        }
       }
       break;
     }
@@ -940,6 +1064,7 @@ export function renderBasicWidget(
       const props = vnode.props as {
         id?: unknown;
         value?: unknown;
+        placeholder?: unknown;
         disabled?: unknown;
         style?: unknown;
         multiline?: unknown;
@@ -949,11 +1074,13 @@ export function renderBasicWidget(
       const focusConfig = readFocusConfig(props.focusConfig);
       const id = typeof props.id === "string" ? props.id : null;
       const value = typeof props.value === "string" ? props.value : "";
+      const placeholder = typeof props.placeholder === "string" ? props.placeholder : "";
       const disabled = props.disabled === true;
       const multiline = props.multiline === true;
       const wordWrap = props.wordWrap !== false;
       const focused = id !== null && focusState.focusedId === id;
       const focusVisible = focused && focusIndicatorEnabled(focusConfig);
+      const showPlaceholder = value.length === 0 && placeholder.length > 0;
       const ownStyle = asTextStyle(props.style, theme);
       const baseInputStyle = mergeTextStyle(
         mergeTextStyle(parentStyle, ownStyle),
@@ -962,6 +1089,7 @@ export function renderBasicWidget(
       const style = focusVisible
         ? resolveFocusedContentStyle(baseInputStyle, theme, focusConfig)
         : baseInputStyle;
+      const placeholderStyle = mergeTextStyle(style, { fg: theme.colors.muted, dim: true });
 
       if (multiline) {
         const contentW = Math.max(1, rect.w - 2);
@@ -975,10 +1103,12 @@ export function renderBasicWidget(
 
         builder.pushClip(rect.x, rect.y, rect.w, rect.h);
         for (let row = 0; row < rect.h; row++) {
-          const rawLine = wrapped.visualLines[startVisual + row] ?? "";
+          const rawLine = showPlaceholder
+            ? row === 0 ? placeholder : ""
+            : (wrapped.visualLines[startVisual + row] ?? "");
           const line = wordWrap ? rawLine : truncateToWidth(rawLine, contentW);
           if (line.length === 0) continue;
-          builder.drawText(rect.x + 1, rect.y + row, line, style);
+          builder.drawText(rect.x + 1, rect.y + row, line, showPlaceholder ? placeholderStyle : style);
         }
         builder.popClip();
 
@@ -995,8 +1125,9 @@ export function renderBasicWidget(
           }
         }
       } else {
+        const text = showPlaceholder ? placeholder : value;
         builder.pushClip(rect.x, rect.y, rect.w, rect.h);
-        builder.drawText(rect.x + 1, rect.y, value, style);
+        builder.drawText(rect.x + 1, rect.y, text, showPlaceholder ? placeholderStyle : style);
         builder.popClip();
 
         // v2 cursor: resolve cursor position for focused enabled input

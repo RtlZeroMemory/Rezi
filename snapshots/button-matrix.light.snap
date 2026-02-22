@@ -1,0 +1,36 @@
+# Snapshot: button-matrix
+# Theme: light
+# Viewport: 80x40
+# Version: 1.0.0
+# Captured: 2026-02-22T07:51:54.765Z
+---
+
+ Button Matrix
+
+ Variants × Tones
+
+ ──────────────────────────────────────────────────────────────────────────────
+
+ variant: solid
+   default      primary      danger      success      warning
+
+ variant: soft
+   default      primary      danger      success      warning
+
+ variant: outline
+   default      primary      danger      success      warning
+
+ variant: ghost
+   default      primary      danger      success      warning
+
+ ──────────────────────────────────────────────────────────────────────────────
+
+ Sizes
+
+  Size: sm     Size: md       Size: lg
+
+ ──────────────────────────────────────────────────────────────────────────────
+
+ States
+
+   Default      Disabled

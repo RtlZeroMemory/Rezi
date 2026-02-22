@@ -522,6 +522,86 @@ export {
   contrastRatio,
 } from "./theme/index.js";
 
+// Theme interop (ThemeDefinition <-> legacy Theme conversion)
+export {
+  coerceToLegacyTheme,
+  mergeThemeOverride,
+  isThemeDefinition,
+} from "./theme/interop.js";
+
+// =============================================================================
+// Design System
+// =============================================================================
+
+export {
+  // Capability tiers
+  getCapabilityTier,
+  resolveCapabilityContext,
+  DEFAULT_CAPABILITY_CONTEXT,
+  rgbTo256,
+  type CapabilityTier,
+  type CapabilityContext,
+  // Design tokens
+  resolveTypography,
+  resolveSurface,
+  resolveSize,
+  resolveToneColor,
+  resolveToneFg,
+  resolveDensityGap,
+  resolveDensityPadding,
+  resolveBorderVariant,
+  type TypographyRole,
+  type TypographyStyle,
+  type ElevationLevel,
+  type SurfaceStyle,
+  type WidgetSize,
+  type SizeSpacing,
+  type WidgetVariant,
+  type WidgetTone,
+  type WidgetState,
+  type Density,
+  type BorderVariant,
+  // Recipes
+  recipe,
+  buttonRecipe,
+  inputRecipe,
+  surfaceRecipe,
+  selectRecipe,
+  tableRecipe,
+  modalRecipe,
+  badgeRecipe,
+  textRecipe,
+  dividerRecipe,
+  checkboxRecipe,
+  progressRecipe,
+  calloutRecipe,
+  scrollbarRecipe,
+  type ButtonRecipeParams,
+  type ButtonRecipeResult,
+  type InputRecipeParams,
+  type InputRecipeResult,
+  type SurfaceRecipeParams,
+  type SurfaceRecipeResult,
+  type SelectRecipeParams,
+  type SelectRecipeResult,
+  type TableRecipeParams,
+  type TableRecipeResult,
+  type ModalRecipeParams,
+  type ModalRecipeResult,
+  type BadgeRecipeParams,
+  type BadgeRecipeResult,
+  type TextRecipeParams,
+  type TextRecipeResult,
+  type DividerRecipeResult,
+  type CheckboxRecipeParams,
+  type CheckboxRecipeResult,
+  type ProgressRecipeParams,
+  type ProgressRecipeResult,
+  type CalloutRecipeParams,
+  type CalloutRecipeResult,
+  type ScrollbarRecipeResult,
+} from "./ui/index.js";
+
 // =============================================================================
 // Widget Utilities
 // =============================================================================
@@ -923,6 +1003,17 @@ export type {
   TestViewport,
   TestZrevEvent,
 } from "./testing/index.js";
+
+// Snapshot testing
+export {
+  captureSnapshot,
+  serializeSnapshot,
+  parseSnapshot,
+  diffSnapshots,
+  type Snapshot,
+  type SnapshotMetadata,
+  type SnapshotDiffResult,
+} from "./testing/snapshot.js";
 
 // =============================================================================
 // Binary Safety Utilities

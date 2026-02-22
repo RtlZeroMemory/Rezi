@@ -48,7 +48,7 @@ export const DEFAULT_SHADOW: ShadowConfig = Object.freeze({
   offsetX: 1,
   offsetY: 1,
   color: Object.freeze({ r: 0, g: 0, b: 0 }),
-  density: "medium",
+  density: "light",
 });
 
 /**
@@ -133,8 +133,9 @@ export function renderShadow(
   if (offsetY > 0) {
     const startX = rect.x + offsetX;
     const shadowY = rect.y + rect.h;
-    const shadowWidth = rect.w + (offsetX > 0 ? offsetX : 0) - offsetX;
-    const shadowStr = shadowChar.repeat(Math.max(0, shadowWidth + offsetX));
+    // Keep horizontal strip aligned with content width and shifted by offsetX.
+    // This avoids overextending one extra cell beyond the vertical strip corner.
+    const shadowStr = shadowChar.repeat(Math.max(0, rect.w));
 
     for (let dy = 0; dy < offsetY; dy++) {
       builder.drawText(startX, shadowY + dy, shadowStr, style);
@@ -153,10 +154,9 @@ export function getRectWithShadow(rect: Rect, config: ShadowBoundsConfig): Rect 
   return {
     x: rect.x,
     y: rect.y,
-    // renderShadow() draws the bottom strip starting at x + offsetX and
-    // with length (rect.w + offsetX), so the rightmost painted cell extends
-    // by 2*offsetX beyond rect.x + rect.w - 1.
-    w: rect.w + config.offsetX * 2,
+    // renderShadow() draws bottom strip at x + offsetX with width rect.w,
+    // so rightmost painted cell extends by offsetX beyond rect right edge.
+    w: rect.w + config.offsetX,
     h: rect.h + config.offsetY,
   };
 }

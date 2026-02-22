@@ -1,0 +1,9 @@
+{
+  "name": "gallery",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@rezi-ui/core": "0.1.0-alpha.26",
+    "@rezi-ui/node": "0.1.0-alpha.26"
+  }
+}

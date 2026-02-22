@@ -32,6 +32,17 @@ ui.select({
 | `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused select decoration |
 | `key` | `string` | - | Reconciliation key |
 
+## Design System Styling
+
+Selects can be styled via the recipe system. While direct `ds*` props are planned, you can use the `recipe.select()` function in custom rendering:
+
+```typescript
+import { recipe } from "@rezi-ui/core";
+// recipe.select(colors, { state, size })
+```
+
+See [Widget Authoring Guide](../guide/widget-authoring.md) for design system integration patterns.
+
 ## Behavior
 
 - Focusable when enabled.
