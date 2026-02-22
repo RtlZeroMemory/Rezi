@@ -52,6 +52,7 @@ ui.virtualList({
 | `wrapAround` | `boolean` | `false` | Wrap selection from end to start |
 | `onScroll` | `(scrollTop, range) => void` | - | Scroll callback with visible range |
 | `onSelect` | `(item, index) => void` | - | Selection callback |
+| `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused item highlight |
 
 ## Behavior
 

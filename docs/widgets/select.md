@@ -29,6 +29,7 @@ ui.select({
 | `onChange` | `(value: string) => void` | - | Called when selection changes |
 | `disabled` | `boolean` | `false` | Disable focus and interaction |
 | `placeholder` | `string` | - | Text shown when no matching option label is found |
+| `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused select decoration |
 | `key` | `string` | - | Reconciliation key |
 
 ## Behavior

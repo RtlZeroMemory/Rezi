@@ -43,6 +43,7 @@ ui.codeEditor({
 | `syntaxLanguage` | `"plain" \| "typescript" \| "javascript" \| "json" \| "go" \| "rust" \| "c" \| "cpp" \| "c++" \| "csharp" \| "c#" \| "java" \| "python" \| "bash"` | `"plain"` | Built-in syntax preset |
 | `tokenizeLine` | `(line, context) => CodeEditorSyntaxToken[]` | - | Custom per-line tokenizer override |
 | `highlightActiveCursorCell` | `boolean` | `true` | Draw a visible highlighted cursor cell |
+| `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses active cursor cell highlight (equivalent to `highlightActiveCursorCell: false` when focused) |
 | `onChange` | `(lines, cursor) => void` | **required** | Content change callback |
 | `onSelectionChange` | `(selection) => void` | **required** | Selection change callback |
 | `onScroll` | `(scrollTop, scrollLeft) => void` | **required** | Scroll callback |

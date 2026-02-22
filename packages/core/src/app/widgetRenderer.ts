@@ -315,6 +315,19 @@ function describeThrown(v: unknown): string {
   return String(v);
 }
 
+function invokeCallbackSafely<TArgs extends readonly unknown[]>(
+  callback: ((...args: TArgs) => void) | undefined,
+  ...args: TArgs
+): boolean {
+  if (typeof callback !== "function") return false;
+  try {
+    callback(...args);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function isI32NonNegative(n: number): boolean {
   return Number.isInteger(n) && n >= 0 && n <= 2147483647;
 }
@@ -695,6 +708,21 @@ export class WidgetRenderer<S> {
   private pressedTable: Readonly<{ id: string; rowIndex: number }> | null = null;
   private pressedTableHeader: Readonly<{ id: string; columnIndex: number }> | null = null;
   private lastTableClick: Readonly<{ id: string; rowIndex: number; timeMs: number }> | null = null;
+  private pressedFileTree: Readonly<{ id: string; nodeIndex: number; nodeKey: string }> | null =
+    null;
+  private lastFileTreeClick:
+    | Readonly<{ id: string; nodeIndex: number; nodeKey: string; timeMs: number }>
+    | null = null;
+  private pressedFilePicker:
+    | Readonly<{ id: string; nodeIndex: number; nodeKey: string }>
+    | null = null;
+  private lastFilePickerClick:
+    | Readonly<{ id: string; nodeIndex: number; nodeKey: string; timeMs: number }>
+    | null = null;
+  private pressedTree: Readonly<{ id: string; nodeIndex: number; nodeKey: string }> | null = null;
+  private lastTreeClick:
+    | Readonly<{ id: string; nodeIndex: number; nodeKey: string; timeMs: number }>
+    | null = null;
   private traps: ReadonlyMap<string, CollectedTrap> = new Map<string, CollectedTrap>();
   private zoneMetaById: ReadonlyMap<string, CollectedZone> = new Map<string, CollectedZone>();
   private focusInfoById: ReadonlyMap<string, FocusInfo> = new Map<string, FocusInfo>();
@@ -2985,6 +3013,384 @@ export class WidgetRenderer<S> {
       }
     }
 
+    // Mouse click for FilePicker:
+    // - on down: select clicked node (skip right button)
+    // - on up: detect double-click to open file or toggle directory
+    if (event.kind === "mouse" && (event.mouseKind === 3 || event.mouseKind === 4)) {
+      const targetId = mouseTargetId;
+      if (targetId !== null) {
+        const fp = this.filePickerById.get(targetId);
+        const rect = this.rectById.get(targetId);
+        if (fp && rect) {
+          const state = this.treeStore.get(fp.id);
+          const flatNodes =
+            readFileNodeFlatCache(state, fp.data, fp.expandedPaths) ??
+            (() => {
+              const next = flattenTree(
+                fp.data,
+                fileNodeGetKey,
+                fileNodeGetChildren,
+                fileNodeHasChildren,
+                fp.expandedPaths,
+              );
+              this.treeStore.set(fp.id, {
+                flatCache: makeFileNodeFlatCache(fp.data, fp.expandedPaths, next),
+              });
+              return next;
+            })();
+
+          const computeNodeIndex = (): number | null => {
+            const localY = event.y - rect.y;
+            if (localY < 0 || localY >= rect.h) return null;
+            if (flatNodes.length === 0) return null;
+            const effectiveScrollTop = Math.max(0, state.scrollTop);
+            const idx = effectiveScrollTop + localY;
+            if (idx < 0 || idx >= flatNodes.length) return null;
+            return idx;
+          };
+
+          if (event.mouseKind === 3) {
+            this.pressedFilePicker = null;
+            const RIGHT_BUTTON = 1 << 2;
+            if ((event.buttons & RIGHT_BUTTON) !== 0) {
+              // No right-click behavior for file picker.
+            } else {
+              const nodeIndex = computeNodeIndex();
+              if (nodeIndex !== null) {
+                const fn = flatNodes[nodeIndex];
+                if (fn) {
+                  invokeCallbackSafely(fp.onSelect, fn.key);
+                  this.treeStore.set(fp.id, { focusedKey: fn.key });
+                  this.pressedFilePicker = Object.freeze({
+                    id: fp.id,
+                    nodeIndex,
+                    nodeKey: fn.key,
+                  });
+                  localNeedsRender = true;
+                }
+              } else {
+                this.pressedFilePicker = null;
+                this.lastFilePickerClick = null;
+              }
+            }
+          } else {
+            const pressed = this.pressedFilePicker;
+            this.pressedFilePicker = null;
+
+            if (pressed && pressed.id === fp.id) {
+              const nodeIndex = computeNodeIndex();
+              if (nodeIndex !== null && nodeIndex === pressed.nodeIndex) {
+                const fn = flatNodes[nodeIndex];
+                if (!fn || fn.key !== pressed.nodeKey) {
+                  this.lastFilePickerClick = null;
+                } else {
+                  const DOUBLE_PRESS_MS = 500;
+                  const last = this.lastFilePickerClick;
+                  const dt = last ? event.timeMs - last.timeMs : Number.POSITIVE_INFINITY;
+                  const isDouble =
+                    last &&
+                    last.id === fp.id &&
+                    last.nodeIndex === nodeIndex &&
+                    last.nodeKey === fn.key &&
+                    dt >= 0 &&
+                    dt <= DOUBLE_PRESS_MS;
+
+                  if (isDouble) {
+                    if (fn.node.type === "directory") {
+                      invokeCallbackSafely(fp.onToggle, fn.key, !fp.expandedPaths.includes(fn.key));
+                    } else {
+                      invokeCallbackSafely(fp.onOpen, fn.key);
+                    }
+                    this.lastFilePickerClick = null;
+                    localNeedsRender = true;
+                  } else {
+                    this.lastFilePickerClick = Object.freeze({
+                      id: fp.id,
+                      nodeIndex,
+                      nodeKey: fn.key,
+                      timeMs: event.timeMs,
+                    });
+                    localNeedsRender = true;
+                  }
+                }
+              } else {
+                this.lastFilePickerClick = null;
+              }
+            }
+          }
+        } else if (event.mouseKind === 4) {
+          this.pressedFilePicker = null;
+        }
+      } else if (event.mouseKind === 4) {
+        this.pressedFilePicker = null;
+      }
+    }
+
+    // Mouse click for FileTreeExplorer:
+    // - on down: select clicked node (skip right button)
+    // - on up: detect double-click and fire onActivate
+    if (event.kind === "mouse" && (event.mouseKind === 3 || event.mouseKind === 4)) {
+      const targetId = mouseTargetId;
+      if (targetId !== null) {
+        const fte = this.fileTreeExplorerById.get(targetId);
+        const rect = this.rectById.get(targetId);
+        if (fte && rect) {
+          const state = this.treeStore.get(fte.id);
+          const flatNodes =
+            readFileNodeFlatCache(state, fte.data, fte.expanded) ??
+            (() => {
+              const next = flattenTree(
+                fte.data,
+                fileNodeGetKey,
+                fileNodeGetChildren,
+                fileNodeHasChildren,
+                fte.expanded,
+              );
+              this.treeStore.set(fte.id, {
+                flatCache: makeFileNodeFlatCache(fte.data, fte.expanded, next),
+              });
+              return next;
+            })();
+
+          const computeNodeIndex = (): number | null => {
+            const localY = event.y - rect.y;
+            if (localY < 0 || localY >= rect.h) return null;
+            if (flatNodes.length === 0) return null;
+            const effectiveScrollTop = Math.max(0, state.scrollTop);
+            const idx = effectiveScrollTop + localY;
+            if (idx < 0 || idx >= flatNodes.length) return null;
+            return idx;
+          };
+
+          if (event.mouseKind === 3) {
+            this.pressedFileTree = null;
+            const RIGHT_BUTTON = 1 << 2;
+            if ((event.buttons & RIGHT_BUTTON) !== 0) {
+              // Right-click is handled by the context menu block below.
+            } else {
+              const nodeIndex = computeNodeIndex();
+              if (nodeIndex !== null) {
+                const fn = flatNodes[nodeIndex];
+                if (fn) {
+                  invokeCallbackSafely(fte.onSelect, fn.node);
+                  this.treeStore.set(fte.id, { focusedKey: fn.key });
+                  this.pressedFileTree = Object.freeze({
+                    id: fte.id,
+                    nodeIndex,
+                    nodeKey: fn.key,
+                  });
+                  localNeedsRender = true;
+                }
+              } else {
+                this.pressedFileTree = null;
+                this.lastFileTreeClick = null;
+              }
+            }
+          } else {
+            const pressedFT = this.pressedFileTree;
+            this.pressedFileTree = null;
+
+            if (pressedFT && pressedFT.id === fte.id) {
+              const nodeIndex = computeNodeIndex();
+              if (nodeIndex !== null && nodeIndex === pressedFT.nodeIndex) {
+                const fn = flatNodes[nodeIndex];
+                if (!fn || fn.key !== pressedFT.nodeKey) {
+                  this.lastFileTreeClick = null;
+                } else {
+                  const DOUBLE_PRESS_MS = 500;
+                  const last = this.lastFileTreeClick;
+                  const dt = last ? event.timeMs - last.timeMs : Number.POSITIVE_INFINITY;
+                  const isDouble =
+                    last &&
+                    last.id === fte.id &&
+                    last.nodeIndex === nodeIndex &&
+                    last.nodeKey === fn.key &&
+                    dt >= 0 &&
+                    dt <= DOUBLE_PRESS_MS;
+
+                  if (isDouble) {
+                    if (fn.node.type === "directory") {
+                      invokeCallbackSafely(fte.onToggle, fn.node, !fte.expanded.includes(fn.key));
+                    }
+                    invokeCallbackSafely(fte.onActivate, fn.node);
+                    this.lastFileTreeClick = null;
+                  } else {
+                    this.lastFileTreeClick = Object.freeze({
+                      id: fte.id,
+                      nodeIndex,
+                      nodeKey: fn.key,
+                      timeMs: event.timeMs,
+                    });
+                  }
+                  localNeedsRender = true;
+                }
+              } else {
+                this.lastFileTreeClick = null;
+              }
+            }
+          }
+        } else if (event.mouseKind === 4) {
+          this.pressedFileTree = null;
+        }
+      } else if (event.mouseKind === 4) {
+        this.pressedFileTree = null;
+      }
+    }
+
+    // Mouse click for generic tree:
+    // - on down: select clicked node (skip right button)
+    // - on up: detect double-click and fire onActivate, with optional onToggle for expandable nodes
+    if (event.kind === "mouse" && (event.mouseKind === 3 || event.mouseKind === 4)) {
+      const targetId = mouseTargetId;
+      if (targetId !== null) {
+        const tree = this.treeById.get(targetId);
+        const rect = this.rectById.get(targetId);
+        if (tree && rect) {
+          const state: TreeLocalState = this.treeStore.get(tree.id);
+          const expandedSet =
+            state.expandedSetRef === tree.expanded && state.expandedSet
+              ? state.expandedSet
+              : new Set(tree.expanded);
+          if (state.expandedSetRef !== tree.expanded) {
+            this.treeStore.set(tree.id, { expandedSetRef: tree.expanded, expandedSet });
+          }
+          const loaded = this.loadedTreeChildrenByTreeId.get(tree.id);
+          const getChildrenRaw = tree.getChildren as
+            | ((n: unknown) => readonly unknown[] | undefined)
+            | undefined;
+          const getKey = tree.getKey as (n: unknown) => string;
+          const getChildren = loaded
+            ? (n: unknown) => {
+                const k = getKey(n);
+                const cached = loaded.get(k);
+                return cached ?? getChildrenRaw?.(n);
+              }
+            : getChildrenRaw;
+
+          const cached = state.flatCache;
+          const canReuseFlatCache =
+            cached &&
+            cached.kind === "tree" &&
+            cached.dataRef === tree.data &&
+            cached.expandedRef === tree.expanded &&
+            cached.getKeyRef === tree.getKey &&
+            cached.getChildrenRef === tree.getChildren &&
+            cached.hasChildrenRef === tree.hasChildren &&
+            cached.loadedRef === loaded;
+          const flatNodes: readonly FlattenedNode<unknown>[] = canReuseFlatCache
+            ? (cached.flatNodes as readonly FlattenedNode<unknown>[])
+            : flattenTree(
+                tree.data,
+                getKey,
+                getChildren,
+                tree.hasChildren as ((n: unknown) => boolean) | undefined,
+                tree.expanded,
+                expandedSet,
+              );
+          if (!canReuseFlatCache) {
+            this.treeStore.set(tree.id, {
+              flatCache: Object.freeze({
+                kind: "tree",
+                dataRef: tree.data,
+                expandedRef: tree.expanded,
+                loadedRef: loaded,
+                getKeyRef: tree.getKey,
+                getChildrenRef: tree.getChildren,
+                hasChildrenRef: tree.hasChildren,
+                flatNodes: flatNodes as readonly unknown[],
+              }),
+            });
+          }
+
+          const computeNodeIndex = (): number | null => {
+            const localY = event.y - rect.y;
+            if (localY < 0 || localY >= rect.h) return null;
+            if (flatNodes.length === 0) return null;
+            const effectiveScrollTop = Math.max(0, state.scrollTop);
+            const idx = effectiveScrollTop + localY;
+            if (idx < 0 || idx >= flatNodes.length) return null;
+            return idx;
+          };
+
+          if (event.mouseKind === 3) {
+            this.pressedTree = null;
+            const RIGHT_BUTTON = 1 << 2;
+            if ((event.buttons & RIGHT_BUTTON) !== 0) {
+              // No right-click behavior for generic tree.
+            } else {
+              const nodeIndex = computeNodeIndex();
+              if (nodeIndex !== null) {
+                const fn = flatNodes[nodeIndex];
+                if (fn) {
+                  if (tree.onSelect) invokeCallbackSafely(tree.onSelect, fn.node as unknown);
+                  this.treeStore.set(tree.id, { focusedKey: fn.key });
+                  this.pressedTree = Object.freeze({
+                    id: tree.id,
+                    nodeIndex,
+                    nodeKey: fn.key,
+                  });
+                  localNeedsRender = true;
+                }
+              } else {
+                this.pressedTree = null;
+                this.lastTreeClick = null;
+              }
+            }
+          } else {
+            const pressedTree = this.pressedTree;
+            this.pressedTree = null;
+
+            if (pressedTree && pressedTree.id === tree.id) {
+              const nodeIndex = computeNodeIndex();
+              if (nodeIndex !== null && nodeIndex === pressedTree.nodeIndex) {
+                const fn = flatNodes[nodeIndex];
+                if (!fn || fn.key !== pressedTree.nodeKey) {
+                  this.lastTreeClick = null;
+                } else {
+                  const DOUBLE_PRESS_MS = 500;
+                  const last = this.lastTreeClick;
+                  const dt = last ? event.timeMs - last.timeMs : Number.POSITIVE_INFINITY;
+                  const isDouble =
+                    last &&
+                    last.id === tree.id &&
+                    last.nodeIndex === nodeIndex &&
+                    last.nodeKey === fn.key &&
+                    dt >= 0 &&
+                    dt <= DOUBLE_PRESS_MS;
+
+                  if (isDouble) {
+                    if (fn.hasChildren) {
+                      invokeCallbackSafely(
+                        tree.onToggle,
+                        fn.node as unknown,
+                        !tree.expanded.includes(fn.key),
+                      );
+                    }
+                    if (tree.onActivate) invokeCallbackSafely(tree.onActivate, fn.node as unknown);
+                    this.lastTreeClick = null;
+                  } else {
+                    this.lastTreeClick = Object.freeze({
+                      id: tree.id,
+                      nodeIndex,
+                      nodeKey: fn.key,
+                      timeMs: event.timeMs,
+                    });
+                  }
+                  localNeedsRender = true;
+                }
+              } else {
+                this.lastTreeClick = null;
+              }
+            }
+          }
+        } else if (event.mouseKind === 4) {
+          this.pressedTree = null;
+        }
+      } else if (event.mouseKind === 4) {
+        this.pressedTree = null;
+      }
+    }
+
     // Right-click context menu for FileTreeExplorer.
     if (event.kind === "mouse" && event.mouseKind === 3) {
       const targetId = mouseTargetId;
@@ -3017,7 +3423,7 @@ export class WidgetRenderer<S> {
               const idx = Math.max(0, state.scrollTop) + localY;
               const fn = flatNodes[idx];
               if (fn) {
-                fte.onContextMenu(fn.node);
+                invokeCallbackSafely(fte.onContextMenu, fn.node);
                 localNeedsRender = true;
               }
             }
@@ -4722,6 +5128,26 @@ export class WidgetRenderer<S> {
           }
         }
 
+        // Clear stale FileTreeExplorer click tracking state.
+        if (this.pressedFileTree && !this.fileTreeExplorerById.has(this.pressedFileTree.id)) {
+          this.pressedFileTree = null;
+        }
+        if (this.lastFileTreeClick && !this.fileTreeExplorerById.has(this.lastFileTreeClick.id)) {
+          this.lastFileTreeClick = null;
+        }
+        if (this.pressedFilePicker && !this.filePickerById.has(this.pressedFilePicker.id)) {
+          this.pressedFilePicker = null;
+        }
+        if (this.lastFilePickerClick && !this.filePickerById.has(this.lastFilePickerClick.id)) {
+          this.lastFilePickerClick = null;
+        }
+        if (this.pressedTree && !this.treeById.has(this.pressedTree.id)) {
+          this.pressedTree = null;
+        }
+        if (this.lastTreeClick && !this.treeById.has(this.lastTreeClick.id)) {
+          this.lastTreeClick = null;
+        }
+
         // Garbage collect command palette async state for palettes that were removed.
         for (const prevId of this._pooledPrevCommandPaletteIds) {
           if (!this.commandPaletteById.has(prevId)) {
@@ -4950,6 +5376,7 @@ export class WidgetRenderer<S> {
                 focusAnnouncement,
                 { damageRect },
                 this.terminalProfile,
+                this.pressedId,
               );
               this.builder.popClip();
             }
@@ -4965,6 +5392,7 @@ export class WidgetRenderer<S> {
           layout: this.layoutTree,
           viewport,
           focusState: this.focusState,
+          pressedId: this.pressedId,
           builder: this.builder,
           tick,
           theme,

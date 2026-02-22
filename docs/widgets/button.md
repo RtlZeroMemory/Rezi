@@ -25,6 +25,7 @@ ui.button({
 | `px` | `number` | `1` | Horizontal padding in cells |
 | `style` | `TextStyle` | - | Custom styling (merged with focus/disabled state) |
 | `onPress` | `() => void` | - | Callback when button is activated |
+| `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused label style |
 | `key` | `string` | - | Reconciliation key for dynamic lists |
 
 ## Behavior

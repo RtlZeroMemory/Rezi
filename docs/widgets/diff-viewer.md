@@ -36,6 +36,7 @@ ui.diffViewer({
 | `onUnstageHunk` | `(index) => void` | - | Unstage callback |
 | `onApplyHunk` | `(index) => void` | - | Apply callback |
 | `onRevertHunk` | `(index) => void` | - | Revert callback |
+| `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focus decoration |
 
 ## Mouse Behavior
 

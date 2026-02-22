@@ -23,6 +23,7 @@ ui.input({
 | `style` | `TextStyle` | - | Custom styling (merged with focus/disabled state) |
 | `onInput` | `(value: string, cursor: number) => void` | - | Callback when value changes |
 | `onBlur` | `() => void` | - | Callback when input loses focus |
+| `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused input decoration |
 | `key` | `string` | - | Reconciliation key for dynamic lists |
 
 ## Behavior

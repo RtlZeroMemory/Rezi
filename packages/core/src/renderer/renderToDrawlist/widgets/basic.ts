@@ -49,6 +49,11 @@ import { isVisibleRect } from "../indices.js";
 import { mergeTextStyle, shouldFillForStyleOverride } from "../textStyle.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
 import type { CursorInfo } from "../types.js";
+import {
+  focusIndicatorEnabled,
+  readFocusConfig,
+  resolveFocusedContentStyle,
+} from "./focusConfig.js";
 
 type ResolvedCursor = Readonly<{
   x: number;
@@ -735,6 +740,7 @@ function rgbToHex(color: ReturnType<typeof resolveColor>): string {
 export function renderBasicWidget(
   builder: DrawlistBuilderV1,
   focusState: FocusState,
+  pressedId: string | null,
   rect: Rect,
   theme: Theme,
   tick: number,
@@ -891,11 +897,16 @@ export function renderBasicWidget(
         disabled?: unknown;
         px?: unknown;
         style?: unknown;
+        focusConfig?: unknown;
+        pressedStyle?: unknown;
       };
+      const focusConfig = readFocusConfig(props.focusConfig);
       const id = typeof props.id === "string" ? props.id : null;
       const label = typeof props.label === "string" ? props.label : "";
       const disabled = props.disabled === true;
       const focused = id !== null && focusState.focusedId === id;
+      const pressed = !disabled && id !== null && pressedId === id;
+      const effectiveFocused = focused && focusIndicatorEnabled(focusConfig);
       const px =
         typeof props.px === "number" && Number.isFinite(props.px) && props.px >= 0
           ? Math.trunc(props.px)
@@ -908,15 +919,23 @@ export function renderBasicWidget(
             ? truncateWithEllipsis(label, availableLabelW)
             : label;
       const ownStyle = asTextStyle(props.style, theme);
+      const baseLabelStyle = mergeTextStyle(
+        mergeTextStyle(parentStyle, ownStyle),
+        getButtonLabelStyle({ focused: effectiveFocused, disabled }),
+      );
+      let labelStyle = effectiveFocused
+        ? resolveFocusedContentStyle(baseLabelStyle, theme, focusConfig)
+        : baseLabelStyle;
+      const pressedStyle = asTextStyle(props.pressedStyle, theme);
+      if (pressedStyle && pressed) {
+        labelStyle = mergeTextStyle(labelStyle, pressedStyle);
+      }
       if (displayLabel.length > 0) {
         builder.drawText(
           rect.x + px,
           rect.y,
           displayLabel,
-          mergeTextStyle(
-            mergeTextStyle(parentStyle, ownStyle),
-            getButtonLabelStyle({ focused, disabled }),
-          ),
+          labelStyle,
         );
       }
       break;
@@ -930,18 +949,24 @@ export function renderBasicWidget(
         style?: unknown;
         multiline?: unknown;
         wordWrap?: unknown;
+        focusConfig?: unknown;
       };
+      const focusConfig = readFocusConfig(props.focusConfig);
       const id = typeof props.id === "string" ? props.id : null;
       const value = typeof props.value === "string" ? props.value : "";
       const disabled = props.disabled === true;
       const multiline = props.multiline === true;
       const wordWrap = props.wordWrap !== false;
       const focused = id !== null && focusState.focusedId === id;
+      const focusVisible = focused && focusIndicatorEnabled(focusConfig);
       const ownStyle = asTextStyle(props.style, theme);
-      const style = mergeTextStyle(
+      const baseInputStyle = mergeTextStyle(
         mergeTextStyle(parentStyle, ownStyle),
-        getButtonLabelStyle({ focused, disabled }),
+        getButtonLabelStyle({ focused: focusVisible, disabled }),
       );
+      const style = focusVisible
+        ? resolveFocusedContentStyle(baseInputStyle, theme, focusConfig)
+        : baseInputStyle;
 
       if (multiline) {
         const contentW = Math.max(1, rect.w - 2);
@@ -1154,9 +1179,12 @@ export function renderBasicWidget(
         options?: unknown;
         placeholder?: unknown;
         disabled?: unknown;
+        focusConfig?: unknown;
       };
+      const focusConfig = readFocusConfig(props.focusConfig);
       const id = typeof props.id === "string" ? props.id : null;
       const focused = id !== null && focusState.focusedId === id;
+      const focusVisible = focused && focusIndicatorEnabled(focusConfig);
       const disabled = props.disabled === true;
       const value = typeof props.value === "string" ? props.value : "";
       const placeholder = typeof props.placeholder === "string" ? props.placeholder : "Select…";
@@ -1173,11 +1201,14 @@ export function renderBasicWidget(
       }
       if (label.length === 0) label = placeholder;
 
-      const focusStyle = focused ? { underline: true, bold: true } : undefined;
-      const style = mergeTextStyle(
+      const focusStyle = focusVisible ? { underline: true, bold: true } : undefined;
+      const baseStyle = mergeTextStyle(
         parentStyle,
         disabled ? { fg: theme.colors.muted, ...focusStyle } : focusStyle,
       );
+      const style = focusVisible
+        ? resolveFocusedContentStyle(baseStyle, theme, focusConfig)
+        : baseStyle;
 
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
       const text = ` ${label} ▼`;

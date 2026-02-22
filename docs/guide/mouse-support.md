@@ -48,6 +48,20 @@ Clamping:
 - Mouse up ends drag and clears drag state. If pane metadata disappears mid-drag, drag state is canceled.
 - When `collapsible` and `onCollapse` are set, divider double-click (`<= 500ms`) toggles collapse for the side clicked.
 
+### FileTreeExplorer click routing
+
+`FileTreeExplorer` supports full mouse-to-node click routing, following the same press/release pattern as `Table`:
+
+- **Mouse down (left button):** Hit-tests the click position against the visible node rows. Computes the target node index from `scrollTop + localY`. Calls `onSelect(node)` immediately to select the clicked node. Stores the pressed node index.
+- **Mouse up:** If the release lands on the same widget and same node index as the press:
+  - Checks for double-click (two clicks on the same node within 500ms)
+  - On double-click: calls `onActivate(node)` (open file, toggle directory, etc.)
+  - On single click: selection already fired on mouse down, no additional action
+- **Right button:** Skipped by the left-click handler; right-click context menu routing handles it separately.
+- **Drag/release elsewhere:** Pressing state is cleared, no activation fires.
+
+This enables natural mouse-driven file browsing: click to select, double-click to open.
+
 ### Mouse + keyboard interaction
 
 - Clicking transfers focus through the same focus state used by Tab/Shift+Tab.
@@ -75,3 +89,5 @@ Modal/layer blocking invariants:
 - [Input & Focus](input-and-focus.md)
 - [Layers](../widgets/layers.md)
 - [SplitPane](../widgets/split-pane.md)
+- [FileTreeExplorer](../widgets/file-tree-explorer.md) - File tree widget with mouse click support
+- [Table](../widgets/table.md) - Table widget (original click routing pattern)

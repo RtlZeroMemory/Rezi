@@ -78,6 +78,7 @@ const FilesTable = defineWidget<{ rows: readonly { id: string; name: string; siz
 | `stripeStyle` | `{ odd?, even? }` | - | Stripe background colors. Providing this enables stripes even when `stripedRows` is `false`. |
 | `border` | `"none" \| "single"` | `"none"` | Legacy border toggle (kept for compatibility) |
 | `borderStyle` | `{ variant?, color? }` | - | Border glyph variant (`single`, `double`, `rounded`, `heavy`, `dashed`, `heavy-dashed`) and optional border color |
+| `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused row highlight |
 
 ## Examples
 

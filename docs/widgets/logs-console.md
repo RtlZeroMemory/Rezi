@@ -34,6 +34,7 @@ ui.logsConsole({
 | `onScroll` | `(scrollTop) => void` | **required** | Scroll callback |
 | `onEntryToggle` | `(id, expanded) => void` | - | Expand/collapse callback |
 | `onClear` | `() => void` | - | Clear entries callback |
+| `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focus decoration |
 
 ## Mouse Behavior
 

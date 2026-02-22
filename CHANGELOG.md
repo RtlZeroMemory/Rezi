@@ -8,6 +8,10 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ### Added
 
+- `ui.box()` `borderStyle` prop: decouples border/title appearance from child style inheritance, preventing style leaking into descendant widgets (code editors, file trees, etc.)
+- `focusConfig` prop on 12 interactive widgets (`button`, `input`, `textarea`, `select`, `virtualList`, `table`, `commandPalette`, `filePicker`, `fileTreeExplorer`, `codeEditor`, `diffViewer`, `logsConsole`): allows per-widget control of focus indicator rendering; `{ indicator: "none" }` suppresses focus visuals
+- `FileTreeExplorer` mouse click-to-node routing: left click selects a node (`onSelect`), double-click activates it (`onActivate`), following the same press/release model as `Table`
+
 - `@rezi-ui/jsx` — native JSX runtime for Rezi widgets (no React required)
 - `@rezi-ui/bench` — comprehensive benchmark suite (Rezi native vs Ink-on-Rezi vs Ink)
 - Benchmark results and performance documentation

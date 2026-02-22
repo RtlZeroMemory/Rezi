@@ -18,6 +18,7 @@
  */
 
 import type { EasingInput } from "../animation/types.js";
+import type { FocusConfig } from "../focus/styles.js";
 import type { SpacingValue } from "../layout/spacing-scale.js";
 import type { LayoutConstraints } from "../layout/types.js";
 import type { Theme } from "../theme/theme.js";
@@ -157,8 +158,16 @@ export type BoxProps = Readonly<
     /**
      * Optional style applied to the box surface (for borders and background fill).
      * When `bg` is provided, the renderer fills the box rect.
+     * When `borderStyle` is not set, this also styles the border.
      */
     style?: TextStyle;
+    /**
+     * Optional style applied only to the box border and title.
+     * When set, decouples border appearance from child content:
+     * `style` controls children/fill, `borderStyle` controls the border.
+     * When not set, `style` applies to both (backward compatible).
+     */
+    borderStyle?: TextStyle;
     /**
      * Style inherited by descendants when they do not override their own style.
      * Unlike `style`, this does not force container background fill.
@@ -170,6 +179,10 @@ export type BoxProps = Readonly<
     scrollX?: number;
     /** Vertical scroll offset in cells. Clamped by layout metadata bounds. */
     scrollY?: number;
+    /** Scrollbar glyph variant for overflow: "scroll" (default: "minimal"). */
+    scrollbarVariant?: "minimal" | "classic" | "modern" | "dots" | "thin";
+    /** Optional style override for rendered scrollbars. */
+    scrollbarStyle?: TextStyle;
     /** Optional scoped theme override for this container subtree. */
     theme?: ScopedThemeOverride;
     /** Surface opacity in [0..1]. Defaults to 1. */
@@ -216,6 +229,10 @@ export type StackProps = Readonly<
     scrollX?: number;
     /** Vertical scroll offset in cells. Clamped by layout metadata bounds. */
     scrollY?: number;
+    /** Scrollbar glyph variant for overflow: "scroll" (default: "minimal"). */
+    scrollbarVariant?: "minimal" | "classic" | "modern" | "dots" | "thin";
+    /** Optional style override for rendered scrollbars. */
+    scrollbarStyle?: TextStyle;
     /** Optional scoped theme override for this container subtree. */
     theme?: ScopedThemeOverride;
   } & SpacingProps &
@@ -761,8 +778,12 @@ export type ButtonProps = Readonly<{
   px?: number;
   /** Optional style applied to the button label (merged with focus/disabled state). */
   style?: TextStyle;
+  /** Optional style applied while the button is pressed. */
+  pressedStyle?: TextStyle;
   /** Optional callback invoked when the button is activated. */
   onPress?: () => void;
+  /** Optional focus appearance configuration. */
+  focusConfig?: FocusConfig;
 }>;
 
 /** Props for input widget. id is required; value is controlled by app state. */
@@ -787,6 +808,8 @@ export type InputProps = Readonly<{
   rows?: number;
   /** Wrap long lines in multiline mode (default: true). */
   wordWrap?: boolean;
+  /** Optional focus appearance configuration. */
+  focusConfig?: FocusConfig;
 }>;
 
 /** Props for ui.textarea(). Multi-line controlled text input. */
@@ -809,6 +832,8 @@ export type TextareaProps = Readonly<{
   onInput?: (value: string, cursor: number) => void;
   /** Optional callback invoked when the textarea loses focus. */
   onBlur?: () => void;
+  /** Optional focus appearance configuration. */
+  focusConfig?: FocusConfig;
 }>;
 
 /** Props for focus announcer widget. Renders a live summary for the focused element. */
@@ -890,6 +915,10 @@ export type VirtualListProps<T = unknown> = Readonly<{
   keyboardNavigation?: boolean;
   /** Wrap selection from last item to first and vice versa (default: false) */
   wrapAround?: boolean;
+  /** Optional style override for the selected/focused row highlight. */
+  selectionStyle?: TextStyle;
+  /** Optional focus appearance configuration. */
+  focusConfig?: FocusConfig;
 }>;
 
 /* ========== Layer System (GitHub issue #117) ========== */
@@ -1134,12 +1163,16 @@ export type TableProps<T = unknown> = Readonly<{
   stripedRows?: boolean;
   /** Stripe background styling for body rows. */
   stripeStyle?: TableStripeStyle;
+  /** Optional style override for selected rows. */
+  selectionStyle?: TextStyle;
   /** Show header row (default: true). */
   showHeader?: boolean;
   /** Legacy border toggle. */
   border?: "none" | "single";
   /** Border styling for rendered table frame. */
   borderStyle?: TableBorderStyle;
+  /** Optional focus appearance configuration. */
+  focusConfig?: FocusConfig;
 }>;
 
 /* ========== Form Widgets (GitHub issue #119) ========== */
@@ -1187,6 +1220,8 @@ export type SelectProps = Readonly<{
   disabled?: boolean;
   /** Placeholder text when no value is selected. */
   placeholder?: string;
+  /** Optional focus appearance configuration. */
+  focusConfig?: FocusConfig;
 }>;
 
 /** Props for slider widget. */
@@ -1389,6 +1424,8 @@ export type CommandPaletteProps = Readonly<{
   maxVisible?: number;
   /** Frame/surface colors for palette background, text, and border. */
   frameStyle?: OverlayFrameStyle;
+  /** Optional style override for selected result row highlighting. */
+  selectionStyle?: TextStyle;
   /** Callback when query changes. */
   onQueryChange: (query: string) => void;
   /** Callback when item is selected. */
@@ -1397,6 +1434,8 @@ export type CommandPaletteProps = Readonly<{
   onClose: () => void;
   /** Callback when selection index changes. */
   onSelectionChange?: (index: number) => void;
+  /** Optional focus appearance configuration. */
+  focusConfig?: FocusConfig;
 }>;
 
 /* ---------- FilePicker & FileTreeExplorer Widgets ---------- */
@@ -1454,6 +1493,8 @@ export type FilePickerProps = Readonly<{
   modifiedPaths?: readonly string[];
   /** Files with staged state. */
   stagedPaths?: readonly string[];
+  /** Optional style override for selected rows. */
+  selectionStyle?: TextStyle;
   /** Filter pattern (glob). */
   filter?: string;
   /** Show hidden files. */
@@ -1470,6 +1511,8 @@ export type FilePickerProps = Readonly<{
   onOpen: (path: string) => void;
   /** Callback when selection changes (multi-select). */
   onSelectionChange?: (paths: readonly string[]) => void;
+  /** Optional focus appearance configuration. */
+  focusConfig?: FocusConfig;
 }>;
 
 /** Props for FileTreeExplorer widget. Tree view of files with expand/collapse. */
@@ -1493,6 +1536,8 @@ export type FileTreeExplorerProps = Readonly<{
   showIcons?: boolean;
   /** Show git status indicators. */
   showStatus?: boolean;
+  /** Optional style override for selected rows. */
+  selectionStyle?: TextStyle;
   /** Indentation per level (default: 2). */
   indentSize?: number;
   /** Callback when node expand state changes. */
@@ -1505,6 +1550,8 @@ export type FileTreeExplorerProps = Readonly<{
   onContextMenu?: (node: FileNode) => void;
   /** Custom node renderer. */
   renderNode?: (node: FileNode, depth: number, state: FileNodeState) => VNode;
+  /** Optional focus appearance configuration. */
+  focusConfig?: FocusConfig;
 }>;
 
 /* ---------- SplitPane & ResizablePanels Widgets ---------- */
@@ -1715,6 +1762,8 @@ export type CodeEditorProps = Readonly<{
   onUndo?: () => void;
   /** Callback for redo action. */
   onRedo?: () => void;
+  /** Optional focus appearance configuration. */
+  focusConfig?: FocusConfig;
 }>;
 
 /* ---------- DiffViewer Widget ---------- */
@@ -1786,6 +1835,8 @@ export type DiffViewerProps = Readonly<{
   lineNumbers?: boolean;
   /** Context lines around changes (default: 3). */
   contextLines?: number;
+  /** Optional style override for focused hunk header. */
+  focusedHunkStyle?: TextStyle;
   /** Callback when scroll position changes. */
   onScroll: (scrollTop: number) => void;
   /** Callback when hunk expand state changes. */
@@ -1798,6 +1849,8 @@ export type DiffViewerProps = Readonly<{
   onApplyHunk?: (hunkIndex: number) => void;
   /** Callback to revert a hunk. */
   onRevertHunk?: (hunkIndex: number) => void;
+  /** Optional focus appearance configuration. */
+  focusConfig?: FocusConfig;
 }>;
 
 /* ---------- ToolApprovalDialog Widget ---------- */
@@ -1921,12 +1974,16 @@ export type LogsConsoleProps = Readonly<{
   showSource?: boolean;
   /** Expanded entry IDs. */
   expandedEntries?: readonly string[];
+  /** Optional style override for focused-console ring. */
+  focusedStyle?: TextStyle;
   /** Callback when scroll position changes. */
   onScroll: (scrollTop: number) => void;
   /** Callback when entry expand state changes. */
   onEntryToggle?: (entryId: string, expanded: boolean) => void;
   /** Callback to clear logs. */
   onClear?: () => void;
+  /** Optional focus appearance configuration. */
+  focusConfig?: FocusConfig;
 }>;
 
 /* ---------- Toast/Notifications Widget ---------- */
