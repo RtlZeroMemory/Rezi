@@ -343,6 +343,17 @@ function clampInt(v: number, min: number, max: number): number {
   return v;
 }
 
+function clampIndexScrollTopForRows(
+  scrollTop: number,
+  totalRows: number,
+  viewportRows: number,
+): number {
+  const maxScrollTop = Math.max(0, totalRows - viewportRows);
+  if (!Number.isFinite(scrollTop) || scrollTop <= 0) return 0;
+  if (scrollTop >= maxScrollTop) return maxScrollTop;
+  return Math.trunc(scrollTop);
+}
+
 function encodeLayerZIndex(baseZ: number | null, overlaySeq: number): number {
   if (baseZ === null) return overlaySeq;
   const clampedBaseZ = clampInt(baseZ, -LAYER_ZINDEX_MAX_BASE, LAYER_ZINDEX_MAX_BASE);
@@ -3051,7 +3062,11 @@ export class WidgetRenderer<S> {
             const localY = event.y - rect.y;
             if (localY < 0 || localY >= rect.h) return null;
             if (flatNodes.length === 0) return null;
-            const effectiveScrollTop = Math.max(0, state.scrollTop);
+            const effectiveScrollTop = clampIndexScrollTopForRows(
+              state.scrollTop,
+              flatNodes.length,
+              rect.h,
+            );
             const idx = effectiveScrollTop + localY;
             if (idx < 0 || idx >= flatNodes.length) return null;
             return idx;
@@ -3164,7 +3179,11 @@ export class WidgetRenderer<S> {
             const localY = event.y - rect.y;
             if (localY < 0 || localY >= rect.h) return null;
             if (flatNodes.length === 0) return null;
-            const effectiveScrollTop = Math.max(0, state.scrollTop);
+            const effectiveScrollTop = clampIndexScrollTopForRows(
+              state.scrollTop,
+              flatNodes.length,
+              rect.h,
+            );
             const idx = effectiveScrollTop + localY;
             if (idx < 0 || idx >= flatNodes.length) return null;
             return idx;
@@ -3314,7 +3333,11 @@ export class WidgetRenderer<S> {
             const localY = event.y - rect.y;
             if (localY < 0 || localY >= rect.h) return null;
             if (flatNodes.length === 0) return null;
-            const effectiveScrollTop = Math.max(0, state.scrollTop);
+            const effectiveScrollTop = clampIndexScrollTopForRows(
+              state.scrollTop,
+              flatNodes.length,
+              rect.h,
+            );
             const idx = effectiveScrollTop + localY;
             if (idx < 0 || idx >= flatNodes.length) return null;
             return idx;
@@ -3428,7 +3451,12 @@ export class WidgetRenderer<S> {
                   return next;
                 })();
 
-              const idx = Math.max(0, state.scrollTop) + localY;
+              const effectiveScrollTop = clampIndexScrollTopForRows(
+                state.scrollTop,
+                flatNodes.length,
+                rect.h,
+              );
+              const idx = effectiveScrollTop + localY;
               const fn = flatNodes[idx];
               if (fn) {
                 invokeCallbackSafely(fte.onContextMenu, fn.node);
