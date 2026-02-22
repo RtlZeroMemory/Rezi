@@ -87,7 +87,8 @@ type ParsedBatch = Readonly<{
 const ZR_KEY_FOCUS_IN = 30;
 const ZR_KEY_FOCUS_OUT = 31;
 const CONTROL_COMMAND_TIMEOUT_MS = 15_000;
-const CONTROL_POLL_IDLE_DELAY_MS = process.env["CI"] ? 8 : 0;
+const processEnv = process.env as NodeJS.ProcessEnv & Readonly<{ CI?: string }>;
+const CONTROL_POLL_IDLE_DELAY_MS = processEnv.CI ? 8 : 0;
 
 function closeServerQuiet(server: net.Server): Promise<void> {
   return new Promise((resolve) => {
