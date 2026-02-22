@@ -327,7 +327,9 @@ function layoutNode(
   }
 
   const sizeRes: LayoutResult<Size> =
-    precomputedSize === null ? measureNode(vnode, maxW, maxH, axis) : { ok: true, value: precomputedSize };
+    precomputedSize === null
+      ? measureNode(vnode, maxW, maxH, axis)
+      : { ok: true, value: precomputedSize };
   if (!sizeRes.ok) return sizeRes;
 
   const rectW = clampNonNegative(Math.min(maxW, forcedW ?? sizeRes.value.w));
@@ -388,7 +390,18 @@ function layoutNode(
     }
     case "focusZone":
     case "focusTrap": {
-      computed = layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      computed = layoutOverlays(
+        vnode,
+        x,
+        y,
+        maxW,
+        maxH,
+        rectW,
+        rectH,
+        axis,
+        measureNode,
+        layoutNode,
+      );
       break;
     }
     case "virtualList": {
@@ -396,19 +409,63 @@ function layoutNode(
       break;
     }
     case "layers": {
-      computed = layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      computed = layoutOverlays(
+        vnode,
+        x,
+        y,
+        maxW,
+        maxH,
+        rectW,
+        rectH,
+        axis,
+        measureNode,
+        layoutNode,
+      );
       break;
     }
     case "modal": {
-      computed = layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      computed = layoutOverlays(
+        vnode,
+        x,
+        y,
+        maxW,
+        maxH,
+        rectW,
+        rectH,
+        axis,
+        measureNode,
+        layoutNode,
+      );
       break;
     }
     case "dropdown": {
-      computed = layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      computed = layoutOverlays(
+        vnode,
+        x,
+        y,
+        maxW,
+        maxH,
+        rectW,
+        rectH,
+        axis,
+        measureNode,
+        layoutNode,
+      );
       break;
     }
     case "layer": {
-      computed = layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      computed = layoutOverlays(
+        vnode,
+        x,
+        y,
+        maxW,
+        maxH,
+        rectW,
+        rectH,
+        axis,
+        measureNode,
+        layoutNode,
+      );
       break;
     }
     case "table": {
@@ -434,7 +491,18 @@ function layoutNode(
     /* ========== Advanced Widgets (GitHub issue #136) ========== */
 
     case "commandPalette": {
-      computed = layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      computed = layoutOverlays(
+        vnode,
+        x,
+        y,
+        maxW,
+        maxH,
+        rectW,
+        rectH,
+        axis,
+        measureNode,
+        layoutNode,
+      );
       break;
     }
     case "filePicker": {
@@ -460,7 +528,18 @@ function layoutNode(
       break;
     }
     case "toolApprovalDialog": {
-      computed = layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      computed = layoutOverlays(
+        vnode,
+        x,
+        y,
+        maxW,
+        maxH,
+        rectW,
+        rectH,
+        axis,
+        measureNode,
+        layoutNode,
+      );
       break;
     }
     case "logsConsole": {
@@ -468,7 +547,18 @@ function layoutNode(
       break;
     }
     case "toastContainer": {
-      computed = layoutOverlays(vnode, x, y, maxW, maxH, rectW, rectH, axis, measureNode, layoutNode);
+      computed = layoutOverlays(
+        vnode,
+        x,
+        y,
+        maxW,
+        maxH,
+        rectW,
+        rectH,
+        axis,
+        measureNode,
+        layoutNode,
+      );
       break;
     }
     default: {

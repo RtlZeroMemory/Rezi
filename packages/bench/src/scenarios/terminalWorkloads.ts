@@ -256,9 +256,11 @@ export function buildTerminalFullUiLines(
     }
 
     if (r === 0) right = "INSPECTOR";
-    else if (r === 1) right = `service=svc-${String(activeSvc).padStart(3, "0")} owner=team-${activeSvc % 7}`;
+    else if (r === 1)
+      right = `service=svc-${String(activeSvc).padStart(3, "0")} owner=team-${activeSvc % 7}`;
     else if (r === 2) right = `slo p95<120ms  now=${45 + ((tick * 5 + activeSvc * 3) % 110)}ms`;
-    else if (r === 3) right = `deploy=${(tick * 3 + activeSvc) % 2 === 0 ? "green" : "canary"} zone=az-${(activeSvc % 3) + 1}`;
+    else if (r === 3)
+      right = `deploy=${(tick * 3 + activeSvc) % 2 === 0 ? "green" : "canary"} zone=az-${(activeSvc % 3) + 1}`;
     else {
       const seq = tick * bodyRows + r;
       const lvl = seq % 19 === 0 ? "ERROR" : seq % 11 === 0 ? "WARN " : "INFO ";
@@ -322,7 +324,8 @@ export function buildTerminalFullUiNavigationLines(
         const healthy = (tick + svc * 5) % 9 !== 0;
         const v = ((tick * 23 + svc * 41) % 1000) / 1000;
         line = `card svc-${String(svc).padStart(2, "0")} ${healthy ? "healthy " : "degraded"} ${bar(v, 24)} ${(v * 100).toFixed(1)}%`;
-      } else if (i === 9) line = `alerts open=${(tick * 3) % 11} acked=${(tick * 7) % 17} muted=${(tick * 5) % 5}`;
+      } else if (i === 9)
+        line = `alerts open=${(tick * 3) % 11} acked=${(tick * 7) % 17} muted=${(tick * 5) % 5}`;
       else line = `trend ${spark(tick + i * 3, Math.max(16, cols - 10))}`;
     } else if (page === "services") {
       if (i === 0) line = "services: inventory + selection + per-row telemetry";
@@ -330,7 +333,7 @@ export function buildTerminalFullUiNavigationLines(
       else {
         const row = i - 2;
         const svc = (tick + row) % services;
-        const selected = row === (tick % Math.max(1, bodyRows - 2));
+        const selected = row === tick % Math.max(1, bodyRows - 2);
         const degraded = (tick + svc * 3) % 15 === 0;
         const lat = 10 + ((tick * 13 + svc * 9) % 220);
         const rps = 80 + ((tick * 17 + svc * 31) % 3000);
@@ -350,7 +353,8 @@ export function buildTerminalFullUiNavigationLines(
       else {
         const incident = tick * bodyRows + i;
         const sev = incident % 13 === 0 ? "sev1" : incident % 7 === 0 ? "sev2" : "sev3";
-        const state = incident % 5 === 0 ? "mitigating" : incident % 3 === 0 ? "triaging  " : "open      ";
+        const state =
+          incident % 5 === 0 ? "mitigating" : incident % 3 === 0 ? "triaging  " : "open      ";
         line = `${sev} inc-${String(incident % 10000).padStart(4, "0")} ${state} owner=oncall-${incident % 9} age=${(incident * 3) % 180}m`;
       }
     } else if (page === "logs") {

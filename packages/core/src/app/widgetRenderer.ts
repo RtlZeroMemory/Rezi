@@ -55,12 +55,12 @@ import {
   ZR_MOD_CTRL,
   ZR_MOD_SHIFT,
 } from "../keybindings/keyCodes.js";
-import { hitTestFocusable } from "../layout/hitTest.js";
-import { type LayoutTree, layout } from "../layout/layout.js";
 import {
   computeDirtyLayoutSet,
   instanceDirtySetToVNodeDirtySet,
 } from "../layout/engine/dirtySet.js";
+import { hitTestFocusable } from "../layout/hitTest.js";
+import { type LayoutTree, layout } from "../layout/layout.js";
 import { calculateAnchorPosition } from "../layout/positioning.js";
 import {
   type ResponsiveBreakpointThresholds,

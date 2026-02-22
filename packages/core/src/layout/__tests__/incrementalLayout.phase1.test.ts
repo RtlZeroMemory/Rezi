@@ -243,7 +243,13 @@ describe("incremental layout phase 1", () => {
       for (let i = 0; i < 8; i++) {
         const dynamic = createTrackedText(`dyn-${String(i)}`);
         dynamics.push(dynamic);
-        mustLayout(row([stableA.vnode, stableB.vnode, dynamic.vnode], { width: 60 }), 60, 8, "column", cache);
+        mustLayout(
+          row([stableA.vnode, stableB.vnode, dynamic.vnode], { width: 60 }),
+          60,
+          8,
+          "column",
+          cache,
+        );
       }
 
       assert.ok(stableA.reads() > 0);
@@ -295,7 +301,11 @@ describe("incremental layout phase 1", () => {
     test("cached and uncached layout match for grids and overlays", () => {
       const tree = focusZone([
         grid(
-          [createTrackedText("g1").vnode, createTrackedText("g2").vnode, createTrackedText("g3").vnode],
+          [
+            createTrackedText("g1").vnode,
+            createTrackedText("g2").vnode,
+            createTrackedText("g3").vnode,
+          ],
           { columns: 2, columnGap: 1, rowGap: 1 },
         ),
       ]);

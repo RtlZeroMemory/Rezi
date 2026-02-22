@@ -2,11 +2,8 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import type { VNode } from "../../index.js";
 import type { RuntimeInstance } from "../../runtime/commit.js";
 import type { InstanceId } from "../../runtime/instance.js";
-import {
-  computeDirtyLayoutSet,
-  instanceDirtySetToVNodeDirtySet,
-} from "../engine/dirtySet.js";
-import { layout, type LayoutTree } from "../layout.js";
+import { computeDirtyLayoutSet, instanceDirtySetToVNodeDirtySet } from "../engine/dirtySet.js";
+import { type LayoutTree, layout } from "../layout.js";
 
 type Axis = "row" | "column";
 
@@ -137,7 +134,17 @@ function assertIncrementalEqualsFull(
   const sharedLayout = new WeakMap<VNode, unknown>();
 
   const inc = layout(node, 0, 0, maxW, maxH, axis, sharedMeasure, sharedLayout, dirtySet);
-  const full = layout(node, 0, 0, maxW, maxH, axis, new WeakMap<VNode, unknown>(), new WeakMap<VNode, unknown>(), null);
+  const full = layout(
+    node,
+    0,
+    0,
+    maxW,
+    maxH,
+    axis,
+    new WeakMap<VNode, unknown>(),
+    new WeakMap<VNode, unknown>(),
+    null,
+  );
   if (!inc.ok || !full.ok) {
     assert.fail("incremental and full layout should both succeed");
   }
@@ -176,7 +183,10 @@ describe("incremental layout phase 3", () => {
       const root = runtimeNode(1, row([mid.vnode]), Object.freeze([mid]));
 
       const dirty = computeDirtyLayoutSet(root, [], [3 as InstanceId]);
-      assert.deepEqual(new Set(dirty), new Set([1 as InstanceId, 2 as InstanceId, 3 as InstanceId]));
+      assert.deepEqual(
+        new Set(dirty),
+        new Set([1 as InstanceId, 2 as InstanceId, 3 as InstanceId]),
+      );
     });
 
     test("unchanged tree yields an empty dirty set", () => {
@@ -341,7 +351,13 @@ describe("incremental layout phase 3", () => {
       const rightReadsBefore = rightStable.reads();
 
       leftDirty.setText("Count: 6");
-      const dirty = new Set<VNode>([root, leftBranch, leftDirty.vnode, leftStable.vnode, rightStable.vnode]);
+      const dirty = new Set<VNode>([
+        root,
+        leftBranch,
+        leftDirty.vnode,
+        leftStable.vnode,
+        rightStable.vnode,
+      ]);
       mustLayout(root, 40, 8, "column", measureCache, layoutCache, dirty);
       assert.equal(rightStable.reads(), rightReadsBefore);
     });
@@ -450,11 +466,7 @@ describe("incremental layout phase 3", () => {
 
     test("form-like tree incremental path equals full relayout", () => {
       const tree = column(
-        [
-          text("Name"),
-          text("Email"),
-          row([text("Save"), text("Cancel")], { gap: 2 }),
-        ],
+        [text("Name"), text("Email"), row([text("Save"), text("Cancel")], { gap: 2 })],
         { gap: 1 },
       );
       assertIncrementalEqualsFull(tree, 60, 20, new Set<VNode>([tree]));
@@ -495,7 +507,11 @@ describe("incremental layout phase 3", () => {
 
     test("percentage-width children incremental equals full", () => {
       const tree = row(
-        [text("left", { width: "25%" }), text("mid", { width: "50%" }), text("right", { width: "25%" })],
+        [
+          text("left", { width: "25%" }),
+          text("mid", { width: "50%" }),
+          text("right", { width: "25%" }),
+        ],
         { width: 40 },
       );
       assertIncrementalEqualsFull(tree, 40, 8, new Set<VNode>([tree]));
@@ -569,7 +585,15 @@ describe("incremental layout phase 3", () => {
       const secondNode = row([button("x")], { width: 20 });
 
       const first = mustLayout(firstNode, 20, 6, "column", measureCache, layoutCache, null);
-      const second = mustLayout(secondNode, 20, 6, "column", measureCache, layoutCache, new Set<VNode>([secondNode]));
+      const second = mustLayout(
+        secondNode,
+        20,
+        6,
+        "column",
+        measureCache,
+        layoutCache,
+        new Set<VNode>([secondNode]),
+      );
       assert.notDeepEqual(second, first);
       assert.equal(second.children.length, 1);
       assert.equal(second.children[0]?.vnode.kind, "button");

@@ -559,7 +559,16 @@ export const memoryScenario: Scenario = {
   description: "Sustained workload measuring memory footprint, growth, CPU usage, and stability",
   defaultConfig: { warmup: 50, iterations: 2000 },
   paramSets: [{}],
-  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea", "terminal-kit", "blessed", "ratatui"],
+  frameworks: [
+    "rezi-native",
+    "ink",
+    "opentui",
+    "opentui-core",
+    "bubbletea",
+    "terminal-kit",
+    "blessed",
+    "ratatui",
+  ],
 
   async run(framework, config) {
     tryGc();

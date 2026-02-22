@@ -416,7 +416,14 @@ async function runRatatui(
 }
 
 export async function runTerminalStrictScenario(
-  framework: "rezi-native" | "ink" | "opentui" | "opentui-core" | "bubbletea" | "blessed" | "ratatui",
+  framework:
+    | "rezi-native"
+    | "ink"
+    | "opentui"
+    | "opentui-core"
+    | "bubbletea"
+    | "blessed"
+    | "ratatui",
   config: ScenarioConfig,
   params: Record<string, number | string>,
   variant: StrictVariant,

@@ -1,6 +1,7 @@
 import type { VNode } from "../../index.js";
 import { measureContentBounds, resolveLayoutConstraints, resolveOverflow } from "../constraints.js";
 import { clampNonNegative, clampWithin, isPercentString, toFiniteMax } from "../engine/bounds.js";
+import { getActiveDirtySet } from "../engine/dirtySet.js";
 import {
   type FlexItem,
   type Justify,
@@ -14,7 +15,6 @@ import {
   childHasPercentInMainAxis,
   getConstraintProps,
 } from "../engine/guards.js";
-import { getActiveDirtySet } from "../engine/dirtySet.js";
 import { releaseArray } from "../engine/pool.js";
 import { ok } from "../engine/result.js";
 import type { LayoutTree } from "../engine/types.js";
@@ -1800,7 +1800,17 @@ export function layoutStackKinds(
             forceH = ch;
           }
 
-          const childRes = layoutNode(child, cursorX, childY, mm, ch, "row", main, forceH, childSize);
+          const childRes = layoutNode(
+            child,
+            cursorX,
+            childY,
+            mm,
+            ch,
+            "row",
+            main,
+            forceH,
+            childSize,
+          );
           if (!childRes.ok) return childRes;
           children.push(childRes.value);
           maybePruneRemainingDirtySiblings(vnode.children, i, child, childRes.value);

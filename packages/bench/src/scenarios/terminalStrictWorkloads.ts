@@ -69,7 +69,9 @@ function navLines(page: string, tick: number): readonly string[] {
   for (let i = 0; i < tabs.length; i++) {
     lines.push(`${i === active ? ">" : " "} ${tabs[i]}`);
   }
-  lines.push(`env=${["prod", "stage", "dev"][tick % 3]} region=${["use1", "usw2", "euw1"][tick % 3]}`);
+  lines.push(
+    `env=${["prod", "stage", "dev"][tick % 3]} region=${["use1", "usw2", "euw1"][tick % 3]}`,
+  );
   lines.push(`window=${15 + ((tick * 7) % 30)}m filter=${tick % 2 === 0 ? "on" : "off"}`);
   return lines;
 }
@@ -93,7 +95,9 @@ function serviceTableLines(services: number, tick: number, rowBudget: number): r
 
   const cpu = ((tick * 17) % 1000) / 1000;
   const mem = ((tick * 31 + 211) % 1000) / 1000;
-  lines.push(`cpu ${bar(cpu, 18)} ${(cpu * 100).toFixed(1)}% io ${String(30 + ((tick * 11) % 60)).padStart(2, " ")}%`);
+  lines.push(
+    `cpu ${bar(cpu, 18)} ${(cpu * 100).toFixed(1)}% io ${String(30 + ((tick * 11) % 60)).padStart(2, " ")}%`,
+  );
   lines.push(`mem ${bar(mem, 18)} ${(mem * 100).toFixed(1)}% gc ${(tick * 97) % 999}ms`);
   lines.push(`queue=${(tick * 7) % 200} retry=${(tick * 11) % 40} drop=${(tick * 13) % 9}`);
   return lines;
@@ -286,9 +290,7 @@ export function buildStrictPaneLines(
   const lines: string[] = [];
 
   lines.push(clipPad(sections.header, cols));
-  lines.push(
-    paneLine(cols, widths, sections.leftTitle, sections.centerTitle, sections.rightTitle),
-  );
+  lines.push(paneLine(cols, widths, sections.leftTitle, sections.centerTitle, sections.rightTitle));
 
   for (let i = 0; i < bodyRows; i++) {
     lines.push(

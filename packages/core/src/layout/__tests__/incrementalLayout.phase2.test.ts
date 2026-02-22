@@ -1,6 +1,6 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type { VNode } from "../../index.js";
-import { layout, type LayoutTree } from "../layout.js";
+import { type LayoutTree, layout } from "../layout.js";
 
 type Axis = "row" | "column";
 
@@ -208,7 +208,12 @@ describe("incremental layout phase 2", () => {
   });
 
   describe("cache correctness", () => {
-    function assertCachedMatchesUncached(node: VNode, maxW: number, maxH: number, axis: Axis = "column"): void {
+    function assertCachedMatchesUncached(
+      node: VNode,
+      maxW: number,
+      maxH: number,
+      axis: Axis = "column",
+    ): void {
       const measureCache = new WeakMap<VNode, unknown>();
       const layoutCache = new WeakMap<VNode, unknown>();
 
@@ -237,14 +242,10 @@ describe("incremental layout phase 2", () => {
     });
 
     test("cached and uncached match for grid layout", () => {
-      const tree = grid([
-        text("c1"),
-        text("c2-long"),
-        text("c3"),
-        text("c4"),
-        text("c5"),
-        text("c6"),
-      ], { columns: 3, rowGap: 1, columnGap: 2 });
+      const tree = grid(
+        [text("c1"), text("c2-long"), text("c3"), text("c4"), text("c5"), text("c6")],
+        { columns: 3, rowGap: 1, columnGap: 2 },
+      );
       assertCachedMatchesUncached(tree, 80, 20);
     });
 
@@ -278,8 +279,22 @@ describe("incremental layout phase 2", () => {
       const changing0 = column([text("v0")]);
       const changing1 = column([text("v1")]);
 
-      const first = mustLayout(row([stable, changing0], { width: 30 }), 30, 8, "column", measureCache, layoutCache);
-      const second = mustLayout(row([stable, changing1], { width: 30 }), 30, 8, "column", measureCache, layoutCache);
+      const first = mustLayout(
+        row([stable, changing0], { width: 30 }),
+        30,
+        8,
+        "column",
+        measureCache,
+        layoutCache,
+      );
+      const second = mustLayout(
+        row([stable, changing1], { width: 30 }),
+        30,
+        8,
+        "column",
+        measureCache,
+        layoutCache,
+      );
 
       assert.equal(second.children[0], first.children[0]);
       assert.notEqual(second.children[1], first.children[1]);
@@ -365,7 +380,14 @@ describe("incremental layout phase 2", () => {
       }
       const uncachedTree = row(uncachedChildren, { width: 220, gap: 0 });
       for (let i = 0; i < 60; i++) {
-        mustLayout(uncachedTree, 220, 20, "column", new WeakMap<VNode, unknown>(), new WeakMap<VNode, unknown>());
+        mustLayout(
+          uncachedTree,
+          220,
+          20,
+          "column",
+          new WeakMap<VNode, unknown>(),
+          new WeakMap<VNode, unknown>(),
+        );
       }
       const uncachedReads = totalReads(uncachedTracked);
 

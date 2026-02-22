@@ -244,7 +244,16 @@ export const constructionScenario: Scenario = {
   description: "Build a widget tree from scratch (parameterized by item count)",
   defaultConfig: { warmup: 50, iterations: 500 },
   paramSets: [{ items: 10 }, { items: 100 }, { items: 500 }, { items: 1000 }],
-  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea", "terminal-kit", "blessed", "ratatui"],
+  frameworks: [
+    "rezi-native",
+    "ink",
+    "opentui",
+    "opentui-core",
+    "bubbletea",
+    "terminal-kit",
+    "blessed",
+    "ratatui",
+  ],
 
   async run(framework: Framework, config: ScenarioConfig, params) {
     const { items: n } = params as { items: number };
