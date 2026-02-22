@@ -223,7 +223,7 @@ export const layoutStressScenario: Scenario = {
   description: "Nested flex layout with changing text widths (forces re-layout)",
   defaultConfig: { warmup: 50, iterations: 300 },
   paramSets: [{ rows: 40, cols: 4 }],
-  frameworks: ["rezi-native", "ink", "opentui", "bubbletea"],
+  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea"],
 
   async run(framework: Framework, config: ScenarioConfig, params) {
     const { rows, cols } = params as { rows: number; cols: number };
@@ -234,6 +234,7 @@ export const layoutStressScenario: Scenario = {
       case "ink":
         return runInk(config, rows, cols);
       case "opentui":
+      case "opentui-core":
       case "bubbletea":
         return runOpenTui(config, rows, cols);
       default:

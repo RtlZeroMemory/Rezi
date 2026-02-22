@@ -21,7 +21,7 @@ export const terminalFpsStreamScenario: Scenario = {
   description: "Sustained telemetry stream updates (60fps-like incremental frame churn)",
   defaultConfig: { warmup: 100, iterations: 1200 },
   paramSets: [{ rows: 40, cols: 120, channels: 12 }],
-  frameworks: ["rezi-native", "ink", "opentui", "bubbletea", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig, params): Promise<BenchMetrics> {
     tryGc();
@@ -31,6 +31,7 @@ export const terminalFpsStreamScenario: Scenario = {
       case "ink":
         return runInkLineScenario(config, params, buildTerminalFpsStreamLines);
       case "opentui":
+      case "opentui-core":
       case "bubbletea":
         return runOpenTuiScenario("terminal-fps-stream", config, params);
       case "blessed":

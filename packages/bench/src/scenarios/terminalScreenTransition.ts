@@ -21,7 +21,7 @@ export const terminalScreenTransitionScenario: Scenario = {
   description: "Cycle between dashboard/table/log screens (full-tree transition workload)",
   defaultConfig: { warmup: 100, iterations: 1000 },
   paramSets: [{ rows: 40, cols: 120 }],
-  frameworks: ["rezi-native", "ink", "opentui", "bubbletea", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig, params): Promise<BenchMetrics> {
     tryGc();
@@ -31,6 +31,7 @@ export const terminalScreenTransitionScenario: Scenario = {
       case "ink":
         return runInkLineScenario(config, params, buildTerminalScreenTransitionLines);
       case "opentui":
+      case "opentui-core":
       case "bubbletea":
         return runOpenTuiScenario("terminal-screen-transition", config, params);
       case "blessed":

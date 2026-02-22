@@ -85,41 +85,31 @@ Most JavaScript TUI frameworks generate ANSI escape sequences in userland on eve
 
 ## Benchmarks
 
-Two different benchmark datasets are committed and should not be mixed:
+Rezi is benchmarked against Ink, OpenTUI (React and Core drivers), Bubble Tea, terminal-kit, blessed, and Ratatui across 22 scenarios covering primitive workloads, terminal-level rendering, and full-app UI composition.
 
-1. **Rigorous terminal suite** (replicates + confidence reporting): `benchmarks/2026-02-19-terminal-v3`
-2. **Quick driver/framework matchups** (single replicate, directional): `benchmarks/2026-02-20-*`
+### How Rezi compares
 
-From the **rigorous** suite (`benchmarks/2026-02-19-terminal-v3`), Rezi is:
-- **7.3×–59.1× faster than Ink**
-- **1.4×–52.5× faster than OpenTUI React**
-- **1.9×–14.8× slower than native Rust (`ratatui`)** (expected for native baseline)
+**vs Ink** — Rezi is 10-200x faster across all measured scenarios. Ink uses React reconciliation + Yoga layout + ANSI string generation in JS. Rezi moves rendering to a native C engine and uses binary drawlists instead of escape-sequence strings.
 
-That suite uses `7` replicates with first-replicate discard (`6` measured), framework-order shuffling, CPU pinning, and confidence-aware ratio reporting.
+**vs OpenTUI (React driver)** — Rezi is faster in all 21 scenarios (geomean ~10x). OpenTUI React uses `flushSync()` through a React reconciler on Bun.
 
-From the **quick** matchup snapshots (directional only):
-- Rezi vs OpenTUI React (`benchmarks/2026-02-20-rezi-opentui-react-all-quick-v6`): Rezi faster in `21/21` scenarios (geomean ~`10.4×`)
-- Rezi vs OpenTUI Core (`benchmarks/2026-02-20-rezi-opentui-core-all-quick-v4`): Rezi faster in `19/21` scenarios (geomean ~`2.6×`)
-- OpenTUI Core vs OpenTUI React: Core faster in `21/21` scenarios (geomean ~`4.0×`)
-- Rezi vs Bubble Tea (`benchmarks/2026-02-20-rezi-opentui-bubbletea-core-all-quick-v3`): Rezi faster in `20/21` scenarios (geomean ~`8.5×`); Bubble Tea wins `scroll-stress`
+**vs OpenTUI (Core driver)** — Rezi is faster in 19/21 scenarios (geomean ~2.6x). OpenTUI Core is a lean imperative API without React overhead. It wins on `layout-stress` (1.5x) and `tables` (1.6x), where its direct-mutation approach has lower per-frame overhead for grid-heavy layouts.
 
-Representative rows below are from the **rigorous** suite (OpenTUI column here means **OpenTUI React**):
+**vs Bubble Tea** — Rezi is faster in 20/21 scenarios. Bubble Tea renders via Go's string-based `View()` function with lipgloss styling. Its throughput clusters around ~120 ops/s in most scenarios due to its event-loop tick rate. Bubble Tea wins `scroll-stress` (2.5x) where Rezi's larger tree diffing cost outweighs the simpler string-append path.
 
-| Scenario | Rezi | Ink | OpenTUI (React) | Ratatui | Rezi vs Ink | Rezi vs OpenTUI (React) | Rezi vs Ratatui |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| `terminal-frame-fill` (1 dirty line) | 372 µs | 21.96 ms | 4.03 ms | 197 µs | 59.1× faster | 10.8× faster | 1.9× slower |
-| `terminal-fps-stream` | 3.40 ms | 24.96 ms | 4.66 ms | 231 µs | 7.3× faster | 1.4× faster | 14.8× slower |
-| `terminal-virtual-list` | 681 µs | 22.82 ms | 35.73 ms | 127 µs | 33.5× faster | 52.5× faster | 5.4× slower |
+**vs terminal-kit / blessed / Ratatui** — These are lower-level libraries (terminal-kit and blessed are buffer-level with no layout engine; Ratatui is native Rust). On primitive workloads that skip layout (rerender, frame-fill), they are 2-20x faster than Rezi. On structured UI workloads that require layout and widget composition (strict-ui, full-ui, virtual-list with panels), Rezi is competitive or faster. This is the expected tradeoff: Rezi provides a full widget and layout system at a cost that is measurable on micro-benchmarks but pays for itself on real applications.
 
-Full benchmark artifacts (methodology, confidence bands, and raw result tables):
-- `BENCHMARKS.md`
-- `benchmarks/2026-02-19-terminal-v3/results.md`
-- `benchmarks/2026-02-20-rezi-opentui-react-all-quick-v6/results.md`
-- `benchmarks/2026-02-20-rezi-opentui-core-all-quick-v4/results.md`
-- `benchmarks/2026-02-20-rezi-opentui-bubbletea-core-all-quick-v3/results.md`
+### Representative numbers
 
-Full methodology and reproduction steps:
-👉 **[BENCHMARKS.md](BENCHMARKS.md)**
+| Scenario | Rezi | Ink | OpenTUI React | OpenTUI Core | Ratatui |
+|---|---:|---:|---:|---:|---:|
+| tree-construction (100 items) | 326us | 26ms | 36ms | 2.1ms | 696us |
+| virtual-list (100K items) | 985us | 22.6ms | 28.5ms | 1.28ms | -- |
+| terminal-strict-ui | 1.19ms | 25.5ms | 19.4ms | 1.77ms | 240us |
+| terminal-full-ui | 2.49ms | 25.6ms | 5.07ms | 1.31ms | 336us |
+| rerender | 373us | 17.7ms | 2.70ms | 1.16ms | 51us |
+
+Numbers are from a single-replicate PTY-mode run on WSL. They are directional, not publication-grade. See [BENCHMARKS.md](BENCHMARKS.md) for full methodology, caveats, and reproduction steps.
 
 ---
 

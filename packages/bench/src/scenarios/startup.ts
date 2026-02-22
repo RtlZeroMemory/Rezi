@@ -383,7 +383,7 @@ export const startupScenario: Scenario = {
   description: "Time to first frame: full lifecycle from create → first visible output",
   defaultConfig: { warmup: 10, iterations: 100 },
   paramSets: [{}],
-  frameworks: ["rezi-native", "ink", "opentui", "bubbletea", "terminal-kit", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea", "terminal-kit", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig) {
     tryGc();
@@ -393,6 +393,7 @@ export const startupScenario: Scenario = {
       case "ink":
         return runInk(config);
       case "opentui":
+      case "opentui-core":
       case "bubbletea":
         return runOpenTui(config);
       case "terminal-kit":

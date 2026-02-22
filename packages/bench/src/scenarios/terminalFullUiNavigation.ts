@@ -21,7 +21,7 @@ export const terminalFullUiNavigationScenario: Scenario = {
   description: "Full-app route flow benchmark (overview/services/deploy/incidents/logs/command)",
   defaultConfig: { warmup: 120, iterations: 1200 },
   paramSets: [{ rows: 40, cols: 120, services: 24, dwell: 8 }],
-  frameworks: ["rezi-native", "ink", "opentui", "bubbletea", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig, params): Promise<BenchMetrics> {
     tryGc();
@@ -31,6 +31,7 @@ export const terminalFullUiNavigationScenario: Scenario = {
       case "ink":
         return runInkLineScenario(config, params, buildTerminalFullUiNavigationLines);
       case "opentui":
+      case "opentui-core":
       case "bubbletea":
         return runOpenTuiScenario("terminal-full-ui-navigation", config, params);
       case "blessed":

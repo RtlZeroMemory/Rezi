@@ -206,7 +206,7 @@ export const scrollStressScenario: Scenario = {
   description: "Non-virtualized list: full list render with moving active row",
   defaultConfig: { warmup: 10, iterations: 50 },
   paramSets: [{ items: 2000 }],
-  frameworks: ["rezi-native", "ink", "opentui", "bubbletea"],
+  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea"],
 
   async run(framework: Framework, config: ScenarioConfig, params) {
     const { items } = params as { items: number };
@@ -217,6 +217,7 @@ export const scrollStressScenario: Scenario = {
       case "ink":
         return runInk(config, items);
       case "opentui":
+      case "opentui-core":
       case "bubbletea":
         return runOpenTui(config, items);
       default:

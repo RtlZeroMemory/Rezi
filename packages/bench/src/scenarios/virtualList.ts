@@ -266,7 +266,7 @@ export const virtualListScenario: Scenario = {
   description: "Large logical list with virtualization window (viewport only)",
   defaultConfig: { warmup: 100, iterations: 1000 },
   paramSets: [{ items: 100_000, viewport: 40 }],
-  frameworks: ["rezi-native", "ink", "opentui", "bubbletea"],
+  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea"],
 
   async run(framework: Framework, config: ScenarioConfig, params) {
     const { items, viewport } = params as { items: number; viewport: number };
@@ -277,6 +277,7 @@ export const virtualListScenario: Scenario = {
       case "ink":
         return runInk(config, items, viewport);
       case "opentui":
+      case "opentui-core":
       case "bubbletea":
         return runOpenTui(config, items, viewport);
       default:

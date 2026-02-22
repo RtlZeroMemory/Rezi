@@ -300,7 +300,10 @@ async function checkFramework(
         return true;
       case "opentui":
         if (io !== "pty") return false;
-        return (await import("./frameworks/opentui.js")).checkOpenTui(opentuiDriver);
+        return (await import("./frameworks/opentui.js")).checkOpenTui("react");
+      case "opentui-core":
+        if (io !== "pty") return false;
+        return (await import("./frameworks/opentui.js")).checkOpenTui("core");
       case "bubbletea":
         if (io !== "pty") return false;
         return (await import("./frameworks/bubbletea.js")).checkBubbleTea();
@@ -336,7 +339,7 @@ async function runIsolated(
   return new Promise<BenchResult>((resolve, reject) => {
     const env: BenchEnv = { ...process.env };
     if (cpuAffinity) env.REZI_BENCH_CPU_AFFINITY = cpuAffinity;
-    env.REZI_BENCH_OPENTUI_DRIVER = opentuiDriver;
+    env.REZI_BENCH_OPENTUI_DRIVER = framework === "opentui-core" ? "core" : "react";
     env.REZI_BENCH_OPENTUI_PROVIDER = framework === "bubbletea" ? "bubbletea" : "opentui";
     const command = withAffinity(
       process.execPath,
@@ -430,7 +433,7 @@ async function runIsolatedPty(
   return new Promise<BenchResult>((resolve, reject) => {
     const env: BenchEnv = { ...process.env };
     if (cpuAffinity) env.REZI_BENCH_CPU_AFFINITY = cpuAffinity;
-    env.REZI_BENCH_OPENTUI_DRIVER = opentuiDriver;
+    env.REZI_BENCH_OPENTUI_DRIVER = framework === "opentui-core" ? "core" : "react";
     env.REZI_BENCH_OPENTUI_PROVIDER = framework === "bubbletea" ? "bubbletea" : "opentui";
     const command = withAffinity(
       process.execPath,
@@ -462,13 +465,11 @@ async function runIsolatedPty(
           | { ok: false; error: string };
         if ("ok" in parsed && parsed.ok) {
           parsed.result.metrics.ptyBytesObserved = observedPtyBytes;
+          // Some frameworks (e.g. OpenTUI) write directly to the fd, bypassing
+          // the in-process MeasuringStdout stream, so bytesProduced stays 0.
+          // Fall back to the PTY-observed byte count instead of rejecting.
           if (observedPtyBytes > 0 && parsed.result.metrics.bytesProduced <= 0) {
-            reject(
-              new Error(
-                `invalid bytesProduced=0 for ${parsed.result.scenario}/${parsed.result.framework} in PTY mode while observedPtyBytes=${observedPtyBytes}`,
-              ),
-            );
-            return;
+            parsed.result.metrics.bytesProduced = observedPtyBytes;
           }
           resolve(parsed.result);
           return;
@@ -513,12 +514,18 @@ async function main(): Promise<void> {
     "rezi-native",
     "ink",
     "opentui",
+    "opentui-core",
     "bubbletea",
     "terminal-kit",
     "blessed",
     "ratatui",
   ] as Framework[]) {
-    if (opts.matchup === "rezi-opentui" && fw !== "rezi-native" && fw !== "opentui") {
+    if (
+      opts.matchup === "rezi-opentui" &&
+      fw !== "rezi-native" &&
+      fw !== "opentui" &&
+      fw !== "opentui-core"
+    ) {
       availableFrameworks.set(fw, false);
       continue;
     }
@@ -526,6 +533,7 @@ async function main(): Promise<void> {
       opts.matchup === "rezi-opentui-bubbletea" &&
       fw !== "rezi-native" &&
       fw !== "opentui" &&
+      fw !== "opentui-core" &&
       fw !== "bubbletea"
     ) {
       availableFrameworks.set(fw, false);

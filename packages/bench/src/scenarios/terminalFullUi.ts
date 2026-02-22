@@ -21,7 +21,7 @@ export const terminalFullUiScenario: Scenario = {
   description: "Full-screen app shell workload (nav + table + telemetry + logs) across frameworks",
   defaultConfig: { warmup: 120, iterations: 1200 },
   paramSets: [{ rows: 40, cols: 120, services: 24 }],
-  frameworks: ["rezi-native", "ink", "opentui", "bubbletea", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig, params): Promise<BenchMetrics> {
     tryGc();
@@ -31,6 +31,7 @@ export const terminalFullUiScenario: Scenario = {
       case "ink":
         return runInkLineScenario(config, params, buildTerminalFullUiLines);
       case "opentui":
+      case "opentui-core":
       case "bubbletea":
         return runOpenTuiScenario("terminal-full-ui", config, params);
       case "blessed":

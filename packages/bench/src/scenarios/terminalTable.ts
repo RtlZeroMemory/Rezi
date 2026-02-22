@@ -283,7 +283,7 @@ export const terminalTableScenario: Scenario = {
   description: "Viewport-sized table update (single cell change) across terminal UI frameworks",
   defaultConfig: { warmup: 50, iterations: 500 },
   paramSets: [{ rows: 40, cols: 8 }],
-  frameworks: ["rezi-native", "ink", "opentui", "bubbletea", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig, params): Promise<BenchMetrics> {
     const { rows, cols } = params as { rows: number; cols: number };
@@ -294,6 +294,7 @@ export const terminalTableScenario: Scenario = {
       case "ink":
         return runInk(config, rows, cols);
       case "opentui":
+      case "opentui-core":
       case "bubbletea":
         return runOpenTui(config, rows, cols);
       case "blessed":

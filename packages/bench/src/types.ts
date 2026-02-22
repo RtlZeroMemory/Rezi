@@ -106,6 +106,7 @@ export type Framework =
   | "ink-compat"
   | "rezi-native"
   | "opentui"
+  | "opentui-core"
   | "bubbletea"
   | "terminal-kit"
   | "blessed"

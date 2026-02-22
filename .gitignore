@@ -181,3 +181,4 @@ CODEX_*.md
 .last_perf_pack_full
 .last_perf_pack_quick
 *.cpuprofile
+packages/bench/bubbletea-bench/.bin/

@@ -447,7 +447,7 @@ export const contentUpdateScenario: Scenario = {
   description: "Partial screen update: move selection in a 500-row list (measures diff efficiency)",
   defaultConfig: { warmup: 50, iterations: 500 },
   paramSets: [{}],
-  frameworks: ["rezi-native", "ink", "opentui", "bubbletea", "terminal-kit", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea", "terminal-kit", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig) {
     tryGc();
@@ -457,6 +457,7 @@ export const contentUpdateScenario: Scenario = {
       case "ink":
         return runInk(config);
       case "opentui":
+      case "opentui-core":
       case "bubbletea":
         return runOpenTui(config);
       case "terminal-kit":

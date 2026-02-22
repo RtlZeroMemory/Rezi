@@ -310,7 +310,7 @@ export const rerenderScenario: Scenario = {
   description: "State update → new frame (small counter app, isolates per-update cost)",
   defaultConfig: { warmup: 100, iterations: 1000 },
   paramSets: [{}],
-  frameworks: ["rezi-native", "ink", "opentui", "bubbletea", "terminal-kit", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea", "terminal-kit", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig) {
     tryGc();
@@ -320,6 +320,7 @@ export const rerenderScenario: Scenario = {
       case "ink":
         return runInk(config);
       case "opentui":
+      case "opentui-core":
       case "bubbletea":
         return runOpenTui(config);
       case "terminal-kit":

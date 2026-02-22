@@ -21,7 +21,7 @@ export const terminalMemorySoakScenario: Scenario = {
   description: "Sustained churn workload to observe memory growth and long-run stability",
   defaultConfig: { warmup: 150, iterations: 1200 },
   paramSets: [{ rows: 40, cols: 120 }],
-  frameworks: ["rezi-native", "ink", "opentui", "bubbletea", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig, params): Promise<BenchMetrics> {
     tryGc();
@@ -31,6 +31,7 @@ export const terminalMemorySoakScenario: Scenario = {
       case "ink":
         return runInkLineScenario(config, params, buildTerminalMemorySoakLines);
       case "opentui":
+      case "opentui-core":
       case "bubbletea":
         return runOpenTuiScenario("terminal-memory-soak", config, params);
       case "blessed":

@@ -242,7 +242,7 @@ export const tableScenario: Scenario = {
   description: "Fixed-size table; updates a single changing cell per iteration",
   defaultConfig: { warmup: 50, iterations: 300 },
   paramSets: [{ rows: 100, cols: 8 }],
-  frameworks: ["rezi-native", "ink", "opentui", "bubbletea"],
+  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea"],
 
   async run(framework: Framework, config: ScenarioConfig, params) {
     const { rows, cols } = params as { rows: number; cols: number };
@@ -253,6 +253,7 @@ export const tableScenario: Scenario = {
       case "ink":
         return runInk(config, rows, cols);
       case "opentui":
+      case "opentui-core":
       case "bubbletea":
         return runOpenTui(config, rows, cols);
       default:

@@ -70,6 +70,7 @@ const FRAMEWORK_ORDER: Framework[] = [
   "rezi-native",
   "ink",
   "opentui",
+  "opentui-core",
   "bubbletea",
   "terminal-kit",
   "blessed",
@@ -80,7 +81,8 @@ const FRAMEWORK_LABELS: Record<Framework, string> = {
   "rezi-native": "Rezi (native)",
   "ink-compat": "Ink-Compat (removed)",
   ink: "Ink",
-  opentui: "OpenTUI",
+  opentui: "OpenTUI (React)",
+  "opentui-core": "OpenTUI (Core)",
   bubbletea: "Bubble Tea (Go)",
   "terminal-kit": "terminal-kit",
   blessed: "blessed",
@@ -324,7 +326,7 @@ export function toMarkdown(run: BenchRun): string {
     '> Includes ratio confidence bands from each framework mean CI. Rows marked "(inconclusive)" have CIs overlapping parity.\n',
   );
 
-  const allFws: Framework[] = ["ink", "opentui", "terminal-kit", "blessed", "ratatui"];
+  const allFws: Framework[] = ["ink", "opentui", "opentui-core", "terminal-kit", "blessed", "ratatui"];
   const presentFws = allFws.filter((fw) =>
     [...groups.values()].some((items) => items.some((r) => r.framework === fw)),
   );

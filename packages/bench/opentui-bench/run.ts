@@ -1671,7 +1671,10 @@ async function runStartupBenchReact(args: CliArgs): Promise<BenchResultData> {
     samplesMs.push(result.elapsedMs);
     bytesWritten += result.bytes;
 
-    if (i % 50 === 49) memPeak = peakMemory(memPeak, takeMemory());
+    if (i % 50 === 49) {
+      tryGc();
+      memPeak = peakMemory(memPeak, takeMemory());
+    }
   }
 
   const totalWallMs = performance.now() - t0;
@@ -1808,7 +1811,10 @@ async function runStartupBenchCore(args: CliArgs): Promise<BenchResultData> {
     samplesMs.push(result.elapsedMs);
     bytesWritten += result.bytes;
 
-    if (i % 50 === 49) memPeak = peakMemory(memPeak, takeMemory());
+    if (i % 50 === 49) {
+      tryGc();
+      memPeak = peakMemory(memPeak, takeMemory());
+    }
   }
 
   const totalWallMs = performance.now() - t0;
