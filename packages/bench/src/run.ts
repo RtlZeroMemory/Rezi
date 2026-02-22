@@ -300,7 +300,7 @@ async function checkFramework(
         return true;
       case "opentui":
         if (io !== "pty") return false;
-        return (await import("./frameworks/opentui.js")).checkOpenTui("react");
+        return (await import("./frameworks/opentui.js")).checkOpenTui(opentuiDriver);
       case "opentui-core":
         if (io !== "pty") return false;
         return (await import("./frameworks/opentui.js")).checkOpenTui("core");
@@ -339,7 +339,7 @@ async function runIsolated(
   return new Promise<BenchResult>((resolve, reject) => {
     const env: BenchEnv = { ...process.env };
     if (cpuAffinity) env.REZI_BENCH_CPU_AFFINITY = cpuAffinity;
-    env.REZI_BENCH_OPENTUI_DRIVER = framework === "opentui-core" ? "core" : "react";
+    env.REZI_BENCH_OPENTUI_DRIVER = framework === "opentui-core" ? "core" : opentuiDriver;
     env.REZI_BENCH_OPENTUI_PROVIDER = framework === "bubbletea" ? "bubbletea" : "opentui";
     const command = withAffinity(
       process.execPath,
@@ -433,7 +433,7 @@ async function runIsolatedPty(
   return new Promise<BenchResult>((resolve, reject) => {
     const env: BenchEnv = { ...process.env };
     if (cpuAffinity) env.REZI_BENCH_CPU_AFFINITY = cpuAffinity;
-    env.REZI_BENCH_OPENTUI_DRIVER = framework === "opentui-core" ? "core" : "react";
+    env.REZI_BENCH_OPENTUI_DRIVER = framework === "opentui-core" ? "core" : opentuiDriver;
     env.REZI_BENCH_OPENTUI_PROVIDER = framework === "bubbletea" ? "bubbletea" : "opentui";
     const command = withAffinity(
       process.execPath,
