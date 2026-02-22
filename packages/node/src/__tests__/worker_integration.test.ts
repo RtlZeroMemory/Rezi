@@ -73,6 +73,13 @@ function post(worker: Worker, msg: MainToWorkerMessage, transfer?: readonly Arra
   worker.postMessage(msg);
 }
 
+async function shutdownAndWaitForExit(worker: Worker): Promise<void> {
+  const exitPromise = once(worker, "exit");
+  post(worker, { type: "shutdown" });
+  await waitFor(worker, (m) => m.type === "shutdownComplete");
+  await exitPromise;
+}
+
 test("worker: init/ready + latest-wins transfer mailbox avoids stale fatal", async () => {
   const worker = makeWorker();
   try {
@@ -92,9 +99,7 @@ test("worker: init/ready + latest-wins transfer mailbox avoids stale fatal", asy
 
     await waitFor(worker, (m) => m.type === "ready");
     await delay(25);
-    post(worker, { type: "shutdown" });
-    await waitFor(worker, (m) => m.type === "shutdownComplete");
-    await once(worker, "exit");
+    await shutdownAndWaitForExit(worker);
   } finally {
     await worker.terminate();
   }
@@ -171,9 +176,7 @@ test("worker: SAB transport mailbox latest-wins + slot release", async () => {
     assert.equal(Atomics.load(states, 1), FRAME_SAB_SLOT_STATE_FREE);
     assert.notEqual(Atomics.load(states, 0), 1);
 
-    post(worker, { type: "shutdown" });
-    await waitFor(worker, (m) => m.type === "shutdownComplete");
-    await once(worker, "exit");
+    await shutdownAndWaitForExit(worker);
   } finally {
     await worker.terminate();
   }
@@ -255,9 +258,7 @@ test("worker: SAB stale token frame is dropped without fatal and latest token wi
     assert.ok(Atomics.load(header, FRAME_SAB_CONTROL_CONSUMED_SEQ_WORD) >= 0);
     assert.equal(Atomics.load(states, 0), FRAME_SAB_SLOT_STATE_FREE);
 
-    post(worker, { type: "shutdown" });
-    await waitFor(worker, (m) => m.type === "shutdownComplete");
-    await once(worker, "exit");
+    await shutdownAndWaitForExit(worker);
   } finally {
     await worker.terminate();
   }
@@ -404,9 +405,7 @@ test("worker: oversized event batch (ZR_ERR_LIMIT) is dropped without fatal", as
     }
 
     post(worker, { type: "eventsAck", buffer: next.batch }, [next.batch]);
-    post(worker, { type: "shutdown" });
-    await waitFor(worker, (m) => m.type === "shutdownComplete");
-    await once(worker, "exit");
+    await shutdownAndWaitForExit(worker);
   } finally {
     await worker.terminate();
   }
@@ -418,9 +417,7 @@ test("worker: deterministic shutdownComplete + exit", async () => {
     post(worker, { type: "init", config: { maxEventBytes: 1024, fpsCap: 1000 } });
     await waitFor(worker, (m) => m.type === "ready");
 
-    post(worker, { type: "shutdown" });
-    await waitFor(worker, (m) => m.type === "shutdownComplete");
-    await once(worker, "exit");
+    await shutdownAndWaitForExit(worker);
   } finally {
     await worker.terminate();
   }
