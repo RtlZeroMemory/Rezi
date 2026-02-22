@@ -5,7 +5,7 @@
  * by name for both interactive gallery browsing and headless snapshot capture.
  */
 
-import { ui, type VNode, rgb } from "@rezi-ui/core";
+import { type VNode, rgb, ui } from "@rezi-ui/core";
 
 // ---------------------------------------------------------------------------
 // Scene: Button Matrix
@@ -102,13 +102,9 @@ export function surfaceShowcase(): VNode {
     ui.text("Surfaces & Elevation", { style: { bold: true } }),
     ui.divider(),
     ui.text("Level 0: Base Background"),
-    ui.box({ border: "rounded", p: 1, key: "surface-1" }, [
-      ui.text("Level 1: Elevated (Card)"),
-    ]),
-    ui.box({ border: "single", p: 1, key: "surface-2" }, [
-      ui.text("Level 2: Overlay (Dropdown)"),
-    ]),
-    ui.box({ border: "single", p: 1, shadow: true, key: "surface-3" }, [
+    ui.box({ border: "rounded", p: 1, key: "surface-1" }, [ui.text("Level 1: Elevated (Card)")]),
+    ui.box({ border: "single", p: 1, key: "surface-2" }, [ui.text("Level 2: Overlay (Dropdown)")]),
+    ui.box({ border: "heavy", p: 1, shadow: true, key: "surface-3" }, [
       ui.text("Level 3: Modal (with shadow)"),
     ]),
     // Shadow extends beyond the box rect; leave one row so footer divider does not crowd it.
@@ -445,9 +441,19 @@ export const scenes: readonly Scene[] = [
   { name: "button-matrix", title: "Button Matrix", navLabel: "Buttons", render: buttonMatrix },
   { name: "input-showcase", title: "Input Showcase", navLabel: "Inputs", render: inputShowcase },
   { name: "typography", title: "Typography", navLabel: "Type", render: typographyShowcase },
-  { name: "surfaces", title: "Surfaces & Elevation", navLabel: "Surfaces", render: surfaceShowcase },
+  {
+    name: "surfaces",
+    title: "Surfaces & Elevation",
+    navLabel: "Surfaces",
+    render: surfaceShowcase,
+  },
   { name: "badges", title: "Badges & Tags", navLabel: "Badges", render: badgeShowcase },
-  { name: "progress", title: "Progress & Indicators", navLabel: "Progress", render: progressShowcase },
+  {
+    name: "progress",
+    title: "Progress & Indicators",
+    navLabel: "Progress",
+    render: progressShowcase,
+  },
   { name: "callouts", title: "Callouts", navLabel: "Callouts", render: calloutShowcase },
   { name: "checkboxes", title: "Checkboxes & Radio", navLabel: "Checks", render: checkboxShowcase },
   { name: "dividers", title: "Dividers & Spacing", navLabel: "Dividers", render: dividerShowcase },

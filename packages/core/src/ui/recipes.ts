@@ -11,24 +11,24 @@
  * @see docs/design-system.md
  */
 
-import type { Rgb, TextStyle } from "../widgets/style.js";
 import type { ColorTokens, ThemeDefinition } from "../theme/tokens.js";
+import type { Rgb, TextStyle } from "../widgets/style.js";
 import {
-  type WidgetVariant,
-  type WidgetTone,
-  type WidgetSize,
-  type WidgetState,
+  type BorderVariant,
   type Density,
   type ElevationLevel,
   type TypographyRole,
-  type BorderVariant,
+  type WidgetSize,
+  type WidgetState,
+  type WidgetTone,
+  type WidgetVariant,
+  resolveBorderVariant,
+  resolveDensityGap,
   resolveSize,
+  resolveSurface,
   resolveToneColor,
   resolveToneFg,
   resolveTypography,
-  resolveSurface,
-  resolveDensityGap,
-  resolveBorderVariant,
 } from "./designTokens.js";
 
 // ---------------------------------------------------------------------------
@@ -110,12 +110,10 @@ export function buttonRecipe(
   }
 
   // Focus adds underline + bold
-  const focusAttrs: TextStyle =
-    state === "focus" ? { underline: true, bold: true } : {};
+  const focusAttrs: TextStyle = state === "focus" ? { underline: true, bold: true } : {};
 
   // Pressed adds dim
-  const pressedAttrs: TextStyle =
-    state === "pressed" ? { dim: true } : {};
+  const pressedAttrs: TextStyle = state === "pressed" ? { dim: true } : {};
 
   switch (variant) {
     case "solid": {
@@ -131,9 +129,7 @@ export function buttonRecipe(
 
     case "soft": {
       const bgColor =
-        state === "focus" || state === "active-item"
-          ? colors.bg.subtle
-          : colors.bg.elevated;
+        state === "focus" || state === "active-item" ? colors.bg.subtle : colors.bg.elevated;
       return {
         label: { fg: accentColor, ...focusAttrs, ...pressedAttrs },
         bg: { bg: bgColor },
@@ -273,9 +269,7 @@ export function surfaceRecipe(
 
   let borderStyle: TextStyle | undefined;
   if (surface.border !== null) {
-    borderStyle = focused
-      ? { fg: colors.accent.primary, bold: true }
-      : { fg: surface.border };
+    borderStyle = focused ? { fg: colors.accent.primary, bold: true } : { fg: surface.border };
   }
 
   return {
@@ -430,9 +424,7 @@ export function modalRecipe(
     frame: { bg: colors.bg.overlay },
     backdrop: { bg: colors.bg.base, dim: true },
     border: focused ? "heavy" : "rounded",
-    borderStyle: focused
-      ? { fg: colors.accent.primary, bold: true }
-      : { fg: colors.border.strong },
+    borderStyle: focused ? { fg: colors.accent.primary, bold: true } : { fg: colors.border.strong },
     shadow: true,
     title: { fg: colors.fg.primary, bold: true },
   };
@@ -473,7 +465,6 @@ export function badgeRecipe(
       break;
     case "default":
     case "primary":
-    default:
       fg = colors.accent.primary;
       break;
   }
@@ -495,10 +486,7 @@ export type TextRecipeResult = Readonly<{
   style: TextStyle;
 }>;
 
-export function textRecipe(
-  colors: ColorTokens,
-  params: TextRecipeParams = {},
-): TextRecipeResult {
+export function textRecipe(colors: ColorTokens, params: TextRecipeParams = {}): TextRecipeResult {
   const role = params.role ?? "body";
   const typo = resolveTypography(colors, role);
   return { style: typo };
@@ -628,7 +616,6 @@ export function calloutRecipe(
       break;
     case "default":
     case "primary":
-    default:
       accentColor = colors.accent.primary;
       break;
   }

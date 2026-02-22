@@ -8,8 +8,8 @@
  * @see docs/design-system.md
  */
 
-import type { Rgb, TextStyle } from "../widgets/style.js";
 import type { ColorTokens, ThemeDefinition } from "../theme/tokens.js";
+import type { Rgb, TextStyle } from "../widgets/style.js";
 
 // ---------------------------------------------------------------------------
 // Typography roles
@@ -213,10 +213,7 @@ export type BorderVariant = "none" | "single" | "rounded" | "double" | "heavy" |
 /**
  * Resolve border variant for a given elevation and focus state.
  */
-export function resolveBorderVariant(
-  elevation: ElevationLevel,
-  focused: boolean,
-): BorderVariant {
+export function resolveBorderVariant(elevation: ElevationLevel, focused: boolean): BorderVariant {
   if (focused) return "heavy";
   switch (elevation) {
     case 0:

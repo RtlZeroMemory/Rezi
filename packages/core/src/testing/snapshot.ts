@@ -13,8 +13,8 @@
  * @see docs/design-system.md
  */
 
-import { createTestRenderer, type TestRendererOptions } from "./renderer.js";
 import type { VNode } from "../widgets/types.js";
+import { type TestRendererOptions, createTestRenderer } from "./renderer.js";
 
 /**
  * Metadata stored alongside each snapshot.
@@ -52,7 +52,7 @@ export function serializeSnapshot(snapshot: Snapshot): string {
     `# Viewport: ${meta.viewport.cols}x${meta.viewport.rows}`,
     `# Version: ${meta.version}`,
     `# Captured: ${meta.capturedAt}`,
-    `---`,
+    "---",
   ].join("\n");
   return `${header}\n${snapshot.content}\n`;
 }
@@ -71,7 +71,8 @@ export function parseSnapshot(text: string): Snapshot | null {
   let contentStart = -1;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!;
+    const line = lines[i];
+    if (line === undefined) continue;
     if (line === "---") {
       contentStart = i + 1;
       break;
@@ -81,8 +82,12 @@ export function parseSnapshot(text: string): Snapshot | null {
     else if (line.startsWith("# Viewport: ")) {
       const match = line.slice(12).match(/^(\d+)x(\d+)$/);
       if (match) {
-        cols = parseInt(match[1]!, 10);
-        rows = parseInt(match[2]!, 10);
+        const colsText = match[1];
+        const rowsText = match[2];
+        if (colsText !== undefined && rowsText !== undefined) {
+          cols = Number.parseInt(colsText, 10);
+          rows = Number.parseInt(rowsText, 10);
+        }
       }
     } else if (line.startsWith("# Version: ")) version = line.slice(11);
     else if (line.startsWith("# Captured: ")) capturedAt = line.slice(12);

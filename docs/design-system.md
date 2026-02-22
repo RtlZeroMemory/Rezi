@@ -494,4 +494,4 @@ node scripts/rezi-snap.mjs --verify --scene button-matrix --theme dark
 
 Snapshot format: metadata header (`scene`, `theme`, `viewport`, `version`, `capturedAt`) followed by rendered text content.
 
-See [Testing Guide](./guide/testing.md) for details.
+See [Developer Testing Guide](./dev/testing.md) for details.

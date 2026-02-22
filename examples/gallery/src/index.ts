@@ -12,19 +12,19 @@
  */
 
 import {
-  createApp,
-  ui,
-  darkTheme,
-  lightTheme,
-  nordTheme,
-  draculaTheme,
-  dimmedTheme,
-  highContrastTheme,
   type ThemeDefinition,
   type VNode,
+  createApp,
+  darkTheme,
+  dimmedTheme,
+  draculaTheme,
+  highContrastTheme,
+  lightTheme,
+  nordTheme,
+  ui,
 } from "@rezi-ui/core";
 import { createNodeBackend } from "@rezi-ui/node";
-import { scenes, getScene, type Scene } from "./scenes.js";
+import { type Scene, getScene, scenes } from "./scenes.js";
 
 // ---------------------------------------------------------------------------
 // State
@@ -182,7 +182,9 @@ app.keys({
     })),
   t: (ctx) => {
     const i = THEME_NAMES.indexOf(ctx.state.themeName);
-    const next = THEME_NAMES[(i + 1) % THEME_NAMES.length]!;
+    const nextIndex = (i + 1 + THEME_NAMES.length) % THEME_NAMES.length;
+    const next = THEME_NAMES[nextIndex];
+    if (!next) return;
     app.setTheme(THEMES[next]);
     ctx.update({ ...ctx.state, themeName: next });
   },

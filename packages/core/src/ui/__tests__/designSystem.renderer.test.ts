@@ -1,9 +1,9 @@
-import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
+import { describe, it } from "node:test";
 import { createTestRenderer } from "../../testing/renderer.js";
-import { ui } from "../../widgets/ui.js";
-import { darkTheme } from "../../theme/presets.js";
 import { coerceToLegacyTheme } from "../../theme/interop.js";
+import { darkTheme } from "../../theme/presets.js";
+import { ui } from "../../widgets/ui.js";
 
 const theme = coerceToLegacyTheme(darkTheme);
 const viewport = { cols: 40, rows: 5 };
@@ -104,6 +104,46 @@ describe("design system rendering", () => {
     assert.ok(btn, "legacy button should be found");
     const text = result.toText();
     assert.ok(text.includes("Legacy"), "legacy button label should be visible");
+  });
+
+  it("falls back to legacy rendering when dsVariant is invalid at runtime", () => {
+    const legacyText = renderButtonText(
+      ui.button({
+        id: "legacy-safe",
+        label: "Legacy",
+      }),
+    );
+
+    const invalidDsText = renderButtonText(
+      ui.button({
+        id: "invalid-ds",
+        label: "Legacy",
+        // Simulate JS/untyped input; renderer must guard and avoid crashing.
+        dsVariant: "not-a-variant" as unknown as "solid",
+      }),
+    );
+
+    assert.equal(invalidDsText, legacyText);
+  });
+
+  it("applies DS outline border styling when button is stretched to multiple rows", () => {
+    const renderer = createTestRenderer({
+      viewport: { cols: 40, rows: 6 },
+      theme,
+    });
+    const result = renderer.render(
+      ui.row({ height: 3, align: "stretch" }, [
+        ui.button({
+          id: "outline-stretch",
+          label: "Outline",
+          dsVariant: "outline",
+          dsTone: "primary",
+        }),
+      ]),
+    );
+    const text = result.toText();
+    assert.ok(text.includes("┌"), "outline button should draw a top border");
+    assert.ok(text.includes("└"), "outline button should draw a bottom border");
   });
 
   it("renders a column of DS buttons", () => {

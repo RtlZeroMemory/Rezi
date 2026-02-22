@@ -47,10 +47,7 @@ export type CapabilityContext = Readonly<{
  * @param profile - Optional terminal profile for image protocol detection
  * @returns The resolved capability tier
  */
-export function getCapabilityTier(
-  caps: TerminalCaps,
-  profile?: TerminalProfile,
-): CapabilityTier {
+export function getCapabilityTier(caps: TerminalCaps, profile?: TerminalProfile): CapabilityTier {
   const isTruecolor = caps.colorMode === COLOR_MODE_RGB;
 
   if (!isTruecolor) return "A";
@@ -118,9 +115,9 @@ export function rgbTo256(r: number, g: number, b: number): number {
   const gray = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
 
   // 6x6x6 color cube (indices 16-231)
-  const ri = Math.round(r / 255 * 5);
-  const gi = Math.round(g / 255 * 5);
-  const bi = Math.round(b / 255 * 5);
+  const ri = Math.round((r / 255) * 5);
+  const gi = Math.round((g / 255) * 5);
+  const bi = Math.round((b / 255) * 5);
   const cubeIndex = 16 + 36 * ri + 6 * gi + bi;
 
   // Reconstruct the cube color for distance comparison

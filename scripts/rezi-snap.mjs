@@ -12,8 +12,8 @@
  *   node scripts/rezi-snap.mjs --list                  # List available scenes
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
@@ -74,13 +74,11 @@ async function main() {
     nord: nordTheme,
   };
 
-  const themeNames = themeFilter.length > 0
-    ? themeFilter.filter((t) => t in themes)
-    : Object.keys(themes);
+  const themeNames =
+    themeFilter.length > 0 ? themeFilter.filter((t) => t in themes) : Object.keys(themes);
 
-  const scenesToProcess = sceneFilter.length > 0
-    ? scenes.filter((s) => sceneFilter.includes(s.name))
-    : scenes;
+  const scenesToProcess =
+    sceneFilter.length > 0 ? scenes.filter((s) => sceneFilter.includes(s.name)) : scenes;
 
   if (scenesToProcess.length === 0) {
     console.error("No scenes matched the filter.");

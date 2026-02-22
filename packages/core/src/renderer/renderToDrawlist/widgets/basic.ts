@@ -16,6 +16,9 @@ import type { FocusState } from "../../../runtime/focus.js";
 import type { TerminalProfile } from "../../../terminalProfile.js";
 import type { Theme } from "../../../theme/theme.js";
 import { resolveColor } from "../../../theme/theme.js";
+import type { ColorTokens } from "../../../theme/tokens.js";
+import type { WidgetSize, WidgetTone, WidgetVariant } from "../../../ui/designTokens.js";
+import { buttonRecipe, inputRecipe } from "../../../ui/recipes.js";
 import { createCanvasDrawingSurface, resolveCanvasBlitter } from "../../../widgets/canvas.js";
 import {
   colorForHeatmapValue,
@@ -42,6 +45,7 @@ import {
   formatSliderValue,
   normalizeSliderState,
 } from "../../../widgets/slider.js";
+import type { Rgb } from "../../../widgets/style.js";
 import type { GraphicsBlitter, SelectOption } from "../../../widgets/types.js";
 import { asTextStyle, getButtonLabelStyle } from "../../styles.js";
 import { renderBoxBorder } from "../boxBorder.js";
@@ -54,9 +58,6 @@ import {
   readFocusConfig,
   resolveFocusedContentStyle,
 } from "./focusConfig.js";
-import { buttonRecipe, inputRecipe } from "../../../ui/recipes.js";
-import type { ColorTokens } from "../../../theme/tokens.js";
-import type { Rgb } from "../../../widgets/style.js";
 
 /**
  * Extract ColorTokens from a legacy Theme for design system recipe use.
@@ -89,7 +90,7 @@ function extractColorTokens(theme: Theme): ColorTokens | null {
     },
     success: c.success,
     warning: c.warning,
-    error: c["danger"] ?? c["error"] ?? { r: 220, g: 53, b: 69 },
+    error: c.danger ?? (c as { error?: Rgb }).error ?? { r: 220, g: 53, b: 69 },
     info: c.info,
     focus: {
       ring: (c["focus.ring"] as Rgb) ?? c.primary,
@@ -126,6 +127,33 @@ function getColorTokens(theme: Theme): ColorTokens | null {
   const tokens = extractColorTokens(theme);
   colorTokensCache.set(theme.colors, tokens);
   return tokens;
+}
+
+function readDsButtonVariant(value: unknown): WidgetVariant | undefined {
+  if (value === "solid" || value === "soft" || value === "outline" || value === "ghost") {
+    return value;
+  }
+  return undefined;
+}
+
+function readDsButtonTone(value: unknown): WidgetTone | undefined {
+  if (
+    value === "default" ||
+    value === "primary" ||
+    value === "danger" ||
+    value === "success" ||
+    value === "warning"
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function readDsButtonSize(value: unknown): WidgetSize | undefined {
+  if (value === "sm" || value === "md" || value === "lg") {
+    return value;
+  }
+  return undefined;
 }
 
 type ResolvedCursor = Readonly<{
@@ -985,25 +1013,33 @@ export function renderBasicWidget(
       const effectiveFocused = focused && focusIndicatorEnabled(focusConfig);
 
       // Design system recipe path
-      const dsVariant = props.dsVariant as "solid" | "soft" | "outline" | "ghost" | undefined;
+      const dsVariant = readDsButtonVariant(props.dsVariant);
       const colorTokens = dsVariant !== undefined ? getColorTokens(theme) : null;
 
       if (colorTokens !== null && dsVariant !== undefined) {
         // Use design system recipe
-        const dsTone = (props.dsTone as "default" | "primary" | "danger" | "success" | "warning") ?? "default";
-        const dsSize = (props.dsSize as "sm" | "md" | "lg") ?? "md";
-        const state = disabled ? "disabled" as const
-          : pressed ? "pressed" as const
-          : effectiveFocused ? "focus" as const
-          : "default" as const;
+        const dsTone = readDsButtonTone(props.dsTone) ?? "default";
+        const dsSize = readDsButtonSize(props.dsSize) ?? "md";
+        const state = disabled
+          ? ("disabled" as const)
+          : pressed
+            ? ("pressed" as const)
+            : effectiveFocused
+              ? ("focus" as const)
+              : ("default" as const);
         const recipeResult = buttonRecipe(colorTokens, {
           variant: dsVariant,
           tone: dsTone,
           size: dsSize,
           state,
         });
+        const hasBorder = recipeResult.border !== "none" && rect.w >= 2 && rect.h >= 2;
+        const insetContent = hasBorder && rect.w >= 3 && rect.h >= 3;
+        const contentX = insetContent ? rect.x + 1 : rect.x;
+        const contentW = insetContent ? Math.max(0, rect.w - 2) : rect.w;
+        const contentY = insetContent ? rect.y + Math.floor((rect.h - 1) / 2) : rect.y;
         const px = recipeResult.px;
-        const availableLabelW = Math.max(0, rect.w - px * 2);
+        const availableLabelW = Math.max(0, contentW - px * 2);
         const displayLabel =
           availableLabelW <= 0
             ? ""
@@ -1017,6 +1053,14 @@ export function renderBasicWidget(
           builder.fillRect(rect.x, rect.y, rect.w, rect.h, bgStyle);
         }
 
+        if (hasBorder) {
+          let borderStyle = mergeTextStyle(parentStyle, recipeResult.borderStyle);
+          if (recipeResult.bg.bg) {
+            borderStyle = mergeTextStyle(borderStyle, { bg: recipeResult.bg.bg });
+          }
+          renderBoxBorder(builder, rect, recipeResult.border, undefined, "left", borderStyle);
+        }
+
         // Draw label
         if (displayLabel.length > 0) {
           // Keep text cells on the same background as the filled button surface.
@@ -1024,9 +1068,11 @@ export function renderBasicWidget(
           // only side padding visibly filled.
           const labelStyle = mergeTextStyle(
             parentStyle,
-            recipeResult.bg.bg ? { ...recipeResult.label, bg: recipeResult.bg.bg } : recipeResult.label,
+            recipeResult.bg.bg
+              ? { ...recipeResult.label, bg: recipeResult.bg.bg }
+              : recipeResult.label,
           );
-          builder.drawText(rect.x + px, rect.y, displayLabel, labelStyle);
+          builder.drawText(contentX + px, contentY, displayLabel, labelStyle);
         }
       } else {
         // Legacy path: original ad-hoc styling
@@ -1104,11 +1150,18 @@ export function renderBasicWidget(
         builder.pushClip(rect.x, rect.y, rect.w, rect.h);
         for (let row = 0; row < rect.h; row++) {
           const rawLine = showPlaceholder
-            ? row === 0 ? placeholder : ""
+            ? row === 0
+              ? placeholder
+              : ""
             : (wrapped.visualLines[startVisual + row] ?? "");
           const line = wordWrap ? rawLine : truncateToWidth(rawLine, contentW);
           if (line.length === 0) continue;
-          builder.drawText(rect.x + 1, rect.y + row, line, showPlaceholder ? placeholderStyle : style);
+          builder.drawText(
+            rect.x + 1,
+            rect.y + row,
+            line,
+            showPlaceholder ? placeholderStyle : style,
+          );
         }
         builder.popClip();
 

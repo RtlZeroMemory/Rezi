@@ -1,18 +1,18 @@
-import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
+import { describe, it } from "node:test";
 import {
-  getCapabilityTier,
-  resolveCapabilityContext,
-  rgbTo256,
-  DEFAULT_CAPABILITY_CONTEXT,
-} from "../capabilities.js";
-import {
-  DEFAULT_TERMINAL_CAPS,
   COLOR_MODE_16,
   COLOR_MODE_256,
   COLOR_MODE_RGB,
+  DEFAULT_TERMINAL_CAPS,
 } from "../../terminalCaps.js";
 import { DEFAULT_TERMINAL_PROFILE } from "../../terminalProfile.js";
+import {
+  DEFAULT_CAPABILITY_CONTEXT,
+  getCapabilityTier,
+  resolveCapabilityContext,
+  rgbTo256,
+} from "../capabilities.js";
 
 describe("getCapabilityTier", () => {
   it("returns A for 16-color mode", () => {
@@ -81,7 +81,11 @@ describe("resolveCapabilityContext", () => {
   });
 
   it("detects underline styles", () => {
-    const caps = { ...DEFAULT_TERMINAL_CAPS, colorMode: COLOR_MODE_RGB, supportsUnderlineStyles: true };
+    const caps = {
+      ...DEFAULT_TERMINAL_CAPS,
+      colorMode: COLOR_MODE_RGB,
+      supportsUnderlineStyles: true,
+    };
     const ctx = resolveCapabilityContext(caps);
     assert.equal(ctx.hasUnderlineStyles, true);
   });

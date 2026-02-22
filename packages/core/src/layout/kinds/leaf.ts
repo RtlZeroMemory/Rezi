@@ -1,5 +1,6 @@
 import { resolveIconGlyph } from "../../icons/index.js";
 import type { VNode } from "../../index.js";
+import { type WidgetSize, resolveSize } from "../../ui/designTokens.js";
 import {
   DEFAULT_SLIDER_TRACK_WIDTH,
   formatSliderValue,
@@ -21,7 +22,6 @@ import {
   validateSpacerProps,
   validateTextProps,
 } from "../validateProps.js";
-import { resolveSize, type WidgetSize } from "../../ui/designTokens.js";
 
 function isWidgetSize(value: unknown): value is WidgetSize {
   return value === "sm" || value === "md" || value === "lg";

@@ -295,7 +295,11 @@ describe("basic widgets render to drawlist", () => {
     for (const tone of tones) {
       assert.equal(strings.includes(tone), true, `expected full label for ${tone}`);
     }
-    assert.equal(strings.some((s) => s.includes("…")), false, "unexpected ellipsis in button labels");
+    assert.equal(
+      strings.some((s) => s.includes("…")),
+      false,
+      "unexpected ellipsis in button labels",
+    );
   });
 
   test("design-system solid button label keeps filled background under text", () => {

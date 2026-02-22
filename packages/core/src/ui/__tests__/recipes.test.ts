@@ -1,5 +1,6 @@
-import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { darkTheme, lightTheme } from "../../theme/presets.js";
 import {
   badgeRecipe,
   buttonRecipe,
@@ -16,7 +17,6 @@ import {
   tableRecipe,
   textRecipe,
 } from "../recipes.js";
-import { darkTheme, lightTheme } from "../../theme/presets.js";
 
 const darkColors = darkTheme.colors;
 const lightColors = lightTheme.colors;
@@ -215,7 +215,10 @@ describe("modalRecipe", () => {
 
 describe("badgeRecipe", () => {
   it("maps tones to semantic foreground colors", () => {
-    assert.deepEqual(badgeRecipe(darkColors, { tone: "default" }).text.fg, darkColors.accent.primary);
+    assert.deepEqual(
+      badgeRecipe(darkColors, { tone: "default" }).text.fg,
+      darkColors.accent.primary,
+    );
     assert.deepEqual(badgeRecipe(darkColors, { tone: "danger" }).text.fg, darkColors.error);
     assert.deepEqual(badgeRecipe(darkColors, { tone: "info" }).text.fg, darkColors.info);
   });

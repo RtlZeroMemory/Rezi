@@ -1,15 +1,15 @@
-import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import {
-  serializeSnapshot,
-  parseSnapshot,
-  diffSnapshots,
-  captureSnapshot,
-  type Snapshot,
-} from "../snapshot.js";
-import { ui } from "../../widgets/ui.js";
+import { describe, it } from "node:test";
 import { coerceToLegacyTheme } from "../../theme/interop.js";
 import { darkTheme } from "../../theme/presets.js";
+import { ui } from "../../widgets/ui.js";
+import {
+  type Snapshot,
+  captureSnapshot,
+  diffSnapshots,
+  parseSnapshot,
+  serializeSnapshot,
+} from "../snapshot.js";
 
 describe("serializeSnapshot", () => {
   it("produces stable header format", () => {
