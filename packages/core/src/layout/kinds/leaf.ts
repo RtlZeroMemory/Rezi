@@ -1,5 +1,6 @@
 import { resolveIconGlyph } from "../../icons/index.js";
 import type { VNode } from "../../index.js";
+import { type WidgetSize, resolveSize } from "../../ui/designTokens.js";
 import {
   DEFAULT_SLIDER_TRACK_WIDTH,
   formatSliderValue,
@@ -21,6 +22,24 @@ import {
   validateSpacerProps,
   validateTextProps,
 } from "../validateProps.js";
+
+function isWidgetSize(value: unknown): value is WidgetSize {
+  return value === "sm" || value === "md" || value === "lg";
+}
+
+function isButtonVariant(value: unknown): value is "solid" | "soft" | "outline" | "ghost" {
+  return value === "solid" || value === "soft" || value === "outline" || value === "ghost";
+}
+
+function resolveButtonPx(vnode: VNode): number {
+  const props = vnode.props as { px?: unknown; dsVariant?: unknown; dsSize?: unknown };
+  if (isButtonVariant(props.dsVariant)) {
+    const size: WidgetSize = isWidgetSize(props.dsSize) ? props.dsSize : "md";
+    return resolveSize(size).px;
+  }
+  const rawPx = props.px;
+  return typeof rawPx === "number" && Number.isFinite(rawPx) && rawPx >= 0 ? Math.trunc(rawPx) : 1;
+}
 
 export function measureLeaf(
   vnode: VNode,
@@ -44,9 +63,7 @@ export function measureLeaf(
     case "button": {
       const propsRes = validateButtonProps(vnode.props);
       if (!propsRes.ok) return propsRes;
-      const rawPx = (vnode.props as { px?: unknown }).px;
-      const px =
-        typeof rawPx === "number" && Number.isFinite(rawPx) && rawPx >= 0 ? Math.trunc(rawPx) : 1;
+      const px = resolveButtonPx(vnode);
       const labelW = measureTextCells(propsRes.value.label);
       const w = Math.min(maxW, labelW + px * 2);
       const h = Math.min(maxH, 1);
@@ -58,7 +75,10 @@ export function measureLeaf(
       if (propsRes.value.multiline) {
         return ok({ w: maxW, h: Math.min(maxH, propsRes.value.rows) });
       }
-      const textW = measureTextCells(propsRes.value.value);
+      const placeholderRaw = (vnode.props as { placeholder?: unknown }).placeholder;
+      const placeholder = typeof placeholderRaw === "string" ? placeholderRaw : "";
+      const content = propsRes.value.value.length > 0 ? propsRes.value.value : placeholder;
+      const textW = measureTextCells(content);
       const w = Math.min(maxW, textW + 2);
       const h = Math.min(maxH, 1);
       return ok({ w, h });
@@ -225,10 +245,17 @@ export function measureLeaf(
     }
     case "callout": {
       // Callout: icon + title + message in a bordered box
-      const props = vnode.props as { title?: string; message: string };
+      const props = vnode.props as { title?: string; message: string; icon?: string };
       const titleW = props.title ? measureTextCells(props.title) : 0;
       const msgW = measureTextCells(props.message);
-      const w = Math.max(titleW, msgW) + 4; // Border + icon + padding
+      const iconWidth =
+        typeof props.icon === "string" && props.icon.length > 0
+          ? resolveIconGlyph(props.icon, false).width
+          : 1;
+      const iconPrefixW = iconWidth > 0 ? iconWidth + 1 : 0; // "ℹ " / "✓ "
+      const titleLineW = titleW > 0 ? titleW + iconPrefixW : 0;
+      const messageLineW = titleW > 0 ? msgW : msgW + iconPrefixW;
+      const w = Math.max(titleLineW, messageLineW) + 4; // Border + left accent + inset/padding
       const h = props.title ? 4 : 3; // Border top/bottom + content
       return ok({ w: Math.min(maxW, w), h: Math.min(maxH, h) });
     }

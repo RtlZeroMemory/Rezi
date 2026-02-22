@@ -51,10 +51,24 @@ type ScrollViewport = Readonly<{
   contentHeight: number;
 }>;
 
+type ScrollbarVariant = "minimal" | "classic" | "modern" | "dots" | "thin";
+
 const SCROLLBAR_RENDER_CONFIG = {
   ...SCROLLBAR_CONFIGS.minimal,
   minThumbSize: 1,
 };
+
+function readScrollbarVariant(raw: unknown): ScrollbarVariant {
+  switch (raw) {
+    case "classic":
+    case "modern":
+    case "dots":
+    case "thin":
+      return raw;
+    default:
+      return "minimal";
+  }
+}
 
 function clipEquals(a: ClipRect | undefined, b: ClipRect): boolean {
   return a !== undefined && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
@@ -420,8 +434,16 @@ function drawScrollbars(
   viewport: ScrollViewport,
   style: ResolvedTextStyle,
   theme: Theme,
+  scrollbarVariant: ScrollbarVariant,
+  scrollbarOwnStyle: ReturnType<typeof asTextStyle>,
 ): void {
-  const scrollbarStyle = mergeTextStyle(style, { fg: theme.colors.border });
+  const scrollbarStyle = scrollbarOwnStyle
+    ? mergeTextStyle(mergeTextStyle(style, { fg: theme.colors.border }), scrollbarOwnStyle)
+    : mergeTextStyle(style, { fg: theme.colors.border });
+  const variantConfig =
+    scrollbarVariant === "minimal"
+      ? SCROLLBAR_RENDER_CONFIG
+      : (SCROLLBAR_CONFIGS[scrollbarVariant] ?? SCROLLBAR_RENDER_CONFIG);
 
   if (viewport.showVertical && viewport.viewportRect.h > 0) {
     const maxScrollY = Math.max(0, viewport.contentHeight - viewport.viewportRect.h);
@@ -433,7 +455,7 @@ function drawScrollbars(
     const glyphs = renderVerticalScrollbar(
       viewport.viewportRect.h,
       { position, viewportRatio },
-      SCROLLBAR_RENDER_CONFIG,
+      variantConfig,
     );
     const x = viewport.viewportRect.x + viewport.viewportRect.w;
     for (let dy = 0; dy < glyphs.length; dy++) {
@@ -451,7 +473,7 @@ function drawScrollbars(
     const glyphs = renderHorizontalScrollbar(
       viewport.viewportRect.w,
       { position, viewportRatio },
-      SCROLLBAR_RENDER_CONFIG,
+      variantConfig,
     );
     const y = viewport.viewportRect.y + viewport.viewportRect.h;
     for (let dx = 0; dx < glyphs.length; dx++) {
@@ -464,7 +486,7 @@ function drawScrollbars(
   if (viewport.showVertical && viewport.showHorizontal) {
     const x = viewport.viewportRect.x + viewport.viewportRect.w;
     const y = viewport.viewportRect.y + viewport.viewportRect.h;
-    const corner = SCROLLBAR_RENDER_CONFIG.glyphs?.track ?? " ";
+    const corner = variantConfig.glyphs?.track ?? " ";
     builder.drawText(x, y, corner, scrollbarStyle);
   }
 }
@@ -507,6 +529,8 @@ export function renderContainerWidget(
         overflow?: unknown;
         style?: unknown;
         inheritStyle?: unknown;
+        scrollbarVariant?: unknown;
+        scrollbarStyle?: unknown;
       };
       const ownStyle = asTextStyle(props.style, theme);
       const inheritedStyle = asTextStyle(props.inheritStyle, theme);
@@ -528,7 +552,16 @@ export function renderContainerWidget(
       if (overflowMode === "scroll") {
         const meta = readOverflowMetadata(layoutNode, contentRect);
         const viewportWithScrollbars = resolveScrollViewport(contentRect, meta);
-        drawScrollbars(builder, viewportWithScrollbars, style, theme);
+        const scrollbarVariant = readScrollbarVariant(props.scrollbarVariant);
+        const scrollbarOwnStyle = asTextStyle(props.scrollbarStyle, theme);
+        drawScrollbars(
+          builder,
+          viewportWithScrollbars,
+          style,
+          theme,
+          scrollbarVariant,
+          scrollbarOwnStyle,
+        );
         childClip = viewportWithScrollbars.viewportRect;
       }
 
@@ -573,7 +606,10 @@ export function renderContainerWidget(
         shadow?: unknown;
         overflow?: unknown;
         style?: unknown;
+        borderStyle?: unknown;
         inheritStyle?: unknown;
+        scrollbarVariant?: unknown;
+        scrollbarStyle?: unknown;
       };
       const spacing = resolveSpacingFromProps(props);
       const border = readBoxBorder(props.border);
@@ -586,22 +622,35 @@ export function renderContainerWidget(
       const title = typeof props.title === "string" ? props.title : undefined;
       const titleAlign = readTitleAlign(props.titleAlign);
       const ownStyle = asTextStyle(props.style, theme);
+      const borderOwnStyle = asTextStyle(props.borderStyle, theme);
       const inheritedStyle = asTextStyle(props.inheritStyle, theme);
       const baseStyle = inheritedStyle ? mergeTextStyle(parentStyle, inheritedStyle) : parentStyle;
       const mergedStyle = mergeTextStyle(baseStyle, ownStyle);
+      // When borderStyle is set, decouple border appearance from child content:
+      // - contentStyle is passed to children (style without borderStyle)
+      // - effectiveBorderStyle is used for border/shadow rendering
+      const hasBorderStyle = borderOwnStyle !== undefined;
+      const contentStyle = mergedStyle;
+      const effectiveBorderStyle = hasBorderStyle
+        ? mergeTextStyle(baseStyle, borderOwnStyle)
+        : mergedStyle;
       const style =
         boxOpacityOverride === undefined
-          ? mergedStyle
-          : applyOpacityToStyle(mergedStyle, boxOpacityOverride, parentStyle.bg);
+          ? contentStyle
+          : applyOpacityToStyle(contentStyle, boxOpacityOverride, parentStyle.bg);
+      const borderDrawStyle =
+        boxOpacityOverride === undefined
+          ? effectiveBorderStyle
+          : applyOpacityToStyle(effectiveBorderStyle, boxOpacityOverride, parentStyle.bg);
       const shadowConfig = resolveBoxShadowConfig(props.shadow, theme);
       if (shadowConfig) {
-        renderShadow(builder, rect, shadowConfig, style);
+        renderShadow(builder, rect, shadowConfig, borderDrawStyle);
       }
       if (isVisibleRect(rect) && shouldFillForStyleOverride(ownStyle)) {
         builder.fillRect(rect.x, rect.y, rect.w, rect.h, style);
       }
 
-      renderBoxBorder(builder, rect, border, title, titleAlign, style, {
+      renderBoxBorder(builder, rect, border, title, titleAlign, borderDrawStyle, {
         top: borderTop,
         right: borderRight,
         bottom: borderBottom,
@@ -624,7 +673,16 @@ export function renderContainerWidget(
       if (overflowMode === "scroll") {
         const meta = readOverflowMetadata(layoutNode, contentRect);
         const viewportWithScrollbars = resolveScrollViewport(contentRect, meta);
-        drawScrollbars(builder, viewportWithScrollbars, style, theme);
+        const scrollbarVariant = readScrollbarVariant(props.scrollbarVariant);
+        const scrollbarOwnStyle = asTextStyle(props.scrollbarStyle, theme);
+        drawScrollbars(
+          builder,
+          viewportWithScrollbars,
+          style,
+          theme,
+          scrollbarVariant,
+          scrollbarOwnStyle,
+        );
         childClip = viewportWithScrollbars.viewportRect;
       }
 

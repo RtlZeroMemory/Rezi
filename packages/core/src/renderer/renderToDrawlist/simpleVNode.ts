@@ -903,6 +903,7 @@ export function renderVNodeSimple(
         title?: unknown;
         shadow?: unknown;
         style?: unknown;
+        borderStyle?: unknown;
       };
       const spacing = resolveSpacingFromProps(props);
       const margin = resolveMarginFromProps(props);
@@ -915,17 +916,27 @@ export function renderVNodeSimple(
       const borderLeft = typeof props.borderLeft === "boolean" ? props.borderLeft : defaultSide;
       const title = typeof props.title === "string" ? props.title : undefined;
       const ownStyle = asTextStyle(props.style, theme);
-      const style = mergeTextStyle(inheritedStyle, ownStyle);
+      const borderOwnStyle = asTextStyle(props.borderStyle, theme);
+      const contentStyle = mergeTextStyle(inheritedStyle, ownStyle);
+      const borderRenderStyle =
+        borderOwnStyle === undefined
+          ? contentStyle
+          : mergeTextStyle(inheritedStyle, borderOwnStyle);
       const boxX = x + margin.left;
       const boxY = y + margin.top;
       const boxW = Math.max(0, w - margin.left - margin.right);
       const boxH = Math.max(0, h - margin.top - margin.bottom);
       const shadowConfig = resolveBoxShadowConfig(props.shadow, theme);
       if (shadowConfig) {
-        renderShadow(builder, { x: boxX, y: boxY, w: boxW, h: boxH }, shadowConfig, style);
+        renderShadow(
+          builder,
+          { x: boxX, y: boxY, w: boxW, h: boxH },
+          shadowConfig,
+          borderRenderStyle,
+        );
       }
       if (shouldFillForStyleOverride(ownStyle)) {
-        builder.fillRect(boxX, boxY, boxW, boxH, style);
+        builder.fillRect(boxX, boxY, boxW, boxH, contentStyle);
       }
 
       renderBoxBorder(
@@ -934,7 +945,7 @@ export function renderVNodeSimple(
         border,
         title,
         "left",
-        style,
+        borderRenderStyle,
         { top: borderTop, right: borderRight, bottom: borderBottom, left: borderLeft },
       );
 
@@ -953,7 +964,18 @@ export function renderVNodeSimple(
       for (const child of vnode.children) {
         if (cursorY >= cy + ch) break;
         const childH = Math.min(ch - (cursorY - cy), measureVNodeSimpleHeight(child, cw));
-        renderVNodeSimple(builder, child, cx, cursorY, cw, childH, focused, tick, theme, style);
+        renderVNodeSimple(
+          builder,
+          child,
+          cx,
+          cursorY,
+          cw,
+          childH,
+          focused,
+          tick,
+          theme,
+          contentStyle,
+        );
         cursorY += childH;
       }
       builder.popClip();

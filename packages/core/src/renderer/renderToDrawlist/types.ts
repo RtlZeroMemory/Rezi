@@ -65,6 +65,8 @@ export type RenderToDrawlistParams = Readonly<{
   layout: LayoutTree;
   viewport: Readonly<{ cols: number; rows: number }>;
   focusState: FocusState;
+  /** Optional currently pressed interactive widget id. */
+  pressedId?: string | null | undefined;
   builder: DrawlistBuilderV1;
   /** Optional animation tick/frame index (used by spinners, etc.). */
   tick?: number | undefined;

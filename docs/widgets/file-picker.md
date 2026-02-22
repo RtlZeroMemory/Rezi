@@ -42,6 +42,7 @@ ui.filePicker({
 | `onToggle` | `(path, expanded) => void` | **required** | Expand/collapse callback |
 | `onOpen` | `(path) => void` | **required** | Open callback |
 | `onSelectionChange` | `(paths) => void` | - | Multi-select change callback |
+| `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused row highlight |
 
 ## Notes
 

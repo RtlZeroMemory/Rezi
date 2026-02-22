@@ -1348,6 +1348,145 @@ describe("WidgetRenderer integration battery", () => {
     assert.deepEqual(selectedKeys, ["root", "lazy", "lazyChild"]);
   });
 
+  test("filePicker mouse routing selects rows and double-click opens/toggles", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const selected: string[] = [];
+    const opened: string[] = [];
+    const toggled: string[] = [];
+
+    const vnode = ui.filePicker({
+      id: "fp",
+      rootPath: "/",
+      data: [
+        { name: "a.ts", path: "/a.ts", type: "file" as const },
+        { name: "src", path: "/src", type: "directory" as const },
+      ],
+      expandedPaths: [],
+      onSelect: (path) => selected.push(path),
+      onToggle: (path, expanded) => toggled.push(`${path}:${expanded ? "1" : "0"}`),
+      onOpen: (path) => opened.push(path),
+    });
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 30, rows: 6 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    // File row: double-click opens file.
+    renderer.routeEngineEvent(mouseEvent(0, 0, 3, { timeMs: 1, buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(0, 0, 4, { timeMs: 2 }));
+    renderer.routeEngineEvent(mouseEvent(0, 0, 3, { timeMs: 100, buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(0, 0, 4, { timeMs: 101 }));
+
+    // Directory row: double-click toggles expansion.
+    renderer.routeEngineEvent(mouseEvent(0, 1, 3, { timeMs: 200, buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(0, 1, 4, { timeMs: 201 }));
+    renderer.routeEngineEvent(mouseEvent(0, 1, 3, { timeMs: 260, buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(0, 1, 4, { timeMs: 261 }));
+
+    assert.deepEqual(selected, ["/a.ts", "/a.ts", "/src", "/src"]);
+    assert.deepEqual(opened, ["/a.ts"]);
+    assert.deepEqual(toggled, ["/src:1"]);
+  });
+
+  test("fileTreeExplorer mouse routing guards thrown callbacks", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const vnode = ui.fileTreeExplorer({
+      id: "fte",
+      data: [{ name: "a.ts", path: "/a.ts", type: "file" as const }],
+      expanded: [],
+      onToggle: () => {
+        throw new Error("toggle");
+      },
+      onSelect: () => {
+        throw new Error("select");
+      },
+      onActivate: () => {
+        throw new Error("activate");
+      },
+    });
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 30, rows: 6 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    assert.doesNotThrow(() => renderer.routeEngineEvent(mouseEvent(0, 0, 3, { buttons: 1 })));
+    assert.doesNotThrow(() => renderer.routeEngineEvent(mouseEvent(0, 0, 4, { timeMs: 1 })));
+    assert.doesNotThrow(() =>
+      renderer.routeEngineEvent(mouseEvent(0, 0, 3, { timeMs: 50, buttons: 1 })),
+    );
+    assert.doesNotThrow(() => renderer.routeEngineEvent(mouseEvent(0, 0, 4, { timeMs: 51 })));
+  });
+
+  test("tree mouse routing selects rows and double-click toggles/activates", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    type Node = Readonly<{ key: string; children?: readonly Node[] }>;
+    const data: readonly Node[] = Object.freeze([
+      Object.freeze({
+        key: "root",
+        children: Object.freeze([Object.freeze({ key: "child" })]),
+      }),
+    ]);
+
+    const selected: string[] = [];
+    const activated: string[] = [];
+    const toggled: string[] = [];
+
+    const vnode = ui.tree<Node>({
+      id: "tree",
+      data,
+      getKey: (n) => n.key,
+      getChildren: (n) => n.children,
+      expanded: [],
+      renderNode: (n) => ui.text(n.key),
+      onSelect: (n) => selected.push(n.key),
+      onActivate: (n) => activated.push(n.key),
+      onToggle: (n, next) => toggled.push(`${n.key}:${next ? "1" : "0"}`),
+    });
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 30, rows: 6 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(mouseEvent(0, 0, 3, { timeMs: 1, buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(0, 0, 4, { timeMs: 2 }));
+    renderer.routeEngineEvent(mouseEvent(0, 0, 3, { timeMs: 100, buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(0, 0, 4, { timeMs: 101 }));
+
+    assert.deepEqual(selected, ["root", "root"]);
+    assert.deepEqual(activated, ["root"]);
+    assert.deepEqual(toggled, ["root:1"]);
+  });
+
   test("toast action is focusable and activates on Enter", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({

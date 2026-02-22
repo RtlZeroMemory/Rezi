@@ -62,7 +62,9 @@ These areas tolerate changes well and have good test coverage:
 - `docs/` — documentation changes
 - Test files (`**/__tests__/*.test.ts`)
 - `packages/core/src/theme/` — theme definitions and presets
+- `packages/core/src/ui/` — design system tokens, recipes, capabilities
 - `packages/core/src/icons/` — icon registries
+- `examples/gallery/` — widget gallery app
 
 ### Danger zones (require extra care)
 

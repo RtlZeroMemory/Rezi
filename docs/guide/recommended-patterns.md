@@ -628,6 +628,50 @@ dispatch({ type: "setFilter", filter: "active" });
 dispatch({ type: "moveSelection", direction: "up" });
 ```
 
+## Styling Pane Chrome
+
+When building multi-pane layouts (IDEs, dashboards, panels), a common pattern is wrapping content in bordered boxes with active/inactive visual states. Use `borderStyle` to decouple border appearance from child content:
+
+```typescript
+function withPaneChrome(
+  id: string,
+  title: string,
+  isActive: boolean,
+  child: VNode,
+) {
+  return ui.box(
+    {
+      id: `${id}-box`,
+      title: ` ${title} `,
+      titleAlign: "left",
+      border: isActive ? "heavy" : "rounded",
+      // borderStyle applies ONLY to the border and title
+      borderStyle: isActive
+        ? { fg: accentColor, bold: true }
+        : { fg: mutedColor },
+      p: 0,
+    },
+    [child],
+  );
+}
+```
+
+**Why `borderStyle` instead of `style`?** The `style` prop on `ui.box()` propagates to all descendants as `parentStyle`. If you set `fg` or `bold` on `style`, it will override syntax highlighting in code editors, status colors in file trees, and any other child widget that relies on its own styling. `borderStyle` keeps border chrome visuals isolated.
+
+For widgets embedded in pane chrome that already indicates focus visually, suppress the widget's own focus highlight with `focusConfig`:
+
+```typescript
+// The pane border already shows active state -- no need for editor focus overlay
+ui.codeEditor({
+  id: "editor",
+  language: "typescript",
+  value: code,
+  focusConfig: { indicator: "none" },
+});
+```
+
+See [Box](../widgets/box.md#style-propagation) and [Focus Styles](../styling/focus-styles.md#per-widget-focus-control-with-focusconfig) for details.
+
 ## Summary
 
 | Pattern | Why |
@@ -641,3 +685,5 @@ dispatch({ type: "moveSelection", direction: "up" });
 | Separate reducer/screen/keybinding tests | Fast, focused, no UI harness needed |
 | Theme definitions | Consistent styling, NO_COLOR support |
 | `useMemo`, keys, `virtualList` | Efficient rendering at scale |
+| `borderStyle` for pane chrome | Prevents style leaking into child widgets |
+| `focusConfig` for embedded widgets | Avoids redundant focus visuals in custom chrome |

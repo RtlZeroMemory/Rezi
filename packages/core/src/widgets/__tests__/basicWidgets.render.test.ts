@@ -256,6 +256,73 @@ describe("basic widgets render to drawlist", () => {
     assert.equal(fallback.includes("No focus"), true);
   });
 
+  test("input renders placeholder text when value is empty", () => {
+    const strings = parseInternedStrings(
+      renderBytes(
+        ui.input({
+          id: "search",
+          value: "",
+          placeholder: "Type here...",
+        }),
+        { cols: 40, rows: 4 },
+      ),
+    );
+    assert.equal(
+      strings.some((s) => s.includes("Type here...")),
+      true,
+    );
+  });
+
+  test("design-system button rows keep full labels at md size", () => {
+    const tones = ["default", "primary", "danger", "success", "warning"] as const;
+    const strings = parseInternedStrings(
+      renderBytes(
+        ui.row(
+          { gap: 2 },
+          tones.map((tone) =>
+            ui.button({
+              id: `btn-${tone}`,
+              label: tone,
+              dsVariant: "solid",
+              dsTone: tone,
+              dsSize: "md",
+            }),
+          ),
+        ),
+        { cols: 80, rows: 4 },
+      ),
+    );
+    for (const tone of tones) {
+      assert.equal(strings.includes(tone), true, `expected full label for ${tone}`);
+    }
+    assert.equal(
+      strings.some((s) => s.includes("…")),
+      false,
+      "unexpected ellipsis in button labels",
+    );
+  });
+
+  test("design-system solid button label keeps filled background under text", () => {
+    const theme = createTheme(defaultTheme);
+    const bytes = renderBytes(
+      ui.button({
+        id: "scene-tab",
+        label: "Buttons",
+        dsVariant: "solid",
+        dsSize: "sm",
+      }),
+      { cols: 24, rows: 4 },
+      { theme },
+    );
+    const drawText = parseDrawTextCommands(bytes).find((cmd) => cmd.text === "Buttons");
+    assert.ok(drawText, "expected drawText command for button label");
+    assert.notEqual(
+      drawText.bg,
+      packRgb(theme.colors.bg),
+      "label background should match filled button surface, not parent background",
+    );
+  });
+
   test("progress and gauge render bars and percentages", () => {
     const vnode = ui.column({ gap: 1 }, [
       ui.progress(0.6, { label: "Build", showPercent: true, width: 10 }),
@@ -364,6 +431,23 @@ describe("basic widgets render to drawlist", () => {
     );
     assert.equal(
       strings.some((s) => s.includes("Check configuration")),
+      true,
+    );
+  });
+
+  test("callout without title keeps full first-line message with icon prefix", () => {
+    const message = "12345678901234567890";
+    const strings = parseInternedStrings(
+      renderBytes(
+        ui.callout(message, {
+          variant: "info",
+          icon: "*",
+        }),
+        { cols: 80, rows: 8 },
+      ),
+    );
+    assert.equal(
+      strings.some((s) => s.includes(`* ${message}`)),
       true,
     );
   });

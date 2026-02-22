@@ -45,6 +45,7 @@ ui.commandPalette({
 | `onSelect` | `(item) => void` | **required** | Called when a result item is selected. |
 | `onClose` | `() => void` | **required** | Called when the palette should close. |
 | `onSelectionChange` | `(index) => void` | - | Called when highlighted index changes. |
+| `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused item highlight |
 
 ## Notes
 

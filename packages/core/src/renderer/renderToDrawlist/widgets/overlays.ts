@@ -13,6 +13,7 @@ import type {
   DropdownProps,
   ToolApprovalDialogProps,
 } from "../../../widgets/types.js";
+import { asTextStyle } from "../../styles.js";
 import { renderBoxBorder } from "../boxBorder.js";
 import type { IdRectIndex } from "../indices.js";
 import { isVisibleRect } from "../indices.js";
@@ -20,6 +21,12 @@ import { clampNonNegative } from "../spacing.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
 import { mergeTextStyle } from "../textStyle.js";
 import type { CursorInfo } from "../types.js";
+import {
+  focusIndicatorEnabled,
+  readFocusConfig,
+  resolveFocusIndicatorStyle,
+  resolveFocusedContentStyle,
+} from "./focusConfig.js";
 
 type ResolvedCursor = Readonly<{
   x: number;
@@ -292,6 +299,9 @@ export function renderOverlayWidget(
       const open = props.open === true;
       const paletteId = readString(props.id);
       if (!open || !isVisibleRect(rect)) break;
+      const focusConfig = readFocusConfig(props.focusConfig);
+      const showFocusIndicator = focusIndicatorEnabled(focusConfig);
+      const selectionStyle = asTextStyle(props.selectionStyle, theme);
 
       const focused = paletteId.length > 0 && focusState.focusedId === paletteId;
       const maxVisible = readNonNegativeInt(props.maxVisible, 10);
@@ -308,7 +318,15 @@ export function renderOverlayWidget(
       const paletteAccent = theme.colors.primary;
       const paletteText = frame.foreground ?? theme.colors.fg;
       const paletteMuted = theme.colors.muted;
-      const paletteSelectedBg = theme.colors.secondary;
+      const paletteSelectedBg =
+        selectionStyle?.bg ??
+        resolveFocusIndicatorStyle(
+          mergeTextStyle(parentStyle, { fg: paletteText, bg: paletteBg }),
+          theme,
+          focusConfig,
+          mergeTextStyle(parentStyle, { fg: paletteText, bg: theme.colors.secondary }),
+        ).bg ??
+        theme.colors.secondary;
       const paletteStyle = mergeTextStyle(parentStyle, {
         fg: paletteText,
         bg: paletteBg,
@@ -405,10 +423,29 @@ export function renderOverlayWidget(
         // Draw label
         const iconText = readString(item.icon);
         const icon = iconText.length > 0 ? `${iconText} ` : "";
+        const selectedBaseStyle = mergeTextStyle(paletteStyle, {
+          fg: frame.background ?? theme.colors.bg,
+          bold: true,
+        });
+        const focusedSelectedStyle =
+          showFocusIndicator && focused
+            ? resolveFocusedContentStyle(
+                resolveFocusIndicatorStyle(
+                  selectedBaseStyle,
+                  theme,
+                  focusConfig,
+                  selectedBaseStyle,
+                ),
+                theme,
+                focusConfig,
+              )
+            : selectedBaseStyle;
         const labelStyle = disabled
           ? paletteMutedStyle
           : isSelected
-            ? mergeTextStyle(paletteStyle, { fg: frame.background ?? theme.colors.bg, bold: true })
+            ? selectionStyle
+              ? mergeTextStyle(focusedSelectedStyle, selectionStyle)
+              : focusedSelectedStyle
             : paletteStyle;
         const label = `${icon}${readString(item.label)}`;
         const truncatedLabel = truncateWithEllipsis(label, labelMaxWidth);
@@ -420,7 +457,16 @@ export function renderOverlayWidget(
           const sx = listX + listW - sw;
           if (sx > listX + measureTextCells(truncatedLabel) + 1) {
             const shortcutStyle = isSelected
-              ? mergeTextStyle(paletteStyle, { fg: theme.colors.info })
+              ? resolveFocusedContentStyle(
+                  resolveFocusIndicatorStyle(
+                    mergeTextStyle(paletteStyle, { fg: theme.colors.info }),
+                    theme,
+                    focusConfig,
+                    mergeTextStyle(paletteStyle, { fg: theme.colors.info }),
+                  ),
+                  theme,
+                  focusConfig,
+                )
               : paletteMutedStyle;
             builder.drawText(sx, y, shortcut, shortcutStyle);
           }

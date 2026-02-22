@@ -118,6 +118,8 @@ nav:
       - Input & Focus: guide/input-and-focus.md
       - Mouse Support: guide/mouse-support.md
       - Styling: guide/styling.md
+      - Text Style Internals: guide/text-style-internals.md
+      - Widget Authoring: guide/widget-authoring.md
       - Graphics: guide/graphics.md
       - Performance: guide/performance.md
       - Debugging: guide/debugging.md
@@ -202,6 +204,7 @@ nav:
           - Empty: widgets/empty.md
   - Styling:
       - Overview: styling/index.md
+      - Design System: design-system.md
       - Style Props: styling/style-props.md
       - Theme: styling/theme.md
       - Icons: styling/icons.md

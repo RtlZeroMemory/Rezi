@@ -9,6 +9,7 @@ use std::sync::{Condvar, Mutex, OnceLock};
 
 type ParseResult<T> = std::result::Result<T, ()>;
 
+#[allow(dead_code)]
 mod ffi {
   pub type ZrResultT = i32;
 

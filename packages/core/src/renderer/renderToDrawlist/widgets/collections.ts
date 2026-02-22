@@ -27,6 +27,7 @@ import {
   getTotalHeight,
   resolveVirtualListItemHeightSpec,
 } from "../../../widgets/virtualList.js";
+import { asTextStyle } from "../../styles.js";
 import { renderBoxBorder } from "../boxBorder.js";
 import { isVisibleRect } from "../indices.js";
 import { measureVNodeSimpleHeight, renderVNodeSimple } from "../simpleVNode.js";
@@ -35,6 +36,13 @@ import type { ResolvedTextStyle } from "../textStyle.js";
 import { mergeTextStyle } from "../textStyle.js";
 import type { TableRenderCache } from "../types.js";
 import { getExpandedSet, getTreePrefixes } from "./files.js";
+import {
+  focusIndicatorEnabled,
+  readFocusConfig,
+  readFocusIndicator,
+  resolveFocusIndicatorStyle,
+  resolveFocusedContentStyle,
+} from "./focusConfig.js";
 
 const EMPTY_STRING_ARRAY: readonly string[] = Object.freeze([]);
 const SPACE_PAD_CACHE_MAX = 512;
@@ -220,6 +228,9 @@ export function renderCollectionWidget(
       if (!isVisibleRect(rect)) break;
 
       const props = vnode.props as VirtualListProps<unknown>;
+      const focusConfig = readFocusConfig(props.focusConfig);
+      const showFocusIndicator = focusIndicatorEnabled(focusConfig);
+      const selectionStyle = asTextStyle(props.selectionStyle, theme);
       const { items, overscan = 3, renderItem } = props;
       const itemHeight = resolveVirtualListItemHeightSpec(props);
       const estimateMode = props.estimateItemHeight !== undefined;
@@ -309,10 +320,36 @@ export function renderCollectionWidget(
             ? (itemOffsets[i] ?? getItemOffset(items, itemHeight, i, measuredHeights))
             : i * fixedItemHeight;
         const itemY = rect.y + itemOffset - effectiveScrollTop;
-        const focused = i === state.selectedIndex;
+        const selected = i === state.selectedIndex;
+        const focused = selected && showFocusIndicator;
 
         // Skip if item outside viewport (safety check)
         if (itemY + h < rect.y || itemY >= rect.y + rect.h) continue;
+
+        let itemParentStyle = parentStyle;
+        if (selected && selectionStyle) {
+          itemParentStyle = mergeTextStyle(itemParentStyle, selectionStyle);
+        }
+        if (focused) {
+          itemParentStyle = resolveFocusedContentStyle(itemParentStyle, theme, focusConfig);
+          const focusIndicator = readFocusIndicator(focusConfig);
+          if (focusIndicator === "background") {
+            const indicatorStyle = resolveFocusIndicatorStyle(
+              parentStyle,
+              theme,
+              focusConfig,
+              mergeTextStyle(parentStyle, { bg: theme.colors.secondary }),
+            );
+            const rowBg = indicatorStyle.bg;
+            if (rowBg !== undefined) {
+              builder.fillRect(rect.x, itemY, rect.w, h, { bg: rowBg });
+            }
+          } else if (selectionStyle?.bg !== undefined) {
+            builder.fillRect(rect.x, itemY, rect.w, h, { bg: selectionStyle.bg });
+          }
+        } else if (selected && selectionStyle?.bg !== undefined) {
+          builder.fillRect(rect.x, itemY, rect.w, h, { bg: selectionStyle.bg });
+        }
 
         // Render item to text
         const itemVNode = renderItem(item, i, focused);
@@ -326,7 +363,7 @@ export function renderCollectionWidget(
           focused,
           tick,
           theme,
-          parentStyle,
+          itemParentStyle,
         );
 
         if (estimateMode) {
@@ -401,6 +438,10 @@ export function renderCollectionWidget(
     case "table": {
       if (!isVisibleRect(rect)) break;
       const props = vnode.props as TableProps<unknown>;
+      const focusConfig = readFocusConfig(props.focusConfig);
+      const showFocusIndicator = focusIndicatorEnabled(focusConfig);
+      const selectionStyle = asTextStyle(props.selectionStyle, theme);
+      const selectionBg = selectionStyle?.bg ?? theme.colors.secondary;
 
       const borderVariant = readTableBorderVariant(props.borderStyle?.variant);
       const border =
@@ -472,11 +513,21 @@ export function renderCollectionWidget(
               ? mergeTextStyle(parentStyle, { bold: true, fg: theme.colors.info })
               : mergeTextStyle(parentStyle, { bold: true });
           const isHeaderFocused =
+            showFocusIndicator &&
             focusState.focusedId === props.id &&
             tableState.focusedRowIndex === -1 &&
             i === tableState.focusedColumnIndex;
           const headerStyle = isHeaderFocused
-            ? mergeTextStyle(headerStyle0, { inverse: true })
+            ? resolveFocusedContentStyle(
+                resolveFocusIndicatorStyle(
+                  headerStyle0,
+                  theme,
+                  focusConfig,
+                  mergeTextStyle(headerStyle0, { inverse: true }),
+                ),
+                theme,
+                focusConfig,
+              )
             : headerStyle0;
           drawAlignedCellText(builder, xCursor, innerY, w, headerHeight, cell, headerStyle);
           xCursor += w;
@@ -527,18 +578,27 @@ export function renderCollectionWidget(
         const isFocusedRow = focusState.focusedId === props.id && i === tableState.focusedRowIndex;
         const suppressFocusedStyle =
           selectionMode === "single" && needsSelection && isFocusedRow && !isSelected;
-        const showFocusedStyle = isFocusedRow && !suppressFocusedStyle;
+        const showFocusedStyle = showFocusIndicator && isFocusedRow && !suppressFocusedStyle;
 
         const yRow = bodyY + i * safeRowHeight - effectiveScrollTop;
         if (yRow >= bodyY + bodyH) break;
         if (yRow + safeRowHeight <= bodyY) continue;
 
+        const focusedRowStyle = showFocusedStyle
+          ? resolveFocusedContentStyle(
+              resolveFocusIndicatorStyle(
+                parentStyle,
+                theme,
+                focusConfig,
+                mergeTextStyle(parentStyle, { inverse: true }),
+              ),
+              theme,
+              focusConfig,
+            )
+          : parentStyle;
+        const focusedRowBg = focusedRowStyle.bg;
         const rowStripeBg = stripedRows ? ((i & 1) === 1 ? stripeOddBg : stripeEvenBg) : undefined;
-        const rowBg = showFocusedStyle
-          ? undefined
-          : isSelected
-            ? theme.colors.secondary
-            : rowStripeBg;
+        const rowBg = showFocusedStyle ? focusedRowBg : isSelected ? selectionBg : rowStripeBg;
         if (rowBg) {
           builder.fillRect(innerX, yRow, innerW, safeRowHeight, { bg: rowBg });
         }
@@ -558,7 +618,13 @@ export function renderCollectionWidget(
                   ? rawValue
                   : String(rawValue);
 
-          const style = showFocusedStyle ? { inverse: true } : rowBg ? { bg: rowBg } : undefined;
+          const rowSelectedStyle =
+            !showFocusedStyle && isSelected && selectionStyle
+              ? mergeTextStyle(parentStyle, selectionStyle)
+              : rowBg
+                ? mergeTextStyle(parentStyle, { bg: rowBg })
+                : parentStyle;
+          const cellStyle = showFocusedStyle ? focusedRowStyle : rowSelectedStyle;
 
           if (col.render) {
             const cellVNode = col.render(rawValue, row, i);
@@ -572,22 +638,14 @@ export function renderCollectionWidget(
               isFocusedRow,
               tick,
               theme,
-              mergeTextStyle(parentStyle, style),
+              cellStyle,
             );
           } else {
             const t0 = cellText ?? "";
             const align = readCellAlign(col.align);
             const overflow = readCellOverflow(col.overflow);
             const cell = alignCellContent(t0, w, align, overflow);
-            drawAlignedCellText(
-              builder,
-              xCursor,
-              yRow,
-              w,
-              safeRowHeight,
-              cell,
-              mergeTextStyle(parentStyle, style),
-            );
+            drawAlignedCellText(builder, xCursor, yRow, w, safeRowHeight, cell, cellStyle);
           }
 
           xCursor += w;

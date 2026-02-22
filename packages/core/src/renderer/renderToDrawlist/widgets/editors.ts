@@ -18,12 +18,21 @@ import type {
   DiffViewerProps,
   LogsConsoleProps,
 } from "../../../widgets/types.js";
+import { SCROLLBAR_CONFIGS, renderVerticalScrollbar } from "../../scrollbar.js";
+import { asTextStyle } from "../../styles.js";
+import { renderBoxBorder } from "../boxBorder.js";
 import { isVisibleRect } from "../indices.js";
 import { clampNonNegative } from "../spacing.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
 import { mergeTextStyle } from "../textStyle.js";
 import type { CodeEditorRenderCache, DiffRenderCache, LogsConsoleRenderCache } from "../types.js";
 import type { CursorInfo } from "../types.js";
+import {
+  focusIndicatorEnabled,
+  readFocusConfig,
+  resolveFocusIndicatorStyle,
+  resolveFocusedContentStyle,
+} from "./focusConfig.js";
 
 type ResolvedCursor = Readonly<{
   x: number;
@@ -166,6 +175,8 @@ export function renderEditorWidget(
       if (!isVisibleRect(rect)) break;
 
       const props = vnode.props as CodeEditorProps;
+      const focusConfig = readFocusConfig(props.focusConfig);
+      const showFocusIndicator = focusIndicatorEnabled(focusConfig);
       const { lines, scrollTop, scrollLeft, cursor } = props;
       const lineNumbers = props.lineNumbers !== false;
       const editorCache = codeEditorRenderCacheById?.get(props.id);
@@ -310,20 +321,50 @@ export function renderEditorWidget(
         }
       }
 
-      if (focused && props.highlightActiveCursorCell !== false && textW > 0) {
+      if (focused && showFocusIndicator && props.highlightActiveCursorCell !== false && textW > 0) {
         const localY = cursor.line - scrollTop;
         const localX = cursor.column - scrollLeft;
         if (localY >= 0 && localY < rect.h && localX >= 0 && localX < textW) {
           const cursorLine = lines[cursor.line] ?? "";
           const cursorGlyph = cursorLine.slice(cursor.column, cursor.column + 1) || " ";
-          const cursorCellStyle = mergeTextStyle(parentStyle, {
-            fg: resolveSyntaxThemeColor(theme, "syntax.cursor.fg", theme.colors.bg),
-            bg: resolveSyntaxThemeColor(theme, "syntax.cursor.bg", theme.colors.primary),
-            bold: true,
-          });
+          const cursorCellStyle = resolveFocusedContentStyle(
+            resolveFocusIndicatorStyle(
+              parentStyle,
+              theme,
+              focusConfig,
+              mergeTextStyle(parentStyle, {
+                fg: resolveSyntaxThemeColor(theme, "syntax.cursor.fg", theme.colors.bg),
+                bg: resolveSyntaxThemeColor(theme, "syntax.cursor.bg", theme.colors.primary),
+                bold: true,
+              }),
+            ),
+            theme,
+            focusConfig,
+          );
           builder.pushClip(textX, rect.y, textW, rect.h);
           builder.drawText(textX + localX, rect.y + localY, cursorGlyph, cursorCellStyle);
           builder.popClip();
+        }
+      }
+
+      // Vertical scrollbar
+      if (rect.h > 0 && lines.length > rect.h) {
+        const scrollbarVariant = props.scrollbarVariant ?? "minimal";
+        const scrollbarOwnStyle = asTextStyle(props.scrollbarStyle, theme);
+        const scrollbarBaseStyle = mergeTextStyle(parentStyle, { fg: theme.colors.border });
+        const scrollbarStyle = scrollbarOwnStyle
+          ? mergeTextStyle(scrollbarBaseStyle, scrollbarOwnStyle)
+          : scrollbarBaseStyle;
+        const maxScrollTop = Math.max(0, lines.length - rect.h);
+        const position = maxScrollTop > 0 ? scrollTop / maxScrollTop : 0;
+        const viewportRatio = lines.length > 0 ? Math.min(1, rect.h / lines.length) : 1;
+        const variantConfig = SCROLLBAR_CONFIGS[scrollbarVariant];
+        const glyphs = renderVerticalScrollbar(rect.h, { position, viewportRatio }, variantConfig);
+        const scrollbarX = rect.x + rect.w - 1;
+        for (let dy = 0; dy < glyphs.length; dy++) {
+          const glyph = glyphs[dy];
+          if (!glyph) continue;
+          builder.drawText(scrollbarX, rect.y + dy, glyph, scrollbarStyle);
         }
       }
       break;
@@ -332,6 +373,9 @@ export function renderEditorWidget(
       if (!isVisibleRect(rect)) break;
 
       const props = vnode.props as DiffViewerProps;
+      const focusConfig = readFocusConfig(props.focusConfig);
+      const showFocusIndicator = focusIndicatorEnabled(focusConfig);
+      const focusedHunkStyle = asTextStyle(props.focusedHunkStyle, theme);
       const { diff } = props;
       const diffCache = diffRenderCacheById?.get(props.id);
       const addBg = theme.colors.success;
@@ -358,6 +402,21 @@ export function renderEditorWidget(
       const showLineNumbers = props.lineNumbers !== false;
 
       const focusedHunk = diffViewerFocusedHunkById?.get(props.id) ?? props.focusedHunk ?? 0;
+      const focusedHeaderBaseStyle = mergeTextStyle(parentStyle, { fg: hunkHeaderFg });
+      const focusedHeaderStyle = (() => {
+        let out = resolveFocusedContentStyle(
+          resolveFocusIndicatorStyle(
+            focusedHeaderBaseStyle,
+            theme,
+            focusConfig,
+            mergeTextStyle(focusedHeaderBaseStyle, { inverse: true }),
+          ),
+          theme,
+          focusConfig,
+        );
+        if (focusedHunkStyle) out = mergeTextStyle(out, focusedHunkStyle);
+        return out;
+      })();
       const internalExpanded = diffViewerExpandedHunksById?.get(props.id);
       const expandedSet =
         !internalExpanded && props.expandedHunks ? new Set(props.expandedHunks) : null;
@@ -521,14 +580,12 @@ export function renderEditorWidget(
               `@@ -${hunk.oldStart},${hunk.oldCount} +${hunk.newStart},${hunk.newCount} @@${
                 hunk.header ? ` ${hunk.header}` : ""
               }`;
-            const focused = hunkIndex === focusedHunk;
+            const focused = showFocusIndicator && hunkIndex === focusedHunk;
             builder.drawText(
               rect.x,
               y,
               header.slice(0, rect.w),
-              focused
-                ? mergeTextStyle(parentStyle, { fg: hunkHeaderFg, inverse: true })
-                : mergeTextStyle(parentStyle, { fg: hunkHeaderFg }),
+              focused ? focusedHeaderStyle : focusedHeaderBaseStyle,
             );
             if (dividerX >= rect.x && dividerX < rect.x + rect.w) {
               builder.drawText(dividerX, y, "│", mergeTextStyle(parentStyle, { fg: borderFg }));
@@ -609,69 +666,98 @@ export function renderEditorWidget(
             lineIndex++;
           }
         }
-        break;
+      } else {
+        // Unified mode (or fallback if too narrow)
+        let lineIndex = 0;
+        for (let hunkIndex = 0; hunkIndex < diff.hunks.length; hunkIndex++) {
+          const hunk = diff.hunks[hunkIndex];
+          if (!hunk) continue;
+
+          if (lineIndex >= scrollTop && lineIndex < scrollTop + rect.h) {
+            const y = rect.y + (lineIndex - scrollTop);
+            const header =
+              diffCache?.headerByHunk[hunkIndex] ??
+              `@@ -${hunk.oldStart},${hunk.oldCount} +${hunk.newStart},${hunk.newCount} @@${
+                hunk.header ? ` ${hunk.header}` : ""
+              }`;
+            const focused = showFocusIndicator && hunkIndex === focusedHunk;
+            builder.drawText(
+              rect.x,
+              y,
+              header.slice(0, rect.w),
+              focused ? focusedHeaderStyle : focusedHeaderBaseStyle,
+            );
+          }
+          lineIndex++;
+
+          if (!isExpandedHunk(hunkIndex)) {
+            if (lineIndex >= scrollTop && lineIndex < scrollTop + rect.h) {
+              const y = rect.y + (lineIndex - scrollTop);
+              const msg =
+                diffCache?.collapsedByHunk[hunkIndex] ?? `… ${String(hunk.lines.length)} lines …`;
+              builder.drawText(rect.x, y, msg.slice(0, rect.w), collapsedStyle);
+            }
+            lineIndex++;
+            continue;
+          }
+
+          let oldLine = hunk.oldStart;
+          let newLine = hunk.newStart;
+          for (const line of hunk.lines) {
+            if (!line) continue;
+            if (lineIndex >= scrollTop && lineIndex < scrollTop + rect.h) {
+              const y = rect.y + (lineIndex - scrollTop);
+              if (line.type === "context") {
+                drawUnifiedLine(y, oldLine, newLine, "context", line.content, line.highlights);
+              } else if (line.type === "delete") {
+                drawUnifiedLine(y, oldLine, null, "delete", line.content, line.highlights);
+              } else {
+                drawUnifiedLine(y, null, newLine, "add", line.content, line.highlights);
+              }
+            }
+
+            if (line.type === "context") {
+              oldLine++;
+              newLine++;
+            } else if (line.type === "delete") {
+              oldLine++;
+            } else {
+              newLine++;
+            }
+            lineIndex++;
+          }
+        }
       }
 
-      // Unified mode (or fallback if too narrow)
-      let lineIndex = 0;
-      for (let hunkIndex = 0; hunkIndex < diff.hunks.length; hunkIndex++) {
-        const hunk = diff.hunks[hunkIndex];
-        if (!hunk) continue;
-
-        if (lineIndex >= scrollTop && lineIndex < scrollTop + rect.h) {
-          const y = rect.y + (lineIndex - scrollTop);
-          const header =
-            diffCache?.headerByHunk[hunkIndex] ??
-            `@@ -${hunk.oldStart},${hunk.oldCount} +${hunk.newStart},${hunk.newCount} @@${
-              hunk.header ? ` ${hunk.header}` : ""
-            }`;
-          const focused = hunkIndex === focusedHunk;
-          builder.drawText(
-            rect.x,
-            y,
-            header.slice(0, rect.w),
-            focused
-              ? mergeTextStyle(parentStyle, { fg: hunkHeaderFg, inverse: true })
-              : mergeTextStyle(parentStyle, { fg: hunkHeaderFg }),
+      // Vertical scrollbar
+      {
+        let totalLines = 0;
+        for (const h of diff.hunks) {
+          if (!h) continue;
+          totalLines += 1 + h.lines.length;
+        }
+        if (rect.h > 0 && totalLines > rect.h) {
+          const scrollbarVariant = props.scrollbarVariant ?? "minimal";
+          const scrollbarOwnStyle = asTextStyle(props.scrollbarStyle, theme);
+          const scrollbarBaseStyle = mergeTextStyle(parentStyle, { fg: theme.colors.border });
+          const scrollbarStyle = scrollbarOwnStyle
+            ? mergeTextStyle(scrollbarBaseStyle, scrollbarOwnStyle)
+            : scrollbarBaseStyle;
+          const maxScroll = Math.max(0, totalLines - rect.h);
+          const position = maxScroll > 0 ? scrollTop / maxScroll : 0;
+          const viewportRatio = totalLines > 0 ? Math.min(1, rect.h / totalLines) : 1;
+          const variantConfig = SCROLLBAR_CONFIGS[scrollbarVariant];
+          const glyphs = renderVerticalScrollbar(
+            rect.h,
+            { position, viewportRatio },
+            variantConfig,
           );
-        }
-        lineIndex++;
-
-        if (!isExpandedHunk(hunkIndex)) {
-          if (lineIndex >= scrollTop && lineIndex < scrollTop + rect.h) {
-            const y = rect.y + (lineIndex - scrollTop);
-            const msg =
-              diffCache?.collapsedByHunk[hunkIndex] ?? `… ${String(hunk.lines.length)} lines …`;
-            builder.drawText(rect.x, y, msg.slice(0, rect.w), collapsedStyle);
+          const scrollbarX = rect.x + rect.w - 1;
+          for (let dy = 0; dy < glyphs.length; dy++) {
+            const glyph = glyphs[dy];
+            if (!glyph) continue;
+            builder.drawText(scrollbarX, rect.y + dy, glyph, scrollbarStyle);
           }
-          lineIndex++;
-          continue;
-        }
-
-        let oldLine = hunk.oldStart;
-        let newLine = hunk.newStart;
-        for (const line of hunk.lines) {
-          if (!line) continue;
-          if (lineIndex >= scrollTop && lineIndex < scrollTop + rect.h) {
-            const y = rect.y + (lineIndex - scrollTop);
-            if (line.type === "context") {
-              drawUnifiedLine(y, oldLine, newLine, "context", line.content, line.highlights);
-            } else if (line.type === "delete") {
-              drawUnifiedLine(y, oldLine, null, "delete", line.content, line.highlights);
-            } else {
-              drawUnifiedLine(y, null, newLine, "add", line.content, line.highlights);
-            }
-          }
-
-          if (line.type === "context") {
-            oldLine++;
-            newLine++;
-          } else if (line.type === "delete") {
-            oldLine++;
-          } else {
-            newLine++;
-          }
-          lineIndex++;
         }
       }
       break;
@@ -679,8 +765,37 @@ export function renderEditorWidget(
     case "logsConsole": {
       if (!isVisibleRect(rect)) break;
       const props = vnode.props as LogsConsoleProps;
-      const timestampStyle = mergeTextStyle(parentStyle, { fg: theme.colors.muted });
-      const sourceStyle = mergeTextStyle(parentStyle, { fg: theme.colors.info });
+      const focusConfig = readFocusConfig(props.focusConfig);
+      const focusedStyleOverride = asTextStyle(props.focusedStyle, theme);
+      const widgetFocused = focusState.focusedId === props.id;
+      const showFocusRing = widgetFocused && focusIndicatorEnabled(focusConfig);
+      const contentRect = showFocusRing
+        ? {
+            x: rect.x + 1,
+            y: rect.y + 1,
+            w: clampNonNegative(rect.w - 2),
+            h: clampNonNegative(rect.h - 2),
+          }
+        : rect;
+
+      if (showFocusRing) {
+        let ringStyle = resolveFocusIndicatorStyle(
+          parentStyle,
+          theme,
+          focusConfig,
+          mergeTextStyle(parentStyle, { fg: theme.colors.info }),
+        );
+        if (focusedStyleOverride) {
+          ringStyle = mergeTextStyle(ringStyle, focusedStyleOverride);
+        }
+        renderBoxBorder(builder, rect, "single", undefined, "left", ringStyle);
+      }
+
+      const contentStyle = showFocusRing
+        ? resolveFocusedContentStyle(parentStyle, theme, focusConfig)
+        : parentStyle;
+      const timestampStyle = mergeTextStyle(contentStyle, { fg: theme.colors.muted });
+      const sourceStyle = mergeTextStyle(contentStyle, { fg: theme.colors.info });
 
       const showTimestamps = props.showTimestamps !== false;
       const showSource = props.showSource !== false;
@@ -724,12 +839,12 @@ export function renderEditorWidget(
         filtered = tmp;
       }
 
-      builder.pushClip(rect.x, rect.y, rect.w, rect.h);
+      builder.pushClip(contentRect.x, contentRect.y, contentRect.w, contentRect.h);
 
       const startIndex = Math.max(0, props.scrollTop);
-      const endIndex = Math.min(filtered.length, startIndex + rect.h);
+      const endIndex = Math.min(filtered.length, startIndex + contentRect.h);
 
-      let y = rect.y;
+      let y = contentRect.y;
       for (let i = startIndex; i < endIndex; i++) {
         const entry = filtered[i];
         if (!entry) continue;
@@ -737,7 +852,7 @@ export function renderEditorWidget(
         const levelColor = logLevelToThemeColor(theme, entry.level);
         const isError = entry.level === "error";
 
-        let x = rect.x;
+        let x = contentRect.x;
 
         const meta = entryMetaById?.get(entry.id);
         const timestamp = meta?.timestamp ?? formatTimestamp(entry.timestamp);
@@ -763,7 +878,9 @@ export function renderEditorWidget(
           x,
           y,
           levelLabel,
-          isError ? { fg: levelColor, bold: true } : { fg: levelColor },
+          isError
+            ? { fg: levelColor, bold: true }
+            : mergeTextStyle(contentStyle, { fg: levelColor }),
         );
         x += 8;
 
@@ -780,13 +897,15 @@ export function renderEditorWidget(
         const details = expanded && entry.details ? ` | ${entry.details}` : "";
         const msg = `${marker}${entry.message}${details}${metaSuffix}`;
 
-        const remaining = rect.w - (x - rect.x);
+        const remaining = contentRect.w - (x - contentRect.x);
         if (remaining > 0) {
           builder.drawText(
             x,
             y,
             msg.slice(0, remaining),
-            isError ? { fg: levelColor, bold: true } : { fg: levelColor },
+            isError
+              ? { fg: levelColor, bold: true }
+              : mergeTextStyle(contentStyle, { fg: levelColor }),
           );
         }
 
@@ -794,6 +913,32 @@ export function renderEditorWidget(
       }
 
       builder.popClip();
+
+      // Vertical scrollbar
+      if (contentRect.h > 0 && filtered.length > contentRect.h) {
+        const scrollbarVariant = props.scrollbarVariant ?? "minimal";
+        const scrollbarOwnStyle = asTextStyle(props.scrollbarStyle, theme);
+        const scrollbarBaseStyle = mergeTextStyle(parentStyle, { fg: theme.colors.border });
+        const scrollbarStyle = scrollbarOwnStyle
+          ? mergeTextStyle(scrollbarBaseStyle, scrollbarOwnStyle)
+          : scrollbarBaseStyle;
+        const maxScroll = Math.max(0, filtered.length - contentRect.h);
+        const position = maxScroll > 0 ? props.scrollTop / maxScroll : 0;
+        const viewportRatio =
+          filtered.length > 0 ? Math.min(1, contentRect.h / filtered.length) : 1;
+        const variantConfig = SCROLLBAR_CONFIGS[scrollbarVariant];
+        const glyphs = renderVerticalScrollbar(
+          contentRect.h,
+          { position, viewportRatio },
+          variantConfig,
+        );
+        const scrollbarX = contentRect.x + contentRect.w - 1;
+        for (let dy = 0; dy < glyphs.length; dy++) {
+          const glyph = glyphs[dy];
+          if (!glyph) continue;
+          builder.drawText(scrollbarX, contentRect.y + dy, glyph, scrollbarStyle);
+        }
+      }
       break;
     }
     default:

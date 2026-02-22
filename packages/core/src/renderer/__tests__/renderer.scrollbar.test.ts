@@ -451,4 +451,76 @@ describe("renderer scroll container integration", () => {
       true,
     );
   });
+
+  test("scrollbarVariant overrides glyph set for overflow scrollbars", () => {
+    const lines: VNode[] = [];
+    for (let i = 0; i < 6; i++) lines.push(ui.text("abcd"));
+    const vnode = ui.box(
+      {
+        width: 6,
+        height: 4,
+        border: "none",
+        overflow: "scroll",
+        scrollbarVariant: "classic",
+      },
+      lines,
+    );
+    const ops = renderScene(vnode, viewport, {
+      rootMeta: {
+        scrollX: 0,
+        scrollY: 2,
+        contentWidth: 4,
+        contentHeight: 10,
+        viewportWidth: 4,
+        viewportHeight: 4,
+      },
+    });
+    const gutterGlyphs = drawTextOps(ops).filter((op) => op.x === 5);
+    assert.equal(
+      gutterGlyphs.some(
+        (op) =>
+          op.text === SCROLLBAR_CLASSIC.track ||
+          op.text === SCROLLBAR_CLASSIC.thumb ||
+          op.text === SCROLLBAR_CLASSIC.arrowUp ||
+          op.text === SCROLLBAR_CLASSIC.arrowDown,
+      ),
+      true,
+    );
+  });
+
+  test("scrollbarStyle overrides rendered scrollbar draw style", () => {
+    const lines: VNode[] = [];
+    for (let i = 0; i < 6; i++) lines.push(ui.text("abcd"));
+    const customFg = Object.freeze({ r: 1, g: 2, b: 3 });
+    const vnode = ui.box(
+      {
+        width: 6,
+        height: 4,
+        border: "none",
+        overflow: "scroll",
+        scrollbarStyle: { fg: customFg },
+      },
+      lines,
+    );
+    const ops = renderScene(vnode, viewport, {
+      rootMeta: {
+        scrollX: 0,
+        scrollY: 2,
+        contentWidth: 4,
+        contentHeight: 10,
+        viewportWidth: 4,
+        viewportHeight: 4,
+      },
+    });
+    const styledScrollbarGlyph = drawTextOps(ops).find(
+      (op) =>
+        op.x === 5 &&
+        (op.text === SCROLLBAR_MINIMAL.track || op.text === SCROLLBAR_MINIMAL.thumb) &&
+        op.style?.fg !== undefined,
+    );
+    assert.ok(styledScrollbarGlyph !== undefined);
+    if (!styledScrollbarGlyph?.style?.fg || typeof styledScrollbarGlyph.style.fg === "string")
+      return;
+    assert.deepEqual(styledScrollbarGlyph.style.fg, customFg);
+  });
 });

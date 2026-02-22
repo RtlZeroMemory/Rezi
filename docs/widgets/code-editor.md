@@ -43,6 +43,9 @@ ui.codeEditor({
 | `syntaxLanguage` | `"plain" \| "typescript" \| "javascript" \| "json" \| "go" \| "rust" \| "c" \| "cpp" \| "c++" \| "csharp" \| "c#" \| "java" \| "python" \| "bash"` | `"plain"` | Built-in syntax preset |
 | `tokenizeLine` | `(line, context) => CodeEditorSyntaxToken[]` | - | Custom per-line tokenizer override |
 | `highlightActiveCursorCell` | `boolean` | `true` | Draw a visible highlighted cursor cell |
+| `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses active cursor cell highlight (equivalent to `highlightActiveCursorCell: false` when focused) |
+| `scrollbarVariant` | `"minimal" \| "classic" \| "modern" \| "dots" \| "thin"` | `"minimal"` | Scrollbar glyph variant |
+| `scrollbarStyle` | `TextStyle` | - | Style override for scrollbar |
 | `onChange` | `(lines, cursor) => void` | **required** | Content change callback |
 | `onSelectionChange` | `(selection) => void` | **required** | Selection change callback |
 | `onScroll` | `(scrollTop, scrollLeft) => void` | **required** | Scroll callback |
@@ -87,9 +90,13 @@ ui.codeEditor({
 })
 ```
 
+## Scrollbar
+
+A vertical scrollbar is rendered on the right edge when content exceeds the viewport height. Set `scrollbarVariant` to choose a glyph style (`"minimal"`, `"classic"`, `"modern"`, `"dots"`, `"thin"`). Use `scrollbarStyle` to override scrollbar colors.
+
 ## Mouse Behavior
 
-- **Mouse scroll wheel** scrolls the editor vertically and horizontally, firing the `onScroll` callback.
+- **Mouse scroll wheel** scrolls the editor vertically and horizontally, firing the `onScroll` callback. Scroll works when hovering over the widget, even without focus.
 - **Clicking** the editor area focuses the widget.
 
 ## Keyboard Clipboard

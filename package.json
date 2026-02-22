@@ -52,5 +52,12 @@
     "tsx": "^4.20.3",
     "typedoc": "^0.28.16",
     "typescript": "^5.6.3"
+  },
+  "overrides": {
+    "@opentui/core": "0.1.50",
+    "@opentui/react": "0.1.50",
+    "diff": "8.0.3",
+    "markdown-it": "14.1.1",
+    "minimatch": "10.2.1"
   }
 }

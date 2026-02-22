@@ -128,6 +128,10 @@ function styleKey(style: TextStyle | undefined): string {
   ].join("|");
 }
 
+function containsShadeGlyph(text: string): boolean {
+  return text.includes("░") || text.includes("▒") || text.includes("▓");
+}
+
 function createFramebuffer(viewport: Viewport): Framebuffer {
   const cells = viewport.cols * viewport.rows;
   return {
@@ -478,7 +482,7 @@ describe("renderer damage rect behavior", () => {
       }),
       viewport,
     );
-    const shadowOnlyDamage = { x: 7, y: 3, w: 1, h: 1 };
+    const shadowOnlyDamage = { x: 6, y: 3, w: 1, h: 1 };
     const shadowOps = renderScene(withShadow, null, { damageRect: shadowOnlyDamage });
     const plainOps = renderScene(withoutShadow, null, { damageRect: shadowOnlyDamage });
     assert.equal(drawTextOps(shadowOps).length > 0, true);
@@ -516,7 +520,7 @@ describe("renderer damage rect behavior", () => {
     const hiddenOps = renderScene(hiddenAncestor, null, { damageRect: shadowOnlyDamage });
 
     assert.equal(
-      drawTextOps(visibleOps).some((op) => op.text.includes("▒")),
+      drawTextOps(visibleOps).some((op) => containsShadeGlyph(op.text)),
       true,
     );
     assert.equal(drawTextOps(hiddenOps).length, 0);

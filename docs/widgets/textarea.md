@@ -26,6 +26,7 @@ ui.textarea({
 | `style` | `TextStyle` | - | Custom styling (merged with focus/disabled state) |
 | `onInput` | `(value: string, cursor: number) => void` | - | Callback when value changes |
 | `onBlur` | `() => void` | - | Callback when textarea loses focus |
+| `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused textarea decoration |
 | `key` | `string` | - | Reconciliation key for dynamic lists |
 
 ## Behavior

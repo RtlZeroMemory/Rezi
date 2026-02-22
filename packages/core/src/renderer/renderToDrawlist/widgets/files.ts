@@ -7,10 +7,17 @@ import type { TreeLocalState, TreeStateStore } from "../../../runtime/localState
 import type { Theme } from "../../../theme/theme.js";
 import { type FlattenedNode, flattenTree, getTreeLinePrefix } from "../../../widgets/tree.js";
 import type { FileNode, FilePickerProps, FileTreeExplorerProps } from "../../../widgets/types.js";
+import { asTextStyle } from "../../styles.js";
 import { isVisibleRect } from "../indices.js";
 import { renderVNodeSimple } from "../simpleVNode.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
 import { mergeTextStyle } from "../textStyle.js";
+import {
+  focusIndicatorEnabled,
+  readFocusConfig,
+  resolveFocusIndicatorStyle,
+  resolveFocusedContentStyle,
+} from "./focusConfig.js";
 
 const EMPTY_STRING_ARRAY: readonly string[] = Object.freeze([]);
 const EMPTY_STRING_SET: ReadonlySet<string> = new Set<string>();
@@ -104,6 +111,9 @@ export function renderFileWidgets(
     case "filePicker": {
       if (!isVisibleRect(rect)) break;
       const props = vnode.props as FilePickerProps;
+      const focusConfig = readFocusConfig(props.focusConfig);
+      const showFocusHighlight = focusIndicatorEnabled(focusConfig);
+      const selectionStyle = asTextStyle(props.selectionStyle, theme);
 
       const state: TreeLocalState = treeStore
         ? treeStore.get(props.id)
@@ -200,13 +210,28 @@ export function renderFileWidgets(
               : includesString(props.selection, fn.key)
             : props.selectedPath === fn.key;
         const isFocused = widgetFocused && focusedKey === fn.key;
-        const rowBg = isFocused
-          ? theme.colors.info
-          : isSelected
-            ? theme.colors.secondary
-            : parentStyle.bg;
+        const focusedRowStyle = resolveFocusedContentStyle(
+          resolveFocusIndicatorStyle(
+            parentStyle,
+            theme,
+            focusConfig,
+            mergeTextStyle(parentStyle, { bg: theme.colors.info }),
+          ),
+          theme,
+          focusConfig,
+        );
+        const selectedRowStyle = selectionStyle
+          ? mergeTextStyle(parentStyle, selectionStyle)
+          : mergeTextStyle(parentStyle, { bg: theme.colors.secondary });
+        const rowStyle =
+          isFocused && showFocusHighlight
+            ? focusedRowStyle
+            : isSelected
+              ? selectedRowStyle
+              : parentStyle;
+        const rowBg = rowStyle.bg ?? parentStyle.bg;
 
-        if (isFocused) {
+        if (isFocused && showFocusHighlight) {
           builder.fillRect(rect.x, yRow, rect.w, 1, { bg: rowBg });
         } else if (isSelected) {
           builder.fillRect(rect.x, yRow, rect.w, 1, { bg: rowBg });
@@ -217,7 +242,7 @@ export function renderFileWidgets(
           rect.x,
           yRow,
           prefix,
-          mergeTextStyle(parentStyle, { fg: theme.colors.muted, bg: rowBg }),
+          mergeTextStyle(rowStyle, { fg: theme.colors.muted }),
         );
 
         const x0 = rect.x + measureTextCells(prefix);
@@ -229,12 +254,7 @@ export function renderFileWidgets(
         const icon = fn.node.type === "directory" ? "D " : "F ";
         const checkbox = props.multiSelect === true ? (isSelected ? "[x] " : "[ ] ") : "";
 
-        builder.drawText(
-          x0,
-          yRow,
-          `${checkbox}${twisty}${icon}${fn.node.name}`,
-          mergeTextStyle(parentStyle, { bg: rowBg }),
-        );
+        builder.drawText(x0, yRow, `${checkbox}${twisty}${icon}${fn.node.name}`, rowStyle);
 
         const status =
           stagedSet !== null
@@ -266,7 +286,7 @@ export function renderFileWidgets(
             rect.x + rect.w - 2,
             yRow,
             status,
-            mergeTextStyle(parentStyle, { fg: theme.colors.muted, bg: rowBg }),
+            mergeTextStyle(rowStyle, { fg: theme.colors.muted }),
           );
         }
       }
@@ -275,6 +295,9 @@ export function renderFileWidgets(
     case "fileTreeExplorer": {
       if (!isVisibleRect(rect)) break;
       const props = vnode.props as FileTreeExplorerProps;
+      const focusConfig = readFocusConfig(props.focusConfig);
+      const showFocusHighlight = focusIndicatorEnabled(focusConfig);
+      const selectionStyle = asTextStyle(props.selectionStyle, theme);
 
       const state: TreeLocalState = treeStore
         ? treeStore.get(props.id)
@@ -361,13 +384,28 @@ export function renderFileWidgets(
           isLast: fn.siblingIndex === fn.siblingCount - 1,
           hasChildren: fn.hasChildren,
         });
-        const rowBg = nodeState.focused
-          ? theme.colors.info
-          : nodeState.selected
-            ? theme.colors.secondary
-            : parentStyle.bg;
+        const focusedRowStyle = resolveFocusedContentStyle(
+          resolveFocusIndicatorStyle(
+            parentStyle,
+            theme,
+            focusConfig,
+            mergeTextStyle(parentStyle, { bg: theme.colors.info }),
+          ),
+          theme,
+          focusConfig,
+        );
+        const selectedRowStyle = selectionStyle
+          ? mergeTextStyle(parentStyle, selectionStyle)
+          : mergeTextStyle(parentStyle, { bg: theme.colors.secondary });
+        const rowStyle =
+          nodeState.focused && showFocusHighlight
+            ? focusedRowStyle
+            : nodeState.selected
+              ? selectedRowStyle
+              : parentStyle;
+        const rowBg = rowStyle.bg ?? parentStyle.bg;
 
-        if (nodeState.focused) {
+        if (nodeState.focused && showFocusHighlight) {
           builder.fillRect(rect.x, yRow, rect.w, 1, { bg: rowBg });
         } else if (nodeState.selected) {
           builder.fillRect(rect.x, yRow, rect.w, 1, { bg: rowBg });
@@ -378,7 +416,7 @@ export function renderFileWidgets(
           rect.x,
           yRow,
           prefix,
-          mergeTextStyle(parentStyle, { fg: theme.colors.muted, bg: rowBg }),
+          mergeTextStyle(rowStyle, { fg: theme.colors.muted }),
         );
         const x0 = rect.x + measureTextCells(prefix);
 
@@ -394,7 +432,7 @@ export function renderFileWidgets(
             nodeState.focused,
             tick,
             theme,
-            parentStyle,
+            rowStyle,
           );
         } else {
           const showIcons = props.showIcons !== false;
@@ -417,19 +455,14 @@ export function renderFileWidgets(
                       ? "R"
                       : "";
 
-          builder.drawText(
-            x0,
-            yRow,
-            `${twisty}${icon}${fn.node.name}`,
-            mergeTextStyle(parentStyle, { bg: rowBg }),
-          );
+          builder.drawText(x0, yRow, `${twisty}${icon}${fn.node.name}`, rowStyle);
 
           if (showStatus && status && rect.w >= 2) {
             builder.drawText(
               rect.x + rect.w - 2,
               yRow,
               status,
-              mergeTextStyle(parentStyle, { fg: theme.colors.muted, bg: rowBg }),
+              mergeTextStyle(rowStyle, { fg: theme.colors.muted }),
             );
           }
         }

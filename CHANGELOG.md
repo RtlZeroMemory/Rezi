@@ -8,6 +8,40 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ### Added
 
+- _No unreleased changes yet._
+
+## [0.1.0-alpha.29] - 2026-02-22
+
+### Added
+
+- Scrollbar rendering for `codeEditor`, `diffViewer`, and `logsConsole` widgets via `scrollbarVariant` and `scrollbarStyle` props
+- Five scrollbar glyph variants: minimal, classic, modern, dots, thin
+
+### Fixed
+
+- Mouse wheel direction was inverted in native xterm SGR parser (WHEEL_UP produced positive `wheelY`, now correctly negative)
+- Wheel scroll routing now falls back to focused editor when hover target is a non-editor widget
+- `logsConsole` scrollbar X coordinate off-by-one (was drawn one cell past right edge)
+
+## [0.1.0-alpha.28] - 2026-02-22
+
+### Added
+
+- **Design System**: cohesive token/recipe/capability-tier architecture for theme-aware widget styling
+  - Design tokens module (`packages/core/src/ui/designTokens.ts`): typography roles, elevation levels, widget sizes, variants, tones, states, density
+  - Capability tiers (`packages/core/src/ui/capabilities.ts`): A (256-color), B (truecolor), C (enhanced) detection with `rgbTo256()` palette mapping
+  - Style recipes (`packages/core/src/ui/recipes.ts`): 13 pure-function recipes (button, input, surface, select, table, modal, badge, text, divider, checkbox, progress, callout, scrollbar) computing `TextStyle` from `ColorTokens`
+  - `dsVariant`, `dsTone`, `dsSize` props on `ButtonProps` for opt-in recipe-based rendering
+  - `dsSize`, `placeholder` props on `InputProps`
+  - Recipe-based button rendering in drawlist renderer (automatic when `dsVariant` present, legacy path preserved)
+  - Widget Gallery app (`examples/gallery/`) with 12 scenes, 6 themes, interactive + headless modes
+  - Golden frame snapshot testing (`captureSnapshot`, `serializeSnapshot`, `parseSnapshot`, `diffSnapshots`) with `scripts/rezi-snap.mjs` CLI
+  - Design system specification (`docs/design-system.md`) and widget authoring guide (`docs/guide/widget-authoring.md`)
+  - All design system types and functions exported from `@rezi-ui/core`
+- `ui.box()` `borderStyle` prop: decouples border/title appearance from child style inheritance, preventing style leaking into descendant widgets (code editors, file trees, etc.)
+- `focusConfig` prop on 12 interactive widgets (`button`, `input`, `textarea`, `select`, `virtualList`, `table`, `commandPalette`, `filePicker`, `fileTreeExplorer`, `codeEditor`, `diffViewer`, `logsConsole`): allows per-widget control of focus indicator rendering; `{ indicator: "none" }` suppresses focus visuals
+- `FileTreeExplorer` mouse click-to-node routing: left click selects a node (`onSelect`), double-click activates it (`onActivate`), following the same press/release model as `Table`
+
 - `@rezi-ui/jsx` — native JSX runtime for Rezi widgets (no React required)
 - `@rezi-ui/bench` — comprehensive benchmark suite (Rezi native vs Ink-on-Rezi vs Ink)
 - Benchmark results and performance documentation

@@ -1,6 +1,11 @@
 ---
 name: rezi-create-screen
 description: Create a new screen/page for a Rezi TUI application. Use when adding views, pages, or screens to an app.
+user-invocable: true
+allowed-tools: Read, Glob, Grep, Edit, Write
+argument-hint: "[screen-name]"
+metadata:
+  short-description: Create app screen
 ---
 
 ## When to use
@@ -18,6 +23,7 @@ Use this skill when:
 - `packages/core/src/router/` — router and route definitions
 - `packages/core/src/keybindings/` — keybinding system
 - `packages/create-rezi/templates/animation-lab/` — canonical animation screen pattern
+- `docs/guide/widget-authoring.md` — design system integration patterns
 
 ## Steps
 
@@ -28,10 +34,22 @@ Use this skill when:
 
    export function MyScreen(state: AppState) {
      return ui.column({ gap: 1 }, [
-       ui.text("Screen Title", { bold: true }),
+       ui.text("Screen Title", { style: { bold: true } }),
        // screen content
      ]);
    }
+   ```
+
+   **Prefer design-system-styled widgets** — use `dsVariant`, `dsTone`, `dsSize` on interactive widgets:
+   ```typescript
+   ui.button({
+     id: "action",
+     label: "Go",
+     dsVariant: "solid",
+     dsTone: "primary",
+     dsSize: "md",
+     onPress: handleAction,
+   })
    ```
 
 2. **Use `ui.column()` or `ui.row()`** as the root container

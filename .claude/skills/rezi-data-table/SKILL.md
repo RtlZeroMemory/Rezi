@@ -21,6 +21,7 @@ Use this skill when:
 - `packages/core/src/widgets/useTable.ts` — `useTable()` hook
 - `packages/core/src/widgets/types.ts` — `TableProps`
 - `packages/core/src/widgets/ui.ts` — `ui.table()`
+- `packages/core/src/ui/recipes.ts` — `recipe.table()` for design-system-consistent table styling
 
 ## Steps
 

@@ -1,0 +1,22 @@
+# Snapshot: checkboxes
+# Theme: dark
+# Viewport: 80x40
+# Version: 1.0.0
+# Captured: 2026-02-22T07:51:54.780Z
+---
+
+ Checkboxes & Radio Groups
+
+ ──────────────────────────────────────────────────────────────────────────────
+
+ [x] Checked item
+
+ [ ] Unchecked item
+
+ [x] Disabled checked
+
+ ──────────────────────────────────────────────────────────────────────────────
+
+ ( ) Option A
+ (o) Option B
+ ( ) Option C

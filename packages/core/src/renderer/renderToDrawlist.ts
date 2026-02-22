@@ -84,6 +84,7 @@ export function renderToDrawlist(params: RenderToDrawlistParams): void {
     params.focusAnnouncement,
     undefined,
     params.terminalProfile,
+    params.pressedId ?? null,
   );
 
   /* v2 cursor protocol: emit SET_CURSOR for focused input */

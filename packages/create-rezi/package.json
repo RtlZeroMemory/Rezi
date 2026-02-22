@@ -1,6 +1,6 @@
 {
   "name": "create-rezi",
-  "version": "0.1.0-alpha.26",
+  "version": "0.1.0-alpha.29",
   "description": "Scaffold a Rezi terminal UI app.",
   "license": "Apache-2.0",
   "homepage": "https://rezitui.dev",
@@ -22,6 +22,6 @@
     "bun": ">=1.3.0"
   },
   "devDependencies": {
-    "@rezi-ui/testkit": "0.1.0-alpha.26"
+    "@rezi-ui/testkit": "0.1.0-alpha.29"
   }
 }

@@ -79,6 +79,7 @@ function renderOps(
   vnode: VNode,
   viewport: Readonly<{ cols: number; rows: number }>,
   axis: Axis,
+  opts: Readonly<{ focusedId?: string | null; pressedId?: string | null }> = {},
 ): readonly DrawOp[] {
   const committed = commitVNodeTree(null, vnode, { allocator: createInstanceIdAllocator(1) });
   assert.equal(committed.ok, true, "commit should succeed");
@@ -93,7 +94,8 @@ function renderOps(
     tree: committed.value.root,
     layout: layoutRes.value,
     viewport,
-    focusState: Object.freeze({ focusedId: null }),
+    focusState: Object.freeze({ focusedId: opts.focusedId ?? null }),
+    pressedId: opts.pressedId ?? null,
     builder,
   });
   return Object.freeze(builder.ops.slice());
@@ -107,6 +109,10 @@ function drawTextOps(ops: readonly DrawOp[]): readonly DrawTextOp[] {
     out.push({ index: i, x: op.x, y: op.y, text: op.text });
   }
   return Object.freeze(out);
+}
+
+function containsShadeGlyph(text: string): boolean {
+  return text.includes("░") || text.includes("▒") || text.includes("▓");
 }
 
 function renderBorderBox(
@@ -299,7 +305,7 @@ describe("renderer border rendering (deterministic)", () => {
       shadow: true,
     });
 
-    const shadowIndex = drawOps.findIndex((op) => op.text.includes("▒"));
+    const shadowIndex = drawOps.findIndex((op) => containsShadeGlyph(op.text));
     const borderTopIndex = drawOps.findIndex((op) => op.text === `┌${"─".repeat(6)}┐`);
 
     assert.equal(shadowIndex >= 0, true);
@@ -315,7 +321,7 @@ describe("renderer border rendering (deterministic)", () => {
       height: 4,
     });
     assert.equal(
-      drawOps.some((op) => op.text.includes("▒")),
+      drawOps.some((op) => containsShadeGlyph(op.text)),
       false,
     );
   });
@@ -517,5 +523,27 @@ describe("renderer border rendering (deterministic)", () => {
     if (!topBorder || topBorder.kind !== "drawText" || !topBorder.style) return;
     assert.deepEqual(topBorder.style.fg, backdrop);
     assert.deepEqual(topBorder.style.bg, backdrop);
+  });
+
+  test("button pressedStyle is applied when pressedId matches", () => {
+    const pressedFg = Object.freeze({ r: 255, g: 64, b: 64 });
+    const ops = renderOps(
+      ui.button({
+        id: "btn",
+        label: "Run",
+        pressedStyle: { fg: pressedFg, inverse: true },
+      }),
+      { cols: 20, rows: 4 },
+      "column",
+      { pressedId: "btn" },
+    );
+
+    const label = ops.find(
+      (op) => op.kind === "drawText" && op.text.includes("Run") && op.style !== undefined,
+    );
+    assert.ok(label !== undefined, "button label should be drawn with style");
+    if (!label || label.kind !== "drawText" || !label.style) return;
+    assert.deepEqual(label.style.fg, pressedFg);
+    assert.equal(label.style.inverse, true);
   });
 });

@@ -101,6 +101,7 @@ export function renderTree(
   focusAnnouncement: string | null | undefined,
   opts: RenderTreeOptions | undefined = undefined,
   terminalProfile: TerminalProfile | undefined = undefined,
+  pressedId: string | null = null,
 ): ResolvedCursor | null {
   let resolvedCursor: ResolvedCursor | null = null;
   let lastRenderedNodeKind = tree.vnode.kind;
@@ -262,6 +263,7 @@ export function renderTree(
         const nextCursor = renderBasicWidget(
           builder,
           focusState,
+          pressedId,
           rect,
           renderTheme,
           tick,

@@ -36,10 +36,17 @@ ui.diffViewer({
 | `onUnstageHunk` | `(index) => void` | - | Unstage callback |
 | `onApplyHunk` | `(index) => void` | - | Apply callback |
 | `onRevertHunk` | `(index) => void` | - | Revert callback |
+| `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focus decoration |
+| `scrollbarVariant` | `"minimal" \| "classic" \| "modern" \| "dots" \| "thin"` | `"minimal"` | Scrollbar glyph variant |
+| `scrollbarStyle` | `TextStyle` | - | Style override for scrollbar |
+
+## Scrollbar
+
+A vertical scrollbar is rendered on the right edge when content exceeds the viewport height. Set `scrollbarVariant` to choose a glyph style. Use `scrollbarStyle` to override scrollbar colors.
 
 ## Mouse Behavior
 
-- **Mouse scroll wheel** scrolls diff content, firing the `onScroll` callback.
+- **Mouse scroll wheel** scrolls diff content, firing the `onScroll` callback. Scroll works when hovering over the widget, even without focus.
 - **Clicking** the viewer area focuses the widget.
 
 ## Notes
