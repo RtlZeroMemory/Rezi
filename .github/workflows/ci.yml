@@ -53,6 +53,9 @@ jobs:
         if: runner.os != 'Linux'
         run: npm install @biomejs/cli-${{ runner.os == 'macOS' && 'darwin' || 'win32' }}-${{ runner.arch == 'ARM64' && 'arm64' || 'x64' }}
 
+      - name: Drawlist codegen guardrail
+        run: npm run codegen:check
+
       - name: Lint
         run: npm run lint
 
@@ -137,6 +140,9 @@ jobs:
 
       - name: Install
         run: bun install
+
+      - name: Drawlist codegen guardrail
+        run: bun run codegen:check
 
       - name: Lint
         run: bun run lint

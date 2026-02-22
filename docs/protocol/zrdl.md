@@ -2,6 +2,25 @@
 
 Rezi emits rendering commands as a **ZRDL drawlist** -- a self-contained binary buffer built in TypeScript and executed by the Zireael C engine. Each frame, the widget renderer produces exactly one drawlist that contains all the drawing commands, string data, and blob payloads needed to render the UI.
 
+## Command writer source of truth (v3/v4/v5)
+
+For drawlist v3/v4/v5 command encoding, command byte layout is defined in:
+
+- `scripts/drawlist-spec.ts` (source of truth)
+
+Writer functions are generated from that spec into:
+
+- `packages/core/src/drawlist/writers.gen.ts`
+
+Regenerate and validate with:
+
+```bash
+npm run codegen
+npm run codegen:check
+```
+
+Do not hand-edit `writers.gen.ts`; update the spec and regenerate.
+
 ## Header structure
 
 Every ZRDL buffer begins with a **64-byte header**. All fields are little-endian `u32`.

@@ -44,6 +44,19 @@ Note that tests run against compiled output in `dist/`, so you must build first:
 npm run build && node --test packages/core/dist/path/to/test.js
 ```
 
+### Drawlist codegen guardrail
+
+When changing drawlist command layout for v3/v4/v5, regenerate and verify writers:
+
+```bash
+npm run codegen
+npm run codegen:check
+```
+
+`codegen:check` is enforced in CI and fails if
+`packages/core/src/drawlist/writers.gen.ts` is out of sync with
+`scripts/drawlist-spec.ts`.
+
 ### End-to-End Tests
 
 ```bash

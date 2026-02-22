@@ -84,6 +84,21 @@ These boundaries are strict. Violating them breaks the runtime-agnostic guarante
 - `@rezi-ui/node` imports from `@rezi-ui/core` only
 - `@rezi-ui/jsx` imports from `@rezi-ui/core` only
 
+### Drawlist writer codegen guardrail (MUST for ZRDL command changes)
+
+The v3/v4/v5 command writer implementation is code-generated. Never hand-edit
+`packages/core/src/drawlist/writers.gen.ts`.
+
+When changing drawlist command layout/opcodes/field widths/offsets:
+
+1. Update `scripts/drawlist-spec.ts` (single source of truth).
+2. Regenerate writers: `npm run codegen`.
+3. Verify sync guardrail: `npm run codegen:check`.
+4. Update `packages/core/src/drawlist/__tests__/writers.gen.test.ts` if command bytes changed.
+5. Update protocol docs (`docs/protocol/zrdl.md`, `docs/protocol/versioning.md`) in the same PR.
+
+CI enforces this with `codegen:check`; stale generated writers are a hard failure.
+
 ## Testing Protocol
 
 ```bash
@@ -183,3 +198,4 @@ src/
 7. **Skipping tests after pipeline changes.** Any change to commit, reconcile, layout, or renderer files requires running the full test suite. Subtle regressions are common.
 8. **Breaking module boundaries.** Core must remain runtime-agnostic. Never add Node.js-specific imports (`Buffer`, `worker_threads`, `node:*`) to `@rezi-ui/core`.
 9. **Misconfiguring box transitions.** `ui.box` transition defaults to animating `position`, `size`, and `opacity`; use explicit `properties` filters (or `[]` to disable) when behavior should be constrained.
+10. **Editing generated drawlist writers by hand.** Update `scripts/drawlist-spec.ts` and run `npm run codegen` instead.

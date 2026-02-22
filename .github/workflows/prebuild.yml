@@ -56,6 +56,9 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Drawlist codegen guardrail
+        run: npm run codegen:check
+
       - name: Setup Rust (stable)
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -140,6 +143,9 @@ jobs:
 
       - name: Install
         run: npm ci
+
+      - name: Drawlist codegen guardrail
+        run: npm run codegen:check
 
       - name: Download prebuilds
         uses: actions/download-artifact@v4

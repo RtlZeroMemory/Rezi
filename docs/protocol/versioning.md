@@ -36,14 +36,24 @@ The drawlist format is versioned independently from the engine ABI. The version 
 |----------|-------|-------------|
 | `ZR_DRAWLIST_VERSION_V1` | `1` | Base format: CLEAR, FILL_RECT, DRAW_TEXT, PUSH_CLIP, POP_CLIP, DRAW_TEXT_RUN |
 | `ZR_DRAWLIST_VERSION_V2` | `2` | Adds SET_CURSOR (opcode 7) for native cursor control |
+| `ZR_DRAWLIST_VERSION_V3` | `3` | Extends style payloads (underline style/color + hyperlink refs) |
+| `ZR_DRAWLIST_VERSION_V4` | `4` | v3 + DRAW_CANVAS (opcode 8) |
+| `ZR_DRAWLIST_VERSION_V5` | `5` | v4 + DRAW_IMAGE (opcode 9) |
 
-### What v2 adds
+### What v2-v5 add
 
-Version 2 is a strict superset of v1. It adds one command:
+- **v2** is a strict superset of v1 and adds:
 
 - **OP_SET_CURSOR (opcode 7)** -- 20-byte command that sets cursor position, shape, visibility, and blink state. See [Cursor (v2)](cursor-v2.md).
 
-The header layout, string table, blob table, and all v1 commands are identical between v1 and v2. An engine that supports v2 can also process v1 drawlists. An engine that only supports v1 will reject v2 drawlists (unknown version).
+- **v3** extends style payloads for underline style/color and hyperlink references.
+- **v4** adds **OP_DRAW_CANVAS (opcode 8)**.
+- **v5** adds **OP_DRAW_IMAGE (opcode 9)**.
+
+Command writer code for v3-v5 is generated from `scripts/drawlist-spec.ts`; CI runs
+`npm run codegen:check` to guarantee generated writers stay in sync.
+
+The header layout, string table, and blob table remain compatible across versions.
 
 v2 is opt-in via `createApp({ config: { useV2Cursor: true } })`.
 
@@ -51,6 +61,9 @@ v2 is opt-in via `createApp({ config: { useV2Cursor: true } })`.
 import {
   ZR_DRAWLIST_VERSION_V1,
   ZR_DRAWLIST_VERSION_V2,
+  ZR_DRAWLIST_VERSION_V3,
+  ZR_DRAWLIST_VERSION_V4,
+  ZR_DRAWLIST_VERSION_V5,
 } from "@rezi-ui/core";
 ```
 

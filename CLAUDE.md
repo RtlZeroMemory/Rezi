@@ -163,6 +163,19 @@ each(items, (item) => ui.text(item.name), { key: (item) => item.id });
 - Max nesting depth: 500 (warn at 200). Max composite render depth: 100.
 - Prefer `useReducer` pattern (reducer + dispatch) over raw `app.update()`.
 - Import from package exports only (`@rezi-ui/core`, `@rezi-ui/node`), never from internal paths.
+- Drawlist command writers are generated; do not edit `packages/core/src/drawlist/writers.gen.ts` manually.
+
+## Drawlist Codegen Protocol (MUST for ZRDL command changes)
+
+When changing drawlist command layout/opcodes/field offsets for v3/v4/v5:
+
+1. Update `scripts/drawlist-spec.ts` (single source of truth).
+2. Regenerate with `npm run codegen`.
+3. Validate sync with `npm run codegen:check`.
+4. Update byte-level tests in `packages/core/src/drawlist/__tests__/writers.gen.test.ts`.
+5. Update protocol docs (`docs/protocol/zrdl.md`, `docs/protocol/versioning.md`) in the same PR.
+
+CI runs `codegen:check`; stale generated writers fail the build.
 
 ## Patterns
 

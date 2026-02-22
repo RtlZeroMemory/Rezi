@@ -16,6 +16,9 @@
     "fmt": "biome format . --write",
     "lint": "biome check .",
     "typecheck": "tsc -b --pretty false",
+    "codegen": "tsx scripts/generate-drawlist-writers.ts",
+    "codegen:check": "tsx scripts/generate-drawlist-writers.ts --check",
+    "prebuild": "npm run codegen:check",
     "build": "tsc -b",
     "docs:api": "typedoc --options typedoc.json",
     "docs:serve": "bash scripts/docs.sh serve",
@@ -26,7 +29,7 @@
     "check:core-portability": "node scripts/check-core-portability.mjs",
     "check:docs": "npm run docs:build",
     "check:unicode": "node scripts/check-unicode-sync.mjs",
-    "check": "npm run check:create-rezi-templates && npm run check:core-portability && npm run check:docs && npm run check:unicode",
+    "check": "npm run codegen:check && npm run check:create-rezi-templates && npm run check:core-portability && npm run check:docs && npm run check:unicode",
     "test": "node scripts/run-tests.mjs",
     "test:e2e": "node scripts/run-e2e.mjs",
     "test:e2e:reduced": "node scripts/run-e2e.mjs --profile reduced",
@@ -46,6 +49,7 @@
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@types/node": "^22.13.1",
+    "tsx": "^4.20.3",
     "typedoc": "^0.28.16",
     "typescript": "^5.6.3"
   }

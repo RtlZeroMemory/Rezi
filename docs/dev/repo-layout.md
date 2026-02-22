@@ -58,7 +58,7 @@ Key subdirectories:
 - `src/runtime/` -- VNode commit and reconciliation (`commit.ts`, `reconcile.ts`)
 - `src/layout/` -- Flexbox-style layout engine, text measurement
 - `src/renderer/` -- Stack-based DFS renderer, drawlist emission
-- `src/drawlist/` -- ZRDL binary drawlist builder (v1 and v2)
+- `src/drawlist/` -- ZRDL binary drawlist builders (v1/v2/v3) and generated command writers (`writers.gen.ts`)
 - `src/protocol/` -- ZREV event batch parser
 - `src/widgets/` -- Built-in widget definitions
 - `src/theme/` -- Theme tokens, built-in themes
@@ -139,6 +139,8 @@ Build, test, and CI automation scripts.
 | `run-e2e.mjs`                      | End-to-end integration test runner. |
 | `run-bench-ci.mjs`                | Runs benchmarks in CI with stable configuration. |
 | `bench-ci-compare.mjs`            | Compares benchmark results across CI runs. |
+| `drawlist-spec.ts`                | Source-of-truth command layout spec for drawlist writer codegen. |
+| `generate-drawlist-writers.ts`    | Generates `packages/core/src/drawlist/writers.gen.ts` from `drawlist-spec.ts`. |
 | `docs.sh`                          | Documentation build/serve with automatic venv management. |
 | `guardrails.sh`                    | Repository hygiene checks for forbidden patterns (legacy scope/name, unresolved task markers, and synthetic-content markers). |
 | `check-core-portability.mjs`      | Scans `@rezi-ui/core` for prohibited Node.js imports. |

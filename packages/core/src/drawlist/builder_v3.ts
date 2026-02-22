@@ -29,6 +29,26 @@ import type {
   DrawlistImageProtocol,
   DrawlistTextRunSegment,
 } from "./types.js";
+import {
+  CLEAR_SIZE,
+  DRAW_CANVAS_SIZE,
+  DRAW_IMAGE_SIZE,
+  DRAW_TEXT_RUN_SIZE,
+  DRAW_TEXT_SIZE,
+  FILL_RECT_SIZE,
+  POP_CLIP_SIZE,
+  PUSH_CLIP_SIZE,
+  SET_CURSOR_SIZE,
+  writeClear,
+  writeDrawCanvas,
+  writeDrawImage,
+  writeDrawText,
+  writeDrawTextRun,
+  writeFillRect,
+  writePopClip,
+  writePushClip,
+  writeSetCursor,
+} from "./writers.gen.js";
 
 /**
  * Builder configuration options with cap enforcement.
@@ -76,18 +96,6 @@ const DEFAULT_MAX_STRINGS = 10_000;
 const INT32_MIN = -2147483648;
 const INT32_MAX = 2147483647;
 
-/* --- Command Opcodes (ZRDL v1-v5) --- */
-
-const OP_CLEAR = 1;
-const OP_FILL_RECT = 2;
-const OP_DRAW_TEXT = 3;
-const OP_PUSH_CLIP = 4;
-const OP_POP_CLIP = 5;
-const OP_DRAW_TEXT_RUN = 6;
-const OP_SET_CURSOR = 7;
-const OP_DRAW_CANVAS = 8;
-const OP_DRAW_IMAGE = 9;
-
 const BLITTER_CODE: Readonly<Record<DrawlistCanvasBlitter, number>> = Object.freeze({
   auto: 0,
   braille: 2,
@@ -116,7 +124,7 @@ const IMAGE_FIT_CODE: Readonly<Record<DrawlistImageFit, number>> = Object.freeze
   cover: 2,
 });
 
-type EncodedStyle = Readonly<{
+export type EncodedStyle = Readonly<{
   fg: number;
   bg: number;
   attrs: number;
@@ -382,15 +390,19 @@ class DrawlistBuilderV3Impl implements DrawlistBuilderV3 {
       return;
     }
 
-    // Command size: 8 (header) + 12 (payload) = 20 bytes (4-byte aligned)
-    this.writeCommandHeader(OP_SET_CURSOR, 20);
-    this.writeI32(xi);
-    this.writeI32(yi);
-    this.writeU8(shape);
-    this.writeU8(state.visible ? 1 : 0);
-    this.writeU8(state.blink ? 1 : 0);
-    this.writeU8(0); // reserved0
-    this.padCmdTo4();
+    if (!this.beginCommandWrite("setCursor", SET_CURSOR_SIZE)) return;
+    this.cmdLen = writeSetCursor(
+      this.cmdBuf,
+      this.cmdDv,
+      this.cmdLen,
+      xi,
+      yi,
+      shape,
+      state.visible ? 1 : 0,
+      state.blink ? 1 : 0,
+      0,
+    );
+    this.cmdCount += 1;
 
     this.maybeFailTooLargeAfterWrite();
   }
@@ -531,20 +543,24 @@ class DrawlistBuilderV3Impl implements DrawlistBuilderV3 {
       return;
     }
 
-    // Command size: 8 (header) + 24 (payload) = 32
-    this.writeCommandHeader(OP_DRAW_CANVAS, 32);
-    this.writeU16(xi);
-    this.writeU16(yi);
-    this.writeU16(wi);
-    this.writeU16(hi);
-    this.writeU16(resolvedPxW);
-    this.writeU16(resolvedPxH);
-    this.writeU32(blobOff);
-    this.writeU32(blobLen);
-    this.writeU8(blitterCode);
-    this.writeU8(0);
-    this.writeU16(0);
-    this.padCmdTo4();
+    if (!this.beginCommandWrite("drawCanvas", DRAW_CANVAS_SIZE)) return;
+    this.cmdLen = writeDrawCanvas(
+      this.cmdBuf,
+      this.cmdDv,
+      this.cmdLen,
+      xi,
+      yi,
+      wi,
+      hi,
+      resolvedPxW,
+      resolvedPxH,
+      blobOff,
+      blobLen,
+      blitterCode,
+      0,
+      0,
+    );
+    this.cmdCount += 1;
 
     this.maybeFailTooLargeAfterWrite();
   }
@@ -696,25 +712,29 @@ class DrawlistBuilderV3Impl implements DrawlistBuilderV3 {
       return;
     }
 
-    // Command size: 8 (header) + 32 (payload) = 40
-    this.writeCommandHeader(OP_DRAW_IMAGE, 40);
-    this.writeU16(xi);
-    this.writeU16(yi);
-    this.writeU16(wi);
-    this.writeU16(hi);
-    this.writeU16(resolvedPxW);
-    this.writeU16(resolvedPxH);
-    this.writeU32(blobOff);
-    this.writeU32(blobLen);
-    this.writeU32(imageIdU32);
-    this.writeU8(formatCode);
-    this.writeU8(protocolCode);
-    this.writeI8(zLayerRaw);
-    this.writeU8(fitCode);
-    this.writeU8(0);
-    this.writeU8(0);
-    this.writeU16(0);
-    this.padCmdTo4();
+    if (!this.beginCommandWrite("drawImage", DRAW_IMAGE_SIZE)) return;
+    this.cmdLen = writeDrawImage(
+      this.cmdBuf,
+      this.cmdDv,
+      this.cmdLen,
+      xi,
+      yi,
+      wi,
+      hi,
+      resolvedPxW,
+      resolvedPxH,
+      blobOff,
+      blobLen,
+      imageIdU32,
+      formatCode,
+      protocolCode,
+      zLayerRaw,
+      fitCode,
+      0,
+      0,
+      0,
+    );
+    this.cmdCount += 1;
 
     this.maybeFailTooLargeAfterWrite();
   }
@@ -725,7 +745,9 @@ class DrawlistBuilderV3Impl implements DrawlistBuilderV3 {
 
   clear(): void {
     if (this.error) return;
-    this.writeCommandHeader(OP_CLEAR, 8);
+    if (!this.beginCommandWrite("clear", CLEAR_SIZE)) return;
+    this.cmdLen = writeClear(this.cmdBuf, this.cmdDv, this.cmdLen);
+    this.cmdCount += 1;
     this.maybeFailTooLargeAfterWrite();
   }
 
@@ -756,13 +778,9 @@ class DrawlistBuilderV3Impl implements DrawlistBuilderV3 {
 
     const s = encodeStyle(style, null);
 
-    this.writeCommandHeader(OP_FILL_RECT, 8 + 44);
-    this.writeI32(xi);
-    this.writeI32(yi);
-    this.writeI32(w0);
-    this.writeI32(h0);
-    this.writeStyle(s);
-    this.padCmdTo4();
+    if (!this.beginCommandWrite("fillRect", FILL_RECT_SIZE)) return;
+    this.cmdLen = writeFillRect(this.cmdBuf, this.cmdDv, this.cmdLen, xi, yi, w0, h0, s);
+    this.cmdCount += 1;
 
     this.maybeFailTooLargeAfterWrite();
   }
@@ -792,15 +810,20 @@ class DrawlistBuilderV3Impl implements DrawlistBuilderV3 {
 
     const s = encodeStyle(style, this.currentLinkRefs());
 
-    this.writeCommandHeader(OP_DRAW_TEXT, 8 + 52);
-    this.writeI32(xi);
-    this.writeI32(yi);
-    this.writeU32(stringIndex);
-    this.writeU32(0);
-    this.writeU32(byteLen);
-    this.writeStyle(s);
-    this.writeU32(0);
-    this.padCmdTo4();
+    if (!this.beginCommandWrite("drawText", DRAW_TEXT_SIZE)) return;
+    this.cmdLen = writeDrawText(
+      this.cmdBuf,
+      this.cmdDv,
+      this.cmdLen,
+      xi,
+      yi,
+      stringIndex,
+      0,
+      byteLen,
+      s,
+      0,
+    );
+    this.cmdCount += 1;
 
     this.maybeFailTooLargeAfterWrite();
   }
@@ -817,19 +840,18 @@ class DrawlistBuilderV3Impl implements DrawlistBuilderV3 {
     const w0 = wi < 0 ? 0 : wi;
     const h0 = hi < 0 ? 0 : hi;
 
-    this.writeCommandHeader(OP_PUSH_CLIP, 8 + 16);
-    this.writeI32(xi);
-    this.writeI32(yi);
-    this.writeI32(w0);
-    this.writeI32(h0);
-    this.padCmdTo4();
+    if (!this.beginCommandWrite("pushClip", PUSH_CLIP_SIZE)) return;
+    this.cmdLen = writePushClip(this.cmdBuf, this.cmdDv, this.cmdLen, xi, yi, w0, h0);
+    this.cmdCount += 1;
 
     this.maybeFailTooLargeAfterWrite();
   }
 
   popClip(): void {
     if (this.error) return;
-    this.writeCommandHeader(OP_POP_CLIP, 8);
+    if (!this.beginCommandWrite("popClip", POP_CLIP_SIZE)) return;
+    this.cmdLen = writePopClip(this.cmdBuf, this.cmdDv, this.cmdLen);
+    this.cmdCount += 1;
     this.maybeFailTooLargeAfterWrite();
   }
 
@@ -967,12 +989,9 @@ class DrawlistBuilderV3Impl implements DrawlistBuilderV3 {
       return;
     }
 
-    this.writeCommandHeader(OP_DRAW_TEXT_RUN, 8 + 16);
-    this.writeI32(xi);
-    this.writeI32(yi);
-    this.writeU32(bi);
-    this.writeU32(0);
-    this.padCmdTo4();
+    if (!this.beginCommandWrite("drawTextRun", DRAW_TEXT_RUN_SIZE)) return;
+    this.cmdLen = writeDrawTextRun(this.cmdBuf, this.cmdDv, this.cmdLen, xi, yi, bi, 0);
+    this.cmdCount += 1;
 
     this.maybeFailTooLargeAfterWrite();
   }
@@ -1392,120 +1411,39 @@ class DrawlistBuilderV3Impl implements DrawlistBuilderV3 {
     this.blobBytesBuf = next;
   }
 
-  private writeCommandHeader(opcode: number, size: number): void {
-    if (this.error) return;
+  private beginCommandWrite(method: string, size: number): boolean {
+    if (this.error) return false;
 
     if (this.cmdCount + 1 > this.maxCmdCount) {
       this.fail(
         "ZRDL_TOO_LARGE",
         `maxCmdCount exceeded (count=${this.cmdCount + 1}, max=${this.maxCmdCount})`,
       );
-      return;
-    }
-
-    const expected = this.expectedCmdSize(opcode);
-    if (expected !== size) {
-      this.fail(
-        "ZRDL_FORMAT",
-        `writeCommandHeader: size mismatch for opcode ${opcode} (expected=${expected}, got=${size})`,
-      );
-      return;
+      return false;
     }
 
     if ((this.cmdLen & 3) !== 0) {
       this.fail("ZRDL_INTERNAL", "writeCommandHeader: cmd cursor is not 4-byte aligned");
-      return;
+      return false;
     }
 
-    const alignedSize = align4(size);
-    const start = this.cmdLen;
-    const end = start + alignedSize;
-    this.ensureCmdCapacity(end);
-    if (this.error) return;
+    const required = this.cmdLen + size;
+    this.ensureCmdCapacity(required);
+    if (this.error) return false;
 
-    this.cmdDv.setUint16(start + 0, opcode & 0xffff, true);
-    this.cmdDv.setUint16(start + 2, 0, true);
-    this.cmdDv.setUint32(start + 4, size >>> 0, true);
-
-    if (alignedSize !== size) {
-      this.cmdBuf.fill(0x00, start + size, end);
+    if (required > this.cmdBuf.byteLength) {
+      this.failCapacity(method, size);
+      return false;
     }
-
-    this.cmdLen = start + 8;
-    this.cmdCount += 1;
+    return true;
   }
 
-  private expectedCmdSize(opcode: number): number {
-    const styleBytes = 28;
-    switch (opcode) {
-      case OP_CLEAR:
-        return 8;
-      case OP_FILL_RECT:
-        return 8 + 16 + styleBytes;
-      case OP_DRAW_TEXT:
-        return 8 + 20 + styleBytes + 4;
-      case OP_PUSH_CLIP:
-        return 8 + 16;
-      case OP_POP_CLIP:
-        return 8;
-      case OP_DRAW_TEXT_RUN:
-        return 8 + 16;
-      case OP_SET_CURSOR:
-        return 8 + 12;
-      case OP_DRAW_CANVAS:
-        return this.drawlistVersion >= ZR_DRAWLIST_VERSION_V4 ? 8 + 24 : -1;
-      case OP_DRAW_IMAGE:
-        return this.drawlistVersion >= ZR_DRAWLIST_VERSION_V5 ? 8 + 32 : -1;
-      default:
-        return -1;
-    }
-  }
-
-  private writeI32(v: number): void {
-    const off = this.cmdLen;
-    this.cmdDv.setInt32(off, v | 0, true);
-    this.cmdLen = off + 4;
-  }
-
-  private writeU32(v: number): void {
-    const off = this.cmdLen;
-    this.cmdDv.setUint32(off, v >>> 0, true);
-    this.cmdLen = off + 4;
-  }
-
-  private writeU8(v: number): void {
-    const off = this.cmdLen;
-    this.cmdBuf[off] = v & 0xff;
-    this.cmdLen = off + 1;
-  }
-
-  private writeI8(v: number): void {
-    const off = this.cmdLen;
-    this.cmdDv.setInt8(off, v | 0);
-    this.cmdLen = off + 1;
-  }
-
-  private writeU16(v: number): void {
-    const off = this.cmdLen;
-    this.cmdDv.setUint16(off, v & 0xffff, true);
-    this.cmdLen = off + 2;
-  }
-
-  private writeStyle(s: EncodedStyle): void {
-    this.writeU32(s.fg);
-    this.writeU32(s.bg);
-    this.writeU32(s.attrs);
-    this.writeU32(s.reserved);
-    this.writeU32(s.underlineRgb);
-    this.writeU32(s.linkUriRef);
-    this.writeU32(s.linkIdRef);
-  }
-
-  private padCmdTo4(): void {
-    const aligned = align4(this.cmdLen);
-    if (aligned === this.cmdLen) return;
-    this.cmdBuf.fill(0x00, this.cmdLen, aligned);
-    this.cmdLen = aligned;
+  private failCapacity(method: string, size: number): void {
+    const required = this.cmdLen + size;
+    this.fail(
+      "ZRDL_TOO_LARGE",
+      `${method}: command stream exceeds maxDrawlistBytes (required=${required}, max=${this.maxDrawlistBytes})`,
+    );
   }
 
   private maybeFailTooLargeAfterWrite(): void {
