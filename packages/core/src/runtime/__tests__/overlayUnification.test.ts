@@ -189,7 +189,7 @@ describe("overlay unification", () => {
     );
   });
 
-  test("warns when dropdown anchor id is missing", () => {
+  test("warns once when dropdown anchor id is missing", () => {
     const warnings = captureConsoleWarn((messages) => {
       const renderer = new WidgetRenderer<void>({
         backend: createNoopBackend(),
@@ -207,14 +207,25 @@ describe("overlay unification", () => {
         ]),
       );
 
+      submit(
+        renderer,
+        ui.layers([
+          ui.dropdown({
+            id: "menu",
+            anchorId: "missing-anchor",
+            items: [{ id: "a", label: "Alpha" }],
+          }),
+        ]),
+      );
+
       return messages;
     });
 
     assert.equal(
-      warnings.some((msg) =>
+      warnings.filter((msg) =>
         msg.includes('[rezi][overlay] dropdown "menu" anchor not found: "missing-anchor"'),
-      ),
-      true,
+      ).length,
+      1,
     );
   });
 

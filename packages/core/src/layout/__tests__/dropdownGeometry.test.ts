@@ -1,7 +1,7 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import type { DropdownProps } from "../../widgets/types.js";
 import { computeDropdownGeometry } from "../dropdownGeometry.js";
 import type { Rect } from "../types.js";
-import type { DropdownProps } from "../../widgets/types.js";
 
 function dropdownProps(items: DropdownProps["items"]): DropdownProps {
   return {
