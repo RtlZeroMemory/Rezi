@@ -174,7 +174,6 @@ export const WIDGET_PROTOCOL: Readonly<Partial<Record<string, WidgetProtocol>>> 
   focusTrap: CONTAINER,
   breadcrumb: CONTAINER,
   resizablePanel: CONTAINER,
-  textarea: CONTAINER,
 });
 
 /** Get the protocol for a widget kind. Returns DISPLAY_ONLY for unknown kinds. */
