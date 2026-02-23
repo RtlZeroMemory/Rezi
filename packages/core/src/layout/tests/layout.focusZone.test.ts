@@ -1,7 +1,7 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type { VNode } from "../../index.js";
-import { layout, measure } from "../layout.js";
 import { ui } from "../../widgets/ui.js";
+import { layout, measure } from "../layout.js";
 
 function mustLayout(vnode: VNode, maxW: number, maxH: number) {
   const res = layout(vnode, 0, 0, maxW, maxH, "column");
@@ -13,15 +13,9 @@ function mustLayout(vnode: VNode, maxW: number, maxH: number) {
 
 describe("focusZone/focusTrap layout transparency", () => {
   test("focusZone with a single row child keeps horizontal child layout", () => {
-    const vnode = ui.focusZone(
-      { id: "zone-row" },
-      [
-        ui.row({ gap: 1 }, [
-          ui.button({ id: "a", label: "A" }),
-          ui.button({ id: "b", label: "B" }),
-        ]),
-      ],
-    );
+    const vnode = ui.focusZone({ id: "zone-row" }, [
+      ui.row({ gap: 1 }, [ui.button({ id: "a", label: "A" }), ui.button({ id: "b", label: "B" })]),
+    ]);
 
     const laidOut = mustLayout(vnode, 30, 5);
     const row = laidOut.children[0];
@@ -38,15 +32,12 @@ describe("focusZone/focusTrap layout transparency", () => {
   });
 
   test("focusZone with a single column child keeps vertical child layout", () => {
-    const vnode = ui.focusZone(
-      { id: "zone-col" },
-      [
-        ui.column({ gap: 0 }, [
-          ui.button({ id: "a2", label: "A2" }),
-          ui.button({ id: "b2", label: "B2" }),
-        ]),
-      ],
-    );
+    const vnode = ui.focusZone({ id: "zone-col" }, [
+      ui.column({ gap: 0 }, [
+        ui.button({ id: "a2", label: "A2" }),
+        ui.button({ id: "b2", label: "B2" }),
+      ]),
+    ]);
 
     const laidOut = mustLayout(vnode, 30, 8);
     const column = laidOut.children[0];
@@ -71,13 +62,10 @@ describe("focusZone/focusTrap layout transparency", () => {
   });
 
   test("focusZone with multiple direct children keeps legacy column fallback", () => {
-    const vnode = ui.focusZone(
-      { id: "zone-legacy" },
-      [
-        ui.button({ id: "legacy-a", label: "A" }),
-        ui.button({ id: "legacy-b", label: "B" }),
-      ],
-    );
+    const vnode = ui.focusZone({ id: "zone-legacy" }, [
+      ui.button({ id: "legacy-a", label: "A" }),
+      ui.button({ id: "legacy-b", label: "B" }),
+    ]);
 
     const laidOut = mustLayout(vnode, 20, 8);
     const first = laidOut.children[0];
@@ -89,15 +77,12 @@ describe("focusZone/focusTrap layout transparency", () => {
   });
 
   test("focusTrap with a single child is layout-transparent", () => {
-    const vnode = ui.focusTrap(
-      { id: "trap-row", active: true },
-      [
-        ui.row({ gap: 1 }, [
-          ui.button({ id: "trap-a", label: "A" }),
-          ui.button({ id: "trap-b", label: "B" }),
-        ]),
-      ],
-    );
+    const vnode = ui.focusTrap({ id: "trap-row", active: true }, [
+      ui.row({ gap: 1 }, [
+        ui.button({ id: "trap-a", label: "A" }),
+        ui.button({ id: "trap-b", label: "B" }),
+      ]),
+    ]);
 
     const laidOut = mustLayout(vnode, 30, 6);
     const row = laidOut.children[0];

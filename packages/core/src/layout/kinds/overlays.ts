@@ -206,7 +206,11 @@ export function layoutOverlays(
         // Truly transparent: forward to single child.
         const child = vnode.children[0];
         if (!child) {
-          return ok({ vnode, rect: { x, y, w: rectW, h: rectH }, children: Object.freeze(children) });
+          return ok({
+            vnode,
+            rect: { x, y, w: rectW, h: rectH },
+            children: Object.freeze(children),
+          });
         }
         const childRes = layoutNode(child, x, y, rectW, rectH, axis, rectW, rectH);
         if (!childRes.ok) return childRes;
