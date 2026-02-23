@@ -8,6 +8,8 @@ import {
 } from "../../runtime/instances.js";
 import { useSequence, useSpring, useStagger, useTransition } from "../composition.js";
 
+// Intentional hook-level harness: these tests validate hook lifecycle semantics directly
+// via createCompositeInstanceRegistry/createHookContext/runPendingEffects.
 type HookProgram<T> = (hooks: HookContext) => T;
 
 function createHarness(instanceId = 1): {

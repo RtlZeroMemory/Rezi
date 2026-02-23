@@ -9,6 +9,7 @@ import type { CommandItem, CommandSource } from "../../widgets/types.js";
 import { WidgetRenderer } from "../widgetRenderer.js";
 import { flushMicrotasks } from "./helpers.js";
 
+// Intentional WidgetRenderer-level harness: shortcut routing is an engine-level contract.
 function noRenderHooks(): { enterRender: () => void; exitRender: () => void } {
   return { enterRender: () => {}, exitRender: () => {} };
 }
