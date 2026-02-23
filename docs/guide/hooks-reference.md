@@ -301,6 +301,7 @@ useTransition(
 - Returns the current interpolated value.
 - Retargeting while in motion starts from the current interpolated value (no jump back).
 - Default duration is `160ms`.
+- Supports `onComplete` for end-of-run callbacks.
 - Non-positive durations snap on the next effect pass.
 - Non-finite targets are handled safely by snapping.
 
@@ -312,6 +313,15 @@ import { defineWidget, ui, useTransition } from "@rezi-ui/core";
 const Meter = defineWidget<{ target: number; key?: string }>((props, ctx) => {
   const value = useTransition(ctx, props.target, { duration: 180, easing: "easeOutCubic" });
   return ui.text(`Value: ${value.toFixed(1)}`);
+});
+```
+
+```typescript
+// useTransition with completion callback
+const value = useTransition(ctx, target, {
+  duration: 300,
+  easing: "easeOutExpo",
+  onComplete: () => console.log("transition done"),
 });
 ```
 
@@ -338,6 +348,7 @@ useSpring(
 - Returns the spring-simulated value for the current render.
 - Handles retargeting mid-flight without resetting.
 - Defaults: `stiffness=170`, `damping=26`, `mass=1`, `restDelta=0.001`, `restSpeed=0.001`, `maxDeltaMs=32`.
+- Supports `onComplete` for end-of-run callbacks.
 - Non-finite values snap safely.
 
 **Example:**
@@ -348,6 +359,15 @@ import { defineWidget, ui, useSpring } from "@rezi-ui/core";
 const SpringGauge = defineWidget<{ target: number; key?: string }>((props, ctx) => {
   const animated = useSpring(ctx, props.target, { stiffness: 190, damping: 22 });
   return ui.text(`Spring: ${animated.toFixed(2)}`);
+});
+```
+
+```typescript
+// useSpring with completion callback
+const pos = useSpring(ctx, target, {
+  stiffness: 170,
+  damping: 26,
+  onComplete: () => dispatch({ type: "animation-done" }),
 });
 ```
 
@@ -385,6 +405,7 @@ useSequence(
 - Accepts numeric keyframes or `{ value, duration?, easing? }` keyframes.
 - `config.duration`/`config.easing` act as defaults for segments.
 - `config.loop` repeats the timeline.
+- Supports `onComplete` for non-looping runs.
 - Empty keyframes return `0`.
 - Default segment duration is `160ms` when not overridden.
 
@@ -422,6 +443,7 @@ useStagger<T>(
 - Returns one progress value per item.
 - Useful for staggered opacity/position/scale-style numeric effects.
 - Defaults: `delay=40ms`, `duration=180ms`.
+- Supports `onComplete` after the final item finishes.
 - Empty item lists return an empty frozen array.
 
 **Example:**
@@ -443,6 +465,13 @@ const Rail = defineWidget<{ labels: readonly string[]; key?: string }>((props, c
   );
 });
 ```
+
+### Animation completion semantics
+
+- `onComplete` does **not** fire when an animation is retargeted mid-flight.
+  Retargeting starts a new run with a new completion boundary.
+- `onComplete` does **not** fire for looping sequences (`loop: true`), because
+  there is no terminal completion point.
 
 ---
 

@@ -8,7 +8,7 @@ export function buildHomeContent(state: CliState): VNode {
   const styles = stylesForTheme(state.themeName);
   const latest = state.logs[state.logs.length - 1];
 
-  return ui.box({ border: "rounded", px: 1, py: 0, style: styles.panelStyle }, [
+  return ui.panel({ title: "Overview", style: styles.panelStyle }, [
     ui.column({ gap: 1 }, [
       ui.text("Route-aware Home screen", { variant: "heading" }),
       ui.text(`Operator: ${state.operatorName}`),
@@ -39,11 +39,17 @@ export function renderHomeScreen(
     onToggleHelp: deps.onToggleHelp,
     body: ui.column({ gap: 1 }, [
       buildHomeContent(context.state),
-      ui.row({ gap: 1, wrap: true }, [
-        ui.button({ id: "home-open-logs", label: "Open Logs", onPress: () => deps.onNavigate("logs") }),
+      ui.actions([
+        ui.button({
+          id: "home-open-logs",
+          label: "Open Logs",
+          intent: "primary",
+          onPress: () => deps.onNavigate("logs"),
+        }),
         ui.button({
           id: "home-open-settings",
           label: "Open Settings",
+          intent: "secondary",
           onPress: () => deps.onNavigate("settings"),
         }),
       ]),

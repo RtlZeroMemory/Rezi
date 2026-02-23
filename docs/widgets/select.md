@@ -30,12 +30,15 @@ ui.select({
 | `disabled` | `boolean` | `false` | Disable focus and interaction |
 | `placeholder` | `string` | - | Text shown when no matching option label is found |
 | `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused select decoration |
+| `dsVariant` | `"solid" \| "soft" \| "outline" \| "ghost"` | `"soft"` | Design-system variant |
+| `dsTone` | `"default" \| "primary" \| "danger" \| "success" \| "warning"` | `"default"` | Design-system tone |
 | `dsSize` | `"sm" \| "md" \| "lg"` | `"md"` | Design system size preset (controls padding) |
 | `key` | `string` | - | Reconciliation key |
 
 ## Design System Styling
 
-Selects are design-system styled by default when the active theme provides semantic color tokens. Use `dsSize` to adjust padding.
+Selects are design-system styled by default when a `ThemeDefinition` preset is active.
+Use `dsVariant`, `dsTone`, and `dsSize` when you need explicit DS customization.
 
 If the active theme does not provide semantic color tokens, selects fall back to non-recipe rendering.
 

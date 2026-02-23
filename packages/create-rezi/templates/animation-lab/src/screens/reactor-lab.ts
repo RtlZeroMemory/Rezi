@@ -402,7 +402,10 @@ type CommandDeckProps = Readonly<{
 const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
   const drift = useTransition(ctx, props.driftTarget, {
     duration: 460,
-    easing: "easeInOutCubic",
+    easing: "easeOutExpo",
+    onComplete: () => {
+      // Template example: use onComplete to chain state updates if needed.
+    },
   });
   const orbit = useTransition(ctx, props.orbitTarget, {
     duration: 520,
@@ -428,7 +431,7 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
   const stagger = useStagger(ctx, props.modules, {
     delay: 85,
     duration: 340,
-    easing: "easeOutCubic",
+    easing: "easeOutBounce",
   });
 
   const palette = paletteForPhase(props.phase);

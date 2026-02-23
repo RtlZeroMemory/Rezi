@@ -26,24 +26,27 @@ export function renderLogsScreen(
     onNavigate: deps.onNavigate,
     onToggleHelp: deps.onToggleHelp,
     body: ui.column({ gap: 1 }, [
-      ui.row({ gap: 1, wrap: true }, [
+      ui.actions([
         ui.button({
           id: "logs-toggle-refresh",
           label: state.autoRefresh ? "Pause stream" : "Resume stream",
+          intent: state.autoRefresh ? "warning" : "primary",
           onPress: () => deps.dispatch({ type: "toggle-refresh" }),
         }),
         ui.button({
           id: "logs-toggle-debug",
           label: state.includeDebug ? "Hide debug" : "Show debug",
+          intent: "secondary",
           onPress: () => deps.dispatch({ type: "toggle-debug" }),
         }),
         ui.button({
           id: "logs-clear",
           label: "Clear logs",
+          intent: "danger",
           onPress: () => deps.dispatch({ type: "clear-logs" }),
         }),
       ]),
-      ui.box({ border: "rounded", px: 1, py: 0, style: styles.panelStyle }, [
+      ui.panel({ title: "Live Console", style: styles.panelStyle }, [
         ui.logsConsole({
           id: "logs-console",
           entries: state.logs,
@@ -58,9 +61,8 @@ export function renderLogsScreen(
           onClear: () => deps.dispatch({ type: "clear-logs" }),
         }),
       ]),
-      ui.box({ border: "rounded", px: 1, py: 0, style: styles.panelStyle }, [
+      ui.panel({ title: "Recent entries", style: styles.panelStyle }, [
         ui.column({ gap: 1 }, [
-          ui.text("Recent entries", { variant: "heading" }),
           ...recent.map((entry) =>
             ui.row({ key: entry.id, gap: 1, wrap: true }, [
               ui.badge(entry.level.toUpperCase(), { variant: levelBadgeVariant(entry.level) }),

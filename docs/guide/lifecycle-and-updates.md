@@ -175,6 +175,32 @@ const unsubscribe = app.onEvent((ev) => {
 // later: unsubscribe()
 ```
 
+### Extended action model
+
+`UiEvent` action payloads include more than `"press"` and `"input"`.
+Current routed action types include:
+
+- `"press"`
+- `"input"`
+- `"select"`
+- `"rowPress"`
+- `"toggle"`
+- `"change"`
+- `"activate"`
+- `"scroll"`
+
+Widget-local callbacks (`onSelect`, `onChange`, `onRowPress`, etc.) still fire as before.
+In addition, these actions also flow through `app.onEvent(...)`, which enables
+cross-cutting middleware, logging, analytics, and undo stacks.
+
+```typescript
+app.on("event", (ev) => {
+  if (ev.kind === "action" && ev.action === "toggle") {
+    console.log(`Checkbox ${ev.id} toggled to ${ev.checked}`);
+  }
+});
+```
+
 ## Frame coalescing
 
 Rezi coalesces work:

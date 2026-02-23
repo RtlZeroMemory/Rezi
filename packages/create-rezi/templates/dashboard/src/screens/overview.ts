@@ -23,7 +23,7 @@ type DashboardScreenHandlers = Readonly<{
 }>;
 
 function panel(title: string, body: readonly VNode[], style: Readonly<Record<string, unknown>>): VNode {
-  return ui.box({ title, border: "rounded", px: 1, py: 0, style }, body);
+  return ui.panel({ title, style }, body);
 }
 
 export function renderOverviewScreen(state: DashboardState, handlers: DashboardScreenHandlers): VNode {
@@ -60,85 +60,109 @@ export function renderOverviewScreen(state: DashboardState, handlers: DashboardS
   const uptimeSec = Math.max(1, Math.floor((Date.now() - state.startedAtMs) / 1000));
   const updateRate = (state.tick / uptimeSec).toFixed(2);
 
-  const content = ui.column({ p: 1, gap: 1, items: "stretch", style: styles.rootStyle }, [
-    ui.box({ border: "rounded", px: 1, py: 0, style: styles.stripStyle }, [
-      ui.column({ gap: 1 }, [
-        ui.row({ gap: 1, items: "center", wrap: true }, [
-          ui.text(PRODUCT_NAME, { variant: "heading" }),
-          ui.badge(TEMPLATE_LABEL, { variant: "info" }),
-          ui.badge(`Fleet ${health.label}`, { variant: health.variant }),
-          ui.status(state.paused ? "away" : "online", {
-            label: state.paused ? "Paused" : "Streaming",
-          }),
-          ui.spacer({ flex: 1 }),
-          ui.tag(`Theme ${theme.label}`, { variant: theme.badge }),
-        ]),
-        ui.text(PRODUCT_TAGLINE, { style: styles.mutedStyle }),
+  const content = ui.page({
+    p: 1,
+    gap: 1,
+    header: ui.header({
+      title: PRODUCT_NAME,
+      subtitle: PRODUCT_TAGLINE,
+      actions: [
+        ui.badge(TEMPLATE_LABEL, { variant: "info" }),
+        ui.badge(`Fleet ${health.label}`, { variant: health.variant }),
+        ui.status(state.paused ? "away" : "online", {
+          label: state.paused ? "Paused" : "Streaming",
+        }),
+        ui.tag(`Theme ${theme.label}`, { variant: theme.badge }),
+      ],
+    }),
+    body: ui.column({ gap: 1 }, [
+      ui.actions([
+        ui.button({
+          id: "filter",
+          label: `Filter: ${filterLabel(state.filter)}`,
+          intent: "secondary",
+          onPress: handlers.onCycleFilter,
+        }),
+        ui.button({
+          id: "theme",
+          label: "Cycle Theme",
+          intent: "secondary",
+          onPress: handlers.onCycleTheme,
+        }),
+        ui.button({
+          id: "pause",
+          label: state.paused ? "Resume Stream" : "Pause Stream",
+          intent: state.paused ? "primary" : "warning",
+          onPress: handlers.onTogglePause,
+        }),
+        ui.button({
+          id: "help",
+          label: "Help",
+          intent: "link",
+          onPress: handlers.onToggleHelp,
+        }),
+      ]),
+      ui.row({ gap: 1, wrap: true, items: "stretch" }, [
+        panel(
+          "Service Fleet",
+          [
+            ui.row({ gap: 1, wrap: true }, [
+              ui.badge(`Healthy ${String(counts.healthy)}`, { variant: "success" }),
+              ui.badge(`Warning ${String(counts.warning)}`, { variant: "warning" }),
+              ui.badge(`Down ${String(counts.down)}`, { variant: "error" }),
+            ]),
+            ui.box({ height: 10, overflow: "scroll", border: "none" }, [...serviceRows]),
+            ui.table({
+              id: "fleet-table",
+              columns: [
+                { key: "name", header: "Service", flex: 1 },
+                { key: "status", header: "Status", width: 8 },
+                { key: "latencyMs", header: "Latency", width: 9, align: "right" },
+              ],
+              data: visible,
+              getRowKey: (service) => service.id,
+              selection: selected ? [selected.id] : [],
+              selectionMode: "single",
+              onSelectionChange: (keys) => {
+                const key = keys[0];
+                if (typeof key === "string") handlers.onSelectService(key);
+              },
+              onRowPress: (row) => handlers.onSelectService(row.id),
+              dsSize: "sm",
+              dsTone: "default",
+            }),
+          ],
+          styles.panelStyle,
+        ),
+        panel(
+          "Inspector",
+          selected
+            ? [
+                ui.column({ gap: 1 }, [
+                  ui.row({ gap: 1, wrap: true }, [
+                    ui.badge(selected.name, { variant: statusBadge(selected.status).variant }),
+                    ui.tag(selected.owner, { variant: "default" }),
+                    ui.tag(selected.region, { variant: "info" }),
+                  ]),
+                  ui.text(`Latency: ${formatLatency(selected.latencyMs)}`),
+                  ui.text(`Error Rate: ${formatErrorRate(selected.errorRate)}`),
+                  ui.text(`Traffic: ${formatTraffic(selected.trafficRpm)}`),
+                  ui.text(`Update rate: ${updateRate} Hz`, { style: styles.mutedStyle }),
+                  ui.sparkline(selected.history, { width: 18, min: 0, max: 220 }),
+                ]),
+              ]
+            : [ui.text("No service selected.", { style: styles.mutedStyle })],
+          styles.panelStyle,
+        ),
       ]),
     ]),
-
-    ui.row({ gap: 1, wrap: true }, [
-      ui.button({
-        id: "filter",
-        label: `Filter: ${filterLabel(state.filter)}`,
-        onPress: handlers.onCycleFilter,
-      }),
-      ui.button({
-        id: "theme",
-        label: "Cycle Theme",
-        onPress: handlers.onCycleTheme,
-      }),
-      ui.button({
-        id: "pause",
-        label: state.paused ? "Resume Stream" : "Pause Stream",
-        onPress: handlers.onTogglePause,
-      }),
-      ui.button({
-        id: "help",
-        label: "Help",
-        onPress: handlers.onToggleHelp,
-      }),
-    ]),
-
-    ui.row({ gap: 1, wrap: true, items: "stretch" }, [
-      panel(
-        "Service Fleet",
-        [
-          ui.row({ gap: 1, wrap: true }, [
-            ui.badge(`Healthy ${String(counts.healthy)}`, { variant: "success" }),
-            ui.badge(`Warning ${String(counts.warning)}`, { variant: "warning" }),
-            ui.badge(`Down ${String(counts.down)}`, { variant: "error" }),
-          ]),
-          ...serviceRows,
-        ],
-        styles.panelStyle,
-      ),
-      panel(
-        "Inspector",
-        selected
-          ? [
-              ui.column({ gap: 1 }, [
-                ui.row({ gap: 1, wrap: true }, [
-                  ui.badge(selected.name, { variant: statusBadge(selected.status).variant }),
-                  ui.tag(selected.owner, { variant: "default" }),
-                  ui.tag(selected.region, { variant: "info" }),
-                ]),
-                ui.text(`Latency: ${formatLatency(selected.latencyMs)}`),
-                ui.text(`Error Rate: ${formatErrorRate(selected.errorRate)}`),
-                ui.text(`Traffic: ${formatTraffic(selected.trafficRpm)}`),
-                ui.text(`Update rate: ${updateRate} Hz`, { style: styles.mutedStyle }),
-                ui.sparkline(selected.history, { width: 18, min: 0, max: 220 }),
-              ]),
-            ]
-          : [ui.text("No service selected.", { style: styles.mutedStyle })],
-        styles.panelStyle,
-      ),
-    ]),
-
-    ui.text("Keys: q quit · j/k or arrows move · f filter · t theme · p pause · h/? help", {
-      style: styles.mutedStyle,
+    footer: ui.statusBar({
+      left: [ui.text("Keys: q quit · j/k or arrows move · f filter · t theme · p pause · h/? help", {
+        style: styles.mutedStyle,
+      })],
+      right: [ui.text(`Tick ${String(state.tick)}`, { style: styles.mutedStyle })],
     }),
-  ]);
+  });
 
   if (!state.showHelp) return content;
 

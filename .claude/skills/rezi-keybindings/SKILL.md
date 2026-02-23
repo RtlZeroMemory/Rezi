@@ -48,6 +48,15 @@ Use this skill when:
    ui.keybindingHelp(app.getBindings())
    ```
 
+## Overlay shortcut enforcement
+
+Dropdown and CommandPalette item shortcuts are enforced automatically while the
+overlay is open.
+
+- Declaring `shortcut: "Ctrl+S"` on a dropdown item makes `Ctrl+S` trigger that item.
+- Declaring `shortcut: "Ctrl+S"` on a command palette item does the same.
+- No manual `app.keys()` registration is needed for these overlay-local shortcuts.
+
 ## Key format reference
 
 | Format | Example |

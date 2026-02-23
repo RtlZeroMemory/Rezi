@@ -79,17 +79,21 @@ const FilesTable = defineWidget<{ rows: readonly { id: string; name: string; siz
 | `border` | `"none" \| "single"` | `"none"` | Legacy border toggle (kept for compatibility) |
 | `borderStyle` | `{ variant?, color? }` | - | Border glyph variant (`single`, `double`, `rounded`, `heavy`, `dashed`, `heavy-dashed`) and optional border color |
 | `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused row highlight |
+| `dsSize` | `"sm" \| "md" \| "lg"` | `"md"` | Design-system size preset for table recipe spacing |
+| `dsTone` | `"default" \| "primary" \| "danger" \| "success" \| "warning"` | `"default"` | Design-system tone hook for recipe variants |
 
 ## Design System Styling
 
-Tables can be styled via the recipe system for consistent header, cell, and stripe colors:
+Tables are design-system styled by default when a `ThemeDefinition` preset is active.
+`tableRecipe()` provides consistent colors for:
 
 ```typescript
 import { recipe } from "@rezi-ui/core";
 // recipe.table(colors, { state: "header" | "row" | "selectedRow" | "focusedRow" | "stripe" })
 ```
 
-This ensures table styling adapts automatically when users switch themes. See the [Design System specification](../design-system.md) for details.
+This covers header, body rows, selected rows, focused rows, and stripe rows.
+See the [Design System specification](../design-system.md) for details.
 
 ## Examples
 

@@ -1,6 +1,11 @@
 ---
 name: rezi-keybindings
 description: Set up keyboard shortcuts and chord bindings for a Rezi app. Use when adding hotkeys, key combos, or modal input modes.
+user-invocable: true
+allowed-tools: Read, Glob, Grep, Edit, Write
+argument-hint: "[key-combo or mode-name]"
+metadata:
+  short-description: Set up keybindings
 ---
 
 ## When to use
@@ -42,6 +47,15 @@ Use this skill when:
    ```typescript
    ui.keybindingHelp(app.getBindings())
    ```
+
+## Overlay shortcut enforcement
+
+Dropdown and CommandPalette item shortcuts are enforced automatically while the
+overlay is open.
+
+- Declaring `shortcut: "Ctrl+S"` on a dropdown item makes `Ctrl+S` trigger that item.
+- Declaring `shortcut: "Ctrl+S"` on a command palette item does the same.
+- No manual `app.keys()` registration is needed for these overlay-local shortcuts.
 
 ## Key format reference
 

@@ -55,8 +55,9 @@ Use this skill when:
    - `basic.ts`, `containers.ts`, `collections.ts`, `editors.ts`, `overlays.ts`, `navigation.ts`, or `files.ts`
 
 6. **Add design system support** (if the widget is interactive):
-   - Add `dsVariant`, `dsTone`, `dsSize` to the widget's props type
-   - Add recipe-based rendering in the render handler (check for `dsVariant` presence)
+   - Register the new widget kind in `packages/core/src/widgets/protocol.ts`
+   - Add DS props as needed (`dsVariant`, `dsTone`, `dsSize`) to the widget's props type
+   - Wire recipe-based rendering so DS styling auto-activates when `ThemeDefinition` semantic tokens are available (no `dsVariant` required for baseline styling)
    - See `docs/guide/widget-authoring.md` for the full pattern
 
 7. **Export** both props type and factory from `packages/core/src/index.ts`

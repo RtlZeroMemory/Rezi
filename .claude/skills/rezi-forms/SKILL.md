@@ -52,7 +52,7 @@ Use this skill when:
          error: form.errors.email,
          children: ui.input({ ...form.bind("email") }),
        }),
-       ui.button({ id: "submit", label: "Submit", dsVariant: "solid", dsTone: "primary", onPress: form.submit }),
+       ui.button({ id: "submit", label: "Submit", intent: "primary", onPress: form.submit }),
      ]);
    }, { name: "MyForm" });
    ```
@@ -62,6 +62,11 @@ Use this skill when:
 3. **Use `ui.field()`** to wrap inputs with labels and error display
 
 4. **Access form state** via `form.errors`, `form.touched`, `form.dirty`, `form.submitting`
+
+## Design system note
+
+Inputs are recipe-styled by default when a `ThemeDefinition` preset is active.
+Use manual `style` only for targeted overrides (merged on top of recipe output).
 
 ## Verification
 

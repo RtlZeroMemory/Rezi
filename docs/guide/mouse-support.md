@@ -4,6 +4,16 @@ Rezi enables mouse routing when terminal capabilities report mouse support.
 
 ## Mouse Input
 
+### Mouse kind values (ABI)
+
+Mouse events use these fixed kind values:
+
+- `move = 1`
+- `drag = 2`
+- `down = 3`
+- `up = 4`
+- `wheel = 5`
+
 ### Click model
 
 - On mouse down, Rezi hit-tests and immediately moves focus to the hit widget if it is focusable and enabled.
@@ -19,8 +29,11 @@ Rezi enables mouse routing when terminal capabilities report mouse support.
 Wheel routing order:
 
 1. `VirtualList` under cursor (`hitTestTargetId`), else focused `VirtualList`.
-2. If no `VirtualList` handled the event: `CodeEditor`, `LogsConsole`, or `DiffViewer` under cursor (`hitTestTargetId`), else the focused one.
-3. If none match, the wheel event is ignored.
+2. `CodeEditor` under cursor, else focused `CodeEditor`.
+3. `LogsConsole` under cursor, else focused `LogsConsole`.
+4. `DiffViewer` under cursor, else focused `DiffViewer`.
+5. Nearest generic `overflow: "scroll"` container under cursor.
+6. If none match, the wheel event is ignored.
 
 Wheel step size (where implemented):
 
@@ -35,6 +48,12 @@ Clamping:
 - `CodeEditor.scrollTop`: `[0, max(0, lineCount - viewportHeight)]`
 - `CodeEditor.scrollLeft`: `>= 0`
 - `LogsConsole.scrollTop` / `DiffViewer.scrollTop`: `[0, max(0, contentLines - viewportHeight)]`
+- Generic `overflow: "scroll"` containers clamp `scrollX`/`scrollY` to content bounds.
+
+### Generic scroll containers
+
+Boxes and other widgets configured with `overflow: "scroll"` are wheel-interactive.
+Wheel deltas route to the nearest scrollable ancestor under the cursor.
 
 ### SplitPane drag lifecycle
 

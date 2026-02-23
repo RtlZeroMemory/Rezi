@@ -28,18 +28,20 @@ ui.input({
 
 ## Design System Styling
 
-Inputs are design-system styled by default when the active theme provides semantic color tokens. The design system affects padding and focus appearance; inputs render with an elevated background and (when there's enough height) a border.
+Inputs are design-system styled by default when a `ThemeDefinition` preset is active.
+In that path, the input renderer applies `inputRecipe()` output automatically.
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `dsSize` | `"sm" \| "md" \| "lg"` | `"md"` | Size preset (controls padding and height) |
 | `placeholder` | `string` | - | Placeholder text shown when value is empty |
 
-Manual `style` overrides are merged on top of the recipe result (they do not disable recipes).
+Manual `style` overrides are merged on top of recipe output (they do not disable recipes).
 
 If the active theme does not provide semantic color tokens, inputs fall back to non-recipe rendering.
 
-> Note: single-line inputs are typically 1 row tall. To render a framed input (top/bottom border + interior), give the input at least 3 rows of height (for example: `ui.row({ height: 3, items: "stretch" }, [ui.input(...)])`).
+At `height >= 3`, the input renders framed chrome (border + interior). At `height = 1`,
+the recipe still applies text/background styling, but no box border is drawn.
 
 ## Behavior
 

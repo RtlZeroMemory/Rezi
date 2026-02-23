@@ -40,17 +40,17 @@ Use this skill when:
    }
    ```
 
-   **Prefer design-system-styled widgets** — use `dsVariant`, `dsTone`, `dsSize` on interactive widgets:
+   **Prefer intent-based DS styling** for simple cases (`intent: "primary"`, `"danger"`, `"secondary"`, `"link"`):
    ```typescript
    ui.button({
      id: "action",
      label: "Go",
-     dsVariant: "solid",
-     dsTone: "primary",
-     dsSize: "md",
+     intent: "primary",
      onPress: handleAction,
    })
    ```
+
+   Use `dsVariant` / `dsTone` / `dsSize` only when you need finer control.
 
 2. **Use `ui.column()` or `ui.row()`** as the root container
 
@@ -59,14 +59,22 @@ Use this skill when:
    import { defineWidget, ui, useSpring, useTransition } from "@rezi-ui/core";
 
    const AnimatedScreen = defineWidget<{ target: number }>((props, ctx) => {
-     const drift = useTransition(ctx, props.target, { duration: 180, easing: "easeOutCubic" });
-     const spring = useSpring(ctx, props.target, { stiffness: 190, damping: 22 });
+     const drift = useTransition(ctx, props.target, {
+       duration: 180,
+       easing: "easeOutExpo",
+       onComplete: () => console.log("drift transition complete"),
+     });
+     const spring = useSpring(ctx, props.target, {
+       stiffness: 190,
+       damping: 22,
+       onComplete: () => console.log("spring settle complete"),
+     });
 
      return ui.box(
        {
          width: Math.round(20 + drift),
          opacity: Math.max(0.35, Math.min(1, spring / 100)),
-         transition: { duration: 180, properties: ["size", "opacity"] },
+         transition: { duration: 180, easing: "easeOutBounce", properties: ["size", "opacity"] },
        },
        [ui.text("Animated screen")],
      );

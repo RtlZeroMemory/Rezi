@@ -28,6 +28,11 @@ ui.toastContainer({
 
 Toast action buttons (e.g., "Undo") can be clicked with the mouse to trigger their `onAction` callback.
 
+## Overlay stacking
+
+Toast containers register in the shared `LayerRegistry`, so toast z-order is
+managed by the same overlay system as modals and dropdowns.
+
 ## Toast shape
 
 - `id`: unique toast identifier

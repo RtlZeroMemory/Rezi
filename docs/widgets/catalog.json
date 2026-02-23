@@ -243,6 +243,12 @@
       "example": "ui.modal({ id: 'confirm', content: ui.text('Proceed?') })"
     },
     {
+      "name": "dialog",
+      "requiredProps": ["id", "message", "actions"],
+      "commonProps": ["title", "onClose", "initialFocus", "returnFocusTo"],
+      "example": "ui.dialog({ id: 'confirm', message: 'Proceed?', actions: [{ label: 'OK', onPress: onOk }] })"
+    },
+    {
       "name": "dropdown",
       "requiredProps": ["id", "anchorId", "items"],
       "commonProps": ["position", "onSelect", "onClose"],

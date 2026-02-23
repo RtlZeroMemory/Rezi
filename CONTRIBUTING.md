@@ -89,3 +89,8 @@ PRs may be rejected if they:
 - Use `npm run hsr:demo:widget` / `npm run hsr:demo:router` for manual HSR validation, and `npm run hsr:record:widget` / `npm run hsr:record:router` for GIF capture.
 - In widget demo validation, edit the `self-edit-code` snippet and save with `Enter` or `F6` to confirm hot-swap without terminal restart.
 - For code-editor syntax changes, keep tokenization deterministic and line-based; use `syntaxLanguage` presets or `tokenizeLine` + `tokenizeCodeEditorLine(...)`, then add/adjust tests in `codeEditor.syntax` suites.
+
+## Widget and Design System guardrails
+
+- New widget kinds must be registered in `packages/core/src/widgets/protocol.ts`. Do not add new hardcoded kind lists in `commit.ts`, `hitTest.ts`, or `widgetMeta.ts`.
+- When adding interactive widgets, wire the matching recipe function and validate both legacy `Theme` and `ThemeDefinition` paths. Recipe output should provide the default style, and manual widget `style` overrides should merge on top.

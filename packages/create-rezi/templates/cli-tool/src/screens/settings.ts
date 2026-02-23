@@ -49,7 +49,7 @@ export function renderSettingsScreen(
     context,
     onNavigate: deps.onNavigate,
     onToggleHelp: deps.onToggleHelp,
-    body: ui.box({ border: "rounded", px: 1, py: 0 }, [
+    body: ui.panel("Profile Settings", [
       ui.column({ gap: 1 }, [
         ui.text("Profile", { variant: "heading" }),
         ui.text("Operator"),

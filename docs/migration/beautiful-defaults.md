@@ -9,11 +9,18 @@ This page documents what changed and how to control it.
 When the active theme provides semantic color tokens (`bg.base`, `fg.primary`, etc.), these widgets use recipes by default:
 
 - `ui.button(...)` (defaults to a `"soft"` look)
-- `ui.input(...)` / `ui.textarea(...)`
-- `ui.select(...)`
+- `ui.input(...)`
 - `ui.checkbox(...)`
+- `ui.select(...)`
+- `ui.table(...)`
 - `ui.progress(...)`
+- `ui.badge(...)`
 - `ui.callout(...)`
+- `ui.scrollbar(...)`
+- `ui.modal(...)`
+- `ui.divider(...)`
+- `ui.surface(...)`
+- `ui.text(...)`
 
 If the active theme does **not** provide semantic color tokens, these widgets fall back to non-recipe rendering.
 
@@ -25,6 +32,7 @@ Use `intent` instead of juggling `dsVariant` + `dsTone` (+ `dsSize`):
 
 ```ts
 ui.button({ id: "save", label: "Save", intent: "primary" })
+ui.button({ id: "cancel", label: "Cancel", intent: "secondary" })
 ui.button({ id: "delete", label: "Delete", intent: "danger" })
 ui.button({ id: "learn", label: "Learn more", intent: "link" })
 ```

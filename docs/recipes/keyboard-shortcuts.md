@@ -111,6 +111,15 @@ await app.start();
 - `app.pendingChord` exposes in-progress chord prefixes for status feedback.
 - Use `ui.kbd(...)` to display shortcuts directly in your UI.
 
+## Overlay item shortcuts
+
+Dropdown and CommandPalette shortcuts are now enforced automatically.
+
+- Before: `shortcut: "Ctrl+S"` was display-only.
+- Now: declaring `shortcut: "Ctrl+S"` on a dropdown or command-palette item
+  makes the key combo trigger that item while the overlay is open.
+- No manual `app.keys()` registration is required for those overlay-local item shortcuts.
+
 ## Related
 
 - [Kbd](../widgets/kbd.md) - Displaying keyboard shortcuts

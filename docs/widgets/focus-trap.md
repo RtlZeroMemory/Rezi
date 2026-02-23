@@ -17,9 +17,10 @@ ui.focusTrap(
 
 ## Layout behavior
 
-`focusTrap` is layout-transparent when it wraps exactly one child: the child keeps its own layout semantics.
+`focusTrap` is layout-transparent and does not impose a hidden column layout.
+Children keep their native layout semantics (`row`, `column`, `grid`, etc.).
 
-When you pass multiple direct children, current behavior falls back to legacy column stacking for backward compatibility. Prefer wrapping multi-child content in an explicit row/column:
+When you want explicit arrangement, compose a normal layout container inside the trap:
 
 ```typescript
 ui.focusTrap(
@@ -51,6 +52,8 @@ When `active` is `true`:
 - Focus cannot escape to elements outside the trap
 - Attempting to Tab past the last element wraps to the first
 - Attempting to Shift+Tab before the first element wraps to the last
+- The trap is collected into the focus system (`CollectedTrap`) so modal overlays
+  consistently block/contain background focus.
 
 When `active` becomes `false`:
 

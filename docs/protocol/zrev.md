@@ -9,7 +9,7 @@ ZREV batches contain these event record types:
 | Record | Description |
 |--------|-------------|
 | Key | Keyboard input with key code and modifiers |
-| Mouse | Mouse events (move, press, release, drag, scroll) with position and button state |
+| Mouse | Mouse events (move, drag, down, up, wheel) with position and button state |
 | Resize | Terminal size change |
 | Tick | Animation timer |
 
@@ -18,7 +18,7 @@ ZREV batches contain these event record types:
 Mouse records include:
 
 - `x`, `y` — cursor position in terminal cells
-- `mouseKind` — event type: move (1), press (2), release (3), drag (4), scroll (5)
+- `mouseKind` — event type: move (1), drag (2), down (3), up (4), wheel (5)
 - `mods` — modifier keys held (shift, ctrl, alt, meta)
 - `buttons` — button state bitmask
 - `wheelX`, `wheelY` — scroll deltas

@@ -5,6 +5,7 @@ Scaffolded with `create-rezi` using the **__TEMPLATE_LABEL__** template.
 ## What This Template Demonstrates
 
 - A single-screen TUI with no routing overhead.
+- `ui.page()` layout shell with panelized sections and intent-based button actions.
 - Minimal state + reducer flow with just a few actions.
 - Keybindings for quit/help/theme/counter updates.
 - Signal-safe startup and shutdown pattern.

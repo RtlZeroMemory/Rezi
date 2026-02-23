@@ -68,8 +68,11 @@ ui.button({ id: "save", label: "Save", intent: "primary" })
 // Destructive action
 ui.button({ id: "delete", label: "Delete", intent: "danger" })
 
-// Subtle action
-ui.button({ id: "cancel", label: "Cancel" })
+// Secondary action
+ui.button({ id: "cancel", label: "Cancel", intent: "secondary" })
+
+// Link-style action
+ui.button({ id: "learn-more", label: "Learn more", intent: "link" })
 ```
 
 When recipe styling is active, the button adapts to theme changes, capability tiers, and focus/disabled states without manual styling.

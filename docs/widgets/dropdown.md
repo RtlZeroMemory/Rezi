@@ -38,8 +38,29 @@ ui.dropdown({
 - The current selection is visually highlighted.
 - **Mouse click** on an item selects it and fires the `onSelect` callback.
 - **Clicking outside** the dropdown closes it (calls `onClose`).
+- Dropdown overlays register in the shared `LayerRegistry`, so z-order and
+  hit-testing behavior is consistent with modal/layer overlays.
+- Declared item shortcuts are enforced while the dropdown is open.
+  Example: `shortcut: "Ctrl+S"` triggers that item when `Ctrl+S` is pressed.
 
 ## Notes
 
 - Use `anchorId` to position the dropdown relative to an element in the layout tree.
 - Render dropdowns inside `ui.layers(...)` so they stack above base UI.
+
+### Keyboard shortcut example
+
+```ts
+ui.dropdown({
+  id: "file-menu",
+  anchorId: "file-btn",
+  items: [
+    { id: "save", label: "Save", shortcut: "Ctrl+S" },
+    { id: "quit", label: "Quit", shortcut: "Ctrl+Q" },
+  ],
+  onSelect: (item) => runCommand(item.id),
+})
+```
+
+With the dropdown open, pressing `Ctrl+S` selects the `"save"` item without
+manual `app.keys()` wiring.

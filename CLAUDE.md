@@ -116,7 +116,7 @@ See [docs/design-system.md](docs/design-system.md) for the full specification.
 ### Beautiful Defaults (Design System by Default)
 
 When the active theme provides semantic color tokens, these widgets are recipe-styled by default:
-`ui.button`, `ui.input`/`ui.textarea`, `ui.select`, `ui.checkbox`, `ui.progress`, `ui.callout`.
+`ui.button`, `ui.input`, `ui.checkbox`, `ui.select`, `ui.table`, `ui.progress`, `ui.badge`, `ui.callout`, `ui.scrollbar`, `ui.modal`, `ui.divider`, `ui.surface`, `ui.text`.
 
 - **Manual overrides**: `style` / `pressedStyle` / `px` / `trackStyle` are merged on top of recipe results (they do not disable recipes).
 - **Framed inputs/selects**: Drawing a full border + interior requires at least **3 rows** of height; at 1 row they still use recipe text/background styling but render without a box border.
@@ -126,8 +126,9 @@ When the active theme provides semantic color tokens, these widgets are recipe-s
 ```typescript
 // Intent-based button styling
 ui.button({ id: "save", label: "Save", intent: "primary" })
-ui.button({ id: "cancel", label: "Cancel" })
+ui.button({ id: "cancel", label: "Cancel", intent: "secondary" })
 ui.button({ id: "delete", label: "Delete", intent: "danger" })
+ui.button({ id: "learn-more", label: "Learn more", intent: "link" })
 ```
 
 ### Widget Gallery
@@ -165,6 +166,10 @@ const view = (state: AppState) =>
   });
 ```
 
+Verified factory availability (from `@rezi-ui/core` via `ui`): `ui.page()`,
+`ui.panel()`, `ui.card()`, `ui.actions()`, `ui.appShell()`, `ui.sidebar()`,
+`ui.statusBar()`, `ui.form()`, and `ui.field()`.
+
 ### Layer 2 — Composition API (for reusable widgets)
 
 ```typescript
@@ -188,7 +193,8 @@ const Counter = defineWidget<{ initial: number; key?: string }>((props, ctx) => 
 ```
 
 Available hooks: `ctx.useState()`, `ctx.useEffect()`, `ctx.useRef()`, `ctx.useMemo()`, `ctx.useCallback()`, `ctx.useAppState()`, `ctx.useViewport()`, `ctx.id()`.
-Animation utility hooks: `useTransition()`, `useSpring()`, `useSequence()`, `useStagger()`.
+Animation utility hooks: `useTransition()`, `useSpring()`, `useSequence()`, `useStagger()`, with `onComplete` callbacks for finite runs.
+Animation easing presets include quad/cubic plus newer expo/back/bounce families (for example `easeOutExpo`, `easeOutBounce`).
 
 ### Layer 3 — Domain Hooks (for complex state and motion)
 
@@ -229,6 +235,21 @@ each(items, (item) => ui.text(item.name), { key: (item) => item.id });
 - Prefer `useReducer` pattern (reducer + dispatch) over raw `app.update()`.
 - Import from package exports only (`@rezi-ui/core`, `@rezi-ui/node`), never from internal paths.
 - Drawlist command writers are generated; do not edit `packages/core/src/drawlist/writers.gen.ts` manually.
+
+## Event System
+
+`UiEvent` action payloads cover the extended routed action model:
+
+- `press`
+- `input`
+- `select`
+- `rowPress`
+- `toggle`
+- `change`
+- `activate`
+- `scroll`
+
+This allows centralized logging/middleware via app-level event listeners in addition to per-widget callbacks.
 
 ## Drawlist Codegen Protocol (MUST for ZRDL command changes)
 
