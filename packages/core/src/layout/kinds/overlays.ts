@@ -1,4 +1,4 @@
-import type { VNode } from "../../index.js";
+import type { VNode } from "../../widgets/types.js";
 import { TOAST_HEIGHT } from "../../widgets/toast.js";
 import { clampNonNegative, clampWithin } from "../engine/bounds.js";
 import { isVNode } from "../engine/guards.js";

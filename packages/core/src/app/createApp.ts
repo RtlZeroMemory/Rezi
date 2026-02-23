@@ -42,7 +42,7 @@ import type {
   EventHandler,
   FocusChangeHandler,
   ViewFn,
-} from "../index.js";
+} from "./types.js";
 import type {
   BindingMap,
   KeyContext,

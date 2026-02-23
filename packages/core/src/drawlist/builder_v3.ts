@@ -3,7 +3,7 @@ import {
   ZR_DRAWLIST_VERSION_V4,
   ZR_DRAWLIST_VERSION_V5,
 } from "../abi.js";
-import type { TextStyle } from "../index.js";
+import type { TextStyle } from "../widgets/style.js";
 import type {
   CursorState,
   DrawlistBuildResult,

@@ -1,4 +1,4 @@
-import type { VNode } from "../../index.js";
+import type { VNode } from "../../widgets/types.js";
 import { clampNonNegative } from "../engine/bounds.js";
 import { type FlexItem, distributeFlex } from "../engine/flex.js";
 import { releaseArray } from "../engine/pool.js";

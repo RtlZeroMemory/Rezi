@@ -36,7 +36,8 @@ import {
   createDrawlistBuilderV3,
 } from "../drawlist/index.js";
 import type { ZrevEvent } from "../events.js";
-import type { VNode, ViewFn } from "../index.js";
+import type { VNode } from "../widgets/types.js";
+import type { ViewFn } from "./types.js";
 import {
   buildTrie,
   matchKey,

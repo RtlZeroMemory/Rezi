@@ -1,5 +1,5 @@
 import { resolveIconGlyph } from "../../icons/index.js";
-import type { VNode } from "../../index.js";
+import type { VNode } from "../../widgets/types.js";
 import { type WidgetSize, resolveSize } from "../../ui/designTokens.js";
 import {
   DEFAULT_SLIDER_TRACK_WIDTH,

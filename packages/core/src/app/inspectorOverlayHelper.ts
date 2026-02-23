@@ -17,9 +17,9 @@ import type {
   DrawFn,
   EventHandler,
   FocusChangeHandler,
-  RouteDefinition,
   ViewFn,
-} from "../index.js";
+} from "./types.js";
+import type { RouteDefinition } from "../router/types.js";
 import { defaultTheme } from "../theme/defaultTheme.js";
 import type { Theme } from "../theme/theme.js";
 import type { ThemeDefinition } from "../theme/tokens.js";

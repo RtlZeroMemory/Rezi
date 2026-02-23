@@ -1,4 +1,4 @@
-import type { VNode } from "../../index.js";
+import type { VNode } from "../../widgets/types.js";
 import type { RuntimeInstance } from "../../runtime/commit.js";
 import type { InstanceId } from "../../runtime/instance.js";
 

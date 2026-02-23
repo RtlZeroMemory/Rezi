@@ -1,5 +1,5 @@
 import { ZRDL_MAGIC } from "../abi.js";
-import type { TextStyle } from "../index.js";
+import type { TextStyle } from "../widgets/style.js";
 import type {
   DrawlistBuildError,
   DrawlistBuildErrorCode,

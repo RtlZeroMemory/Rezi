@@ -9,7 +9,7 @@
  * @see docs/styling/focus-styles.md
  */
 
-import type { Rgb, TextStyle } from "../index.js";
+import type { Rgb, TextStyle } from "../widgets/style.js";
 import { type Theme, resolveColor } from "../theme/theme.js";
 
 /** Disabled widget foreground color (gray). */

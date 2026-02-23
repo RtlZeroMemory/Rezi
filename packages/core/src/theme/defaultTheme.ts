@@ -5,7 +5,7 @@
  * Kept separate from theme helpers to avoid accidental circular imports.
  */
 
-import type { Theme } from "./theme.js";
+import type { Theme } from "./types.js";
 
 export const defaultTheme: Theme = Object.freeze({
   colors: Object.freeze({

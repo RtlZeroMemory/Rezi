@@ -3,7 +3,8 @@ import {
   getSpinnerFrame,
   resolveIconGlyph as resolveIconRenderGlyph,
 } from "../../icons/index.js";
-import type { DrawlistBuilderV1, VNode } from "../../index.js";
+import type { DrawlistBuilderV1 } from "../../drawlist/types.js";
+import type { VNode } from "../../widgets/types.js";
 import {
   measureTextCells,
   truncateMiddle,

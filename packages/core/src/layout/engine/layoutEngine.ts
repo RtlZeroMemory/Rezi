@@ -20,7 +20,7 @@
  * @see docs/guide/layout.md
  */
 
-import type { VNode } from "../../index.js";
+import type { VNode } from "../../widgets/types.js";
 import type { Axis, Size } from "../types.js";
 import type { LayoutResult } from "../validateProps.js";
 

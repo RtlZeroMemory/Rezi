@@ -28,7 +28,7 @@ import type {
   SpacerProps,
   StackProps,
   TextProps,
-} from "../index.js";
+} from "../widgets/types.js";
 import { resolveResponsiveValue } from "./responsive.js";
 import { SPACING_SCALE, isSpacingKey } from "./spacing-scale.js";
 import type { SizeConstraint } from "./types.js";

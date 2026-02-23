@@ -1,4 +1,4 @@
-import type { ResizablePanelProps, VNode } from "../../index.js";
+import type { ResizablePanelProps, VNode } from "../../widgets/types.js";
 import { computePanelCellSizes } from "../../widgets/splitPane.js";
 import { clampNonNegative, toFiniteMax } from "../engine/bounds.js";
 import { ok } from "../engine/result.js";

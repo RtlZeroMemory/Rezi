@@ -1,4 +1,4 @@
-import type { VNode } from "../../index.js";
+import type { VNode } from "../../widgets/types.js";
 import { measureContentBounds, resolveLayoutConstraints, resolveOverflow } from "../constraints.js";
 import { clampNonNegative, clampWithin, isPercentString, toFiniteMax } from "../engine/bounds.js";
 import { getActiveDirtySet } from "../engine/dirtySet.js";

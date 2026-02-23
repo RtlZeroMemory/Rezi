@@ -7,7 +7,7 @@
  * @see docs/guide/runtime-and-layout.md
  */
 
-import type { DrawlistBuilderV1, DrawlistBuilderV2 } from "../index.js";
+import type { DrawlistBuilderV1, DrawlistBuilderV2 } from "../drawlist/types.js";
 import { defaultTheme } from "../theme/defaultTheme.js";
 import { indexIdRects, indexLayoutRects } from "./renderToDrawlist/indices.js";
 import { renderTree } from "./renderToDrawlist/renderTree.js";

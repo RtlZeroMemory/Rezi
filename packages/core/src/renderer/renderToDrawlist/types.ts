@@ -1,4 +1,5 @@
-import type { CursorShape, DrawlistBuilderV1 } from "../../index.js";
+import type { CursorShape } from "../../abi.js";
+import type { DrawlistBuilderV1 } from "../../drawlist/types.js";
 import type { LayoutTree } from "../../layout/layout.js";
 import type { Rect } from "../../layout/types.js";
 import type { RuntimeInstance } from "../../runtime/commit.js";

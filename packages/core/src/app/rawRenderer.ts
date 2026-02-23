@@ -17,8 +17,8 @@ import {
   createDrawlistBuilderV2,
   createDrawlistBuilderV3,
 } from "../drawlist/index.js";
-import type { DrawFn } from "../index.js";
 import { perfMarkEnd, perfMarkStart } from "../perf/perf.js";
+import type { DrawFn } from "./types.js";
 
 /** Callbacks for render lifecycle tracking (used by app to set inRender flag). */
 export type RawRendererHooks = Readonly<{

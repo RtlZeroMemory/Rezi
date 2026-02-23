@@ -1,4 +1,4 @@
-import type { VNode } from "../../index.js";
+import type { VNode } from "../../widgets/types.js";
 import { ok } from "../engine/result.js";
 import type { LayoutTree } from "../engine/types.js";
 import type { Size } from "../types.js";

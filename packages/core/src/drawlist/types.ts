@@ -12,7 +12,7 @@
  */
 
 import type { CursorShape } from "../abi.js";
-import type { TextStyle } from "../index.js";
+import type { TextStyle } from "../widgets/style.js";
 
 export type DrawlistTextRunSegment = Readonly<{
   text: string;
