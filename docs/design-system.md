@@ -40,12 +40,21 @@ Core widgets are wired to the design system so they look professional without ma
 
 When the active theme provides semantic color tokens (see [Color Semantic Slots](#color-semantic-slots)), these widgets use recipes by default:
 
-- `ui.button(...)` (defaults to `"soft"` variant)
-- `ui.input(...)` / `ui.textarea(...)`
-- `ui.select(...)`
+- `ui.button(...)`
+- `ui.input(...)`
 - `ui.checkbox(...)`
+- `ui.select(...)`
+- `ui.table(...)`
 - `ui.progress(...)`
+- `ui.badge(...)`
 - `ui.callout(...)`
+- `ui.scrollbar(...)`
+- `ui.modal(...)`
+- `ui.divider(...)`
+- `ui.surface(...)`
+- `ui.text(...)`
+
+This is the full “covered widgets” set for DS recipe integration.
 
 ### Manual overrides
 
@@ -54,6 +63,25 @@ Manual styling props do **not** disable recipe styling.
 When semantic color tokens are available, recipe styles are always applied, and manual props like `style`, `pressedStyle`, `px`, and `trackStyle` are merged on top to override specific attributes (for example `fg`, `bold`, `underline`).
 
 > Breaking (alpha): older builds treated some manual `style` props as an opt-out from recipe styling. That opt-out is removed to keep defaults consistent and avoid hidden behavior.
+
+### Activation path + shared token extraction
+
+Recipe styling activation follows a shared path:
+
+1. Resolve theme to semantic color tokens via `getColorTokens(...)`.
+2. If tokens are available, use widget recipes for baseline styles.
+3. Merge widget-level manual overrides (`style`, `pressedStyle`, etc.) on top.
+
+The shared `getColorTokens()` helper ensures all widgets map theme semantics
+through one conversion path before recipe evaluation.
+
+### Unified focus indicators
+
+Focus visuals are token-driven across interactive widgets:
+
+- `focus.ring` controls focus accent color.
+- `focus.bg` provides subtle focus background tinting where supported.
+- Focus treatment remains non-color-only (underline + bold) for accessibility.
 
 ### Height constraints for framed controls
 

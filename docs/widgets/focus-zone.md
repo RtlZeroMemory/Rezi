@@ -17,9 +17,11 @@ ui.focusZone(
 
 ## Layout behavior
 
-`focusZone` is layout-transparent when it wraps exactly one child: the child keeps its own layout behavior (for example, a `row` stays horizontal).
+`focusZone` is layout-transparent: it does not force children into a column axis.
+Children keep their natural layout behavior (for example, a `row` stays horizontal,
+`grid` stays grid, nested stacks preserve their own axis rules).
 
-When you pass multiple direct children, current behavior falls back to legacy column stacking for backward compatibility. Prefer wrapping multi-child content in an explicit layout container:
+When you want explicit structure, keep using standard layout widgets:
 
 ```typescript
 ui.focusZone(

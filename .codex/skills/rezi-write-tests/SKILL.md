@@ -79,6 +79,17 @@ Use this skill when:
    - cleanup on unmount (no timer leak)
    - property filtering (`position` / `size` / `opacity`) for `ui.box` transitions
 
+9. **For extended routed actions**, verify `UiEvent` payloads for widgets that emit non-press actions:
+   - checkbox emits `action: "toggle"` with `checked`
+   - virtualList emits `action: "select"` with `index`
+   - table emits `action: "rowPress"` with `rowIndex`
+   - radio/select flows emit `action: "change"`
+
+10. **For animation hook behavior**, test:
+   - supported easing presets (`linear`, quad, cubic) resolve as expected
+   - retargeted mid-flight runs continue smoothly without jumping
+   - looping sequences (`loop: true`) remain active and deterministic
+
 ## Running tests
 
 ```bash

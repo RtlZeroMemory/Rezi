@@ -158,6 +158,9 @@ Mouse kinds:
 | `up` | `4` |
 | `wheel` | `5` |
 
+These numeric values intentionally mirror the Zireael C header to keep mouse
+event routing stable across the TypeScript and native boundaries.
+
 ## Related
 
 - [Protocol overview](index.md)

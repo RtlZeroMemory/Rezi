@@ -14,9 +14,23 @@ For the built-in focusable widgets (e.g. `button`, `input`, `select`, `checkbox`
 
 This is applied by the renderer and merged with any user-provided `style` prop.
 
+All interactive widgets route focus styling through shared renderer helpers
+(`resolveFocusIndicatorStyle()` and `resolveFocusedContentStyle()`) to keep
+focus rendering consistent across widget kinds.
+
 ## Focus ring
 
 In a terminal, “focus ring” usually means an *outline* or a *high-contrast marker*. In Rezi v1, the default focus indicator is **text underline + bold** on the focused widget’s content.
+
+Theme path behavior:
+
+- With `ThemeDefinition` semantics available, focus uses `focus.ring` token color
+  in addition to underline + bold.
+- With legacy `Theme` only, focus falls back to underline + bold (no token-color
+  focus accent).
+
+`focus.bg` may be used for subtle focused-surface emphasis where widget renderers
+support a background hint.
 
 If you want a more explicit “ring” around a region (for example, around an input group), you can draw it structurally:
 
@@ -75,6 +89,9 @@ ui.fileTreeExplorer({
   onActivate: handleActivate,
 });
 ```
+
+`focusConfig.style` overrides still work and are merged after DS/renderer focus
+style resolution.
 
 ### Supported widgets
 

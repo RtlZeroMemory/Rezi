@@ -61,6 +61,12 @@ Use this skill when:
    - `opacity` stays within `[0..1]`
    - animation hooks are not conditionally called
 
+9. **Read enriched runtime errors carefully**:
+   - `ZRUI_DUPLICATE_ID` now includes both conflicting widget kinds + `ctx.id()` guidance
+   - `ZRUI_DUPLICATE_KEY` includes the duplicate key and parent context
+   - `ZRUI_INVALID_PROPS` includes prop name, widget kind, and expected type
+   - `ZRUI_UPDATE_DURING_RENDER` includes guidance to move updates into event handlers/effects
+
 ## Common causes
 
 | Symptom | Likely cause |
@@ -72,4 +78,5 @@ Use this skill when:
 | Transition not animating | `transition` missing, wrong `properties`, or no actual value delta |
 | Opacity animation looks wrong | `opacity` outside `[0..1]` (clamped) or `properties` excludes `opacity` |
 | Crash on deep tree | Nesting depth > 500 |
-| DS styling not applied | `dsVariant` prop missing, or theme was not created from `ThemeDefinition` |
+| DS styling not applied | DS styling is automatic with `ThemeDefinition`; check semantic tokens/theme activation (no `dsVariant` required) |
+| Wheel scrolling not working | Ensure the container uses `overflow: "scroll"` and content exceeds viewport size |

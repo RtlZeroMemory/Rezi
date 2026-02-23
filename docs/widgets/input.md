@@ -28,18 +28,24 @@ ui.input({
 
 ## Design System Styling
 
-Inputs are design-system styled by default when the active theme provides semantic color tokens. The design system affects padding and focus appearance; inputs render with an elevated background and (when there's enough height) a border.
+Inputs are design-system styled by default when semantic color tokens are
+available (for example via a `ThemeDefinition` preset). In that path, the input
+renderer applies `inputRecipe()` output automatically.
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `dsSize` | `"sm" \| "md" \| "lg"` | `"md"` | Size preset (controls padding and height) |
 | `placeholder` | `string` | - | Placeholder text shown when value is empty |
 
-Manual `style` overrides are merged on top of the recipe result (they do not disable recipes).
+Manual `style` overrides are merged on top of recipe output via
+`mergeTextStyle(baseStyle, ownStyle)` (they do not disable recipes).
 
-If the active theme does not provide semantic color tokens, inputs fall back to non-recipe rendering.
+If semantic color tokens are unavailable, the renderer uses the non-recipe path:
+it merges parent/own style with `getButtonLabelStyle({ focused, disabled })`,
+then applies focus-aware content styling.
 
-> Note: single-line inputs are typically 1 row tall. To render a framed input (top/bottom border + interior), give the input at least 3 rows of height (for example: `ui.row({ height: 3, items: "stretch" }, [ui.input(...)])`).
+Framed chrome requires both `width >= 3` and `height >= 3`. At `height = 1`,
+the recipe still applies text/background styling, but no box border is drawn.
 
 ## Behavior
 
@@ -95,7 +101,7 @@ app.view((state) =>
 ### With `useForm` binding
 
 ```typescript
-ui.input(form.bind("email"));
+ui.input({ id: "email", ...form.bind("email") });
 ```
 
 ### Validation on blur

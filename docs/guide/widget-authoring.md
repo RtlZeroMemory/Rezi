@@ -13,6 +13,16 @@ Every Rezi widget should consume the design system rather than specifying raw co
 
 ## Design System Integration
 
+## Protocol Registry (Required for New Kinds)
+
+When creating a new widget kind, register it in:
+
+- `packages/core/src/widgets/protocol.ts`
+
+Do not add new widget-kind checks to hardcoded lists in `commit.ts`,
+`hitTest.ts`, or `widgetMeta.ts`. Capability detection should stay centralized
+in the protocol registry.
+
 ### Using Recipes
 
 Recipes are the primary API for computing widget styles. They take design tokens (from the theme) and return `TextStyle` objects.

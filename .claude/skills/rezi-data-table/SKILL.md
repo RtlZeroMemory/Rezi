@@ -38,8 +38,12 @@ Use this skill when:
        ],
        getRowKey: (row) => row.id,
        selectable: "multi",
+      });
+     return ui.table({
+       ...table.props,
+       dsSize: "md",
+       dsTone: "default",
      });
-     return ui.table(table.props);
    }, { name: "DataTable" });
    ```
 
@@ -48,6 +52,11 @@ Use this skill when:
 3. **Handle sorting** via `table.sortColumn` and `table.sortDirection`
 
 4. **For large datasets**, consider `ui.virtualList()` instead
+
+## Design system note
+
+Tables are recipe-styled by default when a `ThemeDefinition` preset is active.
+Use `dsSize` / `dsTone` for explicit DS tuning when needed.
 
 ## Verification
 

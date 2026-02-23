@@ -140,6 +140,22 @@ ui.box(
 - `transition.properties` defaults to `"all"` when omitted (`position`, `size`, `opacity`).
 - `transition.properties: []` disables animation tracks for that box.
 
+## Mouse Wheel Scrolling
+
+Boxes with `overflow: "scroll"` now respond to mouse wheel events.
+The wheel scrolls the nearest scrollable ancestor under the cursor.
+
+```typescript
+ui.box({
+  overflow: "scroll",
+  scrollX: state.scrollX,
+  scrollY: state.scrollY,
+  height: 10,
+}, [
+  // content taller than 10 rows
+]);
+```
+
 ## Related
 
 - [Layout](../guide/layout.md) - Borders, padding, nesting

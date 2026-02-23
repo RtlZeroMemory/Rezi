@@ -48,6 +48,14 @@ Use this skill when:
    ui.keybindingHelp(app.getBindings())
    ```
 
+## Overlay shortcut hints
+
+Dropdown and CommandPalette `shortcut` fields are currently display/search hints.
+
+- `routeDropdownKey(...)` handles navigation keys (`Up`, `Down`, `Enter`, `Space`, `Escape`).
+- CommandPalette shows shortcut text and uses it in filtering, but does not auto-bind combos.
+- Register real shortcut combos explicitly with `app.keys()` or `app.modes()`.
+
 ## Key format reference
 
 | Format | Example |

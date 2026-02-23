@@ -49,34 +49,40 @@ export function renderSettingsScreen(
     context,
     onNavigate: deps.onNavigate,
     onToggleHelp: deps.onToggleHelp,
-    body: ui.box({ border: "rounded", px: 1, py: 0 }, [
+    body: ui.panel("Profile Settings", [
       ui.column({ gap: 1 }, [
         ui.text("Profile", { variant: "heading" }),
-        ui.text("Operator"),
-        ui.input({
-          id: "settings-operator",
-          value: state.operatorName,
-          onInput: (operatorName) => deps.dispatch({ type: "set-operator", operatorName }),
+        ui.field({
+          label: "Operator",
+          children: ui.input({
+            id: "settings-operator",
+            value: state.operatorName,
+            onInput: (operatorName) => deps.dispatch({ type: "set-operator", operatorName }),
+          }),
         }),
-        ui.text("Environment"),
-        ui.select({
-          id: "settings-environment",
-          value: state.environment,
-          options: ENVIRONMENT_OPTIONS,
-          onChange: (value) => {
-            if (!isEnvironmentName(value)) return;
-            deps.dispatch({ type: "set-environment", environment: value });
-          },
+        ui.field({
+          label: "Environment",
+          children: ui.select({
+            id: "settings-environment",
+            value: state.environment,
+            options: ENVIRONMENT_OPTIONS,
+            onChange: (value) => {
+              if (!isEnvironmentName(value)) return;
+              deps.dispatch({ type: "set-environment", environment: value });
+            },
+          }),
         }),
-        ui.text("Theme"),
-        ui.select({
-          id: "settings-theme",
-          value: state.themeName,
-          options: THEME_OPTIONS,
-          onChange: (value) => {
-            if (!isThemeName(value)) return;
-            deps.dispatch({ type: "set-theme", themeName: value });
-          },
+        ui.field({
+          label: "Theme",
+          children: ui.select({
+            id: "settings-theme",
+            value: state.themeName,
+            options: THEME_OPTIONS,
+            onChange: (value) => {
+              if (!isThemeName(value)) return;
+              deps.dispatch({ type: "set-theme", themeName: value });
+            },
+          }),
         }),
         ui.checkbox({
           id: "settings-auto-refresh",

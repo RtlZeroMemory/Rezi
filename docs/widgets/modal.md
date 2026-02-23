@@ -70,6 +70,22 @@ ui.modal({
 })
 ```
 
+### Modal focus entry/return example
+
+`initialFocus` and `returnFocusTo` are fully functional for modal open/close flows:
+
+```ts
+ui.modal({
+  id: "settings-modal",
+  title: "Settings",
+  initialFocus: "name-input",      // Focus this widget when modal opens
+  returnFocusTo: "settings-btn",   // Return focus here when modal closes
+  content: ui.column([
+    ui.input({ id: "name-input", value: state.name }),
+  ]),
+})
+```
+
 ### Multi-action dialogs with `ui.dialog`
 
 ```ts
@@ -120,6 +136,8 @@ return ui.layers([MainContent(), ...modals.render()]);
 - Backdrops are rendered behind the modal. `"dim"` uses a light shade pattern; `"opaque"` clears the area behind the modal to the theme background color.
 - Extended backdrop config uses object form: `variant` (preset), `pattern` (dim glyph), and optional `foreground`/`background` colors.
 - `width: "auto"` sizes to content/actions and is clamped by `maxWidth` and the viewport.
+- `initialFocus` is applied when the modal becomes active, and `returnFocusTo`
+  restores focus on close.
 - `useModalStack` applies focus-return wiring between stacked dialogs and keeps modal layering LIFO.
 
 ## Related

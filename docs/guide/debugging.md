@@ -289,6 +289,15 @@ console.log(`Total error types: ${errors.size()}`);
 errors.clear();
 ```
 
+## Enhanced Runtime Diagnostics
+
+Recent runtime errors include richer context to reduce guesswork:
+
+- `ZRUI_DUPLICATE_ID` includes both conflicting widget kinds and a `ctx.id()` hint for dynamic lists.
+- `ZRUI_DUPLICATE_KEY` includes the duplicate key value and parent/sibling context.
+- `ZRUI_INVALID_PROPS` includes the offending prop name, widget kind, and expected type.
+- `ZRUI_UPDATE_DURING_RENDER` includes guidance to move updates into event handlers/effects.
+
 ## State Timeline
 
 `StateTimeline` is a TypeScript-side helper and is not populated automatically.

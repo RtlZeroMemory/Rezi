@@ -15,6 +15,24 @@ All animation APIs are deterministic for the same state/input sequence.
 - Use `useStagger(...)` for list/rail entry timing offsets.
 - Use `ui.box({ transition: ... })` when you want runtime-managed position/size/opacity transitions without writing hook logic.
 
+## Easing Families and Usage
+
+- **Linear**: constant-rate movement for utility transitions.
+- **Quad**: subtle, low-energy transitions for small UI nudges.
+- **Cubic**: standard default-feeling motion for most interactions.
+
+## Easing Presets Reference
+
+| Preset | Family | Typical use |
+|---|---|---|
+| `linear` | linear | Utility animation, deterministic rate |
+| `easeInQuad` | quad | Gentle acceleration in |
+| `easeOutQuad` | quad | Gentle deceleration out |
+| `easeInOutQuad` | quad | Soft in/out transitions |
+| `easeInCubic` | cubic | Stronger acceleration |
+| `easeOutCubic` | cubic | Standard UI deceleration |
+| `easeInOutCubic` | cubic | Balanced default for panels/opacity |
+
 ## Hook example
 
 ```typescript
@@ -52,6 +70,12 @@ export const ReactorRow = defineWidget<ReactorProps>((props, ctx) => {
   ]);
 });
 ```
+
+## Retargeting semantics
+
+- Retargeting mid-flight starts from the current interpolated value (no jump).
+- Looping timelines (`useSequence(..., { loop: true })`) continue indefinitely.
+- Animation hooks currently expose timing/physics controls only; there is no `onComplete` callback option.
 
 ## Box transition props
 
