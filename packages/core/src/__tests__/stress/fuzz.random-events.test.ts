@@ -557,6 +557,11 @@ async function runEventFuzz(seed: number, profile: EventProfile): Promise<void> 
         return next;
       }
 
+      if (ev.action !== "input") {
+        violations.push(`${activeCtx}: unexpected action type ${ev.action} for id ${ev.id}`);
+        return prevState;
+      }
+
       if (ev.id !== "inp-main" && ev.id !== "inp-aux") {
         violations.push(`${activeCtx}: input action routed to non-input id ${ev.id}`);
         return prevState;

@@ -1,5 +1,5 @@
 import type { DrawlistBuilderV1 } from "../../../index.js";
-import { calculateAnchorPosition } from "../../../layout/positioning.js";
+import { computeDropdownGeometry } from "../../../layout/dropdownGeometry.js";
 import { measureTextCells, truncateWithEllipsis } from "../../../layout/textMeasure.js";
 import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
@@ -188,7 +188,6 @@ export function renderOverlayWidget(
     case "dropdown": {
       const props = vnode.props as DropdownProps;
       const anchor = idRectIndex.get(props.anchorId) ?? null;
-      if (!anchor) break;
       const frame = readOverlayFrameColors(props.frameStyle);
       const dropdownStyle = mergeTextStyle(parentStyle, toOverlaySurfaceStyle(frame));
       const borderStyle =
@@ -198,35 +197,8 @@ export function renderOverlayWidget(
 
       const items = Array.isArray(props.items) ? props.items : [];
       const selectedIndex = dropdownSelectedIndexById?.get(props.id) ?? 0;
-      let maxLabelW = 0;
-      let maxShortcutW = 0;
-      for (const item of items) {
-        if (!item || item.divider) continue;
-        const labelW = measureTextCells(readString(item.label));
-        if (labelW > maxLabelW) maxLabelW = labelW;
-        const shortcut = readString(item.shortcut);
-        if (shortcut.length > 0) {
-          const shortcutW = measureTextCells(shortcut);
-          if (shortcutW > maxShortcutW) maxShortcutW = shortcutW;
-        }
-      }
-
-      const gapW = maxShortcutW > 0 ? 1 : 0;
-      const contentW = Math.max(1, maxLabelW + gapW + maxShortcutW);
-      const totalW = Math.max(2, contentW + 2); // +2 for border
-      const totalH = Math.max(2, items.length + 2); // +2 for border
-
-      const pos = calculateAnchorPosition({
-        anchor,
-        overlaySize: { w: totalW, h: totalH },
-        position: props.position ?? "below-start",
-        viewport: { x: 0, y: 0, width: viewport.cols, height: viewport.rows },
-        gap: 0,
-        flip: true,
-      });
-
-      const dropdownRect = pos.rect;
-      if (!isVisibleRect(dropdownRect)) break;
+      const dropdownRect = computeDropdownGeometry(props, anchor, viewport);
+      if (!dropdownRect || !isVisibleRect(dropdownRect)) break;
 
       if (frame.background !== undefined) {
         builder.fillRect(

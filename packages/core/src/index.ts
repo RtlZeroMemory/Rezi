@@ -445,6 +445,7 @@ export {
   type DropdownRoutingResult,
   type LayerRoutingCtx,
   type LayerRoutingResult,
+  type RoutedAction,
 } from "./runtime/router.js";
 export {
   encodeIdSegment,
@@ -837,8 +838,11 @@ export {
 } from "./runtime/localState.js";
 
 export {
+  routeWheel,
   routeVirtualListKey,
   routeVirtualListWheel,
+  type WheelRoutingCtx,
+  type WheelRoutingResult,
   type VirtualListRoutingCtx,
   type VirtualListRoutingResult,
   type VirtualListWheelCtx,

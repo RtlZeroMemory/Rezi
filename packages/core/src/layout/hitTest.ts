@@ -213,6 +213,12 @@ function isFocusable(v: VNode): string | null {
   }
 }
 
+/** Return node id for widgets that expose a stable id prop. */
+function readNodeId(v: VNode): string | null {
+  const raw = (v.props as { id?: unknown }).id;
+  return typeof raw === "string" && raw.length > 0 ? raw : null;
+}
+
 /**
  * Hit test focusable widgets (enabled interactive ids).
  *
@@ -240,6 +246,59 @@ export function hitTestFocusable(
     if (!nodeClip) continue;
 
     const id = isFocusable(node.vnode);
+    if (id !== null && contains(nodeClip, x, y)) {
+      winner = id;
+    }
+
+    let childClip = nodeClip;
+    const overflowMode = readOverflowMode(node.vnode);
+
+    if (overflowMode === "scroll") {
+      const contentRect = resolveContentRect(node.vnode, node.rect);
+      const meta = readOverflowMetadata(node, contentRect);
+      if (meta !== null) {
+        const viewportRect = resolveScrollViewportRect(node.vnode, node.rect, meta);
+        const clippedViewport = intersectRect(nodeClip, viewportRect);
+        if (!clippedViewport) continue;
+        childClip = clippedViewport;
+      }
+    } else if (overflowMode === "hidden") {
+      const contentRect = resolveContentRect(node.vnode, node.rect);
+      const clippedContent = intersectRect(nodeClip, contentRect);
+      if (!clippedContent) continue;
+      childClip = clippedContent;
+    }
+
+    for (let i = node.children.length - 1; i >= 0; i--) {
+      const child = node.children[i];
+      if (!child) continue;
+      nodeStack.push(child);
+      clipStack.push(childClip);
+    }
+  }
+
+  return winner;
+}
+
+/**
+ * Hit test any widget with an `id` prop.
+ *
+ * Tie-break matches `hitTestFocusable`: deepest/latest DFS-preorder node wins.
+ */
+export function hitTestAnyId(layout: LayoutTree, x: number, y: number): string | null {
+  let winner: string | null = null;
+  const nodeStack: LayoutTree[] = [layout];
+  const clipStack: Rect[] = [layout.rect];
+
+  while (nodeStack.length > 0) {
+    const node = nodeStack.pop();
+    const clip = clipStack.pop();
+    if (!node || !clip) continue;
+
+    const nodeClip = intersectRect(clip, node.rect);
+    if (!nodeClip) continue;
+
+    const id = readNodeId(node.vnode);
     if (id !== null && contains(nodeClip, x, y)) {
       winner = id;
     }

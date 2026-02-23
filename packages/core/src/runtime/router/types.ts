@@ -10,12 +10,23 @@ export type EnabledById = ReadonlyMap<string, boolean>;
 
 /**
  * Action produced by event routing.
- *   - press: Button was activated (keyboard or mouse)
- *   - input: Input widget value changed
+ *   - press: Button-like widget activation
+ *   - input: Text input edit
+ *   - select: List-like item selection
+ *   - rowPress: Table row activation
+ *   - toggle/change: Value change for boolean/choice widgets
+ *   - activate: Tree node activation
+ *   - scroll: Scroll position updates
  */
 export type RoutedAction =
   | Readonly<{ id: string; action: "press" }>
-  | Readonly<{ id: string; action: "input"; value: string; cursor: number }>;
+  | Readonly<{ id: string; action: "input"; value: string; cursor: number }>
+  | Readonly<{ id: string; action: "select"; index: number; item?: unknown }>
+  | Readonly<{ id: string; action: "rowPress"; rowIndex: number; row?: unknown }>
+  | Readonly<{ id: string; action: "toggle"; checked: boolean }>
+  | Readonly<{ id: string; action: "change"; value: unknown }>
+  | Readonly<{ id: string; action: "activate"; nodeKey: string }>
+  | Readonly<{ id: string; action: "scroll"; scrollTop: number }>;
 
 /**
  * Result of routing an event.

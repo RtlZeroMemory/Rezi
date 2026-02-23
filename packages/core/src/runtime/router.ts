@@ -38,3 +38,4 @@ export { routeTableKey } from "./router/table.js";
 export { routeTreeKey } from "./router/tree.js";
 export { routeTabsKey } from "./router/tabs.js";
 export { routePaginationKey } from "./router/pagination.js";
+export { routeWheel, type WheelRoutingCtx, type WheelRoutingResult } from "./router/wheel.js";

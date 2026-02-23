@@ -5,6 +5,7 @@
  */
 
 import type { ZrevEvent } from "./protocol/types.js";
+import type { RoutedAction } from "./runtime/router/types.js";
 
 // =============================================================================
 // Protocol Event Types
@@ -33,26 +34,14 @@ export type UiEvent =
       kind: "engine";
       event: ZrevEvent;
     }>
-  | Readonly<{
-      /**
-       * User action triggered by focus/routing (e.g., button press, input edit).
-       */
-      kind: "action";
-      /** Interactive widget ID that triggered the action */
-      id: string;
-      /** Action type */
-      action: "press";
-    }>
-  | Readonly<{
-      /**
-       * Input edit action (docs/18).
-       */
-      kind: "action";
-      id: string;
-      action: "input";
-      value: string;
-      cursor: number;
-    }>
+  | Readonly<
+      {
+        /**
+         * User action triggered by focus/routing (e.g., button press, input edit).
+         */
+        kind: "action";
+      } & RoutedAction
+    >
   | Readonly<{
       /**
        * Input loss notification.
