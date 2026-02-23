@@ -5,7 +5,13 @@ import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { FocusState } from "../../../runtime/focus.js";
 import type { Theme } from "../../../theme/theme.js";
-import { buttonRecipe, checkboxRecipe, inputRecipe, selectRecipe } from "../../../ui/recipes.js";
+import {
+  buttonRecipe,
+  checkboxRecipe,
+  inputRecipe,
+  selectRecipe,
+  sliderRecipe,
+} from "../../../ui/recipes.js";
 import {
   DEFAULT_SLIDER_TRACK_WIDTH,
   formatSliderValue,
@@ -559,10 +565,15 @@ export function renderFormWidgets(
         showValue?: unknown;
         disabled?: unknown;
         readOnly?: unknown;
+        focusConfig?: unknown;
         style?: unknown;
       };
       const id = readString(props.id);
-      const focused = id !== undefined && focusState.focusedId === id;
+      const { focused, focusVisible, focusConfig } = resolveFocusFlags(
+        focusState,
+        id ?? null,
+        props.focusConfig,
+      );
       const disabled = props.disabled === true;
       const readOnly = props.readOnly === true;
       const label = readString(props.label) ?? "";
@@ -573,12 +584,24 @@ export function renderFormWidgets(
       const max = readNumber(props.max);
       const step = readNumber(props.step);
       const normalized = normalizeSliderState({ value, min, max, step });
+      const recipeResult =
+        colorTokens !== null
+          ? sliderRecipe(colorTokens, {
+              state: disabled
+                ? "disabled"
+                : readOnly
+                  ? "readonly"
+                  : focusVisible
+                    ? "focus"
+                    : "default",
+            })
+          : null;
 
       const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
 
-      const focusStyle = resolveWidgetFocusStyle(colorTokens, focused, disabled);
+      const focusStyle = resolveWidgetFocusStyle(colorTokens, focusVisible, disabled);
       let stateStyle: TextStyle;
       if (disabled) {
         stateStyle = { fg: theme.colors.muted };
@@ -587,7 +610,10 @@ export function renderFormWidgets(
       } else {
         stateStyle = focusStyle ?? {};
       }
-      const textStyle = mergeTextStyle(style, stateStyle);
+      const baseTextStyle = mergeTextStyle(style, stateStyle);
+      const textStyle = focusVisible
+        ? resolveFocusedContentStyle(baseTextStyle, theme, focusConfig)
+        : baseTextStyle;
 
       const labelText = label.length > 0 ? `${label} ` : "";
       const valueText =
@@ -606,16 +632,41 @@ export function renderFormWidgets(
           : Math.max(0, Math.min(trackCells - 1, Math.round(ratio * (trackCells - 1))));
       const fillCells = trackCells <= 1 ? 0 : thumbIndex;
       const emptyCells = Math.max(0, trackCells - fillCells - 1);
-      const trackText = `${repeatCached("█", fillCells)}●${repeatCached("░", emptyCells)}`;
-
-      const trackStyle = mergeTextStyle(
-        textStyle,
-        disabled
-          ? { fg: theme.colors.muted }
-          : readOnly
-            ? { fg: theme.colors.info, dim: true }
-            : { fg: theme.colors.primary, bold: true },
-      );
+      const filledText = repeatCached("█", fillCells);
+      const emptyText = repeatCached("░", emptyCells);
+      const filledStyle =
+        recipeResult !== null
+          ? mergeTextStyle(textStyle, recipeResult.filled)
+          : mergeTextStyle(
+              textStyle,
+              disabled
+                ? { fg: theme.colors.muted }
+                : readOnly
+                  ? { fg: theme.colors.info, dim: true }
+                  : { fg: theme.colors.primary, bold: true },
+            );
+      const thumbStyle =
+        recipeResult !== null
+          ? mergeTextStyle(textStyle, recipeResult.thumb)
+          : mergeTextStyle(
+              textStyle,
+              disabled
+                ? { fg: theme.colors.muted }
+                : readOnly
+                  ? { fg: theme.colors.info, dim: true }
+                  : { fg: theme.colors.primary, bold: true },
+            );
+      const emptyStyle =
+        recipeResult !== null
+          ? mergeTextStyle(textStyle, recipeResult.track)
+          : mergeTextStyle(
+              textStyle,
+              disabled
+                ? { fg: theme.colors.muted }
+                : readOnly
+                  ? { fg: theme.colors.info, dim: true }
+                  : { fg: theme.colors.primary, bold: true },
+            );
       const valueStyle = mergeTextStyle(
         textStyle,
         !disabled && readOnly ? { fg: theme.colors.muted } : undefined,
@@ -624,7 +675,9 @@ export function renderFormWidgets(
       const segments: StyledSegment[] = [];
       if (labelText.length > 0) segments.push({ text: labelText, style: textStyle });
       segments.push({ text: "[", style: textStyle });
-      segments.push({ text: trackText, style: trackStyle });
+      if (filledText.length > 0) segments.push({ text: filledText, style: filledStyle });
+      segments.push({ text: "●", style: thumbStyle });
+      if (emptyText.length > 0) segments.push({ text: emptyText, style: emptyStyle });
       segments.push({ text: "]", style: textStyle });
       if (valueText.length > 0) segments.push({ text: valueText, style: valueStyle });
 
@@ -804,11 +857,12 @@ export function renderFormWidgets(
         checked?: unknown;
         label?: unknown;
         disabled?: unknown;
+        focusConfig?: unknown;
         dsTone?: unknown;
         dsSize?: unknown;
       };
       const id = typeof props.id === "string" ? props.id : null;
-      const focused = id !== null && focusState.focusedId === id;
+      const { focusVisible, focusConfig } = resolveFocusFlags(focusState, id, props.focusConfig);
       const disabled = props.disabled === true;
       const checked = props.checked === true;
       const label = typeof props.label === "string" ? props.label : "";
@@ -820,7 +874,7 @@ export function renderFormWidgets(
       if (colorTokens !== null) {
         const state = disabled
           ? ("disabled" as const)
-          : focused
+          : focusVisible
             ? ("focus" as const)
             : checked
               ? ("selected" as const)
@@ -831,20 +885,29 @@ export function renderFormWidgets(
             ? { state, checked, size: dsSize }
             : { state, checked, tone: dsTone, size: dsSize },
         );
-        const indicatorStyle = mergeTextStyle(parentStyle, recipeResult.indicator);
-        const labelStyle = mergeTextStyle(parentStyle, recipeResult.label);
+        const indicatorBaseStyle = mergeTextStyle(parentStyle, recipeResult.indicator);
+        const labelBaseStyle = mergeTextStyle(parentStyle, recipeResult.label);
+        const indicatorStyle = focusVisible
+          ? resolveFocusedContentStyle(indicatorBaseStyle, theme, focusConfig)
+          : indicatorBaseStyle;
+        const labelStyle = focusVisible
+          ? resolveFocusedContentStyle(labelBaseStyle, theme, focusConfig)
+          : labelBaseStyle;
         builder.drawText(rect.x, rect.y, indicator, indicatorStyle);
         if (label.length > 0) {
           builder.drawText(rect.x + measureTextCells(indicator) + 1, rect.y, label, labelStyle);
         }
       } else {
         const text = label.length > 0 ? `${indicator} ${label}` : indicator;
-        const style = mergeTextStyle(
+        const baseStyle = mergeTextStyle(
           parentStyle,
           disabled
             ? { fg: theme.colors.muted }
-            : resolveWidgetFocusStyle(colorTokens, focused, false),
+            : resolveWidgetFocusStyle(colorTokens, focusVisible, false),
         );
+        const style = focusVisible
+          ? resolveFocusedContentStyle(baseStyle, theme, focusConfig)
+          : baseStyle;
         builder.drawText(rect.x, rect.y, text, style);
       }
       builder.popClip();
@@ -858,11 +921,12 @@ export function renderFormWidgets(
         options?: unknown;
         direction?: unknown;
         disabled?: unknown;
+        focusConfig?: unknown;
         dsTone?: unknown;
         dsSize?: unknown;
       };
       const id = typeof props.id === "string" ? props.id : null;
-      const focused = id !== null && focusState.focusedId === id;
+      const { focusVisible, focusConfig } = resolveFocusFlags(focusState, id, props.focusConfig);
       const disabled = props.disabled === true;
       const value = typeof props.value === "string" ? props.value : "";
       const direction = props.direction === "horizontal" ? "horizontal" : "vertical";
@@ -882,7 +946,7 @@ export function renderFormWidgets(
         if (colorTokens !== null) {
           const state = disabled
             ? ("disabled" as const)
-            : focused && selected
+            : focusVisible && selected
               ? ("focus" as const)
               : selected
                 ? ("selected" as const)
@@ -893,18 +957,27 @@ export function renderFormWidgets(
               ? { state, checked: selected, size: dsSize }
               : { state, checked: selected, tone: dsTone, size: dsSize },
           );
-          const indicatorStyle = mergeTextStyle(parentStyle, recipeResult.indicator);
-          const labelStyle = mergeTextStyle(parentStyle, recipeResult.label);
+          const indicatorBaseStyle = mergeTextStyle(parentStyle, recipeResult.indicator);
+          const labelBaseStyle = mergeTextStyle(parentStyle, recipeResult.label);
+          const indicatorStyle = focusVisible
+            ? resolveFocusedContentStyle(indicatorBaseStyle, theme, focusConfig)
+            : indicatorBaseStyle;
+          const labelStyle = focusVisible
+            ? resolveFocusedContentStyle(labelBaseStyle, theme, focusConfig)
+            : labelBaseStyle;
           builder.drawText(cx, cy, mark, indicatorStyle);
           if (opt.label.length > 0) {
             builder.drawText(cx + measureTextCells(mark) + 1, cy, opt.label, labelStyle);
           }
         } else {
-          const focusStyle = focused ? { underline: true, bold: true } : undefined;
-          const style = mergeTextStyle(
+          const focusStyle = focusVisible ? { underline: true, bold: true } : undefined;
+          const baseStyle = mergeTextStyle(
             parentStyle,
             disabled ? { fg: theme.colors.muted, ...focusStyle } : focusStyle,
           );
+          const style = focusVisible
+            ? resolveFocusedContentStyle(baseStyle, theme, focusConfig)
+            : baseStyle;
           const chunk = `${mark} ${opt.label}`;
           builder.drawText(cx, cy, chunk, style);
         }
