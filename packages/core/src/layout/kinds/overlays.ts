@@ -100,18 +100,19 @@ export function measureOverlays(
   switch (vnode.kind) {
     case "focusZone":
     case "focusTrap": {
-      // Focus zones and traps are transparent containers - they act like columns
-      // but exist only for focus management, not layout purposes.
-      const cw = maxW;
-      const ch = maxH;
-
       if (vnode.children.length === 0) {
         return ok({ w: 0, h: 0 });
       }
+      if (vnode.children.length === 1) {
+        // Truly transparent: forward to single child.
+        const child = vnode.children[0];
+        if (!child) return ok({ w: 0, h: 0 });
+        return measureNode(child, maxW, maxH, axis);
+      }
 
-      // Children are laid out as a Column inside the container.
+      // Multi-child fallback (deprecated): wrap children in an explicit row/column.
       const columnNode = getSyntheticColumn(vnode);
-      const innerRes = measureNode(columnNode, cw, ch, "column");
+      const innerRes = measureNode(columnNode, maxW, maxH, "column");
       if (!innerRes.ok) return innerRes;
       return ok({ w: innerRes.value.w, h: innerRes.value.h });
     }
@@ -200,14 +201,21 @@ export function layoutOverlays(
   switch (vnode.kind) {
     case "focusZone":
     case "focusTrap": {
-      // Focus zones and traps are transparent containers - they act like columns
-      // but exist only for focus management, not layout purposes.
       const children: LayoutTree[] = [];
-      if (vnode.children.length > 0) {
+      if (vnode.children.length === 1) {
+        // Truly transparent: forward to single child.
+        const child = vnode.children[0];
+        if (!child) {
+          return ok({ vnode, rect: { x, y, w: rectW, h: rectH }, children: Object.freeze(children) });
+        }
+        const childRes = layoutNode(child, x, y, rectW, rectH, axis, rectW, rectH);
+        if (!childRes.ok) return childRes;
+        children.push(childRes.value);
+      } else if (vnode.children.length > 1) {
+        // Multi-child fallback (deprecated).
         const columnNode = getSyntheticColumn(vnode);
         const innerRes = layoutNode(columnNode, x, y, rectW, rectH, "column", rectW, rectH);
         if (!innerRes.ok) return innerRes;
-        // Attach the zone/trap's children (not the synthetic column wrapper).
         children.push(...innerRes.value.children);
       }
 

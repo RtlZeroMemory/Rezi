@@ -15,6 +15,24 @@ ui.focusTrap(
 )
 ```
 
+## Layout behavior
+
+`focusTrap` is layout-transparent when it wraps exactly one child: the child keeps its own layout semantics.
+
+When you pass multiple direct children, current behavior falls back to legacy column stacking for backward compatibility. Prefer wrapping multi-child content in an explicit row/column:
+
+```typescript
+ui.focusTrap(
+  { id: "modal-trap", active: state.modalOpen },
+  [
+    ui.row({ gap: 1 }, [
+      ui.button({ id: "a", label: "A" }),
+      ui.button({ id: "b", label: "B" }),
+    ]),
+  ]
+)
+```
+
 ## Props
 
 | Prop | Type | Default | Description |
