@@ -16,6 +16,7 @@
  */
 
 import type { VNode } from "../index.js";
+import { getWidgetProtocol } from "../widgets/protocol.js";
 import type { LayoutTree } from "./layout.js";
 import { resolveSpacing } from "./spacing.js";
 import type { Rect } from "./types.js";
@@ -167,50 +168,19 @@ function resolveScrollViewportRect(vnode: VNode, rect: Rect, meta: OverflowMetad
 
 /** Return the ID of a focusable widget, or null if not focusable/disabled. */
 function isFocusable(v: VNode): string | null {
-  switch (v.kind) {
-    case "button":
-    case "link":
-    case "input":
-    case "virtualList":
-    case "table":
-    case "tree":
-    case "slider":
-    case "select":
-    case "checkbox":
-    case "radioGroup":
-    // Advanced widgets (GitHub issue #136)
-    case "commandPalette":
-    case "filePicker":
-    case "fileTreeExplorer":
-    case "codeEditor":
-    case "diffViewer":
-    case "toolApprovalDialog":
-    case "logsConsole": {
-      const id = (v.props as { id?: unknown }).id;
-      if (typeof id !== "string" || id.length === 0) return null;
-
-      if (v.kind === "commandPalette" || v.kind === "toolApprovalDialog") {
-        const open = (v.props as { open?: unknown }).open;
-        if (open !== true) return null;
-      }
-
-      if (
-        v.kind === "button" ||
-        v.kind === "link" ||
-        v.kind === "input" ||
-        v.kind === "slider" ||
-        v.kind === "select" ||
-        v.kind === "checkbox" ||
-        v.kind === "radioGroup"
-      ) {
-        const disabled = (v.props as { disabled?: unknown }).disabled;
-        if (disabled === true) return null;
-      }
-      return id;
-    }
-    default:
-      return null;
+  const proto = getWidgetProtocol(v.kind);
+  if (!proto.focusable) return null;
+  const id = (v.props as { id?: unknown }).id;
+  if (typeof id !== "string" || id.length === 0) return null;
+  if (proto.openGated) {
+    const open = (v.props as { open?: unknown }).open;
+    if (open !== true) return null;
   }
+  if (proto.disableable) {
+    const disabled = (v.props as { disabled?: unknown }).disabled;
+    if (disabled === true) return null;
+  }
+  return id;
 }
 
 /**

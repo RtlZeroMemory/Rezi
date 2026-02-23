@@ -17,39 +17,21 @@
  */
 
 import type { FocusZoneNavigation } from "../widgets/types.js";
+import {
+  getWidgetProtocol,
+  kindIsFocusable,
+  kindIsPressable,
+} from "../widgets/protocol.js";
 import type { RuntimeInstance } from "./commit.js";
 import type { InstanceId } from "./instance.js";
 
 /** Extract interactive widget ID from a node with a valid `id` prop. */
 function readInteractiveId(v: RuntimeInstance["vnode"]): string | null {
-  switch (v.kind) {
-    case "button":
-    case "link":
-    case "input":
-    case "slider":
-    case "virtualList":
-    case "table":
-    case "tree":
-    case "select":
-    case "checkbox":
-    case "radioGroup":
-    // Advanced widgets (GitHub issue #136)
-    case "commandPalette":
-    case "filePicker":
-    case "fileTreeExplorer":
-    case "splitPane":
-    case "panelGroup":
-    case "codeEditor":
-    case "diffViewer":
-    case "toolApprovalDialog":
-    case "logsConsole": {
-      const id = (v.props as { id?: unknown }).id;
-      if (typeof id !== "string" || id.length === 0) return null;
-      return id;
-    }
-    default:
-      return null;
-  }
+  const proto = getWidgetProtocol(v.kind);
+  if (!proto.requiresId && !proto.focusable && !proto.pressable) return null;
+  const id = (v.props as { id?: unknown }).id;
+  if (typeof id !== "string" || id.length === 0) return null;
+  return id;
 }
 
 function isFocusableInteractive(v: RuntimeInstance["vnode"]): boolean {
@@ -58,29 +40,7 @@ function isFocusableInteractive(v: RuntimeInstance["vnode"]): boolean {
 
   // Note: Some interactive widgets require an id for routing (e.g. SplitPane dividers),
   // but are explicitly NOT focusable (PLAN.md).
-  switch (v.kind) {
-    case "button":
-    case "link":
-    case "input":
-    case "slider":
-    case "virtualList":
-    case "table":
-    case "tree":
-    case "select":
-    case "checkbox":
-    case "radioGroup":
-    // Advanced focusable widgets (GitHub issue #136)
-    case "commandPalette":
-    case "filePicker":
-    case "fileTreeExplorer":
-    case "codeEditor":
-    case "diffViewer":
-    case "toolApprovalDialog":
-    case "logsConsole":
-      return true;
-    default:
-      return false;
-  }
+  return kindIsFocusable(v.kind);
 }
 
 function isEnabledInteractive(v: RuntimeInstance["vnode"]): string | null {
@@ -426,7 +386,7 @@ export function collectPressableIds(tree: RuntimeInstance): ReadonlySet<string> 
     const node = stack.pop();
     if (!node) continue;
 
-    if (node.vnode.kind === "button" || node.vnode.kind === "link") {
+    if (kindIsPressable(node.vnode.kind)) {
       const id = (node.vnode.props as { id?: unknown }).id;
       if (typeof id === "string" && id.length > 0) s.add(id);
     }
@@ -757,32 +717,7 @@ type TraversalItem =
   | { type: "fieldExit" };
 
 function requiresRoutingRebuild(vnode: RuntimeInstance["vnode"]): boolean {
-  switch (vnode.kind) {
-    case "dropdown":
-    case "button":
-    case "link":
-    case "slider":
-    case "virtualList":
-    case "table":
-    case "tree":
-    case "commandPalette":
-    case "filePicker":
-    case "fileTreeExplorer":
-    case "splitPane":
-    case "codeEditor":
-    case "diffViewer":
-    case "toolApprovalDialog":
-    case "logsConsole":
-    case "toastContainer":
-    case "modal":
-    case "layer":
-    case "select":
-    case "checkbox":
-    case "radioGroup":
-      return true;
-    default:
-      return false;
-  }
+  return getWidgetProtocol(vnode.kind).requiresRoutingRebuild;
 }
 
 /**

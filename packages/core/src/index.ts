@@ -320,6 +320,16 @@ export type {
 } from "./widgets/types.js";
 export { ui } from "./widgets/ui.js";
 export {
+  getWidgetProtocol,
+  kindRequiresId,
+  kindIsFocusable,
+  kindIsPressable,
+  kindIsDisableable,
+  kindIsOpenGated,
+  WIDGET_PROTOCOL,
+  type WidgetProtocol,
+} from "./widgets/protocol.js";
+export {
   normalizeCodeEditorTokens,
   tokenizeCodeEditorLine,
   tokenizeCodeEditorLineWithCustom,

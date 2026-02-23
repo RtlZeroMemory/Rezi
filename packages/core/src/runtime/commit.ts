@@ -23,6 +23,7 @@ import {
   getCompositeMeta,
   scopedId,
 } from "../widgets/composition.js";
+import { getWidgetProtocol, kindRequiresId } from "../widgets/protocol.js";
 import type { VNode } from "../widgets/types.js";
 import type { InstanceId, InstanceIdAllocator } from "./instance.js";
 import {
@@ -521,35 +522,8 @@ function formatWidgetPath(depth: number, tailPath: readonly string[]): string {
 }
 
 function isInteractiveVNode(v: VNode): boolean {
-  // Interactive set: widgets that can participate in focus/routing.
-  return (
-    v.kind === "button" ||
-    v.kind === "link" ||
-    v.kind === "input" ||
-    v.kind === "slider" ||
-    v.kind === "virtualList" ||
-    v.kind === "table" ||
-    v.kind === "tree" ||
-    v.kind === "select" ||
-    v.kind === "checkbox" ||
-    v.kind === "radioGroup" ||
-    v.kind === "tabs" ||
-    v.kind === "accordion" ||
-    v.kind === "pagination" ||
-    v.kind === "modal" ||
-    v.kind === "layer" ||
-    v.kind === "dropdown" ||
-    // Advanced widgets (GitHub issue #136)
-    v.kind === "commandPalette" ||
-    v.kind === "filePicker" ||
-    v.kind === "fileTreeExplorer" ||
-    v.kind === "splitPane" ||
-    v.kind === "panelGroup" ||
-    v.kind === "codeEditor" ||
-    v.kind === "diffViewer" ||
-    v.kind === "toolApprovalDialog" ||
-    v.kind === "logsConsole"
-  );
+  const proto = getWidgetProtocol(v.kind);
+  return proto.requiresId || proto.focusable || proto.pressable;
 }
 
 function ensureInteractiveId(
@@ -562,8 +536,7 @@ function ensureInteractiveId(
   // Runtime validation (even though most interactive widgets are typed with required ids).
   const id = (vnode as { props: { id?: unknown } }).props.id;
   if (typeof id !== "string" || id.length === 0) {
-    if (vnode.kind === "link") return null;
-
+    if (!kindRequiresId(vnode.kind)) return null;
     return {
       code: "ZRUI_INVALID_PROPS",
       detail: `interactive node missing required id (kind=${vnode.kind}, instanceId=${String(instanceId)})`,
