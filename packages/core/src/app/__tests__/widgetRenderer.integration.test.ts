@@ -1078,6 +1078,40 @@ describe("WidgetRenderer integration battery", () => {
     assert.deepEqual(selected, ["b:1"]);
   });
 
+  test("virtualList mouse-up does not request render when no select callback runs", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const vnode = ui.virtualList({
+      id: "v",
+      items: ["a"],
+      itemHeight: 1,
+      renderItem: (item) => ui.text(item),
+    });
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 20, rows: 3 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    const down1 = renderer.routeEngineEvent(mouseEvent(0, 0, 3, { timeMs: 1, buttons: 1 }));
+    const up1 = renderer.routeEngineEvent(mouseEvent(0, 0, 4, { timeMs: 2, buttons: 0 }));
+    const down2 = renderer.routeEngineEvent(mouseEvent(0, 0, 3, { timeMs: 3, buttons: 1 }));
+    const up2 = renderer.routeEngineEvent(mouseEvent(0, 0, 4, { timeMs: 4, buttons: 0 }));
+
+    assert.equal(down1.needsRender, true);
+    assert.equal(up1.needsRender, false);
+    assert.equal(down2.needsRender, false);
+    assert.equal(up2.needsRender, false);
+  });
+
   test("virtualList onScroll fires for wheel and key-driven scroll", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({
