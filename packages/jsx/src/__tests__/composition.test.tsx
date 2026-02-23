@@ -1,8 +1,7 @@
 /** @jsxImportSource @rezi-ui/jsx */
 
-import type { RegisteredBinding } from "@rezi-ui/core";
-import { ui } from "@rezi-ui/core";
-import { assert, describe, test } from "@rezi-ui/testkit";
+import type { RegisteredBinding, VNode } from "@rezi-ui/core";
+import { createTestRenderer, ui } from "@rezi-ui/core";
 import {
   Actions,
   AppShell,
@@ -22,57 +21,51 @@ import {
   StatusBar,
   Text,
   Toolbar,
-} from "../index.js";
+} from "@rezi-ui/jsx";
+import { assert, describe, test } from "@rezi-ui/testkit";
 
-function replaceFunctions(value: unknown): unknown {
-  if (typeof value === "function") {
-    return "[function]";
-  }
-  if (Array.isArray(value)) {
-    return value.map((entry) => replaceFunctions(entry));
-  }
-  if (value !== null && typeof value === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      out[k] = replaceFunctions(v);
-    }
-    return out;
-  }
-  return value;
+const VIEWPORT = { cols: 80, rows: 24 } as const;
+
+function assertRenderParity(jsxNode: VNode, coreNode: VNode): void {
+  const jsxResult = createTestRenderer({ viewport: VIEWPORT }).render(jsxNode);
+  const coreResult = createTestRenderer({ viewport: VIEWPORT }).render(coreNode);
+
+  assert.equal(jsxResult.toText(), coreResult.toText());
+  assert.deepEqual(jsxResult.ops, coreResult.ops);
 }
 
 describe("composition helpers", () => {
   test("Panel delegates to ui.panel", () => {
-    const vnode = (
+    const jsxNode = (
       <Panel title="Test">
         <Text>content</Text>
       </Panel>
     );
-    assert.deepEqual(vnode, ui.panel({ title: "Test" }, [ui.text("content")]));
+    assertRenderParity(jsxNode, ui.panel({ title: "Test" }, [ui.text("content")]));
   });
 
   test("Form delegates to ui.form", () => {
-    const vnode = (
+    const jsxNode = (
       <Form gap={2}>
         <Text>field</Text>
       </Form>
     );
-    assert.deepEqual(vnode, ui.form({ gap: 2 }, [ui.text("field")]));
+    assertRenderParity(jsxNode, ui.form({ gap: 2 }, [ui.text("field")]));
   });
 
   test("Actions delegates to ui.actions", () => {
-    const vnode = (
+    const jsxNode = (
       <Actions>
         <Button id="save" label="Save" />
       </Actions>
     );
-    assert.deepEqual(vnode, ui.actions({}, [ui.button({ id: "save", label: "Save" })]));
+    assertRenderParity(jsxNode, ui.actions({}, [ui.button({ id: "save", label: "Save" })]));
   });
 
   test("Center delegates to ui.center", () => {
     const child = <Text>child</Text>;
-    const vnode = <Center>{child}</Center>;
-    assert.deepEqual(vnode, ui.center(ui.text("child"), {}));
+    const jsxNode = <Center>{child}</Center>;
+    assertRenderParity(jsxNode, ui.center(ui.text("child"), {}));
   });
 
   test("Page delegates to ui.page", () => {
@@ -80,9 +73,9 @@ describe("composition helpers", () => {
     const body = <Text>Body</Text>;
     const footer = <Text>Footer</Text>;
 
-    const vnode = <Page header={header} body={body} footer={footer} gap={2} p={1} />;
-    assert.deepEqual(
-      vnode,
+    const jsxNode = <Page header={header} body={body} footer={footer} gap={2} p={1} />;
+    assertRenderParity(
+      jsxNode,
       ui.page({
         header: ui.text("Header"),
         body: ui.text("Body"),
@@ -94,7 +87,7 @@ describe("composition helpers", () => {
   });
 
   test("AppShell delegates with and without sidebar", () => {
-    const withSidebar = (
+    const withSidebarJsx = (
       <AppShell
         header={<Text>Header</Text>}
         sidebar={{ content: <Text>Nav</Text>, width: 20 }}
@@ -105,8 +98,8 @@ describe("composition helpers", () => {
       />
     );
 
-    assert.deepEqual(
-      withSidebar,
+    assertRenderParity(
+      withSidebarJsx,
       ui.appShell({
         header: ui.text("Header"),
         sidebar: { content: ui.text("Nav"), width: 20 },
@@ -117,19 +110,19 @@ describe("composition helpers", () => {
       }),
     );
 
-    const withoutSidebar = <AppShell body={<Text>Body</Text>} />;
-    assert.deepEqual(withoutSidebar, ui.appShell({ body: ui.text("Body") }));
+    const withoutSidebarJsx = <AppShell body={<Text>Body</Text>} />;
+    assertRenderParity(withoutSidebarJsx, ui.appShell({ body: ui.text("Body") }));
   });
 
   test("Card delegates to ui.card", () => {
-    const vnode = (
+    const jsxNode = (
       <Card title="Card" subtitle="Sub" actions={[<Button id="x" label="X" key="x" />]}>
         <Text>Body</Text>
       </Card>
     );
 
-    assert.deepEqual(
-      vnode,
+    assertRenderParity(
+      jsxNode,
       ui.card(
         {
           title: "Card",
@@ -142,21 +135,21 @@ describe("composition helpers", () => {
   });
 
   test("Toolbar delegates to ui.toolbar", () => {
-    const vnode = (
+    const jsxNode = (
       <Toolbar gap={2}>
         <Button id="save" label="Save" />
       </Toolbar>
     );
 
-    assert.deepEqual(vnode, ui.toolbar({ gap: 2 }, [ui.button({ id: "save", label: "Save" })]));
+    assertRenderParity(jsxNode, ui.toolbar({ gap: 2 }, [ui.button({ id: "save", label: "Save" })]));
   });
 
   test("StatusBar delegates to ui.statusBar", () => {
-    const vnode = (
+    const jsxNode = (
       <StatusBar left={[<Text key="l">Left</Text>]} right={[<Text key="r">Right</Text>]} />
     );
-    assert.deepEqual(
-      vnode,
+    assertRenderParity(
+      jsxNode,
       ui.statusBar({
         left: [ui.text("Left", { key: "l" })],
         right: [ui.text("Right", { key: "r" })],
@@ -165,7 +158,7 @@ describe("composition helpers", () => {
   });
 
   test("Header delegates to ui.header", () => {
-    const vnode = (
+    const jsxNode = (
       <Header
         title="Title"
         subtitle="Subtitle"
@@ -173,8 +166,8 @@ describe("composition helpers", () => {
       />
     );
 
-    assert.deepEqual(
-      vnode,
+    assertRenderParity(
+      jsxNode,
       ui.header({
         title: "Title",
         subtitle: "Subtitle",
@@ -184,7 +177,7 @@ describe("composition helpers", () => {
   });
 
   test("Sidebar delegates to ui.sidebar", () => {
-    const vnode = (
+    const jsxNode = (
       <Sidebar
         id="nav"
         items={[
@@ -195,27 +188,25 @@ describe("composition helpers", () => {
       />
     );
 
-    assert.deepEqual(
-      replaceFunctions(vnode),
-      replaceFunctions(
-        ui.sidebar({
-          id: "nav",
-          items: [
-            { id: "home", label: "Home" },
-            { id: "settings", label: "Settings" },
-          ],
-          selected: "home",
-        }),
-      ),
+    assertRenderParity(
+      jsxNode,
+      ui.sidebar({
+        id: "nav",
+        items: [
+          { id: "home", label: "Home" },
+          { id: "settings", label: "Settings" },
+        ],
+        selected: "home",
+      }),
     );
   });
 
   test("MasterDetail delegates to ui.masterDetail", () => {
-    const vnode = (
+    const jsxNode = (
       <MasterDetail master={<Text>Master</Text>} detail={<Text>Detail</Text>} gap={2} />
     );
-    assert.deepEqual(
-      vnode,
+    assertRenderParity(
+      jsxNode,
       ui.masterDetail({ master: ui.text("Master"), detail: ui.text("Detail"), gap: 2 }),
     );
   });
@@ -224,7 +215,7 @@ describe("composition helpers", () => {
     const onConfirm = () => {};
     const onCancel = () => {};
 
-    const vnode = (
+    const jsxNode = (
       <Dialog
         id="confirm"
         title="Confirm"
@@ -236,8 +227,8 @@ describe("composition helpers", () => {
       />
     );
 
-    assert.deepEqual(
-      vnode,
+    assertRenderParity(
+      jsxNode,
       ui.dialog({
         id: "confirm",
         title: "Confirm",
@@ -252,18 +243,18 @@ describe("composition helpers", () => {
 
   test("ErrorBoundary delegates to ui.errorBoundary", () => {
     const fallback = () => ui.text("fallback");
-    const vnode = (
+    const jsxNode = (
       <ErrorBoundary fallback={fallback}>
         <Text>Risky</Text>
       </ErrorBoundary>
     );
 
-    assert.deepEqual(vnode, ui.errorBoundary({ children: ui.text("Risky"), fallback }));
+    assertRenderParity(jsxNode, ui.errorBoundary({ children: ui.text("Risky"), fallback }));
   });
 
   test("FocusAnnouncer delegates to ui.focusAnnouncer", () => {
-    const vnode = <FocusAnnouncer emptyText="No focus" />;
-    assert.deepEqual(vnode, ui.focusAnnouncer({ emptyText: "No focus" }));
+    const jsxNode = <FocusAnnouncer emptyText="No focus" />;
+    assertRenderParity(jsxNode, ui.focusAnnouncer({ emptyText: "No focus" }));
   });
 
   test("KeybindingHelp delegates to ui.keybindingHelp", () => {
@@ -272,7 +263,7 @@ describe("composition helpers", () => {
       { sequence: "ctrl+p", mode: "default", description: "Open" },
     ];
 
-    const vnode = (
+    const jsxNode = (
       <KeybindingHelp
         bindings={bindings}
         title="Shortcuts"
@@ -282,8 +273,8 @@ describe("composition helpers", () => {
       />
     );
 
-    assert.deepEqual(
-      vnode,
+    assertRenderParity(
+      jsxNode,
       ui.keybindingHelp(bindings, {
         title: "Shortcuts",
         emptyText: "None",

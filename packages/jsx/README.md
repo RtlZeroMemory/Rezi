@@ -7,7 +7,7 @@
 Install:
 
 ```bash
-npm install @rezi-ui/core @rezi-ui/jsx
+npm install @rezi-ui/core @rezi-ui/jsx @rezi-ui/node
 ```
 
 Configure TypeScript:

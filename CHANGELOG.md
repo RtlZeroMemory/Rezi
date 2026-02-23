@@ -34,6 +34,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - **errors**: `ZRUI_UPDATE_DURING_RENDER` includes event-handler guidance.
 - **refactor**: Centralized ID codec replaces duplicated encode/decode logic in tabs/accordion/breadcrumb.
 - **refactor**: Shared dropdown geometry helper removes duplication between renderer and routing.
+- **docs**: Added a comprehensive "Using JSX" guide for `@rezi-ui/jsx`, including setup, parity mapping to `ui.*()`, and component reference coverage.
 
 ## [0.1.0-alpha.30] - 2026-02-22
 
