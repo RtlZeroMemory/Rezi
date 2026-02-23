@@ -1369,6 +1369,8 @@ export function renderBasicWidget(
         placeholder?: unknown;
         disabled?: unknown;
         focusConfig?: unknown;
+        dsVariant?: unknown;
+        dsTone?: unknown;
         dsSize?: unknown;
       };
       const focusConfig = readFocusConfig(props.focusConfig);

@@ -17,6 +17,7 @@ import type {
   VirtualListStateStore,
 } from "../../../runtime/localState.js";
 import type { Theme } from "../../../theme/theme.js";
+import { tableRecipe } from "../../../ui/recipes.js";
 import { distributeColumnWidths } from "../../../widgets/table.js";
 import { type FlattenedNode, computeNodeState, flattenTree } from "../../../widgets/tree.js";
 import type { TableProps, TreeProps, VirtualListProps } from "../../../widgets/types.js";
@@ -34,6 +35,7 @@ import { measureVNodeSimpleHeight, renderVNodeSimple } from "../simpleVNode.js";
 import { clampNonNegative } from "../spacing.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
 import { mergeTextStyle } from "../textStyle.js";
+import { getColorTokens, readWidgetSize } from "../themeTokens.js";
 import type { TableRenderCache } from "../types.js";
 import { getExpandedSet, getTreePrefixes } from "./files.js";
 import {
@@ -441,7 +443,25 @@ export function renderCollectionWidget(
       const focusConfig = readFocusConfig(props.focusConfig);
       const showFocusIndicator = focusIndicatorEnabled(focusConfig);
       const selectionStyle = asTextStyle(props.selectionStyle, theme);
-      const selectionBg = selectionStyle?.bg ?? theme.colors.secondary;
+      const colorTokens = getColorTokens(theme);
+      const dsSize = readWidgetSize(props.dsSize) ?? "md";
+      const headerRecipe =
+        colorTokens !== null ? tableRecipe(colorTokens, { state: "header", size: dsSize }) : null;
+      const rowRecipe =
+        colorTokens !== null ? tableRecipe(colorTokens, { state: "row", size: dsSize }) : null;
+      const stripeRecipe =
+        colorTokens !== null ? tableRecipe(colorTokens, { state: "stripe", size: dsSize }) : null;
+      const selectedRecipe =
+        colorTokens !== null
+          ? tableRecipe(colorTokens, { state: "selectedRow", size: dsSize })
+          : null;
+      const focusedRecipe =
+        colorTokens !== null
+          ? tableRecipe(colorTokens, { state: "focusedRow", size: dsSize })
+          : null;
+      const selectionBg =
+        selectionStyle?.bg ??
+        (colorTokens !== null ? selectedRecipe?.bg.bg : theme.colors.secondary);
 
       const borderVariant = readTableBorderVariant(props.borderStyle?.variant);
       const border =
@@ -461,8 +481,10 @@ export function renderCollectionWidget(
       const selectionMode = props.selectionMode ?? "none";
       const virtualized = props.virtualized !== false;
       const stripedRows = props.stripedRows === true || props.stripeStyle !== undefined;
-      const stripeOddBg = props.stripeStyle?.odd ?? theme.colors.border;
-      const stripeEvenBg = props.stripeStyle?.even;
+      const stripeOddBg =
+        props.stripeStyle?.odd ??
+        (colorTokens !== null ? stripeRecipe?.bg.bg : theme.colors.border);
+      const stripeEvenBg = props.stripeStyle?.even ?? rowRecipe?.bg.bg;
       const tableCache = tableRenderCacheById?.get(props.id);
       const cachedRowKeys = tableCache?.rowKeys;
       const cachedSelectionSet = tableCache?.selectionSet;
@@ -493,6 +515,15 @@ export function renderCollectionWidget(
 
       // Header
       if (headerHeight > 0 && innerW > 0) {
+        if (headerRecipe?.bg.bg) {
+          builder.fillRect(
+            innerX,
+            innerY,
+            innerW,
+            headerHeight,
+            mergeTextStyle(parentStyle, headerRecipe.bg),
+          );
+        }
         let xCursor = innerX;
         for (let i = 0; i < props.columns.length; i++) {
           const col = props.columns[i];
@@ -509,9 +540,14 @@ export function renderCollectionWidget(
           const overflow = readCellOverflow(col.overflow);
           const cell = alignCellContent(headerText, w, headerAlign, overflow);
           const headerStyle0 =
-            sortIndicator.length > 0
-              ? mergeTextStyle(parentStyle, { bold: true, fg: theme.colors.info })
-              : mergeTextStyle(parentStyle, { bold: true });
+            colorTokens !== null
+              ? mergeTextStyle(
+                  mergeTextStyle(parentStyle, headerRecipe?.cell),
+                  sortIndicator.length > 0 ? { underline: true } : undefined,
+                )
+              : sortIndicator.length > 0
+                ? mergeTextStyle(parentStyle, { bold: true, fg: theme.colors.info })
+                : mergeTextStyle(parentStyle, { bold: true });
           const isHeaderFocused =
             showFocusIndicator &&
             focusState.focusedId === props.id &&
@@ -584,23 +620,34 @@ export function renderCollectionWidget(
         if (yRow >= bodyY + bodyH) break;
         if (yRow + safeRowHeight <= bodyY) continue;
 
-        const focusedRowStyle = showFocusedStyle
-          ? resolveFocusedContentStyle(
-              resolveFocusIndicatorStyle(
-                parentStyle,
-                theme,
-                focusConfig,
-                mergeTextStyle(parentStyle, { inverse: true }),
-              ),
-              theme,
-              focusConfig,
-            )
-          : parentStyle;
-        const focusedRowBg = focusedRowStyle.bg;
+        let focusedRowStyle = parentStyle;
+        if (showFocusedStyle) {
+          focusedRowStyle =
+            colorTokens !== null
+              ? mergeTextStyle(parentStyle, focusedRecipe?.cell)
+              : resolveFocusedContentStyle(
+                  resolveFocusIndicatorStyle(
+                    parentStyle,
+                    theme,
+                    focusConfig,
+                    mergeTextStyle(parentStyle, { inverse: true }),
+                  ),
+                  theme,
+                  focusConfig,
+                );
+        }
+        const focusedRowBg = colorTokens !== null ? focusedRecipe?.bg.bg : focusedRowStyle.bg;
         const rowStripeBg = stripedRows ? ((i & 1) === 1 ? stripeOddBg : stripeEvenBg) : undefined;
-        const rowBg = showFocusedStyle ? focusedRowBg : isSelected ? selectionBg : rowStripeBg;
+        const rowBg = showFocusedStyle
+          ? focusedRowBg
+          : isSelected
+            ? selectionBg
+            : (rowStripeBg ?? (colorTokens !== null ? rowRecipe?.bg.bg : undefined));
         if (rowBg) {
           builder.fillRect(innerX, yRow, innerW, safeRowHeight, { bg: rowBg });
+        }
+        if (showFocusedStyle && rowBg) {
+          focusedRowStyle = mergeTextStyle(focusedRowStyle, { bg: rowBg });
         }
 
         let xCursor = innerX;
@@ -621,9 +668,21 @@ export function renderCollectionWidget(
           const rowSelectedStyle =
             !showFocusedStyle && isSelected && selectionStyle
               ? mergeTextStyle(parentStyle, selectionStyle)
-              : rowBg
-                ? mergeTextStyle(parentStyle, { bg: rowBg })
-                : parentStyle;
+              : colorTokens !== null
+                ? mergeTextStyle(
+                    mergeTextStyle(
+                      parentStyle,
+                      isSelected
+                        ? selectedRecipe?.cell
+                        : rowStripeBg
+                          ? stripeRecipe?.cell
+                          : rowRecipe?.cell,
+                    ),
+                    rowBg ? { bg: rowBg } : undefined,
+                  )
+                : rowBg
+                  ? mergeTextStyle(parentStyle, { bg: rowBg })
+                  : parentStyle;
           const cellStyle = showFocusedStyle ? focusedRowStyle : rowSelectedStyle;
 
           if (col.render) {

@@ -1297,6 +1297,10 @@ export type TableProps<T = unknown> = Readonly<{
   borderStyle?: TableBorderStyle;
   /** Optional focus appearance configuration. */
   focusConfig?: FocusConfig;
+  /** Design system: size preset. */
+  dsSize?: WidgetSize;
+  /** Design system: tone (reserved for future table recipe variants). */
+  dsTone?: WidgetTone;
 }>;
 
 /* ========== Form Widgets (GitHub issue #119) ========== */
@@ -1346,6 +1350,10 @@ export type SelectProps = Readonly<{
   placeholder?: string;
   /** Optional focus appearance configuration. */
   focusConfig?: FocusConfig;
+  /** Design system: visual variant (reserved for future select recipes). */
+  dsVariant?: WidgetVariant;
+  /** Design system: tone (reserved for future select recipes). */
+  dsTone?: WidgetTone;
   /** Design system: size preset. */
   dsSize?: WidgetSize;
 }>;

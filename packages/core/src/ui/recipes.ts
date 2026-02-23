@@ -346,6 +346,8 @@ export function selectRecipe(
 
 export type TableRecipeParams = Readonly<{
   state?: "header" | "row" | "selectedRow" | "focusedRow" | "stripe";
+  size?: WidgetSize;
+  tone?: WidgetTone;
   density?: Density;
 }>;
 
