@@ -518,7 +518,7 @@ function formatWidgetPath(depth: number, tailPath: readonly string[]): string {
 }
 
 function isInteractiveVNode(v: VNode): boolean {
-  // Interactive set: widgets with required `id` that participate in focus/routing.
+  // Interactive set: widgets that can participate in focus/routing.
   return (
     v.kind === "button" ||
     v.kind === "link" ||
@@ -556,9 +556,11 @@ function ensureInteractiveId(
 ): CommitFatal | null {
   if (!isInteractiveVNode(vnode)) return null;
 
-  // Runtime validation (even though ButtonProps is typed).
+  // Runtime validation (even though most interactive widgets are typed with required ids).
   const id = (vnode as { props: { id?: unknown } }).props.id;
   if (typeof id !== "string" || id.length === 0) {
+    if (vnode.kind === "link") return null;
+
     return {
       code: "ZRUI_INVALID_PROPS",
       detail: `interactive node missing required id (kind=${vnode.kind}, instanceId=${String(instanceId)})`,
