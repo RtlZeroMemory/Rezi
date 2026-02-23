@@ -302,7 +302,12 @@ await debug.enable({
 | `useSpring`, `UseSpringConfig` | Spring-physics numeric animation hook + config type |
 | `useSequence`, `UseSequenceConfig` | Keyframe timeline hook + config type |
 | `useStagger`, `UseStaggerConfig` | Staggered per-item progress hook + config type |
-| `TransitionSpec`, `TransitionProperty` | `ui.box` transition prop type + allowed properties |
+| `useAnimatedValue`, `UseAnimatedValueConfig`, `AnimatedValue` | Composable transition/spring primitive with value/velocity/activity metadata |
+| `useParallel`, `UseParallelConfig`, `ParallelAnimationEntry` | Parallel transition orchestration hook |
+| `useChain`, `UseChainConfig` | Sequential transition orchestration hook |
+| `PlaybackControl` | Pause/reverse/rate controls for transition/sequence playback |
+| `interpolateRgb`, `interpolateRgbArray` | RGB interpolation helpers for color ramps |
+| `TransitionSpec`, `TransitionProperty` | Container transition prop type + allowed properties |
 
 ### Testing
 

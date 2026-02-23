@@ -29,18 +29,34 @@ export type EasingName =
 /** Easing value accepted by transition APIs. */
 export type EasingInput = EasingName | EasingFunction;
 
+/** Playback controls for time-based animation hooks. */
+export type PlaybackControl = Readonly<{
+  /** Freeze animation at the current sampled value. */
+  paused?: boolean;
+  /** Run animation time backwards. */
+  reversed?: boolean;
+  /** Playback rate multiplier. */
+  rate?: number;
+}>;
+
 /** Time-based interpolation configuration. */
 export type TransitionConfig = Readonly<{
+  /** Delay before animation starts in milliseconds. */
+  delay?: number;
   /** Transition duration in milliseconds. */
   duration?: number;
   /** Easing curve name or custom easing function. */
   easing?: EasingInput;
+  /** Optional playback controls for pause/reverse/rate. */
+  playback?: PlaybackControl;
   /** Called when the transition reaches the target value. */
   onComplete?: () => void;
 }>;
 
 /** Spring simulation configuration. */
 export type SpringConfig = Readonly<{
+  /** Delay before spring simulation starts in milliseconds. */
+  delay?: number;
   /** Hooke spring constant. Larger values snap faster. */
   stiffness?: number;
   /** Velocity damping factor. Larger values reduce oscillation. */
@@ -85,6 +101,8 @@ export type SequenceConfig = Readonly<{
   duration?: number;
   /** Default easing for segments without per-keyframe easing. */
   easing?: EasingInput;
+  /** Optional playback controls for pause/reverse/rate. */
+  playback?: PlaybackControl;
   /** Loop sequence timeline when it reaches the end. */
   loop?: boolean;
   /** Called when the sequence reaches the final keyframe (when not looping). */

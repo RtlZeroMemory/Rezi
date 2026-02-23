@@ -23,8 +23,6 @@
  */
 
 import type { CursorShape } from "../abi.js";
-import { resolveEasing } from "../animation/easing.js";
-import { interpolateNumber, normalizeDurationMs } from "../animation/interpolate.js";
 import { BACKEND_RAW_WRITE_MARKER, type BackendRawWrite, type RuntimeBackend } from "../backend.js";
 import { CURSOR_DEFAULTS } from "../cursor/index.js";
 import {
@@ -84,7 +82,12 @@ import { type CursorInfo, renderToDrawlist } from "../renderer/renderToDrawlist.
 import { getRuntimeNodeDamageRect } from "../renderer/renderToDrawlist/damageBounds.js";
 import { renderTree } from "../renderer/renderToDrawlist/renderTree.js";
 import { DEFAULT_BASE_STYLE } from "../renderer/renderToDrawlist/textStyle.js";
-import { type CommitOk, type RuntimeInstance, commitVNodeTree } from "../runtime/commit.js";
+import {
+  type CommitOk,
+  type PendingExitAnimation,
+  type RuntimeInstance,
+  commitVNodeTree,
+} from "../runtime/commit.js";
 import {
   type FocusManagerState,
   createFocusManagerState,
@@ -173,7 +176,6 @@ import type {
   TableProps,
   ToastContainerProps,
   ToolApprovalDialogProps,
-  TransitionSpec,
   TreeProps,
   VirtualListProps,
 } from "../widgets/types.js";
@@ -190,12 +192,15 @@ import {
 } from "./runtimeBreadcrumbs.js";
 import type { ViewFn } from "./types.js";
 import {
+  type ExitTransitionRenderNode,
+  type ExitTransitionTrack,
   type PositionTransitionTrack,
-  readBoxOpacity as readBoxOpacityImpl,
+  readContainerOpacity as readContainerOpacityImpl,
   rebuildAnimatedRectOverrides as rebuildAnimatedRectOverridesImpl,
   recomputeAnimatedWidgetPresence as recomputeAnimatedWidgetPresenceImpl,
   refreshPositionTransitionTracks as refreshPositionTransitionTracksImpl,
-  resolvePositionTransition as resolvePositionTransitionImpl,
+  sampleExitAnimations as sampleExitAnimationsImpl,
+  scheduleExitAnimations as scheduleExitAnimationsImpl,
 } from "./widgetRenderer/animationTracks.js";
 import { routeCodeEditorKeyDown } from "./widgetRenderer/codeEditorRouting.js";
 import {
@@ -529,34 +534,6 @@ function monotonicNowMs(): number {
   return Date.now();
 }
 
-function transitionSupportsPosition(transition: TransitionSpec): boolean {
-  const properties = transition.properties;
-  if (properties === undefined || properties === "all") return true;
-  if (!Array.isArray(properties)) return false;
-  return properties.includes("position");
-}
-
-function transitionSupportsSize(transition: TransitionSpec): boolean {
-  const properties = transition.properties;
-  if (properties === undefined || properties === "all") return true;
-  if (!Array.isArray(properties)) return false;
-  return properties.includes("size");
-}
-
-function transitionSupportsOpacity(transition: TransitionSpec): boolean {
-  const properties = transition.properties;
-  if (properties === undefined || properties === "all") return true;
-  if (!Array.isArray(properties)) return false;
-  return properties.includes("opacity");
-}
-
-function clampOpacity(opacity: unknown): number {
-  if (typeof opacity !== "number" || !Number.isFinite(opacity)) return 1;
-  if (opacity <= 0) return 0;
-  if (opacity >= 1) return 1;
-  return opacity;
-}
-
 function isV2Builder(builder: DrawlistBuilderV1 | DrawlistBuilderV2): builder is DrawlistBuilderV2 {
   return typeof (builder as DrawlistBuilderV2).setCursor === "function";
 }
@@ -736,13 +713,18 @@ export class WidgetRenderer<S> {
   private hadRoutingWidgets = false;
   private hasAnimatedWidgetsInCommittedTree = false;
   private hasActivePositionTransitions = false;
+  private hasActiveExitTransitions = false;
   private hasViewportAwareCompositesInCommittedTree = false;
   private readonly positionTransitionTrackByInstanceId = new Map<
     InstanceId,
     PositionTransitionTrack
   >();
+  private readonly exitTransitionTrackByInstanceId = new Map<InstanceId, ExitTransitionTrack>();
+  private readonly exitRenderNodeByInstanceId = new Map<InstanceId, ExitTransitionRenderNode>();
   private readonly animatedRectByInstanceId = new Map<InstanceId, Rect>();
   private readonly animatedOpacityByInstanceId = new Map<InstanceId, number>();
+  private readonly exitAnimatedRectByInstanceId = new Map<InstanceId, Rect>();
+  private readonly exitAnimatedOpacityByInstanceId = new Map<InstanceId, number>();
 
   /* --- Render Caches (avoid per-frame recompute) --- */
   private readonly tableRenderCacheById = new Map<string, TableRenderCache>();
@@ -821,12 +803,14 @@ export class WidgetRenderer<S> {
   private readonly _pooledOffsetYStack: number[] = [];
   private readonly _pooledDirtyLayoutInstanceIds: InstanceId[] = [];
   private readonly _pooledPrevRuntimeStack: RuntimeInstance[] = [];
+  private readonly _pooledPrevLayoutSubtreeByInstanceId = new Map<InstanceId, LayoutTree>();
   private readonly _pooledDamageRuntimeStack: RuntimeInstance[] = [];
   private readonly _pooledVisitedTransitionIds = new Set<InstanceId>();
   private readonly _pooledDropdownStack: string[] = [];
   private readonly _pooledOverlayShortcutOwners: OverlayShortcutOwner[] = [];
   private readonly _pooledToastContainers: { rect: Rect; props: ToastContainerProps }[] = [];
   private readonly _pooledToastFocusableActionIds: string[] = [];
+  private readonly _pooledActiveExitKeys = new Set<string>();
   // Pooled Sets for tracking previous IDs (GC cleanup detection)
   private readonly _pooledPrevTreeIds = new Set<string>();
   private readonly _pooledPrevDropdownIds = new Set<string>();
@@ -918,7 +902,11 @@ export class WidgetRenderer<S> {
   }
 
   hasAnimatedWidgets(): boolean {
-    return this.hasAnimatedWidgetsInCommittedTree || this.hasActivePositionTransitions;
+    return (
+      this.hasAnimatedWidgetsInCommittedTree ||
+      this.hasActivePositionTransitions ||
+      this.hasActiveExitTransitions
+    );
   }
 
   hasViewportAwareComposites(): boolean {
@@ -1060,18 +1048,8 @@ export class WidgetRenderer<S> {
     );
   }
 
-  private readBoxOpacity(node: RuntimeInstance): number {
-    return readBoxOpacityImpl(node);
-  }
-
-  private resolvePositionTransition(node: RuntimeInstance): Readonly<{
-    durationMs: number;
-    easing: (t: number) => number;
-    animatePosition: boolean;
-    animateSize: boolean;
-    animateOpacity: boolean;
-  }> | null {
-    return resolvePositionTransitionImpl(node);
+  private readContainerOpacity(node: RuntimeInstance): number {
+    return readContainerOpacityImpl(node);
   }
 
   private refreshPositionTransitionTracks(
@@ -1111,6 +1089,173 @@ export class WidgetRenderer<S> {
       animatedRectByInstanceId: this.animatedRectByInstanceId,
       animatedOpacityByInstanceId: this.animatedOpacityByInstanceId,
     });
+  }
+
+  private collectLayoutSubtreeByInstanceId(
+    runtimeRoot: RuntimeInstance,
+    layoutRoot: LayoutTree,
+    out: Map<InstanceId, LayoutTree>,
+  ): void {
+    out.clear();
+    this._pooledRuntimeStack.length = 0;
+    this._pooledLayoutStack.length = 0;
+    this._pooledRuntimeStack.push(runtimeRoot);
+    this._pooledLayoutStack.push(layoutRoot);
+
+    while (this._pooledRuntimeStack.length > 0 && this._pooledLayoutStack.length > 0) {
+      const runtimeNode = this._pooledRuntimeStack.pop();
+      const layoutNode = this._pooledLayoutStack.pop();
+      if (!runtimeNode || !layoutNode) continue;
+      out.set(runtimeNode.instanceId, layoutNode);
+
+      const childCount = Math.min(runtimeNode.children.length, layoutNode.children.length);
+      for (let i = childCount - 1; i >= 0; i--) {
+        const runtimeChild = runtimeNode.children[i];
+        const layoutChild = layoutNode.children[i];
+        if (runtimeChild && layoutChild) {
+          this._pooledRuntimeStack.push(runtimeChild);
+          this._pooledLayoutStack.push(layoutChild);
+        }
+      }
+    }
+  }
+
+  private cleanupUnmountedInstanceIds(unmountedInstanceIds: readonly InstanceId[]): void {
+    for (const unmountedId of unmountedInstanceIds) {
+      this.inputCursorByInstanceId.delete(unmountedId);
+      this.inputSelectionByInstanceId.delete(unmountedId);
+      this.inputWorkingValueByInstanceId.delete(unmountedId);
+      this.inputUndoByInstanceId.delete(unmountedId);
+      this.positionTransitionTrackByInstanceId.delete(unmountedId);
+      this.exitTransitionTrackByInstanceId.delete(unmountedId);
+      this.exitRenderNodeByInstanceId.delete(unmountedId);
+      this.animatedRectByInstanceId.delete(unmountedId);
+      this.animatedOpacityByInstanceId.delete(unmountedId);
+      this.exitAnimatedRectByInstanceId.delete(unmountedId);
+      this.exitAnimatedOpacityByInstanceId.delete(unmountedId);
+      this._prevFrameOpacityByInstanceId.delete(unmountedId);
+      this.compositeRegistry.incrementGeneration(unmountedId);
+      this.compositeRegistry.delete(unmountedId);
+    }
+  }
+
+  private scheduleExitAnimations(
+    pendingExitAnimations: readonly PendingExitAnimation[],
+    frameNowMs: number,
+    prevRuntimeRoot: RuntimeInstance | null,
+    prevLayoutRoot: LayoutTree | null,
+  ): void {
+    if (pendingExitAnimations.length === 0) return;
+
+    if (!prevRuntimeRoot || !prevLayoutRoot) {
+      for (const pending of pendingExitAnimations) {
+        pending.runDeferredLocalStateCleanup();
+        this.cleanupUnmountedInstanceIds(pending.subtreeInstanceIds);
+      }
+      return;
+    }
+
+    this.collectLayoutSubtreeByInstanceId(
+      prevRuntimeRoot,
+      prevLayoutRoot,
+      this._pooledPrevLayoutSubtreeByInstanceId,
+    );
+    const missingLayout = scheduleExitAnimationsImpl({
+      pendingExitAnimations,
+      frameNowMs,
+      layoutSubtreeByInstanceId: this._pooledPrevLayoutSubtreeByInstanceId,
+      prevFrameOpacityByInstanceId: this._prevFrameOpacityByInstanceId,
+      exitTransitionTrackByInstanceId: this.exitTransitionTrackByInstanceId,
+      exitRenderNodeByInstanceId: this.exitRenderNodeByInstanceId,
+    });
+    for (const pending of missingLayout) {
+      pending.runDeferredLocalStateCleanup();
+      this.cleanupUnmountedInstanceIds(pending.subtreeInstanceIds);
+    }
+  }
+
+  private sampleExitAnimations(frameNowMs: number): readonly ExitTransitionRenderNode[] {
+    const sampled = sampleExitAnimationsImpl({
+      frameNowMs,
+      exitTransitionTrackByInstanceId: this.exitTransitionTrackByInstanceId,
+      exitRenderNodeByInstanceId: this.exitRenderNodeByInstanceId,
+      exitAnimatedRectByInstanceId: this.exitAnimatedRectByInstanceId,
+      exitAnimatedOpacityByInstanceId: this.exitAnimatedOpacityByInstanceId,
+    });
+    this.hasActiveExitTransitions = sampled.hasActiveExitTransitions;
+    return sampled.completedExitNodes;
+  }
+
+  private cancelExitTransitionsForReappearedKeys(runtimeRoot: RuntimeInstance): void {
+    if (this.exitRenderNodeByInstanceId.size === 0) return;
+    this._pooledActiveExitKeys.clear();
+    this._pooledRuntimeStack.length = 0;
+    this._pooledRuntimeStack.push(runtimeRoot);
+    while (this._pooledRuntimeStack.length > 0) {
+      const node = this._pooledRuntimeStack.pop();
+      if (!node) continue;
+      const props = node.vnode.props as Readonly<{ key?: unknown }> | undefined;
+      const key = typeof props?.key === "string" ? props.key : undefined;
+      if (key) {
+        this._pooledActiveExitKeys.add(`${node.vnode.kind}:${key}`);
+      }
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        const child = node.children[i];
+        if (child) this._pooledRuntimeStack.push(child);
+      }
+    }
+
+    for (const exitNode of this.exitRenderNodeByInstanceId.values()) {
+      if (!exitNode.key) continue;
+      if (!this._pooledActiveExitKeys.has(`${exitNode.vnodeKind}:${exitNode.key}`)) continue;
+      exitNode.runDeferredLocalStateCleanup();
+      this.cleanupUnmountedInstanceIds(exitNode.subtreeInstanceIds);
+    }
+    this._pooledActiveExitKeys.clear();
+  }
+
+  private renderExitTransitionNodes(
+    viewport: Viewport,
+    theme: Theme,
+    tick: number,
+    cursorInfo: CursorInfo | undefined,
+    focusAnnouncement: string | null,
+  ): void {
+    if (this.exitRenderNodeByInstanceId.size === 0) return;
+    for (const exitNode of this.exitRenderNodeByInstanceId.values()) {
+      renderTree(
+        this.builder,
+        this.focusState,
+        exitNode.layoutRoot,
+        this._pooledRectById,
+        viewport,
+        theme,
+        tick,
+        DEFAULT_BASE_STYLE,
+        exitNode.runtimeRoot,
+        this.exitAnimatedRectByInstanceId,
+        this.exitAnimatedOpacityByInstanceId,
+        cursorInfo,
+        this.virtualListStore,
+        this.tableStore,
+        this.treeStore,
+        this.loadedTreeChildrenByTreeId,
+        this.commandPaletteItemsById,
+        this.commandPaletteLoadingById,
+        this.toolApprovalFocusedActionById,
+        this.dropdownSelectedIndexById,
+        this.diffViewerFocusedHunkById,
+        this.diffViewerExpandedHunksById,
+        this.tableRenderCacheById,
+        this.logsConsoleRenderCacheById,
+        this.diffRenderCacheById,
+        this.codeEditorRenderCacheById,
+        focusAnnouncement,
+        undefined,
+        this.terminalProfile,
+        this.pressedId,
+      );
+    }
   }
 
   /**
@@ -1951,6 +2096,7 @@ export class WidgetRenderer<S> {
       hasRenderedFrame: this._hasRenderedFrame,
       doLayout,
       hasActivePositionTransitions: this.hasActivePositionTransitions,
+      hasActiveExitTransitions: this.hasActiveExitTransitions,
       lastRenderedViewport: this._lastRenderedViewport,
       viewport,
       lastRenderedThemeRef: this._lastRenderedThemeRef,
@@ -2176,7 +2322,7 @@ export class WidgetRenderer<S> {
       prevFrameDamageRectById: this._prevFrameDamageRectById,
       prevFrameOpacityByInstanceId: this._prevFrameOpacityByInstanceId,
       pooledRuntimeStack: this._pooledRuntimeStack,
-      readBoxOpacity: (node) => this.readBoxOpacity(node),
+      readContainerOpacity: (node) => this.readContainerOpacity(node),
     });
     this._hasRenderedFrame = nextFrameState.hasRenderedFrame;
     this._lastRenderedViewport = nextFrameState.lastRenderedViewport;
@@ -2233,12 +2379,17 @@ export class WidgetRenderer<S> {
       // a tree, or committed layout signatures changed.
       let doLayout = plan.layout || this.layoutTree === null;
       if (this.scrollOverrides.size > 0) doLayout = true;
+      const frameNowMs =
+        typeof plan.nowMs === "number" && Number.isFinite(plan.nowMs)
+          ? plan.nowMs
+          : monotonicNowMs();
 
       let commitRes: CommitOk | null = null;
       let prevFocusedIdBeforeFinalize: string | null = null;
       const prevActiveZoneIdBeforeSubmit = this.focusState.activeZoneId;
       const prevZoneMetaByIdBeforeSubmit = this.zoneMetaById;
       const prevCommittedRoot = this.committedRoot;
+      const prevLayoutTree = this.layoutTree;
       const hadRoutingWidgets = this.hadRoutingWidgets;
       let hasRoutingWidgets = hadRoutingWidgets;
       let didRoutingRebuild = false;
@@ -2312,19 +2463,14 @@ export class WidgetRenderer<S> {
             doLayout = true;
           }
         }
-        for (const unmountedId of commitRes.unmountedInstanceIds) {
-          this.inputCursorByInstanceId.delete(unmountedId);
-          this.inputSelectionByInstanceId.delete(unmountedId);
-          this.inputWorkingValueByInstanceId.delete(unmountedId);
-          this.inputUndoByInstanceId.delete(unmountedId);
-          this.positionTransitionTrackByInstanceId.delete(unmountedId);
-          this.animatedRectByInstanceId.delete(unmountedId);
-          this.animatedOpacityByInstanceId.delete(unmountedId);
-          this._prevFrameOpacityByInstanceId.delete(unmountedId);
-          // Composite instances: invalidate stale closures and run effect cleanups.
-          this.compositeRegistry.incrementGeneration(unmountedId);
-          this.compositeRegistry.delete(unmountedId);
-        }
+        this.cleanupUnmountedInstanceIds(commitRes.unmountedInstanceIds);
+        this.scheduleExitAnimations(
+          commitRes.pendingExitAnimations,
+          frameNowMs,
+          prevCommittedRoot,
+          prevLayoutTree,
+        );
+        this.cancelExitTransitionsForReappearedKeys(this.committedRoot);
 
         for (const path of this.errorBoundaryStatesByPath.keys()) {
           if (!this.committedErrorBoundaryPathsScratch.has(path)) {
@@ -3230,15 +3376,16 @@ export class WidgetRenderer<S> {
         );
       }
 
-      const frameNowMs =
-        typeof plan.nowMs === "number" && Number.isFinite(plan.nowMs)
-          ? plan.nowMs
-          : monotonicNowMs();
       if (doCommit || doLayout || this.positionTransitionTrackByInstanceId.size > 0) {
         this.refreshPositionTransitionTracks(this.committedRoot, this.layoutTree, frameNowMs);
       }
       this.rebuildAnimatedRectOverrides(this.committedRoot, this.layoutTree, frameNowMs);
-      if (this.hasActivePositionTransitions) {
+      const completedExitNodes = this.sampleExitAnimations(frameNowMs);
+      for (const completed of completedExitNodes) {
+        completed.runDeferredLocalStateCleanup();
+        this.cleanupUnmountedInstanceIds(completed.subtreeInstanceIds);
+      }
+      if (this.hasActivePositionTransitions || this.hasActiveExitTransitions) {
         this.requestRender();
       }
 
@@ -3410,6 +3557,9 @@ export class WidgetRenderer<S> {
           runtimeDamageArea = viewport.cols * viewport.rows;
           runtimeCursorSummary = this.resolveRuntimeCursorSummary(cursorInfo);
         }
+      }
+      if (this.exitRenderNodeByInstanceId.size > 0) {
+        this.renderExitTransitionNodes(viewport, theme, tick, cursorInfo, focusAnnouncement);
       }
       perfMarkEnd("render", renderToken);
 

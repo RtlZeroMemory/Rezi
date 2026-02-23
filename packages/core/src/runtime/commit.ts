@@ -16,6 +16,8 @@
  * @see docs/guide/runtime-and-layout.md
  */
 
+import { resolveEasing } from "../animation/easing.js";
+import { normalizeDurationMs } from "../animation/interpolate.js";
 import type { ResponsiveViewportSnapshot } from "../layout/responsive.js";
 import { mergeThemeOverride } from "../theme/interop.js";
 import type { Theme } from "../theme/theme.js";
@@ -27,7 +29,7 @@ import {
   scopedId,
 } from "../widgets/composition.js";
 import { getWidgetProtocol, kindRequiresId } from "../widgets/protocol.js";
-import type { VNode } from "../widgets/types.js";
+import type { ExitAnimationState, TransitionSpec, VNode } from "../widgets/types.js";
 import type { InstanceId, InstanceIdAllocator } from "./instance.js";
 import {
   type AppStateSelection,
@@ -325,6 +327,7 @@ function boxPropsEqual(a: unknown, b: unknown): boolean {
     inheritStyle?: unknown;
     opacity?: unknown;
     transition?: unknown;
+    exitTransition?: unknown;
   };
   const bo = (b ?? {}) as typeof ao;
   return (
@@ -347,6 +350,7 @@ function boxPropsEqual(a: unknown, b: unknown): boolean {
     ) &&
     ao.opacity === bo.opacity &&
     transitionSpecEqual(ao.transition, bo.transition) &&
+    transitionSpecEqual(ao.exitTransition, bo.exitTransition) &&
     spacingPropsEqual(ao, bo) &&
     layoutConstraintsEqual(ao, bo)
   );
@@ -362,6 +366,8 @@ function stackPropsEqual(a: unknown, b: unknown): boolean {
     items?: unknown;
     style?: unknown;
     inheritStyle?: unknown;
+    transition?: unknown;
+    exitTransition?: unknown;
   };
   const bo = (b ?? {}) as typeof ao;
   return (
@@ -378,6 +384,8 @@ function stackPropsEqual(a: unknown, b: unknown): boolean {
       ao.inheritStyle as Parameters<typeof textStyleEqual>[0],
       bo.inheritStyle as Parameters<typeof textStyleEqual>[0],
     ) &&
+    transitionSpecEqual(ao.transition, bo.transition) &&
+    transitionSpecEqual(ao.exitTransition, bo.exitTransition) &&
     spacingPropsEqual(ao, bo) &&
     layoutConstraintsEqual(ao, bo)
   );
@@ -503,12 +511,23 @@ export type CommitFatal =
   | Readonly<{ code: "ZRUI_INVALID_PROPS"; detail: string }>
   | Readonly<{ code: "ZRUI_USER_CODE_THROW"; detail: string }>;
 
+export type PendingExitAnimation = Readonly<{
+  instanceId: InstanceId;
+  runtimeRoot: RuntimeInstance;
+  vnodeKind: VNode["kind"];
+  key: string | undefined;
+  exit: ExitAnimationState;
+  subtreeInstanceIds: readonly InstanceId[];
+  runDeferredLocalStateCleanup: () => void;
+}>;
+
 /** Successful commit result with lifecycle instance lists. */
 export type CommitOk = Readonly<{
   root: RuntimeInstance;
   mountedInstanceIds: readonly InstanceId[];
   reusedInstanceIds: readonly InstanceId[];
   unmountedInstanceIds: readonly InstanceId[];
+  pendingExitAnimations: readonly PendingExitAnimation[];
   /** Pending cleanups from previous effects to run before new effects. */
   pendingCleanups: readonly EffectCleanup[];
   /** Pending effects scheduled by composite widgets during this commit. */
@@ -536,6 +555,7 @@ const DEV_MODE = NODE_ENV !== "production";
 const LAYOUT_DEPTH_WARN_THRESHOLD = 200;
 const MAX_LAYOUT_NESTING_DEPTH = 500;
 const MAX_LAYOUT_DEPTH_PATH_SEGMENTS = 32;
+const DEFAULT_EXIT_TRANSITION_DURATION_MS = 180;
 const LAYOUT_DEPTH_PATH_TRACK_START = Math.max(
   1,
   LAYOUT_DEPTH_WARN_THRESHOLD - MAX_LAYOUT_DEPTH_PATH_SEGMENTS + 2,
@@ -665,6 +685,81 @@ function deleteLocalStateForSubtree(
   }
 }
 
+function commitNowMs(): number {
+  const perf = (globalThis as { performance?: { now?: () => number } }).performance;
+  const perfNow = perf?.now;
+  if (typeof perfNow === "function") return perfNow.call(perf);
+  return Date.now();
+}
+
+function readVNodeKey(vnode: VNode): string | undefined {
+  const props = vnode.props as Readonly<{ key?: unknown }> | undefined;
+  const key = props?.key;
+  return typeof key === "string" ? key : undefined;
+}
+
+function readExitTransition(vnode: VNode): TransitionSpec | null {
+  if (
+    vnode.kind !== "box" &&
+    vnode.kind !== "row" &&
+    vnode.kind !== "column" &&
+    vnode.kind !== "grid"
+  ) {
+    return null;
+  }
+  const props = vnode.props as Readonly<{ exitTransition?: TransitionSpec }> | undefined;
+  return props?.exitTransition ?? null;
+}
+
+function resolveExitAnimationState(
+  instanceId: InstanceId,
+  transition: TransitionSpec,
+): ExitAnimationState | null {
+  const durationMs = normalizeDurationMs(transition.duration, DEFAULT_EXIT_TRANSITION_DURATION_MS);
+  if (durationMs <= 0) return null;
+  return Object.freeze({
+    instanceId,
+    startMs: commitNowMs(),
+    durationMs,
+    easing: resolveEasing(transition.easing),
+    properties: transition.properties ?? "all",
+  });
+}
+
+function createDeferredLocalStateCleanup(
+  localState: RuntimeLocalStateStore | undefined,
+  node: RuntimeInstance,
+): () => void {
+  let cleaned = false;
+  return () => {
+    if (cleaned) return;
+    cleaned = true;
+    deleteLocalStateForSubtree(localState, node);
+  };
+}
+
+function tryScheduleExitAnimation(ctx: CommitCtx, node: RuntimeInstance): boolean {
+  const exitTransition = readExitTransition(node.vnode);
+  if (!exitTransition) return false;
+  const exit = resolveExitAnimationState(node.instanceId, exitTransition);
+  if (!exit) return false;
+
+  const subtreeInstanceIds: InstanceId[] = [];
+  collectSubtreeInstanceIds(node, subtreeInstanceIds);
+  ctx.pendingExitAnimations.push(
+    Object.freeze({
+      instanceId: node.instanceId,
+      runtimeRoot: node,
+      vnodeKind: node.vnode.kind,
+      key: readVNodeKey(node.vnode),
+      exit,
+      subtreeInstanceIds: Object.freeze(subtreeInstanceIds),
+      runDeferredLocalStateCleanup: createDeferredLocalStateCleanup(ctx.localState, node),
+    }),
+  );
+  return true;
+}
+
 function markCompositeSubtreeStale(
   registry: CompositeInstanceRegistry,
   node: RuntimeInstance,
@@ -737,6 +832,7 @@ type CommitCtx = Readonly<{
   }> | null;
   compositeThemeStack: Theme[];
   compositeRenderStack: Array<Readonly<{ widgetKey: string; instanceId: InstanceId }>>;
+  pendingExitAnimations: PendingExitAnimation[];
   pendingCleanups: EffectCleanup[];
   pendingEffects: EffectState[];
   errorBoundary: Readonly<{
@@ -1077,6 +1173,9 @@ function commitContainer(
     for (const unmountedId of res.value.unmountedInstanceIds) {
       const prevNode = byPrevInstanceId?.get(unmountedId);
       if (!prevNode) continue;
+      if (tryScheduleExitAnimation(ctx, prevNode)) {
+        continue;
+      }
       if (ctx.composite) {
         markCompositeSubtreeStale(ctx.composite.registry, prevNode);
       }
@@ -1514,6 +1613,7 @@ export function commitVNodeTree(
     composite: opts.composite ?? null,
     compositeThemeStack: opts.composite?.theme ? [opts.composite.theme] : [],
     compositeRenderStack: [],
+    pendingExitAnimations: [],
     pendingCleanups: [],
     pendingEffects: [],
     errorBoundary: opts.errorBoundary ?? null,
@@ -1536,8 +1636,10 @@ export function commitVNodeTree(
   if (prevRoot && rootPlan.prevIndex === null) {
     // Root was replaced; unmount the entire previous tree before committing the new one so
     // the returned lists include the unmount lifecycle deterministically.
-    deleteLocalStateForSubtree(opts.localState, prevRoot);
-    collectSubtreeInstanceIds(prevRoot, ctx.lists.unmounted);
+    if (!tryScheduleExitAnimation(ctx, prevRoot)) {
+      deleteLocalStateForSubtree(opts.localState, prevRoot);
+      collectSubtreeInstanceIds(prevRoot, ctx.lists.unmounted);
+    }
   }
 
   const prevMatch = rootPlan.prevIndex === 0 ? prevRoot : null;
@@ -1551,6 +1653,7 @@ export function commitVNodeTree(
       mountedInstanceIds: ctx.lists.mounted,
       reusedInstanceIds: ctx.lists.reused,
       unmountedInstanceIds: ctx.lists.unmounted,
+      pendingExitAnimations: ctx.pendingExitAnimations,
       pendingCleanups: ctx.pendingCleanups,
       pendingEffects: ctx.pendingEffects,
     },

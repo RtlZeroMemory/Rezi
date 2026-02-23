@@ -19,6 +19,7 @@ type ShouldAttemptIncrementalRenderParams = Readonly<{
   hasRenderedFrame: boolean;
   doLayout: boolean;
   hasActivePositionTransitions: boolean;
+  hasActiveExitTransitions: boolean;
   lastRenderedViewport: DamageViewport;
   viewport: DamageViewport;
   lastRenderedThemeRef: Theme | null;
@@ -208,6 +209,7 @@ export function shouldAttemptIncrementalRender(
   if (!params.hasRenderedFrame) return false;
   if (params.doLayout) return false;
   if (params.hasActivePositionTransitions) return false;
+  if (params.hasActiveExitTransitions) return false;
 
   if (
     params.lastRenderedViewport.cols !== params.viewport.cols ||

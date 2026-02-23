@@ -75,6 +75,34 @@ function viewOpacity(opacity: number) {
   ]);
 }
 
+function viewRowContainerTransition(offset: number, width: number) {
+  return ui.column({ id: "root", gap: 0 }, [
+    ui.spacer({ size: offset }),
+    ui.row(
+      {
+        id: "moving-row",
+        width,
+        transition: { duration: 200, easing: "linear", properties: ["position", "size"] },
+      },
+      [ui.text("row", { id: "row-label" })],
+    ),
+  ]);
+}
+
+function viewColumnContainerTransition(offset: number, width: number) {
+  return ui.row({ id: "root", gap: 0 }, [
+    ui.spacer({ size: offset }),
+    ui.column(
+      {
+        id: "moving-column",
+        width,
+        transition: { duration: 200, easing: "linear", properties: ["position", "size"] },
+      },
+      [ui.text("column", { id: "column-label" })],
+    ),
+  ]);
+}
+
 type PrivateTransitionTrack = Readonly<{
   from: Rect;
   to: Rect;
@@ -267,6 +295,112 @@ describe("WidgetRenderer transitions", () => {
     );
     assert.ok(settleFrame.ok);
     assert.equal(renderer.hasAnimatedWidgets(), false);
+  });
+
+  test("row transition creates tracks and interpolated rects", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const frame1 = renderer.submitFrame(
+      () => viewRowContainerTransition(0, 6),
+      undefined,
+      { cols: 50, rows: 12 },
+      defaultTheme,
+      noRenderHooks(),
+      { commit: true, layout: true, checkLayoutStability: true, nowMs: 0 },
+    );
+    assert.ok(frame1.ok);
+
+    const frame2 = renderer.submitFrame(
+      () => viewRowContainerTransition(3, 16),
+      undefined,
+      { cols: 50, rows: 12 },
+      defaultTheme,
+      noRenderHooks(),
+      { commit: true, layout: true, checkLayoutStability: true, nowMs: 10 },
+    );
+    assert.ok(frame2.ok);
+    const tracks = transitionTrackMap(renderer);
+    assert.ok(tracks.size > 0);
+    const trackEntry = tracks.entries().next().value;
+    const trackInstanceId = trackEntry?.[0];
+    assert.ok(typeof trackInstanceId === "number");
+
+    const finalRect = renderer.getRectByIdIndex().get("moving-row");
+    assert.ok(finalRect !== undefined);
+
+    const midFrame = renderer.submitFrame(
+      () => viewRowContainerTransition(3, 16),
+      undefined,
+      { cols: 50, rows: 12 },
+      defaultTheme,
+      noRenderHooks(),
+      { commit: false, layout: false, checkLayoutStability: false, nowMs: 110 },
+    );
+    assert.ok(midFrame.ok);
+    const animatedRect =
+      typeof trackInstanceId === "number"
+        ? animatedRectMap(renderer).get(trackInstanceId)
+        : undefined;
+    assert.ok(animatedRect !== undefined);
+    assert.ok(animatedRect ? animatedRect.y < (finalRect?.y ?? 0) : false);
+    assert.ok(animatedRect ? animatedRect.w < (finalRect?.w ?? 0) : false);
+  });
+
+  test("column transition creates tracks and interpolated rects", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const frame1 = renderer.submitFrame(
+      () => viewColumnContainerTransition(0, 8),
+      undefined,
+      { cols: 50, rows: 12 },
+      defaultTheme,
+      noRenderHooks(),
+      { commit: true, layout: true, checkLayoutStability: true, nowMs: 0 },
+    );
+    assert.ok(frame1.ok);
+
+    const frame2 = renderer.submitFrame(
+      () => viewColumnContainerTransition(4, 18),
+      undefined,
+      { cols: 50, rows: 12 },
+      defaultTheme,
+      noRenderHooks(),
+      { commit: true, layout: true, checkLayoutStability: true, nowMs: 10 },
+    );
+    assert.ok(frame2.ok);
+    const tracks = transitionTrackMap(renderer);
+    assert.ok(tracks.size > 0);
+    const trackEntry = tracks.entries().next().value;
+    const trackInstanceId = trackEntry?.[0];
+    assert.ok(typeof trackInstanceId === "number");
+
+    const finalRect = renderer.getRectByIdIndex().get("moving-column");
+    assert.ok(finalRect !== undefined);
+
+    const midFrame = renderer.submitFrame(
+      () => viewColumnContainerTransition(4, 18),
+      undefined,
+      { cols: 50, rows: 12 },
+      defaultTheme,
+      noRenderHooks(),
+      { commit: false, layout: false, checkLayoutStability: false, nowMs: 110 },
+    );
+    assert.ok(midFrame.ok);
+    const animatedRect =
+      typeof trackInstanceId === "number"
+        ? animatedRectMap(renderer).get(trackInstanceId)
+        : undefined;
+    assert.ok(animatedRect !== undefined);
+    assert.ok(animatedRect ? animatedRect.x < (finalRect?.x ?? 0) : false);
+    assert.ok(animatedRect ? animatedRect.w < (finalRect?.w ?? 0) : false);
   });
 
   test("opacity transition requests follow-up render frames", () => {

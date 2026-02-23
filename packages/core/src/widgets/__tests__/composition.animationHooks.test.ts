@@ -160,6 +160,72 @@ describe("composition animation hooks - useTransition", () => {
     assert.equal(h.unmount(), true);
   });
 
+  test("respects delay before starting transition", async () => {
+    const h = createHarness();
+
+    let render = h.render((hooks) =>
+      useTransition(hooks, 0, { duration: 80, easing: "linear", delay: 100 }),
+    );
+    h.runPending(render.pendingEffects);
+
+    render = h.render((hooks) =>
+      useTransition(hooks, 10, { duration: 80, easing: "linear", delay: 100 }),
+    );
+    h.runPending(render.pendingEffects);
+
+    await sleep(60);
+    const duringDelay = h.render((hooks) =>
+      useTransition(hooks, 10, { duration: 80, easing: "linear", delay: 100 }),
+    );
+    h.runPending(duringDelay.pendingEffects);
+    assert.ok(Math.abs(duringDelay.result) <= 0.05);
+
+    let started = 0;
+    await waitFor(() => {
+      const next = h.render((hooks) =>
+        useTransition(hooks, 10, { duration: 80, easing: "linear", delay: 100 }),
+      );
+      started = next.result;
+      h.runPending(next.pendingEffects);
+      return started > 0.5;
+    });
+    assert.ok(started > 0.5);
+    assert.equal(h.unmount(), true);
+  });
+
+  test("retargeting during delay cancels pending delay", async () => {
+    const h = createHarness();
+
+    let render = h.render((hooks) =>
+      useTransition(hooks, 0, { duration: 120, easing: "linear", delay: 120 }),
+    );
+    h.runPending(render.pendingEffects);
+
+    render = h.render((hooks) =>
+      useTransition(hooks, 10, { duration: 120, easing: "linear", delay: 120 }),
+    );
+    h.runPending(render.pendingEffects);
+
+    await sleep(40);
+
+    render = h.render((hooks) =>
+      useTransition(hooks, 20, { duration: 120, easing: "linear", delay: 0 }),
+    );
+    h.runPending(render.pendingEffects);
+
+    let moved = 0;
+    await waitFor(() => {
+      const next = h.render((hooks) =>
+        useTransition(hooks, 20, { duration: 120, easing: "linear", delay: 0 }),
+      );
+      moved = next.result;
+      h.runPending(next.pendingEffects);
+      return moved > 0.5;
+    }, 300);
+    assert.ok(moved > 0.5);
+    assert.equal(h.unmount(), true);
+  });
+
   test("handles non-finite values by snapping on effect", () => {
     const h = createHarness();
 
@@ -270,6 +336,32 @@ describe("composition animation hooks - useSpring", () => {
       return Math.abs(finalValue + 4) <= 0.1;
     });
     assert.ok(Math.abs(finalValue + 4) <= 0.1);
+    assert.equal(h.unmount(), true);
+  });
+
+  test("respects delay before starting spring motion", async () => {
+    const h = createHarness();
+    const config = { stiffness: 220, damping: 24, restDelta: 0.01, restSpeed: 0.01, delay: 50 };
+
+    let render = h.render((hooks) => useSpring(hooks, 0, config));
+    h.runPending(render.pendingEffects);
+
+    render = h.render((hooks) => useSpring(hooks, 10, config));
+    h.runPending(render.pendingEffects);
+
+    await sleep(25);
+    const duringDelay = h.render((hooks) => useSpring(hooks, 10, config));
+    h.runPending(duringDelay.pendingEffects);
+    assert.ok(Math.abs(duringDelay.result) <= 0.05);
+
+    let moved = 0;
+    await waitFor(() => {
+      const next = h.render((hooks) => useSpring(hooks, 10, config));
+      moved = next.result;
+      h.runPending(next.pendingEffects);
+      return moved > 0.25;
+    });
+    assert.ok(moved > 0.25);
     assert.equal(h.unmount(), true);
   });
 

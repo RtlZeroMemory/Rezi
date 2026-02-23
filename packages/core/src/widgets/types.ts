@@ -21,6 +21,7 @@ import type { EasingInput } from "../animation/types.js";
 import type { FocusConfig } from "../focus/styles.js";
 import type { SpacingValue } from "../layout/spacing-scale.js";
 import type { LayoutConstraints } from "../layout/types.js";
+import type { InstanceId } from "../runtime/instance.js";
 import type { ThemeOverrides } from "../theme/extend.js";
 import type { Theme } from "../theme/theme.js";
 import type { ThemeDefinition } from "../theme/tokens.js";
@@ -107,6 +108,14 @@ export type TransitionSpec = Readonly<{
    * Phase 1 implementation supports `"position"` (x/y).
    */
   properties?: "all" | readonly TransitionProperty[];
+}>;
+
+export type ExitAnimationState = Readonly<{
+  instanceId: InstanceId;
+  startMs: number;
+  durationMs: number;
+  easing: (t: number) => number;
+  properties: "all" | readonly TransitionProperty[];
 }>;
 
 /** Props for text widget. key is for reconciliation; style for visual appearance. */
@@ -205,6 +214,8 @@ export type BoxProps = Readonly<
     gap?: SpacingValue;
     /** Optional declarative transition settings for this container. */
     transition?: TransitionSpec;
+    /** Optional declarative exit transition before unmount removal. */
+    exitTransition?: TransitionSpec;
   } & SpacingProps &
     LayoutConstraints
 >;
@@ -251,6 +262,10 @@ export type StackProps = Readonly<
     scrollbarStyle?: TextStyle;
     /** Optional scoped theme override for this container subtree. */
     theme?: ScopedThemeOverride;
+    /** Optional declarative transition settings for this container. */
+    transition?: TransitionSpec;
+    /** Optional declarative exit transition before unmount removal. */
+    exitTransition?: TransitionSpec;
   } & SpacingProps &
     LayoutConstraints
 >;
@@ -267,13 +282,15 @@ export type ColumnProps = StackProps &
     wrap?: boolean;
   }>;
 
-export type GridProps = {
+export type GridProps = Readonly<{
+  key?: string;
   columns: number | string;
   rows?: number | string;
   gap?: number;
   rowGap?: number;
   columnGap?: number;
-};
+  transition?: TransitionSpec;
+}>;
 
 /** Props for spacer element. size is in cells along stack axis. */
 export type SpacerProps = Readonly<{

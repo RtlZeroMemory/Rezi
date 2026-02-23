@@ -2,7 +2,7 @@ import { resolveEasing } from "../../animation/easing.js";
 import { interpolateNumber, normalizeDurationMs } from "../../animation/interpolate.js";
 import type { LayoutTree } from "../../layout/layout.js";
 import type { Rect } from "../../layout/types.js";
-import type { RuntimeInstance } from "../../runtime/commit.js";
+import type { PendingExitAnimation, RuntimeInstance } from "../../runtime/commit.js";
 import type { InstanceId } from "../../runtime/instance.js";
 import type { TransitionSpec } from "../../widgets/types.js";
 
@@ -25,6 +25,28 @@ export type ResolvedPositionTransition = Readonly<{
   animatePosition: boolean;
   animateSize: boolean;
   animateOpacity: boolean;
+}>;
+
+export type ExitTransitionTrack = Readonly<{
+  instanceId: InstanceId;
+  frozenRect: Rect;
+  frozenOpacity: number;
+  startMs: number;
+  durationMs: number;
+  easing: (t: number) => number;
+  animateOpacity: boolean;
+  animatePosition: boolean;
+  animateSize: boolean;
+}>;
+
+export type ExitTransitionRenderNode = Readonly<{
+  instanceId: InstanceId;
+  runtimeRoot: RuntimeInstance;
+  layoutRoot: LayoutTree;
+  vnodeKind: RuntimeInstance["vnode"]["kind"];
+  key: string | undefined;
+  subtreeInstanceIds: readonly InstanceId[];
+  runDeferredLocalStateCleanup: () => void;
 }>;
 
 type RefreshPositionTransitionTracksParams = Readonly<{
@@ -54,7 +76,25 @@ type RebuildAnimatedRectOverridesParams = Readonly<{
   animatedOpacityByInstanceId: Map<InstanceId, number>;
 }>;
 
+type ScheduleExitAnimationsParams = Readonly<{
+  pendingExitAnimations: readonly PendingExitAnimation[];
+  frameNowMs: number;
+  layoutSubtreeByInstanceId: ReadonlyMap<InstanceId, LayoutTree>;
+  prevFrameOpacityByInstanceId: ReadonlyMap<InstanceId, number>;
+  exitTransitionTrackByInstanceId: Map<InstanceId, ExitTransitionTrack>;
+  exitRenderNodeByInstanceId: Map<InstanceId, ExitTransitionRenderNode>;
+}>;
+
+type SampleExitAnimationsParams = Readonly<{
+  frameNowMs: number;
+  exitTransitionTrackByInstanceId: Map<InstanceId, ExitTransitionTrack>;
+  exitRenderNodeByInstanceId: Map<InstanceId, ExitTransitionRenderNode>;
+  exitAnimatedRectByInstanceId: Map<InstanceId, Rect>;
+  exitAnimatedOpacityByInstanceId: Map<InstanceId, number>;
+}>;
+
 const DEFAULT_POSITION_TRANSITION_DURATION_MS = 180;
+const TRANSITION_CAPABLE_KINDS = new Set(["box", "row", "column", "grid"]);
 
 function transitionSupportsPosition(transition: TransitionSpec): boolean {
   const properties = transition.properties;
@@ -109,7 +149,15 @@ export function recomputeAnimatedWidgetPresence(
   return false;
 }
 
-export function readBoxOpacity(node: RuntimeInstance): number {
+export function readContainerOpacity(node: RuntimeInstance): number {
+  if (
+    node.vnode.kind !== "box" &&
+    node.vnode.kind !== "row" &&
+    node.vnode.kind !== "column" &&
+    node.vnode.kind !== "grid"
+  ) {
+    return 1;
+  }
   if (node.vnode.kind !== "box") return 1;
   const props = node.vnode.props as Readonly<{ opacity?: unknown }> | undefined;
   return clampOpacity(props?.opacity);
@@ -118,7 +166,7 @@ export function readBoxOpacity(node: RuntimeInstance): number {
 export function resolvePositionTransition(
   node: RuntimeInstance,
 ): ResolvedPositionTransition | null {
-  if (node.vnode.kind !== "box") return null;
+  if (!TRANSITION_CAPABLE_KINDS.has(node.vnode.kind)) return null;
 
   const props = node.vnode.props as Readonly<{ transition?: TransitionSpec }> | undefined;
   const transition = props?.transition;
@@ -158,7 +206,7 @@ export function refreshPositionTransitionTracks(
       params.pooledVisitedTransitionIds.add(instanceId);
 
       const nextRect = layoutNode.rect;
-      const nextOpacity = readBoxOpacity(runtimeNode);
+      const nextOpacity = readContainerOpacity(runtimeNode);
       const existingTrack = params.positionTransitionTrackByInstanceId.get(instanceId);
       const previousRect = params.prevFrameRectByInstanceId.get(instanceId);
       const previousOpacity = params.prevFrameOpacityByInstanceId.get(instanceId) ?? nextOpacity;
@@ -359,4 +407,100 @@ export function rebuildAnimatedRectOverrides(params: RebuildAnimatedRectOverride
   }
 
   return hasActivePositionTransitions;
+}
+
+export function scheduleExitAnimations(
+  params: ScheduleExitAnimationsParams,
+): readonly PendingExitAnimation[] {
+  const missingLayout: PendingExitAnimation[] = [];
+  for (const pending of params.pendingExitAnimations) {
+    const layoutRoot = params.layoutSubtreeByInstanceId.get(pending.instanceId);
+    if (!layoutRoot) {
+      missingLayout.push(pending);
+      continue;
+    }
+
+    const properties = pending.exit.properties;
+    const animatePosition =
+      properties === "all" || (Array.isArray(properties) && properties.includes("position"));
+    const animateSize =
+      properties === "all" || (Array.isArray(properties) && properties.includes("size"));
+    const animateOpacity =
+      properties === "all" || (Array.isArray(properties) && properties.includes("opacity"));
+    const frozenOpacity = params.prevFrameOpacityByInstanceId.get(pending.instanceId) ?? 1;
+
+    params.exitTransitionTrackByInstanceId.set(
+      pending.instanceId,
+      Object.freeze({
+        instanceId: pending.instanceId,
+        frozenRect: layoutRoot.rect,
+        frozenOpacity,
+        startMs: params.frameNowMs,
+        durationMs: pending.exit.durationMs,
+        easing: pending.exit.easing,
+        animateOpacity,
+        animatePosition,
+        animateSize,
+      }),
+    );
+    params.exitRenderNodeByInstanceId.set(
+      pending.instanceId,
+      Object.freeze({
+        instanceId: pending.instanceId,
+        runtimeRoot: pending.runtimeRoot,
+        layoutRoot,
+        vnodeKind: pending.vnodeKind,
+        key: pending.key,
+        subtreeInstanceIds: pending.subtreeInstanceIds,
+        runDeferredLocalStateCleanup: pending.runDeferredLocalStateCleanup,
+      }),
+    );
+  }
+  return Object.freeze(missingLayout);
+}
+
+export function sampleExitAnimations(params: SampleExitAnimationsParams): Readonly<{
+  hasActiveExitTransitions: boolean;
+  completedExitNodes: readonly ExitTransitionRenderNode[];
+}> {
+  params.exitAnimatedRectByInstanceId.clear();
+  params.exitAnimatedOpacityByInstanceId.clear();
+
+  const completedExitNodes: ExitTransitionRenderNode[] = [];
+  let activeCount = 0;
+  for (const [instanceId, track] of params.exitTransitionTrackByInstanceId) {
+    const elapsedMs = Math.max(0, params.frameNowMs - track.startMs);
+    const progress = track.durationMs <= 0 ? 1 : Math.min(1, elapsedMs / track.durationMs);
+    if (progress >= 1) {
+      params.exitTransitionTrackByInstanceId.delete(instanceId);
+      const node = params.exitRenderNodeByInstanceId.get(instanceId);
+      if (node) {
+        completedExitNodes.push(node);
+      }
+      params.exitRenderNodeByInstanceId.delete(instanceId);
+      continue;
+    }
+
+    activeCount++;
+    params.exitAnimatedRectByInstanceId.set(instanceId, track.frozenRect);
+    if (track.animateOpacity) {
+      params.exitAnimatedOpacityByInstanceId.set(
+        instanceId,
+        clampOpacity(interpolateNumber(track.frozenOpacity, 0, track.easing(progress))),
+      );
+    } else if (!Object.is(track.frozenOpacity, 1)) {
+      params.exitAnimatedOpacityByInstanceId.set(instanceId, track.frozenOpacity);
+    }
+  }
+
+  const hasActiveExitTransitions = activeCount > 0;
+  if (!hasActiveExitTransitions) {
+    params.exitAnimatedRectByInstanceId.clear();
+    params.exitAnimatedOpacityByInstanceId.clear();
+  }
+
+  return Object.freeze({
+    hasActiveExitTransitions,
+    completedExitNodes: Object.freeze(completedExitNodes),
+  });
 }

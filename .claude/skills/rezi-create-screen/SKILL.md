@@ -56,23 +56,27 @@ Use this skill when:
 
 3. **If the screen needs motion**, prefer declarative hooks inside `defineWidget`:
    ```typescript
-   import { defineWidget, ui, useSpring, useTransition } from "@rezi-ui/core";
+   import { defineWidget, ui, useAnimatedValue, useTransition } from "@rezi-ui/core";
 
    const AnimatedScreen = defineWidget<{ target: number }>((props, ctx) => {
      const drift = useTransition(ctx, props.target, {
        duration: 180,
        easing: "easeOutCubic",
      });
-     const spring = useSpring(ctx, props.target, {
-       stiffness: 190,
-       damping: 22,
+     const energy = useAnimatedValue(ctx, props.target, {
+       mode: "spring",
+       spring: {
+         stiffness: 190,
+         damping: 22,
+       },
      });
 
      return ui.box(
        {
          width: Math.round(20 + drift),
-         opacity: Math.max(0.35, Math.min(1, spring / 100)),
+         opacity: Math.max(0.35, Math.min(1, energy.value / 100)),
          transition: { duration: 180, easing: "easeInOutCubic", properties: ["size", "opacity"] },
+         exitTransition: { duration: 200, easing: "easeInCubic", properties: ["opacity"] },
        },
        [ui.text("Animated screen")],
      );
