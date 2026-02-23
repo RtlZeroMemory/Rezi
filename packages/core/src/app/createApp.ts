@@ -372,6 +372,15 @@ function describeThrown(v: unknown): string {
   return String(v);
 }
 
+function isPromiseLike<T = unknown>(value: unknown): value is PromiseLike<T> {
+  return (
+    (typeof value === "object" || typeof value === "function") &&
+    value !== null &&
+    "then" in value &&
+    typeof (value as { then?: unknown }).then === "function"
+  );
+}
+
 type TopLevelViewError = Readonly<{
   code: "ZRUI_USER_CODE_THROW";
   detail: string;
@@ -961,7 +970,9 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
       const runNext = (): void => {
         if (idx < activeMiddlewares.length) {
-          const middleware = activeMiddlewares[idx++]!;
+          const middleware = activeMiddlewares[idx];
+          if (!middleware) return;
+          idx++;
           middleware(ev, mwCtx, runNext);
           return;
         }
@@ -1752,22 +1763,57 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       if (inCommit) throwCode("ZRUI_REENTRANT_CALL", "dispatch: called during commit");
       if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", updateDuringRenderDetail("dispatch"));
 
-      if (typeof action === "function" && action.length === 2) {
-        const thunk = action as Thunk<S>;
+      const runThunk = (thunk: Thunk<S>): void => {
         try {
           const result = thunk(
             (nextAction) => app.dispatch(nextAction),
             () => committedState,
           );
-          if (result && typeof (result as Promise<void>).catch === "function") {
-            (result as Promise<void>).catch((e: unknown) => {
+          if (isPromiseLike<void>(result)) {
+            void result.then(undefined, (e: unknown) => {
               enqueueFatal("ZRUI_USER_CODE_THROW", `thunk rejected: ${describeThrown(e)}`);
             });
           }
         } catch (e: unknown) {
           enqueueFatal("ZRUI_USER_CODE_THROW", `thunk threw: ${describeThrown(e)}`);
         }
-        return;
+      };
+
+      if (typeof action === "function") {
+        if (action.length >= 2) {
+          runThunk(action as Thunk<S>);
+          return;
+        }
+
+        if (action.length === 1) {
+          const singleArgFn = action as (arg: unknown) => unknown;
+          let dispatched = false;
+
+          try {
+            const result = singleArgFn((nextAction: Thunk<S> | S | ((prev: Readonly<S>) => S)) => {
+              dispatched = true;
+              app.dispatch(nextAction);
+            });
+
+            if (isPromiseLike<void>(result)) {
+              void result.then(undefined, (e: unknown) => {
+                enqueueFatal("ZRUI_USER_CODE_THROW", `thunk rejected: ${describeThrown(e)}`);
+              });
+              return;
+            }
+
+            // Single-arg thunks often return void and only use dispatch.
+            if (dispatched || result === undefined) {
+              return;
+            }
+          } catch (e: unknown) {
+            if (dispatched) {
+              enqueueFatal("ZRUI_USER_CODE_THROW", `thunk threw: ${describeThrown(e)}`);
+              return;
+            }
+            // Fall through for updater-style functions that fail with dispatch-shaped probes.
+          }
+        }
       }
 
       app.update(action as StateUpdater<S>);

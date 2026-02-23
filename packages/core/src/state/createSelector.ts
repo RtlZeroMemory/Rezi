@@ -8,6 +8,7 @@
 
 type Selector<S, R> = (state: S) => R;
 type EqualityFn = (a: unknown, b: unknown) => boolean;
+type UnknownFn = (...args: unknown[]) => unknown;
 
 const defaultEquality: EqualityFn = Object.is;
 
@@ -84,9 +85,16 @@ export function createSelector(...args: unknown[]): unknown {
   };
 }
 
-function looksLikeEqualityFn(fn: Function): boolean {
-  const name = fn.name.toLowerCase();
-  return name.includes("equal") || name.includes("equality") || name === "is";
+function looksLikeBinaryEqualityFn(fn: UnknownFn): boolean {
+  if (fn.length < 2) return false;
+
+  const source = Function.prototype.toString.call(fn);
+  return (
+    /\bObject\.is\b/.test(source) ||
+    /===|!==/.test(source) ||
+    /\bArray\.isArray\b/.test(source) ||
+    /\breturn\s+(true|false)\b/.test(source)
+  );
 }
 
 function parseSelectorArgs(args: unknown[]): {
@@ -104,15 +112,21 @@ function parseSelectorArgs(args: unknown[]): {
     }
   }
 
-  const fns = args as Function[];
+  const fns = args as UnknownFn[];
 
   const noEqSelectors = fns.slice(0, -1);
-  const noEqCombiner = fns[fns.length - 1]!;
+  const noEqCombiner = fns[fns.length - 1];
+  if (!noEqCombiner) {
+    throw new Error("createSelector: invalid arguments");
+  }
   const canUseNoEq = noEqSelectors.length >= 1 && noEqSelectors.length <= 4;
 
   const withEqSelectors = fns.slice(0, -2);
-  const withEqCombiner = fns[fns.length - 2]!;
-  const withEqFn = fns[fns.length - 1]!;
+  const withEqCombiner = fns[fns.length - 2];
+  const withEqFn = fns[fns.length - 1];
+  if (!withEqCombiner || !withEqFn) {
+    throw new Error("createSelector: invalid arguments");
+  }
   const canUseWithEq =
     fns.length >= 3 &&
     withEqSelectors.length >= 1 &&
@@ -123,7 +137,15 @@ function parseSelectorArgs(args: unknown[]): {
     throw new Error("createSelector: invalid arguments");
   }
 
-  if (canUseWithEq && (!canUseNoEq || looksLikeEqualityFn(withEqFn))) {
+  if (canUseWithEq && looksLikeBinaryEqualityFn(withEqFn)) {
+    return {
+      inputSelectors: withEqSelectors as Array<(state: unknown) => unknown>,
+      combiner: withEqCombiner as (...inputs: unknown[]) => unknown,
+      equalityFn: withEqFn as EqualityFn,
+    };
+  }
+
+  if (!canUseNoEq && canUseWithEq) {
     return {
       inputSelectors: withEqSelectors as Array<(state: unknown) => unknown>,
       combiner: withEqCombiner as (...inputs: unknown[]) => unknown,

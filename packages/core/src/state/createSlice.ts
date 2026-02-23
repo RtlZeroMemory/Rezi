@@ -6,18 +6,27 @@
  * and produces a reducer that can be composed into the root reducer.
  */
 
-type CaseReducers<SliceState> = Record<string, (state: SliceState, payload: any) => SliceState>;
+type CaseReducer<SliceState, Payload = unknown> = {
+  bivarianceHack(state: SliceState, payload: Payload): SliceState;
+}["bivarianceHack"];
 
-type ActionCreators<Name extends string, CR extends CaseReducers<any>> = {
-  [K in keyof CR]: CR[K] extends (state: any, payload: infer P) => any
-    ? unknown extends P
-      ? () => { type: `${Name}/${K & string}` }
-      : (payload: P) => { type: `${Name}/${K & string}`; payload: P }
-    : never;
+type CaseReducers<SliceState> = Record<string, CaseReducer<SliceState, unknown>>;
+
+type ActionCreators<Name extends string, CR extends CaseReducers<unknown>> = {
+  [K in keyof CR]: Parameters<CR[K]> extends [unknown]
+    ? () => { type: `${Name}/${K & string}` }
+    : Parameters<CR[K]> extends [unknown, infer P]
+      ? (payload: P) => { type: `${Name}/${K & string}`; payload: P }
+      : never;
 };
 
-type AnySlice = Slice<string, any, CaseReducers<any>>;
-type SliceStateOf<T> = T extends Slice<string, infer S, any> ? S : never;
+type AnySlice = Readonly<{
+  reducer: {
+    bivarianceHack(state: unknown, action: { type: string; payload?: unknown }): unknown;
+  }["bivarianceHack"];
+  initialState: unknown;
+}>;
+type SliceStateOf<T> = T extends { initialState: infer S } ? S : never;
 type RootStateFromSlices<Slices extends Record<string, AnySlice>> = {
   [K in keyof Slices]: SliceStateOf<Slices[K]>;
 };
@@ -95,7 +104,8 @@ export function combineSlices<Slices extends Record<string, AnySlice>>(
     const next = {} as Record<string, unknown>;
 
     for (const key of keys) {
-      const slice = slices[key]!;
+      const slice = slices[key];
+      if (slice === undefined) continue;
       const prev = state[key];
       const result = slice.reducer(prev, action);
       next[key] = result;
@@ -116,7 +126,9 @@ export function getInitialState<Slices extends Record<string, AnySlice>>(
 
   const state = {} as Record<string, unknown>;
   for (const key of Object.keys(slices)) {
-    state[key] = slices[key]!.initialState;
+    const slice = slices[key];
+    if (slice === undefined) continue;
+    state[key] = slice.initialState;
   }
 
   return state as RootState;

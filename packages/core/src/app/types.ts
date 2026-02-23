@@ -73,7 +73,7 @@ export interface App<S> {
   update(updater: S | ((prev: Readonly<S>) => S)): void;
   /**
    * Dispatch a state update or an async thunk.
-   * - If passed a function with 2 params (dispatch, getState): treated as thunk
+   * - If passed a function that uses dispatch/getState: treated as thunk
    * - If passed a state value or updater: equivalent to app.update()
    */
   dispatch(action: Thunk<S> | S | ((prev: Readonly<S>) => S)): void;

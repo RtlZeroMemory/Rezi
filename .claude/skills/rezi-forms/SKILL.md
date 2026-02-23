@@ -67,6 +67,19 @@ Use this skill when:
    - Keep the form values in `useForm(...)`
    - Keep complex UI workflow state in a local reducer with typed actions
    - Dispatch reducer actions from field callbacks and submit handlers
+   ```typescript
+   const form = useForm(ctx, { initialValues: { email: "" } });
+   const [wizardState, dispatch] = ctx.useReducer(wizardReducer, { step: 1, busy: false });
+
+   ui.input({
+     id: "email",
+     ...form.bind("email"),
+     onChange: (next) => {
+       form.setValue("email", next);
+       dispatch({ type: "fieldChanged", field: "email" });
+     },
+   });
+   ```
 
 ## Design system note
 
