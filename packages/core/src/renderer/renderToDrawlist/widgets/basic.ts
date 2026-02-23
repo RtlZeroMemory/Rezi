@@ -5,7 +5,7 @@ import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { FocusState } from "../../../runtime/focus.js";
 import type { TerminalProfile } from "../../../terminalProfile.js";
 import type { Theme } from "../../../theme/theme.js";
-import { asTextStyle } from "../../styles.js";
+import type { TextStyle } from "../../../widgets/style.js";
 import { isVisibleRect } from "../indices.js";
 import { shouldFillForStyleOverride } from "../textStyle.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
@@ -26,10 +26,10 @@ export type ResolvedCursor = Readonly<{
 function maybeFillOwnBackground(
   builder: DrawlistBuilderV1,
   rect: Rect,
-  ownStyle: ReturnType<typeof asTextStyle>,
+  ownStyle: unknown,
   style: ResolvedTextStyle,
 ): void {
-  if (shouldFillForStyleOverride(ownStyle)) {
+  if (shouldFillForStyleOverride(ownStyle as TextStyle | undefined)) {
     builder.fillRect(rect.x, rect.y, rect.w, rect.h, style);
   }
 }

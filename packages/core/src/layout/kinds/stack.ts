@@ -27,6 +27,7 @@ import type { LayoutResult } from "../validateProps.js";
 import { validateSpacerProps, validateStackProps } from "../validateProps.js";
 
 type MeasureNodeFn = (vnode: VNode, maxW: number, maxH: number, axis: Axis) => LayoutResult<Size>;
+type StackVNode = Extract<VNode, { kind: "row" | "column" }>;
 
 type LayoutNodeFn = (
   vnode: VNode,
@@ -99,6 +100,10 @@ function getAxisConfig(kind: VNode["kind"]): AxisConfig | null {
     default:
       return null;
   }
+}
+
+function isStackVNode(vnode: VNode): vnode is StackVNode {
+  return vnode.kind === "row" || vnode.kind === "column";
 }
 
 function mainFromWH(axis: AxisConfig, w: number, h: number): number {
@@ -482,7 +487,7 @@ function planWrapConstraintLine(
 
 function measureStack(
   axis: AxisConfig,
-  vnode: VNode,
+  vnode: StackVNode,
   maxW: number,
   maxH: number,
   measureNode: MeasureNodeFn,
@@ -811,6 +816,12 @@ export function measureStackKinds(
   measureNode: MeasureNodeFn,
 ): LayoutResult<Size> {
   void axis;
+  if (!isStackVNode(vnode)) {
+    return {
+      ok: false,
+      fatal: { code: "ZRUI_INVALID_PROPS", detail: "measureStackKinds: unexpected vnode kind" },
+    };
+  }
   const stackAxis = getAxisConfig(vnode.kind);
   if (stackAxis === null) {
     return {
@@ -832,6 +843,12 @@ export function layoutStackKinds(
   layoutNode: LayoutNodeFn,
 ): LayoutResult<LayoutTree> {
   void axis;
+  if (!isStackVNode(vnode)) {
+    return {
+      ok: false,
+      fatal: { code: "ZRUI_INVALID_PROPS", detail: "layoutStackKinds: unexpected vnode kind" },
+    };
+  }
   const stackAxis = getAxisConfig(vnode.kind);
   if (stackAxis === null) {
     return {
@@ -844,7 +861,7 @@ export function layoutStackKinds(
 
 function layoutStack(
   axis: AxisConfig,
-  vnode: VNode,
+  vnode: StackVNode,
   x: number,
   y: number,
   rectW: number,

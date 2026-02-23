@@ -221,7 +221,11 @@ function resolveFocusFlags(
   focusState: FocusState,
   id: string | null,
   focusConfigRaw: unknown,
-): Readonly<{ focused: boolean; focusVisible: boolean; focusConfig: unknown }> {
+): Readonly<{
+  focused: boolean;
+  focusVisible: boolean;
+  focusConfig: ReturnType<typeof readFocusConfig>;
+}> {
   const focusConfig = readFocusConfig(focusConfigRaw);
   const focused = id !== null && focusState.focusedId === id;
   const focusVisible = focused && focusIndicatorEnabled(focusConfig);
