@@ -150,7 +150,7 @@ describe("wheel routing", () => {
     assert.equal(r.nextScrollX, 7);
   });
 
-  test("generic overflow:scroll container responds to wheel", () => {
+  test("generic overflow:scroll container responds to wheel over non-focusable content", () => {
     const renderer = new WidgetRenderer<void>({
       backend: createNoopBackend(),
       requestRender: () => {},
@@ -166,7 +166,7 @@ describe("wheel routing", () => {
       },
       [
         ui.box({ border: "none", mb: -2 }, [
-          ui.button({ id: "inside.btn", label: "Inside" }),
+          ui.text("line-1"),
           ui.text("line-2"),
           ui.text("line-3"),
           ui.text("line-4"),
@@ -185,7 +185,7 @@ describe("wheel routing", () => {
     assert.equal(before.scrollY, 0);
     assert.ok(before.contentHeight > before.viewportHeight);
 
-    const rect = getRectById(renderer, "inside.btn");
+    const rect = getRectById(renderer, "scroll.box");
     const routed = renderer.routeEngineEvent(wheelEvent(rect.x, rect.y, 1));
     assert.equal(routed.needsRender, true);
 

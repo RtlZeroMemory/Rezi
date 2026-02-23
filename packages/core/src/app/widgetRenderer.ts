@@ -61,7 +61,7 @@ import {
   computeDirtyLayoutSet,
   instanceDirtySetToVNodeDirtySet,
 } from "../layout/engine/dirtySet.js";
-import { hitTestFocusable } from "../layout/hitTest.js";
+import { hitTestAnyId, hitTestFocusable } from "../layout/hitTest.js";
 import { type LayoutTree, layout } from "../layout/layout.js";
 import {
   type ResponsiveBreakpointThresholds,
@@ -1557,6 +1557,8 @@ export class WidgetRenderer<S> {
       event.kind === "mouse"
         ? hitTestFocusable(this.committedRoot.vnode, this.layoutTree, event.x, event.y)
         : null;
+    const mouseTargetAnyId =
+      event.kind === "mouse" ? hitTestAnyId(this.layoutTree, event.x, event.y) : null;
     let localNeedsRender = false;
 
     // Overlay routing: dropdown key navigation, layer/modal ESC close, and modal backdrop blocking.
@@ -2661,40 +2663,41 @@ export class WidgetRenderer<S> {
     // Mouse wheel for virtual list (prefer list under cursor; fallback to focused list).
     if (event.kind === "mouse" && event.mouseKind === 5) {
       const targetId = mouseTargetId ?? focusedId;
-      if (targetId === null) return ROUTE_NO_RENDER;
-      const vlist = this.virtualListById.get(targetId);
-      if (vlist) {
-        const state = this.virtualListStore.get(vlist.id);
-        const itemHeight = resolveVirtualListItemHeightSpec(vlist);
-        const measuredHeights =
-          vlist.estimateItemHeight !== undefined &&
-          state.measuredHeights !== undefined &&
-          state.measuredItemCount === vlist.items.length
-            ? state.measuredHeights
-            : undefined;
-        const totalHeight = getTotalHeight(vlist.items, itemHeight, measuredHeights);
+      if (targetId !== null) {
+        const vlist = this.virtualListById.get(targetId);
+        if (vlist) {
+          const state = this.virtualListStore.get(vlist.id);
+          const itemHeight = resolveVirtualListItemHeightSpec(vlist);
+          const measuredHeights =
+            vlist.estimateItemHeight !== undefined &&
+            state.measuredHeights !== undefined &&
+            state.measuredItemCount === vlist.items.length
+              ? state.measuredHeights
+              : undefined;
+          const totalHeight = getTotalHeight(vlist.items, itemHeight, measuredHeights);
 
-        const r = routeVirtualListWheel(event, {
-          scrollTop: state.scrollTop,
-          totalHeight,
-          viewportHeight: state.viewportHeight,
-        });
+          const r = routeVirtualListWheel(event, {
+            scrollTop: state.scrollTop,
+            totalHeight,
+            viewportHeight: state.viewportHeight,
+          });
 
-        if (r.nextScrollTop !== undefined) {
-          this.virtualListStore.set(vlist.id, { scrollTop: r.nextScrollTop });
-          if (typeof vlist.onScroll === "function") {
-            const overscan = vlist.overscan ?? 3;
-            const { startIndex, endIndex } = computeVisibleRange(
-              vlist.items,
-              itemHeight,
-              r.nextScrollTop,
-              state.viewportHeight,
-              overscan,
-              measuredHeights,
-            );
-            vlist.onScroll(r.nextScrollTop, [startIndex, endIndex]);
+          if (r.nextScrollTop !== undefined) {
+            this.virtualListStore.set(vlist.id, { scrollTop: r.nextScrollTop });
+            if (typeof vlist.onScroll === "function") {
+              const overscan = vlist.overscan ?? 3;
+              const { startIndex, endIndex } = computeVisibleRange(
+                vlist.items,
+                itemHeight,
+                r.nextScrollTop,
+                state.viewportHeight,
+                overscan,
+                measuredHeights,
+              );
+              vlist.onScroll(r.nextScrollTop, [startIndex, endIndex]);
+            }
+            return ROUTE_RENDER;
           }
-          return ROUTE_RENDER;
         }
       }
 
@@ -2707,7 +2710,12 @@ export class WidgetRenderer<S> {
         const editor = this.codeEditorById.get(candidateId);
         if (editor) {
           const rect = this.rectById.get(editor.id) ?? null;
-          const viewportWidth = rect ? Math.max(1, rect.w) : 1;
+          const lineNumWidth =
+            this.codeEditorRenderCacheById.get(editor.id)?.lineNumWidth ??
+            (editor.lineNumbers === false
+              ? 0
+              : Math.max(4, String(editor.lines.length).length + 1));
+          const viewportWidth = rect ? Math.max(1, rect.w - lineNumWidth) : 1;
           const viewportHeight = rect ? Math.max(1, rect.h) : 1;
           let contentWidth = 1;
           for (const line of editor.lines) {
@@ -2782,7 +2790,7 @@ export class WidgetRenderer<S> {
         }
       }
 
-      const scrollTarget = this.findNearestScrollableAncestor(targetId);
+      const scrollTarget = this.findNearestScrollableAncestor(mouseTargetAnyId);
       if (scrollTarget) {
         const { nodeId, meta } = scrollTarget;
         const r = routeWheel(event, {
