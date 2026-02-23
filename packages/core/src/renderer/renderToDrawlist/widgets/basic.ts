@@ -1453,8 +1453,8 @@ export function renderBasicWidget(
           : error
             ? ("error" as const)
             : focusVisible
-            ? ("focus" as const)
-            : ("default" as const);
+              ? ("focus" as const)
+              : ("default" as const);
         const recipeResult = selectRecipe(colorTokens, { state, size: dsSize });
         const hasBorder = recipeResult.border !== "none" && rect.w >= 3 && rect.h >= 3;
         const borderInset = hasBorder ? 1 : 0;
@@ -1720,7 +1720,8 @@ export function renderBasicWidget(
           parentStyle,
           recipeResult !== null
             ? {
-                fg: theme.colors.bg,
+                ...(recipeResult.text.fg === undefined ? { fg: theme.colors.bg } : {}),
+                ...(recipeResult.text.fg === undefined ? {} : { fg: recipeResult.text.fg }),
                 ...(recipeResult.bg.bg === undefined ? {} : { bg: recipeResult.bg.bg }),
                 ...(recipeResult.text.bold === undefined ? {} : { bold: recipeResult.text.bold }),
               }
@@ -1866,7 +1867,8 @@ export function renderBasicWidget(
           parentStyle,
           recipeResult !== null
             ? {
-                fg: theme.colors.bg,
+                ...(recipeResult.text.fg === undefined ? { fg: theme.colors.bg } : {}),
+                ...(recipeResult.text.fg === undefined ? {} : { fg: recipeResult.text.fg }),
                 ...(recipeResult.bg.bg === undefined ? {} : { bg: recipeResult.bg.bg }),
                 ...(recipeResult.text.bold === undefined ? {} : { bold: recipeResult.text.bold }),
               }

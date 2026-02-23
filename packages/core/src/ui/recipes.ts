@@ -464,6 +464,7 @@ export function badgeRecipe(
   params: BadgeRecipeParams = {},
 ): BadgeRecipeResult {
   const tone = params.tone ?? "default";
+  const resolvedTone: WidgetTone = tone === "info" ? "primary" : tone;
 
   let color: Rgb;
   switch (tone) {
@@ -486,7 +487,7 @@ export function badgeRecipe(
   }
 
   return {
-    text: { fg: color, bold: true },
+    text: { fg: resolveToneFg(colors, resolvedTone), bold: true },
     bg: { bg: color },
   };
 }
@@ -508,6 +509,7 @@ export type TagRecipeResult = Readonly<{
 
 export function tagRecipe(colors: ColorTokens, params: TagRecipeParams = {}): TagRecipeResult {
   const tone = params.tone ?? "default";
+  const resolvedTone: WidgetTone = tone === "info" ? "primary" : tone;
 
   let bg: Rgb;
   switch (tone) {
@@ -532,7 +534,7 @@ export function tagRecipe(colors: ColorTokens, params: TagRecipeParams = {}): Ta
   }
 
   return {
-    text: { fg: resolveToneFg(colors, "primary"), bold: true },
+    text: { fg: resolveToneFg(colors, resolvedTone), bold: true },
     bg: { bg },
   };
 }
