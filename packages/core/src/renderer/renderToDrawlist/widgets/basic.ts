@@ -1485,6 +1485,8 @@ export function renderBasicWidget(
         checked?: unknown;
         label?: unknown;
         disabled?: unknown;
+        dsTone?: unknown;
+        dsSize?: unknown;
       };
       const id = typeof props.id === "string" ? props.id : null;
       const focused = id !== null && focusState.focusedId === id;
@@ -1493,14 +1495,23 @@ export function renderBasicWidget(
       const label = typeof props.label === "string" ? props.label : "";
       const indicator = checked ? "[x]" : "[ ]";
       const colorTokens = getColorTokens(theme);
+      const dsTone = readWidgetTone(props.dsTone);
+      const dsSize = readWidgetSize(props.dsSize) ?? "md";
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
       if (colorTokens !== null) {
         const state = disabled
           ? ("disabled" as const)
           : focused
             ? ("focus" as const)
-            : ("default" as const);
-        const recipeResult = checkboxRecipe(colorTokens, { state, checked });
+            : checked
+              ? ("selected" as const)
+              : ("default" as const);
+        const recipeResult = checkboxRecipe(
+          colorTokens,
+          dsTone === undefined
+            ? { state, checked, size: dsSize }
+            : { state, checked, tone: dsTone, size: dsSize },
+        );
         const indicatorStyle = mergeTextStyle(parentStyle, recipeResult.indicator);
         const labelStyle = mergeTextStyle(parentStyle, recipeResult.label);
         builder.drawText(rect.x, rect.y, indicator, indicatorStyle);
@@ -1527,6 +1538,8 @@ export function renderBasicWidget(
         options?: unknown;
         direction?: unknown;
         disabled?: unknown;
+        dsTone?: unknown;
+        dsSize?: unknown;
       };
       const id = typeof props.id === "string" ? props.id : null;
       const focused = id !== null && focusState.focusedId === id;
@@ -1536,20 +1549,47 @@ export function renderBasicWidget(
       const options = Array.isArray(props.options)
         ? (props.options as readonly SelectOption[])
         : [];
-
-      const focusStyle = focused ? { underline: true, bold: true } : undefined;
-      const style = mergeTextStyle(
-        parentStyle,
-        disabled ? { fg: theme.colors.muted, ...focusStyle } : focusStyle,
-      );
+      const colorTokens = getColorTokens(theme);
+      const dsTone = readWidgetTone(props.dsTone);
+      const dsSize = readWidgetSize(props.dsSize) ?? "md";
 
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
       let cx = rect.x;
       let cy = rect.y;
       for (const opt of options) {
-        const mark = opt.value === value ? "(o)" : "( )";
+        const selected = opt.value === value;
+        const mark = selected ? "(o)" : "( )";
+        if (colorTokens !== null) {
+          const state = disabled
+            ? ("disabled" as const)
+            : focused && selected
+              ? ("focus" as const)
+              : selected
+                ? ("selected" as const)
+                : ("default" as const);
+          const recipeResult = checkboxRecipe(
+            colorTokens,
+            dsTone === undefined
+              ? { state, checked: selected, size: dsSize }
+              : { state, checked: selected, tone: dsTone, size: dsSize },
+          );
+          const indicatorStyle = mergeTextStyle(parentStyle, recipeResult.indicator);
+          const labelStyle = mergeTextStyle(parentStyle, recipeResult.label);
+          builder.drawText(cx, cy, mark, indicatorStyle);
+          if (opt.label.length > 0) {
+            builder.drawText(cx + measureTextCells(mark) + 1, cy, opt.label, labelStyle);
+          }
+        } else {
+          const focusStyle = focused ? { underline: true, bold: true } : undefined;
+          const style = mergeTextStyle(
+            parentStyle,
+            disabled ? { fg: theme.colors.muted, ...focusStyle } : focusStyle,
+          );
+          const chunk = `${mark} ${opt.label}`;
+          builder.drawText(cx, cy, chunk, style);
+        }
+
         const chunk = `${mark} ${opt.label}`;
-        builder.drawText(cx, cy, chunk, style);
         if (direction === "horizontal") {
           cx += measureTextCells(chunk) + 2;
         } else {

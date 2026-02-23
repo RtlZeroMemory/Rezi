@@ -1398,6 +1398,10 @@ export type CheckboxProps = Readonly<{
   onChange?: (checked: boolean) => void;
   /** Whether the checkbox is disabled. */
   disabled?: boolean;
+  /** Design system: tone for checked/focus rendering. */
+  dsTone?: WidgetTone;
+  /** Design system: size preset. */
+  dsSize?: WidgetSize;
 }>;
 
 /** Props for radio group widget. */
@@ -1418,6 +1422,10 @@ export type RadioGroupProps = Readonly<{
   direction?: "horizontal" | "vertical";
   /** Whether the radio group is disabled. */
   disabled?: boolean;
+  /** Design system: tone for selected/focus rendering. */
+  dsTone?: WidgetTone;
+  /** Design system: size preset. */
+  dsSize?: WidgetSize;
 }>;
 
 /* ========== Navigation Widgets ========== */

@@ -513,6 +513,8 @@ export function dividerRecipe(colors: ColorTokens): DividerRecipeResult {
 export type CheckboxRecipeParams = Readonly<{
   state?: WidgetState;
   checked?: boolean;
+  tone?: WidgetTone;
+  size?: WidgetSize;
 }>;
 
 export type CheckboxRecipeResult = Readonly<{
@@ -528,6 +530,10 @@ export function checkboxRecipe(
 ): CheckboxRecipeResult {
   const state = params.state ?? "default";
   const checked = params.checked ?? false;
+  const tone = params.tone ?? "default";
+  const large = params.size === "lg";
+  const selected = checked || state === "selected";
+  const selectedColor = resolveToneColor(colors, tone);
 
   if (state === "disabled") {
     return {
@@ -539,12 +545,12 @@ export function checkboxRecipe(
   const isFocused = state === "focus";
   return {
     indicator: {
-      fg: checked ? colors.accent.primary : colors.fg.secondary,
-      bold: isFocused,
+      fg: selected ? selectedColor : colors.fg.secondary,
+      bold: isFocused || large,
     },
     label: {
       fg: colors.fg.primary,
-      bold: isFocused,
+      bold: isFocused || large,
     },
   };
 }
