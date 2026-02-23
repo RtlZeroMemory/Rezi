@@ -14,39 +14,42 @@ import type {
   StaggerConfig,
   TransitionConfig,
 } from "../../animation/types.js";
-import type { WidgetContext } from "../composition.js";
+
+type HookUseEffect = {
+  (effect: () => void, deps?: readonly unknown[]): void;
+  (effect: () => () => void, deps?: readonly unknown[]): void;
+};
+
+type HookUseMemo = <T>(factory: () => T, deps?: readonly unknown[]) => T;
+type HookUseRef = <T>(initial: T) => { current: T };
+type HookUseState = <T>(initial: T | (() => T)) => [T, (v: T | ((prev: T) => T)) => void];
+
+type AnimationHookContext = Readonly<{
+  useEffect: HookUseEffect;
+  useMemo: HookUseMemo;
+  useRef: HookUseRef;
+  useState: HookUseState;
+}>;
 
 /**
  * Minimal context required by `useTransition`.
  */
-type TransitionHookContext = Pick<
-  WidgetContext<unknown>,
-  "useEffect" | "useMemo" | "useRef" | "useState"
->;
+type TransitionHookContext = AnimationHookContext;
 
 /**
  * Minimal context required by `useSpring`.
  */
-type SpringHookContext = Pick<
-  WidgetContext<unknown>,
-  "useEffect" | "useMemo" | "useRef" | "useState"
->;
+type SpringHookContext = AnimationHookContext;
 
 /**
  * Minimal context required by `useSequence`.
  */
-type SequenceHookContext = Pick<
-  WidgetContext<unknown>,
-  "useEffect" | "useMemo" | "useRef" | "useState"
->;
+type SequenceHookContext = AnimationHookContext;
 
 /**
  * Minimal context required by `useStagger`.
  */
-type StaggerHookContext = Pick<
-  WidgetContext<unknown>,
-  "useEffect" | "useMemo" | "useRef" | "useState"
->;
+type StaggerHookContext = AnimationHookContext;
 
 /**
  * Transition configuration accepted by `useTransition`.

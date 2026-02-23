@@ -1,34 +1,46 @@
-import type { WidgetContext } from "../composition.js";
+type HookUseEffect = {
+  (effect: () => void, deps?: readonly unknown[]): void;
+  (effect: () => () => void, deps?: readonly unknown[]): void;
+};
+
+type HookUseRef = <T>(initial: T) => { current: T };
+type HookUseState = <T>(initial: T | (() => T)) => [T, (v: T | ((prev: T) => T)) => void];
+
+type DataHookContext = Readonly<{
+  useEffect: HookUseEffect;
+  useRef: HookUseRef;
+  useState: HookUseState;
+}>;
 
 /**
  * Minimal context required by `useAsync`.
  */
-type AsyncHookContext = Pick<WidgetContext<unknown>, "useEffect" | "useRef" | "useState">;
+type AsyncHookContext = DataHookContext;
 
 /**
  * Minimal context required by `useStream`.
  */
-type StreamHookContext = Pick<WidgetContext<unknown>, "useEffect" | "useRef" | "useState">;
+type StreamHookContext = DataHookContext;
 
 /**
  * Minimal context required by `useInterval`.
  */
-type IntervalHookContext = Pick<WidgetContext<unknown>, "useEffect" | "useRef">;
+type IntervalHookContext = Pick<DataHookContext, "useEffect" | "useRef">;
 
 /**
  * Minimal context required by `useEventSource`.
  */
-type EventSourceHookContext = Pick<WidgetContext<unknown>, "useEffect" | "useRef" | "useState">;
+type EventSourceHookContext = DataHookContext;
 
 /**
  * Minimal context required by `useWebSocket`.
  */
-type WebSocketHookContext = Pick<WidgetContext<unknown>, "useEffect" | "useRef" | "useState">;
+type WebSocketHookContext = DataHookContext;
 
 /**
  * Minimal context required by `useTail`.
  */
-type TailHookContext = Pick<WidgetContext<unknown>, "useEffect" | "useRef" | "useState">;
+type TailHookContext = DataHookContext;
 
 /**
  * Async state returned by `useAsync`.

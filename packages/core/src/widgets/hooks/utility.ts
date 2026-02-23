@@ -1,14 +1,26 @@
-import type { WidgetContext } from "../composition.js";
+type HookUseEffect = {
+  (effect: () => void, deps?: readonly unknown[]): void;
+  (effect: () => () => void, deps?: readonly unknown[]): void;
+};
+
+type HookUseRef = <T>(initial: T) => { current: T };
+type HookUseState = <T>(initial: T | (() => T)) => [T, (v: T | ((prev: T) => T)) => void];
+
+type UtilityHookContext = Readonly<{
+  useEffect: HookUseEffect;
+  useRef: HookUseRef;
+  useState: HookUseState;
+}>;
 
 /**
  * Minimal context required by `useDebounce`.
  */
-type DebounceHookContext = Pick<WidgetContext<unknown>, "useEffect" | "useState">;
+type DebounceHookContext = Pick<UtilityHookContext, "useEffect" | "useState">;
 
 /**
  * Minimal context required by `usePrevious`.
  */
-type PreviousHookContext = Pick<WidgetContext<unknown>, "useEffect" | "useRef">;
+type PreviousHookContext = Pick<UtilityHookContext, "useEffect" | "useRef">;
 
 /**
  * Return a debounced copy of a value.
