@@ -6,6 +6,7 @@ import {
 } from "../../app/__tests__/helpers.js";
 import { StubBackend } from "../../app/__tests__/stubBackend.js";
 import { createApp } from "../../app/createApp.js";
+import { defineWidget } from "../../widgets/composition.js";
 import type { Theme } from "../theme.js";
 import { createTheme } from "../theme.js";
 import { ui } from "../../widgets/ui.js";
@@ -109,6 +110,34 @@ describe("theme transition frames", () => {
     await resolveNextFrame(backend);
     await flushMicrotasks(12);
     assert.equal(backend.requestedFrames.length, 4, "transition completes after configured frames");
+  });
+
+  test("setTheme invalidates commit so useTheme-based composites update immediately", async () => {
+    const backend = new StubBackend();
+    const seenPrimary: Array<unknown> = [];
+    const ThemedProbe = defineWidget<{ key?: string }, number>((_props, ctx) => {
+      seenPrimary.push(ctx.useTheme()?.accent.primary ?? null);
+      return ui.text("probe");
+    });
+    const app = createApp({
+      backend,
+      initialState: 0,
+      theme: themeWithPrimary(255, 0, 0),
+    });
+    app.view(() => ui.box({}, [ThemedProbe({})]));
+
+    await app.start();
+    pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 50, rows: 12 }]);
+    await flushMicrotasks(12);
+    await resolveNextFrame(backend);
+    assert.equal(seenPrimary.length >= 1, true);
+
+    app.setTheme(themeWithPrimary(0, 255, 0));
+    await flushMicrotasks(12);
+    await resolveNextFrame(backend);
+
+    assert.equal(seenPrimary.length >= 2, true);
+    assert.deepEqual(seenPrimary[seenPrimary.length - 1], { r: 0, g: 255, b: 0 });
   });
 
   test("retargeting during active transition converges to new target theme", async () => {

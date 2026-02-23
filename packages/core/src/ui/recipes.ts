@@ -1004,7 +1004,7 @@ export function dropdownRecipe(
       dim: variant !== "solid",
     },
     bg: { bg: baseBg },
-    border: variant === "outline" ? "single" : "single",
+    border: "single",
     borderStyle: {
       fg: variant === "outline" ? colors.border.default : colors.border.strong,
     },

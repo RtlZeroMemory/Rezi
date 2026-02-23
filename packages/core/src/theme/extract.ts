@@ -27,7 +27,7 @@ function extractColorTokens(theme: Theme): ColorTokens | null {
     },
     success: c.success,
     warning: c.warning,
-    error: c.danger ?? (c as { error?: Rgb }).error ?? { r: 220, g: 53, b: 69 },
+    error: c.danger ?? (c as { error?: Rgb }).error ?? c.primary ?? c.fg ?? bgBase,
     info: c.info,
     focus: {
       ring: (c["focus.ring"] as Rgb) ?? c.primary,
@@ -42,7 +42,13 @@ function extractColorTokens(theme: Theme): ColorTokens | null {
       bg: (c["disabled.bg"] as Rgb) ?? c.bg,
     },
     diagnostic: {
-      error: (c["diagnostic.error"] as Rgb) ?? c.danger ?? { r: 220, g: 53, b: 69 },
+      error:
+        (c["diagnostic.error"] as Rgb) ??
+        c.danger ??
+        (c as { error?: Rgb }).error ??
+        c.primary ??
+        c.fg ??
+        bgBase,
       warning: (c["diagnostic.warning"] as Rgb) ?? c.warning,
       info: (c["diagnostic.info"] as Rgb) ?? c.info,
       hint: (c["diagnostic.hint"] as Rgb) ?? c.success,

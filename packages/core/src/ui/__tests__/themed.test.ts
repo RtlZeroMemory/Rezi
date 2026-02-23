@@ -1,5 +1,4 @@
-import * as assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { assert, describe, test } from "@rezi-ui/testkit";
 import type {
   DrawlistBuildResult,
   DrawlistBuilderV1,
@@ -84,11 +83,13 @@ function fgByText(
 }
 
 describe("ui.themed", () => {
-  it("creates themed vnode and filters children", () => {
-    const vnode = ui.themed(
-      { colors: { accent: { primary: { r: 1, g: 2, b: 3 } } } },
-      [ui.text("a"), null, false, [ui.text("b")]],
-    );
+  test("creates themed vnode and filters children", () => {
+    const vnode = ui.themed({ colors: { accent: { primary: { r: 1, g: 2, b: 3 } } } }, [
+      ui.text("a"),
+      null,
+      false,
+      [ui.text("b")],
+    ]);
     assert.equal(vnode.kind, "themed");
     if (vnode.kind !== "themed") return;
     assert.equal(vnode.children.length, 2);
@@ -97,7 +98,7 @@ describe("ui.themed", () => {
     });
   });
 
-  it("applies theme override to subtree without leaking to siblings", () => {
+  test("applies theme override to subtree without leaking to siblings", () => {
     const baseTheme = createTheme({
       colors: {
         primary: { r: 200, g: 40, b: 40 },
@@ -126,10 +127,12 @@ describe("ui.themed", () => {
     assert.deepEqual(fgByText(ops, "AFTER"), baseTheme.colors.primary);
   });
 
-  it("is layout-transparent for single-child subtrees", () => {
+  test("is layout-transparent for single-child subtrees", () => {
     const tree = commitAndLayout(
       ui.column({}, [
-        ui.themed({ colors: { accent: { primary: { r: 10, g: 20, b: 30 } } } }, [ui.text("inside")]),
+        ui.themed({ colors: { accent: { primary: { r: 10, g: 20, b: 30 } } } }, [
+          ui.text("inside"),
+        ]),
         ui.text("outside"),
       ]),
     );

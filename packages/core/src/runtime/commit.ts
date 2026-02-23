@@ -17,6 +17,8 @@
  */
 
 import type { ResponsiveViewportSnapshot } from "../layout/responsive.js";
+import { mergeThemeOverride } from "../theme/interop.js";
+import type { Theme } from "../theme/theme.js";
 import type { ColorTokens } from "../theme/tokens.js";
 import {
   type CompositeWidgetMeta,
@@ -421,13 +423,40 @@ function focusTrapPropsEqual(a: unknown, b: unknown): boolean {
   );
 }
 
+function deepEqualUnknown(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== typeof b) return false;
+  if (typeof a !== "object" || a === null || b === null) return false;
+
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqualUnknown(a[i], b[i])) return false;
+    }
+    return true;
+  }
+
+  const aRecord = a as Record<string, unknown>;
+  const bRecord = b as Record<string, unknown>;
+  const aKeys = Object.keys(aRecord);
+  const bKeys = Object.keys(bRecord);
+  if (aKeys.length !== bKeys.length) return false;
+
+  for (const key of aKeys) {
+    if (!Object.prototype.hasOwnProperty.call(bRecord, key)) return false;
+    if (!deepEqualUnknown(aRecord[key], bRecord[key])) return false;
+  }
+  return true;
+}
+
 function themedPropsEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   const ao = (a ?? {}) as {
     theme?: unknown;
   };
   const bo = (b ?? {}) as typeof ao;
-  return ao.theme === bo.theme;
+  return deepEqualUnknown(ao.theme, bo.theme);
 }
 
 function canFastReuseContainerSelf(prev: VNode, next: VNode): boolean {
@@ -649,6 +678,42 @@ function markCompositeSubtreeStale(
   }
 }
 
+function currentCompositeTheme(ctx: CommitCtx): Theme | null {
+  if (ctx.compositeThemeStack.length === 0) return null;
+  return ctx.compositeThemeStack[ctx.compositeThemeStack.length - 1] ?? null;
+}
+
+function resolveCompositeChildTheme(parentTheme: Theme, vnode: VNode): Theme {
+  if (vnode.kind === "themed") {
+    const props = vnode.props as { theme?: unknown };
+    return mergeThemeOverride(parentTheme, props.theme);
+  }
+
+  if (
+    vnode.kind === "row" ||
+    vnode.kind === "column" ||
+    vnode.kind === "grid" ||
+    vnode.kind === "box"
+  ) {
+    const props = vnode.props as { theme?: unknown };
+    return mergeThemeOverride(parentTheme, props.theme);
+  }
+
+  return parentTheme;
+}
+
+function readCompositeColorTokens(ctx: CommitCtx): ColorTokens | null {
+  const composite = ctx.composite;
+  if (!composite) return null;
+
+  const theme = currentCompositeTheme(ctx);
+  if (theme !== null && composite.getColorTokens) {
+    return composite.getColorTokens(theme);
+  }
+
+  return composite.colorTokens ?? null;
+}
+
 type CommitCtx = Readonly<{
   allocator: InstanceIdAllocator;
   localState: RuntimeLocalStateStore | undefined;
@@ -664,10 +729,13 @@ type CommitCtx = Readonly<{
     registry: CompositeInstanceRegistry;
     appState: unknown;
     colorTokens?: ColorTokens | null;
+    theme?: Theme;
+    getColorTokens?: (theme: Theme) => ColorTokens | null;
     viewport?: ResponsiveViewportSnapshot;
     onInvalidate: (instanceId: InstanceId) => void;
     onUseViewport?: () => void;
   }> | null;
+  compositeThemeStack: Theme[];
   compositeRenderStack: Array<Readonly<{ widgetKey: string; instanceId: InstanceId }>>;
   pendingCleanups: EffectCleanup[];
   pendingEffects: EffectState[];
@@ -888,153 +956,169 @@ function commitContainer(
     for (const c of prevChildren) byPrevInstanceId.set(c.instanceId, c);
   }
 
-  // Container fast path: when reconciliation reuses all children with no
-  // additions/removals, commit each child and check if all return the exact
-  // same RuntimeInstance reference. If so, reuse the parent's RuntimeInstance,
-  // avoiding new arrays, VNode spreads, and RuntimeInstance allocation.
-  const canTryFastReuse =
-    prev !== null &&
-    res.value.newInstanceIds.length === 0 &&
-    res.value.unmountedInstanceIds.length === 0 &&
-    res.value.nextChildren.length === prevChildren.length;
-  let childOrderStable = true;
-  if (canTryFastReuse) {
-    for (let i = 0; i < res.value.nextChildren.length; i++) {
-      const child = res.value.nextChildren[i];
-      if (!child || child.prevIndex !== i) {
-        childOrderStable = false;
-        break;
-      }
+  const parentCompositeTheme = currentCompositeTheme(ctx);
+  let pushedCompositeTheme = false;
+  if (parentCompositeTheme !== null) {
+    const nextCompositeTheme = resolveCompositeChildTheme(parentCompositeTheme, vnode);
+    if (nextCompositeTheme !== parentCompositeTheme) {
+      ctx.compositeThemeStack.push(nextCompositeTheme);
+      pushedCompositeTheme = true;
     }
   }
 
-  // Avoid allocating nextChildren/committedChildVNodes for the common case where
-  // everything is reused (e.g., list updates where only a couple rows change).
-  let nextChildren: readonly RuntimeInstance[] | null = null;
-  let committedChildVNodes: readonly VNode[] | null = null;
-
-  if (canTryFastReuse) {
-    let allChildrenSame = true;
-    for (let i = 0; i < res.value.nextChildren.length; i++) {
-      const child = res.value.nextChildren[i];
-      if (!child) continue;
-      const prevChild = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
-      const committed = commitNode(
-        prevChild ?? null,
-        child.instanceId,
-        child.vnode,
-        ctx,
-        formatNodePath(appendNodePath(nodePath, child.slotId)),
-      );
-      if (!committed.ok) return committed;
-
-      if (allChildrenSame && committed.value.root !== prevChild) {
-        allChildrenSame = false;
-        // First mismatch: allocate arrays and backfill prior entries with the prevChild refs
-        // we already proved were identical in earlier iterations.
-        const len = res.value.nextChildren.length;
-        const nextChildrenArr: RuntimeInstance[] = new Array(len);
-        const committedChildVNodesArr: VNode[] = new Array(len);
-        nextChildren = nextChildrenArr;
-        committedChildVNodes = committedChildVNodesArr;
-        for (let j = 0; j < i; j++) {
-          const plan = res.value.nextChildren[j];
-          if (!plan) continue;
-          const pc = plan.prevIndex !== null ? byPrevIndex[plan.prevIndex] : null;
-          if (!pc) continue;
-          nextChildrenArr[j] = pc;
-          committedChildVNodesArr[j] = pc.vnode;
-        }
-      }
-
-      if (!allChildrenSame) {
-        // Arrays are allocated after the first mismatch.
-        if (!nextChildren || !committedChildVNodes) {
-          return {
-            ok: false,
-            fatal: {
-              code: "ZRUI_INVALID_PROPS",
-              detail: "commitNode: internal fast-reuse invariant",
-            },
-          };
-        }
-        (nextChildren as RuntimeInstance[])[i] = committed.value.root;
-        (committedChildVNodes as VNode[])[i] = committed.value.root.vnode;
-      }
-    }
-
-    if (
-      allChildrenSame &&
+  try {
+    // Container fast path: when reconciliation reuses all children with no
+    // additions/removals, commit each child and check if all return the exact
+    // same RuntimeInstance reference. If so, reuse the parent's RuntimeInstance,
+    // avoiding new arrays, VNode spreads, and RuntimeInstance allocation.
+    const canTryFastReuse =
       prev !== null &&
-      childOrderStable &&
-      canFastReuseContainerSelf(prev.vnode, vnode)
-    ) {
-      // All children are identical references → reuse parent entirely.
-      prev.dirty = false;
-      prev.selfDirty = false;
-      return { ok: true, value: { root: prev } };
+      res.value.newInstanceIds.length === 0 &&
+      res.value.unmountedInstanceIds.length === 0 &&
+      res.value.nextChildren.length === prevChildren.length;
+    let childOrderStable = true;
+    if (canTryFastReuse) {
+      for (let i = 0; i < res.value.nextChildren.length; i++) {
+        const child = res.value.nextChildren[i];
+        if (!child || child.prevIndex !== i) {
+          childOrderStable = false;
+          break;
+        }
+      }
     }
-  } else {
-    // General path: commit children and build next arrays.
-    const nextChildrenArr: RuntimeInstance[] = [];
-    const committedChildVNodesArr: VNode[] = [];
-    for (const child of res.value.nextChildren) {
-      const prevChild = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
-      const committed = commitNode(
-        prevChild ?? null,
-        child.instanceId,
-        child.vnode,
-        ctx,
-        formatNodePath(appendNodePath(nodePath, child.slotId)),
-      );
-      if (!committed.ok) return committed;
-      nextChildrenArr.push(committed.value.root);
-      committedChildVNodesArr.push(committed.value.root.vnode);
-    }
-    nextChildren = nextChildrenArr;
-    committedChildVNodes = committedChildVNodesArr;
-  }
 
-  for (const unmountedId of res.value.unmountedInstanceIds) {
-    const prevNode = byPrevInstanceId?.get(unmountedId);
-    if (!prevNode) continue;
-    if (ctx.composite) {
-      markCompositeSubtreeStale(ctx.composite.registry, prevNode);
-    }
-    deleteLocalStateForSubtree(ctx.localState, prevNode);
-    collectSubtreeInstanceIds(prevNode, ctx.lists.unmounted);
-  }
+    // Avoid allocating nextChildren/committedChildVNodes for the common case where
+    // everything is reused (e.g., list updates where only a couple rows change).
+    let nextChildren: readonly RuntimeInstance[] | null = null;
+    let committedChildVNodes: readonly VNode[] | null = null;
 
-  if (!nextChildren || !committedChildVNodes) {
-    // All committed children matched existing instances, but we still need to
-    // materialize the next order (e.g., keyed reorders) when parent reuse is disallowed.
-    const reorderedChildren: RuntimeInstance[] = [];
-    const reorderedVNodes: VNode[] = [];
-    for (const child of res.value.nextChildren) {
-      const reused = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
-      if (!reused) continue;
-      reorderedChildren.push(reused);
-      reorderedVNodes.push(reused.vnode);
-    }
-    nextChildren = reorderedChildren;
-    committedChildVNodes = reorderedVNodes;
-  }
+    if (canTryFastReuse) {
+      let allChildrenSame = true;
+      for (let i = 0; i < res.value.nextChildren.length; i++) {
+        const child = res.value.nextChildren[i];
+        if (!child) continue;
+        const prevChild = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
+        const committed = commitNode(
+          prevChild ?? null,
+          child.instanceId,
+          child.vnode,
+          ctx,
+          formatNodePath(appendNodePath(nodePath, child.slotId)),
+        );
+        if (!committed.ok) return committed;
 
-  const propsChanged = prev === null || !canFastReuseContainerSelf(prev.vnode, vnode);
-  const childrenChanged = prev === null || runtimeChildrenChanged(prevChildren, nextChildren);
-  const selfDirty = propsChanged || childrenChanged;
-  return {
-    ok: true,
-    value: {
-      root: {
-        instanceId,
-        vnode: rewriteCommittedVNode(vnode, committedChildVNodes),
-        children: nextChildren,
-        dirty: selfDirty || childrenChanged || hasDirtyChild(nextChildren),
-        selfDirty,
+        if (allChildrenSame && committed.value.root !== prevChild) {
+          allChildrenSame = false;
+          // First mismatch: allocate arrays and backfill prior entries with the prevChild refs
+          // we already proved were identical in earlier iterations.
+          const len = res.value.nextChildren.length;
+          const nextChildrenArr: RuntimeInstance[] = new Array(len);
+          const committedChildVNodesArr: VNode[] = new Array(len);
+          nextChildren = nextChildrenArr;
+          committedChildVNodes = committedChildVNodesArr;
+          for (let j = 0; j < i; j++) {
+            const plan = res.value.nextChildren[j];
+            if (!plan) continue;
+            const pc = plan.prevIndex !== null ? byPrevIndex[plan.prevIndex] : null;
+            if (!pc) continue;
+            nextChildrenArr[j] = pc;
+            committedChildVNodesArr[j] = pc.vnode;
+          }
+        }
+
+        if (!allChildrenSame) {
+          // Arrays are allocated after the first mismatch.
+          if (!nextChildren || !committedChildVNodes) {
+            return {
+              ok: false,
+              fatal: {
+                code: "ZRUI_INVALID_PROPS",
+                detail: "commitNode: internal fast-reuse invariant",
+              },
+            };
+          }
+          (nextChildren as RuntimeInstance[])[i] = committed.value.root;
+          (committedChildVNodes as VNode[])[i] = committed.value.root.vnode;
+        }
+      }
+
+      if (
+        allChildrenSame &&
+        prev !== null &&
+        childOrderStable &&
+        canFastReuseContainerSelf(prev.vnode, vnode)
+      ) {
+        // All children are identical references → reuse parent entirely.
+        prev.dirty = false;
+        prev.selfDirty = false;
+        return { ok: true, value: { root: prev } };
+      }
+    } else {
+      // General path: commit children and build next arrays.
+      const nextChildrenArr: RuntimeInstance[] = [];
+      const committedChildVNodesArr: VNode[] = [];
+      for (const child of res.value.nextChildren) {
+        const prevChild = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
+        const committed = commitNode(
+          prevChild ?? null,
+          child.instanceId,
+          child.vnode,
+          ctx,
+          formatNodePath(appendNodePath(nodePath, child.slotId)),
+        );
+        if (!committed.ok) return committed;
+        nextChildrenArr.push(committed.value.root);
+        committedChildVNodesArr.push(committed.value.root.vnode);
+      }
+      nextChildren = nextChildrenArr;
+      committedChildVNodes = committedChildVNodesArr;
+    }
+
+    for (const unmountedId of res.value.unmountedInstanceIds) {
+      const prevNode = byPrevInstanceId?.get(unmountedId);
+      if (!prevNode) continue;
+      if (ctx.composite) {
+        markCompositeSubtreeStale(ctx.composite.registry, prevNode);
+      }
+      deleteLocalStateForSubtree(ctx.localState, prevNode);
+      collectSubtreeInstanceIds(prevNode, ctx.lists.unmounted);
+    }
+
+    if (!nextChildren || !committedChildVNodes) {
+      // All committed children matched existing instances, but we still need to
+      // materialize the next order (e.g., keyed reorders) when parent reuse is disallowed.
+      const reorderedChildren: RuntimeInstance[] = [];
+      const reorderedVNodes: VNode[] = [];
+      for (const child of res.value.nextChildren) {
+        const reused = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
+        if (!reused) continue;
+        reorderedChildren.push(reused);
+        reorderedVNodes.push(reused.vnode);
+      }
+      nextChildren = reorderedChildren;
+      committedChildVNodes = reorderedVNodes;
+    }
+
+    const propsChanged = prev === null || !canFastReuseContainerSelf(prev.vnode, vnode);
+    const childrenChanged = prev === null || runtimeChildrenChanged(prevChildren, nextChildren);
+    const selfDirty = propsChanged || childrenChanged;
+    return {
+      ok: true,
+      value: {
+        root: {
+          instanceId,
+          vnode: rewriteCommittedVNode(vnode, committedChildVNodes),
+          children: nextChildren,
+          dirty: selfDirty || childrenChanged || hasDirtyChild(nextChildren),
+          selfDirty,
+        },
       },
-    },
-  };
+    };
+  } finally {
+    if (pushedCompositeTheme) {
+      ctx.compositeThemeStack.pop();
+    }
+  }
 }
 
 function executeCompositeRender(
@@ -1124,6 +1208,7 @@ function executeCompositeRender(
     if (canSkipCompositeRender && prevChild !== null) {
       compositeChild = prevChild.vnode;
     } else {
+      const colorTokens = readCompositeColorTokens(ctx);
       const compositeDepth = ctx.compositeRenderStack.length + 1;
       if (compositeDepth > MAX_COMPOSITE_RENDER_DEPTH) {
         const chain = ctx.compositeRenderStack
@@ -1158,7 +1243,7 @@ function executeCompositeRender(
           });
           return selected;
         },
-        useTheme: () => compositeRuntime.colorTokens ?? null,
+        useTheme: () => colorTokens,
         useViewport: () => {
           compositeRuntime.onUseViewport?.();
           return compositeRuntime.viewport ?? DEFAULT_VIEWPORT_SNAPSHOT;
@@ -1398,6 +1483,8 @@ export function commitVNodeTree(
       registry: CompositeInstanceRegistry;
       appState: unknown;
       colorTokens?: ColorTokens | null;
+      theme?: Theme;
+      getColorTokens?: (theme: Theme) => ColorTokens | null;
       viewport?: ResponsiveViewportSnapshot;
       onInvalidate: (instanceId: InstanceId) => void;
       onUseViewport?: () => void;
@@ -1425,6 +1512,7 @@ export function commitVNodeTree(
     lists: { mounted: [], reused: [], unmounted: [] },
     collectLifecycleInstanceIds,
     composite: opts.composite ?? null,
+    compositeThemeStack: opts.composite?.theme ? [opts.composite.theme] : [],
     compositeRenderStack: [],
     pendingCleanups: [],
     pendingEffects: [],

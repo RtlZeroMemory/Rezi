@@ -69,59 +69,155 @@ function findChildById(
   return undefined;
 }
 
-function applyDsPropsToButtons(node: RuntimeInstance, dsProps: NavigationDsProps): void {
+function cloneWithNavigationDsProps(
+  node: RuntimeInstance,
+  dsProps: NavigationDsProps,
+): RuntimeInstance {
+  let nextVNode = node.vnode;
+  let changed = false;
+
   if (node.vnode.kind === "button") {
-    const props = node.vnode.props as {
-      dsVariant?: unknown;
-      dsTone?: unknown;
-      dsSize?: unknown;
+    const prevProps = (node.vnode.props ?? {}) as {
+      dsVariant?: WidgetVariant;
+      dsTone?: WidgetTone;
+      dsSize?: WidgetSize;
     };
-    if (dsProps.variant !== undefined) {
-      (props as { dsVariant?: unknown }).dsVariant = dsProps.variant;
-    }
-    if (dsProps.tone !== undefined) {
-      (props as { dsTone?: unknown }).dsTone = dsProps.tone;
-    }
-    if (dsProps.size !== undefined) {
-      (props as { dsSize?: unknown }).dsSize = dsProps.size;
+    const nextProps = {
+      ...prevProps,
+      ...(dsProps.variant !== undefined ? { dsVariant: dsProps.variant } : {}),
+      ...(dsProps.tone !== undefined ? { dsTone: dsProps.tone } : {}),
+      ...(dsProps.size !== undefined ? { dsSize: dsProps.size } : {}),
+    };
+
+    if (
+      nextProps.dsVariant !== prevProps.dsVariant ||
+      nextProps.dsTone !== prevProps.dsTone ||
+      nextProps.dsSize !== prevProps.dsSize
+    ) {
+      nextVNode = { ...node.vnode, props: nextProps } as typeof node.vnode;
+      changed = true;
     }
   }
-  for (const child of node.children) {
+
+  let nextChildren: readonly RuntimeInstance[] = node.children;
+  for (let i = 0; i < node.children.length; i++) {
+    const child = node.children[i];
     if (!child) continue;
-    applyDsPropsToButtons(child, dsProps);
+    const nextChild = cloneWithNavigationDsProps(child, dsProps);
+    if (nextChild === child) continue;
+    if (nextChildren === node.children) {
+      nextChildren = node.children.slice();
+    }
+    (nextChildren as RuntimeInstance[])[i] = nextChild;
+    changed = true;
+  }
+
+  if (!changed) return node;
+  return { ...node, vnode: nextVNode, children: nextChildren };
+}
+
+function resolveNavigationControlZoneId(node: RuntimeInstance): string | undefined {
+  const id = readString((node.vnode.props as { id?: unknown } | undefined)?.id);
+  if (id === undefined) return undefined;
+
+  switch (node.vnode.kind as RuntimeInstance["vnode"]["kind"]) {
+    case "tabs": {
+      return getTabsBarZoneId(id);
+    }
+    case "accordion": {
+      return getAccordionHeadersZoneId(id);
+    }
+    case "breadcrumb": {
+      return getBreadcrumbZoneId(id);
+    }
+    case "pagination": {
+      return getPaginationZoneId(id);
+    }
+    default:
+      return undefined;
   }
 }
 
-function applyNavigationDsToControlButtons(node: RuntimeInstance): void {
-  const dsProps = readNavigationDsProps(node.vnode.props);
-  if (!hasNavigationDsProps(dsProps)) return;
+function buildNavigationControlOverrides(
+  node: RuntimeInstance,
+  dsProps: NavigationDsProps,
+): ReadonlyMap<RuntimeInstance["instanceId"], RuntimeInstance> | null {
+  if (!hasNavigationDsProps(dsProps)) return null;
 
-  const id = readString((node.vnode.props as { id?: unknown }).id);
-  if (id === undefined) return;
+  const controlZoneId = resolveNavigationControlZoneId(node);
+  if (controlZoneId === undefined) return null;
+
+  const controlZone = findChildById(node.children, controlZoneId);
+  if (!controlZone) return null;
+
+  const patchedZone = cloneWithNavigationDsProps(controlZone, dsProps);
+  if (patchedZone === controlZone) return null;
+
+  return new Map([[controlZone.instanceId, patchedZone]]);
+}
+
+function resolveNavigationRenderStyle(
+  builder: DrawlistBuilderV1,
+  rect: Rect,
+  parentStyle: ResolvedTextStyle,
+  node: RuntimeInstance,
+  dsProps: NavigationDsProps,
+  theme: Theme,
+): ResolvedTextStyle {
+  const colorTokens = getColorTokens(theme);
+  if (colorTokens === null) return parentStyle;
 
   switch (node.vnode.kind) {
     case "tabs": {
-      const barZone = findChildById(node.children, getTabsBarZoneId(id));
-      if (barZone) applyDsPropsToButtons(barZone, dsProps);
-      break;
+      const styles = tabsRecipe(colorTokens, {
+        variant: dsProps.variant ?? "soft",
+        tone: dsProps.tone ?? "primary",
+        size: dsProps.size ?? "md",
+        state: "default",
+      });
+      if (styles.bg.bg !== undefined) {
+        builder.fillRect(rect.x, rect.y, rect.w, rect.h, { bg: styles.bg.bg });
+      }
+      return mergeTextStyle(parentStyle, styles.item);
     }
     case "accordion": {
-      const headersZone = findChildById(node.children, getAccordionHeadersZoneId(id));
-      if (headersZone) applyDsPropsToButtons(headersZone, dsProps);
-      break;
+      const styles = accordionRecipe(colorTokens, {
+        variant: dsProps.variant ?? "soft",
+        tone: dsProps.tone ?? "default",
+        size: dsProps.size ?? "md",
+        state: "default",
+      });
+      if (styles.bg.bg !== undefined) {
+        builder.fillRect(rect.x, rect.y, rect.w, rect.h, { bg: styles.bg.bg });
+      }
+      return mergeTextStyle(parentStyle, styles.header);
     }
     case "breadcrumb": {
-      const breadcrumbZone = findChildById(node.children, getBreadcrumbZoneId(id));
-      if (breadcrumbZone) applyDsPropsToButtons(breadcrumbZone, dsProps);
-      break;
+      const styles = breadcrumbRecipe(colorTokens, {
+        variant: dsProps.variant ?? "ghost",
+        tone: dsProps.tone ?? "primary",
+        size: dsProps.size ?? "md",
+        state: "default",
+      });
+      if (styles.bg.bg !== undefined) {
+        builder.fillRect(rect.x, rect.y, rect.w, rect.h, { bg: styles.bg.bg });
+      }
+      return mergeTextStyle(parentStyle, styles.item);
     }
     case "pagination": {
-      const paginationZone = findChildById(node.children, getPaginationZoneId(id));
-      if (paginationZone) applyDsPropsToButtons(paginationZone, dsProps);
-      break;
+      const styles = paginationRecipe(colorTokens, {
+        variant: dsProps.variant ?? "soft",
+        tone: dsProps.tone ?? "primary",
+        size: dsProps.size ?? "md",
+        state: "default",
+      });
+      if (styles.bg.bg !== undefined) {
+        builder.fillRect(rect.x, rect.y, rect.w, rect.h, { bg: styles.bg.bg });
+      }
+      return mergeTextStyle(parentStyle, styles.control);
     }
     default:
-      break;
+      return parentStyle;
   }
 }
 
@@ -139,75 +235,24 @@ export function renderNavigationWidget(
   currentClip: ClipRect | undefined,
 ): void {
   if (!isVisibleRect(rect)) return;
-  applyNavigationDsToControlButtons(node);
   const dsProps = readNavigationDsProps(node.vnode.props);
-  let resolvedParentStyle = parentStyle;
-  const colorTokens = getColorTokens(theme);
-  if (colorTokens !== null) {
-    switch (node.vnode.kind) {
-      case "tabs": {
-        const styles = tabsRecipe(colorTokens, {
-          variant: dsProps.variant ?? "soft",
-          tone: dsProps.tone ?? "primary",
-          size: dsProps.size ?? "md",
-          state: "default",
-        });
-        if (styles.bg.bg !== undefined) {
-          builder.fillRect(rect.x, rect.y, rect.w, rect.h, { bg: styles.bg.bg });
-        }
-        resolvedParentStyle = mergeTextStyle(resolvedParentStyle, styles.item);
-        break;
-      }
-      case "accordion": {
-        const styles = accordionRecipe(colorTokens, {
-          variant: dsProps.variant ?? "soft",
-          tone: dsProps.tone ?? "default",
-          size: dsProps.size ?? "md",
-          state: "default",
-        });
-        if (styles.bg.bg !== undefined) {
-          builder.fillRect(rect.x, rect.y, rect.w, rect.h, { bg: styles.bg.bg });
-        }
-        resolvedParentStyle = mergeTextStyle(resolvedParentStyle, styles.header);
-        break;
-      }
-      case "breadcrumb": {
-        const styles = breadcrumbRecipe(colorTokens, {
-          variant: dsProps.variant ?? "ghost",
-          tone: dsProps.tone ?? "primary",
-          size: dsProps.size ?? "md",
-          state: "default",
-        });
-        if (styles.bg.bg !== undefined) {
-          builder.fillRect(rect.x, rect.y, rect.w, rect.h, { bg: styles.bg.bg });
-        }
-        resolvedParentStyle = mergeTextStyle(resolvedParentStyle, styles.item);
-        break;
-      }
-      case "pagination": {
-        const styles = paginationRecipe(colorTokens, {
-          variant: dsProps.variant ?? "soft",
-          tone: dsProps.tone ?? "primary",
-          size: dsProps.size ?? "md",
-          state: "default",
-        });
-        if (styles.bg.bg !== undefined) {
-          builder.fillRect(rect.x, rect.y, rect.w, rect.h, { bg: styles.bg.bg });
-        }
-        resolvedParentStyle = mergeTextStyle(resolvedParentStyle, styles.control);
-        break;
-      }
-      default:
-        break;
-    }
-  }
+  const resolvedParentStyle = resolveNavigationRenderStyle(
+    builder,
+    rect,
+    parentStyle,
+    node,
+    dsProps,
+    theme,
+  );
+  const navigationControlOverrides = buildNavigationControlOverrides(node, dsProps);
 
   const childCount = Math.min(node.children.length, layoutNode.children.length);
   for (let i = childCount - 1; i >= 0; i--) {
     const child = node.children[i];
     const childLayout = layoutNode.children[i];
     if (!child || !childLayout) continue;
-    nodeStack.push(child);
+    const renderedChild = navigationControlOverrides?.get(child.instanceId) ?? child;
+    nodeStack.push(renderedChild);
     styleStack.push(resolvedParentStyle);
     layoutStack.push(childLayout);
     clipStack.push(currentClip);

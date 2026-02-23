@@ -2262,6 +2262,8 @@ export class WidgetRenderer<S> {
             registry: this.compositeRegistry,
             appState: snapshot,
             colorTokens,
+            theme,
+            getColorTokens,
             viewport: getResponsiveViewport(),
             onInvalidate: () => this.requestView(),
             onUseViewport: () => {

@@ -572,12 +572,17 @@ const MetricTile = defineWidget<{ label: string; value: string; key?: string }>(
 Use `ui.themed(...)` for local palette changes (for example, a lighter sidebar in a dark app):
 
 ```typescript
+const appTheme = darkTheme;
+
 ui.row({ gap: 1 }, [
   ui.themed(
     {
       colors: {
-        bg: { base: { r: 240, g: 243, b: 247 }, elevated: { r: 230, g: 235, b: 242 } },
-        fg: { primary: { r: 32, g: 41, b: 53 } },
+        bg: {
+          base: appTheme.colors.bg.elevated,
+          elevated: appTheme.colors.bg.subtle,
+        },
+        fg: { primary: appTheme.colors.fg.primary },
       },
     },
     [ui.box({ p: 1 }, [ui.text("Light Sidebar")])],

@@ -773,7 +773,9 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
   function scheduleThemeTransitionContinuation(): void {
     if (!themeTransition || sm.state !== "Running") return;
-    markDirty(DIRTY_RENDER, false);
+    // Theme-aware composite widgets resolve recipe styles during commit, so
+    // transition frames must invalidate view/commit, not only render.
+    markDirty(DIRTY_VIEW, false);
     scheduler.enqueue({ kind: "renderRequest" });
   }
 
@@ -1788,7 +1790,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
         return;
       }
       beginThemeTransition(nextTheme);
-      requestRenderFromRenderer();
+      requestViewFromRenderer();
     },
 
     debugLayout(enabled?: boolean): boolean {
