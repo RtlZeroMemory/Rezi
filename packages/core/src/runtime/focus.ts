@@ -170,6 +170,7 @@ export type FocusManagerState = Readonly<{
   pendingFocusedId?: string | null;
   zones: ReadonlyMap<string, FocusZone>;
   trapStack: readonly string[];
+  trapReturnFocusById?: ReadonlyMap<string, string>;
   lastFocusedByZone: ReadonlyMap<string, string>;
 }>;
 
@@ -180,6 +181,7 @@ export function createFocusManagerState(): FocusManagerState {
     activeZoneId: null,
     zones: new Map(),
     trapStack: Object.freeze([]),
+    trapReturnFocusById: new Map(),
     lastFocusedByZone: new Map(),
   });
 }
@@ -489,6 +491,7 @@ export function finalizeFocusWithPreCollectedMetadata(
 ): FocusManagerState {
   // Build Set for O(1) membership tests (avoids O(n) includes() calls)
   const focusSet = new Set(focusList);
+  const previousTrapReturnFocusById = state.trapReturnFocusById ?? new Map<string, string>();
 
   // Apply pending focus
   let nextFocusedId: string | null = state.focusedId;
@@ -533,13 +536,18 @@ export function finalizeFocusWithPreCollectedMetadata(
     }
   }
 
-  // Handle trap deactivation - return focus if specified
-  for (const [trapId, trap] of collectedTraps) {
-    const wasActive = previousTrapStackSet.has(trapId);
-    if (wasActive && !trap.active && trap.returnFocusTo !== null) {
-      if (focusSet.has(trap.returnFocusTo)) {
-        nextFocusedId = trap.returnFocusTo;
-      }
+  // Handle traps that were active but are no longer active (deactivated or removed).
+  for (let i = state.trapStack.length - 1; i >= 0; i--) {
+    const trapId = state.trapStack[i];
+    if (trapId === undefined) continue;
+
+    const trap = collectedTraps.get(trapId);
+    if (trap?.active) continue;
+
+    const returnFocusTo = trap?.returnFocusTo ?? previousTrapReturnFocusById.get(trapId) ?? null;
+    if (returnFocusTo !== null && focusSet.has(returnFocusTo)) {
+      nextFocusedId = returnFocusTo;
+      break;
     }
   }
 
@@ -590,11 +598,19 @@ export function finalizeFocusWithPreCollectedMetadata(
     );
   }
 
+  const trapReturnFocusById = new Map<string, string>();
+  for (const [trapId, trap] of collectedTraps) {
+    if (trap.returnFocusTo !== null) {
+      trapReturnFocusById.set(trapId, trap.returnFocusTo);
+    }
+  }
+
   return Object.freeze({
     focusedId: nextFocusedId,
     activeZoneId,
     zones,
     trapStack: Object.freeze(trapStack),
+    trapReturnFocusById,
     lastFocusedByZone,
   });
 }

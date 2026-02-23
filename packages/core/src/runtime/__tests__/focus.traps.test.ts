@@ -485,8 +485,8 @@ describe("focus traps - finalizeFocusForCommittedTreeWithZones integration", () 
       kind: "column",
       props: {},
       children: [
-        { kind: "button", props: { id: "trigger", label: "Open" } },
         { kind: "button", props: { id: "other", label: "Other" } },
+        { kind: "button", props: { id: "trigger", label: "Open" } },
         {
           kind: "modal",
           props: {
@@ -509,8 +509,8 @@ describe("focus traps - finalizeFocusForCommittedTreeWithZones integration", () 
       kind: "column",
       props: {},
       children: [
-        { kind: "button", props: { id: "trigger", label: "Open" } },
         { kind: "button", props: { id: "other", label: "Other" } },
+        { kind: "button", props: { id: "trigger", label: "Open" } },
       ],
     };
 
@@ -518,7 +518,10 @@ describe("focus traps - finalizeFocusForCommittedTreeWithZones integration", () 
       createFocusManagerState(),
       commitTree(withModal),
     );
-    const restored = finalizeFocusForCommittedTreeWithZones(withModalFocus, commitTree(withoutModal));
+    const restored = finalizeFocusForCommittedTreeWithZones(
+      withModalFocus,
+      commitTree(withoutModal),
+    );
 
     assert.deepEqual(restored.trapStack, []);
     assert.equal(restored.focusedId, "trigger");
