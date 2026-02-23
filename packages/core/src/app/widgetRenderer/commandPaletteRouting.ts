@@ -135,7 +135,7 @@ export function kickoffCommandPaletteItemFetches(
   commandPaletteFetchTokenById: Map<string, number>,
   commandPaletteLastQueryById: Map<string, string>,
   commandPaletteLastSourcesRefById: Map<string, readonly unknown[]>,
-  requestRender: () => void,
+  requestView: () => void,
 ): void {
   // Kick off command palette item fetches (async sources) outside the render pipeline.
   for (const p of commandPaletteById.values()) {
@@ -160,7 +160,7 @@ export function kickoffCommandPaletteItemFetches(
 
         commandPaletteItemsById.set(p.id, Object.freeze(items.slice()));
         commandPaletteLoadingById.set(p.id, false);
-        requestRender();
+        requestView();
       },
       () => {
         if (commandPaletteFetchTokenById.get(p.id) !== nextToken) return;
@@ -168,7 +168,7 @@ export function kickoffCommandPaletteItemFetches(
 
         commandPaletteItemsById.set(p.id, Object.freeze([]));
         commandPaletteLoadingById.set(p.id, false);
-        requestRender();
+        requestView();
       },
     );
   }

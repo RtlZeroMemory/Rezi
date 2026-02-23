@@ -88,7 +88,7 @@ test("render-phase update diagnostics remain catchable as ZrUiError with code", 
   await app.start();
   await flushMicrotasks(3);
 
-  assert.equal(caught.length >= 1, true);
+  assert.equal(caught.length, 1);
   for (const error of caught) {
     assert.equal(error.code, "ZRUI_UPDATE_DURING_RENDER");
     assert.equal(error.message.includes("Hint:"), true);

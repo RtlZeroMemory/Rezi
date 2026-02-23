@@ -629,24 +629,17 @@ export function renderCollectionWidget(
 
         let focusedRowStyle = parentStyle;
         if (showFocusedStyle) {
-          const widgetFocusStyle = resolveWidgetFocusStyle(colorTokens, true, false);
-          if (colorTokens !== null) {
-            focusedRowStyle = mergeTextStyle(
-              mergeTextStyle(parentStyle, focusedRecipe?.cell),
-              widgetFocusStyle,
-            );
-          } else {
-            focusedRowStyle = resolveFocusedContentStyle(
-              resolveFocusIndicatorStyle(
-                parentStyle,
-                theme,
-                focusConfig,
-                mergeTextStyle(mergeTextStyle(parentStyle, { inverse: true }), widgetFocusStyle),
-              ),
-              theme,
-              focusConfig,
-            );
-          }
+          const focusFallback = mergeTextStyle(
+            colorTokens !== null
+              ? mergeTextStyle(parentStyle, focusedRecipe?.cell)
+              : mergeTextStyle(parentStyle, { inverse: true }),
+            resolveWidgetFocusStyle(colorTokens, true, false),
+          );
+          focusedRowStyle = resolveFocusedContentStyle(
+            resolveFocusIndicatorStyle(parentStyle, theme, focusConfig, focusFallback),
+            theme,
+            focusConfig,
+          );
         }
         const focusedRowBg = colorTokens !== null ? focusedRecipe?.bg.bg : focusedRowStyle.bg;
         const rowStripeBg = stripedRows ? ((i & 1) === 1 ? stripeOddBg : stripeEvenBg) : undefined;

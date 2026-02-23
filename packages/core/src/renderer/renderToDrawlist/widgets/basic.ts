@@ -60,10 +60,10 @@ import { mergeTextStyle, shouldFillForStyleOverride } from "../textStyle.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
 import {
   getColorTokens,
-  resolveWidgetFocusStyle,
   readWidgetSize,
   readWidgetTone,
   readWidgetVariant,
+  resolveWidgetFocusStyle,
 } from "../themeTokens.js";
 import type { CursorInfo } from "../types.js";
 import {

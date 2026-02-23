@@ -407,14 +407,11 @@ function requireOverflow(
 }
 
 function parsePercent(kind: string, name: string, raw: string): LayoutResult<`${number}%`> {
-  if (raw === "auto" || raw === "full") {
-    return invalidProp(kind, name, 'number | "<n>%" | "full" | "auto"', raw);
-  }
   const m = /^(\d+(?:\.\d+)?)%$/.exec(raw);
-  if (!m) return invalidProp(kind, name, 'number | "<n>%" | "full" | "auto"', raw);
+  if (!m) return invalidProp(kind, name, '"<n>%"', raw);
   const n = Number.parseFloat(m[1] ?? "");
   if (!Number.isFinite(n) || n < 0) {
-    return invalidProp(kind, name, 'number | "<n>%" | "full" | "auto"', raw);
+    return invalidProp(kind, name, 'non-negative "<n>%"', raw);
   }
   return { ok: true, value: raw as `${number}%` };
 }

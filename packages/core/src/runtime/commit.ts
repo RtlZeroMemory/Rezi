@@ -1355,7 +1355,9 @@ export function commitVNodeTree(
   };
 
   const prevChildren = prevRoot ? [{ instanceId: prevRoot.instanceId, vnode: prevRoot.vnode }] : [];
-  const res = reconcileChildren(0, prevChildren, [nextRootVNode], opts.allocator);
+  const res = reconcileChildren(0, prevChildren, [nextRootVNode], opts.allocator, {
+    kind: "root",
+  });
   if (!res.ok) return { ok: false, fatal: res.fatal };
 
   const rootPlan = res.value.nextChildren[0];

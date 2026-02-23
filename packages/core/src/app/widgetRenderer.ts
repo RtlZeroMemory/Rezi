@@ -1170,36 +1170,44 @@ export class WidgetRenderer<S> {
   private rebuildOverlayShortcutBindings(): void {
     this.overlayShortcutBySequence.clear();
     this.overlayShortcutChordState = resetChordState();
-
-    for (const owner of this.overlayShortcutOwners) {
-      if (owner.kind === "dropdown") {
-        const dropdown = this.dropdownById.get(owner.id);
-        if (!dropdown) continue;
-        for (const item of dropdown.items) {
-          if (!item || item.divider || item.disabled === true) continue;
-          const shortcut = item.shortcut?.trim();
-          if (!shortcut) continue;
-          this.registerOverlayShortcut(
-            shortcut,
-            Object.freeze({ kind: "dropdown", dropdownId: owner.id, itemId: item.id }),
-            `dropdown#${owner.id}:${item.id}`,
-          );
+    const topOwner =
+      this.overlayShortcutOwners.length > 0
+        ? (this.overlayShortcutOwners[this.overlayShortcutOwners.length - 1] ?? null)
+        : null;
+    if (topOwner) {
+      if (topOwner.kind === "dropdown") {
+        const dropdown = this.dropdownById.get(topOwner.id);
+        if (dropdown) {
+          for (const item of dropdown.items) {
+            if (!item || item.divider || item.disabled === true) continue;
+            const shortcut = item.shortcut?.trim();
+            if (!shortcut) continue;
+            this.registerOverlayShortcut(
+              shortcut,
+              Object.freeze({ kind: "dropdown", dropdownId: topOwner.id, itemId: item.id }),
+              `dropdown#${topOwner.id}:${item.id}`,
+            );
+          }
         }
-        continue;
-      }
-
-      const palette = this.commandPaletteById.get(owner.id);
-      if (!palette || palette.open !== true) continue;
-      const items = this.commandPaletteItemsById.get(owner.id) ?? Object.freeze([]);
-      for (const item of items) {
-        if (!item || item.disabled === true) continue;
-        const shortcut = item.shortcut?.trim();
-        if (!shortcut) continue;
-        this.registerOverlayShortcut(
-          shortcut,
-          Object.freeze({ kind: "commandPalette", paletteId: owner.id, itemId: item.id }),
-          `commandPalette#${owner.id}:${item.id}`,
-        );
+      } else {
+        const palette = this.commandPaletteById.get(topOwner.id);
+        if (palette && palette.open === true) {
+          const items = this.commandPaletteItemsById.get(topOwner.id) ?? Object.freeze([]);
+          for (const item of items) {
+            if (!item || item.disabled === true) continue;
+            const shortcut = item.shortcut?.trim();
+            if (!shortcut) continue;
+            this.registerOverlayShortcut(
+              shortcut,
+              Object.freeze({
+                kind: "commandPalette",
+                paletteId: topOwner.id,
+                itemId: item.id,
+              }),
+              `commandPalette#${topOwner.id}:${item.id}`,
+            );
+          }
+        }
       }
     }
 
@@ -5815,7 +5823,7 @@ export class WidgetRenderer<S> {
           this.commandPaletteFetchTokenById,
           this.commandPaletteLastQueryById,
           this.commandPaletteLastSourcesRefById,
-          this.requestRender,
+          this.requestView,
         );
       }
 
