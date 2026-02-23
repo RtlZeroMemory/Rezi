@@ -5,8 +5,8 @@
  * focus IDs, and VNode construction.
  */
 
-import { defineWidget } from "./composition.js";
 import { decodeIdSegment, encodeIdSegment } from "../runtime/idCodec.js";
+import { defineWidget } from "./composition.js";
 import type { BreadcrumbProps, VNode } from "./types.js";
 
 export const DEFAULT_BREADCRUMB_SEPARATOR = " > ";

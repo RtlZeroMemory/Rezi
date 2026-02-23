@@ -1,10 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import {
-  decodeIdSegment,
-  encodeIdSegment,
-  makeCompoundId,
-  parseCompoundId,
-} from "../idCodec.js";
+import { decodeIdSegment, encodeIdSegment, makeCompoundId, parseCompoundId } from "../idCodec.js";
 
 describe("idCodec", () => {
   test("decodeIdSegment(encodeIdSegment(s)) round-trips common values", () => {

@@ -5,8 +5,8 @@
  * focus ID generation, keyboard movement, and VNode construction.
  */
 
-import { defineWidget } from "./composition.js";
 import { decodeIdSegment, encodeIdSegment } from "../runtime/idCodec.js";
+import { defineWidget } from "./composition.js";
 import type { TabsProps, VNode } from "./types.js";
 
 export const TABS_BAR_ZONE_PREFIX = "__rezi_tabs_bar__";

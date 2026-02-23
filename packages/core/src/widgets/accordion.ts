@@ -5,8 +5,8 @@
  * construction for accordion widgets.
  */
 
-import { defineWidget } from "./composition.js";
 import { decodeIdSegment, encodeIdSegment } from "../runtime/idCodec.js";
+import { defineWidget } from "./composition.js";
 import type { AccordionProps, VNode } from "./types.js";
 
 export const ACCORDION_HEADERS_ZONE_PREFIX = "__rezi_accordion_headers__";
