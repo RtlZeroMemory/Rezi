@@ -640,6 +640,8 @@ type CommitCtx = Readonly<{
   allocator: InstanceIdAllocator;
   localState: RuntimeLocalStateStore | undefined;
   seenInteractiveIds: Map<string, string>;
+  prevNodeStack: Array<RuntimeInstance | null>;
+  containerChildOverrides: Map<InstanceId, readonly VNode[]>;
   layoutDepthRef: { value: number };
   layoutPathTail: string[];
   emittedWarnings: Set<string>;
@@ -748,6 +750,466 @@ function commitErrorBoundaryFallback(
   return commitNode(prev, instanceId, fallbackVNode, ctx, fallbackPath);
 }
 
+function appendNodePath(nodePath: readonly string[], segment: string): string[] {
+  return [...nodePath, segment];
+}
+
+function formatNodePath(nodePath: readonly string[]): string {
+  return nodePath.join("/");
+}
+
+function isContainerVNode(vnode: VNode): boolean {
+  return (
+    vnode.kind === "box" ||
+    vnode.kind === "row" ||
+    vnode.kind === "column" ||
+    vnode.kind === "grid" ||
+    vnode.kind === "focusZone" ||
+    vnode.kind === "focusTrap" ||
+    vnode.kind === "layers" ||
+    vnode.kind === "field" ||
+    vnode.kind === "tabs" ||
+    vnode.kind === "accordion" ||
+    vnode.kind === "breadcrumb" ||
+    vnode.kind === "pagination" ||
+    // Advanced container widgets (GitHub issue #136)
+    vnode.kind === "splitPane" ||
+    vnode.kind === "panelGroup" ||
+    vnode.kind === "resizablePanel" ||
+    vnode.kind === "modal" ||
+    vnode.kind === "layer"
+  );
+}
+
+function rewriteCommittedVNode(next: VNode, committedChildren: readonly VNode[]): VNode {
+  if (next.kind === "modal") {
+    const props = next.props as { content?: unknown; actions?: unknown };
+    const contentPresent = isVNode(props.content);
+    const nextContent = contentPresent ? (committedChildren[0] ?? props.content) : props.content;
+    const actionsStart = contentPresent ? 1 : 0;
+    const actions = committedChildren.slice(actionsStart);
+
+    return {
+      ...next,
+      props: {
+        ...(next.props as Record<string, unknown>),
+        ...(isVNode(nextContent) ? { content: nextContent } : {}),
+        actions: actions.length > 0 ? actions : undefined,
+      },
+    } as unknown as VNode;
+  }
+
+  if (next.kind === "layer") {
+    const props = next.props as { content?: unknown };
+    const nextContent = committedChildren[0] ?? props.content;
+    return {
+      ...next,
+      props: {
+        ...(next.props as Record<string, unknown>),
+        ...(isVNode(nextContent) ? { content: nextContent } : {}),
+      },
+    } as unknown as VNode;
+  }
+
+  if (
+    next.kind === "box" ||
+    next.kind === "row" ||
+    next.kind === "column" ||
+    next.kind === "grid" ||
+    next.kind === "focusZone" ||
+    next.kind === "focusTrap" ||
+    next.kind === "layers" ||
+    next.kind === "field" ||
+    next.kind === "tabs" ||
+    next.kind === "accordion" ||
+    next.kind === "breadcrumb" ||
+    next.kind === "pagination" ||
+    // Advanced container widgets (GitHub issue #136)
+    next.kind === "splitPane" ||
+    next.kind === "panelGroup" ||
+    next.kind === "resizablePanel"
+  ) {
+    return {
+      ...next,
+      children: committedChildren,
+    } as unknown as VNode;
+  }
+
+  return next;
+}
+
+function commitContainer(
+  instanceId: InstanceId,
+  vnode: VNode,
+  prev: RuntimeInstance | null,
+  ctx: CommitCtx,
+  nodePath: string[],
+  depth: number,
+): CommitNodeResult {
+  void depth;
+  const parentProps = vnode.props as { id?: unknown } | undefined;
+  const parentId =
+    typeof parentProps?.id === "string" && parentProps.id.length > 0 ? parentProps.id : undefined;
+
+  const prevChildren = prev ? prev.children : [];
+  const compositeWrapperChildren = ctx.containerChildOverrides.get(instanceId) ?? null;
+  const res = reconcileChildren(
+    instanceId,
+    prevChildren,
+    compositeWrapperChildren ? compositeWrapperChildren : commitChildrenForVNode(vnode),
+    ctx.allocator,
+    {
+      kind: vnode.kind,
+      ...(parentId === undefined ? {} : { id: parentId }),
+    },
+  );
+  if (!res.ok) return { ok: false, fatal: res.fatal };
+
+  const byPrevIndex = prevChildren;
+  let byPrevInstanceId: Map<InstanceId, RuntimeInstance> | null = null;
+  if (res.value.unmountedInstanceIds.length > 0) {
+    byPrevInstanceId = new Map<InstanceId, RuntimeInstance>();
+    for (const c of prevChildren) byPrevInstanceId.set(c.instanceId, c);
+  }
+
+  // Container fast path: when reconciliation reuses all children with no
+  // additions/removals, commit each child and check if all return the exact
+  // same RuntimeInstance reference. If so, reuse the parent's RuntimeInstance,
+  // avoiding new arrays, VNode spreads, and RuntimeInstance allocation.
+  const canTryFastReuse =
+    prev !== null &&
+    res.value.newInstanceIds.length === 0 &&
+    res.value.unmountedInstanceIds.length === 0 &&
+    res.value.nextChildren.length === prevChildren.length;
+  let childOrderStable = true;
+  if (canTryFastReuse) {
+    for (let i = 0; i < res.value.nextChildren.length; i++) {
+      const child = res.value.nextChildren[i];
+      if (!child || child.prevIndex !== i) {
+        childOrderStable = false;
+        break;
+      }
+    }
+  }
+
+  // Avoid allocating nextChildren/committedChildVNodes for the common case where
+  // everything is reused (e.g., list updates where only a couple rows change).
+  let nextChildren: readonly RuntimeInstance[] | null = null;
+  let committedChildVNodes: readonly VNode[] | null = null;
+
+  if (canTryFastReuse) {
+    let allChildrenSame = true;
+    for (let i = 0; i < res.value.nextChildren.length; i++) {
+      const child = res.value.nextChildren[i];
+      if (!child) continue;
+      const prevChild = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
+      const committed = commitNode(
+        prevChild ?? null,
+        child.instanceId,
+        child.vnode,
+        ctx,
+        formatNodePath(appendNodePath(nodePath, child.slotId)),
+      );
+      if (!committed.ok) return committed;
+
+      if (allChildrenSame && committed.value.root !== prevChild) {
+        allChildrenSame = false;
+        // First mismatch: allocate arrays and backfill prior entries with the prevChild refs
+        // we already proved were identical in earlier iterations.
+        const len = res.value.nextChildren.length;
+        const nextChildrenArr: RuntimeInstance[] = new Array(len);
+        const committedChildVNodesArr: VNode[] = new Array(len);
+        nextChildren = nextChildrenArr;
+        committedChildVNodes = committedChildVNodesArr;
+        for (let j = 0; j < i; j++) {
+          const plan = res.value.nextChildren[j];
+          if (!plan) continue;
+          const pc = plan.prevIndex !== null ? byPrevIndex[plan.prevIndex] : null;
+          if (!pc) continue;
+          nextChildrenArr[j] = pc;
+          committedChildVNodesArr[j] = pc.vnode;
+        }
+      }
+
+      if (!allChildrenSame) {
+        // Arrays are allocated after the first mismatch.
+        if (!nextChildren || !committedChildVNodes) {
+          return {
+            ok: false,
+            fatal: {
+              code: "ZRUI_INVALID_PROPS",
+              detail: "commitNode: internal fast-reuse invariant",
+            },
+          };
+        }
+        (nextChildren as RuntimeInstance[])[i] = committed.value.root;
+        (committedChildVNodes as VNode[])[i] = committed.value.root.vnode;
+      }
+    }
+
+    if (
+      allChildrenSame &&
+      prev !== null &&
+      childOrderStable &&
+      canFastReuseContainerSelf(prev.vnode, vnode)
+    ) {
+      // All children are identical references → reuse parent entirely.
+      prev.dirty = false;
+      prev.selfDirty = false;
+      return { ok: true, value: { root: prev } };
+    }
+  } else {
+    // General path: commit children and build next arrays.
+    const nextChildrenArr: RuntimeInstance[] = [];
+    const committedChildVNodesArr: VNode[] = [];
+    for (const child of res.value.nextChildren) {
+      const prevChild = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
+      const committed = commitNode(
+        prevChild ?? null,
+        child.instanceId,
+        child.vnode,
+        ctx,
+        formatNodePath(appendNodePath(nodePath, child.slotId)),
+      );
+      if (!committed.ok) return committed;
+      nextChildrenArr.push(committed.value.root);
+      committedChildVNodesArr.push(committed.value.root.vnode);
+    }
+    nextChildren = nextChildrenArr;
+    committedChildVNodes = committedChildVNodesArr;
+  }
+
+  for (const unmountedId of res.value.unmountedInstanceIds) {
+    const prevNode = byPrevInstanceId?.get(unmountedId);
+    if (!prevNode) continue;
+    if (ctx.composite) {
+      markCompositeSubtreeStale(ctx.composite.registry, prevNode);
+    }
+    deleteLocalStateForSubtree(ctx.localState, prevNode);
+    collectSubtreeInstanceIds(prevNode, ctx.lists.unmounted);
+  }
+
+  if (!nextChildren || !committedChildVNodes) {
+    // All committed children matched existing instances, but we still need to
+    // materialize the next order (e.g., keyed reorders) when parent reuse is disallowed.
+    const reorderedChildren: RuntimeInstance[] = [];
+    const reorderedVNodes: VNode[] = [];
+    for (const child of res.value.nextChildren) {
+      const reused = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
+      if (!reused) continue;
+      reorderedChildren.push(reused);
+      reorderedVNodes.push(reused.vnode);
+    }
+    nextChildren = reorderedChildren;
+    committedChildVNodes = reorderedVNodes;
+  }
+
+  const propsChanged = prev === null || !canFastReuseContainerSelf(prev.vnode, vnode);
+  const childrenChanged = prev === null || runtimeChildrenChanged(prevChildren, nextChildren);
+  const selfDirty = propsChanged || childrenChanged;
+  return {
+    ok: true,
+    value: {
+      root: {
+        instanceId,
+        vnode: rewriteCommittedVNode(vnode, committedChildVNodes),
+        children: nextChildren,
+        dirty: selfDirty || childrenChanged || hasDirtyChild(nextChildren),
+        selfDirty,
+      },
+    },
+  };
+}
+
+function executeCompositeRender(
+  instanceId: InstanceId,
+  vnode: VNode,
+  compositeMeta: CompositeWidgetMeta,
+  ctx: CommitCtx,
+  nodePath: string[],
+  depth: number,
+): CommitNodeResult {
+  const prev =
+    ctx.prevNodeStack.length > 0 ? (ctx.prevNodeStack[ctx.prevNodeStack.length - 1] ?? null) : null;
+  const compositeRuntime = ctx.composite as NonNullable<CommitCtx["composite"]>;
+
+  let compositeChild: VNode | null = null;
+  let popCompositeStack = false;
+  try {
+    const activeCompositeMeta = compositeMeta;
+    const registry = compositeRuntime.registry;
+    const existing = registry.get(instanceId);
+
+    if (existing && existing.widgetKey !== compositeMeta.widgetKey) {
+      // Same instanceId but different widget type: invalidate stale closures and remount hooks.
+      registry.incrementGeneration(instanceId);
+      registry.delete(instanceId);
+    }
+
+    if (!registry.get(instanceId)) {
+      try {
+        registry.create(instanceId, compositeMeta.widgetKey);
+      } catch (e: unknown) {
+        return {
+          ok: false,
+          fatal: {
+            code: "ZRUI_USER_CODE_THROW",
+            detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+          },
+        };
+      }
+    }
+
+    const state = registry.get(instanceId);
+    if (!state) {
+      return {
+        ok: false,
+        fatal: {
+          code: "ZRUI_INVALID_PROPS",
+          detail: `composite state missing for instanceId=${String(instanceId)}`,
+        },
+      };
+    }
+
+    const invalidateInstance = () => {
+      registry.invalidate(instanceId);
+      ctx.composite?.onInvalidate(instanceId);
+    };
+
+    const prevMeta = prev ? getCompositeMeta(prev.vnode) : null;
+    const prevChild = prev?.children[0] ?? null;
+    const previousSelections = registry.getAppStateSelections(instanceId);
+    const skipRenderEligible =
+      !state.needsRender &&
+      previousSelections.length > 0 &&
+      prevMeta !== null &&
+      prevChild !== null &&
+      prevMeta.widgetKey === activeCompositeMeta.widgetKey &&
+      compositePropsEqual(prevMeta.props, activeCompositeMeta.props);
+
+    let canSkipCompositeRender = false;
+    if (skipRenderEligible) {
+      const evalRes = evaluateAppStateSelections(previousSelections, compositeRuntime.appState);
+      if (evalRes.threw !== null) {
+        return {
+          ok: false,
+          fatal: {
+            code: "ZRUI_USER_CODE_THROW",
+            detail:
+              evalRes.threw instanceof Error
+                ? `${evalRes.threw.name}: ${evalRes.threw.message}`
+                : String(evalRes.threw),
+          },
+        };
+      }
+      canSkipCompositeRender = !evalRes.changed;
+    }
+
+    if (canSkipCompositeRender && prevChild !== null) {
+      compositeChild = prevChild.vnode;
+    } else {
+      const compositeDepth = ctx.compositeRenderStack.length + 1;
+      if (compositeDepth > MAX_COMPOSITE_RENDER_DEPTH) {
+        const chain = ctx.compositeRenderStack
+          .map((entry) => entry.widgetKey)
+          .concat(activeCompositeMeta.widgetKey)
+          .join(" -> ");
+        return {
+          ok: false,
+          fatal: {
+            code: "ZRUI_INVALID_PROPS",
+            detail: `ZRUI_MAX_DEPTH: composite render depth ${String(compositeDepth)} exceeds max ${String(
+              MAX_COMPOSITE_RENDER_DEPTH,
+            )}. Chain: ${chain}`,
+          },
+        };
+      }
+      registry.beginRender(instanceId);
+      const hookCtx = createHookContext(state, invalidateInstance);
+      const nextSelections: AppStateSelection[] = [];
+      const widgetCtx: WidgetContext<unknown> = Object.freeze({
+        id: (suffix: string) => scopedId(activeCompositeMeta.widgetKey, instanceId, suffix),
+        useState: hookCtx.useState,
+        useRef: hookCtx.useRef,
+        useEffect: hookCtx.useEffect,
+        useMemo: hookCtx.useMemo,
+        useCallback: hookCtx.useCallback,
+        useAppState: <T>(selector: (s: unknown) => T): T => {
+          const selected = selector(compositeRuntime.appState);
+          nextSelections.push({
+            selector: selector as (state: unknown) => unknown,
+            value: selected,
+          });
+          return selected;
+        },
+        useViewport: () => {
+          compositeRuntime.onUseViewport?.();
+          return compositeRuntime.viewport ?? DEFAULT_VIEWPORT_SNAPSHOT;
+        },
+        invalidate: invalidateInstance,
+      });
+
+      ctx.compositeRenderStack.push({
+        widgetKey: activeCompositeMeta.widgetKey,
+        instanceId,
+      });
+      popCompositeStack = true;
+      try {
+        compositeChild = activeCompositeMeta.render(widgetCtx);
+      } catch (e: unknown) {
+        return {
+          ok: false,
+          fatal: {
+            code: "ZRUI_USER_CODE_THROW",
+            detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+          },
+        };
+      }
+
+      try {
+        const pending = registry.endRender(instanceId);
+        const pendingCleanups = registry.getPendingCleanups(instanceId);
+        for (const cleanup of pendingCleanups) ctx.pendingCleanups.push(cleanup);
+        for (const eff of pending) ctx.pendingEffects.push(eff);
+        registry.setAppStateSelections(instanceId, nextSelections);
+      } catch (e: unknown) {
+        return {
+          ok: false,
+          fatal: {
+            code: "ZRUI_USER_CODE_THROW",
+            detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+          },
+        };
+      }
+    }
+
+    if (isContainerVNode(vnode)) {
+      const childOverride = compositeChild ? ([compositeChild] as const) : null;
+      if (childOverride) {
+        ctx.containerChildOverrides.set(instanceId, childOverride);
+      }
+      try {
+        return commitContainer(instanceId, vnode, prev, ctx, nodePath, depth);
+      } finally {
+        if (childOverride) {
+          ctx.containerChildOverrides.delete(instanceId);
+        }
+      }
+    }
+
+    return {
+      ok: true,
+      value: {
+        root: { instanceId, vnode, children: EMPTY_CHILDREN, dirty: true, selfDirty: true },
+      },
+    };
+  } finally {
+    if (popCompositeStack) {
+      ctx.compositeRenderStack.pop();
+    }
+  }
+}
+
 function commitNode(
   prev: RuntimeInstance | null,
   instanceId: InstanceId,
@@ -755,11 +1217,11 @@ function commitNode(
   ctx: CommitCtx,
   nodePath: string,
 ): CommitNodeResult {
-  let popCompositeStack = false;
   ctx.layoutDepthRef.value += 1;
   const layoutDepth = ctx.layoutDepthRef.value;
   const trackPath = layoutDepth >= LAYOUT_DEPTH_PATH_TRACK_START;
   if (trackPath) ctx.layoutPathTail.push(widgetPathEntry(vnode));
+  ctx.prevNodeStack.push(prev);
   try {
     if (
       DEV_MODE &&
@@ -863,425 +1325,15 @@ function commitNode(
       else ctx.lists.mounted.push(instanceId);
     }
 
-    // Composite widgets: execute render function and treat result as the node's children.
-    // This integrates defineWidget() into the commit pipeline.
-    let compositeMeta: CompositeWidgetMeta | null = null;
-    let compositeChild: VNode | null = null;
     if (ctx.composite) {
-      compositeMeta = getCompositeMeta(vnode);
+      const compositeMeta = getCompositeMeta(vnode);
       if (compositeMeta) {
-        const compositeRuntime = ctx.composite;
-        const activeCompositeMeta = compositeMeta;
-        const registry = ctx.composite.registry;
-        const existing = registry.get(instanceId);
-
-        if (existing && existing.widgetKey !== compositeMeta.widgetKey) {
-          // Same instanceId but different widget type: invalidate stale closures and remount hooks.
-          registry.incrementGeneration(instanceId);
-          registry.delete(instanceId);
-        }
-
-        if (!registry.get(instanceId)) {
-          try {
-            registry.create(instanceId, compositeMeta.widgetKey);
-          } catch (e: unknown) {
-            return {
-              ok: false,
-              fatal: {
-                code: "ZRUI_USER_CODE_THROW",
-                detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
-              },
-            };
-          }
-        }
-
-        const state = registry.get(instanceId);
-        if (!state) {
-          return {
-            ok: false,
-            fatal: {
-              code: "ZRUI_INVALID_PROPS",
-              detail: `composite state missing for instanceId=${String(instanceId)}`,
-            },
-          };
-        }
-
-        const invalidateInstance = () => {
-          registry.invalidate(instanceId);
-          ctx.composite?.onInvalidate(instanceId);
-        };
-
-        const prevMeta = prev ? getCompositeMeta(prev.vnode) : null;
-        const prevChild = prev?.children[0] ?? null;
-        const previousSelections = registry.getAppStateSelections(instanceId);
-        const skipRenderEligible =
-          !state.needsRender &&
-          previousSelections.length > 0 &&
-          prevMeta !== null &&
-          prevChild !== null &&
-          prevMeta.widgetKey === activeCompositeMeta.widgetKey &&
-          compositePropsEqual(prevMeta.props, activeCompositeMeta.props);
-
-        let canSkipCompositeRender = false;
-        if (skipRenderEligible) {
-          const evalRes = evaluateAppStateSelections(previousSelections, compositeRuntime.appState);
-          if (evalRes.threw !== null) {
-            return {
-              ok: false,
-              fatal: {
-                code: "ZRUI_USER_CODE_THROW",
-                detail:
-                  evalRes.threw instanceof Error
-                    ? `${evalRes.threw.name}: ${evalRes.threw.message}`
-                    : String(evalRes.threw),
-              },
-            };
-          }
-          canSkipCompositeRender = !evalRes.changed;
-        }
-
-        if (canSkipCompositeRender && prevChild !== null) {
-          compositeChild = prevChild.vnode;
-        } else {
-          const compositeDepth = ctx.compositeRenderStack.length + 1;
-          if (compositeDepth > MAX_COMPOSITE_RENDER_DEPTH) {
-            const chain = ctx.compositeRenderStack
-              .map((entry) => entry.widgetKey)
-              .concat(activeCompositeMeta.widgetKey)
-              .join(" -> ");
-            return {
-              ok: false,
-              fatal: {
-                code: "ZRUI_INVALID_PROPS",
-                detail: `ZRUI_MAX_DEPTH: composite render depth ${String(compositeDepth)} exceeds max ${String(
-                  MAX_COMPOSITE_RENDER_DEPTH,
-                )}. Chain: ${chain}`,
-              },
-            };
-          }
-          registry.beginRender(instanceId);
-          const hookCtx = createHookContext(state, invalidateInstance);
-          const nextSelections: AppStateSelection[] = [];
-          const widgetCtx: WidgetContext<unknown> = Object.freeze({
-            id: (suffix: string) => scopedId(activeCompositeMeta.widgetKey, instanceId, suffix),
-            useState: hookCtx.useState,
-            useRef: hookCtx.useRef,
-            useEffect: hookCtx.useEffect,
-            useMemo: hookCtx.useMemo,
-            useCallback: hookCtx.useCallback,
-            useAppState: <T>(selector: (s: unknown) => T): T => {
-              const selected = selector(compositeRuntime.appState);
-              nextSelections.push({
-                selector: selector as (state: unknown) => unknown,
-                value: selected,
-              });
-              return selected;
-            },
-            useViewport: () => {
-              compositeRuntime.onUseViewport?.();
-              return compositeRuntime.viewport ?? DEFAULT_VIEWPORT_SNAPSHOT;
-            },
-            invalidate: invalidateInstance,
-          });
-
-          ctx.compositeRenderStack.push({
-            widgetKey: activeCompositeMeta.widgetKey,
-            instanceId,
-          });
-          popCompositeStack = true;
-          try {
-            compositeChild = activeCompositeMeta.render(widgetCtx);
-          } catch (e: unknown) {
-            return {
-              ok: false,
-              fatal: {
-                code: "ZRUI_USER_CODE_THROW",
-                detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
-              },
-            };
-          }
-
-          try {
-            const pending = registry.endRender(instanceId);
-            const pendingCleanups = registry.getPendingCleanups(instanceId);
-            for (const cleanup of pendingCleanups) ctx.pendingCleanups.push(cleanup);
-            for (const eff of pending) ctx.pendingEffects.push(eff);
-            registry.setAppStateSelections(instanceId, nextSelections);
-          } catch (e: unknown) {
-            return {
-              ok: false,
-              fatal: {
-                code: "ZRUI_USER_CODE_THROW",
-                detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
-              },
-            };
-          }
-        }
+        return executeCompositeRender(instanceId, vnode, compositeMeta, ctx, [nodePath], layoutDepth);
       }
     }
 
-    const compositeWrapperChildren = compositeMeta && compositeChild ? [compositeChild] : null;
-
-    const rewriteCommittedVNode = (next: VNode, committedChildren: readonly VNode[]): VNode => {
-      if (next.kind === "modal") {
-        const props = next.props as { content?: unknown; actions?: unknown };
-        const contentPresent = isVNode(props.content);
-        const nextContent = contentPresent
-          ? (committedChildren[0] ?? props.content)
-          : props.content;
-        const actionsStart = contentPresent ? 1 : 0;
-        const actions = committedChildren.slice(actionsStart);
-
-        return {
-          ...next,
-          props: {
-            ...(next.props as Record<string, unknown>),
-            ...(isVNode(nextContent) ? { content: nextContent } : {}),
-            actions: actions.length > 0 ? actions : undefined,
-          },
-        } as unknown as VNode;
-      }
-
-      if (next.kind === "layer") {
-        const props = next.props as { content?: unknown };
-        const nextContent = committedChildren[0] ?? props.content;
-        return {
-          ...next,
-          props: {
-            ...(next.props as Record<string, unknown>),
-            ...(isVNode(nextContent) ? { content: nextContent } : {}),
-          },
-        } as unknown as VNode;
-      }
-
-      if (
-        next.kind === "box" ||
-        next.kind === "row" ||
-        next.kind === "column" ||
-        next.kind === "grid" ||
-        next.kind === "focusZone" ||
-        next.kind === "focusTrap" ||
-        next.kind === "layers" ||
-        next.kind === "field" ||
-        next.kind === "tabs" ||
-        next.kind === "accordion" ||
-        next.kind === "breadcrumb" ||
-        next.kind === "pagination" ||
-        // Advanced container widgets (GitHub issue #136)
-        next.kind === "splitPane" ||
-        next.kind === "panelGroup" ||
-        next.kind === "resizablePanel"
-      ) {
-        return {
-          ...next,
-          children: committedChildren,
-        } as unknown as VNode;
-      }
-
-      return next;
-    };
-
-    if (
-      vnode.kind === "box" ||
-      vnode.kind === "row" ||
-      vnode.kind === "column" ||
-      vnode.kind === "grid" ||
-      vnode.kind === "focusZone" ||
-      vnode.kind === "focusTrap" ||
-      vnode.kind === "layers" ||
-      vnode.kind === "field" ||
-      vnode.kind === "tabs" ||
-      vnode.kind === "accordion" ||
-      vnode.kind === "breadcrumb" ||
-      vnode.kind === "pagination" ||
-      // Advanced container widgets (GitHub issue #136)
-      vnode.kind === "splitPane" ||
-      vnode.kind === "panelGroup" ||
-      vnode.kind === "resizablePanel" ||
-      vnode.kind === "modal" ||
-      vnode.kind === "layer"
-    ) {
-      const vnodeForCommit = compositeWrapperChildren
-        ? ({
-            ...vnode,
-            children: compositeWrapperChildren,
-          } as VNode)
-        : vnode;
-      const parentProps = vnodeForCommit.props as { id?: unknown } | undefined;
-      const parentId =
-        typeof parentProps?.id === "string" && parentProps.id.length > 0
-          ? parentProps.id
-          : undefined;
-
-      const prevChildren = prev ? prev.children : [];
-      const res = reconcileChildren(
-        instanceId,
-        prevChildren,
-        compositeWrapperChildren
-          ? compositeWrapperChildren
-          : commitChildrenForVNode(vnodeForCommit),
-        ctx.allocator,
-        {
-          kind: vnodeForCommit.kind,
-          ...(parentId === undefined ? {} : { id: parentId }),
-        },
-      );
-      if (!res.ok) return { ok: false, fatal: res.fatal };
-
-      const byPrevIndex = prevChildren;
-      let byPrevInstanceId: Map<InstanceId, RuntimeInstance> | null = null;
-      if (res.value.unmountedInstanceIds.length > 0) {
-        byPrevInstanceId = new Map<InstanceId, RuntimeInstance>();
-        for (const c of prevChildren) byPrevInstanceId.set(c.instanceId, c);
-      }
-
-      // Container fast path: when reconciliation reuses all children with no
-      // additions/removals, commit each child and check if all return the exact
-      // same RuntimeInstance reference. If so, reuse the parent's RuntimeInstance,
-      // avoiding new arrays, VNode spreads, and RuntimeInstance allocation.
-      const canTryFastReuse =
-        prev !== null &&
-        res.value.newInstanceIds.length === 0 &&
-        res.value.unmountedInstanceIds.length === 0 &&
-        res.value.nextChildren.length === prevChildren.length;
-      let childOrderStable = true;
-      if (canTryFastReuse) {
-        for (let i = 0; i < res.value.nextChildren.length; i++) {
-          const child = res.value.nextChildren[i];
-          if (!child || child.prevIndex !== i) {
-            childOrderStable = false;
-            break;
-          }
-        }
-      }
-
-      // Avoid allocating nextChildren/committedChildVNodes for the common case where
-      // everything is reused (e.g., list updates where only a couple rows change).
-      let nextChildren: readonly RuntimeInstance[] | null = null;
-      let committedChildVNodes: readonly VNode[] | null = null;
-
-      if (canTryFastReuse) {
-        let allChildrenSame = true;
-        for (let i = 0; i < res.value.nextChildren.length; i++) {
-          const child = res.value.nextChildren[i];
-          if (!child) continue;
-          const prevChild = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
-          const committed = commitNode(
-            prevChild ?? null,
-            child.instanceId,
-            child.vnode,
-            ctx,
-            `${nodePath}/${child.slotId}`,
-          );
-          if (!committed.ok) return committed;
-
-          if (allChildrenSame && committed.value.root !== prevChild) {
-            allChildrenSame = false;
-            // First mismatch: allocate arrays and backfill prior entries with the prevChild refs
-            // we already proved were identical in earlier iterations.
-            const len = res.value.nextChildren.length;
-            const nextChildrenArr: RuntimeInstance[] = new Array(len);
-            const committedChildVNodesArr: VNode[] = new Array(len);
-            nextChildren = nextChildrenArr;
-            committedChildVNodes = committedChildVNodesArr;
-            for (let j = 0; j < i; j++) {
-              const plan = res.value.nextChildren[j];
-              if (!plan) continue;
-              const pc = plan.prevIndex !== null ? byPrevIndex[plan.prevIndex] : null;
-              if (!pc) continue;
-              nextChildrenArr[j] = pc;
-              committedChildVNodesArr[j] = pc.vnode;
-            }
-          }
-
-          if (!allChildrenSame) {
-            // Arrays are allocated after the first mismatch.
-            if (!nextChildren || !committedChildVNodes) {
-              return {
-                ok: false,
-                fatal: {
-                  code: "ZRUI_INVALID_PROPS",
-                  detail: "commitNode: internal fast-reuse invariant",
-                },
-              };
-            }
-            (nextChildren as RuntimeInstance[])[i] = committed.value.root;
-            (committedChildVNodes as VNode[])[i] = committed.value.root.vnode;
-          }
-        }
-
-        if (
-          allChildrenSame &&
-          prev !== null &&
-          childOrderStable &&
-          canFastReuseContainerSelf(prev.vnode, vnodeForCommit)
-        ) {
-          // All children are identical references → reuse parent entirely.
-          prev.dirty = false;
-          prev.selfDirty = false;
-          return { ok: true, value: { root: prev } };
-        }
-      } else {
-        // General path: commit children and build next arrays.
-        const nextChildrenArr: RuntimeInstance[] = [];
-        const committedChildVNodesArr: VNode[] = [];
-        for (const child of res.value.nextChildren) {
-          const prevChild = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
-          const committed = commitNode(
-            prevChild ?? null,
-            child.instanceId,
-            child.vnode,
-            ctx,
-            `${nodePath}/${child.slotId}`,
-          );
-          if (!committed.ok) return committed;
-          nextChildrenArr.push(committed.value.root);
-          committedChildVNodesArr.push(committed.value.root.vnode);
-        }
-        nextChildren = nextChildrenArr;
-        committedChildVNodes = committedChildVNodesArr;
-      }
-
-      for (const unmountedId of res.value.unmountedInstanceIds) {
-        const prevNode = byPrevInstanceId?.get(unmountedId);
-        if (!prevNode) continue;
-        if (ctx.composite) {
-          markCompositeSubtreeStale(ctx.composite.registry, prevNode);
-        }
-        deleteLocalStateForSubtree(ctx.localState, prevNode);
-        collectSubtreeInstanceIds(prevNode, ctx.lists.unmounted);
-      }
-
-      if (!nextChildren || !committedChildVNodes) {
-        // All committed children matched existing instances, but we still need to
-        // materialize the next order (e.g., keyed reorders) when parent reuse is disallowed.
-        const reorderedChildren: RuntimeInstance[] = [];
-        const reorderedVNodes: VNode[] = [];
-        for (const child of res.value.nextChildren) {
-          const reused = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
-          if (!reused) continue;
-          reorderedChildren.push(reused);
-          reorderedVNodes.push(reused.vnode);
-        }
-        nextChildren = reorderedChildren;
-        committedChildVNodes = reorderedVNodes;
-      }
-
-      const propsChanged = prev === null || !canFastReuseContainerSelf(prev.vnode, vnodeForCommit);
-      const childrenChanged = prev === null || runtimeChildrenChanged(prevChildren, nextChildren);
-      const selfDirty = propsChanged || childrenChanged;
-      return {
-        ok: true,
-        value: {
-          root: {
-            instanceId,
-            vnode: rewriteCommittedVNode(vnodeForCommit, committedChildVNodes),
-            children: nextChildren,
-            dirty: selfDirty || childrenChanged || hasDirtyChild(nextChildren),
-            selfDirty,
-          },
-        },
-      };
+    if (isContainerVNode(vnode)) {
+      return commitContainer(instanceId, vnode, prev, ctx, [nodePath], layoutDepth);
     }
 
     return {
@@ -1291,9 +1343,7 @@ function commitNode(
       },
     };
   } finally {
-    if (popCompositeStack) {
-      ctx.compositeRenderStack.pop();
-    }
+    ctx.prevNodeStack.pop();
     if (trackPath) ctx.layoutPathTail.pop();
     ctx.layoutDepthRef.value -= 1;
   }
@@ -1342,6 +1392,8 @@ export function commitVNodeTree(
     allocator: opts.allocator,
     localState: opts.localState,
     seenInteractiveIds: interactiveIdIndex,
+    prevNodeStack: [],
+    containerChildOverrides: new Map<InstanceId, readonly VNode[]>(),
     layoutDepthRef: { value: 0 },
     layoutPathTail: [],
     emittedWarnings: new Set<string>(),
