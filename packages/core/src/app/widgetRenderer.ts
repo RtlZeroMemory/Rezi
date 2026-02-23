@@ -91,7 +91,11 @@ import {
   normalizeInputSelection,
 } from "../runtime/inputEditor.js";
 import { type InstanceId, createInstanceIdAllocator } from "../runtime/instance.js";
-import { createCompositeInstanceRegistry, runPendingEffects } from "../runtime/instances.js";
+import {
+  createCompositeInstanceRegistry,
+  runPendingCleanups,
+  runPendingEffects,
+} from "../runtime/instances.js";
 import { createLayerRegistry, hitTestLayers } from "../runtime/layers.js";
 import {
   type TableLocalState,
@@ -5545,6 +5549,7 @@ export class WidgetRenderer<S> {
       if (commitRes) {
         const effectsToken = PERF_DETAIL_ENABLED ? perfMarkStart("effects") : 0;
         try {
+          runPendingCleanups(commitRes.pendingCleanups);
           runPendingEffects(commitRes.pendingEffects);
         } catch (e: unknown) {
           return { ok: false, code: "ZRUI_USER_CODE_THROW", detail: describeThrown(e) };

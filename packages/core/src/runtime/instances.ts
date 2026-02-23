@@ -86,6 +86,8 @@ export type CompositeInstanceState = Readonly<{
   needsRender: boolean;
   /** Pending effects to run after commit. */
   pendingEffects: EffectState[];
+  /** Pending cleanups to run before new effects after commit. */
+  pendingCleanups: EffectCleanup[];
   /** Hook count expected from previous successful render (for order invariants). */
   expectedHookCount: number | null;
   /** Last committed useAppState selector snapshots for rerender gating. */
@@ -102,6 +104,7 @@ type MutableInstanceState = {
   hookIndex: number;
   needsRender: boolean;
   pendingEffects: EffectState[];
+  pendingCleanups: EffectCleanup[];
   expectedHookCount: number | null;
   appStateSelections: AppStateSelection[];
   generation: number;
@@ -126,6 +129,9 @@ export type CompositeInstanceRegistry = Readonly<{
 
   /** Validate hook order after render and collect pending effects. */
   endRender: (instanceId: InstanceId) => readonly EffectState[];
+
+  /** Read pending cleanups collected during the most recent render. */
+  getPendingCleanups: (instanceId: InstanceId) => readonly EffectCleanup[];
 
   /** Increment generation and return new value. */
   incrementGeneration: (instanceId: InstanceId) => number;
@@ -205,6 +211,7 @@ export function createCompositeInstanceRegistry(): CompositeInstanceRegistry {
         hookIndex: 0,
         needsRender: true,
         pendingEffects: [],
+        pendingCleanups: [],
         expectedHookCount: null,
         appStateSelections: [],
         generation: 0,
@@ -241,6 +248,7 @@ export function createCompositeInstanceRegistry(): CompositeInstanceRegistry {
       if (state) {
         state.hookIndex = 0;
         state.pendingEffects = [];
+        state.pendingCleanups = [];
       }
     },
 
@@ -260,6 +268,13 @@ export function createCompositeInstanceRegistry(): CompositeInstanceRegistry {
       state.needsRender = false;
       // No slice needed: beginRender replaces the array rather than mutating it
       return Object.freeze(state.pendingEffects);
+    },
+
+    getPendingCleanups(instanceId: InstanceId): readonly EffectCleanup[] {
+      const state = instances.get(instanceId);
+      if (!state) return [];
+      // No slice needed: beginRender replaces the array rather than mutating it
+      return Object.freeze(state.pendingCleanups);
     },
 
     incrementGeneration(instanceId: InstanceId): number {
@@ -423,8 +438,10 @@ export function createHookContext(
         // Subsequent render: check deps
         const prevEffect = existing.effect;
         if (!depsEqual(prevEffect.deps, deps)) {
-          // Deps changed: run cleanup and schedule new effect
-          runEffectCleanup(prevEffect);
+          // Deps changed: schedule cleanup and next effect for post-commit flush.
+          if (prevEffect.cleanup) {
+            mutableState.pendingCleanups.push(prevEffect.cleanup);
+          }
 
           const effectState: EffectState = {
             deps,
@@ -529,6 +546,19 @@ export function runPendingEffects(effects: readonly EffectState[]): void {
     const cleanup = effectState.effect();
     if (typeof cleanup === "function") {
       (effectState as { cleanup: EffectCleanup | undefined }).cleanup = cleanup;
+    }
+  }
+}
+
+/**
+ * Run pending cleanups after commit and before new effects.
+ */
+export function runPendingCleanups(cleanups: readonly EffectCleanup[]): void {
+  for (const cleanup of cleanups) {
+    try {
+      cleanup();
+    } catch {
+      // Cleanup errors are swallowed (React behavior)
     }
   }
 }
