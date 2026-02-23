@@ -733,6 +733,7 @@ export class WidgetRenderer<S> {
   private collectRuntimeBreadcrumbs: boolean;
   private readonly requestRender: () => void;
   private readonly requestView: () => void;
+  private readonly reportUserCodeError: (detail: string) => void;
   private readonly rootPadding: number;
   private readonly breakpointThresholds: ResponsiveBreakpointThresholds;
   private readonly devMode = DEV_LAYOUT_WARNINGS;
@@ -992,6 +993,8 @@ export class WidgetRenderer<S> {
       requestRender?: () => void;
       /** Called when composite widgets require a new view/commit pass. */
       requestView?: () => void;
+      /** Optional user-code error sink for routed callbacks (onInput/onBlur). */
+      onUserCodeError?: (detail: string) => void;
       /** Optional terminal capability profile for capability-gated widgets. */
       terminalProfile?: TerminalProfile;
       /** Enable v2 cursor protocol for native cursor support */
@@ -1011,6 +1014,7 @@ export class WidgetRenderer<S> {
     this.collectRuntimeBreadcrumbs = opts.collectRuntimeBreadcrumbs === true;
     this.requestRender = opts.requestRender ?? (() => {});
     this.requestView = opts.requestView ?? (() => {});
+    this.reportUserCodeError = opts.onUserCodeError ?? (() => {});
     this.rootPadding = Math.max(0, Math.trunc(opts.rootPadding ?? 0));
     this.breakpointThresholds = normalizeBreakpointThresholds(opts.breakpointThresholds);
     this.terminalProfile = opts.terminalProfile ?? DEFAULT_TERMINAL_PROFILE;
@@ -1704,6 +1708,36 @@ export class WidgetRenderer<S> {
     }
   }
 
+  hasActiveOverlay(): boolean {
+    return this.dropdownStack.length > 0 || this.layerRegistry.getTopmostModal() !== undefined;
+  }
+
+  private reportInputCallbackError(name: "onInput" | "onBlur", error: unknown): void {
+    this.reportUserCodeError(`${name} handler threw: ${describeThrown(error)}`);
+  }
+
+  private invokeInputCallbackSafely(
+    callback: ((value: string, cursor: number) => void) | undefined,
+    value: string,
+    cursor: number,
+  ): void {
+    if (typeof callback !== "function") return;
+    try {
+      callback(value, cursor);
+    } catch (error: unknown) {
+      this.reportInputCallbackError("onInput", error);
+    }
+  }
+
+  private invokeBlurCallbackSafely(callback: (() => void) | undefined): void {
+    if (typeof callback !== "function") return;
+    try {
+      callback();
+    } catch (error: unknown) {
+      this.reportInputCallbackError("onBlur", error);
+    }
+  }
+
   /**
    * Determine whether a key event should bypass the keybinding system.
    *
@@ -1714,13 +1748,7 @@ export class WidgetRenderer<S> {
   shouldBypassKeybindings(event: ZrevEvent): boolean {
     if (event.kind !== "key" || event.action !== "down") return false;
     if (event.key !== ZR_KEY_ESCAPE) return false;
-
-    // Dropdown stack should always receive Escape for close behavior.
-    if (this.dropdownStack.length > 0) return true;
-
-    // Modal layers should receive Escape (even if closeOnEscape=false, the
-    // focused widget inside the modal may handle Escape, e.g. CommandPalette).
-    return this.layerRegistry.getTopmostModal() !== undefined;
+    return this.hasActiveOverlay();
   }
 
   private writeSelectedTextToClipboard(text: string): void {
@@ -3884,7 +3912,7 @@ export class WidgetRenderer<S> {
 
     if (didFocusChange && prevFocusedId !== null) {
       const prevInput = this.inputById.get(prevFocusedId);
-      if (prevInput?.onBlur) prevInput.onBlur();
+      this.invokeBlurCallbackSafely(prevInput?.onBlur);
     }
 
     if (this.focusState.activeZoneId !== prevActiveZoneId) {
@@ -3951,7 +3979,7 @@ export class WidgetRenderer<S> {
                     this.applyInputSnapshot(instanceId, next);
                     history.push(current, next, event.timeMs, false);
 
-                    if (meta.onInput) meta.onInput(next.value, next.cursor);
+                    this.invokeInputCallbackSafely(meta.onInput, next.value, next.cursor);
                     const action: RoutedAction = Object.freeze({
                       id: focusedId,
                       action: "input",
@@ -3970,7 +3998,7 @@ export class WidgetRenderer<S> {
                 event.key === 89 || isShift ? history.redoSnapshot() : history.undoSnapshot();
               if (snap) {
                 this.applyInputSnapshot(instanceId, snap);
-                if (meta.onInput) meta.onInput(snap.value, snap.cursor);
+                this.invokeInputCallbackSafely(meta.onInput, snap.value, snap.cursor);
                 const action: RoutedAction = Object.freeze({
                   id: focusedId,
                   action: "input",
@@ -4001,7 +4029,7 @@ export class WidgetRenderer<S> {
             this.applyInputSnapshot(instanceId, next);
             if (edit.action) {
               history.push(current, next, event.timeMs, event.kind === "text");
-              if (meta.onInput) meta.onInput(edit.action.value, edit.action.cursor);
+              this.invokeInputCallbackSafely(meta.onInput, edit.action.value, edit.action.cursor);
               return Object.freeze({ needsRender: true, action: edit.action });
             }
             return ROUTE_RENDER;
