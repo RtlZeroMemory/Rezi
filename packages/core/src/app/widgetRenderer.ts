@@ -2046,8 +2046,10 @@ export class WidgetRenderer<S> {
               if (idx === pressed.index) {
                 if (vlist.onSelect) {
                   const item = vlist.items[idx];
-                  if (item !== undefined) vlist.onSelect(item, idx);
-                  localNeedsRender = true;
+                  if (item !== undefined) {
+                    vlist.onSelect(item, idx);
+                    localNeedsRender = true;
+                  }
                 }
               }
             }
