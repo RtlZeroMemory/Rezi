@@ -42,7 +42,10 @@ describe("styleUtils", () => {
   });
 
   test("sanitizeTextStyle preserves underlineColor theme token", () => {
-    assert.equal(sanitizeTextStyle({ underlineColor: "accent.primary" }).underlineColor, "accent.primary");
+    assert.equal(
+      sanitizeTextStyle({ underlineColor: "accent.primary" }).underlineColor,
+      "accent.primary",
+    );
   });
 
   test("sanitizeTextStyle drops invalid underlineColor values", () => {
