@@ -50,6 +50,7 @@ ui.virtualList({
 | `overscan` | `number` | `3` | Extra items rendered above/below viewport |
 | `keyboardNavigation` | `boolean` | `true` | Enable arrow/page/home/end navigation |
 | `wrapAround` | `boolean` | `false` | Wrap selection from end to start |
+| `scrollDirection` | `"traditional" \| "natural"` | `"traditional"` | Mouse-wheel direction mode for this list |
 | `onScroll` | `(scrollTop, range) => void` | - | Scroll callback with visible range |
 | `onSelect` | `(item, index) => void` | - | Selection callback |
 | `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused item highlight |
@@ -58,6 +59,8 @@ ui.virtualList({
 
 - **Arrow Up/Down** navigates items. **Page Up/Down** and **Home/End** jump by page or to boundaries.
 - **Mouse scroll wheel** scrolls the list (3 lines per tick).
+  - `scrollDirection: "traditional"` (default): wheel down moves viewport down.
+  - `scrollDirection: "natural"`: wheel down moves content down (trackpad-style).
 - The `onScroll` callback fires for both keyboard navigation and mouse wheel input.
 
 ## Notes

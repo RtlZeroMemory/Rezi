@@ -39,11 +39,15 @@ function applyWheelSequence(
   let scrollTop = ctx.scrollTop;
   const emitted: number[] = [];
   for (const wheelY of wheelYs) {
-    const res = routeVirtualListWheel(wheelEvent(wheelY), {
+    const wheelCtx: VirtualListWheelCtx = {
       scrollTop,
       totalHeight: ctx.totalHeight,
       viewportHeight: ctx.viewportHeight,
-    });
+      ...(ctx.scrollDirection === undefined
+        ? {}
+        : { scrollDirection: ctx.scrollDirection }),
+    };
+    const res = routeVirtualListWheel(wheelEvent(wheelY), wheelCtx);
     if (res.nextScrollTop !== undefined) {
       scrollTop = res.nextScrollTop;
       emitted.push(res.nextScrollTop);
@@ -90,6 +94,26 @@ describe("mouse scroll routing (deterministic)", () => {
       viewportHeight: 20,
     });
     assert.equal(res.nextScrollTop, 14);
+  });
+
+  test("natural scroll direction flips wheel sign", () => {
+    const res = routeVirtualListWheel(wheelEvent(1), {
+      scrollTop: 10,
+      totalHeight: 100,
+      viewportHeight: 20,
+      scrollDirection: "natural",
+    });
+    assert.equal(res.nextScrollTop, 7);
+  });
+
+  test("traditional scroll direction stays default when explicit", () => {
+    const res = routeVirtualListWheel(wheelEvent(1), {
+      scrollTop: 10,
+      totalHeight: 100,
+      viewportHeight: 20,
+      scrollDirection: "traditional",
+    });
+    assert.equal(res.nextScrollTop, 13);
   });
 
   test("scroll result clamps at lower bound", () => {

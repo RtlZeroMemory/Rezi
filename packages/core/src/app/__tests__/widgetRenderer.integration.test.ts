@@ -1114,6 +1114,40 @@ describe("WidgetRenderer integration battery", () => {
     ]);
   });
 
+  test("virtualList natural scrollDirection flips wheel routing", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const scrolled: Array<Readonly<{ scrollTop: number; range: [number, number] }>> = [];
+
+    const vnode = ui.virtualList({
+      id: "v",
+      items: new Array<number>(100).fill(0).map((_, i) => i),
+      itemHeight: 1,
+      scrollDirection: "natural",
+      renderItem: (item) => ui.text(String(item)),
+      onScroll: (scrollTop, range) => scrolled.push(Object.freeze({ scrollTop, range })),
+    });
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 20, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(mouseEvent(1, 1, 5, { wheelY: 1 }));
+    assert.deepEqual(scrolled, []);
+
+    renderer.routeEngineEvent(mouseEvent(1, 1, 5, { wheelY: -1 }));
+    assert.deepEqual(scrolled, [{ scrollTop: 3, range: [0, 16] }]);
+  });
+
   test("virtualList estimateItemHeight mode uses measured heights for End key scroll", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({

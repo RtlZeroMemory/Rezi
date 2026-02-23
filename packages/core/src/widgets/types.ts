@@ -960,6 +960,12 @@ export type VirtualListProps<T = unknown> = Readonly<{
   keyboardNavigation?: boolean;
   /** Wrap selection from last item to first and vice versa (default: false) */
   wrapAround?: boolean;
+  /**
+   * Mouse wheel scroll direction (default: "traditional").
+   * - "traditional": wheel down moves the viewport down
+   * - "natural": wheel down moves content down (trackpad-style)
+   */
+  scrollDirection?: "natural" | "traditional";
   /** Optional style override for the selected/focused row highlight. */
   selectionStyle?: TextStyle;
   /** Optional focus appearance configuration. */

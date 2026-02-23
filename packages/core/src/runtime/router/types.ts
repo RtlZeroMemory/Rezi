@@ -108,6 +108,7 @@ export type VirtualListWheelCtx = Readonly<{
   scrollTop: number;
   totalHeight: number;
   viewportHeight: number;
+  scrollDirection?: "natural" | "traditional";
 }>;
 
 /** Layer routing context. */
