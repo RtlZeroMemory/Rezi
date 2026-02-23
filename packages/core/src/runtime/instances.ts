@@ -24,6 +24,8 @@ export type EffectState = Readonly<{
   cleanup: EffectCleanup | undefined;
   /** Effect callback to run after commit. */
   effect: () => undefined | EffectCleanup;
+  /** True while this effect update is still waiting for a post-commit flush. */
+  pending: boolean;
 }>;
 
 /** Stored ref state for useRef. */
@@ -424,6 +426,7 @@ export function createHookContext(
           deps,
           cleanup: undefined,
           effect: normalizedEffect,
+          pending: true,
         };
         mutableState.hooks[index] = {
           kind: "effect",
@@ -437,16 +440,17 @@ export function createHookContext(
       } else {
         // Subsequent render: check deps
         const prevEffect = existing.effect;
-        if (!depsEqual(prevEffect.deps, deps)) {
-          // Deps changed: schedule cleanup and next effect for post-commit flush.
+        if (!depsEqual(prevEffect.deps, deps) || prevEffect.pending) {
+          // Deps changed or prior flush was skipped: schedule cleanup and next effect.
           if (prevEffect.cleanup) {
             mutableState.pendingCleanups.push(prevEffect.cleanup);
           }
 
           const effectState: EffectState = {
             deps,
-            cleanup: undefined,
+            cleanup: prevEffect.cleanup,
             effect: normalizedEffect,
+            pending: true,
           };
           mutableState.hooks[index] = {
             kind: "effect",
@@ -544,9 +548,9 @@ export function createHookContext(
 export function runPendingEffects(effects: readonly EffectState[]): void {
   for (const effectState of effects) {
     const cleanup = effectState.effect();
-    if (typeof cleanup === "function") {
-      (effectState as { cleanup: EffectCleanup | undefined }).cleanup = cleanup;
-    }
+    (effectState as { cleanup: EffectCleanup | undefined }).cleanup =
+      typeof cleanup === "function" ? cleanup : undefined;
+    (effectState as { pending: boolean }).pending = false;
   }
 }
 

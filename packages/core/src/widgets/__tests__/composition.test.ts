@@ -16,6 +16,7 @@ import {
   createCompositeInstanceRegistry,
   createHookContext,
   gcUnmountedInstances,
+  runPendingCleanups,
   runPendingEffects,
 } from "../../runtime/instances.js";
 import {
@@ -495,9 +496,12 @@ describe("Composition API - Hooks", () => {
       };
     }, [currentDep]);
     pending = registry.endRender(1);
+    const pendingCleanups = registry.getPendingCleanups(1);
 
-    // Cleanup should have run BEFORE the new effect is scheduled (during useEffect call)
-    // At this point cleanup-1 has run, but effect-2 hasn't run yet
+    // Both cleanup and next effect are deferred to post-commit.
+    assert.deepEqual(events, ["effect-1"]);
+
+    runPendingCleanups(pendingCleanups);
     assert.deepEqual(events, ["effect-1", "cleanup-1"]);
 
     // Now run the pending effect

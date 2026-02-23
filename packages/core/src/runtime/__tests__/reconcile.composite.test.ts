@@ -9,7 +9,11 @@ import { createApp } from "../../app/createApp.js";
 import { type VNode, defineWidget, ui } from "../../index.js";
 import { type RuntimeInstance, commitVNodeTree } from "../commit.js";
 import { createInstanceIdAllocator } from "../instance.js";
-import { createCompositeInstanceRegistry, runPendingEffects } from "../instances.js";
+import {
+  createCompositeInstanceRegistry,
+  runPendingCleanups,
+  runPendingEffects,
+} from "../instances.js";
 
 function widgetHost(children: readonly VNode[]): VNode {
   return ui.column({}, children);
@@ -74,6 +78,7 @@ function commitComposite(
     throw new Error("unreachable");
   }
 
+  runPendingCleanups(res.value.pendingCleanups);
   runPendingEffects(res.value.pendingEffects);
   return res.value;
 }

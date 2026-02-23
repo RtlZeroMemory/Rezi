@@ -234,6 +234,84 @@ describe("runtime hooks useEffect hardening", () => {
     assert.deepEqual(cleaned, [10]);
   });
 
+  test("skipped post-commit flush is retried on next render with stable deps", () => {
+    const h = createHarness();
+    let dep = 1;
+    const events: string[] = [];
+
+    let pending = h.render((hooks) => {
+      hooks.useEffect(() => {
+        const snapshot = dep;
+        events.push(`effect-${String(snapshot)}`);
+        return () => {
+          events.push(`cleanup-${String(snapshot)}`);
+        };
+      }, [dep]);
+    });
+    h.runPending(pending);
+
+    dep = 2;
+    pending = h.render((hooks) => {
+      hooks.useEffect(() => {
+        const snapshot = dep;
+        events.push(`effect-${String(snapshot)}`);
+        return () => {
+          events.push(`cleanup-${String(snapshot)}`);
+        };
+      }, [dep]);
+    });
+
+    assert.equal(pending.pendingCleanups.length, 1);
+    assert.equal(pending.pendingEffects.length, 1);
+    assert.deepEqual(events, ["effect-1"]);
+
+    const retryPending = h.render((hooks) => {
+      hooks.useEffect(() => {
+        const snapshot = dep;
+        events.push(`effect-${String(snapshot)}`);
+        return () => {
+          events.push(`cleanup-${String(snapshot)}`);
+        };
+      }, [dep]);
+    });
+
+    assert.equal(retryPending.pendingCleanups.length, 1);
+    assert.equal(retryPending.pendingEffects.length, 1);
+    assert.deepEqual(events, ["effect-1"]);
+
+    h.runPending(retryPending);
+    assert.deepEqual(events, ["effect-1", "cleanup-1", "effect-2"]);
+  });
+
+  test("unmount keeps previous cleanup if deps-change flush was skipped", () => {
+    const h = createHarness();
+    let dep = 1;
+    let cleanupCount = 0;
+
+    let pending = h.render((hooks) => {
+      hooks.useEffect(() => {
+        return () => {
+          cleanupCount++;
+        };
+      }, [dep]);
+    });
+    h.runPending(pending);
+
+    dep = 2;
+    pending = h.render((hooks) => {
+      hooks.useEffect(() => {
+        return () => {
+          cleanupCount++;
+        };
+      }, [dep]);
+    });
+
+    assert.equal(pending.pendingCleanups.length, 1);
+    assert.equal(cleanupCount, 0);
+    h.unmount();
+    assert.equal(cleanupCount, 1);
+  });
+
   test("deps effect reruns when dependency array length changes", () => {
     const h = createHarness();
     let extra = false;
