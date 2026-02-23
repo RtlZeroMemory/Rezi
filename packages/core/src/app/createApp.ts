@@ -740,6 +740,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     drawlistEncodedStringCacheCap: config.drawlistEncodedStringCacheCap,
     requestRender: requestRenderFromRenderer,
     requestView: requestViewFromRenderer,
+    onUserCodeError: (detail) => enqueueFatal("ZRUI_USER_CODE_THROW", detail),
     collectRuntimeBreadcrumbs: runtimeBreadcrumbsEnabled,
   });
   lastEmittedFocusId = widgetRenderer.getFocusedId();
@@ -1180,7 +1181,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
             }
 
             // Also route text events through keybinding system for single-character bindings
-            if (ev.kind === "text") {
+            if (ev.kind === "text" && !widgetRenderer.hasActiveOverlay()) {
               const keyCode = codepointToKeyCode(ev.codepoint);
               if (keyCode !== null) {
                 // Create a synthetic key event for keybinding matching
