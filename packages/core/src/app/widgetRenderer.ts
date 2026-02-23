@@ -799,6 +799,7 @@ export class WidgetRenderer<S> {
   private readonly _pooledToastActionLabelByFocusId = new Map<string, string>();
   private readonly _pooledLayoutStack: LayoutTree[] = [];
   private readonly _pooledRuntimeStack: RuntimeInstance[] = [];
+  private readonly _pooledParentInstanceIdStack: InstanceId[] = [];
   private readonly _pooledOffsetXStack: number[] = [];
   private readonly _pooledOffsetYStack: number[] = [];
   private readonly _pooledDirtyLayoutInstanceIds: InstanceId[] = [];
@@ -1190,28 +1191,42 @@ export class WidgetRenderer<S> {
     if (this.exitRenderNodeByInstanceId.size === 0) return;
     this._pooledActiveExitKeys.clear();
     this._pooledRuntimeStack.length = 0;
+    this._pooledParentInstanceIdStack.length = 0;
     this._pooledRuntimeStack.push(runtimeRoot);
+    this._pooledParentInstanceIdStack.push(0);
     while (this._pooledRuntimeStack.length > 0) {
       const node = this._pooledRuntimeStack.pop();
+      const parentInstanceId = this._pooledParentInstanceIdStack.pop();
       if (!node) continue;
+      if (parentInstanceId === undefined) continue;
       const props = node.vnode.props as Readonly<{ key?: unknown }> | undefined;
       const key = typeof props?.key === "string" ? props.key : undefined;
       if (key) {
-        this._pooledActiveExitKeys.add(`${node.vnode.kind}:${key}`);
+        this._pooledActiveExitKeys.add(`${String(parentInstanceId)}:${node.vnode.kind}:${key}`);
       }
       for (let i = node.children.length - 1; i >= 0; i--) {
         const child = node.children[i];
-        if (child) this._pooledRuntimeStack.push(child);
+        if (child) {
+          this._pooledRuntimeStack.push(child);
+          this._pooledParentInstanceIdStack.push(node.instanceId);
+        }
       }
     }
 
     for (const exitNode of this.exitRenderNodeByInstanceId.values()) {
       if (!exitNode.key) continue;
-      if (!this._pooledActiveExitKeys.has(`${exitNode.vnodeKind}:${exitNode.key}`)) continue;
+      if (
+        !this._pooledActiveExitKeys.has(
+          `${String(exitNode.parentInstanceId)}:${exitNode.vnodeKind}:${exitNode.key}`,
+        )
+      ) {
+        continue;
+      }
       exitNode.runDeferredLocalStateCleanup();
       this.cleanupUnmountedInstanceIds(exitNode.subtreeInstanceIds);
     }
     this._pooledActiveExitKeys.clear();
+    this._pooledParentInstanceIdStack.length = 0;
   }
 
   private renderExitTransitionNodes(

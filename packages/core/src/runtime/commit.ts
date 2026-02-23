@@ -513,6 +513,7 @@ export type CommitFatal =
 
 export type PendingExitAnimation = Readonly<{
   instanceId: InstanceId;
+  parentInstanceId: InstanceId;
   runtimeRoot: RuntimeInstance;
   vnodeKind: VNode["kind"];
   key: string | undefined;
@@ -738,7 +739,11 @@ function createDeferredLocalStateCleanup(
   };
 }
 
-function tryScheduleExitAnimation(ctx: CommitCtx, node: RuntimeInstance): boolean {
+function tryScheduleExitAnimation(
+  ctx: CommitCtx,
+  node: RuntimeInstance,
+  parentInstanceId: InstanceId,
+): boolean {
   const exitTransition = readExitTransition(node.vnode);
   if (!exitTransition) return false;
   const exit = resolveExitAnimationState(node.instanceId, exitTransition);
@@ -749,6 +754,7 @@ function tryScheduleExitAnimation(ctx: CommitCtx, node: RuntimeInstance): boolea
   ctx.pendingExitAnimations.push(
     Object.freeze({
       instanceId: node.instanceId,
+      parentInstanceId,
       runtimeRoot: node,
       vnodeKind: node.vnode.kind,
       key: readVNodeKey(node.vnode),
@@ -1173,7 +1179,7 @@ function commitContainer(
     for (const unmountedId of res.value.unmountedInstanceIds) {
       const prevNode = byPrevInstanceId?.get(unmountedId);
       if (!prevNode) continue;
-      if (tryScheduleExitAnimation(ctx, prevNode)) {
+      if (tryScheduleExitAnimation(ctx, prevNode, instanceId)) {
         continue;
       }
       if (ctx.composite) {
@@ -1636,7 +1642,7 @@ export function commitVNodeTree(
   if (prevRoot && rootPlan.prevIndex === null) {
     // Root was replaced; unmount the entire previous tree before committing the new one so
     // the returned lists include the unmount lifecycle deterministically.
-    if (!tryScheduleExitAnimation(ctx, prevRoot)) {
+    if (!tryScheduleExitAnimation(ctx, prevRoot, 0)) {
       deleteLocalStateForSubtree(opts.localState, prevRoot);
       collectSubtreeInstanceIds(prevRoot, ctx.lists.unmounted);
     }

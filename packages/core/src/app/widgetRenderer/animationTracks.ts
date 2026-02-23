@@ -41,6 +41,7 @@ export type ExitTransitionTrack = Readonly<{
 
 export type ExitTransitionRenderNode = Readonly<{
   instanceId: InstanceId;
+  parentInstanceId: InstanceId;
   runtimeRoot: RuntimeInstance;
   layoutRoot: LayoutTree;
   vnodeKind: RuntimeInstance["vnode"]["kind"];
@@ -447,6 +448,7 @@ export function scheduleExitAnimations(
       pending.instanceId,
       Object.freeze({
         instanceId: pending.instanceId,
+        parentInstanceId: pending.parentInstanceId,
         runtimeRoot: pending.runtimeRoot,
         layoutRoot,
         vnodeKind: pending.vnodeKind,

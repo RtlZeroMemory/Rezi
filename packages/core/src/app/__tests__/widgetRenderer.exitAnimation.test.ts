@@ -124,6 +124,41 @@ function viewExitInput(include: boolean, key = "input-box"): ReturnType<typeof u
   ]);
 }
 
+function viewExitWithSameKeyInDifferentParents(includeLeft: boolean): ReturnType<typeof ui.row> {
+  return ui.row({ id: "scope-root", gap: 1 }, [
+    ui.column(
+      { key: "left-parent" },
+      includeLeft
+        ? [
+            ui.box(
+              {
+                id: "left-exiting-box",
+                key: "shared-key",
+                width: 12,
+                height: 3,
+                border: "single",
+                exitTransition: { duration: 200, easing: "linear", properties: ["opacity"] },
+              },
+              [ui.text("left")],
+            ),
+          ]
+        : [],
+    ),
+    ui.column({ key: "right-parent" }, [
+      ui.box(
+        {
+          id: "right-stable-box",
+          key: "shared-key",
+          width: 12,
+          height: 3,
+          border: "single",
+        },
+        [ui.text("right")],
+      ),
+    ]),
+  ]);
+}
+
 describe("WidgetRenderer exit animations", () => {
   test("removed box with exitTransition fades opacity from 1 to 0", () => {
     const backend = createNoopBackend();
@@ -313,5 +348,32 @@ describe("WidgetRenderer exit animations", () => {
     assert.equal(exitRenderNodeMap(renderer).size, 0);
     assert.equal(exitTrackMap(renderer).size, 0);
     assert.equal(renderer.hasAnimatedWidgets(), false);
+  });
+
+  test("same key in a different sibling lineage does not cancel exit animation", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({ backend, requestRender: () => {} });
+
+    const frame1 = renderer.submitFrame(
+      () => viewExitWithSameKeyInDifferentParents(true),
+      undefined,
+      { cols: 60, rows: 12 },
+      defaultTheme,
+      noRenderHooks(),
+      { commit: true, layout: true, checkLayoutStability: true, nowMs: 0 },
+    );
+    assert.ok(frame1.ok);
+
+    const frame2 = renderer.submitFrame(
+      () => viewExitWithSameKeyInDifferentParents(false),
+      undefined,
+      { cols: 60, rows: 12 },
+      defaultTheme,
+      noRenderHooks(),
+      { commit: true, layout: true, checkLayoutStability: true, nowMs: 10 },
+    );
+    assert.ok(frame2.ok);
+    assert.equal(exitRenderNodeMap(renderer).size, 1);
+    assert.equal(exitTrackMap(renderer).size, 1);
   });
 });

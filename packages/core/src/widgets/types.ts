@@ -290,6 +290,7 @@ export type GridProps = Readonly<{
   rowGap?: number;
   columnGap?: number;
   transition?: TransitionSpec;
+  exitTransition?: TransitionSpec;
 }>;
 
 /** Props for spacer element. size is in cells along stack axis. */
