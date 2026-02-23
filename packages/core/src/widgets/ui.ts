@@ -1208,12 +1208,7 @@ export const ui = {
         ...(onClose !== undefined ? { onClose } : {}),
         content: typeof message === "string" ? text(message) : message,
         actions: actions.map((action, index) => {
-          const intentProps =
-            action.intent === "primary"
-              ? ({ intent: "primary", dsVariant: "solid", dsTone: "primary" } as const)
-              : action.intent === "danger"
-                ? ({ intent: "danger", dsVariant: "outline", dsTone: "danger" } as const)
-                : {};
+          const intentProps = action.intent === undefined ? {} : { intent: action.intent };
           return button({
             id: action.id ?? `${modalProps.id}-action-${String(index)}`,
             label: action.label,

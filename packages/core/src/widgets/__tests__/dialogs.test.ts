@@ -1,4 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { createTestRenderer } from "../../testing/renderer.js";
 import { isCompositeVNode } from "../composition.js";
 import { alertDialog, confirmDialog, dialog, promptDialog } from "../dialogs/index.js";
 import { ui } from "../ui.js";
@@ -73,47 +74,49 @@ describe("dialogs", () => {
   });
 
   test("ui.dialog maps primary intent to solid/primary DS props", () => {
-    const v = ui.dialog({
-      id: "primary-intent",
-      title: "Title",
-      message: "Body",
-      actions: [{ label: "Save", intent: "primary", onPress: () => {} }],
-    });
+    const renderer = createTestRenderer();
+    const result = renderer.render(
+      ui.dialog({
+        id: "primary-intent",
+        title: "Title",
+        message: "Body",
+        actions: [{ label: "Save", intent: "primary", onPress: () => {} }],
+      }),
+    );
 
-    const props = v.props as { actions?: unknown };
-    const action = (
-      props.actions as Array<{ props?: { dsVariant?: unknown; dsTone?: unknown } } | undefined>
-    )[0];
-    assert.equal(action?.props?.dsVariant, "solid");
-    assert.equal(action?.props?.dsTone, "primary");
+    const action = result.findById("primary-intent-action-0");
+    assert.equal(action?.props["dsVariant"], "solid");
+    assert.equal(action?.props["dsTone"], "primary");
   });
 
   test("ui.dialog maps danger intent to outline/danger DS props", () => {
-    const v = ui.dialog({
-      id: "danger-intent",
-      title: "Title",
-      message: "Body",
-      actions: [{ label: "Delete", intent: "danger", onPress: () => {} }],
-    });
+    const renderer = createTestRenderer();
+    const result = renderer.render(
+      ui.dialog({
+        id: "danger-intent",
+        title: "Title",
+        message: "Body",
+        actions: [{ label: "Delete", intent: "danger", onPress: () => {} }],
+      }),
+    );
 
-    const props = v.props as { actions?: unknown };
-    const action = (
-      props.actions as Array<{ props?: { dsVariant?: unknown; dsTone?: unknown } } | undefined>
-    )[0];
-    assert.equal(action?.props?.dsVariant, "outline");
-    assert.equal(action?.props?.dsTone, "danger");
+    const action = result.findById("danger-intent-action-0");
+    assert.equal(action?.props["dsVariant"], "outline");
+    assert.equal(action?.props["dsTone"], "danger");
   });
 
   test("ui.dialog keeps default button styling when action has no intent", () => {
-    const v = ui.dialog({
-      id: "no-intent",
-      title: "Title",
-      message: "Body",
-      actions: [{ label: "OK", onPress: () => {} }],
-    });
+    const renderer = createTestRenderer();
+    const result = renderer.render(
+      ui.dialog({
+        id: "no-intent",
+        title: "Title",
+        message: "Body",
+        actions: [{ label: "OK", onPress: () => {} }],
+      }),
+    );
 
-    const props = v.props as { actions?: unknown };
-    const action = (props.actions as Array<{ props?: Record<string, unknown> } | undefined>)[0];
+    const action = result.findById("no-intent-action-0");
     assert.equal(Object.prototype.hasOwnProperty.call(action?.props ?? {}, "dsVariant"), false);
     assert.equal(Object.prototype.hasOwnProperty.call(action?.props ?? {}, "dsTone"), false);
   });
