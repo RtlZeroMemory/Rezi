@@ -194,7 +194,8 @@ export function routeVirtualListWheel(
 
   const SCROLL_LINES = 3; // Lines per wheel tick
   // Use wheelY for vertical scrolling (negative = scroll up, positive = scroll down)
-  const scrollDelta = event.wheelY * SCROLL_LINES;
+  const sign = ctx.scrollDirection === "natural" ? -1 : 1;
+  const scrollDelta = sign * event.wheelY * SCROLL_LINES;
 
   const { scrollTop, totalHeight, viewportHeight } = ctx;
   const nextScrollTop = clampScrollTop(scrollTop + scrollDelta, totalHeight, viewportHeight);

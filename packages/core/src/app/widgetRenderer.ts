@@ -1864,6 +1864,7 @@ export class WidgetRenderer<S> {
           scrollTop: state.scrollTop,
           totalHeight,
           viewportHeight: state.viewportHeight,
+          scrollDirection: vlist.scrollDirection || "traditional",
         });
 
         if (r.nextScrollTop !== undefined) {

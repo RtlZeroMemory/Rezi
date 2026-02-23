@@ -728,6 +728,12 @@ export type VirtualListProps<T = unknown> = Readonly<{
   keyboardNavigation?: boolean;
   /** Wrap selection from last item to first and vice versa (default: false) */
   wrapAround?: boolean;
+  /**
+   * Mouse wheel scroll direction (default: "traditional").
+   * - "natural": scroll down moves content down (trackpad-style)
+   * - "traditional": scroll down moves the view down (scroll-bar-style)
+   */
+  scrollDirection?: "natural" | "traditional";
 }>;
 
 /* ========== Layer System (GitHub issue #117) ========== */
