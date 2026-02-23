@@ -13,6 +13,7 @@ import {
   ZR_MOD_CTRL,
   ZR_MOD_SHIFT,
 } from "../../keybindings/keyCodes.js";
+import type { Rect } from "../../layout/types.js";
 import type {
   TableLocalState,
   TableStateStore,
@@ -27,6 +28,7 @@ import { getHunkScrollPosition, navigateHunk } from "../../widgets/diffViewer.js
 import { applyFilters } from "../../widgets/logsConsole.js";
 import { adjustSliderValue, normalizeSliderState } from "../../widgets/slider.js";
 import { distributeColumnWidths } from "../../widgets/table.js";
+import { parseToastActionFocusId } from "../../widgets/toast.js";
 import { type FlattenedNode, flattenTree } from "../../widgets/tree.js";
 import type {
   CheckboxProps,
@@ -43,8 +45,6 @@ import {
   computeVisibleRange,
   resolveVirtualListItemHeightSpec,
 } from "../../widgets/virtualList.js";
-import { parseToastActionFocusId } from "../../widgets/toast.js";
-import type { Rect } from "../../layout/types.js";
 import type { DiffRenderCache, LogsConsoleRenderCache, TableRenderCache } from "./renderCaches.js";
 
 export type KeyboardRoutingOutcome = Readonly<{
@@ -160,7 +160,8 @@ export function routeLogsConsoleKeyDown(
 
   const cached = ctx.logsConsoleRenderCacheById.get(logs.id);
   const filtered =
-    cached?.filtered ?? applyFilters(logs.entries, logs.levelFilter, logs.sourceFilter, logs.searchQuery);
+    cached?.filtered ??
+    applyFilters(logs.entries, logs.levelFilter, logs.sourceFilter, logs.searchQuery);
   const filteredLen = filtered.length;
   const maxScroll = Math.max(0, filteredLen - viewportHeight);
 
@@ -461,7 +462,9 @@ export function routeTableKeyDown(
       data: table.data,
       rowHeight,
       state,
-      selection: (table.selection ?? ctx.emptyStringArray ?? EMPTY_STRING_ARRAY) as readonly string[],
+      selection: (table.selection ??
+        ctx.emptyStringArray ??
+        EMPTY_STRING_ARRAY) as readonly string[],
       selectionMode: table.selectionMode ?? "none",
       keyboardNavigation: true,
     });
@@ -531,7 +534,9 @@ export function routeTreeKeyDown(
   }
 
   const loaded = ctx.loadedTreeChildrenByTreeId.get(tree.id);
-  const getChildrenRaw = tree.getChildren as ((n: unknown) => readonly unknown[] | undefined) | undefined;
+  const getChildrenRaw = tree.getChildren as
+    | ((n: unknown) => readonly unknown[] | undefined)
+    | undefined;
   const getKey = tree.getKey as (n: unknown) => string;
   const getChildren = loaded
     ? (n: unknown) => {

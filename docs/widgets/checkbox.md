@@ -24,11 +24,14 @@ ui.checkbox({
 | `label` | `string` | - | Optional label displayed next to the box |
 | `onChange` | `(checked: boolean) => void` | - | Called when the user toggles the checkbox |
 | `disabled` | `boolean` | `false` | Disable focus and interaction |
+| `dsTone` | `"default" \| "primary" \| "danger" \| "success" \| "warning"` | `"default"` | Design-system tone for checked/focus rendering |
+| `dsSize` | `"sm" \| "md" \| "lg"` | `"md"` | Design-system size preset |
 | `key` | `string` | - | Reconciliation key |
 
 ## Design System Styling
 
-Checkboxes are design-system styled by default when the active theme provides semantic color tokens. The indicator and label use the checkbox recipe for consistent checked/focus/disabled styling.
+Checkboxes are design-system styled by default when a `ThemeDefinition` preset is active.
+The indicator and label use `checkboxRecipe()` for checked/focus/disabled states.
 
 If the active theme does not provide semantic color tokens, checkboxes fall back to non-recipe rendering.
 

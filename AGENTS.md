@@ -12,7 +12,7 @@ Rezi is a runtime-agnostic TypeScript TUI framework. Monorepo with `npm` workspa
 |---------|------|---------|
 | `@rezi-ui/core` | `packages/core/` | Runtime-agnostic core framework |
 | `@rezi-ui/node` | `packages/node/` | Node.js backend (terminal I/O) |
-| `@rezi-ui/jsx` | `packages/jsx/` | JSX transform layer |
+| `@rezi-ui/jsx` | `packages/jsx/` | JSX runtime layer with `ui.*` parity |
 | `@rezi-ui/native` | `packages/native/` | Native engine bindings |
 | `@rezi-ui/testkit` | `packages/testkit/` | Test utilities |
 | `create-rezi` | `packages/create-rezi/` | Project scaffolding CLI |
@@ -33,15 +33,20 @@ When investigating Rezi code, follow this order:
 
 ```
 State -> view(state) -> VNode tree -> commitVNodeTree (reconciliation)
-     -> layout -> metadata_collect -> renderToDrawlist
+     -> layout -> metadata_collect -> overlay manager (LayerRegistry)
+     -> renderToDrawlist
      -> builder.build() -> backend.requestFrame()
+
+Event routing: key/mouse input -> router -> wheel router (nearest scroll target)
 ```
 
 Key pipeline files:
 - `packages/core/src/app/widgetRenderer.ts` — orchestrates full pipeline
 - `packages/core/src/runtime/commit.ts` — VNode to RuntimeInstance tree
 - `packages/core/src/runtime/reconcile.ts` — child matching (keyed/unkeyed)
+- `packages/core/src/runtime/router/wheel.ts` — mouse wheel routing for scroll targets
 - `packages/core/src/renderer/renderToDrawlist/renderTree.ts` — stack-based DFS renderer
+- `packages/core/src/layout/dropdownGeometry.ts` — shared dropdown overlay geometry
 - `packages/core/src/drawlist/builder_v1.ts` — ZRDL binary drawlist builder
 
 ## Modification Protocol
@@ -58,6 +63,7 @@ These areas tolerate changes well and have good test coverage:
 
 - `packages/core/src/widgets/ui.ts` — adding new widget factory functions
 - `packages/core/src/widgets/types.ts` — adding new prop types
+- `packages/core/src/widgets/protocol.ts` — widget capability registry updates
 - `packages/create-rezi/templates/` — template modifications
 - `docs/` — documentation changes
 - Test files (`**/__tests__/*.test.ts`)
@@ -72,8 +78,10 @@ Changes here affect all rendering and can introduce subtle regressions:
 
 - `packages/core/src/runtime/commit.ts` — reconciliation logic
 - `packages/core/src/runtime/reconcile.ts` — child matching, key algorithm
+- `packages/core/src/runtime/router/wheel.ts` — scroll routing behavior
 - `packages/core/src/app/createApp.ts` — app lifecycle, error handling
 - `packages/core/src/layout/` — layout engine, constraint resolution
+- `packages/core/src/layout/dropdownGeometry.ts` — shared overlay positioning logic
 - `packages/core/src/renderer/` — drawlist generation
 - `packages/core/src/drawlist/` — binary protocol builders
 - `packages/core/src/binary/` — binary reader/writer
@@ -85,6 +93,15 @@ These boundaries are strict. Violating them breaks the runtime-agnostic guarante
 - `@rezi-ui/core` MUST NOT import from `@rezi-ui/node`, `@rezi-ui/jsx`, or `@rezi-ui/native`
 - `@rezi-ui/node` imports from `@rezi-ui/core` only
 - `@rezi-ui/jsx` imports from `@rezi-ui/core` only
+
+### Cross-Cutting Concern: JSX Parity
+
+When core widget APIs change, JSX must be updated in the same change set.
+
+- Any new/changed `ui.*` factory in `packages/core/src/widgets/ui.ts` must be mirrored in `packages/jsx/src/components.ts`.
+- Keep JSX props/intrinsics in sync in `packages/jsx/src/types.ts` and `packages/jsx/src/createElement.ts`.
+- JSX components should delegate to `ui.*()` factories instead of constructing raw VNodes directly.
+- Update JSX exports (`packages/jsx/src/index.ts`), tests (`packages/jsx/src/__tests__/`), and docs (`docs/getting-started/jsx.md`, `docs/packages/jsx.md`, `packages/jsx/README.md`) together.
 
 ### Drawlist writer codegen guardrail (MUST for ZRDL command changes)
 
@@ -265,3 +282,5 @@ Before finalizing any TUI implementation, verify:
 8. **Breaking module boundaries.** Core must remain runtime-agnostic. Never add Node.js-specific imports (`Buffer`, `worker_threads`, `node:*`) to `@rezi-ui/core`.
 9. **Misconfiguring box transitions.** `ui.box` transition defaults to animating `position`, `size`, and `opacity`; use explicit `properties` filters (or `[]` to disable) when behavior should be constrained.
 10. **Editing generated drawlist writers by hand.** Update `scripts/drawlist-spec.ts` and run `npm run codegen` instead.
+11. **Assuming only `press` and `input` actions exist.** The routed action model also emits `select`, `rowPress`, `toggle`, `change`, `activate`, and `scroll` through `app.on("event", ...)`.
+12. **Misunderstanding animation completion behavior.** Completion callbacks should only run on a finished run; retargeted and looping animations start a new run and should not reuse the prior completion expectation.

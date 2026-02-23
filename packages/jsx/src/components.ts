@@ -1,44 +1,56 @@
 import type {
   AccordionProps,
+  AppShellOptions,
   BadgeProps,
   BarChartProps,
   BoxProps,
   BreadcrumbProps,
   ButtonProps,
   CalloutProps,
+  CardOptions,
   CheckboxProps,
   CodeEditorProps,
   CommandPaletteProps,
+  DialogProps,
   DiffViewerProps,
   DividerProps,
   DropdownProps,
   EmptyProps,
+  ErrorBoundaryProps,
   ErrorDisplayProps,
   FieldProps,
   FilePickerProps,
   FileTreeExplorerProps,
+  FocusAnnouncerProps,
   GaugeProps,
+  HeaderOptions,
   IconProps,
   InputProps,
   KbdProps,
   LayerProps,
   LayersProps,
   LogsConsoleProps,
+  MasterDetailOptions,
   MiniChartProps,
   ModalProps,
+  PageOptions,
   PaginationProps,
   PanelGroupProps,
   ProgressProps,
   RadioGroupProps,
   ResizablePanelProps,
   RichTextProps,
+  RouterBreadcrumbProps,
+  RouterTabsProps,
   SelectProps,
+  SidebarOptions,
   SkeletonProps,
   SliderProps,
   SpacerProps,
   SparklineProps,
   SpinnerProps,
   SplitPaneProps,
+  StatusBarOptions,
   StatusProps,
   TableProps,
   TabsProps,
@@ -47,6 +59,7 @@ import type {
   TextareaProps,
   ToastContainerProps,
   ToolApprovalDialogProps,
+  ToolbarOptions,
   TreeProps,
   VNode,
   VirtualListProps,
@@ -55,6 +68,9 @@ import { ui } from "@rezi-ui/core";
 import { type JsxChildren, normalizeContainerChildren, normalizeTextChildren } from "./children.js";
 import type {
   AccordionJsxProps,
+  ActionsJsxProps,
+  ActionsOptions,
+  AppShellJsxProps,
   BadgeJsxProps,
   BarChartJsxProps,
   BoxJsxProps,
@@ -62,50 +78,71 @@ import type {
   ButtonJsxProps,
   CalloutJsxProps,
   CanvasJsxProps,
+  CardJsxProps,
+  CenterJsxProps,
+  CenterOptions,
   CheckboxJsxProps,
   CodeEditorJsxProps,
   ColumnJsxProps,
   CommandPaletteJsxProps,
+  DialogJsxProps,
   DiffViewerJsxProps,
   DividerJsxProps,
   DropdownJsxProps,
   EmptyJsxProps,
+  ErrorBoundaryJsxProps,
   ErrorDisplayJsxProps,
   FieldJsxProps,
   FilePickerJsxProps,
   FileTreeExplorerJsxProps,
+  FocusAnnouncerJsxProps,
   FocusTrapJsxProps,
   FocusZoneJsxProps,
+  FormJsxProps,
+  FormOptions,
   GaugeJsxProps,
   GridJsxProps,
   HStackJsxProps,
+  HeaderJsxProps,
   HeatmapJsxProps,
   IconJsxProps,
   ImageJsxProps,
   InputJsxProps,
   KbdJsxProps,
+  KeybindingHelpJsxProps,
+  KeybindingHelpOptions,
   LayerJsxProps,
   LayersJsxProps,
   LineChartJsxProps,
   LinkJsxProps,
   LogsConsoleJsxProps,
+  MasterDetailJsxProps,
   MiniChartJsxProps,
   ModalJsxProps,
+  PageJsxProps,
   PaginationJsxProps,
   PanelGroupJsxProps,
+  PanelJsxProps,
+  PanelOptions,
   ProgressJsxProps,
   RadioGroupJsxProps,
   ResizablePanelJsxProps,
   RichTextJsxProps,
+  RouterBreadcrumbJsxProps,
+  RouterTabsJsxProps,
   RowJsxProps,
   ScatterJsxProps,
   SelectJsxProps,
+  SidebarJsxProps,
   SkeletonJsxProps,
   SliderJsxProps,
+  SpacedHStackJsxProps,
+  SpacedVStackJsxProps,
   SpacerJsxProps,
   SparklineJsxProps,
   SpinnerJsxProps,
   SplitPaneJsxProps,
+  StatusBarJsxProps,
   StatusJsxProps,
   TableJsxProps,
   TabsJsxProps,
@@ -114,6 +151,7 @@ import type {
   TextareaJsxProps,
   ToastContainerJsxProps,
   ToolApprovalDialogJsxProps,
+  ToolbarJsxProps,
   TreeJsxProps,
   VStackJsxProps,
   VirtualListJsxProps,
@@ -142,13 +180,22 @@ function withOptionalKey<P extends { key?: string }>(
   return { ...props, key } as P;
 }
 
+function withVNodeKey<N extends VNode>(vnode: N, key: string | undefined): N {
+  if (key === undefined) {
+    return vnode;
+  }
+  return {
+    ...vnode,
+    props: {
+      ...(vnode.props as Record<string, unknown>),
+      key,
+    },
+  } as N;
+}
+
 export function Box(props: BoxJsxProps): VNode {
   const { children, key, ...rest } = props;
-  return {
-    kind: "box",
-    props: withOptionalKey<BoxProps>(rest, key),
-    children: normalizeContainerChildren(children),
-  };
+  return ui.box(withOptionalKey<BoxProps>(rest, key), normalizeContainerChildren(children));
 }
 
 export function Row(props: RowJsxProps): VNode {
@@ -179,285 +226,282 @@ export function VStack(props: VStackJsxProps): VNode {
   return ui.vstack(withOptionalKey<ColumnProps>(rest, key), normalizeContainerChildren(children));
 }
 
+export function SpacedVStack(props: SpacedVStackJsxProps): VNode {
+  const { children, key, gap } = props;
+  const normalized = normalizeContainerChildren(children);
+  return withVNodeKey(
+    gap === undefined ? ui.spacedVStack(normalized) : ui.spacedVStack(gap, normalized),
+    key,
+  );
+}
+
+export function SpacedHStack(props: SpacedHStackJsxProps): VNode {
+  const { children, key, gap } = props;
+  const normalized = normalizeContainerChildren(children);
+  return withVNodeKey(
+    gap === undefined ? ui.spacedHStack(normalized) : ui.spacedHStack(gap, normalized),
+    key,
+  );
+}
+
 export function Layers(props: LayersJsxProps): VNode {
   const { children, key, ...rest } = props;
-  return {
-    kind: "layers",
-    props: withOptionalKey<LayersProps>(rest, key),
-    children: normalizeContainerChildren(children),
-  };
+  return ui.layers(withOptionalKey<LayersProps>(rest, key), normalizeContainerChildren(children));
 }
 
 export function FocusZone(props: FocusZoneJsxProps): VNode {
   const { children, key, ...rest } = props;
-  return {
-    kind: "focusZone",
-    props: withOptionalKey<FocusZoneProps>(rest, key),
-    children: normalizeContainerChildren(children),
-  };
+  return ui.focusZone(
+    withOptionalKey<FocusZoneProps>(rest, key),
+    normalizeContainerChildren(children),
+  );
 }
 
 export function FocusTrap(props: FocusTrapJsxProps): VNode {
   const { children, key, ...rest } = props;
-  return {
-    kind: "focusTrap",
-    props: withOptionalKey<FocusTrapProps>(rest, key),
-    children: normalizeContainerChildren(children),
-  };
+  return ui.focusTrap(
+    withOptionalKey<FocusTrapProps>(rest, key),
+    normalizeContainerChildren(children),
+  );
 }
 
 export function SplitPane(props: SplitPaneJsxProps): VNode {
   const { children, key, ...rest } = props;
-  return {
-    kind: "splitPane",
-    props: withOptionalKey<SplitPaneProps>(rest, key),
-    children: normalizeContainerChildren(children),
-  };
+  return ui.splitPane(
+    withOptionalKey<SplitPaneProps>(rest, key),
+    normalizeContainerChildren(children),
+  );
 }
 
 export function PanelGroup(props: PanelGroupJsxProps): VNode {
   const { children, key, ...rest } = props;
-  return {
-    kind: "panelGroup",
-    props: withOptionalKey<PanelGroupProps>(rest, key),
-    children: normalizeContainerChildren(children),
-  };
+  return ui.panelGroup(
+    withOptionalKey<PanelGroupProps>(rest, key),
+    normalizeContainerChildren(children),
+  );
 }
 
 export function ResizablePanel(props: ResizablePanelJsxProps): VNode {
   const { children, key, ...rest } = props;
-  return {
-    kind: "resizablePanel",
-    props: withOptionalKey<ResizablePanelProps>(rest, key),
-    children: normalizeContainerChildren(children),
-  };
+  return ui.resizablePanel(
+    withOptionalKey<ResizablePanelProps>(rest, key),
+    normalizeContainerChildren(children),
+  );
+}
+
+export function Panel(props: PanelJsxProps): VNode {
+  const { children, key, ...rest } = props;
+  return ui.panel(withOptionalKey<PanelOptions>(rest, key), normalizeContainerChildren(children));
+}
+
+export function Form(props: FormJsxProps): VNode {
+  const { children, key, ...rest } = props;
+  return ui.form(withOptionalKey<FormOptions>(rest, key), normalizeContainerChildren(children));
+}
+
+export function Actions(props: ActionsJsxProps): VNode {
+  const { children, key, ...rest } = props;
+  return ui.actions(
+    withOptionalKey<ActionsOptions>(rest, key),
+    normalizeContainerChildren(children),
+  );
+}
+
+export function Center(props: CenterJsxProps): VNode {
+  const { children, key, ...rest } = props;
+  return ui.center(children, withOptionalKey<CenterOptions>(rest, key));
+}
+
+export function Page(props: PageJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return ui.page(withOptionalKey<PageOptions>(rest, key));
+}
+
+export function AppShell(props: AppShellJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return ui.appShell(withOptionalKey<AppShellOptions>(rest, key));
+}
+
+export function Card(props: CardJsxProps): VNode {
+  const { children, key, ...rest } = props;
+  return ui.card(withOptionalKey<CardOptions>(rest, key), normalizeContainerChildren(children));
+}
+
+export function Toolbar(props: ToolbarJsxProps): VNode {
+  const { children, key, ...rest } = props;
+  return ui.toolbar(
+    withOptionalKey<ToolbarOptions>(rest, key),
+    normalizeContainerChildren(children),
+  );
+}
+
+export function StatusBar(props: StatusBarJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return ui.statusBar(withOptionalKey<StatusBarOptions>(rest, key));
+}
+
+export function Header(props: HeaderJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return ui.header(withOptionalKey<HeaderOptions>(rest, key));
+}
+
+export function Sidebar(props: SidebarJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return ui.sidebar(withOptionalKey<SidebarOptions>(rest, key));
+}
+
+export function MasterDetail(props: MasterDetailJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return ui.masterDetail(withOptionalKey<MasterDetailOptions>(rest, key));
 }
 
 export function Text(props: TextJsxProps): VNode {
   const { children, key, ...rest } = props;
-  return {
-    kind: "text",
-    text: normalizeTextChildren(children),
-    props: withOptionalKey<TextProps>(rest, key),
-  };
+  const content = normalizeTextChildren(children);
+  if (key === undefined && Object.keys(rest).length === 0) {
+    return ui.text(content);
+  }
+  return ui.text(content, withOptionalKey<TextProps>(rest, key));
 }
 
 export function Field(props: FieldJsxProps): VNode {
   const { children, key, ...rest } = props;
-  const fieldChildren: readonly VNode[] = Object.freeze([children]);
-  return {
-    kind: "field",
-    props: withOptionalKey<FieldProps>({ ...rest, children }, key),
-    children: fieldChildren,
-  };
+  return ui.field(withOptionalKey<FieldProps>({ ...rest, children }, key));
 }
 
 export function Spacer(props: SpacerJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "spacer",
-    props: withOptionalKey<SpacerProps>(rest, key),
-  };
+  return ui.spacer(withOptionalKey<SpacerProps>(rest, key));
 }
 
 export function Divider(props: DividerJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "divider",
-    props: withOptionalKey<DividerProps>(rest, key),
-  };
+  return ui.divider(withOptionalKey<DividerProps>(rest, key));
 }
 
 export function Icon(props: IconJsxProps): VNode {
-  const { key, children: _children, ...rest } = props;
-  return {
-    kind: "icon",
-    props: withOptionalKey<IconProps>(rest, key),
-  };
+  const { key, children: _children, icon, ...rest } = props;
+  return ui.icon(icon, withOptionalKey<Omit<IconProps, "icon">>(rest, key));
 }
 
 export function Spinner(props: SpinnerJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "spinner",
-    props: withOptionalKey<SpinnerProps>(rest, key),
-  };
+  return ui.spinner(withOptionalKey<SpinnerProps>(rest, key));
 }
 
 export function Progress(props: ProgressJsxProps): VNode {
-  const { key, children: _children, ...rest } = props;
-  return {
-    kind: "progress",
-    props: withOptionalKey<ProgressProps>(rest, key),
-  };
+  const { key, children: _children, value, ...rest } = props;
+  return ui.progress(value, withOptionalKey<Omit<ProgressProps, "value">>(rest, key));
 }
 
 export function Skeleton(props: SkeletonJsxProps): VNode {
-  const { key, children: _children, ...rest } = props;
-  return {
-    kind: "skeleton",
-    props: withOptionalKey<SkeletonProps>(rest, key),
-  };
+  const { key, children: _children, width, ...rest } = props;
+  return ui.skeleton(width, withOptionalKey<Omit<SkeletonProps, "width">>(rest, key));
 }
 
 export function RichText(props: RichTextJsxProps): VNode {
-  const { key, children: _children, ...rest } = props;
-  return {
-    kind: "richText",
-    props: withOptionalKey<RichTextProps>(rest, key),
-  };
+  const { key, children: _children, spans, ...rest } = props;
+  return ui.richText(spans, withOptionalKey<Omit<RichTextProps, "spans">>(rest, key));
 }
 
 export function Kbd(props: KbdJsxProps): VNode {
-  const { key, children: _children, ...rest } = props;
-  return {
-    kind: "kbd",
-    props: withOptionalKey<KbdProps>(rest, key),
-  };
+  const { key, children: _children, keys, ...rest } = props;
+  return ui.kbd(keys, withOptionalKey<Omit<KbdProps, "keys">>(rest, key));
 }
 
 export function Badge(props: BadgeJsxProps): VNode {
-  const { key, children: _children, ...rest } = props;
-  return {
-    kind: "badge",
-    props: withOptionalKey<BadgeProps>(rest, key),
-  };
+  const { key, children: _children, text, ...rest } = props;
+  return ui.badge(text, withOptionalKey<Omit<BadgeProps, "text">>(rest, key));
 }
 
 export function Status(props: StatusJsxProps): VNode {
-  const { key, children: _children, ...rest } = props;
-  return {
-    kind: "status",
-    props: withOptionalKey<StatusProps>(rest, key),
-  };
+  const { key, children: _children, status, ...rest } = props;
+  return ui.status(status, withOptionalKey<Omit<StatusProps, "status">>(rest, key));
 }
 
 export function Tag(props: TagJsxProps): VNode {
-  const { key, children: _children, ...rest } = props;
-  return {
-    kind: "tag",
-    props: withOptionalKey<TagProps>(rest, key),
-  };
+  const { key, children: _children, text, ...rest } = props;
+  return ui.tag(text, withOptionalKey<Omit<TagProps, "text">>(rest, key));
 }
 
 export function Gauge(props: GaugeJsxProps): VNode {
-  const { key, children: _children, ...rest } = props;
-  return {
-    kind: "gauge",
-    props: withOptionalKey<GaugeProps>(rest, key),
-  };
+  const { key, children: _children, value, ...rest } = props;
+  return ui.gauge(value, withOptionalKey<Omit<GaugeProps, "value">>(rest, key));
 }
 
 export function Empty(props: EmptyJsxProps): VNode {
-  const { key, children: _children, ...rest } = props;
-  return {
-    kind: "empty",
-    props: withOptionalKey<EmptyProps>(rest, key),
-  };
+  const { key, children: _children, title, ...rest } = props;
+  return ui.empty(title, withOptionalKey<Omit<EmptyProps, "title">>(rest, key));
 }
 
 export function ErrorDisplay(props: ErrorDisplayJsxProps): VNode {
-  const { key, children: _children, ...rest } = props;
-  return {
-    kind: "errorDisplay",
-    props: withOptionalKey<ErrorDisplayProps>(rest, key),
-  };
+  const { key, children: _children, message, ...rest } = props;
+  return ui.errorDisplay(message, withOptionalKey<Omit<ErrorDisplayProps, "message">>(rest, key));
+}
+
+export function ErrorBoundary(props: ErrorBoundaryJsxProps): VNode {
+  const { key, children, fallback } = props;
+  return ui.errorBoundary(withOptionalKey<ErrorBoundaryProps>({ children, fallback }, key));
 }
 
 export function Callout(props: CalloutJsxProps): VNode {
-  const { key, children: _children, ...rest } = props;
-  return {
-    kind: "callout",
-    props: withOptionalKey<CalloutProps>(rest, key),
-  };
+  const { key, children: _children, message, ...rest } = props;
+  return ui.callout(message, withOptionalKey<Omit<CalloutProps, "message">>(rest, key));
 }
 
 export function Link(props: LinkJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "link",
-    props: withOptionalKey<LinkProps>(rest, key),
-  };
+  return ui.link(withOptionalKey<LinkProps>(rest, key));
 }
 
 export function Canvas(props: CanvasJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "canvas",
-    props: withOptionalKey<CanvasProps>(rest, key),
-  };
+  return ui.canvas(withOptionalKey<CanvasProps>(rest, key));
 }
 
 export function Image(props: ImageJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "image",
-    props: withOptionalKey<ImageProps>(rest, key),
-  };
+  return ui.image(withOptionalKey<ImageProps>(rest, key));
 }
 
 export function LineChart(props: LineChartJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "lineChart",
-    props: withOptionalKey<LineChartProps>(rest, key),
-  };
+  return ui.lineChart(withOptionalKey<LineChartProps>(rest, key));
 }
 
 export function Scatter(props: ScatterJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "scatter",
-    props: withOptionalKey<ScatterProps>(rest, key),
-  };
+  return ui.scatter(withOptionalKey<ScatterProps>(rest, key));
 }
 
 export function Heatmap(props: HeatmapJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "heatmap",
-    props: withOptionalKey<HeatmapProps>(rest, key),
-  };
+  return ui.heatmap(withOptionalKey<HeatmapProps>(rest, key));
 }
 
 export function Sparkline(props: SparklineJsxProps): VNode {
-  const { key, children: _children, ...rest } = props;
-  return {
-    kind: "sparkline",
-    props: withOptionalKey<SparklineProps>(rest, key),
-  };
+  const { key, children: _children, data, ...rest } = props;
+  return ui.sparkline(data, withOptionalKey<Omit<SparklineProps, "data">>(rest, key));
 }
 
 export function BarChart(props: BarChartJsxProps): VNode {
-  const { key, children: _children, ...rest } = props;
-  return {
-    kind: "barChart",
-    props: withOptionalKey<BarChartProps>(rest, key),
-  };
+  const { key, children: _children, data, ...rest } = props;
+  return ui.barChart(data, withOptionalKey<Omit<BarChartProps, "data">>(rest, key));
 }
 
 export function MiniChart(props: MiniChartJsxProps): VNode {
-  const { key, children: _children, ...rest } = props;
-  return {
-    kind: "miniChart",
-    props: withOptionalKey<MiniChartProps>(rest, key),
-  };
+  const { key, children: _children, values, ...rest } = props;
+  return ui.miniChart(values, withOptionalKey<Omit<MiniChartProps, "values">>(rest, key));
 }
 
 export function Button(props: ButtonJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "button",
-    props: withOptionalKey<ButtonProps>(rest, key),
-  };
+  return ui.button(withOptionalKey<ButtonProps>(rest, key));
 }
 
 export function Input(props: InputJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "input",
-    props: withOptionalKey<InputProps>(rest, key),
-  };
+  return ui.input(withOptionalKey<InputProps>(rest, key));
 }
 
 export function Textarea(props: TextareaJsxProps): VNode {
@@ -472,74 +516,52 @@ export function Slider(props: SliderJsxProps): VNode {
 
 export function VirtualList<T = unknown>(props: VirtualListJsxProps<T>): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "virtualList",
-    props: withOptionalKey<VirtualListProps<T>>(rest, key) as VirtualListProps<unknown>,
-  };
+  return ui.virtualList(withOptionalKey<VirtualListProps<T>>(rest, key));
+}
+
+export function Dialog(props: DialogJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return ui.dialog(withOptionalKey<DialogProps>(rest, key));
 }
 
 export function Modal(props: ModalJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "modal",
-    props: withOptionalKey<ModalProps>(rest, key),
-  };
+  return ui.modal(withOptionalKey<ModalProps>(rest, key));
 }
 
 export function Dropdown(props: DropdownJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "dropdown",
-    props: withOptionalKey<DropdownProps>(rest, key),
-  };
+  return ui.dropdown(withOptionalKey<DropdownProps>(rest, key));
 }
 
 export function Layer(props: LayerJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "layer",
-    props: withOptionalKey<LayerProps>(rest, key),
-  };
+  return ui.layer(withOptionalKey<LayerProps>(rest, key));
 }
 
 export function Table<T = unknown>(props: TableJsxProps<T>): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "table",
-    props: withOptionalKey<TableProps<T>>(rest, key) as TableProps<unknown>,
-  };
+  return ui.table(withOptionalKey<TableProps<T>>(rest, key));
 }
 
 export function Tree<T = unknown>(props: TreeJsxProps<T>): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "tree",
-    props: withOptionalKey<TreeProps<T>>(rest, key) as TreeProps<unknown>,
-  };
+  return ui.tree(withOptionalKey<TreeProps<T>>(rest, key));
 }
 
 export function Select(props: SelectJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "select",
-    props: withOptionalKey<SelectProps>(rest, key),
-  };
+  return ui.select(withOptionalKey<SelectProps>(rest, key));
 }
 
 export function Checkbox(props: CheckboxJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "checkbox",
-    props: withOptionalKey<CheckboxProps>(rest, key),
-  };
+  return ui.checkbox(withOptionalKey<CheckboxProps>(rest, key));
 }
 
 export function RadioGroup(props: RadioGroupJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "radioGroup",
-    props: withOptionalKey<RadioGroupProps>(rest, key),
-  };
+  return ui.radioGroup(withOptionalKey<RadioGroupProps>(rest, key));
 }
 
 export function Tabs(props: TabsJsxProps): VNode {
@@ -562,68 +584,64 @@ export function Pagination(props: PaginationJsxProps): VNode {
   return ui.pagination(withOptionalKey<PaginationProps>(rest, key));
 }
 
+export function FocusAnnouncer(props: FocusAnnouncerJsxProps): VNode {
+  const { key, children: _children, ...rest } = props;
+  return ui.focusAnnouncer(withOptionalKey<FocusAnnouncerProps>(rest, key));
+}
+
+export function KeybindingHelp(props: KeybindingHelpJsxProps): VNode {
+  const { key, children: _children, bindings, ...rest } = props;
+  return ui.keybindingHelp(bindings, withOptionalKey<KeybindingHelpOptions>(rest, key));
+}
+
+export function RouterBreadcrumb<S = unknown>(props: RouterBreadcrumbJsxProps<S>): VNode {
+  const { key, children: _children, router, routes, ...rest } = props;
+  return ui.routerBreadcrumb(router, routes, withOptionalKey<RouterBreadcrumbProps>(rest, key));
+}
+
+export function RouterTabs<S = unknown>(props: RouterTabsJsxProps<S>): VNode {
+  const { key, children: _children, router, routes, ...rest } = props;
+  return ui.routerTabs(router, routes, withOptionalKey<RouterTabsProps>(rest, key));
+}
+
 export function CommandPalette(props: CommandPaletteJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "commandPalette",
-    props: withOptionalKey<CommandPaletteProps>(rest, key),
-  };
+  return ui.commandPalette(withOptionalKey<CommandPaletteProps>(rest, key));
 }
 
 export function FilePicker(props: FilePickerJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "filePicker",
-    props: withOptionalKey<FilePickerProps>(rest, key),
-  };
+  return ui.filePicker(withOptionalKey<FilePickerProps>(rest, key));
 }
 
 export function FileTreeExplorer(props: FileTreeExplorerJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "fileTreeExplorer",
-    props: withOptionalKey<FileTreeExplorerProps>(rest, key),
-  };
+  return ui.fileTreeExplorer(withOptionalKey<FileTreeExplorerProps>(rest, key));
 }
 
 export function CodeEditor(props: CodeEditorJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "codeEditor",
-    props: withOptionalKey<CodeEditorProps>(rest, key),
-  };
+  return ui.codeEditor(withOptionalKey<CodeEditorProps>(rest, key));
 }
 
 export function DiffViewer(props: DiffViewerJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "diffViewer",
-    props: withOptionalKey<DiffViewerProps>(rest, key),
-  };
+  return ui.diffViewer(withOptionalKey<DiffViewerProps>(rest, key));
 }
 
 export function ToolApprovalDialog(props: ToolApprovalDialogJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "toolApprovalDialog",
-    props: withOptionalKey<ToolApprovalDialogProps>(rest, key),
-  };
+  return ui.toolApprovalDialog(withOptionalKey<ToolApprovalDialogProps>(rest, key));
 }
 
 export function LogsConsole(props: LogsConsoleJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "logsConsole",
-    props: withOptionalKey<LogsConsoleProps>(rest, key),
-  };
+  return ui.logsConsole(withOptionalKey<LogsConsoleProps>(rest, key));
 }
 
 export function ToastContainer(props: ToastContainerJsxProps): VNode {
   const { key, children: _children, ...rest } = props;
-  return {
-    kind: "toastContainer",
-    props: withOptionalKey<ToastContainerProps>(rest, key),
-  };
+  return ui.toastContainer(withOptionalKey<ToastContainerProps>(rest, key));
 }
 
 export function Fragment(props: { children?: JsxChildren; key?: string }): VNode {

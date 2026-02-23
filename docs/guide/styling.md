@@ -66,6 +66,15 @@ Switching themes at runtime:
 app.setTheme(darkTheme);
 ```
 
+## Beautiful Defaults
+
+When using a `ThemeDefinition` preset (`darkTheme`, `lightTheme`, etc.),
+interactive widgets automatically receive recipe-based styling.
+
+- No `dsVariant`/`dsTone` is required for baseline polished styling.
+- Widgets opt into DS defaults automatically when semantic color tokens are present.
+- Manual `style` overrides merge on top of recipe output (they do not disable recipes).
+
 Runtime guarantees for `setTheme`:
 
 - it can be called before `start()` and while running

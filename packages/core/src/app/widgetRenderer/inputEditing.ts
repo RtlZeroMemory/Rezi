@@ -28,10 +28,26 @@ type RouteInputEditingEventContext = Readonly<{
   inputWorkingValueByInstanceId: Map<InstanceId, string>;
   inputUndoByInstanceId: Map<InstanceId, InputUndoStack>;
   writeSelectedTextToClipboard: (text: string) => void;
+  onInputCallbackError: (error: unknown) => void;
 }>;
 
 const ROUTE_RENDER: InputEditingRoutingOutcome = Object.freeze({ needsRender: true });
 const ROUTE_NO_RENDER: InputEditingRoutingOutcome = Object.freeze({ needsRender: false });
+
+function invokeOnInputSafely(
+  meta: InputMeta,
+  value: string,
+  cursor: number,
+  onError: (error: unknown) => void,
+): void {
+  const callback = meta.onInput;
+  if (typeof callback !== "function") return;
+  try {
+    callback(value, cursor);
+  } catch (error: unknown) {
+    onError(error);
+  }
+}
 
 export function readInputSnapshot(
   meta: InputMeta,
@@ -40,7 +56,10 @@ export function readInputSnapshot(
   inputSelectionByInstanceId: ReadonlyMap<InstanceId, InputSelection>,
 ): InputEditorSnapshot {
   const value = inputWorkingValueByInstanceId.get(meta.instanceId) ?? meta.value;
-  const cursor = normalizeInputCursor(value, inputCursorByInstanceId.get(meta.instanceId) ?? value.length);
+  const cursor = normalizeInputCursor(
+    value,
+    inputCursorByInstanceId.get(meta.instanceId) ?? value.length,
+  );
   const selection = inputSelectionByInstanceId.get(meta.instanceId);
   const normalizedSelection = normalizeInputSelection(
     value,
@@ -118,7 +137,11 @@ export function routeInputEditingEvent(
     const isShift = (event.mods & ZR_MOD_SHIFT) !== 0;
 
     if (event.key === 67 /* C */ || event.key === 88 /* X */) {
-      const selected = getInputSelectionText(current.value, current.selectionStart, current.selectionEnd);
+      const selected = getInputSelectionText(
+        current.value,
+        current.selectionStart,
+        current.selectionEnd,
+      );
       if (selected && selected.length > 0) {
         ctx.writeSelectedTextToClipboard(selected);
         if (event.key === 88 /* X */) {
@@ -147,7 +170,7 @@ export function routeInputEditingEvent(
             );
             history.push(current, next, event.timeMs, false);
 
-            if (meta.onInput) meta.onInput(next.value, next.cursor);
+            invokeOnInputSafely(meta, next.value, next.cursor, ctx.onInputCallbackError);
             const action: RoutedAction = Object.freeze({
               id: focusedId,
               action: "input",
@@ -171,7 +194,7 @@ export function routeInputEditingEvent(
           ctx.inputCursorByInstanceId,
           ctx.inputSelectionByInstanceId,
         );
-        if (meta.onInput) meta.onInput(snap.value, snap.cursor);
+        invokeOnInputSafely(meta, snap.value, snap.cursor, ctx.onInputCallbackError);
         const action: RoutedAction = Object.freeze({
           id: focusedId,
           action: "input",
@@ -209,7 +232,7 @@ export function routeInputEditingEvent(
   );
   if (edit.action) {
     history.push(current, next, event.timeMs, event.kind === "text");
-    if (meta.onInput) meta.onInput(edit.action.value, edit.action.cursor);
+    invokeOnInputSafely(meta, edit.action.value, edit.action.cursor, ctx.onInputCallbackError);
     return Object.freeze({ needsRender: true, action: edit.action });
   }
   return ROUTE_RENDER;

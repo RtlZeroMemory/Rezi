@@ -101,6 +101,14 @@ Trap activation focus rules:
 
 - `initialFocus` should point to an element inside the trap for guaranteed containment.
 - If `initialFocus` is not focusable in the committed tree, focus falls back to the first focusable element inside the trap.
+- `returnFocusTo` restores focus to the opener/target when the trap deactivates.
+- Modal + trap focus restore now runs end-to-end (open and close flows).
+
+### Focus indicator styling
+
+When a `ThemeDefinition` preset is active, focus indicators are DS-driven and use
+the `focus.ring` token color. In legacy themes without semantic focus tokens,
+focus falls back to underline + bold behavior.
 
 ## Semantic Focus Labels
 

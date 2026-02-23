@@ -48,6 +48,19 @@ describe("input recipe rendering", () => {
     );
   });
 
+  test("textarea renders placeholder when value is empty", () => {
+    const ops = renderOps(
+      ui.row({ height: 3, items: "stretch" }, [
+        ui.textarea({ id: "ta", value: "", placeholder: "Enter text..." }),
+      ]),
+      { viewport: { cols: 40, rows: 6 }, theme: defaultTheme },
+    );
+    const text = firstDrawText(ops, (s) => s.includes("Enter text..."));
+    assert.ok(text && text.kind === "drawText");
+    if (!text || text.kind !== "drawText") return;
+    assert.equal(text.text.includes("Enter text..."), true);
+  });
+
   test("increases left padding when dsSize is lg", () => {
     const mdOps = renderOps(
       ui.column({ width: 20, items: "stretch" }, [ui.input("i-md", "", { placeholder: "Name" })]),

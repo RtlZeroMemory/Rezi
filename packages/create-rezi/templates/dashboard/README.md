@@ -8,6 +8,8 @@ Scaffolded with `create-rezi` using the **__TEMPLATE_LABEL__** template.
 - Deterministic telemetry updates via `useStream(...)` + async iterable ingestion.
 - Operator dashboard patterns: fleet summary, filtered list, service inspector, and help modal.
 - Theme cycling and keyboard-driven controls designed for fast operational workflows.
+- `ui.panel()` section composition with recipe-styled table defaults (`dsSize`/`dsTone`).
+- Wheel-scroll-friendly containers (`overflow: "scroll"`) for dense service lanes.
 
 ## File Layout
 

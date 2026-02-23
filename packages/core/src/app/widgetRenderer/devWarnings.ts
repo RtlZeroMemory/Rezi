@@ -25,11 +25,7 @@ export function describeLayoutNode(node: LayoutTree): string {
   return `${node.vnode.kind}${id}`;
 }
 
-export function warnLayoutIssue(
-  ctx: WarnLayoutIssueContext,
-  key: string,
-  detail: string,
-): void {
+export function warnLayoutIssue(ctx: WarnLayoutIssueContext, key: string, detail: string): void {
   if (!ctx.devMode) return;
   if (ctx.warnedLayoutIssues.has(key)) return;
   ctx.warnedLayoutIssues.add(key);
@@ -93,7 +89,11 @@ export function emitDevLayoutWarnings(
         `${desc} rendered with 0 items. Hint: Ensure your data is loaded before rendering virtualList.`,
       );
     }
-    if (node.vnode.kind === "table" && Array.isArray(nodeProps?.data) && nodeProps.data.length === 0) {
+    if (
+      node.vnode.kind === "table" &&
+      Array.isArray(nodeProps?.data) &&
+      nodeProps.data.length === 0
+    ) {
       warnLayoutIssue(
         ctx,
         `emptyTable:${desc}`,

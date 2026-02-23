@@ -1,6 +1,6 @@
-import type { VNode } from "../../widgets/types.js";
 import type { RuntimeInstance } from "../../runtime/commit.js";
 import type { InstanceId } from "../../runtime/instance.js";
+import type { VNode } from "../../widgets/types.js";
 
 let activeDirtySet: Set<VNode> | null = null;
 const dirtySetStack: Array<Set<VNode> | null> = [];

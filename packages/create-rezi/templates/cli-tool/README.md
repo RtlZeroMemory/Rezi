@@ -4,10 +4,11 @@ Scaffolded with `create-rezi` using the **__TEMPLATE_LABEL__** template.
 
 ## What This Template Demonstrates
 
-- Multi-screen CLI workflow powered by first-party `createApp({ routes })` routing.
+- Multi-screen CLI workflow powered by first-party `createNodeApp({ routes })` routing.
 - Multi-file structure for maintainability (`types`, `theme`, `helpers`, `screens`, `main`).
 - Streamed logs + settings forms + global route keybindings.
 - Route shell pattern you can extend for additional screens.
+- `ui.page()` + `ui.panel()` composition with intent-based button styling.
 
 ## Screens
 

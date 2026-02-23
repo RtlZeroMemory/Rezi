@@ -73,6 +73,14 @@ The Node/Bun backend supports three execution modes:
 - **`"worker"`**: native engine runs on a dedicated worker thread. Main thread is never blocked by terminal I/O.
 - **`"inline"`**: engine runs on the main thread. Lower latency, but main thread blocks during I/O.
 
+### Widget Protocol Registry
+
+Widget capability detection is centralized in `packages/core/src/widgets/protocol.ts`.
+The render/runtime pipeline no longer relies on scattered hardcoded widget-kind checks.
+Instead, capability helpers are unified through protocol lookups (for example,
+interactive/focusable/pressable detection), so commit, focus metadata, hit-testing,
+and routing all interpret widget kinds consistently.
+
 ## Design Constraints
 
 **No Node.js APIs in core.** `@rezi-ui/core` must remain runtime-agnostic. It contains no `Buffer`, `worker_threads`, `fs`, or `node:*` imports. This is enforced by CI.

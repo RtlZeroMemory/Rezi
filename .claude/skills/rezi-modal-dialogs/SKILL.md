@@ -53,13 +53,20 @@ Use this skill when:
            ui.modal({
              id: "confirm-modal",
              title: "Confirm",
+             initialFocus: "confirm-ok",
+             returnFocusTo: "open-confirm",
              onClose: () => app.update((s) => ({ ...s, showModal: false })),
              content: ui.text("Are you sure?"),
+             actions: [ui.button({ id: "confirm-ok", label: "OK" })],
            }),
          ]
        : []),
    ]);
    ```
+
+2. **Overlay ordering note**:
+   - Modal, dropdown, and toast overlays share unified z-ordering through the LayerRegistry.
+   - Prefer `ui.layers([...])` as the common overlay composition root.
 
 ## Verification
 

@@ -1,6 +1,11 @@
 ---
 name: rezi-keybindings
 description: Set up keyboard shortcuts and chord bindings for a Rezi app. Use when adding hotkeys, key combos, or modal input modes.
+user-invocable: true
+allowed-tools: Read, Glob, Grep, Edit, Write
+argument-hint: "[key-combo or mode-name]"
+metadata:
+  short-description: Set up keybindings
 ---
 
 ## When to use
@@ -42,6 +47,14 @@ Use this skill when:
    ```typescript
    ui.keybindingHelp(app.getBindings())
    ```
+
+## Overlay shortcut hints
+
+Dropdown and CommandPalette `shortcut` fields are currently display/search hints.
+
+- `routeDropdownKey(...)` handles navigation keys (`Up`, `Down`, `Enter`, `Space`, `Escape`).
+- CommandPalette shows shortcut text and uses it in filtering, but does not auto-bind combos.
+- Register real shortcut combos explicitly with `app.keys()` or `app.modes()`.
 
 ## Key format reference
 

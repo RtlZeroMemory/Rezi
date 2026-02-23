@@ -16,18 +16,18 @@ import {
   mapSeriesToPoints,
 } from "../../../widgets/lineChart.js";
 import { getScatterRange, mapScatterPointsToPixels } from "../../../widgets/scatter.js";
+import type { GraphicsBlitter } from "../../../widgets/types.js";
 import { asTextStyle } from "../../styles.js";
 import { isVisibleRect } from "../indices.js";
 import { mergeTextStyle } from "../textStyle.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
-import type { GraphicsBlitter } from "../../../widgets/types.js";
+import { addBlobAligned, drawPlaceholderBox, rgbToHex } from "./renderCanvasWidgets.js";
 import {
+  type StyledSegment,
   drawSegments,
   truncateToWidth,
   variantToThemeColor,
-  type StyledSegment,
 } from "./renderTextWidgets.js";
-import { addBlobAligned, drawPlaceholderBox, rgbToHex } from "./renderCanvasWidgets.js";
 
 type MaybeFillOwnBackground = (
   builder: DrawlistBuilderV1,

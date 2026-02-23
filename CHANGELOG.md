@@ -6,17 +6,35 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
-### Added
+### Bug Fixes
 
-- Beautiful-by-default widget styling via design system recipes:
-  - Buttons, inputs/textareas, selects, checkboxes, progress bars, and callouts now render with recipe styling by default when semantic theme tokens are available.
-- `intent` prop on `ButtonProps` (`"primary" | "secondary" | "danger" | "success" | "warning" | "link"`) as a shorthand for `dsVariant`/`dsTone` (and `dsSize` for link).
-- `preset` prop on `BoxProps` (`"card" | "surface" | "well" | "elevated"`) for consistent container defaults.
-- Composition helpers: `ui.appShell`, `ui.card`, `ui.toolbar`, `ui.statusBar`, `ui.header`, `ui.sidebar`, `ui.masterDetail`.
+- **protocol**: Fixed ABI mouse-kind mapping drift between C engine and TypeScript.
+- **widgets**: `link` now participates in hit-testing and is clickable via mouse.
+- **runtime**: `useEffect` cleanup no longer runs during render phase.
+- **widgets**: `dialog` action `intent` prop is respected in rendering.
+- **focus**: Modal `initialFocus` and `returnFocusTo` props are now functional.
+- **style**: `sanitizeTextStyle()` preserves `underlineStyle` and `underlineColor`.
+- **layout**: `focusZone` and `focusTrap` no longer impose implicit column layout on children.
 
-### Changed
+### Features
 
-- **Breaking (alpha):** manual styling props (`style`, `pressedStyle`, `trackStyle`, `px`) no longer opt out of recipe styling when semantic tokens are available; they are merged on top of the recipe result.
+- **runtime**: Widget protocol registry centralizes widget capability detection.
+- **events**: Extended `RoutedAction` union (`toggle`, `select`, `rowPress`, `change`, `activate`, `scroll`) now surfaces through `UiEvent`.
+- **overlays**: Unified overlay system; dropdowns and toasts register in `LayerRegistry`.
+- **input**: Generic wheel routing for `overflow: "scroll"` containers.
+- **design-system**: Recipes wired into input, checkbox, select, table, progress, badge, and callout rendering paths.
+- **shortcuts**: Dropdown and CommandPalette item `shortcut` labels are documented as hint/display metadata (and command-palette query matching input).
+- **focus**: Unified DS focus indicators use `focus.ring` token color.
+
+### Developer Experience
+
+- **errors**: `ZRUI_DUPLICATE_ID` includes both widget kinds and a `ctx.id()` hint.
+- **errors**: `ZRUI_DUPLICATE_KEY` includes duplicate key value + parent context.
+- **errors**: `ZRUI_INVALID_PROPS` includes prop name, widget kind, and expected type.
+- **errors**: `ZRUI_UPDATE_DURING_RENDER` includes event-handler guidance.
+- **refactor**: Centralized ID codec replaces duplicated encode/decode logic in tabs/accordion/breadcrumb.
+- **refactor**: Shared dropdown geometry helper removes duplication between renderer and routing.
+- **docs**: Added a comprehensive "Using JSX" guide for `@rezi-ui/jsx`, including setup, parity mapping to `ui.*()`, and component reference coverage.
 
 ## [0.1.0-alpha.30] - 2026-02-22
 

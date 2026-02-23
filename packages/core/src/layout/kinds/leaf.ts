@@ -1,11 +1,11 @@
 import { resolveIconGlyph } from "../../icons/index.js";
-import type { VNode } from "../../widgets/types.js";
 import { type WidgetSize, resolveSize } from "../../ui/designTokens.js";
 import {
   DEFAULT_SLIDER_TRACK_WIDTH,
   formatSliderValue,
   normalizeSliderState,
 } from "../../widgets/slider.js";
+import type { VNode } from "../../widgets/types.js";
 import { layoutLeaf } from "../engine/layoutTree.js";
 import { ok } from "../engine/result.js";
 import type { LayoutTree } from "../engine/types.js";

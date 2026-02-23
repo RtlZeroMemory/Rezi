@@ -1,6 +1,6 @@
 import type { DrawlistBuilderV2 } from "../../drawlist/index.js";
-import type { Rect } from "../../layout/types.js";
 import { measureTextCells } from "../../layout/textMeasure.js";
+import type { Rect } from "../../layout/types.js";
 import type { CursorInfo } from "../../renderer/renderToDrawlist.js";
 import type { RuntimeInstance } from "../../runtime/commit.js";
 import type { FocusManagerState } from "../../runtime/focus.js";
@@ -306,7 +306,12 @@ export function emitIncrementalCursor(
   let cursorY = rect.y;
   if (input.multiline) {
     const contentW = Math.max(1, rect.w - 2);
-    const resolved = resolveInputMultilineCursor(input.value, graphemeOffset, contentW, input.wordWrap);
+    const resolved = resolveInputMultilineCursor(
+      input.value,
+      graphemeOffset,
+      contentW,
+      input.wordWrap,
+    );
     const maxStartVisual = Math.max(0, resolved.totalVisualLines - rect.h);
     const startVisual = Math.max(0, Math.min(maxStartVisual, resolved.visualLine - rect.h + 1));
     const localY = resolved.visualLine - startVisual;
@@ -378,9 +383,7 @@ export function updateRuntimeBreadcrumbSnapshot(
   });
 }
 
-export function snapshotRenderedFrameState(
-  params: SnapshotRenderedFrameStateParams,
-): Readonly<{
+export function snapshotRenderedFrameState(params: SnapshotRenderedFrameStateParams): Readonly<{
   hasRenderedFrame: boolean;
   lastRenderedViewport: CursorBreadcrumbViewport;
   lastRenderedThemeRef: Theme;

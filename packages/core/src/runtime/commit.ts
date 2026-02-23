@@ -1328,7 +1328,14 @@ function commitNode(
     if (ctx.composite) {
       const compositeMeta = getCompositeMeta(vnode);
       if (compositeMeta) {
-        return executeCompositeRender(instanceId, vnode, compositeMeta, ctx, [nodePath], layoutDepth);
+        return executeCompositeRender(
+          instanceId,
+          vnode,
+          compositeMeta,
+          ctx,
+          [nodePath],
+          layoutDepth,
+        );
       }
     }
 

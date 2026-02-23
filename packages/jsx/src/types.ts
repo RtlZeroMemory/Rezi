@@ -1,44 +1,60 @@
 import type {
   AccordionProps,
+  AppShellOptions,
   BadgeProps,
   BarChartProps,
   BoxProps,
   BreadcrumbProps,
   ButtonProps,
   CalloutProps,
+  CardOptions,
   CheckboxProps,
   CodeEditorProps,
   CommandPaletteProps,
+  DialogProps,
   DiffViewerProps,
   DividerProps,
   DropdownProps,
   EmptyProps,
+  ErrorBoundaryError,
+  ErrorBoundaryProps,
   ErrorDisplayProps,
   FieldProps,
   FilePickerProps,
   FileTreeExplorerProps,
+  FocusAnnouncerProps,
   GaugeProps,
+  HeaderOptions,
   IconProps,
   InputProps,
   KbdProps,
   LayerProps,
   LayersProps,
   LogsConsoleProps,
+  MasterDetailOptions,
   MiniChartProps,
   ModalProps,
+  PageOptions,
   PaginationProps,
   PanelGroupProps,
   ProgressProps,
   RadioGroupProps,
+  RegisteredBinding,
   ResizablePanelProps,
   RichTextProps,
+  RouteDefinition,
+  RouterApi,
+  RouterBreadcrumbProps,
+  RouterTabsProps,
   SelectProps,
+  SidebarOptions,
   SkeletonProps,
   SliderProps,
   SpacerProps,
   SparklineProps,
   SpinnerProps,
   SplitPaneProps,
+  StatusBarOptions,
   StatusProps,
   TableProps,
   TabsProps,
@@ -47,6 +63,7 @@ import type {
   TextareaProps,
   ToastContainerProps,
   ToolApprovalDialogProps,
+  ToolbarOptions,
   TreeProps,
   VNode,
   VirtualListProps,
@@ -104,18 +121,68 @@ export type WithSingleChild<P extends { key?: string; children: VNode }> = Omit<
   children: VNode;
 };
 
+export type PanelOptions = Readonly<{
+  id?: string;
+  key?: string;
+  title?: string;
+  variant?: BoxProps["border"];
+  p?: BoxProps["p"];
+  gap?: ColumnProps["gap"];
+  style?: BoxProps["style"];
+}>;
+
+export type FormOptions = Readonly<{
+  id?: string;
+  key?: string;
+  gap?: ColumnProps["gap"];
+}>;
+
+export type ActionsOptions = Readonly<{
+  id?: string;
+  key?: string;
+  gap?: RowProps["gap"];
+}>;
+
+export type CenterOptions = Readonly<{
+  id?: string;
+  key?: string;
+  p?: ColumnProps["p"];
+}>;
+
+export type KeybindingHelpOptions = Readonly<{
+  key?: string;
+  title?: string;
+  emptyText?: string;
+  showMode?: boolean;
+  sort?: boolean;
+}>;
+
 export type BoxJsxProps = WithContainerChildren<BoxProps>;
 export type RowJsxProps = WithContainerChildren<RowProps>;
 export type ColumnJsxProps = WithContainerChildren<ColumnProps>;
 export type GridJsxProps = WithContainerChildren<GridPropsWithOptionalKey>;
 export type HStackJsxProps = WithContainerChildren<RowProps>;
 export type VStackJsxProps = WithContainerChildren<ColumnProps>;
+export type SpacedVStackJsxProps = Readonly<{ key?: string; gap?: number; children?: JsxChildren }>;
+export type SpacedHStackJsxProps = Readonly<{ key?: string; gap?: number; children?: JsxChildren }>;
 export type LayersJsxProps = WithContainerChildren<LayersProps>;
 export type FocusZoneJsxProps = WithContainerChildren<FocusZoneProps>;
 export type FocusTrapJsxProps = WithContainerChildren<FocusTrapProps>;
 export type SplitPaneJsxProps = WithContainerChildren<SplitPaneProps>;
 export type PanelGroupJsxProps = WithContainerChildren<PanelGroupProps>;
 export type ResizablePanelJsxProps = WithContainerChildren<ResizablePanelProps>;
+export type PanelJsxProps = WithContainerChildren<PanelOptions>;
+export type FormJsxProps = WithContainerChildren<FormOptions>;
+export type ActionsJsxProps = WithContainerChildren<ActionsOptions>;
+export type CenterJsxProps = Omit<CenterOptions, "key"> & { key?: string; children: VNode };
+export type PageJsxProps = LeafProps<PageOptions>;
+export type AppShellJsxProps = LeafProps<AppShellOptions>;
+export type CardJsxProps = WithContainerChildren<CardOptions>;
+export type ToolbarJsxProps = WithContainerChildren<ToolbarOptions>;
+export type StatusBarJsxProps = LeafProps<StatusBarOptions>;
+export type HeaderJsxProps = LeafProps<HeaderOptions>;
+export type SidebarJsxProps = LeafProps<SidebarOptions>;
+export type MasterDetailJsxProps = LeafProps<MasterDetailOptions>;
 
 export type TextJsxProps = WithTextChildren<TextProps>;
 
@@ -135,6 +202,7 @@ export type TagJsxProps = LeafProps<TagProps>;
 export type GaugeJsxProps = LeafProps<GaugeProps>;
 export type EmptyJsxProps = LeafProps<EmptyProps>;
 export type ErrorDisplayJsxProps = LeafProps<ErrorDisplayProps>;
+export type ErrorBoundaryJsxProps = WithSingleChild<ErrorBoundaryProps>;
 export type CalloutJsxProps = LeafProps<CalloutProps>;
 export type LinkJsxProps = LeafProps<LinkProps>;
 export type CanvasJsxProps = LeafProps<CanvasProps>;
@@ -159,6 +227,25 @@ export type TabsJsxProps = LeafProps<TabsProps>;
 export type AccordionJsxProps = LeafProps<AccordionProps>;
 export type BreadcrumbJsxProps = LeafProps<BreadcrumbProps>;
 export type PaginationJsxProps = LeafProps<PaginationProps>;
+export type DialogJsxProps = LeafProps<DialogProps>;
+export type FocusAnnouncerJsxProps = LeafProps<FocusAnnouncerProps>;
+export type KeybindingHelpJsxProps = KeybindingHelpOptions & {
+  key?: string;
+  bindings: readonly RegisteredBinding[];
+  children?: never;
+};
+export type RouterBreadcrumbJsxProps<S = unknown> = Omit<RouterBreadcrumbProps, "key"> & {
+  key?: string;
+  router: RouterApi;
+  routes: readonly RouteDefinition<S>[];
+  children?: never;
+};
+export type RouterTabsJsxProps<S = unknown> = Omit<RouterTabsProps, "key"> & {
+  key?: string;
+  router: RouterApi;
+  routes: readonly RouteDefinition<S>[];
+  children?: never;
+};
 export type CommandPaletteJsxProps = LeafProps<CommandPaletteProps>;
 export type FilePickerJsxProps = LeafProps<FilePickerProps>;
 export type FileTreeExplorerJsxProps = LeafProps<FileTreeExplorerProps>;
@@ -183,12 +270,26 @@ export interface ReziIntrinsicElements {
   grid: GridJsxProps;
   hstack: HStackJsxProps;
   vstack: VStackJsxProps;
+  spacedVStack: SpacedVStackJsxProps;
+  spacedHStack: SpacedHStackJsxProps;
   layers: LayersJsxProps;
   focusZone: FocusZoneJsxProps;
   focusTrap: FocusTrapJsxProps;
   splitPane: SplitPaneJsxProps;
   panelGroup: PanelGroupJsxProps;
   resizablePanel: ResizablePanelJsxProps;
+  panel: PanelJsxProps;
+  form: FormJsxProps;
+  actions: ActionsJsxProps;
+  center: CenterJsxProps;
+  page: PageJsxProps;
+  appShell: AppShellJsxProps;
+  card: CardJsxProps;
+  toolbar: ToolbarJsxProps;
+  statusBar: StatusBarJsxProps;
+  header: HeaderJsxProps;
+  sidebar: SidebarJsxProps;
+  masterDetail: MasterDetailJsxProps;
   text: TextJsxProps;
   field: FieldJsxProps;
   spacer: SpacerJsxProps;
@@ -205,6 +306,7 @@ export interface ReziIntrinsicElements {
   gauge: GaugeJsxProps;
   empty: EmptyJsxProps;
   errorDisplay: ErrorDisplayJsxProps;
+  errorBoundary: ErrorBoundaryJsxProps;
   callout: CalloutJsxProps;
   link: LinkJsxProps;
   canvas: CanvasJsxProps;
@@ -220,6 +322,7 @@ export interface ReziIntrinsicElements {
   textarea: TextareaJsxProps;
   slider: SliderJsxProps;
   virtualList: VirtualListJsxProps;
+  dialog: DialogJsxProps;
   modal: ModalJsxProps;
   dropdown: DropdownJsxProps;
   layer: LayerJsxProps;
@@ -232,6 +335,10 @@ export interface ReziIntrinsicElements {
   accordion: AccordionJsxProps;
   breadcrumb: BreadcrumbJsxProps;
   pagination: PaginationJsxProps;
+  focusAnnouncer: FocusAnnouncerJsxProps;
+  keybindingHelp: KeybindingHelpJsxProps;
+  routerBreadcrumb: RouterBreadcrumbJsxProps;
+  routerTabs: RouterTabsJsxProps;
   commandPalette: CommandPaletteJsxProps;
   filePicker: FilePickerJsxProps;
   fileTreeExplorer: FileTreeExplorerJsxProps;
@@ -244,3 +351,5 @@ export interface ReziIntrinsicElements {
 }
 
 export type ReziIntrinsicElementName = keyof ReziIntrinsicElements;
+
+export type { ErrorBoundaryError };

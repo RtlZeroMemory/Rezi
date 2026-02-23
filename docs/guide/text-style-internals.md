@@ -2,6 +2,17 @@
 
 This page documents renderer-side text style behavior that is stable and test-covered.
 
+## Sanitization Contract
+
+`sanitizeTextStyle()` preserves extended underline fields:
+
+- `underlineStyle`
+- `underlineColor`
+
+These fields are part of the text-style contract and must survive sanitization.
+Previously they could be dropped in some paths, which caused underline styling
+loss during rendering.
+
 ## Merge Semantics (Tri-State)
 
 Each boolean text attribute is merged independently with tri-state semantics:

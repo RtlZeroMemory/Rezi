@@ -5,6 +5,7 @@ Scaffolded with `create-rezi` using the **__TEMPLATE_LABEL__** template.
 ## What This Template Demonstrates
 
 - Declarative animation hooks with first-class primitives: `useTransition`, `useSpring`, `useSequence`, `useStagger`.
+- Built-in easing presets in action (`linear`, quad, and cubic families).
 - Canvas-driven reactor visualization combined with charts, gauges, and staggered module rails.
 - Reducer-managed animation targets with deterministic tick updates.
 - Responsive layout that adapts to terminal resize events.

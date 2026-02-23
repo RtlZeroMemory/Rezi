@@ -115,7 +115,9 @@ export function readBoxOpacity(node: RuntimeInstance): number {
   return clampOpacity(props?.opacity);
 }
 
-export function resolvePositionTransition(node: RuntimeInstance): ResolvedPositionTransition | null {
+export function resolvePositionTransition(
+  node: RuntimeInstance,
+): ResolvedPositionTransition | null {
   if (node.vnode.kind !== "box") return null;
 
   const props = node.vnode.props as Readonly<{ transition?: TransitionSpec }> | undefined;
@@ -136,7 +138,9 @@ export function resolvePositionTransition(node: RuntimeInstance): ResolvedPositi
   });
 }
 
-export function refreshPositionTransitionTracks(params: RefreshPositionTransitionTracksParams): void {
+export function refreshPositionTransitionTracks(
+  params: RefreshPositionTransitionTracksParams,
+): void {
   params.pooledVisitedTransitionIds.clear();
   params.pooledRuntimeStack.length = 0;
   params.pooledLayoutStack.length = 0;
@@ -294,14 +298,19 @@ export function rebuildAnimatedRectOverrides(params: RebuildAnimatedRectOverride
           ? Math.round(interpolateNumber(track.from.y, track.to.y, eased))
           : baseRect.y;
         if (track.animateSize) {
-          animatedWidth = Math.max(0, Math.round(interpolateNumber(track.from.w, track.to.w, eased)));
+          animatedWidth = Math.max(
+            0,
+            Math.round(interpolateNumber(track.from.w, track.to.w, eased)),
+          );
           animatedHeight = Math.max(
             0,
             Math.round(interpolateNumber(track.from.h, track.to.h, eased)),
           );
         }
         if (track.animateOpacity) {
-          animatedOpacity = clampOpacity(interpolateNumber(track.fromOpacity, track.toOpacity, eased));
+          animatedOpacity = clampOpacity(
+            interpolateNumber(track.fromOpacity, track.toOpacity, eased),
+          );
         }
         localOffsetX = animatedX - baseRect.x;
         localOffsetY = animatedY - baseRect.y;

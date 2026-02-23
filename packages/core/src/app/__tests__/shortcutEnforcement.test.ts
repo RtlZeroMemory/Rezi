@@ -6,8 +6,10 @@ import { ZR_MOD_CTRL } from "../../keybindings/keyCodes.js";
 import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
 import type { CommandItem, CommandSource } from "../../widgets/types.js";
+import { createApp } from "../createApp.js";
 import { WidgetRenderer } from "../widgetRenderer.js";
-import { flushMicrotasks } from "./helpers.js";
+import { encodeZrevBatchV1, flushMicrotasks, makeBackendBatch } from "./helpers.js";
+import { StubBackend } from "./stubBackend.js";
 
 // Intentional WidgetRenderer-level harness: shortcut routing is an engine-level contract.
 function noRenderHooks(): { enterRender: () => void; exitRender: () => void } {
@@ -16,6 +18,10 @@ function noRenderHooks(): { enterRender: () => void; exitRender: () => void } {
 
 function keyEvent(key: number, mods = 0, timeMs = 0): ZrevEvent {
   return { kind: "key", action: "down", key, mods, timeMs };
+}
+
+function textEvent(codepoint: number, timeMs = 0): ZrevEvent {
+  return { kind: "text", codepoint, timeMs };
 }
 
 function createNoopBackend(): RuntimeBackend {
@@ -31,6 +37,23 @@ function createNoopBackend(): RuntimeBackend {
     postUserEvent: () => {},
     getCaps: async () => DEFAULT_TERMINAL_CAPS,
   };
+}
+
+async function pushEvents(
+  backend: StubBackend,
+  events: NonNullable<Parameters<typeof encodeZrevBatchV1>[0]["events"]>,
+): Promise<void> {
+  backend.pushBatch(
+    makeBackendBatch({
+      bytes: encodeZrevBatchV1({ events }),
+    }),
+  );
+  await flushMicrotasks(20);
+}
+
+async function settleNextFrame(backend: StubBackend): Promise<void> {
+  backend.resolveNextFrame();
+  await flushMicrotasks(20);
 }
 
 describe("widget shortcut enforcement contracts", () => {
@@ -227,6 +250,114 @@ describe("widget shortcut enforcement contracts", () => {
     assert.equal(routed.needsRender, true);
     assert.deepEqual(selections, ["save"]);
     assert.equal(closeCount, 1);
+  });
+
+  test("onInput callback errors do not break text routing", () => {
+    const backend = createNoopBackend();
+    const callbackErrors: string[] = [];
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+      onUserCodeError: (detail) => callbackErrors.push(detail),
+    });
+
+    const frame = renderer.submitFrame(
+      () =>
+        ui.input({
+          id: "name",
+          value: "",
+          onInput: () => {
+            throw new Error("boom");
+          },
+        }),
+      undefined,
+      { cols: 40, rows: 6 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.equal(frame.ok, true);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    const routed = renderer.routeEngineEvent(textEvent(97, 2));
+
+    assert.deepEqual(routed.action, {
+      id: "name",
+      action: "input",
+      value: "a",
+      cursor: 1,
+    });
+    assert.equal(callbackErrors.length, 1);
+    assert.equal(callbackErrors[0], "onInput handler threw: Error: boom");
+  });
+
+  test("onBlur callback errors do not prevent focus transitions", () => {
+    const backend = createNoopBackend();
+    const callbackErrors: string[] = [];
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+      onUserCodeError: (detail) => callbackErrors.push(detail),
+    });
+
+    const frame = renderer.submitFrame(
+      () =>
+        ui.column({}, [
+          ui.input({
+            id: "first",
+            value: "1",
+            onBlur: () => {
+              throw new Error("blur-fail");
+            },
+          }),
+          ui.input({ id: "second", value: "2" }),
+        ]),
+      undefined,
+      { cols: 40, rows: 8 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.equal(frame.ok, true);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+
+    assert.equal(renderer.getFocusedId(), "second");
+    assert.equal(callbackErrors.length, 1);
+    assert.equal(callbackErrors[0], "onBlur handler threw: Error: blur-fail");
+  });
+
+  test("text events bypass keybindings while dropdown overlay is active", async () => {
+    const backend = new StubBackend();
+    let keybindingHits = 0;
+    const app = createApp({ backend, initialState: 0 });
+
+    app.keys({
+      x: () => {
+        keybindingHits++;
+      },
+    });
+    app.view(() =>
+      ui.layers([
+        ui.button({ id: "anchor", label: "Open" }),
+        ui.dropdown({
+          id: "dd",
+          anchorId: "anchor",
+          items: [{ id: "first", label: "First item" }],
+          onSelect: () => {},
+        }),
+      ]),
+    );
+
+    await app.start();
+    try {
+      await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 40, rows: 12 }]);
+      await settleNextFrame(backend);
+
+      await pushEvents(backend, [{ kind: "text", timeMs: 2, codepoint: 120 }]);
+      assert.equal(keybindingHits, 0);
+    } finally {
+      await app.stop();
+    }
   });
 
   test("invalid shortcut strings are ignored without crashing", () => {

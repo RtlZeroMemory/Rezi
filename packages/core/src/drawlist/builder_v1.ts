@@ -1,9 +1,6 @@
 import { ZR_DRAWLIST_VERSION_V1 } from "../abi.js";
+import { type DrawlistBuilderBaseOpts, DrawlistBuilderLegacyBase } from "./builderBase.js";
 import type { DrawlistBuildResult, DrawlistBuilderV1 } from "./types.js";
-import {
-  DrawlistBuilderLegacyBase,
-  type DrawlistBuilderBaseOpts,
-} from "./builderBase.js";
 
 export type DrawlistBuilderV1Opts = DrawlistBuilderBaseOpts;
 

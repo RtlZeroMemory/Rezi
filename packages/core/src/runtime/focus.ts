@@ -491,6 +491,14 @@ export function finalizeFocusWithPreCollectedMetadata(
 ): FocusManagerState {
   // Build Set for O(1) membership tests (avoids O(n) includes() calls)
   const focusSet = new Set(focusList);
+  const zoneIdSets = new Map<string, Set<string>>();
+  for (const [zoneId, zone] of collectedZones) {
+    zoneIdSets.set(zoneId, new Set(zone.focusableIds));
+  }
+  const trapFocusableSets = new Map<string, Set<string>>();
+  for (const [trapId, trap] of collectedTraps) {
+    trapFocusableSets.set(trapId, new Set(trap.focusableIds));
+  }
   const previousTrapReturnFocusById = state.trapReturnFocusById ?? new Map<string, string>();
 
   // Apply pending focus
@@ -518,11 +526,12 @@ export function finalizeFocusWithPreCollectedMetadata(
     if (trap.active && !previousTrapStackSet.has(trapId)) {
       trapStack.push(trapId);
       const trapFocusables = trap.focusableIds;
+      const trapFocusableSet = trapFocusableSets.get(trapId);
       const initialFocus = trap.initialFocus;
       const canApplyInitialFocus =
         initialFocus !== null &&
         focusSet.has(initialFocus) &&
-        (trapFocusables.length === 0 || trapFocusables.includes(initialFocus));
+        (trapFocusables.length === 0 || trapFocusableSet?.has(initialFocus) === true);
 
       if (canApplyInitialFocus && initialFocus !== null) {
         nextFocusedId = initialFocus;
@@ -559,8 +568,8 @@ export function finalizeFocusWithPreCollectedMetadata(
   // Active zone should always reflect the final focused id.
   let activeZoneId: string | null = null;
   if (nextFocusedId !== null) {
-    for (const [zoneId, zone] of collectedZones) {
-      if (zone.focusableIds.includes(nextFocusedId)) {
+    for (const [zoneId] of collectedZones) {
+      if (zoneIdSets.get(zoneId)?.has(nextFocusedId) === true) {
         activeZoneId = zoneId;
         break;
       }
@@ -570,9 +579,8 @@ export function finalizeFocusWithPreCollectedMetadata(
   // Keep remembered focus only for zones that still exist and still contain the remembered id.
   const lastFocusedByZone = new Map<string, string>();
   for (const [zoneId, rememberedId] of state.lastFocusedByZone) {
-    const zone = collectedZones.get(zoneId);
-    if (zone === undefined) continue;
-    if (!zone.focusableIds.includes(rememberedId)) continue;
+    if (!collectedZones.has(zoneId)) continue;
+    if (zoneIdSets.get(zoneId)?.has(rememberedId) !== true) continue;
     lastFocusedByZone.set(zoneId, rememberedId);
   }
   if (nextFocusedId !== null && activeZoneId !== null) {

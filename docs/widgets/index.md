@@ -250,7 +250,7 @@ Modal dialogs, dropdown menus, toast notifications, and focus management.
 | Factory | Description | Focusable | Stability |
 |---------|-------------|-----------|-----------|
 | [`ui.modal(props)`](modal.md) | Centered modal dialog with backdrop and focus trap | No | `beta` |
-| [`ui.dialog(props)`](modal.md) | Declarative dialog sugar over modal (multi-action) | No | `beta` |
+| [`ui.dialog(props)`](dialog.md) | Declarative dialog sugar over modal (multi-action) | No | `beta` |
 | [`ui.dropdown(props)`](dropdown.md) | Positioned dropdown menu with auto-flip | No | `beta` |
 | [`ui.layer(props)`](layer.md) | Generic overlay layer with z-order control | No | `beta` |
 | [`ui.toastContainer(props)`](toast.md) | Non-blocking notification stack | No | `beta` |

@@ -15,8 +15,8 @@
  * @see docs/guide/layout.md
  */
 
-import type { VNode } from "../widgets/types.js";
 import { getWidgetProtocol } from "../widgets/protocol.js";
+import type { VNode } from "../widgets/types.js";
 import type { LayoutTree } from "./layout.js";
 import { resolveSpacing } from "./spacing.js";
 import type { Rect } from "./types.js";

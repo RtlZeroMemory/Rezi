@@ -202,7 +202,9 @@ export function isDamageGranularityKind(kind: WidgetKind): boolean {
   }
 }
 
-export function shouldAttemptIncrementalRender(params: ShouldAttemptIncrementalRenderParams): boolean {
+export function shouldAttemptIncrementalRender(
+  params: ShouldAttemptIncrementalRenderParams,
+): boolean {
   if (!params.hasRenderedFrame) return false;
   if (params.doLayout) return false;
   if (params.hasActivePositionTransitions) return false;

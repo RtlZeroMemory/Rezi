@@ -29,7 +29,10 @@ ui.link({
 ## Behavior
 
 - Link text defaults to `url` when `label` is omitted.
-- With `id` and `disabled !== true`, Enter/Space/click trigger a `press` action.
+- With `id` and `disabled !== true`, links participate in focus + hit-testing and
+  Enter/Space/click trigger a `press` action.
+- Mouse clicks on link labels route through normal hit-testing now (not just
+  `readInteractiveId` fallback behavior).
 - On drawlist v3, Rezi emits hyperlink metadata; on older builders it degrades to styled text.
 
 ## Related

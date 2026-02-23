@@ -214,18 +214,16 @@ describe("modalRecipe", () => {
 });
 
 describe("badgeRecipe", () => {
-  it("maps tones to semantic foreground colors", () => {
-    assert.deepEqual(
-      badgeRecipe(darkColors, { tone: "default" }).text.fg,
-      darkColors.accent.primary,
-    );
-    assert.deepEqual(badgeRecipe(darkColors, { tone: "danger" }).text.fg, darkColors.error);
-    assert.deepEqual(badgeRecipe(darkColors, { tone: "info" }).text.fg, darkColors.info);
+  it("maps tones to semantic backgrounds with contrasting text", () => {
+    assert.deepEqual(badgeRecipe(darkColors, { tone: "default" }).bg.bg, darkColors.accent.primary);
+    assert.deepEqual(badgeRecipe(darkColors, { tone: "danger" }).bg.bg, darkColors.error);
+    assert.deepEqual(badgeRecipe(darkColors, { tone: "info" }).bg.bg, darkColors.info);
+    assert.deepEqual(badgeRecipe(darkColors, { tone: "info" }).text.fg, darkColors.fg.inverse);
   });
 
   it("resolves light-theme styling", () => {
     const result = badgeRecipe(lightColors, { tone: "success" });
-    assert.deepEqual(result.text.fg, lightColors.success);
+    assert.deepEqual(result.text.fg, lightColors.fg.inverse);
   });
 });
 

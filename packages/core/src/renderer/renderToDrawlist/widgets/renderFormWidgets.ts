@@ -5,12 +5,7 @@ import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { FocusState } from "../../../runtime/focus.js";
 import type { Theme } from "../../../theme/theme.js";
-import {
-  buttonRecipe,
-  checkboxRecipe,
-  inputRecipe,
-  selectRecipe,
-} from "../../../ui/recipes.js";
+import { buttonRecipe, checkboxRecipe, inputRecipe, selectRecipe } from "../../../ui/recipes.js";
 import {
   DEFAULT_SLIDER_TRACK_WIDTH,
   formatSliderValue,
@@ -36,7 +31,7 @@ import {
   readFocusConfig,
   resolveFocusedContentStyle,
 } from "./focusConfig.js";
-import { drawSegments, truncateToWidth, type StyledSegment } from "./renderTextWidgets.js";
+import { type StyledSegment, drawSegments, truncateToWidth } from "./renderTextWidgets.js";
 
 type ResolvedCursor = Readonly<{
   x: number;
@@ -270,11 +265,11 @@ export function renderFormWidgets(
       const id = typeof props.id === "string" ? props.id : null;
       const label = typeof props.label === "string" ? props.label : "";
       const disabled = props.disabled === true;
-      const { focused, focusVisible: effectiveFocused, focusConfig } = resolveFocusFlags(
-        focusState,
-        id,
-        props.focusConfig,
-      );
+      const {
+        focused,
+        focusVisible: effectiveFocused,
+        focusConfig,
+      } = resolveFocusFlags(focusState, id, props.focusConfig);
       const pressed = !disabled && id !== null && pressedId === id;
 
       // Design system recipe path

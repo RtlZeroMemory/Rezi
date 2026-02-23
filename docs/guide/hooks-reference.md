@@ -444,6 +444,12 @@ const Rail = defineWidget<{ labels: readonly string[]; key?: string }>((props, c
 });
 ```
 
+### Animation semantics
+
+- Retargeting mid-flight always starts a fresh run from the current interpolated value.
+- Looping sequences (`loop: true`) run continuously.
+- Animation hook configs currently do not include an `onComplete` callback field.
+
 ---
 
 ### `useDebounce`

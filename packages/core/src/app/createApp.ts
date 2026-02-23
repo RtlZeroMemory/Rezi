@@ -34,16 +34,6 @@ import {
 } from "../backend.js";
 import type { UiEvent, ZrevEvent } from "../events.js";
 import type {
-  App,
-  AppConfig,
-  AppLayoutSnapshot,
-  AppRenderMetrics,
-  DrawFn,
-  EventHandler,
-  FocusChangeHandler,
-  ViewFn,
-} from "./types.js";
-import type {
   BindingMap,
   KeyContext,
   KeybindingManagerState,
@@ -94,6 +84,16 @@ import {
 } from "./runtimeBreadcrumbs.js";
 import { AppStateMachine } from "./stateMachine.js";
 import { TurnScheduler } from "./turnScheduler.js";
+import type {
+  App,
+  AppConfig,
+  AppLayoutSnapshot,
+  AppRenderMetrics,
+  DrawFn,
+  EventHandler,
+  FocusChangeHandler,
+  ViewFn,
+} from "./types.js";
 import { type StateUpdater, UpdateQueue } from "./updateQueue.js";
 import {
   type WidgetRenderPlan,
@@ -740,6 +740,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     drawlistEncodedStringCacheCap: config.drawlistEncodedStringCacheCap,
     requestRender: requestRenderFromRenderer,
     requestView: requestViewFromRenderer,
+    onUserCodeError: (detail) => enqueueFatal("ZRUI_USER_CODE_THROW", detail),
     collectRuntimeBreadcrumbs: runtimeBreadcrumbsEnabled,
   });
   lastEmittedFocusId = widgetRenderer.getFocusedId();
@@ -1180,7 +1181,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
             }
 
             // Also route text events through keybinding system for single-character bindings
-            if (ev.kind === "text") {
+            if (ev.kind === "text" && !widgetRenderer.hasActiveOverlay()) {
               const keyCode = codepointToKeyCode(ev.codepoint);
               if (keyCode !== null) {
                 // Create a synthetic key event for keybinding matching

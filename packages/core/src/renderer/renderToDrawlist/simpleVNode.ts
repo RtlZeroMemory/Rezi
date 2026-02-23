@@ -1,10 +1,9 @@
+import type { DrawlistBuilderV1 } from "../../drawlist/types.js";
 import {
   type SpinnerVariant,
   getSpinnerFrame,
   resolveIconGlyph as resolveIconRenderGlyph,
 } from "../../icons/index.js";
-import type { DrawlistBuilderV1 } from "../../drawlist/types.js";
-import type { VNode } from "../../widgets/types.js";
 import {
   measureTextCells,
   truncateMiddle,
@@ -12,6 +11,7 @@ import {
 } from "../../layout/textMeasure.js";
 import type { Theme } from "../../theme/theme.js";
 import { resolveColor } from "../../theme/theme.js";
+import type { VNode } from "../../widgets/types.js";
 import { createShadowConfig, renderShadow } from "../shadow.js";
 import { asTextStyle, getButtonLabelStyle } from "../styles.js";
 import { readBoxBorder, renderBoxBorder } from "./boxBorder.js";

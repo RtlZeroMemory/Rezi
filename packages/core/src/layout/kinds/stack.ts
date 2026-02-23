@@ -790,8 +790,7 @@ function measureStack(
       const childSizeRes = measureNodeOnAxis(axis, child, remainingMain, crossLimit, measureNode);
       if (!childSizeRes.ok) return childSizeRes;
       const childMain = mainFromSize(axis, childSizeRes.value);
-      const childCross =
-        align === "stretch" ? crossLimit : crossFromSize(axis, childSizeRes.value);
+      const childCross = align === "stretch" ? crossLimit : crossFromSize(axis, childSizeRes.value);
 
       cursorMain = cursorMain + childMain + gap;
       remainingMain = clampNonNegative(remainingMain - childMain - gap);
@@ -916,7 +915,8 @@ function layoutStack(
         if (!probeMainRes.ok) return probeMainRes;
         const probeMain = probeMainRes.value;
 
-        const wouldOverflow = lineChildren.length > 0 && lineProbeMain + gap + probeMain > mainLimit;
+        const wouldOverflow =
+          lineChildren.length > 0 && lineProbeMain + gap + probeMain > mainLimit;
         if (wouldOverflow) {
           const linePlanRes = planWrapConstraintLine(
             axis,
@@ -1113,15 +1113,7 @@ function layoutStack(
       if (!child) continue;
 
       if (remainingMain === 0) {
-        const childRes = layoutNodeOnAxis(
-          axis,
-          child,
-          cursorMain,
-          crossOrigin,
-          0,
-          0,
-          layoutNode,
-        );
+        const childRes = layoutNodeOnAxis(axis, child, cursorMain, crossOrigin, 0, 0, layoutNode);
         if (!childRes.ok) return childRes;
         children.push(childRes.value);
         childOrdinal++;

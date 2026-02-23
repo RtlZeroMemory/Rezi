@@ -7,6 +7,10 @@ Rezi supports two related theme shapes:
 
 `app.setTheme(...)` accepts either shape.
 
+At app init/runtime, the interop bridge transparently normalizes
+`ThemeDefinition` presets to the renderer-ready legacy `Theme` shape.
+You do not need manual conversion in application code.
+
 ## Built-in presets
 
 Rezi ships six semantic presets:
@@ -17,6 +21,9 @@ Rezi ships six semantic presets:
 - `highContrastTheme`
 - `nordTheme`
 - `draculaTheme`
+
+All six presets define explicit `focus.ring` colors used by unified DS focus
+indicators.
 
 ```typescript
 import { darkTheme, nordTheme } from "@rezi-ui/core";
@@ -132,4 +139,3 @@ Related helpers:
 - `tryResolveColorToken(theme, path)`
 - `resolveColorOrRgb(theme, colorOrPath, fallback)`
 - `isValidColorPath(path)`
-

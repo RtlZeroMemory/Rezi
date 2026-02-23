@@ -111,6 +111,17 @@ await app.start();
 - `app.pendingChord` exposes in-progress chord prefixes for status feedback.
 - Use `ui.kbd(...)` to display shortcuts directly in your UI.
 
+## Overlay item shortcuts
+
+`shortcut` on dropdown and command-palette items is currently a display/filter hint.
+
+- In dropdowns, `routeDropdownKey(...)` handles navigation keys (`Up`, `Down`,
+  `Enter`, `Space`, `Escape`) but does not execute arbitrary shortcut combos.
+- In command palette, shortcut text is displayed and participates in search
+  matching, but shortcut combos are not auto-bound.
+- Register actual key combos with `app.keys()` (or `app.modes()`) and call the
+  same action handlers your overlay uses.
+
 ## Related
 
 - [Kbd](../widgets/kbd.md) - Displaying keyboard shortcuts

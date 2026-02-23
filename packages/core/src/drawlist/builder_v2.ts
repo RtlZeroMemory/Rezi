@@ -1,14 +1,10 @@
 import { ZR_DRAWLIST_VERSION_V2 } from "../abi.js";
-import type {
-  CursorState,
-  DrawlistBuildResult,
-  DrawlistBuilderV2,
-} from "./types.js";
 import {
+  type DrawlistBuilderBaseOpts,
   DrawlistBuilderLegacyBase,
   OP_SET_CURSOR,
-  type DrawlistBuilderBaseOpts,
 } from "./builderBase.js";
+import type { CursorState, DrawlistBuildResult, DrawlistBuilderV2 } from "./types.js";
 
 export type DrawlistBuilderV2Opts = DrawlistBuilderBaseOpts;
 

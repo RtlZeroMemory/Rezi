@@ -2,6 +2,7 @@ import type { ZrevEvent } from "../../events.js";
 import { ZR_MOD_CTRL, ZR_MOD_SHIFT } from "../../keybindings/keyCodes.js";
 import { measureTextCells } from "../../layout/textMeasure.js";
 import type { Rect } from "../../layout/types.js";
+import type { FocusManagerState } from "../../runtime/focus.js";
 import type { LayerRegistry } from "../../runtime/layers.js";
 import { hitTestLayers } from "../../runtime/layers.js";
 import type {
@@ -13,13 +14,14 @@ import type {
   VirtualListStateStore,
 } from "../../runtime/localState.js";
 import { routeVirtualListWheel, routeWheel } from "../../runtime/router.js";
-import { computeSelection, distributeColumnWidths } from "../../widgets/table.js";
+import type { CollectedZone } from "../../runtime/widgetMeta.js";
+import { applyFilters } from "../../widgets/logsConsole.js";
 import {
   computePanelCellSizes,
   handleDividerDrag,
   sizesToPercentages,
 } from "../../widgets/splitPane.js";
-import { applyFilters } from "../../widgets/logsConsole.js";
+import { computeSelection, distributeColumnWidths } from "../../widgets/table.js";
 import { TOAST_HEIGHT, getToastActionFocusId } from "../../widgets/toast.js";
 import { type FlattenedNode, flattenTree } from "../../widgets/tree.js";
 import type {
@@ -36,9 +38,11 @@ import type {
   TreeProps,
   VirtualListProps,
 } from "../../widgets/types.js";
-import { computeVisibleRange, getTotalHeight, resolveVirtualListItemHeightSpec } from "../../widgets/virtualList.js";
-import type { FocusManagerState } from "../../runtime/focus.js";
-import type { CollectedZone } from "../../runtime/widgetMeta.js";
+import {
+  computeVisibleRange,
+  getTotalHeight,
+  resolveVirtualListItemHeightSpec,
+} from "../../widgets/virtualList.js";
 import {
   fileNodeGetChildren,
   fileNodeGetKey,
@@ -46,7 +50,11 @@ import {
   makeFileNodeFlatCache,
   readFileNodeFlatCache,
 } from "./fileNodeCache.js";
-import type { CodeEditorRenderCache, LogsConsoleRenderCache, TableRenderCache } from "./renderCaches.js";
+import type {
+  CodeEditorRenderCache,
+  LogsConsoleRenderCache,
+  TableRenderCache,
+} from "./renderCaches.js";
 
 export type MouseRoutingOutcome = Readonly<{
   needsRender: boolean;
@@ -132,7 +140,9 @@ type RouteTableMouseClickContext = Readonly<{
   pressedTableHeader: Readonly<{ id: string; columnIndex: number }> | null;
   setPressedTableHeader: (next: Readonly<{ id: string; columnIndex: number }> | null) => void;
   lastTableClick: Readonly<{ id: string; rowIndex: number; timeMs: number }> | null;
-  setLastTableClick: (next: Readonly<{ id: string; rowIndex: number; timeMs: number }> | null) => void;
+  setLastTableClick: (
+    next: Readonly<{ id: string; rowIndex: number; timeMs: number }> | null,
+  ) => void;
   emptyStringArray: readonly string[];
 }>;
 
@@ -162,7 +172,9 @@ type RouteFileTreeExplorerMouseClickContext = Readonly<{
   rectById: ReadonlyMap<string, Rect>;
   treeStore: TreeStateStore;
   pressedFileTree: Readonly<{ id: string; nodeIndex: number; nodeKey: string }> | null;
-  setPressedFileTree: (next: Readonly<{ id: string; nodeIndex: number; nodeKey: string }> | null) => void;
+  setPressedFileTree: (
+    next: Readonly<{ id: string; nodeIndex: number; nodeKey: string }> | null,
+  ) => void;
   lastFileTreeClick: Readonly<{
     id: string;
     nodeIndex: number;
@@ -181,7 +193,9 @@ type RouteTreeMouseClickContext = Readonly<{
   treeStore: TreeStateStore;
   loadedTreeChildrenByTreeId: ReadonlyMap<string, ReadonlyMap<string, readonly unknown[]>>;
   pressedTree: Readonly<{ id: string; nodeIndex: number; nodeKey: string }> | null;
-  setPressedTree: (next: Readonly<{ id: string; nodeIndex: number; nodeKey: string }> | null) => void;
+  setPressedTree: (
+    next: Readonly<{ id: string; nodeIndex: number; nodeKey: string }> | null,
+  ) => void;
   lastTreeClick: Readonly<{
     id: string;
     nodeIndex: number;
@@ -213,9 +227,7 @@ type RouteMouseWheelContext = Readonly<{
   diffViewerById: ReadonlyMap<string, DiffViewerProps>;
   rectById: ReadonlyMap<string, Rect>;
   scrollOverrides: Map<string, Readonly<{ scrollX: number; scrollY: number }>>;
-  findNearestScrollableAncestor: (
-    targetId: string | null,
-  ) => Readonly<{
+  findNearestScrollableAncestor: (targetId: string | null) => Readonly<{
     nodeId: string;
     meta: Readonly<{
       scrollX: number;
@@ -403,7 +415,8 @@ export function routeSplitPaneMouse(
       const drag = ctx.splitPaneDrag;
       const pane = ctx.splitPaneById.get(drag.id);
       if (pane) {
-        const delta = drag.direction === "horizontal" ? event.x - drag.startX : event.y - drag.startY;
+        const delta =
+          drag.direction === "horizontal" ? event.x - drag.startX : event.y - drag.startY;
         const didDrag = drag.didDrag || delta !== 0;
         if (didDrag && !drag.didDrag) {
           ctx.setSplitPaneDrag(Object.freeze({ ...drag, didDrag: true }));
@@ -418,7 +431,8 @@ export function routeSplitPaneMouse(
           drag.minSizes,
           drag.maxSizes,
         );
-        const nextSizes = drag.sizeMode === "percent" ? sizesToPercentages(nextCellSizes) : nextCellSizes;
+        const nextSizes =
+          drag.sizeMode === "percent" ? sizesToPercentages(nextCellSizes) : nextCellSizes;
         pane.onResize(Object.freeze(nextSizes.slice()));
         return ROUTE_RENDER;
       }
@@ -437,7 +451,12 @@ export function routeSplitPaneMouse(
     const rect = ctx.rectById.get(id);
     if (!rect || rect.w <= 0 || rect.h <= 0) continue;
 
-    if (event.x < rect.x || event.x >= rect.x + rect.w || event.y < rect.y || event.y >= rect.y + rect.h) {
+    if (
+      event.x < rect.x ||
+      event.x >= rect.x + rect.w ||
+      event.y < rect.y ||
+      event.y >= rect.y + rect.h
+    ) {
       continue;
     }
 
@@ -604,14 +623,20 @@ export function routeToastMouseDown(
   ctx: RouteToastMouseDownContext,
   prevActiveZoneId: string | null,
 ): MouseRoutingOutcome | null {
-  if (event.kind !== "mouse" || event.mouseKind !== 3 || ctx.toastContainers.length <= 0) return null;
+  if (event.kind !== "mouse" || event.mouseKind !== 3 || ctx.toastContainers.length <= 0)
+    return null;
 
   for (let i = ctx.toastContainers.length - 1; i >= 0; i--) {
     const tc = ctx.toastContainers[i];
     if (!tc) continue;
     const rect = tc.rect;
     if (rect.w <= 0 || rect.h <= 0) continue;
-    if (event.x < rect.x || event.x >= rect.x + rect.w || event.y < rect.y || event.y >= rect.y + rect.h) {
+    if (
+      event.x < rect.x ||
+      event.x >= rect.x + rect.w ||
+      event.y < rect.y ||
+      event.y >= rect.y + rect.h
+    ) {
       continue;
     }
 
@@ -759,10 +784,7 @@ export function routeVirtualListMouseClick(
   return localNeedsRender;
 }
 
-export function routeTableMouseClick(
-  event: ZrevEvent,
-  ctx: RouteTableMouseClickContext,
-): boolean {
+export function routeTableMouseClick(event: ZrevEvent, ctx: RouteTableMouseClickContext): boolean {
   if (event.kind !== "mouse" || (event.mouseKind !== 3 && event.mouseKind !== 4)) return false;
 
   const targetId = ctx.mouseTargetId;
@@ -775,7 +797,9 @@ export function routeTableMouseClick(
       const tableCache = ctx.tableRenderCacheById.get(table.id);
       const rowKeys = tableCache?.rowKeys ?? table.data.map((row, i) => table.getRowKey(row, i));
       const rowKeyToIndex = tableCache?.rowKeyToIndex;
-      const selection = (table.selection ?? ctx.emptyStringArray ?? EMPTY_STRING_ARRAY) as readonly string[];
+      const selection = (table.selection ??
+        ctx.emptyStringArray ??
+        EMPTY_STRING_ARRAY) as readonly string[];
       const selectionMode = table.selectionMode ?? "none";
 
       const state = ctx.tableStore.get(table.id);
@@ -1001,7 +1025,11 @@ export function routeFilePickerMouseClick(
         const localY = event.y - rect.y;
         if (localY < 0 || localY >= rect.h) return null;
         if (flatNodes.length === 0) return null;
-        const effectiveScrollTop = clampIndexScrollTopForRows(state.scrollTop, flatNodes.length, rect.h);
+        const effectiveScrollTop = clampIndexScrollTopForRows(
+          state.scrollTop,
+          flatNodes.length,
+          rect.h,
+        );
         const idx = effectiveScrollTop + localY;
         if (idx < 0 || idx >= flatNodes.length) return null;
         return idx;
@@ -1124,7 +1152,11 @@ export function routeFileTreeExplorerMouseClick(
         const localY = event.y - rect.y;
         if (localY < 0 || localY >= rect.h) return null;
         if (flatNodes.length === 0) return null;
-        const effectiveScrollTop = clampIndexScrollTopForRows(state.scrollTop, flatNodes.length, rect.h);
+        const effectiveScrollTop = clampIndexScrollTopForRows(
+          state.scrollTop,
+          flatNodes.length,
+          rect.h,
+        );
         const idx = effectiveScrollTop + localY;
         if (idx < 0 || idx >= flatNodes.length) return null;
         return idx;
@@ -1211,10 +1243,7 @@ export function routeFileTreeExplorerMouseClick(
   return localNeedsRender;
 }
 
-export function routeTreeMouseClick(
-  event: ZrevEvent,
-  ctx: RouteTreeMouseClickContext,
-): boolean {
+export function routeTreeMouseClick(event: ZrevEvent, ctx: RouteTreeMouseClickContext): boolean {
   if (event.kind !== "mouse" || (event.mouseKind !== 3 && event.mouseKind !== 4)) return false;
 
   const targetId = ctx.mouseTargetId;
@@ -1233,7 +1262,9 @@ export function routeTreeMouseClick(
         ctx.treeStore.set(tree.id, { expandedSetRef: tree.expanded, expandedSet });
       }
       const loaded = ctx.loadedTreeChildrenByTreeId.get(tree.id);
-      const getChildrenRaw = tree.getChildren as ((n: unknown) => readonly unknown[] | undefined) | undefined;
+      const getChildrenRaw = tree.getChildren as
+        | ((n: unknown) => readonly unknown[] | undefined)
+        | undefined;
       const getKey = tree.getKey as (n: unknown) => string;
       const getChildren = loaded
         ? (n: unknown) => {
@@ -1282,7 +1313,11 @@ export function routeTreeMouseClick(
         const localY = event.y - rect.y;
         if (localY < 0 || localY >= rect.h) return null;
         if (flatNodes.length === 0) return null;
-        const effectiveScrollTop = clampIndexScrollTopForRows(state.scrollTop, flatNodes.length, rect.h);
+        const effectiveScrollTop = clampIndexScrollTopForRows(
+          state.scrollTop,
+          flatNodes.length,
+          rect.h,
+        );
         const idx = effectiveScrollTop + localY;
         if (idx < 0 || idx >= flatNodes.length) return null;
         return idx;
@@ -1338,7 +1373,11 @@ export function routeTreeMouseClick(
 
               if (isDouble) {
                 if (fn.hasChildren) {
-                  invokeCallbackSafely(tree.onToggle, fn.node as unknown, !tree.expanded.includes(fn.key));
+                  invokeCallbackSafely(
+                    tree.onToggle,
+                    fn.node as unknown,
+                    !tree.expanded.includes(fn.key),
+                  );
                 }
                 if (tree.onActivate) invokeCallbackSafely(tree.onActivate, fn.node as unknown);
                 ctx.setLastTreeClick(null);

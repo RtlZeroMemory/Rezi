@@ -1,9 +1,9 @@
+import type { DrawlistBuilderV1, DrawlistBuilderV3 } from "../../../drawlist/types.js";
 import {
   type SpinnerVariant,
   getSpinnerFrame,
   resolveIconGlyph as resolveIconRenderGlyph,
 } from "../../../icons/index.js";
-import type { DrawlistBuilderV1, DrawlistBuilderV3 } from "../../../drawlist/types.js";
 import {
   measureTextCells,
   truncateMiddle,

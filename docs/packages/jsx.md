@@ -1,16 +1,16 @@
 # @rezi-ui/jsx
 
-Native JSX runtime for Rezi widgets. Write widget trees using JSX syntax instead of the `ui.*` function API.
+## Overview
 
-## Installation
+`@rezi-ui/jsx` is Rezi's native JSX runtime. It gives JSX syntax while preserving full parity with `ui.*()` VNode factories from `@rezi-ui/core`.
+
+Use it when you want JSX ergonomics without adding React.
+
+## Installation and Configuration
 
 ```bash
-npm install @rezi-ui/jsx
+npm install @rezi-ui/core @rezi-ui/jsx
 ```
-
-## TypeScript configuration
-
-Add to your `tsconfig.json`:
 
 ```json
 {
@@ -21,77 +21,26 @@ Add to your `tsconfig.json`:
 }
 ```
 
-Use `.tsx` file extensions for files containing JSX.
+Use `.tsx` files for JSX views.
 
-## Overview
+## Exports Summary
 
-`@rezi-ui/jsx` provides a custom JSX runtime that maps JSX elements directly to Rezi VNodes. It does **not** use React and stays a thin layer over the native `ui.*` API.
+`@rezi-ui/jsx` exports:
 
-## Available elements
+- Components: full PascalCase component surface matching `ui.*()` (layout, inputs, navigation, overlays, advanced widgets, and composition helpers)
+- Runtime helpers: `createElement`, `h`, `normalizeContainerChildren`, `normalizeTextChildren`
+- Core helper re-exports: `defineWidget`, `show`, `when`, `match`, `maybe`, `each`, `eachInline`
+- Core value re-export: `rgb`
+- Type re-exports: JSX prop types and common core types (`WidgetVariant`, `ButtonIntent`, `DialogProps`, `PageOptions`, `TableProps`, `CommandItem`, `Toast`, etc.)
 
-`@rezi-ui/jsx` exports components for all core widgets. Props match the corresponding `ui.*` function.
+## Entry Points
 
-| `ui.*` API | JSX component |
-|---|---|
-| `ui.text(...)` | `<Text>` |
-| `ui.box(...)` | `<Box>` |
-| `ui.row(...)` | `<Row>` |
-| `ui.column(...)` | `<Column>` |
-| `ui.grid(...)` | `<Grid>` |
-| `ui.hstack(...)` | `<HStack>` |
-| `ui.vstack(...)` | `<VStack>` |
-| `ui.button(...)` | `<Button>` |
-| `ui.input(...)` | `<Input>` |
-| `ui.slider(...)` | `<Slider>` |
-| `ui.tabs(...)` | `<Tabs>` |
-| `ui.accordion(...)` | `<Accordion>` |
-| `ui.breadcrumb(...)` | `<Breadcrumb>` |
-| `ui.pagination(...)` | `<Pagination>` |
-| `ui.table(...)` | `<Table>` |
-| `ui.modal(...)` | `<Modal>` |
-| `ui.divider(...)` | `<Divider>` |
-| ... | (all core widgets through `<ToastContainer>`) |
+- `@rezi-ui/jsx`: components + helpers + type surface
+- `@rezi-ui/jsx/jsx-runtime`: automatic JSX runtime (`jsx`, `jsxs`, `Fragment`)
+- `@rezi-ui/jsx/jsx-dev-runtime`: dev JSX runtime (`jsxDEV`, `Fragment`)
 
-Lowercase intrinsic elements are also supported (for example `<column>`, `<grid>`, `<hstack>`, and `<tabs>`). These map directly to the JSX runtime factories and do not require importing components.
+## Guide
 
-`<HStack>`/`<VStack>` (and `<hstack>`/`<vstack>`) preserve the `ui.hstack`/`ui.vstack` default `gap: 1` behavior.
+For full usage patterns and complete component mapping, see:
 
-## Example
-
-```tsx
-import { rgb } from "@rezi-ui/core";
-import { createNodeApp } from "@rezi-ui/node";
-import { Button, Column, Row, Text } from "@rezi-ui/jsx";
-
-const app = createNodeApp({
-  initialState: { count: 0 },
-});
-
-app.view((state) => (
-  <Column p={1} gap={1}>
-    <Text style={{ fg: rgb(120, 200, 255), bold: true }}>Counter</Text>
-    <Row gap={2}>
-      <Text>Count: {state.count}</Text>
-      <Button id="inc" label="+1" />
-    </Row>
-  </Column>
-));
-
-await app.start();
-```
-
-## Fragments
-
-Use fragments to group elements without a wrapper:
-
-```tsx
-<>
-  <Text>Line 1</Text>
-  <Text>Line 2</Text>
-</>
-```
-
-## Further reading
-
-- [JSX getting started guide](../getting-started/jsx.md) — Full setup and usage guide
-- [Widget catalog](../widgets/index.md) — All available widgets and their props
+- [Using JSX](../getting-started/jsx.md)

@@ -1,9 +1,6 @@
-import {
-  ZR_DRAWLIST_VERSION_V3,
-  ZR_DRAWLIST_VERSION_V4,
-  ZR_DRAWLIST_VERSION_V5,
-} from "../abi.js";
+import { ZR_DRAWLIST_VERSION_V3, ZR_DRAWLIST_VERSION_V4, ZR_DRAWLIST_VERSION_V5 } from "../abi.js";
 import type { TextStyle } from "../widgets/style.js";
+import { DrawlistBuilderBase, type DrawlistBuilderBaseOpts, packRgb } from "./builderBase.js";
 import type {
   CursorState,
   DrawlistBuildResult,
@@ -13,7 +10,6 @@ import type {
   DrawlistImageFormat,
   DrawlistImageProtocol,
 } from "./types.js";
-import { DrawlistBuilderBase, packRgb, type DrawlistBuilderBaseOpts } from "./builderBase.js";
 import {
   CLEAR_SIZE,
   DRAW_CANVAS_SIZE,
