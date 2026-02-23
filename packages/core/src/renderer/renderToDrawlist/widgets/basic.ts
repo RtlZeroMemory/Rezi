@@ -1240,10 +1240,13 @@ export function renderBasicWidget(
         showValue?: unknown;
         disabled?: unknown;
         readOnly?: unknown;
+        focusConfig?: unknown;
         style?: unknown;
       };
+      const focusConfig = readFocusConfig(props.focusConfig);
       const id = readString(props.id);
       const focused = id !== undefined && focusState.focusedId === id;
+      const focusVisible = focused && focusIndicatorEnabled(focusConfig);
       const disabled = props.disabled === true;
       const readOnly = props.readOnly === true;
       const label = readString(props.label) ?? "";
@@ -1259,7 +1262,7 @@ export function renderBasicWidget(
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
 
-      const focusStyle = resolveWidgetFocusStyle(colorTokens, focused, disabled);
+      const focusStyle = resolveWidgetFocusStyle(colorTokens, focusVisible, disabled);
       let stateStyle: TextStyle;
       if (disabled) {
         stateStyle = { fg: theme.colors.muted };
@@ -1268,7 +1271,10 @@ export function renderBasicWidget(
       } else {
         stateStyle = focusStyle ?? {};
       }
-      const textStyle = mergeTextStyle(style, stateStyle);
+      const baseTextStyle = mergeTextStyle(style, stateStyle);
+      const textStyle = focusVisible
+        ? resolveFocusedContentStyle(baseTextStyle, theme, focusConfig)
+        : baseTextStyle;
 
       const labelText = label.length > 0 ? `${label} ` : "";
       const valueText =
@@ -1487,11 +1493,14 @@ export function renderBasicWidget(
         checked?: unknown;
         label?: unknown;
         disabled?: unknown;
+        focusConfig?: unknown;
         dsTone?: unknown;
         dsSize?: unknown;
       };
+      const focusConfig = readFocusConfig(props.focusConfig);
       const id = typeof props.id === "string" ? props.id : null;
       const focused = id !== null && focusState.focusedId === id;
+      const focusVisible = focused && focusIndicatorEnabled(focusConfig);
       const disabled = props.disabled === true;
       const checked = props.checked === true;
       const label = typeof props.label === "string" ? props.label : "";
@@ -1503,7 +1512,7 @@ export function renderBasicWidget(
       if (colorTokens !== null) {
         const state = disabled
           ? ("disabled" as const)
-          : focused
+          : focusVisible
             ? ("focus" as const)
             : checked
               ? ("selected" as const)
@@ -1514,20 +1523,29 @@ export function renderBasicWidget(
             ? { state, checked, size: dsSize }
             : { state, checked, tone: dsTone, size: dsSize },
         );
-        const indicatorStyle = mergeTextStyle(parentStyle, recipeResult.indicator);
-        const labelStyle = mergeTextStyle(parentStyle, recipeResult.label);
+        const indicatorBaseStyle = mergeTextStyle(parentStyle, recipeResult.indicator);
+        const labelBaseStyle = mergeTextStyle(parentStyle, recipeResult.label);
+        const indicatorStyle = focusVisible
+          ? resolveFocusedContentStyle(indicatorBaseStyle, theme, focusConfig)
+          : indicatorBaseStyle;
+        const labelStyle = focusVisible
+          ? resolveFocusedContentStyle(labelBaseStyle, theme, focusConfig)
+          : labelBaseStyle;
         builder.drawText(rect.x, rect.y, indicator, indicatorStyle);
         if (label.length > 0) {
           builder.drawText(rect.x + measureTextCells(indicator) + 1, rect.y, label, labelStyle);
         }
       } else {
         const text = label.length > 0 ? `${indicator} ${label}` : indicator;
-        const style = mergeTextStyle(
+        const baseStyle = mergeTextStyle(
           parentStyle,
           disabled
             ? { fg: theme.colors.muted }
-            : resolveWidgetFocusStyle(colorTokens, focused, false),
+            : resolveWidgetFocusStyle(colorTokens, focusVisible, false),
         );
+        const style = focusVisible
+          ? resolveFocusedContentStyle(baseStyle, theme, focusConfig)
+          : baseStyle;
         builder.drawText(rect.x, rect.y, text, style);
       }
       builder.popClip();
@@ -1541,11 +1559,14 @@ export function renderBasicWidget(
         options?: unknown;
         direction?: unknown;
         disabled?: unknown;
+        focusConfig?: unknown;
         dsTone?: unknown;
         dsSize?: unknown;
       };
+      const focusConfig = readFocusConfig(props.focusConfig);
       const id = typeof props.id === "string" ? props.id : null;
       const focused = id !== null && focusState.focusedId === id;
+      const focusVisible = focused && focusIndicatorEnabled(focusConfig);
       const disabled = props.disabled === true;
       const value = typeof props.value === "string" ? props.value : "";
       const direction = props.direction === "horizontal" ? "horizontal" : "vertical";
@@ -1565,7 +1586,7 @@ export function renderBasicWidget(
         if (colorTokens !== null) {
           const state = disabled
             ? ("disabled" as const)
-            : focused && selected
+            : focusVisible && selected
               ? ("focus" as const)
               : selected
                 ? ("selected" as const)
@@ -1576,18 +1597,27 @@ export function renderBasicWidget(
               ? { state, checked: selected, size: dsSize }
               : { state, checked: selected, tone: dsTone, size: dsSize },
           );
-          const indicatorStyle = mergeTextStyle(parentStyle, recipeResult.indicator);
-          const labelStyle = mergeTextStyle(parentStyle, recipeResult.label);
+          const indicatorBaseStyle = mergeTextStyle(parentStyle, recipeResult.indicator);
+          const labelBaseStyle = mergeTextStyle(parentStyle, recipeResult.label);
+          const indicatorStyle = focusVisible
+            ? resolveFocusedContentStyle(indicatorBaseStyle, theme, focusConfig)
+            : indicatorBaseStyle;
+          const labelStyle = focusVisible
+            ? resolveFocusedContentStyle(labelBaseStyle, theme, focusConfig)
+            : labelBaseStyle;
           builder.drawText(cx, cy, mark, indicatorStyle);
           if (opt.label.length > 0) {
             builder.drawText(cx + measureTextCells(mark) + 1, cy, opt.label, labelStyle);
           }
         } else {
-          const focusStyle = focused ? { underline: true, bold: true } : undefined;
-          const style = mergeTextStyle(
+          const focusStyle = focusVisible ? { underline: true, bold: true } : undefined;
+          const baseStyle = mergeTextStyle(
             parentStyle,
             disabled ? { fg: theme.colors.muted, ...focusStyle } : focusStyle,
           );
+          const style = focusVisible
+            ? resolveFocusedContentStyle(baseStyle, theme, focusConfig)
+            : baseStyle;
           const chunk = `${mark} ${opt.label}`;
           builder.drawText(cx, cy, chunk, style);
         }

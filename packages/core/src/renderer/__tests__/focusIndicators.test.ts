@@ -271,6 +271,59 @@ describe("focus indicator rendering contracts", () => {
     assert.equal(op?.style?.underline === true, false);
   });
 
+  test("checkbox focusConfig indicator:none suppresses focus styling", () => {
+    const textOps = drawTextOps(
+      renderOps(
+        ui.checkbox({
+          id: "cb-none",
+          checked: false,
+          label: "No focus",
+          focusConfig: Object.freeze({ indicator: "none" }),
+        }),
+        "cb-none",
+        defaultTheme,
+      ),
+    );
+    const op = findDrawTextByToken(textOps, "[ ]");
+    assert.ok(op !== null, "checkbox should render");
+    assert.equal(op?.style?.bold === true, false);
+    assert.equal(op?.style?.underline === true, false);
+  });
+
+  test("slider focusConfig indicator:none suppresses focus styling", () => {
+    const focusedDefault = drawTextOps(
+      renderOps(
+        ui.slider({
+          id: "sld-default",
+          value: 50,
+          min: 0,
+          max: 100,
+        }),
+        "sld-default",
+        defaultTheme,
+      ),
+    );
+    const focusedNone = drawTextOps(
+      renderOps(
+        ui.slider({
+          id: "sld-none",
+          value: 50,
+          min: 0,
+          max: 100,
+          focusConfig: Object.freeze({ indicator: "none" }),
+        }),
+        "sld-none",
+        defaultTheme,
+      ),
+    );
+    const defaultOp = findDrawTextByToken(focusedDefault, "●");
+    const noneOp = findDrawTextByToken(focusedNone, "●");
+    assert.ok(defaultOp !== null, "default focused slider should render");
+    assert.ok(noneOp !== null, "focusConfig:none slider should render");
+    assert.equal(defaultOp?.style?.underline === true, true);
+    assert.equal(noneOp?.style?.underline === true, false);
+  });
+
   test("FocusConfig.style overrides design-system focus defaults", () => {
     const customRing = Object.freeze({ r: 255, g: 0, b: 128 });
     const theme = coerceToLegacyTheme(darkTheme);

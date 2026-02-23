@@ -869,6 +869,8 @@ export type TextareaProps = Readonly<{
   rows?: number;
   /** Wrap long lines (default: true). */
   wordWrap?: boolean;
+  /** Placeholder text shown when value is empty. */
+  placeholder?: string;
   /** Optional style applied to the textarea value (merged with focus/disabled state). */
   style?: TextStyle;
   /** Optional callback invoked on input edits. */
@@ -1388,6 +1390,8 @@ export type SliderProps = Readonly<{
   readOnly?: boolean;
   /** Optional style applied to label/value text. */
   style?: TextStyle;
+  /** Optional focus appearance configuration. */
+  focusConfig?: FocusConfig;
 }>;
 
 /** Props for checkbox widget. */
@@ -1406,6 +1410,10 @@ export type CheckboxProps = Readonly<{
   onChange?: (checked: boolean) => void;
   /** Whether the checkbox is disabled. */
   disabled?: boolean;
+  /** Optional focus appearance configuration. */
+  focusConfig?: FocusConfig;
+  /** Design system: variant preset. */
+  dsVariant?: WidgetVariant;
   /** Design system: tone for checked/focus rendering. */
   dsTone?: WidgetTone;
   /** Design system: size preset. */
@@ -1430,6 +1438,10 @@ export type RadioGroupProps = Readonly<{
   direction?: "horizontal" | "vertical";
   /** Whether the radio group is disabled. */
   disabled?: boolean;
+  /** Optional focus appearance configuration. */
+  focusConfig?: FocusConfig;
+  /** Design system: variant preset. */
+  dsVariant?: WidgetVariant;
   /** Design system: tone for selected/focus rendering. */
   dsTone?: WidgetTone;
   /** Design system: size preset. */
