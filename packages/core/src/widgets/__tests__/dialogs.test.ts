@@ -85,8 +85,9 @@ describe("dialogs", () => {
     );
 
     const action = result.findById("primary-intent-action-0");
-    assert.equal(action?.props["dsVariant"], "solid");
-    assert.equal(action?.props["dsTone"], "primary");
+    const actionProps = action?.props as { dsVariant?: unknown; dsTone?: unknown } | undefined;
+    assert.equal(actionProps?.dsVariant, "solid");
+    assert.equal(actionProps?.dsTone, "primary");
   });
 
   test("ui.dialog maps danger intent to outline/danger DS props", () => {
@@ -101,8 +102,9 @@ describe("dialogs", () => {
     );
 
     const action = result.findById("danger-intent-action-0");
-    assert.equal(action?.props["dsVariant"], "outline");
-    assert.equal(action?.props["dsTone"], "danger");
+    const actionProps = action?.props as { dsVariant?: unknown; dsTone?: unknown } | undefined;
+    assert.equal(actionProps?.dsVariant, "outline");
+    assert.equal(actionProps?.dsTone, "danger");
   });
 
   test("ui.dialog keeps default button styling when action has no intent", () => {
