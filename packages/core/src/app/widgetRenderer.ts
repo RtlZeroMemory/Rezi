@@ -2047,8 +2047,8 @@ export class WidgetRenderer<S> {
                 if (vlist.onSelect) {
                   const item = vlist.items[idx];
                   if (item !== undefined) vlist.onSelect(item, idx);
+                  localNeedsRender = true;
                 }
-                localNeedsRender = true;
               }
             }
           }
@@ -2355,7 +2355,8 @@ export class WidgetRenderer<S> {
     }
 
     const didFocusChange = this.focusState.focusedId !== prevFocusedId;
-    const needsRender = didFocusChange || this.pressedId !== prevPressedId || localNeedsRender;
+    const pressedChanged = this.pressedId !== prevPressedId && this.pressedId !== null;
+    const needsRender = didFocusChange || pressedChanged || localNeedsRender;
 
     if (didFocusChange && prevFocusedId !== null) {
       const prevInput = this.inputById.get(prevFocusedId);
