@@ -166,7 +166,8 @@ function isTextProps(v: TextStyle | TextProps): v is TextProps {
       "key" in v ||
       "variant" in v ||
       "textOverflow" in v ||
-      "maxWidth" in v)
+      "maxWidth" in v ||
+      "wrap" in v)
   );
 }
 

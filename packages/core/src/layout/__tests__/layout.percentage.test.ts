@@ -170,6 +170,23 @@ const ROW_CASES: readonly PercentageCase[] = [
       { x: 13, y: 0, w: 7, h: 0 },
     ],
   },
+  {
+    name: "row near-full percentages distribute remainder deterministically",
+    vnode: ui.row({ gap: 0, width: 100, height: 4 }, [
+      ui.box({ border: "none", width: "33%" }, []),
+      ui.box({ border: "none", width: "33%" }, []),
+      ui.box({ border: "none", width: "33%" }, []),
+    ]),
+    maxW: 100,
+    maxH: 4,
+    axis: "row",
+    expectedRoot: { x: 0, y: 0, w: 100, h: 4 },
+    expectedChildren: [
+      { x: 0, y: 0, w: 34, h: 0 },
+      { x: 34, y: 0, w: 33, h: 0 },
+      { x: 67, y: 0, w: 33, h: 0 },
+    ],
+  },
 ] as const;
 
 const COLUMN_CASES: readonly PercentageCase[] = [
@@ -318,6 +335,23 @@ const COLUMN_CASES: readonly PercentageCase[] = [
       { x: 0, y: 5, w: 0, h: 3 },
       { x: 0, y: 8, w: 0, h: 5 },
       { x: 0, y: 13, w: 0, h: 7 },
+    ],
+  },
+  {
+    name: "column near-full percentages distribute remainder deterministically",
+    vnode: ui.column({ gap: 0, height: 100, width: 4 }, [
+      ui.box({ border: "none", height: "33%" }, []),
+      ui.box({ border: "none", height: "33%" }, []),
+      ui.box({ border: "none", height: "33%" }, []),
+    ]),
+    maxW: 4,
+    maxH: 100,
+    axis: "column",
+    expectedRoot: { x: 0, y: 0, w: 4, h: 100 },
+    expectedChildren: [
+      { x: 0, y: 0, w: 0, h: 34 },
+      { x: 0, y: 34, w: 0, h: 33 },
+      { x: 0, y: 67, w: 0, h: 33 },
     ],
   },
 ] as const;

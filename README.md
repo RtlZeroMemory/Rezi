@@ -49,6 +49,7 @@ Rezi is a high-performance terminal UI framework for TypeScript. You write decla
 - **Deterministic rendering** — same state + same events = same frames; versioned binary protocol, pinned Unicode tables
 - **Hot state-preserving reload** — swap widget views or route tables in-process during development without losing app state or focus context
 - **Syntax tokenizer utilities** — shared lexical highlighters for TypeScript/JS/JSON/Go/Rust/C/C++/C#/Java/Python/Bash with custom-tokenizer hooks
+- **Advanced deterministic layout** — intrinsic sizing, `flexShrink`/`flexBasis`, `alignSelf`, wrapped text layout, grid spans/explicit placement, absolute positioning, and stability-signature relayout skipping
 - **6 built-in themes** — dark, light, dimmed, high-contrast, nord, dracula; switch at runtime with one call
 - **Declarative animation APIs** — numeric hooks (`useTransition`, `useSpring`, `useSequence`, `useStagger`) and `ui.box` transition props for position/size/opacity motion
 - **Record & replay** — capture input sessions as deterministic bundles for debugging and automated testing

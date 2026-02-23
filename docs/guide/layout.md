@@ -34,6 +34,9 @@ Key props:
 - `align` — cross-axis alignment: `"start" | "center" | "end" | "stretch"`
 - `justify` — main-axis distribution: `"start" | "end" | "center" | "between" | "around" | "evenly"`
 - `wrap` — line wrapping for stacks (`false` by default)
+- `flexShrink` — shrink factor during overflow (`0` by default)
+- `flexBasis` — initial main-axis size before grow/shrink (`"auto"` uses intrinsic max-content)
+- `alignSelf` (child prop) — per-child cross-axis override: `"auto" | "start" | "center" | "end" | "stretch"`
 
 ### Stack wrap (`wrap`)
 
@@ -45,6 +48,7 @@ Key props:
 - `justify` and `align` apply per line (not across the full wrapped block).
 - In wrap mode, flex distribution is line-local: each line distributes only its own remaining main-axis space.
 - In wrap mode, percentage child sizes resolve against the stack content box (container inner width/height), not per-line remainder. Line packing may still clamp a child to remaining line space.
+- Wrapped stacks run a bounded cross-axis feedback protocol (max two measure passes per child when needed) so wrapped text/flex allocations can update line cross-size deterministically.
 
 ### Example: Row + Column
 
@@ -90,7 +94,13 @@ Track syntax (`columns` / `rows` strings):
 Behavior:
 
 - Numeric `columns` (for example `columns: 3`) create equal-width columns.
-- Placement is auto-flow row-major: left-to-right, then wraps to the next row.
+- Child placement props on `row`/`column`/`box` children:
+  - `gridColumn`, `gridRow` are 1-based start coordinates.
+  - `colSpan`, `rowSpan` default to `1`.
+- Placement runs in two phases: explicit placements first, then auto-placement (row-major) that skips occupied cells.
+- If an explicit target cell is occupied, placement advances to the next available slot from that start position.
+- Spans include internal track gaps when computing child rect size.
+- Overspans are clamped to remaining track capacity from the chosen start cell.
 - When `rows` is explicit (`rows: 2` or a row track string), grid capacity is fixed; extra children are not rendered.
 - Measurement note: `fr` tracks have natural size `0` and grow from remaining space.
 
@@ -212,7 +222,21 @@ Most container widgets accept layout constraints:
 - `width` / `height`: number of cells, percentage string (`"50%"`), or `"auto"`
 - `minWidth` / `maxWidth`, `minHeight` / `maxHeight`
 - `flex`: main-axis space distribution inside `row`/`column`
+- `flexShrink`: overflow shrink factor (`0` default)
+- `flexBasis`: initial main-axis size (`number | "<n>%" | "auto"`)
 - `aspectRatio`: enforce `w/h`
+- `position`: `"static"` (default) or `"absolute"` with `top` / `right` / `bottom` / `left`
+
+Responsive layout values:
+
+- Numeric layout constraints can also use responsive values.
+- Use `fluid(min, max, options?)` to interpolate between breakpoints (`sm`, `md`, `lg`, `xl`) with floor semantics and clamped bounds.
+
+```typescript
+import { fluid, ui } from "@rezi-ui/core";
+
+ui.box({ width: fluid(20, 40), height: 3, border: "single" }, [ui.text("Fluid width")]);
+```
 
 Example: fixed + flex children in a row
 
@@ -224,6 +248,26 @@ ui.row({ gap: 1 }, [
   ui.box({ flex: 1, border: "single" }, [ui.text("Flex fill")]),
 ]);
 ```
+
+## Absolute positioning
+
+Children with `position: "absolute"` are removed from normal stack/box flow and laid out in a second pass relative to the parent content rect.
+
+- In-flow siblings ignore absolute children for size and cursor advancement.
+- `top/left/right/bottom` offsets use integer cell coordinates.
+- Opposing edges stretch when explicit size is not provided:
+- `left + right` without explicit width stretches width.
+- `top + bottom` without explicit height stretches height.
+- Explicit `width`/`height` take precedence over edge-based stretch.
+
+## Overlay sizing constraints
+
+Overlay widgets expose constraint-driven sizing props and clamp to the current viewport:
+
+- `modal`: `width`, `height`, `minWidth`, `minHeight`, `maxWidth`
+- `commandPalette`: `width` (`height` derives from `maxVisible`)
+- `toolApprovalDialog`: `width`, `height`
+- `toastContainer`: `width` (`height` derives from `maxVisible`)
 
 ## Layout Invariants
 
@@ -249,6 +293,7 @@ These behaviors are guaranteed by the current layout engine and validation pipel
 - In `row`/`column`, if any child has main-axis `%` sizing or `flex > 0`, layout runs a constraint pass first (resolve main sizes, then place children with resolved sizes).
 - If that trigger is absent, stacks use the greedy path (measure in child order and place directly).
 - Even when remaining space reaches zero, the subtree is still measured with zero constraints for deterministic validation.
+- For children whose cross-size depends on final main allocation (for example wrapped text), stack measure/layout performs at most one feedback remeasure pass (max two total passes) in both wrap and non-wrap paths.
 
 ### Flex distribution rules
 
@@ -256,8 +301,10 @@ These behaviors are guaranteed by the current layout engine and validation pipel
 - Fixed-size and non-flex children consume space before flex allocation.
 - Remaining space is distributed proportionally to flex weights, using integer cells: floor base shares first, then remainder cells by largest fractional share (ties by lower child index).
 - Per-child max constraints are enforced during distribution; leftover space is redistributed iteratively to still-active flex items.
-- No flex distribution occurs when remaining space is `0` or when effective total flex is `<= 0`.
-- Min constraints are a best-effort top-up after proportional allocation, only while space remains.
+- `flexShrink` participates only when content overflows; `flexShrink: 0` keeps current size.
+- When `flexShrink > 0` and no explicit `minWidth`/`minHeight` is set, shrink floors default to intrinsic min-content size.
+- `flexBasis: "auto"` uses intrinsic max-content size as the initial basis.
+- Legacy planning behavior is preserved when advanced props (`flexShrink`/`flexBasis`) are not used.
 
 ### Percentage resolution, flooring, and clamping
 
@@ -265,6 +312,7 @@ These behaviors are guaranteed by the current layout engine and validation pipel
 - Percentages resolve against the parent size provided to constraint resolution for that axis (stack content bounds in stacks; box content bounds for boxed children).
 - Resolved percent values are then clamped by min/max constraints and by the currently available space.
 - Main-axis percentages in stacks trigger the constraint-pass path before final placement.
+- Shared deterministic integer distribution is used for weighted remainder handling across layout splits (including stack percentage rebalancing and grid/split-pane weighted allocation): extra cells are assigned by fractional remainder, ties by lower index.
 
 ### Margin behavior and interactions
 
@@ -288,7 +336,7 @@ These behaviors are guaranteed by the current layout engine and validation pipel
 ### Stability signatures (commit-time relayout checks)
 
 - On commit turns with `checkLayoutStability: true`, the renderer compares per-instance layout signatures against the previous committed tree.
-- Signature coverage is currently limited to: `text`, `button`, `input`, `spacer`, `divider`, `row`, `column`, and `box`.
+- Signature coverage includes: `text`, `button`, `input`, `spacer`, `divider`, `row`, `column`, `box`, `grid`, `table`, `tabs`, `accordion`, `modal`, `virtualList`, `splitPane`, `breadcrumb`, `pagination`, `focusZone`, and `focusTrap`.
 - `row`/`column` signatures include layout constraints, spacing, `pad`, `gap`, `align`, `justify`, `items`, and child order (child instance ID sequence).
 - `box` signatures include layout constraints, spacing, border/title props, and child order.
 - `text`/`button`/`input` signatures track intrinsic width inputs (`text` + `maxWidth`, button `label` + `px`, input `value`).

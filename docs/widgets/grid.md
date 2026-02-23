@@ -40,8 +40,23 @@ The `columns` and `rows` props accept either a positive number or a track defini
 ## Behavior
 
 - **Numeric columns** (e.g. `columns: 3`) create equal-width columns that divide the available space evenly.
-- **Placement is auto-flow, row-major:** children fill cells left-to-right, then wrap to the next row.
+- **Placement order is two-phase:** explicit placements first, then auto-flow row-major for remaining children.
+- If an explicit target cell is already occupied, placement advances to the next available slot from that start position.
+- **Auto placement skips occupied cells** created by spans/explicit placements.
 - **Explicit rows** cap grid capacity. If `rows` is set and the grid is full, extra children are not rendered.
+- **Span sizing includes internal gaps** (`colSpan`/`rowSpan` include track gaps inside the spanned area).
+- **Overspans clamp to remaining capacity** from the chosen start cell.
+
+## Child Placement Props
+
+Set these on `row`/`column`/`box` children inside a grid:
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `gridColumn` | `number` | - | 1-based column start |
+| `gridRow` | `number` | - | 1-based row start |
+| `colSpan` | `number` | `1` | Number of columns to span |
+| `rowSpan` | `number` | `1` | Number of rows to span |
 
 ## Examples
 
@@ -110,6 +125,17 @@ ui.grid({ columns: 2, rows: 3, gap: 1 }, [
 ```
 
 If additional children were added beyond the 6-cell capacity (`2 * 3`), they would not be rendered.
+
+### Explicit placement + spans
+
+```ts
+ui.grid({ columns: "12 12 12", rows: "3 3", gap: 1 }, [
+  ui.box({ border: "single", colSpan: 2 }, [ui.text("Wide card")]),
+  ui.box({ border: "single", gridColumn: 3, gridRow: 1 }, [ui.text("Pinned")]),
+  ui.box({ border: "single", rowSpan: 2 }, [ui.text("Tall")]),
+  ui.box({ border: "single" }, [ui.text("Auto")]),
+])
+```
 
 ### Auto-sized Columns
 

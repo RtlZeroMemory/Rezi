@@ -30,6 +30,9 @@ ui.layers([
 | `content` | `VNode` | **required** | Main modal body |
 | `actions` | `VNode[]` | `[]` | Action row (typically buttons) |
 | `width` | `number \| "auto"` | `~70%` | Preferred modal width |
+| `height` | `number` | `~60%` | Preferred modal height |
+| `minWidth` | `number` | - | Minimum width constraint |
+| `minHeight` | `number` | - | Minimum height constraint |
 | `maxWidth` | `number` | - | Maximum width constraint |
 | `frameStyle` | `{ background?, foreground?, border? }` | - | Optional modal frame/surface colors |
 | `backdrop` | `"none" \| "dim" \| "opaque" \| { variant?, pattern?, foreground?, background? }` | `"dim"` | Backdrop preset or extended config |
@@ -136,6 +139,8 @@ return ui.layers([MainContent(), ...modals.render()]);
 - Backdrops are rendered behind the modal. `"dim"` uses a light shade pattern; `"opaque"` clears the area behind the modal to the theme background color.
 - Extended backdrop config uses object form: `variant` (preset), `pattern` (dim glyph), and optional `foreground`/`background` colors.
 - `width: "auto"` sizes to content/actions and is clamped by `maxWidth` and the viewport.
+- Numeric `width`/`height` and `minWidth`/`minHeight` are clamped to viewport limits (with a 1-cell frame inset when viewport space allows).
+- Default sizing is approximately `70%` width and `60%` height of the available viewport.
 - `initialFocus` is applied when the modal becomes active, and `returnFocusTo`
   restores focus on close.
 - `useModalStack` applies focus-return wiring between stacked dialogs and keeps modal layering LIFO.

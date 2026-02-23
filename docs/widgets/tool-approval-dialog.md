@@ -23,6 +23,8 @@ ui.toolApprovalDialog({
 | `id` | `string` | **required** | Widget identifier |
 | `request` | `ToolRequest` | **required** | Tool request details |
 | `open` | `boolean` | **required** | Visible state |
+| `width` | `number` | `50` | Dialog width in cells (clamped to viewport width) |
+| `height` | `number` | `15` | Dialog height in cells (clamped to viewport height) |
 | `focusedAction` | `"allow" \| "deny" \| "allowSession"` | - | Focused action button |
 | `onAllow` | `() => void` | **required** | Allow callback |
 | `onDeny` | `() => void` | **required** | Deny callback |
@@ -33,6 +35,7 @@ ui.toolApprovalDialog({
 
 - `ToolRequest` includes metadata like `toolId`, `toolName`, `riskLevel`, and optional `fileChanges`.
 - `fileChanges` entries include `path`, `changeType`, and optional `preview`/`oldPath` for renames.
+- Default dialog size is `50x15` cells when `width`/`height` are omitted.
 
 ## Related
 

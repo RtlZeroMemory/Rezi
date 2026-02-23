@@ -385,7 +385,7 @@ function layoutNode(
       break;
     }
     case "box": {
-      computed = layoutBoxKinds(vnode, x, y, rectW, rectH, axis, layoutNode);
+      computed = layoutBoxKinds(vnode, x, y, rectW, rectH, axis, measureNode, layoutNode);
       break;
     }
     case "focusZone":
@@ -477,7 +477,7 @@ function layoutNode(
       break;
     }
     case "field": {
-      computed = layoutBoxKinds(vnode, x, y, rectW, rectH, axis, layoutNode);
+      computed = layoutBoxKinds(vnode, x, y, rectW, rectH, axis, measureNode, layoutNode);
       break;
     }
     case "tabs":

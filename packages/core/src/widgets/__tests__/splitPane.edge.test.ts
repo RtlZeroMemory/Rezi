@@ -56,6 +56,15 @@ describe("splitPane.edge - normalization and bounds", () => {
     assert.deepEqual(result.dividerPositions, []);
   });
 
+  test("percent mode distributes integer remainder across panels", () => {
+    const result = computePanelCellSizes(3, [33, 33, 33], 100, "percent", 0);
+    assert.deepEqual(result.sizes, [34, 33, 33]);
+    assert.equal(
+      result.sizes.reduce((sum, value) => sum + value, 0),
+      100,
+    );
+  });
+
   test("maxSizes constraints are enforced during normalization", () => {
     const result = computePanelCellSizes(2, [90, 10], 100, "percent", 1, undefined, [30, 80]);
     assert.equal(result.sizes[0], 30);

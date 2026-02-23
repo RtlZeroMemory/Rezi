@@ -9,7 +9,7 @@ import type { VNode } from "../../widgets/types.js";
 import { layoutLeaf } from "../engine/layoutTree.js";
 import { ok } from "../engine/result.js";
 import type { LayoutTree } from "../engine/types.js";
-import { measureTextCells } from "../textMeasure.js";
+import { measureTextCells, measureTextWrapped } from "../textMeasure.js";
 import type { Axis, Size } from "../types.js";
 import type { LayoutResult } from "../validateProps.js";
 import {
@@ -57,6 +57,10 @@ export function measureLeaf(
           ? intrinsicW
           : Math.min(intrinsicW, propsRes.value.maxWidth);
       const w = Math.min(maxW, cappedW);
+      if (propsRes.value.wrap) {
+        const wrapped = measureTextWrapped(vnode.text, w);
+        return ok({ w, h: Math.min(maxH, wrapped.height) });
+      }
       const h = Math.min(maxH, 1);
       return ok({ w, h });
     }

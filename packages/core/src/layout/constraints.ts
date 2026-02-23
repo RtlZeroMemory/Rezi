@@ -5,7 +5,7 @@
  * into concrete cell sizes for a given parent rectangle.
  */
 
-import type { LayoutConstraints, Rect, SizeConstraint, SizeConstraintAtom } from "./types.js";
+import type { LayoutConstraints, Rect, Size, SizeConstraint, SizeConstraintAtom } from "./types.js";
 
 export type ResolvedConstraints = Readonly<{
   width: number | null;
@@ -15,6 +15,8 @@ export type ResolvedConstraints = Readonly<{
   minHeight: number;
   maxHeight: number;
   flex: number;
+  flexShrink: number;
+  flexBasis: number | null;
   aspectRatio: number | null;
 }>;
 
@@ -81,6 +83,14 @@ export function resolveLayoutConstraints(
 ): ResolvedConstraints {
   let width = resolveOptional(props.width, parent.w);
   let height = resolveOptional(props.height, parent.h);
+  const flexShrink =
+    typeof props.flexShrink === "number" &&
+    Number.isFinite(props.flexShrink) &&
+    props.flexShrink >= 0
+      ? props.flexShrink
+      : 0;
+  const flexBasisRaw = props.flexBasis;
+  const flexBasis = flexBasisRaw !== undefined ? resolveOptional(flexBasisRaw, parent.w) : null;
 
   const aspectRatio =
     props.aspectRatio === undefined || props.aspectRatio === null ? null : props.aspectRatio;
@@ -98,7 +108,86 @@ export function resolveLayoutConstraints(
     minHeight: or0(props.minHeight),
     maxHeight: orInf(props.maxHeight),
     flex: props.flex === undefined ? 0 : props.flex,
+    flexShrink,
+    flexBasis,
     aspectRatio,
+  };
+}
+
+function readFiniteFloor(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return Math.floor(value);
+}
+
+/**
+ * Resolve absolute positioning offsets against a parent content rect.
+ */
+export function resolveAbsolutePosition(
+  props: Readonly<{
+    top?: number;
+    right?: number;
+    bottom?: number;
+    left?: number;
+    width?: unknown;
+    height?: unknown;
+  }>,
+  contentRect: Rect,
+  naturalSize: Size,
+): Rect {
+  const left = readFiniteFloor(props.left);
+  const right = readFiniteFloor(props.right);
+  const top = readFiniteFloor(props.top);
+  const bottom = readFiniteFloor(props.bottom);
+  const explicitW = readFiniteFloor(props.width);
+  const explicitH = readFiniteFloor(props.height);
+
+  const hasLeft = left !== null;
+  const hasRight = right !== null;
+  const hasTop = top !== null;
+  const hasBottom = bottom !== null;
+  const hasExplicitW = explicitW !== null;
+  const hasExplicitH = explicitH !== null;
+
+  const naturalW = Math.max(0, Math.floor(naturalSize.w));
+  const naturalH = Math.max(0, Math.floor(naturalSize.h));
+
+  let ax: number;
+  let aw: number;
+  if (hasLeft && hasRight && !hasExplicitW) {
+    ax = contentRect.x + (left ?? 0);
+    aw = Math.max(0, contentRect.w - (left ?? 0) - (right ?? 0));
+  } else if (hasLeft) {
+    ax = contentRect.x + (left ?? 0);
+    aw = hasExplicitW ? (explicitW ?? 0) : naturalW;
+  } else if (hasRight) {
+    aw = hasExplicitW ? (explicitW ?? 0) : naturalW;
+    ax = contentRect.x + contentRect.w - (right ?? 0) - aw;
+  } else {
+    ax = contentRect.x;
+    aw = hasExplicitW ? (explicitW ?? 0) : naturalW;
+  }
+
+  let ay: number;
+  let ah: number;
+  if (hasTop && hasBottom && !hasExplicitH) {
+    ay = contentRect.y + (top ?? 0);
+    ah = Math.max(0, contentRect.h - (top ?? 0) - (bottom ?? 0));
+  } else if (hasTop) {
+    ay = contentRect.y + (top ?? 0);
+    ah = hasExplicitH ? (explicitH ?? 0) : naturalH;
+  } else if (hasBottom) {
+    ah = hasExplicitH ? (explicitH ?? 0) : naturalH;
+    ay = contentRect.y + contentRect.h - (bottom ?? 0) - ah;
+  } else {
+    ay = contentRect.y;
+    ah = hasExplicitH ? (explicitH ?? 0) : naturalH;
+  }
+
+  return {
+    x: Math.floor(ax),
+    y: Math.floor(ay),
+    w: Math.max(0, Math.floor(aw)),
+    h: Math.max(0, Math.floor(ah)),
   };
 }
 

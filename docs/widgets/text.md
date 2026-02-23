@@ -1,6 +1,6 @@
 # Text
 
-Renders a single line of text with optional styling and overflow handling.
+Renders text with optional styling, overflow handling, and optional multiline wrapping.
 
 ## Usage
 
@@ -24,6 +24,7 @@ ui.text("Caption", { variant: "caption", textOverflow: "ellipsis" }); // pass Te
 | `variant` | `"body" \| "heading" \| "caption" \| "code" \| "label"` | `"body"` | Predefined styling intent |
 | `textOverflow` | `"clip" \| "ellipsis" \| "middle"` | `"clip"` | How to handle overflow |
 | `maxWidth` | `number` | - | Maximum width (cells) for overflow handling |
+| `wrap` | `boolean` | `false` | Wrap text into multiple lines using cell-width-aware line breaking |
 
 ## Examples
 
@@ -58,11 +59,23 @@ ui.box({ width: 24, border: "single", p: 1 }, [
 ]);
 ```
 
+### 4) Wrapped multiline text
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.box({ width: 14, border: "single", p: 1 }, [
+  ui.text("hello world from rezi", { wrap: true }),
+]);
+```
+
 ## Notes
 
 - Text is not focusable and does not emit events.
 - Measurement and truncation are cell-based and deterministic.
 - `maxWidth` caps both measurement (layout) and truncation width.
+- `wrap` defaults to `false`. When `true`, wrapping is grapheme-safe, respects `\n` paragraph breaks, and hard-breaks oversized words at grapheme boundaries.
+- In wrapped mode, overflow policy still applies to the last visible line if the layout height clips wrapped output.
 - `variant` applies a small default style (heading/label: bold, caption: dim, code: inverse) which can be overridden via `style`.
 
 ## Related

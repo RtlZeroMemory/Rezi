@@ -4,6 +4,8 @@ import { acquireArray } from "./pool.js";
 export type FlexItem = Readonly<{
   index: number;
   flex: number;
+  shrink: number;
+  basis: number;
   min: number;
   max: number;
 }>;
@@ -30,7 +32,15 @@ export function distributeFlex(remaining: number, items: readonly FlexItem[]): n
   for (let i = 0; i < items.length; i++) {
     const it = items[i];
     if (it !== undefined && it.flex > 0 && remainingLeft > 0) {
-      reuseActiveItems.push({ index: it.index, flex: it.flex, min: it.min, max: it.max, slot: i });
+      reuseActiveItems.push({
+        index: it.index,
+        flex: it.flex,
+        shrink: it.shrink,
+        basis: it.basis,
+        min: it.min,
+        max: it.max,
+        slot: i,
+      });
     }
   }
 
@@ -131,6 +141,132 @@ export function distributeFlex(remaining: number, items: readonly FlexItem[]): n
       out[i] = cur + add;
       remainingLeft = clampNonNegative(remainingLeft - add);
     }
+  }
+
+  return out;
+}
+
+/**
+ * Shrink items proportionally when their total basis exceeds available space.
+ * Matches CSS Flexbox shrink algorithm:
+ *   scaledShrink[i] = item.shrink * item.basis
+ *   reduction[i] = overflow * scaledShrink[i] / sum(scaledShrink)
+ *   Floor each item at item.min.
+ *   Iterate if any item hits min floor (redistribute to non-floored items).
+ *
+ * Returns an array of final sizes (basis - reduction) per item slot.
+ * Items with shrink=0 keep their full basis.
+ */
+export function shrinkFlex(available: number, items: readonly FlexItem[]): number[] {
+  const out: number[] = new Array(items.length).fill(0);
+  for (let i = 0; i < items.length; i++) {
+    out[i] = items[i]?.basis ?? 0;
+  }
+
+  let totalBasis = 0;
+  for (let i = 0; i < items.length; i++) {
+    totalBasis += items[i]?.basis ?? 0;
+  }
+
+  let overflow = totalBasis - available;
+  if (overflow <= 0) return out;
+
+  const active = new Array(items.length).fill(true);
+  while (overflow > 0) {
+    let totalScaled = 0;
+    let activeCount = 0;
+    for (let i = 0; i < items.length; i++) {
+      if (!active[i]) continue;
+      const it = items[i];
+      if (!it || it.shrink <= 0) {
+        active[i] = false;
+        continue;
+      }
+      const reducible = Math.max(0, (out[i] ?? 0) - it.min);
+      if (reducible <= 0) {
+        active[i] = false;
+        continue;
+      }
+      totalScaled += it.shrink * it.basis;
+      activeCount++;
+    }
+    if (totalScaled <= 0 || activeCount === 0) break;
+
+    const baseReductions = new Array<number>(items.length).fill(0);
+    const fracs = new Array<number>(items.length).fill(0);
+    let distributedBase = 0;
+    for (let i = 0; i < items.length; i++) {
+      if (!active[i]) continue;
+      const it = items[i];
+      if (!it) continue;
+      const scaled = it.shrink * it.basis;
+      const raw = (overflow * scaled) / totalScaled;
+      const base = Math.floor(raw);
+      const reducible = Math.max(0, (out[i] ?? 0) - it.min);
+      const clampedBase = Math.min(base, reducible);
+      baseReductions[i] = clampedBase;
+      fracs[i] = raw - base;
+      distributedBase += clampedBase;
+    }
+
+    let remainder = overflow - distributedBase;
+    if (remainder > 0) {
+      const order: number[] = [];
+      for (let i = 0; i < items.length; i++) {
+        if (active[i]) order.push(i);
+      }
+      order.sort((a, b) => {
+        if ((fracs[b] ?? 0) !== (fracs[a] ?? 0)) return (fracs[b] ?? 0) - (fracs[a] ?? 0);
+        return a - b;
+      });
+
+      // Allocate leftover one cell at a time, honoring min floors.
+      let cursor = 0;
+      while (remainder > 0 && order.length > 0) {
+        const idx = order[cursor % order.length] ?? -1;
+        if (idx < 0) break;
+        const it = items[idx];
+        if (!it) break;
+        const reducible = Math.max(0, (out[idx] ?? 0) - it.min - (baseReductions[idx] ?? 0));
+        if (reducible > 0) {
+          baseReductions[idx] = (baseReductions[idx] ?? 0) + 1;
+          remainder--;
+        }
+        cursor++;
+        if (cursor > order.length * 4 && remainder > 0) {
+          // Rebuild active order when many candidates hit floor.
+          const nextOrder = order.filter((slot) => {
+            const item = items[slot];
+            if (!item) return false;
+            const room =
+              (out[slot] ?? 0) - item.min - Math.max(0, baseReductions[slot] ?? 0);
+            return room > 0;
+          });
+          order.length = 0;
+          for (let i = 0; i < nextOrder.length; i++) order.push(nextOrder[i] ?? 0);
+          cursor = 0;
+          if (order.length === 0) break;
+        }
+      }
+    }
+
+    let distributed = 0;
+    for (let i = 0; i < items.length; i++) {
+      const reduction = baseReductions[i] ?? 0;
+      if (reduction <= 0) continue;
+      out[i] = Math.max((items[i]?.min ?? 0), (out[i] ?? 0) - reduction);
+      distributed += reduction;
+      const it = items[i];
+      if (it && (out[i] ?? 0) <= it.min) active[i] = false;
+    }
+
+    overflow -= distributed;
+    if (distributed <= 0) break;
+  }
+
+  for (let i = 0; i < items.length; i++) {
+    const min = items[i]?.min ?? 0;
+    if ((out[i] ?? 0) < min) out[i] = min;
   }
 
   return out;

@@ -47,6 +47,18 @@ function modalNode(content: VNode, props: Record<string, unknown> = {}): VNode {
   } as unknown as VNode;
 }
 
+function dropdownNode(props: Record<string, unknown> = {}): VNode {
+  return {
+    kind: "dropdown",
+    props: {
+      id: "overlay-dropdown",
+      anchorId: "missing-anchor",
+      items: Object.freeze([]),
+      ...props,
+    },
+  } as unknown as VNode;
+}
+
 const NOOP_RESIZE = (): void => {};
 
 function splitPaneNode(children: readonly VNode[], props: Record<string, unknown> = {}): VNode {
@@ -114,7 +126,35 @@ describe("layout stability signatures", () => {
     { name: "minHeight", base: { minHeight: 2 }, changed: { minHeight: 3 } },
     { name: "maxHeight", base: { maxHeight: 8 }, changed: { maxHeight: 9 } },
     { name: "flex", base: { flex: 1 }, changed: { flex: 2 } },
+    { name: "flexShrink", base: { flexShrink: 1 }, changed: { flexShrink: 2 } },
+    { name: "flexBasis", base: { flexBasis: 6 }, changed: { flexBasis: 7 } },
     { name: "aspectRatio", base: { aspectRatio: 2 }, changed: { aspectRatio: 3 } },
+    { name: "alignSelf", base: { alignSelf: "start" }, changed: { alignSelf: "end" } },
+    { name: "position", base: { position: "static" }, changed: { position: "absolute" } },
+    {
+      name: "top (absolute)",
+      base: { position: "absolute", top: 0 },
+      changed: { position: "absolute", top: 1 },
+    },
+    {
+      name: "right (absolute)",
+      base: { position: "absolute", right: 0 },
+      changed: { position: "absolute", right: 1 },
+    },
+    {
+      name: "bottom (absolute)",
+      base: { position: "absolute", bottom: 0 },
+      changed: { position: "absolute", bottom: 1 },
+    },
+    {
+      name: "left (absolute)",
+      base: { position: "absolute", left: 0 },
+      changed: { position: "absolute", left: 1 },
+    },
+    { name: "gridColumn", base: { gridColumn: 1 }, changed: { gridColumn: 2 } },
+    { name: "gridRow", base: { gridRow: 1 }, changed: { gridRow: 2 } },
+    { name: "colSpan", base: { colSpan: 1 }, changed: { colSpan: 2 } },
+    { name: "rowSpan", base: { rowSpan: 1 }, changed: { rowSpan: 2 } },
     { name: "p", base: { p: 1 }, changed: { p: 2 } },
     { name: "px", base: { px: 1 }, changed: { px: 2 } },
     { name: "py", base: { py: 1 }, changed: { py: 2 } },
@@ -136,6 +176,35 @@ describe("layout stability signatures", () => {
 
   const BOX_LAYOUT_PROP_CASES = Object.freeze([
     { name: "border", base: { border: "single" }, changed: { border: "double" } },
+    { name: "gap", base: { gap: 1 }, changed: { gap: 2 } },
+    { name: "flexShrink", base: { flexShrink: 1 }, changed: { flexShrink: 2 } },
+    { name: "flexBasis", base: { flexBasis: 8 }, changed: { flexBasis: 9 } },
+    { name: "alignSelf", base: { alignSelf: "start" }, changed: { alignSelf: "center" } },
+    { name: "position", base: { position: "static" }, changed: { position: "absolute" } },
+    {
+      name: "top (absolute)",
+      base: { position: "absolute", top: 0 },
+      changed: { position: "absolute", top: 1 },
+    },
+    {
+      name: "right (absolute)",
+      base: { position: "absolute", right: 0 },
+      changed: { position: "absolute", right: 1 },
+    },
+    {
+      name: "bottom (absolute)",
+      base: { position: "absolute", bottom: 0 },
+      changed: { position: "absolute", bottom: 1 },
+    },
+    {
+      name: "left (absolute)",
+      base: { position: "absolute", left: 0 },
+      changed: { position: "absolute", left: 1 },
+    },
+    { name: "gridColumn", base: { gridColumn: 1 }, changed: { gridColumn: 2 } },
+    { name: "gridRow", base: { gridRow: 1 }, changed: { gridRow: 2 } },
+    { name: "colSpan", base: { colSpan: 1 }, changed: { colSpan: 2 } },
+    { name: "rowSpan", base: { rowSpan: 1 }, changed: { rowSpan: 2 } },
     {
       name: "borderTop (regression)",
       base: { borderTop: true },
@@ -344,23 +413,19 @@ describe("layout stability signatures", () => {
     expectSignatureChanged(base, changed);
   });
 
-  test("overlay kinds are excluded and conservatively force relayout", () => {
+  test("unsupported overlay kinds are excluded and conservatively force relayout", () => {
     const prev = new Map<InstanceId, number>();
     const supported = runtimeNode(1, textNode("ok"));
     assert.equal(runSignatures(supported, prev), true);
     assert.ok(prev.size > 0);
 
-    const overlay = runtimeNode(1, modalNode(textNode("overlay")));
+    const overlay = runtimeNode(1, dropdownNode());
     assert.equal(runSignatures(overlay, prev), true);
     assert.equal(prev.size, 0);
   });
 
-  test("splitPane kind is excluded and conservatively forces relayout", () => {
+  test("splitPane kind is covered and stable when unchanged", () => {
     const prev = new Map<InstanceId, number>();
-    const supported = runtimeNode(1, textNode("ok"));
-    assert.equal(runSignatures(supported, prev), true);
-    assert.ok(prev.size > 0);
-
     const childA = runtimeNode(2, textNode("A"));
     const childB = runtimeNode(3, textNode("B"));
     const split = runtimeNode(
@@ -369,10 +434,11 @@ describe("layout stability signatures", () => {
       [childA, childB],
     );
     assert.equal(runSignatures(split, prev), true);
-    assert.equal(prev.size, 0);
+    assert.ok(prev.size > 0);
+    assert.equal(runSignatures(split, prev), false);
   });
 
-  test("splitPane sizes array changes are covered by conservative relayout behavior", () => {
+  test("splitPane sizes array changes are covered by signatures", () => {
     const prev = new Map<InstanceId, number>();
     const childA = runtimeNode(2, textNode("A"));
     const childB = runtimeNode(3, textNode("B"));
@@ -389,9 +455,61 @@ describe("layout stability signatures", () => {
     );
 
     assert.equal(runSignatures(base, prev), true);
-    assert.equal(prev.size, 0);
+    assert.ok(prev.size > 0);
     assert.equal(runSignatures(changedSizes, prev), true);
-    assert.equal(prev.size, 0);
+    assert.ok(prev.size > 0);
+  });
+
+  test("splitPane direction changes are covered by signatures", () => {
+    const prev = new Map<InstanceId, number>();
+    const childA = runtimeNode(2, textNode("A"));
+    const childB = runtimeNode(3, textNode("B"));
+
+    const base = runtimeNode(
+      1,
+      splitPaneNode([childA.vnode, childB.vnode], { direction: "horizontal" }),
+      [childA, childB],
+    );
+    const changedDirection = runtimeNode(
+      1,
+      splitPaneNode([childA.vnode, childB.vnode], { direction: "vertical" }),
+      [childA, childB],
+    );
+
+    assert.equal(runSignatures(base, prev), true);
+    assert.ok(prev.size > 0);
+    assert.equal(runSignatures(changedDirection, prev), true);
+    assert.ok(prev.size > 0);
+  });
+
+  test("splitPane collapsed state changes are covered when collapsible is enabled", () => {
+    const prev = new Map<InstanceId, number>();
+    const childA = runtimeNode(2, textNode("A"));
+    const childB = runtimeNode(3, textNode("B"));
+
+    const base = runtimeNode(
+      1,
+      splitPaneNode([childA.vnode, childB.vnode], {
+        collapsible: true,
+        collapsed: Object.freeze([]),
+        minSizes: Object.freeze([0, 0]),
+      }),
+      [childA, childB],
+    );
+    const collapsedChanged = runtimeNode(
+      1,
+      splitPaneNode([childA.vnode, childB.vnode], {
+        collapsible: true,
+        collapsed: Object.freeze([0]),
+        minSizes: Object.freeze([0, 0]),
+      }),
+      [childA, childB],
+    );
+
+    assert.equal(runSignatures(base, prev), true);
+    assert.ok(prev.size > 0);
+    assert.equal(runSignatures(collapsedChanged, prev), true);
+    assert.ok(prev.size > 0);
   });
 
   test("unsupported child in otherwise supported tree forces relayout and clears maps", () => {
@@ -403,7 +521,7 @@ describe("layout stability signatures", () => {
     assert.ok(prev.size > 0);
 
     const supportedChild = runtimeNode(2, textNode("ok"));
-    const unsupportedChild = runtimeNode(3, modalNode(textNode("overlay-child")));
+    const unsupportedChild = runtimeNode(3, dropdownNode({ anchorId: "overlay-child" }));
     const mixed = runtimeNode(
       1,
       rowNode([supportedChild.vnode, unsupportedChild.vnode], { gap: 1 }),

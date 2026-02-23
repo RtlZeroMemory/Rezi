@@ -57,6 +57,8 @@ When `collapsible: true`:
 ## Notes
 
 - `sizes` length should match the number of child panels.
+- In percent mode, panel cell allocation uses deterministic integer remainder distribution (for example `33/33/33` in 100 cells becomes `34/33/33`).
+- Tie-breaking for remainder cells is stable by lower panel index.
 - Use [`PanelGroup`](panel-group.md) for equal distribution without drag handles.
 
 ## Related

@@ -28,11 +28,19 @@ ui.box({ title: "Settings", border: "rounded", p: 1 }, [
 | `opacity` | `number` | `1` | Surface opacity in `[0..1]` (values are clamped) |
 | `transition` | `TransitionSpec` | - | Declarative render-time transition for `position`, `size`, and/or `opacity` |
 | `p`, `px`, `py`, `pt`, `pr`, `pb`, `pl` | `SpacingValue` | - | Padding props |
+| `gap` | `SpacingValue` | `0` | Vertical gap between children in the synthetic inner column layout |
 | `m`, `mx`, `my` | `SpacingValue` | - | Margin props |
 | `width`, `height` | `number \| \"auto\" \| \"${number}%\"` | - | Size constraints |
 | `minWidth`, `maxWidth`, `minHeight`, `maxHeight` | `number` | - | Size bounds (cells) |
 | `flex` | `number` | - | Main-axis flex in stacks |
+| `flexShrink` | `number` | `0` | Overflow shrink factor when box is a stack child |
+| `flexBasis` | `number \| \"auto\" \| \"full\" \| \"${number}%\"` | - | Initial main-axis basis before grow/shrink |
 | `aspectRatio` | `number` | - | Enforce width/height ratio |
+| `alignSelf` | `"auto" \| "start" \| "center" \| "end" \| "stretch"` | `"auto"` | Per-child cross-axis alignment override in parent stack |
+| `position` | `"static" \| "absolute"` | `"static"` | Absolute positioning mode as a stack child |
+| `top`, `right`, `bottom`, `left` | `number` | - | Absolute offsets when `position: "absolute"` |
+| `gridColumn`, `gridRow` | `number` | - | 1-based explicit grid placement coordinates when parent is `ui.grid(...)` |
+| `colSpan`, `rowSpan` | `number` | `1` | Grid span across columns/rows when parent is `ui.grid(...)` |
 
 ## Examples
 
@@ -116,6 +124,18 @@ ui.box(
 );
 ```
 
+### 5) Box child gap
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.box({ border: "single", p: 1, gap: 1, title: "Events" }, [
+  ui.text("Connected"),
+  ui.text("Sync complete"),
+  ui.text("Watcher started"),
+]);
+```
+
 ## Style Propagation
 
 `ui.box()` merges its resolved `style` into `parentStyle`, which is passed to all child widgets. This means any `fg`, `bg`, `bold`, `dim`, etc. set on `style` will be inherited by every descendant unless overridden.
@@ -137,6 +157,8 @@ ui.box(
 
 - Borders consume 1 cell on each edge (unless `border: "none"`).
 - Padding is applied inside the border and reduces child content area.
+- `gap` is applied inside the content rect (after border + padding). Default `gap: 0` preserves contiguous child flow.
+- Absolute-positioned children inside a box are removed from normal inner-column flow, then laid out in a second pass relative to the box content rect.
 - `transition.properties` defaults to `"all"` when omitted (`position`, `size`, `opacity`).
 - `transition.properties: []` disables animation tracks for that box.
 

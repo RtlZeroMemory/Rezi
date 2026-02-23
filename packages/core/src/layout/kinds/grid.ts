@@ -1,5 +1,6 @@
 import type { VNode } from "../../widgets/types.js";
 import { clampNonNegative } from "../engine/bounds.js";
+import { distributeInteger } from "../engine/distributeInteger.js";
 import { type FlexItem, distributeFlex } from "../engine/flex.js";
 import { releaseArray } from "../engine/pool.js";
 import { ok } from "../engine/result.js";
@@ -34,12 +35,20 @@ type ParsedGridProps = Readonly<{
   columnGap: number;
 }>;
 
-type PlacedChild = Readonly<{ child: VNode; column: number; row: number }>;
+type PlacedChild = Readonly<{
+  child: VNode;
+  column: number;
+  row: number;
+  colSpan: number;
+  rowSpan: number;
+}>;
 
 type MeasuredPlacedChild = Readonly<{
   child: VNode;
   column: number;
   row: number;
+  colSpan: number;
+  rowSpan: number;
   size: Size;
 }>;
 
@@ -237,29 +246,210 @@ function parseGridProps(rawProps: unknown): LayoutResult<ParsedGridProps> {
   };
 }
 
+type ChildGridPlacementProps = Readonly<{
+  gridColumn: number | null;
+  gridRow: number | null;
+  colSpan: number;
+  rowSpan: number;
+}>;
+
+function readPositiveInt(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  const n = Math.floor(value);
+  return n > 0 ? n : null;
+}
+
+function readChildGridPlacementProps(child: VNode): ChildGridPlacementProps {
+  const props = (child.props ?? {}) as {
+    gridColumn?: unknown;
+    gridRow?: unknown;
+    colSpan?: unknown;
+    rowSpan?: unknown;
+  };
+  const gridColumnRaw = readPositiveInt(props.gridColumn);
+  const gridRowRaw = readPositiveInt(props.gridRow);
+  const colSpanRaw = readPositiveInt(props.colSpan);
+  const rowSpanRaw = readPositiveInt(props.rowSpan);
+  return {
+    gridColumn: gridColumnRaw === null ? null : gridColumnRaw - 1,
+    gridRow: gridRowRaw === null ? null : gridRowRaw - 1,
+    colSpan: colSpanRaw ?? 1,
+    rowSpan: rowSpanRaw ?? 1,
+  };
+}
+
+function ensureRows(occupied: boolean[][], rowCount: number, columnCount: number): void {
+  while (occupied.length < rowCount) {
+    occupied.push(new Array<boolean>(columnCount).fill(false));
+  }
+}
+
+function markOccupied(
+  occupied: boolean[][],
+  row: number,
+  column: number,
+  rowSpan: number,
+  colSpan: number,
+  rowCount: number,
+  columnCount: number,
+): void {
+  for (let dr = 0; dr < rowSpan; dr++) {
+    const r = row + dr;
+    if (r < 0 || r >= rowCount) continue;
+    for (let dc = 0; dc < colSpan; dc++) {
+      const c = column + dc;
+      if (c < 0 || c >= columnCount) continue;
+      occupied[r]![c] = true;
+    }
+  }
+}
+
+function fitsAt(
+  occupied: boolean[][],
+  row: number,
+  column: number,
+  rowSpan: number,
+  colSpan: number,
+  rowCount: number,
+  columnCount: number,
+): boolean {
+  if (column < 0 || column + colSpan > columnCount) return false;
+  if (row < 0 || row + rowSpan > rowCount) return false;
+  for (let dr = 0; dr < rowSpan; dr++) {
+    const r = row + dr;
+    for (let dc = 0; dc < colSpan; dc++) {
+      const c = column + dc;
+      if (occupied[r]?.[c]) return false;
+    }
+  }
+  return true;
+}
+
+function findNextFree(
+  occupied: boolean[][],
+  startRow: number,
+  startColumn: number,
+  rowSpan: number,
+  colSpan: number,
+  rowCount: number,
+  columnCount: number,
+): [number, number] {
+  for (let row = startRow; row < rowCount; row++) {
+    const cStart = row === startRow ? startColumn : 0;
+    const cEnd = Math.max(cStart, columnCount - colSpan);
+    for (let col = cStart; col <= cEnd; col++) {
+      if (fitsAt(occupied, row, col, rowSpan, colSpan, rowCount, columnCount)) {
+        return [row, col];
+      }
+    }
+  }
+  return [rowCount, 0];
+}
+
 function buildPlacementPlan(
   children: readonly (VNode | undefined)[],
   columnCount: number,
   explicitRows: boolean,
   explicitRowCount: number,
 ): PlacementPlan {
-  const placed: PlacedChild[] = [];
-  const capacity = explicitRows ? columnCount * explicitRowCount : Number.POSITIVE_INFINITY;
+  const placements: Array<PlacedChild | null> = new Array(children.length).fill(null);
+  const autoChildren: Array<Readonly<{ child: VNode; index: number }>> = [];
+  const occupied: boolean[][] = [];
 
-  let slot = 0;
+  let rowCount = explicitRows ? explicitRowCount : 0;
+  if (!explicitRows) ensureRows(occupied, 1, columnCount);
+  else ensureRows(occupied, explicitRowCount, columnCount);
+
+  // Phase 1: explicit placements first.
   for (let i = 0; i < children.length; i++) {
     const child = children[i];
     if (!child) continue;
-    if (slot >= capacity) break;
-    placed.push({
-      child,
-      column: slot % columnCount,
-      row: Math.floor(slot / columnCount),
-    });
-    slot++;
+    const itemProps = readChildGridPlacementProps(child);
+    const isExplicit = itemProps.gridColumn !== null || itemProps.gridRow !== null;
+    if (!isExplicit) {
+      autoChildren.push(Object.freeze({ child, index: i }));
+      continue;
+    }
+
+    const startColumn = itemProps.gridColumn ?? 0;
+    const startRow = itemProps.gridRow ?? 0;
+    if (startColumn >= columnCount) continue;
+    if (explicitRows && startRow >= rowCount) continue;
+
+    const colSpan = Math.max(1, Math.min(itemProps.colSpan, columnCount - startColumn));
+    let rowSpan = Math.max(1, itemProps.rowSpan);
+    if (explicitRows) {
+      rowSpan = Math.max(1, Math.min(rowSpan, rowCount - startRow));
+      if (rowSpan <= 0) continue;
+    } else {
+      const neededRows = startRow + rowSpan;
+      if (neededRows > rowCount) {
+        rowCount = neededRows;
+        ensureRows(occupied, rowCount, columnCount);
+      }
+    }
+
+    let [row, col] = findNextFree(
+      occupied,
+      startRow,
+      startColumn,
+      rowSpan,
+      colSpan,
+      rowCount,
+      columnCount,
+    );
+    if (row >= rowCount) {
+      if (explicitRows) continue;
+      row = rowCount;
+      col = 0;
+      rowCount = row + rowSpan;
+      ensureRows(occupied, rowCount, columnCount);
+    }
+
+    markOccupied(occupied, row, col, rowSpan, colSpan, rowCount, columnCount);
+    placements[i] = { child, column: col, row, colSpan, rowSpan };
   }
 
-  const rowCount = explicitRows ? explicitRowCount : Math.ceil(slot / columnCount);
+  // Phase 2: auto placements skip occupied cells.
+  for (let i = 0; i < autoChildren.length; i++) {
+    const auto = autoChildren[i];
+    if (!auto) continue;
+    const itemProps = readChildGridPlacementProps(auto.child);
+    const colSpan = Math.max(1, Math.min(itemProps.colSpan, columnCount));
+    let rowSpan = Math.max(1, itemProps.rowSpan);
+
+    if (!explicitRows && rowCount === 0) {
+      rowCount = 1;
+      ensureRows(occupied, rowCount, columnCount);
+    }
+
+    if (explicitRows) {
+      rowSpan = Math.max(1, Math.min(rowSpan, rowCount));
+      if (rowSpan <= 0 || rowCount <= 0) continue;
+    }
+
+    let [row, col] = findNextFree(occupied, 0, 0, rowSpan, colSpan, rowCount, columnCount);
+    if (row >= rowCount) {
+      if (explicitRows) continue;
+      row = rowCount;
+      col = 0;
+      rowCount = row + rowSpan;
+      ensureRows(occupied, rowCount, columnCount);
+    }
+
+    markOccupied(occupied, row, col, rowSpan, colSpan, rowCount, columnCount);
+    placements[auto.index] = { child: auto.child, column: col, row, colSpan, rowSpan };
+  }
+
+  const placed: PlacedChild[] = [];
+  for (let i = 0; i < placements.length; i++) {
+    const placement = placements[i];
+    if (placement) placed.push(placement);
+  }
+
+  if (!explicitRows && placed.length === 0) {
+    rowCount = 0;
+  }
   return { placed, rowCount };
 }
 
@@ -276,7 +466,14 @@ function measurePlacedChildren(
     if (!p) continue;
     const sizeRes = measureNode(p.child, maxW, maxH, axis);
     if (!sizeRes.ok) return sizeRes;
-    measured.push({ child: p.child, column: p.column, row: p.row, size: sizeRes.value });
+    measured.push({
+      child: p.child,
+      column: p.column,
+      row: p.row,
+      colSpan: p.colSpan,
+      rowSpan: p.rowSpan,
+      size: sizeRes.value,
+    });
   }
   return { ok: true, value: measured };
 }
@@ -285,6 +482,8 @@ function resolveTrackNaturals(
   columnTracks: readonly GridTrack[],
   rowTracks: readonly GridTrack[],
   measured: readonly MeasuredPlacedChild[],
+  columnGap: number,
+  rowGap: number,
 ): GridTrackNaturals {
   const columnNaturals: number[] = new Array(columnTracks.length).fill(0);
   const rowNaturals: number[] = new Array(rowTracks.length).fill(0);
@@ -309,19 +508,61 @@ function resolveTrackNaturals(
     const item = measured[i];
     if (!item) continue;
 
-    const colTrack = columnTracks[item.column];
-    if (colTrack?.kind === "auto" || colTrack?.kind === "count") {
-      const cur = columnNaturals[item.column] ?? 0;
-      if (item.size.w > cur) {
-        columnNaturals[item.column] = item.size.w;
+    const colSpan = Math.max(1, item.colSpan);
+    const rowSpan = Math.max(1, item.rowSpan);
+
+    let currentSpanW = 0;
+    for (let c = 0; c < colSpan; c++) {
+      currentSpanW += columnNaturals[item.column + c] ?? 0;
+    }
+    if (colSpan > 1) currentSpanW += columnGap * (colSpan - 1);
+    const neededW = Math.max(0, item.size.w - currentSpanW);
+    if (neededW > 0) {
+      const growableColumns: number[] = [];
+      for (let c = 0; c < colSpan; c++) {
+        const colIndex = item.column + c;
+        const track = columnTracks[colIndex];
+        if (!track) continue;
+        if (track.kind === "auto" || track.kind === "count") {
+          growableColumns.push(colIndex);
+        }
+      }
+      if (growableColumns.length > 0) {
+        const add = distributeInteger(
+          neededW,
+          new Array<number>(growableColumns.length).fill(1),
+        );
+        for (let c = 0; c < growableColumns.length; c++) {
+          const colIndex = growableColumns[c];
+          if (colIndex === undefined) continue;
+          columnNaturals[colIndex] = (columnNaturals[colIndex] ?? 0) + (add[c] ?? 0);
+        }
       }
     }
 
-    const rowTrack = rowTracks[item.row];
-    if (rowTrack?.kind === "auto") {
-      const cur = rowNaturals[item.row] ?? 0;
-      if (item.size.h > cur) {
-        rowNaturals[item.row] = item.size.h;
+    let currentSpanH = 0;
+    for (let r = 0; r < rowSpan; r++) {
+      currentSpanH += rowNaturals[item.row + r] ?? 0;
+    }
+    if (rowSpan > 1) currentSpanH += rowGap * (rowSpan - 1);
+    const neededH = Math.max(0, item.size.h - currentSpanH);
+    if (neededH > 0) {
+      const growableRows: number[] = [];
+      for (let r = 0; r < rowSpan; r++) {
+        const rowIndex = item.row + r;
+        const track = rowTracks[rowIndex];
+        if (!track) continue;
+        if (track.kind === "auto") {
+          growableRows.push(rowIndex);
+        }
+      }
+      if (growableRows.length > 0) {
+        const add = distributeInteger(neededH, new Array<number>(growableRows.length).fill(1));
+        for (let r = 0; r < growableRows.length; r++) {
+          const rowIndex = growableRows[r];
+          if (rowIndex === undefined) continue;
+          rowNaturals[rowIndex] = (rowNaturals[rowIndex] ?? 0) + (add[r] ?? 0);
+        }
       }
     }
   }
@@ -361,7 +602,7 @@ function resolveTrackSizes(
 
     if (track.kind === "fr" || track.kind === "count") {
       const flex = track.kind === "fr" ? track.flex : 1;
-      flexItems.push({ index: i, flex, min: 0, max: availableForTracks });
+      flexItems.push({ index: i, flex, shrink: 0, basis: 0, min: 0, max: availableForTracks });
       continue;
     }
 
@@ -425,7 +666,13 @@ export function measureGridKinds(
       const measuredRes = measurePlacedChildren(placement.placed, maxW, maxH, axis, measureNode);
       if (!measuredRes.ok) return measuredRes;
 
-      const naturals = resolveTrackNaturals(parsed.columnTracks, rowTracks, measuredRes.value);
+      const naturals = resolveTrackNaturals(
+        parsed.columnTracks,
+        rowTracks,
+        measuredRes.value,
+        parsed.columnGap,
+        parsed.rowGap,
+      );
 
       const naturalW = sumTracksWithGap(naturals.columns, parsed.columnGap);
       const naturalH = sumTracksWithGap(naturals.rows, parsed.rowGap);
@@ -471,7 +718,13 @@ export function layoutGridKinds(
       const measuredRes = measurePlacedChildren(placement.placed, rectW, rectH, axis, measureNode);
       if (!measuredRes.ok) return measuredRes;
 
-      const naturals = resolveTrackNaturals(parsed.columnTracks, rowTracks, measuredRes.value);
+      const naturals = resolveTrackNaturals(
+        parsed.columnTracks,
+        rowTracks,
+        measuredRes.value,
+        parsed.columnGap,
+        parsed.rowGap,
+      );
       const columnSizes = resolveTrackSizes(
         parsed.columnTracks,
         naturals.columns,
@@ -489,8 +742,17 @@ export function layoutGridKinds(
 
         const childX = x + (columnStarts[placed.column] ?? 0);
         const childY = y + (rowStarts[placed.row] ?? 0);
-        const childW = columnSizes[placed.column] ?? 0;
-        const childH = rowSizes[placed.row] ?? 0;
+        let childW = 0;
+        for (let c = 0; c < placed.colSpan; c++) {
+          childW += columnSizes[placed.column + c] ?? 0;
+        }
+        if (placed.colSpan > 1) childW += parsed.columnGap * (placed.colSpan - 1);
+
+        let childH = 0;
+        for (let r = 0; r < placed.rowSpan; r++) {
+          childH += rowSizes[placed.row + r] ?? 0;
+        }
+        if (placed.rowSpan > 1) childH += parsed.rowGap * (placed.rowSpan - 1);
 
         const childRes = layoutNode(
           placed.child,

@@ -8,6 +8,7 @@ import {
   measureTextCells,
   truncateMiddle,
   truncateWithEllipsis,
+  wrapTextToLines,
 } from "../../../layout/textMeasure.js";
 import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
@@ -263,6 +264,7 @@ export function renderTextWidgets(
         variant?: unknown;
         textOverflow?: unknown;
         maxWidth?: unknown;
+        wrap?: unknown;
         internal_terminalCursorFocus?: unknown;
         internal_terminalCursorPosition?: unknown;
         terminalCursorFocus?: unknown;
@@ -280,9 +282,63 @@ export function renderTextWidgets(
       if (overflowW <= 0) break;
 
       const text = vnode.text;
+      const wrap = props.wrap === true;
       const cursorMeta = readTerminalCursorMeta(props);
       const cursorOffset = Math.min(text.length, Math.max(0, cursorMeta.position ?? text.length));
       const cursorX = Math.min(overflowW, measureTextCells(text.slice(0, cursorOffset)));
+
+      if (wrap && rect.h > 1) {
+        const lines = wrapTextToLines(text, overflowW);
+        const visibleCount = Math.min(rect.h, lines.length);
+        if (visibleCount <= 0) break;
+
+        for (let i = 0; i < visibleCount; i++) {
+          const rawLine = lines[i] ?? "";
+          const isLastVisible = i === visibleCount - 1;
+          const hasHiddenLines = lines.length > visibleCount;
+          let line = rawLine;
+
+          if (isLastVisible) {
+            switch (textOverflow) {
+              case "ellipsis":
+                line = truncateWithEllipsis(hasHiddenLines ? `${rawLine}…` : rawLine, overflowW);
+                break;
+              case "middle":
+                line = truncateMiddle(hasHiddenLines ? `${rawLine}…` : rawLine, overflowW);
+                break;
+              case "clip":
+                break;
+            }
+          }
+
+          builder.pushClip(rect.x, rect.y + i, overflowW, 1);
+          builder.drawText(rect.x, rect.y + i, line, style);
+          builder.popClip();
+        }
+
+        if (cursorInfo && cursorMeta.focused) {
+          let remaining = cursorOffset;
+          let cursorLine = 0;
+          for (let i = 0; i < visibleCount; i++) {
+            const lineLen = (lines[i] ?? "").length;
+            if (remaining <= lineLen) {
+              cursorLine = i;
+              break;
+            }
+            remaining = Math.max(0, remaining - lineLen - 1);
+            cursorLine = i;
+          }
+          const lineText = lines[Math.min(cursorLine, visibleCount - 1)] ?? "";
+          const localOffset = Math.min(lineText.length, Math.max(0, remaining));
+          resolvedCursor = {
+            x: rect.x + Math.min(overflowW, measureTextCells(lineText.slice(0, localOffset))),
+            y: rect.y + Math.min(cursorLine, visibleCount - 1),
+            shape: cursorInfo.shape,
+            blink: cursorInfo.blink,
+          };
+        }
+        break;
+      }
 
       // Avoid measuring in the common ASCII case.
       const fits =

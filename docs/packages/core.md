@@ -76,7 +76,14 @@ Flexbox-like layout with:
 - Gap spacing between children
 - Padding and margin
 - Alignment and justification
-- Fixed, flex, and percentage sizing
+- Fixed, flex, percentage, and `fluid(...)` responsive sizing
+- Per-child `alignSelf`
+- `flexShrink` + `flexBasis` (including intrinsic min/max content handling)
+- Wrapped text measurement/render integration
+- Absolute positioning (`position: "absolute"` + offsets)
+- Grid explicit placement + spans (`gridColumn/gridRow/colSpan/rowSpan`)
+- Deterministic integer remainder distribution for weighted splits
+- Layout stability signature coverage for modern container widgets (grid/table/tabs/accordion/modal/virtualList/splitPane/breadcrumb/pagination)
 - Constraint propagation
 
 ### Theme System
@@ -271,6 +278,9 @@ await debug.enable({
 | `SpacingValue` | Spacing value type |
 | `SpacingKey` | Named spacing keys |
 | `SPACING_SCALE` | Spacing scale values |
+| `fluid(...)` | Fluid responsive interpolation helper for layout scalars |
+| `FluidValue`, `FluidValueOptions` | `fluid(...)` value and options types |
+| `ResponsiveValue`, `ViewportBreakpoint`, `ResponsiveViewportSnapshot` | Responsive value and breakpoint types |
 | `Align`, `JustifyContent` | Alignment types |
 
 ### Forms

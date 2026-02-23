@@ -151,30 +151,46 @@ export function measureOverlays(
     }
     case "commandPalette": {
       // Command palette: centered modal with input + list
-      const props = vnode.props as { open?: unknown; maxVisible?: unknown };
+      const props = vnode.props as { open?: unknown; maxVisible?: unknown; width?: unknown };
       if (props.open !== true) {
         return ok({ w: 0, h: 0 }); // Hidden when closed
       }
-      const paletteWidth = Math.min(maxW, 60);
+      const widthProp = props.width;
+      const paletteWidth = Math.min(
+        maxW,
+        typeof widthProp === "number" && widthProp > 0 ? Math.floor(widthProp) : 60,
+      );
       const maxVisible = readNonNegativeInt(props.maxVisible, 10);
       const paletteHeight = Math.min(maxH, maxVisible + 4); // border + input + separator + items
       return ok({ w: paletteWidth, h: paletteHeight });
     }
     case "toolApprovalDialog": {
       // Tool approval dialog: modal with fixed-ish size
-      const props = vnode.props as { open?: unknown };
+      const props = vnode.props as { open?: unknown; width?: unknown; height?: unknown };
       if (props.open !== true) {
         return ok({ w: 0, h: 0 }); // Hidden when closed
       }
-      const dialogWidth = Math.min(maxW, 50);
-      const dialogHeight = Math.min(maxH, 15);
+      const widthProp = props.width;
+      const heightProp = props.height;
+      const dialogWidth = Math.min(
+        maxW,
+        typeof widthProp === "number" && widthProp > 0 ? Math.floor(widthProp) : 50,
+      );
+      const dialogHeight = Math.min(
+        maxH,
+        typeof heightProp === "number" && heightProp > 0 ? Math.floor(heightProp) : 15,
+      );
       return ok({ w: dialogWidth, h: dialogHeight });
     }
     case "toastContainer": {
       // Toast container: positioned at edge, minimal intrinsic size
-      const props = vnode.props as { maxVisible?: unknown };
+      const props = vnode.props as { maxVisible?: unknown; width?: unknown };
       const maxVisible = readNonNegativeInt(props.maxVisible, 5);
-      const toastWidth = Math.min(maxW, 40);
+      const widthProp = props.width;
+      const toastWidth = Math.min(
+        maxW,
+        typeof widthProp === "number" && widthProp > 0 ? Math.floor(widthProp) : 40,
+      );
       const toastHeight = Math.min(maxH, maxVisible * TOAST_HEIGHT);
       return ok({ w: toastWidth, h: toastHeight });
     }
@@ -241,6 +257,9 @@ export function layoutOverlays(
       const props = vnode.props as {
         title?: unknown;
         width?: unknown;
+        height?: unknown;
+        minWidth?: unknown;
+        minHeight?: unknown;
         maxWidth?: unknown;
         content?: unknown;
         actions?: unknown;
@@ -265,6 +284,14 @@ export function layoutOverlays(
           : rectW;
 
       let modalH = Math.floor(rectH * 0.6);
+      const heightProp = props.height;
+      if (typeof heightProp === "number" && heightProp > 0) {
+        modalH = Math.floor(heightProp);
+      }
+      const minHeightProp = props.minHeight;
+      if (typeof minHeightProp === "number" && minHeightProp > 0) {
+        modalH = Math.max(modalH, Math.floor(minHeightProp));
+      }
       modalH = clampWithin(modalH, Math.min(5, rectH), rectH);
       if (rectH >= 4) modalH = Math.min(modalH, rectH - 2);
 
@@ -306,6 +333,10 @@ export function layoutOverlays(
         modalW = Math.floor(rectW * 0.7);
       }
 
+      const minWidthProp = props.minWidth;
+      if (typeof minWidthProp === "number" && minWidthProp > 0) {
+        modalW = Math.max(modalW, Math.floor(minWidthProp));
+      }
       modalW = clampNonNegative(Math.min(modalW, maxWidth));
       modalW = clampWithin(modalW, Math.min(10, rectW), rectW);
       if (rectW >= 4) modalW = Math.min(modalW, rectW - 2);
@@ -387,11 +418,15 @@ export function layoutOverlays(
     }
     case "commandPalette": {
       // Command palette is a modal overlay, hidden when closed
-      const props = vnode.props as { open?: unknown; maxVisible?: unknown };
+      const props = vnode.props as { open?: unknown; maxVisible?: unknown; width?: unknown };
       if (props.open !== true) {
         return ok({ vnode, rect: { x, y, w: 0, h: 0 }, children: Object.freeze([]) });
       }
-      const paletteWidth = Math.min(rectW, 60);
+      const widthProp = props.width;
+      const paletteWidth = Math.min(
+        rectW,
+        typeof widthProp === "number" && widthProp > 0 ? Math.floor(widthProp) : 60,
+      );
       const maxVisible = readNonNegativeInt(props.maxVisible, 10);
       const paletteHeight = Math.min(rectH, maxVisible + 4);
       const maxX = x + Math.max(0, maxW - paletteWidth);
@@ -408,12 +443,20 @@ export function layoutOverlays(
     }
     case "toolApprovalDialog": {
       // Tool approval dialog: modal, hidden when closed
-      const props = vnode.props as { open?: unknown };
+      const props = vnode.props as { open?: unknown; width?: unknown; height?: unknown };
       if (props.open !== true) {
         return ok({ vnode, rect: { x, y, w: 0, h: 0 }, children: Object.freeze([]) });
       }
-      const dialogWidth = Math.min(rectW, 50);
-      const dialogHeight = Math.min(rectH, 15);
+      const widthProp = props.width;
+      const heightProp = props.height;
+      const dialogWidth = Math.min(
+        rectW,
+        typeof widthProp === "number" && widthProp > 0 ? Math.floor(widthProp) : 50,
+      );
+      const dialogHeight = Math.min(
+        rectH,
+        typeof heightProp === "number" && heightProp > 0 ? Math.floor(heightProp) : 15,
+      );
       const maxX = x + Math.max(0, maxW - dialogWidth);
       const maxY = y + Math.max(0, maxH - dialogHeight);
       const mx = clampWithin(x + Math.floor((maxW - dialogWidth) / 2), x, maxX);
@@ -426,9 +469,13 @@ export function layoutOverlays(
     }
     case "toastContainer": {
       // Toast container: positioned based on position prop
-      const props = vnode.props as { maxVisible?: unknown; position?: unknown };
+      const props = vnode.props as { maxVisible?: unknown; position?: unknown; width?: unknown };
       const maxVisible = readNonNegativeInt(props.maxVisible, 5);
-      const toastWidth = Math.min(rectW, 40);
+      const widthProp = props.width;
+      const toastWidth = Math.min(
+        rectW,
+        typeof widthProp === "number" && widthProp > 0 ? Math.floor(widthProp) : 40,
+      );
       const toastHeight = Math.min(rectH, maxVisible * TOAST_HEIGHT);
       const position = readToastPosition(props.position);
       const maxX = x + Math.max(0, maxW - toastWidth);

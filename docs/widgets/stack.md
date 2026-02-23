@@ -19,6 +19,7 @@ ui.column({ gap: 1, p: 1 }, [ui.text("A"), ui.text("B")]);
 | `key` | `string` | - | Reconciliation key |
 | `gap` | `SpacingValue` | `1` | Spacing between children |
 | `reverse` | `boolean` | `false` | Reverse child visual order |
+| `wrap` | `boolean` | `false` | Enable multi-line wrapping (`row`) / multi-column wrapping (`column`) |
 | `align` | `"start" \| "center" \| "end" \| "stretch"` | `"start"` | Cross-axis alignment |
 | `justify` | `"start" \| "end" \| "center" \| "between" \| "around" \| "evenly"` (also CSS aliases: `"space-between"`, `"space-around"`, `"space-evenly"`) | `"start"` | Main-axis distribution |
 | `p`, `px`, `py`, `pt`, `pr`, `pb`, `pl` | `SpacingValue` | - | Padding props |
@@ -26,7 +27,12 @@ ui.column({ gap: 1, p: 1 }, [ui.text("A"), ui.text("B")]);
 | `width`, `height` | `number \| \"auto\" \| \"full\" \| \"${number}%\"` | - | Size constraints |
 | `minWidth`, `maxWidth`, `minHeight`, `maxHeight` | `number` | - | Size bounds (cells) |
 | `flex` | `number` | - | Main-axis flex in parent stack |
+| `flexShrink` | `number` | `0` | Overflow shrink factor |
+| `flexBasis` | `number \| \"auto\" \| \"full\" \| \"${number}%\"` | - | Initial main-axis basis before grow/shrink (`\"auto\"` = intrinsic max-content) |
 | `aspectRatio` | `number` | - | Enforce width/height ratio |
+| `alignSelf` | `"auto" \| "start" \| "center" \| "end" \| "stretch"` | `"auto"` | Per-child cross-axis alignment override |
+| `position` | `"static" \| "absolute"` | `"static"` | Absolute children are out-of-flow and positioned against parent content rect |
+| `top`, `right`, `bottom`, `left` | `number` | - | Absolute offsets (cells) |
 | `style` | `TextStyle` | - | Container style override; bg fills rect |
 | `inheritStyle` | `TextStyle` | - | Descendant default style without fill |
 
@@ -54,6 +60,36 @@ ui.column({ height: 6, justify: "between" }, [
   ui.row({ justify: "end" }, [ui.text("Bottom-right")]),
 ]);
 ```
+
+### 3) `alignSelf` per child
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.row({ width: 20, height: 6, align: "start", gap: 1 }, [
+  ui.box({ border: "none", width: 4, height: 2, alignSelf: "start" }, []),
+  ui.box({ border: "none", width: 4, height: 2, alignSelf: "center" }, []),
+  ui.box({ border: "none", width: 4, height: 2, alignSelf: "end" }, []),
+]);
+```
+
+### 4) `flexShrink` + `flexBasis`
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.row({ width: 40, gap: 0 }, [
+  ui.box({ border: "none", flex: 1, flexBasis: 20, flexShrink: 1 }, [ui.text("A")]),
+  ui.box({ border: "none", flex: 1, flexBasis: 10, flexShrink: 1 }, [ui.text("B")]),
+]);
+```
+
+## Notes
+
+- Backward compatibility: when `flexShrink`/`flexBasis` are not used, stacks preserve legacy allocation behavior.
+- `flexShrink: 0` means a child will not shrink during overflow.
+- In wrap and non-wrap constraint paths, cross-axis feedback is bounded to at most two measurement passes per child to avoid loops while handling wrapped-content reflow.
+- Absolute children (`position: "absolute"`) are laid out after in-flow children and do not consume stack main-axis space.
 
 ## Helpers
 

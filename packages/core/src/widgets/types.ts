@@ -113,6 +113,8 @@ export type TextProps = Readonly<{
   textOverflow?: "clip" | "ellipsis" | "middle";
   /** Maximum width for overflow handling (in cells) */
   maxWidth?: number;
+  /** When true, text wraps to multiple lines instead of single-line truncation. */
+  wrap?: boolean;
 }>;
 
 /**
@@ -192,6 +194,8 @@ export type BoxProps = Readonly<
     theme?: ScopedThemeOverride;
     /** Surface opacity in [0..1]. Defaults to 1. */
     opacity?: number;
+    /** Gap between box children when laid out by the synthetic inner column. */
+    gap?: SpacingValue;
     /** Optional declarative transition settings for this container. */
     transition?: TransitionSpec;
   } & SpacingProps &
@@ -1027,8 +1031,14 @@ export type ModalProps = Readonly<{
   actions?: readonly VNode[];
   /** Modal width in cells, or "auto" to fit content. */
   width?: number | "auto";
+  /** Modal height in cells. */
+  height?: number;
   /** Maximum width constraint. */
   maxWidth?: number;
+  /** Minimum width constraint. */
+  minWidth?: number;
+  /** Minimum height constraint. */
+  minHeight?: number;
   /** Frame/surface colors for modal body and border. */
   frameStyle?: OverlayFrameStyle;
   /** Backdrop style/config (default: "dim"). */
@@ -1590,6 +1600,8 @@ export type CommandPaletteProps = Readonly<{
   placeholder?: string;
   /** Maximum visible items (default: 10). */
   maxVisible?: number;
+  /** Palette width in cells (default: 60). */
+  width?: number;
   /** Frame/surface colors for palette background, text, and border. */
   frameStyle?: OverlayFrameStyle;
   /** Optional style override for selected result row highlighting. */
@@ -2074,6 +2086,10 @@ export type ToolApprovalDialogProps = Readonly<{
   request: ToolRequest;
   /** Visible state. */
   open: boolean;
+  /** Dialog width in cells (default: 50). */
+  width?: number;
+  /** Dialog height in cells (default: 15). */
+  height?: number;
   /** Focused action button. */
   focusedAction?: "allow" | "deny" | "allowSession";
   /** Callback when allowed. */
@@ -2210,6 +2226,8 @@ export type ToastContainerProps = Readonly<{
   position?: ToastPosition;
   /** Maximum visible toasts (default: 5). */
   maxVisible?: number;
+  /** Toast container width in cells (default: 40). */
+  width?: number;
   /** Frame/surface colors for toast backgrounds, text, and borders. */
   frameStyle?: OverlayFrameStyle;
   /** Callback when toast is dismissed. */

@@ -37,6 +37,30 @@ export type LayoutConstraints = Readonly<{
   minHeight?: number;
   maxHeight?: number;
   flex?: number;
+  /** Flex shrink factor. How much this child shrinks when siblings overflow. Default 0. */
+  flexShrink?: number;
+  /** Flex basis. Starting main-axis size before grow/shrink. Default "auto" (natural size). */
+  flexBasis?: SizeConstraint;
   /** Width / height ratio (e.g. 2 for 2:1). */
   aspectRatio?: number;
+  /** Per-child cross-axis alignment override. "auto" inherits parent align. */
+  alignSelf?: "auto" | "start" | "center" | "end" | "stretch";
+  /** Positioning mode. "absolute" removes from flow, relative to parent content rect. */
+  position?: "static" | "absolute";
+  /** Top offset for absolute positioning (cells). */
+  top?: number;
+  /** Right offset for absolute positioning (cells). */
+  right?: number;
+  /** Bottom offset for absolute positioning (cells). */
+  bottom?: number;
+  /** Left offset for absolute positioning (cells). */
+  left?: number;
+  /** Grid column start (1-based). Only used when parent is a grid. */
+  gridColumn?: number;
+  /** Grid row start (1-based). Only used when parent is a grid. */
+  gridRow?: number;
+  /** Number of columns to span (default 1). Only used when parent is a grid. */
+  colSpan?: number;
+  /** Number of rows to span (default 1). Only used when parent is a grid. */
+  rowSpan?: number;
 }>;

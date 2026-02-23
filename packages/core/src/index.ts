@@ -495,7 +495,10 @@ export {
   type SpacingKey,
   type SpacingValue,
 } from "./layout/spacing-scale.js";
+export { fluid } from "./layout/responsive.js";
 export type {
+  FluidValue,
+  FluidValueOptions,
   ResponsiveBreakpointThresholds,
   ResponsiveValue,
   ResponsiveViewportSnapshot,

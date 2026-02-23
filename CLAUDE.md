@@ -100,6 +100,22 @@ State -> view(state) -> VNode tree -> commitVNodeTree -> layout -> metadata_coll
 8. **builder.build()**: Serializes draw operations into ZRDL binary format.
 9. **backend.requestFrame()**: Sends binary drawlist to the native Zireael renderer.
 
+## Layout Engine Baseline
+
+Current layout behavior to preserve when editing or generating docs:
+
+- Intrinsic sizing protocol (`measureMinContent` / `measureMaxContent`) is active for leaf and container measurement.
+- Stack constraints support `flex`, `flexShrink`, `flexBasis`, and per-child `alignSelf`.
+- Stack wrap and non-wrap paths use bounded cross-axis feedback (max 2 measure passes per child when needed).
+- Text supports `wrap` with grapheme-safe hard breaks and newline-aware paragraph splits.
+- Box has `gap` on its synthetic inner column and runs absolute children in a second out-of-flow pass.
+- Stack/box absolute positioning supports `position: "absolute"` + `top/right/bottom/left`.
+- Grid supports explicit placement and spans (`gridColumn`, `gridRow`, `colSpan`, `rowSpan`) with occupancy-aware auto placement.
+- Overlay widgets use constraint-driven sizing (`modal`, `commandPalette`, `toolApprovalDialog`, `toastContainer`).
+- Integer weighted splits use shared deterministic remainder distribution (`distributeInteger`).
+- Responsive scalar interpolation supports `fluid(min, max, options?)` and resolves through responsive maps.
+- Stability signatures include: `text`, `button`, `input`, `spacer`, `divider`, `row`, `column`, `box`, `grid`, `table`, `tabs`, `accordion`, `modal`, `virtualList`, `splitPane`, `breadcrumb`, `pagination`, `focusZone`, and `focusTrap`.
+
 ## Design System
 
 Rezi includes a cohesive design system with tokens, recipes, and capability tiers.

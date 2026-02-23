@@ -565,6 +565,14 @@ maxWidth?: number
 minHeight?: number
 maxHeight?: number
 flex?: number              // Flex grow factor
+flexShrink?: number        // Overflow shrink factor (default 0)
+flexBasis?: number | string // Initial main-axis basis ("auto", "%", "full", number)
+alignSelf?: "auto" | "start" | "center" | "end" | "stretch"
+position?: "static" | "absolute"
+top?: number
+right?: number
+bottom?: number
+left?: number
 
 // Gap between children (row, column, hstack, vstack)
 gap?: SpacingValue
@@ -573,7 +581,15 @@ gap?: SpacingValue
 align?: "start" | "center" | "end" | "stretch"
 justify?: "start" | "end" | "center" | "between" | "around" | "evenly"
 items?: "start" | "center" | "end" | "stretch"
+
+// Grid child placement (row/column/box children inside ui.grid)
+gridColumn?: number // 1-based
+gridRow?: number    // 1-based
+colSpan?: number    // default 1
+rowSpan?: number    // default 1
 ```
+
+`width`/`height` and related layout scalar props also support responsive values, including `fluid(min, max, options?)` from `@rezi-ui/core`.
 
 ### Visual Props
 
@@ -602,6 +618,8 @@ ui.grid({
   columnGap: 2,         // Column-specific gap
 }, child1, child2, child3, child4, child5, child6)
 ```
+
+Grid placement props are set on children (`gridColumn`, `gridRow`, `colSpan`, `rowSpan`).
 
 ## Event Handlers
 

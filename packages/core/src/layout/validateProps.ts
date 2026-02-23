@@ -54,7 +54,19 @@ export type ValidatedLayoutConstraints = Readonly<{
   minHeight?: number;
   maxHeight?: number;
   flex?: number;
+  flexShrink?: number;
+  flexBasis?: SizeConstraint;
   aspectRatio?: number;
+  alignSelf?: "auto" | "start" | "center" | "end" | "stretch";
+  position?: "static" | "absolute";
+  top?: number;
+  right?: number;
+  bottom?: number;
+  left?: number;
+  gridColumn?: number;
+  gridRow?: number;
+  colSpan?: number;
+  rowSpan?: number;
 }>;
 
 export type ValidatedSpacingProps = Readonly<{
@@ -89,6 +101,7 @@ export type ValidatedStackProps = Readonly<
 export type ValidatedBoxProps = Readonly<
   {
     pad: number;
+    gap: number;
     border: "none" | "single" | "double" | "rounded" | "heavy" | "dashed" | "heavy-dashed";
     borderTop: boolean;
     borderRight: boolean;
@@ -143,7 +156,10 @@ export type ValidatedRadioGroupProps = Readonly<{
   direction: "horizontal" | "vertical";
   disabled: boolean;
 }>;
-export type ValidatedTextProps = Readonly<{ maxWidth?: number }>;
+export type ValidatedTextProps = Readonly<{
+  maxWidth?: number;
+  wrap: boolean;
+}>;
 
 type LayoutConstraintPropBag = Readonly<{
   width?: unknown;
@@ -153,7 +169,19 @@ type LayoutConstraintPropBag = Readonly<{
   minHeight?: unknown;
   maxHeight?: unknown;
   flex?: unknown;
+  flexShrink?: unknown;
+  flexBasis?: unknown;
   aspectRatio?: unknown;
+  alignSelf?: unknown;
+  position?: unknown;
+  top?: unknown;
+  right?: unknown;
+  bottom?: unknown;
+  left?: unknown;
+  gridColumn?: unknown;
+  gridRow?: unknown;
+  colSpan?: unknown;
+  rowSpan?: unknown;
 }>;
 
 type StackPropBag = Readonly<
@@ -186,6 +214,7 @@ type StackPropBag = Readonly<
 type BoxPropBag = Readonly<
   {
     pad?: unknown;
+    gap?: unknown;
     border?: unknown;
     borderTop?: unknown;
     borderRight?: unknown;
@@ -338,6 +367,18 @@ function requireOptionalIntNonNegative(
   return { ok: true, value: res.value };
 }
 
+function requireOptionalIntSigned(
+  kind: string,
+  name: string,
+  v: unknown,
+): LayoutResult<number | undefined> {
+  const resolved = resolveResponsiveValue(v);
+  if (resolved === undefined) return { ok: true, value: undefined };
+  const res = requireIntSigned(kind, name, resolved, 0);
+  if (!res.ok) return res;
+  return { ok: true, value: res.value };
+}
+
 function requireString(kind: string, name: string, v: unknown): LayoutResult<string> {
   if (typeof v !== "string") {
     return invalid(`${kind}.${name} must be a string`);
@@ -457,6 +498,15 @@ function requireFlex(kind: string, v: unknown): LayoutResult<number | undefined>
   return { ok: true, value: resolved };
 }
 
+function requireFlexShrink(kind: string, v: unknown): LayoutResult<number | undefined> {
+  const resolved = resolveResponsiveValue(v);
+  if (resolved === undefined) return { ok: true, value: undefined };
+  if (typeof resolved !== "number" || !Number.isFinite(resolved) || resolved < 0) {
+    return invalid(`${kind}.flexShrink must be a number >= 0`);
+  }
+  return { ok: true, value: resolved };
+}
+
 function requireAspectRatio(kind: string, v: unknown): LayoutResult<number | undefined> {
   const resolved = resolveResponsiveValue(v);
   if (resolved === undefined) return { ok: true, value: undefined };
@@ -464,6 +514,68 @@ function requireAspectRatio(kind: string, v: unknown): LayoutResult<number | und
     return invalid(`${kind}.aspectRatio must be a finite number > 0`);
   }
   return { ok: true, value: resolved };
+}
+
+function requireAlignSelf(
+  kind: string,
+  v: unknown,
+): LayoutResult<"auto" | "start" | "center" | "end" | "stretch" | undefined> {
+  const resolved = resolveResponsiveValue(v);
+  if (resolved === undefined) return { ok: true, value: undefined };
+  const normalized = normalizeStringToken(resolved);
+  if (
+    normalized === "auto" ||
+    normalized === "start" ||
+    normalized === "center" ||
+    normalized === "end" ||
+    normalized === "stretch"
+  ) {
+    return { ok: true, value: normalized };
+  }
+  return invalid(
+    `${kind}.alignSelf must be one of "auto" | "start" | "center" | "end" | "stretch"`,
+  );
+}
+
+function requirePosition(
+  kind: string,
+  v: unknown,
+): LayoutResult<"static" | "absolute" | undefined> {
+  const resolved = resolveResponsiveValue(v);
+  if (resolved === undefined) return { ok: true, value: undefined };
+  const normalized = normalizeStringToken(resolved);
+  if (normalized === "static" || normalized === "absolute") {
+    return { ok: true, value: normalized };
+  }
+  return invalid(`${kind}.position must be one of "static" | "absolute"`);
+}
+
+function requireGridStart(
+  kind: string,
+  name: "gridColumn" | "gridRow",
+  v: unknown,
+): LayoutResult<number | undefined> {
+  const resolved = resolveResponsiveValue(v);
+  if (resolved === undefined) return { ok: true, value: undefined };
+  const parsed = parseCoercedInt(resolved);
+  if (parsed === undefined || parsed < 1 || parsed > I32_MAX) {
+    return invalid(`${kind}.${name} must be an int32 >= 1`);
+  }
+  return { ok: true, value: parsed };
+}
+
+function requireGridSpan(
+  kind: string,
+  name: "colSpan" | "rowSpan",
+  v: unknown,
+): LayoutResult<number | undefined> {
+  const resolved = resolveResponsiveValue(v);
+  if (resolved === undefined) return { ok: true, value: undefined };
+  const parsed = parseCoercedInt(resolved);
+  if (parsed === undefined || parsed < 1 || parsed > I32_MAX) {
+    return invalid(`${kind}.${name} must be an int32 >= 1`);
+  }
+  return { ok: true, value: parsed };
 }
 
 function validateSpacingProps(
@@ -537,8 +649,32 @@ function validateLayoutConstraints(
 
   const flexRes = requireFlex(kind, p.flex);
   if (!flexRes.ok) return flexRes;
+  const flexShrinkRes = requireFlexShrink(kind, p.flexShrink);
+  if (!flexShrinkRes.ok) return flexShrinkRes;
+  const flexBasisRes = requireSizeConstraint(kind, "flexBasis", p.flexBasis);
+  if (!flexBasisRes.ok) return flexBasisRes;
   const arRes = requireAspectRatio(kind, p.aspectRatio);
   if (!arRes.ok) return arRes;
+  const alignSelfRes = requireAlignSelf(kind, p.alignSelf);
+  if (!alignSelfRes.ok) return alignSelfRes;
+  const positionRes = requirePosition(kind, p.position);
+  if (!positionRes.ok) return positionRes;
+  const topRes = requireOptionalIntSigned(kind, "top", p.top);
+  if (!topRes.ok) return topRes;
+  const rightRes = requireOptionalIntSigned(kind, "right", p.right);
+  if (!rightRes.ok) return rightRes;
+  const bottomRes = requireOptionalIntSigned(kind, "bottom", p.bottom);
+  if (!bottomRes.ok) return bottomRes;
+  const leftRes = requireOptionalIntSigned(kind, "left", p.left);
+  if (!leftRes.ok) return leftRes;
+  const gridColumnRes = requireGridStart(kind, "gridColumn", p.gridColumn);
+  if (!gridColumnRes.ok) return gridColumnRes;
+  const gridRowRes = requireGridStart(kind, "gridRow", p.gridRow);
+  if (!gridRowRes.ok) return gridRowRes;
+  const colSpanRes = requireGridSpan(kind, "colSpan", p.colSpan);
+  if (!colSpanRes.ok) return colSpanRes;
+  const rowSpanRes = requireGridSpan(kind, "rowSpan", p.rowSpan);
+  if (!rowSpanRes.ok) return rowSpanRes;
 
   return {
     ok: true,
@@ -550,7 +686,19 @@ function validateLayoutConstraints(
       ...(minHeightRes.value === undefined ? {} : { minHeight: minHeightRes.value }),
       ...(maxHeightRes.value === undefined ? {} : { maxHeight: maxHeightRes.value }),
       ...(flexRes.value === undefined ? {} : { flex: flexRes.value }),
+      ...(flexShrinkRes.value === undefined ? {} : { flexShrink: flexShrinkRes.value }),
+      ...(flexBasisRes.value === undefined ? {} : { flexBasis: flexBasisRes.value }),
       ...(arRes.value === undefined ? {} : { aspectRatio: arRes.value }),
+      ...(alignSelfRes.value === undefined ? {} : { alignSelf: alignSelfRes.value }),
+      ...(positionRes.value === undefined ? {} : { position: positionRes.value }),
+      ...(topRes.value === undefined ? {} : { top: topRes.value }),
+      ...(rightRes.value === undefined ? {} : { right: rightRes.value }),
+      ...(bottomRes.value === undefined ? {} : { bottom: bottomRes.value }),
+      ...(leftRes.value === undefined ? {} : { left: leftRes.value }),
+      ...(gridColumnRes.value === undefined ? {} : { gridColumn: gridColumnRes.value }),
+      ...(gridRowRes.value === undefined ? {} : { gridRow: gridRowRes.value }),
+      ...(colSpanRes.value === undefined ? {} : { colSpan: colSpanRes.value }),
+      ...(rowSpanRes.value === undefined ? {} : { rowSpan: rowSpanRes.value }),
     },
   };
 }
@@ -603,16 +751,7 @@ export function validateStackProps(
 
   const lcRes = validateLayoutConstraints(kind, p);
   if (!lcRes.ok) return lcRes;
-  const normalizedConstraints: {
-    width?: SizeConstraint;
-    height?: SizeConstraint;
-    minWidth?: number;
-    maxWidth?: number;
-    minHeight?: number;
-    maxHeight?: number;
-    flex?: number;
-    aspectRatio?: number;
-  } = { ...lcRes.value };
+  const normalizedConstraints: ValidatedLayoutConstraints = { ...lcRes.value };
   const overflowRes = requireOverflow(kind, "overflow", p.overflow, "visible");
   if (!overflowRes.ok) return overflowRes;
   const scrollXRes = requireIntNonNegative(kind, "scrollX", p.scrollX, 0);
@@ -645,6 +784,8 @@ export function validateBoxProps(props: BoxProps | unknown): LayoutResult<Valida
 
   const padRes = requireSpacingIntNonNegative("box", "pad", p.pad, 0);
   if (!padRes.ok) return padRes;
+  const gapRes = requireSpacingIntNonNegative("box", "gap", p.gap, 0);
+  if (!gapRes.ok) return gapRes;
 
   const borderValue = p.border === undefined ? "single" : normalizeStringToken(p.border);
   if (
@@ -687,6 +828,7 @@ export function validateBoxProps(props: BoxProps | unknown): LayoutResult<Valida
     ok: true,
     value: {
       pad: padRes.value,
+      gap: gapRes.value,
       border: borderValue,
       borderTop: topRes.value,
       borderRight: rightRes.value,
@@ -965,12 +1107,17 @@ export function validateRadioGroupProps(
 
 /** Validate Text props (`maxWidth` affects measurement; style/overflow are renderer concerns). */
 export function validateTextProps(props: TextProps | unknown): LayoutResult<ValidatedTextProps> {
-  const p = (props ?? {}) as { maxWidth?: unknown };
+  const p = (props ?? {}) as { maxWidth?: unknown; wrap?: unknown };
   const maxWidthRes = requireOptionalIntNonNegative("text", "maxWidth", p.maxWidth);
   if (!maxWidthRes.ok) return maxWidthRes;
+  const wrapRes = requireBoolean("text", "wrap", p.wrap, false);
+  if (!wrapRes.ok) return wrapRes;
 
   return {
     ok: true,
-    value: maxWidthRes.value === undefined ? {} : { maxWidth: maxWidthRes.value },
+    value: {
+      ...(maxWidthRes.value === undefined ? {} : { maxWidth: maxWidthRes.value }),
+      wrap: wrapRes.value,
+    },
   };
 }

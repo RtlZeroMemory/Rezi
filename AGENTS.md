@@ -49,6 +49,21 @@ Key pipeline files:
 - `packages/core/src/layout/dropdownGeometry.ts` — shared dropdown overlay geometry
 - `packages/core/src/drawlist/builder_v1.ts` — ZRDL binary drawlist builder
 
+## Layout Engine Baseline (Current)
+
+When modifying layout code/docs, assume these features are part of the current contract:
+
+- Intrinsic sizing protocol (`measureMinContent` / `measureMaxContent`) for leaf + container kinds.
+- Stack flex model supports `flex`, `flexShrink`, `flexBasis`, per-child `alignSelf`, and wrap/non-wrap cross-axis feedback (max-2-pass).
+- Box synthetic inner column honors `box.gap` and excludes absolute-positioned children from flow.
+- Text supports `wrap` with grapheme-safe hard breaks and newline-aware wrapping.
+- Overlay sizing constraints exist for modal/commandPalette/toolApprovalDialog/toastContainer.
+- Absolute positioning exists for stack/box children (`position: "absolute"` + offsets).
+- Grid supports explicit placement + spans (`gridColumn/gridRow/colSpan/rowSpan`) with occupancy-aware auto-placement.
+- Stability signatures cover: `text/button/input/spacer/divider/row/column/box/grid/table/tabs/accordion/modal/virtualList/splitPane/breadcrumb/pagination/focusZone/focusTrap`.
+- Weighted integer splits use shared deterministic distribution (`layout/engine/distributeInteger.ts`) including split-pane percent sizing and grid growth.
+- Responsive layout scalars support `fluid(...)` interpolation through `resolveResponsiveValue(...)`.
+
 ## Modification Protocol
 
 ### Before changing code

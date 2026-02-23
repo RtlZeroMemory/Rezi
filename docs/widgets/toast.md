@@ -21,6 +21,7 @@ ui.toastContainer({
 | `toasts` | `Toast[]` | **required** | Active toasts |
 | `position` | `ToastPosition` | `"bottom-right"` | Container position |
 | `maxVisible` | `number` | `5` | Max visible toasts |
+| `width` | `number` | `40` | Toast container width in cells (clamped to viewport width) |
 | `frameStyle` | `{ background?, foreground?, border? }` | - | Optional frame/surface colors for toast background, message text, and border |
 | `onDismiss` | `(id) => void` | **required** | Dismiss callback |
 
@@ -32,6 +33,8 @@ Toast action buttons (e.g., "Undo") can be clicked with the mouse to trigger the
 
 Toast containers register in the shared `LayerRegistry`, so toast z-order is
 managed by the same overlay system as modals and dropdowns.
+
+Container height is derived from `maxVisible * toastHeight` and clamped to viewport height.
 
 ## Toast shape
 
