@@ -326,6 +326,18 @@ export function selectRecipe(
     };
   }
 
+  if (state === "error") {
+    return {
+      trigger: { fg: colors.fg.primary },
+      triggerBg: { bg: colors.bg.elevated },
+      option: { fg: colors.fg.primary },
+      activeOption: { fg: colors.selected.fg, bg: colors.selected.bg, bold: true },
+      border: "single",
+      borderStyle: { fg: colors.error },
+      px: spacing.px,
+    };
+  }
+
   const isFocused = state === "focus";
   return {
     trigger: isFocused
@@ -443,6 +455,8 @@ export type BadgeRecipeParams = Readonly<{
 export type BadgeRecipeResult = Readonly<{
   /** Style for the badge text */
   text: TextStyle;
+  /** Style for the badge background */
+  bg: TextStyle;
 }>;
 
 export function badgeRecipe(
@@ -451,28 +465,75 @@ export function badgeRecipe(
 ): BadgeRecipeResult {
   const tone = params.tone ?? "default";
 
-  let fg: Rgb;
+  let color: Rgb;
   switch (tone) {
     case "danger":
-      fg = colors.error;
+      color = colors.error;
       break;
     case "success":
-      fg = colors.success;
+      color = colors.success;
       break;
     case "warning":
-      fg = colors.warning;
+      color = colors.warning;
       break;
     case "info":
-      fg = colors.info;
+      color = colors.info;
       break;
     case "default":
     case "primary":
-      fg = colors.accent.primary;
+      color = colors.accent.primary;
       break;
   }
 
   return {
-    text: { fg, bold: true },
+    text: { fg: color, bold: true },
+    bg: { bg: color },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Tag recipe
+// ---------------------------------------------------------------------------
+
+export type TagRecipeParams = Readonly<{
+  tone?: WidgetTone | "info";
+}>;
+
+export type TagRecipeResult = Readonly<{
+  /** Style for the tag text */
+  text: TextStyle;
+  /** Style for the tag background */
+  bg: TextStyle;
+}>;
+
+export function tagRecipe(colors: ColorTokens, params: TagRecipeParams = {}): TagRecipeResult {
+  const tone = params.tone ?? "default";
+
+  let bg: Rgb;
+  switch (tone) {
+    case "danger":
+      bg = colors.error;
+      break;
+    case "success":
+      bg = colors.success;
+      break;
+    case "warning":
+      bg = colors.warning;
+      break;
+    case "info":
+      bg = colors.info;
+      break;
+    case "primary":
+      bg = colors.accent.primary;
+      break;
+    case "default":
+      bg = colors.accent.secondary;
+      break;
+  }
+
+  return {
+    text: { fg: resolveToneFg(colors, "primary"), bold: true },
+    bg: { bg },
   };
 }
 
@@ -554,6 +615,50 @@ export function checkboxRecipe(
       fg: colors.fg.primary,
       bold: isFocused || large,
     },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Slider recipe
+// ---------------------------------------------------------------------------
+
+export type SliderRecipeParams = Readonly<{
+  state?: "default" | "focus" | "disabled" | "readonly";
+}>;
+
+export type SliderRecipeResult = Readonly<{
+  track: TextStyle;
+  filled: TextStyle;
+  thumb: TextStyle;
+}>;
+
+export function sliderRecipe(
+  colors: ColorTokens,
+  params: SliderRecipeParams = {},
+): SliderRecipeResult {
+  const state = params.state ?? "default";
+
+  if (state === "disabled") {
+    return {
+      track: { fg: colors.disabled.fg },
+      filled: { fg: colors.disabled.fg },
+      thumb: { fg: colors.disabled.fg },
+    };
+  }
+
+  if (state === "readonly") {
+    return {
+      track: { fg: colors.border.subtle, dim: true },
+      filled: { fg: colors.accent.primary, dim: true },
+      thumb: { fg: colors.accent.primary, dim: true },
+    };
+  }
+
+  const focused = state === "focus";
+  return {
+    track: { fg: colors.border.subtle },
+    filled: focused ? { fg: colors.accent.primary, bold: true } : { fg: colors.accent.primary },
+    thumb: focused ? { fg: colors.accent.primary, bold: true } : { fg: colors.accent.primary },
   };
 }
 
@@ -676,9 +781,11 @@ export const recipe = {
   table: tableRecipe,
   modal: modalRecipe,
   badge: badgeRecipe,
+  tag: tagRecipe,
   text: textRecipe,
   divider: dividerRecipe,
   checkbox: checkboxRecipe,
+  slider: sliderRecipe,
   progress: progressRecipe,
   callout: calloutRecipe,
   scrollbar: scrollbarRecipe,
