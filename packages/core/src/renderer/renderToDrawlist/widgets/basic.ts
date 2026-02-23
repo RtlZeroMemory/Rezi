@@ -18,12 +18,15 @@ import type { Theme } from "../../../theme/theme.js";
 import { resolveColor } from "../../../theme/theme.js";
 import type { WidgetTone } from "../../../ui/designTokens.js";
 import {
+  badgeRecipe,
   buttonRecipe,
   calloutRecipe,
   checkboxRecipe,
   inputRecipe,
   progressRecipe,
   selectRecipe,
+  sliderRecipe,
+  tagRecipe,
 } from "../../../ui/recipes.js";
 import { createCanvasDrawingSurface, resolveCanvasBlitter } from "../../../widgets/canvas.js";
 import {
@@ -82,6 +85,21 @@ function calloutVariantToTone(variant: unknown): WidgetTone | "info" {
       return "danger";
     default:
       return "info";
+  }
+}
+
+function badgeVariantToTone(variant: unknown): WidgetTone | "info" {
+  switch (variant) {
+    case "success":
+      return "success";
+    case "warning":
+      return "warning";
+    case "error":
+      return "danger";
+    case "info":
+      return "info";
+    default:
+      return "default";
   }
 }
 
@@ -1257,6 +1275,12 @@ export function renderBasicWidget(
       const max = readNumber(props.max);
       const step = readNumber(props.step);
       const normalized = normalizeSliderState({ value, min, max, step });
+      const recipeResult =
+        colorTokens !== null
+          ? sliderRecipe(colorTokens, {
+              state: disabled ? "disabled" : readOnly ? "readonly" : focused ? "focus" : "default",
+            })
+          : null;
 
       const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
@@ -1293,16 +1317,41 @@ export function renderBasicWidget(
           : Math.max(0, Math.min(trackCells - 1, Math.round(ratio * (trackCells - 1))));
       const fillCells = trackCells <= 1 ? 0 : thumbIndex;
       const emptyCells = Math.max(0, trackCells - fillCells - 1);
-      const trackText = `${repeatCached("█", fillCells)}●${repeatCached("░", emptyCells)}`;
-
-      const trackStyle = mergeTextStyle(
-        textStyle,
-        disabled
-          ? { fg: theme.colors.muted }
-          : readOnly
-            ? { fg: theme.colors.info, dim: true }
-            : { fg: theme.colors.primary, bold: true },
-      );
+      const filledText = repeatCached("█", fillCells);
+      const emptyText = repeatCached("░", emptyCells);
+      const filledStyle =
+        recipeResult !== null
+          ? mergeTextStyle(textStyle, recipeResult.filled)
+          : mergeTextStyle(
+              textStyle,
+              disabled
+                ? { fg: theme.colors.muted }
+                : readOnly
+                  ? { fg: theme.colors.info, dim: true }
+                  : { fg: theme.colors.primary, bold: true },
+            );
+      const thumbStyle =
+        recipeResult !== null
+          ? mergeTextStyle(textStyle, recipeResult.thumb)
+          : mergeTextStyle(
+              textStyle,
+              disabled
+                ? { fg: theme.colors.muted }
+                : readOnly
+                  ? { fg: theme.colors.info, dim: true }
+                  : { fg: theme.colors.primary, bold: true },
+            );
+      const emptyStyle =
+        recipeResult !== null
+          ? mergeTextStyle(textStyle, recipeResult.track)
+          : mergeTextStyle(
+              textStyle,
+              disabled
+                ? { fg: theme.colors.muted }
+                : readOnly
+                  ? { fg: theme.colors.info, dim: true }
+                  : { fg: theme.colors.primary, bold: true },
+            );
       const valueStyle = mergeTextStyle(
         textStyle,
         !disabled && readOnly ? { fg: theme.colors.muted } : undefined,
@@ -1311,7 +1360,9 @@ export function renderBasicWidget(
       const segments: StyledSegment[] = [];
       if (labelText.length > 0) segments.push({ text: labelText, style: textStyle });
       segments.push({ text: "[", style: textStyle });
-      segments.push({ text: trackText, style: trackStyle });
+      if (filledText.length > 0) segments.push({ text: filledText, style: filledStyle });
+      segments.push({ text: "●", style: thumbStyle });
+      if (emptyText.length > 0) segments.push({ text: emptyText, style: emptyStyle });
       segments.push({ text: "]", style: textStyle });
       if (valueText.length > 0) segments.push({ text: valueText, style: valueStyle });
 
@@ -1373,6 +1424,7 @@ export function renderBasicWidget(
         options?: unknown;
         placeholder?: unknown;
         disabled?: unknown;
+        error?: unknown;
         focusConfig?: unknown;
         dsVariant?: unknown;
         dsTone?: unknown;
@@ -1383,6 +1435,7 @@ export function renderBasicWidget(
       const focused = id !== null && focusState.focusedId === id;
       const focusVisible = focused && focusIndicatorEnabled(focusConfig);
       const disabled = props.disabled === true;
+      const error = props.error === true;
       const value = typeof props.value === "string" ? props.value : "";
       const placeholder = typeof props.placeholder === "string" ? props.placeholder : "Select…";
 
@@ -1403,9 +1456,11 @@ export function renderBasicWidget(
       if (colorTokens !== null) {
         const state = disabled
           ? ("disabled" as const)
-          : focusVisible
-            ? ("focus" as const)
-            : ("default" as const);
+          : error
+            ? ("error" as const)
+            : focusVisible
+              ? ("focus" as const)
+              : ("default" as const);
         const recipeResult = selectRecipe(colorTokens, { state, size: dsSize });
         const hasBorder = recipeResult.border !== "none" && rect.w >= 3 && rect.h >= 3;
         const borderInset = hasBorder ? 1 : 0;
@@ -1685,9 +1740,27 @@ export function renderBasicWidget(
       const props = vnode.props as { text?: unknown; variant?: unknown; style?: unknown };
       const text = readString(props.text) ?? "";
       const ownStyle = asTextStyle(props.style, theme);
-      const color = variantToThemeColor(theme, props.variant, "primary");
+      const colorTokens = getColorTokens(theme);
+      const recipeResult =
+        colorTokens !== null
+          ? badgeRecipe(colorTokens, { tone: badgeVariantToTone(props.variant) })
+          : null;
       const style = mergeTextStyle(
-        mergeTextStyle(parentStyle, { fg: theme.colors.bg, bg: color, bold: true }),
+        mergeTextStyle(
+          parentStyle,
+          recipeResult !== null
+            ? {
+                ...(recipeResult.text.fg === undefined ? { fg: theme.colors.bg } : {}),
+                ...(recipeResult.text.fg === undefined ? {} : { fg: recipeResult.text.fg }),
+                ...(recipeResult.bg.bg === undefined ? {} : { bg: recipeResult.bg.bg }),
+                ...(recipeResult.text.bold === undefined ? {} : { bold: recipeResult.text.bold }),
+              }
+            : {
+                fg: theme.colors.bg,
+                bg: variantToThemeColor(theme, props.variant, "primary"),
+                bold: true,
+              },
+        ),
         ownStyle,
       );
       const content = ` ${text} `;
@@ -1814,9 +1887,27 @@ export function renderBasicWidget(
       const text = readString(props.text) ?? "";
       const removable = props.removable === true;
       const ownStyle = asTextStyle(props.style, theme);
-      const variantColor = variantToThemeColor(theme, props.variant, "secondary");
+      const colorTokens = getColorTokens(theme);
+      const recipeResult =
+        colorTokens !== null
+          ? tagRecipe(colorTokens, { tone: badgeVariantToTone(props.variant) })
+          : null;
       const style = mergeTextStyle(
-        mergeTextStyle(parentStyle, { fg: theme.colors.bg, bg: variantColor, bold: true }),
+        mergeTextStyle(
+          parentStyle,
+          recipeResult !== null
+            ? {
+                ...(recipeResult.text.fg === undefined ? { fg: theme.colors.bg } : {}),
+                ...(recipeResult.text.fg === undefined ? {} : { fg: recipeResult.text.fg }),
+                ...(recipeResult.bg.bg === undefined ? {} : { bg: recipeResult.bg.bg }),
+                ...(recipeResult.text.bold === undefined ? {} : { bold: recipeResult.text.bold }),
+              }
+            : {
+                fg: theme.colors.bg,
+                bg: variantToThemeColor(theme, props.variant, "secondary"),
+                bold: true,
+              },
+        ),
         ownStyle,
       );
       maybeFillOwnBackground(builder, rect, ownStyle, style);
