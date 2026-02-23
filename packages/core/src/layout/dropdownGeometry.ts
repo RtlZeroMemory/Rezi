@@ -30,7 +30,7 @@ export function computeDropdownGeometry(
   const totalH = Math.max(2, items.length + 2);
   const needsScroll = totalH > viewport.rows;
   const clampedH = needsScroll ? Math.max(2, viewport.rows) : totalH;
-  const finalW = needsScroll ? Math.max(2, totalW + 1) : totalW;
+  const finalW = needsScroll ? Math.max(2, Math.min(viewport.cols, totalW + 1)) : totalW;
 
   const pos = calculateAnchorPosition({
     anchor: anchorRect,

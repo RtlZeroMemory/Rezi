@@ -50,6 +50,24 @@ describe("dropdownGeometry", () => {
     assert.equal(rect.h, 7);
   });
 
+  test("clamps scrollbar-expanded width to viewport columns", () => {
+    const props = dropdownProps(
+      Array.from({ length: 10 }, (_, i) => ({
+        id: `long-${String(i)}`,
+        label: "very-long-dropdown-item-label",
+      })),
+    );
+    const anchor: Rect = { x: 0, y: 0, w: 1, h: 1 };
+    const viewport = { cols: 8, rows: 4 };
+
+    const rect = computeDropdownGeometry(props, anchor, viewport);
+    assert.ok(rect);
+    if (!rect) return;
+
+    assert.equal(rect.w <= viewport.cols, true);
+    assert.equal(rect.w, viewport.cols);
+  });
+
   test("returns minimum size geometry for empty item lists", () => {
     const props = dropdownProps([]);
     const anchor: Rect = { x: 3, y: 2, w: 4, h: 1 };
