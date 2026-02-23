@@ -46,12 +46,17 @@ describe("styleUtils", () => {
       sanitizeTextStyle({ underlineColor: "accent.primary" }).underlineColor,
       "accent.primary",
     );
+    assert.equal(
+      sanitizeTextStyle({ underlineColor: "  accent.primary  " }).underlineColor,
+      "accent.primary",
+    );
   });
 
   test("sanitizeTextStyle drops invalid underlineColor values", () => {
     assert.equal(sanitizeTextStyle({ underlineColor: 42 }).underlineColor, undefined);
     assert.equal(sanitizeTextStyle({ underlineColor: null }).underlineColor, undefined);
     assert.equal(sanitizeTextStyle({ underlineColor: "" }).underlineColor, undefined);
+    assert.equal(sanitizeTextStyle({ underlineColor: "   " }).underlineColor, undefined);
   });
 
   test("mergeStyles merges underlineStyle and underlineColor", () => {

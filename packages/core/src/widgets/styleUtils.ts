@@ -70,7 +70,10 @@ function parseUnderlineStyle(value: unknown): UnderlineStyle | undefined {
 function parseUnderlineColor(value: unknown): Rgb | ThemeColor | undefined {
   const rgb = sanitizeRgb(value);
   if (rgb !== undefined) return rgb;
-  if (typeof value === "string" && value.length > 0) return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed.length > 0) return trimmed;
+  }
   return undefined;
 }
 
