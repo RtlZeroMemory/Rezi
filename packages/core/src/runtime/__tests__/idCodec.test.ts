@@ -47,4 +47,9 @@ describe("idCodec", () => {
     assert.equal(parseCompoundId(id, "__prefix__", 1), null);
     assert.equal(parseCompoundId(id, "__prefix__", 3), null);
   });
+
+  test("parseCompoundId returns null when any segment is empty", () => {
+    const id = makeCompoundId("__prefix__", "a", "");
+    assert.equal(parseCompoundId(id, "__prefix__", 2), null);
+  });
 });

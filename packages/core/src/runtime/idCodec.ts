@@ -7,6 +7,8 @@
 
 /**
  * Encode a user-provided string for safe embedding in compound IDs.
+ * Empty strings encode to an empty segment; callers that need parse round-trips
+ * should pass non-empty segment values.
  */
 export function encodeIdSegment(value: string): string {
   return encodeURIComponent(value);
@@ -46,6 +48,7 @@ export function parseCompoundId(
   if (parts.length !== expectedSegments) return null;
   const decoded: string[] = [];
   for (const part of parts) {
+    if (part.length === 0) return null;
     const d = decodeIdSegment(part);
     if (d === null) return null;
     decoded.push(d);
