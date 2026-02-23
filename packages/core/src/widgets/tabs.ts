@@ -6,6 +6,7 @@
  */
 
 import { defineWidget } from "./composition.js";
+import { decodeIdSegment, encodeIdSegment } from "../runtime/idCodec.js";
 import type { TabsProps, VNode } from "./types.js";
 
 export const TABS_BAR_ZONE_PREFIX = "__rezi_tabs_bar__";
@@ -20,39 +21,26 @@ export type ParsedTabsTriggerId = Readonly<{
   tabKey: string;
 }>;
 
-function encodeSegment(value: string): string {
-  return encodeURIComponent(value);
-}
-
-function decodeSegment(value: string): string | null {
-  if (value.length === 0) return null;
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return null;
-  }
-}
-
 export function getTabsBarZoneId(tabsId: string): string {
-  return `${TABS_BAR_ZONE_PREFIX}:${encodeSegment(tabsId)}`;
+  return `${TABS_BAR_ZONE_PREFIX}:${encodeIdSegment(tabsId)}`;
 }
 
 export function getTabsContentZoneId(tabsId: string): string {
-  return `${TABS_CONTENT_ZONE_PREFIX}:${encodeSegment(tabsId)}`;
+  return `${TABS_CONTENT_ZONE_PREFIX}:${encodeIdSegment(tabsId)}`;
 }
 
 export function parseTabsBarZoneId(id: string): string | null {
   if (!id.startsWith(`${TABS_BAR_ZONE_PREFIX}:`)) return null;
-  return decodeSegment(id.slice(TABS_BAR_ZONE_PREFIX.length + 1));
+  return decodeIdSegment(id.slice(TABS_BAR_ZONE_PREFIX.length + 1));
 }
 
 export function parseTabsContentZoneId(id: string): string | null {
   if (!id.startsWith(`${TABS_CONTENT_ZONE_PREFIX}:`)) return null;
-  return decodeSegment(id.slice(TABS_CONTENT_ZONE_PREFIX.length + 1));
+  return decodeIdSegment(id.slice(TABS_CONTENT_ZONE_PREFIX.length + 1));
 }
 
 export function getTabsTriggerId(tabsId: string, index: number, tabKey: string): string {
-  return `${TABS_TRIGGER_PREFIX}:${encodeSegment(tabsId)}:${String(index)}:${encodeSegment(tabKey)}`;
+  return `${TABS_TRIGGER_PREFIX}:${encodeIdSegment(tabsId)}:${String(index)}:${encodeIdSegment(tabKey)}`;
 }
 
 export function parseTabsTriggerId(id: string): ParsedTabsTriggerId | null {
@@ -64,9 +52,9 @@ export function parseTabsTriggerId(id: string): ParsedTabsTriggerId | null {
   if (secondSep <= firstSep + 1) return null;
   if (body.indexOf(":", secondSep + 1) !== -1) return null;
 
-  const tabsId = decodeSegment(body.slice(0, firstSep));
+  const tabsId = decodeIdSegment(body.slice(0, firstSep));
   const indexRaw = Number.parseInt(body.slice(firstSep + 1, secondSep), 10);
-  const tabKey = decodeSegment(body.slice(secondSep + 1));
+  const tabKey = decodeIdSegment(body.slice(secondSep + 1));
   if (tabsId === null || tabKey === null) return null;
   if (!Number.isFinite(indexRaw) || indexRaw < 0) return null;
 

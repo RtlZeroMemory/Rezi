@@ -6,6 +6,7 @@
  */
 
 import { defineWidget } from "./composition.js";
+import { decodeIdSegment, encodeIdSegment } from "../runtime/idCodec.js";
 import type { BreadcrumbProps, VNode } from "./types.js";
 
 export const DEFAULT_BREADCRUMB_SEPARATOR = " > ";
@@ -17,29 +18,16 @@ export type ParsedBreadcrumbItemId = Readonly<{
   index: number;
 }>;
 
-function encodeSegment(value: string): string {
-  return encodeURIComponent(value);
-}
-
-function decodeSegment(value: string): string | null {
-  if (value.length === 0) return null;
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return null;
-  }
-}
-
 export function resolveBreadcrumbSeparator(separator: string | undefined): string {
   return typeof separator === "string" ? separator : DEFAULT_BREADCRUMB_SEPARATOR;
 }
 
 export function getBreadcrumbZoneId(breadcrumbId: string): string {
-  return `${BREADCRUMB_ZONE_PREFIX}:${encodeSegment(breadcrumbId)}`;
+  return `${BREADCRUMB_ZONE_PREFIX}:${encodeIdSegment(breadcrumbId)}`;
 }
 
 export function getBreadcrumbItemId(breadcrumbId: string, index: number): string {
-  return `${BREADCRUMB_ITEM_PREFIX}:${encodeSegment(breadcrumbId)}:${String(index)}`;
+  return `${BREADCRUMB_ITEM_PREFIX}:${encodeIdSegment(breadcrumbId)}:${String(index)}`;
 }
 
 export function parseBreadcrumbItemId(id: string): ParsedBreadcrumbItemId | null {
@@ -47,7 +35,7 @@ export function parseBreadcrumbItemId(id: string): ParsedBreadcrumbItemId | null
   const body = id.slice(BREADCRUMB_ITEM_PREFIX.length + 1);
   const sep = body.lastIndexOf(":");
   if (sep <= 0 || sep >= body.length - 1) return null;
-  const breadcrumbId = decodeSegment(body.slice(0, sep));
+  const breadcrumbId = decodeIdSegment(body.slice(0, sep));
   const index = Number.parseInt(body.slice(sep + 1), 10);
   if (breadcrumbId === null || !Number.isFinite(index) || index < 0) return null;
   return Object.freeze({ breadcrumbId, index });

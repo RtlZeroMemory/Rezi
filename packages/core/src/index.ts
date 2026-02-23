@@ -447,6 +447,12 @@ export {
   type LayerRoutingResult,
 } from "./runtime/router.js";
 export {
+  encodeIdSegment,
+  decodeIdSegment,
+  makeCompoundId,
+  parseCompoundId,
+} from "./runtime/idCodec.js";
+export {
   computeVisibleRange,
   ensureVisible,
   getItemHeight,

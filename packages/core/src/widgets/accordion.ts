@@ -6,6 +6,7 @@
  */
 
 import { defineWidget } from "./composition.js";
+import { decodeIdSegment, encodeIdSegment } from "../runtime/idCodec.js";
 import type { AccordionProps, VNode } from "./types.js";
 
 export const ACCORDION_HEADERS_ZONE_PREFIX = "__rezi_accordion_headers__";
@@ -17,25 +18,12 @@ export type ParsedAccordionTriggerId = Readonly<{
   itemKey: string;
 }>;
 
-function encodeSegment(value: string): string {
-  return encodeURIComponent(value);
-}
-
-function decodeSegment(value: string): string | null {
-  if (value.length === 0) return null;
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return null;
-  }
-}
-
 export function getAccordionHeadersZoneId(accordionId: string): string {
-  return `${ACCORDION_HEADERS_ZONE_PREFIX}:${encodeSegment(accordionId)}`;
+  return `${ACCORDION_HEADERS_ZONE_PREFIX}:${encodeIdSegment(accordionId)}`;
 }
 
 export function getAccordionTriggerId(accordionId: string, index: number, itemKey: string): string {
-  return `${ACCORDION_TRIGGER_PREFIX}:${encodeSegment(accordionId)}:${String(index)}:${encodeSegment(itemKey)}`;
+  return `${ACCORDION_TRIGGER_PREFIX}:${encodeIdSegment(accordionId)}:${String(index)}:${encodeIdSegment(itemKey)}`;
 }
 
 export function parseAccordionTriggerId(id: string): ParsedAccordionTriggerId | null {
@@ -47,9 +35,9 @@ export function parseAccordionTriggerId(id: string): ParsedAccordionTriggerId | 
   if (secondSep <= firstSep + 1) return null;
   if (body.indexOf(":", secondSep + 1) !== -1) return null;
 
-  const accordionId = decodeSegment(body.slice(0, firstSep));
+  const accordionId = decodeIdSegment(body.slice(0, firstSep));
   const indexRaw = Number.parseInt(body.slice(firstSep + 1, secondSep), 10);
-  const itemKey = decodeSegment(body.slice(secondSep + 1));
+  const itemKey = decodeIdSegment(body.slice(secondSep + 1));
   if (accordionId === null || itemKey === null) return null;
   if (!Number.isFinite(indexRaw) || indexRaw < 0) return null;
 
