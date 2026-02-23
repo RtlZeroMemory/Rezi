@@ -23,7 +23,9 @@ function box(props: {
 describe("layout alignSelf", () => {
   test("parent align=start + child alignSelf=center centers child on cross axis", () => {
     const out = mustLayout(
-      ui.row({ width: 40, height: 10, align: "start" }, [box({ width: 4, height: 3, alignSelf: "center" })]),
+      ui.row({ width: 40, height: 10, align: "start" }, [
+        box({ width: 4, height: 3, alignSelf: "center" }),
+      ]),
       40,
       10,
       "row",
@@ -33,7 +35,9 @@ describe("layout alignSelf", () => {
 
   test("parent align=start + child alignSelf=end places child at cross-axis end", () => {
     const out = mustLayout(
-      ui.row({ width: 40, height: 10, align: "start" }, [box({ width: 4, height: 3, alignSelf: "end" })]),
+      ui.row({ width: 40, height: 10, align: "start" }, [
+        box({ width: 4, height: 3, alignSelf: "end" }),
+      ]),
       40,
       10,
       "row",
@@ -55,7 +59,9 @@ describe("layout alignSelf", () => {
 
   test("alignSelf=auto inherits parent align", () => {
     const out = mustLayout(
-      ui.row({ width: 40, height: 10, align: "end" }, [box({ width: 4, height: 3, alignSelf: "auto" })]),
+      ui.row({ width: 40, height: 10, align: "end" }, [
+        box({ width: 4, height: 3, alignSelf: "auto" }),
+      ]),
       40,
       10,
       "row",

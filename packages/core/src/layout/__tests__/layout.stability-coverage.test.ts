@@ -102,43 +102,34 @@ describe("layout stability signature coverage", () => {
   });
 
   test("table", () => {
-    const base = runtimeNode(
-      1,
-      {
-        kind: "table",
-        props: {
-          id: "tbl",
-          columns: Object.freeze([{ key: "name", header: "Name", width: 12 }]),
-          data: Object.freeze([{ name: "a" }, { name: "b" }]),
-          getRowKey: (row: { name: string }) => row.name,
-        },
-      } as unknown as VNode,
-    );
-    const layoutChanged = runtimeNode(
-      1,
-      {
-        kind: "table",
-        props: {
-          id: "tbl",
-          columns: Object.freeze([{ key: "name", header: "Name", width: 14 }]),
-          data: Object.freeze([{ name: "a" }, { name: "b" }]),
-          getRowKey: (row: { name: string }) => row.name,
-        },
-      } as unknown as VNode,
-    );
-    const nonLayoutChanged = runtimeNode(
-      1,
-      {
-        kind: "table",
-        props: {
-          id: "tbl",
-          columns: Object.freeze([{ key: "name", header: "Name", width: 12 }]),
-          data: Object.freeze([{ name: "a" }, { name: "b" }]),
-          getRowKey: (row: { name: string }) => row.name,
-          selectionStyle: { bg: "blue" },
-        },
-      } as unknown as VNode,
-    );
+    const base = runtimeNode(1, {
+      kind: "table",
+      props: {
+        id: "tbl",
+        columns: Object.freeze([{ key: "name", header: "Name", width: 12 }]),
+        data: Object.freeze([{ name: "a" }, { name: "b" }]),
+        getRowKey: (row: { name: string }) => row.name,
+      },
+    } as unknown as VNode);
+    const layoutChanged = runtimeNode(1, {
+      kind: "table",
+      props: {
+        id: "tbl",
+        columns: Object.freeze([{ key: "name", header: "Name", width: 14 }]),
+        data: Object.freeze([{ name: "a" }, { name: "b" }]),
+        getRowKey: (row: { name: string }) => row.name,
+      },
+    } as unknown as VNode);
+    const nonLayoutChanged = runtimeNode(1, {
+      kind: "table",
+      props: {
+        id: "tbl",
+        columns: Object.freeze([{ key: "name", header: "Name", width: 12 }]),
+        data: Object.freeze([{ name: "a" }, { name: "b" }]),
+        getRowKey: (row: { name: string }) => row.name,
+        selectionStyle: { bg: "blue" },
+      },
+    } as unknown as VNode);
     assertCoveredKind(base, layoutChanged, nonLayoutChanged);
   });
 
@@ -147,30 +138,21 @@ describe("layout stability signature coverage", () => {
       { key: "a", label: "A", content: textNode("A") },
       { key: "b", label: "B", content: textNode("B") },
     ]);
-    const base = runtimeNode(
-      1,
-      {
-        kind: "tabs",
-        props: { id: "tabs", tabs, activeTab: "a", onChange: NOOP },
-        children: Object.freeze([]),
-      } as unknown as VNode,
-    );
-    const layoutChanged = runtimeNode(
-      1,
-      {
-        kind: "tabs",
-        props: { id: "tabs", tabs, activeTab: "b", onChange: NOOP },
-        children: Object.freeze([]),
-      } as unknown as VNode,
-    );
-    const nonLayoutChanged = runtimeNode(
-      1,
-      {
-        kind: "tabs",
-        props: { id: "tabs", tabs, activeTab: "a", onChange: NOOP2, variant: "line" },
-        children: Object.freeze([]),
-      } as unknown as VNode,
-    );
+    const base = runtimeNode(1, {
+      kind: "tabs",
+      props: { id: "tabs", tabs, activeTab: "a", onChange: NOOP },
+      children: Object.freeze([]),
+    } as unknown as VNode);
+    const layoutChanged = runtimeNode(1, {
+      kind: "tabs",
+      props: { id: "tabs", tabs, activeTab: "b", onChange: NOOP },
+      children: Object.freeze([]),
+    } as unknown as VNode);
+    const nonLayoutChanged = runtimeNode(1, {
+      kind: "tabs",
+      props: { id: "tabs", tabs, activeTab: "a", onChange: NOOP2, variant: "line" },
+      children: Object.freeze([]),
+    } as unknown as VNode);
     assertCoveredKind(base, layoutChanged, nonLayoutChanged);
   });
 
@@ -219,109 +201,82 @@ describe("layout stability signature coverage", () => {
       { key: "a", title: "A", content: textNode("A") },
       { key: "b", title: "B", content: textNode("B") },
     ]);
-    const base = runtimeNode(
-      1,
-      {
-        kind: "accordion",
-        props: { id: "acc", items, expanded: Object.freeze([]), onChange: NOOP },
-        children: Object.freeze([]),
-      } as unknown as VNode,
-    );
-    const layoutChanged = runtimeNode(
-      1,
-      {
-        kind: "accordion",
-        props: { id: "acc", items, expanded: Object.freeze(["a"]), onChange: NOOP },
-        children: Object.freeze([]),
-      } as unknown as VNode,
-    );
-    const nonLayoutChanged = runtimeNode(
-      1,
-      {
-        kind: "accordion",
-        props: { id: "acc", items, expanded: Object.freeze([]), onChange: NOOP2 },
-        children: Object.freeze([]),
-      } as unknown as VNode,
-    );
+    const base = runtimeNode(1, {
+      kind: "accordion",
+      props: { id: "acc", items, expanded: Object.freeze([]), onChange: NOOP },
+      children: Object.freeze([]),
+    } as unknown as VNode);
+    const layoutChanged = runtimeNode(1, {
+      kind: "accordion",
+      props: { id: "acc", items, expanded: Object.freeze(["a"]), onChange: NOOP },
+      children: Object.freeze([]),
+    } as unknown as VNode);
+    const nonLayoutChanged = runtimeNode(1, {
+      kind: "accordion",
+      props: { id: "acc", items, expanded: Object.freeze([]), onChange: NOOP2 },
+      children: Object.freeze([]),
+    } as unknown as VNode);
     assertCoveredKind(base, layoutChanged, nonLayoutChanged);
   });
 
   test("modal", () => {
     const content = textNode("body");
-    const base = runtimeNode(
-      1,
-      {
-        kind: "modal",
-        props: { id: "m", content, width: 40, height: 10, minWidth: 20, minHeight: 8, maxWidth: 60 },
-      } as unknown as VNode,
-    );
-    const layoutChanged = runtimeNode(
-      1,
-      {
-        kind: "modal",
-        props: { id: "m", content, width: 40, height: 10, minWidth: 21, minHeight: 8, maxWidth: 60 },
-      } as unknown as VNode,
-    );
-    const nonLayoutChanged = runtimeNode(
-      1,
-      {
-        kind: "modal",
-        props: {
-          id: "m",
-          content,
-          width: 40,
-          height: 10,
-          minWidth: 20,
-          minHeight: 8,
-          maxWidth: 60,
-          title: "Hello",
-        },
-      } as unknown as VNode,
-    );
+    const base = runtimeNode(1, {
+      kind: "modal",
+      props: { id: "m", content, width: 40, height: 10, minWidth: 20, minHeight: 8, maxWidth: 60 },
+    } as unknown as VNode);
+    const layoutChanged = runtimeNode(1, {
+      kind: "modal",
+      props: { id: "m", content, width: 40, height: 10, minWidth: 21, minHeight: 8, maxWidth: 60 },
+    } as unknown as VNode);
+    const nonLayoutChanged = runtimeNode(1, {
+      kind: "modal",
+      props: {
+        id: "m",
+        content,
+        width: 40,
+        height: 10,
+        minWidth: 20,
+        minHeight: 8,
+        maxWidth: 60,
+        title: "Hello",
+      },
+    } as unknown as VNode);
     assertCoveredKind(base, layoutChanged, nonLayoutChanged);
   });
 
   test("virtualList", () => {
-    const base = runtimeNode(
-      1,
-      {
-        kind: "virtualList",
-        props: {
-          id: "vl",
-          items: Object.freeze(["a", "b", "c"]),
-          itemHeight: 1,
-          renderItem: (item: string) => textNode(item),
-          viewport: { w: 40, h: 10 },
-        },
-      } as unknown as VNode,
-    );
-    const layoutChanged = runtimeNode(
-      1,
-      {
-        kind: "virtualList",
-        props: {
-          id: "vl",
-          items: Object.freeze(["a", "b", "c", "d"]),
-          itemHeight: 1,
-          renderItem: (item: string) => textNode(item),
-          viewport: { w: 40, h: 10 },
-        },
-      } as unknown as VNode,
-    );
-    const nonLayoutChanged = runtimeNode(
-      1,
-      {
-        kind: "virtualList",
-        props: {
-          id: "vl",
-          items: Object.freeze(["a", "b", "c"]),
-          itemHeight: 1,
-          renderItem: (item: string) => textNode(item),
-          viewport: { w: 40, h: 10 },
-          onSelect: NOOP,
-        },
-      } as unknown as VNode,
-    );
+    const base = runtimeNode(1, {
+      kind: "virtualList",
+      props: {
+        id: "vl",
+        items: Object.freeze(["a", "b", "c"]),
+        itemHeight: 1,
+        renderItem: (item: string) => textNode(item),
+        viewport: { w: 40, h: 10 },
+      },
+    } as unknown as VNode);
+    const layoutChanged = runtimeNode(1, {
+      kind: "virtualList",
+      props: {
+        id: "vl",
+        items: Object.freeze(["a", "b", "c", "d"]),
+        itemHeight: 1,
+        renderItem: (item: string) => textNode(item),
+        viewport: { w: 40, h: 10 },
+      },
+    } as unknown as VNode);
+    const nonLayoutChanged = runtimeNode(1, {
+      kind: "virtualList",
+      props: {
+        id: "vl",
+        items: Object.freeze(["a", "b", "c"]),
+        itemHeight: 1,
+        renderItem: (item: string) => textNode(item),
+        viewport: { w: 40, h: 10 },
+        onSelect: NOOP,
+      },
+    } as unknown as VNode);
     assertCoveredKind(base, layoutChanged, nonLayoutChanged);
   });
 
@@ -393,71 +348,59 @@ describe("layout stability signature coverage", () => {
   });
 
   test("breadcrumb", () => {
-    const base = runtimeNode(
-      1,
-      {
-        kind: "breadcrumb",
-        props: {
-          id: "crumb",
-          items: Object.freeze([{ label: "A", onPress: NOOP }, { label: "B", onPress: NOOP }]),
-        },
-        children: Object.freeze([]),
-      } as unknown as VNode,
-    );
-    const layoutChanged = runtimeNode(
-      1,
-      {
-        kind: "breadcrumb",
-        props: {
-          id: "crumb",
-          items: Object.freeze([
-            { label: "A", onPress: NOOP },
-            { label: "B", onPress: NOOP },
-            { label: "C", onPress: NOOP },
-          ]),
-        },
-        children: Object.freeze([]),
-      } as unknown as VNode,
-    );
-    const nonLayoutChanged = runtimeNode(
-      1,
-      {
-        kind: "breadcrumb",
-        props: {
-          id: "crumb",
-          items: Object.freeze([{ label: "A", onPress: NOOP2 }, { label: "B", onPress: NOOP2 }]),
-        },
-        children: Object.freeze([]),
-      } as unknown as VNode,
-    );
+    const base = runtimeNode(1, {
+      kind: "breadcrumb",
+      props: {
+        id: "crumb",
+        items: Object.freeze([
+          { label: "A", onPress: NOOP },
+          { label: "B", onPress: NOOP },
+        ]),
+      },
+      children: Object.freeze([]),
+    } as unknown as VNode);
+    const layoutChanged = runtimeNode(1, {
+      kind: "breadcrumb",
+      props: {
+        id: "crumb",
+        items: Object.freeze([
+          { label: "A", onPress: NOOP },
+          { label: "B", onPress: NOOP },
+          { label: "C", onPress: NOOP },
+        ]),
+      },
+      children: Object.freeze([]),
+    } as unknown as VNode);
+    const nonLayoutChanged = runtimeNode(1, {
+      kind: "breadcrumb",
+      props: {
+        id: "crumb",
+        items: Object.freeze([
+          { label: "A", onPress: NOOP2 },
+          { label: "B", onPress: NOOP2 },
+        ]),
+      },
+      children: Object.freeze([]),
+    } as unknown as VNode);
     assertCoveredKind(base, layoutChanged, nonLayoutChanged);
   });
 
   test("pagination", () => {
-    const base = runtimeNode(
-      1,
-      {
-        kind: "pagination",
-        props: { id: "pg", page: 1, totalPages: 10, onChange: NOOP },
-        children: Object.freeze([]),
-      } as unknown as VNode,
-    );
-    const layoutChanged = runtimeNode(
-      1,
-      {
-        kind: "pagination",
-        props: { id: "pg", page: 1, totalPages: 12, onChange: NOOP },
-        children: Object.freeze([]),
-      } as unknown as VNode,
-    );
-    const nonLayoutChanged = runtimeNode(
-      1,
-      {
-        kind: "pagination",
-        props: { id: "pg", page: 1, totalPages: 10, onChange: NOOP2 },
-        children: Object.freeze([]),
-      } as unknown as VNode,
-    );
+    const base = runtimeNode(1, {
+      kind: "pagination",
+      props: { id: "pg", page: 1, totalPages: 10, onChange: NOOP },
+      children: Object.freeze([]),
+    } as unknown as VNode);
+    const layoutChanged = runtimeNode(1, {
+      kind: "pagination",
+      props: { id: "pg", page: 1, totalPages: 12, onChange: NOOP },
+      children: Object.freeze([]),
+    } as unknown as VNode);
+    const nonLayoutChanged = runtimeNode(1, {
+      kind: "pagination",
+      props: { id: "pg", page: 1, totalPages: 10, onChange: NOOP2 },
+      children: Object.freeze([]),
+    } as unknown as VNode);
     assertCoveredKind(base, layoutChanged, nonLayoutChanged);
   });
 });

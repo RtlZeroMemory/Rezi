@@ -95,23 +95,26 @@ describe("layout components", () => {
 
     assert.deepEqual(
       vnode,
-      ui.column({ gap: 1, p: 1, mx: 2, minWidth: 20, wrap: true, alignSelf: "center", flexBasis: "auto" }, [
-        ui.row(
-          {
-            gap: 2,
-            justify: "between",
-            items: "center",
-            wrap: true,
-            flexShrink: 1,
-            flexBasis: 8,
-            alignSelf: "end",
-            position: "absolute",
-            top: 1,
-            left: 2,
-          },
-          [ui.text("A"), ui.text("B")],
-        ),
-      ]),
+      ui.column(
+        { gap: 1, p: 1, mx: 2, minWidth: 20, wrap: true, alignSelf: "center", flexBasis: "auto" },
+        [
+          ui.row(
+            {
+              gap: 2,
+              justify: "between",
+              items: "center",
+              wrap: true,
+              flexShrink: 1,
+              flexBasis: 8,
+              alignSelf: "end",
+              position: "absolute",
+              top: 1,
+              left: 2,
+            },
+            [ui.text("A"), ui.text("B")],
+          ),
+        ],
+      ),
     );
   });
 

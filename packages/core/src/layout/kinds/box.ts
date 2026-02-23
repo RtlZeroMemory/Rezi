@@ -51,7 +51,11 @@ function getSyntheticColumn(vnode: VNodeWithChildren, gap: number): VNode {
     if (!child || childHasAbsolutePosition(child)) continue;
     flowChildren.push(child);
   }
-  const columnNode: VNode = { kind: "column", props: { gap }, children: Object.freeze(flowChildren) };
+  const columnNode: VNode = {
+    kind: "column",
+    props: { gap },
+    children: Object.freeze(flowChildren),
+  };
   syntheticColumnCache.set(vnode, Object.freeze({ childrenRef: vnode.children, gap, columnNode }));
   return columnNode;
 }

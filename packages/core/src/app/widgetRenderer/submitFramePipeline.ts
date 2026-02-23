@@ -299,7 +299,11 @@ function computeLayoutStabilitySignature(node: RuntimeInstance): number | null {
       if (typeof props.activeTab === "string") {
         for (let i = 0; i < props.tabs.length; i++) {
           const tab = props.tabs[i];
-          if (tab && typeof tab === "object" && (tab as { key?: unknown }).key === props.activeTab) {
+          if (
+            tab &&
+            typeof tab === "object" &&
+            (tab as { key?: unknown }).key === props.activeTab
+          ) {
             selectedIndex = i;
             break;
           }

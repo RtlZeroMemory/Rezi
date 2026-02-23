@@ -2,7 +2,11 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import { ui } from "../../index.js";
 import { layout } from "../layout.js";
 
-function mustLayout(node: ReturnType<typeof ui.text> | ReturnType<typeof ui.row>, maxW: number, maxH: number) {
+function mustLayout(
+  node: ReturnType<typeof ui.text> | ReturnType<typeof ui.row>,
+  maxW: number,
+  maxH: number,
+) {
   const res = layout(node, 0, 0, maxW, maxH, "column");
   if (!res.ok) {
     assert.fail(`layout failed: ${res.fatal.code}: ${res.fatal.detail}`);

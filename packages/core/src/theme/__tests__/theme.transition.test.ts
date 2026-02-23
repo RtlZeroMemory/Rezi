@@ -7,9 +7,9 @@ import {
 import { StubBackend } from "../../app/__tests__/stubBackend.js";
 import { createApp } from "../../app/createApp.js";
 import { defineWidget } from "../../widgets/composition.js";
+import { ui } from "../../widgets/ui.js";
 import type { Theme } from "../theme.js";
 import { createTheme } from "../theme.js";
-import { ui } from "../../widgets/ui.js";
 
 type EncodedEvent = NonNullable<Parameters<typeof encodeZrevBatchV1>[0]["events"]>[number];
 

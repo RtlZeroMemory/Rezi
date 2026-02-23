@@ -238,8 +238,7 @@ export function shrinkFlex(available: number, items: readonly FlexItem[]): numbe
           const nextOrder = order.filter((slot) => {
             const item = items[slot];
             if (!item) return false;
-            const room =
-              (out[slot] ?? 0) - item.min - Math.max(0, baseReductions[slot] ?? 0);
+            const room = (out[slot] ?? 0) - item.min - Math.max(0, baseReductions[slot] ?? 0);
             return room > 0;
           });
           order.length = 0;
@@ -254,7 +253,7 @@ export function shrinkFlex(available: number, items: readonly FlexItem[]): numbe
     for (let i = 0; i < items.length; i++) {
       const reduction = baseReductions[i] ?? 0;
       if (reduction <= 0) continue;
-      out[i] = Math.max((items[i]?.min ?? 0), (out[i] ?? 0) - reduction);
+      out[i] = Math.max(items[i]?.min ?? 0, (out[i] ?? 0) - reduction);
       distributed += reduction;
       const it = items[i];
       if (it && (out[i] ?? 0) <= it.min) active[i] = false;

@@ -52,10 +52,7 @@ describe("layout flex shrink + basis", () => {
   });
 
   test("higher shrink factor shrinks proportionally more", () => {
-    const out = mustRow(
-      [box({ width: 60, flexShrink: 2 }), box({ width: 60, flexShrink: 1 })],
-      90,
-    );
+    const out = mustRow([box({ width: 60, flexShrink: 2 }), box({ width: 60, flexShrink: 1 })], 90);
     assert.deepEqual(
       out.children.map((child) => child.rect.w),
       [40, 50],
@@ -74,10 +71,7 @@ describe("layout flex shrink + basis", () => {
   });
 
   test("no overflow keeps sizes unchanged", () => {
-    const out = mustRow(
-      [box({ width: 30, flexShrink: 1 }), box({ width: 20, flexShrink: 2 })],
-      60,
-    );
+    const out = mustRow([box({ width: 30, flexShrink: 1 }), box({ width: 20, flexShrink: 2 })], 60);
     assert.deepEqual(
       out.children.map((child) => child.rect.w),
       [30, 20],

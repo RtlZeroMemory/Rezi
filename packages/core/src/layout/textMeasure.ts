@@ -566,7 +566,10 @@ export function wrapTextToLines(text: string, maxWidth: number): readonly string
 /**
  * Measure wrapped text in terminal cells.
  */
-export function measureTextWrapped(text: string, maxWidth: number): { width: number; height: number } {
+export function measureTextWrapped(
+  text: string,
+  maxWidth: number,
+): { width: number; height: number } {
   const lines = wrapTextToLines(text, maxWidth);
   if (lines.length === 0) return { width: 0, height: 0 };
   let maxLineWidth = 0;

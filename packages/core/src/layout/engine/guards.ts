@@ -21,11 +21,7 @@ export function isVNode(v: unknown): v is VNode {
 
 export function getConstraintProps(vnode: unknown): ConstraintPropsBag | null {
   if (!isVNode(vnode)) return null;
-  if (
-    vnode.kind === "box" ||
-    vnode.kind === "row" ||
-    vnode.kind === "column"
-  ) {
+  if (vnode.kind === "box" || vnode.kind === "row" || vnode.kind === "column") {
     return vnode.props as ConstraintPropsBag;
   }
   return null;

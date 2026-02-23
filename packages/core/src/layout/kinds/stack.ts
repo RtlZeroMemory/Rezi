@@ -7,6 +7,7 @@ import {
 } from "../constraints.js";
 import { clampNonNegative, clampWithin, isPercentString, toFiniteMax } from "../engine/bounds.js";
 import { getActiveDirtySet } from "../engine/dirtySet.js";
+import { distributeInteger } from "../engine/distributeInteger.js";
 import {
   type FlexItem,
   type Justify,
@@ -15,7 +16,6 @@ import {
   distributeFlex,
   shrinkFlex,
 } from "../engine/flex.js";
-import { distributeInteger } from "../engine/distributeInteger.js";
 import {
   childHasAbsolutePosition,
   childHasFlexInMainAxis,
@@ -23,6 +23,7 @@ import {
   childHasPercentInMainAxis,
   getConstraintProps,
 } from "../engine/guards.js";
+import { measureMaxContent, measureMinContent } from "../engine/intrinsic.js";
 import { releaseArray } from "../engine/pool.js";
 import { ok } from "../engine/result.js";
 import type { LayoutTree } from "../engine/types.js";
@@ -33,7 +34,6 @@ import {
 import type { Axis, Rect, Size } from "../types.js";
 import type { LayoutResult } from "../validateProps.js";
 import { validateSpacerProps, validateStackProps } from "../validateProps.js";
-import { measureMaxContent, measureMinContent } from "../engine/intrinsic.js";
 
 type MeasureNodeFn = (vnode: VNode, maxW: number, maxH: number, axis: Axis) => LayoutResult<Size>;
 type StackVNode = Extract<VNode, { kind: "row" | "column" }>;
@@ -104,7 +104,8 @@ type ConstraintPropBag = Readonly<{
 type EffectiveAlign = "start" | "center" | "end" | "stretch";
 
 function resolveEffectiveAlign(child: VNode, align: EffectiveAlign): EffectiveAlign {
-  const childAlignSelfRaw = (getConstraintProps(child) as { alignSelf?: unknown } | null)?.alignSelf;
+  const childAlignSelfRaw = (getConstraintProps(child) as { alignSelf?: unknown } | null)
+    ?.alignSelf;
   if (
     childAlignSelfRaw === "start" ||
     childAlignSelfRaw === "center" ||
@@ -119,11 +120,11 @@ function resolveEffectiveAlign(child: VNode, align: EffectiveAlign): EffectiveAl
 function childHasAdvancedFlexProps(vnode: unknown): boolean {
   const props = getConstraintProps(vnode) as Record<string, unknown> | null;
   if (!props) return false;
-  const rawShrink = props["flexShrink"];
+  const rawShrink = props.flexShrink;
   if (typeof rawShrink === "number" && Number.isFinite(rawShrink) && rawShrink > 0) {
     return true;
   }
-  return props["flexBasis"] !== undefined;
+  return props.flexBasis !== undefined;
 }
 
 function getAxisConfig(kind: VNode["kind"]): AxisConfig | null {
@@ -573,10 +574,7 @@ function computeWrapConstraintLine(
     const childProps = getConstraintProps(child) ?? {};
     const rawMain = (childProps as ConstraintPropBag)[axis.mainProp];
     const needsFeedback =
-      main > 0 &&
-      mm !== main &&
-      !isPercentString(rawMain) &&
-      childMayNeedCrossAxisFeedback(child);
+      main > 0 && mm !== main && !isPercentString(rawMain) && childMayNeedCrossAxisFeedback(child);
     mayFeedback[i] = needsFeedback;
     crossPass1[i] = childCross;
     if (needsFeedback) feedbackCandidate = true;
@@ -607,7 +605,8 @@ function computeWrapConstraintLine(
         }
       }
 
-      const cross = crossSizes?.[i] ?? (crossPass1[i] ?? (size === null ? 0 : crossFromSize(axis, size)));
+      const cross =
+        crossSizes?.[i] ?? crossPass1[i] ?? (size === null ? 0 : crossFromSize(axis, size));
       if (cross > lineCross) lineCross = cross;
     }
   }
@@ -711,8 +710,8 @@ function planConstraintMainSizes(
     if (!child || child.kind === "spacer") continue;
     const props = getConstraintProps(child) as Record<string, unknown> | null;
     if (!props) continue;
-    const rawShrink = props["flexShrink"];
-    const rawBasis = props["flexBasis"];
+    const rawShrink = props.flexShrink;
+    const rawBasis = props.flexBasis;
     if (
       (typeof rawShrink === "number" && Number.isFinite(rawShrink) && rawShrink > 0) ||
       rawBasis !== undefined
@@ -896,7 +895,7 @@ function planConstraintMainSizes(
 
     const rawMain = childProps[axis.mainProp];
     const rawMinMain = childProps[axis.minMainProp];
-    const rawFlexBasis = childProps["flexBasis"];
+    const rawFlexBasis = childProps.flexBasis;
     const mainPercent = isPercentString(rawMain);
     const flexBasisIsAuto = rawFlexBasis === "auto";
 
@@ -926,7 +925,13 @@ function planConstraintMainSizes(
     } else if (resolved.flex > 0) {
       basis = 0;
     } else {
-      const childRes = measureNodeOnAxis(axis, child, availableForChildren, crossLimit, measureNode);
+      const childRes = measureNodeOnAxis(
+        axis,
+        child,
+        availableForChildren,
+        crossLimit,
+        measureNode,
+      );
       if (!childRes.ok) return childRes;
       measuredSize = childRes.value;
       basis = clampWithin(mainFromSize(axis, childRes.value), normalizedMinMain, maxMain);
@@ -1060,10 +1065,7 @@ function planConstraintCrossSizes(
     const childProps = getConstraintProps(child) ?? {};
     const rawMain = (childProps as ConstraintPropBag)[axis.mainProp];
     const candidate =
-      main > 0 &&
-      mm !== main &&
-      !isPercentString(rawMain) &&
-      childMayNeedCrossAxisFeedback(child);
+      main > 0 && mm !== main && !isPercentString(rawMain) && childMayNeedCrossAxisFeedback(child);
     feedbackCandidates[i] = candidate;
     if (candidate) hasFeedbackCandidate = true;
   }
@@ -1156,7 +1158,9 @@ function measureStack(
   const fillMain = forcedMain === null && hasPercentInMainAxis;
   const fillCross =
     forcedCross === null &&
-    vnode.children.some((c) => !childHasAbsolutePosition(c) && childHasPercentInCrossAxis(c, axis.axis));
+    vnode.children.some(
+      (c) => !childHasAbsolutePosition(c) && childHasPercentInCrossAxis(c, axis.axis),
+    );
   const childCount = countNonEmptyChildren(vnode.children);
 
   const outerWLimit = forcedW ?? maxWCap;

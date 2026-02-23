@@ -16,6 +16,7 @@ import {
   routerTabs as buildRouterTabs,
 } from "../router/helpers.js";
 import type { RouteDefinition, RouterApi } from "../router/types.js";
+import type { ThemeOverrides } from "../theme/extend.js";
 import { createAccordionWidgetVNode } from "./accordion.js";
 import { createBreadcrumbWidgetVNode } from "./breadcrumb.js";
 import { createPaginationWidgetVNode } from "./pagination.js";
@@ -98,7 +99,6 @@ import type {
   VNode,
   VirtualListProps,
 } from "./types.js";
-import type { ThemeOverrides } from "../theme/extend.js";
 
 type UiChild = VNode | false | null | undefined | readonly UiChild[];
 type PanelOptions = Readonly<{

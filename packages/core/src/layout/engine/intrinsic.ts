@@ -94,7 +94,11 @@ function sumWithGap(values: readonly number[], gap: number): number {
   return total;
 }
 
-function fallbackIntrinsic(vnode: VNode, axis: Axis, measureNode: MeasureNodeFn): LayoutResult<Size> {
+function fallbackIntrinsic(
+  vnode: VNode,
+  axis: Axis,
+  measureNode: MeasureNodeFn,
+): LayoutResult<Size> {
   const fallback = measureNode(vnode, INTRINSIC_FALLBACK_LIMIT, INTRINSIC_FALLBACK_LIMIT, axis);
   if (!fallback.ok) return fallback;
   return ok(clampSize(fallback.value));
@@ -231,7 +235,8 @@ function measureStackIntrinsic(
   if (!propsRes.ok) return propsRes;
 
   const spacing = resolveSpacingProps(propsRes.value);
-  const padMain = vnode.kind === "row" ? spacing.left + spacing.right : spacing.top + spacing.bottom;
+  const padMain =
+    vnode.kind === "row" ? spacing.left + spacing.right : spacing.top + spacing.bottom;
   const padCross =
     vnode.kind === "row" ? spacing.top + spacing.bottom : spacing.left + spacing.right;
 

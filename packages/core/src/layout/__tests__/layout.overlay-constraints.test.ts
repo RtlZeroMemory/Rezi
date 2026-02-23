@@ -2,7 +2,15 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import { ui } from "../../index.js";
 import { layout } from "../layout.js";
 
-function mustLayout(node: ReturnType<typeof ui.modal> | ReturnType<typeof ui.commandPalette> | ReturnType<typeof ui.toastContainer> | ReturnType<typeof ui.toolApprovalDialog>, w: number, h: number) {
+function mustLayout(
+  node:
+    | ReturnType<typeof ui.modal>
+    | ReturnType<typeof ui.commandPalette>
+    | ReturnType<typeof ui.toastContainer>
+    | ReturnType<typeof ui.toolApprovalDialog>,
+  w: number,
+  h: number,
+) {
   const res = layout(node, 0, 0, w, h, "column");
   if (!res.ok) {
     assert.fail(`layout failed: ${res.fatal.code}: ${res.fatal.detail}`);
