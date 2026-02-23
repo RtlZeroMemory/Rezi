@@ -7,6 +7,7 @@ import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
 import { createApp } from "../createApp.js";
 import type { RuntimeBreadcrumbSnapshot } from "../runtimeBreadcrumbs.js";
+import { isRuntimeBreadcrumbEventKind } from "../runtimeBreadcrumbs.js";
 import { WidgetRenderer } from "../widgetRenderer.js";
 import { encodeZrevBatchV1, flushMicrotasks, makeBackendBatch } from "./helpers.js";
 import { StubBackend } from "./stubBackend.js";
@@ -143,8 +144,8 @@ test("runtime breadcrumbs capture event path/action/focus/cursor deterministical
   assert.equal(renderSnapshots.length, 2);
   const second = renderSnapshots[1];
   assert.ok(second);
-  assert.equal(second.event.kind, "text");
-  assert.equal(second.event.path, "keybindings");
+  assert.equal(second.event.kind, "tick");
+  assert.equal(second.event.path, null);
   assert.equal(second.focus.focusedId, "name");
   assert.equal(second.focus.activeZoneId, null);
   assert.equal(second.focus.activeTrapId, "trap");
@@ -177,8 +178,8 @@ test("runtime breadcrumbs capture event path/action/focus/cursor deterministical
   const fourth = renderSnapshots[3];
   assert.ok(fourth);
   assert.deepEqual(fourth.lastAction, { id: "save", action: "press" });
-  assert.equal(fourth.event.kind, "key");
-  assert.equal(fourth.event.path, "widgetRouting");
+  assert.equal(fourth.event.kind, "tick");
+  assert.equal(fourth.event.path, null);
 
   await settleNextFrame(backend);
 });
@@ -293,4 +294,10 @@ test("enabling breadcrumb capture does not change widget routing outcomes", () =
 
   assert.equal(rendererWithout.getRuntimeBreadcrumbSnapshot(), null);
   assert.notEqual(rendererWith.getRuntimeBreadcrumbSnapshot(), null);
+});
+
+test("runtime breadcrumb event kind guard includes tick and user", () => {
+  assert.equal(isRuntimeBreadcrumbEventKind("tick"), true);
+  assert.equal(isRuntimeBreadcrumbEventKind("user"), true);
+  assert.equal(isRuntimeBreadcrumbEventKind("custom"), false);
 });

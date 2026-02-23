@@ -9,7 +9,14 @@ import type { CursorShape } from "../abi.js";
 import type { RoutedAction } from "../runtime/router.js";
 
 /** Engine event kinds tracked by runtime breadcrumbs. */
-export type RuntimeBreadcrumbEventKind = "key" | "text" | "paste" | "mouse" | "resize";
+export type RuntimeBreadcrumbEventKind =
+  | "key"
+  | "text"
+  | "paste"
+  | "mouse"
+  | "resize"
+  | "tick"
+  | "user";
 
 /** Which routing path handled the last tracked engine event. */
 export type RuntimeBreadcrumbConsumptionPath = "keybindings" | "widgetRouting";
@@ -121,7 +128,13 @@ export function toRuntimeBreadcrumbAction(action: RoutedAction): RuntimeBreadcru
 /** Narrow runtime event kinds that breadcrumbs track. */
 export function isRuntimeBreadcrumbEventKind(kind: string): kind is RuntimeBreadcrumbEventKind {
   return (
-    kind === "key" || kind === "text" || kind === "paste" || kind === "mouse" || kind === "resize"
+    kind === "key" ||
+    kind === "text" ||
+    kind === "paste" ||
+    kind === "mouse" ||
+    kind === "resize" ||
+    kind === "tick" ||
+    kind === "user"
   );
 }
 
