@@ -28,19 +28,23 @@ ui.input({
 
 ## Design System Styling
 
-Inputs are design-system styled by default when a `ThemeDefinition` preset is active.
-In that path, the input renderer applies `inputRecipe()` output automatically.
+Inputs are design-system styled by default when semantic color tokens are
+available (for example via a `ThemeDefinition` preset). In that path, the input
+renderer applies `inputRecipe()` output automatically.
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `dsSize` | `"sm" \| "md" \| "lg"` | `"md"` | Size preset (controls padding and height) |
 | `placeholder` | `string` | - | Placeholder text shown when value is empty |
 
-Manual `style` overrides are merged on top of recipe output (they do not disable recipes).
+Manual `style` overrides are merged on top of recipe output via
+`mergeTextStyle(baseStyle, ownStyle)` (they do not disable recipes).
 
-If the active theme does not provide semantic color tokens, inputs fall back to non-recipe rendering.
+If semantic color tokens are unavailable, the renderer uses the non-recipe path:
+it merges parent/own style with `getButtonLabelStyle({ focused, disabled })`,
+then applies focus-aware content styling.
 
-At `height >= 3`, the input renders framed chrome (border + interior). At `height = 1`,
+Framed chrome requires both `width >= 3` and `height >= 3`. At `height = 1`,
 the recipe still applies text/background styling, but no box border is drawn.
 
 ## Behavior
@@ -97,7 +101,7 @@ app.view((state) =>
 ### With `useForm` binding
 
 ```typescript
-ui.input(form.bind("email"));
+ui.input({ id: "email", ...form.bind("email") });
 ```
 
 ### Validation on blur

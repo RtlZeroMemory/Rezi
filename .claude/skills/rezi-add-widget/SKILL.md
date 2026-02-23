@@ -56,8 +56,8 @@ Use this skill when:
 
 6. **Add design system support** (if the widget is interactive):
    - Register the new widget kind in `packages/core/src/widgets/protocol.ts`
-   - Add DS props as needed (`dsVariant`, `dsTone`, `dsSize`) to the widget's props type
-   - Wire recipe-based rendering so DS styling auto-activates when `ThemeDefinition` semantic tokens are available (no `dsVariant` required for baseline styling)
+   - Add optional DS props as needed (`dsVariant?`, `dsTone?`, `dsSize?`) for advanced customization
+   - Wire recipe-based rendering so baseline DS styling auto-activates when `ThemeDefinition` semantic tokens are available; DS props override defaults when specified
    - See `docs/guide/widget-authoring.md` for the full pattern
 
 7. **Export** both props type and factory from `packages/core/src/index.ts`

@@ -23,9 +23,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - **overlays**: Unified overlay system; dropdowns and toasts register in `LayerRegistry`.
 - **input**: Generic wheel routing for `overflow: "scroll"` containers.
 - **design-system**: Recipes wired into input, checkbox, select, table, progress, badge, and callout rendering paths.
-- **animation**: `onComplete` callbacks added for animation hooks (`useTransition`, `useSpring`, `useSequence`, `useStagger`).
-- **animation**: Added new easing presets across expo/back/bounce families.
-- **shortcuts**: Dropdown and CommandPalette item shortcuts are enforced.
+- **shortcuts**: Dropdown and CommandPalette item `shortcut` labels are documented as hint/display metadata (and command-palette query matching input).
 - **focus**: Unified DS focus indicators use `focus.ring` token color.
 
 ### Developer Experience

@@ -1,5 +1,5 @@
 import type { VNode } from "@rezi-ui/core";
-import { ui } from "@rezi-ui/core";
+import { ui, when } from "@rezi-ui/core";
 import {
   filterLabel,
   fleetCounts,
@@ -59,6 +59,26 @@ export function renderOverviewScreen(state: DashboardState, handlers: DashboardS
 
   const uptimeSec = Math.max(1, Math.floor((Date.now() - state.startedAtMs) / 1000));
   const updateRate = (state.tick / uptimeSec).toFixed(2);
+  const inspectorContent =
+    when(
+      Boolean(selected),
+      () => {
+        const service = selected as NonNullable<typeof selected>;
+        return ui.column({ gap: 1 }, [
+          ui.row({ gap: 1, wrap: true }, [
+            ui.badge(service.name, { variant: statusBadge(service.status).variant }),
+            ui.tag(service.owner, { variant: "default" }),
+            ui.tag(service.region, { variant: "info" }),
+          ]),
+          ui.text(`Latency: ${formatLatency(service.latencyMs)}`),
+          ui.text(`Error Rate: ${formatErrorRate(service.errorRate)}`),
+          ui.text(`Traffic: ${formatTraffic(service.trafficRpm)}`),
+          ui.text(`Update rate: ${updateRate} Hz`, { style: styles.mutedStyle }),
+          ui.sparkline(service.history, { width: 18, min: 0, max: 220 }),
+        ]);
+      },
+      () => ui.text("No service selected.", { style: styles.mutedStyle }),
+    ) ?? ui.text("No service selected.", { style: styles.mutedStyle });
 
   const content = ui.page({
     p: 1,
@@ -76,32 +96,38 @@ export function renderOverviewScreen(state: DashboardState, handlers: DashboardS
       ],
     }),
     body: ui.column({ gap: 1 }, [
-      ui.actions([
-        ui.button({
-          id: "filter",
-          label: `Filter: ${filterLabel(state.filter)}`,
-          intent: "secondary",
-          onPress: handlers.onCycleFilter,
-        }),
-        ui.button({
-          id: "theme",
-          label: "Cycle Theme",
-          intent: "secondary",
-          onPress: handlers.onCycleTheme,
-        }),
-        ui.button({
-          id: "pause",
-          label: state.paused ? "Resume Stream" : "Pause Stream",
-          intent: state.paused ? "primary" : "warning",
-          onPress: handlers.onTogglePause,
-        }),
-        ui.button({
-          id: "help",
-          label: "Help",
-          intent: "link",
-          onPress: handlers.onToggleHelp,
-        }),
-      ]),
+      panel(
+        "Actions",
+        [
+          ui.actions([
+            ui.button({
+              id: "filter",
+              label: `Filter: ${filterLabel(state.filter)}`,
+              intent: "secondary",
+              onPress: handlers.onCycleFilter,
+            }),
+            ui.button({
+              id: "theme",
+              label: "Cycle Theme",
+              intent: "secondary",
+              onPress: handlers.onCycleTheme,
+            }),
+            ui.button({
+              id: "pause",
+              label: state.paused ? "Resume Stream" : "Pause Stream",
+              intent: state.paused ? "primary" : "warning",
+              onPress: handlers.onTogglePause,
+            }),
+            ui.button({
+              id: "help",
+              label: "Help",
+              intent: "link",
+              onPress: handlers.onToggleHelp,
+            }),
+          ]),
+        ],
+        styles.panelStyle,
+      ),
       ui.row({ gap: 1, wrap: true, items: "stretch" }, [
         panel(
           "Service Fleet",
@@ -136,22 +162,7 @@ export function renderOverviewScreen(state: DashboardState, handlers: DashboardS
         ),
         panel(
           "Inspector",
-          selected
-            ? [
-                ui.column({ gap: 1 }, [
-                  ui.row({ gap: 1, wrap: true }, [
-                    ui.badge(selected.name, { variant: statusBadge(selected.status).variant }),
-                    ui.tag(selected.owner, { variant: "default" }),
-                    ui.tag(selected.region, { variant: "info" }),
-                  ]),
-                  ui.text(`Latency: ${formatLatency(selected.latencyMs)}`),
-                  ui.text(`Error Rate: ${formatErrorRate(selected.errorRate)}`),
-                  ui.text(`Traffic: ${formatTraffic(selected.trafficRpm)}`),
-                  ui.text(`Update rate: ${updateRate} Hz`, { style: styles.mutedStyle }),
-                  ui.sparkline(selected.history, { width: 18, min: 0, max: 220 }),
-                ]),
-              ]
-            : [ui.text("No service selected.", { style: styles.mutedStyle })],
+          [inspectorContent],
           styles.panelStyle,
         ),
       ]),

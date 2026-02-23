@@ -48,14 +48,13 @@ Use this skill when:
    ui.keybindingHelp(app.getBindings())
    ```
 
-## Overlay shortcut enforcement
+## Overlay shortcut hints
 
-Dropdown and CommandPalette item shortcuts are enforced automatically while the
-overlay is open.
+Dropdown and CommandPalette `shortcut` fields are currently display/search hints.
 
-- Declaring `shortcut: "Ctrl+S"` on a dropdown item makes `Ctrl+S` trigger that item.
-- Declaring `shortcut: "Ctrl+S"` on a command palette item does the same.
-- No manual `app.keys()` registration is needed for these overlay-local shortcuts.
+- `routeDropdownKey(...)` handles navigation keys (`Up`, `Down`, `Enter`, `Space`, `Escape`).
+- CommandPalette shows shortcut text and uses it in filtering, but does not auto-bind combos.
+- Register real shortcut combos explicitly with `app.keys()` or `app.modes()`.
 
 ## Key format reference
 

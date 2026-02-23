@@ -14,8 +14,9 @@ For the built-in focusable widgets (e.g. `button`, `input`, `select`, `checkbox`
 
 This is applied by the renderer and merged with any user-provided `style` prop.
 
-All interactive widgets route focus styling through `resolveWidgetFocusStyle()`
-to keep focus rendering consistent across widget kinds.
+All interactive widgets route focus styling through shared renderer helpers
+(`resolveFocusIndicatorStyle()` and `resolveFocusedContentStyle()`) to keep
+focus rendering consistent across widget kinds.
 
 ## Focus ring
 

@@ -193,8 +193,8 @@ const Counter = defineWidget<{ initial: number; key?: string }>((props, ctx) => 
 ```
 
 Available hooks: `ctx.useState()`, `ctx.useEffect()`, `ctx.useRef()`, `ctx.useMemo()`, `ctx.useCallback()`, `ctx.useAppState()`, `ctx.useViewport()`, `ctx.id()`.
-Animation utility hooks: `useTransition()`, `useSpring()`, `useSequence()`, `useStagger()`, with `onComplete` callbacks for finite runs.
-Animation easing presets include quad/cubic plus newer expo/back/bounce families (for example `easeOutExpo`, `easeOutBounce`).
+Animation utility hooks: `useTransition()`, `useSpring()`, `useSequence()`, `useStagger()` for declarative numeric motion.
+Animation easing presets include `linear` plus quad/cubic families (`easeInQuad`, `easeOutQuad`, `easeInOutQuad`, `easeInCubic`, `easeOutCubic`, `easeInOutCubic`).
 
 ### Layer 3 — Domain Hooks (for complex state and motion)
 

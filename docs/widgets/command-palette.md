@@ -52,8 +52,8 @@ ui.commandPalette({
 - Command sources can be sync or async (`getItems` may return a `Promise`).
 - Keep `query` and `selectedIndex` in your app state (controlled pattern).
 - `maxVisible` accepts non-negative values; `0` hides the results list while keeping the palette input visible.
-- Item shortcuts are enforced while the palette is open. Declaring
-  `shortcut: "Ctrl+S"` on an item makes that key combo activate the item.
+- Item `shortcut` text is currently a hint/display field (and used in query matching),
+  not an auto-registered keybinding.
 
 ## Shortcut example
 
@@ -77,6 +77,15 @@ ui.commandPalette({
   onSelectionChange: (selectedIndex) => app.update((s) => ({ ...s, selectedIndex })),
   onSelect: (item) => runCommand(item.id),
   onClose: () => app.update((s) => ({ ...s, open: false })),
+})
+```
+
+Register key combos explicitly when needed:
+
+```ts
+app.keys({
+  "ctrl+s": () => runCommand("save"),
+  "ctrl+o": () => runCommand("open"),
 })
 ```
 

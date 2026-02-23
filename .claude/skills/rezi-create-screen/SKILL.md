@@ -50,7 +50,7 @@ Use this skill when:
    })
    ```
 
-   Use `dsVariant` / `dsTone` / `dsSize` only when you need finer control.
+   Use `dsVariant`, `dsTone`, or `dsSize` only when you need finer control.
 
 2. **Use `ui.column()` or `ui.row()`** as the root container
 
@@ -61,20 +61,18 @@ Use this skill when:
    const AnimatedScreen = defineWidget<{ target: number }>((props, ctx) => {
      const drift = useTransition(ctx, props.target, {
        duration: 180,
-       easing: "easeOutExpo",
-       onComplete: () => console.log("drift transition complete"),
+       easing: "easeOutCubic",
      });
      const spring = useSpring(ctx, props.target, {
        stiffness: 190,
        damping: 22,
-       onComplete: () => console.log("spring settle complete"),
      });
 
      return ui.box(
        {
          width: Math.round(20 + drift),
          opacity: Math.max(0.35, Math.min(1, spring / 100)),
-         transition: { duration: 180, easing: "easeOutBounce", properties: ["size", "opacity"] },
+         transition: { duration: 180, easing: "easeInOutCubic", properties: ["size", "opacity"] },
        },
        [ui.text("Animated screen")],
      );

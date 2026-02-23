@@ -85,10 +85,10 @@ Use this skill when:
    - table emits `action: "rowPress"` with `rowIndex`
    - radio/select flows emit `action: "change"`
 
-10. **For animation `onComplete` behavior**, test:
-   - callback fires on finite completion
-   - callback does not fire for retargeted mid-flight runs
-   - callback does not fire for looping sequences
+10. **For animation hook behavior**, test:
+   - supported easing presets (`linear`, quad, cubic) resolve as expected
+   - retargeted mid-flight runs continue smoothly without jumping
+   - looping sequences (`loop: true`) remain active and deterministic
 
 ## Running tests
 

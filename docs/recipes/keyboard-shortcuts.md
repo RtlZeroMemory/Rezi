@@ -113,12 +113,14 @@ await app.start();
 
 ## Overlay item shortcuts
 
-Dropdown and CommandPalette shortcuts are now enforced automatically.
+`shortcut` on dropdown and command-palette items is currently a display/filter hint.
 
-- Before: `shortcut: "Ctrl+S"` was display-only.
-- Now: declaring `shortcut: "Ctrl+S"` on a dropdown or command-palette item
-  makes the key combo trigger that item while the overlay is open.
-- No manual `app.keys()` registration is required for those overlay-local item shortcuts.
+- In dropdowns, `routeDropdownKey(...)` handles navigation keys (`Up`, `Down`,
+  `Enter`, `Space`, `Escape`) but does not execute arbitrary shortcut combos.
+- In command palette, shortcut text is displayed and participates in search
+  matching, but shortcut combos are not auto-bound.
+- Register actual key combos with `app.keys()` (or `app.modes()`) and call the
+  same action handlers your overlay uses.
 
 ## Related
 

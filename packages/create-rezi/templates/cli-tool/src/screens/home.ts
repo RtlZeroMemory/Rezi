@@ -32,26 +32,30 @@ export function renderHomeScreen(
   context: RouteRenderContext<CliState>,
   deps: HomeScreenDeps,
 ): VNode {
+  const styles = stylesForTheme(context.state.themeName);
+
   return renderShell({
     title: "Home",
     context,
     onNavigate: deps.onNavigate,
     onToggleHelp: deps.onToggleHelp,
-    body: ui.column({ gap: 1 }, [
-      buildHomeContent(context.state),
-      ui.actions([
-        ui.button({
-          id: "home-open-logs",
-          label: "Open Logs",
-          intent: "primary",
-          onPress: () => deps.onNavigate("logs"),
-        }),
-        ui.button({
-          id: "home-open-settings",
-          label: "Open Settings",
-          intent: "secondary",
-          onPress: () => deps.onNavigate("settings"),
-        }),
+    body: ui.panel({ title: "Home Workspace", style: styles.panelStyle }, [
+      ui.column({ gap: 1 }, [
+        buildHomeContent(context.state),
+        ui.actions([
+          ui.button({
+            id: "home-open-logs",
+            label: "Open Logs",
+            intent: "primary",
+            onPress: () => deps.onNavigate("logs"),
+          }),
+          ui.button({
+            id: "home-open-settings",
+            label: "Open Settings",
+            intent: "secondary",
+            onPress: () => deps.onNavigate("settings"),
+          }),
+        ]),
       ]),
     ]),
   });

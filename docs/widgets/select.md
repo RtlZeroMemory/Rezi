@@ -30,15 +30,17 @@ ui.select({
 | `disabled` | `boolean` | `false` | Disable focus and interaction |
 | `placeholder` | `string` | - | Text shown when no matching option label is found |
 | `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused select decoration |
-| `dsVariant` | `"solid" \| "soft" \| "outline" \| "ghost"` | `"soft"` | Design-system variant |
-| `dsTone` | `"default" \| "primary" \| "danger" \| "success" \| "warning"` | `"default"` | Design-system tone |
+| `dsVariant` | `"solid" \| "soft" \| "outline" \| "ghost"` | - | Reserved for future select recipes (currently ignored) |
+| `dsTone` | `"default" \| "primary" \| "danger" \| "success" \| "warning"` | - | Reserved for future select recipes (currently ignored) |
 | `dsSize` | `"sm" \| "md" \| "lg"` | `"md"` | Design system size preset (controls padding) |
 | `key` | `string` | - | Reconciliation key |
 
 ## Design System Styling
 
-Selects are design-system styled by default when a `ThemeDefinition` preset is active.
-Use `dsVariant`, `dsTone`, and `dsSize` when you need explicit DS customization.
+Selects are design-system styled when semantic color tokens are available.
+`dsSize` is active today and affects recipe sizing. In `SelectProps`,
+`dsVariant` and `dsTone` are currently reserved for future select recipe
+variants and are ignored by the current select renderer.
 
 If the active theme does not provide semantic color tokens, selects fall back to non-recipe rendering.
 

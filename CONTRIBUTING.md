@@ -92,5 +92,5 @@ PRs may be rejected if they:
 
 ## Widget and Design System guardrails
 
-- New widget kinds must be registered in `packages/core/src/widgets/protocol.ts`. Do not add new hardcoded kind lists in `commit.ts`, `hitTest.ts`, or `widgetMeta.ts`.
+- New widget kinds must be registered in `packages/core/src/widgets/protocol.ts`. Do not add new hardcoded kind lists in `packages/core/src/runtime/commit.ts`, `packages/core/src/layout/hitTest.ts`, or `packages/core/src/runtime/widgetMeta.ts`.
 - When adding interactive widgets, wire the matching recipe function and validate both legacy `Theme` and `ThemeDefinition` paths. Recipe output should provide the default style, and manual widget `style` overrides should merge on top.

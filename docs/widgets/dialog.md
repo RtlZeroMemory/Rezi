@@ -9,6 +9,7 @@ ui.dialog({
   id: "confirm",
   title: "Delete Item",
   message: "This cannot be undone.",
+  onClose: close,
   actions: [
     { label: "Cancel", onPress: close },
     { label: "Delete", intent: "danger", onPress: handleDelete },

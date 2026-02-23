@@ -45,12 +45,12 @@ Use this skill when:
        ui.field({
          label: "Name",
          error: form.errors.name,
-         children: ui.input({ ...form.bind("name") }),
+         children: ui.input({ id: "field-name", ...form.bind("name") }),
        }),
        ui.field({
          label: "Email",
          error: form.errors.email,
-         children: ui.input({ ...form.bind("email") }),
+         children: ui.input({ id: "field-email", ...form.bind("email") }),
        }),
        ui.button({ id: "submit", label: "Submit", intent: "primary", onPress: form.submit }),
      ]);
@@ -65,7 +65,8 @@ Use this skill when:
 
 ## Design system note
 
-Inputs are recipe-styled by default when a `ThemeDefinition` preset is active.
+Inputs are recipe-styled by default when semantic color tokens are available (for example via a `ThemeDefinition` preset).
+Manual overrides merge on top via the same `mergeTextStyle(baseStyle, ownStyle)` pattern used by the renderer.
 Use manual `style` only for targeted overrides (merged on top of recipe output).
 
 ## Verification

@@ -4,7 +4,6 @@ Rezi supports declarative motion in two layers:
 
 - **Hook-driven numeric animation** for custom widget behavior (`useTransition`, `useSpring`, `useSequence`, `useStagger`).
 - **Container transitions** for layout/surface animation on `ui.box(...)` via the `transition` prop.
-- **Completion callbacks** (`onComplete`) for animation chaining and side effects.
 
 All animation APIs are deterministic for the same state/input sequence.
 
@@ -18,13 +17,11 @@ All animation APIs are deterministic for the same state/input sequence.
 
 ## Easing Families and Usage
 
+- **Linear**: constant-rate movement for utility transitions.
 - **Quad**: subtle, low-energy transitions for small UI nudges.
 - **Cubic**: standard default-feeling motion for most interactions.
-- **Expo**: fast/snappy starts or finishes for high-energy transitions.
-- **Back**: playful motion with overshoot before settling.
-- **Bounce**: physical, elastic landing effects for celebratory or feedback moments.
 
-## Easing Presets Reference (17)
+## Easing Presets Reference
 
 | Preset | Family | Typical use |
 |---|---|---|
@@ -35,16 +32,6 @@ All animation APIs are deterministic for the same state/input sequence.
 | `easeInCubic` | cubic | Stronger acceleration |
 | `easeOutCubic` | cubic | Standard UI deceleration |
 | `easeInOutCubic` | cubic | Balanced default for panels/opacity |
-| `easeInExpo` | expo | Snappy ramp-up |
-| `easeOutExpo` | expo | Fast settle/finish |
-| `easeInOutExpo` | expo | High-energy in/out |
-| `easeInBack` | back | Anticipation before movement |
-| `easeOutBack` | back | Overshoot then settle |
-| `easeInOutBack` | back | Playful in/out overshoot |
-| `easeInBounce` | bounce | Bounce into motion |
-| `easeOutBounce` | bounce | Bounce on landing |
-| `easeInOutBounce` | bounce | Bounce at both ends |
-| `easeOutInBounce` | bounce | Out bounce + in bounce blend |
 
 ## Hook example
 
@@ -59,10 +46,10 @@ type ReactorProps = {
 };
 
 export const ReactorRow = defineWidget<ReactorProps>((props, ctx) => {
-  const drift = useTransition(ctx, props.driftTarget, { duration: 180, easing: "easeOutExpo" });
+  const drift = useTransition(ctx, props.driftTarget, { duration: 180, easing: "easeOutCubic" });
   const flux = useSpring(ctx, props.fluxTarget, { stiffness: 190, damping: 22 });
   const pulse = useSequence(ctx, [0.25, 1, 0.4, 0.9], { duration: 120, loop: true });
-  const stagger = useStagger(ctx, props.modules, { delay: 40, duration: 180, easing: "easeOutBounce" });
+  const stagger = useStagger(ctx, props.modules, { delay: 40, duration: 180, easing: "easeOutCubic" });
 
   return ui.column({ gap: 1 }, [
     ui.text(`drift=${drift.toFixed(2)} flux=${flux.toFixed(2)} pulse=${pulse.toFixed(2)}`),
@@ -84,27 +71,11 @@ export const ReactorRow = defineWidget<ReactorProps>((props, ctx) => {
 });
 ```
 
-## Completion callbacks and chaining
+## Retargeting semantics
 
-All animation hooks support `onComplete` for finite runs.
-
-```typescript
-const opacity = useTransition(ctx, state.visible ? 1 : 0, {
-  duration: 200,
-  easing: "easeOutExpo",
-  onComplete: () => {
-    if (!state.visible) {
-      app.update((s) => ({ ...s, hidden: true }));
-    }
-  },
-});
-```
-
-Use this for deterministic animation chaining (for example: fade out -> remove node).
-
-Notes:
-- Retargeting mid-flight starts a new run and does not fire the previous run's `onComplete`.
-- Looping animations do not fire `onComplete` because they do not terminate.
+- Retargeting mid-flight starts from the current interpolated value (no jump).
+- Looping timelines (`useSequence(..., { loop: true })`) continue indefinitely.
+- Animation hooks currently expose timing/physics controls only; there is no `onComplete` callback option.
 
 ## Box transition props
 

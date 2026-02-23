@@ -40,8 +40,8 @@ ui.dropdown({
 - **Clicking outside** the dropdown closes it (calls `onClose`).
 - Dropdown overlays register in the shared `LayerRegistry`, so z-order and
   hit-testing behavior is consistent with modal/layer overlays.
-- Declared item shortcuts are enforced while the dropdown is open.
-  Example: `shortcut: "Ctrl+S"` triggers that item when `Ctrl+S` is pressed.
+- Item `shortcut` text is a display hint. Register actual key combos with
+  `app.keys()` and route to the same action handlers.
 
 ## Notes
 
@@ -62,5 +62,11 @@ ui.dropdown({
 })
 ```
 
-With the dropdown open, pressing `Ctrl+S` selects the `"save"` item without
-manual `app.keys()` wiring.
+Pair the labels with explicit bindings:
+
+```ts
+app.keys({
+  "ctrl+s": () => runCommand("save"),
+  "ctrl+q": () => runCommand("quit"),
+})
+```
