@@ -43,22 +43,13 @@ function isEnabledInteractive(v: RuntimeInstance["vnode"]): string | null {
   const id = readInteractiveId(v);
   if (id === null) return null;
 
-  // Disabled applies only to a subset of interactive widgets.
-  if (
-    v.kind === "button" ||
-    v.kind === "link" ||
-    v.kind === "input" ||
-    v.kind === "slider" ||
-    v.kind === "select" ||
-    v.kind === "checkbox" ||
-    v.kind === "radioGroup"
-  ) {
+  const proto = getWidgetProtocol(v.kind);
+  if (proto.disableable) {
     const disabled = (v.props as { disabled?: unknown }).disabled;
     if (disabled === true) return null;
   }
 
-  // For advanced widgets, check the 'open' prop for modal widgets
-  if (v.kind === "commandPalette" || v.kind === "toolApprovalDialog") {
+  if (proto.openGated) {
     const open = (v.props as { open?: unknown }).open;
     if (open !== true) return null;
   }
@@ -110,19 +101,12 @@ export function collectEnabledMap(tree: RuntimeInstance): ReadonlyMap<string, bo
     const id = readInteractiveId(node.vnode);
     if (id !== null && !m.has(id)) {
       let enabled = true;
-      if (
-        node.vnode.kind === "button" ||
-        node.vnode.kind === "input" ||
-        node.vnode.kind === "slider" ||
-        node.vnode.kind === "select" ||
-        node.vnode.kind === "checkbox" ||
-        node.vnode.kind === "radioGroup"
-      ) {
+      const proto = getWidgetProtocol(node.vnode.kind);
+      if (proto.disableable) {
         const disabled = (node.vnode.props as { disabled?: unknown }).disabled;
         enabled = disabled !== true;
       }
-      // For modal widgets, enabled depends on 'open' prop
-      if (node.vnode.kind === "commandPalette" || node.vnode.kind === "toolApprovalDialog") {
+      if (proto.openGated) {
         const open = (node.vnode.props as { open?: unknown }).open;
         enabled = open === true;
       }
@@ -838,19 +822,12 @@ export class WidgetMetadataCollector {
       const interactiveId = readInteractiveId(vnode);
       if (interactiveId !== null && !this._enabledById.has(interactiveId)) {
         let enabled = true;
-        if (
-          vnode.kind === "button" ||
-          vnode.kind === "link" ||
-          vnode.kind === "input" ||
-          vnode.kind === "slider" ||
-          vnode.kind === "select" ||
-          vnode.kind === "checkbox" ||
-          vnode.kind === "radioGroup"
-        ) {
+        const proto = getWidgetProtocol(vnode.kind);
+        if (proto.disableable) {
           const disabled = (vnode.props as { disabled?: unknown }).disabled;
           enabled = disabled !== true;
         }
-        if (vnode.kind === "commandPalette" || vnode.kind === "toolApprovalDialog") {
+        if (proto.openGated) {
           const open = (vnode.props as { open?: unknown }).open;
           enabled = open === true;
         }
