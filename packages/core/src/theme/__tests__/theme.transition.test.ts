@@ -8,6 +8,8 @@ import { StubBackend } from "../../app/__tests__/stubBackend.js";
 import { createApp } from "../../app/createApp.js";
 import { defineWidget } from "../../widgets/composition.js";
 import { ui } from "../../widgets/ui.js";
+import { extendTheme } from "../extend.js";
+import { darkTheme } from "../presets.js";
 import type { Theme } from "../theme.js";
 import { createTheme } from "../theme.js";
 
@@ -67,6 +69,16 @@ function themeWithPrimary(r: number, g: number, b: number): Theme {
   });
 }
 
+function semanticThemeWithAccent(r: number, g: number, b: number) {
+  return extendTheme(darkTheme, {
+    colors: {
+      accent: {
+        primary: { r, g, b },
+      },
+    },
+  });
+}
+
 describe("theme transition frames", () => {
   test("themeTransitionFrames defaults to immediate render-only switch", async () => {
     const backend = new StubBackend();
@@ -122,7 +134,7 @@ describe("theme transition frames", () => {
     const app = createApp({
       backend,
       initialState: 0,
-      theme: themeWithPrimary(255, 0, 0),
+      theme: semanticThemeWithAccent(255, 0, 0),
     });
     app.view(() => ui.box({}, [ThemedProbe({})]));
 
@@ -132,7 +144,7 @@ describe("theme transition frames", () => {
     await resolveNextFrame(backend);
     assert.equal(seenPrimary.length >= 1, true);
 
-    app.setTheme(themeWithPrimary(0, 255, 0));
+    app.setTheme(semanticThemeWithAccent(0, 255, 0));
     await flushMicrotasks(12);
     await resolveNextFrame(backend);
 

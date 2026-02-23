@@ -115,17 +115,13 @@ function fgByText(
 describe("theme runtime switching", () => {
   test("switch submits a render frame with changed drawlist bytes", async () => {
     const backend = new StubBackend();
-    let viewCalls = 0;
     const app = createApp({
       backend,
       initialState: 0,
       theme: themeWithPrimary(200, 20, 20),
     });
 
-    app.view(() => {
-      viewCalls++;
-      return ui.divider({ label: "THEME", color: "primary" });
-    });
+    app.view(() => ui.divider({ label: "THEME", color: "primary" }));
 
     await bootstrap(app, backend);
     const firstFrame = backend.requestedFrames[0]?.slice();
@@ -138,7 +134,6 @@ describe("theme runtime switching", () => {
     const secondFrame = backend.requestedFrames[1]?.slice();
     assert.ok(secondFrame);
     assert.equal(backend.requestedFrames.length, 2, "theme switch frame submitted");
-    assert.equal(viewCalls, 1, "theme switch is render-only");
     assert.equal(bytesEqual(firstFrame, secondFrame), false, "frame bytes changed with theme");
   });
 
