@@ -521,6 +521,7 @@ function isInteractiveVNode(v: VNode): boolean {
   // Interactive set: widgets with required `id` that participate in focus/routing.
   return (
     v.kind === "button" ||
+    v.kind === "link" ||
     v.kind === "input" ||
     v.kind === "slider" ||
     v.kind === "virtualList" ||

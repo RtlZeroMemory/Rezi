@@ -48,6 +48,15 @@ function buttonNode(id: string, opts: Readonly<{ disabled?: boolean }> = {}): VN
   return { kind: "button", props } as unknown as VNode;
 }
 
+function linkNode(id: string, opts: Readonly<{ disabled?: boolean }> = {}): VNode {
+  const props: { id: string; url: string; disabled?: boolean } = {
+    id,
+    url: `https://example.com/${id}`,
+  };
+  if (opts.disabled === true) props.disabled = true;
+  return { kind: "link", props } as unknown as VNode;
+}
+
 function inputNode(id: string): VNode {
   return { kind: "input", props: { id, value: "" } } as unknown as VNode;
 }
@@ -501,5 +510,49 @@ describe("mouse click lifecycle edges", () => {
     assert.equal(down.hitTestTargetId, "name");
     assert.equal(down.result.nextFocusedId, "name");
     assert.equal(down.result.nextPressedId, null);
+  });
+
+  test("link target is found by hit testing and activates on click", () => {
+    const link = linkNode("docs-link");
+    const root = containerNode([link]);
+    const layoutTree = layoutNode(root, { x: 0, y: 0, w: 12, h: 1 }, [
+      layoutNode(link, { x: 0, y: 0, w: 12, h: 1 }),
+    ]);
+    const enabledById = new Map<string, boolean>([["docs-link", true]]);
+
+    const down = routeWithHit(mouseEvent(MOUSE_KIND_DOWN, 0, 0), {
+      tree: root,
+      layoutTree,
+      pressedId: null,
+      enabledById,
+    });
+    const up = routeWithHit(mouseEvent(MOUSE_KIND_UP, 0, 0), {
+      tree: root,
+      layoutTree,
+      pressedId: down.result.nextPressedId ?? null,
+      enabledById,
+    });
+
+    assert.equal(down.hitTestTargetId, "docs-link");
+    assert.equal(down.result.nextFocusedId, "docs-link");
+    assert.deepEqual(up.result.action, { id: "docs-link", action: "press" });
+  });
+
+  test("disabled link is not found by hit testing", () => {
+    const link = linkNode("docs-link", { disabled: true });
+    const root = containerNode([link]);
+    const layoutTree = layoutNode(root, { x: 0, y: 0, w: 12, h: 1 }, [
+      layoutNode(link, { x: 0, y: 0, w: 12, h: 1 }),
+    ]);
+
+    const down = routeWithHit(mouseEvent(MOUSE_KIND_DOWN, 0, 0), {
+      tree: root,
+      layoutTree,
+      pressedId: null,
+      enabledById: new Map<string, boolean>([["docs-link", false]]),
+    });
+    assert.equal(down.hitTestTargetId, null);
+    assert.equal(down.result.nextPressedId, null);
+    assert.equal("nextFocusedId" in down.result, false);
   });
 });

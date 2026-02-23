@@ -169,6 +169,7 @@ function resolveScrollViewportRect(vnode: VNode, rect: Rect, meta: OverflowMetad
 function isFocusable(v: VNode): string | null {
   switch (v.kind) {
     case "button":
+    case "link":
     case "input":
     case "virtualList":
     case "table":
@@ -195,6 +196,7 @@ function isFocusable(v: VNode): string | null {
 
       if (
         v.kind === "button" ||
+        v.kind === "link" ||
         v.kind === "input" ||
         v.kind === "slider" ||
         v.kind === "select" ||

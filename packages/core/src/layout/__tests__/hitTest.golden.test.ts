@@ -117,4 +117,54 @@ describe("hitTestFocusable (locked) - golden fixtures", () => {
       }
     }
   });
+
+  test("link with id is hit-testable", () => {
+    const link = {
+      kind: "link",
+      props: { id: "docs-link", url: "https://rezitui.dev" },
+    } as unknown as VNode;
+    const root = {
+      kind: "column",
+      props: {},
+      children: Object.freeze([link]),
+    } as unknown as VNode;
+    const layoutTree: LayoutTree = {
+      vnode: root,
+      rect: { x: 0, y: 0, w: 20, h: 1 },
+      children: Object.freeze([
+        {
+          vnode: link,
+          rect: { x: 0, y: 0, w: 20, h: 1 },
+          children: Object.freeze([]),
+        },
+      ]),
+    };
+
+    assert.equal(hitTestFocusable(root, layoutTree, 0, 0), "docs-link");
+  });
+
+  test("disabled link is not hit-testable", () => {
+    const link = {
+      kind: "link",
+      props: { id: "docs-link", url: "https://rezitui.dev", disabled: true },
+    } as unknown as VNode;
+    const root = {
+      kind: "column",
+      props: {},
+      children: Object.freeze([link]),
+    } as unknown as VNode;
+    const layoutTree: LayoutTree = {
+      vnode: root,
+      rect: { x: 0, y: 0, w: 20, h: 1 },
+      children: Object.freeze([
+        {
+          vnode: link,
+          rect: { x: 0, y: 0, w: 20, h: 1 },
+          children: Object.freeze([]),
+        },
+      ]),
+    };
+
+    assert.equal(hitTestFocusable(root, layoutTree, 0, 0), null);
+  });
 });
