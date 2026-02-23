@@ -512,6 +512,9 @@ function codepointToKeyCode(codepoint: number): number | null {
  * because they have dedicated key semantics in the engine.
  */
 function codepointToCtrlKeyCode(codepoint: number): number | null {
+  if (codepoint === 9 || codepoint === 13) {
+    return null;
+  }
   if (codepoint >= 1 && codepoint <= 26) {
     return codepoint + 64;
   }
@@ -1203,9 +1206,12 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
             if (ev.kind === "text") {
               const ctrlKeyCode = codepointToCtrlKeyCode(ev.codepoint);
               const shouldRouteCtrlText = ctrlKeyCode !== null;
-              const shouldRoutePrintableText = !shouldRouteCtrlText && !widgetRenderer.hasActiveOverlay();
+              const shouldRoutePrintableText =
+                !shouldRouteCtrlText && !widgetRenderer.hasActiveOverlay();
               if (shouldRouteCtrlText || shouldRoutePrintableText) {
-                const keyCode = shouldRouteCtrlText ? ctrlKeyCode : codepointToKeyCode(ev.codepoint);
+                const keyCode = shouldRouteCtrlText
+                  ? ctrlKeyCode
+                  : codepointToKeyCode(ev.codepoint);
                 const mods = shouldRouteCtrlText ? ZR_MOD_CTRL : 0;
                 if (keyCode !== null) {
                   // Create a synthetic key event for keybinding matching
