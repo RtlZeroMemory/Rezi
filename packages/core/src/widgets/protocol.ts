@@ -104,7 +104,7 @@ export const WIDGET_PROTOCOL: Readonly<Partial<Record<string, WidgetProtocol>>> 
   link: INTERACTIVE_OPTIONAL_ID_FOCUSABLE_PRESSABLE,
 
   // --- Interactive + focusable + disableable (form widgets) ---
-  input: { ...INTERACTIVE_FOCUSABLE, disableable: true },
+  input: { ...INTERACTIVE_FOCUSABLE, disableable: true, requiresRoutingRebuild: false },
   slider: { ...INTERACTIVE_FOCUSABLE, disableable: true },
   select: { ...INTERACTIVE_FOCUSABLE, disableable: true },
   checkbox: { ...INTERACTIVE_FOCUSABLE, disableable: true },

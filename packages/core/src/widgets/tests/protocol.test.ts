@@ -113,6 +113,11 @@ describe("WIDGET_PROTOCOL", () => {
     assert.equal(proto.openGated, true);
   });
 
+  test("input does not require routing rebuild", () => {
+    const proto = getWidgetProtocol("input");
+    assert.equal(proto.requiresRoutingRebuild, false);
+  });
+
   test("unknown kinds return display-only defaults", () => {
     const proto = getWidgetProtocol("__unknown_kind__");
     assert.deepEqual(proto, {
