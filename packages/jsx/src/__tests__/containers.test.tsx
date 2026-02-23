@@ -10,8 +10,26 @@ describe("container and overlay widgets", () => {
     const close = () => {};
 
     assert.deepEqual(
-      <Modal id="confirm" content={content} onClose={close} />,
-      ui.modal({ id: "confirm", content, onClose: close }),
+      <Modal
+        id="confirm"
+        content={content}
+        onClose={close}
+        width={40}
+        height={12}
+        minWidth={24}
+        minHeight={8}
+        maxWidth={60}
+      />,
+      ui.modal({
+        id: "confirm",
+        content,
+        onClose: close,
+        width: 40,
+        height: 12,
+        minWidth: 24,
+        minHeight: 8,
+        maxWidth: 60,
+      }),
     );
 
     const items = [

@@ -87,6 +87,10 @@ function measureMaxLineCells(text: string): number {
   return maxLine;
 }
 
+function countExplicitLines(text: string): number {
+  return text.split("\n").length;
+}
+
 function sumWithGap(values: readonly number[], gap: number): number {
   let total = 0;
   for (let i = 0; i < values.length; i++) total += values[i] ?? 0;
@@ -94,7 +98,11 @@ function sumWithGap(values: readonly number[], gap: number): number {
   return total;
 }
 
-function fallbackIntrinsic(vnode: VNode, axis: Axis, measureNode: MeasureNodeFn): LayoutResult<Size> {
+function fallbackIntrinsic(
+  vnode: VNode,
+  axis: Axis,
+  measureNode: MeasureNodeFn,
+): LayoutResult<Size> {
   const fallback = measureNode(vnode, INTRINSIC_FALLBACK_LIMIT, INTRINSIC_FALLBACK_LIMIT, axis);
   if (!fallback.ok) return fallback;
   return ok(clampSize(fallback.value));
@@ -114,7 +122,7 @@ function measureLeafMinContent(
         propsRes.value.maxWidth === undefined
           ? longestWord
           : Math.min(longestWord, propsRes.value.maxWidth);
-      return ok(clampSize({ w: capped, h: 1 }));
+      return ok(clampSize({ w: capped, h: countExplicitLines(vnode.text) }));
     }
     case "button": {
       const propsRes = validateButtonProps(vnode.props);
@@ -162,10 +170,10 @@ function measureLeafMaxContent(
     case "text": {
       const propsRes = validateTextProps(vnode.props);
       if (!propsRes.ok) return propsRes;
-      const full = measureTextCells(vnode.text);
+      const full = measureMaxLineCells(vnode.text);
       const capped =
         propsRes.value.maxWidth === undefined ? full : Math.min(full, propsRes.value.maxWidth);
-      return ok(clampSize({ w: capped, h: 1 }));
+      return ok(clampSize({ w: capped, h: countExplicitLines(vnode.text) }));
     }
     case "button": {
       const propsRes = validateButtonProps(vnode.props);
@@ -231,7 +239,8 @@ function measureStackIntrinsic(
   if (!propsRes.ok) return propsRes;
 
   const spacing = resolveSpacingProps(propsRes.value);
-  const padMain = vnode.kind === "row" ? spacing.left + spacing.right : spacing.top + spacing.bottom;
+  const padMain =
+    vnode.kind === "row" ? spacing.left + spacing.right : spacing.top + spacing.bottom;
   const padCross =
     vnode.kind === "row" ? spacing.top + spacing.bottom : spacing.left + spacing.right;
 

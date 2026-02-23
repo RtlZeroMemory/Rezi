@@ -311,6 +311,18 @@ describe("layout stability signatures", () => {
     expectSignatureChanged(base, changed);
   });
 
+  test("text wrap prop change is included", () => {
+    const base = runtimeNode(1, textNode("abcdefghij", { maxWidth: 4, wrap: false }));
+    const changed = runtimeNode(1, textNode("abcdefghij", { maxWidth: 4, wrap: true }));
+    expectSignatureChanged(base, changed);
+  });
+
+  test("wrapped text content change is included even when measured width is unchanged", () => {
+    const base = runtimeNode(1, textNode("a\nb", { maxWidth: 4, wrap: true }));
+    const changed = runtimeNode(1, textNode("ab", { maxWidth: 4, wrap: true }));
+    expectSignatureChanged(base, changed);
+  });
+
   test("text style-only change is excluded", () => {
     const base = runtimeNode(1, textNode("abc", { style: { fg: "red" } }));
     const styleOnly = runtimeNode(1, textNode("abc", { style: { fg: "blue" } }));

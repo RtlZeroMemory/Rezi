@@ -210,6 +210,8 @@ describe("advanced widgets", () => {
         query=""
         sources={cmdSources}
         selectedIndex={0}
+        width={72}
+        maxVisible={8}
         onQueryChange={onQueryChange}
         onSelect={onCommandSelect}
         onClose={onPaletteClose}
@@ -223,6 +225,8 @@ describe("advanced widgets", () => {
         query: "",
         sources: cmdSources,
         selectedIndex: 0,
+        width: 72,
+        maxVisible: 8,
         onQueryChange,
         onSelect: onCommandSelect,
         onClose: onPaletteClose,
@@ -290,6 +294,8 @@ describe("advanced widgets", () => {
         id="approval"
         open
         request={{ toolId: "run", toolName: "run", riskLevel: "low" }}
+        width={54}
+        height={16}
         onAllow={onAllow}
         onDeny={onDeny}
         onClose={onApprovalClose}
@@ -301,6 +307,8 @@ describe("advanced widgets", () => {
         id: "approval",
         open: true,
         request: { toolId: "run", toolName: "run", riskLevel: "low" },
+        width: 54,
+        height: 16,
         onAllow,
         onDeny,
         onClose: onApprovalClose,
@@ -318,12 +326,19 @@ describe("advanced widgets", () => {
     const toasts = (
       <ToastContainer
         toasts={[{ id: "1", message: "Saved", type: "success" }]}
+        width={48}
+        maxVisible={3}
         onDismiss={onDismiss}
       />
     );
     assert.deepEqual(
       toasts,
-      ui.toastContainer({ toasts: [{ id: "1", message: "Saved", type: "success" }], onDismiss }),
+      ui.toastContainer({
+        toasts: [{ id: "1", message: "Saved", type: "success" }],
+        width: 48,
+        maxVisible: 3,
+        onDismiss,
+      }),
     );
   });
 });

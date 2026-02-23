@@ -16,10 +16,7 @@ export type FluidValueOptions = Readonly<{
   to?: ViewportBreakpoint;
 }>;
 
-export type ResponsiveValue<T> =
-  | T
-  | Readonly<Partial<Record<ViewportBreakpoint, T>>>
-  | FluidValue;
+export type ResponsiveValue<T> = T | Readonly<Partial<Record<ViewportBreakpoint, T>>> | FluidValue;
 
 export type ResponsiveBreakpointThresholds = Readonly<{
   smMax: number;
@@ -50,10 +47,7 @@ function isViewportBreakpoint(value: unknown): value is ViewportBreakpoint {
   return value === "sm" || value === "md" || value === "lg" || value === "xl";
 }
 
-function normalizeFluidAnchor(
-  value: unknown,
-  fallback: ViewportBreakpoint,
-): ViewportBreakpoint {
+function normalizeFluidAnchor(value: unknown, fallback: ViewportBreakpoint): ViewportBreakpoint {
   return isViewportBreakpoint(value) ? value : fallback;
 }
 
@@ -123,8 +117,8 @@ function isResponsiveMap(value: unknown): value is Partial<Record<ViewportBreakp
 
 function isFluidValue(value: unknown): value is FluidValue {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const obj = value as Record<string, unknown>;
-  return obj["kind"] === "fluid";
+  const obj = value as Readonly<{ kind?: unknown }>;
+  return obj.kind === "fluid";
 }
 
 function breakpointAnchorWidth(

@@ -1,6 +1,6 @@
 /** @jsxImportSource @rezi-ui/jsx */
 
-import { ui } from "@rezi-ui/core";
+import { fluid, ui } from "@rezi-ui/core";
 import { assert, describe, test } from "@rezi-ui/testkit";
 import { Box, Column, Divider, Grid, HStack, Layers, Row, Spacer, Text, VStack } from "../index.js";
 
@@ -25,10 +25,68 @@ describe("layout components", () => {
     assert.deepEqual(vnode, ui.box({ border: "single" }, []));
   });
 
+  test("Box forwards advanced layout constraints", () => {
+    const fluidWidth = fluid(10, 30);
+    const vnode = (
+      <Box
+        gap={2}
+        width={fluidWidth}
+        flexShrink={2}
+        flexBasis="50%"
+        alignSelf="stretch"
+        position="absolute"
+        top={1}
+        right={2}
+        bottom={3}
+        left={4}
+        gridColumn={2}
+        gridRow={1}
+        colSpan={2}
+        rowSpan={3}
+      >
+        <Text>inside</Text>
+      </Box>
+    );
+
+    assert.deepEqual(
+      vnode,
+      ui.box(
+        {
+          gap: 2,
+          width: fluidWidth,
+          flexShrink: 2,
+          flexBasis: "50%",
+          alignSelf: "stretch",
+          position: "absolute",
+          top: 1,
+          right: 2,
+          bottom: 3,
+          left: 4,
+          gridColumn: 2,
+          gridRow: 1,
+          colSpan: 2,
+          rowSpan: 3,
+        },
+        [ui.text("inside")],
+      ),
+    );
+  });
+
   test("Row and Column map stack props", () => {
     const vnode = (
-      <Column gap={1} p={1} mx={2} minWidth={20} wrap>
-        <Row gap={2} justify="between" items="center" wrap>
+      <Column gap={1} p={1} mx={2} minWidth={20} wrap alignSelf="center" flexBasis="auto">
+        <Row
+          gap={2}
+          justify="between"
+          items="center"
+          wrap
+          flexShrink={1}
+          flexBasis={8}
+          alignSelf="end"
+          position="absolute"
+          top={1}
+          left={2}
+        >
           <Text>A</Text>
           <Text>B</Text>
         </Row>
@@ -37,12 +95,26 @@ describe("layout components", () => {
 
     assert.deepEqual(
       vnode,
-      ui.column({ gap: 1, p: 1, mx: 2, minWidth: 20, wrap: true }, [
-        ui.row({ gap: 2, justify: "between", items: "center", wrap: true }, [
-          ui.text("A"),
-          ui.text("B"),
-        ]),
-      ]),
+      ui.column(
+        { gap: 1, p: 1, mx: 2, minWidth: 20, wrap: true, alignSelf: "center", flexBasis: "auto" },
+        [
+          ui.row(
+            {
+              gap: 2,
+              justify: "between",
+              items: "center",
+              wrap: true,
+              flexShrink: 1,
+              flexBasis: 8,
+              alignSelf: "end",
+              position: "absolute",
+              top: 1,
+              left: 2,
+            },
+            [ui.text("A"), ui.text("B")],
+          ),
+        ],
+      ),
     );
   });
 
@@ -57,6 +129,26 @@ describe("layout components", () => {
     assert.deepEqual(
       vnode,
       ui.grid({ columns: 2, rowGap: 1, columnGap: 2 }, ui.text("A"), ui.text("B")),
+    );
+  });
+
+  test("Grid children forward explicit placement and span props", () => {
+    const vnode = (
+      <Grid columns={3} gap={1}>
+        <Box gridColumn={2} gridRow={1} colSpan={2} rowSpan={2}>
+          <Text>A</Text>
+        </Box>
+        <Text>B</Text>
+      </Grid>
+    );
+
+    assert.deepEqual(
+      vnode,
+      ui.grid(
+        { columns: 3, gap: 1 },
+        ui.box({ gridColumn: 2, gridRow: 1, colSpan: 2, rowSpan: 2 }, [ui.text("A")]),
+        ui.text("B"),
+      ),
     );
   });
 

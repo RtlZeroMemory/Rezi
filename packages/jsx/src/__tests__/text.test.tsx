@@ -1,6 +1,6 @@
 /** @jsxImportSource @rezi-ui/jsx */
 
-import { ui } from "@rezi-ui/core";
+import { createTestRenderer, ui } from "@rezi-ui/core";
 import { assert, describe, test } from "@rezi-ui/testkit";
 import {
   Badge,
@@ -33,6 +33,20 @@ describe("text and display widgets", () => {
         maxWidth: 20,
       }),
     );
+  });
+
+  test("Text forwards wrap for multiline layout", () => {
+    const vnode = (
+      <Text wrap maxWidth={4}>
+        wrap me
+      </Text>
+    );
+    const rendered = createTestRenderer({ viewport: { cols: 20, rows: 10 } }).render(vnode);
+    const root = rendered.nodes.find((node) => node.path.length === 0);
+    assert.ok(root !== undefined);
+    if (!root) return;
+    assert.equal(root.rect.w, 4);
+    assert.equal(root.rect.h, 2);
   });
 
   test("Text preserves numeric zero and empty string and filters booleans/null", () => {

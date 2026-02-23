@@ -5,7 +5,15 @@
  * into concrete cell sizes for a given parent rectangle.
  */
 
-import type { LayoutConstraints, Rect, Size, SizeConstraint, SizeConstraintAtom } from "./types.js";
+import { resolveResponsiveValue } from "./responsive.js";
+import type {
+  Axis,
+  LayoutConstraints,
+  Rect,
+  Size,
+  SizeConstraint,
+  SizeConstraintAtom,
+} from "./types.js";
 
 export type ResolvedConstraints = Readonly<{
   width: number | null;
@@ -63,9 +71,10 @@ export function resolveConstraint(value: SizeConstraintAtom, parentSize: number)
 }
 
 function resolveOptional(value: SizeConstraint | undefined, parentSize: number): number | null {
-  if (typeof value === "object" && value !== null) return null;
-  if (value === undefined) return null;
-  const n = resolveConstraint(value, parentSize);
+  const resolved = resolveResponsiveValue(value);
+  if (resolved === undefined) return null;
+  if (typeof resolved !== "number" && typeof resolved !== "string") return null;
+  const n = resolveConstraint(resolved as SizeConstraintAtom, parentSize);
   return Number.isFinite(n) ? (n as number) : null;
 }
 
@@ -80,6 +89,7 @@ function orInf(n: number | undefined): number {
 export function resolveLayoutConstraints(
   props: LayoutConstraints,
   parent: Rect,
+  mainAxis: Axis = "row",
 ): ResolvedConstraints {
   let width = resolveOptional(props.width, parent.w);
   let height = resolveOptional(props.height, parent.h);
@@ -90,7 +100,9 @@ export function resolveLayoutConstraints(
       ? props.flexShrink
       : 0;
   const flexBasisRaw = props.flexBasis;
-  const flexBasis = flexBasisRaw !== undefined ? resolveOptional(flexBasisRaw, parent.w) : null;
+  const flexBasisParent = mainAxis === "row" ? parent.w : parent.h;
+  const flexBasis =
+    flexBasisRaw !== undefined ? resolveOptional(flexBasisRaw, flexBasisParent) : null;
 
   const aspectRatio =
     props.aspectRatio === undefined || props.aspectRatio === null ? null : props.aspectRatio;
@@ -115,8 +127,18 @@ export function resolveLayoutConstraints(
 }
 
 function readFiniteFloor(value: unknown): number | null {
-  if (typeof value !== "number" || !Number.isFinite(value)) return null;
-  return Math.floor(value);
+  const resolved = resolveResponsiveValue(value);
+  if (typeof resolved !== "number" || !Number.isFinite(resolved)) return null;
+  return Math.floor(resolved);
+}
+
+function readOptionalSizeConstraintFloor(value: unknown, parentSize: number): number | null {
+  const resolved = resolveResponsiveValue(value);
+  if (resolved === undefined) return null;
+  if (typeof resolved !== "number" && typeof resolved !== "string") return null;
+  const n = resolveConstraint(resolved as SizeConstraintAtom, parentSize);
+  if (!Number.isFinite(n)) return null;
+  return Math.floor(n);
 }
 
 /**
@@ -138,8 +160,8 @@ export function resolveAbsolutePosition(
   const right = readFiniteFloor(props.right);
   const top = readFiniteFloor(props.top);
   const bottom = readFiniteFloor(props.bottom);
-  const explicitW = readFiniteFloor(props.width);
-  const explicitH = readFiniteFloor(props.height);
+  const explicitW = readOptionalSizeConstraintFloor(props.width, contentRect.w);
+  const explicitH = readOptionalSizeConstraintFloor(props.height, contentRect.h);
 
   const hasLeft = left !== null;
   const hasRight = right !== null;

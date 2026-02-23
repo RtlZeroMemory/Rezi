@@ -299,7 +299,9 @@ function markOccupied(
     for (let dc = 0; dc < colSpan; dc++) {
       const c = column + dc;
       if (c < 0 || c >= columnCount) continue;
-      occupied[r]![c] = true;
+      const occupiedRow = occupied[r];
+      if (!occupiedRow) continue;
+      occupiedRow[c] = true;
     }
   }
 }
@@ -528,10 +530,7 @@ function resolveTrackNaturals(
         }
       }
       if (growableColumns.length > 0) {
-        const add = distributeInteger(
-          neededW,
-          new Array<number>(growableColumns.length).fill(1),
-        );
+        const add = distributeInteger(neededW, new Array<number>(growableColumns.length).fill(1));
         for (let c = 0; c < growableColumns.length; c++) {
           const colIndex = growableColumns[c];
           if (colIndex === undefined) continue;

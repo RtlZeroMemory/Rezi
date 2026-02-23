@@ -2,7 +2,11 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import { ui } from "../../index.js";
 import { layout } from "../layout.js";
 
-function mustLayout(node: ReturnType<typeof ui.text> | ReturnType<typeof ui.row>, maxW: number, maxH: number) {
+function mustLayout(
+  node: ReturnType<typeof ui.text> | ReturnType<typeof ui.row>,
+  maxW: number,
+  maxH: number,
+) {
   const res = layout(node, 0, 0, maxW, maxH, "column");
   if (!res.ok) {
     assert.fail(`layout failed: ${res.fatal.code}: ${res.fatal.detail}`);
@@ -24,6 +28,11 @@ describe("layout text wrap", () => {
   test("long word hard-breaks by grapheme width", () => {
     const out = mustLayout(ui.text("abcdefghij", { wrap: true }), 4, 10);
     assert.strictEqual(out.rect.h, 3);
+  });
+
+  test("wrap preserves repeated spaces instead of collapsing whitespace", () => {
+    const out = mustLayout(ui.text("a  b", { wrap: true }), 3, 10);
+    assert.strictEqual(out.rect.h, 2);
   });
 
   test("\\n forces line break", () => {

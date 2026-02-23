@@ -181,7 +181,7 @@ function hashSizesArray(hash: number, sizes: readonly unknown[]): number | null 
 function computeLayoutStabilitySignature(node: RuntimeInstance): number | null {
   switch (node.vnode.kind) {
     case "text": {
-      const props = node.vnode.props as Readonly<{ maxWidth?: unknown }>;
+      const props = node.vnode.props as Readonly<{ maxWidth?: unknown; wrap?: unknown }>;
       const maxWidthRaw = props.maxWidth;
       const maxWidth =
         maxWidthRaw === undefined
@@ -193,6 +193,7 @@ function computeLayoutStabilitySignature(node: RuntimeInstance): number | null {
             ? maxWidthRaw
             : null;
       if (maxWidth === null) return null;
+      const wrap = props.wrap === true;
 
       const measuredWidth = measureTextCellsFast(node.vnode.text);
       const cappedWidth =
@@ -204,6 +205,13 @@ function computeLayoutStabilitySignature(node: RuntimeInstance): number | null {
       const next = hashLayoutPropValue(hash, maxWidth);
       if (next === null) return null;
       hash = next;
+      const wrapHash = hashPropsValue(hash, "wrap", wrap);
+      if (wrapHash === null) return null;
+      hash = wrapHash;
+      if (wrap) {
+        hash = hashString(hash, "wrapText");
+        hash = hashString(hash, node.vnode.text);
+      }
       return hash;
     }
     case "button": {
@@ -268,7 +276,7 @@ function computeLayoutStabilitySignature(node: RuntimeInstance): number | null {
       let hash = hashString(HASH_FNV_OFFSET, "grid");
       const next = hashSelectedLayoutProps(hash, props, GRID_LAYOUT_KEYS);
       if (next === null) return null;
-      hash = hashNumber(next, node.children.length);
+      hash = next;
       hash = hashChildOrder(hash, node);
       return hash;
     }
@@ -299,7 +307,11 @@ function computeLayoutStabilitySignature(node: RuntimeInstance): number | null {
       if (typeof props.activeTab === "string") {
         for (let i = 0; i < props.tabs.length; i++) {
           const tab = props.tabs[i];
-          if (tab && typeof tab === "object" && (tab as { key?: unknown }).key === props.activeTab) {
+          if (
+            tab &&
+            typeof tab === "object" &&
+            (tab as { key?: unknown }).key === props.activeTab
+          ) {
             selectedIndex = i;
             break;
           }

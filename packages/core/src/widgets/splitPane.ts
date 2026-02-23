@@ -7,8 +7,8 @@
  * @see docs/widgets/split-pane.md
  */
 
-import type { SplitDirection } from "./types.js";
 import { distributeInteger } from "../layout/engine/distributeInteger.js";
+import type { SplitDirection } from "./types.js";
 
 /** Default divider size in cells. */
 export const DEFAULT_DIVIDER_SIZE = 1;
@@ -106,7 +106,9 @@ export function computePanelSizes(
   const availableForPanels = Math.max(0, available - totalDividerSpace);
 
   // First pass: compute ideal sizes with deterministic integer remainder handling.
-  const weights = percentages.map((p) => (Number.isFinite(p) && (p as number) > 0 ? (p as number) : 0));
+  const weights = percentages.map((p) =>
+    Number.isFinite(p) && (p as number) > 0 ? (p as number) : 0,
+  );
   const sizes = distributeInteger(availableForPanels, weights);
 
   normalizePanelCellSizes(sizes, availableForPanels, minSizes, maxSizes);

@@ -300,9 +300,23 @@ export function renderTextWidgets(
 
           if (isLastVisible) {
             switch (textOverflow) {
-              case "ellipsis":
-                line = truncateWithEllipsis(hasHiddenLines ? `${rawLine}…` : rawLine, overflowW);
+              case "ellipsis": {
+                if (!hasHiddenLines) {
+                  line = truncateWithEllipsis(rawLine, overflowW);
+                  break;
+                }
+                if (overflowW <= 1) {
+                  line = "…";
+                  break;
+                }
+                const reservedWidth = overflowW - 1;
+                const base =
+                  measureTextCells(rawLine) <= reservedWidth
+                    ? rawLine
+                    : truncateWithEllipsis(rawLine, reservedWidth);
+                line = base.endsWith("…") ? base : `${base}…`;
                 break;
+              }
               case "middle":
                 line = truncateMiddle(hasHiddenLines ? `${rawLine}…` : rawLine, overflowW);
                 break;

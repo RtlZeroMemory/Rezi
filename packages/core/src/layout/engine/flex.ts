@@ -159,13 +159,16 @@ export function distributeFlex(remaining: number, items: readonly FlexItem[]): n
  */
 export function shrinkFlex(available: number, items: readonly FlexItem[]): number[] {
   const out: number[] = new Array(items.length).fill(0);
-  for (let i = 0; i < items.length; i++) {
-    out[i] = items[i]?.basis ?? 0;
-  }
-
   let totalBasis = 0;
   for (let i = 0; i < items.length; i++) {
-    totalBasis += items[i]?.basis ?? 0;
+    const item = items[i];
+    if (!item) continue;
+    const min = Math.max(0, item.min);
+    const max = Math.max(min, item.max);
+    const basis = item.basis;
+    const initial = Math.min(max, Math.max(min, basis));
+    out[i] = initial;
+    totalBasis += initial;
   }
 
   let overflow = totalBasis - available;
@@ -187,7 +190,7 @@ export function shrinkFlex(available: number, items: readonly FlexItem[]): numbe
         active[i] = false;
         continue;
       }
-      totalScaled += it.shrink * it.basis;
+      totalScaled += it.shrink * (out[i] ?? 0);
       activeCount++;
     }
     if (totalScaled <= 0 || activeCount === 0) break;
@@ -199,7 +202,7 @@ export function shrinkFlex(available: number, items: readonly FlexItem[]): numbe
       if (!active[i]) continue;
       const it = items[i];
       if (!it) continue;
-      const scaled = it.shrink * it.basis;
+      const scaled = it.shrink * (out[i] ?? 0);
       const raw = (overflow * scaled) / totalScaled;
       const base = Math.floor(raw);
       const reducible = Math.max(0, (out[i] ?? 0) - it.min);
@@ -238,8 +241,7 @@ export function shrinkFlex(available: number, items: readonly FlexItem[]): numbe
           const nextOrder = order.filter((slot) => {
             const item = items[slot];
             if (!item) return false;
-            const room =
-              (out[slot] ?? 0) - item.min - Math.max(0, baseReductions[slot] ?? 0);
+            const room = (out[slot] ?? 0) - item.min - Math.max(0, baseReductions[slot] ?? 0);
             return room > 0;
           });
           order.length = 0;
@@ -254,7 +256,7 @@ export function shrinkFlex(available: number, items: readonly FlexItem[]): numbe
     for (let i = 0; i < items.length; i++) {
       const reduction = baseReductions[i] ?? 0;
       if (reduction <= 0) continue;
-      out[i] = Math.max((items[i]?.min ?? 0), (out[i] ?? 0) - reduction);
+      out[i] = Math.max(items[i]?.min ?? 0, (out[i] ?? 0) - reduction);
       distributed += reduction;
       const it = items[i];
       if (it && (out[i] ?? 0) <= it.min) active[i] = false;
