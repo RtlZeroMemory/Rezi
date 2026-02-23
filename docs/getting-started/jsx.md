@@ -2,6 +2,8 @@
 
 `@rezi-ui/jsx` is the native JSX runtime for Rezi. It maps JSX elements to the same VNode structures you get from `ui.*()`.
 
+State-management helpers from core are also re-exported by `@rezi-ui/jsx`: `createSelector`, `createSlice`, `combineSlices`, and `getInitialState`.
+
 ## Setup
 
 1. Install packages:
@@ -335,6 +337,7 @@ From `@rezi-ui/jsx`:
 
 - JSX components (`Button`, `Page`, `Panel`, ...)
 - JSX runtime helpers (`defineWidget`, `show`, `when`, `match`, `maybe`, `each`, `eachInline`)
+- State helpers (`createSelector`, `createSlice`, `combineSlices`, `getInitialState`)
 - Re-exported core types used by JSX apps (`ButtonIntent`, `WidgetVariant`, `PageOptions`, `DialogProps`, etc.)
 
 From `@rezi-ui/core`:

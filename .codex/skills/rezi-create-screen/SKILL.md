@@ -20,6 +20,7 @@ Use this skill when:
 
 - `packages/core/src/widgets/ui.ts` — all `ui.*` factory functions
 - `packages/core/src/widgets/composition.ts` — `defineWidget()` and animation hooks
+- `packages/core/src/state/createSlice.ts` — `createSlice()`, `combineSlices()`, `getInitialState()`
 - `packages/core/src/router/` — router and route definitions
 - `packages/core/src/keybindings/` — keybinding system
 - `packages/create-rezi/templates/animation-lab/` — canonical animation screen pattern
@@ -83,7 +84,12 @@ Use this skill when:
 
 5. **Add keybindings** for screen-specific actions in the app's key handler
 
-6. **Wire into main** via router or view switch:
+6. **For screen-level state domains, prefer slices over ad-hoc reducers**:
+   - Define a `createSlice(...)` per domain (filters, selection, draft input)
+   - Combine with `combineSlices(...)` for root state wiring
+   - Use generated action creators in keybindings and button handlers
+
+7. **Wire into main** via router or view switch:
    ```typescript
    view: (state) => {
      if (state.screen === "my-screen") return MyScreen(state);

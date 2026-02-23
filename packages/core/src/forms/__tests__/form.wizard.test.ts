@@ -42,6 +42,7 @@ function createTestContext<State = void>(): {
       const ctx: WidgetContext<State> = Object.freeze({
         id: (suffix: string) => `${widgetKey}_${instanceId}_${suffix}`,
         useState: hookCtx.useState,
+        useReducer: hookCtx.useReducer,
         useRef: hookCtx.useRef,
         useEffect: hookCtx.useEffect,
         useMemo: hookCtx.useMemo,

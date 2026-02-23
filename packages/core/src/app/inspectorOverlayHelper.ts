@@ -254,11 +254,20 @@ export function createAppWithInspectorOverlay<S>(
     onEvent(handler: EventHandler): () => void {
       return app.onEvent(handler);
     },
+    use(middleware: Parameters<App<S>["use"]>[0]): () => void {
+      return app.use(middleware);
+    },
+    getState(): Readonly<S> {
+      return app.getState();
+    },
     onFocusChange(handler: FocusChangeHandler): () => void {
       return app.onFocusChange(handler);
     },
     update(updater: S | ((prev: Readonly<S>) => S)): void {
       app.update(updater);
+    },
+    dispatch(action: Parameters<App<S>["dispatch"]>[0]): void {
+      app.dispatch(action);
     },
     setTheme(theme: Theme | ThemeDefinition): void {
       lastThemeInput = theme;

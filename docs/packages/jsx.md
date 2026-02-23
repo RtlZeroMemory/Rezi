@@ -30,8 +30,9 @@ Use `.tsx` files for JSX views.
 - Components: full PascalCase component surface matching `ui.*()` (layout, inputs, navigation, overlays, advanced widgets, and composition helpers)
 - Runtime helpers: `createElement`, `h`, `normalizeContainerChildren`, `normalizeTextChildren`
 - Core helper re-exports: `defineWidget`, `show`, `when`, `match`, `maybe`, `each`, `eachInline`
+- State helper re-exports: `createSelector`, `createSlice`, `combineSlices`, `getInitialState`
 - Core value re-export: `rgb`
-- Type re-exports: JSX prop types and common core types (`WidgetVariant`, `ButtonIntent`, `DialogProps`, `PageOptions`, `TableProps`, `CommandItem`, `Toast`, etc.)
+- Type re-exports: JSX prop types and common core types (`WidgetVariant`, `ButtonIntent`, `DialogProps`, `PageOptions`, `TableProps`, `CommandItem`, `Toast`, `App`, `Middleware`, `MiddlewareContext`, `Thunk`, `Slice`, `SliceConfig`, etc.)
 
 ## Entry Points
 

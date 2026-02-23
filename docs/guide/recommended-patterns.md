@@ -149,6 +149,94 @@ Benefits of this approach:
 - **Debuggable** -- Log dispatched actions to trace what happened
 - **Composable** -- Multiple UI elements (buttons, keys, modes) dispatch the same actions
 
+### Memoize Derived Selectors with `createSelector`
+
+When selecting derived arrays/objects from app state, memoize the selector to preserve reference stability and avoid unnecessary widget re-renders:
+
+```typescript
+import { createSelector, defineWidget, ui } from "@rezi-ui/core";
+
+const selectVisibleTodos = createSelector(
+  (s: State) => s.todos,
+  (s: State) => s.filter,
+  (todos, filter) =>
+    todos.filter((todo) =>
+      filter === "all" ? true : filter === "active" ? !todo.done : todo.done,
+    ),
+);
+
+const TodoSummary = defineWidget<{ key?: string }, State>((props, ctx) => {
+  const visible = ctx.useAppState(selectVisibleTodos);
+  return ui.text(`Visible todos: ${visible.length}`);
+});
+```
+
+### Use `createSlice` + `combineSlices` for Modular State
+
+For larger apps, split state into domain slices and compose them into a root reducer:
+
+```typescript
+import { combineSlices, createSlice, getInitialState } from "@rezi-ui/core";
+
+const counterSlice = createSlice({
+  name: "counter",
+  initialState: 0,
+  reducers: {
+    increment: (state: number) => state + 1,
+    addBy: (state: number, amount: number) => state + amount,
+  },
+});
+
+const todosSlice = createSlice({
+  name: "todos",
+  initialState: [] as Todo[],
+  reducers: {
+    add: (state: Todo[], todo: Todo) => [...state, todo],
+  },
+});
+
+const rootReducer = combineSlices({
+  counter: counterSlice,
+  todos: todosSlice,
+});
+
+const initialState = getInitialState({
+  counter: counterSlice,
+  todos: todosSlice,
+});
+```
+
+### Use Middleware for Logging and Analytics
+
+Use `app.use(...)` for cross-cutting event logic that should run before normal handlers:
+
+```typescript
+app.use((event, ctx, next) => {
+  analytics.track("ui-event", { kind: event.kind });
+  logger.debug("event", event, { state: ctx.getState() });
+  next();
+});
+```
+
+Middleware runs in registration order and can suppress propagation by omitting `next()`.
+
+### Use Thunks for Async Operations
+
+Use `app.dispatch(...)` thunks for async workflows that need both dispatch and state reads:
+
+```typescript
+app.dispatch(async (dispatch, getState) => {
+  if (getState().loading) return;
+  dispatch((s) => ({ ...s, loading: true }));
+  try {
+    const todos = await fetchTodos();
+    dispatch((s) => ({ ...s, loading: false, todos }));
+  } catch (error) {
+    dispatch((s) => ({ ...s, loading: false, error: String(error) }));
+  }
+});
+```
+
 ## Screen Architecture
 
 Each screen is a **pure view function** that takes state and returns a VNode tree. Screens should not call `app.update()` directly; they receive a dispatch function or wire callbacks through props.

@@ -1130,6 +1130,7 @@ function executeCompositeRender(
       const widgetCtx: WidgetContext<unknown> = Object.freeze({
         id: (suffix: string) => scopedId(activeCompositeMeta.widgetKey, instanceId, suffix),
         useState: hookCtx.useState,
+        useReducer: hookCtx.useReducer,
         useRef: hookCtx.useRef,
         useEffect: hookCtx.useEffect,
         useMemo: hookCtx.useMemo,

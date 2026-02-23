@@ -92,6 +92,9 @@ import type {
   DrawFn,
   EventHandler,
   FocusChangeHandler,
+  Middleware,
+  MiddlewareContext,
+  Thunk,
   ViewFn,
 } from "./types.js";
 import { type StateUpdater, UpdateQueue } from "./updateQueue.js";
@@ -361,6 +364,7 @@ type WorkItem =
 
 /** Event handler registration with deactivation flag. */
 type HandlerSlot = Readonly<{ fn: EventHandler; active: { value: boolean } }>;
+type MiddlewareSlot<S> = Readonly<{ fn: Middleware<S>; active: { value: boolean } }>;
 type FocusHandlerSlot = Readonly<{ fn: FocusChangeHandler; active: { value: boolean } }>;
 
 function describeThrown(v: unknown): string {
@@ -619,6 +623,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   let committedState: S = hasInitialState ? (opts.initialState as S) : (Object.freeze({}) as S);
   const updates = new UpdateQueue<S>();
 
+  const middlewares: MiddlewareSlot<S>[] = [];
   const handlers: HandlerSlot[] = [];
   const focusHandlers: FocusHandlerSlot[] = [];
   let lastEmittedFocusId: string | null = null;
@@ -940,22 +945,51 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   }
 
   function emit(ev: UiEvent): void {
-    const snapshot: EventHandler[] = [];
-    for (const slot of handlers) {
-      if (slot.active.value) snapshot.push(slot.fn);
+    const activeMiddlewares: Middleware<S>[] = [];
+    for (const slot of middlewares) {
+      if (slot.active.value) activeMiddlewares.push(slot.fn);
     }
+
+    const mwCtx: MiddlewareContext<S> = Object.freeze({
+      getState: () => committedState,
+      update: (updater: StateUpdater<S>) => app.update(updater),
+    });
 
     inEventHandlerDepth++;
     try {
-      for (const fn of snapshot) {
-        try {
-          fn(ev);
-        } catch (e: unknown) {
-          // Treat handler exceptions as fatal, but defer out of the handler stack.
-          enqueueFatal("ZRUI_USER_CODE_THROW", `onEvent handler threw: ${describeThrown(e)}`);
+      let idx = 0;
+
+      const runNext = (): void => {
+        if (idx < activeMiddlewares.length) {
+          const middleware = activeMiddlewares[idx++]!;
+          middleware(ev, mwCtx, runNext);
           return;
         }
-      }
+
+        const snapshot: EventHandler[] = [];
+        for (const slot of handlers) {
+          if (slot.active.value) snapshot.push(slot.fn);
+        }
+
+        inEventHandlerDepth++;
+        try {
+          for (const fn of snapshot) {
+            try {
+              fn(ev);
+            } catch (e: unknown) {
+              // Treat handler exceptions as fatal, but defer out of the handler stack.
+              enqueueFatal("ZRUI_USER_CODE_THROW", `onEvent handler threw: ${describeThrown(e)}`);
+              return;
+            }
+          }
+        } finally {
+          inEventHandlerDepth--;
+        }
+      };
+
+      runNext();
+    } catch (e: unknown) {
+      enqueueFatal("ZRUI_USER_CODE_THROW", `middleware threw: ${describeThrown(e)}`);
     } finally {
       inEventHandlerDepth--;
     }
@@ -1672,6 +1706,22 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       };
     },
 
+    use(middleware: Middleware<S>): () => void {
+      assertOperational("use");
+      if (inCommit || inRender) throwCode("ZRUI_REENTRANT_CALL", "use: re-entrant call");
+
+      const active = { value: true };
+      middlewares.push({ fn: middleware, active });
+      return () => {
+        active.value = false;
+      };
+    },
+
+    getState(): Readonly<S> {
+      assertOperational("getState");
+      return committedState;
+    },
+
     onFocusChange(handler: FocusChangeHandler): () => void {
       assertOperational("onFocusChange");
       if (inCommit || inRender) {
@@ -1695,6 +1745,32 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
         userCommitScheduled = true;
         scheduler.enqueue({ kind: "userCommit" });
       }
+    },
+
+    dispatch(action: Thunk<S> | S | ((prev: Readonly<S>) => S)): void {
+      assertOperational("dispatch");
+      if (inCommit) throwCode("ZRUI_REENTRANT_CALL", "dispatch: called during commit");
+      if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", updateDuringRenderDetail("dispatch"));
+
+      if (typeof action === "function" && action.length === 2) {
+        const thunk = action as Thunk<S>;
+        try {
+          const result = thunk(
+            (nextAction) => app.dispatch(nextAction),
+            () => committedState,
+          );
+          if (result && typeof (result as Promise<void>).catch === "function") {
+            (result as Promise<void>).catch((e: unknown) => {
+              enqueueFatal("ZRUI_USER_CODE_THROW", `thunk rejected: ${describeThrown(e)}`);
+            });
+          }
+        } catch (e: unknown) {
+          enqueueFatal("ZRUI_USER_CODE_THROW", `thunk threw: ${describeThrown(e)}`);
+        }
+        return;
+      }
+
+      app.update(action as StateUpdater<S>);
     },
 
     setTheme(next: Theme | ThemeDefinition): void {

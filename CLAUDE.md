@@ -208,7 +208,7 @@ const Counter = defineWidget<{ initial: number; key?: string }>((props, ctx) => 
 });
 ```
 
-Available hooks: `ctx.useState()`, `ctx.useEffect()`, `ctx.useRef()`, `ctx.useMemo()`, `ctx.useCallback()`, `ctx.useAppState()`, `ctx.useViewport()`, `ctx.id()`.
+Available hooks: `ctx.useState()`, `ctx.useReducer()`, `ctx.useEffect()`, `ctx.useRef()`, `ctx.useMemo()`, `ctx.useCallback()`, `ctx.useAppState()`, `ctx.useViewport()`, `ctx.id()`.
 Animation utility hooks: `useTransition()`, `useSpring()`, `useSequence()`, `useStagger()` for declarative numeric motion.
 Animation easing presets include `linear` plus quad/cubic families (`easeInQuad`, `easeOutQuad`, `easeInOutQuad`, `easeInCubic`, `easeOutCubic`, `easeInOutCubic`).
 
@@ -278,7 +278,11 @@ each(items, (item) => ui.text(item.name), { key: (item) => item.id });
 - State updates during render are forbidden (throws `ZRUI_UPDATE_DURING_RENDER`).
 - Duplicate interactive widget IDs are fatal (throws `ZRUI_DUPLICATE_ID`).
 - Max nesting depth: 500 (warn at 200). Max composite render depth: 100.
-- Prefer `useReducer` pattern (reducer + dispatch) over raw `app.update()`.
+- Prefer `ctx.useReducer()` for complex local widget state with multiple action types.
+- Use `createSelector()` to memoize derived state read via `ctx.useAppState(...)`.
+- Use `createSlice()` + `combineSlices()` to keep large app state modular.
+- Use `app.use()` middleware for cross-cutting event concerns (logging, analytics, undo).
+- Use `app.dispatch()` thunks for async workflows and chained dispatch flows.
 - Import from package exports only (`@rezi-ui/core`, `@rezi-ui/node`), never from internal paths.
 - Drawlist command writers are generated; do not edit `packages/core/src/drawlist/writers.gen.ts` manually.
 
@@ -317,8 +321,12 @@ CI runs `codegen:check`; stale generated writers fail the build.
 - Use `each()` / `eachInline()` for list rendering with keys.
 - Use `show()` / `when()` / `maybe()` / `match()` for conditional rendering.
 - Use `defineWidget()` for reusable stateful components.
+- Use `ctx.useReducer()` for complex local state with multiple action types.
+- Use `createSelector()` to memoize derived state in `ctx.useAppState()` selectors.
 - Use `useTransition()` / `useSpring()` / `useSequence()` / `useStagger()` for declarative numeric motion.
 - Use `useTable()` for table state, `useModalStack()` for modal state.
+- Use `app.use()` for cross-cutting concerns (logging, analytics, undo).
+- Use `createSlice()` + `combineSlices()` for modular state in complex apps.
 - Follow template structure: separate `screens/`, `helpers/state.ts`, `helpers/keybindings.ts`, `theme.ts`, `types.ts` (see `animation-lab` for motion-heavy screens).
 - Test with `createTestRenderer()` from the testing module.
 

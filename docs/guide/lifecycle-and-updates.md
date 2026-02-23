@@ -175,6 +175,67 @@ const unsubscribe = app.onEvent((ev) => {
 // later: unsubscribe()
 ```
 
+### Middleware pipeline (`app.use`)
+
+Use middleware for cross-cutting event behavior before `onEvent` handlers run.
+
+```typescript
+app.use((ev, ctx, next) => {
+  // Inspect event and committed state.
+  const before = ctx.getState();
+
+  if (ev.kind === "engine") {
+    ctx.update((state) => ({ ...state, lastEvent: ev.type }));
+  }
+
+  // Omit next() to suppress this event for downstream middleware/handlers.
+  if (before.readOnlyMode) return;
+
+  next();
+});
+```
+
+Middleware rules:
+
+- middleware runs in registration order
+- call `next()` to continue the chain
+- skipping `next()` suppresses downstream middleware and `onEvent` handlers
+- `ctx.update(...)` batches with the current event turn (no premature render)
+
+### Async dispatch (`app.dispatch`)
+
+`app.dispatch(...)` accepts either a normal state update or a thunk:
+
+```typescript
+// State value/updater dispatch (equivalent to app.update)
+app.dispatch((prev) => ({ ...prev, count: prev.count + 1 }));
+
+// Async thunk dispatch
+app.dispatch(async (dispatch, getState) => {
+  if (getState().loading) return;
+  dispatch((s) => ({ ...s, loading: true }));
+  const data = await fetchData();
+  dispatch((s) => ({ ...s, loading: false, data }));
+});
+```
+
+Use thunks when you need to sequence async work with state transitions but keep the async wiring outside view code.
+
+### Reading committed state (`app.getState`)
+
+`app.getState()` returns the current committed state snapshot.
+
+```typescript
+app.onEvent((ev) => {
+  if (ev.kind === "engine") {
+    const state = app.getState();
+    console.log("current route:", state.route);
+  }
+});
+```
+
+This is especially useful in middleware/thunks and global event handlers where you need read access without threading state through closures.
+
 ### Extended action model
 
 `UiEvent` action payloads include more than `"press"` and `"input"`.

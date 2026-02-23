@@ -146,6 +146,35 @@ const view = ui.vstack([
 ]);
 ```
 
+### State Management Utilities
+
+Composable reducer/state helpers for complex app state:
+
+```typescript
+import {
+  combineSlices,
+  createSelector,
+  createSlice,
+  getInitialState,
+} from "@rezi-ui/core";
+
+const counterSlice = createSlice({
+  name: "counter",
+  initialState: 0,
+  reducers: {
+    increment: (state: number) => state + 1,
+  },
+});
+
+const rootReducer = combineSlices({ counter: counterSlice });
+const initialState = getInitialState({ counter: counterSlice });
+
+const selectDouble = createSelector(
+  (s: { counter: number }) => s.counter,
+  (counter) => counter * 2,
+);
+```
+
 ### Keybindings
 
 Modal keybinding system with chord support:
@@ -247,6 +276,10 @@ await debug.enable({
 | `AppConfig` | Configuration options |
 | `App.replaceView(fn)` | Runtime-safe view swap for widget-mode hot reload workflows |
 | `App.replaceRoutes(routes)` | Runtime-safe route table swap for route-managed hot reload workflows |
+| `App.use(middleware)` | Register event middleware with `next()` chain control |
+| `App.dispatch(actionOrThunk)` | Dispatch state updates or async thunks |
+| `App.getState()` | Read current committed state snapshot |
+| `Middleware`, `MiddlewareContext`, `Thunk` | Middleware/thunk type surface for app-level state orchestration |
 
 ### Widgets
 
@@ -291,6 +324,16 @@ await debug.enable({
 | `form.bind(...)`, `form.field(...)` | One-line input/field wiring helpers on `useForm` return |
 | `bind`, `bindChecked`, `bindSelect` | Standalone binding helpers for plain state objects |
 | `FormState`, `UseFormReturn` | Form types |
+
+### State Management
+
+| Export | Description |
+|--------|-------------|
+| `createSelector` | Memoized derived-state selector factory |
+| `createSlice` | Typed slice/action creator factory |
+| `combineSlices` | Compose slice reducers into root reducer |
+| `getInitialState` | Build root initial state from slices |
+| `Slice`, `SliceConfig` | Slice definition and instance types |
 
 ### Animation
 

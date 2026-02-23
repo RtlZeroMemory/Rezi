@@ -60,6 +60,68 @@ const MyWidget = defineWidget<{ key?: string }>((props, ctx) => {
 
 ---
 
+### `ctx.useReducer`
+
+Manage local state with a reducer function. Returns a `[state, dispatch]` tuple.
+
+**Signature:**
+
+```typescript
+ctx.useReducer<S, A>(
+  reducer: (state: S, action: A) => S,
+  initialState: S | (() => S),
+): [S, (action: A) => void]
+```
+
+**Description:**
+
+- Useful when local widget state has multiple action types or transition rules.
+- `reducer` must be pure and return the next state for each action.
+- `initialState` can be a value or a lazy initializer function.
+- Dispatching an action re-renders only when the new state is not `Object.is`-equal to the current state.
+
+**Example:**
+
+```typescript
+const TodoList = defineWidget<{ key?: string }>((props, ctx) => {
+  type Action =
+    | { type: "add"; text: string }
+    | { type: "remove"; index: number }
+    | { type: "clear" };
+  type State = { items: string[] };
+
+  const [state, dispatch] = ctx.useReducer(
+    (s: State, a: Action): State => {
+      switch (a.type) {
+        case "add":
+          return { items: [...s.items, a.text] };
+        case "remove":
+          return { items: s.items.filter((_, i) => i !== a.index) };
+        case "clear":
+          return { items: [] };
+      }
+    },
+    { items: [] },
+  );
+
+  return ui.column({ gap: 1 }, [
+    ui.text(`Items: ${state.items.length}`),
+    ui.button({
+      id: ctx.id("add"),
+      label: "Add sample",
+      onPress: () => dispatch({ type: "add", text: `Item ${state.items.length + 1}` }),
+    }),
+    ui.button({
+      id: ctx.id("clear"),
+      label: "Clear",
+      onPress: () => dispatch({ type: "clear" }),
+    }),
+  ]);
+});
+```
+
+---
+
 ### `ctx.useRef`
 
 Create a mutable ref that persists across renders without triggering re-renders.

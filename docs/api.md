@@ -36,3 +36,30 @@ For the most common APIs, see:
 - [Animation Guide](guide/animation.md) - Declarative animation hooks and box transitions
 - [@rezi-ui/core](packages/core.md) - Core package exports
 - [@rezi-ui/node](packages/node.md) - Node.js/Bun backend
+
+## State Management APIs
+
+### Widget Composition
+
+- `ctx.useReducer<S, A>(reducer, initialState)` -> `[state, dispatch]`
+
+### App Runtime
+
+- `app.use(middleware)` -> unsubscribe function
+- `app.dispatch(actionOrThunk)` -> dispatch state updaters or async thunks
+- `app.getState()` -> read current committed state
+
+### State Utilities
+
+- `createSelector(...)` -> memoized selector factory (1-4 input selectors + combiner)
+- `createSlice(config)` -> typed slice with `actions`, `reducer`, `initialState`
+- `combineSlices({ ...slices })` -> root reducer from multiple slices
+- `getInitialState({ ...slices })` -> root initial state from slice definitions
+
+### Related Types
+
+- `Middleware<S>`
+- `MiddlewareContext<S>`
+- `Thunk<S>`
+- `Slice<Name, SliceState, CR>`
+- `SliceConfig<Name, SliceState, CR>`

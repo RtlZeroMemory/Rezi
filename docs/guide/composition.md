@@ -31,7 +31,7 @@ export const Counter = defineWidget<CounterProps>((props, ctx) => {
 
 Composite widgets receive a `WidgetContext` with:
 
-- `useState` and `useRef` for local state
+- `useState`, `useReducer`, and `useRef` for local state
 - `useEffect` for post-commit effects with cleanup
 - `useMemo` and `useCallback` for memoization with React-compatible dependency semantics
 - `useAppState` to select a slice of app state
@@ -54,6 +54,34 @@ const filteredRows = ctx.useMemo(
 );
 
 const onSubmit = ctx.useCallback(() => save(filteredRows), [save, filteredRows]);
+```
+
+## Example: local reducer state
+
+```typescript
+const CounterWithReducer = defineWidget<{ key?: string }>((props, ctx) => {
+  type Action = { type: "inc" } | { type: "dec" } | { type: "reset"; value: number };
+
+  const [count, dispatch] = ctx.useReducer(
+    (state: number, action: Action): number => {
+      switch (action.type) {
+        case "inc":
+          return state + 1;
+        case "dec":
+          return state - 1;
+        case "reset":
+          return action.value;
+      }
+    },
+    0,
+  );
+
+  return ui.row({ gap: 1 }, [
+    ui.button({ id: ctx.id("dec"), label: "-1", onPress: () => dispatch({ type: "dec" }) }),
+    ui.text(`Count: ${count}`),
+    ui.button({ id: ctx.id("inc"), label: "+1", onPress: () => dispatch({ type: "inc" }) }),
+  ]);
+});
 ```
 
 ## Utility hooks

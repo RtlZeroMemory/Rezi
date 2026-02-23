@@ -20,6 +20,17 @@ export type EventHandler = (ev: UiEvent) => void;
 export type FocusChangeHandler = (info: FocusInfo) => void;
 export type AppRenderMetrics = Readonly<{ renderTime: number }>;
 export type AppLayoutSnapshot = Readonly<{ idRects: ReadonlyMap<string, Rect> }>;
+export type MiddlewareContext<S> = Readonly<{
+  getState(): Readonly<S>;
+  update(updater: S | ((prev: Readonly<S>) => S)): void;
+}>;
+
+export type Middleware<S> = (event: UiEvent, ctx: MiddlewareContext<S>, next: () => void) => void;
+
+export type Thunk<S> = (
+  dispatch: (action: Thunk<S> | S | ((prev: Readonly<S>) => S)) => void,
+  getState: () => Readonly<S>,
+) => void | Promise<void>;
 
 export type AppConfig = Readonly<{
   fpsCap?: number;
@@ -46,8 +57,26 @@ export interface App<S> {
   replaceRoutes(routes: readonly RouteDefinition<S>[]): void;
   draw(fn: DrawFn): void;
   onEvent(handler: EventHandler): () => void;
+  /**
+   * Register a middleware that intercepts events before they reach handlers.
+   * Middleware receives the event and a `next()` function.
+   * Call `next()` to pass the event to the next middleware / default processing.
+   * Omit `next()` to suppress the event.
+   * Returns an unsubscribe function.
+   */
+  use(middleware: Middleware<S>): () => void;
+  /**
+   * Read current committed state (useful in middleware and event handlers).
+   */
+  getState(): Readonly<S>;
   onFocusChange(handler: FocusChangeHandler): () => void;
   update(updater: S | ((prev: Readonly<S>) => S)): void;
+  /**
+   * Dispatch a state update or an async thunk.
+   * - If passed a function with 2 params (dispatch, getState): treated as thunk
+   * - If passed a state value or updater: equivalent to app.update()
+   */
+  dispatch(action: Thunk<S> | S | ((prev: Readonly<S>) => S)): void;
   setTheme(theme: Theme | ThemeDefinition): void;
   debugLayout(enabled?: boolean): boolean;
   start(): Promise<void>;

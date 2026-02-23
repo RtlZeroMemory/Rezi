@@ -402,6 +402,19 @@ export {
 export { useDebounce, usePrevious } from "./widgets/hooks/utility.js";
 
 // =============================================================================
+// State Utilities
+// =============================================================================
+
+export { createSelector } from "./state/createSelector.js";
+export {
+  createSlice,
+  combineSlices,
+  getInitialState,
+  type Slice,
+  type SliceConfig,
+} from "./state/createSlice.js";
+
+// =============================================================================
 // Instance Registry (for composite widgets)
 // =============================================================================
 
@@ -1136,6 +1149,9 @@ export type {
   DrawFn,
   EventHandler,
   FocusChangeHandler,
+  Middleware,
+  MiddlewareContext,
+  Thunk,
   ViewFn,
 } from "./app/types.js";
 

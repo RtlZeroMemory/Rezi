@@ -191,10 +191,24 @@ export type {
   VirtualListJsxProps,
 } from "./types.js";
 
-export { defineWidget, each, eachInline, match, maybe, rgb, show, when } from "@rezi-ui/core";
+export {
+  combineSlices,
+  createSelector,
+  createSlice,
+  defineWidget,
+  each,
+  eachInline,
+  getInitialState,
+  match,
+  maybe,
+  rgb,
+  show,
+  when,
+} from "@rezi-ui/core";
 
 export type {
   AccordionItem,
+  App,
   AppShellOptions,
   BarChartItem,
   BoxPreset,
@@ -220,7 +234,11 @@ export type {
   LogEntry,
   LogLevel,
   MasterDetailOptions,
+  Middleware,
+  MiddlewareContext,
   ModalProps,
+  Slice,
+  SliceConfig,
   NodeState,
   PageOptions,
   RichTextSpan,
@@ -236,6 +254,7 @@ export type {
   ToastAction,
   ToastPosition,
   ToolRequest,
+  Thunk,
   TreeProps,
   WidgetContext,
   WidgetSize,

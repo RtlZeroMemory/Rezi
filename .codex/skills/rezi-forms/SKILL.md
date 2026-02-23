@@ -63,6 +63,11 @@ Use this skill when:
 
 4. **Access form state** via `form.errors`, `form.touched`, `form.dirty`, `form.submitting`
 
+5. **Use `ctx.useReducer()` when form-local state is complex** (multi-step state machines, wizard progress, async side-channel flags):
+   - Keep the form values in `useForm(...)`
+   - Keep complex UI workflow state in a local reducer with typed actions
+   - Dispatch reducer actions from field callbacks and submit handlers
+
 ## Design system note
 
 Inputs are recipe-styled by default when semantic color tokens are available (for example via a `ThemeDefinition` preset).

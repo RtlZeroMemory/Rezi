@@ -58,6 +58,10 @@ export type HookState =
       value: unknown;
     }
   | {
+      kind: "reducer";
+      value: unknown;
+    }
+  | {
       kind: "ref";
       ref: RefState;
     }
@@ -310,6 +314,12 @@ export type HookContext = Readonly<{
   /** Get or create state hook at current index. */
   useState: <T>(initial: T | (() => T)) => [T, (v: T | ((prev: T) => T)) => void];
 
+  /** Manage local state with a reducer function. */
+  useReducer: <S, A>(
+    reducer: (state: S, action: A) => S,
+    initialState: S | (() => S),
+  ) => [S, (action: A) => void];
+
   /** Get or create ref hook at current index. */
   useRef: <T>(initial: T) => RefState<T>;
 
@@ -388,6 +398,42 @@ export function createHookContext(
       };
 
       return [hookState.value, setValue];
+    },
+
+    useReducer<S, A>(
+      reducer: (state: S, action: A) => S,
+      initialState: S | (() => S),
+    ): [S, (action: A) => void] {
+      const index = getHookIndex();
+      const existing = mutableState.hooks[index];
+
+      if (existing === undefined) {
+        assertCanCreateHook(index, "reducer");
+        const initialValue =
+          typeof initialState === "function" ? (initialState as () => S)() : initialState;
+        mutableState.hooks[index] = { kind: "reducer", value: initialValue };
+      } else if (existing.kind !== "reducer") {
+        throw new Error(
+          `Hook order mismatch at index ${index}: expected reducer, got ${existing.kind}`,
+        );
+      }
+
+      const hookState = mutableState.hooks[index] as { kind: "reducer"; value: S };
+      const currentGeneration = mutableState.generation;
+
+      const dispatch = (action: A) => {
+        if (mutableState.generation !== currentGeneration) {
+          return;
+        }
+
+        const nextValue = reducer(hookState.value, action);
+        if (!Object.is(hookState.value, nextValue)) {
+          hookState.value = nextValue;
+          onInvalidate();
+        }
+      };
+
+      return [hookState.value, dispatch];
     },
 
     useRef<T>(initial: T): RefState<T> {
