@@ -55,13 +55,14 @@ import {
   ZR_MOD_CTRL,
   ZR_MOD_SHIFT,
 } from "../keybindings/keyCodes.js";
+import type { LayoutOverflowMetadata } from "../layout/constraints.js";
+import { computeDropdownGeometry } from "../layout/dropdownGeometry.js";
 import {
   computeDirtyLayoutSet,
   instanceDirtySetToVNodeDirtySet,
 } from "../layout/engine/dirtySet.js";
 import { hitTestFocusable } from "../layout/hitTest.js";
 import { type LayoutTree, layout } from "../layout/layout.js";
-import { calculateAnchorPosition } from "../layout/positioning.js";
 import {
   type ResponsiveBreakpointThresholds,
   getResponsiveViewport,
@@ -113,6 +114,7 @@ import {
   routeTreeKey,
   routeVirtualListKey,
   routeVirtualListWheel,
+  routeWheel,
 } from "../runtime/router.js";
 import {
   type CollectedTrap,
@@ -770,6 +772,10 @@ export class WidgetRenderer<S> {
   private readonly virtualListStore = createVirtualListStateStore();
   private readonly tableStore = createTableStateStore();
   private readonly treeStore = createTreeStateStore();
+  private readonly scrollOverrides = new Map<
+    string,
+    Readonly<{ scrollX: number; scrollY: number }>
+  >();
 
   /* --- Tree Lazy-Loading Cache (per tree id, per node key) --- */
   private readonly loadedTreeChildrenByTreeId = new Map<
@@ -1555,11 +1561,13 @@ export class WidgetRenderer<S> {
 
     // Overlay routing: dropdown key navigation, layer/modal ESC close, and modal backdrop blocking.
     if (event.kind === "key" && event.action === "down") {
+      const topLayerId =
+        this.layerStack.length > 0 ? (this.layerStack[this.layerStack.length - 1] ?? null) : null;
       const topDropdownId =
         this.dropdownStack.length > 0
           ? (this.dropdownStack[this.dropdownStack.length - 1] ?? null)
           : null;
-      if (topDropdownId) {
+      if (topDropdownId && topLayerId === `dropdown:${topDropdownId}`) {
         const dropdown = this.dropdownById.get(topDropdownId);
         if (dropdown) {
           const selectedIndex = this.dropdownSelectedIndexById.get(topDropdownId) ?? 0;
@@ -1587,11 +1595,13 @@ export class WidgetRenderer<S> {
     }
 
     if (event.kind === "mouse") {
+      const topLayerId =
+        this.layerStack.length > 0 ? (this.layerStack[this.layerStack.length - 1] ?? null) : null;
       const topDropdownId =
         this.dropdownStack.length > 0
           ? (this.dropdownStack[this.dropdownStack.length - 1] ?? null)
           : null;
-      if (topDropdownId) {
+      if (topDropdownId && topLayerId === `dropdown:${topDropdownId}`) {
         const dropdown = this.dropdownById.get(topDropdownId);
         const dropdownRect = dropdown ? this.computeDropdownRect(dropdown) : null;
         if (dropdown && dropdownRect && dropdownRect.w > 0 && dropdownRect.h > 0) {
@@ -2221,13 +2231,23 @@ export class WidgetRenderer<S> {
           vlist.onScroll(r.nextScrollTop, [startIndex, endIndex]);
         }
 
-        if (r.action && vlist.onSelect) {
+        let routedAction: RoutedAction | undefined;
+        if (r.action) {
           const item = vlist.items[r.action.index];
-          if (item !== undefined) vlist.onSelect(item, r.action.index);
+          if (item !== undefined && vlist.onSelect) vlist.onSelect(item, r.action.index);
+          routedAction = Object.freeze({
+            id: r.action.id,
+            action: "select",
+            index: r.action.index,
+            ...(item !== undefined ? { item } : {}),
+          });
           changed = true;
         }
 
-        if (changed) return ROUTE_RENDER;
+        if (changed) {
+          if (routedAction) return Object.freeze({ needsRender: true, action: routedAction });
+          return ROUTE_RENDER;
+        }
       }
 
       // Table routing
@@ -2353,11 +2373,19 @@ export class WidgetRenderer<S> {
               table.onSelectionChange(r.nextSelection);
             }
 
-            if (r.action && table.onRowPress) {
+            let routedAction: RoutedAction | undefined;
+            if (r.action) {
               const row = table.data[r.action.rowIndex];
-              if (row !== undefined) table.onRowPress(row, r.action.rowIndex);
+              if (row !== undefined && table.onRowPress) table.onRowPress(row, r.action.rowIndex);
+              routedAction = Object.freeze({
+                id: r.action.id,
+                action: "rowPress",
+                rowIndex: r.action.rowIndex,
+                ...(row !== undefined ? { row } : {}),
+              });
             }
 
+            if (routedAction) return Object.freeze({ needsRender: true, action: routedAction });
             return ROUTE_RENDER;
           }
         }
@@ -2443,9 +2471,16 @@ export class WidgetRenderer<S> {
             if (found) tree.onSelect(found.node as unknown);
           }
 
-          if (r.nodeToActivate && tree.onActivate) {
+          let routedAction: RoutedAction | undefined;
+
+          if (r.nodeToActivate) {
             const found = flatNodes.find((n) => n.key === r.nodeToActivate);
-            if (found) tree.onActivate(found.node as unknown);
+            if (found && tree.onActivate) tree.onActivate(found.node as unknown);
+            routedAction = Object.freeze({
+              id: tree.id,
+              action: "activate",
+              nodeKey: r.nodeToActivate,
+            });
           }
 
           if (r.nodeToLoad && tree.loadChildren) {
@@ -2500,6 +2535,7 @@ export class WidgetRenderer<S> {
             }
           }
 
+          if (routedAction) return Object.freeze({ needsRender: true, action: routedAction });
           return ROUTE_RENDER;
         }
       }
@@ -2576,8 +2612,14 @@ export class WidgetRenderer<S> {
         const KEY_ENTER = 2;
         const KEY_SPACE = 32;
         if (event.key === KEY_ENTER || event.key === KEY_SPACE) {
-          checkbox.onChange(!checkbox.checked);
-          return ROUTE_RENDER;
+          const nextChecked = !checkbox.checked;
+          checkbox.onChange(nextChecked);
+          const action: RoutedAction = Object.freeze({
+            id: focusedId,
+            action: "toggle",
+            checked: nextChecked,
+          });
+          return Object.freeze({ needsRender: true, action });
         }
       }
 
@@ -2604,7 +2646,12 @@ export class WidgetRenderer<S> {
             const next = opts[nextIdx];
             if (next && next.value !== radio.value) {
               radio.onChange(next.value);
-              return ROUTE_RENDER;
+              const action: RoutedAction = Object.freeze({
+                id: focusedId,
+                action: "change",
+                value: next.value,
+              });
+              return Object.freeze({ needsRender: true, action });
             }
           }
         }
@@ -2660,15 +2707,25 @@ export class WidgetRenderer<S> {
         const editor = this.codeEditorById.get(candidateId);
         if (editor) {
           const rect = this.rectById.get(editor.id) ?? null;
+          const viewportWidth = rect ? Math.max(1, rect.w) : 1;
           const viewportHeight = rect ? Math.max(1, rect.h) : 1;
-          const maxScrollTop = Math.max(0, editor.lines.length - viewportHeight);
-          const nextScrollTop = Math.max(
-            0,
-            Math.min(maxScrollTop, editor.scrollTop + event.wheelY * 3),
-          );
-          const nextScrollLeft = Math.max(0, editor.scrollLeft + event.wheelX * 3);
-          if (nextScrollTop !== editor.scrollTop || nextScrollLeft !== editor.scrollLeft) {
-            editor.onScroll(nextScrollTop, nextScrollLeft);
+          let contentWidth = 1;
+          for (const line of editor.lines) {
+            const lineWidth = measureTextCells(line);
+            if (lineWidth > contentWidth) contentWidth = lineWidth;
+          }
+
+          const r = routeWheel(event, {
+            scrollX: editor.scrollLeft,
+            scrollY: editor.scrollTop,
+            contentWidth,
+            contentHeight: editor.lines.length,
+            viewportWidth,
+            viewportHeight,
+          });
+
+          if (r.nextScrollY !== undefined || r.nextScrollX !== undefined) {
+            editor.onScroll(r.nextScrollY ?? editor.scrollTop, r.nextScrollX ?? editor.scrollLeft);
             return ROUTE_RENDER;
           }
           break;
@@ -2677,16 +2734,23 @@ export class WidgetRenderer<S> {
         const logs = this.logsConsoleById.get(candidateId);
         if (logs) {
           const rect = this.rectById.get(logs.id) ?? null;
+          const viewportWidth = rect ? Math.max(1, rect.w) : 1;
           const viewportHeight = rect ? Math.max(1, rect.h) : 1;
           const cached = this.logsConsoleRenderCacheById.get(logs.id);
           const filteredLen =
             cached?.filtered.length ??
             applyFilters(logs.entries, logs.levelFilter, logs.sourceFilter, logs.searchQuery)
               .length;
-          const maxScroll = Math.max(0, filteredLen - viewportHeight);
-          const nextScrollTop = Math.max(0, Math.min(maxScroll, logs.scrollTop + event.wheelY * 3));
-          if (nextScrollTop !== logs.scrollTop) {
-            logs.onScroll(nextScrollTop);
+          const r = routeWheel(event, {
+            scrollX: 0,
+            scrollY: logs.scrollTop,
+            contentWidth: viewportWidth,
+            contentHeight: filteredLen,
+            viewportWidth,
+            viewportHeight,
+          });
+          if (r.nextScrollY !== undefined) {
+            logs.onScroll(r.nextScrollY);
             return ROUTE_RENDER;
           }
           break;
@@ -2695,19 +2759,46 @@ export class WidgetRenderer<S> {
         const diff = this.diffViewerById.get(candidateId);
         if (diff) {
           const rect = this.rectById.get(diff.id) ?? null;
+          const viewportWidth = rect ? Math.max(1, rect.w) : 1;
           const viewportHeight = rect ? Math.max(1, rect.h) : 1;
           let totalLines = 0;
           for (const h of diff.diff.hunks) {
             if (!h) continue;
             totalLines += 1 + h.lines.length;
           }
-          const maxScroll = Math.max(0, totalLines - viewportHeight);
-          const nextScrollTop = Math.max(0, Math.min(maxScroll, diff.scrollTop + event.wheelY * 3));
-          if (nextScrollTop !== diff.scrollTop) {
-            diff.onScroll(nextScrollTop);
+          const r = routeWheel(event, {
+            scrollX: 0,
+            scrollY: diff.scrollTop,
+            contentWidth: viewportWidth,
+            contentHeight: totalLines,
+            viewportWidth,
+            viewportHeight,
+          });
+          if (r.nextScrollY !== undefined) {
+            diff.onScroll(r.nextScrollY);
             return ROUTE_RENDER;
           }
           break;
+        }
+      }
+
+      const scrollTarget = this.findNearestScrollableAncestor(targetId);
+      if (scrollTarget) {
+        const { nodeId, meta } = scrollTarget;
+        const r = routeWheel(event, {
+          scrollX: meta.scrollX,
+          scrollY: meta.scrollY,
+          contentWidth: meta.contentWidth,
+          contentHeight: meta.contentHeight,
+          viewportWidth: meta.viewportWidth,
+          viewportHeight: meta.viewportHeight,
+        });
+        if (r.nextScrollX !== undefined || r.nextScrollY !== undefined) {
+          this.scrollOverrides.set(nodeId, {
+            scrollX: r.nextScrollX ?? meta.scrollX,
+            scrollY: r.nextScrollY ?? meta.scrollY,
+          });
+          return ROUTE_RENDER;
         }
       }
     }
@@ -3698,41 +3789,118 @@ export class WidgetRenderer<S> {
     }
   }
 
-  private computeDropdownRect(props: DropdownProps): Rect | null {
-    const viewport = this.lastViewport;
-    if (viewport.cols <= 0 || viewport.rows <= 0) return null;
+  private findNearestScrollableAncestor(
+    targetId: string | null,
+  ): Readonly<{ nodeId: string; meta: LayoutOverflowMetadata }> | null {
+    if (targetId === null || !this.committedRoot || !this.layoutTree) return null;
 
-    const anchor = this.rectById.get(props.anchorId) ?? null;
-    if (!anchor) return null;
+    type ScrollableMatch = Readonly<{ nodeId: string; meta: LayoutOverflowMetadata }>;
+    type Cursor = Readonly<{
+      runtimeNode: RuntimeInstance;
+      layoutNode: LayoutTree;
+      nearest: ScrollableMatch | null;
+    }>;
 
-    const items = Array.isArray(props.items) ? props.items : [];
-    let maxLabelW = 0;
-    let maxShortcutW = 0;
-    for (const item of items) {
-      if (!item || item.divider) continue;
-      const labelW = measureTextCells(item.label);
-      if (labelW > maxLabelW) maxLabelW = labelW;
-      const shortcut = item.shortcut;
-      if (shortcut && shortcut.length > 0) {
-        const shortcutW = measureTextCells(shortcut);
-        if (shortcutW > maxShortcutW) maxShortcutW = shortcutW;
+    const stack: Cursor[] = [
+      {
+        runtimeNode: this.committedRoot,
+        layoutNode: this.layoutTree,
+        nearest: null,
+      },
+    ];
+
+    while (stack.length > 0) {
+      const frame = stack.pop();
+      if (!frame) continue;
+
+      const runtimeNode = frame.runtimeNode;
+      const layoutNode = frame.layoutNode;
+      let nearest = frame.nearest;
+
+      const props = runtimeNode.vnode.props as Readonly<{
+        id?: unknown;
+        overflow?: unknown;
+      }>;
+      const nodeId =
+        typeof props.id === "string" && props.id.length > 0 ? (props.id as string) : null;
+      if (nodeId !== null && props.overflow === "scroll" && layoutNode.meta) {
+        const meta = layoutNode.meta;
+        const hasScrollableAxis =
+          meta.contentWidth > meta.viewportWidth || meta.contentHeight > meta.viewportHeight;
+        if (hasScrollableAxis) {
+          nearest = { nodeId, meta };
+        }
+      }
+
+      if (nodeId === targetId) return nearest;
+
+      const childCount = Math.min(runtimeNode.children.length, layoutNode.children.length);
+      for (let i = childCount - 1; i >= 0; i--) {
+        const runtimeChild = runtimeNode.children[i];
+        const layoutChild = layoutNode.children[i];
+        if (!runtimeChild || !layoutChild) continue;
+        stack.push({
+          runtimeNode: runtimeChild,
+          layoutNode: layoutChild,
+          nearest,
+        });
       }
     }
 
-    const gapW = maxShortcutW > 0 ? 1 : 0;
-    const contentW = Math.max(1, maxLabelW + gapW + maxShortcutW);
-    const totalW = Math.max(2, contentW + 2); // +2 for border
-    const totalH = Math.max(2, items.length + 2); // +2 for border
+    return null;
+  }
 
-    const pos = calculateAnchorPosition({
-      anchor,
-      overlaySize: { w: totalW, h: totalH },
-      position: props.position ?? "below-start",
-      viewport: { x: 0, y: 0, width: viewport.cols, height: viewport.rows },
-      gap: 0,
-      flip: true,
-    });
-    return pos.rect;
+  private applyScrollOverridesToVNode(vnode: VNode): VNode {
+    const propsRecord = (vnode.props ?? {}) as Readonly<Record<string, unknown>>;
+    const propsForRead = propsRecord as Readonly<{
+      id?: unknown;
+      scrollX?: unknown;
+      scrollY?: unknown;
+    }>;
+    const idRaw = propsForRead.id;
+    const nodeId = typeof idRaw === "string" && idRaw.length > 0 ? idRaw : null;
+    const override = nodeId ? this.scrollOverrides.get(nodeId) : undefined;
+
+    let propsChanged = false;
+    let nextProps = vnode.props;
+    if (override) {
+      if (propsForRead.scrollX !== override.scrollX || propsForRead.scrollY !== override.scrollY) {
+        nextProps = Object.freeze({
+          ...propsRecord,
+          scrollX: override.scrollX,
+          scrollY: override.scrollY,
+        }) as typeof vnode.props;
+        propsChanged = true;
+      }
+    }
+
+    const currentChildren = (vnode as Readonly<{ children?: readonly VNode[] }>).children;
+    let childrenChanged = false;
+    let nextChildren = currentChildren;
+    if (Array.isArray(currentChildren) && currentChildren.length > 0) {
+      const rebuiltChildren: VNode[] = new Array(currentChildren.length);
+      for (let i = 0; i < currentChildren.length; i++) {
+        const child = currentChildren[i];
+        const nextChild = this.applyScrollOverridesToVNode(child);
+        rebuiltChildren[i] = nextChild;
+        if (nextChild !== child) childrenChanged = true;
+      }
+      if (childrenChanged) nextChildren = Object.freeze(rebuiltChildren);
+    }
+
+    if (!propsChanged && !childrenChanged) return vnode;
+
+    const nextVNode = {
+      ...vnode,
+      ...(propsChanged ? { props: nextProps } : {}),
+      ...(childrenChanged ? { children: nextChildren } : {}),
+    };
+    return Object.freeze(nextVNode) as VNode;
+  }
+
+  private computeDropdownRect(props: DropdownProps): Rect | null {
+    const anchor = this.rectById.get(props.anchorId) ?? null;
+    return computeDropdownGeometry(props, anchor, this.lastViewport);
   }
 
   private shouldAttemptIncrementalRender(
@@ -4410,6 +4578,7 @@ export class WidgetRenderer<S> {
       // layout when explicitly requested (resize/layout dirty), bootstrap lacks
       // a tree, or committed layout signatures changed.
       let doLayout = plan.layout || this.layoutTree === null;
+      if (this.scrollOverrides.size > 0) doLayout = true;
 
       let commitRes: CommitOk | null = null;
       let prevFocusedIdBeforeFinalize: string | null = null;
@@ -4540,8 +4709,13 @@ export class WidgetRenderer<S> {
         const rootW = Math.max(0, viewport.cols - rootPad * 2);
         const rootH = Math.max(0, viewport.rows - rootPad * 2);
         const layoutToken = perfMarkStart("layout");
+        const layoutRootVNode =
+          this.scrollOverrides.size > 0
+            ? this.applyScrollOverridesToVNode(this.committedRoot.vnode)
+            : this.committedRoot.vnode;
+        this.scrollOverrides.clear();
         const layoutRes = layout(
-          this.committedRoot.vnode,
+          layoutRootVNode,
           rootPad,
           rootPad,
           rootW,
@@ -4699,6 +4873,22 @@ export class WidgetRenderer<S> {
               const p = v.props as DropdownProps;
               this.dropdownById.set(p.id, p);
               this._pooledDropdownStack.push(p.id);
+              const rect = this.computeDropdownRect(p) ?? ZERO_RECT;
+              const zIndex = overlaySeq++;
+              const layerId = `dropdown:${p.id}`;
+              const onClose = typeof p.onClose === "function" ? p.onClose : undefined;
+              this._pooledCloseOnEscape.set(layerId, true);
+              this._pooledCloseOnBackdrop.set(layerId, false);
+              if (onClose) this._pooledOnClose.set(layerId, onClose);
+              const layerInput = {
+                id: layerId,
+                rect,
+                backdrop: "none",
+                modal: false,
+                closeOnEscape: true,
+                zIndex,
+              } as const;
+              this.layerRegistry.register(onClose ? { ...layerInput, onClose } : layerInput);
               break;
             }
             case "button": {
@@ -4772,6 +4962,20 @@ export class WidgetRenderer<S> {
               const p = v.props as ToastContainerProps;
               const rect = getRectForInstance(cur.instanceId);
               this._pooledToastContainers.push({ rect, props: p });
+              const zIndex = overlaySeq++;
+              const toastIdRaw = (p as { id?: unknown }).id;
+              const toastId = typeof toastIdRaw === "string" ? toastIdRaw : "default";
+              const layerId = `toast:${toastId}`;
+              this._pooledCloseOnEscape.set(layerId, false);
+              this._pooledCloseOnBackdrop.set(layerId, false);
+              this.layerRegistry.register({
+                id: layerId,
+                rect,
+                backdrop: "none",
+                modal: false,
+                closeOnEscape: false,
+                zIndex,
+              });
               break;
             }
             case "modal": {
@@ -4966,6 +5170,7 @@ export class WidgetRenderer<S> {
         this._pooledCloseOnEscape.clear();
         this._pooledCloseOnBackdrop.clear();
         this._pooledOnClose.clear();
+        this._pooledDropdownStack.length = 0;
         this._pooledToastContainers.length = 0;
         let overlaySeq = 0;
 
@@ -4977,10 +5182,45 @@ export class WidgetRenderer<S> {
 
           const v = cur.vnode;
           switch (v.kind) {
+            case "dropdown": {
+              const p = v.props as DropdownProps;
+              this._pooledDropdownStack.push(p.id);
+              const rect = this.computeDropdownRect(p) ?? ZERO_RECT;
+              const zIndex = overlaySeq++;
+              const layerId = `dropdown:${p.id}`;
+              const onClose = typeof p.onClose === "function" ? p.onClose : undefined;
+              this._pooledCloseOnEscape.set(layerId, true);
+              this._pooledCloseOnBackdrop.set(layerId, false);
+              if (onClose) this._pooledOnClose.set(layerId, onClose);
+              const layerInput = {
+                id: layerId,
+                rect,
+                backdrop: "none",
+                modal: false,
+                closeOnEscape: true,
+                zIndex,
+              } as const;
+              this.layerRegistry.register(onClose ? { ...layerInput, onClose } : layerInput);
+              break;
+            }
             case "toastContainer": {
               const p = v.props as ToastContainerProps;
               const rect = getRectForInstance(cur.instanceId);
               this._pooledToastContainers.push({ rect, props: p });
+              const zIndex = overlaySeq++;
+              const toastIdRaw = (p as { id?: unknown }).id;
+              const toastId = typeof toastIdRaw === "string" ? toastIdRaw : "default";
+              const layerId = `toast:${toastId}`;
+              this._pooledCloseOnEscape.set(layerId, false);
+              this._pooledCloseOnBackdrop.set(layerId, false);
+              this.layerRegistry.register({
+                id: layerId,
+                rect,
+                backdrop: "none",
+                modal: false,
+                closeOnEscape: false,
+                zIndex,
+              });
               break;
             }
             case "modal": {
@@ -5067,6 +5307,7 @@ export class WidgetRenderer<S> {
         this.closeOnEscapeByLayerId = this._pooledCloseOnEscape;
         this.closeOnBackdropByLayerId = this._pooledCloseOnBackdrop;
         this.onCloseByLayerId = this._pooledOnClose;
+        this.dropdownStack = Object.freeze(this._pooledDropdownStack.slice());
         this.toastContainers = Object.freeze(this._pooledToastContainers.slice());
 
         this._pooledToastActionByFocusId.clear();
