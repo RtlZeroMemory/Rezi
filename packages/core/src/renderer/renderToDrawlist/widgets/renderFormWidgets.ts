@@ -930,9 +930,7 @@ export function renderFormWidgets(
       const disabled = props.disabled === true;
       const value = typeof props.value === "string" ? props.value : "";
       const direction = props.direction === "horizontal" ? "horizontal" : "vertical";
-      const options = Array.isArray(props.options)
-        ? (props.options as readonly SelectOption[])
-        : [];
+      const options = Array.isArray(props.options) ? props.options : [];
       const colorTokens = getColorTokens(theme);
       const dsTone = readWidgetTone(props.dsTone);
       const dsSize = readWidgetSize(props.dsSize) ?? "md";
@@ -941,7 +939,12 @@ export function renderFormWidgets(
       let cx = rect.x;
       let cy = rect.y;
       for (const opt of options) {
-        const selected = opt.value === value;
+        if (typeof opt !== "object" || opt === null) continue;
+        const optionValue = (opt as { value?: unknown }).value;
+        const optionLabel = (opt as { label?: unknown }).label;
+        if (typeof optionValue !== "string" || typeof optionLabel !== "string") continue;
+
+        const selected = optionValue === value;
         const mark = selected ? "(o)" : "( )";
         if (colorTokens !== null) {
           const state = disabled
@@ -966,8 +969,8 @@ export function renderFormWidgets(
             ? resolveFocusedContentStyle(labelBaseStyle, theme, focusConfig)
             : labelBaseStyle;
           builder.drawText(cx, cy, mark, indicatorStyle);
-          if (opt.label.length > 0) {
-            builder.drawText(cx + measureTextCells(mark) + 1, cy, opt.label, labelStyle);
+          if (optionLabel.length > 0) {
+            builder.drawText(cx + measureTextCells(mark) + 1, cy, optionLabel, labelStyle);
           }
         } else {
           const focusStyle = focusVisible ? { underline: true, bold: true } : undefined;
@@ -978,11 +981,11 @@ export function renderFormWidgets(
           const style = focusVisible
             ? resolveFocusedContentStyle(baseStyle, theme, focusConfig)
             : baseStyle;
-          const chunk = `${mark} ${opt.label}`;
+          const chunk = `${mark} ${optionLabel}`;
           builder.drawText(cx, cy, chunk, style);
         }
 
-        const chunk = `${mark} ${opt.label}`;
+        const chunk = `${mark} ${optionLabel}`;
         if (direction === "horizontal") {
           cx += measureTextCells(chunk) + 2;
         } else {

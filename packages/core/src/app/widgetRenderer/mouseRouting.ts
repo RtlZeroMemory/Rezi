@@ -674,12 +674,12 @@ export function routeToastMouseDown(
               ctx.zoneMetaById,
             );
           }
-          toast.action.onAction();
+          invokeCallbackSafely(toast.action.onAction);
           return ROUTE_RENDER;
         }
       }
 
-      tc.props.onDismiss(toast.id);
+      invokeCallbackSafely(tc.props.onDismiss, toast.id);
       return ROUTE_RENDER;
     }
   }
@@ -766,10 +766,8 @@ export function routeVirtualListMouseClick(
         if (idx0 !== null && pressed && pressed.id === targetId) {
           const idx = Math.max(0, Math.min(vlist.items.length - 1, idx0));
           if (idx === pressed.index) {
-            if (vlist.onSelect) {
-              const item = vlist.items[idx];
-              if (item !== undefined) vlist.onSelect(item, idx);
-            }
+            const item = vlist.items[idx];
+            if (item !== undefined) invokeCallbackSafely(vlist.onSelect, item, idx);
             localNeedsRender = true;
           }
         }
@@ -902,7 +900,7 @@ export function routeTableMouseClick(event: ZrevEvent, ctx: RouteTableMouseClick
               });
               if (rowIndex !== prevRow) localNeedsRender = true;
               if (res.changed && typeof table.onSelectionChange === "function") {
-                table.onSelectionChange(res.selection);
+                invokeCallbackSafely(table.onSelectionChange, res.selection);
                 localNeedsRender = true;
               }
 
@@ -928,7 +926,7 @@ export function routeTableMouseClick(event: ZrevEvent, ctx: RouteTableMouseClick
             if (col && col.sortable === true && typeof table.onSort === "function") {
               const nextDirection: "asc" | "desc" =
                 table.sortColumn === col.key && table.sortDirection === "asc" ? "desc" : "asc";
-              table.onSort(col.key, nextDirection);
+              invokeCallbackSafely(table.onSort, col.key, nextDirection);
               localNeedsRender = true;
             }
           }
@@ -950,10 +948,10 @@ export function routeTableMouseClick(event: ZrevEvent, ctx: RouteTableMouseClick
             const row = table.data[rowIndex];
             if (row !== undefined) {
               if (isDouble && typeof table.onRowDoublePress === "function") {
-                table.onRowDoublePress(row, rowIndex);
+                invokeCallbackSafely(table.onRowDoublePress, row, rowIndex);
                 ctx.setLastTableClick(null);
               } else if (typeof table.onRowPress === "function") {
-                table.onRowPress(row, rowIndex);
+                invokeCallbackSafely(table.onRowPress, row, rowIndex);
                 ctx.setLastTableClick(
                   Object.freeze({
                     id: table.id,

@@ -725,17 +725,12 @@ export function routeSelectKeyDown(
   const select = ctx.selectById.get(focusedId);
   if (!select || select.disabled === true || select.options.length <= 0) return null;
 
-  const KEY_UP = 20;
-  const KEY_DOWN = 21;
-  const KEY_ENTER = 2;
-  const KEY_SPACE = 32;
-
   const dir =
-    event.key === KEY_UP
+    event.key === ZR_KEY_UP
       ? -1
-      : event.key === KEY_DOWN
+      : event.key === ZR_KEY_DOWN
         ? 1
-        : event.key === KEY_ENTER || event.key === KEY_SPACE
+        : event.key === ZR_KEY_ENTER || event.key === ZR_KEY_SPACE
           ? 1
           : 0;
 
@@ -767,9 +762,7 @@ export function routeCheckboxKeyDown(
   const checkbox = ctx.checkboxById.get(focusedId);
   if (!checkbox || checkbox.disabled === true || !checkbox.onChange) return null;
 
-  const KEY_ENTER = 2;
-  const KEY_SPACE = 32;
-  if (event.key !== KEY_ENTER && event.key !== KEY_SPACE) return null;
+  if (event.key !== ZR_KEY_ENTER && event.key !== ZR_KEY_SPACE) return null;
 
   const nextChecked = !checkbox.checked;
   checkbox.onChange(nextChecked);
@@ -793,15 +786,11 @@ export function routeRadioGroupKeyDown(
   const radio = ctx.radioGroupById.get(focusedId);
   if (!radio || radio.disabled === true || !radio.onChange) return null;
 
-  const KEY_UP = 20;
-  const KEY_DOWN = 21;
-  const KEY_LEFT = 22;
-  const KEY_RIGHT = 23;
   const isHorizontal = radio.direction === "horizontal";
   const dir =
-    (isHorizontal && event.key === KEY_LEFT) || (!isHorizontal && event.key === KEY_UP)
+    (isHorizontal && event.key === ZR_KEY_LEFT) || (!isHorizontal && event.key === ZR_KEY_UP)
       ? -1
-      : (isHorizontal && event.key === KEY_RIGHT) || (!isHorizontal && event.key === KEY_DOWN)
+      : (isHorizontal && event.key === ZR_KEY_RIGHT) || (!isHorizontal && event.key === ZR_KEY_DOWN)
         ? 1
         : 0;
 

@@ -297,7 +297,7 @@ export function renderIndicatorWidgets(
       const label = readString(props.label) ?? "";
       const showPercent = props.showPercent === true;
       const ownStyle = asTextStyle(props.style, theme);
-      const style = parentStyle;
+      const style = mergeTextStyle(parentStyle, ownStyle);
 
       const variant =
         props.variant === "blocks" ? "blocks" : props.variant === "minimal" ? "minimal" : "bar";
@@ -330,6 +330,7 @@ export function renderIndicatorWidgets(
         recipeResult !== null
           ? mergeTextStyle(parentStyle, recipeResult.track)
           : mergeTextStyle(style, { fg: theme.colors.muted });
+      if (ownStyle) trackStyle = mergeTextStyle(trackStyle, ownStyle);
       if (ownTrackStyle) trackStyle = mergeTextStyle(trackStyle, ownTrackStyle);
       const segments: StyledSegment[] = [];
       if (labelText.length > 0) segments.push({ text: labelText, style });
