@@ -629,7 +629,7 @@ function measureStack(
         const childSizeRes = measureNode(child, cw, ch, axis.axis);
         if (!childSizeRes.ok) return childSizeRes;
         const childMain = mainFromSize(axis, childSizeRes.value);
-        const childCross = align === "stretch" ? crossLimit : crossFromSize(axis, childSizeRes.value);
+        const childCross = crossFromSize(axis, childSizeRes.value);
 
         const wouldOverflow = lineItems > 0 && lineMain + gap + childMain > mainLimit;
         if (wouldOverflow) {
