@@ -1,6 +1,6 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import type { VNode } from "../types.js";
 import { WIDGET_PROTOCOL, getWidgetProtocol } from "../protocol.js";
+import type { VNode } from "../types.js";
 
 const VNODE_KIND_COVERAGE: Record<VNode["kind"], true> = {
   text: true,

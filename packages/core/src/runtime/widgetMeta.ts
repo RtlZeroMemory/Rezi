@@ -16,12 +16,8 @@
  * @see docs/guide/runtime-and-layout.md
  */
 
+import { getWidgetProtocol, kindIsFocusable, kindIsPressable } from "../widgets/protocol.js";
 import type { FocusZoneNavigation } from "../widgets/types.js";
-import {
-  getWidgetProtocol,
-  kindIsFocusable,
-  kindIsPressable,
-} from "../widgets/protocol.js";
 import type { RuntimeInstance } from "./commit.js";
 import type { InstanceId } from "./instance.js";
 
