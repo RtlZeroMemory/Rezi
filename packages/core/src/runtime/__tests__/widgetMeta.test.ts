@@ -125,6 +125,79 @@ test("widgetMeta: slider participates in focusable/enabled metadata", () => {
   assert.equal(enabled.get("s3"), true);
 });
 
+test("widgetMeta: link disabled state is tracked in both enabled collectors", () => {
+  const vnode = ui.column({}, [
+    ui.link({
+      id: "l1",
+      url: "https://example.com/disabled",
+      label: "Disabled",
+      disabled: true,
+      onPress: () => {},
+    }),
+    ui.link({
+      id: "l2",
+      url: "https://example.com/enabled",
+      label: "Enabled",
+      onPress: () => {},
+    }),
+  ]);
+
+  const committed = commitTree(vnode);
+
+  const enabled = collectEnabledMap(committed);
+  assert.equal(enabled.get("l1"), false);
+  assert.equal(enabled.get("l2"), true);
+
+  const allMeta = collectAllWidgetMetadata(committed);
+  assert.equal(allMeta.enabledById.get("l1"), false);
+  assert.equal(allMeta.enabledById.get("l2"), true);
+});
+
+test("widgetMeta: all disableable kinds honor disabled in both enabled collectors", () => {
+  const vnode = ui.column({}, [
+    ui.button({ id: "btn", label: "Button", disabled: true }),
+    ui.link({
+      id: "lnk",
+      url: "https://example.com",
+      label: "Link",
+      disabled: true,
+      onPress: () => {},
+    }),
+    ui.input({ id: "inp", value: "value", disabled: true }),
+    ui.slider({ id: "sld", value: 5, min: 0, max: 10, disabled: true }),
+    ui.select({
+      id: "sel",
+      value: "a",
+      options: [{ value: "a", label: "A" }],
+      disabled: true,
+    }),
+    ui.checkbox({ id: "chk", checked: true, disabled: true }),
+    ui.radioGroup({
+      id: "rad",
+      value: "x",
+      options: [{ value: "x", label: "X" }],
+      disabled: true,
+    }),
+  ]);
+
+  const committed = commitTree(vnode);
+  const expectedDisabledIds = ["btn", "lnk", "inp", "sld", "sel", "chk", "rad"] as const;
+
+  const enabled = collectEnabledMap(committed);
+  for (const id of expectedDisabledIds) {
+    assert.equal(enabled.get(id), false, `collectEnabledMap expected "${id}" disabled`);
+  }
+
+  const allMeta = collectAllWidgetMetadata(committed);
+  for (const id of expectedDisabledIds) {
+    assert.equal(
+      allMeta.enabledById.get(id),
+      false,
+      `collectAllWidgetMetadata expected "${id}" disabled`,
+    );
+  }
+});
+
 test("widgetMeta: collectAllWidgetMetadata produces same results as individual collectors", () => {
   // Complex tree with buttons, inputs, zones, and traps
   const vnode = ui.column({}, [
