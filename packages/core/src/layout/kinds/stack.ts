@@ -118,7 +118,9 @@ function resolveEffectiveAlign(child: VNode, align: EffectiveAlign): EffectiveAl
 }
 
 function childHasAdvancedFlexProps(vnode: unknown): boolean {
-  const props = getConstraintProps(vnode) as Record<string, unknown> | null;
+  const props = getConstraintProps(vnode) as
+    | (Record<string, unknown> & Readonly<{ flexShrink?: unknown; flexBasis?: unknown }>)
+    | null;
   if (!props) return false;
   const rawShrink = props.flexShrink;
   if (typeof rawShrink === "number" && Number.isFinite(rawShrink) && rawShrink > 0) {
@@ -708,7 +710,9 @@ function planConstraintMainSizes(
   for (let i = 0; i < children.length; i++) {
     const child = children[i];
     if (!child || child.kind === "spacer") continue;
-    const props = getConstraintProps(child) as Record<string, unknown> | null;
+    const props = getConstraintProps(child) as
+      | (Record<string, unknown> & Readonly<{ flexShrink?: unknown; flexBasis?: unknown }>)
+      | null;
     if (!props) continue;
     const rawShrink = props.flexShrink;
     const rawBasis = props.flexBasis;
@@ -883,7 +887,8 @@ function planConstraintMainSizes(
       continue;
     }
 
-    const childProps = (getConstraintProps(child) ?? {}) as Record<string, unknown>;
+    const childProps = (getConstraintProps(child) ?? {}) as Record<string, unknown> &
+      Readonly<{ flexBasis?: unknown }>;
     const resolved = resolveLayoutConstraints(childProps as never, parentRect);
 
     const fixedMain = resolved[axis.mainProp];

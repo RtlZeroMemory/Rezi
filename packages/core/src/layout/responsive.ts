@@ -117,7 +117,7 @@ function isResponsiveMap(value: unknown): value is Partial<Record<ViewportBreakp
 
 function isFluidValue(value: unknown): value is FluidValue {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const obj = value as Record<string, unknown>;
+  const obj = value as Readonly<{ kind?: unknown }>;
   return obj.kind === "fluid";
 }
 
