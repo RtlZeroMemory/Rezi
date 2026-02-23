@@ -55,8 +55,7 @@ ui.commandPalette({
 - `maxVisible` accepts non-negative values; `0` hides the results list while keeping the palette input visible.
 - Height is derived from `maxVisible + 4` (frame + input + separator + list rows), then clamped to viewport height.
 - Palette x/y placement is clamped to the viewport (default y target is roughly one-third from top).
-- Item `shortcut` text is currently a hint/display field (and used in query matching),
-  not an auto-registered keybinding.
+- Item `shortcut` text is currently a hint/display field (and used in query matching), not an auto-registered keybinding.
 
 ## Shortcut example
 

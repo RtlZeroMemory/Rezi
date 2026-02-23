@@ -299,12 +299,13 @@ export function renderTextWidgets(
           let line = rawLine;
 
           if (isLastVisible) {
+            const hiddenSuffix = hasHiddenLines && !rawLine.endsWith("…") ? "…" : "";
             switch (textOverflow) {
               case "ellipsis":
-                line = truncateWithEllipsis(hasHiddenLines ? `${rawLine}…` : rawLine, overflowW);
+                line = truncateWithEllipsis(`${rawLine}${hiddenSuffix}`, overflowW);
                 break;
               case "middle":
-                line = truncateMiddle(hasHiddenLines ? `${rawLine}…` : rawLine, overflowW);
+                line = truncateMiddle(`${rawLine}${hiddenSuffix}`, overflowW);
                 break;
               case "clip":
                 break;

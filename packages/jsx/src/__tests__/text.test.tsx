@@ -1,6 +1,6 @@
 /** @jsxImportSource @rezi-ui/jsx */
 
-import { ui } from "@rezi-ui/core";
+import { createTestRenderer, ui } from "@rezi-ui/core";
 import { assert, describe, test } from "@rezi-ui/testkit";
 import {
   Badge,
@@ -37,11 +37,15 @@ describe("text and display widgets", () => {
 
   test("Text forwards wrap for multiline layout", () => {
     const vnode = (
-      <Text wrap maxWidth={8}>
+      <Text wrap maxWidth={4}>
         wrap me
       </Text>
     );
-    assert.deepEqual(vnode, ui.text("wrap me", { wrap: true, maxWidth: 8 }));
+    const rendered = createTestRenderer({ viewport: { cols: 20, rows: 10 } }).render(vnode);
+    assert.ok(rendered.ok);
+    if (!rendered.ok) return;
+    assert.equal(rendered.value.layoutTree.rect.w, 4);
+    assert.equal(rendered.value.layoutTree.rect.h, 2);
   });
 
   test("Text preserves numeric zero and empty string and filters booleans/null", () => {

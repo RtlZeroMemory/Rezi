@@ -112,7 +112,7 @@ Current layout behavior to preserve when editing or generating docs:
 - Stack/box absolute positioning supports `position: "absolute"` + `top/right/bottom/left`.
 - Grid supports explicit placement and spans (`gridColumn`, `gridRow`, `colSpan`, `rowSpan`) with occupancy-aware auto placement.
 - Overlay widgets use constraint-driven sizing (`modal`, `commandPalette`, `toolApprovalDialog`, `toastContainer`).
-- Integer weighted splits use shared deterministic remainder distribution (`distributeInteger`).
+- Integer-weighted splits use shared deterministic remainder distribution (`distributeInteger`).
 - Responsive scalar interpolation supports `fluid(min, max, options?)` and resolves through responsive maps.
 - Stability signatures include: `text`, `button`, `input`, `spacer`, `divider`, `row`, `column`, `box`, `grid`, `table`, `tabs`, `accordion`, `modal`, `virtualList`, `splitPane`, `breadcrumb`, `pagination`, `focusZone`, and `focusTrap`.
 

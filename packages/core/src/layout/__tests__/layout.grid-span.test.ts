@@ -26,7 +26,9 @@ describe("layout grid spans + explicit placement", () => {
   test("colSpan:2 child occupies two columns", () => {
     const tree = ui.grid({ columns: "4 4 4", rows: "2", gap: 0 }, item({ colSpan: 2 }));
     const out = mustLayout(tree);
-    const a = out.children[0]!;
+    const a = out.children[0];
+    assert.ok(a !== undefined);
+    if (!a) return;
     assert.strictEqual(a.rect.x, 0);
     assert.strictEqual(a.rect.y, 0);
     assert.strictEqual(a.rect.w, 8);
@@ -36,7 +38,9 @@ describe("layout grid spans + explicit placement", () => {
   test("rowSpan:2 child occupies two rows", () => {
     const tree = ui.grid({ columns: "4", rows: "2 2 2", gap: 0 }, item({ rowSpan: 2 }));
     const out = mustLayout(tree);
-    const a = out.children[0]!;
+    const a = out.children[0];
+    assert.ok(a !== undefined);
+    if (!a) return;
     assert.strictEqual(a.rect.x, 0);
     assert.strictEqual(a.rect.y, 0);
     assert.strictEqual(a.rect.w, 4);
@@ -49,7 +53,9 @@ describe("layout grid spans + explicit placement", () => {
       item({ gridColumn: 2, gridRow: 1 }),
     );
     const out = mustLayout(tree);
-    const a = out.children[0]!;
+    const a = out.children[0];
+    assert.ok(a !== undefined);
+    if (!a) return;
     assert.strictEqual(a.rect.x, 4);
     assert.strictEqual(a.rect.y, 0);
   });
@@ -63,12 +69,14 @@ describe("layout grid spans + explicit placement", () => {
     );
     const out = mustLayout(tree);
     const [a, b, c] = out.children;
-    assert.strictEqual(a!.rect.x, 0);
-    assert.strictEqual(a!.rect.y, 0);
-    assert.strictEqual(b!.rect.x, 8);
-    assert.strictEqual(b!.rect.y, 0);
-    assert.strictEqual(c!.rect.x, 0);
-    assert.strictEqual(c!.rect.y, 2);
+    assert.ok(a !== undefined && b !== undefined && c !== undefined);
+    if (!a || !b || !c) return;
+    assert.strictEqual(a.rect.x, 0);
+    assert.strictEqual(a.rect.y, 0);
+    assert.strictEqual(b.rect.x, 8);
+    assert.strictEqual(b.rect.y, 0);
+    assert.strictEqual(c.rect.x, 0);
+    assert.strictEqual(c.rect.y, 2);
   });
 
   test("mixed explicit + auto placement preserves child order and placement", () => {
@@ -80,12 +88,14 @@ describe("layout grid spans + explicit placement", () => {
     );
     const out = mustLayout(tree);
     const [a, b, c] = out.children;
-    assert.strictEqual(a!.rect.x, 0);
-    assert.strictEqual(a!.rect.y, 0);
-    assert.strictEqual(b!.rect.x, 4);
-    assert.strictEqual(b!.rect.y, 0);
-    assert.strictEqual(c!.rect.x, 8);
-    assert.strictEqual(c!.rect.y, 0);
+    assert.ok(a !== undefined && b !== undefined && c !== undefined);
+    if (!a || !b || !c) return;
+    assert.strictEqual(a.rect.x, 0);
+    assert.strictEqual(a.rect.y, 0);
+    assert.strictEqual(b.rect.x, 4);
+    assert.strictEqual(b.rect.y, 0);
+    assert.strictEqual(c.rect.x, 8);
+    assert.strictEqual(c.rect.y, 0);
   });
 
   test("colSpan exceeding column count clamps to remaining columns", () => {
@@ -94,7 +104,9 @@ describe("layout grid spans + explicit placement", () => {
       item({ gridColumn: 3, colSpan: 99 }),
     );
     const out = mustLayout(tree);
-    const a = out.children[0]!;
+    const a = out.children[0];
+    assert.ok(a !== undefined);
+    if (!a) return;
     assert.strictEqual(a.rect.x, 8);
     assert.strictEqual(a.rect.w, 4);
   });

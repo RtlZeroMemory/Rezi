@@ -486,11 +486,11 @@ function splitWordByWidth(word: string, maxWidth: number): string[] {
 }
 
 /**
- * Wrap text to lines at `maxWidth` cells using greedy word wrapping.
+ * Wrap text to lines at `maxWidth` cells using greedy token wrapping.
  *
  * - Splits paragraphs on `\n`
- * - Splits words on whitespace (collapsed)
- * - Hard-breaks words wider than `maxWidth` at grapheme boundaries
+ * - Preserves whitespace runs within each paragraph
+ * - Hard-breaks overlong tokens at grapheme boundaries
  */
 export function wrapTextToLines(text: string, maxWidth: number): readonly string[] {
   if (text.length === 0 || maxWidth <= 0) return Object.freeze([]);
@@ -504,8 +504,8 @@ export function wrapTextToLines(text: string, maxWidth: number): readonly string
       continue;
     }
 
-    const words = paragraph.split(/\s+/).filter((word) => word.length > 0);
-    if (words.length === 0) {
+    const tokens = paragraph.match(/[^\s]+|\s+/g);
+    if (!tokens || tokens.length === 0) {
       lines.push("");
       continue;
     }
@@ -513,49 +513,45 @@ export function wrapTextToLines(text: string, maxWidth: number): readonly string
     let line = "";
     let lineWidth = 0;
 
-    for (let i = 0; i < words.length; i++) {
-      const word = words[i] ?? "";
-      const wordWidth = measureTextCells(word);
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i] ?? "";
+      const tokenWidth = measureTextCells(token);
 
-      if (wordWidth > maxWidth) {
-        if (lineWidth > 0) {
-          lines.push(line);
-          line = "";
-          lineWidth = 0;
+      if (lineWidth + tokenWidth <= maxWidth) {
+        line += token;
+        lineWidth += tokenWidth;
+        continue;
+      }
+
+      if (tokenWidth <= maxWidth) {
+        if (lineWidth > 0 || line.length > 0) lines.push(line);
+        line = token;
+        lineWidth = tokenWidth;
+        continue;
+      }
+
+      if (lineWidth > 0 || line.length > 0) {
+        lines.push(line);
+        line = "";
+        lineWidth = 0;
+      }
+
+      const chunks = splitWordByWidth(token, maxWidth);
+      for (let j = 0; j < chunks.length; j++) {
+        const chunk = chunks[j] ?? "";
+        const chunkWidth = measureTextCells(chunk);
+        if (lineWidth + chunkWidth <= maxWidth) {
+          line += chunk;
+          lineWidth += chunkWidth;
+          continue;
         }
-        const chunks = splitWordByWidth(word, maxWidth);
-        for (let j = 0; j < chunks.length; j++) {
-          const chunk = chunks[j] ?? "";
-          const chunkWidth = measureTextCells(chunk);
-          const isLastChunk = j === chunks.length - 1;
-          if (isLastChunk) {
-            line = chunk;
-            lineWidth = chunkWidth;
-          } else {
-            lines.push(chunk);
-          }
-        }
-        continue;
+        if (lineWidth > 0 || line.length > 0) lines.push(line);
+        line = chunk;
+        lineWidth = chunkWidth;
       }
-
-      if (lineWidth === 0) {
-        line = word;
-        lineWidth = wordWidth;
-        continue;
-      }
-
-      if (lineWidth + 1 + wordWidth <= maxWidth) {
-        line = `${line} ${word}`;
-        lineWidth += 1 + wordWidth;
-        continue;
-      }
-
-      lines.push(line);
-      line = word;
-      lineWidth = wordWidth;
     }
 
-    if (lineWidth > 0) {
+    if (lineWidth > 0 || line.length > 0) {
       lines.push(line);
     }
   }
@@ -566,7 +562,10 @@ export function wrapTextToLines(text: string, maxWidth: number): readonly string
 /**
  * Measure wrapped text in terminal cells.
  */
-export function measureTextWrapped(text: string, maxWidth: number): { width: number; height: number } {
+export function measureTextWrapped(
+  text: string,
+  maxWidth: number,
+): { width: number; height: number } {
   const lines = wrapTextToLines(text, maxWidth);
   if (lines.length === 0) return { width: 0, height: 0 };
   let maxLineWidth = 0;

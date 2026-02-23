@@ -81,6 +81,21 @@ describe("layout absolute positioning", () => {
     assert.deepEqual(findChildRect(out, abs), { x: 2, y: 1, w: 7, h: 4 });
   });
 
+  test('absolute width/height support "%" constraints', () => {
+    const abs = ui.box(
+      { border: "none", position: "absolute", top: 0, left: 0, width: "50%", height: "30%" },
+      [],
+    );
+    const out = mustRow([abs]);
+    assert.deepEqual(findChildRect(out, abs), { x: 0, y: 0, w: 20, h: 3 });
+  });
+
+  test('absolute width/height support "full" constraints', () => {
+    const abs = ui.box({ border: "none", position: "absolute", width: "full", height: "full" }, []);
+    const out = mustRow([abs]);
+    assert.deepEqual(findChildRect(out, abs), { x: 0, y: 0, w: 40, h: 10 });
+  });
+
   test("invalid position value propagates layout error", () => {
     const malformed = ui.box({ border: "none", width: 3, height: 2 }, []);
     (malformed.props as { position?: unknown }).position = "absoulte";
