@@ -12,7 +12,7 @@ Rezi is a runtime-agnostic TypeScript TUI framework. Monorepo with `npm` workspa
 |---------|------|---------|
 | `@rezi-ui/core` | `packages/core/` | Runtime-agnostic core framework |
 | `@rezi-ui/node` | `packages/node/` | Node.js backend (terminal I/O) |
-| `@rezi-ui/jsx` | `packages/jsx/` | JSX transform layer |
+| `@rezi-ui/jsx` | `packages/jsx/` | JSX runtime layer with `ui.*` parity |
 | `@rezi-ui/native` | `packages/native/` | Native engine bindings |
 | `@rezi-ui/testkit` | `packages/testkit/` | Test utilities |
 | `create-rezi` | `packages/create-rezi/` | Project scaffolding CLI |
@@ -93,6 +93,15 @@ These boundaries are strict. Violating them breaks the runtime-agnostic guarante
 - `@rezi-ui/core` MUST NOT import from `@rezi-ui/node`, `@rezi-ui/jsx`, or `@rezi-ui/native`
 - `@rezi-ui/node` imports from `@rezi-ui/core` only
 - `@rezi-ui/jsx` imports from `@rezi-ui/core` only
+
+### Cross-Cutting Concern: JSX Parity
+
+When core widget APIs change, JSX must be updated in the same change set.
+
+- Any new/changed `ui.*` factory in `packages/core/src/widgets/ui.ts` must be mirrored in `packages/jsx/src/components.ts`.
+- Keep JSX props/intrinsics in sync in `packages/jsx/src/types.ts` and `packages/jsx/src/createElement.ts`.
+- JSX components should delegate to `ui.*()` factories instead of constructing raw VNodes directly.
+- Update JSX exports (`packages/jsx/src/index.ts`), tests (`packages/jsx/src/__tests__/`), and docs (`docs/getting-started/jsx.md`, `docs/packages/jsx.md`, `packages/jsx/README.md`) together.
 
 ### Drawlist writer codegen guardrail (MUST for ZRDL command changes)
 

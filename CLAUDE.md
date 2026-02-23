@@ -208,6 +208,36 @@ import { useTransition, useSpring, useSequence, useStagger, useTable, useModalSt
 const node: VNode = { kind: "text", text: "hello", props: {} };
 ```
 
+### JSX Alternative
+
+The `@rezi-ui/jsx` package provides JSX syntax as an alternative to `ui.*()`:
+
+```tsx
+import { Button, Page, Panel, Text } from "@rezi-ui/jsx";
+
+const view = (state: AppState) => (
+  <Page
+    p={1}
+    gap={1}
+    body={
+      <Panel title="Counter">
+        <Text variant="heading">Count: {state.count}</Text>
+        <Button id="inc" label="+1" intent="primary" />
+      </Panel>
+    }
+  />
+);
+```
+
+Setup requires `"jsx": "react-jsx"` and `"jsxImportSource": "@rezi-ui/jsx"` in `tsconfig.json`.
+
+All `ui.*` functions have JSX equivalents and matching props. Design system props (`intent`, `dsVariant`, `dsTone`, `dsSize`) behave identically in both APIs.
+
+- Composition helpers: `<Page>`, `<AppShell>`, `<Panel>`, `<Card>`, `<Form>`, `<Actions>`, `<Center>`, `<Toolbar>`, `<StatusBar>`, `<Header>`, `<Sidebar>`, `<MasterDetail>`
+- Use `show()`, `when()`, `match()`, `maybe()` from core for conditionals
+- Use `each()`, `eachInline()` from core for lists
+- `defineWidget()` works with JSX return values
+
 ## Conditional and List Rendering
 
 ```typescript

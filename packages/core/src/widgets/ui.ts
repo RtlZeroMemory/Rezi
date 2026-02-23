@@ -66,6 +66,7 @@ import type {
   MasterDetailOptions,
   MiniChartProps,
   ModalProps,
+  PageOptions,
   PaginationProps,
   PanelGroupProps,
   ProgressProps,
@@ -123,16 +124,8 @@ type CenterOptions = Readonly<{
   key?: string;
   p?: ColumnProps["p"];
 }>;
-type PageOptions = Readonly<{
-  id?: string;
-  key?: string;
-  header?: VNode | null;
-  body: VNode;
-  footer?: VNode | null;
-  gap?: ColumnProps["gap"];
-  p?: ColumnProps["p"];
-}>;
 type KeybindingHelpOptions = Readonly<{
+  key?: string;
   title?: string;
   emptyText?: string;
   showMode?: boolean;
@@ -481,38 +474,44 @@ function keybindingHelp(
 
   const rows = options.sort === false ? [...bindings] : [...bindings].sort(keybindingComparator);
 
-  return column({ gap: 1 }, [
-    text(title, { style: { bold: true } }),
-    divider({ char: "·" }),
-    rows.length > 0
-      ? column(
-          { gap: 0 },
-          rows.map((binding, i) => {
-            const keyTokens = keybindingSequenceToKbdInput(binding.sequence);
-            const sequenceNode = Array.isArray(keyTokens)
-              ? kbd(keyTokens, { separator: " " })
-              : kbd(keyTokens);
-            const descriptionNode =
-              binding.description === undefined
-                ? text("No description", { dim: true })
-                : text(binding.description);
-            return row(
-              {
-                key: `keybinding-help-${binding.mode}-${binding.sequence}-${String(i)}`,
-                gap: 1,
-                items: "center",
-                wrap: true,
-              },
-              [
-                sequenceNode,
-                showMode ? text(`[${binding.mode}]`, { dim: true }) : null,
-                descriptionNode,
-              ],
-            );
-          }),
-        )
-      : text(emptyText, { dim: true }),
-  ]);
+  return column(
+    {
+      gap: 1,
+      ...(options.key === undefined ? {} : { key: options.key }),
+    },
+    [
+      text(title, { style: { bold: true } }),
+      divider({ char: "·" }),
+      rows.length > 0
+        ? column(
+            { gap: 0 },
+            rows.map((binding, i) => {
+              const keyTokens = keybindingSequenceToKbdInput(binding.sequence);
+              const sequenceNode = Array.isArray(keyTokens)
+                ? kbd(keyTokens, { separator: " " })
+                : kbd(keyTokens);
+              const descriptionNode =
+                binding.description === undefined
+                  ? text("No description", { dim: true })
+                  : text(binding.description);
+              return row(
+                {
+                  key: `keybinding-help-${binding.mode}-${binding.sequence}-${String(i)}`,
+                  gap: 1,
+                  items: "center",
+                  wrap: true,
+                },
+                [
+                  sequenceNode,
+                  showMode ? text(`[${binding.mode}]`, { dim: true }) : null,
+                  descriptionNode,
+                ],
+              );
+            }),
+          )
+        : text(emptyText, { dim: true }),
+    ],
+  );
 }
 
 /**

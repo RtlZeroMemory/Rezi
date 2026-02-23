@@ -254,6 +254,7 @@ nav:
       - Releasing: dev/releasing.md
       - Docs: dev/docs.md
       - Style Guide: dev/style-guide.md
+      - JSX Internals: dev/jsx-internals.md
       - Maintaining Docs: maintainers.md
   - Reference:
       - Benchmarks: benchmarks.md
