@@ -39,7 +39,7 @@ export type ZrevKeyAction = "down" | "up" | "repeat";
 
 /**
  * Mouse event kind enumeration (matches ZREV binary values).
- *   1 = move, 2 = press, 3 = release, 4 = drag, 5 = scroll
+ *   1 = move, 2 = drag, 3 = down, 4 = up, 5 = wheel
  */
 export type ZrevMouseKind = 1 | 2 | 3 | 4 | 5;
 
