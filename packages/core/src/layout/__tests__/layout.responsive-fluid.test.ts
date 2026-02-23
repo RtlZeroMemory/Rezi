@@ -1,7 +1,11 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import { fluid, ui } from "../../index.js";
 import { layout } from "../layout.js";
-import { getResponsiveViewport, resolveResponsiveValue, setResponsiveViewport } from "../responsive.js";
+import {
+  getResponsiveViewport,
+  resolveResponsiveValue,
+  setResponsiveViewport,
+} from "../responsive.js";
 
 function withViewport(width: number, height: number, run: () => void): void {
   const prev = getResponsiveViewport();
