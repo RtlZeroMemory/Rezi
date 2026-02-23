@@ -36,6 +36,8 @@ export type AppConfig = Readonly<{
   drawlistReuseOutputBuffer?: boolean;
   drawlistEncodedStringCacheCap?: number;
   maxFramesInFlight?: number;
+  /** Theme interpolation frame count for setTheme(). 0 disables transitions (default). */
+  themeTransitionFrames?: number;
   internal_onRender?: (metrics: AppRenderMetrics) => void;
   internal_onLayout?: (snapshot: AppLayoutSnapshot) => void;
 }>;

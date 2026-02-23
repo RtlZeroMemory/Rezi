@@ -137,6 +137,7 @@ import {
   createWidgetMetadataCollector,
 } from "../runtime/widgetMeta.js";
 import { DEFAULT_TERMINAL_PROFILE, type TerminalProfile } from "../terminalProfile.js";
+import { getColorTokens } from "../theme/extract.js";
 import type { Theme } from "../theme/theme.js";
 import { deleteRange, getSelectedText, insertText } from "../widgets/codeEditor.js";
 import { getHunkScrollPosition, navigateHunk } from "../widgets/diffViewer.js";
@@ -2246,6 +2247,7 @@ export class WidgetRenderer<S> {
 
       if (doCommit) {
         let commitReadViewport = false;
+        const colorTokens = getColorTokens(theme);
         const viewToken = PERF_DETAIL_ENABLED ? perfMarkStart("view") : 0;
         const vnode = viewFn(snapshot);
         if (PERF_DETAIL_ENABLED) perfMarkEnd("view", viewToken);
@@ -2259,6 +2261,9 @@ export class WidgetRenderer<S> {
           composite: {
             registry: this.compositeRegistry,
             appState: snapshot,
+            colorTokens,
+            theme,
+            getColorTokens,
             viewport: getResponsiveViewport(),
             onInvalidate: () => this.requestView(),
             onUseViewport: () => {

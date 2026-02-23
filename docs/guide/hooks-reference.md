@@ -255,6 +255,37 @@ const UserBadge = defineWidget<{ key?: string }, AppState>((props, ctx) => {
 });
 ```
 
+### `ctx.useTheme`
+
+Access the current theme's semantic design tokens.
+
+**Signature:**
+
+```typescript
+ctx.useTheme(): ColorTokens | null
+```
+
+**Description:**
+
+- Returns `ColorTokens` when semantic tokens are available for the active theme.
+- Returns `null` for legacy themes that do not expose semantic token slots.
+- Intended for recipe-driven custom widgets built with `defineWidget(...)`.
+
+**Example:**
+
+```typescript
+import { defineWidget, recipe, ui } from "@rezi-ui/core";
+
+const ThemedCard = defineWidget<{ title: string; key?: string }>((props, ctx) => {
+  const tokens = ctx.useTheme();
+  if (tokens) {
+    const surface = recipe.surface(tokens, { elevation: 1 });
+    return ui.box({ border: surface.border, style: surface.bg }, [ui.text(props.title)]);
+  }
+  return ui.panel(props.title, [ui.text("legacy theme fallback")]);
+});
+```
+
 ### `ctx.useViewport`
 
 Read the widget's current viewport snapshot.

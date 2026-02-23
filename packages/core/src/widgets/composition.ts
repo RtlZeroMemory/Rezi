@@ -15,6 +15,7 @@
  */
 
 import type { ResponsiveViewportSnapshot } from "../layout/responsive.js";
+import type { ColorTokens } from "../theme/tokens.js";
 import type { VNode } from "./types.js";
 
 /* ========== Widget Context Type ========== */
@@ -101,6 +102,12 @@ export type WidgetContext<State = void> = Readonly<{
    * const userName = ctx.useAppState(s => s.user.name);
    */
   useAppState: <T>(selector: (s: State) => T) => T;
+
+  /**
+   * Read the currently-resolved semantic color tokens for this render.
+   * Returns null when semantic tokens are unavailable for the active theme.
+   */
+  useTheme: () => ColorTokens | null;
 
   /**
    * Read current viewport size and responsive breakpoint.
@@ -340,6 +347,7 @@ export function createWidgetContext<State>(
   appState: State,
   viewport: ResponsiveViewportSnapshot,
   onInvalidate: () => void,
+  colorTokens: ColorTokens | null = null,
 ): WidgetContext<State> {
   return Object.freeze({
     id: (suffix: string) => scopedId(widgetKey, instanceIndex, suffix),
@@ -349,6 +357,7 @@ export function createWidgetContext<State>(
     useMemo: hookContext.useMemo,
     useCallback: hookContext.useCallback,
     useAppState: <T>(selector: (s: State) => T): T => selector(appState),
+    useTheme: () => colorTokens,
     useViewport: () => viewport,
     invalidate: onInvalidate,
   });

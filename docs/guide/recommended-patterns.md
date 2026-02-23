@@ -549,6 +549,64 @@ export const themes = {
 export type ThemeName = keyof typeof themes;
 ```
 
+### Theme-aware composite widgets with `ctx.useTheme()`
+
+Use `ctx.useTheme()` with `recipe.*` when building custom widgets via `defineWidget(...)`:
+
+```typescript
+import { defineWidget, recipe, ui } from "@rezi-ui/core";
+
+const MetricTile = defineWidget<{ label: string; value: string; key?: string }>((props, ctx) => {
+  const tokens = ctx.useTheme();
+  const surface = tokens ? recipe.surface(tokens, { elevation: 1 }) : null;
+
+  return ui.box({ border: surface?.border ?? "single", style: surface?.bg, p: 1 }, [
+    ui.text(props.label, { variant: "caption" }),
+    ui.text(props.value, { variant: "heading" }),
+  ]);
+});
+```
+
+### Scoped theme sections with `ui.themed(...)`
+
+Use `ui.themed(...)` for local palette changes (for example, a lighter sidebar in a dark app):
+
+```typescript
+const appTheme = darkTheme;
+
+ui.row({ gap: 1 }, [
+  ui.themed(
+    {
+      colors: {
+        bg: {
+          base: appTheme.colors.bg.elevated,
+          elevated: appTheme.colors.bg.subtle,
+        },
+        fg: { primary: appTheme.colors.fg.primary },
+      },
+    },
+    [ui.box({ p: 1 }, [ui.text("Light Sidebar")])],
+  ),
+  ui.box({ flex: 1, p: 1 }, [ui.text("Main content keeps the app theme")]),
+]);
+```
+
+### Spacing scale in recipes
+
+When calling recipes directly, pass `theme.spacing` to align component padding with the active theme:
+
+```typescript
+const tokens = ctx.useTheme();
+const appTheme = darkTheme;
+const activeThemeSpacing = appTheme.spacing;
+if (tokens) {
+  const button = recipe.button(tokens, {
+    size: "lg",
+    spacing: activeThemeSpacing,
+  });
+}
+```
+
 ### NO_COLOR Support
 
 `createNodeApp()` automatically detects the `NO_COLOR` environment variable and strips colors from the theme. You do not need to handle this manually.

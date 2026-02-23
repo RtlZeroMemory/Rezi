@@ -296,11 +296,11 @@ function markOccupied(
   for (let dr = 0; dr < rowSpan; dr++) {
     const r = row + dr;
     if (r < 0 || r >= rowCount) continue;
+    const occupiedRow = occupied[r];
+    if (!occupiedRow) continue;
     for (let dc = 0; dc < colSpan; dc++) {
       const c = column + dc;
       if (c < 0 || c >= columnCount) continue;
-      const occupiedRow = occupied[r];
-      if (!occupiedRow) continue;
       occupiedRow[c] = true;
     }
   }

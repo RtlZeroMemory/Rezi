@@ -149,7 +149,10 @@ export function renderTree(
 
     const currentTheme = themeByNode.get(node) ?? theme;
     let renderTheme = currentTheme;
-    if (
+    if (vnode.kind === "themed") {
+      const props = vnode.props as { theme?: unknown };
+      renderTheme = mergeThemeOverride(currentTheme, props.theme);
+    } else if (
       vnode.kind === "row" ||
       vnode.kind === "column" ||
       vnode.kind === "grid" ||
@@ -164,6 +167,33 @@ export function renderTree(
 
     // Depth-first preorder: render node, then its children.
     switch (vnode.kind) {
+      case "themed": {
+        const forceChildrenRender = node.selfDirty;
+        const childCount = Math.min(node.children.length, layoutNode.children.length);
+        for (let i = childCount - 1; i >= 0; i--) {
+          const child = node.children[i];
+          const childLayout = layoutNode.children[i];
+          if (!child || !childLayout) continue;
+          if (skipCleanSubtrees && !forceChildrenRender && !child.dirty) continue;
+          if (
+            damageRect &&
+            !rectIntersects(getRuntimeNodeDamageRect(child, childLayout.rect), damageRect) &&
+            !usesVisibleOverflow(child)
+          ) {
+            continue;
+          }
+          if (forceChildrenRender) {
+            child.dirty = true;
+            child.selfDirty = true;
+          }
+          nodeStack.push(child);
+          styleStack.push(parentStyle);
+          layoutStack.push(childLayout);
+          clipStack.push(currentClip);
+        }
+        break;
+      }
+
       // Containers
       case "row":
       case "column":
@@ -214,6 +244,7 @@ export function renderTree(
         renderNavigationWidget(
           builder,
           rect,
+          renderTheme,
           parentStyle,
           node,
           layoutNode,

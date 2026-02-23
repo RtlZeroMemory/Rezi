@@ -66,6 +66,7 @@ import {
   type TerminalProfile,
   terminalProfileFromCaps,
 } from "../terminalProfile.js";
+import { blendRgb } from "../theme/blend.js";
 import { defaultTheme } from "../theme/defaultTheme.js";
 import { coerceToLegacyTheme } from "../theme/interop.js";
 import type { Theme } from "../theme/theme.js";
@@ -113,6 +114,7 @@ type ResolvedAppConfig = Readonly<{
   drawlistReuseOutputBuffer: boolean;
   drawlistEncodedStringCacheCap: number;
   maxFramesInFlight: number;
+  themeTransitionFrames: number;
   internal_onRender?: ((metrics: AppRenderMetrics) => void) | undefined;
   internal_onLayout?: ((snapshot: AppLayoutSnapshot) => void) | undefined;
 }>;
@@ -134,6 +136,7 @@ const DEFAULT_CONFIG: ResolvedAppConfig = Object.freeze({
   drawlistReuseOutputBuffer: true,
   drawlistEncodedStringCacheCap: 131072,
   maxFramesInFlight: 1,
+  themeTransitionFrames: 0,
   internal_onRender: undefined,
   internal_onLayout: undefined,
 });
@@ -317,6 +320,10 @@ export function resolveAppConfig(config: AppConfig | undefined): ResolvedAppConf
     config.maxFramesInFlight === undefined
       ? DEFAULT_CONFIG.maxFramesInFlight
       : Math.min(4, Math.max(1, requirePositiveInt("maxFramesInFlight", config.maxFramesInFlight)));
+  const themeTransitionFrames =
+    config.themeTransitionFrames === undefined
+      ? DEFAULT_CONFIG.themeTransitionFrames
+      : requireNonNegativeInt("themeTransitionFrames", config.themeTransitionFrames);
   const internal_onRender =
     typeof config.internal_onRender === "function" ? config.internal_onRender : undefined;
   const internal_onLayout =
@@ -333,6 +340,7 @@ export function resolveAppConfig(config: AppConfig | undefined): ResolvedAppConf
     drawlistReuseOutputBuffer,
     drawlistEncodedStringCacheCap,
     maxFramesInFlight,
+    themeTransitionFrames,
     internal_onRender,
     internal_onLayout,
   });
@@ -546,6 +554,38 @@ type CreateAppRoutesOnlyOptions = CreateAppBaseOptions &
     routeHistoryMaxDepth?: number;
   }>;
 
+type ThemeTransitionState = Readonly<{
+  from: Theme;
+  to: Theme;
+  frame: number;
+  totalFrames: number;
+}>;
+
+function blendThemeColors(from: Theme, to: Theme, t: number): Theme {
+  const clampedT = Math.max(0, Math.min(1, t));
+  if (clampedT <= 0) return from;
+  if (clampedT >= 1) return to;
+
+  const colors: Record<string, Theme["colors"][string]> = {};
+  const keys = new Set<string>([...Object.keys(from.colors), ...Object.keys(to.colors)]);
+  for (const key of keys) {
+    const fromColor = from.colors[key];
+    const toColor = to.colors[key];
+    if (fromColor && toColor) {
+      colors[key] = blendRgb(fromColor, toColor, clampedT);
+    } else if (toColor) {
+      colors[key] = toColor;
+    } else if (fromColor) {
+      colors[key] = fromColor;
+    }
+  }
+
+  return Object.freeze({
+    colors: Object.freeze(colors) as Theme["colors"],
+    spacing: to.spacing,
+  });
+}
+
 /**
  * Create a Rezi application instance.
  *
@@ -612,6 +652,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   }
 
   let theme = coerceToLegacyTheme(opts.theme ?? defaultTheme);
+  let themeTransition: ThemeTransitionState | null = null;
   let terminalProfile: TerminalProfile = DEFAULT_TERMINAL_PROFILE;
 
   const sm = new AppStateMachine();
@@ -717,6 +758,45 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     if (!schedule) return;
     if (sm.state !== "Running") return;
     if (scheduler.isScheduled || scheduler.isExecuting) return;
+    scheduler.enqueue({ kind: "renderRequest" });
+  }
+
+  function beginThemeTransition(nextTheme: Theme): void {
+    if (config.themeTransitionFrames <= 0 || sm.state !== "Running" || mode !== "widget") {
+      theme = nextTheme;
+      themeTransition = null;
+      return;
+    }
+
+    themeTransition = Object.freeze({
+      from: theme,
+      to: nextTheme,
+      frame: 0,
+      totalFrames: config.themeTransitionFrames,
+    });
+  }
+
+  function advanceThemeTransitionFrame(): void {
+    const active = themeTransition;
+    if (!active) return;
+    const nextFrame = active.frame + 1;
+    if (nextFrame >= active.totalFrames) {
+      theme = active.to;
+      themeTransition = null;
+      return;
+    }
+    theme = blendThemeColors(active.from, active.to, nextFrame / active.totalFrames);
+    themeTransition = Object.freeze({
+      ...active,
+      frame: nextFrame,
+    });
+  }
+
+  function scheduleThemeTransitionContinuation(): void {
+    if (!themeTransition || sm.state !== "Running") return;
+    // Theme-aware composite widgets resolve recipe styles during commit, so
+    // transition frames must invalidate view/commit, not only render.
+    markDirty(DIRTY_VIEW, false);
     scheduler.enqueue({ kind: "renderRequest" });
   }
 
@@ -1475,6 +1555,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
         (pendingDirtyFlags & DIRTY_LAYOUT) === 0 && (pendingDirtyFlags & DIRTY_VIEW) !== 0,
       nowMs: frameNowMs,
     };
+    advanceThemeTransitionFrame();
 
     const resilientView: ViewFn<S> = (state) => {
       if (topLevelViewError !== null) {
@@ -1519,6 +1600,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     if (plan.layout) consumedDirtyFlags |= DIRTY_LAYOUT;
     if (plan.commit) consumedDirtyFlags |= DIRTY_VIEW;
     clearConsumedDirtyFlags(consumedDirtyFlags, dirtyVersionStart);
+    scheduleThemeTransitionContinuation();
   }
 
   function drainIgnored(items: readonly WorkItem[]): void {
@@ -1733,9 +1815,13 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       if (inCommit) throwCode("ZRUI_REENTRANT_CALL", "setTheme: called during commit");
       if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", updateDuringRenderDetail("setTheme"));
       const nextTheme = coerceToLegacyTheme(next);
-      if (nextTheme === theme) return;
-      theme = nextTheme;
-      requestRenderFromRenderer();
+      if (nextTheme === themeTransition?.to) return;
+      if (nextTheme === theme) {
+        themeTransition = null;
+        return;
+      }
+      beginThemeTransition(nextTheme);
+      requestViewFromRenderer();
     },
 
     debugLayout(enabled?: boolean): boolean {
@@ -1898,6 +1984,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       return p.then(
         () => {
           lifecycleBusy = null;
+          themeTransition = null;
           sm.toStopped();
           settleActiveRun?.();
         },
@@ -1916,6 +2003,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       if (st0 === "Disposed") return;
 
       pollToken++;
+      themeTransition = null;
       try {
         sm.dispose();
       } catch {

@@ -61,6 +61,7 @@ import type {
   TagProps,
   TextProps,
   TextareaProps,
+  ThemeOverrides,
   ToastContainerProps,
   ToolApprovalDialogProps,
   ToolbarOptions,
@@ -160,6 +161,11 @@ export type KeybindingHelpOptions = Readonly<{
 export type BoxJsxProps = WithContainerChildren<BoxProps>;
 export type RowJsxProps = WithContainerChildren<RowProps>;
 export type ColumnJsxProps = WithContainerChildren<ColumnProps>;
+export type ThemedJsxProps = Readonly<{
+  key?: string;
+  theme: ThemeOverrides;
+  children?: JsxChildren;
+}>;
 export type GridJsxProps = WithContainerChildren<GridPropsWithOptionalKey>;
 export type HStackJsxProps = WithContainerChildren<RowProps>;
 export type VStackJsxProps = WithContainerChildren<ColumnProps>;
@@ -267,6 +273,7 @@ export interface ReziIntrinsicElements {
   box: BoxJsxProps;
   row: RowJsxProps;
   column: ColumnJsxProps;
+  themed: ThemedJsxProps;
   grid: GridJsxProps;
   hstack: HStackJsxProps;
   vstack: VStackJsxProps;

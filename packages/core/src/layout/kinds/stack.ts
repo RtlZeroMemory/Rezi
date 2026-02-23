@@ -889,7 +889,7 @@ function planConstraintMainSizes(
       continue;
     }
 
-    const childProps = (getConstraintProps(child) ?? {}) as Record<string, unknown>;
+    const childProps = (getConstraintProps(child) ?? {}) as Record<string, unknown> & FlexPropBag;
     const resolved = resolveLayoutConstraints(childProps as never, parentRect, axis.axis);
 
     const fixedMain = resolved[axis.mainProp];
@@ -901,7 +901,7 @@ function planConstraintMainSizes(
 
     const rawMain = childProps[axis.mainProp];
     const rawMinMain = childProps[axis.minMainProp];
-    const rawFlexBasis = (childProps as FlexPropBag).flexBasis;
+    const rawFlexBasis = childProps.flexBasis;
     const mainPercent = isPercentString(rawMain);
     const flexBasisIsAuto = resolveResponsiveValue(rawFlexBasis) === "auto";
 

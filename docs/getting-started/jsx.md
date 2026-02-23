@@ -70,6 +70,7 @@ All JSX components delegate to the equivalent `ui.*()` factory.
 | `<Box>` | `ui.box()` |
 | `<Row>` | `ui.row()` |
 | `<Column>` | `ui.column()` |
+| `<Themed>` | `ui.themed()` |
 | `<Grid>` | `ui.grid()` |
 | `<HStack>` | `ui.hstack()` |
 | `<VStack>` | `ui.vstack()` |
@@ -209,6 +210,17 @@ Design system props work the same in JSX and `ui.*`.
 ```
 
 For buttons, `intent` is resolved through the same core logic as `ui.button()`.
+
+Scoped subtree overrides are available through `<Themed>`:
+
+```tsx
+<Themed theme={{ colors: { accent: { primary: { r: 255, g: 140, b: 90 } } } }}>
+  <Column gap={1}>
+    <Text>Only this subtree uses the override.</Text>
+    <Button id="scoped" label="Scoped CTA" intent="primary" />
+  </Column>
+</Themed>
+```
 
 ## Layout Patterns in JSX
 

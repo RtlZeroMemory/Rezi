@@ -250,6 +250,61 @@ export function selectShowcase(): VNode {
 }
 
 // ---------------------------------------------------------------------------
+// Scene: Navigation Widgets
+// ---------------------------------------------------------------------------
+
+export function navigationShowcase(): VNode {
+  return ui.column({ gap: 1, p: 1 }, [
+    ui.text("Navigation Widgets", { style: { bold: true } }),
+    ui.divider(),
+    ui.text("Tabs", { style: { dim: true } }),
+    ui.tabs({
+      id: "nav-tabs",
+      tabs: [
+        { key: "overview", label: "Overview", content: ui.text("Overview tab content") },
+        { key: "alerts", label: "Alerts", content: ui.text("Alerts tab content") },
+        { key: "history", label: "History", content: ui.text("History tab content") },
+      ],
+      activeTab: "overview",
+      onChange: () => {},
+      dsVariant: "outline",
+      dsTone: "primary",
+      dsSize: "md",
+    }),
+    ui.text("Accordion", { style: { dim: true } }),
+    ui.accordion({
+      id: "nav-accordion",
+      items: [
+        { key: "one", title: "Section One", content: ui.text("First section content") },
+        { key: "two", title: "Section Two", content: ui.text("Second section content") },
+      ],
+      expanded: ["one"],
+      onChange: () => {},
+      dsVariant: "soft",
+      dsTone: "primary",
+      dsSize: "md",
+    }),
+    ui.row({ gap: 2 }, [
+      ui.breadcrumb({
+        id: "nav-breadcrumb",
+        items: [{ label: "Home" }, { label: "Workspaces" }, { label: "Rezi" }],
+        dsVariant: "ghost",
+        dsTone: "primary",
+      }),
+      ui.spacer({ flex: 1 }),
+      ui.pagination({
+        id: "nav-pagination",
+        page: 2,
+        totalPages: 8,
+        onChange: () => {},
+        dsVariant: "soft",
+        dsTone: "primary",
+      }),
+    ]),
+  ]);
+}
+
+// ---------------------------------------------------------------------------
 // Scene: Table
 // ---------------------------------------------------------------------------
 
@@ -339,6 +394,72 @@ export function modalShowcase(): VNode {
         }),
       ],
     }),
+  ]);
+}
+
+// ---------------------------------------------------------------------------
+// Scene: Scoped Theme Overrides
+// ---------------------------------------------------------------------------
+
+export function themedOverrideShowcase(): VNode {
+  return ui.column({ gap: 1, p: 1 }, [
+    ui.text("Scoped Theme Overrides", { style: { bold: true } }),
+    ui.divider(),
+    ui.text("Global theme content", { style: { dim: true } }),
+    ui.row({ gap: 1 }, [
+      ui.box({ border: "rounded", p: 1, flex: 1 }, [
+        ui.text("App section"),
+        ui.button({ id: "global-cta", label: "Global CTA", intent: "primary" }),
+      ]),
+      ui.themed(
+        {
+          colors: {
+            bg: {
+              base: { r: 238, g: 242, b: 247 },
+              elevated: { r: 232, g: 237, b: 244 },
+              subtle: { r: 220, g: 228, b: 238 },
+            },
+            fg: {
+              primary: { r: 28, g: 36, b: 49 },
+              secondary: { r: 63, g: 78, b: 97 },
+              muted: { r: 99, g: 113, b: 131 },
+              inverse: { r: 245, g: 248, b: 252 },
+            },
+            accent: {
+              primary: { r: 64, g: 120, b: 255 },
+            },
+            border: {
+              subtle: { r: 187, g: 198, b: 213 },
+              default: { r: 157, g: 173, b: 193 },
+            },
+          },
+        },
+        [
+          ui.box({ border: "rounded", p: 1, flex: 1 }, [
+            ui.text("Scoped section"),
+            ui.button({ id: "scoped-cta", label: "Scoped CTA", intent: "primary" }),
+          ]),
+        ],
+      ),
+    ]),
+  ]);
+}
+
+// ---------------------------------------------------------------------------
+// Scene: Theme Transition
+// ---------------------------------------------------------------------------
+
+export function themeTransitionShowcase(): VNode {
+  return ui.column({ gap: 1, p: 1 }, [
+    ui.text("Theme Transition", { style: { bold: true } }),
+    ui.divider(),
+    ui.text("Interactive gallery: press 't' to cycle themes.", { style: { dim: true } }),
+    ui.text("Set AppConfig.themeTransitionFrames > 0 to interpolate between themes."),
+    ui.row({ gap: 2 }, [
+      ui.button({ id: "theme-a", label: "Theme A", intent: "primary" }),
+      ui.button({ id: "theme-b", label: "Theme B", dsVariant: "outline", dsTone: "success" }),
+      ui.button({ id: "theme-c", label: "Theme C", dsVariant: "outline", dsTone: "warning" }),
+    ]),
   ]);
 }
 
@@ -440,6 +561,12 @@ export type Scene = {
 export const scenes: readonly Scene[] = [
   { name: "button-matrix", title: "Button Matrix", navLabel: "Buttons", render: buttonMatrix },
   { name: "input-showcase", title: "Input Showcase", navLabel: "Inputs", render: inputShowcase },
+  {
+    name: "navigation",
+    title: "Navigation Widgets",
+    navLabel: "Nav",
+    render: navigationShowcase,
+  },
   { name: "typography", title: "Typography", navLabel: "Type", render: typographyShowcase },
   {
     name: "surfaces",
@@ -460,6 +587,18 @@ export const scenes: readonly Scene[] = [
   { name: "select", title: "Select Inputs", navLabel: "Select", render: selectShowcase },
   { name: "table", title: "Table", navLabel: "Table", render: tableShowcase },
   { name: "modal", title: "Modal Overlay", navLabel: "Modal", render: modalShowcase },
+  {
+    name: "themed-override",
+    title: "Scoped Theme Overrides",
+    navLabel: "Themed",
+    render: themedOverrideShowcase,
+  },
+  {
+    name: "theme-transition",
+    title: "Theme Transition",
+    navLabel: "Theme FX",
+    render: themeTransitionShowcase,
+  },
   { name: "scrollbars", title: "Scrollbars", navLabel: "Scrollbars", render: scrollbarShowcase },
   { name: "status", title: "Status Indicators", navLabel: "Status", render: statusShowcase },
   { name: "kbd", title: "Keyboard Shortcuts", navLabel: "Keys", render: kbdShowcase },

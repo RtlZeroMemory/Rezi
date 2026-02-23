@@ -8,7 +8,7 @@
  * @see docs/design-system.md
  */
 
-import type { ColorTokens, ThemeDefinition } from "../theme/tokens.js";
+import type { ColorTokens, ThemeDefinition, ThemeSpacingTokens } from "../theme/tokens.js";
 import type { Rgb, TextStyle } from "../widgets/style.js";
 
 // ---------------------------------------------------------------------------
@@ -111,8 +111,20 @@ export type SizeSpacing = Readonly<{
 
 /**
  * Resolve spacing for a widget size.
+ * If theme spacing tokens are provided, widget spacing derives from that scale.
  */
-export function resolveSize(size: WidgetSize): SizeSpacing {
+export function resolveSize(size: WidgetSize, spacingTokens?: ThemeSpacingTokens): SizeSpacing {
+  if (spacingTokens) {
+    switch (size) {
+      case "sm":
+        return { px: spacingTokens.xs, py: 0 };
+      case "md":
+        return { px: spacingTokens.sm, py: 0 };
+      case "lg":
+        return { px: spacingTokens.md, py: spacingTokens.xs };
+    }
+  }
+
   switch (size) {
     case "sm":
       return { px: 1, py: 0 };

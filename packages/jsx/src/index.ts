@@ -79,6 +79,7 @@ export {
   Table,
   Tabs,
   Tag,
+  Themed,
   Text,
   Textarea,
   ToastContainer,
@@ -181,6 +182,7 @@ export type {
   TableJsxProps,
   TabsJsxProps,
   TagJsxProps,
+  ThemedJsxProps,
   TextJsxProps,
   TextareaJsxProps,
   ToastContainerJsxProps,
@@ -191,9 +193,20 @@ export type {
   VirtualListJsxProps,
 } from "./types.js";
 
-export { defineWidget, each, eachInline, match, maybe, rgb, show, when } from "@rezi-ui/core";
+export {
+  defineWidget,
+  each,
+  eachInline,
+  match,
+  maybe,
+  recipe,
+  rgb,
+  show,
+  when,
+} from "@rezi-ui/core";
 
 export type {
+  ColorTokens,
   AccordionItem,
   AppShellOptions,
   BarChartItem,

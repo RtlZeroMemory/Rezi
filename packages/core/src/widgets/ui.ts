@@ -16,6 +16,7 @@ import {
   routerTabs as buildRouterTabs,
 } from "../router/helpers.js";
 import type { RouteDefinition, RouterApi } from "../router/types.js";
+import type { ThemeOverrides } from "../theme/extend.js";
 import { createAccordionWidgetVNode } from "./accordion.js";
 import { createBreadcrumbWidgetVNode } from "./breadcrumb.js";
 import { createPaginationWidgetVNode } from "./pagination.js";
@@ -240,6 +241,10 @@ function column(props: ColumnProps = {}, children: readonly UiChild[] = []): VNo
     props: resolved,
     children: maybeReverseChildren(filtered, resolved.reverse),
   };
+}
+
+function themed(themeOverride: ThemeOverrides, children: readonly UiChild[] = []): VNode {
+  return { kind: "themed", props: { theme: themeOverride }, children: filterChildren(children) };
 }
 
 function grid(props: GridProps, ...children: UiChild[]): VNode {
@@ -1129,6 +1134,7 @@ export const ui = {
   box,
   row,
   column,
+  themed,
   grid,
   vstack,
   hstack,

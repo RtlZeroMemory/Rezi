@@ -17,7 +17,7 @@ import type {
   VirtualListStateStore,
 } from "../../../runtime/localState.js";
 import type { Theme } from "../../../theme/theme.js";
-import { tableRecipe } from "../../../ui/recipes.js";
+import { tableRecipe, treeRecipe } from "../../../ui/recipes.js";
 import { distributeColumnWidths } from "../../../widgets/table.js";
 import { type FlattenedNode, computeNodeState, flattenTree } from "../../../widgets/tree.js";
 import type { TableProps, TreeProps, VirtualListProps } from "../../../widgets/types.js";
@@ -35,7 +35,13 @@ import { measureVNodeSimpleHeight, renderVNodeSimple } from "../simpleVNode.js";
 import { clampNonNegative } from "../spacing.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
 import { mergeTextStyle } from "../textStyle.js";
-import { getColorTokens, readWidgetSize, resolveWidgetFocusStyle } from "../themeTokens.js";
+import {
+  getColorTokens,
+  readWidgetSize,
+  readWidgetTone,
+  readWidgetVariant,
+  resolveWidgetFocusStyle,
+} from "../themeTokens.js";
 import type { TableRenderCache } from "../types.js";
 import { getExpandedSet, getTreePrefixes } from "./files.js";
 import {
@@ -806,6 +812,46 @@ export function renderCollectionWidget(
       nodeStack.push(null);
 
       const focusedTree = focusState.focusedId === props.id;
+      const colorTokens = getColorTokens(theme);
+      const dsVariant = readWidgetVariant(props.dsVariant) ?? "ghost";
+      const dsTone = readWidgetTone(props.dsTone) ?? "default";
+      const dsSize = readWidgetSize(props.dsSize) ?? "md";
+      const treeDefaultRecipe =
+        colorTokens !== null
+          ? treeRecipe(colorTokens, {
+              variant: dsVariant,
+              tone: dsTone,
+              size: dsSize,
+              state: "default",
+            })
+          : null;
+      const treeSelectedRecipe =
+        colorTokens !== null
+          ? treeRecipe(colorTokens, {
+              variant: dsVariant,
+              tone: dsTone,
+              size: dsSize,
+              state: "selected",
+            })
+          : null;
+      const treeFocusedRecipe =
+        colorTokens !== null
+          ? treeRecipe(colorTokens, {
+              variant: dsVariant,
+              tone: dsTone,
+              size: dsSize,
+              state: "focus",
+            })
+          : null;
+      const treeDisabledRecipe =
+        colorTokens !== null
+          ? treeRecipe(colorTokens, {
+              variant: dsVariant,
+              tone: dsTone,
+              size: dsSize,
+              state: "disabled",
+            })
+          : null;
       const showLines = props.showLines !== false;
       const indentSize = props.indentSize ?? 2;
       const prefixes = getTreePrefixes(
@@ -832,13 +878,27 @@ export function renderCollectionWidget(
         const yRow = rect.y + (i - effectiveScrollTop);
         const prefix = prefixes[i] ?? "";
         const prefixW = measureTextCells(prefix);
-        builder.drawText(
-          rect.x,
-          yRow,
-          prefix,
-          mergeTextStyle(parentStyle, { fg: theme.colors.muted }),
+        const rowRecipe = ns.loading
+          ? treeDisabledRecipe
+          : ns.focused
+            ? treeFocusedRecipe
+            : ns.selected
+              ? treeSelectedRecipe
+              : treeDefaultRecipe;
+        const rowBg = rowRecipe?.bg.bg;
+        if (rowBg !== undefined) {
+          builder.fillRect(rect.x, yRow, rect.w, 1, { bg: rowBg });
+        }
+        const prefixStyle = mergeTextStyle(
+          parentStyle,
+          rowRecipe?.prefix ?? { fg: theme.colors.muted },
         );
+        builder.drawText(rect.x, yRow, prefix, prefixStyle);
         const nodeVNode = props.renderNode(fn.node as unknown, fn.depth, ns);
+        let nodeParentStyle = mergeTextStyle(parentStyle, rowRecipe?.node);
+        if (rowBg !== undefined) {
+          nodeParentStyle = mergeTextStyle(nodeParentStyle, { bg: rowBg });
+        }
         renderVNodeSimple(
           builder,
           nodeVNode,
@@ -849,7 +909,7 @@ export function renderCollectionWidget(
           ns.focused,
           tick,
           theme,
-          parentStyle,
+          nodeParentStyle,
         );
       }
 

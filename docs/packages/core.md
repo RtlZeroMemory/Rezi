@@ -244,7 +244,7 @@ await debug.enable({
 |--------|-------------|
 | `createApp` | Create application instance (low-level; for normal apps prefer `createNodeApp` from `@rezi-ui/node`) |
 | `App` | Application interface type |
-| `AppConfig` | Configuration options |
+| `AppConfig` | Configuration options (includes `themeTransitionFrames` for animated `setTheme` interpolation) |
 | `App.replaceView(fn)` | Runtime-safe view swap for widget-mode hot reload workflows |
 | `App.replaceRoutes(routes)` | Runtime-safe route table swap for route-managed hot reload workflows |
 
@@ -252,7 +252,7 @@ await debug.enable({
 
 | Export | Description |
 |--------|-------------|
-| `ui` | Widget factory namespace |
+| `ui` | Widget factory namespace (includes `ui.themed(themeOverride, children)` for scoped theme overrides) |
 | `VNode` | Virtual node type |
 | `*Props` | Widget prop types (TextProps, ButtonProps, etc.) |
 | `tokenizeCodeEditorLine(...)` | Built-in lexical tokenizer for code-editor syntax highlighting |
@@ -270,6 +270,8 @@ await debug.enable({
 | `darkTheme`, `lightTheme`, etc. | Built-in themes |
 | `createThemeDefinition` | Custom theme creation |
 | `ColorTokens` | Theme token types |
+| `recipe` | Design-system recipe namespace (`button`, `input`, `tabs`, `accordion`, `breadcrumb`, `pagination`, `kbd`, `dropdown`, `tree`, `sidebar`, `toolbar`, etc.) |
+| `WidgetContext.useTheme()` | Composite hook to access current `ColorTokens` (or `null` for legacy themes) |
 
 ### Layout
 

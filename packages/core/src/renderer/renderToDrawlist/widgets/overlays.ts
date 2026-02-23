@@ -5,6 +5,7 @@ import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { FocusState } from "../../../runtime/focus.js";
 import type { Theme } from "../../../theme/theme.js";
+import { dropdownRecipe } from "../../../ui/recipes.js";
 import { computeCommandPaletteWindow } from "../../../widgets/commandPalette.js";
 import { TOAST_HEIGHT, TOAST_ICONS, getToastActionFocusId } from "../../../widgets/toast.js";
 import type {
@@ -20,6 +21,12 @@ import { isVisibleRect } from "../indices.js";
 import { clampNonNegative } from "../spacing.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
 import { mergeTextStyle } from "../textStyle.js";
+import {
+  getColorTokens,
+  readWidgetSize,
+  readWidgetTone,
+  readWidgetVariant,
+} from "../themeTokens.js";
 import type { CursorInfo } from "../types.js";
 import {
   focusIndicatorEnabled,
@@ -214,19 +221,56 @@ export function renderOverlayWidget(
           warnDev(`[rezi][overlay] dropdown "${dropdownId}" anchor not found: "${props.anchorId}"`);
         }
       }
+      const colorTokens = getColorTokens(theme);
+      const dsVariant = readWidgetVariant(props.dsVariant) ?? "soft";
+      const dsTone = readWidgetTone(props.dsTone) ?? "default";
+      const dsSize = readWidgetSize(props.dsSize) ?? "md";
+      const dropdownBaseRecipe =
+        colorTokens !== null
+          ? dropdownRecipe(colorTokens, {
+              variant: dsVariant,
+              tone: dsTone,
+              size: dsSize,
+              state: "default",
+            })
+          : null;
+      const dropdownActiveRecipe =
+        colorTokens !== null
+          ? dropdownRecipe(colorTokens, {
+              variant: dsVariant,
+              tone: dsTone,
+              size: dsSize,
+              state: "active-item",
+            })
+          : null;
+      const dropdownDisabledRecipe =
+        colorTokens !== null
+          ? dropdownRecipe(colorTokens, {
+              variant: dsVariant,
+              tone: dsTone,
+              size: dsSize,
+              state: "disabled",
+            })
+          : null;
       const frame = readOverlayFrameColors(props.frameStyle);
-      const dropdownStyle = mergeTextStyle(parentStyle, toOverlaySurfaceStyle(frame));
-      const borderStyle =
-        frame.border !== undefined
-          ? mergeTextStyle(dropdownStyle, { fg: frame.border })
-          : dropdownStyle;
+      const dropdownStyle = mergeTextStyle(
+        mergeTextStyle(parentStyle, dropdownBaseRecipe?.bg),
+        toOverlaySurfaceStyle(frame),
+      );
+      const borderVariant = dropdownBaseRecipe?.border ?? "single";
+      const borderStyle = mergeTextStyle(
+        mergeTextStyle(dropdownStyle, dropdownBaseRecipe?.borderStyle),
+        frame.border !== undefined ? { fg: frame.border } : undefined,
+      );
+      const recipePx = dropdownBaseRecipe?.px ?? 0;
+      const itemPx = Math.max(0, Math.trunc(Number.isFinite(recipePx) ? recipePx : 0));
 
       const items = Array.isArray(props.items) ? props.items : [];
       const selectedIndex = dropdownSelectedIndexById?.get(props.id) ?? 0;
       const dropdownRect = computeDropdownGeometry(props, anchor, viewport);
       if (!dropdownRect || !isVisibleRect(dropdownRect)) break;
 
-      if (frame.background !== undefined) {
+      if (dropdownStyle.bg !== undefined) {
         builder.fillRect(
           dropdownRect.x,
           dropdownRect.y,
@@ -237,12 +281,17 @@ export function renderOverlayWidget(
       }
 
       // Render dropdown border
-      renderBoxBorder(builder, dropdownRect, "single", undefined, "left", borderStyle);
+      if (borderVariant !== "none") {
+        renderBoxBorder(builder, dropdownRect, borderVariant, undefined, "left", borderStyle);
+      }
 
       // Render items
       const cx = dropdownRect.x + 1;
       let cy = dropdownRect.y + 1;
       const cw = clampNonNegative(dropdownRect.w - 2);
+      const contentPx = Math.min(itemPx, Math.floor(cw / 2));
+      const contentX = cx + contentPx;
+      const contentW = clampNonNegative(cw - contentPx * 2);
 
       builder.pushClip(cx, dropdownRect.y + 1, cw, clampNonNegative(dropdownRect.h - 2));
       for (let index = 0; index < items.length; index++) {
@@ -253,7 +302,7 @@ export function renderOverlayWidget(
         }
         if (item.divider) {
           // Render divider
-          builder.drawText(cx, cy, "\u2500".repeat(cw), borderStyle);
+          builder.drawText(contentX, cy, "\u2500".repeat(contentW), borderStyle);
         } else {
           const isSelected = index === selectedIndex;
           const disabled = item.disabled === true;
@@ -261,28 +310,59 @@ export function renderOverlayWidget(
           const shortcut = readString(item.shortcut);
           const shortcutW = shortcut.length > 0 ? measureTextCells(shortcut) : 0;
           const shortcutSlotW = shortcutW > 0 ? shortcutW + 1 : 0;
-          const labelW = Math.max(0, cw - shortcutSlotW);
-          if (isSelected) {
-            builder.fillRect(cx, cy, cw, 1, { bg: theme.colors.secondary });
-          }
+          const labelW = Math.max(0, contentW - shortcutSlotW);
+          if (colorTokens !== null) {
+            const itemRecipe = disabled
+              ? dropdownDisabledRecipe
+              : isSelected
+                ? dropdownActiveRecipe
+                : dropdownBaseRecipe;
+            const itemBg = itemRecipe?.bg.bg;
+            if (itemBg !== undefined) {
+              builder.fillRect(cx, cy, cw, 1, { bg: itemBg });
+            }
+            const itemStyle = mergeTextStyle(dropdownStyle, itemRecipe?.item);
+            builder.drawText(
+              contentX,
+              cy,
+              truncateWithEllipsis(label, labelW > 0 ? labelW : contentW),
+              itemStyle,
+            );
+            if (shortcutW > 0 && contentW > shortcutW) {
+              const shortcutX = contentX + contentW - shortcutW;
+              if (shortcutX > contentX) {
+                const shortcutStyle = mergeTextStyle(itemStyle, itemRecipe?.shortcut);
+                builder.drawText(shortcutX, cy, shortcut, shortcutStyle);
+              }
+            }
+          } else {
+            if (isSelected) {
+              builder.fillRect(cx, cy, cw, 1, { bg: theme.colors.secondary });
+            }
 
-          const style = disabled
-            ? mergeTextStyle(dropdownStyle, { fg: theme.colors.muted })
-            : isSelected
-              ? mergeTextStyle(dropdownStyle, {
-                  fg: frame.background ?? theme.colors.bg,
-                  bold: true,
-                })
-              : dropdownStyle;
-          builder.drawText(cx, cy, truncateWithEllipsis(label, labelW > 0 ? labelW : cw), style);
-          if (shortcutW > 0 && cw > shortcutW) {
-            const shortcutX = cx + cw - shortcutW;
-            if (shortcutX > cx) {
-              const shortcutStyle =
-                isSelected && !disabled
-                  ? mergeTextStyle(dropdownStyle, { fg: theme.colors.info })
-                  : mergeTextStyle(style, { dim: true });
-              builder.drawText(shortcutX, cy, shortcut, shortcutStyle);
+            const style = disabled
+              ? mergeTextStyle(dropdownStyle, { fg: theme.colors.muted })
+              : isSelected
+                ? mergeTextStyle(dropdownStyle, {
+                    fg: frame.background ?? theme.colors.bg,
+                    bold: true,
+                  })
+                : dropdownStyle;
+            builder.drawText(
+              contentX,
+              cy,
+              truncateWithEllipsis(label, labelW > 0 ? labelW : contentW),
+              style,
+            );
+            if (shortcutW > 0 && contentW > shortcutW) {
+              const shortcutX = contentX + contentW - shortcutW;
+              if (shortcutX > contentX) {
+                const shortcutStyle =
+                  isSelected && !disabled
+                    ? mergeTextStyle(dropdownStyle, { fg: theme.colors.info })
+                    : mergeTextStyle(style, { dim: true });
+                builder.drawText(shortcutX, cy, shortcut, shortcutStyle);
+              }
             }
           }
         }

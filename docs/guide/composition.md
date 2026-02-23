@@ -35,6 +35,7 @@ Composite widgets receive a `WidgetContext` with:
 - `useEffect` for post-commit effects with cleanup
 - `useMemo` and `useCallback` for memoization with React-compatible dependency semantics
 - `useAppState` to select a slice of app state
+- `useTheme` to read semantic design tokens (`ColorTokens | null`)
 - `id()` to create scoped IDs for focusable widgets
 - `invalidate()` to request a re-render
 
@@ -54,6 +55,23 @@ const filteredRows = ctx.useMemo(
 );
 
 const onSubmit = ctx.useCallback(() => save(filteredRows), [save, filteredRows]);
+```
+
+## Example: theme-aware custom widget
+
+```typescript
+import { defineWidget, recipe, ui } from "@rezi-ui/core";
+
+const ThemedSummary = defineWidget<{ title: string; value: string; key?: string }>((props, ctx) => {
+  const tokens = ctx.useTheme();
+  const titleStyle = tokens ? recipe.text(tokens, { role: "caption" }) : { dim: true };
+  const valueStyle = tokens ? recipe.text(tokens, { role: "title" }) : { bold: true };
+
+  return ui.box({ border: "rounded", p: 1 }, [
+    ui.text(props.title, { style: titleStyle }),
+    ui.text(props.value, { style: valueStyle }),
+  ]);
+});
 ```
 
 ## Utility hooks
