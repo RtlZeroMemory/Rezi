@@ -1,5 +1,6 @@
 import { assert, test } from "@rezi-ui/testkit";
 import { ZrUiError } from "../../abi.js";
+import { darkTheme } from "../../theme/presets.js";
 import { createApp } from "../createApp.js";
 import { encodeZrevBatchV1, flushMicrotasks, makeBackendBatch } from "./helpers.js";
 import { StubBackend } from "./stubBackend.js";
@@ -54,11 +55,15 @@ test("update() during render throws ZRUI_UPDATE_DURING_RENDER (#57)", async () =
   const app = createApp({ backend, initialState: 0 });
 
   const codes: string[] = [];
+  const details: string[] = [];
   app.draw((g) => {
     try {
       app.update((s) => s);
     } catch (e: unknown) {
-      if (e instanceof ZrUiError) codes.push(e.code);
+      if (e instanceof ZrUiError) {
+        codes.push(e.code);
+        details.push(e.message);
+      }
     }
     g.clear();
   });
@@ -67,6 +72,36 @@ test("update() during render throws ZRUI_UPDATE_DURING_RENDER (#57)", async () =
   await flushMicrotasks(3);
 
   assert.deepEqual(codes, ["ZRUI_UPDATE_DURING_RENDER"]);
+  assert.equal(details.length, 1);
+  assert.equal(details[0]?.includes("update: called during render"), true);
+  assert.equal(details[0]?.includes("Hint:"), true);
+});
+
+test("setTheme() during render throws ZRUI_UPDATE_DURING_RENDER with hint", async () => {
+  const backend = new StubBackend();
+  const app = createApp({ backend, initialState: 0 });
+
+  const codes: string[] = [];
+  const details: string[] = [];
+  app.draw((g) => {
+    try {
+      app.setTheme(darkTheme);
+    } catch (e: unknown) {
+      if (e instanceof ZrUiError) {
+        codes.push(e.code);
+        details.push(e.message);
+      }
+    }
+    g.clear();
+  });
+
+  await app.start();
+  await flushMicrotasks(3);
+
+  assert.deepEqual(codes, ["ZRUI_UPDATE_DURING_RENDER"]);
+  assert.equal(details.length, 1);
+  assert.equal(details[0]?.includes("setTheme: called during render"), true);
+  assert.equal(details[0]?.includes("Hint:"), true);
 });
 
 test("app API calls during commit throw ZRUI_REENTRANT_CALL (#57)", async () => {

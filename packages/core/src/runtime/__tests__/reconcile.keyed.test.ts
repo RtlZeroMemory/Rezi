@@ -277,10 +277,10 @@ describe("reconcileChildren - keyed reconciliation", () => {
     if (res.ok) return;
 
     assert.equal(res.fatal.code, "ZRUI_DUPLICATE_KEY");
-    assert.equal(
-      res.fatal.detail,
-      'duplicate sibling key "dup" under parent instanceId=42 (child indices 0 and 1)',
-    );
+    assert.equal(res.fatal.detail.includes('Duplicate key "dup"'), true);
+    assert.equal(res.fatal.detail.includes("instanceId=42"), true);
+    assert.equal(res.fatal.detail.includes("children=2"), true);
+    assert.equal(res.fatal.detail.includes("child indices 0 and 1"), true);
   });
 
   test("duplicate keyed children in prev list is fatal", () => {
@@ -292,10 +292,10 @@ describe("reconcileChildren - keyed reconciliation", () => {
     if (res.ok) return;
 
     assert.equal(res.fatal.code, "ZRUI_DUPLICATE_KEY");
-    assert.equal(
-      res.fatal.detail,
-      'duplicate sibling key "dup" under parent instanceId=43 (child indices 0 and 1)',
-    );
+    assert.equal(res.fatal.detail.includes('Duplicate key "dup"'), true);
+    assert.equal(res.fatal.detail.includes("instanceId=43"), true);
+    assert.equal(res.fatal.detail.includes("children=2"), true);
+    assert.equal(res.fatal.detail.includes("child indices 0 and 1"), true);
   });
 
   test("large keyed reorder with 25 children reuses all instances", () => {

@@ -25,6 +25,7 @@ import { isVisibleRect } from "../indices.js";
 import { clampNonNegative } from "../spacing.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
 import { mergeTextStyle } from "../textStyle.js";
+import { getColorTokens, resolveWidgetFocusStyle } from "../themeTokens.js";
 import type { CodeEditorRenderCache, DiffRenderCache, LogsConsoleRenderCache } from "../types.js";
 import type { CursorInfo } from "../types.js";
 import {
@@ -177,6 +178,7 @@ export function renderEditorWidget(
       const props = vnode.props as CodeEditorProps;
       const focusConfig = readFocusConfig(props.focusConfig);
       const showFocusIndicator = focusIndicatorEnabled(focusConfig);
+      const colorTokens = getColorTokens(theme);
       const { lines, scrollTop, scrollLeft, cursor } = props;
       const lineNumbers = props.lineNumbers !== false;
       const editorCache = codeEditorRenderCacheById?.get(props.id);
@@ -327,12 +329,13 @@ export function renderEditorWidget(
         if (localY >= 0 && localY < rect.h && localX >= 0 && localX < textW) {
           const cursorLine = lines[cursor.line] ?? "";
           const cursorGlyph = cursorLine.slice(cursor.column, cursor.column + 1) || " ";
+          const widgetFocusStyle = resolveWidgetFocusStyle(colorTokens, true, false);
           const cursorCellStyle = resolveFocusedContentStyle(
             resolveFocusIndicatorStyle(
               parentStyle,
               theme,
               focusConfig,
-              mergeTextStyle(parentStyle, {
+              mergeTextStyle(mergeTextStyle(parentStyle, widgetFocusStyle), {
                 fg: resolveSyntaxThemeColor(theme, "syntax.cursor.fg", theme.colors.bg),
                 bg: resolveSyntaxThemeColor(theme, "syntax.cursor.bg", theme.colors.primary),
                 bold: true,
@@ -767,6 +770,7 @@ export function renderEditorWidget(
       const props = vnode.props as LogsConsoleProps;
       const focusConfig = readFocusConfig(props.focusConfig);
       const focusedStyleOverride = asTextStyle(props.focusedStyle, theme);
+      const colorTokens = getColorTokens(theme);
       const widgetFocused = focusState.focusedId === props.id;
       const showFocusRing = widgetFocused && focusIndicatorEnabled(focusConfig);
       const contentRect = showFocusRing
@@ -783,7 +787,7 @@ export function renderEditorWidget(
           parentStyle,
           theme,
           focusConfig,
-          mergeTextStyle(parentStyle, { fg: theme.colors.info }),
+          mergeTextStyle(parentStyle, resolveWidgetFocusStyle(colorTokens, true, false)),
         );
         if (focusedStyleOverride) {
           ringStyle = mergeTextStyle(ringStyle, focusedStyleOverride);

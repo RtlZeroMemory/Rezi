@@ -48,6 +48,7 @@ export type ReconcileChildrenResult =
   | Readonly<{ ok: false; fatal: ReconcileFatal }>;
 
 type PrevChild = Readonly<{ instanceId: InstanceId; vnode: VNode }>;
+type ReconcileParentInfo = Readonly<{ kind?: string; id?: string }>;
 
 function getVNodeKey(v: VNode): string | undefined {
   const key = (v as { props?: { key?: unknown } }).props?.key;
@@ -85,11 +86,13 @@ function duplicateKeyDetail(
   key: string,
   aIndex: number,
   bIndex: number,
+  childCount: number,
+  parentInfo?: ReconcileParentInfo,
 ): string {
-  // Deterministic, stable detail string (no object dumps, no JSON ordering concerns).
-  return `duplicate sibling key "${key}" under parent instanceId=${String(parentInstanceId)} (child indices ${String(
-    aIndex,
-  )} and ${String(bIndex)})`;
+  const parentKind = typeof parentInfo?.kind === "string" ? parentInfo.kind : "unknown";
+  const parentIdSuffix =
+    typeof parentInfo?.id === "string" && parentInfo.id.length > 0 ? `#${parentInfo.id}` : "";
+  return `Duplicate key "${key}" under parent <${parentKind}${parentIdSuffix}> (instanceId=${String(parentInstanceId)}, children=${String(childCount)}, child indices ${String(aIndex)} and ${String(bIndex)}). Hint: Ensure each() key function returns unique values.`;
 }
 
 function containsAnyKeyInPrevChildren(prevChildren: readonly PrevChild[]): boolean {
@@ -192,6 +195,7 @@ export function reconcileChildren(
   prevChildren: readonly PrevChild[],
   nextVChildren: readonly VNode[],
   allocator: InstanceIdAllocator,
+  parentInfo?: ReconcileParentInfo,
 ): ReconcileChildrenResult {
   const prevContainsKeys = containsAnyKeyInPrevChildren(prevChildren);
   const nextContainsKeys = containsAnyKeyInNextChildren(nextVChildren);
@@ -215,7 +219,14 @@ export function reconcileChildren(
           ok: false,
           fatal: {
             code: "ZRUI_DUPLICATE_KEY",
-            detail: duplicateKeyDetail(parentInstanceId, slotId.slice(2), existing, i),
+            detail: duplicateKeyDetail(
+              parentInstanceId,
+              slotId.slice(2),
+              existing,
+              i,
+              prevChildren.length,
+              parentInfo,
+            ),
           },
         };
       }
@@ -243,7 +254,14 @@ export function reconcileChildren(
           ok: false,
           fatal: {
             code: "ZRUI_DUPLICATE_KEY",
-            detail: duplicateKeyDetail(parentInstanceId, key, existing, nextIndex),
+            detail: duplicateKeyDetail(
+              parentInstanceId,
+              key,
+              existing,
+              nextIndex,
+              nextVChildren.length,
+              parentInfo,
+            ),
           },
         };
       }

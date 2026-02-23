@@ -16,7 +16,15 @@ export type EasingName =
   | "easeInOutQuad"
   | "easeInCubic"
   | "easeOutCubic"
-  | "easeInOutCubic";
+  | "easeInOutCubic"
+  | "easeInExpo"
+  | "easeOutExpo"
+  | "easeInOutExpo"
+  | "easeInBack"
+  | "easeOutBack"
+  | "easeInOutBack"
+  | "easeOutBounce"
+  | "easeInBounce";
 
 /** Easing value accepted by transition APIs. */
 export type EasingInput = EasingName | EasingFunction;
@@ -27,6 +35,8 @@ export type TransitionConfig = Readonly<{
   duration?: number;
   /** Easing curve name or custom easing function. */
   easing?: EasingInput;
+  /** Called when the transition reaches the target value. */
+  onComplete?: () => void;
 }>;
 
 /** Spring simulation configuration. */
@@ -43,6 +53,8 @@ export type SpringConfig = Readonly<{
   restSpeed?: number;
   /** Maximum integration step in milliseconds. */
   maxDeltaMs?: number;
+  /** Called when the spring settles at rest. */
+  onComplete?: () => void;
 }>;
 
 /** Internal normalized spring config with defaults applied. */
@@ -75,6 +87,8 @@ export type SequenceConfig = Readonly<{
   easing?: EasingInput;
   /** Loop sequence timeline when it reaches the end. */
   loop?: boolean;
+  /** Called when the sequence reaches the final keyframe (when not looping). */
+  onComplete?: () => void;
 }>;
 
 /** Staggered list animation configuration. */
@@ -85,4 +99,6 @@ export type StaggerConfig = Readonly<{
   duration?: number;
   /** Easing curve applied to each item's local progress. */
   easing?: EasingInput;
+  /** Called when all item progress values reach 1.0. */
+  onComplete?: () => void;
 }>;

@@ -215,6 +215,24 @@ function invalid(detail: string): LayoutResult<never> {
   return { ok: false, fatal: { code: "ZRUI_INVALID_PROPS", detail } };
 }
 
+function describeReceivedType(value: unknown): string {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  return typeof value;
+}
+
+function invalidProp(
+  kind: string,
+  name: string,
+  expected: string,
+  received: unknown,
+): LayoutResult<never> {
+  return invalid(
+    `Invalid prop "${name}" on <${kind}>: expected ${expected}, ` +
+      `got ${describeReceivedType(received)} (${String(received)})`,
+  );
+}
+
 const I32_MIN = -2147483648;
 const I32_MAX = 2147483647;
 
@@ -390,13 +408,14 @@ function requireOverflow(
 
 function parsePercent(kind: string, name: string, raw: string): LayoutResult<`${number}%`> {
   if (raw === "auto" || raw === "full") {
-    return invalid(`${kind}.${name} must be a number | "<n>%" | "full" | "auto"`);
+    return invalidProp(kind, name, 'number | "<n>%" | "full" | "auto"', raw);
   }
   const m = /^(\d+(?:\.\d+)?)%$/.exec(raw);
-  if (!m) return invalid(`${kind}.${name} must be a number | "<n>%" | "full" | "auto"`);
+  if (!m) return invalidProp(kind, name, 'number | "<n>%" | "full" | "auto"', raw);
   const n = Number.parseFloat(m[1] ?? "");
-  if (!Number.isFinite(n) || n < 0)
-    return invalid(`${kind}.${name} must be a number | "<n>%" | "full" | "auto"`);
+  if (!Number.isFinite(n) || n < 0) {
+    return invalidProp(kind, name, 'number | "<n>%" | "full" | "auto"', raw);
+  }
   return { ok: true, value: raw as `${number}%` };
 }
 
@@ -418,18 +437,18 @@ function requireSizeConstraint(
     }
     const parsed = parseCoercedInt(normalized);
     if (parsed === undefined || parsed < 0 || parsed > I32_MAX) {
-      return invalid(`${kind}.${name} must be a number | "<n>%" | "full" | "auto"`);
+      return invalidProp(kind, name, 'number | "<n>%" | "full" | "auto"', resolved);
     }
     return { ok: true, value: parsed };
   }
   if (typeof resolved === "number") {
     const parsed = parseCoercedInt(resolved);
     if (parsed === undefined || parsed < 0 || parsed > I32_MAX) {
-      return invalid(`${kind}.${name} must be an int32 >= 0`);
+      return invalidProp(kind, name, "non-negative integer", resolved);
     }
     return { ok: true, value: parsed };
   }
-  return invalid(`${kind}.${name} must be a number | "<n>%" | "full" | "auto"`);
+  return invalidProp(kind, name, 'number | "<n>%" | "full" | "auto"', resolved);
 }
 
 function requireFlex(kind: string, v: unknown): LayoutResult<number | undefined> {

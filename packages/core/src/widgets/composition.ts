@@ -250,6 +250,37 @@ function clearAnimationTimer(ref: { current: ReturnType<typeof setTimeout> | nul
   }
 }
 
+type AnimationCompletionState = {
+  runId: number;
+  completedRunId: number;
+};
+
+function beginAnimationRun(ref: { current: AnimationCompletionState }): number {
+  const nextRunId = ref.current.runId + 1;
+  ref.current.runId = nextRunId;
+  return nextRunId;
+}
+
+function invalidateAnimationRun(ref: { current: AnimationCompletionState }, runId: number): void {
+  if (ref.current.runId === runId) {
+    ref.current.runId = runId + 1;
+  }
+}
+
+function scheduleAnimationCompletion(
+  ref: { current: AnimationCompletionState },
+  runId: number,
+  onCompleteRef: { current: (() => void) | undefined },
+): void {
+  if (ref.current.completedRunId === runId) return;
+  setTimeout(() => {
+    const state = ref.current;
+    if (state.runId !== runId || state.completedRunId === runId) return;
+    state.completedRunId = runId;
+    onCompleteRef.current?.();
+  }, 0);
+}
+
 /**
  * Animate from the current numeric value to `value` over time.
  *
@@ -263,6 +294,9 @@ export function useTransition(
   const [current, setCurrent] = ctx.useState<number>(() => value);
   const timerRef = ctx.useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentRef = ctx.useRef<number>(current);
+  const completionRef = ctx.useRef<AnimationCompletionState>({ runId: 0, completedRunId: 0 });
+  const onCompleteRef = ctx.useRef<(() => void) | undefined>(config.onComplete);
+  onCompleteRef.current = config.onComplete;
   currentRef.current = current;
 
   const durationMs = normalizeDurationMs(config.duration, DEFAULT_TRANSITION_DURATION_MS);
@@ -270,15 +304,28 @@ export function useTransition(
 
   ctx.useEffect(() => {
     clearAnimationTimer(timerRef);
+    const runId = beginAnimationRun(completionRef);
 
     if (!Number.isFinite(value) || !Number.isFinite(currentRef.current)) {
+      const changed = !Object.is(currentRef.current, value);
       setCurrent(value);
-      return;
+      if (changed) {
+        scheduleAnimationCompletion(completionRef, runId, onCompleteRef);
+      }
+      return () => {
+        invalidateAnimationRun(completionRef, runId);
+      };
     }
 
     if (durationMs <= 0 || Object.is(currentRef.current, value)) {
+      const changed = !Object.is(currentRef.current, value);
       setCurrent(value);
-      return;
+      if (changed) {
+        scheduleAnimationCompletion(completionRef, runId, onCompleteRef);
+      }
+      return () => {
+        invalidateAnimationRun(completionRef, runId);
+      };
     }
 
     const from = currentRef.current;
@@ -289,11 +336,13 @@ export function useTransition(
       const elapsedMs = nowMs() - startMs;
       const progress = clamp01(elapsedMs / durationMs);
       const next = interpolateNumber(from, to, easing(progress));
-      setCurrent(next);
       if (progress >= 1) {
+        setCurrent(to);
+        scheduleAnimationCompletion(completionRef, runId, onCompleteRef);
         timerRef.current = null;
         return;
       }
+      setCurrent(next);
       timerRef.current = setTimeout(tick, ANIMATION_FRAME_MS);
     };
 
@@ -301,6 +350,7 @@ export function useTransition(
 
     return () => {
       clearAnimationTimer(timerRef);
+      invalidateAnimationRun(completionRef, runId);
     };
   }, [durationMs, easing, value]);
 
@@ -323,6 +373,9 @@ export function useSpring(
   const velocityRef = ctx.useRef<number>(0);
   const targetRef = ctx.useRef<number>(target);
   const lastStepMsRef = ctx.useRef<number | null>(null);
+  const completionRef = ctx.useRef<AnimationCompletionState>({ runId: 0, completedRunId: 0 });
+  const onCompleteRef = ctx.useRef<(() => void) | undefined>(config.onComplete);
+  onCompleteRef.current = config.onComplete;
   valueRef.current = current;
   targetRef.current = target;
 
@@ -340,18 +393,31 @@ export function useSpring(
 
   ctx.useEffect(() => {
     clearAnimationTimer(timerRef);
+    const runId = beginAnimationRun(completionRef);
     lastStepMsRef.current = nowMs();
 
     if (!Number.isFinite(target) || !Number.isFinite(valueRef.current)) {
       velocityRef.current = 0;
+      const changed = !Object.is(valueRef.current, target);
       setCurrent(target);
-      return;
+      if (changed) {
+        scheduleAnimationCompletion(completionRef, runId, onCompleteRef);
+      }
+      return () => {
+        invalidateAnimationRun(completionRef, runId);
+      };
     }
 
     if (isSpringAtRest(valueRef.current, target, velocityRef.current, springConfig)) {
       velocityRef.current = 0;
-      if (!Object.is(valueRef.current, target)) setCurrent(target);
-      return;
+      const changed = !Object.is(valueRef.current, target);
+      if (changed) {
+        setCurrent(target);
+        scheduleAnimationCompletion(completionRef, runId, onCompleteRef);
+      }
+      return () => {
+        invalidateAnimationRun(completionRef, runId);
+      };
     }
 
     const tick = () => {
@@ -366,11 +432,13 @@ export function useSpring(
         springConfig,
       );
       velocityRef.current = step.velocity;
-      setCurrent(step.value);
       if (step.done) {
+        setCurrent(step.value);
+        scheduleAnimationCompletion(completionRef, runId, onCompleteRef);
         timerRef.current = null;
         return;
       }
+      setCurrent(step.value);
       timerRef.current = setTimeout(tick, ANIMATION_FRAME_MS);
     };
 
@@ -378,6 +446,7 @@ export function useSpring(
 
     return () => {
       clearAnimationTimer(timerRef);
+      invalidateAnimationRun(completionRef, runId);
     };
   }, [springConfig, target]);
 
@@ -393,6 +462,9 @@ export function useSequence(
   config: UseSequenceConfig = {},
 ): number {
   const timerRef = ctx.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completionRef = ctx.useRef<AnimationCompletionState>({ runId: 0, completedRunId: 0 });
+  const onCompleteRef = ctx.useRef<(() => void) | undefined>(config.onComplete);
+  onCompleteRef.current = config.onComplete;
   const signature = ctx.useMemo(() => {
     const parts: string[] = [];
     for (const frame of keyframes) {
@@ -422,10 +494,16 @@ export function useSequence(
 
   ctx.useEffect(() => {
     clearAnimationTimer(timerRef);
+    const runId = beginAnimationRun(completionRef);
 
     if (sequence.segments.length === 0) {
       setCurrent(sequence.initialValue);
-      return;
+      if (config.loop !== true) {
+        scheduleAnimationCompletion(completionRef, runId, onCompleteRef);
+      }
+      return () => {
+        invalidateAnimationRun(completionRef, runId);
+      };
     }
 
     const loop = config.loop === true;
@@ -434,11 +512,13 @@ export function useSequence(
     const tick = () => {
       const elapsedMs = nowMs() - startMs;
       const sample = sampleSequence(sequence, elapsedMs, loop);
-      setCurrent(sample.value);
       if (sample.done && !loop) {
+        setCurrent(sample.value);
+        scheduleAnimationCompletion(completionRef, runId, onCompleteRef);
         timerRef.current = null;
         return;
       }
+      setCurrent(sample.value);
       timerRef.current = setTimeout(tick, ANIMATION_FRAME_MS);
     };
 
@@ -446,6 +526,7 @@ export function useSequence(
 
     return () => {
       clearAnimationTimer(timerRef);
+      invalidateAnimationRun(completionRef, runId);
     };
   }, [config.loop, sequence]);
 
@@ -471,6 +552,9 @@ export function useStagger<T>(
   config: UseStaggerConfig = {},
 ): readonly number[] {
   const timerRef = ctx.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completionRef = ctx.useRef<AnimationCompletionState>({ runId: 0, completedRunId: 0 });
+  const onCompleteRef = ctx.useRef<(() => void) | undefined>(config.onComplete);
+  onCompleteRef.current = config.onComplete;
   const count = items.length;
   const delayMs = normalizeDurationMs(config.delay, 40);
   const durationMs = normalizeDurationMs(config.duration, 180);
@@ -481,6 +565,7 @@ export function useStagger<T>(
 
   ctx.useEffect(() => {
     clearAnimationTimer(timerRef);
+    const runId = beginAnimationRun(completionRef);
 
     if (count <= 0) {
       setProgresses(Object.freeze([]));
@@ -501,6 +586,7 @@ export function useStagger<T>(
       const frozen = Object.freeze(next);
       setProgresses((prev) => (arraysShallowEqual(prev, frozen) ? prev : frozen));
       if (elapsedMs >= totalDurationMs) {
+        scheduleAnimationCompletion(completionRef, runId, onCompleteRef);
         timerRef.current = null;
         return;
       }
@@ -511,6 +597,7 @@ export function useStagger<T>(
 
     return () => {
       clearAnimationTimer(timerRef);
+      invalidateAnimationRun(completionRef, runId);
     };
   }, [count, delayMs, durationMs, easing]);
 

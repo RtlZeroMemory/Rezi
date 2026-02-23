@@ -41,7 +41,7 @@ test("duplicate Button ids anywhere in the tree trigger deterministic fatal ZRUI
   assert.equal(res.fatal.code, "ZRUI_DUPLICATE_ID");
   assert.equal(
     res.fatal.detail,
-    'duplicate interactive id "dup" on instanceId=4 (already used by instanceId=2)',
+    'Duplicate interactive widget id "dup". First: <button>, second: <button>. Hint: Use ctx.id() inside defineWidget to generate unique IDs for list items.',
   );
 });
 
@@ -57,13 +57,13 @@ test("duplicate advanced widget ids trigger deterministic fatal ZRUI_DUPLICATE_I
   assert.equal(res.fatal.code, "ZRUI_DUPLICATE_ID");
   assert.equal(
     res.fatal.detail,
-    'duplicate interactive id "dup" on instanceId=4 (already used by instanceId=2)',
+    'Duplicate interactive widget id "dup". First: <filePicker>, second: <filePicker>. Hint: Use ctx.id() inside defineWidget to generate unique IDs for list items.',
   );
 });
 
 test("reused interactive id index is cleared at the start of each commit cycle", () => {
   const allocator = createInstanceIdAllocator(1);
-  const interactiveIdIndex = new Map<string, number>();
+  const interactiveIdIndex = new Map<string, string>();
 
   const first = commitVNodeTree(null, column([button("stable")]), {
     allocator,

@@ -166,6 +166,7 @@ export type ThemeSpacingTokens = Readonly<{
 export type FocusIndicatorTokens = Readonly<{
   bold: boolean;
   underline: boolean;
+  focusRingColor?: Rgb;
 }>;
 
 /**

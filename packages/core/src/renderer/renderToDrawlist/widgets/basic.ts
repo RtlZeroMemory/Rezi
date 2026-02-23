@@ -51,7 +51,7 @@ import {
   formatSliderValue,
   normalizeSliderState,
 } from "../../../widgets/slider.js";
-import type { Rgb } from "../../../widgets/style.js";
+import type { TextStyle } from "../../../widgets/style.js";
 import type { GraphicsBlitter, SelectOption } from "../../../widgets/types.js";
 import { asTextStyle, getButtonLabelStyle } from "../../styles.js";
 import { renderBoxBorder } from "../boxBorder.js";
@@ -60,6 +60,7 @@ import { mergeTextStyle, shouldFillForStyleOverride } from "../textStyle.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
 import {
   getColorTokens,
+  resolveWidgetFocusStyle,
   readWidgetSize,
   readWidgetTone,
   readWidgetVariant,
@@ -1248,6 +1249,7 @@ export function renderBasicWidget(
       const label = readString(props.label) ?? "";
       const showValue = props.showValue !== false;
       const value = readNumber(props.value) ?? Number.NaN;
+      const colorTokens = getColorTokens(theme);
       const min = readNumber(props.min);
       const max = readNumber(props.max);
       const step = readNumber(props.step);
@@ -1257,17 +1259,14 @@ export function renderBasicWidget(
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
 
-      let stateStyle: { fg?: Theme["colors"][string]; underline?: true; bold?: true; dim?: true };
+      const focusStyle = resolveWidgetFocusStyle(colorTokens, focused, disabled);
+      let stateStyle: TextStyle;
       if (disabled) {
         stateStyle = { fg: theme.colors.muted };
-      } else if (focused && readOnly) {
-        stateStyle = { underline: true, bold: true, dim: true };
-      } else if (focused) {
-        stateStyle = { underline: true, bold: true };
       } else if (readOnly) {
-        stateStyle = { dim: true };
+        stateStyle = focusStyle ? { ...focusStyle, dim: true } : { dim: true };
       } else {
-        stateStyle = {};
+        stateStyle = focusStyle ?? {};
       }
       const textStyle = mergeTextStyle(style, stateStyle);
 
@@ -1464,10 +1463,11 @@ export function renderBasicWidget(
           builder.popClip();
         }
       } else {
-        const focusStyle = focusVisible ? { underline: true, bold: true } : undefined;
         const baseStyle = mergeTextStyle(
           parentStyle,
-          disabled ? { fg: theme.colors.muted, ...focusStyle } : focusStyle,
+          disabled
+            ? { fg: theme.colors.muted }
+            : resolveWidgetFocusStyle(colorTokens, focusVisible, false),
         );
         const style = focusVisible
           ? resolveFocusedContentStyle(baseStyle, theme, focusConfig)
@@ -1522,10 +1522,11 @@ export function renderBasicWidget(
         }
       } else {
         const text = label.length > 0 ? `${indicator} ${label}` : indicator;
-        const focusStyle = focused ? { underline: true, bold: true } : undefined;
         const style = mergeTextStyle(
           parentStyle,
-          disabled ? { fg: theme.colors.muted, ...focusStyle } : focusStyle,
+          disabled
+            ? { fg: theme.colors.muted }
+            : resolveWidgetFocusStyle(colorTokens, focused, false),
         );
         builder.drawText(rect.x, rect.y, text, style);
       }
@@ -2212,7 +2213,10 @@ export function renderBasicWidget(
       const id = readString(props.id);
       const disabled = props.disabled === true;
       const focused = !disabled && id !== undefined && focusState.focusedId === id;
-      const finalStyle = focused ? mergeTextStyle(styledLink, { bold: true }) : styledLink;
+      const finalStyle = mergeTextStyle(
+        styledLink,
+        resolveWidgetFocusStyle(getColorTokens(theme), focused, disabled),
+      );
 
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
       if (isV3Builder(builder) && !disabled) {

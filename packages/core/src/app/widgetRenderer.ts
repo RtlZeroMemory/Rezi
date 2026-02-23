@@ -38,6 +38,15 @@ import {
 import type { ZrevEvent } from "../events.js";
 import type { VNode, ViewFn } from "../index.js";
 import {
+  buildTrie,
+  matchKey,
+  modsFromBitmask,
+  parseKeySequence,
+  resetChordState,
+  sequenceToString,
+} from "../keybindings/index.js";
+import type { ChordState, KeyBinding, ParsedKey } from "../keybindings/index.js";
+import {
   ZR_KEY_BACKSPACE,
   ZR_KEY_DELETE,
   ZR_KEY_DOWN,
@@ -597,6 +606,26 @@ type ErrorBoundaryState = Readonly<{
   stack?: string;
 }>;
 
+type OverlayShortcutOwner =
+  | Readonly<{ kind: "dropdown"; id: string }>
+  | Readonly<{ kind: "commandPalette"; id: string }>;
+
+type OverlayShortcutTarget =
+  | Readonly<{ kind: "dropdown"; dropdownId: string; itemId: string }>
+  | Readonly<{ kind: "commandPalette"; paletteId: string; itemId: string }>;
+
+type OverlayShortcutContext = Readonly<Record<string, never>>;
+
+type OverlayShortcutBinding = KeyBinding<OverlayShortcutContext> &
+  Readonly<{
+    target: OverlayShortcutTarget;
+    ownerLabel: string;
+    sequenceLabel: string;
+    rawShortcut: string;
+  }>;
+
+function noopOverlayShortcutHandler(_ctx: OverlayShortcutContext): void {}
+
 function isRoutingRelevantKind(kind: WidgetKind): boolean {
   switch (kind) {
     case "button":
@@ -708,6 +737,7 @@ export class WidgetRenderer<S> {
   private readonly breakpointThresholds: ResponsiveBreakpointThresholds;
   private readonly devMode = DEV_LAYOUT_WARNINGS;
   private readonly warnedLayoutIssues = new Set<string>();
+  private readonly warnedShortcutIssues = new Set<string>();
 
   /* --- Committed Tree State --- */
   private committedRoot: RuntimeInstance | null = null;
@@ -885,11 +915,15 @@ export class WidgetRenderer<S> {
   private onCloseByLayerId: ReadonlyMap<string, () => void> = new Map<string, () => void>();
   private dropdownStack: readonly string[] = Object.freeze([]);
   private readonly dropdownSelectedIndexById = new Map<string, number>();
+  private overlayShortcutOwners: readonly OverlayShortcutOwner[] = Object.freeze([]);
+  private readonly overlayShortcutBySequence = new Map<string, OverlayShortcutBinding>();
+  private overlayShortcutTrie = buildTrie<OverlayShortcutContext>(Object.freeze([]));
+  private overlayShortcutChordState: ChordState = resetChordState();
 
   /* --- Pooled Collections (reused per-frame to reduce GC pressure) --- */
   private readonly _metadataCollector: WidgetMetadataCollector = createWidgetMetadataCollector();
   private readonly _pooledRectByInstanceId = new Map<InstanceId, Rect>();
-  private readonly _pooledInteractiveIdIndex = new Map<string, InstanceId>();
+  private readonly _pooledInteractiveIdIndex = new Map<string, string>();
   private readonly _pooledLayoutSigByInstanceId = new Map<InstanceId, number>();
   private readonly _pooledNextLayoutSigByInstanceId = new Map<InstanceId, number>();
   private readonly _pooledChangedRenderInstanceIds: InstanceId[] = [];
@@ -926,6 +960,7 @@ export class WidgetRenderer<S> {
   private readonly _pooledDamageRuntimeStack: RuntimeInstance[] = [];
   private readonly _pooledVisitedTransitionIds = new Set<InstanceId>();
   private readonly _pooledDropdownStack: string[] = [];
+  private readonly _pooledOverlayShortcutOwners: OverlayShortcutOwner[] = [];
   private readonly _pooledToastContainers: { rect: Rect; props: ToastContainerProps }[] = [];
   private readonly _pooledToastFocusableActionIds: string[] = [];
   // Pooled Sets for tracking previous IDs (GC cleanup detection)
@@ -1039,6 +1074,163 @@ export class WidgetRenderer<S> {
     warnDev(`[rezi][layout] ${detail}`);
   }
 
+  private warnShortcutIssue(key: string, detail: string): void {
+    if (!DEV_MODE) return;
+    if (this.warnedShortcutIssues.has(key)) return;
+    this.warnedShortcutIssues.add(key);
+    warnDev(`[rezi][shortcuts] ${detail}`);
+  }
+
+  private selectDropdownShortcutItem(dropdownId: string, itemId: string): boolean {
+    const dropdown = this.dropdownById.get(dropdownId);
+    if (!dropdown) return false;
+
+    const idx = dropdown.items.findIndex((item) => item?.id === itemId);
+    if (idx < 0) return false;
+    const item = dropdown.items[idx];
+    if (!item || item.divider || item.disabled === true) return false;
+
+    this.dropdownSelectedIndexById.set(dropdownId, idx);
+    this.pressedDropdown = null;
+
+    if (dropdown.onSelect) {
+      try {
+        dropdown.onSelect(item);
+      } catch {
+        // Swallow select callback errors to preserve routing determinism.
+      }
+    }
+    if (dropdown.onClose) {
+      try {
+        dropdown.onClose();
+      } catch {
+        // Swallow close callback errors to preserve routing determinism.
+      }
+    }
+    return true;
+  }
+
+  private selectCommandPaletteShortcutItem(paletteId: string, itemId: string): boolean {
+    const palette = this.commandPaletteById.get(paletteId);
+    if (!palette || palette.open !== true) return false;
+
+    const items = this.commandPaletteItemsById.get(paletteId) ?? Object.freeze([]);
+    const item = items.find((entry) => entry?.id === itemId);
+    if (!item || item.disabled === true) return false;
+
+    try {
+      palette.onSelect(item);
+    } catch {
+      // Swallow select callback errors to preserve routing determinism.
+    }
+    try {
+      palette.onClose();
+    } catch {
+      // Swallow close callback errors to preserve routing determinism.
+    }
+    return true;
+  }
+
+  private invokeOverlayShortcutTarget(target: OverlayShortcutTarget): boolean {
+    if (target.kind === "dropdown") {
+      return this.selectDropdownShortcutItem(target.dropdownId, target.itemId);
+    }
+    return this.selectCommandPaletteShortcutItem(target.paletteId, target.itemId);
+  }
+
+  private registerOverlayShortcut(
+    shortcutRaw: string,
+    target: OverlayShortcutTarget,
+    ownerLabel: string,
+  ): void {
+    const parsed = parseKeySequence(shortcutRaw);
+    if (!parsed.ok) return;
+
+    const sequenceLabel = sequenceToString(parsed.value);
+    const existing = this.overlayShortcutBySequence.get(sequenceLabel);
+    if (existing) {
+      this.warnShortcutIssue(
+        `shortcutConflict:${sequenceLabel}`,
+        `Shortcut "${sequenceLabel}" is declared by ${existing.ownerLabel} and ${ownerLabel}. Topmost overlay binding wins.`,
+      );
+    }
+
+    const binding: OverlayShortcutBinding = Object.freeze({
+      sequence: parsed.value,
+      priority: 0,
+      handler: noopOverlayShortcutHandler,
+      target,
+      ownerLabel,
+      sequenceLabel,
+      rawShortcut: shortcutRaw,
+    });
+    this.overlayShortcutBySequence.set(sequenceLabel, binding);
+  }
+
+  private rebuildOverlayShortcutBindings(): void {
+    this.overlayShortcutBySequence.clear();
+    this.overlayShortcutChordState = resetChordState();
+
+    for (const owner of this.overlayShortcutOwners) {
+      if (owner.kind === "dropdown") {
+        const dropdown = this.dropdownById.get(owner.id);
+        if (!dropdown) continue;
+        for (const item of dropdown.items) {
+          if (!item || item.divider || item.disabled === true) continue;
+          const shortcut = item.shortcut?.trim();
+          if (!shortcut) continue;
+          this.registerOverlayShortcut(
+            shortcut,
+            Object.freeze({ kind: "dropdown", dropdownId: owner.id, itemId: item.id }),
+            `dropdown#${owner.id}:${item.id}`,
+          );
+        }
+        continue;
+      }
+
+      const palette = this.commandPaletteById.get(owner.id);
+      if (!palette || palette.open !== true) continue;
+      const items = this.commandPaletteItemsById.get(owner.id) ?? Object.freeze([]);
+      for (const item of items) {
+        if (!item || item.disabled === true) continue;
+        const shortcut = item.shortcut?.trim();
+        if (!shortcut) continue;
+        this.registerOverlayShortcut(
+          shortcut,
+          Object.freeze({ kind: "commandPalette", paletteId: owner.id, itemId: item.id }),
+          `commandPalette#${owner.id}:${item.id}`,
+        );
+      }
+    }
+
+    this.overlayShortcutTrie = buildTrie<OverlayShortcutContext>(
+      Object.freeze([...this.overlayShortcutBySequence.values()]),
+    );
+  }
+
+  private routeOverlayShortcut(event: ZrevEvent): "matched" | "pending" | "none" {
+    if (event.kind !== "key" || event.action !== "down") return "none";
+    if (this.overlayShortcutBySequence.size === 0) {
+      this.overlayShortcutChordState = resetChordState();
+      return "none";
+    }
+
+    const key: ParsedKey = Object.freeze({ key: event.key, mods: modsFromBitmask(event.mods) });
+    const match = matchKey(
+      this.overlayShortcutTrie,
+      this.overlayShortcutChordState,
+      key,
+      event.timeMs,
+    );
+    this.overlayShortcutChordState = match.nextState;
+
+    if (match.result.kind === "pending") return "pending";
+    if (match.result.kind !== "matched") return "none";
+
+    const binding = match.result.binding as OverlayShortcutBinding;
+    return this.invokeOverlayShortcutTarget(binding.target) ? "matched" : "none";
+  }
+
   private emitDevLayoutWarnings(root: LayoutTree, viewport: Viewport): void {
     if (!this.devMode) return;
     this._pooledLayoutStack.length = 0;
@@ -1048,6 +1240,45 @@ export class WidgetRenderer<S> {
       if (!node) continue;
 
       const desc = this.describeLayoutNode(node);
+      const nodeProps = node.vnode.props as
+        | Readonly<{
+            id?: unknown;
+            items?: unknown;
+            data?: unknown;
+          }>
+        | undefined;
+      if (
+        (node.vnode.kind === "button" ||
+          node.vnode.kind === "input" ||
+          node.vnode.kind === "select" ||
+          node.vnode.kind === "checkbox") &&
+        (typeof nodeProps?.id !== "string" || nodeProps.id.length === 0)
+      ) {
+        this.warnLayoutIssue(
+          `missingInteractiveId:${node.vnode.kind}:${node.rect.x}:${node.rect.y}`,
+          `<${node.vnode.kind}> is interactive but missing an id. Hint: Provide a stable id (use ctx.id() in defineWidget for dynamic items).`,
+        );
+      }
+      if (
+        node.vnode.kind === "virtualList" &&
+        Array.isArray(nodeProps?.items) &&
+        nodeProps.items.length === 0
+      ) {
+        this.warnLayoutIssue(
+          `emptyVirtualList:${desc}`,
+          `${desc} rendered with 0 items. Hint: Ensure your data is loaded before rendering virtualList.`,
+        );
+      }
+      if (
+        node.vnode.kind === "table" &&
+        Array.isArray(nodeProps?.data) &&
+        nodeProps.data.length === 0
+      ) {
+        this.warnLayoutIssue(
+          `emptyTable:${desc}`,
+          `${desc} rendered with 0 rows. Hint: Ensure your data is loaded before rendering table.`,
+        );
+      }
       const props = node.vnode.props as
         | Readonly<{
             minWidth?: unknown;
@@ -1567,6 +1798,10 @@ export class WidgetRenderer<S> {
 
     // Overlay routing: dropdown key navigation, layer/modal ESC close, and modal backdrop blocking.
     if (event.kind === "key" && event.action === "down") {
+      const shortcutResult = this.routeOverlayShortcut(event);
+      if (shortcutResult === "matched") return ROUTE_RENDER;
+      if (shortcutResult === "pending") return ROUTE_NO_RENDER;
+
       const topLayerId =
         this.layerStack.length > 0 ? (this.layerStack[this.layerStack.length - 1] ?? null) : null;
       const topDropdownId =
@@ -4870,6 +5105,7 @@ export class WidgetRenderer<S> {
         this._pooledCloseOnBackdrop.clear();
         this._pooledOnClose.clear();
         this._pooledDropdownStack.length = 0;
+        this._pooledOverlayShortcutOwners.length = 0;
         this._pooledToastContainers.length = 0;
         let overlaySeq = 0;
 
@@ -4901,6 +5137,7 @@ export class WidgetRenderer<S> {
                 zIndex,
               } as const;
               this.layerRegistry.register(onClose ? { ...layerInput, onClose } : layerInput);
+              this._pooledOverlayShortcutOwners.push(Object.freeze({ kind: "dropdown", id: p.id }));
               break;
             }
             case "button": {
@@ -4933,6 +5170,9 @@ export class WidgetRenderer<S> {
             case "commandPalette": {
               const p = v.props as CommandPaletteProps;
               this.commandPaletteById.set(p.id, p);
+              this._pooledOverlayShortcutOwners.push(
+                Object.freeze({ kind: "commandPalette", id: p.id }),
+              );
               break;
             }
             case "filePicker": {
@@ -5091,7 +5331,9 @@ export class WidgetRenderer<S> {
         this.closeOnBackdropByLayerId = this._pooledCloseOnBackdrop;
         this.onCloseByLayerId = this._pooledOnClose;
         this.dropdownStack = Object.freeze(this._pooledDropdownStack.slice());
+        this.overlayShortcutOwners = Object.freeze(this._pooledOverlayShortcutOwners.slice());
         this.toastContainers = Object.freeze(this._pooledToastContainers.slice());
+        this.rebuildOverlayShortcutBindings();
 
         // Build toast action maps using pooled collections.
         this._pooledToastActionByFocusId.clear();
@@ -5321,6 +5563,7 @@ export class WidgetRenderer<S> {
         this.onCloseByLayerId = this._pooledOnClose;
         this.dropdownStack = Object.freeze(this._pooledDropdownStack.slice());
         this.toastContainers = Object.freeze(this._pooledToastContainers.slice());
+        this.rebuildOverlayShortcutBindings();
 
         this._pooledToastActionByFocusId.clear();
         this._pooledToastActionLabelByFocusId.clear();

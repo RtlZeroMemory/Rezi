@@ -140,10 +140,10 @@ describe("reconcileChildren - mixed keyed and unkeyed", () => {
     if (res.ok) return;
 
     assert.equal(res.fatal.code, "ZRUI_DUPLICATE_KEY");
-    assert.equal(
-      res.fatal.detail,
-      'duplicate sibling key "dup" under parent instanceId=85 (child indices 0 and 2)',
-    );
+    assert.equal(res.fatal.detail.includes('Duplicate key "dup"'), true);
+    assert.equal(res.fatal.detail.includes("instanceId=85"), true);
+    assert.equal(res.fatal.detail.includes("children=3"), true);
+    assert.equal(res.fatal.detail.includes("child indices 0 and 2"), true);
   });
 
   test("keyed reorder can preserve all unkeyed nodes when indices remain stable", () => {

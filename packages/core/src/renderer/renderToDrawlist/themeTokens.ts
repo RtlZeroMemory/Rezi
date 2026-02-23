@@ -1,7 +1,7 @@
 import type { Theme } from "../../theme/theme.js";
 import type { ColorTokens } from "../../theme/tokens.js";
 import type { WidgetSize, WidgetTone, WidgetVariant } from "../../ui/designTokens.js";
-import type { Rgb } from "../../widgets/style.js";
+import type { Rgb, TextStyle } from "../../widgets/style.js";
 
 function extractColorTokens(theme: Theme): ColorTokens | null {
   const c = theme.colors;
@@ -104,4 +104,20 @@ export function readWidgetSize(value: unknown): WidgetSize | undefined {
     return value;
   }
   return undefined;
+}
+
+export function resolveWidgetFocusStyle(
+  colorTokens: ColorTokens | null,
+  focused: boolean,
+  disabled: boolean,
+): TextStyle | undefined {
+  if (!focused || disabled) return undefined;
+  if (colorTokens !== null) {
+    return {
+      underline: true,
+      bold: true,
+      fg: colorTokens.focus.ring,
+    };
+  }
+  return { underline: true, bold: true };
 }

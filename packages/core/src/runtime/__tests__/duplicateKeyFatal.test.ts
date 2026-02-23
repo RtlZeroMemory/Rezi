@@ -15,13 +15,13 @@ test("duplicate sibling keys trigger deterministic fatal ZRUI_DUPLICATE_KEY (#65
   const allocator = createInstanceIdAllocator(1);
   const nextChildren = [textVNode("a", "dup"), spacerVNode("dup")];
 
-  const res = reconcileChildren(42, [], nextChildren, allocator);
+  const res = reconcileChildren(42, [], nextChildren, allocator, { kind: "column", id: "items" });
   assert.equal(res.ok, false);
   if (res.ok) return;
 
   assert.equal(res.fatal.code, "ZRUI_DUPLICATE_KEY");
   assert.equal(
     res.fatal.detail,
-    'duplicate sibling key "dup" under parent instanceId=42 (child indices 0 and 1)',
+    'Duplicate key "dup" under parent <column#items> (instanceId=42, children=2, child indices 0 and 1). Hint: Ensure each() key function returns unique values.',
   );
 });

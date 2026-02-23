@@ -35,7 +35,7 @@ import { measureVNodeSimpleHeight, renderVNodeSimple } from "../simpleVNode.js";
 import { clampNonNegative } from "../spacing.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
 import { mergeTextStyle } from "../textStyle.js";
-import { getColorTokens, readWidgetSize } from "../themeTokens.js";
+import { getColorTokens, readWidgetSize, resolveWidgetFocusStyle } from "../themeTokens.js";
 import type { TableRenderCache } from "../types.js";
 import { getExpandedSet, getTreePrefixes } from "./files.js";
 import {
@@ -232,6 +232,7 @@ export function renderCollectionWidget(
       const props = vnode.props as VirtualListProps<unknown>;
       const focusConfig = readFocusConfig(props.focusConfig);
       const showFocusIndicator = focusIndicatorEnabled(focusConfig);
+      const colorTokens = getColorTokens(theme);
       const selectionStyle = asTextStyle(props.selectionStyle, theme);
       const { items, overscan = 3, renderItem } = props;
       const itemHeight = resolveVirtualListItemHeightSpec(props);
@@ -333,6 +334,10 @@ export function renderCollectionWidget(
           itemParentStyle = mergeTextStyle(itemParentStyle, selectionStyle);
         }
         if (focused) {
+          const widgetFocusStyle = resolveWidgetFocusStyle(colorTokens, true, false);
+          if (widgetFocusStyle) {
+            itemParentStyle = mergeTextStyle(itemParentStyle, widgetFocusStyle);
+          }
           itemParentStyle = resolveFocusedContentStyle(itemParentStyle, theme, focusConfig);
           const focusIndicator = readFocusIndicator(focusConfig);
           if (focusIndicator === "background") {
@@ -340,7 +345,9 @@ export function renderCollectionWidget(
               parentStyle,
               theme,
               focusConfig,
-              mergeTextStyle(parentStyle, { bg: theme.colors.secondary }),
+              mergeTextStyle(parentStyle, {
+                bg: colorTokens?.focus.bg ?? theme.colors.secondary,
+              }),
             );
             const rowBg = indicatorStyle.bg;
             if (rowBg !== undefined) {
@@ -442,8 +449,8 @@ export function renderCollectionWidget(
       const props = vnode.props as TableProps<unknown>;
       const focusConfig = readFocusConfig(props.focusConfig);
       const showFocusIndicator = focusIndicatorEnabled(focusConfig);
-      const selectionStyle = asTextStyle(props.selectionStyle, theme);
       const colorTokens = getColorTokens(theme);
+      const selectionStyle = asTextStyle(props.selectionStyle, theme);
       const dsSize = readWidgetSize(props.dsSize) ?? "md";
       const headerRecipe =
         colorTokens !== null ? tableRecipe(colorTokens, { state: "header", size: dsSize }) : null;
@@ -622,19 +629,24 @@ export function renderCollectionWidget(
 
         let focusedRowStyle = parentStyle;
         if (showFocusedStyle) {
-          focusedRowStyle =
-            colorTokens !== null
-              ? mergeTextStyle(parentStyle, focusedRecipe?.cell)
-              : resolveFocusedContentStyle(
-                  resolveFocusIndicatorStyle(
-                    parentStyle,
-                    theme,
-                    focusConfig,
-                    mergeTextStyle(parentStyle, { inverse: true }),
-                  ),
-                  theme,
-                  focusConfig,
-                );
+          const widgetFocusStyle = resolveWidgetFocusStyle(colorTokens, true, false);
+          if (colorTokens !== null) {
+            focusedRowStyle = mergeTextStyle(
+              mergeTextStyle(parentStyle, focusedRecipe?.cell),
+              widgetFocusStyle,
+            );
+          } else {
+            focusedRowStyle = resolveFocusedContentStyle(
+              resolveFocusIndicatorStyle(
+                parentStyle,
+                theme,
+                focusConfig,
+                mergeTextStyle(mergeTextStyle(parentStyle, { inverse: true }), widgetFocusStyle),
+              ),
+              theme,
+              focusConfig,
+            );
+          }
         }
         const focusedRowBg = colorTokens !== null ? focusedRecipe?.bg.bg : focusedRowStyle.bg;
         const rowStripeBg = stripedRows ? ((i & 1) === 1 ? stripeOddBg : stripeEvenBg) : undefined;

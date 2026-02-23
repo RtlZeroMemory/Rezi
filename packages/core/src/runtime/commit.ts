@@ -527,7 +527,7 @@ function isInteractiveVNode(v: VNode): boolean {
 }
 
 function ensureInteractiveId(
-  seen: Map<string, InstanceId>,
+  seen: Map<string, string>,
   instanceId: InstanceId,
   vnode: VNode,
 ): CommitFatal | null {
@@ -547,12 +547,10 @@ function ensureInteractiveId(
   if (existing !== undefined) {
     return {
       code: "ZRUI_DUPLICATE_ID",
-      detail: `duplicate interactive id "${id}" on instanceId=${String(instanceId)} (already used by instanceId=${String(
-        existing,
-      )})`,
+      detail: `Duplicate interactive widget id "${id}". First: <${existing}>, second: <${vnode.kind}>. Hint: Use ctx.id() inside defineWidget to generate unique IDs for list items.`,
     };
   }
-  seen.set(id, instanceId);
+  seen.set(id, vnode.kind);
   return null;
 }
 
@@ -641,7 +639,7 @@ function markCompositeSubtreeStale(
 type CommitCtx = Readonly<{
   allocator: InstanceIdAllocator;
   localState: RuntimeLocalStateStore | undefined;
-  seenInteractiveIds: Map<string, InstanceId>;
+  seenInteractiveIds: Map<string, string>;
   layoutDepthRef: { value: number };
   layoutPathTail: string[];
   emittedWarnings: Set<string>;
@@ -1109,6 +1107,11 @@ function commitNode(
             children: compositeWrapperChildren,
           } as VNode)
         : vnode;
+      const parentProps = vnodeForCommit.props as { id?: unknown } | undefined;
+      const parentId =
+        typeof parentProps?.id === "string" && parentProps.id.length > 0
+          ? parentProps.id
+          : undefined;
 
       const prevChildren = prev ? prev.children : [];
       const res = reconcileChildren(
@@ -1118,6 +1121,10 @@ function commitNode(
           ? compositeWrapperChildren
           : commitChildrenForVNode(vnodeForCommit),
         ctx.allocator,
+        {
+          kind: vnodeForCommit.kind,
+          ...(parentId === undefined ? {} : { id: parentId }),
+        },
       );
       if (!res.ok) return { ok: false, fatal: res.fatal };
 
@@ -1312,7 +1319,7 @@ export function commitVNodeTree(
      * Optional reusable map for interactive id uniqueness checks.
      * Cleared at the start of each commit cycle.
      */
-    interactiveIdIndex?: Map<string, InstanceId>;
+    interactiveIdIndex?: Map<string, string>;
     composite?: Readonly<{
       registry: CompositeInstanceRegistry;
       appState: unknown;
@@ -1329,7 +1336,7 @@ export function commitVNodeTree(
   }>,
 ): CommitResult {
   const collectLifecycleInstanceIds = opts.collectLifecycleInstanceIds !== false;
-  const interactiveIdIndex = opts.interactiveIdIndex ?? new Map<string, InstanceId>();
+  const interactiveIdIndex = opts.interactiveIdIndex ?? new Map<string, string>();
   interactiveIdIndex.clear();
   const ctx: CommitCtx = {
     allocator: opts.allocator,

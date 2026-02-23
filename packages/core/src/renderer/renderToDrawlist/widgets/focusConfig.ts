@@ -3,6 +3,7 @@ import type { Theme } from "../../../theme/theme.js";
 import { asTextStyle } from "../../styles.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
 import { mergeTextStyle } from "../textStyle.js";
+import { getColorTokens } from "../themeTokens.js";
 
 const VALID_FOCUS_INDICATORS: ReadonlySet<FocusIndicatorType> = new Set<FocusIndicatorType>([
   "ring",
@@ -47,7 +48,18 @@ export function resolveFocusIndicatorStyle(
 ): ResolvedTextStyle {
   let out = fallback ? mergeTextStyle(baseStyle, fallback) : baseStyle;
   const override = asTextStyle((config as FocusConfigShape | undefined)?.style, theme);
-  if (override) out = mergeTextStyle(out, override);
+  if (override) {
+    out = mergeTextStyle(out, override);
+  } else {
+    const colorTokens = getColorTokens(theme);
+    if (colorTokens) {
+      out = mergeTextStyle(out, {
+        fg: colorTokens.focus.ring,
+        underline: true,
+        bold: true,
+      });
+    }
+  }
   return out;
 }
 

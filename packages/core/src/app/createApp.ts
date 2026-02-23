@@ -911,10 +911,14 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     enqueueFatal(code, detail);
   }
 
+  function updateDuringRenderDetail(method: string): string {
+    return `${method}: called during render. Hint: This usually means an onPress/onChange callback calls app.update() synchronously during the render phase. Move state updates to event handlers or useEffect.`;
+  }
+
   function assertRouterMutationAllowed(method: string): void {
     assertOperational(method);
     if (inCommit) throwCode("ZRUI_REENTRANT_CALL", `${method}: called during commit`);
-    if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", `${method}: called during render`);
+    if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", updateDuringRenderDetail(method));
   }
 
   if (routes !== undefined) {
@@ -1683,7 +1687,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     update(updater: StateUpdater<S>): void {
       assertOperational("update");
       if (inCommit) throwCode("ZRUI_REENTRANT_CALL", "update: called during commit");
-      if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", "update: called during render");
+      if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", updateDuringRenderDetail("update"));
 
       updates.enqueue(updater);
       if (sm.state === "Running" && inEventHandlerDepth === 0 && !userCommitScheduled) {
@@ -1695,7 +1699,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     setTheme(next: Theme | ThemeDefinition): void {
       assertOperational("setTheme");
       if (inCommit) throwCode("ZRUI_REENTRANT_CALL", "setTheme: called during commit");
-      if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", "setTheme: called during render");
+      if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", updateDuringRenderDetail("setTheme"));
       const nextTheme = coerceToLegacyTheme(next);
       if (nextTheme === theme) return;
       theme = nextTheme;
