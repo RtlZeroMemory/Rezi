@@ -4,8 +4,7 @@
  * Why: Provides small, deterministic helpers for composing TextStyle objects.
  */
 
-import type { TextStyle } from "./style.js";
-import type { Rgb } from "./style.js";
+import type { Rgb, TextStyle, ThemeColor, UnderlineStyle } from "./style.js";
 
 type RgbInput = {
   r?: unknown;
@@ -24,7 +23,18 @@ type TextStyleInput = {
   strikethrough?: unknown;
   overline?: unknown;
   blink?: unknown;
+  underlineStyle?: unknown;
+  underlineColor?: unknown;
 };
+
+const VALID_UNDERLINE_STYLES = new Set<UnderlineStyle>([
+  "none",
+  "straight",
+  "double",
+  "curly",
+  "dotted",
+  "dashed",
+]);
 
 function parseChannel(value: unknown): number | undefined {
   let n: number | undefined;
@@ -47,6 +57,20 @@ function parseBoolean(value: unknown): boolean | undefined {
   const normalized = value.trim().toLowerCase();
   if (normalized === "true") return true;
   if (normalized === "false") return false;
+  return undefined;
+}
+
+function parseUnderlineStyle(value: unknown): UnderlineStyle | undefined {
+  if (typeof value === "string" && VALID_UNDERLINE_STYLES.has(value as UnderlineStyle)) {
+    return value as UnderlineStyle;
+  }
+  return undefined;
+}
+
+function parseUnderlineColor(value: unknown): Rgb | ThemeColor | undefined {
+  const rgb = sanitizeRgb(value);
+  if (rgb !== undefined) return rgb;
+  if (typeof value === "string" && value.length > 0) return value;
   return undefined;
 }
 
@@ -84,6 +108,8 @@ export function sanitizeTextStyle(style: unknown): TextStyle {
     strikethrough?: boolean;
     overline?: boolean;
     blink?: boolean;
+    underlineStyle?: UnderlineStyle;
+    underlineColor?: Rgb | ThemeColor;
   } = {};
 
   const fg = sanitizeRgb(src.fg);
@@ -107,6 +133,10 @@ export function sanitizeTextStyle(style: unknown): TextStyle {
   if (overline !== undefined) sanitized.overline = overline;
   const blink = parseBoolean(src.blink);
   if (blink !== undefined) sanitized.blink = blink;
+  const underlineStyle = parseUnderlineStyle(src.underlineStyle);
+  if (underlineStyle !== undefined) sanitized.underlineStyle = underlineStyle;
+  const underlineColor = parseUnderlineColor(src.underlineColor);
+  if (underlineColor !== undefined) sanitized.underlineColor = underlineColor;
 
   return sanitized;
 }

@@ -35,8 +35,13 @@ type TextStyle = Readonly<{
   strikethrough?: boolean;
   overline?: boolean;
   blink?: boolean;
+  underlineStyle?: "none" | "straight" | "double" | "curly" | "dotted" | "dashed";
+  underlineColor?: Rgb | string;
 }>;
 ```
+
+`underlineStyle` controls underline variant where supported by the renderer/terminal.
+`underlineColor` accepts either direct RGB values or a theme token string (for example `"accent.primary"`).
 
 Example:
 
