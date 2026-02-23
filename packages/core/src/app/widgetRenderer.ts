@@ -1713,7 +1713,17 @@ export class WidgetRenderer<S> {
   }
 
   private reportInputCallbackError(name: "onInput" | "onBlur", error: unknown): void {
-    this.reportUserCodeError(`${name} handler threw: ${describeThrown(error)}`);
+    const detail = `${name} handler threw: ${describeThrown(error)}`;
+    try {
+      this.reportUserCodeError(detail);
+    } catch (sinkError: unknown) {
+      const c = (globalThis as { console?: { error?: (message: string) => void } }).console;
+      c?.error?.(
+        `[rezi][runtime] onUserCodeError sink threw while reporting ${name}: ${describeThrown(
+          sinkError,
+        )}; original=${detail}`,
+      );
+    }
   }
 
   private invokeInputCallbackSafely(
