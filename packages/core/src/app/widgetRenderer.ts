@@ -1014,7 +1014,11 @@ export class WidgetRenderer<S> {
     this.collectRuntimeBreadcrumbs = opts.collectRuntimeBreadcrumbs === true;
     this.requestRender = opts.requestRender ?? (() => {});
     this.requestView = opts.requestView ?? (() => {});
-    this.reportUserCodeError = opts.onUserCodeError ?? (() => {});
+    this.reportUserCodeError =
+      opts.onUserCodeError ??
+      ((detail: string) => {
+        warnDev(`[rezi][runtime] ${detail}`);
+      });
     this.rootPadding = Math.max(0, Math.trunc(opts.rootPadding ?? 0));
     this.breakpointThresholds = normalizeBreakpointThresholds(opts.breakpointThresholds);
     this.terminalProfile = opts.terminalProfile ?? DEFAULT_TERMINAL_PROFILE;
