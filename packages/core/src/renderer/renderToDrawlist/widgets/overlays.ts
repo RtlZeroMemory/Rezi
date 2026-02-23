@@ -37,6 +37,14 @@ type ResolvedCursor = Readonly<{
 
 const EMPTY_TOASTS: readonly unknown[] = Object.freeze([]);
 const I32_MAX = 2147483647;
+const DEV_MODE =
+  ((globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ??
+    "development") !== "production";
+
+function warnDev(message: string): void {
+  const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
+  c?.warn?.(message);
+}
 
 type ToastPosition =
   | "top-left"
@@ -188,6 +196,12 @@ export function renderOverlayWidget(
     case "dropdown": {
       const props = vnode.props as DropdownProps;
       const anchor = idRectIndex.get(props.anchorId) ?? null;
+      if (DEV_MODE && anchor === null && typeof props.anchorId === "string" && props.anchorId.length > 0) {
+        const dropdownId = (props as { id?: unknown }).id;
+        warnDev(
+          `[rezi][overlay] dropdown "${String(dropdownId)}" anchor not found: "${props.anchorId}"`,
+        );
+      }
       const frame = readOverlayFrameColors(props.frameStyle);
       const dropdownStyle = mergeTextStyle(parentStyle, toOverlaySurfaceStyle(frame));
       const borderStyle =

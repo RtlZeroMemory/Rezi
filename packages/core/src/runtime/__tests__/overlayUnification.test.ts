@@ -52,6 +52,29 @@ function getLayerRegistry(renderer: WidgetRenderer<void>): LayerRegistry {
   return internal.layerRegistry;
 }
 
+function captureConsoleWarn<T>(run: (warnings: string[]) => T): T {
+  const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
+  const warnings: string[] = [];
+  const hadWarn = c ? "warn" in c : false;
+  const originalWarn = c?.warn;
+  if (c) {
+    c.warn = (msg: string) => {
+      warnings.push(msg);
+    };
+  }
+  try {
+    return run(warnings);
+  } finally {
+    if (!c) {
+      // no-op
+    } else if (hadWarn && originalWarn) {
+      c.warn = originalWarn;
+    } else {
+      (c as { warn: ((msg: string) => void) | undefined }).warn = undefined;
+    }
+  }
+}
+
 function computeDropdownGeometryLegacy(
   props: DropdownProps,
   anchorRect: Rect | null,
@@ -163,6 +186,35 @@ describe("overlay unification", () => {
     assert.deepEqual(
       computeDropdownGeometry(props, anchorRect, viewport),
       computeDropdownGeometryLegacy(props, anchorRect, viewport),
+    );
+  });
+
+  test("warns when dropdown anchor id is missing", () => {
+    const warnings = captureConsoleWarn((messages) => {
+      const renderer = new WidgetRenderer<void>({
+        backend: createNoopBackend(),
+        requestRender: () => {},
+      });
+
+      submit(
+        renderer,
+        ui.layers([
+          ui.dropdown({
+            id: "menu",
+            anchorId: "missing-anchor",
+            items: [{ id: "a", label: "Alpha" }],
+          }),
+        ]),
+      );
+
+      return messages;
+    });
+
+    assert.equal(
+      warnings.some((msg) =>
+        msg.includes('[rezi][overlay] dropdown "menu" anchor not found: "missing-anchor"'),
+      ),
+      true,
     );
   });
 

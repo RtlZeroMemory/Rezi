@@ -28,10 +28,13 @@ export function computeDropdownGeometry(
   const contentW = Math.max(1, maxLabelW + gapW + maxShortcutW);
   const totalW = Math.max(2, contentW + 2);
   const totalH = Math.max(2, items.length + 2);
+  const needsScroll = totalH > viewport.rows;
+  const clampedH = needsScroll ? Math.max(2, viewport.rows) : totalH;
+  const finalW = needsScroll ? Math.max(2, totalW + 1) : totalW;
 
   const pos = calculateAnchorPosition({
     anchor: anchorRect,
-    overlaySize: { w: totalW, h: totalH },
+    overlaySize: { w: finalW, h: clampedH },
     position: props.position ?? "below-start",
     viewport: { x: 0, y: 0, width: viewport.cols, height: viewport.rows },
     gap: 0,
