@@ -531,7 +531,7 @@ export type CollectedTrap = Readonly<{
 }>;
 
 /**
- * Collect focusable ids from a subtree (not traversing into nested zones/traps).
+ * Collect focusable ids from a subtree (not traversing into nested zones/traps/modals).
  */
 function collectFocusableIdsInSubtree(node: RuntimeInstance): readonly string[] {
   const out: string[] = [];
@@ -541,8 +541,12 @@ function collectFocusableIdsInSubtree(node: RuntimeInstance): readonly string[] 
     const cur = stack.pop();
     if (!cur) continue;
 
-    // Don't traverse into nested zones or traps
-    if (cur.vnode.kind === "focusZone" || cur.vnode.kind === "focusTrap") {
+    // Don't traverse into nested zones or traps.
+    if (
+      cur.vnode.kind === "focusZone" ||
+      cur.vnode.kind === "focusTrap" ||
+      cur.vnode.kind === "modal"
+    ) {
       continue;
     }
 
@@ -605,7 +609,11 @@ export function collectFocusZones(tree: RuntimeInstance): ReadonlyMap<string, Co
         // Collect focusable ids from zone children (not traversing into nested zones/traps)
         const focusableIds: string[] = [];
         for (const child of node.children) {
-          if (child.vnode.kind === "focusZone" || child.vnode.kind === "focusTrap") {
+          if (
+            child.vnode.kind === "focusZone" ||
+            child.vnode.kind === "focusTrap" ||
+            child.vnode.kind === "modal"
+          ) {
             continue;
           }
           const childFocusables = collectFocusableIdsInSubtree(child);
@@ -664,7 +672,7 @@ export function collectFocusTraps(tree: RuntimeInstance): ReadonlyMap<string, Co
     const node = stack.pop();
     if (!node) continue;
 
-    if (node.vnode.kind === "focusTrap") {
+    if (node.vnode.kind === "focusTrap" || node.vnode.kind === "modal") {
       const props = node.vnode.props as {
         id?: unknown;
         active?: unknown;
@@ -674,14 +682,18 @@ export function collectFocusTraps(tree: RuntimeInstance): ReadonlyMap<string, Co
       const id = typeof props.id === "string" && props.id.length > 0 ? props.id : null;
 
       if (id !== null && !m.has(id)) {
-        const active = props.active === true;
+        const active = node.vnode.kind === "modal" ? true : props.active === true;
         const returnFocusTo = typeof props.returnFocusTo === "string" ? props.returnFocusTo : null;
         const initialFocus = typeof props.initialFocus === "string" ? props.initialFocus : null;
 
         // Collect focusable ids from trap children (not traversing into nested zones/traps)
         const focusableIds: string[] = [];
         for (const child of node.children) {
-          if (child.vnode.kind === "focusZone" || child.vnode.kind === "focusTrap") {
+          if (
+            child.vnode.kind === "focusZone" ||
+            child.vnode.kind === "focusTrap" ||
+            child.vnode.kind === "modal"
+          ) {
             continue;
           }
           const childFocusables = collectFocusableIdsInSubtree(child);
@@ -1032,7 +1044,7 @@ export class WidgetMetadataCollector {
       }
 
       // --- Collect focus traps ---
-      if (vnode.kind === "focusTrap") {
+      if (vnode.kind === "focusTrap" || vnode.kind === "modal") {
         const props = vnode.props as {
           id?: unknown;
           active?: unknown;
@@ -1042,7 +1054,7 @@ export class WidgetMetadataCollector {
         const id = typeof props.id === "string" && props.id.length > 0 ? props.id : null;
 
         if (id !== null && !this._trapDataById.has(id)) {
-          const active = props.active === true;
+          const active = vnode.kind === "modal" ? true : props.active === true;
           const returnFocusTo =
             typeof props.returnFocusTo === "string" ? props.returnFocusTo : null;
           const initialFocus = typeof props.initialFocus === "string" ? props.initialFocus : null;

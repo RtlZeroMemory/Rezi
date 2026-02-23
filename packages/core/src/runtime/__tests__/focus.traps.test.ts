@@ -445,4 +445,160 @@ describe("focus traps - finalizeFocusForCommittedTreeWithZones integration", () 
     assert.equal(next.focusedId, "outside");
     assert.deepEqual(next.trapStack, ["modal"]);
   });
+
+  test("modal initialFocus moves focus when modal appears", () => {
+    const tree: VNode = {
+      kind: "column",
+      props: {},
+      children: [
+        { kind: "button", props: { id: "outside", label: "Outside" } },
+        {
+          kind: "modal",
+          props: {
+            id: "settings-modal",
+            title: "Settings",
+            initialFocus: "modal-cancel",
+            content: {
+              kind: "column",
+              props: {},
+              children: [
+                { kind: "button", props: { id: "modal-save", label: "Save" } },
+                { kind: "button", props: { id: "modal-cancel", label: "Cancel" } },
+              ],
+            },
+            actions: [{ kind: "button", props: { id: "modal-help", label: "Help" } }],
+          },
+        },
+      ],
+    };
+
+    const next = finalizeFocusForCommittedTreeWithZones(
+      createFocusManagerState(),
+      commitTree(tree),
+    );
+    assert.equal(next.focusedId, "modal-cancel");
+    assert.deepEqual(next.trapStack, ["settings-modal"]);
+  });
+
+  test("modal returnFocusTo restores focus when modal is removed", () => {
+    const withModal: VNode = {
+      kind: "column",
+      props: {},
+      children: [
+        { kind: "button", props: { id: "other", label: "Other" } },
+        { kind: "button", props: { id: "trigger", label: "Open" } },
+        {
+          kind: "modal",
+          props: {
+            id: "confirm-modal",
+            title: "Confirm",
+            initialFocus: "modal-ok",
+            returnFocusTo: "trigger",
+            content: {
+              kind: "column",
+              props: {},
+              children: [{ kind: "button", props: { id: "modal-ok", label: "OK" } }],
+            },
+            actions: [],
+          },
+        },
+      ],
+    };
+
+    const withoutModal: VNode = {
+      kind: "column",
+      props: {},
+      children: [
+        { kind: "button", props: { id: "other", label: "Other" } },
+        { kind: "button", props: { id: "trigger", label: "Open" } },
+      ],
+    };
+
+    const withModalFocus = finalizeFocusForCommittedTreeWithZones(
+      createFocusManagerState(),
+      commitTree(withModal),
+    );
+    const restored = finalizeFocusForCommittedTreeWithZones(
+      withModalFocus,
+      commitTree(withoutModal),
+    );
+
+    assert.deepEqual(restored.trapStack, []);
+    assert.equal(restored.focusedId, "trigger");
+  });
+
+  test("modal without focus-target props still traps and selects first modal focusable", () => {
+    const tree: VNode = {
+      kind: "column",
+      props: {},
+      children: [
+        { kind: "button", props: { id: "outside", label: "Outside" } },
+        {
+          kind: "modal",
+          props: {
+            id: "plain-modal",
+            title: "Plain",
+            content: {
+              kind: "column",
+              props: {},
+              children: [
+                { kind: "button", props: { id: "modal-first", label: "First" } },
+                { kind: "button", props: { id: "modal-second", label: "Second" } },
+              ],
+            },
+            actions: [{ kind: "button", props: { id: "modal-action", label: "Action" } }],
+          },
+        },
+      ],
+    };
+
+    const next = finalizeFocusForCommittedTreeWithZones(
+      managerState({ focusedId: "outside" }),
+      commitTree(tree),
+    );
+    assert.equal(next.focusedId, "modal-first");
+    assert.deepEqual(next.trapStack, ["plain-modal"]);
+  });
+
+  test("nested modal inside focusTrap keeps modal as innermost active trap", () => {
+    const tree: VNode = {
+      kind: "column",
+      props: {},
+      children: [
+        { kind: "button", props: { id: "outside", label: "Outside" } },
+        {
+          kind: "focusTrap",
+          props: { id: "outer-trap", active: true },
+          children: [
+            { kind: "button", props: { id: "outer-btn", label: "Outer" } },
+            {
+              kind: "modal",
+              props: {
+                id: "inner-modal",
+                title: "Inner",
+                initialFocus: "inner-second",
+                content: {
+                  kind: "column",
+                  props: {},
+                  children: [
+                    { kind: "button", props: { id: "inner-first", label: "First" } },
+                    { kind: "button", props: { id: "inner-second", label: "Second" } },
+                  ],
+                },
+                actions: [{ kind: "button", props: { id: "inner-action", label: "Action" } }],
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const next = finalizeFocusForCommittedTreeWithZones(
+      createFocusManagerState(),
+      commitTree(tree),
+    );
+
+    assert.deepEqual(next.trapStack, ["outer-trap", "inner-modal"]);
+    assert.equal(next.focusedId, "inner-second");
+  });
 });
