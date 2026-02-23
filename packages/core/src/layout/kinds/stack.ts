@@ -27,6 +27,7 @@ import { measureMaxContent, measureMinContent } from "../engine/intrinsic.js";
 import { releaseArray } from "../engine/pool.js";
 import { ok } from "../engine/result.js";
 import type { LayoutTree } from "../engine/types.js";
+import { resolveResponsiveValue } from "../responsive.js";
 import {
   resolveMargin as resolveMarginProps,
   resolveSpacing as resolveSpacingProps,
@@ -101,6 +102,11 @@ type ConstraintPropBag = Readonly<{
   alignSelf?: unknown;
 }>;
 
+type FlexPropBag = Readonly<{
+  flexShrink?: unknown;
+  flexBasis?: unknown;
+}>;
+
 type EffectiveAlign = "start" | "center" | "end" | "stretch";
 
 function resolveEffectiveAlign(child: VNode, align: EffectiveAlign): EffectiveAlign {
@@ -118,9 +124,7 @@ function resolveEffectiveAlign(child: VNode, align: EffectiveAlign): EffectiveAl
 }
 
 function childHasAdvancedFlexProps(vnode: unknown): boolean {
-  const props = getConstraintProps(vnode) as
-    | (Record<string, unknown> & Readonly<{ flexShrink?: unknown; flexBasis?: unknown }>)
-    | null;
+  const props = getConstraintProps(vnode) as FlexPropBag | null;
   if (!props) return false;
   const rawShrink = props.flexShrink;
   if (typeof rawShrink === "number" && Number.isFinite(rawShrink) && rawShrink > 0) {
@@ -351,7 +355,7 @@ function maybeRebalanceNearFullPercentChildren(
     const percent = parseMainPercentWeight(rawMain);
     if (percent === null) return;
 
-    const resolved = resolveLayoutConstraints(childProps as never, parentRect);
+    const resolved = resolveLayoutConstraints(childProps as never, parentRect, axis.axis);
     if (resolved.flex > 0) return;
     if (resolved[axis.minMainProp] > 0) return;
     const maxMain = toFiniteMax(resolved[axis.maxMainProp], availableForChildren);
@@ -394,7 +398,7 @@ function probeWrapChildMain(
   }
 
   const childProps = getConstraintProps(child) ?? {};
-  const resolved = resolveLayoutConstraints(childProps as never, parentRect);
+  const resolved = resolveLayoutConstraints(childProps as never, parentRect, axis.axis);
 
   const fixedMain = resolved[axis.mainProp];
   const minMain = Math.min(resolved[axis.minMainProp], mainLimit);
@@ -472,7 +476,7 @@ function computeWrapConstraintLine(
     }
 
     const childProps = getConstraintProps(child) ?? {};
-    const resolved = resolveLayoutConstraints(childProps as never, parentRect);
+    const resolved = resolveLayoutConstraints(childProps as never, parentRect, axis.axis);
 
     const fixedMain = resolved[axis.mainProp];
     const minMain = resolved[axis.minMainProp];
@@ -710,9 +714,7 @@ function planConstraintMainSizes(
   for (let i = 0; i < children.length; i++) {
     const child = children[i];
     if (!child || child.kind === "spacer") continue;
-    const props = getConstraintProps(child) as
-      | (Record<string, unknown> & Readonly<{ flexShrink?: unknown; flexBasis?: unknown }>)
-      | null;
+    const props = getConstraintProps(child) as FlexPropBag | null;
     if (!props) continue;
     const rawShrink = props.flexShrink;
     const rawBasis = props.flexBasis;
@@ -765,7 +767,7 @@ function planConstraintMainSizes(
       }
 
       const childProps = getConstraintProps(child) ?? {};
-      const resolved = resolveLayoutConstraints(childProps as never, parentRect);
+      const resolved = resolveLayoutConstraints(childProps as never, parentRect, axis.axis);
 
       const fixedMain = resolved[axis.mainProp];
       const minMain = resolved[axis.minMainProp];
@@ -887,9 +889,8 @@ function planConstraintMainSizes(
       continue;
     }
 
-    const childProps = (getConstraintProps(child) ?? {}) as Record<string, unknown> &
-      Readonly<{ flexBasis?: unknown }>;
-    const resolved = resolveLayoutConstraints(childProps as never, parentRect);
+    const childProps = (getConstraintProps(child) ?? {}) as Record<string, unknown> & FlexPropBag;
+    const resolved = resolveLayoutConstraints(childProps as never, parentRect, axis.axis);
 
     const fixedMain = resolved[axis.mainProp];
     const maxMain = Math.min(
@@ -902,7 +903,7 @@ function planConstraintMainSizes(
     const rawMinMain = childProps[axis.minMainProp];
     const rawFlexBasis = childProps.flexBasis;
     const mainPercent = isPercentString(rawMain);
-    const flexBasisIsAuto = rawFlexBasis === "auto";
+    const flexBasisIsAuto = resolveResponsiveValue(rawFlexBasis) === "auto";
 
     if (rawMinMain === undefined && resolved.flexShrink > 0) {
       const intrinsicMinRes = measureMinContent(child, axis.axis, measureNode);
@@ -1126,12 +1127,16 @@ function measureStack(
   const innerMaxW = clampNonNegative(maxW - marginX);
   const innerMaxH = clampNonNegative(maxH - marginY);
 
-  const self = resolveLayoutConstraints(propsRes.value, {
-    x: 0,
-    y: 0,
-    w: innerMaxW,
-    h: innerMaxH,
-  });
+  const self = resolveLayoutConstraints(
+    propsRes.value,
+    {
+      x: 0,
+      y: 0,
+      w: innerMaxW,
+      h: innerMaxH,
+    },
+    axis.axis,
+  );
   const maxWCap = clampNonNegative(Math.min(innerMaxW, toFiniteMax(self.maxWidth, innerMaxW)));
   const maxHCap = clampNonNegative(Math.min(innerMaxH, toFiniteMax(self.maxHeight, innerMaxH)));
 

@@ -162,7 +162,7 @@ describe("layout stability signature coverage", () => {
       { key: "b", label: "B", content: textNode("B") },
     ]);
     const zoneLeaf = runtimeNode(3, textNode("content"));
-    const zone = runtimeNode(2, focusZoneNode("tabs-zone", [zoneLeaf.vnode]), [zoneLeaf]);
+    const zone = runtimeNode(2, focusZoneNode("tabs-focus-zone", [zoneLeaf.vnode]), [zoneLeaf]);
     const children = [zone] as const;
     const childVNodes = [zone.vnode] as const;
 

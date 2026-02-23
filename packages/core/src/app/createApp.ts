@@ -511,6 +511,27 @@ function codepointToKeyCode(codepoint: number): number | null {
   return null;
 }
 
+/**
+ * Convert text control characters into Ctrl+key key codes.
+ *
+ * Terminals without kitty/CSI-u often emit Ctrl+letter as text bytes:
+ * 0x01-0x1A for Ctrl+A..Ctrl+Z, and 0x1C-0x1F for Ctrl+\..Ctrl+_.
+ * We intentionally exclude 0x09 (Tab), 0x0D (Enter), and 0x1B (Escape)
+ * because they have dedicated key semantics in the engine.
+ */
+function codepointToCtrlKeyCode(codepoint: number): number | null {
+  if (codepoint === 9 || codepoint === 13) {
+    return null;
+  }
+  if (codepoint >= 1 && codepoint <= 26) {
+    return codepoint + 64;
+  }
+  if (codepoint >= 28 && codepoint <= 31) {
+    return codepoint + 64;
+  }
+  return null;
+}
+
 type CreateAppBaseOptions = Readonly<{
   backend: RuntimeBackend;
   config?: AppConfig;
@@ -1260,36 +1281,46 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
               }
             }
 
-            // Also route text events through keybinding system for single-character bindings
-            if (ev.kind === "text" && !widgetRenderer.hasActiveOverlay()) {
-              const keyCode = codepointToKeyCode(ev.codepoint);
-              if (keyCode !== null) {
-                // Create a synthetic key event for keybinding matching
-                const syntheticKeyEvent = {
-                  kind: "key" as const,
-                  action: "down" as const,
-                  key: keyCode,
-                  mods: 0, // Text events have no modifiers
-                  timeMs: ev.timeMs,
-                };
-                const keyCtx: KeyContext<S> = Object.freeze({
-                  state: committedState,
-                  update: app.update,
-                  focusedId: widgetRenderer.getFocusedId(),
-                });
-                const routeInputState = keybindingState;
-                const keyResult = routeKeyEvent(routeInputState, syntheticKeyEvent, keyCtx);
-                applyRoutedKeybindingState(routeInputState, keyResult.nextState);
-                if (keyResult.handlerError !== undefined) {
-                  enqueueFatal(
-                    "ZRUI_USER_CODE_THROW",
-                    `keybinding handler threw: ${describeThrown(keyResult.handlerError)}`,
-                  );
-                  return;
-                }
-                if (keyResult.consumed) {
-                  noteBreadcrumbConsumptionPath("keybindings");
-                  continue; // Skip default widget routing
+            // Also route text events through keybinding system for single-character bindings.
+            // Printable text is guarded during overlays, but Ctrl+text control chars are not.
+            if (ev.kind === "text") {
+              const ctrlKeyCode = codepointToCtrlKeyCode(ev.codepoint);
+              const shouldRouteCtrlText = ctrlKeyCode !== null;
+              const shouldRoutePrintableText =
+                !shouldRouteCtrlText && !widgetRenderer.hasActiveOverlay();
+              if (shouldRouteCtrlText || shouldRoutePrintableText) {
+                const keyCode = shouldRouteCtrlText
+                  ? ctrlKeyCode
+                  : codepointToKeyCode(ev.codepoint);
+                const mods = shouldRouteCtrlText ? ZR_MOD_CTRL : 0;
+                if (keyCode !== null) {
+                  // Create a synthetic key event for keybinding matching
+                  const syntheticKeyEvent = {
+                    kind: "key" as const,
+                    action: "down" as const,
+                    key: keyCode,
+                    mods,
+                    timeMs: ev.timeMs,
+                  };
+                  const keyCtx: KeyContext<S> = Object.freeze({
+                    state: committedState,
+                    update: app.update,
+                    focusedId: widgetRenderer.getFocusedId(),
+                  });
+                  const routeInputState = keybindingState;
+                  const keyResult = routeKeyEvent(routeInputState, syntheticKeyEvent, keyCtx);
+                  applyRoutedKeybindingState(routeInputState, keyResult.nextState);
+                  if (keyResult.handlerError !== undefined) {
+                    enqueueFatal(
+                      "ZRUI_USER_CODE_THROW",
+                      `keybinding handler threw: ${describeThrown(keyResult.handlerError)}`,
+                    );
+                    return;
+                  }
+                  if (keyResult.consumed) {
+                    noteBreadcrumbConsumptionPath("keybindings");
+                    continue; // Skip default widget routing
+                  }
                 }
               }
             }

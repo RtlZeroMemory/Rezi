@@ -87,6 +87,10 @@ function measureMaxLineCells(text: string): number {
   return maxLine;
 }
 
+function countExplicitLines(text: string): number {
+  return text.split("\n").length;
+}
+
 function sumWithGap(values: readonly number[], gap: number): number {
   let total = 0;
   for (let i = 0; i < values.length; i++) total += values[i] ?? 0;
@@ -118,7 +122,7 @@ function measureLeafMinContent(
         propsRes.value.maxWidth === undefined
           ? longestWord
           : Math.min(longestWord, propsRes.value.maxWidth);
-      return ok(clampSize({ w: capped, h: 1 }));
+      return ok(clampSize({ w: capped, h: countExplicitLines(vnode.text) }));
     }
     case "button": {
       const propsRes = validateButtonProps(vnode.props);
@@ -166,10 +170,10 @@ function measureLeafMaxContent(
     case "text": {
       const propsRes = validateTextProps(vnode.props);
       if (!propsRes.ok) return propsRes;
-      const full = measureTextCells(vnode.text);
+      const full = measureMaxLineCells(vnode.text);
       const capped =
         propsRes.value.maxWidth === undefined ? full : Math.min(full, propsRes.value.maxWidth);
-      return ok(clampSize({ w: capped, h: 1 }));
+      return ok(clampSize({ w: capped, h: countExplicitLines(vnode.text) }));
     }
     case "button": {
       const propsRes = validateButtonProps(vnode.props);

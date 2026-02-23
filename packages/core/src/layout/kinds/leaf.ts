@@ -56,11 +56,12 @@ export function measureLeaf(
         propsRes.value.maxWidth === undefined
           ? intrinsicW
           : Math.min(intrinsicW, propsRes.value.maxWidth);
-      const w = Math.min(maxW, cappedW);
+      const maxLineW = Math.min(maxW, cappedW);
       if (propsRes.value.wrap) {
-        const wrapped = measureTextWrapped(vnode.text, w);
-        return ok({ w, h: Math.min(maxH, wrapped.height) });
+        const wrapped = measureTextWrapped(vnode.text, maxLineW);
+        return ok({ w: Math.min(maxLineW, wrapped.width), h: Math.min(maxH, wrapped.height) });
       }
+      const w = maxLineW;
       const h = Math.min(maxH, 1);
       return ok({ w, h });
     }

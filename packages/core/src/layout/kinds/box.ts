@@ -34,6 +34,7 @@ type LayoutNodeFn = (
 type SyntheticColumnCacheEntry = Readonly<{
   childrenRef: readonly VNode[];
   gap: number;
+  flowSignature: string;
   columnNode: VNode;
 }>;
 
@@ -41,9 +42,26 @@ const syntheticColumnCache = new WeakMap<VNode, SyntheticColumnCacheEntry>();
 
 type VNodeWithChildren = VNode & Readonly<{ children: readonly VNode[] }>;
 
+function computeFlowSignature(children: readonly VNode[]): string {
+  let signature = `${children.length}:`;
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
+    signature += child !== undefined && childHasAbsolutePosition(child) ? "1" : "0";
+  }
+  return signature;
+}
+
 function getSyntheticColumn(vnode: VNodeWithChildren, gap: number): VNode {
+  const flowSignature = computeFlowSignature(vnode.children);
   const hit = syntheticColumnCache.get(vnode);
-  if (hit && hit.childrenRef === vnode.children && hit.gap === gap) return hit.columnNode;
+  if (
+    hit &&
+    hit.childrenRef === vnode.children &&
+    hit.gap === gap &&
+    hit.flowSignature === flowSignature
+  ) {
+    return hit.columnNode;
+  }
 
   const flowChildren: VNode[] = [];
   for (let i = 0; i < vnode.children.length; i++) {
@@ -56,7 +74,10 @@ function getSyntheticColumn(vnode: VNodeWithChildren, gap: number): VNode {
     props: { gap },
     children: Object.freeze(flowChildren),
   };
-  syntheticColumnCache.set(vnode, Object.freeze({ childrenRef: vnode.children, gap, columnNode }));
+  syntheticColumnCache.set(
+    vnode,
+    Object.freeze({ childrenRef: vnode.children, gap, flowSignature, columnNode }),
+  );
   return columnNode;
 }
 

@@ -767,8 +767,10 @@ export function routeVirtualListMouseClick(
           const idx = Math.max(0, Math.min(vlist.items.length - 1, idx0));
           if (idx === pressed.index) {
             const item = vlist.items[idx];
-            if (item !== undefined) invokeCallbackSafely(vlist.onSelect, item, idx);
-            localNeedsRender = true;
+            if (item !== undefined && typeof vlist.onSelect === "function") {
+              invokeCallbackSafely(vlist.onSelect, item, idx);
+              localNeedsRender = true;
+            }
           }
         }
       }

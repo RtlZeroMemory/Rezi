@@ -30,6 +30,11 @@ describe("layout text wrap", () => {
     assert.strictEqual(out.rect.h, 3);
   });
 
+  test("wrap preserves repeated spaces instead of collapsing whitespace", () => {
+    const out = mustLayout(ui.text("a  b", { wrap: true }), 3, 10);
+    assert.strictEqual(out.rect.h, 2);
+  });
+
   test("\\n forces line break", () => {
     const out = mustLayout(ui.text("foo\nbar baz", { wrap: true }), 7, 10);
     assert.strictEqual(out.rect.h, 2);
