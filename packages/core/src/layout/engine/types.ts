@@ -1,4 +1,4 @@
-import type { VNode } from "../../index.js";
+import type { VNode } from "../../widgets/types.js";
 import type { LayoutOverflowMetadata } from "../constraints.js";
 import type { Rect } from "../types.js";
 

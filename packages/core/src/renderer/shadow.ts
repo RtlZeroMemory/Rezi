@@ -9,7 +9,7 @@
  * @see docs/guide/runtime-and-layout.md
  */
 
-import type { DrawlistBuilderV1 } from "../index.js";
+import type { DrawlistBuilderV1 } from "../drawlist/types.js";
 import type { Rect } from "../layout/types.js";
 import type { Rgb } from "../widgets/style.js";
 import type { ResolvedTextStyle } from "./renderToDrawlist/textStyle.js";

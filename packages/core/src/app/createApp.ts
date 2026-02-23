@@ -34,16 +34,6 @@ import {
 } from "../backend.js";
 import type { UiEvent, ZrevEvent } from "../events.js";
 import type {
-  App,
-  AppConfig,
-  AppLayoutSnapshot,
-  AppRenderMetrics,
-  DrawFn,
-  EventHandler,
-  FocusChangeHandler,
-  ViewFn,
-} from "../index.js";
-import type {
   BindingMap,
   KeyContext,
   KeybindingManagerState,
@@ -94,6 +84,16 @@ import {
 } from "./runtimeBreadcrumbs.js";
 import { AppStateMachine } from "./stateMachine.js";
 import { TurnScheduler } from "./turnScheduler.js";
+import type {
+  App,
+  AppConfig,
+  AppLayoutSnapshot,
+  AppRenderMetrics,
+  DrawFn,
+  EventHandler,
+  FocusChangeHandler,
+  ViewFn,
+} from "./types.js";
 import { type StateUpdater, UpdateQueue } from "./updateQueue.js";
 import {
   type WidgetRenderPlan,

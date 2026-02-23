@@ -1,4 +1,4 @@
-import type { VNode } from "../../index.js";
+import type { VNode } from "../../widgets/types.js";
 import type { Axis } from "../types.js";
 import { isPercentString } from "./bounds.js";
 

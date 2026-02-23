@@ -497,6 +497,34 @@ describe("layout wrap (deterministic)", () => {
     ]);
   });
 
+  test("measure row wrap align=stretch uses per-line intrinsic cross size", () => {
+    const size = mustMeasure(
+      ui.row({ width: 5, wrap: true, gap: 1, align: "stretch" }, [
+        box({ width: 2, height: 2 }),
+        box({ width: 2, height: 1 }),
+        box({ width: 5, height: 1 }),
+      ]),
+      5,
+      10,
+      "row",
+    );
+    assert.deepEqual(size, { w: 5, h: 4 });
+  });
+
+  test("measure column wrap align=stretch uses per-line intrinsic cross size", () => {
+    const size = mustMeasure(
+      ui.column({ height: 5, wrap: true, gap: 1, align: "stretch" }, [
+        box({ width: 2, height: 2 }),
+        box({ width: 1, height: 2 }),
+        box({ width: 1, height: 5 }),
+      ]),
+      10,
+      5,
+      "column",
+    );
+    assert.deepEqual(size, { w: 4, h: 5 });
+  });
+
   test("measure row wrap natural size uses max line main and total cross", () => {
     const size = mustMeasure(
       ui.row({ wrap: true, gap: 1 }, [

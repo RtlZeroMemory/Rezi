@@ -9,8 +9,8 @@
  * @see docs/styling/focus-styles.md
  */
 
-import type { Rgb, TextStyle } from "../index.js";
 import { type Theme, resolveColor } from "../theme/theme.js";
+import type { Rgb, TextStyle } from "../widgets/style.js";
 
 /** Disabled widget foreground color (gray). */
 const DISABLED_FG: Rgb = Object.freeze({ r: 128, g: 128, b: 128 });

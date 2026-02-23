@@ -9,17 +9,7 @@
 
 import type { RuntimeBackend } from "../backend.js";
 import type { FrameSnapshot } from "../debug/frameInspector.js";
-import type {
-  App,
-  AppConfig,
-  AppLayoutSnapshot,
-  AppRenderMetrics,
-  DrawFn,
-  EventHandler,
-  FocusChangeHandler,
-  RouteDefinition,
-  ViewFn,
-} from "../index.js";
+import type { RouteDefinition } from "../router/types.js";
 import { defaultTheme } from "../theme/defaultTheme.js";
 import type { Theme } from "../theme/theme.js";
 import type { ThemeDefinition } from "../theme/tokens.js";
@@ -35,6 +25,16 @@ import {
   createApp,
 } from "./createApp.js";
 import type { RuntimeBreadcrumbSnapshot } from "./runtimeBreadcrumbs.js";
+import type {
+  App,
+  AppConfig,
+  AppLayoutSnapshot,
+  AppRenderMetrics,
+  DrawFn,
+  EventHandler,
+  FocusChangeHandler,
+  ViewFn,
+} from "./types.js";
 
 type AppCreateOptions<S> = Readonly<{
   backend: RuntimeBackend;

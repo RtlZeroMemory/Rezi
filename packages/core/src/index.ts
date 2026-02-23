@@ -349,19 +349,6 @@ export { inspectorOverlay } from "./widgets/inspectorOverlay.js";
 export {
   defineWidget,
   createWidgetContext,
-  useAsync,
-  useDebounce,
-  useEventSource,
-  useInterval,
-  useSequence,
-  useSpring,
-  useStagger,
-  useTransition,
-  usePrevious,
-  useStream,
-  useTail,
-  useWebSocket,
-  setDefaultTailSourceFactory,
   isCompositeVNode,
   getCompositeMeta,
   scopedId,
@@ -369,6 +356,31 @@ export {
   type CompositeVNode,
   type CompositeWidgetMeta,
   type DefineWidgetOptions,
+  type WidgetContext,
+  type WidgetFactory,
+  type WidgetWrapperKind,
+  type WidgetPropsBase,
+} from "./widgets/composition.js";
+
+export {
+  useSequence,
+  useSpring,
+  useStagger,
+  useTransition,
+  type UseSequenceConfig,
+  type UseSpringConfig,
+  type UseStaggerConfig,
+  type UseTransitionConfig,
+} from "./widgets/hooks/animation.js";
+
+export {
+  useAsync,
+  useEventSource,
+  useInterval,
+  useStream,
+  useTail,
+  useWebSocket,
+  setDefaultTailSourceFactory,
   type EventSourceFactory,
   type EventSourceLike,
   type TailSource,
@@ -377,23 +389,17 @@ export {
   type UseEventSourceMessage,
   type UseEventSourceOptions,
   type UseEventSourceState,
-  type UseSequenceConfig,
-  type UseSpringConfig,
   type UseStreamState,
   type UseTailOptions,
   type UseTailState,
-  type UseStaggerConfig,
-  type UseTransitionConfig,
   type UseWebSocketOptions,
   type UseWebSocketState,
   type WebSocketFactory,
   type WebSocketLike,
   type WebSocketSendPayload,
-  type WidgetContext,
-  type WidgetFactory,
-  type WidgetWrapperKind,
-  type WidgetPropsBase,
-} from "./widgets/composition.js";
+} from "./widgets/hooks/data.js";
+
+export { useDebounce, usePrevious } from "./widgets/hooks/utility.js";
 
 // =============================================================================
 // Instance Registry (for composite widgets)
@@ -1119,191 +1125,16 @@ export type {
 // App Types
 // =============================================================================
 
-import type { DrawApi } from "./drawApi.js";
-import type { UiEvent } from "./events.js";
-import type {
-  BindingMap,
-  KeyContext,
-  ModeBindingMap,
-  RegisteredBinding,
-} from "./keybindings/index.js";
-import type { Rect } from "./layout/types.js";
-import type { RouteDefinition, RouterApi } from "./router/types.js";
-import type { FocusInfo } from "./runtime/widgetMeta.js";
-import type { TerminalProfile } from "./terminalProfile.js";
-import type { Theme } from "./theme/theme.js";
-import type { ThemeDefinition } from "./theme/tokens.js";
-import type { VNode } from "./widgets/types.js";
-
-export type ViewFn<S> = (state: Readonly<S>) => VNode;
-export type DrawFn = (g: DrawApi) => void;
-export type EventHandler = (ev: UiEvent) => void;
-export type FocusChangeHandler = (info: FocusInfo) => void;
-export type AppRenderMetrics = Readonly<{ renderTime: number }>;
-export type AppLayoutSnapshot = Readonly<{ idRects: ReadonlyMap<string, Rect> }>;
-
-export type AppConfig = Readonly<{
-  fpsCap?: number;
-  maxEventBytes?: number;
-  maxDrawlistBytes?: number;
-  /**
-   * Apply padding around the root layout viewport in terminal cells.
-   * Default: 0 in core `createApp()`.
-   * `createNodeApp()` applies `rootPadding: 1` unless overridden.
-   */
-  rootPadding?: number;
-  /**
-   * Responsive breakpoint thresholds (inclusive max widths).
-   * Defaults: sm<=79, md<=119, lg<=159, otherwise xl.
-   */
-  breakpoints?: Readonly<{
-    smMax?: number;
-    mdMax?: number;
-    lgMax?: number;
-  }>;
-  /** Enable v2 cursor protocol for native terminal cursor in Input widgets */
-  useV2Cursor?: boolean;
-  /**
-   * Validate drawlist command parameters in the builder (default: true).
-   * Disable for performance when inputs are already trusted.
-   */
-  drawlistValidateParams?: boolean;
-  /**
-   * Reuse drawlist output buffers across frames (default: true in app runtime).
-   * Safe when the runtime enforces a single in-flight frame.
-   */
-  drawlistReuseOutputBuffer?: boolean;
-  /**
-   * Cache UTF-8 encoded strings across frames. 0 disables (default: 1024).
-   */
-  drawlistEncodedStringCacheCap?: number;
-  /**
-   * Maximum frames that can be in-flight (pending backend ack) simultaneously.
-   * Higher values reduce latency by pipelining but increase memory usage.
-   * Default: 1 (no pipelining). Max: 4.
-   */
-  maxFramesInFlight?: number;
-  /**
-   * @internal Called after a frame is rendered/submitted.
-   */
-  internal_onRender?: (metrics: AppRenderMetrics) => void;
-  /**
-   * @internal Called with the latest widget id->rect layout snapshot.
-   */
-  internal_onLayout?: (snapshot: AppLayoutSnapshot) => void;
-}>;
-
-export interface App<S> {
-  view(fn: ViewFn<S>): void;
-  /**
-   * Replace the active widget view function.
-   *
-   * Unlike `view(...)`, this can be called while the app is running and is
-   * intended for development-time hot reload flows.
-   *
-   * Constraints:
-   * - Available only in widget mode (not draw mode)
-   * - Not available when app routes are configured in `createApp(...)`
-   */
-  replaceView(fn: ViewFn<S>): void;
-  /**
-   * Replace the active route table for route-managed apps.
-   *
-   * Unlike initial `createApp({ routes, initialRoute })` setup, this can be
-   * called while the app is running and is intended for development-time hot
-   * reload workflows.
-   *
-   * Constraints:
-   * - Available only when app routes are configured in `createApp(...)`
-   * - Not available in draw mode
-   */
-  replaceRoutes(routes: readonly RouteDefinition<S>[]): void;
-  draw(fn: DrawFn): void;
-  onEvent(handler: EventHandler): () => void;
-  onFocusChange(handler: FocusChangeHandler): () => void;
-  update(updater: S | ((prev: Readonly<S>) => S)): void;
-  setTheme(theme: Theme | ThemeDefinition): void;
-  /**
-   * Toggle or set in-app layout diagnostics overlay.
-   * When enabled, app view is wrapped with a live layout summary panel.
-   *
-   * @returns Current enabled state
-   */
-  debugLayout(enabled?: boolean): boolean;
-  start(): Promise<void>;
-  run(): Promise<void>;
-  stop(): Promise<void>;
-  dispose(): void;
-
-  /* --- Keybinding API --- */
-
-  /**
-   * Register keybindings in the default mode.
-   *
-   * @example
-   * ```ts
-   * app.keys({
-   *   "ctrl+s": { handler: (ctx) => ctx.update(save), description: "Save document" },
-   *   "ctrl+q": () => app.stop(),
-   *   "g g": (ctx) => ctx.update(scrollToTop),
-   * });
-   * ```
-   */
-  keys(bindings: BindingMap<KeyContext<S>>): void;
-
-  /**
-   * Register multiple keybinding modes (e.g., Vim-like normal/insert).
-   *
-   * @example
-   * ```ts
-   * app.modes({
-   *   normal: {
-   *     "i": () => app.setMode("insert"),
-   *     "j": (ctx) => ctx.update(moveCursorDown),
-   *   },
-   *   insert: {
-   *     "escape": () => app.setMode("normal"),
-   *   },
-   * });
-   * app.setMode("normal");
-   * ```
-   */
-  modes(modes: ModeBindingMap<KeyContext<S>>): void;
-
-  /**
-   * Switch to a different keybinding mode.
-   *
-   * @param modeName - Name of the mode to switch to
-   */
-  setMode(modeName: string): void;
-
-  /**
-   * Get the current keybinding mode name.
-   *
-   * @returns Current mode name (default: "default")
-   */
-  getMode(): string;
-
-  /**
-   * List registered keybindings, optionally filtered by mode.
-   */
-  getBindings(mode?: string): readonly RegisteredBinding[];
-
-  /**
-   * Current pending chord prefix (e.g. "g"), or null when idle.
-   */
-  readonly pendingChord: string | null;
-
-  /**
-   * Get the latest terminal profile snapshot.
-   */
-  getTerminalProfile(): TerminalProfile;
-
-  /**
-   * Page router API when `createApp({ routes, initialRoute })` is used.
-   */
-  readonly router?: RouterApi;
-}
+export type {
+  App,
+  AppConfig,
+  AppLayoutSnapshot,
+  AppRenderMetrics,
+  DrawFn,
+  EventHandler,
+  FocusChangeHandler,
+  ViewFn,
+} from "./app/types.js";
 
 // =============================================================================
 // Advanced Widgets (GitHub issue #136)

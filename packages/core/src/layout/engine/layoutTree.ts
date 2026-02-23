@@ -1,4 +1,4 @@
-import type { VNode } from "../../index.js";
+import type { VNode } from "../../widgets/types.js";
 import type { LayoutResult } from "../validateProps.js";
 import { isI32 } from "./bounds.js";
 import { ok } from "./result.js";

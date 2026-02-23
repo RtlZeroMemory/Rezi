@@ -14,7 +14,7 @@
  * @see docs/guide/runtime-and-layout.md
  */
 
-import type { VNode } from "../index.js";
+import type { VNode } from "../widgets/types.js";
 import type { InstanceId, InstanceIdAllocator } from "./instance.js";
 
 /** Slot identifier: keyed ("k:mykey") or indexed ("i:0"). */
