@@ -38,6 +38,8 @@ Wheel routing order:
 Wheel step size (where implemented):
 
 - `VirtualList`: `wheelY * 3` lines
+  - Default is `scrollDirection: "traditional"` (wheel down moves viewport down).
+  - With `scrollDirection: "natural"`, Rezi flips `wheelY` for that virtual list.
 - `CodeEditor`: `wheelY * 3` vertical lines, `wheelX * 3` horizontal columns
 - `LogsConsole`: `wheelY * 3` lines
 - `DiffViewer`: `wheelY * 3` lines

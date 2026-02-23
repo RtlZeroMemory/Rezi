@@ -1478,6 +1478,7 @@ export function routeMouseWheel(
         scrollTop: state.scrollTop,
         totalHeight,
         viewportHeight: state.viewportHeight,
+        scrollDirection: vlist.scrollDirection ?? "traditional",
       });
 
       if (r.nextScrollTop !== undefined) {
