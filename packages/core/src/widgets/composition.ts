@@ -124,10 +124,18 @@ export type WidgetContext<State = void> = Readonly<{
 /* ========== Hook Re-exports ========== */
 
 export {
+  useAnimatedValue,
+  useChain,
+  useParallel,
   useTransition,
   useSpring,
   useSequence,
   useStagger,
+  type AnimatedValue,
+  type ParallelAnimationEntry,
+  type UseAnimatedValueConfig,
+  type UseChainConfig,
+  type UseParallelConfig,
   type UseTransitionConfig,
   type UseSpringConfig,
   type UseSequenceConfig,

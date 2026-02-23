@@ -41,12 +41,12 @@ Container and spacing primitives for arranging widgets.
 
 | Factory | Description | Focusable | Stability |
 |---------|-------------|-----------|-----------|
-| [`ui.box(props, children)`](box.md) | Container with border, padding, title, and optional transition/opacity props | No | `stable` |
-| [`ui.row(props, children)`](stack.md) | Horizontal stack layout | No | `stable` |
-| [`ui.column(props, children)`](stack.md) | Vertical stack layout | No | `stable` |
+| [`ui.box(props, children)`](box.md) | Container with border, padding, title, and optional `transition`/`exitTransition`/opacity props | No | `stable` |
+| [`ui.row(props, children)`](stack.md) | Horizontal stack layout (supports `transition` for animated layout changes) | No | `stable` |
+| [`ui.column(props, children)`](stack.md) | Vertical stack layout (supports `transition` for animated layout changes) | No | `stable` |
 | [`ui.hstack(...)`](stack.md) | Shorthand horizontal stack (accepts gap number, props, or just children) | No | `stable` |
 | [`ui.vstack(...)`](stack.md) | Shorthand vertical stack (accepts gap number, props, or just children) | No | `stable` |
-| [`ui.grid(props, ...children)`](grid.md) | Two-dimensional grid layout | No | `stable` |
+| [`ui.grid(props, ...children)`](grid.md) | Two-dimensional grid layout (supports `transition` for animated layout changes) | No | `stable` |
 | [`ui.spacer(props?)`](spacer.md) | Fixed-size or flexible spacing | No | `stable` |
 | [`ui.divider(props?)`](divider.md) | Visual separator line | No | `stable` |
 | [`ui.layers(children)` / `ui.layers(props, children)`](layers.md) | Layer stack container (z-ordering) | No | `beta` |

@@ -1,6 +1,12 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import { resolveEasing } from "../easing.js";
-import { clamp01, interpolateNumber, normalizeDurationMs } from "../interpolate.js";
+import {
+  clamp01,
+  interpolateNumber,
+  interpolateRgb,
+  interpolateRgbArray,
+  normalizeDurationMs,
+} from "../interpolate.js";
 
 describe("animation/interpolate", () => {
   test("clamp01 clamps non-finite and out-of-range values", () => {
@@ -24,6 +30,35 @@ describe("animation/interpolate", () => {
     assert.equal(interpolateNumber(10, 30, -1), 10);
     assert.equal(interpolateNumber(10, 30, 0.5), 20);
     assert.equal(interpolateNumber(10, 30, 2), 30);
+  });
+
+  test("interpolateRgb interpolates channel values", () => {
+    assert.deepEqual(interpolateRgb({ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }, 0.5), {
+      r: 128,
+      g: 128,
+      b: 128,
+    });
+  });
+
+  test("interpolateRgb returns endpoints at t=0 and t=1", () => {
+    const from = { r: 3, g: 40, b: 200 };
+    const to = { r: 250, g: 100, b: 0 };
+    assert.deepEqual(interpolateRgb(from, to, 0), from);
+    assert.deepEqual(interpolateRgb(from, to, 1), to);
+  });
+
+  test("interpolateRgb clamps output channels to byte range integers", () => {
+    assert.deepEqual(
+      interpolateRgb({ r: -10, g: 400.4, b: Number.NaN }, { r: -10, g: 400.4, b: Number.NaN }, 1),
+      { r: 0, g: 255, b: 0 },
+    );
+  });
+
+  test("interpolateRgbArray returns the requested number of steps", () => {
+    const steps = interpolateRgbArray({ r: 0, g: 0, b: 0 }, { r: 255, g: 0, b: 0 }, 4);
+    assert.equal(steps.length, 4);
+    assert.deepEqual(steps[0], { r: 0, g: 0, b: 0 });
+    assert.deepEqual(steps[3], { r: 255, g: 0, b: 0 });
   });
 });
 

@@ -58,7 +58,7 @@ type SnapshotRenderedFrameStateParams = Readonly<{
   prevFrameDamageRectById: Map<string, Rect>;
   prevFrameOpacityByInstanceId: Map<InstanceId, number>;
   pooledRuntimeStack: RuntimeInstance[];
-  readBoxOpacity: (node: RuntimeInstance) => number;
+  readContainerOpacity: (node: RuntimeInstance) => number;
 }>;
 
 const UTF8_LINE_FEED = 0x0a;
@@ -416,8 +416,13 @@ export function snapshotRenderedFrameState(params: SnapshotRenderedFrameStatePar
   while (params.pooledRuntimeStack.length > 0) {
     const node = params.pooledRuntimeStack.pop();
     if (!node) continue;
-    if (node.vnode.kind === "box") {
-      params.prevFrameOpacityByInstanceId.set(node.instanceId, params.readBoxOpacity(node));
+    if (
+      node.vnode.kind === "box" ||
+      node.vnode.kind === "row" ||
+      node.vnode.kind === "column" ||
+      node.vnode.kind === "grid"
+    ) {
+      params.prevFrameOpacityByInstanceId.set(node.instanceId, params.readContainerOpacity(node));
     }
     for (let i = node.children.length - 1; i >= 0; i--) {
       const child = node.children[i];

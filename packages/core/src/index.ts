@@ -275,6 +275,7 @@ export type {
   TextProps,
   TextVariant,
   ThemedProps,
+  ExitAnimationState,
   TransitionProperty,
   TransitionSpec,
   TreeProps,
@@ -365,15 +366,33 @@ export {
 } from "./widgets/composition.js";
 
 export {
+  useAnimatedValue,
+  useChain,
+  useParallel,
   useSequence,
   useSpring,
   useStagger,
   useTransition,
+  type AnimatedValue,
+  type ParallelAnimationEntry,
+  type UseAnimatedValueConfig,
+  type UseChainConfig,
+  type UseParallelConfig,
   type UseSequenceConfig,
   type UseSpringConfig,
   type UseStaggerConfig,
   type UseTransitionConfig,
 } from "./widgets/hooks/animation.js";
+
+export type { PlaybackControl } from "./animation/types.js";
+
+export {
+  clamp01,
+  interpolateNumber,
+  interpolateRgb,
+  interpolateRgbArray,
+  normalizeDurationMs,
+} from "./animation/interpolate.js";
 
 export {
   useAsync,

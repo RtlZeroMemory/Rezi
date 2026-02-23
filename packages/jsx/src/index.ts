@@ -256,4 +256,14 @@ export type {
   WidgetVariant,
 } from "@rezi-ui/core";
 
-export type { Rgb, TextStyle, VNode } from "@rezi-ui/core";
+export type {
+  AnimatedValue,
+  ParallelAnimationEntry,
+  PlaybackControl,
+  Rgb,
+  TextStyle,
+  UseAnimatedValueConfig,
+  UseChainConfig,
+  UseParallelConfig,
+  VNode,
+} from "@rezi-ui/core";
