@@ -348,19 +348,6 @@ export { inspectorOverlay } from "./widgets/inspectorOverlay.js";
 export {
   defineWidget,
   createWidgetContext,
-  useAsync,
-  useDebounce,
-  useEventSource,
-  useInterval,
-  useSequence,
-  useSpring,
-  useStagger,
-  useTransition,
-  usePrevious,
-  useStream,
-  useTail,
-  useWebSocket,
-  setDefaultTailSourceFactory,
   isCompositeVNode,
   getCompositeMeta,
   scopedId,
@@ -368,6 +355,31 @@ export {
   type CompositeVNode,
   type CompositeWidgetMeta,
   type DefineWidgetOptions,
+  type WidgetContext,
+  type WidgetFactory,
+  type WidgetWrapperKind,
+  type WidgetPropsBase,
+} from "./widgets/composition.js";
+
+export {
+  useSequence,
+  useSpring,
+  useStagger,
+  useTransition,
+  type UseSequenceConfig,
+  type UseSpringConfig,
+  type UseStaggerConfig,
+  type UseTransitionConfig,
+} from "./widgets/hooks/animation.js";
+
+export {
+  useAsync,
+  useEventSource,
+  useInterval,
+  useStream,
+  useTail,
+  useWebSocket,
+  setDefaultTailSourceFactory,
   type EventSourceFactory,
   type EventSourceLike,
   type TailSource,
@@ -376,23 +388,17 @@ export {
   type UseEventSourceMessage,
   type UseEventSourceOptions,
   type UseEventSourceState,
-  type UseSequenceConfig,
-  type UseSpringConfig,
   type UseStreamState,
   type UseTailOptions,
   type UseTailState,
-  type UseStaggerConfig,
-  type UseTransitionConfig,
   type UseWebSocketOptions,
   type UseWebSocketState,
   type WebSocketFactory,
   type WebSocketLike,
   type WebSocketSendPayload,
-  type WidgetContext,
-  type WidgetFactory,
-  type WidgetWrapperKind,
-  type WidgetPropsBase,
-} from "./widgets/composition.js";
+} from "./widgets/hooks/data.js";
+
+export { useDebounce, usePrevious } from "./widgets/hooks/utility.js";
 
 // =============================================================================
 // Instance Registry (for composite widgets)
