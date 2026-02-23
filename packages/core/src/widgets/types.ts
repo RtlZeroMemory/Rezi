@@ -1412,8 +1412,6 @@ export type CheckboxProps = Readonly<{
   disabled?: boolean;
   /** Optional focus appearance configuration. */
   focusConfig?: FocusConfig;
-  /** Design system: variant preset. */
-  dsVariant?: WidgetVariant;
   /** Design system: tone for checked/focus rendering. */
   dsTone?: WidgetTone;
   /** Design system: size preset. */
@@ -1440,8 +1438,6 @@ export type RadioGroupProps = Readonly<{
   disabled?: boolean;
   /** Optional focus appearance configuration. */
   focusConfig?: FocusConfig;
-  /** Design system: variant preset. */
-  dsVariant?: WidgetVariant;
   /** Design system: tone for selected/focus rendering. */
   dsTone?: WidgetTone;
   /** Design system: size preset. */
