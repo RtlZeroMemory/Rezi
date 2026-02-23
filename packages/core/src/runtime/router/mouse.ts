@@ -1,9 +1,6 @@
 import type { ZrevEvent } from "../../events.js";
+import { ZR_MOUSE_DOWN, ZR_MOUSE_UP } from "../../protocol/mouseKinds.js";
 import type { EnabledById, MouseRoutingCtx, RoutedAction, RoutingResult } from "./types.js";
-
-/* Mouse kind values (locked by ABI) */
-const ZR_MOUSE_KIND_DOWN = 3;
-const ZR_MOUSE_KIND_UP = 4;
 
 function isEnabled(enabledById: EnabledById, id: string): boolean {
   return enabledById.get(id) === true;
@@ -19,7 +16,7 @@ export function routeMouse(event: ZrevEvent, ctx: MouseRoutingCtx): RoutingResul
 
   const targetId = ctx.hitTestTargetId;
 
-  if (event.mouseKind === ZR_MOUSE_KIND_DOWN) {
+  if (event.mouseKind === ZR_MOUSE_DOWN) {
     if (targetId !== null && isEnabled(ctx.enabledById, targetId)) {
       const pressable = ctx.pressableIds ? ctx.pressableIds.has(targetId) : true;
       return Object.freeze({ nextFocusedId: targetId, nextPressedId: pressable ? targetId : null });
@@ -27,7 +24,7 @@ export function routeMouse(event: ZrevEvent, ctx: MouseRoutingCtx): RoutingResul
     return Object.freeze({ nextPressedId: null });
   }
 
-  if (event.mouseKind === ZR_MOUSE_KIND_UP) {
+  if (event.mouseKind === ZR_MOUSE_UP) {
     const pressedId = ctx.pressedId;
     if (
       pressedId !== null &&

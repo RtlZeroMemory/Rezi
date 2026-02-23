@@ -11,6 +11,7 @@
 import { ZREV_MAGIC, ZR_EVENT_BATCH_VERSION_V1 } from "../abi.js";
 import type { BackendEventBatch } from "../backend.js";
 import { KEY_NAME_TO_CODE, charToKeyCode } from "../keybindings/keyCodes.js";
+import { ZR_MOUSE_DOWN, ZR_MOUSE_UP, ZR_MOUSE_WHEEL } from "../protocol/mouseKinds.js";
 import type { ZrevKeyAction, ZrevMouseKind } from "../protocol/types.js";
 
 const BATCH_HEADER_SIZE = 24;
@@ -24,9 +25,9 @@ const MOUSE_RECORD_SIZE = 48;
 const RESIZE_RECORD_SIZE = 32;
 const TICK_RECORD_SIZE = 32;
 
-export const TEST_MOUSE_KIND_DOWN: ZrevMouseKind = 3;
-export const TEST_MOUSE_KIND_UP: ZrevMouseKind = 4;
-export const TEST_MOUSE_KIND_SCROLL: ZrevMouseKind = 5;
+export const TEST_MOUSE_KIND_DOWN: ZrevMouseKind = ZR_MOUSE_DOWN;
+export const TEST_MOUSE_KIND_UP: ZrevMouseKind = ZR_MOUSE_UP;
+export const TEST_MOUSE_KIND_SCROLL: ZrevMouseKind = ZR_MOUSE_WHEEL;
 
 export type TestZrevEvent =
   | Readonly<{

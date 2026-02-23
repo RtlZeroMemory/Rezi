@@ -153,10 +153,10 @@ Mouse kinds:
 | Mouse kind | Value |
 |---|---:|
 | `move` | `1` |
-| `press` | `2` |
-| `release` | `3` |
-| `drag` | `4` |
-| `scroll` | `5` |
+| `drag` | `2` |
+| `down` | `3` |
+| `up` | `4` |
+| `wheel` | `5` |
 
 ## Related
 
