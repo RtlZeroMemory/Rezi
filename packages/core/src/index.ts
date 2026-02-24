@@ -65,6 +65,7 @@ export {
   measureTextCells,
   truncateWithEllipsis,
   truncateMiddle,
+  truncateStart,
   clearTextMeasureCache,
   getTextMeasureCacheSize,
   setTextMeasureEmojiPolicy,
@@ -507,6 +508,8 @@ export { rgb, type Rgb, type TextStyle } from "./widgets/style.js";
 // =============================================================================
 // Spacing Scale
 // =============================================================================
+
+export type { Rect, Size, Axis } from "./layout/types.js";
 
 export {
   SPACING_SCALE,

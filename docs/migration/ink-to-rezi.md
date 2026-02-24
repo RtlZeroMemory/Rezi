@@ -100,7 +100,7 @@ ui.table({
 
 ### 4) Text styling and truncation
 
-`ui.text` handles style + deterministic cell-aware truncation.
+`ui.text` handles style + deterministic cell-aware truncation. Four overflow modes are available: `"clip"` (default), `"ellipsis"`, `"middle"`, and `"start"`.
 
 ```typescript
 import { rgb } from "@rezi-ui/core";
@@ -108,7 +108,17 @@ import { rgb } from "@rezi-ui/core";
 ui.column({ gap: 1 }, [
   ui.text("Build failed", { style: { fg: rgb(255, 110, 110), bold: true } }),
   ui.text(state.path, { textOverflow: "middle", maxWidth: 40 }),
+  ui.text(state.longPath, { textOverflow: "start" }), // keeps tail, e.g. "…src/index.ts"
 ]);
+```
+
+### 4b) Layout measurement
+
+Ink's `measureElement` ref has a direct equivalent: `app.measureElement(id)` returns the computed `Rect` (`{ x, y, w, h }`) for any widget by its `id`, or `null` if not found.
+
+```typescript
+const rect = app.measureElement("sidebar");
+if (rect) console.log(`sidebar is ${rect.w}x${rect.h} at (${rect.x},${rect.y})`);
 ```
 
 ### 5) Forms

@@ -2060,6 +2060,11 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       return terminalProfile;
     },
 
+    measureElement(id: string): Rect | null {
+      if (mode !== "widget" || !widgetRenderer) return null;
+      return widgetRenderer.getRectByIdIndex().get(id) ?? null;
+    },
+
     ...(routerIntegration ? { router: routerIntegration.router } : {}),
   };
 

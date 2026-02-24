@@ -63,5 +63,7 @@ export interface App<S> {
   getBindings(mode?: string): readonly RegisteredBinding[];
   readonly pendingChord: string | null;
   getTerminalProfile(): TerminalProfile;
+  /** Return the computed layout rect for a widget by its `id`, or `null` if not found. */
+  measureElement(id: string): Rect | null;
   readonly router?: RouterApi;
 }

@@ -107,7 +107,7 @@ Current layout behavior to preserve when editing or generating docs:
 - Intrinsic sizing protocol (`measureMinContent` / `measureMaxContent`) is active for leaf and container measurement.
 - Stack constraints support `flex`, `flexShrink`, `flexBasis`, and per-child `alignSelf`.
 - Stack wrap and non-wrap paths use bounded cross-axis feedback (max 2 measure passes per child when needed).
-- Text supports `wrap` with grapheme-safe hard breaks and newline-aware paragraph splits.
+- Text supports `wrap` with grapheme-safe hard breaks and newline-aware paragraph splits. `textOverflow` supports `"clip"`, `"ellipsis"`, `"middle"`, and `"start"` (keeps tail with leading ellipsis).
 - Box has `gap` on its synthetic inner column and runs absolute children in a second out-of-flow pass.
 - Stack/box absolute positioning supports `position: "absolute"` + `top/right/bottom/left`.
 - Grid supports explicit placement and spans (`gridColumn`, `gridRow`, `colSpan`, `rowSpan`) with occupancy-aware auto placement.
@@ -307,6 +307,10 @@ each(items, (item) => ui.text(item.name), { key: (item) => item.id });
 - `scroll`
 
 This allows centralized logging/middleware via app-level event listeners in addition to per-widget callbacks.
+
+## Layout Measurement
+
+`app.measureElement(id)` returns the computed layout `Rect` (`{ x, y, w, h }`) for any widget by its string `id`, or `null` if the widget is not in the current tree. The rect reflects the most recent layout pass. Types `Rect`, `Size`, and `Axis` are exported from `@rezi-ui/core`.
 
 ## Drawlist Codegen Protocol (MUST for ZRDL command changes)
 

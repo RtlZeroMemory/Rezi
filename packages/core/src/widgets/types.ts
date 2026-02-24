@@ -126,7 +126,7 @@ export type TextProps = Readonly<{
   /** Text variant with predefined styling */
   variant?: TextVariant;
   /** How to handle text that exceeds available width. Defaults to "clip". */
-  textOverflow?: "clip" | "ellipsis" | "middle";
+  textOverflow?: "clip" | "ellipsis" | "middle" | "start";
   /** Maximum width for overflow handling (in cells) */
   maxWidth?: number;
   /** When true, text wraps to multiple lines instead of single-line truncation. */

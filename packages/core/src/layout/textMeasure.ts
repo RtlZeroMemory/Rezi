@@ -618,6 +618,39 @@ export function truncateWithEllipsis(text: string, maxWidth: number): string {
  * // "/home/user/…/src/index.ts"
  * ```
  */
+/**
+ * Truncate text from the start, preserving the end.
+ * Useful for file paths and URLs where the tail is most important.
+ *
+ * @param text - The text to truncate
+ * @param maxWidth - Maximum width in terminal cells
+ * @returns Truncated text with ellipsis at start, or original if it fits
+ *
+ * @example
+ * ```typescript
+ * truncateStart("/home/user/documents/project/src/index.ts", 20)
+ * // "…ject/src/index.ts"
+ * ```
+ */
+export function truncateStart(text: string, maxWidth: number): string {
+  const fullWidth = measureTextCells(text);
+  if (fullWidth <= maxWidth) return text;
+  if (maxWidth <= 0) return "";
+  if (maxWidth === 1) return "…";
+
+  // Reserve 1 cell for ellipsis
+  const targetWidth = maxWidth - 1;
+  if (targetWidth <= 0) return "…";
+
+  const { starts, prefixWidths } = collectGraphemeSlices(text);
+  const clusterCount = starts.length;
+  const endClusters = maxSuffixClustersWithinWidth(prefixWidths, targetWidth);
+  if (endClusters === 0) return "…";
+  const endStartCluster = clusterCount - endClusters;
+  const endStart = starts[endStartCluster] ?? text.length;
+  return `…${text.slice(endStart)}`;
+}
+
 export function truncateMiddle(text: string, maxWidth: number): string {
   const fullWidth = measureTextCells(text);
   if (fullWidth <= maxWidth) return text;

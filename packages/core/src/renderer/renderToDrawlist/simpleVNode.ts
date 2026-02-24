@@ -7,6 +7,7 @@ import {
 import {
   measureTextCells,
   truncateMiddle,
+  truncateStart,
   truncateWithEllipsis,
 } from "../../layout/textMeasure.js";
 import type { Theme } from "../../theme/theme.js";
@@ -46,10 +47,11 @@ function readNonNegativeInt(v: unknown): number | undefined {
   return Math.trunc(n);
 }
 
-function readTextOverflow(v: unknown): "clip" | "ellipsis" | "middle" {
+function readTextOverflow(v: unknown): "clip" | "ellipsis" | "middle" | "start" {
   switch (v) {
     case "ellipsis":
     case "middle":
+    case "start":
       return v;
     default:
       return "clip";
@@ -390,6 +392,9 @@ export function renderVNodeSimple(
             break;
           case "middle":
             displayText = truncateMiddle(displayText, overflowW);
+            break;
+          case "start":
+            displayText = truncateStart(displayText, overflowW);
             break;
           case "clip":
             break;
