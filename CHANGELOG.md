@@ -17,6 +17,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - **layout**: `focusZone` and `focusTrap` no longer impose implicit column layout on children.
 - **layout**: Stack rebalancing now prevents flex siblings with percent main-size constraints from collapsing to zero width in wide-row compositions.
 - **create-rezi/starship**: command palette and modal text entry no longer get blocked by app-level keybindings; shell body now consistently applies active theme root styling across all decks.
+- **create-rezi/starship**: synced template sources with the polished showcase app so scaffolding now includes restored animated bridge/engineering panels, responsive deck layouts, and global theme token application across all screens.
 
 ### Features
 
