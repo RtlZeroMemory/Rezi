@@ -37,8 +37,8 @@ npm create rezi my-app -- --template dashboard
 npm create rezi my-app -- --template stress-test
 npm create rezi my-app -- --template cli-tool
 npm create rezi my-app -- --template animation-lab
-npm create rezi my-app -- --template minimal
 npm create rezi my-app -- --template starship
+npm create rezi my-app -- --template minimal
 ```
 
 List templates and highlights from the CLI:

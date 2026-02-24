@@ -19,6 +19,18 @@ type EmitDevLayoutWarningsContext = WarnLayoutIssueContext &
     pooledLayoutStack: LayoutTree[];
   }>;
 
+const ZERO_RECT_DRAWABLE_KINDS = new Set<string>([
+  "canvas",
+  "image",
+  "lineChart",
+  "barChart",
+  "scatter",
+  "heatmap",
+  "sparkline",
+  "gauge",
+  "miniChart",
+]);
+
 export function describeLayoutNode(node: LayoutTree): string {
   const props = node.vnode.props as { id?: unknown } | undefined;
   const id = typeof props?.id === "string" && props.id.length > 0 ? `#${props.id}` : "";
@@ -126,11 +138,19 @@ export function emitDevLayoutWarnings(
     }
 
     if (node.rect.w <= 0 || node.rect.h <= 0) {
-      warnLayoutIssue(
-        ctx,
-        `zeroRect:${desc}:${node.rect.w}x${node.rect.h}`,
-        `${desc} resolved to zero-size rect ${String(node.rect.w)}x${String(node.rect.h)} and may be invisible.`,
-      );
+      if (ZERO_RECT_DRAWABLE_KINDS.has(node.vnode.kind)) {
+        warnLayoutIssue(
+          ctx,
+          `zeroDrawableRect:${desc}:${node.rect.w}x${node.rect.h}`,
+          `${desc} resolved to ${String(node.rect.w)}x${String(node.rect.h)}. Drawable widgets with zero-size rects never draw. Hint: ensure non-zero width/height or flex/min constraints.`,
+        );
+      } else {
+        warnLayoutIssue(
+          ctx,
+          `zeroRect:${desc}:${node.rect.w}x${node.rect.h}`,
+          `${desc} resolved to zero-size rect ${String(node.rect.w)}x${String(node.rect.h)} and may be invisible.`,
+        );
+      }
     }
 
     if (node.meta && node.meta.viewportWidth <= 0 && node.meta.viewportHeight <= 0) {

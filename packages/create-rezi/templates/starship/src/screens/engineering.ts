@@ -257,7 +257,12 @@ const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode =
     ]),
   ]);
 
-  return ui.column({ gap: 1 }, [
+  const deckLayout = ui.row({ gap: 1, items: "stretch", width: "100%" }, [
+    ui.box({ border: "none", p: 0, flex: 2, width: "100%" }, [leftPane]),
+    ui.box({ border: "none", p: 0, flex: 3, width: "100%" }, [rightPane]),
+  ]);
+
+  return ui.column({ gap: 1, width: "100%" }, [
     ui.panel("Engineering Controls", [
       ui.actions([
         ui.button({
@@ -274,15 +279,7 @@ const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode =
         }),
       ]),
     ]),
-    ui.splitPane(
-      {
-        id: ctx.id("engineering-split-pane"),
-        direction: "horizontal",
-        sizes: props.state.splitSizes,
-        onResize: (sizes) => props.dispatch({ type: "set-split-sizes", sizes }),
-      },
-      [leftPane, rightPane],
-    ),
+    deckLayout,
   ]);
 });
 
@@ -301,7 +298,11 @@ export function renderEngineeringScreen(
         title: "Power and Thermal Control",
         style: styles.panelStyle,
       },
-      [EngineeringDeck({ state: context.state, dispatch: deps.dispatch })],
+      [
+        ui.column({ gap: 1, width: "100%" }, [
+          EngineeringDeck({ state: context.state, dispatch: deps.dispatch }),
+        ]),
+      ],
     ),
   });
 }

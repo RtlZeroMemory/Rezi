@@ -31,12 +31,12 @@ If `--template` is omitted, the CLI prompts you to choose (default: `dashboard`)
 - `animation-lab`: Declarative animation starter with responsive reactor visuals.
   Highlights: transition/spring/sequence/stagger hooks, canvas + chart composition, and live resize adaptation.
   Aliases: `animation`, `anim`, `lab`, `motion`.
+- `starship`: Multi-deck starship command console with the full widget catalog.
+  Highlights: six routed screens, charts/canvas/forms/overlays, and route-aware keybinding modes.
+  Aliases: `ship`, `bridge`, `command`.
 - `minimal`: Single-screen utility starter for focused tooling.
   Highlights: lean reducer flow, keybindings (`q`, `?`, `+/-`, `t`), theme cycling, and signal-safe shutdown pattern.
   Aliases: `mini`, `basic`, `utility`.
-- `starship`: Multi-deck command console integration showcase.
-  Highlights: routed six-screen bridge, live telemetry/charts, crew and cargo operations, overlays, and theme cycling.
-  Aliases: `ship`, `bridge`, `command`.
 
 Choose directly with `--template`:
 
@@ -45,14 +45,14 @@ npm create rezi my-app -- --template dashboard
 npm create rezi my-app -- --template stress-test
 npm create rezi my-app -- --template cli-tool
 npm create rezi my-app -- --template animation-lab
-npm create rezi my-app -- --template minimal
 npm create rezi my-app -- --template starship
+npm create rezi my-app -- --template minimal
 bun create rezi my-app -- --template dashboard
 bun create rezi my-app -- --template stress-test
 bun create rezi my-app -- --template cli-tool
 bun create rezi my-app -- --template animation-lab
-bun create rezi my-app -- --template minimal
 bun create rezi my-app -- --template starship
+bun create rezi my-app -- --template minimal
 ```
 
 Inspect all templates and highlights from the CLI:
