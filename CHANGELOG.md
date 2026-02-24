@@ -6,15 +6,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
-### Bug Fixes
-
-- **protocol**: Fixed ABI mouse-kind mapping drift between C engine and TypeScript.
-- **widgets**: `link` now participates in hit-testing and is clickable via mouse.
-- **runtime**: `useEffect` cleanup no longer runs during render phase.
-- **widgets**: `dialog` action `intent` prop is respected in rendering.
-- **focus**: Modal `initialFocus` and `returnFocusTo` props are now functional.
-- **style**: `sanitizeTextStyle()` preserves `underlineStyle` and `underlineColor`.
-- **layout**: `focusZone` and `focusTrap` no longer impose implicit column layout on children.
+## [0.1.0-alpha.36] - 2026-02-24
 
 ### Features
 
@@ -26,6 +18,18 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - **design-system**: Recipes wired into input, checkbox, select, table, progress, badge, and callout rendering paths.
 - **shortcuts**: Dropdown and CommandPalette item `shortcut` labels are documented as hint/display metadata (and command-palette query matching input).
 - **focus**: Unified DS focus indicators use `focus.ring` token color.
+- **create-rezi**: Added the `starship` command-console template with six routed screens and full integration showcase coverage.
+
+### Bug Fixes
+
+- **protocol**: Fixed ABI mouse-kind mapping drift between C engine and TypeScript.
+- **widgets**: `link` now participates in hit-testing and is clickable via mouse.
+- **runtime**: `useEffect` cleanup no longer runs during render phase.
+- **widgets**: `dialog` action `intent` prop is respected in rendering.
+- **focus**: Modal `initialFocus` and `returnFocusTo` props are now functional.
+- **style**: `sanitizeTextStyle()` preserves `underlineStyle` and `underlineColor`.
+- **layout**: `focusZone` and `focusTrap` no longer impose implicit column layout on children.
+- **create-rezi/starship**: Hardened route-aware keybinding resolution and bridge layout stability for resize-heavy PTY sessions.
 
 ### Developer Experience
 
@@ -36,6 +40,12 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - **refactor**: Centralized ID codec replaces duplicated encode/decode logic in tabs/accordion/breadcrumb.
 - **refactor**: Shared dropdown geometry helper removes duplication between renderer and routing.
 - **docs**: Added a comprehensive "Using JSX" guide for `@rezi-ui/jsx`, including setup, parity mapping to `ui.*()`, and component reference coverage.
+- **docs**: Updated `create-rezi` template inventories and alias tables to include `starship`.
+
+### Merged Pull Requests
+
+- [#190](https://github.com/RtlZeroMemory/Rezi/pull/190) refactor(cursor): remove v1 cursor paths and make native cursor default
+- [#191](https://github.com/RtlZeroMemory/Rezi/pull/191) feat(create-rezi): add starship command console template
 
 ## [0.1.0-alpha.30] - 2026-02-22
 
