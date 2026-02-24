@@ -15,6 +15,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - **focus**: Modal `initialFocus` and `returnFocusTo` props are now functional.
 - **style**: `sanitizeTextStyle()` preserves `underlineStyle` and `underlineColor`.
 - **layout**: `focusZone` and `focusTrap` no longer impose implicit column layout on children.
+- **create-rezi/starship**: command palette and modal text entry no longer get blocked by app-level keybindings; shell body now consistently applies active theme root styling across all decks.
 
 ### Features
 

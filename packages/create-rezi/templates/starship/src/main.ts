@@ -365,6 +365,19 @@ function bindKeys(): void {
     keys.map((key) => [
       key,
       () => {
+        const state = app.getState();
+        const overlayInputActive =
+          state.showCommandPalette || state.showHailDialog || state.showHelp || state.showResetDialog;
+        if (overlayInputActive) {
+          if (key === "ctrl+c") {
+            void stopApp(0);
+            return;
+          }
+          if (state.showCommandPalette && key === "ctrl+p") {
+            dispatch({ type: "toggle-command-palette" });
+          }
+          return;
+        }
         applyCommand(resolveStarshipCommand(key, currentRouteId()));
       },
     ]),

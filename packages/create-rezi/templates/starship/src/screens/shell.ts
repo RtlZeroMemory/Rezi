@@ -149,7 +149,7 @@ export function renderShell(options: ShellOptions): VNode {
         ]),
       ]),
     },
-    body: ui.column({ gap: 1 }, [
+    body: ui.column({ gap: 1, style: styles.rootStyle }, [
       routerBreadcrumb(options.context.router, routeDefinitions, {
         id: "bridge-breadcrumb",
         separator: ">",
