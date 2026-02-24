@@ -620,6 +620,58 @@ describe("renderer text - truncation boundaries", () => {
     assert.equal(expectSingleDrawText(frame).text, "ab…");
   });
 
+  test("start truncation width=5 keeps tail", () => {
+    const frame = parseFrame(
+      renderBytes(textVNode("abcdef", { textOverflow: "start", maxWidth: 5 }), {
+        cols: 20,
+        rows: 1,
+      }),
+    );
+    assert.equal(expectSingleDrawText(frame).text, "…cdef");
+  });
+
+  test("start truncation width=3 keeps two trailing chars", () => {
+    const frame = parseFrame(
+      renderBytes(textVNode("abcdef", { textOverflow: "start", maxWidth: 3 }), {
+        cols: 20,
+        rows: 1,
+      }),
+    );
+    assert.equal(expectSingleDrawText(frame).text, "…ef");
+  });
+
+  test("start truncation width=1 is only ellipsis", () => {
+    const frame = parseFrame(
+      renderBytes(textVNode("abcdef", { textOverflow: "start", maxWidth: 1 }), {
+        cols: 20,
+        rows: 1,
+      }),
+    );
+    assert.equal(expectSingleDrawText(frame).text, "…");
+  });
+
+  test("start truncation width=0 produces no text command", () => {
+    const frame = parseFrame(
+      renderBytes(textVNode("abcdef", { textOverflow: "start", maxWidth: 0 }), {
+        cols: 20,
+        rows: 1,
+      }),
+    );
+    assert.equal(frame.drawTexts.length, 0);
+    assert.equal(frame.drawTextRuns.length, 0);
+    assert.equal(frame.strings.length, 0);
+  });
+
+  test("start truncation exact boundary keeps full text", () => {
+    const frame = parseFrame(
+      renderBytes(textVNode("abcd", { textOverflow: "start", maxWidth: 4 }), {
+        cols: 20,
+        rows: 1,
+      }),
+    );
+    assert.equal(expectSingleDrawText(frame).text, "abcd");
+  });
+
   test("text longer than viewport width uses clip and keeps full source string", () => {
     const source = "0123456789";
     const frame = parseFrame(renderBytes(textVNode(source), { cols: 5, rows: 1 }));

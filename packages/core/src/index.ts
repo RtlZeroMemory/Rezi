@@ -65,6 +65,7 @@ export {
   measureTextCells,
   truncateWithEllipsis,
   truncateMiddle,
+  truncateStart,
   clearTextMeasureCache,
   getTextMeasureCacheSize,
   setTextMeasureEmojiPolicy,
@@ -502,6 +503,12 @@ export {
   type MeasuredItemHeights,
 } from "./widgets/virtualList.js";
 export { rgb, type Rgb, type TextStyle } from "./widgets/style.js";
+
+// =============================================================================
+// Layout Types
+// =============================================================================
+
+export type { Rect, Size, Axis } from "./layout/types.js";
 
 // =============================================================================
 // Spacing Scale

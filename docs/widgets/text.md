@@ -22,7 +22,7 @@ ui.text("Caption", { variant: "caption", textOverflow: "ellipsis" }); // pass Te
 | `key` | `string` | - | Reconciliation key for lists |
 | `style` | `TextStyle` | - | Style applied to this text |
 | `variant` | `"body" \| "heading" \| "caption" \| "code" \| "label"` | `"body"` | Predefined styling intent |
-| `textOverflow` | `"clip" \| "ellipsis" \| "middle"` | `"clip"` | How to handle overflow |
+| `textOverflow` | `"clip" \| "ellipsis" \| "middle" \| "start"` | `"clip"` | How to handle overflow |
 | `maxWidth` | `number` | - | Maximum width (cells) for overflow handling |
 | `wrap` | `boolean` | `false` | Wrap text into multiple lines using cell-width-aware line breaking |
 
@@ -59,7 +59,20 @@ ui.box({ width: 24, border: "single", p: 1 }, [
 ]);
 ```
 
-### 4) Wrapped multiline text
+### 4) Start truncation
+
+Keeps the tail of the string, prepending an ellipsis. Useful for file paths where the significant part is at the end.
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.box({ width: 30, border: "single", p: 1 }, [
+  ui.text("/home/user/documents/project/src/index.ts", { textOverflow: "start" }),
+]);
+// renders: "…uments/project/src/index.ts"
+```
+
+### 5) Wrapped multiline text
 
 ```typescript
 import { ui } from "@rezi-ui/core";

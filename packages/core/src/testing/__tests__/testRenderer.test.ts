@@ -60,4 +60,28 @@ describe("createTestRenderer", () => {
 
     matchesSnapshot(frame.toText(), "test-renderer-basic");
   });
+
+  test("findById exposes layout rect for element measurement", () => {
+    const renderer = createTestRenderer({ viewport: { cols: 40, rows: 10 } });
+
+    const result = renderer.render(
+      ui.column({}, [
+        ui.button({ id: "top", label: "Top" }),
+        ui.button({ id: "bottom", label: "Bottom" }),
+      ]),
+    );
+
+    const top = result.findById("top");
+    assert.notEqual(top, null);
+    assert.equal(typeof top?.rect.x, "number");
+    assert.equal(typeof top?.rect.y, "number");
+    assert.equal(typeof top?.rect.w, "number");
+    assert.equal(typeof top?.rect.h, "number");
+    assert.ok((top?.rect.w ?? 0) > 0);
+    assert.ok((top?.rect.h ?? 0) > 0);
+
+    const bottom = result.findById("bottom");
+    assert.notEqual(bottom, null);
+    assert.ok((bottom?.rect.y ?? 0) >= (top?.rect.y ?? 0) + (top?.rect.h ?? 0));
+  });
 });
