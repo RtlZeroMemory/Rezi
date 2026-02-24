@@ -88,7 +88,7 @@ function printHelp(): void {
   stdout.write("  bun create rezi my-app\n\n");
   stdout.write("Options:\n");
   stdout.write(
-    "  --template, -t <name>       dashboard | stress-test | cli-tool | animation-lab | minimal\n",
+    "  --template, -t <name>       dashboard | stress-test | cli-tool | animation-lab | minimal | starship\n",
   );
   stdout.write("  --no-install                Skip dependency install\n");
   stdout.write("  --pm <npm|pnpm|yarn|bun>    Choose a package manager\n");
