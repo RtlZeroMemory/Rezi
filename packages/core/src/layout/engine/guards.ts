@@ -1,4 +1,5 @@
 import type { VNode } from "../../widgets/types.js";
+import { resolveResponsiveValue } from "../responsive.js";
 import type { Axis } from "../types.js";
 import { isPercentString } from "./bounds.js";
 
@@ -43,14 +44,14 @@ export function childHasPercentInMainAxis(vnode: unknown, axis: Axis): boolean {
   const p = getConstraintProps(vnode);
   if (!p) return false;
   const main = axis === "row" ? p.width : p.height;
-  return isPercentString(main);
+  return isPercentString(resolveResponsiveValue(main));
 }
 
 export function childHasPercentInCrossAxis(vnode: unknown, axis: Axis): boolean {
   const p = getConstraintProps(vnode);
   if (!p) return false;
   const cross = axis === "row" ? p.height : p.width;
-  return isPercentString(cross);
+  return isPercentString(resolveResponsiveValue(cross));
 }
 
 export function childHasAbsolutePosition(vnode: unknown): boolean {

@@ -2,7 +2,7 @@
 // Source of truth: scripts/drawlist-spec.ts
 // Regenerate: npx tsx scripts/generate-drawlist-writers.ts
 
-import type { EncodedStyle } from "./builder_v3.js";
+import type { EncodedStyle } from "./types.js";
 
 export const CLEAR_SIZE = 8;
 export const FILL_RECT_SIZE = 52;

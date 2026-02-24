@@ -388,6 +388,8 @@ export function renderCollectionWidget(
         }
       }
 
+      const renderedStartIndex = startIndex;
+      const renderedEndIndex = endIndex;
       let finalMeasuredHeights = measuredHeights;
       let finalTotalHeight = totalHeight;
       if (changedMeasuredHeights && nextMeasuredHeights !== undefined) {
@@ -398,21 +400,13 @@ export function renderCollectionWidget(
           finalTotalHeight,
           rect.h,
         );
-        const recomputed = computeVisibleRange(
-          items,
-          itemHeight,
-          nextScrollTop,
-          rect.h,
-          overscan,
-          finalMeasuredHeights,
-        );
-        startIndex = recomputed.startIndex;
-        endIndex = recomputed.endIndex;
       }
 
       setLayoutScrollMetadata(layoutNode, {
         scrollX: 0,
-        scrollY: nextScrollTop,
+        // Keep metadata aligned with what this frame actually rendered.
+        // Any scroll correction from fresh measurements is applied on the next frame.
+        scrollY: effectiveScrollTop,
         contentWidth: rect.w,
         contentHeight: finalTotalHeight,
         viewportWidth: rect.w,
@@ -431,8 +425,8 @@ export function renderCollectionWidget(
           measuredItemCount?: number;
         } = {
           viewportHeight: rect.h,
-          startIndex,
-          endIndex,
+          startIndex: renderedStartIndex,
+          endIndex: renderedEndIndex,
         };
         if (nextScrollTop !== state.scrollTop) patch.scrollTop = nextScrollTop;
         if (estimateMode) {
@@ -453,18 +447,24 @@ export function renderCollectionWidget(
       const selectionStyle = asTextStyle(props.selectionStyle, theme);
       const dsSize = readWidgetSize(props.dsSize) ?? "md";
       const headerRecipe =
-        colorTokens !== null ? tableRecipe(colorTokens, { state: "header", size: dsSize }) : null;
+        colorTokens !== null
+          ? tableRecipe(colorTokens, { state: "header", size: dsSize, spacing: theme.spacing })
+          : null;
       const rowRecipe =
-        colorTokens !== null ? tableRecipe(colorTokens, { state: "row", size: dsSize }) : null;
+        colorTokens !== null
+          ? tableRecipe(colorTokens, { state: "row", size: dsSize, spacing: theme.spacing })
+          : null;
       const stripeRecipe =
-        colorTokens !== null ? tableRecipe(colorTokens, { state: "stripe", size: dsSize }) : null;
+        colorTokens !== null
+          ? tableRecipe(colorTokens, { state: "stripe", size: dsSize, spacing: theme.spacing })
+          : null;
       const selectedRecipe =
         colorTokens !== null
-          ? tableRecipe(colorTokens, { state: "selectedRow", size: dsSize })
+          ? tableRecipe(colorTokens, { state: "selectedRow", size: dsSize, spacing: theme.spacing })
           : null;
       const focusedRecipe =
         colorTokens !== null
-          ? tableRecipe(colorTokens, { state: "focusedRow", size: dsSize })
+          ? tableRecipe(colorTokens, { state: "focusedRow", size: dsSize, spacing: theme.spacing })
           : null;
       const selectionBg =
         selectionStyle?.bg ??

@@ -644,6 +644,13 @@ export function ToastContainer(props: ToastContainerJsxProps): VNode {
   return ui.toastContainer(withOptionalKey<ToastContainerProps>(rest, key));
 }
 
+/**
+ * JSX Fragment — renders children inside a `ui.column({ gap: 0 })`.
+ *
+ * NOTE: Unlike React fragments, this is NOT transparent. It creates
+ * a real column layout node. Inside a `<Row>`, prefer explicit
+ * children instead of `<>...</>` to avoid an intermediate column.
+ */
 export function Fragment(props: { children?: JsxChildren; key?: string }): VNode {
   return ui.column(
     withOptionalKey<ColumnProps>({ gap: 0 }, props.key),

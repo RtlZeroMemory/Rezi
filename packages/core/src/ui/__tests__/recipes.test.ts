@@ -1,6 +1,7 @@
 import * as assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { darkTheme, lightTheme } from "../../theme/presets.js";
+import { DEFAULT_THEME_SPACING, createThemeDefinition } from "../../theme/tokens.js";
 import {
   badgeRecipe,
   buttonRecipe,
@@ -47,6 +48,11 @@ describe("buttonRecipe", () => {
     assert.equal(result.bg.bg, undefined);
   });
 
+  it("ghost variant uses tone color for non-default tones", () => {
+    const result = buttonRecipe(darkColors, { variant: "ghost", tone: "danger" });
+    assert.deepEqual(result.label.fg, darkColors.error);
+  });
+
   it("disabled state overrides with disabled tokens", () => {
     const result = buttonRecipe(darkColors, { state: "disabled", variant: "outline" });
     assert.deepEqual(result.label.fg, darkColors.disabled.fg);
@@ -67,6 +73,25 @@ describe("buttonRecipe", () => {
     assert.equal(buttonRecipe(darkColors, { size: "sm" }).px, 1);
     assert.equal(buttonRecipe(darkColors, { size: "md" }).px, 2);
     assert.equal(buttonRecipe(darkColors, { size: "lg" }).px, 3);
+  });
+
+  it("compact density reduces horizontal padding", () => {
+    const compact = buttonRecipe(darkColors, { size: "md", density: "compact" });
+    const comfortable = buttonRecipe(darkColors, { size: "md", density: "comfortable" });
+    assert.equal(compact.px < comfortable.px, true);
+  });
+
+  it("lg size maps to theme spacing token when provided", () => {
+    const spacing = Object.freeze({ ...DEFAULT_THEME_SPACING, lg: 9 });
+    const customTheme = Object.freeze({
+      ...createThemeDefinition("custom", darkColors),
+      spacing,
+    });
+    const result = buttonRecipe(customTheme.colors, {
+      size: "lg",
+      spacing: customTheme.spacing,
+    });
+    assert.equal(result.px, 9);
   });
 
   it("resolves light-theme styling", () => {
@@ -107,6 +132,12 @@ describe("inputRecipe", () => {
     const result = inputRecipe(lightColors);
     assert.deepEqual(result.text.fg, lightColors.fg.primary);
     assert.deepEqual(result.borderStyle.fg, lightColors.border.default);
+  });
+
+  it("compact density reduces horizontal padding", () => {
+    const compact = inputRecipe(darkColors, { density: "compact" });
+    const comfortable = inputRecipe(darkColors, { density: "comfortable" });
+    assert.equal(compact.px < comfortable.px, true);
   });
 });
 
@@ -186,6 +217,17 @@ describe("tableRecipe", () => {
   it("resolves light-theme styling", () => {
     const result = tableRecipe(lightColors, { state: "header" });
     assert.deepEqual(result.cell.fg, lightColors.fg.secondary);
+  });
+
+  it("header tone uses accent color for non-default tone", () => {
+    const result = tableRecipe(darkColors, { state: "header", tone: "danger" });
+    assert.deepEqual(result.cell.fg, darkColors.error);
+  });
+
+  it("compact density reduces horizontal padding", () => {
+    const compact = tableRecipe(darkColors, { density: "compact" });
+    const comfortable = tableRecipe(darkColors, { density: "comfortable" });
+    assert.equal(compact.px < comfortable.px, true);
   });
 });
 

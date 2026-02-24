@@ -37,6 +37,10 @@ import {
 
 type FieldOverrides<T extends Record<string, unknown>> = Partial<Record<keyof T, boolean>>;
 
+function cloneInitialValues<T extends Record<string, unknown>>(values: T): T {
+  return structuredClone(values);
+}
+
 /**
  * Clamp step index to available wizard range.
  */
@@ -63,7 +67,7 @@ function createInitialState<T extends Record<string, unknown>>(
   const initialStep = clampStepIndex(options.wizard?.initialStep ?? 0, stepCount);
 
   return {
-    values: { ...options.initialValues },
+    values: cloneInitialValues(options.initialValues),
     errors: {},
     touched: {},
     dirty: {},
@@ -336,7 +340,7 @@ export function useForm<T extends Record<string, unknown>, State = void>(
   const [state, setState] = ctx.useState<FormState<T>>(() => createInitialState(options));
 
   // Store initial values in a ref for dirty comparison
-  const initialValuesRef = ctx.useRef<T>({ ...options.initialValues });
+  const initialValuesRef = ctx.useRef<T>(cloneInitialValues(options.initialValues));
 
   // Store async validator reference
   const asyncValidatorRef = ctx.useRef<

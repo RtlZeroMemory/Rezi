@@ -330,6 +330,24 @@ describe("useForm hook", () => {
     assert.equal(form.dirty.items, true);
   });
 
+  test("deep-clones initial values for nested dirty tracking and reference isolation", () => {
+    const h = createTestContext();
+    const sourceInitial = { profile: { name: "A" } };
+    const options: UseFormOptions<{ profile: { name: string } }> = {
+      initialValues: sourceInitial,
+      onSubmit: () => {},
+    };
+
+    let form = h.render(options);
+    sourceInitial.profile.name = "Mutated outside";
+    form = h.render(options);
+    assert.equal(form.values.profile.name, "A");
+
+    form.setFieldValue("profile", { name: "B" });
+    form = h.render(options);
+    assert.equal(form.dirty.profile, true);
+  });
+
   test("handleSubmit does not call onSubmit when invalid", () => {
     const h = createTestContext();
 

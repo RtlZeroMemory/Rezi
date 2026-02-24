@@ -1,6 +1,6 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import { ZRDL_MAGIC, ZR_DRAWLIST_VERSION_V5, createDrawlistBuilderV3 } from "../../index.js";
-import type { EncodedStyle } from "../builder_v3.js";
+import type { EncodedStyle } from "../types.js";
 import {
   CLEAR_SIZE,
   DRAW_CANVAS_SIZE,

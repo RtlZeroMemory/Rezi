@@ -77,6 +77,18 @@ describe("select widget utilities", () => {
     assert.equal(text, "Choose...");
   });
 
+  test("getSelectDisplayText returns empty-option label when value is empty string", () => {
+    const text = getSelectDisplayText(
+      "",
+      [
+        { value: "", label: "None" },
+        { value: "us", label: "United States" },
+      ],
+      "Choose...",
+    );
+    assert.equal(text, "None");
+  });
+
   test("getSelectDisplayText returns label for valid value", () => {
     const text = getSelectDisplayText("uk", options);
     assert.equal(text, "United Kingdom");

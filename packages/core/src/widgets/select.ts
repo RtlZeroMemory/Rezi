@@ -32,6 +32,14 @@ export function getSelectDisplayText(
   options: readonly SelectOption[],
   placeholder?: string,
 ): string {
+  if (value === "") {
+    const emptyOption = options.find((opt) => opt.value === "");
+    if (!emptyOption) {
+      return placeholder ?? DEFAULT_PLACEHOLDER;
+    }
+    return emptyOption.label;
+  }
+
   if (!value) {
     return placeholder ?? DEFAULT_PLACEHOLDER;
   }

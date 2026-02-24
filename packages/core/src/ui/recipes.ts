@@ -60,6 +60,7 @@ export type ButtonRecipeParams = Readonly<{
   size?: WidgetSize;
   state?: WidgetState;
   density?: Density;
+  spacing?: ThemeDefinition["spacing"] | readonly number[];
 }>;
 
 export type ButtonRecipeResult = Readonly<{
@@ -83,7 +84,9 @@ export function buttonRecipe(
   const tone = params.tone ?? "default";
   const size = params.size ?? "md";
   const state = params.state ?? "default";
-  const spacing = resolveSize(size);
+  const density = params.density ?? "comfortable";
+  const spacing = resolveSize(size, params.spacing);
+  const px = density === "compact" ? Math.max(0, spacing.px - 1) : spacing.px;
 
   const accentColor = resolveToneColor(colors, tone);
 
@@ -92,7 +95,7 @@ export function buttonRecipe(
     return {
       label: { fg: colors.disabled.fg },
       bg: { bg: colors.disabled.bg },
-      px: spacing.px,
+      px,
       border: variant === "outline" ? "single" : "none",
       borderStyle: variant === "outline" ? { fg: colors.disabled.fg } : undefined,
     };
@@ -103,7 +106,7 @@ export function buttonRecipe(
     return {
       label: { fg: colors.fg.muted, dim: true },
       bg: { bg: colors.bg.subtle },
-      px: spacing.px,
+      px,
       border: "none",
       borderStyle: undefined,
     };
@@ -121,7 +124,7 @@ export function buttonRecipe(
       return {
         label: { fg: colors.fg.inverse, ...focusAttrs, ...pressedAttrs },
         bg: { bg },
-        px: spacing.px,
+        px,
         border: "none",
         borderStyle: undefined,
       };
@@ -133,7 +136,7 @@ export function buttonRecipe(
       return {
         label: { fg: accentColor, ...focusAttrs, ...pressedAttrs },
         bg: { bg: bgColor },
-        px: spacing.px,
+        px,
         border: "none",
         borderStyle: undefined,
       };
@@ -144,17 +147,18 @@ export function buttonRecipe(
       return {
         label: { fg: colors.fg.primary, ...focusAttrs, ...pressedAttrs },
         bg: { bg: colors.bg.base },
-        px: spacing.px,
+        px,
         border: state === "focus" ? "heavy" : "single",
         borderStyle: { fg: borderColor },
       };
     }
 
     case "ghost": {
+      const fg = tone === "default" ? colors.fg.secondary : accentColor;
       return {
-        label: { fg: colors.fg.secondary, ...focusAttrs, ...pressedAttrs },
+        label: { fg, ...focusAttrs, ...pressedAttrs },
         bg: state === "active-item" || state === "focus" ? { bg: colors.bg.subtle } : {},
-        px: spacing.px,
+        px,
         border: "none",
         borderStyle: undefined,
       };
@@ -170,6 +174,7 @@ export type InputRecipeParams = Readonly<{
   state?: WidgetState;
   size?: WidgetSize;
   density?: Density;
+  spacing?: ThemeDefinition["spacing"] | readonly number[];
 }>;
 
 export type InputRecipeResult = Readonly<{
@@ -193,7 +198,9 @@ export function inputRecipe(
 ): InputRecipeResult {
   const state = params.state ?? "default";
   const size = params.size ?? "md";
-  const spacing = resolveSize(size);
+  const density = params.density ?? "comfortable";
+  const spacing = resolveSize(size, params.spacing);
+  const px = density === "compact" ? Math.max(0, spacing.px - 1) : spacing.px;
 
   if (state === "disabled") {
     return {
@@ -202,7 +209,7 @@ export function inputRecipe(
       bg: { bg: colors.disabled.bg },
       border: "single",
       borderStyle: { fg: colors.disabled.fg },
-      px: spacing.px,
+      px,
     };
   }
 
@@ -213,7 +220,7 @@ export function inputRecipe(
       bg: { bg: colors.bg.elevated },
       border: "single",
       borderStyle: { fg: colors.error },
-      px: spacing.px,
+      px,
     };
   }
 
@@ -224,7 +231,7 @@ export function inputRecipe(
       bg: { bg: colors.bg.elevated },
       border: "heavy",
       borderStyle: { fg: colors.accent.primary, bold: true },
-      px: spacing.px,
+      px,
     };
   }
 
@@ -234,7 +241,7 @@ export function inputRecipe(
     bg: { bg: colors.bg.elevated },
     border: "single",
     borderStyle: { fg: colors.border.default },
-    px: spacing.px,
+    px,
   };
 }
 
@@ -287,6 +294,7 @@ export function surfaceRecipe(
 export type SelectRecipeParams = Readonly<{
   state?: WidgetState;
   size?: WidgetSize;
+  spacing?: ThemeDefinition["spacing"] | readonly number[];
 }>;
 
 export type SelectRecipeResult = Readonly<{
@@ -312,7 +320,7 @@ export function selectRecipe(
 ): SelectRecipeResult {
   const state = params.state ?? "default";
   const size = params.size ?? "md";
-  const spacing = resolveSize(size);
+  const spacing = resolveSize(size, params.spacing);
 
   if (state === "disabled") {
     return {
@@ -361,6 +369,7 @@ export type TableRecipeParams = Readonly<{
   size?: WidgetSize;
   tone?: WidgetTone;
   density?: Density;
+  spacing?: ThemeDefinition["spacing"] | readonly number[];
 }>;
 
 export type TableRecipeResult = Readonly<{
@@ -368,6 +377,8 @@ export type TableRecipeResult = Readonly<{
   cell: TextStyle;
   /** Style for the cell background */
   bg: TextStyle;
+  /** Horizontal padding used by table rows/cells */
+  px: number;
 }>;
 
 export function tableRecipe(
@@ -375,32 +386,43 @@ export function tableRecipe(
   params: TableRecipeParams = {},
 ): TableRecipeResult {
   const state = params.state ?? "row";
+  const size = params.size ?? "md";
+  const tone = params.tone ?? "default";
+  const density = params.density ?? "comfortable";
+  const spacing = resolveSize(size, params.spacing);
+  const px = density === "compact" ? Math.max(0, spacing.px - 1) : spacing.px;
+  const headerToneFg = tone === "default" ? colors.fg.secondary : resolveToneColor(colors, tone);
 
   switch (state) {
     case "header":
       return {
-        cell: { fg: colors.fg.secondary, bold: true },
+        cell: { fg: headerToneFg, bold: true },
         bg: { bg: colors.bg.elevated },
+        px,
       };
     case "row":
       return {
         cell: { fg: colors.fg.primary },
         bg: { bg: colors.bg.base },
+        px,
       };
     case "stripe":
       return {
         cell: { fg: colors.fg.primary },
         bg: { bg: colors.bg.subtle },
+        px,
       };
     case "selectedRow":
       return {
         cell: { fg: colors.selected.fg, bold: true },
         bg: { bg: colors.selected.bg },
+        px,
       };
     case "focusedRow":
       return {
         cell: { fg: colors.fg.primary, bold: true },
         bg: { bg: colors.focus.bg },
+        px,
       };
   }
 }

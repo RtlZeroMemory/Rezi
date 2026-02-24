@@ -149,7 +149,7 @@ function generateSource(commands: readonly DrawlistCommandSpec[]): string {
   }
 
   if (needsStyleImport) {
-    blocks.push('import type { EncodedStyle } from "./builder_v3.js";');
+    blocks.push('import type { EncodedStyle } from "./types.js";');
     blocks.push("");
   }
 

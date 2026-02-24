@@ -41,7 +41,7 @@ export type InvalidPropsFatal = Readonly<{ code: "ZRUI_INVALID_PROPS"; detail: s
  * Used throughout layout system to propagate validation failures upward.
  */
 export type LayoutResult<T> =
-  | Readonly<{ ok: true; value: T }>
+  | Readonly<{ ok: true; value: T; warnings?: readonly string[] }>
   | Readonly<{ ok: false; fatal: InvalidPropsFatal }>;
 
 /* --- Validated Props Types (with defaults applied and types guaranteed) --- */
@@ -963,6 +963,7 @@ export function validateSelectProps(
   if (!disabledRes.ok) return disabledRes;
   const placeholderRes = requireOptionalString("select", "placeholder", p.placeholder);
   if (!placeholderRes.ok) return placeholderRes;
+  const hasEmptyValueOption = optionsRes.value.some((option) => option.value === "");
   return {
     ok: true,
     value: {
@@ -972,6 +973,13 @@ export function validateSelectProps(
       disabled: disabledRes.value,
       ...(placeholderRes.value === undefined ? {} : { placeholder: placeholderRes.value }),
     },
+    ...(hasEmptyValueOption
+      ? {
+          warnings: Object.freeze([
+            'select.options contains value "". Empty-string values are treated as unselected unless an explicit empty option is present in display logic.',
+          ]),
+        }
+      : {}),
   };
 }
 

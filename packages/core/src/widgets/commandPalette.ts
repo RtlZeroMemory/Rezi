@@ -130,13 +130,19 @@ export function fuzzyScore(item: CommandItem, query: string): number {
  * @param query - Search query
  * @returns Sorted items
  */
-export function sortByScore(items: readonly CommandItem[], query: string): readonly CommandItem[] {
-  if (!query) return items;
-
+export function sortByScore(
+  items: readonly CommandItem[],
+  query: string,
+  sourcePriority = new Map<string, number>(),
+): readonly CommandItem[] {
   const scored = items.map((item, index) => ({ item, score: fuzzyScore(item, query), index }));
   scored.sort((a, b) => {
     const byScore = b.score - a.score;
     if (byScore !== 0) return byScore;
+    const aPriority = sourcePriority.get(a.item.sourceId) ?? 0;
+    const bPriority = sourcePriority.get(b.item.sourceId) ?? 0;
+    const byPriority = bPriority - aPriority;
+    if (byPriority !== 0) return byPriority;
     return a.index - b.index;
   });
   return Object.freeze(scored.filter((s) => s.score > 0).map((s) => s.item));
@@ -157,22 +163,30 @@ export async function getFilteredItems(
   // Check for prefix trigger
   let activeSourceId: string | null = null;
   let effectiveQuery = query;
-
-  for (const source of sources) {
-    if (source.prefix && query.startsWith(source.prefix)) {
-      activeSourceId = source.id;
-      effectiveQuery = query.slice(source.prefix.length).trim();
-      break;
-    }
+  const prefixMatches = sources
+    .filter((source) => {
+      const prefix = source.prefix;
+      return typeof prefix === "string" && prefix.length > 0 && query.startsWith(prefix);
+    })
+    .sort(
+      (a, b) =>
+        (b.prefix?.length ?? 0) - (a.prefix?.length ?? 0) || (b.priority ?? 0) - (a.priority ?? 0),
+    );
+  const activeSource = prefixMatches[0];
+  if (activeSource && activeSource.prefix) {
+    activeSourceId = activeSource.id;
+    effectiveQuery = query.slice(activeSource.prefix.length).trim();
   }
 
   // Get items from relevant sources
   const itemPromises: Promise<readonly CommandItem[]>[] = [];
+  const sourcePriority = new Map<string, number>();
 
   for (const source of sources) {
     if (activeSourceId !== null && source.id !== activeSourceId) {
       continue;
     }
+    sourcePriority.set(source.id, source.priority ?? 0);
 
     const result = source.getItems(effectiveQuery);
     if (result instanceof Promise) {
@@ -182,11 +196,11 @@ export async function getFilteredItems(
     }
   }
 
-  const results = await Promise.all(itemPromises);
-  const allItems = results.flat();
+  const settled = await Promise.allSettled(itemPromises);
+  const allItems = settled.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
 
   // Sort and remove non-matches via fuzzy score to allow non-substring fuzzy hits.
-  const sorted = sortByScore(allItems, effectiveQuery);
+  const sorted = sortByScore(allItems, effectiveQuery, sourcePriority);
 
   return sorted;
 }

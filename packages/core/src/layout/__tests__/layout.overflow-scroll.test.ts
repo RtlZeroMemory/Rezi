@@ -429,6 +429,26 @@ describe("collection scroll metadata wiring", () => {
     });
   });
 
+  test("virtualList estimate mode keeps scroll metadata in sync with rendered frame", () => {
+    const virtualListStore = createVirtualListStateStore();
+    virtualListStore.set("vl-est-sync", { scrollTop: 2 });
+    const vnode = ui.virtualList({
+      id: "vl-est-sync",
+      items: Object.freeze(["a", "b", "c", "d", "e", "f"]),
+      estimateItemHeight: 1,
+      renderItem: (_item, index) =>
+        index < 2
+          ? ui.column({}, [ui.text(`row-${String(index)}`), ui.text(`row-${String(index)}-extra`)])
+          : ui.text(`row-${String(index)}`),
+    });
+
+    const first = renderAndGetLayoutTree(vnode, { cols: 12, rows: 3 }, { virtualListStore });
+    assert.equal(requireMeta(first).scrollY, 2);
+
+    const second = renderAndGetLayoutTree(vnode, { cols: 12, rows: 3 }, { virtualListStore });
+    assert.equal(requireMeta(second).scrollY, 4);
+  });
+
   test("table layout baseline metadata matches viewport rect", () => {
     const vnode = ui.table({
       id: "tbl-base",

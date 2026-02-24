@@ -159,6 +159,22 @@ describe("virtualList.keyboard - boundary routing", () => {
         items: [0, 1, 2, 3, 4, 5, 6],
       }),
     );
+    assert.equal(result.nextSelectedIndex, 4);
+  });
+
+  test("PageDown ignores overscan-inflated state range", () => {
+    const result = routeVirtualListKey(
+      createKeyEvent(ZR_KEY_PAGE_DOWN),
+      ctx({
+        itemHeight: () => 1,
+        selectedIndex: 0,
+        viewportHeight: 5,
+        scrollTop: 10,
+        startIndex: 0,
+        endIndex: 25,
+        items: Array.from({ length: 100 }, (_, i) => i),
+      }),
+    );
     assert.equal(result.nextSelectedIndex, 5);
   });
 

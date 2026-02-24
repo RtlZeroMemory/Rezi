@@ -28,6 +28,7 @@ import {
   type MainToWorkerMessage,
   type WorkerToMainMessage,
 } from "./protocol.js";
+import { computeNextIdleDelay, computeTickTiming } from "./tickTiming.js";
 
 /**
  * Perf tracking for worker-side event polling.
@@ -323,8 +324,6 @@ let tickImmediate: NodeJS.Immediate | null = null;
 let tickIntervalMs = 16;
 let idleDelayMs = 0;
 let maxIdleDelayMs = 50;
-const MAX_IDLE_BACKOFF_MS = 1;
-const MAX_EVENT_POLL_INTERVAL_MS = 1;
 let sabWakeArmed = false;
 let sabWakeEpoch = 0;
 
@@ -481,14 +480,9 @@ function armSabFrameWake(): void {
 
 function startTickLoop(fpsCap: number): void {
   stopTickLoop();
-  // We poll events (including input) on the worker tick. At low FPS caps (e.g.
-  // 60fps → ~16ms), this can inflate input-to-event latency into the multi-ms
-  // range under load. Cap the poll interval to keep interactive latency tight.
-  tickIntervalMs = Math.min(MAX_EVENT_POLL_INTERVAL_MS, Math.max(1, Math.floor(1000 / fpsCap)));
-  // Keep input-to-first-poll latency bounded even after long idle periods.
-  // For high fps caps (e.g. bench at 1000), we allow a small idle backoff
-  // without letting latency drift into tens of milliseconds.
-  maxIdleDelayMs = Math.max(tickIntervalMs, MAX_IDLE_BACKOFF_MS);
+  const timing = computeTickTiming(fpsCap);
+  tickIntervalMs = timing.tickIntervalMs;
+  maxIdleDelayMs = timing.maxIdleDelayMs;
   idleDelayMs = tickIntervalMs;
   scheduleTickNow();
   armSabFrameWake();
@@ -820,10 +814,7 @@ function tick(): void {
     if (frameTransport.kind === FRAME_TRANSPORT_SAB_V1) armSabFrameWake();
     return;
   }
-  idleDelayMs = Math.min(
-    maxIdleDelayMs,
-    Math.max(tickIntervalMs, idleDelayMs > 0 ? idleDelayMs * 2 : tickIntervalMs),
-  );
+  idleDelayMs = computeNextIdleDelay(idleDelayMs, tickIntervalMs, maxIdleDelayMs);
   scheduleTick(idleDelayMs);
   if (frameTransport.kind === FRAME_TRANSPORT_SAB_V1) armSabFrameWake();
 }

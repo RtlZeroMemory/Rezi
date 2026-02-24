@@ -6,6 +6,7 @@ import type {
   DrawlistBuildResult,
   DrawlistBuilderV3,
   DrawlistCanvasBlitter,
+  EncodedStyle,
   DrawlistImageFit,
   DrawlistImageFormat,
   DrawlistImageProtocol,
@@ -64,16 +65,6 @@ const IMAGE_FIT_CODE: Readonly<Record<DrawlistImageFit, number>> = Object.freeze
   contain: 1,
   cover: 2,
 });
-
-export type EncodedStyle = Readonly<{
-  fg: number;
-  bg: number;
-  attrs: number;
-  reserved: number;
-  underlineRgb: number;
-  linkUriRef: number;
-  linkIdRef: number;
-}>;
 
 type LinkRefs = Readonly<{ uriRef: number; idRef: number }>;
 type CanvasPixelSize = Readonly<{ pxWidth: number; pxHeight: number }>;

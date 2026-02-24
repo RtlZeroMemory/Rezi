@@ -141,6 +141,18 @@ describe("vnode interactive prop validation - select", () => {
     assert.equal(res.value.w > 0, true);
   });
 
+  test("select warns when an option uses empty-string value", () => {
+    const res = validateSelectProps({
+      id: "country",
+      value: "",
+      options: [{ value: "", label: "None" }],
+    });
+    assert.equal(res.ok, true);
+    if (!res.ok) return;
+    assert.equal(res.warnings?.length, 1);
+    assert.equal(res.warnings?.[0]?.includes('value ""'), true);
+  });
+
   test("select missing options fails", () => {
     expectMeasureFatal(
       { kind: "select", props: { id: "s", value: "" } } as unknown as VNode,

@@ -19,6 +19,17 @@ export type DrawlistTextRunSegment = Readonly<{
   style?: TextStyle;
 }>;
 
+/** Encoded v3+ style payload used by generated drawlist writers. */
+export type EncodedStyle = Readonly<{
+  fg: number;
+  bg: number;
+  attrs: number;
+  reserved: number;
+  underlineRgb: number;
+  linkUriRef: number;
+  linkIdRef: number;
+}>;
+
 /**
  * Error codes for ZRDL build failures.
  *

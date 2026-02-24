@@ -90,3 +90,83 @@ test("commandPalette: async sources keep declared source order regardless of res
     ["cmd-1", "cmd-2", "sym-1"],
   );
 });
+
+test('commandPalette: longest prefix match routes ">> foo" to ">>" source', async () => {
+  let shortPrefixCalls = 0;
+  let longPrefixQuery = "";
+
+  const sources = [
+    {
+      id: "short",
+      name: "Short",
+      prefix: ">",
+      getItems: () => {
+        shortPrefixCalls++;
+        return [{ id: "short-item", label: "Short Item", sourceId: "short" }] as const;
+      },
+    },
+    {
+      id: "long",
+      name: "Long",
+      prefix: ">>",
+      getItems: (query: string) => {
+        longPrefixQuery = query;
+        return [{ id: "long-item", label: "Foo command", sourceId: "long" }] as const;
+      },
+    },
+  ] as const;
+
+  const items = await getFilteredItems(sources, ">> foo");
+  assert.equal(shortPrefixCalls, 0);
+  assert.equal(longPrefixQuery, "foo");
+  assert.deepEqual(
+    items.map((item) => item.id),
+    ["long-item"],
+  );
+});
+
+test("commandPalette: rejected source does not hide successful source results", async () => {
+  const sources = [
+    {
+      id: "ok",
+      name: "OK",
+      getItems: async () => [{ id: "ok-1", label: "Alpha", sourceId: "ok" }] as const,
+    },
+    {
+      id: "bad",
+      name: "Bad",
+      getItems: async () => {
+        throw new Error("source failed");
+      },
+    },
+  ] as const;
+
+  const items = await getFilteredItems(sources, "alp");
+  assert.deepEqual(
+    items.map((item) => item.id),
+    ["ok-1"],
+  );
+});
+
+test("commandPalette: higher-priority source wins score ties", async () => {
+  const sources = [
+    {
+      id: "low",
+      name: "Low",
+      priority: 1,
+      getItems: () => [{ id: "low-1", label: "Same", sourceId: "low" }] as const,
+    },
+    {
+      id: "high",
+      name: "High",
+      priority: 10,
+      getItems: () => [{ id: "high-1", label: "Same", sourceId: "high" }] as const,
+    },
+  ] as const;
+
+  const items = await getFilteredItems(sources, "");
+  assert.deepEqual(
+    items.map((item) => item.id),
+    ["high-1", "low-1"],
+  );
+});

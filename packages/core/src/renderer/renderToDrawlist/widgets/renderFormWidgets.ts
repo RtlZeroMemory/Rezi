@@ -298,6 +298,7 @@ export function renderFormWidgets(
           tone: dsTone,
           size: dsSize,
           state,
+          spacing: theme.spacing,
         });
         const hasBorder = recipeResult.border !== "none" && rect.w >= 2 && rect.h >= 2;
         const insetContent = hasBorder && rect.w >= 3 && rect.h >= 3;
@@ -429,7 +430,7 @@ export function renderFormWidgets(
           : focusVisible
             ? ("focus" as const)
             : ("default" as const);
-        const recipeResult = inputRecipe(colorTokens, { state, size: dsSize });
+        const recipeResult = inputRecipe(colorTokens, { state, size: dsSize, spacing: theme.spacing });
         // Only draw a border when there's at least a 1x1 interior (avoid overwriting border with content).
         const hasBorder = recipeResult.border !== "none" && rect.w >= 3 && rect.h >= 3;
         const borderInset = hasBorder ? 1 : 0;
@@ -770,7 +771,7 @@ export function renderFormWidgets(
           : focusVisible
             ? ("focus" as const)
             : ("default" as const);
-        const recipeResult = selectRecipe(colorTokens, { state, size: dsSize });
+        const recipeResult = selectRecipe(colorTokens, { state, size: dsSize, spacing: theme.spacing });
         const hasBorder = recipeResult.border !== "none" && rect.w >= 3 && rect.h >= 3;
         const borderInset = hasBorder ? 1 : 0;
         const innerW = Math.max(0, rect.w - borderInset * 2);

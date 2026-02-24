@@ -1,6 +1,7 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import { type VNode, ui } from "../../index.js";
 import { type LayoutTree, layout } from "../layout.js";
+import { getResponsiveViewport, setResponsiveViewport } from "../responsive.js";
 
 type Axis = "row" | "column";
 type Rect = Readonly<{ x: number; y: number; w: number; h: number }>;
@@ -417,5 +418,26 @@ describe("layout percentages (deterministic)", () => {
     );
     assert.equal(tree.children[0]?.rect.h, 10);
     assert.equal(tree.children[0]?.rect.w, 1);
+  });
+
+  test("row main-axis responsive percent width fills at sm and shrinks at md", () => {
+    const vnode = ui.row({ gap: 0 }, [
+      ui.box({ border: "none", width: { sm: "50%", md: 20 } }, [ui.text("x")]),
+    ]);
+    const previousViewport = getResponsiveViewport();
+
+    try {
+      setResponsiveViewport(60, 24);
+      const smTree = mustLayout(vnode, 100, 10, "row");
+      assert.equal(smTree.rect.w, 100);
+      assert.equal(smTree.children[0]?.rect.w, 50);
+
+      setResponsiveViewport(100, 24);
+      const mdTree = mustLayout(vnode, 100, 10, "row");
+      assert.equal(mdTree.rect.w, 20);
+      assert.equal(mdTree.children[0]?.rect.w, 20);
+    } finally {
+      setResponsiveViewport(previousViewport.width, previousViewport.height);
+    }
   });
 });

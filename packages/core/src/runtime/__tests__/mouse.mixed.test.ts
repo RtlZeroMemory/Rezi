@@ -716,6 +716,58 @@ describe("overlay/modal hit priority integration", () => {
     assert.equal(consumedWhenDisabled, false);
     assert.equal(closeCalls, 1);
   });
+
+  test("wheel does not scroll background virtualList while modal is open", async () => {
+    const backend = new StubBackend();
+    const scrollTops: number[] = [];
+    const items = Object.freeze(Array.from({ length: 200 }, (_, i) => `Item ${i}`));
+
+    const app = createApp({ backend, initialState: 0 });
+    app.view(() =>
+      ui.column({ width: "100%", height: "100%" }, [
+        ui.virtualList({
+          id: "bg-list",
+          items,
+          itemHeight: 1,
+          renderItem: (item) => ui.text(item),
+          onScroll: (scrollTop) => {
+            scrollTops.push(scrollTop);
+          },
+        }),
+        ui.modal({
+          id: "modal",
+          title: "Modal",
+          content: ui.text("Overlay"),
+          closeOnBackdrop: false,
+          closeOnEscape: false,
+        }),
+      ]),
+    );
+
+    try {
+      await app.start();
+      await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 80, rows: 24 }]);
+      await settleNextFrame(backend);
+
+      await pushEvents(backend, [
+        {
+          kind: "mouse",
+          timeMs: 2,
+          x: 40,
+          y: 12,
+          mouseKind: MOUSE_KIND_WHEEL,
+          mods: 0,
+          buttons: 0,
+          wheelX: 0,
+          wheelY: 3,
+        },
+      ]);
+      await flushMicrotasks(20);
+      assert.deepEqual(scrollTops, []);
+    } finally {
+      await app.stop();
+    }
+  });
 });
 
 describe("hit-test integration boundaries", () => {

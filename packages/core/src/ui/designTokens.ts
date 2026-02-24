@@ -8,7 +8,7 @@
  * @see docs/design-system.md
  */
 
-import type { ColorTokens, ThemeDefinition } from "../theme/tokens.js";
+import { DEFAULT_THEME_SPACING, type ColorTokens, type ThemeDefinition } from "../theme/tokens.js";
 import type { Rgb, TextStyle } from "../widgets/style.js";
 
 // ---------------------------------------------------------------------------
@@ -109,17 +109,42 @@ export type SizeSpacing = Readonly<{
   py: number;
 }>;
 
+type SizeSpacingInput = ThemeDefinition["spacing"] | readonly number[] | undefined;
+
+function resolveSpacingToken(input: unknown, fallback: number): number {
+  if (typeof input !== "number" || !Number.isFinite(input) || input < 0) {
+    return fallback;
+  }
+  return Math.trunc(input);
+}
+
 /**
  * Resolve spacing for a widget size.
  */
-export function resolveSize(size: WidgetSize): SizeSpacing {
+export function resolveSize(size: WidgetSize, spacing?: SizeSpacingInput): SizeSpacing {
+  const semanticSpacing = Array.isArray(spacing) ? undefined : spacing;
+  const legacySpacing = Array.isArray(spacing) ? spacing : undefined;
+
+  const smPx = resolveSpacingToken(
+    semanticSpacing?.sm ?? legacySpacing?.[1],
+    DEFAULT_THEME_SPACING.sm,
+  );
+  const mdPx = resolveSpacingToken(
+    semanticSpacing?.md ?? legacySpacing?.[2],
+    DEFAULT_THEME_SPACING.md,
+  );
+  const lgPx = resolveSpacingToken(
+    semanticSpacing?.lg ?? legacySpacing?.[3],
+    DEFAULT_THEME_SPACING.lg,
+  );
+
   switch (size) {
     case "sm":
-      return { px: 1, py: 0 };
+      return { px: smPx, py: 0 };
     case "md":
-      return { px: 2, py: 0 };
+      return { px: mdPx, py: 0 };
     case "lg":
-      return { px: 3, py: 1 };
+      return { px: lgPx, py: 1 };
   }
 }
 
