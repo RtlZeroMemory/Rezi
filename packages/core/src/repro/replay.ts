@@ -14,7 +14,6 @@ import {
   type WidgetRendererHooks,
 } from "../app/widgetRenderer.js";
 import {
-  BACKEND_DRAWLIST_V2_MARKER,
   BACKEND_FPS_CAP_MARKER,
   BACKEND_MAX_EVENT_BYTES_MARKER,
   type BackendEventBatch,
@@ -428,12 +427,6 @@ function createReplayStubBackend(bundle: ReproBundle): Readonly<{
       enumerable: false,
       configurable: false,
     },
-    [BACKEND_DRAWLIST_V2_MARKER]: {
-      value: bundle.captureConfig.cursorProtocolVersion === 2,
-      writable: false,
-      enumerable: false,
-      configurable: false,
-    },
   });
 
   return Object.freeze({
@@ -741,7 +734,6 @@ export async function runReproReplayHarness(
     config: {
       fpsCap: opts.bundle.captureConfig.fpsCap,
       maxEventBytes: opts.bundle.captureConfig.maxEventBytes,
-      useV2Cursor: opts.bundle.captureConfig.cursorProtocolVersion === 2,
       ...(opts.bundle.captureConfig.maxDrawlistBytes > 0
         ? { maxDrawlistBytes: opts.bundle.captureConfig.maxDrawlistBytes }
         : {}),

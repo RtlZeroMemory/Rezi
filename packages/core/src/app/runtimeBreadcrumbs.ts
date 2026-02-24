@@ -35,7 +35,7 @@ export type RuntimeBreadcrumbFocusSummary = Readonly<{
   announcement: string | null;
 }>;
 
-/** Cursor intent summary when v2 cursor protocol is enabled. */
+/** Cursor intent summary for native cursor protocol. */
 export type RuntimeBreadcrumbCursorSummary =
   | Readonly<{
       visible: false;

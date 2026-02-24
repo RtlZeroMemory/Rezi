@@ -24,7 +24,6 @@
 
 import { ZrUiError, type ZrUiErrorCode } from "../abi.js";
 import {
-  BACKEND_DRAWLIST_V2_MARKER,
   BACKEND_DRAWLIST_VERSION_MARKER,
   BACKEND_FPS_CAP_MARKER,
   BACKEND_MAX_EVENT_BYTES_MARKER,
@@ -66,6 +65,7 @@ import {
   type TerminalProfile,
   terminalProfileFromCaps,
 } from "../terminalProfile.js";
+import { blendRgb } from "../theme/blend.js";
 import { defaultTheme } from "../theme/defaultTheme.js";
 import { coerceToLegacyTheme } from "../theme/interop.js";
 import type { Theme } from "../theme/theme.js";
@@ -108,11 +108,11 @@ type ResolvedAppConfig = Readonly<{
   maxDrawlistBytes: number;
   rootPadding: number;
   breakpointThresholds: ResponsiveBreakpointThresholds;
-  useV2Cursor: boolean;
   drawlistValidateParams: boolean;
   drawlistReuseOutputBuffer: boolean;
   drawlistEncodedStringCacheCap: number;
   maxFramesInFlight: number;
+  themeTransitionFrames: number;
   internal_onRender?: ((metrics: AppRenderMetrics) => void) | undefined;
   internal_onLayout?: ((snapshot: AppLayoutSnapshot) => void) | undefined;
 }>;
@@ -129,11 +129,11 @@ const DEFAULT_CONFIG: ResolvedAppConfig = Object.freeze({
   maxDrawlistBytes: 2 << 20 /* 2 MiB */,
   rootPadding: 0,
   breakpointThresholds: normalizeBreakpointThresholds(undefined),
-  useV2Cursor: false,
   drawlistValidateParams: true,
   drawlistReuseOutputBuffer: true,
   drawlistEncodedStringCacheCap: 131072,
   maxFramesInFlight: 1,
+  themeTransitionFrames: 0,
   internal_onRender: undefined,
   internal_onLayout: undefined,
 });
@@ -189,18 +189,6 @@ function getAcceptedFrameAck(p: Promise<void>): Promise<void> | null {
   if (typeof marker !== "object" || marker === null) return null;
   if (typeof (marker as { then?: unknown }).then !== "function") return null;
   return marker as Promise<void>;
-}
-
-function readBackendBooleanMarker(
-  backend: RuntimeBackend,
-  marker: typeof BACKEND_DRAWLIST_V2_MARKER,
-): boolean | null {
-  const value = (backend as RuntimeBackend & Readonly<Record<string, unknown>>)[marker];
-  if (value === undefined) return null;
-  if (typeof value !== "boolean") {
-    invalidProps(`backend marker ${marker} must be a boolean when present`);
-  }
-  return value;
 }
 
 function readBackendPositiveIntMarker(
@@ -297,7 +285,6 @@ export function resolveAppConfig(config: AppConfig | undefined): ResolvedAppConf
       ? DEFAULT_CONFIG.rootPadding
       : requireNonNegativeInt("rootPadding", config.rootPadding);
   const breakpointThresholds = normalizeBreakpointThresholds(config.breakpoints);
-  const useV2Cursor = config.useV2Cursor === true;
   const drawlistValidateParams =
     config.drawlistValidateParams === undefined
       ? DEFAULT_CONFIG.drawlistValidateParams
@@ -317,6 +304,10 @@ export function resolveAppConfig(config: AppConfig | undefined): ResolvedAppConf
     config.maxFramesInFlight === undefined
       ? DEFAULT_CONFIG.maxFramesInFlight
       : Math.min(4, Math.max(1, requirePositiveInt("maxFramesInFlight", config.maxFramesInFlight)));
+  const themeTransitionFrames =
+    config.themeTransitionFrames === undefined
+      ? DEFAULT_CONFIG.themeTransitionFrames
+      : requireNonNegativeInt("themeTransitionFrames", config.themeTransitionFrames);
   const internal_onRender =
     typeof config.internal_onRender === "function" ? config.internal_onRender : undefined;
   const internal_onLayout =
@@ -328,11 +319,11 @@ export function resolveAppConfig(config: AppConfig | undefined): ResolvedAppConf
     maxDrawlistBytes,
     rootPadding,
     breakpointThresholds,
-    useV2Cursor,
     drawlistValidateParams,
     drawlistReuseOutputBuffer,
     drawlistEncodedStringCacheCap,
     maxFramesInFlight,
+    themeTransitionFrames,
     internal_onRender,
     internal_onLayout,
   });
@@ -503,6 +494,27 @@ function codepointToKeyCode(codepoint: number): number | null {
   return null;
 }
 
+/**
+ * Convert text control characters into Ctrl+key key codes.
+ *
+ * Terminals without kitty/CSI-u often emit Ctrl+letter as text bytes:
+ * 0x01-0x1A for Ctrl+A..Ctrl+Z, and 0x1C-0x1F for Ctrl+\..Ctrl+_.
+ * We intentionally exclude 0x09 (Tab), 0x0D (Enter), and 0x1B (Escape)
+ * because they have dedicated key semantics in the engine.
+ */
+function codepointToCtrlKeyCode(codepoint: number): number | null {
+  if (codepoint === 9 || codepoint === 13) {
+    return null;
+  }
+  if (codepoint >= 1 && codepoint <= 26) {
+    return codepoint + 64;
+  }
+  if (codepoint >= 28 && codepoint <= 31) {
+    return codepoint + 64;
+  }
+  return null;
+}
+
 type CreateAppBaseOptions = Readonly<{
   backend: RuntimeBackend;
   config?: AppConfig;
@@ -524,6 +536,38 @@ type CreateAppRoutesOnlyOptions = CreateAppBaseOptions &
     initialState?: Record<string, never>;
     routeHistoryMaxDepth?: number;
   }>;
+
+type ThemeTransitionState = Readonly<{
+  from: Theme;
+  to: Theme;
+  frame: number;
+  totalFrames: number;
+}>;
+
+function blendThemeColors(from: Theme, to: Theme, t: number): Theme {
+  const clampedT = Math.max(0, Math.min(1, t));
+  if (clampedT <= 0) return from;
+  if (clampedT >= 1) return to;
+
+  const colors: Record<string, Theme["colors"][string]> = {};
+  const keys = new Set<string>([...Object.keys(from.colors), ...Object.keys(to.colors)]);
+  for (const key of keys) {
+    const fromColor = from.colors[key];
+    const toColor = to.colors[key];
+    if (fromColor && toColor) {
+      colors[key] = blendRgb(fromColor, toColor, clampedT);
+    } else if (toColor) {
+      colors[key] = toColor;
+    } else if (fromColor) {
+      colors[key] = fromColor;
+    }
+  }
+
+  return Object.freeze({
+    colors: Object.freeze(colors) as Theme["colors"],
+    spacing: to.spacing,
+  });
+}
 
 /**
  * Create a Rezi application instance.
@@ -551,23 +595,21 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   const backend = opts.backend;
   const config = resolveAppConfig(opts.config);
 
-  const backendUseDrawlistV2 = readBackendBooleanMarker(backend, BACKEND_DRAWLIST_V2_MARKER);
-  if (config.useV2Cursor && backendUseDrawlistV2 === false) {
-    invalidProps(
-      "config.useV2Cursor=true but backend.useDrawlistV2=false. " +
-        "Fix: enable cursor-v2 support in the backend (drawlistVersion >= 2).",
-    );
-  }
-
   const backendDrawlistVersion = readBackendDrawlistVersionMarker(backend);
-  if (config.useV2Cursor && backendDrawlistVersion !== null && backendDrawlistVersion < 2) {
+  if (backendDrawlistVersion !== null && backendDrawlistVersion < 2) {
     invalidProps(
-      `config.useV2Cursor=true but backend drawlistVersion=${String(
+      `backend drawlistVersion=${String(
         backendDrawlistVersion,
-      )}. Fix: set backend drawlist version >= 2.`,
+      )} is no longer supported. Fix: set backend drawlist version >= 2.`,
     );
   }
-  const drawlistVersion: 1 | 2 | 3 | 4 | 5 = backendDrawlistVersion ?? (config.useV2Cursor ? 2 : 1);
+  const drawlistVersion: 2 | 3 | 4 | 5 =
+    backendDrawlistVersion === 2 ||
+    backendDrawlistVersion === 3 ||
+    backendDrawlistVersion === 4 ||
+    backendDrawlistVersion === 5
+      ? backendDrawlistVersion
+      : 5;
 
   const backendMaxEventBytes = readBackendPositiveIntMarker(
     backend,
@@ -591,6 +633,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   }
 
   let theme = coerceToLegacyTheme(opts.theme ?? defaultTheme);
+  let themeTransition: ThemeTransitionState | null = null;
   let terminalProfile: TerminalProfile = DEFAULT_TERMINAL_PROFILE;
 
   const sm = new AppStateMachine();
@@ -699,6 +742,45 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     scheduler.enqueue({ kind: "renderRequest" });
   }
 
+  function beginThemeTransition(nextTheme: Theme): void {
+    if (config.themeTransitionFrames <= 0 || sm.state !== "Running" || mode !== "widget") {
+      theme = nextTheme;
+      themeTransition = null;
+      return;
+    }
+
+    themeTransition = Object.freeze({
+      from: theme,
+      to: nextTheme,
+      frame: 0,
+      totalFrames: config.themeTransitionFrames,
+    });
+  }
+
+  function advanceThemeTransitionFrame(): void {
+    const active = themeTransition;
+    if (!active) return;
+    const nextFrame = active.frame + 1;
+    if (nextFrame >= active.totalFrames) {
+      theme = active.to;
+      themeTransition = null;
+      return;
+    }
+    theme = blendThemeColors(active.from, active.to, nextFrame / active.totalFrames);
+    themeTransition = Object.freeze({
+      ...active,
+      frame: nextFrame,
+    });
+  }
+
+  function scheduleThemeTransitionContinuation(): void {
+    if (!themeTransition || sm.state !== "Running") return;
+    // Theme-aware composite widgets resolve recipe styles during commit, so
+    // transition frames must invalidate view/commit, not only render.
+    markDirty(DIRTY_VIEW, false);
+    scheduler.enqueue({ kind: "renderRequest" });
+  }
+
   function requestRenderFromRenderer(): void {
     markDirty(DIRTY_RENDER);
   }
@@ -732,7 +814,6 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     rootPadding: config.rootPadding,
     breakpointThresholds: config.breakpointThresholds,
     terminalProfile,
-    useV2Cursor: config.useV2Cursor,
     ...(opts.config?.drawlistValidateParams === undefined
       ? {}
       : { drawlistValidateParams: opts.config.drawlistValidateParams }),
@@ -1180,36 +1261,46 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
               }
             }
 
-            // Also route text events through keybinding system for single-character bindings
-            if (ev.kind === "text" && !widgetRenderer.hasActiveOverlay()) {
-              const keyCode = codepointToKeyCode(ev.codepoint);
-              if (keyCode !== null) {
-                // Create a synthetic key event for keybinding matching
-                const syntheticKeyEvent = {
-                  kind: "key" as const,
-                  action: "down" as const,
-                  key: keyCode,
-                  mods: 0, // Text events have no modifiers
-                  timeMs: ev.timeMs,
-                };
-                const keyCtx: KeyContext<S> = Object.freeze({
-                  state: committedState,
-                  update: app.update,
-                  focusedId: widgetRenderer.getFocusedId(),
-                });
-                const routeInputState = keybindingState;
-                const keyResult = routeKeyEvent(routeInputState, syntheticKeyEvent, keyCtx);
-                applyRoutedKeybindingState(routeInputState, keyResult.nextState);
-                if (keyResult.handlerError !== undefined) {
-                  enqueueFatal(
-                    "ZRUI_USER_CODE_THROW",
-                    `keybinding handler threw: ${describeThrown(keyResult.handlerError)}`,
-                  );
-                  return;
-                }
-                if (keyResult.consumed) {
-                  noteBreadcrumbConsumptionPath("keybindings");
-                  continue; // Skip default widget routing
+            // Also route text events through keybinding system for single-character bindings.
+            // Printable text is guarded during overlays, but Ctrl+text control chars are not.
+            if (ev.kind === "text") {
+              const ctrlKeyCode = codepointToCtrlKeyCode(ev.codepoint);
+              const shouldRouteCtrlText = ctrlKeyCode !== null;
+              const shouldRoutePrintableText =
+                !shouldRouteCtrlText && !widgetRenderer.hasActiveOverlay();
+              if (shouldRouteCtrlText || shouldRoutePrintableText) {
+                const keyCode = shouldRouteCtrlText
+                  ? ctrlKeyCode
+                  : codepointToKeyCode(ev.codepoint);
+                const mods = shouldRouteCtrlText ? ZR_MOD_CTRL : 0;
+                if (keyCode !== null) {
+                  // Create a synthetic key event for keybinding matching
+                  const syntheticKeyEvent = {
+                    kind: "key" as const,
+                    action: "down" as const,
+                    key: keyCode,
+                    mods,
+                    timeMs: ev.timeMs,
+                  };
+                  const keyCtx: KeyContext<S> = Object.freeze({
+                    state: committedState,
+                    update: app.update,
+                    focusedId: widgetRenderer.getFocusedId(),
+                  });
+                  const routeInputState = keybindingState;
+                  const keyResult = routeKeyEvent(routeInputState, syntheticKeyEvent, keyCtx);
+                  applyRoutedKeybindingState(routeInputState, keyResult.nextState);
+                  if (keyResult.handlerError !== undefined) {
+                    enqueueFatal(
+                      "ZRUI_USER_CODE_THROW",
+                      `keybinding handler threw: ${describeThrown(keyResult.handlerError)}`,
+                    );
+                    return;
+                  }
+                  if (keyResult.consumed) {
+                    noteBreadcrumbConsumptionPath("keybindings");
+                    continue; // Skip default widget routing
+                  }
                 }
               }
             }
@@ -1444,6 +1535,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
         (pendingDirtyFlags & DIRTY_LAYOUT) === 0 && (pendingDirtyFlags & DIRTY_VIEW) !== 0,
       nowMs: frameNowMs,
     };
+    advanceThemeTransitionFrame();
 
     const resilientView: ViewFn<S> = (state) => {
       if (topLevelViewError !== null) {
@@ -1488,6 +1580,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     if (plan.layout) consumedDirtyFlags |= DIRTY_LAYOUT;
     if (plan.commit) consumedDirtyFlags |= DIRTY_VIEW;
     clearConsumedDirtyFlags(consumedDirtyFlags, dirtyVersionStart);
+    scheduleThemeTransitionContinuation();
   }
 
   function drainIgnored(items: readonly WorkItem[]): void {
@@ -1702,9 +1795,13 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       if (inCommit) throwCode("ZRUI_REENTRANT_CALL", "setTheme: called during commit");
       if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", updateDuringRenderDetail("setTheme"));
       const nextTheme = coerceToLegacyTheme(next);
-      if (nextTheme === theme) return;
-      theme = nextTheme;
-      requestRenderFromRenderer();
+      if (nextTheme === themeTransition?.to) return;
+      if (nextTheme === theme) {
+        themeTransition = null;
+        return;
+      }
+      beginThemeTransition(nextTheme);
+      requestViewFromRenderer();
     },
 
     debugLayout(enabled?: boolean): boolean {
@@ -1867,6 +1964,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       return p.then(
         () => {
           lifecycleBusy = null;
+          themeTransition = null;
           sm.toStopped();
           settleActiveRun?.();
         },
@@ -1885,6 +1983,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       if (st0 === "Disposed") return;
 
       pollToken++;
+      themeTransition = null;
       try {
         sm.dispose();
       } catch {
@@ -1939,6 +2038,11 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
     getTerminalProfile(): TerminalProfile {
       return terminalProfile;
+    },
+
+    measureElement(id: string): Rect | null {
+      if (mode !== "widget") return null;
+      return widgetRenderer.getRectByIdIndex().get(id) ?? null;
     },
 
     ...(routerIntegration ? { router: routerIntegration.router } : {}),

@@ -24,9 +24,9 @@ export type {
 } from "./renderToDrawlist/types.js";
 
 /**
- * Check if a builder supports v2 cursor commands.
+ * Check if a builder supports cursor commands.
  */
-function isV2Builder(builder: DrawlistBuilderV1): builder is DrawlistBuilderV2 {
+function isCursorBuilder(builder: DrawlistBuilderV1): builder is DrawlistBuilderV2 {
   return typeof (builder as DrawlistBuilderV2).setCursor === "function";
 }
 
@@ -36,7 +36,7 @@ function isV2Builder(builder: DrawlistBuilderV1): builder is DrawlistBuilderV2 {
  * Traverses the tree in deterministic order, emitting drawing commands
  * for each widget based on its layout rect and focus state.
  *
- * When cursorInfo is provided and the builder supports v2, emits SET_CURSOR
+ * When cursorInfo is provided and the builder supports cursor commands, emits SET_CURSOR
  * for the focused input widget.
  */
 export function renderToDrawlist(params: RenderToDrawlistParams): void {
@@ -87,8 +87,8 @@ export function renderToDrawlist(params: RenderToDrawlistParams): void {
     params.pressedId ?? null,
   );
 
-  /* v2 cursor protocol: emit SET_CURSOR for focused input */
-  if (resolvedCursor && isV2Builder(params.builder)) {
+  /* Cursor protocol: emit SET_CURSOR for focused input */
+  if (resolvedCursor && isCursorBuilder(params.builder)) {
     params.builder.setCursor({
       x: resolvedCursor.x,
       y: resolvedCursor.y,
@@ -96,7 +96,7 @@ export function renderToDrawlist(params: RenderToDrawlistParams): void {
       visible: true,
       blink: resolvedCursor.blink,
     });
-  } else if (params.cursorInfo && isV2Builder(params.builder)) {
+  } else if (params.cursorInfo && isCursorBuilder(params.builder)) {
     /* No focused input: hide cursor */
     params.builder.hideCursor();
   }

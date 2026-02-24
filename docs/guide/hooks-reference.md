@@ -255,6 +255,37 @@ const UserBadge = defineWidget<{ key?: string }, AppState>((props, ctx) => {
 });
 ```
 
+### `ctx.useTheme`
+
+Access the current theme's semantic design tokens.
+
+**Signature:**
+
+```typescript
+ctx.useTheme(): ColorTokens | null
+```
+
+**Description:**
+
+- Returns `ColorTokens` when semantic tokens are available for the active theme.
+- Returns `null` for legacy themes that do not expose semantic token slots.
+- Intended for recipe-driven custom widgets built with `defineWidget(...)`.
+
+**Example:**
+
+```typescript
+import { defineWidget, recipe, ui } from "@rezi-ui/core";
+
+const ThemedCard = defineWidget<{ title: string; key?: string }>((props, ctx) => {
+  const tokens = ctx.useTheme();
+  if (tokens) {
+    const surface = recipe.surface(tokens, { elevation: 1 });
+    return ui.box({ border: surface.border, style: surface.bg }, [ui.text(props.title)]);
+  }
+  return ui.panel(props.title, [ui.text("legacy theme fallback")]);
+});
+```
+
 ### `ctx.useViewport`
 
 Read the widget's current viewport snapshot.
@@ -301,8 +332,19 @@ useTransition(
 - Returns the current interpolated value.
 - Retargeting while in motion starts from the current interpolated value (no jump back).
 - Default duration is `160ms`.
+- Default delay is `0ms`.
 - Non-positive durations snap on the next effect pass.
 - Non-finite targets are handled safely by snapping.
+
+**Config fields (`UseTransitionConfig`):**
+
+| Field | Type | Notes |
+|---|---|---|
+| `delay` | `number` | Delay before interpolation begins (ms). |
+| `duration` | `number` | Transition duration (default `160`). |
+| `easing` | `EasingName \| ((t:number) => number)` | Curve/preset. |
+| `playback` | `PlaybackControl` | `{ paused?, reversed?, rate? }`. |
+| `onComplete` | `() => void` | Runs when the active run reaches settlement. |
 
 **Example:**
 
@@ -338,7 +380,21 @@ useSpring(
 - Returns the spring-simulated value for the current render.
 - Handles retargeting mid-flight without resetting.
 - Defaults: `stiffness=170`, `damping=26`, `mass=1`, `restDelta=0.001`, `restSpeed=0.001`, `maxDeltaMs=32`.
+- Default delay is `0ms`.
 - Non-finite values snap safely.
+
+**Config fields (`UseSpringConfig`):**
+
+| Field | Type | Notes |
+|---|---|---|
+| `delay` | `number` | Delay before spring simulation starts (ms). |
+| `stiffness` | `number` | Spring constant. |
+| `damping` | `number` | Velocity damping factor. |
+| `mass` | `number` | Mass term. |
+| `restDelta` | `number` | Position settle threshold. |
+| `restSpeed` | `number` | Velocity settle threshold. |
+| `maxDeltaMs` | `number` | Max integration step in ms. |
+| `onComplete` | `() => void` | Runs when the spring settles. |
 
 **Example:**
 
@@ -385,8 +441,19 @@ useSequence(
 - Accepts numeric keyframes or `{ value, duration?, easing? }` keyframes.
 - `config.duration`/`config.easing` act as defaults for segments.
 - `config.loop` repeats the timeline.
+- `config.playback` supports pause/reverse/rate controls.
 - Empty keyframes return `0`.
 - Default segment duration is `160ms` when not overridden.
+
+**Config fields (`UseSequenceConfig`):**
+
+| Field | Type | Notes |
+|---|---|---|
+| `duration` | `number` | Default per-segment duration. |
+| `easing` | `EasingName \| ((t:number) => number)` | Default segment easing. |
+| `playback` | `PlaybackControl` | `{ paused?, reversed?, rate? }`. |
+| `loop` | `boolean` | Repeats the timeline when true. |
+| `onComplete` | `() => void` | Runs when a non-looping sequence finishes. |
 
 **Example:**
 
@@ -424,6 +491,15 @@ useStagger<T>(
 - Defaults: `delay=40ms`, `duration=180ms`.
 - Empty item lists return an empty frozen array.
 
+**Config fields (`UseStaggerConfig`):**
+
+| Field | Type | Notes |
+|---|---|---|
+| `delay` | `number` | Per-item start offset in ms. |
+| `duration` | `number` | Per-item animation duration in ms. |
+| `easing` | `EasingName \| ((t:number) => number)` | Item easing curve. |
+| `onComplete` | `() => void` | Runs when all items reach completion. |
+
 **Example:**
 
 ```typescript
@@ -444,11 +520,140 @@ const Rail = defineWidget<{ labels: readonly string[]; key?: string }>((props, c
 });
 ```
 
+---
+
+### `useAnimatedValue`
+
+Compose transition/spring behavior behind one primitive and read motion metadata.
+
+**Signature:**
+
+```typescript
+import { useAnimatedValue, type UseAnimatedValueConfig } from "@rezi-ui/core";
+
+useAnimatedValue(
+  ctx: WidgetContext,
+  target: number,
+  config?: UseAnimatedValueConfig,
+): Readonly<{
+  value: number;
+  velocity: number;
+  isAnimating: boolean;
+}>
+```
+
+**Description:**
+
+- `mode: "transition"` uses transition interpolation semantics.
+- `mode: "spring"` uses spring physics semantics.
+- `velocity` is meaningful in spring mode and `0` for transition mode.
+- `isAnimating` indicates whether the current run is still active.
+
+**Example:**
+
+```typescript
+import { defineWidget, ui, useAnimatedValue } from "@rezi-ui/core";
+
+const Meter = defineWidget<{ target: number; key?: string }>((props, ctx) => {
+  const animated = useAnimatedValue(ctx, props.target, {
+    mode: "spring",
+    spring: { stiffness: 220, damping: 24, onComplete: () => {} },
+  });
+  return ui.text(
+    `value=${animated.value.toFixed(2)} velocity=${animated.velocity.toFixed(2)} anim=${animated.isAnimating}`,
+  );
+});
+```
+
+---
+
+### `useParallel`
+
+Run multiple transitions concurrently and read per-entry state.
+
+**Signature:**
+
+```typescript
+import { useParallel, type UseParallelConfig } from "@rezi-ui/core";
+
+useParallel(
+  ctx: WidgetContext,
+  animations: UseParallelConfig,
+): readonly Readonly<{
+  value: number;
+  isAnimating: boolean;
+}>[]
+```
+
+**Description:**
+
+- Runs all entries in parallel.
+- Returns one `{ value, isAnimating }` record per input entry.
+- Each entry accepts `target` and optional `TransitionConfig`.
+
+**Example:**
+
+```typescript
+import { defineWidget, ui, useParallel } from "@rezi-ui/core";
+
+const Trio = defineWidget<{ key?: string }>((props, ctx) => {
+  const values = useParallel(ctx, [
+    { target: 4, config: { duration: 120, easing: "linear" } },
+    { target: 8, config: { duration: 180, easing: "easeOutQuad" } },
+    { target: 12, config: { duration: 220, easing: "easeOutCubic" } },
+  ]);
+  return ui.text(values.map((v) => v.value.toFixed(1)).join(" | "));
+});
+```
+
+---
+
+### `useChain`
+
+Run transition steps sequentially.
+
+**Signature:**
+
+```typescript
+import { useChain, type UseChainConfig } from "@rezi-ui/core";
+
+useChain(
+  ctx: WidgetContext,
+  steps: UseChainConfig,
+): Readonly<{
+  value: number;
+  currentStep: number;
+  isComplete: boolean;
+}>
+```
+
+**Description:**
+
+- Runs step `N+1` after step `N` completes.
+- `currentStep` increments as the chain advances.
+- `isComplete` becomes `true` when all steps finish.
+
+**Example:**
+
+```typescript
+import { defineWidget, ui, useChain } from "@rezi-ui/core";
+
+const SequenceMeter = defineWidget<{ key?: string }>((props, ctx) => {
+  const chain = useChain(ctx, [
+    { target: 5, config: { duration: 100, easing: "easeOutQuad" } },
+    { target: 10, config: { duration: 100, easing: "easeOutQuad" } },
+    { target: 15, config: { duration: 100, easing: "easeOutQuad" } },
+  ]);
+  return ui.text(`value=${chain.value.toFixed(1)} step=${chain.currentStep} done=${chain.isComplete}`);
+});
+```
+
 ### Animation semantics
 
 - Retargeting mid-flight always starts a fresh run from the current interpolated value.
 - Looping sequences (`loop: true`) run continuously.
-- Animation hook configs currently do not include an `onComplete` callback field.
+- `onComplete` callbacks are supported on animation hook configs and fire on settlement for the active run.
+- Playback controls apply to `useTransition`/`useSequence` (`paused`, `reversed`, `rate`).
 
 ---
 

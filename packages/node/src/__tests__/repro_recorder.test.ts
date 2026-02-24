@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  BACKEND_DRAWLIST_V2_MARKER,
   BACKEND_FPS_CAP_MARKER,
   BACKEND_MAX_EVENT_BYTES_MARKER,
   type BackendEventBatch,
@@ -99,12 +98,6 @@ function createFakeBackend(
     },
     [BACKEND_FPS_CAP_MARKER]: {
       value: 75,
-      writable: false,
-      enumerable: false,
-      configurable: false,
-    },
-    [BACKEND_DRAWLIST_V2_MARKER]: {
-      value: true,
       writable: false,
       enumerable: false,
       configurable: false,

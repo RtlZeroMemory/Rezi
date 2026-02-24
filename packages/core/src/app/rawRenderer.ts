@@ -13,7 +13,6 @@
 import type { RuntimeBackend } from "../backend.js";
 import {
   type DrawlistBuilderV1,
-  createDrawlistBuilderV1,
   createDrawlistBuilderV2,
   createDrawlistBuilderV3,
 } from "../drawlist/index.js";
@@ -58,7 +57,7 @@ export class RawRenderer {
     opts: Readonly<{
       backend: RuntimeBackend;
       builder?: DrawlistBuilderV1;
-      drawlistVersion?: 1 | 2 | 3 | 4 | 5;
+      drawlistVersion?: 2 | 3 | 4 | 5;
       maxDrawlistBytes?: number;
       drawlistValidateParams?: boolean;
       drawlistReuseOutputBuffer?: boolean;
@@ -82,7 +81,19 @@ export class RawRenderer {
       this.builder = opts.builder;
       return;
     }
-    const drawlistVersion = opts.drawlistVersion ?? 1;
+    const drawlistVersion = opts.drawlistVersion ?? 2;
+    if (
+      drawlistVersion !== 2 &&
+      drawlistVersion !== 3 &&
+      drawlistVersion !== 4 &&
+      drawlistVersion !== 5
+    ) {
+      throw new Error(
+        `drawlistVersion ${String(
+          drawlistVersion,
+        )} is no longer supported; use drawlistVersion 2, 3, 4, or 5.`,
+      );
+    }
     if (drawlistVersion >= 3) {
       this.builder = createDrawlistBuilderV3({
         ...builderOpts,
@@ -90,11 +101,7 @@ export class RawRenderer {
       });
       return;
     }
-    if (drawlistVersion === 2) {
-      this.builder = createDrawlistBuilderV2(builderOpts);
-      return;
-    }
-    this.builder = createDrawlistBuilderV1(builderOpts);
+    this.builder = createDrawlistBuilderV2(builderOpts);
   }
 
   /**

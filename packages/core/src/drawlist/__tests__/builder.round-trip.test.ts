@@ -208,26 +208,6 @@ function readSetCursorCommand(bytes: Uint8Array, cmd: CmdHeader) {
   };
 }
 
-function simulateV1CommandReader(
-  bytes: Uint8Array,
-): Readonly<{ ok: true } | { ok: false; unsupportedOpcode: number }> {
-  const cmds = parseCommands(bytes);
-  for (const cmd of cmds) {
-    switch (cmd.opcode) {
-      case OP_CLEAR:
-      case OP_FILL_RECT:
-      case OP_DRAW_TEXT:
-      case OP_PUSH_CLIP:
-      case OP_POP_CLIP:
-      case OP_DRAW_TEXT_RUN:
-        break;
-      default:
-        return { ok: false, unsupportedOpcode: cmd.opcode };
-    }
-  }
-  return { ok: true };
-}
-
 describe("DrawlistBuilder round-trip binary readback", () => {
   test("v1 header magic/version/counts/offsets/byte sizes are exact for mixed commands", () => {
     const b = createDrawlistBuilderV1();
@@ -488,7 +468,7 @@ describe("DrawlistBuilder round-trip binary readback", () => {
     assert.equal(s2.blink, 0);
   });
 
-  test("v2 cursor edge position (0,0) round-trips exactly", () => {
+  test("cursor edge position (0,0) round-trips exactly", () => {
     const b = createDrawlistBuilderV2();
     b.setCursor({ x: 0, y: 0, shape: 0, visible: true, blink: true });
 
@@ -506,7 +486,7 @@ describe("DrawlistBuilder round-trip binary readback", () => {
     assert.equal(cursor.blink, 1);
   });
 
-  test("v2 cursor edge position (large int32) round-trips exactly", () => {
+  test("cursor edge position (large int32) round-trips exactly", () => {
     const b = createDrawlistBuilderV2();
     b.setCursor({ x: INT32_MAX, y: INT32_MAX, shape: 2, visible: true, blink: false });
 
@@ -522,37 +502,6 @@ describe("DrawlistBuilder round-trip binary readback", () => {
     assert.equal(cursor.shape, 2);
     assert.equal(cursor.visible, 1);
     assert.equal(cursor.blink, 0);
-  });
-
-  test("backward-compat expectation: v1 command reader accepts v1 opcode set in v2 frame", () => {
-    const b = createDrawlistBuilderV2();
-    b.clear();
-    b.fillRect(0, 0, 5, 6);
-    b.drawText(2, 3, "compat");
-    b.pushClip(0, 0, 10, 10);
-    b.popClip();
-
-    const res = b.build();
-    assert.equal(res.ok, true);
-    if (!res.ok) return;
-
-    const legacy = simulateV1CommandReader(res.bytes);
-    assert.equal(legacy.ok, true);
-  });
-
-  test("backward-compat expectation: v1 command reader rejects SET_CURSOR opcode", () => {
-    const b = createDrawlistBuilderV2();
-    b.clear();
-    b.setCursor({ x: 2, y: 2, shape: 0, visible: true, blink: true });
-
-    const res = b.build();
-    assert.equal(res.ok, true);
-    if (!res.ok) return;
-
-    const legacy = simulateV1CommandReader(res.bytes);
-    assert.equal(legacy.ok, false);
-    if (legacy.ok) return;
-    assert.equal(legacy.unsupportedOpcode, OP_SET_CURSOR);
   });
 
   test("v2 mixed frame keeps aligned sections and expected total byte size", () => {

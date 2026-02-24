@@ -108,9 +108,7 @@ export function sampleSequence(
     });
   }
 
-  const normalizedElapsedMs = loop
-    ? ((Math.max(0, elapsedMs) % total) + total) % total
-    : Math.max(0, elapsedMs);
+  const normalizedElapsedMs = loop ? ((elapsedMs % total) + total) % total : Math.max(0, elapsedMs);
 
   let cursor = 0;
   for (let i = 0; i < sequence.segments.length; i++) {

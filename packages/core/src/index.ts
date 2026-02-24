@@ -65,6 +65,7 @@ export {
   measureTextCells,
   truncateWithEllipsis,
   truncateMiddle,
+  truncateStart,
   clearTextMeasureCache,
   getTextMeasureCacheSize,
   setTextMeasureEmojiPolicy,
@@ -88,7 +89,6 @@ export const ZR_EVENT_BATCH_VERSION: 1 = ZR_EVENT_BATCH_VERSION_V1;
 
 export {
   BACKEND_DRAWLIST_VERSION_MARKER,
-  BACKEND_DRAWLIST_V2_MARKER,
   BACKEND_FPS_CAP_MARKER,
   BACKEND_MAX_EVENT_BYTES_MARKER,
   BACKEND_RAW_WRITE_MARKER,
@@ -252,6 +252,7 @@ export type {
   SkeletonVariant,
   SidebarItem,
   SidebarOptions,
+  ScopedThemeOverride,
   SpacerProps,
   SpacingProps,
   SparklineProps,
@@ -273,6 +274,8 @@ export type {
   TableStripeStyle,
   TextProps,
   TextVariant,
+  ThemedProps,
+  ExitAnimationState,
   TransitionProperty,
   TransitionSpec,
   TreeProps,
@@ -363,15 +366,33 @@ export {
 } from "./widgets/composition.js";
 
 export {
+  useAnimatedValue,
+  useChain,
+  useParallel,
   useSequence,
   useSpring,
   useStagger,
   useTransition,
+  type AnimatedValue,
+  type ParallelAnimationEntry,
+  type UseAnimatedValueConfig,
+  type UseChainConfig,
+  type UseParallelConfig,
   type UseSequenceConfig,
   type UseSpringConfig,
   type UseStaggerConfig,
   type UseTransitionConfig,
 } from "./widgets/hooks/animation.js";
+
+export type { PlaybackControl } from "./animation/types.js";
+
+export {
+  clamp01,
+  interpolateNumber,
+  interpolateRgb,
+  interpolateRgbArray,
+  normalizeDurationMs,
+} from "./animation/interpolate.js";
 
 export {
   useAsync,
@@ -482,6 +503,12 @@ export {
   type MeasuredItemHeights,
 } from "./widgets/virtualList.js";
 export { rgb, type Rgb, type TextStyle } from "./widgets/style.js";
+
+// =============================================================================
+// Layout Types
+// =============================================================================
+
+export type { Rect, Size, Axis } from "./layout/types.js";
 
 // =============================================================================
 // Spacing Scale
@@ -605,6 +632,15 @@ export {
   inputRecipe,
   surfaceRecipe,
   selectRecipe,
+  tabsRecipe,
+  accordionRecipe,
+  breadcrumbRecipe,
+  paginationRecipe,
+  kbdRecipe,
+  sidebarRecipe,
+  toolbarRecipe,
+  dropdownRecipe,
+  treeRecipe,
   tableRecipe,
   modalRecipe,
   badgeRecipe,
@@ -624,6 +660,24 @@ export {
   type SurfaceRecipeResult,
   type SelectRecipeParams,
   type SelectRecipeResult,
+  type TabsRecipeParams,
+  type TabsRecipeResult,
+  type AccordionRecipeParams,
+  type AccordionRecipeResult,
+  type BreadcrumbRecipeParams,
+  type BreadcrumbRecipeResult,
+  type PaginationRecipeParams,
+  type PaginationRecipeResult,
+  type KbdRecipeParams,
+  type KbdRecipeResult,
+  type SidebarRecipeParams,
+  type SidebarRecipeResult,
+  type ToolbarRecipeParams,
+  type ToolbarRecipeResult,
+  type DropdownRecipeParams,
+  type DropdownRecipeResult,
+  type TreeRecipeParams,
+  type TreeRecipeResult,
   type TableRecipeParams,
   type TableRecipeResult,
   type ModalRecipeParams,

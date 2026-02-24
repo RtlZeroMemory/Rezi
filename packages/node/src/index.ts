@@ -52,7 +52,7 @@ export { createNodeTailSource } from "./streams/tail.js";
 setDefaultTailSourceFactory(createNodeTailSource);
 
 export type NodeAppConfig = Readonly<
-  AppConfig & Omit<NodeBackendConfig, "fpsCap" | "maxEventBytes" | "useDrawlistV2">
+  AppConfig & Omit<NodeBackendConfig, "fpsCap" | "maxEventBytes">
 >;
 
 export type CreateNodeAppOptions<S> = Readonly<{
@@ -192,7 +192,6 @@ function toAppConfig(config: NodeAppConfig | undefined): AppConfig | undefined {
     ...(config.fpsCap !== undefined ? { fpsCap: config.fpsCap } : {}),
     ...(config.maxEventBytes !== undefined ? { maxEventBytes: config.maxEventBytes } : {}),
     ...(config.maxDrawlistBytes !== undefined ? { maxDrawlistBytes: config.maxDrawlistBytes } : {}),
-    ...(config.useV2Cursor !== undefined ? { useV2Cursor: config.useV2Cursor } : {}),
     ...(config.drawlistValidateParams !== undefined
       ? { drawlistValidateParams: config.drawlistValidateParams }
       : {}),

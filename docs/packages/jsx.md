@@ -28,10 +28,11 @@ Use `.tsx` files for JSX views.
 `@rezi-ui/jsx` exports:
 
 - Components: full PascalCase component surface matching `ui.*()` (layout, inputs, navigation, overlays, advanced widgets, and composition helpers)
+- Includes `<Themed theme={...}>...</Themed>` for scoped subtree theme overrides (parity with `ui.themed(...)`)
 - Runtime helpers: `createElement`, `h`, `normalizeContainerChildren`, `normalizeTextChildren`
-- Core helper re-exports: `defineWidget`, `show`, `when`, `match`, `maybe`, `each`, `eachInline`
+- Core helper re-exports: `defineWidget`, `show`, `when`, `match`, `maybe`, `each`, `eachInline`, `recipe`
 - Core value re-export: `rgb`
-- Type re-exports: JSX prop types and common core types (`WidgetVariant`, `ButtonIntent`, `DialogProps`, `PageOptions`, `TableProps`, `CommandItem`, `Toast`, etc.)
+- Type re-exports: JSX prop types and common core types (`WidgetVariant`, `ButtonIntent`, `DialogProps`, `PageOptions`, `TableProps`, `CommandItem`, `Toast`, `ColorTokens`, etc.)
 
 ## Entry Points
 

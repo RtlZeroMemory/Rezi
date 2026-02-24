@@ -250,9 +250,9 @@ function readField(obj: JsonObject, key: string): unknown {
   return obj[key];
 }
 
-function parseCursorProtocolVersion(value: unknown, path: string): ReproParseResult<1 | 2> {
-  if (value !== 1 && value !== 2) {
-    return fail("ZR_REPRO_INVALID_BUNDLE", path, "cursorProtocolVersion must be 1 or 2");
+function parseCursorProtocolVersion(value: unknown, path: string): ReproParseResult<2> {
+  if (value !== 2) {
+    return fail("ZR_REPRO_INVALID_BUNDLE", path, "cursorProtocolVersion must be 2");
   }
   return ok(value);
 }

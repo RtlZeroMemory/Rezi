@@ -132,7 +132,7 @@ cd my-app
 bun start
 ```
 
-Starter templates: **dashboard**, **stress-test**, **cli-tool**, **animation-lab**, and **minimal**.
+Starter templates: **dashboard**, **stress-test**, **cli-tool**, **animation-lab**, **minimal**, and **starship** (command console).
 
 ---
 

@@ -21,6 +21,8 @@ import type { EasingInput } from "../animation/types.js";
 import type { FocusConfig } from "../focus/styles.js";
 import type { SpacingValue } from "../layout/spacing-scale.js";
 import type { LayoutConstraints } from "../layout/types.js";
+import type { InstanceId } from "../runtime/instance.js";
+import type { ThemeOverrides } from "../theme/extend.js";
 import type { Theme } from "../theme/theme.js";
 import type { ThemeDefinition } from "../theme/tokens.js";
 import type { WidgetSize, WidgetTone, WidgetVariant } from "../ui/designTokens.js";
@@ -81,6 +83,12 @@ export type ScopedThemeOverride =
       spacing?: Theme["spacing"];
     }>;
 
+export type ThemedProps = Readonly<{
+  key?: string;
+  /** Partial theme overrides applied to children. */
+  theme: ThemeOverrides;
+}>;
+
 /**
  * Text display variants with predefined styling.
  */
@@ -102,6 +110,14 @@ export type TransitionSpec = Readonly<{
   properties?: "all" | readonly TransitionProperty[];
 }>;
 
+export type ExitAnimationState = Readonly<{
+  instanceId: InstanceId;
+  startMs: number;
+  durationMs: number;
+  easing: (t: number) => number;
+  properties: "all" | readonly TransitionProperty[];
+}>;
+
 /** Props for text widget. key is for reconciliation; style for visual appearance. */
 export type TextProps = Readonly<{
   id?: string;
@@ -110,7 +126,7 @@ export type TextProps = Readonly<{
   /** Text variant with predefined styling */
   variant?: TextVariant;
   /** How to handle text that exceeds available width. Defaults to "clip". */
-  textOverflow?: "clip" | "ellipsis" | "middle";
+  textOverflow?: "clip" | "ellipsis" | "middle" | "start";
   /** Maximum width for overflow handling (in cells) */
   maxWidth?: number;
   /** When true, text wraps to multiple lines instead of single-line truncation. */
@@ -198,6 +214,8 @@ export type BoxProps = Readonly<
     gap?: SpacingValue;
     /** Optional declarative transition settings for this container. */
     transition?: TransitionSpec;
+    /** Optional declarative exit transition before unmount removal. */
+    exitTransition?: TransitionSpec;
   } & SpacingProps &
     LayoutConstraints
 >;
@@ -244,6 +262,10 @@ export type StackProps = Readonly<
     scrollbarStyle?: TextStyle;
     /** Optional scoped theme override for this container subtree. */
     theme?: ScopedThemeOverride;
+    /** Optional declarative transition settings for this container. */
+    transition?: TransitionSpec;
+    /** Optional declarative exit transition before unmount removal. */
+    exitTransition?: TransitionSpec;
   } & SpacingProps &
     LayoutConstraints
 >;
@@ -260,13 +282,16 @@ export type ColumnProps = StackProps &
     wrap?: boolean;
   }>;
 
-export type GridProps = {
+export type GridProps = Readonly<{
+  key?: string;
   columns: number | string;
   rows?: number | string;
   gap?: number;
   rowGap?: number;
   columnGap?: number;
-};
+  transition?: TransitionSpec;
+  exitTransition?: TransitionSpec;
+}>;
 
 /** Props for spacer element. size is in cells along stack axis. */
 export type SpacerProps = Readonly<{
@@ -391,6 +416,12 @@ export type KbdProps = Readonly<{
   separator?: string;
   /** Optional style override */
   style?: TextStyle;
+  /** Design system: visual variant. */
+  dsVariant?: WidgetVariant;
+  /** Design system: color tone. */
+  dsTone?: WidgetTone;
+  /** Design system: size preset. */
+  dsSize?: WidgetSize;
 }>;
 
 /**
@@ -1194,6 +1225,12 @@ export type DropdownProps = Readonly<{
   onSelect?: (item: DropdownItem) => void;
   /** Callback when dropdown should close. */
   onClose?: () => void;
+  /** Design system: visual variant. */
+  dsVariant?: WidgetVariant;
+  /** Design system: color tone. */
+  dsTone?: WidgetTone;
+  /** Design system: size preset. */
+  dsSize?: WidgetSize;
 }>;
 
 /** Props for a layer in the layer stack. */
@@ -1496,6 +1533,12 @@ export type TabsProps = Readonly<{
   onChange: (key: string) => void;
   variant?: TabsVariant;
   position?: TabsPosition;
+  /** Design system: visual variant. */
+  dsVariant?: WidgetVariant;
+  /** Design system: color tone. */
+  dsTone?: WidgetTone;
+  /** Design system: size preset. */
+  dsSize?: WidgetSize;
 }>;
 
 /** Accordion item descriptor. */
@@ -1513,6 +1556,12 @@ export type AccordionProps = Readonly<{
   expanded: readonly string[];
   onChange: (expanded: readonly string[]) => void;
   allowMultiple?: boolean;
+  /** Design system: visual variant. */
+  dsVariant?: WidgetVariant;
+  /** Design system: color tone. */
+  dsTone?: WidgetTone;
+  /** Design system: size preset. */
+  dsSize?: WidgetSize;
 }>;
 
 /** Breadcrumb item descriptor. */
@@ -1527,6 +1576,12 @@ export type BreadcrumbProps = Readonly<{
   key?: string;
   items: readonly BreadcrumbItem[];
   separator?: string;
+  /** Design system: visual variant. */
+  dsVariant?: WidgetVariant;
+  /** Design system: color tone. */
+  dsTone?: WidgetTone;
+  /** Design system: size preset. */
+  dsSize?: WidgetSize;
 }>;
 
 /** Props for pagination widget. */
@@ -1537,6 +1592,12 @@ export type PaginationProps = Readonly<{
   totalPages: number;
   onChange: (page: number) => void;
   showFirstLast?: boolean;
+  /** Design system: visual variant. */
+  dsVariant?: WidgetVariant;
+  /** Design system: color tone. */
+  dsTone?: WidgetTone;
+  /** Design system: size preset. */
+  dsSize?: WidgetSize;
 }>;
 
 /* ========== Advanced Widgets (GitHub issue #136) ========== */
@@ -2290,6 +2351,12 @@ export type TreeProps<T = unknown> = Readonly<{
   indentSize?: number;
   /** Show tree lines (├── └── │). */
   showLines?: boolean;
+  /** Design system: visual variant. */
+  dsVariant?: WidgetVariant;
+  /** Design system: color tone. */
+  dsTone?: WidgetTone;
+  /** Design system: size preset. */
+  dsSize?: WidgetSize;
 }>;
 
 export type VNode =
@@ -2297,6 +2364,7 @@ export type VNode =
   | Readonly<{ kind: "box"; props: BoxProps; children: readonly VNode[] }>
   | Readonly<{ kind: "row"; props: RowProps; children: readonly VNode[] }>
   | Readonly<{ kind: "column"; props: ColumnProps; children: readonly VNode[] }>
+  | Readonly<{ kind: "themed"; props: ThemedProps; children: readonly VNode[] }>
   | Readonly<{ kind: "grid"; props: GridProps; children: readonly VNode[] }>
   | Readonly<{ kind: "spacer"; props: SpacerProps }>
   | Readonly<{ kind: "divider"; props: DividerProps }>

@@ -13,11 +13,6 @@ import type { TerminalProfile } from "./terminalProfile.js";
 export const FRAME_ACCEPTED_ACK_MARKER = "__reziFrameAcceptedAckPromise" as const;
 
 /**
- * Optional marker on RuntimeBackend objects exposing the backend drawlist protocol.
- * Used by createApp() to gate optional v2 cursor emission.
- */
-export const BACKEND_DRAWLIST_V2_MARKER = "__reziBackendUseDrawlistV2" as const;
-/**
  * Optional marker on RuntimeBackend objects exposing the negotiated drawlist version.
  * Used by createApp() to choose the matching drawlist builder version.
  */

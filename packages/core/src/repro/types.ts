@@ -21,7 +21,7 @@ export type ReproCaptureConfig = Readonly<{
   maxDrawlistBytes: number;
   maxFrames: number;
   fpsCap: number;
-  cursorProtocolVersion: 1 | 2;
+  cursorProtocolVersion: 2;
 }>;
 
 /**
@@ -30,7 +30,7 @@ export type ReproCaptureConfig = Readonly<{
 export type ReproBackendCapsSnapshot = Readonly<{
   maxEventBytes: number;
   fpsCap: number;
-  cursorProtocolVersion: 1 | 2;
+  cursorProtocolVersion: 2;
 }>;
 
 /**

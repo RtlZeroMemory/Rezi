@@ -305,7 +305,7 @@ export function renderEditorWidget(
 
       builder.popClip();
 
-      // v2 cursor: resolve cursor position for focused code editor
+      // Cursor protocol: resolve cursor position for focused code editor
       const focused = focusState.focusedId === props.id;
       if (focused && cursorInfo) {
         const cy = cursor.line - scrollTop;

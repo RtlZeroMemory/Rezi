@@ -17,7 +17,6 @@ const app = createNodeApp({
     executionMode: "auto",
     fpsCap: 60,
     maxEventBytes: 1 << 20,
-    useV2Cursor: false,
   },
 });
 ```
@@ -25,7 +24,6 @@ const app = createNodeApp({
 `createNodeApp` is the recommended path because it keeps core/backend config
 knobs aligned:
 
-- `useV2Cursor` and drawlist v2 are paired automatically.
 - `maxEventBytes` is applied to both app parsing and backend transport buffers.
 - `fpsCap` is the single scheduling knob.
 - `executionMode: "auto"` resolves to inline when `fpsCap <= 30`, worker otherwise.

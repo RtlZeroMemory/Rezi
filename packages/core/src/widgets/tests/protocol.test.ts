@@ -58,6 +58,7 @@ const VNODE_KIND_COVERAGE: Record<VNode["kind"], true> = {
   box: true,
   row: true,
   column: true,
+  themed: true,
   spacer: true,
   divider: true,
   icon: true,

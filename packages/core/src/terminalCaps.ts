@@ -87,13 +87,12 @@ export const DEFAULT_TERMINAL_CAPS: TerminalCaps = Object.freeze({
 });
 
 /**
- * Check if the terminal supports Drawlist v2 cursor protocol.
+ * Check if the terminal supports the native cursor protocol.
  *
  * @param caps - Terminal capabilities
  * @returns true if SET_CURSOR commands will work
  */
-export function supportsCursorProtocol(caps: TerminalCaps): boolean {
-  // The engine may support cursor visibility even without shape support
+export function supportsCursorProtocol(_caps: TerminalCaps): boolean {
   return true;
 }
 

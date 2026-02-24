@@ -64,7 +64,6 @@ test("runtime breadcrumbs capture event path/action/focus/cursor deterministical
     backend,
     initialState: 0,
     config: {
-      useV2Cursor: true,
       internal_onRender: (metrics) => {
         const breadcrumbs = (
           metrics as Readonly<{ runtimeBreadcrumbs?: RuntimeBreadcrumbSnapshot }>

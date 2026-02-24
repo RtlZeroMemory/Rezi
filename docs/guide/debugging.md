@@ -69,7 +69,7 @@ const app = createAppWithInspectorOverlay({
 
 Overlay sections include:
 - Focus summary (`focusedId`, active zone, active trap)
-- Cursor target summary (position, shape, blink intent when cursor v2 is active)
+- Cursor target summary (position, shape, blink intent)
 - Damage + frame summary (`mode`, rect/cell counts, commit/layout/incremental state)
 - Frame timing rows (`drawlistBytes`, `diffBytesEmitted`, `usDrawlist`, `usDiff`, `usWrite`)
 - Event routing breadcrumbs (last event kind, keybindings vs widget routing path, last action)

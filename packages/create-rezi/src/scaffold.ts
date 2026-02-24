@@ -2,7 +2,13 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export type TemplateKey = "dashboard" | "stress-test" | "cli-tool" | "animation-lab" | "minimal";
+export type TemplateKey =
+  | "dashboard"
+  | "stress-test"
+  | "cli-tool"
+  | "animation-lab"
+  | "minimal"
+  | "starship";
 
 export type TemplateDefinition = {
   key: TemplateKey;
@@ -77,6 +83,20 @@ export const TEMPLATE_DEFINITIONS: readonly TemplateDefinition[] = [
     ],
     dir: "minimal",
   },
+  {
+    key: "starship",
+    label: "Starship Command Console",
+    description:
+      "Multi-deck command console showcasing routing, animation, charts, forms, and the full widget catalog",
+    safetyTag: "safe-default",
+    safetyNote:
+      "Feature-rich showcase template with moderate CPU usage from animation hooks and live telemetry.",
+    highlights: [
+      "six-screen bridge with routing, animated gauges, live telemetry charts, and crew management",
+      "command palette, modal dialogs, toast notifications, forms, split panes, canvas, and theme cycling with keybinding modes",
+    ],
+    dir: "starship",
+  },
 ] as const;
 
 const TEMPLATE_BY_KEY = new Map(TEMPLATE_DEFINITIONS.map((template) => [template.key, template]));
@@ -98,6 +118,9 @@ TEMPLATE_ALIASES.set("motion", "animation-lab");
 TEMPLATE_ALIASES.set("mini", "minimal");
 TEMPLATE_ALIASES.set("basic", "minimal");
 TEMPLATE_ALIASES.set("utility", "minimal");
+TEMPLATE_ALIASES.set("ship", "starship");
+TEMPLATE_ALIASES.set("bridge", "starship");
+TEMPLATE_ALIASES.set("command", "starship");
 
 const PACKAGE_NAME_RE = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
 

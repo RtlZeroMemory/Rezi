@@ -107,7 +107,7 @@ Current layout behavior to preserve when editing or generating docs:
 - Intrinsic sizing protocol (`measureMinContent` / `measureMaxContent`) is active for leaf and container measurement.
 - Stack constraints support `flex`, `flexShrink`, `flexBasis`, and per-child `alignSelf`.
 - Stack wrap and non-wrap paths use bounded cross-axis feedback (max 2 measure passes per child when needed).
-- Text supports `wrap` with grapheme-safe hard breaks and newline-aware paragraph splits.
+- Text supports `wrap` with grapheme-safe hard breaks and newline-aware paragraph splits. `textOverflow` supports `"clip"`, `"ellipsis"`, `"middle"`, and `"start"` (keeps tail with leading ellipsis).
 - Box has `gap` on its synthetic inner column and runs absolute children in a second out-of-flow pass.
 - Stack/box absolute positioning supports `position: "absolute"` + `top/right/bottom/left`.
 - Grid supports explicit placement and spans (`gridColumn`, `gridRow`, `colSpan`, `rowSpan`) with occupancy-aware auto placement.
@@ -209,13 +209,24 @@ const Counter = defineWidget<{ initial: number; key?: string }>((props, ctx) => 
 ```
 
 Available hooks: `ctx.useState()`, `ctx.useEffect()`, `ctx.useRef()`, `ctx.useMemo()`, `ctx.useCallback()`, `ctx.useAppState()`, `ctx.useViewport()`, `ctx.id()`.
-Animation utility hooks: `useTransition()`, `useSpring()`, `useSequence()`, `useStagger()` for declarative numeric motion.
-Animation easing presets include `linear` plus quad/cubic families (`easeInQuad`, `easeOutQuad`, `easeInOutQuad`, `easeInCubic`, `easeOutCubic`, `easeInOutCubic`).
+Animation utility hooks: `useTransition()`, `useSpring()`, `useSequence()`, `useStagger()`, `useAnimatedValue()`, `useParallel()`, `useChain()` for declarative numeric motion.
+Animation easing presets include `linear` plus quad/cubic families (`easeInQuad`, `easeOutQuad`, `easeInOutQuad`, `easeInCubic`, `easeOutCubic`, `easeInOutCubic`); use `interpolateRgb()` / `interpolateRgbArray()` for color ramps.
 
 ### Layer 3 — Domain Hooks (for complex state and motion)
 
 ```typescript
-import { useTransition, useSpring, useSequence, useStagger, useTable, useModalStack, useForm } from "@rezi-ui/core";
+import {
+  useTransition,
+  useSpring,
+  useSequence,
+  useStagger,
+  useAnimatedValue,
+  useParallel,
+  useChain,
+  useTable,
+  useModalStack,
+  useForm,
+} from "@rezi-ui/core";
 ```
 
 ### Layer 4 — Raw VNodes (avoid unless necessary)
@@ -273,7 +284,7 @@ each(items, (item) => ui.text(item.name), { key: (item) => item.id });
 
 - All interactive widgets MUST have a unique `id` prop.
 - Hooks must be called in consistent order (no conditional hooks, no hooks in loops).
-- `ui.box` transition properties default to animating `position`, `size`, and `opacity`; constrain with explicit `properties` when needed.
+- Container transition properties (`ui.box`/`ui.row`/`ui.column`/`ui.grid`) default to animating `position`, `size`, and `opacity`; constrain with explicit `properties` when needed.
 - Use `key` prop for list items to enable stable reconciliation.
 - State updates during render are forbidden (throws `ZRUI_UPDATE_DURING_RENDER`).
 - Duplicate interactive widget IDs are fatal (throws `ZRUI_DUPLICATE_ID`).
@@ -297,6 +308,10 @@ each(items, (item) => ui.text(item.name), { key: (item) => item.id });
 
 This allows centralized logging/middleware via app-level event listeners in addition to per-widget callbacks.
 
+## Layout Measurement
+
+`app.measureElement(id)` returns the computed layout `Rect` (`{ x, y, w, h }`) for any widget by its string `id`, or `null` if the widget is not in the current tree. The rect reflects the most recent layout pass. Types `Rect`, `Size`, and `Axis` are exported from `@rezi-ui/core`.
+
 ## Drawlist Codegen Protocol (MUST for ZRDL command changes)
 
 When changing drawlist command layout/opcodes/field offsets for v3/v4/v5:
@@ -317,7 +332,7 @@ CI runs `codegen:check`; stale generated writers fail the build.
 - Use `each()` / `eachInline()` for list rendering with keys.
 - Use `show()` / `when()` / `maybe()` / `match()` for conditional rendering.
 - Use `defineWidget()` for reusable stateful components.
-- Use `useTransition()` / `useSpring()` / `useSequence()` / `useStagger()` for declarative numeric motion.
+- Use `useTransition()` / `useSpring()` / `useSequence()` / `useStagger()` / `useAnimatedValue()` / `useParallel()` / `useChain()` for declarative numeric motion.
 - Use `useTable()` for table state, `useModalStack()` for modal state.
 - Follow template structure: separate `screens/`, `helpers/state.ts`, `helpers/keybindings.ts`, `theme.ts`, `types.ts` (see `animation-lab` for motion-heavy screens).
 - Test with `createTestRenderer()` from the testing module.

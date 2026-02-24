@@ -204,7 +204,7 @@ src/
 3. Create pure screen functions in `screens/` (each returns a `VNode`).
 4. Wire keybindings via `app.keys()` in `main.ts`.
 5. Use `createNodeApp({ config: { fpsCap: 30 } })` for production apps.
-6. For animated screens, prefer declarative hooks (`useTransition`, `useSpring`, `useSequence`, `useStagger`) and `ui.box` transition props over ad-hoc timers in view code.
+6. For animated screens, prefer declarative hooks (`useTransition`, `useSpring`, `useSequence`, `useStagger`, `useAnimatedValue`, `useParallel`, `useChain`) plus container `transition`/`exitTransition` props over ad-hoc timers in view code.
 
 **Widget usage hierarchy (prefer higher):**
 
@@ -295,7 +295,7 @@ Before finalizing any TUI implementation, verify:
 6. **Using `pnpm`.** This project uses `npm` workspaces. Running `pnpm install` will break the workspace links.
 7. **Skipping tests after pipeline changes.** Any change to commit, reconcile, layout, or renderer files requires running the full test suite. Subtle regressions are common.
 8. **Breaking module boundaries.** Core must remain runtime-agnostic. Never add Node.js-specific imports (`Buffer`, `worker_threads`, `node:*`) to `@rezi-ui/core`.
-9. **Misconfiguring box transitions.** `ui.box` transition defaults to animating `position`, `size`, and `opacity`; use explicit `properties` filters (or `[]` to disable) when behavior should be constrained.
+9. **Misconfiguring container transitions.** `ui.box`/`ui.row`/`ui.column`/`ui.grid` transition defaults animate `position`, `size`, and `opacity`; use explicit `properties` filters (or `[]` to disable) when behavior should be constrained, and use `exitTransition` when removals should animate out.
 10. **Editing generated drawlist writers by hand.** Update `scripts/drawlist-spec.ts` and run `npm run codegen` instead.
 11. **Assuming only `press` and `input` actions exist.** The routed action model also emits `select`, `rowPress`, `toggle`, `change`, `activate`, and `scroll` through `app.on("event", ...)`.
 12. **Misunderstanding animation completion behavior.** Completion callbacks should only run on a finished run; retargeted and looping animations start a new run and should not reuse the prior completion expectation.

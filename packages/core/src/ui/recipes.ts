@@ -11,7 +11,8 @@
  * @see docs/design-system.md
  */
 
-import type { ColorTokens, ThemeDefinition } from "../theme/tokens.js";
+import { blendRgb } from "../theme/blend.js";
+import type { ColorTokens, ThemeSpacingTokens } from "../theme/tokens.js";
 import type { Rgb, TextStyle } from "../widgets/style.js";
 import {
   type BorderVariant,
@@ -35,15 +36,6 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Blend two colors by a factor (0 = a, 1 = b). */
-function blendRgb(a: Rgb, b: Rgb, t: number): Rgb {
-  return {
-    r: Math.round(a.r + (b.r - a.r) * t),
-    g: Math.round(a.g + (b.g - a.g) * t),
-    b: Math.round(a.b + (b.b - a.b) * t),
-  };
-}
-
 /** Lighten or darken a color toward white/black. */
 function adjustBrightness(color: Rgb, amount: number): Rgb {
   const target = amount > 0 ? { r: 255, g: 255, b: 255 } : { r: 0, g: 0, b: 0 };
@@ -58,9 +50,9 @@ export type ButtonRecipeParams = Readonly<{
   variant?: WidgetVariant;
   tone?: WidgetTone;
   size?: WidgetSize;
+  spacing?: ThemeSpacingTokens | readonly number[];
   state?: WidgetState;
   density?: Density;
-  spacing?: ThemeDefinition["spacing"] | readonly number[];
 }>;
 
 export type ButtonRecipeResult = Readonly<{
@@ -173,8 +165,8 @@ export function buttonRecipe(
 export type InputRecipeParams = Readonly<{
   state?: WidgetState;
   size?: WidgetSize;
+  spacing?: ThemeSpacingTokens | readonly number[];
   density?: Density;
-  spacing?: ThemeDefinition["spacing"] | readonly number[];
 }>;
 
 export type InputRecipeResult = Readonly<{
@@ -294,7 +286,7 @@ export function surfaceRecipe(
 export type SelectRecipeParams = Readonly<{
   state?: WidgetState;
   size?: WidgetSize;
-  spacing?: ThemeDefinition["spacing"] | readonly number[];
+  spacing?: ThemeSpacingTokens | readonly number[];
 }>;
 
 export type SelectRecipeResult = Readonly<{
@@ -361,6 +353,758 @@ export function selectRecipe(
 }
 
 // ---------------------------------------------------------------------------
+// Tabs recipe
+// ---------------------------------------------------------------------------
+
+export type TabsRecipeParams = Readonly<{
+  variant?: WidgetVariant;
+  tone?: WidgetTone;
+  size?: WidgetSize;
+  spacing?: ThemeSpacingTokens;
+  state?: "default" | "active-item" | "focus" | "pressed" | "disabled" | "selected";
+}>;
+
+export type TabsRecipeResult = Readonly<{
+  item: TextStyle;
+  bg: TextStyle;
+  border: BorderVariant;
+  borderStyle: TextStyle | undefined;
+  px: number;
+}>;
+
+export function tabsRecipe(colors: ColorTokens, params: TabsRecipeParams = {}): TabsRecipeResult {
+  const variant = params.variant ?? "soft";
+  const tone = params.tone ?? "default";
+  const size = params.size ?? "md";
+  const state = params.state ?? "default";
+  const spacing = resolveSize(size, params.spacing);
+  const active = state === "active-item" || state === "selected";
+  const focused = state === "focus";
+  const pressed = state === "pressed";
+  const accentColor = resolveToneColor(colors, tone);
+
+  if (state === "disabled") {
+    return {
+      item: { fg: colors.disabled.fg },
+      bg: { bg: colors.disabled.bg },
+      border: variant === "outline" ? "single" : "none",
+      borderStyle: variant === "outline" ? { fg: colors.disabled.fg } : undefined,
+      px: spacing.px,
+    };
+  }
+
+  const focusAttrs: TextStyle = focused ? { underline: true, bold: true } : {};
+  const pressAttrs: TextStyle = pressed ? { dim: true } : {};
+
+  switch (variant) {
+    case "solid":
+      return {
+        item: {
+          fg: colors.fg.inverse,
+          ...(active || focused ? { bold: true } : {}),
+          ...focusAttrs,
+          ...pressAttrs,
+        },
+        bg: { bg: active || focused ? accentColor : colors.bg.subtle },
+        border: "none",
+        borderStyle: undefined,
+        px: spacing.px,
+      };
+    case "outline":
+      return {
+        item: {
+          fg: active || focused ? accentColor : colors.fg.secondary,
+          ...(active || focused ? { bold: true } : {}),
+          ...focusAttrs,
+          ...pressAttrs,
+        },
+        bg: { bg: colors.bg.base },
+        border: active || focused ? "heavy" : "single",
+        borderStyle: { fg: active || focused ? accentColor : colors.border.default },
+        px: spacing.px,
+      };
+    case "ghost":
+      return {
+        item: {
+          fg: active || focused ? accentColor : colors.fg.secondary,
+          ...(active || focused ? { bold: true } : {}),
+          ...focusAttrs,
+          ...pressAttrs,
+        },
+        bg: active || focused ? { bg: colors.bg.subtle } : {},
+        border: "none",
+        borderStyle: undefined,
+        px: spacing.px,
+      };
+    case "soft":
+      return {
+        item: {
+          fg: active || focused ? accentColor : colors.fg.primary,
+          ...(active || focused ? { bold: true } : {}),
+          ...focusAttrs,
+          ...pressAttrs,
+        },
+        bg: { bg: active || focused ? colors.bg.subtle : colors.bg.elevated },
+        border: "none",
+        borderStyle: undefined,
+        px: spacing.px,
+      };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Accordion recipe
+// ---------------------------------------------------------------------------
+
+export type AccordionRecipeParams = Readonly<{
+  variant?: WidgetVariant;
+  tone?: WidgetTone;
+  size?: WidgetSize;
+  spacing?: ThemeSpacingTokens;
+  state?: "default" | "active-item" | "focus" | "disabled" | "selected";
+}>;
+
+export type AccordionRecipeResult = Readonly<{
+  header: TextStyle;
+  content: TextStyle;
+  bg: TextStyle;
+  border: BorderVariant;
+  borderStyle: TextStyle | undefined;
+  px: number;
+}>;
+
+export function accordionRecipe(
+  colors: ColorTokens,
+  params: AccordionRecipeParams = {},
+): AccordionRecipeResult {
+  const variant = params.variant ?? "soft";
+  const tone = params.tone ?? "default";
+  const size = params.size ?? "md";
+  const state = params.state ?? "default";
+  const spacing = resolveSize(size, params.spacing);
+  const active = state === "active-item" || state === "selected";
+  const focused = state === "focus";
+  const accentColor = resolveToneColor(colors, tone);
+
+  if (state === "disabled") {
+    return {
+      header: { fg: colors.disabled.fg },
+      content: { fg: colors.disabled.fg, dim: true },
+      bg: { bg: colors.disabled.bg },
+      border: variant === "outline" ? "single" : "none",
+      borderStyle: variant === "outline" ? { fg: colors.disabled.fg } : undefined,
+      px: spacing.px,
+    };
+  }
+
+  const headerStyle: TextStyle = {
+    fg: active || focused ? accentColor : colors.fg.primary,
+    ...(active || focused ? { bold: true } : {}),
+    ...(focused ? { underline: true } : {}),
+  };
+
+  switch (variant) {
+    case "solid":
+      return {
+        header: { ...headerStyle, fg: colors.fg.inverse },
+        content: { fg: colors.fg.primary },
+        bg: { bg: active || focused ? accentColor : colors.bg.subtle },
+        border: "none",
+        borderStyle: undefined,
+        px: spacing.px,
+      };
+    case "outline":
+      return {
+        header: headerStyle,
+        content: { fg: colors.fg.primary },
+        bg: { bg: colors.bg.base },
+        border: active || focused ? "heavy" : "single",
+        borderStyle: { fg: active || focused ? accentColor : colors.border.default },
+        px: spacing.px,
+      };
+    case "ghost":
+      return {
+        header: {
+          ...headerStyle,
+          fg: active || focused ? accentColor : colors.fg.secondary,
+        },
+        content: { fg: colors.fg.primary },
+        bg: active || focused ? { bg: colors.bg.subtle } : {},
+        border: "none",
+        borderStyle: undefined,
+        px: spacing.px,
+      };
+    case "soft":
+      return {
+        header: headerStyle,
+        content: { fg: colors.fg.primary },
+        bg: { bg: active || focused ? colors.bg.subtle : colors.bg.elevated },
+        border: "none",
+        borderStyle: undefined,
+        px: spacing.px,
+      };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Breadcrumb recipe
+// ---------------------------------------------------------------------------
+
+export type BreadcrumbRecipeParams = Readonly<{
+  variant?: WidgetVariant;
+  tone?: WidgetTone;
+  size?: WidgetSize;
+  spacing?: ThemeSpacingTokens;
+  state?: "default" | "active-item" | "focus" | "disabled" | "selected";
+}>;
+
+export type BreadcrumbRecipeResult = Readonly<{
+  item: TextStyle;
+  separator: TextStyle;
+  bg: TextStyle;
+  px: number;
+}>;
+
+export function breadcrumbRecipe(
+  colors: ColorTokens,
+  params: BreadcrumbRecipeParams = {},
+): BreadcrumbRecipeResult {
+  const variant = params.variant ?? "ghost";
+  const tone = params.tone ?? "default";
+  const size = params.size ?? "md";
+  const state = params.state ?? "default";
+  const spacing = resolveSize(size, params.spacing);
+  const accentColor = resolveToneColor(colors, tone);
+  const active = state === "active-item" || state === "selected";
+  const focused = state === "focus";
+
+  if (state === "disabled") {
+    return {
+      item: { fg: colors.disabled.fg },
+      separator: { fg: colors.disabled.fg, dim: true },
+      bg: { bg: colors.disabled.bg },
+      px: spacing.px,
+    };
+  }
+
+  const itemStyle: TextStyle = {
+    fg: active ? colors.fg.primary : accentColor,
+    ...(active || focused ? { bold: true } : {}),
+    ...(focused ? { underline: true } : {}),
+  };
+  const bg =
+    variant === "solid"
+      ? { bg: active || focused ? accentColor : colors.bg.subtle }
+      : variant === "soft"
+        ? { bg: active || focused ? colors.bg.subtle : colors.bg.elevated }
+        : active || focused
+          ? { bg: colors.bg.subtle }
+          : {};
+  return {
+    item: variant === "solid" ? { ...itemStyle, fg: colors.fg.inverse } : itemStyle,
+    separator: { fg: colors.fg.muted, dim: true },
+    bg,
+    px: spacing.px,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Pagination recipe
+// ---------------------------------------------------------------------------
+
+export type PaginationRecipeParams = Readonly<{
+  variant?: WidgetVariant;
+  tone?: WidgetTone;
+  size?: WidgetSize;
+  spacing?: ThemeSpacingTokens;
+  state?: "default" | "active-item" | "focus" | "disabled" | "selected";
+}>;
+
+export type PaginationRecipeResult = Readonly<{
+  control: TextStyle;
+  bg: TextStyle;
+  border: BorderVariant;
+  borderStyle: TextStyle | undefined;
+  px: number;
+}>;
+
+export function paginationRecipe(
+  colors: ColorTokens,
+  params: PaginationRecipeParams = {},
+): PaginationRecipeResult {
+  const variant = params.variant ?? "soft";
+  const tone = params.tone ?? "default";
+  const size = params.size ?? "md";
+  const state = params.state ?? "default";
+  const spacing = resolveSize(size, params.spacing);
+  const accentColor = resolveToneColor(colors, tone);
+  const active = state === "active-item" || state === "selected";
+  const focused = state === "focus";
+
+  if (state === "disabled") {
+    return {
+      control: { fg: colors.disabled.fg },
+      bg: { bg: colors.disabled.bg },
+      border: variant === "outline" ? "single" : "none",
+      borderStyle: variant === "outline" ? { fg: colors.disabled.fg } : undefined,
+      px: spacing.px,
+    };
+  }
+
+  const controlStyle: TextStyle = {
+    fg: active || focused ? accentColor : colors.fg.primary,
+    ...(active || focused ? { bold: true } : {}),
+    ...(focused ? { underline: true } : {}),
+  };
+
+  switch (variant) {
+    case "solid":
+      return {
+        control: { ...controlStyle, fg: colors.fg.inverse },
+        bg: { bg: active || focused ? accentColor : colors.bg.subtle },
+        border: "none",
+        borderStyle: undefined,
+        px: spacing.px,
+      };
+    case "outline":
+      return {
+        control: controlStyle,
+        bg: { bg: colors.bg.base },
+        border: active || focused ? "heavy" : "single",
+        borderStyle: { fg: active || focused ? accentColor : colors.border.default },
+        px: spacing.px,
+      };
+    case "ghost":
+      return {
+        control: {
+          ...controlStyle,
+          fg: active || focused ? accentColor : colors.fg.secondary,
+        },
+        bg: active || focused ? { bg: colors.bg.subtle } : {},
+        border: "none",
+        borderStyle: undefined,
+        px: spacing.px,
+      };
+    case "soft":
+      return {
+        control: controlStyle,
+        bg: { bg: active || focused ? colors.bg.subtle : colors.bg.elevated },
+        border: "none",
+        borderStyle: undefined,
+        px: spacing.px,
+      };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Kbd recipe
+// ---------------------------------------------------------------------------
+
+export type KbdRecipeParams = Readonly<{
+  variant?: WidgetVariant;
+  tone?: WidgetTone;
+  size?: WidgetSize;
+  spacing?: ThemeSpacingTokens;
+  state?: "default" | "focus" | "disabled";
+}>;
+
+export type KbdRecipeResult = Readonly<{
+  key: TextStyle;
+  separator: TextStyle;
+  bracket: TextStyle;
+  bg: TextStyle;
+  border: BorderVariant;
+  borderStyle: TextStyle | undefined;
+  px: number;
+}>;
+
+export function kbdRecipe(colors: ColorTokens, params: KbdRecipeParams = {}): KbdRecipeResult {
+  const variant = params.variant ?? "outline";
+  const tone = params.tone ?? "default";
+  const size = params.size ?? "md";
+  const state = params.state ?? "default";
+  const spacing = resolveSize(size, params.spacing);
+  const accentColor = resolveToneColor(colors, tone);
+
+  if (state === "disabled") {
+    return {
+      key: { fg: colors.disabled.fg, bold: false },
+      separator: { fg: colors.disabled.fg, dim: true },
+      bracket: { fg: colors.disabled.fg, dim: true },
+      bg: { bg: colors.disabled.bg },
+      border: "single",
+      borderStyle: { fg: colors.disabled.fg },
+      px: spacing.px,
+    };
+  }
+
+  const focused = state === "focus";
+  const keyStyle: TextStyle = {
+    fg: accentColor,
+    bold: true,
+    ...(focused ? { underline: true } : {}),
+  };
+
+  switch (variant) {
+    case "solid":
+      return {
+        key: { ...keyStyle, fg: colors.fg.inverse },
+        separator: { fg: colors.fg.inverse, dim: true },
+        bracket: { fg: colors.fg.inverse, dim: true },
+        bg: { bg: accentColor },
+        border: "none",
+        borderStyle: undefined,
+        px: spacing.px,
+      };
+    case "ghost":
+      return {
+        key: { ...keyStyle, fg: colors.fg.primary },
+        separator: { fg: colors.fg.muted },
+        bracket: { fg: colors.fg.muted },
+        bg: {},
+        border: "none",
+        borderStyle: undefined,
+        px: spacing.px,
+      };
+    case "soft":
+      return {
+        key: keyStyle,
+        separator: { fg: colors.fg.muted },
+        bracket: { fg: colors.fg.muted },
+        bg: { bg: colors.bg.subtle },
+        border: "none",
+        borderStyle: undefined,
+        px: spacing.px,
+      };
+    case "outline":
+      return {
+        key: keyStyle,
+        separator: { fg: colors.fg.muted },
+        bracket: { fg: colors.fg.muted },
+        bg: { bg: colors.bg.elevated },
+        border: focused ? "heavy" : "single",
+        borderStyle: focused ? { fg: accentColor } : { fg: colors.border.default },
+        px: spacing.px,
+      };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sidebar recipe
+// ---------------------------------------------------------------------------
+
+export type SidebarRecipeParams = Readonly<{
+  variant?: WidgetVariant;
+  tone?: WidgetTone;
+  size?: WidgetSize;
+  spacing?: ThemeSpacingTokens;
+  state?: "default" | "active-item" | "focus" | "disabled" | "selected";
+}>;
+
+export type SidebarRecipeResult = Readonly<{
+  item: TextStyle;
+  bg: TextStyle;
+  border: BorderVariant;
+  borderStyle: TextStyle | undefined;
+  px: number;
+  gap: number;
+}>;
+
+export function sidebarRecipe(
+  colors: ColorTokens,
+  params: SidebarRecipeParams = {},
+): SidebarRecipeResult {
+  const variant = params.variant ?? "soft";
+  const tone = params.tone ?? "default";
+  const size = params.size ?? "md";
+  const state = params.state ?? "default";
+  const spacing = resolveSize(size, params.spacing);
+  const accentColor = resolveToneColor(colors, tone);
+  const active = state === "active-item" || state === "selected";
+  const focused = state === "focus";
+
+  if (state === "disabled") {
+    return {
+      item: { fg: colors.disabled.fg },
+      bg: { bg: colors.disabled.bg },
+      border: "single",
+      borderStyle: { fg: colors.disabled.fg },
+      px: spacing.px,
+      gap: resolveDensityGap("compact"),
+    };
+  }
+
+  const item: TextStyle = {
+    fg: active || focused ? accentColor : colors.fg.primary,
+    ...(active || focused ? { bold: true } : {}),
+    ...(focused ? { underline: true } : {}),
+  };
+  return {
+    item: variant === "solid" ? { ...item, fg: colors.fg.inverse } : item,
+    bg:
+      variant === "solid"
+        ? { bg: active || focused ? accentColor : colors.bg.subtle }
+        : variant === "ghost"
+          ? active || focused
+            ? { bg: colors.bg.subtle }
+            : {}
+          : { bg: active || focused ? colors.bg.subtle : colors.bg.elevated },
+    border: variant === "outline" ? (focused ? "heavy" : "single") : "rounded",
+    borderStyle:
+      variant === "outline"
+        ? { fg: focused ? accentColor : colors.border.default }
+        : { fg: colors.border.subtle },
+    px: spacing.px,
+    gap: resolveDensityGap(size === "sm" ? "compact" : "comfortable"),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Toolbar recipe
+// ---------------------------------------------------------------------------
+
+export type ToolbarRecipeParams = Readonly<{
+  variant?: WidgetVariant;
+  tone?: WidgetTone;
+  size?: WidgetSize;
+  spacing?: ThemeSpacingTokens;
+  state?: "default" | "active-item" | "focus" | "disabled" | "selected";
+}>;
+
+export type ToolbarRecipeResult = Readonly<{
+  item: TextStyle;
+  bg: TextStyle;
+  border: BorderVariant;
+  borderStyle: TextStyle | undefined;
+  px: number;
+  gap: number;
+}>;
+
+export function toolbarRecipe(
+  colors: ColorTokens,
+  params: ToolbarRecipeParams = {},
+): ToolbarRecipeResult {
+  const variant = params.variant ?? "ghost";
+  const tone = params.tone ?? "default";
+  const size = params.size ?? "md";
+  const state = params.state ?? "default";
+  const spacing = resolveSize(size, params.spacing);
+  const accentColor = resolveToneColor(colors, tone);
+  const active = state === "active-item" || state === "selected";
+  const focused = state === "focus";
+
+  if (state === "disabled") {
+    return {
+      item: { fg: colors.disabled.fg },
+      bg: { bg: colors.disabled.bg },
+      border: "none",
+      borderStyle: undefined,
+      px: spacing.px,
+      gap: resolveDensityGap("compact"),
+    };
+  }
+
+  const item: TextStyle = {
+    fg: active || focused ? accentColor : colors.fg.secondary,
+    ...(active || focused ? { bold: true } : {}),
+    ...(focused ? { underline: true } : {}),
+  };
+
+  return {
+    item: variant === "solid" ? { ...item, fg: colors.fg.inverse } : item,
+    bg:
+      variant === "solid"
+        ? { bg: active || focused ? accentColor : colors.bg.subtle }
+        : variant === "soft"
+          ? { bg: active || focused ? colors.bg.subtle : colors.bg.elevated }
+          : active || focused
+            ? { bg: colors.bg.subtle }
+            : {},
+    border: variant === "outline" && focused ? "single" : "none",
+    borderStyle: variant === "outline" && focused ? { fg: accentColor } : undefined,
+    px: spacing.px,
+    gap: resolveDensityGap(size === "sm" ? "compact" : "comfortable"),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Dropdown recipe
+// ---------------------------------------------------------------------------
+
+export type DropdownRecipeParams = Readonly<{
+  variant?: WidgetVariant;
+  tone?: WidgetTone;
+  size?: WidgetSize;
+  spacing?: ThemeSpacingTokens;
+  state?: "default" | "active-item" | "focus" | "disabled";
+}>;
+
+export type DropdownRecipeResult = Readonly<{
+  item: TextStyle;
+  shortcut: TextStyle;
+  bg: TextStyle;
+  border: BorderVariant;
+  borderStyle: TextStyle;
+  px: number;
+}>;
+
+export function dropdownRecipe(
+  colors: ColorTokens,
+  params: DropdownRecipeParams = {},
+): DropdownRecipeResult {
+  const variant = params.variant ?? "soft";
+  const tone = params.tone ?? "default";
+  const size = params.size ?? "md";
+  const state = params.state ?? "default";
+  const spacing = resolveSize(size, params.spacing);
+  const accentColor = resolveToneColor(colors, tone);
+
+  if (state === "disabled") {
+    return {
+      item: { fg: colors.disabled.fg },
+      shortcut: { fg: colors.disabled.fg, dim: true },
+      bg: { bg: colors.disabled.bg },
+      border: "single",
+      borderStyle: { fg: colors.disabled.fg },
+      px: spacing.px,
+    };
+  }
+
+  if (state === "active-item") {
+    return {
+      item: { fg: colors.fg.inverse, bg: accentColor, bold: true },
+      shortcut: { fg: colors.fg.inverse, bg: accentColor, dim: true },
+      bg: { bg: accentColor },
+      border: "single",
+      borderStyle: { fg: accentColor },
+      px: spacing.px,
+    };
+  }
+
+  if (state === "focus") {
+    return {
+      item: { fg: colors.fg.primary, underline: true, bold: true },
+      shortcut: { fg: colors.fg.muted },
+      bg: { bg: colors.bg.overlay },
+      border: "heavy",
+      borderStyle: { fg: accentColor, bold: true },
+      px: spacing.px,
+    };
+  }
+
+  const baseBg =
+    variant === "solid"
+      ? accentColor
+      : variant === "ghost"
+        ? colors.bg.base
+        : variant === "outline"
+          ? colors.bg.base
+          : colors.bg.overlay;
+  return {
+    item: {
+      fg: variant === "solid" ? colors.fg.inverse : colors.fg.primary,
+    },
+    shortcut: {
+      fg: variant === "solid" ? colors.fg.inverse : colors.fg.muted,
+      dim: variant !== "solid",
+    },
+    bg: { bg: baseBg },
+    border: "single",
+    borderStyle: {
+      fg: variant === "outline" ? colors.border.default : colors.border.strong,
+    },
+    px: spacing.px,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Tree recipe
+// ---------------------------------------------------------------------------
+
+export type TreeRecipeParams = Readonly<{
+  variant?: WidgetVariant;
+  tone?: WidgetTone;
+  size?: WidgetSize;
+  spacing?: ThemeSpacingTokens;
+  state?: "default" | "active-item" | "focus" | "disabled" | "selected";
+}>;
+
+export type TreeRecipeResult = Readonly<{
+  node: TextStyle;
+  prefix: TextStyle;
+  bg: TextStyle;
+  border: BorderVariant;
+  borderStyle: TextStyle | undefined;
+  px: number;
+}>;
+
+export function treeRecipe(colors: ColorTokens, params: TreeRecipeParams = {}): TreeRecipeResult {
+  const variant = params.variant ?? "ghost";
+  const tone = params.tone ?? "default";
+  const size = params.size ?? "md";
+  const state = params.state ?? "default";
+  const spacing = resolveSize(size, params.spacing);
+  const accentColor = resolveToneColor(colors, tone);
+  const selected = state === "selected" || state === "active-item";
+
+  if (state === "disabled") {
+    return {
+      node: { fg: colors.disabled.fg },
+      prefix: { fg: colors.disabled.fg, dim: true },
+      bg: { bg: colors.disabled.bg },
+      border: "none",
+      borderStyle: undefined,
+      px: spacing.px,
+    };
+  }
+
+  if (state === "focus") {
+    return {
+      node: { fg: accentColor, underline: true, bold: true },
+      prefix: { fg: accentColor, dim: true },
+      bg: { bg: colors.focus.bg },
+      border: "none",
+      borderStyle: undefined,
+      px: spacing.px,
+    };
+  }
+
+  if (selected) {
+    return {
+      node: {
+        fg: colors.selected.fg,
+        bg: colors.selected.bg,
+        bold: true,
+      },
+      prefix: {
+        fg: variant === "solid" ? colors.selected.fg : colors.fg.muted,
+        ...(variant === "solid" ? { bg: colors.selected.bg } : {}),
+      },
+      bg: { bg: colors.selected.bg },
+      border: "none",
+      borderStyle: undefined,
+      px: spacing.px,
+    };
+  }
+
+  return {
+    node: {
+      fg: variant === "solid" ? colors.fg.inverse : colors.fg.primary,
+    },
+    prefix: { fg: colors.fg.muted },
+    bg:
+      variant === "solid"
+        ? { bg: accentColor }
+        : variant === "soft"
+          ? { bg: colors.bg.subtle }
+          : {},
+    border: "none",
+    borderStyle: undefined,
+    px: spacing.px,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Table recipe
 // ---------------------------------------------------------------------------
 
@@ -369,7 +1113,7 @@ export type TableRecipeParams = Readonly<{
   size?: WidgetSize;
   tone?: WidgetTone;
   density?: Density;
-  spacing?: ThemeDefinition["spacing"] | readonly number[];
+  spacing?: ThemeSpacingTokens | readonly number[];
 }>;
 
 export type TableRecipeResult = Readonly<{
@@ -802,6 +1546,15 @@ export const recipe = {
   input: inputRecipe,
   surface: surfaceRecipe,
   select: selectRecipe,
+  tabs: tabsRecipe,
+  accordion: accordionRecipe,
+  breadcrumb: breadcrumbRecipe,
+  pagination: paginationRecipe,
+  kbd: kbdRecipe,
+  sidebar: sidebarRecipe,
+  toolbar: toolbarRecipe,
+  dropdown: dropdownRecipe,
+  tree: treeRecipe,
   table: tableRecipe,
   modal: modalRecipe,
   badge: badgeRecipe,

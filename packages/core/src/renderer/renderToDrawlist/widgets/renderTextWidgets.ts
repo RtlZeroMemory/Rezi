@@ -7,6 +7,7 @@ import {
 import {
   measureTextCells,
   truncateMiddle,
+  truncateStart,
   truncateWithEllipsis,
   wrapTextToLines,
 } from "../../../layout/textMeasure.js";
@@ -79,10 +80,11 @@ function readTerminalCursorMeta(
   return { focused, ...(position === undefined ? {} : { position }) };
 }
 
-function readTextOverflow(v: unknown): "clip" | "ellipsis" | "middle" {
+function readTextOverflow(v: unknown): "clip" | "ellipsis" | "middle" | "start" {
   switch (v) {
     case "ellipsis":
     case "middle":
+    case "start":
       return v;
     default:
       return "clip";
@@ -320,6 +322,9 @@ export function renderTextWidgets(
               case "middle":
                 line = truncateMiddle(hasHiddenLines ? `${rawLine}…` : rawLine, overflowW);
                 break;
+              case "start":
+                line = truncateStart(hasHiddenLines ? `…${rawLine}` : rawLine, overflowW);
+                break;
               case "clip":
                 break;
             }
@@ -380,6 +385,9 @@ export function renderTextWidgets(
           break;
         case "middle":
           displayText = truncateMiddle(text, overflowW);
+          break;
+        case "start":
+          displayText = truncateStart(text, overflowW);
           break;
         case "clip":
           useClip = true;

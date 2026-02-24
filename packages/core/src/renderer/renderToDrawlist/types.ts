@@ -25,7 +25,7 @@ type LogsEntryMeta = Readonly<{
 }>;
 
 /**
- * Cursor info for v2 cursor protocol integration.
+ * Cursor info for native cursor protocol integration.
  * Provides cursor offset per Input instance.
  */
 export type CursorInfo = Readonly<{
@@ -75,7 +75,7 @@ export type RenderToDrawlistParams = Readonly<{
   theme?: Theme | undefined;
   /** Optional terminal profile for capability-gated widget rendering decisions. */
   terminalProfile?: TerminalProfile | undefined;
-  /** Optional v2 cursor info for native cursor support */
+  /** Optional cursor info for native cursor support */
   cursorInfo?: CursorInfo | undefined;
   /** Optional virtual list state store for virtualList widgets */
   virtualListStore?: VirtualListStateStore | undefined;

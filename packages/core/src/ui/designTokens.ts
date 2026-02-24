@@ -124,6 +124,7 @@ function isLegacySpacingInput(spacing: SizeSpacingInput): spacing is readonly nu
 
 /**
  * Resolve spacing for a widget size.
+ * If theme spacing tokens are provided, widget spacing derives from that scale.
  */
 export function resolveSize(size: WidgetSize, spacing?: SizeSpacingInput): SizeSpacing {
   let semanticSpacing: ThemeDefinition["spacing"] | undefined;

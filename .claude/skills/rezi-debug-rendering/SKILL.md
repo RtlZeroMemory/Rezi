@@ -56,9 +56,12 @@ Use this skill when:
 7. **Review layout props**: `width`, `height`, `flex`, `p`, `gap`, `align`
 
 8. **If animation is involved**, verify:
-   - `ui.box` uses `transition` with expected `properties` (`position`, `size`, `opacity`)
+   - container widgets (`ui.box`, `ui.row`, `ui.column`, `ui.grid`) use `transition` with expected `properties` (`position`, `size`, `opacity`)
    - `properties: []` is not accidentally disabling tracks
    - `opacity` stays within `[0..1]`
+   - `exitTransition` exists on nodes that should animate out before removal
+   - keyed re-entry behavior is intentional (same key cancels in-flight exit)
+   - exiting nodes are expected to be render-only (not focusable/hit-testable)
    - animation hooks are not conditionally called
 
 9. **Read enriched runtime errors carefully**:
@@ -77,6 +80,8 @@ Use this skill when:
 | Flicker/full re-render | Missing `key` on list items |
 | Transition not animating | `transition` missing, wrong `properties`, or no actual value delta |
 | Opacity animation looks wrong | `opacity` outside `[0..1]` (clamped) or `properties` excludes `opacity` |
+| Exit animation not visible | Missing `exitTransition`, zero/invalid duration, or node has no stable key |
+| Exit node still interactive | Exit nodes are render-only; focus/hit-test should come from active tree only |
 | Crash on deep tree | Nesting depth > 500 |
 | DS styling not applied | DS styling is automatic with `ThemeDefinition`; check semantic tokens/theme activation (no `dsVariant` required) |
 | Wheel scrolling not working | Ensure the container uses `overflow: "scroll"` and content exceeds viewport size |

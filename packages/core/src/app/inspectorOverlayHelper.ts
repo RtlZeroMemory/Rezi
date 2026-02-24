@@ -300,6 +300,9 @@ export function createAppWithInspectorOverlay<S>(
     getTerminalProfile() {
       return app.getTerminalProfile();
     },
+    measureElement(id: string) {
+      return app.measureElement(id);
+    },
     ...(app.router ? { router: app.router } : {}),
     inspectorOverlay: controller,
   };

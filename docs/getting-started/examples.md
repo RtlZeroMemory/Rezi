@@ -29,7 +29,7 @@ node examples/raw-draw-demo/dist/index.js
 
 ## Looking for Larger App Examples?
 
-Use `create-rezi` templates (`dashboard`, `stress-test`, `cli-tool`, `animation-lab`, `minimal`) for full starter apps:
+Use `create-rezi` templates (`dashboard`, `stress-test`, `cli-tool`, `animation-lab`, `minimal`, `starship`) for full starter apps:
 
 - [Create Rezi (canonical template overview)](create-rezi.md)
 - [create-rezi package reference](../packages/create-rezi.md)

@@ -93,7 +93,7 @@ terminal.
 
 CLI scaffolding tool. Running `npm create rezi` generates a new Rezi project
 from built-in templates with proper `package.json`, `tsconfig.json`, and example
-code. Current templates: `dashboard`, `stress-test`, `cli-tool`, `animation-lab`, `minimal`.
+code. Current templates: `dashboard`, `stress-test`, `cli-tool`, `animation-lab`, `minimal`, `starship`.
 
 ### bench -- `@rezi-ui/bench` (private)
 

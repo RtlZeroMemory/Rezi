@@ -35,7 +35,7 @@ Top-level required fields:
 | `maxDrawlistBytes` | `number` (non-negative integer) |
 | `maxFrames` | `number` (non-negative integer) |
 | `fpsCap` | `number` (positive integer) |
-| `cursorProtocolVersion` | `1 \| 2` |
+| `cursorProtocolVersion` | `2` |
 
 ### `capsSnapshot`
 
@@ -44,7 +44,7 @@ Top-level required fields:
 | `terminalCaps` | `TerminalCaps \| null` |
 | `backendCaps.maxEventBytes` | `number` (non-negative integer) |
 | `backendCaps.fpsCap` | `number` (positive integer) |
-| `backendCaps.cursorProtocolVersion` | `1 \| 2` |
+| `backendCaps.cursorProtocolVersion` | `2` |
 
 ### `timingModel`
 

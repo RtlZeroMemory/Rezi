@@ -18,7 +18,6 @@ import type { CodeEditorRenderCache } from "./renderCaches.js";
 export type CursorBreadcrumbViewport = Readonly<{ cols: number; rows: number }>;
 
 type ResolveRuntimeCursorSummaryContext = Readonly<{
-  useV2Cursor: boolean;
   focusedId: string | null;
   inputById: ReadonlyMap<string, InputMeta>;
   pooledRectByInstanceId: ReadonlyMap<InstanceId, Rect>;
@@ -58,7 +57,7 @@ type SnapshotRenderedFrameStateParams = Readonly<{
   prevFrameDamageRectById: Map<string, Rect>;
   prevFrameOpacityByInstanceId: Map<InstanceId, number>;
   pooledRuntimeStack: RuntimeInstance[];
-  readBoxOpacity: (node: RuntimeInstance) => number;
+  readContainerOpacity: (node: RuntimeInstance) => number;
 }>;
 
 const UTF8_LINE_FEED = 0x0a;
@@ -170,7 +169,7 @@ export function resolveRuntimeCursorSummary(
   ctx: ResolveRuntimeCursorSummaryContext,
   cursorInfo: CursorInfo | undefined,
 ): RuntimeBreadcrumbCursorSummary | null {
-  if (!cursorInfo || !ctx.useV2Cursor) return null;
+  if (!cursorInfo) return null;
 
   const hidden: RuntimeBreadcrumbCursorSummary = Object.freeze({
     visible: false,
@@ -266,7 +265,6 @@ export function emitIncrementalCursor(
   const resolveSummary = () =>
     resolveRuntimeCursorSummary(
       {
-        useV2Cursor: ctx.useV2Cursor,
         focusedId: ctx.focusedId,
         inputById: ctx.inputById,
         pooledRectByInstanceId: ctx.pooledRectByInstanceId,
@@ -279,64 +277,26 @@ export function emitIncrementalCursor(
       cursorInfo,
     );
 
-  if (!cursorInfo || !ctx.useV2Cursor || !isCursorBuilder(ctx.builder)) {
-    return ctx.collectRuntimeBreadcrumbs ? resolveSummary() : null;
+  const summary = resolveSummary();
+
+  if (!cursorInfo || !isCursorBuilder(ctx.builder)) {
+    return ctx.collectRuntimeBreadcrumbs ? summary : null;
   }
 
-  const focusedId = ctx.focusedId;
-  if (!focusedId) {
+  if (!summary || !summary.visible) {
     ctx.builder.hideCursor();
-    return ctx.collectRuntimeBreadcrumbs ? resolveSummary() : null;
-  }
-
-  const input = ctx.inputById.get(focusedId);
-  if (!input || input.disabled) {
-    ctx.builder.hideCursor();
-    return ctx.collectRuntimeBreadcrumbs ? resolveSummary() : null;
-  }
-
-  const rect = ctx.pooledRectByInstanceId.get(input.instanceId);
-  if (!rect || rect.w <= 1 || rect.h <= 0) {
-    ctx.builder.hideCursor();
-    return ctx.collectRuntimeBreadcrumbs ? resolveSummary() : null;
-  }
-
-  const graphemeOffset = ctx.inputCursorByInstanceId.get(input.instanceId) ?? input.value.length;
-  let cursorX = 0;
-  let cursorY = rect.y;
-  if (input.multiline) {
-    const contentW = Math.max(1, rect.w - 2);
-    const resolved = resolveInputMultilineCursor(
-      input.value,
-      graphemeOffset,
-      contentW,
-      input.wordWrap,
-    );
-    const maxStartVisual = Math.max(0, resolved.totalVisualLines - rect.h);
-    const startVisual = Math.max(0, Math.min(maxStartVisual, resolved.visualLine - rect.h + 1));
-    const localY = resolved.visualLine - startVisual;
-    if (localY < 0 || localY >= rect.h) {
-      ctx.builder.hideCursor();
-      return ctx.collectRuntimeBreadcrumbs ? resolveSummary() : null;
-    }
-    cursorX = Math.max(0, Math.min(Math.max(0, rect.w - 2), resolved.visualX));
-    cursorY = rect.y + localY;
-  } else {
-    cursorX = Math.max(
-      0,
-      Math.min(Math.max(0, rect.w - 2), measureTextCells(input.value.slice(0, graphemeOffset))),
-    );
+    return ctx.collectRuntimeBreadcrumbs ? summary : null;
   }
 
   ctx.builder.setCursor({
-    x: rect.x + 1 + cursorX,
-    y: cursorY,
-    shape: cursorInfo.shape,
+    x: summary.x,
+    y: summary.y,
+    shape: summary.shape,
     visible: true,
-    blink: cursorInfo.blink,
+    blink: summary.blink,
   });
 
-  return ctx.collectRuntimeBreadcrumbs ? resolveSummary() : null;
+  return ctx.collectRuntimeBreadcrumbs ? summary : null;
 }
 
 export function updateRuntimeBreadcrumbSnapshot(
@@ -416,8 +376,13 @@ export function snapshotRenderedFrameState(params: SnapshotRenderedFrameStatePar
   while (params.pooledRuntimeStack.length > 0) {
     const node = params.pooledRuntimeStack.pop();
     if (!node) continue;
-    if (node.vnode.kind === "box") {
-      params.prevFrameOpacityByInstanceId.set(node.instanceId, params.readBoxOpacity(node));
+    if (
+      node.vnode.kind === "box" ||
+      node.vnode.kind === "row" ||
+      node.vnode.kind === "column" ||
+      node.vnode.kind === "grid"
+    ) {
+      params.prevFrameOpacityByInstanceId.set(node.instanceId, params.readContainerOpacity(node));
     }
     for (let i = node.children.length - 1; i >= 0; i--) {
       const child = node.children[i];

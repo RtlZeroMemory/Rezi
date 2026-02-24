@@ -153,9 +153,9 @@ repeat seg_count:
 
 Each segment is 28 bytes. The total blob size is `4 + seg_count * 28`.
 
-### OP_SET_CURSOR (opcode 7, v2 only)
+### OP_SET_CURSOR (opcode 7, drawlist v2+)
 
-Sets the terminal cursor position and appearance. See [Cursor (v2)](cursor-v2.md) for details.
+Sets the terminal cursor position and appearance. See [Cursor](cursor.md) for details.
 
 - **Total size:** 20 bytes (8 header + 12 payload)
 
@@ -247,6 +247,6 @@ All caps are configurable via `DrawlistBuilderV1Opts` or `DrawlistBuilderV2Opts`
 
 ## See also
 
-- [Cursor (v2)](cursor-v2.md) -- SET_CURSOR command added in drawlist v2
+- [Cursor](cursor.md) -- SET_CURSOR command details
 - [Versioning](versioning.md) -- format version semantics
 - [Safety rules](safety.md) -- validation and error handling patterns

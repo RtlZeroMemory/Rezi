@@ -31,11 +31,12 @@ export type AppConfig = Readonly<{
     mdMax?: number;
     lgMax?: number;
   }>;
-  useV2Cursor?: boolean;
   drawlistValidateParams?: boolean;
   drawlistReuseOutputBuffer?: boolean;
   drawlistEncodedStringCacheCap?: number;
   maxFramesInFlight?: number;
+  /** Theme interpolation frame count for setTheme(). 0 disables transitions (default). */
+  themeTransitionFrames?: number;
   internal_onRender?: (metrics: AppRenderMetrics) => void;
   internal_onLayout?: (snapshot: AppLayoutSnapshot) => void;
 }>;
@@ -61,5 +62,7 @@ export interface App<S> {
   getBindings(mode?: string): readonly RegisteredBinding[];
   readonly pendingChord: string | null;
   getTerminalProfile(): TerminalProfile;
+  /** Return the computed layout rect for a widget by its `id`, or `null` if not found. */
+  measureElement(id: string): Rect | null;
   readonly router?: RouterApi;
 }

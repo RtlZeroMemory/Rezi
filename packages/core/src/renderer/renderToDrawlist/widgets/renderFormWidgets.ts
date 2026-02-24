@@ -538,7 +538,7 @@ export function renderFormWidgets(
         builder.drawText(textX, textY, text, showPlaceholder ? placeholderStyle : style);
         builder.popClip();
 
-        // v2 cursor: resolve cursor position for focused enabled input
+        // Cursor protocol: resolve cursor position for focused enabled input
         if (focused && !disabled && cursorInfo && contentW > 0) {
           // Cursor offset is stored as grapheme index; convert to cell position
           const graphemeOffset = cursorInfo.cursorByInstanceId.get(node.instanceId);

@@ -75,33 +75,22 @@ function withNoColor(value: string | undefined, fn: () => void): void {
   }
 }
 
-test("config guard: app useV2Cursor=true requires backend drawlist version >= 2", () => {
-  const backend = createNodeBackend({ drawlistVersion: 1 });
-  try {
-    assert.throws(
-      () =>
-        createApp({
-          backend,
-          initialState: { value: 0 },
-          config: { useV2Cursor: true },
-        }),
-      (err) =>
-        err instanceof ZrUiError &&
-        err.code === "ZRUI_INVALID_PROPS" &&
-        err.message.includes("config.useV2Cursor=true but backend.useDrawlistV2=false"),
-    );
-  } finally {
-    backend.dispose();
-  }
+test("config guard: backend drawlist version 1 is rejected", () => {
+  assert.throws(
+    () => createNodeBackend({ drawlistVersion: 1 as unknown as 2 }),
+    (err) =>
+      err instanceof ZrUiError &&
+      err.code === "ZRUI_INVALID_PROPS" &&
+      err.message.includes("drawlistVersion must be one of 2, 3, 4, 5"),
+  );
 });
 
-test("config guard: backend drawlist >=2 is allowed with app useV2Cursor=false", () => {
+test("config guard: backend drawlist >=2 is allowed", () => {
   const backend = createNodeBackend({ drawlistVersion: 5 });
   try {
     const app = createApp({
       backend,
       initialState: { value: 0 },
-      config: { useV2Cursor: false },
     });
     app.dispose();
   } finally {
@@ -190,7 +179,6 @@ test("createNodeApp constructs a compatible app/backend pair", () => {
   const app = createNodeApp({
     initialState: { value: 0 },
     config: {
-      useV2Cursor: true,
       maxEventBytes: 4096,
       fpsCap: 60,
       executionMode: "inline",

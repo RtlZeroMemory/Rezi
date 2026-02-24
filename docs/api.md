@@ -34,5 +34,7 @@ For the most common APIs, see:
 
 - [Widget Catalog](widgets/index.md) - All widget types and props
 - [Animation Guide](guide/animation.md) - Declarative animation hooks and box transitions
+- [Design System](design-system.md) - `recipe.*` APIs (including tabs/accordion/breadcrumb/pagination/kbd/dropdown/tree/sidebar/toolbar), `ui.themed(...)`, spacing-token sizing, and theme transitions
+- [Hooks Reference](guide/hooks-reference.md) - `ctx.useTheme()` and composition hooks
 - [@rezi-ui/core](packages/core.md) - Core package exports
 - [@rezi-ui/node](packages/node.md) - Node.js/Bun backend

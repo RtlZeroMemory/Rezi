@@ -34,6 +34,9 @@ If `--template` is omitted, the CLI prompts you to choose (default: `dashboard`)
 - `minimal`: Single-screen utility starter for focused tooling.
   Highlights: lean reducer flow, keybindings (`q`, `?`, `+/-`, `t`), theme cycling, and signal-safe shutdown pattern.
   Aliases: `mini`, `basic`, `utility`.
+- `starship`: Multi-deck command console integration showcase.
+  Highlights: routed six-screen bridge, live telemetry/charts, crew and cargo operations, overlays, and theme cycling.
+  Aliases: `ship`, `bridge`, `command`.
 
 Choose directly with `--template`:
 
@@ -43,11 +46,13 @@ npm create rezi my-app -- --template stress-test
 npm create rezi my-app -- --template cli-tool
 npm create rezi my-app -- --template animation-lab
 npm create rezi my-app -- --template minimal
+npm create rezi my-app -- --template starship
 bun create rezi my-app -- --template dashboard
 bun create rezi my-app -- --template stress-test
 bun create rezi my-app -- --template cli-tool
 bun create rezi my-app -- --template animation-lab
 bun create rezi my-app -- --template minimal
+bun create rezi my-app -- --template starship
 ```
 
 Inspect all templates and highlights from the CLI:
@@ -61,7 +66,7 @@ bun create rezi -- --list-templates
 ## Options
 
 - `--template, -t <name>`:
-  Select a template (`dashboard`, `stress-test`, `cli-tool`, `animation-lab`, `minimal`; aliases: `dash`, `stress`, `chaos`, `bench`, `cli`, `tool`, `multiscreen`, `animation`, `anim`, `lab`, `motion`, `mini`, `basic`, `utility`).
+  Select a template (`dashboard`, `stress-test`, `cli-tool`, `animation-lab`, `minimal`, `starship`; aliases: `dash`, `stress`, `chaos`, `bench`, `cli`, `tool`, `multiscreen`, `animation`, `anim`, `lab`, `motion`, `mini`, `basic`, `utility`, `ship`, `bridge`, `command`).
 - `--no-install, --skip-install`: Skip dependency installation.
 - `--pm, --package-manager <npm|pnpm|yarn|bun>`: Choose a package manager.
 - `--list-templates, --templates`: Print available templates and highlights.
@@ -85,13 +90,13 @@ Each template includes example tests for reducer logic, widget rendering, and ke
 
 ## Dev Loop (HSR)
 
-`minimal`, `dashboard`, and `cli-tool` templates ship with hot state-preserving reload enabled in
+`minimal`, `dashboard`, `cli-tool`, and `starship` templates ship with hot state-preserving reload enabled in
 `npm run dev` / `bun run dev`:
 
 - dev script runs `tsx src/main.ts --hsr`
 - source changes hot-swap through `createNodeApp({ hotReload: ... })` via:
   - `app.replaceView(...)` in widget-view templates (`minimal`, `dashboard`)
-  - `app.replaceRoutes(...)` in route-managed template (`cli-tool`)
+  - `app.replaceRoutes(...)` in route-managed templates (`cli-tool`, `starship`)
 - app state, focus, and stable widget local state are preserved across edits
 
 For package-level CLI reference (invocation forms and options), see [packages/create-rezi](../packages/create-rezi.md).

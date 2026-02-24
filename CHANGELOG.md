@@ -18,6 +18,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ### Features
 
+- **cursor/protocol**: Removed cursor v1/v2 toggle flags (`useV2Cursor`, `useDrawlistV2`); native cursor protocol is now the default runtime path and backend drawlist version `1` is rejected.
 - **runtime**: Widget protocol registry centralizes widget capability detection.
 - **events**: Extended `RoutedAction` union (`toggle`, `select`, `rowPress`, `change`, `activate`, `scroll`) now surfaces through `UiEvent`.
 - **overlays**: Unified overlay system; dropdowns and toasts register in `LayerRegistry`.

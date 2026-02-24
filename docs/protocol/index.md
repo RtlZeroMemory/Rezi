@@ -41,7 +41,7 @@ Both magic values are encoded as little-endian `u32` constants.
 | Page | Topic |
 |------|-------|
 | [Drawlists (ZRDL)](zrdl.md) | Header layout, command opcodes, string/blob tables, style encoding |
-| [Cursor (v2)](cursor-v2.md) | SET_CURSOR command, cursor state management, v2 enablement |
+| [Cursor](cursor.md) | SET_CURSOR command and cursor state management |
 | [Versioning](versioning.md) | ABI version pins, drawlist/event versions, Unicode pin, compatibility |
 | [Safety rules](safety.md) | Validation patterns, cap enforcement, error types, sticky errors |
 | [Event batches (ZREV)](zrev.md) | Event batch format and parsing |

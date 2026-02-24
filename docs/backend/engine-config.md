@@ -27,7 +27,6 @@ type AppConfig = Readonly<{
   fpsCap?: number;
   maxEventBytes?: number;
   maxDrawlistBytes?: number;
-  useV2Cursor?: boolean;
   drawlistValidateParams?: boolean;
   drawlistReuseOutputBuffer?: boolean;
   drawlistEncodedStringCacheCap?: number;
@@ -85,35 +84,6 @@ for applications with very large terminal viewports or extremely dense UIs.
 config: {
   maxDrawlistBytes: 4 << 20, // 4 MiB for a large dashboard
 }
-```
-
-### useV2Cursor
-
-| Detail   | Value |
-|----------|-------|
-| Type     | `boolean` |
-| Default  | `false` |
-
-Enables the v2 cursor protocol, which adds a `SET_CURSOR` command to the
-drawlist. When enabled, the native engine can set the terminal cursor position
-and shape directly, which is required for proper cursor rendering in `Input`
-widgets.
-
-Both the app config and the backend must agree on this setting. If you set
-`useV2Cursor: true` in the app config, the backend must also be created with
-drawlist v2+ support, or the runtime will throw a validation error.
-
-The default Node/Bun backend supports cursor v2 (drawlist v5 by default). You
-only need to change backend configuration if you intentionally force an older
-drawlist version.
-
-```typescript
-import { createNodeApp } from "@rezi-ui/node";
-
-const app = createNodeApp({
-  initialState: {},
-  config: { useV2Cursor: true },
-});
 ```
 
 ### drawlistValidateParams
@@ -207,7 +177,6 @@ config: {
 | `fpsCap`                        | `60`          |
 | `maxEventBytes`                 | `1048576` (1 MiB) |
 | `maxDrawlistBytes`              | `2097152` (2 MiB) |
-| `useV2Cursor`                   | `false`       |
 | `drawlistValidateParams`        | `true` (app runtime default) |
 | `drawlistReuseOutputBuffer`     | `true`        |
 | `drawlistEncodedStringCacheCap` | `1024`        |

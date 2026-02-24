@@ -230,7 +230,7 @@ nav:
           - Overview: protocol/index.md
           - Event Batches (ZREV): protocol/zrev.md
           - Drawlists (ZRDL): protocol/zrdl.md
-          - Cursor (v2): protocol/cursor-v2.md
+          - Cursor: protocol/cursor.md
           - Versioning: protocol/versioning.md
           - ABI: protocol/abi.md
           - Safety Rules: protocol/safety.md

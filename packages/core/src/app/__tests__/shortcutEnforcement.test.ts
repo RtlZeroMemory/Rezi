@@ -326,6 +326,104 @@ describe("widget shortcut enforcement contracts", () => {
     assert.equal(callbackErrors[0], "onBlur handler threw: Error: blur-fail");
   });
 
+  test("ctrl+letter keybindings are matched from text control characters", async () => {
+    const backend = new StubBackend();
+    let keybindingHits = 0;
+    const app = createApp({ backend, initialState: 0 });
+
+    app.keys({
+      "ctrl+p": () => {
+        keybindingHits++;
+      },
+    });
+    app.view(() => ui.text("ready"));
+
+    await app.start();
+    try {
+      await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 40, rows: 12 }]);
+      await settleNextFrame(backend);
+
+      await pushEvents(backend, [{ kind: "text", timeMs: 2, codepoint: 16 }]); // Ctrl+P
+      assert.equal(keybindingHits, 1);
+    } finally {
+      await app.stop();
+    }
+  });
+
+  test("ctrl control-char text bindings still route while an overlay is active", async () => {
+    const backend = new StubBackend();
+    let keybindingHits = 0;
+    const app = createApp({ backend, initialState: 0 });
+
+    app.keys({
+      "ctrl+p": () => {
+        keybindingHits++;
+      },
+    });
+    app.view(() =>
+      ui.layers([
+        ui.button({ id: "anchor", label: "Open" }),
+        ui.dropdown({
+          id: "dd",
+          anchorId: "anchor",
+          items: [{ id: "first", label: "First item" }],
+          onSelect: () => {},
+        }),
+      ]),
+    );
+
+    await app.start();
+    try {
+      await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 40, rows: 12 }]);
+      await settleNextFrame(backend);
+
+      await pushEvents(backend, [{ kind: "text", timeMs: 2, codepoint: 16 }]); // Ctrl+P
+      assert.equal(keybindingHits, 1);
+    } finally {
+      await app.stop();
+    }
+  });
+
+  test("tab/enter text control chars do not synthesize ctrl keybindings", async () => {
+    const backend = new StubBackend();
+    let keybindingHits = 0;
+    const app = createApp({ backend, initialState: 0 });
+
+    app.keys({
+      "ctrl+i": () => {
+        keybindingHits++;
+      },
+      "ctrl+m": () => {
+        keybindingHits++;
+      },
+    });
+    app.view(() =>
+      ui.layers([
+        ui.button({ id: "anchor", label: "Open" }),
+        ui.dropdown({
+          id: "dd",
+          anchorId: "anchor",
+          items: [{ id: "first", label: "First item" }],
+          onSelect: () => {},
+        }),
+      ]),
+    );
+
+    await app.start();
+    try {
+      await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 40, rows: 12 }]);
+      await settleNextFrame(backend);
+
+      await pushEvents(backend, [
+        { kind: "text", timeMs: 2, codepoint: 9 }, // Tab
+        { kind: "text", timeMs: 3, codepoint: 13 }, // Enter
+      ]);
+      assert.equal(keybindingHits, 0);
+    } finally {
+      await app.stop();
+    }
+  });
+
   test("text events bypass keybindings while dropdown overlay is active", async () => {
     const backend = new StubBackend();
     let keybindingHits = 0;

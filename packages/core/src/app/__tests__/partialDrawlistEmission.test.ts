@@ -848,14 +848,13 @@ describe("WidgetRenderer incremental drawlist emission", () => {
     );
   });
 
-  test("incremental v2 cursor is emitted even when focused input is outside damage rect", () => {
+  test("incremental cursor is emitted even when focused input is outside damage rect", () => {
     const viewport: Viewport = { cols: 40, rows: 8 };
     const backend = createNoopBackend();
     const builder = new RecordingBuilderV2();
     const renderer = new WidgetRenderer<void>({
       backend,
       builder,
-      useV2Cursor: true,
       requestRender: () => {},
     });
     const viewFn = () =>

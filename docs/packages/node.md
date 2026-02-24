@@ -40,7 +40,6 @@ const app = createNodeApp({
     executionMode: "auto",
     fpsCap: 60,
     maxEventBytes: 1 << 20,
-    useV2Cursor: false,
   },
 });
 ```
@@ -48,7 +47,6 @@ const app = createNodeApp({
 `createNodeApp` is the default path because it keeps core/backend config in
 lockstep:
 
-- `useV2Cursor` <-> drawlist v2
 - app/backend `maxEventBytes`
 - app/backend `fpsCap`
 

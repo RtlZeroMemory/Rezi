@@ -29,10 +29,21 @@ test("normalizeTemplateName accepts friendly aliases", () => {
   assert.equal(normalizeTemplateName("mini"), "minimal");
   assert.equal(normalizeTemplateName("basic"), "minimal");
   assert.equal(normalizeTemplateName("utility"), "minimal");
+  assert.equal(normalizeTemplateName("starship"), "starship");
+  assert.equal(normalizeTemplateName("ship"), "starship");
+  assert.equal(normalizeTemplateName("bridge"), "starship");
+  assert.equal(normalizeTemplateName("command"), "starship");
 });
 
 test("template keys match template directories and include highlights", async () => {
-  const expectedKeys = ["dashboard", "stress-test", "cli-tool", "animation-lab", "minimal"];
+  const expectedKeys = [
+    "dashboard",
+    "stress-test",
+    "cli-tool",
+    "animation-lab",
+    "minimal",
+    "starship",
+  ];
   const keys = TEMPLATE_DEFINITIONS.map((template) => template.key);
   assert.equal(keys.join(","), expectedKeys.join(","));
 

@@ -44,7 +44,7 @@ The drawlist format is versioned independently from the engine ABI. The version 
 
 - **v2** is a strict superset of v1 and adds:
 
-- **OP_SET_CURSOR (opcode 7)** -- 20-byte command that sets cursor position, shape, visibility, and blink state. See [Cursor (v2)](cursor-v2.md).
+- **OP_SET_CURSOR (opcode 7)** -- 20-byte command that sets cursor position, shape, visibility, and blink state. See [Cursor](cursor.md).
 
 - **v3** extends style payloads for underline style/color and hyperlink references.
 - **v4** adds **OP_DRAW_CANVAS (opcode 8)**.
@@ -54,8 +54,6 @@ Command writer code for v3-v5 is generated from `scripts/drawlist-spec.ts`; CI r
 `npm run codegen:check` to guarantee generated writers stay in sync.
 
 The header layout, string table, and blob table remain compatible across versions.
-
-v2 is opt-in via `createApp({ config: { useV2Cursor: true } })`.
 
 ```typescript
 import {
@@ -123,8 +121,8 @@ Both the builder and the engine perform version checks:
 **Builder side (TypeScript):**
 
 1. The builder writes the correct magic and version into the header at build time.
-2. The version is determined by which builder is instantiated (`createDrawlistBuilderV1` vs `createDrawlistBuilderV2`).
-3. `createApp()` validates that the `useV2Cursor` config flag matches the backend's declared v2 support.
+2. The version is determined by the selected builder version.
+3. `createApp()` validates the backend `drawlistVersion` and requires version `>= 2`.
 
 **Engine side (C):**
 
@@ -172,6 +170,6 @@ The source definitions live in `packages/core/src/abi.ts`.
 ## See also
 
 - [Drawlists (ZRDL)](zrdl.md) -- format reference for ZRDL
-- [Cursor (v2)](cursor-v2.md) -- v2-specific SET_CURSOR command
+- [Cursor](cursor.md) -- SET_CURSOR command details
 - [Safety rules](safety.md) -- validation and error handling
 - [ABI pins](abi.md) -- quick-reference constant table

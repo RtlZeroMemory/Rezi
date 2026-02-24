@@ -53,6 +53,15 @@ When the active theme provides semantic color tokens (see [Color Semantic Slots]
 - `ui.divider(...)`
 - `ui.surface(...)`
 - `ui.text(...)`
+- `ui.tabs(...)`
+- `ui.accordion(...)`
+- `ui.breadcrumb(...)`
+- `ui.pagination(...)`
+- `ui.kbd(...)`
+- `ui.dropdown(...)`
+- `ui.tree(...)`
+- `recipe.sidebar(...)` (shell helper styling)
+- `recipe.toolbar(...)` (shell helper styling)
 
 This is the full “covered widgets” set for DS recipe integration.
 
@@ -74,6 +83,10 @@ Recipe styling activation follows a shared path:
 
 The shared `getColorTokens()` helper ensures all widgets map theme semantics
 through one conversion path before recipe evaluation.
+
+### Scoped theme overrides
+
+Use `ui.themed(themeOverride, children)` to apply a partial theme override to a subtree without affecting siblings. This is the preferred pattern for mixed-theme layouts (for example, a lighter sidebar inside a dark app).
 
 ### Unified focus indicators
 
@@ -143,6 +156,16 @@ Terminal spacing is measured in cells (1 cell = 1 character width/height).
 - Use `md` for gaps between related elements (form fields)
 - Use `lg`/`xl` between sections
 - Maintain consistent gap within a layout (don't mix `sm` and `lg` gaps in the same column)
+
+### Spacing token consumption in recipes
+
+Recipe sizing now accepts theme spacing tokens directly. `resolveSize(size, spacingTokens?)` maps:
+
+- `sm` -> `{ px: spacing.xs, py: 0 }`
+- `md` -> `{ px: spacing.sm, py: 0 }`
+- `lg` -> `{ px: spacing.md, py: spacing.xs }`
+
+When spacing tokens are omitted, recipes keep legacy fallback spacing values for backward compatibility.
 
 ### Typography Roles
 
@@ -371,6 +394,23 @@ const inputStyle = recipe.input(colors, {
 | `recipe.progress` | `tone` | filled/track styles |
 | `recipe.callout` | `tone` (`WidgetTone` + `info`) | text/border/bg styles |
 | `recipe.scrollbar` | — | track/thumb styles |
+| `recipe.tabs` | `variant`, `tone`, `size`, `state` | tab item/bg styles + border metadata + padding |
+| `recipe.accordion` | `variant`, `tone`, `size`, `state` | header/content/bg styles + border metadata + padding |
+| `recipe.breadcrumb` | `variant`, `tone`, `size`, `state` | item/separator/bg styles + padding |
+| `recipe.pagination` | `variant`, `tone`, `size`, `state` | control/bg styles + border metadata + padding |
+| `recipe.kbd` | `variant`, `tone`, `size`, `state` | keycap/bg styles + border metadata + padding |
+| `recipe.dropdown` | `variant`, `tone`, `size`, `state` | item/shortcut/bg styles + border metadata + padding |
+| `recipe.tree` | `variant`, `tone`, `size`, `state` | node/prefix/bg styles + border metadata + padding |
+| `recipe.sidebar` | `variant`, `tone`, `size`, `state` | shell item/bg styles + border metadata + spacing |
+| `recipe.toolbar` | `variant`, `tone`, `size`, `state` | shell item/bg styles + border metadata + spacing |
+
+### Theme transitions
+
+Set `AppConfig.themeTransitionFrames` to interpolate theme colors across multiple render frames when `app.setTheme(...)` is called.
+
+- `0` (default): instant theme swap (legacy behavior)
+- `> 0`: frame-by-frame interpolation from previous to next theme
+- Re-targeting during an active transition starts from the current interpolated frame and converges to the latest target
 
 ---
 

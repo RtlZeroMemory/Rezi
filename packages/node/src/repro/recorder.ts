@@ -1,6 +1,5 @@
 import { performance } from "node:perf_hooks";
 import {
-  BACKEND_DRAWLIST_V2_MARKER,
   BACKEND_FPS_CAP_MARKER,
   BACKEND_MAX_EVENT_BYTES_MARKER,
   type BackendEventBatch,
@@ -39,7 +38,6 @@ export type ReproRecorderBounds = Readonly<{
 export type ReproRecorderBackendCapsOverrides = Readonly<{
   maxEventBytes?: number;
   fpsCap?: number;
-  cursorProtocolVersion?: 1 | 2;
 }>;
 
 export type CreateReproRecorderOptions = Readonly<{
@@ -138,7 +136,6 @@ function buildBackendCapsSnapshot(
 
   const markerMaxEventBytes = rec[BACKEND_MAX_EVENT_BYTES_MARKER];
   const markerFpsCap = rec[BACKEND_FPS_CAP_MARKER];
-  const markerUseV2 = rec[BACKEND_DRAWLIST_V2_MARKER] === true;
 
   const maxEventBytes = normalizePositiveInteger(
     overrides?.maxEventBytes ?? markerMaxEventBytes,
@@ -146,12 +143,7 @@ function buildBackendCapsSnapshot(
   );
   const fpsCap = normalizePositiveInteger(overrides?.fpsCap ?? markerFpsCap, DEFAULT_FPS_CAP);
 
-  const cursorProtocolVersion =
-    overrides?.cursorProtocolVersion === 1 || overrides?.cursorProtocolVersion === 2
-      ? overrides.cursorProtocolVersion
-      : markerUseV2
-        ? 2
-        : 1;
+  const cursorProtocolVersion = 2;
 
   return {
     maxEventBytes,

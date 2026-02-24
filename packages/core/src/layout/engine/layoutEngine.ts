@@ -49,10 +49,18 @@ type LayoutCacheEntry = Readonly<{
 }>;
 type LayoutCache = WeakMap<VNode, LayoutCacheEntry>;
 
+type ThemedVNode = VNode & Readonly<{ kind: "themed"; children: readonly VNode[] }>;
+
+type SyntheticThemedColumnCacheEntry = Readonly<{
+  childrenRef: readonly VNode[];
+  columnNode: VNode;
+}>;
+
 let activeMeasureCache: MeasureCache | null = null;
 const measureCacheStack: MeasureCache[] = [];
 let activeLayoutCache: LayoutCache | null = null;
 const layoutCacheStack: LayoutCache[] = [];
+const syntheticThemedColumnCache = new WeakMap<VNode, SyntheticThemedColumnCacheEntry>();
 
 function pushMeasureCache(cache: MeasureCache): void {
   measureCacheStack.push(cache);
@@ -87,6 +95,14 @@ function layoutCacheKey(
   return `${String(maxW)}:${String(maxH)}:${forcedW === null ? "n" : String(forcedW)}:${
     forcedH === null ? "n" : String(forcedH)
   }:${String(x)}:${String(y)}`;
+}
+
+function getSyntheticThemedColumn(vnode: ThemedVNode): VNode {
+  const hit = syntheticThemedColumnCache.get(vnode);
+  if (hit && hit.childrenRef === vnode.children) return hit.columnNode;
+  const columnNode: VNode = { kind: "column", props: { gap: 0 }, children: vnode.children };
+  syntheticThemedColumnCache.set(vnode, Object.freeze({ childrenRef: vnode.children, columnNode }));
+  return columnNode;
 }
 
 /**
@@ -158,6 +174,23 @@ function measureNode(vnode: VNode, maxW: number, maxH: number, axis: Axis): Layo
     }
     case "column": {
       computed = measureStackKinds(vnode, maxW, maxH, axis, measureNode);
+      break;
+    }
+    case "themed": {
+      const themedVNode = vnode as ThemedVNode;
+      if (themedVNode.children.length === 0) {
+        computed = { ok: true, value: { w: 0, h: 0 } };
+        break;
+      }
+      if (themedVNode.children.length === 1) {
+        const child = themedVNode.children[0];
+        computed = child
+          ? measureNode(child, maxW, maxH, axis)
+          : { ok: true, value: { w: 0, h: 0 } };
+        break;
+      }
+      const syntheticColumn = getSyntheticThemedColumn(themedVNode);
+      computed = measureNode(syntheticColumn, maxW, maxH, "column");
       break;
     }
     case "grid": {
@@ -378,6 +411,56 @@ function layoutNode(
     }
     case "column": {
       computed = layoutStackKinds(vnode, x, y, rectW, rectH, axis, measureNode, layoutNode);
+      break;
+    }
+    case "themed": {
+      const themedVNode = vnode as ThemedVNode;
+      if (themedVNode.children.length === 0) {
+        computed = {
+          ok: true,
+          value: {
+            vnode,
+            rect: { x, y, w: rectW, h: rectH },
+            children: Object.freeze([]),
+          },
+        };
+        break;
+      }
+      if (themedVNode.children.length === 1) {
+        const children: LayoutTree[] = [];
+        const child = themedVNode.children[0];
+        if (child) {
+          const childRes = layoutNode(child, x, y, rectW, rectH, axis, rectW, rectH);
+          if (!childRes.ok) {
+            computed = childRes;
+            break;
+          }
+          children.push(childRes.value);
+        }
+        computed = {
+          ok: true,
+          value: {
+            vnode,
+            rect: { x, y, w: rectW, h: rectH },
+            children: Object.freeze(children),
+          },
+        };
+        break;
+      }
+      const syntheticColumn = getSyntheticThemedColumn(themedVNode);
+      const innerRes = layoutNode(syntheticColumn, x, y, rectW, rectH, "column", rectW, rectH);
+      if (!innerRes.ok) {
+        computed = innerRes;
+        break;
+      }
+      computed = {
+        ok: true,
+        value: {
+          vnode,
+          rect: { x, y, w: rectW, h: rectH },
+          children: innerRes.value.children,
+        },
+      };
       break;
     }
     case "grid": {

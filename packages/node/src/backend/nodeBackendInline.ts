@@ -20,7 +20,6 @@ import type {
   TerminalProfile,
 } from "@rezi-ui/core";
 import {
-  BACKEND_DRAWLIST_V2_MARKER,
   BACKEND_DRAWLIST_VERSION_MARKER,
   BACKEND_FPS_CAP_MARKER,
   BACKEND_MAX_EVENT_BYTES_MARKER,
@@ -28,7 +27,6 @@ import {
   DEFAULT_TERMINAL_CAPS,
 } from "@rezi-ui/core";
 import {
-  ZR_DRAWLIST_VERSION_V2,
   ZR_DRAWLIST_VERSION_V5,
   ZR_ENGINE_ABI_MAJOR,
   ZR_ENGINE_ABI_MINOR,
@@ -249,32 +247,21 @@ export function readDebugBytesWithRetry<TEmpty>(
   }
 }
 
-function parseDrawlistVersion(v: unknown): 1 | 2 | 3 | 4 | 5 | null {
+function parseDrawlistVersion(v: unknown): 2 | 3 | 4 | 5 | null {
   if (v === undefined) return null;
-  if (v === 1 || v === 2 || v === 3 || v === 4 || v === 5) return v;
+  if (v === 2 || v === 3 || v === 4 || v === 5) return v;
   throw new ZrUiError(
     "ZRUI_INVALID_PROPS",
-    `createNodeBackend config mismatch: drawlistVersion must be one of 1, 2, 3, 4, 5 (got ${String(v)}).`,
+    `createNodeBackend config mismatch: drawlistVersion must be one of 2, 3, 4, 5 (got ${String(v)}).`,
   );
 }
 
 function resolveRequestedDrawlistVersion(
-  config: Readonly<{ useDrawlistV2?: boolean; drawlistVersion?: 1 | 2 | 3 | 4 | 5 }>,
-): 1 | 2 | 3 | 4 | 5 {
+  config: Readonly<{ drawlistVersion?: 2 | 3 | 4 | 5 }>,
+): 2 | 3 | 4 | 5 {
   const explicitDrawlistVersion = parseDrawlistVersion(config.drawlistVersion);
-  const useDrawlistV2 = config.useDrawlistV2 === true;
-
-  if (explicitDrawlistVersion !== null) {
-    if (useDrawlistV2 && explicitDrawlistVersion < ZR_DRAWLIST_VERSION_V2) {
-      throw new ZrUiError(
-        "ZRUI_INVALID_PROPS",
-        "createNodeBackend config mismatch: useDrawlistV2=true requires drawlistVersion >= 2.",
-      );
-    }
-    return explicitDrawlistVersion;
-  }
-
-  return useDrawlistV2 ? ZR_DRAWLIST_VERSION_V2 : ZR_DRAWLIST_VERSION_V5;
+  if (explicitDrawlistVersion !== null) return explicitDrawlistVersion;
+  return ZR_DRAWLIST_VERSION_V5;
 }
 
 function parseBoundedPositiveIntOrThrow(
@@ -1050,7 +1037,6 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
 
   const out = { ...backend, debug, perf } as NodeBackend &
     Record<
-      | typeof BACKEND_DRAWLIST_V2_MARKER
       | typeof BACKEND_DRAWLIST_VERSION_MARKER
       | typeof BACKEND_MAX_EVENT_BYTES_MARKER
       | typeof BACKEND_FPS_CAP_MARKER
@@ -1058,12 +1044,6 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
       boolean | number | BackendRawWrite
     >;
   Object.defineProperties(out, {
-    [BACKEND_DRAWLIST_V2_MARKER]: {
-      value: requestedDrawlistVersion >= ZR_DRAWLIST_VERSION_V2,
-      writable: false,
-      enumerable: false,
-      configurable: false,
-    },
     [BACKEND_DRAWLIST_VERSION_MARKER]: {
       value: requestedDrawlistVersion,
       writable: false,

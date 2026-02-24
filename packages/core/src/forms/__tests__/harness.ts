@@ -40,6 +40,7 @@ export function createFormHarness<State = void>(): {
         useMemo: hookCtx.useMemo,
         useCallback: hookCtx.useCallback,
         useAppState: <U>(_selector: (s: State) => U): U => undefined as U,
+        useTheme: () => null,
         invalidate: () => {
           invalidateCount++;
           registry.invalidate(instanceId);

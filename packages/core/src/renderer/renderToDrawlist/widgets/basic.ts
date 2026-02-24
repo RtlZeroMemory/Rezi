@@ -5,10 +5,17 @@ import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { FocusState } from "../../../runtime/focus.js";
 import type { TerminalProfile } from "../../../terminalProfile.js";
 import type { Theme } from "../../../theme/theme.js";
+import { kbdRecipe } from "../../../ui/recipes.js";
 import type { TextStyle } from "../../../widgets/style.js";
 import { isVisibleRect } from "../indices.js";
-import { shouldFillForStyleOverride } from "../textStyle.js";
+import { mergeTextStyle, shouldFillForStyleOverride } from "../textStyle.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
+import {
+  getColorTokens,
+  readWidgetSize,
+  readWidgetTone,
+  readWidgetVariant,
+} from "../themeTokens.js";
 import type { CursorInfo } from "../types.js";
 import { renderCanvasWidgets } from "./renderCanvasWidgets.js";
 import { renderChartWidgets } from "./renderChartWidgets.js";
@@ -75,6 +82,35 @@ export function renderBasicWidget(
     case "status":
     case "link":
     case "focusAnnouncer": {
+      let textParentStyle = parentStyle;
+      if (kind === "kbd") {
+        const colorTokens = getColorTokens(theme);
+        if (colorTokens !== null) {
+          const props = node.vnode.props as {
+            dsVariant?: unknown;
+            dsTone?: unknown;
+            dsSize?: unknown;
+          };
+          const dsVariant = readWidgetVariant(props.dsVariant) ?? "outline";
+          const dsTone = readWidgetTone(props.dsTone) ?? "default";
+          const dsSize = readWidgetSize(props.dsSize) ?? "md";
+          const recipeResult = kbdRecipe(colorTokens, {
+            variant: dsVariant,
+            tone: dsTone,
+            size: dsSize,
+          });
+          if (recipeResult.bg.bg !== undefined) {
+            builder.fillRect(
+              rect.x,
+              rect.y,
+              rect.w,
+              rect.h,
+              mergeTextStyle(parentStyle, recipeResult.bg),
+            );
+          }
+          textParentStyle = mergeTextStyle(textParentStyle, recipeResult.key);
+        }
+      }
       return (
         renderTextWidgets(
           builder,
@@ -82,7 +118,7 @@ export function renderBasicWidget(
           rect,
           theme,
           tick,
-          parentStyle,
+          textParentStyle,
           node,
           cursorInfo,
           focusAnnouncement,

@@ -15,6 +15,7 @@
  */
 
 import type { ResponsiveViewportSnapshot } from "../layout/responsive.js";
+import type { ColorTokens } from "../theme/tokens.js";
 import type { VNode } from "./types.js";
 
 /* ========== Widget Context Type ========== */
@@ -103,6 +104,12 @@ export type WidgetContext<State = void> = Readonly<{
   useAppState: <T>(selector: (s: State) => T) => T;
 
   /**
+   * Read the currently-resolved semantic color tokens for this render.
+   * Returns null when semantic tokens are unavailable for the active theme.
+   */
+  useTheme: () => ColorTokens | null;
+
+  /**
    * Read current viewport size and responsive breakpoint.
    */
   useViewport?: () => ResponsiveViewportSnapshot;
@@ -117,10 +124,18 @@ export type WidgetContext<State = void> = Readonly<{
 /* ========== Hook Re-exports ========== */
 
 export {
+  useAnimatedValue,
+  useChain,
+  useParallel,
   useTransition,
   useSpring,
   useSequence,
   useStagger,
+  type AnimatedValue,
+  type ParallelAnimationEntry,
+  type UseAnimatedValueConfig,
+  type UseChainConfig,
+  type UseParallelConfig,
   type UseTransitionConfig,
   type UseSpringConfig,
   type UseSequenceConfig,
@@ -340,6 +355,7 @@ export function createWidgetContext<State>(
   appState: State,
   viewport: ResponsiveViewportSnapshot,
   onInvalidate: () => void,
+  colorTokens: ColorTokens | null = null,
 ): WidgetContext<State> {
   return Object.freeze({
     id: (suffix: string) => scopedId(widgetKey, instanceIndex, suffix),
@@ -349,6 +365,7 @@ export function createWidgetContext<State>(
     useMemo: hookContext.useMemo,
     useCallback: hookContext.useCallback,
     useAppState: <T>(selector: (s: State) => T): T => selector(appState),
+    useTheme: () => colorTokens,
     useViewport: () => viewport,
     invalidate: onInvalidate,
   });

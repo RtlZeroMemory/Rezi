@@ -16,7 +16,12 @@
  * @see docs/guide/runtime-and-layout.md
  */
 
+import { resolveEasing } from "../animation/easing.js";
+import { normalizeDurationMs } from "../animation/interpolate.js";
 import type { ResponsiveViewportSnapshot } from "../layout/responsive.js";
+import { mergeThemeOverride } from "../theme/interop.js";
+import type { Theme } from "../theme/theme.js";
+import type { ColorTokens } from "../theme/tokens.js";
 import {
   type CompositeWidgetMeta,
   type WidgetContext,
@@ -24,7 +29,7 @@ import {
   scopedId,
 } from "../widgets/composition.js";
 import { getWidgetProtocol, kindRequiresId } from "../widgets/protocol.js";
-import type { VNode } from "../widgets/types.js";
+import type { ExitAnimationState, TransitionSpec, VNode } from "../widgets/types.js";
 import type { InstanceId, InstanceIdAllocator } from "./instance.js";
 import {
   type AppStateSelection,
@@ -322,6 +327,7 @@ function boxPropsEqual(a: unknown, b: unknown): boolean {
     inheritStyle?: unknown;
     opacity?: unknown;
     transition?: unknown;
+    exitTransition?: unknown;
   };
   const bo = (b ?? {}) as typeof ao;
   return (
@@ -344,6 +350,7 @@ function boxPropsEqual(a: unknown, b: unknown): boolean {
     ) &&
     ao.opacity === bo.opacity &&
     transitionSpecEqual(ao.transition, bo.transition) &&
+    transitionSpecEqual(ao.exitTransition, bo.exitTransition) &&
     spacingPropsEqual(ao, bo) &&
     layoutConstraintsEqual(ao, bo)
   );
@@ -359,6 +366,8 @@ function stackPropsEqual(a: unknown, b: unknown): boolean {
     items?: unknown;
     style?: unknown;
     inheritStyle?: unknown;
+    transition?: unknown;
+    exitTransition?: unknown;
   };
   const bo = (b ?? {}) as typeof ao;
   return (
@@ -375,6 +384,8 @@ function stackPropsEqual(a: unknown, b: unknown): boolean {
       ao.inheritStyle as Parameters<typeof textStyleEqual>[0],
       bo.inheritStyle as Parameters<typeof textStyleEqual>[0],
     ) &&
+    transitionSpecEqual(ao.transition, bo.transition) &&
+    transitionSpecEqual(ao.exitTransition, bo.exitTransition) &&
     spacingPropsEqual(ao, bo) &&
     layoutConstraintsEqual(ao, bo)
   );
@@ -420,6 +431,42 @@ function focusTrapPropsEqual(a: unknown, b: unknown): boolean {
   );
 }
 
+function deepEqualUnknown(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== typeof b) return false;
+  if (typeof a !== "object" || a === null || b === null) return false;
+
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqualUnknown(a[i], b[i])) return false;
+    }
+    return true;
+  }
+
+  const aRecord = a as Record<string, unknown>;
+  const bRecord = b as Record<string, unknown>;
+  const aKeys = Object.keys(aRecord);
+  const bKeys = Object.keys(bRecord);
+  if (aKeys.length !== bKeys.length) return false;
+
+  for (const key of aKeys) {
+    if (!Object.prototype.hasOwnProperty.call(bRecord, key)) return false;
+    if (!deepEqualUnknown(aRecord[key], bRecord[key])) return false;
+  }
+  return true;
+}
+
+function themedPropsEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  const ao = (a ?? {}) as {
+    theme?: unknown;
+  };
+  const bo = (b ?? {}) as typeof ao;
+  return deepEqualUnknown(ao.theme, bo.theme);
+}
+
 function canFastReuseContainerSelf(prev: VNode, next: VNode): boolean {
   if (prev.kind !== next.kind) return false;
   switch (prev.kind) {
@@ -432,6 +479,8 @@ function canFastReuseContainerSelf(prev: VNode, next: VNode): boolean {
       return focusZonePropsEqual(prev.props, (next as typeof prev).props);
     case "focusTrap":
       return focusTrapPropsEqual(prev.props, (next as typeof prev).props);
+    case "themed":
+      return themedPropsEqual(prev.props, (next as typeof prev).props);
     default:
       return false;
   }
@@ -462,12 +511,24 @@ export type CommitFatal =
   | Readonly<{ code: "ZRUI_INVALID_PROPS"; detail: string }>
   | Readonly<{ code: "ZRUI_USER_CODE_THROW"; detail: string }>;
 
+export type PendingExitAnimation = Readonly<{
+  instanceId: InstanceId;
+  parentInstanceId: InstanceId;
+  runtimeRoot: RuntimeInstance;
+  vnodeKind: VNode["kind"];
+  key: string | undefined;
+  exit: ExitAnimationState;
+  subtreeInstanceIds: readonly InstanceId[];
+  runDeferredLocalStateCleanup: () => void;
+}>;
+
 /** Successful commit result with lifecycle instance lists. */
 export type CommitOk = Readonly<{
   root: RuntimeInstance;
   mountedInstanceIds: readonly InstanceId[];
   reusedInstanceIds: readonly InstanceId[];
   unmountedInstanceIds: readonly InstanceId[];
+  pendingExitAnimations: readonly PendingExitAnimation[];
   /** Pending cleanups from previous effects to run before new effects. */
   pendingCleanups: readonly EffectCleanup[];
   /** Pending effects scheduled by composite widgets during this commit. */
@@ -495,6 +556,7 @@ const DEV_MODE = NODE_ENV !== "production";
 const LAYOUT_DEPTH_WARN_THRESHOLD = 200;
 const MAX_LAYOUT_NESTING_DEPTH = 500;
 const MAX_LAYOUT_DEPTH_PATH_SEGMENTS = 32;
+const DEFAULT_EXIT_TRANSITION_DURATION_MS = 180;
 const LAYOUT_DEPTH_PATH_TRACK_START = Math.max(
   1,
   LAYOUT_DEPTH_WARN_THRESHOLD - MAX_LAYOUT_DEPTH_PATH_SEGMENTS + 2,
@@ -563,6 +625,7 @@ function commitChildrenForVNode(vnode: VNode): readonly VNode[] {
     vnode.kind === "box" ||
     vnode.kind === "row" ||
     vnode.kind === "column" ||
+    vnode.kind === "themed" ||
     vnode.kind === "grid" ||
     vnode.kind === "focusZone" ||
     vnode.kind === "focusTrap" ||
@@ -623,6 +686,86 @@ function deleteLocalStateForSubtree(
   }
 }
 
+function commitNowMs(): number {
+  const perf = (globalThis as { performance?: { now?: () => number } }).performance;
+  const perfNow = perf?.now;
+  if (typeof perfNow === "function") return perfNow.call(perf);
+  return Date.now();
+}
+
+function readVNodeKey(vnode: VNode): string | undefined {
+  const props = vnode.props as Readonly<{ key?: unknown }> | undefined;
+  const key = props?.key;
+  return typeof key === "string" ? key : undefined;
+}
+
+function readExitTransition(vnode: VNode): TransitionSpec | null {
+  if (
+    vnode.kind !== "box" &&
+    vnode.kind !== "row" &&
+    vnode.kind !== "column" &&
+    vnode.kind !== "grid"
+  ) {
+    return null;
+  }
+  const props = vnode.props as Readonly<{ exitTransition?: TransitionSpec }> | undefined;
+  return props?.exitTransition ?? null;
+}
+
+function resolveExitAnimationState(
+  instanceId: InstanceId,
+  transition: TransitionSpec,
+): ExitAnimationState | null {
+  const durationMs = normalizeDurationMs(transition.duration, DEFAULT_EXIT_TRANSITION_DURATION_MS);
+  if (durationMs <= 0) return null;
+  return Object.freeze({
+    instanceId,
+    startMs: commitNowMs(),
+    durationMs,
+    easing: resolveEasing(transition.easing),
+    properties: transition.properties ?? "all",
+  });
+}
+
+function createDeferredLocalStateCleanup(
+  localState: RuntimeLocalStateStore | undefined,
+  node: RuntimeInstance,
+): () => void {
+  let cleaned = false;
+  return () => {
+    if (cleaned) return;
+    cleaned = true;
+    deleteLocalStateForSubtree(localState, node);
+  };
+}
+
+function tryScheduleExitAnimation(
+  ctx: CommitCtx,
+  node: RuntimeInstance,
+  parentInstanceId: InstanceId,
+): boolean {
+  const exitTransition = readExitTransition(node.vnode);
+  if (!exitTransition) return false;
+  const exit = resolveExitAnimationState(node.instanceId, exitTransition);
+  if (!exit) return false;
+
+  const subtreeInstanceIds: InstanceId[] = [];
+  collectSubtreeInstanceIds(node, subtreeInstanceIds);
+  ctx.pendingExitAnimations.push(
+    Object.freeze({
+      instanceId: node.instanceId,
+      parentInstanceId,
+      runtimeRoot: node,
+      vnodeKind: node.vnode.kind,
+      key: readVNodeKey(node.vnode),
+      exit,
+      subtreeInstanceIds: Object.freeze(subtreeInstanceIds),
+      runDeferredLocalStateCleanup: createDeferredLocalStateCleanup(ctx.localState, node),
+    }),
+  );
+  return true;
+}
+
 function markCompositeSubtreeStale(
   registry: CompositeInstanceRegistry,
   node: RuntimeInstance,
@@ -634,6 +777,42 @@ function markCompositeSubtreeStale(
     registry.incrementGeneration(cur.instanceId);
     for (const c of cur.children) stack.push(c);
   }
+}
+
+function currentCompositeTheme(ctx: CommitCtx): Theme | null {
+  if (ctx.compositeThemeStack.length === 0) return null;
+  return ctx.compositeThemeStack[ctx.compositeThemeStack.length - 1] ?? null;
+}
+
+function resolveCompositeChildTheme(parentTheme: Theme, vnode: VNode): Theme {
+  if (vnode.kind === "themed") {
+    const props = vnode.props as { theme?: unknown };
+    return mergeThemeOverride(parentTheme, props.theme);
+  }
+
+  if (
+    vnode.kind === "row" ||
+    vnode.kind === "column" ||
+    vnode.kind === "grid" ||
+    vnode.kind === "box"
+  ) {
+    const props = vnode.props as { theme?: unknown };
+    return mergeThemeOverride(parentTheme, props.theme);
+  }
+
+  return parentTheme;
+}
+
+function readCompositeColorTokens(ctx: CommitCtx): ColorTokens | null {
+  const composite = ctx.composite;
+  if (!composite) return null;
+
+  const theme = currentCompositeTheme(ctx);
+  if (theme !== null && composite.getColorTokens) {
+    return composite.getColorTokens(theme);
+  }
+
+  return composite.colorTokens ?? null;
 }
 
 type CommitCtx = Readonly<{
@@ -650,11 +829,16 @@ type CommitCtx = Readonly<{
   composite: Readonly<{
     registry: CompositeInstanceRegistry;
     appState: unknown;
+    colorTokens?: ColorTokens | null;
+    theme?: Theme;
+    getColorTokens?: (theme: Theme) => ColorTokens | null;
     viewport?: ResponsiveViewportSnapshot;
     onInvalidate: (instanceId: InstanceId) => void;
     onUseViewport?: () => void;
   }> | null;
+  compositeThemeStack: Theme[];
   compositeRenderStack: Array<Readonly<{ widgetKey: string; instanceId: InstanceId }>>;
+  pendingExitAnimations: PendingExitAnimation[];
   pendingCleanups: EffectCleanup[];
   pendingEffects: EffectState[];
   errorBoundary: Readonly<{
@@ -763,6 +947,7 @@ function isContainerVNode(vnode: VNode): boolean {
     vnode.kind === "box" ||
     vnode.kind === "row" ||
     vnode.kind === "column" ||
+    vnode.kind === "themed" ||
     vnode.kind === "grid" ||
     vnode.kind === "focusZone" ||
     vnode.kind === "focusTrap" ||
@@ -815,6 +1000,7 @@ function rewriteCommittedVNode(next: VNode, committedChildren: readonly VNode[])
     next.kind === "box" ||
     next.kind === "row" ||
     next.kind === "column" ||
+    next.kind === "themed" ||
     next.kind === "grid" ||
     next.kind === "focusZone" ||
     next.kind === "focusTrap" ||
@@ -872,153 +1058,172 @@ function commitContainer(
     for (const c of prevChildren) byPrevInstanceId.set(c.instanceId, c);
   }
 
-  // Container fast path: when reconciliation reuses all children with no
-  // additions/removals, commit each child and check if all return the exact
-  // same RuntimeInstance reference. If so, reuse the parent's RuntimeInstance,
-  // avoiding new arrays, VNode spreads, and RuntimeInstance allocation.
-  const canTryFastReuse =
-    prev !== null &&
-    res.value.newInstanceIds.length === 0 &&
-    res.value.unmountedInstanceIds.length === 0 &&
-    res.value.nextChildren.length === prevChildren.length;
-  let childOrderStable = true;
-  if (canTryFastReuse) {
-    for (let i = 0; i < res.value.nextChildren.length; i++) {
-      const child = res.value.nextChildren[i];
-      if (!child || child.prevIndex !== i) {
-        childOrderStable = false;
-        break;
-      }
+  const parentCompositeTheme = currentCompositeTheme(ctx);
+  let pushedCompositeTheme = false;
+  if (parentCompositeTheme !== null) {
+    const nextCompositeTheme = resolveCompositeChildTheme(parentCompositeTheme, vnode);
+    if (nextCompositeTheme !== parentCompositeTheme) {
+      ctx.compositeThemeStack.push(nextCompositeTheme);
+      pushedCompositeTheme = true;
     }
   }
 
-  // Avoid allocating nextChildren/committedChildVNodes for the common case where
-  // everything is reused (e.g., list updates where only a couple rows change).
-  let nextChildren: readonly RuntimeInstance[] | null = null;
-  let committedChildVNodes: readonly VNode[] | null = null;
-
-  if (canTryFastReuse) {
-    let allChildrenSame = true;
-    for (let i = 0; i < res.value.nextChildren.length; i++) {
-      const child = res.value.nextChildren[i];
-      if (!child) continue;
-      const prevChild = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
-      const committed = commitNode(
-        prevChild ?? null,
-        child.instanceId,
-        child.vnode,
-        ctx,
-        formatNodePath(appendNodePath(nodePath, child.slotId)),
-      );
-      if (!committed.ok) return committed;
-
-      if (allChildrenSame && committed.value.root !== prevChild) {
-        allChildrenSame = false;
-        // First mismatch: allocate arrays and backfill prior entries with the prevChild refs
-        // we already proved were identical in earlier iterations.
-        const len = res.value.nextChildren.length;
-        const nextChildrenArr: RuntimeInstance[] = new Array(len);
-        const committedChildVNodesArr: VNode[] = new Array(len);
-        nextChildren = nextChildrenArr;
-        committedChildVNodes = committedChildVNodesArr;
-        for (let j = 0; j < i; j++) {
-          const plan = res.value.nextChildren[j];
-          if (!plan) continue;
-          const pc = plan.prevIndex !== null ? byPrevIndex[plan.prevIndex] : null;
-          if (!pc) continue;
-          nextChildrenArr[j] = pc;
-          committedChildVNodesArr[j] = pc.vnode;
-        }
-      }
-
-      if (!allChildrenSame) {
-        // Arrays are allocated after the first mismatch.
-        if (!nextChildren || !committedChildVNodes) {
-          return {
-            ok: false,
-            fatal: {
-              code: "ZRUI_INVALID_PROPS",
-              detail: "commitNode: internal fast-reuse invariant",
-            },
-          };
-        }
-        (nextChildren as RuntimeInstance[])[i] = committed.value.root;
-        (committedChildVNodes as VNode[])[i] = committed.value.root.vnode;
-      }
-    }
-
-    if (
-      allChildrenSame &&
+  try {
+    // Container fast path: when reconciliation reuses all children with no
+    // additions/removals, commit each child and check if all return the exact
+    // same RuntimeInstance reference. If so, reuse the parent's RuntimeInstance,
+    // avoiding new arrays, VNode spreads, and RuntimeInstance allocation.
+    const canTryFastReuse =
       prev !== null &&
-      childOrderStable &&
-      canFastReuseContainerSelf(prev.vnode, vnode)
-    ) {
-      // All children are identical references → reuse parent entirely.
-      prev.dirty = false;
-      prev.selfDirty = false;
-      return { ok: true, value: { root: prev } };
+      res.value.newInstanceIds.length === 0 &&
+      res.value.unmountedInstanceIds.length === 0 &&
+      res.value.nextChildren.length === prevChildren.length;
+    let childOrderStable = true;
+    if (canTryFastReuse) {
+      for (let i = 0; i < res.value.nextChildren.length; i++) {
+        const child = res.value.nextChildren[i];
+        if (!child || child.prevIndex !== i) {
+          childOrderStable = false;
+          break;
+        }
+      }
     }
-  } else {
-    // General path: commit children and build next arrays.
-    const nextChildrenArr: RuntimeInstance[] = [];
-    const committedChildVNodesArr: VNode[] = [];
-    for (const child of res.value.nextChildren) {
-      const prevChild = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
-      const committed = commitNode(
-        prevChild ?? null,
-        child.instanceId,
-        child.vnode,
-        ctx,
-        formatNodePath(appendNodePath(nodePath, child.slotId)),
-      );
-      if (!committed.ok) return committed;
-      nextChildrenArr.push(committed.value.root);
-      committedChildVNodesArr.push(committed.value.root.vnode);
-    }
-    nextChildren = nextChildrenArr;
-    committedChildVNodes = committedChildVNodesArr;
-  }
 
-  for (const unmountedId of res.value.unmountedInstanceIds) {
-    const prevNode = byPrevInstanceId?.get(unmountedId);
-    if (!prevNode) continue;
-    if (ctx.composite) {
-      markCompositeSubtreeStale(ctx.composite.registry, prevNode);
-    }
-    deleteLocalStateForSubtree(ctx.localState, prevNode);
-    collectSubtreeInstanceIds(prevNode, ctx.lists.unmounted);
-  }
+    // Avoid allocating nextChildren/committedChildVNodes for the common case where
+    // everything is reused (e.g., list updates where only a couple rows change).
+    let nextChildren: readonly RuntimeInstance[] | null = null;
+    let committedChildVNodes: readonly VNode[] | null = null;
 
-  if (!nextChildren || !committedChildVNodes) {
-    // All committed children matched existing instances, but we still need to
-    // materialize the next order (e.g., keyed reorders) when parent reuse is disallowed.
-    const reorderedChildren: RuntimeInstance[] = [];
-    const reorderedVNodes: VNode[] = [];
-    for (const child of res.value.nextChildren) {
-      const reused = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
-      if (!reused) continue;
-      reorderedChildren.push(reused);
-      reorderedVNodes.push(reused.vnode);
-    }
-    nextChildren = reorderedChildren;
-    committedChildVNodes = reorderedVNodes;
-  }
+    if (canTryFastReuse) {
+      let allChildrenSame = true;
+      for (let i = 0; i < res.value.nextChildren.length; i++) {
+        const child = res.value.nextChildren[i];
+        if (!child) continue;
+        const prevChild = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
+        const committed = commitNode(
+          prevChild ?? null,
+          child.instanceId,
+          child.vnode,
+          ctx,
+          formatNodePath(appendNodePath(nodePath, child.slotId)),
+        );
+        if (!committed.ok) return committed;
 
-  const propsChanged = prev === null || !canFastReuseContainerSelf(prev.vnode, vnode);
-  const childrenChanged = prev === null || runtimeChildrenChanged(prevChildren, nextChildren);
-  const selfDirty = propsChanged || childrenChanged;
-  return {
-    ok: true,
-    value: {
-      root: {
-        instanceId,
-        vnode: rewriteCommittedVNode(vnode, committedChildVNodes),
-        children: nextChildren,
-        dirty: selfDirty || childrenChanged || hasDirtyChild(nextChildren),
-        selfDirty,
+        if (allChildrenSame && committed.value.root !== prevChild) {
+          allChildrenSame = false;
+          // First mismatch: allocate arrays and backfill prior entries with the prevChild refs
+          // we already proved were identical in earlier iterations.
+          const len = res.value.nextChildren.length;
+          const nextChildrenArr: RuntimeInstance[] = new Array(len);
+          const committedChildVNodesArr: VNode[] = new Array(len);
+          nextChildren = nextChildrenArr;
+          committedChildVNodes = committedChildVNodesArr;
+          for (let j = 0; j < i; j++) {
+            const plan = res.value.nextChildren[j];
+            if (!plan) continue;
+            const pc = plan.prevIndex !== null ? byPrevIndex[plan.prevIndex] : null;
+            if (!pc) continue;
+            nextChildrenArr[j] = pc;
+            committedChildVNodesArr[j] = pc.vnode;
+          }
+        }
+
+        if (!allChildrenSame) {
+          // Arrays are allocated after the first mismatch.
+          if (!nextChildren || !committedChildVNodes) {
+            return {
+              ok: false,
+              fatal: {
+                code: "ZRUI_INVALID_PROPS",
+                detail: "commitNode: internal fast-reuse invariant",
+              },
+            };
+          }
+          (nextChildren as RuntimeInstance[])[i] = committed.value.root;
+          (committedChildVNodes as VNode[])[i] = committed.value.root.vnode;
+        }
+      }
+
+      if (
+        allChildrenSame &&
+        prev !== null &&
+        childOrderStable &&
+        canFastReuseContainerSelf(prev.vnode, vnode)
+      ) {
+        // All children are identical references → reuse parent entirely.
+        prev.dirty = false;
+        prev.selfDirty = false;
+        return { ok: true, value: { root: prev } };
+      }
+    } else {
+      // General path: commit children and build next arrays.
+      const nextChildrenArr: RuntimeInstance[] = [];
+      const committedChildVNodesArr: VNode[] = [];
+      for (const child of res.value.nextChildren) {
+        const prevChild = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
+        const committed = commitNode(
+          prevChild ?? null,
+          child.instanceId,
+          child.vnode,
+          ctx,
+          formatNodePath(appendNodePath(nodePath, child.slotId)),
+        );
+        if (!committed.ok) return committed;
+        nextChildrenArr.push(committed.value.root);
+        committedChildVNodesArr.push(committed.value.root.vnode);
+      }
+      nextChildren = nextChildrenArr;
+      committedChildVNodes = committedChildVNodesArr;
+    }
+
+    for (const unmountedId of res.value.unmountedInstanceIds) {
+      const prevNode = byPrevInstanceId?.get(unmountedId);
+      if (!prevNode) continue;
+      if (tryScheduleExitAnimation(ctx, prevNode, instanceId)) {
+        continue;
+      }
+      if (ctx.composite) {
+        markCompositeSubtreeStale(ctx.composite.registry, prevNode);
+      }
+      deleteLocalStateForSubtree(ctx.localState, prevNode);
+      collectSubtreeInstanceIds(prevNode, ctx.lists.unmounted);
+    }
+
+    if (!nextChildren || !committedChildVNodes) {
+      // All committed children matched existing instances, but we still need to
+      // materialize the next order (e.g., keyed reorders) when parent reuse is disallowed.
+      const reorderedChildren: RuntimeInstance[] = [];
+      const reorderedVNodes: VNode[] = [];
+      for (const child of res.value.nextChildren) {
+        const reused = child.prevIndex !== null ? byPrevIndex[child.prevIndex] : null;
+        if (!reused) continue;
+        reorderedChildren.push(reused);
+        reorderedVNodes.push(reused.vnode);
+      }
+      nextChildren = reorderedChildren;
+      committedChildVNodes = reorderedVNodes;
+    }
+
+    const propsChanged = prev === null || !canFastReuseContainerSelf(prev.vnode, vnode);
+    const childrenChanged = prev === null || runtimeChildrenChanged(prevChildren, nextChildren);
+    const selfDirty = propsChanged || childrenChanged;
+    return {
+      ok: true,
+      value: {
+        root: {
+          instanceId,
+          vnode: rewriteCommittedVNode(vnode, committedChildVNodes),
+          children: nextChildren,
+          dirty: selfDirty || childrenChanged || hasDirtyChild(nextChildren),
+          selfDirty,
+        },
       },
-    },
-  };
+    };
+  } finally {
+    if (pushedCompositeTheme) {
+      ctx.compositeThemeStack.pop();
+    }
+  }
 }
 
 function executeCompositeRender(
@@ -1108,6 +1313,7 @@ function executeCompositeRender(
     if (canSkipCompositeRender && prevChild !== null) {
       compositeChild = prevChild.vnode;
     } else {
+      const colorTokens = readCompositeColorTokens(ctx);
       const compositeDepth = ctx.compositeRenderStack.length + 1;
       if (compositeDepth > MAX_COMPOSITE_RENDER_DEPTH) {
         const chain = ctx.compositeRenderStack
@@ -1142,6 +1348,7 @@ function executeCompositeRender(
           });
           return selected;
         },
+        useTheme: () => colorTokens,
         useViewport: () => {
           compositeRuntime.onUseViewport?.();
           return compositeRuntime.viewport ?? DEFAULT_VIEWPORT_SNAPSHOT;
@@ -1380,6 +1587,9 @@ export function commitVNodeTree(
     composite?: Readonly<{
       registry: CompositeInstanceRegistry;
       appState: unknown;
+      colorTokens?: ColorTokens | null;
+      theme?: Theme;
+      getColorTokens?: (theme: Theme) => ColorTokens | null;
       viewport?: ResponsiveViewportSnapshot;
       onInvalidate: (instanceId: InstanceId) => void;
       onUseViewport?: () => void;
@@ -1407,7 +1617,9 @@ export function commitVNodeTree(
     lists: { mounted: [], reused: [], unmounted: [] },
     collectLifecycleInstanceIds,
     composite: opts.composite ?? null,
+    compositeThemeStack: opts.composite?.theme ? [opts.composite.theme] : [],
     compositeRenderStack: [],
+    pendingExitAnimations: [],
     pendingCleanups: [],
     pendingEffects: [],
     errorBoundary: opts.errorBoundary ?? null,
@@ -1430,8 +1642,10 @@ export function commitVNodeTree(
   if (prevRoot && rootPlan.prevIndex === null) {
     // Root was replaced; unmount the entire previous tree before committing the new one so
     // the returned lists include the unmount lifecycle deterministically.
-    deleteLocalStateForSubtree(opts.localState, prevRoot);
-    collectSubtreeInstanceIds(prevRoot, ctx.lists.unmounted);
+    if (!tryScheduleExitAnimation(ctx, prevRoot, 0)) {
+      deleteLocalStateForSubtree(opts.localState, prevRoot);
+      collectSubtreeInstanceIds(prevRoot, ctx.lists.unmounted);
+    }
   }
 
   const prevMatch = rootPlan.prevIndex === 0 ? prevRoot : null;
@@ -1445,6 +1659,7 @@ export function commitVNodeTree(
       mountedInstanceIds: ctx.lists.mounted,
       reusedInstanceIds: ctx.lists.reused,
       unmountedInstanceIds: ctx.lists.unmounted,
+      pendingExitAnimations: ctx.pendingExitAnimations,
       pendingCleanups: ctx.pendingCleanups,
       pendingEffects: ctx.pendingEffects,
     },
