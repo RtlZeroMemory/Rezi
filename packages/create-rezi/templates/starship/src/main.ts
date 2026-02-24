@@ -1,7 +1,12 @@
 import { exit } from "node:process";
 import { createNodeApp } from "@rezi-ui/node";
+import { debugSnapshot } from "./helpers/debug.js";
 import { resolveStarshipCommand } from "./helpers/keybindings.js";
-import { createInitialState, filteredMessages, reduceStarshipState } from "./helpers/state.js";
+import {
+  createInitialStateWithViewport,
+  filteredMessages,
+  reduceStarshipState,
+} from "./helpers/state.js";
 import { STARSHIP_ROUTES, createStarshipRoutes } from "./screens/index.js";
 import { themeSpec } from "./theme.js";
 import type { RouteDeps, RouteId, StarshipAction, StarshipState } from "./types.js";
@@ -10,40 +15,45 @@ const UI_FPS_CAP = 30;
 const TICK_MS = 800;
 const TOAST_PRUNE_MS = 3000;
 
-const initialState = createInitialState();
+const initialState = createInitialStateWithViewport(Date.now(), {
+  cols: process.stdout.columns ?? 120,
+  rows: process.stdout.rows ?? 40,
+});
 const enableHsr = process.argv.includes("--hsr") || process.env.REZI_HSR === "1";
 const hasInteractiveTty = Boolean(process.stdin.isTTY && process.stdout.isTTY);
 if (!hasInteractiveTty && process.env.ZIREAEL_POSIX_PIPE_MODE === undefined) {
   process.env.ZIREAEL_POSIX_PIPE_MODE = "1";
 }
+debugSnapshot("runtime.bootstrap", {
+  argv: process.argv.slice(2),
+  cwd: process.cwd(),
+  pid: process.pid,
+  node: process.version,
+  stdinIsTty: Boolean(process.stdin.isTTY),
+  stdoutIsTty: Boolean(process.stdout.isTTY),
+  cols: process.stdout.columns ?? null,
+  rows: process.stdout.rows ?? null,
+  enableHsr,
+});
 
 // biome-ignore lint/style/useConst: circular bootstrap wiring requires post-declaration assignment
 let app!: ReturnType<typeof createNodeApp<StarshipState>>;
 let stopping = false;
 let tickTimer: ReturnType<typeof setInterval> | null = null;
 let toastTimer: ReturnType<typeof setInterval> | null = null;
-let latestState = initialState;
+let lastViewport = {
+  cols: initialState.viewportCols,
+  rows: initialState.viewportRows,
+};
 
 type CreateRoutesFn = typeof createStarshipRoutes;
 type RoutesModule = Readonly<{ createStarshipRoutes?: CreateRoutesFn }>;
-
-function updateState(updater: (previous: StarshipState) => StarshipState): void {
-  app.update((previous) => {
-    const next = updater(previous);
-    latestState = next;
-    return next;
-  });
-}
-
-function currentState(): StarshipState {
-  return latestState;
-}
 
 function dispatch(action: StarshipAction): void {
   let nextTheme = initialState.themeName;
   let themeChanged = false;
 
-  updateState((previous) => {
+  app.update((previous) => {
     const next = reduceStarshipState(previous, action);
     if (next.themeName !== previous.themeName) {
       nextTheme = next.themeName;
@@ -55,6 +65,24 @@ function dispatch(action: StarshipAction): void {
   if (themeChanged) {
     app.setTheme(themeSpec(nextTheme).theme);
   }
+}
+
+function syncViewport(cols: number, rows: number): void {
+  if (cols === lastViewport.cols && rows === lastViewport.rows) return;
+  lastViewport = { cols, rows };
+  debugSnapshot("runtime.viewport", {
+    cols,
+    rows,
+    route: currentRouteId(),
+  });
+  dispatch({ type: "set-viewport", cols, rows });
+}
+
+function syncViewportFromStdout(): void {
+  if (!process.stdout.isTTY) return;
+  const cols = process.stdout.columns ?? lastViewport.cols;
+  const rows = process.stdout.rows ?? lastViewport.rows;
+  syncViewport(cols, rows);
 }
 
 function currentRouteId(): RouteId {
@@ -72,7 +100,8 @@ function navigate(routeId: RouteId): void {
   const router = app.router;
   if (!router) return;
   if (router.currentRoute().id === routeId) return;
-  router.navigate(routeId);
+  // Top-level deck switches are peer navigation; replace avoids unbounded breadcrumb growth.
+  router.replace(routeId);
 }
 
 function navigateDeckOffset(offset: 1 | -1): void {
@@ -124,6 +153,12 @@ async function stopApp(code = 0): Promise<void> {
 
 function applyCommand(command: ReturnType<typeof resolveStarshipCommand>): void {
   if (!command) return;
+  debugSnapshot("runtime.command", {
+    command,
+    route: currentRouteId(),
+    viewportCols: lastViewport.cols,
+    viewportRows: lastViewport.rows,
+  });
 
   if (command === "quit") {
     void stopApp(0);
@@ -263,7 +298,7 @@ function applyCommand(command: ReturnType<typeof resolveStarshipCommand>): void 
   }
 
   if (command === "comms-acknowledge") {
-    updateState((previous) => {
+    app.update((previous) => {
       const candidate = filteredMessages(previous).find((message) => !message.acknowledged);
       if (!candidate) return previous;
       return reduceStarshipState(previous, {
@@ -275,7 +310,7 @@ function applyCommand(command: ReturnType<typeof resolveStarshipCommand>): void 
   }
 
   if (command === "comms-next-channel" || command === "comms-prev-channel") {
-    updateState((previous) => {
+    app.update((previous) => {
       const channels: readonly StarshipState["activeChannel"][] = [
         "fleet",
         "local",
@@ -378,43 +413,51 @@ function bindKeys(): void {
     keys.map((key) => [
       key,
       () => {
-        const state = currentState();
-        const overlayInputActive =
-          state.showCommandPalette ||
-          state.showHailDialog ||
-          state.showHelp ||
-          state.showResetDialog;
-        if (overlayInputActive) {
-          if (key === "ctrl+c") {
-            void stopApp(0);
-            return;
-          }
-          if (state.showCommandPalette && key === "ctrl+p") {
-            dispatch({ type: "toggle-command-palette" });
-          }
-          return;
-        }
         applyCommand(resolveStarshipCommand(key, currentRouteId()));
       },
     ]),
   ) as Record<string, () => void>;
 
   bindingMap.escape = () => {
-    const state = currentState();
-    if (state.showHelp) {
-      dispatch({ type: "toggle-help" });
-      return;
-    }
-    if (state.showCommandPalette) {
-      dispatch({ type: "toggle-command-palette" });
-      return;
-    }
-    if (state.showHailDialog) {
-      dispatch({ type: "toggle-hail-dialog" });
-      return;
-    }
-    if (state.showResetDialog) {
-      dispatch({ type: "toggle-reset-dialog" });
+    let nextTheme = initialState.themeName;
+    let themeChanged = false;
+    app.update((state) => {
+      if (state.showHelp) {
+        const next = reduceStarshipState(state, { type: "toggle-help" });
+        if (next.themeName !== state.themeName) {
+          nextTheme = next.themeName;
+          themeChanged = true;
+        }
+        return next;
+      }
+      if (state.showCommandPalette) {
+        const next = reduceStarshipState(state, { type: "toggle-command-palette" });
+        if (next.themeName !== state.themeName) {
+          nextTheme = next.themeName;
+          themeChanged = true;
+        }
+        return next;
+      }
+      if (state.showHailDialog) {
+        const next = reduceStarshipState(state, { type: "toggle-hail-dialog" });
+        if (next.themeName !== state.themeName) {
+          nextTheme = next.themeName;
+          themeChanged = true;
+        }
+        return next;
+      }
+      if (state.showResetDialog) {
+        const next = reduceStarshipState(state, { type: "toggle-reset-dialog" });
+        if (next.themeName !== state.themeName) {
+          nextTheme = next.themeName;
+          themeChanged = true;
+        }
+        return next;
+      }
+      return state;
+    });
+    if (themeChanged) {
+      app.setTheme(themeSpec(nextTheme).theme);
     }
   };
 
@@ -422,6 +465,13 @@ function bindKeys(): void {
 }
 
 const routes = buildRoutes(createStarshipRoutes);
+
+debugSnapshot("runtime.app.create", {
+  routeCount: routes.length,
+  initialRoute: "bridge",
+  fpsCap: UI_FPS_CAP,
+  executionMode: "inline",
+});
 
 app = createNodeApp({
   initialState,
@@ -450,24 +500,26 @@ app = createNodeApp({
 });
 
 bindKeys();
+syncViewportFromStdout();
 
 app.onEvent((event) => {
   if (event.kind === "fatal") {
+    debugSnapshot("runtime.fatal", {
+      route: currentRouteId(),
+      viewportCols: lastViewport.cols,
+      viewportRows: lastViewport.rows,
+    });
     void stopApp(1);
     return;
   }
 
   if (event.kind === "engine" && event.event.kind === "resize") {
-    dispatch({
-      type: "add-toast",
-      toast: {
-        id: `resize-${event.event.cols}x${event.event.rows}-${Date.now()}`,
-        message: `Viewport ${event.event.cols}x${event.event.rows}`,
-        level: "info",
-        timestamp: Date.now(),
-        durationMs: 1800,
-      },
+    debugSnapshot("runtime.resize.event", {
+      cols: event.event.cols,
+      rows: event.event.rows,
+      route: currentRouteId(),
     });
+    syncViewport(event.event.cols, event.event.rows);
   }
 });
 
@@ -479,12 +531,19 @@ process.once("SIGINT", onSignal);
 process.once("SIGTERM", onSignal);
 
 tickTimer = setInterval(() => {
+  syncViewportFromStdout();
   dispatch({ type: "tick", nowMs: Date.now() });
 }, TICK_MS);
 
 toastTimer = setInterval(() => {
   dispatch({ type: "prune-toasts", nowMs: Date.now() });
 }, TOAST_PRUNE_MS);
+
+debugSnapshot("runtime.app.start", {
+  route: currentRouteId(),
+  viewportCols: lastViewport.cols,
+  viewportRows: lastViewport.rows,
+});
 
 await app.start();
 await new Promise<void>(() => {});

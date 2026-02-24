@@ -179,6 +179,23 @@ function defaultTelemetry(): TelemetrySnapshot {
 }
 
 export function createInitialState(nowMs = Date.now()): StarshipState {
+  const viewportCols = 120;
+  const viewportRows = 40;
+  return createInitialStateWithViewport(nowMs, {
+    cols: viewportCols,
+    rows: viewportRows,
+  });
+}
+
+type InitialViewport = Readonly<{
+  cols: number;
+  rows: number;
+}>;
+
+export function createInitialStateWithViewport(
+  nowMs: number,
+  viewport: InitialViewport,
+): StarshipState {
   const telemetry = defaultTelemetry();
   const telemetryHistory = Object.freeze(
     Array.from({ length: TELEMETRY_HISTORY_LIMIT }, (_, index) =>
@@ -199,13 +216,15 @@ export function createInitialState(nowMs = Date.now()): StarshipState {
     tick: 0,
     nowMs,
     alertLevel: "green",
-    themeName: "day",
+    themeName: "night",
     showHelp: false,
     showCommandPalette: false,
     commandQuery: "",
     commandIndex: 0,
     autopilot: true,
     paused: false,
+    viewportCols: clampInt(viewport.cols, 40, 300),
+    viewportRows: clampInt(viewport.rows, 18, 200),
 
     telemetry,
     telemetryHistory,
@@ -328,6 +347,14 @@ function applyCommand(state: StarshipState, commandId: string): StarshipState {
 }
 
 export function reduceStarshipState(state: StarshipState, action: StarshipAction): StarshipState {
+  if (action.type === "set-viewport") {
+    return freezeState({
+      ...state,
+      viewportCols: clampInt(action.cols, 40, 300),
+      viewportRows: clampInt(action.rows, 18, 200),
+    });
+  }
+
   if (action.type === "tick") {
     const tick = state.tick + 1;
     const telemetry = state.paused ? state.telemetry : evolveTelemetry(state, tick);

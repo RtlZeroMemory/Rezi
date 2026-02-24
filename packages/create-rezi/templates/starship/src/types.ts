@@ -80,6 +80,8 @@ export type StarshipState = Readonly<{
   commandIndex: number;
   autopilot: boolean;
   paused: boolean;
+  viewportCols: number;
+  viewportRows: number;
 
   telemetry: TelemetrySnapshot;
   telemetryHistory: readonly number[];
@@ -128,6 +130,7 @@ export type StarshipState = Readonly<{
 
 export type StarshipAction =
   | Readonly<{ type: "tick"; nowMs: number }>
+  | Readonly<{ type: "set-viewport"; cols: number; rows: number }>
   | Readonly<{ type: "toggle-pause" }>
   | Readonly<{ type: "toggle-autopilot" }>
   | Readonly<{ type: "set-alert"; level: AlertLevel }>

@@ -66,7 +66,8 @@ test("bridge screen renders core markers", () => {
 
   assert.match(output, /USS Rezi/);
   assert.match(output, /Bridge Overview/);
-  assert.match(output, /Command Deck/);
+  assert.match(output, /Navigation/);
+  assert.match(output, /Route Health/);
 });
 
 test("engineering screen renders core markers", () => {
@@ -77,7 +78,20 @@ test("engineering screen renders core markers", () => {
     .toText();
 
   assert.match(output, /Engineering Deck/);
-  assert.match(output, /Power and Thermal Control/);
+  assert.match(output, /Fleet Active/);
+  assert.match(output, /Route Health/);
+});
+
+test("engineering screen hides secondary panels at medium height", () => {
+  const state = createInitialState(0);
+  const renderer = createTestRenderer({ viewport: { cols: 160, rows: 46 } });
+  const output = renderer
+    .render(renderEngineeringScreen(createContext(state, "engineering"), createDeps()))
+    .toText();
+
+  assert.match(output, /Engineering Deck/);
+  assert.doesNotMatch(output, /Subsystem Tree/);
+  assert.doesNotMatch(output, /Subsystem Diagnostics/);
 });
 
 test("crew screen renders loading/ops markers", () => {
@@ -88,7 +102,8 @@ test("crew screen renders loading/ops markers", () => {
     .toText();
 
   assert.match(output, /Crew Manifest/);
-  assert.match(output, /Crew Command/);
+  assert.match(output, /Fleet Active/);
+  assert.match(output, /Navigation/);
 });
 
 test("comms screen renders control markers", () => {
@@ -99,8 +114,8 @@ test("comms screen renders control markers", () => {
     .toText();
 
   assert.match(output, /Communications/);
-  assert.match(output, /Channel Controls/);
-  assert.match(output, /Open Hail/);
+  assert.match(output, /Fleet Active/);
+  assert.match(output, /Palette/);
 });
 
 test("settings screen renders form fields", () => {
@@ -111,8 +126,8 @@ test("settings screen renders form fields", () => {
     .toText();
 
   assert.match(output, /Ship Settings/);
-  assert.match(output, /Ship Name/);
-  assert.match(output, /Alert Threshold/);
+  assert.match(output, /Theme Night Shift/);
+  assert.match(output, /Navigation/);
 });
 
 test("cargo screen renders manifest widgets", () => {
@@ -123,5 +138,6 @@ test("cargo screen renders manifest widgets", () => {
     .toText();
 
   assert.match(output, /Cargo Hold/);
-  assert.match(output, /Manifest/);
+  assert.match(output, /Fleet Active/);
+  assert.match(output, /Route Health/);
 });
