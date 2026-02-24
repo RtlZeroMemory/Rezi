@@ -342,8 +342,11 @@ function maybeRebalanceNearFullPercentChildren(
   if (availableForChildren <= 0) return;
 
   const indices: number[] = [];
-  const weights: number[] = [];
+  const percentWeights: number[] = [];
+  const flexWeights: number[] = [];
   let percentSum = 0;
+  let hasFlexChildren = false;
+  let hasNonFlexChildren = false;
 
   for (let i = 0; i < children.length; i++) {
     const child = children[i];
@@ -356,21 +359,54 @@ function maybeRebalanceNearFullPercentChildren(
     if (percent === null) return;
 
     const resolved = resolveLayoutConstraints(childProps as never, parentRect, axis.axis);
-    if (resolved.flex > 0) return;
+    if (resolved.flex > 0) {
+      hasFlexChildren = true;
+      flexWeights.push(resolved.flex);
+    } else {
+      hasNonFlexChildren = true;
+      flexWeights.push(0);
+    }
     if (resolved[axis.minMainProp] > 0) return;
     const maxMain = toFiniteMax(resolved[axis.maxMainProp], availableForChildren);
     if (maxMain < availableForChildren) return;
 
     indices.push(i);
-    weights.push(percent);
+    percentWeights.push(percent);
     percentSum += percent;
   }
 
   if (indices.length <= 1) return;
+  if (hasFlexChildren && !hasNonFlexChildren) {
+    // For flex rows where all children also declare percent widths (for example 100%+100%),
+    // legacy fixed-size planning can collapse later siblings to zero. Rebalance only when
+    // collapse happened so normal flex-percentage cases keep their existing sizing behavior.
+    let hasCollapsedSibling = false;
+    for (let i = 0; i < indices.length; i++) {
+      const slot = indices[i];
+      if (slot === undefined) continue;
+      if ((mainSizes[slot] ?? 0) <= 0) {
+        hasCollapsedSibling = true;
+        break;
+      }
+    }
+    if (!hasCollapsedSibling) return;
+
+    const flexAlloc = distributeInteger(availableForChildren, flexWeights);
+    for (let i = 0; i < indices.length; i++) {
+      const slot = indices[i];
+      if (slot === undefined) continue;
+      const next = flexAlloc[i] ?? 0;
+      mainSizes[slot] = next;
+      measureMaxMain[slot] = Math.max(measureMaxMain[slot] ?? 0, next);
+    }
+    return;
+  }
+
+  if (hasFlexChildren) return;
   // Only normalize near-full percentage groups (e.g. 33/33/33).
   if (percentSum < 99 || percentSum > 101) return;
 
-  const alloc = distributeInteger(availableForChildren, weights);
+  const alloc = distributeInteger(availableForChildren, percentWeights);
   for (let i = 0; i < indices.length; i++) {
     const slot = indices[i];
     if (slot === undefined) continue;

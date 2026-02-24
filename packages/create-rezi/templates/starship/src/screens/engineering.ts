@@ -10,16 +10,13 @@ import {
   type RouteRenderContext,
   type VNode,
 } from "@rezi-ui/core";
+import { debugSnapshot } from "../helpers/debug.js";
+import { resolveLayout } from "../helpers/layout.js";
 import { formatPower, formatTemperature } from "../helpers/formatters.js";
-import { stylesForTheme, themeSpec } from "../theme.js";
+import { SPACE, themeTokens, toHex } from "../theme.js";
 import type { RouteDeps, StarshipState, Subsystem } from "../types.js";
+import { progressRow, sectionHeader, surfacePanel } from "./primitives.js";
 import { renderShell } from "./shell.js";
-
-function clamp(value: number, min: number, max: number): number {
-  if (value < min) return min;
-  if (value > max) return max;
-  return value;
-}
 
 function buildSubsystemChildren(subsystems: readonly Subsystem[]): Map<string | null, readonly Subsystem[]> {
   const map = new Map<string | null, Subsystem[]>();
@@ -29,14 +26,6 @@ function buildSubsystemChildren(subsystems: readonly Subsystem[]): Map<string | 
     map.set(subsystem.parent, list);
   }
   return map;
-}
-
-function toHex(color: Readonly<{ r: number; g: number; b: number }>): string {
-  const channel = (value: number) =>
-    Math.max(0, Math.min(255, Math.round(value)))
-      .toString(16)
-      .padStart(2, "0");
-  return `#${channel(color.r)}${channel(color.g)}${channel(color.b)}`;
 }
 
 type ReactorPalette = Readonly<{
@@ -96,20 +85,64 @@ type EngineeringDeckProps = Readonly<{
 }>;
 
 const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode => {
+  const tokens = themeTokens(props.state.themeName);
+  const layout = resolveLayout({
+    width: props.state.viewportCols,
+    height: props.state.viewportRows,
+  });
+  const forceStackViaEnv = process.env.REZI_STARSHIP_DEBUG_FORCE_ENGINEERING_STACK === "1";
+  const chromeRows =
+    layout.height >= 58 ? 18 : layout.height >= 48 ? 16 : layout.height >= 40 ? 14 : 11;
+  const contentRows = Math.max(12, layout.height - chromeRows);
+  const veryCompactHeight = contentRows <= 14;
+  const compactHeight = contentRows <= 24;
+  const constrainedHeight = contentRows <= 34;
+  const tallViewport = contentRows >= 46;
+  const showSecondaryPanels = tallViewport && !layout.hideNonCritical && layout.width >= 120;
+  const showControlsSummary = layout.wide && contentRows >= 50;
+  const useWideRow = layout.wide && !forceStackViaEnv;
+  const renderMode = veryCompactHeight ? "very-compact" : compactHeight ? "compact" : "full";
+  const leftPanePanelCount = 1 + (showSecondaryPanels ? 1 : 0);
+  const rightPanePanelCount = 1 + (showSecondaryPanels ? 2 : 0);
+  const reactorCanvasHeight = Math.max(8, Math.min(14, Math.floor(contentRows * 0.42)));
+  debugSnapshot("engineering.layout", {
+    viewportCols: props.state.viewportCols,
+    viewportRows: props.state.viewportRows,
+    layoutWidth: layout.width,
+    layoutHeight: layout.height,
+    chromeRows,
+    contentRows,
+    hideNonCritical: layout.hideNonCritical,
+    veryCompactHeight,
+    compactHeight,
+    constrainedHeight,
+    tallViewport,
+    showSecondaryPanels,
+    showControlsSummary,
+    useWideRow,
+    forceStackViaEnv,
+    renderMode,
+    leftPanePanelCount,
+    rightPanePanelCount,
+    reactorCanvasHeight,
+  });
   const subsystemNames = props.state.subsystems.map((subsystem) => subsystem.name);
-  const themeColors = themeSpec(props.state.themeName).theme.colors;
+  const [selectedSubsystemId, setSelectedSubsystemId] = ctx.useState<string | null>(
+    props.state.subsystems[0]?.id ?? null,
+  );
+
   const reactorPalette = ctx.useMemo(
     () =>
       Object.freeze({
-        background: toHex(themeColors.bg.base),
-        border: toHex(themeColors.border.default),
-        arcPrimary: toHex(themeColors.accent.primary),
-        arcSecondary: toHex(themeColors.warning),
-        coreFill: toHex(themeColors.success),
-        coreStroke: toHex(themeColors.accent.tertiary),
-        linePrimary: toHex(themeColors.info),
-        lineAlternate: toHex(themeColors.accent.secondary),
-        text: toHex(themeColors.fg.primary),
+        background: toHex(tokens.bg.panel.inset),
+        border: toHex(tokens.border.default),
+        arcPrimary: toHex(tokens.accent.brand),
+        arcSecondary: toHex(tokens.accent.warn),
+        coreFill: toHex(tokens.accent.success),
+        coreStroke: toHex(tokens.state.focusRing),
+        linePrimary: toHex(tokens.accent.info),
+        lineAlternate: toHex(tokens.accent.brand),
+        text: toHex(tokens.text.primary),
       }),
     [props.state.themeName],
   );
@@ -145,144 +178,333 @@ const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode =
     [props.state.subsystems],
   );
 
-  const leftPane = ui.column({ gap: 1 }, [
-    ui.panel("Reactor Schematic", [
-      ui.canvas({
-        id: ctx.id("reactor-canvas"),
-        width: 44,
-        height: 14,
-        blitter: "braille",
-        draw: (canvas) => drawReactor(canvas, pulse, boostValue, reactorPalette),
-      }),
-      ui.gauge(boostValue, {
-        label: `Boost ${formatPower(boostValue * 100)}`,
-      }),
-      ui.progress(props.state.telemetry.reactorPower / 100, {
-        label: `Reactor Output ${formatPower(props.state.telemetry.reactorPower)}`,
-      }),
-    ]),
-    ui.panel("Subsystem Tree", [
-      ui.tree<Subsystem>({
-        id: ctx.id("engineering-tree"),
-        data: roots,
-        getKey: (node) => node.id,
-        getChildren: (node) => childrenByParent.get(node.id),
-        expanded: props.state.expandedSubsystemIds,
-        onToggle: (node) => props.dispatch({ type: "toggle-subsystem", subsystemId: node.id }),
-        renderNode: (node, _depth, state: NodeState) =>
-          ui.row({ gap: 1 }, [
-            ui.text(state.expanded ? "v" : state.hasChildren ? ">" : "-", {
-              variant: "code",
-            }),
-            ui.text(node.name),
-            ui.tag(formatPower(node.health), {
-              variant: node.health < props.state.alertThreshold ? "warning" : "success",
-            }),
-          ]),
-        dsTone: "default",
-      }),
-    ]),
-  ]);
+  const selectedSubsystem = selectedSubsystemId
+    ? props.state.subsystems.find((item) => item.id === selectedSubsystemId) ?? null
+    : null;
+  const reactorPrev =
+    props.state.telemetryHistory[props.state.telemetryHistory.length - 2] ??
+    props.state.telemetry.reactorPower;
+  const reactorTrend = props.state.telemetry.reactorPower - reactorPrev;
+  const shieldPrev =
+    props.state.shieldHistory[props.state.shieldHistory.length - 2] ?? props.state.telemetry.shieldStrength;
+  const shieldTrend = props.state.telemetry.shieldStrength - shieldPrev;
+  const degradedSubsystems = props.state.subsystems.filter(
+    (subsystem) => subsystem.health < props.state.alertThreshold,
+  ).length;
 
-  const rightPane = ui.column({ gap: 1 }, [
-    ui.box(
-      {
-        border: "rounded",
-        p: 1,
-        transition: {
-          duration: 200,
-          properties: ["size", "opacity"],
-        },
-      },
-      [
-        ui.column({ gap: 1 }, [
-          ui.text("Power Distribution", { variant: "heading" }),
-          each(
-            props.state.subsystems,
-            (subsystem, index) =>
-              ui.row({ key: subsystem.id, gap: 1, wrap: true }, [
-                ui.text(subsystem.name, { variant: "caption" }),
-                ui.progress(subsystem.power / 100, {
-                  label: formatPower(subsystem.power),
-                  dsTone: subsystem.health < props.state.alertThreshold ? "warning" : "default",
-                }),
-                ui.progress(stagger[index] ?? 0, {
-                  label: "Init",
-                }),
-              ]),
-            { key: (subsystem) => subsystem.id },
-          ),
-        ]),
-      ],
-    ),
-    ui.panel("Thermal Map", [
-      ui.heatmap({
-        id: ctx.id("engineering-heatmap"),
-        width: 44,
-        height: 10,
-        data: heatmapData,
-        colorScale: "inferno",
-        min: 200,
-        max: 620,
-      }),
-    ]),
-    ui.panel("Subsystem Diagnostics", [
-      ui.accordion({
-        id: ctx.id("engineering-accordion"),
-        items: props.state.subsystems.slice(0, 6).map((subsystem) => ({
-          key: subsystem.id,
-          title: subsystem.name,
-          content: ui.column({ gap: 1 }, [
-            ui.text(`Health ${formatPower(subsystem.health)}`),
-            ui.text(`Power ${formatPower(subsystem.power)}`),
-            ui.text(`Temp ${formatTemperature(subsystem.temperature)}`),
-          ]),
-        })),
-        expanded: props.state.expandedSubsystemIds,
-        allowMultiple: true,
-        onChange: (expanded) => {
-          const next = new Set(expanded);
-          for (const id of props.state.expandedSubsystemIds) {
-            if (!next.has(id)) {
-              props.dispatch({ type: "toggle-subsystem", subsystemId: id });
-            }
-          }
-          for (const id of expanded) {
-            if (!props.state.expandedSubsystemIds.includes(id)) {
-              props.dispatch({ type: "toggle-subsystem", subsystemId: id });
-            }
-          }
-        },
-      }),
-    ]),
-  ]);
-
-  return ui.column({ gap: 1 }, [
-    ui.panel("Engineering Controls", [
-      ui.actions([
-        ui.button({
-          id: ctx.id("boost-toggle"),
-          label: props.state.boostActive ? "Disable Boost" : "Enable Boost",
-          intent: props.state.boostActive ? "warning" : "primary",
-          onPress: () => props.dispatch({ type: "toggle-boost" }),
+  const reactorPanel = layout.hideNonCritical
+    ? surfacePanel(tokens, "Reactor Schematic", [
+        ui.callout("Reactor canvas hidden in compact layout. Core metrics remain available.", {
+          variant: "info",
+          title: "Compact Mode",
         }),
-        ui.button({
-          id: ctx.id("diag-toggle"),
-          label: props.state.engineeringDiagMode ? "Diagnostics Off" : "Diagnostics On",
-          intent: "secondary",
-          onPress: () => props.dispatch({ type: "toggle-diagnostics" }),
+        progressRow(tokens, "Boost", boostValue, {
+          labelWidth: 12,
+          width: 24,
+          trend: props.state.boostActive ? 1 : 0,
+          tone: props.state.boostActive ? "warning" : "default",
+        }),
+        progressRow(tokens, "Reactor", props.state.telemetry.reactorPower / 100, {
+          labelWidth: 12,
+          width: 24,
+          trend: reactorTrend,
+          tone: props.state.telemetry.reactorPower > 92 ? "warning" : "default",
+        }),
+      ])
+    : surfacePanel(tokens, "Reactor Schematic", [
+        ui.canvas({
+          id: ctx.id("reactor-canvas"),
+          width: Math.max(32, layout.canvasWidth),
+          height: reactorCanvasHeight,
+          blitter: "braille",
+          draw: (canvas) => {
+            debugSnapshot("engineering.canvas.draw", {
+              viewportCols: props.state.viewportCols,
+              viewportRows: props.state.viewportRows,
+              canvasWidth: canvas.width,
+              canvasHeight: canvas.height,
+              useWideRow,
+              renderMode,
+            });
+            drawReactor(canvas, pulse, boostValue, reactorPalette);
+          },
+        }),
+        progressRow(tokens, "Boost", boostValue, {
+          labelWidth: 12,
+          width: 28,
+          trend: props.state.boostActive ? 1 : 0,
+          tone: props.state.boostActive ? "warning" : "default",
+        }),
+        progressRow(tokens, "Reactor", props.state.telemetry.reactorPower / 100, {
+          labelWidth: 12,
+          width: 28,
+          trend: reactorTrend,
+          tone: props.state.telemetry.reactorPower > 92 ? "warning" : "default",
+        }),
+        ui.row({ gap: SPACE.sm, wrap: true }, [
+          ui.text(`Core ${formatPower(props.state.telemetry.reactorPower)}`, {
+            variant: "caption",
+            style: { fg: tokens.text.dim, dim: true },
+          }),
+          ui.text("|", { variant: "caption", style: { fg: tokens.border.muted } }),
+          ui.text(`Shields ${formatPower(props.state.telemetry.shieldStrength)}`, {
+            variant: "caption",
+            style: { fg: tokens.text.dim, dim: true },
+          }),
+          ui.text(`(${shieldTrend >= 0 ? "+" : ""}${Math.round(shieldTrend)})`, {
+            variant: "code",
+            style: {
+              fg: shieldTrend >= 0 ? tokens.accent.success : tokens.accent.warn,
+              bold: true,
+            },
+          }),
+        ]),
+      ]);
+
+  const treePanel = surfacePanel(tokens, "Subsystem Tree", [
+    sectionHeader(tokens, "Hierarchy", "Guided tree view with clear selection"),
+    ui.tree<Subsystem>({
+      id: ctx.id("engineering-tree"),
+      data: roots,
+      getKey: (node) => node.id,
+      getChildren: (node) => childrenByParent.get(node.id),
+      expanded: props.state.expandedSubsystemIds,
+      ...(selectedSubsystemId ? { selected: selectedSubsystemId } : {}),
+      showLines: true,
+      indentSize: 2,
+      onToggle: (node) => props.dispatch({ type: "toggle-subsystem", subsystemId: node.id }),
+      onSelect: (node) => setSelectedSubsystemId(node.id),
+      renderNode: (node, depth, state: NodeState) =>
+        ui.row({ gap: SPACE.xs, wrap: false }, [
+          ui.text(`${"| ".repeat(depth)}${state.expanded ? "v" : state.hasChildren ? ">" : "-"}`, {
+            variant: "code",
+            style: state.selected
+              ? { fg: tokens.state.focusRing, bold: true }
+              : { fg: tokens.border.muted },
+          }),
+          ui.text(node.name, {
+            style: state.selected
+              ? { fg: tokens.text.primary, bold: true }
+              : { fg: tokens.text.primary },
+          }),
+          ui.spacer({ flex: 1 }),
+          ui.tag(formatPower(node.health), {
+            variant: node.health < props.state.alertThreshold ? "warning" : "success",
+          }),
+        ]),
+      dsTone: "default",
+    }),
+    selectedSubsystem
+      ? ui.callout(
+          `${selectedSubsystem.name} · ${formatPower(selectedSubsystem.power)} power · ${formatTemperature(selectedSubsystem.temperature)}`,
+          { variant: "info", title: "Selected" },
+        )
+      : ui.text("Select a subsystem for details", { variant: "caption" }),
+  ]);
+
+  const powerPanel = surfacePanel(tokens, "Power Distribution", [
+    sectionHeader(tokens, "Power Lanes", "Fixed labels and aligned percentages"),
+    each(
+      props.state.subsystems,
+      (subsystem, index) =>
+        ui.column({ key: subsystem.id, gap: SPACE.xs }, [
+          progressRow(tokens, subsystem.name, subsystem.power / 100, {
+            labelWidth: 18,
+            width: Math.max(22, layout.chartWidth - 8),
+            tone: subsystem.health < props.state.alertThreshold ? "warning" : "default",
+            trend: subsystem.health < props.state.alertThreshold ? -1 : 1,
+          }),
+          ...(props.state.engineeringDiagMode
+            ? [
+                progressRow(tokens, "Boot", stagger[index] ?? 0, {
+                  labelWidth: 18,
+                  width: Math.max(22, layout.chartWidth - 8),
+                  tone: "success",
+                  trend: 1,
+                }),
+              ]
+            : []),
+        ]),
+      { key: (subsystem) => subsystem.id },
+    ),
+  ]);
+
+  const thermalPanel = surfacePanel(tokens, "Thermal Map", [
+    ui.heatmap({
+      id: ctx.id("engineering-heatmap"),
+      width: Math.max(30, layout.chartWidth),
+      height: 10,
+      data: heatmapData,
+      colorScale: "inferno",
+      min: 200,
+      max: 620,
+    }),
+  ]);
+
+  const diagnosticsPanel = surfacePanel(tokens, "Subsystem Diagnostics", [
+    ui.accordion({
+      id: ctx.id("engineering-accordion"),
+      items: props.state.subsystems.slice(0, 6).map((subsystem) => ({
+        key: subsystem.id,
+        title: subsystem.name,
+        content: ui.column({ gap: SPACE.xs }, [
+          ui.text(`Health ${formatPower(subsystem.health)}`),
+          ui.text(`Power ${formatPower(subsystem.power)}`),
+          ui.text(`Temp ${formatTemperature(subsystem.temperature)}`),
+        ]),
+      })),
+      expanded: props.state.expandedSubsystemIds,
+      allowMultiple: true,
+      onChange: (expanded) => {
+        const next = new Set(expanded);
+        for (const id of props.state.expandedSubsystemIds) {
+          if (!next.has(id)) {
+            props.dispatch({ type: "toggle-subsystem", subsystemId: id });
+          }
+        }
+        for (const id of expanded) {
+          if (!props.state.expandedSubsystemIds.includes(id)) {
+            props.dispatch({ type: "toggle-subsystem", subsystemId: id });
+          }
+        }
+      },
+    }),
+  ]);
+
+  const leftPane = ui.column({ gap: SPACE.sm, width: "100%" }, [
+    reactorPanel,
+    ...(showSecondaryPanels ? [treePanel] : []),
+  ]);
+  const rightPane = ui.column({ gap: SPACE.sm, width: "100%" }, [
+    powerPanel,
+    ...(showSecondaryPanels ? [thermalPanel, diagnosticsPanel] : []),
+  ]);
+
+  const responsiveDeckHeight = Math.max(
+    16,
+    contentRows - (showControlsSummary ? 12 : 10) - (showSecondaryPanels ? 0 : 2),
+  );
+  const responsiveDeckBody = useWideRow
+    ? ui.row({ gap: SPACE.sm, items: "stretch", width: "100%" }, [
+        ui.box({ border: "none", p: 0, flex: 2 }, [leftPane]),
+        ui.box({ border: "none", p: 0, flex: 3 }, [rightPane]),
+      ])
+    : ui.column({ gap: SPACE.sm, width: "100%" }, [leftPane, rightPane]);
+  const responsiveDeck = ui.box(
+    {
+      border: "none",
+      p: 0,
+      width: "100%",
+      height: responsiveDeckHeight,
+      overflow: "scroll",
+    },
+    [responsiveDeckBody],
+  );
+
+  const controlsPanel = surfacePanel(tokens, "Engineering Controls", [
+    ui.actions([
+      ui.button({
+        id: ctx.id("boost-toggle"),
+        label: props.state.boostActive ? "Disable Boost" : "Enable Boost",
+        intent: props.state.boostActive ? "warning" : "primary",
+        dsSize: "md",
+        onPress: () => props.dispatch({ type: "toggle-boost" }),
+      }),
+      ui.button({
+        id: ctx.id("diag-toggle"),
+        label: props.state.engineeringDiagMode ? "Diagnostics Off" : "Diagnostics On",
+        intent: "secondary",
+        dsSize: "md",
+        onPress: () => props.dispatch({ type: "toggle-diagnostics" }),
+      }),
+    ]),
+    ui.row({ gap: SPACE.sm, wrap: true }, [
+      ui.badge(`Core ${formatPower(props.state.telemetry.reactorPower)}`, { variant: "info" }),
+      ui.badge(
+        `Heat ${formatTemperature(
+          Math.round(
+            props.state.subsystems.reduce((sum, subsystem) => sum + subsystem.temperature, 0) /
+              Math.max(1, props.state.subsystems.length),
+          ),
+        )}`,
+        { variant: "warning" },
+      ),
+    ]),
+  ]);
+
+  const controlsSummary = surfacePanel(
+    tokens,
+    "Deck Snapshot",
+    [
+      sectionHeader(tokens, "Status Grid", "Subsystem readiness and power envelope"),
+      ui.row({ gap: SPACE.xs, wrap: true }, [
+        ui.badge(`Subsystems ${props.state.subsystems.length}`, { variant: "info" }),
+        ui.badge(`Degraded ${degradedSubsystems}`, {
+          variant: degradedSubsystems > 0 ? "warning" : "success",
+        }),
+        ui.badge(props.state.engineeringDiagMode ? "Diagnostics Active" : "Diagnostics Idle", {
+          variant: props.state.engineeringDiagMode ? "success" : "default",
         }),
       ]),
-    ]),
-    ui.splitPane(
-      {
-        id: ctx.id("engineering-split-pane"),
-        direction: "horizontal",
-        sizes: props.state.splitSizes,
-        onResize: (sizes) => props.dispatch({ type: "set-split-sizes", sizes }),
-      },
-      [leftPane, rightPane],
-    ),
+      progressRow(tokens, "Reactor", props.state.telemetry.reactorPower / 100, {
+        labelWidth: 10,
+        width: 20,
+        trend: reactorTrend,
+        tone: props.state.telemetry.reactorPower > 92 ? "warning" : "default",
+      }),
+      progressRow(tokens, "Shields", props.state.telemetry.shieldStrength / 100, {
+        labelWidth: 10,
+        width: 20,
+        trend: shieldTrend,
+        tone: props.state.telemetry.shieldStrength < 40 ? "warning" : "success",
+      }),
+    ],
+    { tone: "inset" },
+  );
+
+  const controlsRegion = showControlsSummary
+    ? ui.row({ gap: SPACE.sm, items: "start", width: "100%", wrap: false }, [
+        ui.box(
+          {
+            border: "none",
+            p: 0,
+            width: Math.max(56, Math.floor(layout.width * 0.62)),
+          },
+          [controlsPanel],
+        ),
+        ui.box(
+          {
+            border: "none",
+            p: 0,
+            width: Math.max(34, Math.floor(layout.width * 0.34)),
+          },
+          [controlsSummary],
+        ),
+      ])
+    : controlsPanel;
+
+  debugSnapshot("engineering.render", {
+    viewportCols: props.state.viewportCols,
+    viewportRows: props.state.viewportRows,
+    renderMode,
+    includeControlsSummary: showControlsSummary,
+    includeResponsiveDeck: renderMode === "full",
+    responsiveDeckMode: useWideRow ? "row" : "column",
+    forceStackViaEnv,
+    responsiveDeckHeight,
+  });
+
+  if (veryCompactHeight) {
+    return ui.column({ gap: SPACE.sm, width: "100%" }, [controlsPanel]);
+  }
+
+  if (compactHeight) {
+    return ui.column({ gap: SPACE.sm, width: "100%" }, [controlsPanel, reactorPanel]);
+  }
+
+  return ui.column({ gap: SPACE.sm, width: "100%" }, [
+    controlsRegion,
+    responsiveDeck,
   ]);
 });
 
@@ -290,18 +512,12 @@ export function renderEngineeringScreen(
   context: RouteRenderContext<StarshipState>,
   deps: RouteDeps,
 ): VNode {
-  const styles = stylesForTheme(context.state.themeName);
-
   return renderShell({
     title: "Engineering Deck",
     context,
     deps,
-    body: ui.card(
-      {
-        title: "Power and Thermal Control",
-        style: styles.panelStyle,
-      },
-      [EngineeringDeck({ state: context.state, dispatch: deps.dispatch })],
-    ),
+    body: ui.column({ gap: SPACE.sm, width: "100%" }, [
+      EngineeringDeck({ state: context.state, dispatch: deps.dispatch }),
+    ]),
   });
 }

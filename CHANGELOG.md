@@ -15,6 +15,9 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - **focus**: Modal `initialFocus` and `returnFocusTo` props are now functional.
 - **style**: `sanitizeTextStyle()` preserves `underlineStyle` and `underlineColor`.
 - **layout**: `focusZone` and `focusTrap` no longer impose implicit column layout on children.
+- **layout**: Stack rebalancing now prevents flex siblings with percent main-size constraints from collapsing to zero width in wide-row compositions.
+- **create-rezi/starship**: command palette and modal text entry no longer get blocked by app-level keybindings; shell body now consistently applies active theme root styling across all decks.
+- **create-rezi/starship**: synced template sources with the polished showcase app so scaffolding now includes restored animated bridge/engineering panels, responsive deck layouts, and global theme token application across all screens.
 
 ### Features
 
@@ -36,6 +39,32 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - **refactor**: Centralized ID codec replaces duplicated encode/decode logic in tabs/accordion/breadcrumb.
 - **refactor**: Shared dropdown geometry helper removes duplication between renderer and routing.
 - **docs**: Added a comprehensive "Using JSX" guide for `@rezi-ui/jsx`, including setup, parity mapping to `ui.*()`, and component reference coverage.
+
+## [0.1.0-alpha.35] - 2026-02-23
+
+### Added
+
+- **layout**: Completed layout engine EPIC 0-8 and post-epic gaps with intrinsic sizing, flex shrink/basis planning, absolute positioning, grid placement/span controls, text wrap support, overlay sizing constraints, deterministic integer remainder distribution, and responsive `fluid(min,max)`.
+- **design-system**: Added theme composition primitives: `ctx.useTheme()`, scoped overrides via `ui.themed(...)`, and JSX `<Themed>` parity.
+- **design-system**: Added theme transition interpolation frames (`themeTransitionFrames`) and expanded recipe coverage for navigation and collection widgets.
+- **animation**: Added `useAnimatedValue`, `useParallel`, and `useChain`; added exit transitions with deferred unmount lifecycle and render-time exit tracks; expanded container transitions to `box`, `row`, `column`, and `grid`.
+- **animation**: Added `delay` and playback controls (`paused`, `reversed`, `rate`) to animation configs plus `interpolateRgb` / `interpolateRgbArray` color interpolation utilities.
+
+### Changed
+
+- **docs**: Expanded layout/theming/animation docs, hook references, widget docs, and internal assistant skills/guidance to reflect new APIs and behavior.
+- **exports**: Updated core/JSX exports for new theme and animation APIs and corrected animation hook config documentation for `onComplete`.
+
+### Fixed
+
+- **animation**: Scoped exit-cancel matching and tightened grid exit-transition typing follow-ups.
+- **ci/tooling**: Resolved CI/type/lint follow-ups introduced during theming and layout integration.
+
+### Merged Pull Requests
+
+- [#186](https://github.com/RtlZeroMemory/Rezi/pull/186) Layout engine hardening: EPIC 0-8 + gap completion
+- [#188](https://github.com/RtlZeroMemory/Rezi/pull/188) feat(design-system): add theme hooks, scoped theming, and recipe coverage
+- [#189](https://github.com/RtlZeroMemory/Rezi/pull/189) feat(animation): expand transitions, hooks, and exit animation lifecycle
 
 ## [0.1.0-alpha.30] - 2026-02-22
 

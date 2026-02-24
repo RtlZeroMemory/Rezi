@@ -1,8 +1,10 @@
-import { each, eachInline, ui, type RouteRenderContext, type VNode } from "@rezi-ui/core";
+import { defineWidget, each, eachInline, ui, type RouteRenderContext, type VNode } from "@rezi-ui/core";
+import { padLabel, resolveLayout } from "../helpers/layout.js";
 import { cargoSummary } from "../helpers/formatters.js";
 import { sortedCargo } from "../helpers/state.js";
-import { stylesForTheme, themeSpec } from "../theme.js";
+import { SPACE, themeTokens, toHex } from "../theme.js";
 import type { CargoItem, RouteDeps, StarshipState } from "../types.js";
+import { sectionHeader, surfacePanel } from "./primitives.js";
 import { renderShell } from "./shell.js";
 
 function categoryVariant(category: CargoItem["category"]): "info" | "success" | "warning" | "error" {
@@ -20,26 +22,45 @@ function categoryLabel(category: CargoItem["category"]): string {
   return "Ordnance";
 }
 
-function toHex(color: Readonly<{ r: number; g: number; b: number }>): string {
-  const channel = (value: number) =>
-    Math.max(0, Math.min(255, Math.round(value)))
-      .toString(16)
-      .padStart(2, "0");
-  return `#${channel(color.r)}${channel(color.g)}${channel(color.b)}`;
-}
-
 export function renderCargoScreen(
   context: RouteRenderContext<StarshipState>,
   deps: RouteDeps,
 ): VNode {
-  const state = context.state;
-  const styles = stylesForTheme(state.themeName);
-  const colors = themeSpec(state.themeName).theme.colors;
+  return renderShell({
+    title: "Cargo Hold",
+    context,
+    deps,
+    body: ui.column({ gap: SPACE.sm, width: "100%" }, [
+      CargoDeck({ state: context.state, dispatch: deps.dispatch }),
+    ]),
+  });
+}
+
+type CargoDeckProps = Readonly<{
+  key?: string;
+  state: StarshipState;
+  dispatch: RouteDeps["dispatch"];
+}>;
+
+const CargoDeck = defineWidget<CargoDeckProps>((props, ctx): VNode => {
+  const state = props.state;
+  const tokens = themeTokens(state.themeName);
+  const layout = resolveLayout({
+    width: state.viewportCols,
+    height: state.viewportRows,
+  });
   const cargo = sortedCargo(state);
   const summary = cargoSummary(cargo);
-
+  const totalItems = cargo.length;
+  const averagePriority =
+    cargo.length === 0
+      ? 0
+      : cargo.reduce((sum, item) => sum + item.priority, 0) / Math.max(1, cargo.length);
   const selected =
     (state.selectedCargoId && cargo.find((item) => item.id === state.selectedCargoId)) || cargo[0] || null;
+  const nameWidth = Math.max(12, Math.min(24, layout.chartWidth - 14));
+  const showMetricsPanel = !layout.hideNonCritical && layout.height >= 40;
+  const showSelectedPanel = !layout.hideNonCritical && layout.height >= 48;
 
   const chartItems = [
     { label: "Fuel", value: summary.byCategory.fuel, variant: "warning" as const },
@@ -54,38 +75,147 @@ export function renderCargoScreen(
     y: Math.min(item.priority * 20 + (index % 7), 100),
     color:
       item.category === "ordnance"
-        ? toHex(colors.error)
+        ? toHex(tokens.accent.danger)
         : item.category === "medical"
-          ? toHex(colors.success)
-          : toHex(colors.accent.primary),
+          ? toHex(tokens.accent.success)
+          : toHex(tokens.accent.info),
   }));
 
-  const sortItems = [
-    { id: "sort-name", label: "Sort by Name" },
-    { id: "sort-category", label: "Sort by Category" },
-    { id: "sort-quantity", label: "Sort by Quantity" },
-    { id: "sort-priority", label: "Sort by Priority" },
-  ] as const;
+  const sortButton = (
+    id: string,
+    label: string,
+    sortBy: StarshipState["cargoSortBy"],
+  ): VNode =>
+    ui.button({
+      id,
+      label,
+      intent: state.cargoSortBy === sortBy ? "primary" : "secondary",
+      dsSize: "sm",
+      onPress: () => props.dispatch({ type: "set-cargo-sort", sortBy }),
+    });
 
-  return renderShell({
-    title: "Cargo Hold",
-    context,
-    deps,
-    body: ui.card(
-      {
-        title: "Manifest and Distribution",
-        style: styles.panelStyle,
+  if (layout.height <= 28) {
+    return ui.column({ gap: SPACE.sm, width: "100%" }, [
+      surfacePanel(tokens, "Cargo Snapshot", [
+        sectionHeader(tokens, "Compact Cargo View", "Expand terminal height for full manifest + charts"),
+        ui.row({ gap: SPACE.xs, wrap: true }, [
+          ui.badge(`Items ${totalItems}`, { variant: "info" }),
+          ui.badge(`Units ${summary.totalQuantity}`, { variant: "success" }),
+          ui.badge(`Priority ${averagePriority.toFixed(1)}`, { variant: "warning" }),
+        ]),
+        selected
+          ? ui.row({ gap: SPACE.xs, wrap: true }, [
+              ui.text(selected.name, { variant: "label" }),
+              ui.tag(categoryLabel(selected.category), {
+                variant: categoryVariant(selected.category),
+              }),
+              ui.text(`Q${selected.quantity}`, { variant: "code" }),
+              ui.text(`P${selected.priority}`, { variant: "code" }),
+              ui.text(`B${selected.bay}`, { variant: "code" }),
+            ])
+          : ui.text("No cargo selected", { variant: "caption" }),
+        ui.row({ gap: SPACE.xs, wrap: true }, [
+          sortButton("cargo-sort-name-compact", "Name", "name"),
+          sortButton("cargo-sort-quantity-compact", "Qty", "quantity"),
+          sortButton("cargo-sort-priority-compact", "Priority", "priority"),
+        ]),
+      ]),
+    ]);
+  }
+
+  const manifestPanel = surfacePanel(tokens, "Manifest", [
+    sectionHeader(tokens, "Cargo Items", "Aligned numeric columns + alternating rows"),
+    cargo.length === 0
+      ? ui.empty("No cargo matches the active filter", {
+          description: "Adjust category or sort settings",
+        })
+      : ui.virtualList<CargoItem>({
+          id: "cargo-virtual-list",
+          items: cargo,
+          itemHeight: 1,
+          overscan: 5,
+          renderItem: (item, index, focused) =>
+            ui.row(
+              {
+                key: item.id,
+                gap: SPACE.xs,
+                wrap: false,
+                style: focused
+                  ? { bg: tokens.state.selectedBg, fg: tokens.state.selectedText, bold: true }
+                  : index % 2 === 0
+                    ? { bg: tokens.bg.panel.base, fg: tokens.text.primary }
+                    : { bg: tokens.table.rowAltBg, fg: tokens.text.primary },
+              },
+              [
+                ui.text(String(index + 1).padStart(4, "0"), { variant: "code" }),
+                ui.text(padLabel(item.name, nameWidth)),
+                ...(layout.width >= 100
+                  ? eachInline(
+                      [categoryLabel(item.category)],
+                      (tag) => ui.tag(tag, { variant: categoryVariant(item.category) }),
+                      { key: (_, i) => `${item.id}-tag-${i}` },
+                    )
+                  : [
+                      ui.text(categoryLabel(item.category).slice(0, 3), {
+                        variant: "caption",
+                        style: { fg: tokens.text.muted },
+                      }),
+                    ]),
+                ui.spacer({ flex: 1 }),
+                ui.text(String(item.quantity).padStart(6, " "), { variant: "code" }),
+                ui.text("|", { variant: "caption", style: { fg: tokens.border.muted } }),
+                ui.text(`P${item.priority}`.padStart(3, " "), { variant: "code" }),
+                ui.text("|", { variant: "caption", style: { fg: tokens.border.muted } }),
+                ui.text(`B${item.bay}`.padStart(3, " "), { variant: "code" }),
+              ],
+            ),
+          onScroll: (scrollTop) => props.dispatch({ type: "set-cargo-scroll", scrollTop }),
+          onSelect: (item) => props.dispatch({ type: "select-cargo", cargoId: item.id }),
+          selectionStyle: {
+            bg: tokens.table.rowSelectedBg,
+            fg: tokens.state.selectedText,
+            bold: true,
+          },
+        }),
+  ]);
+
+  const metricsPanel = surfacePanel(tokens, "Cargo Metrics", [
+    sectionHeader(tokens, "Capacity and Distribution", "Panels stretch with viewport"),
+    ui.barChart(chartItems, { orientation: "horizontal", showValues: true }),
+    ui.scatter({
+      id: "cargo-scatter",
+      width: Math.max(32, layout.chartWidth + 6),
+      height: 10,
+      points: scatterPoints,
+      blitter: "braille",
+      axes: {
+        x: { label: "Quantity", min: 0, max: 1000 },
+        y: { label: "Priority", min: 0, max: 100 },
       },
-      [
-        ui.column({ gap: 1 }, [
-          ui.panel("Cargo Controls", [
+    }),
+  ]);
+
+  const controlsPanel = surfacePanel(
+    tokens,
+    "Cargo Controls",
+    [
+      sectionHeader(tokens, "Manifest Filters", "Inline controls avoid overlay collisions"),
+      ui.row({ gap: SPACE.md, wrap: !layout.wide, items: "start" }, [
+        ui.box(
+          {
+            border: "none",
+            p: 0,
+            gap: SPACE.sm,
+            ...(layout.wide ? { flex: 2 } : {}),
+          },
+          [
             ui.form([
               ui.field({
                 label: "Category Filter",
                 children: ui.radioGroup({
                   id: "cargo-category-filter",
                   value: state.cargoCategoryFilter,
-                  direction: "horizontal",
+                  direction: layout.hideNonCritical ? "vertical" : "horizontal",
                   options: [
                     { value: "all", label: "All" },
                     { value: "fuel", label: "Fuel" },
@@ -95,144 +225,151 @@ export function renderCargoScreen(
                     { value: "ordnance", label: "Ordnance" },
                   ],
                   onChange: (value) =>
-                    deps.dispatch({
+                    props.dispatch({
                       type: "set-cargo-category-filter",
                       category: value as StarshipState["cargoCategoryFilter"],
                     }),
                 }),
               }),
             ]),
-            ui.row({ gap: 1, wrap: true }, [
+            ui.row({ gap: SPACE.sm, wrap: true }, [
               ui.checkbox({
                 id: "cargo-bulk-check",
                 checked: state.cargoBulkChecked,
                 label: "Enable bulk ops",
-                onChange: (checked) => deps.dispatch({ type: "set-cargo-bulk-checked", checked }),
+                onChange: (checked) => props.dispatch({ type: "set-cargo-bulk-checked", checked }),
               }),
-              ui.button({
-                id: "cargo-sort-anchor",
-                label: `Sort: ${state.cargoSortBy}`,
-                intent: "secondary",
-                onPress: () => {},
-              }),
-              ui.dropdown({
-                id: "cargo-sort-dropdown",
-                anchorId: "cargo-sort-anchor",
-                position: "below-start",
-                items: sortItems,
-                onSelect: (item) => {
-                  if (item.id === "sort-name") deps.dispatch({ type: "set-cargo-sort", sortBy: "name" });
-                  if (item.id === "sort-category")
-                    deps.dispatch({ type: "set-cargo-sort", sortBy: "category" });
-                  if (item.id === "sort-quantity")
-                    deps.dispatch({ type: "set-cargo-sort", sortBy: "quantity" });
-                  if (item.id === "sort-priority")
-                    deps.dispatch({ type: "set-cargo-sort", sortBy: "priority" });
-                },
-              }),
+              sortButton("cargo-sort-name", "Name", "name"),
+              sortButton("cargo-sort-category", "Category", "category"),
+              sortButton("cargo-sort-quantity", "Quantity", "quantity"),
+              sortButton("cargo-sort-priority", "Priority", "priority"),
             ]),
-          ]),
-          ui.row({ gap: 1, wrap: true, items: "stretch" }, [
-            ui.panel("Cargo Metrics", [
-              ui.barChart(chartItems, { orientation: "horizontal", showValues: true }),
-              ui.scatter({
-                id: "cargo-scatter",
-                width: 42,
-                height: 10,
-                points: scatterPoints,
-                blitter: "braille",
-                axes: {
-                  x: { label: "Quantity", min: 0, max: 1000 },
-                  y: { label: "Priority", min: 0, max: 100 },
-                },
-              }),
-            ]),
-            ui.panel("Manifest", [
-              cargo.length === 0
-                ? ui.empty("No cargo matches the active filter", {
-                    description: "Adjust category or sort settings",
-                  })
-                : ui.virtualList<CargoItem>({
-                    id: "cargo-virtual-list",
-                    items: cargo,
-                    itemHeight: 1,
-                    overscan: 5,
-                    renderItem: (item, index, focused) =>
-                      ui.row(
-                        {
-                          key: item.id,
-                          gap: 1,
-                          wrap: true,
-                          ...(focused ? { style: { inverse: true } } : {}),
-                        },
-                        [
-                          ui.text(`${String(index + 1).padStart(4, "0")}`),
-                          ui.text(item.name),
-                          ...eachInline(
-                            [categoryLabel(item.category)],
-                            (tag) => ui.tag(tag, { variant: categoryVariant(item.category) }),
-                          { key: (_, i) => `${item.id}-tag-${i}` },
-                        ),
-                          ui.text(`Q${item.quantity}`, { variant: "code" }),
-                          ui.text(`P${item.priority}`, { variant: "caption" }),
-                        ],
-                      ),
-                    onScroll: (scrollTop) => deps.dispatch({ type: "set-cargo-scroll", scrollTop }),
-                    onSelect: (item) => deps.dispatch({ type: "select-cargo", cargoId: item.id }),
-                  }),
-            ]),
-          ]),
-          ui.panel("Selected Cargo", [
-            selected
-              ? ui.column({ gap: 1 }, [
-                  ui.row({ gap: 1, wrap: true }, [
+            ...(!showSelectedPanel && selected
+              ? [
+                  ui.row({ gap: SPACE.sm, wrap: true }, [
+                    ui.text("Selected", { variant: "caption", style: { fg: tokens.text.muted } }),
                     ui.badge(selected.name, { variant: "info" }),
                     ui.tag(categoryLabel(selected.category), {
                       variant: categoryVariant(selected.category),
                     }),
+                    ui.text(`Q${selected.quantity}`, { variant: "code" }),
+                    ui.text(`P${selected.priority}`, { variant: "code" }),
+                    ui.text(`B${selected.bay}`, { variant: "code" }),
                   ]),
-                  ui.slider({
-                    id: "cargo-priority-slider",
-                    value: selected.priority,
-                    min: 1,
-                    max: 5,
-                    step: 1,
-                    label: "Priority",
-                    onChange: (priority) =>
-                      deps.dispatch({
-                        type: "set-cargo-priority",
-                        cargoId: selected.id,
-                        priority,
-                      }),
-                  }),
-                  ui.field({
-                    label: "Bay Assignment",
-                    children: ui.select({
-                      id: "cargo-bay-select",
-                      value: String(selected.bay),
-                      options: Array.from({ length: 12 }, (_, index) => ({
-                        value: String(index + 1),
-                        label: `Bay ${index + 1}`,
-                      })),
-                      onChange: () => {},
-                    }),
-                  }),
-                  each(
+                ]
+              : []),
+          ],
+        ),
+        ...(layout.wide
+          ? [
+              ui.box(
+                {
+                  border: "none",
+                  p: 0,
+                  flex: 1,
+                },
+                [
+                  surfacePanel(
+                    tokens,
+                    "Cargo Snapshot",
                     [
-                      `Quantity: ${selected.quantity}`,
-                      `Priority: ${selected.priority}`,
-                      `Bay: ${selected.bay}`,
+                      ui.row({ gap: SPACE.xs, wrap: true }, [
+                        ui.badge(`Items ${totalItems}`, { variant: "info" }),
+                        ui.badge(`Units ${summary.totalQuantity}`, { variant: "success" }),
+                        ui.badge(`Avg P ${averagePriority.toFixed(1)}`, { variant: "warning" }),
+                      ]),
+                      ...chartItems.map((item) =>
+                        ui.row({ key: `cargo-summary-${item.label}`, gap: SPACE.xs, wrap: false }, [
+                          ui.text(item.label, {
+                            variant: "caption",
+                            style: { fg: tokens.text.muted },
+                          }),
+                          ui.spacer({ flex: 1 }),
+                          ui.tag(String(item.value), { variant: item.variant }),
+                        ]),
+                      ),
                     ],
-                    (line, index) => ui.text(line, { key: `${selected.id}-detail-${index}`, variant: "caption" }),
-                    { key: (_, index) => `${selected?.id ?? "none"}-${index}` },
+                    {
+                      tone: "inset",
+                      p: SPACE.sm,
+                      gap: SPACE.sm,
+                    },
                   ),
-                ])
-              : ui.empty("No cargo item selected", {
-                  description: "Select an item in the manifest",
-                }),
-          ]),
-        ]),
-      ],
-    ),
-  });
-}
+                ],
+              ),
+            ]
+          : []),
+      ]),
+    ],
+    { tone: "base" },
+  );
+
+  return ui.column({ gap: SPACE.sm, width: "100%" }, [
+    controlsPanel,
+    showMetricsPanel
+      ? ui.row({ gap: SPACE.sm, wrap: true, items: "stretch" }, [
+          ui.box({ border: "none", p: 0, flex: 2 }, [metricsPanel]),
+          ui.box({ border: "none", p: 0, flex: 3 }, [manifestPanel]),
+        ])
+      : manifestPanel,
+    ...(showSelectedPanel
+      ? [
+          surfacePanel(
+            tokens,
+            "Selected Cargo",
+            [
+              selected
+                ? ui.column({ gap: SPACE.sm }, [
+                    ui.row({ gap: SPACE.sm, wrap: true }, [
+                      ui.badge(selected.name, { variant: "info" }),
+                      ui.tag(categoryLabel(selected.category), {
+                        variant: categoryVariant(selected.category),
+                      }),
+                    ]),
+                    ui.slider({
+                      id: "cargo-priority-slider",
+                      value: selected.priority,
+                      min: 1,
+                      max: 5,
+                      step: 1,
+                      label: "Priority",
+                      onChange: (priority) =>
+                        props.dispatch({
+                          type: "set-cargo-priority",
+                          cargoId: selected.id,
+                          priority,
+                        }),
+                    }),
+                    ui.field({
+                      label: "Bay Assignment",
+                      children: ui.select({
+                        id: "cargo-bay-select",
+                        value: String(selected.bay),
+                        options: Array.from({ length: 12 }, (_, index) => ({
+                          value: String(index + 1),
+                          label: `Bay ${index + 1}`,
+                        })),
+                        onChange: () => {},
+                      }),
+                    }),
+                    each(
+                      [
+                        `Quantity: ${selected.quantity}`,
+                        `Priority: ${selected.priority}`,
+                        `Bay: ${selected.bay}`,
+                      ],
+                      (line, index) =>
+                        ui.text(line, { key: `${selected.id}-detail-${index}`, variant: "caption" }),
+                      { key: (_, index) => `${selected?.id ?? "none"}-${index}` },
+                    ),
+                  ])
+                : ui.empty("No cargo item selected", {
+                    description: "Select an item in the manifest",
+                  }),
+            ],
+            { tone: "elevated" },
+          ),
+        ]
+      : []),
+  ]);
+});

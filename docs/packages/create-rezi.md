@@ -39,15 +39,15 @@ Use a specific template:
 npm create rezi my-app -- --template dashboard
 npm create rezi my-app -- --template cli-tool
 npm create rezi my-app -- --template animation-lab
-npm create rezi my-app -- --template minimal
 npm create rezi my-app -- --template starship
+npm create rezi my-app -- --template minimal
 
 # Bun
 bun create rezi my-app -- --template dashboard
 bun create rezi my-app -- --template cli-tool
 bun create rezi my-app -- --template animation-lab
-bun create rezi my-app -- --template minimal
 bun create rezi my-app -- --template starship
+bun create rezi my-app -- --template minimal
 ```
 
 List templates and highlights:

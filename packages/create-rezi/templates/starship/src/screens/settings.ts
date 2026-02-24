@@ -1,6 +1,8 @@
-import { ui, type RouteRenderContext, type VNode } from "@rezi-ui/core";
-import { stylesForTheme, themeSpec } from "../theme.js";
+import { defineWidget, ui, type RouteRenderContext, type VNode } from "@rezi-ui/core";
+import { padLabel, resolveLayout } from "../helpers/layout.js";
+import { SPACE, themeSpec, themeTokens } from "../theme.js";
 import type { RouteDeps, StarshipState } from "../types.js";
+import { sectionHeader, surfacePanel } from "./primitives.js";
 import { renderShell } from "./shell.js";
 
 function validationError(state: StarshipState): string | null {
@@ -13,28 +15,205 @@ function validationError(state: StarshipState): string | null {
   return null;
 }
 
-export function renderSettingsScreen(
-  context: RouteRenderContext<StarshipState>,
-  deps: RouteDeps,
-): VNode {
-  const state = context.state;
-  const styles = stylesForTheme(state.themeName);
+type SettingsDeckProps = Readonly<{
+  key?: string;
+  state: StarshipState;
+  dispatch: RouteDeps["dispatch"];
+}>;
+
+const SettingsDeck = defineWidget<SettingsDeckProps>((props, ctx): VNode => {
+  const state = props.state;
+  const tokens = themeTokens(state.themeName);
   const activeTheme = themeSpec(state.themeName);
   const error = validationError(state);
+  const layout = resolveLayout({
+    width: state.viewportCols,
+    height: state.viewportRows,
+  });
+
+  const settingsForm = surfacePanel(tokens, "Ship Settings", [
+    sectionHeader(tokens, "Configuration", "Fixed-width labels + consistent section rhythm"),
+    error
+      ? ui.callout(error, {
+          title: "Validation",
+          variant: "error",
+        })
+      : ui.callout("All settings are valid.", {
+          title: "Validation",
+          variant: "success",
+        }),
+    ui.form({ id: "settings-form", gap: SPACE.md }, [
+      ui.field({
+        label: padLabel("Ship Name", 18),
+        required: true,
+        ...(state.shipName.trim().length === 0 ? { error: "Name required" } : {}),
+        children: ui.input({
+          id: "settings-ship-name",
+          value: state.shipName,
+          placeholder: "USS Rezi",
+          onInput: (value) => props.dispatch({ type: "set-ship-name", name: value }),
+        }),
+      }),
+      ui.field({
+        label: padLabel("Alert Threshold", 18),
+        hint: "Value used by engineering warnings",
+        children: ui.slider({
+          id: "settings-alert-threshold",
+          min: 20,
+          max: 95,
+          step: 1,
+          label: "Threshold",
+          value: state.alertThreshold,
+          onChange: (threshold) => props.dispatch({ type: "set-alert-threshold", threshold }),
+        }),
+      }),
+      ui.field({
+        label: padLabel("Default Channel", 18),
+        children: ui.select({
+          id: "settings-default-channel",
+          value: state.defaultChannel,
+          options: [
+            { value: "fleet", label: "Fleet" },
+            { value: "local", label: "Local" },
+            { value: "emergency", label: "Emergency" },
+            { value: "internal", label: "Internal" },
+          ],
+          onChange: (value) =>
+            props.dispatch({
+              type: "set-default-channel",
+              channel: value as StarshipState["defaultChannel"],
+            }),
+        }),
+      }),
+      ui.field({
+        label: padLabel("Autopilot", 18),
+        children: ui.checkbox({
+          id: "settings-autopilot",
+          checked: state.autopilot,
+          label: "Enable autopilot by default",
+          onChange: () => props.dispatch({ type: "toggle-autopilot" }),
+        }),
+      }),
+      ui.field({
+        label: padLabel("Notifications", 18),
+        children: ui.radioGroup({
+          id: "settings-notifications-mode",
+          value: state.notificationsMode,
+          direction: layout.hideNonCritical ? "vertical" : "horizontal",
+          options: [
+            { value: "all", label: "All" },
+            { value: "critical", label: "Critical" },
+            { value: "none", label: "None" },
+          ],
+          onChange: (mode) =>
+            props.dispatch({
+              type: "set-notifications-mode",
+              mode: mode as StarshipState["notificationsMode"],
+            }),
+        }),
+      }),
+      ui.field({
+        label: padLabel("Captain Notes", 18),
+        children: ui.textarea({
+          id: "settings-notes",
+          value: state.settingsNotes,
+          rows: layout.hideNonCritical ? 3 : 5,
+          placeholder: "Operational notes",
+          onInput: (notes) => props.dispatch({ type: "set-settings-notes", notes }),
+        }),
+      }),
+    ]),
+    ui.actions([
+      ui.button({
+        id: "settings-save",
+        label: "Save",
+        intent: "primary",
+        onPress: () => {
+          if (!error) {
+            props.dispatch({
+              type: "add-toast",
+              toast: {
+                id: `settings-saved-${state.nowMs}-${state.tick}`,
+                message: "Settings saved",
+                level: "success",
+                timestamp: state.nowMs,
+                durationMs: 3000,
+              },
+            });
+          }
+        },
+      }),
+      ui.button({
+        id: "settings-reset",
+        label: "Reset",
+        intent: "danger",
+        onPress: () => props.dispatch({ type: "toggle-reset-dialog" }),
+      }),
+      ui.button({
+        id: "settings-cycle-theme",
+        label: "Cycle Theme",
+        intent: "link",
+        onPress: () => props.dispatch({ type: "cycle-theme" }),
+      }),
+    ]),
+  ], { tone: "base" });
+
+  return ui.layers([
+    ui.column({ gap: SPACE.md, width: "100%" }, [
+      settingsForm,
+      layout.hideNonCritical
+        ? surfacePanel(tokens, "Theme Snapshot", [
+            ui.row({ gap: SPACE.sm, wrap: true }, [
+              ui.badge(activeTheme.label, { variant: activeTheme.badge }),
+              ui.text("Open wider terminal for full theme preview rail.", {
+                variant: "caption",
+              }),
+            ]),
+          ], { tone: "inset" })
+        : null,
+    ]),
+    state.showResetDialog
+      ? ui.dialog({
+          id: "settings-reset-dialog",
+          title: "Reset Settings",
+          message: "Reset all ship settings to defaults?",
+          actions: [
+            {
+              id: "settings-reset-confirm",
+              label: "Reset",
+              intent: "danger",
+              onPress: () => props.dispatch({ type: "reset-settings" }),
+            },
+            {
+              id: "settings-reset-cancel",
+              label: "Cancel",
+              onPress: () => props.dispatch({ type: "toggle-reset-dialog" }),
+            },
+          ],
+          onClose: () => props.dispatch({ type: "toggle-reset-dialog" }),
+          width: 52,
+        })
+      : null,
+  ]);
+});
+
+function settingsRightRail(state: StarshipState, deps: RouteDeps): VNode {
+  const tokens = themeTokens(state.themeName);
+  const activeTheme = themeSpec(state.themeName);
 
   const previewPage = ui.page({
-    p: 1,
-    gap: 1,
+    p: SPACE.sm,
+    gap: SPACE.sm,
     header: ui.header({
       title: "Preview Console",
       subtitle: activeTheme.label,
       actions: [ui.badge("Preview", { variant: "info" })],
     }),
-    body: ui.column({ gap: 1 }, [
+    body: ui.column({ gap: SPACE.xs }, [
       ui.breadcrumb({
         items: [{ label: "Bridge" }, { label: "Settings" }, { label: "Theme Preview" }],
       }),
-      ui.row({ gap: 1 }, [
+      ui.row({ gap: SPACE.xs }, [
         ui.tag("Accent", { variant: activeTheme.badge }),
         ui.status("online", { label: "Ready" }),
       ]),
@@ -42,211 +221,68 @@ export function renderSettingsScreen(
     footer: ui.statusBar({
       left: [ui.text("Preview status")],
       right: [ui.text(`Theme ${activeTheme.label}`)],
+      style: {
+        bg: tokens.bg.panel.inset,
+        fg: tokens.text.primary,
+      },
     }),
   });
 
-  const content = ui.card(
-    {
-      title: "Ship Settings",
-      style: styles.panelStyle,
-    },
-    [
-      ui.column({ gap: 1 }, [
-        error
-          ? ui.callout(error, {
-              title: "Validation",
-              variant: "error",
-            })
-          : ui.callout("All settings are valid.", {
-              title: "Validation",
-              variant: "success",
-            }),
-        ui.form({ id: "settings-form", gap: 1 }, [
-          ui.field({
-            label: "Ship Name",
-            required: true,
-            ...(state.shipName.trim().length === 0 ? { error: "Name required" } : {}),
-            children: ui.input({
-              id: "settings-ship-name",
-              value: state.shipName,
-              placeholder: "USS Rezi",
-              onInput: (value) => deps.dispatch({ type: "set-ship-name", name: value }),
-            }),
-          }),
-          ui.field({
-            label: "Alert Threshold",
-            hint: "Value used by engineering warnings",
-            children: ui.slider({
-              id: "settings-alert-threshold",
-              min: 20,
-              max: 95,
-              step: 1,
-              label: "Threshold",
-              value: state.alertThreshold,
-              onChange: (threshold) => deps.dispatch({ type: "set-alert-threshold", threshold }),
-            }),
-          }),
-          ui.field({
-            label: "Default Channel",
-            children: ui.select({
-              id: "settings-default-channel",
-              value: state.defaultChannel,
-              options: [
-                { value: "fleet", label: "Fleet" },
-                { value: "local", label: "Local" },
-                { value: "emergency", label: "Emergency" },
-                { value: "internal", label: "Internal" },
-              ],
-              onChange: (value) =>
-                deps.dispatch({
-                  type: "set-default-channel",
-                  channel: value as StarshipState["defaultChannel"],
-                }),
-            }),
-          }),
-          ui.field({
-            label: "Autopilot",
-            children: ui.checkbox({
-              id: "settings-autopilot",
-              checked: state.autopilot,
-              label: "Enable autopilot by default",
-              onChange: () => deps.dispatch({ type: "toggle-autopilot" }),
-            }),
-          }),
-          ui.field({
-            label: "Notifications",
-            children: ui.radioGroup({
-              id: "settings-notifications-mode",
-              value: state.notificationsMode,
-              direction: "horizontal",
-              options: [
-                { value: "all", label: "All" },
-                { value: "critical", label: "Critical" },
-                { value: "none", label: "None" },
-              ],
-              onChange: (mode) =>
-                deps.dispatch({
-                  type: "set-notifications-mode",
-                  mode: mode as StarshipState["notificationsMode"],
-                }),
-            }),
-          }),
-          ui.field({
-            label: "Captain's Notes",
-            children: ui.textarea({
-              id: "settings-notes",
-              value: state.settingsNotes,
-              rows: 5,
-              placeholder: "Operational notes",
-              onInput: (notes) => deps.dispatch({ type: "set-settings-notes", notes }),
-            }),
-          }),
-        ]),
-        ui.actions([
-          ui.button({
-            id: "settings-save",
-            label: "Save",
-            intent: "primary",
-            onPress: () => {
-              if (!error) {
-                deps.dispatch({
-                  type: "add-toast",
-                  toast: {
-                    id: `settings-saved-${state.nowMs}-${state.tick}`,
-                    message: "Settings saved",
-                    level: "success",
-                    timestamp: state.nowMs,
-                    durationMs: 3000,
-                  },
-                });
-              }
-            },
-          }),
-          ui.button({
-            id: "settings-reset",
-            label: "Reset",
-            intent: "danger",
-            onPress: () => deps.dispatch({ type: "toggle-reset-dialog" }),
-          }),
-          ui.button({
-            id: "settings-cycle-theme",
-            label: "Cycle Theme",
-            intent: "link",
-            onPress: () => deps.dispatch({ type: "cycle-theme" }),
-          }),
-        ]),
-        ui.divider(),
-        ui.panel("Theme Preview", [
-          ui.grid(
-            {
-              columns: 3,
-              gap: 1,
-            },
-            ui.button({
-              id: "theme-day",
-              label: "Day Shift",
-              intent: state.themeName === "day" ? "primary" : "secondary",
-              onPress: () => deps.dispatch({ type: "set-theme", theme: "day" }),
-            }),
-            ui.button({
-              id: "theme-night",
-              label: "Night Shift",
-              intent: state.themeName === "night" ? "primary" : "secondary",
-              onPress: () => deps.dispatch({ type: "set-theme", theme: "night" }),
-            }),
-            ui.button({
-              id: "theme-alert",
-              label: "Red Alert",
-              intent: state.themeName === "alert" ? "primary" : "secondary",
-              onPress: () => deps.dispatch({ type: "set-theme", theme: "alert" }),
-            }),
-          ),
-          ui.row({ gap: 1, wrap: true }, [
-            ui.icon("ui.palette"),
-            ui.text(`Active theme: ${activeTheme.label}`, { variant: "caption" }),
-            ui.spacer({ flex: 1 }),
-            ui.kbd(["Ctrl", "R"]),
-            ui.text("reset", { variant: "caption" }),
-          ]),
-          ui.center(previewPage),
-        ]),
-        ui.panel("Keybinding Reference", [
-          ui.keybindingHelp(deps.getBindings ? deps.getBindings() : [], {
-            title: "Ship Controls",
-          }),
-        ]),
+  return ui.column({ gap: SPACE.sm, width: "100%" }, [
+    surfacePanel(tokens, "Theme Preview", [
+      sectionHeader(tokens, "Theme Modes", "Changes apply instantly across the console"),
+      ui.grid(
+        {
+          columns: 3,
+          gap: SPACE.xs,
+        },
+        ui.button({
+          id: "settings-theme-day",
+          label: "Day Shift",
+          intent: state.themeName === "day" ? "primary" : "secondary",
+          onPress: () => deps.dispatch({ type: "set-theme", theme: "day" }),
+        }),
+        ui.button({
+          id: "settings-theme-night",
+          label: "Night Shift",
+          intent: state.themeName === "night" ? "primary" : "secondary",
+          onPress: () => deps.dispatch({ type: "set-theme", theme: "night" }),
+        }),
+        ui.button({
+          id: "settings-theme-alert",
+          label: "Red Alert",
+          intent: state.themeName === "alert" ? "primary" : "secondary",
+          onPress: () => deps.dispatch({ type: "set-theme", theme: "alert" }),
+        }),
+      ),
+      ui.row({ gap: SPACE.sm, wrap: true }, [
+        ui.icon("ui.palette"),
+        ui.text(`Active theme: ${activeTheme.label}`, { variant: "caption" }),
       ]),
-    ],
-  );
+      ui.center(previewPage),
+    ], { tone: "base" }),
+    surfacePanel(tokens, "Keybinding Reference", [
+      ui.keybindingHelp(deps.getBindings ? deps.getBindings() : [], {
+        title: "Ship Controls",
+      }),
+    ], { tone: "inset" }),
+  ]);
+}
 
+export function renderSettingsScreen(
+  context: RouteRenderContext<StarshipState>,
+  deps: RouteDeps,
+): VNode {
   return renderShell({
     title: "Ship Settings",
     context,
     deps,
-    body: ui.layers([
-      content,
-      state.showResetDialog
-        ? ui.dialog({
-            id: "settings-reset-dialog",
-            title: "Reset Settings",
-            message: "Reset all ship settings to defaults?",
-            actions: [
-              {
-                id: "settings-reset-confirm",
-                label: "Reset",
-                intent: "danger",
-                onPress: () => deps.dispatch({ type: "reset-settings" }),
-              },
-              {
-                id: "settings-reset-cancel",
-                label: "Cancel",
-                onPress: () => deps.dispatch({ type: "toggle-reset-dialog" }),
-              },
-            ],
-            onClose: () => deps.dispatch({ type: "toggle-reset-dialog" }),
-            width: 52,
-          })
-        : null,
+    body: ui.column({ gap: SPACE.sm, width: "100%" }, [
+      SettingsDeck({
+        state: context.state,
+        dispatch: deps.dispatch,
+      }),
     ]),
+    rightRail: settingsRightRail(context.state, deps),
   });
 }

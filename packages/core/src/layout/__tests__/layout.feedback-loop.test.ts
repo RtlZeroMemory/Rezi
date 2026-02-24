@@ -51,4 +51,51 @@ describe("layout stack cross-axis feedback", () => {
     assert.equal(mustNodeById(out, "first").h, 4);
     assert.equal(mustNodeById(out, "root").h, 4);
   });
+
+  test("engineering-style wide row keeps canvas pane visible across viewports", () => {
+    const tree = ui.column({ id: "root", gap: 1, width: "100%" }, [
+      ui.panel("Engineering Controls", [ui.text("Control summary")]),
+      ui.row({ id: "deck-layout", gap: 1, items: "stretch", width: "100%" }, [
+        ui.box({ id: "left-pane", border: "none", p: 0, flex: 2, width: "100%" }, [
+          ui.panel("Reactor Schematic", [
+            ui.canvas({
+              id: "reactor-canvas",
+              width: 44,
+              height: 14,
+              draw: (canvas) => {
+                canvas.clear();
+              },
+            }),
+          ]),
+        ]),
+        ui.box({ id: "right-pane", border: "none", p: 0, flex: 3, width: "100%" }, [
+          ui.panel("Power Distribution", [
+            ui.text("Power lanes"),
+            ui.progress(0.8, { label: "Warp Core" }),
+            ui.progress(0.7, { label: "Impulse Engines" }),
+          ]),
+        ]),
+      ]),
+    ]);
+
+    const renderer = createTestRenderer();
+    const wide = renderer.render(tree, { viewport: { cols: 300, rows: 68 } });
+    const compact = renderer.render(tree, { viewport: { cols: 167, rows: 60 } });
+
+    const wideCanvas = mustNodeById(wide, "reactor-canvas");
+    const compactCanvas = mustNodeById(compact, "reactor-canvas");
+    const wideLeft = mustNodeById(wide, "left-pane");
+    const wideRight = mustNodeById(wide, "right-pane");
+    const compactLeft = mustNodeById(compact, "left-pane");
+    const compactRight = mustNodeById(compact, "right-pane");
+
+    assert.equal(wideCanvas.w > 0, true);
+    assert.equal(wideCanvas.h > 0, true);
+    assert.equal(compactCanvas.w > 0, true);
+    assert.equal(compactCanvas.h > 0, true);
+    assert.equal(wideLeft.w > 0, true);
+    assert.equal(wideRight.w > 0, true);
+    assert.equal(compactLeft.w > 0, true);
+    assert.equal(compactRight.w > 0, true);
+  });
 });

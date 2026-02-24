@@ -25,8 +25,8 @@ Select a template when prompted (`dashboard`, `stress-test`, `cli-tool`, `animat
 ```bash
 npm create rezi my-tui-app -- --template dashboard
 npm create rezi my-tui-app -- --template animation-lab
-npm create rezi my-tui-app -- --template minimal
 npm create rezi my-tui-app -- --template starship
+npm create rezi my-tui-app -- --template minimal
 ```
 
 The templates demonstrate the recommended project structure and patterns. Start with `minimal` to learn the basics, `dashboard` for operations workflows, `animation-lab` for declarative motion patterns, or `starship` for an end-to-end command console showcase.
