@@ -22,15 +22,28 @@ let app!: ReturnType<typeof createNodeApp<StarshipState>>;
 let stopping = false;
 let tickTimer: ReturnType<typeof setInterval> | null = null;
 let toastTimer: ReturnType<typeof setInterval> | null = null;
+let latestState = initialState;
 
 type CreateRoutesFn = typeof createStarshipRoutes;
 type RoutesModule = Readonly<{ createStarshipRoutes?: CreateRoutesFn }>;
+
+function updateState(updater: (previous: StarshipState) => StarshipState): void {
+  app.update((previous) => {
+    const next = updater(previous);
+    latestState = next;
+    return next;
+  });
+}
+
+function currentState(): StarshipState {
+  return latestState;
+}
 
 function dispatch(action: StarshipAction): void {
   let nextTheme = initialState.themeName;
   let themeChanged = false;
 
-  app.update((previous) => {
+  updateState((previous) => {
     const next = reduceStarshipState(previous, action);
     if (next.themeName !== previous.themeName) {
       nextTheme = next.themeName;
@@ -250,7 +263,7 @@ function applyCommand(command: ReturnType<typeof resolveStarshipCommand>): void 
   }
 
   if (command === "comms-acknowledge") {
-    app.update((previous) => {
+    updateState((previous) => {
       const candidate = filteredMessages(previous).find((message) => !message.acknowledged);
       if (!candidate) return previous;
       return reduceStarshipState(previous, {
@@ -262,7 +275,7 @@ function applyCommand(command: ReturnType<typeof resolveStarshipCommand>): void 
   }
 
   if (command === "comms-next-channel" || command === "comms-prev-channel") {
-    app.update((previous) => {
+    updateState((previous) => {
       const channels: readonly StarshipState["activeChannel"][] = [
         "fleet",
         "local",
@@ -365,7 +378,7 @@ function bindKeys(): void {
     keys.map((key) => [
       key,
       () => {
-        const state = app.getState();
+        const state = currentState();
         const overlayInputActive =
           state.showCommandPalette ||
           state.showHailDialog ||
@@ -387,7 +400,7 @@ function bindKeys(): void {
   ) as Record<string, () => void>;
 
   bindingMap.escape = () => {
-    const state = app.getState();
+    const state = currentState();
     if (state.showHelp) {
       dispatch({ type: "toggle-help" });
       return;
