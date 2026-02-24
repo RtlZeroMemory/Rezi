@@ -6,7 +6,6 @@ import { emitDevLayoutWarnings } from "../widgetRenderer/devWarnings.js";
 
 function layoutOrThrow(vnode: VNode): LayoutTree {
   const result = layout(vnode, 0, 0, 80, 24, "column");
-  assert.equal(result.ok, true, "layout should succeed");
   if (!result.ok) {
     assert.fail(`layout failed: ${result.fatal.code}: ${result.fatal.detail}`);
   }
