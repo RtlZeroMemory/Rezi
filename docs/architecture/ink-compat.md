@@ -156,7 +156,7 @@ Provides a compact Ink-testing-library-like renderer for frame assertions and in
 flowchart LR
   A[React Ink tree] --> B[Compat Reconciler Host Tree]
   B --> C[Translation: Ink props -> Rezi VNodes]
-  C --> D[Rezi test renderer]
+  C --> D[Rezi renderer]
   D --> E[Render ops + layout nodes]
   E --> F[ANSI serialization + stream writes]
 ```
@@ -321,7 +321,8 @@ const out = renderToString(<Text color="green">OK</Text>, { columns: 40 });
 
 ```ts
 import React from "react";
-import { render, Text } from "@rezi-ui/ink-compat/testing";
+import { Text } from "@rezi-ui/ink-compat";
+import { render } from "@rezi-ui/ink-compat/testing";
 
 const ui = render(<Text>Hello</Text>);
 expect(ui.lastFrame()).toContain("Hello");
