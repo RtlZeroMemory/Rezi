@@ -1,3 +1,4 @@
+import "./runtime/reactBridge.js";
 import type React from "react";
 
 export { Box, type BoxProps } from "./components/Box.js";
