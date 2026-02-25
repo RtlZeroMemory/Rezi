@@ -498,6 +498,98 @@ const TRACE_SUMMARY_MAX_DEPTH = readTraceLimit("INK_COMPAT_TRACE_JSON_MAX_DEPTH"
 const TRACE_SUMMARY_ARRAY_LIMIT = readTraceLimit("INK_COMPAT_TRACE_JSON_ARRAY_LIMIT", 20, 1);
 const TRACE_SUMMARY_OBJECT_LIMIT = readTraceLimit("INK_COMPAT_TRACE_JSON_OBJECT_LIMIT", 30, 1);
 
+interface ConsolePatchTarget {
+  writeStdout: (line: string) => void;
+  writeStderr: (line: string) => void;
+}
+
+let nextConsolePatchId = 1;
+const consolePatchTargets = new Map<number, ConsolePatchTarget>();
+const consolePatchStack: number[] = [];
+let consolePatchOriginal:
+  | {
+      log: typeof console.log;
+      info: typeof console.info;
+      warn: typeof console.warn;
+      error: typeof console.error;
+    }
+  | undefined;
+
+function activeConsolePatchTarget(): ConsolePatchTarget | undefined {
+  if (consolePatchStack.length === 0) return undefined;
+  const topId = consolePatchStack[consolePatchStack.length - 1];
+  if (topId == null) return undefined;
+  return consolePatchTargets.get(topId);
+}
+
+function ensureConsolePatched(): void {
+  if (consolePatchOriginal) return;
+  consolePatchOriginal = {
+    log: console.log,
+    info: console.info,
+    warn: console.warn,
+    error: console.error,
+  };
+
+  console.log = (...args: unknown[]) => {
+    const target = activeConsolePatchTarget();
+    if (target) {
+      target.writeStdout(`${formatConsoleMessage(...args)}\n`);
+      return;
+    }
+    consolePatchOriginal?.log(...args);
+  };
+  console.info = (...args: unknown[]) => {
+    const target = activeConsolePatchTarget();
+    if (target) {
+      target.writeStdout(`${formatConsoleMessage(...args)}\n`);
+      return;
+    }
+    consolePatchOriginal?.info(...args);
+  };
+  console.warn = (...args: unknown[]) => {
+    const target = activeConsolePatchTarget();
+    if (target) {
+      target.writeStderr(`${formatConsoleMessage(...args)}\n`);
+      return;
+    }
+    consolePatchOriginal?.warn(...args);
+  };
+  console.error = (...args: unknown[]) => {
+    const target = activeConsolePatchTarget();
+    if (target) {
+      target.writeStderr(`${formatConsoleMessage(...args)}\n`);
+      return;
+    }
+    consolePatchOriginal?.error(...args);
+  };
+}
+
+function attachConsolePatchTarget(target: ConsolePatchTarget): () => void {
+  ensureConsolePatched();
+  const patchId = nextConsolePatchId;
+  nextConsolePatchId += 1;
+  consolePatchTargets.set(patchId, target);
+  consolePatchStack.push(patchId);
+
+  return () => {
+    consolePatchTargets.delete(patchId);
+    const stackIndex = consolePatchStack.lastIndexOf(patchId);
+    if (stackIndex >= 0) {
+      consolePatchStack.splice(stackIndex, 1);
+    }
+
+    if (consolePatchTargets.size > 0) return;
+    if (!consolePatchOriginal) return;
+
+    console.log = consolePatchOriginal.log;
+    console.info = consolePatchOriginal.info;
+    console.warn = consolePatchOriginal.warn;
+    console.error = consolePatchOriginal.error;
+    consolePatchOriginal = undefined;
+  };
+}
+
 function summarizeUnknown(value: unknown, depth = 0): unknown {
   if (value == null) return value;
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
@@ -2693,30 +2785,10 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   }
 
   if (patchConsoleEnabled && !debug) {
-    const original = {
-      log: console.log,
-      info: console.info,
-      warn: console.warn,
-      error: console.error,
-    };
-    console.log = (...args: unknown[]) => {
-      bridge.context.writeStdout(`${formatConsoleMessage(...args)}\n`);
-    };
-    console.info = (...args: unknown[]) => {
-      bridge.context.writeStdout(`${formatConsoleMessage(...args)}\n`);
-    };
-    console.warn = (...args: unknown[]) => {
-      bridge.context.writeStderr(`${formatConsoleMessage(...args)}\n`);
-    };
-    console.error = (...args: unknown[]) => {
-      bridge.context.writeStderr(`${formatConsoleMessage(...args)}\n`);
-    };
-    restoreConsole = () => {
-      console.log = original.log;
-      console.info = original.info;
-      console.warn = original.warn;
-      console.error = original.error;
-    };
+    restoreConsole = attachConsolePatchTarget({
+      writeStdout: (line) => bridge.context.writeStdout(line),
+      writeStderr: (line) => bridge.context.writeStderr(line),
+    });
   }
 
   doRender(element);
@@ -2732,6 +2804,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
     if (translationTraceEnabled) {
       enableTranslationTrace(false);
     }
+    bridge.rootNode.onCommit = null;
 
     if (unmountTree) {
       commitSync(container, null);

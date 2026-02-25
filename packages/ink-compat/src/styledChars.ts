@@ -212,7 +212,12 @@ export function styledCharsToString(chars: StyledChar[]): string {
 
   for (const sc of chars) {
     if (sc.style !== prevStyle) {
-      result += sc.style;
+      if (prevStyle) {
+        result += "\u001b[0m";
+      }
+      if (sc.style) {
+        result += sc.style;
+      }
       prevStyle = sc.style;
     }
     result += sc.char;
@@ -232,11 +237,8 @@ export function styledCharsToString(chars: StyledChar[]): string {
  * Wide characters (CJK) count as 2 columns.
  */
 export function styledCharsWidth(chars: StyledChar[]): number {
-  let width = 0;
-  for (const sc of chars) {
-    width += Math.max(0, measureTextCells(sc.char));
-  }
-  return width;
+  const text = chars.map((sc) => sc.char).join("");
+  return Math.max(0, measureTextCells(text));
 }
 
 /**

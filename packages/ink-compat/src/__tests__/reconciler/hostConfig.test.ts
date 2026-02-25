@@ -6,6 +6,11 @@ import { hostConfig } from "../../reconciler/hostConfig.js";
 import { reconciler } from "../../reconciler/reconciler.js";
 import { createHostContainer } from "../../reconciler/types.js";
 
+/**
+ * Internal reconciler unit tests intentionally bypass the render harness so we can
+ * assert host tree identity and hostConfig mutation semantics directly.
+ */
+
 function commitSync(container: unknown, element: React.ReactNode): void {
   if (typeof reconciler.updateContainerSync === "function") {
     reconciler.updateContainerSync(element, container, null, null);

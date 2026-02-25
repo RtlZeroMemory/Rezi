@@ -19,10 +19,11 @@ export interface TextProps {
   "aria-label"?: string;
   accessibilityLabel?: string;
   children?: React.ReactNode;
-  ref?: React.Ref<InkHostNode>;
 }
 
-type TextComponent = ((props: TextProps) => React.ReactElement) & {
+type TextComponent = React.ForwardRefExoticComponent<
+  TextProps & React.RefAttributes<InkHostNode>
+> & {
   displayName?: string;
   // Downstream test suites often cast Text to a Vitest Mock after vi.mock("ink").
   // Keeping these optional fields on the public type avoids TS2352 assertion failures.
@@ -31,8 +32,8 @@ type TextComponent = ((props: TextProps) => React.ReactElement) & {
   mockReset?: unknown;
 };
 
-export const Text: TextComponent = (props: TextProps): React.ReactElement => {
-  return React.createElement("ink-text", { ...props });
-};
+export const Text = React.forwardRef<InkHostNode, TextProps>((props, ref) => {
+  return React.createElement("ink-text", { ...props, ref });
+}) as unknown as TextComponent;
 
 Text.displayName = "Text";

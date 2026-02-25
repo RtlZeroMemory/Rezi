@@ -494,11 +494,14 @@ export function createBridge(options: BridgeOptions): InkBridge {
         pendingInput = pendingInput.slice(parsed.consumed);
         const { key } = parsed;
         const focusedBeforeInput = focusedId;
+        let focusHandledByTab = false;
 
         if (key.tab && !key.shift) {
           focusNext();
+          focusHandledByTab = true;
         } else if (key.tab && key.shift) {
           focusPrevious();
+          focusHandledByTab = true;
         }
 
         const ctrlC = key.ctrl && parsed.input.toLowerCase() === "c";
@@ -511,7 +514,7 @@ export function createBridge(options: BridgeOptions): InkBridge {
           listener(parsed.input, key);
         }
 
-        if (focusedBeforeInput !== focusedId) {
+        if (focusedBeforeInput !== focusedId && !focusHandledByTab) {
           context.rerender();
         }
       }

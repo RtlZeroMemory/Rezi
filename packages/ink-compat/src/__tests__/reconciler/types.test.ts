@@ -9,6 +9,11 @@ import {
   removeChild,
 } from "../../reconciler/types.js";
 
+/**
+ * Internal reconciler structure tests intentionally exercise low-level helpers
+ * directly (without the higher-level render harness) to catch tree mutation bugs.
+ */
+
 test("appendChild attaches child and sets parent for host node", () => {
   const parent = createHostNode("ink-box", {});
   const child = createHostNode("ink-text", {});
@@ -60,16 +65,15 @@ test("insertBefore inserts in front of target child", () => {
   assert.equal(childB.parent, parent);
 });
 
-test("insertBefore appends when target is missing", () => {
+test("insertBefore throws when target is missing", () => {
   const parent = createHostNode("ink-box", {});
   const childA = createHostNode("ink-text", { id: "a" });
   const childB = createHostNode("ink-text", { id: "b" });
   const missing = createHostNode("ink-text", { id: "missing" });
 
   appendChild(parent, childA);
-  insertBefore(parent, childB, missing);
-
-  assert.deepEqual(parent.children, [childA, childB]);
+  assert.throws(() => insertBefore(parent, childB, missing), /ZRUI_INSERT_BEFORE_TARGET_MISSING/);
+  assert.deepEqual(parent.children, [childA]);
 });
 
 test("appendChild moves existing child without duplication", () => {

@@ -18,7 +18,6 @@ const NAMED_COLORS = {
 };
 
 const GRADIENT_TRACE_ENABLED = process.env.INK_GRADIENT_TRACE === "1";
-let gradientTraceRenderCount = 0;
 const SHIM_PATH =
   typeof __filename === "string"
     ? __filename
@@ -111,15 +110,14 @@ const applyGradient = (text, stops) => {
   if (stops.length < 2) return stripAnsi(text);
 
   const lines = text.split("\n");
-  const maxLength = Math.max(1, ...lines.map((line) => Array.from(stripAnsi(line)).length));
-  const denominator = Math.max(1, maxLength - 1);
-  const sampled = Array.from({ length: maxLength }, (_, index) =>
-    interpolateStops(stops, index / denominator),
-  );
 
   const renderedLines = lines.map((line) => {
     const chars = Array.from(stripAnsi(line));
     if (chars.length === 0) return "";
+    const denominator = Math.max(1, chars.length - 1);
+    const sampled = Array.from({ length: chars.length }, (_, index) =>
+      interpolateStops(stops, index / denominator),
+    );
     let out = "";
     for (let index = 0; index < chars.length; index += 1) {
       const color = sampled[index];
@@ -132,6 +130,7 @@ const applyGradient = (text, stops) => {
 };
 
 const Gradient = ({ colors, children }) => {
+  const traceCountRef = React.useRef(0);
   const parsedStops = (Array.isArray(colors) ? colors : [])
     .map((entry) => parseColor(entry))
     .filter(Boolean);
@@ -139,13 +138,13 @@ const Gradient = ({ colors, children }) => {
   const plainText = extractPlainText(children);
   const gradientText = applyGradient(plainText, parsedStops);
   React.useEffect(() => {
-    if (!GRADIENT_TRACE_ENABLED || gradientTraceRenderCount >= 20) return;
-    if (gradientTraceRenderCount === 0) {
+    if (!GRADIENT_TRACE_ENABLED || traceCountRef.current >= 20) return;
+    if (traceCountRef.current === 0) {
       traceGradient(`module=${SHIM_PATH}`);
     }
-    gradientTraceRenderCount += 1;
+    traceCountRef.current += 1;
     traceGradient(
-      `render#${gradientTraceRenderCount} colors=${colorsLength} parsedStops=${parsedStops.length} textChars=${Array.from(plainText).length} emittedAnsi=${gradientText.includes("\u001b[38;2;")}`,
+      `render#${traceCountRef.current} colors=${colorsLength} parsedStops=${parsedStops.length} textChars=${Array.from(plainText).length} emittedAnsi=${gradientText.includes("\u001b[38;2;")}`,
     );
   }, [colorsLength, parsedStops.length, plainText, gradientText]);
   return React.createElement("ink-text", null, gradientText);

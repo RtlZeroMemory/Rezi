@@ -34,7 +34,7 @@ export function Static<T>(props: StaticProps<T>): React.ReactElement {
     ...itemsToRender.map((item, itemIndex) =>
       React.createElement(
         React.Fragment,
-        { key: index + itemIndex },
+        { key: `${index}:${itemIndex}` },
         renderItem(item, index + itemIndex),
       ),
     ),

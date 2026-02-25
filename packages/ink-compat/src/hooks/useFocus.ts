@@ -14,7 +14,10 @@ function retainRawMode(ctx: InkContextValue): void {
 
 function releaseRawMode(ctx: InkContextValue): void {
   const count = rawModeRefCounts.get(ctx) ?? 0;
-  if (count <= 1) {
+  if (count <= 0) {
+    return;
+  }
+  if (count === 1) {
     rawModeRefCounts.delete(ctx);
     ctx.setRawMode(false);
     return;

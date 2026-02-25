@@ -74,8 +74,7 @@ export function insertBefore(
 
   const idx = parent.children.indexOf(before);
   if (idx === -1) {
-    parent.children.push(child);
-    return;
+    throw new Error("ZRUI_INSERT_BEFORE_TARGET_MISSING");
   }
 
   parent.children.splice(idx, 0, child);
