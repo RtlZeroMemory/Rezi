@@ -76,6 +76,8 @@ static const uint8_t ZR_ANSI16_PALETTE[16][3] = {
 #define ZR_SGR_FG_BRIGHT 90u  /* FG colors 8-15: 90-97 */
 #define ZR_SGR_BG_BASE 40u    /* BG colors 0-7: 40-47 */
 #define ZR_SGR_BG_BRIGHT 100u /* BG colors 8-15: 100-107 */
+#define ZR_SGR_256_INDEX_MASK 0xFFu
+#define ZR_SGR_16_INDEX_MASK 0x0Fu
 
 /* Style attribute bits (v1). */
 #define ZR_STYLE_ATTR_BOLD (1u << 0)
@@ -731,6 +733,26 @@ static bool zr_emit_cursor_desired(zr_sb_t* sb, zr_term_state_t* ts, const zr_cu
   return zr_emit_cup(sb, ts, x, y);
 }
 
+/*
+ * Convert a terminal 16-color index (0..15) into the matching SGR code.
+ *
+ * Why: idx < 8 uses base colors (30-37 / 40-47); idx >= 8 uses bright
+ * colors (90-97 / 100-107). Keeping this mapping in one helper avoids
+ * nested ternaries at call sites.
+ */
+static uint32_t zr_sgr_16color_code(bool foreground, uint8_t idx) {
+  if (foreground) {
+    if (idx < 8u) {
+      return ZR_SGR_FG_BASE + (uint32_t)idx;
+    }
+    return ZR_SGR_FG_BRIGHT + (uint32_t)(idx - 8u);
+  }
+  if (idx < 8u) {
+    return ZR_SGR_BG_BASE + (uint32_t)idx;
+  }
+  return ZR_SGR_BG_BRIGHT + (uint32_t)(idx - 8u);
+}
+
 static bool zr_emit_sgr_color_param(zr_sb_t* sb, zr_style_t desired, const plat_caps_t* caps, bool foreground) {
   if (!sb) {
     return false;
@@ -753,7 +775,8 @@ static bool zr_emit_sgr_color_param(zr_sb_t* sb, zr_style_t desired, const plat_
   }
 
   if (caps->color_mode == PLAT_COLOR_MODE_256) {
-    const uint32_t idx = foreground ? (desired.fg_rgb & 0xFFu) : (desired.bg_rgb & 0xFFu);
+    const uint32_t idx =
+        foreground ? (desired.fg_rgb & ZR_SGR_256_INDEX_MASK) : (desired.bg_rgb & ZR_SGR_256_INDEX_MASK);
     const uint32_t base = foreground ? ZR_SGR_FG_256 : ZR_SGR_BG_256;
     if (!zr_sb_write_u32_dec(sb, base) || !zr_sb_write_u8(sb, (uint8_t)';') ||
         !zr_sb_write_u32_dec(sb, ZR_SGR_COLOR_MODE_256) || !zr_sb_write_u8(sb, (uint8_t)';') ||
@@ -764,10 +787,8 @@ static bool zr_emit_sgr_color_param(zr_sb_t* sb, zr_style_t desired, const plat_
   }
 
   /* 16-color (or unknown degraded to 16): desired.fg_rgb/bg_rgb are indices 0..15. */
-  const uint8_t idx = (uint8_t)((foreground ? desired.fg_rgb : desired.bg_rgb) & 0x0Fu);
-  const uint32_t code =
-      foreground ? ((idx < 8u) ? (ZR_SGR_FG_BASE + (uint32_t)idx) : (ZR_SGR_FG_BRIGHT + (uint32_t)(idx - 8u)))
-                 : ((idx < 8u) ? (ZR_SGR_BG_BASE + (uint32_t)idx) : (ZR_SGR_BG_BRIGHT + (uint32_t)(idx - 8u)));
+  const uint8_t idx = (uint8_t)((foreground ? desired.fg_rgb : desired.bg_rgb) & ZR_SGR_16_INDEX_MASK);
+  const uint32_t code = zr_sgr_16color_code(foreground, idx);
   return zr_sb_write_u32_dec(sb, code);
 }
 
@@ -1187,6 +1208,12 @@ static void zr_scroll_plan_consider_run(zr_scroll_plan_t* best, uint32_t cols, u
     return;
   }
 
+  /*
+    Ranking rationale:
+    - moved_lines dominates because each moved row avoids repainting `cols` cells.
+    - delta is tracked separately so ties can prefer smaller terminal scroll moves.
+    - run_len feeds moved_lines directly for this contiguous-match candidate.
+  */
   zr_scroll_plan_t cand;
   memset(&cand, 0, sizeof(cand));
   cand.active = true;
@@ -1353,6 +1380,7 @@ static bool zr_emit_scroll_op(zr_sb_t* sb, zr_term_state_t* ts, bool up, uint32_
   if (!zr_diff_write_csi(sb)) {
     return false;
   }
+  /* CSI Ps S scrolls up; CSI Ps T scrolls down (within active margins). */
   if (!zr_sb_write_u32_dec(sb, lines) || !zr_sb_write_u8(sb, up ? (uint8_t)'S' : (uint8_t)'T')) {
     return false;
   }
@@ -1627,6 +1655,12 @@ static zr_result_t zr_diff_render_damage_coalesced_scan(zr_diff_ctx_t* ctx) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
 
+  /*
+    Per-row span invariant:
+    - have_span==false means no pending render range for the current row.
+    - [span_start, span_end] is the merged union of seen rect segments.
+    - Non-overlapping segments force a flush to preserve left-to-right order.
+  */
   for (uint32_t y = 0u; y < ctx->next->rows; y++) {
     uint32_t span_start = 0u;
     uint32_t span_end = 0u;
@@ -1811,10 +1845,16 @@ static zr_result_t zr_diff_render_damage_coalesced_indexed(zr_diff_ctx_t* ctx) {
   }
 
   const uint32_t rows = ctx->next->rows;
+  /*
+    Reuse prev_row_hashes as per-row head indices for this frame's damage lists.
+    Why: Indexed coalescing needs row scratch memory but the present path stays
+    allocation-free by borrowing preallocated row-cache storage.
+  */
   uint64_t* row_heads = ctx->prev_row_hashes;
   zr_diff_row_heads_reset(row_heads, rows);
   zr_diff_indexed_build_row_heads(ctx, row_heads, rows);
 
+  /* Active list links are stored intrusively in rect.y0 via zr_diff_rect_link_*(). */
   zr_diff_active_rects_t active;
   zr_diff_active_rects_init(&active);
 
@@ -2008,6 +2048,7 @@ static zr_result_t zr_diff_render_sweep_rows(zr_diff_ctx_t* ctx, uint32_t skip_t
  */
 static zr_result_t zr_diff_try_scroll_opt(zr_diff_ctx_t* ctx, bool* out_skip, uint32_t* out_skip_top,
                                           uint32_t* out_skip_bottom) {
+  /* --- Validate + initialize defaults --- */
   if (!ctx || !out_skip || !out_skip_top || !out_skip_bottom) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
@@ -2017,6 +2058,11 @@ static zr_result_t zr_diff_try_scroll_opt(zr_diff_ctx_t* ctx, bool* out_skip, ui
   *out_skip_bottom = 0u;
 
   const uint32_t dirty_row_count = ctx->has_row_cache ? ctx->dirty_row_count : ZR_DIFF_DIRTY_ROW_COUNT_UNKNOWN;
+  /*
+    plan.{top,bottom}: inclusive scroll region rows
+    plan.up: true for scroll-up (content moves toward row 0), false for down
+    plan.lines: number of rows shifted inside [top,bottom]
+  */
   const zr_scroll_plan_t plan = zr_diff_detect_scroll_fullwidth(ctx->prev, ctx->next, ctx->prev_row_hashes,
                                                                 ctx->next_row_hashes, dirty_row_count);
   if (!plan.active) {
@@ -2024,6 +2070,7 @@ static zr_result_t zr_diff_try_scroll_opt(zr_diff_ctx_t* ctx, bool* out_skip, ui
   }
   ctx->stats.scroll_opt_hit = 1u;
 
+  /* --- Emit scroll-region operations (DECSTBM + scroll + reset) --- */
   if (!zr_emit_decstbm(&ctx->sb, &ctx->ts, plan.top, plan.bottom)) {
     return ZR_ERR_LIMIT;
   }
@@ -2034,6 +2081,7 @@ static zr_result_t zr_diff_try_scroll_opt(zr_diff_ctx_t* ctx, bool* out_skip, ui
     return ZR_ERR_LIMIT;
   }
 
+  /* --- Redraw only newly exposed rows after scroll --- */
   /*
     After the terminal scroll, only the newly exposed lines need redraw.
     Redraw the full width to avoid relying on terminal-inserted blank style.
@@ -2060,6 +2108,7 @@ static zr_result_t zr_diff_try_scroll_opt(zr_diff_ctx_t* ctx, bool* out_skip, ui
     }
   }
 
+  /* --- Skip now-synchronized region in normal row sweep --- */
   *out_skip = true;
   *out_skip_top = plan.top;
   *out_skip_bottom = plan.bottom;

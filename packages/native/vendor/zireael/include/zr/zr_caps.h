@@ -18,6 +18,7 @@
   Contract:
     - Fields must be non-zero unless explicitly documented otherwise.
     - Validation rejects invalid ranges and inconsistent budgets.
+    - Wrappers should run zr_limits_validate() before engine_create().
 */
 typedef struct zr_limits_t {
   /* Arena budgets (bytes). */
@@ -35,7 +36,7 @@ typedef struct zr_limits_t {
   uint32_t dl_max_clip_depth;
   uint32_t dl_max_text_run_segments;
 
-  /* Diff renderer cap. */
+  /* Diff renderer cap: maximum coalesced damage rectangles per frame. */
   uint32_t diff_max_damage_rects;
 } zr_limits_t;
 

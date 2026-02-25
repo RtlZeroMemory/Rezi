@@ -11,18 +11,11 @@
 /*
   Number of elements in a fixed-size array.
 
-  On GCC/Clang: rejects pointer arguments at compile time via
-  __builtin_types_compatible_p.
-  On MSVC (non-clang-cl): no pointer-decay guard is available in C mode,
-  so callers must ensure a true array is passed.
+  Rejects pointer arguments at compile time.
 */
-#if defined(_MSC_VER) && !defined(__clang__)
-#define ZR_ARRAYLEN(arr) (sizeof(arr) / sizeof((arr)[0]))
-#else
 #define ZR_ARRAYLEN(arr)                                                                                               \
   ((sizeof(arr) / sizeof((arr)[0])) +                                                                                  \
    0u * sizeof(char[1 - 2 * !!__builtin_types_compatible_p(__typeof__(arr), __typeof__(&(arr)[0]))]))
-#endif
 
 /*
   Generic min/max helpers.

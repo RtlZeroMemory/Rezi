@@ -85,6 +85,7 @@ static zr_result_t zr_engine_present_append_images(zr_engine_t* e, size_t* inout
   }
 
   zr_sb_init(&sb, e->out_buf, e->out_cap);
+  /* Continue appending into the already-rendered diff payload. */
   sb.len = *inout_out_len;
 
   memset(&image_ctx, 0, sizeof(image_ctx));
@@ -138,7 +139,8 @@ static void zr_engine_present_write_u32_dec(uint8_t* dst, size_t len, uint32_t v
 static zr_result_t zr_engine_present_append_cursor_restore(zr_engine_t* e, size_t* inout_out_len,
                                                            const zr_term_state_t* final_ts) {
   enum {
-    ZR_CUP_FIXED_BYTES = 4u, /* ESC '[' + ';' + 'H' */
+    /* ESC '[' + ';' + 'H' around decimal row/col parameters. */
+    ZR_CUP_FIXED_BYTES = 4u,
   };
 
   uint32_t row_1based = 0u;
@@ -158,6 +160,7 @@ static zr_result_t zr_engine_present_append_cursor_restore(zr_engine_t* e, size_
   if ((final_ts->flags & ZR_TERM_STATE_CURSOR_POS_VALID) == 0u) {
     return ZR_OK;
   }
+  /* CUP is 1-based in VT/ANSI, while framebuffer coordinates are 0-based. */
   if (!zr_checked_add_u32(final_ts->cursor_y, 1u, &row_1based) ||
       !zr_checked_add_u32(final_ts->cursor_x, 1u, &col_1based)) {
     return ZR_ERR_LIMIT;
@@ -190,6 +193,7 @@ static void zr_engine_present_wrap_sync(zr_engine_t* e, size_t* inout_out_len, z
     return;
   }
   if (e->caps.supports_sync_update != 0u) {
+    /* Wrap output in DEC synchronized-update delimiters (CSI ? 2026 h/l). */
     const size_t prefix_len = sizeof(ZR_SYNC_BEGIN) - 1u;
     const size_t suffix_len = sizeof(ZR_SYNC_END) - 1u;
     const size_t overhead = prefix_len + suffix_len;
@@ -206,10 +210,12 @@ static void zr_engine_present_wrap_sync(zr_engine_t* e, size_t* inout_out_len, z
 static zr_result_t zr_engine_present_render(zr_engine_t* e, const zr_fb_t* present_fb, size_t* out_len,
                                             zr_term_state_t* final_ts, zr_diff_stats_t* stats,
                                             zr_image_state_t* out_image_state_stage) {
+  /* --- Validate inputs --- */
   if (!e || !present_fb || !out_len || !final_ts || !stats || !out_image_state_stage) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
 
+  /* --- Configure diff scratch buffers --- */
   zr_diff_scratch_t scratch;
   memset(&scratch, 0, sizeof(scratch));
   scratch.prev_row_hashes = e->diff_prev_row_hashes;
@@ -218,6 +224,7 @@ static zr_result_t zr_engine_present_render(zr_engine_t* e, const zr_fb_t* prese
   scratch.row_cap = e->diff_row_cap;
   scratch.prev_hashes_valid = e->diff_prev_hashes_valid;
 
+  /* --- Render framebuffer diff into out_buf --- */
   zr_result_t rc =
       zr_diff_render_ex(&e->fb_prev, present_fb, &e->caps, &e->term_state, &e->cursor_desired, &e->cfg_runtime.limits,
                         e->damage_rects, e->damage_rect_cap, &scratch, e->cfg_runtime.enable_scroll_optimizations,
@@ -226,6 +233,7 @@ static zr_result_t zr_engine_present_render(zr_engine_t* e, const zr_fb_t* prese
     return rc;
   }
 
+  /* --- Append optional image sideband bytes --- */
   *out_image_state_stage = e->image_state;
   const size_t out_len_before_images = *out_len;
   rc = zr_engine_present_append_images(e, out_len, out_image_state_stage);
@@ -238,8 +246,11 @@ static zr_result_t zr_engine_present_render(zr_engine_t* e, const zr_fb_t* prese
       return rc;
     }
   }
+
+  /* --- Optionally wrap in synchronized-update delimiters --- */
   zr_engine_present_wrap_sync(e, out_len, stats);
 
+  /* --- Final safety clamp for plat_write_output(int32_t) --- */
   if (*out_len > (size_t)INT32_MAX) {
     *out_len = 0u;
     memset(final_ts, 0, sizeof(*final_ts));
@@ -330,6 +341,11 @@ static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_
 
   const uint64_t frame_id_presented = zr_engine_trace_frame_id(e);
 
+  /* --- Swap framebuffers to keep prev/next/stage invariants --- */
+  /*
+    presented_stage==true: fb_stage was rendered (overlay path), so commit it.
+    presented_stage==false: fb_next was rendered, then keep stage synchronized.
+  */
   if (presented_stage) {
     zr_engine_fb_swap(&e->fb_prev, &e->fb_stage);
   } else {
@@ -340,6 +356,7 @@ static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_
   e->term_state = *final_ts;
   e->image_state = *image_state_stage;
 
+  /* --- Update public metrics snapshot --- */
   e->metrics.frame_index++;
   e->metrics.bytes_emitted_total += (uint64_t)out_len;
   e->metrics.bytes_emitted_last_frame = (uint32_t)out_len;
@@ -354,13 +371,14 @@ static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_
   e->metrics._pad2[1] = 0u;
   e->metrics._pad2[2] = 0u;
 
+  /* --- Update cumulative diff telemetry --- */
   e->diff_sweep_frames_total += (uint64_t)stats->path_sweep_used;
   e->diff_damage_frames_total += (uint64_t)stats->path_damage_used;
   e->diff_scroll_attempts_total += (uint64_t)stats->scroll_opt_attempted;
   e->diff_scroll_hits_total += (uint64_t)stats->scroll_opt_hit;
   e->diff_collision_guard_hits_total += (uint64_t)stats->collision_guard_hits;
 
-  /* Update debug trace frame ID and record frame data. */
+  /* --- Emit debug trace records --- */
   if (e->debug_trace) {
     zr_engine_trace_frame(e, frame_id_presented, out_len, stats);
     zr_engine_trace_diff_telemetry(e, frame_id_presented, stats);

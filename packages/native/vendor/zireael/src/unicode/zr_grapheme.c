@@ -155,6 +155,11 @@ static void zr_grapheme_state_init(zr_grapheme_break_state_t* state, const zr_gr
     return;
   }
 
+  /*
+    last_non_extend_is_ep: tracks whether the last non-Extend scalar was EP.
+    prev_zwj_after_ep: true when previous scalar is ZWJ preceded by EP.
+    ri_run: length of trailing RI run for GB12/GB13 odd/even pairing.
+  */
   state->prev_class = first->gcb_class;
   state->ri_run = (first->gcb_class == ZR_GCB_REGIONAL_INDICATOR) ? 1u : 0u;
   state->last_non_extend_is_ep = (first->gcb_class != ZR_GCB_EXTEND) ? first->is_extended_pictographic : false;
@@ -167,12 +172,14 @@ static void zr_grapheme_state_advance(zr_grapheme_break_state_t* state, const zr
     return;
   }
 
+  /* Maintain RI run length so GB12/GB13 can break every second flag scalar. */
   if (cp->gcb_class == ZR_GCB_REGIONAL_INDICATOR) {
     state->ri_run++;
   } else {
     state->ri_run = 0u;
   }
 
+  /* Record the GB11 pattern: Extended_Pictographic ... ZWJ before next scalar. */
   if (cp->gcb_class == ZR_GCB_ZWJ && state->last_non_extend_is_ep) {
     state->prev_zwj_after_ep = true;
   } else if (cp->gcb_class != ZR_GCB_EXTEND) {

@@ -77,6 +77,18 @@ enum {
   ZR_STYLE_ATTR_ALL_MASK = (1u << 8u) - 1u,
 };
 
+/*
+  Canonical raw-mode masks used by plat_enter_raw().
+
+  Why: Keeping these grouped avoids repeated inline bit algebra and makes the
+  "clear input processing / clear local line discipline / keep CS8" policy
+  obvious at a glance.
+*/
+static const tcflag_t ZR_POSIX_RAW_IFLAG_CLEAR = (tcflag_t)(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+static const tcflag_t ZR_POSIX_RAW_OFLAG_CLEAR = (tcflag_t)(OPOST);
+static const tcflag_t ZR_POSIX_RAW_CFLAG_SET = (tcflag_t)(CS8);
+static const tcflag_t ZR_POSIX_RAW_LFLAG_CLEAR = (tcflag_t)(ECHO | ICANON | IEXTEN | ISIG);
+
 static _Atomic int g_posix_wake_fd_slots[ZR_POSIX_SIGWINCH_MAX_WAKE_FDS];
 static _Atomic int g_posix_wake_overflow_slots[ZR_POSIX_SIGWINCH_MAX_WAKE_FDS];
 static _Atomic int g_posix_test_force_sigwinch_overflow = 0;
@@ -156,6 +168,7 @@ static bool zr_posix_wake_slot_register_fd(int wake_fd, int* out_slot_index) {
       return true;
     }
     if (expected == encoded) {
+      /* Re-registering the same fd is valid; also clear stale overflow mark. */
       atomic_store_explicit(&g_posix_wake_overflow_slots[i], 0, memory_order_release);
       if (out_slot_index) {
         *out_slot_index = (int)i;
@@ -293,6 +306,17 @@ static bool zr_posix_str_has_any_ci(const char* s, const char* const* needles, s
   return false;
 }
 
+/* Shared modern-terminal environment markers used by capability probes. */
+static const char* const ZR_POSIX_MODERN_TERM_VARS_CORE[] = {
+    "KITTY_WINDOW_ID", "WEZTERM_PANE",    "WEZTERM_EXECUTABLE", "GHOSTTY_RESOURCES_DIR",
+    "VTE_VERSION",     "KONSOLE_VERSION", "WT_SESSION"};
+static const char* const ZR_POSIX_MODERN_TERM_VARS_FOCUS[] = {
+    "KITTY_WINDOW_ID", "WEZTERM_PANE", "WEZTERM_EXECUTABLE", "GHOSTTY_RESOURCES_DIR", "VTE_VERSION", "WT_SESSION"};
+static const char* const ZR_POSIX_MODERN_TERM_VARS_UNDERLINE[] = {"KITTY_WINDOW_ID", "WEZTERM_PANE",
+                                                                  "WEZTERM_EXECUTABLE", "GHOSTTY_RESOURCES_DIR"};
+static const char* const ZR_POSIX_MODERN_TERM_VARS_SYNC_OSC52[] = {"KITTY_WINDOW_ID", "WEZTERM_PANE",
+                                                                   "WEZTERM_EXECUTABLE"};
+
 static zr_terminal_id_t zr_posix_terminal_id_from_term_program(const char* term_program) {
   if (!term_program) {
     return ZR_TERM_UNKNOWN;
@@ -352,6 +376,12 @@ static zr_terminal_id_t zr_posix_terminal_id_from_term(const char* term) {
   return ZR_TERM_UNKNOWN;
 }
 
+/*
+  Parse environment overrides in a strict, table-driven way.
+
+  Why: Capability detection must be deterministic. Accept only known boolean
+  spellings and fully-valid unsigned integers, otherwise ignore the override.
+*/
 static bool zr_posix_env_bool_override(const char* key, uint8_t* out_value) {
   if (!key || !out_value) {
     return false;
@@ -444,16 +474,20 @@ static bool zr_posix_term_indicates_truecolor(const char* term) {
 }
 
 static bool zr_posix_detect_truecolor_env(void) {
-  static const char* kModernTermVars[] = {
-      "KITTY_WINDOW_ID", "WEZTERM_PANE",    "WEZTERM_EXECUTABLE", "GHOSTTY_RESOURCES_DIR",
-      "VTE_VERSION",     "KONSOLE_VERSION", "WT_SESSION"};
+  /*
+    Detection order is strongest-signal first:
+    1) COLORTERM explicit markers
+    2) modern terminal env markers (known emulators/muxers)
+    3) TERM_PROGRAM identity
+    4) TERM fallback heuristics
+  */
   const char* colorterm = zr_posix_getenv_nonempty("COLORTERM");
   if (zr_posix_str_contains_ci(colorterm, "truecolor") || zr_posix_str_contains_ci(colorterm, "24bit") ||
       zr_posix_str_contains_ci(colorterm, "24-bit") || zr_posix_str_contains_ci(colorterm, "rgb")) {
     return true;
   }
 
-  if (zr_posix_env_has_any_nonempty(kModernTermVars, ZR_ARRAYLEN(kModernTermVars))) {
+  if (zr_posix_env_has_any_nonempty(ZR_POSIX_MODERN_TERM_VARS_CORE, ZR_ARRAYLEN(ZR_POSIX_MODERN_TERM_VARS_CORE))) {
     return true;
   }
 
@@ -516,16 +550,16 @@ static uint8_t zr_posix_detect_bracketed_paste(void) {
 }
 
 static uint8_t zr_posix_detect_focus_events(void) {
-  static const char* kModernTermVars[] = {"KITTY_WINDOW_ID",       "WEZTERM_PANE", "WEZTERM_EXECUTABLE",
-                                          "GHOSTTY_RESOURCES_DIR", "VTE_VERSION",  "WT_SESSION"};
   if (zr_posix_term_is_dumb()) {
     return 0u;
   }
 
-  if (zr_posix_env_has_any_nonempty(kModernTermVars, ZR_ARRAYLEN(kModernTermVars))) {
+  /* Environment markers are strongest signals for modern focus protocol support. */
+  if (zr_posix_env_has_any_nonempty(ZR_POSIX_MODERN_TERM_VARS_FOCUS, ZR_ARRAYLEN(ZR_POSIX_MODERN_TERM_VARS_FOCUS))) {
     return 1u;
   }
 
+  /* Fallback to conservative TERM allowlist to avoid false positives. */
   const char* term = zr_posix_getenv_nonempty("TERM");
   static const char* kFocusTerms[] = {"xterm",   "screen", "tmux", "rxvt", "alacritty", "kitty",
                                       "wezterm", "foot",   "st",   "rio",  "ghostty"};
@@ -533,13 +567,13 @@ static uint8_t zr_posix_detect_focus_events(void) {
 }
 
 static uint8_t zr_posix_detect_underline_styles(void) {
-  static const char* kModernTermVars[] = {"KITTY_WINDOW_ID", "WEZTERM_PANE", "WEZTERM_EXECUTABLE",
-                                          "GHOSTTY_RESOURCES_DIR"};
   if (zr_posix_term_is_dumb()) {
     return 0u;
   }
 
-  if (zr_posix_env_has_any_nonempty(kModernTermVars, ZR_ARRAYLEN(kModernTermVars))) {
+  /* Prefer explicit modern-terminal markers before TERM heuristics. */
+  if (zr_posix_env_has_any_nonempty(ZR_POSIX_MODERN_TERM_VARS_UNDERLINE,
+                                    ZR_ARRAYLEN(ZR_POSIX_MODERN_TERM_VARS_UNDERLINE))) {
     return 1u;
   }
 
@@ -549,13 +583,12 @@ static uint8_t zr_posix_detect_underline_styles(void) {
 }
 
 static uint8_t zr_posix_detect_colored_underlines(void) {
-  static const char* kModernTermVars[] = {"KITTY_WINDOW_ID", "WEZTERM_PANE", "WEZTERM_EXECUTABLE",
-                                          "GHOSTTY_RESOURCES_DIR"};
   if (zr_posix_term_is_dumb()) {
     return 0u;
   }
 
-  if (zr_posix_env_has_any_nonempty(kModernTermVars, ZR_ARRAYLEN(kModernTermVars))) {
+  if (zr_posix_env_has_any_nonempty(ZR_POSIX_MODERN_TERM_VARS_UNDERLINE,
+                                    ZR_ARRAYLEN(ZR_POSIX_MODERN_TERM_VARS_UNDERLINE))) {
     return 1u;
   }
 
@@ -565,14 +598,11 @@ static uint8_t zr_posix_detect_colored_underlines(void) {
 }
 
 static uint8_t zr_posix_detect_hyperlinks(void) {
-  static const char* kModernTermVars[] = {
-      "KITTY_WINDOW_ID", "WEZTERM_PANE",    "WEZTERM_EXECUTABLE", "GHOSTTY_RESOURCES_DIR",
-      "VTE_VERSION",     "KONSOLE_VERSION", "WT_SESSION"};
   if (zr_posix_term_is_dumb()) {
     return 0u;
   }
 
-  if (zr_posix_env_has_any_nonempty(kModernTermVars, ZR_ARRAYLEN(kModernTermVars))) {
+  if (zr_posix_env_has_any_nonempty(ZR_POSIX_MODERN_TERM_VARS_CORE, ZR_ARRAYLEN(ZR_POSIX_MODERN_TERM_VARS_CORE))) {
     return 1u;
   }
 
@@ -619,23 +649,23 @@ static uint32_t zr_posix_detect_sgr_attrs_supported(void) {
 }
 
 static uint8_t zr_posix_detect_osc52(void) {
+  static const char* kOsc52Programs[] = {"iTerm.app"};
+  static const char* kOsc52Terms[] = {"xterm", "screen", "tmux", "rxvt", "kitty", "wezterm"};
   if (zr_posix_term_is_dumb()) {
     return 0u;
   }
 
-  if (zr_posix_getenv_nonempty("KITTY_WINDOW_ID")) {
+  if (zr_posix_env_has_any_nonempty(ZR_POSIX_MODERN_TERM_VARS_SYNC_OSC52,
+                                    ZR_ARRAYLEN(ZR_POSIX_MODERN_TERM_VARS_SYNC_OSC52))) {
     return 1u;
   }
-  if (zr_posix_getenv_nonempty("WEZTERM_PANE") || zr_posix_getenv_nonempty("WEZTERM_EXECUTABLE")) {
-    return 1u;
-  }
+
   const char* term_program = zr_posix_getenv_nonempty("TERM_PROGRAM");
-  if (term_program && strcmp(term_program, "iTerm.app") == 0) {
+  if (zr_posix_str_equals_any(term_program, kOsc52Programs, ZR_ARRAYLEN(kOsc52Programs))) {
     return 1u;
   }
 
   const char* term = zr_posix_getenv_nonempty("TERM");
-  static const char* kOsc52Terms[] = {"xterm", "screen", "tmux", "rxvt", "kitty", "wezterm"};
   return zr_posix_str_has_any(term, kOsc52Terms, ZR_ARRAYLEN(kOsc52Terms)) ? 1u : 0u;
 }
 
@@ -644,27 +674,24 @@ static uint8_t zr_posix_detect_sync_update(void) {
     Synchronized output (DEC private mode ?2026) is not universally supported.
     Use a conservative allowlist based on well-known environment markers.
   */
+  static const char* kSyncPrograms[] = {"iTerm.app", "Rio", "rio"};
+  static const char* kSyncTerms[] = {"kitty", "wezterm", "rio"};
   if (zr_posix_term_is_dumb()) {
     return 0u;
   }
 
-  if (zr_posix_getenv_nonempty("KITTY_WINDOW_ID")) {
-    return 1u;
-  }
-  if (zr_posix_getenv_nonempty("WEZTERM_PANE") || zr_posix_getenv_nonempty("WEZTERM_EXECUTABLE")) {
+  if (zr_posix_env_has_any_nonempty(ZR_POSIX_MODERN_TERM_VARS_SYNC_OSC52,
+                                    ZR_ARRAYLEN(ZR_POSIX_MODERN_TERM_VARS_SYNC_OSC52))) {
     return 1u;
   }
 
   const char* term_program = zr_posix_getenv_nonempty("TERM_PROGRAM");
-  if (term_program && strcmp(term_program, "iTerm.app") == 0) {
-    return 1u;
-  }
-  if (term_program && (strcmp(term_program, "Rio") == 0 || strcmp(term_program, "rio") == 0)) {
+  if (zr_posix_str_equals_any(term_program, kSyncPrograms, ZR_ARRAYLEN(kSyncPrograms))) {
     return 1u;
   }
 
   const char* term = zr_posix_getenv_nonempty("TERM");
-  if (term && (strstr(term, "kitty") || strstr(term, "wezterm") || strstr(term, "rio"))) {
+  if (zr_posix_str_has_any(term, kSyncTerms, ZR_ARRAYLEN(kSyncTerms))) {
     return 1u;
   }
 
@@ -1388,10 +1415,15 @@ zr_result_t plat_enter_raw(plat_t* plat) {
   if (!plat) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
+  /* Idempotent entry: callers can safely retry raw-mode transitions. */
   if (plat->raw_active) {
     return ZR_OK;
   }
   if (plat->explicit_pipe_mode) {
+    /*
+      Pipe mode has no terminal modes to mutate, but raw_active still tracks
+      lifecycle so plat_leave_raw() remains symmetric for callers.
+    */
     plat->raw_active = true;
     return ZR_OK;
   }
@@ -1412,10 +1444,10 @@ zr_result_t plat_enter_raw(plat_t* plat) {
   }
 
   struct termios raw = plat->termios_saved;
-  raw.c_iflag &= (tcflag_t) ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-  raw.c_oflag &= (tcflag_t) ~(OPOST);
-  raw.c_cflag |= (tcflag_t)(CS8);
-  raw.c_lflag &= (tcflag_t) ~(ECHO | ICANON | IEXTEN | ISIG);
+  raw.c_iflag &= (tcflag_t)~ZR_POSIX_RAW_IFLAG_CLEAR;
+  raw.c_oflag &= (tcflag_t)~ZR_POSIX_RAW_OFLAG_CLEAR;
+  raw.c_cflag |= ZR_POSIX_RAW_CFLAG_SET;
+  raw.c_lflag &= (tcflag_t)~ZR_POSIX_RAW_LFLAG_CLEAR;
   raw.c_cc[VMIN] = 0;
   raw.c_cc[VTIME] = 0;
 
@@ -1613,6 +1645,10 @@ int32_t plat_wait(plat_t* plat, int32_t timeout_ms) {
   fds[1].revents = 0;
 
   for (;;) {
+    /*
+      Check overflow slot before poll to catch races where a wake signal
+      couldn't enqueue a byte because the self-pipe was already full.
+    */
     if (timeout_ms != 0 && zr_posix_wake_slot_consume_overflow(plat)) {
       return 1;
     }
@@ -1628,6 +1664,7 @@ int32_t plat_wait(plat_t* plat, int32_t timeout_ms) {
     fds[1].revents = 0;
     int rc = poll(fds, 2u, poll_timeout);
     if (rc == 0) {
+      /* Poll timeout can race with overflow wake bookkeeping, re-check once. */
       if (zr_posix_wake_slot_consume_overflow(plat)) {
         return 1;
       }

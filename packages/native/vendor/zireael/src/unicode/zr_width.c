@@ -77,6 +77,38 @@ static zr_width_keycap_state_t zr_width_keycap_next(zr_width_keycap_state_t stat
   return ZR_WIDTH_KEYCAP_STATE_INVALID;
 }
 
+/*
+ * Decide whether a grapheme should follow emoji width policy.
+ *
+ * Signals considered (in descending strength):
+ *   1) keycap grammar match ([0-9#*] FE0F? 20E3)
+ *   2) Emoji_Presentation codepoint in cluster
+ *   3) Extended_Pictographic with VS16 or ZWJ
+ *   4) FE0E can force text presentation for text-default pictographs
+ */
+static bool zr_width_cluster_has_emoji_presentation(bool keycap_emoji, bool has_emoji_presentation,
+                                                    bool has_extended_pictographic, bool has_vs16, bool has_zwj,
+                                                    bool has_vs15) {
+  bool has_emoji = false;
+  if (keycap_emoji) {
+    has_emoji = true;
+  } else if (has_emoji_presentation) {
+    has_emoji = true;
+  } else if (has_extended_pictographic && (has_vs16 || has_zwj)) {
+    has_emoji = true;
+  }
+
+  /*
+    FE0E (VS15) requests text presentation for text-default emoji-capable
+    scalars. Respect it unless stronger emoji signals are present (VS16,
+    Emoji_Presentation code points, or keycap grammar match).
+  */
+  if (has_vs15 && !has_vs16 && !has_emoji_presentation && !keycap_emoji) {
+    return false;
+  }
+  return has_emoji;
+}
+
 /* Return terminal column width of a single codepoint (0, 1, or 2). */
 uint8_t zr_width_codepoint(uint32_t scalar) {
   if (zr_width_is_ascii_control(scalar)) {
@@ -160,22 +192,8 @@ uint8_t zr_width_grapheme_utf8(const uint8_t* bytes, size_t len, zr_width_policy
   }
 
   const bool keycap_emoji = (keycap_state == ZR_WIDTH_KEYCAP_STATE_MATCHED);
-  bool has_emoji = false;
-  if (keycap_emoji) {
-    has_emoji = true;
-  } else if (has_emoji_presentation) {
-    has_emoji = true;
-  } else if (has_extended_pictographic && (has_vs16 || has_zwj)) {
-    has_emoji = true;
-  }
-
-  /*
-    FE0E (text presentation) should suppress "emoji-min-width" coercion for
-    text-default pictographs when no stronger emoji signal is present.
-  */
-  if (has_vs15 && !has_vs16 && !has_emoji_presentation && !keycap_emoji) {
-    has_emoji = false;
-  }
+  const bool has_emoji = zr_width_cluster_has_emoji_presentation(
+      keycap_emoji, has_emoji_presentation, has_extended_pictographic, has_vs16, has_zwj, has_vs15);
 
   uint8_t width = has_emoji ? width_emoji_norm : width_text;
   if (has_emoji) {

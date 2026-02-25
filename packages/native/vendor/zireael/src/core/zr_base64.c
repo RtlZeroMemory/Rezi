@@ -14,6 +14,14 @@
 enum {
   ZR_BASE64_INPUT_GROUP = 3u,
   ZR_BASE64_OUTPUT_GROUP = 4u,
+  ZR_BASE64_INDEX0_SHIFT = 2u,
+  ZR_BASE64_INDEX1_LEFT_SHIFT = 4u,
+  ZR_BASE64_INDEX1_RIGHT_SHIFT = 4u,
+  ZR_BASE64_INDEX2_LEFT_SHIFT = 2u,
+  ZR_BASE64_INDEX2_RIGHT_SHIFT = 6u,
+  ZR_BASE64_MASK_LOW_2 = 0x03u,
+  ZR_BASE64_MASK_LOW_4 = 0x0Fu,
+  ZR_BASE64_MASK_LOW_6 = 0x3Fu,
 };
 
 static const uint8_t ZR_BASE64_ALPHABET[64] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -46,12 +54,19 @@ size_t zr_base64_encoded_size(size_t in_len, uint8_t* out_overflow) {
 }
 
 static void zr_base64_encode_triplet(const uint8_t src[3], uint8_t out[4]) {
-  const uint8_t idx0 = (uint8_t)(src[0] >> 2u);
-  const uint8_t idx1_hi = (uint8_t)((src[0] & 0x03u) << 4u);
-  const uint8_t idx1_lo = (uint8_t)(src[1] >> 4u);
-  const uint8_t idx2_hi = (uint8_t)((src[1] & 0x0Fu) << 2u);
-  const uint8_t idx2_lo = (uint8_t)(src[2] >> 6u);
-  const uint8_t idx3 = (uint8_t)(src[2] & 0x3Fu);
+  /*
+    RFC4648 24-bit group layout:
+      src[0]: aaaaaabb
+      src[1]: bbbbcccc
+      src[2]: ccdddddd
+    -> indices: aaaaaa | bbbbbb | cccccc | dddddd
+  */
+  const uint8_t idx0 = (uint8_t)(src[0] >> ZR_BASE64_INDEX0_SHIFT);
+  const uint8_t idx1_hi = (uint8_t)((src[0] & ZR_BASE64_MASK_LOW_2) << ZR_BASE64_INDEX1_LEFT_SHIFT);
+  const uint8_t idx1_lo = (uint8_t)(src[1] >> ZR_BASE64_INDEX1_RIGHT_SHIFT);
+  const uint8_t idx2_hi = (uint8_t)((src[1] & ZR_BASE64_MASK_LOW_4) << ZR_BASE64_INDEX2_LEFT_SHIFT);
+  const uint8_t idx2_lo = (uint8_t)(src[2] >> ZR_BASE64_INDEX2_RIGHT_SHIFT);
+  const uint8_t idx3 = (uint8_t)(src[2] & ZR_BASE64_MASK_LOW_6);
 
   out[0] = ZR_BASE64_ALPHABET[idx0];
   out[1] = ZR_BASE64_ALPHABET[(uint8_t)(idx1_hi | idx1_lo)];

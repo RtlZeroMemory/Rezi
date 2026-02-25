@@ -17,7 +17,10 @@ enum {
   ZR_WRAP_SCALAR_CR = 0x0Du,
 };
 
-#define ZR_WRAP_NO_BREAK ((size_t)(-1))
+/*
+  Sentinel for "no whitespace break candidate has been recorded yet."
+*/
+#define ZR_WRAP_WS_BREAK_NONE ((size_t)(-1))
 
 static bool zr_wrap_is_space_grapheme(const uint8_t* bytes, size_t len) {
   zr_utf8_decode_result_t d = zr_utf8_decode_one(bytes, len);
@@ -139,7 +142,7 @@ zr_result_t zr_wrap_greedy_utf8(const uint8_t* bytes, size_t len, uint32_t max_c
   size_t line_start = 0u;
   uint32_t col = 0u;
 
-  size_t last_ws_break_off = ZR_WRAP_NO_BREAK;
+  size_t last_ws_break_off = ZR_WRAP_WS_BREAK_NONE;
 
   zr_grapheme_t g;
   while (zr_grapheme_next(&it, &g)) {
@@ -149,7 +152,7 @@ zr_result_t zr_wrap_greedy_utf8(const uint8_t* bytes, size_t len, uint32_t max_c
     if (zr_wrap_is_hard_break_grapheme(gb, gl)) {
       line_start = g.offset + g.size;
       col = 0u;
-      last_ws_break_off = ZR_WRAP_NO_BREAK;
+      last_ws_break_off = ZR_WRAP_WS_BREAK_NONE;
       zr_wrap_push_offset(line_start, out_offsets, out_offsets_cap, out_count, out_truncated);
       continue;
     }
@@ -179,7 +182,7 @@ zr_result_t zr_wrap_greedy_utf8(const uint8_t* bytes, size_t len, uint32_t max_c
     if (is_ws_break && col + adv > max_cols) {
       line_start = g.offset + g.size;
       col = 0u;
-      last_ws_break_off = ZR_WRAP_NO_BREAK;
+      last_ws_break_off = ZR_WRAP_WS_BREAK_NONE;
       zr_wrap_push_offset(line_start, out_offsets, out_offsets_cap, out_count, out_truncated);
       continue;
     }
@@ -192,12 +195,16 @@ zr_result_t zr_wrap_greedy_utf8(const uint8_t* bytes, size_t len, uint32_t max_c
       continue;
     }
 
-    /* Overflow: prefer breaking after the last whitespace. */
-    if (last_ws_break_off != ZR_WRAP_NO_BREAK && last_ws_break_off > line_start) {
+    /*
+      Overflow: prefer breaking after the last whitespace.
+      Rewind iterator to the chosen line start so the next loop iteration
+      re-evaluates the first grapheme of the new line from a clean column=0.
+    */
+    if (last_ws_break_off != ZR_WRAP_WS_BREAK_NONE && last_ws_break_off > line_start) {
       it.off = last_ws_break_off;
       line_start = last_ws_break_off;
       col = 0u;
-      last_ws_break_off = ZR_WRAP_NO_BREAK;
+      last_ws_break_off = ZR_WRAP_WS_BREAK_NONE;
       zr_wrap_push_offset(line_start, out_offsets, out_offsets_cap, out_count, out_truncated);
       continue;
     }
@@ -215,7 +222,7 @@ zr_result_t zr_wrap_greedy_utf8(const uint8_t* bytes, size_t len, uint32_t max_c
     it.off = g.offset;
     line_start = g.offset;
     col = 0u;
-    last_ws_break_off = ZR_WRAP_NO_BREAK;
+    last_ws_break_off = ZR_WRAP_WS_BREAK_NONE;
     zr_wrap_push_offset(line_start, out_offsets, out_offsets_cap, out_count, out_truncated);
   }
 

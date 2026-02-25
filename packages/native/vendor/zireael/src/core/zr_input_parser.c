@@ -12,6 +12,17 @@
 #include <string.h>
 
 enum {
+  ZR_ASCII_ESC = 0x1Bu,
+  ZR_CSI_INTRO = (uint8_t)'[',
+  ZR_SS3_INTRO = (uint8_t)'O',
+  ZR_CSI_MOUSE_INTRO = (uint8_t)'<',
+  ZR_CSI_FINAL_TILDE = (uint8_t)'~',
+  ZR_CSI_FINAL_SHIFT_TAB = (uint8_t)'Z',
+  ZR_ASCII_DEL = 0x7Fu,
+  ZR_SCALAR_MAX = 0x10FFFFu,
+  ZR_SCALAR_SURROGATE_MIN = 0xD800u,
+  ZR_SCALAR_SURROGATE_MAX = 0xDFFFu,
+
   ZR_CSI_MOD_PARAM_BASE = 1u,
   ZR_CSI_MOD_SHIFT_BIT = 1u << 0,
   ZR_CSI_MOD_ALT_BIT = 1u << 1,
@@ -54,8 +65,7 @@ static uint32_t zr__mods_from_csi_param(uint32_t mod_param) {
 }
 
 static void zr__push_key(zr_event_queue_t* q, uint32_t time_ms, zr_key_t key, uint32_t mods, zr_key_action_t action) {
-  zr_event_t ev;
-  memset(&ev, 0, sizeof(ev));
+  zr_event_t ev = {0};
   ev.type = ZR_EV_KEY;
   ev.time_ms = time_ms;
   ev.flags = 0u;
@@ -68,8 +78,7 @@ static void zr__push_key(zr_event_queue_t* q, uint32_t time_ms, zr_key_t key, ui
 
 static void zr__push_mouse(zr_event_queue_t* q, uint32_t time_ms, int32_t x, int32_t y, uint32_t kind, uint32_t mods,
                            uint32_t buttons, int32_t wheel_x, int32_t wheel_y) {
-  zr_event_t ev;
-  memset(&ev, 0, sizeof(ev));
+  zr_event_t ev = {0};
   ev.type = ZR_EV_MOUSE;
   ev.time_ms = time_ms;
   ev.flags = 0u;
@@ -85,8 +94,7 @@ static void zr__push_mouse(zr_event_queue_t* q, uint32_t time_ms, int32_t x, int
 }
 
 static void zr__push_text_scalar(zr_event_queue_t* q, uint32_t time_ms, uint32_t scalar) {
-  zr_event_t ev;
-  memset(&ev, 0, sizeof(ev));
+  zr_event_t ev = {0};
   ev.type = ZR_EV_TEXT;
   ev.time_ms = time_ms;
   ev.flags = 0u;
@@ -97,6 +105,20 @@ static void zr__push_text_scalar(zr_event_queue_t* q, uint32_t time_ms, uint32_t
 
 static bool zr__is_digit(uint8_t b) {
   return b >= (uint8_t)'0' && b <= (uint8_t)'9';
+}
+
+static bool zr__has_csi_prefix(const uint8_t* bytes, size_t len, size_t i) {
+  if (!bytes || (i + 1u) >= len) {
+    return false;
+  }
+  return bytes[i] == ZR_ASCII_ESC && bytes[i + 1u] == ZR_CSI_INTRO;
+}
+
+static bool zr__has_ss3_prefix(const uint8_t* bytes, size_t len, size_t i) {
+  if (!bytes || (i + 1u) >= len) {
+    return false;
+  }
+  return bytes[i] == ZR_ASCII_ESC && bytes[i + 1u] == ZR_SS3_INTRO;
 }
 
 /*
@@ -189,6 +211,42 @@ static bool zr__parse_u32_dec(const uint8_t* bytes, size_t len, size_t* io_i, ui
   return true;
 }
 
+/*
+ * Parse zero or more ";<num>" CSI parameters until the caller-defined final.
+ *
+ * Why: Many CSI key sequences only care about the first modifier parameter
+ * while still accepting extra parameters from terminals that append metadata.
+ */
+static bool zr__parse_csi_extra_mod_param_until(const uint8_t* bytes, size_t len, size_t* io_i, uint8_t final_byte,
+                                                uint32_t* out_mod_param, bool* out_has_mod) {
+  if (!bytes || !io_i || !out_mod_param || !out_has_mod) {
+    return false;
+  }
+
+  size_t i = *io_i;
+  uint32_t mod_param = 0u;
+  bool has_mod = false;
+  while (i < len && bytes[i] != final_byte) {
+    if (bytes[i] != (uint8_t)';') {
+      return false;
+    }
+    i++;
+    uint32_t parsed = 0u;
+    if (!zr__parse_u32_dec(bytes, len, &i, &parsed)) {
+      return false;
+    }
+    if (!has_mod) {
+      mod_param = parsed;
+      has_mod = true;
+    }
+  }
+
+  *io_i = i;
+  *out_mod_param = mod_param;
+  *out_has_mod = has_mod;
+  return true;
+}
+
 static bool zr__csi_tilde_key_from_first(uint32_t first, zr_key_t* out_key) {
   if (!out_key) {
     return false;
@@ -253,36 +311,22 @@ static bool zr__parse_csi_tilde_key(const uint8_t* bytes, size_t len, size_t i, 
   if ((i + 2u) >= len) {
     return false;
   }
-  if (bytes[i] != 0x1Bu || bytes[i + 1u] != (uint8_t)'[') {
+  if (!zr__has_csi_prefix(bytes, len, i)) {
     return false;
   }
 
   size_t j = i + 2u;
   uint32_t first = 0u;
-  uint32_t mod_param = 0u;
-  bool has_mod = false;
   if (!zr__parse_u32_dec(bytes, len, &j, &first)) {
     return false;
   }
-
-  while (j < len && bytes[j] != (uint8_t)'~') {
-    /* Skip modifier parameters (e.g. "1;5~"). */
-    if (bytes[j] == (uint8_t)';') {
-      j++;
-      uint32_t dummy = 0u;
-      if (!zr__parse_u32_dec(bytes, len, &j, &dummy)) {
-        return false;
-      }
-      if (!has_mod) {
-        mod_param = dummy;
-        has_mod = true;
-      }
-      continue;
-    }
+  uint32_t mod_param = 0u;
+  bool has_mod = false;
+  if (!zr__parse_csi_extra_mod_param_until(bytes, len, &j, ZR_CSI_FINAL_TILDE, &mod_param, &has_mod)) {
     return false;
   }
 
-  if (j >= len || bytes[j] != (uint8_t)'~') {
+  if (j >= len || bytes[j] != ZR_CSI_FINAL_TILDE) {
     return false;
   }
 
@@ -308,7 +352,7 @@ static bool zr__parse_csi_simple_key(const uint8_t* bytes, size_t len, size_t i,
   if ((i + 2u) >= len) {
     return false;
   }
-  if (bytes[i] != 0x1Bu || bytes[i + 1u] != (uint8_t)'[') {
+  if (!zr__has_csi_prefix(bytes, len, i)) {
     return false;
   }
 
@@ -345,9 +389,13 @@ static bool zr__parse_csi_simple_key(const uint8_t* bytes, size_t len, size_t i,
 
   zr_key_t key = ZR_KEY_UNKNOWN;
   if (!zr__csi_simple_key_from_final(bytes[j], &key)) {
-    if (bytes[j] != (uint8_t)'Z') {
+    if (bytes[j] != ZR_CSI_FINAL_SHIFT_TAB) {
       return false;
     }
+    /*
+      xterm Shift-Tab can arrive as plain "CSI Z" (no params) or with
+      explicit modifiers (for example "CSI 1;5Z").
+    */
     key = ZR_KEY_TAB;
     *out_mods = (param_index >= 2u) ? zr__mods_from_csi_param(mod_param) : (uint32_t)ZR_MOD_SHIFT;
     *out_key = key;
@@ -369,7 +417,7 @@ static bool zr__parse_csi_focus_key(const uint8_t* bytes, size_t len, size_t i, 
   if ((i + 2u) >= len) {
     return false;
   }
-  if (bytes[i] != 0x1Bu || bytes[i + 1u] != (uint8_t)'[') {
+  if (!zr__has_csi_prefix(bytes, len, i)) {
     return false;
   }
 
@@ -387,10 +435,10 @@ static bool zr__parse_csi_focus_key(const uint8_t* bytes, size_t len, size_t i, 
 }
 
 static bool zr__is_valid_unicode_scalar(uint32_t scalar) {
-  if (scalar > 0x10FFFFu) {
+  if (scalar > ZR_SCALAR_MAX) {
     return false;
   }
-  return scalar < 0xD800u || scalar > 0xDFFFu;
+  return scalar < ZR_SCALAR_SURROGATE_MIN || scalar > ZR_SCALAR_SURROGATE_MAX;
 }
 
 static bool zr__extended_key_from_codepoint(uint32_t codepoint, zr_key_t* out_key) {
@@ -399,7 +447,7 @@ static bool zr__extended_key_from_codepoint(uint32_t codepoint, zr_key_t* out_ke
   }
   switch (codepoint) {
   case 0x08u:
-  case 0x7Fu:
+  case ZR_ASCII_DEL:
     *out_key = ZR_KEY_BACKSPACE;
     return true;
   case 0x09u:
@@ -408,7 +456,7 @@ static bool zr__extended_key_from_codepoint(uint32_t codepoint, zr_key_t* out_ke
   case 0x0Du:
     *out_key = ZR_KEY_ENTER;
     return true;
-  case 0x1Bu:
+  case ZR_ASCII_ESC:
     *out_key = ZR_KEY_ESCAPE;
     return true;
   default:
@@ -457,7 +505,7 @@ static bool zr__parse_csi_u_key(const uint8_t* bytes, size_t len, size_t i, uint
   if ((i + 3u) >= len) {
     return false;
   }
-  if (bytes[i] != 0x1Bu || bytes[i + 1u] != (uint8_t)'[') {
+  if (!zr__has_csi_prefix(bytes, len, i)) {
     return false;
   }
 
@@ -504,7 +552,7 @@ static bool zr__parse_modify_other_keys_tilde(const uint8_t* bytes, size_t len, 
   if ((i + 5u) >= len) {
     return false;
   }
-  if (bytes[i] != 0x1Bu || bytes[i + 1u] != (uint8_t)'[') {
+  if (!zr__has_csi_prefix(bytes, len, i)) {
     return false;
   }
 
@@ -520,7 +568,7 @@ static bool zr__parse_modify_other_keys_tilde(const uint8_t* bytes, size_t len, 
   }
   param_count = 1u;
 
-  while (j < len && bytes[j] != (uint8_t)'~') {
+  while (j < len && bytes[j] != ZR_CSI_FINAL_TILDE) {
     if (bytes[j] != (uint8_t)';') {
       return false;
     }
@@ -535,7 +583,7 @@ static bool zr__parse_modify_other_keys_tilde(const uint8_t* bytes, size_t len, 
     param_count++;
   }
 
-  if (j >= len || bytes[j] != (uint8_t)'~') {
+  if (j >= len || bytes[j] != ZR_CSI_FINAL_TILDE) {
     return false;
   }
   if (params[0] != 27u || param_count < 3u) {
@@ -557,7 +605,7 @@ static bool zr__parse_ss3_key(const uint8_t* bytes, size_t len, size_t i, zr_key
   if ((i + 2u) >= len) {
     return false;
   }
-  if (bytes[i] != 0x1Bu || bytes[i + 1u] != (uint8_t)'O') {
+  if (!zr__has_ss3_prefix(bytes, len, i)) {
     return false;
   }
 
@@ -654,9 +702,9 @@ static void zr__decode_sgr_mouse_event(uint32_t button_code, uint8_t terminator,
   if (is_wheel) {
     *out_kind = (uint32_t)ZR_MOUSE_WHEEL;
     if (base == ZR_XTERM_WHEEL_UP) {
-      *out_wheel_y = 1;
-    } else if (base == ZR_XTERM_WHEEL_DOWN) {
       *out_wheel_y = -1;
+    } else if (base == ZR_XTERM_WHEEL_DOWN) {
+      *out_wheel_y = 1;
     } else if (base == ZR_XTERM_WHEEL_RIGHT) {
       *out_wheel_x = 1;
     } else {
@@ -700,7 +748,7 @@ static bool zr__parse_sgr_mouse(const uint8_t* bytes, size_t len, size_t i, uint
   if ((i + 3u) >= len) {
     return false;
   }
-  if (bytes[i] != 0x1Bu || bytes[i + 1u] != (uint8_t)'[' || bytes[i + 2u] != (uint8_t)'<') {
+  if (!zr__has_csi_prefix(bytes, len, i) || bytes[i + 2u] != ZR_CSI_MOUSE_INTRO) {
     return false;
   }
 
@@ -761,7 +809,7 @@ static bool zr__esc_is_incomplete_supported(const uint8_t* bytes, size_t len, si
   if (!bytes || i >= len) {
     return false;
   }
-  if (bytes[i] != 0x1Bu) {
+  if (bytes[i] != ZR_ASCII_ESC) {
     return false;
   }
   if ((i + 1u) >= len) {
@@ -769,13 +817,13 @@ static bool zr__esc_is_incomplete_supported(const uint8_t* bytes, size_t len, si
   }
 
   const uint8_t b1 = bytes[i + 1u];
-  if (b1 == (uint8_t)'[') {
+  if (b1 == ZR_CSI_INTRO) {
     if ((i + 2u) >= len) {
       return true;
     }
 
     const uint8_t b2 = bytes[i + 2u];
-    if (b2 == (uint8_t)'<') {
+    if (b2 == ZR_CSI_MOUSE_INTRO) {
       /* SGR mouse: require a terminating M/m. */
       for (size_t j = i + 3u; j < len; j++) {
         const uint8_t t = bytes[j];
@@ -797,7 +845,7 @@ static bool zr__esc_is_incomplete_supported(const uint8_t* bytes, size_t len, si
     return true;
   }
 
-  if (b1 == (uint8_t)'O') {
+  if (b1 == ZR_SS3_INTRO) {
     /* SS3 keys: ESC O <final>. */
     return (i + 2u) >= len;
   }
@@ -815,7 +863,7 @@ static size_t zr__consume_escape(zr_event_queue_t* q, const uint8_t* bytes, size
   if (!q || !bytes || i >= len) {
     return 0u;
   }
-  if (bytes[i] != 0x1Bu) {
+  if (bytes[i] != ZR_ASCII_ESC) {
     return 0u;
   }
 
@@ -823,9 +871,9 @@ static size_t zr__consume_escape(zr_event_queue_t* q, const uint8_t* bytes, size
   uint32_t mods = 0u;
   size_t consumed = 0u;
 
-  if ((i + 2u) < len && bytes[i + 1u] == (uint8_t)'[') {
+  if ((i + 2u) < len && bytes[i + 1u] == ZR_CSI_INTRO) {
     /* SGR mouse: ESC [ < ... (M or m) */
-    if (bytes[i + 2u] == (uint8_t)'<') {
+    if (bytes[i + 2u] == ZR_CSI_MOUSE_INTRO) {
       if (zr__parse_sgr_mouse(bytes, len, i, time_ms, q, &consumed)) {
         return consumed;
       }
@@ -873,7 +921,7 @@ static size_t zr_input_parse_bytes_internal(zr_event_queue_t* q, const uint8_t* 
     const uint8_t b = bytes[i];
 
     /* --- Escape-driven VT sequences --- */
-    if (b == 0x1Bu) {
+    if (b == ZR_ASCII_ESC) {
       if (stop_before_incomplete_escape && zr__esc_is_incomplete_supported(bytes, len, i)) {
         break;
       }
@@ -892,7 +940,7 @@ static size_t zr_input_parse_bytes_internal(zr_event_queue_t* q, const uint8_t* 
       i += 1u;
       continue;
     }
-    if (b == 0x7Fu) {
+    if (b == ZR_ASCII_DEL) {
       zr__push_key(q, time_ms, ZR_KEY_BACKSPACE, 0u, ZR_KEY_ACTION_DOWN);
       i += 1u;
       continue;
