@@ -17,7 +17,9 @@
       "include": [
         "packages/ink-compat/**",
         "packages/ink-gradient-shim/**",
-        "packages/ink-spinner-shim/**"
+        "packages/ink-spinner-shim/**",
+        "packages/rezi-ink-gradient-shim/**",
+        "packages/rezi-ink-spinner-shim/**"
       ],
       "linter": {
         "rules": {

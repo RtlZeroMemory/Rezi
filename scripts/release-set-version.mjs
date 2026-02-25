@@ -8,6 +8,8 @@ const EXTRA_RELEASE_PACKAGE_DIRS = [
   "packages/ink-compat",
   "packages/ink-gradient-shim",
   "packages/ink-spinner-shim",
+  "packages/rezi-ink-gradient-shim",
+  "packages/rezi-ink-spinner-shim",
 ];
 
 function die(msg) {
