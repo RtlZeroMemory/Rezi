@@ -577,6 +577,42 @@ test("runtime render resolves nested percent sizing from resolved parent layout"
   }
 });
 
+test("runtime render layout generations hide stale layout for removed nodes", async () => {
+  const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+  stdin.setRawMode = () => {};
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+
+  let removedNode: InkHostNode | null = null;
+
+  function Before(): React.ReactElement {
+    const removedRef = React.useRef<InkHostNode | null>(null);
+    useEffect(() => {
+      removedNode = removedRef.current;
+    });
+    return React.createElement(
+      Box,
+      { ref: removedRef, width: 22 },
+      React.createElement(Text, null, "Before"),
+    );
+  }
+
+  const instance = runtimeRender(React.createElement(Before), { stdin, stdout, stderr });
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    assert.ok(removedNode != null, "removed node ref should be set");
+    assert.equal(measureElement(removedNode).width, 22);
+
+    instance.rerender(React.createElement(Text, null, "After"));
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    assert.deepEqual(measureElement(removedNode), { width: 0, height: 0 });
+  } finally {
+    instance.unmount();
+    instance.cleanup();
+  }
+});
+
 test("render option isScreenReaderEnabled flows to hook context", async () => {
   const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
   stdin.setRawMode = () => {};
@@ -946,6 +982,40 @@ test("rerender updates output", () => {
 
   result.rerender(React.createElement(Text, null, "New"));
   assert.match(result.lastFrame(), /New/);
+});
+
+test("rendering identical tree keeps ANSI frame bytes stable", async () => {
+  const element = React.createElement(
+    Box,
+    { flexDirection: "row" },
+    React.createElement(Text, { color: "green", bold: true }, "Left"),
+    React.createElement(Text, null, " "),
+    React.createElement(Text, null, "\u001b[31mRight\u001b[0m"),
+  );
+
+  const captureFrame = async (): Promise<string> => {
+    const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+    stdin.setRawMode = () => {};
+    const stdout = new PassThrough();
+    const stderr = new PassThrough();
+    let writes = "";
+    stdout.on("data", (chunk) => {
+      writes += chunk.toString("utf-8");
+    });
+
+    const instance = runtimeRender(element, { stdin, stdout, stderr });
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      return latestFrameFromWrites(writes);
+    } finally {
+      instance.unmount();
+      instance.cleanup();
+    }
+  };
+
+  const firstFrame = await captureFrame();
+  const secondFrame = await captureFrame();
+  assert.equal(secondFrame, firstFrame);
 });
 
 test("runtime Static emits only new items on rerender", async () => {

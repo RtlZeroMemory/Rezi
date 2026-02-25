@@ -12,7 +12,7 @@ import React from "react";
 import { useIsScreenReaderEnabled } from "../../hooks/useIsScreenReaderEnabled.js";
 import { kittyFlags, kittyModifiers, useCursor } from "../../index.js";
 import { reconciler } from "../../reconciler/reconciler.js";
-import { createHostContainer, createHostNode } from "../../reconciler/types.js";
+import { appendChild, createHostContainer, createHostNode } from "../../reconciler/types.js";
 import { InkResizeObserver } from "../../runtime/ResizeObserver.js";
 import { InkContext, type InkContextValue } from "../../runtime/context.js";
 import { getInnerHeight, getScrollHeight } from "../../runtime/domHelpers.js";
@@ -112,6 +112,25 @@ test("getBoundingBox reads __inkLayout", () => {
   node.__inkLayout = { x: 5, y: 10, w: 40, h: 20 };
   const box = getBoundingBox(node);
   assert.deepEqual(box, { x: 5, y: 10, width: 40, height: 20 });
+});
+
+test("layout readers ignore stale generation-tagged layouts", () => {
+  type LayoutNode = ReturnType<typeof createHostNode> & {
+    __inkLayout?: { x: number; y: number; w: number; h: number };
+    __inkLayoutGen?: number;
+  };
+
+  const container = createHostContainer();
+  const node = createHostNode("ink-box", {}) as LayoutNode;
+  appendChild(container, node);
+
+  node.__inkLayout = { x: 1, y: 2, w: 30, h: 10 };
+  node.__inkLayoutGen = 1;
+  container.__inkLayoutGeneration = 2;
+
+  assert.deepEqual(getBoundingBox(node), { x: 0, y: 0, width: 0, height: 0 });
+  assert.equal(getInnerHeight(node), 0);
+  assert.equal(getScrollHeight(node), 0);
 });
 
 // --- getInnerHeight ---

@@ -16,6 +16,7 @@ import { enableTranslationTrace, flushTranslationTrace } from "../translation/tr
 import { checkAllResizeObservers } from "./ResizeObserver.js";
 import { createBridge } from "./bridge.js";
 import { InkContext } from "./context.js";
+import { advanceLayoutGeneration, readCurrentLayout, writeCurrentLayout } from "./layoutState.js";
 import { commitSync, createReactRoot } from "./reactHelpers.js";
 
 export interface KittyKeyboardOptions {
@@ -158,7 +159,7 @@ const MAX_QUEUED_OUTPUTS = 4;
 const CORE_DEFAULT_FG: Readonly<Rgb> = Object.freeze({ r: 232, g: 238, b: 245 });
 const CORE_DEFAULT_BG: Readonly<Rgb> = Object.freeze({ r: 7, g: 10, b: 12 });
 const FORCED_TRUECOLOR_SUPPORT: ColorSupport = Object.freeze({ level: 3, noColor: false });
-const ANSI_SGR_PATTERN = /\u001b\[[0-9:;]*m|\u009b[0-9:;]*m/;
+const FILL_CELLS_SMALL_SPAN_THRESHOLD = 160;
 
 function readViewportSize(stdout: Writable, fallbackStdout: Writable): ViewportSize {
   const readPositiveInt = (value: unknown): number | undefined => {
@@ -262,6 +263,33 @@ function summarizeOutputShape(output: string): OutputShapeSummary {
     lastNonBlankLine,
     widestLine,
   };
+}
+
+function summarizeGridShape(grid: StyledCell[][]): OutputShapeSummary {
+  const lines = grid.length;
+  let nonBlankLines = 0;
+  let firstNonBlankLine = -1;
+  let lastNonBlankLine = -1;
+  let widestLine = 0;
+
+  for (let rowIndex = 0; rowIndex < lines; rowIndex += 1) {
+    const row = grid[rowIndex]!;
+    let lastUsefulCol = -1;
+    for (let colIndex = 0; colIndex < row.length; colIndex += 1) {
+      const cell = row[colIndex]!;
+      if ((cell.char !== "" && cell.char !== " ") || styleVisibleOnSpace(cell.style)) {
+        lastUsefulCol = colIndex;
+      }
+    }
+    widestLine = Math.max(widestLine, lastUsefulCol + 1);
+    if (lastUsefulCol >= 0) {
+      nonBlankLines += 1;
+      if (firstNonBlankLine === -1) firstNonBlankLine = rowIndex;
+      lastNonBlankLine = rowIndex;
+    }
+  }
+
+  return { lines, nonBlankLines, firstNonBlankLine, lastNonBlankLine, widestLine };
 }
 
 function trimAnsiToNonBlankBlock(output: string): string {
@@ -1022,21 +1050,14 @@ function summarizeHostTree(rootNode: InkHostContainer): HostTreeSummary {
   };
 }
 
-function hostTreeContainsAnsiSgr(rootNode: InkHostContainer): boolean {
-  const stack: InkHostNode[] = [...rootNode.children];
-  while (stack.length > 0) {
-    const node = stack.pop();
-    if (!node) continue;
-    const text = node.textContent;
-    if (typeof text === "string" && ANSI_SGR_PATTERN.test(text)) {
-      return true;
-    }
-    for (let index = node.children.length - 1; index >= 0; index -= 1) {
-      const child = node.children[index];
-      if (child) stack.push(child);
-    }
-  }
-  return false;
+function scanHostTreeForStaticAndAnsi(rootNode: InkHostContainer): {
+  hasStaticNodes: boolean;
+  hasAnsiSgr: boolean;
+} {
+  return {
+    hasStaticNodes: rootNode.__inkSubtreeHasStatic,
+    hasAnsiSgr: rootNode.__inkSubtreeHasAnsiSgr,
+  };
 }
 
 function isRgb(value: unknown): value is Rgb {
@@ -1172,8 +1193,20 @@ function toAnsi256Code(color: Rgb): number {
   return grayDistance < cubeDistance ? grayCode : cubeCode;
 }
 
+/**
+ * Cache normalized styles by identity — Rezi's renderer reuses TextStyle
+ * objects across draw ops, so identity-based caching is highly effective.
+ */
+const normalizeStyleCache = new WeakMap<TextStyle, CellStyle | undefined>();
+
 function normalizeStyle(style: TextStyle | undefined): CellStyle | undefined {
   if (!style) return undefined;
+
+  const cached = normalizeStyleCache.get(style);
+  if (cached !== undefined) return cached;
+  // WeakMap returns undefined for both missing entries and stored undefined
+  // values, so use a separate check for the "computed but undefined" case.
+  if (normalizeStyleCache.has(style)) return undefined;
 
   const normalized: CellStyle = {};
   if (isRgb(style.fg)) {
@@ -1197,29 +1230,39 @@ function normalizeStyle(style: TextStyle | undefined): CellStyle | undefined {
   if (style.strikethrough === true) normalized.strikethrough = true;
   if (style.inverse === true) normalized.inverse = true;
 
-  return Object.keys(normalized).length > 0 ? normalized : undefined;
+  const hasKeys =
+    normalized.fg !== undefined ||
+    normalized.bg !== undefined ||
+    normalized.bold !== undefined ||
+    normalized.dim !== undefined ||
+    normalized.italic !== undefined ||
+    normalized.underline !== undefined ||
+    normalized.strikethrough !== undefined ||
+    normalized.inverse !== undefined;
+  const result = hasKeys ? normalized : undefined;
+  normalizeStyleCache.set(style, result);
+  return result;
+}
+
+function rgbEqual(a: Rgb | undefined, b: Rgb | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return a.r === b.r && a.g === b.g && a.b === b.b;
 }
 
 function stylesEqual(a: CellStyle | undefined, b: CellStyle | undefined): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
-
-  const keysA = Object.keys(a).sort();
-  const keysB = Object.keys(b).sort();
-  if (keysA.length !== keysB.length) return false;
-
-  for (let i = 0; i < keysA.length; i += 1) {
-    const key = keysA[i]!;
-    if (key !== keysB[i]) return false;
-    if (
-      JSON.stringify((a as Record<string, unknown>)[key]) !==
-      JSON.stringify((b as Record<string, unknown>)[key])
-    ) {
-      return false;
-    }
-  }
-
-  return true;
+  return (
+    a.bold === b.bold &&
+    a.dim === b.dim &&
+    a.italic === b.italic &&
+    a.underline === b.underline &&
+    a.strikethrough === b.strikethrough &&
+    a.inverse === b.inverse &&
+    rgbEqual(a.fg, b.fg) &&
+    rgbEqual(a.bg, b.bg)
+  );
 }
 
 function styleVisibleOnSpace(style: CellStyle | undefined): boolean {
@@ -1227,8 +1270,39 @@ function styleVisibleOnSpace(style: CellStyle | undefined): boolean {
   return style.bg !== undefined || style.inverse === true || style.underline === true;
 }
 
+// Cells are treated as immutable; we always replace array elements instead of mutating
+// `char`/`style` in place. This lets us safely reuse a few shared cell objects.
+const BLANK_CELL: StyledCell = { char: " ", style: undefined };
+const WIDE_EMPTY_CELL: StyledCell = { char: "", style: undefined };
+const SPACE_CELL_CACHE = new WeakMap<CellStyle, StyledCell>();
+
+function getSpaceCell(style: CellStyle | undefined): StyledCell {
+  if (!style) return BLANK_CELL;
+  const cached = SPACE_CELL_CACHE.get(style);
+  if (cached) return cached;
+  const cell: StyledCell = { char: " ", style };
+  SPACE_CELL_CACHE.set(style, cell);
+  return cell;
+}
+
+/**
+ * Identity-based SGR cache. Most frames use only 3-5 distinct CellStyle
+ * objects, so caching by identity avoids rebuilding ANSI strings per-cell.
+ */
+const sgrCache = new Map<CellStyle, string>();
+let sgrCacheColorLevel: number = -1;
+
 function styleToSgr(style: CellStyle | undefined, colorSupport: ColorSupport): string {
   if (!style) return "\u001b[0m";
+
+  // Invalidate cache when color support changes (rare)
+  if (colorSupport.level !== sgrCacheColorLevel) {
+    sgrCache.clear();
+    sgrCacheColorLevel = colorSupport.level;
+  }
+
+  const cached = sgrCache.get(style);
+  if (cached !== undefined) return cached;
 
   const codes: string[] = [];
   if (style.bold) codes.push("1");
@@ -1262,10 +1336,22 @@ function styleToSgr(style: CellStyle | undefined, colorSupport: ColorSupport): s
     }
   }
 
-  if (codes.length === 0) return "\u001b[0m";
-  // Always reset (0) before applying new attributes to prevent attribute
-  // bleed from previous cells (e.g. bold, bg carrying over).
-  return `\u001b[0;${codes.join(";")}m`;
+  let result: string;
+  if (codes.length === 0) {
+    result = "\u001b[0m";
+  } else {
+    // Always reset (0) before applying new attributes to prevent attribute
+    // bleed from previous cells (e.g. bold, bg carrying over).
+    result = `\u001b[0;${codes.join(";")}m`;
+  }
+
+  sgrCache.set(style, result);
+  // Prevent unbounded growth — evict oldest when too large
+  if (sgrCache.size > 256) {
+    const firstKey = sgrCache.keys().next().value;
+    if (firstKey) sgrCache.delete(firstKey);
+  }
+  return result;
 }
 
 function inClipStack(x: number, y: number, clipStack: readonly ClipRect[]): boolean {
@@ -1275,24 +1361,66 @@ function inClipStack(x: number, y: number, clipStack: readonly ClipRect[]): bool
   return true;
 }
 
+/**
+ * Pre-compute the effective clip rect (intersection of all rects in stack).
+ * Returns null for empty clip stack or empty intersection.
+ * Reduces per-cell clip checking from O(clipStack.length) to O(1).
+ */
+function computeEffectiveClip(clipStack: readonly ClipRect[]): ClipRect | null {
+  if (clipStack.length === 0) return null;
+  let x1 = clipStack[0]!.x;
+  let y1 = clipStack[0]!.y;
+  let x2 = x1 + clipStack[0]!.w;
+  let y2 = y1 + clipStack[0]!.h;
+  for (let i = 1; i < clipStack.length; i++) {
+    const c = clipStack[i]!;
+    x1 = Math.max(x1, c.x);
+    y1 = Math.max(y1, c.y);
+    x2 = Math.min(x2, c.x + c.w);
+    y2 = Math.min(y2, c.y + c.h);
+  }
+  if (x1 >= x2 || y1 >= y2) return null;
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+}
+
+function inEffectiveClip(x: number, y: number, clip: ClipRect | null): boolean {
+  if (clip === null) return true;
+  return x >= clip.x && x < clip.x + clip.w && y >= clip.y && y < clip.y + clip.h;
+}
+
 function fillCells(
   grid: StyledCell[][],
   viewport: ViewportSize,
-  clipStack: readonly ClipRect[],
+  clip: ClipRect | null,
   x: number,
   y: number,
   w: number,
   h: number,
   style: CellStyle | undefined,
 ): void {
-  for (let yy = y; yy < y + h; yy += 1) {
-    if (yy < 0 || yy >= viewport.rows) continue;
+  // Compute effective bounds (intersection of fill rect, viewport, and clip)
+  let startX = Math.max(0, x);
+  let startY = Math.max(0, y);
+  let endX = Math.min(viewport.cols, x + w);
+  let endY = Math.min(viewport.rows, y + h);
+  if (clip !== null) {
+    startX = Math.max(startX, clip.x);
+    startY = Math.max(startY, clip.y);
+    endX = Math.min(endX, clip.x + clip.w);
+    endY = Math.min(endY, clip.y + clip.h);
+  }
+  const fillCell = getSpaceCell(style);
+  for (let yy = startY; yy < endY; yy += 1) {
     const row = grid[yy];
     if (!row) continue;
-    for (let xx = x; xx < x + w; xx += 1) {
-      if (xx < 0 || xx >= viewport.cols || !inClipStack(xx, yy, clipStack)) continue;
-      row[xx] = { char: " ", style };
+    const span = endX - startX;
+    if (span <= FILL_CELLS_SMALL_SPAN_THRESHOLD) {
+      for (let xx = startX; xx < endX; xx += 1) {
+        row[xx] = fillCell;
+      }
+      continue;
     }
+    row.fill(fillCell, startX, endX);
   }
 }
 
@@ -1301,6 +1429,8 @@ function fillCells(
  * Preserves base properties (especially bg from fillRect) when the
  * overlay doesn't explicitly set them.
  */
+const MERGED_STYLE_CACHE = new WeakMap<CellStyle, WeakMap<CellStyle, CellStyle>>();
+
 function mergeCellStyles(
   base: CellStyle | undefined,
   overlay: CellStyle | undefined,
@@ -1308,19 +1438,52 @@ function mergeCellStyles(
   if (!overlay && !base) return undefined;
   if (!overlay) return base;
   if (!base) return overlay;
+  if (base === overlay) return base;
 
-  const merged: CellStyle = {};
+  let overlayCache = MERGED_STYLE_CACHE.get(base);
+  if (!overlayCache) {
+    overlayCache = new WeakMap<CellStyle, CellStyle>();
+    MERGED_STYLE_CACHE.set(base, overlayCache);
+  }
+  const cached = overlayCache.get(overlay);
+  if (cached) return cached;
+
   const bg = overlay.bg ?? base.bg;
   const fg = overlay.fg ?? base.fg;
+  const bold = overlay.bold ?? base.bold;
+  const dim = overlay.dim ?? base.dim;
+  const italic = overlay.italic ?? base.italic;
+  const underline = overlay.underline ?? base.underline;
+  const strikethrough = overlay.strikethrough ?? base.strikethrough;
+  const inverse = overlay.inverse ?? base.inverse;
+
+  // If the overlay doesn't change anything, reuse the base style object.
+  if (
+    bg === base.bg &&
+    fg === base.fg &&
+    bold === base.bold &&
+    dim === base.dim &&
+    italic === base.italic &&
+    underline === base.underline &&
+    strikethrough === base.strikethrough &&
+    inverse === base.inverse
+  ) {
+    overlayCache.set(overlay, base);
+    return base;
+  }
+
+  const merged: CellStyle = {};
   if (bg) merged.bg = bg;
   if (fg) merged.fg = fg;
-  if (overlay.bold ?? base.bold) merged.bold = true;
-  if (overlay.dim ?? base.dim) merged.dim = true;
-  if (overlay.italic ?? base.italic) merged.italic = true;
-  if (overlay.underline ?? base.underline) merged.underline = true;
-  if (overlay.strikethrough ?? base.strikethrough) merged.strikethrough = true;
-  if (overlay.inverse ?? base.inverse) merged.inverse = true;
-  return Object.keys(merged).length > 0 ? merged : undefined;
+  if (bold) merged.bold = true;
+  if (dim) merged.dim = true;
+  if (italic) merged.italic = true;
+  if (underline) merged.underline = true;
+  if (strikethrough) merged.strikethrough = true;
+  if (inverse) merged.inverse = true;
+
+  overlayCache.set(overlay, merged);
+  return merged;
 }
 
 type GraphemeSegmenter = {
@@ -1374,33 +1537,35 @@ function forEachGraphemeCluster(text: string, visit: (cluster: string) => void):
 function drawTextToCells(
   grid: StyledCell[][],
   viewport: ViewportSize,
-  clipStack: readonly ClipRect[],
+  clip: ClipRect | null,
   x0: number,
   y: number,
   text: string,
   style: CellStyle | undefined,
 ): void {
   if (y < 0 || y >= viewport.rows) return;
+  if (clip !== null && (y < clip.y || y >= clip.y + clip.h)) return;
+  const row = grid[y];
+  if (!row) return;
 
   let cursorX = x0;
   forEachGraphemeCluster(text, (glyph) => {
     const width = measureTextCells(glyph);
     if (width <= 0) return;
 
-    if (cursorX >= 0 && cursorX < viewport.cols && inClipStack(cursorX, y, clipStack)) {
-      const row = grid[y];
-      if (row) {
-        const existing = row[cursorX];
-        row[cursorX] = { char: glyph, style: mergeCellStyles(existing?.style, style) };
+    if (cursorX >= 0 && cursorX < viewport.cols && inEffectiveClip(cursorX, y, clip)) {
+      const existingStyle = row[cursorX]?.style;
+      if (!existingStyle) {
+        row[cursorX] = { char: glyph, style };
+      } else {
+        row[cursorX] = { char: glyph, style: mergeCellStyles(existingStyle, style) };
       }
     }
 
     for (let offset = 1; offset < width; offset += 1) {
       const fillX = cursorX + offset;
-      if (fillX < 0 || fillX >= viewport.cols || !inClipStack(fillX, y, clipStack)) continue;
-      const row = grid[y];
-      if (row) {
-        row[fillX] = { char: "", style: undefined };
+      if (fillX >= 0 && fillX < viewport.cols && inEffectiveClip(fillX, y, clip)) {
+        row[fillX] = WIDE_EMPTY_CELL;
       }
     }
 
@@ -1413,20 +1578,19 @@ function renderOpsToAnsi(
   viewport: ViewportSize,
   colorSupport: ColorSupport,
 ): { ansi: string; grid: StyledCell[][] } {
-  const grid: StyledCell[][] = [];
+  const grid: StyledCell[][] = new Array(viewport.rows);
   for (let rowIndex = 0; rowIndex < viewport.rows; rowIndex += 1) {
-    const row: StyledCell[] = [];
-    for (let colIndex = 0; colIndex < viewport.cols; colIndex += 1) {
-      row.push({ char: " ", style: undefined });
-    }
-    grid.push(row);
+    const row = new Array<StyledCell>(viewport.cols);
+    row.fill(BLANK_CELL);
+    grid[rowIndex] = row;
   }
 
   const clipStack: ClipRect[] = [];
+  let effectiveClip: ClipRect | null = null;
 
   for (const op of ops) {
     if (op.kind === "clear") {
-      fillCells(grid, viewport, clipStack, 0, 0, viewport.cols, viewport.rows, undefined);
+      fillCells(grid, viewport, effectiveClip, 0, 0, viewport.cols, viewport.rows, undefined);
       continue;
     }
     if (op.kind === "clearTo") {
@@ -1436,23 +1600,14 @@ function renderOpsToAnsi(
       // the core renderer) would make every cell "visible" to the line
       // trimmer, producing an opaque dark background where Ink shows
       // the terminal's own background.
-      fillCells(
-        grid,
-        viewport,
-        clipStack,
-        0,
-        0,
-        Math.max(0, Math.trunc(op.cols)),
-        Math.max(0, Math.trunc(op.rows)),
-        undefined,
-      );
+      fillCells(grid, viewport, effectiveClip, 0, 0, Math.max(0, Math.trunc(op.cols)), Math.max(0, Math.trunc(op.rows)), undefined);
       continue;
     }
     if (op.kind === "fillRect") {
       fillCells(
         grid,
         viewport,
-        clipStack,
+        effectiveClip,
         Math.trunc(op.x),
         Math.trunc(op.y),
         Math.max(0, Math.trunc(op.w)),
@@ -1465,7 +1620,7 @@ function renderOpsToAnsi(
       drawTextToCells(
         grid,
         viewport,
-        clipStack,
+        effectiveClip,
         Math.trunc(op.x),
         Math.trunc(op.y),
         op.text,
@@ -1480,10 +1635,12 @@ function renderOpsToAnsi(
         w: Math.max(0, Math.trunc(op.w)),
         h: Math.max(0, Math.trunc(op.h)),
       });
+      effectiveClip = computeEffectiveClip(clipStack);
       continue;
     }
     if (op.kind === "popClip") {
       clipStack.pop();
+      effectiveClip = clipStack.length === 0 ? null : computeEffectiveClip(clipStack);
     }
   }
 
@@ -1533,6 +1690,7 @@ function resolvePercent(value: number, base: number): number {
 
 type HostNodeWithLayout = InkHostNode & {
   __inkLayout?: { x: number; y: number; w: number; h: number };
+  __inkLayoutGen?: number;
 };
 
 type FlexMainAxis = "row" | "column";
@@ -1553,9 +1711,7 @@ function readHostParentSize(
   hostNode: HostNodeWithLayout | undefined,
   fallback: ViewportSize,
 ): ViewportSize {
-  const parentLayout = hostNode?.parent
-    ? (hostNode.parent as HostNodeWithLayout).__inkLayout
-    : undefined;
+  const parentLayout = hostNode?.parent ? readCurrentLayout(hostNode.parent) : undefined;
   if (!parentLayout) return fallback;
   return {
     cols: Math.max(0, Math.trunc(parentLayout.w)),
@@ -1675,25 +1831,14 @@ function resolvePercentMarkers(vnode: VNode, context: PercentResolveContext): VN
   } as unknown as VNode;
 }
 
-function clearHostLayouts(container: InkHostContainer): void {
-  const stack: InkHostNode[] = [...container.children];
-  while (stack.length > 0) {
-    const node = stack.pop();
-    if (!node) continue;
-    delete (node as HostNodeWithLayout).__inkLayout;
-    for (let index = node.children.length - 1; index >= 0; index -= 1) {
-      const child = node.children[index];
-      if (child) stack.push(child);
-    }
-  }
-}
-
 function assignHostLayouts(
+  container: InkHostContainer,
   nodes: readonly {
     rect?: { x?: number; y?: number; w?: number; h?: number };
     props?: Record<string, unknown>;
   }[],
 ): void {
+  const generation = advanceLayoutGeneration(container);
   for (const node of nodes) {
     if (!node) continue;
     const host = node.props?.["__inkHostNode"];
@@ -1716,12 +1861,16 @@ function assignHostLayouts(
     ) {
       continue;
     }
-    hostNode.__inkLayout = {
-      x: Math.trunc(x),
-      y: Math.trunc(y),
-      w: Math.max(0, Math.trunc(w)),
-      h: Math.max(0, Math.trunc(h)),
-    };
+    writeCurrentLayout(
+      hostNode,
+      {
+        x: Math.trunc(x),
+        y: Math.trunc(y),
+        w: Math.max(0, Math.trunc(w)),
+        h: Math.max(0, Math.trunc(h)),
+      },
+      generation,
+    );
   }
 }
 
@@ -2198,15 +2347,18 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   };
 
   const capturePendingStaticOutput = (): void => {
-    if (!bridge.hasStaticNodes()) return;
+    const scan = scanHostTreeForStaticAndAnsi(bridge.rootNode);
+    if (!scan.hasStaticNodes) return;
 
     const translatedStatic = bridge.translateStaticToVNode();
-    const translatedStaticWithPercent = resolvePercentMarkers(translatedStatic, {
-      parentSize: viewport,
-      parentMainAxis: "column",
-    });
+    const translatedStaticWithPercent = hasPercentMarkers(translatedStatic)
+      ? resolvePercentMarkers(translatedStatic, {
+          parentSize: viewport,
+          parentMainAxis: "column",
+        })
+      : translatedStatic;
     const staticResult = renderer.render(translatedStaticWithPercent, { viewport });
-    const staticHasAnsiSgr = hostTreeContainsAnsiSgr(bridge.rootNode);
+    const staticHasAnsiSgr = scan.hasAnsiSgr;
     const staticColorSupport = staticHasAnsiSgr ? FORCED_TRUECOLOR_SUPPORT : colorSupport;
     const { ansi: staticAnsi } = renderOpsToAnsi(
       staticResult.ops as readonly RenderOp[],
@@ -2224,7 +2376,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   };
 
   const renderFrame = (force = false): void => {
-    const frameStartedAt = Date.now();
+    const frameStartedAt = performance.now();
     frameCount++;
     try {
       const frameNow = Date.now();
@@ -2235,8 +2387,9 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         viewport = nextViewport;
       }
 
-      const translatedDynamic = bridge.translateDynamicToVNode();
-      const hasDynamicPercentMarkers = hasPercentMarkers(translatedDynamic);
+      const { vnode: translatedDynamic, meta: translationMeta } =
+        bridge.translateDynamicWithMetadata();
+      const hasDynamicPercentMarkers = translationMeta.hasPercentMarkers;
 
       // In static-channel mode, static output is rendered above the dynamic
       // frame, so dynamic layout works inside the remaining rows.
@@ -2252,10 +2405,12 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
           ? { cols: viewport.cols, rows: Math.max(1, viewport.rows - staticRowsUsed) }
           : viewport;
 
-      let translatedDynamicWithPercent = resolvePercentMarkers(translatedDynamic, {
-        parentSize: layoutViewport,
-        parentMainAxis: "column",
-      });
+      let translatedDynamicWithPercent = hasDynamicPercentMarkers
+        ? resolvePercentMarkers(translatedDynamic, {
+            parentSize: layoutViewport,
+            parentMainAxis: "column",
+          })
+        : translatedDynamic;
       const translationTraceEntries = traceEnabled ? flushTranslationTrace() : [];
       let vnode: VNode;
       let rootHeightCoerced: boolean;
@@ -2264,8 +2419,8 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
       vnode = coerced.vnode;
       rootHeightCoerced = coerced.coerced;
       let result = renderer.render(vnode, { viewport: layoutViewport });
-      clearHostLayouts(bridge.rootNode);
       assignHostLayouts(
+        bridge.rootNode,
         result.nodes as readonly {
           rect?: { x?: number; y?: number; w?: number; h?: number };
           props?: Record<string, unknown>;
@@ -2280,8 +2435,8 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         vnode = secondPass.vnode;
         rootHeightCoerced = rootHeightCoerced || secondPass.coerced;
         result = renderer.render(vnode, { viewport: layoutViewport });
-        clearHostLayouts(bridge.rootNode);
         assignHostLayouts(
+          bridge.rootNode,
           result.nodes as readonly {
             rect?: { x?: number; y?: number; w?: number; h?: number };
             props?: Record<string, unknown>;
@@ -2313,7 +2468,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         ? layoutViewport
         : { cols: layoutViewport.cols, rows: Math.max(1, maxRectBottom) };
 
-      const frameHasAnsiSgr = hostTreeContainsAnsiSgr(bridge.rootNode);
+      const frameHasAnsiSgr = translationMeta.hasAnsiSgr;
       const frameColorSupport = frameHasAnsiSgr ? FORCED_TRUECOLOR_SUPPORT : colorSupport;
       const { ansi: rawAnsiOutput, grid: cellGrid } = renderOpsToAnsi(
         result.ops as readonly RenderOp[],
@@ -2328,7 +2483,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
 
       const staticOutput = pendingStaticOutput;
       pendingStaticOutput = "";
-      const outputShape = summarizeOutputShape(output);
+      const outputShape = summarizeGridShape(cellGrid);
       const emptyOutputFrame = outputShape.nonBlankLines === 0;
       const rootChildCount = bridge.rootNode.children.length;
       const msSinceResizeSignal =
@@ -2511,7 +2666,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         }
       }
 
-      const renderTime = Date.now() - frameStartedAt;
+      const renderTime = performance.now() - frameStartedAt;
       options.onRender?.({
         renderTime,
         output,

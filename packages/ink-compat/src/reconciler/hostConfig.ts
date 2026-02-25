@@ -8,6 +8,8 @@ import {
   createHostNode,
   insertBefore,
   removeChild,
+  setNodeProps,
+  setNodeTextContent,
 } from "./types.js";
 
 function mapNodeType(type: string): InkNodeType {
@@ -42,7 +44,7 @@ export const hostConfig = {
 
   createTextInstance(text: string): InkHostNode {
     const node = createHostNode("ink-text", {});
-    node.textContent = text;
+    setNodeTextContent(node, text);
     return node;
   },
 
@@ -89,17 +91,17 @@ export const hostConfig = {
     // Support both legacy (instance, type, oldProps, newProps[, handle]) and
     // React 19 mutation signatures (instance, updatePayload, type, oldProps, newProps, handle).
     if (typeof updatePayloadOrType === "string") {
-      instance.props = sanitizeProps(oldPropsOrNewProps);
+      setNodeProps(instance, sanitizeProps(oldPropsOrNewProps));
       return;
     }
 
     if (!updatePayloadOrType) return;
     if (typeof typeOrOldProps !== "string") return;
-    instance.props = sanitizeProps(maybeNewProps);
+    setNodeProps(instance, sanitizeProps(maybeNewProps));
   },
 
   commitTextUpdate(instance: InkHostNode, _oldText: string, newText: string): void {
-    instance.textContent = newText;
+    setNodeTextContent(instance, newText);
   },
 
   getPublicInstance(instance: InkHostNode): InkHostNode {
@@ -158,10 +160,11 @@ export const hostConfig = {
   },
 
   clearContainer(container: InkHostContainer): boolean {
-    for (const child of container.children) {
-      child.parent = null;
+    while (container.children.length > 0) {
+      const child = container.children[container.children.length - 1];
+      if (!child) break;
+      removeChild(container, child);
     }
-    container.children = [];
     return false;
   },
 
