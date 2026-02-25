@@ -598,11 +598,17 @@ function ensureInteractiveId(
 
   // Runtime validation (even though most interactive widgets are typed with required ids).
   const id = (vnode as { props: { id?: unknown } }).props.id;
-  if (typeof id !== "string" || id.length === 0 || id.trim().length === 0) {
+  if (typeof id !== "string" || id.length === 0) {
     if (!kindRequiresId(vnode.kind)) return null;
     return {
       code: "ZRUI_INVALID_PROPS",
       detail: `interactive node missing required id (kind=${vnode.kind}, instanceId=${String(instanceId)})`,
+    };
+  }
+  if (id.trim().length === 0) {
+    return {
+      code: "ZRUI_INVALID_PROPS",
+      detail: `interactive node id must contain non-whitespace characters (kind=${vnode.kind}, instanceId=${String(instanceId)})`,
     };
   }
 
