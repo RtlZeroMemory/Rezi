@@ -3,6 +3,10 @@
 This page documents the coding conventions and tooling standards used across the
 Rezi codebase.
 
+For mandatory merge-gate rules, start with
+[Code Standards](code-standards.md). This page provides supporting details and
+examples.
+
 ## Formatting and Linting
 
 Rezi uses [Biome](https://biomejs.dev/) (v1.9.4) for both formatting and

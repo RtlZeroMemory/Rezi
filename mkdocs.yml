@@ -249,6 +249,7 @@ nav:
       - Repo Layout: dev/repo-layout.md
       - Build: dev/build.md
       - Testing: dev/testing.md
+      - Code Standards: dev/code-standards.md
       - Perf Regressions: dev/perf-regressions.md
       - Repro Replay: dev/repro-replay.md
       - Releasing: dev/releasing.md

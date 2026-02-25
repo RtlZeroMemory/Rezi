@@ -18,6 +18,14 @@ Rezi is a runtime-agnostic TypeScript TUI framework. Monorepo with `npm` workspa
 | `create-rezi` | `packages/create-rezi/` | Project scaffolding CLI |
 | `@rezi-ui/bench` | `packages/bench/` | Benchmark suite |
 
+## Mandatory Code Standards
+
+All code changes MUST comply with `docs/dev/code-standards.md`.
+Treat it as a required merge checklist for:
+- TypeScript strictness and API modeling
+- Rezi runtime/layout/reconciliation invariants
+- Error handling, callback safety, and async cancellation guards
+
 ## Exploration Protocol
 
 When investigating Rezi code, follow this order:
@@ -68,9 +76,10 @@ When modifying layout code/docs, assume these features are part of the current c
 
 ### Before changing code
 
-1. Read the target file fully.
-2. Check existing tests for the module (`__tests__/` directory adjacent to or near the file).
-3. Understand where the target sits in the render pipeline.
+1. Read `docs/dev/code-standards.md` and apply the relevant MUST rules.
+2. Read the target file fully.
+3. Check existing tests for the module (`__tests__/` directory adjacent to or near the file).
+4. Understand where the target sits in the render pipeline.
 
 ### Safe modification zones
 
@@ -280,6 +289,7 @@ Before finalizing any TUI implementation, verify:
 ## PR and Commit Protocol
 
 - Run full test suite before commits: `node scripts/run-tests.mjs`
+- Verify `docs/dev/code-standards.md` checklist before opening/merging a PR.
 - Commit message format: `feat(scope):`, `fix(scope):`, `docs(scope):`, `refactor(scope):`, `test(scope):`
 - Keep commits atomic — one logical change per commit.
 - Update `CHANGELOG.md` for user-facing changes.
