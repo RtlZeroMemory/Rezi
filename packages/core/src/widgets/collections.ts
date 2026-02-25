@@ -35,8 +35,7 @@ function collectEachChildren<T>(
       const prevIndex = seenKeys.get(key);
       if (prevIndex !== undefined) {
         throw new Error(
-          `[rezi] each(): duplicate key "${key}" at indices ${String(prevIndex)} and ${String(i)}. ` +
-            `Ensure the key function returns unique values for each item.`,
+          `[rezi] each(): duplicate key "${key}" at indices ${String(prevIndex)} and ${String(i)}. Ensure the key function returns unique values for each item.`,
         );
       }
       seenKeys.set(key, i);
