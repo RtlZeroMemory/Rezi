@@ -4,7 +4,11 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const EXTRA_RELEASE_PACKAGE_DIRS = ["packages/ink-gradient-shim", "packages/ink-spinner-shim"];
+const EXTRA_RELEASE_PACKAGE_DIRS = [
+  "packages/ink-compat",
+  "packages/ink-gradient-shim",
+  "packages/ink-spinner-shim",
+];
 
 function die(msg) {
   process.stderr.write(`${msg}\n`);

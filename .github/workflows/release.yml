@@ -211,7 +211,7 @@ jobs:
       - name: Publish @rezi-ui/ink-compat
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish -w @rezi-ui/ink-compat --access public
+        run: npm publish ./packages/ink-compat --access public
 
       - name: Publish ink-gradient-shim
         env:
