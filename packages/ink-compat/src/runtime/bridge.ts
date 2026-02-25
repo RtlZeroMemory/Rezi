@@ -1,8 +1,8 @@
-import type { VNode } from "@rezi-ui/core";
 import type { Readable, Writable } from "node:stream";
+import type { VNode } from "@rezi-ui/core";
 
 import { kittyModifiers } from "../kitty-keyboard.js";
-import { createHostContainer, type InkHostContainer } from "../reconciler/types.js";
+import { type InkHostContainer, createHostContainer } from "../reconciler/types.js";
 import {
   translateDynamicTree,
   translateStaticTree,

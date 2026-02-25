@@ -12,6 +12,43 @@
       "recommended": true
     }
   },
+  "overrides": [
+    {
+      "include": [
+        "packages/ink-compat/**",
+        "packages/ink-gradient-shim/**",
+        "packages/ink-spinner-shim/**"
+      ],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "useLiteralKeys": "off"
+          },
+          "performance": {
+            "noDelete": "off"
+          },
+          "style": {
+            "noNonNullAssertion": "off"
+          },
+          "suspicious": {
+            "noControlCharactersInRegex": "off",
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    },
+    {
+      "include": ["packages/ink-compat/src/__tests__/**"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noChildrenProp": "off",
+            "useExhaustiveDependencies": "off"
+          }
+        }
+      }
+    }
+  ],
   "javascript": {
     "formatter": {
       "quoteStyle": "double",

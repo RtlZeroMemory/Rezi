@@ -33,7 +33,9 @@ const Spinner: React.FC<SpinnerProps> = ({ label }) => {
     return () => clearInterval(timer);
   }, []);
 
-  return React.createElement(Box, { flexDirection: "row", gap: 1 },
+  return React.createElement(
+    Box,
+    { flexDirection: "row", gap: 1 },
     React.createElement(Text, { color: "green" }, SPINNER_FRAMES[frame]),
     React.createElement(Text, null, label),
   );
@@ -61,7 +63,9 @@ const TaskRunner: React.FC = () => {
     }
   }, [allDone, exit]);
 
-  return React.createElement(Box, { flexDirection: "column", gap: 0 },
+  return React.createElement(
+    Box,
+    { flexDirection: "column", gap: 0 },
     React.createElement(Text, { bold: true }, "Task Runner"),
     React.createElement(Box, { height: 1 }), // blank line
     ...tasks.map((task) =>
@@ -71,11 +75,7 @@ const TaskRunner: React.FC = () => {
         task.done
           ? React.createElement(Text, { color: "green" }, "✓")
           : React.createElement(Text, { color: "yellow" }, "⠋"),
-        React.createElement(
-          Text,
-          { dimColor: task.done },
-          task.name,
-        ),
+        React.createElement(Text, { dimColor: task.done }, task.name),
       ),
     ),
     allDone
@@ -106,7 +106,9 @@ test("spinner: shows spinner icon for pending tasks", () => {
 test("spinner: rerender with completed task shows checkmark", () => {
   // Create a controllable version
   const Controllable: React.FC<{ done: boolean[] }> = ({ done }) => {
-    return React.createElement(Box, { flexDirection: "column" },
+    return React.createElement(
+      Box,
+      { flexDirection: "column" },
       React.createElement(
         Box,
         { flexDirection: "row", gap: 1 },
@@ -152,9 +154,7 @@ test("spinner: rerender with completed task shows checkmark", () => {
 // --- Standalone spinner component test ---
 
 test("spinner: Spinner component renders label", () => {
-  const { lastFrame, unmount } = render(
-    React.createElement(Spinner, { label: "Loading..." }),
-  );
+  const { lastFrame, unmount } = render(React.createElement(Spinner, { label: "Loading..." }));
   const frame = lastFrame();
   assert.ok(frame.includes("Loading..."), "label present");
   // Should have a spinner frame char
@@ -171,15 +171,15 @@ test("spinner: color changes with state", () => {
   const ColorApp: React.FC<{ status: "loading" | "success" | "error" }> = ({ status }) => {
     const colorMap = { loading: "yellow", success: "green", error: "red" };
     const iconMap = { loading: "⠋", success: "✓", error: "✗" };
-    return React.createElement(Box, { flexDirection: "row", gap: 1 },
+    return React.createElement(
+      Box,
+      { flexDirection: "row", gap: 1 },
       React.createElement(Text, { color: colorMap[status] }, iconMap[status]),
       React.createElement(Text, null, `Status: ${status}`),
     );
   };
 
-  const { lastFrame, rerender } = render(
-    React.createElement(ColorApp, { status: "loading" }),
-  );
+  const { lastFrame, rerender } = render(React.createElement(ColorApp, { status: "loading" }));
   assert.ok(lastFrame().includes("Status: loading"), "loading state");
   assert.ok(lastFrame().includes("⠋"), "loading icon");
 
@@ -195,9 +195,7 @@ test("spinner: color changes with state", () => {
 // --- Unmount cleanup ---
 
 test("spinner: unmount cleans up", () => {
-  const { lastFrame, unmount } = render(
-    React.createElement(Spinner, { label: "Working..." }),
-  );
+  const { lastFrame, unmount } = render(React.createElement(Spinner, { label: "Working..." }));
   assert.ok(lastFrame().includes("Working..."), "rendered before unmount");
   unmount();
   // After unmount, lastFrame should return last captured frame

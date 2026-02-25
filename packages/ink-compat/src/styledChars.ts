@@ -21,7 +21,6 @@ export interface StyledChar {
  */
 export function toStyledCharacters(text: string): StyledChar[] {
   const result: StyledChar[] = [];
-  // biome-ignore lint: ANSI escape regex is complex by necessity
   const ansiRegex = /\u001b\[[0-9;]*m/g;
   let currentStyle = "";
   let lastIndex = 0;

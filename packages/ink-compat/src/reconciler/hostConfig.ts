@@ -1,13 +1,13 @@
 import { DefaultEventPriority } from "react-reconciler/constants.js";
 
 import {
+  type InkHostContainer,
+  type InkHostNode,
+  type InkNodeType,
   appendChild,
   createHostNode,
   insertBefore,
   removeChild,
-  type InkHostContainer,
-  type InkHostNode,
-  type InkNodeType,
 } from "./types.js";
 
 function mapNodeType(type: string): InkNodeType {

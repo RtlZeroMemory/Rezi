@@ -9,14 +9,14 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import React from "react";
 
-import { kittyFlags, kittyModifiers, useCursor } from "../../index.js";
 import { useIsScreenReaderEnabled } from "../../hooks/useIsScreenReaderEnabled.js";
+import { kittyFlags, kittyModifiers, useCursor } from "../../index.js";
 import { reconciler } from "../../reconciler/reconciler.js";
+import { createHostContainer, createHostNode } from "../../reconciler/types.js";
 import { InkResizeObserver } from "../../runtime/ResizeObserver.js";
 import { InkContext, type InkContextValue } from "../../runtime/context.js";
-import { getBoundingBox } from "../../runtime/getBoundingBox.js";
 import { getInnerHeight, getScrollHeight } from "../../runtime/domHelpers.js";
-import { createHostContainer, createHostNode } from "../../reconciler/types.js";
+import { getBoundingBox } from "../../runtime/getBoundingBox.js";
 
 // --- useIsScreenReaderEnabled ---
 
@@ -72,11 +72,7 @@ test("useIsScreenReaderEnabled reads context flag", () => {
 
   if (typeof reconciler.updateContainerSync === "function") {
     reconciler.updateContainerSync(
-      React.createElement(
-        InkContext.Provider,
-        { value: mockContext },
-        React.createElement(Probe),
-      ),
+      React.createElement(InkContext.Provider, { value: mockContext }, React.createElement(Probe)),
       root,
       null,
       null,
@@ -85,11 +81,7 @@ test("useIsScreenReaderEnabled reads context flag", () => {
     reconciler.flushPassiveEffects?.();
   } else {
     reconciler.updateContainer(
-      React.createElement(
-        InkContext.Provider,
-        { value: mockContext },
-        React.createElement(Probe),
-      ),
+      React.createElement(InkContext.Provider, { value: mockContext }, React.createElement(Probe)),
       root,
       null,
       () => {},

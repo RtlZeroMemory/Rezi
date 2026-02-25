@@ -39,9 +39,7 @@ const TodoApp: React.FC = () => {
     } else if (key.return || input === " ") {
       const target = pending[cursor];
       if (target) {
-        setTodos((prev) =>
-          prev.map((t) => (t.id === target.id ? { ...t, done: true } : t)),
-        );
+        setTodos((prev) => prev.map((t) => (t.id === target.id ? { ...t, done: true } : t)));
         setCursor((c) => Math.min(c, Math.max(0, pending.length - 2)));
       }
     }
@@ -67,11 +65,7 @@ const TodoApp: React.FC = () => {
     React.createElement(
       Box,
       { borderStyle: "single", paddingX: 1 },
-      React.createElement(
-        Text,
-        { bold: true },
-        `Todo (${pending.length} remaining)`,
-      ),
+      React.createElement(Text, { bold: true }, `Todo (${pending.length} remaining)`),
     ),
     // Pending items
     ...pending.map((todo, i) =>

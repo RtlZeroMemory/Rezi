@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  type InkHostContainer,
+  type InkHostNode,
   appendChild,
   createHostContainer,
   createHostNode,
-  type InkHostContainer,
-  type InkHostNode,
 } from "../../reconciler/types.js";
 import {
   translateDynamicTree,
@@ -321,10 +321,9 @@ test("wrap-reverse is approximated as wrap + reverse", () => {
 });
 
 test("absolute position maps to layout props", () => {
-  const node = boxNode(
-    { position: "absolute", top: 1, right: 2, bottom: 3, left: 4 },
-    [textNode("A")],
-  );
+  const node = boxNode({ position: "absolute", top: 1, right: 2, bottom: 3, left: 4 }, [
+    textNode("A"),
+  ]);
   const vnode = translateTree(containerWith(node)) as any;
 
   assert.equal(vnode.props.position, "absolute");
@@ -347,10 +346,9 @@ test("accessibility labels map on Box and Text", () => {
 test("flexGrow is always forwarded even inside auto-height column parents", () => {
   // In the default Ink chain (flexShrink defaults to 1), column children
   // still participate in main-axis resolution, so flexGrow is forwarded.
-  const node = boxNode(
-    { flexDirection: "column" },
-    [boxNode({ flexDirection: "column", flexGrow: 1 }, [textNode("Inner")])],
-  );
+  const node = boxNode({ flexDirection: "column" }, [
+    boxNode({ flexDirection: "column", flexGrow: 1 }, [textNode("Inner")]),
+  ]);
   const vnode = translateTree(containerWith(node)) as any;
   const child = vnode.children[0];
 
@@ -360,10 +358,9 @@ test("flexGrow is always forwarded even inside auto-height column parents", () =
 });
 
 test("flexGrow is skipped for column children when parent main size is auto", () => {
-  const node = boxNode(
-    { flexDirection: "column", flexShrink: 0 },
-    [boxNode({ flexDirection: "column", flexGrow: 1 }, [textNode("Inner")])],
-  );
+  const node = boxNode({ flexDirection: "column", flexShrink: 0 }, [
+    boxNode({ flexDirection: "column", flexGrow: 1 }, [textNode("Inner")]),
+  ]);
   const vnode = translateTree(containerWith(node)) as any;
   const child = vnode.children[0];
 
@@ -373,10 +370,9 @@ test("flexGrow is skipped for column children when parent main size is auto", ()
 });
 
 test("flexGrow is skipped for row children when parent main size is auto", () => {
-  const node = boxNode(
-    { flexDirection: "column", flexShrink: 0 },
-    [boxNode({ flexDirection: "row", flexGrow: 1 }, [textNode("Inner")])],
-  );
+  const node = boxNode({ flexDirection: "column", flexShrink: 0 }, [
+    boxNode({ flexDirection: "row", flexGrow: 1 }, [textNode("Inner")]),
+  ]);
   const vnode = translateTree(containerWith(node)) as any;
   const child = vnode.children[0];
 
@@ -386,10 +382,10 @@ test("flexGrow is skipped for row children when parent main size is auto", () =>
 });
 
 test("flexGrow is preserved under root overflow-hidden column", () => {
-  const node = boxNode(
-    { flexDirection: "column", overflow: "hidden" },
-    [boxNode({ flexDirection: "column", flexGrow: 1 }, [textNode("Inner")]), textNode("Footer")],
-  );
+  const node = boxNode({ flexDirection: "column", overflow: "hidden" }, [
+    boxNode({ flexDirection: "column", flexGrow: 1 }, [textNode("Inner")]),
+    textNode("Footer"),
+  ]);
   const vnode = translateTree(containerWith(node)) as any;
   const child = vnode.children[0];
 
@@ -407,15 +403,12 @@ test("flexGrow propagates through nested definite column chain", () => {
   //   └─ intermediate column (no explicit height, inherits definiteness)
   //       ├─ child with flexGrow:1 (should receive flex:1)
   //       └─ text "Footer"
-  const node = boxNode(
-    { flexDirection: "column", overflow: "hidden" },
-    [
-      boxNode({ flexDirection: "column" }, [
-        boxNode({ flexDirection: "column", flexGrow: 1 }, [textNode("Content")]),
-        textNode("Footer"),
-      ]),
-    ],
-  );
+  const node = boxNode({ flexDirection: "column", overflow: "hidden" }, [
+    boxNode({ flexDirection: "column" }, [
+      boxNode({ flexDirection: "column", flexGrow: 1 }, [textNode("Content")]),
+      textNode("Footer"),
+    ]),
+  ]);
   const vnode = translateTree(containerWith(node)) as any;
 
   // root column → intermediate column → flexGrow child
@@ -432,15 +425,9 @@ test("flexGrow propagates through nested definite column chain", () => {
 });
 
 test("forced flex compat skips non-overflow column containers", () => {
-  const node = boxNode(
-    { flexDirection: "column", overflow: "hidden" },
-    [
-      boxNode(
-        { flexDirection: "column", width: 40, flexGrow: 0, flexShrink: 0 },
-        [textNode("Body")],
-      ),
-    ],
-  );
+  const node = boxNode({ flexDirection: "column", overflow: "hidden" }, [
+    boxNode({ flexDirection: "column", width: 40, flexGrow: 0, flexShrink: 0 }, [textNode("Body")]),
+  ]);
   const vnode = translateTree(containerWith(node)) as any;
   const child = vnode.children[0];
 
@@ -449,21 +436,18 @@ test("forced flex compat skips non-overflow column containers", () => {
 });
 
 test("forced flex compat applies for overflow/clip column containers", () => {
-  const node = boxNode(
-    { flexDirection: "column", overflow: "hidden" },
-    [
-      boxNode(
-        {
-          flexDirection: "column",
-          width: 40,
-          flexGrow: 0,
-          flexShrink: 0,
-          overflow: "hidden",
-        },
-        [textNode("Body")],
-      ),
-    ],
-  );
+  const node = boxNode({ flexDirection: "column", overflow: "hidden" }, [
+    boxNode(
+      {
+        flexDirection: "column",
+        width: 40,
+        flexGrow: 0,
+        flexShrink: 0,
+        overflow: "hidden",
+      },
+      [textNode("Body")],
+    ),
+  ]);
   const vnode = translateTree(containerWith(node)) as any;
   const child = vnode.children[0];
 
@@ -533,7 +517,10 @@ test("static box renders as plain column", () => {
 });
 
 test("dynamic translation skips static subtrees", () => {
-  const node = boxNode({}, [textNode("Dynamic"), boxNode({ __inkStatic: true }, [textNode("Static")])]);
+  const node = boxNode({}, [
+    textNode("Dynamic"),
+    boxNode({ __inkStatic: true }, [textNode("Static")]),
+  ]);
   const vnode = translateDynamicTree(containerWith(node)) as any;
 
   assert.equal(vnode.kind, "row");
@@ -543,7 +530,10 @@ test("dynamic translation skips static subtrees", () => {
 });
 
 test("static translation extracts static output regardless declaration order", () => {
-  const node = boxNode({}, [textNode("Dynamic"), boxNode({ __inkStatic: true }, [textNode("Static")])]);
+  const node = boxNode({}, [
+    textNode("Dynamic"),
+    boxNode({ __inkStatic: true }, [textNode("Static")]),
+  ]);
   const vnode = translateStaticTree(containerWith(node)) as any;
 
   assert.equal(vnode.kind, "column");

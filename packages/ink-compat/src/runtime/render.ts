@@ -1,16 +1,16 @@
+import { appendFileSync } from "node:fs";
+import type { Readable, Writable } from "node:stream";
+import { format as formatConsoleMessage } from "node:util";
 import {
-  createTestRenderer,
-  measureTextCells,
   type Rgb,
   type TextStyle,
   type VNode,
+  createTestRenderer,
+  measureTextCells,
 } from "@rezi-ui/core";
-import { appendFileSync } from "node:fs";
-import { format as formatConsoleMessage } from "node:util";
-import type { Readable, Writable } from "node:stream";
 import React from "react";
 
-import { resolveKittyFlags, type KittyFlagName } from "../kitty-keyboard.js";
+import { type KittyFlagName, resolveKittyFlags } from "../kitty-keyboard.js";
 import type { InkHostContainer, InkHostNode } from "../reconciler/types.js";
 import { enableTranslationTrace, flushTranslationTrace } from "../translation/traceCollector.js";
 import { checkAllResizeObservers } from "./ResizeObserver.js";
@@ -195,17 +195,18 @@ function readViewportSize(stdout: Writable, fallbackStdout: Writable): ViewportS
   const primaryWindow = readWindowSize(stdout);
   const fallbackWindow = stdout === fallbackStdout ? {} : readWindowSize(fallbackStdout);
 
-  const primaryCols = primaryWindow.cols ?? readPositiveInt((stdout as { columns?: unknown }).columns);
+  const primaryCols =
+    primaryWindow.cols ?? readPositiveInt((stdout as { columns?: unknown }).columns);
   const primaryRows = primaryWindow.rows ?? readPositiveInt((stdout as { rows?: unknown }).rows);
 
   const fallbackCols =
     stdout === fallbackStdout
       ? undefined
-      : fallbackWindow.cols ?? readPositiveInt((fallbackStdout as { columns?: unknown }).columns);
+      : (fallbackWindow.cols ?? readPositiveInt((fallbackStdout as { columns?: unknown }).columns));
   const fallbackRows =
     stdout === fallbackStdout
       ? undefined
-      : fallbackWindow.rows ?? readPositiveInt((fallbackStdout as { rows?: unknown }).rows);
+      : (fallbackWindow.rows ?? readPositiveInt((fallbackStdout as { rows?: unknown }).rows));
 
   const envCols = parseEnvInt(process.env["COLUMNS"]);
   const envRows = parseEnvInt(process.env["LINES"]);
@@ -372,11 +373,7 @@ function coerceRootViewportHeight(
  * The result is a content-sized layout matching real Ink non-alt-buffer
  * rendering.
  */
-function makeContentSized(
-  vnode: VNode,
-  isRoot = true,
-  parentIsVertical = true,
-): VNode {
+function makeContentSized(vnode: VNode, isRoot = true, parentIsVertical = true): VNode {
   if (typeof vnode !== "object" || vnode === null) return vnode;
 
   const candidate = vnode as {
@@ -386,9 +383,7 @@ function makeContentSized(
   };
 
   const isContainer =
-    candidate.kind === "box" ||
-    candidate.kind === "row" ||
-    candidate.kind === "column";
+    candidate.kind === "box" || candidate.kind === "row" || candidate.kind === "column";
 
   if (!isContainer) return vnode;
 
@@ -402,8 +397,7 @@ function makeContentSized(
 
   // Root only: strip overflow
   if (isRoot) {
-    const overflow =
-      typeof props["overflow"] === "string" ? props["overflow"] : "";
+    const overflow = typeof props["overflow"] === "string" ? props["overflow"] : "";
     if (overflow === "hidden" || overflow === "scroll") {
       delete nextProps["overflow"];
       propsChanged = true;
@@ -448,9 +442,7 @@ function makeContentSized(
 
   // Recurse into children — pass whether THIS node is a vertical container
   const thisIsVertical = candidate.kind !== "row";
-  const children = Array.isArray(candidate.children)
-    ? candidate.children
-    : undefined;
+  const children = Array.isArray(candidate.children) ? candidate.children : undefined;
   let nextChildren = children;
   if (children && children.length > 0) {
     const mapped: VNode[] = [];
@@ -575,11 +567,7 @@ function snapshotHostRootChildren(rootNode: InkHostContainer, limit: number): re
   return Object.freeze(out);
 }
 
-function snapshotHostTreeNode(
-  node: InkHostNode,
-  depth: number,
-  childLimit: number,
-): unknown {
+function snapshotHostTreeNode(node: InkHostNode, depth: number, childLimit: number): unknown {
   const out: Record<string, unknown> = {
     type: node.type,
     textContent: node.textContent ?? "",
@@ -589,7 +577,9 @@ function snapshotHostTreeNode(
 
   if (depth <= 0) return Object.freeze(out);
 
-  const children = node.children.slice(0, childLimit).map((child) => snapshotHostTreeNode(child, depth - 1, childLimit));
+  const children = node.children
+    .slice(0, childLimit)
+    .map((child) => snapshotHostTreeNode(child, depth - 1, childLimit));
   if (node.children.length > childLimit) {
     children.push(Object.freeze({ truncatedChildren: node.children.length - childLimit }));
   }
@@ -597,12 +587,10 @@ function snapshotHostTreeNode(
   return Object.freeze(out);
 }
 
-function snapshotHostTree(
-  rootNode: InkHostContainer,
-  depth: number,
-  childLimit: number,
-): unknown {
-  const children = rootNode.children.slice(0, childLimit).map((child) => snapshotHostTreeNode(child, depth - 1, childLimit));
+function snapshotHostTree(rootNode: InkHostContainer, depth: number, childLimit: number): unknown {
+  const children = rootNode.children
+    .slice(0, childLimit)
+    .map((child) => snapshotHostTreeNode(child, depth - 1, childLimit));
   if (rootNode.children.length > childLimit) {
     children.push(Object.freeze({ truncatedChildren: rootNode.children.length - childLimit }));
   }
@@ -636,10 +624,7 @@ function snapshotLayoutNodes(
         id: typeof node.id === "string" ? node.id : null,
         path: Array.isArray(node.path) ? node.path.join(".") : "",
         rect: node.rect ?? null,
-        text:
-          typeof node.text === "string"
-            ? formatLineSnippet(node.text, 80)
-            : undefined,
+        text: typeof node.text === "string" ? formatLineSnippet(node.text, 80) : undefined,
         props: summarizeUnknown(node.props),
       }),
     );
@@ -648,10 +633,7 @@ function snapshotLayoutNodes(
   return Object.freeze(out);
 }
 
-function snapshotOps(
-  ops: readonly RenderOp[],
-  limit: number,
-): readonly unknown[] {
+function snapshotOps(ops: readonly RenderOp[], limit: number): readonly unknown[] {
   const out: unknown[] = [];
   for (let index = 0; index < Math.min(ops.length, limit); index += 1) {
     const op = ops[index];
@@ -753,27 +735,58 @@ function snapshotVNodeTree(node: unknown, depth = 0, maxDepth = 8): unknown {
   const kind = n["kind"];
   if (typeof kind !== "string") return null;
 
-  const props = typeof n["props"] === "object" && n["props"] !== null
-    ? (n["props"] as Record<string, unknown>)
-    : {};
+  const props =
+    typeof n["props"] === "object" && n["props"] !== null
+      ? (n["props"] as Record<string, unknown>)
+      : {};
 
   // Capture relevant props for debugging
   const snap: Record<string, unknown> = { kind };
   if (typeof n["text"] === "string") snap["text"] = (n["text"] as string).slice(0, 60);
   // Layout props
   for (const key of [
-    "width", "height", "minWidth", "minHeight", "maxWidth", "maxHeight",
-    "flex", "flexShrink", "flexBasis",
-    "overflow", "scrollY", "scrollX",
-    "gap", "p", "px", "py", "pt", "pb", "pl", "pr",
-    "m", "mx", "my", "mt", "mb", "ml", "mr",
-    "items", "justify", "alignSelf", "wrap", "reverse",
+    "width",
+    "height",
+    "minWidth",
+    "minHeight",
+    "maxWidth",
+    "maxHeight",
+    "flex",
+    "flexShrink",
+    "flexBasis",
+    "overflow",
+    "scrollY",
+    "scrollX",
+    "gap",
+    "p",
+    "px",
+    "py",
+    "pt",
+    "pb",
+    "pl",
+    "pr",
+    "m",
+    "mx",
+    "my",
+    "mt",
+    "mb",
+    "ml",
+    "mr",
+    "items",
+    "justify",
+    "alignSelf",
+    "wrap",
+    "reverse",
   ]) {
     if (props[key] != null) snap[key] = props[key];
   }
   // Border props
   for (const key of [
-    "border", "borderTop", "borderRight", "borderBottom", "borderLeft",
+    "border",
+    "borderTop",
+    "borderRight",
+    "borderBottom",
+    "borderLeft",
     "borderStyle",
   ]) {
     if (props[key] != null) snap[key] = props[key];
@@ -787,7 +800,8 @@ function snapshotVNodeTree(node: unknown, depth = 0, maxDepth = 8): unknown {
       text: typeof s.text === "string" ? s.text.slice(0, 40) : "",
       style: s.style ?? null,
     }));
-    if ((props["spans"] as unknown[]).length > 10) snap["spansTruncated"] = (props["spans"] as unknown[]).length;
+    if ((props["spans"] as unknown[]).length > 10)
+      snap["spansTruncated"] = (props["spans"] as unknown[]).length;
   }
 
   const children = n["children"];
@@ -816,7 +830,8 @@ function snapshotCellGridRows(
     let lastVisibleCol = -1;
     for (let col = 0; col < Math.min(row.length, maxCols); col++) {
       const cell = row[col]!;
-      if ((cell.char !== "" && cell.char !== " ") || styleVisibleOnSpace(cell.style)) lastVisibleCol = col;
+      if ((cell.char !== "" && cell.char !== " ") || styleVisibleOnSpace(cell.style))
+        lastVisibleCol = col;
     }
     // Only capture up to last visible cell + a few
     const captureTo = Math.min(row.length, maxCols, lastVisibleCol + 5);
@@ -891,7 +906,8 @@ function summarizeHostTree(rootNode: InkHostContainer): HostTreeSummary {
   if (rootChild?.type === "ink-box") {
     const value = toNumber(rootChild.props["scrollTop"]);
     if (value != null) rootScrollTop = Math.trunc(value);
-    const overflow = rootChild.props["overflow"] ?? rootChild.props["overflowY"] ?? rootChild.props["overflowX"];
+    const overflow =
+      rootChild.props["overflow"] ?? rootChild.props["overflowY"] ?? rootChild.props["overflowX"];
     if (typeof overflow === "string") rootOverflow = overflow;
     rootWidthProp = String(rootChild.props["width"] ?? "");
     rootHeightProp = String(rootChild.props["height"] ?? "");
@@ -1103,7 +1119,10 @@ function stylesEqual(a: CellStyle | undefined, b: CellStyle | undefined): boolea
   for (let i = 0; i < keysA.length; i += 1) {
     const key = keysA[i]!;
     if (key !== keysB[i]) return false;
-    if (JSON.stringify((a as Record<string, unknown>)[key]) !== JSON.stringify((b as Record<string, unknown>)[key])) {
+    if (
+      JSON.stringify((a as Record<string, unknown>)[key]) !==
+      JSON.stringify((b as Record<string, unknown>)[key])
+    ) {
       return false;
     }
   }
@@ -1129,7 +1148,9 @@ function styleToSgr(style: CellStyle | undefined, colorSupport: ColorSupport): s
   if (colorSupport.level > 0) {
     if (style.fg) {
       if (colorSupport.level >= 3) {
-        codes.push(`38;2;${clampByte(style.fg.r)};${clampByte(style.fg.g)};${clampByte(style.fg.b)}`);
+        codes.push(
+          `38;2;${clampByte(style.fg.r)};${clampByte(style.fg.g)};${clampByte(style.fg.b)}`,
+        );
       } else if (colorSupport.level === 2) {
         codes.push(`38;5;${toAnsi256Code(style.fg)}`);
       } else {
@@ -1138,7 +1159,9 @@ function styleToSgr(style: CellStyle | undefined, colorSupport: ColorSupport): s
     }
     if (style.bg) {
       if (colorSupport.level >= 3) {
-        codes.push(`48;2;${clampByte(style.bg.r)};${clampByte(style.bg.g)};${clampByte(style.bg.b)}`);
+        codes.push(
+          `48;2;${clampByte(style.bg.r)};${clampByte(style.bg.g)};${clampByte(style.bg.b)}`,
+        );
       } else if (colorSupport.level === 2) {
         codes.push(`48;5;${toAnsi256Code(style.bg)}`);
       } else {
@@ -1223,10 +1246,7 @@ const graphemeSegmenter: GraphemeSegmenter | undefined = (() => {
   return new maybeIntl.Segmenter(undefined, { granularity: "grapheme" });
 })();
 
-function forEachGraphemeCluster(
-  text: string,
-  visit: (cluster: string) => void,
-): void {
+function forEachGraphemeCluster(text: string, visit: (cluster: string) => void): void {
   if (text.length === 0) return;
   if (graphemeSegmenter) {
     for (const item of graphemeSegmenter.segment(text)) {
@@ -1381,7 +1401,8 @@ function renderOpsToAnsi(
     let lastUsefulCol = -1;
     for (let index = 0; index < row.length; index += 1) {
       const cell = row[index]!;
-      if ((cell.char !== "" && cell.char !== " ") || styleVisibleOnSpace(cell.style)) lastUsefulCol = index;
+      if ((cell.char !== "" && cell.char !== " ") || styleVisibleOnSpace(cell.style))
+        lastUsefulCol = index;
     }
 
     if (lastUsefulCol < 0) {
@@ -1552,9 +1573,7 @@ function resolvePercentMarkers(vnode: VNode, context: PercentResolveContext): VN
     parentMainAxis: readNodeMainAxis(candidate.kind),
   };
 
-  const originalChildren = Array.isArray(candidate.children)
-    ? (candidate.children as VNode[])
-    : [];
+  const originalChildren = Array.isArray(candidate.children) ? (candidate.children as VNode[]) : [];
   const nextChildren = originalChildren.map((child) => resolvePercentMarkers(child, nextContext));
 
   return {
@@ -1683,7 +1702,9 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   });
 
   const container = createReactRoot(bridge.rootNode, (err: unknown) => {
-    writeErr(`[ink-compat] REACT ERROR: ${err instanceof Error ? err.stack ?? err.message : String(err)}\n`);
+    writeErr(
+      `[ink-compat] REACT ERROR: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`,
+    );
   });
 
   let viewport = readViewportSize(stdout, fallbackStdout);
@@ -1749,9 +1770,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   let restoreStdoutWrite: (() => void) | undefined;
   let lastCursorSignature = "hidden";
 
-  const _s = debug
-    ? writeErr
-    : (_msg: string): void => {};
+  const _s = debug ? writeErr : (_msg: string): void => {};
 
   const streamColorDepth = (() => {
     const fn = (stdout as { getColorDepth?: unknown }).getColorDepth;
@@ -1782,7 +1801,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   if (usingAlternateBuffer) {
     stdout.write("\u001b[?1049h");
   }
-  if (kittyKeyboardEnabled && ((stdout as { isTTY?: unknown }).isTTY === true)) {
+  if (kittyKeyboardEnabled && (stdout as { isTTY?: unknown }).isTTY === true) {
     const resolvedFlags = resolveKittyFlags(kittyFlags);
     writeErr(
       `[ink-compat] kitty keyboard protocol enabled (mode=${kittyMode}, flags=${resolvedFlags})\n`,
@@ -1876,7 +1895,8 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
 
   const toOutputToRender = (output: string): string => {
     const outputHeight = countRenderedLines(output);
-    const isFullscreen = (stdout as { isTTY?: unknown }).isTTY === true && outputHeight >= viewport.rows;
+    const isFullscreen =
+      (stdout as { isTTY?: unknown }).isTTY === true && outputHeight >= viewport.rows;
     return isFullscreen ? output : `${output}\n`;
   };
 
@@ -1980,10 +2000,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
       return ok;
     };
 
-    const writeStaticChannelOutput = (
-      nextOutput: string,
-      nextStaticOutput: string,
-    ): boolean => {
+    const writeStaticChannelOutput = (nextOutput: string, nextStaticOutput: string): boolean => {
       let staticChannelPayload = "";
 
       if (lastOutputRenderLineCount > 0) {
@@ -2016,7 +2033,9 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
     const writeNow = hasStaticChannel
       ? () => writeStaticChannelOutput(payload.output, payload.staticOutput)
       : () =>
-          (incrementalRendering ? writeIncrementalOutput(payload.output) : writeFullOutput(payload.output));
+          incrementalRendering
+            ? writeIncrementalOutput(payload.output)
+            : writeFullOutput(payload.output);
 
     const writeOk = writeNow();
     lastOutput = payload.output;
@@ -2127,18 +2146,16 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
       // In static-channel mode, static output is rendered above the dynamic
       // frame, so dynamic layout works inside the remaining rows.
       const combinedStatic = fullStaticOutput + pendingStaticOutput;
-      const staticRowsUsed = combinedStatic.length > 0
-        ? (combinedStatic.match(/\n/g)?.length ?? 0)
-        : 0;
-      const fullStaticRows = fullStaticOutput.length > 0
-        ? (fullStaticOutput.match(/\n/g)?.length ?? 0)
-        : 0;
-      const pendingStaticRows = pendingStaticOutput.length > 0
-        ? (pendingStaticOutput.match(/\n/g)?.length ?? 0)
-        : 0;
-      const layoutViewport: ViewportSize = staticRowsUsed > 0
-        ? { cols: viewport.cols, rows: Math.max(1, viewport.rows - staticRowsUsed) }
-        : viewport;
+      const staticRowsUsed =
+        combinedStatic.length > 0 ? (combinedStatic.match(/\n/g)?.length ?? 0) : 0;
+      const fullStaticRows =
+        fullStaticOutput.length > 0 ? (fullStaticOutput.match(/\n/g)?.length ?? 0) : 0;
+      const pendingStaticRows =
+        pendingStaticOutput.length > 0 ? (pendingStaticOutput.match(/\n/g)?.length ?? 0) : 0;
+      const layoutViewport: ViewportSize =
+        staticRowsUsed > 0
+          ? { cols: viewport.cols, rows: Math.max(1, viewport.rows - staticRowsUsed) }
+          : viewport;
 
       let translatedDynamicWithPercent = resolvePercentMarkers(translatedDynamic, {
         parentSize: layoutViewport,
@@ -2148,10 +2165,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
       let vnode: VNode;
       let rootHeightCoerced: boolean;
 
-      const coerced = coerceRootViewportHeight(
-        translatedDynamicWithPercent,
-        layoutViewport,
-      );
+      const coerced = coerceRootViewportHeight(translatedDynamicWithPercent, layoutViewport);
       vnode = coerced.vnode;
       rootHeightCoerced = coerced.coerced;
       let result = renderer.render(vnode, { viewport: layoutViewport });
@@ -2248,7 +2262,12 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
 
       const shouldTraceFrame =
         traceEnabled &&
-        (traceAllFrames || frameCount <= 40 || force || viewportChanged || writeBlocked || collapsed);
+        (traceAllFrames ||
+          frameCount <= 40 ||
+          force ||
+          viewportChanged ||
+          writeBlocked ||
+          collapsed);
 
       if (shouldTraceFrame) {
         const host = summarizeHostTree(bridge.rootNode);
@@ -2288,12 +2307,16 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
             `frame#${frameCount} hostRootChildren=${safeJson(snapshotHostRootChildren(bridge.rootNode, traceDetailFull ? 60 : 16))}`,
           );
           if (traceDetailFull) {
-            trace(`frame#${frameCount} hostTree=${safeJson(snapshotHostTree(bridge.rootNode, 5, 40))}`);
+            trace(
+              `frame#${frameCount} hostTree=${safeJson(snapshotHostTree(bridge.rootNode, 5, 40))}`,
+            );
           }
           trace(
             `frame#${frameCount} layoutNodes=${safeJson(snapshotLayoutNodes(result.nodes as readonly { kind?: unknown; id?: unknown; path?: readonly number[]; rect?: { x?: number; y?: number; w?: number; h?: number }; text?: unknown; props?: Record<string, unknown> }[], detailNodeLimit))}`,
           );
-          trace(`frame#${frameCount} renderOps=${safeJson(snapshotOps(result.ops as readonly RenderOp[], detailOpLimit))}`);
+          trace(
+            `frame#${frameCount} renderOps=${safeJson(snapshotOps(result.ops as readonly RenderOp[], detailOpLimit))}`,
+          );
           trace(
             `frame#${frameCount} resizeTimeline=${formatResizeTimeline(resizeTimeline, traceStartAt, detailResizeLimit)}`,
           );
@@ -2324,18 +2347,30 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
 
             // Snapshot all non-blank rows (capped at 40)
             const rowsToSnapshot = nonBlankRows.slice(0, 40);
-            trace(`frame#${frameCount} cellGridSnapshot=${safeJson(snapshotCellGridRows(cellGrid, rowsToSnapshot, 120))}`);
+            trace(
+              `frame#${frameCount} cellGridSnapshot=${safeJson(snapshotCellGridRows(cellGrid, rowsToSnapshot, 120))}`,
+            );
 
             // Translation trace entries (border translations, color parses, dimension skips, forced-flex compat)
             if (translationTraceEntries.length > 0) {
               // Group by kind for readability
-              const borderTraces = translationTraceEntries.filter((e) => e.kind === "border-translate");
+              const borderTraces = translationTraceEntries.filter(
+                (e) => e.kind === "border-translate",
+              );
               const colorTraces = translationTraceEntries.filter((e) => e.kind === "color-parse");
-              const dimSkipTraces = translationTraceEntries.filter((e) => e.kind === "dimension-skip");
-              const forcedFlexTraces = translationTraceEntries.filter((e) => e.kind === "forced-flex-compat");
-              const flexGrowSkipTraces = translationTraceEntries.filter((e) => e.kind === "flex-grow-skip");
+              const dimSkipTraces = translationTraceEntries.filter(
+                (e) => e.kind === "dimension-skip",
+              );
+              const forcedFlexTraces = translationTraceEntries.filter(
+                (e) => e.kind === "forced-flex-compat",
+              );
+              const flexGrowSkipTraces = translationTraceEntries.filter(
+                (e) => e.kind === "flex-grow-skip",
+              );
               if (borderTraces.length > 0) {
-                trace(`frame#${frameCount} borderTranslations=${safeJson(borderTraces.slice(0, 30))}`);
+                trace(
+                  `frame#${frameCount} borderTranslations=${safeJson(borderTraces.slice(0, 30))}`,
+                );
               }
               if (colorTraces.length > 0) {
                 // Deduplicate: only show unique input→result pairs
@@ -2352,10 +2387,14 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
                 trace(`frame#${frameCount} dimensionSkips=${safeJson(dimSkipTraces.slice(0, 20))}`);
               }
               if (forcedFlexTraces.length > 0) {
-                trace(`frame#${frameCount} forcedFlexCompat=${safeJson(forcedFlexTraces.slice(0, 40))}`);
+                trace(
+                  `frame#${frameCount} forcedFlexCompat=${safeJson(forcedFlexTraces.slice(0, 40))}`,
+                );
               }
               if (flexGrowSkipTraces.length > 0) {
-                trace(`frame#${frameCount} flexGrowSkips=${safeJson(flexGrowSkipTraces.slice(0, 40))}`);
+                trace(
+                  `frame#${frameCount} flexGrowSkips=${safeJson(flexGrowSkipTraces.slice(0, 40))}`,
+                );
               }
             }
 
@@ -2365,7 +2404,11 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
             for (let r = 0; r < rawLines.length; r++) {
               const line = rawLines[r]!;
               if (line.length > 0) {
-                ansiLineInfo.push({ row: r, len: line.length, snippet: formatLineSnippet(line, 120) });
+                ansiLineInfo.push({
+                  row: r,
+                  len: line.length,
+                  snippet: formatLineSnippet(line, 120),
+                });
               }
             }
             trace(`frame#${frameCount} ansiLineDetail=${safeJson(ansiLineInfo.slice(0, 40))}`);
@@ -2374,7 +2417,11 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
       }
 
       const renderTime = Date.now() - frameStartedAt;
-      options.onRender?.({ renderTime, output, ...(staticOutput.length > 0 ? { staticOutput } : {}) });
+      options.onRender?.({
+        renderTime,
+        output,
+        ...(staticOutput.length > 0 ? { staticOutput } : {}),
+      });
 
       const cursorPosition = bridge.context.getCursorPosition();
       const cursorSignature = cursorPosition
@@ -2382,7 +2429,13 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         : "hidden";
       const cursorChanged = cursorSignature !== lastCursorSignature;
 
-      if (!force && output === lastOutput && staticOutput.length === 0 && !viewportChanged && !cursorChanged) {
+      if (
+        !force &&
+        output === lastOutput &&
+        staticOutput.length === 0 &&
+        !viewportChanged &&
+        !cursorChanged
+      ) {
         return;
       }
 
@@ -2406,9 +2459,11 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
       lastCursorSignature = cursorSignature;
     } catch (err) {
       _s(
-        `[ink-compat] renderFrame error: ${err instanceof Error ? err.stack ?? err.message : String(err)}\n`,
+        `[ink-compat] renderFrame error: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`,
       );
-      trace(`renderFrame error frame#${frameCount}: ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
+      trace(
+        `renderFrame error frame#${frameCount}: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`,
+      );
       if (force && lastStableOutput.length > 0) {
         writeOutput({ output: lastStableOutput, staticOutput: "" });
       }
@@ -2457,15 +2512,13 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
 
   const doRender = (el: React.ReactElement): void => {
     currentElement = el;
-    const wrapped = React.createElement(
-      InkContext.Provider,
-      { value: bridge.context },
-      el,
-    );
+    const wrapped = React.createElement(InkContext.Provider, { value: bridge.context }, el);
     try {
       commitSync(container, wrapped);
     } catch (err) {
-      _s(`[ink-compat] commitSync THREW: ${err instanceof Error ? err.stack ?? err.message : String(err)}\n`);
+      _s(
+        `[ink-compat] commitSync THREW: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`,
+      );
     }
   };
 
@@ -2740,7 +2793,9 @@ function isWritableStream(value: unknown): value is Writable {
   );
 }
 
-function normalizeRenderOptions(optionsOrStdout: RenderOptions | Writable | undefined): RenderOptions {
+function normalizeRenderOptions(
+  optionsOrStdout: RenderOptions | Writable | undefined,
+): RenderOptions {
   if (optionsOrStdout == null) return {};
   if (isWritableStream(optionsOrStdout)) {
     return { stdout: optionsOrStdout };

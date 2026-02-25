@@ -1,9 +1,9 @@
+import { Text } from "ink";
 /**
  * ink-gradient shim.
  * Applies a per-line multiline gradient and emits ANSI truecolor text.
  */
 import React from "react";
-import { Text } from "ink";
 
 const NAMED_COLORS = {
   black: [0, 0, 0],
@@ -21,7 +21,11 @@ const NAMED_COLORS = {
 const GRADIENT_TRACE_ENABLED = process.env.INK_GRADIENT_TRACE === "1";
 let gradientTraceRenderCount = 0;
 const SHIM_PATH =
-  typeof __filename === "string" ? __filename : (typeof import.meta !== "undefined" ? import.meta.url : "unknown");
+  typeof __filename === "string"
+    ? __filename
+    : typeof import.meta !== "undefined"
+      ? import.meta.url
+      : "unknown";
 
 const traceGradient = (message) => {
   if (!GRADIENT_TRACE_ENABLED) return;

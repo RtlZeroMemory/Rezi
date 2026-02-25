@@ -409,7 +409,9 @@ function summarizeNodes(
   });
 }
 
-function summarizeText(text: string): Readonly<{ textChars: number; textLines: number; nonBlankLines: number; widestLine: number }> {
+function summarizeText(
+  text: string,
+): Readonly<{ textChars: number; textLines: number; nonBlankLines: number; widestLine: number }> {
   const lines = text.split("\n");
   let nonBlankLines = 0;
   let widestLine = 0;

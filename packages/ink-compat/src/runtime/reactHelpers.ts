@@ -17,7 +17,18 @@ export function createReactRoot(
 ): unknown {
   // Pass onError to all three error callback slots:
   // arg7 = onUncaughtError, arg8 = onCaughtError, arg9 = onRecoverableError
-  return reconciler.createContainer(rootNode, 0, null, false, null, "", onError, onError, onError, null);
+  return reconciler.createContainer(
+    rootNode,
+    0,
+    null,
+    false,
+    null,
+    "",
+    onError,
+    onError,
+    onError,
+    null,
+  );
 }
 
 export function commitSync(container: unknown, element: React.ReactNode): void {

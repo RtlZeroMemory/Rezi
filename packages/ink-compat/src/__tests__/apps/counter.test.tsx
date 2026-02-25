@@ -30,15 +30,11 @@ const Counter: React.FC = () => {
   return React.createElement(
     Box,
     { flexDirection: "column", borderStyle: "round", padding: 1 },
-    React.createElement(
-      Text,
-      { bold: true, color: "cyan" },
-      "Counter App",
-    ),
+    React.createElement(Text, { bold: true, color: "cyan" }, "Counter App"),
     React.createElement(
       Box,
       { flexDirection: "row", marginTop: 1 },
-      React.createElement(Text, null, `Count: `),
+      React.createElement(Text, null, "Count: "),
       React.createElement(
         Text,
         { color: count > 0 ? "green" : "white", bold: true },

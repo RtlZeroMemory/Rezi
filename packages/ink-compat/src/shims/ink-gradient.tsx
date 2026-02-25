@@ -147,7 +147,9 @@ const applyGradient = (text: string, stops: readonly RgbColor[]): string => {
 };
 
 const Gradient: React.FC<GradientProps> = ({ colors, children }) => {
-  const parsedStops = colors.map((entry) => parseColor(entry)).filter((entry): entry is RgbColor => entry != null);
+  const parsedStops = colors
+    .map((entry) => parseColor(entry))
+    .filter((entry): entry is RgbColor => entry != null);
   const plainText = extractPlainText(children);
   const gradientText = applyGradient(plainText, parsedStops);
   if (GRADIENT_TRACE_ENABLED && gradientTraceRenderCount < 20) {

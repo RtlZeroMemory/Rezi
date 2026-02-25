@@ -8,11 +8,14 @@ export function useCursor() {
   const positionRef = useRef<CursorPosition | undefined>(undefined);
   const [, setVersion] = useState(0);
 
-  const setCursorPosition = useCallback((position: CursorPosition | undefined): void => {
-    positionRef.current = position;
-    ctx.setCursorPosition(position);
-    setVersion((value) => value + 1);
-  }, [ctx]);
+  const setCursorPosition = useCallback(
+    (position: CursorPosition | undefined): void => {
+      positionRef.current = position;
+      ctx.setCursorPosition(position);
+      setVersion((value) => value + 1);
+    },
+    [ctx],
+  );
 
   useEffect(() => {
     return () => {

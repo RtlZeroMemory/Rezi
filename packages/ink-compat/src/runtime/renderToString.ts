@@ -1,5 +1,5 @@
-import { createTestRenderer } from "@rezi-ui/core";
 import { PassThrough } from "node:stream";
+import { createTestRenderer } from "@rezi-ui/core";
 import React from "react";
 
 import { createBridge } from "./bridge.js";
@@ -45,9 +45,7 @@ export function renderToString(
 
   const dynamicVNode = bridge.translateDynamicToVNode();
   const dynamicOutput = renderer.render(dynamicVNode).toText();
-  const normalizedStatic = staticBuffer.endsWith("\n")
-    ? staticBuffer.slice(0, -1)
-    : staticBuffer;
+  const normalizedStatic = staticBuffer.endsWith("\n") ? staticBuffer.slice(0, -1) : staticBuffer;
 
   if (normalizedStatic.length > 0 && dynamicOutput.length > 0) {
     return `${normalizedStatic}\n${dynamicOutput}`;

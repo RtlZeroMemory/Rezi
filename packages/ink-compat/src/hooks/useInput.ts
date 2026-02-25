@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import { useInkContext, type Key } from "../runtime/context.js";
+import { type Key, useInkContext } from "../runtime/context.js";
 
 export type { Key };
 

@@ -60,11 +60,7 @@ const ActionButton: React.FC<{
   return React.createElement(
     Box,
     { borderStyle: isFocused ? "bold" : "single", paddingX: 1 },
-    React.createElement(
-      Text,
-      { bold: isFocused, color: isFocused ? "cyan" : "white" },
-      label,
-    ),
+    React.createElement(Text, { bold: isFocused, color: isFocused ? "cyan" : "white" }, label),
   );
 };
 
@@ -94,11 +90,7 @@ const FileProcessor: React.FC = () => {
       // Process next pending file
       const next = files.find((f) => f.status === "pending");
       if (next) {
-        setFiles((prev) =>
-          prev.map((f) =>
-            f.name === next.name ? { ...f, status: "done" } : f,
-          ),
-        );
+        setFiles((prev) => prev.map((f) => (f.name === next.name ? { ...f, status: "done" } : f)));
         setLog((prev) => [...prev, `Processed: ${next.name}`]);
       }
     } else if (input === "q") {
@@ -108,7 +100,9 @@ const FileProcessor: React.FC = () => {
 
   const allDone = files.every((f) => f.status === "done");
 
-  return React.createElement(Box, { flexDirection: "column" },
+  return React.createElement(
+    Box,
+    { flexDirection: "column" },
     // Completed files in Static
     doneFiles.length > 0
       ? React.createElement(Static<FileEntry>, {
@@ -133,11 +127,7 @@ const FileProcessor: React.FC = () => {
         { flexDirection: "row" },
         React.createElement(Text, { bold: true, color: "cyan" }, "File Processor"),
         React.createElement(Spacer, null),
-        React.createElement(
-          Text,
-          { dimColor: true },
-          `${doneFiles.length}/${files.length} done`,
-        ),
+        React.createElement(Text, { dimColor: true }, `${doneFiles.length}/${files.length} done`),
       ),
     ),
 
@@ -151,19 +141,11 @@ const FileProcessor: React.FC = () => {
           { key: file.name, flexDirection: "row", gap: 1 },
           React.createElement(StatusIcon, { status: file.status }),
           React.createElement(Text, null, file.name),
-          React.createElement(
-            Text,
-            { dimColor: true },
-            `${file.size}B`,
-          ),
+          React.createElement(Text, { dimColor: true }, `${file.size}B`),
         ),
       ),
       pendingFiles.length === 0
-        ? React.createElement(
-            Text,
-            { color: "green", bold: true },
-            "All files processed!",
-          )
+        ? React.createElement(Text, { color: "green", bold: true }, "All files processed!")
         : null,
     ),
 
@@ -202,9 +184,7 @@ const FileProcessor: React.FC = () => {
       React.createElement(
         Text,
         { dimColor: true },
-        allDone
-          ? "Complete — press q to exit"
-          : "Press p to process next file",
+        allDone ? "Complete — press q to exit" : "Press p to process next file",
       ),
     ),
   );
@@ -289,10 +269,7 @@ test("full-app: Spacer pushes progress to right of header", () => {
   const lines = lastFrame().split("\n");
   const headerLine = lines.find((l) => l.includes("File Processor") && l.includes("done"));
   // Both title and progress on same line means spacer worked
-  assert.ok(
-    headerLine !== undefined,
-    "title and progress should be on same line (Spacer worked)",
-  );
+  assert.ok(headerLine !== undefined, "title and progress should be on same line (Spacer worked)");
 });
 
 test("full-app: renders status icons for pending files", () => {

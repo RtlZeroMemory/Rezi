@@ -16,7 +16,9 @@ import { render } from "../../testing/index.js";
 // --- Basic flexDirection ---
 
 test("layout: row is default direction", () => {
-  const el = React.createElement(Box, null,
+  const el = React.createElement(
+    Box,
+    null,
     React.createElement(Text, null, "Line1"),
     React.createElement(Text, null, "Line2"),
   );
@@ -27,7 +29,9 @@ test("layout: row is default direction", () => {
 });
 
 test("layout: row direction places items side-by-side", () => {
-  const el = React.createElement(Box, { flexDirection: "row" },
+  const el = React.createElement(
+    Box,
+    { flexDirection: "row" },
     React.createElement(Text, null, "Left"),
     React.createElement(Text, null, "Right"),
   );
@@ -44,7 +48,9 @@ test("layout: row direction places items side-by-side", () => {
 // --- Spacer ---
 
 test("layout: spacer pushes items apart in row", () => {
-  const el = React.createElement(Box, { flexDirection: "row", width: 40 },
+  const el = React.createElement(
+    Box,
+    { flexDirection: "row", width: 40 },
     React.createElement(Text, null, "L"),
     React.createElement(Spacer, null),
     React.createElement(Text, null, "R"),
@@ -63,7 +69,9 @@ test("layout: spacer pushes items apart in row", () => {
 // --- Padding ---
 
 test("layout: padding adds space inside box", () => {
-  const el = React.createElement(Box, { borderStyle: "single", padding: 1 },
+  const el = React.createElement(
+    Box,
+    { borderStyle: "single", padding: 1 },
     React.createElement(Text, null, "padded"),
   );
   const { lastFrame } = render(el);
@@ -84,7 +92,9 @@ test("layout: padding adds space inside box", () => {
 });
 
 test("layout: paddingX adds horizontal space", () => {
-  const el = React.createElement(Box, { borderStyle: "single", paddingX: 2 },
+  const el = React.createElement(
+    Box,
+    { borderStyle: "single", paddingX: 2 },
     React.createElement(Text, null, "X"),
   );
   const { lastFrame } = render(el);
@@ -101,13 +111,11 @@ test("layout: paddingX adds horizontal space", () => {
 // --- Nested boxes ---
 
 test("layout: nested boxes render correctly", () => {
-  const el = React.createElement(Box, { flexDirection: "column" },
-    React.createElement(Box, { borderStyle: "single" },
-      React.createElement(Text, null, "Box A"),
-    ),
-    React.createElement(Box, { borderStyle: "double" },
-      React.createElement(Text, null, "Box B"),
-    ),
+  const el = React.createElement(
+    Box,
+    { flexDirection: "column" },
+    React.createElement(Box, { borderStyle: "single" }, React.createElement(Text, null, "Box A")),
+    React.createElement(Box, { borderStyle: "double" }, React.createElement(Text, null, "Box B")),
   );
   const { lastFrame } = render(el);
   const frame = lastFrame();
@@ -118,15 +126,22 @@ test("layout: nested boxes render correctly", () => {
 // --- Border variants ---
 
 test("layout: round border", () => {
-  const el = React.createElement(Box, { borderStyle: "round" },
+  const el = React.createElement(
+    Box,
+    { borderStyle: "round" },
     React.createElement(Text, null, "round"),
   );
   const { lastFrame } = render(el);
-  assert.ok(lastFrame().includes("╭") || lastFrame().includes("round"), "should use rounded border or contain text");
+  assert.ok(
+    lastFrame().includes("╭") || lastFrame().includes("round"),
+    "should use rounded border or contain text",
+  );
 });
 
 test("layout: bold border", () => {
-  const el = React.createElement(Box, { borderStyle: "bold" },
+  const el = React.createElement(
+    Box,
+    { borderStyle: "bold" },
     React.createElement(Text, null, "bold"),
   );
   const { lastFrame } = render(el);
@@ -134,21 +149,26 @@ test("layout: bold border", () => {
 });
 
 test("layout: double border", () => {
-  const el = React.createElement(Box, { borderStyle: "double" },
+  const el = React.createElement(
+    Box,
+    { borderStyle: "double" },
     React.createElement(Text, null, "dbl"),
   );
   const { lastFrame } = render(el);
-  assert.ok(lastFrame().includes("═") || lastFrame().includes("dbl"), "should have double border or text");
+  assert.ok(
+    lastFrame().includes("═") || lastFrame().includes("dbl"),
+    "should have double border or text",
+  );
 });
 
 // --- display: none ---
 
 test("layout: display none hides element", () => {
-  const el = React.createElement(Box, null,
+  const el = React.createElement(
+    Box,
+    null,
     React.createElement(Text, null, "visible"),
-    React.createElement(Box, { display: "none" },
-      React.createElement(Text, null, "hidden"),
-    ),
+    React.createElement(Box, { display: "none" }, React.createElement(Text, null, "hidden")),
   );
   const { lastFrame } = render(el);
   assert.ok(lastFrame().includes("visible"), "visible text shown");
@@ -158,10 +178,10 @@ test("layout: display none hides element", () => {
 // --- flexGrow ---
 
 test("layout: flexGrow causes child to expand", () => {
-  const el = React.createElement(Box, { flexDirection: "row", width: 40 },
-    React.createElement(Box, { flexGrow: 1 },
-      React.createElement(Text, null, "grow"),
-    ),
+  const el = React.createElement(
+    Box,
+    { flexDirection: "row", width: 40 },
+    React.createElement(Box, { flexGrow: 1 }, React.createElement(Text, null, "grow")),
     React.createElement(Text, null, "fixed"),
   );
   const { lastFrame } = render(el);
@@ -172,7 +192,9 @@ test("layout: flexGrow causes child to expand", () => {
 // --- Newline ---
 
 test("layout: Newline in Text creates line breaks", () => {
-  const el = React.createElement(Text, null,
+  const el = React.createElement(
+    Text,
+    null,
     "Line A",
     React.createElement(Newline, null),
     "Line B",
@@ -241,16 +263,15 @@ test("layout: row with border nests correctly", () => {
   const frame = lastFrame();
   assert.ok(frame.includes("A"), "A present");
   assert.ok(frame.includes("B"), "B present");
-  assert.ok(
-    frame.includes("┌") || frame.includes("│"),
-    "border characters present",
-  );
+  assert.ok(frame.includes("┌") || frame.includes("│"), "border characters present");
 });
 
 // --- Gap ---
 
 test("layout: gap adds space between children", () => {
-  const el = React.createElement(Box, { flexDirection: "column", gap: 1 },
+  const el = React.createElement(
+    Box,
+    { flexDirection: "column", gap: 1 },
     React.createElement(Text, null, "First"),
     React.createElement(Text, null, "Second"),
   );
@@ -267,7 +288,9 @@ test("layout: gap adds space between children", () => {
 
 test("layout: Static renders its items", () => {
   const items = ["done-1", "done-2"];
-  const el = React.createElement(Box, { flexDirection: "column" },
+  const el = React.createElement(
+    Box,
+    { flexDirection: "column" },
     React.createElement(Static<string>, {
       items,
       children: (item: string) => React.createElement(Text, { key: item }, `✓ ${item}`),
@@ -284,11 +307,11 @@ test("layout: Static renders its items", () => {
 // --- Margin ---
 
 test("layout: marginTop pushes element down", () => {
-  const el = React.createElement(Box, { flexDirection: "column" },
+  const el = React.createElement(
+    Box,
+    { flexDirection: "column" },
     React.createElement(Text, null, "Top"),
-    React.createElement(Box, { marginTop: 2 },
-      React.createElement(Text, null, "Bottom"),
-    ),
+    React.createElement(Box, { marginTop: 2 }, React.createElement(Text, null, "Bottom")),
   );
   const { lastFrame } = render(el);
   const lines = lastFrame().split("\n");
@@ -301,7 +324,9 @@ test("layout: marginTop pushes element down", () => {
 // --- Text styling ---
 
 test("layout: text style props don't crash", () => {
-  const el = React.createElement(Box, null,
+  const el = React.createElement(
+    Box,
+    null,
     React.createElement(Text, { bold: true }, "bold"),
     React.createElement(Text, { italic: true }, "italic"),
     React.createElement(Text, { underline: true }, "underline"),
@@ -325,7 +350,9 @@ test("layout: text style props don't crash", () => {
 // --- Nested Text (richText) ---
 
 test("layout: nested Text renders all spans", () => {
-  const el = React.createElement(Text, null,
+  const el = React.createElement(
+    Text,
+    null,
     "Hello ",
     React.createElement(Text, { bold: true, color: "green" }, "World"),
     "!",

@@ -12,10 +12,10 @@ import {
 import { createShadowConfig, renderShadow } from "../../shadow.js";
 import { asTextStyle } from "../../styles.js";
 import {
+  type BorderSideStyleMap,
   readBoxBorder,
   readTitleAlign,
   renderBoxBorder,
-  type BorderSideStyleMap,
 } from "../boxBorder.js";
 import { getRuntimeNodeDamageRect } from "../damageBounds.js";
 import { isVisibleRect } from "../indices.js";
@@ -84,11 +84,11 @@ function readScrollbarVariant(raw: unknown): ScrollbarVariant {
 
 function readBorderSideStyleMap(raw: unknown, theme: Theme): BorderSideStyleOverrides | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
-  const source = raw as Record<string, unknown>;
-  const top = asTextStyle(source["top"], theme);
-  const right = asTextStyle(source["right"], theme);
-  const bottom = asTextStyle(source["bottom"], theme);
-  const left = asTextStyle(source["left"], theme);
+  const source = raw as { top?: unknown; right?: unknown; bottom?: unknown; left?: unknown };
+  const top = asTextStyle(source.top, theme);
+  const right = asTextStyle(source.right, theme);
+  const bottom = asTextStyle(source.bottom, theme);
+  const left = asTextStyle(source.left, theme);
   if (!top && !right && !bottom && !left) return undefined;
   return {
     ...(top ? { top } : {}),
@@ -702,12 +702,21 @@ export function renderContainerWidget(
         builder.fillRect(rect.x, rect.y, rect.w, rect.h, style);
       }
 
-      renderBoxBorder(builder, rect, border, title, titleAlign, borderDrawStyle, {
-        top: borderTop,
-        right: borderRight,
-        bottom: borderBottom,
-        left: borderLeft,
-      }, borderSideDrawStyle);
+      renderBoxBorder(
+        builder,
+        rect,
+        border,
+        title,
+        titleAlign,
+        borderDrawStyle,
+        {
+          top: borderTop,
+          right: borderRight,
+          bottom: borderBottom,
+          left: borderLeft,
+        },
+        borderSideDrawStyle,
+      );
 
       const bt = border === "none" || !borderTop ? 0 : 1;
       const br = border === "none" || !borderRight ? 0 : 1;

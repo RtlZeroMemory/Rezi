@@ -1,9 +1,9 @@
+import { Text } from "ink";
 /**
  * ink-spinner shim — drop-in replacement using ink compat primitives.
  * Implements the "dots" spinner type used by Gemini CLI.
  */
 import React, { useEffect, useState } from "react";
-import { Text } from "ink";
 
 const SPINNER_FRAMES = {
   dots: { frames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"], interval: 80 },

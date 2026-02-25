@@ -699,7 +699,7 @@ test("runtime render flushes a bounded frame queue under backpressure", async ()
   let blocked = true;
   stdout.write = ((chunk: string | Uint8Array): boolean => {
     writes.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf-8"));
-    return blocked ? false : true;
+    return !blocked;
   }) as typeof stdout.write;
 
   const makeFrame = (index: number): React.ReactElement =>
@@ -721,7 +721,7 @@ test("runtime render flushes a bounded frame queue under backpressure", async ()
     blocked = false;
     stdout.emit("drain");
     await new Promise((resolve) => setTimeout(resolve, 20));
-    const observedFrames = Array.from(new Set((writes.join("").match(/Frame-\d+/g) ?? [])));
+    const observedFrames = Array.from(new Set(writes.join("").match(/Frame-\d+/g) ?? []));
     assert.ok(observedFrames.includes("Frame-8"), "latest queued frame should be emitted");
     assert.ok(
       observedFrames.length >= 4,
@@ -772,9 +772,7 @@ test("runtime render falls back to getWindowSize when columns and rows are zero"
     const start = writes.lastIndexOf(marker);
     const latest = start >= 0 ? writes.slice(start + marker.length) : writes;
     const stripped = latest.replace(/\u001b\[[0-9;]*m/g, "").replace(/\r/g, "");
-    const wideLine = stripped
-      .split("\n")
-      .find((line) => line.includes("L") && line.includes("R"));
+    const wideLine = stripped.split("\n").find((line) => line.includes("L") && line.includes("R"));
 
     assert.ok(wideLine != null);
     assert.ok(wideLine.length >= 95);
@@ -980,9 +978,7 @@ test("runtime Static emits only new items on rerender", async () => {
 
   try {
     await new Promise((resolve) => setTimeout(resolve, 40));
-    const initialStatic = renderMetrics
-      .map((metric) => metric.staticOutput ?? "")
-      .join("");
+    const initialStatic = renderMetrics.map((metric) => metric.staticOutput ?? "").join("");
     assert.ok(initialStatic.includes("first"));
     assert.equal(initialStatic.includes("updated-first"), false);
 
@@ -995,9 +991,7 @@ test("runtime Static emits only new items on rerender", async () => {
     );
     await new Promise((resolve) => setTimeout(resolve, 40));
 
-    const updatedStatic = renderMetrics
-      .map((metric) => metric.staticOutput ?? "")
-      .join("");
+    const updatedStatic = renderMetrics.map((metric) => metric.staticOutput ?? "").join("");
     assert.equal(updatedStatic.includes("first"), false);
     assert.equal(updatedStatic.includes("updated-first"), false);
     assert.ok(renderMetrics.some((metric) => metric.output.includes("Dynamic-2")));
@@ -1014,9 +1008,7 @@ test("runtime Static emits only new items on rerender", async () => {
     );
     await new Promise((resolve) => setTimeout(resolve, 40));
 
-    const appendedStatic = renderMetrics
-      .map((metric) => metric.staticOutput ?? "")
-      .join("");
+    const appendedStatic = renderMetrics.map((metric) => metric.staticOutput ?? "").join("");
     assert.ok(appendedStatic.includes("second"));
     assert.equal(appendedStatic.includes("updated-first"), false);
     assert.equal(appendedStatic.includes("first"), false);
@@ -1103,9 +1095,10 @@ test("ANSI output resets attributes between differently-styled cells", () => {
     // Every SGR sequence that sets attributes should start with \u001b[0;...
     // to prevent attribute bleed from the previous cell.
     const sgrPattern = /\u001b\[(\d[^m]*)m/g;
-    let match: RegExpExecArray | null;
     const nonResetCodes: string[] = [];
-    while ((match = sgrPattern.exec(writes)) !== null) {
+    while (true) {
+      const match = sgrPattern.exec(writes);
+      if (match === null) break;
       const inner = match[1]!;
       // "0m" is a bare reset (fine). Any code that sets attributes (contains
       // digits > 0) MUST begin with "0;" to include a reset prefix.
@@ -1210,28 +1203,18 @@ test("ANSI truecolor input stays truecolor under low stream color depth", () => 
     writes += chunk.toString("utf-8");
   });
 
-  const gradientText =
-    "\u001b[38;2;255;80;60mR\u001b[38;2;70;130;220mB\u001b[0m";
-  const instance = runtimeRender(
-    React.createElement(Text, null, gradientText),
-    { stdin, stdout, stderr },
-  );
+  const gradientText = "\u001b[38;2;255;80;60mR\u001b[38;2;70;130;220mB\u001b[0m";
+  const instance = runtimeRender(React.createElement(Text, null, gradientText), {
+    stdin,
+    stdout,
+    stderr,
+  });
 
   try {
     const latest = latestFrameFromWrites(writes);
-    assert.ok(
-      latest.includes("38;2;255;80;60"),
-      `expected first truecolor stop, got: ${latest}`,
-    );
-    assert.ok(
-      latest.includes("38;2;70;130;220"),
-      `expected second truecolor stop, got: ${latest}`,
-    );
-    assert.equal(
-      latest.includes("38;5;"),
-      false,
-      `unexpected ANSI-256 downgrade: ${latest}`,
-    );
+    assert.ok(latest.includes("38;2;255;80;60"), `expected first truecolor stop, got: ${latest}`);
+    assert.ok(latest.includes("38;2;70;130;220"), `expected second truecolor stop, got: ${latest}`);
+    assert.equal(latest.includes("38;5;"), false, `unexpected ANSI-256 downgrade: ${latest}`);
     assert.equal(
       latest.includes("48;2;7;10;12"),
       false,

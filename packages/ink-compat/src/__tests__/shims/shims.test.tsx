@@ -6,16 +6,14 @@ import { PassThrough } from "node:stream";
 import { test } from "node:test";
 import React from "react";
 
-import { render } from "../../testing/index.js";
-import { render as runtimeRender } from "../../runtime/render.js";
-import Spinner from "../../shims/ink-spinner.js";
-import Gradient from "../../shims/ink-gradient.js";
 import { Box, Text } from "../../index.js";
+import { render as runtimeRender } from "../../runtime/render.js";
+import Gradient from "../../shims/ink-gradient.js";
+import Spinner from "../../shims/ink-spinner.js";
+import { render } from "../../testing/index.js";
 
 test("ink-spinner: renders dots spinner frame", () => {
-  const { lastFrame, unmount } = render(
-    React.createElement(Spinner, { type: "dots" }),
-  );
+  const { lastFrame, unmount } = render(React.createElement(Spinner, { type: "dots" }));
   const frame = lastFrame();
   const dotsFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
   assert.ok(
@@ -26,9 +24,7 @@ test("ink-spinner: renders dots spinner frame", () => {
 });
 
 test("ink-spinner: default type is dots", () => {
-  const { lastFrame, unmount } = render(
-    React.createElement(Spinner),
-  );
+  const { lastFrame, unmount } = render(React.createElement(Spinner));
   const frame = lastFrame();
   const dotsFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
   assert.ok(
@@ -40,7 +36,9 @@ test("ink-spinner: default type is dots", () => {
 
 test("ink-spinner: Gemini CLI pattern — Spinner + label in Box", () => {
   const { lastFrame, unmount } = render(
-    React.createElement(Box, null,
+    React.createElement(
+      Box,
+      null,
       React.createElement(Spinner, { type: "dots" }),
       React.createElement(Text, null, " Loading..."),
     ),
@@ -52,7 +50,9 @@ test("ink-spinner: Gemini CLI pattern — Spinner + label in Box", () => {
 
 test("ink-gradient: renders children with color", () => {
   const { lastFrame } = render(
-    React.createElement(Gradient, { colors: ["#ff0000", "#00ff00"] },
+    React.createElement(
+      Gradient,
+      { colors: ["#ff0000", "#00ff00"] },
       React.createElement(Text, null, "Hello World"),
     ),
   );
@@ -62,7 +62,9 @@ test("ink-gradient: renders children with color", () => {
 
 test("ink-gradient: Gemini CLI pattern — gradient wrapping Text", () => {
   const { lastFrame } = render(
-    React.createElement(Gradient, { colors: ["#ff6b6b", "#48dbfb", "#0abde3"] },
+    React.createElement(
+      Gradient,
+      { colors: ["#ff6b6b", "#48dbfb", "#0abde3"] },
       React.createElement(Text, { bold: true }, "Gemini"),
     ),
   );

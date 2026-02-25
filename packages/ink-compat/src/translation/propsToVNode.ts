@@ -1,4 +1,4 @@
-import { rgb, ui, type Rgb, type VNode } from "@rezi-ui/core";
+import { type Rgb, type VNode, rgb, ui } from "@rezi-ui/core";
 
 import type { InkHostContainer, InkHostNode } from "../reconciler/types.js";
 import { mapBorderStyle } from "./borderMap.js";
@@ -73,11 +73,7 @@ function attachHostNode(vnode: VNode | null, node: InkHostNode): VNode | null {
 }
 
 function readAccessibilityLabel(props: Record<string, unknown>): string | undefined {
-  const candidates = [
-    props["aria-label"],
-    props["ariaLabel"],
-    props["accessibilityLabel"],
-  ];
+  const candidates = [props["aria-label"], props["ariaLabel"], props["accessibilityLabel"]];
   for (const candidate of candidates) {
     if (typeof candidate === "string" && candidate.length > 0) {
       return candidate;
@@ -268,10 +264,12 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
     context.parentDirection === (isRow ? "row" : "column") &&
     effectiveFlexShrink > 0;
 
-  const nodeMainDefinite =
-    isRow
-      ? hasFixedWidth || hasGrowFromDefiniteParent || inheritsMainDefinite
-      : hasFixedHeight || hasGrowFromDefiniteParent || rootWillBeViewportHeightCoerced || inheritsMainDefinite;
+  const nodeMainDefinite = isRow
+    ? hasFixedWidth || hasGrowFromDefiniteParent || inheritsMainDefinite
+    : hasFixedHeight ||
+      hasGrowFromDefiniteParent ||
+      rootWillBeViewportHeightCoerced ||
+      inheritsMainDefinite;
   const inStaticSubtree = context.inStaticSubtree || p.__inkStatic === true;
 
   const childContext: TranslateContext = {
@@ -963,7 +961,11 @@ function parseSgrCodes(raw: string): number[] {
   return out.length > 0 ? out : [0];
 }
 
-function applySgrCodes(codes: readonly number[], activeStyle: TextStyleMap, baseStyle: TextStyleMap): void {
+function applySgrCodes(
+  codes: readonly number[],
+  activeStyle: TextStyleMap,
+  baseStyle: TextStyleMap,
+): void {
   const normalizedCodes = codes.length > 0 ? codes : [0];
 
   for (let index = 0; index < normalizedCodes.length; index += 1) {
@@ -1069,7 +1071,12 @@ function applyExtendedColor(
   const mode = codes[index + 1];
   if (mode === 5) {
     const colorIndex = codes[index + 2];
-    if (typeof colorIndex === "number" && Number.isInteger(colorIndex) && colorIndex >= 0 && colorIndex <= 255) {
+    if (
+      typeof colorIndex === "number" &&
+      Number.isInteger(colorIndex) &&
+      colorIndex >= 0 &&
+      colorIndex <= 255
+    ) {
       activeStyle[channel] = decodeAnsi256Color(colorIndex);
     }
     return index + 2;
@@ -1093,7 +1100,9 @@ function applyExtendedColor(
     const b = codes[index + 5];
     if (
       (maybeColorSpace == null ||
-        (typeof maybeColorSpace === "number" && Number.isInteger(maybeColorSpace) && maybeColorSpace >= 0)) &&
+        (typeof maybeColorSpace === "number" &&
+          Number.isInteger(maybeColorSpace) &&
+          maybeColorSpace >= 0)) &&
       isByte(r) &&
       isByte(g) &&
       isByte(b)
@@ -1120,7 +1129,11 @@ function resetSgrStyle(activeStyle: TextStyleMap, baseStyle: TextStyleMap): void
   Object.assign(activeStyle, baseStyle);
 }
 
-function resetSgrColor(channel: "fg" | "bg", activeStyle: TextStyleMap, baseStyle: TextStyleMap): void {
+function resetSgrColor(
+  channel: "fg" | "bg",
+  activeStyle: TextStyleMap,
+  baseStyle: TextStyleMap,
+): void {
   const inheritedColor = baseStyle[channel];
   if (inheritedColor !== undefined) {
     activeStyle[channel] = inheritedColor;

@@ -1,4 +1,4 @@
-import { rgb, type Rgb } from "@rezi-ui/core";
+import { type Rgb, rgb } from "@rezi-ui/core";
 import { isTranslationTraceEnabled, pushTranslationTrace } from "./traceCollector.js";
 
 const NAMED_COLORS: Record<string, Rgb> = {

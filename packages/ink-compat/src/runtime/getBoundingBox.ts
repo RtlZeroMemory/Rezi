@@ -17,7 +17,9 @@ export interface BoundingBox {
  * cached layout rect that the testing/render pipeline writes onto nodes.
  */
 export function getBoundingBox(element: InkHostNode): BoundingBox {
-  const layout = (element as InkHostNode & { __inkLayout?: { x: number; y: number; w: number; h: number } }).__inkLayout;
+  const layout = (
+    element as InkHostNode & { __inkLayout?: { x: number; y: number; w: number; h: number } }
+  ).__inkLayout;
   if (!layout) {
     return { x: 0, y: 0, width: 0, height: 0 };
   }

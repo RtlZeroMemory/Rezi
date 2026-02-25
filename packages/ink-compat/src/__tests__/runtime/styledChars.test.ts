@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  toStyledCharacters,
   styledCharsToString,
   styledCharsWidth,
+  toStyledCharacters,
+  widestLineFromStyledChars,
   wordBreakStyledChars,
   wrapStyledChars,
-  widestLineFromStyledChars,
 } from "../../styledChars.js";
 
 test("toStyledCharacters: plain text", () => {
