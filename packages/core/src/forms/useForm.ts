@@ -35,6 +35,17 @@ import {
   runSyncValidation,
 } from "./validation.js";
 
+const NODE_ENV =
+  (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ??
+  "development";
+const DEV_MODE = NODE_ENV !== "production";
+
+function warnDev(message: string): void {
+  if (!DEV_MODE) return;
+  const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
+  c?.warn?.(message);
+}
+
 type FieldOverrides<T extends Record<string, unknown>> = Partial<Record<keyof T, boolean>>;
 
 function cloneInitialValues<T extends Record<string, unknown>>(values: T): T {
@@ -65,6 +76,24 @@ function createInitialState<T extends Record<string, unknown>>(
 ): FormState<T> {
   const stepCount = options.wizard?.steps.length ?? 0;
   const initialStep = clampStepIndex(options.wizard?.initialStep ?? 0, stepCount);
+
+  if (DEV_MODE) {
+    const valueKeys = new Set(Object.keys(options.initialValues));
+    if (options.fieldDisabled) {
+      for (const key of Object.keys(options.fieldDisabled)) {
+        if (!valueKeys.has(key)) {
+          warnDev(`[rezi] useForm: fieldDisabled key "${key}" does not exist in initialValues`);
+        }
+      }
+    }
+    if (options.fieldReadOnly) {
+      for (const key of Object.keys(options.fieldReadOnly)) {
+        if (!valueKeys.has(key)) {
+          warnDev(`[rezi] useForm: fieldReadOnly key "${key}" does not exist in initialValues`);
+        }
+      }
+    }
+  }
 
   return {
     values: cloneInitialValues(options.initialValues),
