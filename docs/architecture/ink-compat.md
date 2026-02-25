@@ -1,182 +1,352 @@
 # Ink Compatibility Layer
 
-`@rezi-ui/ink-compat` is Rezi's Ink API compatibility package. It allows Ink applications to run on Rezi's renderer with minimal application changes (typically import/package overrides only).
+`@rezi-ui/ink-compat` lets Ink apps run on Rezi's renderer.
 
-## Goals
+It is designed for practical compatibility: keep React + Ink component/hook semantics, but replace Ink's renderer backend with Rezi's deterministic layout and draw pipeline.
 
-- Preserve Ink's developer surface for common CLI apps.
-- Match Ink rendering behavior closely enough for real-world apps (including Gemini CLI startup and interaction flows).
-- Provide deterministic diagnostics so parity issues can be debugged from traces, not guesswork.
+## What this gives you
 
-## Non-goals
+- Reuse existing Ink app code with minimal migration.
+- Keep common Ink APIs (`render`, `Box`, `Text`, `useInput`, `useFocus`, etc.).
+- Route rendering through Rezi's engine for better performance and deterministic frame behavior.
+- Debug parity issues with structured traces instead of ad-hoc logging.
 
-- Byte-for-byte reproduction of Ink internals.
-- Support for every undocumented Ink edge case.
-- Long-term dependency on app-specific behavior hacks.
+## Scope and expectations
 
-## Package topology
+Goals:
 
-```text
-packages/ink-compat/
-  src/
-    components/      // Ink-compatible component wrappers
-    hooks/           // Ink-compatible hooks
-    reconciler/      // React reconciler host config + host node tree
-    runtime/         // render(), renderToString(), bridge, context
-    translation/     // Ink props -> Rezi VNode props
-    testing/         // ink-testing-library-compatible helpers
+- High-fidelity behavior for real-world Ink apps.
+- Stable, deterministic diagnostics for parity work.
+- Clear compatibility boundaries.
+
+Non-goals:
+
+- Re-implement all Ink internals byte-for-byte.
+- Guarantee every undocumented edge-case behavior from every Ink version/fork.
+
+## Install and use
+
+### Option A: explicit import swap (recommended)
+
+Use this when you can edit source imports.
+
+```ts
+// Before
+import { render, Box, Text } from "ink";
+
+// After
+import { render, Box, Text } from "@rezi-ui/ink-compat";
 ```
 
-Related shims:
+### Option B: package aliasing (no app source changes)
 
-- `packages/ink-gradient-shim` (`ink-gradient` replacement)
-- `packages/ink-spinner-shim` (`ink-spinner` replacement)
+Use this when you want existing `import "ink"` calls to keep working.
 
-## Runtime architecture
+Install alias packages under Ink names:
 
-Render flow:
+```bash
+npm install \
+  ink@npm:@rezi-ui/ink-compat@latest \
+  ink-gradient@npm:ink-gradient-shim@latest \
+  ink-spinner@npm:ink-spinner-shim@latest
+```
 
-1. React renders into the compat reconciler host tree (`InkHostNode`).
-2. `translation/propsToVNode.ts` converts that host tree into Rezi VNodes.
-3. `runtime/render.ts` renders VNodes through Rezi test renderer.
-4. Render ops are converted to ANSI output and written to stdout/stderr.
+Equivalent with pnpm:
 
-This keeps React semantics (state/effects/context/suspense) while replacing Ink's rendering backend.
+```bash
+pnpm add \
+  ink@npm:@rezi-ui/ink-compat@latest \
+  ink-gradient@npm:ink-gradient-shim@latest \
+  ink-spinner@npm:ink-spinner-shim@latest
+```
+
+Equivalent with Yarn:
+
+```bash
+yarn add \
+  ink@npm:@rezi-ui/ink-compat@latest \
+  ink-gradient@npm:ink-gradient-shim@latest \
+  ink-spinner@npm:ink-spinner-shim@latest
+```
+
+### Shims and ecosystem packages
+
+Compat includes dedicated shims for commonly-used Ink ecosystem packages:
+
+- `ink-gradient` -> `ink-gradient-shim`
+- `ink-spinner` -> `ink-spinner-shim`
+
+You can also import shim implementations from `@rezi-ui/ink-compat` directly:
+
+- `@rezi-ui/ink-compat/shims/ink-gradient`
+- `@rezi-ui/ink-compat/shims/ink-spinner`
 
 ## Public compatibility surface
 
-Current exports (from `src/index.ts`):
+### Components
 
-Components:
+| Export | Notes |
+|---|---|
+| `Box` | Ink-compatible layout/container props, including overflow/scroll props used by modern Ink forks |
+| `Text` | Ink text styling props + wrapping/truncation behavior |
+| `Newline` | Line break helper |
+| `Spacer` | Flexible spacer helper |
+| `Static` | Static channel output compatible with Ink-style scrollback behavior |
+| `Transform` | Line transform wrapper (e.g. post-process text lines) |
 
-- `Box`
-- `Text`
-- `Newline`
-- `Spacer`
-- `Static`
-- `Transform`
+### Hooks
 
-Hooks:
+| Export | Notes |
+|---|---|
+| `useApp` | `{ exit, rerender }` interface |
+| `useInput` | Input subscription + raw mode management |
+| `useFocus` | Focus registration and focus state |
+| `useFocusManager` | Focus traversal/control helpers |
+| `useStdin` / `useStdout` / `useStderr` | Stream access helpers |
+| `useIsScreenReaderEnabled` | Reads compat screen-reader flag |
+| `useCursor` | Cursor visibility/position integration |
 
-- `useApp`
-- `useInput`
-- `useFocus`
-- `useFocusManager`
-- `useStdin`
-- `useStdout`
-- `useStderr`
-- `useIsScreenReaderEnabled`
-- `useCursor`
+### Runtime APIs
 
-Runtime APIs:
+| Export | Notes |
+|---|---|
+| `render` | Primary runtime entrypoint |
+| `renderToString` | Non-interactive rendering for tests/snapshots |
+| `measureElement` | Layout measurement by host node ref |
+| `ResizeObserver` | Compat resize observer export |
+| `getBoundingBox` | Host node geometry helper |
+| `getInnerHeight` / `getScrollHeight` | DOM-like helpers |
 
-- `render`
-- `renderToString`
-- `measureElement`
-- `ResizeObserver` (compat export)
-- `getBoundingBox`
-- `getInnerHeight`
-- `getScrollHeight`
+### Testing entrypoint
 
-Keyboard utilities:
+- `@rezi-ui/ink-compat/testing`
+
+Provides a compact Ink-testing-library-like renderer for frame assertions and input simulation.
+
+### Keyboard helpers
 
 - `kittyFlags`
 - `kittyModifiers`
 
-Testing entrypoint:
+## `render()` options
 
-- `@rezi-ui/ink-compat/testing`
+`render(element, options)` supports:
 
-## Key behavior mappings
+| Option | Default | Notes |
+|---|---|---|
+| `stdout` | `process.stdout` | Render target stream |
+| `stdin` | `process.stdin` | Input source stream |
+| `stderr` | `process.stderr` | Diagnostics/error output |
+| `exitOnCtrlC` | `true` | Ctrl+C triggers `exit()` unless disabled |
+| `patchConsole` | `true` | Patches console writes so logs do not destroy UI frame |
+| `debug` | `false` | Enables verbose internal diagnostics |
+| `maxFps` | `30` | Frame throttling; `<=0` disables throttling |
+| `concurrent` | `false` | Kept for API compatibility; not a React scheduling mode toggle |
+| `kittyKeyboard` | `{ mode: "disabled" }` | Kitty keyboard protocol support |
+| `isScreenReaderEnabled` | `process.env.INK_SCREEN_READER === "true"` | Accessibility mode hint |
+| `onRender` | `undefined` | Per-frame callback with `renderTime`, `output`, `staticOutput?` |
+| `alternateBuffer` | `false` | Use terminal alternate screen (`?1049h`) |
+| `incrementalRendering` | `false` | Incremental write mode instead of full-screen rewrite |
 
-### Layout and sizing
+## How it works
 
-- Flex props are translated from Ink-style props into Rezi equivalents.
-- Root viewport coercion keeps footer/input anchoring stable in non-alternate-buffer mode.
-- Static output is rendered in a dedicated channel so scrollback behavior matches Ink expectations.
-- Dynamic grid sizing uses computed layout bounds (`maxRectBottom`) to avoid overpainting blank rows.
-- Percent-based dimensions use a resolved viewport pass, then a second render pass when required.
+### High-level pipeline
 
-### Overflow and scroll behavior
-
-- Host-tree and translated VNode overflow settings are tracked in traces.
-- Root `overflow`/scroll context is preserved to avoid full-screen collapse/overflow drift.
-- Render-op overflow snapshots can be emitted to detect writes outside the current viewport.
-
-### Color and gradient behavior
-
-- Color parsing supports named colors, hex, and RGB inputs.
-- Truecolor ANSI is retained when pre-styled ANSI spans are present.
-- `ink-gradient` is shimmed with deterministic multiline gradient ANSI output.
-- Gradient shim traces can be enabled to verify shim selection and emitted ANSI.
-
-### Input/focus/cursor
-
-- `useInput` and bridge parsing support standard key sequences and kitty keyboard mode.
-- `useFocus`/`useFocusManager` maintain focus semantics through compat context.
-- `useCursor` forwards cursor position/visibility updates into runtime cursor control.
-
-## Diagnostics and trace model
-
-Compat tracing is explicitly environment-gated. Nothing writes to hardcoded temp files.
-
-Core env flags:
-
-- `INK_COMPAT_TRACE=1`: enable frame-level trace stream.
-- `INK_COMPAT_TRACE_FILE=/path/file.log`: append traces to file.
-- `INK_COMPAT_TRACE_STDERR=1`: also write traces to stderr.
-- `INK_COMPAT_TRACE_DETAIL=1`: include node/op snapshots.
-- `INK_COMPAT_TRACE_DETAIL_FULL=1`: include full VNode tree and grid snapshots.
-- `INK_COMPAT_TRACE_ALL_FRAMES=1`: disable frame sampling.
-- `INK_COMPAT_TRACE_IO=1`: include stdout write flow diagnostics.
-- `INK_COMPAT_TRACE_RESIZE_VERBOSE=1`: include detailed resize event timeline.
-- `INK_COMPAT_TRACE_POLL_EVERY=<n>`: frame poll interval for sampled traces.
-- `INK_COMPAT_TRACE_JSON_MAX_DEPTH=<n>`: trace JSON truncation depth.
-- `INK_COMPAT_TRACE_JSON_ARRAY_LIMIT=<n>`: max array size in JSON snapshots.
-- `INK_COMPAT_TRACE_JSON_OBJECT_LIMIT=<n>`: max object keys in JSON snapshots.
-- `INK_COMPAT_VIEWPORT_POLL_MS=<n>`: viewport polling cadence.
-- `INK_COMPAT_IDLE_REPAINT_MS=<n>`: idle repaint cadence.
-- `INK_GRADIENT_TRACE=1`: gradient shim trace output.
-
-Primary frame signals include:
-
-- `layoutViewport` vs `gridViewport`
-- `staticRowsUsed/full/pending`
-- `maxBottom`, `zeroH`, `hostRootOverflow`
-- `opViewportOverflowCount`
-
-These are sufficient to debug the two main parity classes seen during Gemini testing:
-
-- vertical overflow/anchoring drift
-- color/gradient shim mismatches
-
-## Testing and verification
-
-Primary package checks:
-
-```bash
-npm run -w packages/ink-compat build
-npm run -w packages/ink-compat test
+```mermaid
+flowchart LR
+  A[React Ink tree] --> B[Compat Reconciler Host Tree]
+  B --> C[Translation: Ink props -> Rezi VNodes]
+  C --> D[Rezi test renderer]
+  D --> E[Render ops + layout nodes]
+  E --> F[ANSI serialization + stream writes]
 ```
 
-Recommended parity validation loop:
+### 1. React reconciler host tree
 
-1. Run the target Ink app with compat enabled.
-2. Capture a trace log with `INK_COMPAT_TRACE_FILE`.
-3. Compare structure first (anchoring, viewport usage, static rows).
-4. Compare color next (truecolor negotiation and gradient traces).
+Ink-compat provides a custom React reconciler host config that stores an `InkHostNode` tree.
+
+- Host nodes keep type/props/children/text data.
+- Focus registration and key routing are handled in bridge/context state.
+- React semantics are preserved (state/effects/context/suspense in app code).
+
+### 2. Translation layer
+
+`translation/propsToVNode.ts` converts host nodes into Rezi VNodes.
+
+Key mappings:
+
+- Ink layout props -> Rezi layout props (`flex*`, spacing, min/max sizes, positioning).
+- Ink border styles/colors -> Rezi border style maps.
+- Ink text styling -> Rezi text style maps.
+- Overflow/scroll props -> Rezi overflow and scroll props.
+- Virtual nodes (`Spacer`, `Newline`, `Transform`) -> dedicated Rezi equivalents.
+
+The translator also supports mode-based extraction:
+
+- full tree (`translateTree`)
+- dynamic subtree only (`translateDynamicTree`)
+- static subtree only (`translateStaticTree`)
+
+This is used for static channel behavior described below.
+
+### 3. Dynamic + static channels
+
+`<Static>` output is treated as a scrollback-oriented channel:
+
+- Static subtree renders separately.
+- Static output accumulates above dynamic frame output.
+- Dynamic viewport is reduced by static row count so footers/prompts remain anchored.
+
+This is critical for parity with Ink apps that stream logs while keeping an interactive prompt anchored.
+
+### 4. Viewport, layout, and percent resolution
+
+Render pass behavior:
+
+1. Read viewport from `stdout`/fallback stream/env.
+2. Translate dynamic subtree.
+3. Resolve percent markers against current layout viewport.
+4. Render once; if percent markers were present, render a second pass with resolved values.
+5. Compute content bounds (`maxRectBottom`) from layout nodes.
+6. In non-alternate-buffer mode, size ANSI grid to content height (not full terminal rows).
+
+Additional parity behavior:
+
+- Root viewport coercion for overflow-clipped roots.
+- Resize-event timeline handling.
+- Stable-output preservation on transient empty frames after resize.
+
+### 5. ANSI output + color strategy
+
+Color support resolution order:
+
+1. `NO_COLOR` (non-empty) disables color.
+2. `FORCE_COLOR` overrides level (0..3).
+3. `stdout.getColorDepth()` if available.
+4. Fallback defaults to truecolor.
+
+When host text already contains ANSI SGR sequences, compat forces truecolor handling for that frame/path to avoid degrading pre-styled output.
+
+### 6. Input, focus, cursor
+
+Input flow is bridge-driven:
+
+- Parses standard ANSI/CSI sequences.
+- Optional Kitty keyboard protocol parsing.
+- Emits normalized `key` object to `useInput` handlers.
+- Handles Tab/Shift+Tab focus traversal.
+- Handles Ctrl+C exit (unless `exitOnCtrlC: false`).
+
+Focus flow:
+
+- `useFocus` registers focusable IDs in bridge context.
+- `useFocusManager` controls traversal and direct focus.
+- Focus changes trigger rerender where needed.
+
+Cursor flow:
+
+- `useCursor` sets cursor position/visibility in context.
+- Runtime updates terminal cursor state around frame writes.
+
+### 7. Instance lifecycle model
+
+`render()` behavior by `stdout`:
+
+- One active compat instance per `stdout` stream.
+- Calling `render()` again on the same `stdout` rerenders existing instance.
+- `unmount()` and `cleanup()` release stream listeners, timers, raw mode, and terminal protocol state.
+
+## Recommended integration patterns
+
+### Pattern A: migrate imports directly
+
+Best when you control app source and want explicitness.
+
+- Replace `ink` imports with `@rezi-ui/ink-compat`.
+- Keep app code structure unchanged first.
+- Validate UI parity before broader refactors.
+
+### Pattern B: alias package names
+
+Best when you want a no-source-change adoption path.
+
+- Alias `ink` to `@rezi-ui/ink-compat`.
+- Alias `ink-gradient`/`ink-spinner` to shim packages.
+- Run parity checks before and after dependency lockfile updates.
+
+### Pattern C: test-first rollout
+
+- Use `@rezi-ui/ink-compat/testing` to snapshot important frame states.
+- Add keyboard/focus regression tests around core interaction loops.
+- Run compatibility traces in CI for known-problem screens.
+
+## Diagnostics and tracing
+
+Compat diagnostics are env-gated and deterministic.
+
+| Env var | Purpose |
+|---|---|
+| `INK_COMPAT_TRACE=1` | Enables compat trace stream |
+| `INK_COMPAT_TRACE_FILE=/path/log` | Writes trace lines to file |
+| `INK_COMPAT_TRACE_STDERR=1` | Mirrors trace lines to stderr |
+| `INK_COMPAT_TRACE_DETAIL=1` | Adds node/op snapshots |
+| `INK_COMPAT_TRACE_DETAIL_FULL=1` | Adds full VNode/grid snapshots + translation traces |
+| `INK_COMPAT_TRACE_ALL_FRAMES=1` | Disables frame sampling |
+| `INK_COMPAT_TRACE_IO=1` | Includes output/write queue diagnostics |
+| `INK_COMPAT_TRACE_RESIZE_VERBOSE=1` | Includes resize timeline detail |
+| `INK_COMPAT_TRACE_POLL_EVERY=<n>` | Sampling cadence |
+| `INK_COMPAT_TRACE_JSON_MAX_DEPTH=<n>` | JSON trace depth limit |
+| `INK_COMPAT_TRACE_JSON_ARRAY_LIMIT=<n>` | JSON array truncation limit |
+| `INK_COMPAT_TRACE_JSON_OBJECT_LIMIT=<n>` | JSON object-key truncation limit |
+| `INK_COMPAT_VIEWPORT_POLL_MS=<n>` | Viewport poll interval |
+| `INK_COMPAT_IDLE_REPAINT_MS=<n>` | Idle repaint interval |
+| `INK_GRADIENT_TRACE=1` | Gradient shim traces |
+
+Use this runbook for full debug workflows and triage commands:
+
+- [Ink Compat Debugging Runbook](../dev/ink-compat-debugging.md)
+
+## Testing examples
+
+### Render-to-string
+
+```ts
+import React from "react";
+import { renderToString, Text } from "@rezi-ui/ink-compat";
+
+const out = renderToString(<Text color="green">OK</Text>, { columns: 40 });
+```
+
+### Interactive frame assertions
+
+```ts
+import React from "react";
+import { render, Text } from "@rezi-ui/ink-compat/testing";
+
+const ui = render(<Text>Hello</Text>);
+expect(ui.lastFrame()).toContain("Hello");
+ui.unmount();
+```
 
 ## Known compatibility boundaries
 
-- Version-specific product messaging (for example update banners) can differ by app version or install mode and is not a renderer bug.
-- Exact per-character color interpolation may differ slightly from upstream implementations while preserving overall gradient behavior.
-- Terminal- or OS-specific TTY behavior can still produce small differences outside renderer control.
+- App/version-specific message text (for example update banners) can differ without being a renderer bug.
+- Slight per-character gradient interpolation differences can exist while preserving expected visual progression.
+- Terminal/OS/TTY quirks can still cause minor differences outside renderer control.
+- `concurrent` is accepted for API compatibility but does not map to upstream React concurrent scheduling semantics.
 
-## Maintainer notes
+## Troubleshooting checklist
 
-When fixing parity issues, prefer this order:
+1. Verify package wiring first (`ink` alias/import swap + shims).
+2. Reproduce with traces enabled (`INK_COMPAT_TRACE=1`).
+3. Compare structure before color (`layoutViewport`, `gridViewport`, static rows, overflow counts).
+4. Then inspect color/gradient data (`FORCE_COLOR`, `NO_COLOR`, `INK_GRADIENT_TRACE`).
+5. Add focused regression tests for the failing screen.
 
-1. Reproduce with trace flags enabled.
-2. Confirm whether drift starts in translation, layout, or ANSI serialization.
-3. Add focused regression tests in `packages/ink-compat/src/__tests__`.
-4. Keep diagnostics env-gated and deterministic.
+## Maintainer workflow for parity fixes
+
+1. Reproduce with trace capture.
+2. Identify stage of drift: host tree vs translation vs renderer vs ANSI output.
+3. Add or update tests in `packages/ink-compat/src/__tests__`.
+4. Keep instrumentation environment-gated and deterministic.
+5. Re-validate against upstream app screenshots/traces.
