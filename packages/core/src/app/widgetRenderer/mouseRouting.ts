@@ -253,6 +253,15 @@ function warnDev(message: string): void {
   c?.warn?.(message);
 }
 
+function describeThrown(v: unknown): string {
+  if (v instanceof Error) return v.message;
+  try {
+    return String(v);
+  } catch {
+    return "[unstringifiable thrown value]";
+  }
+}
+
 const ROUTE_RENDER: MouseRoutingOutcome = Object.freeze({ needsRender: true });
 const ROUTE_NO_RENDER: MouseRoutingOutcome = Object.freeze({ needsRender: false });
 const EMPTY_STRING_ARRAY: readonly string[] = Object.freeze([]);
@@ -266,7 +275,8 @@ function invokeCallbackSafely<TArgs extends readonly unknown[]>(
     callback(...args);
     return true;
   } catch (e) {
-    warnDev(`[rezi] widget callback threw: ${e instanceof Error ? e.message : String(e)}`);
+    const message = describeThrown(e);
+    warnDev(`[rezi] widget callback threw: ${message}`);
     return false;
   }
 }
@@ -327,7 +337,8 @@ export function routeDropdownMouse(
         try {
           dropdown.onClose();
         } catch (e) {
-          warnDev(`[rezi] onClose callback threw: ${e instanceof Error ? e.message : String(e)}`);
+          const message = describeThrown(e);
+          warnDev(`[rezi] onClose callback threw: ${message}`);
         }
       }
       return ROUTE_RENDER;
@@ -357,14 +368,16 @@ export function routeDropdownMouse(
           try {
             dropdown.onSelect(item);
           } catch (e) {
-            warnDev(`[rezi] onSelect callback threw: ${e instanceof Error ? e.message : String(e)}`);
+            const message = describeThrown(e);
+            warnDev(`[rezi] onSelect callback threw: ${message}`);
           }
         }
         if (dropdown.onClose) {
           try {
             dropdown.onClose();
           } catch (e) {
-            warnDev(`[rezi] onClose callback threw: ${e instanceof Error ? e.message : String(e)}`);
+            const message = describeThrown(e);
+            warnDev(`[rezi] onClose callback threw: ${message}`);
           }
         }
         return ROUTE_RENDER;
@@ -397,7 +410,8 @@ export function routeLayerBackdropMouse(
       try {
         cb();
       } catch (e) {
-        warnDev(`[rezi] onClose callback threw: ${e instanceof Error ? e.message : String(e)}`);
+        const message = describeThrown(e);
+        warnDev(`[rezi] onClose callback threw: ${message}`);
       }
       return ROUTE_RENDER;
     }

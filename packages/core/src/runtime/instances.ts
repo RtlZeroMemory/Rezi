@@ -387,7 +387,7 @@ export function createHookContext(
       const setValue = (v: T | ((prev: T) => T)) => {
         // Stale closure check
         if (mutableState.generation !== currentGeneration) {
-          warnDev(`[rezi] setState called from stale closure (instance generation changed)`);
+          warnDev("[rezi] setState called from stale closure (instance generation changed)");
           return;
         }
 

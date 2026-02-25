@@ -45,12 +45,22 @@ function encodeSegment(value: string): string {
   return encodeURIComponent(value);
 }
 
+function describeThrown(v: unknown): string {
+  if (v instanceof Error) return v.message;
+  try {
+    return String(v);
+  } catch {
+    return "[unstringifiable thrown value]";
+  }
+}
+
 function decodeSegment(value: string): string | null {
   if (value.length === 0) return null;
   try {
     return decodeURIComponent(value);
   } catch (e) {
-    warnDev(`[rezi] pagination decodeURIComponent failed: ${e instanceof Error ? e.message : String(e)}`);
+    const message = describeThrown(e);
+    warnDev(`[rezi] pagination decodeURIComponent failed: ${message}`);
     return null;
   }
 }

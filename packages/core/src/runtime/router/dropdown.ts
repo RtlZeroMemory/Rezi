@@ -20,6 +20,15 @@ function warnDev(message: string): void {
   c?.warn?.(message);
 }
 
+function describeThrown(v: unknown): string {
+  if (v instanceof Error) return v.message;
+  try {
+    return String(v);
+  } catch {
+    return "[unstringifiable thrown value]";
+  }
+}
+
 /**
  * Route keyboard events for dropdown navigation.
  *
@@ -53,7 +62,8 @@ export function routeDropdownKey(event: ZrevEvent, ctx: DropdownRoutingCtx): Dro
         try {
           onClose();
         } catch (e) {
-          warnDev(`[rezi] onClose callback threw: ${e instanceof Error ? e.message : String(e)}`);
+          const message = describeThrown(e);
+          warnDev(`[rezi] onClose callback threw: ${message}`);
         }
       }
       return Object.freeze({ shouldClose: true, consumed: true });
@@ -93,7 +103,8 @@ export function routeDropdownKey(event: ZrevEvent, ctx: DropdownRoutingCtx): Dro
           try {
             onSelect(itemToActivate);
           } catch (e) {
-            warnDev(`[rezi] onSelect callback threw: ${e instanceof Error ? e.message : String(e)}`);
+            const message = describeThrown(e);
+            warnDev(`[rezi] onSelect callback threw: ${message}`);
           }
         }
         return Object.freeze({
@@ -109,7 +120,8 @@ export function routeDropdownKey(event: ZrevEvent, ctx: DropdownRoutingCtx): Dro
         try {
           onClose();
         } catch (e) {
-          warnDev(`[rezi] onClose callback threw: ${e instanceof Error ? e.message : String(e)}`);
+          const message = describeThrown(e);
+          warnDev(`[rezi] onClose callback threw: ${message}`);
         }
       }
       return Object.freeze({ shouldClose: true, consumed: true });
