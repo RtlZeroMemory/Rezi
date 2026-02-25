@@ -2,6 +2,9 @@
 
 Rezi welcomes issues and pull requests. This page summarizes the local workflow; see the linked guides for details.
 
+Before starting implementation, review the mandatory
+[Code Standards](code-standards.md) checklist.
+
 ## Prerequisites
 
 - Node.js 18+ (18.18+ recommended)
@@ -62,4 +65,5 @@ If your change touches code-editor syntax behavior (`syntaxLanguage`, tokenizer 
 - [Build](build.md)
 - [Testing](testing.md)
 - [Docs](docs.md)
+- [Code Standards](code-standards.md)
 - [Style guide](style-guide.md)

@@ -15,6 +15,12 @@ npx tsx packages/bench/src/...       # Run benchmarks (bypasses tsc)
 REZI_PERF=1 REZI_PERF_DETAIL=1      # Enable profiling (env vars, prefix any command)
 ```
 
+## Mandatory Code Standards
+
+All code changes MUST follow `docs/dev/code-standards.md`.
+Use it as the merge gate for TypeScript rigor, Rezi-specific invariants, and
+error-handling patterns.
+
 ## Project Map
 
 ```
@@ -282,6 +288,7 @@ each(items, (item) => ui.text(item.name), { key: (item) => item.id });
 
 ## Code Standards and Guardrails
 
+- Canonical standards document: `docs/dev/code-standards.md` (MUST follow).
 - All interactive widgets MUST have a unique `id` prop.
 - Hooks must be called in consistent order (no conditional hooks, no hooks in loops).
 - Container transition properties (`ui.box`/`ui.row`/`ui.column`/`ui.grid`) default to animating `position`, `size`, and `opacity`; constrain with explicit `properties` when needed.
