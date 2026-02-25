@@ -264,27 +264,31 @@ static bool zr_evq_can_enqueue_paste_locked(const zr_event_queue_t* q, uint32_t 
     return false;
   }
 
-  zr_event_queue_t tmp;
-  memset(&tmp, 0, sizeof(tmp));
+  /*
+    Probe on a stack copy so this capacity check never mutates live queue state.
+    Why: callers need a yes/no decision before deciding whether to drop events.
+  */
+  zr_event_queue_t probe;
+  memset(&probe, 0, sizeof(probe));
 
-  tmp.events = q->events;
-  tmp.cap = q->cap;
-  tmp.head = q->head;
-  tmp.count = q->count;
+  probe.events = q->events;
+  probe.cap = q->cap;
+  probe.head = q->head;
+  probe.count = q->count;
 
-  tmp.user_bytes = q->user_bytes;
-  tmp.user_bytes_cap = q->user_bytes_cap;
-  tmp.user_head = q->user_head;
-  tmp.user_tail = q->user_tail;
-  tmp.user_used = q->user_used;
-  tmp.user_pad_end = q->user_pad_end;
+  probe.user_bytes = q->user_bytes;
+  probe.user_bytes_cap = q->user_bytes_cap;
+  probe.user_head = q->user_head;
+  probe.user_tail = q->user_tail;
+  probe.user_used = q->user_used;
+  probe.user_pad_end = q->user_pad_end;
 
-  if (tmp.count == tmp.cap) {
-    zr_evq_drop_head_locked(&tmp);
+  if (probe.count == probe.cap) {
+    zr_evq_drop_head_locked(&probe);
   }
 
   uint32_t off_tmp = 0u;
-  return zr_evq_user_alloc_locked(&tmp, byte_len, &off_tmp);
+  return zr_evq_user_alloc_locked(&probe, byte_len, &off_tmp);
 }
 
 zr_result_t zr_event_queue_init(zr_event_queue_t* q, zr_event_t* events, uint32_t events_cap, uint8_t* user_bytes,

@@ -131,6 +131,7 @@ static zr_result_t zr_fb_links_ensure_cap(zr_fb_t* fb, uint32_t need_links) {
 
   uint32_t next_cap = (fb->links_cap == 0u) ? ZR_FB_LINKS_INITIAL_CAP : fb->links_cap;
   while (next_cap < need_links) {
+    /* Grow geometrically, but clamp before overflow would wrap doubling. */
     if (next_cap > (UINT32_MAX / 2u)) {
       next_cap = need_links;
       break;
@@ -161,6 +162,7 @@ static zr_result_t zr_fb_link_bytes_ensure_cap(zr_fb_t* fb, uint32_t need_bytes)
 
   uint32_t next_cap = (fb->link_bytes_cap == 0u) ? ZR_FB_LINK_BYTES_INITIAL_CAP : fb->link_bytes_cap;
   while (next_cap < need_bytes) {
+    /* Grow geometrically, but clamp before overflow would wrap doubling. */
     if (next_cap > (UINT32_MAX / 2u)) {
       next_cap = need_bytes;
       break;

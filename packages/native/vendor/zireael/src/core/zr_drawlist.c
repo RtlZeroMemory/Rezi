@@ -21,6 +21,7 @@
 
 #include "util/zr_bytes.h"
 #include "util/zr_checked.h"
+#include "util/zr_macros.h"
 
 #include <string.h>
 
@@ -539,14 +540,17 @@ static zr_result_t zr_dl_validate_ranges_v1(const zr_dl_v1_ranges_t* r, size_t b
     return ZR_ERR_FORMAT;
   }
 
+  /* --- Header vs section overlap checks --- */
   const zr_dl_range_t non_header[] = {r->cmd, r->strings_spans, r->strings_bytes, r->blobs_spans, r->blobs_bytes};
-  for (size_t i = 0u; i < sizeof(non_header) / sizeof(non_header[0]); i++) {
+  for (size_t i = 0u; i < ZR_ARRAYLEN(non_header); i++) {
     if (zr_dl_ranges_overlap(r->header, non_header[i])) {
       return ZR_ERR_FORMAT;
     }
   }
-  for (size_t i = 0u; i < sizeof(non_header) / sizeof(non_header[0]); i++) {
-    for (size_t j = i + 1u; j < sizeof(non_header) / sizeof(non_header[0]); j++) {
+
+  /* --- Pairwise section overlap checks --- */
+  for (size_t i = 0u; i < ZR_ARRAYLEN(non_header); i++) {
+    for (size_t j = i + 1u; j < ZR_ARRAYLEN(non_header); j++) {
       if (zr_dl_ranges_overlap(non_header[i], non_header[j])) {
         return ZR_ERR_FORMAT;
       }
@@ -778,19 +782,19 @@ static zr_result_t zr_dl_validate_cmd_set_cursor(const zr_dl_cmd_header_t* ch, z
 }
 
 static uint8_t zr_dl_canvas_blitter_valid(uint8_t blitter) {
-  return (blitter <= (uint8_t)ZR_BLIT_ASCII) ? 1u : 0u;
+  return blitter <= (uint8_t)ZR_BLIT_ASCII;
 }
 
 static uint8_t zr_dl_image_protocol_valid(uint8_t protocol) {
-  return (protocol <= (uint8_t)ZR_IMG_PROTO_ITERM2) ? 1u : 0u;
+  return protocol <= (uint8_t)ZR_IMG_PROTO_ITERM2;
 }
 
 static uint8_t zr_dl_image_format_valid(uint8_t format) {
-  return (format <= (uint8_t)ZR_IMAGE_FORMAT_PNG) ? 1u : 0u;
+  return format <= (uint8_t)ZR_IMAGE_FORMAT_PNG;
 }
 
 static uint8_t zr_dl_image_fit_mode_valid(uint8_t fit_mode) {
-  return (fit_mode <= (uint8_t)ZR_IMAGE_FIT_COVER) ? 1u : 0u;
+  return fit_mode <= (uint8_t)ZR_IMAGE_FIT_COVER;
 }
 
 static zr_result_t zr_dl_validate_cmd_draw_canvas(const zr_dl_view_t* view, const zr_dl_cmd_header_t* ch,

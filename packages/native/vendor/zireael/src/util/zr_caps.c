@@ -7,6 +7,12 @@
 #include "util/zr_caps.h"
 
 enum {
+  /* Arena default budget for engine-owned transient allocations. */
+  ZR_LIMIT_DEFAULT_ARENA_MAX_TOTAL_BYTES = 4u * 1024u * 1024u,
+  /* Arena starts smaller and grows up to max budget as needed. */
+  ZR_LIMIT_DEFAULT_ARENA_INITIAL_BYTES = 64u * 1024u,
+  /* Drawlist bytes cap protects validator/runtime from oversized command streams. */
+  ZR_LIMIT_DEFAULT_DL_TOTAL_BYTES = 256u * 1024u,
   /* Upper bound for drawlist commands/segments/rects to cap validator work per frame. */
   ZR_LIMIT_DEFAULT_MAX_ITEMS = 4096u,
   /* Clip stack depth cap avoids pathological nesting while covering normal UIs. */
@@ -18,10 +24,10 @@ enum {
 /* Return sensible default limits for arena, drawlist, and clip depth. */
 zr_limits_t zr_limits_default(void) {
   zr_limits_t l;
-  l.arena_max_total_bytes = 4u * 1024u * 1024u;
-  l.arena_initial_bytes = 64u * 1024u;
+  l.arena_max_total_bytes = ZR_LIMIT_DEFAULT_ARENA_MAX_TOTAL_BYTES;
+  l.arena_initial_bytes = ZR_LIMIT_DEFAULT_ARENA_INITIAL_BYTES;
   l.out_max_bytes_per_frame = ZR_LIMIT_DEFAULT_MAX_OUT_FRAME_BYTES;
-  l.dl_max_total_bytes = 256u * 1024u;
+  l.dl_max_total_bytes = ZR_LIMIT_DEFAULT_DL_TOTAL_BYTES;
   l.dl_max_cmds = ZR_LIMIT_DEFAULT_MAX_ITEMS;
   l.dl_max_strings = ZR_LIMIT_DEFAULT_MAX_ITEMS;
   l.dl_max_blobs = ZR_LIMIT_DEFAULT_MAX_ITEMS;

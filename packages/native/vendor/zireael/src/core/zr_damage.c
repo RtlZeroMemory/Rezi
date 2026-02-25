@@ -11,6 +11,9 @@
 
 #include <string.h>
 
+/* Saturation sentinel for APIs that return uint32_t cell counts. */
+static const uint32_t ZR_DAMAGE_CELLS_SATURATED = 0xFFFFFFFFu;
+
 void zr_damage_begin_frame(zr_damage_t* d, zr_damage_rect_t* storage, uint32_t storage_cap, uint32_t cols,
                            uint32_t rows) {
   if (!d) {
@@ -103,9 +106,9 @@ uint32_t zr_damage_cells(const zr_damage_t* d) {
   if (d->full_frame != 0u) {
     size_t cells = 0u;
     if (!zr_checked_mul_size((size_t)d->cols, (size_t)d->rows, &cells)) {
-      return 0xFFFFFFFFu;
+      return ZR_DAMAGE_CELLS_SATURATED;
     }
-    return (cells > (size_t)0xFFFFFFFFu) ? 0xFFFFFFFFu : (uint32_t)cells;
+    return (cells > (size_t)ZR_DAMAGE_CELLS_SATURATED) ? ZR_DAMAGE_CELLS_SATURATED : (uint32_t)cells;
   }
   uint64_t sum = 0u;
   for (uint32_t i = 0u; i < d->rect_count; i++) {
@@ -116,8 +119,8 @@ uint32_t zr_damage_cells(const zr_damage_t* d) {
     const uint64_t w = (uint64_t)(r->x1 - r->x0 + 1u);
     const uint64_t h = (uint64_t)(r->y1 - r->y0 + 1u);
     sum += w * h;
-    if (sum > 0xFFFFFFFFu) {
-      return 0xFFFFFFFFu;
+    if (sum > ZR_DAMAGE_CELLS_SATURATED) {
+      return ZR_DAMAGE_CELLS_SATURATED;
     }
   }
   return (uint32_t)sum;

@@ -71,10 +71,19 @@ enum {
   ZR_WIN32_XTERM_KEY_F10 = 21u,
   ZR_WIN32_XTERM_KEY_F11 = 23u,
   ZR_WIN32_XTERM_KEY_F12 = 24u,
+  ZR_WIN32_ASCII_ESC = 0x1Bu,
+  ZR_WIN32_ASCII_DEL = 0x7Fu,
+  ZR_WIN32_REPLACEMENT_SCALAR = 0xFFFDu,
+  ZR_WIN32_MAX_UNICODE_SCALAR = 0x10FFFFu,
+  ZR_WIN32_SURROGATE_MIN = 0xD800u,
+  ZR_WIN32_SURROGATE_MAX = 0xDFFFu,
   ZR_WIN32_UTF8_LEAD_2 = 0xC0u,
   ZR_WIN32_UTF8_LEAD_3 = 0xE0u,
   ZR_WIN32_UTF8_LEAD_4 = 0xF0u,
   ZR_WIN32_UTF8_CONT = 0x80u,
+  ZR_WIN32_UTF8_SHIFT_6 = 6u,
+  ZR_WIN32_UTF8_SHIFT_12 = 12u,
+  ZR_WIN32_UTF8_SHIFT_18 = 18u,
   ZR_WIN32_UTF8_2BYTE_MASK = 0x1Fu,
   ZR_WIN32_UTF8_3BYTE_MASK = 0x0Fu,
   ZR_WIN32_UTF8_4BYTE_MASK = 0x07u,
@@ -152,6 +161,7 @@ static bool zr_win32_env_bool_override(const char* key, uint8_t* out_value) {
   if (!v) {
     return false;
   }
+  /* Keep override parsing deterministic by accepting only explicit spellings. */
   static const char* kTrueValues[] = {"1", "true", "TRUE", "yes", "YES", "on", "ON"};
   static const char* kFalseValues[] = {"0", "false", "FALSE", "no", "NO", "off", "OFF"};
 
@@ -211,6 +221,7 @@ static uint8_t zr_win32_ascii_tolower(uint8_t c) {
   return c;
 }
 
+/* ASCII-only case-insensitive substring match used by TERM heuristics. */
 static bool zr_win32_str_contains_ci(const char* s, const char* needle) {
   if (!s || !needle || needle[0] == '\0') {
     return false;
@@ -305,10 +316,21 @@ static zr_terminal_id_t zr_win32_terminal_id_from_term(const char* term) {
   return ZR_TERM_UNKNOWN;
 }
 
+/* Shared modern-terminal environment markers used by capability probes. */
+static const char* const ZR_WIN32_MODERN_VARS_BASE[] = {"WT_SESSION", "KITTY_WINDOW_ID", "WEZTERM_PANE",
+                                                        "WEZTERM_EXECUTABLE", "ANSICON"};
+static const char* const ZR_WIN32_MODERN_VARS_UNDERLINE[] = {"KITTY_WINDOW_ID", "WEZTERM_PANE", "WEZTERM_EXECUTABLE",
+                                                             "GHOSTTY_RESOURCES_DIR"};
+static const char* const ZR_WIN32_MODERN_VARS_HYPERLINKS[] = {"WT_SESSION", "KITTY_WINDOW_ID", "WEZTERM_PANE",
+                                                              "WEZTERM_EXECUTABLE", "GHOSTTY_RESOURCES_DIR"};
+static const char* const ZR_WIN32_MODERN_VARS_SYNC_OSC52[] = {"KITTY_WINDOW_ID", "WEZTERM_PANE", "WEZTERM_EXECUTABLE"};
+
 static bool zr_win32_detect_modern_vt_host(void) {
-  static const char* kModernTermVars[] = {"WT_SESSION", "KITTY_WINDOW_ID", "WEZTERM_PANE", "WEZTERM_EXECUTABLE",
-                                          "ANSICON"};
-  if (zr_win32_env_has_any_nonempty(kModernTermVars, ZR_ARRAYLEN(kModernTermVars))) {
+  /*
+    Heuristic: modern VT host markers from env vars first, then TERM_PROGRAM
+    identity and TERM fallback patterns.
+  */
+  if (zr_win32_env_has_any_nonempty(ZR_WIN32_MODERN_VARS_BASE, ZR_ARRAYLEN(ZR_WIN32_MODERN_VARS_BASE))) {
     return true;
   }
 
@@ -330,13 +352,11 @@ static bool zr_win32_detect_modern_vt_host(void) {
 }
 
 static uint8_t zr_win32_detect_focus_events(void) {
-  return zr_win32_detect_modern_vt_host() ? 1u : 0u;
+  return zr_win32_detect_modern_vt_host();
 }
 
 static uint8_t zr_win32_detect_underline_styles(void) {
-  static const char* kModernTermVars[] = {"KITTY_WINDOW_ID", "WEZTERM_PANE", "WEZTERM_EXECUTABLE",
-                                          "GHOSTTY_RESOURCES_DIR"};
-  if (zr_win32_env_has_any_nonempty(kModernTermVars, ZR_ARRAYLEN(kModernTermVars))) {
+  if (zr_win32_env_has_any_nonempty(ZR_WIN32_MODERN_VARS_UNDERLINE, ZR_ARRAYLEN(ZR_WIN32_MODERN_VARS_UNDERLINE))) {
     return 1u;
   }
 
@@ -346,9 +366,7 @@ static uint8_t zr_win32_detect_underline_styles(void) {
 }
 
 static uint8_t zr_win32_detect_colored_underlines(void) {
-  static const char* kModernTermVars[] = {"KITTY_WINDOW_ID", "WEZTERM_PANE", "WEZTERM_EXECUTABLE",
-                                          "GHOSTTY_RESOURCES_DIR"};
-  if (zr_win32_env_has_any_nonempty(kModernTermVars, ZR_ARRAYLEN(kModernTermVars))) {
+  if (zr_win32_env_has_any_nonempty(ZR_WIN32_MODERN_VARS_UNDERLINE, ZR_ARRAYLEN(ZR_WIN32_MODERN_VARS_UNDERLINE))) {
     return 1u;
   }
 
@@ -358,9 +376,7 @@ static uint8_t zr_win32_detect_colored_underlines(void) {
 }
 
 static uint8_t zr_win32_detect_hyperlinks(void) {
-  static const char* kModernTermVars[] = {"WT_SESSION", "KITTY_WINDOW_ID", "WEZTERM_PANE", "WEZTERM_EXECUTABLE",
-                                          "GHOSTTY_RESOURCES_DIR"};
-  if (zr_win32_env_has_any_nonempty(kModernTermVars, ZR_ARRAYLEN(kModernTermVars))) {
+  if (zr_win32_env_has_any_nonempty(ZR_WIN32_MODERN_VARS_HYPERLINKS, ZR_ARRAYLEN(ZR_WIN32_MODERN_VARS_HYPERLINKS))) {
     return 1u;
   }
 
@@ -394,29 +410,24 @@ static plat_color_mode_t zr_win32_color_mode_clamp(plat_color_mode_t requested, 
 }
 
 static uint8_t zr_win32_detect_sync_update(void) {
-  if (zr_win32_getenv_nonempty("KITTY_WINDOW_ID")) {
-    return 1u;
-  }
-  if (zr_win32_getenv_nonempty("WEZTERM_PANE") || zr_win32_getenv_nonempty("WEZTERM_EXECUTABLE")) {
+  static const char* kSyncTerms[] = {"kitty", "wezterm", "rio"};
+  if (zr_win32_env_has_any_nonempty(ZR_WIN32_MODERN_VARS_SYNC_OSC52, ZR_ARRAYLEN(ZR_WIN32_MODERN_VARS_SYNC_OSC52))) {
     return 1u;
   }
   const char* term = zr_win32_getenv_nonempty("TERM");
-  if (term && (strstr(term, "kitty") || strstr(term, "wezterm") || strstr(term, "rio"))) {
+  if (zr_win32_str_has_any_ci(term, kSyncTerms, ZR_ARRAYLEN(kSyncTerms))) {
     return 1u;
   }
   return 0u;
 }
 
 static uint8_t zr_win32_detect_osc52(void) {
-  if (zr_win32_getenv_nonempty("KITTY_WINDOW_ID")) {
-    return 1u;
-  }
-  if (zr_win32_getenv_nonempty("WEZTERM_PANE") || zr_win32_getenv_nonempty("WEZTERM_EXECUTABLE")) {
+  static const char* kOsc52Terms[] = {"xterm", "screen", "tmux", "kitty", "wezterm"};
+  if (zr_win32_env_has_any_nonempty(ZR_WIN32_MODERN_VARS_SYNC_OSC52, ZR_ARRAYLEN(ZR_WIN32_MODERN_VARS_SYNC_OSC52))) {
     return 1u;
   }
   const char* term = zr_win32_getenv_nonempty("TERM");
-  if (term && (strstr(term, "xterm") || strstr(term, "screen") || strstr(term, "tmux") || strstr(term, "kitty") ||
-               strstr(term, "wezterm"))) {
+  if (zr_win32_str_has_any_ci(term, kOsc52Terms, ZR_ARRAYLEN(kOsc52Terms))) {
     return 1u;
   }
   return 0u;
@@ -504,14 +515,14 @@ static void zr_win32_emit_csi_final_repeat(uint8_t* out_buf, size_t out_cap, siz
 
   for (WORD i = 0u; i < repeat; i++) {
     if (mods == 0u) {
-      const uint8_t seq[] = {0x1Bu, (uint8_t)'[', final_byte};
+      const uint8_t seq[] = {ZR_WIN32_ASCII_ESC, (uint8_t)'[', final_byte};
       zr_win32_emit_repeat(out_buf, out_cap, io_len, seq, sizeof(seq), 1u);
       continue;
     }
 
     uint8_t seq[24];
     size_t n = 0u;
-    seq[n++] = 0x1Bu;
+    seq[n++] = ZR_WIN32_ASCII_ESC;
     seq[n++] = (uint8_t)'[';
     seq[n++] = (uint8_t)'1';
     seq[n++] = (uint8_t)';';
@@ -543,7 +554,7 @@ static void zr_win32_emit_csi_tilde_repeat(uint8_t* out_buf, size_t out_cap, siz
   for (WORD i = 0u; i < repeat; i++) {
     uint8_t seq[32];
     size_t n = 0u;
-    seq[n++] = 0x1Bu;
+    seq[n++] = ZR_WIN32_ASCII_ESC;
     seq[n++] = (uint8_t)'[';
 
     const size_t p1 = zr_win32_emit_u32_dec(seq + n, sizeof(seq) - n, first_param);
@@ -575,7 +586,7 @@ static void zr_win32_emit_csi_tilde_repeat(uint8_t* out_buf, size_t out_cap, siz
 /* Emit SS3 key sequence (ESC O <final>); repeat defaults to 1. */
 static void zr_win32_emit_ss3_final_repeat(uint8_t* out_buf, size_t out_cap, size_t* io_len, uint8_t final_byte,
                                            WORD repeat) {
-  const uint8_t seq[] = {0x1Bu, (uint8_t)'O', final_byte};
+  const uint8_t seq[] = {ZR_WIN32_ASCII_ESC, (uint8_t)'O', final_byte};
   zr_win32_emit_repeat(out_buf, out_cap, io_len, seq, sizeof(seq), repeat);
 }
 
@@ -675,13 +686,21 @@ static bool zr_win32_vk_to_ss3(WORD vk, uint8_t* out_final) {
   }
 }
 
+static uint8_t zr_win32_utf8_make_cont_byte(uint8_t payload_bits) {
+  return (uint8_t)(ZR_WIN32_UTF8_CONT | payload_bits);
+}
+
+static uint8_t zr_win32_utf8_payload_bits(uint32_t scalar, uint8_t shift, uint8_t mask) {
+  return (uint8_t)((scalar >> shift) & (uint32_t)mask);
+}
+
 static size_t zr_win32_encode_utf8_scalar(uint32_t scalar, uint8_t out[4]) {
   if (!out) {
     return 0u;
   }
 
-  if (scalar > 0x10FFFFu || (scalar >= 0xD800u && scalar <= 0xDFFFu)) {
-    scalar = 0xFFFDu;
+  if (scalar > ZR_WIN32_MAX_UNICODE_SCALAR || (scalar >= ZR_WIN32_SURROGATE_MIN && scalar <= ZR_WIN32_SURROGATE_MAX)) {
+    scalar = ZR_WIN32_REPLACEMENT_SCALAR;
   }
 
   if (scalar <= 0x7Fu) {
@@ -689,31 +708,31 @@ static size_t zr_win32_encode_utf8_scalar(uint32_t scalar, uint8_t out[4]) {
     return 1u;
   }
   if (scalar <= 0x7FFu) {
-    const uint8_t top = (uint8_t)((scalar >> 6u) & ZR_WIN32_UTF8_2BYTE_MASK);
-    const uint8_t low = (uint8_t)(scalar & ZR_WIN32_UTF8_CONT_MASK);
+    const uint8_t top = zr_win32_utf8_payload_bits(scalar, ZR_WIN32_UTF8_SHIFT_6, ZR_WIN32_UTF8_2BYTE_MASK);
+    const uint8_t low = zr_win32_utf8_payload_bits(scalar, 0u, ZR_WIN32_UTF8_CONT_MASK);
     out[0] = (uint8_t)(ZR_WIN32_UTF8_LEAD_2 | top);
-    out[1] = (uint8_t)(ZR_WIN32_UTF8_CONT | low);
+    out[1] = zr_win32_utf8_make_cont_byte(low);
     return 2u;
   }
   if (scalar <= 0xFFFFu) {
-    const uint8_t top = (uint8_t)((scalar >> 12u) & ZR_WIN32_UTF8_3BYTE_MASK);
-    const uint8_t mid = (uint8_t)((scalar >> 6u) & ZR_WIN32_UTF8_CONT_MASK);
-    const uint8_t low = (uint8_t)(scalar & ZR_WIN32_UTF8_CONT_MASK);
+    const uint8_t top = zr_win32_utf8_payload_bits(scalar, ZR_WIN32_UTF8_SHIFT_12, ZR_WIN32_UTF8_3BYTE_MASK);
+    const uint8_t mid = zr_win32_utf8_payload_bits(scalar, ZR_WIN32_UTF8_SHIFT_6, ZR_WIN32_UTF8_CONT_MASK);
+    const uint8_t low = zr_win32_utf8_payload_bits(scalar, 0u, ZR_WIN32_UTF8_CONT_MASK);
     out[0] = (uint8_t)(ZR_WIN32_UTF8_LEAD_3 | top);
-    out[1] = (uint8_t)(ZR_WIN32_UTF8_CONT | mid);
-    out[2] = (uint8_t)(ZR_WIN32_UTF8_CONT | low);
+    out[1] = zr_win32_utf8_make_cont_byte(mid);
+    out[2] = zr_win32_utf8_make_cont_byte(low);
     return 3u;
   }
 
   {
-    const uint8_t top = (uint8_t)((scalar >> 18u) & ZR_WIN32_UTF8_4BYTE_MASK);
-    const uint8_t high = (uint8_t)((scalar >> 12u) & ZR_WIN32_UTF8_CONT_MASK);
-    const uint8_t mid = (uint8_t)((scalar >> 6u) & ZR_WIN32_UTF8_CONT_MASK);
-    const uint8_t low = (uint8_t)(scalar & ZR_WIN32_UTF8_CONT_MASK);
+    const uint8_t top = zr_win32_utf8_payload_bits(scalar, ZR_WIN32_UTF8_SHIFT_18, ZR_WIN32_UTF8_4BYTE_MASK);
+    const uint8_t high = zr_win32_utf8_payload_bits(scalar, ZR_WIN32_UTF8_SHIFT_12, ZR_WIN32_UTF8_CONT_MASK);
+    const uint8_t mid = zr_win32_utf8_payload_bits(scalar, ZR_WIN32_UTF8_SHIFT_6, ZR_WIN32_UTF8_CONT_MASK);
+    const uint8_t low = zr_win32_utf8_payload_bits(scalar, 0u, ZR_WIN32_UTF8_CONT_MASK);
     out[0] = (uint8_t)(ZR_WIN32_UTF8_LEAD_4 | top);
-    out[1] = (uint8_t)(ZR_WIN32_UTF8_CONT | high);
-    out[2] = (uint8_t)(ZR_WIN32_UTF8_CONT | mid);
-    out[3] = (uint8_t)(ZR_WIN32_UTF8_CONT | low);
+    out[1] = zr_win32_utf8_make_cont_byte(high);
+    out[2] = zr_win32_utf8_make_cont_byte(mid);
+    out[3] = zr_win32_utf8_make_cont_byte(low);
   }
   return 4u;
 }
@@ -756,7 +775,7 @@ static void zr_win32_emit_text_scalar_repeat(uint8_t* out_buf, size_t out_cap, s
   if (repeat == 0u) {
     repeat = 1u;
   }
-  const uint8_t esc = 0x1Bu;
+  const uint8_t esc = ZR_WIN32_ASCII_ESC;
   for (WORD i = 0u; i < repeat; i++) {
     zr_win32_emit_repeat(out_buf, out_cap, io_len, &esc, 1u, 1u);
     zr_win32_emit_utf8_scalar_repeat(out_buf, out_cap, io_len, scalar, 1u);
@@ -767,7 +786,7 @@ static void zr_win32_flush_pending_high_surrogate(plat_t* plat, uint8_t* out_buf
   if (!plat || !plat->has_pending_high_surrogate) {
     return;
   }
-  zr_win32_emit_utf8_scalar_repeat(out_buf, out_cap, io_len, 0xFFFDu, 1u);
+  zr_win32_emit_utf8_scalar_repeat(out_buf, out_cap, io_len, ZR_WIN32_REPLACEMENT_SCALAR, 1u);
   plat->has_pending_high_surrogate = false;
   plat->pending_high_surrogate = 0u;
 }
@@ -885,55 +904,70 @@ static zr_result_t zr_win32_restore_modes_best_effort(plat_t* plat) {
   return ZR_OK;
 }
 
-/* Enable VT output/input per locked v1 rules; restores saved modes on failure. */
-static zr_result_t zr_win32_enable_vt_or_fail(plat_t* plat) {
-  if (!plat) {
+static zr_result_t zr_win32_save_original_console_modes(plat_t* plat, DWORD* out_in_mode, DWORD* out_out_mode) {
+  if (!plat || !out_in_mode || !out_out_mode) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
 
-  /* --- Save original modes --- */
   DWORD in_mode = 0u;
   DWORD out_mode = 0u;
   if (!GetConsoleMode(plat->h_in, &in_mode) || !GetConsoleMode(plat->h_out, &out_mode)) {
     return ZR_ERR_PLATFORM;
   }
+
   plat->in_mode_orig = in_mode;
   plat->out_mode_orig = out_mode;
   plat->modes_valid = true;
+  *out_in_mode = in_mode;
+  *out_out_mode = out_mode;
+  return ZR_OK;
+}
 
-  /* --- Prefer UTF-8 console code pages for correct glyph rendering --- */
+static zr_result_t zr_win32_enable_utf8_console_codepages(plat_t* plat) {
+  if (!plat) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+
   plat->in_cp_orig = GetConsoleCP();
   plat->out_cp_orig = GetConsoleOutputCP();
   plat->cp_valid = (plat->in_cp_orig != 0u && plat->out_cp_orig != 0u);
+
   if (!SetConsoleCP(CP_UTF8) || !SetConsoleOutputCP(CP_UTF8)) {
-    (void)zr_win32_restore_modes_best_effort(plat);
     return ZR_ERR_UNSUPPORTED;
   }
   if (GetConsoleCP() != (UINT)CP_UTF8 || GetConsoleOutputCP() != (UINT)CP_UTF8) {
-    (void)zr_win32_restore_modes_best_effort(plat);
     return ZR_ERR_UNSUPPORTED;
   }
+  return ZR_OK;
+}
 
-  /* --- Enable VT output (required) --- */
-  DWORD out_mode_new = out_mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+static zr_result_t zr_win32_enable_vt_output_mode(plat_t* plat, DWORD out_mode) {
+  if (!plat) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+
+  const DWORD out_mode_new = out_mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
   if (!SetConsoleMode(plat->h_out, out_mode_new)) {
-    (void)zr_win32_restore_modes_best_effort(plat);
     return ZR_ERR_PLATFORM;
   }
+
   DWORD out_mode_after = 0u;
   if (!GetConsoleMode(plat->h_out, &out_mode_after) || (out_mode_after & ENABLE_VIRTUAL_TERMINAL_PROCESSING) == 0u) {
-    (void)zr_win32_restore_modes_best_effort(plat);
     return ZR_ERR_PLATFORM;
   }
+  return ZR_OK;
+}
 
-  /* --- Enable VT input (required; no legacy fallback in v1) --- */
+static zr_result_t zr_win32_enable_vt_input_mode(plat_t* plat, DWORD in_mode) {
+  if (!plat) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+
   /*
     "Raw" input in practice means:
       - no cooked line buffering and no echo
       - no ctrl-c signal translation (engine parses bytes)
       - avoid QuickEdit mode (can freeze input on mouse selection)
-
-    Note: we intentionally keep this logic deterministic and config-driven.
   */
   DWORD in_mode_base = in_mode | ENABLE_VIRTUAL_TERMINAL_INPUT;
 
@@ -951,11 +985,15 @@ static zr_result_t zr_win32_enable_vt_or_fail(plat_t* plat) {
     VT-input-capable mode on failure. The fallback ladder must still disable
     line buffering; otherwise, input may not be delivered until Enter.
   */
+  const DWORD raw_input_strict_clear =
+      (DWORD)(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT | ENABLE_WINDOW_INPUT);
+  const DWORD raw_input_relaxed_clear = (DWORD)(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT | ENABLE_WINDOW_INPUT);
+  const DWORD raw_input_minimal_clear = (DWORD)(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT);
+
   DWORD candidates[4];
-  candidates[0] =
-      in_mode_base & ~((DWORD)(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT | ENABLE_WINDOW_INPUT));
-  candidates[1] = in_mode_base & ~((DWORD)(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT | ENABLE_WINDOW_INPUT));
-  candidates[2] = in_mode_base & ~((DWORD)(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT));
+  candidates[0] = in_mode_base & ~raw_input_strict_clear;
+  candidates[1] = in_mode_base & ~raw_input_relaxed_clear;
+  candidates[2] = in_mode_base & ~raw_input_minimal_clear;
   candidates[3] = in_mode_base;
 
   bool set_ok = false;
@@ -966,12 +1004,11 @@ static zr_result_t zr_win32_enable_vt_or_fail(plat_t* plat) {
     }
   }
   if (!set_ok) {
-    (void)zr_win32_restore_modes_best_effort(plat);
     return ZR_ERR_UNSUPPORTED;
   }
+
   DWORD in_mode_after = 0u;
   if (!GetConsoleMode(plat->h_in, &in_mode_after) || (in_mode_after & ENABLE_VIRTUAL_TERMINAL_INPUT) == 0u) {
-    (void)zr_win32_restore_modes_best_effort(plat);
     return ZR_ERR_UNSUPPORTED;
   }
   if ((in_mode_after & ENABLE_LINE_INPUT) != 0u) {
@@ -980,8 +1017,41 @@ static zr_result_t zr_win32_enable_vt_or_fail(plat_t* plat) {
       keys won't arrive as VT sequences. Treat as unsupported so callers can
       surface a clear error.
     */
-    (void)zr_win32_restore_modes_best_effort(plat);
     return ZR_ERR_UNSUPPORTED;
+  }
+
+  return ZR_OK;
+}
+
+/* Enable VT output/input per locked v1 rules; restores saved modes on failure. */
+static zr_result_t zr_win32_enable_vt_or_fail(plat_t* plat) {
+  if (!plat) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+
+  DWORD in_mode = 0u;
+  DWORD out_mode = 0u;
+  zr_result_t rc = zr_win32_save_original_console_modes(plat, &in_mode, &out_mode);
+  if (rc != ZR_OK) {
+    return rc;
+  }
+
+  rc = zr_win32_enable_utf8_console_codepages(plat);
+  if (rc != ZR_OK) {
+    (void)zr_win32_restore_modes_best_effort(plat);
+    return rc;
+  }
+
+  rc = zr_win32_enable_vt_output_mode(plat, out_mode);
+  if (rc != ZR_OK) {
+    (void)zr_win32_restore_modes_best_effort(plat);
+    return rc;
+  }
+
+  rc = zr_win32_enable_vt_input_mode(plat, in_mode);
+  if (rc != ZR_OK) {
+    (void)zr_win32_restore_modes_best_effort(plat);
+    return rc;
   }
 
   return ZR_OK;
@@ -1252,6 +1322,7 @@ static void zr_win32_translate_console_key(const KEY_EVENT_RECORD* k, plat_t* pl
   const uint32_t mods = zr_win32_mod_bits_from_control_state(k->dwControlKeyState);
   const bool has_alt = (mods & ZR_WIN32_MOD_ALT_BIT) != 0u;
 
+  /* --- VT-native function/navigation keys (CSI/SS3 forms) --- */
   uint8_t csi_final = 0u;
   if (zr_win32_vk_to_csi_final(vk, &csi_final)) {
     zr_win32_flush_pending_high_surrogate(plat, out_buf, out_cap, out_len);
@@ -1273,6 +1344,7 @@ static void zr_win32_translate_console_key(const KEY_EVENT_RECORD* k, plat_t* pl
     return;
   }
 
+  /* --- Control-key normalization (Enter/Escape/Tab/Backspace) --- */
   if (vk == VK_RETURN) {
     zr_win32_flush_pending_high_surrogate(plat, out_buf, out_cap, out_len);
     const uint8_t seq[] = {(uint8_t)'\r'};
@@ -1281,7 +1353,7 @@ static void zr_win32_translate_console_key(const KEY_EVENT_RECORD* k, plat_t* pl
   }
   if (vk == VK_ESCAPE) {
     zr_win32_flush_pending_high_surrogate(plat, out_buf, out_cap, out_len);
-    const uint8_t seq[] = {0x1Bu};
+    const uint8_t seq[] = {ZR_WIN32_ASCII_ESC};
     zr_win32_emit_repeat(out_buf, out_cap, out_len, seq, sizeof(seq), repeat);
     return;
   }
@@ -1292,7 +1364,8 @@ static void zr_win32_translate_console_key(const KEY_EVENT_RECORD* k, plat_t* pl
         zr_win32_emit_csi_final_repeat(out_buf, out_cap, out_len, (uint8_t)'Z', mods, repeat);
         return;
       }
-      const uint8_t seq[] = {0x1Bu, (uint8_t)'[', (uint8_t)'Z'};
+      /* Shift-only Tab is the legacy BackTab sequence ESC [ Z. */
+      const uint8_t seq[] = {ZR_WIN32_ASCII_ESC, (uint8_t)'[', (uint8_t)'Z'};
       zr_win32_emit_repeat(out_buf, out_cap, out_len, seq, sizeof(seq), repeat);
       return;
     }
@@ -1302,17 +1375,19 @@ static void zr_win32_translate_console_key(const KEY_EVENT_RECORD* k, plat_t* pl
   }
   if (vk == VK_BACK) {
     zr_win32_flush_pending_high_surrogate(plat, out_buf, out_cap, out_len);
-    const uint8_t seq[] = {0x7Fu};
+    const uint8_t seq[] = {ZR_WIN32_ASCII_DEL};
     zr_win32_emit_repeat(out_buf, out_cap, out_len, seq, sizeof(seq), repeat);
     return;
   }
 
+  /* --- UTF-16 surrogate/text path to UTF-8 event bytes --- */
   if (ch == 0) {
     zr_win32_flush_pending_high_surrogate(plat, out_buf, out_cap, out_len);
     return;
   }
 
   if (zr_win32_is_high_surrogate((uint32_t)ch)) {
+    /* Flush stale pending high surrogate before starting a new surrogate pair. */
     zr_win32_flush_pending_high_surrogate(plat, out_buf, out_cap, out_len);
     plat->has_pending_high_surrogate = true;
     plat->pending_high_surrogate = (uint16_t)ch;
@@ -1326,7 +1401,7 @@ static void zr_win32_translate_console_key(const KEY_EVENT_RECORD* k, plat_t* pl
       zr_win32_emit_text_scalar_repeat(out_buf, out_cap, out_len, scalar, repeat, has_alt);
       return;
     }
-    zr_win32_emit_text_scalar_repeat(out_buf, out_cap, out_len, 0xFFFDu, repeat, has_alt);
+    zr_win32_emit_text_scalar_repeat(out_buf, out_cap, out_len, ZR_WIN32_REPLACEMENT_SCALAR, repeat, has_alt);
     return;
   }
 

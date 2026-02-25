@@ -19,6 +19,9 @@ enum {
   ZR_SIXEL_Q_LEVELS = 6u,
   ZR_SIXEL_Q_KEYS = 216u,
   ZR_SIXEL_TRANSPARENT_INDEX = 255u,
+  ZR_SIXEL_PALETTE_MAP_EMPTY = 0xFFFFu,
+  ZR_SIXEL_BAND_ROWS = 6u,
+  ZR_SIXEL_DATA_CHAR_BASE = 0x3Fu,
   ZR_SIXEL_RUN_MIN_RLE = 4u,
 };
 
@@ -121,7 +124,7 @@ static zr_result_t zr_sixel_quantize(zr_arena_t* arena, const uint8_t* rgba, uin
     }
     {
       uint32_t key = zr_sixel_quant_key(p[0], p[1], p[2]);
-      if (map[key] == 0xFFFFu) {
+      if (map[key] == ZR_SIXEL_PALETTE_MAP_EMPTY) {
         uint16_t idx = palette_len;
         uint8_t qr = (uint8_t)(key / 36u);
         uint8_t qg = (uint8_t)((key / 6u) % 6u);
@@ -208,9 +211,14 @@ static zr_result_t zr_sixel_emit_run(zr_sb_t* sb, uint8_t ch, uint32_t run) {
 
 static uint8_t zr_sixel_band_char(const uint8_t* indexed, uint16_t px_w, uint16_t px_h, uint16_t band_y, uint16_t x,
                                   uint8_t color_idx) {
+  /*
+    Sixel packs one vertical 6-pixel slice into one byte:
+      bit N (0..5) => pixel at (x, band_y + N)
+    Data bytes are encoded as '?' + bits per DEC sixel format.
+  */
   uint8_t bits = 0u;
   uint16_t bit = 0u;
-  for (bit = 0u; bit < 6u; bit++) {
+  for (bit = 0u; bit < ZR_SIXEL_BAND_ROWS; bit++) {
     uint16_t y = (uint16_t)(band_y + bit);
     if (y >= px_h) {
       continue;
@@ -219,14 +227,14 @@ static uint8_t zr_sixel_band_char(const uint8_t* indexed, uint16_t px_w, uint16_
       bits = (uint8_t)(bits | (uint8_t)(1u << bit));
     }
   }
-  return (uint8_t)(0x3Fu + bits);
+  return (uint8_t)(ZR_SIXEL_DATA_CHAR_BASE + bits);
 }
 
 static void zr_sixel_mark_band_colors(const uint8_t* indexed, uint16_t px_w, uint16_t px_h, uint16_t band_y,
                                       uint8_t present[256]) {
   uint16_t y = 0u;
   memset(present, 0, 256u);
-  for (y = 0u; y < 6u; y++) {
+  for (y = 0u; y < ZR_SIXEL_BAND_ROWS; y++) {
     uint16_t yy = (uint16_t)(band_y + y);
     uint16_t x = 0u;
     if (yy >= px_h) {

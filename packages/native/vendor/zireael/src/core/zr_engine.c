@@ -376,8 +376,7 @@ static void zr_engine_maybe_enqueue_tick(zr_engine_t* e, uint32_t now_ms) {
     dt_ms = 1u;
   }
 
-  zr_event_t ev;
-  memset(&ev, 0, sizeof(ev));
+  zr_event_t ev = {0};
   ev.type = ZR_EV_TICK;
   ev.time_ms = now_ms;
   ev.flags = 0u;
@@ -532,6 +531,7 @@ static zr_result_t zr_engine_resize_framebuffers(zr_engine_t* e, uint32_t cols, 
   uint64_t* new_next_hashes = NULL;
   uint8_t* new_dirty_rows = NULL;
 
+  /* --- Allocate resized framebuffers --- */
   zr_result_t rc = zr_fb_init(&prev, cols, rows);
   if (rc != ZR_OK) {
     return rc;
@@ -548,6 +548,7 @@ static zr_result_t zr_engine_resize_framebuffers(zr_engine_t* e, uint32_t cols, 
     return rc;
   }
 
+  /* --- Allocate diff row scratch for the new size --- */
   rc = zr_engine_alloc_diff_row_scratch(rows, &new_prev_hashes, &new_next_hashes, &new_dirty_rows);
   if (rc != ZR_OK) {
     zr_fb_release(&prev);
@@ -556,6 +557,7 @@ static zr_result_t zr_engine_resize_framebuffers(zr_engine_t* e, uint32_t cols, 
     return rc;
   }
 
+  /* --- Commit atomically after all allocations succeed --- */
   zr_fb_release(&e->fb_prev);
   zr_fb_release(&e->fb_next);
   zr_fb_release(&e->fb_stage);
@@ -603,8 +605,7 @@ static zr_result_t zr_engine_try_handle_resize(zr_engine_t* e, uint32_t time_ms)
 
   e->size = sz;
 
-  zr_event_t ev;
-  memset(&ev, 0, sizeof(ev));
+  zr_event_t ev = {0};
   ev.type = ZR_EV_RESIZE;
   ev.time_ms = time_ms;
   ev.flags = 0u;
@@ -813,6 +814,7 @@ static void zr_engine_input_flush_pending(zr_engine_t* e, uint32_t time_ms) {
   const bool paste_enabled =
       (e->cfg_runtime.plat.enable_bracketed_paste != 0u) && (e->caps.supports_bracketed_paste != 0u);
 
+  /* --- Defensive recovery if paste mode is unexpectedly active --- */
   /*
     Defensive: bracketed paste parsing is gated by config+caps. If the engine
     ever enters paste_active while paste is disabled (should not happen in v1),
@@ -834,6 +836,7 @@ static void zr_engine_input_flush_pending(zr_engine_t* e, uint32_t time_ms) {
     e->paste_idle_polls = 0u;
   }
 
+  /* --- Non-paste path: flush staged prefixes and parse pending bytes --- */
   if (!paste_enabled) {
     for (uint32_t i = 0u; i < e->paste_begin_hold_len; i++) {
       zr_engine_input_pending_append_byte(e, e->paste_begin_hold[i], time_ms);
@@ -847,6 +850,7 @@ static void zr_engine_input_flush_pending(zr_engine_t* e, uint32_t time_ms) {
     return;
   }
 
+  /* --- Paste path: bounded idle flush to avoid wedged input --- */
   if (e->paste_active) {
     /*
       Paste capture must not permanently wedge input if the end marker is missing.
@@ -878,6 +882,7 @@ static void zr_engine_input_flush_pending(zr_engine_t* e, uint32_t time_ms) {
     return;
   }
 
+  /* --- Not in paste capture: flush incomplete begin-marker prefix --- */
   for (uint32_t i = 0u; i < e->paste_begin_hold_len; i++) {
     zr_engine_input_pending_append_byte(e, e->paste_begin_hold[i], time_ms);
   }
@@ -1201,8 +1206,7 @@ static void zr_engine_enqueue_initial_resize(zr_engine_t* e) {
     return;
   }
 
-  zr_event_t ev;
-  memset(&ev, 0, sizeof(ev));
+  zr_event_t ev = {0};
   ev.type = ZR_EV_RESIZE;
   ev.time_ms = e->last_tick_ms;
   ev.flags = 0u;
