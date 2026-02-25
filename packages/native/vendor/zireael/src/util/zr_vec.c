@@ -11,6 +11,13 @@
 
 #include <string.h>
 
+static bool zr__vec_get_offset(const zr_vec_t* v, size_t idx, size_t* out_off) {
+  if (!v || !out_off || idx >= v->len || !v->data || v->elem_size == 0u) {
+    return false;
+  }
+  return zr_checked_mul_size(idx, v->elem_size, out_off);
+}
+
 /* Initialize a fixed-capacity vector with caller-provided backing storage. */
 zr_result_t zr_vec_init(zr_vec_t* v, void* backing_buf, size_t cap_elems, size_t elem_size) {
   if (!v || elem_size == 0u || (cap_elems != 0u && !backing_buf)) {
@@ -40,22 +47,16 @@ size_t zr_vec_cap(const zr_vec_t* v) {
 
 /* Get mutable pointer to element at index; returns NULL if out of bounds. */
 void* zr_vec_at(zr_vec_t* v, size_t idx) {
-  if (!v || idx >= v->len || !v->data || v->elem_size == 0u) {
-    return NULL;
-  }
   size_t off = 0u;
-  if (!zr_checked_mul_size(idx, v->elem_size, &off)) {
+  if (!zr__vec_get_offset(v, idx, &off)) {
     return NULL;
   }
   return (void*)(v->data + off);
 }
 
 const void* zr_vec_at_const(const zr_vec_t* v, size_t idx) {
-  if (!v || idx >= v->len || !v->data || v->elem_size == 0u) {
-    return NULL;
-  }
   size_t off = 0u;
-  if (!zr_checked_mul_size(idx, v->elem_size, &off)) {
+  if (!zr__vec_get_offset(v, idx, &off)) {
     return NULL;
   }
   return (const void*)(v->data + off);

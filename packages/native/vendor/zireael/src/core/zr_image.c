@@ -16,6 +16,8 @@
 enum {
   ZR_IMAGE_DEFAULT_CELL_W = 8u,
   ZR_IMAGE_DEFAULT_CELL_H = 16u,
+  ZR_IMAGE_CMDS_INITIAL_CAP = 8u,
+  ZR_IMAGE_BLOB_INITIAL_CAP = 1024u,
 };
 
 static zr_result_t zr_image_frame_ensure_cmd_cap(zr_image_frame_t* frame, uint32_t need) {
@@ -30,7 +32,7 @@ static zr_result_t zr_image_frame_ensure_cmd_cap(zr_image_frame_t* frame, uint32
     return ZR_OK;
   }
 
-  cap = (frame->cmds_cap == 0u) ? 8u : frame->cmds_cap;
+  cap = (frame->cmds_cap == 0u) ? ZR_IMAGE_CMDS_INITIAL_CAP : frame->cmds_cap;
   while (cap < need) {
     if (cap > (UINT32_MAX / 2u)) {
       cap = need;
@@ -62,7 +64,7 @@ static zr_result_t zr_image_frame_ensure_blob_cap(zr_image_frame_t* frame, uint3
     return ZR_OK;
   }
 
-  cap = (frame->blob_cap == 0u) ? 1024u : frame->blob_cap;
+  cap = (frame->blob_cap == 0u) ? ZR_IMAGE_BLOB_INITIAL_CAP : frame->blob_cap;
   while (cap < need) {
     if (cap > (UINT32_MAX / 2u)) {
       cap = need;

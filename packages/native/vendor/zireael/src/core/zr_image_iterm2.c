@@ -113,7 +113,9 @@ static uint32_t zr_png_adler32(const uint8_t* p, size_t n) {
     s1 = (s1 + p[i]) % 65521u;
     s2 = (s2 + s1) % 65521u;
   }
-  return (s2 << 16u) | s1;
+  const uint32_t upper = (s2 << 16u);
+  const uint32_t lower = s1;
+  return upper | lower;
 }
 
 static void zr_store_u32be(uint8_t out[4], uint32_t v) {

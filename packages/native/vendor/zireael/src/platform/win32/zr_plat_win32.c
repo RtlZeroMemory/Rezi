@@ -12,6 +12,7 @@
 #include <Windows.h>
 
 #include "platform/zr_platform.h"
+#include "util/zr_macros.h"
 
 #include <errno.h>
 #include <stdbool.h>
@@ -62,6 +63,22 @@ enum {
   ZR_WIN32_OUTPUT_WAIT_MODE_UNSUPPORTED = 0u,
   ZR_WIN32_OUTPUT_WAIT_MODE_IMMEDIATE_READY = 1u,
   ZR_WIN32_OUTPUT_WAIT_MODE_WAIT_HANDLE = 2u,
+  ZR_WIN32_XTERM_KEY_F5 = 15u,
+  ZR_WIN32_XTERM_KEY_F6 = 17u,
+  ZR_WIN32_XTERM_KEY_F7 = 18u,
+  ZR_WIN32_XTERM_KEY_F8 = 19u,
+  ZR_WIN32_XTERM_KEY_F9 = 20u,
+  ZR_WIN32_XTERM_KEY_F10 = 21u,
+  ZR_WIN32_XTERM_KEY_F11 = 23u,
+  ZR_WIN32_XTERM_KEY_F12 = 24u,
+  ZR_WIN32_UTF8_LEAD_2 = 0xC0u,
+  ZR_WIN32_UTF8_LEAD_3 = 0xE0u,
+  ZR_WIN32_UTF8_LEAD_4 = 0xF0u,
+  ZR_WIN32_UTF8_CONT = 0x80u,
+  ZR_WIN32_UTF8_2BYTE_MASK = 0x1Fu,
+  ZR_WIN32_UTF8_3BYTE_MASK = 0x0Fu,
+  ZR_WIN32_UTF8_4BYTE_MASK = 0x07u,
+  ZR_WIN32_UTF8_CONT_MASK = 0x3Fu,
 };
 
 zr_result_t zr_plat_win32_create(plat_t** out_plat, const plat_config_t* cfg);
@@ -102,6 +119,30 @@ static const char* zr_win32_getenv_nonempty(const char* key) {
   return v;
 }
 
+static bool zr_win32_env_has_any_nonempty(const char* const* keys, size_t count) {
+  if (!keys) {
+    return false;
+  }
+  for (size_t i = 0u; i < count; i++) {
+    if (keys[i] && zr_win32_getenv_nonempty(keys[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool zr_win32_str_equals_any(const char* value, const char* const* candidates, size_t count) {
+  if (!value || !candidates) {
+    return false;
+  }
+  for (size_t i = 0u; i < count; i++) {
+    if (candidates[i] && strcmp(value, candidates[i]) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
 static bool zr_win32_env_bool_override(const char* key, uint8_t* out_value) {
   if (!key || !out_value) {
     return false;
@@ -111,13 +152,14 @@ static bool zr_win32_env_bool_override(const char* key, uint8_t* out_value) {
   if (!v) {
     return false;
   }
-  if (strcmp(v, "1") == 0 || strcmp(v, "true") == 0 || strcmp(v, "TRUE") == 0 || strcmp(v, "yes") == 0 ||
-      strcmp(v, "YES") == 0 || strcmp(v, "on") == 0 || strcmp(v, "ON") == 0) {
+  static const char* kTrueValues[] = {"1", "true", "TRUE", "yes", "YES", "on", "ON"};
+  static const char* kFalseValues[] = {"0", "false", "FALSE", "no", "NO", "off", "OFF"};
+
+  if (zr_win32_str_equals_any(v, kTrueValues, ZR_ARRAYLEN(kTrueValues))) {
     *out_value = 1u;
     return true;
   }
-  if (strcmp(v, "0") == 0 || strcmp(v, "false") == 0 || strcmp(v, "FALSE") == 0 || strcmp(v, "no") == 0 ||
-      strcmp(v, "NO") == 0 || strcmp(v, "off") == 0 || strcmp(v, "OFF") == 0) {
+  if (zr_win32_str_equals_any(v, kFalseValues, ZR_ARRAYLEN(kFalseValues))) {
     *out_value = 0u;
     return true;
   }
@@ -264,9 +306,9 @@ static zr_terminal_id_t zr_win32_terminal_id_from_term(const char* term) {
 }
 
 static bool zr_win32_detect_modern_vt_host(void) {
-  if (zr_win32_getenv_nonempty("WT_SESSION") || zr_win32_getenv_nonempty("KITTY_WINDOW_ID") ||
-      zr_win32_getenv_nonempty("WEZTERM_PANE") || zr_win32_getenv_nonempty("WEZTERM_EXECUTABLE") ||
-      zr_win32_getenv_nonempty("ANSICON")) {
+  static const char* kModernTermVars[] = {"WT_SESSION", "KITTY_WINDOW_ID", "WEZTERM_PANE", "WEZTERM_EXECUTABLE",
+                                          "ANSICON"};
+  if (zr_win32_env_has_any_nonempty(kModernTermVars, ZR_ARRAYLEN(kModernTermVars))) {
     return true;
   }
 
@@ -278,13 +320,13 @@ static bool zr_win32_detect_modern_vt_host(void) {
   const char* term = zr_win32_getenv_nonempty("TERM");
   static const char* kRichTerms[] = {"xterm",     "screen", "tmux",    "kitty", "wezterm",
                                      "alacritty", "foot",   "ghostty", "rio"};
-  if (zr_win32_str_has_any_ci(term, kRichTerms, sizeof(kRichTerms) / sizeof(kRichTerms[0]))) {
+  if (zr_win32_str_has_any_ci(term, kRichTerms, ZR_ARRAYLEN(kRichTerms))) {
     return true;
   }
 
   const char* term_program = zr_win32_getenv_nonempty("TERM_PROGRAM");
   static const char* kPrograms[] = {"WezTerm", "vscode", "WarpTerminal"};
-  return zr_win32_str_has_any_ci(term_program, kPrograms, sizeof(kPrograms) / sizeof(kPrograms[0]));
+  return zr_win32_str_has_any_ci(term_program, kPrograms, ZR_ARRAYLEN(kPrograms));
 }
 
 static uint8_t zr_win32_detect_focus_events(void) {
@@ -292,47 +334,45 @@ static uint8_t zr_win32_detect_focus_events(void) {
 }
 
 static uint8_t zr_win32_detect_underline_styles(void) {
-  if (zr_win32_getenv_nonempty("KITTY_WINDOW_ID") || zr_win32_getenv_nonempty("WEZTERM_PANE") ||
-      zr_win32_getenv_nonempty("WEZTERM_EXECUTABLE") || zr_win32_getenv_nonempty("GHOSTTY_RESOURCES_DIR")) {
+  static const char* kModernTermVars[] = {"KITTY_WINDOW_ID", "WEZTERM_PANE", "WEZTERM_EXECUTABLE",
+                                          "GHOSTTY_RESOURCES_DIR"};
+  if (zr_win32_env_has_any_nonempty(kModernTermVars, ZR_ARRAYLEN(kModernTermVars))) {
     return 1u;
   }
 
   const char* term = zr_win32_getenv_nonempty("TERM");
   static const char* kUnderlineTerms[] = {"kitty", "wezterm", "ghostty", "foot", "rio"};
-  return zr_win32_str_has_any_ci(term, kUnderlineTerms, sizeof(kUnderlineTerms) / sizeof(kUnderlineTerms[0])) ? 1u : 0u;
+  return zr_win32_str_has_any_ci(term, kUnderlineTerms, ZR_ARRAYLEN(kUnderlineTerms)) ? 1u : 0u;
 }
 
 static uint8_t zr_win32_detect_colored_underlines(void) {
-  if (zr_win32_getenv_nonempty("KITTY_WINDOW_ID") || zr_win32_getenv_nonempty("WEZTERM_PANE") ||
-      zr_win32_getenv_nonempty("WEZTERM_EXECUTABLE") || zr_win32_getenv_nonempty("GHOSTTY_RESOURCES_DIR")) {
+  static const char* kModernTermVars[] = {"KITTY_WINDOW_ID", "WEZTERM_PANE", "WEZTERM_EXECUTABLE",
+                                          "GHOSTTY_RESOURCES_DIR"};
+  if (zr_win32_env_has_any_nonempty(kModernTermVars, ZR_ARRAYLEN(kModernTermVars))) {
     return 1u;
   }
 
   const char* term = zr_win32_getenv_nonempty("TERM");
   static const char* kColoredUnderlineTerms[] = {"kitty", "wezterm", "ghostty", "foot"};
-  return zr_win32_str_has_any_ci(term, kColoredUnderlineTerms,
-                                 sizeof(kColoredUnderlineTerms) / sizeof(kColoredUnderlineTerms[0]))
-             ? 1u
-             : 0u;
+  return zr_win32_str_has_any_ci(term, kColoredUnderlineTerms, ZR_ARRAYLEN(kColoredUnderlineTerms)) ? 1u : 0u;
 }
 
 static uint8_t zr_win32_detect_hyperlinks(void) {
-  if (zr_win32_getenv_nonempty("WT_SESSION") || zr_win32_getenv_nonempty("KITTY_WINDOW_ID") ||
-      zr_win32_getenv_nonempty("WEZTERM_PANE") || zr_win32_getenv_nonempty("WEZTERM_EXECUTABLE") ||
-      zr_win32_getenv_nonempty("GHOSTTY_RESOURCES_DIR")) {
+  static const char* kModernTermVars[] = {"WT_SESSION", "KITTY_WINDOW_ID", "WEZTERM_PANE", "WEZTERM_EXECUTABLE",
+                                          "GHOSTTY_RESOURCES_DIR"};
+  if (zr_win32_env_has_any_nonempty(kModernTermVars, ZR_ARRAYLEN(kModernTermVars))) {
     return 1u;
   }
 
   const char* term_program = zr_win32_getenv_nonempty("TERM_PROGRAM");
   static const char* kHyperlinkPrograms[] = {"WezTerm", "vscode", "WarpTerminal", "Rio"};
-  if (zr_win32_str_has_any_ci(term_program, kHyperlinkPrograms,
-                              sizeof(kHyperlinkPrograms) / sizeof(kHyperlinkPrograms[0]))) {
+  if (zr_win32_str_has_any_ci(term_program, kHyperlinkPrograms, ZR_ARRAYLEN(kHyperlinkPrograms))) {
     return 1u;
   }
 
   const char* term = zr_win32_getenv_nonempty("TERM");
   static const char* kHyperlinkTerms[] = {"kitty", "wezterm", "ghostty", "foot", "rio", "alacritty"};
-  return zr_win32_str_has_any_ci(term, kHyperlinkTerms, sizeof(kHyperlinkTerms) / sizeof(kHyperlinkTerms[0])) ? 1u : 0u;
+  return zr_win32_str_has_any_ci(term, kHyperlinkTerms, ZR_ARRAYLEN(kHyperlinkTerms)) ? 1u : 0u;
 }
 
 static uint32_t zr_win32_detect_sgr_attrs_supported(void) {
@@ -585,28 +625,28 @@ static bool zr_win32_vk_to_csi_tilde(WORD vk, uint32_t* out_first) {
     *out_first = 6u;
     return true;
   case VK_F5:
-    *out_first = 15u;
+    *out_first = ZR_WIN32_XTERM_KEY_F5;
     return true;
   case VK_F6:
-    *out_first = 17u;
+    *out_first = ZR_WIN32_XTERM_KEY_F6;
     return true;
   case VK_F7:
-    *out_first = 18u;
+    *out_first = ZR_WIN32_XTERM_KEY_F7;
     return true;
   case VK_F8:
-    *out_first = 19u;
+    *out_first = ZR_WIN32_XTERM_KEY_F8;
     return true;
   case VK_F9:
-    *out_first = 20u;
+    *out_first = ZR_WIN32_XTERM_KEY_F9;
     return true;
   case VK_F10:
-    *out_first = 21u;
+    *out_first = ZR_WIN32_XTERM_KEY_F10;
     return true;
   case VK_F11:
-    *out_first = 23u;
+    *out_first = ZR_WIN32_XTERM_KEY_F11;
     return true;
   case VK_F12:
-    *out_first = 24u;
+    *out_first = ZR_WIN32_XTERM_KEY_F12;
     return true;
   default:
     return false;
@@ -649,21 +689,32 @@ static size_t zr_win32_encode_utf8_scalar(uint32_t scalar, uint8_t out[4]) {
     return 1u;
   }
   if (scalar <= 0x7FFu) {
-    out[0] = (uint8_t)(0xC0u | ((scalar >> 6u) & 0x1Fu));
-    out[1] = (uint8_t)(0x80u | (scalar & 0x3Fu));
+    const uint8_t top = (uint8_t)((scalar >> 6u) & ZR_WIN32_UTF8_2BYTE_MASK);
+    const uint8_t low = (uint8_t)(scalar & ZR_WIN32_UTF8_CONT_MASK);
+    out[0] = (uint8_t)(ZR_WIN32_UTF8_LEAD_2 | top);
+    out[1] = (uint8_t)(ZR_WIN32_UTF8_CONT | low);
     return 2u;
   }
   if (scalar <= 0xFFFFu) {
-    out[0] = (uint8_t)(0xE0u | ((scalar >> 12u) & 0x0Fu));
-    out[1] = (uint8_t)(0x80u | ((scalar >> 6u) & 0x3Fu));
-    out[2] = (uint8_t)(0x80u | (scalar & 0x3Fu));
+    const uint8_t top = (uint8_t)((scalar >> 12u) & ZR_WIN32_UTF8_3BYTE_MASK);
+    const uint8_t mid = (uint8_t)((scalar >> 6u) & ZR_WIN32_UTF8_CONT_MASK);
+    const uint8_t low = (uint8_t)(scalar & ZR_WIN32_UTF8_CONT_MASK);
+    out[0] = (uint8_t)(ZR_WIN32_UTF8_LEAD_3 | top);
+    out[1] = (uint8_t)(ZR_WIN32_UTF8_CONT | mid);
+    out[2] = (uint8_t)(ZR_WIN32_UTF8_CONT | low);
     return 3u;
   }
 
-  out[0] = (uint8_t)(0xF0u | ((scalar >> 18u) & 0x07u));
-  out[1] = (uint8_t)(0x80u | ((scalar >> 12u) & 0x3Fu));
-  out[2] = (uint8_t)(0x80u | ((scalar >> 6u) & 0x3Fu));
-  out[3] = (uint8_t)(0x80u | (scalar & 0x3Fu));
+  {
+    const uint8_t top = (uint8_t)((scalar >> 18u) & ZR_WIN32_UTF8_4BYTE_MASK);
+    const uint8_t high = (uint8_t)((scalar >> 12u) & ZR_WIN32_UTF8_CONT_MASK);
+    const uint8_t mid = (uint8_t)((scalar >> 6u) & ZR_WIN32_UTF8_CONT_MASK);
+    const uint8_t low = (uint8_t)(scalar & ZR_WIN32_UTF8_CONT_MASK);
+    out[0] = (uint8_t)(ZR_WIN32_UTF8_LEAD_4 | top);
+    out[1] = (uint8_t)(ZR_WIN32_UTF8_CONT | high);
+    out[2] = (uint8_t)(ZR_WIN32_UTF8_CONT | mid);
+    out[3] = (uint8_t)(ZR_WIN32_UTF8_CONT | low);
+  }
   return 4u;
 }
 
@@ -908,7 +959,7 @@ static zr_result_t zr_win32_enable_vt_or_fail(plat_t* plat) {
   candidates[3] = in_mode_base;
 
   bool set_ok = false;
-  for (size_t i = 0u; i < (sizeof(candidates) / sizeof(candidates[0])); i++) {
+  for (size_t i = 0u; i < ZR_ARRAYLEN(candidates); i++) {
     if (SetConsoleMode(plat->h_in, candidates[i])) {
       set_ok = true;
       break;
@@ -1299,8 +1350,8 @@ static int32_t zr_win32_read_input_console(plat_t* plat, uint8_t* out_buf, int32
   INPUT_RECORD recs[32];
   DWORD read = 0u;
   DWORD want = n_events;
-  if (want > (DWORD)(sizeof(recs) / sizeof(recs[0]))) {
-    want = (DWORD)(sizeof(recs) / sizeof(recs[0]));
+  if (want > (DWORD)ZR_ARRAYLEN(recs)) {
+    want = (DWORD)ZR_ARRAYLEN(recs);
   }
   if (!ReadConsoleInputW(plat->h_in, recs, want, &read)) {
     return (int32_t)ZR_ERR_PLATFORM;

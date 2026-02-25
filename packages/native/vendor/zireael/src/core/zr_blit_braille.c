@@ -9,6 +9,13 @@
 
 static const uint8_t ZR_BRAILLE_BIT_MAP[4][2] = {{0u, 3u}, {1u, 4u}, {2u, 5u}, {6u, 7u}};
 
+enum {
+  ZR_UTF8_3BYTE_LEAD = 0xE0u,
+  ZR_UTF8_CONT_BYTE = 0x80u,
+  ZR_UTF8_3BYTE_MASK = 0x0Fu,
+  ZR_UTF8_CONT_MASK = 0x3Fu,
+};
+
 static uint32_t zr_blit_braille_cell_bg(const zr_fb_painter_t* painter, int32_t x, int32_t y) {
   const zr_cell_t* c = zr_fb_cell_const(painter->fb, (uint32_t)x, (uint32_t)y);
   if (!c) {
@@ -19,10 +26,13 @@ static uint32_t zr_blit_braille_cell_bg(const zr_fb_painter_t* painter, int32_t 
 
 static zr_blit_glyph_t zr_blit_braille_glyph(uint8_t pattern) {
   const uint32_t cp = 0x2800u + (uint32_t)pattern;
+  const uint8_t top = (uint8_t)((cp >> 12u) & ZR_UTF8_3BYTE_MASK);
+  const uint8_t mid = (uint8_t)((cp >> 6u) & ZR_UTF8_CONT_MASK);
+  const uint8_t low = (uint8_t)(cp & ZR_UTF8_CONT_MASK);
   zr_blit_glyph_t g;
-  g.bytes[0] = (uint8_t)(0xE0u | ((cp >> 12u) & 0x0Fu));
-  g.bytes[1] = (uint8_t)(0x80u | ((cp >> 6u) & 0x3Fu));
-  g.bytes[2] = (uint8_t)(0x80u | (cp & 0x3Fu));
+  g.bytes[0] = (uint8_t)(ZR_UTF8_3BYTE_LEAD | top);
+  g.bytes[1] = (uint8_t)(ZR_UTF8_CONT_BYTE | mid);
+  g.bytes[2] = (uint8_t)(ZR_UTF8_CONT_BYTE | low);
   g.bytes[3] = 0u;
   g.len = 3u;
   g._pad0[0] = 0u;

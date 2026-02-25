@@ -19,6 +19,7 @@ enum {
   ZR_WIDTH_ASCII_ASTERISK = 0x2Au,
   ZR_WIDTH_ASCII_DIGIT_0 = 0x30u,
   ZR_WIDTH_ASCII_DIGIT_9 = 0x39u,
+  /* VS15/VS16 choose text-vs-emoji presentation for emoji-capable scalars. */
   ZR_WIDTH_VARIATION_SELECTOR_15 = 0xFE0Eu,
   ZR_WIDTH_VARIATION_SELECTOR_16 = 0xFE0Fu,
   ZR_WIDTH_COMBINING_ENCLOSING_KEYCAP = 0x20E3u,
@@ -44,8 +45,11 @@ typedef enum zr_width_keycap_state_t {
 } zr_width_keycap_state_t;
 
 /*
- * Track the keycap emoji grammar:
- *   [0-9#*] U+FE0F? U+20E3
+ * Track the keycap emoji grammar/state machine:
+ *
+ *   START --[0-9#*]--> AFTER_BASE --[U+FE0F]--> AFTER_BASE_VS16 --[U+20E3]--> MATCHED
+ *      |                  |                               |
+ *      +---- other -------+--[U+20E3]---------------------+---- other ------> INVALID
  *
  * Why: These sequences can render as emoji even though the base scalar is not
  * Extended_Pictographic/Emoji_Presentation, so width policy must recognize

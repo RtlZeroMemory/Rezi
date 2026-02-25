@@ -6,6 +6,27 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.40] - 2026-02-25
+
+### Bug Fixes
+
+- **native/vendor**: Bumped vendored Zireael engine to `v1.3.8-alpha.7` (`8d8b5f8`) and synchronized `packages/native/vendor` sources.
+- **runtime/errors**: Hardened dev warning paths for swallowed callback exceptions, including safe thrown-value formatting in catch blocks.
+- **runtime/ids**: Strengthened widget ID validation; whitespace-only interactive IDs are now rejected deterministically.
+- **collections**: `each()` / `eachInline()` now detect duplicate keys at construction time with deterministic diagnostics.
+- **forms**: Async form validation no longer applies canceled/stale rejection results and now preserves actionable wrapped error context.
+- **router**: Hardened route guard error handling and param validation paths.
+- **keybindings**: Added max chord length enforcement and duplicate keybinding warnings.
+
+### Merged Pull Requests
+
+- [#195](https://github.com/RtlZeroMemory/Rezi/pull/195) fix(core): dev-mode warnings for silently swallowed callback errors
+- [#196](https://github.com/RtlZeroMemory/Rezi/pull/196) fix(core): harden widget ID validation and view function return checks
+- [#197](https://github.com/RtlZeroMemory/Rezi/pull/197) fix(core): detect duplicate keys in each()/eachInline() at construction time
+- [#198](https://github.com/RtlZeroMemory/Rezi/pull/198) fix(core): stop swallowing async form validation errors
+- [#199](https://github.com/RtlZeroMemory/Rezi/pull/199) fix(core): harden router guard error handling and param validation
+- [#200](https://github.com/RtlZeroMemory/Rezi/pull/200) fix(core): add max chord length and duplicate keybinding warnings
+
 ## [0.1.0-alpha.39] - 2026-02-24
 
 ### Bug Fixes

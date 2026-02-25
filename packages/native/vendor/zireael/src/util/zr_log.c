@@ -11,6 +11,12 @@
 #include <stdint.h>
 
 enum {
+  /*
+    Yield every 64 failed lock spins.
+
+    Why: Keeps uncontended lock/unlock fast while still giving the scheduler
+    regular opportunities under sustained contention.
+  */
   ZR_LOG_LOCK_YIELD_MASK = 63u,
 };
 

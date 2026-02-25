@@ -67,6 +67,11 @@ typedef enum zr_dl_opcode_t {
   ZR_DL_OP_DRAW_IMAGE = 9
 } zr_dl_opcode_t;
 
+/*
+  Sub-cell blitter selector for DRAW_CANVAS / image fallback paths.
+
+  A "blitter" maps RGBA pixels onto terminal cell glyph/style combinations.
+*/
 typedef enum zr_blitter_t {
   ZR_BLIT_AUTO = 0,      /* engine selects based on capability policy */
   ZR_BLIT_PIXEL = 1,     /* reserved for graphics protocol path */
@@ -76,6 +81,36 @@ typedef enum zr_blitter_t {
   ZR_BLIT_HALFBLOCK = 5, /* 1x2, two-color partition */
   ZR_BLIT_ASCII = 6      /* 1x1 space+background fallback */
 } zr_blitter_t;
+
+typedef enum zr_dl_cursor_shape_t {
+  ZR_DL_CURSOR_BLOCK = 0,
+  ZR_DL_CURSOR_UNDERLINE = 1,
+  ZR_DL_CURSOR_BAR = 2
+} zr_dl_cursor_shape_t;
+
+typedef enum zr_dl_draw_image_format_t {
+  ZR_DL_DRAW_IMAGE_FORMAT_RGBA = 0,
+  ZR_DL_DRAW_IMAGE_FORMAT_PNG = 1
+} zr_dl_draw_image_format_t;
+
+typedef enum zr_dl_draw_image_protocol_t {
+  ZR_DL_DRAW_IMAGE_PROTOCOL_AUTO = 0,
+  ZR_DL_DRAW_IMAGE_PROTOCOL_KITTY = 1,
+  ZR_DL_DRAW_IMAGE_PROTOCOL_SIXEL = 2,
+  ZR_DL_DRAW_IMAGE_PROTOCOL_ITERM2 = 3
+} zr_dl_draw_image_protocol_t;
+
+typedef enum zr_dl_draw_image_z_layer_t {
+  ZR_DL_DRAW_IMAGE_Z_BACK = -1,
+  ZR_DL_DRAW_IMAGE_Z_NORMAL = 0,
+  ZR_DL_DRAW_IMAGE_Z_FRONT = 1
+} zr_dl_draw_image_z_layer_t;
+
+typedef enum zr_dl_draw_image_fit_mode_t {
+  ZR_DL_DRAW_IMAGE_FIT_FILL = 0,
+  ZR_DL_DRAW_IMAGE_FIT_CONTAIN = 1,
+  ZR_DL_DRAW_IMAGE_FIT_COVER = 2
+} zr_dl_draw_image_fit_mode_t;
 
 typedef struct zr_dl_style_t {
   uint32_t fg;
@@ -161,7 +196,7 @@ typedef struct zr_dl_text_run_segment_v3_t {
 typedef struct zr_dl_cmd_set_cursor_t {
   int32_t x;         /* 0-based cell; -1 means "leave unchanged" */
   int32_t y;         /* 0-based cell; -1 means "leave unchanged" */
-  uint8_t shape;     /* 0=block, 1=underline, 2=bar */
+  uint8_t shape;     /* zr_dl_cursor_shape_t */
   uint8_t visible;   /* 0/1 */
   uint8_t blink;     /* 0/1 */
   uint8_t reserved0; /* must be 0 */
@@ -191,10 +226,10 @@ typedef struct zr_dl_cmd_draw_image_t {
   uint32_t blob_offset; /* byte offset inside drawlist blob-bytes section */
   uint32_t blob_len;    /* payload bytes */
   uint32_t image_id;    /* stable image key for protocol cache reuse */
-  uint8_t format;       /* 0=RGBA, 1=PNG */
-  uint8_t protocol;     /* 0=auto, 1=kitty, 2=sixel, 3=iterm2 */
-  int8_t z_layer;       /* -1, 0, 1 */
-  uint8_t fit_mode;     /* 0=fill, 1=contain, 2=cover */
+  uint8_t format;       /* zr_dl_draw_image_format_t */
+  uint8_t protocol;     /* zr_dl_draw_image_protocol_t */
+  int8_t z_layer;       /* zr_dl_draw_image_z_layer_t */
+  uint8_t fit_mode;     /* zr_dl_draw_image_fit_mode_t */
   uint8_t flags;        /* reserved; must be 0 */
   uint8_t reserved0;    /* reserved; must be 0 */
   uint16_t reserved1;   /* reserved; must be 0 */

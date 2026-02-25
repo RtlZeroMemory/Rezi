@@ -18,6 +18,9 @@
 
 #include <stdint.h>
 
+#define ZR_DEBUG_SOURCE_FILE_LEN 32u
+#define ZR_DEBUG_MESSAGE_LEN 64u
+
 /*
   Debug record categories.
 
@@ -111,11 +114,11 @@ typedef struct zr_debug_error_record_t {
     source_file: 32-byte fixed buffer for source file name (truncated).
     Why: Avoids pointer indirection while providing actionable context.
   */
-  char source_file[32];
+  char source_file[ZR_DEBUG_SOURCE_FILE_LEN];
   /*
     message: 64-byte fixed buffer for error message (truncated).
   */
-  char message[64];
+  char message[ZR_DEBUG_MESSAGE_LEN];
 } zr_debug_error_record_t;
 
 /*

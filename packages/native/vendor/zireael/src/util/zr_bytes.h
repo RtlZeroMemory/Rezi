@@ -26,20 +26,31 @@
 
 static inline uint16_t zr_load_u16le(const void* p) {
   const uint8_t* b = (const uint8_t*)p;
-  return (uint16_t)((uint16_t)b[0] | (uint16_t)((uint16_t)b[1] << 8u));
+  const uint16_t p0 = (uint16_t)b[0];
+  const uint16_t p1 = (uint16_t)((uint16_t)b[1] << 8u);
+  return (uint16_t)(p0 | p1);
 }
 
 static inline uint32_t zr_load_u32le(const void* p) {
   const uint8_t* b = (const uint8_t*)p;
-  return ((uint32_t)b[0]) | ((uint32_t)b[1] << 8u) | ((uint32_t)b[2] << 16u) |
-         ((uint32_t)b[3] << 24u);
+  const uint32_t p0 = (uint32_t)b[0];
+  const uint32_t p1 = ((uint32_t)b[1] << 8u);
+  const uint32_t p2 = ((uint32_t)b[2] << 16u);
+  const uint32_t p3 = ((uint32_t)b[3] << 24u);
+  return p0 | p1 | p2 | p3;
 }
 
 static inline uint64_t zr_load_u64le(const void* p) {
   const uint8_t* b = (const uint8_t*)p;
-  return ((uint64_t)b[0]) | ((uint64_t)b[1] << 8u) | ((uint64_t)b[2] << 16u) |
-         ((uint64_t)b[3] << 24u) | ((uint64_t)b[4] << 32u) | ((uint64_t)b[5] << 40u) |
-         ((uint64_t)b[6] << 48u) | ((uint64_t)b[7] << 56u);
+  const uint64_t p0 = (uint64_t)b[0];
+  const uint64_t p1 = ((uint64_t)b[1] << 8u);
+  const uint64_t p2 = ((uint64_t)b[2] << 16u);
+  const uint64_t p3 = ((uint64_t)b[3] << 24u);
+  const uint64_t p4 = ((uint64_t)b[4] << 32u);
+  const uint64_t p5 = ((uint64_t)b[5] << 40u);
+  const uint64_t p6 = ((uint64_t)b[6] << 48u);
+  const uint64_t p7 = ((uint64_t)b[7] << 56u);
+  return p0 | p1 | p2 | p3 | p4 | p5 | p6 | p7;
 }
 
 static inline void zr_store_u16le(void* p, uint16_t v) {

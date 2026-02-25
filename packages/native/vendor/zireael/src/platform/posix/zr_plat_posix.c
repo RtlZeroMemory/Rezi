@@ -18,6 +18,7 @@
 
 #include "platform/zr_platform.h"
 #include "platform/posix/zr_plat_posix_test.h"
+#include "util/zr_macros.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -60,6 +61,9 @@ struct plat_t {
 
 enum {
   ZR_POSIX_SIGWINCH_MAX_WAKE_FDS = 32u,
+  ZR_POSIX_HANDLER_KIND_NONE = 0,
+  ZR_POSIX_HANDLER_KIND_SA_HANDLER = 1,
+  ZR_POSIX_HANDLER_KIND_SA_SIGACTION = 2,
   ZR_POSIX_PIPE_MODE_DEFAULT_COLS = 80u,
   ZR_POSIX_PIPE_MODE_DEFAULT_ROWS = 24u,
   ZR_STYLE_ATTR_BOLD = 1u << 0u,
@@ -92,14 +96,14 @@ typedef void (*zr_posix_sa_sigaction_fn)(int, siginfo_t*, void*);
   reads with a lock-free atomic kind field.
 
   g_posix_prev_handler_kind:
-    0 = no previous handler (or SIG_IGN/SIG_DFL)
-    1 = previous handler is sa_handler (traditional)
-    2 = previous handler is sa_sigaction (SA_SIGINFO)
+    ZR_POSIX_HANDLER_KIND_NONE         = no previous handler (or SIG_IGN/SIG_DFL)
+    ZR_POSIX_HANDLER_KIND_SA_HANDLER   = previous handler is sa_handler (traditional)
+    ZR_POSIX_HANDLER_KIND_SA_SIGACTION = previous handler is sa_sigaction (SA_SIGINFO)
 */
 #if (ATOMIC_INT_LOCK_FREE != 2) || (ATOMIC_POINTER_LOCK_FREE != 2)
 #error "POSIX signal chaining requires lock-free int/pointer atomics."
 #endif
-static _Atomic int g_posix_prev_handler_kind = 0;
+static _Atomic int g_posix_prev_handler_kind = ZR_POSIX_HANDLER_KIND_NONE;
 static _Atomic(zr_posix_sa_handler_fn) g_posix_prev_sa_handler = NULL;
 static _Atomic(zr_posix_sa_sigaction_fn) g_posix_prev_sa_sigaction = NULL;
 
@@ -206,6 +210,30 @@ static const char* zr_posix_getenv_nonempty(const char* key) {
     return NULL;
   }
   return v;
+}
+
+static bool zr_posix_env_has_any_nonempty(const char* const* keys, size_t count) {
+  if (!keys) {
+    return false;
+  }
+  for (size_t i = 0u; i < count; i++) {
+    if (keys[i] && zr_posix_getenv_nonempty(keys[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool zr_posix_str_equals_any(const char* value, const char* const* candidates, size_t count) {
+  if (!value || !candidates) {
+    return false;
+  }
+  for (size_t i = 0u; i < count; i++) {
+    if (candidates[i] && strcmp(value, candidates[i]) == 0) {
+      return true;
+    }
+  }
+  return false;
 }
 
 static bool zr_posix_term_is_dumb(void) {
@@ -333,13 +361,14 @@ static bool zr_posix_env_bool_override(const char* key, uint8_t* out_value) {
   if (!v) {
     return false;
   }
-  if (strcmp(v, "1") == 0 || strcmp(v, "true") == 0 || strcmp(v, "TRUE") == 0 || strcmp(v, "yes") == 0 ||
-      strcmp(v, "YES") == 0 || strcmp(v, "on") == 0 || strcmp(v, "ON") == 0) {
+  static const char* kTrueValues[] = {"1", "true", "TRUE", "yes", "YES", "on", "ON"};
+  static const char* kFalseValues[] = {"0", "false", "FALSE", "no", "NO", "off", "OFF"};
+
+  if (zr_posix_str_equals_any(v, kTrueValues, ZR_ARRAYLEN(kTrueValues))) {
     *out_value = 1u;
     return true;
   }
-  if (strcmp(v, "0") == 0 || strcmp(v, "false") == 0 || strcmp(v, "FALSE") == 0 || strcmp(v, "no") == 0 ||
-      strcmp(v, "NO") == 0 || strcmp(v, "off") == 0 || strcmp(v, "OFF") == 0) {
+  if (zr_posix_str_equals_any(v, kFalseValues, ZR_ARRAYLEN(kFalseValues))) {
     *out_value = 0u;
     return true;
   }
@@ -400,31 +429,31 @@ static bool zr_posix_term_supports_vt_common(void) {
   const char* term = zr_posix_getenv_nonempty("TERM");
   static const char* kVtTerms[] = {"xterm",     "screen", "tmux",    "rxvt", "vt", "linux",
                                    "alacritty", "kitty",  "wezterm", "foot", "st", "rio"};
-  return zr_posix_str_has_any(term, kVtTerms, sizeof(kVtTerms) / sizeof(kVtTerms[0]));
+  return zr_posix_str_has_any(term, kVtTerms, ZR_ARRAYLEN(kVtTerms));
 }
 
 static bool zr_posix_term_program_indicates_truecolor(const char* term_program) {
   static const char* kPrograms[] = {"iTerm.app", "WezTerm", "Rio", "WarpTerminal", "vscode"};
-  return zr_posix_str_has_any_ci(term_program, kPrograms, sizeof(kPrograms) / sizeof(kPrograms[0]));
+  return zr_posix_str_has_any_ci(term_program, kPrograms, ZR_ARRAYLEN(kPrograms));
 }
 
 static bool zr_posix_term_indicates_truecolor(const char* term) {
   static const char* kTruecolorTerms[] = {"-direct",   "truecolor", "24bit",   "kitty", "wezterm",
                                           "alacritty", "foot",      "ghostty", "rio"};
-  return zr_posix_str_has_any_ci(term, kTruecolorTerms, sizeof(kTruecolorTerms) / sizeof(kTruecolorTerms[0]));
+  return zr_posix_str_has_any_ci(term, kTruecolorTerms, ZR_ARRAYLEN(kTruecolorTerms));
 }
 
 static bool zr_posix_detect_truecolor_env(void) {
+  static const char* kModernTermVars[] = {
+      "KITTY_WINDOW_ID", "WEZTERM_PANE",    "WEZTERM_EXECUTABLE", "GHOSTTY_RESOURCES_DIR",
+      "VTE_VERSION",     "KONSOLE_VERSION", "WT_SESSION"};
   const char* colorterm = zr_posix_getenv_nonempty("COLORTERM");
   if (zr_posix_str_contains_ci(colorterm, "truecolor") || zr_posix_str_contains_ci(colorterm, "24bit") ||
       zr_posix_str_contains_ci(colorterm, "24-bit") || zr_posix_str_contains_ci(colorterm, "rgb")) {
     return true;
   }
 
-  if (zr_posix_getenv_nonempty("KITTY_WINDOW_ID") || zr_posix_getenv_nonempty("WEZTERM_PANE") ||
-      zr_posix_getenv_nonempty("WEZTERM_EXECUTABLE") || zr_posix_getenv_nonempty("GHOSTTY_RESOURCES_DIR") ||
-      zr_posix_getenv_nonempty("VTE_VERSION") || zr_posix_getenv_nonempty("KONSOLE_VERSION") ||
-      zr_posix_getenv_nonempty("WT_SESSION")) {
+  if (zr_posix_env_has_any_nonempty(kModernTermVars, ZR_ARRAYLEN(kModernTermVars))) {
     return true;
   }
 
@@ -487,77 +516,75 @@ static uint8_t zr_posix_detect_bracketed_paste(void) {
 }
 
 static uint8_t zr_posix_detect_focus_events(void) {
+  static const char* kModernTermVars[] = {"KITTY_WINDOW_ID",       "WEZTERM_PANE", "WEZTERM_EXECUTABLE",
+                                          "GHOSTTY_RESOURCES_DIR", "VTE_VERSION",  "WT_SESSION"};
   if (zr_posix_term_is_dumb()) {
     return 0u;
   }
 
-  if (zr_posix_getenv_nonempty("KITTY_WINDOW_ID") || zr_posix_getenv_nonempty("WEZTERM_PANE") ||
-      zr_posix_getenv_nonempty("WEZTERM_EXECUTABLE") || zr_posix_getenv_nonempty("GHOSTTY_RESOURCES_DIR") ||
-      zr_posix_getenv_nonempty("VTE_VERSION") || zr_posix_getenv_nonempty("WT_SESSION")) {
+  if (zr_posix_env_has_any_nonempty(kModernTermVars, ZR_ARRAYLEN(kModernTermVars))) {
     return 1u;
   }
 
   const char* term = zr_posix_getenv_nonempty("TERM");
   static const char* kFocusTerms[] = {"xterm",   "screen", "tmux", "rxvt", "alacritty", "kitty",
                                       "wezterm", "foot",   "st",   "rio",  "ghostty"};
-  return zr_posix_str_has_any_ci(term, kFocusTerms, sizeof(kFocusTerms) / sizeof(kFocusTerms[0])) ? 1u : 0u;
+  return zr_posix_str_has_any_ci(term, kFocusTerms, ZR_ARRAYLEN(kFocusTerms)) ? 1u : 0u;
 }
 
 static uint8_t zr_posix_detect_underline_styles(void) {
+  static const char* kModernTermVars[] = {"KITTY_WINDOW_ID", "WEZTERM_PANE", "WEZTERM_EXECUTABLE",
+                                          "GHOSTTY_RESOURCES_DIR"};
   if (zr_posix_term_is_dumb()) {
     return 0u;
   }
 
-  if (zr_posix_getenv_nonempty("KITTY_WINDOW_ID") || zr_posix_getenv_nonempty("WEZTERM_PANE") ||
-      zr_posix_getenv_nonempty("WEZTERM_EXECUTABLE") || zr_posix_getenv_nonempty("GHOSTTY_RESOURCES_DIR")) {
+  if (zr_posix_env_has_any_nonempty(kModernTermVars, ZR_ARRAYLEN(kModernTermVars))) {
     return 1u;
   }
 
   const char* term = zr_posix_getenv_nonempty("TERM");
   static const char* kUnderlineTerms[] = {"kitty", "wezterm", "ghostty", "foot", "rio"};
-  return zr_posix_str_has_any_ci(term, kUnderlineTerms, sizeof(kUnderlineTerms) / sizeof(kUnderlineTerms[0])) ? 1u : 0u;
+  return zr_posix_str_has_any_ci(term, kUnderlineTerms, ZR_ARRAYLEN(kUnderlineTerms)) ? 1u : 0u;
 }
 
 static uint8_t zr_posix_detect_colored_underlines(void) {
+  static const char* kModernTermVars[] = {"KITTY_WINDOW_ID", "WEZTERM_PANE", "WEZTERM_EXECUTABLE",
+                                          "GHOSTTY_RESOURCES_DIR"};
   if (zr_posix_term_is_dumb()) {
     return 0u;
   }
 
-  if (zr_posix_getenv_nonempty("KITTY_WINDOW_ID") || zr_posix_getenv_nonempty("WEZTERM_PANE") ||
-      zr_posix_getenv_nonempty("WEZTERM_EXECUTABLE") || zr_posix_getenv_nonempty("GHOSTTY_RESOURCES_DIR")) {
+  if (zr_posix_env_has_any_nonempty(kModernTermVars, ZR_ARRAYLEN(kModernTermVars))) {
     return 1u;
   }
 
   const char* term = zr_posix_getenv_nonempty("TERM");
   static const char* kColoredUnderlineTerms[] = {"kitty", "wezterm", "ghostty", "foot"};
-  return zr_posix_str_has_any_ci(term, kColoredUnderlineTerms,
-                                 sizeof(kColoredUnderlineTerms) / sizeof(kColoredUnderlineTerms[0]))
-             ? 1u
-             : 0u;
+  return zr_posix_str_has_any_ci(term, kColoredUnderlineTerms, ZR_ARRAYLEN(kColoredUnderlineTerms)) ? 1u : 0u;
 }
 
 static uint8_t zr_posix_detect_hyperlinks(void) {
+  static const char* kModernTermVars[] = {
+      "KITTY_WINDOW_ID", "WEZTERM_PANE",    "WEZTERM_EXECUTABLE", "GHOSTTY_RESOURCES_DIR",
+      "VTE_VERSION",     "KONSOLE_VERSION", "WT_SESSION"};
   if (zr_posix_term_is_dumb()) {
     return 0u;
   }
 
-  if (zr_posix_getenv_nonempty("KITTY_WINDOW_ID") || zr_posix_getenv_nonempty("WEZTERM_PANE") ||
-      zr_posix_getenv_nonempty("WEZTERM_EXECUTABLE") || zr_posix_getenv_nonempty("GHOSTTY_RESOURCES_DIR") ||
-      zr_posix_getenv_nonempty("VTE_VERSION") || zr_posix_getenv_nonempty("KONSOLE_VERSION") ||
-      zr_posix_getenv_nonempty("WT_SESSION")) {
+  if (zr_posix_env_has_any_nonempty(kModernTermVars, ZR_ARRAYLEN(kModernTermVars))) {
     return 1u;
   }
 
   const char* term_program = zr_posix_getenv_nonempty("TERM_PROGRAM");
   static const char* kHyperlinkPrograms[] = {"iTerm.app", "WezTerm", "Rio", "WarpTerminal", "vscode"};
-  if (zr_posix_str_has_any_ci(term_program, kHyperlinkPrograms,
-                              sizeof(kHyperlinkPrograms) / sizeof(kHyperlinkPrograms[0]))) {
+  if (zr_posix_str_has_any_ci(term_program, kHyperlinkPrograms, ZR_ARRAYLEN(kHyperlinkPrograms))) {
     return 1u;
   }
 
   const char* term = zr_posix_getenv_nonempty("TERM");
   static const char* kHyperlinkTerms[] = {"kitty", "wezterm", "ghostty", "foot", "rio", "alacritty"};
-  return zr_posix_str_has_any_ci(term, kHyperlinkTerms, sizeof(kHyperlinkTerms) / sizeof(kHyperlinkTerms[0])) ? 1u : 0u;
+  return zr_posix_str_has_any_ci(term, kHyperlinkTerms, ZR_ARRAYLEN(kHyperlinkTerms)) ? 1u : 0u;
 }
 
 static uint8_t zr_posix_detect_cursor_shape(void) {
@@ -568,7 +595,7 @@ static uint8_t zr_posix_detect_cursor_shape(void) {
   const char* term = zr_posix_getenv_nonempty("TERM");
   static const char* kCursorTerms[] = {"xterm", "screen",  "tmux", "rxvt", "alacritty",
                                        "kitty", "wezterm", "foot", "st",   "rio"};
-  return zr_posix_str_has_any(term, kCursorTerms, sizeof(kCursorTerms) / sizeof(kCursorTerms[0])) ? 1u : 0u;
+  return zr_posix_str_has_any(term, kCursorTerms, ZR_ARRAYLEN(kCursorTerms)) ? 1u : 0u;
 }
 
 static uint32_t zr_posix_detect_sgr_attrs_supported(void) {
@@ -585,7 +612,7 @@ static uint32_t zr_posix_detect_sgr_attrs_supported(void) {
   const char* term = zr_posix_getenv_nonempty("TERM");
   static const char* kRichAttrTerms[] = {"xterm",   "screen", "tmux", "rxvt", "alacritty", "kitty",
                                          "wezterm", "foot",   "st",   "rio",  "ghostty"};
-  if (zr_posix_str_has_any_ci(term, kRichAttrTerms, sizeof(kRichAttrTerms) / sizeof(kRichAttrTerms[0]))) {
+  if (zr_posix_str_has_any_ci(term, kRichAttrTerms, ZR_ARRAYLEN(kRichAttrTerms))) {
     attrs |= ZR_STYLE_ATTR_ITALIC | ZR_STYLE_ATTR_STRIKE | ZR_STYLE_ATTR_OVERLINE | ZR_STYLE_ATTR_BLINK;
   }
   return attrs;
@@ -609,7 +636,7 @@ static uint8_t zr_posix_detect_osc52(void) {
 
   const char* term = zr_posix_getenv_nonempty("TERM");
   static const char* kOsc52Terms[] = {"xterm", "screen", "tmux", "rxvt", "kitty", "wezterm"};
-  return zr_posix_str_has_any(term, kOsc52Terms, sizeof(kOsc52Terms) / sizeof(kOsc52Terms[0])) ? 1u : 0u;
+  return zr_posix_str_has_any(term, kOsc52Terms, ZR_ARRAYLEN(kOsc52Terms)) ? 1u : 0u;
 }
 
 static uint8_t zr_posix_detect_sync_update(void) {
@@ -654,14 +681,14 @@ static uint8_t zr_posix_detect_sync_update(void) {
 */
 static void zr_posix_sigwinch_chain_previous(int signo, siginfo_t* info, void* ucontext) {
   const int kind = atomic_load_explicit(&g_posix_prev_handler_kind, memory_order_acquire);
-  if (kind == 2) {
+  if (kind == ZR_POSIX_HANDLER_KIND_SA_SIGACTION) {
     zr_posix_sa_sigaction_fn prev = atomic_load_explicit(&g_posix_prev_sa_sigaction, memory_order_relaxed);
     if (prev) {
       prev(signo, info, ucontext);
     }
     return;
   }
-  if (kind == 1) {
+  if (kind == ZR_POSIX_HANDLER_KIND_SA_HANDLER) {
     zr_posix_sa_handler_fn prev = atomic_load_explicit(&g_posix_prev_sa_handler, memory_order_relaxed);
     if (prev) {
       prev(signo);
@@ -682,14 +709,14 @@ static void zr_posix_sigwinch_publish_previous(const struct sigaction* prev) {
 
   atomic_store_explicit(&g_posix_prev_sa_handler, NULL, memory_order_relaxed);
   atomic_store_explicit(&g_posix_prev_sa_sigaction, NULL, memory_order_relaxed);
-  atomic_store_explicit(&g_posix_prev_handler_kind, 0, memory_order_relaxed);
+  atomic_store_explicit(&g_posix_prev_handler_kind, ZR_POSIX_HANDLER_KIND_NONE, memory_order_relaxed);
 
   if ((prev->sa_flags & SA_SIGINFO) != 0) {
     if (prev->sa_handler != SIG_IGN && prev->sa_handler != SIG_DFL) {
       void (*fn)(int, siginfo_t*, void*) = prev->sa_sigaction;
       if (fn && fn != zr_posix_sigwinch_handler) {
         atomic_store_explicit(&g_posix_prev_sa_sigaction, fn, memory_order_relaxed);
-        atomic_store_explicit(&g_posix_prev_handler_kind, 2, memory_order_release);
+        atomic_store_explicit(&g_posix_prev_handler_kind, ZR_POSIX_HANDLER_KIND_SA_SIGACTION, memory_order_release);
       }
     }
     return;
@@ -698,12 +725,12 @@ static void zr_posix_sigwinch_publish_previous(const struct sigaction* prev) {
   void (*fn)(int) = prev->sa_handler;
   if (fn && fn != SIG_IGN && fn != SIG_DFL) {
     atomic_store_explicit(&g_posix_prev_sa_handler, fn, memory_order_relaxed);
-    atomic_store_explicit(&g_posix_prev_handler_kind, 1, memory_order_release);
+    atomic_store_explicit(&g_posix_prev_handler_kind, ZR_POSIX_HANDLER_KIND_SA_HANDLER, memory_order_release);
   }
 }
 
 static void zr_posix_sigwinch_clear_previous(void) {
-  atomic_store_explicit(&g_posix_prev_handler_kind, 0, memory_order_release);
+  atomic_store_explicit(&g_posix_prev_handler_kind, ZR_POSIX_HANDLER_KIND_NONE, memory_order_release);
   atomic_store_explicit(&g_posix_prev_sa_handler, NULL, memory_order_relaxed);
   atomic_store_explicit(&g_posix_prev_sa_sigaction, NULL, memory_order_relaxed);
 }
