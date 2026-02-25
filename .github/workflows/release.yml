@@ -208,6 +208,21 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish -w @rezi-ui/jsx --access public
 
+      - name: Publish @rezi-ui/ink-compat
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish -w @rezi-ui/ink-compat --access public
+
+      - name: Publish ink-gradient-shim
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish ./packages/ink-gradient-shim --access public
+
+      - name: Publish ink-spinner-shim
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish ./packages/ink-spinner-shim --access public
+
       - name: Publish create-rezi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

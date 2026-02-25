@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
+const EXTRA_RELEASE_PACKAGE_DIRS = ["packages/ink-gradient-shim", "packages/ink-spinner-shim"];
 
 function die(msg) {
   process.stderr.write(`${msg}\n`);
@@ -63,6 +64,11 @@ function listWorkspaceDirs() {
   return out;
 }
 
+function listReleasePackageDirs() {
+  const dirs = [...listWorkspaceDirs(), ...EXTRA_RELEASE_PACKAGE_DIRS];
+  return [...new Set(dirs)].sort();
+}
+
 function updateInternalDeps(pkgJson, nextVersion) {
   const depFields = ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"];
   for (const field of depFields) {
@@ -76,10 +82,10 @@ function updateInternalDeps(pkgJson, nextVersion) {
   }
 }
 
-const workspaceDirs = listWorkspaceDirs();
-if (workspaceDirs.length === 0) die("release-set-version: no workspaces discovered");
+const releasePackageDirs = listReleasePackageDirs();
+if (releasePackageDirs.length === 0) die("release-set-version: no release packages discovered");
 
-for (const relDir of workspaceDirs) {
+for (const relDir of releasePackageDirs) {
   const pkgPath = join(ROOT, relDir, "package.json");
   if (!statSync(pkgPath, { throwIfNoEntry: false })) continue;
   const pkgJson = readJson(pkgPath);
@@ -92,5 +98,5 @@ for (const relDir of workspaceDirs) {
 }
 
 process.stdout.write(
-  `release-set-version: set version=${version} for ${workspaceDirs.length} workspace(s)\n`,
+  `release-set-version: set version=${version} for ${releasePackageDirs.length} package(s)\n`,
 );
