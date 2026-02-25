@@ -38,16 +38,6 @@ const FocusButton: React.FC<ButtonProps> = ({ label, focusId, autoFocus }) => {
 };
 
 const FocusApp: React.FC = () => {
-  const { focusNext, focusPrevious } = useFocusManager();
-
-  useInput((_input, key) => {
-    if (key.tab && !key.shift) {
-      focusNext();
-    } else if (key.tab && key.shift) {
-      focusPrevious();
-    }
-  });
-
   return React.createElement(
     Box,
     { flexDirection: "column", gap: 1 },

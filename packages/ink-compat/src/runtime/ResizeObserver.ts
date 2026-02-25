@@ -8,6 +8,7 @@ interface InkLayout {
 }
 
 type NodeWithLayout = InkHostNode & { __inkLayout?: InkLayout };
+const activeObservers = new Set<InkResizeObserver>();
 
 export interface ResizeObserverEntry {
   target: InkHostNode;
@@ -35,6 +36,7 @@ export class InkResizeObserver {
 
   constructor(callback: ResizeObserverCallback) {
     this.callback = callback;
+    activeObservers.add(this);
   }
 
   observe(element: InkHostNode): void {
@@ -79,5 +81,12 @@ export class InkResizeObserver {
   disconnect(): void {
     this.disconnected = true;
     this.observed.clear();
+    activeObservers.delete(this);
+  }
+}
+
+export function checkAllResizeObservers(): void {
+  for (const observer of activeObservers) {
+    observer.check();
   }
 }

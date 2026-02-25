@@ -24,20 +24,66 @@ interface TextStyleMap {
 }
 
 type LayoutDirection = "row" | "column";
+type TranslationMode = "all" | "dynamic" | "static";
+
+export interface TranslateTreeOptions {
+  mode?: TranslationMode;
+}
 
 interface TranslateContext {
   parentDirection: LayoutDirection;
   parentMainDefinite: boolean;
   isRoot: boolean;
+  mode: TranslationMode;
+  inStaticSubtree: boolean;
 }
 
 let warnedWrapReverse = false;
 
-const ANSI_SGR_REGEX = /\u001b\[([0-9;]*)m/g;
+const ANSI_SGR_REGEX = /\u001b\[([0-9:;]*)m/g;
+const PERCENT_VALUE_REGEX = /^(-?\d+(?:\.\d+)?)%$/;
 
 function toNonNegativeInt(value: unknown): number | undefined {
   if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
   return Math.max(0, Math.trunc(value));
+}
+
+function parsePercentValue(value: unknown): number | undefined {
+  if (typeof value !== "string") return undefined;
+  const match = value.trim().match(PERCENT_VALUE_REGEX);
+  if (!match) return undefined;
+  const parsed = Number.parseFloat(match[1]!);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function attachHostNode(vnode: VNode | null, node: InkHostNode): VNode | null {
+  if (!vnode || typeof vnode !== "object") return vnode;
+  const candidate = vnode as { props?: unknown };
+  const props =
+    typeof candidate.props === "object" && candidate.props !== null
+      ? (candidate.props as Record<string, unknown>)
+      : {};
+  return {
+    ...(vnode as Record<string, unknown>),
+    props: {
+      ...props,
+      __inkHostNode: node,
+    },
+  } as unknown as VNode;
+}
+
+function readAccessibilityLabel(props: Record<string, unknown>): string | undefined {
+  const candidates = [
+    props["aria-label"],
+    props["ariaLabel"],
+    props["accessibilityLabel"],
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.length > 0) {
+      return candidate;
+    }
+  }
+  return undefined;
 }
 
 const ANSI_16_PALETTE: readonly Rgb[] = [
@@ -62,11 +108,17 @@ const ANSI_16_PALETTE: readonly Rgb[] = [
 /**
  * Translate the entire InkHostNode tree into a Rezi VNode tree.
  */
-export function translateTree(container: InkHostContainer): VNode {
+export function translateTree(
+  container: InkHostContainer,
+  options: TranslateTreeOptions = {},
+): VNode {
+  const mode = options.mode ?? "all";
   const rootContext: TranslateContext = {
     parentDirection: "column",
     parentMainDefinite: true,
     isRoot: true,
+    mode,
+    inStaticSubtree: false,
   };
   const children = container.children
     .map((child) => translateNode(child, rootContext))
@@ -76,10 +128,36 @@ export function translateTree(container: InkHostContainer): VNode {
   return ui.column({ gap: 0 }, children);
 }
 
+export function translateDynamicTree(container: InkHostContainer): VNode {
+  return translateTree(container, { mode: "dynamic" });
+}
+
+export function translateStaticTree(container: InkHostContainer): VNode {
+  return translateTree(container, { mode: "static" });
+}
+
 function translateNode(
   node: InkHostNode,
-  context: TranslateContext = { parentDirection: "column", parentMainDefinite: true, isRoot: false },
+  context: TranslateContext = {
+    parentDirection: "column",
+    parentMainDefinite: true,
+    isRoot: false,
+    mode: "all",
+    inStaticSubtree: false,
+  },
 ): VNode | null {
+  const props = (node.props ?? {}) as Record<string, unknown>;
+  const isStaticNode = node.type === "ink-box" && props["__inkStatic"] === true;
+
+  if (context.mode === "dynamic" && isStaticNode) {
+    return null;
+  }
+
+  if (context.mode === "static" && !context.inStaticSubtree && !isStaticNode) {
+    if (node.children.length === 0) return null;
+    return translateChildren(node, context);
+  }
+
   if (node.textContent != null) {
     return translateRawTextContent(node.textContent);
   }
@@ -91,18 +169,19 @@ function translateNode(
     }
     if (inkType === "newline") {
       const count = (node.props as any)["count"] as number | undefined;
-      return ui.text("\n".repeat(Math.max(1, count ?? 1)));
+      const repeatCount = count == null ? 1 : Math.max(0, Math.trunc(count));
+      return ui.text("\n".repeat(repeatCount));
     }
     if (inkType === "transform" && typeof (node.props as any)["__inkTransform"] === "function") {
-      return translateTransform(node, context);
+      return translateTransform(node);
     }
   }
 
   switch (node.type) {
     case "ink-box":
-      return translateBox(node, context);
+      return attachHostNode(translateBox(node, context), node);
     case "ink-text":
-      return translateText(node);
+      return attachHostNode(translateText(node), node);
     default:
       return translateChildren(node, context);
   }
@@ -127,38 +206,41 @@ function translateRawTextContent(textContent: string): VNode {
   return ui.richText(spans.map((span) => ({ text: span.text, style: span.style })));
 }
 
-function translateTransform(node: InkHostNode, context: TranslateContext): VNode {
+function translateTransform(node: InkHostNode): VNode {
   const transform = (node.props as any)["__inkTransform"] as (
     line: string,
     index: number,
   ) => string;
-  const children = node.children
-    .map((child) => translateNode(child, context))
-    .filter(Boolean) as VNode[];
-  const raw = children.map((child) => vnodeToText(child as any)).join("");
-  const transformed = raw
-    .split("\n")
-    .map((line, index) => transform(line, index))
-    .join("\n");
-  return ui.text(transformed);
+  const accessibilityLabel = readAccessibilityLabel(node.props);
+  const raw = node.children.map((child) => collectTransformText(child)).join("");
+  const textProps: Record<string, unknown> = {
+    wrap: true,
+    __inkTransform: transform,
+  };
+  if (accessibilityLabel) {
+    textProps["accessibilityLabel"] = accessibilityLabel;
+  }
+  return ui.text(raw, textProps);
 }
 
-function vnodeToText(node: any): string {
-  if (!node || typeof node !== "object") return "";
-  if (node.kind === "text") return typeof node.text === "string" ? node.text : "";
-  if (node.kind === "richText") {
-    const spans = node.props?.spans;
-    if (!Array.isArray(spans)) return "";
-    return spans.map((span: any) => (typeof span?.text === "string" ? span.text : "")).join("");
+function collectTransformText(node: InkHostNode): string {
+  if (node.textContent != null) {
+    return node.textContent;
   }
 
-  if (!Array.isArray(node.children)) return "";
-  return node.children.map((child: any) => vnodeToText(child)).join("");
+  if (node.type === "ink-virtual" && (node.props as any)["__inkType"] === "newline") {
+    const count = (node.props as any)["count"] as number | undefined;
+    const repeatCount = count == null ? 1 : Math.max(0, Math.trunc(count));
+    return "\n".repeat(repeatCount);
+  }
+
+  return node.children.map((child) => collectTransformText(child)).join("");
 }
 
 function translateBox(node: InkHostNode, context: TranslateContext): VNode | null {
   const p = node.props as any;
-  const direction = (p.flexDirection as string | undefined) ?? "column";
+  const accessibilityLabel = readAccessibilityLabel(p);
+  const direction = (p.flexDirection as string | undefined) ?? "row";
   const isRow = direction === "row" || direction === "row-reverse";
 
   const overflow = p.overflow as string | undefined;
@@ -171,36 +253,64 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
 
   const hasFixedWidth = typeof p.width === "number";
   const hasFixedHeight = typeof p.height === "number";
+  const effectiveFlexShrink = typeof p.flexShrink === "number" ? p.flexShrink : 1;
   const hasGrowFromDefiniteParent =
     context.parentMainDefinite && typeof p.flexGrow === "number" && p.flexGrow > 0;
   const rootWillBeViewportHeightCoerced =
     context.isRoot && !isRow && !hasFixedHeight && (hasScrollOverflow || hasHiddenOverflow);
 
   // Propagate definiteness through same-direction chains: if a column's parent
-  // is a definite-height column, the child's height will also be resolved by the
-  // layout engine, making it definite for its own children.
+  // is a definite-height column and the child still participates in shrink/flex
+  // resolution, the child's main size will also be resolved by layout.
+  // If a node opts out with flexShrink:0, treat it as potentially auto-sized.
   const inheritsMainDefinite =
     context.parentMainDefinite &&
-    context.parentDirection === (isRow ? "row" : "column");
+    context.parentDirection === (isRow ? "row" : "column") &&
+    effectiveFlexShrink > 0;
 
   const nodeMainDefinite =
     isRow
       ? hasFixedWidth || hasGrowFromDefiniteParent || inheritsMainDefinite
       : hasFixedHeight || hasGrowFromDefiniteParent || rootWillBeViewportHeightCoerced || inheritsMainDefinite;
+  const inStaticSubtree = context.inStaticSubtree || p.__inkStatic === true;
 
   const childContext: TranslateContext = {
     parentDirection: isRow ? "row" : "column",
     parentMainDefinite: nodeMainDefinite,
     isRoot: false,
+    mode: context.mode,
+    inStaticSubtree,
   };
 
   if (p.display === "none") return null;
 
   if (p.__inkStatic === true) {
-    const children = node.children
-      .map((child) => translateNode(child, childContext))
-      .filter(Boolean) as VNode[];
-    return children.length > 0 ? ui.column({ gap: 0 }, children) : null;
+    const staticProps: Record<string, unknown> = {
+      ...p,
+      __inkStatic: false,
+      flexDirection: "column",
+    };
+
+    if (staticProps["position"] === "absolute") {
+      delete staticProps["position"];
+      delete staticProps["top"];
+      delete staticProps["right"];
+      delete staticProps["bottom"];
+      delete staticProps["left"];
+    }
+
+    const staticNode: InkHostNode = {
+      ...node,
+      props: staticProps,
+    };
+    const staticContext = context.inStaticSubtree
+      ? context
+      : {
+          ...context,
+          inStaticSubtree: true,
+        };
+
+    return translateBox(staticNode, staticContext);
   }
 
   if (p.__inkType === "spacer") {
@@ -242,47 +352,125 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
     layoutProps.gap = p.rowGap;
   }
 
-  // Ink supports percentage widths (e.g. "100%") via Yoga; Rezi uses integers.
-  // Skip string/percentage values — the default fill behavior handles them.
-  if (typeof p.width === "number") layoutProps.width = p.width;
-  else if (p.width != null && isTranslationTraceEnabled()) {
-    pushTranslationTrace({
-      kind: "dimension-skip",
-      prop: "width",
-      value: String(p.width),
-      nodeType: node.type,
-      childCount: node.children.length,
-      textSnippet: node.textContent?.slice(0, 40) ?? "",
-    });
-  }
-  if (typeof p.height === "number") layoutProps.height = p.height;
-  else if (p.height != null && isTranslationTraceEnabled()) {
-    pushTranslationTrace({
-      kind: "dimension-skip",
-      prop: "height",
-      value: String(p.height),
-      nodeType: node.type,
-      childCount: node.children.length,
-    });
-  }
-  if (typeof p.minWidth === "number") layoutProps.minWidth = p.minWidth;
-  if (typeof p.minHeight === "number") layoutProps.minHeight = p.minHeight;
+  const applyNumericOrPercentDimension = (
+    prop: "width" | "height" | "minWidth" | "minHeight" | "flexBasis",
+    value: unknown,
+  ): void => {
+    if (typeof value === "number") {
+      layoutProps[prop] = value;
+      return;
+    }
+
+    const percent = parsePercentValue(value);
+    if (percent != null) {
+      const markerKey = `__inkPercent${prop.charAt(0).toUpperCase()}${prop.slice(1)}`;
+      layoutProps[markerKey] = percent;
+      return;
+    }
+
+    if (value != null && isTranslationTraceEnabled()) {
+      pushTranslationTrace({
+        kind: "dimension-skip",
+        prop,
+        value: String(value),
+        nodeType: node.type,
+        childCount: node.children.length,
+        textSnippet: node.textContent?.slice(0, 40) ?? "",
+      });
+    }
+  };
+
+  applyNumericOrPercentDimension("width", p.width);
+  applyNumericOrPercentDimension("height", p.height);
+  applyNumericOrPercentDimension("minWidth", p.minWidth);
+  applyNumericOrPercentDimension("minHeight", p.minHeight);
+
   if (typeof p.maxWidth === "number") layoutProps.maxWidth = p.maxWidth;
   if (typeof p.maxHeight === "number") layoutProps.maxHeight = p.maxHeight;
 
-  if (p.flexGrow != null) layoutProps.flex = p.flexGrow;
+  const shouldSkipAutoMainFlexGrow =
+    typeof p.flexGrow === "number" &&
+    p.flexGrow > 0 &&
+    context.parentDirection === "column" &&
+    !context.parentMainDefinite;
+  if (p.flexGrow != null && !shouldSkipAutoMainFlexGrow) {
+    layoutProps.flex = p.flexGrow;
+  }
+  if (shouldSkipAutoMainFlexGrow && isTranslationTraceEnabled()) {
+    pushTranslationTrace({
+      kind: "flex-grow-skip",
+      reason: "auto-main-parent",
+      nodeType: node.type,
+      childCount: node.children.length,
+      props: {
+        flexGrow: p.flexGrow ?? null,
+        flexShrink: p.flexShrink ?? null,
+        flexDirection: p.flexDirection ?? "row",
+        width: p.width ?? null,
+        height: p.height ?? null,
+      },
+      context: {
+        parentDirection: context.parentDirection,
+        parentMainDefinite: context.parentMainDefinite,
+      },
+    });
+  }
+
+  // Targeted compat for a known Yoga/Rezi difference: only force flex fill for
+  // clip/scroll containers. Broadly applying this to every width-constrained
+  // column child (including regular control stacks) causes tall empty regions.
+  const shouldApplyForcedFlexCompat =
+    !isRow &&
+    p.flexGrow === 0 &&
+    p.flexShrink === 0 &&
+    hasFixedWidth &&
+    !hasFixedHeight &&
+    context.parentDirection === "column" &&
+    context.parentMainDefinite &&
+    (hasScrollOverflow || hasHiddenOverflow);
+  if (shouldApplyForcedFlexCompat) {
+    layoutProps.flex = 1;
+  }
+
+  const isForcedFlexCompatCandidate =
+    !isRow &&
+    p.flexGrow === 0 &&
+    p.flexShrink === 0 &&
+    hasFixedWidth &&
+    !hasFixedHeight &&
+    context.parentDirection === "column" &&
+    context.parentMainDefinite;
+  if (isForcedFlexCompatCandidate && isTranslationTraceEnabled()) {
+    pushTranslationTrace({
+      kind: "forced-flex-compat",
+      applied: shouldApplyForcedFlexCompat,
+      hasScrollOverflow,
+      hasHiddenOverflow,
+      nodeType: node.type,
+      childCount: node.children.length,
+      props: {
+        width: p.width ?? null,
+        height: p.height ?? null,
+        flexDirection: p.flexDirection ?? "row",
+        flexGrow: p.flexGrow ?? null,
+        flexShrink: p.flexShrink ?? null,
+        overflow: p.overflow ?? null,
+        overflowX: p.overflowX ?? null,
+        overflowY: p.overflowY ?? null,
+      },
+    });
+  }
+
   if (p.flexShrink != null) {
     layoutProps.flexShrink = p.flexShrink;
   } else {
     layoutProps.flexShrink = 1;
   }
-  if (p.flexBasis != null) layoutProps.flexBasis = p.flexBasis;
+  if (p.flexBasis != null) {
+    applyNumericOrPercentDimension("flexBasis", p.flexBasis);
+  }
 
-  // Ink/Yoga defaults to alignItems: "stretch". For columns, this stretches
-  // children's width (cross-axis) to match the column, which is essential for
-  // elements like HorizontalLine that have no intrinsic width. For rows, the
-  // stretch applies to height (cross-axis) which inflates Rezi's measurement
-  // and should be skipped — the practical difference is negligible.
+  // Ink/Yoga default is alignItems: "stretch" for both row and column stacks.
   const items = mapAlign(p.alignItems as string | undefined) ?? (isRow ? undefined : "stretch");
   if (items) layoutProps.items = items;
 
@@ -291,6 +479,14 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
 
   const alignSelf = p.alignSelf === "auto" ? "auto" : mapAlign(p.alignSelf as string | undefined);
   if (alignSelf) layoutProps.alignSelf = alignSelf;
+
+  if (p.position === "absolute" || p.position === "relative") {
+    layoutProps.position = p.position;
+    if (typeof p.top === "number") layoutProps.top = p.top;
+    if (typeof p.right === "number") layoutProps.right = p.right;
+    if (typeof p.bottom === "number") layoutProps.bottom = p.bottom;
+    if (typeof p.left === "number") layoutProps.left = p.left;
+  }
 
   if (hasScrollOverflow) {
     layoutProps.overflow = "scroll";
@@ -313,16 +509,20 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
     if (p.flexWrap === "wrap-reverse" && !warnedWrapReverse) {
       warnedWrapReverse = true;
       console.warn(
-        "[@rezi-ui/ink-compat] flexWrap='wrap-reverse' is not supported by Rezi. Falling back to 'wrap'.",
+        "[@rezi-ui/ink-compat] flexWrap='wrap-reverse' is approximated via wrap + reverse in compat mode.",
       );
     }
     layoutProps.wrap = true;
+    if (p.flexWrap === "wrap-reverse") {
+      layoutProps.reverse = !(layoutProps.reverse === true);
+    }
   }
 
   const isReverse = direction === "column-reverse" || direction === "row-reverse";
   if (isReverse) layoutProps.reverse = true;
 
   if (layoutProps.gap == null) layoutProps.gap = 0;
+  if (accessibilityLabel) layoutProps.accessibilityLabel = accessibilityLabel;
 
   if (hasBorder || hasBg) {
     if (!hasBorder) {
@@ -342,17 +542,58 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
     if (bg) style.bg = bg;
     if (Object.keys(style).length > 0) layoutProps.style = style;
 
-    const borderColor = parseColor(p.borderColor as string | undefined);
+    const explicitBorderColor = parseColor(p.borderColor as string | undefined);
+    const edgeBorderColors: Record<"top" | "right" | "bottom" | "left", Rgb | undefined> = {
+      top: parseColor(p.borderTopColor as string | undefined),
+      right: parseColor(p.borderRightColor as string | undefined),
+      bottom: parseColor(p.borderBottomColor as string | undefined),
+      left: parseColor(p.borderLeftColor as string | undefined),
+    };
+    const globalBorderDim = p.borderDimColor === true;
+    const edgeBorderDim: Record<"top" | "right" | "bottom" | "left", boolean> = {
+      top: p.borderTopDimColor === true,
+      right: p.borderRightDimColor === true,
+      bottom: p.borderBottomDimColor === true,
+      left: p.borderLeftDimColor === true,
+    };
+
+    const borderColor = explicitBorderColor;
     if (borderColor) {
-      layoutProps.borderStyle = { fg: borderColor };
+      layoutProps.borderStyle = {
+        ...(typeof layoutProps.borderStyle === "object" && layoutProps.borderStyle !== null
+          ? layoutProps.borderStyle
+          : {}),
+        fg: borderColor,
+      };
     }
-    if (p.borderDimColor === true) {
+
+    if (globalBorderDim) {
       layoutProps.borderStyle = {
         ...(typeof layoutProps.borderStyle === "object" && layoutProps.borderStyle !== null
           ? layoutProps.borderStyle
           : {}),
         dim: true,
       };
+    }
+
+    const borderStyleSides: Record<string, unknown> = {};
+    for (const side of ["top", "right", "bottom", "left"] as const) {
+      const hasColorOverride = edgeBorderColors[side] != null;
+      const hasDimOverride = edgeBorderDim[side];
+      if (!hasColorOverride && !hasDimOverride) continue;
+      const sideStyle: Record<string, unknown> = {};
+      const resolvedColor = edgeBorderColors[side] ?? explicitBorderColor;
+      if (resolvedColor) sideStyle["fg"] = resolvedColor;
+      if (globalBorderDim || hasDimOverride) sideStyle["dim"] = true;
+      if (Object.keys(sideStyle).length > 0) {
+        borderStyleSides[side] = sideStyle;
+      }
+    }
+    if (Object.keys(borderStyleSides).length > 0) {
+      layoutProps.borderStyleSides = borderStyleSides;
+    }
+    if (accessibilityLabel) {
+      layoutProps.accessibilityLabel = accessibilityLabel;
     }
 
     if (isTranslationTraceEnabled()) {
@@ -380,9 +621,11 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
           borderBottom: layoutProps.borderBottom ?? null,
           borderLeft: layoutProps.borderLeft ?? null,
           borderStyle: layoutProps.borderStyle ?? null,
+          borderStyleSides: layoutProps.borderStyleSides ?? null,
           style: layoutProps.style ?? null,
         },
         parsedBorderColor: borderColor ?? null,
+        parsedEdgeBorderColors: edgeBorderColors,
         parsedBg: bg ?? null,
       });
     }
@@ -435,6 +678,10 @@ function translateText(node: InkHostNode): VNode {
 
   const textProps: any = {};
   if (Object.keys(style).length > 0) textProps.style = style;
+  const accessibilityLabel = readAccessibilityLabel(p);
+  if (accessibilityLabel) {
+    textProps.accessibilityLabel = accessibilityLabel;
+  }
 
   const inkWrap = (p.wrap as string | undefined) ?? "wrap";
   if (inkWrap === "wrap") {
@@ -528,7 +775,8 @@ function flattenTextChildren(
 
     if (child.type === "ink-virtual" && (child.props as any)["__inkType"] === "newline") {
       const count = (child.props as any)["count"] as number | undefined;
-      const newlines = "\n".repeat(Math.max(1, count ?? 1));
+      const repeatCount = count == null ? 1 : Math.max(0, Math.trunc(count));
+      const newlines = "\n".repeat(repeatCount);
       spans.push({ text: newlines, style: { ...parentStyle } });
       fullText += newlines;
     }
@@ -564,18 +812,23 @@ function parseAnsiText(
     return { spans: [], fullText: "" };
   }
 
+  const sanitized = sanitizeAnsiInput(text);
+  if (sanitized.length === 0) {
+    return { spans: [], fullText: "" };
+  }
+
   const spans: TextSpan[] = [];
   let fullText = "";
   let lastIndex = 0;
   let hadAnsiMatch = false;
   const activeStyle: TextStyleMap = { ...baseStyle };
 
-  for (const match of text.matchAll(ANSI_SGR_REGEX)) {
+  for (const match of sanitized.matchAll(ANSI_SGR_REGEX)) {
     const index = match.index;
     if (index == null) continue;
     hadAnsiMatch = true;
 
-    const plain = text.slice(lastIndex, index);
+    const plain = sanitized.slice(lastIndex, index);
     if (plain.length > 0) {
       appendStyledText(spans, plain, activeStyle);
       fullText += plain;
@@ -587,18 +840,85 @@ function parseAnsiText(
     lastIndex = index + match[0].length;
   }
 
-  const trailing = text.slice(lastIndex);
+  const trailing = sanitized.slice(lastIndex);
   if (trailing.length > 0) {
     appendStyledText(spans, trailing, activeStyle);
     fullText += trailing;
   }
 
   if (spans.length === 0 && !hadAnsiMatch) {
-    appendStyledText(spans, text, baseStyle);
-    fullText = text;
+    appendStyledText(spans, sanitized, baseStyle);
+    fullText = sanitized;
   }
 
   return { spans, fullText };
+}
+
+function sanitizeAnsiInput(input: string): string {
+  let output = "";
+  let index = 0;
+
+  while (index < input.length) {
+    const codePoint = input.codePointAt(index);
+    if (codePoint == null) break;
+    const char = String.fromCodePoint(codePoint);
+    const width = char.length;
+
+    if (char !== "\u001b") {
+      if (codePoint === 0x09 || codePoint === 0x0a || codePoint === 0x0d || codePoint >= 0x20) {
+        output += char;
+      }
+      index += width;
+      continue;
+    }
+
+    const next = input[index + 1];
+    if (next === "[") {
+      const csiEnd = findCsiEndIndex(input, index + 2);
+      if (csiEnd === -1) break;
+      if (input[csiEnd] === "m") {
+        output += input.slice(index, csiEnd + 1);
+      }
+      index = csiEnd + 1;
+      continue;
+    }
+
+    if (next === "]") {
+      const oscEnd = findOscEndIndex(input, index + 2);
+      if (oscEnd === -1) break;
+      output += input.slice(index, oscEnd);
+      index = oscEnd;
+      continue;
+    }
+
+    // Drop unsupported escape sequence starter.
+    index += next == null ? 1 : 2;
+  }
+
+  return output;
+}
+
+function findCsiEndIndex(input: string, start: number): number {
+  for (let index = start; index < input.length; index += 1) {
+    const code = input.charCodeAt(index);
+    if (code >= 0x40 && code <= 0x7e) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function findOscEndIndex(input: string, start: number): number {
+  for (let index = start; index < input.length; index += 1) {
+    const code = input.charCodeAt(index);
+    if (code === 0x07) {
+      return index + 1;
+    }
+    if (code === 0x1b && input[index + 1] === "\\") {
+      return index + 2;
+    }
+  }
+  return -1;
 }
 
 function appendStyledText(spans: TextSpan[], text: string, style: TextStyleMap): void {
@@ -618,7 +938,19 @@ function parseSgrCodes(raw: string): number[] {
   if (raw.length === 0) return [0];
 
   const out: number[] = [];
-  for (const part of raw.split(";")) {
+  // SGR also supports colon-delimited parameters.
+  // Normalize known extended color forms first to avoid ambiguity with
+  // semicolon SGR sequences where additional trailing codes are valid.
+  const normalizedRaw = raw
+    // 38:2::R:G:B / 48:2::R:G:B (omitted color-space id)
+    .replace(/([34]8):2::(\d{1,3}):(\d{1,3}):(\d{1,3})/g, "$1;2;$2;$3;$4")
+    // 38:2:CS:R:G:B / 48:2:CS:R:G:B (explicit color-space id; ignore CS)
+    .replace(/([34]8):2:\d{1,3}:(\d{1,3}):(\d{1,3}):(\d{1,3})/g, "$1;2;$2;$3;$4")
+    // 38:5:IDX / 48:5:IDX
+    .replace(/([34]8):5:(\d{1,3})/g, "$1;5;$2")
+    // Fallback: remaining colon delimiters behave like semicolons.
+    .replaceAll(":", ";");
+  for (const part of normalizedRaw.split(";")) {
     if (part.length === 0) {
       out.push(0);
       continue;
@@ -744,12 +1076,32 @@ function applyExtendedColor(
   }
 
   if (mode === 2) {
-    const r = codes[index + 2];
-    const g = codes[index + 3];
-    const b = codes[index + 4];
-    if (isByte(r) && isByte(g) && isByte(b)) {
-      activeStyle[channel] = rgb(r, g, b);
+    // Canonical: 38;2;R;G;B / 48;2;R;G;B
+    const directR = codes[index + 2];
+    const directG = codes[index + 3];
+    const directB = codes[index + 4];
+    if (isByte(directR) && isByte(directG) && isByte(directB)) {
+      activeStyle[channel] = rgb(directR, directG, directB);
+      return index + 4;
     }
+
+    // Colon form may include an optional color-space slot:
+    // 38:2::R:G:B -> normalized to 38;2;0;R;G;B
+    const maybeColorSpace = codes[index + 2];
+    const r = codes[index + 3];
+    const g = codes[index + 4];
+    const b = codes[index + 5];
+    if (
+      (maybeColorSpace == null ||
+        (typeof maybeColorSpace === "number" && Number.isInteger(maybeColorSpace) && maybeColorSpace >= 0)) &&
+      isByte(r) &&
+      isByte(g) &&
+      isByte(b)
+    ) {
+      activeStyle[channel] = rgb(r, g, b);
+      return index + 5;
+    }
+
     return index + 4;
   }
 

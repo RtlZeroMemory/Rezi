@@ -28,10 +28,29 @@ export function renderToString(
 
   const container = createReactRoot(bridge.rootNode);
   const wrapped = React.createElement(InkContext.Provider, { value: bridge.context }, element);
+  const renderer = createTestRenderer({ viewport: { cols, rows: 999 } });
+  let staticBuffer = "";
+
+  bridge.rootNode.onCommit = () => {
+    if (!bridge.hasStaticNodes()) return;
+    const staticVNode = bridge.translateStaticToVNode();
+    const staticOutput = renderer.render(staticVNode).toText();
+    if (staticOutput.length > 0) {
+      staticBuffer += `${staticOutput}\n`;
+    }
+  };
 
   commitSync(container, wrapped);
+  bridge.rootNode.onCommit = null;
 
-  const vnode = bridge.translateToVNode();
-  const renderer = createTestRenderer({ viewport: { cols, rows: 999 } });
-  return renderer.render(vnode).toText();
+  const dynamicVNode = bridge.translateDynamicToVNode();
+  const dynamicOutput = renderer.render(dynamicVNode).toText();
+  const normalizedStatic = staticBuffer.endsWith("\n")
+    ? staticBuffer.slice(0, -1)
+    : staticBuffer;
+
+  if (normalizedStatic.length > 0 && dynamicOutput.length > 0) {
+    return `${normalizedStatic}\n${dynamicOutput}`;
+  }
+  return normalizedStatic.length > 0 ? normalizedStatic : dynamicOutput;
 }

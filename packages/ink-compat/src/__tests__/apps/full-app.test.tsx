@@ -237,7 +237,7 @@ test("full-app: p key processes first file", () => {
   const frame = lastFrame();
   assert.ok(frame.includes("1/3 done"), "progress updated to 1/3");
   assert.ok(frame.includes("✓"), "checkmark for completed file");
-  assert.ok(frame.includes("Processed: readme.md"), "log entry for processed file");
+  assert.ok(frame.includes("[01]"), "log entry is numbered");
 });
 
 test("full-app: process all files", () => {

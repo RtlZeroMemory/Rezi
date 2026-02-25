@@ -5,7 +5,7 @@ export function useStderr() {
   return {
     stderr: ctx.stderr,
     write: (data: string) => {
-      ctx.stderr.write(data);
+      ctx.writeStderr(data);
     },
   };
 }

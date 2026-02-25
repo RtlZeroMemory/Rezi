@@ -7,17 +7,96 @@
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import React from "react";
 
+import { kittyFlags, kittyModifiers, useCursor } from "../../index.js";
 import { useIsScreenReaderEnabled } from "../../hooks/useIsScreenReaderEnabled.js";
+import { reconciler } from "../../reconciler/reconciler.js";
 import { InkResizeObserver } from "../../runtime/ResizeObserver.js";
+import { InkContext, type InkContextValue } from "../../runtime/context.js";
 import { getBoundingBox } from "../../runtime/getBoundingBox.js";
 import { getInnerHeight, getScrollHeight } from "../../runtime/domHelpers.js";
-import { createHostNode } from "../../reconciler/types.js";
+import { createHostContainer, createHostNode } from "../../reconciler/types.js";
 
 // --- useIsScreenReaderEnabled ---
 
-test("useIsScreenReaderEnabled returns false", () => {
-  assert.equal(useIsScreenReaderEnabled(), false);
+test("export surface includes kitty flags/modifiers and useCursor", () => {
+  assert.equal(typeof useCursor, "function");
+  assert.equal(kittyFlags.disambiguateEscapeCodes, 1);
+  assert.equal(kittyModifiers.ctrl, 4);
+});
+
+test("useIsScreenReaderEnabled reads context flag", () => {
+  const rootNode = createHostContainer();
+  const root = reconciler.createContainer(
+    rootNode,
+    0,
+    null,
+    false,
+    null,
+    "",
+    () => {},
+    null,
+    null,
+    null,
+  );
+
+  const mockContext = {
+    exit: () => {},
+    rerender: () => {},
+    stdin: process.stdin,
+    stdout: process.stdout,
+    stderr: process.stderr,
+    isRawModeSupported: false,
+    setRawMode: () => {},
+    writeStdout: () => {},
+    writeStderr: () => {},
+    isScreenReaderEnabled: true,
+    setCursorPosition: (_position) => {},
+    getCursorPosition: () => undefined,
+    registerFocusable: () => {},
+    unregisterFocusable: () => {},
+    getFocusedId: () => undefined,
+    focusNext: () => {},
+    focusPrevious: () => {},
+    focusById: () => {},
+    setFocusEnabled: () => {},
+    onKeyEvent: () => () => {},
+  } satisfies InkContextValue;
+
+  let seen = false;
+  const Probe = (): null => {
+    seen = useIsScreenReaderEnabled();
+    return null;
+  };
+
+  if (typeof reconciler.updateContainerSync === "function") {
+    reconciler.updateContainerSync(
+      React.createElement(
+        InkContext.Provider,
+        { value: mockContext },
+        React.createElement(Probe),
+      ),
+      root,
+      null,
+      null,
+    );
+    reconciler.flushSyncWork?.();
+    reconciler.flushPassiveEffects?.();
+  } else {
+    reconciler.updateContainer(
+      React.createElement(
+        InkContext.Provider,
+        { value: mockContext },
+        React.createElement(Probe),
+      ),
+      root,
+      null,
+      () => {},
+    );
+  }
+
+  assert.equal(seen, true);
 });
 
 // --- getBoundingBox ---

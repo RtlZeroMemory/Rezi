@@ -19,6 +19,12 @@ test("parseColor parses rgb() colors", () => {
   assert.deepEqual(parseColor("rgb( 0 , 255 , 127 )"), { r: 0, g: 255, b: 127 });
 });
 
+test("parseColor parses ansi256() colors", () => {
+  assert.deepEqual(parseColor("ansi256(196)"), { r: 255, g: 0, b: 0 });
+  assert.deepEqual(parseColor("ansi256(244)"), { r: 128, g: 128, b: 128 });
+  assert.equal(parseColor("ansi256(999)"), undefined);
+});
+
 test("parseColor returns undefined for invalid input", () => {
   assert.equal(parseColor(undefined), undefined);
   assert.equal(parseColor(""), undefined);

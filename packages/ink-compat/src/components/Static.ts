@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useLayoutEffect, useMemo, useState } from "react";
 
 export interface StaticProps<T> {
   items: T[];
@@ -11,13 +11,32 @@ export interface StaticProps<T> {
  * so renderers can treat it as scrollback-oriented output.
  */
 export function Static<T>(props: StaticProps<T>): React.ReactElement {
-  const { items, children, style } = props;
+  const { items, children: renderItem, style } = props;
+  const [index, setIndex] = useState(0);
+
+  const itemsToRender = useMemo(() => {
+    return items.slice(index);
+  }, [items, index]);
+
+  useLayoutEffect(() => {
+    setIndex(items.length);
+  }, [items.length]);
+
+  const staticStyle: Record<string, unknown> = {
+    position: "absolute",
+    flexDirection: "column",
+    ...(style ?? {}),
+  };
 
   return React.createElement(
     "ink-box",
-    { ...style, __inkStatic: true },
-    ...items.map((item, index) =>
-      React.createElement(React.Fragment, { key: index }, children(item, index)),
+    { __inkStatic: true, ...staticStyle },
+    ...itemsToRender.map((item, itemIndex) =>
+      React.createElement(
+        React.Fragment,
+        { key: index + itemIndex },
+        renderItem(item, index + itemIndex),
+      ),
     ),
   );
 }

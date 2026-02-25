@@ -11,9 +11,11 @@ export function mapBorderStyle(
     double: "double",
     round: "rounded",
     bold: "heavy",
+    heavy: "heavy",
     singleDouble: "single",
     doubleSingle: "double",
     classic: "single",
+    arrow: "single",
     dashed: "dashed",
     none: "none",
   };

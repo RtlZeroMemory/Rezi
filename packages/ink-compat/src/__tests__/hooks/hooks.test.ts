@@ -4,6 +4,7 @@ import test from "node:test";
 import React from "react";
 
 import { useApp } from "../../hooks/useApp.js";
+import { useCursor } from "../../hooks/useCursor.js";
 import { useFocus } from "../../hooks/useFocus.js";
 import { useFocusManager } from "../../hooks/useFocusManager.js";
 import { useInput } from "../../hooks/useInput.js";
@@ -45,6 +46,7 @@ function createMockContext(): InkContextValue {
   const stderr = new PassThrough();
 
   let focusedId: string | undefined;
+  let cursorPosition: { x: number; y: number } | undefined;
   const handlers = new Set<(input: string, key: Key) => void>();
 
   return {
@@ -55,6 +57,17 @@ function createMockContext(): InkContextValue {
     stderr,
     isRawModeSupported: true,
     setRawMode: () => {},
+    writeStdout: (data: string) => {
+      stdout.write(data);
+    },
+    writeStderr: (data: string) => {
+      stderr.write(data);
+    },
+    isScreenReaderEnabled: false,
+    setCursorPosition: (position) => {
+      cursorPosition = position;
+    },
+    getCursorPosition: () => cursorPosition,
     registerFocusable: (id, opts) => {
       if (opts?.autoFocus && !focusedId) {
         focusedId = id;
@@ -166,6 +179,7 @@ test("useFocus registers and exposes isFocused", () => {
 
   const registered: string[] = [];
   const unregistered: string[] = [];
+  const focused: string[] = [];
   const context = {
     ...createMockContext(),
     registerFocusable: (id: string) => {
@@ -175,13 +189,18 @@ test("useFocus registers and exposes isFocused", () => {
       unregistered.push(id);
     },
     getFocusedId: () => "focus-a",
+    focusById: (id: string) => {
+      focused.push(id);
+    },
   } satisfies InkContextValue;
 
   let isFocused = false;
+  let focusFn: (() => void) | undefined;
 
   function Probe(): null {
     const focus = useFocus({ id: "focus-a", autoFocus: true });
     isFocused = focus.isFocused;
+    focusFn = focus.focus;
     return null;
   }
 
@@ -192,6 +211,8 @@ test("useFocus registers and exposes isFocused", () => {
 
   assert.equal(isFocused, true);
   assert.deepEqual(registered, ["focus-a"]);
+  focusFn?.();
+  assert.deepEqual(focused, ["focus-a"]);
 
   commitSync(root, null);
   assert.deepEqual(unregistered, ["focus-a"]);
@@ -263,6 +284,12 @@ test("useStdin/useStdout/useStderr expose streams and write helpers", async () =
     stdout,
     stderr,
     isRawModeSupported: false,
+    writeStdout: (data: string) => {
+      stdout.write(data);
+    },
+    writeStderr: (data: string) => {
+      stderr.write(data);
+    },
   } satisfies InkContextValue;
 
   let sameStdin = false;
@@ -324,4 +351,32 @@ test("mock key shape helper includes expected flags", () => {
   const key = createKey();
   assert.equal(key.tab, false);
   assert.equal(key.ctrl, false);
+});
+
+test("useCursor forwards cursor positions to context", async () => {
+  const { root } = createReactRoot();
+  const positions: Array<{ x: number; y: number } | undefined> = [];
+
+  const context = {
+    ...createMockContext(),
+    setCursorPosition: (position: { x: number; y: number } | undefined) => {
+      positions.push(position);
+    },
+  } satisfies InkContextValue;
+
+  function Probe(): null {
+    const { setCursorPosition } = useCursor();
+    React.useEffect(() => {
+      setCursorPosition({ x: 2, y: 1 });
+    }, [setCursorPosition]);
+    return null;
+  }
+
+  commitSync(
+    root,
+    React.createElement(InkContext.Provider, { value: context }, React.createElement(Probe)),
+  );
+
+  await Promise.resolve();
+  assert.deepEqual(positions[positions.length - 1], { x: 2, y: 1 });
 });

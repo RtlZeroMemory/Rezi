@@ -1,6 +1,6 @@
 /**
- * ink-gradient shim — simplified replacement.
- * Applies a horizontal per-line gradient and emits ANSI truecolor text.
+ * ink-gradient shim.
+ * Applies a per-line multiline gradient and emits ANSI truecolor text.
  */
 import React from "react";
 import { Text } from "ink";
@@ -18,7 +18,22 @@ const NAMED_COLORS = {
   grey: [127, 127, 127],
 };
 
+const GRADIENT_TRACE_ENABLED = process.env.INK_GRADIENT_TRACE === "1";
+let gradientTraceRenderCount = 0;
+const SHIM_PATH =
+  typeof __filename === "string" ? __filename : (typeof import.meta !== "undefined" ? import.meta.url : "unknown");
+
+const traceGradient = (message) => {
+  if (!GRADIENT_TRACE_ENABLED) return;
+  try {
+    process.stderr.write(`[ink-gradient-shim trace] ${message}\n`);
+  } catch {
+    // Best-effort tracing only.
+  }
+};
+
 const clampByte = (value) => Math.max(0, Math.min(255, Math.round(value)));
+const ANSI_ESCAPE_REGEX = /\u001b\[[0-9:;]*[ -/]*[@-~]|\u009b[0-9:;]*[ -/]*[@-~]/g;
 
 const parseColor = (color) => {
   if (!color || typeof color !== "string") return undefined;
@@ -58,14 +73,6 @@ const parseColor = (color) => {
   };
 };
 
-const extractPlainText = (value) => {
-  if (value == null || typeof value === "boolean") return "";
-  if (typeof value === "string" || typeof value === "number") return String(value);
-  if (Array.isArray(value)) return value.map(extractPlainText).join("");
-  if (React.isValidElement(value)) return extractPlainText(value.props?.children);
-  return "";
-};
-
 const mixChannel = (start, end, t) => clampByte(start + (end - start) * t);
 
 const interpolateStops = (stops, t) => {
@@ -87,33 +94,58 @@ const interpolateStops = (stops, t) => {
   };
 };
 
-const applyGradient = (text, colors) => {
-  const parsedStops = (Array.isArray(colors) ? colors : [])
-    .map((entry) => parseColor(entry))
-    .filter(Boolean);
+const stripAnsi = (value) => value.replace(ANSI_ESCAPE_REGEX, "");
 
-  if (parsedStops.length < 2) return text;
+const extractPlainText = (value) => {
+  if (value == null || typeof value === "boolean") return "";
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (Array.isArray(value)) return value.map(extractPlainText).join("");
+  if (React.isValidElement(value)) return extractPlainText(value.props?.children);
+  return "";
+};
 
-  return text
-    .split("\n")
-    .map((line) => {
-      const chars = Array.from(line);
-      if (chars.length === 0) return "";
-      const denominator = Math.max(1, chars.length - 1);
-      const gradient = chars
-        .map((char, index) => {
-          const color = interpolateStops(parsedStops, index / denominator);
-          return `\u001b[38;2;${color.r};${color.g};${color.b}m${char}`;
-        })
-        .join("");
-      return `${gradient}\u001b[0m`;
-    })
-    .join("\n");
+const applyGradient = (text, stops) => {
+  if (stops.length < 2) return stripAnsi(text);
+
+  const lines = text.split("\n");
+  const maxLength = Math.max(
+    stops.length,
+    ...lines.map((line) => Array.from(stripAnsi(line)).length),
+  );
+  const denominator = Math.max(1, maxLength - 1);
+  const sampled = Array.from({ length: maxLength }, (_, index) =>
+    interpolateStops(stops, index / denominator),
+  );
+
+  const renderedLines = lines.map((line) => {
+    const chars = Array.from(stripAnsi(line));
+    if (chars.length === 0) return "";
+    let out = "";
+    for (let index = 0; index < chars.length; index += 1) {
+      const color = sampled[index];
+      out += `\u001b[38;2;${color.r};${color.g};${color.b}m${chars[index]}`;
+    }
+    return `${out}\u001b[0m`;
+  });
+
+  return renderedLines.join("\n");
 };
 
 const Gradient = ({ colors, children }) => {
+  const parsedStops = (Array.isArray(colors) ? colors : [])
+    .map((entry) => parseColor(entry))
+    .filter(Boolean);
   const plainText = extractPlainText(children);
-  const gradientText = applyGradient(plainText, colors);
+  const gradientText = applyGradient(plainText, parsedStops);
+  if (GRADIENT_TRACE_ENABLED && gradientTraceRenderCount < 20) {
+    if (gradientTraceRenderCount === 0) {
+      traceGradient(`module=${SHIM_PATH}`);
+    }
+    gradientTraceRenderCount += 1;
+    traceGradient(
+      `render#${gradientTraceRenderCount} colors=${Array.isArray(colors) ? colors.length : 0} parsedStops=${parsedStops.length} textChars=${Array.from(plainText).length} emittedAnsi=${gradientText.includes("\u001b[38;2;")}`,
+    );
+  }
   return React.createElement(Text, null, gradientText);
 };
 

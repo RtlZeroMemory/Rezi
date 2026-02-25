@@ -30,11 +30,30 @@ export function render(element: React.ReactElement): RenderResult {
   const container = createReactRoot(bridge.rootNode);
   const frames: string[] = [];
   const renderer = createTestRenderer({ viewport: { cols: 80, rows: 24 } });
+  let staticBuffer = "";
+
+  const combineStaticAndDynamic = (dynamicOutput: string): string => {
+    const normalizedStatic = staticBuffer.endsWith("\n")
+      ? staticBuffer.slice(0, -1)
+      : staticBuffer;
+    if (normalizedStatic.length > 0 && dynamicOutput.length > 0) {
+      return `${normalizedStatic}\n${dynamicOutput}`;
+    }
+    return normalizedStatic.length > 0 ? normalizedStatic : dynamicOutput;
+  };
 
   const captureFrame = (): void => {
-    const vnode = bridge.translateToVNode();
-    const output = renderer.render(vnode).toText();
-    frames.push(output);
+    if (bridge.hasStaticNodes()) {
+      const staticVNode = bridge.translateStaticToVNode();
+      const staticOutput = renderer.render(staticVNode).toText();
+      if (staticOutput.length > 0) {
+        staticBuffer += `${staticOutput}\n`;
+      }
+    }
+
+    const dynamicVNode = bridge.translateDynamicToVNode();
+    const dynamicOutput = renderer.render(dynamicVNode).toText();
+    frames.push(combineStaticAndDynamic(dynamicOutput));
   };
 
   bridge.rootNode.onCommit = captureFrame;

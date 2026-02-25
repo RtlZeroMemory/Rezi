@@ -1,8 +1,13 @@
 import type { Readable, Writable } from "node:stream";
 import React from "react";
 
+export interface CursorPosition {
+  x: number;
+  y: number;
+}
+
 export interface InkContextValue {
-  exit: (error?: Error) => void;
+  exit: (result?: unknown) => void;
   rerender: () => void;
 
   stdin: Readable;
@@ -10,6 +15,11 @@ export interface InkContextValue {
   stderr: Writable;
   isRawModeSupported: boolean;
   setRawMode: (enabled: boolean) => void;
+  writeStdout: (data: string) => void;
+  writeStderr: (data: string) => void;
+  isScreenReaderEnabled: boolean;
+  setCursorPosition: (position: CursorPosition | undefined) => void;
+  getCursorPosition: () => CursorPosition | undefined;
 
   registerFocusable: (id: string, opts?: { autoFocus?: boolean }) => void;
   unregisterFocusable: (id: string) => void;

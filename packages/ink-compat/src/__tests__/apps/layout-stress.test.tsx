@@ -15,17 +15,15 @@ import { render } from "../../testing/index.js";
 
 // --- Basic flexDirection ---
 
-test("layout: column is default direction", () => {
+test("layout: row is default direction", () => {
   const el = React.createElement(Box, null,
     React.createElement(Text, null, "Line1"),
     React.createElement(Text, null, "Line2"),
   );
   const { lastFrame } = render(el);
-  const frame = lastFrame();
-  const idx1 = frame.indexOf("Line1");
-  const idx2 = frame.indexOf("Line2");
-  assert.ok(idx1 >= 0, "Line1 present");
-  assert.ok(idx2 > idx1, "Line2 appears after Line1");
+  const lines = lastFrame().split("\n");
+  const lineWithBoth = lines.find((line) => line.includes("Line1") && line.includes("Line2"));
+  assert.ok(lineWithBoth, "Line1 and Line2 should share a row by default");
 });
 
 test("layout: row direction places items side-by-side", () => {
@@ -209,6 +207,25 @@ test("layout: Transform adds line numbers", () => {
   assert.ok(frame.includes("1. alpha"), "first line numbered");
   assert.ok(frame.includes("2. beta"), "second line numbered");
   assert.ok(frame.includes("3. gamma"), "third line numbered");
+});
+
+test("layout: Transform runs after wrapping", () => {
+  const el = React.createElement(
+    Box,
+    { width: 12 },
+    React.createElement(Transform, {
+      transform: (line: string, idx: number) => `${idx + 1}:${line}`,
+      children: React.createElement(Text, null, "alpha beta gamma delta"),
+    }),
+  );
+  const { lastFrame } = render(el);
+  const lines = lastFrame()
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  assert.ok(lines.length >= 2, "text should wrap to multiple lines");
+  assert.ok(lines[0]?.startsWith("1:"), "first wrapped line transformed");
+  assert.ok(lines[1]?.startsWith("2:"), "second wrapped line transformed");
 });
 
 // --- Row with border (tests the box→row nesting) ---

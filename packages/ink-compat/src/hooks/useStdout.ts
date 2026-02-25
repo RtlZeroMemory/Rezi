@@ -5,7 +5,7 @@ export function useStdout() {
   return {
     stdout: ctx.stdout,
     write: (data: string) => {
-      ctx.stdout.write(data);
+      ctx.writeStdout(data);
     },
   };
 }

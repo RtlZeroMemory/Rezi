@@ -14,6 +14,9 @@ export interface TextProps {
   terminalCursorFocus?: boolean;
   /** @jrichman/ink fork: cursor column offset within the text */
   terminalCursorPosition?: number;
+  ariaLabel?: string;
+  "aria-label"?: string;
+  accessibilityLabel?: string;
   children?: React.ReactNode;
 }
 

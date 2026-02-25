@@ -19,10 +19,16 @@ export interface BoxProps {
 
   width?: number | string;
   height?: number | string;
-  minWidth?: number;
+  minWidth?: number | string;
   minHeight?: number | string;
   maxWidth?: number;
   maxHeight?: number | string;
+
+  position?: "relative" | "absolute";
+  top?: number;
+  right?: number;
+  bottom?: number;
+  left?: number;
 
   padding?: number;
   paddingX?: number;
@@ -61,6 +67,10 @@ export interface BoxProps {
   borderLeft?: boolean;
 
   backgroundColor?: string;
+
+  ariaLabel?: string;
+  "aria-label"?: string;
+  accessibilityLabel?: string;
 
   overflow?: "visible" | "hidden" | "scroll";
   overflowX?: "visible" | "hidden" | "scroll";

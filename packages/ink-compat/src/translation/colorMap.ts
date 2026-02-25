@@ -50,6 +50,15 @@ function parseColorInner(color: string): Rgb | undefined {
   const lower = color.toLowerCase();
   if (lower in NAMED_COLORS) return NAMED_COLORS[lower];
 
+  const ansi256Match = lower.match(/^ansi256\(\s*(\d{1,3})\s*\)$/);
+  if (ansi256Match) {
+    const index = Number.parseInt(ansi256Match[1]!, 10);
+    if (Number.isInteger(index) && index >= 0 && index <= 255) {
+      return decodeAnsi256Color(index);
+    }
+    return undefined;
+  }
+
   if (color.startsWith("#")) {
     const hex = color.slice(1);
     if (/^[\da-fA-F]{6}$/.test(hex)) {
@@ -80,4 +89,40 @@ function parseColorInner(color: string): Rgb | undefined {
   if (!isByte(r) || !isByte(g) || !isByte(b)) return undefined;
 
   return rgb(r, g, b);
+}
+
+function decodeAnsi256Color(index: number): Rgb {
+  if (index < 16) {
+    const palette16: readonly Rgb[] = [
+      rgb(0, 0, 0),
+      rgb(205, 0, 0),
+      rgb(0, 205, 0),
+      rgb(205, 205, 0),
+      rgb(0, 0, 238),
+      rgb(205, 0, 205),
+      rgb(0, 205, 205),
+      rgb(229, 229, 229),
+      rgb(127, 127, 127),
+      rgb(255, 0, 0),
+      rgb(0, 255, 0),
+      rgb(255, 255, 0),
+      rgb(92, 92, 255),
+      rgb(255, 0, 255),
+      rgb(0, 255, 255),
+      rgb(255, 255, 255),
+    ];
+    return palette16[index]!;
+  }
+
+  if (index <= 231) {
+    const offset = index - 16;
+    const rLevel = Math.floor(offset / 36);
+    const gLevel = Math.floor((offset % 36) / 6);
+    const bLevel = offset % 6;
+    const toChannel = (level: number): number => (level === 0 ? 0 : 55 + level * 40);
+    return rgb(toChannel(rLevel), toChannel(gLevel), toChannel(bLevel));
+  }
+
+  const gray = 8 + (index - 232) * 10;
+  return rgb(gray, gray, gray);
 }

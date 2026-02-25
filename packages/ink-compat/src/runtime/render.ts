@@ -6,14 +6,22 @@ import {
   type VNode,
 } from "@rezi-ui/core";
 import { appendFileSync } from "node:fs";
+import { format as formatConsoleMessage } from "node:util";
 import type { Readable, Writable } from "node:stream";
 import React from "react";
 
+import { resolveKittyFlags, type KittyFlagName } from "../kitty-keyboard.js";
 import type { InkHostContainer, InkHostNode } from "../reconciler/types.js";
 import { enableTranslationTrace, flushTranslationTrace } from "../translation/traceCollector.js";
+import { checkAllResizeObservers } from "./ResizeObserver.js";
 import { createBridge } from "./bridge.js";
 import { InkContext } from "./context.js";
 import { commitSync, createReactRoot } from "./reactHelpers.js";
+
+export interface KittyKeyboardOptions {
+  mode?: "auto" | "enabled" | "disabled";
+  flags?: readonly KittyFlagName[];
+}
 
 export interface RenderOptions {
   stdout?: Writable;
@@ -23,6 +31,8 @@ export interface RenderOptions {
   patchConsole?: boolean;
   debug?: boolean;
   maxFps?: number;
+  concurrent?: boolean;
+  kittyKeyboard?: KittyKeyboardOptions;
   /** @jrichman/ink fork: announce screen reader changes */
   isScreenReaderEnabled?: boolean;
   /** @jrichman/ink fork: callback invoked after each render frame */
@@ -36,7 +46,7 @@ export interface RenderOptions {
 export interface Instance {
   rerender(tree: React.ReactElement): void;
   unmount(): void;
-  waitUntilExit(): Promise<void>;
+  waitUntilExit(): Promise<unknown>;
   clear(): void;
   cleanup(): void;
 }
@@ -67,6 +77,11 @@ interface CellStyle {
 interface StyledCell {
   char: string;
   style: CellStyle | undefined;
+}
+
+interface ColorSupport {
+  level: 0 | 1 | 2 | 3;
+  noColor: boolean;
 }
 
 type RenderOp =
@@ -133,6 +148,17 @@ interface ReziRendererTraceEvent {
   ops?: readonly unknown[];
   text?: string;
 }
+
+interface RenderWritePayload {
+  output: string;
+  staticOutput: string;
+}
+
+const MAX_QUEUED_OUTPUTS = 4;
+const CORE_DEFAULT_FG: Readonly<Rgb> = Object.freeze({ r: 232, g: 238, b: 245 });
+const CORE_DEFAULT_BG: Readonly<Rgb> = Object.freeze({ r: 7, g: 10, b: 12 });
+const FORCED_TRUECOLOR_SUPPORT: ColorSupport = Object.freeze({ level: 3, noColor: false });
+const ANSI_SGR_PATTERN = /\u001b\[[0-9:;]*m|\u009b[0-9:;]*m/;
 
 function readViewportSize(stdout: Writable, fallbackStdout: Writable): ViewportSize {
   const readPositiveInt = (value: unknown): number | undefined => {
@@ -237,6 +263,45 @@ function summarizeOutputShape(output: string): OutputShapeSummary {
   };
 }
 
+function trimAnsiToNonBlankBlock(output: string): string {
+  if (output.length === 0) return "";
+
+  const rawLines = output.split("\n");
+  const plainLines = rawLines.map((line) => line.replace(/\u001b\[[0-9;]*m/g, ""));
+
+  let first = -1;
+  let last = -1;
+  for (let index = 0; index < plainLines.length; index += 1) {
+    const line = plainLines[index] ?? "";
+    if (line.trimEnd().length === 0) continue;
+    if (first === -1) first = index;
+    last = index;
+  }
+
+  if (first === -1 || last === -1) return "";
+  return rawLines.slice(first, last + 1).join("\n");
+}
+
+function countRenderedLines(output: string): number {
+  if (output.length === 0) return 0;
+  return output.split("\n").length;
+}
+
+function eraseLines(count: number): string {
+  if (count <= 0) return "";
+
+  let out = "";
+  for (let index = 0; index < count; index += 1) {
+    out += "\u001b[2K";
+    if (index < count - 1) {
+      out += "\u001b[1A";
+    }
+  }
+
+  out += "\u001b[G";
+  return out;
+}
+
 function toNumber(value: unknown): number | undefined {
   if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
   return value;
@@ -286,6 +351,126 @@ function coerceRootViewportHeight(
   } as VNode;
 
   return { vnode: nextVNode, coerced: true };
+}
+
+/**
+ * In non-alternate-buffer (static channel) mode the dynamic frame must be
+ * content-sized — just like real Ink.  Two things cause the layout to expand
+ * to fill the viewport constraint:
+ *
+ * 1. `overflow: "hidden"` on the root — makes it a clip container that fills
+ *    the available space.
+ * 2. `flex: 1` added by Fix #4 (the Ink/Yoga flexShrink:0 compat shim) —
+ *    causes nodes to grow to fill their parent's height.
+ *
+ * This function recursively walks the VNode tree and:
+ *  - Strips `overflow: "hidden"` from the root.
+ *  - Strips `flex:1` from any node that matches the Fix #4 pattern
+ *    (flex:1 + flexShrink:0).  Original flex:1 nodes have flexShrink:1
+ *    (the Ink default) and are left intact.
+ *
+ * The result is a content-sized layout matching real Ink non-alt-buffer
+ * rendering.
+ */
+function makeContentSized(
+  vnode: VNode,
+  isRoot = true,
+  parentIsVertical = true,
+): VNode {
+  if (typeof vnode !== "object" || vnode === null) return vnode;
+
+  const candidate = vnode as {
+    kind?: unknown;
+    props?: unknown;
+    children?: readonly VNode[];
+  };
+
+  const isContainer =
+    candidate.kind === "box" ||
+    candidate.kind === "row" ||
+    candidate.kind === "column";
+
+  if (!isContainer) return vnode;
+
+  const props =
+    typeof candidate.props === "object" && candidate.props !== null
+      ? (candidate.props as Record<string, unknown>)
+      : {};
+
+  let propsChanged = false;
+  const nextProps = { ...props };
+
+  // Root only: strip overflow
+  if (isRoot) {
+    const overflow =
+      typeof props["overflow"] === "string" ? props["overflow"] : "";
+    if (overflow === "hidden" || overflow === "scroll") {
+      delete nextProps["overflow"];
+      propsChanged = true;
+    }
+  }
+
+  // In a vertical parent (column/box), flex:1 causes HEIGHT expansion
+  // which makes the frame fill the viewport.  Strip it so nodes fall
+  // back to intrinsic content height.
+  // In a horizontal parent (row), flex:1 causes WIDTH distribution
+  // which is fine and must be preserved.
+  if (parentIsVertical) {
+    const hasFlex = props["flex"] != null && toNumber(props["flex"]) !== 0;
+    const hasGrow = toNumber(props["flexGrow"]) != null && toNumber(props["flexGrow"])! > 0;
+    if (hasFlex) {
+      delete nextProps["flex"];
+      nextProps["flexGrow"] = 0;
+      propsChanged = true;
+    } else if (hasGrow) {
+      nextProps["flexGrow"] = 0;
+      propsChanged = true;
+    }
+
+    // Strip height / minHeight / flexBasis that may have been resolved
+    // from percentage markers (e.g. height:"100%" → height:<viewport.rows>)
+    // by resolvePercentMarkers which runs before makeContentSized.
+    // Without this, a node with height=viewportRows would force the
+    // layout to fill the viewport even though flex was removed above.
+    if (toNumber(props["height"]) != null) {
+      delete nextProps["height"];
+      propsChanged = true;
+    }
+    if (toNumber(props["minHeight"]) != null) {
+      delete nextProps["minHeight"];
+      propsChanged = true;
+    }
+    if (toNumber(props["flexBasis"]) != null) {
+      delete nextProps["flexBasis"];
+      propsChanged = true;
+    }
+  }
+
+  // Recurse into children — pass whether THIS node is a vertical container
+  const thisIsVertical = candidate.kind !== "row";
+  const children = Array.isArray(candidate.children)
+    ? candidate.children
+    : undefined;
+  let nextChildren = children;
+  if (children && children.length > 0) {
+    const mapped: VNode[] = [];
+    let childrenChanged = false;
+    for (const child of children) {
+      const next = makeContentSized(child, false, thisIsVertical);
+      mapped.push(next);
+      if (next !== child) childrenChanged = true;
+    }
+    if (childrenChanged) nextChildren = mapped;
+  }
+
+  if (!propsChanged && nextChildren === children) return vnode;
+
+  const out: Record<string, unknown> = {
+    ...(vnode as Record<string, unknown>),
+  };
+  if (propsChanged) out["props"] = nextProps;
+  if (nextChildren !== children) out["children"] = nextChildren;
+  return out as VNode;
 }
 
 function formatLineSnippet(line: string, max = 180): string {
@@ -485,6 +670,77 @@ function snapshotOps(
   return Object.freeze(out);
 }
 
+function snapshotOpsOutsideViewport(
+  ops: readonly RenderOp[],
+  viewport: ViewportSize,
+  limit: number,
+): readonly unknown[] {
+  const out: unknown[] = [];
+
+  const push = (entry: Record<string, unknown>): void => {
+    if (out.length >= limit) return;
+    out.push(Object.freeze(entry));
+  };
+
+  for (let index = 0; index < ops.length; index += 1) {
+    const op = ops[index];
+    if (!op) continue;
+
+    if (op.kind === "fillRect") {
+      const x1 = Math.trunc(op.x);
+      const y1 = Math.trunc(op.y);
+      const x2 = x1 + Math.max(0, Math.trunc(op.w));
+      const y2 = y1 + Math.max(0, Math.trunc(op.h));
+      if (x1 < 0 || y1 < 0 || x2 > viewport.cols || y2 > viewport.rows) {
+        push({
+          index,
+          kind: op.kind,
+          x: x1,
+          y: y1,
+          w: Math.max(0, Math.trunc(op.w)),
+          h: Math.max(0, Math.trunc(op.h)),
+          outside: {
+            top: Math.max(0, -y1),
+            left: Math.max(0, -x1),
+            right: Math.max(0, x2 - viewport.cols),
+            bottom: Math.max(0, y2 - viewport.rows),
+          },
+        });
+      }
+      continue;
+    }
+
+    if (op.kind === "drawText") {
+      const x1 = Math.trunc(op.x);
+      const y1 = Math.trunc(op.y);
+      const width = measureTextCells(op.text);
+      const x2 = x1 + Math.max(0, width);
+      const y2 = y1 + 1;
+      if (x1 < 0 || y1 < 0 || x2 > viewport.cols || y2 > viewport.rows) {
+        push({
+          index,
+          kind: op.kind,
+          x: x1,
+          y: y1,
+          width,
+          text: formatLineSnippet(op.text, 40),
+          outside: {
+            top: Math.max(0, -y1),
+            left: Math.max(0, -x1),
+            right: Math.max(0, x2 - viewport.cols),
+            bottom: Math.max(0, y2 - viewport.rows),
+          },
+        });
+      }
+    }
+  }
+
+  if (out.length === limit) {
+    out.push(Object.freeze({ truncated: true }));
+  }
+  return Object.freeze(out);
+}
+
 /**
  * Recursive VNode tree snapshot — captures kind, key props (border, style, bg,
  * overflow, flex, height, width), and children for every node.
@@ -545,7 +801,7 @@ function snapshotVNodeTree(node: unknown, depth = 0, maxDepth = 8): unknown {
 
 /**
  * Snapshot specific rows of the cell grid — shows char and style for each cell.
- * Used to diagnose exactly what the bright horizontal bar is made of.
+ * Useful when tracking unexpected background/style rows.
  */
 function snapshotCellGridRows(
   grid: StyledCell[][],
@@ -560,7 +816,7 @@ function snapshotCellGridRows(
     let lastVisibleCol = -1;
     for (let col = 0; col < Math.min(row.length, maxCols); col++) {
       const cell = row[col]!;
-      if (cell.char !== " " || styleVisibleOnSpace(cell.style)) lastVisibleCol = col;
+      if ((cell.char !== "" && cell.char !== " ") || styleVisibleOnSpace(cell.style)) lastVisibleCol = col;
     }
     // Only capture up to last visible cell + a few
     const captureTo = Math.min(row.length, maxCols, lastVisibleCol + 5);
@@ -658,6 +914,23 @@ function summarizeHostTree(rootNode: InkHostContainer): HostTreeSummary {
   };
 }
 
+function hostTreeContainsAnsiSgr(rootNode: InkHostContainer): boolean {
+  const stack: InkHostNode[] = [...rootNode.children];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (!node) continue;
+    const text = node.textContent;
+    if (typeof text === "string" && ANSI_SGR_PATTERN.test(text)) {
+      return true;
+    }
+    for (let index = node.children.length - 1; index >= 0; index -= 1) {
+      const child = node.children[index];
+      if (child) stack.push(child);
+    }
+  }
+  return false;
+}
+
 function isRgb(value: unknown): value is Rgb {
   if (typeof value !== "object" || value === null) return false;
   const r = (value as { r?: unknown }).r;
@@ -677,15 +950,137 @@ function clampByte(value: number): number {
   return Math.max(0, Math.min(255, Math.round(value)));
 }
 
+function isSameRgb(a: Rgb, b: Readonly<Rgb>): boolean {
+  return a.r === b.r && a.g === b.g && a.b === b.b;
+}
+
+const ANSI16_PALETTE: readonly [number, number, number][] = [
+  [0, 0, 0],
+  [205, 0, 0],
+  [0, 205, 0],
+  [205, 205, 0],
+  [0, 0, 238],
+  [205, 0, 205],
+  [0, 205, 205],
+  [229, 229, 229],
+  [127, 127, 127],
+  [255, 0, 0],
+  [0, 255, 0],
+  [255, 255, 0],
+  [92, 92, 255],
+  [255, 0, 255],
+  [0, 255, 255],
+  [255, 255, 255],
+];
+
+function parseForceColorValue(value: string | undefined): 0 | 1 | 2 | 3 | undefined {
+  if (value == null || value.length === 0) return undefined;
+  if (value === "true") return 1;
+  if (value === "false") return 0;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return undefined;
+  if (parsed <= 0) return 0;
+  if (parsed >= 3) return 3;
+  return parsed as 1 | 2;
+}
+
+function detectColorSupport(stdout: Writable): ColorSupport {
+  if (process.env["NO_COLOR"] != null && process.env["NO_COLOR"] !== "") {
+    return { level: 0, noColor: true };
+  }
+
+  const forced = parseForceColorValue(process.env["FORCE_COLOR"]);
+  if (forced != null) {
+    return { level: forced, noColor: forced === 0 };
+  }
+
+  const depthReader = (stdout as { getColorDepth?: unknown }).getColorDepth;
+  if (typeof depthReader === "function") {
+    try {
+      const depth = (depthReader as () => unknown).call(stdout);
+      if (typeof depth === "number" && Number.isFinite(depth)) {
+        if (depth >= 24) return { level: 3, noColor: false };
+        if (depth >= 8) return { level: 2, noColor: false };
+        if (depth >= 2) return { level: 1, noColor: false };
+        return { level: 0, noColor: true };
+      }
+    } catch {}
+  }
+
+  return { level: 3, noColor: false };
+}
+
+function colorDistanceSq(a: Rgb, b: readonly [number, number, number]): number {
+  const dr = a.r - b[0];
+  const dg = a.g - b[1];
+  const db = a.b - b[2];
+  return dr * dr + dg * dg + db * db;
+}
+
+function toAnsi16Code(color: Rgb, background: boolean): number {
+  let bestIndex = 0;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < ANSI16_PALETTE.length; index += 1) {
+    const candidate = ANSI16_PALETTE[index]!;
+    const distance = colorDistanceSq(color, candidate);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = index;
+    }
+  }
+
+  if (bestIndex < 8) {
+    return (background ? 40 : 30) + bestIndex;
+  }
+  return (background ? 100 : 90) + (bestIndex - 8);
+}
+
+function rgbChannelToCubeLevel(channel: number): number {
+  if (channel < 48) return 0;
+  if (channel < 114) return 1;
+  return Math.min(5, Math.floor((channel - 35) / 40));
+}
+
+function toAnsi256Code(color: Rgb): number {
+  const rLevel = rgbChannelToCubeLevel(color.r);
+  const gLevel = rgbChannelToCubeLevel(color.g);
+  const bLevel = rgbChannelToCubeLevel(color.b);
+  const cubeCode = 16 + 36 * rLevel + 6 * gLevel + bLevel;
+
+  const cubeColor: Rgb = {
+    r: rLevel === 0 ? 0 : 55 + 40 * rLevel,
+    g: gLevel === 0 ? 0 : 55 + 40 * gLevel,
+    b: bLevel === 0 ? 0 : 55 + 40 * bLevel,
+  };
+
+  const avg = Math.round((color.r + color.g + color.b) / 3);
+  const grayLevel = Math.max(0, Math.min(23, Math.round((avg - 8) / 10)));
+  const grayCode = 232 + grayLevel;
+  const grayValue = 8 + 10 * grayLevel;
+  const grayColor: Rgb = { r: grayValue, g: grayValue, b: grayValue };
+
+  const cubeDistance = colorDistanceSq(color, [cubeColor.r, cubeColor.g, cubeColor.b]);
+  const grayDistance = colorDistanceSq(color, [grayColor.r, grayColor.g, grayColor.b]);
+  return grayDistance < cubeDistance ? grayCode : cubeCode;
+}
+
 function normalizeStyle(style: TextStyle | undefined): CellStyle | undefined {
   if (!style) return undefined;
 
   const normalized: CellStyle = {};
   if (isRgb(style.fg)) {
-    normalized.fg = { r: clampByte(style.fg.r), g: clampByte(style.fg.g), b: clampByte(style.fg.b) };
+    const fg = { r: clampByte(style.fg.r), g: clampByte(style.fg.g), b: clampByte(style.fg.b) };
+    // Rezi carries DEFAULT_BASE_STYLE through every text draw op. Ink treats
+    // terminal defaults as implicit, so suppress those default color channels.
+    if (!isSameRgb(fg, CORE_DEFAULT_FG)) {
+      normalized.fg = fg;
+    }
   }
   if (isRgb(style.bg)) {
-    normalized.bg = { r: clampByte(style.bg.r), g: clampByte(style.bg.g), b: clampByte(style.bg.b) };
+    const bg = { r: clampByte(style.bg.r), g: clampByte(style.bg.g), b: clampByte(style.bg.b) };
+    if (!isSameRgb(bg, CORE_DEFAULT_BG)) {
+      normalized.bg = bg;
+    }
   }
   if (style.bold === true) normalized.bold = true;
   if (style.dim === true) normalized.dim = true;
@@ -721,7 +1116,7 @@ function styleVisibleOnSpace(style: CellStyle | undefined): boolean {
   return style.bg !== undefined || style.inverse === true || style.underline === true;
 }
 
-function styleToSgr(style: CellStyle | undefined): string {
+function styleToSgr(style: CellStyle | undefined, colorSupport: ColorSupport): string {
   if (!style) return "\u001b[0m";
 
   const codes: string[] = [];
@@ -731,8 +1126,26 @@ function styleToSgr(style: CellStyle | undefined): string {
   if (style.underline) codes.push("4");
   if (style.inverse) codes.push("7");
   if (style.strikethrough) codes.push("9");
-  if (style.fg) codes.push(`38;2;${clampByte(style.fg.r)};${clampByte(style.fg.g)};${clampByte(style.fg.b)}`);
-  if (style.bg) codes.push(`48;2;${clampByte(style.bg.r)};${clampByte(style.bg.g)};${clampByte(style.bg.b)}`);
+  if (colorSupport.level > 0) {
+    if (style.fg) {
+      if (colorSupport.level >= 3) {
+        codes.push(`38;2;${clampByte(style.fg.r)};${clampByte(style.fg.g)};${clampByte(style.fg.b)}`);
+      } else if (colorSupport.level === 2) {
+        codes.push(`38;5;${toAnsi256Code(style.fg)}`);
+      } else {
+        codes.push(String(toAnsi16Code(style.fg, false)));
+      }
+    }
+    if (style.bg) {
+      if (colorSupport.level >= 3) {
+        codes.push(`48;2;${clampByte(style.bg.r)};${clampByte(style.bg.g)};${clampByte(style.bg.b)}`);
+      } else if (colorSupport.level === 2) {
+        codes.push(`48;5;${toAnsi256Code(style.bg)}`);
+      } else {
+        codes.push(String(toAnsi16Code(style.bg, true)));
+      }
+    }
+  }
 
   if (codes.length === 0) return "\u001b[0m";
   // Always reset (0) before applying new attributes to prevent attribute
@@ -795,6 +1208,57 @@ function mergeCellStyles(
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
+type GraphemeSegmenter = {
+  segment: (input: string) => Iterable<{ segment: string }>;
+};
+
+const graphemeSegmenter: GraphemeSegmenter | undefined = (() => {
+  const maybeIntl = Intl as unknown as {
+    Segmenter?: new (
+      locales?: string | readonly string[],
+      options?: Readonly<{ granularity?: "grapheme" | "word" | "sentence" }>,
+    ) => GraphemeSegmenter;
+  };
+  if (typeof maybeIntl.Segmenter !== "function") return undefined;
+  return new maybeIntl.Segmenter(undefined, { granularity: "grapheme" });
+})();
+
+function forEachGraphemeCluster(
+  text: string,
+  visit: (cluster: string) => void,
+): void {
+  if (text.length === 0) return;
+  if (graphemeSegmenter) {
+    for (const item of graphemeSegmenter.segment(text)) {
+      const cluster = item.segment;
+      if (cluster.length > 0) visit(cluster);
+    }
+    return;
+  }
+
+  let cluster = "";
+  let joinWithNext = false;
+  for (const codePoint of text) {
+    const width = measureTextCells(codePoint);
+    if (cluster.length === 0) {
+      cluster = codePoint;
+      joinWithNext = codePoint === "\u200d";
+      continue;
+    }
+    if (joinWithNext || width <= 0 || codePoint === "\u200d") {
+      cluster += codePoint;
+      joinWithNext = codePoint === "\u200d";
+      continue;
+    }
+    visit(cluster);
+    cluster = codePoint;
+    joinWithNext = codePoint === "\u200d";
+  }
+  if (cluster.length > 0) {
+    visit(cluster);
+  }
+}
+
 function drawTextToCells(
   grid: StyledCell[][],
   viewport: ViewportSize,
@@ -807,9 +1271,9 @@ function drawTextToCells(
   if (y < 0 || y >= viewport.rows) return;
 
   let cursorX = x0;
-  for (const glyph of text) {
+  forEachGraphemeCluster(text, (glyph) => {
     const width = measureTextCells(glyph);
-    if (width <= 0) continue;
+    if (width <= 0) return;
 
     if (cursorX >= 0 && cursorX < viewport.cols && inClipStack(cursorX, y, clipStack)) {
       const row = grid[y];
@@ -824,16 +1288,19 @@ function drawTextToCells(
       if (fillX < 0 || fillX >= viewport.cols || !inClipStack(fillX, y, clipStack)) continue;
       const row = grid[y];
       if (row) {
-        const existing = row[fillX];
-        row[fillX] = { char: " ", style: mergeCellStyles(existing?.style, style) };
+        row[fillX] = { char: "", style: undefined };
       }
     }
 
     cursorX += width;
-  }
+  });
 }
 
-function renderOpsToAnsi(ops: readonly RenderOp[], viewport: ViewportSize): { ansi: string; grid: StyledCell[][] } {
+function renderOpsToAnsi(
+  ops: readonly RenderOp[],
+  viewport: ViewportSize,
+  colorSupport: ColorSupport,
+): { ansi: string; grid: StyledCell[][] } {
   const grid: StyledCell[][] = [];
   for (let rowIndex = 0; rowIndex < viewport.rows; rowIndex += 1) {
     const row: StyledCell[] = [];
@@ -851,6 +1318,12 @@ function renderOpsToAnsi(ops: readonly RenderOp[], viewport: ViewportSize): { an
       continue;
     }
     if (op.kind === "clearTo") {
+      // Use undefined style for clearTo so that "cleared" cells are
+      // transparent (no bg) — matching real Ink which has empty styles
+      // for unpainted cells.  The original DEFAULT_BASE_STYLE bg (from
+      // the core renderer) would make every cell "visible" to the line
+      // trimmer, producing an opaque dark background where Ink shows
+      // the terminal's own background.
       fillCells(
         grid,
         viewport,
@@ -859,7 +1332,7 @@ function renderOpsToAnsi(ops: readonly RenderOp[], viewport: ViewportSize): { an
         0,
         Math.max(0, Math.trunc(op.cols)),
         Math.max(0, Math.trunc(op.rows)),
-        normalizeStyle(op.style),
+        undefined,
       );
       continue;
     }
@@ -908,7 +1381,7 @@ function renderOpsToAnsi(ops: readonly RenderOp[], viewport: ViewportSize): { an
     let lastUsefulCol = -1;
     for (let index = 0; index < row.length; index += 1) {
       const cell = row[index]!;
-      if (cell.char !== " " || styleVisibleOnSpace(cell.style)) lastUsefulCol = index;
+      if ((cell.char !== "" && cell.char !== " ") || styleVisibleOnSpace(cell.style)) lastUsefulCol = index;
     }
 
     if (lastUsefulCol < 0) {
@@ -922,7 +1395,7 @@ function renderOpsToAnsi(ops: readonly RenderOp[], viewport: ViewportSize): { an
     for (let colIndex = 0; colIndex <= lastUsefulCol; colIndex += 1) {
       const cell = row[colIndex]!;
       if (!stylesEqual(activeStyle, cell.style)) {
-        line += styleToSgr(cell.style);
+        line += styleToSgr(cell.style, colorSupport);
         activeStyle = cell.style;
       }
       line += cell.char;
@@ -936,12 +1409,230 @@ function renderOpsToAnsi(ops: readonly RenderOp[], viewport: ViewportSize): { an
   return { ansi: lines.join("\n"), grid };
 }
 
-export function render(element: React.ReactElement, options: RenderOptions = {}): Instance {
+function asFiniteNumber(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  return value;
+}
+
+function resolvePercent(value: number, base: number): number {
+  return Math.max(0, Math.round((base * value) / 100));
+}
+
+type HostNodeWithLayout = InkHostNode & {
+  __inkLayout?: { x: number; y: number; w: number; h: number };
+};
+
+type FlexMainAxis = "row" | "column";
+
+interface PercentResolveContext {
+  parentSize: ViewportSize;
+  parentMainAxis: FlexMainAxis;
+}
+
+function readHostNode(value: unknown): HostNodeWithLayout | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const candidate = value as HostNodeWithLayout;
+  if (typeof candidate.type !== "string") return undefined;
+  return candidate;
+}
+
+function readHostParentSize(
+  hostNode: HostNodeWithLayout | undefined,
+  fallback: ViewportSize,
+): ViewportSize {
+  const parentLayout = hostNode?.parent
+    ? (hostNode.parent as HostNodeWithLayout).__inkLayout
+    : undefined;
+  if (!parentLayout) return fallback;
+  return {
+    cols: Math.max(0, Math.trunc(parentLayout.w)),
+    rows: Math.max(0, Math.trunc(parentLayout.h)),
+  };
+}
+
+function readHostMainAxis(hostNode: HostNodeWithLayout | null): FlexMainAxis | undefined {
+  if (!hostNode || hostNode.type !== "ink-box") return undefined;
+  const direction = hostNode.props["flexDirection"];
+  if (direction === "column" || direction === "column-reverse") return "column";
+  return "row";
+}
+
+function readNodeMainAxis(kind: unknown): FlexMainAxis {
+  if (kind === "row") return "row";
+  return "column";
+}
+
+function hasPercentMarkers(vnode: VNode): boolean {
+  if (typeof vnode !== "object" || vnode === null) return false;
+  const candidate = vnode as { props?: unknown; children?: unknown };
+  const props =
+    typeof candidate.props === "object" && candidate.props !== null
+      ? (candidate.props as Record<string, unknown>)
+      : undefined;
+
+  if (
+    props &&
+    (typeof props["__inkPercentWidth"] === "number" ||
+      typeof props["__inkPercentHeight"] === "number" ||
+      typeof props["__inkPercentMinWidth"] === "number" ||
+      typeof props["__inkPercentMinHeight"] === "number" ||
+      typeof props["__inkPercentFlexBasis"] === "number")
+  ) {
+    return true;
+  }
+
+  const children = Array.isArray(candidate.children) ? (candidate.children as VNode[]) : [];
+  for (const child of children) {
+    if (hasPercentMarkers(child)) return true;
+  }
+  return false;
+}
+
+function resolvePercentMarkers(vnode: VNode, context: PercentResolveContext): VNode {
+  if (typeof vnode !== "object" || vnode === null) {
+    return vnode;
+  }
+
+  const candidate = vnode as {
+    kind?: unknown;
+    props?: unknown;
+    children?: unknown;
+  };
+
+  const originalProps =
+    typeof candidate.props === "object" && candidate.props !== null
+      ? (candidate.props as Record<string, unknown>)
+      : {};
+  const nextProps: Record<string, unknown> = { ...originalProps };
+  const hostNode = readHostNode(originalProps["__inkHostNode"]);
+  const parentSize = readHostParentSize(hostNode, context.parentSize);
+  const parentMainAxis =
+    readHostMainAxis(hostNode?.parent ? (hostNode.parent as HostNodeWithLayout) : null) ??
+    context.parentMainAxis;
+
+  const percentWidth = asFiniteNumber(originalProps["__inkPercentWidth"]);
+  const percentHeight = asFiniteNumber(originalProps["__inkPercentHeight"]);
+  const percentMinWidth = asFiniteNumber(originalProps["__inkPercentMinWidth"]);
+  const percentMinHeight = asFiniteNumber(originalProps["__inkPercentMinHeight"]);
+  const percentFlexBasis = asFiniteNumber(originalProps["__inkPercentFlexBasis"]);
+
+  if (percentWidth != null) {
+    nextProps["width"] = resolvePercent(percentWidth, parentSize.cols);
+  }
+  if (percentHeight != null) {
+    nextProps["height"] = resolvePercent(percentHeight, parentSize.rows);
+  }
+  if (percentMinWidth != null) {
+    nextProps["minWidth"] = resolvePercent(percentMinWidth, parentSize.cols);
+  }
+  if (percentMinHeight != null) {
+    nextProps["minHeight"] = resolvePercent(percentMinHeight, parentSize.rows);
+  }
+
+  if (percentFlexBasis != null) {
+    const basisBase = parentMainAxis === "column" ? parentSize.rows : parentSize.cols;
+    nextProps["flexBasis"] = resolvePercent(percentFlexBasis, basisBase);
+  }
+
+  delete nextProps["__inkPercentWidth"];
+  delete nextProps["__inkPercentHeight"];
+  delete nextProps["__inkPercentMinWidth"];
+  delete nextProps["__inkPercentMinHeight"];
+  delete nextProps["__inkPercentFlexBasis"];
+
+  const localWidth = asFiniteNumber(nextProps["width"]);
+  const localHeight = asFiniteNumber(nextProps["height"]);
+
+  const nextParentSize: ViewportSize = {
+    cols: localWidth != null ? Math.max(0, Math.trunc(localWidth)) : parentSize.cols,
+    rows: localHeight != null ? Math.max(0, Math.trunc(localHeight)) : parentSize.rows,
+  };
+  const nextContext: PercentResolveContext = {
+    parentSize: nextParentSize,
+    parentMainAxis: readNodeMainAxis(candidate.kind),
+  };
+
+  const originalChildren = Array.isArray(candidate.children)
+    ? (candidate.children as VNode[])
+    : [];
+  const nextChildren = originalChildren.map((child) => resolvePercentMarkers(child, nextContext));
+
+  return {
+    ...(vnode as Record<string, unknown>),
+    props: nextProps,
+    children: nextChildren,
+  } as unknown as VNode;
+}
+
+function clearHostLayouts(container: InkHostContainer): void {
+  const stack: InkHostNode[] = [...container.children];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (!node) continue;
+    delete (node as HostNodeWithLayout).__inkLayout;
+    for (let index = node.children.length - 1; index >= 0; index -= 1) {
+      const child = node.children[index];
+      if (child) stack.push(child);
+    }
+  }
+}
+
+function assignHostLayouts(
+  nodes: readonly {
+    rect?: { x?: number; y?: number; w?: number; h?: number };
+    props?: Record<string, unknown>;
+  }[],
+): void {
+  for (const node of nodes) {
+    if (!node) continue;
+    const host = node.props?.["__inkHostNode"];
+    if (typeof host !== "object" || host === null) continue;
+    const hostNode = host as HostNodeWithLayout;
+    const rect = node.rect;
+    const x = rect?.x;
+    const y = rect?.y;
+    const w = rect?.w;
+    const h = rect?.h;
+    if (
+      typeof x !== "number" ||
+      !Number.isFinite(x) ||
+      typeof y !== "number" ||
+      !Number.isFinite(y) ||
+      typeof w !== "number" ||
+      !Number.isFinite(w) ||
+      typeof h !== "number" ||
+      !Number.isFinite(h)
+    ) {
+      continue;
+    }
+    hostNode.__inkLayout = {
+      x: Math.trunc(x),
+      y: Math.trunc(y),
+      w: Math.max(0, Math.trunc(w)),
+      h: Math.max(0, Math.trunc(h)),
+    };
+  }
+}
+
+function createRenderSession(element: React.ReactElement, options: RenderOptions = {}): Instance {
   const stdout = options.stdout ?? process.stdout;
   const stdin = options.stdin ?? process.stdin;
   const stderr = options.stderr ?? process.stderr;
   const fallbackStdout = process.stdout as Writable;
   const debug = options.debug ?? process.env["INK_COMPAT_DEBUG"] === "1";
+  const patchConsoleEnabled = options.patchConsole ?? true;
+  const incrementalRendering = options.incrementalRendering === true;
+  const isScreenReaderEnabled =
+    options.isScreenReaderEnabled ?? process.env["INK_SCREEN_READER"] === "true";
+  const maxFps = options.maxFps ?? 30;
+  const unthrottledRender = debug || isScreenReaderEnabled || maxFps <= 0;
+  const renderIntervalMs = maxFps > 0 ? Math.max(1, Math.ceil(1000 / maxFps)) : 0;
+  const colorSupport = detectColorSupport(stdout);
+
+  const kittyMode = options.kittyKeyboard?.mode ?? "disabled";
+  const kittyFlags = options.kittyKeyboard?.flags ?? ["disambiguateEscapeCodes"];
+  const kittyKeyboardEnabled = kittyMode !== "disabled";
+
   const traceFile = process.env["INK_COMPAT_TRACE_FILE"];
   const traceEnabled =
     debug || process.env["INK_COMPAT_TRACE"] === "1" || (traceFile != null && traceFile.length > 0);
@@ -987,6 +1678,8 @@ export function render(element: React.ReactElement, options: RenderOptions = {})
     stdin,
     stderr,
     ...(options.exitOnCtrlC === undefined ? {} : { exitOnCtrlC: options.exitOnCtrlC }),
+    isScreenReaderEnabled,
+    kittyKeyboard: kittyKeyboardEnabled,
   });
 
   const container = createReactRoot(bridge.rootNode, (err: unknown) => {
@@ -1029,20 +1722,32 @@ export function render(element: React.ReactElement, options: RenderOptions = {})
 
   let lastOutput = "";
   let lastStableOutput = "";
+  let lastOutputLines: string[] = [];
+  let lastOutputToRender = "";
+  let lastOutputRenderLineCount = 0;
+  let fullStaticOutput = "";
+  let pendingStaticOutput = "";
   let frameCount = 0;
   let usingAlternateBuffer = options.alternateBuffer === true;
   let cursorHidden = false;
   let writeBlocked = false;
-  let queuedOutput: string | null = null;
+  const queuedOutputs: RenderWritePayload[] = [];
   let drainListener: (() => void) | undefined;
-  let resizeTimer: NodeJS.Timeout | undefined;
-  const pendingResizeSources = new Set<string>();
+  let throttledRenderTimer: NodeJS.Timeout | undefined;
+  let pendingRender = false;
+  let pendingRenderForce = false;
+  let lastRenderAt = 0;
+  let rawModeRefCount = 0;
+  let rawModeActive = false;
+  let restoreConsole: (() => void) | undefined;
+  let signalCleanupAttached = false;
+  let kittyProtocolActive = false;
   const resizeTimeline: ResizeSignalRecord[] = [];
   let lastResizeSignalAt = 0;
   let lastResizeFlushAt = 0;
-  let lastWriteAt = Date.now();
   let compatWriteDepth = 0;
   let restoreStdoutWrite: (() => void) | undefined;
+  let lastCursorSignature = "hidden";
 
   const _s = debug
     ? writeErr
@@ -1066,7 +1771,7 @@ export function render(element: React.ReactElement, options: RenderOptions = {})
     `terminal colorDepth=${streamColorDepth} isTTY=${String((stdout as { isTTY?: unknown }).isTTY === true)} TERM=${process.env["TERM"] ?? ""} COLORTERM=${process.env["COLORTERM"] ?? ""} NO_COLOR=${process.env["NO_COLOR"] ?? ""} FORCE_COLOR=${process.env["FORCE_COLOR"] ?? ""}`,
   );
   trace(
-    `trace-config schema=2 enabled=${traceEnabled} detail=${traceDetail} detailFull=${traceDetailFull} allFrames=${traceAllFrames} ioWrites=${traceIoWrites} resizeVerbose=${traceResizeVerbose} tracePollEvery=${tracePollEvery} viewportPollMs=${viewportPollMs} idleRepaintMs=${idleRepaintMs} nodeLimit=${detailNodeLimit} opLimit=${detailOpLimit} jsonDepth=${TRACE_SUMMARY_MAX_DEPTH} jsonArrayLimit=${TRACE_SUMMARY_ARRAY_LIMIT} jsonObjectLimit=${TRACE_SUMMARY_OBJECT_LIMIT}`,
+    `trace-config schema=3 enabled=${traceEnabled} detail=${traceDetail} detailFull=${traceDetailFull} allFrames=${traceAllFrames} ioWrites=${traceIoWrites} resizeVerbose=${traceResizeVerbose} maxFps=${maxFps} unthrottled=${unthrottledRender} incremental=${incrementalRendering} patchConsole=${patchConsoleEnabled} screenReader=${isScreenReaderEnabled} kittyMode=${kittyMode} nodeLimit=${detailNodeLimit} opLimit=${detailOpLimit} jsonDepth=${TRACE_SUMMARY_MAX_DEPTH} jsonArrayLimit=${TRACE_SUMMARY_ARRAY_LIMIT} jsonObjectLimit=${TRACE_SUMMARY_OBJECT_LIMIT}`,
   );
 
   // Enable translation-layer tracing (propsToVNode border/color/dimension logs)
@@ -1076,6 +1781,14 @@ export function render(element: React.ReactElement, options: RenderOptions = {})
 
   if (usingAlternateBuffer) {
     stdout.write("\u001b[?1049h");
+  }
+  if (kittyKeyboardEnabled && ((stdout as { isTTY?: unknown }).isTTY === true)) {
+    const resolvedFlags = resolveKittyFlags(kittyFlags);
+    writeErr(
+      `[ink-compat] kitty keyboard protocol enabled (mode=${kittyMode}, flags=${resolvedFlags})\n`,
+    );
+    stdout.write(`\u001b[>${resolvedFlags}u`);
+    kittyProtocolActive = true;
   }
 
   const stdoutWithEvents = stdout as Writable & {
@@ -1161,66 +1874,242 @@ export function render(element: React.ReactElement, options: RenderOptions = {})
     }
   };
 
-  const writeOutput = (output: string): void => {
+  const toOutputToRender = (output: string): string => {
+    const outputHeight = countRenderedLines(output);
+    const isFullscreen = (stdout as { isTTY?: unknown }).isTTY === true && outputHeight >= viewport.rows;
+    return isFullscreen ? output : `${output}\n`;
+  };
+
+  const enqueueWritePayload = (payload: RenderWritePayload): void => {
+    if (queuedOutputs.length > 0) {
+      const lastIndex = queuedOutputs.length - 1;
+      const last = queuedOutputs[lastIndex]!;
+      if (payload.output.length === 0) {
+        queuedOutputs[lastIndex] = {
+          output: last.output,
+          staticOutput: `${last.staticOutput}${payload.staticOutput}`,
+        };
+      } else if (last.output === payload.output) {
+        queuedOutputs[lastIndex] = {
+          output: last.output,
+          staticOutput: `${last.staticOutput}${payload.staticOutput}`,
+        };
+      } else {
+        queuedOutputs.push(payload);
+      }
+    } else {
+      queuedOutputs.push(payload);
+    }
+
+    while (queuedOutputs.length > MAX_QUEUED_OUTPUTS) {
+      const dropped = queuedOutputs.shift();
+      if (!dropped || dropped.staticOutput.length === 0) continue;
+      if (queuedOutputs.length === 0) {
+        queuedOutputs.push({ output: "", staticOutput: dropped.staticOutput });
+      } else {
+        const first = queuedOutputs[0]!;
+        queuedOutputs[0] = {
+          output: first.output,
+          staticOutput: `${dropped.staticOutput}${first.staticOutput}`,
+        };
+      }
+    }
+  };
+
+  const writeOutput = (payload: RenderWritePayload): void => {
     if (writeBlocked) {
-      queuedOutput = output;
-      lastOutput = output;
-      if (output.length > 0) lastStableOutput = output;
+      enqueueWritePayload(payload);
+      lastOutput = payload.output;
+      if (payload.output.length > 0) lastStableOutput = payload.output;
+      const queuedTail = queuedOutputs[queuedOutputs.length - 1];
       trace(
-        `write queue blocked=true outputLen=${output.length} queuedLen=${queuedOutput.length} viewport=${viewport.cols}x${viewport.rows}`,
+        `write queue blocked=true outputLen=${payload.output.length} staticLen=${payload.staticOutput.length} queueDepth=${queuedOutputs.length} queuedLatestOutputLen=${queuedTail?.output.length ?? 0} queuedLatestStaticLen=${queuedTail?.staticOutput.length ?? 0} viewport=${viewport.cols}x${viewport.rows}`,
       );
       return;
     }
 
-    const writeOk = writeCompat(`\u001b[H\u001b[J${output}`);
-    lastWriteAt = Date.now();
-    lastOutput = output;
-    if (output.length > 0) {
-      lastStableOutput = output;
-    }
+    const hasStaticChannel = fullStaticOutput.length > 0 || payload.staticOutput.length > 0;
+
+    const syncCursorState = (): void => {
+      if (hasStaticChannel) {
+        hideCursor();
+        return;
+      }
+
+      const cursor = bridge.context.getCursorPosition();
+      if (!cursor) {
+        hideCursor();
+        return;
+      }
+
+      showCursor();
+      const row = Math.max(1, Math.min(viewport.rows, Math.trunc(cursor.y) + 1));
+      const col = Math.max(1, Math.min(viewport.cols, Math.trunc(cursor.x) + 1));
+      writeCompat(`\u001b[${row};${col}H`);
+    };
+
+    const writeIncrementalOutput = (nextOutput: string): boolean => {
+      const nextLines = nextOutput.length > 0 ? nextOutput.split("\n") : [];
+      const previousLines = lastOutputLines;
+      const maxLines = Math.max(previousLines.length, nextLines.length);
+
+      let incrementalPayload = "";
+      for (let index = 0; index < maxLines; index += 1) {
+        const prevLine = previousLines[index] ?? "";
+        const nextLine = nextLines[index] ?? "";
+        if (prevLine === nextLine) continue;
+        incrementalPayload += `\u001b[${index + 1};1H\u001b[2K${nextLine}`;
+      }
+
+      if (incrementalPayload.length === 0) {
+        lastOutputLines = nextLines;
+        syncCursorState();
+        return true;
+      }
+
+      const ok = writeCompat(incrementalPayload);
+      lastOutputLines = nextLines;
+      syncCursorState();
+      return ok;
+    };
+
+    const writeFullOutput = (nextOutput: string): boolean => {
+      const ok = writeCompat(`\u001b[H\u001b[J${nextOutput}`);
+      lastOutputLines = nextOutput.length > 0 ? nextOutput.split("\n") : [];
+      syncCursorState();
+      return ok;
+    };
+
+    const writeStaticChannelOutput = (
+      nextOutput: string,
+      nextStaticOutput: string,
+    ): boolean => {
+      let staticChannelPayload = "";
+
+      if (lastOutputRenderLineCount > 0) {
+        staticChannelPayload += eraseLines(lastOutputRenderLineCount);
+      } else if (fullStaticOutput.length === 0 && nextStaticOutput.length > 0) {
+        staticChannelPayload += "\u001b[H\u001b[J";
+      }
+
+      if (nextStaticOutput.length > 0) {
+        staticChannelPayload += nextStaticOutput;
+      }
+
+      // In static channel mode, don't add trailing \n via toOutputToRender.
+      // The static content + dynamic frame should fill exactly the viewport;
+      // an extra \n would push 1 line into scrollback on every frame.
+      staticChannelPayload += nextOutput;
+
+      const ok = staticChannelPayload.length > 0 ? writeCompat(staticChannelPayload) : true;
+      if (nextStaticOutput.length > 0) {
+        fullStaticOutput += nextStaticOutput;
+      }
+
+      lastOutputToRender = nextOutput;
+      lastOutputRenderLineCount = countRenderedLines(nextOutput);
+      lastOutputLines = nextOutput.length > 0 ? nextOutput.split("\n") : [];
+      hideCursor();
+      return ok;
+    };
+
+    const writeNow = hasStaticChannel
+      ? () => writeStaticChannelOutput(payload.output, payload.staticOutput)
+      : () =>
+          (incrementalRendering ? writeIncrementalOutput(payload.output) : writeFullOutput(payload.output));
+
+    const writeOk = writeNow();
+    lastOutput = payload.output;
+    if (payload.output.length > 0) lastStableOutput = payload.output;
 
     if (writeOk) return;
     if (drainListener) return;
 
     writeBlocked = true;
-    trace(`write blocked outputLen=${output.length} viewport=${viewport.cols}x${viewport.rows}`);
+    trace(
+      `write blocked outputLen=${payload.output.length} staticLen=${payload.staticOutput.length} viewport=${viewport.cols}x${viewport.rows}`,
+    );
     drainListener = () => {
       removeDrainListener();
       writeBlocked = false;
-
-      if (queuedOutput == null) return;
-      const next = queuedOutput;
-      queuedOutput = null;
-      trace(`write drain flush queuedLen=${next.length} viewport=${viewport.cols}x${viewport.rows}`);
-      writeOutput(next);
+      while (!writeBlocked && queuedOutputs.length > 0) {
+        const next = queuedOutputs.shift()!;
+        trace(
+          `write drain flush outputLen=${next.output.length} staticLen=${next.staticOutput.length} queueRemaining=${queuedOutputs.length} viewport=${viewport.cols}x${viewport.rows}`,
+        );
+        writeOutput(next);
+      }
     };
     stdoutWithEvents.on?.("drain", drainListener);
   };
 
-  const idleRepaintTimer =
-    idleRepaintMs > 0
-      ? setInterval(() => {
-          if (writeBlocked) return;
-          const payload = lastOutput.length > 0 ? lastOutput : lastStableOutput;
-          if (payload.length === 0) return;
-          if (Date.now() - lastWriteAt < idleRepaintMs) return;
-          trace(`idle repaint payloadLen=${payload.length} idleForMs=${Date.now() - lastWriteAt}`);
-          writeOutput(payload);
-        }, idleRepaintMs)
-      : undefined;
-  idleRepaintTimer?.unref?.();
+  const preserveUiAroundStreamWrite = (stream: Writable, data: string): void => {
+    if (data.length === 0) return;
+    if (debug) {
+      stream.write(data);
+      return;
+    }
 
-  const renderFrame = (force = false): void => {
-    // Skip non-forced renders while a resize timer is pending.
-    // The forced render at the end of the debounce will pick up all changes,
-    // preventing rapid clear+redraw cycles that cause visible flicker.
-    if (!force && resizeTimer !== undefined) {
-      if (traceEnabled) {
-        trace(`frame-skip resize-debounce-pending frameCount=${frameCount + 1}`);
+    if (fullStaticOutput.length > 0) {
+      if (lastOutputRenderLineCount > 0) {
+        writeCompat(eraseLines(lastOutputRenderLineCount));
+      }
+      stream.write(data);
+      if (lastOutputToRender.length > 0) {
+        writeCompat(lastOutputToRender);
       }
       return;
     }
 
+    if (incrementalRendering) {
+      writeCompat("\u001b[H");
+      for (let index = 0; index < lastOutputLines.length; index += 1) {
+        writeCompat(`\u001b[${index + 1};1H\u001b[2K`);
+      }
+      lastOutputLines = [];
+    } else {
+      writeCompat("\u001b[H\u001b[J");
+    }
+    stream.write(data);
+    if (lastOutput.length > 0) {
+      writeOutput({ output: lastOutput, staticOutput: "" });
+    }
+  };
+
+  bridge.context.writeStdout = (data: string) => {
+    preserveUiAroundStreamWrite(stdout, data);
+  };
+  bridge.context.writeStderr = (data: string) => {
+    preserveUiAroundStreamWrite(stderr, data);
+  };
+
+  const capturePendingStaticOutput = (): void => {
+    if (!bridge.hasStaticNodes()) return;
+
+    const translatedStatic = bridge.translateStaticToVNode();
+    const translatedStaticWithPercent = resolvePercentMarkers(translatedStatic, {
+      parentSize: viewport,
+      parentMainAxis: "column",
+    });
+    const staticResult = renderer.render(translatedStaticWithPercent, { viewport });
+    const staticHasAnsiSgr = hostTreeContainsAnsiSgr(bridge.rootNode);
+    const staticColorSupport = staticHasAnsiSgr ? FORCED_TRUECOLOR_SUPPORT : colorSupport;
+    const { ansi: staticAnsi } = renderOpsToAnsi(
+      staticResult.ops as readonly RenderOp[],
+      viewport,
+      staticColorSupport,
+    );
+    const staticTrimmed = trimAnsiToNonBlankBlock(staticAnsi);
+
+    trace(
+      `staticCapture viewport=${viewport.cols}x${viewport.rows} hasAnsiSgr=${staticHasAnsiSgr} baseColorLevel=${colorSupport.level} effectiveColorLevel=${staticColorSupport.level} rawLines=${staticAnsi.split("\n").length} trimmedLines=${staticTrimmed.split("\n").length}`,
+    );
+
+    if (staticTrimmed.length === 0) return;
+    pendingStaticOutput += `${staticTrimmed}\n`;
+  };
+
+  const renderFrame = (force = false): void => {
     const frameStartedAt = Date.now();
     frameCount++;
     try {
@@ -1232,25 +2121,68 @@ export function render(element: React.ReactElement, options: RenderOptions = {})
         viewport = nextViewport;
       }
 
-      const translated = bridge.translateToVNode();
-      const translationTraceEntries = traceEnabled ? flushTranslationTrace() : [];
-      const { vnode, coerced: rootHeightCoerced } = coerceRootViewportHeight(translated, viewport);
-      const result = renderer.render(vnode, { viewport });
-      const { ansi: output, grid: cellGrid } = renderOpsToAnsi(result.ops as readonly RenderOp[], viewport);
-      const outputShape = summarizeOutputShape(output);
-      const emptyOutputFrame = outputShape.nonBlankLines === 0;
-      const rootChildCount = bridge.rootNode.children.length;
-      const msSinceResizeSignal =
-        lastResizeSignalAt > 0 ? frameNow - lastResizeSignalAt : Number.POSITIVE_INFINITY;
-      const msSinceResizeFlush =
-        lastResizeFlushAt > 0 ? frameNow - lastResizeFlushAt : Number.POSITIVE_INFINITY;
-      const transientEmptyAfterResize =
-        !force &&
-        emptyOutputFrame &&
-        rootChildCount === 0 &&
-        lastStableOutput.length > 0 &&
-        msSinceResizeFlush <= 2000;
+      const translatedDynamic = bridge.translateDynamicToVNode();
+      const hasDynamicPercentMarkers = hasPercentMarkers(translatedDynamic);
 
+      // In static-channel mode, static output is rendered above the dynamic
+      // frame, so dynamic layout works inside the remaining rows.
+      const combinedStatic = fullStaticOutput + pendingStaticOutput;
+      const staticRowsUsed = combinedStatic.length > 0
+        ? (combinedStatic.match(/\n/g)?.length ?? 0)
+        : 0;
+      const fullStaticRows = fullStaticOutput.length > 0
+        ? (fullStaticOutput.match(/\n/g)?.length ?? 0)
+        : 0;
+      const pendingStaticRows = pendingStaticOutput.length > 0
+        ? (pendingStaticOutput.match(/\n/g)?.length ?? 0)
+        : 0;
+      const layoutViewport: ViewportSize = staticRowsUsed > 0
+        ? { cols: viewport.cols, rows: Math.max(1, viewport.rows - staticRowsUsed) }
+        : viewport;
+
+      let translatedDynamicWithPercent = resolvePercentMarkers(translatedDynamic, {
+        parentSize: layoutViewport,
+        parentMainAxis: "column",
+      });
+      const translationTraceEntries = traceEnabled ? flushTranslationTrace() : [];
+      let vnode: VNode;
+      let rootHeightCoerced: boolean;
+
+      const coerced = coerceRootViewportHeight(
+        translatedDynamicWithPercent,
+        layoutViewport,
+      );
+      vnode = coerced.vnode;
+      rootHeightCoerced = coerced.coerced;
+      let result = renderer.render(vnode, { viewport: layoutViewport });
+      clearHostLayouts(bridge.rootNode);
+      assignHostLayouts(
+        result.nodes as readonly {
+          rect?: { x?: number; y?: number; w?: number; h?: number };
+          props?: Record<string, unknown>;
+        }[],
+      );
+      if (hasDynamicPercentMarkers) {
+        translatedDynamicWithPercent = resolvePercentMarkers(translatedDynamic, {
+          parentSize: layoutViewport,
+          parentMainAxis: "column",
+        });
+        const secondPass = coerceRootViewportHeight(translatedDynamicWithPercent, layoutViewport);
+        vnode = secondPass.vnode;
+        rootHeightCoerced = rootHeightCoerced || secondPass.coerced;
+        result = renderer.render(vnode, { viewport: layoutViewport });
+        clearHostLayouts(bridge.rootNode);
+        assignHostLayouts(
+          result.nodes as readonly {
+            rect?: { x?: number; y?: number; w?: number; h?: number };
+            props?: Record<string, unknown>;
+          }[],
+        );
+      }
+      checkAllResizeObservers();
+
+      // Compute maxRectBottom from layout result — needed to size the ANSI
+      // grid correctly in non-alternate-buffer mode.
       let minRectY = Number.POSITIVE_INFINITY;
       let maxRectBottom = 0;
       let zeroHeightRects = 0;
@@ -1264,6 +2196,42 @@ export function render(element: React.ReactElement, options: RenderOptions = {})
         maxRectBottom = Math.max(maxRectBottom, y + h);
         if (h === 0) zeroHeightRects += 1;
       }
+
+      // Keep non-alt output content-sized by using computed layout height.
+      // When root coercion applies (overflow hidden/scroll), maxRectBottom
+      // naturally expands to layoutViewport.rows and preserves footer anchoring.
+      const gridViewport: ViewportSize = usingAlternateBuffer
+        ? layoutViewport
+        : { cols: layoutViewport.cols, rows: Math.max(1, maxRectBottom) };
+
+      const frameHasAnsiSgr = hostTreeContainsAnsiSgr(bridge.rootNode);
+      const frameColorSupport = frameHasAnsiSgr ? FORCED_TRUECOLOR_SUPPORT : colorSupport;
+      const { ansi: rawAnsiOutput, grid: cellGrid } = renderOpsToAnsi(
+        result.ops as readonly RenderOp[],
+        gridViewport,
+        frameColorSupport,
+      );
+
+      // In alternate-buffer mode the output fills the full layoutViewport.
+      // In non-alternate-buffer mode the grid is content-sized so the
+      // output is only maxRectBottom lines — matching real Ink behaviour.
+      const output = rawAnsiOutput;
+
+      const staticOutput = pendingStaticOutput;
+      pendingStaticOutput = "";
+      const outputShape = summarizeOutputShape(output);
+      const emptyOutputFrame = outputShape.nonBlankLines === 0;
+      const rootChildCount = bridge.rootNode.children.length;
+      const msSinceResizeSignal =
+        lastResizeSignalAt > 0 ? frameNow - lastResizeSignalAt : Number.POSITIVE_INFINITY;
+      const msSinceResizeFlush =
+        lastResizeFlushAt > 0 ? frameNow - lastResizeFlushAt : Number.POSITIVE_INFINITY;
+      const transientEmptyAfterResize =
+        !force &&
+        emptyOutputFrame &&
+        rootChildCount === 0 &&
+        lastStableOutput.length > 0 &&
+        msSinceResizeFlush <= 2000;
 
       if (debug && frameCount <= 5) {
         _s(
@@ -1296,9 +2264,17 @@ export function render(element: React.ReactElement, options: RenderOptions = {})
           typeof vnodeProps["overflow"] === "string" ? (vnodeProps["overflow"] as string) : "";
         const translatedScrollY = toNumber(vnodeProps["scrollY"]) ?? -1;
         const translatedScrollX = toNumber(vnodeProps["scrollX"]) ?? -1;
+        const opViewportOverflows = snapshotOpsOutsideViewport(
+          result.ops as readonly RenderOp[],
+          gridViewport,
+          24,
+        );
 
         trace(
-          `frame#${frameCount} force=${force} viewport=${viewport.cols}x${viewport.rows} viewportChanged=${viewportChanged} renderTimeMs=${Date.now() - frameStartedAt} outputLen=${output.length} nonBlank=${outputShape.nonBlankLines}/${outputShape.lines} first=${outputShape.firstNonBlankLine} last=${outputShape.lastNonBlankLine} widest=${outputShape.widestLine} ops=${result.ops.length} nodes=${result.nodes.length} minY=${Number.isFinite(minRectY) ? minRectY : -1} maxBottom=${maxRectBottom} zeroH=${zeroHeightRects} hostNodes=${host.nodeCount} hostBoxes=${host.boxCount} hostScrollNodes=${host.scrollNodeCount} hostMaxScrollTop=${host.maxScrollTop} hostMaxScrollLeft=${host.maxScrollLeft} hostRootScrollTop=${host.rootScrollTop} hostRootOverflow=${host.rootOverflow || "none"} hostRootWidth=${host.rootWidthProp || "unset"} hostRootHeight=${host.rootHeightProp || "unset"} hostRootFlexGrow=${host.rootFlexGrowProp || "unset"} hostRootFlexShrink=${host.rootFlexShrinkProp || "unset"} rootChildren=${rootChildCount} msSinceResizeSignal=${Number.isFinite(msSinceResizeSignal) ? msSinceResizeSignal : -1} msSinceResizeFlush=${Number.isFinite(msSinceResizeFlush) ? msSinceResizeFlush : -1} transientEmptyAfterResize=${transientEmptyAfterResize} vnode=${vnodeKind} vnodeOverflow=${translatedOverflow || "none"} vnodeScrollY=${translatedScrollY} vnodeScrollX=${translatedScrollX} rootHeightCoerced=${rootHeightCoerced} writeBlocked=${writeBlocked} collapsed=${collapsed}`,
+          `frame#${frameCount} force=${force} viewport=${viewport.cols}x${viewport.rows} layoutViewport=${layoutViewport.cols}x${layoutViewport.rows} gridViewport=${gridViewport.cols}x${gridViewport.rows} staticRowsUsed=${staticRowsUsed} staticRowsFull=${fullStaticRows} staticRowsPending=${pendingStaticRows} viewportChanged=${viewportChanged} renderTimeMs=${Date.now() - frameStartedAt} outputLen=${output.length} nonBlank=${outputShape.nonBlankLines}/${outputShape.lines} first=${outputShape.firstNonBlankLine} last=${outputShape.lastNonBlankLine} widest=${outputShape.widestLine} ops=${result.ops.length} nodes=${result.nodes.length} minY=${Number.isFinite(minRectY) ? minRectY : -1} maxBottom=${maxRectBottom} zeroH=${zeroHeightRects} hostNodes=${host.nodeCount} hostBoxes=${host.boxCount} hostScrollNodes=${host.scrollNodeCount} hostMaxScrollTop=${host.maxScrollTop} hostMaxScrollLeft=${host.maxScrollLeft} hostRootScrollTop=${host.rootScrollTop} hostRootOverflow=${host.rootOverflow || "none"} hostRootWidth=${host.rootWidthProp || "unset"} hostRootHeight=${host.rootHeightProp || "unset"} hostRootFlexGrow=${host.rootFlexGrowProp || "unset"} hostRootFlexShrink=${host.rootFlexShrinkProp || "unset"} rootChildren=${rootChildCount} msSinceResizeSignal=${Number.isFinite(msSinceResizeSignal) ? msSinceResizeSignal : -1} msSinceResizeFlush=${Number.isFinite(msSinceResizeFlush) ? msSinceResizeFlush : -1} transientEmptyAfterResize=${transientEmptyAfterResize} vnode=${vnodeKind} vnodeOverflow=${translatedOverflow || "none"} vnodeScrollY=${translatedScrollY} vnodeScrollX=${translatedScrollX} rootHeightCoerced=${rootHeightCoerced} writeBlocked=${writeBlocked} collapsed=${collapsed} opViewportOverflowCount=${opViewportOverflows.length}`,
+        );
+        trace(
+          `frame#${frameCount} colorSupport baseLevel=${colorSupport.level} baseNoColor=${colorSupport.noColor} hasAnsiSgr=${frameHasAnsiSgr} effectiveLevel=${frameColorSupport.level} effectiveNoColor=${frameColorSupport.noColor}`,
         );
 
         if (traceDetail) {
@@ -1321,6 +2297,9 @@ export function render(element: React.ReactElement, options: RenderOptions = {})
           trace(
             `frame#${frameCount} resizeTimeline=${formatResizeTimeline(resizeTimeline, traceStartAt, detailResizeLimit)}`,
           );
+          if (opViewportOverflows.length > 0) {
+            trace(`frame#${frameCount} opViewportOverflows=${safeJson(opViewportOverflows)}`);
+          }
 
           // ─── Deep diagnostics: VNode tree, cell grid rows, translation trace ───
           if (traceDetailFull) {
@@ -1335,7 +2314,7 @@ export function render(element: React.ReactElement, options: RenderOptions = {})
               for (let c = 0; c < row.length; c++) {
                 const cell = row[c];
                 if (!cell) continue;
-                if (cell.char !== " " || styleVisibleOnSpace(cell.style)) {
+                if ((cell.char !== "" && cell.char !== " ") || styleVisibleOnSpace(cell.style)) {
                   nonBlankRows.push(r);
                   break;
                 }
@@ -1347,12 +2326,14 @@ export function render(element: React.ReactElement, options: RenderOptions = {})
             const rowsToSnapshot = nonBlankRows.slice(0, 40);
             trace(`frame#${frameCount} cellGridSnapshot=${safeJson(snapshotCellGridRows(cellGrid, rowsToSnapshot, 120))}`);
 
-            // Translation trace entries (border translations, color parses, dimension skips)
+            // Translation trace entries (border translations, color parses, dimension skips, forced-flex compat)
             if (translationTraceEntries.length > 0) {
               // Group by kind for readability
               const borderTraces = translationTraceEntries.filter((e) => e.kind === "border-translate");
               const colorTraces = translationTraceEntries.filter((e) => e.kind === "color-parse");
               const dimSkipTraces = translationTraceEntries.filter((e) => e.kind === "dimension-skip");
+              const forcedFlexTraces = translationTraceEntries.filter((e) => e.kind === "forced-flex-compat");
+              const flexGrowSkipTraces = translationTraceEntries.filter((e) => e.kind === "flex-grow-skip");
               if (borderTraces.length > 0) {
                 trace(`frame#${frameCount} borderTranslations=${safeJson(borderTraces.slice(0, 30))}`);
               }
@@ -1369,6 +2350,12 @@ export function render(element: React.ReactElement, options: RenderOptions = {})
               }
               if (dimSkipTraces.length > 0) {
                 trace(`frame#${frameCount} dimensionSkips=${safeJson(dimSkipTraces.slice(0, 20))}`);
+              }
+              if (forcedFlexTraces.length > 0) {
+                trace(`frame#${frameCount} forcedFlexCompat=${safeJson(forcedFlexTraces.slice(0, 40))}`);
+              }
+              if (flexGrowSkipTraces.length > 0) {
+                trace(`frame#${frameCount} flexGrowSkips=${safeJson(flexGrowSkipTraces.slice(0, 40))}`);
               }
             }
 
@@ -1387,9 +2374,17 @@ export function render(element: React.ReactElement, options: RenderOptions = {})
       }
 
       const renderTime = Date.now() - frameStartedAt;
-      options.onRender?.({ renderTime, output });
+      options.onRender?.({ renderTime, output, ...(staticOutput.length > 0 ? { staticOutput } : {}) });
 
-      if (!force && output === lastOutput && !viewportChanged) return;
+      const cursorPosition = bridge.context.getCursorPosition();
+      const cursorSignature = cursorPosition
+        ? `${Math.trunc(cursorPosition.x)},${Math.trunc(cursorPosition.y)}`
+        : "hidden";
+      const cursorChanged = cursorSignature !== lastCursorSignature;
+
+      if (!force && output === lastOutput && staticOutput.length === 0 && !viewportChanged && !cursorChanged) {
+        return;
+      }
 
       if (transientEmptyAfterResize) {
         _s("[ink-compat] transient empty frame after resize; preserving previous output\n");
@@ -1399,7 +2394,7 @@ export function render(element: React.ReactElement, options: RenderOptions = {})
         return;
       }
 
-      if (force && emptyOutputFrame && lastStableOutput.length > 0) {
+      if (force && emptyOutputFrame && staticOutput.length === 0 && lastStableOutput.length > 0) {
         _s("[ink-compat] resize produced an empty frame; preserving previous output\n");
         trace(
           `frame#${frameCount} preserve-last-stable force=true outputLen=${output.length} nonBlank=${outputShape.nonBlankLines} stableLen=${lastStableOutput.length}`,
@@ -1407,19 +2402,56 @@ export function render(element: React.ReactElement, options: RenderOptions = {})
         return;
       }
 
-      writeOutput(output);
+      writeOutput({ output, staticOutput });
+      lastCursorSignature = cursorSignature;
     } catch (err) {
       _s(
         `[ink-compat] renderFrame error: ${err instanceof Error ? err.stack ?? err.message : String(err)}\n`,
       );
       trace(`renderFrame error frame#${frameCount}: ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
       if (force && lastStableOutput.length > 0) {
-        writeOutput(lastStableOutput);
+        writeOutput({ output: lastStableOutput, staticOutput: "" });
       }
     }
   };
 
-  bridge.rootNode.onCommit = renderFrame;
+  const flushScheduledRender = (): void => {
+    throttledRenderTimer = undefined;
+    if (!pendingRender) return;
+    const force = pendingRenderForce;
+    pendingRender = false;
+    pendingRenderForce = false;
+    lastRenderAt = Date.now();
+    renderFrame(force);
+    if (pendingRender) {
+      scheduleRender(pendingRenderForce);
+    }
+  };
+
+  const scheduleRender = (force = false): void => {
+    pendingRender = true;
+    if (force) pendingRenderForce = true;
+
+    if (unthrottledRender) {
+      const nextForce = pendingRenderForce;
+      pendingRender = false;
+      pendingRenderForce = false;
+      lastRenderAt = Date.now();
+      renderFrame(nextForce);
+      return;
+    }
+
+    if (throttledRenderTimer !== undefined) return;
+    const elapsed = Date.now() - lastRenderAt;
+    const waitMs = Math.max(0, renderIntervalMs - elapsed);
+    throttledRenderTimer = setTimeout(flushScheduledRender, waitMs);
+    throttledRenderTimer.unref?.();
+  };
+
+  bridge.rootNode.onCommit = () => {
+    capturePendingStaticOutput();
+    scheduleRender(false);
+  };
 
   let currentElement = element;
 
@@ -1437,192 +2469,111 @@ export function render(element: React.ReactElement, options: RenderOptions = {})
     }
   };
 
-  // Wire up rerender in context so useApp().rerender() works
-  bridge.context.rerender = () => {
-    doRender(React.cloneElement(currentElement));
-  };
-
-  doRender(element);
-  renderFrame();
-
-  const onData = (data: Buffer | string): void => {
-    bridge.simulateInput(typeof data === "string" ? data : data.toString("utf-8"));
-  };
-
   const stdinWithRaw = stdin as Readable & {
     setRawMode?: (enabled: boolean) => void;
     resume?: () => void;
     pause?: () => void;
+    on?: (event: string, listener: (chunk: Buffer | string) => void) => void;
+    off?: (event: string, listener: (chunk: Buffer | string) => void) => void;
+    removeListener?: (event: string, listener: (chunk: Buffer | string) => void) => void;
   };
 
-  if (typeof stdinWithRaw.setRawMode === "function") {
-    stdinWithRaw.setRawMode(true);
-    stdinWithRaw.resume?.();
-    stdin.on("data", onData);
-  }
+  const applyRawMode = (enabled: boolean): void => {
+    if (typeof stdinWithRaw.setRawMode !== "function") return;
+    if (rawModeActive === enabled) return;
+    rawModeActive = enabled;
+    stdinWithRaw.setRawMode(enabled);
+    if (enabled) {
+      stdinWithRaw.resume?.();
+    } else {
+      stdinWithRaw.pause?.();
+    }
+  };
+
+  bridge.context.setRawMode = (enabled: boolean) => {
+    rawModeRefCount += enabled ? 1 : -1;
+    if (rawModeRefCount < 0) rawModeRefCount = 0;
+    applyRawMode(rawModeRefCount > 0);
+  };
+
+  const onData = (data: Buffer | string): void => {
+    bridge.simulateInput(typeof data === "string" ? data : data.toString("utf-8"));
+  };
+  stdinWithRaw.on?.("data", onData);
+  stdinWithRaw.resume?.();
+
+  bridge.context.rerender = () => {
+    doRender(React.cloneElement(currentElement));
+  };
 
   const scheduleResize = (source: string): void => {
-    const observed = readViewportSize(stdout, fallbackStdout);
-    const signalAt = Date.now();
-    lastResizeSignalAt = signalAt;
+    const latest = readViewportSize(stdout, fallbackStdout);
+    const now = Date.now();
+    lastResizeSignalAt = now;
     resizeTimeline.push({
-      at: signalAt,
+      at: now,
       phase: "signal",
       source,
-      viewport: observed,
+      viewport: latest,
     });
     if (resizeTimeline.length > 5000) {
       resizeTimeline.splice(0, resizeTimeline.length - 5000);
     }
-    if (traceDetail || traceResizeVerbose) {
+
+    const changed = latest.cols !== viewport.cols || latest.rows !== viewport.rows;
+    if (!changed) return;
+
+    viewport = latest;
+    const flushAt = Date.now();
+    lastResizeFlushAt = flushAt;
+    resizeTimeline.push({
+      at: flushAt,
+      phase: "flush",
+      source,
+      viewport: latest,
+    });
+    if (resizeTimeline.length > 5000) {
+      resizeTimeline.splice(0, resizeTimeline.length - 5000);
+    }
+    if (traceResizeVerbose) {
       trace(
-        `resize signal source=${source} observed=${observed.cols}x${observed.rows} pending=${pendingResizeSources.size + 1}`,
+        `resize source=${source} viewport=${latest.cols}x${latest.rows} timeline=${formatResizeTimeline(resizeTimeline, traceStartAt, detailResizeLimit)}`,
       );
     }
-
-    pendingResizeSources.add(source);
-    if (resizeTimer !== undefined) return;
-    resizeTimer = setTimeout(() => {
-      resizeTimer = undefined;
-      const sourceList = [...pendingResizeSources].join(",");
-      pendingResizeSources.clear();
-
-      const previousViewport = viewport;
-      const latest = readViewportSize(stdout, fallbackStdout);
-      const flushAt = Date.now();
-      lastResizeFlushAt = flushAt;
-      resizeTimeline.push({
-        at: flushAt,
-        phase: "flush",
-        source: sourceList || "unknown",
-        viewport: latest,
-      });
-      if (resizeTimeline.length > 5000) {
-        resizeTimeline.splice(0, resizeTimeline.length - 5000);
-      }
-      trace(
-        `resize flush sources=${sourceList || "unknown"} previous=${previousViewport.cols}x${previousViewport.rows} latest=${latest.cols}x${latest.rows} stdout={${describeStreamSize(stdout)}} fallback={${describeStreamSize(fallbackStdout)}}`,
-      );
-      if (traceDetail || traceResizeVerbose) {
-        trace(
-          `resize timeline now=${formatResizeTimeline(resizeTimeline, traceStartAt, detailResizeLimit)}`,
-        );
-      }
-
-      if (latest.cols === previousViewport.cols && latest.rows === previousViewport.rows) return;
-      viewport = latest;
-      renderFrame(true);
-    }, 16);
-    resizeTimer.unref?.();
+    scheduleRender(true);
   };
 
   const onStdoutResize = (): void => {
-    if (traceResizeVerbose) {
-      trace(
-        `resize event source=stdout.resize viewport=${viewport.cols}x${viewport.rows} stdout={${describeStreamSize(stdout)}} fallback={${describeStreamSize(fallbackStdout)}}`,
-      );
-    }
     scheduleResize("stdout.resize");
   };
   const onFallbackResize = (): void => {
-    if (traceResizeVerbose) {
-      trace(
-        `resize event source=fallback.resize viewport=${viewport.cols}x${viewport.rows} stdout={${describeStreamSize(stdout)}} fallback={${describeStreamSize(fallbackStdout)}}`,
-      );
-    }
     scheduleResize("fallback.resize");
+  };
+  const onSigWinch = (): void => {
+    scheduleResize("sigwinch");
   };
 
   stdoutWithEvents.on?.("resize", onStdoutResize);
   if (fallbackStdout !== stdout) {
     fallbackStdoutWithEvents.on?.("resize", onFallbackResize);
   }
-
-  const onSigWinch = (): void => {
-    if (traceResizeVerbose) {
-      trace(
-        `resize event source=sigwinch viewport=${viewport.cols}x${viewport.rows} stdout={${describeStreamSize(stdout)}} fallback={${describeStreamSize(fallbackStdout)}}`,
-      );
-    }
-    scheduleResize("sigwinch");
-  };
   process.on("SIGWINCH", onSigWinch);
 
-  if (traceEnabled) {
-    trace(
-      `resize-hooks attached stdoutListenerCount=${listenerCount(stdoutWithEvents, "resize")} fallbackListenerCount=${listenerCount(fallbackStdoutWithEvents, "resize")} sigwinchListenerCount=${process.listenerCount("SIGWINCH")} stdoutEqFallback=${stdout === fallbackStdout}`,
-    );
-  }
-
-  let pollTick = 0;
-  let lastStdoutSignature = describeStreamSize(stdout);
-  let lastFallbackSignature = describeStreamSize(fallbackStdout);
   const viewportPoll = setInterval(() => {
-    pollTick += 1;
     const latest = readViewportSize(stdout, fallbackStdout);
-    const stdoutSignature = describeStreamSize(stdout);
-    const fallbackSignature = describeStreamSize(fallbackStdout);
-    const streamSignatureChanged =
-      stdoutSignature !== lastStdoutSignature || fallbackSignature !== lastFallbackSignature;
-    const viewportChanged = latest.cols !== viewport.cols || latest.rows !== viewport.rows;
-
-    if (streamSignatureChanged) {
-      trace(
-        `poll stream-signature changed tick=${pollTick} stdout={${stdoutSignature}} fallback={${fallbackSignature}} current=${viewport.cols}x${viewport.rows} latest=${latest.cols}x${latest.rows}`,
-      );
-      lastStdoutSignature = stdoutSignature;
-      lastFallbackSignature = fallbackSignature;
-    }
-
-    if (traceResizeVerbose && (streamSignatureChanged || pollTick % tracePollEvery === 0 || viewportChanged)) {
-      trace(
-        `poll tick=${pollTick} current=${viewport.cols}x${viewport.rows} latest=${latest.cols}x${latest.rows} changed=${viewportChanged} stdout={${stdoutSignature}} fallback={${fallbackSignature}}`,
-      );
-    }
-
-    if (viewportChanged) {
-      if (traceResizeVerbose) {
-        trace(
-          `poll detected viewport drift previous=${viewport.cols}x${viewport.rows} latest=${latest.cols}x${latest.rows}`,
-        );
-      }
+    if (latest.cols !== viewport.cols || latest.rows !== viewport.rows) {
       scheduleResize("poll");
     }
   }, viewportPollMs);
   viewportPoll.unref?.();
 
-  const removeResize = (): void => {
-    if (typeof stdoutWithEvents.off === "function") {
-      stdoutWithEvents.off("resize", onStdoutResize);
-    } else {
-      stdoutWithEvents.removeListener?.("resize", onStdoutResize);
+  const restoreRawMode = (): void => {
+    rawModeRefCount = 0;
+    if (typeof stdinWithRaw.setRawMode === "function" && rawModeActive) {
+      stdinWithRaw.setRawMode(false);
     }
-
-    if (fallbackStdout !== stdout) {
-      if (typeof fallbackStdoutWithEvents.off === "function") {
-        fallbackStdoutWithEvents.off("resize", onFallbackResize);
-      } else {
-        fallbackStdoutWithEvents.removeListener?.("resize", onFallbackResize);
-      }
-    }
-
-    process.off("SIGWINCH", onSigWinch);
-    clearInterval(viewportPoll);
-    if (idleRepaintTimer !== undefined) {
-      clearInterval(idleRepaintTimer);
-    }
-    if (resizeTimer !== undefined) {
-      clearTimeout(resizeTimer);
-      resizeTimer = undefined;
-    }
-    removeDrainListener();
-    restoreStdoutWrite?.();
-    restoreStdoutWrite = undefined;
-  };
-
-  const removeData = (): void => {
-    stdin.off?.("data", onData);
-    stdin.removeListener?.("data", onData);
+    rawModeActive = false;
+    stdinWithRaw.pause?.();
   };
 
   const leaveAlternateBuffer = (): void => {
@@ -1631,30 +2582,231 @@ export function render(element: React.ReactElement, options: RenderOptions = {})
     writeCompat("\u001b[?1049l");
   };
 
+  const disableKittyProtocol = (): void => {
+    if (!kittyProtocolActive) return;
+    kittyProtocolActive = false;
+    writeCompat("\u001b[<u");
+  };
+
+  const removeResize = (): void => {
+    if (typeof stdoutWithEvents.off === "function") {
+      stdoutWithEvents.off("resize", onStdoutResize);
+    } else {
+      stdoutWithEvents.removeListener?.("resize", onStdoutResize);
+    }
+    if (fallbackStdout !== stdout) {
+      if (typeof fallbackStdoutWithEvents.off === "function") {
+        fallbackStdoutWithEvents.off("resize", onFallbackResize);
+      } else {
+        fallbackStdoutWithEvents.removeListener?.("resize", onFallbackResize);
+      }
+    }
+    process.off("SIGWINCH", onSigWinch);
+    clearInterval(viewportPoll);
+    if (throttledRenderTimer !== undefined) {
+      clearTimeout(throttledRenderTimer);
+      throttledRenderTimer = undefined;
+    }
+    removeDrainListener();
+    restoreStdoutWrite?.();
+    restoreStdoutWrite = undefined;
+  };
+
+  const removeData = (): void => {
+    stdinWithRaw.off?.("data", onData);
+    stdinWithRaw.removeListener?.("data", onData);
+  };
+
+  const signalCleanup = (): void => {
+    if (!signalCleanupAttached) return;
+    signalCleanupAttached = false;
+    process.off("SIGINT", signalHandler);
+    process.off("SIGTERM", signalHandler);
+    process.off("beforeExit", signalHandler);
+  };
+
+  const signalHandler = (): void => {
+    cleanup(false);
+  };
+
+  if (!signalCleanupAttached) {
+    signalCleanupAttached = true;
+    process.on("SIGINT", signalHandler);
+    process.on("SIGTERM", signalHandler);
+    process.on("beforeExit", signalHandler);
+  }
+
+  if (patchConsoleEnabled && !debug) {
+    const original = {
+      log: console.log,
+      info: console.info,
+      warn: console.warn,
+      error: console.error,
+    };
+    console.log = (...args: unknown[]) => {
+      bridge.context.writeStdout(`${formatConsoleMessage(...args)}\n`);
+    };
+    console.info = (...args: unknown[]) => {
+      bridge.context.writeStdout(`${formatConsoleMessage(...args)}\n`);
+    };
+    console.warn = (...args: unknown[]) => {
+      bridge.context.writeStderr(`${formatConsoleMessage(...args)}\n`);
+    };
+    console.error = (...args: unknown[]) => {
+      bridge.context.writeStderr(`${formatConsoleMessage(...args)}\n`);
+    };
+    restoreConsole = () => {
+      console.log = original.log;
+      console.info = original.info;
+      console.warn = original.warn;
+      console.error = original.error;
+    };
+  }
+
+  doRender(element);
+  pendingRender = false;
+  pendingRenderForce = false;
+  renderFrame(true);
+  lastRenderAt = Date.now();
+
+  let cleanedUp = false;
+  function cleanup(unmountTree: boolean): void {
+    if (cleanedUp) return;
+    cleanedUp = true;
+
+    if (unmountTree) {
+      commitSync(container, null);
+    }
+
+    removeData();
+    removeResize();
+    restoreRawMode();
+    restoreConsole?.();
+    restoreConsole = undefined;
+    signalCleanup();
+    bridge.dispose();
+    showCursor();
+    disableKittyProtocol();
+    leaveAlternateBuffer();
+  }
+
+  void bridge.exitPromise.then(
+    () => {
+      cleanup(true);
+    },
+    () => {
+      cleanup(true);
+    },
+  );
+
   return {
     rerender: (newElement: React.ReactElement) => {
       doRender(newElement);
     },
     unmount: () => {
-      commitSync(container, null);
       bridge.exit();
-      removeData();
-      removeResize();
-      if (typeof stdinWithRaw.setRawMode === "function") {
-        stdinWithRaw.setRawMode(false);
-        stdinWithRaw.pause?.();
-      }
-      showCursor();
-      leaveAlternateBuffer();
+      cleanup(true);
     },
     waitUntilExit: () => bridge.exitPromise,
-    clear: () => bridge.clearOutput(),
+    clear: () => {
+      bridge.clearOutput();
+      lastOutput = "";
+      lastStableOutput = "";
+      lastOutputLines = [];
+      lastOutputToRender = "";
+      lastOutputRenderLineCount = 0;
+      fullStaticOutput = "";
+      pendingStaticOutput = "";
+      queuedOutputs.length = 0;
+    },
     cleanup: () => {
-      removeData();
-      removeResize();
-      bridge.dispose();
-      showCursor();
-      leaveAlternateBuffer();
+      cleanup(false);
     },
   };
+}
+
+interface SharedInstanceRecord {
+  instance: Instance;
+  concurrent: boolean;
+}
+
+const instancesByStdout = new Map<Writable, SharedInstanceRecord>();
+
+function isWritableStream(value: unknown): value is Writable {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { write?: unknown }).write === "function"
+  );
+}
+
+function normalizeRenderOptions(optionsOrStdout: RenderOptions | Writable | undefined): RenderOptions {
+  if (optionsOrStdout == null) return {};
+  if (isWritableStream(optionsOrStdout)) {
+    return { stdout: optionsOrStdout };
+  }
+  return optionsOrStdout;
+}
+
+export function render(element: React.ReactElement, stdout?: Writable): Instance;
+export function render(element: React.ReactElement, options?: RenderOptions): Instance;
+export function render(
+  element: React.ReactElement,
+  optionsOrStdout: RenderOptions | Writable = {},
+): Instance {
+  const options = normalizeRenderOptions(optionsOrStdout);
+  const stdout = options.stdout ?? process.stdout;
+  const requestedConcurrent = options.concurrent ?? false;
+
+  const existing = instancesByStdout.get(stdout);
+  if (existing) {
+    if (existing.concurrent !== requestedConcurrent) {
+      console.warn(
+        `Warning: render() was called with concurrent=${requestedConcurrent}, but the existing stdout instance uses concurrent=${existing.concurrent}.`,
+      );
+    }
+    existing.instance.rerender(element);
+    return existing.instance;
+  }
+
+  const base = createRenderSession(element, options);
+  const wrapped: Instance = {
+    rerender: (tree: React.ReactElement) => {
+      base.rerender(tree);
+    },
+    unmount: () => {
+      try {
+        base.unmount();
+      } finally {
+        instancesByStdout.delete(stdout);
+      }
+    },
+    waitUntilExit: () => base.waitUntilExit(),
+    clear: () => {
+      base.clear();
+    },
+    cleanup: () => {
+      try {
+        base.cleanup();
+      } finally {
+        instancesByStdout.delete(stdout);
+      }
+    },
+  };
+
+  void wrapped.waitUntilExit().then(
+    () => {
+      instancesByStdout.delete(stdout);
+    },
+    () => {
+      instancesByStdout.delete(stdout);
+    },
+  );
+
+  instancesByStdout.set(stdout, {
+    instance: wrapped,
+    concurrent: requestedConcurrent,
+  });
+
+  return wrapped;
 }

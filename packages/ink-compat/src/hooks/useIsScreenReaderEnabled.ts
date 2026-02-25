@@ -1,10 +1,6 @@
-/**
- * Stub implementation of Ink's useIsScreenReaderEnabled hook.
- *
- * Ink detects screen readers via the TERM_PROGRAM or accessibility APIs.
- * In our compat layer we always return false since Rezi's Zireael renderer
- * does not have screen-reader detection yet.
- */
+import { useInkContext } from "../runtime/context.js";
+
 export function useIsScreenReaderEnabled(): boolean {
-  return false;
+  const ctx = useInkContext();
+  return ctx.isScreenReaderEnabled;
 }

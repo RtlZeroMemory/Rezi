@@ -8,7 +8,11 @@ import {
   type InkHostContainer,
   type InkHostNode,
 } from "../../reconciler/types.js";
-import { translateTree } from "../../translation/propsToVNode.js";
+import {
+  translateDynamicTree,
+  translateStaticTree,
+  translateTree,
+} from "../../translation/propsToVNode.js";
 
 function textLeaf(value: string): InkHostNode {
   const leaf = createHostNode("ink-text", {});
@@ -36,11 +40,11 @@ function containerWith(node: InkHostNode): InkHostContainer {
   return container;
 }
 
-test("simple <Box> translates to column (default direction)", () => {
+test("simple <Box> translates to row (default direction)", () => {
   const node = boxNode({}, [textNode("A"), textNode("B")]);
   const vnode = translateTree(containerWith(node)) as any;
 
-  assert.equal(vnode.kind, "column");
+  assert.equal(vnode.kind, "row");
   assert.equal(vnode.props.gap, 0);
   assert.equal(vnode.props.flexShrink, 1);
   assert.equal(vnode.children.length, 2);
@@ -63,6 +67,28 @@ test("bordered box maps border style", () => {
   assert.equal(vnode.props.border, "rounded");
 });
 
+test("bordered box maps per-edge border styles", () => {
+  const node = boxNode(
+    {
+      borderStyle: "single",
+      borderTopColor: "red",
+      borderRightColor: "green",
+      borderBottomColor: "blue",
+      borderLeftColor: "yellow",
+      borderTopDimColor: true,
+      borderLeftDimColor: true,
+    },
+    [textNode("Content")],
+  );
+  const vnode = translateTree(containerWith(node)) as any;
+
+  assert.equal(vnode.kind, "box");
+  assert.deepEqual(vnode.props.borderStyleSides.top, { fg: { r: 205, g: 0, b: 0 }, dim: true });
+  assert.deepEqual(vnode.props.borderStyleSides.right, { fg: { r: 0, g: 205, b: 0 } });
+  assert.deepEqual(vnode.props.borderStyleSides.bottom, { fg: { r: 0, g: 0, b: 238 } });
+  assert.deepEqual(vnode.props.borderStyleSides.left, { fg: { r: 205, g: 205, b: 0 }, dim: true });
+});
+
 test("bordered row box nests ui.row inside ui.box", () => {
   const node = boxNode({ borderStyle: "round", flexDirection: "row" }, [
     textNode("A"),
@@ -74,6 +100,14 @@ test("bordered row box nests ui.row inside ui.box", () => {
   assert.equal(vnode.children.length, 1);
   assert.equal(vnode.children[0]?.kind, "row");
   assert.equal(vnode.children[0]?.children.length, 2);
+});
+
+test("arrow border style falls back to single", () => {
+  const node = boxNode({ borderStyle: "arrow" }, [textNode("Content")]);
+  const vnode = translateTree(containerWith(node)) as any;
+
+  assert.equal(vnode.kind, "box");
+  assert.equal(vnode.props.border, "single");
 });
 
 test("background-only box explicitly disables default borders", () => {
@@ -188,6 +222,18 @@ test("ANSI truecolor maps to RGB style", () => {
   assert.deepEqual(vnode.props.spans[0]?.style?.fg, { r: 120, g: 80, b: 200 });
 });
 
+test("ANSI truecolor colon form maps to RGB style", () => {
+  const node = createHostNode("ink-text", {});
+  appendChild(node, textLeaf("\u001b[38:2::255:120:40mX\u001b[0m"));
+
+  const vnode = translateTree(containerWith(node)) as any;
+
+  assert.equal(vnode.kind, "richText");
+  assert.equal(vnode.props.spans.length, 1);
+  assert.equal(vnode.props.spans[0]?.text, "X");
+  assert.deepEqual(vnode.props.spans[0]?.style?.fg, { r: 255, g: 120, b: 40 });
+});
+
 test("spacer virtual node maps to ui.spacer", () => {
   const spacer = createHostNode("ink-virtual", { __inkType: "spacer" });
   const vnode = translateTree(containerWith(spacer)) as any;
@@ -213,6 +259,18 @@ test("newline inside text inserts newline characters", () => {
   assert.equal(vnode.children[1]?.text, "B");
 });
 
+test("newline count=0 does not insert line breaks", () => {
+  const node = createHostNode("ink-text", {});
+  appendChild(node, textLeaf("A"));
+  appendChild(node, createHostNode("ink-virtual", { __inkType: "newline", count: 0 }));
+  appendChild(node, textLeaf("B"));
+
+  const vnode = translateTree(containerWith(node)) as any;
+
+  assert.equal(vnode.kind, "text");
+  assert.equal(vnode.text, "AB");
+});
+
 test("display none elides node", () => {
   const container = createHostContainer();
   appendChild(container, boxNode({ display: "none" }, [textNode("Hidden")]));
@@ -230,13 +288,68 @@ test("flexShrink defaults to 1 when not set", () => {
   assert.equal(vnode.props.flexShrink, 1);
 });
 
+test("percent dimensions map to percent marker props", () => {
+  const node = boxNode(
+    {
+      width: "100%",
+      height: "50%",
+      minWidth: "25%",
+      minHeight: "75%",
+      flexBasis: "40%",
+    },
+    [textNode("Body")],
+  );
+  const vnode = translateTree(containerWith(node)) as any;
+
+  assert.equal(vnode.props.__inkPercentWidth, 100);
+  assert.equal(vnode.props.__inkPercentHeight, 50);
+  assert.equal(vnode.props.__inkPercentMinWidth, 25);
+  assert.equal(vnode.props.__inkPercentMinHeight, 75);
+  assert.equal(vnode.props.__inkPercentFlexBasis, 40);
+});
+
+test("wrap-reverse is approximated as wrap + reverse", () => {
+  const node = boxNode({ flexDirection: "row", flexWrap: "wrap-reverse" }, [
+    textNode("A"),
+    textNode("B"),
+  ]);
+  const vnode = translateTree(containerWith(node)) as any;
+
+  assert.equal(vnode.kind, "row");
+  assert.equal(vnode.props.wrap, true);
+  assert.equal(vnode.props.reverse, true);
+});
+
+test("absolute position maps to layout props", () => {
+  const node = boxNode(
+    { position: "absolute", top: 1, right: 2, bottom: 3, left: 4 },
+    [textNode("A")],
+  );
+  const vnode = translateTree(containerWith(node)) as any;
+
+  assert.equal(vnode.props.position, "absolute");
+  assert.equal(vnode.props.top, 1);
+  assert.equal(vnode.props.right, 2);
+  assert.equal(vnode.props.bottom, 3);
+  assert.equal(vnode.props.left, 4);
+});
+
+test("accessibility labels map on Box and Text", () => {
+  const box = boxNode({ "aria-label": "Container" }, [textNode("A")]);
+  const boxVNode = translateTree(containerWith(box)) as any;
+  assert.equal(boxVNode.props.accessibilityLabel, "Container");
+
+  const text = textNode("Hello", { accessibilityLabel: "Greeting" });
+  const textVNode = translateTree(containerWith(text)) as any;
+  assert.equal(textVNode.props.accessibilityLabel, "Greeting");
+});
+
 test("flexGrow is always forwarded even inside auto-height column parents", () => {
-  // Rezi's layout engine ignores flex when the parent has no definite main
-  // axis, so it is safe (and necessary for nested definite chains) to always
-  // pass flexGrow through as `flex`.
+  // In the default Ink chain (flexShrink defaults to 1), column children
+  // still participate in main-axis resolution, so flexGrow is forwarded.
   const node = boxNode(
     { flexDirection: "column" },
-    [boxNode({ flexGrow: 1 }, [textNode("Inner")])],
+    [boxNode({ flexDirection: "column", flexGrow: 1 }, [textNode("Inner")])],
   );
   const vnode = translateTree(containerWith(node)) as any;
   const child = vnode.children[0];
@@ -246,10 +359,36 @@ test("flexGrow is always forwarded even inside auto-height column parents", () =
   assert.equal(child?.props.flex, 1);
 });
 
+test("flexGrow is skipped for column children when parent main size is auto", () => {
+  const node = boxNode(
+    { flexDirection: "column", flexShrink: 0 },
+    [boxNode({ flexDirection: "column", flexGrow: 1 }, [textNode("Inner")])],
+  );
+  const vnode = translateTree(containerWith(node)) as any;
+  const child = vnode.children[0];
+
+  assert.equal(vnode.kind, "column");
+  assert.equal(child?.kind, "column");
+  assert.equal(child?.props.flex, undefined);
+});
+
+test("flexGrow is skipped for row children when parent main size is auto", () => {
+  const node = boxNode(
+    { flexDirection: "column", flexShrink: 0 },
+    [boxNode({ flexDirection: "row", flexGrow: 1 }, [textNode("Inner")])],
+  );
+  const vnode = translateTree(containerWith(node)) as any;
+  const child = vnode.children[0];
+
+  assert.equal(vnode.kind, "column");
+  assert.equal(child?.kind, "row");
+  assert.equal(child?.props.flex, undefined);
+});
+
 test("flexGrow is preserved under root overflow-hidden column", () => {
   const node = boxNode(
     { flexDirection: "column", overflow: "hidden" },
-    [boxNode({ flexGrow: 1 }, [textNode("Inner")]), textNode("Footer")],
+    [boxNode({ flexDirection: "column", flexGrow: 1 }, [textNode("Inner")]), textNode("Footer")],
   );
   const vnode = translateTree(containerWith(node)) as any;
   const child = vnode.children[0];
@@ -272,7 +411,7 @@ test("flexGrow propagates through nested definite column chain", () => {
     { flexDirection: "column", overflow: "hidden" },
     [
       boxNode({ flexDirection: "column" }, [
-        boxNode({ flexGrow: 1 }, [textNode("Content")]),
+        boxNode({ flexDirection: "column", flexGrow: 1 }, [textNode("Content")]),
         textNode("Footer"),
       ]),
     ],
@@ -290,6 +429,46 @@ test("flexGrow propagates through nested definite column chain", () => {
     1,
     "flexGrow should propagate through intermediate definite column",
   );
+});
+
+test("forced flex compat skips non-overflow column containers", () => {
+  const node = boxNode(
+    { flexDirection: "column", overflow: "hidden" },
+    [
+      boxNode(
+        { flexDirection: "column", width: 40, flexGrow: 0, flexShrink: 0 },
+        [textNode("Body")],
+      ),
+    ],
+  );
+  const vnode = translateTree(containerWith(node)) as any;
+  const child = vnode.children[0];
+
+  assert.equal(child?.kind, "column");
+  assert.equal(child?.props.flex, 0);
+});
+
+test("forced flex compat applies for overflow/clip column containers", () => {
+  const node = boxNode(
+    { flexDirection: "column", overflow: "hidden" },
+    [
+      boxNode(
+        {
+          flexDirection: "column",
+          width: 40,
+          flexGrow: 0,
+          flexShrink: 0,
+          overflow: "hidden",
+        },
+        [textNode("Body")],
+      ),
+    ],
+  );
+  const vnode = translateTree(containerWith(node)) as any;
+  const child = vnode.children[0];
+
+  assert.equal(child?.kind, "column");
+  assert.equal(child?.props.flex, 1);
 });
 
 test("padding and margin shorthands map correctly", () => {
@@ -351,4 +530,48 @@ test("static box renders as plain column", () => {
   assert.equal(vnode.props.gap, 0);
   assert.equal("position" in vnode.props, false);
   assert.equal(vnode.children.length, 2);
+});
+
+test("dynamic translation skips static subtrees", () => {
+  const node = boxNode({}, [textNode("Dynamic"), boxNode({ __inkStatic: true }, [textNode("Static")])]);
+  const vnode = translateDynamicTree(containerWith(node)) as any;
+
+  assert.equal(vnode.kind, "row");
+  assert.equal(vnode.children.length, 1);
+  assert.equal(vnode.children[0]?.kind, "text");
+  assert.equal(vnode.children[0]?.text, "Dynamic");
+});
+
+test("static translation extracts static output regardless declaration order", () => {
+  const node = boxNode({}, [textNode("Dynamic"), boxNode({ __inkStatic: true }, [textNode("Static")])]);
+  const vnode = translateStaticTree(containerWith(node)) as any;
+
+  assert.equal(vnode.kind, "column");
+  assert.equal(vnode.children.length, 1);
+  assert.equal(vnode.children[0]?.kind, "text");
+  assert.equal(vnode.children[0]?.text, "Static");
+});
+
+test("static translation preserves static style props except absolute positioning", () => {
+  const node = boxNode(
+    {
+      __inkStatic: true,
+      marginTop: 2,
+      paddingX: 3,
+      width: 40,
+      position: "absolute",
+      top: 1,
+      left: 2,
+    },
+    [textNode("Static")],
+  );
+  const vnode = translateStaticTree(containerWith(node)) as any;
+
+  assert.equal(vnode.kind, "column");
+  assert.equal(vnode.props.mt, 2);
+  assert.equal(vnode.props.px, 3);
+  assert.equal(vnode.props.width, 40);
+  assert.equal("position" in vnode.props, false);
+  assert.equal("top" in vnode.props, false);
+  assert.equal("left" in vnode.props, false);
 });

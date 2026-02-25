@@ -12,6 +12,15 @@ export function useInput(
 
   useEffect(() => {
     if (options?.isActive === false) return;
+    if (!ctx.isRawModeSupported) return;
+    ctx.setRawMode(true);
+    return () => {
+      ctx.setRawMode(false);
+    };
+  }, [ctx, options?.isActive]);
+
+  useEffect(() => {
+    if (options?.isActive === false) return;
     return ctx.onKeyEvent(handler);
   }, [ctx, handler, options?.isActive]);
 }

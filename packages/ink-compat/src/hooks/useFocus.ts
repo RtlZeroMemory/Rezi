@@ -19,5 +19,20 @@ export function useFocus(options?: { autoFocus?: boolean; isActive?: boolean; id
     return () => ctx.unregisterFocusable(focusId);
   }, [ctx, focusId, options?.autoFocus, options?.isActive]);
 
-  return { isFocused: ctx.getFocusedId() === focusId };
+  useEffect(() => {
+    if (options?.isActive === false) return;
+    if (!ctx.isRawModeSupported) return;
+    ctx.setRawMode(true);
+    return () => {
+      ctx.setRawMode(false);
+    };
+  }, [ctx, options?.isActive]);
+
+  return {
+    isFocused: ctx.getFocusedId() === focusId,
+    focus: () => {
+      ctx.focusById(focusId);
+      ctx.rerender();
+    },
+  };
 }

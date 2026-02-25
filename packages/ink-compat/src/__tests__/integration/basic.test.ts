@@ -1,15 +1,19 @@
 import assert from "node:assert/strict";
-import { PassThrough, Writable } from "node:stream";
+import { PassThrough } from "node:stream";
 import test from "node:test";
 import React, { useEffect } from "react";
 
 import { Box } from "../../components/Box.js";
 import { Newline } from "../../components/Newline.js";
 import { Spacer } from "../../components/Spacer.js";
+import { Static } from "../../components/Static.js";
 import { Text } from "../../components/Text.js";
 import { useApp } from "../../hooks/useApp.js";
+import { useCursor } from "../../hooks/useCursor.js";
 import { useFocus } from "../../hooks/useFocus.js";
 import { useInput } from "../../hooks/useInput.js";
+import { useIsScreenReaderEnabled } from "../../hooks/useIsScreenReaderEnabled.js";
+import { measureElement } from "../../runtime/measureElement.js";
 import { render as runtimeRender } from "../../runtime/render.js";
 import { render } from "../../testing/index.js";
 
@@ -17,6 +21,10 @@ function latestFrameFromWrites(writes: string): string {
   const marker = "\u001b[H\u001b[J";
   const start = writes.lastIndexOf(marker);
   return start >= 0 ? writes.slice(start + marker.length) : writes;
+}
+
+function stripTerminalEscapes(output: string): string {
+  return output.replace(/\u001b\[[0-9;?]*[A-Za-z]/g, "").replace(/\r/g, "");
 }
 
 test("simple text render", () => {
@@ -100,6 +108,90 @@ test("border rendering", () => {
   );
 });
 
+test("runtime render applies per-edge border colors and dim styles", async () => {
+  const previousForceColor = process.env["FORCE_COLOR"];
+  const previousNoColor = process.env["NO_COLOR"];
+  process.env["FORCE_COLOR"] = "3";
+  delete process.env["NO_COLOR"];
+
+  const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+  stdin.setRawMode = () => {};
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  let writes = "";
+  stdout.on("data", (chunk) => {
+    writes += chunk.toString("utf-8");
+  });
+
+  const instance = runtimeRender(
+    React.createElement(
+      Box,
+      {
+        borderStyle: "single",
+        borderTopColor: "red",
+        borderRightColor: "green",
+        borderBottomColor: "blue",
+        borderLeftColor: "yellow",
+        borderLeftDimColor: true,
+      },
+      React.createElement(Text, null, "Border"),
+    ),
+    { stdin, stdout, stderr },
+  );
+
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const latest = latestFrameFromWrites(writes);
+    assert.match(latest, /38;2;205;0;0/);
+    assert.match(latest, /38;2;0;205;0/);
+    assert.match(latest, /38;2;0;0;238/);
+    assert.match(latest, /2;38;2;205;205;0/);
+  } finally {
+    instance.unmount();
+    instance.cleanup();
+    if (previousForceColor == null) {
+      delete process.env["FORCE_COLOR"];
+    } else {
+      process.env["FORCE_COLOR"] = previousForceColor;
+    }
+    if (previousNoColor == null) {
+      delete process.env["NO_COLOR"];
+    } else {
+      process.env["NO_COLOR"] = previousNoColor;
+    }
+  }
+});
+
+test("runtime render preserves grapheme clusters in output", async () => {
+  const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+  stdin.setRawMode = () => {};
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  let writes = "";
+  stdout.on("data", (chunk) => {
+    writes += chunk.toString("utf-8");
+  });
+
+  const sample = "Ae\u0301B 👨‍👩‍👧‍👦 C漢D";
+  const instance = runtimeRender(React.createElement(Text, null, sample), {
+    stdin,
+    stdout,
+    stderr,
+  });
+
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const latest = stripTerminalEscapes(latestFrameFromWrites(writes));
+    const firstLine = latest.split("\n")[0] ?? "";
+    assert.ok(firstLine.includes("AéB"), "combining accent should remain attached");
+    assert.ok(firstLine.includes("👨‍👩‍👧‍👦"), "ZWJ emoji should remain a single grapheme");
+    assert.ok(firstLine.includes("C漢D"), "mixed-width CJK text should stay aligned");
+  } finally {
+    instance.unmount();
+    instance.cleanup();
+  }
+});
+
 test("newline renders multi-line text", () => {
   const result = render(React.createElement(Text, null, "A", React.createElement(Newline), "B"));
 
@@ -124,6 +216,37 @@ test("useInput handles simulated key press", () => {
   assert.deepEqual(seen[0], { input: "", up: true, ctrl: false });
   assert.deepEqual(seen[1], { input: "q", up: false, ctrl: false });
   assert.deepEqual(seen[2], { input: "a", up: false, ctrl: true });
+});
+
+test("useInput parses kitty keyboard CSI-u sequences", async () => {
+  const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+  stdin.setRawMode = () => {};
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  const seen: Array<{ input: string; ctrl: boolean; super: boolean }> = [];
+
+  function App(): React.ReactElement {
+    useInput((input, key) => {
+      seen.push({ input, ctrl: key.ctrl, super: key.super });
+    });
+    return React.createElement(Text, null, "Kitty");
+  }
+
+  const instance = runtimeRender(React.createElement(App), {
+    stdin,
+    stdout,
+    stderr,
+    kittyKeyboard: { mode: "enabled" },
+  });
+
+  try {
+    stdin.write("\u001b[97;5u");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.deepEqual(seen[0], { input: "a", ctrl: true, super: false });
+  } finally {
+    instance.unmount();
+    instance.cleanup();
+  }
 });
 
 test("useApp exit resolves instance waitUntilExit", async () => {
@@ -151,6 +274,155 @@ test("useApp exit resolves instance waitUntilExit", async () => {
   instance.cleanup();
 });
 
+test("useApp exit resolves waitUntilExit with result value", async () => {
+  const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+  stdin.setRawMode = () => {};
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+
+  function App(): React.ReactElement {
+    const { exit } = useApp();
+    useEffect(() => {
+      exit("done");
+    }, [exit]);
+    return React.createElement(Text, null, "Done");
+  }
+
+  const instance = runtimeRender(React.createElement(App), { stdin, stdout, stderr });
+  const result = await instance.waitUntilExit();
+  assert.equal(result, "done");
+  instance.unmount();
+  instance.cleanup();
+});
+
+test("useApp exit rejects waitUntilExit with error", async () => {
+  const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+  stdin.setRawMode = () => {};
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+
+  function App(): React.ReactElement {
+    const { exit } = useApp();
+    useEffect(() => {
+      exit(new Error("boom"));
+    }, [exit]);
+    return React.createElement(Text, null, "Err");
+  }
+
+  const instance = runtimeRender(React.createElement(App), { stdin, stdout, stderr });
+  await assert.rejects(instance.waitUntilExit(), /boom/);
+  instance.unmount();
+  instance.cleanup();
+});
+
+test("render accepts stdout stream overload", () => {
+  const stdout = new PassThrough() as PassThrough & {
+    columns?: number;
+    rows?: number;
+  };
+  stdout.columns = 80;
+  stdout.rows = 24;
+
+  let writes = "";
+  stdout.on("data", (chunk) => {
+    writes += chunk.toString("utf-8");
+  });
+
+  const instance = runtimeRender(React.createElement(Text, null, "Overload"), stdout);
+  try {
+    assert.match(writes, /Overload/);
+  } finally {
+    instance.unmount();
+    instance.cleanup();
+  }
+});
+
+test("render reuses instance for same stdout stream", () => {
+  const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+  stdin.setRawMode = () => {};
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+
+  const first = runtimeRender(React.createElement(Text, null, "First"), {
+    stdin,
+    stdout,
+    stderr,
+  });
+  const second = runtimeRender(React.createElement(Text, null, "Second"), {
+    stdin,
+    stdout,
+    stderr,
+  });
+
+  try {
+    assert.strictEqual(first, second);
+  } finally {
+    second.unmount();
+    second.cleanup();
+  }
+});
+
+test("useCursor shows cursor and writes cursor move", async () => {
+  const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+  stdin.setRawMode = () => {};
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  let writes = "";
+  stdout.on("data", (chunk) => {
+    writes += chunk.toString("utf-8");
+  });
+
+  function App(): React.ReactElement {
+    const { setCursorPosition } = useCursor();
+    useEffect(() => {
+      setCursorPosition({ x: 3, y: 1 });
+    }, [setCursorPosition]);
+    return React.createElement(Text, null, "Cursor");
+  }
+
+  const instance = runtimeRender(React.createElement(App), { stdin, stdout, stderr });
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    assert.ok(writes.includes("\u001b[?25h"), "expected cursor show escape");
+    assert.ok(writes.includes("\u001b[2;4H"), "expected cursor position escape");
+  } finally {
+    instance.unmount();
+    instance.cleanup();
+  }
+});
+
+test("NO_COLOR disables color SGR output", () => {
+  const previous = process.env["NO_COLOR"];
+  process.env["NO_COLOR"] = "1";
+
+  const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+  stdin.setRawMode = () => {};
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  let writes = "";
+  stdout.on("data", (chunk) => {
+    writes += chunk.toString("utf-8");
+  });
+
+  const instance = runtimeRender(
+    React.createElement(Text, { color: "red", backgroundColor: "blue" }, "Colorless"),
+    { stdin, stdout, stderr },
+  );
+
+  try {
+    assert.equal(/\u001b\[[0-9;]*3[0-9]/.test(writes), false);
+    assert.equal(/\u001b\[[0-9;]*4[0-9]/.test(writes), false);
+  } finally {
+    instance.unmount();
+    instance.cleanup();
+    if (previous == null) {
+      delete process.env["NO_COLOR"];
+    } else {
+      process.env["NO_COLOR"] = previous;
+    }
+  }
+});
+
 test("runtime render hides cursor and restores it on teardown", () => {
   const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
   stdin.setRawMode = () => {};
@@ -175,6 +447,148 @@ test("runtime render hides cursor and restores it on teardown", () => {
   assert.ok(hideIndex >= 0, "expected cursor hide escape sequence");
   assert.ok(showIndex >= 0, "expected cursor show escape sequence");
   assert.ok(showIndex > hideIndex, "expected cursor show after hide");
+});
+
+test("runtime render populates __inkLayout and resolves percent widths", async () => {
+  const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+  stdin.setRawMode = () => {};
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+
+  let parentNode: unknown;
+  let childNode: unknown;
+
+  function App(): React.ReactElement {
+    const parentRef = React.useRef<unknown>(null);
+    const childRef = React.useRef<unknown>(null);
+
+    useEffect(() => {
+      parentNode = parentRef.current;
+      childNode = childRef.current;
+    });
+
+    return React.createElement(
+      Box,
+      { ref: parentRef, width: 20, flexDirection: "column" },
+      React.createElement(
+        Box,
+        { ref: childRef, width: "100%" },
+        React.createElement(Text, null, "Child"),
+      ),
+    );
+  }
+
+  const instance = runtimeRender(React.createElement(App), { stdin, stdout, stderr });
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    assert.equal(measureElement(parentNode as never).width, 20);
+    assert.equal(measureElement(childNode as never).width, 20);
+  } finally {
+    instance.unmount();
+    instance.cleanup();
+  }
+});
+
+test("runtime render resolves nested percent sizing from resolved parent layout", async () => {
+  const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+  stdin.setRawMode = () => {};
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+
+  let rowParentNode: unknown;
+  let widthNode: unknown;
+  let basisNode: unknown;
+  let columnParentNode: unknown;
+  let heightNode: unknown;
+
+  function App(): React.ReactElement {
+    const rowParentRef = React.useRef<unknown>(null);
+    const widthRef = React.useRef<unknown>(null);
+    const basisRef = React.useRef<unknown>(null);
+    const columnParentRef = React.useRef<unknown>(null);
+    const heightRef = React.useRef<unknown>(null);
+
+    useEffect(() => {
+      rowParentNode = rowParentRef.current;
+      widthNode = widthRef.current;
+      basisNode = basisRef.current;
+      columnParentNode = columnParentRef.current;
+      heightNode = heightRef.current;
+    });
+
+    return React.createElement(
+      Box,
+      { width: 60, height: 20, flexDirection: "column" },
+      React.createElement(
+        Box,
+        { flexDirection: "row", height: 8 },
+        React.createElement(Box, { width: 20 }, React.createElement(Text, null, "fixed")),
+        React.createElement(
+          Box,
+          { ref: rowParentRef, flexDirection: "row", flexGrow: 1 },
+          React.createElement(
+            Box,
+            { ref: widthRef, width: "10%", minWidth: "50%" },
+            React.createElement(Text, null, "W"),
+          ),
+          React.createElement(
+            Box,
+            { ref: basisRef, flexBasis: "50%" },
+            React.createElement(Text, null, "B"),
+          ),
+        ),
+      ),
+      React.createElement(
+        Box,
+        { ref: columnParentRef, flexDirection: "column", flexGrow: 1 },
+        React.createElement(
+          Box,
+          { ref: heightRef, height: "10%", minHeight: "50%" },
+          React.createElement(Text, null, "H"),
+        ),
+      ),
+    );
+  }
+
+  const instance = runtimeRender(React.createElement(App), { stdin, stdout, stderr });
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    assert.equal(measureElement(rowParentNode as never).width, 40);
+    assert.equal(measureElement(widthNode as never).width, 20);
+    assert.equal(measureElement(basisNode as never).width, 20);
+    assert.equal(measureElement(columnParentNode as never).height, 12);
+    assert.equal(measureElement(heightNode as never).height, 6);
+  } finally {
+    instance.unmount();
+    instance.cleanup();
+  }
+});
+
+test("render option isScreenReaderEnabled flows to hook context", async () => {
+  const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+  stdin.setRawMode = () => {};
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+
+  let enabled = false;
+  function App(): React.ReactElement {
+    enabled = useIsScreenReaderEnabled();
+    return React.createElement(Text, null, "A11y");
+  }
+
+  const instance = runtimeRender(React.createElement(App), {
+    stdin,
+    stdout,
+    stderr,
+    isScreenReaderEnabled: true,
+  });
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(enabled, true);
+  } finally {
+    instance.unmount();
+    instance.cleanup();
+  }
 });
 
 test("runtime render redraws on terminal resize", async () => {
@@ -270,55 +684,49 @@ test("runtime render coalesces rapid resize bursts", async () => {
   }
 });
 
-test("runtime render keeps latest frame under stdout backpressure", async () => {
-  class SlowStdout extends Writable {
-    columns = 80;
-    rows = 24;
-    writes: string[] = [];
-
-    constructor() {
-      super({ decodeStrings: false, highWaterMark: 1 });
-    }
-
-    override _write(
-      chunk: string | Buffer,
-      _encoding: BufferEncoding,
-      callback: (error?: Error | null) => void,
-    ): void {
-      this.writes.push(typeof chunk === "string" ? chunk : chunk.toString("utf-8"));
-      setTimeout(callback, 15);
-    }
-  }
-
+test("runtime render flushes a bounded frame queue under backpressure", async () => {
   const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
   stdin.setRawMode = () => {};
-  const stdout = new SlowStdout();
+  const stdout = new PassThrough() as PassThrough & {
+    columns?: number;
+    rows?: number;
+    write: (chunk: string | Uint8Array) => boolean;
+  };
+  stdout.columns = 80;
+  stdout.rows = 24;
   const stderr = new PassThrough();
+  const writes: string[] = [];
+  let blocked = true;
+  stdout.write = ((chunk: string | Uint8Array): boolean => {
+    writes.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf-8"));
+    return blocked ? false : true;
+  }) as typeof stdout.write;
 
-  const instance = runtimeRender(React.createElement(Text, null, "Backpressure"), {
+  const makeFrame = (index: number): React.ReactElement =>
+    React.createElement(Text, null, `Frame-${index}`);
+  const instance = runtimeRender(makeFrame(0), {
     stdin,
     stdout,
     stderr,
+    maxFps: 0,
   });
 
   try {
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    const baselineWrites = stdout.writes.length;
-
-    for (let index = 0; index < 25; index += 1) {
-      stdout.columns = 80 + (index % 5);
-      stdout.rows = 24 + (index % 3);
-      stdout.emit("resize");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    for (let index = 1; index <= 8; index += 1) {
+      instance.rerender(makeFrame(index));
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 320));
-    const writesDuringStorm = stdout.writes.length - baselineWrites;
-
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    blocked = false;
+    stdout.emit("drain");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const observedFrames = Array.from(new Set((writes.join("").match(/Frame-\d+/g) ?? [])));
+    assert.ok(observedFrames.includes("Frame-8"), "latest queued frame should be emitted");
     assert.ok(
-      writesDuringStorm <= 8,
-      `expected latest-frame writes under backpressure, saw ${writesDuringStorm}`,
+      observedFrames.length >= 4,
+      `expected bounded queue to preserve multiple frames, saw ${observedFrames.join(", ")}`,
     );
-    assert.match(stdout.writes[stdout.writes.length - 1] ?? "", /Backpressure/);
   } finally {
     instance.unmount();
     instance.cleanup();
@@ -529,6 +937,95 @@ test("rerender updates output", () => {
   assert.match(result.lastFrame(), /New/);
 });
 
+test("runtime Static emits only new items on rerender", async () => {
+  interface Item {
+    id: string;
+    label: string;
+  }
+
+  const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+  stdin.setRawMode = () => {};
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  const renderMetrics: Array<{ output: string; staticOutput?: string }> = [];
+
+  const App = ({ items, counter }: { items: Item[]; counter: number }): React.ReactElement =>
+    React.createElement(
+      Box,
+      { flexDirection: "column" },
+      React.createElement(Text, null, `Dynamic-${counter}`),
+      React.createElement(Static<Item>, {
+        items,
+        children: (item) => React.createElement(Text, { key: item.id }, item.label),
+      }),
+    );
+
+  const instance = runtimeRender(
+    React.createElement(App, {
+      items: [{ id: "1", label: "first" }],
+      counter: 1,
+    }),
+    {
+      stdin,
+      stdout,
+      stderr,
+      onRender: (metrics) => {
+        renderMetrics.push({
+          output: metrics.output,
+          ...(metrics.staticOutput == null ? {} : { staticOutput: metrics.staticOutput }),
+        });
+      },
+    },
+  );
+
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    const initialStatic = renderMetrics
+      .map((metric) => metric.staticOutput ?? "")
+      .join("");
+    assert.ok(initialStatic.includes("first"));
+    assert.equal(initialStatic.includes("updated-first"), false);
+
+    renderMetrics.length = 0;
+    instance.rerender(
+      React.createElement(App, {
+        items: [{ id: "1", label: "updated-first" }],
+        counter: 2,
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    const updatedStatic = renderMetrics
+      .map((metric) => metric.staticOutput ?? "")
+      .join("");
+    assert.equal(updatedStatic.includes("first"), false);
+    assert.equal(updatedStatic.includes("updated-first"), false);
+    assert.ok(renderMetrics.some((metric) => metric.output.includes("Dynamic-2")));
+
+    renderMetrics.length = 0;
+    instance.rerender(
+      React.createElement(App, {
+        items: [
+          { id: "1", label: "updated-first" },
+          { id: "2", label: "second" },
+        ],
+        counter: 3,
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    const appendedStatic = renderMetrics
+      .map((metric) => metric.staticOutput ?? "")
+      .join("");
+    assert.ok(appendedStatic.includes("second"));
+    assert.equal(appendedStatic.includes("updated-first"), false);
+    assert.equal(appendedStatic.includes("first"), false);
+  } finally {
+    instance.unmount();
+    instance.cleanup();
+  }
+});
+
 test("display none hides content", () => {
   const result = render(
     React.createElement(
@@ -636,6 +1133,11 @@ test("ANSI output resets attributes between differently-styled cells", () => {
 // ─── Regression: text inherits background from underlying fillRect ───
 
 test("text over backgroundColor box preserves box background in ANSI output", () => {
+  const previousNoColor = process.env["NO_COLOR"];
+  const previousForceColor = process.env["FORCE_COLOR"];
+  delete process.env["NO_COLOR"];
+  process.env["FORCE_COLOR"] = "3";
+
   const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
   stdin.setRawMode = () => {};
   const stdout = new PassThrough();
@@ -671,6 +1173,83 @@ test("text over backgroundColor box preserves box background in ANSI output", ()
   } finally {
     instance.unmount();
     instance.cleanup();
+    if (previousNoColor == null) {
+      delete process.env["NO_COLOR"];
+    } else {
+      process.env["NO_COLOR"] = previousNoColor;
+    }
+    if (previousForceColor == null) {
+      delete process.env["FORCE_COLOR"];
+    } else {
+      process.env["FORCE_COLOR"] = previousForceColor;
+    }
+  }
+});
+
+test("ANSI truecolor input stays truecolor under low stream color depth", () => {
+  const previousNoColor = process.env["NO_COLOR"];
+  const previousForceColor = process.env["FORCE_COLOR"];
+  delete process.env["NO_COLOR"];
+  delete process.env["FORCE_COLOR"];
+
+  const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+  stdin.setRawMode = () => {};
+  const stdout = new PassThrough() as PassThrough & {
+    getColorDepth?: () => number;
+    isTTY?: boolean;
+    columns?: number;
+    rows?: number;
+  };
+  stdout.isTTY = true;
+  stdout.columns = 80;
+  stdout.rows = 24;
+  stdout.getColorDepth = () => 4;
+  const stderr = new PassThrough();
+  let writes = "";
+  stdout.on("data", (chunk) => {
+    writes += chunk.toString("utf-8");
+  });
+
+  const gradientText =
+    "\u001b[38;2;255;80;60mR\u001b[38;2;70;130;220mB\u001b[0m";
+  const instance = runtimeRender(
+    React.createElement(Text, null, gradientText),
+    { stdin, stdout, stderr },
+  );
+
+  try {
+    const latest = latestFrameFromWrites(writes);
+    assert.ok(
+      latest.includes("38;2;255;80;60"),
+      `expected first truecolor stop, got: ${latest}`,
+    );
+    assert.ok(
+      latest.includes("38;2;70;130;220"),
+      `expected second truecolor stop, got: ${latest}`,
+    );
+    assert.equal(
+      latest.includes("38;5;"),
+      false,
+      `unexpected ANSI-256 downgrade: ${latest}`,
+    );
+    assert.equal(
+      latest.includes("48;2;7;10;12"),
+      false,
+      `unexpected default base background in output: ${latest}`,
+    );
+  } finally {
+    instance.unmount();
+    instance.cleanup();
+    if (previousNoColor == null) {
+      delete process.env["NO_COLOR"];
+    } else {
+      process.env["NO_COLOR"] = previousNoColor;
+    }
+    if (previousForceColor == null) {
+      delete process.env["FORCE_COLOR"];
+    } else {
+      process.env["FORCE_COLOR"] = previousForceColor;
+    }
   }
 });
 
