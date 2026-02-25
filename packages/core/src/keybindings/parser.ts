@@ -16,6 +16,8 @@
 import { EMPTY_MODS, KEY_NAME_TO_CODE, MODIFIER_NAMES, charToKeyCode } from "./keyCodes.js";
 import type { KeyParseError, KeySequence, Modifiers, ParseKeyResult, ParsedKey } from "./types.js";
 
+const MAX_CHORD_LENGTH = 8;
+
 /**
  * Parse a single key part (e.g., "ctrl+s" or just "a").
  *
@@ -225,6 +227,16 @@ export function parseKeySequence(input: string): ParseKeyResult {
     return {
       ok: false,
       error: { code: "EMPTY_SEQUENCE", detail: "no keys in sequence" },
+    };
+  }
+
+  if (keys.length > MAX_CHORD_LENGTH) {
+    return {
+      ok: false,
+      error: {
+        code: "INVALID_KEY",
+        detail: `chord sequence length ${String(keys.length)} exceeds maximum of ${String(MAX_CHORD_LENGTH)}`,
+      },
     };
   }
 
