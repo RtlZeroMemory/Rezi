@@ -4,6 +4,11 @@
 
 import type { VNode } from "./types.js";
 
+const NODE_ENV =
+  (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ??
+  "development";
+const DEV_MODE = NODE_ENV !== "production";
+
 export type EachOptions<T> = Readonly<{
   key: (item: T, index: number) => string;
   empty?: () => VNode;
@@ -21,11 +26,23 @@ function collectEachChildren<T>(
   keyFor: (item: T, index: number) => string,
 ): readonly VNode[] {
   const children: VNode[] = [];
+  const seenKeys: Map<string, number> | undefined = DEV_MODE ? new Map() : undefined;
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     if (item === undefined) continue;
+    const key = keyFor(item, i);
+    if (seenKeys) {
+      const prevIndex = seenKeys.get(key);
+      if (prevIndex !== undefined) {
+        throw new Error(
+          `[rezi] each(): duplicate key "${key}" at indices ${String(prevIndex)} and ${String(i)}. ` +
+            `Ensure the key function returns unique values for each item.`,
+        );
+      }
+      seenKeys.set(key, i);
+    }
     const node = render(item, i);
-    children.push(injectKey(node, keyFor(item, i)));
+    children.push(injectKey(node, key));
   }
   return Object.freeze(children);
 }
