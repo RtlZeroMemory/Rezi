@@ -137,7 +137,7 @@ export function createDebouncedAsyncValidator<T extends Record<string, unknown>>
             }
           })
           .catch((e) => {
-            if (!cancelled && myToken !== token) return;
+            if (cancelled || myToken !== token) return;
             if (onError) {
               onError(e);
             } else {

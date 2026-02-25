@@ -110,11 +110,17 @@ describe("form.async-validation - utility behavior", () => {
     assert.deepEqual(result, { username: "Taken" });
   });
 
-  test("runAsyncValidation swallows validator rejection", async () => {
-    const result = await runAsyncValidation({ username: "x" }, async () =>
-      Promise.reject(new Error("network")),
+  test("runAsyncValidation wraps validator rejection", async () => {
+    await assert.rejects(
+      runAsyncValidation({ username: "x" }, async () => Promise.reject(new Error("network"))),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.message, "async form validation failed: network");
+        assert.ok((error as { cause?: unknown }).cause instanceof Error);
+        assert.equal(((error as { cause?: unknown }).cause as Error).message, "network");
+        return true;
+      },
     );
-    assert.deepEqual(result, {});
   });
 
   test("createDebouncedAsyncValidator executes only after debounce window", async () => {
@@ -255,6 +261,36 @@ describe("form.async-validation - utility behavior", () => {
       await flushMicrotasks();
 
       assert.deepEqual(seen, ["second"]);
+    } finally {
+      timers.restore();
+    }
+  });
+
+  test("createDebouncedAsyncValidator ignores rejected in-flight results after cancel", async () => {
+    const timers = useFakeTimers();
+    try {
+      const deferred = createDeferred<ValidationResult<Values>>();
+      const results: ValidationResult<Values>[] = [];
+      const errors: unknown[] = [];
+      const validator = createDebouncedAsyncValidator<Values>(
+        async () => deferred.promise,
+        0,
+        (value) => {
+          results.push(value);
+        },
+        (error) => {
+          errors.push(error);
+        },
+      );
+
+      validator.run({ username: "late", email: "" });
+      timers.tick(0);
+      validator.cancel();
+      deferred.reject(new Error("late failure"));
+      await flushMicrotasks();
+
+      assert.equal(results.length, 0);
+      assert.equal(errors.length, 0);
     } finally {
       timers.restore();
     }
@@ -422,7 +458,7 @@ describe("form.async-validation - useForm behavior", () => {
     assert.equal(form.errors.email, "taken");
   });
 
-  test("handleSubmit continues when async validation throws network error", async () => {
+  test("handleSubmit aborts submit when async validation throws network error", async () => {
     const h = createFormHarness();
     let submitCalls = 0;
     const opts = options({
@@ -434,11 +470,13 @@ describe("form.async-validation - useForm behavior", () => {
       },
     });
 
-    const form = h.render(opts);
+    let form = h.render(opts);
     form.handleSubmit();
     await flushMicrotasks(4);
+    form = h.render(opts);
 
-    assert.equal(submitCalls, 1);
+    assert.equal(submitCalls, 0);
+    assert.equal(form.isSubmitting, false);
   });
 
   test("handleSubmit rejects concurrent submits while pending", async () => {
