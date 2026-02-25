@@ -51,16 +51,25 @@ export function renderBoxBorder(
   sides?: Readonly<{ top?: boolean; right?: boolean; bottom?: boolean; left?: boolean }>,
 ): void {
   if (border === "none") return;
-  if (rect.w < 2 || rect.h < 2) return;
   if (!isVisibleRect(rect)) return;
-
-  const glyphs = getBorderGlyphs(border);
-  if (glyphs === null) return;
 
   const top = sides?.top ?? true;
   const right = sides?.right ?? true;
   const bottom = sides?.bottom ?? true;
   const left = sides?.left ?? true;
+
+  // Minimum size check: a full border needs w≥2 and h≥2 for corners.
+  // However, horizontal-only borders (no left/right) can render at h=1,
+  // and vertical-only borders (no top/bottom) can render at w=1.
+  const needsVerticalSpace = left || right;
+  const needsHorizontalSpace = top || bottom;
+  if (needsHorizontalSpace && rect.w < 1) return;
+  if (needsVerticalSpace && rect.h < 2) return;
+  if (!needsVerticalSpace && needsHorizontalSpace && rect.h < 1) return;
+  if (needsVerticalSpace && needsHorizontalSpace && rect.w < 2) return;
+
+  const glyphs = getBorderGlyphs(border);
+  if (glyphs === null) return;
 
   renderBorderFrame(builder, rect, glyphs, style, { top, right, bottom, left });
 

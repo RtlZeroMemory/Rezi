@@ -84,4 +84,35 @@ describe("createTestRenderer", () => {
     assert.notEqual(bottom, null);
     assert.ok((bottom?.rect.y ?? 0) >= (top?.rect.y ?? 0) + (top?.rect.h ?? 0));
   });
+
+  test("trace callback receives render timing and detail payload", () => {
+    const events: unknown[] = [];
+    const renderer = createTestRenderer({
+      viewport: { cols: 30, rows: 6 },
+      traceDetail: true,
+      trace: (event) => {
+        events.push(event);
+      },
+    });
+
+    renderer.render(ui.column({}, [ui.text("Hello trace"), ui.button({ id: "ok", label: "OK" })]));
+
+    assert.equal(events.length, 1);
+    const first = events[0] as {
+      timings?: { totalMs?: number };
+      nodeCount?: number;
+      opCount?: number;
+      text?: string;
+      detailIncluded?: boolean;
+      nodes?: readonly unknown[];
+      ops?: readonly unknown[];
+    };
+    assert.ok((first.timings?.totalMs ?? -1) >= 0);
+    assert.ok((first.nodeCount ?? 0) > 0);
+    assert.ok((first.opCount ?? 0) > 0);
+    assert.equal(first.detailIncluded, true);
+    assert.equal(Array.isArray(first.nodes), true);
+    assert.equal(Array.isArray(first.ops), true);
+    assert.equal((first.text ?? "").includes("Hello trace"), true);
+  });
 });

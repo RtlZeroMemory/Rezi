@@ -9,6 +9,7 @@
     "packages/testkit",
     "packages/native",
     "packages/jsx",
+    "packages/ink-compat",
     "packages/bench",
     "examples/*"
   ],

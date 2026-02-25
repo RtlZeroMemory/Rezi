@@ -1099,6 +1099,7 @@ export type {
   TestRenderNode,
   TestRenderOptions,
   TestRenderResult,
+  TestRenderTraceEvent,
   TestRenderer,
   TestRendererOptions,
   TestViewport,

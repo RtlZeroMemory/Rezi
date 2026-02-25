@@ -30,6 +30,8 @@ export type TestRendererOptions = Readonly<{
   theme?: Theme;
   focusedId?: string | null;
   tick?: number;
+  trace?: (event: TestRenderTraceEvent) => void;
+  traceDetail?: boolean;
 }>;
 
 export type TestRenderOptions = Readonly<{
@@ -37,6 +39,36 @@ export type TestRenderOptions = Readonly<{
   theme?: Theme;
   focusedId?: string | null;
   tick?: number;
+  traceDetail?: boolean;
+}>;
+
+export type TestRenderTraceEvent = Readonly<{
+  renderId: number;
+  viewport: TestViewport;
+  focusedId: string | null;
+  tick: number;
+  timings: Readonly<{
+    commitMs: number;
+    layoutMs: number;
+    drawMs: number;
+    textMs: number;
+    totalMs: number;
+  }>;
+  nodeCount: number;
+  opCount: number;
+  opCounts: Readonly<Record<TestRecordedOp["kind"], number>>;
+  clipDepthMax: number;
+  textChars: number;
+  textLines: number;
+  nonBlankLines: number;
+  widestLine: number;
+  minRectY: number;
+  maxRectBottom: number;
+  zeroHeightRects: number;
+  detailIncluded: boolean;
+  nodes?: readonly TestRenderNode[];
+  ops?: readonly TestRecordedOp[];
+  text?: string;
 }>;
 
 export type TestRenderNode = Readonly<{
@@ -67,9 +99,9 @@ export type TestRenderer = Readonly<{
 
 export type TestRecordedOp =
   | Readonly<{ kind: "clear" }>
-  | Readonly<{ kind: "clearTo"; cols: number; rows: number }>
-  | Readonly<{ kind: "fillRect"; x: number; y: number; w: number; h: number }>
-  | Readonly<{ kind: "drawText"; x: number; y: number; text: string }>
+  | Readonly<{ kind: "clearTo"; cols: number; rows: number; style?: TextStyle }>
+  | Readonly<{ kind: "fillRect"; x: number; y: number; w: number; h: number; style?: TextStyle }>
+  | Readonly<{ kind: "drawText"; x: number; y: number; text: string; style?: TextStyle }>
   | Readonly<{ kind: "pushClip"; x: number; y: number; w: number; h: number }>
   | Readonly<{ kind: "popClip" }>;
 
@@ -96,16 +128,16 @@ class RecordingDrawlistBuilder implements DrawlistBuilderV1 {
     this.ops.push({ kind: "clear" });
   }
 
-  clearTo(cols: number, rows: number, _style?: TextStyle): void {
-    this.ops.push({ kind: "clearTo", cols, rows });
+  clearTo(cols: number, rows: number, style?: TextStyle): void {
+    this.ops.push({ kind: "clearTo", cols, rows, ...(style ? { style } : {}) });
   }
 
-  fillRect(x: number, y: number, w: number, h: number, _style?: TextStyle): void {
-    this.ops.push({ kind: "fillRect", x, y, w, h });
+  fillRect(x: number, y: number, w: number, h: number, style?: TextStyle): void {
+    this.ops.push({ kind: "fillRect", x, y, w, h, ...(style ? { style } : {}) });
   }
 
-  drawText(x: number, y: number, text: string, _style?: TextStyle): void {
-    this.ops.push({ kind: "drawText", x, y, text });
+  drawText(x: number, y: number, text: string, style?: TextStyle): void {
+    this.ops.push({ kind: "drawText", x, y, text, ...(style ? { style } : {}) });
   }
 
   pushClip(x: number, y: number, w: number, h: number): void {
@@ -134,7 +166,8 @@ class RecordingDrawlistBuilder implements DrawlistBuilderV1 {
     for (const segment of blob) {
       const text = segment.text;
       if (text.length > 0) {
-        this.ops.push({ kind: "drawText", x: cursorX, y, text });
+        const style = segment.style;
+        this.ops.push({ kind: "drawText", x: cursorX, y, text, ...(style ? { style } : {}) });
         cursorX += measureTextCells(text);
       }
     }
@@ -320,6 +353,80 @@ function findAll(
   return Object.freeze(out);
 }
 
+function createZeroOpCounts(): Record<TestRecordedOp["kind"], number> {
+  return {
+    clear: 0,
+    clearTo: 0,
+    fillRect: 0,
+    drawText: 0,
+    pushClip: 0,
+    popClip: 0,
+  };
+}
+
+function summarizeOps(
+  ops: readonly TestRecordedOp[],
+): Readonly<{ opCounts: Readonly<Record<TestRecordedOp["kind"], number>>; clipDepthMax: number }> {
+  const opCounts = createZeroOpCounts();
+  let clipDepth = 0;
+  let clipDepthMax = 0;
+
+  for (const op of ops) {
+    opCounts[op.kind] += 1;
+    if (op.kind === "pushClip") {
+      clipDepth += 1;
+      clipDepthMax = Math.max(clipDepthMax, clipDepth);
+    } else if (op.kind === "popClip") {
+      clipDepth = Math.max(0, clipDepth - 1);
+    }
+  }
+
+  return Object.freeze({
+    opCounts: Object.freeze({ ...opCounts }),
+    clipDepthMax,
+  });
+}
+
+function summarizeNodes(
+  nodes: readonly TestRenderNode[],
+): Readonly<{ minRectY: number; maxRectBottom: number; zeroHeightRects: number }> {
+  let minRectY = Number.POSITIVE_INFINITY;
+  let maxRectBottom = 0;
+  let zeroHeightRects = 0;
+
+  for (const node of nodes) {
+    const y = node.rect.y;
+    const h = node.rect.h;
+    minRectY = Math.min(minRectY, y);
+    maxRectBottom = Math.max(maxRectBottom, y + h);
+    if (h === 0) zeroHeightRects += 1;
+  }
+
+  return Object.freeze({
+    minRectY: Number.isFinite(minRectY) ? minRectY : -1,
+    maxRectBottom,
+    zeroHeightRects,
+  });
+}
+
+function summarizeText(text: string): Readonly<{ textChars: number; textLines: number; nonBlankLines: number; widestLine: number }> {
+  const lines = text.split("\n");
+  let nonBlankLines = 0;
+  let widestLine = 0;
+
+  for (const line of lines) {
+    widestLine = Math.max(widestLine, line.length);
+    if (line.trimEnd().length > 0) nonBlankLines += 1;
+  }
+
+  return Object.freeze({
+    textChars: text.length,
+    textLines: lines.length,
+    nonBlankLines,
+    widestLine,
+  });
+}
+
 function layoutRootOrThrow(root: RuntimeInstance, viewport: TestViewport): LayoutTree {
   const layoutRes = layout(root.vnode, 0, 0, viewport.cols, viewport.rows, "column");
   if (layoutRes.ok) return layoutRes.value;
@@ -341,14 +448,23 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
   const rendererTheme = opts.theme ?? coreDefaultTheme;
   const defaultFocusedId = opts.focusedId ?? null;
   const defaultTick = opts.tick ?? 0;
+  const trace = opts.trace;
+  const defaultTraceDetail = opts.traceDetail === true;
+  let renderId = 0;
 
   const render = (vnode: VNode, renderOpts: TestRenderOptions = {}): TestRenderResult => {
+    const startedAt = Date.now();
+    renderId += 1;
+
     const viewport = normalizeViewport(renderOpts.viewport ?? defaultViewport);
     const focusedId = renderOpts.focusedId === undefined ? defaultFocusedId : renderOpts.focusedId;
     const tick = renderOpts.tick ?? defaultTick;
     const theme = renderOpts.theme ?? rendererTheme;
+    const traceDetail = renderOpts.traceDetail ?? defaultTraceDetail;
 
+    const commitStartedAt = Date.now();
     const committed = commitVNodeTree(prevRoot, vnode, { allocator });
+    const commitMs = Date.now() - commitStartedAt;
     if (!committed.ok) {
       throw new Error(
         `createTestRenderer: commit failed: ${committed.fatal.code}: ${committed.fatal.detail}`,
@@ -356,8 +472,12 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
     }
     prevRoot = committed.value.root;
 
+    const layoutStartedAt = Date.now();
     const layoutTree = layoutRootOrThrow(prevRoot, viewport);
+    const layoutMs = Date.now() - layoutStartedAt;
     const builder = new RecordingDrawlistBuilder();
+
+    const drawStartedAt = Date.now();
     renderToDrawlist({
       tree: prevRoot,
       layout: layoutTree,
@@ -367,10 +487,49 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
       theme,
       tick,
     });
+    const drawMs = Date.now() - drawStartedAt;
 
+    const textStartedAt = Date.now();
     const nodes = collectNodes(layoutTree);
     const ops = builder.snapshotOps();
     const screenText = opsToText(ops, viewport);
+    const textMs = Date.now() - textStartedAt;
+    const totalMs = Date.now() - startedAt;
+
+    if (trace) {
+      const opSummary = summarizeOps(ops);
+      const nodeSummary = summarizeNodes(nodes);
+      const textSummary = summarizeText(screenText);
+      trace(
+        Object.freeze({
+          renderId,
+          viewport,
+          focusedId,
+          tick,
+          timings: Object.freeze({
+            commitMs,
+            layoutMs,
+            drawMs,
+            textMs,
+            totalMs,
+          }),
+          nodeCount: nodes.length,
+          opCount: ops.length,
+          opCounts: opSummary.opCounts,
+          clipDepthMax: opSummary.clipDepthMax,
+          textChars: textSummary.textChars,
+          textLines: textSummary.textLines,
+          nonBlankLines: textSummary.nonBlankLines,
+          widestLine: textSummary.widestLine,
+          minRectY: nodeSummary.minRectY,
+          maxRectBottom: nodeSummary.maxRectBottom,
+          zeroHeightRects: nodeSummary.zeroHeightRects,
+          detailIncluded: traceDetail,
+          ...(traceDetail ? { nodes, ops, text: screenText } : {}),
+        }),
+      );
+    }
+
     return Object.freeze({
       viewport,
       focusedId,
