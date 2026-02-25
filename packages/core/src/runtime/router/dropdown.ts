@@ -9,6 +9,17 @@ const ZR_KEY_UP = 20;
 const ZR_KEY_DOWN = 21;
 const ZR_KEY_SPACE = 32; /* Space as ASCII codepoint in ZREV key events */
 
+const NODE_ENV =
+  (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ??
+  "development";
+const DEV_MODE = NODE_ENV !== "production";
+
+function warnDev(message: string): void {
+  if (!DEV_MODE) return;
+  const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
+  c?.warn?.(message);
+}
+
 /**
  * Route keyboard events for dropdown navigation.
  *
@@ -41,8 +52,8 @@ export function routeDropdownKey(event: ZrevEvent, ctx: DropdownRoutingCtx): Dro
       if (onClose) {
         try {
           onClose();
-        } catch {
-          // Swallow
+        } catch (e) {
+          warnDev(`[rezi] onClose callback threw: ${e instanceof Error ? e.message : String(e)}`);
         }
       }
       return Object.freeze({ shouldClose: true, consumed: true });
@@ -81,8 +92,8 @@ export function routeDropdownKey(event: ZrevEvent, ctx: DropdownRoutingCtx): Dro
         if (onSelect) {
           try {
             onSelect(itemToActivate);
-          } catch {
-            // Swallow
+          } catch (e) {
+            warnDev(`[rezi] onSelect callback threw: ${e instanceof Error ? e.message : String(e)}`);
           }
         }
         return Object.freeze({
@@ -97,8 +108,8 @@ export function routeDropdownKey(event: ZrevEvent, ctx: DropdownRoutingCtx): Dro
       if (onClose) {
         try {
           onClose();
-        } catch {
-          // Swallow
+        } catch (e) {
+          warnDev(`[rezi] onClose callback threw: ${e instanceof Error ? e.message : String(e)}`);
         }
       }
       return Object.freeze({ shouldClose: true, consumed: true });

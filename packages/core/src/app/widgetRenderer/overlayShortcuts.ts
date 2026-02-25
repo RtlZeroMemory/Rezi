@@ -64,6 +64,17 @@ type RouteOverlayShortcutContext = Readonly<{
   invokeTarget: (target: OverlayShortcutTarget) => boolean;
 }>;
 
+const NODE_ENV =
+  (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ??
+  "development";
+const DEV_MODE = NODE_ENV !== "production";
+
+function warnDev(message: string): void {
+  if (!DEV_MODE) return;
+  const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
+  c?.warn?.(message);
+}
+
 const EMPTY_COMMAND_ITEMS: readonly CommandItem[] = Object.freeze([]);
 
 function noopOverlayShortcutHandler(_ctx: OverlayShortcutContext): void {}
@@ -87,15 +98,15 @@ export function selectDropdownShortcutItem(
   if (dropdown.onSelect) {
     try {
       dropdown.onSelect(item);
-    } catch {
-      // Swallow select callback errors to preserve routing determinism.
+    } catch (e) {
+      warnDev(`[rezi] onSelect callback threw: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   if (dropdown.onClose) {
     try {
       dropdown.onClose();
-    } catch {
-      // Swallow close callback errors to preserve routing determinism.
+    } catch (e) {
+      warnDev(`[rezi] onClose callback threw: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   return true;
@@ -115,13 +126,13 @@ export function selectCommandPaletteShortcutItem(
 
   try {
     palette.onSelect(item);
-  } catch {
-    // Swallow select callback errors to preserve routing determinism.
+  } catch (e) {
+    warnDev(`[rezi] onSelect callback threw: ${e instanceof Error ? e.message : String(e)}`);
   }
   try {
     palette.onClose();
-  } catch {
-    // Swallow close callback errors to preserve routing determinism.
+  } catch (e) {
+    warnDev(`[rezi] onClose callback threw: ${e instanceof Error ? e.message : String(e)}`);
   }
   return true;
 }

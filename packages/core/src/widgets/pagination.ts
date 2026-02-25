@@ -9,6 +9,17 @@
 import { defineWidget } from "./composition.js";
 import type { PaginationProps, VNode } from "./types.js";
 
+const NODE_ENV =
+  (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ??
+  "development";
+const DEV_MODE = NODE_ENV !== "production";
+
+function warnDev(message: string): void {
+  if (!DEV_MODE) return;
+  const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
+  c?.warn?.(message);
+}
+
 export const PAGINATION_ZONE_PREFIX = "__rezi_pagination_zone__";
 export const PAGINATION_CONTROL_PREFIX = "__rezi_pagination_control__";
 export const PAGINATION_PAGE_PREFIX = "__rezi_pagination_page__";
@@ -38,7 +49,8 @@ function decodeSegment(value: string): string | null {
   if (value.length === 0) return null;
   try {
     return decodeURIComponent(value);
-  } catch {
+  } catch (e) {
+    warnDev(`[rezi] pagination decodeURIComponent failed: ${e instanceof Error ? e.message : String(e)}`);
     return null;
   }
 }

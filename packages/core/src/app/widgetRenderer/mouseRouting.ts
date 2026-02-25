@@ -242,6 +242,17 @@ type RouteMouseWheelContext = Readonly<{
   }> | null;
 }>;
 
+const NODE_ENV =
+  (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ??
+  "development";
+const DEV_MODE = NODE_ENV !== "production";
+
+function warnDev(message: string): void {
+  if (!DEV_MODE) return;
+  const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
+  c?.warn?.(message);
+}
+
 const ROUTE_RENDER: MouseRoutingOutcome = Object.freeze({ needsRender: true });
 const ROUTE_NO_RENDER: MouseRoutingOutcome = Object.freeze({ needsRender: false });
 const EMPTY_STRING_ARRAY: readonly string[] = Object.freeze([]);
@@ -254,7 +265,8 @@ function invokeCallbackSafely<TArgs extends readonly unknown[]>(
   try {
     callback(...args);
     return true;
-  } catch {
+  } catch (e) {
+    warnDev(`[rezi] widget callback threw: ${e instanceof Error ? e.message : String(e)}`);
     return false;
   }
 }
@@ -314,8 +326,8 @@ export function routeDropdownMouse(
       if (dropdown.onClose) {
         try {
           dropdown.onClose();
-        } catch {
-          // Swallow close callback errors to preserve routing determinism.
+        } catch (e) {
+          warnDev(`[rezi] onClose callback threw: ${e instanceof Error ? e.message : String(e)}`);
         }
       }
       return ROUTE_RENDER;
@@ -344,15 +356,15 @@ export function routeDropdownMouse(
         if (dropdown.onSelect) {
           try {
             dropdown.onSelect(item);
-          } catch {
-            // Swallow select callback errors to preserve routing determinism.
+          } catch (e) {
+            warnDev(`[rezi] onSelect callback threw: ${e instanceof Error ? e.message : String(e)}`);
           }
         }
         if (dropdown.onClose) {
           try {
             dropdown.onClose();
-          } catch {
-            // Swallow close callback errors to preserve routing determinism.
+          } catch (e) {
+            warnDev(`[rezi] onClose callback threw: ${e instanceof Error ? e.message : String(e)}`);
           }
         }
         return ROUTE_RENDER;
@@ -384,8 +396,8 @@ export function routeLayerBackdropMouse(
     if (cb) {
       try {
         cb();
-      } catch {
-        // Swallow close callback errors to preserve routing determinism.
+      } catch (e) {
+        warnDev(`[rezi] onClose callback threw: ${e instanceof Error ? e.message : String(e)}`);
       }
       return ROUTE_RENDER;
     }

@@ -415,7 +415,8 @@ function invokeCallbackSafely<TArgs extends readonly unknown[]>(
   try {
     callback(...args);
     return true;
-  } catch {
+  } catch (e) {
+    if (DEV_MODE) warnDev(`[rezi] widget callback threw: ${e instanceof Error ? e.message : String(e)}`);
     return false;
   }
 }
