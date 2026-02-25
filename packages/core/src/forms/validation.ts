@@ -100,12 +100,14 @@ export function isValidationClean<T extends Record<string, unknown>>(
  * @param validateAsync - Async validation function
  * @param debounceMs - Debounce delay in milliseconds
  * @param onResult - Callback when validation completes
+ * @param onError - Optional callback when async validation throws; if omitted the error is swallowed and onResult receives an empty result
  * @returns Object with run and cancel methods
  */
 export function createDebouncedAsyncValidator<T extends Record<string, unknown>>(
   validateAsync: (values: T) => Promise<ValidationResult<T>>,
   debounceMs: number,
   onResult: (errors: ValidationResult<T>) => void,
+  onError?: (error: unknown) => void,
 ): Readonly<{
   run: (values: T) => void;
   cancel: () => void;
@@ -134,9 +136,11 @@ export function createDebouncedAsyncValidator<T extends Record<string, unknown>>
               onResult(errors);
             }
           })
-          .catch(() => {
-            // Swallow async validation errors - form remains valid
-            if (!cancelled && myToken === token) {
+          .catch((e) => {
+            if (cancelled || myToken !== token) return;
+            if (onError) {
+              onError(e);
+            } else {
               onResult({});
             }
           });
@@ -172,8 +176,10 @@ export async function runAsyncValidation<T extends Record<string, unknown>>(
 
   try {
     return await validateAsync(values);
-  } catch {
-    // Async validation errors are swallowed - form remains valid
-    return {};
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    const wrapped = new Error(`async form validation failed: ${detail}`);
+    (wrapped as { cause?: unknown }).cause = e;
+    throw wrapped;
   }
 }
