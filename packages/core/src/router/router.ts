@@ -8,6 +8,17 @@ import type {
   RouterStateSnapshot,
 } from "./types.js";
 
+const NODE_ENV =
+  (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ??
+  "development";
+const DEV_MODE = NODE_ENV !== "production";
+
+function warnDev(message: string): void {
+  if (!DEV_MODE) return;
+  const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
+  c?.warn?.(message);
+}
+
 const DEFAULT_HISTORY_DEPTH = 50;
 
 export type RouteRecord<S> = Readonly<{
@@ -30,6 +41,11 @@ function normalizeRouteId(routeId: string): string {
   if (!normalized) {
     throwInvalidProps("route id must be a non-empty string");
   }
+  if (DEV_MODE && /[^a-zA-Z0-9_\-.]/.test(normalized)) {
+    warnDev(
+      `[rezi] route id "${normalized}" contains non-identifier characters. Use only letters, digits, hyphens, underscores, and dots.`,
+    );
+  }
   return normalized;
 }
 
@@ -40,7 +56,14 @@ export function normalizeRouteParams(params: RouteParams | undefined): RoutePara
   if (!params) return Object.freeze({});
 
   const entries = Object.entries(params)
-    .map(([key, value]) => [String(key), String(value)] as const)
+    .map(([key, value]) => {
+      if (DEV_MODE && typeof value !== "string") {
+        warnDev(
+          `[rezi] route param "${key}" has non-string value (${typeof value}), coerced to string. Pass string values to avoid implicit coercion.`,
+        );
+      }
+      return [String(key), String(value)] as const;
+    })
     .sort((a, b) => {
       if (a[0] < b[0]) return -1;
       if (a[0] > b[0]) return 1;

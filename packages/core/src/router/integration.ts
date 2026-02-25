@@ -157,15 +157,23 @@ export function createRouterIntegration<S>(
         const guard = ancestryRoute.guard;
         if (!guard) continue;
 
-        const guardResult = guard(
-          resolvedParams,
-          opts.getState(),
-          Object.freeze({
-            from,
-            to,
-            action,
-          }),
-        );
+        let guardResult: boolean | { redirect: string; params?: RouteParams };
+        try {
+          guardResult = guard(
+            resolvedParams,
+            opts.getState(),
+            Object.freeze({
+              from,
+              to,
+              action,
+            }),
+          );
+        } catch (e) {
+          throw new ZrUiError(
+            "ZRUI_USER_CODE_THROW",
+            `route guard for "${ancestryRouteId}" threw: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`,
+          );
+        }
 
         if (guardResult === true) {
           continue;
