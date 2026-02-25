@@ -8,6 +8,17 @@
  * @see docs/guide/input-and-focus.md
  */
 
+const NODE_ENV =
+  (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ??
+  "development";
+const DEV_MODE = NODE_ENV !== "production";
+
+function warnDev(message: string): void {
+  if (!DEV_MODE) return;
+  const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
+  c?.warn?.(message);
+}
+
 import type { ZrevEvent } from "../events.js";
 import {
   CHORD_TIMEOUT_MS,
@@ -187,6 +198,11 @@ function mergeBindingsReplacingSequences<C>(
     for (let i = merged.length - 1; i >= 0; i--) {
       const current = merged[i];
       if (current && keySequencesEqual(current.sequence, next.sequence)) {
+        if (DEV_MODE) {
+          warnDev(
+            `[rezi] keybinding "${sequenceToString(next.sequence)}" registered multiple times, later definition wins`,
+          );
+        }
         merged.splice(i, 1);
       }
     }
