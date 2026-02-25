@@ -1290,7 +1290,7 @@ function getSpaceCell(style: CellStyle | undefined): StyledCell {
  * objects, so caching by identity avoids rebuilding ANSI strings per-cell.
  */
 const sgrCache = new Map<CellStyle, string>();
-let sgrCacheColorLevel: number = -1;
+let sgrCacheColorLevel = -1;
 
 function styleToSgr(style: CellStyle | undefined, colorSupport: ColorSupport): string {
   if (!style) return "\u001b[0m";
@@ -1363,7 +1363,8 @@ function inClipStack(x: number, y: number, clipStack: readonly ClipRect[]): bool
 
 /**
  * Pre-compute the effective clip rect (intersection of all rects in stack).
- * Returns null for empty clip stack or empty intersection.
+ * Returns null for empty clip stack.
+ * Empty intersections are represented as a zero-sized rect.
  * Reduces per-cell clip checking from O(clipStack.length) to O(1).
  */
 function computeEffectiveClip(clipStack: readonly ClipRect[]): ClipRect | null {
@@ -1379,12 +1380,13 @@ function computeEffectiveClip(clipStack: readonly ClipRect[]): ClipRect | null {
     x2 = Math.min(x2, c.x + c.w);
     y2 = Math.min(y2, c.y + c.h);
   }
-  if (x1 >= x2 || y1 >= y2) return null;
+  if (x1 >= x2 || y1 >= y2) return { x: x1, y: y1, w: 0, h: 0 };
   return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
 }
 
 function inEffectiveClip(x: number, y: number, clip: ClipRect | null): boolean {
   if (clip === null) return true;
+  if (clip.w <= 0 || clip.h <= 0) return false;
   return x >= clip.x && x < clip.x + clip.w && y >= clip.y && y < clip.y + clip.h;
 }
 
@@ -1600,7 +1602,16 @@ function renderOpsToAnsi(
       // the core renderer) would make every cell "visible" to the line
       // trimmer, producing an opaque dark background where Ink shows
       // the terminal's own background.
-      fillCells(grid, viewport, effectiveClip, 0, 0, Math.max(0, Math.trunc(op.cols)), Math.max(0, Math.trunc(op.rows)), undefined);
+      fillCells(
+        grid,
+        viewport,
+        effectiveClip,
+        0,
+        0,
+        Math.max(0, Math.trunc(op.cols)),
+        Math.max(0, Math.trunc(op.rows)),
+        undefined,
+      );
       continue;
     }
     if (op.kind === "fillRect") {
@@ -2540,7 +2551,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         );
 
         trace(
-          `frame#${frameCount} force=${force} viewport=${viewport.cols}x${viewport.rows} layoutViewport=${layoutViewport.cols}x${layoutViewport.rows} gridViewport=${gridViewport.cols}x${gridViewport.rows} staticRowsUsed=${staticRowsUsed} staticRowsFull=${fullStaticRows} staticRowsPending=${pendingStaticRows} viewportChanged=${viewportChanged} renderTimeMs=${Date.now() - frameStartedAt} outputLen=${output.length} nonBlank=${outputShape.nonBlankLines}/${outputShape.lines} first=${outputShape.firstNonBlankLine} last=${outputShape.lastNonBlankLine} widest=${outputShape.widestLine} ops=${result.ops.length} nodes=${result.nodes.length} minY=${Number.isFinite(minRectY) ? minRectY : -1} maxBottom=${maxRectBottom} zeroH=${zeroHeightRects} hostNodes=${host.nodeCount} hostBoxes=${host.boxCount} hostScrollNodes=${host.scrollNodeCount} hostMaxScrollTop=${host.maxScrollTop} hostMaxScrollLeft=${host.maxScrollLeft} hostRootScrollTop=${host.rootScrollTop} hostRootOverflow=${host.rootOverflow || "none"} hostRootWidth=${host.rootWidthProp || "unset"} hostRootHeight=${host.rootHeightProp || "unset"} hostRootFlexGrow=${host.rootFlexGrowProp || "unset"} hostRootFlexShrink=${host.rootFlexShrinkProp || "unset"} rootChildren=${rootChildCount} msSinceResizeSignal=${Number.isFinite(msSinceResizeSignal) ? msSinceResizeSignal : -1} msSinceResizeFlush=${Number.isFinite(msSinceResizeFlush) ? msSinceResizeFlush : -1} transientEmptyAfterResize=${transientEmptyAfterResize} vnode=${vnodeKind} vnodeOverflow=${translatedOverflow || "none"} vnodeScrollY=${translatedScrollY} vnodeScrollX=${translatedScrollX} rootHeightCoerced=${rootHeightCoerced} writeBlocked=${writeBlocked} collapsed=${collapsed} opViewportOverflowCount=${opViewportOverflows.length}`,
+          `frame#${frameCount} force=${force} viewport=${viewport.cols}x${viewport.rows} layoutViewport=${layoutViewport.cols}x${layoutViewport.rows} gridViewport=${gridViewport.cols}x${gridViewport.rows} staticRowsUsed=${staticRowsUsed} staticRowsFull=${fullStaticRows} staticRowsPending=${pendingStaticRows} viewportChanged=${viewportChanged} renderTimeMs=${performance.now() - frameStartedAt} outputLen=${output.length} nonBlank=${outputShape.nonBlankLines}/${outputShape.lines} first=${outputShape.firstNonBlankLine} last=${outputShape.lastNonBlankLine} widest=${outputShape.widestLine} ops=${result.ops.length} nodes=${result.nodes.length} minY=${Number.isFinite(minRectY) ? minRectY : -1} maxBottom=${maxRectBottom} zeroH=${zeroHeightRects} hostNodes=${host.nodeCount} hostBoxes=${host.boxCount} hostScrollNodes=${host.scrollNodeCount} hostMaxScrollTop=${host.maxScrollTop} hostMaxScrollLeft=${host.maxScrollLeft} hostRootScrollTop=${host.rootScrollTop} hostRootOverflow=${host.rootOverflow || "none"} hostRootWidth=${host.rootWidthProp || "unset"} hostRootHeight=${host.rootHeightProp || "unset"} hostRootFlexGrow=${host.rootFlexGrowProp || "unset"} hostRootFlexShrink=${host.rootFlexShrinkProp || "unset"} rootChildren=${rootChildCount} msSinceResizeSignal=${Number.isFinite(msSinceResizeSignal) ? msSinceResizeSignal : -1} msSinceResizeFlush=${Number.isFinite(msSinceResizeFlush) ? msSinceResizeFlush : -1} transientEmptyAfterResize=${transientEmptyAfterResize} vnode=${vnodeKind} vnodeOverflow=${translatedOverflow || "none"} vnodeScrollY=${translatedScrollY} vnodeScrollX=${translatedScrollX} rootHeightCoerced=${rootHeightCoerced} writeBlocked=${writeBlocked} collapsed=${collapsed} opViewportOverflowCount=${opViewportOverflows.length}`,
         );
         trace(
           `frame#${frameCount} colorSupport baseLevel=${colorSupport.level} baseNoColor=${colorSupport.noColor} hasAnsiSgr=${frameHasAnsiSgr} effectiveLevel=${frameColorSupport.level} effectiveNoColor=${frameColorSupport.noColor}`,

@@ -161,7 +161,7 @@ export const hostConfig = {
 
   clearContainer(container: InkHostContainer): boolean {
     while (container.children.length > 0) {
-      const child = container.children[container.children.length - 1];
+      const child = container.children[0];
       if (!child) break;
       removeChild(container, child);
     }

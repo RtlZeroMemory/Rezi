@@ -227,6 +227,42 @@ test("ResizeObserver fires on size change via check()", () => {
   observer.disconnect();
 });
 
+test("ResizeObserver reports zero size for stale generation-tagged layout", () => {
+  const entries: Array<{ width: number; height: number }> = [];
+  const observer = new InkResizeObserver((e) => {
+    entries.push(e[0]!.contentRect);
+  });
+
+  type LayoutNode = ReturnType<typeof createHostNode> & {
+    __inkLayout?: { x: number; y: number; w: number; h: number };
+    __inkLayoutGen?: number;
+  };
+
+  const container = createHostContainer();
+  const node = createHostNode("ink-box", {}) as LayoutNode;
+  appendChild(container, node);
+
+  node.__inkLayout = { x: 0, y: 0, w: 80, h: 24 };
+  node.__inkLayoutGen = container.__inkLayoutGeneration;
+
+  observer.observe(node);
+  assert.equal(entries.length, 1);
+  assert.deepEqual(entries[0], { width: 80, height: 24 });
+
+  container.__inkLayoutGeneration += 1;
+  observer.check();
+  assert.equal(entries.length, 2);
+  assert.deepEqual(entries[1], { width: 0, height: 0 });
+
+  node.__inkLayout = { x: 0, y: 0, w: 90, h: 30 };
+  node.__inkLayoutGen = container.__inkLayoutGeneration;
+  observer.check();
+  assert.equal(entries.length, 3);
+  assert.deepEqual(entries[2], { width: 90, height: 30 });
+
+  observer.disconnect();
+});
+
 test("ResizeObserver does not fire after disconnect", () => {
   let callCount = 0;
   const observer = new InkResizeObserver(() => {

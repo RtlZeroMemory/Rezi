@@ -73,25 +73,40 @@ function detectNodeSelfAnsi(textContent: string | null): boolean {
 }
 
 function recomputeSubtreeMarkers(node: InkHostNode): { staticCount: number; ansiCount: number } {
-  const selfStatic = detectNodeSelfStatic(node.type, node.props);
-  const selfAnsi = detectNodeSelfAnsi(node.textContent);
+  const stack: Array<{ node: InkHostNode; visited: boolean }> = [{ node, visited: false }];
 
-  let staticCount = selfStatic ? 1 : 0;
-  let ansiCount = selfAnsi ? 1 : 0;
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) continue;
 
-  for (const child of node.children) {
-    const childCounts = recomputeSubtreeMarkers(child);
-    staticCount += childCounts.staticCount;
-    ansiCount += childCounts.ansiCount;
+    if (!current.visited) {
+      stack.push({ node: current.node, visited: true });
+      for (let i = current.node.children.length - 1; i >= 0; i -= 1) {
+        const child = current.node.children[i];
+        if (child) stack.push({ node: child, visited: false });
+      }
+      continue;
+    }
+
+    const selfStatic = detectNodeSelfStatic(current.node.type, current.node.props);
+    const selfAnsi = detectNodeSelfAnsi(current.node.textContent);
+
+    let staticCount = selfStatic ? 1 : 0;
+    let ansiCount = selfAnsi ? 1 : 0;
+
+    for (const child of current.node.children) {
+      staticCount += child.__inkSubtreeStaticCount;
+      ansiCount += child.__inkSubtreeAnsiSgrCount;
+    }
+
+    current.node.__inkSelfHasStatic = selfStatic;
+    current.node.__inkSelfHasAnsiSgr = selfAnsi;
+    current.node.__inkSubtreeStaticCount = staticCount;
+    current.node.__inkSubtreeAnsiSgrCount = ansiCount;
+    updateNodeMarkerBooleans(current.node);
   }
 
-  node.__inkSelfHasStatic = selfStatic;
-  node.__inkSelfHasAnsiSgr = selfAnsi;
-  node.__inkSubtreeStaticCount = staticCount;
-  node.__inkSubtreeAnsiSgrCount = ansiCount;
-  updateNodeMarkerBooleans(node);
-
-  return { staticCount, ansiCount };
+  return { staticCount: node.__inkSubtreeStaticCount, ansiCount: node.__inkSubtreeAnsiSgrCount };
 }
 
 function setContainerRecursive(node: InkHostNode, container: InkHostContainer | null): void {
@@ -286,7 +301,12 @@ export function removeChild(parent: InkHostNode | InkHostContainer, child: InkHo
     return;
   }
 
-  applyDeltaToNodeTree(parent, -child.__inkSubtreeStaticCount, -child.__inkSubtreeAnsiSgrCount, true);
+  applyDeltaToNodeTree(
+    parent,
+    -child.__inkSubtreeStaticCount,
+    -child.__inkSubtreeAnsiSgrCount,
+    true,
+  );
   if (parent.__inkContainer) {
     applyDeltaToContainer(
       parent.__inkContainer,
@@ -315,15 +335,13 @@ export function setNodeProps(node: InkHostNode, props: Record<string, unknown>):
   node.props = props;
 
   const nextSelfStatic = detectNodeSelfStatic(node.type, props);
-  if (previousSelfStatic !== nextSelfStatic) {
-    const staticDelta = nextSelfStatic ? 1 : -1;
+  const staticDelta = previousSelfStatic === nextSelfStatic ? 0 : nextSelfStatic ? 1 : -1;
+  if (staticDelta !== 0) {
     node.__inkSelfHasStatic = nextSelfStatic;
     node.__inkSubtreeStaticCount += staticDelta;
     updateNodeMarkerBooleans(node);
-    applyDeltaForAttachedNode(node, staticDelta, 0, false);
   }
-
-  applyDeltaForAttachedNode(node, 0, 0, true);
+  applyDeltaForAttachedNode(node, staticDelta, 0, true);
 }
 
 export function setNodeTextContent(node: InkHostNode, textContent: string | null): void {
@@ -331,13 +349,11 @@ export function setNodeTextContent(node: InkHostNode, textContent: string | null
   node.textContent = textContent;
 
   const nextSelfAnsi = detectNodeSelfAnsi(textContent);
-  if (previousSelfAnsi !== nextSelfAnsi) {
-    const ansiDelta = nextSelfAnsi ? 1 : -1;
+  const ansiDelta = previousSelfAnsi === nextSelfAnsi ? 0 : nextSelfAnsi ? 1 : -1;
+  if (ansiDelta !== 0) {
     node.__inkSelfHasAnsiSgr = nextSelfAnsi;
     node.__inkSubtreeAnsiSgrCount += ansiDelta;
     updateNodeMarkerBooleans(node);
-    applyDeltaForAttachedNode(node, 0, ansiDelta, false);
   }
-
-  applyDeltaForAttachedNode(node, 0, 0, true);
+  applyDeltaForAttachedNode(node, 0, ansiDelta, true);
 }

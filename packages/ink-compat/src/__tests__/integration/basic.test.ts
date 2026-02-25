@@ -1208,6 +1208,38 @@ test("ANSI output resets attributes between differently-styled cells", () => {
 
 // ─── Regression: text inherits background from underlying fillRect ───
 
+test("nested non-overlapping clips do not leak text", () => {
+  const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+  stdin.setRawMode = () => {};
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  let writes = "";
+  stdout.on("data", (chunk) => {
+    writes += chunk.toString("utf-8");
+  });
+
+  const instance = runtimeRender(
+    React.createElement(
+      Box,
+      { width: 4, height: 1, overflow: "hidden" },
+      React.createElement(
+        Box,
+        { position: "absolute", left: 10, top: 0, width: 4, height: 1, overflow: "hidden" },
+        React.createElement(Text, null, "LEAK"),
+      ),
+    ),
+    { stdin, stdout, stderr },
+  );
+
+  try {
+    const latest = stripTerminalEscapes(latestFrameFromWrites(writes));
+    assert.equal(latest.includes("LEAK"), false, `unexpected clipped leak in output: ${latest}`);
+  } finally {
+    instance.unmount();
+    instance.cleanup();
+  }
+});
+
 test("text over backgroundColor box preserves box background in ANSI output", () => {
   const previousNoColor = process.env["NO_COLOR"];
   const previousForceColor = process.env["FORCE_COLOR"];

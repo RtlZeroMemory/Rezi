@@ -1,6 +1,6 @@
 import type { InkHostContainer, InkHostNode } from "../reconciler/types.js";
 
-interface InkLayoutRect {
+export interface InkLayoutRect {
   x: number;
   y: number;
   w: number;
@@ -13,7 +13,7 @@ type LayoutHostNode = InkHostNode & {
 };
 
 export function advanceLayoutGeneration(container: InkHostContainer): number {
-  container.__inkLayoutGeneration = (container.__inkLayoutGeneration ?? 0) + 1;
+  container.__inkLayoutGeneration += 1;
   return container.__inkLayoutGeneration;
 }
 

@@ -355,9 +355,10 @@ export function translateStaticTree(container: InkHostContainer): VNode {
  * Translate and collect metadata in a single pass — eliminates separate
  * hasStaticNodes(), hasPercentMarkers(), and hostTreeContainsAnsiSgr() walks.
  */
-export function translateDynamicTreeWithMetadata(
-  container: InkHostContainer,
-): { vnode: VNode; meta: TranslationMetadata } {
+export function translateDynamicTreeWithMetadata(container: InkHostContainer): {
+  vnode: VNode;
+  meta: TranslationMetadata;
+} {
   const meta = createMeta();
   meta.hasStaticNodes = container.__inkSubtreeHasStatic;
   meta.hasAnsiSgr = container.__inkSubtreeHasAnsiSgr;
@@ -382,10 +383,7 @@ export function translateDynamicTreeWithMetadata(
   return { vnode, meta };
 }
 
-function translateNode(
-  node: InkHostNode,
-  context: TranslateContext,
-): VNode | null {
+function translateNode(node: InkHostNode, context: TranslateContext): VNode | null {
   const parentMeta = context.meta;
   const localMeta = createMeta();
   const localContext: TranslateContext = {
@@ -429,10 +427,7 @@ function translateNode(
   return translated;
 }
 
-function translateNodeUncached(
-  node: InkHostNode,
-  context: TranslateContext,
-): VNode | null {
+function translateNodeUncached(node: InkHostNode, context: TranslateContext): VNode | null {
   const props = (node.props ?? {}) as Record<string, unknown>;
   const isStaticNode = node.type === "ink-box" && props["__inkStatic"] === true;
 

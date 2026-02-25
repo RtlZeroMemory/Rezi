@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  setNodeTextContent,
   type InkHostContainer,
   type InkHostNode,
   appendChild,
@@ -10,6 +9,7 @@ import {
   createHostNode,
   insertBefore,
   removeChild,
+  setNodeTextContent,
 } from "../../reconciler/types.js";
 import {
   __inkCompatTranslationTestHooks,
