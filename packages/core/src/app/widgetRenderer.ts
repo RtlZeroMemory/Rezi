@@ -404,7 +404,11 @@ export type WidgetFocusSnapshot = Readonly<{
 /** Format thrown value for error message. */
 function describeThrown(v: unknown): string {
   if (v instanceof Error) return `${v.name}: ${v.message}`;
-  return String(v);
+  try {
+    return String(v);
+  } catch {
+    return "[unstringifiable thrown value]";
+  }
 }
 
 function invokeCallbackSafely<TArgs extends readonly unknown[]>(
@@ -415,7 +419,11 @@ function invokeCallbackSafely<TArgs extends readonly unknown[]>(
   try {
     callback(...args);
     return true;
-  } catch {
+  } catch (e) {
+    if (DEV_MODE) {
+      const message = describeThrown(e);
+      warnDev(`[rezi] widget callback threw: ${message}`);
+    }
     return false;
   }
 }

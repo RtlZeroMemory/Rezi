@@ -15,6 +15,17 @@
 
 import type { InstanceId } from "./instance.js";
 
+const NODE_ENV =
+  (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ??
+  "development";
+const DEV_MODE = NODE_ENV !== "production";
+
+function warnDev(message: string): void {
+  if (!DEV_MODE) return;
+  const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
+  c?.warn?.(message);
+}
+
 /** Effect cleanup function returned by effect callbacks. */
 export type EffectCleanup = () => void;
 
@@ -174,8 +185,8 @@ function runEffectCleanup(effect: EffectState): void {
   if (effect.cleanup) {
     try {
       effect.cleanup();
-    } catch {
-      // Cleanup errors are swallowed (React behavior)
+    } catch (e) {
+      warnDev(`[rezi] useEffect cleanup threw: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 }
@@ -376,7 +387,8 @@ export function createHookContext(
       const setValue = (v: T | ((prev: T) => T)) => {
         // Stale closure check
         if (mutableState.generation !== currentGeneration) {
-          return; // Ignore updates from stale closures
+          warnDev("[rezi] setState called from stale closure (instance generation changed)");
+          return;
         }
 
         const nextValue = typeof v === "function" ? (v as (prev: T) => T)(hookState.value) : v;
@@ -561,8 +573,8 @@ export function runPendingCleanups(cleanups: readonly EffectCleanup[]): void {
   for (const cleanup of cleanups) {
     try {
       cleanup();
-    } catch {
-      // Cleanup errors are swallowed (React behavior)
+    } catch (e) {
+      warnDev(`[rezi] useEffect cleanup threw: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 }

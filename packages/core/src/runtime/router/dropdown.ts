@@ -9,6 +9,26 @@ const ZR_KEY_UP = 20;
 const ZR_KEY_DOWN = 21;
 const ZR_KEY_SPACE = 32; /* Space as ASCII codepoint in ZREV key events */
 
+const NODE_ENV =
+  (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ??
+  "development";
+const DEV_MODE = NODE_ENV !== "production";
+
+function warnDev(message: string): void {
+  if (!DEV_MODE) return;
+  const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
+  c?.warn?.(message);
+}
+
+function describeThrown(v: unknown): string {
+  if (v instanceof Error) return v.message;
+  try {
+    return String(v);
+  } catch {
+    return "[unstringifiable thrown value]";
+  }
+}
+
 /**
  * Route keyboard events for dropdown navigation.
  *
@@ -41,8 +61,9 @@ export function routeDropdownKey(event: ZrevEvent, ctx: DropdownRoutingCtx): Dro
       if (onClose) {
         try {
           onClose();
-        } catch {
-          // Swallow
+        } catch (e) {
+          const message = describeThrown(e);
+          warnDev(`[rezi] onClose callback threw: ${message}`);
         }
       }
       return Object.freeze({ shouldClose: true, consumed: true });
@@ -81,8 +102,9 @@ export function routeDropdownKey(event: ZrevEvent, ctx: DropdownRoutingCtx): Dro
         if (onSelect) {
           try {
             onSelect(itemToActivate);
-          } catch {
-            // Swallow
+          } catch (e) {
+            const message = describeThrown(e);
+            warnDev(`[rezi] onSelect callback threw: ${message}`);
           }
         }
         return Object.freeze({
@@ -97,8 +119,9 @@ export function routeDropdownKey(event: ZrevEvent, ctx: DropdownRoutingCtx): Dro
       if (onClose) {
         try {
           onClose();
-        } catch {
-          // Swallow
+        } catch (e) {
+          const message = describeThrown(e);
+          warnDev(`[rezi] onClose callback threw: ${message}`);
         }
       }
       return Object.freeze({ shouldClose: true, consumed: true });

@@ -5,6 +5,17 @@ import type {
   CodeEditorTokenizeContext,
 } from "./types.js";
 
+const NODE_ENV =
+  (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ??
+  "development";
+const DEV_MODE = NODE_ENV !== "production";
+
+function warnDev(message: string): void {
+  if (!DEV_MODE) return;
+  const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
+  c?.warn?.(message);
+}
+
 type CanonicalLanguage =
   | "plain"
   | "typescript"
@@ -1057,7 +1068,8 @@ export function tokenizeCodeEditorLineWithCustom(
   if (typeof customTokenizer === "function") {
     try {
       return normalizeCodeEditorTokens(line, customTokenizer(line, context));
-    } catch {
+    } catch (e) {
+      warnDev(`[rezi] custom tokenizer threw: ${e instanceof Error ? e.message : String(e)}`);
       return plainLine(line);
     }
   }
