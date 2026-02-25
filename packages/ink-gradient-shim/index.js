@@ -1,4 +1,3 @@
-import { Text } from "ink";
 /**
  * ink-gradient shim.
  * Applies a per-line multiline gradient and emits ANSI truecolor text.
@@ -149,7 +148,7 @@ const Gradient = ({ colors, children }) => {
       `render#${gradientTraceRenderCount} colors=${colorsLength} parsedStops=${parsedStops.length} textChars=${Array.from(plainText).length} emittedAnsi=${gradientText.includes("\u001b[38;2;")}`,
     );
   }, [colorsLength, parsedStops.length, plainText, gradientText]);
-  return React.createElement(Text, null, gradientText);
+  return React.createElement("ink-text", null, gradientText);
 };
 
 export default Gradient;

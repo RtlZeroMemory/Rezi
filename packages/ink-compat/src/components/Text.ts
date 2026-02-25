@@ -1,4 +1,5 @@
 import React from "react";
+import type { InkHostNode } from "../reconciler/types.js";
 
 export interface TextProps {
   color?: string;
@@ -18,10 +19,20 @@ export interface TextProps {
   "aria-label"?: string;
   accessibilityLabel?: string;
   children?: React.ReactNode;
+  ref?: React.Ref<InkHostNode>;
 }
 
-export const Text = React.forwardRef<unknown, TextProps>((props, ref) => {
-  return React.createElement("ink-text", { ...props, ref });
-});
+type TextComponent = ((props: TextProps) => React.ReactElement) & {
+  displayName?: string;
+  // Downstream test suites often cast Text to a Vitest Mock after vi.mock("ink").
+  // Keeping these optional fields on the public type avoids TS2352 assertion failures.
+  mock?: unknown;
+  mockClear?: unknown;
+  mockReset?: unknown;
+};
+
+export const Text: TextComponent = (props: TextProps): React.ReactElement => {
+  return React.createElement("ink-text", { ...props });
+};
 
 Text.displayName = "Text";

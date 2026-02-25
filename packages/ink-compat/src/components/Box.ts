@@ -1,4 +1,5 @@
 import React from "react";
+import type { InkHostNode } from "../reconciler/types.js";
 
 type InkBorderStyleName =
   | "single"
@@ -30,6 +31,8 @@ export interface BoxProps {
   width?: number | string;
   height?: number | string;
   minWidth?: number | string;
+  /** @jrichman/ink fork: non-upstream extension used by Gemini CLI tab headers */
+  maxWidth?: number | string;
   minHeight?: number | string;
   maxHeight?: number | string;
 
@@ -100,7 +103,7 @@ export interface BoxProps {
   stickyChildren?: React.ReactNode;
 
   children?: React.ReactNode;
-  ref?: React.Ref<unknown>;
+  ref?: React.Ref<InkHostNode>;
 }
 
 export const Box = (props: BoxProps): React.ReactElement => {

@@ -13,6 +13,7 @@ import { useCursor } from "../../hooks/useCursor.js";
 import { useFocus } from "../../hooks/useFocus.js";
 import { useInput } from "../../hooks/useInput.js";
 import { useIsScreenReaderEnabled } from "../../hooks/useIsScreenReaderEnabled.js";
+import type { InkHostNode } from "../../reconciler/types.js";
 import { measureElement } from "../../runtime/measureElement.js";
 import { render as runtimeRender } from "../../runtime/render.js";
 import { render } from "../../testing/index.js";
@@ -457,12 +458,12 @@ test("runtime render populates __inkLayout and resolves percent widths", async (
   const stdout = new PassThrough();
   const stderr = new PassThrough();
 
-  let parentNode: unknown;
-  let childNode: unknown;
+  let parentNode: InkHostNode | null = null;
+  let childNode: InkHostNode | null = null;
 
   function App(): React.ReactElement {
-    const parentRef = React.useRef<unknown>(null);
-    const childRef = React.useRef<unknown>(null);
+    const parentRef = React.useRef<InkHostNode | null>(null);
+    const childRef = React.useRef<InkHostNode | null>(null);
 
     useEffect(() => {
       parentNode = parentRef.current;
@@ -483,8 +484,10 @@ test("runtime render populates __inkLayout and resolves percent widths", async (
   const instance = runtimeRender(React.createElement(App), { stdin, stdout, stderr });
   try {
     await new Promise((resolve) => setTimeout(resolve, 40));
-    assert.equal(measureElement(parentNode as never).width, 20);
-    assert.equal(measureElement(childNode as never).width, 20);
+    assert.ok(parentNode != null, "parent ref should be set");
+    assert.ok(childNode != null, "child ref should be set");
+    assert.equal(measureElement(parentNode).width, 20);
+    assert.equal(measureElement(childNode).width, 20);
   } finally {
     instance.unmount();
     instance.cleanup();
@@ -497,18 +500,18 @@ test("runtime render resolves nested percent sizing from resolved parent layout"
   const stdout = new PassThrough();
   const stderr = new PassThrough();
 
-  let rowParentNode: unknown;
-  let widthNode: unknown;
-  let basisNode: unknown;
-  let columnParentNode: unknown;
-  let heightNode: unknown;
+  let rowParentNode: InkHostNode | null = null;
+  let widthNode: InkHostNode | null = null;
+  let basisNode: InkHostNode | null = null;
+  let columnParentNode: InkHostNode | null = null;
+  let heightNode: InkHostNode | null = null;
 
   function App(): React.ReactElement {
-    const rowParentRef = React.useRef<unknown>(null);
-    const widthRef = React.useRef<unknown>(null);
-    const basisRef = React.useRef<unknown>(null);
-    const columnParentRef = React.useRef<unknown>(null);
-    const heightRef = React.useRef<unknown>(null);
+    const rowParentRef = React.useRef<InkHostNode | null>(null);
+    const widthRef = React.useRef<InkHostNode | null>(null);
+    const basisRef = React.useRef<InkHostNode | null>(null);
+    const columnParentRef = React.useRef<InkHostNode | null>(null);
+    const heightRef = React.useRef<InkHostNode | null>(null);
 
     useEffect(() => {
       rowParentNode = rowParentRef.current;
@@ -555,11 +558,16 @@ test("runtime render resolves nested percent sizing from resolved parent layout"
   const instance = runtimeRender(React.createElement(App), { stdin, stdout, stderr });
   try {
     await new Promise((resolve) => setTimeout(resolve, 60));
-    assert.equal(measureElement(rowParentNode as never).width, 40);
-    assert.equal(measureElement(widthNode as never).width, 20);
-    assert.equal(measureElement(basisNode as never).width, 20);
-    assert.equal(measureElement(columnParentNode as never).height, 12);
-    assert.equal(measureElement(heightNode as never).height, 6);
+    assert.ok(rowParentNode != null, "row parent ref should be set");
+    assert.ok(widthNode != null, "width ref should be set");
+    assert.ok(basisNode != null, "basis ref should be set");
+    assert.ok(columnParentNode != null, "column parent ref should be set");
+    assert.ok(heightNode != null, "height ref should be set");
+    assert.equal(measureElement(rowParentNode).width, 40);
+    assert.equal(measureElement(widthNode).width, 20);
+    assert.equal(measureElement(basisNode).width, 20);
+    assert.equal(measureElement(columnParentNode).height, 12);
+    assert.equal(measureElement(heightNode).height, 6);
   } finally {
     instance.unmount();
     instance.cleanup();

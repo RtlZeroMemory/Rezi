@@ -1,4 +1,3 @@
-import { Text } from "ink";
 /**
  * ink-spinner shim — drop-in replacement using ink compat primitives.
  * Implements the "dots" spinner type used by Gemini CLI.
@@ -22,7 +21,7 @@ const Spinner = ({ type = "dots" }) => {
     return () => clearInterval(timer);
   }, [spinner]);
 
-  return React.createElement(Text, { color: "green" }, spinner.frames[frame]);
+  return React.createElement("ink-text", { color: "green" }, spinner.frames[frame]);
 };
 
 export default Spinner;

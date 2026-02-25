@@ -12,6 +12,8 @@ export interface InkHostNode {
   parent: InkHostNode | null;
   /** Text content for text nodes (string children of <Text>) */
   textContent: string | null;
+  /** Compatibility surface for libraries that expect Ink DOM elements to expose yogaNode. */
+  yogaNode?: unknown;
 }
 
 export interface InkHostContainer {
