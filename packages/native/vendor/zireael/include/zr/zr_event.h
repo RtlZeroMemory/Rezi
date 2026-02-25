@@ -60,6 +60,17 @@ typedef enum zr_event_type_t {
 #define ZR_MOD_ALT (1u << 2u)
 #define ZR_MOD_META (1u << 3u)
 
+/*
+  Stable key-code allocation map (ABI contract):
+    - 1..4   : basic editing/navigation keys
+    - 10..15 : insert/delete/home/end/page navigation
+    - 20..23 : arrow keys
+    - 30..31 : focus in/out pseudo-keys
+    - 100+   : function keys (F1..)
+
+  Why: Values are intentionally sparse to preserve room for future additions
+  without renumbering existing keys.
+*/
 typedef enum zr_key_t {
   ZR_KEY_UNKNOWN = 0,
 

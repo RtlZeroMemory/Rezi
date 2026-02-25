@@ -115,7 +115,10 @@ uint8_t zr_blit_alpha_is_opaque(uint8_t alpha) {
 }
 
 uint32_t zr_blit_pack_rgb(uint8_t r, uint8_t g, uint8_t b) {
-  return ((uint32_t)r << 16u) | ((uint32_t)g << 8u) | (uint32_t)b;
+  const uint32_t rr = ((uint32_t)r << 16u);
+  const uint32_t gg = ((uint32_t)g << 8u);
+  const uint32_t bb = (uint32_t)b;
+  return rr | gg | bb;
 }
 
 static uint8_t zr_blit_rgb_r(uint32_t rgb) {

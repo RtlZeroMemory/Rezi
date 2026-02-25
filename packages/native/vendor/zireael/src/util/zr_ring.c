@@ -11,6 +11,10 @@
 
 #include <string.h>
 
+static size_t zr__ring_advance(size_t idx, size_t cap) {
+  return (idx + 1u) % cap;
+}
+
 /* Initialize a fixed-capacity FIFO ring buffer with caller-provided backing storage. */
 zr_result_t zr_ring_init(zr_ring_t* r, void* backing_buf, size_t cap_elems, size_t elem_size) {
   if (!r || elem_size == 0u || (cap_elems != 0u && !backing_buf)) {
@@ -69,7 +73,8 @@ zr_result_t zr_ring_push(zr_ring_t* r, const void* elem) {
   }
 
   memcpy(r->data + off, elem, r->elem_size);
-  r->tail = (r->tail + 1u) % r->cap;
+  /* Invariant: tail always points at the next write slot. */
+  r->tail = zr__ring_advance(r->tail, r->cap);
   r->len++;
   return ZR_OK;
 }
@@ -93,7 +98,7 @@ bool zr_ring_pop(zr_ring_t* r, void* out_elem) {
   }
 
   memcpy(out_elem, r->data + off, r->elem_size);
-  r->head = (r->head + 1u) % r->cap;
+  r->head = zr__ring_advance(r->head, r->cap);
   r->len--;
   return true;
 }

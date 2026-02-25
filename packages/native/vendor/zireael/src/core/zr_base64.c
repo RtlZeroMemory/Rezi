@@ -46,10 +46,17 @@ size_t zr_base64_encoded_size(size_t in_len, uint8_t* out_overflow) {
 }
 
 static void zr_base64_encode_triplet(const uint8_t src[3], uint8_t out[4]) {
-  out[0] = ZR_BASE64_ALPHABET[(uint8_t)(src[0] >> 2u)];
-  out[1] = ZR_BASE64_ALPHABET[(uint8_t)(((src[0] & 0x03u) << 4u) | (src[1] >> 4u))];
-  out[2] = ZR_BASE64_ALPHABET[(uint8_t)(((src[1] & 0x0Fu) << 2u) | (src[2] >> 6u))];
-  out[3] = ZR_BASE64_ALPHABET[(uint8_t)(src[2] & 0x3Fu)];
+  const uint8_t idx0 = (uint8_t)(src[0] >> 2u);
+  const uint8_t idx1_hi = (uint8_t)((src[0] & 0x03u) << 4u);
+  const uint8_t idx1_lo = (uint8_t)(src[1] >> 4u);
+  const uint8_t idx2_hi = (uint8_t)((src[1] & 0x0Fu) << 2u);
+  const uint8_t idx2_lo = (uint8_t)(src[2] >> 6u);
+  const uint8_t idx3 = (uint8_t)(src[2] & 0x3Fu);
+
+  out[0] = ZR_BASE64_ALPHABET[idx0];
+  out[1] = ZR_BASE64_ALPHABET[(uint8_t)(idx1_hi | idx1_lo)];
+  out[2] = ZR_BASE64_ALPHABET[(uint8_t)(idx2_hi | idx2_lo)];
+  out[3] = ZR_BASE64_ALPHABET[idx3];
 }
 
 /* Encode input bytes with deterministic padding behavior. */

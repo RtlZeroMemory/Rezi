@@ -8,6 +8,7 @@
 #include "core/zr_diff.h"
 
 #include "util/zr_checked.h"
+#include "util/zr_macros.h"
 #include "util/zr_string_builder.h"
 
 #include <stdbool.h>
@@ -92,6 +93,15 @@ static const uint8_t ZR_ANSI16_PALETTE[16][3] = {
 #define ZR_ASCII_BEL 0x07u
 #define ZR_ASCII_ST_FINAL ((uint8_t)'\\')
 #define ZR_ASCII_DEL 0x7Fu
+
+/*
+  VT CSI introducer (ESC '[').
+
+  Reference: ECMA-48 / ISO-6429 control sequence syntax used by VT100/xterm.
+*/
+static bool zr_diff_write_csi(zr_sb_t* sb) {
+  return zr_sb_write_u8(sb, ZR_ASCII_ESC) && zr_sb_write_u8(sb, (uint8_t)'[');
+}
 
 /* Adaptive sweep threshold tuning (dirty-row density, percent). */
 #define ZR_DIFF_SWEEP_DIRTY_LINE_PCT_BASE 35u
@@ -584,8 +594,7 @@ static bool zr_emit_cup(zr_sb_t* sb, zr_term_state_t* ts, uint32_t x, uint32_t y
   if (zr_term_cursor_pos_is_valid(ts) && ts->cursor_x == x && ts->cursor_y == y) {
     return true;
   }
-  const uint8_t esc = 0x1Bu;
-  if (!zr_sb_write_u8(sb, esc) || !zr_sb_write_u8(sb, (uint8_t)'[')) {
+  if (!zr_diff_write_csi(sb)) {
     return false;
   }
   if (!zr_sb_write_u32_dec(sb, y + 1u) || !zr_sb_write_u8(sb, (uint8_t)';') || !zr_sb_write_u32_dec(sb, x + 1u) ||
@@ -648,8 +657,8 @@ static bool zr_emit_cursor_shape(zr_sb_t* sb, zr_term_state_t* ts, uint8_t shape
   }
 
   const uint32_t ps = zr_cursor_shape_ps(shape, blink);
-  if (!zr_sb_write_u8(sb, 0x1Bu) || !zr_sb_write_u8(sb, (uint8_t)'[') || !zr_sb_write_u32_dec(sb, ps) ||
-      !zr_sb_write_u8(sb, (uint8_t)' ') || !zr_sb_write_u8(sb, (uint8_t)'q')) {
+  if (!zr_diff_write_csi(sb) || !zr_sb_write_u32_dec(sb, ps) || !zr_sb_write_u8(sb, (uint8_t)' ') ||
+      !zr_sb_write_u8(sb, (uint8_t)'q')) {
     return false;
   }
 
@@ -831,12 +840,12 @@ static bool zr_emit_sgr_absolute(zr_sb_t* sb, zr_term_state_t* ts, zr_style_t de
     return true;
   }
 
-  if (!zr_sb_write_u8(sb, 0x1Bu) || !zr_sb_write_u8(sb, (uint8_t)'[') || !zr_sb_write_u32_dec(sb, ZR_SGR_RESET)) {
+  if (!zr_diff_write_csi(sb) || !zr_sb_write_u32_dec(sb, ZR_SGR_RESET)) {
     return false;
   }
 
   if (!zr_emit_sgr_attr_params(sb, desired.attrs, ZR_SGR_ATTRS_PRE_UNDERLINE,
-                               sizeof(ZR_SGR_ATTRS_PRE_UNDERLINE) / sizeof(ZR_SGR_ATTRS_PRE_UNDERLINE[0]))) {
+                               ZR_ARRAYLEN(ZR_SGR_ATTRS_PRE_UNDERLINE))) {
     return false;
   }
   if ((desired.attrs & ZR_STYLE_ATTR_UNDERLINE) != 0u &&
@@ -844,7 +853,7 @@ static bool zr_emit_sgr_absolute(zr_sb_t* sb, zr_term_state_t* ts, zr_style_t de
     return false;
   }
   if (!zr_emit_sgr_attr_params(sb, desired.attrs, ZR_SGR_ATTRS_POST_UNDERLINE,
-                               sizeof(ZR_SGR_ATTRS_POST_UNDERLINE) / sizeof(ZR_SGR_ATTRS_POST_UNDERLINE[0]))) {
+                               ZR_ARRAYLEN(ZR_SGR_ATTRS_POST_UNDERLINE))) {
     return false;
   }
   if (desired_has_underline_color &&
@@ -1320,7 +1329,7 @@ static bool zr_emit_decstbm(zr_sb_t* sb, zr_term_state_t* ts, uint32_t top, uint
   if (!sb || !ts) {
     return false;
   }
-  if (!zr_sb_write_u8(sb, 0x1Bu) || !zr_sb_write_u8(sb, (uint8_t)'[')) {
+  if (!zr_diff_write_csi(sb)) {
     return false;
   }
   if (!zr_sb_write_u32_dec(sb, top + 1u) || !zr_sb_write_u8(sb, (uint8_t)';') ||
@@ -1341,7 +1350,7 @@ static bool zr_emit_scroll_op(zr_sb_t* sb, zr_term_state_t* ts, bool up, uint32_
   if (lines == 0u) {
     return true;
   }
-  if (!zr_sb_write_u8(sb, 0x1Bu) || !zr_sb_write_u8(sb, (uint8_t)'[')) {
+  if (!zr_diff_write_csi(sb)) {
     return false;
   }
   if (!zr_sb_write_u32_dec(sb, lines) || !zr_sb_write_u8(sb, up ? (uint8_t)'S' : (uint8_t)'T')) {
@@ -1354,7 +1363,7 @@ static bool zr_emit_decstbm_reset(zr_sb_t* sb, zr_term_state_t* ts) {
   if (!sb || !ts) {
     return false;
   }
-  if (!zr_sb_write_u8(sb, 0x1Bu) || !zr_sb_write_u8(sb, (uint8_t)'[') || !zr_sb_write_u8(sb, (uint8_t)'r')) {
+  if (!zr_diff_write_csi(sb) || !zr_sb_write_u8(sb, (uint8_t)'r')) {
     return false;
   }
   ts->cursor_x = 0u;

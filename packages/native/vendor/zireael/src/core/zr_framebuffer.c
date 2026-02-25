@@ -13,6 +13,7 @@
 #include "unicode/zr_width.h"
 
 #include "util/zr_checked.h"
+#include "util/zr_macros.h"
 
 #include <limits.h>
 #include <stdbool.h>
@@ -24,10 +25,18 @@ static const uint8_t ZR_UTF8_REPLACEMENT[] = {0xEFu, 0xBFu, 0xBDu};
 #define ZR_UTF8_REPLACEMENT_LEN 3u
 
 enum {
+  /*
+    Reject terminal control scalars in wrapper-provided link URI/ID text.
+
+    Why: OSC/CSI/C0 bytes in hyperlink payloads can inject terminal control
+    sequences when serialized by the diff renderer.
+  */
   ZR_FB_UTF8_ASCII_CONTROL_MAX = 0x20u,
   ZR_FB_UTF8_ASCII_DEL = 0x7Fu,
   ZR_FB_UTF8_C1_MIN = 0x80u,
   ZR_FB_UTF8_C1_MAX_EXCL = 0xA0u,
+  ZR_FB_LINKS_INITIAL_CAP = 8u,
+  ZR_FB_LINK_BYTES_INITIAL_CAP = 256u,
 };
 
 static bool zr_fb_utf8_grapheme_bytes_safe_for_terminal(const uint8_t* bytes, size_t len) {
@@ -120,7 +129,7 @@ static zr_result_t zr_fb_links_ensure_cap(zr_fb_t* fb, uint32_t need_links) {
     return ZR_OK;
   }
 
-  uint32_t next_cap = (fb->links_cap == 0u) ? 8u : fb->links_cap;
+  uint32_t next_cap = (fb->links_cap == 0u) ? ZR_FB_LINKS_INITIAL_CAP : fb->links_cap;
   while (next_cap < need_links) {
     if (next_cap > (UINT32_MAX / 2u)) {
       next_cap = need_links;
@@ -150,7 +159,7 @@ static zr_result_t zr_fb_link_bytes_ensure_cap(zr_fb_t* fb, uint32_t need_bytes)
     return ZR_OK;
   }
 
-  uint32_t next_cap = (fb->link_bytes_cap == 0u) ? 256u : fb->link_bytes_cap;
+  uint32_t next_cap = (fb->link_bytes_cap == 0u) ? ZR_FB_LINK_BYTES_INITIAL_CAP : fb->link_bytes_cap;
   while (next_cap < need_bytes) {
     if (next_cap > (UINT32_MAX / 2u)) {
       next_cap = need_bytes;
@@ -203,11 +212,11 @@ static zr_rect_t zr_rect_empty(void) {
   return r;
 }
 
-static int32_t zr_i32_max(int32_t a, int32_t b) {
-  return (a > b) ? a : b;
+static int64_t zr_rect_right(zr_rect_t r) {
+  return (int64_t)r.x + (int64_t)r.w;
 }
-static int64_t zr_i64_min(int64_t a, int64_t b) {
-  return (a < b) ? a : b;
+static int64_t zr_rect_bottom(zr_rect_t r) {
+  return (int64_t)r.y + (int64_t)r.h;
 }
 
 static zr_rect_t zr_fb_bounds_rect(const zr_fb_t* fb) {
@@ -225,16 +234,16 @@ static zr_rect_t zr_rect_intersect(zr_rect_t a, zr_rect_t b) {
     return zr_rect_empty();
   }
 
-  const int64_t ax2 = (int64_t)a.x + (int64_t)a.w;
-  const int64_t ay2 = (int64_t)a.y + (int64_t)a.h;
-  const int64_t bx2 = (int64_t)b.x + (int64_t)b.w;
-  const int64_t by2 = (int64_t)b.y + (int64_t)b.h;
+  const int64_t ax2 = zr_rect_right(a);
+  const int64_t ay2 = zr_rect_bottom(a);
+  const int64_t bx2 = zr_rect_right(b);
+  const int64_t by2 = zr_rect_bottom(b);
 
   zr_rect_t r;
-  const int32_t x1 = zr_i32_max(a.x, b.x);
-  const int32_t y1 = zr_i32_max(a.y, b.y);
-  const int64_t x2 = zr_i64_min(ax2, bx2);
-  const int64_t y2 = zr_i64_min(ay2, by2);
+  const int32_t x1 = ZR_MAX(a.x, b.x);
+  const int32_t y1 = ZR_MAX(a.y, b.y);
+  const int64_t x2 = ZR_MIN(ax2, bx2);
+  const int64_t y2 = ZR_MIN(ay2, by2);
 
   r.x = x1;
   r.y = y1;
@@ -317,7 +326,7 @@ static void zr_cell_set_grapheme_width1(zr_cell_t* cell, const uint8_t* bytes, s
 
   size_t copy_len = 0u;
   if (bytes && len != 0u) {
-    copy_len = (len <= (size_t)ZR_CELL_GLYPH_MAX) ? len : (size_t)ZR_CELL_GLYPH_MAX;
+    copy_len = ZR_MIN(len, (size_t)ZR_CELL_GLYPH_MAX);
     memcpy(cell->glyph, bytes, copy_len);
   }
   cell->glyph_len = (uint8_t)copy_len;
@@ -621,8 +630,8 @@ zr_result_t zr_fb_resize(zr_fb_t* fb, uint32_t cols, uint32_t rows) {
       return rc;
     }
 
-    const uint32_t copy_cols = (fb->cols < tmp.cols) ? fb->cols : tmp.cols;
-    const uint32_t copy_rows = (fb->rows < tmp.rows) ? fb->rows : tmp.rows;
+    const uint32_t copy_cols = ZR_MIN(fb->cols, tmp.cols);
+    const uint32_t copy_rows = ZR_MIN(fb->rows, tmp.rows);
     for (uint32_t y = 0u; y < copy_rows; y++) {
       for (uint32_t x = 0u; x < copy_cols; x++) {
         const zr_cell_t* src = zr_fb_cell_const(fb, x, y);
@@ -1096,8 +1105,8 @@ zr_result_t zr_fb_blit_rect(zr_fb_painter_t* p, zr_rect_t dst, zr_rect_t src) {
     return ZR_OK;
   }
 
-  const int32_t w = (dst.w < src.w) ? dst.w : src.w;
-  const int32_t h = (dst.h < src.h) ? dst.h : src.h;
+  const int32_t w = ZR_MIN(dst.w, src.w);
+  const int32_t h = ZR_MIN(dst.h, src.h);
   if (w <= 0 || h <= 0) {
     return ZR_OK;
   }

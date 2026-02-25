@@ -42,6 +42,16 @@ static zr_arena_block_t* zr__block_alloc(size_t cap, size_t base_align) {
 
   size_t total = 0u;
   size_t header_plus = 0u;
+  /*
+    Block allocation layout:
+
+      [ zr_arena_block_t header ][ pad .. ][ aligned payload bytes ... ]
+                                  ^
+                                  b->data
+
+    `padding = align - 1` ensures there is always enough room to align the
+    payload pointer without stepping outside the allocation.
+  */
   const size_t padding = base_align - 1u;
   if (!zr_checked_add_size(sizeof(zr_arena_block_t), cap, &header_plus)) {
     return NULL;
