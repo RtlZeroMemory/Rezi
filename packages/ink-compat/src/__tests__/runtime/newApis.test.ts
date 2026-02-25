@@ -26,7 +26,7 @@ test("export surface includes kitty flags/modifiers and useCursor", () => {
   assert.equal(kittyModifiers.ctrl, 4);
 });
 
-test("useIsScreenReaderEnabled reads context flag", () => {
+test("useIsScreenReaderEnabled reads context flag", async () => {
   const rootNode = createHostContainer();
   const root = reconciler.createContainer(
     rootNode,
@@ -80,12 +80,18 @@ test("useIsScreenReaderEnabled reads context flag", () => {
     reconciler.flushSyncWork?.();
     reconciler.flushPassiveEffects?.();
   } else {
-    reconciler.updateContainer(
-      React.createElement(InkContext.Provider, { value: mockContext }, React.createElement(Probe)),
-      root,
-      null,
-      () => {},
-    );
+    await new Promise<void>((resolve) => {
+      reconciler.updateContainer(
+        React.createElement(
+          InkContext.Provider,
+          { value: mockContext },
+          React.createElement(Probe),
+        ),
+        root,
+        null,
+        () => resolve(),
+      );
+    });
   }
 
   assert.equal(seen, true);

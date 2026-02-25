@@ -29,7 +29,8 @@ export function render(element: React.ReactElement): RenderResult {
 
   const container = createReactRoot(bridge.rootNode);
   const frames: string[] = [];
-  const renderer = createTestRenderer({ viewport: { cols: 80, rows: 24 } });
+  const staticRenderer = createTestRenderer({ viewport: { cols: 80, rows: 24 } });
+  const dynamicRenderer = createTestRenderer({ viewport: { cols: 80, rows: 24 } });
   let staticBuffer = "";
 
   const combineStaticAndDynamic = (dynamicOutput: string): string => {
@@ -43,14 +44,14 @@ export function render(element: React.ReactElement): RenderResult {
   const captureFrame = (): void => {
     if (bridge.hasStaticNodes()) {
       const staticVNode = bridge.translateStaticToVNode();
-      const staticOutput = renderer.render(staticVNode).toText();
+      const staticOutput = staticRenderer.render(staticVNode).toText();
       if (staticOutput.length > 0) {
         staticBuffer += `${staticOutput}\n`;
       }
     }
 
     const dynamicVNode = bridge.translateDynamicToVNode();
-    const dynamicOutput = renderer.render(dynamicVNode).toText();
+    const dynamicOutput = dynamicRenderer.render(dynamicVNode).toText();
     frames.push(combineStaticAndDynamic(dynamicOutput));
   };
 
@@ -78,7 +79,6 @@ export function render(element: React.ReactElement): RenderResult {
   // batches asynchronously. A second commit with a new element reference
   // forces React to re-render and pick up those updates.
   commit();
-  captureFrame();
 
   return {
     lastFrame: () => frames[frames.length - 1] ?? "",
@@ -89,6 +89,7 @@ export function render(element: React.ReactElement): RenderResult {
     },
     unmount: () => {
       commitSync(container, null);
+      bridge.dispose();
     },
     stdin: {
       write: (data: string) => {

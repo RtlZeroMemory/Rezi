@@ -16,7 +16,7 @@
 
 ## Package topology
 
-```
+```text
 packages/ink-compat/
   src/
     components/      // Ink-compatible component wrappers

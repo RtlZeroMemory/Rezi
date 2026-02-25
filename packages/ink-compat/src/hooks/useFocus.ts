@@ -1,6 +1,26 @@
 import { useEffect, useId, useState } from "react";
 
-import { useInkContext } from "../runtime/context.js";
+import { type InkContextValue, useInkContext } from "../runtime/context.js";
+
+const rawModeRefCounts = new WeakMap<InkContextValue, number>();
+
+function retainRawMode(ctx: InkContextValue): void {
+  const count = rawModeRefCounts.get(ctx) ?? 0;
+  if (count === 0) {
+    ctx.setRawMode(true);
+  }
+  rawModeRefCounts.set(ctx, count + 1);
+}
+
+function releaseRawMode(ctx: InkContextValue): void {
+  const count = rawModeRefCounts.get(ctx) ?? 0;
+  if (count <= 1) {
+    rawModeRefCounts.delete(ctx);
+    ctx.setRawMode(false);
+    return;
+  }
+  rawModeRefCounts.set(ctx, count - 1);
+}
 
 export function useFocus(options?: { autoFocus?: boolean; isActive?: boolean; id?: string }) {
   const autoId = useId();
@@ -22,9 +42,9 @@ export function useFocus(options?: { autoFocus?: boolean; isActive?: boolean; id
   useEffect(() => {
     if (options?.isActive === false) return;
     if (!ctx.isRawModeSupported) return;
-    ctx.setRawMode(true);
+    retainRawMode(ctx);
     return () => {
-      ctx.setRawMode(false);
+      releaseRawMode(ctx);
     };
   }, [ctx, options?.isActive]);
 

@@ -7,7 +7,7 @@ import React from "react";
 import { Text } from "../components/Text.js";
 
 export interface GradientProps {
-  colors: string[];
+  colors?: string[];
   children?: React.ReactNode;
 }
 
@@ -90,7 +90,7 @@ const mixChannel = (start: number, end: number, t: number): number =>
 
 const interpolateStops = (stops: readonly RgbColor[], t: number): RgbColor => {
   if (stops.length === 0) return { r: 255, g: 255, b: 255 };
-  if (stops.length === 1) return stops[0]!;
+  if (stops.length === 1) return stops[0] ?? { r: 255, g: 255, b: 255 };
 
   const clamped = Math.max(0, Math.min(1, t));
   const scaled = clamped * (stops.length - 1);
@@ -98,8 +98,8 @@ const interpolateStops = (stops: readonly RgbColor[], t: number): RgbColor => {
   const rightIndex = Math.min(stops.length - 1, leftIndex + 1);
   const localT = scaled - leftIndex;
 
-  const left = stops[leftIndex]!;
-  const right = stops[rightIndex]!;
+  const left = stops[leftIndex] ?? stops[stops.length - 1] ?? { r: 255, g: 255, b: 255 };
+  const right = stops[rightIndex] ?? left;
   return {
     r: mixChannel(left.r, right.r, localT),
     g: mixChannel(left.g, right.g, localT),
@@ -137,8 +137,9 @@ const applyGradient = (text: string, stops: readonly RgbColor[]): string => {
     if (chars.length === 0) return "";
     let out = "";
     for (let index = 0; index < chars.length; index += 1) {
-      const color = sampled[index]!;
-      out += `\u001b[38;2;${color.r};${color.g};${color.b}m${chars[index]!}`;
+      const color = sampled[index] ?? sampled[sampled.length - 1] ?? { r: 255, g: 255, b: 255 };
+      const char = chars[index] ?? "";
+      out += `\u001b[38;2;${color.r};${color.g};${color.b}m${char}`;
     }
     return `${out}\u001b[0m`;
   });
@@ -146,7 +147,7 @@ const applyGradient = (text: string, stops: readonly RgbColor[]): string => {
   return renderedLines.join("\n");
 };
 
-const Gradient: React.FC<GradientProps> = ({ colors, children }) => {
+const Gradient: React.FC<GradientProps> = ({ colors = [], children }) => {
   const parsedStops = colors
     .map((entry) => parseColor(entry))
     .filter((entry): entry is RgbColor => entry != null);

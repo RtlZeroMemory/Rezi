@@ -126,14 +126,22 @@ function renderBorderFrame(
       // Top edge (fallback to horizontal cap when missing a vertical side).
       const leftCap = sides.left ? glyphs.TL : glyphs.H;
       const rightCap = sides.right ? glyphs.TR : glyphs.H;
-      builder.drawText(x0, y0, `${leftCap}${glyphs.H.repeat(innerW)}${rightCap}`, style);
+      if (rect.w <= 1) {
+        builder.drawText(x0, y0, glyphs.H, style);
+      } else {
+        builder.drawText(x0, y0, `${leftCap}${glyphs.H.repeat(innerW)}${rightCap}`, style);
+      }
     }
 
     if (sides.bottom) {
       // Bottom edge (fallback to horizontal cap when missing a vertical side).
       const leftCap = sides.left ? glyphs.BL : glyphs.H;
       const rightCap = sides.right ? glyphs.BR : glyphs.H;
-      builder.drawText(x0, y1, `${leftCap}${glyphs.H.repeat(innerW)}${rightCap}`, style);
+      if (rect.w <= 1) {
+        builder.drawText(x0, y1, glyphs.H, style);
+      } else {
+        builder.drawText(x0, y1, `${leftCap}${glyphs.H.repeat(innerW)}${rightCap}`, style);
+      }
     }
   } else {
     if (sides.top) {

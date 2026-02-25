@@ -23,9 +23,9 @@ export function Static<T>(props: StaticProps<T>): React.ReactElement {
   }, [items.length]);
 
   const staticStyle: Record<string, unknown> = {
+    ...(style ?? {}),
     position: "absolute",
     flexDirection: "column",
-    ...(style ?? {}),
   };
 
   return React.createElement(

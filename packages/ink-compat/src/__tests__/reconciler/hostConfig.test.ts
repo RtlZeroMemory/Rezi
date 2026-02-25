@@ -75,9 +75,11 @@ test("commit update updates node props and text", () => {
   const node = rootNode.children[0]!;
 
   commitSync(root, React.createElement("ink-text", { color: "blue" }, "New"));
+  const nodeAfter = rootNode.children[0]!;
 
-  assert.equal(node.props["color"], "blue");
-  assert.equal(node.children[0]?.textContent, "New");
+  assert.strictEqual(node, nodeAfter, "should be same instance (in-place update)");
+  assert.equal(nodeAfter.props["color"], "blue");
+  assert.equal(nodeAfter.children[0]?.textContent, "New");
 });
 
 test("prepareUpdate performs shallow comparison without children/ref", () => {

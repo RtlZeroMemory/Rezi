@@ -349,7 +349,7 @@ export function renderTextWidgets(
           builder.popClip();
         }
 
-        if (cursorInfo && cursorMeta.focused) {
+        if (!transform && cursorInfo && cursorMeta.focused) {
           let remaining = cursorOffset;
           let cursorLine = 0;
           for (let i = 0; i < visibleCount; i++) {
@@ -374,10 +374,6 @@ export function renderTextWidgets(
       }
 
       const transformedText = transformLine(text, 0);
-      const cursorX = Math.min(
-        overflowW,
-        measureTextCells(transformedText.slice(0, Math.min(cursorOffset, transformedText.length))),
-      );
 
       // Avoid measuring in the common ASCII case.
       const fits =
@@ -386,7 +382,13 @@ export function renderTextWidgets(
 
       if (fits) {
         builder.drawText(rect.x, rect.y, transformedText, style);
-        if (cursorInfo && cursorMeta.focused) {
+        if (!transform && cursorInfo && cursorMeta.focused) {
+          const cursorX = Math.min(
+            overflowW,
+            measureTextCells(
+              transformedText.slice(0, Math.min(cursorOffset, transformedText.length)),
+            ),
+          );
           resolvedCursor = {
             x: rect.x + cursorX,
             y: rect.y,
@@ -421,7 +423,13 @@ export function renderTextWidgets(
       } else {
         builder.drawText(rect.x, rect.y, displayText, style);
       }
-      if (cursorInfo && cursorMeta.focused) {
+      if (!transform && cursorInfo && cursorMeta.focused) {
+        const cursorX = Math.min(
+          overflowW,
+          measureTextCells(
+            transformedText.slice(0, Math.min(cursorOffset, transformedText.length)),
+          ),
+        );
         resolvedCursor = {
           x: rect.x + cursorX,
           y: rect.y,

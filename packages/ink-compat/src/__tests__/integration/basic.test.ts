@@ -199,11 +199,11 @@ test("newline renders multi-line text", () => {
 });
 
 test("useInput handles simulated key press", () => {
-  const seen: Array<{ input: string; up: boolean; ctrl: boolean }> = [];
+  const seen: Array<{ input: string; up: boolean; ctrl: boolean; escape: boolean }> = [];
 
   function App(): React.ReactElement {
     useInput((input, key) => {
-      seen.push({ input, up: key.upArrow, ctrl: key.ctrl });
+      seen.push({ input, up: key.upArrow, ctrl: key.ctrl, escape: key.escape });
     });
     return React.createElement(Text, null, "Input");
   }
@@ -212,10 +212,12 @@ test("useInput handles simulated key press", () => {
   result.stdin.write("\u001b[A");
   result.stdin.write("q");
   result.stdin.write("\u0001");
+  result.stdin.write("\u001b");
 
-  assert.deepEqual(seen[0], { input: "", up: true, ctrl: false });
-  assert.deepEqual(seen[1], { input: "q", up: false, ctrl: false });
-  assert.deepEqual(seen[2], { input: "a", up: false, ctrl: true });
+  assert.deepEqual(seen[0], { input: "", up: true, ctrl: false, escape: false });
+  assert.deepEqual(seen[1], { input: "q", up: false, ctrl: false, escape: false });
+  assert.deepEqual(seen[2], { input: "a", up: false, ctrl: true, escape: false });
+  assert.deepEqual(seen[3], { input: "", up: false, ctrl: false, escape: true });
 });
 
 test("useInput parses kitty keyboard CSI-u sequences", async () => {

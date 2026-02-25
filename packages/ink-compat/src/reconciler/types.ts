@@ -33,7 +33,23 @@ function isContainer(parent: InkHostNode | InkHostContainer): parent is InkHostC
   return parent.type === "ink-root" && "onCommit" in parent;
 }
 
+function detachChildIfPresent(parent: InkHostNode | InkHostContainer, child: InkHostNode): number {
+  if (child.parent != null && child.parent !== parent) {
+    const previousIndex = child.parent.children.indexOf(child);
+    if (previousIndex >= 0) {
+      child.parent.children.splice(previousIndex, 1);
+    }
+  }
+
+  const existingIndex = parent.children.indexOf(child);
+  if (existingIndex >= 0) {
+    parent.children.splice(existingIndex, 1);
+  }
+  return existingIndex;
+}
+
 export function appendChild(parent: InkHostNode | InkHostContainer, child: InkHostNode): void {
+  detachChildIfPresent(parent, child);
   child.parent = isContainer(parent) ? null : parent;
   parent.children.push(child);
 }
@@ -51,6 +67,7 @@ export function insertBefore(
   child: InkHostNode,
   before: InkHostNode,
 ): void {
+  detachChildIfPresent(parent, child);
   child.parent = isContainer(parent) ? null : parent;
 
   const idx = parent.children.indexOf(before);

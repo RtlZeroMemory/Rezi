@@ -112,10 +112,7 @@ const applyGradient = (text, stops) => {
   if (stops.length < 2) return stripAnsi(text);
 
   const lines = text.split("\n");
-  const maxLength = Math.max(
-    stops.length,
-    ...lines.map((line) => Array.from(stripAnsi(line)).length),
-  );
+  const maxLength = Math.max(1, ...lines.map((line) => Array.from(stripAnsi(line)).length));
   const denominator = Math.max(1, maxLength - 1);
   const sampled = Array.from({ length: maxLength }, (_, index) =>
     interpolateStops(stops, index / denominator),
@@ -139,17 +136,19 @@ const Gradient = ({ colors, children }) => {
   const parsedStops = (Array.isArray(colors) ? colors : [])
     .map((entry) => parseColor(entry))
     .filter(Boolean);
+  const colorsLength = Array.isArray(colors) ? colors.length : 0;
   const plainText = extractPlainText(children);
   const gradientText = applyGradient(plainText, parsedStops);
-  if (GRADIENT_TRACE_ENABLED && gradientTraceRenderCount < 20) {
+  React.useEffect(() => {
+    if (!GRADIENT_TRACE_ENABLED || gradientTraceRenderCount >= 20) return;
     if (gradientTraceRenderCount === 0) {
       traceGradient(`module=${SHIM_PATH}`);
     }
     gradientTraceRenderCount += 1;
     traceGradient(
-      `render#${gradientTraceRenderCount} colors=${Array.isArray(colors) ? colors.length : 0} parsedStops=${parsedStops.length} textChars=${Array.from(plainText).length} emittedAnsi=${gradientText.includes("\u001b[38;2;")}`,
+      `render#${gradientTraceRenderCount} colors=${colorsLength} parsedStops=${parsedStops.length} textChars=${Array.from(plainText).length} emittedAnsi=${gradientText.includes("\u001b[38;2;")}`,
     );
-  }
+  }, [colorsLength, parsedStops.length, plainText, gradientText]);
   return React.createElement(Text, null, gradientText);
 };
 

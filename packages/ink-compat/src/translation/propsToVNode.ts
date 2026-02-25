@@ -25,6 +25,145 @@ interface TextStyleMap {
 
 type LayoutDirection = "row" | "column";
 type TranslationMode = "all" | "dynamic" | "static";
+type BorderStyleValue = string | Record<string, string>;
+
+interface VirtualNodeProps extends Record<string, unknown> {
+  __inkType?: "spacer" | "newline" | "transform";
+  count?: number;
+  __inkTransform?: (line: string, index: number) => string;
+}
+
+interface BoxNodeProps extends Record<string, unknown> {
+  __inkStatic?: boolean;
+  __inkType?: string;
+  display?: "flex" | "none";
+  flexDirection?: "row" | "row-reverse" | "column" | "column-reverse";
+  flexGrow?: number;
+  flexShrink?: number;
+  flexBasis?: number | string;
+  flexWrap?: "nowrap" | "wrap" | "wrap-reverse";
+  alignItems?: string;
+  alignSelf?: string;
+  justifyContent?: string;
+  width?: number | string;
+  height?: number | string;
+  minWidth?: number | string;
+  minHeight?: number | string;
+  maxWidth?: number | string;
+  maxHeight?: number | string;
+  position?: "relative" | "absolute";
+  top?: number;
+  right?: number;
+  bottom?: number;
+  left?: number;
+  padding?: number;
+  paddingX?: number;
+  paddingY?: number;
+  paddingTop?: number;
+  paddingRight?: number;
+  paddingBottom?: number;
+  paddingLeft?: number;
+  margin?: number;
+  marginX?: number;
+  marginY?: number;
+  marginTop?: number;
+  marginRight?: number;
+  marginBottom?: number;
+  marginLeft?: number;
+  gap?: number;
+  rowGap?: number;
+  columnGap?: number;
+  borderStyle?: BorderStyleValue;
+  borderColor?: string;
+  borderTopColor?: string;
+  borderRightColor?: string;
+  borderBottomColor?: string;
+  borderLeftColor?: string;
+  borderDimColor?: boolean;
+  borderTopDimColor?: boolean;
+  borderRightDimColor?: boolean;
+  borderBottomDimColor?: boolean;
+  borderLeftDimColor?: boolean;
+  borderTop?: boolean;
+  borderRight?: boolean;
+  borderBottom?: boolean;
+  borderLeft?: boolean;
+  backgroundColor?: string;
+  overflow?: "visible" | "hidden" | "scroll";
+  overflowX?: "visible" | "hidden" | "scroll";
+  overflowY?: "visible" | "hidden" | "scroll";
+  scrollLeft?: number;
+  scrollTop?: number;
+  scrollbarThumbColor?: string;
+  ["aria-label"]?: string;
+  ariaLabel?: string;
+  accessibilityLabel?: string;
+}
+
+interface TextNodeProps extends Record<string, unknown> {
+  color?: string;
+  backgroundColor?: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strikethrough?: boolean;
+  dimColor?: boolean;
+  inverse?: boolean;
+  wrap?: string;
+  ["aria-label"]?: string;
+  ariaLabel?: string;
+  accessibilityLabel?: string;
+}
+
+interface LayoutProps extends Record<string, unknown> {
+  p?: number;
+  px?: number;
+  py?: number;
+  pt?: number;
+  pr?: number;
+  pb?: number;
+  pl?: number;
+  m?: number;
+  mx?: number;
+  my?: number;
+  mt?: number;
+  mr?: number;
+  mb?: number;
+  ml?: number;
+  gap?: number;
+  width?: number;
+  height?: number;
+  minWidth?: number;
+  minHeight?: number;
+  maxWidth?: number;
+  maxHeight?: number;
+  flexBasis?: number;
+  flex?: number;
+  flexShrink?: number;
+  items?: string;
+  justify?: string;
+  alignSelf?: string;
+  position?: "relative" | "absolute";
+  top?: number;
+  right?: number;
+  bottom?: number;
+  left?: number;
+  overflow?: "hidden" | "scroll";
+  scrollX?: number;
+  scrollY?: number;
+  scrollbarStyle?: Record<string, unknown>;
+  wrap?: boolean;
+  reverse?: boolean;
+  border?: unknown;
+  borderTop?: boolean;
+  borderRight?: boolean;
+  borderBottom?: boolean;
+  borderLeft?: boolean;
+  borderStyle?: Record<string, unknown>;
+  borderStyleSides?: Record<string, unknown>;
+  style?: Record<string, unknown>;
+  accessibilityLabel?: string;
+}
 
 export interface TranslateTreeOptions {
   mode?: TranslationMode;
@@ -159,16 +298,17 @@ function translateNode(
   }
 
   if (node.type === "ink-virtual") {
-    const inkType = (node.props as any)["__inkType"];
+    const virtualProps = node.props as VirtualNodeProps;
+    const inkType = virtualProps.__inkType;
     if (inkType === "spacer") {
       return ui.spacer({ flex: 1 });
     }
     if (inkType === "newline") {
-      const count = (node.props as any)["count"] as number | undefined;
+      const count = virtualProps.count;
       const repeatCount = count == null ? 1 : Math.max(0, Math.trunc(count));
       return ui.text("\n".repeat(repeatCount));
     }
-    if (inkType === "transform" && typeof (node.props as any)["__inkTransform"] === "function") {
+    if (inkType === "transform" && typeof virtualProps.__inkTransform === "function") {
       return translateTransform(node);
     }
   }
@@ -203,11 +343,12 @@ function translateRawTextContent(textContent: string): VNode {
 }
 
 function translateTransform(node: InkHostNode): VNode {
-  const transform = (node.props as any)["__inkTransform"] as (
-    line: string,
-    index: number,
-  ) => string;
-  const accessibilityLabel = readAccessibilityLabel(node.props);
+  const props = node.props as VirtualNodeProps;
+  const transform = props.__inkTransform;
+  if (typeof transform !== "function") {
+    return ui.text("");
+  }
+  const accessibilityLabel = readAccessibilityLabel(props);
   const raw = node.children.map((child) => collectTransformText(child)).join("");
   const textProps: Record<string, unknown> = {
     wrap: true,
@@ -224,8 +365,9 @@ function collectTransformText(node: InkHostNode): string {
     return node.textContent;
   }
 
-  if (node.type === "ink-virtual" && (node.props as any)["__inkType"] === "newline") {
-    const count = (node.props as any)["count"] as number | undefined;
+  const virtualProps = node.props as VirtualNodeProps;
+  if (node.type === "ink-virtual" && virtualProps.__inkType === "newline") {
+    const count = virtualProps.count;
     const repeatCount = count == null ? 1 : Math.max(0, Math.trunc(count));
     return "\n".repeat(repeatCount);
   }
@@ -234,7 +376,7 @@ function collectTransformText(node: InkHostNode): string {
 }
 
 function translateBox(node: InkHostNode, context: TranslateContext): VNode | null {
-  const p = node.props as any;
+  const p = node.props as BoxNodeProps;
   const accessibilityLabel = readAccessibilityLabel(p);
   const direction = (p.flexDirection as string | undefined) ?? "row";
   const isRow = direction === "row" || direction === "row-reverse";
@@ -324,7 +466,7 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
   const hasBorder = p.borderStyle != null;
   const hasBg = p.backgroundColor != null;
 
-  const layoutProps: any = {};
+  const layoutProps: LayoutProps = {};
 
   if (p.padding != null) layoutProps.p = p.padding;
   if (p.paddingX != null) layoutProps.px = p.paddingX;
@@ -535,9 +677,9 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
     if (p.borderBottom === false) layoutProps.borderBottom = false;
     if (p.borderLeft === false) layoutProps.borderLeft = false;
 
-    const style: any = {};
+    const style: Record<string, unknown> = {};
     const bg = parseColor(p.backgroundColor as string | undefined);
-    if (bg) style.bg = bg;
+    if (bg) style["bg"] = bg;
     if (Object.keys(style).length > 0) layoutProps.style = style;
 
     const explicitBorderColor = parseColor(p.borderColor as string | undefined);
@@ -638,29 +780,31 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
         ...boxProps
       } = layoutProps;
 
-      const innerRowProps: any = { gap: gap ?? 0 };
-      if (itemsProp) innerRowProps.items = itemsProp;
-      if (justifyProp) innerRowProps.justify = justifyProp;
-      if (reverse) innerRowProps.reverse = reverse;
-      if (wrap) innerRowProps.wrap = wrap;
+      const innerRowProps: Record<string, unknown> = { gap: gap ?? 0 };
+      if (itemsProp) innerRowProps["items"] = itemsProp;
+      if (justifyProp) innerRowProps["justify"] = justifyProp;
+      if (reverse) innerRowProps["reverse"] = reverse;
+      if (wrap) innerRowProps["wrap"] = wrap;
 
-      return ui.box(boxProps, [ui.row(innerRowProps, children)]);
+      return ui.box(boxProps as Parameters<typeof ui.box>[0], [
+        ui.row(innerRowProps as Parameters<typeof ui.row>[0], children),
+      ]);
     }
 
-    return ui.box(layoutProps, children);
+    return ui.box(layoutProps as Parameters<typeof ui.box>[0], children);
   }
 
   if (isRow) {
-    return ui.row(layoutProps, children);
+    return ui.row(layoutProps as Parameters<typeof ui.row>[0], children);
   }
 
-  return ui.column(layoutProps, children);
+  return ui.column(layoutProps as Parameters<typeof ui.column>[0], children);
 }
 
 function translateText(node: InkHostNode): VNode {
-  const p = node.props as any;
+  const p = node.props as TextNodeProps;
 
-  const style: any = {};
+  const style: TextStyleMap = {};
   const fg = parseColor(p.color as string | undefined);
   if (fg) style.fg = fg;
   const bg = parseColor(p.backgroundColor as string | undefined);
@@ -674,26 +818,29 @@ function translateText(node: InkHostNode): VNode {
 
   const { spans, isSingleSpan, fullText } = flattenTextChildren(node, style);
 
-  const textProps: any = {};
-  if (Object.keys(style).length > 0) textProps.style = style;
+  const textProps: Record<string, unknown> = {};
+  if (Object.keys(style).length > 0) textProps["style"] = style;
   const accessibilityLabel = readAccessibilityLabel(p);
   if (accessibilityLabel) {
-    textProps.accessibilityLabel = accessibilityLabel;
+    textProps["accessibilityLabel"] = accessibilityLabel;
   }
 
   const inkWrap = (p.wrap as string | undefined) ?? "wrap";
   if (inkWrap === "wrap") {
-    textProps.wrap = true;
+    textProps["wrap"] = true;
   } else if (inkWrap === "truncate" || inkWrap === "truncate-end") {
-    textProps.textOverflow = "ellipsis";
+    textProps["textOverflow"] = "ellipsis";
   } else if (inkWrap === "truncate-middle") {
-    textProps.textOverflow = "middle";
+    textProps["textOverflow"] = "middle";
   } else if (inkWrap === "truncate-start") {
-    textProps.textOverflow = "start";
+    textProps["textOverflow"] = "start";
   }
 
   if (fullText.includes("\n")) {
-    return translateMultilineRichText(spans);
+    return translateMultilineRichText(
+      spans,
+      accessibilityLabel ? { accessibilityLabel } : undefined,
+    );
   }
 
   if (isSingleSpan) {
@@ -703,7 +850,10 @@ function translateText(node: InkHostNode): VNode {
   return ui.richText(spans.map((span) => ({ text: span.text, style: span.style })));
 }
 
-function translateMultilineRichText(spans: readonly TextSpan[]): VNode {
+function translateMultilineRichText(
+  spans: readonly TextSpan[],
+  rootProps?: Record<string, unknown>,
+): VNode {
   const lines: TextSpan[][] = [[]];
 
   for (const span of spans) {
@@ -731,8 +881,13 @@ function translateMultilineRichText(spans: readonly TextSpan[]): VNode {
     return ui.richText(line.map((span) => ({ text: span.text, style: span.style })));
   });
 
-  if (lineNodes.length === 1) return lineNodes[0]!;
-  return ui.column({ gap: 0 }, lineNodes);
+  const hasRootProps = rootProps != null && Object.keys(rootProps).length > 0;
+  if (lineNodes.length === 1) {
+    const only = lineNodes[0]!;
+    if (!hasRootProps) return only;
+    return ui.column({ gap: 0, ...(rootProps ?? {}) }, [only]);
+  }
+  return ui.column({ gap: 0, ...(rootProps ?? {}) }, lineNodes);
 }
 
 function flattenTextChildren(
@@ -751,8 +906,8 @@ function flattenTextChildren(
     }
 
     if (child.type === "ink-text") {
-      const cp = child.props as any;
-      const childStyle: any = { ...parentStyle };
+      const cp = child.props as TextNodeProps;
+      const childStyle: TextStyleMap = { ...parentStyle };
 
       const fg = parseColor(cp.color as string | undefined);
       if (fg) childStyle.fg = fg;
@@ -771,8 +926,9 @@ function flattenTextChildren(
       continue;
     }
 
-    if (child.type === "ink-virtual" && (child.props as any)["__inkType"] === "newline") {
-      const count = (child.props as any)["count"] as number | undefined;
+    const virtualProps = child.props as VirtualNodeProps;
+    if (child.type === "ink-virtual" && virtualProps.__inkType === "newline") {
+      const count = virtualProps.count;
       const repeatCount = count == null ? 1 : Math.max(0, Math.trunc(count));
       const newlines = "\n".repeat(repeatCount);
       spans.push({ text: newlines, style: { ...parentStyle } });

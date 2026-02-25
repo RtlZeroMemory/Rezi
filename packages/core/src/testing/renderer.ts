@@ -452,6 +452,7 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
   const defaultTick = opts.tick ?? 0;
   const trace = opts.trace;
   const defaultTraceDetail = opts.traceDetail === true;
+  let warnedTraceDetailWithoutTrace = false;
   let renderId = 0;
 
   const render = (vnode: VNode, renderOpts: TestRenderOptions = {}): TestRenderResult => {
@@ -463,6 +464,12 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
     const tick = renderOpts.tick ?? defaultTick;
     const theme = renderOpts.theme ?? rendererTheme;
     const traceDetail = renderOpts.traceDetail ?? defaultTraceDetail;
+    if (traceDetail && !trace && !warnedTraceDetailWithoutTrace) {
+      warnedTraceDetailWithoutTrace = true;
+      console.warn(
+        "[core/testing] createTestRenderer: traceDetail=true has no effect without a trace callback.",
+      );
+    }
 
     const commitStartedAt = Date.now();
     const committed = commitVNodeTree(prevRoot, vnode, { allocator });

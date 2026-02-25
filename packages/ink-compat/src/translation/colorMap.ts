@@ -21,6 +21,11 @@ const NAMED_COLORS: Record<string, Rgb> = {
   whiteBright: rgb(255, 255, 255),
 };
 
+const NAMED_COLORS_LOWER: Record<string, Rgb> = {};
+for (const [name, value] of Object.entries(NAMED_COLORS)) {
+  NAMED_COLORS_LOWER[name.toLowerCase()] = value;
+}
+
 function isByte(value: number): boolean {
   return Number.isFinite(value) && value >= 0 && value <= 255;
 }
@@ -48,7 +53,7 @@ function parseColorInner(color: string): Rgb | undefined {
   if (color in NAMED_COLORS) return NAMED_COLORS[color];
 
   const lower = color.toLowerCase();
-  if (lower in NAMED_COLORS) return NAMED_COLORS[lower];
+  if (lower in NAMED_COLORS_LOWER) return NAMED_COLORS_LOWER[lower];
 
   const ansi256Match = lower.match(/^ansi256\(\s*(\d{1,3})\s*\)$/);
   if (ansi256Match) {

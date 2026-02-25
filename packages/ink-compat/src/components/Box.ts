@@ -1,5 +1,15 @@
 import React from "react";
 
+type InkBorderStyleName =
+  | "single"
+  | "double"
+  | "round"
+  | "bold"
+  | "singleDouble"
+  | "doubleSingle"
+  | "classic"
+  | "arrow";
+
 export interface BoxProps {
   flexDirection?: "row" | "row-reverse" | "column" | "column-reverse";
   flexGrow?: number;
@@ -21,7 +31,6 @@ export interface BoxProps {
   height?: number | string;
   minWidth?: number | string;
   minHeight?: number | string;
-  maxWidth?: number;
   maxHeight?: number | string;
 
   position?: "relative" | "absolute";
@@ -50,7 +59,8 @@ export interface BoxProps {
   columnGap?: number;
   rowGap?: number;
 
-  borderStyle?: string | Record<string, string>;
+  /** @jrichman/ink fork: supports custom border glyph maps in addition to named styles */
+  borderStyle?: InkBorderStyleName | Record<string, string>;
   borderColor?: string;
   borderTopColor?: string;
   borderRightColor?: string;
@@ -93,8 +103,8 @@ export interface BoxProps {
   ref?: React.Ref<unknown>;
 }
 
-export const Box = React.forwardRef<unknown, BoxProps>((props, ref) => {
-  return React.createElement("ink-box", { ...props, ref });
-});
+export const Box = (props: BoxProps): React.ReactElement => {
+  return React.createElement("ink-box", { ...props });
+};
 
 Box.displayName = "Box";

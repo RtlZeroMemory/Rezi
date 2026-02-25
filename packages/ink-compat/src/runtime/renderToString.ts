@@ -27,28 +27,46 @@ export function renderToString(
   });
 
   const container = createReactRoot(bridge.rootNode);
-  const wrapped = React.createElement(InkContext.Provider, { value: bridge.context }, element);
-  const renderer = createTestRenderer({ viewport: { cols, rows: 999 } });
+  const staticRenderer = createTestRenderer({ viewport: { cols, rows: 999 } });
+  const dynamicRenderer = createTestRenderer({ viewport: { cols, rows: 999 } });
   let staticBuffer = "";
 
   bridge.rootNode.onCommit = () => {
     if (!bridge.hasStaticNodes()) return;
     const staticVNode = bridge.translateStaticToVNode();
-    const staticOutput = renderer.render(staticVNode).toText();
+    const staticOutput = staticRenderer.render(staticVNode).toText();
     if (staticOutput.length > 0) {
       staticBuffer += `${staticOutput}\n`;
     }
   };
 
-  commitSync(container, wrapped);
+  commitSync(
+    container,
+    React.createElement(InkContext.Provider, { value: bridge.context }, element),
+  );
+  // Effects can schedule updates that require a second commit to flush.
+  commitSync(
+    container,
+    React.createElement(
+      InkContext.Provider,
+      { value: bridge.context },
+      React.cloneElement(element),
+    ),
+  );
   bridge.rootNode.onCommit = null;
 
   const dynamicVNode = bridge.translateDynamicToVNode();
-  const dynamicOutput = renderer.render(dynamicVNode).toText();
+  const dynamicOutput = dynamicRenderer.render(dynamicVNode).toText();
   const normalizedStatic = staticBuffer.endsWith("\n") ? staticBuffer.slice(0, -1) : staticBuffer;
 
-  if (normalizedStatic.length > 0 && dynamicOutput.length > 0) {
-    return `${normalizedStatic}\n${dynamicOutput}`;
-  }
-  return normalizedStatic.length > 0 ? normalizedStatic : dynamicOutput;
+  const output =
+    normalizedStatic.length > 0 && dynamicOutput.length > 0
+      ? `${normalizedStatic}\n${dynamicOutput}`
+      : normalizedStatic.length > 0
+        ? normalizedStatic
+        : dynamicOutput;
+
+  bridge.dispose();
+
+  return output;
 }

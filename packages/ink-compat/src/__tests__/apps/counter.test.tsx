@@ -46,27 +46,32 @@ const Counter: React.FC = () => {
   );
 };
 
+function readCount(frame: string): number {
+  const match = frame.match(/Count:\s*(\d+)/);
+  assert.ok(match, "count line should exist");
+  return Number.parseInt(match[1]!, 10);
+}
+
 test("counter: renders initial state", () => {
   const { lastFrame } = render(React.createElement(Counter));
   const frame = lastFrame();
   assert.ok(frame.includes("Counter App"), "should show title");
   assert.ok(frame.includes("Count:"), "should show count label");
-  assert.ok(frame.includes("0"), "should show initial count 0");
+  assert.equal(readCount(frame), 0, "should show initial count 0");
 });
 
 test("counter: up arrow increments", () => {
   const { lastFrame, stdin } = render(React.createElement(Counter));
   stdin.write("\u001b[A"); // up arrow
-  const frame = lastFrame();
-  assert.ok(frame.includes("1"), "count should be 1 after up arrow");
+  assert.equal(readCount(lastFrame()), 1, "count should be 1 after up arrow");
 });
 
 test("counter: k key increments", () => {
   const { lastFrame, stdin } = render(React.createElement(Counter));
   stdin.write("k");
-  assert.ok(lastFrame().includes("1"), "count should be 1 after k");
+  assert.equal(readCount(lastFrame()), 1, "count should be 1 after k");
   stdin.write("k");
-  assert.ok(lastFrame().includes("2"), "count should be 2 after second k");
+  assert.equal(readCount(lastFrame()), 2, "count should be 2 after second k");
 });
 
 test("counter: down arrow decrements", () => {
@@ -74,13 +79,13 @@ test("counter: down arrow decrements", () => {
   stdin.write("k"); // go to 1
   stdin.write("k"); // go to 2
   stdin.write("\u001b[B"); // down arrow → 1
-  assert.ok(lastFrame().includes("1"), "count should be 1 after decrement");
+  assert.equal(readCount(lastFrame()), 1, "count should be 1 after decrement");
 });
 
 test("counter: does not go below zero", () => {
   const { lastFrame, stdin } = render(React.createElement(Counter));
   stdin.write("\u001b[B"); // down arrow at 0
-  assert.ok(lastFrame().includes("0"), "count should stay at 0");
+  assert.equal(readCount(lastFrame()), 0, "count should stay at 0");
 });
 
 test("counter: r resets to zero", () => {
@@ -88,9 +93,9 @@ test("counter: r resets to zero", () => {
   stdin.write("k");
   stdin.write("k");
   stdin.write("k");
-  assert.ok(lastFrame().includes("3"), "count should be 3");
+  assert.equal(readCount(lastFrame()), 3, "count should be 3");
   stdin.write("r");
-  assert.ok(lastFrame().includes("0"), "count should reset to 0");
+  assert.equal(readCount(lastFrame()), 0, "count should reset to 0");
 });
 
 test("counter: renders border", () => {

@@ -259,6 +259,12 @@ function parseSingleInput(buffer: string, kittyEnabled: boolean): ParseResult {
     return { consumed: 3, input: "", key };
   }
 
+  if (buffer === ESC) {
+    const key = createEmptyKey();
+    key.escape = true;
+    return { consumed: 1, input: "", key };
+  }
+
   if (buffer.startsWith(ESC)) {
     return parseEscapedMeta(buffer);
   }
@@ -333,6 +339,9 @@ export function createBridge(options: BridgeOptions): InkBridge {
 
   function registerFocusable(id: string, opts?: { autoFocus?: boolean }): void {
     const before = focusedId;
+    if (focusables.has(id)) {
+      throw new Error(`ZRUI_DUPLICATE_ID: duplicate focusable id: ${id}`);
+    }
     focusables.set(id, opts ?? {});
     if (focusEnabled) {
       if (opts?.autoFocus && !focusedId) {

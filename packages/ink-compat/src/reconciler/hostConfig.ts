@@ -78,8 +78,24 @@ export const hostConfig = {
     insertBefore(container, child, before);
   },
 
-  commitUpdate(instance: InkHostNode, _type: string, _oldProps: unknown, newProps: unknown): void {
-    instance.props = sanitizeProps(newProps);
+  commitUpdate(
+    instance: InkHostNode,
+    updatePayloadOrType: unknown,
+    typeOrOldProps: unknown,
+    oldPropsOrNewProps: unknown,
+    maybeNewProps?: unknown,
+    _internalHandle?: unknown,
+  ): void {
+    // Support both legacy (instance, type, oldProps, newProps[, handle]) and
+    // React 19 mutation signatures (instance, updatePayload, type, oldProps, newProps, handle).
+    if (typeof updatePayloadOrType === "string") {
+      instance.props = sanitizeProps(oldPropsOrNewProps);
+      return;
+    }
+
+    if (!updatePayloadOrType) return;
+    if (typeof typeOrOldProps !== "string") return;
+    instance.props = sanitizeProps(maybeNewProps);
   },
 
   commitTextUpdate(instance: InkHostNode, _oldText: string, newText: string): void {
@@ -95,6 +111,8 @@ export const hostConfig = {
     _type: string,
     oldProps: unknown,
     newProps: unknown,
+    _rootContainer?: InkHostContainer,
+    _hostContext?: unknown,
   ): boolean {
     if (oldProps === newProps) return false;
     if (typeof oldProps !== "object" || oldProps === null) return true;

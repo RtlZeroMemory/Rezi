@@ -27,12 +27,25 @@
           "performance": {
             "noDelete": "off"
           },
+          "suspicious": {
+            "noControlCharactersInRegex": "off"
+          }
+        }
+      }
+    },
+    {
+      "include": [
+        "packages/ink-compat/src/runtime/bridge.ts",
+        "packages/ink-compat/src/runtime/render.ts",
+        "packages/ink-compat/src/shims/ink-gradient.tsx",
+        "packages/ink-compat/src/shims/ink-spinner.tsx",
+        "packages/ink-compat/src/translation/colorMap.ts",
+        "packages/ink-compat/src/translation/propsToVNode.ts"
+      ],
+      "linter": {
+        "rules": {
           "style": {
             "noNonNullAssertion": "off"
-          },
-          "suspicious": {
-            "noControlCharactersInRegex": "off",
-            "noExplicitAny": "off"
           }
         }
       }
@@ -44,6 +57,12 @@
           "correctness": {
             "noChildrenProp": "off",
             "useExhaustiveDependencies": "off"
+          },
+          "style": {
+            "noNonNullAssertion": "off"
+          },
+          "suspicious": {
+            "noExplicitAny": "off"
           }
         }
       }

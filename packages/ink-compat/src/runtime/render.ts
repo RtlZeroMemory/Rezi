@@ -1794,7 +1794,8 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   );
 
   // Enable translation-layer tracing (propsToVNode border/color/dimension logs)
-  if (traceEnabled && traceDetailFull) {
+  const translationTraceEnabled = traceEnabled && traceDetailFull;
+  if (translationTraceEnabled) {
     enableTranslationTrace(true);
   }
 
@@ -1803,9 +1804,11 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   }
   if (kittyKeyboardEnabled && (stdout as { isTTY?: unknown }).isTTY === true) {
     const resolvedFlags = resolveKittyFlags(kittyFlags);
-    writeErr(
-      `[ink-compat] kitty keyboard protocol enabled (mode=${kittyMode}, flags=${resolvedFlags})\n`,
-    );
+    if (debug || traceEnabled) {
+      writeErr(
+        `[ink-compat] kitty keyboard protocol enabled (mode=${kittyMode}, flags=${resolvedFlags})\n`,
+      );
+    }
     stdout.write(`\u001b[>${resolvedFlags}u`);
     kittyProtocolActive = true;
   }
@@ -1858,7 +1861,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
               ? chunk.toString("utf8")
               : String(chunk ?? "");
         trace(
-          `stdout.write external len=${raw.length} hasClear=${/\u001b\\[[0-9;]*[HJ]/.test(raw)} hasAltIn=${raw.includes("\u001b[?1049h")} hasAltOut=${raw.includes("\u001b[?1049l")} preview=${safeJson(formatIoPreview(raw))}`,
+          `stdout.write external len=${raw.length} hasClear=${/\u001b\[[0-9;]*[HJ]/.test(raw)} hasAltIn=${raw.includes("\u001b[?1049h")} hasAltOut=${raw.includes("\u001b[?1049l")} preview=${safeJson(formatIoPreview(raw))}`,
         );
       }
       return originalWrite(chunk, encoding, cb);
@@ -2726,6 +2729,9 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   function cleanup(unmountTree: boolean): void {
     if (cleanedUp) return;
     cleanedUp = true;
+    if (translationTraceEnabled) {
+      enableTranslationTrace(false);
+    }
 
     if (unmountTree) {
       commitSync(container, null);

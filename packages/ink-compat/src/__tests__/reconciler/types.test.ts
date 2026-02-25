@@ -71,3 +71,44 @@ test("insertBefore appends when target is missing", () => {
 
   assert.deepEqual(parent.children, [childA, childB]);
 });
+
+test("appendChild moves existing child without duplication", () => {
+  const parent = createHostNode("ink-box", {});
+  const childA = createHostNode("ink-text", { id: "a" });
+  const childB = createHostNode("ink-text", { id: "b" });
+
+  appendChild(parent, childA);
+  appendChild(parent, childB);
+  appendChild(parent, childA);
+
+  assert.deepEqual(parent.children, [childB, childA]);
+  assert.equal(parent.children.filter((child) => child === childA).length, 1);
+});
+
+test("insertBefore moves existing child without duplication", () => {
+  const parent = createHostNode("ink-box", {});
+  const childA = createHostNode("ink-text", { id: "a" });
+  const childB = createHostNode("ink-text", { id: "b" });
+  const childC = createHostNode("ink-text", { id: "c" });
+
+  appendChild(parent, childA);
+  appendChild(parent, childB);
+  appendChild(parent, childC);
+  insertBefore(parent, childC, childA);
+
+  assert.deepEqual(parent.children, [childC, childA, childB]);
+  assert.equal(parent.children.filter((child) => child === childC).length, 1);
+});
+
+test("appendChild detaches from previous non-container parent", () => {
+  const parentA = createHostNode("ink-box", { id: "a" });
+  const parentB = createHostNode("ink-box", { id: "b" });
+  const child = createHostNode("ink-text", { id: "x" });
+
+  appendChild(parentA, child);
+  appendChild(parentB, child);
+
+  assert.deepEqual(parentA.children, []);
+  assert.deepEqual(parentB.children, [child]);
+  assert.equal(child.parent, parentB);
+});

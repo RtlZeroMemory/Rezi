@@ -1,3 +1,5 @@
+import { measureTextCells } from "@rezi-ui/core";
+
 /**
  * StyledChar utilities — text measurement and wrapping with ANSI awareness.
  *
@@ -15,24 +17,181 @@ export interface StyledChar {
   style: string;
 }
 
+interface SgrState {
+  bold: boolean;
+  dim: boolean;
+  italic: boolean;
+  underline: boolean;
+  strikethrough: boolean;
+  inverse: boolean;
+  fg: string | undefined;
+  bg: string | undefined;
+}
+
+function createDefaultSgrState(): SgrState {
+  return {
+    bold: false,
+    dim: false,
+    italic: false,
+    underline: false,
+    strikethrough: false,
+    inverse: false,
+    fg: undefined,
+    bg: undefined,
+  };
+}
+
+function parseSgrParams(sequence: string): number[] {
+  const body = sequence.slice(2, -1);
+  if (body.length === 0) return [0];
+
+  const params = body
+    .split(/[;:]/)
+    .filter((segment) => segment.length > 0)
+    .map((segment) => Number.parseInt(segment, 10))
+    .filter((value) => Number.isFinite(value));
+
+  return params.length > 0 ? params : [0];
+}
+
+function applySgrParams(state: SgrState, params: number[]): void {
+  for (let index = 0; index < params.length; index += 1) {
+    const code = params[index];
+    if (code == null) continue;
+
+    if (code === 0) {
+      const reset = createDefaultSgrState();
+      state.bold = reset.bold;
+      state.dim = reset.dim;
+      state.italic = reset.italic;
+      state.underline = reset.underline;
+      state.strikethrough = reset.strikethrough;
+      state.inverse = reset.inverse;
+      state.fg = reset.fg;
+      state.bg = reset.bg;
+      continue;
+    }
+
+    if (code === 1) {
+      state.bold = true;
+      continue;
+    }
+    if (code === 2) {
+      state.dim = true;
+      continue;
+    }
+    if (code === 3) {
+      state.italic = true;
+      continue;
+    }
+    if (code === 4) {
+      state.underline = true;
+      continue;
+    }
+    if (code === 7) {
+      state.inverse = true;
+      continue;
+    }
+    if (code === 9) {
+      state.strikethrough = true;
+      continue;
+    }
+    if (code === 22) {
+      state.bold = false;
+      state.dim = false;
+      continue;
+    }
+    if (code === 23) {
+      state.italic = false;
+      continue;
+    }
+    if (code === 24) {
+      state.underline = false;
+      continue;
+    }
+    if (code === 27) {
+      state.inverse = false;
+      continue;
+    }
+    if (code === 29) {
+      state.strikethrough = false;
+      continue;
+    }
+    if ((code >= 30 && code <= 37) || (code >= 90 && code <= 97)) {
+      state.fg = String(code);
+      continue;
+    }
+    if (code === 39) {
+      state.fg = undefined;
+      continue;
+    }
+    if ((code >= 40 && code <= 47) || (code >= 100 && code <= 107)) {
+      state.bg = String(code);
+      continue;
+    }
+    if (code === 49) {
+      state.bg = undefined;
+      continue;
+    }
+    if (code === 38 || code === 48) {
+      const isForeground = code === 38;
+      const target = isForeground ? "fg" : "bg";
+      const mode = params[index + 1];
+      if (mode === 5) {
+        const color = params[index + 2];
+        if (color != null) {
+          state[target] = `${code};5;${color}`;
+          index += 2;
+        }
+      } else if (mode === 2) {
+        const r = params[index + 2];
+        const g = params[index + 3];
+        const b = params[index + 4];
+        if (r != null && g != null && b != null) {
+          state[target] = `${code};2;${r};${g};${b}`;
+          index += 4;
+        }
+      }
+    }
+  }
+}
+
+function serializeSgrState(state: SgrState): string {
+  const codes: string[] = [];
+  if (state.bold) codes.push("1");
+  if (state.dim) codes.push("2");
+  if (state.italic) codes.push("3");
+  if (state.underline) codes.push("4");
+  if (state.inverse) codes.push("7");
+  if (state.strikethrough) codes.push("9");
+  if (state.fg) codes.push(state.fg);
+  if (state.bg) codes.push(state.bg);
+  return codes.length > 0 ? `\u001b[${codes.join(";")}m` : "";
+}
+
 /**
  * Convert a plain string (potentially with ANSI escapes) into StyledChar[].
  * Each printable character gets associated with the most recent ANSI style prefix.
  */
 export function toStyledCharacters(text: string): StyledChar[] {
   const result: StyledChar[] = [];
-  const ansiRegex = /\u001b\[[0-9;]*m/g;
+  const ansiRegex = /\u001b\[[0-9:;]*m/g;
+  const currentState = createDefaultSgrState();
   let currentStyle = "";
   let lastIndex = 0;
 
   for (const match of text.matchAll(ansiRegex)) {
+    const matchIndex = match.index;
+    if (matchIndex == null) continue;
     // Characters between last match and this match get current style
-    const segment = text.slice(lastIndex, match.index);
+    const segment = text.slice(lastIndex, matchIndex);
     for (const char of segment) {
       result.push({ char, style: currentStyle });
     }
-    currentStyle += match[0];
-    lastIndex = match.index! + match[0].length;
+
+    applySgrParams(currentState, parseSgrParams(match[0]));
+    currentStyle = serializeSgrState(currentState);
+    lastIndex = matchIndex + match[0].length;
   }
 
   // Remaining characters after last ANSI escape
@@ -75,23 +234,7 @@ export function styledCharsToString(chars: StyledChar[]): string {
 export function styledCharsWidth(chars: StyledChar[]): number {
   let width = 0;
   for (const sc of chars) {
-    // Simple heuristic: CJK characters are 2 columns wide
-    const code = sc.char.codePointAt(0) ?? 0;
-    if (
-      (code >= 0x1100 && code <= 0x115f) || // Hangul Jamo
-      (code >= 0x2e80 && code <= 0xa4cf) || // CJK
-      (code >= 0xac00 && code <= 0xd7af) || // Hangul Syllables
-      (code >= 0xf900 && code <= 0xfaff) || // CJK Compat Ideographs
-      (code >= 0xfe10 && code <= 0xfe6f) || // CJK forms
-      (code >= 0xff01 && code <= 0xff60) || // Fullwidth
-      (code >= 0xffe0 && code <= 0xffe6) || // Fullwidth signs
-      (code >= 0x20000 && code <= 0x2fffd) || // CJK Extension B+
-      (code >= 0x30000 && code <= 0x3fffd) // CJK Extension G+
-    ) {
-      width += 2;
-    } else {
-      width += 1;
-    }
+    width += Math.max(0, measureTextCells(sc.char));
   }
   return width;
 }
