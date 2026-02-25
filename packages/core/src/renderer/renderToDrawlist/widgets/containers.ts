@@ -3,6 +3,7 @@ import type { LayoutTree } from "../../../layout/layout.js";
 import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { Theme } from "../../../theme/theme.js";
+import type { TextStyle } from "../../../widgets/style.js";
 import {
   SCROLLBAR_CONFIGS,
   renderHorizontalScrollbar,
@@ -10,7 +11,12 @@ import {
 } from "../../scrollbar.js";
 import { createShadowConfig, renderShadow } from "../../shadow.js";
 import { asTextStyle } from "../../styles.js";
-import { readBoxBorder, readTitleAlign, renderBoxBorder } from "../boxBorder.js";
+import {
+  type BorderSideStyleMap,
+  readBoxBorder,
+  readTitleAlign,
+  renderBoxBorder,
+} from "../boxBorder.js";
 import { getRuntimeNodeDamageRect } from "../damageBounds.js";
 import { isVisibleRect } from "../indices.js";
 import { clampNonNegative, resolveSpacingFromProps } from "../spacing.js";
@@ -52,6 +58,12 @@ type ScrollViewport = Readonly<{
 }>;
 
 type ScrollbarVariant = "minimal" | "classic" | "modern" | "dots" | "thin";
+type BorderSideStyleOverrides = Readonly<{
+  top?: TextStyle;
+  right?: TextStyle;
+  bottom?: TextStyle;
+  left?: TextStyle;
+}>;
 
 const SCROLLBAR_RENDER_CONFIG = {
   ...SCROLLBAR_CONFIGS.minimal,
@@ -68,6 +80,22 @@ function readScrollbarVariant(raw: unknown): ScrollbarVariant {
     default:
       return "minimal";
   }
+}
+
+function readBorderSideStyleMap(raw: unknown, theme: Theme): BorderSideStyleOverrides | undefined {
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const source = raw as { top?: unknown; right?: unknown; bottom?: unknown; left?: unknown };
+  const top = asTextStyle(source.top, theme);
+  const right = asTextStyle(source.right, theme);
+  const bottom = asTextStyle(source.bottom, theme);
+  const left = asTextStyle(source.left, theme);
+  if (!top && !right && !bottom && !left) return undefined;
+  return {
+    ...(top ? { top } : {}),
+    ...(right ? { right } : {}),
+    ...(bottom ? { bottom } : {}),
+    ...(left ? { left } : {}),
+  };
 }
 
 function clipEquals(a: ClipRect | undefined, b: ClipRect): boolean {
@@ -607,6 +635,7 @@ export function renderContainerWidget(
         overflow?: unknown;
         style?: unknown;
         borderStyle?: unknown;
+        borderStyleSides?: unknown;
         inheritStyle?: unknown;
         scrollbarVariant?: unknown;
         scrollbarStyle?: unknown;
@@ -623,6 +652,7 @@ export function renderContainerWidget(
       const titleAlign = readTitleAlign(props.titleAlign);
       const ownStyle = asTextStyle(props.style, theme);
       const borderOwnStyle = asTextStyle(props.borderStyle, theme);
+      const borderSideOwnStyles = readBorderSideStyleMap(props.borderStyleSides, theme);
       const inheritedStyle = asTextStyle(props.inheritStyle, theme);
       const baseStyle = inheritedStyle ? mergeTextStyle(parentStyle, inheritedStyle) : parentStyle;
       const mergedStyle = mergeTextStyle(baseStyle, ownStyle);
@@ -642,6 +672,28 @@ export function renderContainerWidget(
         boxOpacityOverride === undefined
           ? effectiveBorderStyle
           : applyOpacityToStyle(effectiveBorderStyle, boxOpacityOverride, parentStyle.bg);
+      const resolveBorderSideDrawStyle = (sideStyle: TextStyle): ResolvedTextStyle => {
+        const merged = mergeTextStyle(effectiveBorderStyle, sideStyle);
+        return boxOpacityOverride === undefined
+          ? merged
+          : applyOpacityToStyle(merged, boxOpacityOverride, parentStyle.bg);
+      };
+      const borderSideDrawStyle = borderSideOwnStyles
+        ? {
+            ...(borderSideOwnStyles.top
+              ? { top: resolveBorderSideDrawStyle(borderSideOwnStyles.top) }
+              : {}),
+            ...(borderSideOwnStyles.right
+              ? { right: resolveBorderSideDrawStyle(borderSideOwnStyles.right) }
+              : {}),
+            ...(borderSideOwnStyles.bottom
+              ? { bottom: resolveBorderSideDrawStyle(borderSideOwnStyles.bottom) }
+              : {}),
+            ...(borderSideOwnStyles.left
+              ? { left: resolveBorderSideDrawStyle(borderSideOwnStyles.left) }
+              : {}),
+          }
+        : undefined;
       const shadowConfig = resolveBoxShadowConfig(props.shadow, theme);
       if (shadowConfig) {
         renderShadow(builder, rect, shadowConfig, borderDrawStyle);
@@ -650,12 +702,21 @@ export function renderContainerWidget(
         builder.fillRect(rect.x, rect.y, rect.w, rect.h, style);
       }
 
-      renderBoxBorder(builder, rect, border, title, titleAlign, borderDrawStyle, {
-        top: borderTop,
-        right: borderRight,
-        bottom: borderBottom,
-        left: borderLeft,
-      });
+      renderBoxBorder(
+        builder,
+        rect,
+        border,
+        title,
+        titleAlign,
+        borderDrawStyle,
+        {
+          top: borderTop,
+          right: borderRight,
+          bottom: borderBottom,
+          left: borderLeft,
+        },
+        borderSideDrawStyle,
+      );
 
       const bt = border === "none" || !borderTop ? 0 : 1;
       const br = border === "none" || !borderRight ? 0 : 1;

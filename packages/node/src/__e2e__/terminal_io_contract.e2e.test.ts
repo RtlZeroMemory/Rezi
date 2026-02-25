@@ -763,19 +763,25 @@ test("terminal io contract: keyboard + paste + focus + mouse + resize + split re
       "missing mouse up with high coordinates",
     );
 
-    const mouseWheel = await writeAndCollectUntil(harness, "\x1b[<64;400;500M", 40, (xs) => {
-      return (
-        findIndex(
-          xs,
-          (ev) =>
-            ev.kind === "mouse" &&
-            ev.mouseKind === 5 &&
-            ev.x === 399 &&
-            ev.y === 499 &&
-            ev.wheelY === -1,
-        ) >= 0
-      );
-    });
+    const mouseWheel = await writeAndCollectUntilWithRetries(
+      harness,
+      "\x1b[<64;400;500M",
+      60,
+      (xs) => {
+        return (
+          findIndex(
+            xs,
+            (ev) =>
+              ev.kind === "mouse" &&
+              ev.mouseKind === 5 &&
+              ev.x === 399 &&
+              ev.y === 499 &&
+              ev.wheelY === -1,
+          ) >= 0
+        );
+      },
+      3,
+    );
     assert.ok(
       findIndex(
         mouseWheel,

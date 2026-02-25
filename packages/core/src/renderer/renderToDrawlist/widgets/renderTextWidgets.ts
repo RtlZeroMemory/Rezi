@@ -267,6 +267,7 @@ export function renderTextWidgets(
         textOverflow?: unknown;
         maxWidth?: unknown;
         wrap?: unknown;
+        __inkTransform?: unknown;
         internal_terminalCursorFocus?: unknown;
         internal_terminalCursorPosition?: unknown;
         terminalCursorFocus?: unknown;
@@ -285,12 +286,24 @@ export function renderTextWidgets(
 
       const text = vnode.text;
       const wrap = props.wrap === true;
+      const transform =
+        typeof props.__inkTransform === "function"
+          ? (props.__inkTransform as (line: string, index: number) => string)
+          : undefined;
+      const transformLine = (line: string, index: number): string => {
+        if (!transform) return line;
+        const next = transform(line, index);
+        if (typeof next === "string") return next;
+        return String(next ?? "");
+      };
       const cursorMeta = readTerminalCursorMeta(props);
       const cursorOffset = Math.min(text.length, Math.max(0, cursorMeta.position ?? text.length));
-      const cursorX = Math.min(overflowW, measureTextCells(text.slice(0, cursorOffset)));
 
       if (wrap && rect.h > 1) {
-        const lines = wrapTextToLines(text, overflowW);
+        const wrappedLines = wrapTextToLines(text, overflowW);
+        const lines = transform
+          ? wrappedLines.map((line, index) => transformLine(line ?? "", index))
+          : wrappedLines;
         const visibleCount = Math.min(rect.h, lines.length);
         if (visibleCount <= 0) break;
 
@@ -330,12 +343,13 @@ export function renderTextWidgets(
             }
           }
 
-          builder.pushClip(rect.x, rect.y + i, overflowW, 1);
+          const clipWidth = transform ? Math.max(overflowW, measureTextCells(line)) : overflowW;
+          builder.pushClip(rect.x, rect.y + i, clipWidth, 1);
           builder.drawText(rect.x, rect.y + i, line, style);
           builder.popClip();
         }
 
-        if (cursorInfo && cursorMeta.focused) {
+        if (!transform && cursorInfo && cursorMeta.focused) {
           let remaining = cursorOffset;
           let cursorLine = 0;
           for (let i = 0; i < visibleCount; i++) {
@@ -359,13 +373,22 @@ export function renderTextWidgets(
         break;
       }
 
+      const transformedText = transformLine(text, 0);
+
       // Avoid measuring in the common ASCII case.
       const fits =
-        (isAsciiText(text) && text.length <= overflowW) || measureTextCells(text) <= overflowW;
+        (isAsciiText(transformedText) && transformedText.length <= overflowW) ||
+        measureTextCells(transformedText) <= overflowW;
 
       if (fits) {
-        builder.drawText(rect.x, rect.y, text, style);
-        if (cursorInfo && cursorMeta.focused) {
+        builder.drawText(rect.x, rect.y, transformedText, style);
+        if (!transform && cursorInfo && cursorMeta.focused) {
+          const cursorX = Math.min(
+            overflowW,
+            measureTextCells(
+              transformedText.slice(0, Math.min(cursorOffset, transformedText.length)),
+            ),
+          );
           resolvedCursor = {
             x: rect.x + cursorX,
             y: rect.y,
@@ -376,18 +399,18 @@ export function renderTextWidgets(
         break;
       }
 
-      let displayText = text;
+      let displayText = transformedText;
       let useClip = false;
 
       switch (textOverflow) {
         case "ellipsis":
-          displayText = truncateWithEllipsis(text, overflowW);
+          displayText = truncateWithEllipsis(transformedText, overflowW);
           break;
         case "middle":
-          displayText = truncateMiddle(text, overflowW);
+          displayText = truncateMiddle(transformedText, overflowW);
           break;
         case "start":
-          displayText = truncateStart(text, overflowW);
+          displayText = truncateStart(transformedText, overflowW);
           break;
         case "clip":
           useClip = true;
@@ -400,7 +423,13 @@ export function renderTextWidgets(
       } else {
         builder.drawText(rect.x, rect.y, displayText, style);
       }
-      if (cursorInfo && cursorMeta.focused) {
+      if (!transform && cursorInfo && cursorMeta.focused) {
+        const cursorX = Math.min(
+          overflowW,
+          measureTextCells(
+            transformedText.slice(0, Math.min(cursorOffset, transformedText.length)),
+          ),
+        );
         resolvedCursor = {
           x: rect.x + cursorX,
           y: rect.y,

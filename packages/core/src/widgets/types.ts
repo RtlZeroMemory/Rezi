@@ -131,6 +131,8 @@ export type TextProps = Readonly<{
   maxWidth?: number;
   /** When true, text wraps to multiple lines instead of single-line truncation. */
   wrap?: boolean;
+  /** Internal callback used by ink-compat to transform rendered lines. */
+  __inkTransform?: (line: string, index: number) => string;
 }>;
 
 /**
@@ -148,6 +150,13 @@ export type BoxShadow =
     }>;
 
 export type BoxPreset = "card" | "surface" | "well" | "elevated";
+
+export type BoxBorderSideStyles = Readonly<{
+  top?: TextStyle;
+  right?: TextStyle;
+  bottom?: TextStyle;
+  left?: TextStyle;
+}>;
 
 /** Props for box container. border defaults to "single". */
 export type BoxProps = Readonly<
@@ -191,6 +200,8 @@ export type BoxProps = Readonly<
      * When not set, `style` applies to both (backward compatible).
      */
     borderStyle?: TextStyle;
+    /** Optional per-edge border style overrides. */
+    borderStyleSides?: BoxBorderSideStyles;
     /**
      * Style inherited by descendants when they do not override their own style.
      * Unlike `style`, this does not force container background fill.

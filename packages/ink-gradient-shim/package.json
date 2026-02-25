@@ -1,0 +1,11 @@
+{
+  "name": "ink-gradient-shim",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "peerDependencies": {
+    "ink": "*",
+    "react": "^18.0.0 || ^19.0.0"
+  }
+}

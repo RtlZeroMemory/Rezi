@@ -220,6 +220,7 @@ nav:
   - Architecture:
       - Overview: architecture/index.md
       - Terminal I/O Contract: terminal-io-contract.md
+      - Ink Compat Layer: architecture/ink-compat.md
       - Backend:
           - Node Backend: backend/node.md
           - Worker Model: backend/worker-model.md
@@ -250,6 +251,7 @@ nav:
       - Build: dev/build.md
       - Testing: dev/testing.md
       - Code Standards: dev/code-standards.md
+      - Ink Compat Debugging: dev/ink-compat-debugging.md
       - Perf Regressions: dev/perf-regressions.md
       - Repro Replay: dev/repro-replay.md
       - Releasing: dev/releasing.md

@@ -12,6 +12,62 @@
       "recommended": true
     }
   },
+  "overrides": [
+    {
+      "include": [
+        "packages/ink-compat/**",
+        "packages/ink-gradient-shim/**",
+        "packages/ink-spinner-shim/**"
+      ],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "useLiteralKeys": "off"
+          },
+          "performance": {
+            "noDelete": "off"
+          },
+          "suspicious": {
+            "noControlCharactersInRegex": "off"
+          }
+        }
+      }
+    },
+    {
+      "include": [
+        "packages/ink-compat/src/runtime/bridge.ts",
+        "packages/ink-compat/src/runtime/render.ts",
+        "packages/ink-compat/src/shims/ink-gradient.tsx",
+        "packages/ink-compat/src/shims/ink-spinner.tsx",
+        "packages/ink-compat/src/translation/colorMap.ts",
+        "packages/ink-compat/src/translation/propsToVNode.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNonNullAssertion": "off"
+          }
+        }
+      }
+    },
+    {
+      "include": ["packages/ink-compat/src/__tests__/**"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noChildrenProp": "off",
+            "useExhaustiveDependencies": "off"
+          },
+          "style": {
+            "noNonNullAssertion": "off"
+          },
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    }
+  ],
   "javascript": {
     "formatter": {
       "quoteStyle": "double",
