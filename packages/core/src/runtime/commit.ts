@@ -556,6 +556,7 @@ const DEV_MODE = NODE_ENV !== "production";
 const LAYOUT_DEPTH_WARN_THRESHOLD = 200;
 const MAX_LAYOUT_NESTING_DEPTH = 500;
 const MAX_LAYOUT_DEPTH_PATH_SEGMENTS = 32;
+const MAX_INTERACTIVE_ID_LENGTH = 256;
 const DEFAULT_EXIT_TRANSITION_DURATION_MS = 180;
 const LAYOUT_DEPTH_PATH_TRACK_START = Math.max(
   1,
@@ -604,6 +605,12 @@ function ensureInteractiveId(
       detail: `interactive node missing required id (kind=${vnode.kind}, instanceId=${String(instanceId)})`,
     };
   }
+  if (id.trim().length === 0) {
+    return {
+      code: "ZRUI_INVALID_PROPS",
+      detail: `interactive node id must contain non-whitespace characters (kind=${vnode.kind}, instanceId=${String(instanceId)})`,
+    };
+  }
 
   const existing = seen.get(id);
   if (existing !== undefined) {
@@ -611,6 +618,11 @@ function ensureInteractiveId(
       code: "ZRUI_DUPLICATE_ID",
       detail: `Duplicate interactive widget id "${id}". First: <${existing}>, second: <${vnode.kind}>. Hint: Use ctx.id() inside defineWidget to generate unique IDs for list items.`,
     };
+  }
+  if (DEV_MODE && id.length > MAX_INTERACTIVE_ID_LENGTH) {
+    warnDev(
+      `[rezi][commit] interactive widget id exceeds ${String(MAX_INTERACTIVE_ID_LENGTH)} chars (kind=${vnode.kind}, id length=${String(id.length)}). Consider using shorter IDs.`,
+    );
   }
   seen.set(id, vnode.kind);
   return null;

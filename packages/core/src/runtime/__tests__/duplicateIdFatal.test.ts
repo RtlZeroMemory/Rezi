@@ -29,6 +29,15 @@ function filePicker(id: string): VNode {
   return { kind: "filePicker", props };
 }
 
+function link(id?: string): VNode {
+  const props: { id?: string; url: string; label: string } = {
+    url: "https://example.com",
+    label: "docs",
+  };
+  if (id !== undefined) props.id = id;
+  return { kind: "link", props };
+}
+
 test("duplicate Button ids anywhere in the tree trigger deterministic fatal ZRUI_DUPLICATE_ID (#66)", () => {
   const allocator = createInstanceIdAllocator(1);
 
@@ -78,4 +87,23 @@ test("reused interactive id index is cleared at the start of each commit cycle",
     });
     assert.equal(second.ok, true);
   }
+});
+
+test("optional interactive widgets can omit id", () => {
+  const allocator = createInstanceIdAllocator(1);
+  const res = commitVNodeTree(null, column([link()]), { allocator });
+  assert.equal(res.ok, true);
+});
+
+test("whitespace-only optional interactive ids are rejected", () => {
+  const allocator = createInstanceIdAllocator(1);
+  const res = commitVNodeTree(null, column([link("   ")]), { allocator });
+
+  assert.equal(res.ok, false);
+  if (res.ok) return;
+  assert.equal(res.fatal.code, "ZRUI_INVALID_PROPS");
+  assert.equal(
+    res.fatal.detail,
+    "interactive node id must contain non-whitespace characters (kind=link, instanceId=2)",
+  );
 });

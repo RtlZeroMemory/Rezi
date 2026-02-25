@@ -502,6 +502,10 @@ function warnDev(message: string): void {
   c?.warn?.(message);
 }
 
+function isVNodeLike(v: unknown): boolean {
+  return typeof v === "object" && v !== null && "kind" in v;
+}
+
 function clipRectToViewport(rect: Rect, viewport: Viewport): Rect | null {
   const x0 = Math.max(0, rect.x);
   const y0 = Math.max(0, rect.y);
@@ -2427,6 +2431,14 @@ export class WidgetRenderer<S> {
         const viewToken = PERF_DETAIL_ENABLED ? perfMarkStart("view") : 0;
         const vnode = viewFn(snapshot);
         if (PERF_DETAIL_ENABLED) perfMarkEnd("view", viewToken);
+
+        if (!isVNodeLike(vnode)) {
+          return {
+            ok: false,
+            code: "ZRUI_INVALID_PROPS",
+            detail: `view function must return a VNode, got ${vnode === null ? "null" : vnode === undefined ? "undefined" : typeof vnode}`,
+          };
+        }
 
         const commitToken = PERF_DETAIL_ENABLED ? perfMarkStart("vnode_commit") : 0;
         this.committedErrorBoundaryPathsScratch.clear();
