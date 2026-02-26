@@ -498,6 +498,7 @@ export function createInkRenderer(opts: InkRendererOptions = {}): InkRenderer {
   // Cached result for early-skip optimization
   let cachedOps: readonly InkRenderOp[] = [];
   let cachedNodes: readonly InkRenderNode[] = [];
+  let cachedViewport: InkRendererViewport | null = null;
 
   const render = (vnode: VNode, renderOpts: InkRenderOptions = {}): InkRenderResult => {
     const t0 = performance.now();
@@ -505,6 +506,10 @@ export function createInkRenderer(opts: InkRendererOptions = {}): InkRenderer {
 
     const viewport = normalizeViewport(renderOpts.viewport ?? defaultViewport);
     const forceLayout = renderOpts.forceLayout === true;
+    const viewportChanged =
+      cachedViewport === null ||
+      cachedViewport.cols !== viewport.cols ||
+      cachedViewport.rows !== viewport.rows;
 
     // ─── COMMIT ───
     const commitStartedAt = performance.now();
@@ -521,8 +526,43 @@ export function createInkRenderer(opts: InkRendererOptions = {}): InkRenderer {
     // ─── EARLY SKIP: nothing changed ───
     // After commit with in-place mutation, if root.dirty is false, the entire
     // tree is unchanged. Skip layout, draw, and collect entirely.
-    if (!isFirstFrame && !forceLayout && !prevRoot.dirty && cachedLayoutTree !== null) {
+    if (
+      !isFirstFrame &&
+      !forceLayout &&
+      !prevRoot.dirty &&
+      cachedLayoutTree !== null &&
+      !viewportChanged
+    ) {
       const totalMs = performance.now() - t0;
+      if (trace) {
+        const textStartedAt = performance.now();
+        const screenText = opsToText(cachedOps, viewport);
+        const textMs = performance.now() - textStartedAt;
+        const opSummary = summarizeOps(cachedOps);
+        const nodeSummary = summarizeNodes(cachedNodes);
+        const textSummary = summarizeText(screenText);
+        trace({
+          renderId,
+          viewport,
+          focusedId: null,
+          tick: 0,
+          timings: { commitMs, layoutMs: 0, drawMs: 0, textMs, totalMs },
+          nodeCount: cachedNodes.length,
+          opCount: cachedOps.length,
+          opCounts: opSummary.opCounts,
+          clipDepthMax: opSummary.clipDepthMax,
+          textChars: textSummary.textChars,
+          textLines: textSummary.textLines,
+          nonBlankLines: textSummary.nonBlankLines,
+          widestLine: textSummary.widestLine,
+          minRectY: nodeSummary.minRectY,
+          maxRectBottom: nodeSummary.maxRectBottom,
+          zeroHeightRects: nodeSummary.zeroHeightRects,
+          detailIncluded: defaultTraceDetail,
+          layoutSkipped: true,
+          ...(defaultTraceDetail ? { nodes: cachedNodes, ops: cachedOps, text: screenText } : {}),
+        });
+      }
       return {
         ops: cachedOps,
         nodes: cachedNodes,
@@ -582,6 +622,7 @@ export function createInkRenderer(opts: InkRendererOptions = {}): InkRenderer {
     const nodes = collectNodes(cachedLayoutTree);
     cachedOps = ops;
     cachedNodes = nodes;
+    cachedViewport = viewport;
     const totalMs = performance.now() - t0;
 
     // ─── TRACE (when configured) ───
@@ -626,6 +667,9 @@ export function createInkRenderer(opts: InkRendererOptions = {}): InkRenderer {
   const reset = (): void => {
     prevRoot = null;
     cachedLayoutTree = null;
+    cachedOps = [];
+    cachedNodes = [];
+    cachedViewport = null;
     allocator = createInstanceIdAllocator(1);
   };
 

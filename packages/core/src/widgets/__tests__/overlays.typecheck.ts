@@ -23,7 +23,7 @@ const dropdownFrame: DropdownProps["frameStyle"] = {
   border: (7 << 16) | (8 << 8) | 9,
 };
 
-// @ts-expect-error missing b component
+// @ts-expect-error frameStyle.border expects packed Rgb24, not an object
 const dropdownFrameInvalid: DropdownProps["frameStyle"] = { border: { r: 1, g: 2 } };
 
 const layerFrame: LayerProps["frameStyle"] = {

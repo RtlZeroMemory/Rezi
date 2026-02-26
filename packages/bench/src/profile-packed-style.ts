@@ -81,7 +81,11 @@ async function main() {
   }
 
   const snap = perfSnapshot();
-  const counters = snap.counters;
+  const counters = snap.counters as {
+    style_merges_performed?: number;
+    style_objects_created?: number;
+    packRgb_calls?: number;
+  };
   const merges = counters.style_merges_performed ?? 0;
   const styleObjects = counters.style_objects_created ?? 0;
   const packRgbCalls = counters.packRgb_calls ?? 0;

@@ -185,11 +185,15 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
     if (this.error) return;
     if (xi === null || yi === null) return;
 
-    const shape = state.shape & 0xff;
-    if (this.validateParams && (shape < 0 || shape > 2)) {
-      this.fail("ZRDL_BAD_PARAMS", `setCursor: shape must be 0, 1, or 2 (got ${shape})`);
+    const shapeRaw = state.shape;
+    if (
+      this.validateParams &&
+      (!Number.isFinite(shapeRaw) || !Number.isInteger(shapeRaw) || shapeRaw < 0 || shapeRaw > 2)
+    ) {
+      this.fail("ZRDL_BAD_PARAMS", `setCursor: shape must be 0, 1, or 2 (got ${shapeRaw})`);
       return;
     }
+    const shape = Number(shapeRaw) & 0xff;
 
     if (!this.beginCommandWrite("setCursor", SET_CURSOR_SIZE)) return;
     this.cmdLen = writeSetCursor(

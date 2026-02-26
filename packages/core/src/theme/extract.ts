@@ -5,7 +5,7 @@ import type { ColorTokens } from "./tokens.js";
 function extractColorTokens(theme: Theme): ColorTokens | null {
   const c = theme.colors;
   const bgBase = c["bg.base"] as Rgb24 | undefined;
-  if (!bgBase) return null;
+  if (bgBase === undefined) return null;
 
   return {
     bg: {

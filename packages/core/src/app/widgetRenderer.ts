@@ -538,10 +538,6 @@ function monotonicNowMs(): number {
   return Date.now();
 }
 
-function isV2Builder(builder: DrawlistBuilder | DrawlistBuilder): builder is DrawlistBuilder {
-  return typeof (builder as DrawlistBuilder).setCursor === "function";
-}
-
 function cloneFocusManagerState(state: FocusManagerState): FocusManagerState {
   return Object.freeze({
     focusedId: state.focusedId,
@@ -570,7 +566,7 @@ type ErrorBoundaryState = Readonly<{
  */
 export class WidgetRenderer<S> {
   private readonly backend: RuntimeBackend;
-  private readonly builder: DrawlistBuilder | DrawlistBuilder | DrawlistBuilder;
+  private readonly builder: DrawlistBuilder;
   private readonly cursorShape: CursorShape;
   private readonly cursorBlink: boolean;
   private collectRuntimeBreadcrumbs: boolean;

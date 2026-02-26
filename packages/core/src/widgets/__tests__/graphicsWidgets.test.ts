@@ -166,18 +166,14 @@ function renderBytes(
 }
 
 describe("graphics widgets", () => {
-  test("link encodes hyperlink refs in v3 and degrades to text in v1", () => {
+  test("link encodes hyperlink refs and keeps label text payload", () => {
     const vnode = ui.link({ url: "https://example.com", label: "Docs", id: "docs-link" });
-    const v3 = renderBytes(vnode, () => createDrawlistBuilder());
-    const v1 = renderBytes(vnode, () => createDrawlistBuilder());
-    assert.equal(parseOpcodes(v3).includes(8), false);
-    assert.equal(parseOpcodes(v1).includes(8), false);
-    assert.equal(parseStrings(v3).includes("Docs"), true);
-    assert.equal(parseStrings(v1).includes("https://example.com"), false);
-    const v3TextPayload = findCommandPayload(v3, 3);
-    assert.equal(v3TextPayload !== null, true);
-    if (v3TextPayload === null) return;
-    assert.equal(u32(v3, v3TextPayload + 40) > 0, true);
+    const bytes = renderBytes(vnode, () => createDrawlistBuilder());
+    assert.equal(parseStrings(bytes).includes("Docs"), true);
+    const textPayload = findCommandPayload(bytes, 3);
+    assert.equal(textPayload !== null, true);
+    if (textPayload === null) return;
+    assert.equal(u32(bytes, textPayload + 40) > 0, true);
   });
 
   test("canvas emits DRAW_CANVAS", () => {
@@ -478,19 +474,15 @@ describe("graphics widgets", () => {
     );
   });
 
-  test("image degrades to placeholder on v1", () => {
+  test("image auto on RGBA emits graphics commands on the unified builder", () => {
     const bytes = renderBytes(
       ui.image({ src: new Uint8Array([0, 0, 0, 0]), width: 20, height: 4, alt: "Logo" }),
       () => createDrawlistBuilder(),
     );
-    const strings = parseStrings(bytes);
+    assert.equal(parseOpcodes(bytes).includes(8) || parseOpcodes(bytes).includes(9), true);
     assert.equal(
-      strings.some((value) => value.includes("Image")),
-      true,
-    );
-    assert.equal(
-      strings.some((value) => value.includes("Logo")),
-      true,
+      parseStrings(bytes).some((value) => value.includes("Logo")),
+      false,
     );
   });
 

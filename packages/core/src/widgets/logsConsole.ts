@@ -7,7 +7,8 @@
  * @see docs/widgets/logs-console.md
  */
 
-import { type Rgb24, rgb } from "./style.js";
+import { defaultTheme } from "../theme/defaultTheme.js";
+import type { Rgb24 } from "./style.js";
 import type { LogEntry, LogLevel } from "./types.js";
 
 /** Default max log entries to keep. */
@@ -207,12 +208,14 @@ export function formatCost(costCents: number): string {
 }
 
 /** Level color map (packed RGB24). */
+const WIDGET_PALETTE = defaultTheme.colors;
+
 export const LEVEL_COLORS: Record<LogLevel, Rgb24> = {
-  trace: rgb(100, 100, 100),
-  debug: rgb(150, 150, 150),
-  info: rgb(255, 255, 255),
-  warn: rgb(255, 200, 50),
-  error: rgb(255, 80, 80),
+  trace: WIDGET_PALETTE["widget.logs.level.trace"] ?? WIDGET_PALETTE.muted,
+  debug: WIDGET_PALETTE["widget.logs.level.debug"] ?? WIDGET_PALETTE.secondary,
+  info: WIDGET_PALETTE["widget.logs.level.info"] ?? WIDGET_PALETTE.fg,
+  warn: WIDGET_PALETTE["widget.logs.level.warn"] ?? WIDGET_PALETTE.warning,
+  error: WIDGET_PALETTE["widget.logs.level.error"] ?? WIDGET_PALETTE.danger,
 };
 
 /** Level priority for filtering. */

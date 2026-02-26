@@ -652,7 +652,7 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
     if (scrollY != null) layoutProps.scrollY = scrollY;
 
     const scrollbarThumbColor = parseColor(p.scrollbarThumbColor as string | undefined);
-    if (scrollbarThumbColor) {
+    if (scrollbarThumbColor !== undefined) {
       layoutProps.scrollbarStyle = { fg: scrollbarThumbColor };
     }
   } else if (hasHiddenOverflow) {
@@ -693,7 +693,7 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
 
     const style: Record<string, unknown> = {};
     const bg = parseColor(p.backgroundColor as string | undefined);
-    if (bg) style["bg"] = bg;
+    if (bg !== undefined) style["bg"] = bg;
     if (Object.keys(style).length > 0) layoutProps.style = style;
 
     const explicitBorderColor = parseColor(p.borderColor as string | undefined);
@@ -712,7 +712,7 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
     };
 
     const borderColor = explicitBorderColor;
-    if (borderColor) {
+    if (borderColor !== undefined) {
       layoutProps.borderStyle = {
         ...(typeof layoutProps.borderStyle === "object" && layoutProps.borderStyle !== null
           ? layoutProps.borderStyle
@@ -737,7 +737,7 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
       if (!hasColorOverride && !hasDimOverride) continue;
       const sideStyle: Record<string, unknown> = {};
       const resolvedColor = edgeBorderColors[side] ?? explicitBorderColor;
-      if (resolvedColor) sideStyle["fg"] = resolvedColor;
+      if (resolvedColor !== undefined) sideStyle["fg"] = resolvedColor;
       if (globalBorderDim || hasDimOverride) sideStyle["dim"] = true;
       if (Object.keys(sideStyle).length > 0) {
         borderStyleSides[side] = sideStyle;
@@ -820,9 +820,9 @@ function translateText(node: InkHostNode): VNode {
 
   const style: TextStyleMap = {};
   const fg = parseColor(p.color as string | undefined);
-  if (fg) style.fg = fg;
+  if (fg !== undefined) style.fg = fg;
   const bg = parseColor(p.backgroundColor as string | undefined);
-  if (bg) style.bg = bg;
+  if (bg !== undefined) style.bg = bg;
   if (p.bold) style.bold = true;
   if (p.italic) style.italic = true;
   if (p.underline) style.underline = true;
@@ -924,9 +924,9 @@ function flattenTextChildren(
       const childStyle: TextStyleMap = { ...parentStyle };
 
       const fg = parseColor(cp.color as string | undefined);
-      if (fg) childStyle.fg = fg;
+      if (fg !== undefined) childStyle.fg = fg;
       const bg = parseColor(cp.backgroundColor as string | undefined);
-      if (bg) childStyle.bg = bg;
+      if (bg !== undefined) childStyle.bg = bg;
       if (cp.bold) childStyle.bold = true;
       if (cp.italic) childStyle.italic = true;
       if (cp.underline) childStyle.underline = true;

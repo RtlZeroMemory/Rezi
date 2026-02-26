@@ -8,7 +8,8 @@
  * @see docs/widgets/toast.md
  */
 
-import { type Rgb24, rgb } from "./style.js";
+import { defaultTheme } from "../theme/defaultTheme.js";
+import type { Rgb24 } from "./style.js";
 import type { Toast, ToastPosition } from "./types.js";
 
 /** Height of a single toast in cells. */
@@ -170,9 +171,11 @@ export const TOAST_ICONS: Record<Toast["type"], string> = {
 };
 
 /** Border color for each toast type (packed RGB24). */
+const WIDGET_PALETTE = defaultTheme.colors;
+
 export const TOAST_COLORS: Record<Toast["type"], Rgb24> = {
-  info: rgb(50, 150, 255),
-  success: rgb(50, 200, 100),
-  warning: rgb(255, 200, 50),
-  error: rgb(255, 80, 80),
+  info: WIDGET_PALETTE["widget.toast.info"] ?? WIDGET_PALETTE.info,
+  success: WIDGET_PALETTE["widget.toast.success"] ?? WIDGET_PALETTE.success,
+  warning: WIDGET_PALETTE["widget.toast.warning"] ?? WIDGET_PALETTE.warning,
+  error: WIDGET_PALETTE["widget.toast.error"] ?? WIDGET_PALETTE.danger,
 };

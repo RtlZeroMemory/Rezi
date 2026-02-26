@@ -34,7 +34,7 @@ function clampChannel(value: number): number {
   return Math.round(value);
 }
 
-/** Create a packed RGB color value. */
+/** Create a packed RGB color value. Note: `rgb(0, 0, 0)` encodes sentinel `0`. */
 export function rgb(r: number, g: number, b: number): Rgb24 {
   const rr = clampChannel(r);
   const gg = clampChannel(g);

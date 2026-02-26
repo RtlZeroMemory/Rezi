@@ -55,7 +55,7 @@ export function parseColor(color: string | undefined): Rgb24 | undefined {
     pushTranslationTrace({
       kind: "color-parse",
       input: color,
-      result: result ? { r: rgbR(result), g: rgbG(result), b: rgbB(result) } : null,
+      result: result !== undefined ? { r: rgbR(result), g: rgbG(result), b: rgbB(result) } : null,
     });
   }
   return result;

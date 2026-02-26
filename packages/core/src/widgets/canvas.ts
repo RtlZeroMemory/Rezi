@@ -73,7 +73,7 @@ function resolvePixel(
 ): Readonly<{ r: number; g: number; b: number; a: number }> {
   if (color === undefined) return DEFAULT_SOLID_PIXEL;
   const parsedHex = parseHexColor(color);
-  if (parsedHex) {
+  if (parsedHex !== null) {
     return Object.freeze({
       r: clampU8(rgbR(parsedHex)),
       g: clampU8(rgbG(parsedHex)),
