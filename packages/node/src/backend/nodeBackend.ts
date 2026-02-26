@@ -1009,15 +1009,19 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       buf: slotView,
       commit: (byteLen: number): Promise<void> => {
         if (!Number.isInteger(byteLen)) {
-          throw new RangeError("NodeBackend: frame byteLen must be an integer");
+          throw new ZrUiError(
+            "ZRUI_INVALID_PROPS",
+            "NodeBackend: frame byteLen must be an integer",
+          );
         }
         if (byteLen < 0 || byteLen > slotBytes) {
-          throw new RangeError(
+          throw new ZrUiError(
+            "ZRUI_INVALID_PROPS",
             `NodeBackend: frame byteLen out of range (byteLen=${String(byteLen)}, slotBytes=${String(slotBytes)})`,
           );
         }
         if (finalized) {
-          throw new Error("NodeBackend: frame writer already finalized");
+          throw new ZrUiError("ZRUI_INVALID_STATE", "NodeBackend: frame writer already finalized");
         }
         finalized = true;
         const slotToken = frameSeqToSlotToken(frameSeq);

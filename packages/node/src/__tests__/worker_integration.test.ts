@@ -769,7 +769,10 @@ test("backend: SAB beginFrame writer commits drawlist bytes", async () => {
       if (target.byteLength < built.bytes.byteLength) {
         return {
           ok: false,
-          error: { code: "ZRDL_TOO_LARGE", detail: "target buffer too small for buildInto shim" },
+          error: {
+            code: "ZRDL_BAD_PARAMS",
+            detail: "buildInto shim target buffer too small",
+          },
         };
       }
       target.set(built.bytes, 0);
