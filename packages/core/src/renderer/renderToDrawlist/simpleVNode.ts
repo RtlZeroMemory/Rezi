@@ -209,6 +209,13 @@ function drawSegments(
   maxWidth: number,
   segments: readonly StyledSegment[],
 ): void {
+  const textRunStableKey = (segments0: readonly StyledSegment[]): string =>
+    segments0
+      .map((segment) =>
+        `${segment.text}\u0000${segment.style === undefined ? "" : JSON.stringify(segment.style)}`,
+      )
+      .join("\u0001");
+
   const clipped = clipSegmentsToWidth(segments, maxWidth);
   if (clipped.length === 0) return;
   if (clipped.length === 1) {
@@ -223,6 +230,7 @@ function drawSegments(
       text: segment.text,
       style: segment.style,
     })),
+    textRunStableKey(clipped),
   );
   if (blobIndex !== null) {
     builder.drawTextRun(x, y, blobIndex);

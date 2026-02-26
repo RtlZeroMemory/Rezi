@@ -73,14 +73,15 @@ export interface DrawApi {
    */
   popClip(): void;
 
-  /** Append a blob payload and return its index (for advanced ZRDL use). */
-  addBlob(bytes: Uint8Array): number | null;
+  /** Append/lookup a blob payload and return its resource id (for advanced ZRDL use). */
+  addBlob(bytes: Uint8Array, stableKey?: string): number | null;
 
   /** Encode and append a DRAW_TEXT_RUN blob payload from segments. */
   addTextRunBlob(
     segments: ReadonlyArray<Readonly<{ text: string; style?: TextStyle }>>,
+    stableKey?: string,
   ): number | null;
 
-  /** Draw a DRAW_TEXT_RUN command referencing a blob span. */
-  drawTextRun(x: number, y: number, blobIndex: number): void;
+  /** Draw a DRAW_TEXT_RUN command referencing a blob resource id. */
+  drawTextRun(x: number, y: number, blobId: number): void;
 }

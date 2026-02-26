@@ -10,7 +10,12 @@
 
 export { createDrawlistBuilderV1, type DrawlistBuilderV1Opts } from "./builder_v1.js";
 export { createDrawlistBuilderV2, type DrawlistBuilderV2Opts } from "./builder_v2.js";
-export { createDrawlistBuilderV3, type DrawlistBuilderV3Opts } from "./builder_v3.js";
+export {
+  createDrawlistBuilderV3,
+  createDrawlistBuilderV6,
+  type DrawlistBuilderV3Opts,
+  type DrawlistBuilderV6Opts,
+} from "./builder_v3.js";
 
 export type {
   DrawlistCanvasBlitter,
@@ -25,4 +30,5 @@ export type {
   DrawlistBuilderV1,
   DrawlistBuilderV2,
   DrawlistBuilderV3,
+  DrawlistBuilderV6,
 } from "./types.js";

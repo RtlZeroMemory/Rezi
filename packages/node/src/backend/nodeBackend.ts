@@ -32,7 +32,7 @@ import {
   FRAME_ACCEPTED_ACK_MARKER,
 } from "@rezi-ui/core";
 import {
-  ZR_DRAWLIST_VERSION_V5,
+  ZR_DRAWLIST_VERSION_V6,
   ZR_ENGINE_ABI_MAJOR,
   ZR_ENGINE_ABI_MINOR,
   ZR_ENGINE_ABI_PATCH,
@@ -86,10 +86,10 @@ export type NodeBackendConfig = Readonly<{
   /**
    * Explicit drawlist version request.
    *
-   * Defaults to `5` (enables v3 style extensions + v4 canvas + v5 image commands).
-   * Supported versions are `2`-`5`.
+   * Defaults to `6` (resource-id drawlist with DEF/FREE resource commands).
+   * Supported values: `6`.
    */
-  drawlistVersion?: 2 | 3 | 4 | 5;
+  drawlistVersion?: number;
   /**
    * Frame transport mode:
    * - "auto": prefer SAB mailbox transport when available, fallback to transfer.
@@ -244,19 +244,19 @@ function parsePositiveInt(n: unknown): number | null {
   return n;
 }
 
-function parseDrawlistVersion(v: unknown): 2 | 3 | 4 | 5 | null {
+function parseDrawlistVersion(v: unknown): 6 | null {
   if (v === undefined) return null;
-  if (v === 2 || v === 3 || v === 4 || v === 5) return v;
+  if (v === 6) return v;
   throw new ZrUiError(
     "ZRUI_INVALID_PROPS",
-    `createNodeBackend config mismatch: drawlistVersion must be one of 2, 3, 4, 5 (got ${String(v)}).`,
+    `createNodeBackend config mismatch: drawlistVersion must be 6 (got ${String(v)}).`,
   );
 }
 
-function resolveRequestedDrawlistVersion(config: NodeBackendConfig): 2 | 3 | 4 | 5 {
+function resolveRequestedDrawlistVersion(config: NodeBackendConfig): 6 {
   const explicitDrawlistVersion = parseDrawlistVersion(config.drawlistVersion);
   if (explicitDrawlistVersion !== null) return explicitDrawlistVersion;
-  return ZR_DRAWLIST_VERSION_V5;
+  return ZR_DRAWLIST_VERSION_V6;
 }
 
 function parseBoundedPositiveIntOrThrow(

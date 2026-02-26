@@ -81,12 +81,12 @@ test("config guard: backend drawlist version 1 is rejected", () => {
     (err) =>
       err instanceof ZrUiError &&
       err.code === "ZRUI_INVALID_PROPS" &&
-      err.message.includes("drawlistVersion must be one of 2, 3, 4, 5"),
+      err.message.includes("drawlistVersion must be 6"),
   );
 });
 
-test("config guard: backend drawlist >=2 is allowed", () => {
-  const backend = createNodeBackend({ drawlistVersion: 5 });
+test("config guard: backend drawlist version 6 is allowed", () => {
+  const backend = createNodeBackend({ drawlistVersion: 6 });
   try {
     const app = createApp({
       backend,

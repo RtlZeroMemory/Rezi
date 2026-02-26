@@ -24,6 +24,7 @@ export const ZR_DRAWLIST_VERSION_V2 = 2;
 export const ZR_DRAWLIST_VERSION_V3 = 3;
 export const ZR_DRAWLIST_VERSION_V4 = 4;
 export const ZR_DRAWLIST_VERSION_V5 = 5;
+export const ZR_DRAWLIST_VERSION_V6 = 6;
 export const ZR_EVENT_BATCH_VERSION_V1 = 1;
 
 // =============================================================================

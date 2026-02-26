@@ -14,7 +14,7 @@ export const FRAME_ACCEPTED_ACK_MARKER = "__reziFrameAcceptedAckPromise" as cons
 
 /**
  * Optional marker on RuntimeBackend objects exposing the negotiated drawlist version.
- * Used by createApp() to choose the matching drawlist builder version.
+ * Used by createApp() to validate ZRDL v6 compatibility.
  */
 export const BACKEND_DRAWLIST_VERSION_MARKER = "__reziBackendDrawlistVersion" as const;
 
