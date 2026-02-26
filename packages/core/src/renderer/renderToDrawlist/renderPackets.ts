@@ -115,7 +115,10 @@ function hasTerminalCursorFocus(
   return (props.internal_terminalCursorFocus ?? props.terminalCursorFocus) === true;
 }
 
-function isRenderPacketCacheable(node: RuntimeInstance, cursorInfo: CursorInfo | undefined): boolean {
+function isRenderPacketCacheable(
+  node: RuntimeInstance,
+  cursorInfo: CursorInfo | undefined,
+): boolean {
   if (hasTerminalCursorFocus(node, cursorInfo)) return false;
 
   switch (node.vnode.kind) {
@@ -354,8 +357,7 @@ export class RenderPacketRecorder implements DrawlistBuilder {
 
   drawImage(...args: Parameters<DrawlistBuilder["drawImage"]>): void {
     this.target.drawImage(...args);
-    const [x, y, w, h, blobIndex, format, protocol, zLayer, fit, imageId, pxWidth, pxHeight] =
-      args;
+    const [x, y, w, h, blobIndex, format, protocol, zLayer, fit, imageId, pxWidth, pxHeight] = args;
     const resourceId = this.blobResourceById.get(blobIndex);
     if (resourceId === undefined) {
       this.invalidatePacket();

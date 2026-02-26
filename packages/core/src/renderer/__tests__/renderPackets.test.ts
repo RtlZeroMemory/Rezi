@@ -130,8 +130,10 @@ function firstDrawText(ops: readonly RecordedOp[]): Extract<RecordedOp, { kind: 
   const op = ops.find((entry): entry is Extract<RecordedOp, { kind: "drawText" }> => {
     return entry.kind === "drawText";
   });
-  assert.ok(op !== undefined, "expected at least one drawText op");
-  return op!;
+  if (op === undefined) {
+    throw new Error("expected at least one drawText op");
+  }
+  return op;
 }
 
 describe("render packet retention", () => {
@@ -154,7 +156,11 @@ describe("render packet retention", () => {
     const secondFrame = renderScene(createScene(root, 7, 3));
 
     assert.equal(root.renderPacket, firstPacket, "layout-only frame should reuse cached packet");
-    assert.equal(root.renderPacketKey, firstKey, "packet key should stay stable across layout move");
+    assert.equal(
+      root.renderPacketKey,
+      firstKey,
+      "packet key should stay stable across layout move",
+    );
 
     const drawText = firstDrawText(secondFrame.ops);
     assert.equal(drawText.x, 7);

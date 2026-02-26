@@ -234,7 +234,7 @@ export function propagateDirtyFromPredicate(
   isNodeDirty: (node: RuntimeInstance) => boolean,
   pooledRuntimeStack: RuntimeInstance[],
   pooledPrevRuntimeStack: RuntimeInstance[],
-  markSelfDirty: boolean = true,
+  markSelfDirty = true,
 ): void {
   pooledRuntimeStack.length = 0;
   pooledPrevRuntimeStack.length = 0;

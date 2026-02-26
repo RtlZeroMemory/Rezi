@@ -39,8 +39,8 @@ import {
   createHookContext,
 } from "./instances.js";
 import type { RuntimeLocalStateStore } from "./localState.js";
-import type { RenderPacket } from "./renderPacket.js";
 import { type ReconcileFatal, reconcileChildren } from "./reconcile.js";
+import type { RenderPacket } from "./renderPacket.js";
 
 /**
  * Committed runtime instance with stable ID and children.

@@ -15,11 +15,7 @@ import type { Theme } from "../../theme/theme.js";
 import type { CommandItem } from "../../widgets/types.js";
 import { getRuntimeNodeDamageRect } from "./damageBounds.js";
 import type { IdRectIndex } from "./indices.js";
-import {
-  RenderPacketRecorder,
-  computeRenderPacketKey,
-  emitRenderPacket,
-} from "./renderPackets.js";
+import { RenderPacketRecorder, computeRenderPacketKey, emitRenderPacket } from "./renderPackets.js";
 import type { ResolvedTextStyle } from "./textStyle.js";
 import type {
   CodeEditorRenderCache,
