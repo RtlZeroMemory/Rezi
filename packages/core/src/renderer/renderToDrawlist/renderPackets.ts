@@ -388,6 +388,11 @@ export class RenderPacketRecorder implements DrawlistBuilder {
 
   reset(): void {
     this.target.reset();
+    this.ops.length = 0;
+    this.resources.length = 0;
+    this.blobResourceById.clear();
+    this.textRunByBlobId.clear();
+    this.valid = true;
   }
 }
 
