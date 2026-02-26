@@ -895,8 +895,7 @@ test("terminal io contract: keyboard + paste + focus + mouse + resize + split re
     });
     const oversizedPaste = findIndex(
       oversizedEvents,
-      (ev) =>
-        ev.kind === "paste" && textDecoder.decode(ev.bytes).includes(oversizedMarker),
+      (ev) => ev.kind === "paste" && textDecoder.decode(ev.bytes).includes(oversizedMarker),
     );
     assert.equal(
       oversizedPaste,
