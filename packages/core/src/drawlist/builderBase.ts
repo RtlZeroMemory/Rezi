@@ -500,6 +500,57 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> implements DrawlistBuil
       return { ok: false, error: this.error };
     }
 
+    const estimatedTotal = this.estimateTotalSize();
+    if (estimatedTotal > this.maxDrawlistBytes) {
+      return {
+        ok: false,
+        error: {
+          code: "ZRDL_TOO_LARGE",
+          detail: `build: maxDrawlistBytes exceeded (total=${estimatedTotal}, max=${this.maxDrawlistBytes})`,
+        },
+      };
+    }
+
+    const outBuf = this.reuseOutputBuffer
+      ? this.ensureOutputCapacity(estimatedTotal)
+      : new Uint8Array(estimatedTotal);
+    if (this.error) {
+      return { ok: false, error: this.error };
+    }
+
+    return this.buildIntoWithVersion(version, outBuf);
+  }
+
+  protected buildIntoWithVersion(version: number, dst: Uint8Array): DrawlistBuildResult {
+    if (this.error) {
+      return { ok: false, error: this.error };
+    }
+
+    if (!(dst instanceof Uint8Array)) {
+      return {
+        ok: false,
+        error: { code: "ZRDL_BAD_PARAMS", detail: "buildInto: dst must be a Uint8Array" },
+      };
+    }
+
+    const prepared = this.prepareBuildLayout();
+    if ("ok" in prepared) return prepared;
+    const layout = prepared;
+
+    if (dst.byteLength < layout.totalSize) {
+      return {
+        ok: false,
+        error: {
+          code: "ZRDL_TOO_LARGE",
+          detail: `buildInto: dst is too small (required=${layout.totalSize}, got=${dst.byteLength})`,
+        },
+      };
+    }
+
+    return this.writeBuildInto(version, layout, dst);
+  }
+
+  private prepareBuildLayout(): Layout | DrawlistBuildResult {
     if ((this.cmdLen & 3) !== 0) {
       return {
         ok: false,
@@ -519,8 +570,7 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> implements DrawlistBuil
     const stringsSpanOffset = stringsCount === 0 ? 0 : cursor;
     cursor += stringsSpanBytes;
     const stringsBytesOffset = stringsCount === 0 ? 0 : cursor;
-    const stringsBytesLenRaw = this.stringBytesLen;
-    const stringsBytesLen = stringsCount === 0 ? 0 : align4(stringsBytesLenRaw);
+    const stringsBytesLen = stringsCount === 0 ? 0 : align4(this.stringBytesLen);
     cursor += stringsBytesLen;
 
     const blobsCount = this.blobSpanOffs.length;
@@ -528,13 +578,12 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> implements DrawlistBuil
     const blobsSpanOffset = blobsCount === 0 ? 0 : cursor;
     cursor += blobsSpanBytes;
     const blobsBytesOffset = blobsCount === 0 ? 0 : cursor;
-    const blobsBytesLenRaw = this.blobBytesLen;
-    const blobsBytesLen = blobsCount === 0 ? 0 : align4(blobsBytesLenRaw);
+    const blobsBytesLen = blobsCount === 0 ? 0 : align4(this.blobBytesLen);
     cursor += blobsBytesLen;
 
     const totalSize = cursor;
 
-    const formatFail = this.validateLayout({
+    const layout: Layout = {
       cmdOffset,
       cmdBytes,
       cmdCount,
@@ -548,7 +597,9 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> implements DrawlistBuil
       blobsBytesOffset,
       blobsBytesLen,
       totalSize,
-    });
+    };
+
+    const formatFail = this.validateLayout(layout);
     if (formatFail) return formatFail;
 
     if (totalSize > this.maxDrawlistBytes) {
@@ -561,36 +612,34 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> implements DrawlistBuil
       };
     }
 
-    const outBuf = this.reuseOutputBuffer
-      ? this.ensureOutputCapacity(totalSize)
-      : new Uint8Array(totalSize);
-    if (this.error) {
-      return { ok: false, error: this.error };
-    }
-    const out = this.reuseOutputBuffer ? outBuf.subarray(0, totalSize) : outBuf;
+    return layout;
+  }
+
+  private writeBuildInto(version: number, layout: Layout, dst: Uint8Array): DrawlistBuildResult {
+    const out = dst.subarray(0, layout.totalSize);
     const dv = new DataView(out.buffer, out.byteOffset, out.byteLength);
 
     dv.setUint32(0, ZRDL_MAGIC, true);
     dv.setUint32(4, version >>> 0, true);
     dv.setUint32(8, HEADER_SIZE, true);
-    dv.setUint32(12, totalSize, true);
-    dv.setUint32(16, cmdOffset, true);
-    dv.setUint32(20, cmdBytes, true);
-    dv.setUint32(24, cmdCount, true);
-    dv.setUint32(28, stringsSpanOffset, true);
-    dv.setUint32(32, stringsCount, true);
-    dv.setUint32(36, stringsBytesOffset, true);
-    dv.setUint32(40, stringsBytesLen, true);
-    dv.setUint32(44, blobsSpanOffset, true);
-    dv.setUint32(48, blobsCount, true);
-    dv.setUint32(52, blobsBytesOffset, true);
-    dv.setUint32(56, blobsBytesLen, true);
+    dv.setUint32(12, layout.totalSize, true);
+    dv.setUint32(16, layout.cmdOffset, true);
+    dv.setUint32(20, layout.cmdBytes, true);
+    dv.setUint32(24, layout.cmdCount, true);
+    dv.setUint32(28, layout.stringsSpanOffset, true);
+    dv.setUint32(32, layout.stringsCount, true);
+    dv.setUint32(36, layout.stringsBytesOffset, true);
+    dv.setUint32(40, layout.stringsBytesLen, true);
+    dv.setUint32(44, layout.blobsSpanOffset, true);
+    dv.setUint32(48, layout.blobsCount, true);
+    dv.setUint32(52, layout.blobsBytesOffset, true);
+    dv.setUint32(56, layout.blobsBytesLen, true);
     dv.setUint32(60, 0, true);
 
-    out.set(this.cmdBuf.subarray(0, cmdBytes), cmdOffset);
+    out.set(this.cmdBuf.subarray(0, layout.cmdBytes), layout.cmdOffset);
 
-    let spanOff = stringsSpanOffset;
-    for (let i = 0; i < stringsCount; i++) {
+    let spanOff = layout.stringsSpanOffset;
+    for (let i = 0; i < layout.stringsCount; i++) {
       const off = this.stringSpanOffs[i];
       const len = this.stringSpanLens[i];
       if (off === undefined || len === undefined) {
@@ -605,13 +654,18 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> implements DrawlistBuil
       spanOff += 8;
     }
 
-    out.set(this.stringBytesBuf.subarray(0, stringsBytesLenRaw), stringsBytesOffset);
-    if (this.reuseOutputBuffer && stringsBytesLen > stringsBytesLenRaw) {
-      out.fill(0, stringsBytesOffset + stringsBytesLenRaw, stringsBytesOffset + stringsBytesLen);
+    const stringsBytesLenRaw = this.stringBytesLen;
+    out.set(this.stringBytesBuf.subarray(0, stringsBytesLenRaw), layout.stringsBytesOffset);
+    if (layout.stringsBytesLen > stringsBytesLenRaw) {
+      out.fill(
+        0,
+        layout.stringsBytesOffset + stringsBytesLenRaw,
+        layout.stringsBytesOffset + layout.stringsBytesLen,
+      );
     }
 
-    spanOff = blobsSpanOffset;
-    for (let i = 0; i < blobsCount; i++) {
+    spanOff = layout.blobsSpanOffset;
+    for (let i = 0; i < layout.blobsCount; i++) {
       const off = this.blobSpanOffs[i];
       const len = this.blobSpanLens[i];
       if (off === undefined || len === undefined) {
@@ -626,9 +680,14 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> implements DrawlistBuil
       spanOff += 8;
     }
 
-    out.set(this.blobBytesBuf.subarray(0, blobsBytesLenRaw), blobsBytesOffset);
-    if (this.reuseOutputBuffer && blobsBytesLen > blobsBytesLenRaw) {
-      out.fill(0, blobsBytesOffset + blobsBytesLenRaw, blobsBytesOffset + blobsBytesLen);
+    const blobsBytesLenRaw = this.blobBytesLen;
+    out.set(this.blobBytesBuf.subarray(0, blobsBytesLenRaw), layout.blobsBytesOffset);
+    if (layout.blobsBytesLen > blobsBytesLenRaw) {
+      out.fill(
+        0,
+        layout.blobsBytesOffset + blobsBytesLenRaw,
+        layout.blobsBytesOffset + layout.blobsBytesLen,
+      );
     }
 
     return { ok: true, bytes: out };

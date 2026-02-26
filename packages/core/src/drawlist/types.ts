@@ -57,6 +57,17 @@ export type DrawlistBuildResult =
   | Readonly<{ ok: false; error: DrawlistBuildError }>;
 
 /**
+ * Optional capability for serializing directly into a caller-provided buffer.
+ *
+ * Semantics:
+ *   - Returns ok=true with a view over the written prefix of `dst`.
+ *   - Returns ok=false if `dst` is too small or build state is invalid.
+ */
+export interface DrawlistBuildInto {
+  buildInto(dst: Uint8Array): DrawlistBuildResult;
+}
+
+/**
  * ZRDL v1 drawlist builder interface.
  *
  * Usage pattern:
@@ -139,7 +150,7 @@ export type CursorState = Readonly<{
  * When v2 is negotiated, the engine handles cursor display internally,
  * eliminating the need for "fake cursor" glyphs.
  */
-export interface DrawlistBuilderV2 extends DrawlistBuilderV1 {
+export interface DrawlistBuilderV2 extends DrawlistBuilderV1, DrawlistBuildInto {
   /**
    * Set cursor position and appearance. Emits OP_SET_CURSOR (opcode 7).
    *
