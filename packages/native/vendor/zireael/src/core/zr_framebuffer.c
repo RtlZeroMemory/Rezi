@@ -226,7 +226,6 @@ zr_result_t zr_fb_copy_damage_rects(zr_fb_t* dst, const zr_fb_t* src, const zr_d
     return ZR_ERR_INVALID_ARGUMENT;
   }
   /* Copying cells also copies link_ref indices, so sync intern tables first. */
-  zr_fb_links_reset(dst);
   {
     const zr_result_t links_rc = zr_fb_links_clone_from(dst, src);
     if (links_rc != ZR_OK) {
