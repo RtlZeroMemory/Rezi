@@ -379,7 +379,11 @@ function resetSabFrameTransport(t: SabFrameTransport): void {
   t.nextSlot.value = 0;
 }
 
-function acquireSabSlot(t: SabFrameTransport): number {
+function acquireSabSlot(
+  t: SabFrameTransport,
+  opts: Readonly<{ allowReadyReclaim?: boolean }> = {},
+): number {
+  const allowReadyReclaim = opts.allowReadyReclaim ?? true;
   const start = t.nextSlot.value % t.slotCount;
   for (let i = 0; i < t.slotCount; i++) {
     const slot = (start + i) % t.slotCount;
@@ -394,6 +398,7 @@ function acquireSabSlot(t: SabFrameTransport): number {
       return slot;
     }
   }
+  if (!allowReadyReclaim) return -1;
   // Latest-wins semantics allow reclaiming stale READY slots instead of
   // falling back to transfer under pressure.
   for (let i = 0; i < t.slotCount; i++) {
@@ -993,7 +998,7 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       return null;
     }
 
-    const slotIndex = acquireSabSlot(sabFrameTransport);
+    const slotIndex = acquireSabSlot(sabFrameTransport, { allowReadyReclaim: false });
     if (slotIndex < 0) return null;
 
     const { frameSeq, framePromise } = reserveFrameSubmission();

@@ -797,6 +797,44 @@ test("backend: SAB beginFrame writer commits drawlist bytes", async () => {
   backend.dispose();
 });
 
+test("backend: SAB beginFrame does not reclaim READY slot under pressure", async () => {
+  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const backend = createNodeBackendInternal({
+    config: {
+      executionMode: "worker",
+      fpsCap: 1,
+      maxEventBytes: 1024,
+      frameTransport: "sab",
+      frameSabSlotCount: 1,
+      frameSabSlotBytes: 64,
+    },
+    nativeShimModule: shim,
+  });
+
+  await backend.start();
+  await delay(25);
+
+  const p = backend.requestFrame(Uint8Array.from([1, 2, 3, 4]));
+
+  const beginFrame = (backend as unknown as Record<typeof BACKEND_BEGIN_FRAME_MARKER, unknown>)[
+    BACKEND_BEGIN_FRAME_MARKER
+  ];
+  assert.equal(typeof beginFrame, "function");
+  const writer = (
+    beginFrame as (minCapacity?: number) => {
+      buf: Uint8Array;
+      commit: (byteLen: number) => Promise<void>;
+      abort: () => void;
+    } | null
+  )();
+  assert.equal(writer, null);
+
+  await p;
+
+  await backend.stop();
+  backend.dispose();
+});
+
 test("backend: SAB transport falls back to transfer for oversized frames", async () => {
   const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
