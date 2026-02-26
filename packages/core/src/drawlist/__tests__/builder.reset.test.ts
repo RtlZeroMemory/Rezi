@@ -114,7 +114,7 @@ describe("DrawlistBuilder reset behavior", () => {
 
     const h1 = readHeader(first.bytes);
     assert.equal(h1.cmdCount, 2);
-    assert.equal(h1.stringsCount, 3);
+    assert.equal(h1.stringsCount, 1);
     assert.equal(h1.blobsCount, 1);
 
     b.reset();
@@ -161,20 +161,17 @@ describe("DrawlistBuilder reset behavior", () => {
   });
 
   test("v1 reset clears sticky failure state and restores successful builds", () => {
-    const b = createDrawlistBuilder({ maxStrings: 1 });
-    b.drawText(0, 0, "a");
-    b.drawText(0, 1, "b");
+    const b = createDrawlistBuilder({ maxDrawlistBytes: 80 });
+    b.fillRect(0, 0, 10, 10);
     const failed = b.build();
     assert.equal(failed.ok, false);
     if (failed.ok) return;
     assert.equal(failed.error.code, "ZRDL_TOO_LARGE");
 
     b.reset();
-    b.drawText(0, 0, "ok");
+    b.clear();
     const recovered = b.build();
     assert.equal(recovered.ok, true);
-    if (!recovered.ok) return;
-    assert.equal(readHeader(recovered.bytes).stringsCount, 1);
   });
 
   test("v2 reset clears sticky failure state and allows cursor commands again", () => {
@@ -214,11 +211,11 @@ describe("DrawlistBuilder reset behavior", () => {
 
       const h = readHeader(res.bytes);
       assert.equal(h.cmdCount, 2);
-      assert.equal(h.cmdBytes, 56);
+      assert.equal(h.cmdBytes, 68);
       assert.equal(h.stringsCount, 1);
       assert.equal(h.blobsCount, 0);
       assert.equal(h.stringsBytesLen, align4(text.length));
-      assert.equal(h.totalSize, HEADER_SIZE + 56 + 8 + align4(text.length));
+      assert.equal(h.totalSize, HEADER_SIZE + 68 + 8 + align4(text.length));
 
       const cmds = parseCommands(res.bytes);
       const clear = cmds[0];
@@ -227,7 +224,7 @@ describe("DrawlistBuilder reset behavior", () => {
       assert.equal(clear.opcode, OP_CLEAR);
       assert.equal(draw.opcode, OP_DRAW_TEXT);
       assert.equal(draw.flags, 0);
-      assert.equal(draw.size, 48);
+      assert.equal(draw.size, 60);
 
       const stringIndex = u32(res.bytes, draw.payloadOff + 8);
       const byteLen = u32(res.bytes, draw.payloadOff + 16);

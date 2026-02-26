@@ -64,6 +64,9 @@ function parseOpcodes(bytes: Uint8Array): readonly number[] {
 }
 
 function parseInternedStrings(bytes: Uint8Array): readonly string[] {
+  const cmdOffset = u32(bytes, 16);
+  const cmdBytes = u32(bytes, 20);
+  const cmdEnd = cmdOffset + cmdBytes;
   const spanOffset = u32(bytes, 28);
   const count = u32(bytes, 32);
   const bytesOffset = u32(bytes, 36);
@@ -72,8 +75,16 @@ function parseInternedStrings(bytes: Uint8Array): readonly string[] {
 
   const tableEnd = bytesOffset + bytesLen;
   assert.equal(tableEnd <= bytes.byteLength, true, "string table must be in-bounds");
+  assert.equal(cmdEnd <= bytes.byteLength, true, "command section must be in-bounds");
 
   const out: string[] = [];
+  const seen = new Set<string>();
+  const pushUnique = (text: string): void => {
+    if (seen.has(text)) return;
+    seen.add(text);
+    out.push(text);
+  };
+
   for (let i = 0; i < count; i++) {
     const span = spanOffset + i * 8;
     const strOff = u32(bytes, span);
@@ -81,8 +92,73 @@ function parseInternedStrings(bytes: Uint8Array): readonly string[] {
     const start = bytesOffset + strOff;
     const end = start + strLen;
     assert.equal(end <= tableEnd, true, "string span must be in-bounds");
-    out.push(DECODER.decode(bytes.subarray(start, end)));
+    pushUnique(DECODER.decode(bytes.subarray(start, end)));
   }
+
+  let off = cmdOffset;
+  while (off < cmdEnd) {
+    const opcode = u16(bytes, off);
+    const size = u32(bytes, off + 4);
+    assert.equal(size >= 8, true, "command size must be >= 8");
+    if (opcode === OP_DRAW_TEXT && size >= 48) {
+      const stringIndex = u32(bytes, off + 16);
+      const byteOff = u32(bytes, off + 20);
+      const byteLen = u32(bytes, off + 24);
+      if (stringIndex < count) {
+        const span = spanOffset + stringIndex * 8;
+        const strOff = u32(bytes, span);
+        const strLen = u32(bytes, span + 4);
+        if (byteOff + byteLen <= strLen) {
+          const start = bytesOffset + strOff + byteOff;
+          const end = start + byteLen;
+          if (end <= tableEnd) {
+            pushUnique(DECODER.decode(bytes.subarray(start, end)));
+          }
+        }
+      }
+    }
+    off += size;
+  }
+  assert.equal(off, cmdEnd, "commands must parse exactly to cmd end");
+
+  const blobsSpanOffset = u32(bytes, 44);
+  const blobsCount = u32(bytes, 48);
+  const blobsBytesOffset = u32(bytes, 52);
+  const blobsBytesLen = u32(bytes, 56);
+  const blobsEnd = blobsBytesOffset + blobsBytesLen;
+  assert.equal(blobsEnd <= bytes.byteLength, true, "blob section must be in-bounds");
+
+  for (let i = 0; i < blobsCount; i++) {
+    const span = blobsSpanOffset + i * 8;
+    const blobStart = blobsBytesOffset + u32(bytes, span);
+    const blobEnd = blobStart + u32(bytes, span + 4);
+    if (blobEnd > blobsEnd || blobEnd < blobStart || blobEnd - blobStart < 4) continue;
+
+    const segmentCount = u32(bytes, blobStart);
+    const segmentBase = blobStart + 4;
+    for (let seg = 0; seg < segmentCount; seg++) {
+      const segStart = segmentBase + seg * 40;
+      const segEnd = segStart + 40;
+      if (segEnd > blobEnd) break;
+
+      const stringIndex = u32(bytes, segStart + 28);
+      const byteOff = u32(bytes, segStart + 32);
+      const byteLen = u32(bytes, segStart + 36);
+      if (stringIndex >= count) continue;
+
+      const stringSpan = spanOffset + stringIndex * 8;
+      const strOff = u32(bytes, stringSpan);
+      const strLen = u32(bytes, stringSpan + 4);
+      if (byteOff + byteLen > strLen) continue;
+
+      const start = bytesOffset + strOff + byteOff;
+      const end = start + byteLen;
+      if (end <= tableEnd) {
+        pushUnique(DECODER.decode(bytes.subarray(start, end)));
+      }
+    }
+  }
+
   return Object.freeze(out);
 }
 

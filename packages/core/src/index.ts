@@ -744,6 +744,7 @@ export type {
   DrawlistBuildErrorCode,
   DrawlistBuildResult,
   DrawlistBuilder,
+  DrawlistTextPerfCounters,
   DrawlistImageFit,
   DrawlistImageFormat,
   DrawlistImageProtocol,

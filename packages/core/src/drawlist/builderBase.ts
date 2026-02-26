@@ -1,9 +1,11 @@
 import { ZRDL_MAGIC } from "../abi.js";
 import type { TextStyle } from "../widgets/style.js";
+import { FrameTextArena, type TextArenaCounters, type TextArenaSlice } from "./textArena.js";
 import type {
   DrawlistBuildError,
   DrawlistBuildErrorCode,
   DrawlistBuildResult,
+  DrawlistTextPerfCounters,
   DrawlistTextRunSegment,
 } from "./types.js";
 
@@ -41,12 +43,18 @@ export const OP_POP_CLIP = 5;
 export const OP_DRAW_TEXT_RUN = 6;
 export const OP_SET_CURSOR = 7;
 
-type Utf8Encoder = Readonly<{ encode(input: string): Uint8Array }>;
+type Utf8Encoder = Readonly<{
+  encode(input: string): Uint8Array;
+  encodeInto(input: string, destination: Uint8Array): Readonly<{ read?: number; written?: number }>;
+}>;
 
 type Layout = Readonly<{
   cmdOffset: number;
   cmdBytes: number;
   cmdCount: number;
+  hasTextArenaSpan: boolean;
+  textArenaBytesLen: number;
+  persistentStringsBytesLen: number;
   stringsSpanOffset: number;
   stringsCount: number;
   stringsSpanBytes: number;
@@ -60,7 +68,8 @@ type Layout = Readonly<{
 }>;
 
 export function align4(n: number): number {
-  return (n + 3) & ~3;
+  const remainder = n % 4;
+  return remainder === 0 ? n : n + (4 - remainder);
 }
 
 export function isObject(v: unknown): v is Record<string, unknown> {
@@ -97,6 +106,7 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
   protected readonly stringSpanLens: number[] = [];
   protected stringBytesBuf: Uint8Array;
   protected stringBytesLen = 0;
+  protected readonly textArena: FrameTextArena;
 
   protected readonly blobSpanOffs: number[] = [];
   protected readonly blobSpanLens: number[] = [];
@@ -145,10 +155,17 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
     const initialBlobCap = Math.min(1024, this.maxBlobBytes);
     this.blobBytesBuf = new Uint8Array(initialBlobCap);
 
-    this.encoder = typeof TextEncoder !== "undefined" ? new TextEncoder() : undefined;
+    const textEncoderCtor = (globalThis as Readonly<{ TextEncoder?: new () => Utf8Encoder }>)
+      .TextEncoder;
+    this.encoder = textEncoderCtor ? new textEncoderCtor() : undefined;
     if (!this.encoder) {
       this.fail("ZRDL_INTERNAL", "TextEncoder is not available in this environment");
     }
+    const fallbackEncoder: Utf8Encoder = Object.freeze({
+      encode: () => new Uint8Array(),
+      encodeInto: () => Object.freeze({ read: 0, written: 0 }),
+    });
+    this.textArena = new FrameTextArena(this.encoder ?? fallbackEncoder, 1024);
   }
 
   clear(): void {
@@ -188,6 +205,31 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
     this.maybeFailTooLargeAfterWrite();
   }
 
+  reserveTextArena(bytes: number): void {
+    if (this.error) return;
+    const bi = this.validateParams
+      ? this.requireI32NonNeg("reserveTextArena", "bytes", bytes)
+      : bytes | 0;
+    if (this.error) return;
+    if (bi === null) return;
+
+    const nextRequired = this.textArena.byteLength() + bi;
+    const nextEstimatedTotal = this.estimateTotalSizeWithArenaState(
+      nextRequired,
+      this.textArena.segmentCount(),
+    );
+    if (nextEstimatedTotal > this.maxDrawlistBytes) {
+      this.fail(
+        "ZRDL_TOO_LARGE",
+        `reserveTextArena: maxDrawlistBytes exceeded (estimatedTotal=${nextEstimatedTotal}, max=${this.maxDrawlistBytes})`,
+      );
+      return;
+    }
+
+    this.textArena.reserve(nextRequired);
+    this.maybeFailTooLargeAfterWrite();
+  }
+
   drawText(x: number, y: number, text: string, style?: TextStyle): void {
     if (this.error) return;
 
@@ -201,18 +243,12 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
       return;
     }
 
-    const stringIndex = this.internString(text);
+    const textSlice = this.allocTextSlice(text);
     if (this.error) return;
-    if (stringIndex === null) return;
-
-    const byteLen = this.stringSpanLens[stringIndex];
-    if (byteLen === undefined) {
-      this.fail("ZRDL_INTERNAL", "drawText: interned string has no recorded span length");
-      return;
-    }
+    if (textSlice === null) return;
 
     const encodedStyle = this.encodeDrawTextStyle(style);
-    this.appendDrawTextCommand(xi, yi, stringIndex, byteLen, encodedStyle);
+    this.appendDrawTextCommand(xi, yi, 0, textSlice.off, textSlice.len, encodedStyle);
 
     this.maybeFailTooLargeAfterWrite();
   }
@@ -325,18 +361,12 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
         return null;
       }
 
-      const stringIndex = this.internString(seg0.text);
+      const textSlice = this.allocTextSlice(seg0.text);
       if (this.error) return null;
-      if (stringIndex === null) return null;
-
-      const byteLen = this.stringSpanLens[stringIndex];
-      if (byteLen === undefined) {
-        this.fail("ZRDL_INTERNAL", "addTextRunBlob: interned string has no recorded span length");
-        return null;
-      }
+      if (textSlice === null) return null;
 
       const encodedStyle = this.encodeTextRunStyle(seg0.style);
-      off = this.writeTextRunBlobSegment(dv, off, encodedStyle, stringIndex, byteLen);
+      off = this.writeTextRunBlobSegment(dv, off, encodedStyle, 0, textSlice.off, textSlice.len);
     }
 
     return this.addBlob(blob);
@@ -370,6 +400,15 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
     this.maybeFailTooLargeAfterWrite();
   }
 
+  getTextPerfCounters(): DrawlistTextPerfCounters {
+    const counters: TextArenaCounters = this.textArena.counters();
+    return Object.freeze({
+      textEncoderCalls: counters.textEncoderCalls,
+      textArenaBytes: counters.textArenaBytes,
+      textSegments: counters.textSegments,
+    });
+  }
+
   abstract build(): DrawlistBuildResult;
 
   reset(): void {
@@ -386,6 +425,7 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
     this.stringSpanOffs.length = 0;
     this.stringSpanLens.length = 0;
     this.stringBytesLen = 0;
+    this.textArena.reset();
 
     this.blobSpanOffs.length = 0;
     this.blobSpanLens.length = 0;
@@ -414,6 +454,7 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
     x: number,
     y: number,
     stringIndex: number,
+    byteOff: number,
     byteLen: number,
     style: TEncodedStyle,
   ): void;
@@ -431,6 +472,7 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
     off: number,
     style: TEncodedStyle,
     stringIndex: number,
+    byteOff: number,
     byteLen: number,
   ): number;
 
@@ -504,12 +546,18 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
     const cmdOffset = cmdCount === 0 ? 0 : cursor;
     cursor += cmdBytes;
 
-    const stringsCount = this.stringSpanOffs.length;
+    const persistentStringsCount = this.stringSpanOffs.length;
+    const textArenaBytesLen = this.textArena.byteLength();
+    const hasTextArenaSpan =
+      this.textArena.segmentCount() > 0 || textArenaBytesLen > 0 || persistentStringsCount > 0;
+    const stringsCount = persistentStringsCount + (hasTextArenaSpan ? 1 : 0);
     const stringsSpanBytes = stringsCount * 8;
     const stringsSpanOffset = stringsCount === 0 ? 0 : cursor;
     cursor += stringsSpanBytes;
     const stringsBytesOffset = stringsCount === 0 ? 0 : cursor;
-    const stringsBytesLen = stringsCount === 0 ? 0 : align4(this.stringBytesLen);
+    const persistentStringsBytesLen = this.stringBytesLen;
+    const stringsBytesRawLen = textArenaBytesLen + persistentStringsBytesLen;
+    const stringsBytesLen = stringsCount === 0 ? 0 : align4(stringsBytesRawLen);
     cursor += stringsBytesLen;
 
     const blobsCount = this.blobSpanOffs.length;
@@ -526,6 +574,9 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
       cmdOffset,
       cmdBytes,
       cmdCount,
+      hasTextArenaSpan,
+      textArenaBytesLen,
+      persistentStringsBytesLen,
       stringsSpanOffset,
       stringsCount,
       stringsSpanBytes,
@@ -578,7 +629,13 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
     out.set(this.cmdBuf.subarray(0, layout.cmdBytes), layout.cmdOffset);
 
     let spanOff = layout.stringsSpanOffset;
-    for (let i = 0; i < layout.stringsCount; i++) {
+    if (layout.hasTextArenaSpan) {
+      dv.setUint32(spanOff, 0, true);
+      dv.setUint32(spanOff + 4, layout.textArenaBytesLen >>> 0, true);
+      spanOff += 8;
+    }
+
+    for (let i = 0; i < this.stringSpanOffs.length; i++) {
       const off = this.stringSpanOffs[i];
       const len = this.stringSpanLens[i];
       if (off === undefined || len === undefined) {
@@ -588,13 +645,19 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
         };
       }
 
-      dv.setUint32(spanOff, off >>> 0, true);
+      const shiftedOff = layout.textArenaBytesLen + off;
+      dv.setUint32(spanOff, shiftedOff >>> 0, true);
       dv.setUint32(spanOff + 4, len >>> 0, true);
       spanOff += 8;
     }
 
-    const stringsBytesLenRaw = this.stringBytesLen;
-    out.set(this.stringBytesBuf.subarray(0, stringsBytesLenRaw), layout.stringsBytesOffset);
+    const textArenaBytes = this.textArena.bytes();
+    out.set(textArenaBytes, layout.stringsBytesOffset);
+    out.set(
+      this.stringBytesBuf.subarray(0, layout.persistentStringsBytesLen),
+      layout.stringsBytesOffset + layout.textArenaBytesLen,
+    );
+    const stringsBytesLenRaw = layout.textArenaBytesLen + layout.persistentStringsBytesLen;
     if (layout.stringsBytesLen > stringsBytesLenRaw) {
       out.fill(
         0,
@@ -695,12 +758,69 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
     this.error = { code, detail };
   }
 
+  protected allocTextSlice(text: string): TextArenaSlice | null {
+    if (!this.encoder) {
+      this.fail("ZRDL_INTERNAL", "drawText: TextEncoder is not available");
+      return null;
+    }
+
+    const utf8Len = this.measureUtf8ByteLengthCapped(text, this.maxDrawlistBytes);
+    if (utf8Len > this.maxDrawlistBytes) {
+      this.fail(
+        "ZRDL_TOO_LARGE",
+        `drawText: maxDrawlistBytes exceeded (utf8Len=${utf8Len}, max=${this.maxDrawlistBytes})`,
+      );
+      return null;
+    }
+
+    const nextArenaLen = this.textArena.byteLength() + utf8Len;
+    const nextEstimatedTotal = this.estimateTotalSizeWithArenaState(
+      nextArenaLen,
+      this.textArena.segmentCount() + 1,
+    );
+    if (nextEstimatedTotal > this.maxDrawlistBytes) {
+      this.fail(
+        "ZRDL_TOO_LARGE",
+        `drawText: maxDrawlistBytes exceeded (estimatedTotal=${nextEstimatedTotal}, max=${this.maxDrawlistBytes})`,
+      );
+      return null;
+    }
+
+    return this.textArena.allocUtf8(text);
+  }
+
+  private measureUtf8ByteLengthCapped(text: string, cap: number): number {
+    let total = 0;
+    for (let i = 0; i < text.length; i++) {
+      const code = text.charCodeAt(i);
+      if (code <= 0x7f) {
+        total += 1;
+      } else if (code <= 0x7ff) {
+        total += 2;
+      } else if (code >= 0xd800 && code <= 0xdbff) {
+        const next = i + 1 < text.length ? text.charCodeAt(i + 1) : Number.NaN;
+        if (next >= 0xdc00 && next <= 0xdfff) {
+          total += 4;
+          i += 1;
+        } else {
+          total += 3;
+        }
+      } else {
+        // Includes lone low surrogates which TextEncoder replaces with U+FFFD (3 bytes).
+        total += 3;
+      }
+
+      if (total > cap) return total;
+    }
+    return total;
+  }
+
   protected internString(text: string): number | null {
     const existing = this.stringIndexByValue.get(text);
     if (existing !== undefined) return existing;
 
     if (!this.encoder) {
-      this.fail("ZRDL_INTERNAL", "drawText: TextEncoder is not available");
+      this.fail("ZRDL_INTERNAL", "setLink: TextEncoder is not available");
       return null;
     }
 
@@ -708,7 +828,7 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
     if (nextIndex + 1 > this.maxStrings) {
       this.fail(
         "ZRDL_TOO_LARGE",
-        `drawText: maxStrings exceeded (count=${nextIndex + 1}, max=${this.maxStrings})`,
+        `setLink: maxStrings exceeded (count=${nextIndex + 1}, max=${this.maxStrings})`,
       );
       return null;
     }
@@ -729,7 +849,7 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
     if (nextBytesLen > this.maxStringBytes) {
       this.fail(
         "ZRDL_TOO_LARGE",
-        `drawText: maxStringBytes exceeded (bytes=${nextBytesLen}, max=${this.maxStringBytes})`,
+        `setLink: maxStringBytes exceeded (bytes=${nextBytesLen}, max=${this.maxStringBytes})`,
       );
       return null;
     }
@@ -742,11 +862,12 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
     this.stringBytesLen = nextBytesLen;
     this.stringSpanOffs.push(off);
     this.stringSpanLens.push(byteLen);
-    this.stringIndexByValue.set(text, nextIndex);
+    const wireIndex = nextIndex + 1;
+    this.stringIndexByValue.set(text, wireIndex);
 
     this.maybeFailTooLargeAfterWrite();
 
-    return nextIndex;
+    return wireIndex;
   }
 
   private encodeUtf8(text: string): Uint8Array {
@@ -988,14 +1109,23 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
   }
 
   protected estimateTotalSize(): number {
+    return this.estimateTotalSizeWithArenaState(
+      this.textArena.byteLength(),
+      this.textArena.segmentCount(),
+    );
+  }
+
+  private estimateTotalSizeWithArenaState(arenaBytes: number, arenaSegments: number): number {
     const cmdOffset = HEADER_SIZE;
     const cmdBytes = this.cmdLen;
 
-    const stringsCount = this.stringSpanOffs.length;
+    const persistentStringsCount = this.stringSpanOffs.length;
+    const hasTextArenaSpan = arenaSegments > 0 || arenaBytes > 0 || persistentStringsCount > 0;
+    const stringsCount = persistentStringsCount + (hasTextArenaSpan ? 1 : 0);
     const stringsSpanBytes = stringsCount * 8;
     const stringsSpanOffset = cmdOffset + cmdBytes;
     const stringsBytesOffset = stringsSpanOffset + stringsSpanBytes;
-    const stringsBytesAligned = align4(this.stringBytesLen);
+    const stringsBytesAligned = stringsCount === 0 ? 0 : align4(arenaBytes + this.stringBytesLen);
 
     const blobsCount = this.blobSpanOffs.length;
     const blobsSpanBytes = blobsCount * 8;
@@ -1011,6 +1141,9 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
       cmdOffset,
       cmdBytes,
       cmdCount,
+      hasTextArenaSpan,
+      textArenaBytesLen,
+      persistentStringsBytesLen,
       stringsSpanOffset,
       stringsCount,
       stringsSpanBytes,
@@ -1057,7 +1190,30 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
         error: { code: "ZRDL_FORMAT", detail: "build: stringsSpanOffset misaligned" },
       };
     }
-    if (stringsCount !== this.stringSpanOffs.length) {
+    const expectedHasTextArenaSpan =
+      this.textArena.segmentCount() > 0 ||
+      this.textArena.byteLength() > 0 ||
+      this.stringSpanOffs.length > 0;
+    if (hasTextArenaSpan !== expectedHasTextArenaSpan) {
+      return {
+        ok: false,
+        error: { code: "ZRDL_INTERNAL", detail: "build: hasTextArenaSpan mismatch" },
+      };
+    }
+    if (textArenaBytesLen !== this.textArena.byteLength()) {
+      return {
+        ok: false,
+        error: { code: "ZRDL_INTERNAL", detail: "build: textArenaBytesLen mismatch" },
+      };
+    }
+    if (persistentStringsBytesLen !== this.stringBytesLen) {
+      return {
+        ok: false,
+        error: { code: "ZRDL_INTERNAL", detail: "build: persistentStringsBytesLen mismatch" },
+      };
+    }
+    const expectedStringsCount = this.stringSpanOffs.length + (expectedHasTextArenaSpan ? 1 : 0);
+    if (stringsCount !== expectedStringsCount) {
       return {
         ok: false,
         error: { code: "ZRDL_INTERNAL", detail: "build: stringsCount mismatch" },
@@ -1092,7 +1248,9 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
         error: { code: "ZRDL_FORMAT", detail: "build: stringsBytesLen misaligned" },
       };
     }
-    if (stringsBytesLen !== align4(this.stringBytesLen)) {
+    const expectedStringsBytesLen =
+      stringsCount === 0 ? 0 : align4(this.textArena.byteLength() + this.stringBytesLen);
+    if (stringsBytesLen !== expectedStringsBytesLen) {
       return {
         ok: false,
         error: { code: "ZRDL_INTERNAL", detail: "build: stringsBytesLen mismatch" },
