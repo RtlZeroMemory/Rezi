@@ -47,6 +47,10 @@ class DrawlistBuilderV2Impl extends DrawlistBuilderLegacyBase implements Drawlis
     this.setCursor({ x: -1, y: -1, shape: 0, visible: false, blink: false });
   }
 
+  buildInto(dst: Uint8Array): DrawlistBuildResult {
+    return this.buildIntoWithVersion(ZR_DRAWLIST_VERSION_V2, dst);
+  }
+
   build(): DrawlistBuildResult {
     return this.buildWithVersion(ZR_DRAWLIST_VERSION_V2);
   }

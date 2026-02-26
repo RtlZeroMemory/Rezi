@@ -21,6 +21,7 @@ export type {
   DrawlistBuildError,
   DrawlistBuildErrorCode,
   DrawlistBuildResult,
+  DrawlistBuildInto,
   DrawlistBuilderV1,
   DrawlistBuilderV2,
   DrawlistBuilderV3,
