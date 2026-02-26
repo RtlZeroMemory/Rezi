@@ -545,6 +545,10 @@ class DrawlistBuilderV3Impl extends DrawlistBuilderBase<EncodedStyle> implements
     this.maybeFailTooLargeAfterWrite();
   }
 
+  buildInto(dst: Uint8Array): DrawlistBuildResult {
+    return this.buildIntoWithVersion(this.drawlistVersion, dst);
+  }
+
   build(): DrawlistBuildResult {
     return this.buildWithVersion(this.drawlistVersion);
   }
