@@ -22,9 +22,16 @@
  */
 
 import type { CursorShape } from "../abi.js";
-import { BACKEND_RAW_WRITE_MARKER, type BackendRawWrite, type RuntimeBackend } from "../backend.js";
+import {
+  BACKEND_BEGIN_FRAME_MARKER,
+  BACKEND_RAW_WRITE_MARKER,
+  type BackendBeginFrame,
+  type BackendRawWrite,
+  type RuntimeBackend,
+} from "../backend.js";
 import { CURSOR_DEFAULTS } from "../cursor/index.js";
 import {
+  type DrawlistBuildResult,
   type DrawlistBuilderV1,
   type DrawlistBuilderV2,
   type DrawlistBuilderV3,
@@ -3598,10 +3605,36 @@ export class WidgetRenderer<S> {
       }
       perfMarkEnd("render", renderToken);
 
+      const beginFrame = (
+        this.backend as RuntimeBackend &
+          Partial<Record<typeof BACKEND_BEGIN_FRAME_MARKER, BackendBeginFrame>>
+      )[BACKEND_BEGIN_FRAME_MARKER];
+      const canBuildInto =
+        typeof (this.builder as unknown as { buildInto?: unknown }).buildInto === "function";
+      let frameWriter = typeof beginFrame === "function" && canBuildInto ? beginFrame() : null;
+      const abortFrameWriter = (): void => {
+        if (frameWriter === null) return;
+        try {
+          frameWriter.abort();
+        } catch {
+          // Best-effort slot release; submit path still reports the primary error.
+        } finally {
+          frameWriter = null;
+        }
+      };
+
       const buildToken = perfMarkStart("drawlist_build");
-      const built = this.builder.build();
+      const built: DrawlistBuildResult =
+        frameWriter === null
+          ? this.builder.build()
+          : (
+              this.builder as unknown as {
+                buildInto: (buf: Uint8Array) => DrawlistBuildResult;
+              }
+            ).buildInto(frameWriter.buf);
       perfMarkEnd("drawlist_build", buildToken);
       if (!built.ok) {
+        abortFrameWriter();
         return {
           ok: false,
           code: "ZRUI_DRAWLIST_BUILD_ERROR",
@@ -3640,6 +3673,7 @@ export class WidgetRenderer<S> {
           runPendingCleanups(commitRes.pendingCleanups);
           runPendingEffects(commitRes.pendingEffects);
         } catch (e: unknown) {
+          abortFrameWriter();
           return { ok: false, code: "ZRUI_USER_CODE_THROW", detail: describeThrown(e) };
         } finally {
           if (PERF_DETAIL_ENABLED) perfMarkEnd("effects", effectsToken);
@@ -3649,12 +3683,17 @@ export class WidgetRenderer<S> {
       try {
         const backendToken = PERF_ENABLED ? perfMarkStart("backend_request") : 0;
         try {
-          const inFlight = this.backend.requestFrame(built.bytes);
+          const inFlight =
+            frameWriter === null
+              ? this.backend.requestFrame(built.bytes)
+              : frameWriter.commit(built.bytes.byteLength);
+          frameWriter = null;
           return { ok: true, inFlight };
         } finally {
           if (PERF_ENABLED) perfMarkEnd("backend_request", backendToken);
         }
       } catch (e: unknown) {
+        abortFrameWriter();
         return { ok: false, code: "ZRUI_BACKEND_ERROR", detail: describeThrown(e) };
       }
     } catch (e: unknown) {

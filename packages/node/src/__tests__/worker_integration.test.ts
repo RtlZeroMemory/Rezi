@@ -2,7 +2,14 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import test from "node:test";
 import { Worker } from "node:worker_threads";
-import { DEFAULT_TERMINAL_CAPS, ZrUiError, parseEventBatchV1 } from "@rezi-ui/core";
+import {
+  BACKEND_BEGIN_FRAME_MARKER,
+  DEFAULT_TERMINAL_CAPS,
+  FRAME_ACCEPTED_ACK_MARKER,
+  ZrUiError,
+  createDrawlistBuilderV2,
+  parseEventBatchV1,
+} from "@rezi-ui/core";
 import { createNodeBackendInternal } from "../backend/nodeBackend.js";
 import {
   FRAME_SAB_CONTROL_CONSUMED_SEQ_WORD,
@@ -714,6 +721,74 @@ test("backend: SAB requestFrame keeps caller buffers attached", async () => {
   await backend.requestFrame(view);
   assert.equal(full.byteLength, 8);
   assert.deepEqual(Array.from(full), [1, 2, 3, 4, 5, 6, 7, 8]);
+
+  await backend.stop();
+  backend.dispose();
+});
+
+test("backend: SAB beginFrame writer commits drawlist bytes", async () => {
+  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const backend = createNodeBackendInternal({
+    config: {
+      fpsCap: 1000,
+      maxEventBytes: 1024,
+      frameTransport: "sab",
+      frameSabSlotCount: 2,
+      frameSabSlotBytes: 256,
+    },
+    nativeShimModule: shim,
+  });
+
+  await backend.start();
+
+  const beginFrame = (backend as unknown as Record<typeof BACKEND_BEGIN_FRAME_MARKER, unknown>)[
+    BACKEND_BEGIN_FRAME_MARKER
+  ];
+  assert.equal(typeof beginFrame, "function");
+  const writer = (
+    beginFrame as (minCapacity?: number) => {
+      buf: Uint8Array;
+      commit: (byteLen: number) => Promise<void>;
+      abort: () => void;
+    } | null
+  )();
+  assert.ok(writer);
+  if (!writer) throw new Error("beginFrame writer not available");
+
+  const builder = createDrawlistBuilderV2();
+  builder.clear();
+  const builderWithInto = builder as typeof builder & {
+    buildInto?: (
+      target: Uint8Array,
+    ) => { ok: true; bytes: Uint8Array } | { ok: false; error: { code: string; detail: string } };
+  };
+  if (typeof builderWithInto.buildInto !== "function") {
+    builderWithInto.buildInto = (target: Uint8Array) => {
+      const built = builder.build();
+      if (!built.ok) return built;
+      if (target.byteLength < built.bytes.byteLength) {
+        return {
+          ok: false,
+          error: { code: "ZRDL_TOO_LARGE", detail: "target buffer too small for buildInto shim" },
+        };
+      }
+      target.set(built.bytes, 0);
+      return { ok: true, bytes: target.subarray(0, built.bytes.byteLength) };
+    };
+  }
+  const built = builderWithInto.buildInto(writer.buf);
+  assert.equal(built.ok, true);
+  if (!built.ok) throw new Error("buildInto failed");
+
+  const inFlight = writer.commit(built.bytes.byteLength);
+  const accepted = (
+    inFlight as Promise<void> &
+      Partial<Record<typeof FRAME_ACCEPTED_ACK_MARKER, Promise<void> | undefined>>
+  )[FRAME_ACCEPTED_ACK_MARKER];
+  assert.equal(typeof accepted?.then, "function");
+  if (!accepted) throw new Error("missing frame accepted marker");
+  await accepted;
+  await inFlight;
 
   await backend.stop();
   backend.dispose();

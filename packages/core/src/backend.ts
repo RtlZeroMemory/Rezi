@@ -42,6 +42,25 @@ export const BACKEND_RAW_WRITE_MARKER = "__reziBackendWriteRaw" as const;
 /** Signature for optional backend raw terminal control writes. */
 export type BackendRawWrite = (text: string) => void;
 
+/**
+ * Optional marker on RuntimeBackend objects exposing a zero-copy frame writer.
+ *
+ * Why: Backends with shared frame memory (for example SAB worker transport)
+ * can let drawlist builders write directly into backend-owned bytes, then
+ * commit the exact byte length without an extra copy.
+ */
+export const BACKEND_BEGIN_FRAME_MARKER = "__reziBackendBeginFrame" as const;
+
+/** Backend-owned writable frame view returned by BackendBeginFrame. */
+export type BackendFrameWriter = Readonly<{
+  buf: Uint8Array;
+  commit: (byteLen: number) => Promise<void>;
+  abort: () => void;
+}>;
+
+/** Signature for optional backend zero-copy frame writer acquisition. */
+export type BackendBeginFrame = (minCapacity?: number) => BackendFrameWriter | null;
+
 // =============================================================================
 // BackendEventBatch (from docs/guide/lifecycle-and-updates.md)
 // =============================================================================

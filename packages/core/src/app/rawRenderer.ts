@@ -10,8 +10,13 @@
  * @see docs/guide/lifecycle-and-updates.md
  */
 
-import type { RuntimeBackend } from "../backend.js";
 import {
+  BACKEND_BEGIN_FRAME_MARKER,
+  type BackendBeginFrame,
+  type RuntimeBackend,
+} from "../backend.js";
+import {
+  type DrawlistBuildResult,
   type DrawlistBuilderV1,
   createDrawlistBuilderV2,
   createDrawlistBuilderV3,
@@ -128,10 +133,26 @@ export class RawRenderer {
     }
     perfMarkEnd("render", renderToken);
 
+    const beginFrame = (
+      this.backend as RuntimeBackend &
+        Partial<Record<typeof BACKEND_BEGIN_FRAME_MARKER, BackendBeginFrame>>
+    )[BACKEND_BEGIN_FRAME_MARKER];
+    const canBuildInto =
+      typeof (this.builder as unknown as { buildInto?: unknown }).buildInto === "function";
+    const frameWriter = typeof beginFrame === "function" && canBuildInto ? beginFrame() : null;
+
     const buildToken = perfMarkStart("drawlist_build");
-    const built = this.builder.build();
+    const built: DrawlistBuildResult =
+      frameWriter === null
+        ? this.builder.build()
+        : (
+            this.builder as unknown as {
+              buildInto: (buf: Uint8Array) => DrawlistBuildResult;
+            }
+          ).buildInto(frameWriter.buf);
     perfMarkEnd("drawlist_build", buildToken);
     if (!built.ok) {
+      frameWriter?.abort();
       return {
         ok: false,
         code: "ZRUI_DRAWLIST_BUILD_ERROR",
@@ -140,9 +161,13 @@ export class RawRenderer {
     }
 
     try {
-      const inFlight = this.backend.requestFrame(built.bytes);
+      const inFlight =
+        frameWriter === null
+          ? this.backend.requestFrame(built.bytes)
+          : frameWriter.commit(built.bytes.byteLength);
       return { ok: true, inFlight };
     } catch (e: unknown) {
+      frameWriter?.abort();
       return { ok: false, code: "ZRUI_BACKEND_ERROR", detail: describeThrown(e) };
     }
   }

@@ -88,12 +88,15 @@ export const ZR_DRAWLIST_VERSION: 1 = ZR_DRAWLIST_VERSION_V1;
 export const ZR_EVENT_BATCH_VERSION: 1 = ZR_EVENT_BATCH_VERSION_V1;
 
 export {
+  BACKEND_BEGIN_FRAME_MARKER,
   BACKEND_DRAWLIST_VERSION_MARKER,
   BACKEND_FPS_CAP_MARKER,
   BACKEND_MAX_EVENT_BYTES_MARKER,
   BACKEND_RAW_WRITE_MARKER,
   FRAME_ACCEPTED_ACK_MARKER,
+  type BackendBeginFrame,
   type BackendRawWrite,
+  type BackendFrameWriter,
   type BackendEventBatch,
   type RuntimeBackend,
 } from "./backend.js";
