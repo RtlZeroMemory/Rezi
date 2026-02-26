@@ -11,11 +11,17 @@
 /*
   Number of elements in a fixed-size array.
 
-  Rejects pointer arguments at compile time.
+  On compilers with GNU builtins, reject pointer arguments at compile time.
+  MSVC lacks __builtin_types_compatible_p/__typeof__, so fall back to the
+  size-based form to keep callsites readable and portable.
 */
+#if defined(_MSC_VER) && !defined(__clang__)
+#define ZR_ARRAYLEN(arr) (sizeof(arr) / sizeof((arr)[0]))
+#else
 #define ZR_ARRAYLEN(arr)                                                                                               \
   ((sizeof(arr) / sizeof((arr)[0])) +                                                                                  \
    0u * sizeof(char[1 - 2 * !!__builtin_types_compatible_p(__typeof__(arr), __typeof__(&(arr)[0]))]))
+#endif
 
 /*
   Generic min/max helpers.
