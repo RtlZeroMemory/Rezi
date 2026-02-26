@@ -237,12 +237,12 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
       }
       const idx = this.internString(uri);
       if (this.error || idx === null) return;
-      this.activeLinkUriRef = (idx + 1) >>> 0;
+      this.activeLinkUriRef = idx >>> 0;
 
       if (id !== undefined) {
         const idIdx = this.internString(id);
         if (this.error || idIdx === null) return;
-        this.activeLinkIdRef = (idIdx + 1) >>> 0;
+        this.activeLinkIdRef = idIdx >>> 0;
       } else {
         this.activeLinkIdRef = 0;
       }
@@ -577,6 +577,7 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
     x: number,
     y: number,
     stringIndex: number,
+    byteOff: number,
     byteLen: number,
     style: EncodedStyle,
   ): void {
@@ -588,7 +589,7 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
       x,
       y,
       stringIndex,
-      0,
+      byteOff,
       byteLen,
       style,
       0,
@@ -623,6 +624,7 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
     off: number,
     style: EncodedStyle,
     stringIndex: number,
+    byteOff: number,
     byteLen: number,
   ): number {
     dv.setUint32(off + 0, style.fg >>> 0, true);
@@ -633,7 +635,7 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
     dv.setUint32(off + 20, style.linkUriRef >>> 0, true);
     dv.setUint32(off + 24, style.linkIdRef >>> 0, true);
     dv.setUint32(off + 28, stringIndex >>> 0, true);
-    dv.setUint32(off + 32, 0, true);
+    dv.setUint32(off + 32, byteOff >>> 0, true);
     dv.setUint32(off + 36, byteLen >>> 0, true);
     return off + 40;
   }

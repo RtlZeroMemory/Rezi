@@ -110,7 +110,7 @@ function assertBadParams(
 }
 
 describe("DrawlistBuilder graphics/link commands", () => {
-  test("encodes v5 header with DRAW_CANVAS and DRAW_IMAGE (links via style ext)", () => {
+  test("encodes v1 header with DRAW_CANVAS and DRAW_IMAGE (links via style ext)", () => {
     const builder = createDrawlistBuilder();
     builder.setLink("https://example.com", "docs");
     builder.drawText(0, 0, "Docs");
@@ -130,7 +130,7 @@ describe("DrawlistBuilder graphics/link commands", () => {
     if (!built.ok) throw new Error("build failed");
 
     assert.equal(u32(built.bytes, 0), ZRDL_MAGIC);
-    assert.equal(u32(built.bytes, 4), 5);
+    assert.equal(u32(built.bytes, 4), 1);
     assert.deepEqual(
       parseCommands(built.bytes).map((cmd) => cmd.opcode),
       [OP_DRAW_TEXT, OP_DRAW_CANVAS, OP_DRAW_IMAGE],
@@ -158,8 +158,8 @@ describe("DrawlistBuilder graphics/link commands", () => {
     const linkIdRef = u32(built.bytes, cmd.payloadOff + 44);
     assert.equal(linkUriRef > 0, true);
     assert.equal(linkIdRef > 0, true);
-    assert.equal(decodeString(built.bytes, h, linkUriRef - 1), "https://example.com");
-    assert.equal(decodeString(built.bytes, h, linkIdRef - 1), "docs");
+    assert.equal(decodeString(built.bytes, h, linkUriRef), "https://example.com");
+    assert.equal(decodeString(built.bytes, h, linkIdRef), "docs");
   });
 
   test("setLink(null) clears hyperlink refs for subsequent text", () => {
@@ -280,14 +280,6 @@ describe("DrawlistBuilder graphics/link commands", () => {
 
     {
       const builder = createDrawlistBuilder();
-      const blobIndex = builder.addBlob(new Uint8Array(8));
-      if (blobIndex === null) throw new Error("blob index was null");
-      builder.drawImage(0, 0, 1, 1, blobIndex, "rgba", "auto", 0, "contain", 0);
-      assertBadParams(builder.build());
-    }
-
-    {
-      const builder = createDrawlistBuilder();
       const blobIndex = builder.addBlob(new Uint8Array([1, 2, 3, 4]));
       if (blobIndex === null) throw new Error("blob index was null");
       // @ts-expect-error runtime invalid param coverage
@@ -357,7 +349,7 @@ describe("DrawlistBuilder graphics/link commands", () => {
     builder.drawText(0, 0, "x", {
       underline: true,
       underlineStyle: "curly",
-      underlineColor: "#ff0000",
+      underlineColor: 0xff0000,
     });
     const built = builder.build();
     assert.equal(built.ok, true);

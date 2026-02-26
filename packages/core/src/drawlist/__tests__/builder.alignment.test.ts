@@ -259,18 +259,14 @@ describe("DrawlistBuilder - alignment and padding", () => {
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
     const dv = toView(bytes);
-    const s0 = readStringSpan(dv, h.stringsSpanOffset, 0);
-    const s1 = readStringSpan(dv, h.stringsSpanOffset, 1);
-    const s2 = readStringSpan(dv, h.stringsSpanOffset, 2);
+    const arena = readStringSpan(dv, h.stringsSpanOffset, 0);
 
-    assert.equal(s0.off, 0);
-    assert.equal(s0.len, 1);
-    assert.equal(s1.off, 1);
-    assert.equal(s1.len, 2);
-    assert.equal(s2.off, 3);
-    assert.equal(s2.len, 3);
+    assert.equal(h.stringsCount, 1);
+    assert.equal(arena.off, 0);
+    assert.equal(arena.len, 6);
 
     assert.equal(h.stringsBytesLen, 8);
+    assert.equal(String.fromCharCode(...bytes.subarray(h.stringsBytesOffset, h.stringsBytesOffset + 6)), "abbccc");
     assert.equal(bytes[h.stringsBytesOffset + 6], 0);
     assert.equal(bytes[h.stringsBytesOffset + 7], 0);
   });

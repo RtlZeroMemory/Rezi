@@ -75,10 +75,12 @@ describe("DrawlistBuilder (ZRDL v1) - validation and caps", () => {
     assert.equal(res2.ok, true);
   });
 
-  test("cap: maxStrings -> ZRDL_TOO_LARGE (and reset restores usability)", () => {
+  test("cap: maxStrings (persistent strings) -> ZRDL_TOO_LARGE (and reset restores usability)", () => {
     const b = createDrawlistBuilder({ maxStrings: 1 });
-    b.drawText(0, 0, "a");
-    b.drawText(0, 1, "b");
+    b.setLink("a");
+    b.drawText(0, 0, "x");
+    b.setLink("b");
+    b.drawText(0, 1, "y");
 
     const res = b.build();
     assert.equal(res.ok, false);
@@ -86,14 +88,16 @@ describe("DrawlistBuilder (ZRDL v1) - validation and caps", () => {
     assert.equal(res.error.code, "ZRDL_TOO_LARGE");
 
     b.reset();
-    b.drawText(0, 0, "a");
+    b.setLink("a");
+    b.drawText(0, 0, "x");
     const res2 = b.build();
     assert.equal(res2.ok, true);
   });
 
-  test("cap: maxStringBytes -> ZRDL_TOO_LARGE (and reset restores usability)", () => {
+  test("cap: maxStringBytes (persistent strings) -> ZRDL_TOO_LARGE (and reset restores usability)", () => {
     const b = createDrawlistBuilder({ maxStringBytes: 1 });
-    b.drawText(0, 0, "ab"); // 2 bytes in UTF-8
+    b.setLink("ab");
+    b.drawText(0, 0, "x");
 
     const res = b.build();
     assert.equal(res.ok, false);
@@ -101,7 +105,8 @@ describe("DrawlistBuilder (ZRDL v1) - validation and caps", () => {
     assert.equal(res.error.code, "ZRDL_TOO_LARGE");
 
     b.reset();
-    b.drawText(0, 0, "a");
+    b.setLink("a");
+    b.drawText(0, 0, "x");
     const res2 = b.build();
     assert.equal(res2.ok, true);
   });
