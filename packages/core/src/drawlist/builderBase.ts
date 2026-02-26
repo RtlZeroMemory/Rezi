@@ -68,7 +68,8 @@ type Layout = Readonly<{
 }>;
 
 export function align4(n: number): number {
-  return (n + 3) & ~3;
+  const remainder = n % 4;
+  return remainder === 0 ? n : n + (4 - remainder);
 }
 
 export function isObject(v: unknown): v is Record<string, unknown> {
