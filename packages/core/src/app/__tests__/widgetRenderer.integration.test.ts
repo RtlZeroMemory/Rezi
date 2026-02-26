@@ -1,9 +1,12 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import {
+  BACKEND_BEGIN_FRAME_MARKER,
   BACKEND_RAW_WRITE_MARKER,
+  type BackendBeginFrame,
   type BackendRawWrite,
   type RuntimeBackend,
 } from "../../backend.js";
+import type { DrawlistBuilderV1 } from "../../drawlist/index.js";
 import type { ZrevEvent } from "../../events.js";
 import { type VNode, defineWidget, ui } from "../../index.js";
 import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
@@ -74,6 +77,37 @@ function createNoopBackendWithRawWrite(writeRaw: (text: string) => void): Runtim
     configurable: false,
   });
   return backend;
+}
+
+function createBuildIntoBuilder(bytes: Uint8Array): DrawlistBuilderV1 & {
+  buildInto: (target: Uint8Array) => { ok: true; bytes: Uint8Array };
+} {
+  return {
+    clear(): void {},
+    clearTo(): void {},
+    fillRect(): void {},
+    drawText(): void {},
+    pushClip(): void {},
+    popClip(): void {},
+    addBlob(): number | null {
+      return null;
+    },
+    addTextRunBlob(): number | null {
+      return null;
+    },
+    drawTextRun(): void {},
+    build() {
+      return { ok: true, bytes } as const;
+    },
+    buildInto(target: Uint8Array) {
+      if (target.byteLength < bytes.byteLength) {
+        throw new Error("target buffer too small");
+      }
+      target.set(bytes, 0);
+      return { ok: true, bytes: target.subarray(0, bytes.byteLength) } as const;
+    },
+    reset(): void {},
+  };
 }
 
 describe("WidgetRenderer integration (composition/hooks)", () => {
@@ -180,6 +214,61 @@ describe("WidgetRenderer integration (composition/hooks)", () => {
 });
 
 describe("WidgetRenderer integration battery", () => {
+  test("submitFrame uses backend beginFrame writer when available", async () => {
+    const expected = Uint8Array.from([17, 34, 51, 68, 85, 102, 119, 136]);
+    const backend = createNoopBackend() as RuntimeBackend &
+      Record<typeof BACKEND_BEGIN_FRAME_MARKER, BackendBeginFrame>;
+    let requestFrameCalls = 0;
+    let commitCalls = 0;
+    let abortCalls = 0;
+    let committedLen = -1;
+    let committedBytes = new Uint8Array(0);
+    backend.requestFrame = async () => {
+      requestFrameCalls++;
+    };
+    Object.defineProperty(backend, BACKEND_BEGIN_FRAME_MARKER, {
+      value: (() => {
+        const slot = new Uint8Array(64);
+        return {
+          buf: slot,
+          commit: async (byteLen: number) => {
+            commitCalls++;
+            committedLen = byteLen;
+            committedBytes = slot.slice(0, byteLen);
+          },
+          abort: () => {
+            abortCalls++;
+          },
+        };
+      }) satisfies BackendBeginFrame,
+      writable: false,
+      enumerable: false,
+      configurable: false,
+    });
+
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      builder: createBuildIntoBuilder(expected),
+      requestRender: () => {},
+    });
+
+    const res = renderer.submitFrame(
+      () => ui.text("begin-frame"),
+      undefined,
+      { cols: 40, rows: 5 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.equal(res.ok, true);
+    if (res.ok) await res.inFlight;
+
+    assert.equal(commitCalls, 1);
+    assert.equal(requestFrameCalls, 0);
+    assert.equal(abortCalls, 0);
+    assert.equal(committedLen, expected.byteLength);
+    assert.deepEqual(Array.from(committedBytes), Array.from(expected));
+  });
+
   test("input copy/cut emits OSC52 and cut updates value", () => {
     const writes: string[] = [];
     const backend = createNoopBackendWithRawWrite((text) => writes.push(text));
