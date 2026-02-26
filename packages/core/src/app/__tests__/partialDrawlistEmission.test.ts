@@ -79,6 +79,22 @@ class RecordingBuilder implements DrawlistBuilderV1 {
 }
 
 class RecordingBuilderV2 extends RecordingBuilder implements DrawlistBuilderV2 {
+  buildInto(dst: Uint8Array): DrawlistBuildResult {
+    const built = this.build();
+    if (!built.ok) return built;
+    if (dst.byteLength < built.bytes.byteLength) {
+      return {
+        ok: false,
+        error: {
+          code: "ZRDL_TOO_LARGE",
+          detail: `buildInto: dst is too small (required=${built.bytes.byteLength}, got=${dst.byteLength})`,
+        },
+      };
+    }
+    dst.set(built.bytes, 0);
+    return { ok: true, bytes: dst.subarray(0, built.bytes.byteLength) };
+  }
+
   setCursor(state: CursorState): void {
     this.ops.push({ kind: "setCursor", state });
   }
