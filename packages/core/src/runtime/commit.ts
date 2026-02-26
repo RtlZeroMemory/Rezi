@@ -40,6 +40,7 @@ import {
 } from "./instances.js";
 import type { RuntimeLocalStateStore } from "./localState.js";
 import { type ReconcileFatal, reconcileChildren } from "./reconcile.js";
+import type { RenderPacket } from "./renderPacket.js";
 
 /**
  * Committed runtime instance with stable ID and children.
@@ -51,6 +52,8 @@ export type RuntimeInstance = {
   children: readonly RuntimeInstance[];
   dirty: boolean;
   selfDirty: boolean;
+  renderPacketKey: number;
+  renderPacket: RenderPacket | null;
 };
 
 /** Shared frozen empty array for leaf RuntimeInstance children. Avoids per-node allocation. */
@@ -1540,6 +1543,8 @@ function commitContainer(
           children: nextChildren,
           dirty: selfDirty || childrenChanged || hasDirtyChild(nextChildren),
           selfDirty,
+          renderPacketKey: prev?.renderPacketKey ?? 0,
+          renderPacket: prev?.renderPacket ?? null,
         },
       },
     };
@@ -1731,7 +1736,15 @@ function executeCompositeRender(
     return {
       ok: true,
       value: {
-        root: { instanceId, vnode, children: EMPTY_CHILDREN, dirty: true, selfDirty: true },
+        root: {
+          instanceId,
+          vnode,
+          children: EMPTY_CHILDREN,
+          dirty: true,
+          selfDirty: true,
+          renderPacketKey: 0,
+          renderPacket: null,
+        },
       },
     };
   } finally {
@@ -1932,7 +1945,15 @@ function commitNode(
     return {
       ok: true,
       value: {
-        root: { instanceId, vnode, children: EMPTY_CHILDREN, dirty: true, selfDirty: true },
+        root: {
+          instanceId,
+          vnode,
+          children: EMPTY_CHILDREN,
+          dirty: true,
+          selfDirty: true,
+          renderPacketKey: 0,
+          renderPacket: null,
+        },
       },
     };
   } finally {

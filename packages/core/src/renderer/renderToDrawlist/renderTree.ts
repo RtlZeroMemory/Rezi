@@ -15,6 +15,7 @@ import type { Theme } from "../../theme/theme.js";
 import type { CommandItem } from "../../widgets/types.js";
 import { getRuntimeNodeDamageRect } from "./damageBounds.js";
 import type { IdRectIndex } from "./indices.js";
+import { RenderPacketRecorder, computeRenderPacketKey, emitRenderPacket } from "./renderPackets.js";
 import type { ResolvedTextStyle } from "./textStyle.js";
 import type {
   CodeEditorRenderCache,
@@ -181,7 +182,7 @@ export function renderTree(
           }
           if (forceChildrenRender) {
             child.dirty = true;
-            child.selfDirty = true;
+            if (child.children.length > 0) child.selfDirty = true;
           }
           nodeStack.push(child);
           styleStack.push(parentStyle);
@@ -288,26 +289,73 @@ export function renderTree(
       case "sparkline":
       case "barChart":
       case "miniChart": {
-        const nextCursor = renderBasicWidget(
-          builder,
+        const packetKey = computeRenderPacketKey(
+          node,
+          renderTheme,
+          parentStyle,
+          rect.w,
+          rect.h,
           focusState,
           pressedId,
-          rect,
-          renderTheme,
           tick,
-          parentStyle,
-          node,
-          layoutNode,
-          nodeStack,
-          styleStack,
-          layoutStack,
-          clipStack,
-          currentClip,
           cursorInfo,
-          focusAnnouncement,
-          terminalProfile,
         );
-        if (nextCursor) resolvedCursor = nextCursor;
+        if (
+          packetKey !== 0 &&
+          !node.selfDirty &&
+          node.renderPacket !== null &&
+          node.renderPacketKey === packetKey
+        ) {
+          emitRenderPacket(builder, node.renderPacket, rect.x, rect.y);
+        } else if (packetKey !== 0) {
+          const recorder = new RenderPacketRecorder(builder, rect.x, rect.y);
+          const nextCursor = renderBasicWidget(
+            recorder,
+            focusState,
+            pressedId,
+            rect,
+            renderTheme,
+            tick,
+            parentStyle,
+            node,
+            layoutNode,
+            nodeStack,
+            styleStack,
+            layoutStack,
+            clipStack,
+            currentClip,
+            cursorInfo,
+            focusAnnouncement,
+            terminalProfile,
+          );
+          const packet = recorder.buildPacket();
+          node.renderPacketKey = packet ? packetKey : 0;
+          node.renderPacket = packet;
+          if (nextCursor) resolvedCursor = nextCursor;
+        } else {
+          node.renderPacketKey = 0;
+          node.renderPacket = null;
+          const nextCursor = renderBasicWidget(
+            builder,
+            focusState,
+            pressedId,
+            rect,
+            renderTheme,
+            tick,
+            parentStyle,
+            node,
+            layoutNode,
+            nodeStack,
+            styleStack,
+            layoutStack,
+            clipStack,
+            currentClip,
+            cursorInfo,
+            focusAnnouncement,
+            terminalProfile,
+          );
+          if (nextCursor) resolvedCursor = nextCursor;
+        }
         break;
       }
 
