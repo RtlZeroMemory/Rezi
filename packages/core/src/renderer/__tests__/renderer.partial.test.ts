@@ -562,9 +562,7 @@ function virtualListView(itemCount: number): VNode {
   ]);
 }
 
-function buildLogsEntries(
-  count: number,
-): readonly {
+function buildLogsEntries(count: number): readonly {
   id: string;
   timestamp: number;
   level: "info";
@@ -607,6 +605,38 @@ function logsConsoleView(
     scrollTop,
     onScroll,
   });
+}
+
+function logsConsoleViewWithOverlay(
+  entries: readonly {
+    id: string;
+    timestamp: number;
+    level: "info";
+    source: string;
+    message: string;
+  }[],
+  scrollTop: number,
+  onScroll: (next: number) => void,
+): VNode {
+  return ui.box({ border: "none", width: "full", height: "full" }, [
+    ui.logsConsole({
+      id: "logs",
+      entries,
+      scrollTop,
+      onScroll,
+    }),
+    ui.box(
+      {
+        border: "none",
+        width: 7,
+        height: 1,
+        position: "absolute",
+        top: 3,
+        left: 4,
+      },
+      [ui.text("OVERLAY")],
+    ),
+  ]);
 }
 
 type LayoutSnapshot = Readonly<{ wide: boolean }>;
@@ -825,5 +855,30 @@ describe("renderer partial dirty-subtree correctness", () => {
       PARTIAL_COMMIT_NO_STABILITY_PLAN,
     );
     assertFramebuffersEqual(scenario.partialFrame, scenario.fullFrame);
+  });
+
+  test("logsConsole with overlapping absolute sibling skips blit and matches full framebuffer", () => {
+    const entries = buildLogsEntries(320);
+    const onScroll = (_next: number) => {};
+    const updates = Object.freeze([
+      Object.freeze({ scrollTop: 1 }),
+      Object.freeze({ scrollTop: 2 }),
+      Object.freeze({ scrollTop: 3 }),
+      Object.freeze({ scrollTop: 4 }),
+    ]);
+    const scenario = runCommitSequenceScenario<{ scrollTop: number }>(
+      (snapshot) => logsConsoleViewWithOverlay(entries, snapshot.scrollTop, onScroll),
+      Object.freeze({ scrollTop: 0 }),
+      updates,
+      viewport,
+      PARTIAL_COMMIT_NO_STABILITY_PLAN,
+    );
+    assertFramebuffersEqual(scenario.partialFrame, scenario.fullFrame);
+    for (const ops of scenario.partialOpsByFrame) {
+      assert.equal(
+        ops.some((op) => op.kind === "blitRect"),
+        false,
+      );
+    }
   });
 });

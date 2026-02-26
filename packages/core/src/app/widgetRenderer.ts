@@ -535,6 +535,23 @@ function rectEquals(a: Rect, b: Rect): boolean {
   return a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 }
 
+function rectsIntersect(a: Rect, b: Rect): boolean {
+  if (a.w <= 0 || a.h <= 0 || b.w <= 0 || b.h <= 0) return false;
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function nodeKindCanPaintOverlay(kind: VNode["kind"]): boolean {
+  switch (kind) {
+    case "themed":
+    case "focusZone":
+    case "focusTrap":
+    case "layers":
+      return false;
+    default:
+      return true;
+  }
+}
+
 function monotonicNowMs(): number {
   const perf = (globalThis as { performance?: { now?: () => number } }).performance;
   const perfNow = perf?.now;
@@ -2399,6 +2416,50 @@ export class WidgetRenderer<S> {
     });
   }
 
+  private hasPaintedOverlapAfterInstance(instanceId: InstanceId, contentRect: Rect): boolean {
+    if (contentRect.w <= 0 || contentRect.h <= 0) return true;
+    if (!this.committedRoot) return true;
+
+    const stack: Array<Readonly<{ node: RuntimeInstance; depth: number }>> = [
+      { node: this.committedRoot, depth: 0 },
+    ];
+    let foundTarget = false;
+    let targetDepth = -1;
+    let afterTargetSubtree = false;
+
+    while (stack.length > 0) {
+      const current = stack.pop();
+      if (!current) continue;
+      const node = current.node;
+      const depth = current.depth;
+
+      if (!foundTarget) {
+        if (node.instanceId === instanceId) {
+          foundTarget = true;
+          targetDepth = depth;
+        }
+      } else {
+        if (!afterTargetSubtree && depth <= targetDepth) {
+          afterTargetSubtree = true;
+        }
+        if (afterTargetSubtree && nodeKindCanPaintOverlay(node.vnode.kind)) {
+          const candidateRect = this._pooledRectByInstanceId.get(node.instanceId);
+          if (candidateRect && rectsIntersect(candidateRect, contentRect)) {
+            return true;
+          }
+        }
+      }
+
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        const child = node.children[i];
+        if (!child) continue;
+        stack.push({ node: child, depth: depth + 1 });
+      }
+    }
+
+    return !foundTarget;
+  }
+
   private readLogsFilteredLength(props: LogsConsoleProps): number {
     const cached = this.logsConsoleRenderCacheById.get(props.id);
     if (cached) return cached.filtered.length;
@@ -2456,8 +2517,16 @@ export class WidgetRenderer<S> {
         continue;
       }
 
-      const prevScrollTop = clampIndexScrollTopForRows(prev.scrollTop, filteredLength, contentRect.h);
-      const nextScrollTop = clampIndexScrollTopForRows(props.scrollTop, filteredLength, contentRect.h);
+      const prevScrollTop = clampIndexScrollTopForRows(
+        prev.scrollTop,
+        filteredLength,
+        contentRect.h,
+      );
+      const nextScrollTop = clampIndexScrollTopForRows(
+        props.scrollTop,
+        filteredLength,
+        contentRect.h,
+      );
       const delta = nextScrollTop - prevScrollTop;
       if (delta === 0) continue;
 
@@ -2469,6 +2538,7 @@ export class WidgetRenderer<S> {
       const blitW = contentRect.w - scrollbarWidth;
       const blitH = contentRect.h - deltaAbs;
       if (blitW <= 0 || blitH <= 0) continue;
+      if (this.hasPaintedOverlapAfterInstance(instanceId, contentRect)) continue;
 
       const srcX = contentRect.x;
       const dstX = contentRect.x;
@@ -3638,12 +3708,7 @@ export class WidgetRenderer<S> {
       const nextFocusedId = this.focusState.focusedId;
       if (this.shouldAttemptIncrementalRender(doLayout, viewport, theme)) {
         if (!doCommit) {
-          this.markTransientDirtyNodes(
-            this.committedRoot,
-            prevFocusedId,
-            nextFocusedId,
-            true,
-          );
+          this.markTransientDirtyNodes(this.committedRoot, prevFocusedId, nextFocusedId, true);
         }
         this._pooledDamageRects.length = 0;
         let missingDamageRect = false;
