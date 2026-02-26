@@ -27,7 +27,7 @@ import {
   DEFAULT_TERMINAL_CAPS,
 } from "@rezi-ui/core";
 import {
-  ZR_DRAWLIST_VERSION_V6,
+  ZR_DRAWLIST_VERSION_V1,
   ZR_ENGINE_ABI_MAJOR,
   ZR_ENGINE_ABI_MINOR,
   ZR_ENGINE_ABI_PATCH,
@@ -247,21 +247,21 @@ export function readDebugBytesWithRetry<TEmpty>(
   }
 }
 
-function parseDrawlistVersion(v: unknown): 6 | null {
+function parseDrawlistVersion(v: unknown): 1 | null {
   if (v === undefined) return null;
-  if (v === 6) return v;
+  if (v === 1) return v;
   throw new ZrUiError(
     "ZRUI_INVALID_PROPS",
-    `createNodeBackend config mismatch: drawlistVersion must be 6 (got ${String(v)}).`,
+    `createNodeBackend config mismatch: drawlistVersion must be 1 (got ${String(v)}).`,
   );
 }
 
 function resolveRequestedDrawlistVersion(
   config: Readonly<{ drawlistVersion?: number }>,
-): 6 {
+): 1 {
   const explicitDrawlistVersion = parseDrawlistVersion(config.drawlistVersion);
   if (explicitDrawlistVersion !== null) return explicitDrawlistVersion;
-  return ZR_DRAWLIST_VERSION_V6;
+  return ZR_DRAWLIST_VERSION_V1;
 }
 
 function parseBoundedPositiveIntOrThrow(

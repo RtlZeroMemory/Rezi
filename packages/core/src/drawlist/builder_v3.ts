@@ -1,4 +1,4 @@
-import { ZRDL_MAGIC, ZR_DRAWLIST_VERSION_V6 } from "../abi.js";
+import { ZRDL_MAGIC, ZR_DRAWLIST_VERSION_V1 } from "../abi.js";
 import type { TextStyle } from "../widgets/style.js";
 import {
   DEFAULT_MAX_BLOB_BYTES,
@@ -18,7 +18,6 @@ import type {
   DrawlistBuildError,
   DrawlistBuildResult,
   DrawlistBuilderV3,
-  DrawlistBuilderV6,
   DrawlistCanvasBlitter,
   DrawlistImageFit,
   DrawlistImageFormat,
@@ -58,14 +57,14 @@ import {
 export type DrawlistBuilderV3Opts = Readonly<
   DrawlistBuilderBaseOpts & {
     /**
-     * Deprecated compatibility option. ZRDL v6 is always used.
+     * Deprecated compatibility option. ZRDL v1 is always used.
      * Older values are accepted and ignored.
      */
     drawlistVersion?: number;
   }
 >;
 
-export type DrawlistBuilderV6Opts = DrawlistBuilderV3Opts;
+export type DrawlistBuilderV1Opts = DrawlistBuilderV3Opts;
 
 const BLITTER_CODE: Readonly<Record<DrawlistCanvasBlitter, number>> = Object.freeze({
   auto: 0,
@@ -243,16 +242,16 @@ function normalizeStableKey(prefix: string, key: string): string {
   return `${prefix}:${key}`;
 }
 
-export function createDrawlistBuilderV6(opts: DrawlistBuilderV6Opts = {}): DrawlistBuilderV6 {
-  return new DrawlistBuilderV6Impl(opts);
+export function createDrawlistBuilderV1(opts: DrawlistBuilderV1Opts = {}): DrawlistBuilderV3 {
+  return new DrawlistBuilderV1Impl(opts);
 }
 
 export function createDrawlistBuilderV3(opts: DrawlistBuilderV3Opts = {}): DrawlistBuilderV3 {
-  return createDrawlistBuilderV6(opts);
+  return createDrawlistBuilderV1(opts);
 }
 
-class DrawlistBuilderV6Impl implements DrawlistBuilderV6 {
-  readonly drawlistVersion = 6 as const;
+class DrawlistBuilderV1Impl implements DrawlistBuilderV3 {
+  readonly drawlistVersion = 1 as const;
 
   private readonly maxDrawlistBytes: number;
   private readonly maxCmdCount: number;
@@ -305,7 +304,7 @@ class DrawlistBuilderV6Impl implements DrawlistBuilderV6 {
   private activeLinkUriId = 0;
   private activeLinkId = 0;
 
-  constructor(opts: DrawlistBuilderV6Opts) {
+  constructor(opts: DrawlistBuilderV1Opts) {
     const _deprecatedVersion = opts.drawlistVersion;
     void _deprecatedVersion;
 
@@ -934,7 +933,7 @@ class DrawlistBuilderV6Impl implements DrawlistBuilderV6 {
     const cmdOffset = cmdCount === 0 ? 0 : HEADER_SIZE;
 
     dv.setUint32(0, ZRDL_MAGIC, true);
-    dv.setUint32(4, ZR_DRAWLIST_VERSION_V6, true);
+    dv.setUint32(4, ZR_DRAWLIST_VERSION_V1, true);
     dv.setUint32(8, HEADER_SIZE, true);
     dv.setUint32(12, totalSize, true);
     dv.setUint32(16, cmdOffset, true);

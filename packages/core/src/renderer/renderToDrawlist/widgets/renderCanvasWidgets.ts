@@ -372,7 +372,7 @@ export function renderCanvasWidgets(
         requestedProtocol,
         analyzed.format,
         terminalProfile,
-        builder.drawlistVersion >= 4,
+        builder.drawlistVersion >= 1,
       );
       if (!resolvedProtocol.ok) {
         drawPlaceholderBox(

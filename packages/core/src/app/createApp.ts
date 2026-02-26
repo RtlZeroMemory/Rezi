@@ -203,15 +203,15 @@ function readBackendPositiveIntMarker(
   return value;
 }
 
-function readBackendDrawlistVersionMarker(backend: RuntimeBackend): 6 | null {
+function readBackendDrawlistVersionMarker(backend: RuntimeBackend): 1 | null {
   const value = (backend as RuntimeBackend & Readonly<Record<string, unknown>>)[
     BACKEND_DRAWLIST_VERSION_MARKER
   ];
   if (value === undefined) return null;
-  if (typeof value !== "number" || !Number.isInteger(value) || value !== 6) {
-    invalidProps(`backend marker ${BACKEND_DRAWLIST_VERSION_MARKER} must be integer 6 when present`);
+  if (typeof value !== "number" || !Number.isInteger(value) || value !== 1) {
+    invalidProps(`backend marker ${BACKEND_DRAWLIST_VERSION_MARKER} must be integer 1 when present`);
   }
-  return 6;
+  return 1;
 }
 
 function monotonicNowMs(): number {
@@ -592,14 +592,14 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   const config = resolveAppConfig(opts.config);
 
   const backendDrawlistVersion = readBackendDrawlistVersionMarker(backend);
-  if (backendDrawlistVersion !== null && backendDrawlistVersion !== 6) {
+  if (backendDrawlistVersion !== null && backendDrawlistVersion !== 1) {
     invalidProps(
       `backend drawlistVersion=${String(
         backendDrawlistVersion,
-      )} is no longer supported. Fix: set backend drawlist version to 6.`,
+      )} is no longer supported. Fix: set backend drawlist version to 1.`,
     );
   }
-  const drawlistVersion: 6 = 6;
+  const drawlistVersion: 1 = 1;
 
   const backendMaxEventBytes = readBackendPositiveIntMarker(
     backend,

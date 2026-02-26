@@ -58,7 +58,7 @@ Key subdirectories:
 - `src/runtime/` -- VNode commit and reconciliation (`commit.ts`, `reconcile.ts`)
 - `src/layout/` -- Flexbox-style layout engine, text measurement
 - `src/renderer/` -- Stack-based DFS renderer, drawlist emission
-- `src/drawlist/` -- ZRDL binary drawlist builders (v1/v2/v3) and generated command writers (`writers.gen.ts`)
+- `src/drawlist/` -- ZRDL v1 drawlist builder and generated command writers (`writers.gen.ts`)
 - `src/protocol/` -- ZREV event batch parser
 - `src/widgets/` -- Built-in widget definitions
 - `src/theme/` -- Theme tokens, built-in themes

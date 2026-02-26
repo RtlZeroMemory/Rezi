@@ -18,7 +18,7 @@ import {
 import {
   type DrawlistBuildResult,
   type DrawlistBuilderV1,
-  createDrawlistBuilderV6,
+  createDrawlistBuilderV1,
 } from "../drawlist/index.js";
 import { perfMarkEnd, perfMarkStart } from "../perf/perf.js";
 import type { DrawFn } from "./types.js";
@@ -61,7 +61,7 @@ export class RawRenderer {
     opts: Readonly<{
       backend: RuntimeBackend;
       builder?: DrawlistBuilderV1;
-      drawlistVersion?: 6;
+      drawlistVersion?: 1;
       maxDrawlistBytes?: number;
       drawlistValidateParams?: boolean;
       drawlistReuseOutputBuffer?: boolean;
@@ -85,15 +85,15 @@ export class RawRenderer {
       this.builder = opts.builder;
       return;
     }
-    const drawlistVersion = opts.drawlistVersion ?? 6;
-    if (drawlistVersion !== 6) {
+    const drawlistVersion = opts.drawlistVersion ?? 1;
+    if (drawlistVersion !== 1) {
       throw new Error(
         `drawlistVersion ${String(
           drawlistVersion,
-        )} is no longer supported; use drawlistVersion 6.`,
+        )} is no longer supported; use drawlistVersion 1.`,
       );
     }
-    this.builder = createDrawlistBuilderV6(builderOpts);
+    this.builder = createDrawlistBuilderV1(builderOpts);
   }
 
   markEngineResourceStoreEmpty(): void {

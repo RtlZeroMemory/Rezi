@@ -2,7 +2,6 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import {
   ZRDL_MAGIC,
   ZR_DRAWLIST_VERSION_V1,
-  ZR_DRAWLIST_VERSION_V2,
   createDrawlistBuilderV1,
   createDrawlistBuilderV2,
 } from "../../index.js";
@@ -395,7 +394,7 @@ describe("DrawlistBuilder round-trip binary readback", () => {
 
     const h = readHeader(res.bytes);
     assert.equal(h.magic, ZRDL_MAGIC);
-    assert.equal(h.version, ZR_DRAWLIST_VERSION_V2);
+    assert.equal(h.version, ZR_DRAWLIST_VERSION_V1);
     assert.equal(h.cmdOffset, 64);
     assert.equal(h.cmdBytes, 28);
     assert.equal(h.cmdCount, 2);
@@ -518,7 +517,7 @@ describe("DrawlistBuilder round-trip binary readback", () => {
     if (!res.ok) return;
 
     const h = readHeader(res.bytes);
-    assert.equal(h.version, ZR_DRAWLIST_VERSION_V2);
+    assert.equal(h.version, ZR_DRAWLIST_VERSION_V1);
     assert.equal(h.cmdCount, 6);
     assert.equal(
       h.cmdBytes,

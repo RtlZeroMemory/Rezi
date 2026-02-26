@@ -44,7 +44,7 @@ const ZERO_STYLE: EncodedStyle = Object.freeze({
 });
 
 describe("writers.gen v6", () => {
-  test("size constants match v6 layouts", () => {
+  test("size constants match v1 layouts", () => {
     assert.equal(DRAW_TEXT_SIZE, 60);
     assert.equal(DRAW_CANVAS_SIZE, 32);
     assert.equal(DRAW_IMAGE_SIZE, 40);

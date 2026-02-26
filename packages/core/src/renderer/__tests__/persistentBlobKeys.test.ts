@@ -6,7 +6,7 @@ import { drawSegments } from "../renderToDrawlist/widgets/renderTextWidgets.js";
 import { renderCanvasWidgets } from "../renderToDrawlist/widgets/renderCanvasWidgets.js";
 
 class KeyCapturingBuilder implements DrawlistBuilderV3 {
-  readonly drawlistVersion = 6 as const;
+  readonly drawlistVersion = 1 as const;
   readonly blobKeys: string[] = [];
   readonly textRunKeys: string[] = [];
   private nextBlobId = 1;

@@ -36,6 +36,14 @@ export interface DrawlistBuildInto {
   buildInto(dst: Uint8Array): DrawlistBuildResult;
 }
 
+export type CursorState = Readonly<{
+  x: number;
+  y: number;
+  shape: CursorShape;
+  visible: boolean;
+  blink: boolean;
+}>;
+
 export interface DrawlistBuilderV1 {
   clear(): void;
   clearTo(cols: number, rows: number, style?: TextStyle): void;
@@ -49,14 +57,6 @@ export interface DrawlistBuilderV1 {
   build(): DrawlistBuildResult;
   reset(): void;
 }
-
-export type CursorState = Readonly<{
-  x: number;
-  y: number;
-  shape: CursorShape;
-  visible: boolean;
-  blink: boolean;
-}>;
 
 export interface DrawlistBuilderV2 extends DrawlistBuilderV1, DrawlistBuildInto {
   setCursor(state: CursorState): void;
@@ -78,12 +78,12 @@ export type DrawlistImageProtocol = "auto" | "kitty" | "sixel" | "iterm2" | "bli
 export type DrawlistImageFit = "fill" | "contain" | "cover";
 
 /**
- * Drawlist builder for ZRDL v6.
+ * Drawlist builder for ZRDL v1.
  *
  * Note: kept under the legacy V3 name to avoid churn across internal call sites.
  */
 export interface DrawlistBuilderV3 extends DrawlistBuilderV2 {
-  readonly drawlistVersion: 6;
+  readonly drawlistVersion: 1;
   setLink(uri: string | null, id?: string): void;
   drawCanvas(
     x: number,
@@ -116,5 +116,3 @@ export interface DrawlistBuilderV3 extends DrawlistBuilderV2 {
    */
   markEngineResourceStoreEmpty(): void;
 }
-
-export type DrawlistBuilderV6 = DrawlistBuilderV3;

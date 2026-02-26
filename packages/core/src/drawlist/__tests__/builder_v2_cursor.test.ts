@@ -10,7 +10,7 @@
  */
 
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { ZRDL_MAGIC, ZR_DRAWLIST_VERSION_V2 } from "../../abi.js";
+import { ZRDL_MAGIC, ZR_DRAWLIST_VERSION_V1 } from "../../abi.js";
 import { createDrawlistBuilderV2 } from "../builder_v2.js";
 
 function u8(bytes: Uint8Array, off: number): number {
@@ -46,7 +46,7 @@ describe("DrawlistBuilderV2 - SET_CURSOR encoding", () => {
 
     // Verify v2 header
     assert.equal(u32(res.bytes, 0), ZRDL_MAGIC, "magic");
-    assert.equal(u32(res.bytes, 4), ZR_DRAWLIST_VERSION_V2, "version");
+    assert.equal(u32(res.bytes, 4), ZR_DRAWLIST_VERSION_V1, "version");
     assert.equal(u32(res.bytes, 8), HEADER_SIZE, "header_size");
   });
 

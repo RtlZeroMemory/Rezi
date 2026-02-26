@@ -75,18 +75,18 @@ function withNoColor(value: string | undefined, fn: () => void): void {
   }
 }
 
-test("config guard: backend drawlist version 1 is rejected", () => {
+test("config guard: backend drawlist version 2 is rejected", () => {
   assert.throws(
-    () => createNodeBackend({ drawlistVersion: 1 as unknown as 2 }),
+    () => createNodeBackend({ drawlistVersion: 2 as unknown as 2 }),
     (err) =>
       err instanceof ZrUiError &&
       err.code === "ZRUI_INVALID_PROPS" &&
-      err.message.includes("drawlistVersion must be 6"),
+      err.message.includes("drawlistVersion must be 1"),
   );
 });
 
-test("config guard: backend drawlist version 6 is allowed", () => {
-  const backend = createNodeBackend({ drawlistVersion: 6 });
+test("config guard: backend drawlist version 1 is allowed", () => {
+  const backend = createNodeBackend({ drawlistVersion: 1 });
   try {
     const app = createApp({
       backend,

@@ -1,5 +1,5 @@
 /**
- * Source of truth for ZRDL v6 command payload layouts.
+ * Source of truth for ZRDL v1 command payload layouts.
  *
  * Offsets are absolute byte offsets from command start (including 8-byte header).
  * The 8-byte command header itself is implicit and emitted by codegen.

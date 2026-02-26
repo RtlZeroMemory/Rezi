@@ -1,5 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { createDrawlistBuilderV6 } from "../../index.js";
+import { createDrawlistBuilderV1 } from "../../index.js";
 
 const OP_CLEAR = 1;
 const OP_DRAW_TEXT = 3;
@@ -32,15 +32,15 @@ function parseCommands(bytes: Uint8Array): readonly ParsedCommand[] {
   return Object.freeze(out);
 }
 
-function expectOk(result: ReturnType<ReturnType<typeof createDrawlistBuilderV6>["build"]>): Uint8Array {
+function expectOk(result: ReturnType<ReturnType<typeof createDrawlistBuilderV1>["build"]>): Uint8Array {
   assert.equal(result.ok, true);
   if (!result.ok) throw new Error("drawlist build failed");
   return result.bytes;
 }
 
-describe("DrawlistBuilderV6 resource caching", () => {
+describe("DrawlistBuilderV1 resource caching", () => {
   test("cross-frame repeat emits no DEF_* for unchanged text/blob resources", () => {
-    const b = createDrawlistBuilderV6();
+    const b = createDrawlistBuilderV1();
 
     const blobId0 = b.addBlob(new Uint8Array([1, 2, 3, 4]), "canvas:stable");
     assert.equal(blobId0, 1);
@@ -78,7 +78,7 @@ describe("DrawlistBuilderV6 resource caching", () => {
   });
 
   test("LRU eviction emits FREE_STRING and reuses ids with redefine", () => {
-    const b = createDrawlistBuilderV6({ maxStrings: 1, maxStringBytes: 64 });
+    const b = createDrawlistBuilderV1({ maxStrings: 1, maxStringBytes: 64 });
 
     b.drawText(0, 0, "A");
     const frame1 = expectOk(b.build());
@@ -107,7 +107,7 @@ describe("DrawlistBuilderV6 resource caching", () => {
   });
 
   test("backend reset marker causes resource re-definition", () => {
-    const b = createDrawlistBuilderV6();
+    const b = createDrawlistBuilderV1();
 
     b.drawText(0, 0, "restart");
     const frame1 = expectOk(b.build());
@@ -128,7 +128,7 @@ describe("DrawlistBuilderV6 resource caching", () => {
   });
 
   test("text-run blobs are persisted across frames", () => {
-    const b = createDrawlistBuilderV6();
+    const b = createDrawlistBuilderV1();
 
     const blob0 = b.addTextRunBlob([
       { text: "left", style: { bold: true } },

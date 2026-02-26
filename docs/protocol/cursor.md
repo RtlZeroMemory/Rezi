@@ -52,7 +52,7 @@ export type CursorShape = 0 | 1 | 2;
 - The widget renderer resolves cursor targets from focused inputs/editors and
   emits `SET_CURSOR` when visible.
 - If no widget requests a cursor, the renderer emits a hide cursor command.
-- Node/Bun defaults to drawlist v5, so cursor protocol support is available by
+- Node/Bun defaults to drawlist v1, so cursor protocol support is available by
   default.
 
 ## Default cursor shapes

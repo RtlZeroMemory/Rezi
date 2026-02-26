@@ -1,8 +1,8 @@
-import { createDrawlistBuilderV6, type DrawlistBuilderV6Opts } from "./builder_v3.js";
-import type { DrawlistBuilderV2 } from "./types.js";
+import { createDrawlistBuilderV1, type DrawlistBuilderV1Opts } from "./builder_v3.js";
+import type { DrawlistBuilderV3 } from "./types.js";
 
-export type DrawlistBuilderV2Opts = DrawlistBuilderV6Opts;
+export type DrawlistBuilderV2Opts = DrawlistBuilderV1Opts;
 
-export function createDrawlistBuilderV2(opts: DrawlistBuilderV2Opts = {}): DrawlistBuilderV2 {
-  return createDrawlistBuilderV6(opts);
+export function createDrawlistBuilderV2(opts: DrawlistBuilderV2Opts = {}): DrawlistBuilderV3 {
+  return createDrawlistBuilderV1(opts);
 }

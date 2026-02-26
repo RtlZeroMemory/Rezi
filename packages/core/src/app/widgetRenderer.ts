@@ -35,7 +35,7 @@ import {
   type DrawlistBuilderV1,
   type DrawlistBuilderV2,
   type DrawlistBuilderV3,
-  createDrawlistBuilderV6,
+  createDrawlistBuilderV1,
 } from "../drawlist/index.js";
 import type { ZrevEvent } from "../events.js";
 import {
@@ -843,7 +843,7 @@ export class WidgetRenderer<S> {
     opts: Readonly<{
       backend: RuntimeBackend;
       builder?: DrawlistBuilderV1 | DrawlistBuilderV2 | DrawlistBuilderV3;
-      drawlistVersion?: 6;
+      drawlistVersion?: 1;
       maxDrawlistBytes?: number;
       drawlistValidateParams?: boolean;
       drawlistReuseOutputBuffer?: boolean;
@@ -899,15 +899,15 @@ export class WidgetRenderer<S> {
       this.builder = opts.builder;
       return;
     }
-    const drawlistVersion = opts.drawlistVersion ?? 6;
-    if (drawlistVersion !== 6) {
+    const drawlistVersion = opts.drawlistVersion ?? 1;
+    if (drawlistVersion !== 1) {
       throw new Error(
         `drawlistVersion ${String(
           drawlistVersion,
-        )} is no longer supported; use drawlistVersion 6.`,
+        )} is no longer supported; use drawlistVersion 1.`,
       );
     }
-    this.builder = createDrawlistBuilderV6(builderOpts);
+    this.builder = createDrawlistBuilderV1(builderOpts);
   }
 
   markEngineResourceStoreEmpty(): void {
