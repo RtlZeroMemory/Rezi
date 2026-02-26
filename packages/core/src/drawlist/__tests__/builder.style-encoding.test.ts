@@ -1,10 +1,7 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import {
-  type TextStyle,
-  createDrawlistBuilder,
-} from "../../index.js";
-import { DRAW_TEXT_SIZE } from "../writers.gen.js";
+import { type TextStyle, createDrawlistBuilder } from "../../index.js";
 import { DEFAULT_BASE_STYLE, mergeTextStyle } from "../../renderer/renderToDrawlist/textStyle.js";
+import { DRAW_TEXT_SIZE } from "../writers.gen.js";
 
 function u32(bytes: Uint8Array, off: number): number {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -64,9 +61,7 @@ const BUILDERS: ReadonlyArray<
     name: "current";
     create: typeof createDrawlistBuilder;
   }>
-> = [
-  { name: "current", create: createDrawlistBuilder },
-];
+> = [{ name: "current", create: createDrawlistBuilder }];
 
 function singleAttrStyle(attr: AttrName): TextStyle {
   return { [attr]: true } as TextStyle;
@@ -170,8 +165,8 @@ describe("drawlist style fg/bg and undefined fg/bg encoding", () => {
   for (const builder of BUILDERS) {
     test(`${builder.name} drawText encodes fg/bg with attrs`, () => {
       const encoded = encodeViaDrawText(builder.create, {
-        fg: ((10 << 16) | (20 << 8) | 30),
-        bg: ((40 << 16) | (50 << 8) | 60),
+        fg: (10 << 16) | (20 << 8) | 30,
+        bg: (40 << 16) | (50 << 8) | 60,
         bold: true,
         inverse: true,
       });
@@ -192,8 +187,8 @@ describe("drawlist style fg/bg and undefined fg/bg encoding", () => {
 
     test(`${builder.name} text-run encodes fg/bg with attrs`, () => {
       const encoded = encodeViaTextRun(builder.create, {
-        fg: ((1 << 16) | (2 << 8) | 3),
-        bg: ((4 << 16) | (5 << 8) | 6),
+        fg: (1 << 16) | (2 << 8) | 3,
+        bg: (4 << 16) | (5 << 8) | 6,
         dim: true,
         blink: true,
       });
@@ -259,12 +254,8 @@ describe("style merge stress encodes fg/bg/attrs bytes deterministically", () =>
     let resolved = DEFAULT_BASE_STYLE;
     for (let i = 0; i < 192; i++) {
       const override: TextStyle = {
-        ...(i % 3 === 0
-          ? { fg: packRgb((i * 17) & 0xff, (i * 29) & 0xff, (i * 43) & 0xff) }
-          : {}),
-        ...(i % 5 === 0
-          ? { bg: packRgb((i * 11) & 0xff, (i * 7) & 0xff, (i * 13) & 0xff) }
-          : {}),
+        ...(i % 3 === 0 ? { fg: packRgb((i * 17) & 0xff, (i * 29) & 0xff, (i * 43) & 0xff) } : {}),
+        ...(i % 5 === 0 ? { bg: packRgb((i * 11) & 0xff, (i * 7) & 0xff, (i * 13) & 0xff) } : {}),
         ...(i % 2 === 0 ? { bold: true } : {}),
         ...(i % 4 === 0 ? { italic: true } : {}),
         ...(i % 6 === 0 ? { underline: true } : {}),

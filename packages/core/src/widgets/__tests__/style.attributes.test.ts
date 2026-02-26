@@ -62,12 +62,12 @@ describe("TextStyle attributes", () => {
 
   test("mergeStyles preserves fg/bg while updating attrs", () => {
     const merged = mergeStyles(
-      { fg: ((1 << 16) | (2 << 8) | 3), bg: ((4 << 16) | (5 << 8) | 6), bold: true },
+      { fg: (1 << 16) | (2 << 8) | 3, bg: (4 << 16) | (5 << 8) | 6, bold: true },
       { bold: false, underline: true },
     );
     assert.deepEqual(merged, {
-      fg: ((1 << 16) | (2 << 8) | 3),
-      bg: ((4 << 16) | (5 << 8) | 6),
+      fg: (1 << 16) | (2 << 8) | 3,
+      bg: (4 << 16) | (5 << 8) | 6,
       bold: false,
       underline: true,
     });

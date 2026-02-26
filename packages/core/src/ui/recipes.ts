@@ -38,7 +38,7 @@ import {
 
 /** Lighten or darken a color toward white/black. */
 function adjustBrightness(color: Rgb24, amount: number): Rgb24 {
-  const target = amount > 0 ? ((255 << 16) | (255 << 8) | 255) : ((0 << 16) | (0 << 8) | 0);
+  const target = amount > 0 ? (255 << 16) | (255 << 8) | 255 : (0 << 16) | (0 << 8) | 0;
   return blendRgb(color, target, Math.abs(amount));
 }
 

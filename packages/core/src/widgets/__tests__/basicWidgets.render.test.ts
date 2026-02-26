@@ -184,7 +184,7 @@ describe("basic widgets render to drawlist", () => {
   test("richText uses DRAW_TEXT_RUN and interns span strings", () => {
     const bytes = renderBytes(
       ui.richText([
-        { text: "const ", style: { fg: ((90 << 16) | (160 << 8) | 255) } },
+        { text: "const ", style: { fg: (90 << 16) | (160 << 8) | 255 } },
         { text: "x", style: { bold: true } },
       ]),
     );
@@ -351,14 +351,14 @@ describe("basic widgets render to drawlist", () => {
       ui.progress(1, {
         variant: "minimal",
         width: 10,
-        style: { fg: ((1 << 16) | (2 << 8) | 3) },
+        style: { fg: (1 << 16) | (2 << 8) | 3 },
       }),
       { cols: 24, rows: 3 },
       { theme: createTheme(defaultTheme) },
     );
     const drawText = parseDrawTextCommands(bytes).find((cmd) => cmd.text.includes("━"));
     assert.ok(drawText, "expected drawText for filled progress glyphs");
-    assert.equal(drawText.fg, packRgb(((1 << 16) | (2 << 8) | 3)));
+    assert.equal(drawText.fg, packRgb((1 << 16) | (2 << 8) | 3));
   });
 
   test("slider renders track and clamps displayed value to range", () => {
@@ -528,7 +528,7 @@ describe("basic widgets render to drawlist", () => {
   test("link underlineColor theme token resolves on v3", () => {
     const theme = createTheme({
       colors: {
-        "diagnostic.info": ((1 << 16) | (2 << 8) | 3),
+        "diagnostic.info": (1 << 16) | (2 << 8) | 3,
       },
     });
     const bytes = renderBytesV3(
@@ -567,7 +567,7 @@ describe("basic widgets render to drawlist", () => {
   test("codeEditor diagnostics use curly underline + token color on v3", () => {
     const theme = createTheme({
       colors: {
-        "diagnostic.warning": ((1 << 16) | (2 << 8) | 3),
+        "diagnostic.warning": (1 << 16) | (2 << 8) | 3,
       },
     });
     const vnode = ui.codeEditor({
@@ -618,9 +618,9 @@ describe("basic widgets render to drawlist", () => {
   test("codeEditor applies syntax token colors for mainstream language presets", () => {
     const theme = createTheme({
       colors: {
-        "syntax.keyword": ((10 << 16) | (20 << 8) | 30),
-        "syntax.function": ((30 << 16) | (40 << 8) | 50),
-        "syntax.string": ((60 << 16) | (70 << 8) | 80),
+        "syntax.keyword": (10 << 16) | (20 << 8) | 30,
+        "syntax.function": (30 << 16) | (40 << 8) | 50,
+        "syntax.string": (60 << 16) | (70 << 8) | 80,
       },
     });
     const vnode = ui.codeEditor({
@@ -653,8 +653,8 @@ describe("basic widgets render to drawlist", () => {
   test("codeEditor draws a highlighted cursor cell for focused editor", () => {
     const theme = createTheme({
       colors: {
-        "syntax.cursor.bg": ((1 << 16) | (2 << 8) | 3),
-        "syntax.cursor.fg": ((4 << 16) | (5 << 8) | 6),
+        "syntax.cursor.bg": (1 << 16) | (2 << 8) | 3,
+        "syntax.cursor.fg": (4 << 16) | (5 << 8) | 6,
       },
     });
     const vnode = ui.codeEditor({

@@ -97,7 +97,7 @@ describe("runtime hooks - useTheme", () => {
           extendTheme(darkTheme, {
             colors: {
               accent: {
-                primary: ((250 << 16) | (20 << 8) | 20),
+                primary: (250 << 16) | (20 << 8) | 20,
               },
             },
           }),
@@ -125,7 +125,7 @@ describe("runtime hooks - useTheme", () => {
   test("resolves scoped themed overrides for composites", () => {
     const baseTheme = coerceToLegacyTheme(darkTheme);
     const override = Object.freeze({
-      colors: { accent: { primary: ((18 << 16) | (164 << 8) | 245) } },
+      colors: { accent: { primary: (18 << 16) | (164 << 8) | 245 } },
     });
     const scopedTheme = coerceToLegacyTheme(extendTheme(darkTheme, override));
     const expected = requireColorTokens(getColorTokens(scopedTheme));

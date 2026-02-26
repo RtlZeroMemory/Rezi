@@ -3,8 +3,8 @@ import type { TextStyle } from "../widgets/style.js";
 import { DrawlistBuilderBase, type DrawlistBuilderBaseOpts } from "./builderBase.js";
 import type {
   CursorState,
-  DrawlistBuilder,
   DrawlistBuildResult,
+  DrawlistBuilder,
   DrawlistCanvasBlitter,
   DrawlistImageFit,
   DrawlistImageFormat,

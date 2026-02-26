@@ -4,7 +4,6 @@ import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { TerminalProfile } from "../../../terminalProfile.js";
 import type { Theme } from "../../../theme/theme.js";
 import { resolveColor } from "../../../theme/theme.js";
-import { rgbB, rgbG, rgbR } from "../../../widgets/style.js";
 import { createCanvasDrawingSurface, resolveCanvasBlitter } from "../../../widgets/canvas.js";
 import {
   type ImageBinaryFormat,
@@ -14,6 +13,7 @@ import {
   normalizeImageFit,
   normalizeImageProtocol,
 } from "../../../widgets/image.js";
+import { rgbB, rgbG, rgbR } from "../../../widgets/style.js";
 import type { GraphicsBlitter } from "../../../widgets/types.js";
 import { isVisibleRect } from "../indices.js";
 import type { ResolvedTextStyle } from "../textStyle.js";

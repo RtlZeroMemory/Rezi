@@ -19,7 +19,7 @@ describe("theme.extend", () => {
       },
     });
 
-    assert.deepEqual(next.colors.accent.primary, ((1 << 16) | (2 << 8) | 3));
+    assert.deepEqual(next.colors.accent.primary, (1 << 16) | (2 << 8) | 3);
     assert.deepEqual(next.colors.accent.secondary, darkTheme.colors.accent.secondary);
     assert.deepEqual(next.colors.bg.base, darkTheme.colors.bg.base);
   });
@@ -159,8 +159,8 @@ describe("theme.extend", () => {
       },
     });
 
-    assert.deepEqual(two.colors.fg.primary, ((11 << 16) | (22 << 8) | 33));
-    assert.deepEqual(two.colors.border.strong, ((44 << 16) | (55 << 8) | 66));
+    assert.deepEqual(two.colors.fg.primary, (11 << 16) | (22 << 8) | 33);
+    assert.deepEqual(two.colors.border.strong, (44 << 16) | (55 << 8) | 66);
     assert.deepEqual(two.colors.accent.secondary, darkTheme.colors.accent.secondary);
   });
 
@@ -180,7 +180,7 @@ describe("theme.extend", () => {
       },
     });
 
-    assert.deepEqual(two.colors.accent.primary, ((99 << 16) | (20 << 8) | 30));
+    assert.deepEqual(two.colors.accent.primary, (99 << 16) | (20 << 8) | 30);
   });
 
   test("nested extensions keep inherited tokens unless overridden", () => {
@@ -194,7 +194,7 @@ describe("theme.extend", () => {
     });
 
     assert.equal(two.name, "custom-1");
-    assert.deepEqual(two.colors.info, ((1 << 16) | (1 << 8) | 1));
+    assert.deepEqual(two.colors.info, (1 << 16) | (1 << 8) | 1);
     assert.deepEqual(two.colors.warning, darkTheme.colors.warning);
   });
 

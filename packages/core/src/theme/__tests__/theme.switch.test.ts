@@ -49,7 +49,7 @@ async function resolveNextFrame(backend: StubBackend): Promise<void> {
 function themeWithPrimary(r: number, g: number, b: number): Theme {
   return createTheme({
     colors: {
-      primary: ((r << 16) | (g << 8) | b),
+      primary: (r << 16) | (g << 8) | b,
     },
   });
 }
@@ -353,10 +353,10 @@ describe("theme runtime switching", () => {
 });
 
 describe("theme scoped container overrides", () => {
-  const RED = Object.freeze(((210 << 16) | (40 << 8) | 40));
-  const GREEN = Object.freeze(((40 << 16) | (190 << 8) | 80));
-  const BLUE = Object.freeze(((40 << 16) | (100 << 8) | 210));
-  const CYAN = Object.freeze(((20 << 16) | (180 << 8) | 200));
+  const RED = Object.freeze((210 << 16) | (40 << 8) | 40);
+  const GREEN = Object.freeze((40 << 16) | (190 << 8) | 80);
+  const BLUE = Object.freeze((40 << 16) | (100 << 8) | 210);
+  const CYAN = Object.freeze((20 << 16) | (180 << 8) | 200);
   const baseTheme = createTheme({
     colors: {
       primary: RED,

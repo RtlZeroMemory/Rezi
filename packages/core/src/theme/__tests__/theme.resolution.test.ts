@@ -92,18 +92,18 @@ describe("theme resolution", () => {
   });
 
   test("resolveColorOrRgb returns direct RGB unchanged", () => {
-    const rgb = ((1 << 16) | (2 << 8) | 3);
-    const fallback = ((9 << 16) | (9 << 8) | 9);
+    const rgb = (1 << 16) | (2 << 8) | 3;
+    const fallback = (9 << 16) | (9 << 8) | 9;
     assert.deepEqual(resolveColorOrRgb(themePresets.dark, rgb, fallback), rgb);
   });
 
   test("resolveColorOrRgb uses fallback for invalid token paths", () => {
-    const fallback = ((9 << 16) | (8 << 8) | 7);
+    const fallback = (9 << 16) | (8 << 8) | 7;
     assert.deepEqual(resolveColorOrRgb(themePresets.dark, "not.valid", fallback), fallback);
   });
 
   test("resolveColorOrRgb uses fallback for undefined input", () => {
-    const fallback = ((5 << 16) | (4 << 8) | 3);
+    const fallback = (5 << 16) | (4 << 8) | 3;
     assert.deepEqual(resolveColorOrRgb(themePresets.dark, undefined, fallback), fallback);
   });
 

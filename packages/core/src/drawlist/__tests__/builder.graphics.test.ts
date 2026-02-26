@@ -393,7 +393,7 @@ describe("DrawlistBuilder graphics/link commands", () => {
         text: "x",
         style: {
           underlineStyle: "dashed",
-          underlineColor: ((1 << 16) | (2 << 8) | 3),
+          underlineColor: (1 << 16) | (2 << 8) | 3,
         },
       },
     ]);

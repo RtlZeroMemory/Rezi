@@ -21,8 +21,8 @@ describe("DrawlistBuilder (ZRDL v1) - DRAW_TEXT_RUN", () => {
     const b = createDrawlistBuilder();
 
     const blobIndex = b.addTextRunBlob([
-      { text: "ABC", style: { fg: ((255 << 16) | (0 << 8) | 0), bold: true } },
-      { text: "DEF", style: { fg: ((0 << 16) | (255 << 8) | 0), underline: true } },
+      { text: "ABC", style: { fg: (255 << 16) | (0 << 8) | 0, bold: true } },
+      { text: "DEF", style: { fg: (0 << 16) | (255 << 8) | 0, underline: true } },
     ]);
     assert.equal(blobIndex, 0);
     if (blobIndex === null) return;

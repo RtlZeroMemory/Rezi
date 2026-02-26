@@ -1,4 +1,4 @@
-import { rgb, rgbB, rgbG, rgbR, type Rgb24 } from "./style.js";
+import { type Rgb24, rgb, rgbB, rgbG, rgbR } from "./style.js";
 import type { HeatmapColorScale } from "./types.js";
 
 type ScaleStop = Readonly<{ t: number; rgb: Rgb24 }>;

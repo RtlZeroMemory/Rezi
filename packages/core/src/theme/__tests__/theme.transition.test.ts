@@ -64,7 +64,7 @@ async function drainPendingFrames(backend: StubBackend, maxRounds = 24): Promise
 function themeWithPrimary(r: number, g: number, b: number): Theme {
   return createTheme({
     colors: {
-      primary: ((r << 16) | (g << 8) | b),
+      primary: (r << 16) | (g << 8) | b,
     },
   });
 }
@@ -73,7 +73,7 @@ function semanticThemeWithAccent(r: number, g: number, b: number) {
   return extendTheme(darkTheme, {
     colors: {
       accent: {
-        primary: ((r << 16) | (g << 8) | b),
+        primary: (r << 16) | (g << 8) | b,
       },
     },
   });
@@ -149,7 +149,7 @@ describe("theme transition frames", () => {
     await resolveNextFrame(backend);
 
     assert.equal(seenPrimary.length >= 2, true);
-    assert.deepEqual(seenPrimary[seenPrimary.length - 1], ((0 << 16) | (255 << 8) | 0));
+    assert.deepEqual(seenPrimary[seenPrimary.length - 1], (0 << 16) | (255 << 8) | 0);
   });
 
   test("retargeting during active transition converges to new target theme", async () => {

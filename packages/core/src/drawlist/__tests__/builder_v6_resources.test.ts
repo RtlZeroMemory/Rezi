@@ -1,7 +1,9 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import { createDrawlistBuilder } from "../../index.js";
 
-function expectOk(result: ReturnType<ReturnType<typeof createDrawlistBuilder>["build"]>): Uint8Array {
+function expectOk(
+  result: ReturnType<ReturnType<typeof createDrawlistBuilder>["build"]>,
+): Uint8Array {
   assert.equal(result.ok, true);
   if (!result.ok) throw new Error("drawlist build failed");
   return result.bytes;

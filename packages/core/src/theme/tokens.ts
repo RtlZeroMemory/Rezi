@@ -15,7 +15,7 @@
  * @see docs/styling/theme.md
  */
 
-import { rgb, type Rgb24 } from "../widgets/style.js";
+import { type Rgb24, rgb } from "../widgets/style.js";
 
 /**
  * Surface (background) color tokens.

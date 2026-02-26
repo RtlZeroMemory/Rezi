@@ -455,7 +455,8 @@ function countSelfDirty(root: RuntimeInstance | null): number {
   let count = 0;
   const stack: RuntimeInstance[] = [root];
   while (stack.length > 0) {
-    const node = stack.pop()!;
+    const node = stack.pop();
+    if (!node) continue;
     if (node.selfDirty) count++;
     for (let i = node.children.length - 1; i >= 0; i--) {
       const child = node.children[i];
@@ -522,7 +523,11 @@ export function createInkRenderer(opts: InkRendererOptions = {}): InkRenderer {
     // tree is unchanged. Skip layout, draw, and collect entirely.
     if (!isFirstFrame && !forceLayout && !prevRoot.dirty && cachedLayoutTree !== null) {
       const totalMs = performance.now() - t0;
-      return { ops: cachedOps, nodes: cachedNodes, timings: { commitMs, layoutMs: 0, drawMs: 0, totalMs, layoutSkipped: true } };
+      return {
+        ops: cachedOps,
+        nodes: cachedNodes,
+        timings: { commitMs, layoutMs: 0, drawMs: 0, totalMs, layoutSkipped: true },
+      };
     }
 
     // ─── DIRTY SET ───

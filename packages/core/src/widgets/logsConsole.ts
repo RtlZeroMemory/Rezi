@@ -7,7 +7,7 @@
  * @see docs/widgets/logs-console.md
  */
 
-import { rgb, type Rgb24 } from "./style.js";
+import { type Rgb24, rgb } from "./style.js";
 import type { LogEntry, LogLevel } from "./types.js";
 
 /** Default max log entries to keep. */

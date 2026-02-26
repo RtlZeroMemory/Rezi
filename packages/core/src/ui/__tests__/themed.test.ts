@@ -92,7 +92,7 @@ function fgByText(
 
 describe("ui.themed", () => {
   test("creates themed vnode and filters children", () => {
-    const vnode = ui.themed({ colors: { accent: { primary: ((1 << 16) | (2 << 8) | 3) } } }, [
+    const vnode = ui.themed({ colors: { accent: { primary: (1 << 16) | (2 << 8) | 3 } } }, [
       ui.text("a"),
       null,
       false,
@@ -102,17 +102,17 @@ describe("ui.themed", () => {
     if (vnode.kind !== "themed") return;
     assert.equal(vnode.children.length, 2);
     assert.deepEqual((vnode.props.theme as { colors?: unknown }).colors, {
-      accent: { primary: ((1 << 16) | (2 << 8) | 3) },
+      accent: { primary: (1 << 16) | (2 << 8) | 3 },
     });
   });
 
   test("applies theme override to subtree without leaking to siblings", () => {
     const baseTheme = createTheme({
       colors: {
-        primary: ((200 << 16) | (40 << 8) | 40),
+        primary: (200 << 16) | (40 << 8) | 40,
       },
     });
-    const scopedPrimary = ((30 << 16) | (210 << 8) | 40);
+    const scopedPrimary = (30 << 16) | (210 << 8) | 40;
 
     const vnode = ui.column({}, [
       ui.divider({ label: "OUT", color: "primary" }),
@@ -138,7 +138,7 @@ describe("ui.themed", () => {
   test("is layout-transparent for single-child subtrees", () => {
     const tree = commitAndLayout(
       ui.column({}, [
-        ui.themed({ colors: { accent: { primary: ((10 << 16) | (20 << 8) | 30) } } }, [
+        ui.themed({ colors: { accent: { primary: (10 << 16) | (20 << 8) | 30 } } }, [
           ui.text("inside"),
         ]),
         ui.text("outside"),

@@ -2,7 +2,7 @@
  * packages/core/src/animation/interpolate.ts — Primitive interpolation helpers.
  */
 
-import { rgb, rgbB, rgbG, rgbR, type Rgb24 } from "../widgets/style.js";
+import { type Rgb24, rgb, rgbB, rgbG, rgbR } from "../widgets/style.js";
 
 /** Clamp a number into [0, 1]. */
 export function clamp01(value: number): number {

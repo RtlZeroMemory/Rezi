@@ -250,17 +250,17 @@ describe("mergeTextStyle cache correctness for DEFAULT_BASE_STYLE", () => {
   });
 
   test("non-default base path does not stale-reuse entries across differing colors", () => {
-    const redBase = mergeTextStyle(DEFAULT_BASE_STYLE, { fg: ((200 << 16) | (10 << 8) | 20) });
-    const blueBase = mergeTextStyle(DEFAULT_BASE_STYLE, { fg: ((20 << 16) | (10 << 8) | 200) });
+    const redBase = mergeTextStyle(DEFAULT_BASE_STYLE, { fg: (200 << 16) | (10 << 8) | 20 });
+    const blueBase = mergeTextStyle(DEFAULT_BASE_STYLE, { fg: (20 << 16) | (10 << 8) | 200 });
     const redBoldA = mergeTextStyle(redBase, { bold: true });
     const redBoldB = mergeTextStyle(redBase, { bold: true });
     const blueBold = mergeTextStyle(blueBase, { bold: true });
 
     assert.equal(redBoldA === redBoldB, false);
     assert.equal(redBoldA === blueBold, false);
-    assert.deepEqual(redBoldA.fg, ((200 << 16) | (10 << 8) | 20));
-    assert.deepEqual(redBoldB.fg, ((200 << 16) | (10 << 8) | 20));
-    assert.deepEqual(blueBold.fg, ((20 << 16) | (10 << 8) | 200));
+    assert.deepEqual(redBoldA.fg, (200 << 16) | (10 << 8) | 20);
+    assert.deepEqual(redBoldB.fg, (200 << 16) | (10 << 8) | 20);
+    assert.deepEqual(blueBold.fg, (20 << 16) | (10 << 8) | 200);
   });
 
   test("invalid style channels are sanitized before merge", () => {
@@ -353,16 +353,16 @@ describe("mergeTextStyle extended underline fields", () => {
     const base = mergeTextStyle(DEFAULT_BASE_STYLE, {
       underline: true,
       underlineStyle: "double",
-      underlineColor: ((1 << 16) | (2 << 8) | 3),
+      underlineColor: (1 << 16) | (2 << 8) | 3,
     });
     const merged = mergeTextStyle(base, {
       underlineStyle: "curly",
-      underlineColor: ((4 << 16) | (5 << 8) | 6),
+      underlineColor: (4 << 16) | (5 << 8) | 6,
     });
 
     assert.equal(merged.underline, true);
     assert.equal(merged.underlineStyle, "curly");
-    assert.deepEqual(merged.underlineColor, ((4 << 16) | (5 << 8) | 6));
+    assert.deepEqual(merged.underlineColor, (4 << 16) | (5 << 8) | 6);
   });
 
   test("merge retains token-string underlineColor values", () => {

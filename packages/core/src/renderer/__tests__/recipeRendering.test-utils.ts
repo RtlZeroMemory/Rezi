@@ -1,12 +1,6 @@
 import { assert } from "@rezi-ui/testkit";
 import type { DrawlistTextRunSegment } from "../../drawlist/types.js";
-import type {
-  DrawlistBuildResult,
-  DrawlistBuilder,
-  TextStyle,
-  Theme,
-  VNode,
-} from "../../index.js";
+import type { DrawlistBuildResult, DrawlistBuilder, TextStyle, Theme, VNode } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import type { Axis } from "../../layout/types.js";
 import { commitVNodeTree } from "../../runtime/commit.js";

@@ -90,10 +90,10 @@ describe("collections", () => {
       virtualized: true,
       overscan: 5,
       stripedRows: true,
-      stripeStyle: { odd: ((1 << 16) | (2 << 8) | 3), even: ((4 << 16) | (5 << 8) | 6) },
+      stripeStyle: { odd: (1 << 16) | (2 << 8) | 3, even: (4 << 16) | (5 << 8) | 6 },
       showHeader: true,
       border: "single",
-      borderStyle: { variant: "double", color: ((7 << 16) | (8 << 8) | 9) },
+      borderStyle: { variant: "double", color: (7 << 16) | (8 << 8) | 9 },
       onSelectionChange: () => undefined,
       onSort: () => undefined,
       onRowPress: () => undefined,
@@ -108,10 +108,13 @@ describe("collections", () => {
     assert.equal(vnode.props.border, "single");
     assert.equal(vnode.props.columns[0]?.overflow, "middle");
     assert.deepEqual(vnode.props.stripeStyle, {
-      odd: ((1 << 16) | (2 << 8) | 3),
-      even: ((4 << 16) | (5 << 8) | 6),
+      odd: (1 << 16) | (2 << 8) | 3,
+      even: (4 << 16) | (5 << 8) | 6,
     });
-    assert.deepEqual(vnode.props.borderStyle, { variant: "double", color: ((7 << 16) | (8 << 8) | 9) });
+    assert.deepEqual(vnode.props.borderStyle, {
+      variant: "double",
+      color: (7 << 16) | (8 << 8) | 9,
+    });
   });
 
   test("ui.tree creates tree VNode with optional tree features", () => {

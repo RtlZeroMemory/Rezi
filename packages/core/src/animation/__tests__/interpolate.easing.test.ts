@@ -34,28 +34,34 @@ describe("animation/interpolate", () => {
 
   test("interpolateRgb interpolates channel values", () => {
     assert.equal(
-      interpolateRgb(((0 << 16) | (0 << 8) | 0), ((255 << 16) | (255 << 8) | 255), 0.5),
-      ((128 << 16) | (128 << 8) | 128),
+      interpolateRgb((0 << 16) | (0 << 8) | 0, (255 << 16) | (255 << 8) | 255, 0.5),
+      (128 << 16) | (128 << 8) | 128,
     );
   });
 
   test("interpolateRgb returns endpoints at t=0 and t=1", () => {
-    const from = ((3 << 16) | (40 << 8) | 200);
-    const to = ((250 << 16) | (100 << 8) | 0);
+    const from = (3 << 16) | (40 << 8) | 200;
+    const to = (250 << 16) | (100 << 8) | 0;
     assert.deepEqual(interpolateRgb(from, to, 0), from);
     assert.deepEqual(interpolateRgb(from, to, 1), to);
   });
 
   test("interpolateRgb rounds channel interpolation to byte integers", () => {
-    assert.equal(interpolateRgb(((0 << 16) | (0 << 8) | 0), ((1 << 16) | (1 << 8) | 1), 0.5), ((1 << 16) | (1 << 8) | 1));
-    assert.equal(interpolateRgb(((0 << 16) | (0 << 8) | 0), ((2 << 16) | (2 << 8) | 2), 0.5), ((1 << 16) | (1 << 8) | 1));
+    assert.equal(
+      interpolateRgb((0 << 16) | (0 << 8) | 0, (1 << 16) | (1 << 8) | 1, 0.5),
+      (1 << 16) | (1 << 8) | 1,
+    );
+    assert.equal(
+      interpolateRgb((0 << 16) | (0 << 8) | 0, (2 << 16) | (2 << 8) | 2, 0.5),
+      (1 << 16) | (1 << 8) | 1,
+    );
   });
 
   test("interpolateRgbArray returns the requested number of steps", () => {
-    const steps = interpolateRgbArray(((0 << 16) | (0 << 8) | 0), ((255 << 16) | (0 << 8) | 0), 4);
+    const steps = interpolateRgbArray((0 << 16) | (0 << 8) | 0, (255 << 16) | (0 << 8) | 0, 4);
     assert.equal(steps.length, 4);
-    assert.deepEqual(steps[0], ((0 << 16) | (0 << 8) | 0));
-    assert.deepEqual(steps[3], ((255 << 16) | (0 << 8) | 0));
+    assert.deepEqual(steps[0], (0 << 16) | (0 << 8) | 0);
+    assert.deepEqual(steps[3], (255 << 16) | (0 << 8) | 0);
   });
 });
 

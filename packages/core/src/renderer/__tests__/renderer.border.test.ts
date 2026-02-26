@@ -492,9 +492,9 @@ describe("renderer border rendering (deterministic)", () => {
   });
 
   test("box opacity blends merged own style against parent backdrop", () => {
-    const backdrop = ((32 << 16) | (48 << 8) | 64);
-    const childFg = ((250 << 16) | (180 << 8) | 110);
-    const childBg = ((10 << 16) | (20 << 8) | 30);
+    const backdrop = (32 << 16) | (48 << 8) | 64;
+    const childFg = (250 << 16) | (180 << 8) | 110;
+    const childBg = (10 << 16) | (20 << 8) | 30;
     const ops = renderOps(
       ui.column({ id: "root", style: { bg: backdrop } }, [
         ui.box(
@@ -534,7 +534,7 @@ describe("renderer border rendering (deterministic)", () => {
   });
 
   test("button pressedStyle is applied when pressedId matches", () => {
-    const pressedFg = Object.freeze(((255 << 16) | (64 << 8) | 64));
+    const pressedFg = Object.freeze((255 << 16) | (64 << 8) | 64);
     const ops = renderOps(
       ui.button({
         id: "btn",

@@ -8,7 +8,7 @@
  * @see docs/widgets/toast.md
  */
 
-import { rgb, type Rgb24 } from "./style.js";
+import { type Rgb24, rgb } from "./style.js";
 import type { Toast, ToastPosition } from "./types.js";
 
 /** Height of a single toast in cells. */

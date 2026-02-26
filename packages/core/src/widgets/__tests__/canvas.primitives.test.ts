@@ -27,20 +27,20 @@ describe("canvas primitives", () => {
   });
 
   test("drawing surface resolves auto blitter to concrete pixel resolution", () => {
-    const surface = createCanvasDrawingSurface(3, 2, "auto", () => ((1 << 16) | (2 << 8) | 3));
+    const surface = createCanvasDrawingSurface(3, 2, "auto", () => (1 << 16) | (2 << 8) | 3);
     assert.equal(surface.blitter, "braille");
     assert.equal(surface.widthPx, 6);
     assert.equal(surface.heightPx, 8);
   });
 
   test("setPixel writes RGBA bytes", () => {
-    const surface = createCanvasDrawingSurface(2, 2, "ascii", () => ((10 << 16) | (20 << 8) | 30));
+    const surface = createCanvasDrawingSurface(2, 2, "ascii", () => (10 << 16) | (20 << 8) | 30);
     surface.ctx.setPixel(1, 1, "#112233");
     assert.deepEqual(rgbaAt(surface, 1, 1), { r: 17, g: 34, b: 51, a: 255 });
   });
 
   test("line draws deterministic diagonal pixels", () => {
-    const surface = createCanvasDrawingSurface(4, 4, "ascii", () => ((255 << 16) | (255 << 8) | 255));
+    const surface = createCanvasDrawingSurface(4, 4, "ascii", () => (255 << 16) | (255 << 8) | 255);
     surface.ctx.line(0, 0, 3, 3, "#ffffff");
     assert.equal(rgbaAt(surface, 0, 0).a, 255);
     assert.equal(rgbaAt(surface, 1, 1).a, 255);
@@ -49,7 +49,7 @@ describe("canvas primitives", () => {
   });
 
   test("fillRect fills the requested region", () => {
-    const surface = createCanvasDrawingSurface(4, 3, "ascii", () => ((255 << 16) | (0 << 8) | 0));
+    const surface = createCanvasDrawingSurface(4, 3, "ascii", () => (255 << 16) | (0 << 8) | 0);
     surface.ctx.fillRect(1, 1, 2, 1, "#ff0000");
     assert.equal(rgbaAt(surface, 1, 1).r, 255);
     assert.equal(rgbaAt(surface, 2, 1).r, 255);
@@ -57,7 +57,7 @@ describe("canvas primitives", () => {
   });
 
   test("strokeRect draws perimeter only", () => {
-    const surface = createCanvasDrawingSurface(5, 5, "ascii", () => ((255 << 16) | (255 << 8) | 255));
+    const surface = createCanvasDrawingSurface(5, 5, "ascii", () => (255 << 16) | (255 << 8) | 255);
     surface.ctx.strokeRect(1, 1, 3, 3, "#ffffff");
     assert.equal(rgbaAt(surface, 1, 1).a, 255);
     assert.equal(rgbaAt(surface, 2, 1).a, 255);
@@ -66,7 +66,7 @@ describe("canvas primitives", () => {
   });
 
   test("polyline connects each point with line segments", () => {
-    const surface = createCanvasDrawingSurface(7, 7, "ascii", () => ((255 << 16) | (255 << 8) | 255));
+    const surface = createCanvasDrawingSurface(7, 7, "ascii", () => (255 << 16) | (255 << 8) | 255);
     surface.ctx.polyline(
       [
         { x: 0, y: 0 },
@@ -81,7 +81,7 @@ describe("canvas primitives", () => {
   });
 
   test("roundedRect draws rounded corners and straight edges", () => {
-    const surface = createCanvasDrawingSurface(9, 7, "ascii", () => ((255 << 16) | (255 << 8) | 255));
+    const surface = createCanvasDrawingSurface(9, 7, "ascii", () => (255 << 16) | (255 << 8) | 255);
     surface.ctx.roundedRect(1, 1, 7, 5, 2, "#ffffff");
     assert.equal(rgbaAt(surface, 4, 3).a, 0);
     assert.equal(rgbaAt(surface, 3, 1).a, 255);
@@ -89,7 +89,12 @@ describe("canvas primitives", () => {
   });
 
   test("circle outlines are symmetric", () => {
-    const surface = createCanvasDrawingSurface(11, 11, "ascii", () => ((255 << 16) | (255 << 8) | 255));
+    const surface = createCanvasDrawingSurface(
+      11,
+      11,
+      "ascii",
+      () => (255 << 16) | (255 << 8) | 255,
+    );
     surface.ctx.circle(5, 5, 3, "#ffffff");
     assert.equal(rgbaAt(surface, 5, 2).a, 255);
     assert.equal(rgbaAt(surface, 5, 8).a, 255);
@@ -98,7 +103,7 @@ describe("canvas primitives", () => {
   });
 
   test("fillCircle paints interior pixels", () => {
-    const surface = createCanvasDrawingSurface(9, 9, "ascii", () => ((0 << 16) | (255 << 8) | 0));
+    const surface = createCanvasDrawingSurface(9, 9, "ascii", () => (0 << 16) | (255 << 8) | 0);
     surface.ctx.fillCircle(4, 4, 2, "#00ff00");
     assert.equal(rgbaAt(surface, 4, 4).g, 255);
     assert.equal(rgbaAt(surface, 4, 2).g, 255);
@@ -107,7 +112,12 @@ describe("canvas primitives", () => {
   });
 
   test("arc draws a partial circle segment", () => {
-    const surface = createCanvasDrawingSurface(11, 11, "ascii", () => ((255 << 16) | (255 << 8) | 255));
+    const surface = createCanvasDrawingSurface(
+      11,
+      11,
+      "ascii",
+      () => (255 << 16) | (255 << 8) | 255,
+    );
     surface.ctx.arc(5, 5, 3, 0, Math.PI * 0.5, "#ffffff");
     assert.equal(rgbaAt(surface, 8, 5).a, 255);
     assert.equal(rgbaAt(surface, 5, 8).a, 255);
@@ -115,21 +125,26 @@ describe("canvas primitives", () => {
   });
 
   test("fillTriangle paints enclosed pixels", () => {
-    const surface = createCanvasDrawingSurface(8, 6, "ascii", () => ((255 << 16) | (255 << 8) | 255));
+    const surface = createCanvasDrawingSurface(8, 6, "ascii", () => (255 << 16) | (255 << 8) | 255);
     surface.ctx.fillTriangle(1, 1, 6, 1, 3, 4, "#ffffff");
     assert.equal(rgbaAt(surface, 3, 2).a, 255);
     assert.equal(rgbaAt(surface, 0, 0).a, 0);
   });
 
   test("text overlays map subcell coordinates to cell coordinates", () => {
-    const surface = createCanvasDrawingSurface(4, 2, "braille", () => ((255 << 16) | (255 << 8) | 255));
+    const surface = createCanvasDrawingSurface(
+      4,
+      2,
+      "braille",
+      () => (255 << 16) | (255 << 8) | 255,
+    );
     surface.ctx.text(3, 5, "ok", "#ffaa00");
     surface.ctx.text(-0.2, 0, "hidden");
     assert.deepEqual(surface.overlays, [{ x: 1, y: 1, text: "ok", color: "#ffaa00" }]);
   });
 
   test("clear removes pixels and overlay text", () => {
-    const surface = createCanvasDrawingSurface(2, 2, "ascii", () => ((255 << 16) | (255 << 8) | 255));
+    const surface = createCanvasDrawingSurface(2, 2, "ascii", () => (255 << 16) | (255 << 8) | 255);
     surface.ctx.setPixel(1, 1, "#ffffff");
     surface.ctx.text(0, 0, "hi");
     surface.ctx.clear();
@@ -141,7 +156,7 @@ describe("canvas primitives", () => {
   });
 
   test("clear with color fills surface and clears overlays", () => {
-    const surface = createCanvasDrawingSurface(2, 1, "ascii", () => ((255 << 16) | (255 << 8) | 255));
+    const surface = createCanvasDrawingSurface(2, 1, "ascii", () => (255 << 16) | (255 << 8) | 255);
     surface.ctx.text(0, 0, "x");
     surface.ctx.clear("#123456");
     assert.deepEqual(rgbaAt(surface, 0, 0), { r: 18, g: 52, b: 86, a: 255 });

@@ -1,9 +1,6 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type { RuntimeBackend } from "../../backend.js";
-import type {
-  DrawlistBuildResult,
-  DrawlistBuilder,
-} from "../../drawlist/index.js";
+import type { DrawlistBuildResult, DrawlistBuilder } from "../../drawlist/index.js";
 import type { CursorState } from "../../drawlist/index.js";
 import type { DrawlistTextRunSegment } from "../../drawlist/types.js";
 import type { TextStyle, VNode } from "../../index.js";

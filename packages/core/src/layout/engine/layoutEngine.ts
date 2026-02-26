@@ -144,7 +144,8 @@ function measureNode(vnode: VNode, maxW: number, maxH: number, axis: Axis): Layo
 
   if (__layoutProfile.enabled) {
     __layoutProfile.measureNodeCalls++;
-    __layoutProfile.measureByKind[vnode.kind] = (__layoutProfile.measureByKind[vnode.kind] ?? 0) + 1;
+    __layoutProfile.measureByKind[vnode.kind] =
+      (__layoutProfile.measureByKind[vnode.kind] ?? 0) + 1;
   }
 
   const cache = activeMeasureCache;

@@ -5,8 +5,8 @@
  * Kept separate from theme helpers to avoid accidental circular imports.
  */
 
-import type { Theme } from "./types.js";
 import { rgb } from "../widgets/style.js";
+import type { Theme } from "./types.js";
 
 export const defaultTheme: Theme = Object.freeze({
   colors: Object.freeze({

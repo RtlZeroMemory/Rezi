@@ -5,7 +5,7 @@
  * foreground/background color pairs.
  */
 
-import { rgbB, rgbG, rgbR, type Rgb24 } from "../widgets/style.js";
+import { type Rgb24, rgbB, rgbG, rgbR } from "../widgets/style.js";
 
 function srgbToLinear(channel: number): number {
   const srgb = channel / 255;

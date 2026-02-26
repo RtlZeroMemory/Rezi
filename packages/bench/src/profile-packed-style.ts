@@ -5,7 +5,15 @@
  *   REZI_PERF=1 REZI_PERF_DETAIL=1 npx tsx src/profile-packed-style.ts
  */
 
-import { type TextStyle, type VNode, createApp, perfReset, perfSnapshot, rgb, ui } from "@rezi-ui/core";
+import {
+  type TextStyle,
+  type VNode,
+  createApp,
+  perfReset,
+  perfSnapshot,
+  rgb,
+  ui,
+} from "@rezi-ui/core";
 import { BenchBackend } from "./backends.js";
 
 const ROWS = 1200;
@@ -41,7 +49,9 @@ function makeRowStyle(index: number, tick: number): TextStyle {
 function packedStyleTree(tick: number): VNode {
   const rows: VNode[] = [];
   for (let i = 0; i < ROWS; i++) {
-    rows.push(ui.text(`row-${String(i).padStart(4, "0")} tick=${tick}`, { style: makeRowStyle(i, tick) }));
+    rows.push(
+      ui.text(`row-${String(i).padStart(4, "0")} tick=${tick}`, { style: makeRowStyle(i, tick) }),
+    );
   }
   return ui.column({ p: 0, gap: 0 }, rows);
 }
@@ -72,9 +82,9 @@ async function main() {
 
   const snap = perfSnapshot();
   const counters = snap.counters;
-  const merges = counters["style_merges_performed"] ?? 0;
-  const styleObjects = counters["style_objects_created"] ?? 0;
-  const packRgbCalls = counters["packRgb_calls"] ?? 0;
+  const merges = counters.style_merges_performed ?? 0;
+  const styleObjects = counters.style_objects_created ?? 0;
+  const packRgbCalls = counters.packRgb_calls ?? 0;
   const renderAvgUs = ((snap.phases.render?.avg ?? 0) * 1000).toFixed(0);
   const drawlistAvgUs = ((snap.phases.drawlist_build?.avg ?? 0) * 1000).toFixed(0);
   const reusePct = merges > 0 ? (((merges - styleObjects) / merges) * 100).toFixed(2) : "0.00";

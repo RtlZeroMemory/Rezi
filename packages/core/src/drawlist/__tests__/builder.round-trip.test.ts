@@ -1,9 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import {
-  ZRDL_MAGIC,
-  ZR_DRAWLIST_VERSION_V1,
-  createDrawlistBuilder,
-} from "../../index.js";
+import { ZRDL_MAGIC, ZR_DRAWLIST_VERSION_V1, createDrawlistBuilder } from "../../index.js";
 
 const HEADER_SIZE = 64;
 const INT32_MAX = 2147483647;
@@ -211,8 +207,8 @@ describe("DrawlistBuilder round-trip binary readback", () => {
     const b = createDrawlistBuilder();
     b.clear();
     b.fillRect(1, 2, 3, 4, {
-      fg: ((0x11 << 16) | (0x22 << 8) | 0x33),
-      bg: ((0x44 << 16) | (0x55 << 8) | 0x66),
+      fg: (0x11 << 16) | (0x22 << 8) | 0x33,
+      bg: (0x44 << 16) | (0x55 << 8) | 0x66,
       bold: true,
       italic: true,
     });
@@ -246,8 +242,8 @@ describe("DrawlistBuilder round-trip binary readback", () => {
   test("v1 fillRect command readback preserves geometry and packed style", () => {
     const b = createDrawlistBuilder();
     b.fillRect(-3, 9, 11, 13, {
-      fg: ((1 << 16) | (2 << 8) | 3),
-      bg: ((4 << 16) | (5 << 8) | 6),
+      fg: (1 << 16) | (2 << 8) | 3,
+      bg: (4 << 16) | (5 << 8) | 6,
       bold: true,
       underline: true,
       dim: true,
@@ -280,8 +276,8 @@ describe("DrawlistBuilder round-trip binary readback", () => {
   test("v1 drawText command readback resolves string span and style fields", () => {
     const b = createDrawlistBuilder();
     b.drawText(7, 9, "hello", {
-      fg: ((255 << 16) | (128 << 8) | 1),
-      bg: ((2 << 16) | (3 << 8) | 4),
+      fg: (255 << 16) | (128 << 8) | 1,
+      bg: (2 << 16) | (3 << 8) | 4,
       italic: true,
       inverse: true,
     });
@@ -506,7 +502,7 @@ describe("DrawlistBuilder round-trip binary readback", () => {
     const b = createDrawlistBuilder();
     b.clear();
     b.pushClip(0, 0, 80, 24);
-    b.fillRect(1, 1, 5, 2, { bg: ((7 << 16) | (8 << 8) | 9), inverse: true });
+    b.fillRect(1, 1, 5, 2, { bg: (7 << 16) | (8 << 8) | 9, inverse: true });
     b.drawText(2, 2, "rt");
     b.setCursor({ x: 2, y: 2, shape: 1, visible: true, blink: false });
     b.popClip();

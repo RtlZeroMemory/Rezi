@@ -434,7 +434,7 @@ describe("layout edge cases", () => {
       kind: "layer",
       props: {
         id: "layer-border-inset",
-        frameStyle: { border: ((120 << 16) | (121 << 8) | 122) },
+        frameStyle: { border: (120 << 16) | (121 << 8) | 122 },
         content: { kind: "text", text: "edge", props: {} },
       },
     };

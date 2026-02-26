@@ -1,21 +1,16 @@
 import { appendFileSync } from "node:fs";
 import type { Readable, Writable } from "node:stream";
 import { format as formatConsoleMessage } from "node:util";
-import {
-  type Rgb24,
-  type TextStyle,
-  type VNode,
-  measureTextCells,
-} from "@rezi-ui/core";
+import { type Rgb24, type TextStyle, type VNode, measureTextCells } from "@rezi-ui/core";
 import React from "react";
 
 import { type KittyFlagName, resolveKittyFlags } from "../kitty-keyboard.js";
 import type { InkHostContainer, InkHostNode } from "../reconciler/types.js";
 import { enableTranslationTrace, flushTranslationTrace } from "../translation/traceCollector.js";
 import { checkAllResizeObservers } from "./ResizeObserver.js";
-import { type InkRendererTraceEvent, createInkRenderer } from "./createInkRenderer.js";
 import { createBridge } from "./bridge.js";
 import { InkContext } from "./context.js";
+import { type InkRendererTraceEvent, createInkRenderer } from "./createInkRenderer.js";
 import { commitSync, createReactRoot } from "./reactHelpers.js";
 
 export interface KittyKeyboardOptions {
@@ -902,8 +897,10 @@ function snapshotCellGridRows(
     for (let col = 0; col < captureTo; col++) {
       const cell = row[col]!;
       const entry: Record<string, unknown> = { c: cell.char };
-      if (cell.style?.bg) entry["bg"] = `${rgbR(cell.style.bg)},${rgbG(cell.style.bg)},${rgbB(cell.style.bg)}`;
-      if (cell.style?.fg) entry["fg"] = `${rgbR(cell.style.fg)},${rgbG(cell.style.fg)},${rgbB(cell.style.fg)}`;
+      if (cell.style?.bg)
+        entry["bg"] = `${rgbR(cell.style.bg)},${rgbG(cell.style.bg)},${rgbB(cell.style.bg)}`;
+      if (cell.style?.fg)
+        entry["fg"] = `${rgbR(cell.style.fg)},${rgbG(cell.style.fg)},${rgbB(cell.style.fg)}`;
       if (cell.style?.bold) entry["bold"] = true;
       if (cell.style?.dim) entry["dim"] = true;
       if (cell.style?.inverse) entry["inv"] = true;
@@ -1221,9 +1218,7 @@ function styleToSgr(style: CellStyle | undefined, colorSupport: ColorSupport): s
   if (colorSupport.level > 0) {
     if (style.fg) {
       if (colorSupport.level >= 3) {
-        codes.push(
-          `38;2;${rgbR(style.fg)};${rgbG(style.fg)};${rgbB(style.fg)}`,
-        );
+        codes.push(`38;2;${rgbR(style.fg)};${rgbG(style.fg)};${rgbB(style.fg)}`);
       } else if (colorSupport.level === 2) {
         codes.push(`38;5;${toAnsi256Code(style.fg)}`);
       } else {
@@ -1232,9 +1227,7 @@ function styleToSgr(style: CellStyle | undefined, colorSupport: ColorSupport): s
     }
     if (style.bg) {
       if (colorSupport.level >= 3) {
-        codes.push(
-          `48;2;${rgbR(style.bg)};${rgbG(style.bg)};${rgbB(style.bg)}`,
-        );
+        codes.push(`48;2;${rgbR(style.bg)};${rgbG(style.bg)};${rgbB(style.bg)}`);
       } else if (colorSupport.level === 2) {
         codes.push(`48;5;${toAnsi256Code(style.bg)}`);
       } else {
@@ -2175,7 +2168,10 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
       parentSize: viewport,
       parentMainAxis: "column",
     });
-    const staticResult = staticRenderer.render(translatedStaticWithPercent, { viewport, forceLayout: true });
+    const staticResult = staticRenderer.render(translatedStaticWithPercent, {
+      viewport,
+      forceLayout: true,
+    });
     const staticHasAnsiSgr = hostTreeContainsAnsiSgr(bridge.rootNode);
     const staticColorSupport = staticHasAnsiSgr ? FORCED_TRUECOLOR_SUPPORT : colorSupport;
     const { ansi: staticAnsi } = renderOpsToAnsi(
@@ -2243,7 +2239,10 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
       rootHeightCoerced = coerced.coerced;
 
       let t0 = performance.now();
-      let result = renderer.render(vnode, { viewport: layoutViewport, forceLayout: viewportChanged });
+      let result = renderer.render(vnode, {
+        viewport: layoutViewport,
+        forceLayout: viewportChanged,
+      });
       coreRenderMs += performance.now() - t0;
 
       t0 = performance.now();
@@ -2516,10 +2515,12 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
 
       if (frameProfileFile) {
         const _r = (v: number): number => Math.round(v * 1000) / 1000;
+        const layoutProfile = (result.timings as { _layoutProfile?: unknown } | undefined)
+          ?._layoutProfile;
         try {
           appendFileSync(
             frameProfileFile,
-            JSON.stringify({
+            `${JSON.stringify({
               frame: frameCount,
               ts: Date.now(),
               totalMs: _r(renderTime),
@@ -2536,8 +2537,8 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
               passes: coreRenderPassesThisFrame,
               ops: result.ops.length,
               nodes: result.nodes.length,
-              ...(((result.timings as any)?._layoutProfile) ? { _lp: (result.timings as any)._layoutProfile } : {}),
-            }) + "\n",
+              ...(layoutProfile === undefined ? {} : { _lp: layoutProfile }),
+            })}\n`,
           );
         } catch {}
       }

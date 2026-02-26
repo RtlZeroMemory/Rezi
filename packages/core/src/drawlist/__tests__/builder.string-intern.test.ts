@@ -22,9 +22,7 @@ type BuilderOpts = Readonly<{
 const FACTORIES: readonly Readonly<{
   name: string;
   create(opts?: BuilderOpts): BuilderLike;
-}>[] = [
-  { name: "current", create: (opts?: BuilderOpts) => createDrawlistBuilder(opts) },
-];
+}>[] = [{ name: "current", create: (opts?: BuilderOpts) => createDrawlistBuilder(opts) }];
 
 function u16(bytes: Uint8Array, off: number): number {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);

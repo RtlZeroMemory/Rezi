@@ -505,7 +505,7 @@ describe("renderer scroll container integration", () => {
   test("scrollbarStyle overrides rendered scrollbar draw style", () => {
     const lines: VNode[] = [];
     for (let i = 0; i < 6; i++) lines.push(ui.text("abcd"));
-    const customFg = Object.freeze(((1 << 16) | (2 << 8) | 3));
+    const customFg = Object.freeze((1 << 16) | (2 << 8) | 3);
     const vnode = ui.box(
       {
         width: 6,

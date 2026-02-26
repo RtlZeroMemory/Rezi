@@ -1,5 +1,5 @@
 import { perfCount } from "../../perf/perf.js";
-import { rgb, rgbBlend, type TextStyle } from "../../widgets/style.js";
+import { type TextStyle, rgb, rgbBlend } from "../../widgets/style.js";
 import { sanitizeTextStyle } from "../../widgets/styleUtils.js";
 
 const ATTR_BOLD = 1 << 0;

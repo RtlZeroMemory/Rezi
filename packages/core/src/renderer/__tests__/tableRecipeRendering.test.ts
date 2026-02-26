@@ -15,10 +15,7 @@ const data: readonly Row[] = [
   { id: "r1", name: "Beta" },
 ];
 
-function rgbEquals(
-  actual: unknown,
-  expected: number | undefined,
-): boolean {
+function rgbEquals(actual: unknown, expected: number | undefined): boolean {
   return typeof actual === "number" && expected !== undefined && actual === expected;
 }
 

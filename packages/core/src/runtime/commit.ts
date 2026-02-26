@@ -222,8 +222,9 @@ function leafVNodeEqual(a: VNode, b: VNode): boolean {
       if (as === bs) return true;
       if (!as || !bs || as.length !== bs.length) return false;
       for (let i = 0; i < as.length; i++) {
-        const sa = as[i]!;
-        const sb = bs[i]!;
+        const sa = as[i];
+        const sb = bs[i];
+        if (!sa || !sb) return false;
         if (sa.text !== sb.text) return false;
         if (
           !textStyleEqual(
@@ -559,29 +560,95 @@ function canFastReuseContainerSelf(prev: VNode, next: VNode): boolean {
  */
 function diagWhichPropFails(prev: VNode, next: VNode): string | undefined {
   if (prev.kind !== next.kind) return "kind";
-  const ap = (prev.props ?? {}) as Record<string, unknown>;
-  const bp = (next.props ?? {}) as Record<string, unknown>;
+  type ReuseDiagProps = {
+    style?: unknown;
+    inheritStyle?: unknown;
+    [key: string]: unknown;
+  };
+  const ap = (prev.props ?? {}) as ReuseDiagProps;
+  const bp = (next.props ?? {}) as ReuseDiagProps;
   if (prev.kind === "row" || prev.kind === "column") {
     for (const k of ["pad", "gap", "align", "justify", "items"] as const) {
       if (ap[k] !== bp[k]) return k;
     }
-    if (!textStyleEqual(ap["style"] as Parameters<typeof textStyleEqual>[0], bp["style"] as Parameters<typeof textStyleEqual>[0])) return "style";
-    if (!textStyleEqual(ap["inheritStyle"] as Parameters<typeof textStyleEqual>[0], bp["inheritStyle"] as Parameters<typeof textStyleEqual>[0])) return "inheritStyle";
+    if (
+      !textStyleEqual(
+        ap.style as Parameters<typeof textStyleEqual>[0],
+        bp.style as Parameters<typeof textStyleEqual>[0],
+      )
+    )
+      return "style";
+    if (
+      !textStyleEqual(
+        ap.inheritStyle as Parameters<typeof textStyleEqual>[0],
+        bp.inheritStyle as Parameters<typeof textStyleEqual>[0],
+      )
+    )
+      return "inheritStyle";
     // layout constraints
-    for (const k of ["width", "height", "minWidth", "maxWidth", "minHeight", "maxHeight", "flex", "aspectRatio"] as const) {
+    for (const k of [
+      "width",
+      "height",
+      "minWidth",
+      "maxWidth",
+      "minHeight",
+      "maxHeight",
+      "flex",
+      "aspectRatio",
+    ] as const) {
       if (ap[k] !== bp[k]) return k;
     }
     // spacing
-    for (const k of ["p", "px", "py", "pt", "pb", "pl", "pr", "m", "mx", "my", "mt", "mr", "mb", "ml"] as const) {
+    for (const k of [
+      "p",
+      "px",
+      "py",
+      "pt",
+      "pb",
+      "pl",
+      "pr",
+      "m",
+      "mx",
+      "my",
+      "mt",
+      "mr",
+      "mb",
+      "ml",
+    ] as const) {
       if (ap[k] !== bp[k]) return k;
     }
   }
   if (prev.kind === "box") {
-    for (const k of ["title", "titleAlign", "pad", "border", "borderTop", "borderRight", "borderBottom", "borderLeft", "opacity"] as const) {
+    for (const k of [
+      "title",
+      "titleAlign",
+      "pad",
+      "border",
+      "borderTop",
+      "borderRight",
+      "borderBottom",
+      "borderLeft",
+      "opacity",
+    ] as const) {
       if (ap[k] !== bp[k]) return k;
     }
-    if (!textStyleEqual(ap["style"] as Parameters<typeof textStyleEqual>[0], bp["style"] as Parameters<typeof textStyleEqual>[0])) return "style";
-    for (const k of ["width", "height", "minWidth", "maxWidth", "minHeight", "maxHeight", "flex", "aspectRatio"] as const) {
+    if (
+      !textStyleEqual(
+        ap.style as Parameters<typeof textStyleEqual>[0],
+        bp.style as Parameters<typeof textStyleEqual>[0],
+      )
+    )
+      return "style";
+    for (const k of [
+      "width",
+      "height",
+      "minWidth",
+      "maxWidth",
+      "minHeight",
+      "maxHeight",
+      "flex",
+      "aspectRatio",
+    ] as const) {
       if (ap[k] !== bp[k]) return k;
     }
   }
@@ -1269,8 +1336,12 @@ function commitContainer(
         // with dirty=true even though it returned the same reference.
         if (__commitDiag.enabled) {
           const wasDirty = prev.selfDirty;
-          __commitDiag.push({ id: instanceId as number, kind: vnode.kind, reason: "fast-reuse",
-            detail: wasDirty ? "was-dirty" : undefined });
+          __commitDiag.push({
+            id: instanceId as number,
+            kind: vnode.kind,
+            reason: "fast-reuse",
+            detail: wasDirty ? "was-dirty" : undefined,
+          });
         }
         prev.selfDirty = false;
         prev.dirty = hasDirtyChild(prev.children);
@@ -1293,7 +1364,8 @@ function commitContainer(
             if (prevChildren[ci] !== (nextChildren as readonly RuntimeInstance[])[ci]) childDiffs++;
           }
           __commitDiag.push({
-            id: instanceId as number, kind: vnode.kind,
+            id: instanceId as number,
+            kind: vnode.kind,
             reason: "fast-reuse",
             detail: "children-changed" as "was-dirty" | undefined,
             childDiffs,
@@ -1314,25 +1386,38 @@ function commitContainer(
           // children are different — but WHY? count how many differ
           let childDiffs = 0;
           for (let ci = 0; ci < prevChildren.length; ci++) {
-            if (nextChildren && prevChildren[ci] !== (nextChildren as readonly RuntimeInstance[])[ci]) childDiffs++;
+            if (
+              nextChildren &&
+              prevChildren[ci] !== (nextChildren as readonly RuntimeInstance[])[ci]
+            )
+              childDiffs++;
           }
           // also check if props would have passed
           const propsOk = canFastReuseContainerSelf(prev.vnode, vnode);
           __commitDiag.push({
-            id: instanceId as number, kind: vnode.kind,
+            id: instanceId as number,
+            kind: vnode.kind,
             reason: "new-instance",
             detail: propsOk ? "children-changed" : "props+children",
             failingProp: propsOk ? undefined : diagWhichPropFails(prev.vnode, vnode),
             childDiffs,
             prevChildren: prevChildren.length,
-            nextChildren: nextChildren ? (nextChildren as readonly RuntimeInstance[]).length : res.value.nextChildren.length,
+            nextChildren: nextChildren
+              ? (nextChildren as readonly RuntimeInstance[]).length
+              : res.value.nextChildren.length,
           });
         } else if (!childOrderStable) {
-          __commitDiag.push({ id: instanceId as number, kind: vnode.kind, reason: "new-instance", detail: "children-changed" });
+          __commitDiag.push({
+            id: instanceId as number,
+            kind: vnode.kind,
+            reason: "new-instance",
+            detail: "children-changed",
+          });
         } else {
           // allChildrenSame && childOrderStable but canFastReuseContainerSelf failed
           __commitDiag.push({
-            id: instanceId as number, kind: vnode.kind,
+            id: instanceId as number,
+            kind: vnode.kind,
             reason: "new-instance",
             detail: "props-changed",
             failingProp: diagWhichPropFails(prev.vnode, vnode),
@@ -1387,6 +1472,15 @@ function commitContainer(
       nextChildren = reorderedChildren;
       committedChildVNodes = reorderedVNodes;
     }
+    if (!committedChildVNodes) {
+      return {
+        ok: false,
+        fatal: {
+          code: "ZRUI_INVALID_PROPS",
+          detail: "commit invariant violated: missing committed child VNodes",
+        },
+      };
+    }
 
     const propsChanged = prev === null || !canFastReuseContainerSelf(prev.vnode, vnode);
     const childrenChanged = prev === null || runtimeChildrenChanged(prevChildren, nextChildren);
@@ -1401,19 +1495,29 @@ function commitContainer(
       }
       cDiffs += Math.abs(prevChildren.length - nextChildren.length);
       __commitDiag.push({
-        id: instanceId as number, kind: vnode.kind,
+        id: instanceId as number,
+        kind: vnode.kind,
         reason: "new-instance",
-        detail: propsChanged && childrenChanged ? "props+children"
-          : propsChanged ? "props-changed"
-          : childrenChanged ? "children-changed"
-          : "general-path",
+        detail:
+          propsChanged && childrenChanged
+            ? "props+children"
+            : propsChanged
+              ? "props-changed"
+              : childrenChanged
+                ? "children-changed"
+                : "general-path",
         failingProp: propsChanged ? diagWhichPropFails(prev.vnode, vnode) : undefined,
         childDiffs: cDiffs,
         prevChildren: prevChildren.length,
         nextChildren: nextChildren.length,
       });
     } else if (__commitDiag.enabled && prev === null) {
-      __commitDiag.push({ id: instanceId as number, kind: vnode.kind, reason: "new-instance", detail: "no-prev" });
+      __commitDiag.push({
+        id: instanceId as number,
+        kind: vnode.kind,
+        reason: "new-instance",
+        detail: "no-prev",
+      });
     }
 
     // In-place mutation: when props are unchanged and only children references
@@ -1421,7 +1525,7 @@ function commitContainer(
     // This prevents parent containers from cascading new-instance creation.
     if (prev !== null && !propsChanged && childrenChanged) {
       (prev as { children: readonly RuntimeInstance[] }).children = nextChildren;
-      (prev as { vnode: VNode }).vnode = rewriteCommittedVNode(vnode, committedChildVNodes!);
+      (prev as { vnode: VNode }).vnode = rewriteCommittedVNode(vnode, committedChildVNodes);
       prev.selfDirty = true;
       prev.dirty = true;
       return { ok: true, value: { root: prev } };
@@ -1677,10 +1781,16 @@ function commitNode(
     }
 
     // Temporary debug: trace commit matching (remove after investigation)
-    if ((globalThis as Record<string, unknown>)["__commitDebug"]) {
-      const debugLog = (globalThis as Record<string, unknown>)["__commitDebugLog"] as string[] | undefined;
+    const commitDebug = globalThis as Record<string, unknown> & {
+      __commitDebug?: unknown;
+      __commitDebugLog?: string[] | undefined;
+    };
+    if (commitDebug.__commitDebug) {
+      const debugLog = commitDebug.__commitDebugLog;
       if (debugLog) {
-        debugLog.push(`commitNode(${String(instanceId)}, ${vnode.kind}, prev=${prev ? `${prev.vnode.kind}:${String(prev.instanceId)}` : "null"})`);
+        debugLog.push(
+          `commitNode(${String(instanceId)}, ${vnode.kind}, prev=${prev ? `${prev.vnode.kind}:${String(prev.instanceId)}` : "null"})`,
+        );
       }
     }
 
@@ -1690,8 +1800,12 @@ function commitNode(
     if (prev && prev.vnode.kind === vnode.kind && leafVNodeEqual(prev.vnode, vnode)) {
       if (__commitDiag.enabled) {
         const wasDirty = prev.selfDirty;
-        __commitDiag.push({ id: instanceId as number, kind: vnode.kind, reason: "leaf-reuse",
-          detail: wasDirty ? "was-dirty" : undefined });
+        __commitDiag.push({
+          id: instanceId as number,
+          kind: vnode.kind,
+          reason: "leaf-reuse",
+          detail: wasDirty ? "was-dirty" : undefined,
+        });
       }
       if (ctx.collectLifecycleInstanceIds) ctx.lists.reused.push(instanceId);
       prev.dirty = false;
@@ -1701,9 +1815,19 @@ function commitNode(
     // Diagnostic: leaf not reused
     if (__commitDiag.enabled && prev && !isContainerVNode(vnode)) {
       if (prev.vnode.kind !== vnode.kind) {
-        __commitDiag.push({ id: instanceId as number, kind: vnode.kind, reason: "new-instance", detail: "leaf-kind-mismatch" });
+        __commitDiag.push({
+          id: instanceId as number,
+          kind: vnode.kind,
+          reason: "new-instance",
+          detail: "leaf-kind-mismatch",
+        });
       } else {
-        __commitDiag.push({ id: instanceId as number, kind: vnode.kind, reason: "new-instance", detail: "leaf-content-changed" });
+        __commitDiag.push({
+          id: instanceId as number,
+          kind: vnode.kind,
+          reason: "new-instance",
+          detail: "leaf-content-changed",
+        });
       }
     }
 
@@ -1772,7 +1896,8 @@ function commitNode(
       if (prev) ctx.lists.reused.push(instanceId);
       else {
         ctx.lists.mounted.push(instanceId);
-        if (__commitDiag.enabled) __commitDiag.push({ id: instanceId as number, kind: vnode.kind, reason: "new-mount" });
+        if (__commitDiag.enabled)
+          __commitDiag.push({ id: instanceId as number, kind: vnode.kind, reason: "new-mount" });
       }
     }
 

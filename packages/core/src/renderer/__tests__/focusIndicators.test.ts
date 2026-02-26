@@ -339,7 +339,7 @@ describe("focus indicator rendering contracts", () => {
   });
 
   test("FocusConfig.style overrides design-system focus defaults", () => {
-    const customRing = Object.freeze(((255 << 16) | (0 << 8) | 128));
+    const customRing = Object.freeze((255 << 16) | (0 << 8) | 128);
     const theme = coerceToLegacyTheme(darkTheme);
     const textOps = drawTextOps(
       renderOps(

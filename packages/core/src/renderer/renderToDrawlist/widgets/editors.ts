@@ -5,13 +5,13 @@ import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { FocusState } from "../../../runtime/focus.js";
 import type { Theme } from "../../../theme/theme.js";
 import { tokenizeCodeEditorLineWithCustom } from "../../../widgets/codeEditorSyntax.js";
-import type { Rgb24 } from "../../../widgets/style.js";
 import {
   formatCost,
   formatDuration,
   formatTimestamp,
   formatTokenCount,
 } from "../../../widgets/logsConsole.js";
+import type { Rgb24 } from "../../../widgets/style.js";
 import type {
   CodeEditorLineTokenizer,
   CodeEditorProps,
@@ -60,11 +60,7 @@ function logLevelToThemeColor(theme: Theme, level: LogsConsoleProps["entries"][n
 
 type CodeEditorSyntaxStyleMap = Readonly<Record<CodeEditorSyntaxTokenKind, ResolvedTextStyle>>;
 
-function resolveSyntaxThemeColor(
-  theme: Theme,
-  key: string,
-  fallback: Rgb24,
-) {
+function resolveSyntaxThemeColor(theme: Theme, key: string, fallback: Rgb24) {
   return theme.colors[key] ?? fallback;
 }
 

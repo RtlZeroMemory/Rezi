@@ -51,7 +51,7 @@ function randomBool(rng: Rng): boolean {
 }
 
 function randomRgb(rng: Rng): NonNullable<TextStyle["fg"]> {
-  return (((rng.u32() & 255) << 16) | ((rng.u32() & 255) << 8) | (rng.u32() & 255));
+  return ((rng.u32() & 255) << 16) | ((rng.u32() & 255) << 8) | (rng.u32() & 255);
 }
 
 function randomBase(rng: Rng): ResolvedTextStyle {

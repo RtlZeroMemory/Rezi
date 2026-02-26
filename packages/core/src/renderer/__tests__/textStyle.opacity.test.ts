@@ -9,8 +9,8 @@ import {
 describe("renderer/textStyle opacity blending", () => {
   test("opacity >= 1 returns the original style reference", () => {
     const style = mergeTextStyle(DEFAULT_BASE_STYLE, {
-      fg: ((255 << 16) | (0 << 8) | 0),
-      bg: ((0 << 16) | (0 << 8) | 80),
+      fg: (255 << 16) | (0 << 8) | 0,
+      bg: (0 << 16) | (0 << 8) | 80,
       bold: true,
     });
     assert.equal(applyOpacityToStyle(style, 1), style);
@@ -19,8 +19,8 @@ describe("renderer/textStyle opacity blending", () => {
 
   test("opacity <= 0 collapses fg/bg to base background", () => {
     const style = mergeTextStyle(DEFAULT_BASE_STYLE, {
-      fg: ((240 << 16) | (120 << 8) | 60),
-      bg: ((30 << 16) | (40 << 8) | 50),
+      fg: (240 << 16) | (120 << 8) | 60,
+      bg: (30 << 16) | (40 << 8) | 50,
       italic: true,
     });
 
@@ -32,8 +32,8 @@ describe("renderer/textStyle opacity blending", () => {
 
   test("blends channels with rounding and preserves non-color attrs", () => {
     const style = mergeTextStyle(DEFAULT_BASE_STYLE, {
-      fg: ((107 << 16) | (203 << 8) | 31),
-      bg: ((90 << 16) | (40 << 8) | 200),
+      fg: (107 << 16) | (203 << 8) | 31,
+      bg: (90 << 16) | (40 << 8) | 200,
       underline: true,
     });
 
@@ -45,18 +45,18 @@ describe("renderer/textStyle opacity blending", () => {
 
   test("non-finite opacity is treated as fully opaque", () => {
     const style = mergeTextStyle(DEFAULT_BASE_STYLE, {
-      fg: ((200 << 16) | (100 << 8) | 90),
-      bg: ((10 << 16) | (40 << 8) | 80),
+      fg: (200 << 16) | (100 << 8) | 90,
+      bg: (10 << 16) | (40 << 8) | 80,
     });
     assert.equal(applyOpacityToStyle(style, Number.NaN), style);
     assert.equal(applyOpacityToStyle(style, Number.NEGATIVE_INFINITY), style);
   });
 
   test("blends against custom backdrop when provided", () => {
-    const backdrop = ((90 << 16) | (100 << 8) | 110);
+    const backdrop = (90 << 16) | (100 << 8) | 110;
     const style = mergeTextStyle(DEFAULT_BASE_STYLE, {
-      fg: ((240 << 16) | (80 << 8) | 20),
-      bg: ((10 << 16) | (30 << 8) | 50),
+      fg: (240 << 16) | (80 << 8) | 20,
+      bg: (10 << 16) | (30 << 8) | 50,
     });
 
     const hidden = applyOpacityToStyle(style, 0, backdrop);

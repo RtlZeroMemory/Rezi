@@ -1,4 +1,4 @@
-import { rgb, rgbB, rgbG, rgbR, type Rgb24 } from "../widgets/style.js";
+import { type Rgb24, rgb, rgbB, rgbG, rgbR } from "../widgets/style.js";
 
 function blendChannel(a: number, b: number, t: number): number {
   return Math.round(a + (b - a) * t);

@@ -30,9 +30,9 @@ describe("overlay widgets - VNode construction", () => {
 
   test("dropdown preserves frameStyle colors", () => {
     const frameStyle = {
-      background: ((12 << 16) | (18 << 8) | 24),
-      foreground: ((200 << 16) | (210 << 8) | 220),
-      border: ((80 << 16) | (90 << 8) | 100),
+      background: (12 << 16) | (18 << 8) | 24,
+      foreground: (200 << 16) | (210 << 8) | 220,
+      border: (80 << 16) | (90 << 8) | 100,
     } as const;
     const vnode = ui.dropdown({
       id: "styled-menu",
@@ -79,9 +79,9 @@ describe("overlay widgets - VNode construction", () => {
 
   test("commandPalette preserves frameStyle colors", () => {
     const frameStyle = {
-      background: ((11 << 16) | (12 << 8) | 13),
-      foreground: ((210 << 16) | (211 << 8) | 212),
-      border: ((100 << 16) | (101 << 8) | 102),
+      background: (11 << 16) | (12 << 8) | 13,
+      foreground: (210 << 16) | (211 << 8) | 212,
+      border: (100 << 16) | (101 << 8) | 102,
     } as const;
     const vnode = ui.commandPalette({
       id: "palette-styled",
@@ -147,9 +147,9 @@ describe("overlay widgets - VNode construction", () => {
 
   test("toastContainer preserves frameStyle colors", () => {
     const frameStyle = {
-      background: ((5 << 16) | (6 << 8) | 7),
-      foreground: ((230 << 16) | (231 << 8) | 232),
-      border: ((140 << 16) | (141 << 8) | 142),
+      background: (5 << 16) | (6 << 8) | 7,
+      foreground: (230 << 16) | (231 << 8) | 232,
+      border: (140 << 16) | (141 << 8) | 142,
     } as const;
     const vnode = ui.toastContainer({
       toasts: [],

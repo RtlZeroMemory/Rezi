@@ -5,7 +5,7 @@ import { createTheme, defaultTheme, resolveColor, resolveSpacing } from "../inde
 describe("theme", () => {
   test("createTheme merges colors and spacing", () => {
     const t = createTheme({
-      colors: { primary: ((1 << 16) | (2 << 8) | 3) },
+      colors: { primary: (1 << 16) | (2 << 8) | 3 },
       spacing: [0, 2, 4],
     });
 
@@ -19,7 +19,10 @@ describe("theme", () => {
   test("resolveColor returns theme color or fg fallback", () => {
     assert.deepEqual(resolveColor(defaultTheme, "primary"), defaultTheme.colors.primary);
     assert.deepEqual(resolveColor(defaultTheme, "missing"), defaultTheme.colors.fg);
-    assert.deepEqual(resolveColor(defaultTheme, ((9 << 16) | (8 << 8) | 7)), ((9 << 16) | (8 << 8) | 7));
+    assert.deepEqual(
+      resolveColor(defaultTheme, (9 << 16) | (8 << 8) | 7),
+      (9 << 16) | (8 << 8) | 7,
+    );
   });
 
   test("resolveSpacing maps indices and allows raw values", () => {

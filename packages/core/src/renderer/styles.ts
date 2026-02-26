@@ -3,7 +3,7 @@
  */
 
 import { type Theme, resolveColor } from "../theme/theme.js";
-import { rgb, type TextStyle } from "../widgets/style.js";
+import { type TextStyle, rgb } from "../widgets/style.js";
 
 /** Disabled widget foreground color (gray). */
 const DISABLED_FG = rgb(128, 128, 128);

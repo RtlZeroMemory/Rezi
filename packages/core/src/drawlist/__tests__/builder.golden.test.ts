@@ -80,7 +80,7 @@ describe("DrawlistBuilder (ZRDL v1) - golden byte fixtures", () => {
     const expected = await load("fill_rect.bin");
 
     const b = createDrawlistBuilder();
-    b.fillRect(1, 2, 3, 4, { fg: ((0 << 16) | (255 << 8) | 0), bold: true, underline: true });
+    b.fillRect(1, 2, 3, 4, { fg: (0 << 16) | (255 << 8) | 0, bold: true, underline: true });
     const res = b.build();
     assert.equal(res.ok, true);
     if (!res.ok) return;
@@ -106,9 +106,9 @@ describe("DrawlistBuilder (ZRDL v1) - golden byte fixtures", () => {
     const expected = await load("draw_text_interned.bin");
 
     const b = createDrawlistBuilder();
-    b.drawText(0, 0, "hello", { fg: ((255 << 16) | (255 << 8) | 255) });
+    b.drawText(0, 0, "hello", { fg: (255 << 16) | (255 << 8) | 255 });
     b.drawText(0, 1, "hello");
-    b.drawText(0, 2, "world", { bg: ((0 << 16) | (0 << 8) | 255), inverse: true });
+    b.drawText(0, 2, "world", { bg: (0 << 16) | (0 << 8) | 255, inverse: true });
     const res = b.build();
     assert.equal(res.ok, true);
     if (!res.ok) return;
@@ -136,7 +136,7 @@ describe("DrawlistBuilder (ZRDL v1) - golden byte fixtures", () => {
     const b = createDrawlistBuilder();
     b.pushClip(0, 0, 10, 10);
     b.pushClip(1, 1, 8, 8);
-    b.fillRect(2, 2, 3, 4, { bg: ((255 << 16) | (0 << 8) | 0), inverse: true });
+    b.fillRect(2, 2, 3, 4, { bg: (255 << 16) | (0 << 8) | 0, inverse: true });
     b.popClip();
     b.popClip();
     const res = b.build();

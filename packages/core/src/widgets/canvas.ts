@@ -1,4 +1,4 @@
-import { rgbB, rgbG, rgbR, type Rgb24 } from "./style.js";
+import { type Rgb24, rgbB, rgbG, rgbR } from "./style.js";
 import type { CanvasContext, GraphicsBlitter } from "./types.js";
 
 export type CanvasOverlayText = Readonly<{
