@@ -13,6 +13,14 @@ export const DRAW_TEXT_RUN_SIZE = 24;
 export const SET_CURSOR_SIZE = 20;
 export const DRAW_CANVAS_SIZE = 32;
 export const DRAW_IMAGE_SIZE = 40;
+export const DEF_STRING_BASE_SIZE = 16;
+export const FREE_STRING_SIZE = 12;
+export const DEF_BLOB_BASE_SIZE = 16;
+export const FREE_BLOB_SIZE = 12;
+
+function align4(n: number): number {
+  return (n + 3) & ~3;
+}
 
 export function writeClear(buf: Uint8Array, dv: DataView, pos: number): number {
   buf[pos + 0] = 1 & 0xff;
@@ -58,7 +66,7 @@ export function writeDrawText(
   pos: number,
   x: number,
   y: number,
-  stringIndex: number,
+  stringId: number,
   byteOff: number,
   byteLen: number,
   style: EncodedStyle,
@@ -71,7 +79,7 @@ export function writeDrawText(
   dv.setUint32(pos + 4, DRAW_TEXT_SIZE, true);
   dv.setInt32(pos + 8, x | 0, true);
   dv.setInt32(pos + 12, y | 0, true);
-  dv.setUint32(pos + 16, stringIndex >>> 0, true);
+  dv.setUint32(pos + 16, stringId >>> 0, true);
   dv.setUint32(pos + 20, byteOff >>> 0, true);
   dv.setUint32(pos + 24, byteLen >>> 0, true);
   dv.setUint32(pos + 28, style.fg >>> 0, true);
@@ -121,7 +129,7 @@ export function writeDrawTextRun(
   pos: number,
   x: number,
   y: number,
-  blobIndex: number,
+  blobId: number,
   reserved0: number,
 ): number {
   buf[pos + 0] = 6 & 0xff;
@@ -131,7 +139,7 @@ export function writeDrawTextRun(
   dv.setUint32(pos + 4, DRAW_TEXT_RUN_SIZE, true);
   dv.setInt32(pos + 8, x | 0, true);
   dv.setInt32(pos + 12, y | 0, true);
-  dv.setUint32(pos + 16, blobIndex >>> 0, true);
+  dv.setUint32(pos + 16, blobId >>> 0, true);
   dv.setUint32(pos + 20, reserved0 >>> 0, true);
   return pos + DRAW_TEXT_RUN_SIZE;
 }
@@ -171,8 +179,8 @@ export function writeDrawCanvas(
   h: number,
   pxWidth: number,
   pxHeight: number,
-  blobOff: number,
-  blobLen: number,
+  blobId: number,
+  reservedBlob: number,
   blitterCode: number,
   reserved0: number,
   reserved1: number,
@@ -188,8 +196,8 @@ export function writeDrawCanvas(
   dv.setUint16(pos + 14, h & 0xffff, true);
   dv.setUint16(pos + 16, pxWidth & 0xffff, true);
   dv.setUint16(pos + 18, pxHeight & 0xffff, true);
-  dv.setUint32(pos + 20, blobOff >>> 0, true);
-  dv.setUint32(pos + 24, blobLen >>> 0, true);
+  dv.setUint32(pos + 20, blobId >>> 0, true);
+  dv.setUint32(pos + 24, reservedBlob >>> 0, true);
   buf[pos + 28] = blitterCode & 0xff;
   buf[pos + 29] = reserved0 & 0xff;
   dv.setUint16(pos + 30, reserved1 & 0xffff, true);
@@ -206,8 +214,8 @@ export function writeDrawImage(
   h: number,
   pxWidth: number,
   pxHeight: number,
-  blobOff: number,
-  blobLen: number,
+  blobId: number,
+  reservedBlob: number,
   imageId: number,
   formatCode: number,
   protocolCode: number,
@@ -228,8 +236,8 @@ export function writeDrawImage(
   dv.setUint16(pos + 14, h & 0xffff, true);
   dv.setUint16(pos + 16, pxWidth & 0xffff, true);
   dv.setUint16(pos + 18, pxHeight & 0xffff, true);
-  dv.setUint32(pos + 20, blobOff >>> 0, true);
-  dv.setUint32(pos + 24, blobLen >>> 0, true);
+  dv.setUint32(pos + 20, blobId >>> 0, true);
+  dv.setUint32(pos + 24, reservedBlob >>> 0, true);
   dv.setUint32(pos + 28, imageId >>> 0, true);
   buf[pos + 32] = formatCode & 0xff;
   buf[pos + 33] = protocolCode & 0xff;
@@ -239,4 +247,83 @@ export function writeDrawImage(
   buf[pos + 37] = reserved1 & 0xff;
   dv.setUint16(pos + 38, reserved2 & 0xffff, true);
   return pos + DRAW_IMAGE_SIZE;
+}
+
+export function writeDefString(
+  buf: Uint8Array,
+  dv: DataView,
+  pos: number,
+  stringId: number,
+  byteLen: number,
+  bytes: Uint8Array,
+): number {
+  const payloadBytes = bytes.byteLength >>> 0;
+  const size = align4(DEF_STRING_BASE_SIZE + payloadBytes);
+  buf[pos + 0] = 10 & 0xff;
+  buf[pos + 1] = 0;
+  buf[pos + 2] = 0;
+  buf[pos + 3] = 0;
+  dv.setUint32(pos + 4, size >>> 0, true);
+  dv.setUint32(pos + 8, stringId >>> 0, true);
+  dv.setUint32(pos + 12, payloadBytes >>> 0, true);
+  const dataStart = pos + DEF_STRING_BASE_SIZE;
+  buf.set(bytes, dataStart);
+  const payloadEnd = dataStart + payloadBytes;
+  const cmdEnd = pos + size;
+  if (cmdEnd > payloadEnd) {
+    buf.fill(0, payloadEnd, cmdEnd);
+  }
+  return pos + size;
+}
+
+export function writeFreeString(
+  buf: Uint8Array,
+  dv: DataView,
+  pos: number,
+  stringId: number,
+): number {
+  buf[pos + 0] = 11 & 0xff;
+  buf[pos + 1] = 0;
+  buf[pos + 2] = 0;
+  buf[pos + 3] = 0;
+  dv.setUint32(pos + 4, FREE_STRING_SIZE, true);
+  dv.setUint32(pos + 8, stringId >>> 0, true);
+  return pos + FREE_STRING_SIZE;
+}
+
+export function writeDefBlob(
+  buf: Uint8Array,
+  dv: DataView,
+  pos: number,
+  blobId: number,
+  byteLen: number,
+  bytes: Uint8Array,
+): number {
+  const payloadBytes = bytes.byteLength >>> 0;
+  const size = align4(DEF_BLOB_BASE_SIZE + payloadBytes);
+  buf[pos + 0] = 12 & 0xff;
+  buf[pos + 1] = 0;
+  buf[pos + 2] = 0;
+  buf[pos + 3] = 0;
+  dv.setUint32(pos + 4, size >>> 0, true);
+  dv.setUint32(pos + 8, blobId >>> 0, true);
+  dv.setUint32(pos + 12, payloadBytes >>> 0, true);
+  const dataStart = pos + DEF_BLOB_BASE_SIZE;
+  buf.set(bytes, dataStart);
+  const payloadEnd = dataStart + payloadBytes;
+  const cmdEnd = pos + size;
+  if (cmdEnd > payloadEnd) {
+    buf.fill(0, payloadEnd, cmdEnd);
+  }
+  return pos + size;
+}
+
+export function writeFreeBlob(buf: Uint8Array, dv: DataView, pos: number, blobId: number): number {
+  buf[pos + 0] = 13 & 0xff;
+  buf[pos + 1] = 0;
+  buf[pos + 2] = 0;
+  buf[pos + 3] = 0;
+  dv.setUint32(pos + 4, FREE_BLOB_SIZE, true);
+  dv.setUint32(pos + 8, blobId >>> 0, true);
+  return pos + FREE_BLOB_SIZE;
 }

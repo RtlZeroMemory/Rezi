@@ -391,17 +391,16 @@ These invariants describe current builder + engine behavior for ZRDL bytes.
 ### 4-byte alignment rules
 
 - Header size is fixed at 64 bytes; when `cmdCount > 0`, `cmdOffset` is 64.
-- `totalSize`, `cmdBytes`, `stringsBytesLen`, and `blobsBytesLen` are 4-byte aligned.
-- Section offsets (`cmdOffset`, `stringsSpanOffset`, `stringsBytesOffset`, `blobsSpanOffset`, `blobsBytesOffset`) are 4-byte aligned.
+- `totalSize` and `cmdBytes` are 4-byte aligned.
 - Command records start on 4-byte boundaries. Command `size` must be 4-byte aligned; any command padding bytes are zeroed.
-- `addBlob(...)` requires `bytes.byteLength % 4 === 0`. String entries are not individually aligned; the strings section as a whole is padded to 4-byte alignment.
+- Header string/blob table fields are reserved in v1 and must be zero.
 
 ### String interning guarantees
 
-- Interning is by exact string value within one builder epoch (from construction/reset to the next `reset()`).
-- Repeated equal strings across `drawText(...)` and `addTextRunBlob(...)` reuse one `string_index` and one string-table entry.
-- New string indices are assigned in first-seen order.
-- `reset()` clears interning state (and command/blob/string sections), so indices are rebuilt on the next frame.
+- String resources are persistent engine resources identified by numeric IDs.
+- Repeated equal strings can reuse the same resource ID across frames.
+- `reset()` clears per-frame command accumulation, not the persistent resource cache.
+- Resource reuse and eviction are managed by the builder cache and emitted via `DEF_STRING` / `FREE_STRING`.
 
 ### Limit and overflow behavior
 
@@ -415,14 +414,12 @@ These invariants describe current builder + engine behavior for ZRDL bytes.
 - Encoded string caching is optional: `encodedStringCacheCap = 0` disables it.
 - On a cache miss with caching enabled, if cache size is already `>= cap`, the cache is cleared, then the new entry is inserted.
 - `reset()` does not clear the encoded-string cache. It clears per-drawlist state only, so cached encodings can persist across frames while the same builder instance is reused.
-- v1 caches only strings with `text.length <= 96`; v2 has no length filter for cache eligibility.
+- v1 caches only strings with `text.length <= 96`.
 
-### v1 vs v2 differences (cursor command)
+### Cursor command in v1
 
-- v1 and v2 share the same header shape and opcodes `1..6`.
-- v2 sets header `version = 2` and adds `OP_SET_CURSOR` (opcode `7`), encoded as a 20-byte command (`8` byte header + `12` byte payload).
+- `OP_SET_CURSOR` (opcode `7`) is part of v1 and is encoded as a 20-byte command (`8` byte header + `12` byte payload).
 - `SET_CURSOR` payload fields are `x:int32`, `y:int32`, `shape:u8`, `visible:u8`, `blink:u8`, `reserved0:u8`. `x` and `y` allow `-1` (leave unchanged).
-- v1 command validation/execution does not allow `OP_SET_CURSOR`; it is rejected as unsupported.
 
 ## Borders
 

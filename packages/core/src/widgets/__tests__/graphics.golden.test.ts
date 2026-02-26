@@ -125,10 +125,10 @@ function renderBytes(
 }
 
 async function load(rel: string): Promise<Uint8Array> {
-  return readFixture(`zrdl-v3/widgets/${rel}`);
+  return readFixture(`zrdl-v1-graphics/widgets/${rel}`);
 }
 
-describe("graphics/widgets/style (locked) - zrdl-v3 golden fixtures", () => {
+describe("graphics/widgets/style (locked) - zrdl-v1 graphics fixtures", () => {
   test("link_docs.bin", async () => {
     const expected = await load("link_docs.bin");
     const actual = renderBytes(

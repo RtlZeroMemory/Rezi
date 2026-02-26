@@ -7,6 +7,12 @@ on:
 permissions:
   contents: read
 
+# Cancel previous runs on the same branch/PR — the single biggest win for
+# unblocking queued PRs when authors force-push or push fixups.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   guardrails:
     name: guardrails
@@ -20,17 +26,67 @@ jobs:
       - name: Run guardrails
         run: bash scripts/guardrails.sh
 
+  # Fast gate: lint, typecheck, codegen, and portability checks are
+  # platform-independent — run once on Linux/Node 22 instead of 9× in the
+  # matrix.  Failures here prevent the expensive matrix from starting at all.
+  checks:
+    name: lint / typecheck / codegen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Drawlist codegen guardrail
+        run: npm run codegen:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Check core portability
+        run: npm run check:core-portability
+
+      - name: Check Unicode pins (submodule sync)
+        run: npm run check:unicode
+
+  # Compute matrix: 5 runners on PRs (all Node versions on Linux + latest on
+  # macOS/Windows), full 3×3 on push to main.
+  matrix-config:
+    name: configure matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+      - id: set
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo 'matrix={"include":[{"os":"ubuntu-latest","node-version":"18"},{"os":"ubuntu-latest","node-version":"20"},{"os":"ubuntu-latest","node-version":"22"},{"os":"macos-latest","node-version":"22"},{"os":"windows-latest","node-version":"22"}]}' >> "$GITHUB_OUTPUT"
+          else
+            echo 'matrix={"os":["ubuntu-latest","macos-latest","windows-latest"],"node-version":["18","20","22"]}' >> "$GITHUB_OUTPUT"
+          fi
+
   ci:
+    needs: [guardrails, checks, matrix-config]
     name: node ${{ matrix.node-version }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        node-version: ["18", "20", "22"]
+      matrix: ${{ fromJSON(needs.matrix-config.outputs.matrix) }}
 
     steps:
-      - name: Checkout (with submodules)
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: false
@@ -49,28 +105,8 @@ jobs:
         if: runner.os != 'Linux'
         run: npm install
 
-      - name: Install biome platform binary
-        if: runner.os != 'Linux'
-        run: npm install @biomejs/cli-${{ runner.os == 'macOS' && 'darwin' || 'win32' }}-${{ runner.arch == 'ARM64' && 'arm64' || 'x64' }}
-
-      - name: Drawlist codegen guardrail
-        run: npm run codegen:check
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
-        run: npm run typecheck
-
       - name: Build
         run: npm run build
-
-      - name: Check core portability
-        run: npm run check:core-portability
-
-      - name: Check Unicode pins (submodule sync)
-        if: runner.os == 'Linux'
-        run: npm run check:unicode
 
       - name: Tests
         run: npm run test
@@ -120,10 +156,11 @@ jobs:
         run: npm run test:native:smoke
 
   bun:
+    needs: [guardrails, checks]
     name: bun / ubuntu-latest
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout (with submodules)
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: false
@@ -141,23 +178,8 @@ jobs:
       - name: Install
         run: bun install
 
-      - name: Drawlist codegen guardrail
-        run: bun run codegen:check
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Typecheck
-        run: bun run typecheck
-
       - name: Build
         run: bun run build
-
-      - name: Check core portability
-        run: bun run check:core-portability
-
-      - name: Check Unicode pins (submodule sync)
-        run: bun run check:unicode
 
       - name: Tests
         run: bun run test
@@ -229,30 +251,3 @@ jobs:
             .artifacts/bench/ci/compare.md
             .artifacts/bench/ci/manifest.json
             .artifacts/bench/ci/profile.json
-
-  docs:
-    name: docs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: false
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-
-      - name: Install
-        run: npm ci
-
-      - name: Build packages
-        run: npm run build
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
-      - name: Build docs site
-        run: npm run docs:build

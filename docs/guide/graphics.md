@@ -15,7 +15,7 @@ This is useful for diagnostics and telemetry. Most apps do not need manual image
 ## Progressive enhancement strategy
 
 1. Start with semantic content that works as text (`ui.text`, placeholder labels).
-2. Upgrade to `ui.canvas()`/chart widgets when drawlist v3 graphics is available.
+2. Upgrade to `ui.canvas()`/chart widgets when drawlist v1 graphics is available.
 3. Upgrade to `ui.image()` for binary image rendering. `protocol: "auto"` resolves protocol/fallback internally.
 
 When graphics are unavailable, Rezi widgets render deterministic placeholder boxes instead of failing.

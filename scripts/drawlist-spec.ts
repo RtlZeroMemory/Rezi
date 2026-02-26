@@ -1,5 +1,5 @@
 /**
- * Source of truth for ZRDL command payload layouts used by drawlist v3/v4/v5.
+ * Source of truth for ZRDL v1 command payload layouts.
  *
  * Offsets are absolute byte offsets from command start (including 8-byte header).
  * The 8-byte command header itself is implicit and emitted by codegen.
@@ -35,11 +35,16 @@ export type DrawlistCommandSpec = Readonly<{
     | "DRAW_TEXT_RUN"
     | "SET_CURSOR"
     | "DRAW_CANVAS"
-    | "DRAW_IMAGE";
+    | "DRAW_IMAGE"
+    | "DEF_STRING"
+    | "DEF_BLOB"
+    | "FREE_STRING"
+    | "FREE_BLOB";
   writerName: string;
   opcode: number;
   totalSize: number;
   fields: readonly DrawlistFieldSpec[];
+  hasTrailingBytes?: boolean;
 }>;
 
 const COMMANDS = [
@@ -71,7 +76,7 @@ const COMMANDS = [
     fields: [
       { name: "x", type: "i32", offset: 8 },
       { name: "y", type: "i32", offset: 12 },
-      { name: "stringIndex", type: "u32", offset: 16 },
+      { name: "stringId", type: "u32", offset: 16 },
       { name: "byteOff", type: "u32", offset: 20 },
       { name: "byteLen", type: "u32", offset: 24 },
       { name: "style", type: "style", offset: 28 },
@@ -105,7 +110,7 @@ const COMMANDS = [
     fields: [
       { name: "x", type: "i32", offset: 8 },
       { name: "y", type: "i32", offset: 12 },
-      { name: "blobIndex", type: "u32", offset: 16 },
+      { name: "blobId", type: "u32", offset: 16 },
       { name: "reserved0", type: "u32", offset: 20 },
     ],
   },
@@ -135,8 +140,8 @@ const COMMANDS = [
       { name: "h", type: "u16", offset: 14 },
       { name: "pxWidth", type: "u16", offset: 16 },
       { name: "pxHeight", type: "u16", offset: 18 },
-      { name: "blobOff", type: "u32", offset: 20 },
-      { name: "blobLen", type: "u32", offset: 24 },
+      { name: "blobId", type: "u32", offset: 20 },
+      { name: "reservedBlob", type: "u32", offset: 24 },
       { name: "blitterCode", type: "u8", offset: 28 },
       { name: "reserved0", type: "u8", offset: 29 },
       { name: "reserved1", type: "u16", offset: 30 },
@@ -154,8 +159,8 @@ const COMMANDS = [
       { name: "h", type: "u16", offset: 14 },
       { name: "pxWidth", type: "u16", offset: 16 },
       { name: "pxHeight", type: "u16", offset: 18 },
-      { name: "blobOff", type: "u32", offset: 20 },
-      { name: "blobLen", type: "u32", offset: 24 },
+      { name: "blobId", type: "u32", offset: 20 },
+      { name: "reservedBlob", type: "u32", offset: 24 },
       { name: "imageId", type: "u32", offset: 28 },
       { name: "formatCode", type: "u8", offset: 32 },
       { name: "protocolCode", type: "u8", offset: 33 },
@@ -166,6 +171,46 @@ const COMMANDS = [
       { name: "reserved2", type: "u16", offset: 38 },
     ],
   },
+  {
+    name: "DEF_STRING",
+    writerName: "writeDefString",
+    opcode: 10,
+    totalSize: 16,
+    fields: [
+      { name: "stringId", type: "u32", offset: 8 },
+      { name: "byteLen", type: "u32", offset: 12 },
+    ],
+    hasTrailingBytes: true,
+  },
+  {
+    name: "FREE_STRING",
+    writerName: "writeFreeString",
+    opcode: 11,
+    totalSize: 12,
+    fields: [{ name: "stringId", type: "u32", offset: 8 }],
+  },
+  {
+    name: "DEF_BLOB",
+    writerName: "writeDefBlob",
+    opcode: 12,
+    totalSize: 16,
+    fields: [
+      { name: "blobId", type: "u32", offset: 8 },
+      { name: "byteLen", type: "u32", offset: 12 },
+    ],
+    hasTrailingBytes: true,
+  },
+  {
+    name: "FREE_BLOB",
+    writerName: "writeFreeBlob",
+    opcode: 13,
+    totalSize: 12,
+    fields: [{ name: "blobId", type: "u32", offset: 8 }],
+  },
 ] as const satisfies readonly DrawlistCommandSpec[];
 
 export const DRAWLIST_COMMAND_SPECS = Object.freeze(COMMANDS);
+
+export function align4(n: number): number {
+  return (n + 3) & ~3;
+}
