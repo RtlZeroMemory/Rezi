@@ -46,7 +46,7 @@ npm run build && node --test packages/core/dist/path/to/test.js
 
 ### Drawlist codegen guardrail
 
-When changing drawlist command layout for v3/v4/v5, regenerate and verify writers:
+When changing drawlist command layout for v1, regenerate and verify writers:
 
 ```bash
 npm run codegen

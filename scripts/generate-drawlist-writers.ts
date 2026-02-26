@@ -60,11 +60,19 @@ function validateSpec(commands: readonly DrawlistCommandSpec[]): void {
         `${cmd.name}: payload layout does not fully cover command bytes (ended at ${String(prevOffset)}, expected ${String(cmd.totalSize)})`,
       );
     }
+
+    if (cmd.hasTrailingBytes && !cmd.fields.some((field) => field.name === "byteLen")) {
+      throw new Error(`${cmd.name}: hasTrailingBytes requires a byteLen field`);
+    }
   }
 }
 
-function emitFieldWrite(field: DrawlistFieldSpec): Emission {
+function emitFieldWrite(field: DrawlistFieldSpec, withTrailingBytes: boolean): Emission {
   const off = `pos + ${field.offset}`;
+  if (withTrailingBytes && field.name === "byteLen") {
+    return { lines: [`dv.setUint32(${off}, payloadBytes >>> 0, true);`], usesStyle: false };
+  }
+
   switch (field.type) {
     case "u32":
       return { lines: [`dv.setUint32(${off}, ${field.name} >>> 0, true);`], usesStyle: false };
@@ -94,25 +102,51 @@ function emitFunction(command: DrawlistCommandSpec): Emission {
   for (const field of command.fields) {
     params.push(`${field.name}: ${field.type === "style" ? "EncodedStyle" : "number"}`);
   }
+  if (command.hasTrailingBytes) {
+    params.push("bytes: Uint8Array");
+  }
 
   const body: string[] = [];
-  body.push(`buf[pos + 0] = ${command.opcode} & 0xff;`);
-  body.push("buf[pos + 1] = 0;");
-  body.push("buf[pos + 2] = 0;");
-  body.push("buf[pos + 3] = 0;");
-  body.push(`dv.setUint32(pos + 4, ${command.name}_SIZE, true);`);
+  if (command.hasTrailingBytes) {
+    body.push("const payloadBytes = bytes.byteLength >>> 0;");
+    body.push(`const size = align4(${command.name}_BASE_SIZE + payloadBytes);`);
+    body.push(`buf[pos + 0] = ${command.opcode} & 0xff;`);
+    body.push("buf[pos + 1] = 0;");
+    body.push("buf[pos + 2] = 0;");
+    body.push("buf[pos + 3] = 0;");
+    body.push("dv.setUint32(pos + 4, size >>> 0, true);");
+  } else {
+    body.push(`buf[pos + 0] = ${command.opcode} & 0xff;`);
+    body.push("buf[pos + 1] = 0;");
+    body.push("buf[pos + 2] = 0;");
+    body.push("buf[pos + 3] = 0;");
+    body.push(`dv.setUint32(pos + 4, ${command.name}_SIZE, true);`);
+  }
 
   let usesStyle = false;
   for (const field of command.fields) {
-    const write = emitFieldWrite(field);
+    const write = emitFieldWrite(field, command.hasTrailingBytes === true);
     body.push(...write.lines);
     usesStyle ||= write.usesStyle;
   }
-  body.push(`return pos + ${command.name}_SIZE;`);
+
+  if (command.hasTrailingBytes) {
+    body.push(`const dataStart = pos + ${command.name}_BASE_SIZE;`);
+    body.push("buf.set(bytes, dataStart);");
+    body.push("const payloadEnd = dataStart + payloadBytes;");
+    body.push("const cmdEnd = pos + size;");
+    body.push("if (cmdEnd > payloadEnd) {");
+    body.push("  buf.fill(0, payloadEnd, cmdEnd);");
+    body.push("}");
+    body.push("return pos + size;");
+  } else {
+    body.push(`return pos + ${command.name}_SIZE;`);
+  }
 
   const lines: string[] = [];
-  if (params.length <= 3) {
-    lines.push(`export function ${command.writerName}(${params.join(", ")}): number {`);
+  const compactSignature = `export function ${command.writerName}(${params.join(", ")}): number {`;
+  if (compactSignature.length <= 100) {
+    lines.push(compactSignature);
   } else {
     lines.push(`export function ${command.writerName}(`);
     for (const param of params) {
@@ -135,11 +169,23 @@ function generateSource(commands: readonly DrawlistCommandSpec[]): string {
 
   const fnLines: string[] = [];
   let needsStyleImport = false;
+  const hasTrailingBytesCommand = commands.some((command) => command.hasTrailingBytes === true);
 
   for (const command of commands) {
-    fnLines.push(`export const ${command.name}_SIZE = ${command.totalSize};`);
+    if (command.hasTrailingBytes) {
+      fnLines.push(`export const ${command.name}_BASE_SIZE = ${command.totalSize};`);
+    } else {
+      fnLines.push(`export const ${command.name}_SIZE = ${command.totalSize};`);
+    }
   }
   fnLines.push("");
+
+  if (hasTrailingBytesCommand) {
+    fnLines.push("function align4(n: number): number {");
+    fnLines.push("  return (n + 3) & ~3;");
+    fnLines.push("}");
+    fnLines.push("");
+  }
 
   for (const command of commands) {
     const emitted = emitFunction(command);

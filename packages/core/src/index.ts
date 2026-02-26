@@ -18,10 +18,6 @@ export {
   ZR_ENGINE_ABI_MINOR,
   ZR_ENGINE_ABI_PATCH,
   ZR_DRAWLIST_VERSION_V1,
-  ZR_DRAWLIST_VERSION_V2,
-  ZR_DRAWLIST_VERSION_V3,
-  ZR_DRAWLIST_VERSION_V4,
-  ZR_DRAWLIST_VERSION_V5,
   ZR_EVENT_BATCH_VERSION_V1,
   ZR_UNICODE_VERSION_MAJOR,
   ZR_UNICODE_VERSION_MINOR,
@@ -46,10 +42,6 @@ export {
 
 import {
   ZR_DRAWLIST_VERSION_V1,
-  ZR_DRAWLIST_VERSION_V2,
-  ZR_DRAWLIST_VERSION_V3,
-  ZR_DRAWLIST_VERSION_V4,
-  ZR_DRAWLIST_VERSION_V5,
   ZR_ENGINE_ABI_MAJOR,
   ZR_ENGINE_ABI_MINOR,
   ZR_ENGINE_ABI_PATCH,
@@ -740,7 +732,7 @@ export {
 export { debug, inspect } from "./debug/debug.js";
 
 // =============================================================================
-// Drawlist Builder (ZRDL v1 + v3)
+// Drawlist Builder (ZRDL v1)
 // =============================================================================
 
 export { createDrawlistBuilderV1, type DrawlistBuilderV1Opts } from "./drawlist/index.js";

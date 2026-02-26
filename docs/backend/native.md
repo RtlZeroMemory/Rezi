@@ -48,7 +48,8 @@ The addon exposes a small set of functions at the N-API boundary:
 ### Create / Destroy
 
 - `engineCreate(config?)` -- Allocates a new Zireael engine instance. Accepts
-  an optional configuration object for terminal dimensions, drawlist version,
+  an optional configuration object for terminal dimensions, drawlist version
+  (v1),
   and buffer sizes. Returns a positive numeric engine ID on success, or a
   negative `ZrResult` error code on failure.
 - `engineDestroy(engineId)` -- Tears down the engine, restores terminal state,

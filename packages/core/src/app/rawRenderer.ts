@@ -18,8 +18,7 @@ import {
 import {
   type DrawlistBuildResult,
   type DrawlistBuilderV1,
-  createDrawlistBuilderV2,
-  createDrawlistBuilderV3,
+  createDrawlistBuilderV1,
 } from "../drawlist/index.js";
 import { perfMarkEnd, perfMarkStart } from "../perf/perf.js";
 import type { DrawFn } from "./types.js";
@@ -62,7 +61,7 @@ export class RawRenderer {
     opts: Readonly<{
       backend: RuntimeBackend;
       builder?: DrawlistBuilderV1;
-      drawlistVersion?: 2 | 3 | 4 | 5;
+      drawlistVersion?: 1;
       maxDrawlistBytes?: number;
       drawlistValidateParams?: boolean;
       drawlistReuseOutputBuffer?: boolean;
@@ -86,27 +85,23 @@ export class RawRenderer {
       this.builder = opts.builder;
       return;
     }
-    const drawlistVersion = opts.drawlistVersion ?? 2;
-    if (
-      drawlistVersion !== 2 &&
-      drawlistVersion !== 3 &&
-      drawlistVersion !== 4 &&
-      drawlistVersion !== 5
-    ) {
+    const drawlistVersion = opts.drawlistVersion ?? 1;
+    if (drawlistVersion !== 1) {
       throw new Error(
         `drawlistVersion ${String(
           drawlistVersion,
-        )} is no longer supported; use drawlistVersion 2, 3, 4, or 5.`,
+        )} is no longer supported; use drawlistVersion 1.`,
       );
     }
-    if (drawlistVersion >= 3) {
-      this.builder = createDrawlistBuilderV3({
-        ...builderOpts,
-        drawlistVersion: drawlistVersion === 3 ? 3 : drawlistVersion === 4 ? 4 : 5,
-      });
-      return;
+    this.builder = createDrawlistBuilderV1(builderOpts);
+  }
+
+  markEngineResourceStoreEmpty(): void {
+    const maybe = this.builder as DrawlistBuilderV1 &
+      Partial<{ markEngineResourceStoreEmpty: () => void }>;
+    if (typeof maybe.markEngineResourceStoreEmpty === "function") {
+      maybe.markEngineResourceStoreEmpty();
     }
-    this.builder = createDrawlistBuilderV2(builderOpts);
   }
 
   /**

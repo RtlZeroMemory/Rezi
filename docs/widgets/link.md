@@ -33,7 +33,7 @@ ui.link({
   Enter/Space/click trigger a `press` action.
 - Mouse clicks on link labels route through normal hit-testing now (not just
   `readInteractiveId` fallback behavior).
-- On drawlist v3, Rezi emits hyperlink metadata; on older builders it degrades to styled text.
+- On drawlist v1, Rezi emits hyperlink metadata; on older builders it degrades to styled text.
 
 ## Related
 

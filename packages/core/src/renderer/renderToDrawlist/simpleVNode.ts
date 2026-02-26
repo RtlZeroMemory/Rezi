@@ -209,6 +209,9 @@ function drawSegments(
   maxWidth: number,
   segments: readonly StyledSegment[],
 ): void {
+  const textRunStableKey = (segments0: readonly StyledSegment[]): string =>
+    JSON.stringify(segments0.map((segment) => [segment.text, segment.style ?? null] as const));
+
   const clipped = clipSegmentsToWidth(segments, maxWidth);
   if (clipped.length === 0) return;
   if (clipped.length === 1) {
@@ -223,6 +226,7 @@ function drawSegments(
       text: segment.text,
       style: segment.style,
     })),
+    textRunStableKey(clipped),
   );
   if (blobIndex !== null) {
     builder.drawTextRun(x, y, blobIndex);

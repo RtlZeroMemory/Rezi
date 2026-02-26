@@ -246,11 +246,15 @@ function align4(value: number): number {
   return (value + 3) & ~3;
 }
 
-export function addBlobAligned(builder: DrawlistBuilderV1, bytes: Uint8Array): number | null {
-  if ((bytes.byteLength & 3) === 0) return builder.addBlob(bytes);
+export function addBlobAligned(
+  builder: DrawlistBuilderV1,
+  bytes: Uint8Array,
+  stableKey?: string,
+): number | null {
+  if ((bytes.byteLength & 3) === 0) return builder.addBlob(bytes, stableKey);
   const padded = new Uint8Array(align4(bytes.byteLength));
   padded.set(bytes);
-  return builder.addBlob(padded);
+  return builder.addBlob(padded, stableKey);
 }
 
 export function rgbToHex(color: ReturnType<typeof resolveColor>): string {
@@ -287,7 +291,11 @@ export function renderCanvasWidgets(
       (props.draw as (ctx: typeof surface.ctx) => void)(surface.ctx);
 
       if (isV3Builder(builder) && rect.w > 0 && rect.h > 0) {
-        const blobIndex = addBlobAligned(builder, surface.rgba);
+        const blobIndex = addBlobAligned(
+          builder,
+          surface.rgba,
+          `canvas:${String(node.instanceId)}:${surface.blitter}:${String(hashImageBytes(surface.rgba))}`,
+        );
         if (blobIndex !== null) {
           builder.drawCanvas(rect.x, rect.y, rect.w, rect.h, blobIndex, surface.blitter);
         } else {
@@ -364,7 +372,7 @@ export function renderCanvasWidgets(
         requestedProtocol,
         analyzed.format,
         terminalProfile,
-        builder.drawlistVersion >= 4,
+        builder.drawlistVersion >= 1,
       );
       if (!resolvedProtocol.ok) {
         drawPlaceholderBox(
@@ -377,7 +385,8 @@ export function renderCanvasWidgets(
         break;
       }
       const zLayer = readZLayer(props.zLayer);
-      const imageId = readNonNegativeInt(props.imageId) ?? hashImageBytes(analyzed.bytes) ?? 0;
+      const imageBytesHash = hashImageBytes(analyzed.bytes);
+      const imageId = readNonNegativeInt(props.imageId) ?? imageBytesHash;
       const explicitSourceWidth = readPositiveInt(props.sourceWidth);
       const explicitSourceHeight = readPositiveInt(props.sourceHeight);
       if ((explicitSourceWidth === undefined) !== (explicitSourceHeight === undefined)) {
@@ -426,7 +435,11 @@ export function renderCanvasWidgets(
       }
 
       if (resolvedProtocol.mode === "drawCanvas") {
-        const canvasBlobIndex = addBlobAligned(builder, analyzed.bytes);
+        const canvasBlobIndex = addBlobAligned(
+          builder,
+          analyzed.bytes,
+          `image-blit:${String(imageId)}:${analyzed.format}:${String(imageBytesHash)}`,
+        );
         if (canvasBlobIndex === null) {
           drawPlaceholderBox(
             builder,
@@ -451,7 +464,11 @@ export function renderCanvasWidgets(
         break;
       }
 
-      const blobIndex = addBlobAligned(builder, analyzed.bytes);
+      const blobIndex = addBlobAligned(
+        builder,
+        analyzed.bytes,
+        `image:${String(imageId)}:${analyzed.format}:${String(imageBytesHash)}`,
+      );
       if (blobIndex === null) {
         drawPlaceholderBox(
           builder,

@@ -203,19 +203,17 @@ function readBackendPositiveIntMarker(
   return value;
 }
 
-function readBackendDrawlistVersionMarker(backend: RuntimeBackend): 1 | 2 | 3 | 4 | 5 | null {
+function readBackendDrawlistVersionMarker(backend: RuntimeBackend): 1 | null {
   const value = (backend as RuntimeBackend & Readonly<Record<string, unknown>>)[
     BACKEND_DRAWLIST_VERSION_MARKER
   ];
   if (value === undefined) return null;
-  if (
-    typeof value !== "number" ||
-    !Number.isInteger(value) ||
-    (value !== 1 && value !== 2 && value !== 3 && value !== 4 && value !== 5)
-  ) {
-    invalidProps(`backend marker ${BACKEND_DRAWLIST_VERSION_MARKER} must be an integer in [1..5]`);
+  if (typeof value !== "number" || !Number.isInteger(value) || value !== 1) {
+    invalidProps(
+      `backend marker ${BACKEND_DRAWLIST_VERSION_MARKER} must be integer 1 when present`,
+    );
   }
-  return value as 1 | 2 | 3 | 4 | 5;
+  return 1;
 }
 
 function monotonicNowMs(): number {
@@ -595,21 +593,8 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   const backend = opts.backend;
   const config = resolveAppConfig(opts.config);
 
-  const backendDrawlistVersion = readBackendDrawlistVersionMarker(backend);
-  if (backendDrawlistVersion !== null && backendDrawlistVersion < 2) {
-    invalidProps(
-      `backend drawlistVersion=${String(
-        backendDrawlistVersion,
-      )} is no longer supported. Fix: set backend drawlist version >= 2.`,
-    );
-  }
-  const drawlistVersion: 2 | 3 | 4 | 5 =
-    backendDrawlistVersion === 2 ||
-    backendDrawlistVersion === 3 ||
-    backendDrawlistVersion === 4 ||
-    backendDrawlistVersion === 5
-      ? backendDrawlistVersion
-      : 5;
+  readBackendDrawlistVersionMarker(backend);
+  const drawlistVersion = 1 as const;
 
   const backendMaxEventBytes = readBackendPositiveIntMarker(
     backend,
@@ -1838,6 +1823,8 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
           lifecycleBusy = null;
           topLevelViewError = null;
           terminalProfile = await loadTerminalProfile(backend);
+          rawRenderer.markEngineResourceStoreEmpty();
+          widgetRenderer.markEngineResourceStoreEmpty();
           widgetRenderer.setTerminalProfile(terminalProfile);
           sm.toRunning();
           markDirty(DIRTY_VIEW, false);

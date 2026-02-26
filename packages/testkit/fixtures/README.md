@@ -10,7 +10,7 @@ Fixtures live in `@rezi-ui/testkit` so that:
 
 - `zrev-v1/` — ZREV v1 event batch fixtures (`*.bin`, `*.json`)
 - `zrdl-v1/` — ZRDL v1 drawlist fixtures (`*.bin`, `*.json`)
-- `zrdl-v3/` — ZRDL v3 drawlist fixtures (`*.bin`, `*.json`)
+- `zrdl-v1-graphics/` — ZRDL v1 graphics/widget drawlist fixtures (`*.bin`)
 - `text-measure/` — pinned Unicode width fixtures (`*.json`)
 - `layout/` — layout determinism fixtures (`*.json`)
 - `focus/` — focus traversal golden fixtures (`*.json`)

@@ -30,7 +30,7 @@ New attribute SGR target mappings:
 - `overline` -> SGR `53`
 - `blink` -> SGR `5`
 
-These codes are the terminal mapping used by the backend emitter. Drawlist encoding carries all three attrs, and backend emission now supports `strikethrough`, `overline`, and `blink` end-to-end (terminal rendering still depends on terminal support). Underline variants and underline color use extended style fields on compatible drawlist versions.
+These codes are the terminal mapping used by the backend emitter. Drawlist encoding carries all three attrs, and backend emission now supports `strikethrough`, `overline`, and `blink` end-to-end (terminal rendering still depends on terminal support). Underline variants and underline color are encoded in ZRDL v1 extended style fields.
 
 ## Inline styles
 

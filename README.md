@@ -31,7 +31,7 @@
 
 ---
 
-> **Status: Alpha** — under active development and changing rapidly. APIs and behavior may change between releases, and Rezi is not yet recommended for production workloads.
+> **Status: Pre-alpha** — under active development and changing rapidly. Public APIs, ABI expectations, and behavior may change between releases, and Rezi is not yet recommended for production workloads.
 
 ---
 
