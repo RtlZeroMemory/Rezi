@@ -1,5 +1,5 @@
 /*
-  src/core/zr_drawlist.c — Drawlist validator + executor (v1).
+  src/core/zr_drawlist.c — Drawlist validator + executor (v1/v2).
 
   Why: Validates wrapper-provided drawlist bytes (bounds/caps/version) and
   executes deterministic drawing into the framebuffer without UB.
@@ -202,7 +202,7 @@ static zr_result_t zr_dl_store_define(zr_dl_resource_store_t* store, uint32_t id
   if (idx >= 0) {
     if (!store->entries) {
       free(copy);
-      return ZR_ERR_LIMIT;
+      return ZR_ERR_FORMAT;
     }
     old_len = store->entries[(uint32_t)idx].len;
     if (old_len > store->total_bytes) {
@@ -741,6 +741,14 @@ typedef struct zr_dl_range_t {
   uint32_t len;
 } zr_dl_range_t;
 
+static bool zr_dl_version_supported(uint32_t version) {
+  return version == ZR_DRAWLIST_VERSION_V1 || version == ZR_DRAWLIST_VERSION_V2;
+}
+
+static bool zr_dl_version_supports_blit_rect(uint32_t version) {
+  return version >= ZR_DRAWLIST_VERSION_V2;
+}
+
 static bool zr_dl_range_is_empty(zr_dl_range_t r) {
   return r.len == 0u;
 }
@@ -799,7 +807,7 @@ static zr_result_t zr_dl_validate_header(const zr_dl_header_t* hdr, size_t bytes
   if (hdr->magic != ZR_DL_MAGIC) {
     return ZR_ERR_FORMAT;
   }
-  if (hdr->version != ZR_DRAWLIST_VERSION_V1) {
+  if (!zr_dl_version_supported(hdr->version)) {
     return ZR_ERR_UNSUPPORTED;
   }
   if (hdr->header_size != (uint32_t)sizeof(zr_dl_header_t)) {
@@ -1227,6 +1235,9 @@ static zr_result_t zr_dl_validate_cmd_payload(const zr_dl_view_t* view, const zr
   case ZR_DL_OP_PUSH_CLIP:
     return zr_dl_validate_cmd_push_clip(ch, r, lim, clip_depth);
   case ZR_DL_OP_BLIT_RECT:
+    if (!zr_dl_version_supports_blit_rect(view->hdr.version)) {
+      return ZR_ERR_UNSUPPORTED;
+    }
     return zr_dl_validate_cmd_blit_rect(ch, r);
   case ZR_DL_OP_POP_CLIP:
     return zr_dl_validate_cmd_pop_clip(ch, clip_depth);
@@ -1734,6 +1745,9 @@ zr_result_t zr_dl_preflight_resources(const zr_dl_view_t* v, zr_fb_t* fb, zr_ima
       break;
     }
     case ZR_DL_OP_BLIT_RECT: {
+      if (!zr_dl_version_supports_blit_rect(v->hdr.version)) {
+        return ZR_ERR_UNSUPPORTED;
+      }
       zr_dl_cmd_blit_rect_t cmd;
       rc = zr_dl_read_cmd_blit_rect(&r, &cmd);
       if (rc != ZR_OK) {
@@ -2412,6 +2426,9 @@ zr_result_t zr_dl_execute(const zr_dl_view_t* v, zr_fb_t* dst, const zr_limits_t
       break;
     }
     case ZR_DL_OP_BLIT_RECT: {
+      if (!zr_dl_version_supports_blit_rect(view.hdr.version)) {
+        return ZR_ERR_UNSUPPORTED;
+      }
       rc = zr_dl_exec_blit_rect(&r, &painter);
       if (rc != ZR_OK) {
         return rc;

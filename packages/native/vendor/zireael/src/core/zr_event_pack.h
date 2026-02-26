@@ -50,8 +50,8 @@ zr_result_t zr_evpack_begin(zr_evpack_writer_t* w, uint8_t* out_buf, size_t out_
     - zr_evpack_begin() must have succeeded.
     - payload may be NULL only if payload_len == 0.
 */
-bool zr_evpack_append_record(zr_evpack_writer_t* w, zr_event_type_t type, uint32_t time_ms, uint32_t flags,
-                             const void* payload, size_t payload_len);
+bool zr_evpack_append_record(zr_evpack_writer_t* w, zr_event_type_t type, uint32_t time_ms,
+                             uint32_t flags, const void* payload, size_t payload_len);
 
 /*
   zr_evpack_append_record2:
@@ -59,8 +59,9 @@ bool zr_evpack_append_record(zr_evpack_writer_t* w, zr_event_type_t type, uint32
     - Useful for variable-length payload records like PASTE and USER
       ({hdr}{bytes}).
 */
-bool zr_evpack_append_record2(zr_evpack_writer_t* w, zr_event_type_t type, uint32_t time_ms, uint32_t flags,
-                              const void* p1, size_t n1, const void* p2, size_t n2);
+bool zr_evpack_append_record2(zr_evpack_writer_t* w, zr_event_type_t type, uint32_t time_ms,
+                              uint32_t flags, const void* p1, size_t n1, const void* p2,
+                              size_t n2);
 
 /*
   zr_evpack_finish:

@@ -14,7 +14,7 @@
 */
 #if defined(ZR_LIBRARY_VERSION_MAJOR) || defined(ZR_LIBRARY_VERSION_MINOR) || defined(ZR_LIBRARY_VERSION_PATCH) ||     \
     defined(ZR_ENGINE_ABI_MAJOR) || defined(ZR_ENGINE_ABI_MINOR) || defined(ZR_ENGINE_ABI_PATCH) ||                    \
-    defined(ZR_DRAWLIST_VERSION_V1) || defined(ZR_EVENT_BATCH_VERSION_V1)
+    defined(ZR_DRAWLIST_VERSION_V1) || defined(ZR_DRAWLIST_VERSION_V2) || defined(ZR_EVENT_BATCH_VERSION_V1)
 #error "Zireael version pins are locked; do not override ZR_*_VERSION_* macros."
 #endif
 
@@ -28,8 +28,9 @@
 #define ZR_ENGINE_ABI_MINOR (2u)
 #define ZR_ENGINE_ABI_PATCH (0u)
 
-/* Drawlist binary format version (current protocol baseline). */
+/* Drawlist binary format versions. */
 #define ZR_DRAWLIST_VERSION_V1 (1u)
+#define ZR_DRAWLIST_VERSION_V2 (2u)
 
 /* Packed event batch binary format versions. */
 #define ZR_EVENT_BATCH_VERSION_V1 (1u)

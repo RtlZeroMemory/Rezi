@@ -23,8 +23,7 @@
 
 typedef HANDLE zr_win32_hpc_t;
 
-typedef HRESULT(WINAPI* zr_win32_create_pseudoconsole_fn)(COORD size, HANDLE h_in, HANDLE h_out, DWORD flags,
-                                                          zr_win32_hpc_t* out_hpc);
+typedef HRESULT(WINAPI* zr_win32_create_pseudoconsole_fn)(COORD size, HANDLE h_in, HANDLE h_out, DWORD flags, zr_win32_hpc_t* out_hpc);
 typedef void(WINAPI* zr_win32_close_pseudoconsole_fn)(zr_win32_hpc_t hpc);
 
 /* --- ConPTY runner limits --- */
@@ -46,7 +45,8 @@ static void zr_win32_strcpy_reason(char* dst, size_t cap, const char* s) {
 }
 
 static bool zr_win32_conpty_load(zr_win32_create_pseudoconsole_fn* out_create,
-                                 zr_win32_close_pseudoconsole_fn* out_close, char* out_skip_reason,
+                                 zr_win32_close_pseudoconsole_fn* out_close,
+                                 char* out_skip_reason,
                                  size_t out_skip_reason_cap) {
   if (!out_create || !out_close) {
     return false;
@@ -60,13 +60,10 @@ static bool zr_win32_conpty_load(zr_win32_create_pseudoconsole_fn* out_create,
     return false;
   }
 
-  zr_win32_create_pseudoconsole_fn create_fn =
-      (zr_win32_create_pseudoconsole_fn)(void*)GetProcAddress(k32, "CreatePseudoConsole");
-  zr_win32_close_pseudoconsole_fn close_fn =
-      (zr_win32_close_pseudoconsole_fn)(void*)GetProcAddress(k32, "ClosePseudoConsole");
+  zr_win32_create_pseudoconsole_fn create_fn = (zr_win32_create_pseudoconsole_fn)(void*)GetProcAddress(k32, "CreatePseudoConsole");
+  zr_win32_close_pseudoconsole_fn close_fn = (zr_win32_close_pseudoconsole_fn)(void*)GetProcAddress(k32, "ClosePseudoConsole");
   if (!create_fn || !close_fn) {
-    zr_win32_strcpy_reason(out_skip_reason, out_skip_reason_cap,
-                           "ConPTY APIs not available (CreatePseudoConsole/ClosePseudoConsole)");
+    zr_win32_strcpy_reason(out_skip_reason, out_skip_reason_cap, "ConPTY APIs not available (CreatePseudoConsole/ClosePseudoConsole)");
     return false;
   }
 
@@ -173,8 +170,12 @@ static char* zr_win32_build_cmdline(const char* exe_path, const char* child_args
   return cmd;
 }
 
-zr_result_t zr_win32_conpty_run_self_capture(const char* child_args, uint8_t* out_bytes, size_t out_cap,
-                                             size_t* out_len, uint32_t* out_exit_code, char* out_skip_reason,
+zr_result_t zr_win32_conpty_run_self_capture(const char* child_args,
+                                             uint8_t* out_bytes,
+                                             size_t out_cap,
+                                             size_t* out_len,
+                                             uint32_t* out_exit_code,
+                                             char* out_skip_reason,
                                              size_t out_skip_reason_cap) {
   if (!out_len || !out_exit_code || !out_skip_reason || out_skip_reason_cap == 0u) {
     return ZR_ERR_INVALID_ARGUMENT;
@@ -223,8 +224,7 @@ zr_result_t zr_win32_conpty_run_self_capture(const char* child_args, uint8_t* ou
   size.Y = 25;
   hr = create_pc(size, conpty_in_r, conpty_out_w, 0u, &hpc);
   if (FAILED(hr) || !hpc) {
-    zr_win32_strcpy_reason(out_skip_reason, out_skip_reason_cap,
-                           "CreatePseudoConsole failed (ConPTY unavailable or blocked)");
+    zr_win32_strcpy_reason(out_skip_reason, out_skip_reason_cap, "CreatePseudoConsole failed (ConPTY unavailable or blocked)");
     r = ZR_ERR_UNSUPPORTED;
     goto cleanup;
   }
@@ -244,8 +244,13 @@ zr_result_t zr_win32_conpty_run_self_capture(const char* child_args, uint8_t* ou
     r = ZR_ERR_PLATFORM;
     goto cleanup;
   }
-  if (!UpdateProcThreadAttribute(si.lpAttributeList, 0u, (DWORD_PTR)PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, hpc,
-                                 sizeof(hpc), NULL, NULL)) {
+  if (!UpdateProcThreadAttribute(si.lpAttributeList,
+                                 0u,
+                                 (DWORD_PTR)PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
+                                 hpc,
+                                 sizeof(hpc),
+                                 NULL,
+                                 NULL)) {
     r = ZR_ERR_PLATFORM;
     goto cleanup;
   }
@@ -267,7 +272,16 @@ zr_result_t zr_win32_conpty_run_self_capture(const char* child_args, uint8_t* ou
     goto cleanup;
   }
 
-  ok = CreateProcessA(NULL, cmdline, NULL, NULL, FALSE, EXTENDED_STARTUPINFO_PRESENT, NULL, NULL, &si.StartupInfo, &pi);
+  ok = CreateProcessA(NULL,
+                      cmdline,
+                      NULL,
+                      NULL,
+                      FALSE,
+                      EXTENDED_STARTUPINFO_PRESENT,
+                      NULL,
+                      NULL,
+                      &si.StartupInfo,
+                      &pi);
   HeapFree(GetProcessHeap(), 0u, cmdline);
   cmdline = NULL;
   if (!ok) {

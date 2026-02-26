@@ -41,3 +41,4 @@ typedef struct zr_utf8_decode_result_t {
 zr_utf8_decode_result_t zr_utf8_decode_one(const uint8_t* s, size_t len);
 
 #endif /* ZR_UNICODE_ZR_UTF8_H_INCLUDED */
+

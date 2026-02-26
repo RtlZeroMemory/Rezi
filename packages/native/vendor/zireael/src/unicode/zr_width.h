@@ -13,7 +13,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef enum zr_width_policy_t { ZR_WIDTH_EMOJI_NARROW = 0, ZR_WIDTH_EMOJI_WIDE = 1 } zr_width_policy_t;
+typedef enum zr_width_policy_t {
+  ZR_WIDTH_EMOJI_NARROW = 0,
+  ZR_WIDTH_EMOJI_WIDE = 1
+} zr_width_policy_t;
 
 static inline zr_width_policy_t zr_width_policy_default(void) {
   return (zr_width_policy_t)ZR_WIDTH_POLICY_DEFAULT;
@@ -35,3 +38,4 @@ uint8_t zr_width_codepoint(uint32_t scalar);
 uint8_t zr_width_grapheme_utf8(const uint8_t* bytes, size_t len, zr_width_policy_t policy);
 
 #endif /* ZR_UNICODE_ZR_WIDTH_H_INCLUDED */
+

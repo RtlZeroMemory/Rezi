@@ -37,3 +37,4 @@ static inline zr_unicode_version_t zr_unicode_version(void) {
 }
 
 #endif /* ZR_UNICODE_ZR_UNICODE_PINS_H_INCLUDED */
+

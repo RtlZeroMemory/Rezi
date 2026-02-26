@@ -257,6 +257,11 @@ export class RenderPacketRecorder implements DrawlistBuilder {
     this.ops.push(style === undefined ? local : { ...local, style });
   }
 
+  blitRect(srcX: number, srcY: number, w: number, h: number, dstX: number, dstY: number): void {
+    this.invalidatePacket();
+    this.target.blitRect(srcX, srcY, w, h, dstX, dstY);
+  }
+
   drawText(
     x: number,
     y: number,

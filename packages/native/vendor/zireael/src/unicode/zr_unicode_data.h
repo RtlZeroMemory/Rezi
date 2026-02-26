@@ -30,8 +30,8 @@ typedef enum zr_gcb_class_t {
 } zr_gcb_class_t;
 
 zr_gcb_class_t zr_unicode_gcb_class(uint32_t scalar);
-bool zr_unicode_is_extended_pictographic(uint32_t scalar);
-bool zr_unicode_is_emoji_presentation(uint32_t scalar);
-bool zr_unicode_is_eaw_wide(uint32_t scalar);
+bool           zr_unicode_is_extended_pictographic(uint32_t scalar);
+bool           zr_unicode_is_emoji_presentation(uint32_t scalar);
+bool           zr_unicode_is_eaw_wide(uint32_t scalar);
 
 #endif /* ZR_UNICODE_ZR_UNICODE_DATA_H_INCLUDED */

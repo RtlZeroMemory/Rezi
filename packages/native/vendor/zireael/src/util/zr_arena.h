@@ -33,13 +33,14 @@ typedef struct zr_arena_mark_t {
     - max_total_bytes == 0 is treated as 1 byte.
 */
 zr_result_t zr_arena_init(zr_arena_t* a, size_t initial_bytes, size_t max_total_bytes);
-void zr_arena_reset(zr_arena_t* a);
-void zr_arena_release(zr_arena_t* a);
+void        zr_arena_reset(zr_arena_t* a);
+void        zr_arena_release(zr_arena_t* a);
 
 void* zr_arena_alloc(zr_arena_t* a, size_t size, size_t align);
 void* zr_arena_alloc_zeroed(zr_arena_t* a, size_t size, size_t align);
 
 zr_arena_mark_t zr_arena_mark(const zr_arena_t* a);
-void zr_arena_rewind(zr_arena_t* a, zr_arena_mark_t mark);
+void            zr_arena_rewind(zr_arena_t* a, zr_arena_mark_t mark);
 
 #endif /* ZR_UTIL_ZR_ARENA_H_INCLUDED */
+

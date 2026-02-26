@@ -12,9 +12,9 @@
 #include <stdint.h>
 
 typedef uint8_t zr_cursor_shape_t;
-#define ZR_CURSOR_SHAPE_BLOCK ((zr_cursor_shape_t)0u)
+#define ZR_CURSOR_SHAPE_BLOCK     ((zr_cursor_shape_t)0u)
 #define ZR_CURSOR_SHAPE_UNDERLINE ((zr_cursor_shape_t)1u)
-#define ZR_CURSOR_SHAPE_BAR ((zr_cursor_shape_t)2u)
+#define ZR_CURSOR_SHAPE_BAR       ((zr_cursor_shape_t)2u)
 
 /*
   zr_cursor_state_t:
@@ -32,3 +32,4 @@ typedef struct zr_cursor_state_t {
 } zr_cursor_state_t;
 
 #endif /* ZR_CORE_ZR_CURSOR_H_INCLUDED */
+
