@@ -154,9 +154,8 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
     const initialBlobCap = Math.min(1024, this.maxBlobBytes);
     this.blobBytesBuf = new Uint8Array(initialBlobCap);
 
-    const textEncoderCtor = (
-      globalThis as Readonly<{ TextEncoder?: new () => Utf8Encoder }>
-    ).TextEncoder;
+    const textEncoderCtor = (globalThis as Readonly<{ TextEncoder?: new () => Utf8Encoder }>)
+      .TextEncoder;
     this.encoder = textEncoderCtor ? new textEncoderCtor() : undefined;
     if (!this.encoder) {
       this.fail("ZRDL_INTERNAL", "TextEncoder is not available in this environment");
@@ -165,7 +164,7 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
       encode: () => new Uint8Array(),
       encodeInto: () => Object.freeze({ read: 0, written: 0 }),
     });
-    this.textArena = new FrameTextArena(1024, this.encoder ?? fallbackEncoder);
+    this.textArena = new FrameTextArena(this.encoder ?? fallbackEncoder, 1024);
   }
 
   clear(): void {
@@ -1053,12 +1052,15 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
 
     const persistentStringsCount = this.stringSpanOffs.length;
     const hasTextArenaSpan =
-      this.textArena.segmentCount() > 0 || this.textArena.byteLength() > 0 || persistentStringsCount > 0;
+      this.textArena.segmentCount() > 0 ||
+      this.textArena.byteLength() > 0 ||
+      persistentStringsCount > 0;
     const stringsCount = persistentStringsCount + (hasTextArenaSpan ? 1 : 0);
     const stringsSpanBytes = stringsCount * 8;
     const stringsSpanOffset = cmdOffset + cmdBytes;
     const stringsBytesOffset = stringsSpanOffset + stringsSpanBytes;
-    const stringsBytesAligned = stringsCount === 0 ? 0 : align4(this.textArena.byteLength() + this.stringBytesLen);
+    const stringsBytesAligned =
+      stringsCount === 0 ? 0 : align4(this.textArena.byteLength() + this.stringBytesLen);
 
     const blobsCount = this.blobSpanOffs.length;
     const blobsSpanBytes = blobsCount * 8;

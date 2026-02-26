@@ -266,7 +266,10 @@ describe("DrawlistBuilder - alignment and padding", () => {
     assert.equal(arena.len, 6);
 
     assert.equal(h.stringsBytesLen, 8);
-    assert.equal(String.fromCharCode(...bytes.subarray(h.stringsBytesOffset, h.stringsBytesOffset + 6)), "abbccc");
+    assert.equal(
+      String.fromCharCode(...bytes.subarray(h.stringsBytesOffset, h.stringsBytesOffset + 6)),
+      "abbccc",
+    );
     assert.equal(bytes[h.stringsBytesOffset + 6], 0);
     assert.equal(bytes[h.stringsBytesOffset + 7], 0);
   });

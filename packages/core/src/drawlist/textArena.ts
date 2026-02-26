@@ -36,8 +36,8 @@ export class FrameTextArena {
   private textSegments = 0;
 
   constructor(
-    initialCapacity = DEFAULT_INITIAL_CAPACITY,
     private readonly encoder: Utf8EncoderInto,
+    initialCapacity = DEFAULT_INITIAL_CAPACITY,
   ) {
     const cap =
       Number.isFinite(initialCapacity) && Number.isInteger(initialCapacity) && initialCapacity > 0

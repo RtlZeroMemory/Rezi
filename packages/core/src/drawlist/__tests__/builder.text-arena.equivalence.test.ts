@@ -107,7 +107,11 @@ function decodeTextSlice(
   return new TextDecoder().decode(bytes.subarray(start, end));
 }
 
-function executeDrawlistToGrid(bytes: Uint8Array, width: number, height: number): readonly string[] {
+function executeDrawlistToGrid(
+  bytes: Uint8Array,
+  width: number,
+  height: number,
+): readonly string[] {
   const h = readHeader(bytes);
   const grid = createGrid(width, height);
 
@@ -160,7 +164,11 @@ function executeDrawlistToGrid(bytes: Uint8Array, width: number, height: number)
   return gridToLines(grid);
 }
 
-function executeBaselineToGrid(ops: readonly Op[], width: number, height: number): readonly string[] {
+function executeBaselineToGrid(
+  ops: readonly Op[],
+  width: number,
+  height: number,
+): readonly string[] {
   const grid = createGrid(width, height);
   clearGrid(grid);
 
@@ -179,7 +187,10 @@ function executeBaselineToGrid(ops: readonly Op[], width: number, height: number
   return gridToLines(grid);
 }
 
-function buildDrawlist(ops: readonly Op[], opts: Readonly<{ maxBlobBytes?: number; maxDrawlistBytes?: number }> = {}): Uint8Array {
+function buildDrawlist(
+  ops: readonly Op[],
+  opts: Readonly<{ maxBlobBytes?: number; maxDrawlistBytes?: number }> = {},
+): Uint8Array {
   const b = createDrawlistBuilder({
     ...(opts.maxBlobBytes !== undefined ? { maxBlobBytes: opts.maxBlobBytes } : {}),
     ...(opts.maxDrawlistBytes !== undefined ? { maxDrawlistBytes: opts.maxDrawlistBytes } : {}),
@@ -333,7 +344,10 @@ describe("drawlist text arena equivalence", () => {
       Object.freeze({ text: String.fromCharCode(97 + (i % 26)) }),
     );
 
-    const b = createDrawlistBuilder({ maxBlobBytes: 8 * 1024 * 1024, maxDrawlistBytes: 16 * 1024 * 1024 });
+    const b = createDrawlistBuilder({
+      maxBlobBytes: 8 * 1024 * 1024,
+      maxDrawlistBytes: 16 * 1024 * 1024,
+    });
     const blobIndex = b.addTextRunBlob(segments);
     assert.equal(blobIndex, 0);
     if (blobIndex === null) return;

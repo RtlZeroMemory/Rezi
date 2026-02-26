@@ -2,9 +2,17 @@
 import { performance } from "node:perf_hooks";
 import { FrameTextArena } from "../dist/drawlist/textArena.js";
 
-const SEGMENTS = Number(process.env.SEGMENTS ?? 20_000);
-const ITERATIONS = Number(process.env.ITERATIONS ?? 40);
-const WARMUP = Number(process.env.WARMUP ?? 5);
+function parsePositiveInt(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined) return fallback;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
+
+const SEGMENTS = parsePositiveInt("SEGMENTS", 20_000);
+const ITERATIONS = parsePositiveInt("ITERATIONS", 40);
+const WARMUP = parsePositiveInt("WARMUP", 5);
 
 function makeSegments(count) {
   const out = [];
@@ -45,7 +53,7 @@ function legacyEncodeFrame(strings) {
 }
 
 function arenaEncodeFrame(strings) {
-  const arena = new FrameTextArena(1024, new TextEncoder());
+  const arena = new FrameTextArena(new TextEncoder(), 1024);
   for (let i = 0; i < strings.length; i++) {
     arena.allocUtf8(strings[i] ?? "");
   }
@@ -59,6 +67,10 @@ function arenaEncodeFrame(strings) {
 }
 
 function bench(label, iterations, warmup, runOnce) {
+  if (!Number.isInteger(iterations) || iterations <= 0) {
+    throw new Error(`bench(${label}): iterations must be > 0 (got ${String(iterations)})`);
+  }
+
   for (let i = 0; i < warmup; i++) runOnce();
 
   const t0 = performance.now();
@@ -81,7 +93,9 @@ function bench(label, iterations, warmup, runOnce) {
 
 const strings = makeSegments(SEGMENTS);
 
-const legacy = bench("legacy_per_string_encode", ITERATIONS, WARMUP, () => legacyEncodeFrame(strings));
+const legacy = bench("legacy_per_string_encode", ITERATIONS, WARMUP, () =>
+  legacyEncodeFrame(strings),
+);
 const arena = bench("arena_encode_into", ITERATIONS, WARMUP, () => arenaEncodeFrame(strings));
 
 const legacyAlloc = legacy.last?.estimatedAllocations ?? 0;
