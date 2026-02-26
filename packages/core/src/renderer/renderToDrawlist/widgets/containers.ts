@@ -222,6 +222,7 @@ function pushChildrenWithLayout(
     ) {
       if (forceSubtreeRender) {
         c.dirty = true;
+        if (c.children.length > 0) c.selfDirty = true;
       }
       nodeStack.push(c);
       styleStack.push(style);

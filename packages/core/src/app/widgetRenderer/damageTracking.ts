@@ -253,9 +253,9 @@ export function propagateDirtyFromPredicate(
   for (let i = pooledPrevRuntimeStack.length - 1; i >= 0; i--) {
     const node = pooledPrevRuntimeStack[i];
     if (!node) continue;
-    const markedSelfDirty = isNodeDirty(node);
-    if (markSelfDirty && markedSelfDirty) node.selfDirty = true;
-    let dirty = node.dirty || markedSelfDirty;
+    const predicateDirty = isNodeDirty(node);
+    if (markSelfDirty && predicateDirty) node.selfDirty = true;
+    let dirty = node.dirty || predicateDirty;
     for (const child of node.children) {
       if (child.dirty) {
         dirty = true;

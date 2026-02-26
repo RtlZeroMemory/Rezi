@@ -175,6 +175,8 @@ export function computeRenderPacketKey(
   node: RuntimeInstance,
   theme: Theme,
   parentStyle: ResolvedTextStyle,
+  rectWidth: number,
+  rectHeight: number,
   focusState: FocusState,
   pressedId: string | null,
   tick: number,
@@ -188,6 +190,8 @@ export function computeRenderPacketKey(
   hash = mixHash(hash, hashUnknown(node.vnode.props));
   hash = mixHash(hash, hashTheme(theme));
   hash = mixHash(hash, hashResolvedStyle(parentStyle));
+  hash = mixHash(hash, (Math.trunc(rectWidth) & HASH_MASK_32) >>> 0);
+  hash = mixHash(hash, (Math.trunc(rectHeight) & HASH_MASK_32) >>> 0);
   hash = mixHash(hash, focusPressedBits(node, focusState, pressedId));
   if (isTickDrivenKind(node.vnode.kind)) {
     hash = mixHash(hash, tick >>> 0);

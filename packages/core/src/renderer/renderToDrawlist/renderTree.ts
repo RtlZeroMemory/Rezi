@@ -186,6 +186,7 @@ export function renderTree(
           }
           if (forceChildrenRender) {
             child.dirty = true;
+            if (child.children.length > 0) child.selfDirty = true;
           }
           nodeStack.push(child);
           styleStack.push(parentStyle);
@@ -296,6 +297,8 @@ export function renderTree(
           node,
           renderTheme,
           parentStyle,
+          rect.w,
+          rect.h,
           focusState,
           pressedId,
           tick,
