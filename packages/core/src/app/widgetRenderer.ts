@@ -540,6 +540,25 @@ function rectsIntersect(a: Rect, b: Rect): boolean {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
+function rectsIntersection(a: Rect, b: Rect): Rect | null {
+  const x0 = Math.max(a.x, b.x);
+  const y0 = Math.max(a.y, b.y);
+  const x1 = Math.min(a.x + a.w, b.x + b.w);
+  const y1 = Math.min(a.y + a.h, b.y + b.h);
+  if (x1 <= x0 || y1 <= y0) return null;
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+
+function rectContainsRect(outer: Rect, inner: Rect): boolean {
+  if (inner.w <= 0 || inner.h <= 0) return false;
+  return (
+    inner.x >= outer.x &&
+    inner.y >= outer.y &&
+    inner.x + inner.w <= outer.x + outer.w &&
+    inner.y + inner.h <= outer.y + outer.h
+  );
+}
+
 function nodeKindCanPaintOverlay(kind: VNode["kind"]): boolean {
   switch (kind) {
     case "themed":
@@ -2416,6 +2435,77 @@ export class WidgetRenderer<S> {
     });
   }
 
+  private hasUnsafeAncestorClipForBlit(instanceId: InstanceId, contentRect: Rect): boolean {
+    if (contentRect.w <= 0 || contentRect.h <= 0) return true;
+    if (!this.committedRoot) return true;
+
+    const nodeByInstanceId = new Map<InstanceId, RuntimeInstance>();
+    const parentByInstanceId = new Map<InstanceId, InstanceId | null>();
+    const stack: RuntimeInstance[] = [this.committedRoot];
+    nodeByInstanceId.set(this.committedRoot.instanceId, this.committedRoot);
+    parentByInstanceId.set(this.committedRoot.instanceId, null);
+
+    let foundTarget = this.committedRoot.instanceId === instanceId;
+    while (stack.length > 0 && !foundTarget) {
+      const node = stack.pop();
+      if (!node) continue;
+
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        const child = node.children[i];
+        if (!child) continue;
+        nodeByInstanceId.set(child.instanceId, child);
+        parentByInstanceId.set(child.instanceId, node.instanceId);
+        if (child.instanceId === instanceId) {
+          foundTarget = true;
+          break;
+        }
+        stack.push(child);
+      }
+    }
+    if (!foundTarget) return true;
+
+    let effectiveClip: Rect | null = null;
+    let currentParentId = parentByInstanceId.get(instanceId) ?? null;
+    while (currentParentId !== null) {
+      const ancestor = nodeByInstanceId.get(currentParentId);
+      if (!ancestor) return true;
+
+      switch (ancestor.vnode.kind) {
+        case "row":
+        case "column":
+        case "grid":
+        case "box": {
+          const overflow = (ancestor.vnode.props as { overflow?: unknown } | undefined)?.overflow;
+          if (overflow === "hidden" || overflow === "scroll") {
+            return true;
+          }
+          break;
+        }
+        case "modal":
+        case "layer":
+          return true;
+        case "splitPane":
+        case "panelGroup":
+        case "resizablePanel": {
+          const ancestorRect = this._pooledRectByInstanceId.get(ancestor.instanceId);
+          if (!ancestorRect) return true;
+          effectiveClip = effectiveClip
+            ? rectsIntersection(effectiveClip, ancestorRect)
+            : ancestorRect;
+          if (!effectiveClip) return true;
+          break;
+        }
+        default:
+          break;
+      }
+
+      currentParentId = parentByInstanceId.get(currentParentId) ?? null;
+    }
+
+    if (!effectiveClip) return false;
+    return !rectContainsRect(effectiveClip, contentRect);
+  }
+
   private hasPaintedOverlapAfterInstance(instanceId: InstanceId, contentRect: Rect): boolean {
     if (contentRect.w <= 0 || contentRect.h <= 0) return true;
     if (!this.committedRoot) return true;
@@ -2538,6 +2628,7 @@ export class WidgetRenderer<S> {
       const blitW = contentRect.w - scrollbarWidth;
       const blitH = contentRect.h - deltaAbs;
       if (blitW <= 0 || blitH <= 0) continue;
+      if (this.hasUnsafeAncestorClipForBlit(instanceId, contentRect)) continue;
       if (this.hasPaintedOverlapAfterInstance(instanceId, contentRect)) continue;
 
       const srcX = contentRect.x;

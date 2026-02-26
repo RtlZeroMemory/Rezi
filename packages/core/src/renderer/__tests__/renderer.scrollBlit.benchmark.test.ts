@@ -4,13 +4,13 @@ import type { Viewport, WidgetRenderPlan } from "../../app/widgetRenderer.js";
 import { WidgetRenderer } from "../../app/widgetRenderer.js";
 import type { RuntimeBackend } from "../../backend.js";
 import type { BackendEventBatch } from "../../backend.js";
+import { HEADER_SIZE } from "../../drawlist/builderBase.js";
 import type { VNode } from "../../index.js";
 import { ui } from "../../index.js";
 import { DEFAULT_TERMINAL_CAPS, type TerminalCaps } from "../../terminalCaps.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
 
 const OP_BLIT_RECT = 14;
-const HEADER_SIZE = 64;
 const FULL_PLAN: WidgetRenderPlan = Object.freeze({
   commit: true,
   layout: true,
