@@ -1,5 +1,5 @@
 /**
- * Source of truth for ZRDL v1 command payload layouts.
+ * Source of truth for ZRDL v1/v2 command payload layouts.
  *
  * Offsets are absolute byte offsets from command start (including 8-byte header).
  * The 8-byte command header itself is implicit and emitted by codegen.
@@ -31,6 +31,7 @@ export type DrawlistCommandSpec = Readonly<{
     | "FILL_RECT"
     | "DRAW_TEXT"
     | "PUSH_CLIP"
+    | "BLIT_RECT"
     | "POP_CLIP"
     | "DRAW_TEXT_RUN"
     | "SET_CURSOR"
@@ -93,6 +94,20 @@ const COMMANDS = [
       { name: "y", type: "i32", offset: 12 },
       { name: "w", type: "i32", offset: 16 },
       { name: "h", type: "i32", offset: 20 },
+    ],
+  },
+  {
+    name: "BLIT_RECT",
+    writerName: "writeBlitRect",
+    opcode: 14,
+    totalSize: 32,
+    fields: [
+      { name: "srcX", type: "i32", offset: 8 },
+      { name: "srcY", type: "i32", offset: 12 },
+      { name: "w", type: "i32", offset: 16 },
+      { name: "h", type: "i32", offset: 20 },
+      { name: "dstX", type: "i32", offset: 24 },
+      { name: "dstY", type: "i32", offset: 28 },
     ],
   },
   {

@@ -1,10 +1,10 @@
-# Drawlists (ZRDL v1)
+# Drawlists (ZRDL v1/v2)
 
 Rezi builds a binary drawlist each frame and submits it to the engine.
 
 ## High-Level Model
 
-ZRDL v1 uses persistent engine resources.
+ZRDL v1/v2 uses persistent engine resources.
 
 - Frames do **not** carry per-frame string/blob tables.
 - Frames can define/free resources with commands.
@@ -17,7 +17,7 @@ ZRDL starts with a fixed 64-byte header (little-endian `u32` fields).
 Required fields:
 
 - `magic = ZRDL_MAGIC`
-- `version = ZR_DRAWLIST_VERSION_V1` (`1`)
+- `version = ZR_DRAWLIST_VERSION_V1` (`1`) or `ZR_DRAWLIST_VERSION_V2` (`2`)
 - `header_size = 64`
 - `total_size`, `cmd_offset`, `cmd_bytes`, `cmd_count` set consistently
 - `strings_*` fields are all `0`
@@ -49,6 +49,7 @@ Commands are 4-byte aligned.
 - `11` `FREE_STRING` (`id`)
 - `12` `DEF_BLOB` (`id`, `byteLen`, bytes, aligned padding)
 - `13` `FREE_BLOB` (`id`)
+- `14` `BLIT_RECT` (`srcX`, `srcY`, `w`, `h`, `dstX`, `dstY`) (v2+)
 
 ## Resource Lifecycle
 
