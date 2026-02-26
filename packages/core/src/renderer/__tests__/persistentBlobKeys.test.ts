@@ -101,6 +101,8 @@ describe("renderer blob usage", () => {
       children: [],
       dirty: false,
       selfDirty: false,
+      renderPacketKey: 0,
+      renderPacket: null,
     };
 
     const imageNode = {
@@ -118,6 +120,8 @@ describe("renderer blob usage", () => {
       children: [],
       dirty: false,
       selfDirty: false,
+      renderPacketKey: 0,
+      renderPacket: null,
     };
 
     renderCanvasWidgets(

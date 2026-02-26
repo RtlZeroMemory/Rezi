@@ -120,6 +120,8 @@ function runtimeNode(
     children,
     dirty: false,
     selfDirty: false,
+    renderPacketKey: 0,
+    renderPacket: null,
   };
 }
 

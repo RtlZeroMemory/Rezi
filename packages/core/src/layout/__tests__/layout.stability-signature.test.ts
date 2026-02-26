@@ -86,6 +86,8 @@ function runtimeNode(
     children: Object.freeze([...children]),
     dirty: false,
     selfDirty: false,
+    renderPacketKey: 0,
+    renderPacket: null,
   };
 }
 

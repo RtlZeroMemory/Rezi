@@ -234,6 +234,7 @@ export function propagateDirtyFromPredicate(
   isNodeDirty: (node: RuntimeInstance) => boolean,
   pooledRuntimeStack: RuntimeInstance[],
   pooledPrevRuntimeStack: RuntimeInstance[],
+  markSelfDirty: boolean = true,
 ): void {
   pooledRuntimeStack.length = 0;
   pooledPrevRuntimeStack.length = 0;
@@ -253,7 +254,7 @@ export function propagateDirtyFromPredicate(
     const node = pooledPrevRuntimeStack[i];
     if (!node) continue;
     const markedSelfDirty = isNodeDirty(node);
-    if (markedSelfDirty) node.selfDirty = true;
+    if (markSelfDirty && markedSelfDirty) node.selfDirty = true;
     let dirty = node.dirty || markedSelfDirty;
     for (const child of node.children) {
       if (child.dirty) {
@@ -278,6 +279,7 @@ export function markLayoutDirtyNodes(params: MarkLayoutDirtyNodesParams): void {
     },
     params.pooledRuntimeStack,
     params.pooledPrevRuntimeStack,
+    false,
   );
 }
 
