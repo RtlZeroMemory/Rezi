@@ -20,7 +20,7 @@ const HEADER = {
 
 const SPAN_SIZE = 8;
 const CMD_SIZE_CLEAR = 8;
-const CMD_SIZE_DRAW_TEXT = 8 + 40;
+const CMD_SIZE_DRAW_TEXT = 60;
 
 type ParsedHeader = Readonly<{
   totalSize: number;
@@ -96,67 +96,74 @@ describe("DrawlistBuilder - limits boundaries", () => {
     expectError(b.build(), "ZRDL_TOO_LARGE");
   });
 
-  test("maxStrings: exactly at limit with unique strings succeeds", () => {
+  test("maxStrings: exactly at limit for persistent strings succeeds", () => {
     const b = createDrawlistBuilder({ maxStrings: 2 });
-    b.drawText(0, 0, "a");
-    b.drawText(0, 1, "b");
+    b.setLink("uri-a", "id-a");
+    b.drawText(0, 0, "x");
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
 
-    assert.equal(h.stringsCount, 2);
-    assert.equal(h.cmdCount, 2);
+    assert.equal(h.stringsCount, 3); // arena + 2 persistent strings
+    assert.equal(h.cmdCount, 1);
   });
 
-  test("maxStrings: interned duplicates do not consume extra slots", () => {
+  test("maxStrings: duplicate persistent strings do not consume extra slots", () => {
     const b = createDrawlistBuilder({ maxStrings: 1 });
-    b.drawText(0, 0, "same");
-    b.drawText(2, 0, "same");
+    b.setLink("same");
+    b.drawText(0, 0, "x");
+    b.setLink("same");
+    b.drawText(2, 0, "y");
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
 
-    assert.equal(h.stringsCount, 1);
+    assert.equal(h.stringsCount, 2); // arena + 1 persistent string
     assert.equal(h.cmdCount, 2);
   });
 
-  test("maxStrings: overflow on next unique string fails", () => {
+  test("maxStrings: overflow on next unique persistent string fails", () => {
     const b = createDrawlistBuilder({ maxStrings: 1 });
-    b.drawText(0, 0, "a");
-    b.drawText(0, 1, "b");
+    b.setLink("a");
+    b.drawText(0, 0, "x");
+    b.setLink("b");
+    b.drawText(0, 1, "y");
 
     expectError(b.build(), "ZRDL_TOO_LARGE");
   });
 
-  test("maxStringBytes: exactly-at-limit ASCII payload succeeds", () => {
+  test("maxStringBytes: exactly-at-limit ASCII persistent payload succeeds", () => {
     const b = createDrawlistBuilder({ maxStringBytes: 3 });
-    b.drawText(0, 0, "abc");
+    b.setLink("abc");
+    b.drawText(0, 0, "x");
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
     const dv = toView(bytes);
-    const spanLen = dv.getUint32(h.stringsSpanOffset + 4, true);
+    const spanLen = dv.getUint32(h.stringsSpanOffset + 8 + 4, true);
 
-    assert.equal(h.stringsCount, 1);
+    assert.equal(h.stringsCount, 2);
     assert.equal(spanLen, 3);
-    assert.equal(h.stringsBytesLen, 4);
+    assert.equal(h.stringsBytesLen, align4(1 + 3));
   });
 
-  test("maxStringBytes: exactly-at-limit UTF-8 payload succeeds", () => {
+  test("maxStringBytes: exactly-at-limit UTF-8 persistent payload succeeds", () => {
     const text = "éa";
     const utf8Len = new TextEncoder().encode(text).byteLength;
     const b = createDrawlistBuilder({ maxStringBytes: utf8Len });
-    b.drawText(0, 0, text);
+    b.setLink(text);
+    b.drawText(0, 0, "x");
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
     const dv = toView(bytes);
-    const spanLen = dv.getUint32(h.stringsSpanOffset + 4, true);
+    const spanLen = dv.getUint32(h.stringsSpanOffset + 8 + 4, true);
 
     assert.equal(utf8Len, 3);
     assert.equal(spanLen, utf8Len);
-    assert.equal(h.stringsBytesLen, 4);
+    assert.equal(h.stringsBytesLen, align4(1 + utf8Len));
   });
 
-  test("maxStringBytes: overflow fails", () => {
+  test("maxStringBytes: overflow on persistent strings fails", () => {
     const b = createDrawlistBuilder({ maxStringBytes: 3 });
-    b.drawText(0, 0, "abcd");
+    b.setLink("abcd");
+    b.drawText(0, 0, "x");
 
     expectError(b.build(), "ZRDL_TOO_LARGE");
   });
@@ -231,7 +238,7 @@ describe("DrawlistBuilder - limits boundaries", () => {
     const h = parseHeader(bytes);
 
     assert.equal(h.cmdCount, 64);
-    assert.equal(h.stringsCount, 64);
+    assert.equal(h.stringsCount, 1);
     assert.equal(h.totalSize <= 1_000_000, true);
     assert.equal((h.totalSize & 3) === 0, true);
   });

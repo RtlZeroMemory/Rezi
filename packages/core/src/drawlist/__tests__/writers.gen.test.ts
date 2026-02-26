@@ -2,6 +2,7 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import { ZRDL_MAGIC, ZR_DRAWLIST_VERSION_V1, createDrawlistBuilder } from "../../index.js";
 import type { EncodedStyle } from "../types.js";
 import {
+  BLIT_RECT_SIZE,
   CLEAR_SIZE,
   DRAW_CANVAS_SIZE,
   DRAW_IMAGE_SIZE,
@@ -12,6 +13,7 @@ import {
   PUSH_CLIP_SIZE,
   SET_CURSOR_SIZE,
   writeClear,
+  writeBlitRect,
   writeDrawCanvas,
   writeDrawImage,
   writeDrawText,
@@ -142,6 +144,27 @@ function legacyWritePushClip(
   dv.setInt32(pos + 16, w | 0, true);
   dv.setInt32(pos + 20, h | 0, true);
   return pos + PUSH_CLIP_SIZE;
+}
+
+function legacyWriteBlitRect(
+  _buf: Uint8Array,
+  dv: DataView,
+  pos: number,
+  srcX: number,
+  srcY: number,
+  w: number,
+  h: number,
+  dstX: number,
+  dstY: number,
+): number {
+  writeLegacyHeader(dv, pos, 14, BLIT_RECT_SIZE);
+  dv.setInt32(pos + 8, srcX | 0, true);
+  dv.setInt32(pos + 12, srcY | 0, true);
+  dv.setInt32(pos + 16, w | 0, true);
+  dv.setInt32(pos + 20, h | 0, true);
+  dv.setInt32(pos + 24, dstX | 0, true);
+  dv.setInt32(pos + 28, dstY | 0, true);
+  return pos + BLIT_RECT_SIZE;
 }
 
 function legacyWritePopClip(_buf: Uint8Array, dv: DataView, pos: number): number {
@@ -425,6 +448,14 @@ describe("writers.gen - byte identity", () => {
     );
   });
 
+  test("blitRect", () => {
+    assertWriterIdentity(
+      BLIT_RECT_SIZE,
+      (buf, dv, pos) => legacyWriteBlitRect(buf, dv, pos, -1, 2, 3, 4, 5, -6),
+      (buf, dv, pos) => writeBlitRect(buf, dv, pos, -1, 2, 3, 4, 5, -6),
+    );
+  });
+
   test("popClip", () => {
     assertWriterIdentity(POP_CLIP_SIZE, legacyWritePopClip, writePopClip);
   });
@@ -510,6 +541,7 @@ describe("writers.gen - size constants", () => {
   test("FILL_RECT_SIZE", () => assert.equal(FILL_RECT_SIZE, 52));
   test("DRAW_TEXT_SIZE", () => assert.equal(DRAW_TEXT_SIZE, 60));
   test("PUSH_CLIP_SIZE", () => assert.equal(PUSH_CLIP_SIZE, 24));
+  test("BLIT_RECT_SIZE", () => assert.equal(BLIT_RECT_SIZE, 32));
   test("POP_CLIP_SIZE", () => assert.equal(POP_CLIP_SIZE, 8));
   test("DRAW_TEXT_RUN_SIZE", () => assert.equal(DRAW_TEXT_RUN_SIZE, 24));
   test("SET_CURSOR_SIZE", () => assert.equal(SET_CURSOR_SIZE, 20));

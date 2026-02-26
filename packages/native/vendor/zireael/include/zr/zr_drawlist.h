@@ -1,5 +1,5 @@
 /*
-  include/zr/zr_drawlist.h — Drawlist ABI structs (v1).
+  include/zr/zr_drawlist.h — Drawlist ABI structs (v1/v2).
 
   Why: Defines the little-endian drawlist command stream used by wrappers to
   drive rendering through engine_submit_drawlist().
@@ -63,7 +63,8 @@ typedef enum zr_dl_opcode_t {
   ZR_DL_OP_DEF_STRING = 10,
   ZR_DL_OP_FREE_STRING = 11,
   ZR_DL_OP_DEF_BLOB = 12,
-  ZR_DL_OP_FREE_BLOB = 13
+  ZR_DL_OP_FREE_BLOB = 13,
+  ZR_DL_OP_BLIT_RECT = 14
 } zr_dl_opcode_t;
 
 /*
@@ -177,6 +178,15 @@ typedef struct zr_dl_cmd_push_clip_t {
   int32_t w;
   int32_t h;
 } zr_dl_cmd_push_clip_t;
+
+typedef struct zr_dl_cmd_blit_rect_t {
+  int32_t src_x;
+  int32_t src_y;
+  int32_t w;
+  int32_t h;
+  int32_t dst_x;
+  int32_t dst_y;
+} zr_dl_cmd_blit_rect_t;
 
 typedef struct zr_dl_cmd_draw_text_run_t {
   int32_t x;

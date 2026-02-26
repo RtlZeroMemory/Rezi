@@ -8,6 +8,7 @@ export const CLEAR_SIZE = 8;
 export const FILL_RECT_SIZE = 52;
 export const DRAW_TEXT_SIZE = 60;
 export const PUSH_CLIP_SIZE = 24;
+export const BLIT_RECT_SIZE = 32;
 export const POP_CLIP_SIZE = 8;
 export const DRAW_TEXT_RUN_SIZE = 24;
 export const SET_CURSOR_SIZE = 20;
@@ -112,6 +113,31 @@ export function writePushClip(
   dv.setInt32(pos + 16, w | 0, true);
   dv.setInt32(pos + 20, h | 0, true);
   return pos + PUSH_CLIP_SIZE;
+}
+
+export function writeBlitRect(
+  buf: Uint8Array,
+  dv: DataView,
+  pos: number,
+  srcX: number,
+  srcY: number,
+  w: number,
+  h: number,
+  dstX: number,
+  dstY: number,
+): number {
+  buf[pos + 0] = 14 & 0xff;
+  buf[pos + 1] = 0;
+  buf[pos + 2] = 0;
+  buf[pos + 3] = 0;
+  dv.setUint32(pos + 4, BLIT_RECT_SIZE, true);
+  dv.setInt32(pos + 8, srcX | 0, true);
+  dv.setInt32(pos + 12, srcY | 0, true);
+  dv.setInt32(pos + 16, w | 0, true);
+  dv.setInt32(pos + 20, h | 0, true);
+  dv.setInt32(pos + 24, dstX | 0, true);
+  dv.setInt32(pos + 28, dstY | 0, true);
+  return pos + BLIT_RECT_SIZE;
 }
 
 export function writePopClip(buf: Uint8Array, dv: DataView, pos: number): number {

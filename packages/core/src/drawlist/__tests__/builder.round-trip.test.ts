@@ -224,17 +224,17 @@ describe("DrawlistBuilder round-trip binary readback", () => {
     assert.equal(h.magic, ZRDL_MAGIC);
     assert.equal(h.version, ZR_DRAWLIST_VERSION_V1);
     assert.equal(h.cmdOffset, 64);
-    assert.equal(h.cmdBytes, 128);
+    assert.equal(h.cmdBytes, 152);
     assert.equal(h.cmdCount, 5);
-    assert.equal(h.stringsSpanOffset, 192);
+    assert.equal(h.stringsSpanOffset, 216);
     assert.equal(h.stringsCount, 1);
-    assert.equal(h.stringsBytesOffset, 200);
+    assert.equal(h.stringsBytesOffset, 224);
     assert.equal(h.stringsBytesLen, 4);
     assert.equal(h.blobsSpanOffset, 0);
     assert.equal(h.blobsCount, 0);
     assert.equal(h.blobsBytesOffset, 0);
     assert.equal(h.blobsBytesLen, 0);
-    assert.equal(h.totalSize, 204);
+    assert.equal(h.totalSize, 228);
 
     assertHeaderLayout(res.bytes, h);
   });
@@ -260,7 +260,7 @@ describe("DrawlistBuilder round-trip binary readback", () => {
 
     assert.equal(cmd.opcode, OP_FILL_RECT);
     assert.equal(cmd.flags, 0);
-    assert.equal(cmd.size, 40);
+    assert.equal(cmd.size, 52);
     assert.equal(i32(res.bytes, cmd.payloadOff + 0), -3);
     assert.equal(i32(res.bytes, cmd.payloadOff + 4), 9);
     assert.equal(i32(res.bytes, cmd.payloadOff + 8), 11);
@@ -293,7 +293,7 @@ describe("DrawlistBuilder round-trip binary readback", () => {
     const cmd = cmds[0];
     if (!cmd) return;
     assert.equal(cmd.opcode, OP_DRAW_TEXT);
-    assert.equal(cmd.size, 48);
+    assert.equal(cmd.size, 60);
 
     const x = i32(res.bytes, cmd.payloadOff + 0);
     const y = i32(res.bytes, cmd.payloadOff + 4);
@@ -301,7 +301,7 @@ describe("DrawlistBuilder round-trip binary readback", () => {
     const byteOff = u32(res.bytes, cmd.payloadOff + 12);
     const byteLen = u32(res.bytes, cmd.payloadOff + 16);
     const style = readStyle(res.bytes, cmd.payloadOff + 20);
-    const reserved0 = u32(res.bytes, cmd.payloadOff + 36);
+    const reserved0 = u32(res.bytes, cmd.payloadOff + 48);
 
     assert.equal(x, 7);
     assert.equal(y, 9);
@@ -353,13 +353,13 @@ describe("DrawlistBuilder round-trip binary readback", () => {
     if (!res.ok) return;
 
     const h = readHeader(res.bytes);
-    assert.equal(h.stringsCount, 2);
+    assert.equal(h.stringsCount, 1);
     assert.equal(h.cmdCount, 3);
-    assert.equal(h.cmdBytes, 144);
-    assert.equal(h.stringsSpanOffset, 208);
-    assert.equal(h.stringsBytesOffset, 224);
-    assert.equal(h.stringsBytesLen, 12);
-    assert.equal(h.totalSize, 236);
+    assert.equal(h.cmdBytes, 180);
+    assert.equal(h.stringsSpanOffset, 244);
+    assert.equal(h.stringsBytesOffset, 252);
+    assert.equal(h.stringsBytesLen, 16);
+    assert.equal(h.totalSize, 268);
     assertHeaderLayout(res.bytes, h);
 
     const cmds = parseCommands(res.bytes);
@@ -373,9 +373,10 @@ describe("DrawlistBuilder round-trip binary readback", () => {
     const idx2 = u32(res.bytes, c2.payloadOff + 8);
     assert.equal(idx0, 0);
     assert.equal(idx1, 0);
-    assert.equal(idx2, 1);
+    assert.equal(idx2, 0);
     assert.equal(decodeStringSlice(res.bytes, h, idx0, 0, 4), "same");
-    assert.equal(decodeStringSlice(res.bytes, h, idx2, 0, 5), "other");
+    assert.equal(decodeStringSlice(res.bytes, h, idx1, 4, 4), "same");
+    assert.equal(decodeStringSlice(res.bytes, h, idx2, 8, 5), "other");
   });
 
   test("v2 header uses version 2 and correct cmd byte/count totals", () => {
@@ -518,8 +519,8 @@ describe("DrawlistBuilder round-trip binary readback", () => {
       h.cmdBytes,
       8 + // clear
         24 + // push clip
-        40 + // fill rect
-        48 + // draw text
+        52 + // fill rect
+        60 + // draw text
         20 + // set cursor
         8, // pop clip
     );

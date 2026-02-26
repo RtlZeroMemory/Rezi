@@ -1,6 +1,7 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type { EncodedStyle } from "../types.js";
 import {
+  BLIT_RECT_SIZE,
   DEF_BLOB_BASE_SIZE,
   DEF_STRING_BASE_SIZE,
   DRAW_CANVAS_SIZE,
@@ -10,6 +11,7 @@ import {
   FREE_STRING_SIZE,
   writeDefBlob,
   writeDefString,
+  writeBlitRect,
   writeDrawCanvas,
   writeDrawImage,
   writeDrawText,
@@ -33,6 +35,10 @@ function u32(bytes: Uint8Array, off: number): number {
   return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(off, true);
 }
 
+function i32(bytes: Uint8Array, off: number): number {
+  return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getInt32(off, true);
+}
+
 const ZERO_STYLE: EncodedStyle = Object.freeze({
   fg: 0,
   bg: 0,
@@ -45,6 +51,7 @@ const ZERO_STYLE: EncodedStyle = Object.freeze({
 
 describe("writers.gen v6", () => {
   test("size constants match v1 layouts", () => {
+    assert.equal(BLIT_RECT_SIZE, 32);
     assert.equal(DRAW_TEXT_SIZE, 60);
     assert.equal(DRAW_CANVAS_SIZE, 32);
     assert.equal(DRAW_IMAGE_SIZE, 40);
@@ -88,6 +95,23 @@ describe("writers.gen v6", () => {
     assert.equal(u8(bytes, p1 + 0), 13);
     assert.equal(u32(bytes, p1 + 4), FREE_BLOB_SIZE);
     assert.equal(u32(bytes, p1 + 8), 55);
+  });
+
+  test("BLIT_RECT writes source/destination rectangle fields", () => {
+    const bytes = new Uint8Array(BLIT_RECT_SIZE);
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+    const end = writeBlitRect(bytes, dv, 0, -1, 2, 3, 4, 5, -6);
+
+    assert.equal(end, BLIT_RECT_SIZE);
+    assert.equal(u8(bytes, 0), 14);
+    assert.equal(u32(bytes, 4), BLIT_RECT_SIZE);
+    assert.equal(i32(bytes, 8), -1);
+    assert.equal(i32(bytes, 12), 2);
+    assert.equal(i32(bytes, 16), 3);
+    assert.equal(i32(bytes, 20), 4);
+    assert.equal(i32(bytes, 24), 5);
+    assert.equal(i32(bytes, 28), -6);
   });
 
   test("DRAW_TEXT/DRAW_CANVAS/DRAW_IMAGE use resource ids", () => {

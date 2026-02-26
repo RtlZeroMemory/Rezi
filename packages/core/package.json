@@ -15,7 +15,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json --pretty false",
-    "test": "CONCURRENCY=$(node -p \"parseInt(process.versions.node)>=19?'--test-concurrency=1':''\") && node --test $CONCURRENCY $(find dist -type f -path '*/__tests__/*.test.js' | LC_ALL=C sort)"
+    "test": "CONCURRENCY=$(node -p \"parseInt(process.versions.node)>=19?'--test-concurrency=1':''\") && node --test $CONCURRENCY $(find dist -type f -path '*/__tests__/*.test.js' | LC_ALL=C sort)",
+    "bench:text-arena": "npm run build && node scripts/bench-text-arena.mjs"
   },
   "types": "./dist/index.d.ts",
   "exports": {

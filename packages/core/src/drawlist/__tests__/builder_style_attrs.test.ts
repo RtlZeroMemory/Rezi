@@ -8,7 +8,7 @@ function u32(bytes: Uint8Array, off: number): number {
 
 function textRunAttrs(bytes: Uint8Array, segmentIndex: number): number {
   const blobsBytesOffset = u32(bytes, 52);
-  return u32(bytes, blobsBytesOffset + 4 + segmentIndex * 28 + 8);
+  return u32(bytes, blobsBytesOffset + 4 + segmentIndex * 40 + 8);
 }
 
 function firstCommandOffset(bytes: Uint8Array): number {
