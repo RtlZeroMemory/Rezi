@@ -5,8 +5,8 @@ describe("DrawlistBuilder buildInto", () => {
   test("v2 buildInto(dst) matches build() bytes exactly", () => {
     const builder = createDrawlistBuilderV2();
     builder.clear();
-    builder.fillRect(0, 0, 8, 4, { bg: "#001122" });
-    builder.drawText(2, 1, "v2-build-into", { fg: "#aabbcc", bold: true });
+    builder.fillRect(0, 0, 8, 4, { bg: { r: 0x00, g: 0x11, b: 0x22 } });
+    builder.drawText(2, 1, "v2-build-into", { fg: { r: 0xaa, g: 0xbb, b: 0xcc }, bold: true });
     builder.setCursor({ x: 3, y: 2, shape: 1, visible: true, blink: false });
 
     const built = builder.build();
