@@ -343,6 +343,7 @@ static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_
       e->fb_prev.rows != presented_fb->rows) {
     invalidate_prev_hashes = true;
   } else {
+    bool links_synced = false;
     if (!use_damage_rect_copy) {
       const size_t n = zr_engine_cells_bytes(presented_fb);
       if (n != 0u) {
@@ -357,11 +358,12 @@ static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_
           memcpy(e->fb_prev.cells, presented_fb->cells, n);
         }
         invalidate_prev_hashes = true;
+      } else {
+        links_synced = true;
       }
     }
 
-    zr_fb_links_reset(&e->fb_prev);
-    if (zr_fb_links_clone_from(&e->fb_prev, presented_fb) != ZR_OK) {
+    if (!links_synced && zr_fb_links_clone_from(&e->fb_prev, presented_fb) != ZR_OK) {
       invalidate_prev_hashes = true;
     }
   }

@@ -20,8 +20,10 @@ Pinned to match Zireael:
 Pinned drawlist version:
 
 - `ZR_DRAWLIST_VERSION_V1 = 1`
+- `ZR_DRAWLIST_VERSION_V2 = 2`
 
-Only ZRDL v1 is supported.
+Rezi currently emits ZRDL v1, and the engine accepts v1/v2.
+ZRDL v2 adds opcode `14` (`BLIT_RECT`).
 
 ## Event Batch (ZREV)
 
@@ -47,7 +49,7 @@ Pinned Unicode tables:
 At startup, Rezi and backends enforce:
 
 1. Engine ABI major/minor/patch must match pinned values.
-2. Drawlist version marker must be `1`.
+2. Drawlist version marker must be `1` or `2` (Rezi emits `1` today).
 3. Event batch parsing expects `ZR_EVENT_BATCH_VERSION_V1`.
 
 Any mismatch is rejected before frame processing.
