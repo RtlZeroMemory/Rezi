@@ -25,7 +25,9 @@ zr_metrics_t zr_metrics__default_snapshot(void) {
   return m;
 }
 
-static size_t zr_min_size(size_t a, size_t b) { return (a < b) ? a : b; }
+static size_t zr_min_size(size_t a, size_t b) {
+  return (a < b) ? a : b;
+}
 
 /* Prefix-copy a snapshot into out_metrics without overruns (append-only ABI). */
 zr_result_t zr_metrics__copy_out(zr_metrics_t* out_metrics, const zr_metrics_t* snapshot) {

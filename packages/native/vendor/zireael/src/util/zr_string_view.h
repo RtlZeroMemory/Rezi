@@ -42,4 +42,3 @@ static inline bool zr_sv_eq(zr_string_view_t a, zr_string_view_t b) {
 }
 
 #endif /* ZR_UTIL_ZR_STRING_VIEW_H_INCLUDED */
-

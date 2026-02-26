@@ -21,8 +21,8 @@ typedef struct zr_grapheme_t {
 
 typedef struct zr_grapheme_iter_t {
   const uint8_t* bytes;
-  size_t         len;
-  size_t         off;
+  size_t len;
+  size_t off;
 } zr_grapheme_iter_t;
 
 /*
@@ -41,4 +41,3 @@ void zr_grapheme_iter_init(zr_grapheme_iter_t* it, const uint8_t* bytes, size_t 
 bool zr_grapheme_next(zr_grapheme_iter_t* it, zr_grapheme_t* out);
 
 #endif /* ZR_UNICODE_ZR_GRAPHEME_H_INCLUDED */
-

@@ -440,6 +440,7 @@ export function renderTree(
           node,
           nodeStack,
           styleStack,
+          damageRect,
           cursorInfo,
           diffViewerFocusedHunkById,
           diffViewerExpandedHunksById,

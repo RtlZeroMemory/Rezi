@@ -12,6 +12,7 @@ import type {
   EncodedStyle,
 } from "./types.js";
 import {
+  BLIT_RECT_SIZE,
   CLEAR_SIZE,
   DRAW_CANVAS_SIZE,
   DRAW_IMAGE_SIZE,
@@ -22,6 +23,7 @@ import {
   PUSH_CLIP_SIZE,
   SET_CURSOR_SIZE,
   writeClear,
+  writeBlitRect,
   writeDrawCanvas,
   writeDrawImage,
   writeDrawText,
@@ -600,6 +602,19 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
   protected override appendPushClipCommand(x: number, y: number, w: number, h: number): void {
     if (!this.beginCommandWrite("pushClip", PUSH_CLIP_SIZE)) return;
     this.cmdLen = writePushClip(this.cmdBuf, this.cmdDv, this.cmdLen, x, y, w, h);
+    this.cmdCount += 1;
+  }
+
+  protected override appendBlitRectCommand(
+    srcX: number,
+    srcY: number,
+    w: number,
+    h: number,
+    dstX: number,
+    dstY: number,
+  ): void {
+    if (!this.beginCommandWrite("blitRect", BLIT_RECT_SIZE)) return;
+    this.cmdLen = writeBlitRect(this.cmdBuf, this.cmdDv, this.cmdLen, srcX, srcY, w, h, dstX, dstY);
     this.cmdCount += 1;
   }
 

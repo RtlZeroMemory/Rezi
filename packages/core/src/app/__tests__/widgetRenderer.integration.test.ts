@@ -101,6 +101,7 @@ function createBuildIntoBuilder(bytes: Uint8Array): DrawlistBuilder & {
     setLink(): void {},
     drawCanvas(): void {},
     drawImage(): void {},
+    blitRect(): void {},
     build() {
       return { ok: true, bytes } as const;
     },
