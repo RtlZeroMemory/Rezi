@@ -116,8 +116,7 @@ export function renderTree(
   const styleStack: ResolvedTextStyle[] = [inheritedStyle];
   const layoutStack: LayoutTree[] = [layoutTree];
   const clipStack: (ClipRect | undefined)[] = [undefined];
-  const themeByNode = new WeakMap<RuntimeInstance, Theme>();
-  themeByNode.set(tree, theme);
+  const themeStack: Theme[] = [theme];
 
   while (nodeStack.length > 0) {
     const nodeOrPop = nodeStack.pop();
@@ -126,6 +125,7 @@ export function renderTree(
       continue;
     }
     if (!nodeOrPop) continue;
+    const currentTheme = themeStack.pop() ?? theme;
     const parentStyle = styleStack.pop();
     if (!parentStyle) continue;
     const layoutNode = layoutStack.pop();
@@ -147,7 +147,6 @@ export function renderTree(
       continue;
     }
 
-    const currentTheme = themeByNode.get(node) ?? theme;
     let renderTheme = currentTheme;
     if (vnode.kind === "themed") {
       const props = vnode.props as { theme?: unknown };
@@ -161,9 +160,7 @@ export function renderTree(
       const props = vnode.props as { theme?: unknown };
       renderTheme = mergeThemeOverride(currentTheme, props.theme);
     }
-    for (const child of node.children) {
-      themeByNode.set(child, renderTheme);
-    }
+    const nodeStackLenBeforePush = nodeStack.length;
 
     // Depth-first preorder: render node, then its children.
     switch (vnode.kind) {
@@ -408,6 +405,12 @@ export function renderTree(
 
       default:
         break;
+    }
+
+    for (let i = nodeStackLenBeforePush; i < nodeStack.length; i++) {
+      if (nodeStack[i] !== null) {
+        themeStack.push(renderTheme);
+      }
     }
   }
 
