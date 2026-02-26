@@ -8,6 +8,7 @@
  * @see docs/widgets/field.md (GitHub issue #119)
  */
 
+import { rgb } from "./style.js";
 import type { FieldProps, VNode } from "./types.js";
 
 /** Character used to indicate required fields. */
@@ -20,7 +21,7 @@ export const FIELD_LABEL_STYLE = Object.freeze({
 
 /** Default styles for field error. */
 export const FIELD_ERROR_STYLE = Object.freeze({
-  fg: { r: 255, g: 0, b: 0 },
+  fg: rgb(255, 0, 0),
 });
 
 /** Default styles for field hint. */

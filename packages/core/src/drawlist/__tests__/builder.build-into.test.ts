@@ -1,12 +1,12 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { createDrawlistBuilderV2, createDrawlistBuilderV3 } from "../../index.js";
+import { createDrawlistBuilder, rgb } from "../../index.js";
 
 describe("DrawlistBuilder buildInto", () => {
-  test("v2 buildInto(dst) matches build() bytes exactly", () => {
-    const builder = createDrawlistBuilderV2();
+  test("buildInto(dst) matches build() bytes exactly", () => {
+    const builder = createDrawlistBuilder();
     builder.clear();
-    builder.fillRect(0, 0, 8, 4, { bg: { r: 0x00, g: 0x11, b: 0x22 } });
-    builder.drawText(2, 1, "v2-build-into", { fg: { r: 0xaa, g: 0xbb, b: 0xcc }, bold: true });
+    builder.fillRect(0, 0, 8, 4, { bg: rgb(0, 17, 34) });
+    builder.drawText(2, 1, "build-into", { fg: rgb(170, 187, 204), bold: true });
     builder.setCursor({ x: 3, y: 2, shape: 1, visible: true, blink: false });
 
     const built = builder.build();
@@ -23,9 +23,9 @@ describe("DrawlistBuilder buildInto", () => {
     assert.deepEqual(Array.from(builtInto.bytes), Array.from(built.bytes));
   });
 
-  test("v3 (drawlist v5) buildInto(dst) matches build() for text, text-run, and graphics", () => {
-    const builder = createDrawlistBuilderV3({ drawlistVersion: 5 });
-    builder.drawText(1, 2, "hello-v3", { underlineStyle: "dashed", underlineColor: "#ff0000" });
+  test("buildInto(dst) matches build() for text, text-run, and graphics", () => {
+    const builder = createDrawlistBuilder();
+    builder.drawText(1, 2, "hello", { underlineStyle: "dashed", underlineColor: rgb(255, 0, 0) });
 
     const runBlob = builder.addTextRunBlob([
       { text: "run-a", style: { bold: true } },
@@ -55,7 +55,7 @@ describe("DrawlistBuilder buildInto", () => {
   });
 
   test("buildInto(dst) fails when dst is one byte too small", () => {
-    const builder = createDrawlistBuilderV2();
+    const builder = createDrawlistBuilder();
     builder.drawText(0, 0, "small-fail");
     builder.setCursor({ x: 0, y: 0, shape: 0, visible: true, blink: true });
 

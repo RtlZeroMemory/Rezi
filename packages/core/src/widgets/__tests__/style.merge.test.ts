@@ -250,32 +250,31 @@ describe("mergeTextStyle cache correctness for DEFAULT_BASE_STYLE", () => {
   });
 
   test("non-default base path does not stale-reuse entries across differing colors", () => {
-    const redBase = mergeTextStyle(DEFAULT_BASE_STYLE, { fg: { r: 200, g: 10, b: 20 } });
-    const blueBase = mergeTextStyle(DEFAULT_BASE_STYLE, { fg: { r: 20, g: 10, b: 200 } });
+    const redBase = mergeTextStyle(DEFAULT_BASE_STYLE, { fg: (200 << 16) | (10 << 8) | 20 });
+    const blueBase = mergeTextStyle(DEFAULT_BASE_STYLE, { fg: (20 << 16) | (10 << 8) | 200 });
     const redBoldA = mergeTextStyle(redBase, { bold: true });
     const redBoldB = mergeTextStyle(redBase, { bold: true });
     const blueBold = mergeTextStyle(blueBase, { bold: true });
 
     assert.equal(redBoldA === redBoldB, false);
     assert.equal(redBoldA === blueBold, false);
-    assert.deepEqual(redBoldA.fg, { r: 200, g: 10, b: 20 });
-    assert.deepEqual(redBoldB.fg, { r: 200, g: 10, b: 20 });
-    assert.deepEqual(blueBold.fg, { r: 20, g: 10, b: 200 });
+    assert.deepEqual(redBoldA.fg, (200 << 16) | (10 << 8) | 20);
+    assert.deepEqual(redBoldB.fg, (200 << 16) | (10 << 8) | 20);
+    assert.deepEqual(blueBold.fg, (20 << 16) | (10 << 8) | 200);
   });
 
   test("invalid style channels are sanitized before merge", () => {
     const merged = mergeTextStyle(DEFAULT_BASE_STYLE, {
-      fg: { r: 999, g: -5, b: "15.6" as unknown as number },
-      bg: { r: "4" as unknown as number, g: 5, b: 6 },
+      fg: { r: 999, g: -5, b: "15.6" as unknown as number } as unknown as number,
+      bg: { r: "4" as unknown as number, g: 5, b: 6 } as unknown as number,
       blink: "true" as unknown as boolean,
       underline: 1 as unknown as boolean,
     });
 
-    assert.deepEqual(merged, {
-      fg: { r: 255, g: 0, b: 16 },
-      bg: { r: 4, g: 5, b: 6 },
-      blink: true,
-    });
+    assert.equal(merged.fg, DEFAULT_BASE_STYLE.fg);
+    assert.equal(merged.bg, DEFAULT_BASE_STYLE.bg);
+    assert.equal(merged.blink, true);
+    assert.equal(merged.underline, undefined);
   });
 });
 
@@ -354,16 +353,16 @@ describe("mergeTextStyle extended underline fields", () => {
     const base = mergeTextStyle(DEFAULT_BASE_STYLE, {
       underline: true,
       underlineStyle: "double",
-      underlineColor: { r: 1, g: 2, b: 3 },
+      underlineColor: (1 << 16) | (2 << 8) | 3,
     });
     const merged = mergeTextStyle(base, {
       underlineStyle: "curly",
-      underlineColor: { r: 4, g: 5, b: 6 },
+      underlineColor: (4 << 16) | (5 << 8) | 6,
     });
 
     assert.equal(merged.underline, true);
     assert.equal(merged.underlineStyle, "curly");
-    assert.deepEqual(merged.underlineColor, { r: 4, g: 5, b: 6 });
+    assert.deepEqual(merged.underlineColor, (4 << 16) | (5 << 8) | 6);
   });
 
   test("merge retains token-string underlineColor values", () => {

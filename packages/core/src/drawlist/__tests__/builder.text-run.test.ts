@@ -1,5 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { ZRDL_MAGIC, ZR_DRAWLIST_VERSION_V1, createDrawlistBuilderV1 } from "../../index.js";
+import { ZRDL_MAGIC, ZR_DRAWLIST_VERSION_V1, createDrawlistBuilder } from "../../index.js";
 
 function u16(bytes: Uint8Array, off: number): number {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -16,13 +16,13 @@ function i32(bytes: Uint8Array, off: number): number {
   return dv.getInt32(off, true);
 }
 
-describe("DrawlistBuilderV1 (ZRDL v1) - DRAW_TEXT_RUN", () => {
+describe("DrawlistBuilder (ZRDL v1) - DRAW_TEXT_RUN", () => {
   test("emits blob span + DRAW_TEXT_RUN command referencing it", () => {
-    const b = createDrawlistBuilderV1();
+    const b = createDrawlistBuilder();
 
     const blobIndex = b.addTextRunBlob([
-      { text: "ABC", style: { fg: { r: 255, g: 0, b: 0 }, bold: true } },
-      { text: "DEF", style: { fg: { r: 0, g: 255, b: 0 }, underline: true } },
+      { text: "ABC", style: { fg: (255 << 16) | (0 << 8) | 0, bold: true } },
+      { text: "DEF", style: { fg: (0 << 16) | (255 << 8) | 0, underline: true } },
     ]);
     assert.equal(blobIndex, 0);
     if (blobIndex === null) return;

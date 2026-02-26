@@ -97,6 +97,19 @@ void zr_image_frame_reset(zr_image_frame_t* frame) {
   frame->blob_len = 0u;
 }
 
+zr_result_t zr_image_frame_reserve(zr_image_frame_t* frame, uint32_t cmd_cap, uint32_t blob_cap) {
+  zr_result_t rc = ZR_OK;
+  if (!frame) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+
+  rc = zr_image_frame_ensure_cmd_cap(frame, cmd_cap);
+  if (rc != ZR_OK) {
+    return rc;
+  }
+  return zr_image_frame_ensure_blob_cap(frame, blob_cap);
+}
+
 void zr_image_frame_release(zr_image_frame_t* frame) {
   if (!frame) {
     return;

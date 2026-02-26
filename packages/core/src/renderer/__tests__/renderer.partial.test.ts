@@ -2,7 +2,7 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import type { Viewport, WidgetRenderPlan } from "../../app/widgetRenderer.js";
 import { WidgetRenderer } from "../../app/widgetRenderer.js";
 import type { RuntimeBackend } from "../../backend.js";
-import type { DrawlistBuildResult, DrawlistBuilderV1 } from "../../drawlist/index.js";
+import type { DrawlistBuildResult, DrawlistBuilder } from "../../drawlist/index.js";
 import type { DrawlistTextRunSegment } from "../../drawlist/types.js";
 import type { ZrevEvent } from "../../events.js";
 import type { TextStyle, VNode } from "../../index.js";
@@ -19,7 +19,7 @@ type RecordedOp =
   | Readonly<{ kind: "pushClip"; x: number; y: number; w: number; h: number }>
   | Readonly<{ kind: "popClip" }>;
 
-class RecordingBuilder implements DrawlistBuilderV1 {
+class RecordingBuilder implements DrawlistBuilder {
   private ops: RecordedOp[] = [];
   private lastBuiltOps: readonly RecordedOp[] = Object.freeze([]);
 
@@ -61,9 +61,23 @@ class RecordingBuilder implements DrawlistBuilderV1 {
 
   drawTextRun(_x: number, _y: number, _blobIndex: number): void {}
 
+  setCursor(..._args: Parameters<DrawlistBuilder["setCursor"]>): void {}
+
+  hideCursor(): void {}
+
+  setLink(..._args: Parameters<DrawlistBuilder["setLink"]>): void {}
+
+  drawCanvas(..._args: Parameters<DrawlistBuilder["drawCanvas"]>): void {}
+
+  drawImage(..._args: Parameters<DrawlistBuilder["drawImage"]>): void {}
+
   build(): DrawlistBuildResult {
     this.lastBuiltOps = this.ops.slice();
     return { ok: true, bytes: new Uint8Array([this.ops.length & 0xff]) };
+  }
+
+  buildInto(_dst: Uint8Array): DrawlistBuildResult {
+    return this.build();
   }
 
   reset(): void {

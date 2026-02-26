@@ -1,4 +1,4 @@
-import type { Rgb } from "./style.js";
+import { type Rgb24, rgbB, rgbG, rgbR } from "./style.js";
 import type { CanvasContext, GraphicsBlitter } from "./types.js";
 
 export type CanvasOverlayText = Readonly<{
@@ -22,7 +22,7 @@ export type CanvasDrawingSurface = Readonly<{
   blitter: GraphicsBlitter;
 }>;
 
-export type CanvasColorResolver = (color: string) => Rgb;
+export type CanvasColorResolver = (color: string) => Rgb24;
 
 const TRANSPARENT_PIXEL = Object.freeze({ r: 0, g: 0, b: 0, a: 0 });
 const DEFAULT_SOLID_PIXEL = Object.freeze({ r: 255, g: 255, b: 255, a: 255 });
@@ -53,25 +53,16 @@ function clampInt(v: number, min: number, max: number): number {
   return n;
 }
 
-function parseHexColor(input: string): Rgb | null {
+function parseHexColor(input: string): Rgb24 | null {
   const raw = input.startsWith("#") ? input.slice(1) : input;
   if (/^[0-9a-fA-F]{6}$/.test(raw)) {
-    const n = Number.parseInt(raw, 16);
-    return Object.freeze({
-      r: (n >> 16) & 0xff,
-      g: (n >> 8) & 0xff,
-      b: n & 0xff,
-    });
+    return Number.parseInt(raw, 16) & 0x00ff_ffff;
   }
   if (/^[0-9a-fA-F]{3}$/.test(raw)) {
     const r = Number.parseInt(raw[0] ?? "0", 16);
     const g = Number.parseInt(raw[1] ?? "0", 16);
     const b = Number.parseInt(raw[2] ?? "0", 16);
-    return Object.freeze({
-      r: (r << 4) | r,
-      g: (g << 4) | g,
-      b: (b << 4) | b,
-    });
+    return (((r << 4) | r) << 16) | (((g << 4) | g) << 8) | ((b << 4) | b);
   }
   return null;
 }
@@ -82,15 +73,20 @@ function resolvePixel(
 ): Readonly<{ r: number; g: number; b: number; a: number }> {
   if (color === undefined) return DEFAULT_SOLID_PIXEL;
   const parsedHex = parseHexColor(color);
-  if (parsedHex) {
-    return Object.freeze({ ...parsedHex, a: 255 });
+  if (parsedHex !== null) {
+    return Object.freeze({
+      r: clampU8(rgbR(parsedHex)),
+      g: clampU8(rgbG(parsedHex)),
+      b: clampU8(rgbB(parsedHex)),
+      a: 255,
+    });
   }
   if (!resolveColor) return DEFAULT_SOLID_PIXEL;
   const resolved = resolveColor(color);
   return Object.freeze({
-    r: clampU8(resolved.r),
-    g: clampU8(resolved.g),
-    b: clampU8(resolved.b),
+    r: clampU8(rgbR(resolved)),
+    g: clampU8(rgbG(resolved)),
+    b: clampU8(rgbB(resolved)),
     a: 255,
   });
 }

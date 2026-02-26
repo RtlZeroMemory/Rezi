@@ -71,7 +71,7 @@ struct zr_engine_t {
   /* --- Tick scheduling (ZR_EV_TICK emission) --- */
   uint32_t last_tick_ms;
 
-  /* --- Framebuffers (double buffered + staging for no-partial-effects) --- */
+  /* --- Framebuffers (double buffered + overlay presentation stage) --- */
   zr_fb_t fb_prev;
   zr_fb_t fb_next;
   zr_fb_t fb_stage;
@@ -83,6 +83,10 @@ struct zr_engine_t {
   zr_image_frame_t image_frame_next;
   zr_image_frame_t image_frame_stage;
   zr_image_state_t image_state;
+
+  /* --- Persistent drawlist resources (DEF_* and FREE_* command state) --- */
+  zr_dl_resources_t dl_resources_next;
+  zr_dl_resources_t dl_resources_stage;
 
   /* --- Output buffer (single flush per present) --- */
   uint8_t* out_buf;
@@ -501,13 +505,43 @@ static zr_result_t zr_engine_fb_copy(const zr_fb_t* src, zr_fb_t* dst) {
   return zr_fb_links_clone_from(dst, src);
 }
 
-static void zr_engine_fb_swap(zr_fb_t* a, zr_fb_t* b) {
-  if (!a || !b) {
-    return;
+/*
+  Allocation-free framebuffer copy used for submit rollback.
+
+  Why: engine_submit_drawlist() must restore fb_next to fb_prev after any
+  in-place failure without depending on fresh allocations.
+*/
+static zr_result_t zr_engine_fb_copy_noalloc(const zr_fb_t* src, zr_fb_t* dst) {
+  if (!src || !dst) {
+    return ZR_ERR_INVALID_ARGUMENT;
   }
-  zr_fb_t tmp = *a;
-  *a = *b;
-  *b = tmp;
+  if (src->cols != dst->cols || src->rows != dst->rows) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+  if (!src->cells || !dst->cells) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+  if (src->links_len > dst->links_cap || src->link_bytes_len > dst->link_bytes_cap) {
+    return ZR_ERR_LIMIT;
+  }
+  if ((src->links_len != 0u && (!src->links || !dst->links)) ||
+      (src->link_bytes_len != 0u && (!src->link_bytes || !dst->link_bytes))) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+
+  const size_t n = zr_engine_cells_bytes(src);
+  if (n != 0u) {
+    memcpy(dst->cells, src->cells, n);
+  }
+  if (src->links_len != 0u) {
+    memcpy(dst->links, src->links, (size_t)src->links_len * sizeof(zr_fb_link_t));
+  }
+  if (src->link_bytes_len != 0u) {
+    memcpy(dst->link_bytes, src->link_bytes, (size_t)src->link_bytes_len);
+  }
+  dst->links_len = src->links_len;
+  dst->link_bytes_len = src->link_bytes_len;
+  return ZR_OK;
 }
 
 /*
@@ -1237,6 +1271,8 @@ zr_result_t engine_create(zr_engine_t** out_engine, const zr_engine_config_t* cf
   zr_image_frame_init(&e->image_frame_next);
   zr_image_frame_init(&e->image_frame_stage);
   zr_image_state_init(&e->image_state);
+  zr_dl_resources_init(&e->dl_resources_next);
+  zr_dl_resources_init(&e->dl_resources_stage);
   e->cursor_desired = zr_engine_cursor_default();
   e->last_tick_ms = zr_engine_now_ms_u32();
 
@@ -1288,6 +1324,8 @@ static void zr_engine_release_heap_state(zr_engine_t* e) {
   zr_image_frame_release(&e->image_frame_next);
   zr_image_frame_release(&e->image_frame_stage);
   zr_image_state_init(&e->image_state);
+  zr_dl_resources_release(&e->dl_resources_next);
+  zr_dl_resources_release(&e->dl_resources_stage);
 
   zr_arena_release(&e->arena_frame);
   zr_arena_release(&e->arena_persistent);
@@ -1413,10 +1451,10 @@ static void zr_engine_build_blit_caps(const zr_engine_t* e, zr_blit_caps_t* out_
 }
 
 /*
-  Validate and execute a drawlist against the staging framebuffer.
+  Validate and execute a drawlist directly into fb_next.
 
-  Why: Enforces the "no partial effects" contract by only committing to fb_next
-  after a successful execute.
+  Why: Keeps steady-state work proportional to command effects (not full-frame
+  clones) while preserving the no-partial-effects contract through rollback.
 */
 zr_result_t engine_submit_drawlist(zr_engine_t* e, const uint8_t* bytes, int bytes_len) {
   if (!e || !bytes) {
@@ -1443,29 +1481,65 @@ zr_result_t engine_submit_drawlist(zr_engine_t* e, const uint8_t* bytes, int byt
     return ZR_ERR_UNSUPPORTED;
   }
 
-  rc = zr_engine_fb_copy(&e->fb_next, &e->fb_stage);
+  zr_cursor_state_t cursor_stage = e->cursor_desired;
+  zr_dl_resources_t preflight_resources;
+  zr_dl_resources_init(&preflight_resources);
+
+  zr_dl_resources_release(&e->dl_resources_stage);
+  rc = zr_dl_resources_clone(&e->dl_resources_stage, &e->dl_resources_next);
   if (rc != ZR_OK) {
     zr_engine_trace_drawlist(e, ZR_DEBUG_CODE_DRAWLIST_EXECUTE, bytes, (uint32_t)bytes_len, v.hdr.cmd_count,
                              v.hdr.version, ZR_OK, rc);
     return rc;
   }
+  rc = zr_dl_resources_clone_shallow(&preflight_resources, &e->dl_resources_stage);
+  if (rc != ZR_OK) {
+    zr_dl_resources_release(&e->dl_resources_stage);
+    zr_engine_trace_drawlist(e, ZR_DEBUG_CODE_DRAWLIST_EXECUTE, bytes, (uint32_t)bytes_len, v.hdr.cmd_count,
+                             v.hdr.version, ZR_OK, rc);
+    return rc;
+  }
 
-  zr_cursor_state_t cursor_stage = e->cursor_desired;
   zr_image_frame_reset(&e->image_frame_stage);
+  rc = zr_dl_preflight_resources(&v, &e->fb_next, &e->image_frame_stage, &e->cfg_runtime.limits, &e->term_profile,
+                                 &preflight_resources);
+  zr_dl_resources_release(&preflight_resources);
+  if (rc != ZR_OK) {
+    const zr_result_t rollback_rc = zr_engine_fb_copy_noalloc(&e->fb_prev, &e->fb_next);
+    zr_image_frame_reset(&e->image_frame_stage);
+    zr_dl_resources_release(&e->dl_resources_stage);
+    if (rollback_rc != ZR_OK) {
+      zr_engine_trace_drawlist(e, ZR_DEBUG_CODE_DRAWLIST_EXECUTE, bytes, (uint32_t)bytes_len, v.hdr.cmd_count,
+                               v.hdr.version, ZR_OK, rollback_rc);
+      return rollback_rc;
+    }
+    zr_engine_trace_drawlist(e, ZR_DEBUG_CODE_DRAWLIST_EXECUTE, bytes, (uint32_t)bytes_len, v.hdr.cmd_count,
+                             v.hdr.version, ZR_OK, rc);
+    return rc;
+  }
+
   zr_blit_caps_t blit_caps;
   zr_engine_build_blit_caps(e, &blit_caps);
-  rc = zr_dl_execute(&v, &e->fb_stage, &e->cfg_runtime.limits, e->cfg_runtime.tab_width, e->cfg_runtime.width_policy,
-                     &blit_caps, &e->term_profile, &e->image_frame_stage, &cursor_stage);
+  rc = zr_dl_execute(&v, &e->fb_next, &e->cfg_runtime.limits, e->cfg_runtime.tab_width, e->cfg_runtime.width_policy,
+                     &blit_caps, &e->term_profile, &e->image_frame_stage, &e->dl_resources_stage, &cursor_stage);
   if (rc != ZR_OK) {
+    const zr_result_t rollback_rc = zr_engine_fb_copy_noalloc(&e->fb_prev, &e->fb_next);
     zr_image_frame_reset(&e->image_frame_stage);
+    zr_dl_resources_release(&e->dl_resources_stage);
+    if (rollback_rc != ZR_OK) {
+      zr_engine_trace_drawlist(e, ZR_DEBUG_CODE_DRAWLIST_EXECUTE, bytes, (uint32_t)bytes_len, v.hdr.cmd_count,
+                               v.hdr.version, ZR_OK, rollback_rc);
+      return rollback_rc;
+    }
     zr_engine_trace_drawlist(e, ZR_DEBUG_CODE_DRAWLIST_EXECUTE, bytes, (uint32_t)bytes_len, v.hdr.cmd_count,
                              v.hdr.version, ZR_OK, rc);
     return rc;
   }
 
-  zr_engine_fb_swap(&e->fb_next, &e->fb_stage);
   zr_image_frame_swap(&e->image_frame_next, &e->image_frame_stage);
   zr_image_frame_reset(&e->image_frame_stage);
+  zr_dl_resources_swap(&e->dl_resources_next, &e->dl_resources_stage);
+  zr_dl_resources_release(&e->dl_resources_stage);
   e->cursor_desired = cursor_stage;
 
   zr_engine_trace_drawlist(e, ZR_DEBUG_CODE_DRAWLIST_EXECUTE, bytes, (uint32_t)bytes_len, v.hdr.cmd_count,

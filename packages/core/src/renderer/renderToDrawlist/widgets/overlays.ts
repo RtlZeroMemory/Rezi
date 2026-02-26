@@ -1,4 +1,4 @@
-import type { DrawlistBuilderV1 } from "../../../drawlist/types.js";
+import type { DrawlistBuilder } from "../../../drawlist/types.js";
 import { computeDropdownGeometry } from "../../../layout/dropdownGeometry.js";
 import { measureTextCells, truncateWithEllipsis } from "../../../layout/textMeasure.js";
 import type { Rect } from "../../../layout/types.js";
@@ -72,25 +72,11 @@ function readString(raw: unknown, fallback = ""): string {
   return typeof raw === "string" ? raw : fallback;
 }
 
-function readRgbChannel(raw: unknown): number | null {
-  if (typeof raw !== "number" || !Number.isFinite(raw)) {
-    return null;
-  }
-  return Math.max(0, Math.min(255, Math.trunc(raw)));
-}
-
 function readRgbColor(raw: unknown): ResolvedTextStyle["fg"] | undefined {
-  if (typeof raw !== "object" || raw === null) {
+  if (typeof raw !== "number" || !Number.isFinite(raw)) {
     return undefined;
   }
-  const color = raw as { r?: unknown; g?: unknown; b?: unknown };
-  const r = readRgbChannel(color.r);
-  const g = readRgbChannel(color.g);
-  const b = readRgbChannel(color.b);
-  if (r === null || g === null || b === null) {
-    return undefined;
-  }
-  return { r, g, b };
+  return (Math.round(raw) >>> 0) & 0x00ff_ffff;
 }
 
 function readOverlayFrameColors(raw: unknown): OverlayFrameColors {
@@ -181,7 +167,7 @@ function toastTypeToThemeColor(theme: Theme, type: "info" | "success" | "warning
 }
 
 export function renderOverlayWidget(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   focusState: FocusState,
   rect: Rect,
   viewport: Readonly<{ cols: number; rows: number }>,

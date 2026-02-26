@@ -73,9 +73,9 @@ if ! rg -n "Source of truth: scripts/drawlist-spec.ts" \
   echo "missing source-of-truth marker in packages/core/src/drawlist/writers.gen.ts"
   has_violations=1
 fi
-if ! rg -n "from \"\\./writers\\.gen\\.js\"" \
-  "${repo_root}/packages/core/src/drawlist/builder_v3.ts" >/dev/null 2>&1; then
-  echo "builder_v3.ts is not wired to import ./writers.gen.js"
+if ! rg -n "from ['\"]\\./writers\\.gen\\.js['\"]" \
+  "${repo_root}/packages/core/src/drawlist/builder.ts" >/dev/null 2>&1; then
+  echo "builder.ts is not wired to import ./writers.gen.js"
   has_violations=1
 fi
 if [[ "${has_violations}" -eq 0 ]]; then

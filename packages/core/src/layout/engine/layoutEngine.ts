@@ -56,6 +56,25 @@ type SyntheticThemedColumnCacheEntry = Readonly<{
   columnNode: VNode;
 }>;
 
+// Temporary profiling counters (remove after investigation)
+export const __layoutProfile = {
+  enabled: false,
+  layoutNodeCalls: 0,
+  measureNodeCalls: 0,
+  measureCacheHits: 0,
+  layoutCacheHits: 0,
+  layoutByKind: {} as Record<string, number>,
+  measureByKind: {} as Record<string, number>,
+  reset(): void {
+    this.layoutNodeCalls = 0;
+    this.measureNodeCalls = 0;
+    this.measureCacheHits = 0;
+    this.layoutCacheHits = 0;
+    this.layoutByKind = {};
+    this.measureByKind = {};
+  },
+};
+
 let activeMeasureCache: MeasureCache | null = null;
 const measureCacheStack: MeasureCache[] = [];
 let activeLayoutCache: LayoutCache | null = null;
@@ -123,6 +142,12 @@ function measureNode(vnode: VNode, maxW: number, maxH: number, axis: Axis): Layo
     };
   }
 
+  if (__layoutProfile.enabled) {
+    __layoutProfile.measureNodeCalls++;
+    __layoutProfile.measureByKind[vnode.kind] =
+      (__layoutProfile.measureByKind[vnode.kind] ?? 0) + 1;
+  }
+
   const cache = activeMeasureCache;
   if (cache) {
     const entry = cache.get(vnode);
@@ -130,7 +155,10 @@ function measureNode(vnode: VNode, maxW: number, maxH: number, axis: Axis): Layo
       const axisMap = axis === "row" ? entry.row : entry.column;
       const byH = axisMap.get(maxW);
       const hit = byH?.get(maxH);
-      if (hit) return hit;
+      if (hit) {
+        if (__layoutProfile.enabled) __layoutProfile.measureCacheHits++;
+        return hit;
+      }
     }
   }
 
@@ -344,6 +372,11 @@ function layoutNode(
     };
   }
 
+  if (__layoutProfile.enabled) {
+    __layoutProfile.layoutNodeCalls++;
+    __layoutProfile.layoutByKind[vnode.kind] = (__layoutProfile.layoutByKind[vnode.kind] ?? 0) + 1;
+  }
+
   const cache = activeLayoutCache;
   const cacheKey = layoutCacheKey(maxW, maxH, forcedW, forcedH, x, y);
   const dirtySet = getActiveDirtySet();
@@ -354,6 +387,7 @@ function layoutNode(
       const axisMap = axis === "row" ? entry.row : entry.column;
       cacheHit = axisMap.get(cacheKey) ?? null;
       if (cacheHit && (dirtySet === null || !dirtySet.has(vnode))) {
+        if (__layoutProfile.enabled) __layoutProfile.layoutCacheHits++;
         return cacheHit;
       }
     }

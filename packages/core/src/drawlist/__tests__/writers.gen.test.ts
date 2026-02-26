@@ -1,5 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { ZRDL_MAGIC, ZR_DRAWLIST_VERSION_V1, createDrawlistBuilderV3 } from "../../index.js";
+import { ZRDL_MAGIC, ZR_DRAWLIST_VERSION_V1, createDrawlistBuilder } from "../../index.js";
 import type { EncodedStyle } from "../types.js";
 import {
   CLEAR_SIZE,
@@ -624,7 +624,7 @@ describe("writers.gen - style encoding", () => {
 
 describe("writers.gen - round trip integration", () => {
   test("builder output matches reference encoding and header offsets stay valid", () => {
-    const b = createDrawlistBuilderV3({ drawlistVersion: 5 });
+    const b = createDrawlistBuilder();
     const blobIndex = b.addBlob(new Uint8Array([1, 2, 3, 4]));
     assert.equal(blobIndex, 0);
     if (blobIndex === null) throw new Error("blob index was null");

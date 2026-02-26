@@ -3,11 +3,11 @@ import { extendStyle, mergeStyles, sanitizeTextStyle, styleWhen, styles } from "
 
 describe("styleUtils", () => {
   test("mergeStyles applies later overrides", () => {
-    const a = { bold: true, fg: { r: 1, g: 1, b: 1 } } as const;
+    const a = { bold: true, fg: (1 << 16) | (1 << 8) | 1 } as const;
     const b = { bold: false } as const;
     const merged = mergeStyles(a, b);
     assert.equal(merged.bold, false);
-    assert.deepEqual(merged.fg, { r: 1, g: 1, b: 1 });
+    assert.deepEqual(merged.fg, (1 << 16) | (1 << 8) | 1);
   });
 
   test("extendStyle delegates to mergeStyles", () => {
@@ -34,11 +34,14 @@ describe("styleUtils", () => {
   });
 
   test("sanitizeTextStyle preserves underlineColor rgb", () => {
-    assert.deepEqual(sanitizeTextStyle({ underlineColor: { r: 1, g: 2, b: 3 } }).underlineColor, {
-      r: 1,
-      g: 2,
-      b: 3,
-    });
+    assert.deepEqual(
+      sanitizeTextStyle({ underlineColor: (1 << 16) | (2 << 8) | 3 }).underlineColor,
+      {
+        r: 1,
+        g: 2,
+        b: 3,
+      },
+    );
   });
 
   test("sanitizeTextStyle preserves underlineColor theme token", () => {
@@ -61,11 +64,11 @@ describe("styleUtils", () => {
 
   test("mergeStyles merges underlineStyle and underlineColor", () => {
     const merged = mergeStyles(
-      { underlineStyle: "curly", underlineColor: { r: 255, g: 0, b: 0 } },
+      { underlineStyle: "curly", underlineColor: (255 << 16) | (0 << 8) | 0 },
       { bold: true },
     );
     assert.equal(merged.underlineStyle, "curly");
-    assert.deepEqual(merged.underlineColor, { r: 255, g: 0, b: 0 });
+    assert.deepEqual(merged.underlineColor, (255 << 16) | (0 << 8) | 0);
     assert.equal(merged.bold, true);
   });
 

@@ -1,5 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { type VNode, createDrawlistBuilderV1 } from "../../index.js";
+import { type VNode, createDrawlistBuilder } from "../../index.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
 import { createInstanceIdAllocator } from "../../runtime/instance.js";
@@ -65,7 +65,7 @@ function renderAndGetLayoutTree(
     assert.fail("layout failed");
   }
 
-  const builder = createDrawlistBuilderV1();
+  const builder = createDrawlistBuilder();
   renderToDrawlist({
     tree: committed.value.root,
     layout: laidOut.value,

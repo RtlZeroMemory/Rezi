@@ -25,6 +25,7 @@ const ITERATIONS = 1024;
 type MutableResolvedTextStyle = {
   fg: NonNullable<TextStyle["fg"]>;
   bg: NonNullable<TextStyle["bg"]>;
+  attrs?: number;
 } & Partial<Record<BoolAttr, boolean>>;
 
 type OverrideInput = {
@@ -50,31 +51,27 @@ function randomBool(rng: Rng): boolean {
 }
 
 function randomRgb(rng: Rng): NonNullable<TextStyle["fg"]> {
-  return {
-    r: rng.u32() & 255,
-    g: rng.u32() & 255,
-    b: rng.u32() & 255,
-  };
+  return ((rng.u32() & 255) << 16) | ((rng.u32() & 255) << 8) | (rng.u32() & 255);
 }
 
 function randomBase(rng: Rng): ResolvedTextStyle {
-  const base: MutableResolvedTextStyle = { fg: randomRgb(rng), bg: randomRgb(rng) };
+  const base: Record<string, unknown> = { fg: randomRgb(rng), bg: randomRgb(rng) };
   for (const attr of BOOL_ATTRS) {
     const state = rng.u32() % 3;
     if (state === 1) base[attr] = false;
     if (state === 2) base[attr] = true;
   }
-  return base;
+  return mergeTextStyle(DEFAULT_BASE_STYLE, base as TextStyle);
 }
 
 function randomTrueHeavyBase(rng: Rng): ResolvedTextStyle {
-  const base: MutableResolvedTextStyle = { fg: randomRgb(rng), bg: randomRgb(rng) };
+  const base: Record<string, unknown> = { fg: randomRgb(rng), bg: randomRgb(rng) };
   for (const attr of BOOL_ATTRS) {
     const state = rng.u32() % 5;
     if (state === 1) base[attr] = false;
     if (state >= 2) base[attr] = true;
   }
-  return base;
+  return mergeTextStyle(DEFAULT_BASE_STYLE, base as TextStyle);
 }
 
 function setBoolOverride(out: OverrideInput, attr: BoolAttr, state: number, rng: Rng): void {
@@ -176,9 +173,9 @@ function randomFalseHeavyOverride(rng: Rng): OverrideInput {
 }
 
 function expectedMerge(
-  base: ResolvedTextStyle,
+  base: MutableResolvedTextStyle,
   override: OverrideInput | undefined,
-): ResolvedTextStyle {
+): MutableResolvedTextStyle {
   if (!override) return base;
 
   const merged: MutableResolvedTextStyle = {
@@ -194,14 +191,13 @@ function expectedMerge(
   return merged;
 }
 
-function assertResolvedStyle(actual: ResolvedTextStyle, expected: ResolvedTextStyle): void {
+function assertResolvedStyle(actual: ResolvedTextStyle, expected: MutableResolvedTextStyle): void {
+  assert.equal(typeof actual.attrs, "number");
   assert.deepEqual(actual.fg, expected.fg);
   assert.deepEqual(actual.bg, expected.bg);
   for (const attr of BOOL_ATTRS) {
     assert.equal(actual[attr], expected[attr]);
-    assert.equal(Object.prototype.hasOwnProperty.call(actual, attr), expected[attr] !== undefined);
   }
-  assert.deepEqual(actual, expected);
 }
 
 function assertPairMerge(

@@ -13,7 +13,7 @@
 
 import { blendRgb } from "../theme/blend.js";
 import type { ColorTokens, ThemeSpacingTokens } from "../theme/tokens.js";
-import type { Rgb, TextStyle } from "../widgets/style.js";
+import type { Rgb24, TextStyle } from "../widgets/style.js";
 import {
   type BorderVariant,
   type Density,
@@ -37,8 +37,8 @@ import {
 // ---------------------------------------------------------------------------
 
 /** Lighten or darken a color toward white/black. */
-function adjustBrightness(color: Rgb, amount: number): Rgb {
-  const target = amount > 0 ? { r: 255, g: 255, b: 255 } : { r: 0, g: 0, b: 0 };
+function adjustBrightness(color: Rgb24, amount: number): Rgb24 {
+  const target = amount > 0 ? (255 << 16) | (255 << 8) | 255 : (0 << 16) | (0 << 8) | 0;
   return blendRgb(color, target, Math.abs(amount));
 }
 
@@ -1232,7 +1232,7 @@ export function badgeRecipe(
   const tone = params.tone ?? "default";
   const resolvedTone: WidgetTone = tone === "info" ? "primary" : tone;
 
-  let color: Rgb;
+  let color: Rgb24;
   switch (tone) {
     case "danger":
       color = colors.error;
@@ -1277,7 +1277,7 @@ export function tagRecipe(colors: ColorTokens, params: TagRecipeParams = {}): Ta
   const tone = params.tone ?? "default";
   const resolvedTone: WidgetTone = tone === "info" ? "primary" : tone;
 
-  let bg: Rgb;
+  let bg: Rgb24;
   switch (tone) {
     case "danger":
       bg = colors.error;
@@ -1481,7 +1481,7 @@ export function calloutRecipe(
 ): CalloutRecipeResult {
   const tone = params.tone ?? "info";
 
-  let accentColor: Rgb;
+  let accentColor: Rgb24;
   switch (tone) {
     case "danger":
       accentColor = colors.error;

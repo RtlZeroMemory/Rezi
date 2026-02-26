@@ -3,7 +3,7 @@ import type { DrawlistTextRunSegment } from "../../drawlist/types.js";
 import type {
   BorderStyle,
   DrawlistBuildResult,
-  DrawlistBuilderV1,
+  DrawlistBuilder,
   TextStyle,
   VNode,
 } from "../../index.js";
@@ -24,7 +24,7 @@ type DrawOp =
 
 type DrawTextOp = Readonly<{ index: number; x: number; y: number; text: string }>;
 
-class RecordingBuilder implements DrawlistBuilderV1 {
+class RecordingBuilder implements DrawlistBuilder {
   readonly ops: DrawOp[] = [];
 
   clear(): void {
@@ -65,6 +65,20 @@ class RecordingBuilder implements DrawlistBuilderV1 {
   }
 
   drawTextRun(_x: number, _y: number, _blobIndex: number): void {}
+
+  setCursor(..._args: Parameters<DrawlistBuilder["setCursor"]>): void {}
+
+  hideCursor(): void {}
+
+  setLink(..._args: Parameters<DrawlistBuilder["setLink"]>): void {}
+
+  drawCanvas(..._args: Parameters<DrawlistBuilder["drawCanvas"]>): void {}
+
+  drawImage(..._args: Parameters<DrawlistBuilder["drawImage"]>): void {}
+
+  buildInto(_dst: Uint8Array): DrawlistBuildResult {
+    return this.build();
+  }
 
   build(): DrawlistBuildResult {
     return { ok: true, bytes: new Uint8Array() };
@@ -478,9 +492,9 @@ describe("renderer border rendering (deterministic)", () => {
   });
 
   test("box opacity blends merged own style against parent backdrop", () => {
-    const backdrop = { r: 32, g: 48, b: 64 };
-    const childFg = { r: 250, g: 180, b: 110 };
-    const childBg = { r: 10, g: 20, b: 30 };
+    const backdrop = (32 << 16) | (48 << 8) | 64;
+    const childFg = (250 << 16) | (180 << 8) | 110;
+    const childBg = (10 << 16) | (20 << 8) | 30;
     const ops = renderOps(
       ui.column({ id: "root", style: { bg: backdrop } }, [
         ui.box(
@@ -505,14 +519,8 @@ describe("renderer border rendering (deterministic)", () => {
         op.w === 8 &&
         op.h === 4 &&
         op.style !== undefined &&
-        op.style.fg !== undefined &&
-        op.style.bg !== undefined &&
-        op.style.fg.r === backdrop.r &&
-        op.style.fg.g === backdrop.g &&
-        op.style.fg.b === backdrop.b &&
-        op.style.bg.r === backdrop.r &&
-        op.style.bg.g === backdrop.g &&
-        op.style.bg.b === backdrop.b,
+        op.style.fg === backdrop &&
+        op.style.bg === backdrop,
     );
     assert.equal(childFillMatchesBackdrop, true, "faded fill should match parent backdrop");
 
@@ -526,7 +534,7 @@ describe("renderer border rendering (deterministic)", () => {
   });
 
   test("button pressedStyle is applied when pressedId matches", () => {
-    const pressedFg = Object.freeze({ r: 255, g: 64, b: 64 });
+    const pressedFg = Object.freeze((255 << 16) | (64 << 8) | 64);
     const ops = renderOps(
       ui.button({
         id: "btn",

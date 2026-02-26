@@ -2,7 +2,7 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import type { Viewport, WidgetRenderPlan } from "../../app/widgetRenderer.js";
 import { WidgetRenderer } from "../../app/widgetRenderer.js";
 import type { RuntimeBackend } from "../../backend.js";
-import type { DrawlistBuildResult, DrawlistBuilderV1 } from "../../drawlist/index.js";
+import type { DrawlistBuildResult, DrawlistBuilder } from "../../drawlist/index.js";
 import type { DrawlistTextRunSegment } from "../../drawlist/types.js";
 import type { ZrevEvent } from "../../events.js";
 import type { VNode } from "../../index.js";
@@ -11,7 +11,7 @@ import { ZR_KEY_TAB } from "../../keybindings/keyCodes.js";
 import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
 
-class CountingBuilder implements DrawlistBuilderV1 {
+class CountingBuilder implements DrawlistBuilder {
   private opCount = 0;
   private lastBuiltCount = 0;
 
@@ -52,6 +52,20 @@ class CountingBuilder implements DrawlistBuilderV1 {
   }
 
   drawTextRun(_x: number, _y: number, _blobIndex: number): void {}
+
+  setCursor(..._args: Parameters<DrawlistBuilder["setCursor"]>): void {}
+
+  hideCursor(): void {}
+
+  setLink(..._args: Parameters<DrawlistBuilder["setLink"]>): void {}
+
+  drawCanvas(..._args: Parameters<DrawlistBuilder["drawCanvas"]>): void {}
+
+  drawImage(..._args: Parameters<DrawlistBuilder["drawImage"]>): void {}
+
+  buildInto(_dst: Uint8Array): DrawlistBuildResult {
+    return this.build();
+  }
 
   build(): DrawlistBuildResult {
     this.lastBuiltCount = this.opCount;

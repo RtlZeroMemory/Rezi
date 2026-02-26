@@ -247,21 +247,6 @@ export function readDebugBytesWithRetry<TEmpty>(
   }
 }
 
-function parseDrawlistVersion(v: unknown): 1 | null {
-  if (v === undefined) return null;
-  if (v === 1) return v;
-  throw new ZrUiError(
-    "ZRUI_INVALID_PROPS",
-    `createNodeBackend config mismatch: drawlistVersion must be 1 (got ${String(v)}).`,
-  );
-}
-
-function resolveRequestedDrawlistVersion(config: Readonly<{ drawlistVersion?: 1 }>): 1 {
-  const explicitDrawlistVersion = parseDrawlistVersion(config.drawlistVersion);
-  if (explicitDrawlistVersion !== null) return explicitDrawlistVersion;
-  return ZR_DRAWLIST_VERSION_V1;
-}
-
 function parseBoundedPositiveIntOrThrow(
   name: string,
   value: unknown,
@@ -374,7 +359,7 @@ async function loadNative(shimModule: string | undefined): Promise<NativeApi> {
 
 export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = {}): NodeBackend {
   const cfg = opts.config ?? {};
-  const requestedDrawlistVersion = resolveRequestedDrawlistVersion(cfg);
+  const requestedDrawlistVersion = ZR_DRAWLIST_VERSION_V1;
   const fpsCap = parseBoundedPositiveIntOrThrow(
     "fpsCap",
     cfg.fpsCap,

@@ -288,7 +288,7 @@ test("flexShrink defaults to 1 when not set", () => {
   assert.equal(vnode.props.flexShrink, 1);
 });
 
-test("percent dimensions map to percent marker props", () => {
+test("percent dimensions map to native percent strings or markers", () => {
   const node = boxNode(
     {
       width: "100%",
@@ -301,11 +301,13 @@ test("percent dimensions map to percent marker props", () => {
   );
   const vnode = translateTree(containerWith(node)) as any;
 
-  assert.equal(vnode.props.__inkPercentWidth, 100);
-  assert.equal(vnode.props.__inkPercentHeight, 50);
+  // width, height, flexBasis: passed as native percent strings (layout engine resolves them)
+  assert.equal(vnode.props.width, "100%");
+  assert.equal(vnode.props.height, "50%");
+  assert.equal(vnode.props.flexBasis, "40%");
+  // minWidth, minHeight: still use markers (layout engine only accepts numbers)
   assert.equal(vnode.props.__inkPercentMinWidth, 25);
   assert.equal(vnode.props.__inkPercentMinHeight, 75);
-  assert.equal(vnode.props.__inkPercentFlexBasis, 40);
 });
 
 test("wrap-reverse is approximated as wrap + reverse", () => {

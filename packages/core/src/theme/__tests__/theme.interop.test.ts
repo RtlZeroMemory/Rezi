@@ -68,7 +68,7 @@ describe("theme.interop spacing", () => {
       extendTheme(darkTheme, {
         colors: {
           accent: {
-            primary: { r: 1, g: 2, b: 3 },
+            primary: (1 << 16) | (2 << 8) | 3,
           },
         },
       }),
@@ -83,30 +83,30 @@ describe("theme.interop spacing", () => {
     const semanticTheme = extendTheme(darkTheme, {
       colors: {
         diagnostic: {
-          warning: { r: 1, g: 2, b: 3 },
+          warning: (1 << 16) | (2 << 8) | 3,
         },
       },
     });
 
     const legacyTheme = coerceToLegacyTheme(semanticTheme);
-    assert.deepEqual(legacyTheme.colors["diagnostic.warning"], { r: 1, g: 2, b: 3 });
+    assert.deepEqual(legacyTheme.colors["diagnostic.warning"], (1 << 16) | (2 << 8) | 3);
   });
 
   test("mergeThemeOverride accepts nested legacy diagnostic overrides", () => {
     const parentTheme = createTheme({
       colors: {
-        "diagnostic.error": { r: 9, g: 9, b: 9 },
+        "diagnostic.error": (9 << 16) | (9 << 8) | 9,
       },
     });
 
     const merged = mergeThemeOverride(parentTheme, {
       colors: {
         diagnostic: {
-          error: { r: 7, g: 8, b: 9 },
+          error: (7 << 16) | (8 << 8) | 9,
         },
       },
     });
 
-    assert.deepEqual(merged.colors["diagnostic.error"], { r: 7, g: 8, b: 9 });
+    assert.deepEqual(merged.colors["diagnostic.error"], (7 << 16) | (8 << 8) | 9);
   });
 });

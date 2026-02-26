@@ -9,7 +9,7 @@
  */
 
 import { type ColorTokens, DEFAULT_THEME_SPACING, type ThemeDefinition } from "../theme/tokens.js";
-import type { Rgb, TextStyle } from "../widgets/style.js";
+import type { Rgb24, TextStyle } from "../widgets/style.js";
 
 // ---------------------------------------------------------------------------
 // Typography roles
@@ -24,7 +24,7 @@ export type TypographyRole = "title" | "subtitle" | "body" | "caption" | "code" 
  * Resolved typography style: TextStyle attributes for a given role.
  */
 export type TypographyStyle = Readonly<{
-  fg: Rgb;
+  fg: Rgb24;
   bold?: boolean;
   dim?: boolean;
   italic?: boolean;
@@ -67,9 +67,9 @@ export type ElevationLevel = 0 | 1 | 2 | 3;
  */
 export type SurfaceStyle = Readonly<{
   /** Background color for this surface level */
-  bg: Rgb;
+  bg: Rgb24;
   /** Border color (none for level 0) */
-  border: Rgb | null;
+  border: Rgb24 | null;
   /** Whether to render a shadow */
   shadow: boolean;
 }>;
@@ -179,7 +179,7 @@ export type WidgetTone = "default" | "primary" | "danger" | "success" | "warning
 /**
  * Resolve the accent color for a given tone.
  */
-export function resolveToneColor(colors: ColorTokens, tone: WidgetTone): Rgb {
+export function resolveToneColor(colors: ColorTokens, tone: WidgetTone): Rgb24 {
   switch (tone) {
     case "default":
     case "primary":
@@ -196,7 +196,7 @@ export function resolveToneColor(colors: ColorTokens, tone: WidgetTone): Rgb {
 /**
  * Resolve foreground color for text on a tone-colored background.
  */
-export function resolveToneFg(colors: ColorTokens, tone: WidgetTone): Rgb {
+export function resolveToneFg(colors: ColorTokens, tone: WidgetTone): Rgb24 {
   return colors.fg.inverse;
 }
 

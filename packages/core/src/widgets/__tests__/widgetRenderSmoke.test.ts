@@ -1,5 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { type VNode, createDrawlistBuilderV1 } from "../../index.js";
+import { type VNode, createDrawlistBuilder } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
@@ -58,7 +58,7 @@ function renderBytes(
   assert.equal(layoutRes.ok, true, "layout should succeed");
   if (!layoutRes.ok) return new Uint8Array();
 
-  const builder = createDrawlistBuilderV1();
+  const builder = createDrawlistBuilder();
   renderToDrawlist({
     tree: committed.value.root,
     layout: layoutRes.value,

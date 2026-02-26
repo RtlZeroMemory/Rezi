@@ -203,17 +203,19 @@ function readBackendPositiveIntMarker(
   return value;
 }
 
-function readBackendDrawlistVersionMarker(backend: RuntimeBackend): 1 | null {
+function readBackendDrawlistVersionMarker(backend: RuntimeBackend): 1 | 2 | 3 | 4 | 5 | null {
   const value = (backend as RuntimeBackend & Readonly<Record<string, unknown>>)[
     BACKEND_DRAWLIST_VERSION_MARKER
   ];
   if (value === undefined) return null;
-  if (typeof value !== "number" || !Number.isInteger(value) || value !== 1) {
-    invalidProps(
-      `backend marker ${BACKEND_DRAWLIST_VERSION_MARKER} must be integer 1 when present`,
-    );
+  if (
+    typeof value !== "number" ||
+    !Number.isInteger(value) ||
+    (value !== 1 && value !== 2 && value !== 3 && value !== 4 && value !== 5)
+  ) {
+    invalidProps(`backend marker ${BACKEND_DRAWLIST_VERSION_MARKER} must be an integer in [1..5]`);
   }
-  return 1;
+  return value as 1 | 2 | 3 | 4 | 5;
 }
 
 function monotonicNowMs(): number {
@@ -593,8 +595,14 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   const backend = opts.backend;
   const config = resolveAppConfig(opts.config);
 
-  readBackendDrawlistVersionMarker(backend);
-  const drawlistVersion = 1 as const;
+  const backendDrawlistVersion = readBackendDrawlistVersionMarker(backend);
+  if (backendDrawlistVersion !== null && backendDrawlistVersion !== 1) {
+    invalidProps(
+      `backend drawlistVersion=${String(
+        backendDrawlistVersion,
+      )} is invalid. Fix: set backend drawlist version marker to 1.`,
+    );
+  }
 
   const backendMaxEventBytes = readBackendPositiveIntMarker(
     backend,
@@ -784,7 +792,6 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
   const rawRenderer = new RawRenderer({
     backend,
-    drawlistVersion,
     maxDrawlistBytes: config.maxDrawlistBytes,
     ...(opts.config?.drawlistValidateParams === undefined
       ? {}
@@ -794,7 +801,6 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   });
   const widgetRenderer = new WidgetRenderer<S>({
     backend,
-    drawlistVersion,
     maxDrawlistBytes: config.maxDrawlistBytes,
     rootPadding: config.rootPadding,
     breakpointThresholds: config.breakpointThresholds,
@@ -1823,8 +1829,6 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
           lifecycleBusy = null;
           topLevelViewError = null;
           terminalProfile = await loadTerminalProfile(backend);
-          rawRenderer.markEngineResourceStoreEmpty();
-          widgetRenderer.markEngineResourceStoreEmpty();
           widgetRenderer.setTerminalProfile(terminalProfile);
           sm.toRunning();
           markDirty(DIRTY_VIEW, false);

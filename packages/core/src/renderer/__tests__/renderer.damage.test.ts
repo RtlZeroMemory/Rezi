@@ -1,5 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import type { DrawlistBuildResult, DrawlistBuilderV1 } from "../../drawlist/index.js";
+import type { DrawlistBuildResult, DrawlistBuilder } from "../../drawlist/index.js";
 import type { DrawlistTextRunSegment } from "../../drawlist/types.js";
 import type { TextStyle, VNode } from "../../index.js";
 import { ui } from "../../index.js";
@@ -47,7 +47,7 @@ type Framebuffer = Readonly<{
   styles: string[];
 }>;
 
-class RecordingBuilder implements DrawlistBuilderV1 {
+class RecordingBuilder implements DrawlistBuilder {
   private readonly ops: RecordedOp[] = [];
 
   getOps(): readonly RecordedOp[] {
@@ -85,6 +85,20 @@ class RecordingBuilder implements DrawlistBuilderV1 {
   }
 
   drawTextRun(_x: number, _y: number, _blobIndex: number): void {}
+
+  setCursor(..._args: Parameters<DrawlistBuilder["setCursor"]>): void {}
+
+  hideCursor(): void {}
+
+  setLink(..._args: Parameters<DrawlistBuilder["setLink"]>): void {}
+
+  drawCanvas(..._args: Parameters<DrawlistBuilder["drawCanvas"]>): void {}
+
+  drawImage(..._args: Parameters<DrawlistBuilder["drawImage"]>): void {}
+
+  buildInto(_dst: Uint8Array): DrawlistBuildResult {
+    return this.build();
+  }
 
   build(): DrawlistBuildResult {
     return { ok: true, bytes: new Uint8Array([0]) };
@@ -469,7 +483,7 @@ describe("renderer damage rect behavior", () => {
         height: 3,
         border: "none",
         shadow: true,
-        style: { bg: { r: 30, g: 30, b: 30 } },
+        style: { bg: (30 << 16) | (30 << 8) | 30 },
       }),
       viewport,
     );
@@ -478,7 +492,7 @@ describe("renderer damage rect behavior", () => {
         width: 6,
         height: 3,
         border: "none",
-        style: { bg: { r: 30, g: 30, b: 30 } },
+        style: { bg: (30 << 16) | (30 << 8) | 30 },
       }),
       viewport,
     );
@@ -497,7 +511,7 @@ describe("renderer damage rect behavior", () => {
           height: 2,
           border: "none",
           shadow: true,
-          style: { bg: { r: 20, g: 20, b: 20 } },
+          style: { bg: (20 << 16) | (20 << 8) | 20 },
         }),
       ]),
       viewport,
@@ -509,7 +523,7 @@ describe("renderer damage rect behavior", () => {
           height: 2,
           border: "none",
           shadow: true,
-          style: { bg: { r: 20, g: 20, b: 20 } },
+          style: { bg: (20 << 16) | (20 << 8) | 20 },
         }),
       ]),
       viewport,

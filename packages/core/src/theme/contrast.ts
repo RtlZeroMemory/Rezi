@@ -5,7 +5,7 @@
  * foreground/background color pairs.
  */
 
-import type { Rgb } from "../widgets/style.js";
+import { type Rgb24, rgbB, rgbG, rgbR } from "../widgets/style.js";
 
 function srgbToLinear(channel: number): number {
   const srgb = channel / 255;
@@ -13,10 +13,10 @@ function srgbToLinear(channel: number): number {
   return ((srgb + 0.055) / 1.055) ** 2.4;
 }
 
-function relativeLuminance(color: Rgb): number {
-  const r = srgbToLinear(color.r);
-  const g = srgbToLinear(color.g);
-  const b = srgbToLinear(color.b);
+function relativeLuminance(color: Rgb24): number {
+  const r = srgbToLinear(rgbR(color));
+  const g = srgbToLinear(rgbG(color));
+  const b = srgbToLinear(rgbB(color));
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
@@ -24,7 +24,7 @@ function relativeLuminance(color: Rgb): number {
  * Compute WCAG 2.x contrast ratio between two colors.
  * Returns a value in the range [1, 21], independent of argument order.
  */
-export function contrastRatio(fg: Rgb, bg: Rgb): number {
+export function contrastRatio(fg: Rgb24, bg: Rgb24): number {
   const fgLum = relativeLuminance(fg);
   const bgLum = relativeLuminance(bg);
   const lighter = Math.max(fgLum, bgLum);

@@ -8,14 +8,14 @@ import {
 
 type ChainLevelStyle = TextStyle | undefined;
 
-const ROOT_FG = { r: 11, g: 22, b: 33 };
-const ROOT_BG = { r: 44, g: 55, b: 66 };
-const BOX_FG = { r: 77, g: 88, b: 99 };
-const BOX_BG = { r: 101, g: 111, b: 121 };
-const ROW_BG = { r: 131, g: 141, b: 151 };
-const ROW_FG = { r: 152, g: 162, b: 172 };
-const TEXT_FG = { r: 181, g: 191, b: 201 };
-const DEEP_BG = { r: 211, g: 212, b: 213 };
+const ROOT_FG = (11 << 16) | (22 << 8) | 33;
+const ROOT_BG = (44 << 16) | (55 << 8) | 66;
+const BOX_FG = (77 << 16) | (88 << 8) | 99;
+const BOX_BG = (101 << 16) | (111 << 8) | 121;
+const ROW_BG = (131 << 16) | (141 << 8) | 151;
+const ROW_FG = (152 << 16) | (162 << 8) | 172;
+const TEXT_FG = (181 << 16) | (191 << 8) | 201;
+const DEEP_BG = (211 << 16) | (212 << 8) | 213;
 
 function resolveChain(levels: readonly ChainLevelStyle[]): ResolvedTextStyle {
   let resolved = DEFAULT_BASE_STYLE;
@@ -233,12 +233,12 @@ describe("mergeTextStyle deep inheritance chains", () => {
       let override: TextStyle | undefined;
       if (level % 64 === 0) {
         const base = (level / 2) % 256;
-        const nextFg = { r: base, g: (base + 1) % 256, b: (base + 2) % 256 };
+        const nextFg = (base << 16) | (((base + 1) % 256) << 8) | ((base + 2) % 256);
         override = { fg: nextFg };
         expectedFg = nextFg;
       } else if (level % 45 === 0) {
         const base = (level * 3) % 256;
-        const nextBg = { r: base, g: (base + 7) % 256, b: (base + 14) % 256 };
+        const nextBg = (base << 16) | (((base + 7) % 256) << 8) | ((base + 14) % 256);
         override = { bg: nextBg };
         expectedBg = nextBg;
       } else if (level % 11 === 0) {

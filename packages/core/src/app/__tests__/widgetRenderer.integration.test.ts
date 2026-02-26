@@ -6,7 +6,7 @@ import {
   type BackendRawWrite,
   type RuntimeBackend,
 } from "../../backend.js";
-import type { DrawlistBuilderV1 } from "../../drawlist/index.js";
+import type { DrawlistBuilder } from "../../drawlist/index.js";
 import type { ZrevEvent } from "../../events.js";
 import { type VNode, defineWidget, ui } from "../../index.js";
 import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
@@ -79,7 +79,7 @@ function createNoopBackendWithRawWrite(writeRaw: (text: string) => void): Runtim
   return backend;
 }
 
-function createBuildIntoBuilder(bytes: Uint8Array): DrawlistBuilderV1 & {
+function createBuildIntoBuilder(bytes: Uint8Array): DrawlistBuilder & {
   buildInto: (target: Uint8Array) => { ok: true; bytes: Uint8Array };
 } {
   return {
@@ -96,6 +96,11 @@ function createBuildIntoBuilder(bytes: Uint8Array): DrawlistBuilderV1 & {
       return null;
     },
     drawTextRun(): void {},
+    setCursor(): void {},
+    hideCursor(): void {},
+    setLink(): void {},
+    drawCanvas(): void {},
+    drawImage(): void {},
     build() {
       return { ok: true, bytes } as const;
     },

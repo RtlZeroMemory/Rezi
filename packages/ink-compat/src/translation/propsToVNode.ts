@@ -1,4 +1,4 @@
-import { type Rgb, type VNode, rgb, ui } from "@rezi-ui/core";
+import { type Rgb24, type VNode, rgb, ui } from "@rezi-ui/core";
 
 import type { InkHostContainer, InkHostNode } from "../reconciler/types.js";
 import { mapBorderStyle } from "./borderMap.js";
@@ -12,8 +12,8 @@ interface TextSpan {
 }
 
 interface TextStyleMap {
-  fg?: Rgb;
-  bg?: Rgb;
+  fg?: Rgb24;
+  bg?: Rgb24;
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
@@ -131,13 +131,13 @@ interface LayoutProps extends Record<string, unknown> {
   mb?: number;
   ml?: number;
   gap?: number;
-  width?: number;
-  height?: number;
+  width?: number | `${number}%`;
+  height?: number | `${number}%`;
   minWidth?: number;
   minHeight?: number;
   maxWidth?: number;
   maxHeight?: number;
-  flexBasis?: number;
+  flexBasis?: number | `${number}%`;
   flex?: number;
   flexShrink?: number;
   items?: string;
@@ -221,7 +221,7 @@ function readAccessibilityLabel(props: Record<string, unknown>): string | undefi
   return undefined;
 }
 
-const ANSI_16_PALETTE: readonly Rgb[] = [
+const ANSI_16_PALETTE: readonly Rgb24[] = [
   rgb(0, 0, 0),
   rgb(205, 0, 0),
   rgb(0, 205, 0),
@@ -492,6 +492,14 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
     layoutProps.gap = p.rowGap;
   }
 
+  // Rezi core's layout engine natively resolves percent strings (e.g. "50%")
+  // for width, height, and flexBasis via resolveConstraint(). Pass them through
+  // directly instead of creating __inkPercent* markers that trigger a costly
+  // two-pass layout in renderFrame().
+  // minWidth/minHeight only accept numbers in Rezi core, so those still use
+  // the marker approach (but gemini-cli doesn't use percent values for those).
+  const NATIVE_PERCENT_PROPS = new Set(["width", "height", "flexBasis"]);
+
   const applyNumericOrPercentDimension = (
     prop: "width" | "height" | "minWidth" | "minHeight" | "flexBasis",
     value: unknown,
@@ -503,8 +511,14 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
 
     const percent = parsePercentValue(value);
     if (percent != null) {
-      const markerKey = `__inkPercent${prop.charAt(0).toUpperCase()}${prop.slice(1)}`;
-      layoutProps[markerKey] = percent;
+      if (NATIVE_PERCENT_PROPS.has(prop)) {
+        // Pass percent string directly — layout engine resolves it natively
+        (layoutProps as Record<string, unknown>)[prop] = `${percent}%`;
+      } else {
+        // minWidth/minHeight: layout engine only accepts numbers, use marker
+        const markerKey = `__inkPercent${prop.charAt(0).toUpperCase()}${prop.slice(1)}`;
+        layoutProps[markerKey] = percent;
+      }
       return;
     }
 
@@ -638,7 +652,7 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
     if (scrollY != null) layoutProps.scrollY = scrollY;
 
     const scrollbarThumbColor = parseColor(p.scrollbarThumbColor as string | undefined);
-    if (scrollbarThumbColor) {
+    if (scrollbarThumbColor !== undefined) {
       layoutProps.scrollbarStyle = { fg: scrollbarThumbColor };
     }
   } else if (hasHiddenOverflow) {
@@ -679,11 +693,11 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
 
     const style: Record<string, unknown> = {};
     const bg = parseColor(p.backgroundColor as string | undefined);
-    if (bg) style["bg"] = bg;
+    if (bg !== undefined) style["bg"] = bg;
     if (Object.keys(style).length > 0) layoutProps.style = style;
 
     const explicitBorderColor = parseColor(p.borderColor as string | undefined);
-    const edgeBorderColors: Record<"top" | "right" | "bottom" | "left", Rgb | undefined> = {
+    const edgeBorderColors: Record<"top" | "right" | "bottom" | "left", Rgb24 | undefined> = {
       top: parseColor(p.borderTopColor as string | undefined),
       right: parseColor(p.borderRightColor as string | undefined),
       bottom: parseColor(p.borderBottomColor as string | undefined),
@@ -698,7 +712,7 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
     };
 
     const borderColor = explicitBorderColor;
-    if (borderColor) {
+    if (borderColor !== undefined) {
       layoutProps.borderStyle = {
         ...(typeof layoutProps.borderStyle === "object" && layoutProps.borderStyle !== null
           ? layoutProps.borderStyle
@@ -723,7 +737,7 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
       if (!hasColorOverride && !hasDimOverride) continue;
       const sideStyle: Record<string, unknown> = {};
       const resolvedColor = edgeBorderColors[side] ?? explicitBorderColor;
-      if (resolvedColor) sideStyle["fg"] = resolvedColor;
+      if (resolvedColor !== undefined) sideStyle["fg"] = resolvedColor;
       if (globalBorderDim || hasDimOverride) sideStyle["dim"] = true;
       if (Object.keys(sideStyle).length > 0) {
         borderStyleSides[side] = sideStyle;
@@ -806,9 +820,9 @@ function translateText(node: InkHostNode): VNode {
 
   const style: TextStyleMap = {};
   const fg = parseColor(p.color as string | undefined);
-  if (fg) style.fg = fg;
+  if (fg !== undefined) style.fg = fg;
   const bg = parseColor(p.backgroundColor as string | undefined);
-  if (bg) style.bg = bg;
+  if (bg !== undefined) style.bg = bg;
   if (p.bold) style.bold = true;
   if (p.italic) style.italic = true;
   if (p.underline) style.underline = true;
@@ -910,9 +924,9 @@ function flattenTextChildren(
       const childStyle: TextStyleMap = { ...parentStyle };
 
       const fg = parseColor(cp.color as string | undefined);
-      if (fg) childStyle.fg = fg;
+      if (fg !== undefined) childStyle.fg = fg;
       const bg = parseColor(cp.backgroundColor as string | undefined);
-      if (bg) childStyle.bg = bg;
+      if (bg !== undefined) childStyle.bg = bg;
       if (cp.bold) childStyle.bold = true;
       if (cp.italic) childStyle.italic = true;
       if (cp.underline) childStyle.underline = true;
@@ -1298,7 +1312,7 @@ function resetSgrColor(
   delete activeStyle[channel];
 }
 
-function decodeAnsi256Color(index: number): Rgb {
+function decodeAnsi256Color(index: number): Rgb24 {
   if (index < 16) return ANSI_16_PALETTE[index]!;
 
   if (index <= 231) {

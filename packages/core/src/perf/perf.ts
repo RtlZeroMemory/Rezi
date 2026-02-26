@@ -70,6 +70,7 @@ export type PhaseStats = Readonly<{
 /** Aggregated perf snapshot. */
 export type PerfSnapshot = Readonly<{
   phases: Readonly<{ [K in InstrumentationPhase]?: PhaseStats }>;
+  counters: Readonly<Record<string, number>>;
 }>;
 
 /** Token returned by markStart for timing correlation. */
@@ -195,6 +196,7 @@ function computeStats(ring: PhaseRing): PhaseStats | null {
 /** Global perf aggregator. */
 class PerfAggregator {
   private readonly rings = new Map<InstrumentationPhase, PhaseRing>();
+  private readonly counters = new Map<string, number>();
   private pendingStarts = new Map<InstrumentationPhase, number>();
 
   markStart(phase: InstrumentationPhase): PerfToken {
@@ -227,6 +229,10 @@ class PerfAggregator {
     recordSample(ring, durationMs);
   }
 
+  count(name: string, delta = 1): void {
+    this.counters.set(name, (this.counters.get(name) ?? 0) + delta);
+  }
+
   snapshot(): PerfSnapshot {
     const phases: { [K in InstrumentationPhase]?: PhaseStats } = {};
     for (const p of PERF_PHASES) {
@@ -238,11 +244,14 @@ class PerfAggregator {
         }
       }
     }
-    return Object.freeze({ phases: Object.freeze(phases) });
+    const counters: Record<string, number> = {};
+    for (const [name, value] of this.counters) counters[name] = value;
+    return Object.freeze({ phases: Object.freeze(phases), counters: Object.freeze(counters) });
   }
 
   reset(): void {
     this.rings.clear();
+    this.counters.clear();
     this.pendingStarts.clear();
   }
 }
@@ -299,7 +308,7 @@ export function perfRecord(phase: InstrumentationPhase, durationMs: number): voi
  */
 export function perfSnapshot(): PerfSnapshot {
   if (!PERF_ENABLED) {
-    return Object.freeze({ phases: Object.freeze({}) });
+    return Object.freeze({ phases: Object.freeze({}), counters: Object.freeze({}) });
   }
   return getAggregator().snapshot();
 }
@@ -311,4 +320,10 @@ export function perfSnapshot(): PerfSnapshot {
 export function perfReset(): void {
   if (!PERF_ENABLED) return;
   getAggregator().reset();
+}
+
+/** Increment a named counter (no-op when perf is disabled). */
+export function perfCount(name: string, delta = 1): void {
+  if (!PERF_ENABLED) return;
+  getAggregator().count(name, delta);
 }

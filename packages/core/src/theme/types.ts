@@ -1,17 +1,17 @@
-import type { Rgb } from "../widgets/style.js";
+import type { Rgb24 } from "../widgets/style.js";
 
 export type ThemeColors = Readonly<{
-  primary: Rgb;
-  secondary: Rgb;
-  success: Rgb;
-  danger: Rgb;
-  warning: Rgb;
-  info: Rgb;
-  muted: Rgb;
-  bg: Rgb;
-  fg: Rgb;
-  border: Rgb;
-  [key: string]: Rgb;
+  primary: Rgb24;
+  secondary: Rgb24;
+  success: Rgb24;
+  danger: Rgb24;
+  warning: Rgb24;
+  info: Rgb24;
+  muted: Rgb24;
+  bg: Rgb24;
+  fg: Rgb24;
+  border: Rgb24;
+  [key: string]: Rgb24;
 }>;
 
 export type ThemeSpacing = readonly number[];

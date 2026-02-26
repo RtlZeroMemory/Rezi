@@ -35,18 +35,6 @@ static zr_result_t zr_engine_present_pick_fb(zr_engine_t* e, const zr_fb_t** out
   }
 
   if (e->cfg_runtime.enable_debug_overlay == 0u) {
-    /*
-      Keep fb_stage as a no-allocation clone of fb_next for commit-time
-      synchronization.
-
-      Why: Commit happens after a successful write; cloning here preserves the
-      single-flush/no-partial-effects contract by surfacing OOM/limit failures
-      before any terminal bytes are emitted.
-    */
-    const zr_result_t rc = zr_engine_fb_copy(&e->fb_next, &e->fb_stage);
-    if (rc != ZR_OK) {
-      return rc;
-    }
     *out_present_fb = &e->fb_next;
     *out_presented_stage = false;
     return ZR_OK;
@@ -338,21 +326,50 @@ static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_
   if (!e || !final_ts || !stats || !image_state_stage) {
     return;
   }
+  bool invalidate_prev_hashes = false;
 
   const uint64_t frame_id_presented = zr_engine_trace_frame_id(e);
+  const zr_fb_t* presented_fb = presented_stage ? &e->fb_stage : &e->fb_next;
+  const bool use_damage_rect_copy =
+      (stats->path_damage_used != 0u) && (stats->damage_full_frame == 0u) && (stats->damage_rects <= e->damage_rect_cap);
 
-  /* --- Swap framebuffers to keep prev/next/stage invariants --- */
   /*
-    presented_stage==true: fb_stage was rendered (overlay path), so commit it.
-    presented_stage==false: fb_next was rendered, then keep stage synchronized.
+    Resync fb_prev to the framebuffer that was actually presented.
+
+    Why: Keep fb_next as the mutable next-frame target and avoid full-frame
+    clones in steady-state by copying only damage rects when possible.
   */
-  if (presented_stage) {
-    zr_engine_fb_swap(&e->fb_prev, &e->fb_stage);
+  if (!e->fb_prev.cells || !presented_fb->cells || e->fb_prev.cols != presented_fb->cols ||
+      e->fb_prev.rows != presented_fb->rows) {
+    invalidate_prev_hashes = true;
   } else {
-    zr_engine_fb_swap(&e->fb_prev, &e->fb_next);
-    zr_engine_fb_swap(&e->fb_next, &e->fb_stage);
+    if (!use_damage_rect_copy) {
+      const size_t n = zr_engine_cells_bytes(presented_fb);
+      if (n != 0u) {
+        memcpy(e->fb_prev.cells, presented_fb->cells, n);
+      }
+    } else {
+      const zr_result_t rc =
+          zr_fb_copy_damage_rects(&e->fb_prev, presented_fb, e->damage_rects, stats->damage_rects);
+      if (rc != ZR_OK) {
+        const size_t n = zr_engine_cells_bytes(presented_fb);
+        if (n != 0u) {
+          memcpy(e->fb_prev.cells, presented_fb->cells, n);
+        }
+        invalidate_prev_hashes = true;
+      }
+    }
+
+    zr_fb_links_reset(&e->fb_prev);
+    if (zr_fb_links_clone_from(&e->fb_prev, presented_fb) != ZR_OK) {
+      invalidate_prev_hashes = true;
+    }
   }
+
   zr_engine_swap_diff_hashes_on_commit(e);
+  if (invalidate_prev_hashes) {
+    e->diff_prev_hashes_valid = 0u;
+  }
   e->term_state = *final_ts;
   e->image_state = *image_state_stage;
 

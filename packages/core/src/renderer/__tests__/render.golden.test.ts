@@ -1,5 +1,5 @@
 import { assert, assertBytesEqual, describe, readFixture, test } from "@rezi-ui/testkit";
-import { type VNode, createDrawlistBuilderV1 } from "../../index.js";
+import { type VNode, createDrawlistBuilder } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { truncateMiddle, truncateWithEllipsis } from "../../layout/textMeasure.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
@@ -115,7 +115,7 @@ function renderBytes(
   const committed = commitTree(vnode);
   const lt = layoutTree(committed.vnode);
 
-  const b = createDrawlistBuilderV1();
+  const b = createDrawlistBuilder();
   renderToDrawlist({
     tree: committed,
     layout: lt,
@@ -157,7 +157,7 @@ describe("renderer - widget tree to deterministic ZRDL bytes", () => {
     assert.equal(ops.includes(5), false, "no POP_CLIP");
 
     const noClip = (() => {
-      const b = createDrawlistBuilderV1();
+      const b = createDrawlistBuilder();
       b.drawText(1, 1, "hello");
       const built = b.build();
       assert.equal(built.ok, true);
@@ -438,7 +438,7 @@ describe("renderer - widget tree to deterministic ZRDL bytes", () => {
     assert.equal(l.ok, true);
     if (!l.ok) return;
 
-    const b = createDrawlistBuilderV1();
+    const b = createDrawlistBuilder();
     renderToDrawlist({
       tree: committed,
       layout: l.value,

@@ -4,7 +4,6 @@ import type {
   DrawlistBuildError,
   DrawlistBuildErrorCode,
   DrawlistBuildResult,
-  DrawlistBuilderV1,
   DrawlistTextRunSegment,
 } from "./types.js";
 
@@ -42,8 +41,6 @@ export const OP_POP_CLIP = 5;
 export const OP_DRAW_TEXT_RUN = 6;
 export const OP_SET_CURSOR = 7;
 
-export type EncodedStyleV1 = Readonly<{ fg: number; bg: number; attrs: number }>;
-
 type Utf8Encoder = Readonly<{ encode(input: string): Uint8Array }>;
 
 type Layout = Readonly<{
@@ -70,70 +67,12 @@ export function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
 }
 
-export function isRgbLike(v: unknown): v is Readonly<{ r: unknown; g: unknown; b: unknown }> {
-  return isObject(v) && "r" in v && "g" in v && "b" in v;
-}
-
 export function isTextRunSegment(v: unknown): v is DrawlistTextRunSegment {
   if (typeof v !== "object" || v === null) return false;
   if (typeof (v as { text?: unknown }).text !== "string") return false;
   return true;
 }
-
-export function packRgb(v: unknown): number | null {
-  if (typeof v === "string") {
-    const raw = v.startsWith("#") ? v.slice(1) : v;
-    if (/^[0-9a-fA-F]{6}$/.test(raw)) {
-      return Number.parseInt(raw, 16) & 0x00ff_ff_ff;
-    }
-    return null;
-  }
-
-  if (!isRgbLike(v)) return null;
-
-  const r0 = v.r;
-  const g0 = v.g;
-  const b0 = v.b;
-  const r = typeof r0 === "number" && Number.isFinite(r0) ? r0 | 0 : 0;
-  const g = typeof g0 === "number" && Number.isFinite(g0) ? g0 | 0 : 0;
-  const b = typeof b0 === "number" && Number.isFinite(b0) ? b0 | 0 : 0;
-  return ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
-}
-
-function hasUnderlineVariant(style: TextStyle): boolean {
-  const underlineStyle = (style as { underlineStyle?: unknown }).underlineStyle;
-  switch (underlineStyle) {
-    case "straight":
-    case "double":
-    case "curly":
-    case "dotted":
-    case "dashed":
-      return true;
-    default:
-      return false;
-  }
-}
-
-export function encodeBasicStyle(style: TextStyle | undefined): EncodedStyleV1 {
-  if (!style) return { fg: 0, bg: 0, attrs: 0 };
-
-  const fg = packRgb(style.fg) ?? 0;
-  const bg = packRgb(style.bg) ?? 0;
-
-  let attrs = 0;
-  if (style.bold) attrs |= 1 << 0;
-  if (style.italic) attrs |= 1 << 1;
-  if (style.underline || hasUnderlineVariant(style)) attrs |= 1 << 2;
-  if (style.inverse) attrs |= 1 << 3;
-  if (style.dim) attrs |= 1 << 4;
-  if (style.strikethrough) attrs |= 1 << 5;
-  if (style.overline) attrs |= 1 << 6;
-  if (style.blink) attrs |= 1 << 7;
-
-  return { fg, bg, attrs };
-}
-
-export abstract class DrawlistBuilderBase<TEncodedStyle> implements DrawlistBuilderV1 {
+export abstract class DrawlistBuilderBase<TEncodedStyle> {
   protected readonly builderName: string;
 
   protected readonly maxDrawlistBytes: number;
@@ -1211,130 +1150,5 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> implements DrawlistBuil
     }
 
     return null;
-  }
-}
-
-export abstract class DrawlistBuilderLegacyBase extends DrawlistBuilderBase<EncodedStyleV1> {
-  protected constructor(opts: DrawlistBuilderBaseOpts, builderName: string) {
-    super(opts, builderName);
-  }
-
-  protected override encodeFillRectStyle(style: TextStyle | undefined): EncodedStyleV1 {
-    return encodeBasicStyle(style);
-  }
-
-  protected override encodeDrawTextStyle(style: TextStyle | undefined): EncodedStyleV1 {
-    return encodeBasicStyle(style);
-  }
-
-  protected override appendClearCommand(): void {
-    this.writeCommandHeader(OP_CLEAR, 8);
-  }
-
-  protected override appendFillRectCommand(
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    style: EncodedStyleV1,
-  ): void {
-    this.writeCommandHeader(OP_FILL_RECT, 8 + 32);
-    this.writeI32(x);
-    this.writeI32(y);
-    this.writeI32(w);
-    this.writeI32(h);
-    this.writeLegacyStyle(style);
-    this.padCmdTo4();
-  }
-
-  protected override appendDrawTextCommand(
-    x: number,
-    y: number,
-    stringIndex: number,
-    byteLen: number,
-    style: EncodedStyleV1,
-  ): void {
-    this.writeCommandHeader(OP_DRAW_TEXT, 8 + 40);
-    this.writeI32(x);
-    this.writeI32(y);
-    this.writeU32(stringIndex);
-    this.writeU32(0);
-    this.writeU32(byteLen);
-    this.writeLegacyStyle(style);
-    this.writeU32(0);
-    this.padCmdTo4();
-  }
-
-  protected override appendPushClipCommand(x: number, y: number, w: number, h: number): void {
-    this.writeCommandHeader(OP_PUSH_CLIP, 8 + 16);
-    this.writeI32(x);
-    this.writeI32(y);
-    this.writeI32(w);
-    this.writeI32(h);
-    this.padCmdTo4();
-  }
-
-  protected override appendPopClipCommand(): void {
-    this.writeCommandHeader(OP_POP_CLIP, 8);
-  }
-
-  protected override appendDrawTextRunCommand(x: number, y: number, blobIndex: number): void {
-    this.writeCommandHeader(OP_DRAW_TEXT_RUN, 8 + 16);
-    this.writeI32(x);
-    this.writeI32(y);
-    this.writeU32(blobIndex);
-    this.writeU32(0);
-    this.padCmdTo4();
-  }
-
-  protected override textRunBlobSegmentSize(): number {
-    return 28;
-  }
-
-  protected override writeTextRunBlobSegment(
-    dv: DataView,
-    off: number,
-    style: EncodedStyleV1,
-    stringIndex: number,
-    byteLen: number,
-  ): number {
-    dv.setUint32(off + 0, style.fg >>> 0, true);
-    dv.setUint32(off + 4, style.bg >>> 0, true);
-    dv.setUint32(off + 8, style.attrs >>> 0, true);
-    dv.setUint32(off + 12, 0, true);
-    dv.setUint32(off + 16, stringIndex >>> 0, true);
-    dv.setUint32(off + 20, 0, true);
-    dv.setUint32(off + 24, byteLen >>> 0, true);
-    return off + 28;
-  }
-
-  protected override expectedCmdSize(opcode: number): number {
-    switch (opcode) {
-      case OP_CLEAR:
-        return 8;
-      case OP_FILL_RECT:
-        return 8 + 32;
-      case OP_DRAW_TEXT:
-        return 8 + 40;
-      case OP_PUSH_CLIP:
-        return 8 + 16;
-      case OP_POP_CLIP:
-        return 8;
-      case OP_DRAW_TEXT_RUN:
-        return 8 + 16;
-      default:
-        return this.expectedExtraCmdSize(opcode);
-    }
-  }
-
-  protected expectedExtraCmdSize(_opcode: number): number {
-    return -1;
-  }
-
-  private writeLegacyStyle(style: EncodedStyleV1): void {
-    this.writeU32(style.fg);
-    this.writeU32(style.bg);
-    this.writeU32(style.attrs);
-    this.writeU32(0);
   }
 }

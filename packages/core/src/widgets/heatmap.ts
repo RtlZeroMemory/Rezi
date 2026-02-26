@@ -1,49 +1,8 @@
-import type { Rgb } from "./style.js";
+import { HEATMAP_SCALE_ANCHORS } from "../theme/heatmapPalettes.js";
+import { type Rgb24, rgb, rgbB, rgbG, rgbR } from "./style.js";
 import type { HeatmapColorScale } from "./types.js";
 
-type ScaleStop = Readonly<{ t: number; rgb: Rgb }>;
-
-const SCALE_ANCHORS: Readonly<Record<HeatmapColorScale, readonly ScaleStop[]>> = Object.freeze({
-  viridis: Object.freeze([
-    { t: 0, rgb: Object.freeze({ r: 68, g: 1, b: 84 }) },
-    { t: 0.25, rgb: Object.freeze({ r: 59, g: 82, b: 139 }) },
-    { t: 0.5, rgb: Object.freeze({ r: 33, g: 145, b: 140 }) },
-    { t: 0.75, rgb: Object.freeze({ r: 94, g: 201, b: 98 }) },
-    { t: 1, rgb: Object.freeze({ r: 253, g: 231, b: 37 }) },
-  ]),
-  plasma: Object.freeze([
-    { t: 0, rgb: Object.freeze({ r: 13, g: 8, b: 135 }) },
-    { t: 0.25, rgb: Object.freeze({ r: 126, g: 3, b: 168 }) },
-    { t: 0.5, rgb: Object.freeze({ r: 203, g: 71, b: 119 }) },
-    { t: 0.75, rgb: Object.freeze({ r: 248, g: 149, b: 64 }) },
-    { t: 1, rgb: Object.freeze({ r: 240, g: 249, b: 33 }) },
-  ]),
-  inferno: Object.freeze([
-    { t: 0, rgb: Object.freeze({ r: 0, g: 0, b: 4 }) },
-    { t: 0.25, rgb: Object.freeze({ r: 87, g: 15, b: 109 }) },
-    { t: 0.5, rgb: Object.freeze({ r: 187, g: 55, b: 84 }) },
-    { t: 0.75, rgb: Object.freeze({ r: 249, g: 142, b: 8 }) },
-    { t: 1, rgb: Object.freeze({ r: 252, g: 255, b: 164 }) },
-  ]),
-  magma: Object.freeze([
-    { t: 0, rgb: Object.freeze({ r: 0, g: 0, b: 4 }) },
-    { t: 0.25, rgb: Object.freeze({ r: 79, g: 18, b: 123 }) },
-    { t: 0.5, rgb: Object.freeze({ r: 182, g: 54, b: 121 }) },
-    { t: 0.75, rgb: Object.freeze({ r: 251, g: 140, b: 60 }) },
-    { t: 1, rgb: Object.freeze({ r: 252, g: 253, b: 191 }) },
-  ]),
-  turbo: Object.freeze([
-    { t: 0, rgb: Object.freeze({ r: 48, g: 18, b: 59 }) },
-    { t: 0.25, rgb: Object.freeze({ r: 63, g: 128, b: 234 }) },
-    { t: 0.5, rgb: Object.freeze({ r: 34, g: 201, b: 169 }) },
-    { t: 0.75, rgb: Object.freeze({ r: 246, g: 189, b: 39 }) },
-    { t: 1, rgb: Object.freeze({ r: 122, g: 4, b: 3 }) },
-  ]),
-  grayscale: Object.freeze([
-    { t: 0, rgb: Object.freeze({ r: 0, g: 0, b: 0 }) },
-    { t: 1, rgb: Object.freeze({ r: 255, g: 255, b: 255 }) },
-  ]),
-});
+type ScaleStop = Readonly<{ t: number; rgb: Rgb24 }>;
 
 function readFinite(value: number | undefined): number | undefined {
   if (!Number.isFinite(value)) return undefined;
@@ -61,11 +20,11 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-function buildScaleTable(stops: readonly ScaleStop[]): readonly Rgb[] {
-  const table: Rgb[] = [];
+function buildScaleTable(stops: readonly ScaleStop[]): readonly Rgb24[] {
+  const table: Rgb24[] = [];
   for (let index = 0; index < 256; index++) {
     const t = index / 255;
-    let left = stops[0] ?? { t: 0, rgb: { r: 0, g: 0, b: 0 } };
+    let left = stops[0] ?? { t: 0, rgb: rgb(0, 0, 0) };
     let right = stops[stops.length - 1] ?? left;
     for (let stopIndex = 0; stopIndex < stops.length - 1; stopIndex++) {
       const a = stops[stopIndex];
@@ -79,11 +38,11 @@ function buildScaleTable(stops: readonly ScaleStop[]): readonly Rgb[] {
     const span = Math.max(1e-9, right.t - left.t);
     const localT = clamp01((t - left.t) / span);
     table.push(
-      Object.freeze({
-        r: Math.round(lerp(left.rgb.r, right.rgb.r, localT)),
-        g: Math.round(lerp(left.rgb.g, right.rgb.g, localT)),
-        b: Math.round(lerp(left.rgb.b, right.rgb.b, localT)),
-      }),
+      rgb(
+        Math.round(lerp(rgbR(left.rgb), rgbR(right.rgb), localT)),
+        Math.round(lerp(rgbG(left.rgb), rgbG(right.rgb), localT)),
+        Math.round(lerp(rgbB(left.rgb), rgbB(right.rgb), localT)),
+      ),
     );
   }
   for (const stop of stops) {
@@ -93,16 +52,16 @@ function buildScaleTable(stops: readonly ScaleStop[]): readonly Rgb[] {
   return Object.freeze(table);
 }
 
-const SCALE_TABLES: Readonly<Record<HeatmapColorScale, readonly Rgb[]>> = Object.freeze({
-  viridis: buildScaleTable(SCALE_ANCHORS.viridis),
-  plasma: buildScaleTable(SCALE_ANCHORS.plasma),
-  inferno: buildScaleTable(SCALE_ANCHORS.inferno),
-  magma: buildScaleTable(SCALE_ANCHORS.magma),
-  turbo: buildScaleTable(SCALE_ANCHORS.turbo),
-  grayscale: buildScaleTable(SCALE_ANCHORS.grayscale),
+const SCALE_TABLES: Readonly<Record<HeatmapColorScale, readonly Rgb24[]>> = Object.freeze({
+  viridis: buildScaleTable(HEATMAP_SCALE_ANCHORS.viridis),
+  plasma: buildScaleTable(HEATMAP_SCALE_ANCHORS.plasma),
+  inferno: buildScaleTable(HEATMAP_SCALE_ANCHORS.inferno),
+  magma: buildScaleTable(HEATMAP_SCALE_ANCHORS.magma),
+  turbo: buildScaleTable(HEATMAP_SCALE_ANCHORS.turbo),
+  grayscale: buildScaleTable(HEATMAP_SCALE_ANCHORS.grayscale),
 });
 
-export function getHeatmapColorTable(scale: HeatmapColorScale): readonly Rgb[] {
+export function getHeatmapColorTable(scale: HeatmapColorScale): readonly Rgb24[] {
   return SCALE_TABLES[scale];
 }
 
@@ -152,9 +111,9 @@ export function colorForHeatmapValue(
   value: number,
   range: Readonly<{ min: number; max: number }>,
   scale: HeatmapColorScale,
-): Rgb {
+): Rgb24 {
   const table = getHeatmapColorTable(scale);
   const ratio = clamp01((value - range.min) / Math.max(1e-9, range.max - range.min));
   const index = Math.round(ratio * 255);
-  return table[index] ?? table[0] ?? Object.freeze({ r: 0, g: 0, b: 0 });
+  return table[index] ?? table[0] ?? rgb(0, 0, 0);
 }

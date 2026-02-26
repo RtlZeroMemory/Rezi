@@ -10,16 +10,8 @@
  * @see docs/guide/lifecycle-and-updates.md
  */
 
-import {
-  BACKEND_BEGIN_FRAME_MARKER,
-  type BackendBeginFrame,
-  type RuntimeBackend,
-} from "../backend.js";
-import {
-  type DrawlistBuildResult,
-  type DrawlistBuilderV1,
-  createDrawlistBuilderV1,
-} from "../drawlist/index.js";
+import type { RuntimeBackend } from "../backend.js";
+import { type DrawlistBuilder, createDrawlistBuilder } from "../drawlist/index.js";
 import { perfMarkEnd, perfMarkStart } from "../perf/perf.js";
 import type { DrawFn } from "./types.js";
 
@@ -55,13 +47,12 @@ function describeThrown(v: unknown): string {
  */
 export class RawRenderer {
   private readonly backend: RuntimeBackend;
-  private readonly builder: DrawlistBuilderV1;
+  private readonly builder: DrawlistBuilder;
 
   constructor(
     opts: Readonly<{
       backend: RuntimeBackend;
-      builder?: DrawlistBuilderV1;
-      drawlistVersion?: 1;
+      builder?: DrawlistBuilder;
       maxDrawlistBytes?: number;
       drawlistValidateParams?: boolean;
       drawlistReuseOutputBuffer?: boolean;
@@ -85,23 +76,7 @@ export class RawRenderer {
       this.builder = opts.builder;
       return;
     }
-    const drawlistVersion = opts.drawlistVersion ?? 1;
-    if (drawlistVersion !== 1) {
-      throw new Error(
-        `drawlistVersion ${String(
-          drawlistVersion,
-        )} is no longer supported; use drawlistVersion 1.`,
-      );
-    }
-    this.builder = createDrawlistBuilderV1(builderOpts);
-  }
-
-  markEngineResourceStoreEmpty(): void {
-    const maybe = this.builder as DrawlistBuilderV1 &
-      Partial<{ markEngineResourceStoreEmpty: () => void }>;
-    if (typeof maybe.markEngineResourceStoreEmpty === "function") {
-      maybe.markEngineResourceStoreEmpty();
-    }
+    this.builder = createDrawlistBuilder(builderOpts);
   }
 
   /**
@@ -128,26 +103,10 @@ export class RawRenderer {
     }
     perfMarkEnd("render", renderToken);
 
-    const beginFrame = (
-      this.backend as RuntimeBackend &
-        Partial<Record<typeof BACKEND_BEGIN_FRAME_MARKER, BackendBeginFrame>>
-    )[BACKEND_BEGIN_FRAME_MARKER];
-    const canBuildInto =
-      typeof (this.builder as unknown as { buildInto?: unknown }).buildInto === "function";
-    const frameWriter = typeof beginFrame === "function" && canBuildInto ? beginFrame() : null;
-
     const buildToken = perfMarkStart("drawlist_build");
-    const built: DrawlistBuildResult =
-      frameWriter === null
-        ? this.builder.build()
-        : (
-            this.builder as unknown as {
-              buildInto: (buf: Uint8Array) => DrawlistBuildResult;
-            }
-          ).buildInto(frameWriter.buf);
+    const built = this.builder.build();
     perfMarkEnd("drawlist_build", buildToken);
     if (!built.ok) {
-      frameWriter?.abort();
       return {
         ok: false,
         code: "ZRUI_DRAWLIST_BUILD_ERROR",
@@ -156,13 +115,9 @@ export class RawRenderer {
     }
 
     try {
-      const inFlight =
-        frameWriter === null
-          ? this.backend.requestFrame(built.bytes)
-          : frameWriter.commit(built.bytes.byteLength);
+      const inFlight = this.backend.requestFrame(built.bytes);
       return { ok: true, inFlight };
     } catch (e: unknown) {
-      frameWriter?.abort();
       return { ok: false, code: "ZRUI_BACKEND_ERROR", detail: describeThrown(e) };
     }
   }

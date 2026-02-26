@@ -1,5 +1,5 @@
 import { assert, assertBytesEqual, describe, readFixture, test } from "@rezi-ui/testkit";
-import { type VNode, createDrawlistBuilderV3, ui } from "../../index.js";
+import { type VNode, createDrawlistBuilder, ui } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
@@ -109,7 +109,7 @@ function renderBytes(
   assert.equal(layoutRes.ok, true);
   if (!layoutRes.ok) throw new Error("layout failed");
 
-  const builder = createDrawlistBuilderV3();
+  const builder = createDrawlistBuilder();
   renderToDrawlist({
     tree: committed.value.root,
     layout: layoutRes.value,
@@ -321,7 +321,7 @@ describe("graphics/widgets/style (locked) - zrdl-v1 graphics fixtures", () => {
           text: "warn",
           style: {
             underlineStyle: "dashed",
-            underlineColor: { r: 0, g: 170, b: 255 },
+            underlineColor: (0 << 16) | (170 << 8) | 255,
           },
         },
       ]),

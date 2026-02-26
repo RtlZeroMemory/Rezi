@@ -1,5 +1,5 @@
 /**
- * Unit tests for DrawlistBuilderV2 SET_CURSOR command encoding.
+ * Unit tests for DrawlistBuilder SET_CURSOR command encoding.
  *
  * Verifies:
  *   - Correct v2 header version
@@ -11,7 +11,7 @@
 
 import { assert, describe, test } from "@rezi-ui/testkit";
 import { ZRDL_MAGIC, ZR_DRAWLIST_VERSION_V1 } from "../../abi.js";
-import { createDrawlistBuilderV2 } from "../builder_v2.js";
+import { createDrawlistBuilder } from "../builder.js";
 
 function u8(bytes: Uint8Array, off: number): number {
   return bytes[off] ?? 0;
@@ -35,23 +35,23 @@ function i32(bytes: Uint8Array, off: number): number {
 const HEADER_SIZE = 64;
 const OP_SET_CURSOR = 7;
 
-describe("DrawlistBuilderV2 - SET_CURSOR encoding", () => {
-  test("basic cursor set produces v2 header", () => {
-    const b = createDrawlistBuilderV2();
+describe("DrawlistBuilder - SET_CURSOR encoding", () => {
+  test("basic cursor set produces current header", () => {
+    const b = createDrawlistBuilder();
     b.setCursor({ x: 10, y: 5, shape: 0, visible: true, blink: true });
     const res = b.build();
 
     assert.equal(res.ok, true);
     if (!res.ok) return;
 
-    // Verify v2 header
+    // Verify current header
     assert.equal(u32(res.bytes, 0), ZRDL_MAGIC, "magic");
     assert.equal(u32(res.bytes, 4), ZR_DRAWLIST_VERSION_V1, "version");
     assert.equal(u32(res.bytes, 8), HEADER_SIZE, "header_size");
   });
 
   test("SET_CURSOR command byte layout matches C struct", () => {
-    const b = createDrawlistBuilderV2();
+    const b = createDrawlistBuilder();
     b.setCursor({ x: 42, y: 17, shape: 2, visible: true, blink: false });
     const res = b.build();
 
@@ -78,7 +78,7 @@ describe("DrawlistBuilderV2 - SET_CURSOR encoding", () => {
 
   test("cursor shape values: block=0, underline=1, bar=2", () => {
     for (const shape of [0, 1, 2] as const) {
-      const b = createDrawlistBuilderV2();
+      const b = createDrawlistBuilder();
       b.setCursor({ x: 0, y: 0, shape, visible: true, blink: false });
       const res = b.build();
 
@@ -91,7 +91,7 @@ describe("DrawlistBuilderV2 - SET_CURSOR encoding", () => {
   });
 
   test("x=-1 and y=-1 for 'leave unchanged' semantics", () => {
-    const b = createDrawlistBuilderV2();
+    const b = createDrawlistBuilder();
     b.setCursor({ x: -1, y: -1, shape: 0, visible: true, blink: true });
     const res = b.build();
 
@@ -104,7 +104,7 @@ describe("DrawlistBuilderV2 - SET_CURSOR encoding", () => {
   });
 
   test("hideCursor emits SET_CURSOR with visible=0", () => {
-    const b = createDrawlistBuilderV2();
+    const b = createDrawlistBuilder();
     b.hideCursor();
     const res = b.build();
 
@@ -126,7 +126,7 @@ describe("DrawlistBuilderV2 - SET_CURSOR encoding", () => {
     ];
 
     for (const tc of testCases) {
-      const b = createDrawlistBuilderV2();
+      const b = createDrawlistBuilder();
       b.setCursor(tc);
       const res = b.build();
 
@@ -139,7 +139,7 @@ describe("DrawlistBuilderV2 - SET_CURSOR encoding", () => {
   });
 
   test("SET_CURSOR is 4-byte aligned (total cmd size 20 -> already aligned)", () => {
-    const b = createDrawlistBuilderV2();
+    const b = createDrawlistBuilder();
     b.setCursor({ x: 1, y: 2, shape: 0, visible: true, blink: true });
     const res = b.build();
 
@@ -151,7 +151,7 @@ describe("DrawlistBuilderV2 - SET_CURSOR encoding", () => {
   });
 
   test("multiple SET_CURSOR commands", () => {
-    const b = createDrawlistBuilderV2();
+    const b = createDrawlistBuilder();
     b.setCursor({ x: 0, y: 0, shape: 0, visible: true, blink: true });
     b.setCursor({ x: 10, y: 5, shape: 2, visible: true, blink: false });
     const res = b.build();
@@ -178,7 +178,7 @@ describe("DrawlistBuilderV2 - SET_CURSOR encoding", () => {
   });
 
   test("SET_CURSOR mixed with other commands", () => {
-    const b = createDrawlistBuilderV2();
+    const b = createDrawlistBuilder();
     b.clear();
     b.setCursor({ x: 5, y: 3, shape: 1, visible: true, blink: true });
     b.fillRect(0, 0, 10, 10);
@@ -207,7 +207,7 @@ describe("DrawlistBuilderV2 - SET_CURSOR encoding", () => {
   });
 
   test("invalid shape value fails with validation enabled", () => {
-    const b = createDrawlistBuilderV2({ validateParams: true });
+    const b = createDrawlistBuilder({ validateParams: true });
     // @ts-expect-error - Testing invalid shape
     b.setCursor({ x: 0, y: 0, shape: 5, visible: true, blink: true });
     const res = b.build();
@@ -218,7 +218,7 @@ describe("DrawlistBuilderV2 - SET_CURSOR encoding", () => {
   });
 
   test("reset clears state for reuse", () => {
-    const b = createDrawlistBuilderV2();
+    const b = createDrawlistBuilder();
     b.setCursor({ x: 10, y: 20, shape: 0, visible: true, blink: true });
     b.reset();
     b.setCursor({ x: 1, y: 2, shape: 1, visible: false, blink: false });

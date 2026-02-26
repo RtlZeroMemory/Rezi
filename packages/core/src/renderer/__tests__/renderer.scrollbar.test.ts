@@ -1,5 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import type { DrawlistBuildResult, DrawlistBuilderV1 } from "../../drawlist/index.js";
+import type { DrawlistBuildResult, DrawlistBuilder } from "../../drawlist/index.js";
 import type { DrawlistTextRunSegment } from "../../drawlist/types.js";
 import type { TextStyle, VNode } from "../../index.js";
 import { ui } from "../../index.js";
@@ -49,7 +49,7 @@ type OverflowMeta = Readonly<{
   viewportHeight: number;
 }>;
 
-class RecordingBuilder implements DrawlistBuilderV1 {
+class RecordingBuilder implements DrawlistBuilder {
   private readonly ops: RecordedOp[] = [];
 
   getOps(): readonly RecordedOp[] {
@@ -85,6 +85,20 @@ class RecordingBuilder implements DrawlistBuilderV1 {
   }
 
   drawTextRun(_x: number, _y: number, _blobIndex: number): void {}
+
+  setCursor(..._args: Parameters<DrawlistBuilder["setCursor"]>): void {}
+
+  hideCursor(): void {}
+
+  setLink(..._args: Parameters<DrawlistBuilder["setLink"]>): void {}
+
+  drawCanvas(..._args: Parameters<DrawlistBuilder["drawCanvas"]>): void {}
+
+  drawImage(..._args: Parameters<DrawlistBuilder["drawImage"]>): void {}
+
+  buildInto(_dst: Uint8Array): DrawlistBuildResult {
+    return this.build();
+  }
 
   build(): DrawlistBuildResult {
     return { ok: true, bytes: new Uint8Array([0]) };
@@ -491,7 +505,7 @@ describe("renderer scroll container integration", () => {
   test("scrollbarStyle overrides rendered scrollbar draw style", () => {
     const lines: VNode[] = [];
     for (let i = 0; i < 6; i++) lines.push(ui.text("abcd"));
-    const customFg = Object.freeze({ r: 1, g: 2, b: 3 });
+    const customFg = Object.freeze((1 << 16) | (2 << 8) | 3);
     const vnode = ui.box(
       {
         width: 6,

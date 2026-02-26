@@ -1,4 +1,4 @@
-import type { DrawlistBuilderV1, DrawlistBuilderV3 } from "../../../drawlist/types.js";
+import type { DrawlistBuilder } from "../../../drawlist/types.js";
 import { measureTextCells } from "../../../layout/textMeasure.js";
 import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
@@ -30,7 +30,7 @@ import {
 } from "./renderTextWidgets.js";
 
 type MaybeFillOwnBackground = (
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   rect: Rect,
   ownStyle: unknown,
   style: ResolvedTextStyle,
@@ -109,15 +109,6 @@ function readGraphicsBlitter(v: unknown): GraphicsBlitter | undefined {
   }
 }
 
-function isV3Builder(builder: DrawlistBuilderV1): builder is DrawlistBuilderV3 {
-  const maybe = builder as Partial<DrawlistBuilderV3>;
-  return (
-    typeof maybe.drawCanvas === "function" &&
-    typeof maybe.drawImage === "function" &&
-    typeof maybe.setLink === "function"
-  );
-}
-
 function sparklineForData(
   data: readonly number[],
   width: number,
@@ -140,7 +131,7 @@ function sparklineForData(
 }
 
 export function renderChartWidgets(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   rect: Rect,
   theme: Theme,
   parentStyle: ResolvedTextStyle,
@@ -202,15 +193,11 @@ export function renderChartWidgets(
         }
       }
 
-      if (isV3Builder(builder)) {
-        const blobIndex = addBlobAligned(builder, surface.rgba);
-        if (blobIndex !== null) {
-          builder.drawCanvas(rect.x, rect.y, rect.w, chartRows, blobIndex, surface.blitter);
-        } else {
-          drawPlaceholderBox(builder, rect, parentStyle, "Line Chart", "blob allocation failed");
-        }
+      const blobIndex = addBlobAligned(builder, surface.rgba);
+      if (blobIndex !== null) {
+        builder.drawCanvas(rect.x, rect.y, rect.w, chartRows, blobIndex, surface.blitter);
       } else {
-        drawPlaceholderBox(builder, rect, parentStyle, "Line Chart", "graphics not supported");
+        drawPlaceholderBox(builder, rect, parentStyle, "Line Chart", "blob allocation failed");
       }
 
       if (showLegend && rect.h > chartRows) {
@@ -282,15 +269,11 @@ export function renderChartWidgets(
         surface.ctx.setPixel(point.x, point.y, point.color ?? fallbackColor);
       }
 
-      if (isV3Builder(builder)) {
-        const blobIndex = addBlobAligned(builder, surface.rgba);
-        if (blobIndex !== null) {
-          builder.drawCanvas(rect.x, rect.y, rect.w, rect.h, blobIndex, surface.blitter);
-        } else {
-          drawPlaceholderBox(builder, rect, parentStyle, "Scatter", "blob allocation failed");
-        }
+      const blobIndex = addBlobAligned(builder, surface.rgba);
+      if (blobIndex !== null) {
+        builder.drawCanvas(rect.x, rect.y, rect.w, rect.h, blobIndex, surface.blitter);
       } else {
-        drawPlaceholderBox(builder, rect, parentStyle, "Scatter", "graphics not supported");
+        drawPlaceholderBox(builder, rect, parentStyle, "Scatter", "blob allocation failed");
       }
       break;
     }
@@ -340,15 +323,11 @@ export function renderChartWidgets(
         }
       }
 
-      if (isV3Builder(builder)) {
-        const blobIndex = addBlobAligned(builder, surface.rgba);
-        if (blobIndex !== null) {
-          builder.drawCanvas(rect.x, rect.y, rect.w, rect.h, blobIndex, surface.blitter);
-        } else {
-          drawPlaceholderBox(builder, rect, parentStyle, "Heatmap", "blob allocation failed");
-        }
+      const blobIndex = addBlobAligned(builder, surface.rgba);
+      if (blobIndex !== null) {
+        builder.drawCanvas(rect.x, rect.y, rect.w, rect.h, blobIndex, surface.blitter);
       } else {
-        drawPlaceholderBox(builder, rect, parentStyle, "Heatmap", "graphics not supported");
+        drawPlaceholderBox(builder, rect, parentStyle, "Heatmap", "blob allocation failed");
       }
       break;
     }
@@ -389,7 +368,7 @@ export function renderChartWidgets(
       const line = sparklineForData(data, width, min, max);
 
       const highRes = props.highRes === true;
-      if (highRes && isV3Builder(builder) && rect.w > 0 && rect.h > 0) {
+      if (highRes && rect.w > 0 && rect.h > 0) {
         const blitter = resolveCanvasBlitter(readGraphicsBlitter(props.blitter) ?? "braille", true);
         const surface = createCanvasDrawingSurface(rect.w, rect.h, blitter, (color) =>
           resolveColor(theme, color),
@@ -470,7 +449,7 @@ export function renderChartWidgets(
       const values = data.map((item) => Math.max(0, readNumber(item.value) ?? 0));
       const maxValue = Math.max(1, ...values);
 
-      if (props.highRes === true && isV3Builder(builder) && rect.w > 0 && rect.h > 0) {
+      if (props.highRes === true && rect.w > 0 && rect.h > 0) {
         const blitter = resolveCanvasBlitter(readGraphicsBlitter(props.blitter), true);
         const surface = createCanvasDrawingSurface(rect.w, rect.h, blitter, (color) =>
           resolveColor(theme, color),

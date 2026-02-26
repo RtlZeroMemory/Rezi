@@ -1,15 +1,14 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import type { DrawlistBuilderV3, DrawlistTextRunSegment } from "../../drawlist/types.js";
+import type { DrawlistBuilder, DrawlistTextRunSegment } from "../../drawlist/types.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
 import { DEFAULT_BASE_STYLE } from "../renderToDrawlist/textStyle.js";
 import { renderCanvasWidgets } from "../renderToDrawlist/widgets/renderCanvasWidgets.js";
 import { drawSegments } from "../renderToDrawlist/widgets/renderTextWidgets.js";
 
-class KeyCapturingBuilder implements DrawlistBuilderV3 {
-  readonly drawlistVersion = 1 as const;
-  readonly blobKeys: string[] = [];
-  readonly textRunKeys: string[] = [];
-  private nextBlobId = 1;
+class CountingBuilder implements DrawlistBuilder {
+  readonly blobCount = { value: 0 };
+  readonly textRunBlobCount = { value: 0 };
+  private nextBlobId = 0;
 
   clear(): void {}
   clearTo(_cols: number, _rows: number): void {}
@@ -22,7 +21,7 @@ class KeyCapturingBuilder implements DrawlistBuilderV3 {
     _state: Readonly<{ x: number; y: number; shape: 0 | 1 | 2; visible: boolean; blink: boolean }>,
   ): void {}
   hideCursor(): void {}
-  setLink(_uri: string | null): void {}
+  setLink(_uri: string | null, _id?: string): void {}
   drawCanvas(
     _x: number,
     _y: number,
@@ -47,17 +46,16 @@ class KeyCapturingBuilder implements DrawlistBuilderV3 {
     _pxWidth?: number,
     _pxHeight?: number,
   ): void {}
-  markEngineResourceStoreEmpty(): void {}
 
-  addBlob(_bytes: Uint8Array, stableKey?: string): number | null {
-    this.blobKeys.push(stableKey ?? "");
+  addBlob(_bytes: Uint8Array): number | null {
+    this.blobCount.value += 1;
     const id = this.nextBlobId;
     this.nextBlobId += 1;
     return id;
   }
 
-  addTextRunBlob(_segments: readonly DrawlistTextRunSegment[], stableKey?: string): number | null {
-    this.textRunKeys.push(stableKey ?? "");
+  addTextRunBlob(_segments: readonly DrawlistTextRunSegment[]): number | null {
+    this.textRunBlobCount.value += 1;
     const id = this.nextBlobId;
     this.nextBlobId += 1;
     return id;
@@ -74,30 +72,20 @@ class KeyCapturingBuilder implements DrawlistBuilderV3 {
   reset(): void {}
 }
 
-describe("renderer persistent blob keys", () => {
-  test("drawSegments emits deterministic stable keys for text-run blobs", () => {
+describe("renderer blob usage", () => {
+  test("drawSegments uses text-run blobs for multi-segment lines", () => {
     const segments = [
       { text: "left", style: { ...DEFAULT_BASE_STYLE, bold: true } },
       { text: "right", style: { ...DEFAULT_BASE_STYLE, italic: true } },
     ] as const;
 
-    const builder0 = new KeyCapturingBuilder();
-    drawSegments(builder0, 0, 0, 80, segments);
-    assert.equal(builder0.textRunKeys.length, 1);
-    const key0 = builder0.textRunKeys[0] ?? "";
-
-    const builder1 = new KeyCapturingBuilder();
-    drawSegments(builder1, 0, 0, 80, segments);
-    assert.equal(builder1.textRunKeys.length, 1);
-    const key1 = builder1.textRunKeys[0] ?? "";
-
-    assert.equal(key0.length > 0, true);
-    assert.equal(key1.length > 0, true);
-    assert.equal(key1, key0);
+    const builder = new CountingBuilder();
+    drawSegments(builder, 0, 0, 80, segments);
+    assert.equal(builder.textRunBlobCount.value, 1);
   });
 
-  test("canvas/image widget paths provide stable keys for addBlob", () => {
-    const builder = new KeyCapturingBuilder();
+  test("canvas/image widget paths call addBlob", () => {
+    const builder = new CountingBuilder();
 
     const canvasNode = {
       instanceId: 7,
@@ -152,13 +140,6 @@ describe("renderer persistent blob keys", () => {
       () => 0,
     );
 
-    assert.equal(
-      builder.blobKeys.some((key) => key.startsWith("canvas:")),
-      true,
-    );
-    assert.equal(
-      builder.blobKeys.some((key) => key.startsWith("image-blit:") || key.startsWith("image:")),
-      true,
-    );
+    assert.equal(builder.blobCount.value >= 2, true);
   });
 });

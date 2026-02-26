@@ -7,7 +7,7 @@ import {
 import { StubBackend } from "../../app/__tests__/stubBackend.js";
 import { createApp } from "../../app/createApp.js";
 import type { DrawlistTextRunSegment } from "../../drawlist/types.js";
-import type { App, DrawlistBuildResult, DrawlistBuilderV1, TextStyle, VNode } from "../../index.js";
+import type { App, DrawlistBuildResult, DrawlistBuilder, TextStyle, VNode } from "../../index.js";
 import { createTheme, ui } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
@@ -49,12 +49,12 @@ async function resolveNextFrame(backend: StubBackend): Promise<void> {
 function themeWithPrimary(r: number, g: number, b: number): Theme {
   return createTheme({
     colors: {
-      primary: { r, g, b },
+      primary: (r << 16) | (g << 8) | b,
     },
   });
 }
 
-class RecordingBuilder implements DrawlistBuilderV1 {
+class RecordingBuilder implements DrawlistBuilder {
   readonly textOps: Array<Readonly<{ text: string; style?: TextStyle }>> = [];
 
   clear(): void {}
@@ -72,6 +72,14 @@ class RecordingBuilder implements DrawlistBuilderV1 {
     return null;
   }
   drawTextRun(_x: number, _y: number, _blobIndex: number): void {}
+  setCursor(..._args: Parameters<DrawlistBuilder["setCursor"]>): void {}
+  hideCursor(): void {}
+  setLink(..._args: Parameters<DrawlistBuilder["setLink"]>): void {}
+  drawCanvas(..._args: Parameters<DrawlistBuilder["drawCanvas"]>): void {}
+  drawImage(..._args: Parameters<DrawlistBuilder["drawImage"]>): void {}
+  buildInto(_dst: Uint8Array): DrawlistBuildResult {
+    return this.build();
+  }
   build(): DrawlistBuildResult {
     return { ok: true, bytes: new Uint8Array() };
   }
@@ -345,10 +353,10 @@ describe("theme runtime switching", () => {
 });
 
 describe("theme scoped container overrides", () => {
-  const RED = Object.freeze({ r: 210, g: 40, b: 40 });
-  const GREEN = Object.freeze({ r: 40, g: 190, b: 80 });
-  const BLUE = Object.freeze({ r: 40, g: 100, b: 210 });
-  const CYAN = Object.freeze({ r: 20, g: 180, b: 200 });
+  const RED = Object.freeze((210 << 16) | (40 << 8) | 40);
+  const GREEN = Object.freeze((40 << 16) | (190 << 8) | 80);
+  const BLUE = Object.freeze((40 << 16) | (100 << 8) | 210);
+  const CYAN = Object.freeze((20 << 16) | (180 << 8) | 200);
   const baseTheme = createTheme({
     colors: {
       primary: RED,

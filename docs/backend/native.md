@@ -79,6 +79,31 @@ The addon exposes a small set of functions at the N-API boundary:
 - `engineGetCaps(engineId)` -- Returns a `TerminalCaps` object describing
   detected terminal capabilities (color mode, mouse, paste, cursor shape, etc.).
 
+## Native Resource Lifecycle
+
+Drawlist execution in Zireael tracks persistent resources (images, glyph caches,
+and link intern tables) through `zr_dl_resources_t`.
+
+- `zr_dl_resources_init` -- Initializes empty owned resource storage.
+- `zr_dl_resources_release` -- Releases owned resource memory and resets lengths.
+- `zr_dl_resources_swap` -- Constant-time ownership swap between two stores.
+- `zr_dl_resources_clone` -- Deep clone (duplicates owned bytes/arrays).
+- `zr_dl_resources_clone_shallow` -- Shallow clone (borrows existing backing
+  storage and metadata references without duplicating payload).
+
+`zr_dl_preflight_resources` validates and stages resource effects before execute.
+Preflight uses shallow snapshots so stage resources can borrow baseline data
+without duplicate allocations during validation. `zr_dl_execute` then applies
+the already-validated command stream against that staged state. On successful
+commit the engine swaps staged resources into the live set; on failure it
+retains the pre-commit set and releases stage state.
+
+Use deep clone when an independent lifetime is required (for example, caching
+or cross-frame ownership transfer). Use shallow clone only for bounded
+preflight/execute windows where the source lifetime is guaranteed to outlive the
+borrow. Always pair `init`/`release` on owned stores and prefer `swap` for
+commit paths to avoid duplicate frees and partial ownership transfer bugs.
+
 ### User Events
 
 - `enginePostUserEvent(engineId, tag, payload)` -- Posts a custom user event

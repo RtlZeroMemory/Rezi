@@ -16,8 +16,8 @@ const columnWithInvalidOverflow: TableColumn<Row> = {
 };
 
 const stripeStyle: NonNullable<TableProps<Row>["stripeStyle"]> = {
-  odd: { r: 1, g: 2, b: 3 },
-  even: { r: 4, g: 5, b: 6 },
+  odd: (1 << 16) | (2 << 8) | 3,
+  even: (4 << 16) | (5 << 8) | 6,
 };
 
 // @ts-expect-error missing b component
@@ -25,7 +25,7 @@ const stripeStyleInvalid: NonNullable<TableProps<Row>["stripeStyle"]> = { odd: {
 
 const borderStyle: TableBorderStyle = {
   variant: "heavy-dashed",
-  color: { r: 10, g: 11, b: 12 },
+  color: (10 << 16) | (11 << 8) | 12,
 };
 
 // @ts-expect-error invalid border style variant
@@ -37,7 +37,7 @@ const tableWithStyleOnly: TableProps<Row> = {
   data: [{ id: "r0", path: "/tmp/file.txt" }],
   getRowKey: (row) => row.id,
   stripeStyle,
-  borderStyle: { variant: "double", color: { r: 20, g: 21, b: 22 } },
+  borderStyle: { variant: "double", color: (20 << 16) | (21 << 8) | 22 },
 };
 
 void columnWithMiddleOverflow;

@@ -13,7 +13,7 @@ import type { TextStyle } from "./widgets/style.js";
  * Low-level draw API for raw mode rendering.
  *
  * This interface is used via the `app.draw(g => ...)` escape hatch
- * and corresponds to the DrawlistBuilderV1 operations.
+ * and corresponds to the DrawlistBuilder operations.
  *
  * All coordinates are in cell units (column, row).
  * All methods validate inputs and fail deterministically on invalid parameters.

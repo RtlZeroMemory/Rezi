@@ -8,6 +8,7 @@
  */
 
 import { distributeInteger } from "../layout/engine/distributeInteger.js";
+import { rgb } from "./style.js";
 import type { SplitDirection } from "./types.js";
 
 /** Default divider size in cells. */
@@ -369,4 +370,4 @@ export function hitTestDivider(
 }
 
 /** Divider color constant. */
-export const DIVIDER_COLOR = { r: 80, g: 80, b: 80 } as const;
+export const DIVIDER_COLOR = rgb(80, 80, 80);

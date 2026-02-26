@@ -1,5 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { createDrawlistBuilderV1 } from "../builder_v1.js";
+import { createDrawlistBuilder } from "../builder.js";
 import type { DrawlistBuildResult } from "../types.js";
 
 const HEADER = {
@@ -100,9 +100,9 @@ function commandStarts(bytes: Uint8Array, h: ParsedHeader): readonly number[] {
   return starts;
 }
 
-describe("DrawlistBuilderV1 - alignment and padding", () => {
+describe("DrawlistBuilder - alignment and padding", () => {
   test("empty drawlist has aligned total size and zero section offsets", () => {
-    const bytes = expectOk(createDrawlistBuilderV1().build());
+    const bytes = expectOk(createDrawlistBuilder().build());
     const h = parseHeader(bytes);
 
     assert.equal(h.totalSize, HEADER.SIZE);
@@ -117,7 +117,7 @@ describe("DrawlistBuilderV1 - alignment and padding", () => {
   });
 
   test("near-empty clear drawlist keeps command start and section layout aligned", () => {
-    const b = createDrawlistBuilderV1();
+    const b = createDrawlistBuilder();
     b.clear();
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
@@ -131,7 +131,7 @@ describe("DrawlistBuilderV1 - alignment and padding", () => {
   });
 
   test("all command starts are 4-byte aligned in a mixed stream", () => {
-    const b = createDrawlistBuilderV1();
+    const b = createDrawlistBuilder();
     b.clear();
     b.fillRect(0, 0, 3, 2);
     b.drawText(1, 1, "abc");
@@ -148,7 +148,7 @@ describe("DrawlistBuilderV1 - alignment and padding", () => {
   });
 
   test("walking command sizes lands exactly on cmdOffset + cmdBytes", () => {
-    const b = createDrawlistBuilderV1();
+    const b = createDrawlistBuilder();
     const blobIndex = b.addBlob(new Uint8Array([1, 2, 3, 4]));
     assert.equal(blobIndex, 0);
     b.clear();
@@ -163,7 +163,7 @@ describe("DrawlistBuilderV1 - alignment and padding", () => {
   });
 
   test("section offsets are aligned and ordered when strings and blobs exist", () => {
-    const b = createDrawlistBuilderV1();
+    const b = createDrawlistBuilder();
     b.drawText(0, 0, "abc");
     const blobIndex = b.addBlob(new Uint8Array([9, 8, 7, 6]));
     assert.equal(blobIndex, 0);
@@ -184,7 +184,7 @@ describe("DrawlistBuilderV1 - alignment and padding", () => {
   });
 
   test("odd-length text: 1-byte string gets 3 zero padding bytes", () => {
-    const b = createDrawlistBuilderV1();
+    const b = createDrawlistBuilder();
     b.drawText(0, 0, "a");
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
@@ -201,7 +201,7 @@ describe("DrawlistBuilderV1 - alignment and padding", () => {
   });
 
   test("odd-length text: 2-byte string gets 2 zero padding bytes", () => {
-    const b = createDrawlistBuilderV1();
+    const b = createDrawlistBuilder();
     b.drawText(0, 0, "ab");
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
@@ -218,7 +218,7 @@ describe("DrawlistBuilderV1 - alignment and padding", () => {
   });
 
   test("odd-length text: 3-byte string gets 1 zero padding byte", () => {
-    const b = createDrawlistBuilderV1();
+    const b = createDrawlistBuilder();
     b.drawText(0, 0, "abc");
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
@@ -235,7 +235,7 @@ describe("DrawlistBuilderV1 - alignment and padding", () => {
   });
 
   test("empty string still has aligned string section with zero raw bytes", () => {
-    const b = createDrawlistBuilderV1();
+    const b = createDrawlistBuilder();
     b.drawText(0, 0, "");
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
@@ -252,7 +252,7 @@ describe("DrawlistBuilderV1 - alignment and padding", () => {
   });
 
   test("multiple odd-length strings keep contiguous raw spans and aligned tail padding", () => {
-    const b = createDrawlistBuilderV1();
+    const b = createDrawlistBuilder();
     b.drawText(0, 0, "a");
     b.drawText(0, 1, "bb");
     b.drawText(0, 2, "ccc");
@@ -276,7 +276,7 @@ describe("DrawlistBuilderV1 - alignment and padding", () => {
   });
 
   test("reuseOutputBuffer keeps odd-string padding zeroed across reset/build cycles", () => {
-    const b = createDrawlistBuilderV1({ reuseOutputBuffer: true });
+    const b = createDrawlistBuilder({ reuseOutputBuffer: true });
 
     b.drawText(0, 0, "abcd");
     expectOk(b.build());

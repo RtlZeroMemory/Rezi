@@ -9,9 +9,7 @@
 
 import { Worker } from "node:worker_threads";
 import type {
-  BackendBeginFrame,
   BackendEventBatch,
-  BackendFrameWriter,
   BackendRawWrite,
   DebugBackend,
   DebugConfig,
@@ -23,7 +21,6 @@ import type {
   TerminalProfile,
 } from "@rezi-ui/core";
 import {
-  BACKEND_BEGIN_FRAME_MARKER,
   BACKEND_DRAWLIST_VERSION_MARKER,
   BACKEND_FPS_CAP_MARKER,
   BACKEND_MAX_EVENT_BYTES_MARKER,
@@ -84,13 +81,6 @@ export type NodeBackendConfig = Readonly<{
    */
   maxEventBytes?: number;
   /**
-   * Explicit drawlist version request.
-   *
-   * Defaults to `1` (resource-id drawlist with DEF/FREE resource commands).
-   * Supported values: `1`.
-   */
-  drawlistVersion?: 1;
-  /**
    * Frame transport mode:
    * - "auto": prefer SAB mailbox transport when available, fallback to transfer.
    * - "transfer": always use transferable ArrayBuffer path.
@@ -150,14 +140,6 @@ type Deferred<T> = Readonly<{
   promise: Promise<T>;
   resolve: (v: T) => void;
   reject: (err: Error) => void;
-}>;
-
-type FrameRequestPromise = Promise<void> &
-  Partial<Record<typeof FRAME_ACCEPTED_ACK_MARKER, Promise<void>>>;
-
-type FrameSubmission = Readonly<{
-  frameSeq: number;
-  framePromise: FrameRequestPromise;
 }>;
 
 type SabFrameTransport = Readonly<{
@@ -242,21 +224,6 @@ function parsePositiveInt(n: unknown): number | null {
   if (!Number.isInteger(n)) return null;
   if (n <= 0) return null;
   return n;
-}
-
-function parseDrawlistVersion(v: unknown): 1 | null {
-  if (v === undefined) return null;
-  if (v === 1) return v;
-  throw new ZrUiError(
-    "ZRUI_INVALID_PROPS",
-    `createNodeBackend config mismatch: drawlistVersion must be 1 (got ${String(v)}).`,
-  );
-}
-
-function resolveRequestedDrawlistVersion(config: NodeBackendConfig): 1 {
-  const explicitDrawlistVersion = parseDrawlistVersion(config.drawlistVersion);
-  if (explicitDrawlistVersion !== null) return explicitDrawlistVersion;
-  return ZR_DRAWLIST_VERSION_V1;
 }
 
 function parseBoundedPositiveIntOrThrow(
@@ -379,11 +346,7 @@ function resetSabFrameTransport(t: SabFrameTransport): void {
   t.nextSlot.value = 0;
 }
 
-function acquireSabSlot(
-  t: SabFrameTransport,
-  opts: Readonly<{ allowReadyReclaim?: boolean }> = {},
-): number {
-  const allowReadyReclaim = opts.allowReadyReclaim ?? true;
+function acquireSabSlot(t: SabFrameTransport): number {
   const start = t.nextSlot.value % t.slotCount;
   for (let i = 0; i < t.slotCount; i++) {
     const slot = (start + i) % t.slotCount;
@@ -398,7 +361,6 @@ function acquireSabSlot(
       return slot;
     }
   }
-  if (!allowReadyReclaim) return -1;
   // Latest-wins semantics allow reclaiming stale READY slots instead of
   // falling back to transfer under pressure.
   for (let i = 0; i < t.slotCount; i++) {
@@ -450,7 +412,7 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
   if (executionMode === "inline") {
     return createNodeBackendInlineInternal(opts);
   }
-  const requestedDrawlistVersion = resolveRequestedDrawlistVersion(cfg);
+  const requestedDrawlistVersion = ZR_DRAWLIST_VERSION_V1;
   const maxEventBytes = parseBoundedPositiveIntOrThrow(
     "maxEventBytes",
     cfg.maxEventBytes,
@@ -588,22 +550,6 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       frameAcceptedWaiters.delete(seq);
       waiter.resolve(undefined);
     }
-  }
-
-  function reserveFrameSubmission(): FrameSubmission {
-    const frameSeq = nextFrameSeq++;
-    const frameAcceptedDef = deferred<void>();
-    frameAcceptedWaiters.set(frameSeq, frameAcceptedDef);
-    const frameCompletionDef = deferred<void>();
-    frameCompletionWaiters.set(frameSeq, frameCompletionDef);
-    const framePromise = frameCompletionDef.promise as FrameRequestPromise;
-    Object.defineProperty(framePromise, FRAME_ACCEPTED_ACK_MARKER, {
-      value: frameAcceptedDef.promise,
-      configurable: false,
-      enumerable: false,
-      writable: false,
-    });
-    return { frameSeq, framePromise };
   }
 
   function resolveCoalescedCompletionFramesUpTo(acceptedSeq: number): void {
@@ -985,73 +931,6 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
     started = false;
   }
 
-  const beginFrame: BackendBeginFrame = (minCapacity?: number): BackendFrameWriter | null => {
-    if (disposed || fatal !== null || stopRequested) return null;
-    if (!started || worker === null) return null;
-    if (sabFrameTransport === null) return null;
-    if (
-      minCapacity !== undefined &&
-      (!Number.isInteger(minCapacity) ||
-        minCapacity < 0 ||
-        minCapacity > sabFrameTransport.slotBytes)
-    ) {
-      return null;
-    }
-
-    const slotIndex = acquireSabSlot(sabFrameTransport, { allowReadyReclaim: false });
-    if (slotIndex < 0) return null;
-
-    const { frameSeq, framePromise } = reserveFrameSubmission();
-    const slotBytes = sabFrameTransport.slotBytes;
-    const slotOffset = slotIndex * slotBytes;
-    const slotView = sabFrameTransport.dataBytes.subarray(slotOffset, slotOffset + slotBytes);
-    let finalized = false;
-    const releaseSlot = (): void => {
-      Atomics.store(sabFrameTransport.states, slotIndex, FRAME_SAB_SLOT_STATE_FREE);
-    };
-
-    return Object.freeze({
-      buf: slotView,
-      commit: (byteLen: number): Promise<void> => {
-        if (!Number.isInteger(byteLen)) {
-          throw new ZrUiError(
-            "ZRUI_INVALID_PROPS",
-            "NodeBackend: frame byteLen must be an integer",
-          );
-        }
-        if (byteLen < 0 || byteLen > slotBytes) {
-          throw new ZrUiError(
-            "ZRUI_INVALID_PROPS",
-            `NodeBackend: frame byteLen out of range (byteLen=${String(byteLen)}, slotBytes=${String(slotBytes)})`,
-          );
-        }
-        if (finalized) {
-          throw new ZrUiError("ZRUI_INVALID_STATE", "NodeBackend: frame writer already finalized");
-        }
-        finalized = true;
-        const slotToken = frameSeqToSlotToken(frameSeq);
-        Atomics.store(sabFrameTransport.tokens, slotIndex, slotToken);
-        Atomics.store(sabFrameTransport.states, slotIndex, FRAME_SAB_SLOT_STATE_READY);
-        publishSabFrame(sabFrameTransport, frameSeq, slotIndex, slotToken, byteLen);
-        // SAB consumers wake on futex notify instead of per-frame
-        // MessagePort frameKick round-trips.
-        Atomics.notify(sabFrameTransport.controlHeader, FRAME_SAB_CONTROL_PUBLISHED_SEQ_WORD, 1);
-        return framePromise;
-      },
-      abort: (): void => {
-        if (finalized) return;
-        finalized = true;
-        frameAcceptedWaiters.delete(frameSeq);
-        frameCompletionWaiters.delete(frameSeq);
-        try {
-          releaseSlot();
-        } catch {
-          // Best effort: writer abort should never throw.
-        }
-      },
-    });
-  };
-
   const backend: RuntimeBackend = {
     async start(): Promise<void> {
       if (disposed) throw new Error("NodeBackend: disposed");
@@ -1161,7 +1040,19 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       }
       if (worker === null) return Promise.reject(new Error("NodeBackend: worker not available"));
 
-      const { frameSeq, framePromise } = reserveFrameSubmission();
+      const frameSeq = nextFrameSeq++;
+      const frameAcceptedDef = deferred<void>();
+      frameAcceptedWaiters.set(frameSeq, frameAcceptedDef);
+      const frameCompletionDef = deferred<void>();
+      frameCompletionWaiters.set(frameSeq, frameCompletionDef);
+      const framePromise = frameCompletionDef.promise as Promise<void> &
+        Partial<Record<typeof FRAME_ACCEPTED_ACK_MARKER, Promise<void>>>;
+      Object.defineProperty(framePromise, FRAME_ACCEPTED_ACK_MARKER, {
+        value: frameAcceptedDef.promise,
+        configurable: false,
+        enumerable: false,
+        writable: false,
+      });
 
       if (sabFrameTransport !== null && drawlist.byteLength <= sabFrameTransport.slotBytes) {
         const slotIndex = acquireSabSlot(sabFrameTransport);
@@ -1455,20 +1346,13 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
 
   const out = Object.assign(backend, { debug, perf }) as NodeBackend &
     Record<
-      | typeof BACKEND_BEGIN_FRAME_MARKER
       | typeof BACKEND_DRAWLIST_VERSION_MARKER
       | typeof BACKEND_MAX_EVENT_BYTES_MARKER
       | typeof BACKEND_FPS_CAP_MARKER
       | typeof BACKEND_RAW_WRITE_MARKER,
-      BackendBeginFrame | boolean | number | BackendRawWrite
+      boolean | number | BackendRawWrite
     >;
   Object.defineProperties(out, {
-    [BACKEND_BEGIN_FRAME_MARKER]: {
-      value: beginFrame,
-      writable: false,
-      enumerable: false,
-      configurable: false,
-    },
     [BACKEND_DRAWLIST_VERSION_MARKER]: {
       value: requestedDrawlistVersion,
       writable: false,

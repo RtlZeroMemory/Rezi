@@ -1,4 +1,4 @@
-import type { DrawlistBuilderV1, DrawlistBuilderV3 } from "../../../drawlist/types.js";
+import type { DrawlistBuilder } from "../../../drawlist/types.js";
 import {
   type SpinnerVariant,
   getSpinnerFrame,
@@ -36,7 +36,7 @@ type ResolvedCursor = Readonly<{
 }>;
 
 type MaybeFillOwnBackground = (
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   rect: Rect,
   ownStyle: unknown,
   style: ResolvedTextStyle,
@@ -146,7 +146,7 @@ export function clipSegmentsToWidth(
 }
 
 export function drawSegments(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   x: number,
   y: number,
   maxWidth: number,
@@ -169,7 +169,6 @@ export function drawSegments(
       text: segment.text,
       style: segment.style,
     })),
-    textRunStableKey(clipped),
   );
   if (blobIndex !== null) {
     builder.drawTextRun(x, y, blobIndex);
@@ -238,17 +237,8 @@ function resolveIconText(iconPath: string, useFallback: boolean): string {
   return resolveIconRenderGlyph(iconPath, useFallback).glyph;
 }
 
-function isV3Builder(builder: DrawlistBuilderV1): builder is DrawlistBuilderV3 {
-  const maybe = builder as Partial<DrawlistBuilderV3>;
-  return (
-    typeof maybe.drawCanvas === "function" &&
-    typeof maybe.drawImage === "function" &&
-    typeof maybe.setLink === "function"
-  );
-}
-
 export function renderTextWidgets(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   focusState: FocusState,
   rect: Rect,
   theme: Theme,
@@ -683,7 +673,7 @@ export function renderTextWidgets(
       );
 
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
-      if (isV3Builder(builder) && !disabled) {
+      if (!disabled) {
         builder.setLink(url, id);
         builder.drawText(rect.x, rect.y, truncateToWidth(text, rect.w), finalStyle);
         builder.setLink(null);

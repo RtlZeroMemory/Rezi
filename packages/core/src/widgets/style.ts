@@ -1,15 +1,9 @@
 /**
  * packages/core/src/widgets/style.ts — Text styling types and helpers.
- *
- * Why: Defines the visual styling options for text and widget content.
- * Styles are passed through to the drawlist builder and rendered by the
- * C engine using terminal escape sequences.
- *
- * @see docs/styling/style-props.md
  */
 
-/** RGB color with components in range 0-255. */
-export type Rgb = Readonly<{ r: number; g: number; b: number }>;
+/** Packed RGB color (0x00RRGGBB). Value 0 is reserved as default/unset sentinel. */
+export type Rgb24 = number;
 
 /** Theme color token path (e.g. "accent.primary", "diagnostic.error"). */
 export type ThemeColor = string;
@@ -17,14 +11,10 @@ export type ThemeColor = string;
 /** Underline style variants. */
 export type UnderlineStyle = "none" | "straight" | "double" | "curly" | "dotted" | "dashed";
 
-/**
- * Text styling options.
- *   - fg/bg: foreground/background colors
- *   - bold, dim, italic, underline, inverse, strikethrough, overline, blink: text attributes
- */
+/** Text styling options. */
 export type TextStyle = Readonly<{
-  fg?: Rgb;
-  bg?: Rgb;
+  fg?: Rgb24;
+  bg?: Rgb24;
   bold?: boolean;
   dim?: boolean;
   italic?: boolean;
@@ -33,21 +23,43 @@ export type TextStyle = Readonly<{
   strikethrough?: boolean;
   overline?: boolean;
   blink?: boolean;
-  /**
-   * Underline style variant.
-   * Terminals that do not support underline variants should fall back to straight underline.
-   */
   underlineStyle?: UnderlineStyle | undefined;
-  /**
-   * Underline color.
-   * Accepts direct RGB or a theme token path.
-   */
-  underlineColor?: Rgb | ThemeColor | undefined;
+  underlineColor?: Rgb24 | ThemeColor | undefined;
 }>;
 
-/**
- * Create an RGB color value.
- */
-export function rgb(r: number, g: number, b: number): Rgb {
-  return { r, g, b };
+function clampChannel(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  if (value <= 0) return 0;
+  if (value >= 255) return 255;
+  return Math.round(value);
+}
+
+/** Create a packed RGB color value. Note: `rgb(0, 0, 0)` encodes sentinel `0`. */
+export function rgb(r: number, g: number, b: number): Rgb24 {
+  const rr = clampChannel(r);
+  const gg = clampChannel(g);
+  const bb = clampChannel(b);
+  return ((rr & 0xff) << 16) | ((gg & 0xff) << 8) | (bb & 0xff);
+}
+
+export function rgbR(value: Rgb24): number {
+  return (value >>> 16) & 0xff;
+}
+
+export function rgbG(value: Rgb24): number {
+  return (value >>> 8) & 0xff;
+}
+
+export function rgbB(value: Rgb24): number {
+  return value & 0xff;
+}
+
+export function rgbBlend(backdrop: Rgb24, value: Rgb24, opacity: number): Rgb24 {
+  const a = Number.isFinite(opacity) ? Math.min(1, Math.max(0, opacity)) : 1;
+  if (a >= 1) return value >>> 0;
+  if (a <= 0) return backdrop >>> 0;
+  const r = Math.round(rgbR(backdrop) + (rgbR(value) - rgbR(backdrop)) * a);
+  const g = Math.round(rgbG(backdrop) + (rgbG(value) - rgbG(backdrop)) * a);
+  const b = Math.round(rgbB(backdrop) + (rgbB(value) - rgbB(backdrop)) * a);
+  return rgb(r, g, b);
 }

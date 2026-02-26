@@ -75,44 +75,44 @@ describe("container widgets - VNode construction", () => {
       title: "Styled",
       content: ui.text("Body"),
       frameStyle: {
-        background: { r: 20, g: 22, b: 24 },
-        foreground: { r: 220, g: 222, b: 224 },
-        border: { r: 120, g: 122, b: 124 },
+        background: (20 << 16) | (22 << 8) | 24,
+        foreground: (220 << 16) | (222 << 8) | 224,
+        border: (120 << 16) | (122 << 8) | 124,
       },
       backdrop: {
         variant: "dim",
         pattern: "#",
-        foreground: { r: 60, g: 70, b: 80 },
-        background: { r: 4, g: 5, b: 6 },
+        foreground: (60 << 16) | (70 << 8) | 80,
+        background: (4 << 16) | (5 << 8) | 6,
       },
     });
     assert.equal(modal.kind, "modal");
     assert.deepEqual(modal.props.backdrop, {
       variant: "dim",
       pattern: "#",
-      foreground: { r: 60, g: 70, b: 80 },
-      background: { r: 4, g: 5, b: 6 },
+      foreground: (60 << 16) | (70 << 8) | 80,
+      background: (4 << 16) | (5 << 8) | 6,
     });
     assert.deepEqual(modal.props.frameStyle, {
-      background: { r: 20, g: 22, b: 24 },
-      foreground: { r: 220, g: 222, b: 224 },
-      border: { r: 120, g: 122, b: 124 },
+      background: (20 << 16) | (22 << 8) | 24,
+      foreground: (220 << 16) | (222 << 8) | 224,
+      border: (120 << 16) | (122 << 8) | 124,
     });
 
     const layer = ui.layer({
       id: "styled-layer",
       content: ui.text("overlay"),
       frameStyle: {
-        background: { r: 10, g: 11, b: 12 },
-        foreground: { r: 230, g: 231, b: 232 },
-        border: { r: 90, g: 91, b: 92 },
+        background: (10 << 16) | (11 << 8) | 12,
+        foreground: (230 << 16) | (231 << 8) | 232,
+        border: (90 << 16) | (91 << 8) | 92,
       },
     });
     assert.equal(layer.kind, "layer");
     assert.deepEqual(layer.props.frameStyle, {
-      background: { r: 10, g: 11, b: 12 },
-      foreground: { r: 230, g: 231, b: 232 },
-      border: { r: 90, g: 91, b: 92 },
+      background: (10 << 16) | (11 << 8) | 12,
+      foreground: (230 << 16) | (231 << 8) | 232,
+      border: (90 << 16) | (91 << 8) | 92,
     });
   });
 

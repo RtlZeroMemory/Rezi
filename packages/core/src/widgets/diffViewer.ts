@@ -7,6 +7,7 @@
  * @see docs/widgets/diff-viewer.md
  */
 
+import { defaultTheme } from "../theme/defaultTheme.js";
 import type { DiffData, DiffHunk, DiffLine } from "./types.js";
 
 /** Default number of context lines around changes. */
@@ -227,12 +228,14 @@ export function getHunkScrollPosition(hunkIndex: number, hunks: readonly DiffHun
 }
 
 /** Diff color constants. */
-export const DIFF_COLORS = {
-  addBg: { r: 35, g: 65, b: 35 },
-  deleteBg: { r: 65, g: 35, b: 35 },
-  addFg: { r: 150, g: 255, b: 150 },
-  deleteFg: { r: 255, g: 150, b: 150 },
-  hunkHeader: { r: 100, g: 149, b: 237 },
-  lineNumber: { r: 100, g: 100, b: 100 },
-  border: { r: 80, g: 80, b: 80 },
-} as const;
+const WIDGET_PALETTE = defaultTheme.colors;
+
+export const DIFF_COLORS = Object.freeze({
+  addBg: WIDGET_PALETTE["widget.diff.add.bg"] ?? WIDGET_PALETTE.success,
+  deleteBg: WIDGET_PALETTE["widget.diff.delete.bg"] ?? WIDGET_PALETTE.danger,
+  addFg: WIDGET_PALETTE["widget.diff.add.fg"] ?? WIDGET_PALETTE.fg,
+  deleteFg: WIDGET_PALETTE["widget.diff.delete.fg"] ?? WIDGET_PALETTE.fg,
+  hunkHeader: WIDGET_PALETTE["widget.diff.hunkHeader"] ?? WIDGET_PALETTE.info,
+  lineNumber: WIDGET_PALETTE["widget.diff.lineNumber"] ?? WIDGET_PALETTE.muted,
+  border: WIDGET_PALETTE["widget.diff.border"] ?? WIDGET_PALETTE.border,
+});

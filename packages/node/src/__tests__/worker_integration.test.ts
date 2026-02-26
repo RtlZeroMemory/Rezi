@@ -7,7 +7,7 @@ import {
   DEFAULT_TERMINAL_CAPS,
   FRAME_ACCEPTED_ACK_MARKER,
   ZrUiError,
-  createDrawlistBuilderV2,
+  createDrawlistBuilder,
   parseEventBatchV1,
 } from "@rezi-ui/core";
 import { createNodeBackendInternal } from "../backend/nodeBackend.js";
@@ -755,7 +755,7 @@ test("backend: SAB beginFrame writer commits drawlist bytes", async () => {
   assert.ok(writer);
   if (!writer) throw new Error("beginFrame writer not available");
 
-  const builder = createDrawlistBuilderV2();
+  const builder = createDrawlistBuilder();
   builder.clear();
   const builderWithInto = builder as typeof builder & {
     buildInto?: (

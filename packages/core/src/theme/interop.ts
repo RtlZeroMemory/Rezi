@@ -7,7 +7,7 @@
  * conversion to keep the public API ergonomic.
  */
 
-import type { Rgb } from "../widgets/style.js";
+import type { Rgb24 } from "../widgets/style.js";
 import { defaultTheme } from "./defaultTheme.js";
 import type { Theme } from "./theme.js";
 import type { ThemeDefinition } from "./tokens.js";
@@ -89,17 +89,8 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
 }
 
-function isRgb(v: unknown): v is Rgb {
-  if (!isObject(v)) return false;
-  const candidate = v as { r?: unknown; g?: unknown; b?: unknown };
-  return (
-    typeof candidate.r === "number" &&
-    Number.isFinite(candidate.r) &&
-    typeof candidate.g === "number" &&
-    Number.isFinite(candidate.g) &&
-    typeof candidate.b === "number" &&
-    Number.isFinite(candidate.b)
-  );
+function isRgb(v: unknown): v is Rgb24 {
+  return typeof v === "number" && Number.isFinite(v);
 }
 
 function readSpacingOverride(raw: unknown): Theme["spacing"] | undefined {
@@ -148,17 +139,18 @@ function spacingEquals(a: Theme["spacing"], b: Theme["spacing"]): boolean {
   return true;
 }
 
-function setColor(out: Record<string, Rgb>, key: string, value: unknown): Rgb | undefined {
+function setColor(out: Record<string, Rgb24>, key: string, value: unknown): Rgb24 | undefined {
   if (!isRgb(value)) return undefined;
-  out[key] = value;
-  return value;
+  const packed = (Math.round(value) >>> 0) & 0x00ff_ffff;
+  out[key] = packed;
+  return packed;
 }
 
 function extractLegacyColorOverrides(raw: unknown): Partial<Theme["colors"]> {
   if (!isObject(raw)) return {};
 
   const source = raw as Readonly<LegacyColorOverrideSource>;
-  const out: Record<string, Rgb> = {};
+  const out: Record<string, Rgb24> = {};
 
   const bg = isObject(source.bg) ? (source.bg as BgOverride) : null;
   if (bg) {
@@ -241,7 +233,7 @@ function mergeLegacyTheme(
   colorsOverride: Partial<Theme["colors"]>,
   spacingOverride: Theme["spacing"] | undefined,
 ): Theme {
-  const colorEntries = Object.entries(colorsOverride) as Array<[string, Rgb]>;
+  const colorEntries = Object.entries(colorsOverride) as Array<[string, Rgb24]>;
   let colors = parent.colors;
   if (colorEntries.length > 0) {
     let colorChanged = false;

@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { createApp, ui } from "@rezi-ui/core";
+import { BACKEND_DRAWLIST_VERSION_MARKER, createApp, rgb, ui } from "@rezi-ui/core";
 import { ZrUiError } from "@rezi-ui/core";
 import { createNodeApp, createNodeBackend } from "../index.js";
 
@@ -75,19 +75,13 @@ function withNoColor(value: string | undefined, fn: () => void): void {
   }
 }
 
-test("config guard: backend drawlist version 2 is rejected", () => {
-  assert.throws(
-    () => createNodeBackend({ drawlistVersion: 2 as unknown as 1 }),
-    (err) =>
-      err instanceof ZrUiError &&
-      err.code === "ZRUI_INVALID_PROPS" &&
-      err.message.includes("drawlistVersion must be 1"),
-  );
-});
-
-test("config guard: backend drawlist version 1 is allowed", () => {
-  const backend = createNodeBackend({ drawlistVersion: 1 });
+test("config guard: backend drawlist marker is fixed to current protocol", () => {
+  const backend = createNodeBackend();
   try {
+    assert.equal(
+      (backend as unknown as Record<string, unknown>)[BACKEND_DRAWLIST_VERSION_MARKER],
+      1,
+    );
     const app = createApp({
       backend,
       initialState: { value: 0 },
@@ -281,20 +275,20 @@ test("createNodeApp exposes isNoColor=true when NO_COLOR is present", () => {
       initialState: { value: 0 },
       theme: {
         colors: {
-          primary: { r: 255, g: 0, b: 0 },
-          secondary: { r: 0, g: 255, b: 0 },
-          success: { r: 0, g: 0, b: 255 },
-          danger: { r: 255, g: 0, b: 255 },
-          warning: { r: 255, g: 255, b: 0 },
-          info: { r: 0, g: 255, b: 255 },
-          muted: { r: 120, g: 120, b: 120 },
-          bg: { r: 10, g: 10, b: 10 },
-          fg: { r: 240, g: 240, b: 240 },
-          border: { r: 64, g: 64, b: 64 },
-          "diagnostic.error": { r: 255, g: 90, b: 90 },
-          "diagnostic.warning": { r: 255, g: 200, b: 90 },
-          "diagnostic.info": { r: 90, g: 180, b: 255 },
-          "diagnostic.hint": { r: 140, g: 255, b: 120 },
+          primary: rgb(255, 0, 0),
+          secondary: rgb(0, 255, 0),
+          success: rgb(0, 0, 255),
+          danger: rgb(255, 0, 255),
+          warning: rgb(255, 255, 0),
+          info: rgb(0, 255, 255),
+          muted: rgb(120, 120, 120),
+          bg: rgb(10, 10, 10),
+          fg: rgb(240, 240, 240),
+          border: rgb(64, 64, 64),
+          "diagnostic.error": rgb(255, 90, 90),
+          "diagnostic.warning": rgb(255, 200, 90),
+          "diagnostic.info": rgb(90, 180, 255),
+          "diagnostic.hint": rgb(140, 255, 120),
         },
         spacing: [0, 1, 2, 4, 8, 16],
       },

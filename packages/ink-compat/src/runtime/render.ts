@@ -1,13 +1,7 @@
 import { appendFileSync } from "node:fs";
 import type { Readable, Writable } from "node:stream";
 import { format as formatConsoleMessage } from "node:util";
-import {
-  type Rgb,
-  type TextStyle,
-  type VNode,
-  createTestRenderer,
-  measureTextCells,
-} from "@rezi-ui/core";
+import { type Rgb24, type TextStyle, type VNode, measureTextCells } from "@rezi-ui/core";
 import React from "react";
 
 import { type KittyFlagName, resolveKittyFlags } from "../kitty-keyboard.js";
@@ -16,6 +10,7 @@ import { enableTranslationTrace, flushTranslationTrace } from "../translation/tr
 import { checkAllResizeObservers } from "./ResizeObserver.js";
 import { createBridge } from "./bridge.js";
 import { InkContext } from "./context.js";
+import { type InkRendererTraceEvent, createInkRenderer } from "./createInkRenderer.js";
 import { commitSync, createReactRoot } from "./reactHelpers.js";
 
 export interface KittyKeyboardOptions {
@@ -64,8 +59,8 @@ interface ClipRect {
 }
 
 interface CellStyle {
-  fg?: Rgb;
-  bg?: Rgb;
+  fg?: Rgb24;
+  bg?: Rgb24;
   bold?: boolean;
   dim?: boolean;
   italic?: boolean;
@@ -121,42 +116,14 @@ interface ResizeSignalRecord {
   viewport: ViewportSize;
 }
 
-interface ReziRendererTraceEvent {
-  renderId: number;
-  viewport: ViewportSize;
-  focusedId: string | null;
-  tick: number;
-  timings: {
-    commitMs: number;
-    layoutMs: number;
-    drawMs: number;
-    textMs: number;
-    totalMs: number;
-  };
-  nodeCount: number;
-  opCount: number;
-  clipDepthMax: number;
-  textChars: number;
-  textLines: number;
-  nonBlankLines: number;
-  widestLine: number;
-  minRectY: number;
-  maxRectBottom: number;
-  zeroHeightRects: number;
-  detailIncluded: boolean;
-  nodes?: readonly unknown[];
-  ops?: readonly unknown[];
-  text?: string;
-}
-
 interface RenderWritePayload {
   output: string;
   staticOutput: string;
 }
 
 const MAX_QUEUED_OUTPUTS = 4;
-const CORE_DEFAULT_FG: Readonly<Rgb> = Object.freeze({ r: 232, g: 238, b: 245 });
-const CORE_DEFAULT_BG: Readonly<Rgb> = Object.freeze({ r: 7, g: 10, b: 12 });
+const CORE_DEFAULT_FG: Rgb24 = 0xe8eef5;
+const CORE_DEFAULT_BG: Rgb24 = 0x070a0c;
 const FORCED_TRUECOLOR_SUPPORT: ColorSupport = Object.freeze({ level: 3, noColor: false });
 const ANSI_SGR_PATTERN = /\u001b\[[0-9:;]*m|\u009b[0-9:;]*m/;
 
@@ -930,8 +897,10 @@ function snapshotCellGridRows(
     for (let col = 0; col < captureTo; col++) {
       const cell = row[col]!;
       const entry: Record<string, unknown> = { c: cell.char };
-      if (cell.style?.bg) entry["bg"] = `${cell.style.bg.r},${cell.style.bg.g},${cell.style.bg.b}`;
-      if (cell.style?.fg) entry["fg"] = `${cell.style.fg.r},${cell.style.fg.g},${cell.style.fg.b}`;
+      if (cell.style?.bg)
+        entry["bg"] = `${rgbR(cell.style.bg)},${rgbG(cell.style.bg)},${rgbB(cell.style.bg)}`;
+      if (cell.style?.fg)
+        entry["fg"] = `${rgbR(cell.style.fg)},${rgbG(cell.style.fg)},${rgbB(cell.style.fg)}`;
       if (cell.style?.bold) entry["bold"] = true;
       if (cell.style?.dim) entry["dim"] = true;
       if (cell.style?.inverse) entry["inv"] = true;
@@ -1039,27 +1008,36 @@ function hostTreeContainsAnsiSgr(rootNode: InkHostContainer): boolean {
   return false;
 }
 
-function isRgb(value: unknown): value is Rgb {
-  if (typeof value !== "object" || value === null) return false;
-  const r = (value as { r?: unknown }).r;
-  const g = (value as { g?: unknown }).g;
-  const b = (value as { b?: unknown }).b;
-  return (
-    typeof r === "number" &&
-    Number.isFinite(r) &&
-    typeof g === "number" &&
-    Number.isFinite(g) &&
-    typeof b === "number" &&
-    Number.isFinite(b)
-  );
-}
-
 function clampByte(value: number): number {
   return Math.max(0, Math.min(255, Math.round(value)));
 }
 
-function isSameRgb(a: Rgb, b: Readonly<Rgb>): boolean {
-  return a.r === b.r && a.g === b.g && a.b === b.b;
+function packRgb24(r: number, g: number, b: number): Rgb24 {
+  return ((clampByte(r) & 0xff) << 16) | ((clampByte(g) & 0xff) << 8) | (clampByte(b) & 0xff);
+}
+
+function rgbR(value: Rgb24): number {
+  return (value >>> 16) & 0xff;
+}
+
+function rgbG(value: Rgb24): number {
+  return (value >>> 8) & 0xff;
+}
+
+function rgbB(value: Rgb24): number {
+  return value & 0xff;
+}
+
+function clampRgb24(value: Rgb24): Rgb24 {
+  return packRgb24(rgbR(value), rgbG(value), rgbB(value));
+}
+
+function isRgb24(value: unknown): value is Rgb24 {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isSameRgb(a: Rgb24, b: Rgb24): boolean {
+  return a === b;
 }
 
 const ANSI16_PALETTE: readonly [number, number, number][] = [
@@ -1118,14 +1096,14 @@ function detectColorSupport(stdout: Writable): ColorSupport {
   return { level: 3, noColor: false };
 }
 
-function colorDistanceSq(a: Rgb, b: readonly [number, number, number]): number {
-  const dr = a.r - b[0];
-  const dg = a.g - b[1];
-  const db = a.b - b[2];
+function colorDistanceSq(a: Rgb24, b: readonly [number, number, number]): number {
+  const dr = rgbR(a) - b[0];
+  const dg = rgbG(a) - b[1];
+  const db = rgbB(a) - b[2];
   return dr * dr + dg * dg + db * db;
 }
 
-function toAnsi16Code(color: Rgb, background: boolean): number {
+function toAnsi16Code(color: Rgb24, background: boolean): number {
   let bestIndex = 0;
   let bestDistance = Number.POSITIVE_INFINITY;
   for (let index = 0; index < ANSI16_PALETTE.length; index += 1) {
@@ -1149,26 +1127,26 @@ function rgbChannelToCubeLevel(channel: number): number {
   return Math.min(5, Math.floor((channel - 35) / 40));
 }
 
-function toAnsi256Code(color: Rgb): number {
-  const rLevel = rgbChannelToCubeLevel(color.r);
-  const gLevel = rgbChannelToCubeLevel(color.g);
-  const bLevel = rgbChannelToCubeLevel(color.b);
+function toAnsi256Code(color: Rgb24): number {
+  const rLevel = rgbChannelToCubeLevel(rgbR(color));
+  const gLevel = rgbChannelToCubeLevel(rgbG(color));
+  const bLevel = rgbChannelToCubeLevel(rgbB(color));
   const cubeCode = 16 + 36 * rLevel + 6 * gLevel + bLevel;
 
-  const cubeColor: Rgb = {
-    r: rLevel === 0 ? 0 : 55 + 40 * rLevel,
-    g: gLevel === 0 ? 0 : 55 + 40 * gLevel,
-    b: bLevel === 0 ? 0 : 55 + 40 * bLevel,
-  };
+  const cubeColor: readonly [number, number, number] = [
+    rLevel === 0 ? 0 : 55 + 40 * rLevel,
+    gLevel === 0 ? 0 : 55 + 40 * gLevel,
+    bLevel === 0 ? 0 : 55 + 40 * bLevel,
+  ];
 
-  const avg = Math.round((color.r + color.g + color.b) / 3);
+  const avg = Math.round((rgbR(color) + rgbG(color) + rgbB(color)) / 3);
   const grayLevel = Math.max(0, Math.min(23, Math.round((avg - 8) / 10)));
   const grayCode = 232 + grayLevel;
   const grayValue = 8 + 10 * grayLevel;
-  const grayColor: Rgb = { r: grayValue, g: grayValue, b: grayValue };
+  const grayColor: readonly [number, number, number] = [grayValue, grayValue, grayValue];
 
-  const cubeDistance = colorDistanceSq(color, [cubeColor.r, cubeColor.g, cubeColor.b]);
-  const grayDistance = colorDistanceSq(color, [grayColor.r, grayColor.g, grayColor.b]);
+  const cubeDistance = colorDistanceSq(color, cubeColor);
+  const grayDistance = colorDistanceSq(color, grayColor);
   return grayDistance < cubeDistance ? grayCode : cubeCode;
 }
 
@@ -1176,16 +1154,16 @@ function normalizeStyle(style: TextStyle | undefined): CellStyle | undefined {
   if (!style) return undefined;
 
   const normalized: CellStyle = {};
-  if (isRgb(style.fg)) {
-    const fg = { r: clampByte(style.fg.r), g: clampByte(style.fg.g), b: clampByte(style.fg.b) };
+  if (isRgb24(style.fg) && style.fg !== 0) {
+    const fg = clampRgb24(style.fg);
     // Rezi carries DEFAULT_BASE_STYLE through every text draw op. Ink treats
     // terminal defaults as implicit, so suppress those default color channels.
     if (!isSameRgb(fg, CORE_DEFAULT_FG)) {
       normalized.fg = fg;
     }
   }
-  if (isRgb(style.bg)) {
-    const bg = { r: clampByte(style.bg.r), g: clampByte(style.bg.g), b: clampByte(style.bg.b) };
+  if (isRgb24(style.bg) && style.bg !== 0) {
+    const bg = clampRgb24(style.bg);
     if (!isSameRgb(bg, CORE_DEFAULT_BG)) {
       normalized.bg = bg;
     }
@@ -1240,9 +1218,7 @@ function styleToSgr(style: CellStyle | undefined, colorSupport: ColorSupport): s
   if (colorSupport.level > 0) {
     if (style.fg) {
       if (colorSupport.level >= 3) {
-        codes.push(
-          `38;2;${clampByte(style.fg.r)};${clampByte(style.fg.g)};${clampByte(style.fg.b)}`,
-        );
+        codes.push(`38;2;${rgbR(style.fg)};${rgbG(style.fg)};${rgbB(style.fg)}`);
       } else if (colorSupport.level === 2) {
         codes.push(`38;5;${toAnsi256Code(style.fg)}`);
       } else {
@@ -1251,9 +1227,7 @@ function styleToSgr(style: CellStyle | undefined, colorSupport: ColorSupport): s
     }
     if (style.bg) {
       if (colorSupport.level >= 3) {
-        codes.push(
-          `48;2;${clampByte(style.bg.r)};${clampByte(style.bg.g)};${clampByte(style.bg.b)}`,
-        );
+        codes.push(`48;2;${rgbR(style.bg)};${rgbG(style.bg)};${rgbB(style.bg)}`);
       } else if (colorSupport.level === 2) {
         codes.push(`48;5;${toAnsi256Code(style.bg)}`);
       } else {
@@ -1576,6 +1550,10 @@ function readNodeMainAxis(kind: unknown): FlexMainAxis {
 }
 
 function hasPercentMarkers(vnode: VNode): boolean {
+  // width, height, and flexBasis percent values are now passed as native
+  // percent strings (e.g. "50%") directly to the VNode props and resolved by
+  // the layout engine in a single pass. Only minWidth/minHeight still use
+  // __inkPercent* markers (rare in practice).
   if (typeof vnode !== "object" || vnode === null) return false;
   const candidate = vnode as { props?: unknown; children?: unknown };
   const props =
@@ -1585,11 +1563,8 @@ function hasPercentMarkers(vnode: VNode): boolean {
 
   if (
     props &&
-    (typeof props["__inkPercentWidth"] === "number" ||
-      typeof props["__inkPercentHeight"] === "number" ||
-      typeof props["__inkPercentMinWidth"] === "number" ||
-      typeof props["__inkPercentMinHeight"] === "number" ||
-      typeof props["__inkPercentFlexBasis"] === "number")
+    (typeof props["__inkPercentMinWidth"] === "number" ||
+      typeof props["__inkPercentMinHeight"] === "number")
   ) {
     return true;
   }
@@ -1602,6 +1577,9 @@ function hasPercentMarkers(vnode: VNode): boolean {
 }
 
 function resolvePercentMarkers(vnode: VNode, context: PercentResolveContext): VNode {
+  // NOTE: width, height, and flexBasis percent values are now passed as native
+  // percent strings directly to VNode props. This function only handles the
+  // remaining __inkPercentMinWidth / __inkPercentMinHeight markers (rare).
   if (typeof vnode !== "object" || vnode === null) {
     return vnode;
   }
@@ -1619,22 +1597,10 @@ function resolvePercentMarkers(vnode: VNode, context: PercentResolveContext): VN
   const nextProps: Record<string, unknown> = { ...originalProps };
   const hostNode = readHostNode(originalProps["__inkHostNode"]);
   const parentSize = readHostParentSize(hostNode, context.parentSize);
-  const parentMainAxis =
-    readHostMainAxis(hostNode?.parent ? (hostNode.parent as HostNodeWithLayout) : null) ??
-    context.parentMainAxis;
 
-  const percentWidth = asFiniteNumber(originalProps["__inkPercentWidth"]);
-  const percentHeight = asFiniteNumber(originalProps["__inkPercentHeight"]);
   const percentMinWidth = asFiniteNumber(originalProps["__inkPercentMinWidth"]);
   const percentMinHeight = asFiniteNumber(originalProps["__inkPercentMinHeight"]);
-  const percentFlexBasis = asFiniteNumber(originalProps["__inkPercentFlexBasis"]);
 
-  if (percentWidth != null) {
-    nextProps["width"] = resolvePercent(percentWidth, parentSize.cols);
-  }
-  if (percentHeight != null) {
-    nextProps["height"] = resolvePercent(percentHeight, parentSize.rows);
-  }
   if (percentMinWidth != null) {
     nextProps["minWidth"] = resolvePercent(percentMinWidth, parentSize.cols);
   }
@@ -1642,16 +1608,8 @@ function resolvePercentMarkers(vnode: VNode, context: PercentResolveContext): VN
     nextProps["minHeight"] = resolvePercent(percentMinHeight, parentSize.rows);
   }
 
-  if (percentFlexBasis != null) {
-    const basisBase = parentMainAxis === "column" ? parentSize.rows : parentSize.cols;
-    nextProps["flexBasis"] = resolvePercent(percentFlexBasis, basisBase);
-  }
-
-  delete nextProps["__inkPercentWidth"];
-  delete nextProps["__inkPercentHeight"];
   delete nextProps["__inkPercentMinWidth"];
   delete nextProps["__inkPercentMinHeight"];
-  delete nextProps["__inkPercentFlexBasis"];
 
   const localWidth = asFiniteNumber(nextProps["width"]);
   const localHeight = asFiniteNumber(nextProps["height"]);
@@ -1768,6 +1726,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   const detailNodeLimit = traceDetailFull ? 2000 : 300;
   const detailOpLimit = traceDetailFull ? 4000 : 500;
   const detailResizeLimit = traceDetailFull ? 300 : 80;
+  const frameProfileFile = process.env["INK_COMPAT_FRAME_PROFILE_FILE"];
   const writeErr = (stderr as { write: (s: string) => void }).write.bind(stderr);
   const traceStartAt = Date.now();
 
@@ -1800,14 +1759,14 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   });
 
   let viewport = readViewportSize(stdout, fallbackStdout);
-  const renderer = createTestRenderer({
+  const renderer = createInkRenderer({
     viewport,
     ...(traceEnabled
       ? {
           traceDetail: traceDetailFull,
-          trace: (event: ReziRendererTraceEvent) => {
+          trace: (event: InkRendererTraceEvent) => {
             trace(
-              `rezi#${event.renderId} viewport=${event.viewport.cols}x${event.viewport.rows} focused=${event.focusedId ?? "none"} tick=${event.tick} totalMs=${event.timings.totalMs} commitMs=${event.timings.commitMs} layoutMs=${event.timings.layoutMs} drawMs=${event.timings.drawMs} textMs=${event.timings.textMs} nodes=${event.nodeCount} ops=${event.opCount} clipMax=${event.clipDepthMax} textChars=${event.textChars} textLines=${event.textLines} nonBlank=${event.nonBlankLines} widest=${event.widestLine} minY=${event.minRectY} maxBottom=${event.maxRectBottom} zeroH=${event.zeroHeightRects} detailIncluded=${event.detailIncluded}`,
+              `rezi#${event.renderId} viewport=${event.viewport.cols}x${event.viewport.rows} focused=${event.focusedId ?? "none"} tick=${event.tick} totalMs=${event.timings.totalMs} commitMs=${event.timings.commitMs} layoutMs=${event.timings.layoutMs} drawMs=${event.timings.drawMs} textMs=${event.timings.textMs} nodes=${event.nodeCount} ops=${event.opCount} clipMax=${event.clipDepthMax} textChars=${event.textChars} textLines=${event.textLines} nonBlank=${event.nonBlankLines} widest=${event.widestLine} minY=${event.minRectY} maxBottom=${event.maxRectBottom} zeroH=${event.zeroHeightRects} detailIncluded=${event.detailIncluded} layoutSkipped=${event.layoutSkipped}`,
             );
 
             if (!traceDetail) return;
@@ -1832,6 +1791,10 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         }
       : {}),
   });
+  // Separate renderer for <Static> content so static renders don't pollute
+  // the dynamic renderer's prevRoot / layout caches (the root cause of 0%
+  // instance reuse — every frame was mounting all nodes as new).
+  const staticRenderer = createInkRenderer({ viewport });
 
   let lastOutput = "";
   let lastStableOutput = "";
@@ -2205,7 +2168,10 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
       parentSize: viewport,
       parentMainAxis: "column",
     });
-    const staticResult = renderer.render(translatedStaticWithPercent, { viewport });
+    const staticResult = staticRenderer.render(translatedStaticWithPercent, {
+      viewport,
+      forceLayout: true,
+    });
     const staticHasAnsiSgr = hostTreeContainsAnsiSgr(bridge.rootNode);
     const staticColorSupport = staticHasAnsiSgr ? FORCED_TRUECOLOR_SUPPORT : colorSupport;
     const { ansi: staticAnsi } = renderOpsToAnsi(
@@ -2235,6 +2201,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         viewport = nextViewport;
       }
 
+      const translateStartedAt = performance.now();
       const translatedDynamic = bridge.translateDynamicToVNode();
       const hasDynamicPercentMarkers = hasPercentMarkers(translatedDynamic);
 
@@ -2252,18 +2219,33 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
           ? { cols: viewport.cols, rows: Math.max(1, viewport.rows - staticRowsUsed) }
           : viewport;
 
+      const percentStartedAt = performance.now();
       let translatedDynamicWithPercent = resolvePercentMarkers(translatedDynamic, {
         parentSize: layoutViewport,
         parentMainAxis: "column",
       });
       const translationTraceEntries = traceEnabled ? flushTranslationTrace() : [];
+      const translationMs = performance.now() - translateStartedAt;
+      const percentResolveMs = performance.now() - percentStartedAt;
       let vnode: VNode;
       let rootHeightCoerced: boolean;
+
+      let coreRenderPassesThisFrame = 1;
+      let coreRenderMs = 0;
+      let assignLayoutsMs = 0;
 
       const coerced = coerceRootViewportHeight(translatedDynamicWithPercent, layoutViewport);
       vnode = coerced.vnode;
       rootHeightCoerced = coerced.coerced;
-      let result = renderer.render(vnode, { viewport: layoutViewport });
+
+      let t0 = performance.now();
+      let result = renderer.render(vnode, {
+        viewport: layoutViewport,
+        forceLayout: viewportChanged,
+      });
+      coreRenderMs += performance.now() - t0;
+
+      t0 = performance.now();
       clearHostLayouts(bridge.rootNode);
       assignHostLayouts(
         result.nodes as readonly {
@@ -2271,7 +2253,10 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
           props?: Record<string, unknown>;
         }[],
       );
+      assignLayoutsMs += performance.now() - t0;
+
       if (hasDynamicPercentMarkers) {
+        coreRenderPassesThisFrame = 2;
         translatedDynamicWithPercent = resolvePercentMarkers(translatedDynamic, {
           parentSize: layoutViewport,
           parentMainAxis: "column",
@@ -2279,7 +2264,12 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         const secondPass = coerceRootViewportHeight(translatedDynamicWithPercent, layoutViewport);
         vnode = secondPass.vnode;
         rootHeightCoerced = rootHeightCoerced || secondPass.coerced;
-        result = renderer.render(vnode, { viewport: layoutViewport });
+
+        t0 = performance.now();
+        result = renderer.render(vnode, { viewport: layoutViewport, forceLayout: true });
+        coreRenderMs += performance.now() - t0;
+
+        t0 = performance.now();
         clearHostLayouts(bridge.rootNode);
         assignHostLayouts(
           result.nodes as readonly {
@@ -2287,11 +2277,13 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
             props?: Record<string, unknown>;
           }[],
         );
+        assignLayoutsMs += performance.now() - t0;
       }
       checkAllResizeObservers();
 
       // Compute maxRectBottom from layout result — needed to size the ANSI
       // grid correctly in non-alternate-buffer mode.
+      const rectScanStartedAt = performance.now();
       let minRectY = Number.POSITIVE_INFINITY;
       let maxRectBottom = 0;
       let zeroHeightRects = 0;
@@ -2305,6 +2297,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         maxRectBottom = Math.max(maxRectBottom, y + h);
         if (h === 0) zeroHeightRects += 1;
       }
+      const rectScanMs = performance.now() - rectScanStartedAt;
 
       // Keep non-alt output content-sized by using computed layout height.
       // When root coercion applies (overflow hidden/scroll), maxRectBottom
@@ -2313,6 +2306,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         ? layoutViewport
         : { cols: layoutViewport.cols, rows: Math.max(1, maxRectBottom) };
 
+      const ansiStartedAt = performance.now();
       const frameHasAnsiSgr = hostTreeContainsAnsiSgr(bridge.rootNode);
       const frameColorSupport = frameHasAnsiSgr ? FORCED_TRUECOLOR_SUPPORT : colorSupport;
       const { ansi: rawAnsiOutput, grid: cellGrid } = renderOpsToAnsi(
@@ -2320,6 +2314,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         gridViewport,
         frameColorSupport,
       );
+      const ansiMs = performance.now() - ansiStartedAt;
 
       // In alternate-buffer mode the output fills the full layoutViewport.
       // In non-alternate-buffer mode the grid is content-sized so the
@@ -2517,6 +2512,36 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         output,
         ...(staticOutput.length > 0 ? { staticOutput } : {}),
       });
+
+      if (frameProfileFile) {
+        const _r = (v: number): number => Math.round(v * 1000) / 1000;
+        const layoutProfile = (result.timings as { _layoutProfile?: unknown } | undefined)
+          ?._layoutProfile;
+        try {
+          appendFileSync(
+            frameProfileFile,
+            `${JSON.stringify({
+              frame: frameCount,
+              ts: Date.now(),
+              totalMs: _r(renderTime),
+              translationMs: _r(translationMs),
+              percentResolveMs: _r(percentResolveMs),
+              coreRenderMs: _r(coreRenderMs),
+              coreCommitMs: _r(result.timings?.commitMs ?? 0),
+              coreLayoutMs: _r(result.timings?.layoutMs ?? 0),
+              coreDrawMs: _r(result.timings?.drawMs ?? 0),
+              layoutSkipped: result.timings?.layoutSkipped ?? false,
+              assignLayoutsMs: _r(assignLayoutsMs),
+              rectScanMs: _r(rectScanMs),
+              ansiMs: _r(ansiMs),
+              passes: coreRenderPassesThisFrame,
+              ops: result.ops.length,
+              nodes: result.nodes.length,
+              ...(layoutProfile === undefined ? {} : { _lp: layoutProfile }),
+            })}\n`,
+          );
+        } catch {}
+      }
 
       const cursorPosition = bridge.context.getCursorPosition();
       const cursorSignature = cursorPosition

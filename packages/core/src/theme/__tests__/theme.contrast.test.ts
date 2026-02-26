@@ -11,8 +11,8 @@ import {
 
 type PresetCase = Readonly<{
   name: string;
-  fg: { r: number; g: number; b: number };
-  bg: { r: number; g: number; b: number };
+  fg: number;
+  bg: number;
 }>;
 
 const AA_MIN = 4.5;
@@ -31,41 +31,41 @@ function formatRatio(ratio: number): string {
 
 describe("theme contrast", () => {
   test("white on white ratio is 1", () => {
-    const white = { r: 255, g: 255, b: 255 };
+    const white = (255 << 16) | (255 << 8) | 255;
     assert.equal(contrastRatio(white, white), 1);
   });
 
   test("black on black ratio is 1", () => {
-    const black = { r: 0, g: 0, b: 0 };
+    const black = (0 << 16) | (0 << 8) | 0;
     assert.equal(contrastRatio(black, black), 1);
   });
 
   test("black on white ratio is 21", () => {
-    const black = { r: 0, g: 0, b: 0 };
-    const white = { r: 255, g: 255, b: 255 };
+    const black = (0 << 16) | (0 << 8) | 0;
+    const white = (255 << 16) | (255 << 8) | 255;
     assert.equal(contrastRatio(black, white), 21);
   });
 
   test("contrast ratio is symmetric for fg and bg order", () => {
-    const fg = { r: 12, g: 90, b: 200 };
-    const bg = { r: 230, g: 180, b: 40 };
+    const fg = (12 << 16) | (90 << 8) | 200;
+    const bg = (230 << 16) | (180 << 8) | 40;
     assert.equal(contrastRatio(fg, bg), contrastRatio(bg, fg));
   });
 
   test("known failing pair (#777777 on #ffffff) is below AA", () => {
-    const ratio = contrastRatio({ r: 119, g: 119, b: 119 }, { r: 255, g: 255, b: 255 });
+    const ratio = contrastRatio((119 << 16) | (119 << 8) | 119, (255 << 16) | (255 << 8) | 255);
     assertApprox(ratio, 4.478089453577214, 1e-12, "known failing pair ratio");
     assert.ok(ratio < AA_MIN, `expected < ${AA_MIN}, got ${formatRatio(ratio)}`);
   });
 
   test("near-threshold passing pair (#767676 on #ffffff) meets AA", () => {
-    const ratio = contrastRatio({ r: 118, g: 118, b: 118 }, { r: 255, g: 255, b: 255 });
+    const ratio = contrastRatio((118 << 16) | (118 << 8) | 118, (255 << 16) | (255 << 8) | 255);
     assertApprox(ratio, 4.542224959605253, 1e-12, "near-threshold passing pair ratio");
     assert.ok(ratio >= AA_MIN, `expected >= ${AA_MIN}, got ${formatRatio(ratio)}`);
   });
 
   test("mid-gray pair (#595959 on #ffffff) has expected ratio", () => {
-    const ratio = contrastRatio({ r: 89, g: 89, b: 89 }, { r: 255, g: 255, b: 255 });
+    const ratio = contrastRatio((89 << 16) | (89 << 8) | 89, (255 << 16) | (255 << 8) | 255);
     assertApprox(ratio, 7.004729208035935, 1e-12, "mid-gray pair ratio");
   });
 

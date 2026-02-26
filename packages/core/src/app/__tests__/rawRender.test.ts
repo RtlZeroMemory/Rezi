@@ -1,10 +1,10 @@
 import { assert, test } from "@rezi-ui/testkit";
 import type { RuntimeBackend } from "../../backend.js";
-import type { DrawlistBuilderV1 } from "../../drawlist/index.js";
+import type { DrawlistBuilder } from "../../drawlist/index.js";
 import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
 import { RawRenderer } from "../rawRenderer.js";
 
-function makeStubBuilder(bytes: Uint8Array): DrawlistBuilderV1 {
+function makeStubBuilder(bytes: Uint8Array): DrawlistBuilder {
   let built = false;
   return {
     clear(): void {},
@@ -20,6 +20,11 @@ function makeStubBuilder(bytes: Uint8Array): DrawlistBuilderV1 {
       return null;
     },
     drawTextRun(): void {},
+    setCursor(): void {},
+    hideCursor(): void {},
+    setLink(): void {},
+    drawCanvas(): void {},
+    drawImage(): void {},
     reset(): void {
       built = false;
     },
@@ -27,6 +32,9 @@ function makeStubBuilder(bytes: Uint8Array): DrawlistBuilderV1 {
       if (built)
         return { ok: false, error: { code: "ZRDL_INTERNAL", detail: "built twice" } } as const;
       built = true;
+      return { ok: true, bytes } as const;
+    },
+    buildInto() {
       return { ok: true, bytes } as const;
     },
   };
@@ -83,7 +91,7 @@ test("drawlist build failure maps to ZRUI_DRAWLIST_BUILD_ERROR (#61)", () => {
     getCaps: () => Promise.resolve(DEFAULT_TERMINAL_CAPS),
   };
 
-  const badBuilder: DrawlistBuilderV1 = {
+  const badBuilder: DrawlistBuilder = {
     clear(): void {},
     clearTo(): void {},
     fillRect(): void {},
@@ -97,8 +105,16 @@ test("drawlist build failure maps to ZRUI_DRAWLIST_BUILD_ERROR (#61)", () => {
       return null;
     },
     drawTextRun(): void {},
+    setCursor(): void {},
+    hideCursor(): void {},
+    setLink(): void {},
+    drawCanvas(): void {},
+    drawImage(): void {},
     reset(): void {},
     build() {
+      return { ok: false, error: { code: "ZRDL_TOO_LARGE", detail: "cap" } } as const;
+    },
+    buildInto() {
       return { ok: false, error: { code: "ZRDL_TOO_LARGE", detail: "cap" } } as const;
     },
   };

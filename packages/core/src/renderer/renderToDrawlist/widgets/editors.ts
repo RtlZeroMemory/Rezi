@@ -1,4 +1,4 @@
-import type { DrawlistBuilderV1 } from "../../../drawlist/types.js";
+import type { DrawlistBuilder } from "../../../drawlist/types.js";
 import { measureTextCells } from "../../../layout/textMeasure.js";
 import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
@@ -11,6 +11,7 @@ import {
   formatTimestamp,
   formatTokenCount,
 } from "../../../widgets/logsConsole.js";
+import type { Rgb24 } from "../../../widgets/style.js";
 import type {
   CodeEditorLineTokenizer,
   CodeEditorProps,
@@ -59,11 +60,7 @@ function logLevelToThemeColor(theme: Theme, level: LogsConsoleProps["entries"][n
 
 type CodeEditorSyntaxStyleMap = Readonly<Record<CodeEditorSyntaxTokenKind, ResolvedTextStyle>>;
 
-function resolveSyntaxThemeColor(
-  theme: Theme,
-  key: string,
-  fallback: Readonly<{ r: number; g: number; b: number }>,
-) {
+function resolveSyntaxThemeColor(theme: Theme, key: string, fallback: Rgb24) {
   return theme.colors[key] ?? fallback;
 }
 
@@ -109,7 +106,7 @@ function createCodeEditorSyntaxStyleMap(
 }
 
 function drawCodeEditorSyntaxLine(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   x: number,
   y: number,
   width: number,
@@ -153,7 +150,7 @@ function drawCodeEditorSyntaxLine(
 }
 
 export function renderEditorWidget(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   focusState: FocusState,
   rect: Rect,
   theme: Theme,
