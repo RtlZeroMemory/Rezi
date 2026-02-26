@@ -260,7 +260,7 @@ export type {
   AnimatedValue,
   ParallelAnimationEntry,
   PlaybackControl,
-  Rgb,
+  Rgb24,
   TextStyle,
   UseAnimatedValueConfig,
   UseChainConfig,

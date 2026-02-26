@@ -1,5 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { ZRDL_MAGIC, createDrawlistBuilderV3 } from "../../index.js";
+import { ZRDL_MAGIC, createDrawlistBuilder } from "../../index.js";
 
 const OP_DRAW_TEXT = 3;
 const OP_DRAW_TEXT_RUN = 6;
@@ -102,16 +102,16 @@ function decodeString(bytes: Uint8Array, h: Header, stringIndex: number): string
 }
 
 function assertBadParams(
-  result: ReturnType<ReturnType<typeof createDrawlistBuilderV3>["build"]>,
+  result: ReturnType<ReturnType<typeof createDrawlistBuilder>["build"]>,
 ): void {
   assert.equal(result.ok, false);
   if (result.ok) return;
   assert.equal(result.error.code, "ZRDL_BAD_PARAMS");
 }
 
-describe("DrawlistBuilderV3 graphics/link commands", () => {
+describe("DrawlistBuilder graphics/link commands", () => {
   test("encodes v5 header with DRAW_CANVAS and DRAW_IMAGE (links via style ext)", () => {
-    const builder = createDrawlistBuilderV3({ drawlistVersion: 5 });
+    const builder = createDrawlistBuilder();
     builder.setLink("https://example.com", "docs");
     builder.drawText(0, 0, "Docs");
 
@@ -138,7 +138,7 @@ describe("DrawlistBuilderV3 graphics/link commands", () => {
   });
 
   test("setLink state is encoded into drawText style ext references", () => {
-    const builder = createDrawlistBuilderV3({ drawlistVersion: 3 });
+    const builder = createDrawlistBuilder();
     builder.setLink("https://example.com", "docs");
     builder.drawText(1, 2, "Docs");
     const built = builder.build();
@@ -163,7 +163,7 @@ describe("DrawlistBuilderV3 graphics/link commands", () => {
   });
 
   test("setLink(null) clears hyperlink refs for subsequent text", () => {
-    const builder = createDrawlistBuilderV3({ drawlistVersion: 3 });
+    const builder = createDrawlistBuilder();
     builder.setLink("https://example.com", "docs");
     builder.drawText(0, 0, "A");
     builder.setLink(null);
@@ -184,7 +184,7 @@ describe("DrawlistBuilderV3 graphics/link commands", () => {
   });
 
   test("encodes DRAW_CANVAS payload fields and blob offset/length", () => {
-    const builder = createDrawlistBuilderV3({ drawlistVersion: 4 });
+    const builder = createDrawlistBuilder();
     const blob0 = builder.addBlob(new Uint8Array([1, 2, 3, 4]));
     const blob1 = builder.addBlob(new Uint8Array(6 * 6 * 4));
     assert.equal(blob0, 0);
@@ -221,7 +221,7 @@ describe("DrawlistBuilderV3 graphics/link commands", () => {
   });
 
   test("encodes DRAW_IMAGE payload fields", () => {
-    const builder = createDrawlistBuilderV3({ drawlistVersion: 5 });
+    const builder = createDrawlistBuilder();
     const blobIndex = builder.addBlob(new Uint8Array(2 * 2 * 4));
     assert.equal(blobIndex, 0);
     if (blobIndex === null) throw new Error("blob index was null");
@@ -257,21 +257,21 @@ describe("DrawlistBuilderV3 graphics/link commands", () => {
 
   test("rejects invalid params for setLink, drawCanvas, drawImage, and addBlob", () => {
     {
-      const builder = createDrawlistBuilderV3({ drawlistVersion: 3 });
+      const builder = createDrawlistBuilder();
       // @ts-expect-error runtime invalid param coverage
       builder.setLink(123, "id");
       assertBadParams(builder.build());
     }
 
     {
-      const builder = createDrawlistBuilderV3({ drawlistVersion: 3 });
+      const builder = createDrawlistBuilder();
       // @ts-expect-error runtime invalid param coverage
       builder.setLink(null, 123);
       assertBadParams(builder.build());
     }
 
     {
-      const builder = createDrawlistBuilderV3({ drawlistVersion: 3 });
+      const builder = createDrawlistBuilder();
       const blobIndex = builder.addBlob(new Uint8Array(8));
       if (blobIndex === null) throw new Error("blob index was null");
       builder.drawCanvas(0, 0, 1, 1, blobIndex, "braille");
@@ -279,7 +279,7 @@ describe("DrawlistBuilderV3 graphics/link commands", () => {
     }
 
     {
-      const builder = createDrawlistBuilderV3({ drawlistVersion: 4 });
+      const builder = createDrawlistBuilder();
       const blobIndex = builder.addBlob(new Uint8Array(8));
       if (blobIndex === null) throw new Error("blob index was null");
       builder.drawImage(0, 0, 1, 1, blobIndex, "rgba", "auto", 0, "contain", 0);
@@ -287,7 +287,7 @@ describe("DrawlistBuilderV3 graphics/link commands", () => {
     }
 
     {
-      const builder = createDrawlistBuilderV3({ drawlistVersion: 4 });
+      const builder = createDrawlistBuilder();
       const blobIndex = builder.addBlob(new Uint8Array([1, 2, 3, 4]));
       if (blobIndex === null) throw new Error("blob index was null");
       // @ts-expect-error runtime invalid param coverage
@@ -298,7 +298,7 @@ describe("DrawlistBuilderV3 graphics/link commands", () => {
     {
       const invalidZLayers: readonly unknown[] = [2, -2, Number.NaN, "0"];
       for (const invalidZLayer of invalidZLayers) {
-        const builder = createDrawlistBuilderV3({ drawlistVersion: 5 });
+        const builder = createDrawlistBuilder();
         const blobIndex = builder.addBlob(new Uint8Array(4));
         if (blobIndex === null) throw new Error("blob index was null");
         builder.drawImage(
@@ -320,7 +320,7 @@ describe("DrawlistBuilderV3 graphics/link commands", () => {
     }
 
     {
-      const builder = createDrawlistBuilderV3({ drawlistVersion: 5 });
+      const builder = createDrawlistBuilder();
       const blobIndex = builder.addBlob(new Uint8Array(4));
       if (blobIndex === null) throw new Error("blob index was null");
       builder.drawImage(0, 0, 1, 1, blobIndex, "rgba", "blitter", 0, "contain", 0, 1, 1);
@@ -328,7 +328,7 @@ describe("DrawlistBuilderV3 graphics/link commands", () => {
     }
 
     {
-      const builder = createDrawlistBuilderV3({ drawlistVersion: 5 });
+      const builder = createDrawlistBuilder();
       const blobIndex = builder.addBlob(new Uint8Array(4));
       if (blobIndex === null) throw new Error("blob index was null");
       // @ts-expect-error runtime invalid param coverage
@@ -337,7 +337,7 @@ describe("DrawlistBuilderV3 graphics/link commands", () => {
     }
 
     {
-      const builder = createDrawlistBuilderV3({ drawlistVersion: 5 });
+      const builder = createDrawlistBuilder();
       const blobIndex = builder.addBlob(new Uint8Array(4));
       if (blobIndex === null) throw new Error("blob index was null");
       // @ts-expect-error runtime invalid param coverage
@@ -346,14 +346,14 @@ describe("DrawlistBuilderV3 graphics/link commands", () => {
     }
 
     {
-      const builder = createDrawlistBuilderV3({ drawlistVersion: 5 });
+      const builder = createDrawlistBuilder();
       assert.equal(builder.addBlob(new Uint8Array([1, 2, 3])), null);
       assertBadParams(builder.build());
     }
   });
 
   test("encodes underline style + underline RGB in drawText v3 style fields", () => {
-    const builder = createDrawlistBuilderV3({ drawlistVersion: 3 });
+    const builder = createDrawlistBuilder();
     builder.drawText(0, 0, "x", {
       underline: true,
       underlineStyle: "curly",
@@ -371,7 +371,7 @@ describe("DrawlistBuilderV3 graphics/link commands", () => {
   });
 
   test("non-hex underlineColor token string is treated as unset", () => {
-    const builder = createDrawlistBuilderV3({ drawlistVersion: 3 });
+    const builder = createDrawlistBuilder();
     builder.drawText(0, 0, "x", {
       underline: true,
       underlineStyle: "curly",
@@ -387,13 +387,13 @@ describe("DrawlistBuilderV3 graphics/link commands", () => {
   });
 
   test("encodes underline style/color in DRAW_TEXT_RUN segment v3 style", () => {
-    const builder = createDrawlistBuilderV3({ drawlistVersion: 3 });
+    const builder = createDrawlistBuilder();
     const blobIndex = builder.addTextRunBlob([
       {
         text: "x",
         style: {
           underlineStyle: "dashed",
-          underlineColor: { r: 1, g: 2, b: 3 },
+          underlineColor: ((1 << 16) | (2 << 8) | 3),
         },
       },
     ]);

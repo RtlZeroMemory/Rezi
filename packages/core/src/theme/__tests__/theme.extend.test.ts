@@ -19,7 +19,7 @@ describe("theme.extend", () => {
       },
     });
 
-    assert.deepEqual(next.colors.accent.primary, { r: 1, g: 2, b: 3 });
+    assert.deepEqual(next.colors.accent.primary, ((1 << 16) | (2 << 8) | 3));
     assert.deepEqual(next.colors.accent.secondary, darkTheme.colors.accent.secondary);
     assert.deepEqual(next.colors.bg.base, darkTheme.colors.bg.base);
   });
@@ -48,22 +48,18 @@ describe("theme.extend", () => {
     assert.deepEqual(next.colors, lightTheme.colors);
   });
 
-  test("partial RGB override merges channel-level values", () => {
-    const next = extendTheme(darkTheme, {
-      colors: {
-        accent: {
-          primary: {
-            r: 200,
+  test("partial RGB channel overrides are rejected", () => {
+    assert.throws(
+      () =>
+        extendTheme(darkTheme, {
+          colors: {
+            accent: {
+              primary: { r: 200 } as unknown as number,
+            },
           },
-        },
-      },
-    });
-
-    assert.deepEqual(next.colors.accent.primary, {
-      r: 200,
-      g: darkTheme.colors.accent.primary.g,
-      b: darkTheme.colors.accent.primary.b,
-    });
+        }),
+      () => true,
+    );
   });
 
   test("invalid overrides are rejected by validation (null colors)", () => {
@@ -81,9 +77,7 @@ describe("theme.extend", () => {
       () =>
         extendTheme(darkTheme, {
           colors: {
-            success: {
-              r: Number.NaN,
-            },
+            success: Number.NaN,
           },
         }),
       () => true,
@@ -117,7 +111,7 @@ describe("theme.extend", () => {
     assert.notEqual(extended.colors, mutableBase.colors);
     assert.notEqual(extended.colors.bg, mutableBase.colors.bg);
     assert.notEqual(extended.colors.bg.base, mutableBase.colors.bg.base);
-    assert.equal(mutableBase.colors.bg.base.r, darkTheme.colors.bg.base.r);
+    assert.equal(mutableBase.colors.bg.base, darkTheme.colors.bg.base);
   });
 
   test("undefined override branches do not freeze caller-owned base objects", () => {
@@ -132,7 +126,6 @@ describe("theme.extend", () => {
 
     assert.equal(Object.isFrozen(mutableBase.colors), false);
     assert.equal(Object.isFrozen(mutableBase.colors.accent), false);
-    assert.equal(Object.isFrozen(mutableBase.colors.accent.primary), false);
   });
 
   test("extended theme is deeply frozen", () => {
@@ -166,8 +159,8 @@ describe("theme.extend", () => {
       },
     });
 
-    assert.deepEqual(two.colors.fg.primary, { r: 11, g: 22, b: 33 });
-    assert.deepEqual(two.colors.border.strong, { r: 44, g: 55, b: 66 });
+    assert.deepEqual(two.colors.fg.primary, ((11 << 16) | (22 << 8) | 33));
+    assert.deepEqual(two.colors.border.strong, ((44 << 16) | (55 << 8) | 66));
     assert.deepEqual(two.colors.accent.secondary, darkTheme.colors.accent.secondary);
   });
 
@@ -182,14 +175,12 @@ describe("theme.extend", () => {
     const two = extendTheme(one, {
       colors: {
         accent: {
-          primary: {
-            r: 99,
-          },
+          primary: color(99, 20, 30),
         },
       },
     });
 
-    assert.deepEqual(two.colors.accent.primary, { r: 99, g: 20, b: 30 });
+    assert.deepEqual(two.colors.accent.primary, ((99 << 16) | (20 << 8) | 30));
   });
 
   test("nested extensions keep inherited tokens unless overridden", () => {
@@ -203,7 +194,7 @@ describe("theme.extend", () => {
     });
 
     assert.equal(two.name, "custom-1");
-    assert.deepEqual(two.colors.info, { r: 1, g: 1, b: 1 });
+    assert.deepEqual(two.colors.info, ((1 << 16) | (1 << 8) | 1));
     assert.deepEqual(two.colors.warning, darkTheme.colors.warning);
   });
 

@@ -1,4 +1,4 @@
-import type { DrawlistBuilderV1 } from "../../../drawlist/types.js";
+import type { DrawlistBuilder } from "../../../drawlist/types.js";
 import { resolveIconGlyph as resolveIconRenderGlyph } from "../../../icons/index.js";
 import { measureTextCells } from "../../../layout/textMeasure.js";
 import type { Rect } from "../../../layout/types.js";
@@ -21,7 +21,7 @@ import {
 } from "./renderTextWidgets.js";
 
 type MaybeFillOwnBackground = (
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   rect: Rect,
   ownStyle: unknown,
   style: ResolvedTextStyle,
@@ -183,7 +183,7 @@ function readActionLabel(action: unknown): string | undefined {
 }
 
 export function renderIndicatorWidgets(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   rect: Rect,
   theme: Theme,
   parentStyle: ResolvedTextStyle,

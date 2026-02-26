@@ -9,9 +9,9 @@
  * @see docs/guide/runtime-and-layout.md
  */
 
-import type { DrawlistBuilderV1 } from "../drawlist/types.js";
+import type { DrawlistBuilder } from "../drawlist/types.js";
 import type { Rect } from "../layout/types.js";
-import type { Rgb } from "../widgets/style.js";
+import { rgb, type Rgb24 } from "../widgets/style.js";
 import type { ResolvedTextStyle } from "./renderToDrawlist/textStyle.js";
 
 /** Shadow characters for different densities. */
@@ -31,7 +31,7 @@ export type ShadowConfig = Readonly<{
   /** Vertical offset in cells (typically 1). */
   offsetY: number;
   /** Shadow color. */
-  color: Rgb;
+  color: Rgb24;
   /** Shadow character density. */
   density: ShadowDensity;
 }>;
@@ -47,7 +47,7 @@ type ShadowBoundsConfig = Readonly<{
 export const DEFAULT_SHADOW: ShadowConfig = Object.freeze({
   offsetX: 1,
   offsetY: 1,
-  color: Object.freeze({ r: 0, g: 0, b: 0 }),
+  color: rgb(0, 0, 0),
   density: "light",
 });
 
@@ -101,7 +101,7 @@ function getShadowChar(density: ShadowDensity): string {
  * ```
  */
 export function renderShadow(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   rect: Rect,
   config: ShadowConfig,
   baseStyle: ResolvedTextStyle,
@@ -115,6 +115,7 @@ export function renderShadow(
   const style: ResolvedTextStyle = {
     fg: color,
     bg: baseStyle.bg,
+    attrs: 0,
   };
 
   // Right edge shadow (vertical strip)

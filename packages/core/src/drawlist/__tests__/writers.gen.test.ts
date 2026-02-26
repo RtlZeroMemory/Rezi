@@ -1,5 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { ZRDL_MAGIC, ZR_DRAWLIST_VERSION_V5, createDrawlistBuilderV3 } from "../../index.js";
+import { ZRDL_MAGIC, ZR_DRAWLIST_VERSION_V1, createDrawlistBuilder } from "../../index.js";
 import type { EncodedStyle } from "../types.js";
 import {
   CLEAR_SIZE,
@@ -326,7 +326,7 @@ function buildReferenceDrawlist(): Uint8Array {
   const dv = view(out);
 
   dv.setUint32(0, ZRDL_MAGIC, true);
-  dv.setUint32(4, ZR_DRAWLIST_VERSION_V5, true);
+  dv.setUint32(4, ZR_DRAWLIST_VERSION_V1, true);
   dv.setUint32(8, HEADER_SIZE, true);
   dv.setUint32(12, totalSize, true);
   dv.setUint32(16, cmdOffset, true);
@@ -624,7 +624,7 @@ describe("writers.gen - style encoding", () => {
 
 describe("writers.gen - round trip integration", () => {
   test("builder output matches reference encoding and header offsets stay valid", () => {
-    const b = createDrawlistBuilderV3({ drawlistVersion: 5 });
+    const b = createDrawlistBuilder();
     const blobIndex = b.addBlob(new Uint8Array([1, 2, 3, 4]));
     assert.equal(blobIndex, 0);
     if (blobIndex === null) throw new Error("blob index was null");
@@ -645,7 +645,7 @@ describe("writers.gen - round trip integration", () => {
 
     const bytes = built.bytes;
     assert.equal(u32(bytes, 0), ZRDL_MAGIC);
-    assert.equal(u32(bytes, 4), ZR_DRAWLIST_VERSION_V5);
+    assert.equal(u32(bytes, 4), ZR_DRAWLIST_VERSION_V1);
     assert.equal(u32(bytes, 8), HEADER_SIZE);
     assert.equal(u32(bytes, 12), bytes.byteLength);
     assert.equal(u32(bytes, 24), 9);

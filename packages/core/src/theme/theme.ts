@@ -5,7 +5,7 @@
  * can be resolved deterministically at render time.
  */
 
-import type { Rgb } from "../widgets/style.js";
+import type { Rgb24 } from "../widgets/style.js";
 import { defaultTheme } from "./defaultTheme.js";
 import type { Theme, ThemeColors, ThemeSpacing } from "./types.js";
 export type { Theme, ThemeColors, ThemeSpacing } from "./types.js";
@@ -24,7 +24,7 @@ export function createTheme(
   return Object.freeze({ colors, spacing });
 }
 
-export function resolveColor(theme: Theme, color: string | Rgb): Rgb {
+export function resolveColor(theme: Theme, color: string | Rgb24): Rgb24 {
   if (typeof color !== "string") return color;
   return theme.colors[color] ?? theme.colors.fg;
 }

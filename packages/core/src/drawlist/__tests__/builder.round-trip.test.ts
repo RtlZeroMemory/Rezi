@@ -2,9 +2,7 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import {
   ZRDL_MAGIC,
   ZR_DRAWLIST_VERSION_V1,
-  ZR_DRAWLIST_VERSION_V2,
-  createDrawlistBuilderV1,
-  createDrawlistBuilderV2,
+  createDrawlistBuilder,
 } from "../../index.js";
 
 const HEADER_SIZE = 64;
@@ -210,11 +208,11 @@ function readSetCursorCommand(bytes: Uint8Array, cmd: CmdHeader) {
 
 describe("DrawlistBuilder round-trip binary readback", () => {
   test("v1 header magic/version/counts/offsets/byte sizes are exact for mixed commands", () => {
-    const b = createDrawlistBuilderV1();
+    const b = createDrawlistBuilder();
     b.clear();
     b.fillRect(1, 2, 3, 4, {
-      fg: { r: 0x11, g: 0x22, b: 0x33 },
-      bg: { r: 0x44, g: 0x55, b: 0x66 },
+      fg: ((0x11 << 16) | (0x22 << 8) | 0x33),
+      bg: ((0x44 << 16) | (0x55 << 8) | 0x66),
       bold: true,
       italic: true,
     });
@@ -246,10 +244,10 @@ describe("DrawlistBuilder round-trip binary readback", () => {
   });
 
   test("v1 fillRect command readback preserves geometry and packed style", () => {
-    const b = createDrawlistBuilderV1();
+    const b = createDrawlistBuilder();
     b.fillRect(-3, 9, 11, 13, {
-      fg: { r: 1, g: 2, b: 3 },
-      bg: { r: 4, g: 5, b: 6 },
+      fg: ((1 << 16) | (2 << 8) | 3),
+      bg: ((4 << 16) | (5 << 8) | 6),
       bold: true,
       underline: true,
       dim: true,
@@ -280,10 +278,10 @@ describe("DrawlistBuilder round-trip binary readback", () => {
   });
 
   test("v1 drawText command readback resolves string span and style fields", () => {
-    const b = createDrawlistBuilderV1();
+    const b = createDrawlistBuilder();
     b.drawText(7, 9, "hello", {
-      fg: { r: 255, g: 128, b: 1 },
-      bg: { r: 2, g: 3, b: 4 },
+      fg: ((255 << 16) | (128 << 8) | 1),
+      bg: ((2 << 16) | (3 << 8) | 4),
       italic: true,
       inverse: true,
     });
@@ -323,7 +321,7 @@ describe("DrawlistBuilder round-trip binary readback", () => {
   });
 
   test("v1 clip push/pop commands round-trip with exact payload sizes", () => {
-    const b = createDrawlistBuilderV1();
+    const b = createDrawlistBuilder();
     b.pushClip(2, 3, 4, 5);
     b.popClip();
 
@@ -349,7 +347,7 @@ describe("DrawlistBuilder round-trip binary readback", () => {
   });
 
   test("v1 repeated text uses interned string indices deterministically", () => {
-    const b = createDrawlistBuilderV1();
+    const b = createDrawlistBuilder();
     b.drawText(0, 0, "same");
     b.drawText(0, 1, "same");
     b.drawText(0, 2, "other");
@@ -385,7 +383,7 @@ describe("DrawlistBuilder round-trip binary readback", () => {
   });
 
   test("v2 header uses version 2 and correct cmd byte/count totals", () => {
-    const b = createDrawlistBuilderV2();
+    const b = createDrawlistBuilder();
     b.clear();
     b.setCursor({ x: 10, y: 5, shape: 1, visible: true, blink: false });
 
@@ -395,7 +393,7 @@ describe("DrawlistBuilder round-trip binary readback", () => {
 
     const h = readHeader(res.bytes);
     assert.equal(h.magic, ZRDL_MAGIC);
-    assert.equal(h.version, ZR_DRAWLIST_VERSION_V2);
+    assert.equal(h.version, ZR_DRAWLIST_VERSION_V1);
     assert.equal(h.cmdOffset, 64);
     assert.equal(h.cmdBytes, 28);
     assert.equal(h.cmdCount, 2);
@@ -404,7 +402,7 @@ describe("DrawlistBuilder round-trip binary readback", () => {
   });
 
   test("v2 setCursor readback preserves payload fields and reserved byte", () => {
-    const b = createDrawlistBuilderV2();
+    const b = createDrawlistBuilder();
     b.setCursor({ x: -1, y: 123, shape: 2, visible: false, blink: true });
 
     const res = b.build();
@@ -426,7 +424,7 @@ describe("DrawlistBuilder round-trip binary readback", () => {
   });
 
   test("v2 multiple cursor commands are emitted in-order", () => {
-    const b = createDrawlistBuilderV2();
+    const b = createDrawlistBuilder();
     b.setCursor({ x: 1, y: 2, shape: 0, visible: true, blink: true });
     b.setCursor({ x: 3, y: 4, shape: 1, visible: true, blink: false });
     b.hideCursor();
@@ -469,7 +467,7 @@ describe("DrawlistBuilder round-trip binary readback", () => {
   });
 
   test("cursor edge position (0,0) round-trips exactly", () => {
-    const b = createDrawlistBuilderV2();
+    const b = createDrawlistBuilder();
     b.setCursor({ x: 0, y: 0, shape: 0, visible: true, blink: true });
 
     const res = b.build();
@@ -487,7 +485,7 @@ describe("DrawlistBuilder round-trip binary readback", () => {
   });
 
   test("cursor edge position (large int32) round-trips exactly", () => {
-    const b = createDrawlistBuilderV2();
+    const b = createDrawlistBuilder();
     b.setCursor({ x: INT32_MAX, y: INT32_MAX, shape: 2, visible: true, blink: false });
 
     const res = b.build();
@@ -505,10 +503,10 @@ describe("DrawlistBuilder round-trip binary readback", () => {
   });
 
   test("v2 mixed frame keeps aligned sections and expected total byte size", () => {
-    const b = createDrawlistBuilderV2();
+    const b = createDrawlistBuilder();
     b.clear();
     b.pushClip(0, 0, 80, 24);
-    b.fillRect(1, 1, 5, 2, { bg: { r: 7, g: 8, b: 9 }, inverse: true });
+    b.fillRect(1, 1, 5, 2, { bg: ((7 << 16) | (8 << 8) | 9), inverse: true });
     b.drawText(2, 2, "rt");
     b.setCursor({ x: 2, y: 2, shape: 1, visible: true, blink: false });
     b.popClip();
@@ -518,7 +516,7 @@ describe("DrawlistBuilder round-trip binary readback", () => {
     if (!res.ok) return;
 
     const h = readHeader(res.bytes);
-    assert.equal(h.version, ZR_DRAWLIST_VERSION_V2);
+    assert.equal(h.version, ZR_DRAWLIST_VERSION_V1);
     assert.equal(h.cmdCount, 6);
     assert.equal(
       h.cmdBytes,

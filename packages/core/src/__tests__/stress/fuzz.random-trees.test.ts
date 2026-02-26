@@ -1,5 +1,5 @@
 import { assert, createRng, describe, test } from "@rezi-ui/testkit";
-import { type VNode, createDrawlistBuilderV1 } from "../../index.js";
+import { type VNode, createDrawlistBuilder } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
@@ -164,7 +164,7 @@ function runTreeFuzz(seed: number, profile: TreeProfile): void {
         continue;
       }
 
-      const builder = createDrawlistBuilderV1();
+      const builder = createDrawlistBuilder();
       renderToDrawlist({
         tree: commitRes.value.root,
         layout: layoutRes.value,

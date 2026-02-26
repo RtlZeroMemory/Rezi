@@ -29,7 +29,7 @@ import {
   FRAME_ACCEPTED_ACK_MARKER,
 } from "@rezi-ui/core";
 import {
-  ZR_DRAWLIST_VERSION_V5,
+  ZR_DRAWLIST_VERSION_V1,
   ZR_ENGINE_ABI_MAJOR,
   ZR_ENGINE_ABI_MINOR,
   ZR_ENGINE_ABI_PATCH,
@@ -80,13 +80,6 @@ export type NodeBackendConfig = Readonly<{
    * remain aligned by construction.
    */
   maxEventBytes?: number;
-  /**
-   * Explicit drawlist version request.
-   *
-   * Defaults to `5` (enables v3 style extensions + v4 canvas + v5 image commands).
-   * Supported versions are `2`-`5`.
-   */
-  drawlistVersion?: 2 | 3 | 4 | 5;
   /**
    * Frame transport mode:
    * - "auto": prefer SAB mailbox transport when available, fallback to transfer.
@@ -231,21 +224,6 @@ function parsePositiveInt(n: unknown): number | null {
   if (!Number.isInteger(n)) return null;
   if (n <= 0) return null;
   return n;
-}
-
-function parseDrawlistVersion(v: unknown): 2 | 3 | 4 | 5 | null {
-  if (v === undefined) return null;
-  if (v === 2 || v === 3 || v === 4 || v === 5) return v;
-  throw new ZrUiError(
-    "ZRUI_INVALID_PROPS",
-    `createNodeBackend config mismatch: drawlistVersion must be one of 2, 3, 4, 5 (got ${String(v)}).`,
-  );
-}
-
-function resolveRequestedDrawlistVersion(config: NodeBackendConfig): 2 | 3 | 4 | 5 {
-  const explicitDrawlistVersion = parseDrawlistVersion(config.drawlistVersion);
-  if (explicitDrawlistVersion !== null) return explicitDrawlistVersion;
-  return ZR_DRAWLIST_VERSION_V5;
 }
 
 function parseBoundedPositiveIntOrThrow(
@@ -434,7 +412,7 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
   if (executionMode === "inline") {
     return createNodeBackendInlineInternal(opts);
   }
-  const requestedDrawlistVersion = resolveRequestedDrawlistVersion(cfg);
+  const requestedDrawlistVersion = ZR_DRAWLIST_VERSION_V1;
   const maxEventBytes = parseBoundedPositiveIntOrThrow(
     "maxEventBytes",
     cfg.maxEventBytes,

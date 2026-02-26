@@ -1,5 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { type VNode, createDrawlistBuilderV1 } from "../../index.js";
+import { type VNode, createDrawlistBuilder } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
@@ -169,7 +169,7 @@ function renderBytes(
   assert.equal(layoutRes.ok, true, "layout should succeed");
   if (!layoutRes.ok) return new Uint8Array();
 
-  const builder = createDrawlistBuilderV1();
+  const builder = createDrawlistBuilder();
   renderToDrawlist({
     tree: committed.value.root,
     layout: layoutRes.value,
@@ -348,8 +348,8 @@ describe("renderer regressions", () => {
         getRowKey: (row) => row.name,
         stripedRows: false,
         stripeStyle: {
-          odd: { r: 1, g: 2, b: 3 },
-          even: { r: 4, g: 5, b: 6 },
+          odd: ((1 << 16) | (2 << 8) | 3),
+          even: ((4 << 16) | (5 << 8) | 6),
         },
         border: "none",
       }),
@@ -377,7 +377,7 @@ describe("renderer regressions", () => {
         border: "single",
         borderStyle: {
           variant: "double",
-          color: { r: 201, g: 202, b: 203 },
+          color: ((201 << 16) | (202 << 8) | 203),
         },
       }),
       { cols: 40, rows: 8 },
@@ -406,7 +406,7 @@ describe("renderer regressions", () => {
           border: "none",
           borderStyle: {
             variant: "double",
-            color: { r: 111, g: 112, b: 113 },
+            color: ((111 << 16) | (112 << 8) | 113),
           },
         }),
         { cols: 40, rows: 8 },
@@ -448,8 +448,8 @@ describe("renderer regressions", () => {
         backdrop: {
           variant: "dim",
           pattern: "#",
-          foreground: { r: 1, g: 2, b: 3 },
-          background: { r: 4, g: 5, b: 6 },
+          foreground: ((1 << 16) | (2 << 8) | 3),
+          background: ((4 << 16) | (5 << 8) | 6),
         },
       }),
       { cols: 60, rows: 20 },
@@ -491,9 +491,9 @@ describe("renderer regressions", () => {
         content: ui.text("Styled modal"),
         backdrop: "none",
         frameStyle: {
-          background: { r: 12, g: 13, b: 14 },
-          foreground: { r: 210, g: 211, b: 212 },
-          border: { r: 90, g: 91, b: 92 },
+          background: ((12 << 16) | (13 << 8) | 14),
+          foreground: ((210 << 16) | (211 << 8) | 212),
+          border: ((90 << 16) | (91 << 8) | 92),
         },
       }),
       { cols: 60, rows: 20 },
@@ -520,9 +520,9 @@ describe("renderer regressions", () => {
         id: "layer-frame-style",
         backdrop: "none",
         frameStyle: {
-          background: { r: 21, g: 22, b: 23 },
-          foreground: { r: 181, g: 182, b: 183 },
-          border: { r: 101, g: 102, b: 103 },
+          background: ((21 << 16) | (22 << 8) | 23),
+          foreground: ((181 << 16) | (182 << 8) | 183),
+          border: ((101 << 16) | (102 << 8) | 103),
         },
         content: ui.text("Layer styled"),
       }),
@@ -551,7 +551,7 @@ describe("renderer regressions", () => {
           id: "layer-clip-inner",
           backdrop: "none",
           frameStyle: {
-            border: { r: 130, g: 131, b: 132 },
+            border: ((130 << 16) | (131 << 8) | 132),
           },
           content: ui.text("edge"),
         }),
@@ -577,9 +577,9 @@ describe("renderer regressions", () => {
             { id: "open", label: "Open" },
           ],
           frameStyle: {
-            background: { r: 31, g: 32, b: 33 },
-            foreground: { r: 191, g: 192, b: 193 },
-            border: { r: 111, g: 112, b: 113 },
+            background: ((31 << 16) | (32 << 8) | 33),
+            foreground: ((191 << 16) | (192 << 8) | 193),
+            border: ((111 << 16) | (112 << 8) | 113),
           },
         }),
       ]),
@@ -610,9 +610,9 @@ describe("renderer regressions", () => {
         sources: [{ id: "cmd", name: "Commands", getItems: () => [] }],
         selectedIndex: 0,
         frameStyle: {
-          background: { r: 41, g: 42, b: 43 },
-          foreground: { r: 201, g: 202, b: 203 },
-          border: { r: 121, g: 122, b: 123 },
+          background: ((41 << 16) | (42 << 8) | 43),
+          foreground: ((201 << 16) | (202 << 8) | 203),
+          border: ((121 << 16) | (122 << 8) | 123),
         },
         onQueryChange: noop,
         onSelect: noop,
@@ -642,9 +642,9 @@ describe("renderer regressions", () => {
         toasts: [{ id: "toast-1", message: "Saved", type: "success" }],
         onDismiss: noop,
         frameStyle: {
-          background: { r: 51, g: 52, b: 53 },
-          foreground: { r: 211, g: 212, b: 213 },
-          border: { r: 131, g: 132, b: 133 },
+          background: ((51 << 16) | (52 << 8) | 53),
+          foreground: ((211 << 16) | (212 << 8) | 213),
+          border: ((131 << 16) | (132 << 8) | 133),
         },
       }),
       { cols: 70, rows: 24 },

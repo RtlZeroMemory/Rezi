@@ -7,6 +7,7 @@
  * @see docs/widgets/diff-viewer.md
  */
 
+import { rgb } from "./style.js";
 import type { DiffData, DiffHunk, DiffLine } from "./types.js";
 
 /** Default number of context lines around changes. */
@@ -228,11 +229,11 @@ export function getHunkScrollPosition(hunkIndex: number, hunks: readonly DiffHun
 
 /** Diff color constants. */
 export const DIFF_COLORS = {
-  addBg: { r: 35, g: 65, b: 35 },
-  deleteBg: { r: 65, g: 35, b: 35 },
-  addFg: { r: 150, g: 255, b: 150 },
-  deleteFg: { r: 255, g: 150, b: 150 },
-  hunkHeader: { r: 100, g: 149, b: 237 },
-  lineNumber: { r: 100, g: 100, b: 100 },
-  border: { r: 80, g: 80, b: 80 },
+  addBg: rgb(35, 65, 35),
+  deleteBg: rgb(65, 35, 35),
+  addFg: rgb(150, 255, 150),
+  deleteFg: rgb(255, 150, 150),
+  hunkHeader: rgb(100, 149, 237),
+  lineNumber: rgb(100, 100, 100),
+  border: rgb(80, 80, 80),
 } as const;

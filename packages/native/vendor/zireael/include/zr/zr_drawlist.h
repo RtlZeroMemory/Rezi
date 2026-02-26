@@ -1,11 +1,8 @@
 /*
-  include/zr/zr_drawlist.h — Drawlist ABI structs (v1 + v2 + v3 + v4 + v5).
+  include/zr/zr_drawlist.h — Drawlist ABI structs (v1).
 
-  Why: Defines the versioned, little-endian drawlist command stream used by
-  wrappers to drive rendering through engine_submit_drawlist(). v1/v2 layouts
-  remain behavior-stable; v3 extends style payloads for underline color + links;
-  v4 adds DRAW_CANVAS for sub-cell RGBA blitting; v5 adds DRAW_IMAGE for
-  terminal image protocols with deterministic fallback.
+  Why: Defines the little-endian drawlist command stream used by wrappers to
+  drive rendering through engine_submit_drawlist().
 */
 
 #ifndef ZR_ZR_DRAWLIST_H_INCLUDED
@@ -24,6 +21,10 @@ typedef struct zr_dl_header_t {
   uint32_t cmd_bytes;
   uint32_t cmd_count;
 
+  /*
+    v1 uses engine-owned persistent resources.
+    These drawlist-local table fields are reserved and must be 0.
+  */
   uint32_t strings_span_offset;
   uint32_t strings_count;
   uint32_t strings_bytes_offset;
@@ -56,15 +57,13 @@ typedef enum zr_dl_opcode_t {
   ZR_DL_OP_PUSH_CLIP = 4,
   ZR_DL_OP_POP_CLIP = 5,
   ZR_DL_OP_DRAW_TEXT_RUN = 6,
-
-  /* v2: cursor control (does not draw glyphs into the framebuffer). */
   ZR_DL_OP_SET_CURSOR = 7,
-
-  /* v4: RGBA canvas blit into framebuffer cells. */
   ZR_DL_OP_DRAW_CANVAS = 8,
-
-  /* v5: protocol image command with optional sub-cell fallback. */
-  ZR_DL_OP_DRAW_IMAGE = 9
+  ZR_DL_OP_DRAW_IMAGE = 9,
+  ZR_DL_OP_DEF_STRING = 10,
+  ZR_DL_OP_FREE_STRING = 11,
+  ZR_DL_OP_DEF_BLOB = 12,
+  ZR_DL_OP_FREE_BLOB = 13
 } zr_dl_opcode_t;
 
 /*
@@ -116,14 +115,14 @@ typedef struct zr_dl_style_t {
   uint32_t fg;
   uint32_t bg;
   uint32_t attrs;
-  uint32_t reserved0; /* must be 0 in v1 */
+  uint32_t reserved0;
 } zr_dl_style_t;
 
 /*
-  v3 style extension:
+  v1 style extension:
     - underline_rgb: 0x00RRGGBB underline color (0 means default underline color)
-    - link_uri_ref: 1-based string-table reference to a URI; 0 means no hyperlink
-    - link_id_ref: optional 1-based string-table reference to OSC 8 id param
+    - link_uri_ref: string resource id for URI; 0 means no hyperlink
+    - link_id_ref: optional string resource id for OSC 8 id param
 */
 typedef struct zr_dl_style_v3_ext_t {
   uint32_t underline_rgb;
@@ -147,11 +146,11 @@ typedef struct zr_dl_cmd_fill_rect_t {
 typedef struct zr_dl_cmd_draw_text_t {
   int32_t x;
   int32_t y;
-  uint32_t string_index;
+  uint32_t string_id;
   uint32_t byte_off;
   uint32_t byte_len;
   zr_dl_style_t style;
-  uint32_t reserved0; /* must be 0 in v1 */
+  uint32_t reserved0; /* must be 0 */
 } zr_dl_cmd_draw_text_t;
 
 typedef struct zr_dl_cmd_fill_rect_v3_t {
@@ -165,7 +164,7 @@ typedef struct zr_dl_cmd_fill_rect_v3_t {
 typedef struct zr_dl_cmd_draw_text_v3_t {
   int32_t x;
   int32_t y;
-  uint32_t string_index;
+  uint32_t string_id;
   uint32_t byte_off;
   uint32_t byte_len;
   zr_dl_style_v3_t style;
@@ -182,13 +181,13 @@ typedef struct zr_dl_cmd_push_clip_t {
 typedef struct zr_dl_cmd_draw_text_run_t {
   int32_t x;
   int32_t y;
-  uint32_t blob_index;
-  uint32_t reserved0; /* must be 0 in v1 */
+  uint32_t blob_id;
+  uint32_t reserved0; /* must be 0 */
 } zr_dl_cmd_draw_text_run_t;
 
 typedef struct zr_dl_text_run_segment_v3_t {
   zr_dl_style_v3_t style;
-  uint32_t string_index;
+  uint32_t string_id;
   uint32_t byte_off;
   uint32_t byte_len;
 } zr_dl_text_run_segment_v3_t;
@@ -203,36 +202,52 @@ typedef struct zr_dl_cmd_set_cursor_t {
 } zr_dl_cmd_set_cursor_t;
 
 typedef struct zr_dl_cmd_draw_canvas_t {
-  uint16_t dst_col;     /* destination cell x */
-  uint16_t dst_row;     /* destination cell y */
-  uint16_t dst_cols;    /* destination width in cells */
-  uint16_t dst_rows;    /* destination height in cells */
-  uint16_t px_width;    /* source width in RGBA pixels */
-  uint16_t px_height;   /* source height in RGBA pixels */
-  uint32_t blob_offset; /* byte offset inside drawlist blob-bytes section */
-  uint32_t blob_len;    /* RGBA payload bytes (must be px_width*px_height*4) */
-  uint8_t blitter;      /* zr_blitter_t */
-  uint8_t flags;        /* reserved; must be 0 */
-  uint16_t reserved;    /* reserved; must be 0 */
+  uint16_t dst_col;   /* destination cell x */
+  uint16_t dst_row;   /* destination cell y */
+  uint16_t dst_cols;  /* destination width in cells */
+  uint16_t dst_rows;  /* destination height in cells */
+  uint16_t px_width;  /* source width in RGBA pixels */
+  uint16_t px_height; /* source height in RGBA pixels */
+  uint32_t blob_id;   /* persistent blob resource id */
+  uint32_t reserved0; /* must be 0 */
+  uint8_t blitter;    /* zr_blitter_t */
+  uint8_t flags;      /* reserved; must be 0 */
+  uint16_t reserved;  /* reserved; must be 0 */
 } zr_dl_cmd_draw_canvas_t;
 
 typedef struct zr_dl_cmd_draw_image_t {
-  uint16_t dst_col;     /* destination cell x */
-  uint16_t dst_row;     /* destination cell y */
-  uint16_t dst_cols;    /* destination width in cells */
-  uint16_t dst_rows;    /* destination height in cells */
-  uint16_t px_width;    /* source width in pixels */
-  uint16_t px_height;   /* source height in pixels */
-  uint32_t blob_offset; /* byte offset inside drawlist blob-bytes section */
-  uint32_t blob_len;    /* payload bytes */
-  uint32_t image_id;    /* stable image key for protocol cache reuse */
-  uint8_t format;       /* zr_dl_draw_image_format_t */
-  uint8_t protocol;     /* zr_dl_draw_image_protocol_t */
-  int8_t z_layer;       /* zr_dl_draw_image_z_layer_t */
-  uint8_t fit_mode;     /* zr_dl_draw_image_fit_mode_t */
-  uint8_t flags;        /* reserved; must be 0 */
-  uint8_t reserved0;    /* reserved; must be 0 */
-  uint16_t reserved1;   /* reserved; must be 0 */
+  uint16_t dst_col;       /* destination cell x */
+  uint16_t dst_row;       /* destination cell y */
+  uint16_t dst_cols;      /* destination width in cells */
+  uint16_t dst_rows;      /* destination height in cells */
+  uint16_t px_width;      /* source width in pixels */
+  uint16_t px_height;     /* source height in pixels */
+  uint32_t blob_id;       /* persistent blob resource id */
+  uint32_t reserved_blob; /* must be 0 */
+  uint32_t image_id;      /* stable image key for protocol cache reuse */
+  uint8_t format;         /* zr_dl_draw_image_format_t */
+  uint8_t protocol;       /* zr_dl_draw_image_protocol_t */
+  int8_t z_layer;         /* zr_dl_draw_image_z_layer_t */
+  uint8_t fit_mode;       /* zr_dl_draw_image_fit_mode_t */
+  uint8_t flags;          /* reserved; must be 0 */
+  uint8_t reserved0;      /* reserved; must be 0 */
+  uint16_t reserved1;     /* reserved; must be 0 */
 } zr_dl_cmd_draw_image_t;
+
+/*
+  DEF_* command payload format:
+    - u32 id
+    - u32 byte_len
+    - u8 bytes[byte_len]
+    - u8 pad[0..3] (must be zero) to keep cmd size 4-byte aligned
+*/
+typedef struct zr_dl_cmd_def_resource_t {
+  uint32_t id;
+  uint32_t byte_len;
+} zr_dl_cmd_def_resource_t;
+
+typedef struct zr_dl_cmd_free_resource_t {
+  uint32_t id;
+} zr_dl_cmd_free_resource_t;
 
 #endif /* ZR_ZR_DRAWLIST_H_INCLUDED */

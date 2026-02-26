@@ -2,7 +2,7 @@
  * packages/core/src/animation/interpolate.ts — Primitive interpolation helpers.
  */
 
-import type { Rgb } from "../widgets/style.js";
+import { rgb, rgbB, rgbG, rgbR, type Rgb24 } from "../widgets/style.js";
 
 /** Clamp a number into [0, 1]. */
 export function clamp01(value: number): number {
@@ -32,20 +32,20 @@ function clampRgbChannel(channel: number): number {
 }
 
 /** Linear interpolation between two RGB colors. */
-export function interpolateRgb(from: Rgb, to: Rgb, t: number): Rgb {
-  return Object.freeze({
-    r: clampRgbChannel(interpolateNumber(from.r, to.r, t)),
-    g: clampRgbChannel(interpolateNumber(from.g, to.g, t)),
-    b: clampRgbChannel(interpolateNumber(from.b, to.b, t)),
-  });
+export function interpolateRgb(from: Rgb24, to: Rgb24, t: number): Rgb24 {
+  return rgb(
+    clampRgbChannel(interpolateNumber(rgbR(from), rgbR(to), t)),
+    clampRgbChannel(interpolateNumber(rgbG(from), rgbG(to), t)),
+    clampRgbChannel(interpolateNumber(rgbB(from), rgbB(to), t)),
+  );
 }
 
 /** Generate `steps` RGB samples between two colors (inclusive endpoints). */
-export function interpolateRgbArray(from: Rgb, to: Rgb, steps: number): readonly Rgb[] {
+export function interpolateRgbArray(from: Rgb24, to: Rgb24, steps: number): readonly Rgb24[] {
   const count = Math.max(0, Math.trunc(steps));
   if (count <= 0) return Object.freeze([]);
   if (count === 1) return Object.freeze([interpolateRgb(from, to, 0)]);
-  const samples: Rgb[] = new Array(count);
+  const samples: Rgb24[] = new Array(count);
   for (let i = 0; i < count; i++) {
     samples[i] = interpolateRgb(from, to, i / (count - 1));
   }

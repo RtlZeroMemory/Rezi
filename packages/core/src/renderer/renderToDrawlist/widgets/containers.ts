@@ -1,4 +1,4 @@
-import type { DrawlistBuilderV1 } from "../../../drawlist/types.js";
+import type { DrawlistBuilder } from "../../../drawlist/types.js";
 import type { LayoutTree } from "../../../layout/layout.js";
 import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
@@ -278,26 +278,11 @@ function resolveBoxShadowConfig(
   });
 }
 
-function readRgbChannel(raw: unknown): number | null {
-  if (typeof raw !== "number" || !Number.isFinite(raw)) {
-    return null;
-  }
-  const clamped = Math.max(0, Math.min(255, Math.trunc(raw)));
-  return clamped;
-}
-
 function readRgbColor(raw: unknown): ResolvedTextStyle["fg"] | undefined {
-  if (typeof raw !== "object" || raw === null) {
+  if (typeof raw !== "number" || !Number.isFinite(raw)) {
     return undefined;
   }
-  const color = raw as { r?: unknown; g?: unknown; b?: unknown };
-  const r = readRgbChannel(color.r);
-  const g = readRgbChannel(color.g);
-  const b = readRgbChannel(color.b);
-  if (r === null || g === null || b === null) {
-    return undefined;
-  }
-  return { r, g, b };
+  return (Math.round(raw) >>> 0) & 0x00ff_ffff;
 }
 
 function readOverlayFrameColors(raw: unknown): OverlayFrameColors {
@@ -458,7 +443,7 @@ function resolveScrollViewport(contentRect: Rect, meta: OverflowMetadata): Scrol
 }
 
 function drawScrollbars(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   viewport: ScrollViewport,
   style: ResolvedTextStyle,
   theme: Theme,
@@ -520,7 +505,7 @@ function drawScrollbars(
 }
 
 export function renderContainerWidget(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   rect: Rect,
   currentClip: ClipRect | undefined,
   viewport: Readonly<{ cols: number; rows: number }>,
@@ -789,6 +774,7 @@ export function renderContainerWidget(
           const style: ResolvedTextStyle = {
             fg: backdrop.foreground ?? theme.colors.border,
             bg: backdrop.background ?? theme.colors.bg,
+            attrs: 0,
           };
           for (let dy = 0; dy < fill.h; dy++) {
             builder.drawText(fill.x, fill.y + dy, line, style);
@@ -880,7 +866,11 @@ export function renderContainerWidget(
         } else if (backdrop === "dim") {
           if (fill.w > 0 && fill.h > 0) {
             const line = "░".repeat(fill.w);
-            const style: ResolvedTextStyle = { fg: theme.colors.border, bg: theme.colors.bg };
+            const style: ResolvedTextStyle = {
+              fg: theme.colors.border,
+              bg: theme.colors.bg,
+              attrs: 0,
+            };
             for (let dy = 0; dy < fill.h; dy++) {
               builder.drawText(fill.x, fill.y + dy, line, style);
             }

@@ -1,4 +1,4 @@
-import type { DrawlistBuilderV1 } from "../../drawlist/types.js";
+import type { DrawlistBuilder } from "../../drawlist/types.js";
 import {
   type SpinnerVariant,
   getSpinnerFrame,
@@ -203,7 +203,7 @@ function clipSegmentsToWidth(
 }
 
 function drawSegments(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   x: number,
   y: number,
   maxWidth: number,
@@ -352,7 +352,7 @@ export function measureVNodeSimpleHeight(vnode: VNode, w: number): number {
  * This renders a VNode at the given position without going through the full layout system.
  */
 export function renderVNodeSimple(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   vnode: VNode,
   x: number,
   y: number,

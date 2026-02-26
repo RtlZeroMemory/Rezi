@@ -1,5 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { createDrawlistBuilderV1 } from "../builder_v1.js";
+import { createDrawlistBuilder } from "../builder.js";
 import type { DrawlistBuildErrorCode, DrawlistBuildResult } from "../types.js";
 
 const HEADER = {
@@ -75,9 +75,9 @@ function expectError(result: DrawlistBuildResult, code: DrawlistBuildErrorCode):
   assert.equal(result.error.code, code);
 }
 
-describe("DrawlistBuilderV1 - limits boundaries", () => {
+describe("DrawlistBuilder - limits boundaries", () => {
   test("maxCmdCount: exactly at limit succeeds", () => {
-    const b = createDrawlistBuilderV1({ maxCmdCount: 2 });
+    const b = createDrawlistBuilder({ maxCmdCount: 2 });
     b.clear();
     b.clear();
     const bytes = expectOk(b.build());
@@ -88,7 +88,7 @@ describe("DrawlistBuilderV1 - limits boundaries", () => {
   });
 
   test("maxCmdCount: overflow fails", () => {
-    const b = createDrawlistBuilderV1({ maxCmdCount: 2 });
+    const b = createDrawlistBuilder({ maxCmdCount: 2 });
     b.clear();
     b.clear();
     b.clear();
@@ -97,7 +97,7 @@ describe("DrawlistBuilderV1 - limits boundaries", () => {
   });
 
   test("maxStrings: exactly at limit with unique strings succeeds", () => {
-    const b = createDrawlistBuilderV1({ maxStrings: 2 });
+    const b = createDrawlistBuilder({ maxStrings: 2 });
     b.drawText(0, 0, "a");
     b.drawText(0, 1, "b");
     const bytes = expectOk(b.build());
@@ -108,7 +108,7 @@ describe("DrawlistBuilderV1 - limits boundaries", () => {
   });
 
   test("maxStrings: interned duplicates do not consume extra slots", () => {
-    const b = createDrawlistBuilderV1({ maxStrings: 1 });
+    const b = createDrawlistBuilder({ maxStrings: 1 });
     b.drawText(0, 0, "same");
     b.drawText(2, 0, "same");
     const bytes = expectOk(b.build());
@@ -119,7 +119,7 @@ describe("DrawlistBuilderV1 - limits boundaries", () => {
   });
 
   test("maxStrings: overflow on next unique string fails", () => {
-    const b = createDrawlistBuilderV1({ maxStrings: 1 });
+    const b = createDrawlistBuilder({ maxStrings: 1 });
     b.drawText(0, 0, "a");
     b.drawText(0, 1, "b");
 
@@ -127,7 +127,7 @@ describe("DrawlistBuilderV1 - limits boundaries", () => {
   });
 
   test("maxStringBytes: exactly-at-limit ASCII payload succeeds", () => {
-    const b = createDrawlistBuilderV1({ maxStringBytes: 3 });
+    const b = createDrawlistBuilder({ maxStringBytes: 3 });
     b.drawText(0, 0, "abc");
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
@@ -142,7 +142,7 @@ describe("DrawlistBuilderV1 - limits boundaries", () => {
   test("maxStringBytes: exactly-at-limit UTF-8 payload succeeds", () => {
     const text = "éa";
     const utf8Len = new TextEncoder().encode(text).byteLength;
-    const b = createDrawlistBuilderV1({ maxStringBytes: utf8Len });
+    const b = createDrawlistBuilder({ maxStringBytes: utf8Len });
     b.drawText(0, 0, text);
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
@@ -155,7 +155,7 @@ describe("DrawlistBuilderV1 - limits boundaries", () => {
   });
 
   test("maxStringBytes: overflow fails", () => {
-    const b = createDrawlistBuilderV1({ maxStringBytes: 3 });
+    const b = createDrawlistBuilder({ maxStringBytes: 3 });
     b.drawText(0, 0, "abcd");
 
     expectError(b.build(), "ZRDL_TOO_LARGE");
@@ -163,7 +163,7 @@ describe("DrawlistBuilderV1 - limits boundaries", () => {
 
   test("maxDrawlistBytes: exactly-at-limit clear-only payload succeeds", () => {
     const exactLimit = HEADER.SIZE + CMD_SIZE_CLEAR;
-    const b = createDrawlistBuilderV1({ maxDrawlistBytes: exactLimit });
+    const b = createDrawlistBuilder({ maxDrawlistBytes: exactLimit });
     b.clear();
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
@@ -173,7 +173,7 @@ describe("DrawlistBuilderV1 - limits boundaries", () => {
   });
 
   test("maxDrawlistBytes: one byte below minimum clear payload fails", () => {
-    const b = createDrawlistBuilderV1({ maxDrawlistBytes: HEADER.SIZE + CMD_SIZE_CLEAR - 1 });
+    const b = createDrawlistBuilder({ maxDrawlistBytes: HEADER.SIZE + CMD_SIZE_CLEAR - 1 });
     b.clear();
 
     expectError(b.build(), "ZRDL_TOO_LARGE");
@@ -182,7 +182,7 @@ describe("DrawlistBuilderV1 - limits boundaries", () => {
   test("maxDrawlistBytes: exact text drawlist boundary succeeds", () => {
     const textBytes = 3;
     const exactLimit = HEADER.SIZE + CMD_SIZE_DRAW_TEXT + SPAN_SIZE + align4(textBytes);
-    const b = createDrawlistBuilderV1({ maxDrawlistBytes: exactLimit });
+    const b = createDrawlistBuilder({ maxDrawlistBytes: exactLimit });
     b.drawText(0, 0, "abc");
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
@@ -195,14 +195,14 @@ describe("DrawlistBuilderV1 - limits boundaries", () => {
   test("maxDrawlistBytes: one byte below text drawlist boundary fails", () => {
     const textBytes = 3;
     const exactLimit = HEADER.SIZE + CMD_SIZE_DRAW_TEXT + SPAN_SIZE + align4(textBytes);
-    const b = createDrawlistBuilderV1({ maxDrawlistBytes: exactLimit - 1 });
+    const b = createDrawlistBuilder({ maxDrawlistBytes: exactLimit - 1 });
     b.drawText(0, 0, "abc");
 
     expectError(b.build(), "ZRDL_TOO_LARGE");
   });
 
   test("zero limit values are rejected for each configured cap", () => {
-    const cases: readonly Readonly<{ opts: Parameters<typeof createDrawlistBuilderV1>[0] }>[] = [
+    const cases: readonly Readonly<{ opts: Parameters<typeof createDrawlistBuilder>[0] }>[] = [
       { opts: { maxDrawlistBytes: 0 } },
       { opts: { maxCmdCount: 0 } },
       { opts: { maxStringBytes: 0 } },
@@ -210,13 +210,13 @@ describe("DrawlistBuilderV1 - limits boundaries", () => {
     ];
 
     for (const { opts } of cases) {
-      const b = createDrawlistBuilderV1(opts);
+      const b = createDrawlistBuilder(opts);
       expectError(b.build(), "ZRDL_BAD_PARAMS");
     }
   });
 
   test("large-limit smoke: realistic batch stays within limits", () => {
-    const b = createDrawlistBuilderV1({
+    const b = createDrawlistBuilder({
       maxDrawlistBytes: 1_000_000,
       maxCmdCount: 10_000,
       maxStringBytes: 100_000,

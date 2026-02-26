@@ -11,6 +11,8 @@
 #ifndef ZR_CORE_ZR_FRAMEBUFFER_H_INCLUDED
 #define ZR_CORE_ZR_FRAMEBUFFER_H_INCLUDED
 
+#include "core/zr_damage.h"
+
 #include "util/zr_result.h"
 
 #include <stddef.h>
@@ -88,6 +90,8 @@ zr_result_t zr_fb_link_intern(zr_fb_t* fb, const uint8_t* uri, size_t uri_len, c
                               uint32_t* out_link_ref);
 zr_result_t zr_fb_link_lookup(const zr_fb_t* fb, uint32_t link_ref, const uint8_t** out_uri, size_t* out_uri_len,
                               const uint8_t** out_id, size_t* out_id_len);
+zr_result_t zr_fb_copy_damage_rects(zr_fb_t* dst, const zr_fb_t* src, const zr_damage_rect_t* rects,
+                                    uint32_t rect_count);
 
 /*
   Painter + clip stack:

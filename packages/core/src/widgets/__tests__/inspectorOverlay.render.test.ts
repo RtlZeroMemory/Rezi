@@ -1,6 +1,6 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type { RuntimeBreadcrumbSnapshot } from "../../app/runtimeBreadcrumbs.js";
-import { type VNode, ZR_CURSOR_SHAPE_BAR, createDrawlistBuilderV1 } from "../../index.js";
+import { type VNode, ZR_CURSOR_SHAPE_BAR, createDrawlistBuilder } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
@@ -59,7 +59,7 @@ function renderStrings(
   assert.equal(layoutRes.ok, true, "layout should succeed");
   if (!layoutRes.ok) return Object.freeze([]);
 
-  const builder = createDrawlistBuilderV1();
+  const builder = createDrawlistBuilder();
   renderToDrawlist({
     tree: commitRes.value.root,
     layout: layoutRes.value,

@@ -20,10 +20,7 @@ export const ZR_ENGINE_ABI_PATCH = 0;
  * Binary format version pins.
  */
 export const ZR_DRAWLIST_VERSION_V1 = 1;
-export const ZR_DRAWLIST_VERSION_V2 = 2;
-export const ZR_DRAWLIST_VERSION_V3 = 3;
-export const ZR_DRAWLIST_VERSION_V4 = 4;
-export const ZR_DRAWLIST_VERSION_V5 = 5;
+export const ZR_DRAWLIST_VERSION = ZR_DRAWLIST_VERSION_V1;
 export const ZR_EVENT_BATCH_VERSION_V1 = 1;
 
 // =============================================================================

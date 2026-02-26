@@ -415,22 +415,22 @@ export function themedOverrideShowcase(): VNode {
         {
           colors: {
             bg: {
-              base: { r: 238, g: 242, b: 247 },
-              elevated: { r: 232, g: 237, b: 244 },
-              subtle: { r: 220, g: 228, b: 238 },
+              base: rgb(238, 242, 247),
+              elevated: rgb(232, 237, 244),
+              subtle: rgb(220, 228, 238),
             },
             fg: {
-              primary: { r: 28, g: 36, b: 49 },
-              secondary: { r: 63, g: 78, b: 97 },
-              muted: { r: 99, g: 113, b: 131 },
-              inverse: { r: 245, g: 248, b: 252 },
+              primary: rgb(28, 36, 49),
+              secondary: rgb(63, 78, 97),
+              muted: rgb(99, 113, 131),
+              inverse: rgb(245, 248, 252),
             },
             accent: {
-              primary: { r: 64, g: 120, b: 255 },
+              primary: rgb(64, 120, 255),
             },
             border: {
-              subtle: { r: 187, g: 198, b: 213 },
-              default: { r: 157, g: 173, b: 193 },
+              subtle: rgb(187, 198, 213),
+              default: rgb(157, 173, 193),
             },
           },
         },

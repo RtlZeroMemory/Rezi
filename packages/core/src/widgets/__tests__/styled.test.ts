@@ -7,8 +7,8 @@ describe("styled", () => {
       base: { bold: true },
       variants: {
         intent: {
-          primary: { fg: { r: 1, g: 2, b: 3 } },
-          danger: { fg: { r: 9, g: 9, b: 9 } },
+          primary: { fg: ((1 << 16) | (2 << 8) | 3) },
+          danger: { fg: ((9 << 16) | (9 << 8) | 9) },
         },
       },
       defaults: { intent: "primary" },
@@ -18,7 +18,7 @@ describe("styled", () => {
     assert.equal(v.kind, "button");
     assert.deepEqual((v.props as { style?: unknown }).style, {
       bold: true,
-      fg: { r: 1, g: 2, b: 3 },
+      fg: ((1 << 16) | (2 << 8) | 3),
     });
   });
 });

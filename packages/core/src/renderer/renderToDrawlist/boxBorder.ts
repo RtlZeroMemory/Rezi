@@ -1,4 +1,4 @@
-import type { DrawlistBuilderV1 } from "../../drawlist/types.js";
+import type { DrawlistBuilder } from "../../drawlist/types.js";
 import { measureTextCells, truncateWithEllipsis } from "../../layout/textMeasure.js";
 import type { Rect } from "../../layout/types.js";
 import {
@@ -56,7 +56,7 @@ export function readTitleAlign(v: unknown): "left" | "center" | "right" {
  * @param style - Text style for border and title
  */
 export function renderBoxBorder(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   rect: Rect,
   border: BorderStyle,
   title: string | undefined,
@@ -97,7 +97,7 @@ export function renderBoxBorder(
  * Render the border frame (corners and edges).
  */
 function renderBorderFrame(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   rect: Rect,
   glyphs: BorderGlyphSet,
   style: ResolvedTextStyle,
@@ -191,7 +191,7 @@ function renderBorderFrame(
  * Render the title in the top border.
  */
 function renderBorderTitle(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   rect: Rect,
   title: string,
   titleAlign: "left" | "center" | "right",
@@ -235,7 +235,7 @@ function renderBorderTitle(
  * @param style - Text style
  */
 export function renderBoxDivider(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   rect: Rect,
   y: number,
   border: BorderStyle,

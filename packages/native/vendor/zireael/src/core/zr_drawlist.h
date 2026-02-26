@@ -24,6 +24,32 @@
 typedef struct zr_fb_t zr_fb_t;
 typedef struct zr_image_frame_t zr_image_frame_t;
 
+typedef struct zr_dl_resource_entry_t {
+  uint32_t id;
+  uint8_t* bytes;
+  uint32_t len;
+  /*
+    Ownership tag for `bytes`.
+
+    Why: preflight uses shallow snapshots that borrow `bytes` pointers from the
+    stage store to avoid deep-copying persistent payloads every submit.
+  */
+  uint8_t owned;
+  uint8_t reserved0[3];
+} zr_dl_resource_entry_t;
+
+typedef struct zr_dl_resource_store_t {
+  zr_dl_resource_entry_t* entries;
+  uint32_t len;
+  uint32_t cap;
+  uint32_t total_bytes;
+} zr_dl_resource_store_t;
+
+typedef struct zr_dl_resources_t {
+  zr_dl_resource_store_t strings;
+  zr_dl_resource_store_t blobs;
+} zr_dl_resources_t;
+
 /*
   zr_dl_view_t (engine-internal validated view):
     - All pointers are borrowed views into the caller-provided drawlist byte
@@ -60,9 +86,18 @@ typedef struct zr_dl_view_t {
 } zr_dl_view_t;
 
 zr_result_t zr_dl_validate(const uint8_t* bytes, size_t bytes_len, const zr_limits_t* lim, zr_dl_view_t* out_view);
+zr_result_t zr_dl_preflight_resources(const zr_dl_view_t* v, zr_fb_t* fb, zr_image_frame_t* image_stage,
+                                      const zr_limits_t* lim, const zr_terminal_profile_t* term_profile,
+                                      zr_dl_resources_t* resources);
 zr_result_t zr_dl_execute(const zr_dl_view_t* v, zr_fb_t* dst, const zr_limits_t* lim, uint32_t tab_width,
                           uint32_t width_policy, const zr_blit_caps_t* blit_caps,
                           const zr_terminal_profile_t* term_profile, zr_image_frame_t* image_frame_stage,
-                          zr_cursor_state_t* inout_cursor_state);
+                          zr_dl_resources_t* resources, zr_cursor_state_t* inout_cursor_state);
+
+void zr_dl_resources_init(zr_dl_resources_t* resources);
+void zr_dl_resources_release(zr_dl_resources_t* resources);
+void zr_dl_resources_swap(zr_dl_resources_t* a, zr_dl_resources_t* b);
+zr_result_t zr_dl_resources_clone(zr_dl_resources_t* dst, const zr_dl_resources_t* src);
+zr_result_t zr_dl_resources_clone_shallow(zr_dl_resources_t* dst, const zr_dl_resources_t* src);
 
 #endif /* ZR_CORE_ZR_DRAWLIST_H_INCLUDED */

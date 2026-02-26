@@ -110,6 +110,7 @@ typedef struct zr_image_emit_ctx_t {
 /* --- Shared frame storage helpers --- */
 void zr_image_frame_init(zr_image_frame_t* frame);
 void zr_image_frame_reset(zr_image_frame_t* frame);
+zr_result_t zr_image_frame_reserve(zr_image_frame_t* frame, uint32_t cmd_cap, uint32_t blob_cap);
 void zr_image_frame_release(zr_image_frame_t* frame);
 zr_result_t zr_image_frame_push_copy(zr_image_frame_t* frame, const zr_image_cmd_t* cmd, const uint8_t* blob_bytes);
 void zr_image_frame_swap(zr_image_frame_t* a, zr_image_frame_t* b);

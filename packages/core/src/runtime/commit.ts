@@ -56,6 +56,51 @@ export type RuntimeInstance = {
 /** Shared frozen empty array for leaf RuntimeInstance children. Avoids per-node allocation. */
 const EMPTY_CHILDREN: readonly RuntimeInstance[] = Object.freeze([]);
 
+// ---------------------------------------------------------------------------
+// Commit Diagnostics — zero-overhead when disabled
+// ---------------------------------------------------------------------------
+
+/** Structured commit diagnostic entry. */
+export type CommitDiagEntry = {
+  id: number;
+  kind: string;
+  reason: "leaf-reuse" | "fast-reuse" | "new-mount" | "new-instance";
+  /** Explains why reuse failed, or "was-dirty" if reused but was previously dirty. */
+  detail?:
+    | "props-changed"
+    | "children-changed"
+    | "props+children"
+    | "general-path"
+    | "no-prev"
+    | "leaf-kind-mismatch"
+    | "leaf-content-changed"
+    | "kind-changed"
+    | "was-dirty"
+    | undefined;
+  /** Specific failing prop (only for props-changed containers). */
+  failingProp?: string | undefined;
+  childDiffs?: number | undefined; // how many children refs differ
+  prevChildren?: number | undefined;
+  nextChildren?: number | undefined;
+};
+
+/** Global commit diagnostics buffer. */
+export const __commitDiag = {
+  enabled: false,
+  entries: [] as CommitDiagEntry[],
+  reset(): void {
+    this.entries.length = 0;
+  },
+  push(e: CommitDiagEntry): void {
+    this.entries.push(e);
+  },
+};
+
+/** Fast equality for packed color values. */
+function colorEqual(a: unknown, b: unknown): boolean {
+  return a === b;
+}
+
 /**
  * Fast shallow equality for text style objects.
  * Returns true if both styles produce identical render output.
@@ -101,8 +146,8 @@ function textStyleEqual(
     a.strikethrough === b.strikethrough &&
     a.overline === b.overline &&
     a.blink === b.blink &&
-    a.fg === b.fg &&
-    a.bg === b.bg
+    colorEqual(a.fg, b.fg) &&
+    colorEqual(a.bg, b.bg)
   );
 }
 
@@ -167,6 +212,28 @@ function leafVNodeEqual(a: VNode, b: VNode): boolean {
         ap.label === bp.label &&
         ap.color === bp.color
       );
+    }
+    case "richText": {
+      if (b.kind !== "richText") return false;
+      const ap = a.props as { spans?: readonly { text: string; style?: unknown }[] };
+      const bp = b.props as { spans?: readonly { text: string; style?: unknown }[] };
+      const as = ap.spans;
+      const bs = bp.spans;
+      if (as === bs) return true;
+      if (!as || !bs || as.length !== bs.length) return false;
+      for (let i = 0; i < as.length; i++) {
+        const sa = as[i]!;
+        const sb = bs[i]!;
+        if (sa.text !== sb.text) return false;
+        if (
+          !textStyleEqual(
+            sa.style as Parameters<typeof textStyleEqual>[0],
+            sb.style as Parameters<typeof textStyleEqual>[0],
+          )
+        )
+          return false;
+      }
+      return true;
     }
     default:
       return false;
@@ -484,6 +551,41 @@ function canFastReuseContainerSelf(prev: VNode, next: VNode): boolean {
     default:
       return false;
   }
+}
+
+/**
+ * Diagnostic: identify which specific prop fails for container reuse.
+ * Only called when __commitDiag.enabled is true.
+ */
+function diagWhichPropFails(prev: VNode, next: VNode): string | undefined {
+  if (prev.kind !== next.kind) return "kind";
+  const ap = (prev.props ?? {}) as Record<string, unknown>;
+  const bp = (next.props ?? {}) as Record<string, unknown>;
+  if (prev.kind === "row" || prev.kind === "column") {
+    for (const k of ["pad", "gap", "align", "justify", "items"] as const) {
+      if (ap[k] !== bp[k]) return k;
+    }
+    if (!textStyleEqual(ap["style"] as Parameters<typeof textStyleEqual>[0], bp["style"] as Parameters<typeof textStyleEqual>[0])) return "style";
+    if (!textStyleEqual(ap["inheritStyle"] as Parameters<typeof textStyleEqual>[0], bp["inheritStyle"] as Parameters<typeof textStyleEqual>[0])) return "inheritStyle";
+    // layout constraints
+    for (const k of ["width", "height", "minWidth", "maxWidth", "minHeight", "maxHeight", "flex", "aspectRatio"] as const) {
+      if (ap[k] !== bp[k]) return k;
+    }
+    // spacing
+    for (const k of ["p", "px", "py", "pt", "pb", "pl", "pr", "m", "mx", "my", "mt", "mr", "mb", "ml"] as const) {
+      if (ap[k] !== bp[k]) return k;
+    }
+  }
+  if (prev.kind === "box") {
+    for (const k of ["title", "titleAlign", "pad", "border", "borderTop", "borderRight", "borderBottom", "borderLeft", "opacity"] as const) {
+      if (ap[k] !== bp[k]) return k;
+    }
+    if (!textStyleEqual(ap["style"] as Parameters<typeof textStyleEqual>[0], bp["style"] as Parameters<typeof textStyleEqual>[0])) return "style";
+    for (const k of ["width", "height", "minWidth", "maxWidth", "minHeight", "maxHeight", "flex", "aspectRatio"] as const) {
+      if (ap[k] !== bp[k]) return k;
+    }
+  }
+  return "unknown";
 }
 
 function runtimeChildrenChanged(
@@ -1163,9 +1265,79 @@ function commitContainer(
         canFastReuseContainerSelf(prev.vnode, vnode)
       ) {
         // All children are identical references → reuse parent entirely.
-        prev.dirty = false;
+        // Propagate dirty from children: a child may have been mutated in-place
+        // with dirty=true even though it returned the same reference.
+        if (__commitDiag.enabled) {
+          const wasDirty = prev.selfDirty;
+          __commitDiag.push({ id: instanceId as number, kind: vnode.kind, reason: "fast-reuse",
+            detail: wasDirty ? "was-dirty" : undefined });
+        }
         prev.selfDirty = false;
+        prev.dirty = hasDirtyChild(prev.children);
         return { ok: true, value: { root: prev } };
+      }
+
+      // Fast-path in-place mutation: children changed but props are identical.
+      // Mutate the existing RuntimeInstance to preserve reference identity and
+      // prevent parent containers from cascading new-instance creation.
+      if (
+        !allChildrenSame &&
+        prev !== null &&
+        nextChildren !== null &&
+        committedChildVNodes !== null &&
+        canFastReuseContainerSelf(prev.vnode, vnode)
+      ) {
+        if (__commitDiag.enabled) {
+          let childDiffs = 0;
+          for (let ci = 0; ci < prevChildren.length; ci++) {
+            if (prevChildren[ci] !== (nextChildren as readonly RuntimeInstance[])[ci]) childDiffs++;
+          }
+          __commitDiag.push({
+            id: instanceId as number, kind: vnode.kind,
+            reason: "fast-reuse",
+            detail: "children-changed" as "was-dirty" | undefined,
+            childDiffs,
+            prevChildren: prevChildren.length,
+            nextChildren: (nextChildren as readonly RuntimeInstance[]).length,
+          });
+        }
+        (prev as { children: readonly RuntimeInstance[] }).children = nextChildren;
+        (prev as { vnode: VNode }).vnode = rewriteCommittedVNode(vnode, committedChildVNodes);
+        prev.selfDirty = true;
+        prev.dirty = true;
+        return { ok: true, value: { root: prev } };
+      }
+
+      // Diagnostic: fast-reuse check failed at container level
+      if (__commitDiag.enabled && prev !== null && canTryFastReuse) {
+        if (!allChildrenSame) {
+          // children are different — but WHY? count how many differ
+          let childDiffs = 0;
+          for (let ci = 0; ci < prevChildren.length; ci++) {
+            if (nextChildren && prevChildren[ci] !== (nextChildren as readonly RuntimeInstance[])[ci]) childDiffs++;
+          }
+          // also check if props would have passed
+          const propsOk = canFastReuseContainerSelf(prev.vnode, vnode);
+          __commitDiag.push({
+            id: instanceId as number, kind: vnode.kind,
+            reason: "new-instance",
+            detail: propsOk ? "children-changed" : "props+children",
+            failingProp: propsOk ? undefined : diagWhichPropFails(prev.vnode, vnode),
+            childDiffs,
+            prevChildren: prevChildren.length,
+            nextChildren: nextChildren ? (nextChildren as readonly RuntimeInstance[]).length : res.value.nextChildren.length,
+          });
+        } else if (!childOrderStable) {
+          __commitDiag.push({ id: instanceId as number, kind: vnode.kind, reason: "new-instance", detail: "children-changed" });
+        } else {
+          // allChildrenSame && childOrderStable but canFastReuseContainerSelf failed
+          __commitDiag.push({
+            id: instanceId as number, kind: vnode.kind,
+            reason: "new-instance",
+            detail: "props-changed",
+            failingProp: diagWhichPropFails(prev.vnode, vnode),
+          });
+        }
       }
     } else {
       // General path: commit children and build next arrays.
@@ -1219,6 +1391,42 @@ function commitContainer(
     const propsChanged = prev === null || !canFastReuseContainerSelf(prev.vnode, vnode);
     const childrenChanged = prev === null || runtimeChildrenChanged(prevChildren, nextChildren);
     const selfDirty = propsChanged || childrenChanged;
+
+    // Diagnostic: general-path new-instance (only if not already logged by fast-reuse diagnostic)
+    if (__commitDiag.enabled && !canTryFastReuse && prev !== null) {
+      let cDiffs = 0;
+      const minLen = Math.min(prevChildren.length, nextChildren.length);
+      for (let ci = 0; ci < minLen; ci++) {
+        if (prevChildren[ci] !== nextChildren[ci]) cDiffs++;
+      }
+      cDiffs += Math.abs(prevChildren.length - nextChildren.length);
+      __commitDiag.push({
+        id: instanceId as number, kind: vnode.kind,
+        reason: "new-instance",
+        detail: propsChanged && childrenChanged ? "props+children"
+          : propsChanged ? "props-changed"
+          : childrenChanged ? "children-changed"
+          : "general-path",
+        failingProp: propsChanged ? diagWhichPropFails(prev.vnode, vnode) : undefined,
+        childDiffs: cDiffs,
+        prevChildren: prevChildren.length,
+        nextChildren: nextChildren.length,
+      });
+    } else if (__commitDiag.enabled && prev === null) {
+      __commitDiag.push({ id: instanceId as number, kind: vnode.kind, reason: "new-instance", detail: "no-prev" });
+    }
+
+    // In-place mutation: when props are unchanged and only children references
+    // changed, mutate the existing RuntimeInstance to preserve reference identity.
+    // This prevents parent containers from cascading new-instance creation.
+    if (prev !== null && !propsChanged && childrenChanged) {
+      (prev as { children: readonly RuntimeInstance[] }).children = nextChildren;
+      (prev as { vnode: VNode }).vnode = rewriteCommittedVNode(vnode, committedChildVNodes!);
+      prev.selfDirty = true;
+      prev.dirty = true;
+      return { ok: true, value: { root: prev } };
+    }
+
     return {
       ok: true,
       value: {
@@ -1468,14 +1676,35 @@ function commitNode(
       };
     }
 
+    // Temporary debug: trace commit matching (remove after investigation)
+    if ((globalThis as Record<string, unknown>)["__commitDebug"]) {
+      const debugLog = (globalThis as Record<string, unknown>)["__commitDebugLog"] as string[] | undefined;
+      if (debugLog) {
+        debugLog.push(`commitNode(${String(instanceId)}, ${vnode.kind}, prev=${prev ? `${prev.vnode.kind}:${String(prev.instanceId)}` : "null"})`);
+      }
+    }
+
     // Leaf nodes — fast path: reuse previous RuntimeInstance when content is unchanged.
     // Do this before any bookkeeping so unchanged leaf-heavy subtrees (lists, tables)
     // don't pay per-node validation overhead.
     if (prev && prev.vnode.kind === vnode.kind && leafVNodeEqual(prev.vnode, vnode)) {
+      if (__commitDiag.enabled) {
+        const wasDirty = prev.selfDirty;
+        __commitDiag.push({ id: instanceId as number, kind: vnode.kind, reason: "leaf-reuse",
+          detail: wasDirty ? "was-dirty" : undefined });
+      }
       if (ctx.collectLifecycleInstanceIds) ctx.lists.reused.push(instanceId);
       prev.dirty = false;
       prev.selfDirty = false;
       return { ok: true, value: { root: prev } };
+    }
+    // Diagnostic: leaf not reused
+    if (__commitDiag.enabled && prev && !isContainerVNode(vnode)) {
+      if (prev.vnode.kind !== vnode.kind) {
+        __commitDiag.push({ id: instanceId as number, kind: vnode.kind, reason: "new-instance", detail: "leaf-kind-mismatch" });
+      } else {
+        __commitDiag.push({ id: instanceId as number, kind: vnode.kind, reason: "new-instance", detail: "leaf-content-changed" });
+      }
     }
 
     if (vnode.kind === "errorBoundary") {
@@ -1541,7 +1770,10 @@ function commitNode(
 
     if (ctx.collectLifecycleInstanceIds) {
       if (prev) ctx.lists.reused.push(instanceId);
-      else ctx.lists.mounted.push(instanceId);
+      else {
+        ctx.lists.mounted.push(instanceId);
+        if (__commitDiag.enabled) __commitDiag.push({ id: instanceId as number, kind: vnode.kind, reason: "new-mount" });
+      }
     }
 
     if (ctx.composite) {
@@ -1560,6 +1792,16 @@ function commitNode(
 
     if (isContainerVNode(vnode)) {
       return commitContainer(instanceId, vnode, prev, ctx, [nodePath], layoutDepth);
+    }
+
+    // Leaf node: when prev exists and kind matches, mutate in-place to preserve
+    // reference identity. This prevents parent containers from cascading new-instance
+    // creation when only leaf content changed.
+    if (prev !== null && prev.vnode.kind === vnode.kind) {
+      prev.vnode = vnode;
+      prev.selfDirty = true;
+      prev.dirty = true;
+      return { ok: true, value: { root: prev } };
     }
 
     return {

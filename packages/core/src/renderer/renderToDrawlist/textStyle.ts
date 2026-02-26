@@ -1,10 +1,21 @@
-import type { TextStyle } from "../../widgets/style.js";
+import { perfCount } from "../../perf/perf.js";
+import { rgb, rgbBlend, type TextStyle } from "../../widgets/style.js";
 import { sanitizeTextStyle } from "../../widgets/styleUtils.js";
+
+const ATTR_BOLD = 1 << 0;
+const ATTR_ITALIC = 1 << 1;
+const ATTR_UNDERLINE = 1 << 2;
+const ATTR_INVERSE = 1 << 3;
+const ATTR_DIM = 1 << 4;
+const ATTR_STRIKETHROUGH = 1 << 5;
+const ATTR_OVERLINE = 1 << 6;
+const ATTR_BLINK = 1 << 7;
 
 export type ResolvedTextStyle = Readonly<
   {
     fg: NonNullable<TextStyle["fg"]>;
     bg: NonNullable<TextStyle["bg"]>;
+    attrs: number;
   } & Pick<
     TextStyle,
     | "bold"
@@ -21,8 +32,9 @@ export type ResolvedTextStyle = Readonly<
 >;
 
 export const DEFAULT_BASE_STYLE: ResolvedTextStyle = Object.freeze({
-  fg: Object.freeze({ r: 232, g: 238, b: 245 }),
-  bg: Object.freeze({ r: 7, g: 10, b: 12 }),
+  fg: rgb(232, 238, 245),
+  bg: rgb(7, 10, 12),
+  attrs: 0,
 });
 
 // Fast path cache for `mergeTextStyle(DEFAULT_BASE_STYLE, override)` when override only toggles
@@ -36,10 +48,60 @@ function encTriBool(v: boolean | undefined): number {
   return v ? 2 : 1;
 }
 
+function computeAttrs(
+  bold: boolean | undefined,
+  dim: boolean | undefined,
+  italic: boolean | undefined,
+  underline: boolean | undefined,
+  inverse: boolean | undefined,
+  strikethrough: boolean | undefined,
+  overline: boolean | undefined,
+  blink: boolean | undefined,
+  underlineStyle: TextStyle["underlineStyle"] | undefined,
+): number {
+  let attrs = 0;
+  if (bold) attrs |= ATTR_BOLD;
+  if (italic) attrs |= ATTR_ITALIC;
+  if (underline || (underlineStyle !== undefined && underlineStyle !== "none")) {
+    attrs |= ATTR_UNDERLINE;
+  }
+  if (inverse) attrs |= ATTR_INVERSE;
+  if (dim) attrs |= ATTR_DIM;
+  if (strikethrough) attrs |= ATTR_STRIKETHROUGH;
+  if (overline) attrs |= ATTR_OVERLINE;
+  if (blink) attrs |= ATTR_BLINK;
+  return attrs >>> 0;
+}
+
+function freezeResolved(
+  merged: Omit<ResolvedTextStyle, "attrs"> & { attrs?: number },
+): ResolvedTextStyle {
+  const out: ResolvedTextStyle = Object.freeze({
+    ...merged,
+    attrs:
+      merged.attrs ??
+      computeAttrs(
+        merged.bold,
+        merged.dim,
+        merged.italic,
+        merged.underline,
+        merged.inverse,
+        merged.strikethrough,
+        merged.overline,
+        merged.blink,
+        merged.underlineStyle,
+      ),
+  });
+  perfCount("style_objects_created", 1);
+  return out;
+}
+
 export function mergeTextStyle(
   base: ResolvedTextStyle,
   override: TextStyle | undefined,
 ): ResolvedTextStyle {
+  perfCount("style_merges_performed", 1);
+  perfCount("packRgb_calls", 0);
   if (!override) return base;
   const normalized = sanitizeTextStyle(override);
   if (
@@ -66,6 +128,7 @@ export function mergeTextStyle(
     const merged: {
       fg: NonNullable<TextStyle["fg"]>;
       bg: NonNullable<TextStyle["bg"]>;
+      attrs?: number;
       bold?: boolean;
       dim?: boolean;
       italic?: boolean;
@@ -87,7 +150,19 @@ export function mergeTextStyle(
     if (normalized.overline !== undefined) merged.overline = normalized.overline;
     if (normalized.blink !== undefined) merged.blink = normalized.blink;
 
-    const frozenMerged = Object.freeze(merged);
+    merged.attrs = computeAttrs(
+      merged.bold,
+      merged.dim,
+      merged.italic,
+      merged.underline,
+      merged.inverse,
+      merged.strikethrough,
+      merged.overline,
+      merged.blink,
+      undefined,
+    );
+
+    const frozenMerged = freezeResolved(merged);
     BASE_BOOL_STYLE_CACHE[key] = frozenMerged;
     return frozenMerged;
   }
@@ -119,14 +194,21 @@ export function mergeTextStyle(
   const blink = normalized.blink ?? base.blink;
   const underlineStyle = override.underlineStyle ?? base.underlineStyle;
   const underlineColor = override.underlineColor ?? base.underlineColor;
+  const attrs = computeAttrs(
+    bold,
+    dim,
+    italic,
+    underline,
+    inverse,
+    strikethrough,
+    overline,
+    blink,
+    underlineStyle,
+  );
 
   if (
-    fg.r === base.fg.r &&
-    fg.g === base.fg.g &&
-    fg.b === base.fg.b &&
-    bg.r === base.bg.r &&
-    bg.g === base.bg.g &&
-    bg.b === base.bg.b &&
+    fg === base.fg &&
+    bg === base.bg &&
     bold === base.bold &&
     dim === base.dim &&
     italic === base.italic &&
@@ -136,7 +218,8 @@ export function mergeTextStyle(
     overline === base.overline &&
     blink === base.blink &&
     underlineStyle === base.underlineStyle &&
-    underlineColor === base.underlineColor
+    underlineColor === base.underlineColor &&
+    attrs === base.attrs
   ) {
     return base;
   }
@@ -144,6 +227,7 @@ export function mergeTextStyle(
   const merged: {
     fg: NonNullable<TextStyle["fg"]>;
     bg: NonNullable<TextStyle["bg"]>;
+    attrs?: number;
     bold?: boolean;
     dim?: boolean;
     italic?: boolean;
@@ -157,6 +241,7 @@ export function mergeTextStyle(
   } = {
     fg,
     bg,
+    attrs,
   };
 
   if (bold !== undefined) merged.bold = bold;
@@ -169,7 +254,7 @@ export function mergeTextStyle(
   if (blink !== undefined) merged.blink = blink;
   if (underlineStyle !== undefined) merged.underlineStyle = underlineStyle;
   if (underlineColor !== undefined) merged.underlineColor = underlineColor;
-  return merged;
+  return freezeResolved(merged);
 }
 
 export function shouldFillForStyleOverride(override: TextStyle | undefined): boolean {
@@ -184,10 +269,6 @@ function clampOpacity(opacity: number): number {
   return opacity;
 }
 
-function blendChannel(from: number, to: number, opacity: number): number {
-  return Math.round(from + (to - from) * opacity);
-}
-
 /**
  * Apply opacity to a resolved style by blending fg/bg toward the provided backdrop color.
  */
@@ -199,29 +280,14 @@ export function applyOpacityToStyle(
   const clamped = clampOpacity(opacity);
   if (clamped >= 1) return style;
 
-  const fg = Object.freeze({
-    r: blendChannel(backdrop.r, style.fg.r, clamped),
-    g: blendChannel(backdrop.g, style.fg.g, clamped),
-    b: blendChannel(backdrop.b, style.fg.b, clamped),
-  });
-  const bg = Object.freeze({
-    r: blendChannel(backdrop.r, style.bg.r, clamped),
-    g: blendChannel(backdrop.g, style.bg.g, clamped),
-    b: blendChannel(backdrop.b, style.bg.b, clamped),
-  });
+  const fg = rgbBlend(backdrop, style.fg, clamped);
+  const bg = rgbBlend(backdrop, style.bg, clamped);
 
-  if (
-    fg.r === style.fg.r &&
-    fg.g === style.fg.g &&
-    fg.b === style.fg.b &&
-    bg.r === style.bg.r &&
-    bg.g === style.bg.g &&
-    bg.b === style.bg.b
-  ) {
+  if (fg === style.fg && bg === style.bg) {
     return style;
   }
 
-  return Object.freeze({
+  return freezeResolved({
     ...style,
     fg,
     bg,

@@ -17,11 +17,9 @@ const data: readonly Row[] = [
 
 function rgbEquals(
   actual: unknown,
-  expected: Readonly<{ r: number; g: number; b: number }> | undefined,
+  expected: number | undefined,
 ): boolean {
-  if (!expected || typeof actual !== "object" || actual === null) return false;
-  const a = actual as { r?: unknown; g?: unknown; b?: unknown };
-  return a.r === expected.r && a.g === expected.g && a.b === expected.b;
+  return typeof actual === "number" && expected !== undefined && actual === expected;
 }
 
 function firstDrawText(

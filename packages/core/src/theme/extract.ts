@@ -1,62 +1,62 @@
-import type { Rgb } from "../widgets/style.js";
+import type { Rgb24 } from "../widgets/style.js";
 import type { Theme } from "./theme.js";
 import type { ColorTokens } from "./tokens.js";
 
 function extractColorTokens(theme: Theme): ColorTokens | null {
   const c = theme.colors;
-  const bgBase = c["bg.base"] as Rgb | undefined;
+  const bgBase = c["bg.base"] as Rgb24 | undefined;
   if (!bgBase) return null;
 
   return {
     bg: {
       base: bgBase,
-      elevated: (c["bg.elevated"] as Rgb) ?? bgBase,
-      overlay: (c["bg.overlay"] as Rgb) ?? bgBase,
-      subtle: (c["bg.subtle"] as Rgb) ?? bgBase,
+      elevated: (c["bg.elevated"] as Rgb24) ?? bgBase,
+      overlay: (c["bg.overlay"] as Rgb24) ?? bgBase,
+      subtle: (c["bg.subtle"] as Rgb24) ?? bgBase,
     },
     fg: {
-      primary: (c["fg.primary"] as Rgb) ?? c.fg,
-      secondary: (c["fg.secondary"] as Rgb) ?? c.muted,
-      muted: (c["fg.muted"] as Rgb) ?? c.muted,
-      inverse: (c["fg.inverse"] as Rgb) ?? c.bg,
+      primary: (c["fg.primary"] as Rgb24) ?? c.fg,
+      secondary: (c["fg.secondary"] as Rgb24) ?? c.muted,
+      muted: (c["fg.muted"] as Rgb24) ?? c.muted,
+      inverse: (c["fg.inverse"] as Rgb24) ?? c.bg,
     },
     accent: {
-      primary: (c["accent.primary"] as Rgb) ?? c.primary,
-      secondary: (c["accent.secondary"] as Rgb) ?? c.secondary,
-      tertiary: (c["accent.tertiary"] as Rgb) ?? c.info,
+      primary: (c["accent.primary"] as Rgb24) ?? c.primary,
+      secondary: (c["accent.secondary"] as Rgb24) ?? c.secondary,
+      tertiary: (c["accent.tertiary"] as Rgb24) ?? c.info,
     },
     success: c.success,
     warning: c.warning,
-    error: c.danger ?? (c as { error?: Rgb }).error ?? c.primary ?? c.fg ?? bgBase,
+    error: c.danger ?? (c as { error?: Rgb24 }).error ?? c.primary ?? c.fg ?? bgBase,
     info: c.info,
     focus: {
-      ring: (c["focus.ring"] as Rgb) ?? c.primary,
-      bg: (c["focus.bg"] as Rgb) ?? c.bg,
+      ring: (c["focus.ring"] as Rgb24) ?? c.primary,
+      bg: (c["focus.bg"] as Rgb24) ?? c.bg,
     },
     selected: {
-      bg: (c["selected.bg"] as Rgb) ?? c.primary,
-      fg: (c["selected.fg"] as Rgb) ?? c.fg,
+      bg: (c["selected.bg"] as Rgb24) ?? c.primary,
+      fg: (c["selected.fg"] as Rgb24) ?? c.fg,
     },
     disabled: {
-      fg: (c["disabled.fg"] as Rgb) ?? c.muted,
-      bg: (c["disabled.bg"] as Rgb) ?? c.bg,
+      fg: (c["disabled.fg"] as Rgb24) ?? c.muted,
+      bg: (c["disabled.bg"] as Rgb24) ?? c.bg,
     },
     diagnostic: {
       error:
-        (c["diagnostic.error"] as Rgb) ??
+        (c["diagnostic.error"] as Rgb24) ??
         c.danger ??
-        (c as { error?: Rgb }).error ??
+        (c as { error?: Rgb24 }).error ??
         c.primary ??
         c.fg ??
         bgBase,
-      warning: (c["diagnostic.warning"] as Rgb) ?? c.warning,
-      info: (c["diagnostic.info"] as Rgb) ?? c.info,
-      hint: (c["diagnostic.hint"] as Rgb) ?? c.success,
+      warning: (c["diagnostic.warning"] as Rgb24) ?? c.warning,
+      info: (c["diagnostic.info"] as Rgb24) ?? c.info,
+      hint: (c["diagnostic.hint"] as Rgb24) ?? c.success,
     },
     border: {
-      subtle: (c["border.subtle"] as Rgb) ?? c.border,
-      default: (c["border.default"] as Rgb) ?? c.border,
-      strong: (c["border.strong"] as Rgb) ?? c.border,
+      subtle: (c["border.subtle"] as Rgb24) ?? c.border,
+      default: (c["border.default"] as Rgb24) ?? c.border,
+      strong: (c["border.strong"] as Rgb24) ?? c.border,
     },
   };
 }

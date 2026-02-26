@@ -27,7 +27,7 @@ import {
   DEFAULT_TERMINAL_CAPS,
 } from "@rezi-ui/core";
 import {
-  ZR_DRAWLIST_VERSION_V5,
+  ZR_DRAWLIST_VERSION_V1,
   ZR_ENGINE_ABI_MAJOR,
   ZR_ENGINE_ABI_MINOR,
   ZR_ENGINE_ABI_PATCH,
@@ -247,23 +247,6 @@ export function readDebugBytesWithRetry<TEmpty>(
   }
 }
 
-function parseDrawlistVersion(v: unknown): 2 | 3 | 4 | 5 | null {
-  if (v === undefined) return null;
-  if (v === 2 || v === 3 || v === 4 || v === 5) return v;
-  throw new ZrUiError(
-    "ZRUI_INVALID_PROPS",
-    `createNodeBackend config mismatch: drawlistVersion must be one of 2, 3, 4, 5 (got ${String(v)}).`,
-  );
-}
-
-function resolveRequestedDrawlistVersion(
-  config: Readonly<{ drawlistVersion?: 2 | 3 | 4 | 5 }>,
-): 2 | 3 | 4 | 5 {
-  const explicitDrawlistVersion = parseDrawlistVersion(config.drawlistVersion);
-  if (explicitDrawlistVersion !== null) return explicitDrawlistVersion;
-  return ZR_DRAWLIST_VERSION_V5;
-}
-
 function parseBoundedPositiveIntOrThrow(
   name: string,
   value: unknown,
@@ -376,7 +359,7 @@ async function loadNative(shimModule: string | undefined): Promise<NativeApi> {
 
 export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = {}): NodeBackend {
   const cfg = opts.config ?? {};
-  const requestedDrawlistVersion = resolveRequestedDrawlistVersion(cfg);
+  const requestedDrawlistVersion = ZR_DRAWLIST_VERSION_V1;
   const fpsCap = parseBoundedPositiveIntOrThrow(
     "fpsCap",
     cfg.fpsCap,

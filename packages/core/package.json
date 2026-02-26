@@ -99,6 +99,10 @@
       "types": "./dist/ui.d.ts",
       "default": "./dist/ui.js"
     },
+    "./pipeline": {
+      "types": "./dist/pipeline.d.ts",
+      "default": "./dist/pipeline.js"
+    },
     "./widgets": {
       "types": "./dist/widgets/index.d.ts",
       "default": "./dist/widgets/index.js"

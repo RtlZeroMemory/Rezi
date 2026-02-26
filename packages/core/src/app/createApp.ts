@@ -596,20 +596,13 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   const config = resolveAppConfig(opts.config);
 
   const backendDrawlistVersion = readBackendDrawlistVersionMarker(backend);
-  if (backendDrawlistVersion !== null && backendDrawlistVersion < 2) {
+  if (backendDrawlistVersion !== null && backendDrawlistVersion !== 1) {
     invalidProps(
       `backend drawlistVersion=${String(
         backendDrawlistVersion,
-      )} is no longer supported. Fix: set backend drawlist version >= 2.`,
+      )} is invalid. Fix: set backend drawlist version marker to 1.`,
     );
   }
-  const drawlistVersion: 2 | 3 | 4 | 5 =
-    backendDrawlistVersion === 2 ||
-    backendDrawlistVersion === 3 ||
-    backendDrawlistVersion === 4 ||
-    backendDrawlistVersion === 5
-      ? backendDrawlistVersion
-      : 5;
 
   const backendMaxEventBytes = readBackendPositiveIntMarker(
     backend,
@@ -799,7 +792,6 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
   const rawRenderer = new RawRenderer({
     backend,
-    drawlistVersion,
     maxDrawlistBytes: config.maxDrawlistBytes,
     ...(opts.config?.drawlistValidateParams === undefined
       ? {}
@@ -809,7 +801,6 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   });
   const widgetRenderer = new WidgetRenderer<S>({
     backend,
-    drawlistVersion,
     maxDrawlistBytes: config.maxDrawlistBytes,
     rootPadding: config.rootPadding,
     breakpointThresholds: config.breakpointThresholds,

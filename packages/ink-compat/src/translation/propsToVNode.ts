@@ -1,4 +1,4 @@
-import { type Rgb, type VNode, rgb, ui } from "@rezi-ui/core";
+import { type Rgb24, type VNode, rgb, ui } from "@rezi-ui/core";
 
 import type { InkHostContainer, InkHostNode } from "../reconciler/types.js";
 import { mapBorderStyle } from "./borderMap.js";
@@ -12,8 +12,8 @@ interface TextSpan {
 }
 
 interface TextStyleMap {
-  fg?: Rgb;
-  bg?: Rgb;
+  fg?: Rgb24;
+  bg?: Rgb24;
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
@@ -131,13 +131,13 @@ interface LayoutProps extends Record<string, unknown> {
   mb?: number;
   ml?: number;
   gap?: number;
-  width?: number;
-  height?: number;
+  width?: number | `${number}%`;
+  height?: number | `${number}%`;
   minWidth?: number;
   minHeight?: number;
   maxWidth?: number;
   maxHeight?: number;
-  flexBasis?: number;
+  flexBasis?: number | `${number}%`;
   flex?: number;
   flexShrink?: number;
   items?: string;
@@ -221,7 +221,7 @@ function readAccessibilityLabel(props: Record<string, unknown>): string | undefi
   return undefined;
 }
 
-const ANSI_16_PALETTE: readonly Rgb[] = [
+const ANSI_16_PALETTE: readonly Rgb24[] = [
   rgb(0, 0, 0),
   rgb(205, 0, 0),
   rgb(0, 205, 0),
@@ -492,6 +492,14 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
     layoutProps.gap = p.rowGap;
   }
 
+  // Rezi core's layout engine natively resolves percent strings (e.g. "50%")
+  // for width, height, and flexBasis via resolveConstraint(). Pass them through
+  // directly instead of creating __inkPercent* markers that trigger a costly
+  // two-pass layout in renderFrame().
+  // minWidth/minHeight only accept numbers in Rezi core, so those still use
+  // the marker approach (but gemini-cli doesn't use percent values for those).
+  const NATIVE_PERCENT_PROPS = new Set(["width", "height", "flexBasis"]);
+
   const applyNumericOrPercentDimension = (
     prop: "width" | "height" | "minWidth" | "minHeight" | "flexBasis",
     value: unknown,
@@ -503,8 +511,14 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
 
     const percent = parsePercentValue(value);
     if (percent != null) {
-      const markerKey = `__inkPercent${prop.charAt(0).toUpperCase()}${prop.slice(1)}`;
-      layoutProps[markerKey] = percent;
+      if (NATIVE_PERCENT_PROPS.has(prop)) {
+        // Pass percent string directly — layout engine resolves it natively
+        (layoutProps as Record<string, unknown>)[prop] = `${percent}%`;
+      } else {
+        // minWidth/minHeight: layout engine only accepts numbers, use marker
+        const markerKey = `__inkPercent${prop.charAt(0).toUpperCase()}${prop.slice(1)}`;
+        layoutProps[markerKey] = percent;
+      }
       return;
     }
 
@@ -683,7 +697,7 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
     if (Object.keys(style).length > 0) layoutProps.style = style;
 
     const explicitBorderColor = parseColor(p.borderColor as string | undefined);
-    const edgeBorderColors: Record<"top" | "right" | "bottom" | "left", Rgb | undefined> = {
+    const edgeBorderColors: Record<"top" | "right" | "bottom" | "left", Rgb24 | undefined> = {
       top: parseColor(p.borderTopColor as string | undefined),
       right: parseColor(p.borderRightColor as string | undefined),
       bottom: parseColor(p.borderBottomColor as string | undefined),
@@ -1298,7 +1312,7 @@ function resetSgrColor(
   delete activeStyle[channel];
 }
 
-function decodeAnsi256Color(index: number): Rgb {
+function decodeAnsi256Color(index: number): Rgb24 {
   if (index < 16) return ANSI_16_PALETTE[index]!;
 
   if (index <= 231) {

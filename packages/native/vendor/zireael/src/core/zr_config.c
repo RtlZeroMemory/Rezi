@@ -139,11 +139,7 @@ zr_result_t zr_engine_config_validate(const zr_engine_config_t* cfg) {
     return ZR_ERR_UNSUPPORTED;
   }
 
-  if ((cfg->requested_drawlist_version != ZR_DRAWLIST_VERSION_V1 &&
-       cfg->requested_drawlist_version != ZR_DRAWLIST_VERSION_V2 &&
-       cfg->requested_drawlist_version != ZR_DRAWLIST_VERSION_V3 &&
-       cfg->requested_drawlist_version != ZR_DRAWLIST_VERSION_V4 &&
-       cfg->requested_drawlist_version != ZR_DRAWLIST_VERSION_V5) ||
+  if (cfg->requested_drawlist_version != ZR_DRAWLIST_VERSION_V1 ||
       cfg->requested_event_batch_version != ZR_EVENT_BATCH_VERSION_V1) {
     return ZR_ERR_UNSUPPORTED;
   }

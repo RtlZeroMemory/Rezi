@@ -1,5 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { createDrawlistBuilderV1, createDrawlistBuilderV2 } from "../../index.js";
+import { createDrawlistBuilder } from "../../index.js";
 
 function u32(bytes: Uint8Array, off: number): number {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -20,8 +20,8 @@ function drawTextAttrs(bytes: Uint8Array): number {
 }
 
 describe("drawlist style attrs encode dim", () => {
-  test("v1 drawText attrs include dim without shifting existing bits", () => {
-    const b = createDrawlistBuilderV1();
+  test("drawText attrs include dim without shifting existing bits", () => {
+    const b = createDrawlistBuilder();
     b.drawText(0, 0, "dim", { dim: true });
     const res = b.build();
     assert.equal(res.ok, true);
@@ -30,8 +30,8 @@ describe("drawlist style attrs encode dim", () => {
     assert.equal(drawTextAttrs(res.bytes), 1 << 4);
   });
 
-  test("v2 drawText attrs include dim without shifting existing bits", () => {
-    const b = createDrawlistBuilderV2();
+  test("drawText attrs include dim without shifting existing bits (repeat)", () => {
+    const b = createDrawlistBuilder();
     b.drawText(0, 0, "dim", { dim: true });
     const res = b.build();
     assert.equal(res.ok, true);
@@ -41,7 +41,7 @@ describe("drawlist style attrs encode dim", () => {
   });
 
   test("v1 text-run attrs include dim without shifting existing bits", () => {
-    const b = createDrawlistBuilderV1();
+    const b = createDrawlistBuilder();
     const blobIndex = b.addTextRunBlob([
       { text: "dim", style: { dim: true } },
       { text: "base", style: { bold: true, italic: true, underline: true, inverse: true } },
@@ -59,7 +59,7 @@ describe("drawlist style attrs encode dim", () => {
   });
 
   test("v2 text-run attrs include dim without shifting existing bits", () => {
-    const b = createDrawlistBuilderV2();
+    const b = createDrawlistBuilder();
     const blobIndex = b.addTextRunBlob([
       { text: "dim", style: { dim: true } },
       { text: "base", style: { bold: true, italic: true, underline: true, inverse: true } },

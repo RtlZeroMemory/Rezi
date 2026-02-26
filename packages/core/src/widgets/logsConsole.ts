@@ -7,6 +7,7 @@
  * @see docs/widgets/logs-console.md
  */
 
+import { rgb, type Rgb24 } from "./style.js";
 import type { LogEntry, LogLevel } from "./types.js";
 
 /** Default max log entries to keep. */
@@ -205,13 +206,13 @@ export function formatCost(costCents: number): string {
   return `$${(costCents / 100).toFixed(2)}`;
 }
 
-/** Level color map (RGB). */
-export const LEVEL_COLORS: Record<LogLevel, { r: number; g: number; b: number }> = {
-  trace: { r: 100, g: 100, b: 100 },
-  debug: { r: 150, g: 150, b: 150 },
-  info: { r: 255, g: 255, b: 255 },
-  warn: { r: 255, g: 200, b: 50 },
-  error: { r: 255, g: 80, b: 80 },
+/** Level color map (packed RGB24). */
+export const LEVEL_COLORS: Record<LogLevel, Rgb24> = {
+  trace: rgb(100, 100, 100),
+  debug: rgb(150, 150, 150),
+  info: rgb(255, 255, 255),
+  warn: rgb(255, 200, 50),
+  error: rgb(255, 80, 80),
 };
 
 /** Level priority for filtering. */

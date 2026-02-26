@@ -1,5 +1,5 @@
 import { assert, assertBytesEqual, describe, readFixture, test } from "@rezi-ui/testkit";
-import { type VNode, createDrawlistBuilderV1 } from "../../index.js";
+import { type VNode, createDrawlistBuilder } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
 import type { FocusState } from "../../runtime/focus.js";
@@ -35,7 +35,7 @@ function renderBytes(vnode: VNode, focusState: FocusState, tick: number): Uint8A
   const committed = commitTree(vnode);
   const lt = layoutTree(committed.vnode);
 
-  const b = createDrawlistBuilderV1();
+  const b = createDrawlistBuilder();
   renderToDrawlist({
     tree: committed,
     layout: lt,

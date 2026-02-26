@@ -1,5 +1,5 @@
 import type { CursorShape } from "../../abi.js";
-import type { DrawlistBuilderV1 } from "../../drawlist/types.js";
+import type { DrawlistBuilder } from "../../drawlist/types.js";
 import type { LayoutTree } from "../../layout/layout.js";
 import type { Rect } from "../../layout/types.js";
 import type { RuntimeInstance } from "../../runtime/commit.js";
@@ -68,7 +68,7 @@ export type RenderToDrawlistParams = Readonly<{
   focusState: FocusState;
   /** Optional currently pressed interactive widget id. */
   pressedId?: string | null | undefined;
-  builder: DrawlistBuilderV1;
+  builder: DrawlistBuilder;
   /** Optional animation tick/frame index (used by spinners, etc.). */
   tick?: number | undefined;
   /** Optional app theme for themed widgets (e.g., divider). */

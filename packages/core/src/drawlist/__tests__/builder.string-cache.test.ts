@@ -1,5 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { createDrawlistBuilderV1, createDrawlistBuilderV2 } from "../../index.js";
+import { createDrawlistBuilder } from "../../index.js";
 
 const OP_DRAW_TEXT = 3;
 
@@ -21,8 +21,7 @@ const FACTORIES: readonly Readonly<{
   name: string;
   create(opts?: BuilderOpts): BuilderLike;
 }>[] = [
-  { name: "v1", create: (opts?: BuilderOpts) => createDrawlistBuilderV1(opts) },
-  { name: "v2", create: (opts?: BuilderOpts) => createDrawlistBuilderV2(opts) },
+  { name: "current", create: (opts?: BuilderOpts) => createDrawlistBuilder(opts) },
 ];
 
 function u16(bytes: Uint8Array, off: number): number {

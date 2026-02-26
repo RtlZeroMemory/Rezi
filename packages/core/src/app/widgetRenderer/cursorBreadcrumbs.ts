@@ -1,4 +1,4 @@
-import type { DrawlistBuilderV2 } from "../../drawlist/index.js";
+import type { DrawlistBuilder } from "../../drawlist/index.js";
 import { measureTextCells } from "../../layout/textMeasure.js";
 import type { Rect } from "../../layout/types.js";
 import type { CursorInfo } from "../../renderer/renderToDrawlist.js";
@@ -62,7 +62,7 @@ type SnapshotRenderedFrameStateParams = Readonly<{
 
 const UTF8_LINE_FEED = 0x0a;
 
-type CursorBuilderLike = Pick<DrawlistBuilderV2, "setCursor" | "hideCursor">;
+type CursorBuilderLike = Pick<DrawlistBuilder, "setCursor" | "hideCursor">;
 
 function isCursorBuilder(builder: unknown): builder is CursorBuilderLike {
   return (

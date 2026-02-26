@@ -205,6 +205,70 @@ zr_result_t zr_fb_links_clone_from(zr_fb_t* dst, const zr_fb_t* src) {
   return ZR_OK;
 }
 
+zr_result_t zr_fb_copy_damage_rects(zr_fb_t* dst, const zr_fb_t* src, const zr_damage_rect_t* rects,
+                                    uint32_t rect_count) {
+  if (!dst || !src) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+  if (dst->cols != src->cols || dst->rows != src->rows) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+  if (rect_count != 0u && !rects) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+  if (dst == src || rect_count == 0u) {
+    return ZR_OK;
+  }
+  if (dst->cols == 0u || dst->rows == 0u) {
+    return ZR_OK;
+  }
+  if (!dst->cells || !src->cells) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+
+  const uint32_t max_x = dst->cols - 1u;
+  const uint32_t max_y = dst->rows - 1u;
+  for (uint32_t i = 0u; i < rect_count; i++) {
+    uint32_t x0 = rects[i].x0;
+    uint32_t y0 = rects[i].y0;
+    uint32_t x1 = rects[i].x1;
+    uint32_t y1 = rects[i].y1;
+
+    if (x0 > x1 || y0 > y1) {
+      continue;
+    }
+    if (x0 > max_x || y0 > max_y) {
+      continue;
+    }
+
+    x1 = ZR_MIN(x1, max_x);
+    y1 = ZR_MIN(y1, max_y);
+    if (x0 > x1 || y0 > y1) {
+      continue;
+    }
+
+    size_t span_cells = 0u;
+    if (!zr_checked_add_size((size_t)(x1 - x0), 1u, &span_cells)) {
+      return ZR_ERR_LIMIT;
+    }
+    size_t span_bytes = 0u;
+    if (!zr_checked_mul_size(span_cells, sizeof(zr_cell_t), &span_bytes)) {
+      return ZR_ERR_LIMIT;
+    }
+
+    for (uint32_t y = y0; y <= y1; y++) {
+      size_t row_start = 0u;
+      if (!zr_checked_mul_size((size_t)y, (size_t)dst->cols, &row_start) ||
+          !zr_checked_add_size(row_start, (size_t)x0, &row_start)) {
+        return ZR_ERR_LIMIT;
+      }
+      memcpy(dst->cells + row_start, src->cells + row_start, span_bytes);
+    }
+  }
+
+  return ZR_OK;
+}
+
 static zr_rect_t zr_rect_empty(void) {
   zr_rect_t r;
   r.x = 0;

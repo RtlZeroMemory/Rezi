@@ -8,9 +8,7 @@
  * @see docs/protocol/zrdl.md
  */
 
-export { createDrawlistBuilderV1, type DrawlistBuilderV1Opts } from "./builder_v1.js";
-export { createDrawlistBuilderV2, type DrawlistBuilderV2Opts } from "./builder_v2.js";
-export { createDrawlistBuilderV3, type DrawlistBuilderV3Opts } from "./builder_v3.js";
+export { createDrawlistBuilder, type DrawlistBuilderOpts } from "./builder.js";
 
 export type {
   DrawlistCanvasBlitter,
@@ -22,7 +20,5 @@ export type {
   DrawlistBuildErrorCode,
   DrawlistBuildResult,
   DrawlistBuildInto,
-  DrawlistBuilderV1,
-  DrawlistBuilderV2,
-  DrawlistBuilderV3,
+  DrawlistBuilder,
 } from "./types.js";

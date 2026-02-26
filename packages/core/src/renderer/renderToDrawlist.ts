@@ -7,7 +7,7 @@
  * @see docs/guide/runtime-and-layout.md
  */
 
-import type { DrawlistBuilderV1, DrawlistBuilderV2 } from "../drawlist/types.js";
+import type { DrawlistBuilder } from "../drawlist/types.js";
 import { defaultTheme } from "../theme/defaultTheme.js";
 import { indexIdRects, indexLayoutRects } from "./renderToDrawlist/indices.js";
 import { renderTree } from "./renderToDrawlist/renderTree.js";
@@ -22,13 +22,6 @@ export type {
   DiffRenderCache,
   CodeEditorRenderCache,
 } from "./renderToDrawlist/types.js";
-
-/**
- * Check if a builder supports cursor commands.
- */
-function isCursorBuilder(builder: DrawlistBuilderV1): builder is DrawlistBuilderV2 {
-  return typeof (builder as DrawlistBuilderV2).setCursor === "function";
-}
 
 /**
  * Render a committed runtime tree to a drawlist.
@@ -88,7 +81,7 @@ export function renderToDrawlist(params: RenderToDrawlistParams): void {
   );
 
   /* Cursor protocol: emit SET_CURSOR for focused input */
-  if (resolvedCursor && isCursorBuilder(params.builder)) {
+  if (resolvedCursor) {
     params.builder.setCursor({
       x: resolvedCursor.x,
       y: resolvedCursor.y,
@@ -96,7 +89,7 @@ export function renderToDrawlist(params: RenderToDrawlistParams): void {
       visible: true,
       blink: resolvedCursor.blink,
     });
-  } else if (params.cursorInfo && isCursorBuilder(params.builder)) {
+  } else if (params.cursorInfo) {
     /* No focused input: hide cursor */
     params.builder.hideCursor();
   }

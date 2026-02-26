@@ -1,4 +1,4 @@
-import type { DrawlistBuilderV1 } from "../../../drawlist/types.js";
+import type { DrawlistBuilder } from "../../../drawlist/types.js";
 import type { LayoutTree } from "../../../layout/layout.js";
 import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
@@ -31,7 +31,7 @@ export type ResolvedCursor = Readonly<{
 }>;
 
 function maybeFillOwnBackground(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   rect: Rect,
   ownStyle: unknown,
   style: ResolvedTextStyle,
@@ -47,7 +47,7 @@ function readZLayer(v: unknown): -1 | 0 | 1 {
 }
 
 export function renderBasicWidget(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   focusState: FocusState,
   pressedId: string | null,
   rect: Rect,

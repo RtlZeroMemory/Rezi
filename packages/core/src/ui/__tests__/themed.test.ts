@@ -1,7 +1,7 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type {
   DrawlistBuildResult,
-  DrawlistBuilderV1,
+  DrawlistBuilder,
   DrawlistTextRunSegment,
 } from "../../drawlist/types.js";
 import { layout } from "../../layout/layout.js";
@@ -14,7 +14,7 @@ import type { TextStyle } from "../../widgets/style.js";
 import type { VNode } from "../../widgets/types.js";
 import { ui } from "../../widgets/ui.js";
 
-class RecordingBuilder implements DrawlistBuilderV1 {
+class RecordingBuilder implements DrawlistBuilder {
   readonly textOps: Array<Readonly<{ text: string; style?: TextStyle }>> = [];
 
   clear(): void {}
@@ -32,6 +32,14 @@ class RecordingBuilder implements DrawlistBuilderV1 {
     return null;
   }
   drawTextRun(_x: number, _y: number, _blobIndex: number): void {}
+  setCursor(..._args: Parameters<DrawlistBuilder["setCursor"]>): void {}
+  hideCursor(): void {}
+  setLink(..._args: Parameters<DrawlistBuilder["setLink"]>): void {}
+  drawCanvas(..._args: Parameters<DrawlistBuilder["drawCanvas"]>): void {}
+  drawImage(..._args: Parameters<DrawlistBuilder["drawImage"]>): void {}
+  buildInto(_dst: Uint8Array): DrawlistBuildResult {
+    return this.build();
+  }
   build(): DrawlistBuildResult {
     return { ok: true, bytes: new Uint8Array() };
   }
@@ -84,7 +92,7 @@ function fgByText(
 
 describe("ui.themed", () => {
   test("creates themed vnode and filters children", () => {
-    const vnode = ui.themed({ colors: { accent: { primary: { r: 1, g: 2, b: 3 } } } }, [
+    const vnode = ui.themed({ colors: { accent: { primary: ((1 << 16) | (2 << 8) | 3) } } }, [
       ui.text("a"),
       null,
       false,
@@ -94,17 +102,17 @@ describe("ui.themed", () => {
     if (vnode.kind !== "themed") return;
     assert.equal(vnode.children.length, 2);
     assert.deepEqual((vnode.props.theme as { colors?: unknown }).colors, {
-      accent: { primary: { r: 1, g: 2, b: 3 } },
+      accent: { primary: ((1 << 16) | (2 << 8) | 3) },
     });
   });
 
   test("applies theme override to subtree without leaking to siblings", () => {
     const baseTheme = createTheme({
       colors: {
-        primary: { r: 200, g: 40, b: 40 },
+        primary: ((200 << 16) | (40 << 8) | 40),
       },
     });
-    const scopedPrimary = { r: 30, g: 210, b: 40 };
+    const scopedPrimary = ((30 << 16) | (210 << 8) | 40);
 
     const vnode = ui.column({}, [
       ui.divider({ label: "OUT", color: "primary" }),
@@ -130,7 +138,7 @@ describe("ui.themed", () => {
   test("is layout-transparent for single-child subtrees", () => {
     const tree = commitAndLayout(
       ui.column({}, [
-        ui.themed({ colors: { accent: { primary: { r: 10, g: 20, b: 30 } } } }, [
+        ui.themed({ colors: { accent: { primary: ((10 << 16) | (20 << 8) | 30) } } }, [
           ui.text("inside"),
         ]),
         ui.text("outside"),

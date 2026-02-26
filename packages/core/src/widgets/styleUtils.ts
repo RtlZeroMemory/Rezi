@@ -1,16 +1,8 @@
 /**
  * packages/core/src/widgets/styleUtils.ts — Style helpers.
- *
- * Why: Provides small, deterministic helpers for composing TextStyle objects.
  */
 
-import type { Rgb, TextStyle, ThemeColor, UnderlineStyle } from "./style.js";
-
-type RgbInput = {
-  r?: unknown;
-  g?: unknown;
-  b?: unknown;
-};
+import type { Rgb24, TextStyle, ThemeColor, UnderlineStyle } from "./style.js";
 
 type TextStyleInput = {
   fg?: unknown;
@@ -36,21 +28,6 @@ const VALID_UNDERLINE_STYLES = new Set<UnderlineStyle>([
   "dashed",
 ]);
 
-function parseChannel(value: unknown): number | undefined {
-  let n: number | undefined;
-  if (typeof value === "number" && Number.isFinite(value)) {
-    n = value;
-  } else if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (trimmed.length === 0) return undefined;
-    const parsed = Number(trimmed);
-    if (Number.isFinite(parsed)) n = parsed;
-  }
-  if (n === undefined) return undefined;
-  const rounded = Math.round(n);
-  return Math.min(255, Math.max(0, rounded));
-}
-
 function parseBoolean(value: unknown): boolean | undefined {
   if (typeof value === "boolean") return value;
   if (typeof value !== "string") return undefined;
@@ -67,9 +44,9 @@ function parseUnderlineStyle(value: unknown): UnderlineStyle | undefined {
   return undefined;
 }
 
-function parseUnderlineColor(value: unknown): Rgb | ThemeColor | undefined {
-  const rgb = sanitizeRgb(value);
-  if (rgb !== undefined) return rgb;
+function parseUnderlineColor(value: unknown): Rgb24 | ThemeColor | undefined {
+  const packed = sanitizeRgb(value);
+  if (packed !== undefined) return packed;
   if (typeof value === "string") {
     const trimmed = value.trim();
     if (trimmed.length > 0) return trimmed;
@@ -77,22 +54,17 @@ function parseUnderlineColor(value: unknown): Rgb | ThemeColor | undefined {
   return undefined;
 }
 
-/**
- * Clamp/normalize RGB channels into valid byte range.
- */
-export function sanitizeRgb(value: unknown): Rgb | undefined {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
-  const source = value as RgbInput;
-  const r = parseChannel(source.r);
-  const g = parseChannel(source.g);
-  const b = parseChannel(source.b);
-  if (r === undefined || g === undefined || b === undefined) return undefined;
-  return { r, g, b };
+/** Clamp/normalize packed RGB values to 24-bit. */
+export function sanitizeRgb(value: unknown): Rgb24 | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  if (value <= 0) return 0;
+  if (value >= 0x00ff_ffff) return 0x00ff_ffff;
+  return (Math.round(value) >>> 0) & 0x00ff_ffff;
 }
 
 /**
- * Normalize style objects from dynamic inputs (e.g., agent-generated props).
- * Invalid keys/values are dropped; RGB channels are clamped to 0..255.
+ * Normalize style objects from dynamic inputs.
+ * Invalid keys/values are dropped.
  */
 export function sanitizeTextStyle(style: unknown): TextStyle {
   if (typeof style !== "object" || style === null || Array.isArray(style)) {
@@ -101,8 +73,8 @@ export function sanitizeTextStyle(style: unknown): TextStyle {
 
   const src = style as TextStyleInput;
   const sanitized: {
-    fg?: Rgb;
-    bg?: Rgb;
+    fg?: Rgb24;
+    bg?: Rgb24;
     bold?: boolean;
     dim?: boolean;
     italic?: boolean;
@@ -112,7 +84,7 @@ export function sanitizeTextStyle(style: unknown): TextStyle {
     overline?: boolean;
     blink?: boolean;
     underlineStyle?: UnderlineStyle;
-    underlineColor?: Rgb | ThemeColor;
+    underlineColor?: Rgb24 | ThemeColor;
   } = {};
 
   const fg = sanitizeRgb(src.fg);
@@ -144,9 +116,7 @@ export function sanitizeTextStyle(style: unknown): TextStyle {
   return sanitized;
 }
 
-/**
- * Merge multiple styles; later styles override earlier.
- */
+/** Merge multiple styles; later styles override earlier. */
 export function mergeStyles(...styles: (TextStyle | undefined)[]): TextStyle {
   let out: TextStyle = {};
   for (const s of styles) {
@@ -156,16 +126,12 @@ export function mergeStyles(...styles: (TextStyle | undefined)[]): TextStyle {
   return out;
 }
 
-/**
- * Extend a base style with overrides.
- */
+/** Extend a base style with overrides. */
 export function extendStyle(base: TextStyle, overrides: TextStyle): TextStyle {
   return mergeStyles(base, overrides);
 }
 
-/**
- * Conditional style selection.
- */
+/** Conditional style selection. */
 export function styleWhen<T extends TextStyle>(
   condition: boolean,
   trueStyle: T,
@@ -175,9 +141,7 @@ export function styleWhen<T extends TextStyle>(
   return falseStyle;
 }
 
-/**
- * Style presets.
- */
+/** Style presets. */
 export const styles = {
   bold: { bold: true } as const,
   dim: { dim: true } as const,

@@ -98,10 +98,8 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function isRgb(value: unknown): value is Readonly<{ r: number; g: number; b: number }> {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as { r?: unknown; g?: unknown; b?: unknown };
-  return isFiniteNumber(candidate.r) && isFiniteNumber(candidate.g) && isFiniteNumber(candidate.b);
+function isRgb24(value: unknown): value is number {
+  return isFiniteNumber(value) && value >= 0 && value <= 0x00ff_ffff;
 }
 
 function isSpacingToken(value: unknown): value is number {
@@ -113,7 +111,7 @@ function readLegacyThemeColors(theme: Theme | ThemeDefinition | undefined): Them
   const colors = (theme as { colors?: unknown }).colors;
   if (!colors || typeof colors !== "object") return null;
   const candidate = colors as { fg?: unknown; bg?: unknown } & Record<string, unknown>;
-  if (!isRgb(candidate.fg) || !isRgb(candidate.bg)) return null;
+  if (!isRgb24(candidate.fg) || !isRgb24(candidate.bg)) return null;
   return candidate as Theme["colors"];
 }
 
@@ -219,7 +217,6 @@ function toBackendConfig(config: NodeAppConfig | undefined): NodeBackendConfig {
     ...(config.executionMode !== undefined ? { executionMode: config.executionMode } : {}),
     ...(config.fpsCap !== undefined ? { fpsCap: config.fpsCap } : {}),
     ...(config.maxEventBytes !== undefined ? { maxEventBytes: config.maxEventBytes } : {}),
-    ...(config.drawlistVersion !== undefined ? { drawlistVersion: config.drawlistVersion } : {}),
     ...(config.frameTransport !== undefined ? { frameTransport: config.frameTransport } : {}),
     ...(config.frameSabSlotCount !== undefined
       ? { frameSabSlotCount: config.frameSabSlotCount }

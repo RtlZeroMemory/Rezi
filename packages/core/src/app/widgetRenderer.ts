@@ -24,13 +24,7 @@
 import type { CursorShape } from "../abi.js";
 import { BACKEND_RAW_WRITE_MARKER, type BackendRawWrite, type RuntimeBackend } from "../backend.js";
 import { CURSOR_DEFAULTS } from "../cursor/index.js";
-import {
-  type DrawlistBuilderV1,
-  type DrawlistBuilderV2,
-  type DrawlistBuilderV3,
-  createDrawlistBuilderV2,
-  createDrawlistBuilderV3,
-} from "../drawlist/index.js";
+import { type DrawlistBuilder, createDrawlistBuilder } from "../drawlist/index.js";
 import type { ZrevEvent } from "../events.js";
 import {
   buildTrie,
@@ -544,8 +538,8 @@ function monotonicNowMs(): number {
   return Date.now();
 }
 
-function isV2Builder(builder: DrawlistBuilderV1 | DrawlistBuilderV2): builder is DrawlistBuilderV2 {
-  return typeof (builder as DrawlistBuilderV2).setCursor === "function";
+function isV2Builder(builder: DrawlistBuilder | DrawlistBuilder): builder is DrawlistBuilder {
+  return typeof (builder as DrawlistBuilder).setCursor === "function";
 }
 
 function cloneFocusManagerState(state: FocusManagerState): FocusManagerState {
@@ -576,7 +570,7 @@ type ErrorBoundaryState = Readonly<{
  */
 export class WidgetRenderer<S> {
   private readonly backend: RuntimeBackend;
-  private readonly builder: DrawlistBuilderV1 | DrawlistBuilderV2 | DrawlistBuilderV3;
+  private readonly builder: DrawlistBuilder | DrawlistBuilder | DrawlistBuilder;
   private readonly cursorShape: CursorShape;
   private readonly cursorBlink: boolean;
   private collectRuntimeBreadcrumbs: boolean;
@@ -836,8 +830,7 @@ export class WidgetRenderer<S> {
   constructor(
     opts: Readonly<{
       backend: RuntimeBackend;
-      builder?: DrawlistBuilderV1 | DrawlistBuilderV2 | DrawlistBuilderV3;
-      drawlistVersion?: 2 | 3 | 4 | 5;
+      builder?: DrawlistBuilder;
       maxDrawlistBytes?: number;
       drawlistValidateParams?: boolean;
       drawlistReuseOutputBuffer?: boolean;
@@ -893,27 +886,7 @@ export class WidgetRenderer<S> {
       this.builder = opts.builder;
       return;
     }
-    const drawlistVersion = opts.drawlistVersion ?? 2;
-    if (
-      drawlistVersion !== 2 &&
-      drawlistVersion !== 3 &&
-      drawlistVersion !== 4 &&
-      drawlistVersion !== 5
-    ) {
-      throw new Error(
-        `drawlistVersion ${String(
-          drawlistVersion,
-        )} is no longer supported; use drawlistVersion 2, 3, 4, or 5.`,
-      );
-    }
-    if (drawlistVersion >= 3) {
-      this.builder = createDrawlistBuilderV3({
-        ...builderOpts,
-        drawlistVersion: drawlistVersion === 3 ? 3 : drawlistVersion === 4 ? 4 : 5,
-      });
-      return;
-    }
-    this.builder = createDrawlistBuilderV2(builderOpts);
+    this.builder = createDrawlistBuilder(builderOpts);
   }
 
   hasAnimatedWidgets(): boolean {

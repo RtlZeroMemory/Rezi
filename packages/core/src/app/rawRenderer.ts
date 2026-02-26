@@ -11,11 +11,7 @@
  */
 
 import type { RuntimeBackend } from "../backend.js";
-import {
-  type DrawlistBuilderV1,
-  createDrawlistBuilderV2,
-  createDrawlistBuilderV3,
-} from "../drawlist/index.js";
+import { type DrawlistBuilder, createDrawlistBuilder } from "../drawlist/index.js";
 import { perfMarkEnd, perfMarkStart } from "../perf/perf.js";
 import type { DrawFn } from "./types.js";
 
@@ -51,13 +47,12 @@ function describeThrown(v: unknown): string {
  */
 export class RawRenderer {
   private readonly backend: RuntimeBackend;
-  private readonly builder: DrawlistBuilderV1;
+  private readonly builder: DrawlistBuilder;
 
   constructor(
     opts: Readonly<{
       backend: RuntimeBackend;
-      builder?: DrawlistBuilderV1;
-      drawlistVersion?: 2 | 3 | 4 | 5;
+      builder?: DrawlistBuilder;
       maxDrawlistBytes?: number;
       drawlistValidateParams?: boolean;
       drawlistReuseOutputBuffer?: boolean;
@@ -81,27 +76,7 @@ export class RawRenderer {
       this.builder = opts.builder;
       return;
     }
-    const drawlistVersion = opts.drawlistVersion ?? 2;
-    if (
-      drawlistVersion !== 2 &&
-      drawlistVersion !== 3 &&
-      drawlistVersion !== 4 &&
-      drawlistVersion !== 5
-    ) {
-      throw new Error(
-        `drawlistVersion ${String(
-          drawlistVersion,
-        )} is no longer supported; use drawlistVersion 2, 3, 4, or 5.`,
-      );
-    }
-    if (drawlistVersion >= 3) {
-      this.builder = createDrawlistBuilderV3({
-        ...builderOpts,
-        drawlistVersion: drawlistVersion === 3 ? 3 : drawlistVersion === 4 ? 4 : 5,
-      });
-      return;
-    }
-    this.builder = createDrawlistBuilderV2(builderOpts);
+    this.builder = createDrawlistBuilder(builderOpts);
   }
 
   /**

@@ -1,9 +1,10 @@
-import type { DrawlistBuilderV1, DrawlistBuilderV3 } from "../../../drawlist/types.js";
+import type { DrawlistBuilder } from "../../../drawlist/types.js";
 import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { TerminalProfile } from "../../../terminalProfile.js";
 import type { Theme } from "../../../theme/theme.js";
 import { resolveColor } from "../../../theme/theme.js";
+import { rgbB, rgbG, rgbR } from "../../../widgets/style.js";
 import { createCanvasDrawingSurface, resolveCanvasBlitter } from "../../../widgets/canvas.js";
 import {
   type ImageBinaryFormat,
@@ -39,35 +40,7 @@ function repeatCached(glyph: string, count: number): string {
   return value;
 }
 
-function parseHexRgb(value: string): Readonly<{ r: number; g: number; b: number }> | null {
-  const raw = value.startsWith("#") ? value.slice(1) : value;
-  if (/^[0-9a-fA-F]{6}$/.test(raw)) {
-    const parsed = Number.parseInt(raw, 16);
-    return Object.freeze({
-      r: (parsed >> 16) & 0xff,
-      g: (parsed >> 8) & 0xff,
-      b: parsed & 0xff,
-    });
-  }
-  if (/^[0-9a-fA-F]{3}$/.test(raw)) {
-    const r = Number.parseInt(raw[0] ?? "0", 16);
-    const g = Number.parseInt(raw[1] ?? "0", 16);
-    const b = Number.parseInt(raw[2] ?? "0", 16);
-    return Object.freeze({
-      r: (r << 4) | r,
-      g: (g << 4) | g,
-      b: (b << 4) | b,
-    });
-  }
-  return null;
-}
-
-function resolveCanvasOverlayColor(
-  theme: Theme,
-  color: string,
-): Readonly<{ r: number; g: number; b: number }> {
-  const parsedHex = parseHexRgb(color);
-  if (parsedHex) return parsedHex;
+function resolveCanvasOverlayColor(theme: Theme, color: string): number {
   return resolveColor(theme, color);
 }
 
@@ -90,15 +63,6 @@ function readPositiveInt(v: unknown): number | undefined {
 
 function readString(v: unknown): string | undefined {
   return typeof v === "string" ? v : undefined;
-}
-
-function isV3Builder(builder: DrawlistBuilderV1): builder is DrawlistBuilderV3 {
-  const maybe = builder as Partial<DrawlistBuilderV3>;
-  return (
-    typeof maybe.drawCanvas === "function" &&
-    typeof maybe.drawImage === "function" &&
-    typeof maybe.setLink === "function"
-  );
 }
 
 function readGraphicsBlitter(v: unknown): GraphicsBlitter | undefined {
@@ -155,7 +119,7 @@ function resolveProtocolForImageSource(
 ): ImageRenderRoute {
   if (requested === "blitter") {
     if (!canDrawCanvas) {
-      return Object.freeze({ ok: false, reason: "blitter protocol requires drawlist v4" });
+      return Object.freeze({ ok: false, reason: "blitter protocol requires canvas draw support" });
     }
     if (format !== "rgba") {
       return Object.freeze({ ok: false, reason: "blitter protocol requires RGBA source" });
@@ -213,7 +177,7 @@ function resolveProtocolForImageSource(
 }
 
 export function drawPlaceholderBox(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   rect: Rect,
   style: ResolvedTextStyle,
   title: string,
@@ -246,7 +210,7 @@ function align4(value: number): number {
   return (value + 3) & ~3;
 }
 
-export function addBlobAligned(builder: DrawlistBuilderV1, bytes: Uint8Array): number | null {
+export function addBlobAligned(builder: DrawlistBuilder, bytes: Uint8Array): number | null {
   if ((bytes.byteLength & 3) === 0) return builder.addBlob(bytes);
   const padded = new Uint8Array(align4(bytes.byteLength));
   padded.set(bytes);
@@ -254,14 +218,14 @@ export function addBlobAligned(builder: DrawlistBuilderV1, bytes: Uint8Array): n
 }
 
 export function rgbToHex(color: ReturnType<typeof resolveColor>): string {
-  const r = color.r.toString(16).padStart(2, "0");
-  const g = color.g.toString(16).padStart(2, "0");
-  const b = color.b.toString(16).padStart(2, "0");
+  const r = rgbR(color).toString(16).padStart(2, "0");
+  const g = rgbG(color).toString(16).padStart(2, "0");
+  const b = rgbB(color).toString(16).padStart(2, "0");
   return `#${r}${g}${b}`;
 }
 
 export function renderCanvasWidgets(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   rect: Rect,
   theme: Theme,
   parentStyle: ResolvedTextStyle,
@@ -286,7 +250,7 @@ export function renderCanvasWidgets(
       );
       (props.draw as (ctx: typeof surface.ctx) => void)(surface.ctx);
 
-      if (isV3Builder(builder) && rect.w > 0 && rect.h > 0) {
+      if (rect.w > 0 && rect.h > 0) {
         const blobIndex = addBlobAligned(builder, surface.rgba);
         if (blobIndex !== null) {
           builder.drawCanvas(rect.x, rect.y, rect.w, rect.h, blobIndex, surface.blitter);
@@ -294,7 +258,7 @@ export function renderCanvasWidgets(
           drawPlaceholderBox(builder, rect, parentStyle, "Canvas", "blob allocation failed");
         }
       } else {
-        drawPlaceholderBox(builder, rect, parentStyle, "Canvas", "graphics not supported");
+        drawPlaceholderBox(builder, rect, parentStyle, "Canvas", "invalid canvas size");
       }
 
       if (surface.overlays.length > 0) {
@@ -347,7 +311,7 @@ export function renderCanvasWidgets(
         break;
       }
 
-      if (!isV3Builder(builder) || rect.w <= 0 || rect.h <= 0) {
+      if (rect.w <= 0 || rect.h <= 0) {
         drawPlaceholderBox(
           builder,
           rect,
@@ -364,7 +328,7 @@ export function renderCanvasWidgets(
         requestedProtocol,
         analyzed.format,
         terminalProfile,
-        builder.drawlistVersion >= 4,
+        true,
       );
       if (!resolvedProtocol.ok) {
         drawPlaceholderBox(

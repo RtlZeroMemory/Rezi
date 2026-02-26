@@ -8,6 +8,7 @@
  * @see docs/widgets/command-palette.md
  */
 
+import { rgb } from "./style.js";
 import type { CommandItem, CommandSource } from "./types.js";
 
 /** Default maximum visible items in the palette. */
@@ -281,9 +282,9 @@ export function computeHighlights(
 
 /** Palette color constants. */
 export const PALETTE_COLORS = {
-  background: { r: 30, g: 30, b: 30 },
-  border: { r: 60, g: 60, b: 60 },
-  selectedBg: { r: 0, g: 120, b: 215 },
-  highlight: { r: 255, g: 210, b: 0 },
-  placeholder: { r: 128, g: 128, b: 128 },
+  background: rgb(30, 30, 30),
+  border: rgb(60, 60, 60),
+  selectedBg: rgb(0, 120, 215),
+  highlight: rgb(255, 210, 0),
+  placeholder: rgb(128, 128, 128),
 } as const;

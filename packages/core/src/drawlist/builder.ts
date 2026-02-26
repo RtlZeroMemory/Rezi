@@ -1,10 +1,10 @@
-import { ZR_DRAWLIST_VERSION_V3, ZR_DRAWLIST_VERSION_V4, ZR_DRAWLIST_VERSION_V5 } from "../abi.js";
+import { ZR_DRAWLIST_VERSION_V1 } from "../abi.js";
 import type { TextStyle } from "../widgets/style.js";
-import { DrawlistBuilderBase, type DrawlistBuilderBaseOpts, packRgb } from "./builderBase.js";
+import { DrawlistBuilderBase, type DrawlistBuilderBaseOpts } from "./builderBase.js";
 import type {
   CursorState,
+  DrawlistBuilder,
   DrawlistBuildResult,
-  DrawlistBuilderV3,
   DrawlistCanvasBlitter,
   DrawlistImageFit,
   DrawlistImageFormat,
@@ -32,11 +32,7 @@ import {
   writeSetCursor,
 } from "./writers.gen.js";
 
-export type DrawlistBuilderV3Opts = Readonly<
-  DrawlistBuilderBaseOpts & {
-    drawlistVersion?: 3 | 4 | 5;
-  }
->;
+export type DrawlistBuilderOpts = DrawlistBuilderBaseOpts;
 
 const BLITTER_CODE: Readonly<Record<DrawlistCanvasBlitter, number>> = Object.freeze({
   auto: 0,
@@ -98,6 +94,11 @@ function encodeUnderlineStyle(style: TextStyle["underlineStyle"] | undefined): n
   }
 }
 
+function asPackedRgb24(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  return (value >>> 0) & 0x00ff_ffff;
+}
+
 function encodeStyle(style: TextStyle | undefined, linkRefs: LinkRefs | null): EncodedStyle {
   if (!style) {
     return {
@@ -111,20 +112,26 @@ function encodeStyle(style: TextStyle | undefined, linkRefs: LinkRefs | null): E
     };
   }
 
-  const fg = packRgb(style.fg) ?? 0;
-  const bg = packRgb(style.bg) ?? 0;
-  const underlineColor = packRgb(style.underlineColor) ?? 0;
+  const fg = asPackedRgb24(style.fg);
+  const bg = asPackedRgb24(style.bg);
+  const underlineColor = asPackedRgb24(style.underlineColor);
   const underlineStyle = encodeUnderlineStyle(style.underlineStyle);
 
-  let attrs = 0;
-  if (style.bold) attrs |= 1 << 0;
-  if (style.italic) attrs |= 1 << 1;
-  if (style.underline || underlineStyle !== 0) attrs |= 1 << 2;
-  if (style.inverse) attrs |= 1 << 3;
-  if (style.dim) attrs |= 1 << 4;
-  if (style.strikethrough) attrs |= 1 << 5;
-  if (style.overline) attrs |= 1 << 6;
-  if (style.blink) attrs |= 1 << 7;
+  const prepackedAttrs = (style as { attrs?: unknown }).attrs;
+  let attrs =
+    typeof prepackedAttrs === "number" && Number.isFinite(prepackedAttrs)
+      ? (prepackedAttrs >>> 0) & 0xff
+      : 0;
+  if (attrs === 0) {
+    if (style.bold) attrs |= 1 << 0;
+    if (style.italic) attrs |= 1 << 1;
+    if (style.underline || underlineStyle !== 0) attrs |= 1 << 2;
+    if (style.inverse) attrs |= 1 << 3;
+    if (style.dim) attrs |= 1 << 4;
+    if (style.strikethrough) attrs |= 1 << 5;
+    if (style.overline) attrs |= 1 << 6;
+    if (style.blink) attrs |= 1 << 7;
+  }
 
   return {
     fg,
@@ -158,27 +165,16 @@ function inferAutoCanvasPx(blobLen: number, cols: number): CanvasPixelSize | nul
   return Object.freeze({ pxWidth, pxHeight });
 }
 
-export function createDrawlistBuilderV3(opts: DrawlistBuilderV3Opts = {}): DrawlistBuilderV3 {
-  return new DrawlistBuilderV3Impl(opts);
+export function createDrawlistBuilder(opts: DrawlistBuilderOpts = {}): DrawlistBuilder {
+  return new DrawlistBuilderImpl(opts);
 }
 
-class DrawlistBuilderV3Impl extends DrawlistBuilderBase<EncodedStyle> implements DrawlistBuilderV3 {
-  readonly drawlistVersion: 3 | 4 | 5;
-
+class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements DrawlistBuilder {
   private activeLinkUriRef = 0;
   private activeLinkIdRef = 0;
 
-  constructor(opts: DrawlistBuilderV3Opts) {
-    super(opts, "DrawlistBuilderV3");
-
-    const drawlistVersion = opts.drawlistVersion ?? ZR_DRAWLIST_VERSION_V5;
-    this.drawlistVersion = (
-      drawlistVersion === ZR_DRAWLIST_VERSION_V3
-        ? ZR_DRAWLIST_VERSION_V3
-        : drawlistVersion === ZR_DRAWLIST_VERSION_V4
-          ? ZR_DRAWLIST_VERSION_V4
-          : ZR_DRAWLIST_VERSION_V5
-    ) as 3 | 4 | 5;
+  constructor(opts: DrawlistBuilderOpts) {
+    super(opts, "DrawlistBuilder");
   }
 
   setCursor(state: CursorState): void {
@@ -260,13 +256,6 @@ class DrawlistBuilderV3Impl extends DrawlistBuilderBase<EncodedStyle> implements
     pxHeight?: number,
   ): void {
     if (this.error) return;
-    if (this.drawlistVersion < ZR_DRAWLIST_VERSION_V4) {
-      this.fail(
-        "ZRDL_BAD_PARAMS",
-        `drawCanvas: requires drawlist version >= 4 (current=${this.drawlistVersion})`,
-      );
-      return;
-    }
 
     const xi = this.validateParams ? this.requireI32NonNeg("drawCanvas", "x", x) : x | 0;
     const yi = this.validateParams ? this.requireI32NonNeg("drawCanvas", "y", y) : y | 0;
@@ -385,13 +374,6 @@ class DrawlistBuilderV3Impl extends DrawlistBuilderBase<EncodedStyle> implements
     pxHeight?: number,
   ): void {
     if (this.error) return;
-    if (this.drawlistVersion < ZR_DRAWLIST_VERSION_V5) {
-      this.fail(
-        "ZRDL_BAD_PARAMS",
-        `drawImage: requires drawlist version >= 5 (current=${this.drawlistVersion})`,
-      );
-      return;
-    }
 
     const xi = this.validateParams ? this.requireI32NonNeg("drawImage", "x", x) : x | 0;
     const yi = this.validateParams ? this.requireI32NonNeg("drawImage", "y", y) : y | 0;
@@ -546,11 +528,11 @@ class DrawlistBuilderV3Impl extends DrawlistBuilderBase<EncodedStyle> implements
   }
 
   buildInto(dst: Uint8Array): DrawlistBuildResult {
-    return this.buildIntoWithVersion(this.drawlistVersion, dst);
+    return this.buildIntoWithVersion(ZR_DRAWLIST_VERSION_V1, dst);
   }
 
   build(): DrawlistBuildResult {
-    return this.buildWithVersion(this.drawlistVersion);
+    return this.buildWithVersion(ZR_DRAWLIST_VERSION_V1);
   }
 
   override reset(): void {

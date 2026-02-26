@@ -7,7 +7,7 @@
 
 import type {
   DrawlistBuildResult,
-  DrawlistBuilderV1,
+  DrawlistBuilder,
   DrawlistTextRunSegment,
 } from "../drawlist/types.js";
 import type { LayoutTree } from "../layout/layout.js";
@@ -120,7 +120,7 @@ function asPropsRecord(value: unknown): TestNodeProps {
   return Object.freeze({ ...(value as Record<string, unknown>) });
 }
 
-class RecordingDrawlistBuilder implements DrawlistBuilderV1 {
+class RecordingDrawlistBuilder implements DrawlistBuilder {
   private readonly ops: TestRecordedOp[] = [];
   private readonly textRunBlobs: Array<readonly DrawlistTextRunSegment[]> = [];
 
@@ -173,6 +173,19 @@ class RecordingDrawlistBuilder implements DrawlistBuilderV1 {
     }
   }
 
+  setCursor(..._args: Parameters<DrawlistBuilder["setCursor"]>): void {}
+
+  hideCursor(): void {}
+
+  setLink(..._args: Parameters<DrawlistBuilder["setLink"]>): void {}
+
+  drawCanvas(..._args: Parameters<DrawlistBuilder["drawCanvas"]>): void {}
+
+  drawImage(..._args: Parameters<DrawlistBuilder["drawImage"]>): void {}
+
+  buildInto(_dst: Uint8Array): DrawlistBuildResult {
+    return this.build();
+  }
   build(): DrawlistBuildResult {
     return { ok: true, bytes: new Uint8Array(0) };
   }

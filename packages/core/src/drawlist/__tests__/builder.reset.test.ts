@@ -1,5 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { createDrawlistBuilderV1, createDrawlistBuilderV2 } from "../../index.js";
+import { createDrawlistBuilder } from "../../index.js";
 
 const HEADER_SIZE = 64;
 const INT32_MAX = 2147483647;
@@ -101,7 +101,7 @@ function decodeString(bytes: Uint8Array, h: Header, stringIndex: number): string
 
 describe("DrawlistBuilder reset behavior", () => {
   test("v1 reset clears prior commands/strings/blobs for next frame", () => {
-    const b = createDrawlistBuilderV1();
+    const b = createDrawlistBuilder();
     const blobIndex = b.addTextRunBlob([{ text: "A" }, { text: "B" }]);
     assert.equal(blobIndex, 0);
     if (blobIndex === null) return;
@@ -132,7 +132,7 @@ describe("DrawlistBuilder reset behavior", () => {
   });
 
   test("v2 reset drops cursor and string state before next frame", () => {
-    const b = createDrawlistBuilderV2();
+    const b = createDrawlistBuilder();
     b.setCursor({ x: 12, y: 4, shape: 1, visible: true, blink: false });
     b.drawText(0, 0, "persist");
     const first = b.build();
@@ -161,7 +161,7 @@ describe("DrawlistBuilder reset behavior", () => {
   });
 
   test("v1 reset clears sticky failure state and restores successful builds", () => {
-    const b = createDrawlistBuilderV1({ maxStrings: 1 });
+    const b = createDrawlistBuilder({ maxStrings: 1 });
     b.drawText(0, 0, "a");
     b.drawText(0, 1, "b");
     const failed = b.build();
@@ -178,7 +178,7 @@ describe("DrawlistBuilder reset behavior", () => {
   });
 
   test("v2 reset clears sticky failure state and allows cursor commands again", () => {
-    const b = createDrawlistBuilderV2({ maxCmdCount: 1 });
+    const b = createDrawlistBuilder({ maxCmdCount: 1 });
     b.setCursor({ x: 1, y: 1, shape: 0, visible: true, blink: true });
     b.setCursor({ x: 2, y: 2, shape: 1, visible: true, blink: false });
     const failed = b.build();
@@ -200,7 +200,7 @@ describe("DrawlistBuilder reset behavior", () => {
   });
 
   test("v1 reset reuse remains stable across many frames", () => {
-    const b = createDrawlistBuilderV1();
+    const b = createDrawlistBuilder();
 
     for (let frame = 0; frame < 128; frame++) {
       const text = `f${frame}`;
@@ -238,7 +238,7 @@ describe("DrawlistBuilder reset behavior", () => {
   });
 
   test("v2 reset reuse across many frames keeps cursor correctness stable", () => {
-    const b = createDrawlistBuilderV2();
+    const b = createDrawlistBuilder();
 
     for (let frame = 0; frame < 128; frame++) {
       const origin = frame % 2 === 0;

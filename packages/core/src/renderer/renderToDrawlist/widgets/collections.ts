@@ -1,4 +1,4 @@
-import type { DrawlistBuilderV1 } from "../../../drawlist/types.js";
+import type { DrawlistBuilder } from "../../../drawlist/types.js";
 import type { LayoutTree } from "../../../layout/layout.js";
 import {
   measureTextCells,
@@ -143,7 +143,7 @@ function alignCellContent(
 }
 
 function drawAlignedCellText(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   x: number,
   y: number,
   w: number,
@@ -213,7 +213,7 @@ function setLayoutScrollMetadata(
 }
 
 export function renderCollectionWidget(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   focusState: FocusState,
   rect: Rect,
   theme: Theme,

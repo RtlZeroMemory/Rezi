@@ -1,6 +1,6 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import type { DrawlistBuilderV1, VNode } from "../../index.js";
-import { createDrawlistBuilderV1, createDrawlistBuilderV3 } from "../../index.js";
+import type { DrawlistBuilder, VNode } from "../../index.js";
+import { createDrawlistBuilder } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
@@ -132,7 +132,7 @@ const ALL_IMAGE_PROTOCOLS_TERMINAL_PROFILE: TerminalProfile = Object.freeze({
 
 function renderBytes(
   vnode: VNode,
-  createBuilder: () => DrawlistBuilderV1,
+  createBuilder: () => DrawlistBuilder,
   viewport: Readonly<{ cols: number; rows: number }> = { cols: 80, rows: 30 },
   terminalProfile: TerminalProfile | undefined = undefined,
 ): Uint8Array {
@@ -168,8 +168,8 @@ function renderBytes(
 describe("graphics widgets", () => {
   test("link encodes hyperlink refs in v3 and degrades to text in v1", () => {
     const vnode = ui.link({ url: "https://example.com", label: "Docs", id: "docs-link" });
-    const v3 = renderBytes(vnode, () => createDrawlistBuilderV3());
-    const v1 = renderBytes(vnode, () => createDrawlistBuilderV1());
+    const v3 = renderBytes(vnode, () => createDrawlistBuilder());
+    const v1 = renderBytes(vnode, () => createDrawlistBuilder());
     assert.equal(parseOpcodes(v3).includes(8), false);
     assert.equal(parseOpcodes(v1).includes(8), false);
     assert.equal(parseStrings(v3).includes("Docs"), true);
@@ -190,7 +190,7 @@ describe("graphics widgets", () => {
           ctx.fillRect(2, 2, 4, 3, "#ff0000");
         },
       }),
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
     );
     assert.equal(parseOpcodes(bytes).includes(8), true);
   });
@@ -204,7 +204,7 @@ describe("graphics widgets", () => {
           ctx.text(1, 1, "A", "#ffd166");
         },
       }),
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
       { cols: 20, rows: 8 },
     );
     const payloadOff = findCommandPayload(bytes, 3);
@@ -226,7 +226,7 @@ describe("graphics widgets", () => {
           ctx.clear("#112233");
         },
       }),
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
     );
     const payloadOff = findCommandPayload(bytes, 8);
     assert.equal(payloadOff !== null, true);
@@ -246,7 +246,7 @@ describe("graphics widgets", () => {
     const pngLike = makePngHeader(2, 1);
     const bytes = renderBytes(
       ui.image({ src: pngLike, width: 10, height: 4, fit: "contain" }),
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
       { cols: 80, rows: 30 },
       ITERM2_TERMINAL_PROFILE,
     );
@@ -262,7 +262,7 @@ describe("graphics widgets", () => {
     const src = new Uint8Array([1, 2, 3, 4]);
     const bytes = renderBytes(
       ui.image({ src, width: 10, height: 4 }),
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
       { cols: 80, rows: 30 },
       ALL_IMAGE_PROTOCOLS_TERMINAL_PROFILE,
     );
@@ -276,7 +276,7 @@ describe("graphics widgets", () => {
     const src = new Uint8Array([1, 2, 3, 4]);
     const bytes = renderBytes(
       ui.image({ src, width: 10, height: 4 }),
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
       { cols: 80, rows: 30 },
       ITERM2_SIXEL_TERMINAL_PROFILE,
     );
@@ -290,7 +290,7 @@ describe("graphics widgets", () => {
     const src = new Uint8Array([1, 2, 3, 4]);
     const bytes = renderBytes(
       ui.image({ src, width: 10, height: 4 }),
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
       { cols: 80, rows: 30 },
       SIXEL_TERMINAL_PROFILE,
     );
@@ -304,7 +304,7 @@ describe("graphics widgets", () => {
     const src = new Uint8Array([1, 2, 3, 4]);
     const bytes = renderBytes(
       ui.image({ src, width: 10, height: 4 }),
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
       { cols: 80, rows: 30 },
       DEFAULT_TERMINAL_PROFILE,
     );
@@ -316,7 +316,7 @@ describe("graphics widgets", () => {
     const pngLike = makePngHeader(2, 1);
     const bytes = renderBytes(
       ui.image({ src: pngLike, width: 10, height: 4, fit: "contain" }),
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
       { cols: 80, rows: 30 },
       KITTY_ITERM2_TERMINAL_PROFILE,
     );
@@ -330,7 +330,7 @@ describe("graphics widgets", () => {
     const pngLike = makePngHeader(2, 1);
     const bytes = renderBytes(
       ui.image({ src: pngLike, width: 10, height: 4, fit: "contain", alt: "Logo" }),
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
     );
     assert.equal(parseOpcodes(bytes).includes(9), false);
     assert.equal(
@@ -351,7 +351,7 @@ describe("graphics widgets", () => {
         zLayer: -1,
         imageId: 0x0102_0304,
       }),
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
     );
     const payloadOff = findCommandPayload(bytes, 9);
     assert.equal(payloadOff !== null, true);
@@ -366,7 +366,7 @@ describe("graphics widgets", () => {
   test("image defaults protocol/fit/z-layer/imageId when omitted", () => {
     const src = new Uint8Array([1, 2, 3, 4]);
     const bytes = renderBytes(ui.image({ src, width: 10, height: 4 }), () =>
-      createDrawlistBuilderV3(),
+      createDrawlistBuilder(),
     );
     const payloadOff = findCommandPayload(bytes, 9);
     assert.equal(payloadOff !== null, true);
@@ -387,7 +387,7 @@ describe("graphics widgets", () => {
         height: 2,
         protocol: "blitter",
       }),
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
     );
     assert.equal(parseOpcodes(bytes).includes(8), true);
     assert.equal(parseOpcodes(bytes).includes(9), false);
@@ -410,7 +410,7 @@ describe("graphics widgets", () => {
         sourceWidth: 96,
         sourceHeight: 48,
       }),
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
     );
     const payloadOff = findCommandPayload(bytes, 8);
     assert.equal(payloadOff !== null, true);
@@ -429,7 +429,7 @@ describe("graphics widgets", () => {
         protocol: "blitter",
         sourceWidth: 96,
       }),
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
     );
     assert.equal(parseOpcodes(bytes).includes(8), false);
     assert.equal(parseOpcodes(bytes).includes(9), false);
@@ -449,7 +449,7 @@ describe("graphics widgets", () => {
         protocol: "blitter",
         alt: "Logo",
       }),
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
     );
     assert.equal(parseOpcodes(bytes).includes(8), false);
     assert.equal(parseOpcodes(bytes).includes(9), false);
@@ -462,7 +462,7 @@ describe("graphics widgets", () => {
   test("image degrades to placeholder on v1", () => {
     const bytes = renderBytes(
       ui.image({ src: new Uint8Array([0, 0, 0, 0]), width: 20, height: 4, alt: "Logo" }),
-      () => createDrawlistBuilderV1(),
+      () => createDrawlistBuilder(),
     );
     const strings = parseStrings(bytes);
     assert.equal(
@@ -486,7 +486,7 @@ describe("graphics widgets", () => {
           alt: "Broken image",
         },
       },
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
     );
     assert.equal(parseOpcodes(bytes).includes(9), false);
     assert.equal(
@@ -516,7 +516,7 @@ describe("graphics widgets", () => {
           ],
         }),
       ]),
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
       { cols: 40, rows: 30 },
     );
     const canvasCount = parseOpcodes(bytes).filter((opcode) => opcode === 8).length;
@@ -535,7 +535,7 @@ describe("graphics widgets", () => {
           { highRes: true },
         ),
       ]),
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
       { cols: 40, rows: 12 },
     );
     const canvasCount = parseOpcodes(bytes).filter((opcode) => opcode === 8).length;
@@ -545,7 +545,7 @@ describe("graphics widgets", () => {
   test("sparkline highRes draws pixels for single-point series", () => {
     const bytes = renderBytes(
       ui.sparkline([5], { width: 6, min: 0, max: 10, highRes: true }),
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
       { cols: 10, rows: 4 },
     );
     const payloadOff = findCommandPayload(bytes, 8);
@@ -568,7 +568,7 @@ describe("graphics widgets", () => {
         ],
         { highRes: true, showLabels: false, showValues: false, blitter: "quadrant" },
       ),
-      () => createDrawlistBuilderV3(),
+      () => createDrawlistBuilder(),
       { cols: 20, rows: 8 },
     );
     const payloadOff = findCommandPayload(bytes, 8);

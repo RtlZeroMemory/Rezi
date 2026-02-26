@@ -7,7 +7,7 @@
  * @see docs/styling/theme.md
  */
 
-import type { Rgb } from "../widgets/style.js";
+import type { Rgb24 } from "../widgets/style.js";
 import type { ColorTokens, ThemeDefinition } from "./tokens.js";
 
 /**
@@ -56,7 +56,7 @@ export type ColorPath =
 /**
  * Result of color resolution.
  */
-export type ResolveColorResult = { ok: true; value: Rgb } | { ok: false; error: string };
+export type ResolveColorResult = { ok: true; value: Rgb24 } | { ok: false; error: string };
 
 /**
  * Resolve a color token path to an RGB value.
@@ -74,9 +74,9 @@ export type ResolveColorResult = { ok: true; value: Rgb } | { ok: false; error: 
  * // { r: 240, g: 113, b: 120 }
  * ```
  */
-export function resolveColorToken(theme: ThemeDefinition, path: ColorPath): Rgb;
-export function resolveColorToken(theme: ThemeDefinition, path: string): Rgb | null;
-export function resolveColorToken(theme: ThemeDefinition, path: string): Rgb | null {
+export function resolveColorToken(theme: ThemeDefinition, path: ColorPath): Rgb24;
+export function resolveColorToken(theme: ThemeDefinition, path: string): Rgb24 | null;
+export function resolveColorToken(theme: ThemeDefinition, path: string): Rgb24 | null {
   const colors = theme.colors;
   const parts = path.split(".");
 
@@ -102,7 +102,7 @@ export function resolveColorToken(theme: ThemeDefinition, path: string): Rgb | n
  * Resolve a nested color token (two-level path).
  * @internal
  */
-function resolveNestedToken(colors: ColorTokens, group: string, key: string): Rgb | null {
+function resolveNestedToken(colors: ColorTokens, group: string, key: string): Rgb24 | null {
   switch (group) {
     case "bg":
       if (key === "base") return colors.bg.base;
@@ -174,9 +174,9 @@ export function tryResolveColorToken(theme: ThemeDefinition, path: string): Reso
  */
 export function resolveColorOrRgb(
   theme: ThemeDefinition,
-  color: string | Rgb | undefined,
-  fallback: Rgb,
-): Rgb {
+  color: string | Rgb24 | undefined,
+  fallback: Rgb24,
+): Rgb24 {
   if (color === undefined) return fallback;
   if (typeof color !== "string") return color;
   return resolveColorToken(theme, color) ?? fallback;

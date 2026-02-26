@@ -18,10 +18,7 @@ export {
   ZR_ENGINE_ABI_MINOR,
   ZR_ENGINE_ABI_PATCH,
   ZR_DRAWLIST_VERSION_V1,
-  ZR_DRAWLIST_VERSION_V2,
-  ZR_DRAWLIST_VERSION_V3,
-  ZR_DRAWLIST_VERSION_V4,
-  ZR_DRAWLIST_VERSION_V5,
+  ZR_DRAWLIST_VERSION,
   ZR_EVENT_BATCH_VERSION_V1,
   ZR_UNICODE_VERSION_MAJOR,
   ZR_UNICODE_VERSION_MINOR,
@@ -45,11 +42,8 @@ export {
 // =============================================================================
 
 import {
+  ZR_DRAWLIST_VERSION,
   ZR_DRAWLIST_VERSION_V1,
-  ZR_DRAWLIST_VERSION_V2,
-  ZR_DRAWLIST_VERSION_V3,
-  ZR_DRAWLIST_VERSION_V4,
-  ZR_DRAWLIST_VERSION_V5,
   ZR_ENGINE_ABI_MAJOR,
   ZR_ENGINE_ABI_MINOR,
   ZR_ENGINE_ABI_PATCH,
@@ -84,7 +78,7 @@ export const ZR_UNICODE_VERSION = {
   patch: ZR_UNICODE_VERSION_PATCH,
 } as const;
 
-export const ZR_DRAWLIST_VERSION: 1 = ZR_DRAWLIST_VERSION_V1;
+export const ZR_DRAWLIST_CURRENT_VERSION: 1 = ZR_DRAWLIST_VERSION;
 export const ZR_EVENT_BATCH_VERSION: 1 = ZR_EVENT_BATCH_VERSION_V1;
 
 export {
@@ -502,7 +496,7 @@ export {
   type VisibleRangeResult,
   type MeasuredItemHeights,
 } from "./widgets/virtualList.js";
-export { rgb, type Rgb, type TextStyle } from "./widgets/style.js";
+export { rgb, type Rgb24, type TextStyle } from "./widgets/style.js";
 
 // =============================================================================
 // Layout Types
@@ -737,21 +731,17 @@ export {
 export { debug, inspect } from "./debug/debug.js";
 
 // =============================================================================
-// Drawlist Builder (ZRDL v1 + v3)
+// Drawlist Builder (current protocol)
 // =============================================================================
 
-export { createDrawlistBuilderV1, type DrawlistBuilderV1Opts } from "./drawlist/index.js";
-export { createDrawlistBuilderV2, type DrawlistBuilderV2Opts } from "./drawlist/index.js";
-export { createDrawlistBuilderV3, type DrawlistBuilderV3Opts } from "./drawlist/index.js";
+export { createDrawlistBuilder, type DrawlistBuilderOpts } from "./drawlist/index.js";
 export type {
   CursorState,
   DrawlistCanvasBlitter,
   DrawlistBuildError,
   DrawlistBuildErrorCode,
   DrawlistBuildResult,
-  DrawlistBuilderV1,
-  DrawlistBuilderV2,
-  DrawlistBuilderV3,
+  DrawlistBuilder,
   DrawlistImageFit,
   DrawlistImageFormat,
   DrawlistImageProtocol,

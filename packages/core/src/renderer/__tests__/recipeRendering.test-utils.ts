@@ -2,7 +2,7 @@ import { assert } from "@rezi-ui/testkit";
 import type { DrawlistTextRunSegment } from "../../drawlist/types.js";
 import type {
   DrawlistBuildResult,
-  DrawlistBuilderV1,
+  DrawlistBuilder,
   TextStyle,
   Theme,
   VNode,
@@ -21,7 +21,7 @@ export type DrawOp =
   | Readonly<{ kind: "pushClip"; x: number; y: number; w: number; h: number }>
   | Readonly<{ kind: "popClip" }>;
 
-class RecordingBuilder implements DrawlistBuilderV1 {
+class RecordingBuilder implements DrawlistBuilder {
   readonly ops: DrawOp[] = [];
 
   clear(): void {
@@ -62,6 +62,20 @@ class RecordingBuilder implements DrawlistBuilderV1 {
   }
 
   drawTextRun(_x: number, _y: number, _blobIndex: number): void {}
+
+  setCursor(..._args: Parameters<DrawlistBuilder["setCursor"]>): void {}
+
+  hideCursor(): void {}
+
+  setLink(..._args: Parameters<DrawlistBuilder["setLink"]>): void {}
+
+  drawCanvas(..._args: Parameters<DrawlistBuilder["drawCanvas"]>): void {}
+
+  drawImage(..._args: Parameters<DrawlistBuilder["drawImage"]>): void {}
+
+  buildInto(_dst: Uint8Array): DrawlistBuildResult {
+    return this.build();
+  }
 
   build(): DrawlistBuildResult {
     return { ok: true, bytes: new Uint8Array() };

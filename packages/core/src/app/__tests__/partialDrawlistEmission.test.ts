@@ -2,8 +2,7 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import type { RuntimeBackend } from "../../backend.js";
 import type {
   DrawlistBuildResult,
-  DrawlistBuilderV1,
-  DrawlistBuilderV2,
+  DrawlistBuilder,
 } from "../../drawlist/index.js";
 import type { CursorState } from "../../drawlist/index.js";
 import type { DrawlistTextRunSegment } from "../../drawlist/types.js";
@@ -25,7 +24,7 @@ type RecordedOp =
   | Readonly<{ kind: "setCursor"; state: CursorState }>
   | Readonly<{ kind: "hideCursor" }>;
 
-class RecordingBuilder implements DrawlistBuilderV1 {
+class RecordingBuilder implements DrawlistBuilder {
   protected ops: RecordedOp[] = [];
   private lastBuiltOps: readonly RecordedOp[] = Object.freeze([]);
 
@@ -68,9 +67,27 @@ class RecordingBuilder implements DrawlistBuilderV1 {
 
   drawTextRun(_x: number, _y: number, _blobIndex: number): void {}
 
+  setCursor(_state: Parameters<DrawlistBuilder["setCursor"]>[0]): void {
+    this.ops.push({ kind: "setCursor", state: _state });
+  }
+
+  hideCursor(): void {
+    this.ops.push({ kind: "hideCursor" });
+  }
+
+  setLink(..._args: Parameters<DrawlistBuilder["setLink"]>): void {}
+
+  drawCanvas(..._args: Parameters<DrawlistBuilder["drawCanvas"]>): void {}
+
+  drawImage(..._args: Parameters<DrawlistBuilder["drawImage"]>): void {}
+
   build(): DrawlistBuildResult {
     this.lastBuiltOps = this.ops.slice();
     return { ok: true, bytes: new Uint8Array([this.ops.length & 0xff]) };
+  }
+
+  buildInto(_dst: Uint8Array): DrawlistBuildResult {
+    return this.build();
   }
 
   reset(): void {
@@ -78,14 +95,8 @@ class RecordingBuilder implements DrawlistBuilderV1 {
   }
 }
 
-class RecordingBuilderV2 extends RecordingBuilder implements DrawlistBuilderV2 {
-  setCursor(state: CursorState): void {
-    this.ops.push({ kind: "setCursor", state });
-  }
-
-  hideCursor(): void {
-    this.ops.push({ kind: "hideCursor" });
-  }
+class RecordingBuilderV2 extends RecordingBuilder implements DrawlistBuilder {
+  // Kept for historical naming in test cases.
 }
 
 type Framebuffer = Readonly<{

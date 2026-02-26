@@ -48,9 +48,7 @@ describe("theme resolution", () => {
           color !== null,
           `Expected preset "${presetName}" token "${path}" to resolve, got null`,
         );
-        assert.equal(typeof color?.r, "number");
-        assert.equal(typeof color?.g, "number");
-        assert.equal(typeof color?.b, "number");
+        assert.equal(typeof color, "number");
       }
     }
   });
@@ -94,18 +92,18 @@ describe("theme resolution", () => {
   });
 
   test("resolveColorOrRgb returns direct RGB unchanged", () => {
-    const rgb = { r: 1, g: 2, b: 3 } as const;
-    const fallback = { r: 9, g: 9, b: 9 } as const;
+    const rgb = ((1 << 16) | (2 << 8) | 3);
+    const fallback = ((9 << 16) | (9 << 8) | 9);
     assert.deepEqual(resolveColorOrRgb(themePresets.dark, rgb, fallback), rgb);
   });
 
   test("resolveColorOrRgb uses fallback for invalid token paths", () => {
-    const fallback = { r: 9, g: 8, b: 7 } as const;
+    const fallback = ((9 << 16) | (8 << 8) | 7);
     assert.deepEqual(resolveColorOrRgb(themePresets.dark, "not.valid", fallback), fallback);
   });
 
   test("resolveColorOrRgb uses fallback for undefined input", () => {
-    const fallback = { r: 5, g: 4, b: 3 } as const;
+    const fallback = ((5 << 16) | (4 << 8) | 3);
     assert.deepEqual(resolveColorOrRgb(themePresets.dark, undefined, fallback), fallback);
   });
 

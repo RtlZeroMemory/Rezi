@@ -1,4 +1,4 @@
-import type { DrawlistBuilderV1 } from "../../../drawlist/types.js";
+import type { DrawlistBuilder } from "../../../drawlist/types.js";
 import type { LayoutTree } from "../../../layout/layout.js";
 import { measureTextCells, truncateWithEllipsis } from "../../../layout/textMeasure.js";
 import type { Rect } from "../../../layout/types.js";
@@ -47,7 +47,7 @@ type ResolvedCursor = Readonly<{
 }>;
 
 type MaybeFillOwnBackground = (
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   rect: Rect,
   ownStyle: unknown,
   style: ResolvedTextStyle,
@@ -234,7 +234,7 @@ function resolveFocusFlags(
 }
 
 export function renderFormWidgets(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   focusState: FocusState,
   pressedId: string | null,
   rect: Rect,

@@ -2,7 +2,7 @@
  * packages/core/src/theme/tokens.ts — Semantic color token system.
  *
  * Why: Provides a structured, semantic color system for consistent theming.
- * All colors are RGB objects { r, g, b } with values 0-255.
+ * All colors are packed RGB values (0x00RRGGBB).
  *
  * Token categories:
  *   - bg: Surface/background colors
@@ -15,20 +15,20 @@
  * @see docs/styling/theme.md
  */
 
-import type { Rgb } from "../widgets/style.js";
+import { rgb, type Rgb24 } from "../widgets/style.js";
 
 /**
  * Surface (background) color tokens.
  */
 export type BgTokens = Readonly<{
   /** Main background color */
-  base: Rgb;
+  base: Rgb24;
   /** Elevated surfaces (cards, modals) */
-  elevated: Rgb;
+  elevated: Rgb24;
   /** Overlay surfaces (dropdowns, tooltips) */
-  overlay: Rgb;
+  overlay: Rgb24;
   /** Subtle hover/focus backgrounds */
-  subtle: Rgb;
+  subtle: Rgb24;
 }>;
 
 /**
@@ -36,13 +36,13 @@ export type BgTokens = Readonly<{
  */
 export type FgTokens = Readonly<{
   /** Primary text color */
-  primary: Rgb;
+  primary: Rgb24;
   /** Secondary/less important text */
-  secondary: Rgb;
+  secondary: Rgb24;
   /** Muted text (disabled, placeholders) */
-  muted: Rgb;
+  muted: Rgb24;
   /** Inverse text (on accent backgrounds) */
-  inverse: Rgb;
+  inverse: Rgb24;
 }>;
 
 /**
@@ -50,11 +50,11 @@ export type FgTokens = Readonly<{
  */
 export type AccentTokens = Readonly<{
   /** Primary accent (actions, focus) */
-  primary: Rgb;
+  primary: Rgb24;
   /** Secondary accent (links, highlights) */
-  secondary: Rgb;
+  secondary: Rgb24;
   /** Tertiary accent (subtle accents) */
-  tertiary: Rgb;
+  tertiary: Rgb24;
 }>;
 
 /**
@@ -62,9 +62,9 @@ export type AccentTokens = Readonly<{
  */
 export type FocusTokens = Readonly<{
   /** Focus ring/outline color */
-  ring: Rgb;
+  ring: Rgb24;
   /** Focus background color */
-  bg: Rgb;
+  bg: Rgb24;
 }>;
 
 /**
@@ -72,9 +72,9 @@ export type FocusTokens = Readonly<{
  */
 export type SelectedTokens = Readonly<{
   /** Selected item background */
-  bg: Rgb;
+  bg: Rgb24;
   /** Selected item foreground */
-  fg: Rgb;
+  fg: Rgb24;
 }>;
 
 /**
@@ -82,9 +82,9 @@ export type SelectedTokens = Readonly<{
  */
 export type DisabledTokens = Readonly<{
   /** Disabled foreground */
-  fg: Rgb;
+  fg: Rgb24;
   /** Disabled background */
-  bg: Rgb;
+  bg: Rgb24;
 }>;
 
 /**
@@ -92,11 +92,11 @@ export type DisabledTokens = Readonly<{
  */
 export type BorderTokens = Readonly<{
   /** Subtle borders (dividers) */
-  subtle: Rgb;
+  subtle: Rgb24;
   /** Default borders */
-  default: Rgb;
+  default: Rgb24;
   /** Strong/emphasized borders */
-  strong: Rgb;
+  strong: Rgb24;
 }>;
 
 /**
@@ -104,13 +104,13 @@ export type BorderTokens = Readonly<{
  */
 export type DiagnosticTokens = Readonly<{
   /** Error diagnostics (squiggles, banners) */
-  error: Rgb;
+  error: Rgb24;
   /** Warning diagnostics */
-  warning: Rgb;
+  warning: Rgb24;
   /** Informational diagnostics */
-  info: Rgb;
+  info: Rgb24;
   /** Hint diagnostics */
-  hint: Rgb;
+  hint: Rgb24;
 }>;
 
 /**
@@ -127,10 +127,10 @@ export type ColorTokens = Readonly<{
   accent: AccentTokens;
 
   // Semantic colors
-  success: Rgb;
-  warning: Rgb;
-  error: Rgb;
-  info: Rgb;
+  success: Rgb24;
+  warning: Rgb24;
+  error: Rgb24;
+  info: Rgb24;
 
   // Interactive states
   focus: FocusTokens;
@@ -166,7 +166,7 @@ export type ThemeSpacingTokens = Readonly<{
 export type FocusIndicatorTokens = Readonly<{
   bold: boolean;
   underline: boolean;
-  focusRingColor?: Rgb;
+  focusRingColor?: Rgb24;
 }>;
 
 /**
@@ -210,10 +210,10 @@ export const DEFAULT_FOCUS_INDICATOR: FocusIndicatorTokens = Object.freeze({
 });
 
 /**
- * Helper to create a frozen RGB color.
+ * Helper to create a packed RGB color.
  */
-export function color(r: number, g: number, b: number): Rgb {
-  return Object.freeze({ r, g, b });
+export function color(r: number, g: number, b: number): Rgb24 {
+  return rgb(r, g, b);
 }
 
 /**

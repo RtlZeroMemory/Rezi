@@ -1,10 +1,10 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import {
   type TextStyle,
-  createDrawlistBuilderV1,
-  createDrawlistBuilderV2,
-  createDrawlistBuilderV3,
+  createDrawlistBuilder,
 } from "../../index.js";
+import { DRAW_TEXT_SIZE } from "../writers.gen.js";
+import { DEFAULT_BASE_STYLE, mergeTextStyle } from "../../renderer/renderToDrawlist/textStyle.js";
 
 function u32(bytes: Uint8Array, off: number): number {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -61,13 +61,11 @@ const ATTR_BITS: ReadonlyArray<readonly [AttrName, number]> = ATTRS.map((attr, b
 
 const BUILDERS: ReadonlyArray<
   Readonly<{
-    name: "v1" | "v2" | "v3";
-    create: typeof createDrawlistBuilderV1;
+    name: "current";
+    create: typeof createDrawlistBuilder;
   }>
 > = [
-  { name: "v1", create: createDrawlistBuilderV1 },
-  { name: "v2", create: createDrawlistBuilderV2 },
-  { name: "v3", create: createDrawlistBuilderV3 },
+  { name: "current", create: createDrawlistBuilder },
 ];
 
 function singleAttrStyle(attr: AttrName): TextStyle {
@@ -94,7 +92,7 @@ function packRgb(r: number, g: number, b: number): number {
 }
 
 function encodeViaDrawText(
-  create: typeof createDrawlistBuilderV1,
+  create: typeof createDrawlistBuilder,
   style: TextStyle | undefined,
 ): Readonly<{ fg: number; bg: number; attrs: number }> {
   const b = create();
@@ -110,7 +108,7 @@ function encodeViaDrawText(
 }
 
 function encodeViaTextRun(
-  create: typeof createDrawlistBuilderV1,
+  create: typeof createDrawlistBuilder,
   style: TextStyle | undefined,
 ): Readonly<{ fg: number; bg: number; attrs: number }> {
   const b = create();
@@ -172,8 +170,8 @@ describe("drawlist style fg/bg and undefined fg/bg encoding", () => {
   for (const builder of BUILDERS) {
     test(`${builder.name} drawText encodes fg/bg with attrs`, () => {
       const encoded = encodeViaDrawText(builder.create, {
-        fg: { r: 10, g: 20, b: 30 },
-        bg: { r: 40, g: 50, b: 60 },
+        fg: ((10 << 16) | (20 << 8) | 30),
+        bg: ((40 << 16) | (50 << 8) | 60),
         bold: true,
         inverse: true,
       });
@@ -194,8 +192,8 @@ describe("drawlist style fg/bg and undefined fg/bg encoding", () => {
 
     test(`${builder.name} text-run encodes fg/bg with attrs`, () => {
       const encoded = encodeViaTextRun(builder.create, {
-        fg: { r: 1, g: 2, b: 3 },
-        bg: { r: 4, g: 5, b: 6 },
+        fg: ((1 << 16) | (2 << 8) | 3),
+        bg: ((4 << 16) | (5 << 8) | 6),
         dim: true,
         blink: true,
       });
@@ -251,4 +249,55 @@ describe("drawlist style attrs exhaustive 256-mask encoding", () => {
       });
     }
   }
+});
+
+describe("style merge stress encodes fg/bg/attrs bytes deterministically", () => {
+  test("many merged styles produce expected drawText style payloads", () => {
+    const b = createDrawlistBuilder();
+    const expected: Array<Readonly<{ fg: number; bg: number; attrs: number }>> = [];
+
+    let resolved = DEFAULT_BASE_STYLE;
+    for (let i = 0; i < 192; i++) {
+      const override: TextStyle = {
+        ...(i % 3 === 0
+          ? { fg: packRgb((i * 17) & 0xff, (i * 29) & 0xff, (i * 43) & 0xff) }
+          : {}),
+        ...(i % 5 === 0
+          ? { bg: packRgb((i * 11) & 0xff, (i * 7) & 0xff, (i * 13) & 0xff) }
+          : {}),
+        ...(i % 2 === 0 ? { bold: true } : {}),
+        ...(i % 4 === 0 ? { italic: true } : {}),
+        ...(i % 6 === 0 ? { underline: true } : {}),
+        ...(i % 8 === 0 ? { inverse: true } : {}),
+        ...(i % 10 === 0 ? { dim: true } : {}),
+        ...(i % 12 === 0 ? { strikethrough: true } : {}),
+        ...(i % 14 === 0 ? { overline: true } : {}),
+        ...(i % 16 === 0 ? { blink: true } : {}),
+      };
+      resolved = mergeTextStyle(resolved, override);
+      expected.push({
+        fg: resolved.fg >>> 0,
+        bg: resolved.bg >>> 0,
+        attrs: resolved.attrs >>> 0,
+      });
+      b.drawText(i, 0, "x", resolved);
+    }
+
+    const res = b.build();
+    assert.equal(res.ok, true);
+    if (!res.ok) throw new Error("build failed");
+
+    const cmdOffset = u32(res.bytes, 16);
+    const cmdCount = u32(res.bytes, 24);
+    assert.equal(cmdCount, expected.length);
+
+    for (let i = 0; i < expected.length; i++) {
+      const exp = expected[i];
+      if (!exp) continue;
+      const off = cmdOffset + i * DRAW_TEXT_SIZE;
+      assert.equal(u32(res.bytes, off + 28), exp.fg, `fg mismatch at cmd #${String(i)}`);
+      assert.equal(u32(res.bytes, off + 32), exp.bg, `bg mismatch at cmd #${String(i)}`);
+      assert.equal(u32(res.bytes, off + 36), exp.attrs, `attrs mismatch at cmd #${String(i)}`);
+    }
+  });
 });

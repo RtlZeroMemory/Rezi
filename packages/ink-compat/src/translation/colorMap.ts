@@ -1,7 +1,7 @@
-import { type Rgb, rgb } from "@rezi-ui/core";
+import { type Rgb24, rgb } from "@rezi-ui/core";
 import { isTranslationTraceEnabled, pushTranslationTrace } from "./traceCollector.js";
 
-const NAMED_COLORS: Record<string, Rgb> = {
+const NAMED_COLORS: Record<string, Rgb24> = {
   black: rgb(0, 0, 0),
   red: rgb(205, 0, 0),
   green: rgb(0, 205, 0),
@@ -21,9 +21,21 @@ const NAMED_COLORS: Record<string, Rgb> = {
   whiteBright: rgb(255, 255, 255),
 };
 
-const NAMED_COLORS_LOWER: Record<string, Rgb> = {};
+const NAMED_COLORS_LOWER: Record<string, Rgb24> = {};
 for (const [name, value] of Object.entries(NAMED_COLORS)) {
   NAMED_COLORS_LOWER[name.toLowerCase()] = value;
+}
+
+function rgbR(value: Rgb24): number {
+  return (value >>> 16) & 0xff;
+}
+
+function rgbG(value: Rgb24): number {
+  return (value >>> 8) & 0xff;
+}
+
+function rgbB(value: Rgb24): number {
+  return value & 0xff;
 }
 
 function isByte(value: number): boolean {
@@ -31,11 +43,11 @@ function isByte(value: number): boolean {
 }
 
 /**
- * Parse an Ink color string into a Rezi Rgb object.
+ * Parse an Ink color string into a packed Rezi color.
  * Supports: named colors, "#rrggbb", "#rgb", "rgb(r, g, b)".
  * Returns undefined for unrecognized input.
  */
-export function parseColor(color: string | undefined): Rgb | undefined {
+export function parseColor(color: string | undefined): Rgb24 | undefined {
   if (!color) return undefined;
 
   const result = parseColorInner(color);
@@ -43,13 +55,13 @@ export function parseColor(color: string | undefined): Rgb | undefined {
     pushTranslationTrace({
       kind: "color-parse",
       input: color,
-      result: result ? { r: result.r, g: result.g, b: result.b } : null,
+      result: result ? { r: rgbR(result), g: rgbG(result), b: rgbB(result) } : null,
     });
   }
   return result;
 }
 
-function parseColorInner(color: string): Rgb | undefined {
+function parseColorInner(color: string): Rgb24 | undefined {
   if (color in NAMED_COLORS) return NAMED_COLORS[color];
 
   const lower = color.toLowerCase();
@@ -96,9 +108,9 @@ function parseColorInner(color: string): Rgb | undefined {
   return rgb(r, g, b);
 }
 
-function decodeAnsi256Color(index: number): Rgb {
+function decodeAnsi256Color(index: number): Rgb24 {
   if (index < 16) {
-    const palette16: readonly Rgb[] = [
+    const palette16: readonly Rgb24[] = [
       rgb(0, 0, 0),
       rgb(205, 0, 0),
       rgb(0, 205, 0),

@@ -1,4 +1,4 @@
-import type { DrawlistBuilderV1 } from "../../../drawlist/types.js";
+import type { DrawlistBuilder } from "../../../drawlist/types.js";
 import { measureTextCells } from "../../../layout/textMeasure.js";
 import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
@@ -94,7 +94,7 @@ export function getTreePrefixes(
 }
 
 export function renderFileWidgets(
-  builder: DrawlistBuilderV1,
+  builder: DrawlistBuilder,
   focusState: FocusState,
   rect: Rect,
   theme: Theme,
