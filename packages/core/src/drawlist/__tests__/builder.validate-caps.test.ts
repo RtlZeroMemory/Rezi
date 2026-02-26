@@ -125,4 +125,24 @@ describe("DrawlistBuilder (ZRDL v1) - validation and caps", () => {
     const res2 = b.build();
     assert.equal(res2.ok, true);
   });
+
+  test("cap: reserveTextArena preflights maxDrawlistBytes before allocating", () => {
+    const b = createDrawlistBuilder({ maxDrawlistBytes: 128 });
+    b.reserveTextArena?.(10_000_000);
+
+    const res = b.build();
+    assert.equal(res.ok, false);
+    if (res.ok) return;
+    assert.equal(res.error.code, "ZRDL_TOO_LARGE");
+  });
+
+  test("cap: oversized transient drawText fails with ZRDL_TOO_LARGE", () => {
+    const b = createDrawlistBuilder({ maxDrawlistBytes: 128 });
+    b.drawText(0, 0, "x".repeat(10_000));
+
+    const res = b.build();
+    assert.equal(res.ok, false);
+    if (res.ok) return;
+    assert.equal(res.error.code, "ZRDL_TOO_LARGE");
+  });
 });

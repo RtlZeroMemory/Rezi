@@ -213,6 +213,18 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
     if (bi === null) return;
 
     const nextRequired = this.textArena.byteLength() + bi;
+    const nextEstimatedTotal = this.estimateTotalSizeWithArenaState(
+      nextRequired,
+      this.textArena.segmentCount(),
+    );
+    if (nextEstimatedTotal > this.maxDrawlistBytes) {
+      this.fail(
+        "ZRDL_TOO_LARGE",
+        `reserveTextArena: maxDrawlistBytes exceeded (estimatedTotal=${nextEstimatedTotal}, max=${this.maxDrawlistBytes})`,
+      );
+      return;
+    }
+
     this.textArena.reserve(nextRequired);
     this.maybeFailTooLargeAfterWrite();
   }
@@ -750,7 +762,56 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
       this.fail("ZRDL_INTERNAL", "drawText: TextEncoder is not available");
       return null;
     }
+
+    const utf8Len = this.measureUtf8ByteLengthCapped(text, this.maxDrawlistBytes);
+    if (utf8Len > this.maxDrawlistBytes) {
+      this.fail(
+        "ZRDL_TOO_LARGE",
+        `drawText: maxDrawlistBytes exceeded (utf8Len=${utf8Len}, max=${this.maxDrawlistBytes})`,
+      );
+      return null;
+    }
+
+    const nextArenaLen = this.textArena.byteLength() + utf8Len;
+    const nextEstimatedTotal = this.estimateTotalSizeWithArenaState(
+      nextArenaLen,
+      this.textArena.segmentCount() + 1,
+    );
+    if (nextEstimatedTotal > this.maxDrawlistBytes) {
+      this.fail(
+        "ZRDL_TOO_LARGE",
+        `drawText: maxDrawlistBytes exceeded (estimatedTotal=${nextEstimatedTotal}, max=${this.maxDrawlistBytes})`,
+      );
+      return null;
+    }
+
     return this.textArena.allocUtf8(text);
+  }
+
+  private measureUtf8ByteLengthCapped(text: string, cap: number): number {
+    let total = 0;
+    for (let i = 0; i < text.length; i++) {
+      const code = text.charCodeAt(i);
+      if (code <= 0x7f) {
+        total += 1;
+      } else if (code <= 0x7ff) {
+        total += 2;
+      } else if (code >= 0xd800 && code <= 0xdbff) {
+        const next = i + 1 < text.length ? text.charCodeAt(i + 1) : Number.NaN;
+        if (next >= 0xdc00 && next <= 0xdfff) {
+          total += 4;
+          i += 1;
+        } else {
+          total += 3;
+        }
+      } else {
+        // Includes lone low surrogates which TextEncoder replaces with U+FFFD (3 bytes).
+        total += 3;
+      }
+
+      if (total > cap) return total;
+    }
+    return total;
   }
 
   protected internString(text: string): number | null {
@@ -1047,20 +1108,23 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
   }
 
   protected estimateTotalSize(): number {
+    return this.estimateTotalSizeWithArenaState(
+      this.textArena.byteLength(),
+      this.textArena.segmentCount(),
+    );
+  }
+
+  private estimateTotalSizeWithArenaState(arenaBytes: number, arenaSegments: number): number {
     const cmdOffset = HEADER_SIZE;
     const cmdBytes = this.cmdLen;
 
     const persistentStringsCount = this.stringSpanOffs.length;
-    const hasTextArenaSpan =
-      this.textArena.segmentCount() > 0 ||
-      this.textArena.byteLength() > 0 ||
-      persistentStringsCount > 0;
+    const hasTextArenaSpan = arenaSegments > 0 || arenaBytes > 0 || persistentStringsCount > 0;
     const stringsCount = persistentStringsCount + (hasTextArenaSpan ? 1 : 0);
     const stringsSpanBytes = stringsCount * 8;
     const stringsSpanOffset = cmdOffset + cmdBytes;
     const stringsBytesOffset = stringsSpanOffset + stringsSpanBytes;
-    const stringsBytesAligned =
-      stringsCount === 0 ? 0 : align4(this.textArena.byteLength() + this.stringBytesLen);
+    const stringsBytesAligned = stringsCount === 0 ? 0 : align4(arenaBytes + this.stringBytesLen);
 
     const blobsCount = this.blobSpanOffs.length;
     const blobsSpanBytes = blobsCount * 8;
