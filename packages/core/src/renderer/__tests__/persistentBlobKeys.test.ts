@@ -1,9 +1,9 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { defaultTheme } from "../../theme/defaultTheme.js";
 import type { DrawlistBuilderV3, DrawlistTextRunSegment } from "../../drawlist/types.js";
+import { defaultTheme } from "../../theme/defaultTheme.js";
 import { DEFAULT_BASE_STYLE } from "../renderToDrawlist/textStyle.js";
-import { drawSegments } from "../renderToDrawlist/widgets/renderTextWidgets.js";
 import { renderCanvasWidgets } from "../renderToDrawlist/widgets/renderCanvasWidgets.js";
+import { drawSegments } from "../renderToDrawlist/widgets/renderTextWidgets.js";
 
 class KeyCapturingBuilder implements DrawlistBuilderV3 {
   readonly drawlistVersion = 1 as const;
@@ -18,7 +18,9 @@ class KeyCapturingBuilder implements DrawlistBuilderV3 {
   pushClip(_x: number, _y: number, _w: number, _h: number): void {}
   popClip(): void {}
   drawTextRun(_x: number, _y: number, _blobId: number): void {}
-  setCursor(_state: Readonly<{ x: number; y: number; shape: 0 | 1 | 2; visible: boolean; blink: boolean }>): void {}
+  setCursor(
+    _state: Readonly<{ x: number; y: number; shape: 0 | 1 | 2; visible: boolean; blink: boolean }>,
+  ): void {}
   hideCursor(): void {}
   setLink(_uri: string | null): void {}
   drawCanvas(
@@ -73,17 +75,25 @@ class KeyCapturingBuilder implements DrawlistBuilderV3 {
 }
 
 describe("renderer persistent blob keys", () => {
-  test("drawSegments passes stable key for text-run blobs", () => {
-    const builder = new KeyCapturingBuilder();
-
-    drawSegments(builder, 0, 0, 80, [
+  test("drawSegments emits deterministic stable keys for text-run blobs", () => {
+    const segments = [
       { text: "left", style: { ...DEFAULT_BASE_STYLE, bold: true } },
       { text: "right", style: { ...DEFAULT_BASE_STYLE, italic: true } },
-    ]);
+    ] as const;
 
-    assert.equal(builder.textRunKeys.length, 1);
-    const key = builder.textRunKeys[0] ?? "";
-    assert.equal(key.length > 0, true);
+    const builder0 = new KeyCapturingBuilder();
+    drawSegments(builder0, 0, 0, 80, segments);
+    assert.equal(builder0.textRunKeys.length, 1);
+    const key0 = builder0.textRunKeys[0] ?? "";
+
+    const builder1 = new KeyCapturingBuilder();
+    drawSegments(builder1, 0, 0, 80, segments);
+    assert.equal(builder1.textRunKeys.length, 1);
+    const key1 = builder1.textRunKeys[0] ?? "";
+
+    assert.equal(key0.length > 0, true);
+    assert.equal(key1.length > 0, true);
+    assert.equal(key1, key0);
   });
 
   test("canvas/image widget paths provide stable keys for addBlob", () => {
@@ -142,7 +152,10 @@ describe("renderer persistent blob keys", () => {
       () => 0,
     );
 
-    assert.equal(builder.blobKeys.some((key) => key.startsWith("canvas:")), true);
+    assert.equal(
+      builder.blobKeys.some((key) => key.startsWith("canvas:")),
+      true,
+    );
     assert.equal(
       builder.blobKeys.some((key) => key.startsWith("image-blit:") || key.startsWith("image:")),
       true,

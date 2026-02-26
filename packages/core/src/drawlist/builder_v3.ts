@@ -1,16 +1,16 @@
 import { ZRDL_MAGIC, ZR_DRAWLIST_VERSION_V1 } from "../abi.js";
 import type { TextStyle } from "../widgets/style.js";
 import {
-  DEFAULT_MAX_BLOB_BYTES,
   DEFAULT_MAX_BLOBS,
+  DEFAULT_MAX_BLOB_BYTES,
   DEFAULT_MAX_CMD_COUNT,
   DEFAULT_MAX_DRAWLIST_BYTES,
   DEFAULT_MAX_STRINGS,
   DEFAULT_MAX_STRING_BYTES,
+  type DrawlistBuilderBaseOpts,
   HEADER_SIZE,
   INT32_MAX,
   INT32_MIN,
-  type DrawlistBuilderBaseOpts,
   packRgb,
 } from "./builderBase.js";
 import type {
@@ -335,7 +335,11 @@ class DrawlistBuilderV1Impl implements DrawlistBuilderV3 {
 
     const initialCmdCap = Math.min(4096, this.maxDrawlistBytes);
     this.drawBuf = new Uint8Array(initialCmdCap);
-    this.drawDv = new DataView(this.drawBuf.buffer, this.drawBuf.byteOffset, this.drawBuf.byteLength);
+    this.drawDv = new DataView(
+      this.drawBuf.buffer,
+      this.drawBuf.byteOffset,
+      this.drawBuf.byteLength,
+    );
 
     this.encoder = typeof TextEncoder !== "undefined" ? new TextEncoder() : undefined;
     if (!this.encoder) {
@@ -373,7 +377,16 @@ class DrawlistBuilderV1Impl implements DrawlistBuilderV3 {
 
     const encodedStyle = encodeStyle(style, null);
     if (!this.beginDrawCommand("fillRect", FILL_RECT_SIZE)) return;
-    this.drawLen = writeFillRect(this.drawBuf, this.drawDv, this.drawLen, xi, yi, wi, hi, encodedStyle);
+    this.drawLen = writeFillRect(
+      this.drawBuf,
+      this.drawDv,
+      this.drawLen,
+      xi,
+      yi,
+      wi,
+      hi,
+      encodedStyle,
+    );
     this.drawCmdCount += 1;
   }
 
@@ -437,7 +450,10 @@ class DrawlistBuilderV1Impl implements DrawlistBuilderV3 {
   }
 
   addBlob(bytes: Uint8Array, stableKey?: string): number | null {
-    return this.addBlobInternal(bytes, stableKey === undefined ? undefined : normalizeStableKey("u", stableKey));
+    return this.addBlobInternal(
+      bytes,
+      stableKey === undefined ? undefined : normalizeStableKey("u", stableKey),
+    );
   }
 
   addTextRunBlob(segments: readonly DrawlistTextRunSegment[], stableKey?: string): number | null {
@@ -461,7 +477,11 @@ class DrawlistBuilderV1Impl implements DrawlistBuilderV3 {
 
     let off = 4;
     for (const seg0 of segments as readonly unknown[]) {
-      if (typeof seg0 !== "object" || seg0 === null || typeof (seg0 as { text?: unknown }).text !== "string") {
+      if (
+        typeof seg0 !== "object" ||
+        seg0 === null ||
+        typeof (seg0 as { text?: unknown }).text !== "string"
+      ) {
         this.fail(
           "ZRDL_BAD_PARAMS",
           "addTextRunBlob: each segment must be { text: string; style?: TextStyle }",
@@ -492,10 +512,7 @@ class DrawlistBuilderV1Impl implements DrawlistBuilderV3 {
       off += SEGMENT_SIZE;
     }
 
-    const key =
-      stableKey === undefined
-        ? undefined
-        : normalizeStableKey("tr", stableKey);
+    const key = stableKey === undefined ? undefined : normalizeStableKey("tr", stableKey);
 
     return this.addBlobInternal(blob, key, [...depSet]);
   }
@@ -505,7 +522,9 @@ class DrawlistBuilderV1Impl implements DrawlistBuilderV3 {
 
     const xi = this.validateParams ? this.requireI32("drawTextRun", "x", x) : x | 0;
     const yi = this.validateParams ? this.requireI32("drawTextRun", "y", y) : y | 0;
-    const bi = this.validateParams ? this.requireU32("drawTextRun", "blobId", blobId) : blobId >>> 0;
+    const bi = this.validateParams
+      ? this.requireU32("drawTextRun", "blobId", blobId)
+      : blobId >>> 0;
     if (this.error) return;
     if (xi === null || yi === null || bi === null) return;
 
@@ -524,11 +543,12 @@ class DrawlistBuilderV1Impl implements DrawlistBuilderV3 {
     if (this.error) return;
     if (xi === null || yi === null) return;
 
-    const shape = state.shape & 0xff;
-    if (this.validateParams && (shape < 0 || shape > 2)) {
-      this.fail("ZRDL_BAD_PARAMS", `setCursor: shape must be 0, 1, or 2 (got ${String(shape)})`);
+    const rawShape = state.shape;
+    if (this.validateParams && (rawShape < 0 || rawShape > 2)) {
+      this.fail("ZRDL_BAD_PARAMS", `setCursor: shape must be 0, 1, or 2 (got ${String(rawShape)})`);
       return;
     }
+    const shape = rawShape & 0xff;
 
     if (!this.beginDrawCommand("setCursor", SET_CURSOR_SIZE)) return;
     this.drawLen = writeSetCursor(
@@ -624,7 +644,8 @@ class DrawlistBuilderV1Impl implements DrawlistBuilderV3 {
       resolvedPxW = pxWi;
       resolvedPxH = pxHi;
     } else {
-      const derived = deriveCanvasPxFromBlitter(wi, hi, blitter) ?? inferAutoCanvasPx(blob.bytes.byteLength, wi);
+      const derived =
+        deriveCanvasPxFromBlitter(wi, hi, blitter) ?? inferAutoCanvasPx(blob.bytes.byteLength, wi);
       if (!derived) {
         this.fail(
           "ZRDL_BAD_PARAMS",
@@ -700,7 +721,9 @@ class DrawlistBuilderV1Impl implements DrawlistBuilderV3 {
     const wi = this.validateParams ? this.requireI32Positive("drawImage", "w", w) : w | 0;
     const hi = this.validateParams ? this.requireI32Positive("drawImage", "h", h) : h | 0;
     const bi = this.validateParams ? this.requireU32("drawImage", "blobId", blobId) : blobId >>> 0;
-    const imageIdU32 = this.validateParams ? this.requireU32("drawImage", "imageId", imageId) : imageId >>> 0;
+    const imageIdU32 = this.validateParams
+      ? this.requireU32("drawImage", "imageId", imageId)
+      : imageId >>> 0;
     if (this.error) return;
     if (
       xi === null ||
@@ -1073,10 +1096,11 @@ class DrawlistBuilderV1Impl implements DrawlistBuilderV3 {
       return null;
     }
 
-    const key = stableKey ?? this.autoBlobKey(bytes);
+    const ownedBytes = bytes.slice();
+    const key = stableKey ?? this.autoBlobKey(ownedBytes);
     const existing = this.blobByKey.get(key);
     if (existing) {
-      if (bytesEqual(existing.bytes, bytes)) {
+      if (bytesEqual(existing.bytes, ownedBytes)) {
         this.touchBlob(existing);
         this.ensureBlobDefined(existing);
         return existing.id;
@@ -1092,7 +1116,7 @@ class DrawlistBuilderV1Impl implements DrawlistBuilderV3 {
       if (this.error) return null;
     }
 
-    if (!this.ensureBlobCapacity(bytes.byteLength, 1)) {
+    if (!this.ensureBlobCapacity(ownedBytes.byteLength, 1)) {
       return null;
     }
 
@@ -1101,7 +1125,7 @@ class DrawlistBuilderV1Impl implements DrawlistBuilderV3 {
     const entry: BlobResource = {
       id,
       key,
-      bytes,
+      bytes: ownedBytes,
       lastUsedTick: ++this.lruTick,
       generationDefined: 0,
       pinnedFrame: this.frameSeq,
@@ -1115,7 +1139,7 @@ class DrawlistBuilderV1Impl implements DrawlistBuilderV3 {
 
     this.blobByKey.set(key, entry);
     this.blobById.set(id, entry);
-    this.blobBytesTotal += bytes.byteLength;
+    this.blobBytesTotal += ownedBytes.byteLength;
 
     this.frameResourceMutations = true;
     this.ensureBlobDefined(entry);
@@ -1371,7 +1395,11 @@ class DrawlistBuilderV1Impl implements DrawlistBuilderV3 {
     const next = new Uint8Array(nextCap);
     next.set(this.drawBuf.subarray(0, this.drawLen));
     this.drawBuf = next;
-    this.drawDv = new DataView(this.drawBuf.buffer, this.drawBuf.byteOffset, this.drawBuf.byteLength);
+    this.drawDv = new DataView(
+      this.drawBuf.buffer,
+      this.drawBuf.byteOffset,
+      this.drawBuf.byteLength,
+    );
   }
 
   private ensureOutputCapacity(required: number): Uint8Array {

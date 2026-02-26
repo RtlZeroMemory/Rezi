@@ -130,4 +130,21 @@ describe("writers.gen v6", () => {
     assert.equal(u32(bytes, 12), 4);
     assert.deepEqual(Array.from(bytes.subarray(16, 20)), [1, 2, 3, 4]);
   });
+
+  test("DEF_BLOB zeroes trailing padding at non-zero write positions", () => {
+    const bytes = new Uint8Array(64);
+    bytes.fill(0xcc);
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const payload = new Uint8Array([1, 2, 3]);
+
+    const end = writeDefBlob(bytes, dv, 8, 7, payload.byteLength, payload);
+
+    assert.equal(end, 28);
+    assert.equal(u8(bytes, 8), 12);
+    assert.equal(u32(bytes, 12), 20);
+    assert.equal(u32(bytes, 16), 7);
+    assert.equal(u32(bytes, 20), 3);
+    assert.deepEqual(Array.from(bytes.subarray(24, 27)), [1, 2, 3]);
+    assert.equal(u8(bytes, 27), 0);
+  });
 });

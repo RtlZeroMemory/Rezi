@@ -209,7 +209,9 @@ function readBackendDrawlistVersionMarker(backend: RuntimeBackend): 1 | null {
   ];
   if (value === undefined) return null;
   if (typeof value !== "number" || !Number.isInteger(value) || value !== 1) {
-    invalidProps(`backend marker ${BACKEND_DRAWLIST_VERSION_MARKER} must be integer 1 when present`);
+    invalidProps(
+      `backend marker ${BACKEND_DRAWLIST_VERSION_MARKER} must be integer 1 when present`,
+    );
   }
   return 1;
 }
@@ -591,15 +593,8 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   const backend = opts.backend;
   const config = resolveAppConfig(opts.config);
 
-  const backendDrawlistVersion = readBackendDrawlistVersionMarker(backend);
-  if (backendDrawlistVersion !== null && backendDrawlistVersion !== 1) {
-    invalidProps(
-      `backend drawlistVersion=${String(
-        backendDrawlistVersion,
-      )} is no longer supported. Fix: set backend drawlist version to 1.`,
-    );
-  }
-  const drawlistVersion: 1 = 1;
+  readBackendDrawlistVersionMarker(backend);
+  const drawlistVersion = 1 as const;
 
   const backendMaxEventBytes = readBackendPositiveIntMarker(
     backend,

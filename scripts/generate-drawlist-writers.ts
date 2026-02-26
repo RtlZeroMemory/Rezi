@@ -133,8 +133,10 @@ function emitFunction(command: DrawlistCommandSpec): Emission {
   if (command.hasTrailingBytes) {
     body.push(`const dataStart = pos + ${command.name}_BASE_SIZE;`);
     body.push("buf.set(bytes, dataStart);");
-    body.push("if (size > dataStart + payloadBytes) {");
-    body.push("  buf.fill(0, dataStart + payloadBytes, pos + size);");
+    body.push("const payloadEnd = dataStart + payloadBytes;");
+    body.push("const cmdEnd = pos + size;");
+    body.push("if (cmdEnd > payloadEnd) {");
+    body.push("  buf.fill(0, payloadEnd, cmdEnd);");
     body.push("}");
     body.push("return pos + size;");
   } else {
@@ -142,8 +144,9 @@ function emitFunction(command: DrawlistCommandSpec): Emission {
   }
 
   const lines: string[] = [];
-  if (params.length <= 3) {
-    lines.push(`export function ${command.writerName}(${params.join(", ")}): number {`);
+  const compactSignature = `export function ${command.writerName}(${params.join(", ")}): number {`;
+  if (compactSignature.length <= 100) {
+    lines.push(compactSignature);
   } else {
     lines.push(`export function ${command.writerName}(`);
     for (const param of params) {

@@ -86,10 +86,10 @@ export type NodeBackendConfig = Readonly<{
   /**
    * Explicit drawlist version request.
    *
-   * Defaults to `6` (resource-id drawlist with DEF/FREE resource commands).
-   * Supported values: `6`.
+   * Defaults to `1` (resource-id drawlist with DEF/FREE resource commands).
+   * Supported values: `1`.
    */
-  drawlistVersion?: number;
+  drawlistVersion?: 1;
   /**
    * Frame transport mode:
    * - "auto": prefer SAB mailbox transport when available, fallback to transfer.

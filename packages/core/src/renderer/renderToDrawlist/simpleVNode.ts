@@ -210,11 +210,7 @@ function drawSegments(
   segments: readonly StyledSegment[],
 ): void {
   const textRunStableKey = (segments0: readonly StyledSegment[]): string =>
-    segments0
-      .map((segment) =>
-        `${segment.text}\u0000${segment.style === undefined ? "" : JSON.stringify(segment.style)}`,
-      )
-      .join("\u0001");
+    JSON.stringify(segments0.map((segment) => [segment.text, segment.style ?? null] as const));
 
   const clipped = clipSegmentsToWidth(segments, maxWidth);
   if (clipped.length === 0) return;

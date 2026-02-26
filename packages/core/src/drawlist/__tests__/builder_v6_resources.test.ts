@@ -32,7 +32,9 @@ function parseCommands(bytes: Uint8Array): readonly ParsedCommand[] {
   return Object.freeze(out);
 }
 
-function expectOk(result: ReturnType<ReturnType<typeof createDrawlistBuilderV1>["build"]>): Uint8Array {
+function expectOk(
+  result: ReturnType<ReturnType<typeof createDrawlistBuilderV1>["build"]>,
+): Uint8Array {
   assert.equal(result.ok, true);
   if (!result.ok) throw new Error("drawlist build failed");
   return result.bytes;
@@ -111,20 +113,29 @@ describe("DrawlistBuilderV1 resource caching", () => {
 
     b.drawText(0, 0, "restart");
     const frame1 = expectOk(b.build());
-    assert.equal(parseCommands(frame1).some((cmd) => cmd.opcode === OP_DEF_STRING), true);
+    assert.equal(
+      parseCommands(frame1).some((cmd) => cmd.opcode === OP_DEF_STRING),
+      true,
+    );
 
     b.reset();
 
     b.drawText(0, 0, "restart");
     const frame2 = expectOk(b.build());
-    assert.equal(parseCommands(frame2).some((cmd) => cmd.opcode === OP_DEF_STRING), false);
+    assert.equal(
+      parseCommands(frame2).some((cmd) => cmd.opcode === OP_DEF_STRING),
+      false,
+    );
 
     b.reset();
     b.markEngineResourceStoreEmpty();
 
     b.drawText(0, 0, "restart");
     const frame3 = expectOk(b.build());
-    assert.equal(parseCommands(frame3).some((cmd) => cmd.opcode === OP_DEF_STRING), true);
+    assert.equal(
+      parseCommands(frame3).some((cmd) => cmd.opcode === OP_DEF_STRING),
+      true,
+    );
   });
 
   test("text-run blobs are persisted across frames", () => {
@@ -155,5 +166,23 @@ describe("DrawlistBuilderV1 resource caching", () => {
     const ops2 = parseCommands(frame2).map((cmd) => cmd.opcode);
     assert.equal(ops2.includes(OP_DEF_BLOB), false);
     assert.equal(ops2.includes(OP_DRAW_TEXT_RUN), true);
+  });
+
+  test("addBlob snapshots caller bytes to prevent post-add mutation drift", () => {
+    const b = createDrawlistBuilderV1();
+    const source = new Uint8Array([1, 2, 3, 4]);
+    const blobId = b.addBlob(source, "blob:owned");
+    assert.equal(blobId !== null, true);
+    if (blobId === null) throw new Error("missing blob id");
+
+    source[0] = 99;
+    b.drawCanvas(0, 0, 1, 1, blobId, "ascii", 1, 1);
+    const frame = expectOk(b.build());
+    const defBlob = parseCommands(frame).find((cmd) => cmd.opcode === OP_DEF_BLOB);
+    assert.equal(defBlob !== undefined, true);
+    if (!defBlob) throw new Error("missing DEF_BLOB");
+
+    const payload0 = frame[defBlob.off + 16] ?? 0;
+    assert.equal(payload0, 1);
   });
 });

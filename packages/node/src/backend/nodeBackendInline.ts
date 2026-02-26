@@ -256,9 +256,7 @@ function parseDrawlistVersion(v: unknown): 1 | null {
   );
 }
 
-function resolveRequestedDrawlistVersion(
-  config: Readonly<{ drawlistVersion?: number }>,
-): 1 {
+function resolveRequestedDrawlistVersion(config: Readonly<{ drawlistVersion?: 1 }>): 1 {
   const explicitDrawlistVersion = parseDrawlistVersion(config.drawlistVersion);
   if (explicitDrawlistVersion !== null) return explicitDrawlistVersion;
   return ZR_DRAWLIST_VERSION_V1;

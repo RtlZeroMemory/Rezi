@@ -385,7 +385,8 @@ export function renderCanvasWidgets(
         break;
       }
       const zLayer = readZLayer(props.zLayer);
-      const imageId = readNonNegativeInt(props.imageId) ?? hashImageBytes(analyzed.bytes) ?? 0;
+      const imageBytesHash = hashImageBytes(analyzed.bytes);
+      const imageId = readNonNegativeInt(props.imageId) ?? imageBytesHash;
       const explicitSourceWidth = readPositiveInt(props.sourceWidth);
       const explicitSourceHeight = readPositiveInt(props.sourceHeight);
       if ((explicitSourceWidth === undefined) !== (explicitSourceHeight === undefined)) {
@@ -437,7 +438,7 @@ export function renderCanvasWidgets(
         const canvasBlobIndex = addBlobAligned(
           builder,
           analyzed.bytes,
-          `image-blit:${String(imageId)}:${analyzed.format}:${String(hashImageBytes(analyzed.bytes))}`,
+          `image-blit:${String(imageId)}:${analyzed.format}:${String(imageBytesHash)}`,
         );
         if (canvasBlobIndex === null) {
           drawPlaceholderBox(
@@ -466,7 +467,7 @@ export function renderCanvasWidgets(
       const blobIndex = addBlobAligned(
         builder,
         analyzed.bytes,
-        `image:${String(imageId)}:${analyzed.format}:${String(hashImageBytes(analyzed.bytes))}`,
+        `image:${String(imageId)}:${analyzed.format}:${String(imageBytesHash)}`,
       );
       if (blobIndex === null) {
         drawPlaceholderBox(

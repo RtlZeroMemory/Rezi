@@ -268,8 +268,10 @@ export function writeDefString(
   dv.setUint32(pos + 12, payloadBytes >>> 0, true);
   const dataStart = pos + DEF_STRING_BASE_SIZE;
   buf.set(bytes, dataStart);
-  if (size > dataStart + payloadBytes) {
-    buf.fill(0, dataStart + payloadBytes, pos + size);
+  const payloadEnd = dataStart + payloadBytes;
+  const cmdEnd = pos + size;
+  if (cmdEnd > payloadEnd) {
+    buf.fill(0, payloadEnd, cmdEnd);
   }
   return pos + size;
 }
@@ -308,18 +310,15 @@ export function writeDefBlob(
   dv.setUint32(pos + 12, payloadBytes >>> 0, true);
   const dataStart = pos + DEF_BLOB_BASE_SIZE;
   buf.set(bytes, dataStart);
-  if (size > dataStart + payloadBytes) {
-    buf.fill(0, dataStart + payloadBytes, pos + size);
+  const payloadEnd = dataStart + payloadBytes;
+  const cmdEnd = pos + size;
+  if (cmdEnd > payloadEnd) {
+    buf.fill(0, payloadEnd, cmdEnd);
   }
   return pos + size;
 }
 
-export function writeFreeBlob(
-  buf: Uint8Array,
-  dv: DataView,
-  pos: number,
-  blobId: number,
-): number {
+export function writeFreeBlob(buf: Uint8Array, dv: DataView, pos: number, blobId: number): number {
   buf[pos + 0] = 13 & 0xff;
   buf[pos + 1] = 0;
   buf[pos + 2] = 0;
