@@ -40,7 +40,23 @@ function repeatCached(glyph: string, count: number): string {
   return value;
 }
 
+function parseHexRgb24(input: string): number | undefined {
+  const raw = input.startsWith("#") ? input.slice(1) : input;
+  if (/^[0-9a-fA-F]{6}$/.test(raw)) {
+    return Number.parseInt(raw, 16) & 0x00ff_ffff;
+  }
+  if (/^[0-9a-fA-F]{3}$/.test(raw)) {
+    const r = Number.parseInt(raw[0] ?? "0", 16);
+    const g = Number.parseInt(raw[1] ?? "0", 16);
+    const b = Number.parseInt(raw[2] ?? "0", 16);
+    return (((r << 4) | r) << 16) | (((g << 4) | g) << 8) | ((b << 4) | b);
+  }
+  return undefined;
+}
+
 function resolveCanvasOverlayColor(theme: Theme, color: string): number {
+  const parsedHex = parseHexRgb24(color);
+  if (parsedHex !== undefined) return parsedHex;
   return resolveColor(theme, color);
 }
 

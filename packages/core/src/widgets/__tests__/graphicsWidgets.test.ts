@@ -214,6 +214,25 @@ describe("graphics widgets", () => {
     assert.equal(fg, packRgb(0xff, 0xd1, 0x66));
   });
 
+  test("canvas text overlay accepts short hex color", () => {
+    const bytes = renderBytes(
+      ui.canvas({
+        width: 10,
+        height: 4,
+        draw: (ctx) => {
+          ctx.text(1, 1, "A", "#f0a");
+        },
+      }),
+      () => createDrawlistBuilder(),
+      { cols: 20, rows: 8 },
+    );
+    const payloadOff = findCommandPayload(bytes, 3);
+    assert.equal(payloadOff !== null, true);
+    if (payloadOff === null) return;
+    const fg = u32(bytes, payloadOff + 20);
+    assert.equal(fg, packRgb(0xff, 0x00, 0xaa));
+  });
+
   test("canvas auto blitter resolves to braille and blob span matches payload", () => {
     const width = 4;
     const height = 2;
