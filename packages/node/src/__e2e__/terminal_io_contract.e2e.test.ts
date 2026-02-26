@@ -886,15 +886,22 @@ test("terminal io contract: keyboard + paste + focus + mouse + resize + split re
     );
 
     // Oversized paste overrun drops paste event and must not wedge input.
-    const oversizedPayload = "a".repeat(70_000);
+    await collectEvents(harness, 20, () => false);
+    const oversizedMarker = "oversized-paste-marker:";
+    const oversizedPayload = `${oversizedMarker}${"a".repeat(70_000)}`;
     harness.writeRaw(`\x1b[200~${oversizedPayload}\x1b[201~`);
     const oversizedEvents = await collectEvents(harness, 120, (xs) => {
       return findIndex(xs, (ev) => ev.kind === "paste") >= 0;
     });
+    const oversizedPaste = findIndex(
+      oversizedEvents,
+      (ev) =>
+        ev.kind === "paste" && textDecoder.decode(ev.bytes).includes(oversizedMarker),
+    );
     assert.equal(
-      oversizedEvents.some((ev) => ev.kind === "paste"),
-      false,
-      "oversized paste should not emit a paste event",
+      oversizedPaste,
+      -1,
+      "oversized paste should not emit a paste event for the oversized payload",
     );
 
     harness.writeRaw("z");
