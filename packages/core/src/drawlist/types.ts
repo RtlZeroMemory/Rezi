@@ -73,6 +73,7 @@ export interface DrawlistBuilder extends DrawlistBuildInto {
   clearTo(cols: number, rows: number, style?: TextStyle): void;
   fillRect(x: number, y: number, w: number, h: number, style?: TextStyle): void;
   reserveTextArena?(bytes: number): void;
+  blitRect(srcX: number, srcY: number, w: number, h: number, dstX: number, dstY: number): void;
   drawText(x: number, y: number, text: string, style?: TextStyle): void;
   pushClip(x: number, y: number, w: number, h: number): void;
   popClip(): void;

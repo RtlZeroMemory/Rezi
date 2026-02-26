@@ -46,6 +46,14 @@ class CountingBuilder implements DrawlistBuilder {
     _pxWidth?: number,
     _pxHeight?: number,
   ): void {}
+  blitRect(
+    _srcX: number,
+    _srcY: number,
+    _w: number,
+    _h: number,
+    _dstX: number,
+    _dstY: number,
+  ): void {}
 
   addBlob(_bytes: Uint8Array): number | null {
     this.blobCount.value += 1;

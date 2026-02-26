@@ -78,6 +78,8 @@ class RecordingBuilder implements DrawlistBuilder {
 
   drawImage(..._args: Parameters<DrawlistBuilder["drawImage"]>): void {}
 
+  blitRect(..._args: Parameters<DrawlistBuilder["blitRect"]>): void {}
+
   build(): DrawlistBuildResult {
     this.lastBuiltOps = this.ops.slice();
     return { ok: true, bytes: new Uint8Array([this.ops.length & 0xff]) };

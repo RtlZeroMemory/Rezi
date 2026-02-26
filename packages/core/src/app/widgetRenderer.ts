@@ -75,6 +75,10 @@ import { getRuntimeNodeDamageRect } from "../renderer/renderToDrawlist/damageBou
 import { renderTree } from "../renderer/renderToDrawlist/renderTree.js";
 import { DEFAULT_BASE_STYLE } from "../renderer/renderToDrawlist/textStyle.js";
 import {
+  focusIndicatorEnabled as focusIndicatorEnabledForLogs,
+  readFocusConfig as readFocusConfigForLogs,
+} from "../renderer/renderToDrawlist/widgets/focusConfig.js";
+import {
   type CommitOk,
   type PendingExitAnimation,
   type RuntimeInstance,
@@ -531,6 +535,42 @@ function rectEquals(a: Rect, b: Rect): boolean {
   return a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 }
 
+function rectsIntersect(a: Rect, b: Rect): boolean {
+  if (a.w <= 0 || a.h <= 0 || b.w <= 0 || b.h <= 0) return false;
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function rectsIntersection(a: Rect, b: Rect): Rect | null {
+  const x0 = Math.max(a.x, b.x);
+  const y0 = Math.max(a.y, b.y);
+  const x1 = Math.min(a.x + a.w, b.x + b.w);
+  const y1 = Math.min(a.y + a.h, b.y + b.h);
+  if (x1 <= x0 || y1 <= y0) return null;
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+
+function rectContainsRect(outer: Rect, inner: Rect): boolean {
+  if (inner.w <= 0 || inner.h <= 0) return false;
+  return (
+    inner.x >= outer.x &&
+    inner.y >= outer.y &&
+    inner.x + inner.w <= outer.x + outer.w &&
+    inner.y + inner.h <= outer.y + outer.h
+  );
+}
+
+function nodeKindCanPaintOverlay(kind: VNode["kind"]): boolean {
+  switch (kind) {
+    case "themed":
+    case "focusZone":
+    case "focusTrap":
+    case "layers":
+      return false;
+    default:
+      return true;
+  }
+}
+
 function monotonicNowMs(): number {
   const perf = (globalThis as { performance?: { now?: () => number } }).performance;
   const perfNow = perf?.now;
@@ -554,6 +594,38 @@ type ErrorBoundaryState = Readonly<{
   detail: string;
   message: string;
   stack?: string;
+}>;
+
+type LogsScrollBlitPlan = Readonly<{
+  instanceId: InstanceId;
+  srcX: number;
+  srcY: number;
+  w: number;
+  h: number;
+  dstX: number;
+  dstY: number;
+  damageRects: readonly Rect[];
+}>;
+
+type LogsScrollSnapshot = Readonly<{
+  instanceId: InstanceId;
+  rect: Rect;
+  contentRect: Rect;
+  scrollTop: number;
+  filteredLength: number;
+  entriesRef: LogsConsoleProps["entries"];
+  levelFilterRef: readonly string[];
+  sourceFilterRef: readonly string[];
+  searchQuery: string | null;
+  expandedEntriesRef: readonly string[];
+  showTimestamps: boolean;
+  showSource: boolean;
+  focusConfigRef: LogsConsoleProps["focusConfig"];
+  focusedStyleRef: LogsConsoleProps["focusedStyle"];
+  scrollbarVariant: LogsConsoleProps["scrollbarVariant"];
+  scrollbarStyleRef: LogsConsoleProps["scrollbarStyle"];
+  focused: boolean;
+  showFocusRing: boolean;
 }>;
 
 /**
@@ -707,6 +779,8 @@ export class WidgetRenderer<S> {
   private readonly diffViewerExpandedHunksById = new Map<string, ReadonlySet<number>>();
 
   private readonly logsConsoleLastGTimeById = new Map<string, number>();
+  private readonly logsConsoleInstanceIdById = new Map<string, InstanceId>();
+  private readonly logsScrollSnapshotById = new Map<string, LogsScrollSnapshot>();
 
   // Tracks whether the currently committed tree needs routing rebuild traversals.
   private hadRoutingWidgets = false;
@@ -2292,6 +2366,15 @@ export class WidgetRenderer<S> {
     );
   }
 
+  private clipDamageRectsWithoutMerge(viewport: Viewport): readonly Rect[] {
+    this._pooledMergedDamageRects.length = 0;
+    for (const rect of this._pooledDamageRects) {
+      const clipped = clipRectToViewport(rect, viewport);
+      if (clipped) this._pooledMergedDamageRects.push(clipped);
+    }
+    return this._pooledMergedDamageRects;
+  }
+
   private isDamageAreaTooLarge(viewport: Viewport): boolean {
     return isDamageAreaTooLargeImpl(viewport, this._pooledMergedDamageRects);
   }
@@ -2327,6 +2410,312 @@ export class WidgetRenderer<S> {
     this._lastRenderedThemeRef = nextFrameState.lastRenderedThemeRef;
     this._lastRenderedFocusedId = nextFrameState.lastRenderedFocusedId;
     this._lastRenderedFocusAnnouncement = nextFrameState.lastRenderedFocusAnnouncement;
+  }
+
+  private resolveLogsConsoleRenderGeometry(
+    rect: Rect,
+    props: LogsConsoleProps,
+    focusedId: string | null,
+  ): Readonly<{ focused: boolean; showFocusRing: boolean; contentRect: Rect }> {
+    const focused = focusedId === props.id;
+    const focusConfig = readFocusConfigForLogs(props.focusConfig);
+    const showFocusRing = focused && focusIndicatorEnabledForLogs(focusConfig);
+    if (!showFocusRing) {
+      return Object.freeze({ focused, showFocusRing, contentRect: rect });
+    }
+    return Object.freeze({
+      focused,
+      showFocusRing,
+      contentRect: {
+        x: rect.x + 1,
+        y: rect.y + 1,
+        w: Math.max(0, rect.w - 2),
+        h: Math.max(0, rect.h - 2),
+      },
+    });
+  }
+
+  private hasUnsafeAncestorClipForBlit(instanceId: InstanceId, contentRect: Rect): boolean {
+    if (contentRect.w <= 0 || contentRect.h <= 0) return true;
+    if (!this.committedRoot) return true;
+
+    const nodeByInstanceId = new Map<InstanceId, RuntimeInstance>();
+    const parentByInstanceId = new Map<InstanceId, InstanceId | null>();
+    const stack: RuntimeInstance[] = [this.committedRoot];
+    nodeByInstanceId.set(this.committedRoot.instanceId, this.committedRoot);
+    parentByInstanceId.set(this.committedRoot.instanceId, null);
+
+    let foundTarget = this.committedRoot.instanceId === instanceId;
+    while (stack.length > 0 && !foundTarget) {
+      const node = stack.pop();
+      if (!node) continue;
+
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        const child = node.children[i];
+        if (!child) continue;
+        nodeByInstanceId.set(child.instanceId, child);
+        parentByInstanceId.set(child.instanceId, node.instanceId);
+        if (child.instanceId === instanceId) {
+          foundTarget = true;
+          break;
+        }
+        stack.push(child);
+      }
+    }
+    if (!foundTarget) return true;
+
+    let effectiveClip: Rect | null = null;
+    let currentParentId = parentByInstanceId.get(instanceId) ?? null;
+    while (currentParentId !== null) {
+      const ancestor = nodeByInstanceId.get(currentParentId);
+      if (!ancestor) return true;
+
+      switch (ancestor.vnode.kind) {
+        case "row":
+        case "column":
+        case "grid":
+        case "box": {
+          const overflow = (ancestor.vnode.props as { overflow?: unknown } | undefined)?.overflow;
+          if (overflow === "hidden" || overflow === "scroll") {
+            return true;
+          }
+          break;
+        }
+        case "modal":
+        case "layer":
+          return true;
+        case "splitPane":
+        case "panelGroup":
+        case "resizablePanel": {
+          const ancestorRect = this._pooledRectByInstanceId.get(ancestor.instanceId);
+          if (!ancestorRect) return true;
+          effectiveClip = effectiveClip
+            ? rectsIntersection(effectiveClip, ancestorRect)
+            : ancestorRect;
+          if (!effectiveClip) return true;
+          break;
+        }
+        default:
+          break;
+      }
+
+      currentParentId = parentByInstanceId.get(currentParentId) ?? null;
+    }
+
+    if (!effectiveClip) return false;
+    return !rectContainsRect(effectiveClip, contentRect);
+  }
+
+  private hasPaintedOverlapAfterInstance(instanceId: InstanceId, contentRect: Rect): boolean {
+    if (contentRect.w <= 0 || contentRect.h <= 0) return true;
+    if (!this.committedRoot) return true;
+
+    const stack: Array<Readonly<{ node: RuntimeInstance; depth: number }>> = [
+      { node: this.committedRoot, depth: 0 },
+    ];
+    let foundTarget = false;
+    let targetDepth = -1;
+    let afterTargetSubtree = false;
+
+    while (stack.length > 0) {
+      const current = stack.pop();
+      if (!current) continue;
+      const node = current.node;
+      const depth = current.depth;
+
+      if (!foundTarget) {
+        if (node.instanceId === instanceId) {
+          foundTarget = true;
+          targetDepth = depth;
+        }
+      } else {
+        if (!afterTargetSubtree && depth <= targetDepth) {
+          afterTargetSubtree = true;
+        }
+        if (afterTargetSubtree && nodeKindCanPaintOverlay(node.vnode.kind)) {
+          const candidateRect = this._pooledRectByInstanceId.get(node.instanceId);
+          if (candidateRect && rectsIntersect(candidateRect, contentRect)) {
+            return true;
+          }
+        }
+      }
+
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        const child = node.children[i];
+        if (!child) continue;
+        stack.push({ node: child, depth: depth + 1 });
+      }
+    }
+
+    return !foundTarget;
+  }
+
+  private readLogsFilteredLength(props: LogsConsoleProps): number {
+    const cached = this.logsConsoleRenderCacheById.get(props.id);
+    if (cached) return cached.filtered.length;
+    return applyFilters(props.entries, props.levelFilter, props.sourceFilter, props.searchQuery)
+      .length;
+  }
+
+  private buildLogsScrollBlitPlans(
+    prevFocusedId: string | null,
+    nextFocusedId: string | null,
+  ): ReadonlyMap<InstanceId, LogsScrollBlitPlan> {
+    const plans = new Map<InstanceId, LogsScrollBlitPlan>();
+    if (prevFocusedId !== nextFocusedId) return plans;
+
+    for (const [id, props] of this.logsConsoleById) {
+      const prev = this.logsScrollSnapshotById.get(id);
+      if (!prev) continue;
+
+      const instanceId = this.logsConsoleInstanceIdById.get(id);
+      if (instanceId === undefined || instanceId !== prev.instanceId) continue;
+
+      const rect = this.rectById.get(id);
+      if (!rect || rect.w <= 0 || rect.h <= 0) continue;
+
+      const geometry = this.resolveLogsConsoleRenderGeometry(rect, props, nextFocusedId);
+      const contentRect = geometry.contentRect;
+      if (contentRect.w <= 0 || contentRect.h <= 0) continue;
+
+      const levelFilterRef = (props.levelFilter ?? EMPTY_STRING_ARRAY) as readonly string[];
+      const sourceFilterRef = (props.sourceFilter ?? EMPTY_STRING_ARRAY) as readonly string[];
+      const searchQuery = props.searchQuery ? props.searchQuery : null;
+      const expandedEntriesRef = (props.expandedEntries ?? EMPTY_STRING_ARRAY) as readonly string[];
+      const showTimestamps = props.showTimestamps !== false;
+      const showSource = props.showSource !== false;
+      const filteredLength = this.readLogsFilteredLength(props);
+
+      if (
+        prev.entriesRef !== props.entries ||
+        prev.levelFilterRef !== levelFilterRef ||
+        prev.sourceFilterRef !== sourceFilterRef ||
+        prev.searchQuery !== searchQuery ||
+        prev.expandedEntriesRef !== expandedEntriesRef ||
+        prev.showTimestamps !== showTimestamps ||
+        prev.showSource !== showSource ||
+        prev.focusConfigRef !== props.focusConfig ||
+        prev.focusedStyleRef !== props.focusedStyle ||
+        prev.scrollbarVariant !== props.scrollbarVariant ||
+        prev.scrollbarStyleRef !== props.scrollbarStyle ||
+        prev.focused !== geometry.focused ||
+        prev.showFocusRing !== geometry.showFocusRing ||
+        prev.filteredLength !== filteredLength ||
+        !rectEquals(prev.rect, rect) ||
+        !rectEquals(prev.contentRect, contentRect)
+      ) {
+        continue;
+      }
+
+      const prevScrollTop = clampIndexScrollTopForRows(
+        prev.scrollTop,
+        filteredLength,
+        contentRect.h,
+      );
+      const nextScrollTop = clampIndexScrollTopForRows(
+        props.scrollTop,
+        filteredLength,
+        contentRect.h,
+      );
+      const delta = nextScrollTop - prevScrollTop;
+      if (delta === 0) continue;
+
+      const deltaAbs = Math.abs(delta);
+      if (deltaAbs >= contentRect.h) continue;
+
+      const hasScrollbar = filteredLength > contentRect.h;
+      const scrollbarWidth = hasScrollbar ? 1 : 0;
+      const blitW = contentRect.w - scrollbarWidth;
+      const blitH = contentRect.h - deltaAbs;
+      if (blitW <= 0 || blitH <= 0) continue;
+      if (this.hasUnsafeAncestorClipForBlit(instanceId, contentRect)) continue;
+      if (this.hasPaintedOverlapAfterInstance(instanceId, contentRect)) continue;
+
+      const srcX = contentRect.x;
+      const dstX = contentRect.x;
+      const srcY = delta > 0 ? contentRect.y + delta : contentRect.y;
+      const dstY = delta > 0 ? contentRect.y : contentRect.y + deltaAbs;
+      const stripY = delta > 0 ? contentRect.y + blitH : contentRect.y;
+      const damageRects: Rect[] = [
+        {
+          x: contentRect.x,
+          y: stripY,
+          w: blitW,
+          h: deltaAbs,
+        },
+      ];
+      if (hasScrollbar) {
+        damageRects.push({
+          x: contentRect.x + contentRect.w - 1,
+          y: contentRect.y,
+          w: 1,
+          h: contentRect.h,
+        });
+      }
+
+      plans.set(
+        instanceId,
+        Object.freeze({
+          instanceId,
+          srcX,
+          srcY,
+          w: blitW,
+          h: blitH,
+          dstX,
+          dstY,
+          damageRects: Object.freeze(damageRects),
+        }),
+      );
+    }
+
+    return plans;
+  }
+
+  private snapshotLogsScrollState(focusedId: string | null): void {
+    const nextById = new Map<string, LogsScrollSnapshot>();
+
+    for (const [id, props] of this.logsConsoleById) {
+      const rect = this.rectById.get(id);
+      const instanceId = this.logsConsoleInstanceIdById.get(id);
+      if (!rect || rect.w <= 0 || rect.h <= 0 || instanceId === undefined) continue;
+
+      const geometry = this.resolveLogsConsoleRenderGeometry(rect, props, focusedId);
+      const contentRect = geometry.contentRect;
+      if (contentRect.w <= 0 || contentRect.h <= 0) continue;
+
+      const levelFilterRef = (props.levelFilter ?? EMPTY_STRING_ARRAY) as readonly string[];
+      const sourceFilterRef = (props.sourceFilter ?? EMPTY_STRING_ARRAY) as readonly string[];
+      const expandedEntriesRef = (props.expandedEntries ?? EMPTY_STRING_ARRAY) as readonly string[];
+
+      nextById.set(
+        id,
+        Object.freeze({
+          instanceId,
+          rect,
+          contentRect,
+          scrollTop: props.scrollTop,
+          filteredLength: this.readLogsFilteredLength(props),
+          entriesRef: props.entries,
+          levelFilterRef,
+          sourceFilterRef,
+          searchQuery: props.searchQuery ? props.searchQuery : null,
+          expandedEntriesRef,
+          showTimestamps: props.showTimestamps !== false,
+          showSource: props.showSource !== false,
+          focusConfigRef: props.focusConfig,
+          focusedStyleRef: props.focusedStyle,
+          scrollbarVariant: props.scrollbarVariant,
+          scrollbarStyleRef: props.scrollbarStyle,
+          focused: geometry.focused,
+          showFocusRing: geometry.showFocusRing,
+        }),
+      );
+    }
+
+    this.logsScrollSnapshotById.clear();
+    for (const [id, snapshot] of nextById) {
+      this.logsScrollSnapshotById.set(id, snapshot);
+    }
   }
 
   /**
@@ -2661,6 +3050,7 @@ export class WidgetRenderer<S> {
         this.diffViewerById.clear();
         this.toolApprovalDialogById.clear();
         this.logsConsoleById.clear();
+        this.logsConsoleInstanceIdById.clear();
 
         // Rebuild overlay routing state using pooled collections.
         this.layerRegistry.clear();
@@ -2771,6 +3161,7 @@ export class WidgetRenderer<S> {
             case "logsConsole": {
               const p = v.props as LogsConsoleProps;
               this.logsConsoleById.set(p.id, p);
+              this.logsConsoleInstanceIdById.set(p.id, cur.instanceId);
               break;
             }
             case "toastContainer": {
@@ -3404,23 +3795,35 @@ export class WidgetRenderer<S> {
       let runtimeDamageMode: RuntimeBreadcrumbDamageMode = "none";
       let runtimeDamageRectCount = 0;
       let runtimeDamageArea = 0;
+      const prevFocusedId = this._lastRenderedFocusedId;
+      const nextFocusedId = this.focusState.focusedId;
       if (this.shouldAttemptIncrementalRender(doLayout, viewport, theme)) {
         if (!doCommit) {
-          this.markTransientDirtyNodes(
-            this.committedRoot,
-            this._lastRenderedFocusedId,
-            this.focusState.focusedId,
-            true,
-          );
+          this.markTransientDirtyNodes(this.committedRoot, prevFocusedId, nextFocusedId, true);
         }
         this._pooledDamageRects.length = 0;
         let missingDamageRect = false;
+        const logsScrollBlitPlansByInstanceId = doCommit
+          ? this.buildLogsScrollBlitPlans(prevFocusedId, nextFocusedId)
+          : new Map<InstanceId, LogsScrollBlitPlan>();
+        const activeLogsScrollBlitPlans: LogsScrollBlitPlan[] = doCommit
+          ? Array.from(logsScrollBlitPlansByInstanceId.values())
+          : [];
+        for (const logsBlitPlan of activeLogsScrollBlitPlans) {
+          for (const rect of logsBlitPlan.damageRects) {
+            this._pooledDamageRects.push(rect);
+          }
+        }
 
         if (doCommit) {
           if (!identityDamageFromCommit) {
             missingDamageRect = true;
           } else {
             for (const instanceId of identityDamageFromCommit.changedInstanceIds) {
+              const logsBlitPlan = logsScrollBlitPlansByInstanceId.get(instanceId);
+              if (logsBlitPlan) {
+                continue;
+              }
               if (!this.appendDamageRectForInstanceId(instanceId)) {
                 missingDamageRect = true;
                 break;
@@ -3439,8 +3842,6 @@ export class WidgetRenderer<S> {
           this.collectSpinnerDamageRects(this.committedRoot, this.layoutTree);
         }
 
-        const prevFocusedId = this._lastRenderedFocusedId;
-        const nextFocusedId = this.focusState.focusedId;
         if (!missingDamageRect && prevFocusedId !== nextFocusedId) {
           if (prevFocusedId !== null && !this.appendDamageRectForId(prevFocusedId)) {
             missingDamageRect = true;
@@ -3462,7 +3863,10 @@ export class WidgetRenderer<S> {
         }
 
         if (!missingDamageRect) {
-          const damageRects = this.normalizeDamageRects(viewport);
+          const preserveDamageRectSeparation = activeLogsScrollBlitPlans.length > 0;
+          const damageRects = preserveDamageRectSeparation
+            ? this.clipDamageRectsWithoutMerge(viewport)
+            : this.normalizeDamageRects(viewport);
           if (damageRects.length > 0 && !this.isDamageAreaTooLarge(viewport)) {
             if (captureRuntimeBreadcrumbs) {
               runtimeDamageMode = "incremental";
@@ -3471,6 +3875,16 @@ export class WidgetRenderer<S> {
               for (const damageRect of damageRects) {
                 runtimeDamageArea += damageRect.w * damageRect.h;
               }
+            }
+            for (const logsBlitPlan of activeLogsScrollBlitPlans) {
+              this.builder.blitRect(
+                logsBlitPlan.srcX,
+                logsBlitPlan.srcY,
+                logsBlitPlan.w,
+                logsBlitPlan.h,
+                logsBlitPlan.dstX,
+                logsBlitPlan.dstY,
+              );
             }
             for (const damageRect of damageRects) {
               this.builder.fillRect(
@@ -3597,6 +4011,7 @@ export class WidgetRenderer<S> {
         doLayout,
         focusAnnouncement,
       );
+      this.snapshotLogsScrollState(this.focusState.focusedId);
 
       // Render hooks are for preventing re-entrant app API calls during user render.
       hooks.exitRender();

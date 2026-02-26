@@ -15,6 +15,15 @@ type RecordedOp =
   | Readonly<{ kind: "clear" }>
   | Readonly<{ kind: "clearTo"; cols: number; rows: number; style?: TextStyle }>
   | Readonly<{ kind: "fillRect"; x: number; y: number; w: number; h: number; style?: TextStyle }>
+  | Readonly<{
+      kind: "blitRect";
+      srcX: number;
+      srcY: number;
+      w: number;
+      h: number;
+      dstX: number;
+      dstY: number;
+    }>
   | Readonly<{ kind: "drawText"; x: number; y: number; text: string; style?: TextStyle }>
   | Readonly<{ kind: "pushClip"; x: number; y: number; w: number; h: number }>
   | Readonly<{ kind: "popClip" }>;
@@ -37,6 +46,10 @@ class RecordingBuilder implements DrawlistBuilder {
 
   fillRect(x: number, y: number, w: number, h: number, style?: TextStyle): void {
     this.ops.push({ kind: "fillRect", x, y, w, h, ...(style ? { style } : {}) });
+  }
+
+  blitRect(srcX: number, srcY: number, w: number, h: number, dstX: number, dstY: number): void {
+    this.ops.push({ kind: "blitRect", srcX, srcY, w, h, dstX, dstY });
   }
 
   drawText(x: number, y: number, text: string, style?: TextStyle): void {
@@ -231,6 +244,37 @@ function applyOps(framebuffer: Framebuffer, ops: readonly RecordedOp[]): Framebu
         }
         break;
       }
+      case "blitRect": {
+        const copiedChars: string[] = [];
+        const copiedStyles: string[] = [];
+        for (let y = 0; y < op.h; y++) {
+          for (let x = 0; x < op.w; x++) {
+            const srcX = op.srcX + x;
+            const srcY = op.srcY + y;
+            if (inViewport(srcX, srcY)) {
+              const srcIdx = srcY * out.cols + srcX;
+              copiedChars.push(out.chars[srcIdx] ?? " ");
+              copiedStyles.push(out.styles[srcIdx] ?? "");
+            } else {
+              copiedChars.push(" ");
+              copiedStyles.push("");
+            }
+          }
+        }
+        let copiedIdx = 0;
+        for (let y = 0; y < op.h; y++) {
+          for (let x = 0; x < op.w; x++) {
+            writeCell(
+              op.dstX + x,
+              op.dstY + y,
+              copiedChars[copiedIdx] ?? " ",
+              copiedStyles[copiedIdx] ?? "",
+            );
+            copiedIdx++;
+          }
+        }
+        break;
+      }
       case "drawText": {
         const key = styleKey(op.style);
         for (let i = 0; i < op.text.length; i++) {
@@ -305,6 +349,13 @@ type ScenarioResult = Readonly<{
   partialOps: readonly RecordedOp[];
   fullFrame: Framebuffer;
   partialFrame: Framebuffer;
+}>;
+
+type SequenceScenarioResult = Readonly<{
+  fullFrame: Framebuffer;
+  partialFrame: Framebuffer;
+  fullOpsByFrame: readonly (readonly RecordedOp[])[];
+  partialOpsByFrame: readonly (readonly RecordedOp[])[];
 }>;
 
 function runCommitScenario<S>(
@@ -414,6 +465,62 @@ function runEventScenario<S>(
   return { fullOps, partialOps, fullFrame, partialFrame };
 }
 
+function runCommitSequenceScenario<S>(
+  viewFn: (snapshot: Readonly<S>) => VNode,
+  initialSnapshot: Readonly<S>,
+  updates: readonly Readonly<S>[],
+  viewport: Viewport,
+  partialPlan: WidgetRenderPlan,
+): SequenceScenarioResult {
+  const fullBuilder = new RecordingBuilder();
+  const partialBuilder = new RecordingBuilder();
+  const fullRenderer = new WidgetRenderer<S>({
+    backend: createNoopBackend(),
+    builder: fullBuilder,
+  });
+  const partialRenderer = new WidgetRenderer<S>({
+    backend: createNoopBackend(),
+    builder: partialBuilder,
+  });
+
+  const blank = createFramebuffer(viewport);
+  let fullFrame = applyOps(
+    blank,
+    submitOps(fullRenderer, fullBuilder, viewFn, initialSnapshot, viewport, FULL_PLAN),
+  );
+  let partialFrame = applyOps(
+    blank,
+    submitOps(partialRenderer, partialBuilder, viewFn, initialSnapshot, viewport, FULL_PLAN),
+  );
+  assertFramebuffersEqual(fullFrame, partialFrame);
+
+  const fullOpsByFrame: Array<readonly RecordedOp[]> = [];
+  const partialOpsByFrame: Array<readonly RecordedOp[]> = [];
+
+  for (const nextSnapshot of updates) {
+    const fullOps = submitOps(fullRenderer, fullBuilder, viewFn, nextSnapshot, viewport, FULL_PLAN);
+    const partialOps = submitOps(
+      partialRenderer,
+      partialBuilder,
+      viewFn,
+      nextSnapshot,
+      viewport,
+      partialPlan,
+    );
+    fullFrame = applyOps(fullFrame, fullOps);
+    partialFrame = applyOps(partialFrame, partialOps);
+    fullOpsByFrame.push(fullOps);
+    partialOpsByFrame.push(partialOps);
+  }
+
+  return Object.freeze({
+    fullFrame,
+    partialFrame,
+    fullOpsByFrame: Object.freeze(fullOpsByFrame),
+    partialOpsByFrame: Object.freeze(partialOpsByFrame),
+  });
+}
+
 type EditSnapshot = Readonly<{ editIndex: number }>;
 function denseListView(snapshot: Readonly<EditSnapshot>, count: number): VNode {
   const rows: VNode[] = [];
@@ -451,6 +558,104 @@ function virtualListView(itemCount: number): VNode {
       itemHeight: 1,
       renderItem: (item, index, focused) =>
         ui.text(`${focused ? ">" : " "} ${String(index).padStart(3, "0")} ${item}`),
+    }),
+  ]);
+}
+
+function buildLogsEntries(count: number): readonly {
+  id: string;
+  timestamp: number;
+  level: "info";
+  source: string;
+  message: string;
+}[] {
+  const out = new Array<{
+    id: string;
+    timestamp: number;
+    level: "info";
+    source: string;
+    message: string;
+  }>(count);
+  for (let i = 0; i < count; i++) {
+    out[i] = {
+      id: `log-${String(i)}`,
+      timestamp: i * 1000,
+      level: "info",
+      source: "bench",
+      message: `entry ${String(i).padStart(4, "0")} lorem ipsum`,
+    };
+  }
+  return Object.freeze(out);
+}
+
+function logsConsoleView(
+  entries: readonly {
+    id: string;
+    timestamp: number;
+    level: "info";
+    source: string;
+    message: string;
+  }[],
+  scrollTop: number,
+  onScroll: (next: number) => void,
+): VNode {
+  return ui.logsConsole({
+    id: "logs",
+    entries,
+    scrollTop,
+    onScroll,
+  });
+}
+
+function logsConsoleViewWithOverlay(
+  entries: readonly {
+    id: string;
+    timestamp: number;
+    level: "info";
+    source: string;
+    message: string;
+  }[],
+  scrollTop: number,
+  onScroll: (next: number) => void,
+): VNode {
+  return ui.box({ border: "none", width: "full", height: "full" }, [
+    ui.logsConsole({
+      id: "logs",
+      entries,
+      scrollTop,
+      onScroll,
+    }),
+    ui.box(
+      {
+        border: "none",
+        width: 7,
+        height: 1,
+        position: "absolute",
+        top: 3,
+        left: 4,
+      },
+      [ui.text("OVERLAY")],
+    ),
+  ]);
+}
+
+function logsConsoleViewWithClippedAncestor(
+  entries: readonly {
+    id: string;
+    timestamp: number;
+    level: "info";
+    source: string;
+    message: string;
+  }[],
+  scrollTop: number,
+  onScroll: (next: number) => void,
+): VNode {
+  return ui.box({ border: "none", width: "full", height: "full", overflow: "hidden", p: 1 }, [
+    ui.logsConsole({
+      id: "logs",
+      entries,
+      scrollTop,
+      onScroll,
     }),
   ]);
 }
@@ -609,5 +814,117 @@ describe("renderer partial dirty-subtree correctness", () => {
     }
     assert.equal(pushCount > 0, true, "expected incremental frame to emit clips");
     assert.equal(pushCount, popCount, "pushClip/popClip must be balanced");
+  });
+
+  test("logsConsole scroll 1 row/frame matches full framebuffer and emits blit", () => {
+    const entries = buildLogsEntries(320);
+    const onScroll = (_next: number) => {};
+    const updates = Object.freeze(
+      Array.from({ length: 10 }, (_, i) => Object.freeze({ scrollTop: i + 1 })),
+    );
+    const scenario = runCommitSequenceScenario<{ scrollTop: number }>(
+      (snapshot) => logsConsoleView(entries, snapshot.scrollTop, onScroll),
+      Object.freeze({ scrollTop: 0 }),
+      updates,
+      viewport,
+      PARTIAL_COMMIT_NO_STABILITY_PLAN,
+    );
+    assertFramebuffersEqual(scenario.partialFrame, scenario.fullFrame);
+
+    let blitFrames = 0;
+    for (const ops of scenario.partialOpsByFrame) {
+      if (ops.some((op) => op.kind === "blitRect")) blitFrames++;
+    }
+    assert.equal(blitFrames > 0, true);
+  });
+
+  test("logsConsole multi-row scroll matches full framebuffer", () => {
+    const entries = buildLogsEntries(320);
+    const onScroll = (_next: number) => {};
+    const updates = Object.freeze([
+      Object.freeze({ scrollTop: 3 }),
+      Object.freeze({ scrollTop: 6 }),
+      Object.freeze({ scrollTop: 9 }),
+      Object.freeze({ scrollTop: 12 }),
+    ]);
+    const scenario = runCommitSequenceScenario<{ scrollTop: number }>(
+      (snapshot) => logsConsoleView(entries, snapshot.scrollTop, onScroll),
+      Object.freeze({ scrollTop: 0 }),
+      updates,
+      viewport,
+      PARTIAL_COMMIT_NO_STABILITY_PLAN,
+    );
+    assertFramebuffersEqual(scenario.partialFrame, scenario.fullFrame);
+  });
+
+  test("logsConsole alternating scroll directions matches full framebuffer", () => {
+    const entries = buildLogsEntries(320);
+    const onScroll = (_next: number) => {};
+    const updates = Object.freeze([
+      Object.freeze({ scrollTop: 6 }),
+      Object.freeze({ scrollTop: 4 }),
+      Object.freeze({ scrollTop: 7 }),
+      Object.freeze({ scrollTop: 5 }),
+      Object.freeze({ scrollTop: 8 }),
+      Object.freeze({ scrollTop: 6 }),
+    ]);
+    const scenario = runCommitSequenceScenario<{ scrollTop: number }>(
+      (snapshot) => logsConsoleView(entries, snapshot.scrollTop, onScroll),
+      Object.freeze({ scrollTop: 2 }),
+      updates,
+      viewport,
+      PARTIAL_COMMIT_NO_STABILITY_PLAN,
+    );
+    assertFramebuffersEqual(scenario.partialFrame, scenario.fullFrame);
+  });
+
+  test("logsConsole with overlapping absolute sibling skips blit and matches full framebuffer", () => {
+    const entries = buildLogsEntries(320);
+    const onScroll = (_next: number) => {};
+    const updates = Object.freeze([
+      Object.freeze({ scrollTop: 1 }),
+      Object.freeze({ scrollTop: 2 }),
+      Object.freeze({ scrollTop: 3 }),
+      Object.freeze({ scrollTop: 4 }),
+    ]);
+    const scenario = runCommitSequenceScenario<{ scrollTop: number }>(
+      (snapshot) => logsConsoleViewWithOverlay(entries, snapshot.scrollTop, onScroll),
+      Object.freeze({ scrollTop: 0 }),
+      updates,
+      viewport,
+      PARTIAL_COMMIT_NO_STABILITY_PLAN,
+    );
+    assertFramebuffersEqual(scenario.partialFrame, scenario.fullFrame);
+    for (const ops of scenario.partialOpsByFrame) {
+      assert.equal(
+        ops.some((op) => op.kind === "blitRect"),
+        false,
+      );
+    }
+  });
+
+  test("logsConsole inside clipped ancestor skips blit and matches full framebuffer", () => {
+    const entries = buildLogsEntries(320);
+    const onScroll = (_next: number) => {};
+    const updates = Object.freeze([
+      Object.freeze({ scrollTop: 1 }),
+      Object.freeze({ scrollTop: 2 }),
+      Object.freeze({ scrollTop: 3 }),
+      Object.freeze({ scrollTop: 4 }),
+    ]);
+    const scenario = runCommitSequenceScenario<{ scrollTop: number }>(
+      (snapshot) => logsConsoleViewWithClippedAncestor(entries, snapshot.scrollTop, onScroll),
+      Object.freeze({ scrollTop: 0 }),
+      updates,
+      viewport,
+      PARTIAL_COMMIT_NO_STABILITY_PLAN,
+    );
+    assertFramebuffersEqual(scenario.partialFrame, scenario.fullFrame);
+    for (const ops of scenario.partialOpsByFrame) {
+      assert.equal(
+        ops.some((op) => op.kind === "blitRect"),
+        false,
+      );
+    }
   });
 });

@@ -230,6 +230,32 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
     this.maybeFailTooLargeAfterWrite();
   }
 
+  blitRect(srcX: number, srcY: number, w: number, h: number, dstX: number, dstY: number): void {
+    if (this.error) return;
+
+    const srcXi = this.validateParams ? this.requireI32("blitRect", "srcX", srcX) : srcX | 0;
+    const srcYi = this.validateParams ? this.requireI32("blitRect", "srcY", srcY) : srcY | 0;
+    const wi = this.validateParams ? this.requireI32NonNeg("blitRect", "w", w) : w | 0;
+    const hi = this.validateParams ? this.requireI32NonNeg("blitRect", "h", h) : h | 0;
+    const dstXi = this.validateParams ? this.requireI32("blitRect", "dstX", dstX) : dstX | 0;
+    const dstYi = this.validateParams ? this.requireI32("blitRect", "dstY", dstY) : dstY | 0;
+    if (this.error) return;
+    if (
+      srcXi === null ||
+      srcYi === null ||
+      wi === null ||
+      hi === null ||
+      dstXi === null ||
+      dstYi === null
+    )
+      return;
+    const w0 = wi < 0 ? 0 : wi;
+    const h0 = hi < 0 ? 0 : hi;
+
+    this.appendBlitRectCommand(srcXi, srcYi, w0, h0, dstXi, dstYi);
+    this.maybeFailTooLargeAfterWrite();
+  }
+
   drawText(x: number, y: number, text: string, style?: TextStyle): void {
     if (this.error) return;
 
@@ -460,6 +486,15 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
   ): void;
 
   protected abstract appendPushClipCommand(x: number, y: number, w: number, h: number): void;
+
+  protected abstract appendBlitRectCommand(
+    srcX: number,
+    srcY: number,
+    w: number,
+    h: number,
+    dstX: number,
+    dstY: number,
+  ): void;
 
   protected abstract appendPopClipCommand(): void;
 

@@ -55,6 +55,15 @@ export type InkRenderOp =
   | Readonly<{ kind: "clear" }>
   | Readonly<{ kind: "clearTo"; cols: number; rows: number; style?: TextStyle }>
   | Readonly<{ kind: "fillRect"; x: number; y: number; w: number; h: number; style?: TextStyle }>
+  | Readonly<{
+      kind: "blitRect";
+      srcX: number;
+      srcY: number;
+      w: number;
+      h: number;
+      dstX: number;
+      dstY: number;
+    }>
   | Readonly<{ kind: "drawText"; x: number; y: number; text: string; style?: TextStyle }>
   | Readonly<{ kind: "pushClip"; x: number; y: number; w: number; h: number }>
   | Readonly<{ kind: "popClip" }>;
@@ -132,6 +141,10 @@ class RecordingDrawlistBuilder implements DrawlistBuilder {
 
   fillRect(x: number, y: number, w: number, h: number, style?: TextStyle): void {
     this._ops.push({ kind: "fillRect", x, y, w, h, ...(style ? { style } : {}) });
+  }
+
+  blitRect(srcX: number, srcY: number, w: number, h: number, dstX: number, dstY: number): void {
+    this._ops.push({ kind: "blitRect", srcX, srcY, w, h, dstX, dstY });
   }
 
   drawText(x: number, y: number, text: string, style?: TextStyle): void {
@@ -324,6 +337,50 @@ function fillGridRect(
   }
 }
 
+function blitGridRect(
+  grid: string[][],
+  viewport: InkRendererViewport,
+  clipStack: readonly ClipRect[],
+  op: Readonly<{
+    srcX: number;
+    srcY: number;
+    w: number;
+    h: number;
+    dstX: number;
+    dstY: number;
+  }>,
+): void {
+  if (op.w <= 0 || op.h <= 0) return;
+
+  const srcCells: string[][] = [];
+  for (let dy = 0; dy < op.h; dy++) {
+    const row: string[] = [];
+    const srcY = op.srcY + dy;
+    for (let dx = 0; dx < op.w; dx++) {
+      const srcX = op.srcX + dx;
+      if (srcX < 0 || srcX >= viewport.cols || srcY < 0 || srcY >= viewport.rows) {
+        row.push(" ");
+        continue;
+      }
+      row.push(grid[srcY]?.[srcX] ?? " ");
+    }
+    srcCells.push(row);
+  }
+
+  for (let dy = 0; dy < op.h; dy++) {
+    const dstY = op.dstY + dy;
+    if (dstY < 0 || dstY >= viewport.rows) continue;
+    const dstRow = grid[dstY];
+    if (!dstRow) continue;
+
+    for (let dx = 0; dx < op.w; dx++) {
+      const dstX = op.dstX + dx;
+      if (dstX < 0 || dstX >= viewport.cols || !inClipStack(dstX, dstY, clipStack)) continue;
+      dstRow[dstX] = srcCells[dy]?.[dx] ?? " ";
+    }
+  }
+}
+
 function opsToText(ops: readonly InkRenderOp[], viewport: InkRendererViewport): string {
   const grid: string[][] = [];
   for (let y = 0; y < viewport.rows; y++) {
@@ -342,6 +399,10 @@ function opsToText(ops: readonly InkRenderOp[], viewport: InkRendererViewport): 
     }
     if (op.kind === "fillRect") {
       fillGridRect(grid, viewport, clipStack, op);
+      continue;
+    }
+    if (op.kind === "blitRect") {
+      blitGridRect(grid, viewport, clipStack, op);
       continue;
     }
     if (op.kind === "drawText") {
@@ -371,6 +432,7 @@ function createZeroOpCounts(): Record<InkRenderOp["kind"], number> {
     clear: 0,
     clearTo: 0,
     fillRect: 0,
+    blitRect: 0,
     drawText: 0,
     pushClip: 0,
     popClip: 0,

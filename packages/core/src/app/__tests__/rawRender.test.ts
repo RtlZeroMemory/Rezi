@@ -25,6 +25,7 @@ function makeStubBuilder(bytes: Uint8Array): DrawlistBuilder {
     setLink(): void {},
     drawCanvas(): void {},
     drawImage(): void {},
+    blitRect(): void {},
     reset(): void {
       built = false;
     },
@@ -110,6 +111,7 @@ test("drawlist build failure maps to ZRUI_DRAWLIST_BUILD_ERROR (#61)", () => {
     setLink(): void {},
     drawCanvas(): void {},
     drawImage(): void {},
+    blitRect(): void {},
     reset(): void {},
     build() {
       return { ok: false, error: { code: "ZRDL_TOO_LARGE", detail: "cap" } } as const;
