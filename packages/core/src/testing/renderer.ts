@@ -24,12 +24,14 @@ import type { VNode } from "../widgets/types.js";
 
 export type TestViewport = Readonly<{ cols: number; rows: number }>;
 type TestNodeProps = Readonly<Record<string, unknown> & { id?: unknown; label?: unknown }>;
+export type TestRendererMode = "test" | "runtime";
 
 export type TestRendererOptions = Readonly<{
   viewport?: TestViewport;
   theme?: Theme;
   focusedId?: string | null;
   tick?: number;
+  mode?: TestRendererMode;
   trace?: (event: TestRenderTraceEvent) => void;
   traceDetail?: boolean;
 }>;
@@ -39,6 +41,7 @@ export type TestRenderOptions = Readonly<{
   theme?: Theme;
   focusedId?: string | null;
   tick?: number;
+  mode?: TestRendererMode;
   traceDetail?: boolean;
 }>;
 
@@ -115,8 +118,13 @@ function normalizeViewport(viewport: TestViewport | undefined): TestViewport {
   return Object.freeze({ cols: safeCols, rows: safeRows });
 }
 
-function asPropsRecord(value: unknown): TestNodeProps {
-  if (typeof value !== "object" || value === null) return Object.freeze({});
+const EMPTY_PROPS: TestNodeProps = Object.freeze({});
+const EMPTY_PATH: readonly number[] = Object.freeze([]);
+
+function asPropsRecord(value: unknown, mode: TestRendererMode): TestNodeProps {
+  if (typeof value !== "object" || value === null) return EMPTY_PROPS;
+  // Runtime mode favors lower allocation overhead for hot render paths.
+  if (mode === "runtime") return value as TestNodeProps;
   return Object.freeze({ ...(value as Record<string, unknown>) });
 }
 
@@ -202,35 +210,40 @@ class RecordingDrawlistBuilder implements DrawlistBuilder {
   }
 }
 
-function collectNodes(layoutTree: LayoutTree): readonly TestRenderNode[] {
+function collectNodes(layoutTree: LayoutTree, mode: TestRendererMode): readonly TestRenderNode[] {
   const out: TestRenderNode[] = [];
 
   const walk = (node: LayoutTree, path: readonly number[]): void => {
-    const props = asPropsRecord((node.vnode as { props?: unknown }).props);
+    const props = asPropsRecord((node.vnode as { props?: unknown }).props, mode);
     const rawId = props.id;
     const id = typeof rawId === "string" ? rawId : null;
 
-    const base: TestRenderNode = Object.freeze({
+    const base: TestRenderNode = {
       kind: node.vnode.kind,
       rect: node.rect,
       props,
       id,
-      path: Object.freeze(path.slice()),
-      ...(node.vnode.kind === "text"
-        ? { text: (node.vnode as Readonly<{ text: string }>).text }
-        : {}),
-    });
-    out.push(base);
+      path: mode === "runtime" ? EMPTY_PATH : Object.freeze(path.slice()),
+      ...(mode === "runtime" || node.vnode.kind !== "text"
+        ? {}
+        : { text: (node.vnode as Readonly<{ text: string }>).text }),
+    };
+    out.push(mode === "runtime" ? base : Object.freeze(base));
 
     for (let i = 0; i < node.children.length; i++) {
       const child = node.children[i];
       if (!child) continue;
-      walk(child, Object.freeze([...path, i]));
+      walk(
+        child,
+        mode === "runtime"
+          ? EMPTY_PATH
+          : Object.freeze([...path, i]),
+      );
     }
   };
 
-  walk(layoutTree, Object.freeze([]));
-  return Object.freeze(out);
+  walk(layoutTree, EMPTY_PATH);
+  return mode === "runtime" ? out : Object.freeze(out);
 }
 
 function inClipStack(x: number, y: number, clipStack: readonly ClipRect[]): boolean {
@@ -296,22 +309,12 @@ function opsToText(ops: readonly TestRecordedOp[], viewport: TestViewport): stri
 
   for (const op of ops) {
     if (op.kind === "clear") {
-      fillGridRect(
-        grid,
-        viewport,
-        clipStack,
-        Object.freeze({ x: 0, y: 0, w: viewport.cols, h: viewport.rows }),
-      );
+      fillGridRect(grid, viewport, clipStack, { x: 0, y: 0, w: viewport.cols, h: viewport.rows });
       continue;
     }
 
     if (op.kind === "clearTo") {
-      fillGridRect(
-        grid,
-        viewport,
-        clipStack,
-        Object.freeze({ x: 0, y: 0, w: op.cols, h: op.rows }),
-      );
+      fillGridRect(grid, viewport, clipStack, { x: 0, y: 0, w: op.cols, h: op.rows });
       continue;
     }
 
@@ -465,6 +468,7 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
   const rendererTheme = opts.theme ?? coreDefaultTheme;
   const defaultFocusedId = opts.focusedId ?? null;
   const defaultTick = opts.tick ?? 0;
+  const defaultMode = opts.mode ?? "test";
   const trace = opts.trace;
   const defaultTraceDetail = opts.traceDetail === true;
   let warnedTraceDetailWithoutTrace = false;
@@ -479,6 +483,7 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
     const tick = renderOpts.tick ?? defaultTick;
     const theme = renderOpts.theme ?? rendererTheme;
     const traceDetail = renderOpts.traceDetail ?? defaultTraceDetail;
+    const mode = renderOpts.mode ?? defaultMode;
     if (traceDetail && !trace && !warnedTraceDetailWithoutTrace) {
       warnedTraceDetailWithoutTrace = true;
       console.warn(
@@ -513,17 +518,24 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
     });
     const drawMs = Date.now() - drawStartedAt;
 
-    const textStartedAt = Date.now();
-    const nodes = collectNodes(layoutTree);
+    const nodes = collectNodes(layoutTree, mode);
     const ops = builder.snapshotOps();
-    const screenText = opsToText(ops, viewport);
+    let screenTextCache: string | null = null;
+    const getScreenText = (): string => {
+      if (screenTextCache !== null) return screenTextCache;
+      screenTextCache = opsToText(ops, viewport);
+      return screenTextCache;
+    };
+
+    const textStartedAt = Date.now();
+    const screenTextForTrace = trace ? getScreenText() : "";
     const textMs = Date.now() - textStartedAt;
     const totalMs = Date.now() - startedAt;
 
     if (trace) {
       const opSummary = summarizeOps(ops);
       const nodeSummary = summarizeNodes(nodes);
-      const textSummary = summarizeText(screenText);
+      const textSummary = summarizeText(screenTextForTrace);
       trace(
         Object.freeze({
           renderId,
@@ -549,12 +561,12 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
           maxRectBottom: nodeSummary.maxRectBottom,
           zeroHeightRects: nodeSummary.zeroHeightRects,
           detailIncluded: traceDetail,
-          ...(traceDetail ? { nodes, ops, text: screenText } : {}),
+          ...(traceDetail ? { nodes, ops, text: screenTextForTrace } : {}),
         }),
       );
     }
 
-    return Object.freeze({
+    const result: TestRenderResult = {
       viewport,
       focusedId,
       ops,
@@ -562,8 +574,9 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
       findText: (text: string) => findText(nodes, text),
       findById: (id: string) => findById(nodes, id),
       findAll: (kind: VNode["kind"] | string) => findAll(nodes, kind),
-      toText: () => screenText,
-    });
+      toText: () => getScreenText(),
+    };
+    return mode === "runtime" ? result : Object.freeze(result);
   };
 
   const reset = (): void => {

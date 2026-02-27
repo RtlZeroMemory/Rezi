@@ -115,4 +115,15 @@ describe("createTestRenderer", () => {
     assert.equal(Array.isArray(first.ops), true);
     assert.equal((first.text ?? "").includes("Hello trace"), true);
   });
+
+  test("runtime mode keeps query helpers and lazy text access", () => {
+    const renderer = createTestRenderer({ viewport: { cols: 30, rows: 6 }, mode: "runtime" });
+    const result = renderer.render(
+      ui.column({}, [ui.text("Runtime Mode"), ui.button({ id: "submit", label: "Submit" })]),
+    );
+
+    assert.equal(result.toText().includes("Runtime Mode"), true);
+    assert.equal(result.findById("submit")?.kind, "button");
+    assert.equal(result.findAll("button").length, 1);
+  });
 });

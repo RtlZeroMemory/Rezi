@@ -2351,6 +2351,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   let viewport = readViewportSize(stdout, fallbackStdout);
   const renderer = createTestRenderer({
     viewport,
+    mode: traceEnabled ? "test" : "runtime",
     ...(traceEnabled
       ? {
           traceDetail: traceDetailFull,

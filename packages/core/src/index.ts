@@ -1088,6 +1088,7 @@ export type {
   TestEventBuilderOptions,
   TestEventInput,
   TestRenderNode,
+  TestRendererMode,
   TestRenderOptions,
   TestRenderResult,
   TestRenderTraceEvent,
