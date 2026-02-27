@@ -102,6 +102,20 @@ function clipEquals(a: ClipRect | undefined, b: ClipRect): boolean {
   return a !== undefined && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 }
 
+function pushChildClipIfNeeded(
+  builder: DrawlistBuilder,
+  nodeStack: (RuntimeInstance | null)[],
+  insertIndex: number,
+  currentClip: ClipRect | undefined,
+  childClip: ClipRect | undefined,
+  queuedChildCount: number,
+): void {
+  if (queuedChildCount <= 0 || !childClip || clipEquals(currentClip, childClip)) return;
+  builder.pushClip(childClip.x, childClip.y, childClip.w, childClip.h);
+  // Keep clip pop sentinel below queued children so pop runs after subtree render.
+  nodeStack.splice(insertIndex, 0, null);
+}
+
 function rectIntersects(a: Rect, b: Rect): boolean {
   if (a.w <= 0 || a.h <= 0 || b.w <= 0 || b.h <= 0) return false;
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
@@ -177,9 +191,9 @@ function pushChildrenWithLayout(
   skipCleanSubtrees: boolean,
   forceSubtreeRender: boolean,
   stackDirection: "row" | "column" | undefined = undefined,
-): void {
+): number {
   const childCount = Math.min(node.children.length, layoutNode.children.length);
-  if (childCount <= 0) return;
+  if (childCount <= 0) return 0;
 
   let rangeStart = 0;
   let rangeEnd = childCount - 1;
@@ -201,13 +215,14 @@ function pushChildrenWithLayout(
           stackDirection,
           damageRect,
         );
-        if (!range) return;
+        if (!range) return 0;
         rangeStart = range.start;
         rangeEnd = range.end;
       }
     }
   }
 
+  let pushedChildren = 0;
   for (let i = rangeEnd; i >= rangeStart; i--) {
     const c = node.children[i];
     const lc = layoutNode.children[i];
@@ -228,8 +243,10 @@ function pushChildrenWithLayout(
       styleStack.push(style);
       layoutStack.push(lc);
       clipStack.push(clip);
+      pushedChildren++;
     }
   }
+  return pushedChildren;
 }
 
 function readShadowDensity(raw: unknown): "light" | "medium" | "dense" | undefined {
@@ -578,11 +595,8 @@ export function renderContainerWidget(
         childClip = viewportWithScrollbars.viewportRect;
       }
 
-      if (childClip && !clipEquals(currentClip, childClip)) {
-        builder.pushClip(childClip.x, childClip.y, childClip.w, childClip.h);
-        nodeStack.push(null);
-      }
-      pushChildrenWithLayout(
+      const childStackInsertIndex = nodeStack.length;
+      const queuedChildCount = pushChildrenWithLayout(
         node,
         layoutNode,
         style,
@@ -595,6 +609,14 @@ export function renderContainerWidget(
         skipCleanSubtrees,
         forceChildrenRender,
         vnode.kind === "row" || vnode.kind === "column" ? vnode.kind : undefined,
+      );
+      pushChildClipIfNeeded(
+        builder,
+        nodeStack,
+        childStackInsertIndex,
+        currentClip,
+        childClip,
+        queuedChildCount,
       );
       break;
     }
@@ -732,11 +754,8 @@ export function renderContainerWidget(
         childClip = viewportWithScrollbars.viewportRect;
       }
 
-      if (childClip && !clipEquals(currentClip, childClip)) {
-        builder.pushClip(childClip.x, childClip.y, childClip.w, childClip.h);
-        nodeStack.push(null);
-      }
-      pushChildrenWithLayout(
+      const childStackInsertIndex = nodeStack.length;
+      const queuedChildCount = pushChildrenWithLayout(
         node,
         layoutNode,
         style,
@@ -748,6 +767,14 @@ export function renderContainerWidget(
         damageRect,
         skipCleanSubtrees,
         forceChildrenRender,
+      );
+      pushChildClipIfNeeded(
+        builder,
+        nodeStack,
+        childStackInsertIndex,
+        currentClip,
+        childClip,
+        queuedChildCount,
       );
       break;
     }
@@ -795,11 +822,8 @@ export function renderContainerWidget(
       const ch = clampNonNegative(rect.h - 2);
       const childClip: ClipRect = { x: cx, y: cy, w: cw, h: ch };
 
-      if (!clipEquals(currentClip, childClip)) {
-        builder.pushClip(cx, cy, cw, ch);
-        nodeStack.push(null);
-      }
-      pushChildrenWithLayout(
+      const childStackInsertIndex = nodeStack.length;
+      const queuedChildCount = pushChildrenWithLayout(
         node,
         layoutNode,
         surfaceStyle,
@@ -811,6 +835,14 @@ export function renderContainerWidget(
         damageRect,
         skipCleanSubtrees,
         forceChildrenRender,
+      );
+      pushChildClipIfNeeded(
+        builder,
+        nodeStack,
+        childStackInsertIndex,
+        currentClip,
+        childClip,
+        queuedChildCount,
       );
       break;
     }
@@ -894,11 +926,8 @@ export function renderContainerWidget(
               h: clampNonNegative(rect.h - borderInset * 2),
             }
           : currentClip;
-      if (childClip && !clipEquals(currentClip, childClip)) {
-        builder.pushClip(childClip.x, childClip.y, childClip.w, childClip.h);
-        nodeStack.push(null);
-      }
-      pushChildrenWithLayout(
+      const childStackInsertIndex = nodeStack.length;
+      const queuedChildCount = pushChildrenWithLayout(
         node,
         layoutNode,
         layerStyle,
@@ -911,6 +940,14 @@ export function renderContainerWidget(
         skipCleanSubtrees,
         forceChildrenRender,
       );
+      pushChildClipIfNeeded(
+        builder,
+        nodeStack,
+        childStackInsertIndex,
+        currentClip,
+        childClip,
+        queuedChildCount,
+      );
       break;
     }
     case "splitPane": {
@@ -921,13 +958,10 @@ export function renderContainerWidget(
       const dividerStyle = mergeTextStyle(parentStyle, { fg: theme.colors.border });
 
       const childClip: ClipRect = { x: rect.x, y: rect.y, w: rect.w, h: rect.h };
-      if (!clipEquals(currentClip, childClip)) {
-        builder.pushClip(rect.x, rect.y, rect.w, rect.h);
-        nodeStack.push(null);
-      }
+      const childStackInsertIndex = nodeStack.length;
 
       // Render children (handled by layout)
-      pushChildrenWithLayout(
+      const queuedChildCount = pushChildrenWithLayout(
         node,
         layoutNode,
         parentStyle,
@@ -939,6 +973,14 @@ export function renderContainerWidget(
         damageRect,
         skipCleanSubtrees,
         forceChildrenRender,
+      );
+      pushChildClipIfNeeded(
+        builder,
+        nodeStack,
+        childStackInsertIndex,
+        currentClip,
+        childClip,
+        queuedChildCount,
       );
 
       // Render dividers between panels
@@ -982,11 +1024,8 @@ export function renderContainerWidget(
       if (!isVisibleRect(rect)) break;
 
       const childClip: ClipRect = { x: rect.x, y: rect.y, w: rect.w, h: rect.h };
-      if (!clipEquals(currentClip, childClip)) {
-        builder.pushClip(rect.x, rect.y, rect.w, rect.h);
-        nodeStack.push(null);
-      }
-      pushChildrenWithLayout(
+      const childStackInsertIndex = nodeStack.length;
+      const queuedChildCount = pushChildrenWithLayout(
         node,
         layoutNode,
         parentStyle,
@@ -999,6 +1038,14 @@ export function renderContainerWidget(
         skipCleanSubtrees,
         forceChildrenRender,
       );
+      pushChildClipIfNeeded(
+        builder,
+        nodeStack,
+        childStackInsertIndex,
+        currentClip,
+        childClip,
+        queuedChildCount,
+      );
       break;
     }
     case "resizablePanel": {
@@ -1006,11 +1053,8 @@ export function renderContainerWidget(
       if (!isVisibleRect(rect)) break;
 
       const childClip: ClipRect = { x: rect.x, y: rect.y, w: rect.w, h: rect.h };
-      if (!clipEquals(currentClip, childClip)) {
-        builder.pushClip(rect.x, rect.y, rect.w, rect.h);
-        nodeStack.push(null);
-      }
-      pushChildrenWithLayout(
+      const childStackInsertIndex = nodeStack.length;
+      const queuedChildCount = pushChildrenWithLayout(
         node,
         layoutNode,
         parentStyle,
@@ -1022,6 +1066,14 @@ export function renderContainerWidget(
         damageRect,
         skipCleanSubtrees,
         forceChildrenRender,
+      );
+      pushChildClipIfNeeded(
+        builder,
+        nodeStack,
+        childStackInsertIndex,
+        currentClip,
+        childClip,
+        queuedChildCount,
       );
       break;
     }

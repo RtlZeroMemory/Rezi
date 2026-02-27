@@ -70,9 +70,8 @@ zr_result_t zr_evpack_begin(zr_evpack_writer_t* w, uint8_t* out_buf, size_t out_
   }
 
   /* Write placeholder header; patched by zr_evpack_finish(). */
-  if (!zr__write_u32le(w, ZR_EV_MAGIC) || !zr__write_u32le(w, ZR_EVENT_BATCH_VERSION_V1) ||
-      !zr__write_u32le(w, 0u) || !zr__write_u32le(w, 0u) || !zr__write_u32le(w, 0u) ||
-      !zr__write_u32le(w, 0u)) {
+  if (!zr__write_u32le(w, ZR_EV_MAGIC) || !zr__write_u32le(w, ZR_EVENT_BATCH_VERSION_V1) || !zr__write_u32le(w, 0u) ||
+      !zr__write_u32le(w, 0u) || !zr__write_u32le(w, 0u) || !zr__write_u32le(w, 0u)) {
     /* Should be unreachable due to pre-check. */
     memset(w, 0, sizeof(*w));
     return ZR_ERR_LIMIT;
@@ -82,15 +81,14 @@ zr_result_t zr_evpack_begin(zr_evpack_writer_t* w, uint8_t* out_buf, size_t out_
   return ZR_OK;
 }
 
-bool zr_evpack_append_record(zr_evpack_writer_t* w, zr_event_type_t type, uint32_t time_ms,
-                             uint32_t flags, const void* payload, size_t payload_len) {
+bool zr_evpack_append_record(zr_evpack_writer_t* w, zr_event_type_t type, uint32_t time_ms, uint32_t flags,
+                             const void* payload, size_t payload_len) {
   return zr_evpack_append_record2(w, type, time_ms, flags, payload, payload_len, NULL, 0u);
 }
 
 /* Append event record with two payload chunks; sets TRUNCATED flag if no space. */
-bool zr_evpack_append_record2(zr_evpack_writer_t* w, zr_event_type_t type, uint32_t time_ms,
-                              uint32_t flags, const void* p1, size_t n1, const void* p2,
-                              size_t n2) {
+bool zr_evpack_append_record2(zr_evpack_writer_t* w, zr_event_type_t type, uint32_t time_ms, uint32_t flags,
+                              const void* p1, size_t n1, const void* p2, size_t n2) {
   if (!w || !w->started) {
     return false;
   }

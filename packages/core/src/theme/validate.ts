@@ -92,24 +92,15 @@ function throwMissingPaths(theme: unknown): void {
 }
 
 function validateRgb(path: string, value: unknown): void {
-  if (!isRecord(value)) {
+  if (
+    typeof value !== "number" ||
+    !Number.isInteger(value) ||
+    value < 0 ||
+    value > 0x00ffffff
+  ) {
     throw new Error(
-      `Theme validation failed at ${path}: expected RGB object { r, g, b } (received ${formatValue(value)})`,
+      `Theme validation failed at ${path}: expected packed Rgb24 integer 0..0x00FFFFFF (received ${formatValue(value)})`,
     );
-  }
-
-  for (const channel of ["r", "g", "b"] as const) {
-    const channelValue = value[channel];
-    if (
-      typeof channelValue !== "number" ||
-      !Number.isInteger(channelValue) ||
-      channelValue < 0 ||
-      channelValue > 255
-    ) {
-      throw new Error(
-        `Theme validation failed at ${path}.${channel}: channel "${channel}" must be an integer 0..255 (received ${formatValue(channelValue)})`,
-      );
-    }
   }
 }
 

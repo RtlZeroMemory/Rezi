@@ -58,6 +58,9 @@ jobs:
       - name: Check core portability
         run: npm run check:core-portability
 
+      - name: Check native vendor integrity
+        run: npm run check:native-vendor
+
       - name: Check Unicode pins (submodule sync)
         run: npm run check:unicode
 

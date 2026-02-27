@@ -3,7 +3,7 @@ import { ui } from "../../index.js";
 import { commitVNodeTree } from "../commit.js";
 import { createInstanceIdAllocator } from "../instance.js";
 
-test("commit: leaf fast reuse does not ignore textOverflow changes", () => {
+test("commit: leaf update applies textOverflow changes in-place", () => {
   const allocator = createInstanceIdAllocator(1);
 
   const v0 = ui.text("hello");
@@ -14,12 +14,14 @@ test("commit: leaf fast reuse does not ignore textOverflow changes", () => {
   const c1 = commitVNodeTree(c0.value.root, v1, { allocator });
   if (!c1.ok) assert.fail(`commit failed: ${c1.fatal.code}: ${c1.fatal.detail}`);
 
-  assert.notEqual(c1.value.root, c0.value.root);
+  assert.equal(c1.value.root, c0.value.root);
   const nextProps = c1.value.root.vnode.props as { textOverflow?: unknown };
   assert.equal(nextProps.textOverflow, "ellipsis");
+  assert.equal(c1.value.root.selfDirty, true);
+  assert.equal(c1.value.root.dirty, true);
 });
 
-test("commit: leaf fast reuse does not ignore text id changes", () => {
+test("commit: leaf update applies text id changes in-place", () => {
   const allocator = createInstanceIdAllocator(1);
 
   const v0 = ui.text("hello", { id: "a" });
@@ -30,9 +32,11 @@ test("commit: leaf fast reuse does not ignore text id changes", () => {
   const c1 = commitVNodeTree(c0.value.root, v1, { allocator });
   if (!c1.ok) assert.fail(`commit failed: ${c1.fatal.code}: ${c1.fatal.detail}`);
 
-  assert.notEqual(c1.value.root, c0.value.root);
+  assert.equal(c1.value.root, c0.value.root);
   const nextProps = c1.value.root.vnode.props as { id?: unknown };
   assert.equal(nextProps.id, "b");
+  assert.equal(c1.value.root.selfDirty, true);
+  assert.equal(c1.value.root.dirty, true);
 });
 
 test("commit: leaf fast reuse records reusedInstanceIds", () => {
@@ -154,4 +158,34 @@ test("commit: semantically equal box transition keeps fast reuse", () => {
   if (!c1.ok) assert.fail(`commit failed: ${c1.fatal.code}: ${c1.fatal.detail}`);
 
   assert.equal(c1.value.root, c0.value.root);
+});
+
+test("commit: container fast-reuse rewrites parent committed vnode children", () => {
+  const allocator = createInstanceIdAllocator(1);
+
+  const c0 = commitVNodeTree(
+    null,
+    ui.column({}, [ui.text("child", { style: { strikethrough: false } })]),
+    { allocator },
+  );
+  if (!c0.ok) assert.fail(`commit failed: ${c0.fatal.code}: ${c0.fatal.detail}`);
+
+  const c1 = commitVNodeTree(
+    c0.value.root,
+    ui.column({}, [ui.text("child", { style: { strikethrough: true } })]),
+    { allocator },
+  );
+  if (!c1.ok) assert.fail(`commit failed: ${c1.fatal.code}: ${c1.fatal.detail}`);
+
+  assert.equal(c1.value.root, c0.value.root);
+
+  const parentVNode = c1.value.root.vnode as { children?: readonly { props?: unknown }[] };
+  const vnodeChild = parentVNode.children?.[0];
+  assert.ok(vnodeChild !== undefined);
+  assert.equal(vnodeChild, c1.value.root.children[0]?.vnode);
+
+  const childProps = (vnodeChild?.props ?? {}) as {
+    style?: { strikethrough?: unknown };
+  };
+  assert.equal(childProps.style?.strikethrough, true);
 });

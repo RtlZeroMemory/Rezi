@@ -2,12 +2,13 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import type { DrawlistBuilder, DrawlistTextRunSegment } from "../../drawlist/types.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
 import { DEFAULT_BASE_STYLE } from "../renderToDrawlist/textStyle.js";
-import { renderCanvasWidgets } from "../renderToDrawlist/widgets/renderCanvasWidgets.js";
+import { addBlobAligned, renderCanvasWidgets } from "../renderToDrawlist/widgets/renderCanvasWidgets.js";
 import { drawSegments } from "../renderToDrawlist/widgets/renderTextWidgets.js";
 
 class CountingBuilder implements DrawlistBuilder {
   readonly blobCount = { value: 0 };
   readonly textRunBlobCount = { value: 0 };
+  readonly blobByteLens: number[] = [];
   private nextBlobId = 0;
 
   clear(): void {}
@@ -49,6 +50,7 @@ class CountingBuilder implements DrawlistBuilder {
 
   addBlob(_bytes: Uint8Array): number | null {
     this.blobCount.value += 1;
+    this.blobByteLens.push(_bytes.byteLength);
     const id = this.nextBlobId;
     this.nextBlobId += 1;
     return id;
@@ -73,6 +75,13 @@ class CountingBuilder implements DrawlistBuilder {
 }
 
 describe("renderer blob usage", () => {
+  test("addBlobAligned forwards exact payload length", () => {
+    const builder = new CountingBuilder();
+    const blobId = addBlobAligned(builder, new Uint8Array([1, 2, 3]));
+    assert.equal(blobId, 0);
+    assert.deepEqual(builder.blobByteLens, [3]);
+  });
+
   test("drawSegments uses text-run blobs for multi-segment lines", () => {
     const segments = [
       { text: "left", style: { ...DEFAULT_BASE_STYLE, bold: true } },

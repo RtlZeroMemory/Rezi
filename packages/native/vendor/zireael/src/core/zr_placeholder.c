@@ -4,4 +4,5 @@
   Why: Keeps the CMake scaffolding building before real engine sources land.
 */
 
-void zireael__placeholder(void) {}
+void zireael__placeholder(void) {
+}

@@ -252,10 +252,6 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
       this.fail("ZRDL_BAD_PARAMS", "addBlob: bytes.byteLength must be a non-negative integer");
       return null;
     }
-    if ((byteLen & 3) !== 0) {
-      this.fail("ZRDL_BAD_PARAMS", "addBlob: blob length must be 4-byte aligned");
-      return null;
-    }
 
     const nextIndex = this.blobSpanOffs.length;
     if (nextIndex + 1 > this.maxBlobs) {
@@ -272,11 +268,6 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
         "ZRDL_TOO_LARGE",
         `addBlob: maxBlobBytes exceeded (bytes=${nextBytesLen}, max=${this.maxBlobBytes})`,
       );
-      return null;
-    }
-
-    if ((this.blobBytesLen & 3) !== 0) {
-      this.fail("ZRDL_INTERNAL", "addBlob: blob cursor is not 4-byte aligned");
       return null;
     }
 

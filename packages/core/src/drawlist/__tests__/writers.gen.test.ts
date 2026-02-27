@@ -3,6 +3,8 @@ import { ZRDL_MAGIC, ZR_DRAWLIST_VERSION_V1, createDrawlistBuilder } from "../..
 import type { EncodedStyle } from "../types.js";
 import {
   CLEAR_SIZE,
+  DEF_BLOB_BASE_SIZE,
+  DEF_STRING_BASE_SIZE,
   DRAW_CANVAS_SIZE,
   DRAW_IMAGE_SIZE,
   DRAW_TEXT_RUN_SIZE,
@@ -16,6 +18,8 @@ import {
   writeDrawImage,
   writeDrawText,
   writeDrawTextRun,
+  writeDefBlob,
+  writeDefString,
   writeFillRect,
   writePopClip,
   writePushClip,
@@ -298,7 +302,11 @@ function buildReferenceDrawlist(): Uint8Array {
   const stringBytes = new TextEncoder().encode("OK");
   const blobBytes = new Uint8Array([1, 2, 3, 4]);
 
+  const defStringSize = align4(DEF_STRING_BASE_SIZE + stringBytes.byteLength);
+  const defBlobSize = align4(DEF_BLOB_BASE_SIZE + blobBytes.byteLength);
   const cmdBytes =
+    defStringSize +
+    defBlobSize +
     CLEAR_SIZE +
     FILL_RECT_SIZE +
     DRAW_TEXT_SIZE +
@@ -308,19 +316,8 @@ function buildReferenceDrawlist(): Uint8Array {
     DRAW_IMAGE_SIZE +
     PUSH_CLIP_SIZE +
     POP_CLIP_SIZE;
-  const stringsCount = 1;
-  const stringsSpanBytes = stringsCount * 8;
-  const stringsBytesLen = align4(stringBytes.byteLength);
-  const blobsCount = 1;
-  const blobsSpanBytes = blobsCount * 8;
-  const blobsBytesLen = align4(blobBytes.byteLength);
-
   const cmdOffset = HEADER_SIZE;
-  const stringsSpanOffset = cmdOffset + cmdBytes;
-  const stringsBytesOffset = stringsSpanOffset + stringsSpanBytes;
-  const blobsSpanOffset = stringsBytesOffset + stringsBytesLen;
-  const blobsBytesOffset = blobsSpanOffset + blobsSpanBytes;
-  const totalSize = blobsBytesOffset + blobsBytesLen;
+  const totalSize = cmdOffset + cmdBytes;
 
   const out = new Uint8Array(totalSize);
   const dv = view(out);
@@ -331,24 +328,26 @@ function buildReferenceDrawlist(): Uint8Array {
   dv.setUint32(12, totalSize, true);
   dv.setUint32(16, cmdOffset, true);
   dv.setUint32(20, cmdBytes, true);
-  dv.setUint32(24, 9, true);
-  dv.setUint32(28, stringsSpanOffset, true);
-  dv.setUint32(32, stringsCount, true);
-  dv.setUint32(36, stringsBytesOffset, true);
-  dv.setUint32(40, stringsBytesLen, true);
-  dv.setUint32(44, blobsSpanOffset, true);
-  dv.setUint32(48, blobsCount, true);
-  dv.setUint32(52, blobsBytesOffset, true);
-  dv.setUint32(56, blobsBytesLen, true);
+  dv.setUint32(24, 11, true);
+  dv.setUint32(28, 0, true);
+  dv.setUint32(32, 0, true);
+  dv.setUint32(36, 0, true);
+  dv.setUint32(40, 0, true);
+  dv.setUint32(44, 0, true);
+  dv.setUint32(48, 0, true);
+  dv.setUint32(52, 0, true);
+  dv.setUint32(56, 0, true);
   dv.setUint32(60, 0, true);
 
   let pos = cmdOffset;
+  pos = writeDefString(out, dv, pos, 1, stringBytes.byteLength, stringBytes);
+  pos = writeDefBlob(out, dv, pos, 1, blobBytes.byteLength, blobBytes);
   pos = legacyWriteClear(out, dv, pos);
   pos = legacyWriteFillRect(out, dv, pos, 1, 2, 3, 4, ZERO_STYLE);
-  pos = legacyWriteDrawText(out, dv, pos, 5, 6, 0, 0, stringBytes.byteLength, ZERO_STYLE, 0);
-  pos = legacyWriteDrawTextRun(out, dv, pos, 7, 8, 0, 0);
+  pos = legacyWriteDrawText(out, dv, pos, 5, 6, 1, 0, stringBytes.byteLength, ZERO_STYLE, 0);
+  pos = legacyWriteDrawTextRun(out, dv, pos, 7, 8, 1, 0);
   pos = legacyWriteSetCursor(out, dv, pos, 9, 10, 2, 1, 0, 0);
-  pos = legacyWriteDrawCanvas(out, dv, pos, 11, 12, 1, 1, 1, 1, 0, blobBytes.byteLength, 6, 0, 0);
+  pos = legacyWriteDrawCanvas(out, dv, pos, 11, 12, 1, 1, 1, 1, 1, 0, 6, 0, 0);
   pos = legacyWriteDrawImage(
     out,
     dv,
@@ -359,8 +358,8 @@ function buildReferenceDrawlist(): Uint8Array {
     1,
     1,
     1,
+    1,
     0,
-    blobBytes.byteLength,
     99,
     0,
     1,
@@ -373,14 +372,6 @@ function buildReferenceDrawlist(): Uint8Array {
   pos = legacyWritePushClip(out, dv, pos, 0, 0, 20, 10);
   pos = legacyWritePopClip(out, dv, pos);
   assert.equal(pos, cmdOffset + cmdBytes);
-
-  dv.setUint32(stringsSpanOffset + 0, 0, true);
-  dv.setUint32(stringsSpanOffset + 4, stringBytes.byteLength, true);
-  out.set(stringBytes, stringsBytesOffset);
-
-  dv.setUint32(blobsSpanOffset + 0, 0, true);
-  dv.setUint32(blobsSpanOffset + 4, blobBytes.byteLength, true);
-  out.set(blobBytes, blobsBytesOffset);
 
   return out;
 }
@@ -648,12 +639,14 @@ describe("writers.gen - round trip integration", () => {
     assert.equal(u32(bytes, 4), ZR_DRAWLIST_VERSION_V1);
     assert.equal(u32(bytes, 8), HEADER_SIZE);
     assert.equal(u32(bytes, 12), bytes.byteLength);
-    assert.equal(u32(bytes, 24), 9);
+    assert.equal(u32(bytes, 24), 11);
 
     const cmds = parseCommands(bytes);
     assert.deepEqual(
       cmds.map((c) => c.size),
       [
+        align4(DEF_STRING_BASE_SIZE + 2),
+        align4(DEF_BLOB_BASE_SIZE + 4),
         CLEAR_SIZE,
         FILL_RECT_SIZE,
         DRAW_TEXT_SIZE,

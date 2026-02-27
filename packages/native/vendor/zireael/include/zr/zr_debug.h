@@ -14,6 +14,10 @@
 #ifndef ZR_ZR_DEBUG_H_INCLUDED
 #define ZR_ZR_DEBUG_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "zr/zr_result.h"
 
 #include <stdint.h>
@@ -219,5 +223,9 @@ typedef struct zr_debug_stats_t {
     - Category mask enables all categories by default.
 */
 zr_debug_config_t zr_debug_config_default(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ZR_ZR_DEBUG_H_INCLUDED */

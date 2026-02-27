@@ -1,7 +1,6 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { parseDrawTextCommands, parseInternedStrings } from "../../__tests__/drawlistDecode.js";
 import { createDrawlistBuilder } from "../../index.js";
-
-const OP_DRAW_TEXT = 3;
 
 type BuildResult =
   | Readonly<{ ok: true; bytes: Uint8Array }>
@@ -24,65 +23,13 @@ const FACTORIES: readonly Readonly<{
   create(opts?: BuilderOpts): BuilderLike;
 }>[] = [{ name: "current", create: (opts?: BuilderOpts) => createDrawlistBuilder(opts) }];
 
-function u16(bytes: Uint8Array, off: number): number {
-  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  return dv.getUint16(off, true);
-}
-
-function u32(bytes: Uint8Array, off: number): number {
-  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  return dv.getUint32(off, true);
-}
-
-type DrawTextEntry = Readonly<{ stringIndex: number; byteLen: number }>;
+type DrawTextEntry = Readonly<{ stringId: number; byteLen: number }>;
 
 function readDrawTextEntries(bytes: Uint8Array): DrawTextEntry[] {
-  const cmdOffset = u32(bytes, 16);
-  const cmdBytes = u32(bytes, 20);
-  const cmdCount = u32(bytes, 24);
-  const out: DrawTextEntry[] = [];
-
-  let off = cmdOffset;
-  for (let i = 0; i < cmdCount; i++) {
-    const opcode = u16(bytes, off + 0);
-    const size = u32(bytes, off + 4);
-    if (opcode === OP_DRAW_TEXT) {
-      out.push({
-        stringIndex: u32(bytes, off + 16),
-        byteLen: u32(bytes, off + 24),
-      });
-    }
-    off += size;
-  }
-
-  assert.equal(off, cmdOffset + cmdBytes, "command stream should end at cmdOffset + cmdBytes");
-  return out;
-}
-
-type StringSpan = Readonly<{ off: number; len: number }>;
-
-function readStringSpans(bytes: Uint8Array): StringSpan[] {
-  const spanOffset = u32(bytes, 28);
-  const count = u32(bytes, 32);
-  const spans: StringSpan[] = [];
-  for (let i = 0; i < count; i++) {
-    spans.push({
-      off: u32(bytes, spanOffset + i * 8 + 0),
-      len: u32(bytes, spanOffset + i * 8 + 4),
-    });
-  }
-  return spans;
-}
-
-function readInternedStrings(bytes: Uint8Array): string[] {
-  const stringsBytesOffset = u32(bytes, 36);
-  const spans = readStringSpans(bytes);
-  const decoder = new TextDecoder();
-  return spans.map((span) =>
-    decoder.decode(
-      bytes.subarray(stringsBytesOffset + span.off, stringsBytesOffset + span.off + span.len),
-    ),
-  );
+  return parseDrawTextCommands(bytes).map((cmd) => ({
+    stringId: cmd.stringId,
+    byteLen: cmd.byteLen,
+  }));
 }
 
 function buildOk(builder: BuilderLike, label: string): Uint8Array {
@@ -102,11 +49,11 @@ describe("drawlist string interning", () => {
 
       const bytes = buildOk(b, `${factory.name} duplicate strings`);
       const drawText = readDrawTextEntries(bytes);
-      const strings = readInternedStrings(bytes);
+      const strings = parseInternedStrings(bytes);
 
       assert.equal(drawText.length, 2, `${factory.name}: expected 2 drawText commands`);
-      assert.equal(drawText[0]?.stringIndex, 0, `${factory.name}: first string index`);
-      assert.equal(drawText[1]?.stringIndex, 0, `${factory.name}: duplicate string index`);
+      assert.equal(drawText[0]?.stringId, 1, `${factory.name}: first string id`);
+      assert.equal(drawText[1]?.stringId, 1, `${factory.name}: duplicate string id`);
       assert.deepEqual(strings, ["dup"], `${factory.name}: string table should dedupe`);
     }
   });
@@ -119,10 +66,10 @@ describe("drawlist string interning", () => {
 
       const bytes = buildOk(b, `${factory.name} distinct strings`);
       const drawText = readDrawTextEntries(bytes);
-      const strings = readInternedStrings(bytes);
+      const strings = parseInternedStrings(bytes);
 
-      assert.equal(drawText[0]?.stringIndex, 0, `${factory.name}: alpha index`);
-      assert.equal(drawText[1]?.stringIndex, 1, `${factory.name}: beta index`);
+      assert.equal(drawText[0]?.stringId, 1, `${factory.name}: alpha id`);
+      assert.equal(drawText[1]?.stringId, 2, `${factory.name}: beta id`);
       assert.deepEqual(strings, ["alpha", "beta"], `${factory.name}: expected two strings`);
     }
   });
@@ -135,10 +82,10 @@ describe("drawlist string interning", () => {
 
       const bytes = buildOk(b, `${factory.name} value-based interning`);
       const drawText = readDrawTextEntries(bytes);
-      assert.equal(drawText[0]?.stringIndex, 0, `${factory.name}: first index`);
-      assert.equal(drawText[1]?.stringIndex, 0, `${factory.name}: second index`);
+      assert.equal(drawText[0]?.stringId, 1, `${factory.name}: first id`);
+      assert.equal(drawText[1]?.stringId, 1, `${factory.name}: second id`);
       assert.deepEqual(
-        readInternedStrings(bytes),
+        parseInternedStrings(bytes),
         ["same"],
         `${factory.name}: one interned string`,
       );
@@ -153,14 +100,11 @@ describe("drawlist string interning", () => {
 
       const bytes = buildOk(b, `${factory.name} empty string`);
       const drawText = readDrawTextEntries(bytes);
-      const spans = readStringSpans(bytes);
-      const strings = readInternedStrings(bytes);
+      const strings = parseInternedStrings(bytes);
 
-      assert.equal(drawText[0]?.stringIndex, 0, `${factory.name}: first empty index`);
-      assert.equal(drawText[1]?.stringIndex, 0, `${factory.name}: second empty index`);
+      assert.equal(drawText[0]?.stringId, 1, `${factory.name}: first empty id`);
+      assert.equal(drawText[1]?.stringId, 1, `${factory.name}: second empty id`);
       assert.equal(drawText[0]?.byteLen, 0, `${factory.name}: empty byte len in command`);
-      assert.equal(spans[0]?.len, 0, `${factory.name}: empty span len`);
-      assert.equal(u32(bytes, 40), 0, `${factory.name}: aligned strings_bytes_len`);
       assert.deepEqual(strings, [""], `${factory.name}: one empty string in table`);
     }
   });
@@ -173,12 +117,10 @@ describe("drawlist string interning", () => {
 
       const bytes = buildOk(b, `${factory.name} long string`);
       const drawText = readDrawTextEntries(bytes);
-      const spans = readStringSpans(bytes);
-      const strings = readInternedStrings(bytes);
+      const strings = parseInternedStrings(bytes);
 
-      assert.equal(drawText[0]?.stringIndex, 0, `${factory.name}: long string index`);
+      assert.equal(drawText[0]?.stringId, 1, `${factory.name}: long string id`);
       assert.equal(drawText[0]?.byteLen, longText.length, `${factory.name}: long byte len`);
-      assert.equal(spans[0]?.len, longText.length, `${factory.name}: long span len`);
       assert.equal(strings[0], longText, `${factory.name}: long round-trip text`);
     }
   });
@@ -193,7 +135,7 @@ describe("drawlist string interning", () => {
 
       const bytes = buildOk(b, `${factory.name} unicode round-trip`);
       const drawText = readDrawTextEntries(bytes);
-      const strings = readInternedStrings(bytes);
+      const strings = parseInternedStrings(bytes);
 
       assert.equal(drawText[0]?.byteLen, expectedByteLen, `${factory.name}: utf8 byte len`);
       assert.equal(strings[0], text, `${factory.name}: unicode round-trip`);
@@ -211,10 +153,10 @@ describe("drawlist string interning", () => {
 
       const bytes = buildOk(b, `${factory.name} unicode normalization`);
       const drawText = readDrawTextEntries(bytes);
-      const strings = readInternedStrings(bytes);
+      const strings = parseInternedStrings(bytes);
 
-      assert.equal(drawText[0]?.stringIndex, 0, `${factory.name}: nfc index`);
-      assert.equal(drawText[1]?.stringIndex, 1, `${factory.name}: nfd index`);
+      assert.equal(drawText[0]?.stringId, 1, `${factory.name}: nfc id`);
+      assert.equal(drawText[1]?.stringId, 2, `${factory.name}: nfd id`);
       assert.deepEqual(strings, [nfc, nfd], `${factory.name}: both forms are preserved`);
     }
   });
@@ -232,11 +174,12 @@ describe("drawlist string interning", () => {
 
       const bytes = buildOk(b, `${factory.name} round-trip decode`);
       const drawText = readDrawTextEntries(bytes);
-      const actualIndices = drawText.map((entry) => entry.stringIndex);
+      const actualIds = drawText.map((entry) => entry.stringId);
+      const actualIndices = actualIds.map((id) => id - 1);
 
       assert.deepEqual(actualIndices, expectedIndices, `${factory.name}: index assignment`);
       assert.deepEqual(
-        readInternedStrings(bytes),
+        parseInternedStrings(bytes),
         expectedUnique,
         `${factory.name}: unique decode`,
       );
@@ -256,9 +199,9 @@ describe("drawlist string interning", () => {
       const drawText = readDrawTextEntries(bytes);
       assert.equal(drawText.length, unique.length, `${factory.name}: drawText count`);
       for (let i = 0; i < drawText.length; i++) {
-        assert.equal(drawText[i]?.stringIndex, i, `${factory.name}: index ${i}`);
+        assert.equal(drawText[i]?.stringId, i + 1, `${factory.name}: id ${i + 1}`);
       }
-      assert.deepEqual(readInternedStrings(bytes), unique, `${factory.name}: decoded string table`);
+      assert.deepEqual(parseInternedStrings(bytes), unique, `${factory.name}: decoded string table`);
     }
   });
 
@@ -273,13 +216,13 @@ describe("drawlist string interning", () => {
       b.drawText(0, 0, "second");
       const frame2 = buildOk(b, `${factory.name} frame 2`);
 
-      const frame1Indices = readDrawTextEntries(frame1).map((entry) => entry.stringIndex);
-      const frame2Indices = readDrawTextEntries(frame2).map((entry) => entry.stringIndex);
+      const frame1Ids = readDrawTextEntries(frame1).map((entry) => entry.stringId);
+      const frame2Ids = readDrawTextEntries(frame2).map((entry) => entry.stringId);
 
-      assert.deepEqual(frame1Indices, [0, 1], `${factory.name}: frame 1 indices`);
-      assert.deepEqual(frame2Indices, [0], `${factory.name}: frame 2 indices restart`);
+      assert.deepEqual(frame1Ids, [1, 2], `${factory.name}: frame 1 ids`);
+      assert.deepEqual(frame2Ids, [1], `${factory.name}: frame 2 ids restart`);
       assert.deepEqual(
-        readInternedStrings(frame2),
+        parseInternedStrings(frame2),
         ["second"],
         `${factory.name}: no stale strings`,
       );

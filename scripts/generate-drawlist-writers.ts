@@ -108,7 +108,7 @@ function emitFunction(command: DrawlistCommandSpec): Emission {
 
   const body: string[] = [];
   if (command.hasTrailingBytes) {
-    body.push("const payloadBytes = bytes.byteLength >>> 0;");
+    body.push("const payloadBytes = byteLen >>> 0;");
     body.push(`const size = align4(${command.name}_BASE_SIZE + payloadBytes);`);
     body.push(`buf[pos + 0] = ${command.opcode} & 0xff;`);
     body.push("buf[pos + 1] = 0;");
@@ -132,7 +132,13 @@ function emitFunction(command: DrawlistCommandSpec): Emission {
 
   if (command.hasTrailingBytes) {
     body.push(`const dataStart = pos + ${command.name}_BASE_SIZE;`);
-    body.push("buf.set(bytes, dataStart);");
+    body.push("const copyBytes = Math.min(payloadBytes, bytes.byteLength >>> 0);");
+    body.push("if (copyBytes > 0) {");
+    body.push("  buf.set(bytes.subarray(0, copyBytes), dataStart);");
+    body.push("}");
+    body.push("if (payloadBytes > copyBytes) {");
+    body.push("  buf.fill(0, dataStart + copyBytes, dataStart + payloadBytes);");
+    body.push("}");
     body.push("const payloadEnd = dataStart + payloadBytes;");
     body.push("const cmdEnd = pos + size;");
     body.push("if (cmdEnd > payloadEnd) {");

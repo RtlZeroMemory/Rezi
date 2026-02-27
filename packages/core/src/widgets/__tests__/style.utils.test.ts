@@ -73,14 +73,15 @@ describe("style utils contracts", () => {
     assert.deepEqual(second, { inverse: false, blink: true });
   });
 
-  test("sanitizeRgb clamps channels and accepts numeric strings", () => {
-    const out = sanitizeRgb({ r: "260", g: -2, b: "127.6" });
-    assert.deepEqual(out, (255 << 16) | (0 << 8) | 128);
+  test("sanitizeRgb clamps packed numeric RGB values", () => {
+    assert.equal(sanitizeRgb(-42), 0);
+    assert.equal(sanitizeRgb(0x0001_0203), 0x0001_0203);
+    assert.equal(sanitizeRgb(0x01ff_00ff), 0x00ff_ffff);
   });
 
   test("sanitizeTextStyle drops invalid fields and coerces booleans", () => {
     const out = sanitizeTextStyle({
-      fg: { r: 1.4, g: "2", b: 3.6 },
+      fg: (1 << 16) | (2 << 8) | 4,
       bg: { r: "bad", g: 10, b: 20 },
       bold: "TRUE",
       italic: "false",
@@ -97,12 +98,12 @@ describe("style utils contracts", () => {
 
   test("mergeStyles sanitizes incoming style values", () => {
     const merged = mergeStyles({ fg: (0 << 16) | (0 << 8) | 0, bold: true }, {
-      fg: { r: 512, g: "-10", b: "3.2" },
+      fg: 0x01ff_0013,
       bold: "false",
     } as unknown as TextStyle);
 
     assert.deepEqual(merged, {
-      fg: (255 << 16) | (0 << 8) | 3,
+      fg: 0x00ff_ffff,
       bold: false,
     });
   });

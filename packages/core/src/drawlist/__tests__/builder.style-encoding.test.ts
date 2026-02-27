@@ -1,32 +1,48 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import {
+  OP_DRAW_TEXT,
+  OP_DRAW_TEXT_RUN,
+  parseBlobById,
+  parseCommandHeaders,
+} from "../../__tests__/drawlistDecode.js";
 import { type TextStyle, createDrawlistBuilder } from "../../index.js";
 import { DEFAULT_BASE_STYLE, mergeTextStyle } from "../../renderer/renderToDrawlist/textStyle.js";
-import { DRAW_TEXT_SIZE } from "../writers.gen.js";
 
 function u32(bytes: Uint8Array, off: number): number {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   return dv.getUint32(off, true);
 }
 
-function firstCommandOffset(bytes: Uint8Array): number {
-  return u32(bytes, 16);
+function firstOpcodeOffset(bytes: Uint8Array, opcode: number): number {
+  const cmd = parseCommandHeaders(bytes).find((entry) => entry.opcode === opcode);
+  assert.equal(cmd !== undefined, true, `missing opcode ${String(opcode)}`);
+  if (!cmd) return 0;
+  return cmd.offset;
 }
 
 function drawTextFg(bytes: Uint8Array): number {
-  return u32(bytes, firstCommandOffset(bytes) + 28);
+  return u32(bytes, firstOpcodeOffset(bytes, OP_DRAW_TEXT) + 28);
 }
 
 function drawTextBg(bytes: Uint8Array): number {
-  return u32(bytes, firstCommandOffset(bytes) + 32);
+  return u32(bytes, firstOpcodeOffset(bytes, OP_DRAW_TEXT) + 32);
 }
 
 function drawTextAttrs(bytes: Uint8Array): number {
-  return u32(bytes, firstCommandOffset(bytes) + 36);
+  return u32(bytes, firstOpcodeOffset(bytes, OP_DRAW_TEXT) + 36);
+}
+
+function firstTextRunBlob(bytes: Uint8Array): Uint8Array {
+  const drawTextRunOff = firstOpcodeOffset(bytes, OP_DRAW_TEXT_RUN);
+  const blobId = u32(bytes, drawTextRunOff + 16);
+  const blob = parseBlobById(bytes, blobId);
+  assert.equal(blob !== null, true, `missing blob id ${String(blobId)} for DRAW_TEXT_RUN`);
+  return blob ?? new Uint8Array();
 }
 
 function textRunField(bytes: Uint8Array, segmentIndex: number, fieldOffset: number): number {
-  const blobsBytesOffset = u32(bytes, 52);
-  return u32(bytes, blobsBytesOffset + 4 + segmentIndex * 28 + fieldOffset);
+  const blob = firstTextRunBlob(bytes);
+  return u32(blob, 4 + segmentIndex * 40 + fieldOffset);
 }
 
 function textRunFg(bytes: Uint8Array, segmentIndex: number): number {
@@ -278,14 +294,16 @@ describe("style merge stress encodes fg/bg/attrs bytes deterministically", () =>
     assert.equal(res.ok, true);
     if (!res.ok) throw new Error("build failed");
 
-    const cmdOffset = u32(res.bytes, 16);
-    const cmdCount = u32(res.bytes, 24);
-    assert.equal(cmdCount, expected.length);
+    const drawTextCommands = parseCommandHeaders(res.bytes).filter(
+      (cmd) => cmd.opcode === OP_DRAW_TEXT,
+    );
+    assert.equal(drawTextCommands.length, expected.length);
 
     for (let i = 0; i < expected.length; i++) {
       const exp = expected[i];
-      if (!exp) continue;
-      const off = cmdOffset + i * DRAW_TEXT_SIZE;
+      const cmd = drawTextCommands[i];
+      if (!exp || !cmd) continue;
+      const off = cmd.offset;
       assert.equal(u32(res.bytes, off + 28), exp.fg, `fg mismatch at cmd #${String(i)}`);
       assert.equal(u32(res.bytes, off + 32), exp.bg, `bg mismatch at cmd #${String(i)}`);
       assert.equal(u32(res.bytes, off + 36), exp.attrs, `attrs mismatch at cmd #${String(i)}`);

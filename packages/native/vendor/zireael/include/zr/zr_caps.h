@@ -8,6 +8,10 @@
 #ifndef ZR_ZR_CAPS_H_INCLUDED
 #define ZR_ZR_CAPS_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "zr/zr_result.h"
 
 #include <stdint.h>
@@ -45,5 +49,9 @@ zr_limits_t zr_limits_default(void);
 
 /* Validate limit values and relationships. */
 zr_result_t zr_limits_validate(const zr_limits_t* limits);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ZR_ZR_CAPS_H_INCLUDED */

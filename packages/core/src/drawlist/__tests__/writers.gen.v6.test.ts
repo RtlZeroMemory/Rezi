@@ -71,6 +71,22 @@ describe("writers.gen v6", () => {
     assert.equal(u8(bytes, 19), 0);
   });
 
+  test("DEF_STRING honors declared byteLen (does not force bytes.byteLength)", () => {
+    const bytes = new Uint8Array(64);
+    bytes.fill(0xcc);
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+    const payload = new Uint8Array([0x41, 0x42, 0x43, 0x44, 0x45]);
+    const end = writeDefString(bytes, dv, 0, 9, 3, payload);
+
+    assert.equal(end, 20);
+    assert.equal(u32(bytes, 4), 20);
+    assert.equal(u32(bytes, 12), 3);
+    assert.deepEqual(Array.from(bytes.subarray(16, 19)), [0x41, 0x42, 0x43]);
+    assert.equal(u8(bytes, 19), 0);
+    assert.equal(u8(bytes, 20), 0xcc);
+  });
+
   test("FREE_* write id payload only", () => {
     const bytes = new Uint8Array(32);
     const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -146,5 +162,23 @@ describe("writers.gen v6", () => {
     assert.equal(u32(bytes, 20), 3);
     assert.deepEqual(Array.from(bytes.subarray(24, 27)), [1, 2, 3]);
     assert.equal(u8(bytes, 27), 0);
+  });
+
+  test("DEF_BLOB honors declared byteLen (does not force bytes.byteLength)", () => {
+    const bytes = new Uint8Array(64);
+    bytes.fill(0xcc);
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const payload = new Uint8Array([1, 2, 3, 4, 5]);
+
+    const end = writeDefBlob(bytes, dv, 0, 7, 3, payload);
+
+    assert.equal(end, 20);
+    assert.equal(u8(bytes, 0), 12);
+    assert.equal(u32(bytes, 4), 20);
+    assert.equal(u32(bytes, 8), 7);
+    assert.equal(u32(bytes, 12), 3);
+    assert.deepEqual(Array.from(bytes.subarray(16, 19)), [1, 2, 3]);
+    assert.equal(u8(bytes, 19), 0);
+    assert.equal(u8(bytes, 20), 0xcc);
   });
 });

@@ -1,5 +1,5 @@
 /*
-  include/zr/zr_drawlist.h — Drawlist ABI structs (v1/v2).
+  include/zr/zr_drawlist.h — Drawlist ABI structs (v1).
 
   Why: Defines the little-endian drawlist command stream used by wrappers to
   drive rendering through engine_submit_drawlist().
@@ -7,6 +7,10 @@
 
 #ifndef ZR_ZR_DRAWLIST_H_INCLUDED
 #define ZR_ZR_DRAWLIST_H_INCLUDED
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <stdint.h>
 
@@ -259,5 +263,9 @@ typedef struct zr_dl_cmd_def_resource_t {
 typedef struct zr_dl_cmd_free_resource_t {
   uint32_t id;
 } zr_dl_cmd_free_resource_t;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ZR_ZR_DRAWLIST_H_INCLUDED */

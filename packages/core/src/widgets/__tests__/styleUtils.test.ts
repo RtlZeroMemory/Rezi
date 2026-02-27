@@ -34,13 +34,9 @@ describe("styleUtils", () => {
   });
 
   test("sanitizeTextStyle preserves underlineColor rgb", () => {
-    assert.deepEqual(
+    assert.equal(
       sanitizeTextStyle({ underlineColor: (1 << 16) | (2 << 8) | 3 }).underlineColor,
-      {
-        r: 1,
-        g: 2,
-        b: 3,
-      },
+      (1 << 16) | (2 << 8) | 3,
     );
   });
 
@@ -56,7 +52,7 @@ describe("styleUtils", () => {
   });
 
   test("sanitizeTextStyle drops invalid underlineColor values", () => {
-    assert.equal(sanitizeTextStyle({ underlineColor: 42 }).underlineColor, undefined);
+    assert.equal(sanitizeTextStyle({ underlineColor: {} }).underlineColor, undefined);
     assert.equal(sanitizeTextStyle({ underlineColor: null }).underlineColor, undefined);
     assert.equal(sanitizeTextStyle({ underlineColor: "" }).underlineColor, undefined);
     assert.equal(sanitizeTextStyle({ underlineColor: "   " }).underlineColor, undefined);

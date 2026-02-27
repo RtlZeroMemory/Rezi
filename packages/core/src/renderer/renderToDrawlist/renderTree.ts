@@ -15,6 +15,7 @@ import type { Theme } from "../../theme/theme.js";
 import type { CommandItem } from "../../widgets/types.js";
 import { getRuntimeNodeDamageRect } from "./damageBounds.js";
 import type { IdRectIndex } from "./indices.js";
+import { subtreeCanOverflowBounds } from "./overflowCulling.js";
 import type { ResolvedTextStyle } from "./textStyle.js";
 import type {
   CodeEditorRenderCache,
@@ -57,18 +58,6 @@ export type ResolvedCursor = Readonly<{
 function rectIntersects(a: Rect, b: Rect): boolean {
   if (a.w <= 0 || a.h <= 0 || b.w <= 0 || b.h <= 0) return false;
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-}
-
-function usesVisibleOverflow(node: RuntimeInstance): boolean {
-  const kind = node.vnode.kind;
-  if (kind !== "row" && kind !== "column" && kind !== "grid" && kind !== "box") {
-    return false;
-  }
-  if (node.children.length === 0) {
-    return false;
-  }
-  const props = node.vnode.props as { overflow?: unknown };
-  return props.overflow !== "hidden" && props.overflow !== "scroll";
 }
 
 export function renderTree(
@@ -142,7 +131,7 @@ export function renderTree(
     if (
       damageRect &&
       !rectIntersects(getRuntimeNodeDamageRect(node, rect), damageRect) &&
-      !usesVisibleOverflow(node)
+      !subtreeCanOverflowBounds(node)
     ) {
       continue;
     }
@@ -175,7 +164,7 @@ export function renderTree(
           if (
             damageRect &&
             !rectIntersects(getRuntimeNodeDamageRect(child, childLayout.rect), damageRect) &&
-            !usesVisibleOverflow(child)
+            !subtreeCanOverflowBounds(child)
           ) {
             continue;
           }

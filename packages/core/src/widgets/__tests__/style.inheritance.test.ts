@@ -32,6 +32,25 @@ function resolveRootBoxRowText(
   return resolveChain([root, box, row, text]);
 }
 
+function computeExpectedAttrs(style: Readonly<TextStyle>): number {
+  let attrs = 0;
+  if (style.bold) attrs |= 1 << 0;
+  if (style.italic) attrs |= 1 << 1;
+  if (style.underline || (style.underlineStyle !== undefined && style.underlineStyle !== "none")) {
+    attrs |= 1 << 2;
+  }
+  if (style.inverse) attrs |= 1 << 3;
+  if (style.dim) attrs |= 1 << 4;
+  if (style.strikethrough) attrs |= 1 << 5;
+  if (style.overline) attrs |= 1 << 6;
+  if (style.blink) attrs |= 1 << 7;
+  return attrs >>> 0;
+}
+
+function withAttrs<T extends TextStyle>(style: T): T & Readonly<{ attrs: number }> {
+  return { ...style, attrs: computeExpectedAttrs(style) };
+}
+
 describe("mergeTextStyle Root->Box->Row->Text inheritance", () => {
   test("inherits root fg/bg when Box, Row, and Text are unset", () => {
     const resolved = resolveRootBoxRowText(
@@ -41,11 +60,11 @@ describe("mergeTextStyle Root->Box->Row->Text inheritance", () => {
       undefined,
     );
 
-    assert.deepEqual(resolved, {
+    assert.deepEqual(resolved, withAttrs({
       fg: ROOT_FG,
       bg: ROOT_BG,
       bold: true,
-    });
+    }));
   });
 
   test("Box fg override wins while bg still inherits from Root", () => {
@@ -56,10 +75,10 @@ describe("mergeTextStyle Root->Box->Row->Text inheritance", () => {
       undefined,
     );
 
-    assert.deepEqual(resolved, {
+    assert.deepEqual(resolved, withAttrs({
       fg: BOX_FG,
       bg: ROOT_BG,
-    });
+    }));
   });
 
   test("Row bg override wins while fg inherits from Box", () => {
@@ -70,10 +89,10 @@ describe("mergeTextStyle Root->Box->Row->Text inheritance", () => {
       undefined,
     );
 
-    assert.deepEqual(resolved, {
+    assert.deepEqual(resolved, withAttrs({
       fg: BOX_FG,
       bg: ROW_BG,
-    });
+    }));
   });
 
   test("Text override wins over Row/Box/Root and unset fields continue inheriting", () => {
@@ -84,13 +103,13 @@ describe("mergeTextStyle Root->Box->Row->Text inheritance", () => {
       { fg: TEXT_FG, bold: true },
     );
 
-    assert.deepEqual(resolved, {
+    assert.deepEqual(resolved, withAttrs({
       fg: TEXT_FG,
       bg: ROOT_BG,
       bold: true,
       italic: true,
       underline: true,
-    });
+    }));
   });
 
   test("Text with no local overrides inherits nearest defined values", () => {
@@ -101,13 +120,13 @@ describe("mergeTextStyle Root->Box->Row->Text inheritance", () => {
       {},
     );
 
-    assert.deepEqual(resolved, {
+    assert.deepEqual(resolved, withAttrs({
       fg: ROOT_FG,
       bg: ROOT_BG,
       bold: true,
       dim: false,
       italic: true,
-    });
+    }));
   });
 
   test("Explicit false in Box overrides Root true through deeper unset descendants", () => {
@@ -118,11 +137,11 @@ describe("mergeTextStyle Root->Box->Row->Text inheritance", () => {
       undefined,
     );
 
-    assert.deepEqual(resolved, {
+    assert.deepEqual(resolved, withAttrs({
       fg: ROOT_FG,
       bg: ROOT_BG,
       underline: false,
-    });
+    }));
   });
 
   test("Explicit true in Text overrides Root false", () => {
@@ -133,12 +152,12 @@ describe("mergeTextStyle Root->Box->Row->Text inheritance", () => {
       { blink: true },
     );
 
-    assert.deepEqual(resolved, {
+    assert.deepEqual(resolved, withAttrs({
       fg: ROOT_FG,
       bg: ROOT_BG,
       italic: true,
       blink: true,
-    });
+    }));
   });
 
   test("fg/bg inheritance stays independent across levels with mixed overrides", () => {
@@ -149,12 +168,12 @@ describe("mergeTextStyle Root->Box->Row->Text inheritance", () => {
       { italic: true },
     );
 
-    assert.deepEqual(resolved, {
+    assert.deepEqual(resolved, withAttrs({
       fg: BOX_FG,
       bg: ROW_BG,
       dim: true,
       italic: true,
-    });
+    }));
   });
 });
 
@@ -173,11 +192,11 @@ describe("mergeTextStyle deep inheritance chains", () => {
     assert.equal(boxResolved === rootResolved, true);
     assert.equal(rowResolved === rootResolved, true);
     assert.equal(textResolved === rootResolved, true);
-    assert.deepEqual(textResolved, {
+    assert.deepEqual(textResolved, withAttrs({
       fg: ROOT_FG,
       bg: ROOT_BG,
       inverse: true,
-    });
+    }));
   });
 
   test("8+ level chain resolves nearest ancestor values deterministically", () => {
@@ -193,14 +212,14 @@ describe("mergeTextStyle deep inheritance chains", () => {
       { fg: TEXT_FG },
     ]);
 
-    assert.deepEqual(resolved, {
+    assert.deepEqual(resolved, withAttrs({
       fg: TEXT_FG,
       bg: DEEP_BG,
       bold: false,
       dim: true,
       italic: true,
       underline: true,
-    });
+    }));
   });
 
   test("long undefined tail after deep chain preserves resolved object", () => {
@@ -216,11 +235,11 @@ describe("mergeTextStyle deep inheritance chains", () => {
     }
 
     assert.equal(resolved === anchor, true);
-    assert.deepEqual(resolved, {
+    assert.deepEqual(resolved, withAttrs({
       fg: ROOT_FG,
       bg: ROOT_BG,
       overline: true,
-    });
+    }));
   });
 
   test("very deep chain (512 levels) remains deterministic without stack/logic regressions", () => {
@@ -262,7 +281,7 @@ describe("mergeTextStyle deep inheritance chains", () => {
     };
     if (expectedBlink !== undefined) expected.blink = expectedBlink;
 
-    assert.deepEqual(resolved, expected);
+    assert.deepEqual(resolved, withAttrs(expected));
   });
 });
 
@@ -285,11 +304,11 @@ describe("mergeTextStyle recompute after middle style unset", () => {
     const rowResolved = mergeTextStyle(boxUnset, { italic: true });
     const after = mergeTextStyle(rowResolved, undefined);
 
-    assert.deepEqual(after, {
+    assert.deepEqual(after, withAttrs({
       fg: ROOT_FG,
       bg: ROOT_BG,
       italic: true,
-    });
+    }));
   });
 
   test("when Box bg is unset, descendants inherit Root bg after recompute", () => {
@@ -299,10 +318,10 @@ describe("mergeTextStyle recompute after middle style unset", () => {
       { fg: BOX_FG },
       undefined,
     );
-    assert.deepEqual(before, {
+    assert.deepEqual(before, withAttrs({
       fg: BOX_FG,
       bg: BOX_BG,
-    });
+    }));
 
     const after = resolveRootBoxRowText(
       { fg: ROOT_FG, bg: ROOT_BG },
@@ -311,10 +330,10 @@ describe("mergeTextStyle recompute after middle style unset", () => {
       undefined,
     );
 
-    assert.deepEqual(after, {
+    assert.deepEqual(after, withAttrs({
       fg: BOX_FG,
       bg: ROOT_BG,
-    });
+    }));
   });
 
   test("middle unset recompute keeps Text override but re-inherits Root for unset fields", () => {
@@ -324,12 +343,12 @@ describe("mergeTextStyle recompute after middle style unset", () => {
       { underline: true },
       { fg: TEXT_FG },
     );
-    assert.deepEqual(before, {
+    assert.deepEqual(before, withAttrs({
       fg: TEXT_FG,
       bg: BOX_BG,
       bold: false,
       underline: true,
-    });
+    }));
 
     const after = resolveRootBoxRowText(
       { fg: ROOT_FG, bg: ROOT_BG, bold: true },
@@ -338,12 +357,12 @@ describe("mergeTextStyle recompute after middle style unset", () => {
       { fg: TEXT_FG },
     );
 
-    assert.deepEqual(after, {
+    assert.deepEqual(after, withAttrs({
       fg: TEXT_FG,
       bg: ROOT_BG,
       bold: true,
       underline: true,
-    });
+    }));
   });
 
   test("middle unset recompute restores higher-ancestor boolean when Text has no local override", () => {
@@ -353,12 +372,12 @@ describe("mergeTextStyle recompute after middle style unset", () => {
       { italic: true },
       {},
     );
-    assert.deepEqual(before, {
+    assert.deepEqual(before, withAttrs({
       fg: ROOT_FG,
       bg: ROOT_BG,
       bold: false,
       italic: true,
-    });
+    }));
 
     const after = resolveRootBoxRowText(
       { fg: ROOT_FG, bg: ROOT_BG, bold: true },
@@ -367,11 +386,11 @@ describe("mergeTextStyle recompute after middle style unset", () => {
       {},
     );
 
-    assert.deepEqual(after, {
+    assert.deepEqual(after, withAttrs({
       fg: ROOT_FG,
       bg: ROOT_BG,
       bold: true,
       italic: true,
-    });
+    }));
   });
 });

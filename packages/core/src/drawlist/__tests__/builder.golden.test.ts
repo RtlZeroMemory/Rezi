@@ -87,9 +87,9 @@ describe("DrawlistBuilder (ZRDL v1) - golden byte fixtures", () => {
 
     assertBytesEqual(res.bytes, expected, "fill_rect.bin");
     assertHeader(res.bytes, {
-      totalSize: 104,
+      totalSize: 116,
       cmdOffset: 64,
-      cmdBytes: 40,
+      cmdBytes: 52,
       cmdCount: 1,
       stringsSpanOffset: 0,
       stringsCount: 0,
@@ -115,14 +115,14 @@ describe("DrawlistBuilder (ZRDL v1) - golden byte fixtures", () => {
 
     assertBytesEqual(res.bytes, expected, "draw_text_interned.bin");
     assertHeader(res.bytes, {
-      totalSize: 236,
+      totalSize: 292,
       cmdOffset: 64,
-      cmdBytes: 144,
-      cmdCount: 3,
-      stringsSpanOffset: 208,
-      stringsCount: 2,
-      stringsBytesOffset: 224,
-      stringsBytesLen: 12,
+      cmdBytes: 228,
+      cmdCount: 5,
+      stringsSpanOffset: 0,
+      stringsCount: 0,
+      stringsBytesOffset: 0,
+      stringsBytesLen: 0,
       blobsSpanOffset: 0,
       blobsCount: 0,
       blobsBytesOffset: 0,
@@ -145,9 +145,9 @@ describe("DrawlistBuilder (ZRDL v1) - golden byte fixtures", () => {
 
     assertBytesEqual(res.bytes, expected, "clip_nested.bin");
     assertHeader(res.bytes, {
-      totalSize: 168,
+      totalSize: 180,
       cmdOffset: 64,
-      cmdBytes: 104,
+      cmdBytes: 116,
       cmdCount: 5,
       stringsSpanOffset: 0,
       stringsCount: 0,

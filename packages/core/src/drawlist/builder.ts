@@ -89,6 +89,8 @@ type ResourceBuildPlan = Readonly<{
 }>;
 
 const MAX_U16 = 0xffff;
+const LINK_URI_MAX_BYTES = 2083;
+const LINK_ID_MAX_BYTES = 2083;
 
 const BLITTER_SUBCELL_RESOLUTION: Readonly<
   Record<Exclude<DrawlistCanvasBlitter, "auto">, Readonly<{ subW: number; subH: number }>>
@@ -255,22 +257,23 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
       return;
     }
 
-    if (uri !== null) {
-      if (typeof uri !== "string") {
-        this.fail("ZRDL_BAD_PARAMS", "setLink: uri must be a string or null");
-        return;
-      }
-      const idx = this.internString(uri);
-      if (this.error || idx === null) return;
-      this.activeLinkUriRef = (idx + 1) >>> 0;
+    if (typeof uri !== "string") {
+      this.fail("ZRDL_BAD_PARAMS", "setLink: uri must be a string or null");
+      return;
+    }
+    if (!this.validateLinkString("uri", uri, LINK_URI_MAX_BYTES, true)) return;
+    if (id !== undefined && !this.validateLinkString("id", id, LINK_ID_MAX_BYTES, false)) return;
 
-      if (id !== undefined) {
-        const idIdx = this.internString(id);
-        if (this.error || idIdx === null) return;
-        this.activeLinkIdRef = (idIdx + 1) >>> 0;
-      } else {
-        this.activeLinkIdRef = 0;
-      }
+    const idx = this.internString(uri);
+    if (this.error || idx === null) return;
+    this.activeLinkUriRef = (idx + 1) >>> 0;
+
+    if (id !== undefined) {
+      const idIdx = this.internString(id);
+      if (this.error || idIdx === null) return;
+      this.activeLinkIdRef = (idIdx + 1) >>> 0;
+    } else {
+      this.activeLinkIdRef = 0;
     }
   }
 
@@ -726,6 +729,47 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
       return null;
     }
     return v >>> 0;
+  }
+
+  private validateLinkString(
+    field: "uri" | "id",
+    value: string,
+    maxBytes: number,
+    requireNonEmpty: boolean,
+  ): boolean {
+    const byteLen = this.utf8ByteLength(value, `setLink: ${field}`);
+    if (byteLen === null) return false;
+
+    if (requireNonEmpty && byteLen === 0) {
+      this.fail("ZRDL_BAD_PARAMS", "setLink: uri must be non-empty when provided; use null to clear");
+      return false;
+    }
+    if (byteLen > maxBytes) {
+      this.fail(
+        "ZRDL_BAD_PARAMS",
+        `setLink: ${field} UTF-8 length must be <= ${maxBytes} bytes (got ${byteLen})`,
+      );
+      return false;
+    }
+    return true;
+  }
+
+  private utf8ByteLength(text: string, context: string): number | null {
+    let asciiOnly = true;
+    for (let i = 0; i < text.length; i++) {
+      if (text.charCodeAt(i) > 0x7f) {
+        asciiOnly = false;
+        break;
+      }
+    }
+    if (asciiOnly) {
+      return text.length;
+    }
+    if (!this.encoder) {
+      this.fail("ZRDL_INTERNAL", `${context}: TextEncoder is not available`);
+      return null;
+    }
+    return this.encoder.encode(text).byteLength;
   }
 
   private currentLinkRefs(): LinkRefs | null {

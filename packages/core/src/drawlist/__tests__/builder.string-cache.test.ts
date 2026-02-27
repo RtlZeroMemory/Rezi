@@ -1,7 +1,6 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { parseDrawTextCommands, parseInternedStrings } from "../../__tests__/drawlistDecode.js";
 import { createDrawlistBuilder } from "../../index.js";
-
-const OP_DRAW_TEXT = 3;
 
 type BuildResult =
   | Readonly<{ ok: true; bytes: Uint8Array }>
@@ -22,56 +21,13 @@ const FACTORIES: readonly Readonly<{
   create(opts?: BuilderOpts): BuilderLike;
 }>[] = [{ name: "current", create: (opts?: BuilderOpts) => createDrawlistBuilder(opts) }];
 
-function u16(bytes: Uint8Array, off: number): number {
-  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  return dv.getUint16(off, true);
-}
-
-function u32(bytes: Uint8Array, off: number): number {
-  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  return dv.getUint32(off, true);
-}
-
-type DrawTextEntry = Readonly<{ stringIndex: number; byteLen: number }>;
+type DrawTextEntry = Readonly<{ stringId: number; byteLen: number }>;
 
 function readDrawTextEntries(bytes: Uint8Array): DrawTextEntry[] {
-  const cmdOffset = u32(bytes, 16);
-  const cmdBytes = u32(bytes, 20);
-  const cmdCount = u32(bytes, 24);
-  const out: DrawTextEntry[] = [];
-
-  let off = cmdOffset;
-  for (let i = 0; i < cmdCount; i++) {
-    const opcode = u16(bytes, off + 0);
-    const size = u32(bytes, off + 4);
-    if (opcode === OP_DRAW_TEXT) {
-      out.push({
-        stringIndex: u32(bytes, off + 16),
-        byteLen: u32(bytes, off + 24),
-      });
-    }
-    off += size;
-  }
-
-  assert.equal(off, cmdOffset + cmdBytes, "command stream should end at cmdOffset + cmdBytes");
-  return out;
-}
-
-function readInternedStrings(bytes: Uint8Array): string[] {
-  const spanOffset = u32(bytes, 28);
-  const count = u32(bytes, 32);
-  const stringsBytesOffset = u32(bytes, 36);
-  const decoder = new TextDecoder();
-
-  const out: string[] = [];
-  for (let i = 0; i < count; i++) {
-    const off = u32(bytes, spanOffset + i * 8 + 0);
-    const len = u32(bytes, spanOffset + i * 8 + 4);
-    out.push(
-      decoder.decode(bytes.subarray(stringsBytesOffset + off, stringsBytesOffset + off + len)),
-    );
-  }
-  return out;
+  return parseDrawTextCommands(bytes).map((cmd) => ({
+    stringId: cmd.stringId,
+    byteLen: cmd.byteLen,
+  }));
 }
 
 function buildOk(builder: BuilderLike, label: string): Uint8Array {
@@ -191,8 +147,8 @@ describe("drawlist encoded string cache", () => {
 
         assert.equal(f1Entry?.byteLen, expectedLen, `${factory.name}: frame1 byte_len`);
         assert.equal(f2Entry?.byteLen, expectedLen, `${factory.name}: frame2 byte_len`);
-        assert.deepEqual(readInternedStrings(frame1), [text], `${factory.name}: frame1 decode`);
-        assert.deepEqual(readInternedStrings(frame2), [text], `${factory.name}: frame2 decode`);
+        assert.deepEqual(parseInternedStrings(frame1), [text], `${factory.name}: frame1 decode`);
+        assert.deepEqual(parseInternedStrings(frame2), [text], `${factory.name}: frame2 decode`);
         assert.equal(encodeCallCount(calls, text), 1, `${factory.name}: one encode with hit`);
       });
     }
@@ -310,7 +266,7 @@ describe("drawlist encoded string cache", () => {
           expectedLen,
           `${factory.name}: byte_len`,
         );
-        assert.deepEqual(readInternedStrings(frameA2), [a], `${factory.name}: decoded string`);
+        assert.deepEqual(parseInternedStrings(frameA2), [a], `${factory.name}: decoded string`);
       });
     }
   });
@@ -329,13 +285,13 @@ describe("drawlist encoded string cache", () => {
         const frame2 = buildOk(b, `${factory.name} frame 2`);
 
         assert.equal(
-          readDrawTextEntries(frame1)[0]?.stringIndex,
-          0,
+          readDrawTextEntries(frame1)[0]?.stringId,
+          1,
           `${factory.name}: frame1 index`,
         );
         assert.equal(
-          readDrawTextEntries(frame2)[0]?.stringIndex,
-          0,
+          readDrawTextEntries(frame2)[0]?.stringId,
+          1,
           `${factory.name}: frame2 index`,
         );
         assert.equal(encodeCallCount(calls, text), 1, `${factory.name}: cache hit across frames`);
@@ -357,8 +313,8 @@ describe("drawlist encoded string cache", () => {
       b.drawText(0, 0, second);
       const frame2 = buildOk(b, `${factory.name} frame 2`);
 
-      assert.deepEqual(readInternedStrings(frame1), [first], `${factory.name}: frame1 strings`);
-      assert.deepEqual(readInternedStrings(frame2), [second], `${factory.name}: frame2 strings`);
+      assert.deepEqual(parseInternedStrings(frame1), [first], `${factory.name}: frame1 strings`);
+      assert.deepEqual(parseInternedStrings(frame2), [second], `${factory.name}: frame2 strings`);
     }
   });
 
@@ -373,8 +329,8 @@ describe("drawlist encoded string cache", () => {
 
         const entries = readDrawTextEntries(frame);
         assert.equal(entries.length, 2, `${factory.name}: two drawText commands`);
-        assert.equal(entries[0]?.stringIndex, 0, `${factory.name}: first index`);
-        assert.equal(entries[1]?.stringIndex, 0, `${factory.name}: duplicate index`);
+        assert.equal(entries[0]?.stringId, 1, `${factory.name}: first id`);
+        assert.equal(entries[1]?.stringId, 1, `${factory.name}: duplicate id`);
         assert.equal(encodeCallCount(calls, text), 1, `${factory.name}: one encode within frame`);
       });
     }
@@ -395,8 +351,8 @@ describe("drawlist encoded string cache", () => {
         b.drawText(0, 0, second);
         const frame2 = buildOk(b, `${factory.name} cap0 frame 2`);
 
-        assert.deepEqual(readInternedStrings(frame1), [first], `${factory.name}: frame1 decode`);
-        assert.deepEqual(readInternedStrings(frame2), [second], `${factory.name}: frame2 decode`);
+        assert.deepEqual(parseInternedStrings(frame1), [first], `${factory.name}: frame1 decode`);
+        assert.deepEqual(parseInternedStrings(frame2), [second], `${factory.name}: frame2 decode`);
         assert.equal(encodeCallCount(calls, first), 1, `${factory.name}: first encoded once`);
         assert.equal(encodeCallCount(calls, second), 1, `${factory.name}: second encoded once`);
       });

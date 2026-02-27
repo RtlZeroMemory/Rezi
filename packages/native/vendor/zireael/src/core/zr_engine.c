@@ -33,9 +33,7 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdarg.h>
 #include <stdatomic.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -80,6 +78,9 @@ struct zr_engine_t {
 
   zr_term_state_t term_state;
   zr_cursor_state_t cursor_desired;
+  /* True when fb_prev is a byte-identical copy of fb_next (submit rollback fast-path). */
+  uint8_t fb_next_synced_to_prev;
+  uint8_t _pad_fb_sync0[3];
 
   /* --- Image sideband state (DRAW_IMAGE staging + protocol cache) --- */
   zr_image_frame_t image_frame_next;
@@ -149,13 +150,6 @@ struct zr_engine_t {
   uint8_t* debug_ring_buf;
   uint32_t* debug_record_offsets;
   uint32_t* debug_record_sizes;
-
-  /* --- Optional native audit log sink (file-backed, env-driven) --- */
-  FILE* native_audit_fp;
-  uint8_t native_audit_enabled;
-  uint8_t native_audit_flush;
-  uint8_t native_audit_verbose;
-  uint8_t _pad_native_audit0;
 };
 
 enum {
@@ -168,10 +162,6 @@ enum {
 
 /* Forward declaration for cleanup helper. */
 static void zr_engine_debug_free(zr_engine_t* e);
-static uint32_t zr_engine_fnv1a32(const uint8_t* bytes, size_t len);
-static void zr_engine_native_audit_write(zr_engine_t* e, const char* stage, const char* fmt, ...);
-static void zr_engine_native_audit_close(zr_engine_t* e);
-static void zr_engine_native_audit_init(zr_engine_t* e);
 
 static const uint8_t ZR_SYNC_BEGIN[] = "\x1b[?2026h";
 static const uint8_t ZR_SYNC_END[] = "\x1b[?2026l";
@@ -514,7 +504,6 @@ static zr_result_t zr_engine_fb_copy(const zr_fb_t* src, zr_fb_t* dst) {
   if (n != 0u && src->cells && dst->cells) {
     memcpy(dst->cells, src->cells, n);
   }
-  zr_fb_links_reset(dst);
   return zr_fb_links_clone_from(dst, src);
 }
 
@@ -627,6 +616,10 @@ static zr_result_t zr_engine_resize_framebuffers(zr_engine_t* e, uint32_t cols, 
   */
   e->term_state.flags &=
       (uint8_t) ~(ZR_TERM_STATE_STYLE_VALID | ZR_TERM_STATE_CURSOR_POS_VALID | ZR_TERM_STATE_SCREEN_VALID);
+
+  /* After resize, prev/next are newly allocated and cleared identically. */
+  e->fb_next_synced_to_prev = 1u;
+  memset(e->_pad_fb_sync0, 0, sizeof(e->_pad_fb_sync0));
 
   return ZR_OK;
 }
@@ -1291,19 +1284,9 @@ zr_result_t engine_create(zr_engine_t** out_engine, const zr_engine_config_t* cf
 
   zr_engine_runtime_from_create_cfg(e, cfg);
   zr_engine_metrics_init(e, cfg);
-  zr_engine_native_audit_init(e);
-
-  zr_engine_native_audit_write(
-      e, "engine.create.begin",
-      "requested_drawlist_version=%u out_max_bytes_per_frame=%u target_fps=%u enable_scroll_optimizations=%u "
-      "wait_for_output_drain=%u",
-      (unsigned)e->cfg_create.requested_drawlist_version, (unsigned)e->cfg_create.limits.out_max_bytes_per_frame,
-      (unsigned)e->cfg_runtime.target_fps, (unsigned)e->cfg_runtime.enable_scroll_optimizations,
-      (unsigned)e->cfg_runtime.wait_for_output_drain);
 
   rc = zr_engine_init_runtime_state(e);
   if (rc != ZR_OK) {
-    zr_engine_native_audit_write(e, "engine.create.error", "rc=%d", (int)rc);
     goto cleanup;
   }
 
@@ -1316,8 +1299,6 @@ zr_result_t engine_create(zr_engine_t** out_engine, const zr_engine_config_t* cf
     the initial size so callers can render the full framebuffer immediately.
   */
   zr_engine_enqueue_initial_resize(e);
-  zr_engine_native_audit_write(e, "engine.create.ready", "cols=%u rows=%u", (unsigned)e->size.cols,
-                               (unsigned)e->size.rows);
 
   *out_engine = e;
   return ZR_OK;
@@ -1343,23 +1324,17 @@ static void zr_engine_release_heap_state(zr_engine_t* e) {
     return;
   }
 
-  zr_engine_native_audit_write(e, "engine.destroy.begin", "frame_index=%llu", (unsigned long long)e->metrics.frame_index);
-
   zr_fb_release(&e->fb_prev);
   zr_fb_release(&e->fb_next);
   zr_fb_release(&e->fb_stage);
-  zr_engine_native_audit_write(e, "engine.destroy.step", "released=framebuffers");
   zr_image_frame_release(&e->image_frame_next);
   zr_image_frame_release(&e->image_frame_stage);
   zr_image_state_init(&e->image_state);
-  zr_engine_native_audit_write(e, "engine.destroy.step", "released=image_state");
   zr_dl_resources_release(&e->dl_resources_next);
   zr_dl_resources_release(&e->dl_resources_stage);
-  zr_engine_native_audit_write(e, "engine.destroy.step", "released=drawlist_resources");
 
   zr_arena_release(&e->arena_frame);
   zr_arena_release(&e->arena_persistent);
-  zr_engine_native_audit_write(e, "engine.destroy.step", "released=arenas");
 
   free(e->out_buf);
   e->out_buf = NULL;
@@ -1391,8 +1366,6 @@ static void zr_engine_release_heap_state(zr_engine_t* e) {
   e->input_pending_len = 0u;
 
   zr_engine_debug_free(e);
-  zr_engine_native_audit_write(e, "engine.destroy.step", "released=debug_state");
-  zr_engine_native_audit_close(e);
 }
 
 void engine_destroy(zr_engine_t* e) {
@@ -1418,101 +1391,6 @@ void engine_destroy(zr_engine_t* e) {
 /* Get current time in microseconds for debug tracing. */
 static uint64_t zr_engine_now_us(void) {
   return (uint64_t)plat_now_ms() * 1000u;
-}
-
-static bool zr_engine_env_truthy(const char* value) {
-  if (!value || value[0] == '\0') {
-    return false;
-  }
-  if (strcmp(value, "1") == 0 || strcmp(value, "true") == 0 || strcmp(value, "TRUE") == 0 ||
-      strcmp(value, "yes") == 0 || strcmp(value, "YES") == 0 || strcmp(value, "on") == 0 ||
-      strcmp(value, "ON") == 0) {
-    return true;
-  }
-  return false;
-}
-
-static uint32_t zr_engine_fnv1a32(const uint8_t* bytes, size_t len) {
-  uint32_t h = 0x811C9DC5u;
-  if (!bytes || len == 0u) {
-    return h;
-  }
-  for (size_t i = 0u; i < len; i++) {
-    h ^= (uint32_t)bytes[i];
-    h *= 0x01000193u;
-  }
-  return h;
-}
-
-static void zr_engine_native_audit_write(zr_engine_t* e, const char* stage, const char* fmt, ...) {
-  if (!e || !stage || !e->native_audit_enabled || !e->native_audit_fp) {
-    return;
-  }
-
-  const uint64_t ts_us = zr_engine_now_us();
-  const uint64_t next_frame_id = (e->metrics.frame_index == UINT64_MAX) ? UINT64_MAX : (e->metrics.frame_index + 1u);
-  const uint64_t presented_frames = e->metrics.frame_index;
-
-  (void)fprintf(e->native_audit_fp,
-                "REZI_NATIVE_AUDIT ts_us=%llu next_frame_id=%llu presented_frames=%llu stage=%s",
-                (unsigned long long)ts_us, (unsigned long long)next_frame_id, (unsigned long long)presented_frames,
-                stage);
-
-  if (fmt && fmt[0] != '\0') {
-    va_list args;
-    va_start(args, fmt);
-    (void)fputc(' ', e->native_audit_fp);
-    (void)vfprintf(e->native_audit_fp, fmt, args);
-    va_end(args);
-  }
-
-  (void)fputc('\n', e->native_audit_fp);
-  if (e->native_audit_flush != 0u) {
-    (void)fflush(e->native_audit_fp);
-  }
-}
-
-static void zr_engine_native_audit_close(zr_engine_t* e) {
-  if (!e) {
-    return;
-  }
-  if (e->native_audit_fp) {
-    (void)fclose(e->native_audit_fp);
-    e->native_audit_fp = NULL;
-  }
-  e->native_audit_enabled = 0u;
-  e->native_audit_flush = 0u;
-  e->native_audit_verbose = 0u;
-}
-
-static void zr_engine_native_audit_init(zr_engine_t* e) {
-  if (!e) {
-    return;
-  }
-
-  const char* path = getenv("REZI_NATIVE_ENGINE_LOG");
-  const bool enabled_flag = zr_engine_env_truthy(getenv("REZI_NATIVE_ENGINE_AUDIT"));
-  if ((!path || path[0] == '\0') && !enabled_flag) {
-    return;
-  }
-  if (!path || path[0] == '\0') {
-    path = "/tmp/rezi-native-engine.log";
-  }
-
-  FILE* fp = fopen(path, "ab");
-  if (!fp) {
-    return;
-  }
-  (void)setvbuf(fp, NULL, _IOLBF, 0u);
-
-  e->native_audit_fp = fp;
-  e->native_audit_enabled = 1u;
-  e->native_audit_flush = zr_engine_env_truthy(getenv("REZI_NATIVE_ENGINE_LOG_FLUSH")) ? 1u : 0u;
-  e->native_audit_verbose = zr_engine_env_truthy(getenv("REZI_NATIVE_ENGINE_LOG_VERBOSE")) ? 1u : 0u;
-
-  zr_engine_native_audit_write(
-      e, "engine.audit.init", "path=%s verbose=%u flush=%u", path, (unsigned)e->native_audit_verbose,
-      (unsigned)e->native_audit_flush);
 }
 
 /*
@@ -1591,32 +1469,19 @@ zr_result_t engine_submit_drawlist(zr_engine_t* e, const uint8_t* bytes, int byt
   if (bytes_len < 0) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
-  const uint64_t frame_id = zr_engine_trace_frame_id(e);
-  const uint32_t bytes_hash = zr_engine_fnv1a32(bytes, (size_t)bytes_len);
-  zr_engine_native_audit_write(e, "submit.begin", "frame_id=%llu bytes=%d hash32=0x%08x",
-                               (unsigned long long)frame_id, bytes_len, (unsigned)bytes_hash);
 
   zr_dl_view_t v;
   zr_result_t rc = zr_dl_validate(bytes, (size_t)bytes_len, &e->cfg_runtime.limits, &v);
   if (rc != ZR_OK) {
-    zr_engine_native_audit_write(e, "submit.validate.error", "frame_id=%llu rc=%d bytes=%d hash32=0x%08x",
-                                 (unsigned long long)frame_id, (int)rc, bytes_len, (unsigned)bytes_hash);
     zr_engine_trace_drawlist(e, ZR_DEBUG_CODE_DRAWLIST_VALIDATE, bytes, (uint32_t)bytes_len, 0u, 0u, rc, ZR_OK);
     return rc;
   }
-  zr_engine_native_audit_write(
-      e, "submit.validate.ok", "frame_id=%llu version=%u cmd_count=%u bytes=%d hash32=0x%08x",
-      (unsigned long long)frame_id, (unsigned)v.hdr.version, (unsigned)v.hdr.cmd_count, bytes_len, (unsigned)bytes_hash);
 
   /*
     Enforce create-time drawlist version negotiation before any framebuffer
     staging mutation to preserve the no-partial-effects contract.
   */
   if (v.hdr.version != e->cfg_create.requested_drawlist_version) {
-    zr_engine_native_audit_write(e, "submit.version_mismatch",
-                                 "frame_id=%llu requested_version=%u drawlist_version=%u cmd_count=%u",
-                                 (unsigned long long)frame_id, (unsigned)e->cfg_create.requested_drawlist_version,
-                                 (unsigned)v.hdr.version, (unsigned)v.hdr.cmd_count);
     zr_engine_trace_drawlist(e, ZR_DEBUG_CODE_DRAWLIST_VALIDATE, bytes, (uint32_t)bytes_len, v.hdr.cmd_count,
                              v.hdr.version, ZR_ERR_UNSUPPORTED, ZR_OK);
     return ZR_ERR_UNSUPPORTED;
@@ -1629,20 +1494,40 @@ zr_result_t engine_submit_drawlist(zr_engine_t* e, const uint8_t* bytes, int byt
   zr_dl_resources_release(&e->dl_resources_stage);
   rc = zr_dl_resources_clone(&e->dl_resources_stage, &e->dl_resources_next);
   if (rc != ZR_OK) {
-    zr_engine_native_audit_write(e, "submit.resources.clone.error", "frame_id=%llu rc=%d",
-                                 (unsigned long long)frame_id, (int)rc);
     zr_engine_trace_drawlist(e, ZR_DEBUG_CODE_DRAWLIST_EXECUTE, bytes, (uint32_t)bytes_len, v.hdr.cmd_count,
                              v.hdr.version, ZR_OK, rc);
     return rc;
   }
   rc = zr_dl_resources_clone_shallow(&preflight_resources, &e->dl_resources_stage);
   if (rc != ZR_OK) {
-    zr_engine_native_audit_write(e, "submit.resources.clone_shallow.error", "frame_id=%llu rc=%d",
-                                 (unsigned long long)frame_id, (int)rc);
     zr_dl_resources_release(&e->dl_resources_stage);
     zr_engine_trace_drawlist(e, ZR_DEBUG_CODE_DRAWLIST_EXECUTE, bytes, (uint32_t)bytes_len, v.hdr.cmd_count,
                              v.hdr.version, ZR_OK, rc);
     return rc;
+  }
+
+  /*
+    Snapshot fb_next for rollback when fb_prev does not currently match it.
+
+    Why: The submit path executes in-place into fb_next; to preserve the
+    no-partial-effects contract we need a rollback source that represents the
+    pre-submit fb_next contents (not necessarily fb_prev when debug overlays
+    or multi-submit scenarios are in play).
+  */
+  bool have_fb_next_snapshot = false;
+  if (e->fb_next_synced_to_prev == 0u) {
+    zr_result_t snap_rc = zr_engine_fb_copy_noalloc(&e->fb_next, &e->fb_stage);
+    if (snap_rc == ZR_ERR_LIMIT) {
+      snap_rc = zr_engine_fb_copy(&e->fb_next, &e->fb_stage);
+    }
+    if (snap_rc != ZR_OK) {
+      zr_dl_resources_release(&preflight_resources);
+      zr_dl_resources_release(&e->dl_resources_stage);
+      zr_engine_trace_drawlist(e, ZR_DEBUG_CODE_DRAWLIST_EXECUTE, bytes, (uint32_t)bytes_len, v.hdr.cmd_count,
+                               v.hdr.version, ZR_OK, snap_rc);
+      return snap_rc;
+    }
+    have_fb_next_snapshot = true;
   }
 
   zr_image_frame_reset(&e->image_frame_stage);
@@ -1650,14 +1535,11 @@ zr_result_t engine_submit_drawlist(zr_engine_t* e, const uint8_t* bytes, int byt
                                  &preflight_resources);
   zr_dl_resources_release(&preflight_resources);
   if (rc != ZR_OK) {
-    zr_engine_native_audit_write(e, "submit.preflight.error", "frame_id=%llu rc=%d",
-                                 (unsigned long long)frame_id, (int)rc);
-    const zr_result_t rollback_rc = zr_engine_fb_copy_noalloc(&e->fb_prev, &e->fb_next);
+    const zr_fb_t* rollback_src = have_fb_next_snapshot ? &e->fb_stage : &e->fb_prev;
+    const zr_result_t rollback_rc = zr_engine_fb_copy_noalloc(rollback_src, &e->fb_next);
     zr_image_frame_reset(&e->image_frame_stage);
     zr_dl_resources_release(&e->dl_resources_stage);
     if (rollback_rc != ZR_OK) {
-      zr_engine_native_audit_write(e, "submit.rollback.error", "frame_id=%llu rollback_rc=%d",
-                                   (unsigned long long)frame_id, (int)rollback_rc);
       zr_engine_trace_drawlist(e, ZR_DEBUG_CODE_DRAWLIST_EXECUTE, bytes, (uint32_t)bytes_len, v.hdr.cmd_count,
                                v.hdr.version, ZR_OK, rollback_rc);
       return rollback_rc;
@@ -1672,14 +1554,11 @@ zr_result_t engine_submit_drawlist(zr_engine_t* e, const uint8_t* bytes, int byt
   rc = zr_dl_execute(&v, &e->fb_next, &e->cfg_runtime.limits, e->cfg_runtime.tab_width, e->cfg_runtime.width_policy,
                      &blit_caps, &e->term_profile, &e->image_frame_stage, &e->dl_resources_stage, &cursor_stage);
   if (rc != ZR_OK) {
-    zr_engine_native_audit_write(e, "submit.execute.error", "frame_id=%llu rc=%d",
-                                 (unsigned long long)frame_id, (int)rc);
-    const zr_result_t rollback_rc = zr_engine_fb_copy_noalloc(&e->fb_prev, &e->fb_next);
+    const zr_fb_t* rollback_src = have_fb_next_snapshot ? &e->fb_stage : &e->fb_prev;
+    const zr_result_t rollback_rc = zr_engine_fb_copy_noalloc(rollback_src, &e->fb_next);
     zr_image_frame_reset(&e->image_frame_stage);
     zr_dl_resources_release(&e->dl_resources_stage);
     if (rollback_rc != ZR_OK) {
-      zr_engine_native_audit_write(e, "submit.rollback.error", "frame_id=%llu rollback_rc=%d",
-                                   (unsigned long long)frame_id, (int)rollback_rc);
       zr_engine_trace_drawlist(e, ZR_DEBUG_CODE_DRAWLIST_EXECUTE, bytes, (uint32_t)bytes_len, v.hdr.cmd_count,
                                v.hdr.version, ZR_OK, rollback_rc);
       return rollback_rc;
@@ -1694,14 +1573,10 @@ zr_result_t engine_submit_drawlist(zr_engine_t* e, const uint8_t* bytes, int byt
   zr_dl_resources_swap(&e->dl_resources_next, &e->dl_resources_stage);
   zr_dl_resources_release(&e->dl_resources_stage);
   e->cursor_desired = cursor_stage;
+  e->fb_next_synced_to_prev = 0u;
 
   zr_engine_trace_drawlist(e, ZR_DEBUG_CODE_DRAWLIST_EXECUTE, bytes, (uint32_t)bytes_len, v.hdr.cmd_count,
                            v.hdr.version, ZR_OK, ZR_OK);
-  zr_engine_native_audit_write(
-      e, "submit.success",
-      "frame_id=%llu cmd_count=%u version=%u bytes=%d hash32=0x%08x cursor_x=%d cursor_y=%d cursor_visible=%u",
-      (unsigned long long)frame_id, (unsigned)v.hdr.cmd_count, (unsigned)v.hdr.version, bytes_len, (unsigned)bytes_hash,
-      (int)e->cursor_desired.x, (int)e->cursor_desired.y, (unsigned)e->cursor_desired.visible);
 
   return ZR_OK;
 }

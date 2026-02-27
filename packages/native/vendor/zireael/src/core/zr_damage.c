@@ -46,6 +46,7 @@ static void zr_damage_mark_full(zr_damage_t* d) {
   d->rects[0].y0 = 0u;
   d->rects[0].x1 = d->cols - 1u;
   d->rects[0].y1 = d->rows - 1u;
+  d->rects[0]._link = UINT32_MAX;
   d->rect_count = 1u;
 }
 
@@ -97,6 +98,7 @@ void zr_damage_add_span(zr_damage_t* d, uint32_t y, uint32_t x0, uint32_t x1) {
   r->y0 = y;
   r->x1 = x1;
   r->y1 = y;
+  r->_link = UINT32_MAX;
 }
 
 uint32_t zr_damage_cells(const zr_damage_t* d) {

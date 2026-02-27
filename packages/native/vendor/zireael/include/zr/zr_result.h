@@ -8,6 +8,10 @@
 #ifndef ZR_ZR_RESULT_H_INCLUDED
 #define ZR_ZR_RESULT_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef int zr_result_t;
 
 /* Success. */
@@ -24,5 +28,9 @@ typedef int zr_result_t;
 #define ZR_ERR_UNSUPPORTED ((zr_result_t) - 4)
 #define ZR_ERR_FORMAT ((zr_result_t) - 5)
 #define ZR_ERR_PLATFORM ((zr_result_t) - 6)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ZR_ZR_RESULT_H_INCLUDED */

@@ -1,10 +1,14 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import {
+  OP_CLEAR,
+  OP_DEF_BLOB,
+  OP_DEF_STRING,
+  OP_DRAW_TEXT_RUN,
+  parseBlobById,
+  parseCommandHeaders,
+  parseInternedStrings,
+} from "../../__tests__/drawlistDecode.js";
 import { ZRDL_MAGIC, ZR_DRAWLIST_VERSION_V1, createDrawlistBuilder } from "../../index.js";
-
-function u16(bytes: Uint8Array, off: number): number {
-  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  return dv.getUint16(off, true);
-}
 
 function u32(bytes: Uint8Array, off: number): number {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -17,7 +21,7 @@ function i32(bytes: Uint8Array, off: number): number {
 }
 
 describe("DrawlistBuilder (ZRDL v1) - DRAW_TEXT_RUN", () => {
-  test("emits blob span + DRAW_TEXT_RUN command referencing it", () => {
+  test("emits DEF_STRING/DEF_BLOB resources and DRAW_TEXT_RUN references blob id", () => {
     const b = createDrawlistBuilder();
 
     const blobIndex = b.addTextRunBlob([
@@ -36,72 +40,60 @@ describe("DrawlistBuilder (ZRDL v1) - DRAW_TEXT_RUN", () => {
 
     const bytes = res.bytes;
 
-    // Header fields (see docs-user/abi/drawlist-v1.md)
     assert.equal(u32(bytes, 0), ZRDL_MAGIC);
     assert.equal(u32(bytes, 4), ZR_DRAWLIST_VERSION_V1);
     assert.equal(u32(bytes, 8), 64);
-    assert.equal(u32(bytes, 12), 188);
-    assert.equal(u32(bytes, 16), 64); // cmd_offset
-    assert.equal(u32(bytes, 20), 32); // cmd_bytes
-    assert.equal(u32(bytes, 24), 2); // cmd_count
-    assert.equal(u32(bytes, 28), 96); // strings_span_offset
-    assert.equal(u32(bytes, 32), 2); // strings_count
-    assert.equal(u32(bytes, 36), 112); // strings_bytes_offset
-    assert.equal(u32(bytes, 40), 8); // strings_bytes_len (4-byte aligned)
-    assert.equal(u32(bytes, 44), 120); // blobs_span_offset
-    assert.equal(u32(bytes, 48), 1); // blobs_count
-    assert.equal(u32(bytes, 52), 128); // blobs_bytes_offset
-    assert.equal(u32(bytes, 56), 60); // blobs_bytes_len
-    assert.equal(u32(bytes, 60), 0); // reserved0
+    assert.equal(u32(bytes, 12), bytes.byteLength);
+    assert.equal(u32(bytes, 16), 64);
+    assert.equal(u32(bytes, 24), 5);
+    assert.equal(u32(bytes, 28), 0);
+    assert.equal(u32(bytes, 32), 0);
+    assert.equal(u32(bytes, 44), 0);
+    assert.equal(u32(bytes, 48), 0);
 
-    // Command 0: CLEAR at offset 64
-    assert.equal(u16(bytes, 64 + 0), 1);
-    assert.equal(u16(bytes, 64 + 2), 0);
-    assert.equal(u32(bytes, 64 + 4), 8);
+    const headers = parseCommandHeaders(bytes);
+    assert.deepEqual(
+      headers.map((h) => h.opcode),
+      [OP_DEF_STRING, OP_DEF_STRING, OP_DEF_BLOB, OP_CLEAR, OP_DRAW_TEXT_RUN],
+    );
 
-    // Command 1: DRAW_TEXT_RUN at offset 72
-    assert.equal(u16(bytes, 72 + 0), 6);
-    assert.equal(u16(bytes, 72 + 2), 0);
-    assert.equal(u32(bytes, 72 + 4), 24);
-    assert.equal(i32(bytes, 72 + 8), 1); // x
-    assert.equal(i32(bytes, 72 + 12), 2); // y
-    assert.equal(u32(bytes, 72 + 16), 0); // blob_index
-    assert.equal(u32(bytes, 72 + 20), 0); // reserved0
+    const drawTextRun = headers.find((h) => h.opcode === OP_DRAW_TEXT_RUN);
+    assert.equal(drawTextRun !== undefined, true);
+    if (!drawTextRun) return;
+    assert.equal(i32(bytes, drawTextRun.offset + 8), 1);
+    assert.equal(i32(bytes, drawTextRun.offset + 12), 2);
+    assert.equal(u32(bytes, drawTextRun.offset + 16), 1);
+    assert.equal(u32(bytes, drawTextRun.offset + 20), 0);
 
-    // String spans: two entries at offset 96
-    assert.equal(u32(bytes, 96 + 0), 0);
-    assert.equal(u32(bytes, 96 + 4), 3);
-    assert.equal(u32(bytes, 104 + 0), 3);
-    assert.equal(u32(bytes, 104 + 4), 3);
+    assert.deepEqual(parseInternedStrings(bytes), ["ABC", "DEF"]);
 
-    // String bytes: "ABCDEF" at offset 112 (padded to 4-byte alignment).
-    assert.equal(String.fromCharCode(...bytes.subarray(112, 118)), "ABCDEF");
+    const blob = parseBlobById(bytes, 1);
+    assert.equal(blob !== null, true);
+    if (!blob) return;
+    assert.equal(u32(blob, 0), 2);
 
-    // Blob span: single entry at offset 120
-    assert.equal(u32(bytes, 120 + 0), 0);
-    assert.equal(u32(bytes, 120 + 4), 60);
+    const seg0 = 4;
+    assert.equal(u32(blob, seg0 + 0), 0x00ff_0000);
+    assert.equal(u32(blob, seg0 + 4), 0);
+    assert.equal(u32(blob, seg0 + 8), 1);
+    assert.equal(u32(blob, seg0 + 12), 0);
+    assert.equal(u32(blob, seg0 + 16), 0);
+    assert.equal(u32(blob, seg0 + 20), 0);
+    assert.equal(u32(blob, seg0 + 24), 0);
+    assert.equal(u32(blob, seg0 + 28), 1);
+    assert.equal(u32(blob, seg0 + 32), 0);
+    assert.equal(u32(blob, seg0 + 36), 3);
 
-    // Blob bytes: seg_count=2 + two segments (28 bytes each)
-    const blobOff = 128;
-    assert.equal(u32(bytes, blobOff + 0), 2);
-
-    // Segment 0
-    assert.equal(u32(bytes, blobOff + 4 + 0), 0x00ff0000); // fg
-    assert.equal(u32(bytes, blobOff + 4 + 4), 0); // bg
-    assert.equal(u32(bytes, blobOff + 4 + 8), 1); // attrs (bold)
-    assert.equal(u32(bytes, blobOff + 4 + 12), 0); // reserved0
-    assert.equal(u32(bytes, blobOff + 4 + 16), 0); // string_index
-    assert.equal(u32(bytes, blobOff + 4 + 20), 0); // byte_off
-    assert.equal(u32(bytes, blobOff + 4 + 24), 3); // byte_len
-
-    // Segment 1
-    const seg1 = blobOff + 4 + 28;
-    assert.equal(u32(bytes, seg1 + 0), 0x0000ff00); // fg
-    assert.equal(u32(bytes, seg1 + 4), 0); // bg
-    assert.equal(u32(bytes, seg1 + 8), 1 << 2); // attrs (underline)
-    assert.equal(u32(bytes, seg1 + 12), 0); // reserved0
-    assert.equal(u32(bytes, seg1 + 16), 1); // string_index
-    assert.equal(u32(bytes, seg1 + 20), 0); // byte_off
-    assert.equal(u32(bytes, seg1 + 24), 3); // byte_len
+    const seg1 = seg0 + 40;
+    assert.equal(u32(blob, seg1 + 0), 0x0000_ff00);
+    assert.equal(u32(blob, seg1 + 4), 0);
+    assert.equal(u32(blob, seg1 + 8), 1 << 2);
+    assert.equal(u32(blob, seg1 + 12), 0);
+    assert.equal(u32(blob, seg1 + 16), 0);
+    assert.equal(u32(blob, seg1 + 20), 0);
+    assert.equal(u32(blob, seg1 + 24), 0);
+    assert.equal(u32(blob, seg1 + 28), 2);
+    assert.equal(u32(blob, seg1 + 32), 0);
+    assert.equal(u32(blob, seg1 + 36), 3);
   });
 });

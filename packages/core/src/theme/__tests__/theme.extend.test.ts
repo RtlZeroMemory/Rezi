@@ -110,7 +110,8 @@ describe("theme.extend", () => {
 
     assert.notEqual(extended.colors, mutableBase.colors);
     assert.notEqual(extended.colors.bg, mutableBase.colors.bg);
-    assert.notEqual(extended.colors.bg.base, mutableBase.colors.bg.base);
+    // Packed Rgb24 primitives are value-equal; verify the inherited value is preserved.
+    assert.equal(extended.colors.bg.base, mutableBase.colors.bg.base);
     assert.equal(mutableBase.colors.bg.base, darkTheme.colors.bg.base);
   });
 

@@ -8,6 +8,10 @@
 #ifndef ZR_ZR_PLATFORM_TYPES_H_INCLUDED
 #define ZR_ZR_PLATFORM_TYPES_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 /*
@@ -68,5 +72,9 @@ typedef struct plat_config_t {
   uint8_t enable_osc52;
   uint8_t _pad[3];
 } plat_config_t;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ZR_ZR_PLATFORM_TYPES_H_INCLUDED */

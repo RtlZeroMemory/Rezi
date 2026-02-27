@@ -1,4 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { parseDrawTextCommands, parseInternedStrings } from "../../__tests__/drawlistDecode.js";
 import { createDrawlistBuilder } from "../builder.js";
 import type { DrawlistBuildErrorCode, DrawlistBuildResult } from "../types.js";
 
@@ -18,9 +19,9 @@ const HEADER = {
   SIZE: 64,
 } as const;
 
-const SPAN_SIZE = 8;
 const CMD_SIZE_CLEAR = 8;
-const CMD_SIZE_DRAW_TEXT = 8 + 40;
+const CMD_SIZE_DRAW_TEXT = 8 + 52;
+const CMD_SIZE_DEF_STRING_BASE = 16;
 
 type ParsedHeader = Readonly<{
   totalSize: number;
@@ -103,8 +104,8 @@ describe("DrawlistBuilder - limits boundaries", () => {
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
 
-    assert.equal(h.stringsCount, 2);
-    assert.equal(h.cmdCount, 2);
+    assert.deepEqual(parseInternedStrings(bytes), ["a", "b"]);
+    assert.equal(h.cmdCount, 4);
   });
 
   test("maxStrings: interned duplicates do not consume extra slots", () => {
@@ -114,8 +115,8 @@ describe("DrawlistBuilder - limits boundaries", () => {
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
 
-    assert.equal(h.stringsCount, 1);
-    assert.equal(h.cmdCount, 2);
+    assert.deepEqual(parseInternedStrings(bytes), ["same"]);
+    assert.equal(h.cmdCount, 3);
   });
 
   test("maxStrings: overflow on next unique string fails", () => {
@@ -131,12 +132,12 @@ describe("DrawlistBuilder - limits boundaries", () => {
     b.drawText(0, 0, "abc");
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
-    const dv = toView(bytes);
-    const spanLen = dv.getUint32(h.stringsSpanOffset + 4, true);
+    const drawText = parseDrawTextCommands(bytes);
 
-    assert.equal(h.stringsCount, 1);
-    assert.equal(spanLen, 3);
-    assert.equal(h.stringsBytesLen, 4);
+    assert.deepEqual(parseInternedStrings(bytes), ["abc"]);
+    assert.equal(drawText.length, 1);
+    assert.equal(drawText[0]?.byteLen, 3);
+    assert.equal(h.cmdBytes, align4(CMD_SIZE_DEF_STRING_BASE + 3) + CMD_SIZE_DRAW_TEXT);
   });
 
   test("maxStringBytes: exactly-at-limit UTF-8 payload succeeds", () => {
@@ -146,12 +147,11 @@ describe("DrawlistBuilder - limits boundaries", () => {
     b.drawText(0, 0, text);
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
-    const dv = toView(bytes);
-    const spanLen = dv.getUint32(h.stringsSpanOffset + 4, true);
+    const drawText = parseDrawTextCommands(bytes);
 
     assert.equal(utf8Len, 3);
-    assert.equal(spanLen, utf8Len);
-    assert.equal(h.stringsBytesLen, 4);
+    assert.equal(drawText[0]?.byteLen, utf8Len);
+    assert.equal(h.cmdBytes, align4(CMD_SIZE_DEF_STRING_BASE + utf8Len) + CMD_SIZE_DRAW_TEXT);
   });
 
   test("maxStringBytes: overflow fails", () => {
@@ -181,20 +181,19 @@ describe("DrawlistBuilder - limits boundaries", () => {
 
   test("maxDrawlistBytes: exact text drawlist boundary succeeds", () => {
     const textBytes = 3;
-    const exactLimit = HEADER.SIZE + CMD_SIZE_DRAW_TEXT + SPAN_SIZE + align4(textBytes);
+    const exactLimit = HEADER.SIZE + CMD_SIZE_DRAW_TEXT + align4(CMD_SIZE_DEF_STRING_BASE + textBytes);
     const b = createDrawlistBuilder({ maxDrawlistBytes: exactLimit });
     b.drawText(0, 0, "abc");
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
 
     assert.equal(h.totalSize, exactLimit);
-    assert.equal(h.cmdBytes, CMD_SIZE_DRAW_TEXT);
-    assert.equal(h.stringsBytesLen, 4);
+    assert.equal(h.cmdBytes, exactLimit - HEADER.SIZE);
   });
 
   test("maxDrawlistBytes: one byte below text drawlist boundary fails", () => {
     const textBytes = 3;
-    const exactLimit = HEADER.SIZE + CMD_SIZE_DRAW_TEXT + SPAN_SIZE + align4(textBytes);
+    const exactLimit = HEADER.SIZE + CMD_SIZE_DRAW_TEXT + align4(CMD_SIZE_DEF_STRING_BASE + textBytes);
     const b = createDrawlistBuilder({ maxDrawlistBytes: exactLimit - 1 });
     b.drawText(0, 0, "abc");
 
@@ -230,8 +229,8 @@ describe("DrawlistBuilder - limits boundaries", () => {
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
 
-    assert.equal(h.cmdCount, 64);
-    assert.equal(h.stringsCount, 64);
+    assert.equal(h.cmdCount, 128);
+    assert.equal(parseInternedStrings(bytes).length, 64);
     assert.equal(h.totalSize <= 1_000_000, true);
     assert.equal((h.totalSize & 3) === 0, true);
   });

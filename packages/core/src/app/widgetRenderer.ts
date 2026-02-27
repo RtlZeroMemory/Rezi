@@ -23,8 +23,10 @@
 
 import type { CursorShape } from "../abi.js";
 import {
+  BACKEND_BEGIN_FRAME_MARKER,
   BACKEND_RAW_WRITE_MARKER,
   FRAME_ACCEPTED_ACK_MARKER,
+  type BackendBeginFrame,
   type BackendRawWrite,
   type RuntimeBackend,
 } from "../backend.js";
@@ -1401,8 +1403,13 @@ export class WidgetRenderer<S> {
     }
   }
 
-  private cleanupUnmountedInstanceIds(unmountedInstanceIds: readonly InstanceId[]): void {
+  private cleanupUnmountedInstanceIds(
+    unmountedInstanceIds: readonly InstanceId[],
+    opts: Readonly<{ skipIds?: ReadonlySet<InstanceId> }> = {},
+  ): void {
+    const skipIds = opts.skipIds;
     for (const unmountedId of unmountedInstanceIds) {
+      if (skipIds?.has(unmountedId)) continue;
       this.inputCursorByInstanceId.delete(unmountedId);
       this.inputSelectionByInstanceId.delete(unmountedId);
       this.inputWorkingValueByInstanceId.delete(unmountedId);
@@ -1423,12 +1430,11 @@ export class WidgetRenderer<S> {
   private scheduleExitAnimations(
     pendingExitAnimations: readonly PendingExitAnimation[],
     frameNowMs: number,
-    prevRuntimeRoot: RuntimeInstance | null,
-    prevLayoutRoot: LayoutTree | null,
+    prevLayoutSubtreeByInstanceId: ReadonlyMap<InstanceId, LayoutTree> | null,
   ): void {
     if (pendingExitAnimations.length === 0) return;
 
-    if (!prevRuntimeRoot || !prevLayoutRoot) {
+    if (!prevLayoutSubtreeByInstanceId) {
       for (const pending of pendingExitAnimations) {
         pending.runDeferredLocalStateCleanup();
         this.cleanupUnmountedInstanceIds(pending.subtreeInstanceIds);
@@ -1436,15 +1442,10 @@ export class WidgetRenderer<S> {
       return;
     }
 
-    this.collectLayoutSubtreeByInstanceId(
-      prevRuntimeRoot,
-      prevLayoutRoot,
-      this._pooledPrevLayoutSubtreeByInstanceId,
-    );
     const missingLayout = scheduleExitAnimationsImpl({
       pendingExitAnimations,
       frameNowMs,
-      layoutSubtreeByInstanceId: this._pooledPrevLayoutSubtreeByInstanceId,
+      layoutSubtreeByInstanceId: prevLayoutSubtreeByInstanceId,
       prevFrameOpacityByInstanceId: this._prevFrameOpacityByInstanceId,
       exitTransitionTrackByInstanceId: this.exitTransitionTrackByInstanceId,
       exitRenderNodeByInstanceId: this.exitRenderNodeByInstanceId,
@@ -2685,6 +2686,15 @@ export class WidgetRenderer<S> {
       const prevZoneMetaByIdBeforeSubmit = this.zoneMetaById;
       const prevCommittedRoot = this.committedRoot;
       const prevLayoutTree = this.layoutTree;
+      let prevLayoutSubtreeByInstanceId: ReadonlyMap<InstanceId, LayoutTree> | null = null;
+      if (doCommit && prevCommittedRoot && prevLayoutTree) {
+        this.collectLayoutSubtreeByInstanceId(
+          prevCommittedRoot,
+          prevLayoutTree,
+          this._pooledPrevLayoutSubtreeByInstanceId,
+        );
+        prevLayoutSubtreeByInstanceId = this._pooledPrevLayoutSubtreeByInstanceId;
+      }
       const hadRoutingWidgets = this.hadRoutingWidgets;
       let hasRoutingWidgets = hadRoutingWidgets;
       let didRoutingRebuild = false;
@@ -2772,12 +2782,24 @@ export class WidgetRenderer<S> {
             doLayout = true;
           }
         }
-        this.cleanupUnmountedInstanceIds(commitRes.unmountedInstanceIds);
+        let deferredExitCleanupIds: Set<InstanceId> | null = null;
+        if (commitRes.pendingExitAnimations.length > 0) {
+          deferredExitCleanupIds = new Set<InstanceId>();
+          for (const pending of commitRes.pendingExitAnimations) {
+            for (const id of pending.subtreeInstanceIds) {
+              deferredExitCleanupIds.add(id);
+            }
+          }
+        }
+
+        this.cleanupUnmountedInstanceIds(
+          commitRes.unmountedInstanceIds,
+          deferredExitCleanupIds ? { skipIds: deferredExitCleanupIds } : undefined,
+        );
         this.scheduleExitAnimations(
           commitRes.pendingExitAnimations,
           frameNowMs,
-          prevCommittedRoot,
-          prevLayoutTree,
+          prevLayoutSubtreeByInstanceId,
         );
         this.cancelExitTransitionsForReappearedKeys(this.committedRoot);
 
@@ -3939,16 +3961,43 @@ export class WidgetRenderer<S> {
       }
       perfMarkEnd("render", renderToken);
 
+      let submittedBytes: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
+      let inFlight: Promise<void> | null = null;
       const buildToken = perfMarkStart("drawlist_build");
-      const built = this.builder.build();
-      perfMarkEnd("drawlist_build", buildToken);
-      if (!built.ok) {
-        return {
-          ok: false,
-          code: "ZRUI_DRAWLIST_BUILD_ERROR",
-          detail: `${built.error.code}: ${built.error.detail}`,
-        };
+      const beginFrame = (
+        this.backend as RuntimeBackend &
+          Partial<Record<typeof BACKEND_BEGIN_FRAME_MARKER, BackendBeginFrame>>
+      )[BACKEND_BEGIN_FRAME_MARKER];
+      if (typeof beginFrame === "function") {
+        const frameWriter = beginFrame();
+        if (frameWriter) {
+          const builtInto = this.builder.buildInto(frameWriter.buf);
+          if (!builtInto.ok) {
+            frameWriter.abort();
+            perfMarkEnd("drawlist_build", buildToken);
+            return {
+              ok: false,
+              code: "ZRUI_DRAWLIST_BUILD_ERROR",
+              detail: `${builtInto.error.code}: ${builtInto.error.detail}`,
+            };
+          }
+          submittedBytes = builtInto.bytes;
+          inFlight = frameWriter.commit(submittedBytes.byteLength);
+        }
       }
+      if (!inFlight) {
+        const built = this.builder.build();
+        if (!built.ok) {
+          perfMarkEnd("drawlist_build", buildToken);
+          return {
+            ok: false,
+            code: "ZRUI_DRAWLIST_BUILD_ERROR",
+            detail: `${built.error.code}: ${built.error.detail}`,
+          };
+        }
+        submittedBytes = built.bytes;
+      }
+      perfMarkEnd("drawlist_build", buildToken);
       this.clearRuntimeDirtyNodes(this.committedRoot);
       if (captureRuntimeBreadcrumbs) {
         this.updateRuntimeBreadcrumbSnapshot({
@@ -3990,7 +4039,7 @@ export class WidgetRenderer<S> {
       try {
         const backendToken = PERF_ENABLED ? perfMarkStart("backend_request") : 0;
         try {
-          const fingerprint = FRAME_AUDIT_ENABLED ? drawlistFingerprint(built.bytes) : null;
+          const fingerprint = FRAME_AUDIT_ENABLED ? drawlistFingerprint(submittedBytes) : null;
           if (fingerprint !== null) {
             emitFrameAudit("widgetRenderer", "drawlist.built", {
               tick,
@@ -4013,7 +4062,10 @@ export class WidgetRenderer<S> {
               );
             }
           }
-          const inFlight = this.backend.requestFrame(built.bytes);
+          if (!inFlight) {
+            inFlight = this.backend.requestFrame(submittedBytes);
+          }
+          const inflightPromise = inFlight;
           if (fingerprint !== null) {
             emitFrameAudit("widgetRenderer", "backend.request", {
               tick,
@@ -4022,7 +4074,7 @@ export class WidgetRenderer<S> {
               byteLen: fingerprint.byteLen,
             });
             const acceptedAck = (
-              inFlight as Promise<void> &
+              inflightPromise as Promise<void> &
                 Partial<Record<typeof FRAME_ACCEPTED_ACK_MARKER, Promise<void>>>
             )[FRAME_ACCEPTED_ACK_MARKER];
             if (acceptedAck !== undefined) {
@@ -4040,7 +4092,7 @@ export class WidgetRenderer<S> {
                   }),
               );
             }
-            void inFlight.then(
+            void inflightPromise.then(
               () =>
                 emitFrameAudit("widgetRenderer", "backend.completed", {
                   tick,
@@ -4054,7 +4106,7 @@ export class WidgetRenderer<S> {
                 }),
             );
           }
-          return { ok: true, inFlight };
+          return { ok: true, inFlight: inflightPromise };
         } finally {
           if (PERF_ENABLED) perfMarkEnd("backend_request", backendToken);
         }

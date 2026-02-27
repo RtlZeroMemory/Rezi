@@ -163,7 +163,7 @@ source.
 - **Node.js 18+** with npm
 - **Rust toolchain** (for napi-rs compilation)
 - **C toolchain** (gcc, clang, or MSVC) for the Zireael engine
-- **Git submodules** initialized (`vendor/zireael` must be present)
+- **Git metadata available** (for vendor pin checks; full submodule checkout is needed when refreshing vendored engine sources)
 
 ### Build Command
 
