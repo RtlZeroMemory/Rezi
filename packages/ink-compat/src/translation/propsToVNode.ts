@@ -27,6 +27,11 @@ type LayoutDirection = "row" | "column";
 type TranslationMode = "all" | "dynamic" | "static";
 type BorderStyleValue = string | Record<string, string>;
 
+const INK_SOFT_WRAP_TRANSFORM = (line: string, index: number): string => {
+  if (index <= 0) return line;
+  return line.startsWith(" ") ? line.slice(1) : line;
+};
+
 interface VirtualNodeProps extends Record<string, unknown> {
   __inkType?: "spacer" | "newline" | "transform";
   count?: number;
@@ -977,6 +982,9 @@ function translateText(node: InkHostNode): VNode {
   const inkWrap = (p.wrap as string | undefined) ?? "wrap";
   if (inkWrap === "wrap") {
     textProps["wrap"] = true;
+    // Ink drops the whitespace token used as the soft-wrap break point, so wrapped
+    // continuation lines don't start with an extra leading space.
+    textProps["__inkTransform"] = INK_SOFT_WRAP_TRANSFORM;
   } else if (inkWrap === "truncate" || inkWrap === "truncate-end") {
     textProps["textOverflow"] = "ellipsis";
   } else if (inkWrap === "truncate-middle") {
