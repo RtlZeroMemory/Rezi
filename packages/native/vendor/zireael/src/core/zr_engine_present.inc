@@ -362,9 +362,9 @@ static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_
   const uint64_t frame_id_presented = zr_engine_trace_frame_id(e);
   const zr_fb_t* presented_fb = presented_stage ? &e->fb_stage : &e->fb_next;
   const bool links_compatible_for_damage_copy = zr_fb_links_prefix_equal(&e->fb_prev, presented_fb);
-  const bool use_damage_rect_copy =
-      links_compatible_for_damage_copy && (stats->path_damage_used != 0u) && (stats->damage_full_frame == 0u) &&
-      (stats->damage_rects != 0u) && (stats->damage_rects <= e->damage_rect_cap);
+  const bool use_damage_rect_copy = links_compatible_for_damage_copy && (stats->path_damage_used != 0u) &&
+                                    (stats->damage_full_frame == 0u) && (stats->damage_rects != 0u) &&
+                                    (stats->damage_rects <= e->damage_rect_cap);
 
   /*
     Resync fb_prev to the framebuffer that was actually presented.
@@ -384,8 +384,7 @@ static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_
         memcpy(e->fb_prev.cells, presented_fb->cells, n);
       }
     } else {
-      const zr_result_t rc =
-          zr_fb_copy_damage_rects(&e->fb_prev, presented_fb, e->damage_rects, stats->damage_rects);
+      const zr_result_t rc = zr_fb_copy_damage_rects(&e->fb_prev, presented_fb, e->damage_rects, stats->damage_rects);
       if (rc != ZR_OK) {
         const size_t n = zr_engine_cells_bytes(presented_fb);
         if (n != 0u) {
