@@ -181,6 +181,15 @@ class RecordingDrawlistBuilder implements DrawlistBuilder {
 
   hideCursor(): void {}
 
+  blitRect(
+    _srcX: number,
+    _srcY: number,
+    _w: number,
+    _h: number,
+    _dstX: number,
+    _dstY: number,
+  ): void {}
+
   setLink(_uri: string | null, _id?: string): void {}
 
   drawCanvas(

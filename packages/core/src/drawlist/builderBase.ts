@@ -106,6 +106,7 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
 
   protected outBuf: Uint8Array | null = null;
   protected readonly encodedStringCache: Map<string, Uint8Array> | null;
+  protected textEncoderCalls = 0;
 
   protected error: DrawlistBuildError | undefined;
 
@@ -378,6 +379,7 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
     this.stringSpanOffs.length = 0;
     this.stringSpanLens.length = 0;
     this.stringBytesLen = 0;
+    this.textEncoderCalls = 0;
 
     this.blobSpanOffs.length = 0;
     this.blobSpanLens.length = 0;
@@ -687,6 +689,10 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
     this.error = { code, detail };
   }
 
+  protected getTextEncoderCallCount(): number {
+    return this.textEncoderCalls;
+  }
+
   protected internString(text: string): number | null {
     const existing = this.stringIndexByValue.get(text);
     if (existing !== undefined) return existing;
@@ -758,6 +764,7 @@ export abstract class DrawlistBuilderBase<TEncodedStyle> {
       return out;
     }
 
+    this.textEncoderCalls += 1;
     return this.encoder ? this.encoder.encode(text) : new Uint8Array();
   }
 

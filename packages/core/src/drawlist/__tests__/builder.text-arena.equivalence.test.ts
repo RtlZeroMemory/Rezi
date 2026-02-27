@@ -467,6 +467,22 @@ describe("drawlist text arena equivalence", () => {
     }
   });
 
+  test("text perf counters report TextEncoder calls for unique non-ASCII strings", () => {
+    const b = createDrawlistBuilder();
+    b.drawText(0, 0, "α0");
+    b.drawText(0, 1, "α1");
+
+    const built = b.build();
+    assert.equal(built.ok, true, "build should succeed");
+    if (!built.ok) return;
+
+    const counters = b.getTextPerfCounters?.();
+    assert.ok(counters !== undefined, "counters should exist");
+    if (!counters) return;
+    assert.equal(counters.textArenaBytes > 0, true);
+    assert.equal(counters.textEncoderCalls >= 2, true);
+  });
+
   test("property: random text + random slicing matches baseline framebuffer", () => {
     const width = 48;
     const height = 16;

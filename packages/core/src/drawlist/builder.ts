@@ -1,10 +1,10 @@
 import { ZRDL_MAGIC, ZR_DRAWLIST_VERSION_V1 } from "../abi.js";
 import type { TextStyle } from "../widgets/style.js";
 import {
-  HEADER_SIZE,
   DrawlistBuilderBase,
-  align4,
   type DrawlistBuilderBaseOpts,
+  HEADER_SIZE,
+  align4,
 } from "./builderBase.js";
 import type {
   CursorState,
@@ -33,10 +33,10 @@ import {
   POP_CLIP_SIZE,
   PUSH_CLIP_SIZE,
   SET_CURSOR_SIZE,
+  writeBlitRect,
   writeClear,
   writeDefBlob,
   writeDefString,
-  writeBlitRect,
   writeDrawCanvas,
   writeDrawImage,
   writeDrawText,
@@ -270,7 +270,17 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
     }
 
     if (!this.beginCommandWrite("blitRect", BLIT_RECT_SIZE)) return;
-    this.cmdLen = writeBlitRect(this.cmdBuf, this.cmdDv, this.cmdLen, srcXi, srcYi, wi, hi, dstXi, dstYi);
+    this.cmdLen = writeBlitRect(
+      this.cmdBuf,
+      this.cmdDv,
+      this.cmdLen,
+      srcXi,
+      srcYi,
+      wi,
+      hi,
+      dstXi,
+      dstYi,
+    );
     this.cmdCount += 1;
     this.maybeFailTooLargeAfterWrite();
   }
@@ -285,7 +295,7 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
 
   getTextPerfCounters(): DrawlistTextPerfCounters {
     return Object.freeze({
-      textEncoderCalls: 0,
+      textEncoderCalls: this.getTextEncoderCallCount(),
       textArenaBytes: this.stringBytesLen,
       textSegments: this.textPerfSegments,
     });
@@ -790,7 +800,10 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
     if (byteLen === null) return false;
 
     if (requireNonEmpty && byteLen === 0) {
-      this.fail("ZRDL_BAD_PARAMS", "setLink: uri must be non-empty when provided; use null to clear");
+      this.fail(
+        "ZRDL_BAD_PARAMS",
+        "setLink: uri must be non-empty when provided; use null to clear",
+      );
       return false;
     }
     if (byteLen > maxBytes) {
