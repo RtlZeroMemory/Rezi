@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 
 export type ProcSample = Readonly<{
@@ -13,29 +14,33 @@ export type ProcSamplerOptions = Readonly<{
   intervalMs: number;
 }>;
 
-function readProcStatusRssBytes(pid: number): number | null {
+const PAGE_SIZE_BYTES: number = (() => {
   try {
-    const status = readFileSync(`/proc/${pid}/status`, "utf8");
-    const match = status.match(/^VmRSS:\\s+(\\d+)\\s+kB\\s*$/m);
-    if (!match) return null;
-    const kb = Number.parseInt(match[1] ?? "", 10);
-    return Number.isFinite(kb) ? kb * 1024 : null;
+    const out = execFileSync("getconf", ["PAGESIZE"], { encoding: "utf8" }).trim();
+    const v = Number.parseInt(out, 10);
+    if (Number.isFinite(v) && v > 0) return v;
+    return 4096;
   } catch {
-    return null;
+    return 4096;
   }
-}
+})();
 
-function readProcStatTicks(pid: number): { user: number; system: number } | null {
+function readProcStat(pid: number): { user: number; system: number; rssBytes: number | null } | null {
   try {
     const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
     const end = stat.lastIndexOf(")");
     if (end < 0) return null;
-    const after = stat.slice(end + 2);
-    const parts = after.split(" ");
+    const after = stat.slice(end + 2).trim();
+    const parts = after.split(/\s+/);
     const utime = Number.parseInt(parts[11] ?? "", 10);
     const stime = Number.parseInt(parts[12] ?? "", 10);
+    const rssPages = Number.parseInt(parts[21] ?? "", 10);
     if (!Number.isFinite(utime) || !Number.isFinite(stime)) return null;
-    return { user: utime, system: stime };
+    return {
+      user: utime,
+      system: stime,
+      rssBytes: Number.isFinite(rssPages) && rssPages >= 0 ? rssPages * PAGE_SIZE_BYTES : null,
+    };
   } catch {
     return null;
   }
@@ -48,13 +53,12 @@ export async function sampleProcUntilExit(
   const samples: ProcSample[] = [];
   while (!isExited()) {
     const now = performance.now();
-    const rssBytes = readProcStatusRssBytes(opts.pid);
-    const ticks = readProcStatTicks(opts.pid);
+    const stat = readProcStat(opts.pid);
     samples.push({
       ts: now,
-      rssBytes,
-      cpuUserTicks: ticks?.user ?? null,
-      cpuSystemTicks: ticks?.system ?? null,
+      rssBytes: stat?.rssBytes ?? null,
+      cpuUserTicks: stat?.user ?? null,
+      cpuSystemTicks: stat?.system ?? null,
     });
     await delay(opts.intervalMs);
   }

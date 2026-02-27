@@ -38,11 +38,20 @@ type InkCompatFrameBreakdown = Readonly<{
   nodes: number;
   ops: number;
   coreRenderPasses: number;
+  translatedNodes?: number;
+  translationCacheHits?: number;
+  translationCacheMisses?: number;
+  translationCacheEmptyMisses?: number;
+  translationCacheStaleMisses?: number;
+  parseAnsiFastPathHits?: number;
+  parseAnsiFallbackPathHits?: number;
 }>;
 
 type FrameMetric = Readonly<{
   frame: number;
   tsMs: number;
+  renderTimeMs: number;
+  layoutTimeMs: number | null;
   renderTotalMs: number;
   scheduleWaitMs: number | null;
   stdoutWriteMs: number;
@@ -58,6 +67,13 @@ type FrameMetric = Readonly<{
   nodes: number | null;
   ops: number | null;
   coreRenderPasses: number | null;
+  translatedNodes: number | null;
+  translationCacheHits: number | null;
+  translationCacheMisses: number | null;
+  translationCacheEmptyMisses: number | null;
+  translationCacheStaleMisses: number | null;
+  parseAnsiFastPathHits: number | null;
+  parseAnsiFallbackPathHits: number | null;
 }>;
 
 function resolveInkImpl(): { resolvedFrom: string; name: string; version: string } {
@@ -526,8 +542,21 @@ function BenchApp(props: {
     return () => clearTimeout(t);
   }, [exit]);
 
-  (globalThis as unknown as { __BENCH_ON_RENDER?: (renderTimeMs: number) => void }).__BENCH_ON_RENDER =
-    (renderTimeMs: number): void => {
+  (globalThis as unknown as { __BENCH_ON_RENDER?: (metrics: unknown) => void }).__BENCH_ON_RENDER = (
+    metrics: unknown,
+  ): void => {
+    const renderTimeMs =
+      metrics && typeof metrics === "object" && "renderTime" in (metrics as any)
+        ? (metrics as any).renderTime
+        : 0;
+    const layoutTimeMs =
+      metrics && typeof metrics === "object" && "layoutTimeMs" in (metrics as any)
+        ? (metrics as any).layoutTimeMs
+        : null;
+    const layoutMsSafe = typeof layoutTimeMs === "number" && Number.isFinite(layoutTimeMs) ? layoutTimeMs : null;
+    const renderTimeMsSafe =
+      typeof renderTimeMs === "number" && Number.isFinite(renderTimeMs) ? renderTimeMs : 0;
+
       const now = performance.now();
       const tsMs = now - startAt;
 
@@ -539,7 +568,7 @@ function BenchApp(props: {
 
       let scheduleWaitMs: number | null = null;
       if (state.firstUpdateRequestedAtMs != null) {
-        const frameStartApprox = now - renderTimeMs;
+        const frameStartApprox = now - renderTimeMsSafe;
         scheduleWaitMs = Math.max(0, frameStartApprox - state.firstUpdateRequestedAtMs);
         stateRef.current = { ...stateRef.current, firstUpdateRequestedAtMs: null };
       }
@@ -550,7 +579,9 @@ function BenchApp(props: {
       framesRef.current.push({
         frame: framesRef.current.length + 1,
         tsMs,
-        renderTotalMs: renderTimeMs,
+        renderTimeMs: renderTimeMsSafe,
+        layoutTimeMs: layoutMsSafe,
+        renderTotalMs: renderTimeMsSafe + (layoutMsSafe ?? 0),
         scheduleWaitMs,
         stdoutWriteMs: stdout.writeMs,
         stdoutBytes: stdout.bytes,
@@ -565,6 +596,13 @@ function BenchApp(props: {
         nodes: compat?.nodes ?? null,
         ops: compat?.ops ?? null,
         coreRenderPasses: compat?.coreRenderPasses ?? null,
+        translatedNodes: compat?.translatedNodes ?? null,
+        translationCacheHits: compat?.translationCacheHits ?? null,
+        translationCacheMisses: compat?.translationCacheMisses ?? null,
+        translationCacheEmptyMisses: compat?.translationCacheEmptyMisses ?? null,
+        translationCacheStaleMisses: compat?.translationCacheStaleMisses ?? null,
+        parseAnsiFastPathHits: compat?.parseAnsiFastPathHits ?? null,
+        parseAnsiFallbackPathHits: compat?.parseAnsiFallbackPathHits ?? null,
       });
     };
 
@@ -631,10 +669,10 @@ function main(): void {
       maxFps: Number.parseInt(process.env["BENCH_MAX_FPS"] ?? "60", 10) || 60,
       patchConsole: false,
       debug: false,
-      onRender: ({ renderTime }) => {
-        const hook = (globalThis as unknown as { __BENCH_ON_RENDER?: (rt: number) => void })
+      onRender: (metrics) => {
+        const hook = (globalThis as unknown as { __BENCH_ON_RENDER?: (m: unknown) => void })
           .__BENCH_ON_RENDER;
-        hook?.(renderTime);
+        hook?.(metrics);
       },
     },
   );

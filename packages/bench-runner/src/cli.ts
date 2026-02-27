@@ -59,6 +59,27 @@ function computeCpuSecondsFromProcSamples(
   return dt / clkTck;
 }
 
+function computePeakRssBytesFromProcSamples(
+  samples: readonly { rssBytes: number | null }[],
+): number | null {
+  let peak: number | null = null;
+  for (const s of samples) {
+    const v = s.rssBytes;
+    if (typeof v !== "number" || !Number.isFinite(v)) continue;
+    peak = peak == null ? v : Math.max(peak, v);
+  }
+  return peak;
+}
+
+function percentileMs(values: readonly number[], p: number): number | null {
+  const xs = values.filter((v) => typeof v === "number" && Number.isFinite(v));
+  if (xs.length === 0) return null;
+  const sorted = xs.slice().sort((a, b) => a - b);
+  const q = Math.min(1, Math.max(0, p));
+  const idx = Math.max(0, Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * q)));
+  return sorted[idx] ?? null;
+}
+
 async function openControlServer(socketPath: string): Promise<{
   sendLine: (obj: unknown) => void;
   waitForClient: (timeoutMs: number) => Promise<boolean>;
@@ -198,6 +219,7 @@ async function main(): Promise<void> {
 
   const repoRoot = process.cwd();
   const appEntry = path.join(repoRoot, "packages/bench-app/dist/entry.js");
+  const preloadPath = path.join(repoRoot, "scripts/ink-compat-bench/preload.mjs");
   const clkTck = await getClockTicksPerSecond();
 
   mkdirSync(outRoot, { recursive: true });
@@ -221,6 +243,8 @@ async function main(): Promise<void> {
 
     const args = [
       "--no-warnings",
+      "--import",
+      preloadPath,
       ...(cpuProf
         ? [
             "--cpu-prof",
@@ -245,6 +269,7 @@ async function main(): Promise<void> {
       BENCH_EXIT_AFTER_DONE_MS:
         process.env["BENCH_EXIT_AFTER_DONE_MS"] ?? String(Math.max(0, stableWindowMs + 50)),
       BENCH_INK_COMPAT_PHASES: process.env["BENCH_INK_COMPAT_PHASES"] ?? "1",
+      BENCH_DETAIL: process.env["BENCH_DETAIL"] ?? "0",
       BENCH_MAX_FPS: process.env["BENCH_MAX_FPS"] ?? "60",
     };
 
@@ -292,10 +317,31 @@ async function main(): Promise<void> {
     const result = await Promise.all([runPromise, drivePromise]).then(([r]) => r);
 
     const frames = safeReadJsonl(path.join(runDir, "frames.jsonl"));
+    const renderTotalsMs = frames
+      .map((f) => f["renderTotalMs"])
+      .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+    const scheduleWaitsMs = frames
+      .map((f) => f["scheduleWaitMs"])
+      .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+    const updatesRequested = frames.reduce((a, f) => {
+      const v = f["updatesRequestedDelta"];
+      return a + (typeof v === "number" && Number.isFinite(v) ? v : 0);
+    }, 0);
+    const framesWithCoalescedUpdates = frames.reduce((a, f) => {
+      const v = f["updatesRequestedDelta"];
+      return a + (typeof v === "number" && Number.isFinite(v) && v > 1 ? 1 : 0);
+    }, 0);
+    const maxUpdatesInFrame = frames.reduce((a, f) => {
+      const v = f["updatesRequestedDelta"];
+      if (typeof v !== "number" || !Number.isFinite(v)) return a;
+      return Math.max(a, v);
+    }, 0);
+
     const renderTotalMs = frames.reduce((a, f) => a + (Number(f["renderTotalMs"]) || 0), 0);
     const stdoutBytes = frames.reduce((a, f) => a + (Number(f["stdoutBytes"]) || 0), 0);
     const stdoutWrites = frames.reduce((a, f) => a + (Number(f["stdoutWrites"]) || 0), 0);
     const cpuSeconds = computeCpuSecondsFromProcSamples(result.procSamples, clkTck);
+    const peakRssBytes = computePeakRssBytesFromProcSamples(result.procSamples);
 
     const summary = {
       scenario,
@@ -310,6 +356,19 @@ async function main(): Promise<void> {
       bytes: stdoutBytes,
       renderMsPerKB: stdoutBytes > 0 ? renderTotalMs / (stdoutBytes / 1024) : null,
       framesEmitted: frames.length,
+      updatesRequested,
+      updatesPerFrameMean: frames.length > 0 ? updatesRequested / frames.length : null,
+      framesWithCoalescedUpdates,
+      maxUpdatesInFrame,
+      renderTotalP50Ms: percentileMs(renderTotalsMs, 0.5),
+      renderTotalP95Ms: percentileMs(renderTotalsMs, 0.95),
+      renderTotalP99Ms: percentileMs(renderTotalsMs, 0.99),
+      renderTotalMaxMs: percentileMs(renderTotalsMs, 1),
+      scheduleWaitP50Ms: percentileMs(scheduleWaitsMs, 0.5),
+      scheduleWaitP95Ms: percentileMs(scheduleWaitsMs, 0.95),
+      scheduleWaitP99Ms: percentileMs(scheduleWaitsMs, 0.99),
+      scheduleWaitMaxMs: percentileMs(scheduleWaitsMs, 1),
+      peakRssBytes,
       ...result,
     };
 
