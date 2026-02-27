@@ -18,6 +18,7 @@
 import { BenchBackend, MeasuringStream, NullReadable } from "../backends.js";
 import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { computeStats, diffCpu, peakMemory, takeCpu, takeMemory, tryGc } from "../measure.js";
+import { emitReziPerfSnapshot, resetReziPerfSnapshot } from "../reziProfile.js";
 import type {
   BenchMetrics,
   Framework,
@@ -35,7 +36,8 @@ import {
 const TREE_SIZE = 50;
 
 async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
-  const { createApp } = await import("@rezi-ui/core");
+  const core = await import("@rezi-ui/core");
+  const { createApp } = core;
 
   const samples: number[] = [];
 
@@ -51,6 +53,7 @@ async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
     app.dispose();
   }
 
+  resetReziPerfSnapshot(core);
   tryGc();
   const memBefore = takeMemory();
   const cpuBefore = takeCpu();
@@ -83,7 +86,7 @@ async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
   const memAfter = takeMemory();
   memMax = peakMemory(memMax, memAfter);
 
-  return {
+  const metrics: BenchMetrics = {
     timing: computeStats(samples),
     memBefore,
     memAfter,
@@ -101,6 +104,8 @@ async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
     bytesProduced: totalBytes,
     ptyBytesObserved: null,
   };
+  emitReziPerfSnapshot(core, "startup", {}, config, metrics);
+  return metrics;
 }
 
 async function runInkCompat(config: ScenarioConfig): Promise<BenchMetrics> {
@@ -313,7 +318,7 @@ async function runBlessed(config: ScenarioConfig): Promise<BenchMetrics> {
   const samples: number[] = [];
 
   for (let w = 0; w < config.warmup; w++) {
-    const ctx = createBlessedContext(120, 60);
+    const ctx = createBlessedContext(120, 40);
     buildBlessedTree(ctx.blessed, ctx.screen, TREE_SIZE, w);
     ctx.screen.render();
     ctx.flush();
@@ -328,7 +333,7 @@ async function runBlessed(config: ScenarioConfig): Promise<BenchMetrics> {
   let totalBytes = 0;
 
   for (let i = 0; i < config.iterations; i++) {
-    const ctx = createBlessedContext(120, 60);
+    const ctx = createBlessedContext(120, 40);
 
     const ts = performance.now();
     buildBlessedTree(ctx.blessed, ctx.screen, TREE_SIZE, i);

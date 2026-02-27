@@ -5,6 +5,7 @@ import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { runRatatuiScenario } from "../frameworks/ratatui.js";
 import { createBenchBackend, createInkStdout } from "../io.js";
 import { benchAsync } from "../measure.js";
+import { emitReziPerfSnapshot, resetReziPerfSnapshot } from "../reziProfile.js";
 import type { BenchMetrics, ScenarioConfig } from "../types.js";
 import {
   type StrictSections,
@@ -143,7 +144,8 @@ async function runRezi(
   params: Record<string, number | string>,
   variant: StrictVariant,
 ): Promise<BenchMetrics> {
-  const { createApp } = await import("@rezi-ui/core");
+  const core = await import("@rezi-ui/core");
+  const { createApp } = core;
   const backend = await createBenchBackend();
 
   type State = { tick: number };
@@ -163,6 +165,7 @@ async function runRezi(
 
     const frameBase = backend.frameCount;
     const bytesBase = backend.totalFrameBytes;
+    resetReziPerfSnapshot(core);
 
     const metrics = await benchAsync(
       async () => {
@@ -176,6 +179,13 @@ async function runRezi(
 
     metrics.framesProduced = backend.frameCount - frameBase;
     metrics.bytesProduced = backend.totalFrameBytes - bytesBase;
+    emitReziPerfSnapshot(
+      core,
+      variant === "navigation" ? "terminal-strict-ui-navigation" : "terminal-strict-ui",
+      params,
+      config,
+      metrics,
+    );
     return metrics;
   } finally {
     await app.stop();

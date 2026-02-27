@@ -289,6 +289,32 @@ export function renderTree(
       case "sparkline":
       case "barChart":
       case "miniChart": {
+        if (node.selfDirty) {
+          node.renderPacketKey = 0;
+          node.renderPacket = null;
+          const nextCursor = renderBasicWidget(
+            builder,
+            focusState,
+            pressedId,
+            rect,
+            renderTheme,
+            tick,
+            parentStyle,
+            node,
+            layoutNode,
+            nodeStack,
+            styleStack,
+            layoutStack,
+            clipStack,
+            currentClip,
+            cursorInfo,
+            focusAnnouncement,
+            terminalProfile,
+          );
+          if (nextCursor) resolvedCursor = nextCursor;
+          break;
+        }
+
         const packetKey = computeRenderPacketKey(
           node,
           renderTheme,
@@ -300,12 +326,7 @@ export function renderTree(
           tick,
           cursorInfo,
         );
-        if (
-          packetKey !== 0 &&
-          !node.selfDirty &&
-          node.renderPacket !== null &&
-          node.renderPacketKey === packetKey
-        ) {
+        if (packetKey !== 0 && node.renderPacket !== null && node.renderPacketKey === packetKey) {
           emitRenderPacket(builder, node.renderPacket, rect.x, rect.y);
         } else if (packetKey !== 0) {
           const recorder = new RenderPacketRecorder(builder, rect.x, rect.y);

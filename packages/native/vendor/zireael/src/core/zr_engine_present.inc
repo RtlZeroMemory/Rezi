@@ -464,14 +464,6 @@ zr_result_t engine_present(zr_engine_t* e) {
   /* Enforced contract: the per-frame arena is reset exactly once per present. */
   zr_arena_reset(&e->arena_frame);
 
-  if (e->cfg_runtime.wait_for_output_drain != 0u) {
-    const int32_t timeout_ms = zr_engine_output_wait_timeout_ms(&e->cfg_runtime);
-    zr_result_t rc = plat_wait_output_writable(e->plat, timeout_ms);
-    if (rc != ZR_OK) {
-      return rc;
-    }
-  }
-
   size_t out_len = 0u;
   zr_term_state_t final_ts;
   zr_diff_stats_t stats;
@@ -499,6 +491,20 @@ zr_result_t engine_present(zr_engine_t* e) {
     if (diff_end_us >= diff_start_us) {
       const uint64_t delta = diff_end_us - diff_start_us;
       diff_us = (delta > (uint64_t)UINT32_MAX) ? UINT32_MAX : (uint32_t)delta;
+    }
+  }
+
+  if (out_len != 0u && e->cfg_runtime.wait_for_output_drain != 0u) {
+    /*
+      Wait right before flush so CPU diff/render work overlaps terminal drain
+      from the prior frame.
+    */
+    const int32_t timeout_ms = zr_engine_output_wait_timeout_ms(&e->cfg_runtime);
+    rc = plat_wait_output_writable(e->plat, timeout_ms);
+    if (rc != ZR_OK) {
+      /* Keep reuse conservative when present fails before prev/next commit. */
+      e->diff_prev_hashes_valid = 0u;
+      return rc;
     }
   }
 

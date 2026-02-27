@@ -210,11 +210,13 @@ function resolveBoxPreset(props: BoxProps): BoxProps {
   }
 }
 
+const EMPTY_TEXT_PROPS = Object.freeze({}) as TextProps;
+
 function text(content: string): VNode;
 function text(content: string, style: TextStyle): VNode;
 function text(content: string, props: TextProps): VNode;
 function text(content: string, styleOrProps?: TextStyle | TextProps): VNode {
-  if (styleOrProps === undefined) return { kind: "text", text: content, props: {} };
+  if (styleOrProps === undefined) return { kind: "text", text: content, props: EMPTY_TEXT_PROPS };
   if (isTextProps(styleOrProps)) return { kind: "text", text: content, props: styleOrProps };
   return { kind: "text", text: content, props: { style: styleOrProps } };
 }

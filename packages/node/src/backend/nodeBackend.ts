@@ -161,6 +161,12 @@ type SabFrameTransport = Readonly<{
   nextSlot: { value: number };
 }>;
 
+type BeginFrameMetrics = {
+  success: number;
+  fallbackToRequestFrame: number;
+  readyReclaims: number;
+};
+
 type FrameAuditEntry = {
   frameSeq: number;
   submitAtMs: number;
@@ -370,6 +376,11 @@ function resetSabFrameTransport(t: SabFrameTransport): void {
   t.nextSlot.value = 0;
 }
 
+type SabSlotAcquireResult = Readonly<{
+  slotIndex: number;
+  reclaimedReady: boolean;
+}>;
+
 function acquireSabSlot(t: SabFrameTransport): number {
   const start = t.nextSlot.value % t.slotCount;
   for (let i = 0; i < t.slotCount; i++) {
@@ -401,6 +412,37 @@ function acquireSabSlot(t: SabFrameTransport): number {
     }
   }
   return -1;
+}
+
+function acquireSabSlotTracked(t: SabFrameTransport): SabSlotAcquireResult {
+  const start = t.nextSlot.value % t.slotCount;
+  for (let i = 0; i < t.slotCount; i++) {
+    const slot = (start + i) % t.slotCount;
+    const prev = Atomics.compareExchange(
+      t.states,
+      slot,
+      FRAME_SAB_SLOT_STATE_FREE,
+      FRAME_SAB_SLOT_STATE_WRITING,
+    );
+    if (prev === FRAME_SAB_SLOT_STATE_FREE) {
+      t.nextSlot.value = (slot + 1) % t.slotCount;
+      return { slotIndex: slot, reclaimedReady: false };
+    }
+  }
+  for (let i = 0; i < t.slotCount; i++) {
+    const slot = (start + i) % t.slotCount;
+    const prev = Atomics.compareExchange(
+      t.states,
+      slot,
+      FRAME_SAB_SLOT_STATE_READY,
+      FRAME_SAB_SLOT_STATE_WRITING,
+    );
+    if (prev === FRAME_SAB_SLOT_STATE_READY) {
+      t.nextSlot.value = (slot + 1) % t.slotCount;
+      return { slotIndex: slot, reclaimedReady: true };
+    }
+  }
+  return { slotIndex: -1, reclaimedReady: false };
 }
 
 function acquireSabFreeSlot(t: SabFrameTransport): number {
@@ -1531,6 +1573,12 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       }),
   };
 
+  const beginFrameMetrics: BeginFrameMetrics = {
+    success: 0,
+    fallbackToRequestFrame: 0,
+    readyReclaims: 0,
+  };
+
   const beginFrame: BackendBeginFrame | null =
     sabFrameTransport === null
       ? null
@@ -1545,8 +1593,22 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
               : 0;
           if (required > sabFrameTransport.slotBytes) return null;
 
-          const slotIndex = acquireSabFreeSlot(sabFrameTransport);
-          if (slotIndex < 0) return null;
+          const result = acquireSabSlotTracked(sabFrameTransport);
+          if (result.slotIndex < 0) {
+            beginFrameMetrics.fallbackToRequestFrame++;
+            if (frameAudit.enabled) {
+              frameAudit.emit("frame.beginFrame.fallback", {
+                reason: "no-slot-available",
+                metrics: { ...beginFrameMetrics },
+              });
+            }
+            return null;
+          }
+          if (result.reclaimedReady) {
+            beginFrameMetrics.readyReclaims++;
+          }
+          beginFrameMetrics.success++;
+          const slotIndex = result.slotIndex;
           const slotOffset = slotIndex * sabFrameTransport.slotBytes;
           const buf = sabFrameTransport.dataBytes.subarray(
             slotOffset,
@@ -1610,6 +1672,8 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
                   slotIndex,
                   slotToken,
                   byteLen,
+                  reclaimedReady: result.reclaimedReady,
+                  metrics: { ...beginFrameMetrics },
                 });
               }
               Atomics.notify(
