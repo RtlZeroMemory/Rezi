@@ -7,6 +7,8 @@ import {
   createHostNode,
   insertBefore,
   removeChild,
+  setNodeProps,
+  setNodeTextContent,
 } from "../../reconciler/types.js";
 
 /**
@@ -115,4 +117,40 @@ test("appendChild detaches from previous non-container parent", () => {
   assert.deepEqual(parentA.children, []);
   assert.deepEqual(parentB.children, [child]);
   assert.equal(child.parent, parentB);
+});
+
+test("container ANSI subtree flag tracks deep leaf add/remove", () => {
+  const container = createHostContainer();
+  const outer = createHostNode("ink-box", {});
+  const inner = createHostNode("ink-box", {});
+  const text = createHostNode("ink-text", {});
+
+  setNodeTextContent(text, "plain \u001b[31mred\u001b[0m");
+  appendChild(inner, text);
+  appendChild(outer, inner);
+  appendChild(container, outer);
+
+  assert.equal(container.__inkSubtreeHasAnsiSgr, true);
+
+  removeChild(inner, text);
+  assert.equal(container.__inkSubtreeHasAnsiSgr, false);
+});
+
+test("container static subtree flag tracks prop updates and removal", () => {
+  const container = createHostContainer();
+  const dynamicBox = createHostNode("ink-box", {});
+  appendChild(container, dynamicBox);
+  assert.equal(container.__inkSubtreeHasStatic, false);
+
+  setNodeProps(dynamicBox, { __inkStatic: true });
+  assert.equal(container.__inkSubtreeHasStatic, true);
+
+  setNodeProps(dynamicBox, {});
+  assert.equal(container.__inkSubtreeHasStatic, false);
+
+  const staticChild = createHostNode("ink-box", { __inkStatic: true });
+  appendChild(container, staticChild);
+  assert.equal(container.__inkSubtreeHasStatic, true);
+  removeChild(container, staticChild);
+  assert.equal(container.__inkSubtreeHasStatic, false);
 });

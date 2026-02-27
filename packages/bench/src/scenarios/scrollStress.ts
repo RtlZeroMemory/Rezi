@@ -12,6 +12,7 @@ import { NullReadable } from "../backends.js";
 import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { createBenchBackend, createInkStdout } from "../io.js";
 import { benchAsync, tryGc } from "../measure.js";
+import { emitReziPerfSnapshot, resetReziPerfSnapshot } from "../reziProfile.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 
 function reziTree(items: number, active: number, tick: number): VNode {
@@ -66,7 +67,8 @@ function reactTree(
 }
 
 async function runRezi(config: ScenarioConfig, items: number): Promise<BenchMetrics> {
-  const { createApp } = await import("@rezi-ui/core");
+  const core = await import("@rezi-ui/core");
+  const { createApp } = core;
   const backend = await createBenchBackend();
 
   type State = { active: number; tick: number };
@@ -86,6 +88,7 @@ async function runRezi(config: ScenarioConfig, items: number): Promise<BenchMetr
 
     const frameBase = backend.frameCount;
     const bytesBase = backend.totalFrameBytes;
+    resetReziPerfSnapshot(core);
 
     const metrics = await benchAsync(
       async () => {
@@ -99,6 +102,7 @@ async function runRezi(config: ScenarioConfig, items: number): Promise<BenchMetr
 
     metrics.framesProduced = backend.frameCount - frameBase;
     metrics.bytesProduced = backend.totalFrameBytes - bytesBase;
+    emitReziPerfSnapshot(core, "scroll-stress", { items }, config, metrics);
     return metrics;
   } finally {
     await app.stop();

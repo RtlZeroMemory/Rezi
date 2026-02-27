@@ -131,13 +131,13 @@ interface LayoutProps extends Record<string, unknown> {
   mb?: number;
   ml?: number;
   gap?: number;
-  width?: number | `${number}%`;
-  height?: number | `${number}%`;
+  width?: number;
+  height?: number;
   minWidth?: number;
   minHeight?: number;
   maxWidth?: number;
   maxHeight?: number;
-  flexBasis?: number | `${number}%`;
+  flexBasis?: number;
   flex?: number;
   flexShrink?: number;
   items?: string;
@@ -169,18 +169,92 @@ export interface TranslateTreeOptions {
   mode?: TranslationMode;
 }
 
+/** Metadata collected during a single translation pass, eliminating separate tree walks. */
+export interface TranslationMetadata {
+  hasStaticNodes: boolean;
+  hasPercentMarkers: boolean;
+  hasAnsiSgr: boolean;
+}
+
 interface TranslateContext {
   parentDirection: LayoutDirection;
   parentMainDefinite: boolean;
   isRoot: boolean;
   mode: TranslationMode;
   inStaticSubtree: boolean;
+  /** Mutable metadata accumulator — shared across the entire translation pass. */
+  meta: TranslationMetadata;
 }
 
 let warnedWrapReverse = false;
 
 const ANSI_SGR_REGEX = /\u001b\[([0-9:;]*)m/g;
+// Separate non-global regex for `.test()` so we don't mutate `ANSI_SGR_REGEX.lastIndex`.
+const ANSI_SGR_DETECT_REGEX = /\u001b\[[0-9:;]*m/;
 const PERCENT_VALUE_REGEX = /^(-?\d+(?:\.\d+)?)%$/;
+const ESC = "\u001b";
+
+interface CachedTranslation {
+  revision: number;
+  contextSignature: string;
+  vnode: VNode | null;
+  meta: TranslationMetadata;
+}
+
+interface TranslationPerfStats {
+  translatedNodes: number;
+  cacheHits: number;
+  cacheMisses: number;
+  parseAnsiFastPathHits: number;
+  parseAnsiFallbackPathHits: number;
+}
+
+let translationCache = new WeakMap<InkHostNode, Map<string, CachedTranslation>>();
+const translationPerfStats: TranslationPerfStats = {
+  translatedNodes: 0,
+  cacheHits: 0,
+  cacheMisses: 0,
+  parseAnsiFastPathHits: 0,
+  parseAnsiFallbackPathHits: 0,
+};
+let translationCacheEnabled = process.env["INK_COMPAT_DISABLE_TRANSLATION_CACHE"] !== "1";
+
+function clearTranslationCache(): void {
+  translationCache = new WeakMap<InkHostNode, Map<string, CachedTranslation>>();
+}
+
+function resetTranslationPerfStats(): void {
+  translationPerfStats.translatedNodes = 0;
+  translationPerfStats.cacheHits = 0;
+  translationPerfStats.cacheMisses = 0;
+  translationPerfStats.parseAnsiFastPathHits = 0;
+  translationPerfStats.parseAnsiFallbackPathHits = 0;
+}
+
+function contextSignature(context: TranslateContext): string {
+  const mode = context.mode;
+  const direction = context.parentDirection;
+  const parentMainDefinite = context.parentMainDefinite ? "1" : "0";
+  const isRoot = context.isRoot ? "1" : "0";
+  const inStaticSubtree = context.inStaticSubtree ? "1" : "0";
+  return `${mode}|${direction}|${parentMainDefinite}|${isRoot}|${inStaticSubtree}`;
+}
+
+function mergeMeta(target: TranslationMetadata, source: TranslationMetadata): void {
+  if (source.hasStaticNodes) target.hasStaticNodes = true;
+  if (source.hasPercentMarkers) target.hasPercentMarkers = true;
+  if (source.hasAnsiSgr) target.hasAnsiSgr = true;
+}
+
+function hasDisallowedControlChars(text: string): boolean {
+  for (let index = 0; index < text.length; index += 1) {
+    const code = text.charCodeAt(index);
+    if (code < 0x20 && code !== 0x09 && code !== 0x0a && code !== 0x0d) {
+      return true;
+    }
+  }
+  return false;
+}
 
 function toNonNegativeInt(value: unknown): number | undefined {
   if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
@@ -240,6 +314,10 @@ const ANSI_16_PALETTE: readonly Rgb24[] = [
   rgb(255, 255, 255),
 ];
 
+function createMeta(): TranslationMetadata {
+  return { hasStaticNodes: false, hasPercentMarkers: false, hasAnsiSgr: false };
+}
+
 /**
  * Translate the entire InkHostNode tree into a Rezi VNode tree.
  */
@@ -248,12 +326,14 @@ export function translateTree(
   options: TranslateTreeOptions = {},
 ): VNode {
   const mode = options.mode ?? "all";
+  const meta = createMeta();
   const rootContext: TranslateContext = {
     parentDirection: "column",
     parentMainDefinite: true,
     isRoot: true,
     mode,
     inStaticSubtree: false,
+    meta,
   };
   const children = container.children
     .map((child) => translateNode(child, rootContext))
@@ -271,16 +351,83 @@ export function translateStaticTree(container: InkHostContainer): VNode {
   return translateTree(container, { mode: "static" });
 }
 
-function translateNode(
-  node: InkHostNode,
-  context: TranslateContext = {
+/**
+ * Translate and collect metadata in a single pass — eliminates separate
+ * hasStaticNodes(), hasPercentMarkers(), and hostTreeContainsAnsiSgr() walks.
+ */
+export function translateDynamicTreeWithMetadata(container: InkHostContainer): {
+  vnode: VNode;
+  meta: TranslationMetadata;
+} {
+  const meta = createMeta();
+  meta.hasStaticNodes = container.__inkSubtreeHasStatic;
+  meta.hasAnsiSgr = container.__inkSubtreeHasAnsiSgr;
+  const rootContext: TranslateContext = {
     parentDirection: "column",
     parentMainDefinite: true,
-    isRoot: false,
-    mode: "all",
+    isRoot: true,
+    mode: "dynamic",
     inStaticSubtree: false,
-  },
-): VNode | null {
+    meta,
+  };
+
+  const children = container.children
+    .map((child) => translateNode(child, rootContext))
+    .filter(Boolean) as VNode[];
+
+  let vnode: VNode;
+  if (children.length === 0) vnode = ui.text("");
+  else if (children.length === 1) vnode = children[0]!;
+  else vnode = ui.column({ gap: 0 }, children);
+
+  return { vnode, meta };
+}
+
+function translateNode(node: InkHostNode, context: TranslateContext): VNode | null {
+  const parentMeta = context.meta;
+  const localMeta = createMeta();
+  const localContext: TranslateContext = {
+    ...context,
+    meta: localMeta,
+  };
+
+  if (!translationCacheEnabled) {
+    translationPerfStats.cacheMisses += 1;
+    translationPerfStats.translatedNodes += 1;
+    const translated = translateNodeUncached(node, localContext);
+    mergeMeta(parentMeta, localMeta);
+    return translated;
+  }
+
+  const signature = contextSignature(context);
+  const cached = translationCache.get(node)?.get(signature);
+  if (cached && cached.revision === node.__inkRevision) {
+    translationPerfStats.cacheHits += 1;
+    mergeMeta(parentMeta, cached.meta);
+    return cached.vnode;
+  }
+
+  translationPerfStats.cacheMisses += 1;
+  translationPerfStats.translatedNodes += 1;
+  const translated = translateNodeUncached(node, localContext);
+  mergeMeta(parentMeta, localMeta);
+
+  let perNodeCache = translationCache.get(node);
+  if (!perNodeCache) {
+    perNodeCache = new Map<string, CachedTranslation>();
+    translationCache.set(node, perNodeCache);
+  }
+  perNodeCache.set(signature, {
+    revision: node.__inkRevision,
+    contextSignature: signature,
+    vnode: translated,
+    meta: localMeta,
+  });
+
+  return translated;
+}
+
+function translateNodeUncached(node: InkHostNode, context: TranslateContext): VNode | null {
   const props = (node.props ?? {}) as Record<string, unknown>;
   const isStaticNode = node.type === "ink-box" && props["__inkStatic"] === true;
 
@@ -420,6 +567,7 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
     isRoot: false,
     mode: context.mode,
     inStaticSubtree,
+    meta: context.meta,
   };
 
   if (p.display === "none") return null;
@@ -492,14 +640,6 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
     layoutProps.gap = p.rowGap;
   }
 
-  // Rezi core's layout engine natively resolves percent strings (e.g. "50%")
-  // for width, height, and flexBasis via resolveConstraint(). Pass them through
-  // directly instead of creating __inkPercent* markers that trigger a costly
-  // two-pass layout in renderFrame().
-  // minWidth/minHeight only accept numbers in Rezi core, so those still use
-  // the marker approach (but gemini-cli doesn't use percent values for those).
-  const NATIVE_PERCENT_PROPS = new Set(["width", "height", "flexBasis"]);
-
   const applyNumericOrPercentDimension = (
     prop: "width" | "height" | "minWidth" | "minHeight" | "flexBasis",
     value: unknown,
@@ -511,14 +651,9 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
 
     const percent = parsePercentValue(value);
     if (percent != null) {
-      if (NATIVE_PERCENT_PROPS.has(prop)) {
-        // Pass percent string directly — layout engine resolves it natively
-        (layoutProps as Record<string, unknown>)[prop] = `${percent}%`;
-      } else {
-        // minWidth/minHeight: layout engine only accepts numbers, use marker
-        const markerKey = `__inkPercent${prop.charAt(0).toUpperCase()}${prop.slice(1)}`;
-        layoutProps[markerKey] = percent;
-      }
+      const markerKey = `__inkPercent${prop.charAt(0).toUpperCase()}${prop.slice(1)}`;
+      layoutProps[markerKey] = percent;
+      context.meta.hasPercentMarkers = true;
       return;
     }
 
@@ -921,18 +1056,32 @@ function flattenTextChildren(
 
     if (child.type === "ink-text") {
       const cp = child.props as TextNodeProps;
-      const childStyle: TextStyleMap = { ...parentStyle };
+      const hasOverrides =
+        cp.color != null ||
+        cp.backgroundColor != null ||
+        cp.bold ||
+        cp.italic ||
+        cp.underline ||
+        cp.strikethrough ||
+        cp.dimColor ||
+        cp.inverse;
 
-      const fg = parseColor(cp.color as string | undefined);
-      if (fg !== undefined) childStyle.fg = fg;
-      const bg = parseColor(cp.backgroundColor as string | undefined);
-      if (bg !== undefined) childStyle.bg = bg;
-      if (cp.bold) childStyle.bold = true;
-      if (cp.italic) childStyle.italic = true;
-      if (cp.underline) childStyle.underline = true;
-      if (cp.strikethrough) childStyle.strikethrough = true;
-      if (cp.dimColor) childStyle.dim = true;
-      if (cp.inverse) childStyle.inverse = true;
+      let childStyle: TextStyleMap;
+      if (hasOverrides) {
+        childStyle = { ...parentStyle };
+        const fg = parseColor(cp.color as string | undefined);
+        if (fg !== undefined) childStyle.fg = fg;
+        const bg = parseColor(cp.backgroundColor as string | undefined);
+        if (bg !== undefined) childStyle.bg = bg;
+        if (cp.bold) childStyle.bold = true;
+        if (cp.italic) childStyle.italic = true;
+        if (cp.underline) childStyle.underline = true;
+        if (cp.strikethrough) childStyle.strikethrough = true;
+        if (cp.dimColor) childStyle.dim = true;
+        if (cp.inverse) childStyle.inverse = true;
+      } else {
+        childStyle = parentStyle;
+      }
 
       const nested = flattenTextChildren(child, childStyle);
       spans.push(...nested.spans);
@@ -945,7 +1094,7 @@ function flattenTextChildren(
       const count = virtualProps.count;
       const repeatCount = count == null ? 1 : Math.max(0, Math.trunc(count));
       const newlines = "\n".repeat(repeatCount);
-      spans.push({ text: newlines, style: { ...parentStyle } });
+      spans.push({ text: newlines, style: parentStyle });
       fullText += newlines;
     }
   }
@@ -958,18 +1107,22 @@ function flattenTextChildren(
   return { spans, isSingleSpan: allSameStyle, fullText };
 }
 
+function textRgbEqual(a: Rgb24 | undefined, b: Rgb24 | undefined): boolean {
+  return a === b;
+}
+
 function stylesEqual(a: TextStyleMap, b: TextStyleMap): boolean {
-  const keysA = Object.keys(a).sort();
-  const keysB = Object.keys(b).sort();
-  if (keysA.length !== keysB.length) return false;
-
-  for (let i = 0; i < keysA.length; i += 1) {
-    const key = keysA[i]!;
-    if (key !== keysB[i]) return false;
-    if (JSON.stringify(a[key]) !== JSON.stringify(b[key])) return false;
-  }
-
-  return true;
+  if (a === b) return true;
+  return (
+    a.bold === b.bold &&
+    a.dim === b.dim &&
+    a.italic === b.italic &&
+    a.underline === b.underline &&
+    a.strikethrough === b.strikethrough &&
+    a.inverse === b.inverse &&
+    textRgbEqual(a.fg, b.fg) &&
+    textRgbEqual(a.bg, b.bg)
+  );
 }
 
 function parseAnsiText(
@@ -980,6 +1133,15 @@ function parseAnsiText(
     return { spans: [], fullText: "" };
   }
 
+  if (text.indexOf(ESC) === -1 && !hasDisallowedControlChars(text)) {
+    translationPerfStats.parseAnsiFastPathHits += 1;
+    return {
+      spans: [{ text, style: { ...baseStyle } }],
+      fullText: text,
+    };
+  }
+
+  translationPerfStats.parseAnsiFallbackPathHits += 1;
   const sanitized = sanitizeAnsiInput(text);
   if (sanitized.length === 0) {
     return { spans: [], fullText: "" };
@@ -991,6 +1153,7 @@ function parseAnsiText(
   let hadAnsiMatch = false;
   const activeStyle: TextStyleMap = { ...baseStyle };
 
+  ANSI_SGR_REGEX.lastIndex = 0;
   for (const match of sanitized.matchAll(ANSI_SGR_REGEX)) {
     const index = match.index;
     if (index == null) continue;
@@ -1023,47 +1186,102 @@ function parseAnsiText(
 }
 
 function sanitizeAnsiInput(input: string): string {
-  let output = "";
+  // Fast-path: scan without allocating output unless we need to drop something.
+  const ESC = 0x1b;
+  let output: string[] | null = null;
+  let runStart = 0;
   let index = 0;
 
   while (index < input.length) {
-    const codePoint = input.codePointAt(index);
-    if (codePoint == null) break;
-    const char = String.fromCodePoint(codePoint);
-    const width = char.length;
+    const code = input.charCodeAt(index);
 
-    if (char !== "\u001b") {
-      if (codePoint === 0x09 || codePoint === 0x0a || codePoint === 0x0d || codePoint >= 0x20) {
-        output += char;
+    if (code === ESC) {
+      const next = input[index + 1];
+      if (next === "[") {
+        const csiEnd = findCsiEndIndex(input, index + 2);
+        if (csiEnd === -1) {
+          if (!output) {
+            output = [];
+            if (index > 0) output.push(input.slice(0, index));
+          } else if (runStart < index) {
+            output.push(input.slice(runStart, index));
+          }
+          index = input.length;
+          runStart = index;
+          break;
+        }
+
+        const keep = input[csiEnd] === "m";
+        if (output) {
+          if (runStart < index) output.push(input.slice(runStart, index));
+          if (keep) output.push(input.slice(index, csiEnd + 1));
+        } else if (!keep) {
+          output = [];
+          if (index > 0) output.push(input.slice(0, index));
+        }
+
+        index = csiEnd + 1;
+        runStart = index;
+        continue;
       }
-      index += width;
-      continue;
-    }
 
-    const next = input[index + 1];
-    if (next === "[") {
-      const csiEnd = findCsiEndIndex(input, index + 2);
-      if (csiEnd === -1) break;
-      if (input[csiEnd] === "m") {
-        output += input.slice(index, csiEnd + 1);
+      if (next === "]") {
+        const oscEnd = findOscEndIndex(input, index + 2);
+        if (oscEnd === -1) {
+          if (!output) {
+            output = [];
+            if (index > 0) output.push(input.slice(0, index));
+          } else if (runStart < index) {
+            output.push(input.slice(runStart, index));
+          }
+          index = input.length;
+          runStart = index;
+          break;
+        }
+
+        if (!output) {
+          output = [];
+          if (index > 0) output.push(input.slice(0, index));
+        } else if (runStart < index) {
+          output.push(input.slice(runStart, index));
+        }
+
+        index = oscEnd;
+        runStart = index;
+        continue;
       }
-      index = csiEnd + 1;
+
+      // Drop unsupported escape sequence starter.
+      if (!output) {
+        output = [];
+        if (index > 0) output.push(input.slice(0, index));
+      } else if (runStart < index) {
+        output.push(input.slice(runStart, index));
+      }
+      index += next == null ? 1 : 2;
+      runStart = index;
       continue;
     }
 
-    if (next === "]") {
-      const oscEnd = findOscEndIndex(input, index + 2);
-      if (oscEnd === -1) break;
-      output += input.slice(index, oscEnd);
-      index = oscEnd;
+    // Drop control chars other than tab/newline/carriage-return.
+    if (code < 0x20 && code !== 0x09 && code !== 0x0a && code !== 0x0d) {
+      if (!output) {
+        output = [];
+        if (index > 0) output.push(input.slice(0, index));
+      } else if (runStart < index) {
+        output.push(input.slice(runStart, index));
+      }
+      index += 1;
+      runStart = index;
       continue;
     }
 
-    // Drop unsupported escape sequence starter.
-    index += next == null ? 1 : 2;
+    index += 1;
   }
 
-  return output;
+  if (!output) return input;
+  if (runStart < input.length) output.push(input.slice(runStart));
+  return output.join("");
 }
 
 function findCsiEndIndex(input: string, start: number): number {
@@ -1092,14 +1310,13 @@ function findOscEndIndex(input: string, start: number): number {
 function appendStyledText(spans: TextSpan[], text: string, style: TextStyleMap): void {
   if (text.length === 0) return;
 
-  const styleCopy = { ...style };
   const prev = spans[spans.length - 1];
-  if (prev && stylesEqual(prev.style, styleCopy)) {
+  if (prev && stylesEqual(prev.style, style)) {
     prev.text += text;
     return;
   }
 
-  spans.push({ text, style: styleCopy });
+  spans.push({ text, style: { ...style } });
 }
 
 function parseSgrCodes(raw: string): number[] {
@@ -1341,3 +1558,37 @@ function translateChildren(node: InkHostNode, context: TranslateContext): VNode 
   if (children.length === 1) return children[0]!;
   return ui.column({ gap: 0 }, children);
 }
+
+export const __inkCompatTranslationTestHooks = {
+  clearCache(): void {
+    clearTranslationCache();
+  },
+  resetStats(): void {
+    resetTranslationPerfStats();
+  },
+  getStats(): {
+    translatedNodes: number;
+    cacheHits: number;
+    cacheMisses: number;
+    parseAnsiFastPathHits: number;
+    parseAnsiFallbackPathHits: number;
+  } {
+    return { ...translationPerfStats };
+  },
+  setCacheEnabled(enabled: boolean): void {
+    translationCacheEnabled = enabled;
+  },
+  parseAnsiText(
+    text: string,
+    baseStyle: Record<string, unknown> = {},
+  ): { spans: Array<{ text: string; style: Record<string, unknown> }>; fullText: string } {
+    const parsed = parseAnsiText(text, baseStyle as TextStyleMap);
+    return {
+      fullText: parsed.fullText,
+      spans: parsed.spans.map((span) => ({
+        text: span.text,
+        style: { ...span.style },
+      })),
+    };
+  },
+};

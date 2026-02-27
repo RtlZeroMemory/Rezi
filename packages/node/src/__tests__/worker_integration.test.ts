@@ -797,12 +797,58 @@ test("backend: SAB beginFrame writer commits drawlist bytes", async () => {
   backend.dispose();
 });
 
-test("backend: SAB beginFrame does not reclaim READY slot under pressure", async () => {
+test("backend: SAB beginFrame reclaims READY slot under pressure (latest-wins)", async () => {
   const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: {
       executionMode: "worker",
-      fpsCap: 1,
+      fpsCap: 1000,
+      maxEventBytes: 1024,
+      frameTransport: "sab",
+      frameSabSlotCount: 2,
+      frameSabSlotBytes: 256,
+    },
+    nativeShimModule: shim,
+  });
+
+  await backend.start();
+
+  // Submit two frames to occupy both slots (both go READY).
+  const p1 = backend.requestFrame(Uint8Array.from([1, 2, 3, 4]));
+  const p2 = backend.requestFrame(Uint8Array.from([5, 6, 7, 8]));
+
+  const beginFrame = (backend as unknown as Record<typeof BACKEND_BEGIN_FRAME_MARKER, unknown>)[
+    BACKEND_BEGIN_FRAME_MARKER
+  ];
+  assert.equal(typeof beginFrame, "function");
+
+  // beginFrame should reclaim a READY slot using latest-wins semantics.
+  const writer = (
+    beginFrame as (minCapacity?: number) => {
+      buf: Uint8Array;
+      commit: (byteLen: number) => Promise<void>;
+      abort: () => void;
+    } | null
+  )();
+  // Writer should be available since we reclaim READY slots now.
+  assert.ok(writer, "beginFrame should reclaim READY slot under pressure");
+
+  // Abort the writer to release the slot cleanly.
+  writer.abort();
+
+  // Allow the earlier frames to drain.
+  await Promise.allSettled([p1, p2]);
+
+  await backend.stop();
+  backend.dispose();
+});
+
+test("backend: SAB beginFrame returns null when all slots are WRITING", async () => {
+  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const backend = createNodeBackendInternal({
+    config: {
+      executionMode: "worker",
+      fpsCap: 1000,
       maxEventBytes: 1024,
       frameTransport: "sab",
       frameSabSlotCount: 1,
@@ -812,24 +858,34 @@ test("backend: SAB beginFrame does not reclaim READY slot under pressure", async
   });
 
   await backend.start();
-  await delay(25);
-
-  const p = backend.requestFrame(Uint8Array.from([1, 2, 3, 4]));
 
   const beginFrame = (backend as unknown as Record<typeof BACKEND_BEGIN_FRAME_MARKER, unknown>)[
     BACKEND_BEGIN_FRAME_MARKER
   ];
   assert.equal(typeof beginFrame, "function");
-  const writer = (
+
+  // First acquire should succeed (slot is FREE -> WRITING).
+  const writer1 = (
     beginFrame as (minCapacity?: number) => {
       buf: Uint8Array;
       commit: (byteLen: number) => Promise<void>;
       abort: () => void;
     } | null
   )();
-  assert.equal(writer, null);
+  assert.ok(writer1, "first beginFrame should succeed on free slot");
 
-  await p;
+  // Second acquire should fail (only slot is WRITING, not FREE or READY).
+  const writer2 = (
+    beginFrame as (minCapacity?: number) => {
+      buf: Uint8Array;
+      commit: (byteLen: number) => Promise<void>;
+      abort: () => void;
+    } | null
+  )();
+  assert.equal(writer2, null, "beginFrame returns null when all slots are WRITING");
+
+  // Clean up: abort the first writer.
+  writer1.abort();
 
   await backend.stop();
   backend.dispose();

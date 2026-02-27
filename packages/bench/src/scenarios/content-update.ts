@@ -18,6 +18,7 @@ import { type VNode, ui } from "@rezi-ui/core";
 import { BenchBackend, MeasuringStream, NullReadable } from "../backends.js";
 import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { benchAsync, benchSync, tryGc } from "../measure.js";
+import { emitReziPerfSnapshot, resetReziPerfSnapshot } from "../reziProfile.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 
 const LIST_SIZE = 500;
@@ -112,7 +113,8 @@ function termkitListTree(
 // ── Runners ─────────────────────────────────────────────────────────
 
 async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
-  const { createApp } = await import("@rezi-ui/core");
+  const core = await import("@rezi-ui/core");
+  const { createApp } = core;
   // Match the viewport height to other frameworks (540 rows for 500-item list)
   // so Rezi renders ALL rows, not just the visible 40.
   const backend = new BenchBackend(120, 540);
@@ -138,6 +140,7 @@ async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
 
     const frameBase = backend.frameCount;
     const bytesBase = backend.totalFrameBytes;
+    resetReziPerfSnapshot(core);
 
     const metrics = await benchAsync(
       async (i) => {
@@ -151,6 +154,7 @@ async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
 
     metrics.framesProduced = backend.frameCount - frameBase;
     metrics.bytesProduced = backend.totalFrameBytes - bytesBase;
+    emitReziPerfSnapshot(core, "content-update", {}, config, metrics);
     return metrics;
   } finally {
     await app.stop();

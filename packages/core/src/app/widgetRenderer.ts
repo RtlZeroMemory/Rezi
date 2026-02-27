@@ -73,7 +73,14 @@ import {
 import { measureTextCells } from "../layout/textMeasure.js";
 import type { Rect } from "../layout/types.js";
 import { FRAME_AUDIT_ENABLED, drawlistFingerprint, emitFrameAudit } from "../perf/frameAudit.js";
-import { PERF_DETAIL_ENABLED, PERF_ENABLED, perfMarkEnd, perfMarkStart } from "../perf/perf.js";
+import {
+  PERF_DETAIL_ENABLED,
+  PERF_ENABLED,
+  perfCount,
+  perfMarkEnd,
+  perfMarkStart,
+  perfNow,
+} from "../perf/perf.js";
 import { type CursorInfo, renderToDrawlist } from "../renderer/renderToDrawlist.js";
 import { getRuntimeNodeDamageRect } from "../renderer/renderToDrawlist/damageBounds.js";
 import { renderTree } from "../renderer/renderToDrawlist/renderTree.js";
@@ -830,7 +837,27 @@ function findRuntimeLayoutShapeMismatch(
 }
 
 function hasRuntimeLayoutShapeMismatch(root: RuntimeInstance, layoutRoot: LayoutTree): boolean {
-  return findRuntimeLayoutShapeMismatch(root, layoutRoot) !== null;
+  const runtimeStack: RuntimeInstance[] = [root];
+  const layoutStack: LayoutTree[] = [layoutRoot];
+
+  while (runtimeStack.length > 0 && layoutStack.length > 0) {
+    const runtimeNode = runtimeStack.pop();
+    const layoutNode = layoutStack.pop();
+    if (!runtimeNode || !layoutNode) continue;
+
+    if (runtimeNode.vnode.kind !== layoutNode.vnode.kind) return true;
+    if (runtimeNode.children.length !== layoutNode.children.length) return true;
+
+    for (let i = runtimeNode.children.length - 1; i >= 0; i--) {
+      const runtimeChild = runtimeNode.children[i];
+      const layoutChild = layoutNode.children[i];
+      if (!runtimeChild || !layoutChild) return true;
+      runtimeStack.push(runtimeChild);
+      layoutStack.push(layoutChild);
+    }
+  }
+
+  return runtimeStack.length !== layoutStack.length;
 }
 
 function cloneFocusManagerState(state: FocusManagerState): FocusManagerState {
@@ -2695,6 +2722,7 @@ export class WidgetRenderer<S> {
       let hasRoutingWidgets = hadRoutingWidgets;
       let didRoutingRebuild = false;
       let identityDamageFromCommit: IdentityDiffDamageResult | null = null;
+      let layoutShapeVerifiedBySignature = false;
 
       if (doCommit) {
         let commitReadViewport = false;
@@ -2760,23 +2788,33 @@ export class WidgetRenderer<S> {
         if (!doLayout && plan.checkLayoutStability) {
           // Detect layout-relevant commit changes (including child order changes)
           // using per-instance stability signatures.
-          if (
-            updateLayoutStabilitySignatures(
-              this.committedRoot,
-              this._pooledLayoutSigByInstanceId,
-              this._pooledNextLayoutSigByInstanceId,
-              this._pooledRuntimeStack,
-            )
-          ) {
+          const layoutSigToken = PERF_ENABLED ? perfNow() : 0;
+          const layoutSigChanged = updateLayoutStabilitySignatures(
+            this.committedRoot,
+            this._pooledLayoutSigByInstanceId,
+            this._pooledNextLayoutSigByInstanceId,
+            this._pooledRuntimeStack,
+            commitRes.unmountedInstanceIds,
+            true,
+          );
+          if (PERF_ENABLED) perfCount("layout_sig_update_time_ms", perfNow() - layoutSigToken);
+          if (layoutSigChanged) {
             doLayout = true;
+          } else {
+            layoutShapeVerifiedBySignature = true;
+            if (PERF_ENABLED) perfCount("layout_shape_guard_skipped_from_signature");
           }
         }
-        if (!doLayout && this.layoutTree !== null) {
+        if (!doLayout && this.layoutTree !== null && !layoutShapeVerifiedBySignature) {
           // Defensive guard: never render a newly committed runtime tree against
           // a stale layout tree with different shape/kinds.
-          if (findRuntimeLayoutShapeMismatch(this.committedRoot, this.layoutTree) !== null) {
+          const shapeGuardToken = PERF_ENABLED ? perfNow() : 0;
+          if (PERF_ENABLED) perfCount("layout_shape_guard_checked");
+          if (hasRuntimeLayoutShapeMismatch(this.committedRoot, this.layoutTree)) {
+            if (PERF_ENABLED) perfCount("layout_shape_guard_mismatch");
             doLayout = true;
           }
+          if (PERF_ENABLED) perfCount("layout_shape_guard_time_ms", perfNow() - shapeGuardToken);
         }
         let deferredExitCleanupIds: Set<InstanceId> | null = null;
         if (commitRes.pendingExitAnimations.length > 0) {
@@ -2824,15 +2862,23 @@ export class WidgetRenderer<S> {
         this._lastRenderedViewport.cols !== viewport.cols ||
         this._lastRenderedViewport.rows !== viewport.rows ||
         this._lastRenderedThemeRef !== theme;
+      if (PERF_ENABLED) {
+        if (doLayout) perfCount("layout_requested_frames");
+        else perfCount("layout_skipped_frames");
+        if (forceFullRelayout) perfCount("layout_force_full_relayout_frames");
+      }
 
       if (doLayout) {
         const rootPad = this.rootPadding;
         const rootW = Math.max(0, viewport.cols - rootPad * 2);
         const rootH = Math.max(0, viewport.rows - rootPad * 2);
         const layoutToken = perfMarkStart("layout");
-        // Force a cold layout pass whenever layout is requested; partial cache reuse can
-        // produce runtime/layout shape divergence under complex composite updates.
-        this._layoutTreeCache = new WeakMap<VNode, unknown>();
+        // Cold-pass only when frame context changes fundamentally (first frame,
+        // viewport size change, or theme ref swap). Keep warm cache otherwise and
+        // rely on guarded fallback below if a shape mismatch is detected.
+        if (forceFullRelayout) {
+          this._layoutTreeCache = new WeakMap<VNode, unknown>();
+        }
         const layoutRootVNode =
           this.scrollOverrides.size > 0
             ? this.applyScrollOverridesToVNode(this.committedRoot.vnode)
@@ -2854,9 +2900,15 @@ export class WidgetRenderer<S> {
           return { ok: false, code: layoutRes.fatal.code, detail: layoutRes.fatal.detail };
         }
         let nextLayoutTree = layoutRes.value;
-        let shapeMismatch = doCommit
-          ? findRuntimeLayoutShapeMismatch(this.committedRoot, nextLayoutTree)
-          : null;
+        let shapeMismatch: RuntimeLayoutShapeMismatch | null = null;
+        if (doCommit) {
+          const postLayoutShapeToken = PERF_ENABLED ? perfNow() : 0;
+          if (hasRuntimeLayoutShapeMismatch(this.committedRoot, nextLayoutTree)) {
+            shapeMismatch = findRuntimeLayoutShapeMismatch(this.committedRoot, nextLayoutTree);
+          }
+          if (PERF_ENABLED)
+            perfCount("layout_shape_post_layout_time_ms", perfNow() - postLayoutShapeToken);
+        }
         if (doCommit && shapeMismatch !== null) {
           if (FRAME_AUDIT_ENABLED) {
             emitFrameAudit("widgetRenderer", "layout.shape_mismatch", {

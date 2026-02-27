@@ -138,7 +138,7 @@ function firstDrawText(ops: readonly RecordedOp[]): Extract<RecordedOp, { kind: 
 }
 
 describe("render packet retention", () => {
-  test("reuses retained packet for layout-only dirty text node", () => {
+  test("records packet on clean frame and reuses it across layout-only moves", () => {
     const committed = commitVNodeTree(null, ui.text("retained"), {
       allocator: createInstanceIdAllocator(1),
     });
@@ -146,15 +146,22 @@ describe("render packet retention", () => {
     if (!committed.ok) return;
 
     const root = committed.value.root;
-    const firstFrame = renderScene(createScene(root, 0, 0));
+    const coldFrame = renderScene(createScene(root, 0, 0));
+    assert.equal(coldFrame.ops.length > 0, true);
+    assert.equal(root.renderPacket, null, "selfDirty cold frame should skip packet recording");
+    assert.equal(root.renderPacketKey, 0, "selfDirty cold frame should reset packet key");
+
+    root.dirty = true;
+    root.selfDirty = false;
+    renderScene(createScene(root, 0, 0));
     const firstPacket = root.renderPacket;
     const firstKey = root.renderPacketKey;
-    assert.ok(firstPacket !== null, "expected packet after first render");
+    assert.ok(firstPacket !== null, "expected packet after clean frame");
     assert.notEqual(firstKey, 0, "expected non-zero packet key");
 
     root.dirty = true;
     root.selfDirty = false;
-    const secondFrame = renderScene(createScene(root, 7, 3));
+    const movedFrame = renderScene(createScene(root, 7, 3));
 
     assert.equal(root.renderPacket, firstPacket, "layout-only frame should reuse cached packet");
     assert.equal(
@@ -163,13 +170,13 @@ describe("render packet retention", () => {
       "packet key should stay stable across layout move",
     );
 
-    const drawText = firstDrawText(secondFrame.ops);
+    const drawText = firstDrawText(movedFrame.ops);
     assert.equal(drawText.x, 7);
     assert.equal(drawText.y, 3);
     assert.equal(drawText.text, "retained");
   });
 
-  test("selfDirty rebuilds packet", () => {
+  test("selfDirty invalidates retained packet cache", () => {
     const committed = commitVNodeTree(null, ui.text("rebuild"), {
       allocator: createInstanceIdAllocator(1),
     });
@@ -178,12 +185,111 @@ describe("render packet retention", () => {
 
     const root = committed.value.root;
     renderScene(createScene(root, 0, 0));
+    root.dirty = true;
+    root.selfDirty = false;
+    renderScene(createScene(root, 0, 0));
     const firstPacket = root.renderPacket;
     assert.ok(firstPacket !== null, "expected packet after first render");
+    assert.notEqual(root.renderPacketKey, 0, "expected packet key after first render");
 
     root.dirty = true;
     root.selfDirty = true;
     renderScene(createScene(root, 0, 0));
-    assert.notEqual(root.renderPacket, firstPacket, "selfDirty should rebuild retained packet");
+    assert.equal(root.renderPacket, null, "selfDirty should drop retained packet");
+    assert.equal(root.renderPacketKey, 0, "selfDirty should reset packet key");
+  });
+
+  test("packet reuses when props object identity changes but visual fields unchanged", () => {
+    // First render with one VNode instance.
+    const committed1 = commitVNodeTree(null, ui.text("stable"), {
+      allocator: createInstanceIdAllocator(1),
+    });
+    assert.equal(committed1.ok, true, "commit 1");
+    if (!committed1.ok) return;
+
+    const root = committed1.value.root;
+    renderScene(createScene(root, 0, 0));
+    root.dirty = true;
+    root.selfDirty = false;
+    renderScene(createScene(root, 0, 0));
+    const firstPacket = root.renderPacket;
+    const firstKey = root.renderPacketKey;
+    assert.ok(firstPacket !== null, "expected packet");
+    assert.notEqual(firstKey, 0, "expected non-zero key");
+
+    // Simulate new VNode instance with identical content (object identity changes).
+    const newVnode = ui.text("stable");
+    (root as { vnode: typeof newVnode }).vnode = newVnode;
+    root.dirty = true;
+    root.selfDirty = false;
+
+    renderScene(createScene(root, 0, 0));
+    assert.equal(
+      root.renderPacketKey,
+      firstKey,
+      "key should remain stable when visual fields are unchanged despite new object identity",
+    );
+    assert.equal(root.renderPacket, firstPacket, "packet should be reused when key matches");
+  });
+
+  test("packet invalidates when visual field changes", () => {
+    const committed = commitVNodeTree(null, ui.text("before"), {
+      allocator: createInstanceIdAllocator(1),
+    });
+    assert.equal(committed.ok, true, "commit");
+    if (!committed.ok) return;
+
+    const root = committed.value.root;
+    renderScene(createScene(root, 0, 0));
+    root.dirty = true;
+    root.selfDirty = false;
+    renderScene(createScene(root, 0, 0));
+    const firstKey = root.renderPacketKey;
+    assert.notEqual(firstKey, 0, "expected non-zero key");
+
+    // Change the text content.
+    const newVnode = ui.text("after");
+    (root as { vnode: typeof newVnode }).vnode = newVnode;
+    root.dirty = true;
+    root.selfDirty = false;
+
+    renderScene(createScene(root, 0, 0));
+    assert.notEqual(
+      root.renderPacketKey,
+      firstKey,
+      "key should change when visual content changes",
+    );
+  });
+
+  test("no output drift: stable-key render matches fresh render", () => {
+    const committed = commitVNodeTree(null, ui.text("drift-check"), {
+      allocator: createInstanceIdAllocator(1),
+    });
+    assert.equal(committed.ok, true, "commit");
+    if (!committed.ok) return;
+
+    const root = committed.value.root;
+    // First: cold render (selfDirty → full render)
+    const coldOps = renderScene(createScene(root, 2, 1));
+
+    // Second: warm render (should use packet)
+    root.dirty = true;
+    root.selfDirty = false;
+    renderScene(createScene(root, 2, 1));
+    assert.ok(root.renderPacket !== null, "expected cached packet");
+
+    // Third: emit from cached packet
+    root.dirty = true;
+    root.selfDirty = false;
+    const warmOps = renderScene(createScene(root, 2, 1));
+
+    // Verify drawText ops match.
+    const coldTexts = coldOps.ops
+      .filter((o): o is Extract<RecordedOp, { kind: "drawText" }> => o.kind === "drawText")
+      .map((o) => ({ x: o.x, y: o.y, text: o.text }));
+    const warmTexts = warmOps.ops
+      .filter((o): o is Extract<RecordedOp, { kind: "drawText" }> => o.kind === "drawText")
+      .map((o) => ({ x: o.x, y: o.y, text: o.text }));
+    assert.deepEqual(warmTexts, coldTexts, "cached emit should match cold render");
   });
 });

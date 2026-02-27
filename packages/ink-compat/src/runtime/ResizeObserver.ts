@@ -1,13 +1,5 @@
 import type { InkHostNode } from "../reconciler/types.js";
-
-interface InkLayout {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-type NodeWithLayout = InkHostNode & { __inkLayout?: InkLayout };
+import { readCurrentLayout } from "./layoutState.js";
 const activeObservers = new Set<InkResizeObserver>();
 
 export interface ResizeObserverEntry {
@@ -41,7 +33,7 @@ export class InkResizeObserver {
 
   observe(element: InkHostNode): void {
     if (this.disconnected) return;
-    const layout = (element as NodeWithLayout).__inkLayout;
+    const layout = readCurrentLayout(element);
     const w = layout?.w ?? 0;
     const h = layout?.h ?? 0;
     this.observed.set(element, { w, h });
@@ -62,7 +54,7 @@ export class InkResizeObserver {
   check(): void {
     if (this.disconnected) return;
     for (const [element, prev] of this.observed) {
-      const layout = (element as NodeWithLayout).__inkLayout;
+      const layout = readCurrentLayout(element);
       const w = layout?.w ?? 0;
       const h = layout?.h ?? 0;
       if (w !== prev.w || h !== prev.h) {
