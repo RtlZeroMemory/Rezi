@@ -210,6 +210,8 @@ interface TranslationPerfStats {
   translatedNodes: number;
   cacheHits: number;
   cacheMisses: number;
+  cacheEmptyMisses: number;
+  cacheStaleMisses: number;
   parseAnsiFastPathHits: number;
   parseAnsiFallbackPathHits: number;
 }
@@ -219,6 +221,8 @@ const translationPerfStats: TranslationPerfStats = {
   translatedNodes: 0,
   cacheHits: 0,
   cacheMisses: 0,
+  cacheEmptyMisses: 0,
+  cacheStaleMisses: 0,
   parseAnsiFastPathHits: 0,
   parseAnsiFallbackPathHits: 0,
 };
@@ -232,6 +236,8 @@ function resetTranslationPerfStats(): void {
   translationPerfStats.translatedNodes = 0;
   translationPerfStats.cacheHits = 0;
   translationPerfStats.cacheMisses = 0;
+  translationPerfStats.cacheEmptyMisses = 0;
+  translationPerfStats.cacheStaleMisses = 0;
   translationPerfStats.parseAnsiFastPathHits = 0;
   translationPerfStats.parseAnsiFallbackPathHits = 0;
 }
@@ -405,11 +411,17 @@ function translateNode(node: InkHostNode, context: TranslateContext): VNode | nu
   }
 
   const signature = contextSignature(context);
-  const cached = translationCache.get(node)?.get(signature);
-  if (cached && cached.revision === node.__inkRevision) {
-    translationPerfStats.cacheHits += 1;
-    mergeMeta(parentMeta, cached.meta);
-    return cached.vnode;
+  const perNodeCache = translationCache.get(node);
+  const cached = perNodeCache?.get(signature);
+  if (cached) {
+    if (cached.revision === node.__inkRevision) {
+      translationPerfStats.cacheHits += 1;
+      mergeMeta(parentMeta, cached.meta);
+      return cached.vnode;
+    }
+    translationPerfStats.cacheStaleMisses += 1;
+  } else {
+    translationPerfStats.cacheEmptyMisses += 1;
   }
 
   translationPerfStats.cacheMisses += 1;
@@ -417,10 +429,16 @@ function translateNode(node: InkHostNode, context: TranslateContext): VNode | nu
   const translated = translateNodeUncached(node, localContext);
   mergeMeta(parentMeta, localMeta);
 
-  let perNodeCache = translationCache.get(node);
   if (!perNodeCache) {
-    perNodeCache = new Map<string, CachedTranslation>();
-    translationCache.set(node, perNodeCache);
+    const nextCache = new Map<string, CachedTranslation>();
+    translationCache.set(node, nextCache);
+    nextCache.set(signature, {
+      revision: node.__inkRevision,
+      contextSignature: signature,
+      vnode: translated,
+      meta: localMeta,
+    });
+    return translated;
   }
   perNodeCache.set(signature, {
     revision: node.__inkRevision,
@@ -1578,6 +1596,8 @@ export const __inkCompatTranslationTestHooks = {
     translatedNodes: number;
     cacheHits: number;
     cacheMisses: number;
+    cacheEmptyMisses: number;
+    cacheStaleMisses: number;
     parseAnsiFastPathHits: number;
     parseAnsiFallbackPathHits: number;
   } {

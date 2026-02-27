@@ -115,8 +115,8 @@ export const hostConfig = {
     newProps: unknown,
     _rootContainer?: InkHostContainer,
     _hostContext?: unknown,
-  ): boolean {
-    if (oldProps === newProps) return false;
+  ): unknown {
+    if (oldProps === newProps) return null;
     if (typeof oldProps !== "object" || oldProps === null) return true;
     if (typeof newProps !== "object" || newProps === null) return true;
 
@@ -131,12 +131,10 @@ export const hostConfig = {
 
     if (oldKeys.length !== newKeys.length) return true;
     for (const key of newKeys) {
-      if (oldObj[key] !== newObj[key]) {
-        return true;
-      }
+      if (oldObj[key] !== newObj[key]) return true;
     }
 
-    return false;
+    return null;
   },
 
   shouldSetTextContent(): boolean {

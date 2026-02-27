@@ -13,6 +13,7 @@ import React from "react";
 
 import { type KittyFlagName, resolveKittyFlags } from "../kitty-keyboard.js";
 import type { InkHostContainer, InkHostNode } from "../reconciler/types.js";
+import { __inkCompatTranslationTestHooks } from "../translation/propsToVNode.js";
 import { enableTranslationTrace, flushTranslationTrace } from "../translation/traceCollector.js";
 import { checkAllResizeObservers } from "./ResizeObserver.js";
 import { createBridge } from "./bridge.js";
@@ -21,6 +22,7 @@ import { advanceLayoutGeneration, readCurrentLayout, writeCurrentLayout } from "
 import { commitSync, createReactRoot } from "./reactHelpers.js";
 
 const BENCH_PHASES_ENABLED = process.env["BENCH_INK_COMPAT_PHASES"] === "1";
+const BENCH_DETAIL_ENABLED = process.env["BENCH_DETAIL"] === "1";
 
 export interface KittyKeyboardOptions {
   mode?: "auto" | "enabled" | "disabled";
@@ -2142,6 +2144,79 @@ function assignHostLayouts(
   }
 }
 
+function createThrottle(fn: () => void, throttleMs: number): Readonly<{
+  call: () => void;
+  cancel: () => void;
+}> {
+  const waitMs = Math.max(0, Math.trunc(throttleMs));
+  if (waitMs === 0) {
+    return {
+      call: fn,
+      cancel: () => {},
+    };
+  }
+
+  let timeoutId: NodeJS.Timeout | null = null;
+  let pendingAt: number | null = null;
+  let hasPendingCall = false;
+
+  const clearTimer = (): void => {
+    if (timeoutId === null) return;
+    clearTimeout(timeoutId);
+    timeoutId = null;
+  };
+
+  const cancel = (): void => {
+    clearTimer();
+    pendingAt = null;
+    hasPendingCall = false;
+  };
+
+  const invoke = (): void => {
+    if (!hasPendingCall) return;
+    hasPendingCall = false;
+    fn();
+    pendingAt = null;
+  };
+
+  const schedule = (): void => {
+    clearTimer();
+    timeoutId = setTimeout(() => {
+      timeoutId = null;
+      invoke();
+      cancel();
+    }, waitMs);
+    timeoutId.unref?.();
+  };
+
+  const call = (): void => {
+    hasPendingCall = true;
+    const now = performance.now();
+    if (pendingAt === null) pendingAt = now;
+
+    if (now - pendingAt >= waitMs) {
+      fn();
+      pendingAt = now;
+      // Clear any pending trailing call, but keep the window open so
+      // subsequent calls within waitMs don't re-trigger leading behavior.
+      hasPendingCall = false;
+      clearTimer();
+      schedule();
+      return;
+    }
+
+    const isFirstCall = timeoutId === null;
+    schedule();
+    if (isFirstCall) {
+      fn();
+      hasPendingCall = false;
+      pendingAt = null;
+    }
+  };
+
+  return { call, cancel };
+}
+
 function createRenderSession(element: React.ReactElement, options: RenderOptions = {}): Instance {
   const stdout = options.stdout ?? process.stdout;
   const stdin = options.stdin ?? process.stdin;
@@ -2320,10 +2395,10 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   let writeBlocked = false;
   const queuedOutputs: RenderWritePayload[] = [];
   let drainListener: (() => void) | undefined;
-  let throttledRenderTimer: NodeJS.Timeout | undefined;
   let pendingRender = false;
   let pendingRenderForce = false;
-  let lastRenderAt = 0;
+  let forceRenderMicrotaskScheduled = false;
+  let sessionClosed = false;
   let rawModeRefCount = 0;
   let rawModeActive = false;
   let restoreConsole: (() => void) | undefined;
@@ -2713,6 +2788,15 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
     const frameStartedAt = performance.now();
     frameCount++;
     let translationMs = 0;
+    let translationStats: null | {
+      translatedNodes: number;
+      cacheHits: number;
+      cacheMisses: number;
+      cacheEmptyMisses: number;
+      cacheStaleMisses: number;
+      parseAnsiFastPathHits: number;
+      parseAnsiFallbackPathHits: number;
+    } = null;
     let percentResolveMs = 0;
     let coreRenderMs = 0;
     let coreRenderPassesThisFrame = 0;
@@ -2730,10 +2814,18 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
 
       const timePhases = phaseProfile != null || BENCH_PHASES_ENABLED;
 
+      const collectBenchDetail = BENCH_PHASES_ENABLED && BENCH_DETAIL_ENABLED;
+      if (collectBenchDetail) {
+        __inkCompatTranslationTestHooks.resetStats();
+      }
+
       const translationStartedAt = timePhases ? performance.now() : 0;
       const { vnode: translatedDynamic, meta: translationMeta } =
         bridge.translateDynamicWithMetadata();
       if (timePhases) translationMs = performance.now() - translationStartedAt;
+      if (collectBenchDetail) {
+        translationStats = __inkCompatTranslationTestHooks.getStats();
+      }
       const hasDynamicPercentMarkers = translationMeta.hasPercentMarkers;
 
       // In static-channel mode, static output is rendered above the dynamic
@@ -3128,6 +3220,17 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
             nodes: result.nodes.length,
             ops: result.ops.length,
             coreRenderPasses: coreRenderPassesThisFrame || 1,
+            ...(translationStats
+              ? {
+                  translatedNodes: translationStats.translatedNodes,
+                  translationCacheHits: translationStats.cacheHits,
+                  translationCacheMisses: translationStats.cacheMisses,
+                  translationCacheEmptyMisses: translationStats.cacheEmptyMisses,
+                  translationCacheStaleMisses: translationStats.cacheStaleMisses,
+                  parseAnsiFastPathHits: translationStats.parseAnsiFastPathHits,
+                  parseAnsiFallbackPathHits: translationStats.parseAnsiFallbackPathHits,
+                }
+              : {}),
           });
         }
       }
@@ -3151,37 +3254,36 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
     }
   };
 
-  const flushScheduledRender = (): void => {
-    throttledRenderTimer = undefined;
+  const flushPendingRender = (): void => {
     if (!pendingRender) return;
     const force = pendingRenderForce;
     pendingRender = false;
     pendingRenderForce = false;
-    lastRenderAt = performance.now();
     renderFrame(force);
-    if (pendingRender) {
-      scheduleRender(pendingRenderForce);
-    }
   };
 
-  const scheduleRender = (force = false): void => {
-    pendingRender = true;
-    if (force) pendingRenderForce = true;
+  const renderThrottle =
+    unthrottledRender || renderIntervalMs <= 0 ? null : createThrottle(flushPendingRender, renderIntervalMs);
 
-    if (unthrottledRender) {
-      const nextForce = pendingRenderForce;
-      pendingRender = false;
-      pendingRenderForce = false;
-      lastRenderAt = performance.now();
-      renderFrame(nextForce);
+  const scheduleRender = (): void => {
+    pendingRender = true;
+    if (renderThrottle) {
+      renderThrottle.call();
       return;
     }
+    flushPendingRender();
+  };
 
-    if (throttledRenderTimer !== undefined) return;
-    const elapsed = performance.now() - lastRenderAt;
-    const waitMs = Math.max(0, renderIntervalMs - elapsed);
-    throttledRenderTimer = setTimeout(flushScheduledRender, waitMs);
-    throttledRenderTimer.unref?.();
+  const scheduleForceRender = (): void => {
+    pendingRender = true;
+    pendingRenderForce = true;
+    if (forceRenderMicrotaskScheduled) return;
+    forceRenderMicrotaskScheduled = true;
+    queueMicrotask(() => {
+      forceRenderMicrotaskScheduled = false;
+      if (sessionClosed) return;
+      flushPendingRender();
+    });
   };
 
   bridge.rootNode.onCommit = () => {
@@ -3191,7 +3293,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
     }
     lastCommitSignature = nextCommitSignature;
     capturePendingStaticOutput();
-    scheduleRender(false);
+    scheduleRender();
   };
 
   let currentElement = element;
@@ -3279,7 +3381,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         `resize source=${source} viewport=${latest.cols}x${latest.rows} timeline=${formatResizeTimeline(resizeTimeline, traceStartAt, detailResizeLimit)}`,
       );
     }
-    scheduleRender(true);
+    scheduleForceRender();
   };
 
   const onStdoutResize = (): void => {
@@ -3342,10 +3444,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
     }
     process.off("SIGWINCH", onSigWinch);
     clearInterval(viewportPoll);
-    if (throttledRenderTimer !== undefined) {
-      clearTimeout(throttledRenderTimer);
-      throttledRenderTimer = undefined;
-    }
+    renderThrottle?.cancel();
     removeDrainListener();
     restoreStdoutWrite?.();
     restoreStdoutWrite = undefined;
@@ -3386,12 +3485,12 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   pendingRender = false;
   pendingRenderForce = false;
   renderFrame(true);
-  lastRenderAt = performance.now();
 
   let cleanedUp = false;
   function cleanup(unmountTree: boolean): void {
     if (cleanedUp) return;
     cleanedUp = true;
+    sessionClosed = true;
     flushPhaseProfile();
     if (translationTraceEnabled) {
       enableTranslationTrace(false);

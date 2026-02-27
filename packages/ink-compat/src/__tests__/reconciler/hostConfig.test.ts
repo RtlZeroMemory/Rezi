@@ -103,7 +103,7 @@ test("prepareUpdate performs shallow comparison without children/ref", () => {
       { id: "a", children: [1], ref: {} },
       { id: "a", children: [2], ref: null },
     ),
-    false,
+    null,
   );
   assert.equal(hostConfig.prepareUpdate(instance, "ink-box", { id: "a" }, { id: "b" }), true);
   assert.equal(hostConfig.prepareUpdate(instance, "ink-box", { id: "a" }, { id: "a", x: 1 }), true);
