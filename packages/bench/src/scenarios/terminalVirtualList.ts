@@ -135,7 +135,13 @@ async function runRezi(
 
     metrics.framesProduced = backend.frameCount - frameBase;
     metrics.bytesProduced = backend.totalFrameBytes - bytesBase;
-    emitReziPerfSnapshot(core, "terminal-virtual-list", { items: totalItems, viewport }, config, metrics);
+    emitReziPerfSnapshot(
+      core,
+      "terminal-virtual-list",
+      { items: totalItems, viewport },
+      config,
+      metrics,
+    );
     return metrics;
   } finally {
     await app.stop();

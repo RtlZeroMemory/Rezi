@@ -244,8 +244,8 @@ function compareRuns(baselineRun, currentRun) {
     .filter((entry) => entry.framework === "rezi-native")
     .filter((entry) => entry.metrics["timing.mean"] !== null)
     .sort((a, b) => {
-      const deltaA = a.metrics["timing.mean"]?.delta ?? -Infinity;
-      const deltaB = b.metrics["timing.mean"]?.delta ?? -Infinity;
+      const deltaA = a.metrics["timing.mean"]?.delta ?? Number.NEGATIVE_INFINITY;
+      const deltaB = b.metrics["timing.mean"]?.delta ?? Number.NEGATIVE_INFINITY;
       return deltaB - deltaA;
     });
 
@@ -312,7 +312,7 @@ function buildMarkdown(report, opts) {
     const ops = entry.metrics.opsPerSec;
     const bytes = entry.metrics.bytesProduced;
     lines.push(
-      [
+      `${[
         `| ${entry.scenario}`,
         fmtParams(entry.params),
         fmtNum(mean?.baseline),
@@ -322,7 +322,7 @@ function buildMarkdown(report, opts) {
         fmtNum(p95?.delta),
         fmtNum(ops?.delta),
         fmtNum(bytes?.delta),
-      ].join(" | ") + " |",
+      ].join(" | ")} |`,
     );
   }
   lines.push("");

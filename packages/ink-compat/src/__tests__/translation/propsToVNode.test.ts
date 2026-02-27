@@ -8,9 +8,14 @@ import {
   appendChild,
   createHostContainer,
   createHostNode,
+  insertBefore,
+  removeChild,
+  setNodeTextContent,
 } from "../../reconciler/types.js";
 import {
+  __inkCompatTranslationTestHooks,
   translateDynamicTree,
+  translateDynamicTreeWithMetadata,
   translateStaticTree,
   translateTree,
 } from "../../translation/propsToVNode.js";
@@ -235,6 +240,39 @@ test("ANSI truecolor colon form maps to RGB style", () => {
   assert.deepEqual(vnode.props.spans[0]?.style?.fg, rgb(255, 120, 40));
 });
 
+test("plain text without ANSI/control keeps single text vnode shape", () => {
+  const node = textNode("Hello plain text");
+  const vnode = translateTree(containerWith(node)) as any;
+
+  assert.equal(vnode.kind, "text");
+  assert.equal(vnode.text, "Hello plain text");
+  assert.equal(vnode.props?.spans, undefined);
+});
+
+test("disallowed control characters are sanitized from raw text", () => {
+  const node = createHostNode("ink-text", {});
+  appendChild(node, textLeaf("A\x01B\x02C"));
+
+  const vnode = translateTree(containerWith(node)) as any;
+
+  assert.equal(vnode.kind, "text");
+  assert.equal(vnode.text, "ABC");
+});
+
+test("text containing ESC still sanitizes + parses ANSI SGR", () => {
+  const node = createHostNode("ink-text", {});
+  appendChild(node, textLeaf("A\u001b[31mB\u001b[0m\u001b[2KZ"));
+
+  const vnode = translateTree(containerWith(node)) as any;
+
+  assert.equal(vnode.kind, "richText");
+  assert.equal(vnode.props.spans.length, 3);
+  assert.equal(vnode.props.spans[0]?.text, "A");
+  assert.equal(vnode.props.spans[1]?.text, "B");
+  assert.deepEqual(vnode.props.spans[1]?.style?.fg, rgb(205, 0, 0));
+  assert.equal(vnode.props.spans[2]?.text, "Z");
+});
+
 test("spacer virtual node maps to ui.spacer", () => {
   const spacer = createHostNode("ink-virtual", { __inkType: "spacer" });
   const vnode = translateTree(containerWith(spacer)) as any;
@@ -289,7 +327,7 @@ test("flexShrink defaults to 1 when not set", () => {
   assert.equal(vnode.props.flexShrink, 1);
 });
 
-test("percent dimensions map to native percent strings or markers", () => {
+test("percent dimensions map to percent marker props", () => {
   const node = boxNode(
     {
       width: "100%",
@@ -302,13 +340,11 @@ test("percent dimensions map to native percent strings or markers", () => {
   );
   const vnode = translateTree(containerWith(node)) as any;
 
-  // width, height, flexBasis: passed as native percent strings (layout engine resolves them)
-  assert.equal(vnode.props.width, "100%");
-  assert.equal(vnode.props.height, "50%");
-  assert.equal(vnode.props.flexBasis, "40%");
-  // minWidth, minHeight: still use markers (layout engine only accepts numbers)
+  assert.equal(vnode.props.__inkPercentWidth, 100);
+  assert.equal(vnode.props.__inkPercentHeight, 50);
   assert.equal(vnode.props.__inkPercentMinWidth, 25);
   assert.equal(vnode.props.__inkPercentMinHeight, 75);
+  assert.equal(vnode.props.__inkPercentFlexBasis, 40);
 });
 
 test("wrap-reverse is approximated as wrap + reverse", () => {
@@ -567,4 +603,117 @@ test("static translation preserves static style props except absolute positionin
   assert.equal("position" in vnode.props, false);
   assert.equal("top" in vnode.props, false);
   assert.equal("left" in vnode.props, false);
+});
+
+test("translation cache preserves deep-equal output across repeated renders", () => {
+  const container = createHostContainer();
+  const root = boxNode({ flexDirection: "column" }, [
+    textNode("Header"),
+    boxNode({ flexDirection: "row" }, [textNode("A"), textNode("B"), textNode("C")]),
+  ]);
+  appendChild(container, root);
+
+  __inkCompatTranslationTestHooks.setCacheEnabled(true);
+  __inkCompatTranslationTestHooks.clearCache();
+  __inkCompatTranslationTestHooks.resetStats();
+
+  const first = translateTree(container);
+  const firstStats = __inkCompatTranslationTestHooks.getStats();
+  const second = translateTree(container);
+  const secondStats = __inkCompatTranslationTestHooks.getStats();
+
+  assert.deepEqual(second, first);
+  assert.ok(firstStats.translatedNodes > 0);
+  assert.ok(secondStats.cacheHits > firstStats.cacheHits);
+  assert.ok(
+    secondStats.translatedNodes - firstStats.translatedNodes < firstStats.translatedNodes,
+    "second translation should execute fewer uncached node translations",
+  );
+});
+
+test("leaf text mutation updates output and matches no-cache baseline", () => {
+  const leafA = textLeaf("left");
+  const leafB = textLeaf("right");
+
+  const textA = createHostNode("ink-text", {});
+  appendChild(textA, leafA);
+  const textB = createHostNode("ink-text", {});
+  appendChild(textB, leafB);
+
+  const root = boxNode({ flexDirection: "row" }, [textA, textB]);
+  const container = containerWith(root);
+
+  __inkCompatTranslationTestHooks.clearCache();
+  __inkCompatTranslationTestHooks.setCacheEnabled(true);
+  const beforeCached = translateTree(container);
+
+  setNodeTextContent(leafB, "RIGHT!");
+  const afterCached = translateTree(container);
+
+  __inkCompatTranslationTestHooks.clearCache();
+  __inkCompatTranslationTestHooks.setCacheEnabled(false);
+  const afterBaseline = translateTree(container);
+
+  assert.deepEqual(afterCached, afterBaseline);
+  const beforeRow = beforeCached as any;
+  const afterRow = afterCached as any;
+  assert.equal(beforeRow.children[0]?.text, "left");
+  assert.equal(afterRow.children[0]?.text, "left");
+  assert.equal(afterRow.children[1]?.text, "RIGHT!");
+
+  __inkCompatTranslationTestHooks.setCacheEnabled(true);
+});
+
+test("insert/remove/reorder children match non-cached translation baseline", () => {
+  const a = textNode("A");
+  const b = textNode("B");
+  const c = textNode("C");
+  const row = boxNode({ flexDirection: "row" }, [a, b, c]);
+  const container = containerWith(row);
+
+  __inkCompatTranslationTestHooks.setCacheEnabled(true);
+  __inkCompatTranslationTestHooks.clearCache();
+  translateTree(container);
+
+  const inserted = textNode("X");
+  appendChild(row, inserted);
+  const cachedAfterInsert = translateTree(container);
+  __inkCompatTranslationTestHooks.setCacheEnabled(false);
+  __inkCompatTranslationTestHooks.clearCache();
+  const baselineAfterInsert = translateTree(container);
+  assert.deepEqual(cachedAfterInsert, baselineAfterInsert);
+
+  __inkCompatTranslationTestHooks.setCacheEnabled(true);
+  __inkCompatTranslationTestHooks.clearCache();
+  translateTree(container);
+  insertBefore(row, c, a);
+  const cachedAfterReorder = translateTree(container);
+  __inkCompatTranslationTestHooks.setCacheEnabled(false);
+  __inkCompatTranslationTestHooks.clearCache();
+  const baselineAfterReorder = translateTree(container);
+  assert.deepEqual(cachedAfterReorder, baselineAfterReorder);
+
+  __inkCompatTranslationTestHooks.setCacheEnabled(true);
+  __inkCompatTranslationTestHooks.clearCache();
+  removeChild(row, b);
+  const cachedAfterRemove = translateTree(container);
+  __inkCompatTranslationTestHooks.setCacheEnabled(false);
+  __inkCompatTranslationTestHooks.clearCache();
+  const baselineAfterRemove = translateTree(container);
+  assert.deepEqual(cachedAfterRemove, baselineAfterRemove);
+
+  __inkCompatTranslationTestHooks.setCacheEnabled(true);
+});
+
+test("dynamic translation metadata reads static/ansi markers from root flags", () => {
+  const staticBranch = boxNode({ __inkStatic: true }, [textNode("Static branch")]);
+  const dynamicAnsi = createHostNode("ink-text", {});
+  appendChild(dynamicAnsi, textLeaf("A\u001b[31mB\u001b[0m"));
+  const root = boxNode({}, [dynamicAnsi, staticBranch]);
+  const container = containerWith(root);
+
+  const translated = translateDynamicTreeWithMetadata(container);
+
+  assert.equal(translated.meta.hasStaticNodes, true);
+  assert.equal(translated.meta.hasAnsiSgr, true);
 });

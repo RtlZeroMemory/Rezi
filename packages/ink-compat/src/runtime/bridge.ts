@@ -4,7 +4,9 @@ import type { VNode } from "@rezi-ui/core";
 import { kittyModifiers } from "../kitty-keyboard.js";
 import { type InkHostContainer, createHostContainer } from "../reconciler/types.js";
 import {
+  type TranslationMetadata,
   translateDynamicTree,
+  translateDynamicTreeWithMetadata,
   translateStaticTree,
   translateTree,
 } from "../translation/propsToVNode.js";
@@ -24,6 +26,8 @@ export interface InkBridge {
   context: InkContextValue;
   translateToVNode(): VNode;
   translateDynamicToVNode(): VNode;
+  /** Translate dynamic tree and collect metadata in a single pass. */
+  translateDynamicWithMetadata(): { vnode: VNode; meta: TranslationMetadata };
   translateStaticToVNode(): VNode;
   hasStaticNodes(): boolean;
   exit(result?: unknown): void;
@@ -438,22 +442,7 @@ export function createBridge(options: BridgeOptions): InkBridge {
   };
 
   const hasStaticNodes = (): boolean => {
-    const stack = [...rootNode.children];
-    while (stack.length > 0) {
-      const node = stack.pop();
-      if (!node) continue;
-
-      if (node.type === "ink-box" && node.props["__inkStatic"] === true) {
-        return true;
-      }
-
-      for (let index = node.children.length - 1; index >= 0; index -= 1) {
-        const child = node.children[index];
-        if (child) stack.push(child);
-      }
-    }
-
-    return false;
+    return rootNode.__inkSubtreeHasStatic;
   };
 
   return {
@@ -461,6 +450,7 @@ export function createBridge(options: BridgeOptions): InkBridge {
     context,
     translateToVNode: () => translateTree(rootNode),
     translateDynamicToVNode: () => translateDynamicTree(rootNode),
+    translateDynamicWithMetadata: () => translateDynamicTreeWithMetadata(rootNode),
     translateStaticToVNode: () => translateStaticTree(rootNode),
     hasStaticNodes,
     exit,

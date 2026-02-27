@@ -577,6 +577,100 @@ test("runtime render resolves nested percent sizing from resolved parent layout"
   }
 });
 
+test("runtime render re-resolves percent sizing when parent layout changes (no frame lag)", async () => {
+  const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+  stdin.setRawMode = () => {};
+
+  const stdout = new PassThrough() as PassThrough & {
+    columns?: number;
+    rows?: number;
+  };
+  stdout.columns = 80;
+  stdout.rows = 24;
+
+  const stderr = new PassThrough();
+
+  let parentNode: InkHostNode | null = null;
+  let childNode: InkHostNode | null = null;
+
+  function App(props: { parentWidth: number }): React.ReactElement {
+    const parentRef = React.useRef<InkHostNode | null>(null);
+    const childRef = React.useRef<InkHostNode | null>(null);
+
+    useEffect(() => {
+      parentNode = parentRef.current;
+      childNode = childRef.current;
+    });
+
+    return React.createElement(
+      Box,
+      { ref: parentRef, width: props.parentWidth, flexDirection: "row" },
+      React.createElement(
+        Box,
+        { ref: childRef, width: "50%" },
+        React.createElement(Text, null, "Child"),
+      ),
+    );
+  }
+
+  const instance = runtimeRender(React.createElement(App, { parentWidth: 20 }), {
+    stdin,
+    stdout,
+    stderr,
+  });
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    assert.ok(parentNode != null, "parent ref should be set");
+    assert.ok(childNode != null, "child ref should be set");
+    assert.equal(measureElement(parentNode).width, 20);
+    assert.equal(measureElement(childNode).width, 10);
+
+    instance.rerender(React.createElement(App, { parentWidth: 30 }));
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    assert.equal(measureElement(parentNode).width, 30);
+    assert.equal(measureElement(childNode).width, 15);
+  } finally {
+    instance.unmount();
+    instance.cleanup();
+  }
+});
+
+test("runtime render layout generations hide stale layout for removed nodes", async () => {
+  const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+  stdin.setRawMode = () => {};
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+
+  let removedNode: InkHostNode | null = null;
+
+  function Before(): React.ReactElement {
+    const removedRef = React.useRef<InkHostNode | null>(null);
+    useEffect(() => {
+      removedNode = removedRef.current;
+    });
+    return React.createElement(
+      Box,
+      { ref: removedRef, width: 22 },
+      React.createElement(Text, null, "Before"),
+    );
+  }
+
+  const instance = runtimeRender(React.createElement(Before), { stdin, stdout, stderr });
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    assert.ok(removedNode != null, "removed node ref should be set");
+    assert.equal(measureElement(removedNode).width, 22);
+
+    instance.rerender(React.createElement(Text, null, "After"));
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    assert.deepEqual(measureElement(removedNode), { width: 0, height: 0 });
+  } finally {
+    instance.unmount();
+    instance.cleanup();
+  }
+});
+
 test("render option isScreenReaderEnabled flows to hook context", async () => {
   const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
   stdin.setRawMode = () => {};
@@ -948,6 +1042,40 @@ test("rerender updates output", () => {
   assert.match(result.lastFrame(), /New/);
 });
 
+test("rendering identical tree keeps ANSI frame bytes stable", async () => {
+  const element = React.createElement(
+    Box,
+    { flexDirection: "row" },
+    React.createElement(Text, { color: "green", bold: true }, "Left"),
+    React.createElement(Text, null, " "),
+    React.createElement(Text, null, "\u001b[31mRight\u001b[0m"),
+  );
+
+  const captureFrame = async (): Promise<string> => {
+    const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+    stdin.setRawMode = () => {};
+    const stdout = new PassThrough();
+    const stderr = new PassThrough();
+    let writes = "";
+    stdout.on("data", (chunk) => {
+      writes += chunk.toString("utf-8");
+    });
+
+    const instance = runtimeRender(element, { stdin, stdout, stderr });
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      return latestFrameFromWrites(writes);
+    } finally {
+      instance.unmount();
+      instance.cleanup();
+    }
+  };
+
+  const firstFrame = await captureFrame();
+  const secondFrame = await captureFrame();
+  assert.equal(secondFrame, firstFrame);
+});
+
 test("runtime Static emits only new items on rerender", async () => {
   interface Item {
     id: string;
@@ -1137,6 +1265,45 @@ test("ANSI output resets attributes between differently-styled cells", () => {
 });
 
 // ─── Regression: text inherits background from underlying fillRect ───
+
+test("nested non-overlapping clips do not leak text", async () => {
+  const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
+  stdin.setRawMode = () => {};
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  let writes = "";
+  stdout.on("data", (chunk) => {
+    writes += chunk.toString("utf-8");
+  });
+
+  const instance = runtimeRender(
+    React.createElement(
+      Box,
+      { width: 4, height: 1, overflow: "hidden" },
+      React.createElement(
+        Box,
+        { position: "absolute", left: 10, top: 0, width: 4, height: 1, overflow: "hidden" },
+        React.createElement(Text, null, "LEAK"),
+      ),
+    ),
+    { stdin, stdout, stderr },
+  );
+
+  try {
+    await new Promise<void>((resolve) => {
+      if (writes.length > 0) {
+        resolve();
+        return;
+      }
+      stdout.once("data", () => resolve());
+    });
+    const latest = stripTerminalEscapes(latestFrameFromWrites(writes));
+    assert.equal(latest.includes("LEAK"), false, `unexpected clipped leak in output: ${latest}`);
+  } finally {
+    instance.unmount();
+    instance.cleanup();
+  }
+});
 
 test("text over backgroundColor box preserves box background in ANSI output", () => {
   const previousNoColor = process.env["NO_COLOR"];

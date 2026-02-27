@@ -1,7 +1,14 @@
 import { appendFileSync } from "node:fs";
 import type { Readable, Writable } from "node:stream";
 import { format as formatConsoleMessage } from "node:util";
-import { type Rgb24, type TextStyle, type VNode, measureTextCells } from "@rezi-ui/core";
+import {
+  type Rgb24,
+  type TextStyle,
+  type VNode,
+  createTestRenderer,
+  measureTextCells,
+  rgb,
+} from "@rezi-ui/core";
 import React from "react";
 
 import { type KittyFlagName, resolveKittyFlags } from "../kitty-keyboard.js";
@@ -10,7 +17,7 @@ import { enableTranslationTrace, flushTranslationTrace } from "../translation/tr
 import { checkAllResizeObservers } from "./ResizeObserver.js";
 import { createBridge } from "./bridge.js";
 import { InkContext } from "./context.js";
-import { type InkRendererTraceEvent, createInkRenderer } from "./createInkRenderer.js";
+import { advanceLayoutGeneration, readCurrentLayout, writeCurrentLayout } from "./layoutState.js";
 import { commitSync, createReactRoot } from "./reactHelpers.js";
 
 export interface KittyKeyboardOptions {
@@ -116,16 +123,44 @@ interface ResizeSignalRecord {
   viewport: ViewportSize;
 }
 
+interface ReziRendererTraceEvent {
+  renderId: number;
+  viewport: ViewportSize;
+  focusedId: string | null;
+  tick: number;
+  timings: {
+    commitMs: number;
+    layoutMs: number;
+    drawMs: number;
+    textMs: number;
+    totalMs: number;
+  };
+  nodeCount: number;
+  opCount: number;
+  clipDepthMax: number;
+  textChars: number;
+  textLines: number;
+  nonBlankLines: number;
+  widestLine: number;
+  minRectY: number;
+  maxRectBottom: number;
+  zeroHeightRects: number;
+  detailIncluded: boolean;
+  nodes?: readonly unknown[];
+  ops?: readonly unknown[];
+  text?: string;
+}
+
 interface RenderWritePayload {
   output: string;
   staticOutput: string;
 }
 
 const MAX_QUEUED_OUTPUTS = 4;
-const CORE_DEFAULT_FG: Rgb24 = 0xe8eef5;
-const CORE_DEFAULT_BG: Rgb24 = 0x070a0c;
+const CORE_DEFAULT_FG: Rgb24 = rgb(232, 238, 245);
+const CORE_DEFAULT_BG: Rgb24 = rgb(7, 10, 12);
 const FORCED_TRUECOLOR_SUPPORT: ColorSupport = Object.freeze({ level: 3, noColor: false });
-const ANSI_SGR_PATTERN = /\u001b\[[0-9:;]*m|\u009b[0-9:;]*m/;
+const FILL_CELLS_SMALL_SPAN_THRESHOLD = 160;
 
 function readViewportSize(stdout: Writable, fallbackStdout: Writable): ViewportSize {
   const readPositiveInt = (value: unknown): number | undefined => {
@@ -897,10 +932,12 @@ function snapshotCellGridRows(
     for (let col = 0; col < captureTo; col++) {
       const cell = row[col]!;
       const entry: Record<string, unknown> = { c: cell.char };
-      if (cell.style?.bg)
+      if (cell.style?.bg != null) {
         entry["bg"] = `${rgbR(cell.style.bg)},${rgbG(cell.style.bg)},${rgbB(cell.style.bg)}`;
-      if (cell.style?.fg)
+      }
+      if (cell.style?.fg != null) {
         entry["fg"] = `${rgbR(cell.style.fg)},${rgbG(cell.style.fg)},${rgbB(cell.style.fg)}`;
+      }
       if (cell.style?.bold) entry["bold"] = true;
       if (cell.style?.dim) entry["dim"] = true;
       if (cell.style?.inverse) entry["inv"] = true;
@@ -991,29 +1028,53 @@ function summarizeHostTree(rootNode: InkHostContainer): HostTreeSummary {
   };
 }
 
-function hostTreeContainsAnsiSgr(rootNode: InkHostContainer): boolean {
-  const stack: InkHostNode[] = [...rootNode.children];
+function scanHostTreeForStaticAndAnsi(rootNode: InkHostContainer): {
+  hasStaticNodes: boolean;
+  hasAnsiSgr: boolean;
+} {
+  return {
+    hasStaticNodes: rootNode.__inkSubtreeHasStatic,
+    hasAnsiSgr: rootNode.__inkSubtreeHasAnsiSgr,
+  };
+}
+
+function rootChildRevisionSignature(rootNode: InkHostContainer): string {
+  if (rootNode.children.length === 0) return "";
+  const revisions: string[] = [];
+  for (const child of rootNode.children) {
+    revisions.push(String(child.__inkRevision));
+  }
+  return revisions.join(",");
+}
+
+function staticRootRevisionSignature(rootNode: InkHostContainer): string {
+  if (!rootNode.__inkSubtreeHasStatic) return "";
+
+  const revisions: string[] = [];
+  const stack: InkHostNode[] = [];
+  for (let index = rootNode.children.length - 1; index >= 0; index -= 1) {
+    const child = rootNode.children[index];
+    if (child) stack.push(child);
+  }
+
   while (stack.length > 0) {
     const node = stack.pop();
-    if (!node) continue;
-    const text = node.textContent;
-    if (typeof text === "string" && ANSI_SGR_PATTERN.test(text)) {
-      return true;
+    if (!node || !node.__inkSubtreeHasStatic) continue;
+    if (node.__inkSelfHasStatic) {
+      revisions.push(String(node.__inkRevision));
+      continue;
     }
     for (let index = node.children.length - 1; index >= 0; index -= 1) {
       const child = node.children[index];
       if (child) stack.push(child);
     }
   }
-  return false;
+
+  return revisions.join(",");
 }
 
-function clampByte(value: number): number {
-  return Math.max(0, Math.min(255, Math.round(value)));
-}
-
-function packRgb24(r: number, g: number, b: number): Rgb24 {
-  return ((clampByte(r) & 0xff) << 16) | ((clampByte(g) & 0xff) << 8) | (clampByte(b) & 0xff);
+function isRgb24(value: unknown): value is Rgb24 {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 0xffffff;
 }
 
 function rgbR(value: Rgb24): number {
@@ -1028,16 +1089,8 @@ function rgbB(value: Rgb24): number {
   return value & 0xff;
 }
 
-function clampRgb24(value: Rgb24): Rgb24 {
-  return packRgb24(rgbR(value), rgbG(value), rgbB(value));
-}
-
-function isRgb24(value: unknown): value is Rgb24 {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function isSameRgb(a: Rgb24, b: Rgb24): boolean {
-  return a === b;
+function clampByte(value: number): number {
+  return Math.max(0, Math.min(255, Math.round(value)));
 }
 
 const ANSI16_PALETTE: readonly [number, number, number][] = [
@@ -1128,43 +1181,58 @@ function rgbChannelToCubeLevel(channel: number): number {
 }
 
 function toAnsi256Code(color: Rgb24): number {
-  const rLevel = rgbChannelToCubeLevel(rgbR(color));
-  const gLevel = rgbChannelToCubeLevel(rgbG(color));
-  const bLevel = rgbChannelToCubeLevel(rgbB(color));
+  const r = rgbR(color);
+  const g = rgbG(color);
+  const b = rgbB(color);
+  const rLevel = rgbChannelToCubeLevel(r);
+  const gLevel = rgbChannelToCubeLevel(g);
+  const bLevel = rgbChannelToCubeLevel(b);
   const cubeCode = 16 + 36 * rLevel + 6 * gLevel + bLevel;
 
-  const cubeColor: readonly [number, number, number] = [
+  const cubeColor = rgb(
     rLevel === 0 ? 0 : 55 + 40 * rLevel,
     gLevel === 0 ? 0 : 55 + 40 * gLevel,
     bLevel === 0 ? 0 : 55 + 40 * bLevel,
-  ];
+  );
 
-  const avg = Math.round((rgbR(color) + rgbG(color) + rgbB(color)) / 3);
+  const avg = Math.round((r + g + b) / 3);
   const grayLevel = Math.max(0, Math.min(23, Math.round((avg - 8) / 10)));
   const grayCode = 232 + grayLevel;
   const grayValue = 8 + 10 * grayLevel;
-  const grayColor: readonly [number, number, number] = [grayValue, grayValue, grayValue];
+  const grayColor = rgb(grayValue, grayValue, grayValue);
 
-  const cubeDistance = colorDistanceSq(color, cubeColor);
-  const grayDistance = colorDistanceSq(color, grayColor);
+  const cubeDistance = colorDistanceSq(color, [rgbR(cubeColor), rgbG(cubeColor), rgbB(cubeColor)]);
+  const grayDistance = colorDistanceSq(color, [rgbR(grayColor), rgbG(grayColor), rgbB(grayColor)]);
   return grayDistance < cubeDistance ? grayCode : cubeCode;
 }
+
+/**
+ * Cache normalized styles by identity — Rezi's renderer reuses TextStyle
+ * objects across draw ops, so identity-based caching is highly effective.
+ */
+const normalizeStyleCache = new WeakMap<TextStyle, CellStyle | undefined>();
 
 function normalizeStyle(style: TextStyle | undefined): CellStyle | undefined {
   if (!style) return undefined;
 
+  const cached = normalizeStyleCache.get(style);
+  if (cached !== undefined) return cached;
+  // WeakMap returns undefined for both missing entries and stored undefined
+  // values, so use a separate check for the "computed but undefined" case.
+  if (normalizeStyleCache.has(style)) return undefined;
+
   const normalized: CellStyle = {};
-  if (isRgb24(style.fg) && style.fg !== 0) {
-    const fg = clampRgb24(style.fg);
+  if (isRgb24(style.fg)) {
+    const fg = rgb(clampByte(rgbR(style.fg)), clampByte(rgbG(style.fg)), clampByte(rgbB(style.fg)));
     // Rezi carries DEFAULT_BASE_STYLE through every text draw op. Ink treats
     // terminal defaults as implicit, so suppress those default color channels.
-    if (!isSameRgb(fg, CORE_DEFAULT_FG)) {
+    if (fg !== CORE_DEFAULT_FG) {
       normalized.fg = fg;
     }
   }
-  if (isRgb24(style.bg) && style.bg !== 0) {
-    const bg = clampRgb24(style.bg);
-    if (!isSameRgb(bg, CORE_DEFAULT_BG)) {
+  if (isRgb24(style.bg)) {
+    const bg = rgb(clampByte(rgbR(style.bg)), clampByte(rgbG(style.bg)), clampByte(rgbB(style.bg)));
+    if (bg !== CORE_DEFAULT_BG) {
       normalized.bg = bg;
     }
   }
@@ -1175,29 +1243,37 @@ function normalizeStyle(style: TextStyle | undefined): CellStyle | undefined {
   if (style.strikethrough === true) normalized.strikethrough = true;
   if (style.inverse === true) normalized.inverse = true;
 
-  return Object.keys(normalized).length > 0 ? normalized : undefined;
+  const hasKeys =
+    normalized.fg !== undefined ||
+    normalized.bg !== undefined ||
+    normalized.bold !== undefined ||
+    normalized.dim !== undefined ||
+    normalized.italic !== undefined ||
+    normalized.underline !== undefined ||
+    normalized.strikethrough !== undefined ||
+    normalized.inverse !== undefined;
+  const result = hasKeys ? normalized : undefined;
+  normalizeStyleCache.set(style, result);
+  return result;
+}
+
+function rgbEqual(a: Rgb24 | undefined, b: Rgb24 | undefined): boolean {
+  return a === b;
 }
 
 function stylesEqual(a: CellStyle | undefined, b: CellStyle | undefined): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
-
-  const keysA = Object.keys(a).sort();
-  const keysB = Object.keys(b).sort();
-  if (keysA.length !== keysB.length) return false;
-
-  for (let i = 0; i < keysA.length; i += 1) {
-    const key = keysA[i]!;
-    if (key !== keysB[i]) return false;
-    if (
-      JSON.stringify((a as Record<string, unknown>)[key]) !==
-      JSON.stringify((b as Record<string, unknown>)[key])
-    ) {
-      return false;
-    }
-  }
-
-  return true;
+  return (
+    a.bold === b.bold &&
+    a.dim === b.dim &&
+    a.italic === b.italic &&
+    a.underline === b.underline &&
+    a.strikethrough === b.strikethrough &&
+    a.inverse === b.inverse &&
+    rgbEqual(a.fg, b.fg) &&
+    rgbEqual(a.bg, b.bg)
+  );
 }
 
 function styleVisibleOnSpace(style: CellStyle | undefined): boolean {
@@ -1205,8 +1281,110 @@ function styleVisibleOnSpace(style: CellStyle | undefined): boolean {
   return style.bg !== undefined || style.inverse === true || style.underline === true;
 }
 
+// Cells are treated as immutable; we always replace array elements instead of mutating
+// `char`/`style` in place. This lets us safely reuse a few shared cell objects.
+const BLANK_CELL: StyledCell = { char: " ", style: undefined };
+const WIDE_EMPTY_CELL: StyledCell = { char: "", style: undefined };
+const SPACE_CELL_CACHE = new WeakMap<CellStyle, StyledCell>();
+const ASCII_CELL_CACHE_UNSTYLED: Array<StyledCell | undefined> = new Array(128);
+ASCII_CELL_CACHE_UNSTYLED[0x20] = BLANK_CELL;
+const ASCII_CELL_CACHE_STYLED = new WeakMap<CellStyle, Array<StyledCell | undefined>>();
+const ASCII_CHAR_STRINGS: readonly string[] = (() => {
+  const out: string[] = new Array(128);
+  for (let code = 0; code < out.length; code += 1) {
+    out[code] = String.fromCharCode(code);
+  }
+  return out;
+})();
+
+function getSpaceCell(style: CellStyle | undefined): StyledCell {
+  if (!style) return BLANK_CELL;
+  const cached = SPACE_CELL_CACHE.get(style);
+  if (cached) return cached;
+  const cell: StyledCell = { char: " ", style };
+  SPACE_CELL_CACHE.set(style, cell);
+  return cell;
+}
+
+function getAsciiCell(code: number, style: CellStyle | undefined): StyledCell {
+  const char = ASCII_CHAR_STRINGS[code] ?? String.fromCharCode(code);
+  if (!style) {
+    const cached = ASCII_CELL_CACHE_UNSTYLED[code];
+    if (cached) return cached;
+    const cell: StyledCell = { char, style: undefined };
+    ASCII_CELL_CACHE_UNSTYLED[code] = cell;
+    return cell;
+  }
+
+  let styleCache = ASCII_CELL_CACHE_STYLED.get(style);
+  if (!styleCache) {
+    styleCache = new Array(128);
+    styleCache[0x20] = getSpaceCell(style);
+    ASCII_CELL_CACHE_STYLED.set(style, styleCache);
+  }
+
+  const cached = styleCache[code];
+  if (cached) return cached;
+  const cell: StyledCell = { char, style };
+  styleCache[code] = cell;
+  return cell;
+}
+
+function isSimpleAsciiText(text: string): boolean {
+  for (let index = 0; index < text.length; index += 1) {
+    const code = text.charCodeAt(index);
+    // Deliberately exclude control chars and DEL; they may have special terminal semantics.
+    if (code < 0x20 || code > 0x7e) return false;
+  }
+  return true;
+}
+
+function isCombiningMark(code: number): boolean {
+  // Common combining mark blocks (BMP). We treat any presence as "complex" and
+  // fall back to grapheme segmentation for correctness.
+  return (
+    (code >= 0x0300 && code <= 0x036f) ||
+    (code >= 0x1ab0 && code <= 0x1aff) ||
+    (code >= 0x1dc0 && code <= 0x1dff) ||
+    (code >= 0x20d0 && code <= 0x20ff) ||
+    (code >= 0xfe20 && code <= 0xfe2f)
+  );
+}
+
+function isSimpleBmpText(text: string): boolean {
+  for (let index = 0; index < text.length; index += 1) {
+    const code = text.charCodeAt(index);
+    // Exclude control chars, DEL, and surrogate halves (astral emoji, flags).
+    if (code < 0x20 || code === 0x7f) return false;
+    if (code >= 0xd800 && code <= 0xdfff) return false;
+    // Exclude known complex grapheme / zero-width code points.
+    if (code === 0x200b || code === 0x200c || code === 0x200d) return false; // ZWSP/ZWNJ/ZWJ
+    if (code === 0x200e || code === 0x200f) return false; // bidi marks
+    if (code === 0xfeff) return false; // zero-width no-break space (BOM)
+    if (code >= 0xfe00 && code <= 0xfe0f) return false; // variation selectors
+    if (isCombiningMark(code)) return false;
+  }
+  return true;
+}
+
+/**
+ * Identity-based SGR cache. Most frames use only 3-5 distinct CellStyle
+ * objects, so caching by identity avoids rebuilding ANSI strings per-cell.
+ */
+const sgrCache = new Map<CellStyle, string>();
+let sgrCacheColorLevel = -1;
+
 function styleToSgr(style: CellStyle | undefined, colorSupport: ColorSupport): string {
   if (!style) return "\u001b[0m";
+
+  // Invalidate cache when color support changes (rare)
+  if (colorSupport.level !== sgrCacheColorLevel) {
+    sgrCache.clear();
+    sgrCacheColorLevel = colorSupport.level;
+  }
+
+  const cached = sgrCache.get(style);
+  if (cached !== undefined) return cached;
 
   const codes: string[] = [];
   if (style.bold) codes.push("1");
@@ -1216,18 +1394,22 @@ function styleToSgr(style: CellStyle | undefined, colorSupport: ColorSupport): s
   if (style.inverse) codes.push("7");
   if (style.strikethrough) codes.push("9");
   if (colorSupport.level > 0) {
-    if (style.fg) {
+    if (style.fg != null) {
       if (colorSupport.level >= 3) {
-        codes.push(`38;2;${rgbR(style.fg)};${rgbG(style.fg)};${rgbB(style.fg)}`);
+        codes.push(
+          `38;2;${clampByte(rgbR(style.fg))};${clampByte(rgbG(style.fg))};${clampByte(rgbB(style.fg))}`,
+        );
       } else if (colorSupport.level === 2) {
         codes.push(`38;5;${toAnsi256Code(style.fg)}`);
       } else {
         codes.push(String(toAnsi16Code(style.fg, false)));
       }
     }
-    if (style.bg) {
+    if (style.bg != null) {
       if (colorSupport.level >= 3) {
-        codes.push(`48;2;${rgbR(style.bg)};${rgbG(style.bg)};${rgbB(style.bg)}`);
+        codes.push(
+          `48;2;${clampByte(rgbR(style.bg))};${clampByte(rgbG(style.bg))};${clampByte(rgbB(style.bg))}`,
+        );
       } else if (colorSupport.level === 2) {
         codes.push(`48;5;${toAnsi256Code(style.bg)}`);
       } else {
@@ -1236,10 +1418,22 @@ function styleToSgr(style: CellStyle | undefined, colorSupport: ColorSupport): s
     }
   }
 
-  if (codes.length === 0) return "\u001b[0m";
-  // Always reset (0) before applying new attributes to prevent attribute
-  // bleed from previous cells (e.g. bold, bg carrying over).
-  return `\u001b[0;${codes.join(";")}m`;
+  let result: string;
+  if (codes.length === 0) {
+    result = "\u001b[0m";
+  } else {
+    // Always reset (0) before applying new attributes to prevent attribute
+    // bleed from previous cells (e.g. bold, bg carrying over).
+    result = `\u001b[0;${codes.join(";")}m`;
+  }
+
+  sgrCache.set(style, result);
+  // Prevent unbounded growth — evict oldest when too large
+  if (sgrCache.size > 256) {
+    const firstKey = sgrCache.keys().next().value;
+    if (firstKey) sgrCache.delete(firstKey);
+  }
+  return result;
 }
 
 function inClipStack(x: number, y: number, clipStack: readonly ClipRect[]): boolean {
@@ -1249,24 +1443,68 @@ function inClipStack(x: number, y: number, clipStack: readonly ClipRect[]): bool
   return true;
 }
 
+/**
+ * Pre-compute the effective clip rect (intersection of all rects in stack).
+ * Returns null for empty clip stack.
+ * Empty intersections are represented as a zero-sized rect.
+ * Reduces per-cell clip checking from O(clipStack.length) to O(1).
+ */
+function computeEffectiveClip(clipStack: readonly ClipRect[]): ClipRect | null {
+  if (clipStack.length === 0) return null;
+  let x1 = clipStack[0]!.x;
+  let y1 = clipStack[0]!.y;
+  let x2 = x1 + clipStack[0]!.w;
+  let y2 = y1 + clipStack[0]!.h;
+  for (let i = 1; i < clipStack.length; i++) {
+    const c = clipStack[i]!;
+    x1 = Math.max(x1, c.x);
+    y1 = Math.max(y1, c.y);
+    x2 = Math.min(x2, c.x + c.w);
+    y2 = Math.min(y2, c.y + c.h);
+  }
+  if (x1 >= x2 || y1 >= y2) return { x: x1, y: y1, w: 0, h: 0 };
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+}
+
+function inEffectiveClip(x: number, y: number, clip: ClipRect | null): boolean {
+  if (clip === null) return true;
+  if (clip.w <= 0 || clip.h <= 0) return false;
+  return x >= clip.x && x < clip.x + clip.w && y >= clip.y && y < clip.y + clip.h;
+}
+
 function fillCells(
   grid: StyledCell[][],
   viewport: ViewportSize,
-  clipStack: readonly ClipRect[],
+  clip: ClipRect | null,
   x: number,
   y: number,
   w: number,
   h: number,
   style: CellStyle | undefined,
 ): void {
-  for (let yy = y; yy < y + h; yy += 1) {
-    if (yy < 0 || yy >= viewport.rows) continue;
+  // Compute effective bounds (intersection of fill rect, viewport, and clip)
+  let startX = Math.max(0, x);
+  let startY = Math.max(0, y);
+  let endX = Math.min(viewport.cols, x + w);
+  let endY = Math.min(viewport.rows, y + h);
+  if (clip !== null) {
+    startX = Math.max(startX, clip.x);
+    startY = Math.max(startY, clip.y);
+    endX = Math.min(endX, clip.x + clip.w);
+    endY = Math.min(endY, clip.y + clip.h);
+  }
+  const fillCell = getSpaceCell(style);
+  for (let yy = startY; yy < endY; yy += 1) {
     const row = grid[yy];
     if (!row) continue;
-    for (let xx = x; xx < x + w; xx += 1) {
-      if (xx < 0 || xx >= viewport.cols || !inClipStack(xx, yy, clipStack)) continue;
-      row[xx] = { char: " ", style };
+    const span = endX - startX;
+    if (span <= FILL_CELLS_SMALL_SPAN_THRESHOLD) {
+      for (let xx = startX; xx < endX; xx += 1) {
+        row[xx] = fillCell;
+      }
+      continue;
     }
+    row.fill(fillCell, startX, endX);
   }
 }
 
@@ -1275,6 +1513,8 @@ function fillCells(
  * Preserves base properties (especially bg from fillRect) when the
  * overlay doesn't explicitly set them.
  */
+const MERGED_STYLE_CACHE = new WeakMap<CellStyle, WeakMap<CellStyle, CellStyle>>();
+
 function mergeCellStyles(
   base: CellStyle | undefined,
   overlay: CellStyle | undefined,
@@ -1282,19 +1522,52 @@ function mergeCellStyles(
   if (!overlay && !base) return undefined;
   if (!overlay) return base;
   if (!base) return overlay;
+  if (base === overlay) return base;
 
-  const merged: CellStyle = {};
+  let overlayCache = MERGED_STYLE_CACHE.get(base);
+  if (!overlayCache) {
+    overlayCache = new WeakMap<CellStyle, CellStyle>();
+    MERGED_STYLE_CACHE.set(base, overlayCache);
+  }
+  const cached = overlayCache.get(overlay);
+  if (cached) return cached;
+
   const bg = overlay.bg ?? base.bg;
   const fg = overlay.fg ?? base.fg;
+  const bold = overlay.bold ?? base.bold;
+  const dim = overlay.dim ?? base.dim;
+  const italic = overlay.italic ?? base.italic;
+  const underline = overlay.underline ?? base.underline;
+  const strikethrough = overlay.strikethrough ?? base.strikethrough;
+  const inverse = overlay.inverse ?? base.inverse;
+
+  // If the overlay doesn't change anything, reuse the base style object.
+  if (
+    bg === base.bg &&
+    fg === base.fg &&
+    bold === base.bold &&
+    dim === base.dim &&
+    italic === base.italic &&
+    underline === base.underline &&
+    strikethrough === base.strikethrough &&
+    inverse === base.inverse
+  ) {
+    overlayCache.set(overlay, base);
+    return base;
+  }
+
+  const merged: CellStyle = {};
   if (bg) merged.bg = bg;
   if (fg) merged.fg = fg;
-  if (overlay.bold ?? base.bold) merged.bold = true;
-  if (overlay.dim ?? base.dim) merged.dim = true;
-  if (overlay.italic ?? base.italic) merged.italic = true;
-  if (overlay.underline ?? base.underline) merged.underline = true;
-  if (overlay.strikethrough ?? base.strikethrough) merged.strikethrough = true;
-  if (overlay.inverse ?? base.inverse) merged.inverse = true;
-  return Object.keys(merged).length > 0 ? merged : undefined;
+  if (bold) merged.bold = true;
+  if (dim) merged.dim = true;
+  if (italic) merged.italic = true;
+  if (underline) merged.underline = true;
+  if (strikethrough) merged.strikethrough = true;
+  if (inverse) merged.inverse = true;
+
+  overlayCache.set(overlay, merged);
+  return merged;
 }
 
 type GraphemeSegmenter = {
@@ -1348,59 +1621,158 @@ function forEachGraphemeCluster(text: string, visit: (cluster: string) => void):
 function drawTextToCells(
   grid: StyledCell[][],
   viewport: ViewportSize,
-  clipStack: readonly ClipRect[],
+  clip: ClipRect | null,
   x0: number,
   y: number,
   text: string,
   style: CellStyle | undefined,
 ): void {
   if (y < 0 || y >= viewport.rows) return;
+  if (clip !== null && (y < clip.y || y >= clip.y + clip.h)) return;
+  const row = grid[y];
+  if (!row) return;
 
-  let cursorX = x0;
-  forEachGraphemeCluster(text, (glyph) => {
-    const width = measureTextCells(glyph);
-    if (width <= 0) return;
+  const clipMinX = clip === null ? 0 : Math.max(0, clip.x);
+  const clipMaxX = clip === null ? viewport.cols : Math.min(viewport.cols, clip.x + clip.w);
+  if (clipMaxX <= clipMinX) return;
 
-    if (cursorX >= 0 && cursorX < viewport.cols && inClipStack(cursorX, y, clipStack)) {
-      const row = grid[y];
-      if (row) {
-        const existing = row[cursorX];
-        row[cursorX] = { char: glyph, style: mergeCellStyles(existing?.style, style) };
+  if (isSimpleAsciiText(text)) {
+    const baseMin = Math.max(0, clipMinX - x0);
+    const baseMax = Math.min(text.length, clipMaxX - x0);
+    if (baseMin >= baseMax) return;
+
+    let cursorX = x0 + baseMin;
+    for (let index = baseMin; index < baseMax; index += 1) {
+      const code = text.charCodeAt(index);
+      const existingCell = row[cursorX];
+      const existingStyle = existingCell?.style;
+      const nextStyle = existingStyle
+        ? style
+          ? mergeCellStyles(existingStyle, style)
+          : existingStyle
+        : style;
+      const nextCell =
+        code === 0x20
+          ? getSpaceCell(nextStyle)
+          : // Printable ASCII fast path: cached cell objects avoid per-glyph allocations.
+            getAsciiCell(code, nextStyle);
+      if (existingCell !== nextCell) {
+        row[cursorX] = nextCell;
       }
+      cursorX += 1;
     }
+    return;
+  }
 
-    for (let offset = 1; offset < width; offset += 1) {
-      const fillX = cursorX + offset;
-      if (fillX < 0 || fillX >= viewport.cols || !inClipStack(fillX, y, clipStack)) continue;
-      const row = grid[y];
-      if (row) {
-        row[fillX] = { char: "", style: undefined };
+  // Fast path for mixed ASCII + BMP symbols (box drawing, bullets, etc.) that
+  // don't require full grapheme segmentation (no surrogate pairs, no ZWJ,
+  // no combining marks/variation selectors).
+  if (isSimpleBmpText(text)) {
+    let cursorX = x0;
+    for (let index = 0; index < text.length; index += 1) {
+      const code = text.charCodeAt(index);
+      const isAscii = code >= 0x20 && code <= 0x7e;
+      const glyph = isAscii ? "" : (text[index] ?? "");
+      const width = isAscii ? 1 : measureTextCells(glyph);
+      if (width <= 0) {
+        // Zero-width / non-rendering glyph; skip without advancing.
+        continue;
       }
-    }
 
-    cursorX += width;
-  });
+      if (cursorX >= 0 && cursorX < viewport.cols && inEffectiveClip(cursorX, y, clip)) {
+        const existingCell = row[cursorX];
+        const existingStyle = existingCell?.style;
+        const nextStyle = existingStyle
+          ? style
+            ? mergeCellStyles(existingStyle, style)
+            : existingStyle
+          : style;
+        const nextCell =
+          code === 0x20
+            ? getSpaceCell(nextStyle)
+            : isAscii
+              ? getAsciiCell(code, nextStyle)
+              : { char: glyph, style: nextStyle };
+        if (existingCell !== nextCell) {
+          row[cursorX] = nextCell;
+        }
+      }
+
+      for (let offset = 1; offset < width; offset += 1) {
+        const fillX = cursorX + offset;
+        if (fillX >= 0 && fillX < viewport.cols && inEffectiveClip(fillX, y, clip)) {
+          row[fillX] = WIDE_EMPTY_CELL;
+        }
+      }
+
+      cursorX += width;
+      if (cursorX >= clipMaxX) return;
+    }
+  } else {
+    let cursorX = x0;
+    forEachGraphemeCluster(text, (glyph) => {
+      const width = measureTextCells(glyph);
+      if (width <= 0) return;
+
+      if (cursorX >= 0 && cursorX < viewport.cols && inEffectiveClip(cursorX, y, clip)) {
+        const existingCell = row[cursorX];
+        const existingStyle = existingCell?.style;
+        const nextStyle = existingStyle
+          ? style
+            ? mergeCellStyles(existingStyle, style)
+            : existingStyle
+          : style;
+
+        let nextCell: StyledCell;
+        if (glyph === " ") {
+          nextCell = getSpaceCell(nextStyle);
+        } else if (glyph.length === 1) {
+          const code = glyph.charCodeAt(0);
+          nextCell =
+            code >= 0x20 && code <= 0x7e
+              ? getAsciiCell(code, nextStyle)
+              : { char: glyph, style: nextStyle };
+        } else {
+          nextCell = { char: glyph, style: nextStyle };
+        }
+
+        if (existingCell !== nextCell) {
+          row[cursorX] = nextCell;
+        }
+      }
+
+      for (let offset = 1; offset < width; offset += 1) {
+        const fillX = cursorX + offset;
+        if (fillX >= 0 && fillX < viewport.cols && inEffectiveClip(fillX, y, clip)) {
+          row[fillX] = WIDE_EMPTY_CELL;
+        }
+      }
+
+      cursorX += width;
+    });
+  }
+
+  return;
 }
 
 function renderOpsToAnsi(
   ops: readonly RenderOp[],
   viewport: ViewportSize,
   colorSupport: ColorSupport,
-): { ansi: string; grid: StyledCell[][] } {
-  const grid: StyledCell[][] = [];
+): { ansi: string; grid: StyledCell[][]; shape: OutputShapeSummary } {
+  const grid: StyledCell[][] = new Array(viewport.rows);
   for (let rowIndex = 0; rowIndex < viewport.rows; rowIndex += 1) {
-    const row: StyledCell[] = [];
-    for (let colIndex = 0; colIndex < viewport.cols; colIndex += 1) {
-      row.push({ char: " ", style: undefined });
-    }
-    grid.push(row);
+    const row = new Array<StyledCell>(viewport.cols);
+    row.fill(BLANK_CELL);
+    grid[rowIndex] = row;
   }
 
   const clipStack: ClipRect[] = [];
+  let effectiveClip: ClipRect | null = null;
 
   for (const op of ops) {
     if (op.kind === "clear") {
-      fillCells(grid, viewport, clipStack, 0, 0, viewport.cols, viewport.rows, undefined);
+      fillCells(grid, viewport, effectiveClip, 0, 0, viewport.cols, viewport.rows, undefined);
       continue;
     }
     if (op.kind === "clearTo") {
@@ -1413,7 +1785,7 @@ function renderOpsToAnsi(
       fillCells(
         grid,
         viewport,
-        clipStack,
+        effectiveClip,
         0,
         0,
         Math.max(0, Math.trunc(op.cols)),
@@ -1426,7 +1798,7 @@ function renderOpsToAnsi(
       fillCells(
         grid,
         viewport,
-        clipStack,
+        effectiveClip,
         Math.trunc(op.x),
         Math.trunc(op.y),
         Math.max(0, Math.trunc(op.w)),
@@ -1439,7 +1811,7 @@ function renderOpsToAnsi(
       drawTextToCells(
         grid,
         viewport,
-        clipStack,
+        effectiveClip,
         Math.trunc(op.x),
         Math.trunc(op.y),
         op.text,
@@ -1454,27 +1826,43 @@ function renderOpsToAnsi(
         w: Math.max(0, Math.trunc(op.w)),
         h: Math.max(0, Math.trunc(op.h)),
       });
+      effectiveClip = computeEffectiveClip(clipStack);
       continue;
     }
     if (op.kind === "popClip") {
       clipStack.pop();
+      effectiveClip = clipStack.length === 0 ? null : computeEffectiveClip(clipStack);
     }
   }
 
   const lines: string[] = [];
+  let nonBlankLines = 0;
+  let firstNonBlankLine = -1;
+  let lastNonBlankLine = -1;
+  let widestLine = 0;
 
-  for (const row of grid) {
+  for (let rowIndex = 0; rowIndex < grid.length; rowIndex += 1) {
+    const row = grid[rowIndex]!;
     let lastUsefulCol = -1;
-    for (let index = 0; index < row.length; index += 1) {
-      const cell = row[index]!;
-      if ((cell.char !== "" && cell.char !== " ") || styleVisibleOnSpace(cell.style))
-        lastUsefulCol = index;
+    for (let colIndex = row.length - 1; colIndex >= 0; colIndex -= 1) {
+      const cell = row[colIndex];
+      if (!cell) continue;
+      if ((cell.char !== "" && cell.char !== " ") || styleVisibleOnSpace(cell.style)) {
+        lastUsefulCol = colIndex;
+        break;
+      }
     }
+
+    widestLine = Math.max(widestLine, lastUsefulCol + 1);
 
     if (lastUsefulCol < 0) {
       lines.push("");
       continue;
     }
+
+    nonBlankLines += 1;
+    if (firstNonBlankLine === -1) firstNonBlankLine = rowIndex;
+    lastNonBlankLine = rowIndex;
 
     let line = "";
     let activeStyle: CellStyle | undefined;
@@ -1493,7 +1881,11 @@ function renderOpsToAnsi(
   }
 
   while (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
-  return { ansi: lines.join("\n"), grid };
+  return {
+    ansi: lines.join("\n"),
+    grid,
+    shape: { lines: grid.length, nonBlankLines, firstNonBlankLine, lastNonBlankLine, widestLine },
+  };
 }
 
 function asFiniteNumber(value: unknown): number | undefined {
@@ -1507,6 +1899,7 @@ function resolvePercent(value: number, base: number): number {
 
 type HostNodeWithLayout = InkHostNode & {
   __inkLayout?: { x: number; y: number; w: number; h: number };
+  __inkLayoutGen?: number;
 };
 
 type FlexMainAxis = "row" | "column";
@@ -1514,6 +1907,39 @@ type FlexMainAxis = "row" | "column";
 interface PercentResolveContext {
   parentSize: ViewportSize;
   parentMainAxis: FlexMainAxis;
+  deps?: PercentResolveDeps;
+}
+
+interface PercentParentDep {
+  cols: number;
+  rows: number;
+  usesCols: boolean;
+  usesRows: boolean;
+}
+
+interface PercentResolveDeps {
+  // Host parents whose current layout (w/h) was used as the base for resolving percent props.
+  parents: Map<HostNodeWithLayout, PercentParentDep>;
+  // True when a node had a host parent but that parent's layout was unavailable, meaning
+  // a second render can change percent resolution once layouts are assigned.
+  missingParentLayout: boolean;
+}
+
+function recordPercentParentDep(
+  deps: PercentResolveDeps,
+  parent: HostNodeWithLayout,
+  size: ViewportSize,
+  usesCols: boolean,
+  usesRows: boolean,
+): void {
+  if (!usesCols && !usesRows) return;
+  const existing = deps.parents.get(parent);
+  if (existing) {
+    existing.usesCols = existing.usesCols || usesCols;
+    existing.usesRows = existing.usesRows || usesRows;
+    return;
+  }
+  deps.parents.set(parent, { cols: size.cols, rows: size.rows, usesCols, usesRows });
 }
 
 function readHostNode(value: unknown): HostNodeWithLayout | undefined {
@@ -1521,20 +1947,6 @@ function readHostNode(value: unknown): HostNodeWithLayout | undefined {
   const candidate = value as HostNodeWithLayout;
   if (typeof candidate.type !== "string") return undefined;
   return candidate;
-}
-
-function readHostParentSize(
-  hostNode: HostNodeWithLayout | undefined,
-  fallback: ViewportSize,
-): ViewportSize {
-  const parentLayout = hostNode?.parent
-    ? (hostNode.parent as HostNodeWithLayout).__inkLayout
-    : undefined;
-  if (!parentLayout) return fallback;
-  return {
-    cols: Math.max(0, Math.trunc(parentLayout.w)),
-    rows: Math.max(0, Math.trunc(parentLayout.h)),
-  };
 }
 
 function readHostMainAxis(hostNode: HostNodeWithLayout | null): FlexMainAxis | undefined {
@@ -1550,10 +1962,6 @@ function readNodeMainAxis(kind: unknown): FlexMainAxis {
 }
 
 function hasPercentMarkers(vnode: VNode): boolean {
-  // width, height, and flexBasis percent values are now passed as native
-  // percent strings (e.g. "50%") directly to the VNode props and resolved by
-  // the layout engine in a single pass. Only minWidth/minHeight still use
-  // __inkPercent* markers (rare in practice).
   if (typeof vnode !== "object" || vnode === null) return false;
   const candidate = vnode as { props?: unknown; children?: unknown };
   const props =
@@ -1563,8 +1971,11 @@ function hasPercentMarkers(vnode: VNode): boolean {
 
   if (
     props &&
-    (typeof props["__inkPercentMinWidth"] === "number" ||
-      typeof props["__inkPercentMinHeight"] === "number")
+    (typeof props["__inkPercentWidth"] === "number" ||
+      typeof props["__inkPercentHeight"] === "number" ||
+      typeof props["__inkPercentMinWidth"] === "number" ||
+      typeof props["__inkPercentMinHeight"] === "number" ||
+      typeof props["__inkPercentFlexBasis"] === "number")
   ) {
     return true;
   }
@@ -1577,9 +1988,6 @@ function hasPercentMarkers(vnode: VNode): boolean {
 }
 
 function resolvePercentMarkers(vnode: VNode, context: PercentResolveContext): VNode {
-  // NOTE: width, height, and flexBasis percent values are now passed as native
-  // percent strings directly to VNode props. This function only handles the
-  // remaining __inkPercentMinWidth / __inkPercentMinHeight markers (rare).
   if (typeof vnode !== "object" || vnode === null) {
     return vnode;
   }
@@ -1596,11 +2004,58 @@ function resolvePercentMarkers(vnode: VNode, context: PercentResolveContext): VN
       : {};
   const nextProps: Record<string, unknown> = { ...originalProps };
   const hostNode = readHostNode(originalProps["__inkHostNode"]);
-  const parentSize = readHostParentSize(hostNode, context.parentSize);
+  const hostParent =
+    hostNode?.parent && typeof hostNode.parent === "object" && hostNode.parent !== null
+      ? (hostNode.parent as HostNodeWithLayout)
+      : undefined;
+  const parentLayout = hostParent ? readCurrentLayout(hostParent) : undefined;
+  const parentSize = parentLayout
+    ? {
+        cols: Math.max(0, Math.trunc(parentLayout.w)),
+        rows: Math.max(0, Math.trunc(parentLayout.h)),
+      }
+    : context.parentSize;
+  const parentMainAxis = readHostMainAxis(hostParent ?? null) ?? context.parentMainAxis;
 
+  const percentWidth = asFiniteNumber(originalProps["__inkPercentWidth"]);
+  const percentHeight = asFiniteNumber(originalProps["__inkPercentHeight"]);
   const percentMinWidth = asFiniteNumber(originalProps["__inkPercentMinWidth"]);
   const percentMinHeight = asFiniteNumber(originalProps["__inkPercentMinHeight"]);
+  const percentFlexBasis = asFiniteNumber(originalProps["__inkPercentFlexBasis"]);
 
+  const deps = context.deps;
+  if (
+    deps &&
+    (percentWidth != null ||
+      percentHeight != null ||
+      percentMinWidth != null ||
+      percentMinHeight != null ||
+      percentFlexBasis != null)
+  ) {
+    // If this node has a host parent but that parent's layout isn't available yet, we cannot
+    // know whether the first-pass percent resolution is correct; force a second pass.
+    if (hostParent && !parentLayout) {
+      deps.missingParentLayout = true;
+    }
+    if (hostParent && parentLayout) {
+      const usesCols =
+        percentWidth != null ||
+        percentMinWidth != null ||
+        (percentFlexBasis != null && parentMainAxis === "row");
+      const usesRows =
+        percentHeight != null ||
+        percentMinHeight != null ||
+        (percentFlexBasis != null && parentMainAxis === "column");
+      recordPercentParentDep(deps, hostParent, parentSize, usesCols, usesRows);
+    }
+  }
+
+  if (percentWidth != null) {
+    nextProps["width"] = resolvePercent(percentWidth, parentSize.cols);
+  }
+  if (percentHeight != null) {
+    nextProps["height"] = resolvePercent(percentHeight, parentSize.rows);
+  }
   if (percentMinWidth != null) {
     nextProps["minWidth"] = resolvePercent(percentMinWidth, parentSize.cols);
   }
@@ -1608,8 +2063,16 @@ function resolvePercentMarkers(vnode: VNode, context: PercentResolveContext): VN
     nextProps["minHeight"] = resolvePercent(percentMinHeight, parentSize.rows);
   }
 
+  if (percentFlexBasis != null) {
+    const basisBase = parentMainAxis === "column" ? parentSize.rows : parentSize.cols;
+    nextProps["flexBasis"] = resolvePercent(percentFlexBasis, basisBase);
+  }
+
+  delete nextProps["__inkPercentWidth"];
+  delete nextProps["__inkPercentHeight"];
   delete nextProps["__inkPercentMinWidth"];
   delete nextProps["__inkPercentMinHeight"];
+  delete nextProps["__inkPercentFlexBasis"];
 
   const localWidth = asFiniteNumber(nextProps["width"]);
   const localHeight = asFiniteNumber(nextProps["height"]);
@@ -1621,6 +2084,7 @@ function resolvePercentMarkers(vnode: VNode, context: PercentResolveContext): VN
   const nextContext: PercentResolveContext = {
     parentSize: nextParentSize,
     parentMainAxis: readNodeMainAxis(candidate.kind),
+    ...(context.deps ? { deps: context.deps } : {}),
   };
 
   const originalChildren = Array.isArray(candidate.children) ? (candidate.children as VNode[]) : [];
@@ -1633,25 +2097,14 @@ function resolvePercentMarkers(vnode: VNode, context: PercentResolveContext): VN
   } as unknown as VNode;
 }
 
-function clearHostLayouts(container: InkHostContainer): void {
-  const stack: InkHostNode[] = [...container.children];
-  while (stack.length > 0) {
-    const node = stack.pop();
-    if (!node) continue;
-    delete (node as HostNodeWithLayout).__inkLayout;
-    for (let index = node.children.length - 1; index >= 0; index -= 1) {
-      const child = node.children[index];
-      if (child) stack.push(child);
-    }
-  }
-}
-
 function assignHostLayouts(
+  container: InkHostContainer,
   nodes: readonly {
     rect?: { x?: number; y?: number; w?: number; h?: number };
     props?: Record<string, unknown>;
   }[],
 ): void {
+  const generation = advanceLayoutGeneration(container);
   for (const node of nodes) {
     if (!node) continue;
     const host = node.props?.["__inkHostNode"];
@@ -1674,12 +2127,16 @@ function assignHostLayouts(
     ) {
       continue;
     }
-    hostNode.__inkLayout = {
-      x: Math.trunc(x),
-      y: Math.trunc(y),
-      w: Math.max(0, Math.trunc(w)),
-      h: Math.max(0, Math.trunc(h)),
-    };
+    writeCurrentLayout(
+      hostNode,
+      {
+        x: Math.trunc(x),
+        y: Math.trunc(y),
+        w: Math.max(0, Math.trunc(w)),
+        h: Math.max(0, Math.trunc(h)),
+      },
+      generation,
+    );
   }
 }
 
@@ -1726,7 +2183,6 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   const detailNodeLimit = traceDetailFull ? 2000 : 300;
   const detailOpLimit = traceDetailFull ? 4000 : 500;
   const detailResizeLimit = traceDetailFull ? 300 : 80;
-  const frameProfileFile = process.env["INK_COMPAT_FRAME_PROFILE_FILE"];
   const writeErr = (stderr as { write: (s: string) => void }).write.bind(stderr);
   const traceStartAt = Date.now();
 
@@ -1741,6 +2197,63 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         appendFileSync(traceFile, line);
       } catch {}
     }
+  };
+
+  const phaseProfileFile = process.env["INK_COMPAT_PHASE_PROFILE_FILE"];
+  const phaseProfile =
+    typeof phaseProfileFile === "string" && phaseProfileFile.length > 0
+      ? {
+          frames: 0,
+          translationMs: 0,
+          percentResolveMs: 0,
+          coreRenderMs: 0,
+          assignLayoutsMs: 0,
+          rectScanMs: 0,
+          ansiMs: 0,
+          otherMs: 0,
+          percentFrames: 0,
+          coreRenderPasses: 0,
+          maxFrameMs: 0,
+        }
+      : null;
+  let phaseProfileFlushed = false;
+  const flushPhaseProfile = (): void => {
+    if (!phaseProfile || phaseProfileFlushed) return;
+    phaseProfileFlushed = true;
+    const frames = Math.max(1, phaseProfile.frames);
+    const payload = {
+      at: new Date().toISOString(),
+      frames: phaseProfile.frames,
+      totalsMs: {
+        translationMs: Math.round(phaseProfile.translationMs * 100) / 100,
+        percentResolveMs: Math.round(phaseProfile.percentResolveMs * 100) / 100,
+        coreRenderMs: Math.round(phaseProfile.coreRenderMs * 100) / 100,
+        assignLayoutsMs: Math.round(phaseProfile.assignLayoutsMs * 100) / 100,
+        rectScanMs: Math.round(phaseProfile.rectScanMs * 100) / 100,
+        ansiMs: Math.round(phaseProfile.ansiMs * 100) / 100,
+        otherMs: Math.round(phaseProfile.otherMs * 100) / 100,
+      },
+      avgMs: {
+        translationMs: Math.round((phaseProfile.translationMs / frames) * 1000) / 1000,
+        percentResolveMs: Math.round((phaseProfile.percentResolveMs / frames) * 1000) / 1000,
+        coreRenderMs: Math.round((phaseProfile.coreRenderMs / frames) * 1000) / 1000,
+        assignLayoutsMs: Math.round((phaseProfile.assignLayoutsMs / frames) * 1000) / 1000,
+        rectScanMs: Math.round((phaseProfile.rectScanMs / frames) * 1000) / 1000,
+        ansiMs: Math.round((phaseProfile.ansiMs / frames) * 1000) / 1000,
+        otherMs: Math.round((phaseProfile.otherMs / frames) * 1000) / 1000,
+      },
+      counters: {
+        percentFrames: phaseProfile.percentFrames,
+        coreRenderPasses: phaseProfile.coreRenderPasses,
+        maxFrameMs: Math.round(phaseProfile.maxFrameMs * 1000) / 1000,
+      },
+    };
+
+    const filePath = phaseProfileFile;
+    if (typeof filePath !== "string" || filePath.length === 0) return;
+    try {
+      appendFileSync(filePath, `${JSON.stringify(payload)}\n`);
+    } catch {}
   };
 
   const bridge = createBridge({
@@ -1759,14 +2272,14 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   });
 
   let viewport = readViewportSize(stdout, fallbackStdout);
-  const renderer = createInkRenderer({
+  const renderer = createTestRenderer({
     viewport,
     ...(traceEnabled
       ? {
           traceDetail: traceDetailFull,
-          trace: (event: InkRendererTraceEvent) => {
+          trace: (event: ReziRendererTraceEvent) => {
             trace(
-              `rezi#${event.renderId} viewport=${event.viewport.cols}x${event.viewport.rows} focused=${event.focusedId ?? "none"} tick=${event.tick} totalMs=${event.timings.totalMs} commitMs=${event.timings.commitMs} layoutMs=${event.timings.layoutMs} drawMs=${event.timings.drawMs} textMs=${event.timings.textMs} nodes=${event.nodeCount} ops=${event.opCount} clipMax=${event.clipDepthMax} textChars=${event.textChars} textLines=${event.textLines} nonBlank=${event.nonBlankLines} widest=${event.widestLine} minY=${event.minRectY} maxBottom=${event.maxRectBottom} zeroH=${event.zeroHeightRects} detailIncluded=${event.detailIncluded} layoutSkipped=${event.layoutSkipped}`,
+              `rezi#${event.renderId} viewport=${event.viewport.cols}x${event.viewport.rows} focused=${event.focusedId ?? "none"} tick=${event.tick} totalMs=${event.timings.totalMs} commitMs=${event.timings.commitMs} layoutMs=${event.timings.layoutMs} drawMs=${event.timings.drawMs} textMs=${event.timings.textMs} nodes=${event.nodeCount} ops=${event.opCount} clipMax=${event.clipDepthMax} textChars=${event.textChars} textLines=${event.textLines} nonBlank=${event.nonBlankLines} widest=${event.widestLine} minY=${event.minRectY} maxBottom=${event.maxRectBottom} zeroH=${event.zeroHeightRects} detailIncluded=${event.detailIncluded}`,
             );
 
             if (!traceDetail) return;
@@ -1791,10 +2304,6 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         }
       : {}),
   });
-  // Separate renderer for <Static> content so static renders don't pollute
-  // the dynamic renderer's prevRoot / layout caches (the root cause of 0%
-  // instance reuse — every frame was mounting all nodes as new).
-  const staticRenderer = createInkRenderer({ viewport });
 
   let lastOutput = "";
   let lastStableOutput = "";
@@ -1824,6 +2333,8 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   let compatWriteDepth = 0;
   let restoreStdoutWrite: (() => void) | undefined;
   let lastCursorSignature = "hidden";
+  let lastCommitSignature = "";
+  let lastStaticCaptureSignature = "";
 
   const _s = debug ? writeErr : (_msg: string): void => {};
 
@@ -2161,18 +2672,24 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   };
 
   const capturePendingStaticOutput = (): void => {
-    if (!bridge.hasStaticNodes()) return;
+    const scan = scanHostTreeForStaticAndAnsi(bridge.rootNode);
+    if (!scan.hasStaticNodes) {
+      lastStaticCaptureSignature = "";
+      return;
+    }
+
+    const nextStaticSignature = staticRootRevisionSignature(bridge.rootNode);
+    if (nextStaticSignature === lastStaticCaptureSignature) return;
 
     const translatedStatic = bridge.translateStaticToVNode();
-    const translatedStaticWithPercent = resolvePercentMarkers(translatedStatic, {
-      parentSize: viewport,
-      parentMainAxis: "column",
-    });
-    const staticResult = staticRenderer.render(translatedStaticWithPercent, {
-      viewport,
-      forceLayout: true,
-    });
-    const staticHasAnsiSgr = hostTreeContainsAnsiSgr(bridge.rootNode);
+    const translatedStaticWithPercent = hasPercentMarkers(translatedStatic)
+      ? resolvePercentMarkers(translatedStatic, {
+          parentSize: viewport,
+          parentMainAxis: "column",
+        })
+      : translatedStatic;
+    const staticResult = renderer.render(translatedStaticWithPercent, { viewport });
+    const staticHasAnsiSgr = scan.hasAnsiSgr;
     const staticColorSupport = staticHasAnsiSgr ? FORCED_TRUECOLOR_SUPPORT : colorSupport;
     const { ansi: staticAnsi } = renderOpsToAnsi(
       staticResult.ops as readonly RenderOp[],
@@ -2185,13 +2702,21 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
       `staticCapture viewport=${viewport.cols}x${viewport.rows} hasAnsiSgr=${staticHasAnsiSgr} baseColorLevel=${colorSupport.level} effectiveColorLevel=${staticColorSupport.level} rawLines=${staticAnsi.split("\n").length} trimmedLines=${staticTrimmed.split("\n").length}`,
     );
 
+    lastStaticCaptureSignature = nextStaticSignature;
     if (staticTrimmed.length === 0) return;
     pendingStaticOutput += `${staticTrimmed}\n`;
   };
 
   const renderFrame = (force = false): void => {
-    const frameStartedAt = Date.now();
+    const frameStartedAt = performance.now();
     frameCount++;
+    let translationMs = 0;
+    let percentResolveMs = 0;
+    let coreRenderMs = 0;
+    let coreRenderPassesThisFrame = 0;
+    let assignLayoutsMs = 0;
+    let rectScanMs = 0;
+    let ansiMs = 0;
     try {
       const frameNow = Date.now();
       const nextViewport = readViewportSize(stdout, fallbackStdout);
@@ -2201,9 +2726,11 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         viewport = nextViewport;
       }
 
-      const translateStartedAt = performance.now();
-      const translatedDynamic = bridge.translateDynamicToVNode();
-      const hasDynamicPercentMarkers = hasPercentMarkers(translatedDynamic);
+      const translationStartedAt = phaseProfile ? performance.now() : 0;
+      const { vnode: translatedDynamic, meta: translationMeta } =
+        bridge.translateDynamicWithMetadata();
+      if (phaseProfile) translationMs = performance.now() - translationStartedAt;
+      const hasDynamicPercentMarkers = translationMeta.hasPercentMarkers;
 
       // In static-channel mode, static output is rendered above the dynamic
       // frame, so dynamic layout works inside the remaining rows.
@@ -2219,71 +2746,96 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
           ? { cols: viewport.cols, rows: Math.max(1, viewport.rows - staticRowsUsed) }
           : viewport;
 
-      const percentStartedAt = performance.now();
-      let translatedDynamicWithPercent = resolvePercentMarkers(translatedDynamic, {
-        parentSize: layoutViewport,
-        parentMainAxis: "column",
-      });
+      let percentDeps: PercentResolveDeps | null = null;
+      const percentResolveStartedAt =
+        phaseProfile && hasDynamicPercentMarkers ? performance.now() : 0;
+      let translatedDynamicWithPercent = translatedDynamic;
+      if (hasDynamicPercentMarkers) {
+        percentDeps = { parents: new Map(), missingParentLayout: false };
+        translatedDynamicWithPercent = resolvePercentMarkers(translatedDynamic, {
+          parentSize: layoutViewport,
+          parentMainAxis: "column",
+          deps: percentDeps,
+        });
+      }
       const translationTraceEntries = traceEnabled ? flushTranslationTrace() : [];
-      const translationMs = performance.now() - translateStartedAt;
-      const percentResolveMs = performance.now() - percentStartedAt;
       let vnode: VNode;
       let rootHeightCoerced: boolean;
-
-      let coreRenderPassesThisFrame = 1;
-      let coreRenderMs = 0;
-      let assignLayoutsMs = 0;
 
       const coerced = coerceRootViewportHeight(translatedDynamicWithPercent, layoutViewport);
       vnode = coerced.vnode;
       rootHeightCoerced = coerced.coerced;
+      if (phaseProfile && hasDynamicPercentMarkers) {
+        percentResolveMs += performance.now() - percentResolveStartedAt;
+      }
 
-      let t0 = performance.now();
-      let result = renderer.render(vnode, {
-        viewport: layoutViewport,
-        forceLayout: viewportChanged,
-      });
-      coreRenderMs += performance.now() - t0;
+      coreRenderPassesThisFrame = 1;
+      const renderStartedAt = phaseProfile ? performance.now() : 0;
+      let result = renderer.render(vnode, { viewport: layoutViewport });
+      if (phaseProfile) coreRenderMs += performance.now() - renderStartedAt;
 
-      t0 = performance.now();
-      clearHostLayouts(bridge.rootNode);
+      const assignLayoutsStartedAt = phaseProfile ? performance.now() : 0;
       assignHostLayouts(
+        bridge.rootNode,
         result.nodes as readonly {
           rect?: { x?: number; y?: number; w?: number; h?: number };
           props?: Record<string, unknown>;
         }[],
       );
-      assignLayoutsMs += performance.now() - t0;
-
+      if (phaseProfile) assignLayoutsMs += performance.now() - assignLayoutsStartedAt;
       if (hasDynamicPercentMarkers) {
-        coreRenderPassesThisFrame = 2;
-        translatedDynamicWithPercent = resolvePercentMarkers(translatedDynamic, {
-          parentSize: layoutViewport,
-          parentMainAxis: "column",
-        });
-        const secondPass = coerceRootViewportHeight(translatedDynamicWithPercent, layoutViewport);
-        vnode = secondPass.vnode;
-        rootHeightCoerced = rootHeightCoerced || secondPass.coerced;
+        // Percent sizing is resolved against parent layout. On the first pass we only have
+        // the previous generation's layouts, so we run a second render only when a percent
+        // base actually changes (or when parent layouts were missing entirely).
+        let needsSecondPass = percentDeps?.missingParentLayout === true;
+        if (!needsSecondPass && percentDeps && percentDeps.parents.size > 0) {
+          for (const [parent, dep] of percentDeps.parents) {
+            const layout = readCurrentLayout(parent);
+            if (!layout) {
+              needsSecondPass = true;
+              break;
+            }
+            const cols = Math.max(0, Math.trunc(layout.w));
+            const rows = Math.max(0, Math.trunc(layout.h));
+            if ((dep.usesCols && cols !== dep.cols) || (dep.usesRows && rows !== dep.rows)) {
+              needsSecondPass = true;
+              break;
+            }
+          }
+        }
 
-        t0 = performance.now();
-        result = renderer.render(vnode, { viewport: layoutViewport, forceLayout: true });
-        coreRenderMs += performance.now() - t0;
+        if (needsSecondPass) {
+          coreRenderPassesThisFrame = 2;
+          const secondPercentStartedAt = phaseProfile ? performance.now() : 0;
+          translatedDynamicWithPercent = resolvePercentMarkers(translatedDynamic, {
+            parentSize: layoutViewport,
+            parentMainAxis: "column",
+          });
+          const secondPass = coerceRootViewportHeight(translatedDynamicWithPercent, layoutViewport);
+          vnode = secondPass.vnode;
+          rootHeightCoerced = rootHeightCoerced || secondPass.coerced;
+          if (phaseProfile) percentResolveMs += performance.now() - secondPercentStartedAt;
 
-        t0 = performance.now();
-        clearHostLayouts(bridge.rootNode);
-        assignHostLayouts(
-          result.nodes as readonly {
-            rect?: { x?: number; y?: number; w?: number; h?: number };
-            props?: Record<string, unknown>;
-          }[],
-        );
-        assignLayoutsMs += performance.now() - t0;
+          const secondRenderStartedAt = phaseProfile ? performance.now() : 0;
+          result = renderer.render(vnode, { viewport: layoutViewport });
+          if (phaseProfile) coreRenderMs += performance.now() - secondRenderStartedAt;
+
+          const secondAssignStartedAt = phaseProfile ? performance.now() : 0;
+          assignHostLayouts(
+            bridge.rootNode,
+            result.nodes as readonly {
+              rect?: { x?: number; y?: number; w?: number; h?: number };
+              props?: Record<string, unknown>;
+            }[],
+          );
+          if (phaseProfile) assignLayoutsMs += performance.now() - secondAssignStartedAt;
+        }
       }
       checkAllResizeObservers();
 
+      const rectScanStartedAt = phaseProfile ? performance.now() : 0;
       // Compute maxRectBottom from layout result — needed to size the ANSI
       // grid correctly in non-alternate-buffer mode.
-      const rectScanStartedAt = performance.now();
       let minRectY = Number.POSITIVE_INFINITY;
       let maxRectBottom = 0;
       let zeroHeightRects = 0;
@@ -2297,7 +2849,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         maxRectBottom = Math.max(maxRectBottom, y + h);
         if (h === 0) zeroHeightRects += 1;
       }
-      const rectScanMs = performance.now() - rectScanStartedAt;
+      if (phaseProfile) rectScanMs = performance.now() - rectScanStartedAt;
 
       // Keep non-alt output content-sized by using computed layout height.
       // When root coercion applies (overflow hidden/scroll), maxRectBottom
@@ -2306,15 +2858,15 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         ? layoutViewport
         : { cols: layoutViewport.cols, rows: Math.max(1, maxRectBottom) };
 
-      const ansiStartedAt = performance.now();
-      const frameHasAnsiSgr = hostTreeContainsAnsiSgr(bridge.rootNode);
+      const frameHasAnsiSgr = translationMeta.hasAnsiSgr;
       const frameColorSupport = frameHasAnsiSgr ? FORCED_TRUECOLOR_SUPPORT : colorSupport;
-      const { ansi: rawAnsiOutput, grid: cellGrid } = renderOpsToAnsi(
-        result.ops as readonly RenderOp[],
-        gridViewport,
-        frameColorSupport,
-      );
-      const ansiMs = performance.now() - ansiStartedAt;
+      const ansiStartedAt = phaseProfile ? performance.now() : 0;
+      const {
+        ansi: rawAnsiOutput,
+        grid: cellGrid,
+        shape: outputShape,
+      } = renderOpsToAnsi(result.ops as readonly RenderOp[], gridViewport, frameColorSupport);
+      if (phaseProfile) ansiMs = performance.now() - ansiStartedAt;
 
       // In alternate-buffer mode the output fills the full layoutViewport.
       // In non-alternate-buffer mode the grid is content-sized so the
@@ -2323,7 +2875,6 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
 
       const staticOutput = pendingStaticOutput;
       pendingStaticOutput = "";
-      const outputShape = summarizeOutputShape(output);
       const emptyOutputFrame = outputShape.nonBlankLines === 0;
       const rootChildCount = bridge.rootNode.children.length;
       const msSinceResizeSignal =
@@ -2380,7 +2931,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         );
 
         trace(
-          `frame#${frameCount} force=${force} viewport=${viewport.cols}x${viewport.rows} layoutViewport=${layoutViewport.cols}x${layoutViewport.rows} gridViewport=${gridViewport.cols}x${gridViewport.rows} staticRowsUsed=${staticRowsUsed} staticRowsFull=${fullStaticRows} staticRowsPending=${pendingStaticRows} viewportChanged=${viewportChanged} renderTimeMs=${Date.now() - frameStartedAt} outputLen=${output.length} nonBlank=${outputShape.nonBlankLines}/${outputShape.lines} first=${outputShape.firstNonBlankLine} last=${outputShape.lastNonBlankLine} widest=${outputShape.widestLine} ops=${result.ops.length} nodes=${result.nodes.length} minY=${Number.isFinite(minRectY) ? minRectY : -1} maxBottom=${maxRectBottom} zeroH=${zeroHeightRects} hostNodes=${host.nodeCount} hostBoxes=${host.boxCount} hostScrollNodes=${host.scrollNodeCount} hostMaxScrollTop=${host.maxScrollTop} hostMaxScrollLeft=${host.maxScrollLeft} hostRootScrollTop=${host.rootScrollTop} hostRootOverflow=${host.rootOverflow || "none"} hostRootWidth=${host.rootWidthProp || "unset"} hostRootHeight=${host.rootHeightProp || "unset"} hostRootFlexGrow=${host.rootFlexGrowProp || "unset"} hostRootFlexShrink=${host.rootFlexShrinkProp || "unset"} rootChildren=${rootChildCount} msSinceResizeSignal=${Number.isFinite(msSinceResizeSignal) ? msSinceResizeSignal : -1} msSinceResizeFlush=${Number.isFinite(msSinceResizeFlush) ? msSinceResizeFlush : -1} transientEmptyAfterResize=${transientEmptyAfterResize} vnode=${vnodeKind} vnodeOverflow=${translatedOverflow || "none"} vnodeScrollY=${translatedScrollY} vnodeScrollX=${translatedScrollX} rootHeightCoerced=${rootHeightCoerced} writeBlocked=${writeBlocked} collapsed=${collapsed} opViewportOverflowCount=${opViewportOverflows.length}`,
+          `frame#${frameCount} force=${force} viewport=${viewport.cols}x${viewport.rows} layoutViewport=${layoutViewport.cols}x${layoutViewport.rows} gridViewport=${gridViewport.cols}x${gridViewport.rows} staticRowsUsed=${staticRowsUsed} staticRowsFull=${fullStaticRows} staticRowsPending=${pendingStaticRows} viewportChanged=${viewportChanged} renderTimeMs=${performance.now() - frameStartedAt} outputLen=${output.length} nonBlank=${outputShape.nonBlankLines}/${outputShape.lines} first=${outputShape.firstNonBlankLine} last=${outputShape.lastNonBlankLine} widest=${outputShape.widestLine} ops=${result.ops.length} nodes=${result.nodes.length} minY=${Number.isFinite(minRectY) ? minRectY : -1} maxBottom=${maxRectBottom} zeroH=${zeroHeightRects} hostNodes=${host.nodeCount} hostBoxes=${host.boxCount} hostScrollNodes=${host.scrollNodeCount} hostMaxScrollTop=${host.maxScrollTop} hostMaxScrollLeft=${host.maxScrollLeft} hostRootScrollTop=${host.rootScrollTop} hostRootOverflow=${host.rootOverflow || "none"} hostRootWidth=${host.rootWidthProp || "unset"} hostRootHeight=${host.rootHeightProp || "unset"} hostRootFlexGrow=${host.rootFlexGrowProp || "unset"} hostRootFlexShrink=${host.rootFlexShrinkProp || "unset"} rootChildren=${rootChildCount} msSinceResizeSignal=${Number.isFinite(msSinceResizeSignal) ? msSinceResizeSignal : -1} msSinceResizeFlush=${Number.isFinite(msSinceResizeFlush) ? msSinceResizeFlush : -1} transientEmptyAfterResize=${transientEmptyAfterResize} vnode=${vnodeKind} vnodeOverflow=${translatedOverflow || "none"} vnodeScrollY=${translatedScrollY} vnodeScrollX=${translatedScrollX} rootHeightCoerced=${rootHeightCoerced} writeBlocked=${writeBlocked} collapsed=${collapsed} opViewportOverflowCount=${opViewportOverflows.length}`,
         );
         trace(
           `frame#${frameCount} colorSupport baseLevel=${colorSupport.level} baseNoColor=${colorSupport.noColor} hasAnsiSgr=${frameHasAnsiSgr} effectiveLevel=${frameColorSupport.level} effectiveNoColor=${frameColorSupport.noColor}`,
@@ -2506,43 +3057,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         }
       }
 
-      const renderTime = Date.now() - frameStartedAt;
-      options.onRender?.({
-        renderTime,
-        output,
-        ...(staticOutput.length > 0 ? { staticOutput } : {}),
-      });
-
-      if (frameProfileFile) {
-        const _r = (v: number): number => Math.round(v * 1000) / 1000;
-        const layoutProfile = (result.timings as { _layoutProfile?: unknown } | undefined)
-          ?._layoutProfile;
-        try {
-          appendFileSync(
-            frameProfileFile,
-            `${JSON.stringify({
-              frame: frameCount,
-              ts: Date.now(),
-              totalMs: _r(renderTime),
-              translationMs: _r(translationMs),
-              percentResolveMs: _r(percentResolveMs),
-              coreRenderMs: _r(coreRenderMs),
-              coreCommitMs: _r(result.timings?.commitMs ?? 0),
-              coreLayoutMs: _r(result.timings?.layoutMs ?? 0),
-              coreDrawMs: _r(result.timings?.drawMs ?? 0),
-              layoutSkipped: result.timings?.layoutSkipped ?? false,
-              assignLayoutsMs: _r(assignLayoutsMs),
-              rectScanMs: _r(rectScanMs),
-              ansiMs: _r(ansiMs),
-              passes: coreRenderPassesThisFrame,
-              ops: result.ops.length,
-              nodes: result.nodes.length,
-              ...(layoutProfile === undefined ? {} : { _lp: layoutProfile }),
-            })}\n`,
-          );
-        } catch {}
-      }
-
+      const renderTime = performance.now() - frameStartedAt;
       const cursorPosition = bridge.context.getCursorPosition();
       const cursorSignature = cursorPosition
         ? `${Math.trunc(cursorPosition.x)},${Math.trunc(cursorPosition.y)}`
@@ -2575,7 +3090,29 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         return;
       }
 
+      if (phaseProfile) {
+        const accounted =
+          translationMs + percentResolveMs + coreRenderMs + assignLayoutsMs + rectScanMs + ansiMs;
+        const otherMs = Math.max(0, renderTime - accounted);
+        phaseProfile.frames += 1;
+        phaseProfile.translationMs += translationMs;
+        phaseProfile.percentResolveMs += percentResolveMs;
+        phaseProfile.coreRenderMs += coreRenderMs;
+        phaseProfile.assignLayoutsMs += assignLayoutsMs;
+        phaseProfile.rectScanMs += rectScanMs;
+        phaseProfile.ansiMs += ansiMs;
+        phaseProfile.otherMs += otherMs;
+        if (hasDynamicPercentMarkers) phaseProfile.percentFrames += 1;
+        phaseProfile.coreRenderPasses += coreRenderPassesThisFrame || 1;
+        phaseProfile.maxFrameMs = Math.max(phaseProfile.maxFrameMs, renderTime);
+      }
+
       writeOutput({ output, staticOutput });
+      options.onRender?.({
+        renderTime,
+        output,
+        ...(staticOutput.length > 0 ? { staticOutput } : {}),
+      });
       lastCursorSignature = cursorSignature;
     } catch (err) {
       _s(
@@ -2624,6 +3161,11 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   };
 
   bridge.rootNode.onCommit = () => {
+    const nextCommitSignature = rootChildRevisionSignature(bridge.rootNode);
+    if (nextCommitSignature === lastCommitSignature) {
+      return;
+    }
+    lastCommitSignature = nextCommitSignature;
     capturePendingStaticOutput();
     scheduleRender(false);
   };
@@ -2826,6 +3368,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   function cleanup(unmountTree: boolean): void {
     if (cleanedUp) return;
     cleanedUp = true;
+    flushPhaseProfile();
     if (translationTraceEnabled) {
       enableTranslationTrace(false);
     }
