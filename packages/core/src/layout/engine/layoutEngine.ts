@@ -111,7 +111,11 @@ function popLayoutCache(): void {
 }
 
 function forcedDimensionKey(value: number | null): number {
-  return value === null ? NULL_FORCED_DIMENSION : value;
+  if (value === null) return NULL_FORCED_DIMENSION;
+  if (value < 0) {
+    throw new RangeError("layout: forced dimensions must be >= 0");
+  }
+  return value;
 }
 
 function getLayoutCacheHit(
