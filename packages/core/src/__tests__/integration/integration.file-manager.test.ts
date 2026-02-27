@@ -1,5 +1,4 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { parseInternedStrings } from "../drawlistDecode.js";
 import {
   encodeZrevBatchV1,
   flushMicrotasks,
@@ -23,6 +22,7 @@ import {
 } from "../../keybindings/keyCodes.js";
 import type { CommandItem, CommandSource, FileNode } from "../../widgets/types.js";
 import { ui } from "../../widgets/ui.js";
+import { parseInternedStrings } from "../drawlistDecode.js";
 
 type EncodedEvent = NonNullable<Parameters<typeof encodeZrevBatchV1>[0]["events"]>[number];
 

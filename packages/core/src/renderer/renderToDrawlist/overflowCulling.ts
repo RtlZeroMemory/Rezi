@@ -32,10 +32,17 @@ function hasBoxShadowOverflow(node: RuntimeInstance): boolean {
   if (typeof shadow !== "object") {
     return false;
   }
-  const config = shadow as Readonly<{ offsetX?: unknown; offsetY?: unknown }>;
+  const config = shadow as Readonly<{
+    offsetX?: unknown;
+    offsetY?: unknown;
+    blur?: unknown;
+    spread?: unknown;
+  }>;
   const offsetX = readShadowOffset(config.offsetX, 1);
   const offsetY = readShadowOffset(config.offsetY, 1);
-  return offsetX > 0 || offsetY > 0;
+  const blur = readShadowOffset(config.blur, 0);
+  const spread = readShadowOffset(config.spread, 0);
+  return offsetX > 0 || offsetY > 0 || blur > 0 || spread > 0;
 }
 
 function hasVisibleOverflow(node: RuntimeInstance): boolean {

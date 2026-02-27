@@ -36,8 +36,12 @@ import {
   setTextMeasureEmojiPolicy,
   severityToNum,
 } from "@rezi-ui/core";
+import {
+  createFrameAuditLogger,
+  drawlistFingerprint,
+  maybeDumpDrawlistBytes,
+} from "../frameAudit.js";
 import { applyEmojiWidthPolicy, resolveBackendEmojiWidthPolicy } from "./emojiWidthPolicy.js";
-import { createFrameAuditLogger, drawlistFingerprint, maybeDumpDrawlistBytes } from "../frameAudit.js";
 import type {
   NodeBackend,
   NodeBackendInternalOpts,

@@ -1,5 +1,4 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { parseInternedStrings } from "../drawlistDecode.js";
 import {
   encodeZrevBatchV1,
   flushMicrotasks,
@@ -18,6 +17,7 @@ import {
   ZR_MOD_SHIFT,
 } from "../../keybindings/keyCodes.js";
 import type { Rect } from "../../layout/types.js";
+import { parseInternedStrings } from "../drawlistDecode.js";
 
 const VIEWPORT = Object.freeze({ cols: 96, rows: 30 });
 

@@ -12,8 +12,8 @@
 
 import { FRAME_ACCEPTED_ACK_MARKER, type RuntimeBackend } from "../backend.js";
 import { type DrawlistBuilder, createDrawlistBuilder } from "../drawlist/index.js";
-import { perfMarkEnd, perfMarkStart } from "../perf/perf.js";
 import { FRAME_AUDIT_ENABLED, drawlistFingerprint, emitFrameAudit } from "../perf/frameAudit.js";
+import { perfMarkEnd, perfMarkStart } from "../perf/perf.js";
 import type { DrawFn } from "./types.js";
 
 /** Callbacks for render lifecycle tracking (used by app to set inRender flag). */

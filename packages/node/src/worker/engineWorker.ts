@@ -9,6 +9,16 @@
 import { performance } from "node:perf_hooks";
 import { parentPort, workerData } from "node:worker_threads";
 import {
+  FRAME_AUDIT_NATIVE_ENABLED,
+  FRAME_AUDIT_NATIVE_RING_BYTES,
+  ZR_DEBUG_CAT_DRAWLIST,
+  ZR_DEBUG_CODE_DRAWLIST_CMD,
+  ZR_DEBUG_CODE_DRAWLIST_EXECUTE,
+  ZR_DEBUG_CODE_DRAWLIST_VALIDATE,
+  createFrameAuditLogger,
+  drawlistFingerprint,
+} from "../frameAudit.js";
+import {
   EVENT_POOL_SIZE,
   FRAME_SAB_CONTROL_CONSUMED_SEQ_WORD,
   FRAME_SAB_CONTROL_HEADER_WORDS,
@@ -29,16 +39,6 @@ import {
   type WorkerToMainMessage,
 } from "./protocol.js";
 import { computeNextIdleDelay, computeTickTiming } from "./tickTiming.js";
-import {
-  FRAME_AUDIT_NATIVE_ENABLED,
-  FRAME_AUDIT_NATIVE_RING_BYTES,
-  ZR_DEBUG_CAT_DRAWLIST,
-  ZR_DEBUG_CODE_DRAWLIST_CMD,
-  ZR_DEBUG_CODE_DRAWLIST_EXECUTE,
-  ZR_DEBUG_CODE_DRAWLIST_VALIDATE,
-  createFrameAuditLogger,
-  drawlistFingerprint,
-} from "../frameAudit.js";
 
 /**
  * Perf tracking for worker-side event polling.
@@ -378,7 +378,11 @@ function setFrameAuditMeta(
   frameAuditBySeq.set(frameSeq, next);
 }
 
-function emitFrameAudit(stage: string, frameSeq: number, fields: Readonly<Record<string, unknown>> = {}): void {
+function emitFrameAudit(
+  stage: string,
+  frameSeq: number,
+  fields: Readonly<Record<string, unknown>> = {},
+): void {
   if (!frameAudit.enabled) return;
   const meta = frameAuditBySeq.get(frameSeq);
   frameAudit.emit(stage, {
@@ -1011,7 +1015,8 @@ function tick(): void {
     try {
       pres = native.enginePresent(engineId);
     } catch (err) {
-      if (submittedFrameSeq !== null) emitFrameAudit("frame.present.throw", submittedFrameSeq, { detail: safeDetail(err) });
+      if (submittedFrameSeq !== null)
+        emitFrameAudit("frame.present.throw", submittedFrameSeq, { detail: safeDetail(err) });
       if (submittedFrameSeq !== null) postFrameStatus(submittedFrameSeq, -1);
       drainNativeFrameAudit("present-throw");
       fatal("enginePresent", -1, `engine_present threw: ${safeDetail(err)}`);
@@ -1019,14 +1024,16 @@ function tick(): void {
       return;
     }
     if (pres < 0) {
-      if (submittedFrameSeq !== null) emitFrameAudit("frame.present.result", submittedFrameSeq, { presentResult: pres });
+      if (submittedFrameSeq !== null)
+        emitFrameAudit("frame.present.result", submittedFrameSeq, { presentResult: pres });
       if (submittedFrameSeq !== null) postFrameStatus(submittedFrameSeq, pres);
       drainNativeFrameAudit("present-failed");
       fatal("enginePresent", pres, "engine_present failed");
       running = false;
       return;
     }
-    if (submittedFrameSeq !== null) emitFrameAudit("frame.present.result", submittedFrameSeq, { presentResult: pres });
+    if (submittedFrameSeq !== null)
+      emitFrameAudit("frame.present.result", submittedFrameSeq, { presentResult: pres });
   }
 
   if (submittedFrameSeq !== null) {
@@ -1216,7 +1223,9 @@ function onMessage(msg: MainToWorkerMessage): void {
 
       // latest-wins overwrite for transfer-path fallback.
       if (pendingFrame !== null) {
-        emitFrameAudit("frame.overwritten", pendingFrame.frameSeq, { reason: "message-latest-wins" });
+        emitFrameAudit("frame.overwritten", pendingFrame.frameSeq, {
+          reason: "message-latest-wins",
+        });
         deleteFrameAudit(pendingFrame.frameSeq);
         releasePendingFrame(pendingFrame, FRAME_SAB_SLOT_STATE_READY);
       }

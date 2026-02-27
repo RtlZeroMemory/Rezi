@@ -1,14 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import {
-  OP_CLEAR,
-  OP_DRAW_TEXT,
-  OP_FILL_RECT,
-  OP_PUSH_CLIP,
-  parseCommandHeaders,
-  parseDrawTextCommands,
-  parseInternedStrings,
-} from "../drawlistDecode.js";
-import {
   encodeZrevBatchV1,
   flushMicrotasks,
   makeBackendBatch,
@@ -17,6 +8,15 @@ import { StubBackend } from "../../app/__tests__/stubBackend.js";
 import { createApp } from "../../app/createApp.js";
 import type { App } from "../../index.js";
 import { ui } from "../../widgets/ui.js";
+import {
+  OP_CLEAR,
+  OP_DRAW_TEXT,
+  OP_FILL_RECT,
+  OP_PUSH_CLIP,
+  parseCommandHeaders,
+  parseDrawTextCommands,
+  parseInternedStrings,
+} from "../drawlistDecode.js";
 
 type EncodedEvent = NonNullable<Parameters<typeof encodeZrevBatchV1>[0]["events"]>[number];
 type Viewport = Readonly<{ cols: number; rows: number }>;

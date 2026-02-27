@@ -15,8 +15,8 @@
  */
 
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
-import { performance } from "node:perf_hooks";
 import { join } from "node:path";
+import { performance } from "node:perf_hooks";
 
 export type DrawlistFingerprint = Readonly<{
   byteLen: number;
@@ -129,8 +129,7 @@ function nowUs(): number {
 
 const FRAME_AUDIT_ENABLED = envFlag("REZI_FRAME_AUDIT", false);
 const FRAME_AUDIT_LOG_PATH =
-  readEnv("REZI_FRAME_AUDIT_LOG") ??
-  (FRAME_AUDIT_ENABLED ? "/tmp/rezi-frame-audit.ndjson" : null);
+  readEnv("REZI_FRAME_AUDIT_LOG") ?? (FRAME_AUDIT_ENABLED ? "/tmp/rezi-frame-audit.ndjson" : null);
 const FRAME_AUDIT_STDERR_MIRROR = envFlag("REZI_FRAME_AUDIT_STDERR_MIRROR", false);
 const FRAME_AUDIT_DUMP_DIR = readEnv("REZI_FRAME_AUDIT_DUMP_DIR");
 const FRAME_AUDIT_DUMP_ROUTE = readEnv("REZI_FRAME_AUDIT_DUMP_ROUTE");
@@ -138,8 +137,12 @@ const FRAME_AUDIT_DUMP_MAX = envPositiveInt("REZI_FRAME_AUDIT_DUMP_MAX", 0);
 let frameAuditDumpCount = 0;
 
 export { FRAME_AUDIT_ENABLED };
-export const FRAME_AUDIT_NATIVE_ENABLED = FRAME_AUDIT_ENABLED && envFlag("REZI_FRAME_AUDIT_NATIVE", true);
-export const FRAME_AUDIT_NATIVE_RING_BYTES = envPositiveInt("REZI_FRAME_AUDIT_NATIVE_RING", 4 << 20);
+export const FRAME_AUDIT_NATIVE_ENABLED =
+  FRAME_AUDIT_ENABLED && envFlag("REZI_FRAME_AUDIT_NATIVE", true);
+export const FRAME_AUDIT_NATIVE_RING_BYTES = envPositiveInt(
+  "REZI_FRAME_AUDIT_NATIVE_RING",
+  4 << 20,
+);
 
 // Match zr_debug category/code values.
 export const ZR_DEBUG_CAT_DRAWLIST = 3;
@@ -149,12 +152,12 @@ export const ZR_DEBUG_CODE_DRAWLIST_CMD = 0x0302;
 
 function readContextRoute(): string | null {
   const g = globalThis as {
-    __reziFrameAuditContext?: () => Readonly<Record<string, unknown>>;
+    __reziFrameAuditContext?: () => Readonly<{ route?: unknown }>;
   };
   if (typeof g.__reziFrameAuditContext !== "function") return null;
   try {
     const ctx = g.__reziFrameAuditContext();
-    const route = ctx["route"];
+    const route = ctx.route;
     return typeof route === "string" && route.length > 0 ? route : null;
   } catch {
     return null;

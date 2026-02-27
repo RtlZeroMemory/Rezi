@@ -100,7 +100,9 @@ export function parseCommandHeaders(bytes: Uint8Array): readonly DrawlistCommand
       throw new Error(`command size below minimum at offset ${String(off)} (size=${String(size)})`);
     }
     if ((size & 3) !== 0) {
-      throw new Error(`command size not 4-byte aligned at offset ${String(off)} (size=${String(size)})`);
+      throw new Error(
+        `command size not 4-byte aligned at offset ${String(off)} (size=${String(size)})`,
+      );
     }
     const next = off + size;
     if (next > cmdEnd) {
@@ -136,7 +138,9 @@ function parseResourceState(bytes: Uint8Array): ResourceState {
     switch (cmd.opcode) {
       case OP_DEF_STRING: {
         if (cmd.size < 16) {
-          throw new Error(`DEF_STRING too small at offset ${String(cmd.offset)} size=${String(cmd.size)}`);
+          throw new Error(
+            `DEF_STRING too small at offset ${String(cmd.offset)} size=${String(cmd.size)}`,
+          );
         }
         const id = u32(bytes, cmd.offset + 8);
         const byteLen = u32(bytes, cmd.offset + 12);
@@ -152,14 +156,18 @@ function parseResourceState(bytes: Uint8Array): ResourceState {
       }
       case OP_FREE_STRING: {
         if (cmd.size !== 12) {
-          throw new Error(`FREE_STRING wrong size at offset ${String(cmd.offset)} size=${String(cmd.size)}`);
+          throw new Error(
+            `FREE_STRING wrong size at offset ${String(cmd.offset)} size=${String(cmd.size)}`,
+          );
         }
         strings.delete(u32(bytes, cmd.offset + 8));
         break;
       }
       case OP_DEF_BLOB: {
         if (cmd.size < 16) {
-          throw new Error(`DEF_BLOB too small at offset ${String(cmd.offset)} size=${String(cmd.size)}`);
+          throw new Error(
+            `DEF_BLOB too small at offset ${String(cmd.offset)} size=${String(cmd.size)}`,
+          );
         }
         const id = u32(bytes, cmd.offset + 8);
         const byteLen = u32(bytes, cmd.offset + 12);
@@ -175,7 +183,9 @@ function parseResourceState(bytes: Uint8Array): ResourceState {
       }
       case OP_FREE_BLOB: {
         if (cmd.size !== 12) {
-          throw new Error(`FREE_BLOB wrong size at offset ${String(cmd.offset)} size=${String(cmd.size)}`);
+          throw new Error(
+            `FREE_BLOB wrong size at offset ${String(cmd.offset)} size=${String(cmd.size)}`,
+          );
         }
         blobs.delete(u32(bytes, cmd.offset + 8));
         break;

@@ -64,7 +64,12 @@ const recordsByPid = new Map();
 for (const rec of records) {
   if (!Number.isInteger(rec.pid)) continue;
   const pid = rec.pid;
-  const state = recordsByPid.get(pid) ?? { count: 0, firstTs: null, lastTs: null, modes: new Set() };
+  const state = recordsByPid.get(pid) ?? {
+    count: 0,
+    firstTs: null,
+    lastTs: null,
+    modes: new Set(),
+  };
   state.count += 1;
   if (typeof rec.ts === "string") {
     if (state.firstTs === null || rec.ts < state.firstTs) state.firstTs = rec.ts;
@@ -170,7 +175,10 @@ for (const rec of records) {
     if (route !== "<unknown>" && key !== null) routeBySeq.set(key, route);
   }
 
-  if ((rec.scope === "worker" || rec.scope === "backend-inline") && stage === "frame.submit.payload") {
+  if (
+    (rec.scope === "worker" || rec.scope === "backend-inline") &&
+    stage === "frame.submit.payload"
+  ) {
     const key = seqKey(rec);
     if (key !== null) submitPayloadBySeq.set(key, rec);
     addOpcodeHistogram(globalOpcodeCounts, rec.opcodeHistogram);
@@ -283,7 +291,9 @@ if (recordsByPid.size > 0) {
   const sessionRows = [...recordsByPid.entries()].sort((a, b) => a[0] - b[0]);
   for (const [pid, s] of sessionRows) {
     const modes = [...s.modes].sort().join("|");
-    process.stdout.write(`  pid=${pid} records=${s.count} firstTs=${s.firstTs ?? "-"} lastTs=${s.lastTs ?? "-"} modes=${modes}\n`);
+    process.stdout.write(
+      `  pid=${pid} records=${s.count} firstTs=${s.firstTs ?? "-"} lastTs=${s.lastTs ?? "-"} modes=${modes}\n`,
+    );
   }
 }
 process.stdout.write(`backend_submitted=${backendSubmitted.size}\n`);
@@ -315,7 +325,9 @@ for (const [opcode, count] of topOpcodes) {
   process.stdout.write(`  ${name}(${opcode}): ${count}\n`);
 }
 
-const routes = [...routeSummaries.entries()].sort((a, b) => b[1].framesSubmitted - a[1].framesSubmitted);
+const routes = [...routeSummaries.entries()].sort(
+  (a, b) => b[1].framesSubmitted - a[1].framesSubmitted,
+);
 process.stdout.write("route_summary:\n");
 for (const [route, summary] of routes) {
   const avgBytes = summary.framesSubmitted > 0 ? summary.bytesTotal / summary.framesSubmitted : 0;

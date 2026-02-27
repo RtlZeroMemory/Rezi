@@ -20,7 +20,6 @@ import type {
   TerminalCaps,
   TerminalProfile,
 } from "@rezi-ui/core";
-import type { BackendBeginFrame } from "@rezi-ui/core/backend";
 import {
   BACKEND_BEGIN_FRAME_MARKER,
   BACKEND_DRAWLIST_VERSION_MARKER,
@@ -40,6 +39,12 @@ import {
   setTextMeasureEmojiPolicy,
   severityToNum,
 } from "@rezi-ui/core";
+import type { BackendBeginFrame } from "@rezi-ui/core/backend";
+import {
+  createFrameAuditLogger,
+  drawlistFingerprint,
+  maybeDumpDrawlistBytes,
+} from "../frameAudit.js";
 import {
   type EngineCreateConfig,
   FRAME_SAB_CONTROL_CONSUMED_SEQ_WORD,
@@ -63,7 +68,6 @@ import {
 import { applyEmojiWidthPolicy, resolveBackendEmojiWidthPolicy } from "./emojiWidthPolicy.js";
 import { createNodeBackendInlineInternal } from "./nodeBackendInline.js";
 import { terminalProfileFromNodeEnv } from "./terminalProfile.js";
-import { createFrameAuditLogger, drawlistFingerprint, maybeDumpDrawlistBytes } from "../frameAudit.js";
 
 export type NodeBackendConfig = Readonly<{
   /**
@@ -1554,7 +1558,9 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
             buf,
             commit: (byteLen: number) => {
               if (finalized) {
-                return Promise.reject(new Error("NodeBackend: beginFrame writer already finalized"));
+                return Promise.reject(
+                  new Error("NodeBackend: beginFrame writer already finalized"),
+                );
               }
               finalized = true;
               if (disposed) {
@@ -1572,10 +1578,16 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
                 Atomics.store(sabFrameTransport.states, slotIndex, FRAME_SAB_SLOT_STATE_FREE);
                 return Promise.reject(new Error("NodeBackend: stopped"));
               }
-              if (!Number.isInteger(byteLen) || byteLen < 0 || byteLen > sabFrameTransport.slotBytes) {
+              if (
+                !Number.isInteger(byteLen) ||
+                byteLen < 0 ||
+                byteLen > sabFrameTransport.slotBytes
+              ) {
                 Atomics.store(sabFrameTransport.tokens, slotIndex, 0);
                 Atomics.store(sabFrameTransport.states, slotIndex, FRAME_SAB_SLOT_STATE_FREE);
-                return Promise.reject(new Error("NodeBackend: beginFrame commit byteLen out of range"));
+                return Promise.reject(
+                  new Error("NodeBackend: beginFrame commit byteLen out of range"),
+                );
               }
 
               const frameSeq = nextFrameSeq++;
@@ -1600,7 +1612,11 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
                   byteLen,
                 });
               }
-              Atomics.notify(sabFrameTransport.controlHeader, FRAME_SAB_CONTROL_PUBLISHED_SEQ_WORD, 1);
+              Atomics.notify(
+                sabFrameTransport.controlHeader,
+                FRAME_SAB_CONTROL_PUBLISHED_SEQ_WORD,
+                1,
+              );
               return framePromise;
             },
             abort: () => {

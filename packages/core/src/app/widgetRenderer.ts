@@ -25,9 +25,9 @@ import type { CursorShape } from "../abi.js";
 import {
   BACKEND_BEGIN_FRAME_MARKER,
   BACKEND_RAW_WRITE_MARKER,
-  FRAME_ACCEPTED_ACK_MARKER,
   type BackendBeginFrame,
   type BackendRawWrite,
+  FRAME_ACCEPTED_ACK_MARKER,
   type RuntimeBackend,
 } from "../backend.js";
 import { CURSOR_DEFAULTS } from "../cursor/index.js";
@@ -622,11 +622,7 @@ function summarizeRuntimeTreeForAudit(
     if (kind !== layoutKind) {
       const runtimeLabel = describeAuditVNode(node.vnode);
       const layoutLabel = describeAuditVNode(layout.vnode);
-      pushLimited(
-        mismatchSamples,
-        `${path}:${runtimeLabel}!${layoutLabel}`,
-        24,
-      );
+      pushLimited(mismatchSamples, `${path}:${runtimeLabel}!${layoutLabel}`, 24);
     }
 
     const rect = layout.rect;

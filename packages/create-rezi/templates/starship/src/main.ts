@@ -1,8 +1,8 @@
 import {
-  categoriesToMask,
-  createDebugController,
   type DebugController,
   type DebugRecord,
+  categoriesToMask,
+  createDebugController,
 } from "@rezi-ui/core";
 import { createNodeApp } from "@rezi-ui/node";
 import { debugSnapshot } from "./helpers/debug.js";
@@ -58,6 +58,7 @@ let stopping = false;
 let tickTimer: ReturnType<typeof setInterval> | null = null;
 let toastTimer: ReturnType<typeof setInterval> | null = null;
 let debugTraceTimer: ReturnType<typeof setInterval> | null = null;
+let debugTraceInFlight = false;
 let debugController: DebugController | null = null;
 let debugLastRecordId = 0n;
 let stopCode = 0;
@@ -527,7 +528,8 @@ function snapshotDebugRecord(record: DebugRecord): void {
         route: currentRouteId(),
         drawlistBytes: record.payload.drawlistBytes,
         drawlistCmds: record.payload.drawlistCmds,
-        diffBytesEmitted: "diffBytesEmitted" in record.payload ? record.payload.diffBytesEmitted : null,
+        diffBytesEmitted:
+          "diffBytesEmitted" in record.payload ? record.payload.diffBytesEmitted : null,
         dirtyLines: "dirtyLines" in record.payload ? record.payload.dirtyLines : null,
         dirtyCells: "dirtyCells" in record.payload ? record.payload.dirtyCells : null,
         damageRects: "damageRects" in record.payload ? record.payload.damageRects : null,
@@ -565,7 +567,8 @@ function snapshotDebugRecord(record: DebugRecord): void {
         cmdCount: record.payload.cmdCount,
         validationResult:
           "validationResult" in record.payload ? record.payload.validationResult : null,
-        executionResult: "executionResult" in record.payload ? record.payload.executionResult : null,
+        executionResult:
+          "executionResult" in record.payload ? record.payload.executionResult : null,
         clipStackMaxDepth:
           "clipStackMaxDepth" in record.payload ? record.payload.clipStackMaxDepth : null,
         textRuns: "textRuns" in record.payload ? record.payload.textRuns : null,
@@ -644,7 +647,8 @@ async function setupDebugTrace(): Promise<void> {
   });
 
   const pump = async () => {
-    if (!debugController) return;
+    if (!debugController || debugTraceInFlight) return;
+    debugTraceInFlight = true;
     try {
       const records = await debugController.query({ maxRecords: 256 });
       if (records.length === 0) return;
@@ -658,6 +662,8 @@ async function setupDebugTrace(): Promise<void> {
         message: error instanceof Error ? error.message : String(error),
         route: currentRouteId(),
       });
+    } finally {
+      debugTraceInFlight = false;
     }
   };
 

@@ -179,9 +179,7 @@ if (invokedPath && invokedPath === selfPath) {
     );
     process.exit(0);
   } catch (err) {
-    process.stderr.write(
-      `check-native-vendor-integrity: FAIL\n${String(err?.stack ?? err)}\n`,
-    );
+    process.stderr.write(`check-native-vendor-integrity: FAIL\n${String(err?.stack ?? err)}\n`);
     process.exit(1);
   }
 }
