@@ -17,11 +17,12 @@ function usage() {
   process.stderr.write(
     [
       "Usage:",
-      "  node scripts/ink-compat-bench/summarize-cpuprofile.mjs <file.cpuprofile> [--top N] [--filter STR] [--stacks N] [--json]",
+      "  node scripts/ink-compat-bench/summarize-cpuprofile.mjs <file.cpuprofile> [--top N] [--filter STR] [--stacks N] [--active] [--json]",
       "",
       "Notes:",
       "  - Self time is attributed to the sampled leaf frame id.",
       "  - `--filter` matches callFrame.url or functionName substrings.",
+      "  - `--active` excludes `(idle)` samples when computing percentages.",
     ].join("\n") + "\n",
   );
 }
@@ -90,6 +91,7 @@ async function main() {
   const topN = Number.parseInt(readArg("top", "25"), 10) || 25;
   const stacksN = Number.parseInt(readArg("stacks", "10"), 10) || 10;
   const filter = readArg("filter", "");
+  const activeOnly = hasFlag("active");
   const jsonOut = hasFlag("json");
 
   const raw = JSON.parse(fs.readFileSync(file, "utf8"));
@@ -104,6 +106,7 @@ async function main() {
   const parentById = buildParentMap(nodes);
 
   let totalUs = 0;
+  let idleUs = 0;
   const selfUsById = new Map();
   for (let i = 0; i < samples.length; i++) {
     const id = samples[i];
@@ -112,13 +115,18 @@ async function main() {
     if (typeof dt !== "number" || !Number.isFinite(dt) || dt < 0) continue;
     totalUs += dt;
     selfUsById.set(id, (selfUsById.get(id) ?? 0) + dt);
+    const node = nodeById.get(id);
+    if (node?.callFrame?.functionName === "(idle)") idleUs += dt;
   }
+  const activeUs = Math.max(0, totalUs - idleUs);
+  const pctDenomUs = activeOnly ? activeUs : totalUs;
 
   const entries = [];
   for (const [id, selfUs] of selfUsById.entries()) {
     const node = nodeById.get(id);
     if (!node) continue;
     const { fn, loc } = formatFrame(node);
+    if (activeOnly && fn === "(idle)") continue;
     if (filter) {
       const hay = `${fn} ${loc} ${(node.callFrame?.url ?? "")}`.toLowerCase();
       if (!hay.includes(filter.toLowerCase())) continue;
@@ -139,16 +147,18 @@ async function main() {
   const out = {
     file: path.resolve(file),
     totalTimeMs: Math.round(ms(totalUs) * 1000) / 1000,
+    activeTimeMs: Math.round(ms(activeUs) * 1000) / 1000,
     totalSamples: samples.length,
+    activeOnly,
     topSelf: top.map((e) => ({
       selfMs: Math.round(ms(e.selfUs) * 1000) / 1000,
-      selfPct: totalUs > 0 ? Math.round(((e.selfUs / totalUs) * 100) * 10) / 10 : null,
+      selfPct: pctDenomUs > 0 ? Math.round(((e.selfUs / pctDenomUs) * 100) * 10) / 10 : null,
       fn: e.fn,
       loc: e.loc,
     })),
     topStacks: stackEntries.map((e) => ({
       selfMs: Math.round(ms(e.selfUs) * 1000) / 1000,
-      selfPct: totalUs > 0 ? Math.round(((e.selfUs / totalUs) * 100) * 10) / 10 : null,
+      selfPct: pctDenomUs > 0 ? Math.round(((e.selfUs / pctDenomUs) * 100) * 10) / 10 : null,
       fn: e.fn,
       loc: e.loc,
       stack: e.stack,
@@ -162,6 +172,7 @@ async function main() {
 
   process.stdout.write(`cpuprofile: ${out.file}\n`);
   process.stdout.write(`total: ${out.totalTimeMs}ms samples=${out.totalSamples}\n\n`);
+  if (out.activeOnly) process.stdout.write(`active: ${out.activeTimeMs}ms (excludes (idle))\n\n`);
   process.stdout.write(`Top self-time frames (top ${topN}):\n`);
   for (const row of out.topSelf.slice(0, topN)) {
     process.stdout.write(
@@ -184,4 +195,3 @@ main().catch((err) => {
   process.stderr.write("\n");
   process.exitCode = 1;
 });
-
