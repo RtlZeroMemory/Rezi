@@ -16,12 +16,12 @@ const TICK_MS = 900;
 const DRAWLIST_HEADER_SIZE = 64;
 const DEBUG_HEADER_SIZE = 40;
 const DEBUG_QUERY_MAX_RECORDS = 64;
-const ENABLE_BACKEND_DEBUG = process.env["REZI_REGRESSION_BACKEND_DEBUG"] !== "0";
+const ENABLE_BACKEND_DEBUG = process.env.REZI_REGRESSION_BACKEND_DEBUG !== "0";
 const DEBUG_LOG_PATH =
-  process.env["REZI_REGRESSION_DEBUG_LOG"] ?? `${tmpdir()}/rezi-regression-dashboard.log`;
+  process.env.REZI_REGRESSION_DEBUG_LOG ?? `${tmpdir()}/rezi-regression-dashboard.log`;
 
 const initialState = createInitialState();
-const enableHsr = process.argv.includes("--hsr") || process.env["REZI_HSR"] === "1";
+const enableHsr = process.argv.includes("--hsr") || process.env.REZI_HSR === "1";
 const forceHeadless = process.argv.includes("--headless");
 const hasInteractiveTty = process.stdout.isTTY === true && process.stdin.isTTY === true;
 
@@ -109,8 +109,8 @@ function summarizeDrawlistHeader(bytes: Uint8Array): DrawlistHeaderSummary | nul
 function summarizeDebugPayload(payload: unknown): unknown {
   if (!payload || typeof payload !== "object") return payload;
   const value = payload as Readonly<Record<string, unknown>>;
-  if (value["kind"] === "drawlistBytes") {
-    const bytes = value["bytes"];
+  if (value.kind === "drawlistBytes") {
+    const bytes = value.bytes;
     if (bytes instanceof Uint8Array) {
       return {
         kind: "drawlistBytes",
@@ -119,14 +119,11 @@ function summarizeDebugPayload(payload: unknown): unknown {
       };
     }
   }
-  if (
-    typeof value["validationResult"] === "number" &&
-    typeof value["executionResult"] === "number"
-  ) {
+  if (typeof value.validationResult === "number" && typeof value.executionResult === "number") {
     return {
       ...value,
-      validationResultSigned: toSignedI32(value["validationResult"]),
-      executionResultSigned: toSignedI32(value["executionResult"]),
+      validationResultSigned: toSignedI32(value.validationResult),
+      executionResultSigned: toSignedI32(value.executionResult),
     };
   }
   return value;
@@ -156,7 +153,7 @@ function debugLog(step: string, detail?: unknown): void {
 debugLog("boot", {
   pid: process.pid,
   cwd: process.cwd(),
-  term: process.env["TERM"] ?? null,
+  term: process.env.TERM ?? null,
   stdoutTTY: process.stdout.isTTY === true,
   stdinTTY: process.stdin.isTTY === true,
   stdoutCols: process.stdout.columns ?? null,
@@ -227,9 +224,7 @@ const ttyRows =
     ? process.stdout.rows
     : 0;
 if (ttyCols <= 0 || ttyRows <= 0) {
-  const message =
-    `Regression dashboard: terminal reports invalid size cols=${String(ttyCols)} rows=${String(ttyRows)}.` +
-    " Run `stty rows 24 cols 80` and retry, or run with --headless.";
+  const message = `Regression dashboard: terminal reports invalid size cols=${String(ttyCols)} rows=${String(ttyRows)}. Run \`stty rows 24 cols 80\` and retry, or run with --headless.`;
   stderrLog(message);
   debugLog("mode.invalid-tty-size", { ttyCols, ttyRows });
   exit(1);
@@ -397,7 +392,11 @@ async function dumpBackendDebug(reason: string): Promise<void> {
     });
 
     let lastDrawlistHeader: DrawlistHeaderSummary | null = null;
-    for (let offset = 0; offset + DEBUG_HEADER_SIZE <= queried.headers.byteLength; offset += DEBUG_HEADER_SIZE) {
+    for (
+      let offset = 0;
+      offset + DEBUG_HEADER_SIZE <= queried.headers.byteLength;
+      offset += DEBUG_HEADER_SIZE
+    ) {
       const headerParsed = parseRecordHeader(queried.headers, offset);
       if (!headerParsed.ok) {
         debugLog("backend.debug.header.parse.error", { reason, offset, error: headerParsed.error });
@@ -424,28 +423,24 @@ async function dumpBackendDebug(reason: string): Promise<void> {
 
       if (payloadSummary && typeof payloadSummary === "object") {
         const record = payloadSummary as Readonly<Record<string, unknown>>;
-        if (record["kind"] === "drawlistBytes") {
-          const headerSummary = record["header"];
+        if (record.kind === "drawlistBytes") {
+          const headerSummary = record.header;
           if (headerSummary && typeof headerSummary === "object") {
             lastDrawlistHeader = headerSummary as DrawlistHeaderSummary;
           }
         } else if (
           !protocolMismatchReported &&
-          typeof record["validationResultSigned"] === "number" &&
-          record["validationResultSigned"] === -5 &&
+          typeof record.validationResultSigned === "number" &&
+          record.validationResultSigned === -5 &&
           lastDrawlistHeader !== null &&
           (lastDrawlistHeader.stringsCount !== 0 || lastDrawlistHeader.blobsCount !== 0)
         ) {
           protocolMismatchReported = true;
-          const message =
-            "Regression dashboard: native drawlist validation failed with ZR_ERR_FORMAT. " +
-            `Captured header uses strings/blobs sections (stringsCount=${String(lastDrawlistHeader.stringsCount)}, blobsCount=${String(lastDrawlistHeader.blobsCount)}), ` +
-            "but the current native expects these header fields to be zero in drawlist v1. " +
-            "This indicates @rezi-ui/core and @rezi-ui/native drawlist wire formats are out of sync.";
+          const message = `Regression dashboard: native drawlist validation failed with ZR_ERR_FORMAT. Captured header uses strings/blobs sections (stringsCount=${String(lastDrawlistHeader.stringsCount)}, blobsCount=${String(lastDrawlistHeader.blobsCount)}), but the current native expects these header fields to be zero in drawlist v1. This indicates @rezi-ui/core and @rezi-ui/native drawlist wire formats are out of sync.`;
           stderrLog(message);
           debugLog("diagnostic.drawlist-wire-mismatch", {
             reason,
-            validationResultSigned: record["validationResultSigned"],
+            validationResultSigned: record.validationResultSigned,
             header: lastDrawlistHeader,
           });
         }
@@ -468,7 +463,9 @@ if (ENABLE_BACKEND_DEBUG) {
     debugLog("backend.debug.enable.ok");
   } catch (error) {
     debugLog("backend.debug.enable.error", error);
-    stderrLog(`Regression dashboard: failed to enable backend debug trace: ${describeError(error)}`);
+    stderrLog(
+      `Regression dashboard: failed to enable backend debug trace: ${describeError(error)}`,
+    );
   }
 }
 
@@ -484,11 +481,7 @@ app.onEvent((event) => {
       (drawlistHeaderProbe.stringsCount !== 0 || drawlistHeaderProbe.blobsCount !== 0)
     ) {
       protocolMismatchReported = true;
-      const message =
-        "Regression dashboard: detected drawlist wire-format mismatch. " +
-        `Builder probe emits non-zero header string/blob sections (stringsCount=${String(drawlistHeaderProbe.stringsCount)}, blobsCount=${String(drawlistHeaderProbe.blobsCount)}), ` +
-        "while native submit is failing with ZR_ERR_FORMAT (-5). " +
-        "This indicates @rezi-ui/core and @rezi-ui/native are out of sync.";
+      const message = `Regression dashboard: detected drawlist wire-format mismatch. Builder probe emits non-zero header string/blob sections (stringsCount=${String(drawlistHeaderProbe.stringsCount)}, blobsCount=${String(drawlistHeaderProbe.blobsCount)}), while native submit is failing with ZR_ERR_FORMAT (-5). This indicates @rezi-ui/core and @rezi-ui/native are out of sync.`;
       stderrLog(message);
       debugLog("diagnostic.drawlist-wire-mismatch", { event, drawlistHeaderProbe });
     }
