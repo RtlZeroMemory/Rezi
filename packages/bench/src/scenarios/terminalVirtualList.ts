@@ -13,6 +13,7 @@ import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { runRatatuiScenario } from "../frameworks/ratatui.js";
 import { createBenchBackend, createInkStdout } from "../io.js";
 import { benchAsync, tryGc } from "../measure.js";
+import { emitReziPerfSnapshot, resetReziPerfSnapshot } from "../reziProfile.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 
 type BlessedElement = Readonly<{ setContent: (s: string) => void }>;
@@ -99,7 +100,8 @@ async function runRezi(
   totalItems: number,
   viewport: number,
 ): Promise<BenchMetrics> {
-  const { createApp } = await import("@rezi-ui/core");
+  const core = await import("@rezi-ui/core");
+  const { createApp } = core;
   const backend = await createBenchBackend();
 
   type State = { offset: number; tick: number };
@@ -119,6 +121,7 @@ async function runRezi(
 
     const frameBase = backend.frameCount;
     const bytesBase = backend.totalFrameBytes;
+    resetReziPerfSnapshot(core);
 
     const metrics = await benchAsync(
       async () => {
@@ -132,6 +135,7 @@ async function runRezi(
 
     metrics.framesProduced = backend.frameCount - frameBase;
     metrics.bytesProduced = backend.totalFrameBytes - bytesBase;
+    emitReziPerfSnapshot(core, "terminal-virtual-list", { items: totalItems, viewport }, config, metrics);
     return metrics;
   } finally {
     await app.stop();

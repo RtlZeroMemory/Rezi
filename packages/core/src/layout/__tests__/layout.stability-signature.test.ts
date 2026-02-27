@@ -307,9 +307,15 @@ describe("layout stability signatures", () => {
     });
   }
 
-  test("text content change is included", () => {
+  test("unconstrained text width change is excluded by default", () => {
     const base = runtimeNode(1, textNode("a"));
     const changed = runtimeNode(1, textNode("aaaa"));
+    expectSignatureUnchanged(base, changed);
+  });
+
+  test("maxWidth-constrained text width change is included", () => {
+    const base = runtimeNode(1, textNode("a", { maxWidth: 10 }));
+    const changed = runtimeNode(1, textNode("aaaa", { maxWidth: 10 }));
     expectSignatureChanged(base, changed);
   });
 
@@ -413,10 +419,24 @@ describe("layout stability signatures", () => {
     assert.equal(runSignatures(root, prev), false);
   });
 
-  test("mixed supported kinds detect nested content changes", () => {
+  test("mixed supported kinds ignore unconstrained nested text width changes by default", () => {
     const button = runtimeNode(2, buttonNode("Go", { px: 2 }));
     const textA = runtimeNode(5, textNode("inside"));
     const textB = runtimeNode(5, textNode("inside-changed"));
+    const boxA = runtimeNode(4, boxNode([textA.vnode], { border: "single", pad: 1 }), [textA]);
+    const boxB = runtimeNode(4, boxNode([textB.vnode], { border: "single", pad: 1 }), [textB]);
+    const base = runtimeNode(1, columnNode([button.vnode, boxA.vnode], { gap: 1 }), [button, boxA]);
+    const changed = runtimeNode(1, columnNode([button.vnode, boxB.vnode], { gap: 1 }), [
+      button,
+      boxB,
+    ]);
+    expectSignatureUnchanged(base, changed);
+  });
+
+  test("mixed supported kinds detect nested constrained text width changes", () => {
+    const button = runtimeNode(2, buttonNode("Go", { px: 2 }));
+    const textA = runtimeNode(5, textNode("inside", { maxWidth: 32 }));
+    const textB = runtimeNode(5, textNode("inside-changed", { maxWidth: 32 }));
     const boxA = runtimeNode(4, boxNode([textA.vnode], { border: "single", pad: 1 }), [textA]);
     const boxB = runtimeNode(4, boxNode([textB.vnode], { border: "single", pad: 1 }), [textB]);
     const base = runtimeNode(1, columnNode([button.vnode, boxA.vnode], { gap: 1 }), [button, boxA]);
@@ -558,5 +578,38 @@ describe("layout stability signatures", () => {
 
     assert.equal(runSignatures(unsupported, prev), true);
     assert.equal(prev.size, 0);
+  });
+
+  test("unconstrained text in column parent ignores width change (paint-only fast path)", () => {
+    const textA = runtimeNode(2, textNode("short"));
+    const textB = runtimeNode(2, textNode("much longer text"));
+    const base = runtimeNode(1, columnNode([textA.vnode], { gap: 0 }), [textA]);
+    const changed = runtimeNode(1, columnNode([textB.vnode], { gap: 0 }), [textB]);
+    expectSignatureUnchanged(base, changed);
+  });
+
+  test("unconstrained text in row parent ignores width change (paint-only fast path)", () => {
+    // Even though row is width-sensitive, unconstrained text width changes
+    // are treated as paint-only to avoid O(frames) relayout in scrolling lists.
+    const textA = runtimeNode(2, textNode("short"));
+    const textB = runtimeNode(2, textNode("much longer text"));
+    const base = runtimeNode(1, rowNode([textA.vnode], { gap: 0 }), [textA]);
+    const changed = runtimeNode(1, rowNode([textB.vnode], { gap: 0 }), [textB]);
+    expectSignatureUnchanged(base, changed);
+  });
+
+  test("unconstrained text in grid parent ignores width change (paint-only fast path)", () => {
+    const gridNode = (children: readonly VNode[], props: Record<string, unknown> = {}): VNode => {
+      return {
+        kind: "grid",
+        props: { columns: 2, ...props },
+        children: Object.freeze([...children]),
+      } as unknown as VNode;
+    };
+    const textA = runtimeNode(2, textNode("a"));
+    const textB = runtimeNode(2, textNode("aaaa"));
+    const base = runtimeNode(1, gridNode([textA.vnode]), [textA]);
+    const changed = runtimeNode(1, gridNode([textB.vnode]), [textB]);
+    expectSignatureUnchanged(base, changed);
   });
 });
