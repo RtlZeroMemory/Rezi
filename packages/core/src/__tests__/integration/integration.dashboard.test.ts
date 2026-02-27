@@ -1,4 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { parseInternedStrings } from "../drawlistDecode.js";
 import {
   encodeZrevBatchV1,
   flushMicrotasks,
@@ -90,30 +91,6 @@ function u32(bytes: Uint8Array, off: number): number {
   return dv.getUint32(off, true);
 }
 
-function parseInternedStrings(bytes: Uint8Array): readonly string[] {
-  const spanOffset = u32(bytes, 28);
-  const count = u32(bytes, 32);
-  const bytesOffset = u32(bytes, 36);
-  const bytesLen = u32(bytes, 40);
-
-  if (count === 0) return Object.freeze([]);
-
-  const tableEnd = bytesOffset + bytesLen;
-  assert.ok(tableEnd <= bytes.byteLength, "string table must be in bounds");
-
-  const out: string[] = [];
-  const decoder = new TextDecoder();
-  for (let i = 0; i < count; i++) {
-    const span = spanOffset + i * 8;
-    const start = bytesOffset + u32(bytes, span);
-    const end = start + u32(bytes, span + 4);
-    assert.ok(end <= tableEnd, "string span must be in bounds");
-    out.push(decoder.decode(bytes.subarray(start, end)));
-  }
-
-  return Object.freeze(out);
-}
-
 function parseHeader(bytes: Uint8Array): Readonly<{
   totalSize: number;
   cmdOffset: number;
@@ -126,7 +103,7 @@ function parseHeader(bytes: Uint8Array): Readonly<{
     cmdOffset: u32(bytes, 16),
     cmdBytes: u32(bytes, 20),
     cmdCount: u32(bytes, 24),
-    stringCount: u32(bytes, 32),
+    stringCount: parseInternedStrings(bytes).length,
   });
 }
 

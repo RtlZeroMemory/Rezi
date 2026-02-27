@@ -31,7 +31,11 @@ export function renderCargoScreen(
     context,
     deps,
     body: ui.column({ gap: SPACE.sm, width: "100%" }, [
-      CargoDeck({ state: context.state, dispatch: deps.dispatch }),
+      CargoDeck({
+        key: "cargo-deck",
+        state: context.state,
+        dispatch: deps.dispatch,
+      }),
     ]),
   });
 }

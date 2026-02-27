@@ -37,6 +37,7 @@ import {
   severityToNum,
 } from "@rezi-ui/core";
 import { applyEmojiWidthPolicy, resolveBackendEmojiWidthPolicy } from "./emojiWidthPolicy.js";
+import { createFrameAuditLogger, drawlistFingerprint, maybeDumpDrawlistBytes } from "../frameAudit.js";
 import type {
   NodeBackend,
   NodeBackendInternalOpts,
@@ -358,6 +359,7 @@ async function loadNative(shimModule: string | undefined): Promise<NativeApi> {
 }
 
 export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = {}): NodeBackend {
+  const frameAudit = createFrameAuditLogger("backend-inline");
   const cfg = opts.config ?? {};
   const requestedDrawlistVersion = ZR_DRAWLIST_VERSION_V1;
   const fpsCap = parseBoundedPositiveIntOrThrow(
@@ -420,6 +422,7 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
   const perfSamples: PerfSample[] = [];
 
   let cachedCaps: TerminalCaps | null = null;
+  let nextFrameSeq = 1;
 
   function perfRecord(phase: string, durationMs: number): void {
     if (!PERF_ENABLED) return;
@@ -486,6 +489,9 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
   }
 
   function failWith(where: string, code: number, detail: string): void {
+    if (frameAudit.enabled) {
+      frameAudit.emit("fatal", { where, code, detail });
+    }
     const err = new ZrUiError("ZRUI_BACKEND_ERROR", `${where} (${String(code)}): ${detail}`);
     fatal = err;
     rejectWaiters(err);
@@ -704,6 +710,14 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
         }
         engineId = id;
         started = true;
+        if (frameAudit.enabled) {
+          frameAudit.emit("engine.ready", {
+            engineId: id,
+            executionMode: "inline",
+            fpsCap,
+            maxEventBytes,
+          });
+        }
         cachedCaps = null;
         eventQueue = [];
         eventPool = [];
@@ -804,8 +818,36 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
       }
 
       try {
+        const frameSeq = nextFrameSeq++;
+        const fp = frameAudit.enabled ? drawlistFingerprint(drawlist) : null;
+        maybeDumpDrawlistBytes("backend-inline", "requestFrame", frameSeq, drawlist);
+        if (fp !== null) {
+          frameAudit.emit("frame.submitted", {
+            frameSeq,
+            submitPath: "requestFrame",
+            transport: "inline-v1",
+            ...fp,
+          });
+          frameAudit.emit("frame.submit.payload", {
+            frameSeq,
+            transport: "inline-v1",
+            ...fp,
+          });
+        }
         const submitRc = native.engineSubmitDrawlist(engineId, drawlist);
+        if (frameAudit.enabled) {
+          frameAudit.emit("frame.submit.result", {
+            frameSeq,
+            submitResult: submitRc,
+          });
+        }
         if (submitRc < 0) {
+          if (frameAudit.enabled) {
+            frameAudit.emit("frame.completed", {
+              frameSeq,
+              completedResult: submitRc,
+            });
+          }
           return Promise.reject(
             new ZrUiError(
               "ZRUI_BACKEND_ERROR",
@@ -813,13 +855,37 @@ export function createNodeBackendInlineInternal(opts: NodeBackendInternalOpts = 
             ),
           );
         }
+        if (frameAudit.enabled) {
+          frameAudit.emit("frame.accepted", { frameSeq });
+        }
         const presentRc = native.enginePresent(engineId);
+        if (frameAudit.enabled) {
+          frameAudit.emit("frame.present.result", {
+            frameSeq,
+            presentResult: presentRc,
+          });
+        }
         if (presentRc < 0) {
+          if (frameAudit.enabled) {
+            frameAudit.emit("frame.completed", {
+              frameSeq,
+              completedResult: presentRc,
+            });
+          }
           return Promise.reject(
             new ZrUiError("ZRUI_BACKEND_ERROR", `engine_present failed: code=${String(presentRc)}`),
           );
         }
+        if (frameAudit.enabled) {
+          frameAudit.emit("frame.completed", {
+            frameSeq,
+            completedResult: 0,
+          });
+        }
       } catch (err) {
+        if (frameAudit.enabled) {
+          frameAudit.emit("frame.throw", { detail: safeDetail(err) });
+        }
         return Promise.reject(safeErr(err));
       }
       return RESOLVED_SYNC_FRAME_ACK;

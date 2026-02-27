@@ -332,6 +332,7 @@ static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_
   const zr_fb_t* presented_fb = presented_stage ? &e->fb_stage : &e->fb_next;
   const bool use_damage_rect_copy =
       (stats->path_damage_used != 0u) && (stats->damage_full_frame == 0u) && (stats->damage_rects <= e->damage_rect_cap);
+  bool links_synced = false;
 
   /*
     Resync fb_prev to the framebuffer that was actually presented.
@@ -357,11 +358,12 @@ static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_
           memcpy(e->fb_prev.cells, presented_fb->cells, n);
         }
         invalidate_prev_hashes = true;
+      } else {
+        links_synced = true;
       }
     }
 
-    zr_fb_links_reset(&e->fb_prev);
-    if (zr_fb_links_clone_from(&e->fb_prev, presented_fb) != ZR_OK) {
+    if (!links_synced && zr_fb_links_clone_from(&e->fb_prev, presented_fb) != ZR_OK) {
       invalidate_prev_hashes = true;
     }
   }
@@ -401,6 +403,17 @@ static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_
     zr_engine_trace_diff_telemetry(e, frame_id_presented, stats);
     zr_debug_trace_set_frame(e->debug_trace, zr_engine_trace_frame_id(e));
   }
+
+  zr_engine_native_audit_write(
+      e, "present.commit",
+      "frame_id=%llu out_len=%zu presented_stage=%u use_damage_rect_copy=%u links_synced=%u invalidate_prev_hashes=%u "
+      "dirty_lines=%u dirty_cells=%u damage_rects=%u damage_cells=%u damage_full_frame=%u scroll_attempted=%u "
+      "scroll_hit=%u collision_guard_hits=%u diff_us=%u write_us=%u",
+      (unsigned long long)frame_id_presented, out_len, (unsigned)presented_stage, (unsigned)use_damage_rect_copy,
+      (unsigned)links_synced, (unsigned)invalidate_prev_hashes, (unsigned)stats->dirty_lines,
+      (unsigned)stats->dirty_cells, (unsigned)stats->damage_rects, (unsigned)stats->damage_cells,
+      (unsigned)stats->damage_full_frame, (unsigned)stats->scroll_opt_attempted, (unsigned)stats->scroll_opt_hit,
+      (unsigned)stats->collision_guard_hits, (unsigned)diff_us, (unsigned)write_us);
 }
 
 /*
@@ -413,6 +426,11 @@ zr_result_t engine_present(zr_engine_t* e) {
   if (!e || !e->plat) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
+  const uint64_t frame_id_presented = zr_engine_trace_frame_id(e);
+  zr_engine_native_audit_write(e, "present.begin",
+                               "frame_id=%llu overlay=%u wait_for_output_drain=%u diff_prev_hashes_valid=%u",
+                               (unsigned long long)frame_id_presented, (unsigned)e->cfg_runtime.enable_debug_overlay,
+                               (unsigned)e->cfg_runtime.wait_for_output_drain, (unsigned)e->diff_prev_hashes_valid);
 
   /* Enforced contract: the per-frame arena is reset exactly once per present. */
   zr_arena_reset(&e->arena_frame);
@@ -421,6 +439,8 @@ zr_result_t engine_present(zr_engine_t* e) {
     const int32_t timeout_ms = zr_engine_output_wait_timeout_ms(&e->cfg_runtime);
     zr_result_t rc = plat_wait_output_writable(e->plat, timeout_ms);
     if (rc != ZR_OK) {
+      zr_engine_native_audit_write(e, "present.wait_output.error", "frame_id=%llu rc=%d timeout_ms=%d",
+                                   (unsigned long long)frame_id_presented, (int)rc, (int)timeout_ms);
       return rc;
     }
   }
@@ -436,16 +456,31 @@ zr_result_t engine_present(zr_engine_t* e) {
 
   zr_result_t rc = zr_engine_present_pick_fb(e, &present_fb, &presented_stage);
   if (rc != ZR_OK) {
+    zr_engine_native_audit_write(e, "present.pick_fb.error", "frame_id=%llu rc=%d", (unsigned long long)frame_id_presented,
+                                 (int)rc);
     return rc;
   }
+  zr_engine_native_audit_write(e, "present.pick_fb.ok", "frame_id=%llu presented_stage=%u cols=%u rows=%u",
+                               (unsigned long long)frame_id_presented, (unsigned)presented_stage,
+                               (unsigned)present_fb->cols, (unsigned)present_fb->rows);
 
   const uint64_t diff_start_us = zr_engine_now_us();
   rc = zr_engine_present_render(e, present_fb, &out_len, &final_ts, &stats, &image_state_stage);
   if (rc != ZR_OK) {
     /* Diff scratch may have been used as transient indexed-coalescing storage. */
     e->diff_prev_hashes_valid = 0u;
+    zr_engine_native_audit_write(e, "present.render.error", "frame_id=%llu rc=%d",
+                                 (unsigned long long)frame_id_presented, (int)rc);
     return rc;
   }
+  zr_engine_native_audit_write(
+      e, "present.render.ok",
+      "frame_id=%llu out_len=%zu dirty_lines=%u dirty_cells=%u damage_rects=%u damage_cells=%u damage_full_frame=%u "
+      "path_sweep_used=%u path_damage_used=%u scroll_attempted=%u scroll_hit=%u collision_guard_hits=%u",
+      (unsigned long long)frame_id_presented, out_len, (unsigned)stats.dirty_lines, (unsigned)stats.dirty_cells,
+      (unsigned)stats.damage_rects, (unsigned)stats.damage_cells, (unsigned)stats.damage_full_frame,
+      (unsigned)stats.path_sweep_used, (unsigned)stats.path_damage_used, (unsigned)stats.scroll_opt_attempted,
+      (unsigned)stats.scroll_opt_hit, (unsigned)stats.collision_guard_hits);
 
   {
     const uint64_t diff_end_us = zr_engine_now_us();
@@ -460,6 +495,8 @@ zr_result_t engine_present(zr_engine_t* e) {
   if (rc != ZR_OK) {
     /* Keep reuse conservative when present fails before prev/next commit. */
     e->diff_prev_hashes_valid = 0u;
+    zr_engine_native_audit_write(e, "present.write.error", "frame_id=%llu rc=%d out_len=%zu",
+                                 (unsigned long long)frame_id_presented, (int)rc, out_len);
     return rc;
   }
   {
@@ -471,5 +508,7 @@ zr_result_t engine_present(zr_engine_t* e) {
   }
 
   zr_engine_present_commit(e, presented_stage, out_len, &final_ts, &stats, &image_state_stage, diff_us, write_us);
+  zr_engine_native_audit_write(e, "present.done", "frame_id=%llu rc=0 out_len=%zu", (unsigned long long)frame_id_presented,
+                               out_len);
   return ZR_OK;
 }

@@ -1,4 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { parseInternedStrings } from "../../__tests__/drawlistDecode.js";
 import { type VNode, createDrawlistBuilder } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
@@ -36,31 +37,6 @@ function parseOpcodes(bytes: Uint8Array): readonly number[] {
     const size = u32(bytes, off + 4);
     out.push(opcode);
     off += size;
-  }
-  return Object.freeze(out);
-}
-
-function parseInternedStrings(bytes: Uint8Array): readonly string[] {
-  const spanOffset = u32(bytes, 28);
-  const count = u32(bytes, 32);
-  const bytesOffset = u32(bytes, 36);
-  const bytesLen = u32(bytes, 40);
-
-  if (count === 0) return Object.freeze([]);
-
-  const tableEnd = bytesOffset + bytesLen;
-  assert.ok(tableEnd <= bytes.byteLength, "string table in bounds");
-
-  const decoder = new TextDecoder();
-  const out: string[] = [];
-  for (let i = 0; i < count; i++) {
-    const span = spanOffset + i * 8;
-    const strOff = u32(bytes, span);
-    const strLen = u32(bytes, span + 4);
-    const start = bytesOffset + strOff;
-    const end = start + strLen;
-    assert.ok(end <= tableEnd, "string span in bounds");
-    out.push(decoder.decode(bytes.subarray(start, end)));
   }
   return Object.freeze(out);
 }

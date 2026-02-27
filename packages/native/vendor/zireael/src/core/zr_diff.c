@@ -335,6 +335,43 @@ static uint64_t zr_row_hash64(const zr_fb_t* fb, uint32_t y) {
   return zr_hash_bytes_fnv1a64(row, row_bytes);
 }
 
+static bool zr_fb_links_payload_equal(const zr_fb_t* a, const zr_fb_t* b) {
+  if (!a || !b) {
+    return false;
+  }
+  if (a->links_len != b->links_len || a->link_bytes_len != b->link_bytes_len) {
+    return false;
+  }
+  if (a->links_len == 0u && a->link_bytes_len == 0u) {
+    return true;
+  }
+  if ((a->links_len != 0u && (!a->links || !b->links)) ||
+      (a->link_bytes_len != 0u && (!a->link_bytes || !b->link_bytes))) {
+    return false;
+  }
+  if (a->links_len != 0u &&
+      memcmp(a->links, b->links, (size_t)a->links_len * sizeof(zr_fb_link_t)) != 0) {
+    return false;
+  }
+  if (a->link_bytes_len != 0u && memcmp(a->link_bytes, b->link_bytes, (size_t)a->link_bytes_len) != 0) {
+    return false;
+  }
+  return true;
+}
+
+static bool zr_row_has_link_ref(const zr_fb_t* fb, uint32_t y) {
+  if (!fb || !fb->cells || y >= fb->rows) {
+    return false;
+  }
+  for (uint32_t x = 0u; x < fb->cols; x++) {
+    const zr_cell_t* c = zr_fb_cell_const(fb, x, y);
+    if (c && c->style.link_ref != 0u) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /* Return display width of cell at (x,y): 0 for continuation, 2 for wide, 1 otherwise. */
 static uint8_t zr_cell_width_in_next(const zr_fb_t* fb, uint32_t x, uint32_t y) {
   const zr_cell_t* c = zr_fb_cell_const(fb, x, y);
@@ -1123,6 +1160,7 @@ static void zr_diff_prepare_row_cache(zr_diff_ctx_t* ctx, zr_diff_scratch_t* scr
   ctx->has_row_cache = true;
 
   const bool reuse_prev_hashes = (scratch->prev_hashes_valid != 0u);
+  const bool links_payload_changed = !zr_fb_links_payload_equal(ctx->prev, ctx->next);
 
   for (uint32_t y = 0u; y < ctx->next->rows; y++) {
     uint64_t prev_hash = 0u;
@@ -1142,6 +1180,13 @@ static void zr_diff_prepare_row_cache(zr_diff_ctx_t* ctx, zr_diff_scratch_t* scr
       /* Collision guard: equal hash must still pass exact row-byte compare. */
       dirty = 1u;
       ctx->stats.collision_guard_hits++;
+    } else if (links_payload_changed &&
+               (zr_row_has_link_ref(ctx->prev, y) || zr_row_has_link_ref(ctx->next, y))) {
+      /*
+        Row bytes can remain identical while OSC8 payload bytes change underneath
+        reused link_ref values. Force linked rows dirty on link table changes.
+      */
+      dirty = 1u;
     }
 
     ctx->dirty_rows[y] = dirty;

@@ -517,7 +517,11 @@ export function renderEngineeringScreen(
     context,
     deps,
     body: ui.column({ gap: SPACE.sm, width: "100%" }, [
-      EngineeringDeck({ state: context.state, dispatch: deps.dispatch }),
+      EngineeringDeck({
+        key: "engineering-deck",
+        state: context.state,
+        dispatch: deps.dispatch,
+      }),
     ]),
   });
 }

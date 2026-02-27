@@ -1,4 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { parseInternedStrings } from "../drawlistDecode.js";
 import {
   encodeZrevBatchV1,
   flushMicrotasks,
@@ -334,28 +335,6 @@ function parsePaletteData(data: unknown): PaletteData | null {
 function u32(bytes: Uint8Array, off: number): number {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   return dv.getUint32(off, true);
-}
-
-function parseInternedStrings(bytes: Uint8Array): readonly string[] {
-  const spanOffset = u32(bytes, 28);
-  const count = u32(bytes, 32);
-  const bytesOffset = u32(bytes, 36);
-  const bytesLen = u32(bytes, 40);
-  if (count === 0) return Object.freeze([]);
-
-  const tableEnd = bytesOffset + bytesLen;
-  assert.equal(tableEnd <= bytes.byteLength, true);
-
-  const out: string[] = [];
-  const decoder = new TextDecoder();
-  for (let i = 0; i < count; i++) {
-    const span = spanOffset + i * 8;
-    const start = bytesOffset + u32(bytes, span);
-    const end = start + u32(bytes, span + 4);
-    assert.equal(end <= tableEnd, true);
-    out.push(decoder.decode(bytes.subarray(start, end)));
-  }
-  return Object.freeze(out);
 }
 
 function containsText(strings: readonly string[], needle: string): boolean {

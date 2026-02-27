@@ -1,4 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { parseInternedStrings } from "../drawlistDecode.js";
 import {
   encodeZrevBatchV1,
   flushMicrotasks,
@@ -48,31 +49,6 @@ function parseOpcodes(bytes: Uint8Array): readonly number[] {
     off += size;
   }
   assert.equal(off, end, "commands must parse exactly to cmd end");
-  return Object.freeze(out);
-}
-
-function parseInternedStrings(bytes: Uint8Array): readonly string[] {
-  const spanOffset = u32(bytes, 28);
-  const count = u32(bytes, 32);
-  const bytesOffset = u32(bytes, 36);
-  const bytesLen = u32(bytes, 40);
-  if (count === 0) return Object.freeze([]);
-
-  const tableEnd = bytesOffset + bytesLen;
-  assert.equal(tableEnd <= bytes.byteLength, true, "string table must be in-bounds");
-  const decoder = new TextDecoder();
-  const out: string[] = [];
-
-  for (let i = 0; i < count; i++) {
-    const span = spanOffset + i * 8;
-    const strOff = u32(bytes, span);
-    const strLen = u32(bytes, span + 4);
-    const start = bytesOffset + strOff;
-    const end = start + strLen;
-    assert.equal(end <= tableEnd, true, "string span must be in-bounds");
-    out.push(decoder.decode(bytes.subarray(start, end)));
-  }
-
   return Object.freeze(out);
 }
 

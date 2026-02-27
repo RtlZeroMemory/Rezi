@@ -1,4 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { parseInternedStrings } from "../drawlistDecode.js";
 import {
   encodeZrevBatchV1,
   flushMicrotasks,
@@ -673,31 +674,6 @@ function splitDrawlists(bundle: Uint8Array): readonly Uint8Array[] {
     }
     out.push(bundle.subarray(off, off + totalSize));
     off += totalSize;
-  }
-  return out;
-}
-
-function parseInternedStrings(bytes: Uint8Array): readonly string[] {
-  const spanOffset = u32(bytes, 28);
-  const count = u32(bytes, 32);
-  const bytesOffset = u32(bytes, 36);
-  const bytesLen = u32(bytes, 40);
-
-  if (count === 0) return [];
-
-  const tableEnd = bytesOffset + bytesLen;
-  assert.ok(tableEnd <= bytes.byteLength);
-
-  const out: string[] = [];
-  const decoder = new TextDecoder();
-  for (let i = 0; i < count; i++) {
-    const span = spanOffset + i * 8;
-    const strOff = u32(bytes, span);
-    const strLen = u32(bytes, span + 4);
-    const start = bytesOffset + strOff;
-    const end = start + strLen;
-    assert.ok(end <= tableEnd);
-    out.push(decoder.decode(bytes.subarray(start, end)));
   }
   return out;
 }

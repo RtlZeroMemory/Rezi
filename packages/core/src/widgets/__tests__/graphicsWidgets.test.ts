@@ -1,4 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { parseBlobById, parseInternedStrings } from "../../__tests__/drawlistDecode.js";
 import type { DrawlistBuilder, VNode } from "../../index.js";
 import { createDrawlistBuilder } from "../../index.js";
 import { layout } from "../../layout/layout.js";
@@ -39,26 +40,6 @@ function parseOpcodes(bytes: Uint8Array): readonly number[] {
     const size = u32(bytes, off + 4);
     out.push(opcode);
     off += size;
-  }
-  return Object.freeze(out);
-}
-
-function parseStrings(bytes: Uint8Array): readonly string[] {
-  const spanOffset = u32(bytes, 28);
-  const count = u32(bytes, 32);
-  const bytesOffset = u32(bytes, 36);
-  const bytesLen = u32(bytes, 40);
-  if (count === 0) return Object.freeze([]);
-  const tableEnd = bytesOffset + bytesLen;
-  const decoder = new TextDecoder();
-  const out: string[] = [];
-  for (let i = 0; i < count; i++) {
-    const off = u32(bytes, spanOffset + i * 8);
-    const len = u32(bytes, spanOffset + i * 8 + 4);
-    const start = bytesOffset + off;
-    const end = start + len;
-    assert.equal(end <= tableEnd, true);
-    out.push(decoder.decode(bytes.subarray(start, end)));
   }
   return Object.freeze(out);
 }
@@ -169,7 +150,7 @@ describe("graphics widgets", () => {
   test("link encodes hyperlink refs and keeps label text payload", () => {
     const vnode = ui.link({ url: "https://example.com", label: "Docs", id: "docs-link" });
     const bytes = renderBytes(vnode, () => createDrawlistBuilder());
-    assert.equal(parseStrings(bytes).includes("Docs"), true);
+    assert.equal(parseInternedStrings(bytes).includes("Docs"), true);
     const textPayload = findCommandPayload(bytes, 3);
     assert.equal(textPayload !== null, true);
     if (textPayload === null) return;
@@ -246,15 +227,16 @@ describe("graphics widgets", () => {
     const payloadOff = findCommandPayload(bytes, 8);
     assert.equal(payloadOff !== null, true);
     if (payloadOff === null) return;
-    const blobOff = u32(bytes, payloadOff + 12);
-    const blobLen = u32(bytes, payloadOff + 16);
+    const blobId = u32(bytes, payloadOff + 12);
+    const blobReserved = u32(bytes, payloadOff + 16);
     const blitterCode = u8(bytes, payloadOff + 20);
     assert.equal(blitterCode, 2);
-    assert.equal(blobLen, width * 2 * height * 4 * 4);
-    const blobsBytesOffset = u32(bytes, 52);
-    const blobsBytesLen = u32(bytes, 56);
-    assert.equal(blobOff + blobLen <= blobsBytesLen, true);
-    assert.equal(blobsBytesOffset + blobOff + blobLen <= bytes.byteLength, true);
+    assert.equal(blobReserved, 0);
+    assert.equal(blobId > 0, true);
+    const blob = parseBlobById(bytes, blobId);
+    assert.equal(blob !== null, true);
+    if (!blob) return;
+    assert.equal(blob.length, width * 2 * height * 4 * 4);
   });
 
   test("image route detects PNG format for DRAW_IMAGE", () => {
@@ -349,7 +331,7 @@ describe("graphics widgets", () => {
     );
     assert.equal(parseOpcodes(bytes).includes(9), false);
     assert.equal(
-      parseStrings(bytes).some((value) => value.includes("Logo")),
+      parseInternedStrings(bytes).some((value) => value.includes("Logo")),
       true,
     );
   });
@@ -449,7 +431,7 @@ describe("graphics widgets", () => {
     assert.equal(parseOpcodes(bytes).includes(8), false);
     assert.equal(parseOpcodes(bytes).includes(9), false);
     assert.equal(
-      parseStrings(bytes).some((value) => value.includes("sourceWidth/sourceHeight")),
+      parseInternedStrings(bytes).some((value) => value.includes("sourceWidth/sourceHeight")),
       true,
     );
   });
@@ -469,7 +451,7 @@ describe("graphics widgets", () => {
     assert.equal(parseOpcodes(bytes).includes(8), false);
     assert.equal(parseOpcodes(bytes).includes(9), false);
     assert.equal(
-      parseStrings(bytes).some((value) => value.includes("Logo")),
+      parseInternedStrings(bytes).some((value) => value.includes("Logo")),
       true,
     );
   });
@@ -481,7 +463,7 @@ describe("graphics widgets", () => {
     );
     assert.equal(parseOpcodes(bytes).includes(8) || parseOpcodes(bytes).includes(9), true);
     assert.equal(
-      parseStrings(bytes).some((value) => value.includes("Logo")),
+      parseInternedStrings(bytes).some((value) => value.includes("Logo")),
       false,
     );
   });
@@ -501,7 +483,7 @@ describe("graphics widgets", () => {
     );
     assert.equal(parseOpcodes(bytes).includes(9), false);
     assert.equal(
-      parseStrings(bytes).some((value) => value.includes("Broken image")),
+      parseInternedStrings(bytes).some((value) => value.includes("Broken image")),
       true,
     );
   });
@@ -562,10 +544,10 @@ describe("graphics widgets", () => {
     const payloadOff = findCommandPayload(bytes, 8);
     assert.equal(payloadOff !== null, true);
     if (payloadOff === null) return;
-    const blobOff = u32(bytes, payloadOff + 12);
-    const blobLen = u32(bytes, payloadOff + 16);
-    const blobsBytesOffset = u32(bytes, 52);
-    const rgba = bytes.subarray(blobsBytesOffset + blobOff, blobsBytesOffset + blobOff + blobLen);
+    const blobId = u32(bytes, payloadOff + 12);
+    const rgba = parseBlobById(bytes, blobId);
+    assert.equal(rgba !== null, true);
+    if (!rgba) return;
     const hasVisiblePixel = rgba.some((value, index) => index % 4 === 3 && value !== 0);
     assert.equal(hasVisiblePixel, true);
   });

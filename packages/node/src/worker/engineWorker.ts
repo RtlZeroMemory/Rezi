@@ -29,6 +29,16 @@ import {
   type WorkerToMainMessage,
 } from "./protocol.js";
 import { computeNextIdleDelay, computeTickTiming } from "./tickTiming.js";
+import {
+  FRAME_AUDIT_NATIVE_ENABLED,
+  FRAME_AUDIT_NATIVE_RING_BYTES,
+  ZR_DEBUG_CAT_DRAWLIST,
+  ZR_DEBUG_CODE_DRAWLIST_CMD,
+  ZR_DEBUG_CODE_DRAWLIST_EXECUTE,
+  ZR_DEBUG_CODE_DRAWLIST_VALIDATE,
+  createFrameAuditLogger,
+  drawlistFingerprint,
+} from "../frameAudit.js";
 
 /**
  * Perf tracking for worker-side event polling.
@@ -307,6 +317,20 @@ const DEBUG_HEADER_BYTES = 40;
 const DEBUG_QUERY_MIN_HEADERS_CAP = DEBUG_HEADER_BYTES;
 const DEBUG_QUERY_MAX_HEADERS_CAP = 1 << 20; // 1 MiB
 const NO_RECYCLED_DRAWLISTS: readonly ArrayBuffer[] = Object.freeze([]);
+const DEBUG_DRAWLIST_RECORD_BYTES = 48;
+
+type FrameAuditMeta = {
+  frameSeq: number;
+  enqueuedAtMs: number;
+  transport: typeof FRAME_TRANSPORT_TRANSFER_V1 | typeof FRAME_TRANSPORT_SAB_V1;
+  byteLen: number;
+  slotIndex?: number;
+  slotToken?: number;
+  hash32?: string;
+  prefixHash32?: string;
+  cmdCount?: number | null;
+  totalSize?: number | null;
+};
 
 let engineId: number | null = null;
 let running = false;
@@ -314,6 +338,10 @@ let haveSubmittedDrawlist = false;
 let pendingFrame: PendingFrame | null = null;
 let lastConsumedSabPublishedSeq = 0;
 let frameTransport: WorkerFrameTransport = Object.freeze({ kind: FRAME_TRANSPORT_TRANSFER_V1 });
+const frameAudit = createFrameAuditLogger("worker");
+const frameAuditBySeq = new Map<number, FrameAuditMeta>();
+let nativeFrameAuditEnabled = false;
+let nativeFrameAuditNextRecordId = 1n;
 
 let eventPool: ArrayBuffer[] = [];
 let discardBuffer: ArrayBuffer | null = null;
@@ -326,6 +354,205 @@ let idleDelayMs = 0;
 let maxIdleDelayMs = 0;
 let sabWakeArmed = false;
 let sabWakeEpoch = 0;
+
+function u64FromView(v: DataView, offset: number): bigint {
+  const lo = BigInt(v.getUint32(offset, true));
+  const hi = BigInt(v.getUint32(offset + 4, true));
+  return (hi << 32n) | lo;
+}
+
+function setFrameAuditMeta(
+  frameSeq: number,
+  patch: Readonly<Partial<Omit<FrameAuditMeta, "frameSeq" | "enqueuedAtMs">>>,
+): void {
+  if (!frameAudit.enabled) return;
+  const prev = frameAuditBySeq.get(frameSeq);
+  const next: FrameAuditMeta = {
+    frameSeq,
+    enqueuedAtMs: prev?.enqueuedAtMs ?? Date.now(),
+    transport: prev?.transport ?? FRAME_TRANSPORT_TRANSFER_V1,
+    byteLen: prev?.byteLen ?? 0,
+    ...(prev ?? {}),
+    ...patch,
+  };
+  frameAuditBySeq.set(frameSeq, next);
+}
+
+function emitFrameAudit(stage: string, frameSeq: number, fields: Readonly<Record<string, unknown>> = {}): void {
+  if (!frameAudit.enabled) return;
+  const meta = frameAuditBySeq.get(frameSeq);
+  frameAudit.emit(stage, {
+    frameSeq,
+    ageMs: meta ? Math.max(0, Date.now() - meta.enqueuedAtMs) : null,
+    ...(meta ?? {}),
+    ...fields,
+  });
+}
+
+function deleteFrameAudit(frameSeq: number): void {
+  if (!frameAudit.enabled) return;
+  frameAuditBySeq.delete(frameSeq);
+}
+
+function maybeEnableNativeFrameAudit(): void {
+  if (!frameAudit.enabled) return;
+  if (!FRAME_AUDIT_NATIVE_ENABLED) return;
+  if (engineId === null) return;
+  let rc = -1;
+  try {
+    rc = native.engineDebugEnable(engineId, {
+      enabled: true,
+      ringCapacity: FRAME_AUDIT_NATIVE_RING_BYTES,
+      minSeverity: 0,
+      categoryMask: 0xffff_ffff,
+      captureRawEvents: false,
+      captureDrawlistBytes: true,
+    });
+  } catch (err) {
+    frameAudit.emit("native.debug.enable_error", { detail: safeDetail(err) });
+    nativeFrameAuditEnabled = false;
+    return;
+  }
+  nativeFrameAuditEnabled = rc >= 0;
+  nativeFrameAuditNextRecordId = 1n;
+  frameAudit.emit("native.debug.enable", {
+    rc,
+    enabled: nativeFrameAuditEnabled,
+    ringCapacity: FRAME_AUDIT_NATIVE_RING_BYTES,
+  });
+}
+
+function drainNativeFrameAudit(reason: string): void {
+  if (!frameAudit.enabled || !nativeFrameAuditEnabled) return;
+  if (engineId === null) return;
+  const headersCap = DEBUG_HEADER_BYTES * 64;
+  const headersBuf = new Uint8Array(headersCap);
+  for (let iter = 0; iter < 8; iter++) {
+    let result: DebugQueryResultNative;
+    try {
+      result = native.engineDebugQuery(
+        engineId,
+        {
+          minRecordId: nativeFrameAuditNextRecordId,
+          categoryMask: 1 << ZR_DEBUG_CAT_DRAWLIST,
+          minSeverity: 0,
+          maxRecords: Math.floor(headersCap / DEBUG_HEADER_BYTES),
+        },
+        headersBuf,
+      );
+    } catch (err) {
+      frameAudit.emit("native.debug.query_error", { reason, detail: safeDetail(err) });
+      return;
+    }
+    const recordsReturned =
+      Number.isInteger(result.recordsReturned) && result.recordsReturned > 0
+        ? Math.min(result.recordsReturned, Math.floor(headersCap / DEBUG_HEADER_BYTES))
+        : 0;
+    if (recordsReturned <= 0) return;
+
+    let advanced = false;
+    for (let i = 0; i < recordsReturned; i++) {
+      const off = i * DEBUG_HEADER_BYTES;
+      const dv = new DataView(headersBuf.buffer, headersBuf.byteOffset + off, DEBUG_HEADER_BYTES);
+      const recordId = u64FromView(dv, 0);
+      const timestampUs = u64FromView(dv, 8);
+      const frameId = u64FromView(dv, 16);
+      const category = dv.getUint32(24, true);
+      const severity = dv.getUint32(28, true);
+      const code = dv.getUint32(32, true);
+      const payloadSize = dv.getUint32(36, true);
+      if (recordId < nativeFrameAuditNextRecordId) {
+        continue;
+      }
+      if (recordId === 0n && frameId === 0n && category === 0 && code === 0 && payloadSize === 0) {
+        continue;
+      }
+      advanced = true;
+      nativeFrameAuditNextRecordId = recordId + 1n;
+
+      frameAudit.emit("native.debug.header", {
+        reason,
+        recordId: recordId.toString(),
+        frameId: frameId.toString(),
+        timestampUs: timestampUs.toString(),
+        category,
+        severity,
+        code,
+        payloadSize,
+      });
+
+      if (code === ZR_DEBUG_CODE_DRAWLIST_CMD && payloadSize > 0) {
+        const cap = Math.min(Math.max(payloadSize, 1), 4096);
+        const payload = new Uint8Array(cap);
+        let wrote = 0;
+        try {
+          wrote = native.engineDebugGetPayload(engineId, recordId, payload);
+        } catch (err) {
+          frameAudit.emit("native.debug.payload_error", {
+            reason,
+            recordId: recordId.toString(),
+            detail: safeDetail(err),
+          });
+          continue;
+        }
+        if (wrote > 0) {
+          const view = payload.subarray(0, Math.min(wrote, payload.byteLength));
+          const fp = drawlistFingerprint(view);
+          frameAudit.emit("native.drawlist.payload", {
+            reason,
+            recordId: recordId.toString(),
+            frameId: frameId.toString(),
+            payloadSize: view.byteLength,
+            hash32: fp.hash32,
+            prefixHash32: fp.prefixHash32,
+            head16: fp.head16,
+            tail16: fp.tail16,
+          });
+        }
+        continue;
+      }
+
+      if (
+        (code === ZR_DEBUG_CODE_DRAWLIST_VALIDATE || code === ZR_DEBUG_CODE_DRAWLIST_EXECUTE) &&
+        payloadSize >= DEBUG_DRAWLIST_RECORD_BYTES
+      ) {
+        const payload = new Uint8Array(DEBUG_DRAWLIST_RECORD_BYTES);
+        let wrote = 0;
+        try {
+          wrote = native.engineDebugGetPayload(engineId, recordId, payload);
+        } catch (err) {
+          frameAudit.emit("native.debug.payload_error", {
+            reason,
+            recordId: recordId.toString(),
+            detail: safeDetail(err),
+          });
+          continue;
+        }
+        if (wrote >= DEBUG_DRAWLIST_RECORD_BYTES) {
+          const dvPayload = new DataView(
+            payload.buffer,
+            payload.byteOffset,
+            DEBUG_DRAWLIST_RECORD_BYTES,
+          );
+          frameAudit.emit("native.drawlist.summary", {
+            reason,
+            recordId: recordId.toString(),
+            frameId: u64FromView(dvPayload, 0).toString(),
+            totalBytes: dvPayload.getUint32(8, true),
+            cmdCount: dvPayload.getUint32(12, true),
+            version: dvPayload.getUint32(16, true),
+            validationResult: dvPayload.getInt32(20, true),
+            executionResult: dvPayload.getInt32(24, true),
+            clipStackMaxDepth: dvPayload.getUint32(28, true),
+            textRuns: dvPayload.getUint32(32, true),
+            fillRects: dvPayload.getUint32(36, true),
+          });
+        }
+      }
+    }
+    if (!advanced) return;
+  }
+}
 
 function writeResizeBatchV1(buf: ArrayBuffer, cols: number, rows: number): number {
   // Batch header (24) + RESIZE record (32) = 56 bytes.
@@ -489,6 +716,9 @@ function startTickLoop(fpsCap: number): void {
 }
 
 function fatal(where: string, code: number, detail: string): void {
+  if (frameAudit.enabled) {
+    frameAudit.emit("fatal", { where, code, detail });
+  }
   postToMain({ type: "fatal", where, code, detail });
 }
 
@@ -515,6 +745,8 @@ function releasePendingFrame(frame: PendingFrame, expectedSabState: number): voi
 
 function postFrameStatus(frameSeq: number, completedResult: number): void {
   if (!Number.isInteger(frameSeq) || frameSeq <= 0) return;
+  emitFrameAudit("frame.completed", frameSeq, { completedResult });
+  deleteFrameAudit(frameSeq);
   postToMain({
     type: "frameStatus",
     acceptedSeq: frameSeq,
@@ -526,6 +758,7 @@ function postFrameStatus(frameSeq: number, completedResult: number): void {
 
 function postFrameAccepted(frameSeq: number): void {
   if (!Number.isInteger(frameSeq) || frameSeq <= 0) return;
+  emitFrameAudit("frame.accepted", frameSeq);
   postToMain({
     type: "frameStatus",
     acceptedSeq: frameSeq,
@@ -587,9 +820,22 @@ function syncPendingSabFrameFromMailbox(): void {
   const latest = readLatestSabFrame();
   if (latest === null) return;
   if (pendingFrame !== null) {
+    emitFrameAudit("frame.overwritten", pendingFrame.frameSeq, { reason: "mailbox-latest-wins" });
+    deleteFrameAudit(pendingFrame.frameSeq);
     releasePendingFrame(pendingFrame, FRAME_SAB_SLOT_STATE_READY);
   }
   pendingFrame = latest;
+  setFrameAuditMeta(latest.frameSeq, {
+    transport: latest.transport,
+    byteLen: latest.byteLen,
+    slotIndex: latest.slotIndex,
+    slotToken: latest.slotToken,
+  });
+  emitFrameAudit("frame.mailbox.latest", latest.frameSeq, {
+    slotIndex: latest.slotIndex,
+    slotToken: latest.slotToken,
+    byteLen: latest.byteLen,
+  });
 }
 
 function destroyEngineBestEffort(): void {
@@ -607,8 +853,16 @@ function shutdownNow(): void {
   running = false;
   stopTickLoop();
   if (pendingFrame !== null) {
+    emitFrameAudit("frame.dropped", pendingFrame.frameSeq, { reason: "shutdown" });
+    deleteFrameAudit(pendingFrame.frameSeq);
     releasePendingFrame(pendingFrame, FRAME_SAB_SLOT_STATE_READY);
     pendingFrame = null;
+  }
+  if (frameAudit.enabled) {
+    for (const [seq] of frameAuditBySeq.entries()) {
+      emitFrameAudit("frame.dropped", seq, { reason: "shutdown_pending" });
+    }
+    frameAuditBySeq.clear();
   }
   destroyEngineBestEffort();
   shutdownComplete();
@@ -637,12 +891,32 @@ function tick(): void {
   if (pendingFrame !== null) {
     const f = pendingFrame;
     pendingFrame = null;
+    emitFrameAudit("frame.submit.begin", f.frameSeq, {
+      transport: f.transport,
+      byteLen: f.byteLen,
+      ...(f.transport === FRAME_TRANSPORT_SAB_V1
+        ? { slotIndex: f.slotIndex, slotToken: f.slotToken }
+        : {}),
+    });
     let res = -1;
     let sabInUse = false;
     let staleSabFrame = false;
     try {
       if (f.transport === FRAME_TRANSPORT_TRANSFER_V1) {
-        res = native.engineSubmitDrawlist(engineId, new Uint8Array(f.buf, 0, f.byteLen));
+        const view = new Uint8Array(f.buf, 0, f.byteLen);
+        if (frameAudit.enabled) {
+          const fp = drawlistFingerprint(view);
+          setFrameAuditMeta(f.frameSeq, {
+            transport: f.transport,
+            byteLen: f.byteLen,
+            hash32: fp.hash32,
+            prefixHash32: fp.prefixHash32,
+            cmdCount: fp.cmdCount,
+            totalSize: fp.totalSize,
+          });
+          emitFrameAudit("frame.submit.payload", f.frameSeq, fp);
+        }
+        res = native.engineSubmitDrawlist(engineId, view);
       } else {
         if (frameTransport.kind !== FRAME_TRANSPORT_SAB_V1) {
           throw new Error("SAB frame transport unavailable");
@@ -673,13 +947,29 @@ function tick(): void {
             sabInUse = true;
             const offset = f.slotIndex * frameTransport.slotBytes;
             const view = frameTransport.data.subarray(offset, offset + f.byteLen);
+            if (frameAudit.enabled) {
+              const fp = drawlistFingerprint(view);
+              setFrameAuditMeta(f.frameSeq, {
+                transport: f.transport,
+                byteLen: f.byteLen,
+                slotIndex: f.slotIndex,
+                slotToken: f.slotToken,
+                hash32: fp.hash32,
+                prefixHash32: fp.prefixHash32,
+                cmdCount: fp.cmdCount,
+                totalSize: fp.totalSize,
+              });
+              emitFrameAudit("frame.submit.payload", f.frameSeq, fp);
+            }
             res = native.engineSubmitDrawlist(engineId, view);
           }
         }
       }
     } catch (err) {
       releasePendingFrame(f, sabInUse ? FRAME_SAB_SLOT_STATE_IN_USE : FRAME_SAB_SLOT_STATE_READY);
+      emitFrameAudit("frame.submit.throw", f.frameSeq, { detail: safeDetail(err) });
       postFrameStatus(f.frameSeq, -1);
+      drainNativeFrameAudit("submit-throw");
       fatal("engineSubmitDrawlist", -1, `engine_submit_drawlist threw: ${safeDetail(err)}`);
       running = false;
       return;
@@ -688,6 +978,8 @@ function tick(): void {
       // This frame was superseded in the shared mailbox before submit.
       // Keep latest-wins behavior without surfacing a fatal protocol error.
       didFrameWork = true;
+      emitFrameAudit("frame.submit.stale", f.frameSeq, { reason: "slot-token-mismatch" });
+      deleteFrameAudit(f.frameSeq);
       syncPendingSabFrameFromMailbox();
       // Continue with present/event processing on this tick.
     } else {
@@ -695,6 +987,8 @@ function tick(): void {
       haveSubmittedDrawlist = haveSubmittedDrawlist || didSubmitDrawlistThisTick;
       didFrameWork = true;
       releasePendingFrame(f, FRAME_SAB_SLOT_STATE_IN_USE);
+      emitFrameAudit("frame.submit.result", f.frameSeq, { submitResult: res });
+      drainNativeFrameAudit("post-submit");
       if (res < 0) {
         postFrameStatus(f.frameSeq, res);
         fatal("engineSubmitDrawlist", res, "engine_submit_drawlist failed");
@@ -717,21 +1011,27 @@ function tick(): void {
     try {
       pres = native.enginePresent(engineId);
     } catch (err) {
+      if (submittedFrameSeq !== null) emitFrameAudit("frame.present.throw", submittedFrameSeq, { detail: safeDetail(err) });
       if (submittedFrameSeq !== null) postFrameStatus(submittedFrameSeq, -1);
+      drainNativeFrameAudit("present-throw");
       fatal("enginePresent", -1, `engine_present threw: ${safeDetail(err)}`);
       running = false;
       return;
     }
     if (pres < 0) {
+      if (submittedFrameSeq !== null) emitFrameAudit("frame.present.result", submittedFrameSeq, { presentResult: pres });
       if (submittedFrameSeq !== null) postFrameStatus(submittedFrameSeq, pres);
+      drainNativeFrameAudit("present-failed");
       fatal("enginePresent", pres, "engine_present failed");
       running = false;
       return;
     }
+    if (submittedFrameSeq !== null) emitFrameAudit("frame.present.result", submittedFrameSeq, { presentResult: pres });
   }
 
   if (submittedFrameSeq !== null) {
     postFrameStatus(submittedFrameSeq, 0);
+    drainNativeFrameAudit("frame-complete");
   }
 
   // 3) drain events (bounded)
@@ -859,6 +1159,9 @@ function onMessage(msg: MainToWorkerMessage): void {
       running = true;
       pendingFrame = null;
       lastConsumedSabPublishedSeq = 0;
+      frameAuditBySeq.clear();
+      nativeFrameAuditEnabled = false;
+      nativeFrameAuditNextRecordId = 1n;
       if (frameTransport.kind === FRAME_TRANSPORT_SAB_V1) {
         Atomics.store(frameTransport.controlHeader, FRAME_SAB_CONTROL_PUBLISHED_SEQ_WORD, 0);
         Atomics.store(frameTransport.controlHeader, FRAME_SAB_CONTROL_PUBLISHED_SLOT_WORD, 0);
@@ -891,6 +1194,16 @@ function onMessage(msg: MainToWorkerMessage): void {
         maybeInjectInitialResize(maxEventBytes);
       }
 
+      if (frameAudit.enabled) {
+        frameAudit.emit("engine.ready", {
+          engineId: id,
+          frameTransport: frameTransport.kind,
+          maxEventBytes,
+          fpsCap: parsePositiveInt(msg.config.fpsCap) ?? 60,
+        });
+      }
+      maybeEnableNativeFrameAudit();
+
       postToMain({ type: "ready", engineId: id });
 
       const fpsCap = parsePositiveInt(msg.config.fpsCap) ?? 60;
@@ -903,6 +1216,8 @@ function onMessage(msg: MainToWorkerMessage): void {
 
       // latest-wins overwrite for transfer-path fallback.
       if (pendingFrame !== null) {
+        emitFrameAudit("frame.overwritten", pendingFrame.frameSeq, { reason: "message-latest-wins" });
+        deleteFrameAudit(pendingFrame.frameSeq);
         releasePendingFrame(pendingFrame, FRAME_SAB_SLOT_STATE_READY);
       }
 
@@ -943,6 +1258,18 @@ function onMessage(msg: MainToWorkerMessage): void {
           slotToken: msg.slotToken as number,
           byteLen: msg.byteLen,
         };
+        setFrameAuditMeta(msg.frameSeq, {
+          transport: FRAME_TRANSPORT_SAB_V1,
+          byteLen: msg.byteLen,
+          slotIndex: msg.slotIndex as number,
+          slotToken: msg.slotToken as number,
+        });
+        emitFrameAudit("frame.received", msg.frameSeq, {
+          transport: FRAME_TRANSPORT_SAB_V1,
+          byteLen: msg.byteLen,
+          slotIndex: msg.slotIndex as number,
+          slotToken: msg.slotToken as number,
+        });
       } else {
         if (!(msg.drawlist instanceof ArrayBuffer)) {
           fatal("frame", -1, "invalid transfer frame payload: missing drawlist");
@@ -964,6 +1291,21 @@ function onMessage(msg: MainToWorkerMessage): void {
           buf: msg.drawlist,
           byteLen: msg.byteLen,
         };
+        if (frameAudit.enabled) {
+          const fp = drawlistFingerprint(new Uint8Array(msg.drawlist, 0, msg.byteLen));
+          setFrameAuditMeta(msg.frameSeq, {
+            transport: FRAME_TRANSPORT_TRANSFER_V1,
+            byteLen: msg.byteLen,
+            hash32: fp.hash32,
+            prefixHash32: fp.prefixHash32,
+            cmdCount: fp.cmdCount,
+            totalSize: fp.totalSize,
+          });
+          emitFrameAudit("frame.received", msg.frameSeq, {
+            transport: FRAME_TRANSPORT_TRANSFER_V1,
+            ...fp,
+          });
+        }
       }
       idleDelayMs = tickIntervalMs;
       scheduleTickNow();
@@ -1073,6 +1415,14 @@ function onMessage(msg: MainToWorkerMessage): void {
         fatal("engineDebugEnable", -1, `engine_debug_enable threw: ${safeDetail(err)}`);
         return;
       }
+      if (frameAudit.enabled) {
+        frameAudit.emit("native.debug.enable.user", {
+          rc,
+          captureDrawlistBytes: msg.config.captureDrawlistBytes ?? false,
+        });
+      }
+      nativeFrameAuditEnabled = rc >= 0 && frameAudit.enabled;
+      if (nativeFrameAuditEnabled) nativeFrameAuditNextRecordId = 1n;
       postToMain({ type: "debug:enableResult", result: rc });
       return;
     }
@@ -1085,6 +1435,10 @@ function onMessage(msg: MainToWorkerMessage): void {
       } catch (err) {
         fatal("engineDebugDisable", -1, `engine_debug_disable threw: ${safeDetail(err)}`);
         return;
+      }
+      nativeFrameAuditEnabled = false;
+      if (frameAudit.enabled) {
+        frameAudit.emit("native.debug.disable.user", { rc });
       }
       postToMain({ type: "debug:disableResult", result: rc });
       return;
@@ -1212,6 +1566,10 @@ function onMessage(msg: MainToWorkerMessage): void {
       } catch (err) {
         fatal("engineDebugReset", -1, `engine_debug_reset threw: ${safeDetail(err)}`);
         return;
+      }
+      if (frameAudit.enabled && rc >= 0) {
+        nativeFrameAuditNextRecordId = 1n;
+        frameAudit.emit("native.debug.reset", { rc });
       }
       postToMain({ type: "debug:resetResult", result: rc });
       return;

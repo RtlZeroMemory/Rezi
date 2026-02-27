@@ -22,7 +22,12 @@
  */
 
 import type { CursorShape } from "../abi.js";
-import { BACKEND_RAW_WRITE_MARKER, type BackendRawWrite, type RuntimeBackend } from "../backend.js";
+import {
+  BACKEND_RAW_WRITE_MARKER,
+  FRAME_ACCEPTED_ACK_MARKER,
+  type BackendRawWrite,
+  type RuntimeBackend,
+} from "../backend.js";
 import { CURSOR_DEFAULTS } from "../cursor/index.js";
 import { type DrawlistBuilder, createDrawlistBuilder } from "../drawlist/index.js";
 import type { ZrevEvent } from "../events.js";
@@ -55,10 +60,6 @@ import {
 } from "../keybindings/keyCodes.js";
 import type { LayoutOverflowMetadata } from "../layout/constraints.js";
 import { computeDropdownGeometry } from "../layout/dropdownGeometry.js";
-import {
-  computeDirtyLayoutSet,
-  instanceDirtySetToVNodeDirtySet,
-} from "../layout/engine/dirtySet.js";
 import { hitTestAnyId, hitTestFocusable } from "../layout/hitTest.js";
 import { type LayoutTree, layout } from "../layout/layout.js";
 import {
@@ -69,6 +70,7 @@ import {
 } from "../layout/responsive.js";
 import { measureTextCells } from "../layout/textMeasure.js";
 import type { Rect } from "../layout/types.js";
+import { FRAME_AUDIT_ENABLED, drawlistFingerprint, emitFrameAudit } from "../perf/frameAudit.js";
 import { PERF_DETAIL_ENABLED, PERF_ENABLED, perfMarkEnd, perfMarkStart } from "../perf/perf.js";
 import { type CursorInfo, renderToDrawlist } from "../renderer/renderToDrawlist.js";
 import { getRuntimeNodeDamageRect } from "../renderer/renderToDrawlist/damageBounds.js";
@@ -490,6 +492,13 @@ const LAYOUT_WARNINGS_ENV_RAW =
 const LAYOUT_WARNINGS_ENV = LAYOUT_WARNINGS_ENV_RAW.toLowerCase();
 const DEV_LAYOUT_WARNINGS =
   DEV_MODE && (LAYOUT_WARNINGS_ENV === "1" || LAYOUT_WARNINGS_ENV === "true");
+const FRAME_AUDIT_TREE_ENABLED =
+  FRAME_AUDIT_ENABLED &&
+  (
+    globalThis as {
+      process?: { env?: { REZI_FRAME_AUDIT_TREE?: string } };
+    }
+  ).process?.env?.REZI_FRAME_AUDIT_TREE === "1";
 
 function warnDev(message: string): void {
   const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
@@ -536,6 +545,294 @@ function monotonicNowMs(): number {
   const perfNow = perf?.now;
   if (typeof perfNow === "function") return perfNow.call(perf);
   return Date.now();
+}
+
+function pushLimited(list: string[], value: string, max: number): void {
+  if (list.length >= max) return;
+  list.push(value);
+}
+
+function normalizeAuditText(value: string, maxChars = 96): string {
+  if (value.length <= maxChars) return value;
+  return `${value.slice(0, Math.max(0, maxChars - 1))}…`;
+}
+
+function describeAuditVNode(vnode: VNode): string {
+  const kind = vnode.kind;
+  const props = vnode.props as Readonly<{ id?: unknown; title?: unknown }> | undefined;
+  const id = typeof props?.id === "string" && props.id.length > 0 ? props.id : null;
+  const title =
+    typeof props?.title === "string" && props.title.length > 0
+      ? normalizeAuditText(props.title, 24)
+      : null;
+  if (id !== null) return `${kind}#${id}`;
+  if (title !== null) return `${kind}[${title}]`;
+  return kind;
+}
+
+function summarizeRuntimeTreeForAudit(
+  root: RuntimeInstance,
+  layoutRoot: LayoutTree,
+): Readonly<Record<string, unknown>> {
+  const kindCounts = new Map<string, number>();
+  const zeroAreaKindCounts = new Map<string, number>();
+  const textSamples: string[] = [];
+  const titleSamples: string[] = [];
+  const titleRectSamples: string[] = [];
+  const zeroAreaTitleSamples: string[] = [];
+  const mismatchSamples: string[] = [];
+  const needleHits = new Set<string>();
+  const needles = [
+    "Engineering Controls",
+    "Subsystem Tree",
+    "Crew Manifest",
+    "Search Crew",
+    "Channel Controls",
+    "Ship Settings",
+  ];
+
+  let nodeCount = 0;
+  let textNodeCount = 0;
+  let boxTitleCount = 0;
+  let compositeNodeCount = 0;
+  let zeroAreaNodes = 0;
+  let maxDepth = 0;
+  let maxChildrenDelta = 0;
+
+  const stack: Array<
+    Readonly<{ node: RuntimeInstance; layout: LayoutTree; depth: number; path: string }>
+  > = [Object.freeze({ node: root, layout: layoutRoot, depth: 0, path: "root" })];
+  const rootRect = layoutRoot.rect;
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) continue;
+    const { node, layout, depth, path } = current;
+    nodeCount += 1;
+    if (depth > maxDepth) maxDepth = depth;
+
+    const kind = node.vnode.kind;
+    const layoutKind = layout.vnode.kind;
+    kindCounts.set(kind, (kindCounts.get(kind) ?? 0) + 1);
+    if ("__composite" in (node.vnode as object)) {
+      compositeNodeCount += 1;
+    }
+    if (kind !== layoutKind) {
+      const runtimeLabel = describeAuditVNode(node.vnode);
+      const layoutLabel = describeAuditVNode(layout.vnode);
+      pushLimited(
+        mismatchSamples,
+        `${path}:${runtimeLabel}!${layoutLabel}`,
+        24,
+      );
+    }
+
+    const rect = layout.rect;
+    if (rect.w <= 0 || rect.h <= 0) {
+      zeroAreaNodes += 1;
+      zeroAreaKindCounts.set(kind, (zeroAreaKindCounts.get(kind) ?? 0) + 1);
+    }
+
+    if (kind === "text") {
+      textNodeCount += 1;
+      const text = (node.vnode as Readonly<{ text: string }>).text;
+      pushLimited(textSamples, normalizeAuditText(text), 24);
+      for (const needle of needles) {
+        if (text.includes(needle)) needleHits.add(needle);
+      }
+    } else {
+      const props = node.vnode.props as Readonly<{ title?: unknown }> | undefined;
+      if (typeof props?.title === "string" && props.title.length > 0) {
+        boxTitleCount += 1;
+        pushLimited(titleSamples, normalizeAuditText(props.title), 24);
+        const offRoot =
+          rect.x + rect.w <= rootRect.x ||
+          rect.y + rect.h <= rootRect.y ||
+          rect.x >= rootRect.x + rootRect.w ||
+          rect.y >= rootRect.y + rootRect.h;
+        const titleRectSummary = `${normalizeAuditText(props.title, 48)}@${String(rect.x)},${String(rect.y)},${String(rect.w)},${String(rect.h)}${offRoot ? ":off-root" : ""}`;
+        pushLimited(titleRectSamples, titleRectSummary, 24);
+        if (rect.w <= 0 || rect.h <= 0) {
+          pushLimited(zeroAreaTitleSamples, titleRectSummary, 24);
+        }
+        for (const needle of needles) {
+          if (props.title.includes(needle)) needleHits.add(needle);
+        }
+      }
+    }
+
+    const childCount = Math.min(node.children.length, layout.children.length);
+    const delta = Math.abs(node.children.length - layout.children.length);
+    if (delta > 0) {
+      const id = (node.vnode.props as Readonly<{ id?: unknown }> | undefined)?.id;
+      const props = node.vnode.props as Readonly<{ title?: unknown }> | undefined;
+      const label =
+        typeof id === "string" && id.length > 0
+          ? `${kind}#${id}`
+          : typeof props?.title === "string" && props.title.length > 0
+            ? `${kind}[${normalizeAuditText(props.title, 32)}]`
+            : kind;
+      pushLimited(
+        mismatchSamples,
+        `${path}/${label}:runtimeChildren=${String(node.children.length)} layoutChildren=${String(layout.children.length)} layoutNode=${describeAuditVNode(layout.vnode)}`,
+        24,
+      );
+    }
+    if (delta > maxChildrenDelta) maxChildrenDelta = delta;
+    for (let i = childCount - 1; i >= 0; i--) {
+      const child = node.children[i];
+      const childLayout = layout.children[i];
+      if (!child || !childLayout) continue;
+      stack.push(
+        Object.freeze({
+          node: child,
+          layout: childLayout,
+          depth: depth + 1,
+          path: `${path}/${child.vnode.kind}[${String(i)}]`,
+        }),
+      );
+    }
+  }
+
+  const topKinds = Object.fromEntries(
+    [...kindCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12),
+  );
+  const topZeroAreaKinds = Object.fromEntries(
+    [...zeroAreaKindCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12),
+  );
+
+  return Object.freeze({
+    nodeCount,
+    textNodeCount,
+    boxTitleCount,
+    compositeNodeCount,
+    zeroAreaNodes,
+    maxDepth,
+    maxChildrenDelta,
+    topKinds,
+    topZeroAreaKinds,
+    textSamples,
+    titleSamples,
+    titleRectSamples,
+    zeroAreaTitleSamples,
+    mismatchSamples,
+    needleHits: [...needleHits].sort(),
+  });
+}
+
+type RuntimeLayoutShapeMismatch = Readonly<{
+  path: string;
+  depth: number;
+  reason: "kind" | "children";
+  runtimeKind: string;
+  layoutKind: string;
+  runtimeChildCount: number;
+  layoutChildCount: number;
+  runtimeTrail: readonly string[];
+  layoutTrail: readonly string[];
+}>;
+
+function findRuntimeLayoutShapeMismatch(
+  root: RuntimeInstance,
+  layoutRoot: LayoutTree,
+): RuntimeLayoutShapeMismatch | null {
+  const queue: Array<
+    Readonly<{
+      runtimeNode: RuntimeInstance;
+      layoutNode: LayoutTree;
+      path: string;
+      depth: number;
+      runtimeTrail: readonly string[];
+      layoutTrail: readonly string[];
+    }>
+  > = [
+    Object.freeze({
+      runtimeNode: root,
+      layoutNode: layoutRoot,
+      path: "root",
+      depth: 0,
+      runtimeTrail: Object.freeze([describeAuditVNode(root.vnode)]),
+      layoutTrail: Object.freeze([describeAuditVNode(layoutRoot.vnode)]),
+    }),
+  ];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) continue;
+    const { runtimeNode, layoutNode, path, depth, runtimeTrail, layoutTrail } = current;
+    const runtimeKind = runtimeNode.vnode.kind;
+    const layoutKind = layoutNode.vnode.kind;
+    const runtimeChildCount = runtimeNode.children.length;
+    const layoutChildCount = layoutNode.children.length;
+    if (runtimeKind !== layoutKind) {
+      return Object.freeze({
+        path,
+        depth,
+        reason: "kind",
+        runtimeKind,
+        layoutKind,
+        runtimeChildCount,
+        layoutChildCount,
+        runtimeTrail,
+        layoutTrail,
+      });
+    }
+    if (runtimeChildCount !== layoutChildCount) {
+      return Object.freeze({
+        path,
+        depth,
+        reason: "children",
+        runtimeKind,
+        layoutKind,
+        runtimeChildCount,
+        layoutChildCount,
+        runtimeTrail,
+        layoutTrail,
+      });
+    }
+
+    for (let i = 0; i < runtimeChildCount; i++) {
+      const runtimeChild = runtimeNode.children[i];
+      const layoutChild = layoutNode.children[i];
+      if (!runtimeChild || !layoutChild) {
+        return Object.freeze({
+          path: `${path}/${runtimeChild ? runtimeChild.vnode.kind : "missing"}[${String(i)}]`,
+          depth: depth + 1,
+          reason: "children",
+          runtimeKind: runtimeChild?.vnode.kind ?? "<missing>",
+          layoutKind: layoutChild?.vnode.kind ?? "<missing>",
+          runtimeChildCount: runtimeChild?.children.length ?? -1,
+          layoutChildCount: layoutChild?.children.length ?? -1,
+          runtimeTrail,
+          layoutTrail,
+        });
+      }
+      const nextRuntimeTrail = Object.freeze([
+        ...runtimeTrail.slice(-11),
+        describeAuditVNode(runtimeChild.vnode),
+      ]);
+      const nextLayoutTrail = Object.freeze([
+        ...layoutTrail.slice(-11),
+        describeAuditVNode(layoutChild.vnode),
+      ]);
+      queue.push(
+        Object.freeze({
+          runtimeNode: runtimeChild,
+          layoutNode: layoutChild,
+          path: `${path}/${runtimeChild.vnode.kind}[${String(i)}]`,
+          depth: depth + 1,
+          runtimeTrail: nextRuntimeTrail,
+          layoutTrail: nextLayoutTrail,
+        }),
+      );
+    }
+  }
+
+  return null;
+}
+
+function hasRuntimeLayoutShapeMismatch(root: RuntimeInstance, layoutRoot: LayoutTree): boolean {
+  return findRuntimeLayoutShapeMismatch(root, layoutRoot) !== null;
 }
 
 function cloneFocusManagerState(state: FocusManagerState): FocusManagerState {
@@ -2392,7 +2689,6 @@ export class WidgetRenderer<S> {
       let hasRoutingWidgets = hadRoutingWidgets;
       let didRoutingRebuild = false;
       let identityDamageFromCommit: IdentityDiffDamageResult | null = null;
-      let layoutDirtyVNodeSet: Set<VNode> | null = null;
 
       if (doCommit) {
         let commitReadViewport = false;
@@ -2469,6 +2765,13 @@ export class WidgetRenderer<S> {
             doLayout = true;
           }
         }
+        if (!doLayout && this.layoutTree !== null) {
+          // Defensive guard: never render a newly committed runtime tree against
+          // a stale layout tree with different shape/kinds.
+          if (findRuntimeLayoutShapeMismatch(this.committedRoot, this.layoutTree) !== null) {
+            doLayout = true;
+          }
+        }
         this.cleanupUnmountedInstanceIds(commitRes.unmountedInstanceIds);
         this.scheduleExitAnimations(
           commitRes.pendingExitAnimations,
@@ -2504,21 +2807,14 @@ export class WidgetRenderer<S> {
         this._lastRenderedViewport.rows !== viewport.rows ||
         this._lastRenderedThemeRef !== theme;
 
-      if (doLayout && doCommit && commitRes !== null && !forceFullRelayout) {
-        this.collectSelfDirtyInstanceIds(this.committedRoot, this._pooledDirtyLayoutInstanceIds);
-        const dirtyInstanceIds = computeDirtyLayoutSet(
-          this.committedRoot,
-          commitRes.mountedInstanceIds,
-          this._pooledDirtyLayoutInstanceIds,
-        );
-        layoutDirtyVNodeSet = instanceDirtySetToVNodeDirtySet(this.committedRoot, dirtyInstanceIds);
-      }
-
       if (doLayout) {
         const rootPad = this.rootPadding;
         const rootW = Math.max(0, viewport.cols - rootPad * 2);
         const rootH = Math.max(0, viewport.rows - rootPad * 2);
         const layoutToken = perfMarkStart("layout");
+        // Force a cold layout pass whenever layout is requested; partial cache reuse can
+        // produce runtime/layout shape divergence under complex composite updates.
+        this._layoutTreeCache = new WeakMap<VNode, unknown>();
         const layoutRootVNode =
           this.scrollOverrides.size > 0
             ? this.applyScrollOverridesToVNode(this.committedRoot.vnode)
@@ -2533,13 +2829,89 @@ export class WidgetRenderer<S> {
           "column",
           this._layoutMeasureCache,
           this._layoutTreeCache,
-          layoutDirtyVNodeSet,
+          null,
         );
         perfMarkEnd("layout", layoutToken);
         if (!layoutRes.ok) {
           return { ok: false, code: layoutRes.fatal.code, detail: layoutRes.fatal.detail };
         }
-        const nextLayoutTree = layoutRes.value;
+        let nextLayoutTree = layoutRes.value;
+        let shapeMismatch = doCommit
+          ? findRuntimeLayoutShapeMismatch(this.committedRoot, nextLayoutTree)
+          : null;
+        if (doCommit && shapeMismatch !== null) {
+          if (FRAME_AUDIT_ENABLED) {
+            emitFrameAudit("widgetRenderer", "layout.shape_mismatch", {
+              reason: "post-layout-cache-hit",
+              path: shapeMismatch.path,
+              depth: shapeMismatch.depth,
+              mismatchKind: shapeMismatch.reason,
+              runtimeKind: shapeMismatch.runtimeKind,
+              layoutKind: shapeMismatch.layoutKind,
+              runtimeChildCount: shapeMismatch.runtimeChildCount,
+              layoutChildCount: shapeMismatch.layoutChildCount,
+              runtimeTrail: shapeMismatch.runtimeTrail,
+              layoutTrail: shapeMismatch.layoutTrail,
+            });
+          }
+          // Cache can become stale under structural changes; force a cold relayout.
+          this._layoutTreeCache = new WeakMap<VNode, unknown>();
+          const fallbackLayoutRes = layout(
+            layoutRootVNode,
+            rootPad,
+            rootPad,
+            rootW,
+            rootH,
+            "column",
+            this._layoutMeasureCache,
+            this._layoutTreeCache,
+            null,
+          );
+          if (!fallbackLayoutRes.ok) {
+            return {
+              ok: false,
+              code: fallbackLayoutRes.fatal.code,
+              detail: fallbackLayoutRes.fatal.detail,
+            };
+          }
+          nextLayoutTree = fallbackLayoutRes.value;
+          shapeMismatch = findRuntimeLayoutShapeMismatch(this.committedRoot, nextLayoutTree);
+          if (shapeMismatch !== null && layoutRootVNode !== this.committedRoot.vnode) {
+            const directLayoutRes = layout(
+              this.committedRoot.vnode,
+              rootPad,
+              rootPad,
+              rootW,
+              rootH,
+              "column",
+              this._layoutMeasureCache,
+              this._layoutTreeCache,
+              null,
+            );
+            if (!directLayoutRes.ok) {
+              return {
+                ok: false,
+                code: directLayoutRes.fatal.code,
+                detail: directLayoutRes.fatal.detail,
+              };
+            }
+            nextLayoutTree = directLayoutRes.value;
+            shapeMismatch = findRuntimeLayoutShapeMismatch(this.committedRoot, nextLayoutTree);
+          }
+          if (shapeMismatch !== null && FRAME_AUDIT_ENABLED) {
+            emitFrameAudit("widgetRenderer", "layout.shape_mismatch.persisted", {
+              path: shapeMismatch.path,
+              depth: shapeMismatch.depth,
+              mismatchKind: shapeMismatch.reason,
+              runtimeKind: shapeMismatch.runtimeKind,
+              layoutKind: shapeMismatch.layoutKind,
+              runtimeChildCount: shapeMismatch.runtimeChildCount,
+              layoutChildCount: shapeMismatch.layoutChildCount,
+              runtimeTrail: shapeMismatch.runtimeTrail,
+              layoutTrail: shapeMismatch.layoutTrail,
+            });
+          }
+        }
         this.layoutTree = nextLayoutTree;
         this.emitDevLayoutWarnings(nextLayoutTree, viewport);
 
@@ -3618,7 +3990,70 @@ export class WidgetRenderer<S> {
       try {
         const backendToken = PERF_ENABLED ? perfMarkStart("backend_request") : 0;
         try {
+          const fingerprint = FRAME_AUDIT_ENABLED ? drawlistFingerprint(built.bytes) : null;
+          if (fingerprint !== null) {
+            emitFrameAudit("widgetRenderer", "drawlist.built", {
+              tick,
+              commit: doCommit,
+              layout: doLayout,
+              incremental: usedIncrementalRender,
+              damageMode: runtimeDamageMode,
+              damageRectCount: runtimeDamageRectCount,
+              damageArea: runtimeDamageArea,
+              ...fingerprint,
+            });
+            if (FRAME_AUDIT_TREE_ENABLED) {
+              emitFrameAudit(
+                "widgetRenderer",
+                "runtime.tree.summary",
+                Object.freeze({
+                  tick,
+                  ...summarizeRuntimeTreeForAudit(this.committedRoot, this.layoutTree),
+                }),
+              );
+            }
+          }
           const inFlight = this.backend.requestFrame(built.bytes);
+          if (fingerprint !== null) {
+            emitFrameAudit("widgetRenderer", "backend.request", {
+              tick,
+              hash32: fingerprint.hash32,
+              prefixHash32: fingerprint.prefixHash32,
+              byteLen: fingerprint.byteLen,
+            });
+            const acceptedAck = (
+              inFlight as Promise<void> &
+                Partial<Record<typeof FRAME_ACCEPTED_ACK_MARKER, Promise<void>>>
+            )[FRAME_ACCEPTED_ACK_MARKER];
+            if (acceptedAck !== undefined) {
+              void acceptedAck.then(
+                () =>
+                  emitFrameAudit("widgetRenderer", "backend.accepted", {
+                    tick,
+                    hash32: fingerprint.hash32,
+                  }),
+                (err: unknown) =>
+                  emitFrameAudit("widgetRenderer", "backend.accepted_error", {
+                    tick,
+                    hash32: fingerprint.hash32,
+                    detail: describeThrown(err),
+                  }),
+              );
+            }
+            void inFlight.then(
+              () =>
+                emitFrameAudit("widgetRenderer", "backend.completed", {
+                  tick,
+                  hash32: fingerprint.hash32,
+                }),
+              (err: unknown) =>
+                emitFrameAudit("widgetRenderer", "backend.completed_error", {
+                  tick,
+                  hash32: fingerprint.hash32,
+                  detail: describeThrown(err),
+                }),
+            );
+          }
           return { ok: true, inFlight };
         } finally {
           if (PERF_ENABLED) perfMarkEnd("backend_request", backendToken);

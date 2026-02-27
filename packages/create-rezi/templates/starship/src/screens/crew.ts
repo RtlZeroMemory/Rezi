@@ -453,7 +453,11 @@ export function renderCrewScreen(context: RouteRenderContext<StarshipState>, dep
     context,
     deps,
     body: ui.column({ gap: SPACE.sm, width: "100%" }, [
-      CrewDeck({ state: context.state, dispatch: deps.dispatch }),
+      CrewDeck({
+        key: "crew-deck",
+        state: context.state,
+        dispatch: deps.dispatch,
+      }),
     ]),
   });
 }

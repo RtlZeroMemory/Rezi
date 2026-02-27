@@ -1,9 +1,9 @@
 import {
   type BadgeVariant,
   type Rgb,
+  type Rgb24,
   type TextStyle,
   type ThemeDefinition,
-  darkTheme,
   draculaTheme,
   extendTheme,
   nordTheme,
@@ -244,18 +244,49 @@ function clampChannel(value: number): number {
   return Math.max(0, Math.min(255, Math.round(value)));
 }
 
-function blend(a: Rgb, b: Rgb, weight: number): Rgb {
-  const safe = Math.max(0, Math.min(1, weight));
-  return {
-    r: clampChannel(a.r + (b.r - a.r) * safe),
-    g: clampChannel(a.g + (b.g - a.g) * safe),
-    b: clampChannel(a.b + (b.b - a.b) * safe),
-  };
+type ColorInput = Rgb | Rgb24;
+
+function packRgb(value: Rgb): Rgb24 {
+  return (
+    ((clampChannel(value.r) & 0xff) << 16) |
+    ((clampChannel(value.g) & 0xff) << 8) |
+    (clampChannel(value.b) & 0xff)
+  );
 }
 
-export function toHex(color: Rgb): string {
+function rgbChannel(value: Rgb24, shift: 0 | 8 | 16): number {
+  return (value >>> shift) & 0xff;
+}
+
+function unpackRgb(value: ColorInput): Readonly<{ r: number; g: number; b: number }> {
+  if (typeof value === "number") {
+    return Object.freeze({
+      r: rgbChannel(value, 16),
+      g: rgbChannel(value, 8),
+      b: rgbChannel(value, 0),
+    });
+  }
+  return Object.freeze({
+    r: clampChannel(value.r),
+    g: clampChannel(value.g),
+    b: clampChannel(value.b),
+  });
+}
+
+function blend(a: ColorInput, b: ColorInput, weight: number): Rgb24 {
+  const safe = Math.max(0, Math.min(1, weight));
+  const left = unpackRgb(a);
+  const right = unpackRgb(b);
+  return (
+    ((clampChannel(left.r + (right.r - left.r) * safe) & 0xff) << 16) |
+    ((clampChannel(left.g + (right.g - left.g) * safe) & 0xff) << 8) |
+    (clampChannel(left.b + (right.b - left.b) * safe) & 0xff)
+  );
+}
+
+export function toHex(color: Rgb24): string {
   const channel = (value: number) => clampChannel(value).toString(16).padStart(2, "0");
-  return `#${channel(color.r)}${channel(color.g)}${channel(color.b)}`;
+  return `#${channel(rgbChannel(color, 16))}${channel(rgbChannel(color, 8))}${channel(rgbChannel(color, 0))}`;
 }
 
 export function cycleThemeName(current: ThemeName): ThemeName {
@@ -285,52 +316,52 @@ export type StarshipStyles = Readonly<{
 
 export type StarshipThemeTokens = Readonly<{
   bg: Readonly<{
-    app: Rgb;
+    app: Rgb24;
     panel: Readonly<{
-      base: Rgb;
-      inset: Rgb;
-      elevated: Rgb;
+      base: Rgb24;
+      inset: Rgb24;
+      elevated: Rgb24;
     }>;
-    modal: Rgb;
+    modal: Rgb24;
   }>;
   border: Readonly<{
-    default: Rgb;
-    muted: Rgb;
-    focus: Rgb;
-    danger: Rgb;
+    default: Rgb24;
+    muted: Rgb24;
+    focus: Rgb24;
+    danger: Rgb24;
   }>;
   text: Readonly<{
-    primary: Rgb;
-    muted: Rgb;
-    dim: Rgb;
+    primary: Rgb24;
+    muted: Rgb24;
+    dim: Rgb24;
   }>;
   accent: Readonly<{
-    info: Rgb;
-    success: Rgb;
-    warn: Rgb;
-    danger: Rgb;
-    brand: Rgb;
+    info: Rgb24;
+    success: Rgb24;
+    warn: Rgb24;
+    danger: Rgb24;
+    brand: Rgb24;
   }>;
   state: Readonly<{
-    selectedBg: Rgb;
-    selectedText: Rgb;
-    hoverBg: Rgb;
-    focusRing: Rgb;
+    selectedBg: Rgb24;
+    selectedText: Rgb24;
+    hoverBg: Rgb24;
+    focusRing: Rgb24;
   }>;
   progress: Readonly<{
-    track: Rgb;
-    fill: Rgb;
+    track: Rgb24;
+    fill: Rgb24;
   }>;
   table: Readonly<{
-    headerBg: Rgb;
-    rowAltBg: Rgb;
-    rowHoverBg: Rgb;
-    rowSelectedBg: Rgb;
+    headerBg: Rgb24;
+    rowAltBg: Rgb24;
+    rowHoverBg: Rgb24;
+    rowSelectedBg: Rgb24;
   }>;
   log: Readonly<{
-    info: Rgb;
-    warn: Rgb;
-    error: Rgb;
+    info: Rgb24;
+    warn: Rgb24;
+    error: Rgb24;
   }>;
 }>;
 
@@ -384,37 +415,37 @@ export function themeTokens(themeName: ThemeName): StarshipThemeTokens {
       : blend(colors.accent.primary, colors.accent.secondary, mode === "day" ? 0.18 : 0.1);
   return Object.freeze({
     bg: Object.freeze({
-      app: colors.bg.base,
+      app: packRgb(colors.bg.base),
       panel: Object.freeze({
         base: panelBase,
         inset: panelInset,
         elevated: panelElevated,
       }),
-      modal: colors.bg.overlay,
+      modal: packRgb(colors.bg.overlay),
     }),
     border: Object.freeze({
-      default: colors.border.default,
-      muted: colors.border.subtle,
-      focus: mode === "alert" ? colors.error : colors.focus.ring,
-      danger: colors.error,
+      default: packRgb(colors.border.default),
+      muted: packRgb(colors.border.subtle),
+      focus: mode === "alert" ? packRgb(colors.error) : packRgb(colors.focus.ring),
+      danger: packRgb(colors.error),
     }),
     text: Object.freeze({
-      primary: colors.fg.primary,
-      muted: colors.fg.secondary,
-      dim: colors.fg.muted,
+      primary: packRgb(colors.fg.primary),
+      muted: packRgb(colors.fg.secondary),
+      dim: packRgb(colors.fg.muted),
     }),
     accent: Object.freeze({
-      info: colors.info,
-      success: colors.success,
-      warn: colors.warning,
-      danger: colors.error,
-      brand: colors.accent.primary,
+      info: packRgb(colors.info),
+      success: packRgb(colors.success),
+      warn: packRgb(colors.warning),
+      danger: packRgb(colors.error),
+      brand: packRgb(colors.accent.primary),
     }),
     state: Object.freeze({
       selectedBg,
-      selectedText: colors.selected.fg,
+      selectedText: packRgb(colors.selected.fg),
       hoverBg,
-      focusRing: mode === "alert" ? colors.error : colors.focus.ring,
+      focusRing: mode === "alert" ? packRgb(colors.error) : packRgb(colors.focus.ring),
     }),
     progress: Object.freeze({
       track: blend(

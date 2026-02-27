@@ -10,9 +10,10 @@
  * @see docs/guide/lifecycle-and-updates.md
  */
 
-import type { RuntimeBackend } from "../backend.js";
+import { FRAME_ACCEPTED_ACK_MARKER, type RuntimeBackend } from "../backend.js";
 import { type DrawlistBuilder, createDrawlistBuilder } from "../drawlist/index.js";
 import { perfMarkEnd, perfMarkStart } from "../perf/perf.js";
+import { FRAME_AUDIT_ENABLED, drawlistFingerprint, emitFrameAudit } from "../perf/frameAudit.js";
 import type { DrawFn } from "./types.js";
 
 /** Callbacks for render lifecycle tracking (used by app to set inRender flag). */
@@ -48,6 +49,7 @@ function describeThrown(v: unknown): string {
 export class RawRenderer {
   private readonly backend: RuntimeBackend;
   private readonly builder: DrawlistBuilder;
+  private frameAuditSeq = 0;
 
   constructor(
     opts: Readonly<{
@@ -115,7 +117,54 @@ export class RawRenderer {
     }
 
     try {
+      const auditSeq = this.frameAuditSeq + 1;
+      this.frameAuditSeq = auditSeq;
+      const fingerprint = FRAME_AUDIT_ENABLED ? drawlistFingerprint(built.bytes) : null;
+      if (fingerprint !== null) {
+        emitFrameAudit("rawRenderer", "drawlist.built", {
+          frameSeq: auditSeq,
+          ...fingerprint,
+        });
+      }
       const inFlight = this.backend.requestFrame(built.bytes);
+      if (fingerprint !== null) {
+        emitFrameAudit("rawRenderer", "backend.request", {
+          frameSeq: auditSeq,
+          ...fingerprint,
+        });
+        const acceptedAck = (
+          inFlight as Promise<void> &
+            Partial<Record<typeof FRAME_ACCEPTED_ACK_MARKER, Promise<void>>>
+        )[FRAME_ACCEPTED_ACK_MARKER];
+        if (acceptedAck !== undefined) {
+          void acceptedAck.then(
+            () =>
+              emitFrameAudit("rawRenderer", "backend.accepted", {
+                frameSeq: auditSeq,
+                hash32: fingerprint.hash32,
+              }),
+            (err: unknown) =>
+              emitFrameAudit("rawRenderer", "backend.accepted_error", {
+                frameSeq: auditSeq,
+                hash32: fingerprint.hash32,
+                detail: describeThrown(err),
+              }),
+          );
+        }
+        void inFlight.then(
+          () =>
+            emitFrameAudit("rawRenderer", "backend.completed", {
+              frameSeq: auditSeq,
+              hash32: fingerprint.hash32,
+            }),
+          (err: unknown) =>
+            emitFrameAudit("rawRenderer", "backend.completed_error", {
+              frameSeq: auditSeq,
+              hash32: fingerprint.hash32,
+              detail: describeThrown(err),
+            }),
+        );
+      }
       return { ok: true, inFlight };
     } catch (e: unknown) {
       return { ok: false, code: "ZRUI_BACKEND_ERROR", detail: describeThrown(e) };

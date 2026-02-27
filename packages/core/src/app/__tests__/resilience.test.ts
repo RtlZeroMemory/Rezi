@@ -1,34 +1,9 @@
 import { assert, test } from "@rezi-ui/testkit";
+import { parseInternedStrings } from "../../__tests__/drawlistDecode.js";
 import { defineWidget, ui } from "../../index.js";
 import { createApp } from "../createApp.js";
 import { encodeZrevBatchV1, flushMicrotasks, makeBackendBatch } from "./helpers.js";
 import { StubBackend } from "./stubBackend.js";
-
-function u32(bytes: Uint8Array, off: number): number {
-  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  return dv.getUint32(off, true);
-}
-
-function parseInternedStrings(bytes: Uint8Array): readonly string[] {
-  const spanOffset = u32(bytes, 28);
-  const count = u32(bytes, 32);
-  const bytesOffset = u32(bytes, 36);
-  const bytesLen = u32(bytes, 40);
-  if (count === 0) return Object.freeze([]);
-
-  const tableEnd = bytesOffset + bytesLen;
-  assert.ok(tableEnd <= bytes.byteLength, "string table must be in bounds");
-  const out: string[] = [];
-  const decoder = new TextDecoder();
-  for (let i = 0; i < count; i++) {
-    const span = spanOffset + i * 8;
-    const start = bytesOffset + u32(bytes, span);
-    const end = start + u32(bytes, span + 4);
-    assert.ok(end <= tableEnd, "string span must be in bounds");
-    out.push(decoder.decode(bytes.subarray(start, end)));
-  }
-  return Object.freeze(out);
-}
 
 async function pushEvents(
   backend: StubBackend,
