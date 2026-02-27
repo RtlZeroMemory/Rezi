@@ -21,7 +21,7 @@ The PTY + frame-audit workflow gives deterministic evidence for all of those.
 From repo root:
 
 ```bash
-cd /home/k3nig/Rezi
+cd <repo-root>
 npx tsc -b packages/core packages/node packages/create-rezi
 ```
 
@@ -34,7 +34,7 @@ This enables:
 - worker execution path (`REZI_STARSHIP_EXECUTION_MODE=worker`)
 
 ```bash
-cd /home/k3nig/Rezi
+cd <repo-root>
 : > /tmp/rezi-frame-audit.ndjson
 : > /tmp/starship.log
 

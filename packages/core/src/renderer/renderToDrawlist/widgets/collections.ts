@@ -6,6 +6,7 @@ import {
   truncateWithEllipsis,
 } from "../../../layout/textMeasure.js";
 import type { Rect } from "../../../layout/types.js";
+import { FRAME_AUDIT_ENABLED, emitFrameAudit } from "../../../perf/frameAudit.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { FocusState } from "../../../runtime/focus.js";
 import type {
@@ -28,7 +29,6 @@ import {
   getTotalHeight,
   resolveVirtualListItemHeightSpec,
 } from "../../../widgets/virtualList.js";
-import { emitFrameAudit, FRAME_AUDIT_ENABLED } from "../../../perf/frameAudit.js";
 import { asTextStyle } from "../../styles.js";
 import { renderBoxBorder } from "../boxBorder.js";
 import { isVisibleRect } from "../indices.js";

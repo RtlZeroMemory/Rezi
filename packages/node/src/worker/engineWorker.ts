@@ -11,18 +11,18 @@ import { parentPort, workerData } from "node:worker_threads";
 import {
   FRAME_AUDIT_NATIVE_ENABLED,
   FRAME_AUDIT_NATIVE_RING_BYTES,
-  ZR_DEBUG_CAT_FRAME,
   ZR_DEBUG_CAT_DRAWLIST,
+  ZR_DEBUG_CAT_FRAME,
   ZR_DEBUG_CAT_PERF,
-  ZR_DEBUG_CODE_FRAME_BEGIN,
-  ZR_DEBUG_CODE_FRAME_SUBMIT,
-  ZR_DEBUG_CODE_FRAME_PRESENT,
-  ZR_DEBUG_CODE_FRAME_RESIZE,
   ZR_DEBUG_CODE_DRAWLIST_CMD,
   ZR_DEBUG_CODE_DRAWLIST_EXECUTE,
   ZR_DEBUG_CODE_DRAWLIST_VALIDATE,
-  ZR_DEBUG_CODE_PERF_TIMING,
+  ZR_DEBUG_CODE_FRAME_BEGIN,
+  ZR_DEBUG_CODE_FRAME_PRESENT,
+  ZR_DEBUG_CODE_FRAME_RESIZE,
+  ZR_DEBUG_CODE_FRAME_SUBMIT,
   ZR_DEBUG_CODE_PERF_DIFF_PATH,
+  ZR_DEBUG_CODE_PERF_TIMING,
   createFrameAuditLogger,
   drawlistFingerprint,
 } from "../frameAudit.js";
@@ -328,7 +328,8 @@ const NO_RECYCLED_DRAWLISTS: readonly ArrayBuffer[] = Object.freeze([]);
 const DEBUG_DRAWLIST_RECORD_BYTES = 48;
 const DEBUG_FRAME_RECORD_BYTES = 56;
 const DEBUG_PERF_RECORD_BYTES = 24;
-const DEBUG_DIFF_PATH_RECORD_BYTES = 56;
+// Must cover sizeof(zr_diff_telemetry_record_t) (includes native trailing pad).
+const DEBUG_DIFF_PATH_RECORD_BYTES = 64;
 const NATIVE_FRAME_AUDIT_CATEGORY_MASK =
   (1 << ZR_DEBUG_CAT_DRAWLIST) | (1 << ZR_DEBUG_CAT_FRAME) | (1 << ZR_DEBUG_CAT_PERF);
 
@@ -436,7 +437,7 @@ function maybeEnableNativeFrameAudit(): void {
       enabled: true,
       ringCapacity: FRAME_AUDIT_NATIVE_RING_BYTES,
       minSeverity: 0,
-      categoryMask: 0xffff_ffff,
+      categoryMask: NATIVE_FRAME_AUDIT_CATEGORY_MASK,
       captureRawEvents: false,
       captureDrawlistBytes: true,
     });
@@ -603,7 +604,11 @@ function drainNativeFrameAudit(reason: string): void {
           continue;
         }
         if (wrote >= DEBUG_FRAME_RECORD_BYTES) {
-          const dvPayload = new DataView(payload.buffer, payload.byteOffset, DEBUG_FRAME_RECORD_BYTES);
+          const dvPayload = new DataView(
+            payload.buffer,
+            payload.byteOffset,
+            DEBUG_FRAME_RECORD_BYTES,
+          );
           frameAudit.emit("native.frame.summary", {
             reason,
             recordId: recordId.toString(),
@@ -640,7 +645,11 @@ function drainNativeFrameAudit(reason: string): void {
           continue;
         }
         if (wrote >= DEBUG_PERF_RECORD_BYTES) {
-          const dvPayload = new DataView(payload.buffer, payload.byteOffset, DEBUG_PERF_RECORD_BYTES);
+          const dvPayload = new DataView(
+            payload.buffer,
+            payload.byteOffset,
+            DEBUG_PERF_RECORD_BYTES,
+          );
           const phase = dvPayload.getUint32(8, true);
           frameAudit.emit("native.perf.timing", {
             reason,
@@ -669,7 +678,11 @@ function drainNativeFrameAudit(reason: string): void {
           continue;
         }
         if (wrote >= DEBUG_DIFF_PATH_RECORD_BYTES) {
-          const dvPayload = new DataView(payload.buffer, payload.byteOffset, DEBUG_DIFF_PATH_RECORD_BYTES);
+          const dvPayload = new DataView(
+            payload.buffer,
+            payload.byteOffset,
+            DEBUG_DIFF_PATH_RECORD_BYTES,
+          );
           frameAudit.emit("native.perf.diffPath", {
             reason,
             recordId: recordId.toString(),
