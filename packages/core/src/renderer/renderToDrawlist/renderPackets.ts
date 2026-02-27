@@ -116,7 +116,8 @@ function hashPropsShallow(hash: number, props: Readonly<Record<string, unknown>>
   const keys = Object.keys(props);
   out = mixHash(out, keys.length);
   for (let i = 0; i < keys.length; i++) {
-    const key = keys[i]!;
+    const key = keys[i];
+    if (key === undefined) continue;
     out = mixHash(out, hashString(key));
     out = hashPropValue(out, props[key]);
   }
@@ -250,12 +251,12 @@ function isTickDrivenKind(kind: RuntimeInstance["vnode"]["kind"]): boolean {
  * The text content itself is already hashed separately.
  */
 function hashTextProps(hash: number, props: Readonly<Record<string, unknown>>): number {
-  const style = props["style"];
-  const maxWidth = props["maxWidth"];
-  const wrap = props["wrap"];
-  const variant = props["variant"];
-  const dim = props["dim"];
-  const textOverflow = props["textOverflow"];
+  const style = props.style;
+  const maxWidth = props.maxWidth;
+  const wrap = props.wrap;
+  const variant = props.variant;
+  const dim = props.dim;
+  const textOverflow = props.textOverflow;
 
   // Common case for plain text nodes with no explicit props.
   if (

@@ -229,11 +229,7 @@ describe("render packet retention", () => {
       firstKey,
       "key should remain stable when visual fields are unchanged despite new object identity",
     );
-    assert.equal(
-      root.renderPacket,
-      firstPacket,
-      "packet should be reused when key matches",
-    );
+    assert.equal(root.renderPacket, firstPacket, "packet should be reused when key matches");
   });
 
   test("packet invalidates when visual field changes", () => {

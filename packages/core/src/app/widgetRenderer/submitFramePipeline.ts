@@ -12,9 +12,8 @@ const HASH_FNV_PRIME = 0x01000193;
 const EMPTY_INSTANCE_IDS: readonly InstanceId[] = Object.freeze([]);
 const LAYOUT_SIG_INCLUDE_TEXT_WIDTH = (() => {
   try {
-    const raw = (
-      globalThis as { process?: { env?: { REZI_LAYOUT_SIG_TEXT_WIDTH?: string } } }
-    ).process?.env?.REZI_LAYOUT_SIG_TEXT_WIDTH;
+    const raw = (globalThis as { process?: { env?: { REZI_LAYOUT_SIG_TEXT_WIDTH?: string } } })
+      .process?.env?.REZI_LAYOUT_SIG_TEXT_WIDTH;
     // Default: treat plain (non-wrapped, unconstrained) text width changes as
     // paint-only, not layout-affecting. This avoids full relayout churn for
     // high-frequency text updates.

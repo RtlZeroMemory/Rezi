@@ -63,4 +63,3 @@ export function emitReziPerfSnapshot(
     // Profiling is optional and must never affect benchmark execution.
   }
 }
-
