@@ -3129,7 +3129,6 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
           });
         }
       }
-
       writeOutput({ output, staticOutput });
       options.onRender?.({
         renderTime,
