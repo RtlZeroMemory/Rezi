@@ -164,6 +164,7 @@ function leafVNodeEqual(a: VNode, b: VNode): boolean {
     case "text": {
       if (b.kind !== "text") return false;
       if (a.text !== b.text) return false;
+      if (a.props === b.props) return true;
       const ap = a.props as {
         id?: unknown;
         style?: unknown;

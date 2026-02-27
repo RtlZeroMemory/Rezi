@@ -119,10 +119,16 @@ export async function createBenchBackend(): Promise<BenchFrameBackend> {
   }
 
   const NodeBackend = await import("@rezi-ui/node");
+  const executionModeEnv = (
+    process.env as Readonly<{ REZI_BENCH_REZI_EXECUTION_MODE?: string }>
+  ).REZI_BENCH_REZI_EXECUTION_MODE;
+  const executionMode = executionModeEnv === "worker" ? "worker" : "inline";
   const inner = NodeBackend.createNodeBackend({
     // PTY mode already runs in a dedicated process, so prefer inline execution
     // here for stability (avoids nested worker-thread ownership + transport).
-    executionMode: "inline",
+    // Diagnostic override:
+    //   REZI_BENCH_REZI_EXECUTION_MODE=worker
+    executionMode,
     fpsCap: 60,
     nativeConfig: {
       // Include output backpressure (when supported) for a closer-to-real measurement.

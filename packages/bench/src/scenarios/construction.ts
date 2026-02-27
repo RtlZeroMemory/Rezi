@@ -12,6 +12,7 @@
 import { BenchBackend, MeasuringStream, NullReadable } from "../backends.js";
 import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { benchAsync, benchSync, tryGc } from "../measure.js";
+import { emitReziPerfSnapshot, resetReziPerfSnapshot } from "../reziProfile.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 import {
   buildBlessedTree,
@@ -21,7 +22,8 @@ import {
 } from "./treeBuilders.js";
 
 async function runRezi(config: ScenarioConfig, n: number): Promise<BenchMetrics> {
-  const { createApp } = await import("@rezi-ui/core");
+  const core = await import("@rezi-ui/core");
+  const { createApp } = core;
   // Viewport must be large enough to fit all items — prevents viewport
   // clipping from giving Rezi an unfair advantage over frameworks that
   // render the full list regardless of viewport size.
@@ -48,6 +50,7 @@ async function runRezi(config: ScenarioConfig, n: number): Promise<BenchMetrics>
 
     const frameBase = backend.frameCount;
     const bytesBase = backend.totalFrameBytes;
+    resetReziPerfSnapshot(core);
 
     const metrics = await benchAsync(
       async (i) => {
@@ -61,6 +64,7 @@ async function runRezi(config: ScenarioConfig, n: number): Promise<BenchMetrics>
 
     metrics.framesProduced = backend.frameCount - frameBase;
     metrics.bytesProduced = backend.totalFrameBytes - bytesBase;
+    emitReziPerfSnapshot(core, "tree-construction", { items: n }, config, metrics);
     return metrics;
   } finally {
     await app.stop();

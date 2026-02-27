@@ -1,6 +1,7 @@
 import type { LayoutTree } from "../../layout/layout.js";
 import { measureTextCells } from "../../layout/textMeasure.js";
 import type { Rect } from "../../layout/types.js";
+import { PERF_ENABLED, perfCount } from "../../perf/perf.js";
 import { getRuntimeNodeDamageRect } from "../../renderer/renderToDrawlist/damageBounds.js";
 import type { RuntimeInstance } from "../../runtime/commit.js";
 import type { InstanceId } from "../../runtime/instance.js";
@@ -8,6 +9,23 @@ import type { InstanceId } from "../../runtime/instance.js";
 const ZERO_RECT: Rect = { x: 0, y: 0, w: 0, h: 0 };
 const HASH_FNV_OFFSET = 0x811c9dc5;
 const HASH_FNV_PRIME = 0x01000193;
+const EMPTY_INSTANCE_IDS: readonly InstanceId[] = Object.freeze([]);
+const LAYOUT_SIG_INCLUDE_TEXT_WIDTH = (() => {
+  try {
+    const raw = (
+      globalThis as { process?: { env?: { REZI_LAYOUT_SIG_TEXT_WIDTH?: string } } }
+    ).process?.env?.REZI_LAYOUT_SIG_TEXT_WIDTH;
+    // Default: treat plain (non-wrapped, unconstrained) text width changes as
+    // paint-only, not layout-affecting. This avoids full relayout churn for
+    // high-frequency text updates.
+    if (raw === undefined) return false;
+    const value = raw.trim().toLowerCase();
+    if (value === "1" || value === "true" || value === "yes" || value === "on") return true;
+    return false;
+  } catch {
+    return false;
+  }
+})();
 
 const STACK_LAYOUT_KEYS: readonly string[] = Object.freeze([
   "width",
@@ -178,7 +196,10 @@ function hashSizesArray(hash: number, sizes: readonly unknown[]): number | null 
   return out;
 }
 
-function computeLayoutStabilitySignature(node: RuntimeInstance): number | null {
+function computeLayoutStabilitySignature(
+  node: RuntimeInstance,
+  _parentKind: string | undefined,
+): number | null {
   switch (node.vnode.kind) {
     case "text": {
       const props = node.vnode.props as Readonly<{ maxWidth?: unknown; wrap?: unknown }>;
@@ -195,9 +216,24 @@ function computeLayoutStabilitySignature(node: RuntimeInstance): number | null {
       if (maxWidth === null) return null;
       const wrap = props.wrap === true;
 
-      const measuredWidth = measureTextCellsFast(node.vnode.text);
-      const cappedWidth =
-        maxWidth === undefined ? measuredWidth : Math.min(measuredWidth, maxWidth);
+      // Include text width in the signature when it can affect layout:
+      // - Always when maxWidth is set (capped to maxWidth)
+      // - Always when wrap is enabled (text content determines line count)
+      // - When the global override requests it
+      // Otherwise skip for pure paint-only fast path. Even inside
+      // width-sensitive parents (row/grid/splitPane) we intentionally skip
+      // measuring unconstrained text width: the layout engine correctly
+      // computes intrinsic sizes on the next structural layout pass, and
+      // treating every text-content change as layout-affecting causes
+      // O(frames) relayout in scrolling lists.
+      let cappedWidth = 0;
+      if (maxWidth === undefined) {
+        if (LAYOUT_SIG_INCLUDE_TEXT_WIDTH || wrap) {
+          cappedWidth = measureTextCellsFast(node.vnode.text);
+        }
+      } else {
+        cappedWidth = Math.min(measureTextCellsFast(node.vnode.text), maxWidth);
+      }
 
       let hash = hashString(HASH_FNV_OFFSET, "text");
       hash = hashNumber(hash, cappedWidth);
@@ -485,6 +521,10 @@ function computeLayoutStabilitySignature(node: RuntimeInstance): number | null {
       return hash;
     }
     default:
+      if (PERF_ENABLED) {
+        perfCount("layout_sig_unsupported_total");
+        perfCount(`layout_sig_unsupported_kind:${node.vnode.kind}`);
+      }
       return null;
   }
 }
@@ -505,8 +545,85 @@ export function updateLayoutStabilitySignatures(
   prevByInstanceId: Map<InstanceId, number>,
   nextByInstanceId: Map<InstanceId, number>,
   pooledRuntimeStack: RuntimeInstance[],
+  removedInstanceIds: readonly InstanceId[] = EMPTY_INSTANCE_IDS,
+  trustDirtyFlags = false,
 ): boolean {
+  if (PERF_ENABLED) {
+    perfCount("layout_sig_update_calls");
+    perfCount("layout_sig_prev_size", prevByInstanceId.size);
+  }
+  if (!trustDirtyFlags) {
+    nextByInstanceId.clear();
+    pooledRuntimeStack.length = 0;
+    pooledRuntimeStack.push(runtimeRoot);
+
+    let changed = false;
+    while (pooledRuntimeStack.length > 0) {
+      const node = pooledRuntimeStack.pop();
+      if (!node) continue;
+      if (PERF_ENABLED) {
+        perfCount("layout_sig_nodes_scanned");
+        if (node.dirty) perfCount("layout_sig_nodes_dirty");
+        if (node.selfDirty) perfCount("layout_sig_nodes_self_dirty");
+      }
+
+      const signature = computeLayoutStabilitySignature(node, undefined);
+      if (signature === null) {
+        if (PERF_ENABLED) {
+          perfCount("layout_sig_forced_layout_from_unsupported");
+        }
+        prevByInstanceId.clear();
+        nextByInstanceId.clear();
+        pooledRuntimeStack.length = 0;
+        return true;
+      }
+
+      nextByInstanceId.set(node.instanceId, signature);
+      const prev = prevByInstanceId.get(node.instanceId);
+      if (prev !== signature) {
+        changed = true;
+        if (PERF_ENABLED) {
+          perfCount("layout_sig_changed_nodes");
+          perfCount(`layout_sig_changed_kind:${node.vnode.kind}`);
+        }
+      }
+
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        const child = node.children[i];
+        if (child) {
+          pooledRuntimeStack.push(child);
+        }
+      }
+    }
+
+    if (!changed && prevByInstanceId.size !== nextByInstanceId.size) {
+      changed = true;
+      if (PERF_ENABLED) perfCount("layout_sig_size_mismatch");
+    }
+
+    if (PERF_ENABLED) {
+      perfCount("layout_sig_next_size", nextByInstanceId.size);
+      if (changed) perfCount("layout_sig_changed_frames");
+      else perfCount("layout_sig_stable_frames");
+    }
+
+    prevByInstanceId.clear();
+    for (const [instanceId, signature] of nextByInstanceId) {
+      prevByInstanceId.set(instanceId, signature);
+    }
+    nextByInstanceId.clear();
+
+    return changed;
+  }
+
   nextByInstanceId.clear();
+  if (removedInstanceIds.length > 0) {
+    for (const instanceId of removedInstanceIds) {
+      if (prevByInstanceId.delete(instanceId)) {
+        if (PERF_ENABLED) perfCount("layout_sig_removed_ids");
+      }
+    }
+  }
   pooledRuntimeStack.length = 0;
   pooledRuntimeStack.push(runtimeRoot);
 
@@ -514,34 +631,60 @@ export function updateLayoutStabilitySignatures(
   while (pooledRuntimeStack.length > 0) {
     const node = pooledRuntimeStack.pop();
     if (!node) continue;
+    if (PERF_ENABLED) {
+      perfCount("layout_sig_nodes_scanned");
+      if (node.dirty) perfCount("layout_sig_nodes_dirty");
+      if (node.selfDirty) perfCount("layout_sig_nodes_self_dirty");
+    }
 
-    const signature = computeLayoutStabilitySignature(node);
+    const hadPrev = prevByInstanceId.has(node.instanceId);
+    const shouldRecompute = node.dirty || !hadPrev;
+    if (!shouldRecompute) {
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        const child = node.children[i];
+        if (!child) continue;
+        if (child.dirty || !prevByInstanceId.has(child.instanceId)) {
+          pooledRuntimeStack.push(child);
+        }
+      }
+      continue;
+    }
+
+    const signature = computeLayoutStabilitySignature(node, undefined);
     if (signature === null) {
+      if (PERF_ENABLED) {
+        perfCount("layout_sig_forced_layout_from_unsupported");
+      }
       prevByInstanceId.clear();
       nextByInstanceId.clear();
       pooledRuntimeStack.length = 0;
       return true;
     }
 
-    nextByInstanceId.set(node.instanceId, signature);
-    const prev = prevByInstanceId.get(node.instanceId);
-    if (prev !== signature) changed = true;
+    const prev = hadPrev ? prevByInstanceId.get(node.instanceId) : undefined;
+    if (prev !== signature) {
+      changed = true;
+      if (PERF_ENABLED) {
+        perfCount("layout_sig_changed_nodes");
+        perfCount(`layout_sig_changed_kind:${node.vnode.kind}`);
+      }
+    }
+    prevByInstanceId.set(node.instanceId, signature);
 
     for (let i = node.children.length - 1; i >= 0; i--) {
       const child = node.children[i];
-      if (child) pooledRuntimeStack.push(child);
+      if (!child) continue;
+      if (child.dirty || !prevByInstanceId.has(child.instanceId)) {
+        pooledRuntimeStack.push(child);
+      }
     }
   }
 
-  if (!changed && prevByInstanceId.size !== nextByInstanceId.size) {
-    changed = true;
+  if (PERF_ENABLED) {
+    perfCount("layout_sig_next_size", prevByInstanceId.size);
+    if (changed) perfCount("layout_sig_changed_frames");
+    else perfCount("layout_sig_stable_frames");
   }
-
-  prevByInstanceId.clear();
-  for (const [instanceId, signature] of nextByInstanceId) {
-    prevByInstanceId.set(instanceId, signature);
-  }
-  nextByInstanceId.clear();
 
   return changed;
 }

@@ -16,6 +16,7 @@ import { NullReadable } from "../backends.js";
 import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { createBenchBackend, createInkStdout } from "../io.js";
 import { computeStats, diffCpu, peakMemory, takeCpu, takeMemory, tryGc } from "../measure.js";
+import { emitReziPerfSnapshot, resetReziPerfSnapshot } from "../reziProfile.js";
 import type {
   BenchMetrics,
   Framework,
@@ -121,7 +122,8 @@ function analyzeMemory(samples: NodeMemorySnapshot[]): MemoryProfile {
 // ── Runners ─────────────────────────────────────────────────────────
 
 async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
-  const { createApp } = await import("@rezi-ui/core");
+  const core = await import("@rezi-ui/core");
+  const { createApp } = core;
   const backend = await createBenchBackend();
 
   type State = { iteration: number };
@@ -150,6 +152,7 @@ async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
     const frameBase = backend.frameCount;
     const bytesBase = backend.totalFrameBytes;
 
+    resetReziPerfSnapshot(core);
     tryGc();
     const memBefore = takeMemory();
     const cpuBefore = takeCpu();
@@ -177,7 +180,7 @@ async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
 
     const prof = analyzeMemory(memorySamples);
 
-    return {
+    const metrics: BenchMetrics = {
       timing: computeStats(timingSamples),
       memBefore,
       memAfter,
@@ -195,6 +198,8 @@ async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
       bytesProduced: backend.totalFrameBytes - bytesBase,
       ptyBytesObserved: null,
     };
+    emitReziPerfSnapshot(core, "memory-profile", {}, config, metrics);
+    return metrics;
   } finally {
     await app.stop();
     app.dispose();

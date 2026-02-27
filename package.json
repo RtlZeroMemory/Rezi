@@ -46,7 +46,10 @@
     "bench": "node --expose-gc packages/bench/dist/run.js",
     "bench:report": "node --expose-gc packages/bench/dist/run.js --markdown",
     "bench:ci": "node scripts/run-bench-ci.mjs",
-    "bench:ci:compare": "node scripts/bench-ci-compare.mjs"
+    "bench:ci:compare": "node scripts/bench-ci-compare.mjs",
+    "bench:full:compare": "node scripts/bench-full-compare.mjs",
+    "bench:terminal:rigorous": "node --expose-gc packages/bench/dist/run.js --suite terminal --io pty --replicates 7 --discard-first-replicate --shuffle-framework-order --shuffle-seed local-terminal-rigorous --cpu-affinity 0-7 --env-check strict",
+    "bench:all:rigorous": "node --expose-gc packages/bench/dist/run.js --suite all --io pty --replicates 7 --discard-first-replicate --shuffle-framework-order --shuffle-seed local-all-rigorous --cpu-affinity 0-7 --env-check strict"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

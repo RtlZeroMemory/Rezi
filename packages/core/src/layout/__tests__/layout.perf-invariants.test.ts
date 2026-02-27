@@ -306,7 +306,7 @@ describe("layout perf invariants (deterministic counters)", () => {
     assert.equal(prev.size, 2);
   });
 
-  test("signature gate invokes layout when leaf signature changes", () => {
+  test("signature gate skips layout for unconstrained text width changes", () => {
     const prev = new Map<InstanceId, number>();
     let layoutCalls = 0;
 
@@ -317,6 +317,26 @@ describe("layout perf invariants (deterministic counters)", () => {
     });
 
     const childA1 = runtimeNode(2, textNode("stable-updated"));
+    const root1 = runtimeNode(1, rowNode([childA1.vnode]), [childA1]);
+    signatureGateLayout(root1, prev, () => {
+      layoutCalls++;
+    });
+
+    assert.equal(layoutCalls, 1);
+    assert.equal(prev.size, 2);
+  });
+
+  test("signature gate invokes layout for constrained text width changes", () => {
+    const prev = new Map<InstanceId, number>();
+    let layoutCalls = 0;
+
+    const childA0 = runtimeNode(2, textNode("stable", { maxWidth: 32 }));
+    const root0 = runtimeNode(1, rowNode([childA0.vnode]), [childA0]);
+    signatureGateLayout(root0, prev, () => {
+      layoutCalls++;
+    });
+
+    const childA1 = runtimeNode(2, textNode("stable-updated", { maxWidth: 32 }));
     const root1 = runtimeNode(1, rowNode([childA1.vnode]), [childA1]);
     signatureGateLayout(root1, prev, () => {
       layoutCalls++;

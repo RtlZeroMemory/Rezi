@@ -102,18 +102,23 @@ function clipEquals(a: ClipRect | undefined, b: ClipRect): boolean {
   return a !== undefined && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 }
 
-function pushChildClipIfNeeded(
+/**
+ * Returns a callback that pushes clip + pop-sentinel exactly when the first
+ * renderable child is queued. This avoids emitting no-op clip ops when
+ * damage-culling leaves a container with zero queued children.
+ */
+function clipOnFirstQueuedChild(
   builder: DrawlistBuilder,
   nodeStack: (RuntimeInstance | null)[],
-  insertIndex: number,
   currentClip: ClipRect | undefined,
   childClip: ClipRect | undefined,
-  queuedChildCount: number,
-): void {
-  if (queuedChildCount <= 0 || !childClip || clipEquals(currentClip, childClip)) return;
-  builder.pushClip(childClip.x, childClip.y, childClip.w, childClip.h);
-  // Keep clip pop sentinel below queued children so pop runs after subtree render.
-  nodeStack.splice(insertIndex, 0, null);
+): (() => void) | undefined {
+  if (!childClip || clipEquals(currentClip, childClip)) return undefined;
+  return () => {
+    builder.pushClip(childClip.x, childClip.y, childClip.w, childClip.h);
+    // Push sentinel before the first child so pop runs after subtree render.
+    nodeStack.push(null);
+  };
 }
 
 function rectIntersects(a: Rect, b: Rect): boolean {
@@ -191,6 +196,7 @@ function pushChildrenWithLayout(
   skipCleanSubtrees: boolean,
   forceSubtreeRender: boolean,
   stackDirection: "row" | "column" | undefined = undefined,
+  onFirstQueuedChild: (() => void) | undefined = undefined,
 ): number {
   const childCount = Math.min(node.children.length, layoutNode.children.length);
   if (childCount <= 0) return 0;
@@ -235,6 +241,9 @@ function pushChildrenWithLayout(
         childCanOverflow ||
         rectIntersects(getRuntimeNodeDamageRect(c, lc.rect), damageRect))
     ) {
+      if (pushedChildren === 0) {
+        onFirstQueuedChild?.();
+      }
       if (forceSubtreeRender) {
         c.dirty = true;
         if (c.children.length > 0) c.selfDirty = true;
@@ -595,8 +604,7 @@ export function renderContainerWidget(
         childClip = viewportWithScrollbars.viewportRect;
       }
 
-      const childStackInsertIndex = nodeStack.length;
-      const queuedChildCount = pushChildrenWithLayout(
+      pushChildrenWithLayout(
         node,
         layoutNode,
         style,
@@ -609,14 +617,7 @@ export function renderContainerWidget(
         skipCleanSubtrees,
         forceChildrenRender,
         vnode.kind === "row" || vnode.kind === "column" ? vnode.kind : undefined,
-      );
-      pushChildClipIfNeeded(
-        builder,
-        nodeStack,
-        childStackInsertIndex,
-        currentClip,
-        childClip,
-        queuedChildCount,
+        clipOnFirstQueuedChild(builder, nodeStack, currentClip, childClip),
       );
       break;
     }
@@ -754,8 +755,7 @@ export function renderContainerWidget(
         childClip = viewportWithScrollbars.viewportRect;
       }
 
-      const childStackInsertIndex = nodeStack.length;
-      const queuedChildCount = pushChildrenWithLayout(
+      pushChildrenWithLayout(
         node,
         layoutNode,
         style,
@@ -767,14 +767,8 @@ export function renderContainerWidget(
         damageRect,
         skipCleanSubtrees,
         forceChildrenRender,
-      );
-      pushChildClipIfNeeded(
-        builder,
-        nodeStack,
-        childStackInsertIndex,
-        currentClip,
-        childClip,
-        queuedChildCount,
+        undefined,
+        clipOnFirstQueuedChild(builder, nodeStack, currentClip, childClip),
       );
       break;
     }
@@ -822,8 +816,7 @@ export function renderContainerWidget(
       const ch = clampNonNegative(rect.h - 2);
       const childClip: ClipRect = { x: cx, y: cy, w: cw, h: ch };
 
-      const childStackInsertIndex = nodeStack.length;
-      const queuedChildCount = pushChildrenWithLayout(
+      pushChildrenWithLayout(
         node,
         layoutNode,
         surfaceStyle,
@@ -835,14 +828,8 @@ export function renderContainerWidget(
         damageRect,
         skipCleanSubtrees,
         forceChildrenRender,
-      );
-      pushChildClipIfNeeded(
-        builder,
-        nodeStack,
-        childStackInsertIndex,
-        currentClip,
-        childClip,
-        queuedChildCount,
+        undefined,
+        clipOnFirstQueuedChild(builder, nodeStack, currentClip, childClip),
       );
       break;
     }
@@ -926,8 +913,7 @@ export function renderContainerWidget(
               h: clampNonNegative(rect.h - borderInset * 2),
             }
           : currentClip;
-      const childStackInsertIndex = nodeStack.length;
-      const queuedChildCount = pushChildrenWithLayout(
+      pushChildrenWithLayout(
         node,
         layoutNode,
         layerStyle,
@@ -939,14 +925,8 @@ export function renderContainerWidget(
         damageRect,
         skipCleanSubtrees,
         forceChildrenRender,
-      );
-      pushChildClipIfNeeded(
-        builder,
-        nodeStack,
-        childStackInsertIndex,
-        currentClip,
-        childClip,
-        queuedChildCount,
+        undefined,
+        clipOnFirstQueuedChild(builder, nodeStack, currentClip, childClip),
       );
       break;
     }
@@ -958,10 +938,8 @@ export function renderContainerWidget(
       const dividerStyle = mergeTextStyle(parentStyle, { fg: theme.colors.border });
 
       const childClip: ClipRect = { x: rect.x, y: rect.y, w: rect.w, h: rect.h };
-      const childStackInsertIndex = nodeStack.length;
-
       // Render children (handled by layout)
-      const queuedChildCount = pushChildrenWithLayout(
+      pushChildrenWithLayout(
         node,
         layoutNode,
         parentStyle,
@@ -973,14 +951,8 @@ export function renderContainerWidget(
         damageRect,
         skipCleanSubtrees,
         forceChildrenRender,
-      );
-      pushChildClipIfNeeded(
-        builder,
-        nodeStack,
-        childStackInsertIndex,
-        currentClip,
-        childClip,
-        queuedChildCount,
+        undefined,
+        clipOnFirstQueuedChild(builder, nodeStack, currentClip, childClip),
       );
 
       // Render dividers between panels
@@ -1024,8 +996,7 @@ export function renderContainerWidget(
       if (!isVisibleRect(rect)) break;
 
       const childClip: ClipRect = { x: rect.x, y: rect.y, w: rect.w, h: rect.h };
-      const childStackInsertIndex = nodeStack.length;
-      const queuedChildCount = pushChildrenWithLayout(
+      pushChildrenWithLayout(
         node,
         layoutNode,
         parentStyle,
@@ -1037,14 +1008,8 @@ export function renderContainerWidget(
         damageRect,
         skipCleanSubtrees,
         forceChildrenRender,
-      );
-      pushChildClipIfNeeded(
-        builder,
-        nodeStack,
-        childStackInsertIndex,
-        currentClip,
-        childClip,
-        queuedChildCount,
+        undefined,
+        clipOnFirstQueuedChild(builder, nodeStack, currentClip, childClip),
       );
       break;
     }
@@ -1053,8 +1018,7 @@ export function renderContainerWidget(
       if (!isVisibleRect(rect)) break;
 
       const childClip: ClipRect = { x: rect.x, y: rect.y, w: rect.w, h: rect.h };
-      const childStackInsertIndex = nodeStack.length;
-      const queuedChildCount = pushChildrenWithLayout(
+      pushChildrenWithLayout(
         node,
         layoutNode,
         parentStyle,
@@ -1066,14 +1030,8 @@ export function renderContainerWidget(
         damageRect,
         skipCleanSubtrees,
         forceChildrenRender,
-      );
-      pushChildClipIfNeeded(
-        builder,
-        nodeStack,
-        childStackInsertIndex,
-        currentClip,
-        childClip,
-        queuedChildCount,
+        undefined,
+        clipOnFirstQueuedChild(builder, nodeStack, currentClip, childClip),
       );
       break;
     }
