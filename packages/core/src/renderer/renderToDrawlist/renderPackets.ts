@@ -19,6 +19,21 @@ const refIds = new WeakMap<object, number>();
 let nextRefId = 1;
 const themeHashCache = new WeakMap<Theme, number>();
 const styleHashCache = new WeakMap<object, number>();
+const textValueHashCache = new Map<string, number>();
+const TEXT_VALUE_HASH_CACHE_MAX = 8_192;
+const TEXT_VALUE_HASH_CACHE_MIN_LEN = 24;
+type TextPacketKeyMemo = Readonly<{
+  kind: string;
+  text: string;
+  props: Readonly<Record<string, unknown>>;
+  theme: Theme;
+  parentStyle: ResolvedTextStyle;
+  rectWidth: number;
+  rectHeight: number;
+  focusBits: number;
+  key: number;
+}>;
+const textPacketKeyMemo = new WeakMap<RuntimeInstance, TextPacketKeyMemo>();
 
 function hashString(value: string): number {
   let hash = FNV_OFFSET;
@@ -27,6 +42,21 @@ function hashString(value: string): number {
     hash = Math.imul(hash, FNV_PRIME) >>> 0;
   }
   return hash >>> 0;
+}
+
+function hashTextValue(value: string): number {
+  if (value.length < TEXT_VALUE_HASH_CACHE_MIN_LEN) {
+    return hashString(value);
+  }
+  const cached = textValueHashCache.get(value);
+  if (cached !== undefined) return cached;
+  const hashed = hashString(value);
+  if (textValueHashCache.size >= TEXT_VALUE_HASH_CACHE_MAX) {
+    // Bound memory under high-cardinality dynamic text workloads.
+    textValueHashCache.clear();
+  }
+  textValueHashCache.set(value, hashed);
+  return hashed;
 }
 
 function mixHash(hash: number, value: number): number {
@@ -52,6 +82,46 @@ function hashUnknown(value: unknown): number {
   }
 
   return 0;
+}
+
+/**
+ * Hash a value by content for primitives, by identity for objects/functions.
+ * Returns null if the value contains unhashable content (signals uncacheable).
+ */
+function hashPropValue(hash: number, value: unknown): number {
+  if (value === null || value === undefined) return mixHash(hash, 0);
+  if (typeof value === "boolean") return mixHash(hash, value ? 1 : 2);
+  if (typeof value === "number") return mixHash(hash, (Math.trunc(value) & HASH_MASK_32) >>> 0);
+  if (typeof value === "string") return mixHash(hash, hashString(value));
+  // Functions (callbacks) don't affect visual output — skip with stable sentinel.
+  if (typeof value === "function") return mixHash(hash, 0xcafe_0001);
+  // Arrays: hash element count + each element.
+  if (Array.isArray(value)) {
+    let out = mixHash(hash, value.length);
+    for (let i = 0; i < value.length; i++) {
+      out = hashPropValue(out, value[i]);
+    }
+    return out;
+  }
+  // Plain objects: hash by identity (preserving correctness for complex nested objects).
+  return mixHash(hash, hashUnknown(value));
+}
+
+/**
+ * Hash all own enumerable props of an object by content (primitives) or identity (objects).
+ * Callbacks (functions) receive a stable sentinel so re-created closures don't bust the cache.
+ */
+function hashPropsShallow(hash: number, props: Readonly<Record<string, unknown>>): number {
+  let out = hash;
+  const keys = Object.keys(props);
+  out = mixHash(out, keys.length);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (key === undefined) continue;
+    out = mixHash(out, hashString(key));
+    out = hashPropValue(out, props[key]);
+  }
+  return out;
 }
 
 function hashBoolFlag(value: boolean | undefined): number {
@@ -174,6 +244,68 @@ function isTickDrivenKind(kind: RuntimeInstance["vnode"]["kind"]): boolean {
   return kind === "spinner";
 }
 
+/**
+ * Fast-path prop hashing for text/richText nodes.
+ * Only hashes the visual-relevant props (style, maxWidth, wrap, variant, dim,
+ * textOverflow) to avoid the cost of iterating all keys via hashPropsShallow.
+ * The text content itself is already hashed separately.
+ */
+function hashTextProps(hash: number, props: Readonly<Record<string, unknown>>): number {
+  const textProps = props as Readonly<{
+    style?: unknown;
+    maxWidth?: unknown;
+    wrap?: unknown;
+    variant?: unknown;
+    dim?: unknown;
+    textOverflow?: unknown;
+  }>;
+  const style = textProps.style;
+  const maxWidth = textProps.maxWidth;
+  const wrap = textProps.wrap;
+  const variant = textProps.variant;
+  const dim = textProps.dim;
+  const textOverflow = textProps.textOverflow;
+
+  // Common case for plain text nodes with no explicit props.
+  if (
+    style === undefined &&
+    maxWidth === undefined &&
+    wrap === undefined &&
+    variant === undefined &&
+    dim === undefined &&
+    textOverflow === undefined
+  ) {
+    return mixHash(hash, 0x7458_7430);
+  }
+
+  let out = hash;
+  if (style !== undefined) {
+    out = mixHash(out, 1);
+    out = mixHash(out, hashUnknown(style));
+  }
+  if (maxWidth !== undefined) {
+    out = mixHash(out, 2);
+    out = hashPropValue(out, maxWidth);
+  }
+  if (wrap !== undefined) {
+    out = mixHash(out, 3);
+    out = hashPropValue(out, wrap);
+  }
+  if (variant !== undefined) {
+    out = mixHash(out, 4);
+    out = hashPropValue(out, variant);
+  }
+  if (dim !== undefined) {
+    out = mixHash(out, 5);
+    out = hashPropValue(out, dim);
+  }
+  if (textOverflow !== undefined) {
+    out = mixHash(out, 6);
+    out = hashPropValue(out, textOverflow);
+  }
+  return out;
+}
+
 export function computeRenderPacketKey(
   node: RuntimeInstance,
   theme: Theme,
@@ -187,24 +319,66 @@ export function computeRenderPacketKey(
 ): number {
   if (!isRenderPacketCacheable(node, cursorInfo)) return 0;
 
+  const focusBits = focusPressedBits(node, focusState, pressedId);
+  const kind = node.vnode.kind;
+  const vnodeText = (node.vnode as { text?: string }).text;
+
+  if ((kind === "text" || kind === "richText") && vnodeText !== undefined) {
+    const props = node.vnode.props as Readonly<Record<string, unknown>>;
+    const memo = textPacketKeyMemo.get(node);
+    if (
+      memo !== undefined &&
+      memo.kind === kind &&
+      memo.text === vnodeText &&
+      memo.props === props &&
+      memo.theme === theme &&
+      memo.parentStyle === parentStyle &&
+      memo.rectWidth === rectWidth &&
+      memo.rectHeight === rectHeight &&
+      memo.focusBits === focusBits
+    ) {
+      return memo.key;
+    }
+  }
+
   let hash = FNV_OFFSET;
-  hash = mixHash(hash, hashString(node.vnode.kind));
-  hash = mixHash(hash, hashUnknown(node.vnode));
-  hash = mixHash(hash, hashUnknown(node.vnode.props));
+  hash = mixHash(hash, hashString(kind));
+  if (vnodeText !== undefined) {
+    hash = mixHash(hash, hashTextValue(vnodeText));
+  }
+  if (kind === "text" || kind === "richText") {
+    hash = hashTextProps(hash, node.vnode.props as Readonly<Record<string, unknown>>);
+  } else {
+    hash = hashPropsShallow(hash, node.vnode.props as Readonly<Record<string, unknown>>);
+  }
   hash = mixHash(hash, hashTheme(theme));
   hash = mixHash(hash, hashResolvedStyle(parentStyle));
   hash = mixHash(hash, (Math.trunc(rectWidth) & HASH_MASK_32) >>> 0);
   hash = mixHash(hash, (Math.trunc(rectHeight) & HASH_MASK_32) >>> 0);
-  hash = mixHash(hash, focusPressedBits(node, focusState, pressedId));
+  hash = mixHash(hash, focusBits);
   if (isTickDrivenKind(node.vnode.kind)) {
     hash = mixHash(hash, tick >>> 0);
   }
-  return hash === 0 ? 1 : hash >>> 0;
+  const out = hash === 0 ? 1 : hash >>> 0;
+  if ((kind === "text" || kind === "richText") && vnodeText !== undefined) {
+    textPacketKeyMemo.set(node, {
+      kind,
+      text: vnodeText,
+      props: node.vnode.props as Readonly<Record<string, unknown>>,
+      theme,
+      parentStyle,
+      rectWidth,
+      rectHeight,
+      focusBits,
+      key: out,
+    });
+  }
+  return out;
 }
 
 export class RenderPacketRecorder implements DrawlistBuilder {
-  private readonly ops: RenderPacketOp[] = [];
-  private readonly resources: Uint8Array[] = [];
+  private ops: RenderPacketOp[] = [];
+  private resources: Uint8Array[] = [];
   private readonly blobResourceById = new Map<number, number>();
   private readonly textRunByBlobId = new Map<number, readonly DrawlistTextRunSegment[]>();
   private valid = true;
@@ -217,9 +391,15 @@ export class RenderPacketRecorder implements DrawlistBuilder {
 
   buildPacket(): RenderPacket | null {
     if (!this.valid) return null;
+    const ops = this.ops;
+    const resources = this.resources;
+    this.ops = [];
+    this.resources = [];
+    this.blobResourceById.clear();
+    this.textRunByBlobId.clear();
     return Object.freeze({
-      ops: Object.freeze(this.ops.slice()),
-      resources: Object.freeze(this.resources.slice()),
+      ops: Object.freeze(ops),
+      resources: Object.freeze(resources),
     });
   }
 
@@ -253,8 +433,11 @@ export class RenderPacketRecorder implements DrawlistBuilder {
     style?: Parameters<DrawlistBuilder["fillRect"]>[4],
   ): void {
     this.target.fillRect(x, y, w, h, style);
-    const local = { op: "FILL_RECT", x: this.localX(x), y: this.localY(y), w, h } as const;
-    this.ops.push(style === undefined ? local : { ...local, style });
+    if (style === undefined) {
+      this.ops.push({ op: "FILL_RECT", x: this.localX(x), y: this.localY(y), w, h });
+      return;
+    }
+    this.ops.push({ op: "FILL_RECT", x: this.localX(x), y: this.localY(y), w, h, style });
   }
 
   blitRect(srcX: number, srcY: number, w: number, h: number, dstX: number, dstY: number): void {
@@ -269,13 +452,22 @@ export class RenderPacketRecorder implements DrawlistBuilder {
     style?: Parameters<DrawlistBuilder["drawText"]>[3],
   ): void {
     this.target.drawText(x, y, text, style);
-    const local = {
+    if (style === undefined) {
+      this.ops.push({
+        op: "DRAW_TEXT_SLICE",
+        x: this.localX(x),
+        y: this.localY(y),
+        text,
+      });
+      return;
+    }
+    this.ops.push({
       op: "DRAW_TEXT_SLICE",
       x: this.localX(x),
       y: this.localY(y),
       text,
-    } as const;
-    this.ops.push(style === undefined ? local : { ...local, style });
+      style,
+    });
   }
 
   pushClip(x: number, y: number, w: number, h: number): void {
@@ -347,7 +539,17 @@ export class RenderPacketRecorder implements DrawlistBuilder {
       this.invalidatePacket();
       return;
     }
-    this.ops.push({
+    const op: {
+      op: "DRAW_CANVAS";
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      resourceId: number;
+      blitter: Parameters<DrawlistBuilder["drawCanvas"]>[5];
+      pxWidth?: number;
+      pxHeight?: number;
+    } = {
       op: "DRAW_CANVAS",
       x: this.localX(x),
       y: this.localY(y),
@@ -355,9 +557,10 @@ export class RenderPacketRecorder implements DrawlistBuilder {
       h,
       resourceId,
       blitter,
-      ...(pxWidth !== undefined ? { pxWidth } : {}),
-      ...(pxHeight !== undefined ? { pxHeight } : {}),
-    });
+    };
+    if (pxWidth !== undefined) op.pxWidth = pxWidth;
+    if (pxHeight !== undefined) op.pxHeight = pxHeight;
+    this.ops.push(op);
   }
 
   drawImage(...args: Parameters<DrawlistBuilder["drawImage"]>): void {
@@ -368,7 +571,21 @@ export class RenderPacketRecorder implements DrawlistBuilder {
       this.invalidatePacket();
       return;
     }
-    this.ops.push({
+    const op: {
+      op: "DRAW_IMAGE";
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      resourceId: number;
+      format: Parameters<DrawlistBuilder["drawImage"]>[5];
+      protocol: Parameters<DrawlistBuilder["drawImage"]>[6];
+      zLayer: Parameters<DrawlistBuilder["drawImage"]>[7];
+      fit: Parameters<DrawlistBuilder["drawImage"]>[8];
+      imageId: Parameters<DrawlistBuilder["drawImage"]>[9];
+      pxWidth?: number;
+      pxHeight?: number;
+    } = {
       op: "DRAW_IMAGE",
       x: this.localX(x),
       y: this.localY(y),
@@ -380,9 +597,10 @@ export class RenderPacketRecorder implements DrawlistBuilder {
       zLayer,
       fit,
       imageId,
-      ...(pxWidth !== undefined ? { pxWidth } : {}),
-      ...(pxHeight !== undefined ? { pxHeight } : {}),
-    });
+    };
+    if (pxWidth !== undefined) op.pxWidth = pxWidth;
+    if (pxHeight !== undefined) op.pxHeight = pxHeight;
+    this.ops.push(op);
   }
 
   buildInto(dst: Uint8Array): DrawlistBuildResult {
@@ -409,10 +627,13 @@ export function emitRenderPacket(
   originX: number,
   originY: number,
 ): void {
-  const blobByResourceId: (number | null)[] = new Array(packet.resources.length);
-  for (let i = 0; i < packet.resources.length; i++) {
-    const resource = packet.resources[i];
-    blobByResourceId[i] = resource ? builder.addBlob(resource) : null;
+  let blobByResourceId: (number | null)[] | null = null;
+  if (packet.resources.length > 0) {
+    blobByResourceId = new Array(packet.resources.length);
+    for (let i = 0; i < packet.resources.length; i++) {
+      const resource = packet.resources[i];
+      blobByResourceId[i] = resource ? builder.addBlob(resource) : null;
+    }
   }
 
   for (const op of packet.ops) {
@@ -444,7 +665,7 @@ export function emitRenderPacket(
         builder.popClip();
         break;
       case "DRAW_CANVAS": {
-        const blobId = blobByResourceId[op.resourceId];
+        const blobId = blobByResourceId?.[op.resourceId];
         if (blobId === null || blobId === undefined) break;
         builder.drawCanvas(
           originX + op.x,
@@ -459,7 +680,7 @@ export function emitRenderPacket(
         break;
       }
       case "DRAW_IMAGE": {
-        const blobId = blobByResourceId[op.resourceId];
+        const blobId = blobByResourceId?.[op.resourceId];
         if (blobId === null || blobId === undefined) break;
         builder.drawImage(
           originX + op.x,
