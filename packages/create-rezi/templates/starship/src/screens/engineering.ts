@@ -371,16 +371,27 @@ const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode =
     }),
   ]);
 
-  const leftPane = ui.column({ gap: SPACE.sm, width: "100%" }, [
-    reactorPanel,
-    ...(showSecondaryPanels ? [treePanel] : []),
-  ]);
-  const rightPane = ui.column({ gap: SPACE.sm, width: "100%" }, [
-    powerPanel,
-    ...(showSecondaryPanels ? [thermalPanel, diagnosticsPanel] : []),
-  ]);
+  const leftPane = showSecondaryPanels
+    ? ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
+        ui.box({ border: "none", p: 0, width: "100%", flex: 3, minHeight: 12 }, [reactorPanel]),
+        ui.box({ border: "none", p: 0, width: "100%", flex: 2, minHeight: 10, overflow: "hidden" }, [
+          treePanel,
+        ]),
+      ])
+    : ui.column({ gap: SPACE.sm, width: "100%" }, [reactorPanel]);
+  const rightPane = showSecondaryPanels
+    ? ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
+        ui.box({ border: "none", p: 0, width: "100%", flex: 3, minHeight: 12, overflow: "hidden" }, [
+          powerPanel,
+        ]),
+        ui.box({ border: "none", p: 0, width: "100%", flex: 2, minHeight: 10 }, [thermalPanel]),
+        ui.box({ border: "none", p: 0, width: "100%", flex: 2, minHeight: 10, overflow: "hidden" }, [
+          diagnosticsPanel,
+        ]),
+      ])
+    : ui.column({ gap: SPACE.sm, width: "100%" }, [powerPanel]);
 
-  const responsiveDeckHeight = Math.max(
+  const responsiveDeckMinHeight = Math.max(
     16,
     contentRows - (showControlsSummary ? 12 : 10) - (showSecondaryPanels ? 0 : 2),
   );
@@ -395,7 +406,8 @@ const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode =
       border: "none",
       p: 0,
       width: "100%",
-      height: responsiveDeckHeight,
+      flex: 1,
+      minHeight: responsiveDeckMinHeight,
       overflow: "scroll",
     },
     [responsiveDeckBody],
@@ -491,7 +503,7 @@ const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode =
     includeResponsiveDeck: renderMode === "full",
     responsiveDeckMode: useWideRow ? "row" : "column",
     forceStackViaEnv,
-    responsiveDeckHeight,
+    responsiveDeckMinHeight,
   });
 
   if (veryCompactHeight) {
@@ -502,7 +514,7 @@ const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode =
     return ui.column({ gap: SPACE.sm, width: "100%" }, [controlsPanel, reactorPanel]);
   }
 
-  return ui.column({ gap: SPACE.sm, width: "100%" }, [
+  return ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
     controlsRegion,
     responsiveDeck,
   ]);
@@ -516,7 +528,7 @@ export function renderEngineeringScreen(
     title: "Engineering Deck",
     context,
     deps,
-    body: ui.column({ gap: SPACE.sm, width: "100%" }, [
+    body: ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
       EngineeringDeck({
         key: "engineering-deck",
         state: context.state,

@@ -145,10 +145,18 @@ export const FRAME_AUDIT_NATIVE_RING_BYTES = envPositiveInt(
 );
 
 // Match zr_debug category/code values.
+export const ZR_DEBUG_CAT_FRAME = 1;
 export const ZR_DEBUG_CAT_DRAWLIST = 3;
+export const ZR_DEBUG_CAT_PERF = 6;
+export const ZR_DEBUG_CODE_FRAME_BEGIN = 0x0100;
+export const ZR_DEBUG_CODE_FRAME_SUBMIT = 0x0101;
+export const ZR_DEBUG_CODE_FRAME_PRESENT = 0x0102;
+export const ZR_DEBUG_CODE_FRAME_RESIZE = 0x0103;
 export const ZR_DEBUG_CODE_DRAWLIST_VALIDATE = 0x0300;
 export const ZR_DEBUG_CODE_DRAWLIST_EXECUTE = 0x0301;
 export const ZR_DEBUG_CODE_DRAWLIST_CMD = 0x0302;
+export const ZR_DEBUG_CODE_PERF_TIMING = 0x0600;
+export const ZR_DEBUG_CODE_PERF_DIFF_PATH = 0x0601;
 
 function readContextRoute(): string | null {
   const g = globalThis as {

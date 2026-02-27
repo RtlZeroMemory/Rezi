@@ -209,7 +209,7 @@ function settingsRightRail(state: StarshipState, deps: RouteDeps): VNode {
       subtitle: activeTheme.label,
       actions: [ui.badge("Preview", { variant: "info" })],
     }),
-    body: ui.column({ gap: SPACE.xs }, [
+    body: ui.column({ gap: SPACE.xs, width: "100%", height: "100%" }, [
       ui.breadcrumb({
         items: [{ label: "Bridge" }, { label: "Settings" }, { label: "Theme Preview" }],
       }),
@@ -277,7 +277,7 @@ export function renderSettingsScreen(
     title: "Ship Settings",
     context,
     deps,
-    body: ui.column({ gap: SPACE.sm, width: "100%" }, [
+    body: ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
       SettingsDeck({
         key: "settings-deck",
         state: context.state,

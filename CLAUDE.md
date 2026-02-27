@@ -505,6 +505,15 @@ result.toText();                   // Render to plain text for snapshots
 
 Test runner: `node:test`. Run all tests with `node scripts/run-tests.mjs`.
 
+For rendering regressions, add a live PTY verification pass and frame-audit
+evidence (not just snapshot/unit tests). Use:
+
+- [`docs/dev/live-pty-debugging.md`](docs/dev/live-pty-debugging.md)
+
+This runbook covers deterministic viewport setup, worker-mode PTY execution,
+route/theme key driving, and cross-layer log analysis (`REZI_FRAME_AUDIT`,
+`REZI_STARSHIP_DEBUG`, `frame-audit-report.mjs`).
+
 ## Skills (Repeatable Recipes)
 
 Project-level skills for both Claude Code and Codex:

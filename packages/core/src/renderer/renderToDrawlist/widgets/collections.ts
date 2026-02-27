@@ -28,6 +28,7 @@ import {
   getTotalHeight,
   resolveVirtualListItemHeightSpec,
 } from "../../../widgets/virtualList.js";
+import { emitFrameAudit, FRAME_AUDIT_ENABLED } from "../../../perf/frameAudit.js";
 import { asTextStyle } from "../../styles.js";
 import { renderBoxBorder } from "../boxBorder.js";
 import { isVisibleRect } from "../indices.js";
@@ -604,6 +605,32 @@ export function renderCollectionWidget(
       const endIndex = virtualized
         ? Math.min(rowCount, startIndex + visibleRows + overscan)
         : rowCount;
+
+      if (FRAME_AUDIT_ENABLED) {
+        emitFrameAudit(
+          "tableWidget",
+          "table.layout",
+          Object.freeze({
+            tableId: props.id,
+            x: rect.x,
+            y: rect.y,
+            w: rect.w,
+            h: rect.h,
+            innerW,
+            innerH,
+            bodyY,
+            bodyH,
+            rowCount,
+            headerHeight,
+            rowHeight: safeRowHeight,
+            virtualized,
+            startIndex,
+            endIndex,
+            visibleRows,
+            overscan,
+          }),
+        );
+      }
 
       if (tableStore) {
         tableStore.set(props.id, { viewportHeight: bodyH, startIndex, endIndex });

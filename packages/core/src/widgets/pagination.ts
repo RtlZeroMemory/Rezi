@@ -243,6 +243,16 @@ export function buildPaginationChildren(props: PaginationProps): readonly VNode[
     });
   }
 
+  const controlsRow: VNode = {
+    kind: "row",
+    props: {
+      gap: 0,
+      wrap: true,
+      items: "center",
+    },
+    children: Object.freeze(controls),
+  };
+
   const zone: VNode = {
     kind: "focusZone",
     props: {
@@ -252,7 +262,7 @@ export function buildPaginationChildren(props: PaginationProps): readonly VNode[
       columns: 1,
       wrapAround: false,
     },
-    children: Object.freeze(controls),
+    children: Object.freeze([controlsRow]),
   };
 
   return Object.freeze([zone]);
