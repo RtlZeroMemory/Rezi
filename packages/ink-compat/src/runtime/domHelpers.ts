@@ -1,13 +1,5 @@
 import type { InkHostNode } from "../reconciler/types.js";
-
-interface InkLayout {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-type NodeWithLayout = InkHostNode & { __inkLayout?: InkLayout };
+import { readCurrentLayout } from "./layoutState.js";
 
 /**
  * Returns the inner (visible/viewport) height of an element.
@@ -19,7 +11,7 @@ type NodeWithLayout = InkHostNode & { __inkLayout?: InkLayout };
  * Gemini CLI rounds the result and uses it for scroll calculations.
  */
 export function getInnerHeight(element: InkHostNode): number {
-  const layout = (element as NodeWithLayout).__inkLayout;
+  const layout = readCurrentLayout(element);
   return layout?.h ?? 0;
 }
 
@@ -34,17 +26,17 @@ export function getInnerHeight(element: InkHostNode): number {
 export function getScrollHeight(element: InkHostNode): number {
   let total = 0;
   for (const child of element.children) {
-    const childLayout = (child as NodeWithLayout).__inkLayout;
+    const childLayout = readCurrentLayout(child);
     if (childLayout) {
       total = Math.max(total, (childLayout.y ?? 0) + childLayout.h);
     }
   }
   // If no children have layout, fall back to the element's own height
   if (total === 0) {
-    const layout = (element as NodeWithLayout).__inkLayout;
+    const layout = readCurrentLayout(element);
     return layout?.h ?? 0;
   }
   // Scroll height is relative to the element's top, not absolute
-  const elementY = (element as NodeWithLayout).__inkLayout?.y ?? 0;
+  const elementY = readCurrentLayout(element)?.y ?? 0;
   return total - elementY;
 }
