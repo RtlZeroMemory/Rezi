@@ -5,6 +5,11 @@ type OverflowProps = Readonly<{
   shadow?: unknown;
 }>;
 
+type LayerWrapperProps = Readonly<{
+  backdrop?: unknown;
+  frameStyle?: unknown;
+}>;
+
 function readShadowOffset(raw: unknown, fallback: number): number {
   if (typeof raw !== "number" || !Number.isFinite(raw)) {
     return fallback;
@@ -45,9 +50,34 @@ function hasVisibleOverflow(node: RuntimeInstance): boolean {
   return props.overflow !== "hidden" && props.overflow !== "scroll";
 }
 
+function hasFiniteColor(raw: unknown): boolean {
+  return typeof raw === "number" && Number.isFinite(raw);
+}
+
+function isPassThroughLayer(node: RuntimeInstance): boolean {
+  if (node.vnode.kind !== "layer") {
+    return false;
+  }
+  const props = node.vnode.props as LayerWrapperProps;
+  if (props.backdrop === "dim" || props.backdrop === "opaque") {
+    return false;
+  }
+  if (typeof props.frameStyle !== "object" || props.frameStyle === null) {
+    return true;
+  }
+  const frameStyle = props.frameStyle as Readonly<{ background?: unknown; border?: unknown }>;
+  return !hasFiniteColor(frameStyle.background) && !hasFiniteColor(frameStyle.border);
+}
+
 function isTransparentOverflowWrapper(node: RuntimeInstance): boolean {
   const kind = node.vnode.kind;
-  return kind === "themed" || kind === "focusZone" || kind === "focusTrap";
+  return (
+    kind === "themed" ||
+    kind === "focusZone" ||
+    kind === "focusTrap" ||
+    kind === "layers" ||
+    isPassThroughLayer(node)
+  );
 }
 
 export function subtreeCanOverflowBounds(node: RuntimeInstance): boolean {

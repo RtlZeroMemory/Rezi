@@ -164,15 +164,23 @@ debugLog("boot", {
   argv: process.argv.slice(2),
 });
 
+let terminating = false;
+function terminateProcessNow(exitCode: number): void {
+  if (terminating) return;
+  terminating = true;
+  process.exitCode = exitCode;
+  exit(exitCode);
+}
+
 process.on("uncaughtException", (error) => {
   debugLog("uncaughtException", error);
   stderrLog(`Regression dashboard uncaught exception: ${describeError(error)}`);
-  process.exitCode = 1;
+  terminateProcessNow(1);
 });
 process.on("unhandledRejection", (reason) => {
   debugLog("unhandledRejection", reason);
   stderrLog(`Regression dashboard unhandled rejection: ${describeError(reason)}`);
-  process.exitCode = 1;
+  terminateProcessNow(1);
 });
 process.on("beforeExit", (code) => {
   debugLog("beforeExit", { code });
@@ -182,9 +190,11 @@ process.on("exit", (code) => {
 });
 process.on("SIGTERM", () => {
   debugLog("signal", "SIGTERM");
+  terminateProcessNow(143);
 });
 process.on("SIGINT", () => {
   debugLog("signal", "SIGINT");
+  terminateProcessNow(130);
 });
 
 if (forceHeadless || !hasInteractiveTty) {

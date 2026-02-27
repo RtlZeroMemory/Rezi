@@ -605,19 +605,36 @@ function snapshotDebugRecord(record: DebugRecord): void {
 
 async function setupDebugTrace(): Promise<void> {
   if (!DEBUG_TRACE_ENABLED) return;
-  debugController = createDebugController({
-    backend: app.backend.debug,
-    terminalCapsProvider: () => app.backend.getCaps(),
-    maxFrames: 512,
-  });
+  try {
+    debugController = createDebugController({
+      backend: app.backend.debug,
+      terminalCapsProvider: () => app.backend.getCaps(),
+      maxFrames: 512,
+    });
 
-  await debugController.enable({
-    minSeverity: "trace",
-    categoryMask: categoriesToMask(["frame", "drawlist", "error"]),
-    captureRawEvents: false,
-    captureDrawlistBytes: false,
-  });
-  await debugController.reset();
+    await debugController.enable({
+      minSeverity: "trace",
+      categoryMask: categoriesToMask(["frame", "drawlist", "error"]),
+      captureRawEvents: false,
+      captureDrawlistBytes: false,
+    });
+    await debugController.reset();
+  } catch (error) {
+    debugSnapshot("runtime.debug.enable.error", {
+      message: error instanceof Error ? error.message : String(error),
+      route: currentRouteId(),
+    });
+    if (debugController) {
+      try {
+        await debugController.disable();
+      } catch {
+        // Ignore debug shutdown races.
+      }
+      debugController = null;
+    }
+    return;
+  }
+
   debugLastRecordId = 0n;
 
   debugSnapshot("runtime.debug.enable", {
