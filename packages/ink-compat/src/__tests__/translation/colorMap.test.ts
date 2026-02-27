@@ -1,27 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { rgb } from "@rezi-ui/core";
 
 import { parseColor } from "../../translation/colorMap.js";
 
 test("parseColor maps named colors", () => {
-  assert.deepEqual(parseColor("green"), { r: 0, g: 205, b: 0 });
-  assert.deepEqual(parseColor("whiteBright"), { r: 255, g: 255, b: 255 });
-  assert.deepEqual(parseColor("GRAY"), { r: 127, g: 127, b: 127 });
+  assert.equal(parseColor("green"), rgb(0, 205, 0));
+  assert.equal(parseColor("whiteBright"), rgb(255, 255, 255));
+  assert.equal(parseColor("GRAY"), rgb(127, 127, 127));
 });
 
 test("parseColor parses hex colors", () => {
-  assert.deepEqual(parseColor("#00ff7f"), { r: 0, g: 255, b: 127 });
-  assert.deepEqual(parseColor("#abc"), { r: 170, g: 187, b: 204 });
+  assert.equal(parseColor("#00ff7f"), rgb(0, 255, 127));
+  assert.equal(parseColor("#abc"), rgb(170, 187, 204));
 });
 
 test("parseColor parses rgb() colors", () => {
-  assert.deepEqual(parseColor("rgb(12, 34, 56)"), { r: 12, g: 34, b: 56 });
-  assert.deepEqual(parseColor("rgb( 0 , 255 , 127 )"), { r: 0, g: 255, b: 127 });
+  assert.equal(parseColor("rgb(12, 34, 56)"), rgb(12, 34, 56));
+  assert.equal(parseColor("rgb( 0 , 255 , 127 )"), rgb(0, 255, 127));
 });
 
 test("parseColor parses ansi256() colors", () => {
-  assert.deepEqual(parseColor("ansi256(196)"), { r: 255, g: 0, b: 0 });
-  assert.deepEqual(parseColor("ansi256(244)"), { r: 128, g: 128, b: 128 });
+  assert.equal(parseColor("ansi256(196)"), rgb(255, 0, 0));
+  assert.equal(parseColor("ansi256(244)"), rgb(128, 128, 128));
   assert.equal(parseColor("ansi256(999)"), undefined);
 });
 

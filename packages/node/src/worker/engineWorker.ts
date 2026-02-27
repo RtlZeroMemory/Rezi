@@ -460,6 +460,54 @@ function drainNativeFrameAudit(reason: string): void {
   if (engineId === null) return;
   const headersCap = DEBUG_HEADER_BYTES * 64;
   const headersBuf = new Uint8Array(headersCap);
+  const tryReadDebugPayload = (
+    recordId: bigint,
+    code: number,
+    expectedBytes: number,
+    opts: Readonly<{ allowPartialOnShortRead?: boolean }> = {},
+  ): Uint8Array | null => {
+    if (engineId === null) return null;
+    const payload = new Uint8Array(expectedBytes);
+    let wrote = 0;
+    try {
+      wrote = native.engineDebugGetPayload(engineId, recordId, payload);
+    } catch (err) {
+      frameAudit.emit("native.debug.payload_error", {
+        reason,
+        recordId: recordId.toString(),
+        code,
+        expectedBytes,
+        detail: safeDetail(err),
+      });
+      return null;
+    }
+    if (wrote <= 0) {
+      frameAudit.emit("native.debug.payload_error", {
+        reason,
+        recordId: recordId.toString(),
+        code,
+        expectedBytes,
+        wrote,
+        detail: "payload read returned non-positive length",
+      });
+      return null;
+    }
+    if (wrote < expectedBytes) {
+      frameAudit.emit("native.debug.payload_error", {
+        reason,
+        recordId: recordId.toString(),
+        code,
+        expectedBytes,
+        wrote,
+        detail: "short payload read",
+      });
+      if (opts.allowPartialOnShortRead !== true) {
+        return null;
+      }
+    }
+    return payload.subarray(0, Math.min(wrote, payload.byteLength));
+  };
+
   for (let iter = 0; iter < 8; iter++) {
     let result: DebugQueryResultNative;
     try {
@@ -516,32 +564,21 @@ function drainNativeFrameAudit(reason: string): void {
 
       if (code === ZR_DEBUG_CODE_DRAWLIST_CMD && payloadSize > 0) {
         const cap = Math.min(Math.max(payloadSize, 1), 4096);
-        const payload = new Uint8Array(cap);
-        let wrote = 0;
-        try {
-          wrote = native.engineDebugGetPayload(engineId, recordId, payload);
-        } catch (err) {
-          frameAudit.emit("native.debug.payload_error", {
-            reason,
-            recordId: recordId.toString(),
-            detail: safeDetail(err),
-          });
-          continue;
-        }
-        if (wrote > 0) {
-          const view = payload.subarray(0, Math.min(wrote, payload.byteLength));
-          const fp = drawlistFingerprint(view);
-          frameAudit.emit("native.drawlist.payload", {
-            reason,
-            recordId: recordId.toString(),
-            frameId: frameId.toString(),
-            payloadSize: view.byteLength,
-            hash32: fp.hash32,
-            prefixHash32: fp.prefixHash32,
-            head16: fp.head16,
-            tail16: fp.tail16,
-          });
-        }
+        const view = tryReadDebugPayload(recordId, code, cap, {
+          allowPartialOnShortRead: true,
+        });
+        if (view === null) continue;
+        const fp = drawlistFingerprint(view);
+        frameAudit.emit("native.drawlist.payload", {
+          reason,
+          recordId: recordId.toString(),
+          frameId: frameId.toString(),
+          payloadSize: view.byteLength,
+          hash32: fp.hash32,
+          prefixHash32: fp.prefixHash32,
+          head16: fp.head16,
+          tail16: fp.tail16,
+        });
         continue;
       }
 
@@ -549,38 +586,26 @@ function drainNativeFrameAudit(reason: string): void {
         (code === ZR_DEBUG_CODE_DRAWLIST_VALIDATE || code === ZR_DEBUG_CODE_DRAWLIST_EXECUTE) &&
         payloadSize >= DEBUG_DRAWLIST_RECORD_BYTES
       ) {
-        const payload = new Uint8Array(DEBUG_DRAWLIST_RECORD_BYTES);
-        let wrote = 0;
-        try {
-          wrote = native.engineDebugGetPayload(engineId, recordId, payload);
-        } catch (err) {
-          frameAudit.emit("native.debug.payload_error", {
-            reason,
-            recordId: recordId.toString(),
-            detail: safeDetail(err),
-          });
-          continue;
-        }
-        if (wrote >= DEBUG_DRAWLIST_RECORD_BYTES) {
-          const dvPayload = new DataView(
-            payload.buffer,
-            payload.byteOffset,
-            DEBUG_DRAWLIST_RECORD_BYTES,
-          );
-          frameAudit.emit("native.drawlist.summary", {
-            reason,
-            recordId: recordId.toString(),
-            frameId: u64FromView(dvPayload, 0).toString(),
-            totalBytes: dvPayload.getUint32(8, true),
-            cmdCount: dvPayload.getUint32(12, true),
-            version: dvPayload.getUint32(16, true),
-            validationResult: dvPayload.getInt32(20, true),
-            executionResult: dvPayload.getInt32(24, true),
-            clipStackMaxDepth: dvPayload.getUint32(28, true),
-            textRuns: dvPayload.getUint32(32, true),
-            fillRects: dvPayload.getUint32(36, true),
-          });
-        }
+        const payload = tryReadDebugPayload(recordId, code, DEBUG_DRAWLIST_RECORD_BYTES);
+        if (payload === null) continue;
+        const dvPayload = new DataView(
+          payload.buffer,
+          payload.byteOffset,
+          DEBUG_DRAWLIST_RECORD_BYTES,
+        );
+        frameAudit.emit("native.drawlist.summary", {
+          reason,
+          recordId: recordId.toString(),
+          frameId: u64FromView(dvPayload, 0).toString(),
+          totalBytes: dvPayload.getUint32(8, true),
+          cmdCount: dvPayload.getUint32(12, true),
+          version: dvPayload.getUint32(16, true),
+          validationResult: dvPayload.getInt32(20, true),
+          executionResult: dvPayload.getInt32(24, true),
+          clipStackMaxDepth: dvPayload.getUint32(28, true),
+          textRuns: dvPayload.getUint32(32, true),
+          fillRects: dvPayload.getUint32(36, true),
+        });
         continue;
       }
 
@@ -591,114 +616,74 @@ function drainNativeFrameAudit(reason: string): void {
           code === ZR_DEBUG_CODE_FRAME_RESIZE) &&
         payloadSize >= DEBUG_FRAME_RECORD_BYTES
       ) {
-        const payload = new Uint8Array(DEBUG_FRAME_RECORD_BYTES);
-        let wrote = 0;
-        try {
-          wrote = native.engineDebugGetPayload(engineId, recordId, payload);
-        } catch (err) {
-          frameAudit.emit("native.debug.payload_error", {
-            reason,
-            recordId: recordId.toString(),
-            detail: safeDetail(err),
-          });
-          continue;
-        }
-        if (wrote >= DEBUG_FRAME_RECORD_BYTES) {
-          const dvPayload = new DataView(
-            payload.buffer,
-            payload.byteOffset,
-            DEBUG_FRAME_RECORD_BYTES,
-          );
-          frameAudit.emit("native.frame.summary", {
-            reason,
-            recordId: recordId.toString(),
-            frameId: u64FromView(dvPayload, 0).toString(),
-            code,
-            codeName: nativeFrameCodeName(code),
-            cols: dvPayload.getUint32(8, true),
-            rows: dvPayload.getUint32(12, true),
-            drawlistBytes: dvPayload.getUint32(16, true),
-            drawlistCmds: dvPayload.getUint32(20, true),
-            diffBytesEmitted: dvPayload.getUint32(24, true),
-            dirtyLines: dvPayload.getUint32(28, true),
-            dirtyCells: dvPayload.getUint32(32, true),
-            damageRects: dvPayload.getUint32(36, true),
-            usDrawlist: dvPayload.getUint32(40, true),
-            usDiff: dvPayload.getUint32(44, true),
-            usWrite: dvPayload.getUint32(48, true),
-          });
-        }
+        const payload = tryReadDebugPayload(recordId, code, DEBUG_FRAME_RECORD_BYTES);
+        if (payload === null) continue;
+        const dvPayload = new DataView(
+          payload.buffer,
+          payload.byteOffset,
+          DEBUG_FRAME_RECORD_BYTES,
+        );
+        frameAudit.emit("native.frame.summary", {
+          reason,
+          recordId: recordId.toString(),
+          frameId: u64FromView(dvPayload, 0).toString(),
+          code,
+          codeName: nativeFrameCodeName(code),
+          cols: dvPayload.getUint32(8, true),
+          rows: dvPayload.getUint32(12, true),
+          drawlistBytes: dvPayload.getUint32(16, true),
+          drawlistCmds: dvPayload.getUint32(20, true),
+          diffBytesEmitted: dvPayload.getUint32(24, true),
+          dirtyLines: dvPayload.getUint32(28, true),
+          dirtyCells: dvPayload.getUint32(32, true),
+          damageRects: dvPayload.getUint32(36, true),
+          usDrawlist: dvPayload.getUint32(40, true),
+          usDiff: dvPayload.getUint32(44, true),
+          usWrite: dvPayload.getUint32(48, true),
+        });
         continue;
       }
 
       if (code === ZR_DEBUG_CODE_PERF_TIMING && payloadSize >= DEBUG_PERF_RECORD_BYTES) {
-        const payload = new Uint8Array(DEBUG_PERF_RECORD_BYTES);
-        let wrote = 0;
-        try {
-          wrote = native.engineDebugGetPayload(engineId, recordId, payload);
-        } catch (err) {
-          frameAudit.emit("native.debug.payload_error", {
-            reason,
-            recordId: recordId.toString(),
-            detail: safeDetail(err),
-          });
-          continue;
-        }
-        if (wrote >= DEBUG_PERF_RECORD_BYTES) {
-          const dvPayload = new DataView(
-            payload.buffer,
-            payload.byteOffset,
-            DEBUG_PERF_RECORD_BYTES,
-          );
-          const phase = dvPayload.getUint32(8, true);
-          frameAudit.emit("native.perf.timing", {
-            reason,
-            recordId: recordId.toString(),
-            frameId: u64FromView(dvPayload, 0).toString(),
-            phase,
-            phaseName: nativePerfPhaseName(phase),
-            usElapsed: dvPayload.getUint32(12, true),
-            bytesProcessed: dvPayload.getUint32(16, true),
-          });
-        }
+        const payload = tryReadDebugPayload(recordId, code, DEBUG_PERF_RECORD_BYTES);
+        if (payload === null) continue;
+        const dvPayload = new DataView(payload.buffer, payload.byteOffset, DEBUG_PERF_RECORD_BYTES);
+        const phase = dvPayload.getUint32(8, true);
+        frameAudit.emit("native.perf.timing", {
+          reason,
+          recordId: recordId.toString(),
+          frameId: u64FromView(dvPayload, 0).toString(),
+          phase,
+          phaseName: nativePerfPhaseName(phase),
+          usElapsed: dvPayload.getUint32(12, true),
+          bytesProcessed: dvPayload.getUint32(16, true),
+        });
         continue;
       }
 
       if (code === ZR_DEBUG_CODE_PERF_DIFF_PATH && payloadSize >= DEBUG_DIFF_PATH_RECORD_BYTES) {
-        const payload = new Uint8Array(DEBUG_DIFF_PATH_RECORD_BYTES);
-        let wrote = 0;
-        try {
-          wrote = native.engineDebugGetPayload(engineId, recordId, payload);
-        } catch (err) {
-          frameAudit.emit("native.debug.payload_error", {
-            reason,
-            recordId: recordId.toString(),
-            detail: safeDetail(err),
-          });
-          continue;
-        }
-        if (wrote >= DEBUG_DIFF_PATH_RECORD_BYTES) {
-          const dvPayload = new DataView(
-            payload.buffer,
-            payload.byteOffset,
-            DEBUG_DIFF_PATH_RECORD_BYTES,
-          );
-          frameAudit.emit("native.perf.diffPath", {
-            reason,
-            recordId: recordId.toString(),
-            frameId: u64FromView(dvPayload, 0).toString(),
-            sweepFramesTotal: u64FromView(dvPayload, 8).toString(),
-            damageFramesTotal: u64FromView(dvPayload, 16).toString(),
-            scrollAttemptsTotal: u64FromView(dvPayload, 24).toString(),
-            scrollHitsTotal: u64FromView(dvPayload, 32).toString(),
-            collisionGuardHitsTotal: u64FromView(dvPayload, 40).toString(),
-            pathSweepUsed: dvPayload.getUint8(48),
-            pathDamageUsed: dvPayload.getUint8(49),
-            scrollOptAttempted: dvPayload.getUint8(50),
-            scrollOptHit: dvPayload.getUint8(51),
-            collisionGuardHitsLast: dvPayload.getUint32(52, true),
-          });
-        }
+        const payload = tryReadDebugPayload(recordId, code, DEBUG_DIFF_PATH_RECORD_BYTES);
+        if (payload === null) continue;
+        const dvPayload = new DataView(
+          payload.buffer,
+          payload.byteOffset,
+          DEBUG_DIFF_PATH_RECORD_BYTES,
+        );
+        frameAudit.emit("native.perf.diffPath", {
+          reason,
+          recordId: recordId.toString(),
+          frameId: u64FromView(dvPayload, 0).toString(),
+          sweepFramesTotal: u64FromView(dvPayload, 8).toString(),
+          damageFramesTotal: u64FromView(dvPayload, 16).toString(),
+          scrollAttemptsTotal: u64FromView(dvPayload, 24).toString(),
+          scrollHitsTotal: u64FromView(dvPayload, 32).toString(),
+          collisionGuardHitsTotal: u64FromView(dvPayload, 40).toString(),
+          pathSweepUsed: dvPayload.getUint8(48),
+          pathDamageUsed: dvPayload.getUint8(49),
+          scrollOptAttempted: dvPayload.getUint8(50),
+          scrollOptHit: dvPayload.getUint8(51),
+          collisionGuardHitsLast: dvPayload.getUint32(52, true),
+        });
       }
     }
     if (!advanced) return;
