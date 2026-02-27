@@ -98,7 +98,10 @@ export async function runInPty(opts: PtyRunOptions): Promise<PtyRunResult> {
     setTimeout(() => {
       try {
         if (step.kind === "write") term.write(step.data);
-        else term.resize(step.cols, step.rows);
+        else {
+          term.resize(step.cols, step.rows);
+          void screen.resize(step.cols, step.rows);
+        }
       } catch {}
     }, Math.max(0, step.atMs));
   }

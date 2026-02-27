@@ -178,46 +178,6 @@ function markUpdateRequested(stateRef: React.MutableRefObject<ScenarioState>): v
   };
 }
 
-type InlineSegment = Readonly<{
-  text: string;
-  kind: "plain" | "bold" | "code";
-}>;
-
-function parseInlineMarkup(text: string): readonly InlineSegment[] {
-  const segments: InlineSegment[] = [];
-  let i = 0;
-  let kind: InlineSegment["kind"] = "plain";
-  let buf = "";
-
-  const flush = (): void => {
-    if (!buf) return;
-    segments.push({ text: buf, kind });
-    buf = "";
-  };
-
-  while (i < text.length) {
-    const ch = text[i] ?? "";
-    const next = text[i + 1] ?? "";
-    if (ch === "*" && next === "*") {
-      flush();
-      kind = kind === "bold" ? "plain" : "bold";
-      i += 2;
-      continue;
-    }
-    if (ch === "`") {
-      flush();
-      kind = kind === "code" ? "plain" : "code";
-      i += 1;
-      continue;
-    }
-    buf += ch;
-    i += 1;
-  }
-
-  flush();
-  return segments;
-}
-
 function StreamingChatScenario(props: {
   stateRef: React.MutableRefObject<ScenarioState>;
   setController: (c: ScenarioController) => void;
@@ -252,7 +212,7 @@ function StreamingChatScenario(props: {
             next.push("console.log(x)");
             next.push("```");
             next.push("");
-          } else if (t % 12 === 0) {
+          } else if ((next[lastIndex] ?? "").length > 120) {
             next.push("");
           }
           return next;
@@ -262,7 +222,7 @@ function StreamingChatScenario(props: {
     });
   }, [props]);
 
-  const visible = scrollLock ? lines.slice(-12) : lines.slice(0, 12);
+  const visible = scrollLock ? lines.slice(-8) : lines.slice(0, 8);
   return (
     <Box flexDirection="column">
       <Text>BENCH_READY streaming-chat tokens={tokenCount} scrollLock={String(scrollLock)}</Text>
@@ -275,24 +235,17 @@ function StreamingChatScenario(props: {
               </Text>
             );
           }
-          const segments = parseInlineMarkup(line);
+          const hasBoldMarker = line.includes("**");
+          const hasCodeMarker = line.includes("`");
+          const clean = line.replaceAll("**", "").replaceAll("`", "");
+          const props = hasCodeMarker
+            ? { color: "yellow" as const, backgroundColor: "black" as const }
+            : hasBoldMarker
+              ? { bold: true }
+              : {};
           return (
-            <Text key={`${i}-${line}`} wrap="wrap">
-              {segments.map((seg, j) => {
-                if (seg.kind === "plain") return seg.text;
-                if (seg.kind === "bold") {
-                  return (
-                    <Text key={j} bold>
-                      {seg.text}
-                    </Text>
-                  );
-                }
-                return (
-                  <Text key={j} color="yellow" backgroundColor="black">
-                    {seg.text}
-                  </Text>
-                );
-              })}
+            <Text key={`${i}-${line}`} wrap="wrap" {...props}>
+              {clean}
             </Text>
           );
         })}
@@ -357,6 +310,10 @@ function DashboardGridScenario(props: {
   setController: (c: ScenarioController) => void;
 }): React.ReactElement {
   const [tick, setTick] = useState(0);
+  const cols = Number.parseInt(process.env["BENCH_COLS"] ?? "80", 10) || 80;
+  const gap = 2;
+  const topW = Math.max(18, Math.floor((cols - gap * 2) / 3));
+  const bottomW = Math.max(18, Math.floor((cols - gap) / 2));
 
   useEffect(() => {
     props.setController({
@@ -370,37 +327,38 @@ function DashboardGridScenario(props: {
 
   const bar = (n: number): string => {
     const pct = n % 100;
-    const filled = Math.round((pct / 100) * 20);
-    return `${"█".repeat(filled)}${"░".repeat(20 - filled)} ${String(pct).padStart(3, " ")}%`;
+    const barW = 16;
+    const filled = Math.round((pct / 100) * barW);
+    return `${"█".repeat(filled)}${"░".repeat(barW - filled)} ${String(pct).padStart(3, " ")}%`;
   };
 
   return (
     <Box flexDirection="column">
       <Text>BENCH_READY dashboard-grid tick={tick}</Text>
       <Box flexDirection="row" gap={2}>
-        <Box flexDirection="column" borderStyle="round" paddingX={1}>
+        <Box flexDirection="column" borderStyle="round" paddingX={1} width={topW}>
           <Text bold>CPU</Text>
           <Text color="green">{bar(tick * 3)}</Text>
           <Text dimColor>threads: 8</Text>
         </Box>
-        <Box flexDirection="column" borderStyle="round" paddingX={1}>
+        <Box flexDirection="column" borderStyle="round" paddingX={1} width={topW}>
           <Text bold>MEM</Text>
           <Text color="yellow">{bar(tick * 5)}</Text>
           <Text dimColor>rss: sampled</Text>
         </Box>
-        <Box flexDirection="column" borderStyle="round" paddingX={1}>
+        <Box flexDirection="column" borderStyle="round" paddingX={1} width={topW}>
           <Text bold>NET</Text>
           <Text color="cyan">{bar(tick * 7)}</Text>
           <Text dimColor>offline</Text>
         </Box>
       </Box>
       <Box flexDirection="row" gap={2} marginTop={1}>
-        <Box flexDirection="column" borderStyle="round" paddingX={1}>
+        <Box flexDirection="column" borderStyle="round" paddingX={1} width={bottomW}>
           <Text bold>Queue</Text>
           <Text>{bar(tick * 11)}</Text>
           <Text dimColor>stable: true</Text>
         </Box>
-        <Box flexDirection="column" borderStyle="round" paddingX={1}>
+        <Box flexDirection="column" borderStyle="round" paddingX={1} width={bottomW}>
           <Text bold>Workers</Text>
           <Text>{bar(tick * 13)}</Text>
           <Text dimColor>ok: 16</Text>

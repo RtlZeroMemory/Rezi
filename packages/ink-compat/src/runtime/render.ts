@@ -2186,7 +2186,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   const detailOpLimit = traceDetailFull ? 4000 : 500;
   const detailResizeLimit = traceDetailFull ? 300 : 80;
   const writeErr = (stderr as { write: (s: string) => void }).write.bind(stderr);
-  const traceStartAt = Date.now();
+  const traceStartAt = performance.now();
 
   const trace = (message: string): void => {
     if (!traceEnabled) return;
@@ -2720,7 +2720,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
     let rectScanMs = 0;
     let ansiMs = 0;
     try {
-      const frameNow = Date.now();
+      const frameNow = performance.now();
       const nextViewport = readViewportSize(stdout, fallbackStdout);
       const viewportChanged =
         nextViewport.cols !== viewport.cols || nextViewport.rows !== viewport.rows;
@@ -2728,10 +2728,12 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         viewport = nextViewport;
       }
 
-      const translationStartedAt = phaseProfile ? performance.now() : 0;
+      const timePhases = phaseProfile != null || BENCH_PHASES_ENABLED;
+
+      const translationStartedAt = timePhases ? performance.now() : 0;
       const { vnode: translatedDynamic, meta: translationMeta } =
         bridge.translateDynamicWithMetadata();
-      if (phaseProfile) translationMs = performance.now() - translationStartedAt;
+      if (timePhases) translationMs = performance.now() - translationStartedAt;
       const hasDynamicPercentMarkers = translationMeta.hasPercentMarkers;
 
       // In static-channel mode, static output is rendered above the dynamic
@@ -2750,7 +2752,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
 
       let percentDeps: PercentResolveDeps | null = null;
       const percentResolveStartedAt =
-        phaseProfile && hasDynamicPercentMarkers ? performance.now() : 0;
+        timePhases && hasDynamicPercentMarkers ? performance.now() : 0;
       let translatedDynamicWithPercent = translatedDynamic;
       if (hasDynamicPercentMarkers) {
         percentDeps = { parents: new Map(), missingParentLayout: false };
@@ -2767,16 +2769,16 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
       const coerced = coerceRootViewportHeight(translatedDynamicWithPercent, layoutViewport);
       vnode = coerced.vnode;
       rootHeightCoerced = coerced.coerced;
-      if (phaseProfile && hasDynamicPercentMarkers) {
+      if (timePhases && hasDynamicPercentMarkers) {
         percentResolveMs += performance.now() - percentResolveStartedAt;
       }
 
       coreRenderPassesThisFrame = 1;
-      const renderStartedAt = phaseProfile ? performance.now() : 0;
+      const renderStartedAt = timePhases ? performance.now() : 0;
       let result = renderer.render(vnode, { viewport: layoutViewport });
-      if (phaseProfile) coreRenderMs += performance.now() - renderStartedAt;
+      if (timePhases) coreRenderMs += performance.now() - renderStartedAt;
 
-      const assignLayoutsStartedAt = phaseProfile ? performance.now() : 0;
+      const assignLayoutsStartedAt = timePhases ? performance.now() : 0;
       assignHostLayouts(
         bridge.rootNode,
         result.nodes as readonly {
@@ -2784,7 +2786,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
           props?: Record<string, unknown>;
         }[],
       );
-      if (phaseProfile) assignLayoutsMs += performance.now() - assignLayoutsStartedAt;
+      if (timePhases) assignLayoutsMs += performance.now() - assignLayoutsStartedAt;
       if (hasDynamicPercentMarkers) {
         // Percent sizing is resolved against parent layout. On the first pass we only have
         // the previous generation's layouts, so we run a second render only when a percent
@@ -2808,7 +2810,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
 
         if (needsSecondPass) {
           coreRenderPassesThisFrame = 2;
-          const secondPercentStartedAt = phaseProfile ? performance.now() : 0;
+          const secondPercentStartedAt = timePhases ? performance.now() : 0;
           translatedDynamicWithPercent = resolvePercentMarkers(translatedDynamic, {
             parentSize: layoutViewport,
             parentMainAxis: "column",
@@ -2816,13 +2818,13 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
           const secondPass = coerceRootViewportHeight(translatedDynamicWithPercent, layoutViewport);
           vnode = secondPass.vnode;
           rootHeightCoerced = rootHeightCoerced || secondPass.coerced;
-          if (phaseProfile) percentResolveMs += performance.now() - secondPercentStartedAt;
+          if (timePhases) percentResolveMs += performance.now() - secondPercentStartedAt;
 
-          const secondRenderStartedAt = phaseProfile ? performance.now() : 0;
+          const secondRenderStartedAt = timePhases ? performance.now() : 0;
           result = renderer.render(vnode, { viewport: layoutViewport });
-          if (phaseProfile) coreRenderMs += performance.now() - secondRenderStartedAt;
+          if (timePhases) coreRenderMs += performance.now() - secondRenderStartedAt;
 
-          const secondAssignStartedAt = phaseProfile ? performance.now() : 0;
+          const secondAssignStartedAt = timePhases ? performance.now() : 0;
           assignHostLayouts(
             bridge.rootNode,
             result.nodes as readonly {
@@ -2830,12 +2832,12 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
               props?: Record<string, unknown>;
             }[],
           );
-          if (phaseProfile) assignLayoutsMs += performance.now() - secondAssignStartedAt;
+          if (timePhases) assignLayoutsMs += performance.now() - secondAssignStartedAt;
         }
       }
       checkAllResizeObservers();
 
-      const rectScanStartedAt = phaseProfile ? performance.now() : 0;
+      const rectScanStartedAt = timePhases ? performance.now() : 0;
       // Compute maxRectBottom from layout result — needed to size the ANSI
       // grid correctly in non-alternate-buffer mode.
       let minRectY = Number.POSITIVE_INFINITY;
@@ -2851,7 +2853,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         maxRectBottom = Math.max(maxRectBottom, y + h);
         if (h === 0) zeroHeightRects += 1;
       }
-      if (phaseProfile) rectScanMs = performance.now() - rectScanStartedAt;
+      if (timePhases) rectScanMs = performance.now() - rectScanStartedAt;
 
       // Keep non-alt output content-sized by using computed layout height.
       // When root coercion applies (overflow hidden/scroll), maxRectBottom
@@ -2862,13 +2864,13 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
 
       const frameHasAnsiSgr = translationMeta.hasAnsiSgr;
       const frameColorSupport = frameHasAnsiSgr ? FORCED_TRUECOLOR_SUPPORT : colorSupport;
-      const ansiStartedAt = phaseProfile ? performance.now() : 0;
+      const ansiStartedAt = timePhases ? performance.now() : 0;
       const {
         ansi: rawAnsiOutput,
         grid: cellGrid,
         shape: outputShape,
       } = renderOpsToAnsi(result.ops as readonly RenderOp[], gridViewport, frameColorSupport);
-      if (phaseProfile) ansiMs = performance.now() - ansiStartedAt;
+      if (timePhases) ansiMs = performance.now() - ansiStartedAt;
 
       // In alternate-buffer mode the output fills the full layoutViewport.
       // In non-alternate-buffer mode the grid is content-sized so the
@@ -3155,7 +3157,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
     const force = pendingRenderForce;
     pendingRender = false;
     pendingRenderForce = false;
-    lastRenderAt = Date.now();
+    lastRenderAt = performance.now();
     renderFrame(force);
     if (pendingRender) {
       scheduleRender(pendingRenderForce);
@@ -3170,13 +3172,13 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
       const nextForce = pendingRenderForce;
       pendingRender = false;
       pendingRenderForce = false;
-      lastRenderAt = Date.now();
+      lastRenderAt = performance.now();
       renderFrame(nextForce);
       return;
     }
 
     if (throttledRenderTimer !== undefined) return;
-    const elapsed = Date.now() - lastRenderAt;
+    const elapsed = performance.now() - lastRenderAt;
     const waitMs = Math.max(0, renderIntervalMs - elapsed);
     throttledRenderTimer = setTimeout(flushScheduledRender, waitMs);
     throttledRenderTimer.unref?.();
@@ -3245,7 +3247,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
 
   const scheduleResize = (source: string): void => {
     const latest = readViewportSize(stdout, fallbackStdout);
-    const now = Date.now();
+    const now = performance.now();
     lastResizeSignalAt = now;
     resizeTimeline.push({
       at: now,
@@ -3261,7 +3263,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
     if (!changed) return;
 
     viewport = latest;
-    const flushAt = Date.now();
+    const flushAt = performance.now();
     lastResizeFlushAt = flushAt;
     resizeTimeline.push({
       at: flushAt,
@@ -3384,7 +3386,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   pendingRender = false;
   pendingRenderForce = false;
   renderFrame(true);
-  lastRenderAt = Date.now();
+  lastRenderAt = performance.now();
 
   let cleanedUp = false;
   function cleanup(unmountTree: boolean): void {
