@@ -15,7 +15,7 @@ function readShadowOffset(raw: unknown, fallback: number): number {
     return fallback;
   }
   const value = Math.trunc(raw);
-  return value <= 0 ? 0 : value;
+  return Math.abs(value);
 }
 
 function hasBoxShadowOverflow(node: RuntimeInstance): boolean {

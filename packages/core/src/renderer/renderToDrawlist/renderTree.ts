@@ -15,7 +15,7 @@ import type { Theme } from "../../theme/theme.js";
 import type { CommandItem } from "../../widgets/types.js";
 import { getRuntimeNodeDamageRect } from "./damageBounds.js";
 import type { IdRectIndex } from "./indices.js";
-import { subtreeCanOverflowBounds } from "./overflowCulling.js";
+import { RenderPacketRecorder, computeRenderPacketKey, emitRenderPacket } from "./renderPackets.js";
 import type { ResolvedTextStyle } from "./textStyle.js";
 import type {
   CodeEditorRenderCache,
@@ -58,6 +58,18 @@ export type ResolvedCursor = Readonly<{
 function rectIntersects(a: Rect, b: Rect): boolean {
   if (a.w <= 0 || a.h <= 0 || b.w <= 0 || b.h <= 0) return false;
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function usesVisibleOverflow(node: RuntimeInstance): boolean {
+  const kind = node.vnode.kind;
+  if (kind !== "row" && kind !== "column" && kind !== "grid" && kind !== "box") {
+    return false;
+  }
+  if (node.children.length === 0) {
+    return false;
+  }
+  const props = node.vnode.props as { overflow?: unknown };
+  return props.overflow !== "hidden" && props.overflow !== "scroll";
 }
 
 export function renderTree(
@@ -131,7 +143,7 @@ export function renderTree(
     if (
       damageRect &&
       !rectIntersects(getRuntimeNodeDamageRect(node, rect), damageRect) &&
-      !subtreeCanOverflowBounds(node)
+      !usesVisibleOverflow(node)
     ) {
       continue;
     }
@@ -164,13 +176,13 @@ export function renderTree(
           if (
             damageRect &&
             !rectIntersects(getRuntimeNodeDamageRect(child, childLayout.rect), damageRect) &&
-            !subtreeCanOverflowBounds(child)
+            !usesVisibleOverflow(child)
           ) {
             continue;
           }
           if (forceChildrenRender) {
             child.dirty = true;
-            child.selfDirty = true;
+            if (child.children.length > 0) child.selfDirty = true;
           }
           nodeStack.push(child);
           styleStack.push(parentStyle);
@@ -277,26 +289,73 @@ export function renderTree(
       case "sparkline":
       case "barChart":
       case "miniChart": {
-        const nextCursor = renderBasicWidget(
-          builder,
+        const packetKey = computeRenderPacketKey(
+          node,
+          renderTheme,
+          parentStyle,
+          rect.w,
+          rect.h,
           focusState,
           pressedId,
-          rect,
-          renderTheme,
           tick,
-          parentStyle,
-          node,
-          layoutNode,
-          nodeStack,
-          styleStack,
-          layoutStack,
-          clipStack,
-          currentClip,
           cursorInfo,
-          focusAnnouncement,
-          terminalProfile,
         );
-        if (nextCursor) resolvedCursor = nextCursor;
+        if (
+          packetKey !== 0 &&
+          !node.selfDirty &&
+          node.renderPacket !== null &&
+          node.renderPacketKey === packetKey
+        ) {
+          emitRenderPacket(builder, node.renderPacket, rect.x, rect.y);
+        } else if (packetKey !== 0) {
+          const recorder = new RenderPacketRecorder(builder, rect.x, rect.y);
+          const nextCursor = renderBasicWidget(
+            recorder,
+            focusState,
+            pressedId,
+            rect,
+            renderTheme,
+            tick,
+            parentStyle,
+            node,
+            layoutNode,
+            nodeStack,
+            styleStack,
+            layoutStack,
+            clipStack,
+            currentClip,
+            cursorInfo,
+            focusAnnouncement,
+            terminalProfile,
+          );
+          const packet = recorder.buildPacket();
+          node.renderPacketKey = packet ? packetKey : 0;
+          node.renderPacket = packet;
+          if (nextCursor) resolvedCursor = nextCursor;
+        } else {
+          node.renderPacketKey = 0;
+          node.renderPacket = null;
+          const nextCursor = renderBasicWidget(
+            builder,
+            focusState,
+            pressedId,
+            rect,
+            renderTheme,
+            tick,
+            parentStyle,
+            node,
+            layoutNode,
+            nodeStack,
+            styleStack,
+            layoutStack,
+            clipStack,
+            currentClip,
+            cursorInfo,
+            focusAnnouncement,
+            terminalProfile,
+          );
+          if (nextCursor) resolvedCursor = nextCursor;
+        }
         break;
       }
 
@@ -381,6 +440,7 @@ export function renderTree(
           node,
           nodeStack,
           styleStack,
+          damageRect,
           cursorInfo,
           diffViewerFocusedHunkById,
           diffViewerExpandedHunksById,

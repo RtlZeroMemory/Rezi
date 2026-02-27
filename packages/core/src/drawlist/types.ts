@@ -33,6 +33,12 @@ export type DrawlistBuildResult =
   | Readonly<{ ok: true; bytes: Uint8Array }>
   | Readonly<{ ok: false; error: DrawlistBuildError }>;
 
+export type DrawlistTextPerfCounters = Readonly<{
+  textEncoderCalls: number;
+  textArenaBytes: number;
+  textSegments: number;
+}>;
+
 export interface DrawlistBuildInto {
   buildInto(dst: Uint8Array): DrawlistBuildResult;
 }
@@ -66,6 +72,8 @@ export interface DrawlistBuilder extends DrawlistBuildInto {
   clear(): void;
   clearTo(cols: number, rows: number, style?: TextStyle): void;
   fillRect(x: number, y: number, w: number, h: number, style?: TextStyle): void;
+  reserveTextArena?(bytes: number): void;
+  blitRect(srcX: number, srcY: number, w: number, h: number, dstX: number, dstY: number): void;
   drawText(x: number, y: number, text: string, style?: TextStyle): void;
   pushClip(x: number, y: number, w: number, h: number): void;
   popClip(): void;
@@ -99,6 +107,7 @@ export interface DrawlistBuilder extends DrawlistBuildInto {
     pxWidth?: number,
     pxHeight?: number,
   ): void;
+  getTextPerfCounters?(): DrawlistTextPerfCounters;
   build(): DrawlistBuildResult;
   reset(): void;
 }

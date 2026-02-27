@@ -11,6 +11,7 @@ with the engine.
 | `ZR_ENGINE_ABI_MINOR` | `2` | Engine ABI minor |
 | `ZR_ENGINE_ABI_PATCH` | `0` | Engine ABI patch |
 | `ZR_DRAWLIST_VERSION_V1` | `1` | ZRDL v1 |
+| `ZR_DRAWLIST_VERSION_V2` | `2` | ZRDL v2 (`BLIT_RECT`) |
 | `ZR_EVENT_BATCH_VERSION_V1` | `1` | ZREV v1 |
 | `ZR_UNICODE_VERSION_MAJOR` | `15` | Unicode major |
 | `ZR_UNICODE_VERSION_MINOR` | `1` | Unicode minor |
@@ -25,8 +26,7 @@ with the engine.
 
 ## Drawlist Version Rule
 
-Only drawlist v1 is supported. Backends must reject mismatched drawlist
-versions during setup.
+Rezi currently emits drawlist v1. Engine-side validation accepts v1 and v2.
 
 ## Result Codes
 

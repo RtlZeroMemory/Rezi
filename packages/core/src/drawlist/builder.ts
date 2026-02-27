@@ -14,9 +14,12 @@ import type {
   DrawlistImageFit,
   DrawlistImageFormat,
   DrawlistImageProtocol,
+  DrawlistTextPerfCounters,
+  DrawlistTextRunSegment,
   EncodedStyle,
 } from "./types.js";
 import {
+  BLIT_RECT_SIZE,
   CLEAR_SIZE,
   DEF_BLOB_BASE_SIZE,
   DEF_STRING_BASE_SIZE,
@@ -33,6 +36,7 @@ import {
   writeClear,
   writeDefBlob,
   writeDefString,
+  writeBlitRect,
   writeDrawCanvas,
   writeDrawImage,
   writeDrawText,
@@ -199,6 +203,7 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
   private activeLinkIdRef = 0;
   private prevBuiltStringsCount = 0;
   private prevBuiltBlobsCount = 0;
+  private textPerfSegments = 0;
 
   constructor(opts: DrawlistBuilderOpts) {
     super(opts, "DrawlistBuilder");
@@ -241,6 +246,49 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
 
   hideCursor(): void {
     this.setCursor({ x: -1, y: -1, shape: 0, visible: false, blink: false });
+  }
+
+  blitRect(srcX: number, srcY: number, w: number, h: number, dstX: number, dstY: number): void {
+    if (this.error) return;
+
+    const srcXi = this.validateParams ? this.requireI32("blitRect", "srcX", srcX) : srcX | 0;
+    const srcYi = this.validateParams ? this.requireI32("blitRect", "srcY", srcY) : srcY | 0;
+    const wi = this.validateParams ? this.requireI32NonNeg("blitRect", "w", w) : w | 0;
+    const hi = this.validateParams ? this.requireI32NonNeg("blitRect", "h", h) : h | 0;
+    const dstXi = this.validateParams ? this.requireI32("blitRect", "dstX", dstX) : dstX | 0;
+    const dstYi = this.validateParams ? this.requireI32("blitRect", "dstY", dstY) : dstY | 0;
+    if (this.error) return;
+    if (
+      srcXi === null ||
+      srcYi === null ||
+      wi === null ||
+      hi === null ||
+      dstXi === null ||
+      dstYi === null
+    ) {
+      return;
+    }
+
+    if (!this.beginCommandWrite("blitRect", BLIT_RECT_SIZE)) return;
+    this.cmdLen = writeBlitRect(this.cmdBuf, this.cmdDv, this.cmdLen, srcXi, srcYi, wi, hi, dstXi, dstYi);
+    this.cmdCount += 1;
+    this.maybeFailTooLargeAfterWrite();
+  }
+
+  override addTextRunBlob(segments: readonly DrawlistTextRunSegment[]): number | null {
+    const blobIndex = super.addTextRunBlob(segments);
+    if (blobIndex !== null) {
+      this.textPerfSegments += segments.length;
+    }
+    return blobIndex;
+  }
+
+  getTextPerfCounters(): DrawlistTextPerfCounters {
+    return Object.freeze({
+      textEncoderCalls: 0,
+      textArenaBytes: this.stringBytesLen,
+      textSegments: this.textPerfSegments,
+    });
   }
 
   setLink(uri: string | null, id?: string): void {
@@ -608,6 +656,7 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
 
     this.activeLinkUriRef = 0;
     this.activeLinkIdRef = 0;
+    this.textPerfSegments = 0;
   }
 
   protected override encodeFillRectStyle(style: TextStyle | undefined): EncodedStyle {

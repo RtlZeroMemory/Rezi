@@ -45,6 +45,11 @@ type ResolvedCursor = Readonly<{
 
 const EMPTY_STRING_ARRAY: readonly string[] = Object.freeze([]);
 
+function rectIntersects(a: Rect, b: Rect): boolean {
+  if (a.w <= 0 || a.h <= 0 || b.w <= 0 || b.h <= 0) return false;
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
 function logLevelToThemeColor(theme: Theme, level: LogsConsoleProps["entries"][number]["level"]) {
   switch (level) {
     case "warn":
@@ -158,6 +163,7 @@ export function renderEditorWidget(
   node: RuntimeInstance,
   nodeStack: (RuntimeInstance | null)[],
   styleStack: ResolvedTextStyle[],
+  damageRect: Rect | undefined,
   cursorInfo: CursorInfo | undefined,
   diffViewerFocusedHunkById: ReadonlyMap<string, number> | undefined,
   diffViewerExpandedHunksById: ReadonlyMap<string, ReadonlySet<number>> | undefined,
@@ -845,78 +851,102 @@ export function renderEditorWidget(
       const startIndex = Math.max(0, props.scrollTop);
       const endIndex = Math.min(filtered.length, startIndex + contentRect.h);
 
-      let y = contentRect.y;
-      for (let i = startIndex; i < endIndex; i++) {
-        const entry = filtered[i];
-        if (!entry) continue;
+      const hasScrollbar = contentRect.h > 0 && filtered.length > contentRect.h;
+      const textRect: Rect = {
+        x: contentRect.x,
+        y: contentRect.y,
+        w: hasScrollbar ? clampNonNegative(contentRect.w - 1) : contentRect.w,
+        h: contentRect.h,
+      };
+      const shouldRenderTextRows = !damageRect || rectIntersects(damageRect, textRect);
 
-        const levelColor = logLevelToThemeColor(theme, entry.level);
-        const isError = entry.level === "error";
-
-        let x = contentRect.x;
-
-        const meta = entryMetaById?.get(entry.id);
-        const timestamp = meta?.timestamp ?? formatTimestamp(entry.timestamp);
-        const levelLabel = meta?.levelLabel ?? `[${entry.level.toUpperCase().padEnd(5)}]`;
-        const sourceLabel = meta?.sourceLabel ?? entry.source.slice(0, 6).padEnd(6);
-        let metaSuffix = meta?.metaSuffix ?? "";
-        if (metaSuffix.length === 0) {
-          if (typeof entry.durationMs === "number")
-            metaSuffix += ` | ${formatDuration(entry.durationMs)}`;
-          if (entry.tokens) metaSuffix += ` | ${formatTokenCount(entry.tokens.total)} tokens`;
-          if (typeof entry.costCents === "number")
-            metaSuffix += ` | ${formatCost(entry.costCents)}`;
+      let rowOffsetStart = 0;
+      let rowOffsetEnd = contentRect.h;
+      if (damageRect) {
+        const top = Math.max(contentRect.y, damageRect.y);
+        const bottom = Math.min(contentRect.y + contentRect.h, damageRect.y + damageRect.h);
+        if (bottom <= top) {
+          rowOffsetEnd = 0;
+        } else {
+          rowOffsetStart = Math.max(0, top - contentRect.y);
+          rowOffsetEnd = Math.min(contentRect.h, bottom - contentRect.y);
         }
+      }
 
-        // Timestamp
-        if (showTimestamps) {
-          builder.drawText(x, y, timestamp, timestampStyle);
-          x += 9; // "HH:MM:SS" + space
-        }
+      if (shouldRenderTextRows && rowOffsetEnd > rowOffsetStart) {
+        const rowStartIndex = Math.max(startIndex, startIndex + rowOffsetStart);
+        const rowEndIndex = Math.min(endIndex, startIndex + rowOffsetEnd);
+        for (let i = rowStartIndex; i < rowEndIndex; i++) {
+          const entry = filtered[i];
+          if (!entry) continue;
 
-        // Level
-        builder.drawText(
-          x,
-          y,
-          levelLabel,
-          isError
-            ? { fg: levelColor, bold: true }
-            : mergeTextStyle(contentStyle, { fg: levelColor }),
-        );
-        x += 8;
+          const y = contentRect.y + (i - startIndex);
+          const levelColor = logLevelToThemeColor(theme, entry.level);
+          const isError = entry.level === "error";
 
-        // Source
-        if (showSource) {
-          builder.drawText(x, y, sourceLabel, sourceStyle);
-          x += 7;
-        }
+          let x = contentRect.x;
 
-        const hasDetails = typeof entry.details === "string" && entry.details.length > 0;
-        const expanded = hasDetails && (expandedSet ? expandedSet.has(entry.id) : false);
-        const marker = hasDetails ? (expanded ? "▼ " : "▶ ") : "";
+          const meta = entryMetaById?.get(entry.id);
+          const timestamp = meta?.timestamp ?? formatTimestamp(entry.timestamp);
+          const levelLabel = meta?.levelLabel ?? `[${entry.level.toUpperCase().padEnd(5)}]`;
+          const sourceLabel = meta?.sourceLabel ?? entry.source.slice(0, 6).padEnd(6);
+          let metaSuffix = meta?.metaSuffix ?? "";
+          if (metaSuffix.length === 0) {
+            if (typeof entry.durationMs === "number")
+              metaSuffix += ` | ${formatDuration(entry.durationMs)}`;
+            if (entry.tokens) metaSuffix += ` | ${formatTokenCount(entry.tokens.total)} tokens`;
+            if (typeof entry.costCents === "number")
+              metaSuffix += ` | ${formatCost(entry.costCents)}`;
+          }
 
-        const details = expanded && entry.details ? ` | ${entry.details}` : "";
-        const msg = `${marker}${entry.message}${details}${metaSuffix}`;
+          // Timestamp
+          if (showTimestamps) {
+            builder.drawText(x, y, timestamp, timestampStyle);
+            x += 9; // "HH:MM:SS" + space
+          }
 
-        const remaining = contentRect.w - (x - contentRect.x);
-        if (remaining > 0) {
+          // Level
           builder.drawText(
             x,
             y,
-            msg.slice(0, remaining),
+            levelLabel,
             isError
               ? { fg: levelColor, bold: true }
               : mergeTextStyle(contentStyle, { fg: levelColor }),
           );
-        }
+          x += 8;
 
-        y++;
+          // Source
+          if (showSource) {
+            builder.drawText(x, y, sourceLabel, sourceStyle);
+            x += 7;
+          }
+
+          const hasDetails = typeof entry.details === "string" && entry.details.length > 0;
+          const expanded = hasDetails && (expandedSet ? expandedSet.has(entry.id) : false);
+          const marker = hasDetails ? (expanded ? "▼ " : "▶ ") : "";
+
+          const details = expanded && entry.details ? ` | ${entry.details}` : "";
+          const msg = `${marker}${entry.message}${details}${metaSuffix}`;
+
+          const remaining = contentRect.w - (x - contentRect.x);
+          if (remaining > 0) {
+            builder.drawText(
+              x,
+              y,
+              msg.slice(0, remaining),
+              isError
+                ? { fg: levelColor, bold: true }
+                : mergeTextStyle(contentStyle, { fg: levelColor }),
+            );
+          }
+        }
       }
 
       builder.popClip();
 
       // Vertical scrollbar
-      if (contentRect.h > 0 && filtered.length > contentRect.h) {
+      if (hasScrollbar) {
         const scrollbarVariant = props.scrollbarVariant ?? "minimal";
         const scrollbarOwnStyle = asTextStyle(props.scrollbarStyle, theme);
         const scrollbarBaseStyle = mergeTextStyle(parentStyle, { fg: theme.colors.border });
@@ -934,10 +964,26 @@ export function renderEditorWidget(
           variantConfig,
         );
         const scrollbarX = contentRect.x + contentRect.w - 1;
-        for (let dy = 0; dy < glyphs.length; dy++) {
-          const glyph = glyphs[dy];
-          if (!glyph) continue;
-          builder.drawText(scrollbarX, contentRect.y + dy, glyph, scrollbarStyle);
+        const scrollbarRect: Rect = { x: scrollbarX, y: contentRect.y, w: 1, h: contentRect.h };
+        const shouldRenderScrollbar = !damageRect || rectIntersects(damageRect, scrollbarRect);
+        if (shouldRenderScrollbar) {
+          let dyStart = 0;
+          let dyEnd = glyphs.length;
+          if (damageRect) {
+            const top = Math.max(contentRect.y, damageRect.y);
+            const bottom = Math.min(contentRect.y + contentRect.h, damageRect.y + damageRect.h);
+            if (bottom <= top) {
+              dyEnd = 0;
+            } else {
+              dyStart = Math.max(0, top - contentRect.y);
+              dyEnd = Math.min(glyphs.length, bottom - contentRect.y);
+            }
+          }
+          for (let dy = dyStart; dy < dyEnd; dy++) {
+            const glyph = glyphs[dy];
+            if (!glyph) continue;
+            builder.drawText(scrollbarX, contentRect.y + dy, glyph, scrollbarStyle);
+          }
         }
       }
       break;

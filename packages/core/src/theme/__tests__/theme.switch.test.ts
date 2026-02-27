@@ -77,6 +77,7 @@ class RecordingBuilder implements DrawlistBuilder {
   setLink(..._args: Parameters<DrawlistBuilder["setLink"]>): void {}
   drawCanvas(..._args: Parameters<DrawlistBuilder["drawCanvas"]>): void {}
   drawImage(..._args: Parameters<DrawlistBuilder["drawImage"]>): void {}
+  blitRect(..._args: Parameters<DrawlistBuilder["blitRect"]>): void {}
   buildInto(_dst: Uint8Array): DrawlistBuildResult {
     return this.build();
   }

@@ -21,4 +21,5 @@ export type {
   DrawlistBuildResult,
   DrawlistBuildInto,
   DrawlistBuilder,
+  DrawlistTextPerfCounters,
 } from "./types.js";

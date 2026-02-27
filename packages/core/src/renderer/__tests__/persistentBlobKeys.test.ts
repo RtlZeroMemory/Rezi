@@ -14,6 +14,14 @@ class CountingBuilder implements DrawlistBuilder {
   clear(): void {}
   clearTo(_cols: number, _rows: number): void {}
   fillRect(_x: number, _y: number, _w: number, _h: number): void {}
+  blitRect(
+    _srcX: number,
+    _srcY: number,
+    _w: number,
+    _h: number,
+    _dstX: number,
+    _dstY: number,
+  ): void {}
   drawText(_x: number, _y: number, _text: string): void {}
   pushClip(_x: number, _y: number, _w: number, _h: number): void {}
   popClip(): void {}

@@ -39,6 +39,8 @@ class RecordingBuilder implements DrawlistBuilder {
     this.ops.push({ kind: "fillRect", x, y, w, h, ...(style ? { style } : {}) });
   }
 
+  blitRect(..._args: Parameters<DrawlistBuilder["blitRect"]>): void {}
+
   drawText(x: number, y: number, text: string, style?: TextStyle): void {
     this.ops.push({ kind: "drawText", x, y, text, ...(style ? { style } : {}) });
   }
