@@ -1,4 +1,4 @@
-import { type Rgb, type VNode, rgb, ui } from "@rezi-ui/core";
+import { type Rgb24, type VNode, rgb, ui } from "@rezi-ui/core";
 
 import type { InkHostContainer, InkHostNode } from "../reconciler/types.js";
 import { mapBorderStyle } from "./borderMap.js";
@@ -12,8 +12,8 @@ interface TextSpan {
 }
 
 interface TextStyleMap {
-  fg?: Rgb;
-  bg?: Rgb;
+  fg?: Rgb24;
+  bg?: Rgb24;
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
@@ -295,7 +295,7 @@ function readAccessibilityLabel(props: Record<string, unknown>): string | undefi
   return undefined;
 }
 
-const ANSI_16_PALETTE: readonly Rgb[] = [
+const ANSI_16_PALETTE: readonly Rgb24[] = [
   rgb(0, 0, 0),
   rgb(205, 0, 0),
   rgb(0, 205, 0),
@@ -787,7 +787,7 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
     if (scrollY != null) layoutProps.scrollY = scrollY;
 
     const scrollbarThumbColor = parseColor(p.scrollbarThumbColor as string | undefined);
-    if (scrollbarThumbColor) {
+    if (scrollbarThumbColor !== undefined) {
       layoutProps.scrollbarStyle = { fg: scrollbarThumbColor };
     }
   } else if (hasHiddenOverflow) {
@@ -828,11 +828,11 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
 
     const style: Record<string, unknown> = {};
     const bg = parseColor(p.backgroundColor as string | undefined);
-    if (bg) style["bg"] = bg;
+    if (bg !== undefined) style["bg"] = bg;
     if (Object.keys(style).length > 0) layoutProps.style = style;
 
     const explicitBorderColor = parseColor(p.borderColor as string | undefined);
-    const edgeBorderColors: Record<"top" | "right" | "bottom" | "left", Rgb | undefined> = {
+    const edgeBorderColors: Record<"top" | "right" | "bottom" | "left", Rgb24 | undefined> = {
       top: parseColor(p.borderTopColor as string | undefined),
       right: parseColor(p.borderRightColor as string | undefined),
       bottom: parseColor(p.borderBottomColor as string | undefined),
@@ -847,7 +847,7 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
     };
 
     const borderColor = explicitBorderColor;
-    if (borderColor) {
+    if (borderColor !== undefined) {
       layoutProps.borderStyle = {
         ...(typeof layoutProps.borderStyle === "object" && layoutProps.borderStyle !== null
           ? layoutProps.borderStyle
@@ -872,7 +872,7 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
       if (!hasColorOverride && !hasDimOverride) continue;
       const sideStyle: Record<string, unknown> = {};
       const resolvedColor = edgeBorderColors[side] ?? explicitBorderColor;
-      if (resolvedColor) sideStyle["fg"] = resolvedColor;
+      if (resolvedColor !== undefined) sideStyle["fg"] = resolvedColor;
       if (globalBorderDim || hasDimOverride) sideStyle["dim"] = true;
       if (Object.keys(sideStyle).length > 0) {
         borderStyleSides[side] = sideStyle;
@@ -955,9 +955,9 @@ function translateText(node: InkHostNode): VNode {
 
   const style: TextStyleMap = {};
   const fg = parseColor(p.color as string | undefined);
-  if (fg) style.fg = fg;
+  if (fg !== undefined) style.fg = fg;
   const bg = parseColor(p.backgroundColor as string | undefined);
-  if (bg) style.bg = bg;
+  if (bg !== undefined) style.bg = bg;
   if (p.bold) style.bold = true;
   if (p.italic) style.italic = true;
   if (p.underline) style.underline = true;
@@ -1070,9 +1070,9 @@ function flattenTextChildren(
       if (hasOverrides) {
         childStyle = { ...parentStyle };
         const fg = parseColor(cp.color as string | undefined);
-        if (fg) childStyle.fg = fg;
+        if (fg !== undefined) childStyle.fg = fg;
         const bg = parseColor(cp.backgroundColor as string | undefined);
-        if (bg) childStyle.bg = bg;
+        if (bg !== undefined) childStyle.bg = bg;
         if (cp.bold) childStyle.bold = true;
         if (cp.italic) childStyle.italic = true;
         if (cp.underline) childStyle.underline = true;
@@ -1107,10 +1107,8 @@ function flattenTextChildren(
   return { spans, isSingleSpan: allSameStyle, fullText };
 }
 
-function textRgbEqual(a: Rgb | undefined, b: Rgb | undefined): boolean {
-  if (a === b) return true;
-  if (!a || !b) return false;
-  return a.r === b.r && a.g === b.g && a.b === b.b;
+function textRgbEqual(a: Rgb24 | undefined, b: Rgb24 | undefined): boolean {
+  return a === b;
 }
 
 function stylesEqual(a: TextStyleMap, b: TextStyleMap): boolean {
@@ -1241,9 +1239,11 @@ function sanitizeAnsiInput(input: string): string {
           break;
         }
 
-        if (output) {
-          if (runStart < index) output.push(input.slice(runStart, index));
-          output.push(input.slice(index, oscEnd));
+        if (!output) {
+          output = [];
+          if (index > 0) output.push(input.slice(0, index));
+        } else if (runStart < index) {
+          output.push(input.slice(runStart, index));
         }
 
         index = oscEnd;
@@ -1529,7 +1529,7 @@ function resetSgrColor(
   delete activeStyle[channel];
 }
 
-function decodeAnsi256Color(index: number): Rgb {
+function decodeAnsi256Color(index: number): Rgb24 {
   if (index < 16) return ANSI_16_PALETTE[index]!;
 
   if (index <= 231) {

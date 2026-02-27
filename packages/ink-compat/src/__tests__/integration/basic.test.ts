@@ -613,7 +613,11 @@ test("runtime render re-resolves percent sizing when parent layout changes (no f
     );
   }
 
-  const instance = runtimeRender(React.createElement(App, { parentWidth: 20 }), { stdin, stdout, stderr });
+  const instance = runtimeRender(React.createElement(App, { parentWidth: 20 }), {
+    stdin,
+    stdout,
+    stderr,
+  });
   try {
     await new Promise((resolve) => setTimeout(resolve, 60));
     assert.ok(parentNode != null, "parent ref should be set");
@@ -1262,7 +1266,7 @@ test("ANSI output resets attributes between differently-styled cells", () => {
 
 // ─── Regression: text inherits background from underlying fillRect ───
 
-test("nested non-overlapping clips do not leak text", () => {
+test("nested non-overlapping clips do not leak text", async () => {
   const stdin = new PassThrough() as PassThrough & { setRawMode: (enabled: boolean) => void };
   stdin.setRawMode = () => {};
   const stdout = new PassThrough();
@@ -1286,6 +1290,13 @@ test("nested non-overlapping clips do not leak text", () => {
   );
 
   try {
+    await new Promise<void>((resolve) => {
+      if (writes.length > 0) {
+        resolve();
+        return;
+      }
+      stdout.once("data", () => resolve());
+    });
     const latest = stripTerminalEscapes(latestFrameFromWrites(writes));
     assert.equal(latest.includes("LEAK"), false, `unexpected clipped leak in output: ${latest}`);
   } finally {

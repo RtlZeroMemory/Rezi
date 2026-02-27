@@ -119,17 +119,20 @@ function textStylesEqual_FIXED(a: TextStyleMap, b: TextStyleMap): boolean {
   if (keysA.length !== keysB.length) return false;
   for (const key of keysA) {
     if (!(key in b)) return false;
+    if (key === "fg" || key === "bg") {
+      if (
+        !rgbEqual(
+          a[key] as { r: number; g: number; b: number } | undefined,
+          b[key] as { r: number; g: number; b: number } | undefined,
+        )
+      ) {
+        return false;
+      }
+      continue;
+    }
+    if (!Object.is(a[key], b[key])) return false;
   }
-  return (
-    a.bold === b.bold &&
-    a.dim === b.dim &&
-    a.italic === b.italic &&
-    a.underline === b.underline &&
-    a.strikethrough === b.strikethrough &&
-    a.inverse === b.inverse &&
-    rgbEqual(a.fg, b.fg) &&
-    rgbEqual(a.bg, b.bg)
-  );
+  return true;
 }
 
 // ─── Bottleneck 3: Grid allocation ───

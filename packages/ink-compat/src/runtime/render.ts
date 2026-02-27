@@ -2,11 +2,12 @@ import { appendFileSync } from "node:fs";
 import type { Readable, Writable } from "node:stream";
 import { format as formatConsoleMessage } from "node:util";
 import {
-  type Rgb,
+  type Rgb24,
   type TextStyle,
   type VNode,
   createTestRenderer,
   measureTextCells,
+  rgb,
 } from "@rezi-ui/core";
 import React from "react";
 
@@ -65,8 +66,8 @@ interface ClipRect {
 }
 
 interface CellStyle {
-  fg?: Rgb;
-  bg?: Rgb;
+  fg?: Rgb24;
+  bg?: Rgb24;
   bold?: boolean;
   dim?: boolean;
   italic?: boolean;
@@ -156,8 +157,8 @@ interface RenderWritePayload {
 }
 
 const MAX_QUEUED_OUTPUTS = 4;
-const CORE_DEFAULT_FG: Readonly<Rgb> = Object.freeze({ r: 232, g: 238, b: 245 });
-const CORE_DEFAULT_BG: Readonly<Rgb> = Object.freeze({ r: 7, g: 10, b: 12 });
+const CORE_DEFAULT_FG: Rgb24 = rgb(232, 238, 245);
+const CORE_DEFAULT_BG: Rgb24 = rgb(7, 10, 12);
 const FORCED_TRUECOLOR_SUPPORT: ColorSupport = Object.freeze({ level: 3, noColor: false });
 const FILL_CELLS_SMALL_SPAN_THRESHOLD = 160;
 
@@ -931,8 +932,12 @@ function snapshotCellGridRows(
     for (let col = 0; col < captureTo; col++) {
       const cell = row[col]!;
       const entry: Record<string, unknown> = { c: cell.char };
-      if (cell.style?.bg) entry["bg"] = `${cell.style.bg.r},${cell.style.bg.g},${cell.style.bg.b}`;
-      if (cell.style?.fg) entry["fg"] = `${cell.style.fg.r},${cell.style.fg.g},${cell.style.fg.b}`;
+      if (cell.style?.bg != null) {
+        entry["bg"] = `${rgbR(cell.style.bg)},${rgbG(cell.style.bg)},${rgbB(cell.style.bg)}`;
+      }
+      if (cell.style?.fg != null) {
+        entry["fg"] = `${rgbR(cell.style.fg)},${rgbG(cell.style.fg)},${rgbB(cell.style.fg)}`;
+      }
       if (cell.style?.bold) entry["bold"] = true;
       if (cell.style?.dim) entry["dim"] = true;
       if (cell.style?.inverse) entry["inv"] = true;
@@ -1068,27 +1073,24 @@ function staticRootRevisionSignature(rootNode: InkHostContainer): string {
   return revisions.join(",");
 }
 
-function isRgb(value: unknown): value is Rgb {
-  if (typeof value !== "object" || value === null) return false;
-  const r = (value as { r?: unknown }).r;
-  const g = (value as { g?: unknown }).g;
-  const b = (value as { b?: unknown }).b;
-  return (
-    typeof r === "number" &&
-    Number.isFinite(r) &&
-    typeof g === "number" &&
-    Number.isFinite(g) &&
-    typeof b === "number" &&
-    Number.isFinite(b)
-  );
+function isRgb24(value: unknown): value is Rgb24 {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 0xffffff;
+}
+
+function rgbR(value: Rgb24): number {
+  return (value >>> 16) & 0xff;
+}
+
+function rgbG(value: Rgb24): number {
+  return (value >>> 8) & 0xff;
+}
+
+function rgbB(value: Rgb24): number {
+  return value & 0xff;
 }
 
 function clampByte(value: number): number {
   return Math.max(0, Math.min(255, Math.round(value)));
-}
-
-function isSameRgb(a: Rgb, b: Readonly<Rgb>): boolean {
-  return a.r === b.r && a.g === b.g && a.b === b.b;
 }
 
 const ANSI16_PALETTE: readonly [number, number, number][] = [
@@ -1147,14 +1149,14 @@ function detectColorSupport(stdout: Writable): ColorSupport {
   return { level: 3, noColor: false };
 }
 
-function colorDistanceSq(a: Rgb, b: readonly [number, number, number]): number {
-  const dr = a.r - b[0];
-  const dg = a.g - b[1];
-  const db = a.b - b[2];
+function colorDistanceSq(a: Rgb24, b: readonly [number, number, number]): number {
+  const dr = rgbR(a) - b[0];
+  const dg = rgbG(a) - b[1];
+  const db = rgbB(a) - b[2];
   return dr * dr + dg * dg + db * db;
 }
 
-function toAnsi16Code(color: Rgb, background: boolean): number {
+function toAnsi16Code(color: Rgb24, background: boolean): number {
   let bestIndex = 0;
   let bestDistance = Number.POSITIVE_INFINITY;
   for (let index = 0; index < ANSI16_PALETTE.length; index += 1) {
@@ -1178,26 +1180,29 @@ function rgbChannelToCubeLevel(channel: number): number {
   return Math.min(5, Math.floor((channel - 35) / 40));
 }
 
-function toAnsi256Code(color: Rgb): number {
-  const rLevel = rgbChannelToCubeLevel(color.r);
-  const gLevel = rgbChannelToCubeLevel(color.g);
-  const bLevel = rgbChannelToCubeLevel(color.b);
+function toAnsi256Code(color: Rgb24): number {
+  const r = rgbR(color);
+  const g = rgbG(color);
+  const b = rgbB(color);
+  const rLevel = rgbChannelToCubeLevel(r);
+  const gLevel = rgbChannelToCubeLevel(g);
+  const bLevel = rgbChannelToCubeLevel(b);
   const cubeCode = 16 + 36 * rLevel + 6 * gLevel + bLevel;
 
-  const cubeColor: Rgb = {
-    r: rLevel === 0 ? 0 : 55 + 40 * rLevel,
-    g: gLevel === 0 ? 0 : 55 + 40 * gLevel,
-    b: bLevel === 0 ? 0 : 55 + 40 * bLevel,
-  };
+  const cubeColor = rgb(
+    rLevel === 0 ? 0 : 55 + 40 * rLevel,
+    gLevel === 0 ? 0 : 55 + 40 * gLevel,
+    bLevel === 0 ? 0 : 55 + 40 * bLevel,
+  );
 
-  const avg = Math.round((color.r + color.g + color.b) / 3);
+  const avg = Math.round((r + g + b) / 3);
   const grayLevel = Math.max(0, Math.min(23, Math.round((avg - 8) / 10)));
   const grayCode = 232 + grayLevel;
   const grayValue = 8 + 10 * grayLevel;
-  const grayColor: Rgb = { r: grayValue, g: grayValue, b: grayValue };
+  const grayColor = rgb(grayValue, grayValue, grayValue);
 
-  const cubeDistance = colorDistanceSq(color, [cubeColor.r, cubeColor.g, cubeColor.b]);
-  const grayDistance = colorDistanceSq(color, [grayColor.r, grayColor.g, grayColor.b]);
+  const cubeDistance = colorDistanceSq(color, [rgbR(cubeColor), rgbG(cubeColor), rgbB(cubeColor)]);
+  const grayDistance = colorDistanceSq(color, [rgbR(grayColor), rgbG(grayColor), rgbB(grayColor)]);
   return grayDistance < cubeDistance ? grayCode : cubeCode;
 }
 
@@ -1217,17 +1222,17 @@ function normalizeStyle(style: TextStyle | undefined): CellStyle | undefined {
   if (normalizeStyleCache.has(style)) return undefined;
 
   const normalized: CellStyle = {};
-  if (isRgb(style.fg)) {
-    const fg = { r: clampByte(style.fg.r), g: clampByte(style.fg.g), b: clampByte(style.fg.b) };
+  if (isRgb24(style.fg)) {
+    const fg = rgb(clampByte(rgbR(style.fg)), clampByte(rgbG(style.fg)), clampByte(rgbB(style.fg)));
     // Rezi carries DEFAULT_BASE_STYLE through every text draw op. Ink treats
     // terminal defaults as implicit, so suppress those default color channels.
-    if (!isSameRgb(fg, CORE_DEFAULT_FG)) {
+    if (fg !== CORE_DEFAULT_FG) {
       normalized.fg = fg;
     }
   }
-  if (isRgb(style.bg)) {
-    const bg = { r: clampByte(style.bg.r), g: clampByte(style.bg.g), b: clampByte(style.bg.b) };
-    if (!isSameRgb(bg, CORE_DEFAULT_BG)) {
+  if (isRgb24(style.bg)) {
+    const bg = rgb(clampByte(rgbR(style.bg)), clampByte(rgbG(style.bg)), clampByte(rgbB(style.bg)));
+    if (bg !== CORE_DEFAULT_BG) {
       normalized.bg = bg;
     }
   }
@@ -1252,10 +1257,8 @@ function normalizeStyle(style: TextStyle | undefined): CellStyle | undefined {
   return result;
 }
 
-function rgbEqual(a: Rgb | undefined, b: Rgb | undefined): boolean {
-  if (a === b) return true;
-  if (!a || !b) return false;
-  return a.r === b.r && a.g === b.g && a.b === b.b;
+function rgbEqual(a: Rgb24 | undefined, b: Rgb24 | undefined): boolean {
+  return a === b;
 }
 
 function stylesEqual(a: CellStyle | undefined, b: CellStyle | undefined): boolean {
@@ -1391,10 +1394,10 @@ function styleToSgr(style: CellStyle | undefined, colorSupport: ColorSupport): s
   if (style.inverse) codes.push("7");
   if (style.strikethrough) codes.push("9");
   if (colorSupport.level > 0) {
-    if (style.fg) {
+    if (style.fg != null) {
       if (colorSupport.level >= 3) {
         codes.push(
-          `38;2;${clampByte(style.fg.r)};${clampByte(style.fg.g)};${clampByte(style.fg.b)}`,
+          `38;2;${clampByte(rgbR(style.fg))};${clampByte(rgbG(style.fg))};${clampByte(rgbB(style.fg))}`,
         );
       } else if (colorSupport.level === 2) {
         codes.push(`38;5;${toAnsi256Code(style.fg)}`);
@@ -1402,10 +1405,10 @@ function styleToSgr(style: CellStyle | undefined, colorSupport: ColorSupport): s
         codes.push(String(toAnsi16Code(style.fg, false)));
       }
     }
-    if (style.bg) {
+    if (style.bg != null) {
       if (colorSupport.level >= 3) {
         codes.push(
-          `48;2;${clampByte(style.bg.r)};${clampByte(style.bg.g)};${clampByte(style.bg.b)}`,
+          `48;2;${clampByte(rgbR(style.bg))};${clampByte(rgbG(style.bg))};${clampByte(rgbB(style.bg))}`,
         );
       } else if (colorSupport.level === 2) {
         codes.push(`48;5;${toAnsi256Code(style.bg)}`);
