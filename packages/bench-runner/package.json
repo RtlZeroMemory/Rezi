@@ -1,0 +1,16 @@
+{
+  "name": "@rezi-ui/ink-compat-bench-runner",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "main": "./dist/cli.js",
+  "types": "./dist/cli.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --pretty false",
+    "typecheck": "tsc -p tsconfig.json --pretty false --noEmit"
+  },
+  "dependencies": {
+    "@rezi-ui/ink-compat-bench-harness": "0.0.0"
+  }
+}
