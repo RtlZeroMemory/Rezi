@@ -364,7 +364,7 @@ static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_
   const bool links_compatible_for_damage_copy = zr_fb_links_prefix_equal(&e->fb_prev, presented_fb);
   const bool use_damage_rect_copy =
       links_compatible_for_damage_copy && (stats->path_damage_used != 0u) && (stats->damage_full_frame == 0u) &&
-      (stats->damage_rects <= e->damage_rect_cap);
+      (stats->damage_rects != 0u) && (stats->damage_rects <= e->damage_rect_cap);
 
   /*
     Resync fb_prev to the framebuffer that was actually presented.

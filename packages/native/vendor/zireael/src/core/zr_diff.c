@@ -328,7 +328,10 @@ static bool zr_fb_links_eq_exact(const zr_fb_t* a, const zr_fb_t* b) {
   }
 
   if (a->links_len != 0u) {
-    const size_t links_bytes = (size_t)a->links_len * sizeof(zr_fb_link_t);
+    size_t links_bytes = 0u;
+    if (!zr_checked_mul_size((size_t)a->links_len, sizeof(zr_fb_link_t), &links_bytes)) {
+      return false;
+    }
     if (memcmp(a->links, b->links, links_bytes) != 0) {
       return false;
     }
