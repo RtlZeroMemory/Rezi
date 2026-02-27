@@ -42,7 +42,10 @@ describe("DrawlistBuilder resource inputs", () => {
     assert.equal(u32(bytes, cmdOffset + 4), 20); // 16-byte header + 3-byte payload + 1 pad
     assert.equal(u32(bytes, cmdOffset + 8), 1);
     assert.equal(u32(bytes, cmdOffset + 12), 3);
-    assert.deepEqual(Array.from(bytes.subarray(cmdOffset + 16, cmdOffset + 19)), [0xde, 0xad, 0xbe]);
+    assert.deepEqual(
+      Array.from(bytes.subarray(cmdOffset + 16, cmdOffset + 19)),
+      [0xde, 0xad, 0xbe],
+    );
     assert.equal(bytes[cmdOffset + 19], 0);
   });
 

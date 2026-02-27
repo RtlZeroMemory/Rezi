@@ -1,9 +1,9 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import {
-  OP_DRAW_TEXT,
-  OP_DRAW_TEXT_RUN,
   OP_DEF_BLOB,
   OP_DEF_STRING,
+  OP_DRAW_TEXT,
+  OP_DRAW_TEXT_RUN,
   parseCommandHeaders,
 } from "../../__tests__/drawlistDecode.js";
 import { createDrawlistBuilder } from "../builder.js";

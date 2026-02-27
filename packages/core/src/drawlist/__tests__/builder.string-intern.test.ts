@@ -201,7 +201,11 @@ describe("drawlist string interning", () => {
       for (let i = 0; i < drawText.length; i++) {
         assert.equal(drawText[i]?.stringId, i + 1, `${factory.name}: id ${i + 1}`);
       }
-      assert.deepEqual(parseInternedStrings(bytes), unique, `${factory.name}: decoded string table`);
+      assert.deepEqual(
+        parseInternedStrings(bytes),
+        unique,
+        `${factory.name}: decoded string table`,
+      );
     }
   });
 

@@ -92,12 +92,7 @@ function throwMissingPaths(theme: unknown): void {
 }
 
 function validateRgb(path: string, value: unknown): void {
-  if (
-    typeof value !== "number" ||
-    !Number.isInteger(value) ||
-    value < 0 ||
-    value > 0x00ffffff
-  ) {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > 0x00ffffff) {
     throw new Error(
       `Theme validation failed at ${path}: expected packed Rgb24 integer 0..0x00FFFFFF (received ${formatValue(value)})`,
     );

@@ -16,12 +16,12 @@ import {
   SET_CURSOR_SIZE,
   writeBlitRect,
   writeClear,
+  writeDefBlob,
+  writeDefString,
   writeDrawCanvas,
   writeDrawImage,
   writeDrawText,
   writeDrawTextRun,
-  writeDefBlob,
-  writeDefString,
   writeFillRect,
   writePopClip,
   writePushClip,
@@ -371,27 +371,7 @@ function buildReferenceDrawlist(): Uint8Array {
   pos = legacyWriteDrawTextRun(out, dv, pos, 7, 8, 1, 0);
   pos = legacyWriteSetCursor(out, dv, pos, 9, 10, 2, 1, 0, 0);
   pos = legacyWriteDrawCanvas(out, dv, pos, 11, 12, 1, 1, 1, 1, 1, 0, 6, 0, 0);
-  pos = legacyWriteDrawImage(
-    out,
-    dv,
-    pos,
-    13,
-    14,
-    1,
-    1,
-    1,
-    1,
-    1,
-    0,
-    99,
-    0,
-    1,
-    -1,
-    1,
-    0,
-    0,
-    0,
-  );
+  pos = legacyWriteDrawImage(out, dv, pos, 13, 14, 1, 1, 1, 1, 1, 0, 99, 0, 1, -1, 1, 0, 0, 0);
   pos = legacyWritePushClip(out, dv, pos, 0, 0, 20, 10);
   pos = legacyWritePopClip(out, dv, pos);
   assert.equal(pos, cmdOffset + cmdBytes);

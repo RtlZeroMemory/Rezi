@@ -119,7 +119,13 @@ describe("DrawlistBuilder reset behavior", () => {
     assert.equal(h2.totalSize, 120);
 
     const opcodes = parseCommands(second.bytes).map((cmd) => cmd.opcode);
-    assert.deepEqual(opcodes, [OP_CLEAR, OP_FREE_STRING, OP_FREE_STRING, OP_FREE_STRING, OP_FREE_BLOB]);
+    assert.deepEqual(opcodes, [
+      OP_CLEAR,
+      OP_FREE_STRING,
+      OP_FREE_STRING,
+      OP_FREE_STRING,
+      OP_FREE_BLOB,
+    ]);
   });
 
   test("v2 reset drops cursor and string state before next frame", () => {

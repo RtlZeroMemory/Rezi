@@ -164,7 +164,8 @@ function parseFrame(bytes: Uint8Array): ParsedFrame {
     }
     if (cmd.opcode === OP_FREE_BLOB) {
       const blobId = u32(bytes, off + 8);
-      if (blobId > 0) textRunBlobsByIndex[blobId - 1] = Object.freeze({ segments: Object.freeze([]) });
+      if (blobId > 0)
+        textRunBlobsByIndex[blobId - 1] = Object.freeze({ segments: Object.freeze([]) });
       continue;
     }
 

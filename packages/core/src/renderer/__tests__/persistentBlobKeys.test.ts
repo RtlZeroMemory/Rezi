@@ -2,7 +2,10 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import type { DrawlistBuilder, DrawlistTextRunSegment } from "../../drawlist/types.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
 import { DEFAULT_BASE_STYLE } from "../renderToDrawlist/textStyle.js";
-import { addBlobAligned, renderCanvasWidgets } from "../renderToDrawlist/widgets/renderCanvasWidgets.js";
+import {
+  addBlobAligned,
+  renderCanvasWidgets,
+} from "../renderToDrawlist/widgets/renderCanvasWidgets.js";
 import { drawSegments } from "../renderToDrawlist/widgets/renderTextWidgets.js";
 
 class CountingBuilder implements DrawlistBuilder {

@@ -181,7 +181,8 @@ describe("DrawlistBuilder - limits boundaries", () => {
 
   test("maxDrawlistBytes: exact text drawlist boundary succeeds", () => {
     const textBytes = 3;
-    const exactLimit = HEADER.SIZE + CMD_SIZE_DRAW_TEXT + align4(CMD_SIZE_DEF_STRING_BASE + textBytes);
+    const exactLimit =
+      HEADER.SIZE + CMD_SIZE_DRAW_TEXT + align4(CMD_SIZE_DEF_STRING_BASE + textBytes);
     const b = createDrawlistBuilder({ maxDrawlistBytes: exactLimit });
     b.drawText(0, 0, "abc");
     const bytes = expectOk(b.build());
@@ -193,7 +194,8 @@ describe("DrawlistBuilder - limits boundaries", () => {
 
   test("maxDrawlistBytes: one byte below text drawlist boundary fails", () => {
     const textBytes = 3;
-    const exactLimit = HEADER.SIZE + CMD_SIZE_DRAW_TEXT + align4(CMD_SIZE_DEF_STRING_BASE + textBytes);
+    const exactLimit =
+      HEADER.SIZE + CMD_SIZE_DRAW_TEXT + align4(CMD_SIZE_DEF_STRING_BASE + textBytes);
     const b = createDrawlistBuilder({ maxDrawlistBytes: exactLimit - 1 });
     b.drawText(0, 0, "abc");
 

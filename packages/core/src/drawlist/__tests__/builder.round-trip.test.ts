@@ -165,7 +165,10 @@ describe("DrawlistBuilder round-trip binary readback", () => {
 
     const cmds = parseCommands(res.bytes);
     assert.equal(cmds.length, h.cmdCount);
-    assert.equal(cmds.reduce((acc, cmd) => acc + cmd.size, 0), h.cmdBytes);
+    assert.equal(
+      cmds.reduce((acc, cmd) => acc + cmd.size, 0),
+      h.cmdBytes,
+    );
     assert.deepEqual(
       cmds.map((cmd) => cmd.opcode),
       [OP_DEF_STRING, OP_CLEAR, OP_FILL_RECT, OP_PUSH_CLIP, OP_DRAW_TEXT, OP_POP_CLIP],
@@ -385,10 +388,21 @@ describe("DrawlistBuilder round-trip binary readback", () => {
     assert.equal(h.version, ZR_DRAWLIST_VERSION_V1);
     assert.equal(h.cmdCount, 7);
     assert.equal(cmds.length, 7);
-    assert.equal(cmds.reduce((acc, cmd) => acc + cmd.size, 0), h.cmdBytes);
+    assert.equal(
+      cmds.reduce((acc, cmd) => acc + cmd.size, 0),
+      h.cmdBytes,
+    );
     assert.deepEqual(
       cmds.map((cmd) => cmd.opcode),
-      [OP_DEF_STRING, OP_CLEAR, OP_PUSH_CLIP, OP_FILL_RECT, OP_DRAW_TEXT, OP_SET_CURSOR, OP_POP_CLIP],
+      [
+        OP_DEF_STRING,
+        OP_CLEAR,
+        OP_PUSH_CLIP,
+        OP_FILL_RECT,
+        OP_DRAW_TEXT,
+        OP_SET_CURSOR,
+        OP_POP_CLIP,
+      ],
     );
     for (const cmd of cmds) {
       assert.equal((cmd.off & 3) === 0, true);

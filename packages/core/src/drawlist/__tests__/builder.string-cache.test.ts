@@ -284,16 +284,8 @@ describe("drawlist encoded string cache", () => {
         b.drawText(0, 0, text);
         const frame2 = buildOk(b, `${factory.name} frame 2`);
 
-        assert.equal(
-          readDrawTextEntries(frame1)[0]?.stringId,
-          1,
-          `${factory.name}: frame1 index`,
-        );
-        assert.equal(
-          readDrawTextEntries(frame2)[0]?.stringId,
-          1,
-          `${factory.name}: frame2 index`,
-        );
+        assert.equal(readDrawTextEntries(frame1)[0]?.stringId, 1, `${factory.name}: frame1 index`);
+        assert.equal(readDrawTextEntries(frame2)[0]?.stringId, 1, `${factory.name}: frame2 index`);
         assert.equal(encodeCallCount(calls, text), 1, `${factory.name}: cache hit across frames`);
       });
     }
