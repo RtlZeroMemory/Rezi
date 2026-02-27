@@ -1,12 +1,12 @@
 import {
   type BadgeVariant,
-  type Rgb,
   type Rgb24,
   type TextStyle,
   type ThemeDefinition,
   draculaTheme,
   extendTheme,
   nordTheme,
+  rgb,
 } from "@rezi-ui/core";
 import type { AlertLevel, ThemeName } from "./types.js";
 
@@ -42,52 +42,52 @@ const DAY_SHIFT_THEME = extendTheme(nordTheme, {
   focusIndicator: {
     bold: true,
     underline: false,
-    focusRingColor: { r: 118, g: 208, b: 255 },
+    focusRingColor: rgb(118, 208, 255),
   },
   colors: {
     bg: {
-      base: { r: 29, g: 42, b: 58 },
-      elevated: { r: 40, g: 57, b: 76 },
-      overlay: { r: 52, g: 72, b: 94 },
-      subtle: { r: 34, g: 49, b: 67 },
+      base: rgb(29, 42, 58),
+      elevated: rgb(40, 57, 76),
+      overlay: rgb(52, 72, 94),
+      subtle: rgb(34, 49, 67),
     },
     fg: {
-      primary: { r: 236, g: 243, b: 255 },
-      secondary: { r: 190, g: 217, b: 242 },
-      muted: { r: 108, g: 138, b: 168 },
-      inverse: { r: 20, g: 30, b: 42 },
+      primary: rgb(236, 243, 255),
+      secondary: rgb(190, 217, 242),
+      muted: rgb(108, 138, 168),
+      inverse: rgb(20, 30, 42),
     },
     border: {
-      subtle: { r: 74, g: 98, b: 126 },
-      default: { r: 104, g: 136, b: 168 },
-      strong: { r: 137, g: 171, b: 206 },
+      subtle: rgb(74, 98, 126),
+      default: rgb(104, 136, 168),
+      strong: rgb(137, 171, 206),
     },
     accent: {
-      primary: { r: 106, g: 195, b: 255 },
-      secondary: { r: 129, g: 217, b: 255 },
-      tertiary: { r: 180, g: 231, b: 164 },
+      primary: rgb(106, 195, 255),
+      secondary: rgb(129, 217, 255),
+      tertiary: rgb(180, 231, 164),
     },
-    info: { r: 118, g: 208, b: 255 },
-    success: { r: 166, g: 228, b: 149 },
-    warning: { r: 255, g: 211, b: 131 },
-    error: { r: 239, g: 118, b: 132 },
+    info: rgb(118, 208, 255),
+    success: rgb(166, 228, 149),
+    warning: rgb(255, 211, 131),
+    error: rgb(239, 118, 132),
     selected: {
-      bg: { r: 68, g: 105, b: 139 },
-      fg: { r: 236, g: 243, b: 255 },
+      bg: rgb(68, 105, 139),
+      fg: rgb(236, 243, 255),
     },
     disabled: {
-      fg: { r: 95, g: 121, b: 149 },
-      bg: { r: 39, g: 55, b: 72 },
+      fg: rgb(95, 121, 149),
+      bg: rgb(39, 55, 72),
     },
     diagnostic: {
-      error: { r: 239, g: 118, b: 132 },
-      warning: { r: 255, g: 211, b: 131 },
-      info: { r: 118, g: 208, b: 255 },
-      hint: { r: 149, g: 187, b: 228 },
+      error: rgb(239, 118, 132),
+      warning: rgb(255, 211, 131),
+      info: rgb(118, 208, 255),
+      hint: rgb(149, 187, 228),
     },
     focus: {
-      ring: { r: 118, g: 208, b: 255 },
-      bg: { r: 63, g: 96, b: 126 },
+      ring: rgb(118, 208, 255),
+      bg: rgb(63, 96, 126),
     },
   },
 });
@@ -105,52 +105,52 @@ const NIGHT_SHIFT_THEME = extendTheme(draculaTheme, {
   focusIndicator: {
     bold: true,
     underline: false,
-    focusRingColor: { r: 176, g: 133, b: 255 },
+    focusRingColor: rgb(176, 133, 255),
   },
   colors: {
     bg: {
-      base: { r: 19, g: 22, b: 33 },
-      elevated: { r: 28, g: 31, b: 46 },
-      overlay: { r: 37, g: 41, b: 60 },
-      subtle: { r: 24, g: 27, b: 40 },
+      base: rgb(19, 22, 33),
+      elevated: rgb(28, 31, 46),
+      overlay: rgb(37, 41, 60),
+      subtle: rgb(24, 27, 40),
     },
     fg: {
-      primary: { r: 244, g: 246, b: 252 },
-      secondary: { r: 202, g: 185, b: 252 },
-      muted: { r: 131, g: 146, b: 186 },
-      inverse: { r: 19, g: 22, b: 33 },
+      primary: rgb(244, 246, 252),
+      secondary: rgb(202, 185, 252),
+      muted: rgb(131, 146, 186),
+      inverse: rgb(19, 22, 33),
     },
     accent: {
-      primary: { r: 176, g: 133, b: 255 },
-      secondary: { r: 129, g: 235, b: 255 },
-      tertiary: { r: 119, g: 255, b: 196 },
+      primary: rgb(176, 133, 255),
+      secondary: rgb(129, 235, 255),
+      tertiary: rgb(119, 255, 196),
     },
-    info: { r: 129, g: 235, b: 255 },
-    success: { r: 110, g: 249, b: 174 },
-    warning: { r: 255, g: 207, b: 124 },
-    error: { r: 255, g: 118, b: 132 },
+    info: rgb(129, 235, 255),
+    success: rgb(110, 249, 174),
+    warning: rgb(255, 207, 124),
+    error: rgb(255, 118, 132),
     selected: {
-      bg: { r: 68, g: 76, b: 112 },
-      fg: { r: 244, g: 246, b: 252 },
+      bg: rgb(68, 76, 112),
+      fg: rgb(244, 246, 252),
     },
     disabled: {
-      fg: { r: 99, g: 111, b: 146 },
-      bg: { r: 28, g: 31, b: 46 },
+      fg: rgb(99, 111, 146),
+      bg: rgb(28, 31, 46),
     },
     diagnostic: {
-      error: { r: 255, g: 118, b: 132 },
-      warning: { r: 255, g: 207, b: 124 },
-      info: { r: 129, g: 235, b: 255 },
-      hint: { r: 206, g: 158, b: 255 },
+      error: rgb(255, 118, 132),
+      warning: rgb(255, 207, 124),
+      info: rgb(129, 235, 255),
+      hint: rgb(206, 158, 255),
     },
     focus: {
-      ring: { r: 176, g: 133, b: 255 },
-      bg: { r: 64, g: 57, b: 96 },
+      ring: rgb(176, 133, 255),
+      bg: rgb(64, 57, 96),
     },
     border: {
-      subtle: { r: 43, g: 49, b: 71 },
-      default: { r: 72, g: 81, b: 116 },
-      strong: { r: 104, g: 115, b: 156 },
+      subtle: rgb(43, 49, 71),
+      default: rgb(72, 81, 116),
+      strong: rgb(104, 115, 156),
     },
   },
 });
@@ -168,52 +168,52 @@ const RED_ALERT_THEME = extendTheme(draculaTheme, {
   focusIndicator: {
     bold: true,
     underline: false,
-    focusRingColor: { r: 255, g: 112, b: 112 },
+    focusRingColor: rgb(255, 112, 112),
   },
   colors: {
     bg: {
-      base: { r: 24, g: 12, b: 19 },
-      elevated: { r: 34, g: 15, b: 24 },
-      overlay: { r: 46, g: 21, b: 32 },
-      subtle: { r: 29, g: 13, b: 22 },
+      base: rgb(24, 12, 19),
+      elevated: rgb(34, 15, 24),
+      overlay: rgb(46, 21, 32),
+      subtle: rgb(29, 13, 22),
     },
     fg: {
-      primary: { r: 255, g: 238, b: 242 },
-      secondary: { r: 244, g: 190, b: 205 },
-      muted: { r: 170, g: 122, b: 139 },
-      inverse: { r: 24, g: 12, b: 19 },
+      primary: rgb(255, 238, 242),
+      secondary: rgb(244, 190, 205),
+      muted: rgb(170, 122, 139),
+      inverse: rgb(24, 12, 19),
     },
     accent: {
-      primary: { r: 255, g: 114, b: 144 },
-      secondary: { r: 255, g: 182, b: 120 },
-      tertiary: { r: 255, g: 220, b: 146 },
+      primary: rgb(255, 114, 144),
+      secondary: rgb(255, 182, 120),
+      tertiary: rgb(255, 220, 146),
     },
-    success: { r: 134, g: 247, b: 176 },
-    warning: { r: 255, g: 181, b: 112 },
-    error: { r: 255, g: 93, b: 117 },
-    info: { r: 255, g: 141, b: 153 },
+    success: rgb(134, 247, 176),
+    warning: rgb(255, 181, 112),
+    error: rgb(255, 93, 117),
+    info: rgb(255, 141, 153),
     selected: {
-      bg: { r: 82, g: 34, b: 52 },
-      fg: { r: 255, g: 238, b: 242 },
+      bg: rgb(82, 34, 52),
+      fg: rgb(255, 238, 242),
     },
     disabled: {
-      fg: { r: 142, g: 96, b: 112 },
-      bg: { r: 34, g: 15, b: 24 },
+      fg: rgb(142, 96, 112),
+      bg: rgb(34, 15, 24),
     },
     diagnostic: {
-      error: { r: 255, g: 93, b: 117 },
-      warning: { r: 255, g: 181, b: 112 },
-      info: { r: 255, g: 141, b: 153 },
-      hint: { r: 255, g: 203, b: 133 },
+      error: rgb(255, 93, 117),
+      warning: rgb(255, 181, 112),
+      info: rgb(255, 141, 153),
+      hint: rgb(255, 203, 133),
     },
     focus: {
-      ring: { r: 255, g: 112, b: 112 },
-      bg: { r: 76, g: 35, b: 50 },
+      ring: rgb(255, 112, 112),
+      bg: rgb(76, 35, 50),
     },
     border: {
-      subtle: { r: 86, g: 45, b: 61 },
-      default: { r: 124, g: 65, b: 86 },
-      strong: { r: 172, g: 86, b: 112 },
+      subtle: rgb(86, 45, 61),
+      default: rgb(124, 65, 86),
+      strong: rgb(172, 86, 112),
     },
   },
 });
@@ -244,14 +244,10 @@ function clampChannel(value: number): number {
   return Math.max(0, Math.min(255, Math.round(value)));
 }
 
-type ColorInput = Rgb | Rgb24;
+type ColorInput = Rgb24;
 
-function packRgb(value: Rgb): Rgb24 {
-  return (
-    ((clampChannel(value.r) & 0xff) << 16) |
-    ((clampChannel(value.g) & 0xff) << 8) |
-    (clampChannel(value.b) & 0xff)
-  );
+function packRgb(value: Rgb24): Rgb24 {
+  return (Math.round(value) >>> 0) & 0x00ff_ffff;
 }
 
 function rgbChannel(value: Rgb24, shift: 0 | 8 | 16): number {
@@ -259,17 +255,10 @@ function rgbChannel(value: Rgb24, shift: 0 | 8 | 16): number {
 }
 
 function unpackRgb(value: ColorInput): Readonly<{ r: number; g: number; b: number }> {
-  if (typeof value === "number") {
-    return Object.freeze({
-      r: rgbChannel(value, 16),
-      g: rgbChannel(value, 8),
-      b: rgbChannel(value, 0),
-    });
-  }
   return Object.freeze({
-    r: clampChannel(value.r),
-    g: clampChannel(value.g),
-    b: clampChannel(value.b),
+    r: rgbChannel(value, 16),
+    g: rgbChannel(value, 8),
+    b: rgbChannel(value, 0),
   });
 }
 

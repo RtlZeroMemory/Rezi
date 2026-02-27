@@ -250,6 +250,7 @@ nav:
       - Repo Layout: dev/repo-layout.md
       - Build: dev/build.md
       - Testing: dev/testing.md
+      - Live PTY Debugging: dev/live-pty-debugging.md
       - Code Standards: dev/code-standards.md
       - Ink Compat Debugging: dev/ink-compat-debugging.md
       - Perf Regressions: dev/perf-regressions.md

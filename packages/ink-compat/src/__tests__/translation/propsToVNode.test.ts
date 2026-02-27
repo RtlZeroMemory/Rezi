@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { rgb } from "@rezi-ui/core";
 
 import {
   type InkHostContainer,
@@ -83,10 +84,10 @@ test("bordered box maps per-edge border styles", () => {
   const vnode = translateTree(containerWith(node)) as any;
 
   assert.equal(vnode.kind, "box");
-  assert.deepEqual(vnode.props.borderStyleSides.top, { fg: { r: 205, g: 0, b: 0 }, dim: true });
-  assert.deepEqual(vnode.props.borderStyleSides.right, { fg: { r: 0, g: 205, b: 0 } });
-  assert.deepEqual(vnode.props.borderStyleSides.bottom, { fg: { r: 0, g: 0, b: 238 } });
-  assert.deepEqual(vnode.props.borderStyleSides.left, { fg: { r: 205, g: 205, b: 0 }, dim: true });
+  assert.deepEqual(vnode.props.borderStyleSides.top, { fg: rgb(205, 0, 0), dim: true });
+  assert.deepEqual(vnode.props.borderStyleSides.right, { fg: rgb(0, 205, 0) });
+  assert.deepEqual(vnode.props.borderStyleSides.bottom, { fg: rgb(0, 0, 238) });
+  assert.deepEqual(vnode.props.borderStyleSides.left, { fg: rgb(205, 205, 0), dim: true });
 });
 
 test("bordered row box nests ui.row inside ui.box", () => {
@@ -116,7 +117,7 @@ test("background-only box explicitly disables default borders", () => {
 
   assert.equal(vnode.kind, "box");
   assert.equal(vnode.props.border, "none");
-  assert.deepEqual(vnode.props.style, { bg: { r: 28, g: 28, b: 28 } });
+  assert.deepEqual(vnode.props.style, { bg: rgb(28, 28, 28) });
 });
 
 test("background-only row box keeps row layout without implicit border", () => {
@@ -138,7 +139,7 @@ test("styled text maps to text style", () => {
 
   assert.equal(vnode.kind, "text");
   assert.equal(vnode.text, "Hello");
-  assert.deepEqual(vnode.props.style, { fg: { r: 0, g: 205, b: 0 }, bold: true });
+  assert.deepEqual(vnode.props.style, { fg: rgb(0, 205, 0), bold: true });
 });
 
 test("nested text produces richText spans", () => {
@@ -187,7 +188,7 @@ test("ANSI SGR sequences map to richText styles", () => {
   assert.equal(vnode.kind, "richText");
   assert.equal(vnode.props.spans.length, 3);
   assert.equal(vnode.props.spans[0]?.text, "Red");
-  assert.deepEqual(vnode.props.spans[0]?.style?.fg, { r: 205, g: 0, b: 0 });
+  assert.deepEqual(vnode.props.spans[0]?.style?.fg, rgb(205, 0, 0));
   assert.equal(vnode.props.spans[1]?.text, " plain ");
   assert.equal("inverse" in (vnode.props.spans[1]?.style ?? {}), false);
   assert.equal(vnode.props.spans[2]?.text, "Inv");
@@ -203,11 +204,11 @@ test("ANSI reset restores parent style", () => {
   assert.equal(vnode.kind, "richText");
   assert.equal(vnode.props.spans.length, 3);
   assert.equal(vnode.props.spans[0]?.text, "A");
-  assert.deepEqual(vnode.props.spans[0]?.style?.fg, { r: 0, g: 205, b: 0 });
+  assert.deepEqual(vnode.props.spans[0]?.style?.fg, rgb(0, 205, 0));
   assert.equal(vnode.props.spans[1]?.text, "B");
-  assert.deepEqual(vnode.props.spans[1]?.style?.fg, { r: 205, g: 0, b: 0 });
+  assert.deepEqual(vnode.props.spans[1]?.style?.fg, rgb(205, 0, 0));
   assert.equal(vnode.props.spans[2]?.text, "C");
-  assert.deepEqual(vnode.props.spans[2]?.style?.fg, { r: 0, g: 205, b: 0 });
+  assert.deepEqual(vnode.props.spans[2]?.style?.fg, rgb(0, 205, 0));
 });
 
 test("ANSI truecolor maps to RGB style", () => {
@@ -219,7 +220,7 @@ test("ANSI truecolor maps to RGB style", () => {
   assert.equal(vnode.kind, "richText");
   assert.equal(vnode.props.spans.length, 1);
   assert.equal(vnode.props.spans[0]?.text, "C");
-  assert.deepEqual(vnode.props.spans[0]?.style?.fg, { r: 120, g: 80, b: 200 });
+  assert.deepEqual(vnode.props.spans[0]?.style?.fg, rgb(120, 80, 200));
 });
 
 test("ANSI truecolor colon form maps to RGB style", () => {
@@ -231,7 +232,7 @@ test("ANSI truecolor colon form maps to RGB style", () => {
   assert.equal(vnode.kind, "richText");
   assert.equal(vnode.props.spans.length, 1);
   assert.equal(vnode.props.spans[0]?.text, "X");
-  assert.deepEqual(vnode.props.spans[0]?.style?.fg, { r: 255, g: 120, b: 40 });
+  assert.deepEqual(vnode.props.spans[0]?.style?.fg, rgb(255, 120, 40));
 });
 
 test("spacer virtual node maps to ui.spacer", () => {
@@ -496,7 +497,7 @@ test("scroll overflow maps scroll props and scrollbar style", () => {
   assert.equal(vnode.props.overflow, "scroll");
   assert.equal(vnode.props.scrollX, 2);
   assert.equal(vnode.props.scrollY, 5);
-  assert.deepEqual(vnode.props.scrollbarStyle, { fg: { r: 18, g: 52, b: 86 } });
+  assert.deepEqual(vnode.props.scrollbarStyle, { fg: rgb(18, 52, 86) });
 });
 
 test("hidden overflow stays hidden without scroll axis", () => {

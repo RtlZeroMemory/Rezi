@@ -128,7 +128,10 @@ describe("pagination ids and vnode", () => {
     const zoneNode = children[0];
     assert.equal(zoneNode?.kind, "focusZone");
     if (zoneNode?.kind !== "focusZone") return;
-    const ids = zoneNode.children
+    const controlsRow = zoneNode.children[0];
+    assert.equal(controlsRow?.kind, "row");
+    if (controlsRow?.kind !== "row") return;
+    const ids = controlsRow.children
       .filter((child) => child.kind === "button")
       .map((child) => (child.kind === "button" ? child.props.id : ""));
     assert.equal(ids.includes(getPaginationControlId("pages", "first")), true);

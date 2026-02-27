@@ -30,7 +30,7 @@ export function renderCargoScreen(
     title: "Cargo Hold",
     context,
     deps,
-    body: ui.column({ gap: SPACE.sm, width: "100%" }, [
+    body: ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
       CargoDeck({
         key: "cargo-deck",
         state: context.state,

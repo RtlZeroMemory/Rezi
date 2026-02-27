@@ -462,7 +462,7 @@ export function renderCommsScreen(
     title: "Communications",
     context,
     deps,
-    body: ui.column({ gap: SPACE.sm, width: "100%" }, [
+    body: ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
       CommsDeck({
         key: "comms-deck",
         state: context.state,

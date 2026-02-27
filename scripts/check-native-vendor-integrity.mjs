@@ -67,6 +67,13 @@ function readSubmoduleHead(rootDir) {
     return null;
   }
 
+  // A gitlink path may exist as an ordinary directory when submodules are not
+  // initialized. In that case `git -C <path>` resolves to the parent repo and
+  // returns the superproject HEAD, which is not a submodule HEAD.
+  // Only treat vendor/zireael as checked out when it has its own git metadata.
+  const submoduleGitMeta = join(submoduleDir, ".git");
+  if (!existsSync(submoduleGitMeta)) return null;
+
   try {
     const head = runGit(submoduleDir, ["rev-parse", "HEAD"]).toLowerCase();
     return isHex40(head) ? head : null;
