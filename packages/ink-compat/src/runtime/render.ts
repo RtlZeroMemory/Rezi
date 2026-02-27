@@ -20,6 +20,8 @@ import { InkContext } from "./context.js";
 import { advanceLayoutGeneration, readCurrentLayout, writeCurrentLayout } from "./layoutState.js";
 import { commitSync, createReactRoot } from "./reactHelpers.js";
 
+const BENCH_PHASES_ENABLED = process.env["BENCH_INK_COMPAT_PHASES"] === "1";
+
 export interface KittyKeyboardOptions {
   mode?: "auto" | "enabled" | "disabled";
   flags?: readonly KittyFlagName[];
@@ -3105,6 +3107,27 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         if (hasDynamicPercentMarkers) phaseProfile.percentFrames += 1;
         phaseProfile.coreRenderPasses += coreRenderPassesThisFrame || 1;
         phaseProfile.maxFrameMs = Math.max(phaseProfile.maxFrameMs, renderTime);
+      }
+
+      if (BENCH_PHASES_ENABLED) {
+        const hook = (
+          globalThis as unknown as {
+            __INK_COMPAT_BENCH_ON_FRAME?: ((m: unknown) => void) | undefined;
+          }
+        ).__INK_COMPAT_BENCH_ON_FRAME;
+        if (hook) {
+          hook({
+            translationMs,
+            percentResolveMs,
+            coreRenderMs,
+            assignLayoutsMs,
+            rectScanMs,
+            ansiMs,
+            nodes: result.nodes.length,
+            ops: result.ops.length,
+            coreRenderPasses: coreRenderPassesThisFrame || 1,
+          });
+        }
       }
 
       writeOutput({ output, staticOutput });
