@@ -3,6 +3,7 @@
  */
 
 import { strict as assert } from "node:assert";
+import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -19,6 +20,10 @@ function writeUtf8(path, text) {
 
 function makeFixtureRoot() {
   return mkdtempSync(join(tmpdir(), "rezi-native-vendor-"));
+}
+
+function runGit(cwd, args) {
+  return execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 }
 
 function writeBaseFixture(root, commit = COMMIT_A) {
@@ -129,6 +134,27 @@ describe("check-native-vendor-integrity", () => {
           }),
         /checked-out vendor\/zireael is out of sync with repo gitlink pointer/,
       );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("ignores uninitialized gitlink directory in superproject checkout", () => {
+    const root = makeFixtureRoot();
+    try {
+      writeBaseFixture(root, COMMIT_A);
+      runGit(root, ["init"]);
+      runGit(root, ["config", "user.name", "Test User"]);
+      runGit(root, ["config", "user.email", "test@example.com"]);
+      runGit(root, ["add", "."]);
+      runGit(root, ["commit", "-m", "fixture"]);
+
+      const result = checkNativeVendorIntegrity(root, {
+        resolveGitlinkCommit: () => COMMIT_A,
+      });
+      assert.equal(result.success, true);
+      assert.equal(result.pinnedCommit, COMMIT_A);
+      assert.equal(result.gitlinkCommit, COMMIT_A);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
