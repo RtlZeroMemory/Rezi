@@ -83,12 +83,15 @@ export type TestRenderNode = Readonly<{
   text?: string;
 }>;
 
+export type TestRenderLayoutVisitor = (rect: Rect, props: TestNodeProps) => void;
+
 export type TestRenderResult = Readonly<{
   viewport: TestViewport;
   focusedId: string | null;
   /** Low-level draw ops recorded by the test builder. Useful for asserting rendering behavior. */
   ops: readonly TestRecordedOp[];
   nodes: readonly TestRenderNode[];
+  forEachLayoutNode: (visit: TestRenderLayoutVisitor) => void;
   findText: (text: string) => TestRenderNode | null;
   findById: (id: string) => TestRenderNode | null;
   findAll: (kind: VNode["kind"] | string) => readonly TestRenderNode[];
@@ -244,6 +247,24 @@ function collectNodes(layoutTree: LayoutTree, mode: TestRendererMode): readonly 
 
   walk(layoutTree, EMPTY_PATH);
   return mode === "runtime" ? out : Object.freeze(out);
+}
+
+function forEachLayoutTreeNode(
+  layoutTree: LayoutTree,
+  mode: TestRendererMode,
+  visit: TestRenderLayoutVisitor,
+): void {
+  const stack: LayoutTree[] = [layoutTree];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (!node) continue;
+    const props = asPropsRecord((node.vnode as { props?: unknown }).props, mode);
+    visit(node.rect, props);
+    for (let index = node.children.length - 1; index >= 0; index -= 1) {
+      const child = node.children[index];
+      if (child) stack.push(child);
+    }
+  }
 }
 
 function inClipStack(x: number, y: number, clipStack: readonly ClipRect[]): boolean {
@@ -518,8 +539,13 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
     });
     const drawMs = Date.now() - drawStartedAt;
 
-    const nodes = collectNodes(layoutTree, mode);
     const ops = builder.snapshotOps();
+    let nodesCache: readonly TestRenderNode[] | null = mode === "test" ? collectNodes(layoutTree, mode) : null;
+    const getNodes = (): readonly TestRenderNode[] => {
+      if (nodesCache !== null) return nodesCache;
+      nodesCache = collectNodes(layoutTree, mode);
+      return nodesCache;
+    };
     let screenTextCache: string | null = null;
     const getScreenText = (): string => {
       if (screenTextCache !== null) return screenTextCache;
@@ -533,6 +559,7 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
     const totalMs = Date.now() - startedAt;
 
     if (trace) {
+      const nodes = getNodes();
       const opSummary = summarizeOps(ops);
       const nodeSummary = summarizeNodes(nodes);
       const textSummary = summarizeText(screenTextForTrace);
@@ -566,16 +593,24 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
       );
     }
 
-    const result: TestRenderResult = {
+    const resultBase: Omit<TestRenderResult, "nodes"> & { nodes?: readonly TestRenderNode[] } = {
       viewport,
       focusedId,
       ops,
-      nodes,
-      findText: (text: string) => findText(nodes, text),
-      findById: (id: string) => findById(nodes, id),
-      findAll: (kind: VNode["kind"] | string) => findAll(nodes, kind),
+      forEachLayoutNode: (visit: TestRenderLayoutVisitor) => {
+        forEachLayoutTreeNode(layoutTree, mode, visit);
+      },
+      findText: (text: string) => findText(getNodes(), text),
+      findById: (id: string) => findById(getNodes(), id),
+      findAll: (kind: VNode["kind"] | string) => findAll(getNodes(), kind),
       toText: () => getScreenText(),
     };
+    Object.defineProperty(resultBase, "nodes", {
+      enumerable: true,
+      configurable: false,
+      get: getNodes,
+    });
+    const result = resultBase as TestRenderResult;
     return mode === "runtime" ? result : Object.freeze(result);
   };
 

@@ -15,6 +15,7 @@ export type {
 export { createTestRenderer } from "./renderer.js";
 export type {
   TestRenderNode,
+  TestRenderLayoutVisitor,
   TestRendererMode,
   TestRenderOptions,
   TestRenderResult,

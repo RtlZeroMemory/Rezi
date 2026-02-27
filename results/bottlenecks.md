@@ -14,6 +14,7 @@ Evidence directories are local `results/ink-bench_*` batches (ignored by git; re
 | 2 | **Translation cache invalidation (revision churn)** preventing `propsToVNode` reuse | `packages/ink-compat/src/reconciler/types.ts` (`setNodeProps`, `propsSemanticallyEqual`) + `packages/ink-compat/src/translation/propsToVNode.ts` | ~5–15% of `renderTimeMs` (scenario-dependent) | With `BENCH_DETAIL=1`, observed persistent stale-miss patterns (cache hits ~0) until semantic-equality short-circuiting was added; after fix, hits appear and `translatedNodes` drops (see `dashboard-grid` detail runs). | Keep semantic equality guardrails; expand safely to more prop shapes if needed; add correctness tests for edge props. | 5–20% lower translation time / alloc churn | Achieved: translation counters show non-zero cache hits post-fix; per-frame `translationMs` fell and stabilized (see `BENCH_DETAIL=1` runs). |
 | 3 | **Unnecessary commitUpdate calls** due to non-null “no update” payload | `packages/ink-compat/src/reconciler/hostConfig.ts` (`prepareUpdate`) | Small (overhead per commit) | Unit test + reconciler behavior: returning `false` triggers commitUpdate path in React; returning `null` skips it. | Return `null` when props are shallow-equal (excluding `children`/`ref`/`key`), keep commitUpdate fast-paths. | Low single-digit % CPU | Achieved: test suite confirms `null` semantics; reduces commitUpdate dispatch work. |
 | 4 | **Fairness bug: Ink `renderTime` excludes Yoga layout** (measurement only) | `scripts/ink-compat-bench/preload.mjs` (real Ink instance patching) | n/a | Verified by call stack: Yoga layout occurs in `resetAfterCommit` via `rootNode.onComputeLayout`, outside Ink’s `onRender.renderTime`. | Measure Yoga layout separately and include in `renderTotalMs` for Ink. | n/a (correctness) | Achieved: `layoutTimeMs` is now recorded for `real-ink` frames, making `renderTotalMs` comparable. |
+| 5 | **Runtime hot-path allocation churn** (eager test-renderer node materialization + commit signature strings) | `packages/core/src/testing/renderer.ts`, `packages/ink-compat/src/runtime/render.ts` | **~0.6% self** pre-fix (`collectNodes` 0.3% + `rootChildRevisionSignature` 0.3%) | Pre-fix cpuprofile shows both symbols on the commit path (`18-23-12-600Z` run). Post-fix profile (`18-33-45-835Z`) no longer shows either symbol in filtered top output. Bench delta: dashboard-grid `renderTotalP95Ms` **1.94ms → 1.83ms** and gap vs Ink **+18.4% → +10.4%**. | Use lazy `nodes` in runtime mode + `forEachLayoutNode` traversal for hot path; replace revision-signature string building with numeric revision tracking. | 3–10% p95 tail reduction | Achieved in this increment: `meanRenderTotalMs` `-2.8%`, `renderTotalP95Ms` `-5.9%`, `totalCpuTimeS` `-3.7%` (ink-compat, dashboard-grid). |
 
 ## Notes
 
@@ -125,3 +126,29 @@ Representative Yoga layout stacks:
   resetAfterCommit (ink/build/reconciler.js:71:21)
   (anonymous) (dist/binaries/yoga-wasm-base64-esm.js:32:295)
   ```
+
+### 5) Runtime hot-path allocation churn
+
+Pre-fix cpuprofile (`dashboard-grid`, ink-compat):
+
+- `results/ink-bench_dashboard-grid_ink-compat_2026-02-27T18-23-12-600Z/run_01/cpu-prof/dashboard-grid_ink-compat_run1.cpuprofile`
+
+Representative leaf frames (active samples):
+
+- `collectNodes` — **0.3% self**
+  ```text
+  commitRoot -> resetAfterCommit -> bridge.rootNode.onCommit -> scheduleRender
+  -> flushPendingRender -> renderFrame -> render (testing/renderer.js)
+  -> collectNodes (testing/renderer.js)
+  ```
+- `rootChildRevisionSignature` — **0.3% self**
+  ```text
+  performWorkOnRootViaSchedulerTask -> commitRoot -> resetAfterCommit
+  -> bridge.rootNode.onCommit -> rootChildRevisionSignature (runtime/render.js)
+  ```
+
+Post-fix cpuprofile (`dashboard-grid`, ink-compat):
+
+- `results/ink-bench_dashboard-grid_ink-compat_2026-02-27T18-33-45-835Z/run_01/cpu-prof/dashboard-grid_ink-compat_run1.cpuprofile`
+
+Filtered summaries for `packages/core/dist/testing/renderer.js` and `rootChildRevisionsChanged` return **no top self-time entries**, consistent with removing those hot-path costs from default runtime rendering.

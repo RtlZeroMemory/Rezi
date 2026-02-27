@@ -1042,13 +1042,20 @@ function scanHostTreeForStaticAndAnsi(rootNode: InkHostContainer): {
   };
 }
 
-function rootChildRevisionSignature(rootNode: InkHostContainer): string {
-  if (rootNode.children.length === 0) return "";
-  const revisions: string[] = [];
-  for (const child of rootNode.children) {
-    revisions.push(String(child.__inkRevision));
+function rootChildRevisionsChanged(rootNode: InkHostContainer, previous: number[]): boolean {
+  const nextLength = rootNode.children.length;
+  let changed = previous.length !== nextLength;
+  if (previous.length !== nextLength) {
+    previous.length = nextLength;
   }
-  return revisions.join(",");
+  for (let index = 0; index < nextLength; index += 1) {
+    const nextRevision = rootNode.children[index]?.__inkRevision ?? 0;
+    if (previous[index] !== nextRevision) {
+      previous[index] = nextRevision;
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 function staticRootRevisionSignature(rootNode: InkHostContainer): string {
@@ -2103,18 +2110,18 @@ function resolvePercentMarkers(vnode: VNode, context: PercentResolveContext): VN
 
 function assignHostLayouts(
   container: InkHostContainer,
-  nodes: readonly {
-    rect?: { x?: number; y?: number; w?: number; h?: number };
-    props?: Record<string, unknown>;
-  }[],
+  forEachLayoutNode: (
+    visit: (
+      rect: { x?: number; y?: number; w?: number; h?: number },
+      props: Readonly<Record<string, unknown>>,
+    ) => void,
+  ) => void,
 ): void {
   const generation = advanceLayoutGeneration(container);
-  for (const node of nodes) {
-    if (!node) continue;
-    const host = node.props?.["__inkHostNode"];
-    if (typeof host !== "object" || host === null) continue;
+  forEachLayoutNode((rect, props) => {
+    const host = props["__inkHostNode"];
+    if (typeof host !== "object" || host === null) return;
     const hostNode = host as HostNodeWithLayout;
-    const rect = node.rect;
     const x = rect?.x;
     const y = rect?.y;
     const w = rect?.w;
@@ -2129,7 +2136,7 @@ function assignHostLayouts(
       typeof h !== "number" ||
       !Number.isFinite(h)
     ) {
-      continue;
+      return;
     }
     writeCurrentLayout(
       hostNode,
@@ -2141,7 +2148,7 @@ function assignHostLayouts(
       },
       generation,
     );
-  }
+  });
 }
 
 function createThrottle(fn: () => void, throttleMs: number): Readonly<{
@@ -2411,7 +2418,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   let compatWriteDepth = 0;
   let restoreStdoutWrite: (() => void) | undefined;
   let lastCursorSignature = "hidden";
-  let lastCommitSignature = "";
+  const lastCommitRevisions: number[] = [];
   let lastStaticCaptureSignature = "";
 
   const _s = debug ? writeErr : (_msg: string): void => {};
@@ -2874,10 +2881,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
       const assignLayoutsStartedAt = timePhases ? performance.now() : 0;
       assignHostLayouts(
         bridge.rootNode,
-        result.nodes as readonly {
-          rect?: { x?: number; y?: number; w?: number; h?: number };
-          props?: Record<string, unknown>;
-        }[],
+        result.forEachLayoutNode,
       );
       if (timePhases) assignLayoutsMs += performance.now() - assignLayoutsStartedAt;
       if (hasDynamicPercentMarkers) {
@@ -2920,10 +2924,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
           const secondAssignStartedAt = timePhases ? performance.now() : 0;
           assignHostLayouts(
             bridge.rootNode,
-            result.nodes as readonly {
-              rect?: { x?: number; y?: number; w?: number; h?: number };
-              props?: Record<string, unknown>;
-            }[],
+            result.forEachLayoutNode,
           );
           if (timePhases) assignLayoutsMs += performance.now() - secondAssignStartedAt;
         }
@@ -2936,16 +2937,14 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
       let minRectY = Number.POSITIVE_INFINITY;
       let maxRectBottom = 0;
       let zeroHeightRects = 0;
-      for (const node of result.nodes as readonly { rect?: { y?: number; h?: number } }[]) {
-        const rect = node.rect;
-        if (!rect) continue;
+      result.forEachLayoutNode((rect) => {
         const y = toNumber(rect.y);
         const h = toNumber(rect.h);
-        if (y == null || h == null) continue;
+        if (y == null || h == null) return;
         minRectY = Math.min(minRectY, y);
         maxRectBottom = Math.max(maxRectBottom, y + h);
         if (h === 0) zeroHeightRects += 1;
-      }
+      });
       if (timePhases) rectScanMs = performance.now() - rectScanStartedAt;
 
       // Keep non-alt output content-sized by using computed layout height.
@@ -3288,11 +3287,9 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   };
 
   bridge.rootNode.onCommit = () => {
-    const nextCommitSignature = rootChildRevisionSignature(bridge.rootNode);
-    if (nextCommitSignature === lastCommitSignature) {
+    if (!rootChildRevisionsChanged(bridge.rootNode, lastCommitRevisions)) {
       return;
     }
-    lastCommitSignature = nextCommitSignature;
     capturePendingStaticOutput();
     scheduleRender();
   };

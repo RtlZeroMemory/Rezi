@@ -122,6 +122,11 @@ describe("createTestRenderer", () => {
       ui.column({}, [ui.text("Runtime Mode"), ui.button({ id: "submit", label: "Submit" })]),
     );
 
+    let visited = 0;
+    result.forEachLayoutNode(() => {
+      visited += 1;
+    });
+    assert.ok(visited > 0);
     assert.equal(result.toText().includes("Runtime Mode"), true);
     assert.equal(result.findById("submit")?.kind, "button");
     assert.equal(result.findAll("button").length, 1);
