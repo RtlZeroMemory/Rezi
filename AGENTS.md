@@ -170,6 +170,25 @@ node scripts/run-tests.mjs --filter "widget"
 2. If changing runtime, layout, or renderer code, also run integration tests.
 3. Run the full suite before committing.
 
+### Mandatory Live PTY Validation for UI Regressions
+
+For rendering/layout/theme regressions, do not stop at unit snapshots. Run the
+app in a real PTY and collect frame audit evidence yourself before asking a
+human to reproduce.
+
+Canonical runbook:
+
+- [`docs/dev/live-pty-debugging.md`](docs/dev/live-pty-debugging.md)
+
+Minimum required checks for UI regression work:
+
+1. Run target app/template in PTY with deterministic viewport.
+2. Exercise relevant routes/keys (for starship: `1..6`, `t`, `q`).
+3. Capture `REZI_FRAME_AUDIT` logs and analyze with
+   `node scripts/frame-audit-report.mjs ... --latest-pid`.
+4. Capture app-level debug snapshots (`REZI_STARSHIP_DEBUG=1`) when applicable.
+5. Include concrete evidence in your report (hash changes, route summary, key stages).
+
 ## Verification Protocol (Two-Agent Verification)
 
 When verifying documentation or code changes, split into two passes:

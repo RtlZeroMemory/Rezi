@@ -7,6 +7,7 @@ import {
   type RouteRenderContext,
   type VNode,
 } from "@rezi-ui/core";
+import { debugSnapshot } from "../helpers/debug.js";
 import { resolveLayout } from "../helpers/layout.js";
 import { crewCounts, departmentLabel, rankBadge, statusBadge } from "../helpers/formatters.js";
 import { selectedCrew, visibleCrew } from "../helpers/state.js";
@@ -193,7 +194,7 @@ const CrewDeck = defineWidget<CrewDeckProps>((props, ctx): VNode => {
     ...tableSkin(tokens),
   });
 
-  const detailPanel = ui.column({ gap: SPACE.sm }, [
+  const detailPanel = ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
     maybe(selected, (member) =>
       surfacePanel(
         tokens,
@@ -300,8 +301,18 @@ const CrewDeck = defineWidget<CrewDeckProps>((props, ctx): VNode => {
     ),
   ]);
 
-  const manifestBlock = ui.column({ gap: SPACE.sm }, [
-    surfacePanel(tokens, "Crew Manifest", [table]),
+  const manifestBlock = ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
+    ui.box(
+      {
+        border: "none",
+        p: 0,
+        width: "100%",
+        flex: 1,
+        minHeight: 10,
+        overflow: "hidden",
+      },
+      [surfacePanel(tokens, "Crew Manifest", [table])],
+    ),
     ui.pagination({
       id: ctx.id("crew-pagination"),
       page,
@@ -313,126 +324,185 @@ const CrewDeck = defineWidget<CrewDeckProps>((props, ctx): VNode => {
 
   const deckLayout = layout.wide
     ? showDetailPane
-      ? ui.masterDetail({
-          id: ctx.id("crew-master-detail"),
-          masterWidth: layout.crewMasterWidth,
-          master: manifestBlock,
-          detail: detailPanel,
-        })
-      : manifestBlock
-    : showDetailPane
-      ? ui.column({ gap: SPACE.sm }, [manifestBlock, detailPanel])
-      : manifestBlock;
-
-  const operationsPanel = surfacePanel(
-    tokens,
-    "Crew Operations",
-    [
-      sectionHeader(tokens, "Manifest Controls", "Consistent staffing and assignment flow"),
-      ui.row({ gap: SPACE.md, wrap: !layout.wide, items: "start" }, [
-        ui.box(
+      ? ui.row(
           {
-            border: "none",
-            p: 0,
+            id: ctx.id("crew-master-detail"),
             gap: SPACE.sm,
-            ...(layout.wide ? { flex: 2 } : {}),
+            width: "100%",
+            height: "100%",
+            items: "stretch",
+            wrap: false,
           },
           [
-            ui.row({ gap: SPACE.sm, wrap: true }, [
-              ui.badge(`Total ${counts.total}`, { variant: "info" }),
-              ui.badge(`Active ${counts.active}`, { variant: "success" }),
-              ui.badge(`Away ${counts.away}`, { variant: "warning" }),
-              ui.badge(`Injured ${counts.injured}`, { variant: "error" }),
-            ]),
-            ui.form([
-              ui.field({
-                label: "Search Crew",
-                hint: "Filter by name, rank, or department",
-                children: ui.input({
-                  id: ctx.id("crew-search"),
-                  value: props.state.crewSearchQuery,
-                  placeholder: "Type to filter",
-                  onInput: (value) => props.dispatch({ type: "set-crew-search", query: value }),
-                }),
-              }),
-            ]),
-            ui.actions([
-              ui.button({
-                id: ctx.id("crew-new-assignment"),
-                label: "New Assignment",
-                intent: "primary",
-                onPress: () => props.dispatch({ type: "toggle-crew-editor" }),
-              }),
-              ui.button({
-                id: ctx.id("crew-edit-selected"),
-                label: "Edit Selected",
-                intent: "secondary",
-                onPress: () => props.dispatch({ type: "toggle-crew-editor" }),
-              }),
-            ]),
+            ui.box(
+              {
+                border: "none",
+                p: 0,
+                width: layout.crewMasterWidth,
+                height: "100%",
+                overflow: "hidden",
+              },
+              [manifestBlock],
+            ),
+            ui.box(
+              {
+                border: "none",
+                p: 0,
+                flex: 1,
+                height: "100%",
+                overflow: "hidden",
+              },
+              [detailPanel],
+            ),
           ],
-        ),
-        ...(layout.wide
-          ? [
-              ui.box(
-                {
-                  border: "none",
-                  p: 0,
-                  flex: 1,
-                },
-                [
-                  surfacePanel(
-                    tokens,
-                    "Crew Snapshot",
-                    [
-                      selected
-                        ? ui.column({ gap: SPACE.xs }, [
-                            ui.text(selected.name, { variant: "label" }),
-                            ui.row({ gap: SPACE.xs, wrap: true }, [
-                              ui.badge(rankBadge(selected.rank).text, {
-                                variant: rankBadge(selected.rank).variant,
-                              }),
-                              ui.badge(statusBadge(selected.status).text, {
-                                variant: statusBadge(selected.status).variant,
-                              }),
-                              ui.tag(departmentLabel(selected.department), { variant: "info" }),
-                            ]),
-                          ])
-                        : ui.text("No crew selected", {
-                            variant: "caption",
-                            style: { fg: tokens.text.muted, dim: true },
-                          }),
-                      ui.divider(),
-                      ui.row({ gap: SPACE.xs, wrap: true }, [
-                        ui.badge(`Visible ${sorted.length}`, { variant: "info" }),
-                        ui.badge(`Page ${page}/${totalPages}`, { variant: "default" }),
-                      ]),
-                      staffingError
-                        ? ui.callout("Critical staffing below minimum.", {
-                            title: "Guardrail",
-                            variant: "warning",
-                          })
-                        : ui.callout("Critical staffing thresholds healthy.", {
-                            title: "Guardrail",
-                            variant: "success",
-                          }),
-                    ],
+        )
+      : manifestBlock
+    : showDetailPane
+      ? ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
+          ui.box(
+            { border: "none", p: 0, width: "100%", flex: 1, minHeight: 10, overflow: "hidden" },
+            [manifestBlock],
+          ),
+          ui.box(
+            { border: "none", p: 0, width: "100%", flex: 1, minHeight: 10, overflow: "hidden" },
+            [detailPanel],
+          ),
+        ])
+      : manifestBlock;
+
+  const operationsPanelMaxHeight = Math.max(12, Math.min(22, Math.floor(layout.height * 0.34)));
+  debugSnapshot("crew.render", {
+    viewportCols: props.state.viewportCols,
+    viewportRows: props.state.viewportRows,
+    visibleCount: visible.length,
+    sortedCount: sorted.length,
+    page,
+    totalPages,
+    pageDataCount: pageData.length,
+    showDetailPane,
+    operationsPanelMaxHeight,
+    editingCrew: props.state.editingCrew,
+  });
+  const operationsPanel = ui.box(
+    {
+      border: "none",
+      p: 0,
+      width: "100%",
+      height: operationsPanelMaxHeight,
+      overflow: "scroll",
+    },
+    [
+      surfacePanel(
+        tokens,
+        "Crew Operations",
+        [
+          sectionHeader(tokens, "Manifest Controls", "Consistent staffing and assignment flow"),
+          ui.row({ gap: SPACE.md, wrap: !layout.wide, items: "start" }, [
+            ui.box(
+              {
+                border: "none",
+                p: 0,
+                gap: SPACE.sm,
+                ...(layout.wide ? { flex: 2 } : {}),
+              },
+              [
+                ui.row({ gap: SPACE.sm, wrap: true }, [
+                  ui.badge(`Total ${counts.total}`, { variant: "info" }),
+                  ui.badge(`Active ${counts.active}`, { variant: "success" }),
+                  ui.badge(`Away ${counts.away}`, { variant: "warning" }),
+                  ui.badge(`Injured ${counts.injured}`, { variant: "error" }),
+                ]),
+                ui.form([
+                  ui.field({
+                    label: "Search Crew",
+                    hint: "Filter by name, rank, or department",
+                    children: ui.input({
+                      id: ctx.id("crew-search"),
+                      value: props.state.crewSearchQuery,
+                      placeholder: "Type to filter",
+                      onInput: (value) => props.dispatch({ type: "set-crew-search", query: value }),
+                    }),
+                  }),
+                ]),
+                ui.actions([
+                  ui.button({
+                    id: ctx.id("crew-new-assignment"),
+                    label: "New Assignment",
+                    intent: "primary",
+                    onPress: () => props.dispatch({ type: "toggle-crew-editor" }),
+                  }),
+                  ui.button({
+                    id: ctx.id("crew-edit-selected"),
+                    label: "Edit Selected",
+                    intent: "secondary",
+                    onPress: () => props.dispatch({ type: "toggle-crew-editor" }),
+                  }),
+                ]),
+              ],
+            ),
+            ...(layout.wide
+              ? [
+                  ui.box(
                     {
-                      tone: "inset",
-                      p: SPACE.sm,
-                      gap: SPACE.sm,
+                      border: "none",
+                      p: 0,
+                      flex: 1,
                     },
+                    [
+                      surfacePanel(
+                        tokens,
+                        "Crew Snapshot",
+                        [
+                          selected
+                            ? ui.column({ gap: SPACE.xs }, [
+                                ui.text(selected.name, { variant: "label" }),
+                                ui.row({ gap: SPACE.xs, wrap: true }, [
+                                  ui.badge(rankBadge(selected.rank).text, {
+                                    variant: rankBadge(selected.rank).variant,
+                                  }),
+                                  ui.badge(statusBadge(selected.status).text, {
+                                    variant: statusBadge(selected.status).variant,
+                                  }),
+                                  ui.tag(departmentLabel(selected.department), { variant: "info" }),
+                                ]),
+                              ])
+                            : ui.text("No crew selected", {
+                                variant: "caption",
+                                style: { fg: tokens.text.muted, dim: true },
+                              }),
+                          ui.divider(),
+                          ui.row({ gap: SPACE.xs, wrap: true }, [
+                            ui.badge(`Visible ${sorted.length}`, { variant: "info" }),
+                            ui.badge(`Page ${page}/${totalPages}`, { variant: "default" }),
+                          ]),
+                          staffingError
+                            ? ui.callout("Critical staffing below minimum.", {
+                                title: "Guardrail",
+                                variant: "warning",
+                              })
+                            : ui.callout("Critical staffing thresholds healthy.", {
+                                title: "Guardrail",
+                                variant: "success",
+                              }),
+                        ],
+                        {
+                          tone: "inset",
+                          p: SPACE.sm,
+                          gap: SPACE.sm,
+                        },
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ]
-          : []),
-      ]),
+                ]
+              : []),
+          ]),
+        ],
+        { tone: "base" },
+      ),
     ],
-    { tone: "base" },
   );
 
-  return ui.column({ gap: SPACE.md, width: "100%" }, [
+  return ui.column({ gap: SPACE.md, width: "100%", height: "100%" }, [
     operationsPanel,
     show(
       asyncCrew.loading,
@@ -443,7 +513,20 @@ const CrewDeck = defineWidget<CrewDeckProps>((props, ctx): VNode => {
         ui.skeleton(44, { variant: "text" }),
       ], { tone: "inset" }),
     ),
-    show(!asyncCrew.loading, deckLayout),
+    show(
+      !asyncCrew.loading,
+      ui.box(
+        {
+          border: "none",
+          p: 0,
+          width: "100%",
+          flex: 1,
+          minHeight: 12,
+          overflow: "hidden",
+        },
+        [deckLayout],
+      ),
+    ),
   ]);
 });
 
@@ -452,7 +535,7 @@ export function renderCrewScreen(context: RouteRenderContext<StarshipState>, dep
     title: "Crew Manifest",
     context,
     deps,
-    body: ui.column({ gap: SPACE.sm, width: "100%" }, [
+    body: ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
       CrewDeck({
         key: "crew-deck",
         state: context.state,

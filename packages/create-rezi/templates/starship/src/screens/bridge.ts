@@ -554,7 +554,7 @@ export function renderBridgeScreen(
     title: "Bridge Overview",
     context,
     deps,
-    body: ui.column({ gap: SPACE.sm, width: "100%" }, [
+    body: ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
       BridgeCommandDeck({ key: "bridge-command-deck", state, dispatch: deps.dispatch }),
     ]),
   });

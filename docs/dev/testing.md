@@ -66,6 +66,18 @@ npm run test:e2e
 npm run test:e2e:reduced
 ```
 
+## Live PTY Rendering Validation (for UI regressions)
+
+For terminal rendering/theme/layout regressions, run a live PTY session with
+frame-audit instrumentation in addition to normal tests.
+
+Use the dedicated runbook:
+
+- [Live PTY UI Testing and Frame Audit Runbook](live-pty-debugging.md)
+
+That guide includes deterministic viewport setup, worker-mode run commands,
+scripted key driving, and cross-layer telemetry analysis.
+
 ## Test Categories
 
 ### Unit Tests
