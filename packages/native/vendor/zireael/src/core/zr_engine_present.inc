@@ -320,6 +320,35 @@ static void zr_engine_trace_diff_telemetry(zr_engine_t* e, uint64_t frame_id, co
                               zr_engine_now_us(), &rec, (uint32_t)sizeof(rec));
 }
 
+static bool zr_fb_links_prefix_equal(const zr_fb_t* prefix, const zr_fb_t* full) {
+  if (!prefix || !full) {
+    return false;
+  }
+  if (prefix->links_len > full->links_len || prefix->link_bytes_len > full->link_bytes_len) {
+    return false;
+  }
+  if (prefix->links_len != 0u && (!prefix->links || !full->links)) {
+    return false;
+  }
+  if (prefix->link_bytes_len != 0u && (!prefix->link_bytes || !full->link_bytes)) {
+    return false;
+  }
+
+  if (prefix->links_len != 0u) {
+    const size_t links_bytes = (size_t)prefix->links_len * sizeof(zr_fb_link_t);
+    if (memcmp(prefix->links, full->links, links_bytes) != 0) {
+      return false;
+    }
+  }
+  if (prefix->link_bytes_len != 0u) {
+    if (memcmp(prefix->link_bytes, full->link_bytes, (size_t)prefix->link_bytes_len) != 0) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_t out_len,
                                      const zr_term_state_t* final_ts, const zr_diff_stats_t* stats,
                                      const zr_image_state_t* image_state_stage, uint32_t diff_us, uint32_t write_us) {
@@ -327,11 +356,15 @@ static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_
     return;
   }
   bool invalidate_prev_hashes = false;
+  bool invalidate_screen_valid = false;
+  bool fb_next_synced_to_prev = (presented_stage == false);
 
   const uint64_t frame_id_presented = zr_engine_trace_frame_id(e);
   const zr_fb_t* presented_fb = presented_stage ? &e->fb_stage : &e->fb_next;
-  const bool use_damage_rect_copy =
-      (stats->path_damage_used != 0u) && (stats->damage_full_frame == 0u) && (stats->damage_rects <= e->damage_rect_cap);
+  const bool links_compatible_for_damage_copy = zr_fb_links_prefix_equal(&e->fb_prev, presented_fb);
+  const bool use_damage_rect_copy = links_compatible_for_damage_copy && (stats->path_damage_used != 0u) &&
+                                    (stats->damage_full_frame == 0u) && (stats->damage_rects != 0u) &&
+                                    (stats->damage_rects <= e->damage_rect_cap);
 
   /*
     Resync fb_prev to the framebuffer that was actually presented.
@@ -342,6 +375,7 @@ static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_
   if (!e->fb_prev.cells || !presented_fb->cells || e->fb_prev.cols != presented_fb->cols ||
       e->fb_prev.rows != presented_fb->rows) {
     invalidate_prev_hashes = true;
+    fb_next_synced_to_prev = false;
   } else {
     bool links_synced = false;
     if (!use_damage_rect_copy) {
@@ -350,8 +384,7 @@ static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_
         memcpy(e->fb_prev.cells, presented_fb->cells, n);
       }
     } else {
-      const zr_result_t rc =
-          zr_fb_copy_damage_rects(&e->fb_prev, presented_fb, e->damage_rects, stats->damage_rects);
+      const zr_result_t rc = zr_fb_copy_damage_rects(&e->fb_prev, presented_fb, e->damage_rects, stats->damage_rects);
       if (rc != ZR_OK) {
         const size_t n = zr_engine_cells_bytes(presented_fb);
         if (n != 0u) {
@@ -363,8 +396,14 @@ static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_
       }
     }
 
-    if (!links_synced && zr_fb_links_clone_from(&e->fb_prev, presented_fb) != ZR_OK) {
-      invalidate_prev_hashes = true;
+    if (!links_synced) {
+      const zr_result_t links_rc = zr_fb_links_clone_from(&e->fb_prev, presented_fb);
+      if (links_rc != ZR_OK) {
+        invalidate_prev_hashes = true;
+        fb_next_synced_to_prev = false;
+        invalidate_screen_valid = true;
+        (void)zr_fb_clear(&e->fb_prev, NULL);
+      }
     }
   }
 
@@ -373,7 +412,13 @@ static void zr_engine_present_commit(zr_engine_t* e, bool presented_stage, size_
     e->diff_prev_hashes_valid = 0u;
   }
   e->term_state = *final_ts;
+  if (invalidate_screen_valid) {
+    e->term_state.flags &=
+        (uint8_t) ~(ZR_TERM_STATE_STYLE_VALID | ZR_TERM_STATE_CURSOR_POS_VALID | ZR_TERM_STATE_SCREEN_VALID);
+  }
   e->image_state = *image_state_stage;
+  e->fb_next_synced_to_prev = fb_next_synced_to_prev ? 1u : 0u;
+  memset(e->_pad_fb_sync0, 0, sizeof(e->_pad_fb_sync0));
 
   /* --- Update public metrics snapshot --- */
   e->metrics.frame_index++;

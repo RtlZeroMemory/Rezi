@@ -144,6 +144,7 @@ Build, test, and CI automation scripts.
 | `docs.sh`                          | Documentation build/serve with automatic venv management. |
 | `guardrails.sh`                    | Repository hygiene checks for forbidden patterns (legacy scope/name, unresolved task markers, and synthetic-content markers). |
 | `check-core-portability.mjs`      | Scans `@rezi-ui/core` for prohibited Node.js imports. |
+| `check-native-vendor-integrity.mjs` | Verifies native vendor source wiring and `VENDOR_COMMIT.txt` pin consistency with `vendor/zireael`. |
 | `check-unicode-sync.mjs`          | Verifies Unicode table versions are consistent. |
 | `check-create-rezi-templates.mjs` | Validates scaffolding templates are up to date. |
 | `verify-native-pack.mjs`          | Checks native package contents before npm publish. |
@@ -152,9 +153,11 @@ Build, test, and CI automation scripts.
 ## vendor/zireael
 
 The Zireael C rendering engine, pinned as a git submodule. This is the upstream
-source used by `@rezi-ui/native` for compilation. The native package keeps its
-own vendored snapshot at `packages/native/vendor/zireael` as the compile-time
-source.
+reference tree. `@rezi-ui/native` compiles from the package-local snapshot at
+`packages/native/vendor/zireael` (see `packages/native/build.rs`).
+
+`packages/native/vendor/VENDOR_COMMIT.txt` must match the repo gitlink pointer
+for `vendor/zireael`; CI enforces this via `npm run check:native-vendor`.
 
 Initialize with:
 

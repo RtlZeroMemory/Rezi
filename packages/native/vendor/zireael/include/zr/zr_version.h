@@ -8,6 +8,10 @@
 #ifndef ZR_ZR_VERSION_H_INCLUDED
 #define ZR_ZR_VERSION_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
   NOTE: These version pins are part of the determinism contract. They must not
   be overridden by downstream builds.
@@ -34,5 +38,9 @@
 
 /* Packed event batch binary format versions. */
 #define ZR_EVENT_BATCH_VERSION_V1 (1u)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ZR_ZR_VERSION_H_INCLUDED */

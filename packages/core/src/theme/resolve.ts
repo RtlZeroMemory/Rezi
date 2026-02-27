@@ -68,10 +68,10 @@ export type ResolveColorResult = { ok: true; value: Rgb24 } | { ok: false; error
  * @example
  * ```typescript
  * const color = resolveColorToken(darkTheme, "fg.primary");
- * // { r: 230, g: 225, b: 207 }
+ * // 0xe6e1cf (packed Rgb24)
  *
  * const error = resolveColorToken(darkTheme, "error");
- * // { r: 240, g: 113, b: 120 }
+ * // 0xf07178 (packed Rgb24)
  * ```
  */
 export function resolveColorToken(theme: ThemeDefinition, path: ColorPath): Rgb24;

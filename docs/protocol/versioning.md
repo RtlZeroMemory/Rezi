@@ -24,6 +24,8 @@ Pinned drawlist version:
 
 Rezi currently emits ZRDL v1, and the engine accepts v1/v2.
 ZRDL v2 adds opcode `14` (`BLIT_RECT`).
+Style link reference fields (`linkUriRef`, `linkIdRef`) are stable across v1/v2:
+`0` means unset and positive values are 1-based string resource IDs.
 
 ## Event Batch (ZREV)
 

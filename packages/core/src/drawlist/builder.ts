@@ -1,6 +1,11 @@
-import { ZR_DRAWLIST_VERSION_V1 } from "../abi.js";
+import { ZRDL_MAGIC, ZR_DRAWLIST_VERSION_V1 } from "../abi.js";
 import type { TextStyle } from "../widgets/style.js";
-import { DrawlistBuilderBase, type DrawlistBuilderBaseOpts } from "./builderBase.js";
+import {
+  DrawlistBuilderBase,
+  type DrawlistBuilderBaseOpts,
+  HEADER_SIZE,
+  align4,
+} from "./builderBase.js";
 import type {
   CursorState,
   DrawlistBuildResult,
@@ -9,26 +14,36 @@ import type {
   DrawlistImageFit,
   DrawlistImageFormat,
   DrawlistImageProtocol,
+  DrawlistTextPerfCounters,
+  DrawlistTextRunSegment,
   EncodedStyle,
 } from "./types.js";
 import {
   BLIT_RECT_SIZE,
   CLEAR_SIZE,
+  DEF_BLOB_BASE_SIZE,
+  DEF_STRING_BASE_SIZE,
   DRAW_CANVAS_SIZE,
   DRAW_IMAGE_SIZE,
   DRAW_TEXT_RUN_SIZE,
   DRAW_TEXT_SIZE,
   FILL_RECT_SIZE,
+  FREE_BLOB_SIZE,
+  FREE_STRING_SIZE,
   POP_CLIP_SIZE,
   PUSH_CLIP_SIZE,
   SET_CURSOR_SIZE,
   writeBlitRect,
   writeClear,
+  writeDefBlob,
+  writeDefString,
   writeDrawCanvas,
   writeDrawImage,
   writeDrawText,
   writeDrawTextRun,
   writeFillRect,
+  writeFreeBlob,
+  writeFreeString,
   writePopClip,
   writePushClip,
   writeSetCursor,
@@ -66,8 +81,20 @@ const IMAGE_FIT_CODE: Readonly<Record<DrawlistImageFit, number>> = Object.freeze
 
 type LinkRefs = Readonly<{ uriRef: number; idRef: number }>;
 type CanvasPixelSize = Readonly<{ pxWidth: number; pxHeight: number }>;
+type ResourceBuildPlan = Readonly<{
+  cmdOffset: number;
+  cmdBytes: number;
+  cmdCount: number;
+  stringsCount: number;
+  blobsCount: number;
+  freeStringsCount: number;
+  freeBlobsCount: number;
+  totalSize: number;
+}>;
 
 const MAX_U16 = 0xffff;
+const LINK_URI_MAX_BYTES = 2083;
+const LINK_ID_MAX_BYTES = 2083;
 
 const BLITTER_SUBCELL_RESOLUTION: Readonly<
   Record<Exclude<DrawlistCanvasBlitter, "auto">, Readonly<{ subW: number; subH: number }>>
@@ -174,6 +201,9 @@ export function createDrawlistBuilder(opts: DrawlistBuilderOpts = {}): DrawlistB
 class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements DrawlistBuilder {
   private activeLinkUriRef = 0;
   private activeLinkIdRef = 0;
+  private prevBuiltStringsCount = 0;
+  private prevBuiltBlobsCount = 0;
+  private textPerfSegments = 0;
 
   constructor(opts: DrawlistBuilderOpts) {
     super(opts, "DrawlistBuilder");
@@ -218,6 +248,59 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
     this.setCursor({ x: -1, y: -1, shape: 0, visible: false, blink: false });
   }
 
+  blitRect(srcX: number, srcY: number, w: number, h: number, dstX: number, dstY: number): void {
+    if (this.error) return;
+
+    const srcXi = this.validateParams ? this.requireI32("blitRect", "srcX", srcX) : srcX | 0;
+    const srcYi = this.validateParams ? this.requireI32("blitRect", "srcY", srcY) : srcY | 0;
+    const wi = this.validateParams ? this.requireI32NonNeg("blitRect", "w", w) : w | 0;
+    const hi = this.validateParams ? this.requireI32NonNeg("blitRect", "h", h) : h | 0;
+    const dstXi = this.validateParams ? this.requireI32("blitRect", "dstX", dstX) : dstX | 0;
+    const dstYi = this.validateParams ? this.requireI32("blitRect", "dstY", dstY) : dstY | 0;
+    if (this.error) return;
+    if (
+      srcXi === null ||
+      srcYi === null ||
+      wi === null ||
+      hi === null ||
+      dstXi === null ||
+      dstYi === null
+    ) {
+      return;
+    }
+
+    if (!this.beginCommandWrite("blitRect", BLIT_RECT_SIZE)) return;
+    this.cmdLen = writeBlitRect(
+      this.cmdBuf,
+      this.cmdDv,
+      this.cmdLen,
+      srcXi,
+      srcYi,
+      wi,
+      hi,
+      dstXi,
+      dstYi,
+    );
+    this.cmdCount += 1;
+    this.maybeFailTooLargeAfterWrite();
+  }
+
+  override addTextRunBlob(segments: readonly DrawlistTextRunSegment[]): number | null {
+    const blobIndex = super.addTextRunBlob(segments);
+    if (blobIndex !== null) {
+      this.textPerfSegments += segments.length;
+    }
+    return blobIndex;
+  }
+
+  getTextPerfCounters(): DrawlistTextPerfCounters {
+    return Object.freeze({
+      textEncoderCalls: this.getTextEncoderCallCount(),
+      textArenaBytes: this.stringBytesLen,
+      textSegments: this.textPerfSegments,
+    });
+  }
+
   setLink(uri: string | null, id?: string): void {
     if (this.error) return;
 
@@ -232,22 +315,23 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
       return;
     }
 
-    if (uri !== null) {
-      if (typeof uri !== "string") {
-        this.fail("ZRDL_BAD_PARAMS", "setLink: uri must be a string or null");
-        return;
-      }
-      const idx = this.internString(uri);
-      if (this.error || idx === null) return;
-      this.activeLinkUriRef = idx >>> 0;
+    if (typeof uri !== "string") {
+      this.fail("ZRDL_BAD_PARAMS", "setLink: uri must be a string or null");
+      return;
+    }
+    if (!this.validateLinkString("uri", uri, LINK_URI_MAX_BYTES, true)) return;
+    if (id !== undefined && !this.validateLinkString("id", id, LINK_ID_MAX_BYTES, false)) return;
 
-      if (id !== undefined) {
-        const idIdx = this.internString(id);
-        if (this.error || idIdx === null) return;
-        this.activeLinkIdRef = idIdx >>> 0;
-      } else {
-        this.activeLinkIdRef = 0;
-      }
+    const idx = this.internString(uri);
+    if (this.error || idx === null) return;
+    this.activeLinkUriRef = (idx + 1) >>> 0;
+
+    if (id !== undefined) {
+      const idIdx = this.internString(id);
+      if (this.error || idIdx === null) return;
+      this.activeLinkIdRef = (idIdx + 1) >>> 0;
+    } else {
+      this.activeLinkIdRef = 0;
     }
   }
 
@@ -287,9 +371,8 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
       return;
     }
 
-    const blobOff = this.blobSpanOffs[bi];
     const blobLen = this.blobSpanLens[bi];
-    if (blobOff === undefined || blobLen === undefined) {
+    if (blobLen === undefined) {
       this.fail("ZRDL_INTERNAL", "drawCanvas: blob span table is inconsistent");
       return;
     }
@@ -354,8 +437,8 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
       hi,
       resolvedPxW,
       resolvedPxH,
-      blobOff,
-      blobLen,
+      bi + 1,
+      0,
       blitterCode,
       0,
       0,
@@ -431,9 +514,8 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
       return;
     }
 
-    const blobOff = this.blobSpanOffs[bi];
     const blobLen = this.blobSpanLens[bi];
-    if (blobOff === undefined || blobLen === undefined) {
+    if (blobLen === undefined) {
       this.fail("ZRDL_INTERNAL", "drawImage: blob span table is inconsistent");
       return;
     }
@@ -517,8 +599,8 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
       hi,
       resolvedPxW,
       resolvedPxH,
-      blobOff,
-      blobLen,
+      bi + 1,
+      0,
       imageIdU32,
       formatCode,
       protocolCode,
@@ -534,11 +616,48 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
   }
 
   buildInto(dst: Uint8Array): DrawlistBuildResult {
-    return this.buildIntoWithVersion(ZR_DRAWLIST_VERSION_V1, dst);
+    if (this.error) {
+      return { ok: false, error: this.error };
+    }
+    if (!(dst instanceof Uint8Array)) {
+      return {
+        ok: false,
+        error: { code: "ZRDL_BAD_PARAMS", detail: "buildInto: dst must be a Uint8Array" },
+      };
+    }
+    const planned = this.planResourceStream();
+    if (!planned.ok) {
+      return planned;
+    }
+    const plan = planned.plan;
+    if (dst.byteLength < plan.totalSize) {
+      return {
+        ok: false,
+        error: {
+          code: "ZRDL_TOO_LARGE",
+          detail: `buildInto: dst is too small (required=${plan.totalSize}, got=${dst.byteLength})`,
+        },
+      };
+    }
+    return this.writeBuiltStream(dst.subarray(0, plan.totalSize), plan, ZR_DRAWLIST_VERSION_V1);
   }
 
   build(): DrawlistBuildResult {
-    return this.buildWithVersion(ZR_DRAWLIST_VERSION_V1);
+    if (this.error) {
+      return { ok: false, error: this.error };
+    }
+    const planned = this.planResourceStream();
+    if (!planned.ok) {
+      return planned;
+    }
+    const plan = planned.plan;
+    const out = this.reuseOutputBuffer
+      ? this.ensureOutputCapacity(plan.totalSize)
+      : new Uint8Array(plan.totalSize);
+    if (this.error) {
+      return { ok: false, error: this.error };
+    }
+    return this.writeBuiltStream(out.subarray(0, plan.totalSize), plan, ZR_DRAWLIST_VERSION_V1);
   }
 
   override reset(): void {
@@ -547,6 +666,7 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
 
     this.activeLinkUriRef = 0;
     this.activeLinkIdRef = 0;
+    this.textPerfSegments = 0;
   }
 
   protected override encodeFillRectStyle(style: TextStyle | undefined): EncodedStyle {
@@ -579,7 +699,6 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
     x: number,
     y: number,
     stringIndex: number,
-    byteOff: number,
     byteLen: number,
     style: EncodedStyle,
   ): void {
@@ -590,8 +709,8 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
       this.cmdLen,
       x,
       y,
-      stringIndex,
-      byteOff,
+      stringIndex + 1,
+      0,
       byteLen,
       style,
       0,
@@ -605,19 +724,6 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
     this.cmdCount += 1;
   }
 
-  protected override appendBlitRectCommand(
-    srcX: number,
-    srcY: number,
-    w: number,
-    h: number,
-    dstX: number,
-    dstY: number,
-  ): void {
-    if (!this.beginCommandWrite("blitRect", BLIT_RECT_SIZE)) return;
-    this.cmdLen = writeBlitRect(this.cmdBuf, this.cmdDv, this.cmdLen, srcX, srcY, w, h, dstX, dstY);
-    this.cmdCount += 1;
-  }
-
   protected override appendPopClipCommand(): void {
     if (!this.beginCommandWrite("popClip", POP_CLIP_SIZE)) return;
     this.cmdLen = writePopClip(this.cmdBuf, this.cmdDv, this.cmdLen);
@@ -626,7 +732,7 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
 
   protected override appendDrawTextRunCommand(x: number, y: number, blobIndex: number): void {
     if (!this.beginCommandWrite("drawTextRun", DRAW_TEXT_RUN_SIZE)) return;
-    this.cmdLen = writeDrawTextRun(this.cmdBuf, this.cmdDv, this.cmdLen, x, y, blobIndex, 0);
+    this.cmdLen = writeDrawTextRun(this.cmdBuf, this.cmdDv, this.cmdLen, x, y, blobIndex + 1, 0);
     this.cmdCount += 1;
   }
 
@@ -639,7 +745,6 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
     off: number,
     style: EncodedStyle,
     stringIndex: number,
-    byteOff: number,
     byteLen: number,
   ): number {
     dv.setUint32(off + 0, style.fg >>> 0, true);
@@ -649,8 +754,8 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
     dv.setUint32(off + 16, style.underlineRgb >>> 0, true);
     dv.setUint32(off + 20, style.linkUriRef >>> 0, true);
     dv.setUint32(off + 24, style.linkIdRef >>> 0, true);
-    dv.setUint32(off + 28, stringIndex >>> 0, true);
-    dv.setUint32(off + 32, byteOff >>> 0, true);
+    dv.setUint32(off + 28, (stringIndex + 1) >>> 0, true);
+    dv.setUint32(off + 32, 0, true);
     dv.setUint32(off + 36, byteLen >>> 0, true);
     return off + 40;
   }
@@ -685,11 +790,227 @@ class DrawlistBuilderImpl extends DrawlistBuilderBase<EncodedStyle> implements D
     return v >>> 0;
   }
 
+  private validateLinkString(
+    field: "uri" | "id",
+    value: string,
+    maxBytes: number,
+    requireNonEmpty: boolean,
+  ): boolean {
+    const byteLen = this.utf8ByteLength(value, `setLink: ${field}`);
+    if (byteLen === null) return false;
+
+    if (requireNonEmpty && byteLen === 0) {
+      this.fail(
+        "ZRDL_BAD_PARAMS",
+        "setLink: uri must be non-empty when provided; use null to clear",
+      );
+      return false;
+    }
+    if (byteLen > maxBytes) {
+      this.fail(
+        "ZRDL_BAD_PARAMS",
+        `setLink: ${field} UTF-8 length must be <= ${maxBytes} bytes (got ${byteLen})`,
+      );
+      return false;
+    }
+    return true;
+  }
+
+  private utf8ByteLength(text: string, context: string): number | null {
+    let asciiOnly = true;
+    for (let i = 0; i < text.length; i++) {
+      if (text.charCodeAt(i) > 0x7f) {
+        asciiOnly = false;
+        break;
+      }
+    }
+    if (asciiOnly) {
+      return text.length;
+    }
+    if (!this.encoder) {
+      this.fail("ZRDL_INTERNAL", `${context}: TextEncoder is not available`);
+      return null;
+    }
+    return this.encoder.encode(text).byteLength;
+  }
+
   private currentLinkRefs(): LinkRefs | null {
     if (this.activeLinkUriRef === 0) return null;
     return Object.freeze({
       uriRef: this.activeLinkUriRef >>> 0,
       idRef: this.activeLinkIdRef >>> 0,
     });
+  }
+
+  private planResourceStream():
+    | Readonly<{ ok: true; plan: ResourceBuildPlan }>
+    | Readonly<{ ok: false; error: { code: "ZRDL_TOO_LARGE" | "ZRDL_INTERNAL"; detail: string } }> {
+    if ((this.cmdLen & 3) !== 0) {
+      return {
+        ok: false,
+        error: { code: "ZRDL_INTERNAL", detail: "build: command stream is not 4-byte aligned" },
+      };
+    }
+
+    const stringsCount = this.stringSpanOffs.length;
+    const blobsCount = this.blobSpanOffs.length;
+    const freeStringsCount = Math.max(0, this.prevBuiltStringsCount - stringsCount);
+    const freeBlobsCount = Math.max(0, this.prevBuiltBlobsCount - blobsCount);
+
+    let defStringsBytes = 0;
+    for (let i = 0; i < stringsCount; i++) {
+      const len = this.stringSpanLens[i];
+      if (len === undefined) {
+        return {
+          ok: false,
+          error: { code: "ZRDL_INTERNAL", detail: "build: string span table is inconsistent" },
+        };
+      }
+      defStringsBytes += align4(DEF_STRING_BASE_SIZE + len);
+    }
+
+    let defBlobsBytes = 0;
+    for (let i = 0; i < blobsCount; i++) {
+      const len = this.blobSpanLens[i];
+      if (len === undefined) {
+        return {
+          ok: false,
+          error: { code: "ZRDL_INTERNAL", detail: "build: blob span table is inconsistent" },
+        };
+      }
+      defBlobsBytes += align4(DEF_BLOB_BASE_SIZE + len);
+    }
+
+    const cmdCount = stringsCount + blobsCount + this.cmdCount + freeStringsCount + freeBlobsCount;
+    const cmdBytes =
+      defStringsBytes +
+      defBlobsBytes +
+      this.cmdLen +
+      freeStringsCount * FREE_STRING_SIZE +
+      freeBlobsCount * FREE_BLOB_SIZE;
+    const cmdOffset = cmdCount === 0 ? 0 : HEADER_SIZE;
+    const totalSize = HEADER_SIZE + cmdBytes;
+
+    if (cmdCount > this.maxCmdCount) {
+      return {
+        ok: false,
+        error: {
+          code: "ZRDL_TOO_LARGE",
+          detail: `build: maxCmdCount exceeded (count=${cmdCount}, max=${this.maxCmdCount})`,
+        },
+      };
+    }
+
+    if ((cmdBytes & 3) !== 0 || (totalSize & 3) !== 0) {
+      return {
+        ok: false,
+        error: { code: "ZRDL_INTERNAL", detail: "build: command stream alignment is invalid" },
+      };
+    }
+
+    if (totalSize > this.maxDrawlistBytes) {
+      return {
+        ok: false,
+        error: {
+          code: "ZRDL_TOO_LARGE",
+          detail: `build: maxDrawlistBytes exceeded (total=${totalSize}, max=${this.maxDrawlistBytes})`,
+        },
+      };
+    }
+
+    return {
+      ok: true,
+      plan: {
+        cmdOffset,
+        cmdBytes,
+        cmdCount,
+        stringsCount,
+        blobsCount,
+        freeStringsCount,
+        freeBlobsCount,
+        totalSize,
+      },
+    };
+  }
+
+  private writeBuiltStream(
+    out: Uint8Array,
+    plan: ResourceBuildPlan,
+    version: number,
+  ): DrawlistBuildResult {
+    const dv = new DataView(out.buffer, out.byteOffset, out.byteLength);
+
+    dv.setUint32(0, ZRDL_MAGIC, true);
+    dv.setUint32(4, version >>> 0, true);
+    dv.setUint32(8, HEADER_SIZE, true);
+    dv.setUint32(12, plan.totalSize >>> 0, true);
+    dv.setUint32(16, plan.cmdOffset >>> 0, true);
+    dv.setUint32(20, plan.cmdBytes >>> 0, true);
+    dv.setUint32(24, plan.cmdCount >>> 0, true);
+    dv.setUint32(28, 0, true);
+    dv.setUint32(32, 0, true);
+    dv.setUint32(36, 0, true);
+    dv.setUint32(40, 0, true);
+    dv.setUint32(44, 0, true);
+    dv.setUint32(48, 0, true);
+    dv.setUint32(52, 0, true);
+    dv.setUint32(56, 0, true);
+    dv.setUint32(60, 0, true);
+
+    let pos = plan.cmdOffset;
+
+    for (let i = 0; i < plan.stringsCount; i++) {
+      const off = this.stringSpanOffs[i];
+      const len = this.stringSpanLens[i];
+      if (off === undefined || len === undefined) {
+        return {
+          ok: false,
+          error: { code: "ZRDL_INTERNAL", detail: "build: string span table is inconsistent" },
+        };
+      }
+      const bytes = this.stringBytesBuf.subarray(off, off + len);
+      pos = writeDefString(out, dv, pos, i + 1, len, bytes);
+    }
+
+    for (let i = 0; i < plan.blobsCount; i++) {
+      const off = this.blobSpanOffs[i];
+      const len = this.blobSpanLens[i];
+      if (off === undefined || len === undefined) {
+        return {
+          ok: false,
+          error: { code: "ZRDL_INTERNAL", detail: "build: blob span table is inconsistent" },
+        };
+      }
+      const bytes = this.blobBytesBuf.subarray(off, off + len);
+      pos = writeDefBlob(out, dv, pos, i + 1, len, bytes);
+    }
+
+    out.set(this.cmdBuf.subarray(0, this.cmdLen), pos);
+    pos += this.cmdLen;
+
+    for (let i = 0; i < plan.freeStringsCount; i++) {
+      const id = plan.stringsCount + i + 1;
+      pos = writeFreeString(out, dv, pos, id);
+    }
+
+    for (let i = 0; i < plan.freeBlobsCount; i++) {
+      const id = plan.blobsCount + i + 1;
+      pos = writeFreeBlob(out, dv, pos, id);
+    }
+
+    const expectedEnd = plan.cmdOffset + plan.cmdBytes;
+    if (pos !== expectedEnd) {
+      return {
+        ok: false,
+        error: {
+          code: "ZRDL_INTERNAL",
+          detail: `build: command stream size mismatch (expected=${expectedEnd}, got=${pos})`,
+        },
+      };
+    }
+
+    this.prevBuiltStringsCount = plan.stringsCount;
+    this.prevBuiltBlobsCount = plan.blobsCount;
+    return { ok: true, bytes: out };
   }
 }

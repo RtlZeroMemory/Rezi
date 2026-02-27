@@ -9,6 +9,10 @@
 #ifndef ZR_ZR_METRICS_H_INCLUDED
 #define ZR_ZR_METRICS_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 /*
@@ -64,8 +68,12 @@ typedef struct zr_metrics_t {
   /* --- Damage summary (last frame) --- */
   uint32_t damage_rects_last_frame;
   uint32_t damage_cells_last_frame;
-  uint8_t  damage_full_frame;
-  uint8_t  _pad2[3];
+  uint8_t damage_full_frame;
+  uint8_t _pad2[3];
 } zr_metrics_t;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ZR_ZR_METRICS_H_INCLUDED */

@@ -50,9 +50,9 @@ packages/core/src/
     renderToDrawlist/
       renderTree.ts           # Stack-based DFS renderer
   drawlist/
-    builder_v1.ts             # ZRDL binary drawlist builder (v1)
-    builder_v2.ts             # Drawlist builder v2 (cursor protocol)
-    builder_v3.ts             # Drawlist builder v3
+    builder.ts                # ZRDL binary drawlist builder (single unified version)
+    builderBase.ts            # Abstract base class for drawlist builder
+    writers.gen.ts            # Generated drawlist command writers (codegen)
   keybindings/
     manager.ts                # Modal keybinding system
     parser.ts                 # Key sequence parsing

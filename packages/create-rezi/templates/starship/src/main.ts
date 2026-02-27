@@ -1,4 +1,9 @@
-import { exit } from "node:process";
+import {
+  type DebugController,
+  type DebugRecord,
+  categoriesToMask,
+  createDebugController,
+} from "@rezi-ui/core";
 import { createNodeApp } from "@rezi-ui/node";
 import { debugSnapshot } from "./helpers/debug.js";
 import { resolveStarshipCommand } from "./helpers/keybindings.js";
@@ -14,10 +19,21 @@ import type { RouteDeps, RouteId, StarshipAction, StarshipState } from "./types.
 const UI_FPS_CAP = 30;
 const TICK_MS = 800;
 const TOAST_PRUNE_MS = 3000;
+const DEBUG_TRACE_ENABLED = process.env.REZI_STARSHIP_DEBUG_TRACE === "1";
+const EXECUTION_MODE: "inline" | "worker" =
+  process.env.REZI_STARSHIP_EXECUTION_MODE === "worker" ? "worker" : "inline";
+
+function clampViewportAxis(value: number | undefined, fallback: number): number {
+  const safeFallback = Math.max(1, Math.trunc(fallback));
+  if (!Number.isFinite(value)) return safeFallback;
+  const raw = Math.trunc(value ?? safeFallback);
+  if (raw <= 0) return safeFallback;
+  return raw;
+}
 
 const initialState = createInitialStateWithViewport(Date.now(), {
-  cols: process.stdout.columns ?? 120,
-  rows: process.stdout.rows ?? 40,
+  cols: clampViewportAxis(process.stdout.columns, 120),
+  rows: clampViewportAxis(process.stdout.rows, 40),
 });
 const enableHsr = process.argv.includes("--hsr") || process.env.REZI_HSR === "1";
 const hasInteractiveTty = Boolean(process.stdin.isTTY && process.stdout.isTTY);
@@ -41,6 +57,15 @@ let app!: ReturnType<typeof createNodeApp<StarshipState>>;
 let stopping = false;
 let tickTimer: ReturnType<typeof setInterval> | null = null;
 let toastTimer: ReturnType<typeof setInterval> | null = null;
+let debugTraceTimer: ReturnType<typeof setInterval> | null = null;
+let debugTraceInFlight = false;
+let debugController: DebugController | null = null;
+let debugLastRecordId = 0n;
+let stopCode = 0;
+let stopResolve: (() => void) | null = null;
+const stopPromise = new Promise<void>((resolve) => {
+  stopResolve = resolve;
+});
 let lastViewport = {
   cols: initialState.viewportCols,
   rows: initialState.viewportRows,
@@ -68,20 +93,22 @@ function dispatch(action: StarshipAction): void {
 }
 
 function syncViewport(cols: number, rows: number): void {
-  if (cols === lastViewport.cols && rows === lastViewport.rows) return;
-  lastViewport = { cols, rows };
+  const safeCols = clampViewportAxis(cols, lastViewport.cols);
+  const safeRows = clampViewportAxis(rows, lastViewport.rows);
+  if (safeCols === lastViewport.cols && safeRows === lastViewport.rows) return;
+  lastViewport = { cols: safeCols, rows: safeRows };
   debugSnapshot("runtime.viewport", {
-    cols,
-    rows,
+    cols: safeCols,
+    rows: safeRows,
     route: currentRouteId(),
   });
-  dispatch({ type: "set-viewport", cols, rows });
+  dispatch({ type: "set-viewport", cols: safeCols, rows: safeRows });
 }
 
 function syncViewportFromStdout(): void {
   if (!process.stdout.isTTY) return;
-  const cols = process.stdout.columns ?? lastViewport.cols;
-  const rows = process.stdout.rows ?? lastViewport.rows;
+  const cols = clampViewportAxis(process.stdout.columns, lastViewport.cols);
+  const rows = clampViewportAxis(process.stdout.rows, lastViewport.rows);
   syncViewport(cols, rows);
 }
 
@@ -95,6 +122,17 @@ function currentRouteId(): RouteId {
   if (routeId === "settings") return "settings";
   return "bridge";
 }
+
+const frameAuditGlobal = globalThis as {
+  __reziFrameAuditContext?: () => Readonly<Record<string, unknown>>;
+};
+frameAuditGlobal.__reziFrameAuditContext = () =>
+  Object.freeze({
+    route: currentRouteId(),
+    viewportCols: lastViewport.cols,
+    viewportRows: lastViewport.rows,
+    executionMode: EXECUTION_MODE,
+  });
 
 function navigate(routeId: RouteId): void {
   const router = app.router;
@@ -126,6 +164,7 @@ function buildRoutes(factory: CreateRoutesFn) {
 async function stopApp(code = 0): Promise<void> {
   if (stopping) return;
   stopping = true;
+  stopCode = code;
 
   if (tickTimer) {
     clearInterval(tickTimer);
@@ -137,18 +176,28 @@ async function stopApp(code = 0): Promise<void> {
     toastTimer = null;
   }
 
+  if (debugTraceTimer) {
+    clearInterval(debugTraceTimer);
+    debugTraceTimer = null;
+  }
+
+  if (debugController) {
+    try {
+      await debugController.disable();
+    } catch {
+      // Ignore debug shutdown races.
+    }
+    debugController = null;
+  }
+
   try {
     await app.stop();
   } catch {
     // Ignore stop races.
   }
-
-  try {
-    app.dispose();
-  } catch {
-    // Ignore disposal races during shutdown.
-  }
-  exit(code);
+  frameAuditGlobal.__reziFrameAuditContext = undefined;
+  stopResolve?.();
+  stopResolve = null;
 }
 
 function applyCommand(command: ReturnType<typeof resolveStarshipCommand>): void {
@@ -464,13 +513,172 @@ function bindKeys(): void {
   app.keys(bindingMap);
 }
 
+function snapshotDebugRecord(record: DebugRecord): void {
+  const { header } = record;
+  if (header.category === "frame") {
+    if (
+      record.payload &&
+      typeof record.payload === "object" &&
+      "drawlistBytes" in record.payload &&
+      "drawlistCmds" in record.payload
+    ) {
+      debugSnapshot("runtime.debug.frame", {
+        recordId: header.recordId.toString(),
+        frameId: header.frameId.toString(),
+        route: currentRouteId(),
+        drawlistBytes: record.payload.drawlistBytes,
+        drawlistCmds: record.payload.drawlistCmds,
+        diffBytesEmitted:
+          "diffBytesEmitted" in record.payload ? record.payload.diffBytesEmitted : null,
+        dirtyLines: "dirtyLines" in record.payload ? record.payload.dirtyLines : null,
+        dirtyCells: "dirtyCells" in record.payload ? record.payload.dirtyCells : null,
+        damageRects: "damageRects" in record.payload ? record.payload.damageRects : null,
+        usDrawlist: "usDrawlist" in record.payload ? record.payload.usDrawlist : null,
+        usDiff: "usDiff" in record.payload ? record.payload.usDiff : null,
+        usWrite: "usWrite" in record.payload ? record.payload.usWrite : null,
+      });
+      return;
+    }
+
+    debugSnapshot("runtime.debug.frame.raw", {
+      recordId: header.recordId.toString(),
+      frameId: header.frameId.toString(),
+      code: header.code,
+      severity: header.severity,
+      payloadSize: header.payloadSize,
+      route: currentRouteId(),
+    });
+  }
+
+  if (header.category === "drawlist") {
+    if (
+      record.payload &&
+      typeof record.payload === "object" &&
+      "totalBytes" in record.payload &&
+      "cmdCount" in record.payload
+    ) {
+      debugSnapshot("runtime.debug.drawlist", {
+        recordId: header.recordId.toString(),
+        frameId: header.frameId.toString(),
+        code: header.code,
+        severity: header.severity,
+        route: currentRouteId(),
+        totalBytes: record.payload.totalBytes,
+        cmdCount: record.payload.cmdCount,
+        validationResult:
+          "validationResult" in record.payload ? record.payload.validationResult : null,
+        executionResult:
+          "executionResult" in record.payload ? record.payload.executionResult : null,
+        clipStackMaxDepth:
+          "clipStackMaxDepth" in record.payload ? record.payload.clipStackMaxDepth : null,
+        textRuns: "textRuns" in record.payload ? record.payload.textRuns : null,
+        fillRects: "fillRects" in record.payload ? record.payload.fillRects : null,
+      });
+      return;
+    }
+
+    if (
+      record.payload &&
+      typeof record.payload === "object" &&
+      "kind" in record.payload &&
+      record.payload.kind === "drawlistBytes" &&
+      "bytes" in record.payload
+    ) {
+      debugSnapshot("runtime.debug.drawlistBytes", {
+        recordId: header.recordId.toString(),
+        frameId: header.frameId.toString(),
+        code: header.code,
+        severity: header.severity,
+        route: currentRouteId(),
+        bytes: record.payload.bytes.byteLength,
+      });
+      return;
+    }
+
+    debugSnapshot("runtime.debug.drawlist.raw", {
+      recordId: header.recordId.toString(),
+      frameId: header.frameId.toString(),
+      code: header.code,
+      severity: header.severity,
+      payloadSize: header.payloadSize,
+      route: currentRouteId(),
+    });
+  }
+}
+
+async function setupDebugTrace(): Promise<void> {
+  if (!DEBUG_TRACE_ENABLED) return;
+  try {
+    debugController = createDebugController({
+      backend: app.backend.debug,
+      terminalCapsProvider: () => app.backend.getCaps(),
+      maxFrames: 512,
+    });
+
+    await debugController.enable({
+      minSeverity: "trace",
+      categoryMask: categoriesToMask(["frame", "drawlist", "error"]),
+      captureRawEvents: false,
+      captureDrawlistBytes: false,
+    });
+    await debugController.reset();
+  } catch (error) {
+    debugSnapshot("runtime.debug.enable.error", {
+      message: error instanceof Error ? error.message : String(error),
+      route: currentRouteId(),
+    });
+    if (debugController) {
+      try {
+        await debugController.disable();
+      } catch {
+        // Ignore debug shutdown races.
+      }
+      debugController = null;
+    }
+    return;
+  }
+
+  debugLastRecordId = 0n;
+
+  debugSnapshot("runtime.debug.enable", {
+    route: currentRouteId(),
+    viewportCols: lastViewport.cols,
+    viewportRows: lastViewport.rows,
+  });
+
+  const pump = async () => {
+    if (!debugController || debugTraceInFlight) return;
+    debugTraceInFlight = true;
+    try {
+      const records = await debugController.query({ maxRecords: 256 });
+      if (records.length === 0) return;
+      for (const record of records) {
+        if (record.header.recordId <= debugLastRecordId) continue;
+        debugLastRecordId = record.header.recordId;
+        snapshotDebugRecord(record);
+      }
+    } catch (error) {
+      debugSnapshot("runtime.debug.query.error", {
+        message: error instanceof Error ? error.message : String(error),
+        route: currentRouteId(),
+      });
+    } finally {
+      debugTraceInFlight = false;
+    }
+  };
+
+  debugTraceTimer = setInterval(() => {
+    void pump();
+  }, 250);
+}
+
 const routes = buildRoutes(createStarshipRoutes);
 
 debugSnapshot("runtime.app.create", {
   routeCount: routes.length,
   initialRoute: "bridge",
   fpsCap: UI_FPS_CAP,
-  executionMode: "inline",
+  executionMode: EXECUTION_MODE,
 });
 
 app = createNodeApp({
@@ -479,7 +687,7 @@ app = createNodeApp({
   initialRoute: "bridge",
   config: {
     fpsCap: UI_FPS_CAP,
-    executionMode: "inline",
+    executionMode: EXECUTION_MODE,
   },
   theme: themeSpec(initialState.themeName).theme,
   ...(enableHsr
@@ -545,5 +753,9 @@ debugSnapshot("runtime.app.start", {
   viewportRows: lastViewport.rows,
 });
 
+await setupDebugTrace();
 await app.start();
-await new Promise<void>(() => {});
+await stopPromise;
+if (stopCode !== 0) {
+  process.exitCode = stopCode;
+}

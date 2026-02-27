@@ -78,6 +78,9 @@ struct zr_engine_t {
 
   zr_term_state_t term_state;
   zr_cursor_state_t cursor_desired;
+  /* True when fb_prev is a byte-identical copy of fb_next (submit rollback fast-path). */
+  uint8_t fb_next_synced_to_prev;
+  uint8_t _pad_fb_sync0[3];
 
   /* --- Image sideband state (DRAW_IMAGE staging + protocol cache) --- */
   zr_image_frame_t image_frame_next;
@@ -501,7 +504,6 @@ static zr_result_t zr_engine_fb_copy(const zr_fb_t* src, zr_fb_t* dst) {
   if (n != 0u && src->cells && dst->cells) {
     memcpy(dst->cells, src->cells, n);
   }
-  zr_fb_links_reset(dst);
   return zr_fb_links_clone_from(dst, src);
 }
 
@@ -614,6 +616,10 @@ static zr_result_t zr_engine_resize_framebuffers(zr_engine_t* e, uint32_t cols, 
   */
   e->term_state.flags &=
       (uint8_t) ~(ZR_TERM_STATE_STYLE_VALID | ZR_TERM_STATE_CURSOR_POS_VALID | ZR_TERM_STATE_SCREEN_VALID);
+
+  /* After resize, prev/next are newly allocated and cleared identically. */
+  e->fb_next_synced_to_prev = 1u;
+  memset(e->_pad_fb_sync0, 0, sizeof(e->_pad_fb_sync0));
 
   return ZR_OK;
 }
@@ -1500,12 +1506,37 @@ zr_result_t engine_submit_drawlist(zr_engine_t* e, const uint8_t* bytes, int byt
     return rc;
   }
 
+  /*
+    Snapshot fb_next for rollback when fb_prev does not currently match it.
+
+    Why: The submit path executes in-place into fb_next; to preserve the
+    no-partial-effects contract we need a rollback source that represents the
+    pre-submit fb_next contents (not necessarily fb_prev when debug overlays
+    or multi-submit scenarios are in play).
+  */
+  bool have_fb_next_snapshot = false;
+  if (e->fb_next_synced_to_prev == 0u) {
+    zr_result_t snap_rc = zr_engine_fb_copy_noalloc(&e->fb_next, &e->fb_stage);
+    if (snap_rc == ZR_ERR_LIMIT) {
+      snap_rc = zr_engine_fb_copy(&e->fb_next, &e->fb_stage);
+    }
+    if (snap_rc != ZR_OK) {
+      zr_dl_resources_release(&preflight_resources);
+      zr_dl_resources_release(&e->dl_resources_stage);
+      zr_engine_trace_drawlist(e, ZR_DEBUG_CODE_DRAWLIST_EXECUTE, bytes, (uint32_t)bytes_len, v.hdr.cmd_count,
+                               v.hdr.version, ZR_OK, snap_rc);
+      return snap_rc;
+    }
+    have_fb_next_snapshot = true;
+  }
+
   zr_image_frame_reset(&e->image_frame_stage);
   rc = zr_dl_preflight_resources(&v, &e->fb_next, &e->image_frame_stage, &e->cfg_runtime.limits, &e->term_profile,
                                  &preflight_resources);
   zr_dl_resources_release(&preflight_resources);
   if (rc != ZR_OK) {
-    const zr_result_t rollback_rc = zr_engine_fb_copy_noalloc(&e->fb_prev, &e->fb_next);
+    const zr_fb_t* rollback_src = have_fb_next_snapshot ? &e->fb_stage : &e->fb_prev;
+    const zr_result_t rollback_rc = zr_engine_fb_copy_noalloc(rollback_src, &e->fb_next);
     zr_image_frame_reset(&e->image_frame_stage);
     zr_dl_resources_release(&e->dl_resources_stage);
     if (rollback_rc != ZR_OK) {
@@ -1523,7 +1554,8 @@ zr_result_t engine_submit_drawlist(zr_engine_t* e, const uint8_t* bytes, int byt
   rc = zr_dl_execute(&v, &e->fb_next, &e->cfg_runtime.limits, e->cfg_runtime.tab_width, e->cfg_runtime.width_policy,
                      &blit_caps, &e->term_profile, &e->image_frame_stage, &e->dl_resources_stage, &cursor_stage);
   if (rc != ZR_OK) {
-    const zr_result_t rollback_rc = zr_engine_fb_copy_noalloc(&e->fb_prev, &e->fb_next);
+    const zr_fb_t* rollback_src = have_fb_next_snapshot ? &e->fb_stage : &e->fb_prev;
+    const zr_result_t rollback_rc = zr_engine_fb_copy_noalloc(rollback_src, &e->fb_next);
     zr_image_frame_reset(&e->image_frame_stage);
     zr_dl_resources_release(&e->dl_resources_stage);
     if (rollback_rc != ZR_OK) {
@@ -1541,6 +1573,7 @@ zr_result_t engine_submit_drawlist(zr_engine_t* e, const uint8_t* bytes, int byt
   zr_dl_resources_swap(&e->dl_resources_next, &e->dl_resources_stage);
   zr_dl_resources_release(&e->dl_resources_stage);
   e->cursor_desired = cursor_stage;
+  e->fb_next_synced_to_prev = 0u;
 
   zr_engine_trace_drawlist(e, ZR_DEBUG_CODE_DRAWLIST_EXECUTE, bytes, (uint32_t)bytes_len, v.hdr.cmd_count,
                            v.hdr.version, ZR_OK, ZR_OK);

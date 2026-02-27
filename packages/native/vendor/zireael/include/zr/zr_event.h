@@ -8,6 +8,10 @@
 #ifndef ZR_ZR_EVENT_H_INCLUDED
 #define ZR_ZR_EVENT_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "zr/zr_version.h"
 
 #include <stddef.h>
@@ -187,5 +191,9 @@ typedef struct zr_ev_user_t {
   uint32_t reserved0;
   uint32_t reserved1;
 } zr_ev_user_t;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ZR_ZR_EVENT_H_INCLUDED */

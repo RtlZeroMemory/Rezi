@@ -1,4 +1,10 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import {
+  OP_DRAW_TEXT,
+  OP_DRAW_TEXT_RUN,
+  parseBlobById,
+  parseCommandHeaders,
+} from "../../__tests__/drawlistDecode.js";
 import { createDrawlistBuilder } from "../../index.js";
 
 function u32(bytes: Uint8Array, off: number): number {
@@ -7,16 +13,25 @@ function u32(bytes: Uint8Array, off: number): number {
 }
 
 function textRunAttrs(bytes: Uint8Array, segmentIndex: number): number {
-  const blobsBytesOffset = u32(bytes, 52);
-  return u32(bytes, blobsBytesOffset + 4 + segmentIndex * 40 + 8);
+  const drawTextRun = parseCommandHeaders(bytes).find((cmd) => cmd.opcode === OP_DRAW_TEXT_RUN);
+  assert.equal(drawTextRun !== undefined, true);
+  if (!drawTextRun) return 0;
+  const blobId = u32(bytes, drawTextRun.offset + 16);
+  const blob = parseBlobById(bytes, blobId);
+  assert.equal(blob !== null, true);
+  if (!blob) return 0;
+  return u32(blob, 4 + segmentIndex * 40 + 8);
 }
 
-function firstCommandOffset(bytes: Uint8Array): number {
-  return u32(bytes, 16);
+function firstDrawTextOffset(bytes: Uint8Array): number {
+  const drawText = parseCommandHeaders(bytes).find((cmd) => cmd.opcode === OP_DRAW_TEXT);
+  assert.equal(drawText !== undefined, true);
+  if (!drawText) return 0;
+  return drawText.offset;
 }
 
 function drawTextAttrs(bytes: Uint8Array): number {
-  return u32(bytes, firstCommandOffset(bytes) + 36);
+  return u32(bytes, firstDrawTextOffset(bytes) + 36);
 }
 
 describe("drawlist style attrs encode dim", () => {

@@ -8,6 +8,10 @@
 #ifndef ZR_ZR_DRAWLIST_H_INCLUDED
 #define ZR_ZR_DRAWLIST_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 /* ABI-facing types (little-endian on-wire). */
@@ -259,5 +263,9 @@ typedef struct zr_dl_cmd_def_resource_t {
 typedef struct zr_dl_cmd_free_resource_t {
   uint32_t id;
 } zr_dl_cmd_free_resource_t;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ZR_ZR_DRAWLIST_H_INCLUDED */

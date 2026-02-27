@@ -9,6 +9,10 @@
 #ifndef ZR_ZR_TERMINAL_CAPS_H_INCLUDED
 #define ZR_ZR_TERMINAL_CAPS_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "zr/zr_platform_types.h"
 
 #include <stdint.h>
@@ -156,5 +160,9 @@ typedef struct zr_terminal_caps_t {
   zr_terminal_cap_flags_t cap_force_flags;
   zr_terminal_cap_flags_t cap_suppress_flags;
 } zr_terminal_caps_t;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ZR_ZR_TERMINAL_CAPS_H_INCLUDED */

@@ -1,21 +1,23 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import {
+  OP_DEF_BLOB,
+  OP_DEF_STRING,
+  OP_DRAW_TEXT,
+  OP_DRAW_TEXT_RUN,
+  OP_FREE_BLOB,
+  OP_FREE_STRING,
+  OP_POP_CLIP,
+  OP_PUSH_CLIP,
+  parseCommandHeaders,
+  parseInternedStrings,
+} from "../../__tests__/drawlistDecode.js";
 import { type VNode, createDrawlistBuilder } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
 import { createInstanceIdAllocator } from "../../runtime/instance.js";
 import { renderToDrawlist } from "../renderToDrawlist.js";
 
-const OP_DRAW_TEXT = 3;
-const OP_PUSH_CLIP = 4;
-const OP_POP_CLIP = 5;
-const OP_DRAW_TEXT_RUN = 6;
-
 const decoder = new TextDecoder();
-
-function u16(bytes: Uint8Array, off: number): number {
-  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  return dv.getUint16(off, true);
-}
 
 function u32(bytes: Uint8Array, off: number): number {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -26,19 +28,6 @@ function i32(bytes: Uint8Array, off: number): number {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   return dv.getInt32(off, true);
 }
-
-type Header = Readonly<{
-  cmdOffset: number;
-  cmdBytes: number;
-  stringsSpanOffset: number;
-  stringsCount: number;
-  stringsBytesOffset: number;
-  stringsBytesLen: number;
-  blobsSpanOffset: number;
-  blobsCount: number;
-  blobsBytesOffset: number;
-  blobsBytesLen: number;
-}>;
 
 type DrawTextCommand = Readonly<{
   x: number;
@@ -88,169 +77,151 @@ type ParsedFrame = Readonly<{
   textRunBlobs: readonly TextRunBlob[];
 }>;
 
-function readHeader(bytes: Uint8Array): Header {
-  return {
-    cmdOffset: u32(bytes, 16),
-    cmdBytes: u32(bytes, 20),
-    stringsSpanOffset: u32(bytes, 28),
-    stringsCount: u32(bytes, 32),
-    stringsBytesOffset: u32(bytes, 36),
-    stringsBytesLen: u32(bytes, 40),
-    blobsSpanOffset: u32(bytes, 44),
-    blobsCount: u32(bytes, 48),
-    blobsBytesOffset: u32(bytes, 52),
-    blobsBytesLen: u32(bytes, 56),
-  };
-}
-
-function parseInternedStrings(bytes: Uint8Array, header: Header): readonly string[] {
-  if (header.stringsCount === 0) return Object.freeze([]);
-
-  const tableEnd = header.stringsBytesOffset + header.stringsBytesLen;
-  assert.ok(tableEnd <= bytes.byteLength, "string table must be in-bounds");
-
-  const out: string[] = [];
-  for (let i = 0; i < header.stringsCount; i++) {
-    const span = header.stringsSpanOffset + i * 8;
-    const off = u32(bytes, span);
-    const len = u32(bytes, span + 4);
-
-    const start = header.stringsBytesOffset + off;
-    const end = start + len;
-    assert.ok(end <= tableEnd, "string span must be in-bounds");
-    out.push(decoder.decode(bytes.subarray(start, end)));
-  }
-
-  return Object.freeze(out);
-}
+type StringResources = ReadonlyMap<number, Uint8Array>;
 
 function decodeStringSlice(
-  bytes: Uint8Array,
-  header: Header,
-  stringIndex: number,
+  strings: StringResources,
+  stringId: number,
   byteOff: number,
   byteLen: number,
 ): string {
-  assert.ok(stringIndex >= 0 && stringIndex < header.stringsCount, "string index in bounds");
-
-  const span = header.stringsSpanOffset + stringIndex * 8;
-  const strOff = u32(bytes, span);
-  const strLen = u32(bytes, span + 4);
-  assert.ok(byteOff + byteLen <= strLen, "string slice must be in-bounds");
-
-  const start = header.stringsBytesOffset + strOff + byteOff;
-  const end = start + byteLen;
-  return decoder.decode(bytes.subarray(start, end));
+  const raw = strings.get(stringId);
+  if (!raw) return "";
+  const end = byteOff + byteLen;
+  if (end > raw.byteLength) return "";
+  return decoder.decode(raw.subarray(byteOff, end));
 }
 
-function parseTextRunBlobs(bytes: Uint8Array, header: Header): readonly TextRunBlob[] {
-  if (header.blobsCount === 0) return Object.freeze([]);
+function decodeTextRunBlob(blob: Uint8Array, strings: StringResources): TextRunBlob {
+  if (blob.byteLength < 4) return Object.freeze({ segments: Object.freeze([]) });
+  const segCount = u32(blob, 0);
+  const remaining = blob.byteLength - 4;
+  const stride = segCount > 0 && remaining === segCount * 40 ? 40 : 28;
+  const stringFieldOffset = stride === 40 ? 28 : 16;
+  const byteOffFieldOffset = stride === 40 ? 32 : 20;
+  const byteLenFieldOffset = stride === 40 ? 36 : 24;
 
-  const blobsEnd = header.blobsBytesOffset + header.blobsBytesLen;
-  assert.ok(blobsEnd <= bytes.byteLength, "blob table must be in-bounds");
-
-  const out: TextRunBlob[] = [];
-  for (let i = 0; i < header.blobsCount; i++) {
-    const span = header.blobsSpanOffset + i * 8;
-    const blobOff = header.blobsBytesOffset + u32(bytes, span);
-    const blobLen = u32(bytes, span + 4);
-    const blobEnd = blobOff + blobLen;
-    assert.ok(blobEnd <= blobsEnd, "blob span must be in-bounds");
-
-    const segCount = u32(bytes, blobOff);
-    const segments: TextRunSegment[] = [];
-
-    let segOff = blobOff + 4;
-    for (let seg = 0; seg < segCount; seg++) {
-      assert.ok(segOff + 28 <= blobEnd, "text run segment must be in-bounds");
-      const stringIndex = u32(bytes, segOff + 16);
-      const byteOff = u32(bytes, segOff + 20);
-      const byteLen = u32(bytes, segOff + 24);
-
-      segments.push({
-        fg: u32(bytes, segOff + 0),
-        bg: u32(bytes, segOff + 4),
-        attrs: u32(bytes, segOff + 8),
-        stringIndex,
+  const segments: TextRunSegment[] = [];
+  let segOff = 4;
+  for (let i = 0; i < segCount; i++) {
+    if (segOff + stride > blob.byteLength) break;
+    const stringId = u32(blob, segOff + stringFieldOffset);
+    const byteOff = u32(blob, segOff + byteOffFieldOffset);
+    const byteLen = u32(blob, segOff + byteLenFieldOffset);
+    segments.push(
+      Object.freeze({
+        fg: u32(blob, segOff + 0),
+        bg: u32(blob, segOff + 4),
+        attrs: u32(blob, segOff + 8),
+        stringIndex: stringId > 0 ? stringId - 1 : -1,
         byteOff,
         byteLen,
-        text: decodeStringSlice(bytes, header, stringIndex, byteOff, byteLen),
-      });
-
-      segOff += 28;
-    }
-
-    out.push({ segments: Object.freeze(segments) });
+        text: decodeStringSlice(strings, stringId, byteOff, byteLen),
+      }),
+    );
+    segOff += stride;
   }
 
-  return Object.freeze(out);
+  return Object.freeze({ segments: Object.freeze(segments) });
 }
 
 function parseFrame(bytes: Uint8Array): ParsedFrame {
-  const header = readHeader(bytes);
-  const strings = parseInternedStrings(bytes, header);
-  const textRunBlobs = parseTextRunBlobs(bytes, header);
-
+  const stringsById = new Map<number, Uint8Array>();
+  const textRunBlobsByIndex: TextRunBlob[] = [];
   const drawTexts: DrawTextCommand[] = [];
   const drawTextRuns: DrawTextRunCommand[] = [];
   const pushClips: PushClipCommand[] = [];
   let popClipCount = 0;
 
-  const cmdEnd = header.cmdOffset + header.cmdBytes;
-  let off = header.cmdOffset;
+  for (const cmd of parseCommandHeaders(bytes)) {
+    const off = cmd.offset;
+    if (cmd.opcode === OP_DEF_STRING) {
+      if (cmd.size < 16) continue;
+      const stringId = u32(bytes, off + 8);
+      const byteLen = u32(bytes, off + 12);
+      const dataStart = off + 16;
+      const dataEnd = dataStart + byteLen;
+      if (dataEnd <= off + cmd.size) {
+        stringsById.set(stringId, Uint8Array.from(bytes.subarray(dataStart, dataEnd)));
+      }
+      continue;
+    }
+    if (cmd.opcode === OP_FREE_STRING) {
+      if (cmd.size >= 12) stringsById.delete(u32(bytes, off + 8));
+      continue;
+    }
+    if (cmd.opcode === OP_DEF_BLOB) {
+      if (cmd.size < 16) continue;
+      const blobId = u32(bytes, off + 8);
+      const byteLen = u32(bytes, off + 12);
+      const dataStart = off + 16;
+      const dataEnd = dataStart + byteLen;
+      if (blobId > 0 && dataEnd <= off + cmd.size) {
+        const blob = Uint8Array.from(bytes.subarray(dataStart, dataEnd));
+        textRunBlobsByIndex[blobId - 1] = decodeTextRunBlob(blob, stringsById);
+      }
+      continue;
+    }
+    if (cmd.opcode === OP_FREE_BLOB) {
+      const blobId = u32(bytes, off + 8);
+      if (blobId > 0)
+        textRunBlobsByIndex[blobId - 1] = Object.freeze({ segments: Object.freeze([]) });
+      continue;
+    }
 
-  while (off < cmdEnd) {
-    const opcode = u16(bytes, off);
-    const size = u32(bytes, off + 4);
-    assert.ok(size >= 8, "command size must be >= 8");
-
-    if (opcode === OP_DRAW_TEXT) {
-      assert.ok(size >= 48, "DRAW_TEXT command size");
-      const stringIndex = u32(bytes, off + 16);
+    if (cmd.opcode === OP_DRAW_TEXT) {
+      assert.ok(cmd.size >= 48, "DRAW_TEXT command size");
+      const stringId = u32(bytes, off + 16);
       const byteOff = u32(bytes, off + 20);
       const byteLen = u32(bytes, off + 24);
       drawTexts.push({
         x: i32(bytes, off + 8),
         y: i32(bytes, off + 12),
-        stringIndex,
+        stringIndex: stringId > 0 ? stringId - 1 : -1,
         byteOff,
         byteLen,
-        text: decodeStringSlice(bytes, header, stringIndex, byteOff, byteLen),
+        text: decodeStringSlice(stringsById, stringId, byteOff, byteLen),
         fg: u32(bytes, off + 28),
         bg: u32(bytes, off + 32),
         attrs: u32(bytes, off + 36),
       });
-    } else if (opcode === OP_DRAW_TEXT_RUN) {
-      assert.ok(size >= 24, "DRAW_TEXT_RUN command size");
+      continue;
+    }
+
+    if (cmd.opcode === OP_DRAW_TEXT_RUN) {
+      assert.ok(cmd.size >= 24, "DRAW_TEXT_RUN command size");
+      const blobId = u32(bytes, off + 16);
       drawTextRuns.push({
         x: i32(bytes, off + 8),
         y: i32(bytes, off + 12),
-        blobIndex: u32(bytes, off + 16),
+        blobIndex: blobId > 0 ? blobId - 1 : -1,
       });
-    } else if (opcode === OP_PUSH_CLIP) {
-      assert.ok(size >= 24, "PUSH_CLIP command size");
+      continue;
+    }
+
+    if (cmd.opcode === OP_PUSH_CLIP) {
+      assert.ok(cmd.size >= 24, "PUSH_CLIP command size");
       pushClips.push({
         x: i32(bytes, off + 8),
         y: i32(bytes, off + 12),
         w: i32(bytes, off + 16),
         h: i32(bytes, off + 20),
       });
-    } else if (opcode === OP_POP_CLIP) {
-      popClipCount++;
+      continue;
     }
 
-    off += size;
+    if (cmd.opcode === OP_POP_CLIP) {
+      popClipCount++;
+    }
   }
 
-  assert.equal(off, cmdEnd, "commands must parse exactly to cmd end");
-
   return {
-    strings,
+    strings: parseInternedStrings(bytes),
     drawTexts: Object.freeze(drawTexts),
     drawTextRuns: Object.freeze(drawTextRuns),
     pushClips: Object.freeze(pushClips),
     popClipCount,
-    textRunBlobs,
+    textRunBlobs: Object.freeze(textRunBlobsByIndex),
   };
 }
 

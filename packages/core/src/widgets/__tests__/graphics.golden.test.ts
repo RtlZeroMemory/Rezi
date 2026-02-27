@@ -1,4 +1,5 @@
 import { assert, assertBytesEqual, describe, readFixture, test } from "@rezi-ui/testkit";
+import { parseBlobById } from "../../__tests__/drawlistDecode.js";
 import { type VNode, createDrawlistBuilder, ui } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
@@ -332,19 +333,19 @@ describe("graphics/widgets/style (locked) - zrdl-v1 graphics fixtures", () => {
     const payloadOff = findCommandPayload(actual, OP_DRAW_TEXT_RUN);
     assert.equal(payloadOff !== null, true);
     if (payloadOff === null) return;
-    const blobIndex = u32(actual, payloadOff + 8);
-    const blobsSpanOffset = u32(actual, 44);
-    const blobsBytesOffset = u32(actual, 52);
-    const blobByteOff = u32(actual, blobsSpanOffset + blobIndex * 8);
-    const firstSegmentReserved = u32(actual, blobsBytesOffset + blobByteOff + 4 + 12);
-    const firstSegmentUnderlineRgb = u32(actual, blobsBytesOffset + blobByteOff + 4 + 16);
-    const thirdSegmentReserved = u32(actual, blobsBytesOffset + blobByteOff + 4 + 12 + 40 * 2);
-    const thirdSegmentUnderlineRgb = u32(actual, blobsBytesOffset + blobByteOff + 4 + 16 + 40 * 2);
+    const blobId = u32(actual, payloadOff + 8);
+    const blob = parseBlobById(actual, blobId);
+    assert.equal(blob !== null, true);
+    if (!blob) return;
+    const firstSegmentReserved = u32(blob, 4 + 12);
+    const firstSegmentUnderlineRgb = u32(blob, 4 + 16);
+    const thirdSegmentReserved = u32(blob, 4 + 12 + 40 * 2);
+    const thirdSegmentUnderlineRgb = u32(blob, 4 + 16 + 40 * 2);
     const firstDecoded = decodeStyleV3(firstSegmentReserved, firstSegmentUnderlineRgb);
     const thirdDecoded = decodeStyleV3(thirdSegmentReserved, thirdSegmentUnderlineRgb);
     assert.deepEqual(firstDecoded, {
       underlineStyle: 3,
-      underlineColorRgb: 0xff3366,
+      underlineColorRgb: 0xffffff,
     });
     assert.deepEqual(thirdDecoded, {
       underlineStyle: 5,

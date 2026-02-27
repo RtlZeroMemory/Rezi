@@ -113,9 +113,9 @@ mod ffi {
     pub _pad2: [u8; 3],
   }
 
-  #[repr(C)]
-  #[derive(Copy, Clone)]
-  pub struct zr_terminal_caps_t {
+	  #[repr(C)]
+	  #[derive(Copy, Clone)]
+	  pub struct zr_terminal_caps_t {
     pub color_mode: u8,
     pub supports_mouse: u8,
     pub supports_bracketed_paste: u8,
@@ -134,23 +134,25 @@ mod ffi {
     pub cap_flags: u32,
     pub cap_force_flags: u32,
     pub cap_suppress_flags: u32,
-  }
+	  }
 
-  #[repr(C)]
-  #[derive(Copy, Clone)]
-  pub struct plat_caps_t {
-    pub color_mode: u8,
-    pub supports_mouse: u8,
-    pub supports_bracketed_paste: u8,
-    pub supports_focus_events: u8,
-    pub supports_osc52: u8,
-    pub supports_sync_update: u8,
-    pub supports_scroll_region: u8,
-    pub supports_cursor_shape: u8,
-    pub supports_output_wait_writable: u8,
-    pub _pad0: [u8; 3],
-    pub sgr_attrs_supported: u32,
-  }
+	  #[repr(C)]
+	  #[derive(Copy, Clone)]
+	  pub struct plat_caps_t {
+	    pub color_mode: u8,
+	    pub supports_mouse: u8,
+	    pub supports_bracketed_paste: u8,
+	    pub supports_focus_events: u8,
+	    pub supports_osc52: u8,
+	    pub supports_sync_update: u8,
+	    pub supports_scroll_region: u8,
+	    pub supports_cursor_shape: u8,
+	    pub supports_output_wait_writable: u8,
+	    pub supports_underline_styles: u8,
+	    pub supports_colored_underlines: u8,
+	    pub supports_hyperlinks: u8,
+	    pub sgr_attrs_supported: u32,
+	  }
 
   #[repr(C)]
   #[derive(Copy, Clone)]
@@ -159,6 +161,8 @@ mod ffi {
     pub bg_rgb: u32,
     pub attrs: u32,
     pub reserved: u32,
+    pub underline_rgb: u32,
+    pub link_ref: u32,
   }
 
   #[repr(C)]
@@ -186,6 +190,21 @@ mod ffi {
     pub cols: u32,
     pub rows: u32,
     pub cells: *mut zr_cell_t,
+    pub links: *mut zr_fb_link_t,
+    pub links_len: u32,
+    pub links_cap: u32,
+    pub link_bytes: *mut u8,
+    pub link_bytes_len: u32,
+    pub link_bytes_cap: u32,
+  }
+
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct zr_fb_link_t {
+    pub uri_off: u32,
+    pub uri_len: u32,
+    pub id_off: u32,
+    pub id_len: u32,
   }
 
   #[repr(C)]
@@ -216,7 +235,7 @@ mod ffi {
     pub cursor_visible: u8,
     pub cursor_shape: u8,
     pub cursor_blink: u8,
-    pub _pad0: u8,
+    pub flags: u8,
     pub style: zr_style_t,
   }
 
@@ -318,6 +337,23 @@ mod ffi {
     pub fn zr_fb_release(fb: *mut zr_fb_t);
     pub fn zr_fb_cell(fb: *mut zr_fb_t, x: u32, y: u32) -> *mut zr_cell_t;
     pub fn zr_fb_clear(fb: *mut zr_fb_t, style: *const zr_style_t) -> ZrResultT;
+    pub fn zr_fb_links_clone_from(dst: *mut zr_fb_t, src: *const zr_fb_t) -> ZrResultT;
+    pub fn zr_fb_link_intern(
+      fb: *mut zr_fb_t,
+      uri: *const u8,
+      uri_len: usize,
+      id: *const u8,
+      id_len: usize,
+      out_link_ref: *mut u32,
+    ) -> ZrResultT;
+    pub fn zr_fb_link_lookup(
+      fb: *const zr_fb_t,
+      link_ref: u32,
+      out_uri: *mut *const u8,
+      out_uri_len: *mut usize,
+      out_id: *mut *const u8,
+      out_id_len: *mut usize,
+    ) -> ZrResultT;
     pub fn zr_fb_painter_begin(
       p: *mut zr_fb_painter_t,
       fb: *mut zr_fb_t,
@@ -1542,6 +1578,8 @@ mod tests {
       bg_rgb: 0,
       attrs,
       reserved: 0,
+      underline_rgb: 0,
+      link_ref: 0,
     }
   }
 
@@ -1551,6 +1589,8 @@ mod tests {
       bg_rgb: 0,
       attrs: 0,
       reserved: 0,
+      underline_rgb: 0,
+      link_ref: 0,
     }
   }
 
@@ -1564,6 +1604,12 @@ mod tests {
         cols: 0,
         rows: 0,
         cells: std::ptr::null_mut(),
+        links: std::ptr::null_mut(),
+        links_len: 0,
+        links_cap: 0,
+        link_bytes: std::ptr::null_mut(),
+        link_bytes_len: 0,
+        link_bytes_cap: 0,
       };
 
       let rc = unsafe { ffi::zr_fb_init(&mut raw as *mut _, 1, 1) };
@@ -1600,6 +1646,12 @@ mod tests {
         cols: 0,
         rows: 0,
         cells: std::ptr::null_mut(),
+        links: std::ptr::null_mut(),
+        links_len: 0,
+        links_cap: 0,
+        link_bytes: std::ptr::null_mut(),
+        link_bytes_len: 0,
+        link_bytes_cap: 0,
       };
       let rc = unsafe { ffi::zr_fb_init(&mut raw as *mut _, cols, rows) };
       assert_eq!(rc, ffi::ZR_OK, "zr_fb_init must succeed for test framebuffer");
@@ -1627,6 +1679,20 @@ mod tests {
         (*cell).style = style;
       }
     }
+
+    fn set_cell_link_ref(&mut self, x: u32, y: u32, link_ref: u32) {
+      let cell = unsafe { ffi::zr_fb_cell(&mut self.raw as *mut _, x, y) };
+      assert!(!cell.is_null(), "zr_fb_cell({x},{y}) must return a valid pointer");
+      unsafe {
+        (*cell).style.link_ref = link_ref;
+      }
+    }
+
+    fn cell_link_ref(&mut self, x: u32, y: u32) -> u32 {
+      let cell = unsafe { ffi::zr_fb_cell(&mut self.raw as *mut _, x, y) };
+      assert!(!cell.is_null(), "zr_fb_cell({x},{y}) must return a valid pointer");
+      unsafe { (*cell).style.link_ref }
+    }
   }
 
   impl Drop for TestFramebuffer {
@@ -1640,19 +1706,21 @@ mod tests {
     next: &ffi::zr_fb_t,
     initial_style: ffi::zr_style_t,
   ) -> Vec<u8> {
-    let caps = ffi::plat_caps_t {
-      color_mode: 3,
-      supports_mouse: 0,
-      supports_bracketed_paste: 0,
-      supports_focus_events: 0,
-      supports_osc52: 0,
-      supports_sync_update: 0,
-      supports_scroll_region: 0,
-      supports_cursor_shape: 1,
-      supports_output_wait_writable: 0,
-      _pad0: [0, 0, 0],
-      sgr_attrs_supported: u32::MAX,
-    };
+	    let caps = ffi::plat_caps_t {
+	      color_mode: 3,
+	      supports_mouse: 0,
+	      supports_bracketed_paste: 0,
+	      supports_focus_events: 0,
+	      supports_osc52: 0,
+	      supports_sync_update: 0,
+	      supports_scroll_region: 0,
+	      supports_cursor_shape: 1,
+	      supports_output_wait_writable: 0,
+	      supports_underline_styles: 0,
+	      supports_colored_underlines: 0,
+	      supports_hyperlinks: 0,
+	      sgr_attrs_supported: u32::MAX,
+	    };
     let limits = unsafe { ffi::zr_engine_config_default() }.limits;
     let initial_term_state = ffi::zr_term_state_t {
       cursor_x: 0,
@@ -1660,7 +1728,7 @@ mod tests {
       cursor_visible: 1,
       cursor_shape: 0,
       cursor_blink: 0,
-      _pad0: 0,
+      flags: 0,
       style: initial_style,
     };
     let desired_cursor_state = ffi::zr_cursor_state_t {
@@ -1722,11 +1790,196 @@ mod tests {
   }
 
   #[test]
+  fn fb_links_clone_from_failure_has_no_partial_effects() {
+    let mut dst = TestFramebuffer::new(2, 1);
+    let uri = b"https://example.test/rezi";
+    let mut link_ref = 0u32;
+    let intern_rc = unsafe {
+      ffi::zr_fb_link_intern(
+        &mut dst.raw as *mut _,
+        uri.as_ptr(),
+        uri.len(),
+        std::ptr::null(),
+        0,
+        &mut link_ref as *mut _,
+      )
+    };
+    assert_eq!(intern_rc, ffi::ZR_OK, "zr_fb_link_intern must seed destination link state");
+    assert_eq!(link_ref, 1u32);
+
+    let before_links_ptr = dst.raw.links;
+    let before_links_len = dst.raw.links_len;
+    let before_links_cap = dst.raw.links_cap;
+    let before_link_bytes_ptr = dst.raw.link_bytes;
+    let before_link_bytes_len = dst.raw.link_bytes_len;
+    let before_link_bytes_cap = dst.raw.link_bytes_cap;
+    assert!(!before_links_ptr.is_null(), "seeded links pointer must be non-null");
+    assert!(!before_link_bytes_ptr.is_null(), "seeded link-bytes pointer must be non-null");
+
+    let before_first_link = unsafe { *before_links_ptr };
+    let before_link_bytes =
+      unsafe { std::slice::from_raw_parts(before_link_bytes_ptr, before_link_bytes_len as usize).to_vec() };
+
+    let invalid_src = ffi::zr_fb_t {
+      cols: dst.raw.cols,
+      rows: dst.raw.rows,
+      cells: dst.raw.cells,
+      links: std::ptr::null_mut(),
+      links_len: 1,
+      links_cap: 0,
+      link_bytes: std::ptr::null_mut(),
+      link_bytes_len: before_link_bytes_len,
+      link_bytes_cap: 0,
+    };
+    let clone_rc = unsafe { ffi::zr_fb_links_clone_from(&mut dst.raw as *mut _, &invalid_src as *const _) };
+    assert_eq!(clone_rc, ffi::ZR_ERR_INVALID_ARGUMENT);
+
+    assert_eq!(dst.raw.links, before_links_ptr);
+    assert_eq!(dst.raw.links_len, before_links_len);
+    assert_eq!(dst.raw.links_cap, before_links_cap);
+    assert_eq!(dst.raw.link_bytes, before_link_bytes_ptr);
+    assert_eq!(dst.raw.link_bytes_len, before_link_bytes_len);
+    assert_eq!(dst.raw.link_bytes_cap, before_link_bytes_cap);
+
+    let after_first_link = unsafe { *dst.raw.links };
+    assert_eq!(after_first_link.uri_off, before_first_link.uri_off);
+    assert_eq!(after_first_link.uri_len, before_first_link.uri_len);
+    assert_eq!(after_first_link.id_off, before_first_link.id_off);
+    assert_eq!(after_first_link.id_len, before_first_link.id_len);
+
+    let after_link_bytes =
+      unsafe { std::slice::from_raw_parts(dst.raw.link_bytes, dst.raw.link_bytes_len as usize) };
+    assert_eq!(after_link_bytes, before_link_bytes.as_slice());
+  }
+
+  #[test]
+  fn fb_link_intern_compacts_stale_refs_and_bounds_growth() {
+    const LINK_ENTRY_MAX_BYTES: u32 = 2083 + 2083;
+    let mut fb = TestFramebuffer::new(2, 1);
+    let persistent_uri = b"https://example.test/persistent";
+
+    let mut persistent_ref = 0u32;
+    let seed_rc = unsafe {
+      ffi::zr_fb_link_intern(
+        &mut fb.raw as *mut _,
+        persistent_uri.as_ptr(),
+        persistent_uri.len(),
+        std::ptr::null(),
+        0,
+        &mut persistent_ref as *mut _,
+      )
+    };
+    assert_eq!(seed_rc, ffi::ZR_OK);
+    assert_ne!(persistent_ref, 0);
+    fb.set_cell_link_ref(0, 0, persistent_ref);
+
+    let mut peak_links_len = fb.raw.links_len;
+    let mut peak_link_bytes_len = fb.raw.link_bytes_len;
+
+    for i in 0..64u32 {
+      let uri = format!("https://example.test/ephemeral/{i}");
+      let mut ref_i = 0u32;
+      let rc = unsafe {
+        ffi::zr_fb_link_intern(
+          &mut fb.raw as *mut _,
+          uri.as_ptr(),
+          uri.len(),
+          std::ptr::null(),
+          0,
+          &mut ref_i as *mut _,
+        )
+      };
+      assert_eq!(rc, ffi::ZR_OK, "zr_fb_link_intern failed at iteration {i}");
+      assert!(ref_i >= 1 && ref_i <= fb.raw.links_len);
+
+      fb.set_cell_link_ref(1, 0, ref_i);
+
+      let live_ref0 = fb.cell_link_ref(0, 0);
+      let live_ref1 = fb.cell_link_ref(1, 0);
+      assert!(live_ref0 >= 1 && live_ref0 <= fb.raw.links_len, "cell(0,0) link_ref must remain valid");
+      assert!(live_ref1 >= 1 && live_ref1 <= fb.raw.links_len, "cell(1,0) link_ref must remain valid");
+
+      peak_links_len = peak_links_len.max(fb.raw.links_len);
+      peak_link_bytes_len = peak_link_bytes_len.max(fb.raw.link_bytes_len);
+    }
+
+    assert!(
+      peak_links_len <= 5,
+      "link table must stay bounded for 2-cell framebuffer (peak={peak_links_len})",
+    );
+    assert!(
+      peak_link_bytes_len <= 5 * LINK_ENTRY_MAX_BYTES,
+      "link byte arena must stay bounded for 2-cell framebuffer (peak={peak_link_bytes_len})",
+    );
+
+    let mut uri_ptr: *const u8 = std::ptr::null();
+    let mut uri_len: usize = 0;
+    let mut id_ptr: *const u8 = std::ptr::null();
+    let mut id_len: usize = 0;
+    let persistent_cell_ref = fb.cell_link_ref(0, 0);
+    let lookup_rc = unsafe {
+      ffi::zr_fb_link_lookup(
+        &fb.raw as *const _,
+        persistent_cell_ref,
+        &mut uri_ptr as *mut _,
+        &mut uri_len as *mut _,
+        &mut id_ptr as *mut _,
+        &mut id_len as *mut _,
+      )
+    };
+    assert_eq!(lookup_rc, ffi::ZR_OK);
+    assert_eq!(id_len, 0);
+    assert!(id_ptr.is_null());
+    assert!(!uri_ptr.is_null());
+
+    let resolved_uri = unsafe { std::slice::from_raw_parts(uri_ptr, uri_len) };
+    assert_eq!(resolved_uri, persistent_uri);
+  }
+
+  #[test]
+	  fn ffi_layout_matches_vendored_headers() {
+	    use std::mem::{align_of, size_of};
+	    use std::ptr::addr_of;
+
+	    assert_eq!(size_of::<ffi::zr_style_t>(), 24);
+	    assert_eq!(align_of::<ffi::zr_style_t>(), 4);
+	    assert_eq!(size_of::<ffi::zr_cell_t>(), 60);
+	    assert_eq!(size_of::<ffi::zr_term_state_t>(), 36);
+	    assert_eq!(size_of::<ffi::plat_caps_t>(), 16);
+	    assert_eq!(align_of::<ffi::plat_caps_t>(), 4);
+
+	    let caps = std::mem::MaybeUninit::<ffi::plat_caps_t>::uninit();
+	    let base = caps.as_ptr();
+	    unsafe {
+	      assert_eq!(addr_of!((*base).color_mode) as usize - base as usize, 0);
+	      assert_eq!(addr_of!((*base).supports_output_wait_writable) as usize - base as usize, 8);
+	      assert_eq!(addr_of!((*base).supports_underline_styles) as usize - base as usize, 9);
+	      assert_eq!(addr_of!((*base).supports_colored_underlines) as usize - base as usize, 10);
+	      assert_eq!(addr_of!((*base).supports_hyperlinks) as usize - base as usize, 11);
+	      assert_eq!(addr_of!((*base).sgr_attrs_supported) as usize - base as usize, 12);
+	    }
+
+	    if cfg!(target_pointer_width = "64") {
+	      assert_eq!(size_of::<ffi::zr_fb_t>(), 48);
+	      assert_eq!(align_of::<ffi::zr_fb_t>(), 8);
+	    } else if cfg!(target_pointer_width = "32") {
+      assert_eq!(size_of::<ffi::zr_fb_t>(), 36);
+      assert_eq!(align_of::<ffi::zr_fb_t>(), 4);
+    }
+  }
+
+  #[test]
   fn clip_edge_write_over_continuation_cleans_lead_pair() {
     let mut fb = ffi::zr_fb_t {
       cols: 0,
       rows: 0,
       cells: std::ptr::null_mut(),
+      links: std::ptr::null_mut(),
+      links_len: 0,
+      links_cap: 0,
+      link_bytes: std::ptr::null_mut(),
+      link_bytes_len: 0,
+      link_bytes_cap: 0,
     };
     let init_rc = unsafe { ffi::zr_fb_init(&mut fb as *mut _, 4, 1) };
     assert_eq!(init_rc, ffi::ZR_OK);
@@ -1824,6 +2077,12 @@ mod tests {
       cols: 0,
       rows: 0,
       cells: std::ptr::null_mut(),
+      links: std::ptr::null_mut(),
+      links_len: 0,
+      links_cap: 0,
+      link_bytes: std::ptr::null_mut(),
+      link_bytes_len: 0,
+      link_bytes_cap: 0,
     };
     let init_rc = unsafe { ffi::zr_fb_init(&mut fb as *mut _, 4, 1) };
     assert_eq!(init_rc, ffi::ZR_OK);

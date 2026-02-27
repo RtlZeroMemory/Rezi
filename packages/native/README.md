@@ -18,11 +18,19 @@ Smoke test:
 npm -w @rezi-ui/native run test:native:smoke
 ```
 
+Vendoring integrity check:
+
+```bash
+npm run check:native-vendor
+```
+
 ## Design and constraints
 
 - Engine placement is controlled by `@rezi-ui/node` `executionMode` (`auto` | `worker` | `inline`).
 - `executionMode: "auto"` selects inline when `fpsCap <= 30`, worker otherwise.
 - All buffers across the boundary are caller-owned; binary formats are validated strictly.
+- Native compilation reads `packages/native/vendor/zireael` (not `vendor/zireael`).
+- `packages/native/vendor/VENDOR_COMMIT.txt` must match the `vendor/zireael` gitlink commit.
 
 See:
 

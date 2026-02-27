@@ -8,6 +8,10 @@
 #ifndef ZR_ZR_CONFIG_H_INCLUDED
 #define ZR_ZR_CONFIG_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "zr/zr_caps.h"
 #include "zr/zr_platform_types.h"
 #include "zr/zr_result.h"
@@ -91,5 +95,9 @@ zr_result_t zr_engine_config_validate(const zr_engine_config_t* cfg);
 
 /* Validate runtime config for engine_set_config. */
 zr_result_t zr_engine_runtime_config_validate(const zr_engine_runtime_config_t* cfg);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ZR_ZR_CONFIG_H_INCLUDED */

@@ -115,14 +115,14 @@ describe("DrawlistBuilder (ZRDL v1) - golden byte fixtures", () => {
 
     assertBytesEqual(res.bytes, expected, "draw_text_interned.bin");
     assertHeader(res.bytes, {
-      totalSize: 268,
+      totalSize: 292,
       cmdOffset: 64,
-      cmdBytes: 180,
-      cmdCount: 3,
-      stringsSpanOffset: 244,
-      stringsCount: 1,
-      stringsBytesOffset: 252,
-      stringsBytesLen: 16,
+      cmdBytes: 228,
+      cmdCount: 5,
+      stringsSpanOffset: 0,
+      stringsCount: 0,
+      stringsBytesOffset: 0,
+      stringsBytesLen: 0,
       blobsSpanOffset: 0,
       blobsCount: 0,
       blobsBytesOffset: 0,

@@ -279,6 +279,7 @@ export function renderSettingsScreen(
     deps,
     body: ui.column({ gap: SPACE.sm, width: "100%" }, [
       SettingsDeck({
+        key: "settings-deck",
         state: context.state,
         dispatch: deps.dispatch,
       }),

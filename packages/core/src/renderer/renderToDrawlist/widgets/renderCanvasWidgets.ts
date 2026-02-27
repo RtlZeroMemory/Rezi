@@ -222,15 +222,8 @@ export function drawPlaceholderBox(
   builder.popClip();
 }
 
-function align4(value: number): number {
-  return (value + 3) & ~3;
-}
-
 export function addBlobAligned(builder: DrawlistBuilder, bytes: Uint8Array): number | null {
-  if ((bytes.byteLength & 3) === 0) return builder.addBlob(bytes);
-  const padded = new Uint8Array(align4(bytes.byteLength));
-  padded.set(bytes);
-  return builder.addBlob(padded);
+  return builder.addBlob(bytes);
 }
 
 export function rgbToHex(color: ReturnType<typeof resolveColor>): string {

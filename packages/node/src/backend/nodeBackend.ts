@@ -21,6 +21,7 @@ import type {
   TerminalProfile,
 } from "@rezi-ui/core";
 import {
+  BACKEND_BEGIN_FRAME_MARKER,
   BACKEND_DRAWLIST_VERSION_MARKER,
   BACKEND_FPS_CAP_MARKER,
   BACKEND_MAX_EVENT_BYTES_MARKER,
@@ -38,6 +39,12 @@ import {
   setTextMeasureEmojiPolicy,
   severityToNum,
 } from "@rezi-ui/core";
+import type { BackendBeginFrame } from "@rezi-ui/core/backend";
+import {
+  createFrameAuditLogger,
+  drawlistFingerprint,
+  maybeDumpDrawlistBytes,
+} from "../frameAudit.js";
 import {
   type EngineCreateConfig,
   FRAME_SAB_CONTROL_CONSUMED_SEQ_WORD,
@@ -153,6 +160,23 @@ type SabFrameTransport = Readonly<{
   dataBytes: Uint8Array;
   nextSlot: { value: number };
 }>;
+
+type FrameAuditEntry = {
+  frameSeq: number;
+  submitAtMs: number;
+  submitPath: "requestFrame" | "beginFrame";
+  transport: typeof FRAME_TRANSPORT_TRANSFER_V1 | typeof FRAME_TRANSPORT_SAB_V1;
+  byteLen: number;
+  hash32: string;
+  prefixHash32: string;
+  cmdCount: number | null;
+  totalSize: number | null;
+  head16: string;
+  tail16: string;
+  slotIndex?: number;
+  slotToken?: number;
+  acceptedLogged?: boolean;
+};
 
 const WIDTH_POLICY_KEY = "widthPolicy" as const;
 
@@ -379,6 +403,24 @@ function acquireSabSlot(t: SabFrameTransport): number {
   return -1;
 }
 
+function acquireSabFreeSlot(t: SabFrameTransport): number {
+  const start = t.nextSlot.value % t.slotCount;
+  for (let i = 0; i < t.slotCount; i++) {
+    const slot = (start + i) % t.slotCount;
+    const prev = Atomics.compareExchange(
+      t.states,
+      slot,
+      FRAME_SAB_SLOT_STATE_FREE,
+      FRAME_SAB_SLOT_STATE_WRITING,
+    );
+    if (prev === FRAME_SAB_SLOT_STATE_FREE) {
+      t.nextSlot.value = (slot + 1) % t.slotCount;
+      return slot;
+    }
+  }
+  return -1;
+}
+
 function publishSabFrame(
   t: SabFrameTransport,
   frameSeq: number,
@@ -393,6 +435,7 @@ function publishSabFrame(
 }
 
 export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): NodeBackend {
+  const frameAudit = createFrameAuditLogger("backend");
   const cfg = opts.config ?? {};
   const fpsCap = parseBoundedPositiveIntOrThrow(
     "fpsCap",
@@ -481,6 +524,7 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
   let nextFrameSeq = 1;
   const frameAcceptedWaiters = new Map<number, Deferred<void>>();
   const frameCompletionWaiters = new Map<number, Deferred<void>>();
+  const frameAuditBySeq = new Map<number, FrameAuditEntry>();
 
   const eventQueue: Array<
     Readonly<{ batch: ArrayBuffer; byteLen: number; droppedSinceLast: number }>
@@ -541,10 +585,89 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       waiter.reject(err);
     }
     frameCompletionWaiters.clear();
+    if (frameAudit.enabled) {
+      for (const [seq, meta] of frameAuditBySeq.entries()) {
+        frameAudit.emit("frame.aborted", {
+          reason: err.message,
+          ageMs: Math.max(0, Date.now() - meta.submitAtMs),
+          ...meta,
+        });
+      }
+      frameAuditBySeq.clear();
+    }
+  }
+
+  function registerFrameAudit(
+    frameSeq: number,
+    submitPath: "requestFrame" | "beginFrame",
+    transport: typeof FRAME_TRANSPORT_TRANSFER_V1 | typeof FRAME_TRANSPORT_SAB_V1,
+    bytes: Uint8Array,
+    slotIndex?: number,
+    slotToken?: number,
+  ): void {
+    if (!frameAudit.enabled) return;
+    const fp = drawlistFingerprint(bytes);
+    const meta: FrameAuditEntry = {
+      frameSeq,
+      submitAtMs: Date.now(),
+      submitPath,
+      transport,
+      byteLen: fp.byteLen,
+      hash32: fp.hash32,
+      prefixHash32: fp.prefixHash32,
+      cmdCount: fp.cmdCount,
+      totalSize: fp.totalSize,
+      head16: fp.head16,
+      tail16: fp.tail16,
+      ...(slotIndex === undefined ? {} : { slotIndex }),
+      ...(slotToken === undefined ? {} : { slotToken }),
+    };
+    frameAuditBySeq.set(frameSeq, meta);
+    maybeDumpDrawlistBytes("backend", submitPath, frameSeq, bytes);
+    frameAudit.emit("frame.submitted", meta);
+  }
+
+  function markAcceptedFramesUpTo(acceptedSeq: number): void {
+    if (!frameAudit.enabled) return;
+    for (const [seq, meta] of frameAuditBySeq.entries()) {
+      if (seq > acceptedSeq) continue;
+      if (meta.acceptedLogged === true) continue;
+      frameAudit.emit("frame.accepted", {
+        acceptedSeq,
+        ageMs: Math.max(0, Date.now() - meta.submitAtMs),
+        ...meta,
+      });
+      meta.acceptedLogged = true;
+    }
+  }
+
+  function markCoalescedFramesBefore(acceptedSeq: number): void {
+    if (!frameAudit.enabled) return;
+    for (const [seq, meta] of frameAuditBySeq.entries()) {
+      if (seq >= acceptedSeq) continue;
+      frameAudit.emit("frame.coalesced", {
+        acceptedSeq,
+        ageMs: Math.max(0, Date.now() - meta.submitAtMs),
+        ...meta,
+      });
+      frameAuditBySeq.delete(seq);
+    }
+  }
+
+  function markCompletedFrame(frameSeq: number, completedResult: number): void {
+    if (!frameAudit.enabled) return;
+    const meta = frameAuditBySeq.get(frameSeq);
+    frameAudit.emit("frame.completed", {
+      completedResult,
+      ageMs: meta ? Math.max(0, Date.now() - meta.submitAtMs) : null,
+      ...(meta ?? {}),
+    });
+    frameAuditBySeq.delete(frameSeq);
   }
 
   function resolveAcceptedFramesUpTo(acceptedSeq: number): void {
     if (!Number.isInteger(acceptedSeq) || acceptedSeq <= 0) return;
+    markAcceptedFramesUpTo(acceptedSeq);
     for (const [seq, waiter] of frameAcceptedWaiters.entries()) {
       if (seq > acceptedSeq) continue;
       frameAcceptedWaiters.delete(seq);
@@ -554,6 +677,7 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
 
   function resolveCoalescedCompletionFramesUpTo(acceptedSeq: number): void {
     if (!Number.isInteger(acceptedSeq) || acceptedSeq <= 0) return;
+    markCoalescedFramesBefore(acceptedSeq);
     for (const [seq, waiter] of frameCompletionWaiters.entries()) {
       if (seq >= acceptedSeq) continue;
       frameCompletionWaiters.delete(seq);
@@ -562,6 +686,7 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
   }
 
   function settleCompletedFrame(frameSeq: number, completedResult: number): void {
+    markCompletedFrame(frameSeq, completedResult);
     const waiter = frameCompletionWaiters.get(frameSeq);
     if (waiter === undefined) return;
     frameCompletionWaiters.delete(frameSeq);
@@ -575,6 +700,30 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       return;
     }
     waiter.resolve(undefined);
+  }
+
+  function reserveFramePromise(
+    frameSeq: number,
+  ): Promise<void> & Partial<Record<typeof FRAME_ACCEPTED_ACK_MARKER, Promise<void>>> {
+    const frameAcceptedDef = deferred<void>();
+    frameAcceptedWaiters.set(frameSeq, frameAcceptedDef);
+    const frameCompletionDef = deferred<void>();
+    frameCompletionWaiters.set(frameSeq, frameCompletionDef);
+    const framePromise = frameCompletionDef.promise as Promise<void> &
+      Partial<Record<typeof FRAME_ACCEPTED_ACK_MARKER, Promise<void>>>;
+    Object.defineProperty(framePromise, FRAME_ACCEPTED_ACK_MARKER, {
+      value: frameAcceptedDef.promise,
+      configurable: false,
+      enumerable: false,
+      writable: false,
+    });
+    return framePromise;
+  }
+
+  function releaseFrameReservation(frameSeq: number): void {
+    frameAcceptedWaiters.delete(frameSeq);
+    frameCompletionWaiters.delete(frameSeq);
+    if (frameAudit.enabled) frameAuditBySeq.delete(frameSeq);
   }
 
   function failAll(err: Error): void {
@@ -635,6 +784,13 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       }
 
       case "frameStatus": {
+        if (frameAudit.enabled) {
+          frameAudit.emit("worker.frameStatus", {
+            acceptedSeq: msg.acceptedSeq,
+            completedSeq: msg.completedSeq ?? null,
+            completedResult: msg.completedResult ?? null,
+          });
+        }
         if (!Number.isInteger(msg.acceptedSeq) || msg.acceptedSeq <= 0) {
           fatal = new ZrUiError(
             "ZRUI_BACKEND_ERROR",
@@ -969,6 +1125,13 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
             ? undefined
             : { nativeShimModule: opts.nativeShimModule };
         worker = new Worker(entry, { workerData });
+        if (frameAudit.enabled) {
+          frameAudit.emit("worker.spawn", {
+            frameTransport: frameTransportWire.kind,
+            frameSabSlotCount: frameSabSlotCount,
+            frameSabSlotBytes: frameSabSlotBytes,
+          });
+        }
         exitDef = deferred<void>();
         worker.on("message", handleWorkerMessage);
         worker.on("error", (err) => {
@@ -1041,32 +1204,44 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       if (worker === null) return Promise.reject(new Error("NodeBackend: worker not available"));
 
       const frameSeq = nextFrameSeq++;
-      const frameAcceptedDef = deferred<void>();
-      frameAcceptedWaiters.set(frameSeq, frameAcceptedDef);
-      const frameCompletionDef = deferred<void>();
-      frameCompletionWaiters.set(frameSeq, frameCompletionDef);
-      const framePromise = frameCompletionDef.promise as Promise<void> &
-        Partial<Record<typeof FRAME_ACCEPTED_ACK_MARKER, Promise<void>>>;
-      Object.defineProperty(framePromise, FRAME_ACCEPTED_ACK_MARKER, {
-        value: frameAcceptedDef.promise,
-        configurable: false,
-        enumerable: false,
-        writable: false,
-      });
+      const framePromise = reserveFramePromise(frameSeq);
 
       if (sabFrameTransport !== null && drawlist.byteLength <= sabFrameTransport.slotBytes) {
         const slotIndex = acquireSabSlot(sabFrameTransport);
         if (slotIndex >= 0) {
           const slotToken = frameSeqToSlotToken(frameSeq);
+          registerFrameAudit(
+            frameSeq,
+            "requestFrame",
+            FRAME_TRANSPORT_SAB_V1,
+            drawlist,
+            slotIndex,
+            slotToken,
+          );
           const slotOffset = slotIndex * sabFrameTransport.slotBytes;
           sabFrameTransport.dataBytes.set(drawlist, slotOffset);
           Atomics.store(sabFrameTransport.tokens, slotIndex, slotToken);
           Atomics.store(sabFrameTransport.states, slotIndex, FRAME_SAB_SLOT_STATE_READY);
           publishSabFrame(sabFrameTransport, frameSeq, slotIndex, slotToken, drawlist.byteLength);
+          if (frameAudit.enabled) {
+            frameAudit.emit("frame.sab.publish", {
+              frameSeq,
+              slotIndex,
+              slotToken,
+              byteLen: drawlist.byteLength,
+            });
+          }
           // SAB consumers wake on futex notify instead of per-frame
           // MessagePort frameKick round-trips.
           Atomics.notify(sabFrameTransport.controlHeader, FRAME_SAB_CONTROL_PUBLISHED_SEQ_WORD, 1);
           return framePromise;
+        }
+        if (frameAudit.enabled) {
+          frameAudit.emit("frame.sab.fallback_transfer", {
+            frameSeq,
+            byteLen: drawlist.byteLength,
+            reason: "no-slot-available",
+          });
         }
       }
 
@@ -1075,6 +1250,7 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       // - completion promise settles on worker completion/coalescing status
       const buf = new ArrayBuffer(drawlist.byteLength);
       copyInto(buf, drawlist);
+      registerFrameAudit(frameSeq, "requestFrame", FRAME_TRANSPORT_TRANSFER_V1, drawlist);
       try {
         send(
           {
@@ -1087,9 +1263,20 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
           [buf],
         );
       } catch (err) {
-        frameAcceptedWaiters.delete(frameSeq);
-        frameCompletionWaiters.delete(frameSeq);
+        releaseFrameReservation(frameSeq);
+        if (frameAudit.enabled) {
+          frameAudit.emit("frame.transfer.publish_error", {
+            frameSeq,
+            detail: safeErr(err).message,
+          });
+        }
         return Promise.reject(safeErr(err));
+      }
+      if (frameAudit.enabled) {
+        frameAudit.emit("frame.transfer.publish", {
+          frameSeq,
+          byteLen: drawlist.byteLength,
+        });
       }
       return framePromise;
     },
@@ -1344,13 +1531,116 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       }),
   };
 
+  const beginFrame: BackendBeginFrame | null =
+    sabFrameTransport === null
+      ? null
+      : (minCapacity?: number) => {
+          if (disposed) return null;
+          if (fatal !== null) return null;
+          if (stopRequested || !started || worker === null) return null;
+
+          const required =
+            typeof minCapacity === "number" && Number.isInteger(minCapacity) && minCapacity > 0
+              ? minCapacity
+              : 0;
+          if (required > sabFrameTransport.slotBytes) return null;
+
+          const slotIndex = acquireSabFreeSlot(sabFrameTransport);
+          if (slotIndex < 0) return null;
+          const slotOffset = slotIndex * sabFrameTransport.slotBytes;
+          const buf = sabFrameTransport.dataBytes.subarray(
+            slotOffset,
+            slotOffset + sabFrameTransport.slotBytes,
+          );
+          let finalized = false;
+
+          return {
+            buf,
+            commit: (byteLen: number) => {
+              if (finalized) {
+                return Promise.reject(
+                  new Error("NodeBackend: beginFrame writer already finalized"),
+                );
+              }
+              finalized = true;
+              if (disposed) {
+                Atomics.store(sabFrameTransport.tokens, slotIndex, 0);
+                Atomics.store(sabFrameTransport.states, slotIndex, FRAME_SAB_SLOT_STATE_FREE);
+                return Promise.reject(new Error("NodeBackend: disposed"));
+              }
+              if (fatal !== null) {
+                Atomics.store(sabFrameTransport.tokens, slotIndex, 0);
+                Atomics.store(sabFrameTransport.states, slotIndex, FRAME_SAB_SLOT_STATE_FREE);
+                return Promise.reject(fatal);
+              }
+              if (stopRequested || !started || worker === null) {
+                Atomics.store(sabFrameTransport.tokens, slotIndex, 0);
+                Atomics.store(sabFrameTransport.states, slotIndex, FRAME_SAB_SLOT_STATE_FREE);
+                return Promise.reject(new Error("NodeBackend: stopped"));
+              }
+              if (
+                !Number.isInteger(byteLen) ||
+                byteLen < 0 ||
+                byteLen > sabFrameTransport.slotBytes
+              ) {
+                Atomics.store(sabFrameTransport.tokens, slotIndex, 0);
+                Atomics.store(sabFrameTransport.states, slotIndex, FRAME_SAB_SLOT_STATE_FREE);
+                return Promise.reject(
+                  new Error("NodeBackend: beginFrame commit byteLen out of range"),
+                );
+              }
+
+              const frameSeq = nextFrameSeq++;
+              const framePromise = reserveFramePromise(frameSeq);
+              const slotToken = frameSeqToSlotToken(frameSeq);
+              registerFrameAudit(
+                frameSeq,
+                "beginFrame",
+                FRAME_TRANSPORT_SAB_V1,
+                buf.subarray(0, byteLen),
+                slotIndex,
+                slotToken,
+              );
+              Atomics.store(sabFrameTransport.tokens, slotIndex, slotToken);
+              Atomics.store(sabFrameTransport.states, slotIndex, FRAME_SAB_SLOT_STATE_READY);
+              publishSabFrame(sabFrameTransport, frameSeq, slotIndex, slotToken, byteLen);
+              if (frameAudit.enabled) {
+                frameAudit.emit("frame.beginFrame.publish", {
+                  frameSeq,
+                  slotIndex,
+                  slotToken,
+                  byteLen,
+                });
+              }
+              Atomics.notify(
+                sabFrameTransport.controlHeader,
+                FRAME_SAB_CONTROL_PUBLISHED_SEQ_WORD,
+                1,
+              );
+              return framePromise;
+            },
+            abort: () => {
+              if (finalized) return;
+              finalized = true;
+              if (frameAudit.enabled) {
+                frameAudit.emit("frame.beginFrame.abort", {
+                  slotIndex,
+                });
+              }
+              Atomics.store(sabFrameTransport.tokens, slotIndex, 0);
+              Atomics.store(sabFrameTransport.states, slotIndex, FRAME_SAB_SLOT_STATE_FREE);
+            },
+          };
+        };
+
   const out = Object.assign(backend, { debug, perf }) as NodeBackend &
     Record<
+      | typeof BACKEND_BEGIN_FRAME_MARKER
       | typeof BACKEND_DRAWLIST_VERSION_MARKER
       | typeof BACKEND_MAX_EVENT_BYTES_MARKER
       | typeof BACKEND_FPS_CAP_MARKER
       | typeof BACKEND_RAW_WRITE_MARKER,
-      boolean | number | BackendRawWrite
+      boolean | number | BackendRawWrite | BackendBeginFrame
     >;
   Object.defineProperties(out, {
     [BACKEND_DRAWLIST_VERSION_MARKER]: {
@@ -1385,5 +1675,13 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       configurable: false,
     },
   });
+  if (beginFrame !== null) {
+    Object.defineProperty(out, BACKEND_BEGIN_FRAME_MARKER, {
+      value: beginFrame,
+      writable: false,
+      enumerable: false,
+      configurable: false,
+    });
+  }
   return out;
 }

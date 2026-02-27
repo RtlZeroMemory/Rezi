@@ -37,6 +37,7 @@ enum {
   ZR_FB_UTF8_C1_MAX_EXCL = 0xA0u,
   ZR_FB_LINKS_INITIAL_CAP = 8u,
   ZR_FB_LINK_BYTES_INITIAL_CAP = 256u,
+  ZR_FB_LINK_ENTRY_MAX_BYTES = ZR_FB_LINK_URI_MAX_BYTES + ZR_FB_LINK_ID_MAX_BYTES,
 };
 
 static bool zr_fb_utf8_grapheme_bytes_safe_for_terminal(const uint8_t* bytes, size_t len) {
@@ -183,12 +184,13 @@ zr_result_t zr_fb_links_clone_from(zr_fb_t* dst, const zr_fb_t* src) {
   if (!dst || !src) {
     return ZR_ERR_INVALID_ARGUMENT;
   }
-  zr_fb_links_reset(dst);
-
   if (src->links_len == 0u) {
+    zr_fb_links_reset(dst);
     return ZR_OK;
   }
-
+  if (!src->links || (src->link_bytes_len != 0u && !src->link_bytes)) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
   zr_result_t rc = zr_fb_links_ensure_cap(dst, src->links_len);
   if (rc != ZR_OK) {
     return rc;
@@ -473,6 +475,155 @@ const zr_cell_t* zr_fb_cell_const(const zr_fb_t* fb, uint32_t x, uint32_t y) {
   return &fb->cells[idx];
 }
 
+static uint32_t zr_fb_links_slots_limit(const zr_fb_t* fb) {
+  if (!fb) {
+    return 1u;
+  }
+
+  uint32_t cell_count = 0u;
+  if (!zr_checked_mul_u32(fb->cols, fb->rows, &cell_count)) {
+    return UINT32_MAX;
+  }
+
+  /*
+   * Allow a bounded transient window while callers replace existing links:
+   * max slots = (live cells * 2) + 1.
+   */
+  if (cell_count > ((UINT32_MAX - 1u) / 2u)) {
+    return UINT32_MAX;
+  }
+  cell_count = (cell_count * 2u) + 1u;
+  return (cell_count == 0u) ? 1u : cell_count;
+}
+
+static uint32_t zr_fb_link_bytes_limit(uint32_t slots_limit) {
+  uint32_t bytes_limit = 0u;
+  if (!zr_checked_mul_u32(slots_limit, (uint32_t)ZR_FB_LINK_ENTRY_MAX_BYTES, &bytes_limit)) {
+    return UINT32_MAX;
+  }
+  return bytes_limit;
+}
+
+/*
+ * Reclaim stale link entries by keeping only refs currently referenced by cells.
+ *
+ * Why: draw workloads can churn many temporary link targets while mutating a
+ * fixed-size framebuffer. Compacting live refs prevents unbounded table growth.
+ */
+static zr_result_t zr_fb_links_compact_live(zr_fb_t* fb) {
+  if (!fb) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+  if (fb->links_len == 0u) {
+    fb->link_bytes_len = 0u;
+    return ZR_OK;
+  }
+  if (!fb->links || (fb->link_bytes_len != 0u && !fb->link_bytes)) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+  if (!zr_fb_has_backing(fb)) {
+    zr_fb_links_reset(fb);
+    return ZR_OK;
+  }
+
+  size_t cell_count = 0u;
+  if (!zr_checked_mul_size((size_t)fb->cols, (size_t)fb->rows, &cell_count)) {
+    return ZR_ERR_LIMIT;
+  }
+  if (cell_count == 0u) {
+    zr_fb_links_reset(fb);
+    return ZR_OK;
+  }
+
+  size_t remap_count = 0u;
+  if (!zr_checked_add_size((size_t)fb->links_len, 1u, &remap_count)) {
+    return ZR_ERR_LIMIT;
+  }
+  size_t remap_bytes = 0u;
+  if (!zr_checked_mul_size(remap_count, sizeof(uint32_t), &remap_bytes)) {
+    return ZR_ERR_LIMIT;
+  }
+  uint32_t* remap = (uint32_t*)malloc(remap_bytes);
+  if (!remap) {
+    return ZR_ERR_OOM;
+  }
+  memset(remap, 0, remap_bytes);
+
+  /* Mark live refs and sanitize any out-of-range link refs in cells. */
+  for (size_t i = 0u; i < cell_count; i++) {
+    const uint32_t ref = fb->cells[i].style.link_ref;
+    if (ref == 0u) {
+      continue;
+    }
+    if (ref <= fb->links_len) {
+      remap[(size_t)ref] = UINT32_MAX;
+      continue;
+    }
+    fb->cells[i].style.link_ref = 0u;
+  }
+
+  const uint32_t old_links_len = fb->links_len;
+  uint32_t new_links_len = 0u;
+  uint32_t new_link_bytes_len = 0u;
+
+  for (uint32_t i = 0u; i < old_links_len; i++) {
+    const uint32_t old_ref = i + 1u;
+    if (remap[(size_t)old_ref] != UINT32_MAX) {
+      continue;
+    }
+
+    const zr_fb_link_t src = fb->links[i];
+    uint32_t span_len = 0u;
+    if (!zr_checked_add_u32(src.uri_len, src.id_len, &span_len)) {
+      free(remap);
+      return ZR_ERR_FORMAT;
+    }
+    if ((size_t)src.uri_off + (size_t)src.uri_len > (size_t)fb->link_bytes_len ||
+        (size_t)src.id_off + (size_t)src.id_len > (size_t)fb->link_bytes_len) {
+      free(remap);
+      return ZR_ERR_FORMAT;
+    }
+    if (src.id_off != src.uri_off + src.uri_len) {
+      free(remap);
+      return ZR_ERR_FORMAT;
+    }
+    if (span_len != 0u && src.uri_off != new_link_bytes_len) {
+      memmove(fb->link_bytes + new_link_bytes_len, fb->link_bytes + src.uri_off, (size_t)span_len);
+    }
+
+    zr_fb_link_t dst;
+    dst.uri_off = new_link_bytes_len;
+    dst.uri_len = src.uri_len;
+    dst.id_off = new_link_bytes_len + src.uri_len;
+    dst.id_len = src.id_len;
+
+    fb->links[new_links_len] = dst;
+    remap[(size_t)old_ref] = new_links_len + 1u;
+    new_links_len++;
+    if (!zr_checked_add_u32(new_link_bytes_len, span_len, &new_link_bytes_len)) {
+      free(remap);
+      return ZR_ERR_LIMIT;
+    }
+  }
+
+  for (size_t i = 0u; i < cell_count; i++) {
+    const uint32_t ref = fb->cells[i].style.link_ref;
+    if (ref == 0u) {
+      continue;
+    }
+    if (ref > old_links_len) {
+      fb->cells[i].style.link_ref = 0u;
+      continue;
+    }
+    fb->cells[i].style.link_ref = remap[(size_t)ref];
+  }
+
+  fb->links_len = new_links_len;
+  fb->link_bytes_len = new_link_bytes_len;
+  free(remap);
+  return ZR_OK;
+}
+
 /*
  * Intern a framebuffer-owned hyperlink target and return a 1-based reference.
  *
@@ -512,6 +663,28 @@ zr_result_t zr_fb_link_intern(zr_fb_t* fb, const uint8_t* uri, size_t uri_len, c
   }
   if (!zr_checked_add_u32(fb->link_bytes_len, (uint32_t)uri_len, &need_bytes) ||
       !zr_checked_add_u32(need_bytes, (uint32_t)id_len, &need_bytes)) {
+    return ZR_ERR_LIMIT;
+  }
+
+  const uint32_t slots_limit = zr_fb_links_slots_limit(fb);
+  const uint32_t bytes_limit = zr_fb_link_bytes_limit(slots_limit);
+  const bool would_grow = need_links > fb->links_cap || need_bytes > fb->link_bytes_cap;
+  if (would_grow || need_links > slots_limit || need_bytes > bytes_limit) {
+    zr_result_t compact_rc = zr_fb_links_compact_live(fb);
+    if (compact_rc != ZR_OK) {
+      return compact_rc;
+    }
+
+    if (!zr_checked_add_u32(fb->links_len, 1u, &need_links)) {
+      return ZR_ERR_LIMIT;
+    }
+    if (!zr_checked_add_u32(fb->link_bytes_len, (uint32_t)uri_len, &need_bytes) ||
+        !zr_checked_add_u32(need_bytes, (uint32_t)id_len, &need_bytes)) {
+      return ZR_ERR_LIMIT;
+    }
+  }
+
+  if (need_links > slots_limit || need_bytes > bytes_limit) {
     return ZR_ERR_LIMIT;
   }
 
@@ -1240,6 +1413,19 @@ zr_result_t zr_fb_blit_rect(zr_fb_painter_t* p, zr_rect_t dst, zr_rect_t src) {
 
       /* Continuations are written by their lead cell. */
       if (zr_cell_is_continuation(c)) {
+        continue;
+      }
+
+      /*
+       * Prevent wide-glyph leads from writing outside the effective rectangle.
+       *
+       * Why: BLIT_RECT is specified as a rectangle copy. Wide glyphs must be
+       * kept invariant-safe, so when a wide lead does not fully fit inside the
+       * src/dst effective span, replace deterministically rather than touching
+       * a neighbor cell outside the rectangle.
+       */
+      if (c->width == 2u && (ox + 1) >= w) {
+        (void)zr_fb_put_grapheme(p, dx, dy, ZR_UTF8_REPLACEMENT, ZR_UTF8_REPLACEMENT_LEN, 1u, &c->style);
         continue;
       }
 

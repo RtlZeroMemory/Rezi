@@ -311,6 +311,90 @@ static bool zr_row_eq_exact(const zr_fb_t* a, uint32_t ay, const zr_fb_t* b, uin
   return memcmp(pa, pb, row_bytes) == 0;
 }
 
+static bool zr_fb_links_eq_exact(const zr_fb_t* a, const zr_fb_t* b) {
+  if (!a || !b) {
+    return false;
+  }
+  if (a->links_len != b->links_len || a->link_bytes_len != b->link_bytes_len) {
+    return false;
+  }
+  if (a->links_len == 0u && a->link_bytes_len == 0u) {
+    return true;
+  }
+  const bool links_ptr_bad = (a->links_len != 0u && (!a->links || !b->links));
+  const bool bytes_ptr_bad = (a->link_bytes_len != 0u && (!a->link_bytes || !b->link_bytes));
+  if (links_ptr_bad || bytes_ptr_bad) {
+    return false;
+  }
+
+  if (a->links_len != 0u) {
+    size_t links_bytes = 0u;
+    if (!zr_checked_mul_size((size_t)a->links_len, sizeof(zr_fb_link_t), &links_bytes)) {
+      return false;
+    }
+    if (memcmp(a->links, b->links, links_bytes) != 0) {
+      return false;
+    }
+  }
+  if (a->link_bytes_len != 0u) {
+    if (memcmp(a->link_bytes, b->link_bytes, (size_t)a->link_bytes_len) != 0) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/*
+  Compare hyperlink targets for corresponding cells across framebuffer domains.
+
+  Why: row hashing and exact byte compares do not include hyperlink payloads
+  (URI/ID). Two rows can be byte-identical while mapping the same link_ref
+  indices to different targets, so row-cache decisions must validate targets.
+*/
+static bool zr_row_links_targets_eq(const zr_fb_t* a, uint32_t ay, const zr_fb_t* b, uint32_t by) {
+  if (!a || !b || a->cols != b->cols) {
+    return false;
+  }
+  if (ay >= a->rows || by >= b->rows) {
+    return false;
+  }
+  if (a->cols == 0u) {
+    return true;
+  }
+  if (a->links_len == 0u && b->links_len == 0u) {
+    return true;
+  }
+
+  const zr_cell_t* arow = (const zr_cell_t*)zr_fb_row_ptr(a, ay);
+  const zr_cell_t* brow = (const zr_cell_t*)zr_fb_row_ptr(b, by);
+  if (!arow || !brow) {
+    return false;
+  }
+
+  uint32_t last_a_ref = 0u;
+  uint32_t last_b_ref = 0u;
+  for (uint32_t x = 0u; x < a->cols; x++) {
+    const uint32_t a_ref = arow[x].style.link_ref;
+    const uint32_t b_ref = brow[x].style.link_ref;
+    if (a_ref == 0u && b_ref == 0u) {
+      last_a_ref = 0u;
+      last_b_ref = 0u;
+      continue;
+    }
+    if (a_ref == last_a_ref && b_ref == last_b_ref) {
+      continue;
+    }
+    if (!zr_link_targets_eq(a, a_ref, b, b_ref)) {
+      return false;
+    }
+    last_a_ref = a_ref;
+    last_b_ref = b_ref;
+  }
+
+  return true;
+}
+
 static uint64_t zr_hash_bytes_fnv1a64(const uint8_t* bytes, size_t n) {
   if (!bytes && n != 0u) {
     return 0u;
@@ -1123,6 +1207,7 @@ static void zr_diff_prepare_row_cache(zr_diff_ctx_t* ctx, zr_diff_scratch_t* scr
   ctx->has_row_cache = true;
 
   const bool reuse_prev_hashes = (scratch->prev_hashes_valid != 0u);
+  const bool links_exact_equal = zr_fb_links_eq_exact(ctx->prev, ctx->next);
 
   for (uint32_t y = 0u; y < ctx->next->rows; y++) {
     uint64_t prev_hash = 0u;
@@ -1142,6 +1227,8 @@ static void zr_diff_prepare_row_cache(zr_diff_ctx_t* ctx, zr_diff_scratch_t* scr
       /* Collision guard: equal hash must still pass exact row-byte compare. */
       dirty = 1u;
       ctx->stats.collision_guard_hits++;
+    } else if (!links_exact_equal && !zr_row_links_targets_eq(ctx->prev, y, ctx->next, y)) {
+      dirty = 1u;
     }
 
     ctx->dirty_rows[y] = dirty;
@@ -1153,7 +1240,10 @@ static void zr_diff_prepare_row_cache(zr_diff_ctx_t* ctx, zr_diff_scratch_t* scr
 
 /* Compare full framebuffer rows for scroll-shift detection (full width). */
 static bool zr_row_eq(const zr_fb_t* a, uint32_t ay, const zr_fb_t* b, uint32_t by) {
-  return zr_row_eq_exact(a, ay, b, by);
+  if (!zr_row_eq_exact(a, ay, b, by)) {
+    return false;
+  }
+  return zr_row_links_targets_eq(a, ay, b, by);
 }
 
 /* Deterministic preference order for competing scroll candidates. */
@@ -1711,7 +1801,7 @@ static void zr_diff_row_heads_reset(uint64_t* row_heads, uint32_t rows) {
 }
 
 /*
-  Use rect.y0 as a temporary intrusive "next" index while coalescing.
+  Use rect._link as a temporary intrusive "next" index while coalescing.
 
   Why: Indexed coalescing must stay allocation-free in the present hot path.
   Damage rectangles are frame-local scratch, so temporary link reuse is safe.
@@ -1720,14 +1810,14 @@ static uint32_t zr_diff_rect_link_get(const zr_damage_rect_t* r) {
   if (!r) {
     return ZR_DIFF_RECT_INDEX_NONE;
   }
-  return r->y0;
+  return r->_link;
 }
 
 static void zr_diff_rect_link_set(zr_damage_rect_t* r, uint32_t next_idx) {
   if (!r) {
     return;
   }
-  r->y0 = next_idx;
+  r->_link = next_idx;
 }
 
 typedef struct zr_diff_active_rects_t {

@@ -1,4 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { parseInternedStrings } from "../../__tests__/drawlistDecode.js";
 import { type VNode, createDrawlistBuilder } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
@@ -7,36 +8,6 @@ import { createInstanceIdAllocator } from "../../runtime/instance.js";
 import { ui } from "../ui.js";
 
 type TreeNode = Readonly<{ id: string; children: readonly TreeNode[] }>;
-
-function u32(bytes: Uint8Array, off: number): number {
-  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  return dv.getUint32(off, true);
-}
-
-function parseInternedStrings(bytes: Uint8Array): readonly string[] {
-  const spanOffset = u32(bytes, 28);
-  const count = u32(bytes, 32);
-  const bytesOffset = u32(bytes, 36);
-  const bytesLen = u32(bytes, 40);
-
-  if (count === 0) return Object.freeze([]);
-
-  const tableEnd = bytesOffset + bytesLen;
-  assert.ok(tableEnd <= bytes.byteLength, "string table must be in-bounds");
-
-  const out: string[] = [];
-  const decoder = new TextDecoder();
-  for (let i = 0; i < count; i++) {
-    const span = spanOffset + i * 8;
-    const off = u32(bytes, span);
-    const len = u32(bytes, span + 4);
-    const start = bytesOffset + off;
-    const end = start + len;
-    assert.ok(end <= tableEnd, "string span must be in-bounds");
-    out.push(decoder.decode(bytes.subarray(start, end)));
-  }
-  return Object.freeze(out);
-}
 
 function renderBytes(
   vnode: VNode,

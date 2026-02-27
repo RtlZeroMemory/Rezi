@@ -5,6 +5,9 @@ const OP_DRAW_TEXT = 3;
 const OP_DRAW_TEXT_RUN = 6;
 const OP_DRAW_CANVAS = 8;
 const OP_DRAW_IMAGE = 9;
+const OP_DEF_STRING = 10;
+const OP_DEF_BLOB = 12;
+const LINK_MAX_BYTES = 2083;
 
 function u8(bytes: Uint8Array, off: number): number {
   return bytes[off] ?? 0;
@@ -34,14 +37,6 @@ type Header = Readonly<{
   cmdOffset: number;
   cmdBytes: number;
   cmdCount: number;
-  stringsSpanOffset: number;
-  stringsCount: number;
-  stringsBytesOffset: number;
-  stringsBytesLen: number;
-  blobsSpanOffset: number;
-  blobsCount: number;
-  blobsBytesOffset: number;
-  blobsBytesLen: number;
 }>;
 
 type Command = Readonly<{
@@ -57,14 +52,6 @@ function readHeader(bytes: Uint8Array): Header {
     cmdOffset: u32(bytes, 16),
     cmdBytes: u32(bytes, 20),
     cmdCount: u32(bytes, 24),
-    stringsSpanOffset: u32(bytes, 28),
-    stringsCount: u32(bytes, 32),
-    stringsBytesOffset: u32(bytes, 36),
-    stringsBytesLen: u32(bytes, 40),
-    blobsSpanOffset: u32(bytes, 44),
-    blobsCount: u32(bytes, 48),
-    blobsBytesOffset: u32(bytes, 52),
-    blobsBytesLen: u32(bytes, 56),
   };
 }
 
@@ -92,13 +79,36 @@ function parseCommands(bytes: Uint8Array): readonly Command[] {
   return Object.freeze(out);
 }
 
-function decodeString(bytes: Uint8Array, h: Header, stringIndex: number): string {
-  const spanOff = h.stringsSpanOffset + stringIndex * 8;
-  const byteOff = u32(bytes, spanOff);
-  const byteLen = u32(bytes, spanOff + 4);
-  const start = h.stringsBytesOffset + byteOff;
-  const end = start + byteLen;
-  return new TextDecoder().decode(bytes.subarray(start, end));
+type DefTables = Readonly<{
+  stringsById: ReadonlyMap<number, string>;
+  blobsById: ReadonlyMap<number, Uint8Array>;
+}>;
+
+function decodeDefs(bytes: Uint8Array): DefTables {
+  const stringsById = new Map<number, string>();
+  const blobsById = new Map<number, Uint8Array>();
+  const decoder = new TextDecoder();
+
+  for (const cmd of parseCommands(bytes)) {
+    if (cmd.opcode === OP_DEF_STRING) {
+      const stringId = u32(bytes, cmd.payloadOff + 0);
+      const byteLen = u32(bytes, cmd.payloadOff + 4);
+      const data = bytes.subarray(cmd.payloadOff + 8, cmd.payloadOff + 8 + byteLen);
+      stringsById.set(stringId, decoder.decode(data));
+      continue;
+    }
+    if (cmd.opcode === OP_DEF_BLOB) {
+      const blobId = u32(bytes, cmd.payloadOff + 0);
+      const byteLen = u32(bytes, cmd.payloadOff + 4);
+      const data = bytes.slice(cmd.payloadOff + 8, cmd.payloadOff + 8 + byteLen);
+      blobsById.set(blobId, data);
+    }
+  }
+
+  return Object.freeze({
+    stringsById,
+    blobsById,
+  });
 }
 
 function assertBadParams(
@@ -131,10 +141,10 @@ describe("DrawlistBuilder graphics/link commands", () => {
 
     assert.equal(u32(built.bytes, 0), ZRDL_MAGIC);
     assert.equal(u32(built.bytes, 4), 1);
-    assert.deepEqual(
-      parseCommands(built.bytes).map((cmd) => cmd.opcode),
-      [OP_DRAW_TEXT, OP_DRAW_CANVAS, OP_DRAW_IMAGE],
-    );
+    const drawOps = parseCommands(built.bytes)
+      .filter((cmd) => cmd.opcode !== OP_DEF_STRING && cmd.opcode !== OP_DEF_BLOB)
+      .map((cmd) => cmd.opcode);
+    assert.deepEqual(drawOps, [OP_DRAW_TEXT, OP_DRAW_CANVAS, OP_DRAW_IMAGE]);
   });
 
   test("setLink state is encoded into drawText style ext references", () => {
@@ -145,8 +155,8 @@ describe("DrawlistBuilder graphics/link commands", () => {
     assert.equal(built.ok, true);
     if (!built.ok) return;
 
-    const h = readHeader(built.bytes);
-    const cmd = parseCommands(built.bytes)[0];
+    const defs = decodeDefs(built.bytes);
+    const cmd = parseCommands(built.bytes).find((entry) => entry.opcode === OP_DRAW_TEXT);
     if (!cmd) throw new Error("missing drawText command");
     assert.equal(cmd.opcode, OP_DRAW_TEXT);
     assert.equal(cmd.flags, 0);
@@ -158,8 +168,8 @@ describe("DrawlistBuilder graphics/link commands", () => {
     const linkIdRef = u32(built.bytes, cmd.payloadOff + 44);
     assert.equal(linkUriRef > 0, true);
     assert.equal(linkIdRef > 0, true);
-    assert.equal(decodeString(built.bytes, h, linkUriRef), "https://example.com");
-    assert.equal(decodeString(built.bytes, h, linkIdRef), "docs");
+    assert.equal(defs.stringsById.get(linkUriRef) ?? "", "https://example.com");
+    assert.equal(defs.stringsById.get(linkIdRef) ?? "", "docs");
   });
 
   test("setLink(null) clears hyperlink refs for subsequent text", () => {
@@ -183,6 +193,39 @@ describe("DrawlistBuilder graphics/link commands", () => {
     assert.equal(u32(built.bytes, second.payloadOff + 44), 0);
   });
 
+  test("setLink rejects empty URI (URI must be non-empty or null)", () => {
+    const builder = createDrawlistBuilder();
+    builder.setLink("", "docs");
+
+    assertBadParams(builder.build());
+  });
+
+  test("setLink enforces URI/ID max byte caps using UTF-8 byte length", () => {
+    const oversizedUtf8 = "é".repeat(1042);
+    assert.equal(new TextEncoder().encode(oversizedUtf8).byteLength, LINK_MAX_BYTES + 1);
+
+    const tooLongUriBuilder = createDrawlistBuilder();
+    tooLongUriBuilder.setLink(oversizedUtf8);
+    assertBadParams(tooLongUriBuilder.build());
+
+    const tooLongIdBuilder = createDrawlistBuilder();
+    tooLongIdBuilder.setLink("https://example.com/docs", oversizedUtf8);
+    assertBadParams(tooLongIdBuilder.build());
+  });
+
+  test("setLink accepts URI/ID exactly at native byte limits", () => {
+    const uri = `${"é".repeat(1041)}a`;
+    const id = `${"é".repeat(1041)}b`;
+    assert.equal(new TextEncoder().encode(uri).byteLength, LINK_MAX_BYTES);
+    assert.equal(new TextEncoder().encode(id).byteLength, LINK_MAX_BYTES);
+
+    const builder = createDrawlistBuilder();
+    builder.setLink(uri, id);
+    builder.drawText(0, 0, "x");
+    const built = builder.build();
+    assert.equal(built.ok, true);
+  });
+
   test("encodes DRAW_CANVAS payload fields and blob offset/length", () => {
     const builder = createDrawlistBuilder();
     const blob0 = builder.addBlob(new Uint8Array([1, 2, 3, 4]));
@@ -196,8 +239,8 @@ describe("DrawlistBuilder graphics/link commands", () => {
     assert.equal(built.ok, true);
     if (!built.ok) return;
 
-    const h = readHeader(built.bytes);
-    const cmd = parseCommands(built.bytes)[0];
+    const defs = decodeDefs(built.bytes);
+    const cmd = parseCommands(built.bytes).find((entry) => entry.opcode === OP_DRAW_CANVAS);
     if (!cmd) throw new Error("missing command");
 
     assert.equal(cmd.opcode, OP_DRAW_CANVAS);
@@ -209,15 +252,14 @@ describe("DrawlistBuilder graphics/link commands", () => {
     assert.equal(u16(built.bytes, cmd.payloadOff + 6), 2);
     assert.equal(u16(built.bytes, cmd.payloadOff + 8), 6);
     assert.equal(u16(built.bytes, cmd.payloadOff + 10), 6);
-    assert.equal(u32(built.bytes, cmd.payloadOff + 12), 4);
-    assert.equal(u32(built.bytes, cmd.payloadOff + 16), 6 * 6 * 4);
+    assert.equal(u32(built.bytes, cmd.payloadOff + 12), 2);
+    assert.equal(u32(built.bytes, cmd.payloadOff + 16), 0);
     assert.equal(u8(built.bytes, cmd.payloadOff + 20), 3);
     assert.equal(u8(built.bytes, cmd.payloadOff + 21), 0);
     assert.equal(u16(built.bytes, cmd.payloadOff + 22), 0);
 
-    assert.equal(h.blobsCount, 2);
-    assert.equal(u32(built.bytes, h.blobsSpanOffset + 8), 4);
-    assert.equal(u32(built.bytes, h.blobsSpanOffset + 12), 6 * 6 * 4);
+    assert.equal(defs.blobsById.get(1)?.byteLength ?? 0, 4);
+    assert.equal(defs.blobsById.get(2)?.byteLength ?? 0, 6 * 6 * 4);
   });
 
   test("encodes DRAW_IMAGE payload fields", () => {
@@ -231,7 +273,7 @@ describe("DrawlistBuilder graphics/link commands", () => {
     assert.equal(built.ok, true);
     if (!built.ok) return;
 
-    const cmd = parseCommands(built.bytes)[0];
+    const cmd = parseCommands(built.bytes).find((entry) => entry.opcode === OP_DRAW_IMAGE);
     if (!cmd) throw new Error("missing command");
 
     assert.equal(cmd.opcode, OP_DRAW_IMAGE);
@@ -243,8 +285,8 @@ describe("DrawlistBuilder graphics/link commands", () => {
     assert.equal(u16(built.bytes, cmd.payloadOff + 6), 8);
     assert.equal(u16(built.bytes, cmd.payloadOff + 8), 2);
     assert.equal(u16(built.bytes, cmd.payloadOff + 10), 2);
-    assert.equal(u32(built.bytes, cmd.payloadOff + 12), 0);
-    assert.equal(u32(built.bytes, cmd.payloadOff + 16), 16);
+    assert.equal(u32(built.bytes, cmd.payloadOff + 12), 1);
+    assert.equal(u32(built.bytes, cmd.payloadOff + 16), 0);
     assert.equal(u32(built.bytes, cmd.payloadOff + 20), 42);
     assert.equal(u8(built.bytes, cmd.payloadOff + 24), 0);
     assert.equal(u8(built.bytes, cmd.payloadOff + 25), 1);
@@ -275,6 +317,14 @@ describe("DrawlistBuilder graphics/link commands", () => {
       const blobIndex = builder.addBlob(new Uint8Array(8));
       if (blobIndex === null) throw new Error("blob index was null");
       builder.drawCanvas(0, 0, 1, 1, blobIndex, "braille");
+      assertBadParams(builder.build());
+    }
+
+    {
+      const builder = createDrawlistBuilder();
+      const blobIndex = builder.addBlob(new Uint8Array(10));
+      if (blobIndex === null) throw new Error("blob index was null");
+      builder.drawImage(0, 0, 1, 1, blobIndex, "rgba", "auto", 0, "contain", 0);
       assertBadParams(builder.build());
     }
 
@@ -339,12 +389,13 @@ describe("DrawlistBuilder graphics/link commands", () => {
 
     {
       const builder = createDrawlistBuilder();
-      assert.equal(builder.addBlob(new Uint8Array([1, 2, 3])), null);
+      // @ts-expect-error runtime invalid param coverage
+      assert.equal(builder.addBlob("not-bytes"), null);
       assertBadParams(builder.build());
     }
   });
 
-  test("encodes underline style + underline RGB in drawText v3 style fields", () => {
+  test("encodes underline style + numeric underline RGB in drawText v3 style fields", () => {
     const builder = createDrawlistBuilder();
     builder.drawText(0, 0, "x", {
       underline: true,
@@ -354,7 +405,7 @@ describe("DrawlistBuilder graphics/link commands", () => {
     const built = builder.build();
     assert.equal(built.ok, true);
     if (!built.ok) throw new Error("build failed");
-    const cmd = parseCommands(built.bytes)[0];
+    const cmd = parseCommands(built.bytes).find((entry) => entry.opcode === OP_DRAW_TEXT);
     if (!cmd) throw new Error("missing command");
     const reserved = u32(built.bytes, cmd.payloadOff + 32);
     const underlineRgb = u32(built.bytes, cmd.payloadOff + 36);
@@ -372,7 +423,7 @@ describe("DrawlistBuilder graphics/link commands", () => {
     const built = builder.build();
     assert.equal(built.ok, true);
     if (!built.ok) throw new Error("build failed");
-    const cmd = parseCommands(built.bytes)[0];
+    const cmd = parseCommands(built.bytes).find((entry) => entry.opcode === OP_DRAW_TEXT);
     if (!cmd) throw new Error("missing command");
     const underlineRgb = u32(built.bytes, cmd.payloadOff + 36);
     assert.equal(underlineRgb, 0);
@@ -397,11 +448,12 @@ describe("DrawlistBuilder graphics/link commands", () => {
     assert.equal(built.ok, true);
     if (!built.ok) throw new Error("build failed");
 
-    const h = readHeader(built.bytes);
-    const blobOffset = u32(built.bytes, h.blobsSpanOffset);
-    const segmentOff = h.blobsBytesOffset + blobOffset + 4;
-    const reserved = u32(built.bytes, segmentOff + 12);
-    const underlineRgb = u32(built.bytes, segmentOff + 16);
+    const defs = decodeDefs(built.bytes);
+    const blob = defs.blobsById.get(1);
+    if (!blob) throw new Error("missing text run blob");
+    const segmentOff = 4;
+    const reserved = u32(blob, segmentOff + 12);
+    const underlineRgb = u32(blob, segmentOff + 16);
     assert.equal(reserved & 0x7, 5);
     assert.equal(underlineRgb, 0x010203);
   });

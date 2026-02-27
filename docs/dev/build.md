@@ -35,9 +35,10 @@ cd Rezi
 git submodule update --init --recursive
 ```
 
-The `vendor/zireael` submodule contains the Zireael C engine source. It must be
-present for native addon builds, but is not required for TypeScript-only
-development.
+The `vendor/zireael` submodule tracks the upstream Zireael source and commit
+pin metadata. Native addon builds compile from the package-local snapshot at
+`packages/native/vendor/zireael`; submodule checkout is required when syncing
+or auditing vendored engine updates, but not for TypeScript-only development.
 
 Install all dependencies:
 

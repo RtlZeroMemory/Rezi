@@ -1,4 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { parseDrawTextCommands, parseInternedStrings } from "../../__tests__/drawlistDecode.js";
 import { createDrawlistBuilder } from "../builder.js";
 import type { DrawlistBuildErrorCode, DrawlistBuildResult } from "../types.js";
 
@@ -18,9 +19,9 @@ const HEADER = {
   SIZE: 64,
 } as const;
 
-const SPAN_SIZE = 8;
 const CMD_SIZE_CLEAR = 8;
-const CMD_SIZE_DRAW_TEXT = 60;
+const CMD_SIZE_DRAW_TEXT = 8 + 52;
+const CMD_SIZE_DEF_STRING_BASE = 16;
 
 type ParsedHeader = Readonly<{
   totalSize: number;
@@ -96,74 +97,66 @@ describe("DrawlistBuilder - limits boundaries", () => {
     expectError(b.build(), "ZRDL_TOO_LARGE");
   });
 
-  test("maxStrings: exactly at limit for persistent strings succeeds", () => {
+  test("maxStrings: exactly at limit with unique strings succeeds", () => {
     const b = createDrawlistBuilder({ maxStrings: 2 });
-    b.setLink("uri-a", "id-a");
-    b.drawText(0, 0, "x");
+    b.drawText(0, 0, "a");
+    b.drawText(0, 1, "b");
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
 
-    assert.equal(h.stringsCount, 3); // arena + 2 persistent strings
-    assert.equal(h.cmdCount, 1);
+    assert.deepEqual(parseInternedStrings(bytes), ["a", "b"]);
+    assert.equal(h.cmdCount, 4);
   });
 
-  test("maxStrings: duplicate persistent strings do not consume extra slots", () => {
+  test("maxStrings: interned duplicates do not consume extra slots", () => {
     const b = createDrawlistBuilder({ maxStrings: 1 });
-    b.setLink("same");
-    b.drawText(0, 0, "x");
-    b.setLink("same");
-    b.drawText(2, 0, "y");
+    b.drawText(0, 0, "same");
+    b.drawText(2, 0, "same");
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
 
-    assert.equal(h.stringsCount, 2); // arena + 1 persistent string
-    assert.equal(h.cmdCount, 2);
+    assert.deepEqual(parseInternedStrings(bytes), ["same"]);
+    assert.equal(h.cmdCount, 3);
   });
 
-  test("maxStrings: overflow on next unique persistent string fails", () => {
+  test("maxStrings: overflow on next unique string fails", () => {
     const b = createDrawlistBuilder({ maxStrings: 1 });
-    b.setLink("a");
-    b.drawText(0, 0, "x");
-    b.setLink("b");
-    b.drawText(0, 1, "y");
+    b.drawText(0, 0, "a");
+    b.drawText(0, 1, "b");
 
     expectError(b.build(), "ZRDL_TOO_LARGE");
   });
 
-  test("maxStringBytes: exactly-at-limit ASCII persistent payload succeeds", () => {
+  test("maxStringBytes: exactly-at-limit ASCII payload succeeds", () => {
     const b = createDrawlistBuilder({ maxStringBytes: 3 });
-    b.setLink("abc");
-    b.drawText(0, 0, "x");
+    b.drawText(0, 0, "abc");
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
-    const dv = toView(bytes);
-    const spanLen = dv.getUint32(h.stringsSpanOffset + 8 + 4, true);
+    const drawText = parseDrawTextCommands(bytes);
 
-    assert.equal(h.stringsCount, 2);
-    assert.equal(spanLen, 3);
-    assert.equal(h.stringsBytesLen, align4(1 + 3));
+    assert.deepEqual(parseInternedStrings(bytes), ["abc"]);
+    assert.equal(drawText.length, 1);
+    assert.equal(drawText[0]?.byteLen, 3);
+    assert.equal(h.cmdBytes, align4(CMD_SIZE_DEF_STRING_BASE + 3) + CMD_SIZE_DRAW_TEXT);
   });
 
-  test("maxStringBytes: exactly-at-limit UTF-8 persistent payload succeeds", () => {
+  test("maxStringBytes: exactly-at-limit UTF-8 payload succeeds", () => {
     const text = "éa";
     const utf8Len = new TextEncoder().encode(text).byteLength;
     const b = createDrawlistBuilder({ maxStringBytes: utf8Len });
-    b.setLink(text);
-    b.drawText(0, 0, "x");
+    b.drawText(0, 0, text);
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
-    const dv = toView(bytes);
-    const spanLen = dv.getUint32(h.stringsSpanOffset + 8 + 4, true);
+    const drawText = parseDrawTextCommands(bytes);
 
     assert.equal(utf8Len, 3);
-    assert.equal(spanLen, utf8Len);
-    assert.equal(h.stringsBytesLen, align4(1 + utf8Len));
+    assert.equal(drawText[0]?.byteLen, utf8Len);
+    assert.equal(h.cmdBytes, align4(CMD_SIZE_DEF_STRING_BASE + utf8Len) + CMD_SIZE_DRAW_TEXT);
   });
 
-  test("maxStringBytes: overflow on persistent strings fails", () => {
+  test("maxStringBytes: overflow fails", () => {
     const b = createDrawlistBuilder({ maxStringBytes: 3 });
-    b.setLink("abcd");
-    b.drawText(0, 0, "x");
+    b.drawText(0, 0, "abcd");
 
     expectError(b.build(), "ZRDL_TOO_LARGE");
   });
@@ -188,20 +181,21 @@ describe("DrawlistBuilder - limits boundaries", () => {
 
   test("maxDrawlistBytes: exact text drawlist boundary succeeds", () => {
     const textBytes = 3;
-    const exactLimit = HEADER.SIZE + CMD_SIZE_DRAW_TEXT + SPAN_SIZE + align4(textBytes);
+    const exactLimit =
+      HEADER.SIZE + CMD_SIZE_DRAW_TEXT + align4(CMD_SIZE_DEF_STRING_BASE + textBytes);
     const b = createDrawlistBuilder({ maxDrawlistBytes: exactLimit });
     b.drawText(0, 0, "abc");
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
 
     assert.equal(h.totalSize, exactLimit);
-    assert.equal(h.cmdBytes, CMD_SIZE_DRAW_TEXT);
-    assert.equal(h.stringsBytesLen, 4);
+    assert.equal(h.cmdBytes, exactLimit - HEADER.SIZE);
   });
 
   test("maxDrawlistBytes: one byte below text drawlist boundary fails", () => {
     const textBytes = 3;
-    const exactLimit = HEADER.SIZE + CMD_SIZE_DRAW_TEXT + SPAN_SIZE + align4(textBytes);
+    const exactLimit =
+      HEADER.SIZE + CMD_SIZE_DRAW_TEXT + align4(CMD_SIZE_DEF_STRING_BASE + textBytes);
     const b = createDrawlistBuilder({ maxDrawlistBytes: exactLimit - 1 });
     b.drawText(0, 0, "abc");
 
@@ -237,8 +231,8 @@ describe("DrawlistBuilder - limits boundaries", () => {
     const bytes = expectOk(b.build());
     const h = parseHeader(bytes);
 
-    assert.equal(h.cmdCount, 64);
-    assert.equal(h.stringsCount, 1);
+    assert.equal(h.cmdCount, 128);
+    assert.equal(parseInternedStrings(bytes).length, 64);
     assert.equal(h.totalSize <= 1_000_000, true);
     assert.equal((h.totalSize & 3) === 0, true);
   });

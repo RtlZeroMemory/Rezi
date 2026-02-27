@@ -55,7 +55,7 @@ Key pipeline files:
 - `packages/core/src/runtime/router/wheel.ts` — mouse wheel routing for scroll targets
 - `packages/core/src/renderer/renderToDrawlist/renderTree.ts` — stack-based DFS renderer
 - `packages/core/src/layout/dropdownGeometry.ts` — shared dropdown overlay geometry
-- `packages/core/src/drawlist/builder_v1.ts` — ZRDL binary drawlist builder
+- `packages/core/src/drawlist/builder.ts` — ZRDL binary drawlist builder (unified)
 
 ## Layout Engine Baseline (Current)
 
@@ -129,7 +129,7 @@ When core widget APIs change, JSX must be updated in the same change set.
 
 ### Drawlist writer codegen guardrail (MUST for ZRDL command changes)
 
-The v3/v4/v5 command writer implementation is code-generated. Never hand-edit
+The command writer implementation is code-generated. Never hand-edit
 `packages/core/src/drawlist/writers.gen.ts`.
 
 When changing drawlist command layout/opcodes/field widths/offsets:

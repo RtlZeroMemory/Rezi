@@ -151,6 +151,7 @@ describe("mergeTextStyle boolean merge correctness", () => {
     assert.deepEqual(merged, {
       fg: DEFAULT_BASE_STYLE.fg,
       bg: DEFAULT_BASE_STYLE.bg,
+      attrs: 246,
       bold: false,
       dim: true,
       italic: true,
@@ -169,6 +170,7 @@ describe("mergeTextStyle boolean merge correctness", () => {
     assert.deepEqual(allFalse, {
       fg: DEFAULT_BASE_STYLE.fg,
       bg: DEFAULT_BASE_STYLE.bg,
+      attrs: 0,
       bold: false,
       dim: false,
       italic: false,

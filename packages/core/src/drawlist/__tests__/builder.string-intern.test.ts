@@ -1,7 +1,6 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { parseDrawTextCommands, parseInternedStrings } from "../../__tests__/drawlistDecode.js";
 import { createDrawlistBuilder } from "../../index.js";
-
-const OP_DRAW_TEXT = 3;
 
 type BuildResult =
   | Readonly<{ ok: true; bytes: Uint8Array }>
@@ -16,6 +15,7 @@ type BuilderLike = Readonly<{
 type BuilderOpts = Readonly<{
   maxStrings?: number;
   maxStringBytes?: number;
+  encodedStringCacheCap?: number;
 }>;
 
 const FACTORIES: readonly Readonly<{
@@ -23,82 +23,13 @@ const FACTORIES: readonly Readonly<{
   create(opts?: BuilderOpts): BuilderLike;
 }>[] = [{ name: "current", create: (opts?: BuilderOpts) => createDrawlistBuilder(opts) }];
 
-function u16(bytes: Uint8Array, off: number): number {
-  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  return dv.getUint16(off, true);
-}
-
-function u32(bytes: Uint8Array, off: number): number {
-  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  return dv.getUint32(off, true);
-}
-
-type Header = Readonly<{
-  cmdOffset: number;
-  cmdBytes: number;
-  cmdCount: number;
-  stringsSpanOffset: number;
-  stringsCount: number;
-  stringsBytesOffset: number;
-  stringsBytesLen: number;
-}>;
-
-type DrawTextEntry = Readonly<{ stringIndex: number; byteOff: number; byteLen: number }>;
-
-function readHeader(bytes: Uint8Array): Header {
-  return {
-    cmdOffset: u32(bytes, 16),
-    cmdBytes: u32(bytes, 20),
-    cmdCount: u32(bytes, 24),
-    stringsSpanOffset: u32(bytes, 28),
-    stringsCount: u32(bytes, 32),
-    stringsBytesOffset: u32(bytes, 36),
-    stringsBytesLen: u32(bytes, 40),
-  };
-}
-
-function readArenaSpan(bytes: Uint8Array, h: Header): Readonly<{ off: number; len: number }> {
-  if (h.stringsCount === 0) return Object.freeze({ off: 0, len: 0 });
-  return Object.freeze({
-    off: u32(bytes, h.stringsSpanOffset),
-    len: u32(bytes, h.stringsSpanOffset + 4),
-  });
-}
-
-function decodeArenaSlice(bytes: Uint8Array, h: Header, byteOff: number, byteLen: number): string {
-  if (byteLen === 0) return "";
-  assert.equal(h.stringsCount > 0, true, "arena span required when byteLen > 0");
-
-  const arena = readArenaSpan(bytes, h);
-  assert.equal(byteOff + byteLen <= arena.len, true, "arena slice bounds");
-
-  const start = h.stringsBytesOffset + arena.off + byteOff;
-  const end = start + byteLen;
-  return new TextDecoder().decode(bytes.subarray(start, end));
-}
+type DrawTextEntry = Readonly<{ stringId: number; byteLen: number }>;
 
 function readDrawTextEntries(bytes: Uint8Array): DrawTextEntry[] {
-  const h = readHeader(bytes);
-  const out: DrawTextEntry[] = [];
-
-  let off = h.cmdOffset;
-  for (let i = 0; i < h.cmdCount; i++) {
-    const opcode = u16(bytes, off + 0);
-    const size = u32(bytes, off + 4);
-    if (opcode === OP_DRAW_TEXT) {
-      out.push(
-        Object.freeze({
-          stringIndex: u32(bytes, off + 16),
-          byteOff: u32(bytes, off + 20),
-          byteLen: u32(bytes, off + 24),
-        }),
-      );
-    }
-    off += size;
-  }
-
-  assert.equal(off, h.cmdOffset + h.cmdBytes, "command stream should end at cmdOffset + cmdBytes");
-  return out;
+  return parseDrawTextCommands(bytes).map((cmd) => ({
+    stringId: cmd.stringId,
+    byteLen: cmd.byteLen,
+  }));
 }
 
 function buildOk(builder: BuilderLike, label: string): Uint8Array {
@@ -109,70 +40,92 @@ function buildOk(builder: BuilderLike, label: string): Uint8Array {
   return res.bytes;
 }
 
-describe("drawlist text arena slices", () => {
-  test("duplicate strings emit distinct arena slices (no per-frame interning)", () => {
+describe("drawlist string interning", () => {
+  test("duplicate strings share the same string table index", () => {
     for (const factory of FACTORIES) {
       const b = factory.create();
       b.drawText(0, 0, "dup");
       b.drawText(0, 1, "dup");
 
       const bytes = buildOk(b, `${factory.name} duplicate strings`);
-      const h = readHeader(bytes);
       const drawText = readDrawTextEntries(bytes);
+      const strings = parseInternedStrings(bytes);
 
-      assert.equal(h.stringsCount, 1, `${factory.name}: one arena span`);
       assert.equal(drawText.length, 2, `${factory.name}: expected 2 drawText commands`);
-      assert.equal(drawText[0]?.stringIndex, 0, `${factory.name}: first string index`);
-      assert.equal(drawText[1]?.stringIndex, 0, `${factory.name}: second string index`);
-      assert.equal(drawText[0]?.byteOff, 0, `${factory.name}: first byte off`);
-      assert.equal(drawText[1]?.byteOff, 3, `${factory.name}: second byte off`);
-      assert.equal(decodeArenaSlice(bytes, h, 0, 3), "dup", `${factory.name}: first decode`);
-      assert.equal(decodeArenaSlice(bytes, h, 3, 3), "dup", `${factory.name}: second decode`);
+      assert.equal(drawText[0]?.stringId, 1, `${factory.name}: first string id`);
+      assert.equal(drawText[1]?.stringId, 1, `${factory.name}: duplicate string id`);
+      assert.deepEqual(strings, ["dup"], `${factory.name}: string table should dedupe`);
     }
   });
 
-  test("distinct strings get sequential arena slices", () => {
+  test("distinct strings get distinct indices", () => {
     for (const factory of FACTORIES) {
       const b = factory.create();
       b.drawText(0, 0, "alpha");
       b.drawText(0, 1, "beta");
 
       const bytes = buildOk(b, `${factory.name} distinct strings`);
-      const h = readHeader(bytes);
       const drawText = readDrawTextEntries(bytes);
+      const strings = parseInternedStrings(bytes);
 
-      assert.equal(drawText[0]?.byteOff, 0, `${factory.name}: alpha offset`);
-      assert.equal(drawText[0]?.byteLen, 5, `${factory.name}: alpha len`);
-      assert.equal(drawText[1]?.byteOff, 5, `${factory.name}: beta offset`);
-      assert.equal(drawText[1]?.byteLen, 4, `${factory.name}: beta len`);
-      assert.equal(decodeArenaSlice(bytes, h, 0, 5), "alpha", `${factory.name}: alpha decode`);
-      assert.equal(decodeArenaSlice(bytes, h, 5, 4), "beta", `${factory.name}: beta decode`);
+      assert.equal(drawText[0]?.stringId, 1, `${factory.name}: alpha id`);
+      assert.equal(drawText[1]?.stringId, 2, `${factory.name}: beta id`);
+      assert.deepEqual(strings, ["alpha", "beta"], `${factory.name}: expected two strings`);
     }
   });
 
-  test("empty string keeps zero-length slices and still emits an arena span", () => {
+  test("interning is based on text value only (style and coordinates do not matter)", () => {
+    for (const factory of FACTORIES) {
+      const b = factory.create();
+      b.drawText(10, 20, "same", { bold: true });
+      b.drawText(-1, 999, "same", { underline: true, fg: { r: 1, g: 2, b: 3 } });
+
+      const bytes = buildOk(b, `${factory.name} value-based interning`);
+      const drawText = readDrawTextEntries(bytes);
+      assert.equal(drawText[0]?.stringId, 1, `${factory.name}: first id`);
+      assert.equal(drawText[1]?.stringId, 1, `${factory.name}: second id`);
+      assert.deepEqual(
+        parseInternedStrings(bytes),
+        ["same"],
+        `${factory.name}: one interned string`,
+      );
+    }
+  });
+
+  test("empty string interns once with zero byte length", () => {
     for (const factory of FACTORIES) {
       const b = factory.create();
       b.drawText(0, 0, "");
       b.drawText(0, 1, "");
 
       const bytes = buildOk(b, `${factory.name} empty string`);
-      const h = readHeader(bytes);
       const drawText = readDrawTextEntries(bytes);
-      const arena = readArenaSpan(bytes, h);
+      const strings = parseInternedStrings(bytes);
 
-      assert.equal(h.stringsCount, 1, `${factory.name}: empty text still has arena span`);
-      assert.equal(arena.off, 0, `${factory.name}: arena off`);
-      assert.equal(arena.len, 0, `${factory.name}: arena len`);
-      assert.equal(h.stringsBytesLen, 0, `${factory.name}: aligned bytes len`);
-      assert.equal(drawText[0]?.byteOff, 0, `${factory.name}: first byte off`);
-      assert.equal(drawText[1]?.byteOff, 0, `${factory.name}: second byte off`);
-      assert.equal(drawText[0]?.byteLen, 0, `${factory.name}: first byte len`);
-      assert.equal(drawText[1]?.byteLen, 0, `${factory.name}: second byte len`);
+      assert.equal(drawText[0]?.stringId, 1, `${factory.name}: first empty id`);
+      assert.equal(drawText[1]?.stringId, 1, `${factory.name}: second empty id`);
+      assert.equal(drawText[0]?.byteLen, 0, `${factory.name}: empty byte len in command`);
+      assert.deepEqual(strings, [""], `${factory.name}: one empty string in table`);
     }
   });
 
-  test("unicode strings preserve UTF-8 byte lengths and decode from slices", () => {
+  test("very long strings (10k+) are interned and round-trip correctly", () => {
+    const longText = "L".repeat(10_123);
+    for (const factory of FACTORIES) {
+      const b = factory.create();
+      b.drawText(0, 0, longText);
+
+      const bytes = buildOk(b, `${factory.name} long string`);
+      const drawText = readDrawTextEntries(bytes);
+      const strings = parseInternedStrings(bytes);
+
+      assert.equal(drawText[0]?.stringId, 1, `${factory.name}: long string id`);
+      assert.equal(drawText[0]?.byteLen, longText.length, `${factory.name}: long byte len`);
+      assert.equal(strings[0], longText, `${factory.name}: long round-trip text`);
+    }
+  });
+
+  test("unicode string with emoji/combining marks/CJK round-trips with correct UTF-8 length", () => {
     const text = "emoji😀 + combining e\u0301 + CJK漢字";
     const expectedByteLen = new TextEncoder().encode(text).byteLength;
 
@@ -181,19 +134,15 @@ describe("drawlist text arena slices", () => {
       b.drawText(0, 0, text);
 
       const bytes = buildOk(b, `${factory.name} unicode round-trip`);
-      const h = readHeader(bytes);
       const drawText = readDrawTextEntries(bytes);
+      const strings = parseInternedStrings(bytes);
 
       assert.equal(drawText[0]?.byteLen, expectedByteLen, `${factory.name}: utf8 byte len`);
-      assert.equal(
-        decodeArenaSlice(bytes, h, drawText[0]?.byteOff ?? 0, drawText[0]?.byteLen ?? 0),
-        text,
-        `${factory.name}: unicode round-trip`,
-      );
+      assert.equal(strings[0], text, `${factory.name}: unicode round-trip`);
     }
   });
 
-  test("normalization variants are preserved as distinct slices", () => {
+  test("normalization variants are treated as distinct keys", () => {
     const nfc = "\u00E9";
     const nfd = "e\u0301";
 
@@ -203,20 +152,41 @@ describe("drawlist text arena slices", () => {
       b.drawText(0, 1, nfd);
 
       const bytes = buildOk(b, `${factory.name} unicode normalization`);
-      const h = readHeader(bytes);
       const drawText = readDrawTextEntries(bytes);
+      const strings = parseInternedStrings(bytes);
 
-      const d0 = drawText[0];
-      const d1 = drawText[1];
-      if (!d0 || !d1) throw new Error("missing drawText entries");
-
-      assert.equal(decodeArenaSlice(bytes, h, d0.byteOff, d0.byteLen), nfc, `${factory.name}: nfc`);
-      assert.equal(decodeArenaSlice(bytes, h, d1.byteOff, d1.byteLen), nfd, `${factory.name}: nfd`);
-      assert.equal(d0.byteOff !== d1.byteOff, true, `${factory.name}: distinct offsets`);
+      assert.equal(drawText[0]?.stringId, 1, `${factory.name}: nfc id`);
+      assert.equal(drawText[1]?.stringId, 2, `${factory.name}: nfd id`);
+      assert.deepEqual(strings, [nfc, nfd], `${factory.name}: both forms are preserved`);
     }
   });
 
-  test("many strings preserve deterministic slice ordering", () => {
+  test("string table decode round-trips unique values in first-seen order", () => {
+    const input = ["", "hello", "😀", "漢字", "hello", "world", "😀", "e\u0301"];
+    const expectedUnique = ["", "hello", "😀", "漢字", "world", "e\u0301"];
+    const expectedIndices = [0, 1, 2, 3, 1, 4, 2, 5];
+
+    for (const factory of FACTORIES) {
+      const b = factory.create();
+      for (let i = 0; i < input.length; i++) {
+        b.drawText(0, i, input[i] ?? "");
+      }
+
+      const bytes = buildOk(b, `${factory.name} round-trip decode`);
+      const drawText = readDrawTextEntries(bytes);
+      const actualIds = drawText.map((entry) => entry.stringId);
+      const actualIndices = actualIds.map((id) => id - 1);
+
+      assert.deepEqual(actualIndices, expectedIndices, `${factory.name}: index assignment`);
+      assert.deepEqual(
+        parseInternedStrings(bytes),
+        expectedUnique,
+        `${factory.name}: unique decode`,
+      );
+    }
+  });
+
+  test("many unique strings produce sequential indices and full string table", () => {
     const unique = Array.from({ length: 256 }, (_, i) => `u-${i.toString().padStart(3, "0")}`);
 
     for (const factory of FACTORIES) {
@@ -225,63 +195,56 @@ describe("drawlist text arena slices", () => {
         b.drawText(0, i, unique[i] ?? "");
       }
 
-      const bytes = buildOk(b, `${factory.name} many strings`);
-      const h = readHeader(bytes);
+      const bytes = buildOk(b, `${factory.name} many unique strings`);
       const drawText = readDrawTextEntries(bytes);
-
       assert.equal(drawText.length, unique.length, `${factory.name}: drawText count`);
       for (let i = 0; i < drawText.length; i++) {
-        const cmd = drawText[i];
-        if (!cmd) continue;
-        assert.equal(cmd.stringIndex, 0, `${factory.name}: string index ${i}`);
-        assert.equal(
-          decodeArenaSlice(bytes, h, cmd.byteOff, cmd.byteLen),
-          unique[i],
-          `${factory.name}: decode ${i}`,
-        );
+        assert.equal(drawText[i]?.stringId, i + 1, `${factory.name}: id ${i + 1}`);
       }
+      assert.deepEqual(
+        parseInternedStrings(bytes),
+        unique,
+        `${factory.name}: decoded string table`,
+      );
     }
   });
 
-  test("reset starts a new frame with a fresh arena", () => {
+  test("reset starts a new frame with a fresh string table and reindexed strings", () => {
     for (const factory of FACTORIES) {
       const b = factory.create();
       b.drawText(0, 0, "first");
       b.drawText(0, 1, "second");
-      buildOk(b, `${factory.name} frame 1`);
+      const frame1 = buildOk(b, `${factory.name} frame 1`);
 
       b.reset();
       b.drawText(0, 0, "second");
       const frame2 = buildOk(b, `${factory.name} frame 2`);
 
-      const h2 = readHeader(frame2);
-      const entries = readDrawTextEntries(frame2);
-      const first = entries[0];
-      if (!first) throw new Error("missing drawText entry");
+      const frame1Ids = readDrawTextEntries(frame1).map((entry) => entry.stringId);
+      const frame2Ids = readDrawTextEntries(frame2).map((entry) => entry.stringId);
 
-      assert.equal(first.byteOff, 0, `${factory.name}: frame2 starts at offset 0`);
-      assert.equal(decodeArenaSlice(frame2, h2, first.byteOff, first.byteLen), "second");
+      assert.deepEqual(frame1Ids, [1, 2], `${factory.name}: frame 1 ids`);
+      assert.deepEqual(frame2Ids, [1], `${factory.name}: frame 2 ids restart`);
+      assert.deepEqual(
+        parseInternedStrings(frame2),
+        ["second"],
+        `${factory.name}: no stale strings`,
+      );
     }
   });
 
-  test("maxStrings cap does not block transient arena text", () => {
+  test("maxStrings cap rejects too many unique interned strings", () => {
     for (const factory of FACTORIES) {
-      const b = factory.create({ maxStrings: 1 });
+      const b = factory.create({ maxStrings: 3 });
       b.drawText(0, 0, "a");
       b.drawText(0, 1, "b");
+      b.drawText(0, 2, "c");
+      b.drawText(0, 3, "d");
 
       const res = b.build();
-      assert.equal(res.ok, true, `${factory.name}: transient text bypasses maxStrings`);
-    }
-  });
-
-  test("maxStringBytes cap does not block transient arena text", () => {
-    for (const factory of FACTORIES) {
-      const b = factory.create({ maxStringBytes: 1 });
-      b.drawText(0, 0, "ab");
-
-      const res = b.build();
-      assert.equal(res.ok, true, `${factory.name}: transient text bypasses maxStringBytes`);
+      assert.equal(res.ok, false, `${factory.name}: should fail when maxStrings exceeded`);
+      if (res.ok) continue;
+      assert.equal(res.error.code, "ZRDL_TOO_LARGE", `${factory.name}: error code`);
     }
   });
 });

@@ -85,9 +85,7 @@ function isFiniteNumber(v: unknown): v is number {
 function hasFrameBorder(raw: unknown): boolean {
   if (!raw || typeof raw !== "object") return false;
   const border = (raw as { border?: unknown }).border;
-  if (!border || typeof border !== "object") return false;
-  const rgb = border as { r?: unknown; g?: unknown; b?: unknown };
-  return isFiniteNumber(rgb.r) && isFiniteNumber(rgb.g) && isFiniteNumber(rgb.b);
+  return isFiniteNumber(border);
 }
 
 export function measureOverlays(

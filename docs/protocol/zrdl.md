@@ -57,6 +57,23 @@ Commands are 4-byte aligned.
 - `FREE_*` invalidates that ID.
 - Draw commands referencing unknown IDs fail.
 
+## Style Payload Link References
+
+Text-bearing commands carry style fields that include hyperlink references:
+
+- `linkUriRef` (`u32`)
+- `linkIdRef` (`u32`)
+
+These fields use the same ID space as `DEF_STRING`/`FREE_STRING` and are
+**1-based**:
+
+- `0` means "no active link" (sentinel unset)
+- `N > 0` maps to string resource ID `N`
+
+Rezi encodes link references as `(internedIndex + 1)`, and Zireael resolves
+them as direct string IDs. This is part of the v1/v2 wire contract and does
+not introduce a new drawlist version.
+
 ## Codegen
 
 Command layouts are defined in `scripts/drawlist-spec.ts`.

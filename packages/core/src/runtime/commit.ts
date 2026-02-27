@@ -1334,6 +1334,11 @@ function commitContainer(
         childOrderStable &&
         canFastReuseContainerSelf(prev.vnode, vnode)
       ) {
+        // Even when child RuntimeInstance references are stable, child VNodes may have
+        // been updated via in-place child commits. Keep the parent VNode's committed
+        // child wiring in sync so layout traverses the same tree shape as runtime.
+        const fastReuseCommittedChildren = prev.children.map((child) => child.vnode);
+        (prev as { vnode: VNode }).vnode = rewriteCommittedVNode(vnode, fastReuseCommittedChildren);
         // All children are identical references → reuse parent entirely.
         // Propagate dirty from children: a child may have been mutated in-place
         // with dirty=true even though it returned the same reference.

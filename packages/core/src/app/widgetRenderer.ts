@@ -22,7 +22,14 @@
  */
 
 import type { CursorShape } from "../abi.js";
-import { BACKEND_RAW_WRITE_MARKER, type BackendRawWrite, type RuntimeBackend } from "../backend.js";
+import {
+  BACKEND_BEGIN_FRAME_MARKER,
+  BACKEND_RAW_WRITE_MARKER,
+  type BackendBeginFrame,
+  type BackendRawWrite,
+  FRAME_ACCEPTED_ACK_MARKER,
+  type RuntimeBackend,
+} from "../backend.js";
 import { CURSOR_DEFAULTS } from "../cursor/index.js";
 import { type DrawlistBuilder, createDrawlistBuilder } from "../drawlist/index.js";
 import type { ZrevEvent } from "../events.js";
@@ -55,10 +62,6 @@ import {
 } from "../keybindings/keyCodes.js";
 import type { LayoutOverflowMetadata } from "../layout/constraints.js";
 import { computeDropdownGeometry } from "../layout/dropdownGeometry.js";
-import {
-  computeDirtyLayoutSet,
-  instanceDirtySetToVNodeDirtySet,
-} from "../layout/engine/dirtySet.js";
 import { hitTestAnyId, hitTestFocusable } from "../layout/hitTest.js";
 import { type LayoutTree, layout } from "../layout/layout.js";
 import {
@@ -69,15 +72,12 @@ import {
 } from "../layout/responsive.js";
 import { measureTextCells } from "../layout/textMeasure.js";
 import type { Rect } from "../layout/types.js";
+import { FRAME_AUDIT_ENABLED, drawlistFingerprint, emitFrameAudit } from "../perf/frameAudit.js";
 import { PERF_DETAIL_ENABLED, PERF_ENABLED, perfMarkEnd, perfMarkStart } from "../perf/perf.js";
 import { type CursorInfo, renderToDrawlist } from "../renderer/renderToDrawlist.js";
 import { getRuntimeNodeDamageRect } from "../renderer/renderToDrawlist/damageBounds.js";
 import { renderTree } from "../renderer/renderToDrawlist/renderTree.js";
 import { DEFAULT_BASE_STYLE } from "../renderer/renderToDrawlist/textStyle.js";
-import {
-  focusIndicatorEnabled as focusIndicatorEnabledForLogs,
-  readFocusConfig as readFocusConfigForLogs,
-} from "../renderer/renderToDrawlist/widgets/focusConfig.js";
 import {
   type CommitOk,
   type PendingExitAnimation,
@@ -494,6 +494,13 @@ const LAYOUT_WARNINGS_ENV_RAW =
 const LAYOUT_WARNINGS_ENV = LAYOUT_WARNINGS_ENV_RAW.toLowerCase();
 const DEV_LAYOUT_WARNINGS =
   DEV_MODE && (LAYOUT_WARNINGS_ENV === "1" || LAYOUT_WARNINGS_ENV === "true");
+const FRAME_AUDIT_TREE_ENABLED =
+  FRAME_AUDIT_ENABLED &&
+  (
+    globalThis as {
+      process?: { env?: { REZI_FRAME_AUDIT_TREE?: string } };
+    }
+  ).process?.env?.REZI_FRAME_AUDIT_TREE === "1";
 
 function warnDev(message: string): void {
   const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
@@ -535,47 +542,295 @@ function rectEquals(a: Rect, b: Rect): boolean {
   return a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 }
 
-function rectsIntersect(a: Rect, b: Rect): boolean {
-  if (a.w <= 0 || a.h <= 0 || b.w <= 0 || b.h <= 0) return false;
-  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-}
-
-function rectsIntersection(a: Rect, b: Rect): Rect | null {
-  const x0 = Math.max(a.x, b.x);
-  const y0 = Math.max(a.y, b.y);
-  const x1 = Math.min(a.x + a.w, b.x + b.w);
-  const y1 = Math.min(a.y + a.h, b.y + b.h);
-  if (x1 <= x0 || y1 <= y0) return null;
-  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
-}
-
-function rectContainsRect(outer: Rect, inner: Rect): boolean {
-  if (inner.w <= 0 || inner.h <= 0) return false;
-  return (
-    inner.x >= outer.x &&
-    inner.y >= outer.y &&
-    inner.x + inner.w <= outer.x + outer.w &&
-    inner.y + inner.h <= outer.y + outer.h
-  );
-}
-
-function nodeKindCanPaintOverlay(kind: VNode["kind"]): boolean {
-  switch (kind) {
-    case "themed":
-    case "focusZone":
-    case "focusTrap":
-    case "layers":
-      return false;
-    default:
-      return true;
-  }
-}
-
 function monotonicNowMs(): number {
   const perf = (globalThis as { performance?: { now?: () => number } }).performance;
   const perfNow = perf?.now;
   if (typeof perfNow === "function") return perfNow.call(perf);
   return Date.now();
+}
+
+function pushLimited(list: string[], value: string, max: number): void {
+  if (list.length >= max) return;
+  list.push(value);
+}
+
+function normalizeAuditText(value: string, maxChars = 96): string {
+  if (value.length <= maxChars) return value;
+  return `${value.slice(0, Math.max(0, maxChars - 1))}…`;
+}
+
+function describeAuditVNode(vnode: VNode): string {
+  const kind = vnode.kind;
+  const props = vnode.props as Readonly<{ id?: unknown; title?: unknown }> | undefined;
+  const id = typeof props?.id === "string" && props.id.length > 0 ? props.id : null;
+  const title =
+    typeof props?.title === "string" && props.title.length > 0
+      ? normalizeAuditText(props.title, 24)
+      : null;
+  if (id !== null) return `${kind}#${id}`;
+  if (title !== null) return `${kind}[${title}]`;
+  return kind;
+}
+
+function summarizeRuntimeTreeForAudit(
+  root: RuntimeInstance,
+  layoutRoot: LayoutTree,
+): Readonly<Record<string, unknown>> {
+  const kindCounts = new Map<string, number>();
+  const zeroAreaKindCounts = new Map<string, number>();
+  const textSamples: string[] = [];
+  const titleSamples: string[] = [];
+  const titleRectSamples: string[] = [];
+  const zeroAreaTitleSamples: string[] = [];
+  const mismatchSamples: string[] = [];
+  const needleHits = new Set<string>();
+  const needles = [
+    "Engineering Controls",
+    "Subsystem Tree",
+    "Crew Manifest",
+    "Search Crew",
+    "Channel Controls",
+    "Ship Settings",
+  ];
+
+  let nodeCount = 0;
+  let textNodeCount = 0;
+  let boxTitleCount = 0;
+  let compositeNodeCount = 0;
+  let zeroAreaNodes = 0;
+  let maxDepth = 0;
+  let maxChildrenDelta = 0;
+
+  const stack: Array<
+    Readonly<{ node: RuntimeInstance; layout: LayoutTree; depth: number; path: string }>
+  > = [Object.freeze({ node: root, layout: layoutRoot, depth: 0, path: "root" })];
+  const rootRect = layoutRoot.rect;
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) continue;
+    const { node, layout, depth, path } = current;
+    nodeCount += 1;
+    if (depth > maxDepth) maxDepth = depth;
+
+    const kind = node.vnode.kind;
+    const layoutKind = layout.vnode.kind;
+    kindCounts.set(kind, (kindCounts.get(kind) ?? 0) + 1);
+    if ("__composite" in (node.vnode as object)) {
+      compositeNodeCount += 1;
+    }
+    if (kind !== layoutKind) {
+      const runtimeLabel = describeAuditVNode(node.vnode);
+      const layoutLabel = describeAuditVNode(layout.vnode);
+      pushLimited(mismatchSamples, `${path}:${runtimeLabel}!${layoutLabel}`, 24);
+    }
+
+    const rect = layout.rect;
+    if (rect.w <= 0 || rect.h <= 0) {
+      zeroAreaNodes += 1;
+      zeroAreaKindCounts.set(kind, (zeroAreaKindCounts.get(kind) ?? 0) + 1);
+    }
+
+    if (kind === "text") {
+      textNodeCount += 1;
+      const text = (node.vnode as Readonly<{ text: string }>).text;
+      pushLimited(textSamples, normalizeAuditText(text), 24);
+      for (const needle of needles) {
+        if (text.includes(needle)) needleHits.add(needle);
+      }
+    } else {
+      const props = node.vnode.props as Readonly<{ title?: unknown }> | undefined;
+      if (typeof props?.title === "string" && props.title.length > 0) {
+        boxTitleCount += 1;
+        pushLimited(titleSamples, normalizeAuditText(props.title), 24);
+        const offRoot =
+          rect.x + rect.w <= rootRect.x ||
+          rect.y + rect.h <= rootRect.y ||
+          rect.x >= rootRect.x + rootRect.w ||
+          rect.y >= rootRect.y + rootRect.h;
+        const titleRectSummary = `${normalizeAuditText(props.title, 48)}@${String(rect.x)},${String(rect.y)},${String(rect.w)},${String(rect.h)}${offRoot ? ":off-root" : ""}`;
+        pushLimited(titleRectSamples, titleRectSummary, 24);
+        if (rect.w <= 0 || rect.h <= 0) {
+          pushLimited(zeroAreaTitleSamples, titleRectSummary, 24);
+        }
+        for (const needle of needles) {
+          if (props.title.includes(needle)) needleHits.add(needle);
+        }
+      }
+    }
+
+    const childCount = Math.min(node.children.length, layout.children.length);
+    const delta = Math.abs(node.children.length - layout.children.length);
+    if (delta > 0) {
+      const id = (node.vnode.props as Readonly<{ id?: unknown }> | undefined)?.id;
+      const props = node.vnode.props as Readonly<{ title?: unknown }> | undefined;
+      const label =
+        typeof id === "string" && id.length > 0
+          ? `${kind}#${id}`
+          : typeof props?.title === "string" && props.title.length > 0
+            ? `${kind}[${normalizeAuditText(props.title, 32)}]`
+            : kind;
+      pushLimited(
+        mismatchSamples,
+        `${path}/${label}:runtimeChildren=${String(node.children.length)} layoutChildren=${String(layout.children.length)} layoutNode=${describeAuditVNode(layout.vnode)}`,
+        24,
+      );
+    }
+    if (delta > maxChildrenDelta) maxChildrenDelta = delta;
+    for (let i = childCount - 1; i >= 0; i--) {
+      const child = node.children[i];
+      const childLayout = layout.children[i];
+      if (!child || !childLayout) continue;
+      stack.push(
+        Object.freeze({
+          node: child,
+          layout: childLayout,
+          depth: depth + 1,
+          path: `${path}/${child.vnode.kind}[${String(i)}]`,
+        }),
+      );
+    }
+  }
+
+  const topKinds = Object.fromEntries(
+    [...kindCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12),
+  );
+  const topZeroAreaKinds = Object.fromEntries(
+    [...zeroAreaKindCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12),
+  );
+
+  return Object.freeze({
+    nodeCount,
+    textNodeCount,
+    boxTitleCount,
+    compositeNodeCount,
+    zeroAreaNodes,
+    maxDepth,
+    maxChildrenDelta,
+    topKinds,
+    topZeroAreaKinds,
+    textSamples,
+    titleSamples,
+    titleRectSamples,
+    zeroAreaTitleSamples,
+    mismatchSamples,
+    needleHits: [...needleHits].sort(),
+  });
+}
+
+type RuntimeLayoutShapeMismatch = Readonly<{
+  path: string;
+  depth: number;
+  reason: "kind" | "children";
+  runtimeKind: string;
+  layoutKind: string;
+  runtimeChildCount: number;
+  layoutChildCount: number;
+  runtimeTrail: readonly string[];
+  layoutTrail: readonly string[];
+}>;
+
+function findRuntimeLayoutShapeMismatch(
+  root: RuntimeInstance,
+  layoutRoot: LayoutTree,
+): RuntimeLayoutShapeMismatch | null {
+  const queue: Array<
+    Readonly<{
+      runtimeNode: RuntimeInstance;
+      layoutNode: LayoutTree;
+      path: string;
+      depth: number;
+      runtimeTrail: readonly string[];
+      layoutTrail: readonly string[];
+    }>
+  > = [
+    Object.freeze({
+      runtimeNode: root,
+      layoutNode: layoutRoot,
+      path: "root",
+      depth: 0,
+      runtimeTrail: Object.freeze([describeAuditVNode(root.vnode)]),
+      layoutTrail: Object.freeze([describeAuditVNode(layoutRoot.vnode)]),
+    }),
+  ];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) continue;
+    const { runtimeNode, layoutNode, path, depth, runtimeTrail, layoutTrail } = current;
+    const runtimeKind = runtimeNode.vnode.kind;
+    const layoutKind = layoutNode.vnode.kind;
+    const runtimeChildCount = runtimeNode.children.length;
+    const layoutChildCount = layoutNode.children.length;
+    if (runtimeKind !== layoutKind) {
+      return Object.freeze({
+        path,
+        depth,
+        reason: "kind",
+        runtimeKind,
+        layoutKind,
+        runtimeChildCount,
+        layoutChildCount,
+        runtimeTrail,
+        layoutTrail,
+      });
+    }
+    if (runtimeChildCount !== layoutChildCount) {
+      return Object.freeze({
+        path,
+        depth,
+        reason: "children",
+        runtimeKind,
+        layoutKind,
+        runtimeChildCount,
+        layoutChildCount,
+        runtimeTrail,
+        layoutTrail,
+      });
+    }
+
+    for (let i = 0; i < runtimeChildCount; i++) {
+      const runtimeChild = runtimeNode.children[i];
+      const layoutChild = layoutNode.children[i];
+      if (!runtimeChild || !layoutChild) {
+        return Object.freeze({
+          path: `${path}/${runtimeChild ? runtimeChild.vnode.kind : "missing"}[${String(i)}]`,
+          depth: depth + 1,
+          reason: "children",
+          runtimeKind: runtimeChild?.vnode.kind ?? "<missing>",
+          layoutKind: layoutChild?.vnode.kind ?? "<missing>",
+          runtimeChildCount: runtimeChild?.children.length ?? -1,
+          layoutChildCount: layoutChild?.children.length ?? -1,
+          runtimeTrail,
+          layoutTrail,
+        });
+      }
+      const nextRuntimeTrail = Object.freeze([
+        ...runtimeTrail.slice(-11),
+        describeAuditVNode(runtimeChild.vnode),
+      ]);
+      const nextLayoutTrail = Object.freeze([
+        ...layoutTrail.slice(-11),
+        describeAuditVNode(layoutChild.vnode),
+      ]);
+      queue.push(
+        Object.freeze({
+          runtimeNode: runtimeChild,
+          layoutNode: layoutChild,
+          path: `${path}/${runtimeChild.vnode.kind}[${String(i)}]`,
+          depth: depth + 1,
+          runtimeTrail: nextRuntimeTrail,
+          layoutTrail: nextLayoutTrail,
+        }),
+      );
+    }
+  }
+
+  return null;
+}
+
+function hasRuntimeLayoutShapeMismatch(root: RuntimeInstance, layoutRoot: LayoutTree): boolean {
+  return findRuntimeLayoutShapeMismatch(root, layoutRoot) !== null;
 }
 
 function cloneFocusManagerState(state: FocusManagerState): FocusManagerState {
@@ -594,38 +849,6 @@ type ErrorBoundaryState = Readonly<{
   detail: string;
   message: string;
   stack?: string;
-}>;
-
-type LogsScrollBlitPlan = Readonly<{
-  instanceId: InstanceId;
-  srcX: number;
-  srcY: number;
-  w: number;
-  h: number;
-  dstX: number;
-  dstY: number;
-  damageRects: readonly Rect[];
-}>;
-
-type LogsScrollSnapshot = Readonly<{
-  instanceId: InstanceId;
-  rect: Rect;
-  contentRect: Rect;
-  scrollTop: number;
-  filteredLength: number;
-  entriesRef: LogsConsoleProps["entries"];
-  levelFilterRef: readonly string[];
-  sourceFilterRef: readonly string[];
-  searchQuery: string | null;
-  expandedEntriesRef: readonly string[];
-  showTimestamps: boolean;
-  showSource: boolean;
-  focusConfigRef: LogsConsoleProps["focusConfig"];
-  focusedStyleRef: LogsConsoleProps["focusedStyle"];
-  scrollbarVariant: LogsConsoleProps["scrollbarVariant"];
-  scrollbarStyleRef: LogsConsoleProps["scrollbarStyle"];
-  focused: boolean;
-  showFocusRing: boolean;
 }>;
 
 /**
@@ -779,8 +1002,6 @@ export class WidgetRenderer<S> {
   private readonly diffViewerExpandedHunksById = new Map<string, ReadonlySet<number>>();
 
   private readonly logsConsoleLastGTimeById = new Map<string, number>();
-  private readonly logsConsoleInstanceIdById = new Map<string, InstanceId>();
-  private readonly logsScrollSnapshotById = new Map<string, LogsScrollSnapshot>();
 
   // Tracks whether the currently committed tree needs routing rebuild traversals.
   private hadRoutingWidgets = false;
@@ -1178,8 +1399,13 @@ export class WidgetRenderer<S> {
     }
   }
 
-  private cleanupUnmountedInstanceIds(unmountedInstanceIds: readonly InstanceId[]): void {
+  private cleanupUnmountedInstanceIds(
+    unmountedInstanceIds: readonly InstanceId[],
+    opts: Readonly<{ skipIds?: ReadonlySet<InstanceId> }> = {},
+  ): void {
+    const skipIds = opts.skipIds;
     for (const unmountedId of unmountedInstanceIds) {
+      if (skipIds?.has(unmountedId)) continue;
       this.inputCursorByInstanceId.delete(unmountedId);
       this.inputSelectionByInstanceId.delete(unmountedId);
       this.inputWorkingValueByInstanceId.delete(unmountedId);
@@ -1200,12 +1426,11 @@ export class WidgetRenderer<S> {
   private scheduleExitAnimations(
     pendingExitAnimations: readonly PendingExitAnimation[],
     frameNowMs: number,
-    prevRuntimeRoot: RuntimeInstance | null,
-    prevLayoutRoot: LayoutTree | null,
+    prevLayoutSubtreeByInstanceId: ReadonlyMap<InstanceId, LayoutTree> | null,
   ): void {
     if (pendingExitAnimations.length === 0) return;
 
-    if (!prevRuntimeRoot || !prevLayoutRoot) {
+    if (!prevLayoutSubtreeByInstanceId) {
       for (const pending of pendingExitAnimations) {
         pending.runDeferredLocalStateCleanup();
         this.cleanupUnmountedInstanceIds(pending.subtreeInstanceIds);
@@ -1213,15 +1438,10 @@ export class WidgetRenderer<S> {
       return;
     }
 
-    this.collectLayoutSubtreeByInstanceId(
-      prevRuntimeRoot,
-      prevLayoutRoot,
-      this._pooledPrevLayoutSubtreeByInstanceId,
-    );
     const missingLayout = scheduleExitAnimationsImpl({
       pendingExitAnimations,
       frameNowMs,
-      layoutSubtreeByInstanceId: this._pooledPrevLayoutSubtreeByInstanceId,
+      layoutSubtreeByInstanceId: prevLayoutSubtreeByInstanceId,
       prevFrameOpacityByInstanceId: this._prevFrameOpacityByInstanceId,
       exitTransitionTrackByInstanceId: this.exitTransitionTrackByInstanceId,
       exitRenderNodeByInstanceId: this.exitRenderNodeByInstanceId,
@@ -2366,15 +2586,6 @@ export class WidgetRenderer<S> {
     );
   }
 
-  private clipDamageRectsWithoutMerge(viewport: Viewport): readonly Rect[] {
-    this._pooledMergedDamageRects.length = 0;
-    for (const rect of this._pooledDamageRects) {
-      const clipped = clipRectToViewport(rect, viewport);
-      if (clipped) this._pooledMergedDamageRects.push(clipped);
-    }
-    return this._pooledMergedDamageRects;
-  }
-
   private isDamageAreaTooLarge(viewport: Viewport): boolean {
     return isDamageAreaTooLargeImpl(viewport, this._pooledMergedDamageRects);
   }
@@ -2410,312 +2621,6 @@ export class WidgetRenderer<S> {
     this._lastRenderedThemeRef = nextFrameState.lastRenderedThemeRef;
     this._lastRenderedFocusedId = nextFrameState.lastRenderedFocusedId;
     this._lastRenderedFocusAnnouncement = nextFrameState.lastRenderedFocusAnnouncement;
-  }
-
-  private resolveLogsConsoleRenderGeometry(
-    rect: Rect,
-    props: LogsConsoleProps,
-    focusedId: string | null,
-  ): Readonly<{ focused: boolean; showFocusRing: boolean; contentRect: Rect }> {
-    const focused = focusedId === props.id;
-    const focusConfig = readFocusConfigForLogs(props.focusConfig);
-    const showFocusRing = focused && focusIndicatorEnabledForLogs(focusConfig);
-    if (!showFocusRing) {
-      return Object.freeze({ focused, showFocusRing, contentRect: rect });
-    }
-    return Object.freeze({
-      focused,
-      showFocusRing,
-      contentRect: {
-        x: rect.x + 1,
-        y: rect.y + 1,
-        w: Math.max(0, rect.w - 2),
-        h: Math.max(0, rect.h - 2),
-      },
-    });
-  }
-
-  private hasUnsafeAncestorClipForBlit(instanceId: InstanceId, contentRect: Rect): boolean {
-    if (contentRect.w <= 0 || contentRect.h <= 0) return true;
-    if (!this.committedRoot) return true;
-
-    const nodeByInstanceId = new Map<InstanceId, RuntimeInstance>();
-    const parentByInstanceId = new Map<InstanceId, InstanceId | null>();
-    const stack: RuntimeInstance[] = [this.committedRoot];
-    nodeByInstanceId.set(this.committedRoot.instanceId, this.committedRoot);
-    parentByInstanceId.set(this.committedRoot.instanceId, null);
-
-    let foundTarget = this.committedRoot.instanceId === instanceId;
-    while (stack.length > 0 && !foundTarget) {
-      const node = stack.pop();
-      if (!node) continue;
-
-      for (let i = node.children.length - 1; i >= 0; i--) {
-        const child = node.children[i];
-        if (!child) continue;
-        nodeByInstanceId.set(child.instanceId, child);
-        parentByInstanceId.set(child.instanceId, node.instanceId);
-        if (child.instanceId === instanceId) {
-          foundTarget = true;
-          break;
-        }
-        stack.push(child);
-      }
-    }
-    if (!foundTarget) return true;
-
-    let effectiveClip: Rect | null = null;
-    let currentParentId = parentByInstanceId.get(instanceId) ?? null;
-    while (currentParentId !== null) {
-      const ancestor = nodeByInstanceId.get(currentParentId);
-      if (!ancestor) return true;
-
-      switch (ancestor.vnode.kind) {
-        case "row":
-        case "column":
-        case "grid":
-        case "box": {
-          const overflow = (ancestor.vnode.props as { overflow?: unknown } | undefined)?.overflow;
-          if (overflow === "hidden" || overflow === "scroll") {
-            return true;
-          }
-          break;
-        }
-        case "modal":
-        case "layer":
-          return true;
-        case "splitPane":
-        case "panelGroup":
-        case "resizablePanel": {
-          const ancestorRect = this._pooledRectByInstanceId.get(ancestor.instanceId);
-          if (!ancestorRect) return true;
-          effectiveClip = effectiveClip
-            ? rectsIntersection(effectiveClip, ancestorRect)
-            : ancestorRect;
-          if (!effectiveClip) return true;
-          break;
-        }
-        default:
-          break;
-      }
-
-      currentParentId = parentByInstanceId.get(currentParentId) ?? null;
-    }
-
-    if (!effectiveClip) return false;
-    return !rectContainsRect(effectiveClip, contentRect);
-  }
-
-  private hasPaintedOverlapAfterInstance(instanceId: InstanceId, contentRect: Rect): boolean {
-    if (contentRect.w <= 0 || contentRect.h <= 0) return true;
-    if (!this.committedRoot) return true;
-
-    const stack: Array<Readonly<{ node: RuntimeInstance; depth: number }>> = [
-      { node: this.committedRoot, depth: 0 },
-    ];
-    let foundTarget = false;
-    let targetDepth = -1;
-    let afterTargetSubtree = false;
-
-    while (stack.length > 0) {
-      const current = stack.pop();
-      if (!current) continue;
-      const node = current.node;
-      const depth = current.depth;
-
-      if (!foundTarget) {
-        if (node.instanceId === instanceId) {
-          foundTarget = true;
-          targetDepth = depth;
-        }
-      } else {
-        if (!afterTargetSubtree && depth <= targetDepth) {
-          afterTargetSubtree = true;
-        }
-        if (afterTargetSubtree && nodeKindCanPaintOverlay(node.vnode.kind)) {
-          const candidateRect = this._pooledRectByInstanceId.get(node.instanceId);
-          if (candidateRect && rectsIntersect(candidateRect, contentRect)) {
-            return true;
-          }
-        }
-      }
-
-      for (let i = node.children.length - 1; i >= 0; i--) {
-        const child = node.children[i];
-        if (!child) continue;
-        stack.push({ node: child, depth: depth + 1 });
-      }
-    }
-
-    return !foundTarget;
-  }
-
-  private readLogsFilteredLength(props: LogsConsoleProps): number {
-    const cached = this.logsConsoleRenderCacheById.get(props.id);
-    if (cached) return cached.filtered.length;
-    return applyFilters(props.entries, props.levelFilter, props.sourceFilter, props.searchQuery)
-      .length;
-  }
-
-  private buildLogsScrollBlitPlans(
-    prevFocusedId: string | null,
-    nextFocusedId: string | null,
-  ): ReadonlyMap<InstanceId, LogsScrollBlitPlan> {
-    const plans = new Map<InstanceId, LogsScrollBlitPlan>();
-    if (prevFocusedId !== nextFocusedId) return plans;
-
-    for (const [id, props] of this.logsConsoleById) {
-      const prev = this.logsScrollSnapshotById.get(id);
-      if (!prev) continue;
-
-      const instanceId = this.logsConsoleInstanceIdById.get(id);
-      if (instanceId === undefined || instanceId !== prev.instanceId) continue;
-
-      const rect = this.rectById.get(id);
-      if (!rect || rect.w <= 0 || rect.h <= 0) continue;
-
-      const geometry = this.resolveLogsConsoleRenderGeometry(rect, props, nextFocusedId);
-      const contentRect = geometry.contentRect;
-      if (contentRect.w <= 0 || contentRect.h <= 0) continue;
-
-      const levelFilterRef = (props.levelFilter ?? EMPTY_STRING_ARRAY) as readonly string[];
-      const sourceFilterRef = (props.sourceFilter ?? EMPTY_STRING_ARRAY) as readonly string[];
-      const searchQuery = props.searchQuery ? props.searchQuery : null;
-      const expandedEntriesRef = (props.expandedEntries ?? EMPTY_STRING_ARRAY) as readonly string[];
-      const showTimestamps = props.showTimestamps !== false;
-      const showSource = props.showSource !== false;
-      const filteredLength = this.readLogsFilteredLength(props);
-
-      if (
-        prev.entriesRef !== props.entries ||
-        prev.levelFilterRef !== levelFilterRef ||
-        prev.sourceFilterRef !== sourceFilterRef ||
-        prev.searchQuery !== searchQuery ||
-        prev.expandedEntriesRef !== expandedEntriesRef ||
-        prev.showTimestamps !== showTimestamps ||
-        prev.showSource !== showSource ||
-        prev.focusConfigRef !== props.focusConfig ||
-        prev.focusedStyleRef !== props.focusedStyle ||
-        prev.scrollbarVariant !== props.scrollbarVariant ||
-        prev.scrollbarStyleRef !== props.scrollbarStyle ||
-        prev.focused !== geometry.focused ||
-        prev.showFocusRing !== geometry.showFocusRing ||
-        prev.filteredLength !== filteredLength ||
-        !rectEquals(prev.rect, rect) ||
-        !rectEquals(prev.contentRect, contentRect)
-      ) {
-        continue;
-      }
-
-      const prevScrollTop = clampIndexScrollTopForRows(
-        prev.scrollTop,
-        filteredLength,
-        contentRect.h,
-      );
-      const nextScrollTop = clampIndexScrollTopForRows(
-        props.scrollTop,
-        filteredLength,
-        contentRect.h,
-      );
-      const delta = nextScrollTop - prevScrollTop;
-      if (delta === 0) continue;
-
-      const deltaAbs = Math.abs(delta);
-      if (deltaAbs >= contentRect.h) continue;
-
-      const hasScrollbar = filteredLength > contentRect.h;
-      const scrollbarWidth = hasScrollbar ? 1 : 0;
-      const blitW = contentRect.w - scrollbarWidth;
-      const blitH = contentRect.h - deltaAbs;
-      if (blitW <= 0 || blitH <= 0) continue;
-      if (this.hasUnsafeAncestorClipForBlit(instanceId, contentRect)) continue;
-      if (this.hasPaintedOverlapAfterInstance(instanceId, contentRect)) continue;
-
-      const srcX = contentRect.x;
-      const dstX = contentRect.x;
-      const srcY = delta > 0 ? contentRect.y + delta : contentRect.y;
-      const dstY = delta > 0 ? contentRect.y : contentRect.y + deltaAbs;
-      const stripY = delta > 0 ? contentRect.y + blitH : contentRect.y;
-      const damageRects: Rect[] = [
-        {
-          x: contentRect.x,
-          y: stripY,
-          w: blitW,
-          h: deltaAbs,
-        },
-      ];
-      if (hasScrollbar) {
-        damageRects.push({
-          x: contentRect.x + contentRect.w - 1,
-          y: contentRect.y,
-          w: 1,
-          h: contentRect.h,
-        });
-      }
-
-      plans.set(
-        instanceId,
-        Object.freeze({
-          instanceId,
-          srcX,
-          srcY,
-          w: blitW,
-          h: blitH,
-          dstX,
-          dstY,
-          damageRects: Object.freeze(damageRects),
-        }),
-      );
-    }
-
-    return plans;
-  }
-
-  private snapshotLogsScrollState(focusedId: string | null): void {
-    const nextById = new Map<string, LogsScrollSnapshot>();
-
-    for (const [id, props] of this.logsConsoleById) {
-      const rect = this.rectById.get(id);
-      const instanceId = this.logsConsoleInstanceIdById.get(id);
-      if (!rect || rect.w <= 0 || rect.h <= 0 || instanceId === undefined) continue;
-
-      const geometry = this.resolveLogsConsoleRenderGeometry(rect, props, focusedId);
-      const contentRect = geometry.contentRect;
-      if (contentRect.w <= 0 || contentRect.h <= 0) continue;
-
-      const levelFilterRef = (props.levelFilter ?? EMPTY_STRING_ARRAY) as readonly string[];
-      const sourceFilterRef = (props.sourceFilter ?? EMPTY_STRING_ARRAY) as readonly string[];
-      const expandedEntriesRef = (props.expandedEntries ?? EMPTY_STRING_ARRAY) as readonly string[];
-
-      nextById.set(
-        id,
-        Object.freeze({
-          instanceId,
-          rect,
-          contentRect,
-          scrollTop: props.scrollTop,
-          filteredLength: this.readLogsFilteredLength(props),
-          entriesRef: props.entries,
-          levelFilterRef,
-          sourceFilterRef,
-          searchQuery: props.searchQuery ? props.searchQuery : null,
-          expandedEntriesRef,
-          showTimestamps: props.showTimestamps !== false,
-          showSource: props.showSource !== false,
-          focusConfigRef: props.focusConfig,
-          focusedStyleRef: props.focusedStyle,
-          scrollbarVariant: props.scrollbarVariant,
-          scrollbarStyleRef: props.scrollbarStyle,
-          focused: geometry.focused,
-          showFocusRing: geometry.showFocusRing,
-        }),
-      );
-    }
-
-    this.logsScrollSnapshotById.clear();
-    for (const [id, snapshot] of nextById) {
-      this.logsScrollSnapshotById.set(id, snapshot);
-    }
   }
 
   /**
@@ -2777,11 +2682,19 @@ export class WidgetRenderer<S> {
       const prevZoneMetaByIdBeforeSubmit = this.zoneMetaById;
       const prevCommittedRoot = this.committedRoot;
       const prevLayoutTree = this.layoutTree;
+      let prevLayoutSubtreeByInstanceId: ReadonlyMap<InstanceId, LayoutTree> | null = null;
+      if (doCommit && prevCommittedRoot && prevLayoutTree) {
+        this.collectLayoutSubtreeByInstanceId(
+          prevCommittedRoot,
+          prevLayoutTree,
+          this._pooledPrevLayoutSubtreeByInstanceId,
+        );
+        prevLayoutSubtreeByInstanceId = this._pooledPrevLayoutSubtreeByInstanceId;
+      }
       const hadRoutingWidgets = this.hadRoutingWidgets;
       let hasRoutingWidgets = hadRoutingWidgets;
       let didRoutingRebuild = false;
       let identityDamageFromCommit: IdentityDiffDamageResult | null = null;
-      let layoutDirtyVNodeSet: Set<VNode> | null = null;
 
       if (doCommit) {
         let commitReadViewport = false;
@@ -2858,12 +2771,31 @@ export class WidgetRenderer<S> {
             doLayout = true;
           }
         }
-        this.cleanupUnmountedInstanceIds(commitRes.unmountedInstanceIds);
+        if (!doLayout && this.layoutTree !== null) {
+          // Defensive guard: never render a newly committed runtime tree against
+          // a stale layout tree with different shape/kinds.
+          if (findRuntimeLayoutShapeMismatch(this.committedRoot, this.layoutTree) !== null) {
+            doLayout = true;
+          }
+        }
+        let deferredExitCleanupIds: Set<InstanceId> | null = null;
+        if (commitRes.pendingExitAnimations.length > 0) {
+          deferredExitCleanupIds = new Set<InstanceId>();
+          for (const pending of commitRes.pendingExitAnimations) {
+            for (const id of pending.subtreeInstanceIds) {
+              deferredExitCleanupIds.add(id);
+            }
+          }
+        }
+
+        this.cleanupUnmountedInstanceIds(
+          commitRes.unmountedInstanceIds,
+          deferredExitCleanupIds ? { skipIds: deferredExitCleanupIds } : undefined,
+        );
         this.scheduleExitAnimations(
           commitRes.pendingExitAnimations,
           frameNowMs,
-          prevCommittedRoot,
-          prevLayoutTree,
+          prevLayoutSubtreeByInstanceId,
         );
         this.cancelExitTransitionsForReappearedKeys(this.committedRoot);
 
@@ -2893,21 +2825,14 @@ export class WidgetRenderer<S> {
         this._lastRenderedViewport.rows !== viewport.rows ||
         this._lastRenderedThemeRef !== theme;
 
-      if (doLayout && doCommit && commitRes !== null && !forceFullRelayout) {
-        this.collectSelfDirtyInstanceIds(this.committedRoot, this._pooledDirtyLayoutInstanceIds);
-        const dirtyInstanceIds = computeDirtyLayoutSet(
-          this.committedRoot,
-          commitRes.mountedInstanceIds,
-          this._pooledDirtyLayoutInstanceIds,
-        );
-        layoutDirtyVNodeSet = instanceDirtySetToVNodeDirtySet(this.committedRoot, dirtyInstanceIds);
-      }
-
       if (doLayout) {
         const rootPad = this.rootPadding;
         const rootW = Math.max(0, viewport.cols - rootPad * 2);
         const rootH = Math.max(0, viewport.rows - rootPad * 2);
         const layoutToken = perfMarkStart("layout");
+        // Force a cold layout pass whenever layout is requested; partial cache reuse can
+        // produce runtime/layout shape divergence under complex composite updates.
+        this._layoutTreeCache = new WeakMap<VNode, unknown>();
         const layoutRootVNode =
           this.scrollOverrides.size > 0
             ? this.applyScrollOverridesToVNode(this.committedRoot.vnode)
@@ -2922,13 +2847,89 @@ export class WidgetRenderer<S> {
           "column",
           this._layoutMeasureCache,
           this._layoutTreeCache,
-          layoutDirtyVNodeSet,
+          null,
         );
         perfMarkEnd("layout", layoutToken);
         if (!layoutRes.ok) {
           return { ok: false, code: layoutRes.fatal.code, detail: layoutRes.fatal.detail };
         }
-        const nextLayoutTree = layoutRes.value;
+        let nextLayoutTree = layoutRes.value;
+        let shapeMismatch = doCommit
+          ? findRuntimeLayoutShapeMismatch(this.committedRoot, nextLayoutTree)
+          : null;
+        if (doCommit && shapeMismatch !== null) {
+          if (FRAME_AUDIT_ENABLED) {
+            emitFrameAudit("widgetRenderer", "layout.shape_mismatch", {
+              reason: "post-layout-cache-hit",
+              path: shapeMismatch.path,
+              depth: shapeMismatch.depth,
+              mismatchKind: shapeMismatch.reason,
+              runtimeKind: shapeMismatch.runtimeKind,
+              layoutKind: shapeMismatch.layoutKind,
+              runtimeChildCount: shapeMismatch.runtimeChildCount,
+              layoutChildCount: shapeMismatch.layoutChildCount,
+              runtimeTrail: shapeMismatch.runtimeTrail,
+              layoutTrail: shapeMismatch.layoutTrail,
+            });
+          }
+          // Cache can become stale under structural changes; force a cold relayout.
+          this._layoutTreeCache = new WeakMap<VNode, unknown>();
+          const fallbackLayoutRes = layout(
+            layoutRootVNode,
+            rootPad,
+            rootPad,
+            rootW,
+            rootH,
+            "column",
+            this._layoutMeasureCache,
+            this._layoutTreeCache,
+            null,
+          );
+          if (!fallbackLayoutRes.ok) {
+            return {
+              ok: false,
+              code: fallbackLayoutRes.fatal.code,
+              detail: fallbackLayoutRes.fatal.detail,
+            };
+          }
+          nextLayoutTree = fallbackLayoutRes.value;
+          shapeMismatch = findRuntimeLayoutShapeMismatch(this.committedRoot, nextLayoutTree);
+          if (shapeMismatch !== null && layoutRootVNode !== this.committedRoot.vnode) {
+            const directLayoutRes = layout(
+              this.committedRoot.vnode,
+              rootPad,
+              rootPad,
+              rootW,
+              rootH,
+              "column",
+              this._layoutMeasureCache,
+              this._layoutTreeCache,
+              null,
+            );
+            if (!directLayoutRes.ok) {
+              return {
+                ok: false,
+                code: directLayoutRes.fatal.code,
+                detail: directLayoutRes.fatal.detail,
+              };
+            }
+            nextLayoutTree = directLayoutRes.value;
+            shapeMismatch = findRuntimeLayoutShapeMismatch(this.committedRoot, nextLayoutTree);
+          }
+          if (shapeMismatch !== null && FRAME_AUDIT_ENABLED) {
+            emitFrameAudit("widgetRenderer", "layout.shape_mismatch.persisted", {
+              path: shapeMismatch.path,
+              depth: shapeMismatch.depth,
+              mismatchKind: shapeMismatch.reason,
+              runtimeKind: shapeMismatch.runtimeKind,
+              layoutKind: shapeMismatch.layoutKind,
+              runtimeChildCount: shapeMismatch.runtimeChildCount,
+              layoutChildCount: shapeMismatch.layoutChildCount,
+              runtimeTrail: shapeMismatch.runtimeTrail,
+              layoutTrail: shapeMismatch.layoutTrail,
+            });
+          }
+        }
         this.layoutTree = nextLayoutTree;
         this.emitDevLayoutWarnings(nextLayoutTree, viewport);
 
@@ -3050,7 +3051,6 @@ export class WidgetRenderer<S> {
         this.diffViewerById.clear();
         this.toolApprovalDialogById.clear();
         this.logsConsoleById.clear();
-        this.logsConsoleInstanceIdById.clear();
 
         // Rebuild overlay routing state using pooled collections.
         this.layerRegistry.clear();
@@ -3161,7 +3161,6 @@ export class WidgetRenderer<S> {
             case "logsConsole": {
               const p = v.props as LogsConsoleProps;
               this.logsConsoleById.set(p.id, p);
-              this.logsConsoleInstanceIdById.set(p.id, cur.instanceId);
               break;
             }
             case "toastContainer": {
@@ -3795,35 +3794,23 @@ export class WidgetRenderer<S> {
       let runtimeDamageMode: RuntimeBreadcrumbDamageMode = "none";
       let runtimeDamageRectCount = 0;
       let runtimeDamageArea = 0;
-      const prevFocusedId = this._lastRenderedFocusedId;
-      const nextFocusedId = this.focusState.focusedId;
       if (this.shouldAttemptIncrementalRender(doLayout, viewport, theme)) {
         if (!doCommit) {
-          this.markTransientDirtyNodes(this.committedRoot, prevFocusedId, nextFocusedId, true);
+          this.markTransientDirtyNodes(
+            this.committedRoot,
+            this._lastRenderedFocusedId,
+            this.focusState.focusedId,
+            true,
+          );
         }
         this._pooledDamageRects.length = 0;
         let missingDamageRect = false;
-        const logsScrollBlitPlansByInstanceId = doCommit
-          ? this.buildLogsScrollBlitPlans(prevFocusedId, nextFocusedId)
-          : new Map<InstanceId, LogsScrollBlitPlan>();
-        const activeLogsScrollBlitPlans: LogsScrollBlitPlan[] = doCommit
-          ? Array.from(logsScrollBlitPlansByInstanceId.values())
-          : [];
-        for (const logsBlitPlan of activeLogsScrollBlitPlans) {
-          for (const rect of logsBlitPlan.damageRects) {
-            this._pooledDamageRects.push(rect);
-          }
-        }
 
         if (doCommit) {
           if (!identityDamageFromCommit) {
             missingDamageRect = true;
           } else {
             for (const instanceId of identityDamageFromCommit.changedInstanceIds) {
-              const logsBlitPlan = logsScrollBlitPlansByInstanceId.get(instanceId);
-              if (logsBlitPlan) {
-                continue;
-              }
               if (!this.appendDamageRectForInstanceId(instanceId)) {
                 missingDamageRect = true;
                 break;
@@ -3842,6 +3829,8 @@ export class WidgetRenderer<S> {
           this.collectSpinnerDamageRects(this.committedRoot, this.layoutTree);
         }
 
+        const prevFocusedId = this._lastRenderedFocusedId;
+        const nextFocusedId = this.focusState.focusedId;
         if (!missingDamageRect && prevFocusedId !== nextFocusedId) {
           if (prevFocusedId !== null && !this.appendDamageRectForId(prevFocusedId)) {
             missingDamageRect = true;
@@ -3863,10 +3852,7 @@ export class WidgetRenderer<S> {
         }
 
         if (!missingDamageRect) {
-          const preserveDamageRectSeparation = activeLogsScrollBlitPlans.length > 0;
-          const damageRects = preserveDamageRectSeparation
-            ? this.clipDamageRectsWithoutMerge(viewport)
-            : this.normalizeDamageRects(viewport);
+          const damageRects = this.normalizeDamageRects(viewport);
           if (damageRects.length > 0 && !this.isDamageAreaTooLarge(viewport)) {
             if (captureRuntimeBreadcrumbs) {
               runtimeDamageMode = "incremental";
@@ -3875,16 +3861,6 @@ export class WidgetRenderer<S> {
               for (const damageRect of damageRects) {
                 runtimeDamageArea += damageRect.w * damageRect.h;
               }
-            }
-            for (const logsBlitPlan of activeLogsScrollBlitPlans) {
-              this.builder.blitRect(
-                logsBlitPlan.srcX,
-                logsBlitPlan.srcY,
-                logsBlitPlan.w,
-                logsBlitPlan.h,
-                logsBlitPlan.dstX,
-                logsBlitPlan.dstY,
-              );
             }
             for (const damageRect of damageRects) {
               this.builder.fillRect(
@@ -3981,16 +3957,43 @@ export class WidgetRenderer<S> {
       }
       perfMarkEnd("render", renderToken);
 
+      let submittedBytes: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
+      let inFlight: Promise<void> | null = null;
       const buildToken = perfMarkStart("drawlist_build");
-      const built = this.builder.build();
-      perfMarkEnd("drawlist_build", buildToken);
-      if (!built.ok) {
-        return {
-          ok: false,
-          code: "ZRUI_DRAWLIST_BUILD_ERROR",
-          detail: `${built.error.code}: ${built.error.detail}`,
-        };
+      const beginFrame = (
+        this.backend as RuntimeBackend &
+          Partial<Record<typeof BACKEND_BEGIN_FRAME_MARKER, BackendBeginFrame>>
+      )[BACKEND_BEGIN_FRAME_MARKER];
+      if (typeof beginFrame === "function") {
+        const frameWriter = beginFrame();
+        if (frameWriter) {
+          const builtInto = this.builder.buildInto(frameWriter.buf);
+          if (!builtInto.ok) {
+            frameWriter.abort();
+            perfMarkEnd("drawlist_build", buildToken);
+            return {
+              ok: false,
+              code: "ZRUI_DRAWLIST_BUILD_ERROR",
+              detail: `${builtInto.error.code}: ${builtInto.error.detail}`,
+            };
+          }
+          submittedBytes = builtInto.bytes;
+          inFlight = frameWriter.commit(submittedBytes.byteLength);
+        }
       }
+      if (!inFlight) {
+        const built = this.builder.build();
+        if (!built.ok) {
+          perfMarkEnd("drawlist_build", buildToken);
+          return {
+            ok: false,
+            code: "ZRUI_DRAWLIST_BUILD_ERROR",
+            detail: `${built.error.code}: ${built.error.detail}`,
+          };
+        }
+        submittedBytes = built.bytes;
+      }
+      perfMarkEnd("drawlist_build", buildToken);
       this.clearRuntimeDirtyNodes(this.committedRoot);
       if (captureRuntimeBreadcrumbs) {
         this.updateRuntimeBreadcrumbSnapshot({
@@ -4011,7 +4014,6 @@ export class WidgetRenderer<S> {
         doLayout,
         focusAnnouncement,
       );
-      this.snapshotLogsScrollState(this.focusState.focusedId);
 
       // Render hooks are for preventing re-entrant app API calls during user render.
       hooks.exitRender();
@@ -4033,8 +4035,74 @@ export class WidgetRenderer<S> {
       try {
         const backendToken = PERF_ENABLED ? perfMarkStart("backend_request") : 0;
         try {
-          const inFlight = this.backend.requestFrame(built.bytes);
-          return { ok: true, inFlight };
+          const fingerprint = FRAME_AUDIT_ENABLED ? drawlistFingerprint(submittedBytes) : null;
+          if (fingerprint !== null) {
+            emitFrameAudit("widgetRenderer", "drawlist.built", {
+              tick,
+              commit: doCommit,
+              layout: doLayout,
+              incremental: usedIncrementalRender,
+              damageMode: runtimeDamageMode,
+              damageRectCount: runtimeDamageRectCount,
+              damageArea: runtimeDamageArea,
+              ...fingerprint,
+            });
+            if (FRAME_AUDIT_TREE_ENABLED) {
+              emitFrameAudit(
+                "widgetRenderer",
+                "runtime.tree.summary",
+                Object.freeze({
+                  tick,
+                  ...summarizeRuntimeTreeForAudit(this.committedRoot, this.layoutTree),
+                }),
+              );
+            }
+          }
+          if (!inFlight) {
+            inFlight = this.backend.requestFrame(submittedBytes);
+          }
+          const inflightPromise = inFlight;
+          if (fingerprint !== null) {
+            emitFrameAudit("widgetRenderer", "backend.request", {
+              tick,
+              hash32: fingerprint.hash32,
+              prefixHash32: fingerprint.prefixHash32,
+              byteLen: fingerprint.byteLen,
+            });
+            const acceptedAck = (
+              inflightPromise as Promise<void> &
+                Partial<Record<typeof FRAME_ACCEPTED_ACK_MARKER, Promise<void>>>
+            )[FRAME_ACCEPTED_ACK_MARKER];
+            if (acceptedAck !== undefined) {
+              void acceptedAck.then(
+                () =>
+                  emitFrameAudit("widgetRenderer", "backend.accepted", {
+                    tick,
+                    hash32: fingerprint.hash32,
+                  }),
+                (err: unknown) =>
+                  emitFrameAudit("widgetRenderer", "backend.accepted_error", {
+                    tick,
+                    hash32: fingerprint.hash32,
+                    detail: describeThrown(err),
+                  }),
+              );
+            }
+            void inflightPromise.then(
+              () =>
+                emitFrameAudit("widgetRenderer", "backend.completed", {
+                  tick,
+                  hash32: fingerprint.hash32,
+                }),
+              (err: unknown) =>
+                emitFrameAudit("widgetRenderer", "backend.completed_error", {
+                  tick,
+                  hash32: fingerprint.hash32,
+                  detail: describeThrown(err),
+                }),
+            );
+          }
+          return { ok: true, inFlight: inflightPromise };
         } finally {
           if (PERF_ENABLED) perfMarkEnd("backend_request", backendToken);
         }

@@ -355,7 +355,7 @@ function divider(props: DividerProps = {}): VNode {
  * @example
  * ```ts
  * ui.icon("status.check")
- * ui.icon("arrow.right", { style: { fg: { r: 0, g: 255, b: 0 } } })
+ * ui.icon("arrow.right", { style: { fg: rgb(0, 255, 0) } })
  * ui.icon("ui.search", { fallback: true })
  * ```
  */
@@ -419,7 +419,7 @@ function skeleton(width: number, props: Omit<SkeletonProps, "width"> = {}): VNod
  * @example
  * ```ts
  * ui.richText([
- *   { text: "Error: ", style: { fg: { r: 255, g: 0, b: 0 }, bold: true } },
+ *   { text: "Error: ", style: { fg: rgb(255, 0, 0), bold: true } },
  *   { text: "File not found" },
  * ])
  * ```
@@ -1314,8 +1314,8 @@ export const ui = {
    *   sortColumn: state.sortCol,
    *   sortDirection: state.sortDir,
    *   onSort: (col, dir) => app.update({ sortCol: col, sortDir: dir }),
-   *   stripeStyle: { odd: { r: 30, g: 33, b: 41 } },
-   *   borderStyle: { variant: "double", color: { r: 130, g: 140, b: 150 } },
+   *   stripeStyle: { odd: rgb(30, 33, 41) },
+   *   borderStyle: { variant: "double", color: rgb(130, 140, 150) },
    * })
    * ```
    */

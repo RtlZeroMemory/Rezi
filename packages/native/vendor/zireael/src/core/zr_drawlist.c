@@ -1642,17 +1642,17 @@ static zr_result_t zr_dl_validate_blit_rect_bounds(const zr_fb_t* fb, const zr_d
     return ZR_ERR_INVALID_ARGUMENT;
   }
   if (cmd->w <= 0 || cmd->h <= 0 || cmd->src_x < 0 || cmd->src_y < 0 || cmd->dst_x < 0 || cmd->dst_y < 0) {
-    return ZR_ERR_INVALID_ARGUMENT;
+    return ZR_ERR_FORMAT;
   }
 
   if (!zr_checked_add_u32((uint32_t)cmd->src_x, (uint32_t)cmd->w, &src_x_end) ||
       !zr_checked_add_u32((uint32_t)cmd->src_y, (uint32_t)cmd->h, &src_y_end) ||
       !zr_checked_add_u32((uint32_t)cmd->dst_x, (uint32_t)cmd->w, &dst_x_end) ||
       !zr_checked_add_u32((uint32_t)cmd->dst_y, (uint32_t)cmd->h, &dst_y_end)) {
-    return ZR_ERR_INVALID_ARGUMENT;
+    return ZR_ERR_FORMAT;
   }
   if (src_x_end > fb->cols || src_y_end > fb->rows || dst_x_end > fb->cols || dst_y_end > fb->rows) {
-    return ZR_ERR_INVALID_ARGUMENT;
+    return ZR_ERR_FORMAT;
   }
 
   return ZR_OK;

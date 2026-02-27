@@ -4,6 +4,8 @@ import { createDrawlistBuilder } from "../../index.js";
 const OP_CLEAR = 1;
 const OP_DRAW_TEXT = 3;
 const OP_DRAW_TEXT_RUN = 6;
+const OP_DEF_STRING = 10;
+const OP_DEF_BLOB = 12;
 const TEXT_RUN_SEGMENT_SIZE = 40;
 
 type Op =
@@ -22,6 +24,11 @@ type Header = Readonly<{
   blobsCount: number;
   blobsBytesOffset: number;
   blobsBytesLen: number;
+}>;
+
+type ResourceTables = Readonly<{
+  stringsById: ReadonlyMap<number, Uint8Array>;
+  blobsById: ReadonlyMap<number, Uint8Array>;
 }>;
 
 function u16(bytes: Uint8Array, off: number): number {
@@ -87,24 +94,64 @@ function gridToLines(grid: string[][]): readonly string[] {
   return Object.freeze(grid.map((row) => row.join("")));
 }
 
+function collectResourceTables(bytes: Uint8Array, h: Header): ResourceTables {
+  const stringsById = new Map<number, Uint8Array>();
+  const blobsById = new Map<number, Uint8Array>();
+
+  const cmdEnd = h.cmdOffset + h.cmdBytes;
+  let off = h.cmdOffset;
+  for (let i = 0; i < h.cmdCount; i++) {
+    assert.equal(off < cmdEnd, true, "command cursor in bounds");
+    const opcode = u16(bytes, off);
+    const size = u32(bytes, off + 4);
+    assert.equal(size >= 8, true, "command size includes header");
+
+    if (opcode === OP_DEF_STRING || opcode === OP_DEF_BLOB) {
+      const id = u32(bytes, off + 8);
+      const byteLen = u32(bytes, off + 12);
+      assert.equal(16 + byteLen <= size, true, "resource payload in bounds");
+      const payloadStart = off + 16;
+      const payloadEnd = payloadStart + byteLen;
+      const payload = bytes.slice(payloadStart, payloadEnd);
+      if (opcode === OP_DEF_STRING) {
+        stringsById.set(id, payload);
+      } else {
+        blobsById.set(id, payload);
+      }
+    }
+
+    off += size;
+  }
+
+  assert.equal(off, cmdEnd, "command stream fully consumed");
+  return Object.freeze({ stringsById, blobsById });
+}
+
 function decodeTextSlice(
   bytes: Uint8Array,
   h: Header,
+  resources: ResourceTables,
   stringIndex: number,
   byteOff: number,
   byteLen: number,
 ): string {
   if (byteLen === 0) return "";
-  assert.equal(stringIndex >= 0 && stringIndex < h.stringsCount, true, "string index in bounds");
+  if (h.stringsCount > 0) {
+    assert.equal(stringIndex >= 0 && stringIndex < h.stringsCount, true, "string index in bounds");
+    const span = h.stringsSpanOffset + stringIndex * 8;
+    const spanOff = u32(bytes, span);
+    const spanLen = u32(bytes, span + 4);
+    assert.equal(byteOff + byteLen <= spanLen, true, "string slice in bounds");
+    const start = h.stringsBytesOffset + spanOff + byteOff;
+    const end = start + byteLen;
+    return new TextDecoder().decode(bytes.subarray(start, end));
+  }
 
-  const span = h.stringsSpanOffset + stringIndex * 8;
-  const spanOff = u32(bytes, span);
-  const spanLen = u32(bytes, span + 4);
-  assert.equal(byteOff + byteLen <= spanLen, true, "string slice in bounds");
-
-  const start = h.stringsBytesOffset + spanOff + byteOff;
-  const end = start + byteLen;
-  return new TextDecoder().decode(bytes.subarray(start, end));
+  const payload = resources.stringsById.get(stringIndex);
+  assert.equal(payload !== undefined, true, "string id in bounds");
+  if (!payload) return "";
+  assert.equal(byteOff + byteLen <= payload.byteLength, true, "string slice in bounds");
+  return new TextDecoder().decode(payload.subarray(byteOff, byteOff + byteLen));
 }
 
 function executeDrawlistToGrid(
@@ -113,6 +160,7 @@ function executeDrawlistToGrid(
   height: number,
 ): readonly string[] {
   const h = readHeader(bytes);
+  const resources = collectResourceTables(bytes, h);
   const grid = createGrid(width, height);
 
   const cmdEnd = h.cmdOffset + h.cmdBytes;
@@ -130,29 +178,43 @@ function executeDrawlistToGrid(
       const stringIndex = u32(bytes, off + 16);
       const byteOff = u32(bytes, off + 20);
       const byteLen = u32(bytes, off + 24);
-      const text = decodeTextSlice(bytes, h, stringIndex, byteOff, byteLen);
+      const text = decodeTextSlice(bytes, h, resources, stringIndex, byteOff, byteLen);
       writeText(grid, x, y, text);
     } else if (opcode === OP_DRAW_TEXT_RUN) {
       const x = i32(bytes, off + 8);
       const y = i32(bytes, off + 12);
       const blobIndex = u32(bytes, off + 16);
 
-      assert.equal(blobIndex < h.blobsCount, true, "blob index in bounds");
-      const blobSpan = h.blobsSpanOffset + blobIndex * 8;
-      const blobOff = h.blobsBytesOffset + u32(bytes, blobSpan);
-      const blobLen = u32(bytes, blobSpan + 4);
-      const blobEnd = blobOff + blobLen;
-      const segCount = u32(bytes, blobOff);
+      let blobBytes: Uint8Array;
+      if (h.blobsCount > 0) {
+        assert.equal(blobIndex < h.blobsCount, true, "blob index in bounds");
+        const blobSpan = h.blobsSpanOffset + blobIndex * 8;
+        const blobOff = h.blobsBytesOffset + u32(bytes, blobSpan);
+        const blobLen = u32(bytes, blobSpan + 4);
+        blobBytes = bytes.subarray(blobOff, blobOff + blobLen);
+      } else {
+        const payload = resources.blobsById.get(blobIndex);
+        assert.equal(payload !== undefined, true, "blob id in bounds");
+        if (!payload) {
+          off += size;
+          continue;
+        }
+        blobBytes = payload;
+      }
+
+      const blobDv = new DataView(blobBytes.buffer, blobBytes.byteOffset, blobBytes.byteLength);
+      const blobLen = blobBytes.byteLength;
+      const segCount = blobDv.getUint32(0, true);
 
       let cursor = x;
       for (let seg = 0; seg < segCount; seg++) {
-        const segOff = blobOff + 4 + seg * TEXT_RUN_SEGMENT_SIZE;
-        assert.equal(segOff + TEXT_RUN_SEGMENT_SIZE <= blobEnd, true, "segment in bounds");
+        const segOff = 4 + seg * TEXT_RUN_SEGMENT_SIZE;
+        assert.equal(segOff + TEXT_RUN_SEGMENT_SIZE <= blobLen, true, "segment in bounds");
 
-        const stringIndex = u32(bytes, segOff + 28);
-        const byteOff = u32(bytes, segOff + 32);
-        const byteLen = u32(bytes, segOff + 36);
-        const text = decodeTextSlice(bytes, h, stringIndex, byteOff, byteLen);
+        const stringIndex = blobDv.getUint32(segOff + 28, true);
+        const byteOff = blobDv.getUint32(segOff + 32, true);
+        const byteLen = blobDv.getUint32(segOff + 36, true);
+        const text = decodeTextSlice(bytes, h, resources, stringIndex, byteOff, byteLen);
         cursor = writeText(grid, cursor, y, text);
       }
     }
@@ -363,23 +425,62 @@ describe("drawlist text arena equivalence", () => {
     assert.equal(counters.textSegments, segmentCount);
 
     const h = readHeader(built.bytes);
-    assert.equal(h.stringsCount >= 1, true, "arena span present");
-    const arenaLen = u32(built.bytes, h.stringsSpanOffset + 4);
+    const resources = collectResourceTables(built.bytes, h);
+    const hasArenaSpan = h.stringsCount >= 1;
+    const hasDefStrings = resources.stringsById.size >= 1;
+    assert.equal(hasArenaSpan || hasDefStrings, true, "arena span present");
 
-    assert.equal(h.blobsCount, 1, "one blob");
-    const blobOff = h.blobsBytesOffset + u32(built.bytes, h.blobsSpanOffset);
-    const blobLen = u32(built.bytes, h.blobsSpanOffset + 4);
-    const blobEnd = blobOff + blobLen;
+    let blobBytes: Uint8Array | null = null;
+    if (h.blobsCount > 0) {
+      assert.equal(h.blobsCount, 1, "one blob");
+      const blobOff = h.blobsBytesOffset + u32(built.bytes, h.blobsSpanOffset);
+      const blobLen = u32(built.bytes, h.blobsSpanOffset + 4);
+      blobBytes = built.bytes.subarray(blobOff, blobOff + blobLen);
+    } else {
+      assert.equal(resources.blobsById.size, 1, "one blob");
+      const first = resources.blobsById.values().next();
+      blobBytes = first.done ? null : first.value;
+    }
+    assert.ok(blobBytes !== null, "blob bytes present");
+    if (!blobBytes) return;
 
-    const segCount = u32(built.bytes, blobOff);
+    const blobDv = new DataView(blobBytes.buffer, blobBytes.byteOffset, blobBytes.byteLength);
+    const blobLen = blobBytes.byteLength;
+    const segCount = blobDv.getUint32(0, true);
     assert.equal(segCount, segmentCount);
     for (let i = 0; i < segmentCount; i++) {
-      const segOff = blobOff + 4 + i * TEXT_RUN_SEGMENT_SIZE;
-      assert.equal(segOff + TEXT_RUN_SEGMENT_SIZE <= blobEnd, true, "segment bounds");
-      const byteOff = u32(built.bytes, segOff + 32);
-      const byteLen = u32(built.bytes, segOff + 36);
-      assert.equal(byteOff + byteLen <= arenaLen, true, "arena slice bounds");
+      const segOff = 4 + i * TEXT_RUN_SEGMENT_SIZE;
+      assert.equal(segOff + TEXT_RUN_SEGMENT_SIZE <= blobLen, true, "segment bounds");
+      const stringIndex = blobDv.getUint32(segOff + 28, true);
+      const byteOff = blobDv.getUint32(segOff + 32, true);
+      const byteLen = blobDv.getUint32(segOff + 36, true);
+      if (h.stringsCount > 0) {
+        const span = h.stringsSpanOffset + stringIndex * 8;
+        const spanLen = u32(built.bytes, span + 4);
+        assert.equal(byteOff + byteLen <= spanLen, true, "arena slice bounds");
+      } else {
+        const payload = resources.stringsById.get(stringIndex);
+        assert.equal(payload !== undefined, true, "segment string id in bounds");
+        if (!payload) continue;
+        assert.equal(byteOff + byteLen <= payload.byteLength, true, "arena slice bounds");
+      }
     }
+  });
+
+  test("text perf counters report TextEncoder calls for unique non-ASCII strings", () => {
+    const b = createDrawlistBuilder();
+    b.drawText(0, 0, "α0");
+    b.drawText(0, 1, "α1");
+
+    const built = b.build();
+    assert.equal(built.ok, true, "build should succeed");
+    if (!built.ok) return;
+
+    const counters = b.getTextPerfCounters?.();
+    assert.ok(counters !== undefined, "counters should exist");
+    if (!counters) return;
+    assert.equal(counters.textArenaBytes > 0, true);
+    assert.equal(counters.textEncoderCalls >= 2, true);
   });
 
   test("property: random text + random slicing matches baseline framebuffer", () => {

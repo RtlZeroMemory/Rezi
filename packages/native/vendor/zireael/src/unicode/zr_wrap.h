@@ -41,8 +41,7 @@ zr_result_t zr_measure_utf8(const uint8_t* bytes, size_t len, zr_width_policy_t 
       and returns ZR_OK
 */
 zr_result_t zr_wrap_greedy_utf8(const uint8_t* bytes, size_t len, uint32_t max_cols, zr_width_policy_t policy,
-                                uint32_t tab_stop, size_t* out_offsets, size_t out_offsets_cap,
-                                size_t* out_count, bool* out_truncated);
+                                uint32_t tab_stop, size_t* out_offsets, size_t out_offsets_cap, size_t* out_count,
+                                bool* out_truncated);
 
 #endif /* ZR_UNICODE_ZR_WRAP_H_INCLUDED */
-

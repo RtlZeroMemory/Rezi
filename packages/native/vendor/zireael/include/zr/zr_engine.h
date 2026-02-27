@@ -8,6 +8,10 @@
 #ifndef ZR_ZR_ENGINE_H_INCLUDED
 #define ZR_ZR_ENGINE_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "zr/zr_config.h"
 #include "zr/zr_debug.h"
 #include "zr/zr_metrics.h"
@@ -198,5 +202,9 @@ int32_t engine_debug_export(zr_engine_t* e, uint8_t* out_buf, size_t out_cap);
 
 /* Clear trace records while keeping tracing enabled. */
 void engine_debug_reset(zr_engine_t* e);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ZR_ZR_ENGINE_H_INCLUDED */

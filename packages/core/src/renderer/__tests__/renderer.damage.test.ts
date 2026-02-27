@@ -64,6 +64,15 @@ class RecordingBuilder implements DrawlistBuilder {
     this.ops.push({ kind: "fillRect", x, y, w, h, ...(style ? { style } : {}) });
   }
 
+  blitRect(
+    _srcX: number,
+    _srcY: number,
+    _w: number,
+    _h: number,
+    _dstX: number,
+    _dstY: number,
+  ): void {}
+
   drawText(x: number, y: number, text: string, style?: TextStyle): void {
     this.ops.push({ kind: "drawText", x, y, text, ...(style ? { style } : {}) });
   }
@@ -95,8 +104,6 @@ class RecordingBuilder implements DrawlistBuilder {
   drawCanvas(..._args: Parameters<DrawlistBuilder["drawCanvas"]>): void {}
 
   drawImage(..._args: Parameters<DrawlistBuilder["drawImage"]>): void {}
-
-  blitRect(..._args: Parameters<DrawlistBuilder["blitRect"]>): void {}
 
   buildInto(_dst: Uint8Array): DrawlistBuildResult {
     return this.build();
@@ -312,6 +319,23 @@ function getRectById(scene: Scene, id: string): Rect {
   const rect = scene.idRects.get(id);
   assert.ok(rect, `missing rect for id=${id}`);
   return rect ?? { x: 0, y: 0, w: 0, h: 0 };
+}
+
+function getRuntimeNodeById(root: RuntimeInstance, id: string): RuntimeInstance | null {
+  const stack: RuntimeInstance[] = [root];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (!node) continue;
+    const props = node.vnode.props as Readonly<{ id?: unknown }> | undefined;
+    if (props?.id === id) {
+      return node;
+    }
+    for (let i = node.children.length - 1; i >= 0; i--) {
+      const child = node.children[i];
+      if (child) stack.push(child);
+    }
+  }
+  return null;
 }
 
 function renderScene(
@@ -606,6 +630,33 @@ describe("renderer damage rect behavior", () => {
     const nextFramebuffer = applyOps(baseFramebuffer, partialOps);
     assert.equal(drawTextOps(partialOps).length, 0);
     assertFramebuffersEqual(nextFramebuffer, baseFramebuffer);
+  });
+
+  test("clean clipped subtree does not emit no-op clip commands in damage pass", () => {
+    const scene = buildScene(
+      ui.row({ id: "clip-root", width: 16, height: 1, overflow: "hidden" }, [
+        ui.text("stable-child", { id: "clip-leaf" }),
+      ]),
+      viewport,
+    );
+    const rootNode = getRuntimeNodeById(scene.tree, "clip-root");
+    const childNode = getRuntimeNodeById(scene.tree, "clip-leaf");
+    assert.ok(rootNode, "missing runtime node for clip-root");
+    assert.ok(childNode, "missing runtime node for clip-leaf");
+    if (!rootNode || !childNode) return;
+
+    // Simulate an incremental pass where this container is visited but no child is renderable.
+    rootNode.dirty = true;
+    rootNode.selfDirty = false;
+    childNode.dirty = false;
+    childNode.selfDirty = false;
+
+    const damageRect = getRectById(scene, "clip-root");
+    const ops = renderScene(scene, null, { damageRect });
+    const pushCount = ops.filter((op) => op.kind === "pushClip").length;
+    const popCount = ops.filter((op) => op.kind === "popClip").length;
+    assert.equal(pushCount, 0);
+    assert.equal(popCount, 0);
   });
 
   test("focus update null -> first button matches full render", () => {

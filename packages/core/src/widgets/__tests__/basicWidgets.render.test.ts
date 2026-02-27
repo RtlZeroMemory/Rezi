@@ -1,5 +1,9 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import {
+  parseDrawTextCommands as parseDecodedDrawTextCommands,
+  parseInternedStrings,
+} from "../../__tests__/drawlistDecode.js";
+import {
   type DrawlistBuilder,
   type Theme,
   type VNode,
@@ -39,32 +43,6 @@ function parseOpcodes(bytes: Uint8Array): readonly number[] {
   return Object.freeze(out);
 }
 
-function parseInternedStrings(bytes: Uint8Array): readonly string[] {
-  const spanOffset = u32(bytes, 28);
-  const count = u32(bytes, 32);
-  const bytesOffset = u32(bytes, 36);
-  const bytesLen = u32(bytes, 40);
-
-  if (count === 0) return Object.freeze([]);
-
-  const tableEnd = bytesOffset + bytesLen;
-  assert.ok(tableEnd <= bytes.byteLength, "string table in bounds");
-
-  const decoder = new TextDecoder();
-  const out: string[] = [];
-  for (let i = 0; i < count; i++) {
-    const span = spanOffset + i * 8;
-    const strOff = u32(bytes, span);
-    const strLen = u32(bytes, span + 4);
-    const start = bytesOffset + strOff;
-    const end = start + strLen;
-    assert.ok(end <= tableEnd, "string span in bounds");
-    out.push(decoder.decode(bytes.subarray(start, end)));
-  }
-
-  return Object.freeze(out);
-}
-
 type DrawTextCommand = Readonly<{
   text: string;
   fg: number;
@@ -77,22 +55,24 @@ type DrawTextCommand = Readonly<{
 }>;
 
 function parseDrawTextCommands(bytes: Uint8Array): readonly DrawTextCommand[] {
-  const strings = parseInternedStrings(bytes);
+  const decoded = parseDecodedDrawTextCommands(bytes);
   const cmdOffset = u32(bytes, 16);
   const cmdBytes = u32(bytes, 20);
   const end = cmdOffset + cmdBytes;
 
   const out: DrawTextCommand[] = [];
+  let drawTextIndex = 0;
   let off = cmdOffset;
   while (off < end) {
     const opcode = u16(bytes, off);
     const size = u32(bytes, off + 4);
     if (opcode === 3 && size >= 48) {
-      const stringIndex = u32(bytes, off + 16);
+      const decodedCmd = decoded[drawTextIndex];
+      drawTextIndex += 1;
       const isV3 = size >= 60;
       const reserved = u32(bytes, off + 40);
       out.push({
-        text: strings[stringIndex] ?? "",
+        text: decodedCmd?.text ?? "",
         fg: u32(bytes, off + 28),
         bg: u32(bytes, off + 32),
         attrs: u32(bytes, off + 36),
@@ -552,19 +532,15 @@ describe("basic widgets render to drawlist", () => {
     assert.equal(docs.underlineColorRgb, 0x010203);
   });
 
-  test("link encodes hyperlink refs on v3 and degrades on v1", () => {
+  test("link encodes hyperlink refs", () => {
     const v3 = renderBytesV3(ui.link("https://example.com", "Docs"), { cols: 40, rows: 4 });
-    const v1 = renderBytes(ui.link("https://example.com", "Docs"), { cols: 40, rows: 4 });
     assert.equal(parseOpcodes(v3).includes(8), false);
-    assert.equal(parseOpcodes(v1).includes(8), false);
     assert.equal(parseInternedStrings(v3).includes("https://example.com"), true);
     const v3Docs = parseDrawTextCommands(v3).find((cmd) => cmd.text === "Docs");
-    const v1Docs = parseDrawTextCommands(v1).find((cmd) => cmd.text === "Docs");
     assert.equal((v3Docs?.linkUriRef ?? 0) > 0, true);
-    assert.equal(v1Docs?.linkUriRef ?? 0, 0);
   });
 
-  test("codeEditor diagnostics use curly underline + token color on v3", () => {
+  test("codeEditor diagnostics use curly underline + token color", () => {
     const theme = createTheme({
       colors: {
         "diagnostic.warning": (1 << 16) | (2 << 8) | 3,
@@ -584,8 +560,6 @@ describe("basic widgets render to drawlist", () => {
       onScroll: () => undefined,
     });
     const v3 = renderBytesV3(vnode, { cols: 30, rows: 4 }, { theme });
-    const v1 = renderBytes(vnode, { cols: 30, rows: 4 }, { theme });
-
     const v3WarnStyles = parseDrawTextCommands(v3).filter((cmd) => cmd.text === "warn");
     assert.equal(
       v3WarnStyles.some((cmd) => {
@@ -596,22 +570,6 @@ describe("basic widgets render to drawlist", () => {
         );
       }),
       true,
-    );
-
-    const v1WarnStyles = parseDrawTextCommands(v1).filter((cmd) => cmd.text === "warn");
-    assert.equal(
-      v1WarnStyles.some((cmd) => (cmd.attrs & ATTR_UNDERLINE) !== 0),
-      true,
-    );
-    assert.equal(
-      v1WarnStyles.some(
-        (cmd) =>
-          cmd.underlineStyle !== 0 ||
-          cmd.underlineColorRgb !== 0 ||
-          cmd.linkUriRef !== 0 ||
-          cmd.linkIdRef !== 0,
-      ),
-      false,
     );
   });
 

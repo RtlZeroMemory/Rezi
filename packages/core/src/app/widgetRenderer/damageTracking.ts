@@ -234,7 +234,6 @@ export function propagateDirtyFromPredicate(
   isNodeDirty: (node: RuntimeInstance) => boolean,
   pooledRuntimeStack: RuntimeInstance[],
   pooledPrevRuntimeStack: RuntimeInstance[],
-  markSelfDirty = true,
 ): void {
   pooledRuntimeStack.length = 0;
   pooledPrevRuntimeStack.length = 0;
@@ -253,9 +252,9 @@ export function propagateDirtyFromPredicate(
   for (let i = pooledPrevRuntimeStack.length - 1; i >= 0; i--) {
     const node = pooledPrevRuntimeStack[i];
     if (!node) continue;
-    const predicateDirty = isNodeDirty(node);
-    if (markSelfDirty && predicateDirty) node.selfDirty = true;
-    let dirty = node.dirty || predicateDirty;
+    const markedSelfDirty = isNodeDirty(node);
+    if (markedSelfDirty) node.selfDirty = true;
+    let dirty = node.dirty || markedSelfDirty;
     for (const child of node.children) {
       if (child.dirty) {
         dirty = true;
@@ -279,7 +278,6 @@ export function markLayoutDirtyNodes(params: MarkLayoutDirtyNodesParams): void {
     },
     params.pooledRuntimeStack,
     params.pooledPrevRuntimeStack,
-    false,
   );
 }
 
@@ -397,7 +395,40 @@ export function computeIdentityDiffDamage(
     const prevNode = params.pooledPrevRuntimeStack.pop();
     const nextNode = params.pooledRuntimeStack.pop();
     if (!prevNode || !nextNode) continue;
-    if (prevNode === nextNode) continue;
+
+    if (prevNode === nextNode) {
+      if (!nextNode.dirty) continue;
+
+      const nextKind = nextNode.vnode.kind;
+      if (nextNode.selfDirty) {
+        routingRelevantChanged =
+          collectSubtreeDamageAndRouting(
+            nextNode,
+            params.pooledChangedRenderInstanceIds,
+            params.pooledDamageRuntimeStack,
+          ) || routingRelevantChanged;
+        continue;
+      }
+
+      if (isRoutingRelevantKind(nextKind)) routingRelevantChanged = true;
+      if (nextNode.children.length === 0) {
+        params.pooledChangedRenderInstanceIds.push(nextNode.instanceId);
+        continue;
+      }
+
+      let pushedDirtyChild = false;
+      for (let i = nextNode.children.length - 1; i >= 0; i--) {
+        const child = nextNode.children[i];
+        if (!child || !child.dirty) continue;
+        pushedDirtyChild = true;
+        params.pooledPrevRuntimeStack.push(child);
+        params.pooledRuntimeStack.push(child);
+      }
+      if (!pushedDirtyChild) {
+        params.pooledChangedRenderInstanceIds.push(nextNode.instanceId);
+      }
+      continue;
+    }
 
     const prevKind = prevNode.vnode.kind;
     const nextKind = nextNode.vnode.kind;
@@ -433,7 +464,14 @@ export function computeIdentityDiffDamage(
     for (let i = sharedCount - 1; i >= 0; i--) {
       const prevChild = prevChildren[i];
       const nextChild = nextChildren[i];
-      if (!prevChild || !nextChild || prevChild === nextChild) continue;
+      if (!prevChild || !nextChild) continue;
+      if (prevChild === nextChild) {
+        if (!nextChild.dirty) continue;
+        hadChildChanges = true;
+        params.pooledPrevRuntimeStack.push(prevChild);
+        params.pooledRuntimeStack.push(nextChild);
+        continue;
+      }
       hadChildChanges = true;
       params.pooledPrevRuntimeStack.push(prevChild);
       params.pooledRuntimeStack.push(nextChild);

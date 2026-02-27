@@ -203,19 +203,17 @@ function readBackendPositiveIntMarker(
   return value;
 }
 
-function readBackendDrawlistVersionMarker(backend: RuntimeBackend): 1 | 2 | 3 | 4 | 5 | null {
+function readBackendDrawlistVersionMarker(backend: RuntimeBackend): 1 | null {
   const value = (backend as RuntimeBackend & Readonly<Record<string, unknown>>)[
     BACKEND_DRAWLIST_VERSION_MARKER
   ];
   if (value === undefined) return null;
-  if (
-    typeof value !== "number" ||
-    !Number.isInteger(value) ||
-    (value !== 1 && value !== 2 && value !== 3 && value !== 4 && value !== 5)
-  ) {
-    invalidProps(`backend marker ${BACKEND_DRAWLIST_VERSION_MARKER} must be an integer in [1..5]`);
+  if (value !== 1) {
+    invalidProps(
+      `backend marker ${BACKEND_DRAWLIST_VERSION_MARKER} must be 1 (received ${String(value)})`,
+    );
   }
-  return value as 1 | 2 | 3 | 4 | 5;
+  return 1;
 }
 
 function monotonicNowMs(): number {

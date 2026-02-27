@@ -283,7 +283,7 @@ export function writeDefString(
   byteLen: number,
   bytes: Uint8Array,
 ): number {
-  const payloadBytes = bytes.byteLength >>> 0;
+  const payloadBytes = byteLen >>> 0;
   const size = align4(DEF_STRING_BASE_SIZE + payloadBytes);
   buf[pos + 0] = 10 & 0xff;
   buf[pos + 1] = 0;
@@ -293,7 +293,13 @@ export function writeDefString(
   dv.setUint32(pos + 8, stringId >>> 0, true);
   dv.setUint32(pos + 12, payloadBytes >>> 0, true);
   const dataStart = pos + DEF_STRING_BASE_SIZE;
-  buf.set(bytes, dataStart);
+  const copyBytes = Math.min(payloadBytes, bytes.byteLength >>> 0);
+  if (copyBytes > 0) {
+    buf.set(bytes.subarray(0, copyBytes), dataStart);
+  }
+  if (payloadBytes > copyBytes) {
+    buf.fill(0, dataStart + copyBytes, dataStart + payloadBytes);
+  }
   const payloadEnd = dataStart + payloadBytes;
   const cmdEnd = pos + size;
   if (cmdEnd > payloadEnd) {
@@ -325,7 +331,7 @@ export function writeDefBlob(
   byteLen: number,
   bytes: Uint8Array,
 ): number {
-  const payloadBytes = bytes.byteLength >>> 0;
+  const payloadBytes = byteLen >>> 0;
   const size = align4(DEF_BLOB_BASE_SIZE + payloadBytes);
   buf[pos + 0] = 12 & 0xff;
   buf[pos + 1] = 0;
@@ -335,7 +341,13 @@ export function writeDefBlob(
   dv.setUint32(pos + 8, blobId >>> 0, true);
   dv.setUint32(pos + 12, payloadBytes >>> 0, true);
   const dataStart = pos + DEF_BLOB_BASE_SIZE;
-  buf.set(bytes, dataStart);
+  const copyBytes = Math.min(payloadBytes, bytes.byteLength >>> 0);
+  if (copyBytes > 0) {
+    buf.set(bytes.subarray(0, copyBytes), dataStart);
+  }
+  if (payloadBytes > copyBytes) {
+    buf.fill(0, dataStart + copyBytes, dataStart + payloadBytes);
+  }
   const payloadEnd = dataStart + payloadBytes;
   const cmdEnd = pos + size;
   if (cmdEnd > payloadEnd) {

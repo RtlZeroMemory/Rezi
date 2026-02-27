@@ -1,4 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { parseInternedStrings } from "../../__tests__/drawlistDecode.js";
 import { createDrawlistBuilder } from "../../index.js";
 
 const HEADER_SIZE = 64;
@@ -8,8 +9,8 @@ const OP_CLEAR = 1;
 const OP_FILL_RECT = 2;
 const OP_DRAW_TEXT = 3;
 const OP_SET_CURSOR = 7;
-
-const decoder = new TextDecoder();
+const OP_FREE_STRING = 11;
+const OP_FREE_BLOB = 13;
 
 type Header = Readonly<{
   totalSize: number;
@@ -47,10 +48,6 @@ function u32(bytes: Uint8Array, off: number): number {
 function i32(bytes: Uint8Array, off: number): number {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   return dv.getInt32(off, true);
-}
-
-function align4(n: number): number {
-  return (n + 3) & ~3;
 }
 
 function readHeader(bytes: Uint8Array): Header {
@@ -91,14 +88,6 @@ function parseCommands(bytes: Uint8Array): readonly CmdHeader[] {
   return out;
 }
 
-function decodeString(bytes: Uint8Array, h: Header, stringIndex: number): string {
-  const spanOff = h.stringsSpanOffset + stringIndex * 8;
-  const off = u32(bytes, spanOff);
-  const len = u32(bytes, spanOff + 4);
-  const start = h.stringsBytesOffset + off;
-  return decoder.decode(bytes.subarray(start, start + len));
-}
-
 describe("DrawlistBuilder reset behavior", () => {
   test("v1 reset clears prior commands/strings/blobs for next frame", () => {
     const b = createDrawlistBuilder();
@@ -113,9 +102,8 @@ describe("DrawlistBuilder reset behavior", () => {
     if (!first.ok) return;
 
     const h1 = readHeader(first.bytes);
-    assert.equal(h1.cmdCount, 2);
-    assert.equal(h1.stringsCount, 1);
-    assert.equal(h1.blobsCount, 1);
+    assert.equal(h1.cmdCount, 6);
+    assert.deepEqual(parseInternedStrings(first.bytes), ["A", "B", "frame0"]);
 
     b.reset();
     b.clear();
@@ -124,11 +112,20 @@ describe("DrawlistBuilder reset behavior", () => {
     if (!second.ok) return;
 
     const h2 = readHeader(second.bytes);
-    assert.equal(h2.cmdCount, 1);
-    assert.equal(h2.cmdBytes, 8);
+    assert.equal(h2.cmdCount, 5);
+    assert.equal(h2.cmdBytes, 56);
     assert.equal(h2.stringsCount, 0);
     assert.equal(h2.blobsCount, 0);
-    assert.equal(h2.totalSize, 72);
+    assert.equal(h2.totalSize, 120);
+
+    const opcodes = parseCommands(second.bytes).map((cmd) => cmd.opcode);
+    assert.deepEqual(opcodes, [
+      OP_CLEAR,
+      OP_FREE_STRING,
+      OP_FREE_STRING,
+      OP_FREE_STRING,
+      OP_FREE_BLOB,
+    ]);
   });
 
   test("v2 reset drops cursor and string state before next frame", () => {
@@ -140,8 +137,8 @@ describe("DrawlistBuilder reset behavior", () => {
     if (!first.ok) return;
 
     const h1 = readHeader(first.bytes);
-    assert.equal(h1.cmdCount, 2);
-    assert.equal(h1.stringsCount, 1);
+    assert.equal(h1.cmdCount, 3);
+    assert.deepEqual(parseInternedStrings(first.bytes), ["persist"]);
 
     b.reset();
     b.fillRect(0, 0, 1, 1);
@@ -150,28 +147,33 @@ describe("DrawlistBuilder reset behavior", () => {
     if (!second.ok) return;
 
     const h2 = readHeader(second.bytes);
-    assert.equal(h2.cmdCount, 1);
+    assert.equal(h2.cmdCount, 2);
     assert.equal(h2.stringsCount, 0);
     assert.equal(h2.blobsCount, 0);
 
     const cmds = parseCommands(second.bytes);
-    const cmd = cmds[0];
-    if (!cmd) return;
-    assert.equal(cmd.opcode, OP_FILL_RECT);
+    assert.deepEqual(
+      cmds.map((cmd) => cmd.opcode),
+      [OP_FILL_RECT, OP_FREE_STRING],
+    );
   });
 
   test("v1 reset clears sticky failure state and restores successful builds", () => {
-    const b = createDrawlistBuilder({ maxDrawlistBytes: 80 });
-    b.fillRect(0, 0, 10, 10);
+    const b = createDrawlistBuilder({ maxStrings: 1 });
+    b.drawText(0, 0, "a");
+    b.drawText(0, 1, "b");
     const failed = b.build();
     assert.equal(failed.ok, false);
     if (failed.ok) return;
     assert.equal(failed.error.code, "ZRDL_TOO_LARGE");
 
     b.reset();
-    b.clear();
+    b.drawText(0, 0, "ok");
     const recovered = b.build();
     assert.equal(recovered.ok, true);
+    if (!recovered.ok) return;
+    assert.equal(readHeader(recovered.bytes).cmdCount, 2);
+    assert.deepEqual(parseInternedStrings(recovered.bytes), ["ok"]);
   });
 
   test("v2 reset clears sticky failure state and allows cursor commands again", () => {
@@ -210,27 +212,26 @@ describe("DrawlistBuilder reset behavior", () => {
       if (!res.ok) return;
 
       const h = readHeader(res.bytes);
-      assert.equal(h.cmdCount, 2);
-      assert.equal(h.cmdBytes, 68);
-      assert.equal(h.stringsCount, 1);
+      assert.equal(h.cmdCount, 3);
+      assert.equal(h.cmdBytes, 88);
+      assert.equal(h.stringsCount, 0);
       assert.equal(h.blobsCount, 0);
-      assert.equal(h.stringsBytesLen, align4(text.length));
-      assert.equal(h.totalSize, HEADER_SIZE + 68 + 8 + align4(text.length));
+      assert.equal(h.totalSize, HEADER_SIZE + 88);
 
       const cmds = parseCommands(res.bytes);
-      const clear = cmds[0];
-      const draw = cmds[1];
+      const clear = cmds.find((cmd) => cmd.opcode === OP_CLEAR);
+      const draw = cmds.find((cmd) => cmd.opcode === OP_DRAW_TEXT);
+      assert.equal(clear !== undefined, true);
+      assert.equal(draw !== undefined, true);
       if (!clear || !draw) return;
-      assert.equal(clear.opcode, OP_CLEAR);
-      assert.equal(draw.opcode, OP_DRAW_TEXT);
       assert.equal(draw.flags, 0);
       assert.equal(draw.size, 60);
 
       const stringIndex = u32(res.bytes, draw.payloadOff + 8);
       const byteLen = u32(res.bytes, draw.payloadOff + 16);
-      assert.equal(stringIndex, 0);
+      assert.equal(stringIndex, 1);
       assert.equal(byteLen, text.length);
-      assert.equal(decodeString(res.bytes, h, 0), text);
+      assert.equal(parseInternedStrings(res.bytes).includes(text), true);
     }
   });
 

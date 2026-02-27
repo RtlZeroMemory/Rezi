@@ -174,63 +174,53 @@ describe("theme.validateTheme", () => {
     );
   });
 
-  test("throws when RGB channel is greater than 255", () => {
+  test("throws when color value exceeds 0x00FFFFFF", () => {
     const theme = cloneDarkTheme();
-    setPath(theme, ["colors", "accent", "primary", "r"], 256);
+    setPath(theme, ["colors", "accent", "primary"], 0x01000000);
 
     expectValidationError(
       theme,
-      'Theme validation failed at colors.accent.primary.r: channel "r" must be an integer 0..255 (received 256)',
+      "Theme validation failed at colors.accent.primary: expected packed Rgb24 integer 0..0x00FFFFFF (received 16777216)",
     );
   });
 
-  test("throws when RGB channel is less than 0", () => {
+  test("throws when color value is negative", () => {
     const theme = cloneDarkTheme();
-    setPath(theme, ["colors", "accent", "primary", "g"], -1);
+    setPath(theme, ["colors", "accent", "primary"], -1);
 
     expectValidationError(
       theme,
-      'Theme validation failed at colors.accent.primary.g: channel "g" must be an integer 0..255 (received -1)',
+      "Theme validation failed at colors.accent.primary: expected packed Rgb24 integer 0..0x00FFFFFF (received -1)",
     );
   });
 
-  test("throws when RGB channel is non-integer", () => {
+  test("throws when color value is non-integer", () => {
     const theme = cloneDarkTheme();
-    setPath(theme, ["colors", "accent", "primary", "b"], 1.5);
+    setPath(theme, ["colors", "accent", "primary"], 1.5);
 
     expectValidationError(
       theme,
-      'Theme validation failed at colors.accent.primary.b: channel "b" must be an integer 0..255 (received 1.5)',
+      "Theme validation failed at colors.accent.primary: expected packed Rgb24 integer 0..0x00FFFFFF (received 1.5)",
     );
   });
 
-  test("throws when RGB channel is not a number", () => {
+  test("throws when color value is not a number", () => {
     const theme = cloneDarkTheme();
-    setPath(theme, ["colors", "accent", "primary", "r"], "255");
+    setPath(theme, ["colors", "accent", "primary"], "255");
 
     expectValidationError(
       theme,
-      'Theme validation failed at colors.accent.primary.r: channel "r" must be an integer 0..255 (received "255")',
+      'Theme validation failed at colors.accent.primary: expected packed Rgb24 integer 0..0x00FFFFFF (received "255")',
     );
   });
 
-  test("throws when RGB channel is missing", () => {
+  test("throws when color value is an object", () => {
     const theme = cloneDarkTheme();
-    setPath(theme, ["colors", "accent", "primary", "g"], undefined);
+    setPath(theme, ["colors", "info"], { r: 0, g: 0, b: 255 });
 
     expectValidationError(
       theme,
-      'Theme validation failed at colors.accent.primary.g: channel "g" must be an integer 0..255 (received undefined)',
-    );
-  });
-
-  test("throws when a color token is not an RGB object", () => {
-    const theme = cloneDarkTheme();
-    setPath(theme, ["colors", "info"], 7);
-
-    expectValidationError(
-      theme,
-      "Theme validation failed at colors.info: expected RGB object { r, g, b } (received 7)",
+      "Theme validation failed at colors.info: expected packed Rgb24 integer 0..0x00FFFFFF (received [object])",
     );
   });
 
