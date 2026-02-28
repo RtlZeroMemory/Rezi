@@ -3,7 +3,7 @@ import path from "node:path";
 
 import pty from "node-pty";
 
-import { sampleProcUntilExit, type ProcSample } from "./procSampler.js";
+import { type ProcSample, sampleProcUntilExit } from "./procSampler.js";
 import { createScreen } from "./screen.js";
 
 export type PtyRunOptions = Readonly<{
@@ -95,15 +95,18 @@ export async function runInPty(opts: PtyRunOptions): Promise<PtyRunResult> {
 
   const script = opts.inputScript ?? [];
   for (const step of script) {
-    setTimeout(() => {
-      try {
-        if (step.kind === "write") term.write(step.data);
-        else {
-          term.resize(step.cols, step.rows);
-          void screen.resize(step.cols, step.rows);
-        }
-      } catch {}
-    }, Math.max(0, step.atMs));
+    setTimeout(
+      () => {
+        try {
+          if (step.kind === "write") term.write(step.data);
+          else {
+            term.resize(step.cols, step.rows);
+            void screen.resize(step.cols, step.rows);
+          }
+        } catch {}
+      },
+      Math.max(0, step.atMs),
+    );
   }
 
   await new Promise<void>((resolve) => {

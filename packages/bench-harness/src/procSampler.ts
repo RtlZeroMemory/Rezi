@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
 
 export type ProcSample = Readonly<{
@@ -25,7 +25,9 @@ const PAGE_SIZE_BYTES: number = (() => {
   }
 })();
 
-function readProcStat(pid: number): { user: number; system: number; rssBytes: number | null } | null {
+function readProcStat(
+  pid: number,
+): { user: number; system: number; rssBytes: number | null } | null {
   try {
     const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
     const end = stat.lastIndexOf(")");

@@ -24,9 +24,7 @@ function sanitizeProps(props: unknown): Record<string, unknown> {
 
   const source = props as Record<string, unknown>;
   const out: Record<string, unknown> = {};
-  const keys = Object.keys(source);
-  for (let index = 0; index < keys.length; index += 1) {
-    const key = keys[index]!;
+  for (const key of Object.keys(source)) {
     if (key === "children" || key === "key" || key === "ref") continue;
     out[key] = source[key];
   }
@@ -126,18 +124,14 @@ export const hostConfig = {
     const oldObj = oldProps as Record<string, unknown>;
     const newObj = newProps as Record<string, unknown>;
     let newCount = 0;
-    const newKeys = Object.keys(newObj);
-    for (let index = 0; index < newKeys.length; index += 1) {
-      const key = newKeys[index]!;
+    for (const key of Object.keys(newObj)) {
       if (key === "children" || key === "key" || key === "ref") continue;
       newCount += 1;
       if (oldObj[key] !== newObj[key]) return true;
     }
 
     let oldCount = 0;
-    const oldKeys = Object.keys(oldObj);
-    for (let index = 0; index < oldKeys.length; index += 1) {
-      const key = oldKeys[index]!;
+    for (const key of Object.keys(oldObj)) {
       if (key === "children" || key === "key" || key === "ref") continue;
       oldCount += 1;
     }

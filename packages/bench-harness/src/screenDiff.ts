@@ -25,4 +25,3 @@ export function diffScreens(a: ScreenSnapshot, b: ScreenSnapshot): ScreenDiff {
   }
   return { equal: true, firstDiffRow: null, aLine: null, bLine: null };
 }
-

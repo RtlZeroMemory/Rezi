@@ -6,4 +6,3 @@ export type { ScreenDiff } from "./screenDiff.js";
 export { diffScreens } from "./screenDiff.js";
 export type { ProcSample, ProcSamplerOptions } from "./procSampler.js";
 export { sampleProcUntilExit } from "./procSampler.js";
-

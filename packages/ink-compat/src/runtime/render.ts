@@ -1988,8 +1988,8 @@ function readNodeMainAxis(kind: unknown): FlexMainAxis {
 function hasPercentMarkers(vnode: VNode, markerCache?: WeakMap<object, boolean>): boolean {
   if (typeof vnode !== "object" || vnode === null) return false;
   const vnodeObject = vnode as object;
-  if (markerCache && markerCache.has(vnodeObject)) {
-    return markerCache.get(vnodeObject) === true;
+  if (markerCache?.has(vnodeObject)) {
+    return markerCache?.get(vnodeObject) === true;
   }
   const candidate = vnode as { props?: unknown; children?: unknown };
   const props =
@@ -2182,7 +2182,10 @@ function assignHostLayouts(
   });
 }
 
-function createThrottle(fn: () => void, throttleMs: number): Readonly<{
+function createThrottle(
+  fn: () => void,
+  throttleMs: number,
+): Readonly<{
   call: () => void;
   cancel: () => void;
 }> {
@@ -2933,10 +2936,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
       if (timePhases) coreRenderMs += performance.now() - renderStartedAt;
 
       const assignLayoutsStartedAt = timePhases ? performance.now() : 0;
-      assignHostLayouts(
-        bridge.rootNode,
-        result.forEachLayoutNode,
-      );
+      assignHostLayouts(bridge.rootNode, result.forEachLayoutNode);
       if (timePhases) assignLayoutsMs += performance.now() - assignLayoutsStartedAt;
       if (hasDynamicPercentMarkers) {
         // Percent sizing is resolved against parent layout. On the first pass we only have
@@ -2976,10 +2976,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
           if (timePhases) coreRenderMs += performance.now() - secondRenderStartedAt;
 
           const secondAssignStartedAt = timePhases ? performance.now() : 0;
-          assignHostLayouts(
-            bridge.rootNode,
-            result.forEachLayoutNode,
-          );
+          assignHostLayouts(bridge.rootNode, result.forEachLayoutNode);
           if (timePhases) assignLayoutsMs += performance.now() - secondAssignStartedAt;
         }
       }
@@ -3322,7 +3319,9 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   };
 
   const renderThrottle =
-    unthrottledRender || renderIntervalMs <= 0 ? null : createThrottle(flushPendingRender, renderIntervalMs);
+    unthrottledRender || renderIntervalMs <= 0
+      ? null
+      : createThrottle(flushPendingRender, renderIntervalMs);
 
   const scheduleRender = (): void => {
     pendingRender = true;

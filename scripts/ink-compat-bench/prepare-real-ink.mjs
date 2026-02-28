@@ -15,4 +15,3 @@ const realInkPath = path.join(repoRoot, "node_modules/@jrichman/ink");
 rmSync(inkLinkPath, { force: true });
 symlinkSync(realInkPath, inkLinkPath, "junction");
 console.log(`[ink-compat-bench] linked packages/bench-app/node_modules/ink -> ${realInkPath}`);
-

@@ -6,6 +6,7 @@ function readArg(name, fallback) {
   const idx = process.argv.indexOf(`--${name}`);
   if (idx === -1) return fallback;
   const v = process.argv[idx + 1];
+  if (v == null || v.startsWith("--")) return fallback;
   return v ?? fallback;
 }
 
@@ -15,7 +16,7 @@ function hasFlag(name) {
 
 function usage() {
   process.stderr.write(
-    [
+    `${[
       "Usage:",
       "  node scripts/ink-compat-bench/summarize-cpuprofile.mjs <file.cpuprofile> [--top N] [--filter STR] [--stacks N] [--active] [--json]",
       "",
@@ -23,27 +24,30 @@ function usage() {
       "  - Self time is attributed to the sampled leaf frame id.",
       "  - `--filter` matches callFrame.url or functionName substrings.",
       "  - `--active` excludes `(idle)` samples when computing percentages.",
-    ].join("\n") + "\n",
+    ].join("\n")}\n`,
   );
 }
 
 function toDisplayUrl(url) {
   if (!url) return "unknown";
+  let normalized = url;
   if (url.startsWith("file://")) {
     try {
       const fsPath = new URL(url).pathname;
-      url = fsPath;
+      normalized = fsPath;
     } catch {}
   }
-  const idx = url.indexOf("/packages/");
-  if (idx >= 0) return url.slice(idx + 1);
-  const parts = url.split(/[\\/]/).filter(Boolean);
+  const idx = normalized.indexOf("/packages/");
+  if (idx >= 0) return normalized.slice(idx + 1);
+  const parts = normalized.split(/[\\/]/).filter(Boolean);
   return parts.slice(Math.max(0, parts.length - 3)).join("/");
 }
 
 function formatFrame(node) {
   const cf = node.callFrame ?? {};
-  const fn = (cf.functionName && cf.functionName.length > 0 ? cf.functionName : "(anonymous)") || "(unknown)";
+  const fn =
+    (cf.functionName && cf.functionName.length > 0 ? cf.functionName : "(anonymous)") ||
+    "(unknown)";
   const url = toDisplayUrl(cf.url ?? "");
   const line = typeof cf.lineNumber === "number" ? cf.lineNumber + 1 : null;
   const col = typeof cf.columnNumber === "number" ? cf.columnNumber + 1 : null;
@@ -128,7 +132,7 @@ async function main() {
     const { fn, loc } = formatFrame(node);
     if (activeOnly && fn === "(idle)") continue;
     if (filter) {
-      const hay = `${fn} ${loc} ${(node.callFrame?.url ?? "")}`.toLowerCase();
+      const hay = `${fn} ${loc} ${node.callFrame?.url ?? ""}`.toLowerCase();
       if (!hay.includes(filter.toLowerCase())) continue;
     }
     entries.push({ id, selfUs, fn, loc });
@@ -152,13 +156,13 @@ async function main() {
     activeOnly,
     topSelf: top.map((e) => ({
       selfMs: Math.round(ms(e.selfUs) * 1000) / 1000,
-      selfPct: pctDenomUs > 0 ? Math.round(((e.selfUs / pctDenomUs) * 100) * 10) / 10 : null,
+      selfPct: pctDenomUs > 0 ? Math.round((e.selfUs / pctDenomUs) * 100 * 10) / 10 : null,
       fn: e.fn,
       loc: e.loc,
     })),
     topStacks: stackEntries.map((e) => ({
       selfMs: Math.round(ms(e.selfUs) * 1000) / 1000,
-      selfPct: pctDenomUs > 0 ? Math.round(((e.selfUs / pctDenomUs) * 100) * 10) / 10 : null,
+      selfPct: pctDenomUs > 0 ? Math.round((e.selfUs / pctDenomUs) * 100 * 10) / 10 : null,
       fn: e.fn,
       loc: e.loc,
       stack: e.stack,

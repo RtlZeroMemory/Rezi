@@ -15,4 +15,3 @@ const compatPath = path.join(repoRoot, "packages/ink-compat");
 rmSync(inkLinkPath, { force: true });
 symlinkSync(compatPath, inkLinkPath, "junction");
 console.log(`[ink-compat-bench] linked packages/bench-app/node_modules/ink -> ${compatPath}`);
-
