@@ -22,6 +22,12 @@ function categoryLabel(category: CargoItem["category"]): string {
   return "Ordnance";
 }
 
+function clamp(value: number, min: number, max: number): number {
+  if (value < min) return min;
+  if (value > max) return max;
+  return value;
+}
+
 export function renderCargoScreen(
   context: RouteRenderContext<StarshipState>,
   deps: RouteDeps,
@@ -30,7 +36,7 @@ export function renderCargoScreen(
     title: "Cargo Hold",
     context,
     deps,
-    body: ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
+    body: ui.column({ gap: SPACE.sm, width: "full", height: "full" }, [
       CargoDeck({
         key: "cargo-deck",
         state: context.state,
@@ -53,6 +59,7 @@ const CargoDeck = defineWidget<CargoDeckProps>((props, ctx): VNode => {
     width: state.viewportCols,
     height: state.viewportRows,
   });
+  const chartWidth = clamp(Math.floor(layout.width * (layout.wide ? 0.5 : 0.9)), 28, 132);
   const cargo = sortedCargo(state);
   const summary = cargoSummary(cargo);
   const totalItems = cargo.length;
@@ -62,7 +69,7 @@ const CargoDeck = defineWidget<CargoDeckProps>((props, ctx): VNode => {
       : cargo.reduce((sum, item) => sum + item.priority, 0) / Math.max(1, cargo.length);
   const selected =
     (state.selectedCargoId && cargo.find((item) => item.id === state.selectedCargoId)) || cargo[0] || null;
-  const nameWidth = Math.max(12, Math.min(24, layout.chartWidth - 14));
+  const nameWidth = Math.max(12, Math.min(24, chartWidth - 14));
   const showMetricsPanel = !layout.hideNonCritical && layout.height >= 40;
   const showSelectedPanel = !layout.hideNonCritical && layout.height >= 48;
 
@@ -99,7 +106,7 @@ const CargoDeck = defineWidget<CargoDeckProps>((props, ctx): VNode => {
     });
 
   if (layout.height <= 28) {
-    return ui.column({ gap: SPACE.sm, width: "100%" }, [
+    return ui.column({ gap: SPACE.sm, width: "full" }, [
       surfacePanel(tokens, "Cargo Snapshot", [
         sectionHeader(tokens, "Compact Cargo View", "Expand terminal height for full manifest + charts"),
         ui.row({ gap: SPACE.xs, wrap: true }, [
@@ -188,7 +195,7 @@ const CargoDeck = defineWidget<CargoDeckProps>((props, ctx): VNode => {
     ui.barChart(chartItems, { orientation: "horizontal", showValues: true }),
     ui.scatter({
       id: "cargo-scatter",
-      width: Math.max(32, layout.chartWidth + 6),
+      width: Math.max(32, chartWidth + 6),
       height: 10,
       points: scatterPoints,
       blitter: "braille",
@@ -308,7 +315,7 @@ const CargoDeck = defineWidget<CargoDeckProps>((props, ctx): VNode => {
     { tone: "base" },
   );
 
-  return ui.column({ gap: SPACE.sm, width: "100%" }, [
+  return ui.column({ gap: SPACE.sm, width: "full" }, [
     controlsPanel,
     showMetricsPanel
       ? ui.row({ gap: SPACE.sm, wrap: true, items: "stretch" }, [

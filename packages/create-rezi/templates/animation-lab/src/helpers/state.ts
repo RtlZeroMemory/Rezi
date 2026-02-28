@@ -31,36 +31,25 @@ function toPositiveInt(value: number | undefined, fallback: number): number {
   return value;
 }
 
-function resolveLayout(
+function resolveViewport(
   cols: number,
   rows: number,
 ): Readonly<{
   viewportCols: number;
   viewportRows: number;
-  panelWidth: number;
-  panelHeight: number;
 }> {
   const viewportCols = clamp(toPositiveInt(cols, 96), 20, 500);
   const viewportRows = clamp(toPositiveInt(rows, 32), 10, 200);
-
-  const maxPanelWidth = Math.max(20, viewportCols - 4);
-  const panelWidth = maxPanelWidth < 44 ? maxPanelWidth : clamp(maxPanelWidth, 44, 140);
-
-  const maxPanelHeight = Math.max(8, viewportRows - 4);
-  const panelHeight = maxPanelHeight < 18 ? maxPanelHeight : clamp(maxPanelHeight, 18, 40);
-
-  return Object.freeze({ viewportCols, viewportRows, panelWidth, panelHeight });
+  return Object.freeze({ viewportCols, viewportRows });
 }
 
 export function createInitialState(viewport?: Viewport): AnimationLabState {
-  const layout = resolveLayout(viewport?.cols ?? 96, viewport?.rows ?? 32);
+  const layout = resolveViewport(viewport?.cols ?? 96, viewport?.rows ?? 32);
   return Object.freeze({
     tick: 0,
     phase: 0,
     viewportCols: layout.viewportCols,
     viewportRows: layout.viewportRows,
-    panelWidth: layout.panelWidth,
-    panelHeight: layout.panelHeight,
     panelOpacity: 0.9,
     driftTarget: 0.15,
     fluxTarget: 0.58,
@@ -97,8 +86,6 @@ function advanceState(previous: AnimationLabState): AnimationLabState {
     phase: previous.phase,
     viewportCols: previous.viewportCols,
     viewportRows: previous.viewportRows,
-    panelWidth: previous.panelWidth,
-    panelHeight: previous.panelHeight,
     panelOpacity: clamp(panelOpacityTarget, 0.3, 1),
     driftTarget,
     fluxTarget,
@@ -109,12 +96,10 @@ function advanceState(previous: AnimationLabState): AnimationLabState {
 }
 
 function applyViewport(previous: AnimationLabState, cols: number, rows: number): AnimationLabState {
-  const layout = resolveLayout(cols, rows);
+  const layout = resolveViewport(cols, rows);
   if (
     previous.viewportCols === layout.viewportCols &&
-    previous.viewportRows === layout.viewportRows &&
-    previous.panelWidth === layout.panelWidth &&
-    previous.panelHeight === layout.panelHeight
+    previous.viewportRows === layout.viewportRows
   ) {
     return previous;
   }
@@ -123,8 +108,6 @@ function applyViewport(previous: AnimationLabState, cols: number, rows: number):
     ...previous,
     viewportCols: layout.viewportCols,
     viewportRows: layout.viewportRows,
-    panelWidth: layout.panelWidth,
-    panelHeight: layout.panelHeight,
   });
 }
 

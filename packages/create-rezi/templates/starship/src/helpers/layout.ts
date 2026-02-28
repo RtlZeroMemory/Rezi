@@ -7,10 +7,6 @@ export type ResponsiveLayout = Readonly<{
   stackRightRail: boolean;
   compactSidebar: boolean;
   hideNonCritical: boolean;
-  sidebarWidth: number;
-  crewMasterWidth: number;
-  chartWidth: number;
-  canvasWidth: number;
 }>;
 
 export type ViewportSnapshot = Readonly<{
@@ -24,14 +20,21 @@ function clamp(value: number, min: number, max: number): number {
   return value;
 }
 
+function toPositiveInt(value: number, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return fallback;
+  }
+  if (value >= 0) return Math.floor(value);
+  return Math.ceil(value);
+}
+
 export function resolveLayout(viewport: ViewportSnapshot): ResponsiveLayout {
-  const width = Math.max(40, Math.floor(viewport.width));
-  const height = Math.max(18, Math.floor(viewport.height));
+  const width = clamp(toPositiveInt(viewport.width, 96), 40, 500);
+  const height = clamp(toPositiveInt(viewport.height, 32), 18, 200);
   const wide = width >= 120;
   const stackRightRail = width < 120;
   const compactSidebar = width < 90;
   const hideNonCritical = width < 80 || height < 26;
-  const sidebarWidth = compactSidebar ? 18 : 34;
 
   return Object.freeze({
     width,
@@ -40,10 +43,6 @@ export function resolveLayout(viewport: ViewportSnapshot): ResponsiveLayout {
     stackRightRail,
     compactSidebar,
     hideNonCritical,
-    sidebarWidth,
-    crewMasterWidth: wide ? 60 : 100,
-    chartWidth: clamp(Math.floor(width * (wide ? 0.5 : 0.9)), 28, 132),
-    canvasWidth: clamp(Math.floor(width * (wide ? 0.48 : 0.9)), 26, 116),
   });
 }
 

@@ -5,6 +5,7 @@ import {
   useSequence,
   useSpring,
   useStagger,
+  widthConstraints,
   type CanvasContext,
   type NodeState,
   type RouteRenderContext,
@@ -26,6 +27,12 @@ function buildSubsystemChildren(subsystems: readonly Subsystem[]): Map<string | 
     map.set(subsystem.parent, list);
   }
   return map;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  if (value < min) return min;
+  if (value > max) return max;
+  return value;
 }
 
 type ReactorPalette = Readonly<{
@@ -105,6 +112,8 @@ const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode =
   const leftPanePanelCount = 1 + (showSecondaryPanels ? 1 : 0);
   const rightPanePanelCount = 1 + (showSecondaryPanels ? 2 : 0);
   const reactorCanvasHeight = Math.max(8, Math.min(14, Math.floor(contentRows * 0.42)));
+  const chartWidth = clamp(Math.floor(layout.width * (layout.wide ? 0.5 : 0.9)), 28, 132);
+  const canvasWidth = clamp(Math.floor(layout.width * (layout.wide ? 0.48 : 0.9)), 26, 116);
   debugSnapshot("engineering.layout", {
     viewportCols: props.state.viewportCols,
     viewportRows: props.state.viewportRows,
@@ -214,7 +223,7 @@ const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode =
     : surfacePanel(tokens, "Reactor Schematic", [
         ui.canvas({
           id: ctx.id("reactor-canvas"),
-          width: Math.max(32, layout.canvasWidth),
+          width: Math.max(32, canvasWidth),
           height: reactorCanvasHeight,
           blitter: "braille",
           draw: (canvas) => {
@@ -310,7 +319,7 @@ const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode =
         ui.column({ key: subsystem.id, gap: SPACE.xs }, [
           progressRow(tokens, subsystem.name, subsystem.power / 100, {
             labelWidth: 18,
-            width: Math.max(22, layout.chartWidth - 8),
+            width: Math.max(22, chartWidth - 8),
             tone: subsystem.health < props.state.alertThreshold ? "warning" : "default",
             trend: subsystem.health < props.state.alertThreshold ? -1 : 1,
           }),
@@ -318,7 +327,7 @@ const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode =
             ? [
                 progressRow(tokens, "Boot", stagger[index] ?? 0, {
                   labelWidth: 18,
-                  width: Math.max(22, layout.chartWidth - 8),
+                  width: Math.max(22, chartWidth - 8),
                   tone: "success",
                   trend: 1,
                 }),
@@ -332,7 +341,7 @@ const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode =
   const thermalPanel = surfacePanel(tokens, "Thermal Map", [
     ui.heatmap({
       id: ctx.id("engineering-heatmap"),
-      width: Math.max(30, layout.chartWidth),
+      width: Math.max(30, chartWidth),
       height: 10,
       data: heatmapData,
       colorScale: "inferno",
@@ -372,40 +381,40 @@ const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode =
   ]);
 
   const leftPane = showSecondaryPanels
-    ? ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
-        ui.box({ border: "none", p: 0, width: "100%", flex: 3, minHeight: 12 }, [reactorPanel]),
-        ui.box({ border: "none", p: 0, width: "100%", flex: 2, minHeight: 10, overflow: "hidden" }, [
+    ? ui.column({ gap: SPACE.sm, width: "full", height: "full" }, [
+        ui.box({ border: "none", p: 0, width: "full", flex: 3, minHeight: 12 }, [reactorPanel]),
+        ui.box({ border: "none", p: 0, width: "full", flex: 2, minHeight: 10, overflow: "hidden" }, [
           treePanel,
         ]),
       ])
-    : ui.column({ gap: SPACE.sm, width: "100%" }, [reactorPanel]);
+    : ui.column({ gap: SPACE.sm, width: "full" }, [reactorPanel]);
   const rightPane = showSecondaryPanels
-    ? ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
-        ui.box({ border: "none", p: 0, width: "100%", flex: 3, minHeight: 12, overflow: "hidden" }, [
+    ? ui.column({ gap: SPACE.sm, width: "full", height: "full" }, [
+        ui.box({ border: "none", p: 0, width: "full", flex: 3, minHeight: 12, overflow: "hidden" }, [
           powerPanel,
         ]),
-        ui.box({ border: "none", p: 0, width: "100%", flex: 2, minHeight: 10 }, [thermalPanel]),
-        ui.box({ border: "none", p: 0, width: "100%", flex: 2, minHeight: 10, overflow: "hidden" }, [
+        ui.box({ border: "none", p: 0, width: "full", flex: 2, minHeight: 10 }, [thermalPanel]),
+        ui.box({ border: "none", p: 0, width: "full", flex: 2, minHeight: 10, overflow: "hidden" }, [
           diagnosticsPanel,
         ]),
       ])
-    : ui.column({ gap: SPACE.sm, width: "100%" }, [powerPanel]);
+    : ui.column({ gap: SPACE.sm, width: "full" }, [powerPanel]);
 
   const responsiveDeckMinHeight = Math.max(
     16,
     contentRows - (showControlsSummary ? 12 : 10) - (showSecondaryPanels ? 0 : 2),
   );
   const responsiveDeckBody = useWideRow
-    ? ui.row({ gap: SPACE.sm, items: "stretch", width: "100%" }, [
+    ? ui.row({ gap: SPACE.sm, items: "stretch", width: "full" }, [
         ui.box({ border: "none", p: 0, flex: 2 }, [leftPane]),
         ui.box({ border: "none", p: 0, flex: 3 }, [rightPane]),
       ])
-    : ui.column({ gap: SPACE.sm, width: "100%" }, [leftPane, rightPane]);
+    : ui.column({ gap: SPACE.sm, width: "full" }, [leftPane, rightPane]);
   const responsiveDeck = ui.box(
     {
       border: "none",
       p: 0,
-      width: "100%",
+      width: "full",
       flex: 1,
       minHeight: responsiveDeckMinHeight,
       overflow: "scroll",
@@ -475,12 +484,13 @@ const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode =
   );
 
   const controlsRegion = showControlsSummary
-    ? ui.row({ gap: SPACE.sm, items: "start", width: "100%", wrap: false }, [
+    ? ui.row({ gap: SPACE.sm, items: "start", width: "full", wrap: false }, [
         ui.box(
           {
             border: "none",
             p: 0,
-            width: Math.max(56, Math.floor(layout.width * 0.62)),
+            // Helper-first: replaces raw `expr("max(56, viewport.w * 0.62)")`.
+            width: widthConstraints.minViewportPercent({ ratio: 0.62, min: 56 }),
           },
           [controlsPanel],
         ),
@@ -488,7 +498,8 @@ const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode =
           {
             border: "none",
             p: 0,
-            width: Math.max(34, Math.floor(layout.width * 0.34)),
+            // Helper-first: replaces raw `expr("max(34, viewport.w * 0.34)")`.
+            width: widthConstraints.minViewportPercent({ ratio: 0.34, min: 34 }),
           },
           [controlsSummary],
         ),
@@ -507,14 +518,14 @@ const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode =
   });
 
   if (veryCompactHeight) {
-    return ui.column({ gap: SPACE.sm, width: "100%" }, [controlsPanel]);
+    return ui.column({ gap: SPACE.sm, width: "full" }, [controlsPanel]);
   }
 
   if (compactHeight) {
-    return ui.column({ gap: SPACE.sm, width: "100%" }, [controlsPanel, reactorPanel]);
+    return ui.column({ gap: SPACE.sm, width: "full" }, [controlsPanel, reactorPanel]);
   }
 
-  return ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
+  return ui.column({ gap: SPACE.sm, width: "full", height: "full" }, [
     controlsRegion,
     responsiveDeck,
   ]);
@@ -528,7 +539,7 @@ export function renderEngineeringScreen(
     title: "Engineering Deck",
     context,
     deps,
-    body: ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
+    body: ui.column({ gap: SPACE.sm, width: "full", height: "full" }, [
       EngineeringDeck({
         key: "engineering-deck",
         state: context.state,

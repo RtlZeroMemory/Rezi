@@ -1,5 +1,6 @@
 import {
   ui,
+  visibilityConstraints,
   type CommandItem,
   type CommandSource,
   type RegisteredBinding,
@@ -149,12 +150,13 @@ export function renderShell(options: ShellOptions): VNode {
   });
   const compactHeight = layout.height <= 34;
   const minimalHeight = layout.height <= 30;
-  const showBreadcrumbStrip = !compactHeight;
-  const showTabsStrip = !minimalHeight;
   const showSidebar = !minimalHeight && layout.width >= 78;
   const showRouteHealth = !compactHeight && showSidebar;
   const showToastOverlay = !compactHeight && state.toasts.length > 0;
   const showRightRail = Boolean(options.rightRail && !layout.hideNonCritical && layout.height >= 40);
+  const sidebarWidth = layout.compactSidebar ? 18 : 34;
+  // Helper-first constraints (readable intent) over raw `expr("if(viewport.w < ...)")` strings.
+  const rightRailDisplay = visibilityConstraints.viewportAtLeast({ width: 80, height: 40 });
   debugSnapshot("shell.layout", {
     route: options.context.router.currentRoute().id,
     viewportCols: state.viewportCols,
@@ -298,7 +300,7 @@ export function renderShell(options: ShellOptions): VNode {
     {
       border: "none",
       p: SPACE.xs,
-      width: "100%",
+      width: "full",
       style: { bg: tokens.bg.panel.inset, fg: tokens.text.primary },
       inheritStyle: { fg: tokens.text.primary },
     },
@@ -337,7 +339,7 @@ export function renderShell(options: ShellOptions): VNode {
     {
       border: "none",
       p: SPACE.xs,
-      width: "100%",
+      width: "full",
       style: { bg: tokens.bg.panel.inset, fg: tokens.text.primary },
       inheritStyle: { fg: tokens.text.primary },
     },
@@ -394,17 +396,33 @@ export function renderShell(options: ShellOptions): VNode {
   const bodyMain = ui.column(
     {
       gap: SPACE.sm,
-      width: "100%",
-      height: "100%",
+      width: "full",
+      height: "full",
     },
     [
-      ...(showBreadcrumbStrip ? [breadcrumbStrip] : []),
-      ...(showTabsStrip ? [tabsStrip] : []),
       ui.box(
         {
           border: "none",
           p: 0,
-          width: "100%",
+          width: "full",
+          display: visibilityConstraints.viewportHeightAtLeast(35),
+        },
+        [breadcrumbStrip],
+      ),
+      ui.box(
+        {
+          border: "none",
+          p: 0,
+          width: "full",
+          display: visibilityConstraints.viewportHeightAtLeast(31),
+        },
+        [tabsStrip],
+      ),
+      ui.box(
+        {
+          border: "none",
+          p: 0,
+          width: "full",
           flex: 1,
           style: { bg: tokens.bg.app, fg: tokens.text.primary },
           inheritStyle: { fg: tokens.text.primary },
@@ -414,12 +432,22 @@ export function renderShell(options: ShellOptions): VNode {
     ],
   );
 
-  const rightRailNode = showRightRail ? options.rightRail ?? null : null;
+  const rightRailNode = options.rightRail
+    ? ui.box(
+        {
+          border: "none",
+          p: 0,
+          width: "full",
+          display: rightRailDisplay,
+        },
+        [options.rightRail],
+      )
+    : null;
   const bodyWithRail =
     rightRailNode
       ? layout.stackRightRail
-        ? ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [bodyMain, rightRailNode])
-        : ui.row({ gap: SPACE.sm, items: "stretch", width: "100%", height: "100%" }, [
+        ? ui.column({ gap: SPACE.sm, width: "full", height: "full" }, [bodyMain, rightRailNode])
+        : ui.row({ gap: SPACE.sm, items: "stretch", width: "full", height: "full" }, [
             ui.box({ flex: 2, border: "none", p: 0 }, [bodyMain]),
             ui.box({ flex: 1, border: "none", p: 0 }, [rightRailNode]),
           ])
@@ -456,7 +484,7 @@ export function renderShell(options: ShellOptions): VNode {
     {
       border: "none",
       p: 0,
-      width: "100%",
+      width: "full",
       style: { bg: tokens.bg.panel.base, fg: tokens.text.primary },
       inheritStyle: { fg: tokens.text.primary },
     },
@@ -467,8 +495,8 @@ export function renderShell(options: ShellOptions): VNode {
     {
       border: "none",
       p: 0,
-      width: "100%",
-      height: "100%",
+      width: "full",
+      height: "full",
       style: { bg: tokens.bg.app, fg: tokens.text.primary },
       inheritStyle: { fg: tokens.text.primary },
     },
@@ -479,8 +507,8 @@ export function renderShell(options: ShellOptions): VNode {
     {
       border: "none",
       p: 0,
-      width: "100%",
-      height: "100%",
+      width: "full",
+      height: "full",
       style: { bg: tokens.bg.app, fg: tokens.text.primary },
       inheritStyle: { fg: tokens.text.primary },
     },
@@ -509,8 +537,8 @@ export function renderShell(options: ShellOptions): VNode {
       {
         border: "none",
         p: 0,
-        width: "100%",
-        height: "100%",
+        width: "full",
+        height: "full",
         style: { bg: tokens.bg.app, fg: tokens.text.primary },
         inheritStyle: { fg: tokens.text.primary },
       },
@@ -522,7 +550,7 @@ export function renderShell(options: ShellOptions): VNode {
           ...(showSidebar
             ? {
                 sidebar: {
-                  width: layout.sidebarWidth,
+                  width: sidebarWidth,
                   content: sidebarContent,
                 },
               }

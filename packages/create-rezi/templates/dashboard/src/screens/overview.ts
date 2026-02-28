@@ -1,5 +1,5 @@
 import type { VNode } from "@rezi-ui/core";
-import { ui, when } from "@rezi-ui/core";
+import { groupConstraints, heightConstraints, ui, when, widthConstraints } from "@rezi-ui/core";
 import {
   filterLabel,
   fleetCounts,
@@ -33,6 +33,22 @@ export function renderOverviewScreen(state: DashboardState, handlers: DashboardS
   const counts = fleetCounts(state.services);
   const health = statusBadge(overallStatus(state.services));
   const theme = themeSpec(state.themeName);
+
+  // Helper-first constraints: sibling label equalization via max_sibling(#id.min_w) and intrinsic-aware modals.
+  function inspectorRow(label: string, value: string): VNode {
+    return ui.row({ key: label, gap: 2, wrap: true, items: "center" }, [
+      ui.box(
+        {
+          id: "inspector-key",
+          width: groupConstraints.maxSiblingMinWidth("inspector-key"),
+          border: "none",
+          p: 0,
+        },
+        [ui.text(label, { style: styles.mutedStyle })],
+      ),
+      ui.text(value),
+    ]);
+  }
 
   const serviceRows: readonly VNode[] =
     visible.length === 0
@@ -70,10 +86,10 @@ export function renderOverviewScreen(state: DashboardState, handlers: DashboardS
             ui.tag(service.owner, { variant: "default" }),
             ui.tag(service.region, { variant: "info" }),
           ]),
-          ui.text(`Latency: ${formatLatency(service.latencyMs)}`),
-          ui.text(`Error Rate: ${formatErrorRate(service.errorRate)}`),
-          ui.text(`Traffic: ${formatTraffic(service.trafficRpm)}`),
-          ui.text(`Update rate: ${updateRate} Hz`, { style: styles.mutedStyle }),
+          inspectorRow("Latency", formatLatency(service.latencyMs)),
+          inspectorRow("Error Rate", formatErrorRate(service.errorRate)),
+          inspectorRow("Traffic", formatTraffic(service.trafficRpm)),
+          inspectorRow("Update rate", `${updateRate} Hz`),
           ui.sparkline(service.history, { width: 18, min: 0, max: 220 }),
         ]);
       },
@@ -182,7 +198,9 @@ export function renderOverviewScreen(state: DashboardState, handlers: DashboardS
     ui.modal({
       id: "dashboard-help",
       title: `${PRODUCT_NAME} Commands`,
-      width: 70,
+      // Helper-first intrinsic sizing: this modal adapts to its content but stays within viewport bounds.
+      width: widthConstraints.clampedIntrinsicPlus({ pad: 8, min: 44, max: "parent" }),
+      height: heightConstraints.clampedIntrinsicPlus({ pad: 4, min: 10, max: "parent" }),
       backdrop: "none",
       returnFocusTo: "help",
       content: ui.column({ gap: 1 }, [

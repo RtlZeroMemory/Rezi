@@ -1,9 +1,12 @@
 import {
+  conditionalConstraints,
   defineWidget,
+  heightConstraints,
   maybe,
   show,
   ui,
   useAsync,
+  visibilityConstraints,
   type RouteRenderContext,
   type VNode,
 } from "@rezi-ui/core";
@@ -36,6 +39,12 @@ function validateCriticalDepartments(crew: readonly CrewMember[]): string | null
   return null;
 }
 
+function clamp(value: number, min: number, max: number): number {
+  if (value < min) return min;
+  if (value > max) return max;
+  return value;
+}
+
 type CrewDeckProps = Readonly<{
   key?: string;
   state: StarshipState;
@@ -48,6 +57,7 @@ const CrewDeck = defineWidget<CrewDeckProps>((props, ctx): VNode => {
     width: props.state.viewportCols,
     height: props.state.viewportRows,
   });
+  const chartWidth = clamp(Math.floor(layout.width * (layout.wide ? 0.5 : 0.9)), 28, 132);
   const compactHeight = layout.height < 34;
   const showDetailPane = layout.height >= 38;
   const visible = visibleCrew(props.state);
@@ -194,7 +204,7 @@ const CrewDeck = defineWidget<CrewDeckProps>((props, ctx): VNode => {
     ...tableSkin(tokens),
   });
 
-  const detailPanel = ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
+  const detailPanel = ui.column({ gap: SPACE.sm, width: "full", height: "full" }, [
     maybe(selected, (member) =>
       surfacePanel(
         tokens,
@@ -208,7 +218,7 @@ const CrewDeck = defineWidget<CrewDeckProps>((props, ctx): VNode => {
           ]),
           progressRow(tokens, "Efficiency", member.efficiency / 100, {
             labelWidth: 12,
-            width: Math.max(18, layout.chartWidth - 10),
+            width: Math.max(18, chartWidth - 10),
             tone: member.efficiency < 45 ? "warning" : "success",
             trend: member.efficiency >= 50 ? 1 : -1,
           }),
@@ -301,12 +311,12 @@ const CrewDeck = defineWidget<CrewDeckProps>((props, ctx): VNode => {
     ),
   ]);
 
-  const manifestBlock = ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
+  const manifestBlock = ui.column({ gap: SPACE.sm, width: "full", height: "full" }, [
     ui.box(
       {
         border: "none",
         p: 0,
-        width: "100%",
+        width: "full",
         flex: 1,
         minHeight: 10,
         overflow: "hidden",
@@ -328,8 +338,8 @@ const CrewDeck = defineWidget<CrewDeckProps>((props, ctx): VNode => {
           {
             id: ctx.id("crew-master-detail"),
             gap: SPACE.sm,
-            width: "100%",
-            height: "100%",
+            width: "full",
+            height: "full",
             items: "stretch",
             wrap: false,
           },
@@ -338,8 +348,13 @@ const CrewDeck = defineWidget<CrewDeckProps>((props, ctx): VNode => {
               {
                 border: "none",
                 p: 0,
-                width: layout.crewMasterWidth,
-                height: "100%",
+                // Helper-first responsive sizing: wide terminals get a stable master width, narrow gets full.
+                width: conditionalConstraints.ifThenElse(
+                  visibilityConstraints.viewportWidthAtLeast(120),
+                  60,
+                  100,
+                ),
+                height: "full",
                 overflow: "hidden",
               },
               [manifestBlock],
@@ -349,7 +364,7 @@ const CrewDeck = defineWidget<CrewDeckProps>((props, ctx): VNode => {
                 border: "none",
                 p: 0,
                 flex: 1,
-                height: "100%",
+                height: "full",
                 overflow: "hidden",
               },
               [detailPanel],
@@ -358,19 +373,24 @@ const CrewDeck = defineWidget<CrewDeckProps>((props, ctx): VNode => {
         )
       : manifestBlock
     : showDetailPane
-      ? ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
+      ? ui.column({ gap: SPACE.sm, width: "full", height: "full" }, [
           ui.box(
-            { border: "none", p: 0, width: "100%", flex: 1, minHeight: 10, overflow: "hidden" },
+            { border: "none", p: 0, width: "full", flex: 1, minHeight: 10, overflow: "hidden" },
             [manifestBlock],
           ),
           ui.box(
-            { border: "none", p: 0, width: "100%", flex: 1, minHeight: 10, overflow: "hidden" },
+            { border: "none", p: 0, width: "full", flex: 1, minHeight: 10, overflow: "hidden" },
             [detailPanel],
           ),
         ])
       : manifestBlock;
 
-  const operationsPanelMaxHeight = Math.max(12, Math.min(22, Math.floor(layout.height * 0.34)));
+  // Helper-first viewport-derived sizing (clamp 12..22 at 34% of viewport height).
+  const operationsPanelHeightExpr = heightConstraints.clampedPercentOfViewport({
+    ratio: 0.34,
+    min: 12,
+    max: 22,
+  });
   debugSnapshot("crew.render", {
     viewportCols: props.state.viewportCols,
     viewportRows: props.state.viewportRows,
@@ -380,15 +400,15 @@ const CrewDeck = defineWidget<CrewDeckProps>((props, ctx): VNode => {
     totalPages,
     pageDataCount: pageData.length,
     showDetailPane,
-    operationsPanelMaxHeight,
+    operationsPanelHeight: operationsPanelHeightExpr.source,
     editingCrew: props.state.editingCrew,
   });
   const operationsPanel = ui.box(
     {
       border: "none",
       p: 0,
-      width: "100%",
-      height: operationsPanelMaxHeight,
+      width: "full",
+      height: operationsPanelHeightExpr,
       overflow: "scroll",
     },
     [
@@ -502,7 +522,7 @@ const CrewDeck = defineWidget<CrewDeckProps>((props, ctx): VNode => {
     ],
   );
 
-  return ui.column({ gap: SPACE.md, width: "100%", height: "100%" }, [
+  return ui.column({ gap: SPACE.md, width: "full", height: "full" }, [
     operationsPanel,
     show(
       asyncCrew.loading,
@@ -519,7 +539,7 @@ const CrewDeck = defineWidget<CrewDeckProps>((props, ctx): VNode => {
         {
           border: "none",
           p: 0,
-          width: "100%",
+          width: "full",
           flex: 1,
           minHeight: 12,
           overflow: "hidden",
@@ -535,7 +555,7 @@ export function renderCrewScreen(context: RouteRenderContext<StarshipState>, dep
     title: "Crew Manifest",
     context,
     deps,
-    body: ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
+    body: ui.column({ gap: SPACE.sm, width: "full", height: "full" }, [
       CrewDeck({
         key: "crew-deck",
         state: context.state,
