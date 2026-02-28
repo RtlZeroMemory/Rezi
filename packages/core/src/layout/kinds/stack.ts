@@ -24,7 +24,7 @@ import {
   getConstraintProps,
 } from "../engine/guards.js";
 import { measureMaxContent, measureMinContent } from "../engine/intrinsic.js";
-import { releaseArray } from "../engine/pool.js";
+import { acquireArray, releaseArray } from "../engine/pool.js";
 import { ok } from "../engine/result.js";
 import type { LayoutTree } from "../engine/types.js";
 import { resolveResponsiveValue } from "../responsive.js";
@@ -470,208 +470,218 @@ function computeWrapConstraintLine(
   const gapTotal = lineChildCount <= 1 ? 0 : gap * (lineChildCount - 1);
   const availableForChildren = clampNonNegative(mainLimit - gapTotal);
 
-  const mainSizes = new Array(lineChildCount).fill(0);
-  const measureMaxMain = new Array(lineChildCount).fill(0);
-  const crossSizes = includeChildren ? new Array(lineChildCount).fill(0) : null;
+  const mainSizes = acquireArray(lineChildCount);
+  const measureMaxMain = acquireArray(lineChildCount);
+  const crossSizes = includeChildren ? acquireArray(lineChildCount) : null;
+  const crossPass1 = acquireArray(lineChildCount);
 
-  const flexItems: FlexItem[] = [];
-  let remaining = availableForChildren;
+  try {
+    const flexItems: FlexItem[] = [];
+    let remaining = availableForChildren;
 
-  for (let i = 0; i < lineChildCount; i++) {
-    const child = lineChildren[i];
-    if (!child || childHasAbsolutePosition(child)) continue;
+    for (let i = 0; i < lineChildCount; i++) {
+      const child = lineChildren[i];
+      if (!child || childHasAbsolutePosition(child)) continue;
 
-    if (child.kind === "spacer") {
-      const sp = validateSpacerProps(child.props);
-      if (!sp.ok) return sp;
+      if (child.kind === "spacer") {
+        const sp = validateSpacerProps(child.props);
+        if (!sp.ok) return sp;
 
-      const maxMain = availableForChildren;
+        const maxMain = availableForChildren;
+        if (remaining === 0) {
+          mainSizes[i] = 0;
+          measureMaxMain[i] = 0;
+          continue;
+        }
+
+        if (sp.value.flex > 0) {
+          flexItems.push({
+            index: i,
+            flex: sp.value.flex,
+            shrink: 0,
+            basis: 0,
+            min: sp.value.size,
+            max: maxMain,
+          });
+          continue;
+        }
+
+        const size = Math.min(sp.value.size, remaining);
+        mainSizes[i] = size;
+        measureMaxMain[i] = size;
+        remaining = clampNonNegative(remaining - size);
+        continue;
+      }
+
+      const childProps = getConstraintProps(child) ?? {};
+      const resolved = resolveLayoutConstraints(childProps as never, parentRect, axis.axis);
+
+      const fixedMain = resolved[axis.mainProp];
+      const minMain = resolved[axis.minMainProp];
+      const maxMain = Math.min(
+        toFiniteMax(resolved[axis.maxMainProp], availableForChildren),
+        availableForChildren,
+      );
+      const flex = resolved.flex;
+
+      const rawMain = (childProps as ConstraintPropBag)[axis.mainProp];
+      const mainIsPercent = isPercentString(rawMain);
+
       if (remaining === 0) {
         mainSizes[i] = 0;
         measureMaxMain[i] = 0;
         continue;
       }
 
-      if (sp.value.flex > 0) {
+      if (fixedMain !== null) {
+        const desired = clampWithin(fixedMain, minMain, maxMain);
+        const size = Math.min(desired, remaining);
+        mainSizes[i] = size;
+        measureMaxMain[i] = mainIsPercent ? mainLimit : size;
+        remaining = clampNonNegative(remaining - size);
+        continue;
+      }
+
+      if (flex > 0) {
         flexItems.push({
           index: i,
-          flex: sp.value.flex,
+          flex,
           shrink: 0,
           basis: 0,
-          min: sp.value.size,
+          min: minMain,
           max: maxMain,
         });
         continue;
       }
 
-      const size = Math.min(sp.value.size, remaining);
-      mainSizes[i] = size;
-      measureMaxMain[i] = size;
-      remaining = clampNonNegative(remaining - size);
-      continue;
+      const childRes = measureNodeOnAxis(axis, child, remaining, crossLimit, measureNode);
+      if (!childRes.ok) return childRes;
+      const childMain = mainFromSize(axis, childRes.value);
+      mainSizes[i] = childMain;
+      measureMaxMain[i] = childMain;
+      remaining = clampNonNegative(remaining - childMain);
     }
 
-    const childProps = getConstraintProps(child) ?? {};
-    const resolved = resolveLayoutConstraints(childProps as never, parentRect, axis.axis);
-
-    const fixedMain = resolved[axis.mainProp];
-    const minMain = resolved[axis.minMainProp];
-    const maxMain = Math.min(
-      toFiniteMax(resolved[axis.maxMainProp], availableForChildren),
-      availableForChildren,
-    );
-    const flex = resolved.flex;
-
-    const rawMain = (childProps as ConstraintPropBag)[axis.mainProp];
-    const mainIsPercent = isPercentString(rawMain);
-
-    if (remaining === 0) {
-      mainSizes[i] = 0;
-      measureMaxMain[i] = 0;
-      continue;
-    }
-
-    if (fixedMain !== null) {
-      const desired = clampWithin(fixedMain, minMain, maxMain);
-      const size = Math.min(desired, remaining);
-      mainSizes[i] = size;
-      measureMaxMain[i] = mainIsPercent ? mainLimit : size;
-      remaining = clampNonNegative(remaining - size);
-      continue;
-    }
-
-    if (flex > 0) {
-      flexItems.push({
-        index: i,
-        flex,
-        shrink: 0,
-        basis: 0,
-        min: minMain,
-        max: maxMain,
-      });
-      continue;
-    }
-
-    const childRes = measureNodeOnAxis(axis, child, remaining, crossLimit, measureNode);
-    if (!childRes.ok) return childRes;
-    const childMain = mainFromSize(axis, childRes.value);
-    mainSizes[i] = childMain;
-    measureMaxMain[i] = childMain;
-    remaining = clampNonNegative(remaining - childMain);
-  }
-
-  if (flexItems.length > 0 && remaining > 0) {
-    const alloc = distributeFlex(remaining, flexItems);
-    for (let j = 0; j < flexItems.length; j++) {
-      const it = flexItems[j];
-      if (!it) continue;
-      const size = alloc[j] ?? 0;
-      mainSizes[it.index] = size;
-      const child = lineChildren[it.index];
-      if (child?.kind === "spacer") {
-        measureMaxMain[it.index] = size;
-        continue;
+    if (flexItems.length > 0 && remaining > 0) {
+      const alloc = distributeFlex(remaining, flexItems);
+      for (let j = 0; j < flexItems.length; j++) {
+        const it = flexItems[j];
+        if (!it) continue;
+        const size = alloc[j] ?? 0;
+        mainSizes[it.index] = size;
+        const child = lineChildren[it.index];
+        if (child?.kind === "spacer") {
+          measureMaxMain[it.index] = size;
+          continue;
+        }
+        const childProps = getConstraintProps(child as VNode) ?? {};
+        const rawMain = (childProps as ConstraintPropBag)[axis.mainProp];
+        measureMaxMain[it.index] = isPercentString(rawMain) ? mainLimit : size;
       }
-      const childProps = getConstraintProps(child as VNode) ?? {};
-      const rawMain = (childProps as ConstraintPropBag)[axis.mainProp];
-      measureMaxMain[it.index] = isPercentString(rawMain) ? mainLimit : size;
+      releaseArray(alloc);
     }
-    releaseArray(alloc);
-  }
 
-  maybeRebalanceNearFullPercentChildren(
-    axis,
-    lineChildren,
-    mainSizes,
-    measureMaxMain,
-    availableForChildren,
-    parentRect,
-  );
+    maybeRebalanceNearFullPercentChildren(
+      axis,
+      lineChildren,
+      mainSizes,
+      measureMaxMain,
+      availableForChildren,
+      parentRect,
+    );
 
-  let lineMain = 0;
-  for (let i = 0; i < mainSizes.length; i++) {
-    lineMain += mainSizes[i] ?? 0;
-  }
-  lineMain += lineChildCount <= 1 ? 0 : gap * (lineChildCount - 1);
+    let lineMain = 0;
+    for (let i = 0; i < lineChildCount; i++) {
+      lineMain += mainSizes[i] ?? 0;
+    }
+    lineMain += lineChildCount <= 1 ? 0 : gap * (lineChildCount - 1);
 
-  let lineCross = 0;
-  const sizeCache = new Array<Size | null>(lineChildCount).fill(null);
-  const mayFeedback = new Array<boolean>(lineChildCount).fill(false);
-  const crossPass1 = new Array<number>(lineChildCount).fill(0);
-  let feedbackCandidate = false;
+    let lineCross = 0;
+    const sizeCache = new Array<Size | null>(lineChildCount).fill(null);
+    const mayFeedback = new Array<boolean>(lineChildCount).fill(false);
+    let feedbackCandidate = false;
 
-  for (let i = 0; i < lineChildCount; i++) {
-    const child = lineChildren[i];
-    if (!child || childHasAbsolutePosition(child)) continue;
-    const main = mainSizes[i] ?? 0;
-    const mm = measureMaxMain[i] ?? 0;
-    const childSizeRes =
-      main === 0
-        ? measureNodeOnAxis(axis, child, 0, 0, measureNode)
-        : measureNodeOnAxis(axis, child, mm, crossLimit, measureNode);
-    if (!childSizeRes.ok) return childSizeRes;
-    const childCross = crossFromSize(axis, childSizeRes.value);
-    if (crossSizes) crossSizes[i] = childCross;
-    sizeCache[i] = childSizeRes.value;
-    const childProps = getConstraintProps(child) ?? {};
-    const rawMain = (childProps as ConstraintPropBag)[axis.mainProp];
-    const needsFeedback =
-      main > 0 && mm !== main && !isPercentString(rawMain) && childMayNeedCrossAxisFeedback(child);
-    mayFeedback[i] = needsFeedback;
-    crossPass1[i] = childCross;
-    if (needsFeedback) feedbackCandidate = true;
-    if (childCross > lineCross) lineCross = childCross;
-  }
-
-  if (feedbackCandidate) {
-    lineCross = 0;
     for (let i = 0; i < lineChildCount; i++) {
       const child = lineChildren[i];
       if (!child || childHasAbsolutePosition(child)) continue;
-
-      const needsFeedback = mayFeedback[i] === true;
-      let size = sizeCache[i] ?? null;
-      if (needsFeedback) {
-        const main = mainSizes[i] ?? 0;
-        const nextSizeRes =
-          main === 0
-            ? measureNodeOnAxis(axis, child, 0, 0, measureNode)
-            : measureNodeOnAxis(axis, child, main, crossLimit, measureNode);
-        if (!nextSizeRes.ok) return nextSizeRes;
-        const nextCross = crossFromSize(axis, nextSizeRes.value);
-        if (nextCross !== (crossPass1[i] ?? 0)) {
-          size = nextSizeRes.value;
-          sizeCache[i] = size;
-          if (crossSizes) crossSizes[i] = nextCross;
-          crossPass1[i] = nextCross;
-        }
-      }
-
-      const cross =
-        crossSizes?.[i] ?? crossPass1[i] ?? (size === null ? 0 : crossFromSize(axis, size));
-      if (cross > lineCross) lineCross = cross;
+      const main = mainSizes[i] ?? 0;
+      const mm = measureMaxMain[i] ?? 0;
+      const childSizeRes =
+        main === 0
+          ? measureNodeOnAxis(axis, child, 0, 0, measureNode)
+          : measureNodeOnAxis(axis, child, mm, crossLimit, measureNode);
+      if (!childSizeRes.ok) return childSizeRes;
+      const childCross = crossFromSize(axis, childSizeRes.value);
+      if (crossSizes) crossSizes[i] = childCross;
+      sizeCache[i] = childSizeRes.value;
+      const childProps = getConstraintProps(child) ?? {};
+      const rawMain = (childProps as ConstraintPropBag)[axis.mainProp];
+      const needsFeedback =
+        main > 0 &&
+        mm !== main &&
+        !isPercentString(rawMain) &&
+        childMayNeedCrossAxisFeedback(child);
+      mayFeedback[i] = needsFeedback;
+      crossPass1[i] = childCross;
+      if (needsFeedback) feedbackCandidate = true;
+      if (childCross > lineCross) lineCross = childCross;
     }
-  }
 
-  if (!includeChildren) return ok({ main: lineMain, cross: lineCross });
+    if (feedbackCandidate) {
+      lineCross = 0;
+      for (let i = 0; i < lineChildCount; i++) {
+        const child = lineChildren[i];
+        if (!child || childHasAbsolutePosition(child)) continue;
 
-  const plannedChildren: WrapLineChildLayout[] = [];
-  for (let i = 0; i < lineChildCount; i++) {
-    const child = lineChildren[i];
-    if (!child || childHasAbsolutePosition(child)) continue;
-    plannedChildren.push({
-      child,
-      main: mainSizes[i] ?? 0,
-      measureMaxMain: measureMaxMain[i] ?? 0,
-      cross: crossSizes?.[i] ?? 0,
+        const needsFeedback = mayFeedback[i] === true;
+        let size = sizeCache[i] ?? null;
+        if (needsFeedback) {
+          const main = mainSizes[i] ?? 0;
+          const nextSizeRes =
+            main === 0
+              ? measureNodeOnAxis(axis, child, 0, 0, measureNode)
+              : measureNodeOnAxis(axis, child, main, crossLimit, measureNode);
+          if (!nextSizeRes.ok) return nextSizeRes;
+          const nextCross = crossFromSize(axis, nextSizeRes.value);
+          if (nextCross !== (crossPass1[i] ?? 0)) {
+            size = nextSizeRes.value;
+            sizeCache[i] = size;
+            if (crossSizes) crossSizes[i] = nextCross;
+            crossPass1[i] = nextCross;
+          }
+        }
+
+        const cross =
+          crossSizes?.[i] ?? crossPass1[i] ?? (size === null ? 0 : crossFromSize(axis, size));
+        if (cross > lineCross) lineCross = cross;
+      }
+    }
+
+    if (!includeChildren) return ok({ main: lineMain, cross: lineCross });
+
+    const plannedChildren: WrapLineChildLayout[] = [];
+    for (let i = 0; i < lineChildCount; i++) {
+      const child = lineChildren[i];
+      if (!child || childHasAbsolutePosition(child)) continue;
+      plannedChildren.push({
+        child,
+        main: mainSizes[i] ?? 0,
+        measureMaxMain: measureMaxMain[i] ?? 0,
+        cross: crossSizes?.[i] ?? 0,
+      });
+    }
+
+    return ok({
+      children: Object.freeze(plannedChildren),
+      main: lineMain,
+      cross: lineCross,
     });
+  } finally {
+    releaseArray(mainSizes);
+    releaseArray(measureMaxMain);
+    if (crossSizes) releaseArray(crossSizes);
+    releaseArray(crossPass1);
   }
-
-  return ok({
-    children: Object.freeze(plannedChildren),
-    main: lineMain,
-    cross: lineCross,
-  });
 }
 
 function measureWrapConstraintLine(
@@ -889,183 +899,191 @@ function planConstraintMainSizes(
   }
 
   // Advanced path: supports flexShrink/flexBasis while keeping legacy defaults.
-  const minMains = new Array<number>(children.length).fill(0);
-  const maxMains = new Array<number>(children.length).fill(availableForChildren);
-  const shrinkFactors = new Array<number>(children.length).fill(0);
+  const minMains = acquireArray(children.length);
+  const maxMains = acquireArray(children.length);
+  maxMains.fill(availableForChildren, 0, children.length);
+  const shrinkFactors = acquireArray(children.length);
 
-  const growItems: FlexItem[] = [];
-  let totalMain = 0;
+  try {
+    const growItems: FlexItem[] = [];
+    let totalMain = 0;
 
-  for (let i = 0; i < children.length; i++) {
-    const child = children[i];
-    if (!child || childHasAbsolutePosition(child)) continue;
-
-    if (child.kind === "spacer") {
-      const sp = validateSpacerProps(child.props);
-      if (!sp.ok) return sp;
-
-      const basis = sp.value.flex > 0 ? 0 : sp.value.size;
-      mainSizes[i] = basis;
-      measureMaxMain[i] = basis;
-      minMains[i] = 0;
-      maxMains[i] = availableForChildren;
-      shrinkFactors[i] = 0;
-      totalMain += basis;
-
-      if (sp.value.flex > 0) {
-        growItems.push({
-          index: i,
-          flex: sp.value.flex,
-          shrink: 0,
-          basis: 0,
-          min: sp.value.size,
-          max: availableForChildren,
-        });
-      }
-      continue;
-    }
-
-    const childProps = (getConstraintProps(child) ?? {}) as Record<string, unknown> & FlexPropBag;
-    const resolved = resolveLayoutConstraints(childProps as never, parentRect, axis.axis);
-
-    const fixedMain = resolved[axis.mainProp];
-    const maxMain = Math.min(
-      toFiniteMax(resolved[axis.maxMainProp], availableForChildren),
-      availableForChildren,
-    );
-    let minMain = Math.min(resolved[axis.minMainProp], availableForChildren);
-
-    const rawMain = childProps[axis.mainProp];
-    const rawMinMain = childProps[axis.minMainProp];
-    const rawFlexBasis = childProps.flexBasis;
-    const mainPercent = isPercentString(rawMain);
-    const flexBasisIsAuto = resolveResponsiveValue(rawFlexBasis) === "auto";
-
-    if (rawMinMain === undefined && resolved.flexShrink > 0) {
-      const intrinsicMinRes = measureMinContent(child, axis.axis, measureNode);
-      if (!intrinsicMinRes.ok) return intrinsicMinRes;
-      const intrinsicMain = mainFromSize(axis, intrinsicMinRes.value);
-      minMain = Math.max(minMain, Math.min(intrinsicMain, availableForChildren));
-    }
-
-    const normalizedMinMain = Math.min(minMain, maxMain);
-    minMains[i] = normalizedMinMain;
-    maxMains[i] = maxMain;
-    shrinkFactors[i] = resolved.flexShrink;
-
-    let measuredSize: Size | null = null;
-    let basis: number;
-    if (fixedMain !== null) {
-      basis = clampWithin(fixedMain, normalizedMinMain, maxMain);
-    } else if (resolved.flexBasis !== null) {
-      basis = clampWithin(resolved.flexBasis, normalizedMinMain, maxMain);
-    } else if (flexBasisIsAuto) {
-      const intrinsicMaxRes = measureMaxContent(child, axis.axis, measureNode);
-      if (!intrinsicMaxRes.ok) return intrinsicMaxRes;
-      const intrinsicMain = mainFromSize(axis, intrinsicMaxRes.value);
-      basis = clampWithin(intrinsicMain, normalizedMinMain, maxMain);
-    } else if (resolved.flex > 0) {
-      basis = 0;
-    } else {
-      const childRes = measureNodeOnAxis(
-        axis,
-        child,
-        availableForChildren,
-        crossLimit,
-        measureNode,
-      );
-      if (!childRes.ok) return childRes;
-      measuredSize = childRes.value;
-      basis = clampWithin(mainFromSize(axis, childRes.value), normalizedMinMain, maxMain);
-    }
-
-    mainSizes[i] = basis;
-    measureMaxMain[i] = mainPercent ? mainLimit : basis;
-    if (collectPrecomputed && measuredSize !== null) precomputedSizes[i] = measuredSize;
-    totalMain += basis;
-
-    if (fixedMain === null && resolved.flex > 0) {
-      const growMin = Math.max(0, normalizedMinMain - basis);
-      const growCap = Math.max(0, maxMain - basis);
-      growItems.push({
-        index: i,
-        flex: resolved.flex,
-        shrink: 0,
-        basis: 0,
-        min: growMin,
-        max: growCap,
-      });
-    }
-  }
-
-  let didResize = false;
-  const growRemaining = availableForChildren - totalMain;
-  if (growItems.length > 0 && growRemaining > 0) {
-    const alloc = distributeFlex(growRemaining, growItems);
-    for (let i = 0; i < growItems.length; i++) {
-      const item = growItems[i];
-      if (!item) continue;
-      const add = alloc[i] ?? 0;
-      if (add <= 0) continue;
-      const current = mainSizes[item.index] ?? 0;
-      const next = Math.min(maxMains[item.index] ?? availableForChildren, current + add);
-      if (next !== current) didResize = true;
-      mainSizes[item.index] = next;
-    }
-    releaseArray(alloc);
-  }
-
-  totalMain = 0;
-  for (let i = 0; i < mainSizes.length; i++) {
-    totalMain += mainSizes[i] ?? 0;
-  }
-
-  if (totalMain > availableForChildren) {
-    const shrinkItems: FlexItem[] = [];
     for (let i = 0; i < children.length; i++) {
       const child = children[i];
       if (!child || childHasAbsolutePosition(child)) continue;
-      shrinkItems.push({
-        index: i,
-        flex: 0,
-        shrink: shrinkFactors[i] ?? 0,
-        basis: mainSizes[i] ?? 0,
-        min: minMains[i] ?? 0,
-        max: maxMains[i] ?? availableForChildren,
-      });
+
+      if (child.kind === "spacer") {
+        const sp = validateSpacerProps(child.props);
+        if (!sp.ok) return sp;
+
+        const basis = sp.value.flex > 0 ? 0 : sp.value.size;
+        mainSizes[i] = basis;
+        measureMaxMain[i] = basis;
+        minMains[i] = 0;
+        maxMains[i] = availableForChildren;
+        shrinkFactors[i] = 0;
+        totalMain += basis;
+
+        if (sp.value.flex > 0) {
+          growItems.push({
+            index: i,
+            flex: sp.value.flex,
+            shrink: 0,
+            basis: 0,
+            min: sp.value.size,
+            max: availableForChildren,
+          });
+        }
+        continue;
+      }
+
+      const childProps = (getConstraintProps(child) ?? {}) as Record<string, unknown> & FlexPropBag;
+      const resolved = resolveLayoutConstraints(childProps as never, parentRect, axis.axis);
+
+      const fixedMain = resolved[axis.mainProp];
+      const maxMain = Math.min(
+        toFiniteMax(resolved[axis.maxMainProp], availableForChildren),
+        availableForChildren,
+      );
+      let minMain = Math.min(resolved[axis.minMainProp], availableForChildren);
+
+      const rawMain = childProps[axis.mainProp];
+      const rawMinMain = childProps[axis.minMainProp];
+      const rawFlexBasis = childProps.flexBasis;
+      const mainPercent = isPercentString(rawMain);
+      const flexBasisIsAuto = resolveResponsiveValue(rawFlexBasis) === "auto";
+
+      if (rawMinMain === undefined && resolved.flexShrink > 0) {
+        const intrinsicMinRes = measureMinContent(child, axis.axis, measureNode);
+        if (!intrinsicMinRes.ok) return intrinsicMinRes;
+        const intrinsicMain = mainFromSize(axis, intrinsicMinRes.value);
+        minMain = Math.max(minMain, Math.min(intrinsicMain, availableForChildren));
+      }
+
+      const normalizedMinMain = Math.min(minMain, maxMain);
+      minMains[i] = normalizedMinMain;
+      maxMains[i] = maxMain;
+      shrinkFactors[i] = resolved.flexShrink;
+
+      let measuredSize: Size | null = null;
+      let basis: number;
+      if (fixedMain !== null) {
+        basis = clampWithin(fixedMain, normalizedMinMain, maxMain);
+      } else if (resolved.flexBasis !== null) {
+        basis = clampWithin(resolved.flexBasis, normalizedMinMain, maxMain);
+      } else if (flexBasisIsAuto) {
+        const intrinsicMaxRes = measureMaxContent(child, axis.axis, measureNode);
+        if (!intrinsicMaxRes.ok) return intrinsicMaxRes;
+        const intrinsicMain = mainFromSize(axis, intrinsicMaxRes.value);
+        basis = clampWithin(intrinsicMain, normalizedMinMain, maxMain);
+      } else if (resolved.flex > 0) {
+        basis = 0;
+      } else {
+        const childRes = measureNodeOnAxis(
+          axis,
+          child,
+          availableForChildren,
+          crossLimit,
+          measureNode,
+        );
+        if (!childRes.ok) return childRes;
+        measuredSize = childRes.value;
+        basis = clampWithin(mainFromSize(axis, childRes.value), normalizedMinMain, maxMain);
+      }
+
+      mainSizes[i] = basis;
+      measureMaxMain[i] = mainPercent ? mainLimit : basis;
+      if (collectPrecomputed && measuredSize !== null) precomputedSizes[i] = measuredSize;
+      totalMain += basis;
+
+      if (fixedMain === null && resolved.flex > 0) {
+        const growMin = Math.max(0, normalizedMinMain - basis);
+        const growCap = Math.max(0, maxMain - basis);
+        growItems.push({
+          index: i,
+          flex: resolved.flex,
+          shrink: 0,
+          basis: 0,
+          min: growMin,
+          max: growCap,
+        });
+      }
     }
-    if (shrinkItems.length > 0) {
-      const shrunk = shrinkFlex(availableForChildren, shrinkItems);
-      for (let i = 0; i < shrinkItems.length; i++) {
-        const item = shrinkItems[i];
+
+    let didResize = false;
+    const growRemaining = availableForChildren - totalMain;
+    if (growItems.length > 0 && growRemaining > 0) {
+      const alloc = distributeFlex(growRemaining, growItems);
+      for (let i = 0; i < growItems.length; i++) {
+        const item = growItems[i];
         if (!item) continue;
+        const add = alloc[i] ?? 0;
+        if (add <= 0) continue;
         const current = mainSizes[item.index] ?? 0;
-        const next = clampWithin(shrunk[i] ?? 0, item.min, item.max);
+        const next = Math.min(maxMains[item.index] ?? availableForChildren, current + add);
         if (next !== current) didResize = true;
         mainSizes[item.index] = next;
       }
+      releaseArray(alloc);
     }
+
+    totalMain = 0;
+    for (let i = 0; i < mainSizes.length; i++) {
+      totalMain += mainSizes[i] ?? 0;
+    }
+
+    if (totalMain > availableForChildren) {
+      const shrinkItems: FlexItem[] = [];
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i];
+        if (!child || childHasAbsolutePosition(child)) continue;
+        shrinkItems.push({
+          index: i,
+          flex: 0,
+          shrink: shrinkFactors[i] ?? 0,
+          basis: mainSizes[i] ?? 0,
+          min: minMains[i] ?? 0,
+          max: maxMains[i] ?? availableForChildren,
+        });
+      }
+      if (shrinkItems.length > 0) {
+        const shrunk = shrinkFlex(availableForChildren, shrinkItems);
+        for (let i = 0; i < shrinkItems.length; i++) {
+          const item = shrinkItems[i];
+          if (!item) continue;
+          const current = mainSizes[item.index] ?? 0;
+          const next = clampWithin(shrunk[i] ?? 0, item.min, item.max);
+          if (next !== current) didResize = true;
+          mainSizes[item.index] = next;
+        }
+        releaseArray(shrunk);
+      }
+    }
+
+    for (let i = 0; i < children.length; i++) {
+      if (!children[i]) continue;
+      if (didResize && collectPrecomputed) precomputedSizes[i] = null;
+    }
+
+    maybeRebalanceNearFullPercentChildren(
+      axis,
+      children,
+      mainSizes,
+      measureMaxMain,
+      availableForChildren,
+      parentRect,
+    );
+
+    return ok({
+      mainSizes,
+      measureMaxMain,
+      precomputedSizes,
+    });
+  } finally {
+    releaseArray(minMains);
+    releaseArray(maxMains);
+    releaseArray(shrinkFactors);
   }
-
-  for (let i = 0; i < children.length; i++) {
-    if (!children[i]) continue;
-    if (didResize && collectPrecomputed) precomputedSizes[i] = null;
-  }
-
-  maybeRebalanceNearFullPercentChildren(
-    axis,
-    children,
-    mainSizes,
-    measureMaxMain,
-    availableForChildren,
-    parentRect,
-  );
-
-  return ok({
-    mainSizes,
-    measureMaxMain,
-    precomputedSizes,
-  });
 }
 
 function planConstraintCrossSizes(
@@ -1683,82 +1701,87 @@ function layoutStack(
       }
     }
   } else if (!needsConstraintPass) {
-    const mainSizes = new Array(count).fill(0);
-    const crossSizes = new Array(count).fill(0);
+    const mainSizes = acquireArray(count);
+    const crossSizes = acquireArray(count);
 
-    let rem = mainLimit;
-    for (let i = 0; i < count; i++) {
-      const child = vnode.children[i];
-      if (!child || childHasAbsolutePosition(child)) continue;
-      if (rem === 0) continue;
+    try {
+      let rem = mainLimit;
+      for (let i = 0; i < count; i++) {
+        const child = vnode.children[i];
+        if (!child || childHasAbsolutePosition(child)) continue;
+        if (rem === 0) continue;
 
-      const childSizeRes = measureNodeOnAxis(axis, child, rem, crossLimit, measureNode);
-      if (!childSizeRes.ok) return childSizeRes;
-      mainSizes[i] = mainFromSize(axis, childSizeRes.value);
-      crossSizes[i] = crossFromSize(axis, childSizeRes.value);
-      rem = clampNonNegative(rem - (mainSizes[i] ?? 0) - gap);
-    }
+        const childSizeRes = measureNodeOnAxis(axis, child, rem, crossLimit, measureNode);
+        if (!childSizeRes.ok) return childSizeRes;
+        mainSizes[i] = mainFromSize(axis, childSizeRes.value);
+        crossSizes[i] = crossFromSize(axis, childSizeRes.value);
+        rem = clampNonNegative(rem - (mainSizes[i] ?? 0) - gap);
+      }
 
-    let usedMain = 0;
-    for (let i = 0; i < mainSizes.length; i++) {
-      usedMain += mainSizes[i] ?? 0;
-    }
-    usedMain += childCount <= 1 ? 0 : gap * (childCount - 1);
-    const extra = clampNonNegative(mainLimit - usedMain);
-    const startOffset = computeJustifyStartOffset(justify, extra, childCount);
+      let usedMain = 0;
+      for (let i = 0; i < count; i++) {
+        usedMain += mainSizes[i] ?? 0;
+      }
+      usedMain += childCount <= 1 ? 0 : gap * (childCount - 1);
+      const extra = clampNonNegative(mainLimit - usedMain);
+      const startOffset = computeJustifyStartOffset(justify, extra, childCount);
 
-    let cursorMain = mainOrigin + startOffset;
-    let remainingMain = clampNonNegative(mainLimit - startOffset);
-    let childOrdinal = 0;
+      let cursorMain = mainOrigin + startOffset;
+      let remainingMain = clampNonNegative(mainLimit - startOffset);
+      let childOrdinal = 0;
 
-    for (let i = 0; i < count; i++) {
-      const child = vnode.children[i];
-      if (!child || childHasAbsolutePosition(child)) continue;
+      for (let i = 0; i < count; i++) {
+        const child = vnode.children[i];
+        if (!child || childHasAbsolutePosition(child)) continue;
 
-      if (remainingMain === 0) {
-        const childRes = layoutNodeOnAxis(axis, child, cursorMain, crossOrigin, 0, 0, layoutNode);
+        if (remainingMain === 0) {
+          const childRes = layoutNodeOnAxis(axis, child, cursorMain, crossOrigin, 0, 0, layoutNode);
+          if (!childRes.ok) return childRes;
+          children.push(childRes.value);
+          childOrdinal++;
+          continue;
+        }
+
+        const childMain = mainSizes[i] ?? 0;
+        const childCross = crossSizes[i] ?? 0;
+
+        let childCrossPos = crossOrigin;
+        let forceCross: number | null = null;
+        const effectiveAlign = resolveEffectiveAlign(child, align);
+        if (effectiveAlign === "center") {
+          childCrossPos = crossOrigin + Math.floor((crossLimit - childCross) / 2);
+        } else if (effectiveAlign === "end") {
+          childCrossPos = crossOrigin + (crossLimit - childCross);
+        } else if (effectiveAlign === "stretch") {
+          forceCross = crossLimit;
+        }
+
+        const childRes = layoutNodeOnAxis(
+          axis,
+          child,
+          cursorMain,
+          childCrossPos,
+          remainingMain,
+          crossLimit,
+          layoutNode,
+          null,
+          forceCross,
+        );
         if (!childRes.ok) return childRes;
         children.push(childRes.value);
+
+        const hasNextChild = childOrdinal < childCount - 1;
+        const extraGap = hasNextChild
+          ? computeJustifyExtraGap(justify, extra, childCount, childOrdinal)
+          : 0;
+        const step = childMain + (hasNextChild ? gap + extraGap : 0);
+        cursorMain = cursorMain + step;
+        remainingMain = clampNonNegative(remainingMain - step);
         childOrdinal++;
-        continue;
       }
-
-      const childMain = mainSizes[i] ?? 0;
-      const childCross = crossSizes[i] ?? 0;
-
-      let childCrossPos = crossOrigin;
-      let forceCross: number | null = null;
-      const effectiveAlign = resolveEffectiveAlign(child, align);
-      if (effectiveAlign === "center") {
-        childCrossPos = crossOrigin + Math.floor((crossLimit - childCross) / 2);
-      } else if (effectiveAlign === "end") {
-        childCrossPos = crossOrigin + (crossLimit - childCross);
-      } else if (effectiveAlign === "stretch") {
-        forceCross = crossLimit;
-      }
-
-      const childRes = layoutNodeOnAxis(
-        axis,
-        child,
-        cursorMain,
-        childCrossPos,
-        remainingMain,
-        crossLimit,
-        layoutNode,
-        null,
-        forceCross,
-      );
-      if (!childRes.ok) return childRes;
-      children.push(childRes.value);
-
-      const hasNextChild = childOrdinal < childCount - 1;
-      const extraGap = hasNextChild
-        ? computeJustifyExtraGap(justify, extra, childCount, childOrdinal)
-        : 0;
-      const step = childMain + (hasNextChild ? gap + extraGap : 0);
-      cursorMain = cursorMain + step;
-      remainingMain = clampNonNegative(remainingMain - step);
-      childOrdinal++;
+    } finally {
+      releaseArray(mainSizes);
+      releaseArray(crossSizes);
     }
   } else {
     const parentRect: Rect = { x: 0, y: 0, w: cw, h: ch };

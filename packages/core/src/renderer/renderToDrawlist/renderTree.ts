@@ -151,7 +151,10 @@ export function renderTree(
     let renderTheme = currentTheme;
     if (vnode.kind === "themed") {
       const props = vnode.props as { theme?: unknown };
-      renderTheme = mergeThemeOverride(currentTheme, props.theme);
+      const themeOverride = props.theme;
+      if (themeOverride !== undefined) {
+        renderTheme = mergeThemeOverride(currentTheme, themeOverride);
+      }
     } else if (
       vnode.kind === "row" ||
       vnode.kind === "column" ||
@@ -159,7 +162,10 @@ export function renderTree(
       vnode.kind === "box"
     ) {
       const props = vnode.props as { theme?: unknown };
-      renderTheme = mergeThemeOverride(currentTheme, props.theme);
+      const themeOverride = props.theme;
+      if (themeOverride !== undefined) {
+        renderTheme = mergeThemeOverride(currentTheme, themeOverride);
+      }
     }
     const nodeStackLenBeforePush = nodeStack.length;
 

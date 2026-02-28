@@ -259,7 +259,6 @@ function hashTextProps(hash: number, props: Readonly<Record<string, unknown>>): 
     dim?: unknown;
     textOverflow?: unknown;
   }>;
-
   const style = textProps.style;
   const maxWidth = textProps.maxWidth;
   const wrap = textProps.wrap;
@@ -378,8 +377,8 @@ export function computeRenderPacketKey(
 }
 
 export class RenderPacketRecorder implements DrawlistBuilder {
-  private readonly ops: RenderPacketOp[] = [];
-  private readonly resources: Uint8Array[] = [];
+  private ops: RenderPacketOp[] = [];
+  private resources: Uint8Array[] = [];
   private readonly blobResourceById = new Map<number, number>();
   private readonly textRunByBlobId = new Map<number, readonly DrawlistTextRunSegment[]>();
   private valid = true;
@@ -392,9 +391,15 @@ export class RenderPacketRecorder implements DrawlistBuilder {
 
   buildPacket(): RenderPacket | null {
     if (!this.valid) return null;
+    const ops = this.ops;
+    const resources = this.resources;
+    this.ops = [];
+    this.resources = [];
+    this.blobResourceById.clear();
+    this.textRunByBlobId.clear();
     return Object.freeze({
-      ops: Object.freeze(this.ops.slice()),
-      resources: Object.freeze(this.resources.slice()),
+      ops: Object.freeze(ops),
+      resources: Object.freeze(resources),
     });
   }
 
@@ -428,8 +433,11 @@ export class RenderPacketRecorder implements DrawlistBuilder {
     style?: Parameters<DrawlistBuilder["fillRect"]>[4],
   ): void {
     this.target.fillRect(x, y, w, h, style);
-    const local = { op: "FILL_RECT", x: this.localX(x), y: this.localY(y), w, h } as const;
-    this.ops.push(style === undefined ? local : { ...local, style });
+    if (style === undefined) {
+      this.ops.push({ op: "FILL_RECT", x: this.localX(x), y: this.localY(y), w, h });
+      return;
+    }
+    this.ops.push({ op: "FILL_RECT", x: this.localX(x), y: this.localY(y), w, h, style });
   }
 
   blitRect(srcX: number, srcY: number, w: number, h: number, dstX: number, dstY: number): void {
@@ -444,13 +452,22 @@ export class RenderPacketRecorder implements DrawlistBuilder {
     style?: Parameters<DrawlistBuilder["drawText"]>[3],
   ): void {
     this.target.drawText(x, y, text, style);
-    const local = {
+    if (style === undefined) {
+      this.ops.push({
+        op: "DRAW_TEXT_SLICE",
+        x: this.localX(x),
+        y: this.localY(y),
+        text,
+      });
+      return;
+    }
+    this.ops.push({
       op: "DRAW_TEXT_SLICE",
       x: this.localX(x),
       y: this.localY(y),
       text,
-    } as const;
-    this.ops.push(style === undefined ? local : { ...local, style });
+      style,
+    });
   }
 
   pushClip(x: number, y: number, w: number, h: number): void {
@@ -522,7 +539,17 @@ export class RenderPacketRecorder implements DrawlistBuilder {
       this.invalidatePacket();
       return;
     }
-    this.ops.push({
+    const op: {
+      op: "DRAW_CANVAS";
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      resourceId: number;
+      blitter: Parameters<DrawlistBuilder["drawCanvas"]>[5];
+      pxWidth?: number;
+      pxHeight?: number;
+    } = {
       op: "DRAW_CANVAS",
       x: this.localX(x),
       y: this.localY(y),
@@ -530,9 +557,10 @@ export class RenderPacketRecorder implements DrawlistBuilder {
       h,
       resourceId,
       blitter,
-      ...(pxWidth !== undefined ? { pxWidth } : {}),
-      ...(pxHeight !== undefined ? { pxHeight } : {}),
-    });
+    };
+    if (pxWidth !== undefined) op.pxWidth = pxWidth;
+    if (pxHeight !== undefined) op.pxHeight = pxHeight;
+    this.ops.push(op);
   }
 
   drawImage(...args: Parameters<DrawlistBuilder["drawImage"]>): void {
@@ -543,7 +571,21 @@ export class RenderPacketRecorder implements DrawlistBuilder {
       this.invalidatePacket();
       return;
     }
-    this.ops.push({
+    const op: {
+      op: "DRAW_IMAGE";
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      resourceId: number;
+      format: Parameters<DrawlistBuilder["drawImage"]>[5];
+      protocol: Parameters<DrawlistBuilder["drawImage"]>[6];
+      zLayer: Parameters<DrawlistBuilder["drawImage"]>[7];
+      fit: Parameters<DrawlistBuilder["drawImage"]>[8];
+      imageId: Parameters<DrawlistBuilder["drawImage"]>[9];
+      pxWidth?: number;
+      pxHeight?: number;
+    } = {
       op: "DRAW_IMAGE",
       x: this.localX(x),
       y: this.localY(y),
@@ -555,9 +597,10 @@ export class RenderPacketRecorder implements DrawlistBuilder {
       zLayer,
       fit,
       imageId,
-      ...(pxWidth !== undefined ? { pxWidth } : {}),
-      ...(pxHeight !== undefined ? { pxHeight } : {}),
-    });
+    };
+    if (pxWidth !== undefined) op.pxWidth = pxWidth;
+    if (pxHeight !== undefined) op.pxHeight = pxHeight;
+    this.ops.push(op);
   }
 
   buildInto(dst: Uint8Array): DrawlistBuildResult {
@@ -584,10 +627,13 @@ export function emitRenderPacket(
   originX: number,
   originY: number,
 ): void {
-  const blobByResourceId: (number | null)[] = new Array(packet.resources.length);
-  for (let i = 0; i < packet.resources.length; i++) {
-    const resource = packet.resources[i];
-    blobByResourceId[i] = resource ? builder.addBlob(resource) : null;
+  let blobByResourceId: (number | null)[] | null = null;
+  if (packet.resources.length > 0) {
+    blobByResourceId = new Array(packet.resources.length);
+    for (let i = 0; i < packet.resources.length; i++) {
+      const resource = packet.resources[i];
+      blobByResourceId[i] = resource ? builder.addBlob(resource) : null;
+    }
   }
 
   for (const op of packet.ops) {
@@ -619,7 +665,7 @@ export function emitRenderPacket(
         builder.popClip();
         break;
       case "DRAW_CANVAS": {
-        const blobId = blobByResourceId[op.resourceId];
+        const blobId = blobByResourceId?.[op.resourceId];
         if (blobId === null || blobId === undefined) break;
         builder.drawCanvas(
           originX + op.x,
@@ -634,7 +680,7 @@ export function emitRenderPacket(
         break;
       }
       case "DRAW_IMAGE": {
-        const blobId = blobByResourceId[op.resourceId];
+        const blobId = blobByResourceId?.[op.resourceId];
         if (blobId === null || blobId === undefined) break;
         builder.drawImage(
           originX + op.x,
