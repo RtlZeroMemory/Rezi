@@ -1,9 +1,9 @@
 import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import path from "node:path";
 import net from "node:net";
 import os from "node:os";
-import { setTimeout as delay } from "node:timers/promises";
+import path from "node:path";
 import { performance } from "node:perf_hooks";
+import { setTimeout as delay } from "node:timers/promises";
 
 import { diffScreens, runInPty } from "@rezi-ui/ink-compat-bench-harness";
 
@@ -107,8 +107,9 @@ async function runOnce(
 ): Promise<string> {
   linkInkForRenderer(repoRoot, renderer);
   const appEntry = path.join(repoRoot, "packages/bench-app/dist/entry.js");
-  const cols = Number.parseInt(process.env["BENCH_COLS"] ?? "80", 10) || 80;
-  const rows = Number.parseInt(process.env["BENCH_ROWS"] ?? "24", 10) || 24;
+  const preloadPath = path.join(repoRoot, "scripts/ink-compat-bench/preload.mjs");
+  const cols = Number.parseInt(process.env.BENCH_COLS ?? "80", 10) || 80;
+  const rows = Number.parseInt(process.env.BENCH_ROWS ?? "24", 10) || 24;
   const controlSocket = path.join(
     os.tmpdir(),
     `inkbench_verify_${process.pid}_${Math.trunc(performance.now())}_${renderer}.sock`,
@@ -118,7 +119,7 @@ async function runOnce(
   const runPromise = runInPty({
     cwd: repoRoot,
     command: process.execPath,
-    args: ["--no-warnings", appEntry],
+    args: ["--no-warnings", "--import", preloadPath, appEntry],
     env: {
       ...process.env,
       BENCH_SCENARIO: scenario,
@@ -127,10 +128,10 @@ async function runOnce(
       BENCH_COLS: String(cols),
       BENCH_ROWS: String(rows),
       BENCH_CONTROL_SOCKET: controlSocket,
-      BENCH_TIMEOUT_MS: process.env["BENCH_TIMEOUT_MS"] ?? "15000",
-      BENCH_EXIT_AFTER_DONE_MS: process.env["BENCH_EXIT_AFTER_DONE_MS"] ?? "300",
-      BENCH_INK_COMPAT_PHASES: process.env["BENCH_INK_COMPAT_PHASES"] ?? "1",
-      BENCH_MAX_FPS: process.env["BENCH_MAX_FPS"] ?? "60",
+      BENCH_TIMEOUT_MS: process.env.BENCH_TIMEOUT_MS ?? "15000",
+      BENCH_EXIT_AFTER_DONE_MS: process.env.BENCH_EXIT_AFTER_DONE_MS ?? "300",
+      BENCH_INK_COMPAT_PHASES: process.env.BENCH_INK_COMPAT_PHASES ?? "1",
+      BENCH_MAX_FPS: process.env.BENCH_MAX_FPS ?? "60",
     },
     cols,
     rows,
@@ -154,9 +155,7 @@ async function main(): Promise<void> {
   const scenario = requireArg("scenario");
   const rawCompare = requireArg("compare").split(",");
   if (rawCompare.length !== 2 || !rawCompare[0] || !rawCompare[1]) {
-    throw new Error(
-      `--compare must be "real-ink,ink-compat" (got ${JSON.stringify(rawCompare)})`,
-    );
+    throw new Error(`--compare must be "real-ink,ink-compat" (got ${JSON.stringify(rawCompare)})`);
   }
   const compare = [parseRendererName(rawCompare[0]), parseRendererName(rawCompare[1])] as const;
 
@@ -173,8 +172,8 @@ async function main(): Promise<void> {
   const aScreen = await runOnce(repoRoot, scenario, compare[0], runA);
   const bScreen = await runOnce(repoRoot, scenario, compare[1], runB);
 
-  const cols = Number.parseInt(process.env["BENCH_COLS"] ?? "80", 10) || 80;
-  const rows = Number.parseInt(process.env["BENCH_ROWS"] ?? "24", 10) || 24;
+  const cols = Number.parseInt(process.env.BENCH_COLS ?? "80", 10) || 80;
+  const rows = Number.parseInt(process.env.BENCH_ROWS ?? "24", 10) || 24;
 
   const toSnap = (screen: string) => {
     const lines = screen.split("\n");
@@ -198,6 +197,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  console.error(err instanceof Error ? err.stack ?? err.message : String(err));
+  console.error(err instanceof Error ? (err.stack ?? err.message) : String(err));
   process.exitCode = 1;
 });

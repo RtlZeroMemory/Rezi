@@ -2,7 +2,14 @@
 
 `@rezi-ui/ink-compat` is an Ink API compatibility layer powered by Rezi.
 
-It preserves the Ink component and hook model while rendering through Rezi's engine.
+It keeps the Ink component/hook model, but replaces Ink's renderer backend with
+Rezi's deterministic layout + draw pipeline.
+
+## Why use it
+
+- Keep existing Ink app code and mental model.
+- Migrate incrementally (explicit import swap or package aliasing).
+- Get deterministic, env-gated diagnostics for parity and performance triage.
 
 ## Install
 
@@ -10,9 +17,15 @@ It preserves the Ink component and hook model while rendering through Rezi's eng
 npm install @rezi-ui/ink-compat
 ```
 
-## Use
+If your app uses `ink-gradient` or `ink-spinner`, install matching shims:
 
-Swap imports:
+```bash
+npm install ink-gradient-shim ink-spinner-shim
+```
+
+## Migration options
+
+### Option A: explicit import swap
 
 ```ts
 // Before
@@ -22,11 +35,68 @@ import { render, Box, Text } from "ink";
 import { render, Box, Text } from "@rezi-ui/ink-compat";
 ```
 
-For ecosystems that pin `ink` directly, use package manager overrides/resolutions to redirect `ink` to `@rezi-ui/ink-compat` and companion shims (`ink-gradient`, `ink-spinner`).
+### Option B: no-source-change package aliasing
 
-## Supported surface
+Keep `import "ink"` in app code and alias dependencies:
 
-Components:
+```bash
+npm install \
+  ink@npm:@rezi-ui/ink-compat@latest \
+  ink-gradient@npm:ink-gradient-shim@latest \
+  ink-spinner@npm:ink-spinner-shim@latest
+```
+
+Equivalent with `pnpm`:
+
+```bash
+pnpm add \
+  ink@npm:@rezi-ui/ink-compat@latest \
+  ink-gradient@npm:ink-gradient-shim@latest \
+  ink-spinner@npm:ink-spinner-shim@latest
+```
+
+Equivalent with `yarn`:
+
+```bash
+yarn add \
+  ink@npm:@rezi-ui/ink-compat@latest \
+  ink-gradient@npm:ink-gradient-shim@latest \
+  ink-spinner@npm:ink-spinner-shim@latest
+```
+
+## Verify wiring (avoid silent fallback to real Ink)
+
+Run this in the app root:
+
+```bash
+node -e "const p=require('ink/package.json'); if(p.name!=='@rezi-ui/ink-compat') throw new Error('ink resolves to '+p.name); console.log('ink-compat active:', p.version);"
+```
+
+And confirm resolved path:
+
+```bash
+node -e "const fs=require('node:fs'); const path=require('node:path'); const pkg=require.resolve('ink/package.json'); console.log(fs.realpathSync(path.dirname(pkg)));"
+```
+
+## How it works
+
+At runtime, ink-compat runs this pipeline:
+
+1. React reconciles to an `InkHostNode` tree (compat host config).
+2. Translation maps Ink props/components to Rezi VNodes.
+3. Rezi layout + render generate draw ops, then ANSI output is serialized to terminal streams.
+
+Key behavior:
+
+- `<Static>` is handled as a dedicated scrollback-oriented channel.
+- Input/focus/cursor are bridged through compat context/hooks.
+- Diagnostics and heavy instrumentation are env-gated.
+
+For full architecture details, see `docs/architecture/ink-compat.md`.
+
+## Supported API surface
+
+### Components
 
 - `Box`
 - `Text`
@@ -35,7 +105,7 @@ Components:
 - `Static`
 - `Transform`
 
-Hooks:
+### Hooks
 
 - `useApp`
 - `useInput`
@@ -47,7 +117,7 @@ Hooks:
 - `useIsScreenReaderEnabled`
 - `useCursor`
 
-Runtime APIs:
+### Runtime APIs
 
 - `render`
 - `renderToString`
@@ -57,25 +127,23 @@ Runtime APIs:
 - `getInnerHeight`
 - `getScrollHeight`
 
-Keyboard utilities:
+### Keyboard helpers
 
 - `kittyFlags`
 - `kittyModifiers`
 
-Testing utilities:
+### Testing entrypoint
 
 - `@rezi-ui/ink-compat/testing`
 
-## Render options
-
-`render(element, options)` supports:
+## `render(element, options)` options
 
 - `stdout`, `stdin`, `stderr`
 - `exitOnCtrlC`
 - `patchConsole`
 - `debug`
 - `maxFps`
-- `concurrent`
+- `concurrent` (compatibility flag; not an upstream-concurrency semantic toggle)
 - `kittyKeyboard`
 - `isScreenReaderEnabled`
 - `onRender`
@@ -84,21 +152,29 @@ Testing utilities:
 
 ## Diagnostics
 
-Trace output is environment-gated:
+Trace output is env-gated:
 
 - `INK_COMPAT_TRACE=1`
 - `INK_COMPAT_TRACE_FILE=/path/log`
+- `INK_COMPAT_TRACE_STDERR=1`
 - `INK_COMPAT_TRACE_DETAIL=1`
 - `INK_COMPAT_TRACE_DETAIL_FULL=1`
+- `INK_COMPAT_TRACE_ALL_FRAMES=1`
+- `INK_COMPAT_TRACE_IO=1`
+- `INK_COMPAT_TRACE_RESIZE_VERBOSE=1`
 - `INK_GRADIENT_TRACE=1`
 
-Reference docs:
+Debugging runbook:
 
-- `docs/architecture/ink-compat.md`
 - `docs/dev/ink-compat-debugging.md`
 
 ## Known boundaries
 
-- Minor visual differences can occur across terminal emulators and OS TTY behavior.
-- App-version and install-mode messaging differences are expected and not renderer bugs.
-- Gradient interpolation can differ slightly from upstream while preserving overall behavior.
+- Minor visual differences can occur across terminal emulators / OS TTY behavior.
+- App/version-specific messaging differences are expected and are not renderer bugs.
+- Gradient interpolation can differ slightly while preserving overall behavior.
+
+## Documentation
+
+- Architecture and internals: `docs/architecture/ink-compat.md`
+- Debugging and parity runbook: `docs/dev/ink-compat-debugging.md`

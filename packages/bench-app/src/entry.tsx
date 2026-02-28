@@ -1,11 +1,12 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import path from "node:path";
-import net from "node:net";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import net from "node:net";
+import path from "node:path";
 import { performance } from "node:perf_hooks";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, render, useApp, useInput } from "ink";
+import type React from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type RendererName = "real-ink" | "ink-compat";
 type ScenarioName =
@@ -76,6 +77,25 @@ type FrameMetric = Readonly<{
   parseAnsiFallbackPathHits: number | null;
 }>;
 
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isControlMsg(value: unknown): value is ControlMsg {
+  if (!isObjectRecord(value)) return false;
+  const type = value.type;
+  if (type === "init") return typeof value.seed === "number";
+  if (type === "tick") return value.n === undefined || typeof value.n === "number";
+  if (type === "token") return typeof value.text === "string";
+  return type === "done";
+}
+
+function readMetricNumber(metrics: unknown, key: "renderTime" | "layoutTimeMs"): number | null {
+  if (!isObjectRecord(metrics)) return null;
+  const value = metrics[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 function resolveInkImpl(): { resolvedFrom: string; name: string; version: string } {
   const req = createRequire(import.meta.url);
   const inkEntryPath = req.resolve("ink");
@@ -115,14 +135,18 @@ function createStdoutWriteProbe(): {
   const original = process.stdout.write.bind(process.stdout);
 
   const install = (): void => {
+    const originalWrite = original as unknown as (
+      chunk: unknown,
+      encoding?: unknown,
+      cb?: unknown,
+    ) => boolean;
     (process.stdout as unknown as { write: typeof process.stdout.write }).write = ((
       chunk: unknown,
       encoding?: unknown,
       cb?: unknown,
     ): boolean => {
       const start = performance.now();
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      const ret = (original as any)(chunk, encoding, cb) as boolean;
+      const ret = originalWrite(chunk, encoding, cb);
       const end = performance.now();
       writeMs += end - start;
       writes += 1;
@@ -143,10 +167,7 @@ function createStdoutWriteProbe(): {
   return { install, readAndReset };
 }
 
-function useControlSocket(
-  socketPath: string | undefined,
-  onMsg: (msg: ControlMsg) => void,
-): void {
+function useControlSocket(socketPath: string | undefined, onMsg: (msg: ControlMsg) => void): void {
   useEffect(() => {
     if (!socketPath) return;
     let buf = "";
@@ -163,9 +184,7 @@ function useControlSocket(
         if (!line) continue;
         try {
           const parsed = JSON.parse(line) as unknown;
-          if (parsed && typeof parsed === "object" && "type" in (parsed as any)) {
-            onMsg(parsed as ControlMsg);
-          }
+          if (isControlMsg(parsed)) onMsg(parsed);
         } catch {
           // ignore
         }
@@ -241,7 +260,9 @@ function StreamingChatScenario(props: {
   const visible = scrollLock ? lines.slice(-8) : lines.slice(0, 8);
   return (
     <Box flexDirection="column">
-      <Text>BENCH_READY streaming-chat tokens={tokenCount} scrollLock={String(scrollLock)}</Text>
+      <Text>
+        BENCH_READY streaming-chat tokens={tokenCount} scrollLock={String(scrollLock)}
+      </Text>
       <Box flexDirection="column" borderStyle="round" paddingX={1}>
         {visible.map((line, i) => {
           if (line.startsWith("```")) {
@@ -314,7 +335,9 @@ function LargeListScrollScenario(props: {
 
   return (
     <Box flexDirection="column">
-      <Text>BENCH_READY large-list-scroll scroll={scroll} tick={tick}</Text>
+      <Text>
+        BENCH_READY large-list-scroll scroll={scroll} tick={tick}
+      </Text>
       <Box flexDirection="column">{rows}</Box>
       <Text dimColor>Keys: ↑/↓ (scripted) to scroll</Text>
     </Box>
@@ -326,7 +349,7 @@ function DashboardGridScenario(props: {
   setController: (c: ScenarioController) => void;
 }): React.ReactElement {
   const [tick, setTick] = useState(0);
-  const cols = Number.parseInt(process.env["BENCH_COLS"] ?? "80", 10) || 80;
+  const cols = Number.parseInt(process.env.BENCH_COLS ?? "80", 10) || 80;
   const gap = 2;
   const topW = Math.max(18, Math.floor((cols - gap * 2) / 3));
   const bottomW = Math.max(18, Math.floor((cols - gap) / 2));
@@ -450,7 +473,9 @@ function ResizeStormScenario(props: {
 
   return (
     <Box flexDirection="column">
-      <Text>BENCH_READY resize-storm tick={tick} resizes={resizesSeen}</Text>
+      <Text>
+        BENCH_READY resize-storm tick={tick} resizes={resizesSeen}
+      </Text>
       <Box flexDirection="column" borderStyle="round" paddingX={1}>
         <Text>Viewport is driven by PTY resizes (runner).</Text>
         <Text dimColor>tick={tick}</Text>
@@ -471,8 +496,19 @@ function BenchApp(props: {
   const { exit } = useApp();
   const stdoutProbe = props.stdoutProbe;
   const framesRef = useRef<FrameMetric[]>([]);
+  const frameWriteBufferRef = useRef<string[]>([]);
+  const frameCountRef = useRef(0);
   const startAt = useMemo(() => performance.now(), []);
   const lastUpdatesRequestedRef = useRef(0);
+  const streamFrames = process.env.BENCH_STREAM_FRAMES === "1";
+  const framesPath = useMemo(() => path.join(props.outDir, "frames.jsonl"), [props.outDir]);
+
+  const flushFrameWriteBuffer = useCallback((): void => {
+    if (!streamFrames) return;
+    if (frameWriteBufferRef.current.length === 0) return;
+    appendFileSync(framesPath, frameWriteBufferRef.current.join(""));
+    frameWriteBufferRef.current = [];
+  }, [framesPath, streamFrames]);
 
   const stateRef = useRef<ScenarioState>({
     seed: 1,
@@ -482,7 +518,7 @@ function BenchApp(props: {
 
   const compatFrameRef = useRef<InkCompatFrameBreakdown | null>(null);
   useEffect(() => {
-    if (process.env["BENCH_INK_COMPAT_PHASES"] === "1") {
+    if (process.env.BENCH_INK_COMPAT_PHASES === "1") {
       globalThis.__INK_COMPAT_BENCH_ON_FRAME = (m) => {
         compatFrameRef.current = m as InkCompatFrameBreakdown;
       };
@@ -529,33 +565,25 @@ function BenchApp(props: {
 
   useEffect(() => {
     if (doneSeq <= 0) return;
-    const ms =
-      Number.parseInt(process.env["BENCH_EXIT_AFTER_DONE_MS"] ?? "300", 10) ||
-      300;
+    const ms = Number.parseInt(process.env.BENCH_EXIT_AFTER_DONE_MS ?? "300", 10) || 300;
     const t = setTimeout(() => exit(), Math.max(0, ms));
     return () => clearTimeout(t);
   }, [doneSeq, exit]);
 
   useEffect(() => {
-    const ms = Number.parseInt(process.env["BENCH_TIMEOUT_MS"] ?? "15000", 10) || 15000;
+    const ms = Number.parseInt(process.env.BENCH_TIMEOUT_MS ?? "15000", 10) || 15000;
     const t = setTimeout(() => exit(new Error(`bench timeout ${ms}ms`)), ms);
     return () => clearTimeout(t);
   }, [exit]);
 
-  (globalThis as unknown as { __BENCH_ON_RENDER?: (metrics: unknown) => void }).__BENCH_ON_RENDER = (
-    metrics: unknown,
-  ): void => {
-    const renderTimeMs =
-      metrics && typeof metrics === "object" && "renderTime" in (metrics as any)
-        ? (metrics as any).renderTime
-        : 0;
-    const layoutTimeMs =
-      metrics && typeof metrics === "object" && "layoutTimeMs" in (metrics as any)
-        ? (metrics as any).layoutTimeMs
-        : null;
-    const layoutMsSafe = typeof layoutTimeMs === "number" && Number.isFinite(layoutTimeMs) ? layoutTimeMs : null;
-    const renderTimeMsSafe =
-      typeof renderTimeMs === "number" && Number.isFinite(renderTimeMs) ? renderTimeMs : 0;
+  (globalThis as unknown as { __BENCH_ON_RENDER?: (metrics: unknown) => void }).__BENCH_ON_RENDER =
+    (metrics: unknown): void => {
+      const renderTimeMs = readMetricNumber(metrics, "renderTime") ?? 0;
+      const layoutTimeMs = readMetricNumber(metrics, "layoutTimeMs");
+      const layoutMsSafe =
+        typeof layoutTimeMs === "number" && Number.isFinite(layoutTimeMs) ? layoutTimeMs : null;
+      const renderTimeMsSafe =
+        typeof renderTimeMs === "number" && Number.isFinite(renderTimeMs) ? renderTimeMs : 0;
 
       const now = performance.now();
       const tsMs = now - startAt;
@@ -576,8 +604,10 @@ function BenchApp(props: {
       const compat = compatFrameRef.current;
       compatFrameRef.current = null;
 
-      framesRef.current.push({
-        frame: framesRef.current.length + 1,
+      const frameNumber = frameCountRef.current + 1;
+      frameCountRef.current = frameNumber;
+      const frameMetric: FrameMetric = {
+        frame: frameNumber,
         tsMs,
         renderTimeMs: renderTimeMsSafe,
         layoutTimeMs: layoutMsSafe,
@@ -603,24 +633,39 @@ function BenchApp(props: {
         translationCacheStaleMisses: compat?.translationCacheStaleMisses ?? null,
         parseAnsiFastPathHits: compat?.parseAnsiFastPathHits ?? null,
         parseAnsiFallbackPathHits: compat?.parseAnsiFallbackPathHits ?? null,
-      });
+      };
+      if (streamFrames) {
+        frameWriteBufferRef.current.push(`${JSON.stringify(frameMetric)}\n`);
+        if (frameWriteBufferRef.current.length >= 64) {
+          flushFrameWriteBuffer();
+        }
+      } else {
+        framesRef.current.push(frameMetric);
+      }
     };
 
   useEffect(() => {
     return () => {
-      delete (globalThis as any).__BENCH_ON_RENDER;
+      (
+        globalThis as unknown as { __BENCH_ON_RENDER?: (metrics: unknown) => void }
+      ).__BENCH_ON_RENDER = undefined;
     };
   }, []);
 
   useEffect(() => {
+    mkdirSync(props.outDir, { recursive: true });
+    if (streamFrames) {
+      writeFileSync(framesPath, "");
+    }
     return () => {
-      mkdirSync(props.outDir, { recursive: true });
-      writeFileSync(
-        path.join(props.outDir, "frames.jsonl"),
-        `${framesRef.current.map((x) => JSON.stringify(x)).join("\n")}\n`,
-      );
+      if (streamFrames) {
+        flushFrameWriteBuffer();
+        return;
+      }
+      const lines = framesRef.current.map((x) => JSON.stringify(x)).join("\n");
+      writeFileSync(framesPath, lines.length > 0 ? `${lines}\n` : "");
     };
-  }, [props.outDir]);
+  }, [flushFrameWriteBuffer, framesPath, props.outDir, streamFrames]);
 
   if (props.scenario === "streaming-chat") {
     return <StreamingChatScenario stateRef={stateRef} setController={setController} />;
@@ -638,12 +683,12 @@ function BenchApp(props: {
 }
 
 function main(): void {
-  const scenario = (process.env["BENCH_SCENARIO"] as ScenarioName | undefined) ?? "streaming-chat";
-  const renderer = (process.env["BENCH_RENDERER"] as RendererName | undefined) ?? "real-ink";
-  const outDir = process.env["BENCH_OUT_DIR"] ?? "results/tmp";
-  const cols = Number.parseInt(process.env["BENCH_COLS"] ?? "80", 10) || 80;
-  const rows = Number.parseInt(process.env["BENCH_ROWS"] ?? "24", 10) || 24;
-  const controlSocketPath = process.env["BENCH_CONTROL_SOCKET"];
+  const scenario = (process.env.BENCH_SCENARIO as ScenarioName | undefined) ?? "streaming-chat";
+  const renderer = (process.env.BENCH_RENDERER as RendererName | undefined) ?? "real-ink";
+  const outDir = process.env.BENCH_OUT_DIR ?? "results/tmp";
+  const cols = Number.parseInt(process.env.BENCH_COLS ?? "80", 10) || 80;
+  const rows = Number.parseInt(process.env.BENCH_ROWS ?? "24", 10) || 24;
+  const controlSocketPath = process.env.BENCH_CONTROL_SOCKET;
 
   const inkImpl = resolveInkImpl();
   mkdirSync(outDir, { recursive: true });
@@ -666,7 +711,7 @@ function main(): void {
     {
       alternateBuffer: false,
       incrementalRendering: true,
-      maxFps: Number.parseInt(process.env["BENCH_MAX_FPS"] ?? "60", 10) || 60,
+      maxFps: Number.parseInt(process.env.BENCH_MAX_FPS ?? "60", 10) || 60,
       patchConsole: false,
       debug: false,
       onRender: (metrics) => {

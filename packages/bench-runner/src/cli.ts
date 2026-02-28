@@ -1,11 +1,11 @@
+import { execFile } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import path from "node:path";
 import net from "node:net";
 import os from "node:os";
-import { setTimeout as delay } from "node:timers/promises";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import path from "node:path";
 import { performance } from "node:perf_hooks";
+import { setTimeout as delay } from "node:timers/promises";
+import { promisify } from "node:util";
 
 import { runInPty } from "@rezi-ui/ink-compat-bench-harness";
 
@@ -34,6 +34,14 @@ function parseIntArg(name: string, fallback: number): number {
   return Number.isFinite(v) ? v : fallback;
 }
 
+function readPositiveNumberEnv(name: string): number | null {
+  const raw = process.env[name];
+  if (!raw) return null;
+  const v = Number.parseFloat(raw);
+  if (!Number.isFinite(v) || v <= 0) return null;
+  return v;
+}
+
 async function getClockTicksPerSecond(): Promise<number> {
   try {
     const pExec = promisify(execFile);
@@ -53,9 +61,15 @@ function computeCpuSecondsFromProcSamples(
   const last = [...samples]
     .reverse()
     .find((s) => s.cpuUserTicks != null && s.cpuSystemTicks != null);
-  if (!first || !last) return null;
-  const dt =
-    (last.cpuUserTicks! + last.cpuSystemTicks!) - (first.cpuUserTicks! + first.cpuSystemTicks!);
+  if (
+    first?.cpuUserTicks == null ||
+    first.cpuSystemTicks == null ||
+    last?.cpuUserTicks == null ||
+    last.cpuSystemTicks == null
+  ) {
+    return null;
+  }
+  const dt = last.cpuUserTicks + last.cpuSystemTicks - (first.cpuUserTicks + first.cpuSystemTicks);
   return dt / clkTck;
 }
 
@@ -160,11 +174,18 @@ async function driveScenario(
   if (childFinished()) return;
 
   control.sendLine({ type: "init", seed });
+  const longRunSeconds = readPositiveNumberEnv("BENCH_LONG_RUN_SECONDS");
+  const longRunMultiplier = readPositiveNumberEnv("BENCH_LONG_RUN_MULTIPLIER");
 
   if (scenario === "streaming-chat") {
-    const total = 360;
+    let total = 360;
     const ratePerSecond = 120;
     const intervalMs = Math.round(1000 / ratePerSecond);
+    if (longRunSeconds != null) {
+      total = Math.max(total, Math.ceil((longRunSeconds * 1000) / intervalMs));
+    } else if (longRunMultiplier != null) {
+      total = Math.max(1, Math.ceil(total * longRunMultiplier));
+    }
     for (let i = 0; i < total; i++) {
       if (childFinished()) break;
       control.sendLine({ type: "token", text: `t=${i} ${seededToken(i)} ${seededToken(i + 1)}` });
@@ -174,9 +195,8 @@ async function driveScenario(
     return;
   }
 
-  const tickMs =
-    scenario === "large-list-scroll" ? 33 : scenario === "resize-storm" ? 25 : 16;
-  const tickCount =
+  const tickMs = scenario === "large-list-scroll" ? 33 : scenario === "resize-storm" ? 25 : 16;
+  let tickCount =
     scenario === "large-list-scroll"
       ? 120
       : scenario === "dashboard-grid"
@@ -186,6 +206,11 @@ async function driveScenario(
           : scenario === "resize-storm"
             ? 40
             : 60;
+  if (longRunSeconds != null) {
+    tickCount = Math.max(tickCount, Math.ceil((longRunSeconds * 1000) / tickMs));
+  } else if (longRunMultiplier != null) {
+    tickCount = Math.max(1, Math.ceil(tickCount * longRunMultiplier));
+  }
 
   for (let i = 0; i < tickCount; i++) {
     if (childFinished()) break;
@@ -216,6 +241,9 @@ async function main(): Promise<void> {
   const rows = parseIntArg("rows", 24);
   const stableWindowMs = parseIntArg("stable-ms", 250);
   const cpuProf = hasFlag("cpu-prof");
+  const longRunEnabled =
+    readPositiveNumberEnv("BENCH_LONG_RUN_SECONDS") != null ||
+    readPositiveNumberEnv("BENCH_LONG_RUN_MULTIPLIER") != null;
 
   const repoRoot = process.cwd();
   const appEntry = path.join(repoRoot, "packages/bench-app/dist/entry.js");
@@ -265,12 +293,13 @@ async function main(): Promise<void> {
       BENCH_COLS: String(cols),
       BENCH_ROWS: String(rows),
       BENCH_CONTROL_SOCKET: controlSocket,
-      BENCH_TIMEOUT_MS: process.env["BENCH_TIMEOUT_MS"] ?? "15000",
+      BENCH_TIMEOUT_MS: process.env.BENCH_TIMEOUT_MS ?? "15000",
       BENCH_EXIT_AFTER_DONE_MS:
-        process.env["BENCH_EXIT_AFTER_DONE_MS"] ?? String(Math.max(0, stableWindowMs + 50)),
-      BENCH_INK_COMPAT_PHASES: process.env["BENCH_INK_COMPAT_PHASES"] ?? "1",
-      BENCH_DETAIL: process.env["BENCH_DETAIL"] ?? "0",
-      BENCH_MAX_FPS: process.env["BENCH_MAX_FPS"] ?? "60",
+        process.env.BENCH_EXIT_AFTER_DONE_MS ?? String(Math.max(0, stableWindowMs + 50)),
+      BENCH_INK_COMPAT_PHASES: process.env.BENCH_INK_COMPAT_PHASES ?? "1",
+      BENCH_DETAIL: process.env.BENCH_DETAIL ?? "0",
+      BENCH_MAX_FPS: process.env.BENCH_MAX_FPS ?? "60",
+      BENCH_STREAM_FRAMES: process.env.BENCH_STREAM_FRAMES ?? (longRunEnabled ? "1" : "0"),
     };
 
     const inputScript =
@@ -318,28 +347,28 @@ async function main(): Promise<void> {
 
     const frames = safeReadJsonl(path.join(runDir, "frames.jsonl"));
     const renderTotalsMs = frames
-      .map((f) => f["renderTotalMs"])
+      .map((f) => f.renderTotalMs)
       .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
     const scheduleWaitsMs = frames
-      .map((f) => f["scheduleWaitMs"])
+      .map((f) => f.scheduleWaitMs)
       .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
     const updatesRequested = frames.reduce((a, f) => {
-      const v = f["updatesRequestedDelta"];
+      const v = f.updatesRequestedDelta;
       return a + (typeof v === "number" && Number.isFinite(v) ? v : 0);
     }, 0);
     const framesWithCoalescedUpdates = frames.reduce((a, f) => {
-      const v = f["updatesRequestedDelta"];
+      const v = f.updatesRequestedDelta;
       return a + (typeof v === "number" && Number.isFinite(v) && v > 1 ? 1 : 0);
     }, 0);
     const maxUpdatesInFrame = frames.reduce((a, f) => {
-      const v = f["updatesRequestedDelta"];
+      const v = f.updatesRequestedDelta;
       if (typeof v !== "number" || !Number.isFinite(v)) return a;
       return Math.max(a, v);
     }, 0);
 
-    const renderTotalMs = frames.reduce((a, f) => a + (Number(f["renderTotalMs"]) || 0), 0);
-    const stdoutBytes = frames.reduce((a, f) => a + (Number(f["stdoutBytes"]) || 0), 0);
-    const stdoutWrites = frames.reduce((a, f) => a + (Number(f["stdoutWrites"]) || 0), 0);
+    const renderTotalMs = frames.reduce((a, f) => a + (Number(f.renderTotalMs) || 0), 0);
+    const stdoutBytes = frames.reduce((a, f) => a + (Number(f.stdoutBytes) || 0), 0);
+    const stdoutWrites = frames.reduce((a, f) => a + (Number(f.stdoutWrites) || 0), 0);
     const cpuSeconds = computeCpuSecondsFromProcSamples(result.procSamples, clkTck);
     const peakRssBytes = computePeakRssBytesFromProcSamples(result.procSamples);
 
@@ -380,7 +409,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  const msg = err instanceof Error ? err.stack ?? err.message : String(err);
+  const msg = err instanceof Error ? (err.stack ?? err.message) : String(err);
   console.error(msg);
   process.exitCode = 1;
 });
