@@ -101,6 +101,8 @@ node -e "const fs=require('node:fs'); const path=require('node:path'); const pkg
 
 3. For bundled CLIs, rebuild the bundle after aliasing and validate expected compat-only markers in generated output.
 
+4. For rendering/layout/theme parity checks, run a live PTY with `REZI_FRAME_AUDIT=1` and generate evidence with `node scripts/frame-audit-report.mjs`.
+
 ## Public compatibility surface
 
 ### Components

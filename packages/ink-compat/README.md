@@ -167,7 +167,7 @@ Trace output is env-gated:
 
 Debugging runbook:
 
-- `docs/dev/ink-compat-debugging.md`
+- `https://rezitui.dev/docs/dev/ink-compat-debugging/`
 
 ## Known boundaries
 
