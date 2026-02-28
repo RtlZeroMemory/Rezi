@@ -133,44 +133,6 @@ See [BENCHMARKS.md](BENCHMARKS.md) for full results, all scenarios, scenario def
 
 ---
 
-## Ink-Compat Bench (Ink vs Ink-Compat)
-
-This repo includes a fairness-focused benchmark + profiling suite that runs the **same TUI app code** against:
-
-- `real-ink`: `@jrichman/ink`
-- `ink-compat`: `@rezi-ui/ink-compat`
-
-Key commands:
-
-```bash
-# build bench packages
-npm run prebench
-
-# (optional) set up module resolution for bench-app explicitly
-npm run prepare:real-ink
-npm run prepare:ink-compat
-
-# run a scenario (3 replicates)
-npm run -s bench -- --scenario streaming-chat --renderer real-ink --runs 3 --out results/
-npm run -s bench -- --scenario streaming-chat --renderer ink-compat --runs 3 --out results/
-
-# CPU profiling (writes .cpuprofile under results/.../run_XX/cpu-prof/)
-npm run -s bench -- --scenario dashboard-grid --renderer ink-compat --runs 1 --cpu-prof --out results/
-
-# final-screen equivalence gate
-npm run -s verify -- --scenario streaming-chat --compare real-ink,ink-compat --out results/
-```
-
-Docs + reports:
-
-- Methodology + metric definitions: `BENCHMARK_VALIDITY.md`
-- Latest report: `results/report_2026-02-27.md`
-- Bottlenecks + fixes: `results/bottlenecks.md`
-- Porting and architecture docs:
-  - `docs/migration/ink-to-ink-compat.md`
-  - `docs/architecture/ink-compat.md`
-  - `docs/dev/ink-compat-debugging.md`
-
 ## Quick Start
 
 Get running in under a minute:
