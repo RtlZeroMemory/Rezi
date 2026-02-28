@@ -295,7 +295,7 @@ export function toMarkdown(run: BenchRun): string {
     `> Invocation: suite=${invocation.suite} matchup=${invocation.matchup} scenario=${invocation.scenarioFilter ?? "all"} framework=${invocation.frameworkFilter ?? "all"} warmup=${invocation.warmupOverride ?? "default"} iterations=${invocation.iterationsOverride ?? "default"} quick=${invocation.quick ? "yes" : "no"} io=${invocation.ioMode} opentuiDriver=${invocation.opentuiDriver} replicates=${invocation.replicates} discardFirstReplicate=${invocation.discardFirstReplicate ? "yes" : "no"} shuffleFrameworkOrder=${invocation.shuffleFrameworkOrder ? "yes" : "no"} shuffleSeed=${invocation.shuffleSeed} envCheck=${invocation.envCheck} cpuAffinity=${invocation.cpuAffinity ?? "none"}`,
     '> Byte columns: "Bytes(local)" = framework-local counter; "Bytes(pty)" = observed PTY bytes (cross-framework comparable in PTY mode).',
   ];
-  lines.push(headerLines.join("\n") + "\n");
+  lines.push(`${headerLines.join("\n")}\n`);
 
   const groups = aggregateResultsByScenario(results);
 

@@ -2,8 +2,8 @@
 
 Rezi includes a benchmark suite comparing terminal UI pipelines across 22 scenarios. The authoritative write-up, methodology, and raw artifacts live in:
 
-- [`BENCHMARKS.md`](../BENCHMARKS.md) — full scenario definitions, results, and caveats
-- [`benchmarks/`](../benchmarks/) — committed JSON + Markdown result sets
+- [`BENCHMARKS.md`](https://github.com/RtlZeroMemory/Rezi/blob/main/BENCHMARKS.md) — full scenario definitions, results, and caveats
+- [`benchmarks/`](https://github.com/RtlZeroMemory/Rezi/tree/main/benchmarks) — committed JSON + Markdown result sets
 
 ## Frameworks
 
@@ -182,4 +182,4 @@ node --expose-gc packages/bench/dist/run.js \
 | `--replicates <n>` | Repeat the full run N times |
 | `--output-dir <path>` | Write `results.json` + `results.md` |
 
-See [`BENCHMARKS.md`](../BENCHMARKS.md) for the full scenario reference, methodology notes, and interpretation guidance.
+See [`BENCHMARKS.md`](https://github.com/RtlZeroMemory/Rezi/blob/main/BENCHMARKS.md) for the full scenario reference, methodology notes, and interpretation guidance.

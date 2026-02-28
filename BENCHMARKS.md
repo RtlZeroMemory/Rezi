@@ -368,7 +368,7 @@ Multi-panel layout with a header, three-column body, footer, and status bar. Des
 
 ## Memory summary
 
-Peak RSS across terminal-level workloads:
+Peak RSS across all workloads in this benchmark run:
 
 | Framework | Typical range | Notes |
 |---|---|---|
