@@ -76,7 +76,8 @@ Flexbox-like layout with:
 - Gap spacing between children
 - Padding and margin
 - Alignment and justification
-- Fixed, flex, percentage, and `fluid(...)` responsive sizing
+- Fixed, `full`/`auto`, flex, `fluid(...)`, and `expr(...)` sizing
+- High-level constraint helpers (e.g. `visibilityConstraints`, `widthConstraints`) for common responsive/relational layouts
 - Per-child `alignSelf`
 - `flexShrink` + `flexBasis` (including intrinsic min/max content handling)
 - Wrapped text measurement/render integration

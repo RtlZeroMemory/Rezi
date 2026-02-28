@@ -4,6 +4,9 @@ Rezi uses a **cell-based** layout system: all sizes and coordinates are measured
 
 This page covers the core layout primitives and the props that control sizing and positioning.
 
+For full constraint DSL syntax, diagnostics, and migration patterns, see
+[Constraints Guide](constraints.md).
+
 ## Cell coordinates
 
 Every widget is laid out into a rectangle:
@@ -47,7 +50,7 @@ Key props:
 - `gap` is used both between siblings in a line and between wrapped lines.
 - `justify` and `align` apply per line (not across the full wrapped block).
 - In wrap mode, flex distribution is line-local: each line distributes only its own remaining main-axis space.
-- In wrap mode, percentage child sizes resolve against the stack content box (container inner width/height), not per-line remainder. Line packing may still clamp a child to remaining line space.
+- In wrap mode, line packing can still clamp a child to remaining line space on that line.
 - Wrapped stacks run a bounded cross-axis feedback protocol (max two measure passes per child when needed) so wrapped text/flex allocations can update line cross-size deterministically.
 
 ### Example: Row + Column
@@ -219,18 +222,19 @@ ui.row({ height: 3, align: "center", justify: "between" }, [
 
 Most container widgets accept layout constraints:
 
-- `width` / `height`: number of cells, percentage string (`"50%"`), or `"auto"`
-- `minWidth` / `maxWidth`, `minHeight` / `maxHeight`
+- `width` / `height`: `number`, `"full"`, `"auto"`, `fluid(...)`, or `expr("...")`
+- `minWidth` / `maxWidth`, `minHeight` / `maxHeight`: `number` or `expr("...")`
 - `flex`: main-axis space distribution inside `row`/`column`
 - `flexShrink`: overflow shrink factor (`0` default)
-- `flexBasis`: initial main-axis size (`number | "<n>%" | "auto"`)
+- `flexBasis`: initial main-axis size (`number | "full" | "auto" | fluid(...) | expr("...")`)
 - `aspectRatio`: enforce `w/h`
 - `position`: `"static"` (default) or `"absolute"` with `top` / `right` / `bottom` / `left`
 
-Responsive layout values:
+Responsive layout notes:
 
-- Numeric layout constraints can also use responsive values.
-- Use `fluid(min, max, options?)` to interpolate between breakpoints (`sm`, `md`, `lg`, `xl`) with floor semantics and clamped bounds.
+- Use `fluid(min, max, options?)` to interpolate deterministically between breakpoints (`sm`, `md`, `lg`, `xl`) with floor semantics and clamped bounds.
+- `%` size strings and responsive-map layout constraints (`{ sm, md, lg, xl }`) are removed in the breaking alpha. Use `expr("steps(...)")` or `fluid(...)`.
+- `grid.columns` currently accepts `number | string` only (alpha contract). `columns: expr(...)` is invalid.
 
 ```typescript
 import { fluid, ui } from "@rezi-ui/core";
@@ -290,10 +294,11 @@ These behaviors are guaranteed by the current layout engine and validation pipel
 
 - `measure(...)` computes size only; it does not assign positions.
 - `layout(...)` measures first, then places nodes using the measured/forced size.
-- In `row`/`column`, if any child has main-axis `%` sizing or `flex > 0`, layout runs a constraint pass first (resolve main sizes, then place children with resolved sizes).
+- In `row`/`column`, if sizing requires distribution/planning (for example flex), layout runs a planning pass first, then places children with resolved sizes.
 - If that trigger is absent, stacks use the greedy path (measure in child order and place directly).
 - Even when remaining space reaches zero, the subtree is still measured with zero constraints for deterministic validation.
 - For children whose cross-size depends on final main allocation (for example wrapped text), stack measure/layout performs at most one feedback remeasure pass (max two total passes) in both wrap and non-wrap paths.
+- In app runtime, `expr(...)` constraints are resolved between commit and layout; raw `layout(...)` only consumes resolved scalar values.
 
 ### Flex distribution rules
 
@@ -304,15 +309,13 @@ These behaviors are guaranteed by the current layout engine and validation pipel
 - `flexShrink` participates only when content overflows; `flexShrink: 0` keeps current size.
 - When `flexShrink > 0` and no explicit `minWidth`/`minHeight` is set, shrink floors default to intrinsic min-content size.
 - `flexBasis: "auto"` uses intrinsic max-content size as the initial basis.
-- Legacy planning behavior is preserved when advanced props (`flexShrink`/`flexBasis`) are not used.
+- Deterministic baseline planning behavior is preserved when advanced props (`flexShrink`/`flexBasis`) are not used.
 
-### Percentage resolution, flooring, and clamping
+### Legacy layout-constraint rejection
 
-- Percentage constraints resolve with flooring: `floor(parentSize * percent / 100)`.
-- Percentages resolve against the parent size provided to constraint resolution for that axis (stack content bounds in stacks; box content bounds for boxed children).
-- Resolved percent values are then clamped by min/max constraints and by the currently available space.
-- Main-axis percentages in stacks trigger the constraint-pass path before final placement.
-- Shared deterministic integer distribution is used for weighted remainder handling across layout splits (including stack percentage rebalancing and grid/split-pane weighted allocation): extra cells are assigned by fractional remainder, ties by lower index.
+- `%` size strings are rejected with deterministic `ZRUI_INVALID_PROPS` fatals.
+- Responsive-map layout constraints (`{ sm, md, lg, xl }`) are rejected with deterministic `ZRUI_INVALID_PROPS` fatals.
+- Migration target for ratio sizing is `expr("parent.w * <ratio>")` / `expr("parent.h * <ratio>")`.
 
 ### Margin behavior and interactions
 
@@ -324,7 +327,7 @@ These behaviors are guaranteed by the current layout engine and validation pipel
 
 ### Aspect ratio resolution order
 
-- `width`/`height` are resolved first (number or percent; `"auto"` behaves as unspecified here).
+- `width`/`height` are resolved first (scalar layout values; `"auto"` behaves as unspecified here).
 - If `aspectRatio > 0` and exactly one axis is resolved, the other is derived with flooring:
   - `height = floor(width / aspectRatio)`
   - `width = floor(height * aspectRatio)`

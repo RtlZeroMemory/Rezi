@@ -6,6 +6,21 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+### Features
+
+- **core/constraints**: Added helper-first constraint API (`visibilityConstraints`, `widthConstraints`, `heightConstraints`, `spaceConstraints`, `groupConstraints`, `conditionalConstraints`) and exported it from `@rezi-ui/core` and `@rezi-ui/jsx`.
+- **core/constraints**: Added `expr("...")` source-string LRU caching to avoid repeated parse overhead for stable expressions.
+
+### Developer Experience
+
+- **constraints/diagnostics**: Improved invalid constraint graph error messages with helper-oriented hints.
+- **create-rezi/templates**: Added policy checks to prevent legacy `%` / responsive-map layout constraints and to enforce helper-first constraints in templates.
+- **tooling**: Added a conservative codemod script to migrate common `expr("...")` patterns to helper constraints.
+
+### Documentation
+
+- **docs/constraints**: Added comprehensive constraints docs (conceptual guide, API reference, DSL reference, cookbook, migration/styling/debug/perf guides, quickstart, decision tree, demo index).
+
 ## [0.1.0-alpha.49] - 2026-02-28
 
 ### Features
