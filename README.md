@@ -87,31 +87,49 @@ Most JavaScript TUI frameworks generate ANSI escape sequences in userland on eve
 
 ## Benchmarks
 
-Rezi is benchmarked against Ink, OpenTUI (React and Core drivers), Bubble Tea, terminal-kit, blessed, and Ratatui across 22 scenarios covering primitive workloads, terminal-level rendering, and full-app UI composition.
-
-### How Rezi compares
-
-**vs Ink** — Rezi is 10-200x faster across all measured scenarios. Ink uses React reconciliation + Yoga layout + ANSI string generation in JS. Rezi moves rendering to a native C engine and uses binary drawlists instead of escape-sequence strings.
-
-**vs OpenTUI (React driver)** — Rezi is faster in all 21 scenarios (geomean ~10x). OpenTUI React uses `flushSync()` through a React reconciler on Bun.
-
-**vs OpenTUI (Core driver)** — Rezi is faster in 19/21 scenarios (geomean ~2.6x). OpenTUI Core is a lean imperative API without React overhead. It wins on `layout-stress` (1.5x) and `tables` (1.6x), where its direct-mutation approach has lower per-frame overhead for grid-heavy layouts.
-
-**vs Bubble Tea** — Rezi is faster in 20/21 scenarios. Bubble Tea renders via Go's string-based `View()` function with lipgloss styling. Its throughput clusters around ~120 ops/s in most scenarios due to its event-loop tick rate. Bubble Tea wins `scroll-stress` (2.5x) where Rezi's larger tree diffing cost outweighs the simpler string-append path.
-
-**vs terminal-kit / blessed / Ratatui** — These are lower-level libraries (terminal-kit and blessed are buffer-level with no layout engine; Ratatui is native Rust). On primitive workloads that skip layout (rerender, frame-fill), they are 2-20x faster than Rezi. On structured UI workloads that require layout and widget composition (strict-ui, full-ui, virtual-list with panels), Rezi is competitive or faster. This is the expected tradeoff: Rezi provides a full widget and layout system at a cost that is measurable on micro-benchmarks but pays for itself on real applications.
+22 scenarios across primitive workloads (tree construction, rerender, layout), terminal-level rendering (full PTY write path), and full-app UI composition. All 8 frameworks run in PTY mode.
 
 ### Representative numbers
 
-| Scenario | Rezi | Ink | OpenTUI React | OpenTUI Core | Ratatui |
-|---|---:|---:|---:|---:|---:|
-| tree-construction (100 items) | 326us | 26ms | 36ms | 2.1ms | 696us |
-| virtual-list (100K items) | 985us | 22.6ms | 28.5ms | 1.28ms | -- |
-| terminal-strict-ui | 1.19ms | 25.5ms | 19.4ms | 1.77ms | 240us |
-| terminal-full-ui | 2.49ms | 25.6ms | 5.07ms | 1.31ms | 336us |
-| rerender | 373us | 17.7ms | 2.70ms | 1.16ms | 51us |
+Numbers from a single-replicate full run on Apple M4 Pro (macOS arm64, PTY mode). Directional, not publication-grade.
 
-Numbers are from a single-replicate PTY-mode run on WSL. They are directional, not publication-grade. See [BENCHMARKS.md](BENCHMARKS.md) for full methodology, caveats, and reproduction steps.
+| Scenario | Rezi | Ink | OpenTUI Core | Ratatui | blessed |
+|---|---:|---:|---:|---:|---:|
+| rerender | 330µs | 19.22ms | 1.26ms | 70µs | 39µs |
+| tree-construction (100 items) | 153µs | 24.16ms | 1.51ms | 913µs | 1.70ms |
+| tree-construction (1000 items) | 1.31ms | 79.60ms | 17.35ms | 2.33ms | 19.14ms |
+| terminal-full-ui | 1.14ms | 22.34ms | 1.32ms | 258µs | 314µs |
+| terminal-strict-ui | 873µs | 22.14ms | 1.27ms | 183µs | 302µs |
+| terminal-virtual-list (100K) | 644µs | 22.32ms | 1.28ms | 121µs | 124µs |
+| scroll-stress (2000 items) | 6.99ms | 182ms | 32.58ms | — | — |
+
+Rezi is the fastest TypeScript/JavaScript framework across all measured scenarios. terminal-kit, blessed, and Ratatui are lower-level libraries (no layout engine or no widget system); they are faster on primitive output scenarios, and slower or absent on workloads requiring structured layout and widget composition.
+
+### Memory at terminal-full-ui (peak RSS)
+
+| Framework | Peak RSS |
+|---|---|
+| Ratatui | 2.9 MB |
+| Rezi | 129 MB |
+| OpenTUI (Core) | 131 MB |
+| blessed | 260 MB |
+| Ink | 301 MB |
+| OpenTUI (React) | 1,010 MB |
+
+### Running benchmarks
+
+```bash
+# Prerequisites: build Rezi, then ensure bun/cargo are in PATH
+npm ci && npm run build && npm run build:native && npx tsc -b packages/bench
+
+# Quick run — all 8 frameworks
+PATH="$HOME/.cargo/bin:$HOME/.bun/bin:$PATH" \
+REZI_BUN_BIN="$HOME/.bun/bin/bun" \
+node --expose-gc packages/bench/dist/run.js \
+  --suite all --io pty --quick --output-dir benchmarks/local-all
+```
+
+See [BENCHMARKS.md](BENCHMARKS.md) for full results, all scenarios, scenario definitions, methodology caveats, and advanced run options.
 
 ---
 

@@ -1,0 +1,5542 @@
+{
+  "meta": {
+    "timestamp": "2026-02-27T15:31:20.396Z",
+    "nodeVersion": "v24.12.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "osType": "Darwin",
+    "osRelease": "25.2.0",
+    "cpuModel": "Apple M4 Pro",
+    "cpuCores": 12,
+    "memoryTotalMb": 24576,
+    "bunVersion": null,
+    "rustcVersion": "rustc 1.93.0 (254b59607 2026-01-19)",
+    "cargoVersion": "cargo 1.93.0 (083ac5135 2025-12-15)",
+    "cpuGovernor": null,
+    "isWsl": false,
+    "environmentCaveat": null
+  },
+  "invocation": {
+    "suite": "all",
+    "matchup": "none",
+    "opentuiDriver": "react",
+    "scenarioFilter": null,
+    "frameworkFilter": null,
+    "iterationsOverride": null,
+    "warmupOverride": null,
+    "quick": false,
+    "ioMode": "stub",
+    "replicates": 1,
+    "discardFirstReplicate": false,
+    "shuffleFrameworkOrder": false,
+    "shuffleSeed": "rezi-bench-seed",
+    "envCheck": "off",
+    "cpuAffinity": null
+  },
+  "results": [
+    {
+      "scenario": "startup",
+      "framework": "rezi-native",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 100,
+          "mean": 1.6882008899999992,
+          "median": 1.625291500000003,
+          "p95": 2.3798329999999908,
+          "p99": 2.8676670000000115,
+          "min": 0.3756249999999852,
+          "max": 3.4642499999999927,
+          "stddev": 0.353235286777068,
+          "cv": 0.20923770913132747,
+          "meanCi95Low": 1.6254216799999983,
+          "meanCi95High": 1.75755587
+        },
+        "memBefore": {
+          "rssKb": 93776,
+          "heapUsedKb": 14653,
+          "heapTotalKb": 49360,
+          "externalKb": 2152,
+          "arrayBuffersKb": 56
+        },
+        "memAfter": {
+          "rssKb": 162720,
+          "heapUsedKb": 38007,
+          "heapTotalKb": 154832,
+          "externalKb": 2333,
+          "arrayBuffersKb": 418
+        },
+        "memPeak": {
+          "rssKb": 162720,
+          "heapUsedKb": 41847,
+          "heapTotalKb": 154832,
+          "externalKb": 2373,
+          "arrayBuffersKb": 458
+        },
+        "rssGrowthKb": 68944,
+        "heapUsedGrowthKb": 23354,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 169.608,
+          "systemMs": 10.910999999999998
+        },
+        "iterations": 100,
+        "totalWallMs": 171.84308400000003,
+        "opsPerSec": 581.926241500647,
+        "framesProduced": 100,
+        "bytesProduced": 425160,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:31:20.598Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "startup",
+      "framework": "ink",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 100,
+          "mean": 3.9437445099999944,
+          "median": 3.6923544999999933,
+          "p95": 5.848208,
+          "p99": 6.352125000000001,
+          "min": 3.100791000000072,
+          "max": 6.363624999999956,
+          "stddev": 0.8461922848814726,
+          "cv": 0.21456569580910143,
+          "meanCi95Low": 3.796922829999994,
+          "meanCi95High": 4.113291179999993
+        },
+        "memBefore": {
+          "rssKb": 197760,
+          "heapUsedKb": 23449,
+          "heapTotalKb": 97552,
+          "externalKb": 19976,
+          "arrayBuffersKb": 53
+        },
+        "memAfter": {
+          "rssKb": 413600,
+          "heapUsedKb": 61937,
+          "heapTotalKb": 281104,
+          "externalKb": 19992,
+          "arrayBuffersKb": 69
+        },
+        "memPeak": {
+          "rssKb": 413600,
+          "heapUsedKb": 98838,
+          "heapTotalKb": 281104,
+          "externalKb": 20000,
+          "arrayBuffersKb": 77
+        },
+        "rssGrowthKb": 215840,
+        "heapUsedGrowthKb": 38488,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 833.432,
+          "systemMs": 36.559
+        },
+        "iterations": 100,
+        "totalWallMs": 635.265625,
+        "opsPerSec": 157.41446737339206,
+        "framesProduced": 100,
+        "bytesProduced": 124890,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:31:20.901Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "startup",
+      "framework": "terminal-kit",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 100,
+          "mean": 0.12334168000000005,
+          "median": 0.07604149999999521,
+          "p95": 0.1893749999999983,
+          "p99": 0.2237920000000031,
+          "min": 0.06954099999998675,
+          "max": 2.9433329999999955,
+          "stddev": 0.28563679797406577,
+          "cv": 2.315817313126152,
+          "meanCi95Low": 0.0901999699999999,
+          "meanCi95High": 0.18465328999999883
+        },
+        "memBefore": {
+          "rssKb": 95104,
+          "heapUsedKb": 16760,
+          "heapTotalKb": 51760,
+          "externalKb": 2350,
+          "arrayBuffersKb": 411
+        },
+        "memAfter": {
+          "rssKb": 184688,
+          "heapUsedKb": 69139,
+          "heapTotalKb": 185136,
+          "externalKb": 6092,
+          "arrayBuffersKb": 4161
+        },
+        "memPeak": {
+          "rssKb": 184688,
+          "heapUsedKb": 69139,
+          "heapTotalKb": 185136,
+          "externalKb": 6092,
+          "arrayBuffersKb": 4161
+        },
+        "rssGrowthKb": 89584,
+        "heapUsedGrowthKb": 52379,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 147.038,
+          "systemMs": 10.477999999999998
+        },
+        "iterations": 100,
+        "totalWallMs": 93.60462500000001,
+        "opsPerSec": 1068.3232799661341,
+        "framesProduced": 100,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:31:21.904Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "startup",
+      "framework": "blessed",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 100,
+          "mean": 1.1786149799999996,
+          "median": 0.9880210000000034,
+          "p95": 1.8006670000000042,
+          "p99": 4.5346250000000055,
+          "min": 0.7576250000000186,
+          "max": 8.199166000000048,
+          "stddev": 0.8790470092106949,
+          "cv": 0.745830507949844,
+          "meanCi95Low": 1.0365913,
+          "meanCi95High": 1.3687616400000018
+        },
+        "memBefore": {
+          "rssKb": 125808,
+          "heapUsedKb": 31791,
+          "heapTotalKb": 99824,
+          "externalKb": 2082,
+          "arrayBuffersKb": 38
+        },
+        "memAfter": {
+          "rssKb": 372720,
+          "heapUsedKb": 257581,
+          "heapTotalKb": 331248,
+          "externalKb": 2178,
+          "arrayBuffersKb": 158
+        },
+        "memPeak": {
+          "rssKb": 372720,
+          "heapUsedKb": 257581,
+          "heapTotalKb": 331248,
+          "externalKb": 2178,
+          "arrayBuffersKb": 158
+        },
+        "rssGrowthKb": 246912,
+        "heapUsedGrowthKb": 225790,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 573.925,
+          "systemMs": 67.93
+        },
+        "iterations": 100,
+        "totalWallMs": 334.133541,
+        "opsPerSec": 299.28153785674573,
+        "framesProduced": 100,
+        "bytesProduced": 194290,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:31:22.125Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "startup",
+      "framework": "ratatui",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 100,
+          "mean": 0.18656005,
+          "median": 0.18570799999999998,
+          "p95": 0.196834,
+          "p99": 0.22425,
+          "min": 0.181583,
+          "max": 0.24995799999999999,
+          "stddev": 0.008976667887779965,
+          "cv": 0.04811677466735222,
+          "meanCi95Low": 0.18505882000000007,
+          "meanCi95High": 0.1884417100000001
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 0,
+          "systemMs": 0
+        },
+        "iterations": 100,
+        "totalWallMs": 19.495833,
+        "opsPerSec": 5129.3012204197685,
+        "framesProduced": 100,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:31:22.623Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "rezi-native",
+      "params": {
+        "items": 10
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 0.04043307400000009,
+          "median": 0.035313000000009254,
+          "p95": 0.05991600000000119,
+          "p99": 0.15079100000001233,
+          "min": 0.026125000000007503,
+          "max": 0.32995800000000486,
+          "stddev": 0.024279178125969147,
+          "cv": 0.6004781661164099,
+          "meanCi95Low": 0.03855308799999997,
+          "meanCi95High": 0.043083683999999976
+        },
+        "memBefore": {
+          "rssKb": 86496,
+          "heapUsedKb": 13530,
+          "heapTotalKb": 31952,
+          "externalKb": 1967,
+          "arrayBuffersKb": 52
+        },
+        "memAfter": {
+          "rssKb": 103296,
+          "heapUsedKb": 26188,
+          "heapTotalKb": 38864,
+          "externalKb": 1967,
+          "arrayBuffersKb": 52
+        },
+        "memPeak": {
+          "rssKb": 103296,
+          "heapUsedKb": 26188,
+          "heapTotalKb": 38864,
+          "externalKb": 1967,
+          "arrayBuffersKb": 52
+        },
+        "rssGrowthKb": 16800,
+        "heapUsedGrowthKb": 12658,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 51.09,
+          "systemMs": 2.5039999999999996
+        },
+        "iterations": 500,
+        "totalWallMs": 20.374792,
+        "opsPerSec": 24540.127820691374,
+        "framesProduced": 500,
+        "bytesProduced": 152000,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:31:22.733Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "ink",
+      "params": {
+        "items": 10
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 23.477608428000018,
+          "median": 24.00633399999981,
+          "p95": 41.634667000000036,
+          "p99": 42.22025000000008,
+          "min": 1.3543330000011338,
+          "max": 42.57145800000035,
+          "stddev": 16.899309291299723,
+          "cv": 0.7198053985407287,
+          "meanCi95Low": 22.14696984199998,
+          "meanCi95High": 24.98745166600001
+        },
+        "memBefore": {
+          "rssKb": 138752,
+          "heapUsedKb": 22481,
+          "heapTotalKb": 56592,
+          "externalKb": 20008,
+          "arrayBuffersKb": 53
+        },
+        "memAfter": {
+          "rssKb": 236336,
+          "heapUsedKb": 86930,
+          "heapTotalKb": 161552,
+          "externalKb": 20000,
+          "arrayBuffersKb": 77
+        },
+        "memPeak": {
+          "rssKb": 236336,
+          "heapUsedKb": 86930,
+          "heapTotalKb": 161552,
+          "externalKb": 20224,
+          "arrayBuffersKb": 301
+        },
+        "rssGrowthKb": 97584,
+        "heapUsedGrowthKb": 64449,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 3478.9359999999997,
+          "systemMs": 88.934
+        },
+        "iterations": 500,
+        "totalWallMs": 11739.982709,
+        "opsPerSec": 42.58950054642708,
+        "framesProduced": 1500,
+        "bytesProduced": 277951,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:31:22.863Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "terminal-kit",
+      "params": {
+        "items": 10
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 0.049164421999999375,
+          "median": 0.046833000000006564,
+          "p95": 0.057749999999998636,
+          "p99": 0.09604200000001129,
+          "min": 0.04441699999999571,
+          "max": 0.1542919999999981,
+          "stddev": 0.009970870580642725,
+          "cv": 0.20280662672374855,
+          "meanCi95Low": 0.04839477799999955,
+          "meanCi95High": 0.05021516399999936
+        },
+        "memBefore": {
+          "rssKb": 86816,
+          "heapUsedKb": 14728,
+          "heapTotalKb": 33328,
+          "externalKb": 2012,
+          "arrayBuffersKb": 74
+        },
+        "memAfter": {
+          "rssKb": 87072,
+          "heapUsedKb": 17191,
+          "heapTotalKb": 33584,
+          "externalKb": 2004,
+          "arrayBuffersKb": 74
+        },
+        "memPeak": {
+          "rssKb": 87072,
+          "heapUsedKb": 21865,
+          "heapTotalKb": 33584,
+          "externalKb": 2012,
+          "arrayBuffersKb": 74
+        },
+        "rssGrowthKb": 256,
+        "heapUsedGrowthKb": 2463,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 35.817999999999984,
+          "systemMs": 0.21300000000000097
+        },
+        "iterations": 500,
+        "totalWallMs": 24.736833000000004,
+        "opsPerSec": 20212.773397467652,
+        "framesProduced": 500,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:31:36.035Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "blessed",
+      "params": {
+        "items": 10
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 0.20132765400000052,
+          "median": 0.19297899999999402,
+          "p95": 0.24825000000001296,
+          "p99": 0.32670799999999645,
+          "min": 0.17379199999999173,
+          "max": 0.7072500000000161,
+          "stddev": 0.03526439248418029,
+          "cv": 0.17515920830319812,
+          "meanCi95Low": 0.1987174980000006,
+          "meanCi95High": 0.20510885600000095
+        },
+        "memBefore": {
+          "rssKb": 91088,
+          "heapUsedKb": 15565,
+          "heapTotalKb": 33520,
+          "externalKb": 2066,
+          "arrayBuffersKb": 38
+        },
+        "memAfter": {
+          "rssKb": 112432,
+          "heapUsedKb": 17519,
+          "heapTotalKb": 50416,
+          "externalKb": 2066,
+          "arrayBuffersKb": 46
+        },
+        "memPeak": {
+          "rssKb": 112432,
+          "heapUsedKb": 29531,
+          "heapTotalKb": 50416,
+          "externalKb": 2066,
+          "arrayBuffersKb": 46
+        },
+        "rssGrowthKb": 21344,
+        "heapUsedGrowthKb": 1954,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 127.73000000000002,
+          "systemMs": 29.372
+        },
+        "iterations": 500,
+        "totalWallMs": 100.88162499999999,
+        "opsPerSec": 4956.3039849923125,
+        "framesProduced": 500,
+        "bytesProduced": 11557,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:31:36.171Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "ratatui",
+      "params": {
+        "items": 10
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 0.8442368120000003,
+          "median": 0.8435835,
+          "p95": 0.861042,
+          "p99": 0.90425,
+          "min": 0.819542,
+          "max": 1.258709,
+          "stddev": 0.022844175834567902,
+          "cv": 0.02705896676129291,
+          "meanCi95Low": 0.8426511199999996,
+          "meanCi95High": 0.846817576
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 0,
+          "systemMs": 0
+        },
+        "iterations": 500,
+        "totalWallMs": 422.131625,
+        "opsPerSec": 1184.4646797074254,
+        "framesProduced": 500,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:31:36.395Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "rezi-native",
+      "params": {
+        "items": 100
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 0.15743666399999914,
+          "median": 0.13958350000001474,
+          "p95": 0.26216700000000515,
+          "p99": 0.3735839999999939,
+          "min": 0.11716699999999491,
+          "max": 1.2464999999999975,
+          "stddev": 0.06818139174601116,
+          "cv": 0.43307187800937863,
+          "meanCi95Low": 0.1522915939999997,
+          "meanCi95High": 0.16499891599999914
+        },
+        "memBefore": {
+          "rssKb": 92592,
+          "heapUsedKb": 14491,
+          "heapTotalKb": 31952,
+          "externalKb": 1991,
+          "arrayBuffersKb": 76
+        },
+        "memAfter": {
+          "rssKb": 140528,
+          "heapUsedKb": 51242,
+          "heapTotalKb": 69328,
+          "externalKb": 1991,
+          "arrayBuffersKb": 76
+        },
+        "memPeak": {
+          "rssKb": 140528,
+          "heapUsedKb": 51242,
+          "heapTotalKb": 69328,
+          "externalKb": 1991,
+          "arrayBuffersKb": 76
+        },
+        "rssGrowthKb": 47936,
+        "heapUsedGrowthKb": 36751,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 134.635,
+          "systemMs": 6.4239999999999995
+        },
+        "iterations": 500,
+        "totalWallMs": 78.958291,
+        "opsPerSec": 6332.457220990257,
+        "framesProduced": 500,
+        "bytesProduced": 152000,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:31:36.951Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "ink",
+      "params": {
+        "items": 100
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 25.787246266000018,
+          "median": 27.65718750000042,
+          "p95": 47.305458000000726,
+          "p99": 49.16166600000088,
+          "min": 5.231291999999485,
+          "max": 50.75258299999996,
+          "stddev": 18.402282602241378,
+          "cv": 0.7136195316249967,
+          "meanCi95Low": 24.268154695999996,
+          "meanCi95High": 27.45884982800004
+        },
+        "memBefore": {
+          "rssKb": 295792,
+          "heapUsedKb": 28079,
+          "heapTotalKb": 181520,
+          "externalKb": 20000,
+          "arrayBuffersKb": 53
+        },
+        "memAfter": {
+          "rssKb": 363152,
+          "heapUsedKb": 100046,
+          "heapTotalKb": 264304,
+          "externalKb": 19979,
+          "arrayBuffersKb": 61
+        },
+        "memPeak": {
+          "rssKb": 363152,
+          "heapUsedKb": 166211,
+          "heapTotalKb": 264304,
+          "externalKb": 20027,
+          "arrayBuffersKb": 109
+        },
+        "rssGrowthKb": 67360,
+        "heapUsedGrowthKb": 71967,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 5726.481,
+          "systemMs": 98.928
+        },
+        "iterations": 500,
+        "totalWallMs": 12894.329333000001,
+        "opsPerSec": 38.776735655445655,
+        "framesProduced": 1500,
+        "bytesProduced": 1177951,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:31:37.155Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "terminal-kit",
+      "params": {
+        "items": 100
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 0.1794582360000001,
+          "median": 0.17516699999998764,
+          "p95": 0.18891700000000355,
+          "p99": 0.29758300000000304,
+          "min": 0.16666600000002063,
+          "max": 0.37895799999999724,
+          "stddev": 0.01980417694458178,
+          "cv": 0.11035535278849933,
+          "meanCi95Low": 0.17794173399999993,
+          "meanCi95High": 0.18163748199999952
+        },
+        "memBefore": {
+          "rssKb": 90080,
+          "heapUsedKb": 14745,
+          "heapTotalKb": 33072,
+          "externalKb": 2073,
+          "arrayBuffersKb": 135
+        },
+        "memAfter": {
+          "rssKb": 90208,
+          "heapUsedKb": 22157,
+          "heapTotalKb": 33072,
+          "externalKb": 2065,
+          "arrayBuffersKb": 135
+        },
+        "memPeak": {
+          "rssKb": 90208,
+          "heapUsedKb": 22157,
+          "heapTotalKb": 33072,
+          "externalKb": 2073,
+          "arrayBuffersKb": 135
+        },
+        "rssGrowthKb": 128,
+        "heapUsedGrowthKb": 7412,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 99.68199999999999,
+          "systemMs": 0.4510000000000005
+        },
+        "iterations": 500,
+        "totalWallMs": 89.95800000000001,
+        "opsPerSec": 5558.149358589563,
+        "framesProduced": 500,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:31:51.587Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "blessed",
+      "params": {
+        "items": 100
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 1.619991658,
+          "median": 1.583874499999979,
+          "p95": 1.838707999999997,
+          "p99": 1.9732499999999504,
+          "min": 1.4856250000000273,
+          "max": 2.5482920000000036,
+          "stddev": 0.10916237467364324,
+          "cv": 0.06738452888603902,
+          "meanCi95Low": 1.6108354039999995,
+          "meanCi95High": 1.6306699480000009
+        },
+        "memBefore": {
+          "rssKb": 113072,
+          "heapUsedKb": 17509,
+          "heapTotalKb": 51952,
+          "externalKb": 2066,
+          "arrayBuffersKb": 38
+        },
+        "memAfter": {
+          "rssKb": 147056,
+          "heapUsedKb": 31790,
+          "heapTotalKb": 85488,
+          "externalKb": 2074,
+          "arrayBuffersKb": 54
+        },
+        "memPeak": {
+          "rssKb": 147056,
+          "heapUsedKb": 50088,
+          "heapTotalKb": 85488,
+          "externalKb": 2074,
+          "arrayBuffersKb": 54
+        },
+        "rssGrowthKb": 33984,
+        "heapUsedGrowthKb": 14281,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 609.907,
+          "systemMs": 229.02499999999998
+        },
+        "iterations": 500,
+        "totalWallMs": 810.322041,
+        "opsPerSec": 617.0386274856369,
+        "framesProduced": 500,
+        "bytesProduced": 11557,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:31:51.799Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "ratatui",
+      "params": {
+        "items": 100
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 0.9142158259999998,
+          "median": 0.9119585,
+          "p95": 0.930417,
+          "p99": 0.9769170000000001,
+          "min": 0.874667,
+          "max": 1.06325,
+          "stddev": 0.01506056916997907,
+          "cv": 0.016473756788781595,
+          "meanCi95Low": 0.9130231559999997,
+          "meanCi95High": 0.9157389820000001
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 0,
+          "systemMs": 0
+        },
+        "iterations": 500,
+        "totalWallMs": 457.121959,
+        "opsPerSec": 1093.800002725312,
+        "framesProduced": 500,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:31:52.823Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "rezi-native",
+      "params": {
+        "items": 500
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 0.6846037580000005,
+          "median": 0.6293329999999742,
+          "p95": 1.021583000000021,
+          "p99": 1.8742499999999893,
+          "min": 0.547375000000045,
+          "max": 2.1642909999999915,
+          "stddev": 0.21473394178831626,
+          "cv": 0.3136616462866628,
+          "meanCi95Low": 0.66785924,
+          "meanCi95High": 0.7066232620000007
+        },
+        "memBefore": {
+          "rssKb": 137632,
+          "heapUsedKb": 18291,
+          "heapTotalKb": 64720,
+          "externalKb": 2090,
+          "arrayBuffersKb": 175
+        },
+        "memAfter": {
+          "rssKb": 352688,
+          "heapUsedKb": 81465,
+          "heapTotalKb": 193488,
+          "externalKb": 2090,
+          "arrayBuffersKb": 175
+        },
+        "memPeak": {
+          "rssKb": 352688,
+          "heapUsedKb": 159670,
+          "heapTotalKb": 231376,
+          "externalKb": 2090,
+          "arrayBuffersKb": 175
+        },
+        "rssGrowthKb": 215056,
+        "heapUsedGrowthKb": 63174,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 412.60900000000004,
+          "systemMs": 25.508
+        },
+        "iterations": 500,
+        "totalWallMs": 342.58825,
+        "opsPerSec": 1459.4779593287276,
+        "framesProduced": 500,
+        "bytesProduced": 152000,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:31:53.415Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "ink",
+      "params": {
+        "items": 500
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 48.170475759999924,
+          "median": 60.16722949999985,
+          "p95": 74.97179099999994,
+          "p99": 78.57191700000112,
+          "min": 27.679000000000087,
+          "max": 87.15004200000112,
+          "stddev": 17.19770244648509,
+          "cv": 0.3570174920457359,
+          "meanCi95Low": 46.72696917399996,
+          "meanCi95High": 49.653631762
+        },
+        "memBefore": {
+          "rssKb": 421936,
+          "heapUsedKb": 51185,
+          "heapTotalKb": 257312,
+          "externalKb": 19974,
+          "arrayBuffersKb": 45
+        },
+        "memAfter": {
+          "rssKb": 1108496,
+          "heapUsedKb": 844123,
+          "heapTotalKb": 943584,
+          "externalKb": 19982,
+          "arrayBuffersKb": 65
+        },
+        "memPeak": {
+          "rssKb": 1108496,
+          "heapUsedKb": 844123,
+          "heapTotalKb": 943584,
+          "externalKb": 19982,
+          "arrayBuffersKb": 65
+        },
+        "rssGrowthKb": 686560,
+        "heapUsedGrowthKb": 792938,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 19505.739,
+          "systemMs": 381.692
+        },
+        "iterations": 500,
+        "totalWallMs": 24085.978917,
+        "opsPerSec": 20.75896527697687,
+        "framesProduced": 1500,
+        "bytesProduced": 5977951,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:31:53.939Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "terminal-kit",
+      "params": {
+        "items": 500
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 0.8942427679999996,
+          "median": 0.8855415000000022,
+          "p95": 0.9537500000000136,
+          "p99": 1.0329160000000002,
+          "min": 0.8410420000000158,
+          "max": 2.1715420000000165,
+          "stddev": 0.0655399502920027,
+          "cv": 0.07329100400619927,
+          "meanCi95Low": 0.889976525999996,
+          "meanCi95High": 0.9018804659999985
+        },
+        "memBefore": {
+          "rssKb": 89952,
+          "heapUsedKb": 14733,
+          "heapTotalKb": 33328,
+          "externalKb": 2448,
+          "arrayBuffersKb": 510
+        },
+        "memAfter": {
+          "rssKb": 89968,
+          "heapUsedKb": 22810,
+          "heapTotalKb": 33328,
+          "externalKb": 2440,
+          "arrayBuffersKb": 510
+        },
+        "memPeak": {
+          "rssKb": 89968,
+          "heapUsedKb": 22810,
+          "heapTotalKb": 33328,
+          "externalKb": 2448,
+          "arrayBuffersKb": 510
+        },
+        "rssGrowthKb": 16,
+        "heapUsedGrowthKb": 8077,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 453.865,
+          "systemMs": 2.022000000000002
+        },
+        "iterations": 500,
+        "totalWallMs": 447.479125,
+        "opsPerSec": 1117.37055890596,
+        "framesProduced": 500,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:32:20.900Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "blessed",
+      "params": {
+        "items": 500
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 9.231820893999991,
+          "median": 8.695666999999958,
+          "p95": 10.726999999999862,
+          "p99": 13.460749999999962,
+          "min": 8.076791999999841,
+          "max": 33.72191699999985,
+          "stddev": 1.7980289458064564,
+          "cv": 0.19476427959895148,
+          "meanCi95Low": 9.09999481599999,
+          "meanCi95High": 9.43044855399996
+        },
+        "memBefore": {
+          "rssKb": 304064,
+          "heapUsedKb": 27351,
+          "heapTotalKb": 173296,
+          "externalKb": 2058,
+          "arrayBuffersKb": 38
+        },
+        "memAfter": {
+          "rssKb": 381616,
+          "heapUsedKb": 188482,
+          "heapTotalKb": 280656,
+          "externalKb": 2054,
+          "arrayBuffersKb": 38
+        },
+        "memPeak": {
+          "rssKb": 381936,
+          "heapUsedKb": 188482,
+          "heapTotalKb": 280656,
+          "externalKb": 2062,
+          "arrayBuffersKb": 38
+        },
+        "rssGrowthKb": 77552,
+        "heapUsedGrowthKb": 161131,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 4248.637,
+          "systemMs": 1147.9759999999999
+        },
+        "iterations": 500,
+        "totalWallMs": 4616.586708000001,
+        "opsPerSec": 108.30512489531691,
+        "framesProduced": 500,
+        "bytesProduced": 11557,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:32:21.521Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "ratatui",
+      "params": {
+        "items": 500
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 1.2355019119999995,
+          "median": 1.2254795,
+          "p95": 1.270917,
+          "p99": 1.5435830000000001,
+          "min": 1.175875,
+          "max": 2.127167,
+          "stddev": 0.0690084220513718,
+          "cv": 0.055854565161831835,
+          "meanCi95Low": 1.2303191419999993,
+          "meanCi95High": 1.2429242860000005
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 0,
+          "systemMs": 0
+        },
+        "iterations": 500,
+        "totalWallMs": 617.774083,
+        "opsPerSec": 809.3573585540007,
+        "framesProduced": 500,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:32:26.769Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "rezi-native",
+      "params": {
+        "items": 1000
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 1.320412417999999,
+          "median": 1.2190625000000637,
+          "p95": 2.009625000000028,
+          "p99": 2.6229589999999803,
+          "min": 1.1144590000000107,
+          "max": 3.2942090000000235,
+          "stddev": 0.30231400842578926,
+          "cv": 0.22895422998497542,
+          "meanCi95Low": 1.296671001999997,
+          "meanCi95High": 1.3510819659999989
+        },
+        "memBefore": {
+          "rssKb": 219696,
+          "heapUsedKb": 22888,
+          "heapTotalKb": 114672,
+          "externalKb": 2222,
+          "arrayBuffersKb": 307
+        },
+        "memAfter": {
+          "rssKb": 379600,
+          "heapUsedKb": 135539,
+          "heapTotalKb": 245744,
+          "externalKb": 2222,
+          "arrayBuffersKb": 307
+        },
+        "memPeak": {
+          "rssKb": 379600,
+          "heapUsedKb": 176301,
+          "heapTotalKb": 286704,
+          "externalKb": 2222,
+          "arrayBuffersKb": 307
+        },
+        "rssGrowthKb": 159904,
+        "heapUsedGrowthKb": 112651,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 776.967,
+          "systemMs": 22.136000000000003
+        },
+        "iterations": 500,
+        "totalWallMs": 660.5399170000001,
+        "opsPerSec": 756.9565247031088,
+        "framesProduced": 500,
+        "bytesProduced": 152000,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:32:27.540Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "ink",
+      "params": {
+        "items": 1000
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 78.80897775199993,
+          "median": 86.52777099999957,
+          "p95": 109.80916700000125,
+          "p99": 128.49974999999904,
+          "min": 55.52033399999982,
+          "max": 146.9927500000049,
+          "stddev": 18.67282943632839,
+          "cv": 0.23693784602928095,
+          "meanCi95Low": 77.2698930780002,
+          "meanCi95High": 80.53634766399999
+        },
+        "memBefore": {
+          "rssKb": 549264,
+          "heapUsedKb": 83182,
+          "heapTotalKb": 349600,
+          "externalKb": 19986,
+          "arrayBuffersKb": 45
+        },
+        "memAfter": {
+          "rssKb": 2365824,
+          "heapUsedKb": 1716547,
+          "heapTotalKb": 1828048,
+          "externalKb": 19994,
+          "arrayBuffersKb": 77
+        },
+        "memPeak": {
+          "rssKb": 2365824,
+          "heapUsedKb": 1716547,
+          "heapTotalKb": 1828048,
+          "externalKb": 19994,
+          "arrayBuffersKb": 77
+        },
+        "rssGrowthKb": 1816560,
+        "heapUsedGrowthKb": 1633365,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 37920.539000000004,
+          "systemMs": 835.035
+        },
+        "iterations": 500,
+        "totalWallMs": 39405.286416,
+        "opsPerSec": 12.68865285539408,
+        "framesProduced": 1500,
+        "bytesProduced": 11978451,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:32:28.452Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "terminal-kit",
+      "params": {
+        "items": 1000
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 1.8724685160000007,
+          "median": 1.8841255000000103,
+          "p95": 1.9531670000000076,
+          "p99": 2.020958999999948,
+          "min": 1.6639999999999873,
+          "max": 3.4549169999999947,
+          "stddev": 0.09492829748854514,
+          "cv": 0.0506968724319769,
+          "meanCi95Low": 1.8653645139999995,
+          "meanCi95High": 1.8822079460000016
+        },
+        "memBefore": {
+          "rssKb": 90128,
+          "heapUsedKb": 14733,
+          "heapTotalKb": 33072,
+          "externalKb": 2917,
+          "arrayBuffersKb": 979
+        },
+        "memAfter": {
+          "rssKb": 90160,
+          "heapUsedKb": 21908,
+          "heapTotalKb": 33072,
+          "externalKb": 2909,
+          "arrayBuffersKb": 979
+        },
+        "memPeak": {
+          "rssKb": 90160,
+          "heapUsedKb": 21908,
+          "heapTotalKb": 33072,
+          "externalKb": 2917,
+          "arrayBuffersKb": 979
+        },
+        "rssGrowthKb": 32,
+        "heapUsedGrowthKb": 7175,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 944.3069999999999,
+          "systemMs": 2.8369999999999997
+        },
+        "iterations": 500,
+        "totalWallMs": 936.598834,
+        "opsPerSec": 533.846489926337,
+        "framesProduced": 500,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:33:12.512Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "blessed",
+      "params": {
+        "items": 1000
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 18.637576400000036,
+          "median": 18.76922900000011,
+          "p95": 20.061499999999796,
+          "p99": 22.425250000000233,
+          "min": 16.875583000000006,
+          "max": 25.365791000000172,
+          "stddev": 1.1355226373509086,
+          "cv": 0.060926518179204164,
+          "meanCi95Low": 18.54777923600005,
+          "meanCi95High": 18.747436816000018
+        },
+        "memBefore": {
+          "rssKb": 382464,
+          "heapUsedKb": 39632,
+          "heapTotalKb": 202480,
+          "externalKb": 2058,
+          "arrayBuffersKb": 38
+        },
+        "memAfter": {
+          "rssKb": 431008,
+          "heapUsedKb": 123623,
+          "heapTotalKb": 277840,
+          "externalKb": 2054,
+          "arrayBuffersKb": 38
+        },
+        "memPeak": {
+          "rssKb": 431008,
+          "heapUsedKb": 220504,
+          "heapTotalKb": 296016,
+          "externalKb": 2058,
+          "arrayBuffersKb": 38
+        },
+        "rssGrowthKb": 48544,
+        "heapUsedGrowthKb": 83991,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 8798.99,
+          "systemMs": 2222.179
+        },
+        "iterations": 500,
+        "totalWallMs": 9319.515833,
+        "opsPerSec": 53.65085579119055,
+        "framesProduced": 500,
+        "bytesProduced": 11557,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:33:13.668Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tree-construction",
+      "framework": "ratatui",
+      "params": {
+        "items": 1000
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 2.412586414000001,
+          "median": 2.3372295,
+          "p95": 2.529958,
+          "p99": 4.897792,
+          "min": 2.2098750000000003,
+          "max": 7.777209,
+          "stddev": 0.4573114645565215,
+          "cv": 0.18955236666458378,
+          "meanCi95Low": 2.3763060080000007,
+          "meanCi95High": 2.460770269999999
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 0,
+          "systemMs": 0
+        },
+        "iterations": 500,
+        "totalWallMs": 1206.3165,
+        "opsPerSec": 414.4849216602774,
+        "framesProduced": 500,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:33:24.117Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "rerender",
+      "framework": "rezi-native",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 1000,
+          "mean": 0.020551391999999793,
+          "median": 0.01737500000000125,
+          "p95": 0.037041999999999575,
+          "p99": 0.05812500000000398,
+          "min": 0.009957999999997469,
+          "max": 0.2912500000000051,
+          "stddev": 0.017709536441147693,
+          "cv": 0.8617195585169058,
+          "meanCi95Low": 0.019573832999999624,
+          "meanCi95High": 0.02181824399999985
+        },
+        "memBefore": {
+          "rssKb": 84448,
+          "heapUsedKb": 13178,
+          "heapTotalKb": 31440,
+          "externalKb": 1967,
+          "arrayBuffersKb": 52
+        },
+        "memAfter": {
+          "rssKb": 106544,
+          "heapUsedKb": 20218,
+          "heapTotalKb": 36304,
+          "externalKb": 1967,
+          "arrayBuffersKb": 52
+        },
+        "memPeak": {
+          "rssKb": 106544,
+          "heapUsedKb": 24276,
+          "heapTotalKb": 36304,
+          "externalKb": 1967,
+          "arrayBuffersKb": 52
+        },
+        "rssGrowthKb": 22096,
+        "heapUsedGrowthKb": 7040,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 43.712999999999994,
+          "systemMs": 2.5180000000000007
+        },
+        "iterations": 1000,
+        "totalWallMs": 20.804125,
+        "opsPerSec": 48067.390481455004,
+        "framesProduced": 1000,
+        "bytesProduced": 508000,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:33:25.538Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "rerender",
+      "framework": "ink",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 1000,
+          "mean": 19.48299127700001,
+          "median": 19.280353999998624,
+          "p95": 37.33450000000039,
+          "p99": 37.58374999999978,
+          "min": 0.5345419999994192,
+          "max": 43.04658399999971,
+          "stddev": 17.346916566627435,
+          "cv": 0.8903620763360784,
+          "meanCi95Low": 18.444178020999978,
+          "meanCi95High": 20.545874656000073
+        },
+        "memBefore": {
+          "rssKb": 132736,
+          "heapUsedKb": 22032,
+          "heapTotalKb": 57104,
+          "externalKb": 19984,
+          "arrayBuffersKb": 53
+        },
+        "memAfter": {
+          "rssKb": 144688,
+          "heapUsedKb": 38963,
+          "heapTotalKb": 62480,
+          "externalKb": 20120,
+          "arrayBuffersKb": 197
+        },
+        "memPeak": {
+          "rssKb": 144688,
+          "heapUsedKb": 42840,
+          "heapTotalKb": 62480,
+          "externalKb": 20120,
+          "arrayBuffersKb": 197
+        },
+        "rssGrowthKb": 11952,
+        "heapUsedGrowthKb": 16931,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 2508.476,
+          "systemMs": 46.517999999999994
+        },
+        "iterations": 1000,
+        "totalWallMs": 19485.272833000003,
+        "opsPerSec": 51.3208107769686,
+        "framesProduced": 3000,
+        "bytesProduced": 137202,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:33:25.661Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "rerender",
+      "framework": "terminal-kit",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 1000,
+          "mean": 0.042859373000000076,
+          "median": 0.04145799999999156,
+          "p95": 0.05391600000000096,
+          "p99": 0.06337500000000773,
+          "min": 0.03870799999998553,
+          "max": 0.10125000000000739,
+          "stddev": 0.005025041181112191,
+          "cv": 0.11724485986092663,
+          "meanCi95Low": 0.04255971000000002,
+          "meanCi95High": 0.04317689799999973
+        },
+        "memBefore": {
+          "rssKb": 87248,
+          "heapUsedKb": 14719,
+          "heapTotalKb": 32816,
+          "externalKb": 2050,
+          "arrayBuffersKb": 111
+        },
+        "memAfter": {
+          "rssKb": 87504,
+          "heapUsedKb": 20818,
+          "heapTotalKb": 33072,
+          "externalKb": 2042,
+          "arrayBuffersKb": 111
+        },
+        "memPeak": {
+          "rssKb": 87504,
+          "heapUsedKb": 20818,
+          "heapTotalKb": 33072,
+          "externalKb": 2050,
+          "arrayBuffersKb": 111
+        },
+        "rssGrowthKb": 256,
+        "heapUsedGrowthKb": 6099,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 50.86500000000001,
+          "systemMs": 0.5530000000000008
+        },
+        "iterations": 1000,
+        "totalWallMs": 43.141041,
+        "opsPerSec": 23179.78372380954,
+        "framesProduced": 1000,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:33:47.464Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "rerender",
+      "framework": "blessed",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 1000,
+          "mean": 0.03859626000000016,
+          "median": 0.03583399999999415,
+          "p95": 0.048332999999999515,
+          "p99": 0.118583000000001,
+          "min": 0.03220800000002555,
+          "max": 0.46641700000000696,
+          "stddev": 0.01854558658307716,
+          "cv": 0.4805021673881636,
+          "meanCi95Low": 0.037618185999999894,
+          "meanCi95High": 0.040055133000000326
+        },
+        "memBefore": {
+          "rssKb": 88176,
+          "heapUsedKb": 15410,
+          "heapTotalKb": 33520,
+          "externalKb": 2074,
+          "arrayBuffersKb": 38
+        },
+        "memAfter": {
+          "rssKb": 92304,
+          "heapUsedKb": 22493,
+          "heapTotalKb": 34032,
+          "externalKb": 2082,
+          "arrayBuffersKb": 62
+        },
+        "memPeak": {
+          "rssKb": 92304,
+          "heapUsedKb": 23561,
+          "heapTotalKb": 34032,
+          "externalKb": 2082,
+          "arrayBuffersKb": 62
+        },
+        "rssGrowthKb": 4128,
+        "heapUsedGrowthKb": 7083,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 61.852000000000004,
+          "systemMs": 9.421
+        },
+        "iterations": 1000,
+        "totalWallMs": 38.936959,
+        "opsPerSec": 25682.539820328548,
+        "framesProduced": 1000,
+        "bytesProduced": 40213,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:33:47.624Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "rerender",
+      "framework": "ratatui",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 1000,
+          "mean": 0.06836904599999998,
+          "median": 0.068,
+          "p95": 0.07083400000000001,
+          "p99": 0.076041,
+          "min": 0.065667,
+          "max": 0.090709,
+          "stddev": 0.0017982189243482018,
+          "cv": 0.026301653007535054,
+          "meanCi95Low": 0.06827027299999998,
+          "meanCi95High": 0.06848911199999995
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 0,
+          "systemMs": 0
+        },
+        "iterations": 1000,
+        "totalWallMs": 68.396458,
+        "opsPerSec": 14620.640150693185,
+        "framesProduced": 1000,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:33:47.780Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "content-update",
+      "framework": "rezi-native",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 1.1712598319999974,
+          "median": 1.1139374999999916,
+          "p95": 1.737166000000002,
+          "p99": 2.812833000000012,
+          "min": 0.8607080000000451,
+          "max": 3.3969999999999914,
+          "stddev": 0.3489992252846955,
+          "cv": 0.2979690891377689,
+          "meanCi95Low": 1.142995497999996,
+          "meanCi95High": 1.2075286959999956
+        },
+        "memBefore": {
+          "rssKb": 176048,
+          "heapUsedKb": 20010,
+          "heapTotalKb": 118768,
+          "externalKb": 2158,
+          "arrayBuffersKb": 243
+        },
+        "memAfter": {
+          "rssKb": 367200,
+          "heapUsedKb": 163910,
+          "heapTotalKb": 267504,
+          "externalKb": 2160,
+          "arrayBuffersKb": 244
+        },
+        "memPeak": {
+          "rssKb": 367200,
+          "heapUsedKb": 208317,
+          "heapTotalKb": 282352,
+          "externalKb": 2166,
+          "arrayBuffersKb": 251
+        },
+        "rssGrowthKb": 191152,
+        "heapUsedGrowthKb": 143900,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 725.678,
+          "systemMs": 24.198999999999998
+        },
+        "iterations": 500,
+        "totalWallMs": 585.958667,
+        "opsPerSec": 853.3025077688628,
+        "framesProduced": 500,
+        "bytesProduced": 20361552,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:33:47.944Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "content-update",
+      "framework": "ink",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 44.85534211799998,
+          "median": 56.45166700000004,
+          "p95": 65.63837499999863,
+          "p99": 79.21933400000125,
+          "min": 25.01312500000131,
+          "max": 81.71549999999934,
+          "stddev": 17.05875230626616,
+          "cv": 0.3803059234592408,
+          "meanCi95Low": 43.40303297199993,
+          "meanCi95High": 46.377915692000094
+        },
+        "memBefore": {
+          "rssKb": 444784,
+          "heapUsedKb": 53806,
+          "heapTotalKb": 215840,
+          "externalKb": 19982,
+          "arrayBuffersKb": 45
+        },
+        "memAfter": {
+          "rssKb": 1079696,
+          "heapUsedKb": 785039,
+          "heapTotalKb": 857536,
+          "externalKb": 19990,
+          "arrayBuffersKb": 72
+        },
+        "memPeak": {
+          "rssKb": 1079696,
+          "heapUsedKb": 785039,
+          "heapTotalKb": 857536,
+          "externalKb": 19990,
+          "arrayBuffersKb": 72
+        },
+        "rssGrowthKb": 634912,
+        "heapUsedGrowthKb": 731233,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 17717.318,
+          "systemMs": 352.621
+        },
+        "iterations": 500,
+        "totalWallMs": 22428.282333,
+        "opsPerSec": 22.29328098230339,
+        "framesProduced": 1500,
+        "bytesProduced": 9671390,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:33:48.753Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "content-update",
+      "framework": "terminal-kit",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 1.210287067999996,
+          "median": 1.1985409999999774,
+          "p95": 1.2984170000000006,
+          "p99": 1.4101660000000038,
+          "min": 1.131208000000015,
+          "max": 2.6864579999999876,
+          "stddev": 0.0825519107301539,
+          "cv": 0.06820853738987004,
+          "meanCi95Low": 1.2045773839999943,
+          "meanCi95High": 1.219759287999997
+        },
+        "memBefore": {
+          "rssKb": 96848,
+          "heapUsedKb": 14749,
+          "heapTotalKb": 33072,
+          "externalKb": 2987,
+          "arrayBuffersKb": 1049
+        },
+        "memAfter": {
+          "rssKb": 96896,
+          "heapUsedKb": 16393,
+          "heapTotalKb": 33072,
+          "externalKb": 2979,
+          "arrayBuffersKb": 1049
+        },
+        "memPeak": {
+          "rssKb": 96896,
+          "heapUsedKb": 22363,
+          "heapTotalKb": 33072,
+          "externalKb": 2987,
+          "arrayBuffersKb": 1049
+        },
+        "rssGrowthKb": 48,
+        "heapUsedGrowthKb": 1644,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 609.81,
+          "systemMs": 4.904
+        },
+        "iterations": 500,
+        "totalWallMs": 605.577709,
+        "opsPerSec": 825.6578677997541,
+        "framesProduced": 500,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:34:13.841Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "content-update",
+      "framework": "blessed",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 0.5055111960000003,
+          "median": 0.4242710000000045,
+          "p95": 0.7137920000000122,
+          "p99": 3.4648750000000064,
+          "min": 0.3704169999999749,
+          "max": 4.8047919999999635,
+          "stddev": 0.42137313119604364,
+          "cv": 0.8335584543532908,
+          "meanCi95Low": 0.47049554800000115,
+          "meanCi95High": 0.5494275479999995
+        },
+        "memBefore": {
+          "rssKb": 164384,
+          "heapUsedKb": 28903,
+          "heapTotalKb": 108272,
+          "externalKb": 2066,
+          "arrayBuffersKb": 38
+        },
+        "memAfter": {
+          "rssKb": 370560,
+          "heapUsedKb": 176165,
+          "heapTotalKb": 282608,
+          "externalKb": 2074,
+          "arrayBuffersKb": 46
+        },
+        "memPeak": {
+          "rssKb": 370560,
+          "heapUsedKb": 176165,
+          "heapTotalKb": 282608,
+          "externalKb": 2082,
+          "arrayBuffersKb": 54
+        },
+        "rssGrowthKb": 206176,
+        "heapUsedGrowthKb": 147262,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 322.543,
+          "systemMs": 30.47500000000001
+        },
+        "iterations": 500,
+        "totalWallMs": 253.075292,
+        "opsPerSec": 1975.6966239122228,
+        "framesProduced": 500,
+        "bytesProduced": 69419,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:34:14.636Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "content-update",
+      "framework": "ratatui",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 1.3435819239999995,
+          "median": 1.3274789999999999,
+          "p95": 1.427791,
+          "p99": 1.663833,
+          "min": 1.27375,
+          "max": 1.9139579999999998,
+          "stddev": 0.0694891633064194,
+          "cv": 0.05171933476117488,
+          "meanCi95Low": 1.338099831999999,
+          "meanCi95High": 1.3505925339999991
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 0,
+          "systemMs": 0
+        },
+        "iterations": 500,
+        "totalWallMs": 671.807625,
+        "opsPerSec": 744.2606802803109,
+        "framesProduced": 500,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:34:15.099Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "layout-stress",
+      "framework": "rezi-native",
+      "params": {
+        "rows": 40,
+        "cols": 4
+      },
+      "metrics": {
+        "timing": {
+          "n": 300,
+          "mean": 0.6722783500000001,
+          "median": 0.6324374999999662,
+          "p95": 0.9257090000000119,
+          "p99": 1.026207999999997,
+          "min": 0.5557909999999993,
+          "max": 1.5751669999999933,
+          "stddev": 0.11474765239641073,
+          "cv": 0.17068473556587194,
+          "meanCi95Low": 0.6598987866666671,
+          "meanCi95High": 0.685315460000001
+        },
+        "memBefore": {
+          "rssKb": 111440,
+          "heapUsedKb": 16108,
+          "heapTotalKb": 51664,
+          "externalKb": 1992,
+          "arrayBuffersKb": 77
+        },
+        "memAfter": {
+          "rssKb": 149584,
+          "heapUsedKb": 60921,
+          "heapTotalKb": 88528,
+          "externalKb": 1992,
+          "arrayBuffersKb": 77
+        },
+        "memPeak": {
+          "rssKb": 149584,
+          "heapUsedKb": 60921,
+          "heapTotalKb": 88528,
+          "externalKb": 1992,
+          "arrayBuffersKb": 77
+        },
+        "rssGrowthKb": 38144,
+        "heapUsedGrowthKb": 44813,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 256.44500000000005,
+          "systemMs": 7.462999999999997
+        },
+        "iterations": 300,
+        "totalWallMs": 201.90191699999997,
+        "opsPerSec": 1485.8699930025928,
+        "framesProduced": 300,
+        "bytesProduced": 4630656,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:34:15.933Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "layout-stress",
+      "framework": "ink",
+      "params": {
+        "rows": 40,
+        "cols": 4
+      },
+      "metrics": {
+        "timing": {
+          "n": 300,
+          "mean": 25.699208313333312,
+          "median": 33.378541999999015,
+          "p95": 45.87024999999994,
+          "p99": 46.7847499999998,
+          "min": 6.996207999999569,
+          "max": 51.854041999999026,
+          "stddev": 16.905331900566203,
+          "cv": 0.6578152795389944,
+          "meanCi95Low": 23.768885110000024,
+          "meanCi95High": 27.508500709999954
+        },
+        "memBefore": {
+          "rssKb": 284288,
+          "heapUsedKb": 38332,
+          "heapTotalKb": 191696,
+          "externalKb": 19983,
+          "arrayBuffersKb": 45
+        },
+        "memAfter": {
+          "rssKb": 426544,
+          "heapUsedKb": 224812,
+          "heapTotalKb": 321616,
+          "externalKb": 19986,
+          "arrayBuffersKb": 68
+        },
+        "memPeak": {
+          "rssKb": 426544,
+          "heapUsedKb": 224812,
+          "heapTotalKb": 321616,
+          "externalKb": 19986,
+          "arrayBuffersKb": 68
+        },
+        "rssGrowthKb": 142256,
+        "heapUsedGrowthKb": 186480,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 3608.6119999999996,
+          "systemMs": 76.28999999999999
+        },
+        "iterations": 300,
+        "totalWallMs": 7710.274958999999,
+        "opsPerSec": 38.90911823446944,
+        "framesProduced": 900,
+        "bytesProduced": 2317375,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:34:16.304Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "scroll-stress",
+      "framework": "rezi-native",
+      "params": {
+        "items": 2000
+      },
+      "metrics": {
+        "timing": {
+          "n": 50,
+          "mean": 6.86599244,
+          "median": 6.555207999999993,
+          "p95": 8.264291999999955,
+          "p99": 13.176125000000013,
+          "min": 5.630874999999946,
+          "max": 13.176125000000013,
+          "stddev": 1.1163948399164925,
+          "cv": 0.1625977380069024,
+          "meanCi95Low": 6.601384079999995,
+          "meanCi95High": 7.198114079999995
+        },
+        "memBefore": {
+          "rssKb": 197024,
+          "heapUsedKb": 34440,
+          "heapTotalKb": 123072,
+          "externalKb": 1975,
+          "arrayBuffersKb": 60
+        },
+        "memAfter": {
+          "rssKb": 350192,
+          "heapUsedKb": 167743,
+          "heapTotalKb": 249456,
+          "externalKb": 1975,
+          "arrayBuffersKb": 60
+        },
+        "memPeak": {
+          "rssKb": 350192,
+          "heapUsedKb": 167743,
+          "heapTotalKb": 249456,
+          "externalKb": 1975,
+          "arrayBuffersKb": 60
+        },
+        "rssGrowthKb": 153168,
+        "heapUsedGrowthKb": 133303,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 385.72,
+          "systemMs": 30.555999999999997
+        },
+        "iterations": 50,
+        "totalWallMs": 343.3418750000001,
+        "opsPerSec": 145.62744494827493,
+        "framesProduced": 50,
+        "bytesProduced": 289264,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:34:25.658Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "scroll-stress",
+      "framework": "ink",
+      "params": {
+        "items": 2000
+      },
+      "metrics": {
+        "timing": {
+          "n": 50,
+          "mean": 180.42188008000002,
+          "median": 177.63552099999993,
+          "p95": 218.9854580000001,
+          "p99": 255.6092919999992,
+          "min": 151.60079200000018,
+          "max": 255.6092919999992,
+          "stddev": 22.775412041074443,
+          "cv": 0.1262342019214948,
+          "meanCi95Low": 174.2661792399999,
+          "meanCi95High": 186.8269659
+        },
+        "memBefore": {
+          "rssKb": 603328,
+          "heapUsedKb": 101625,
+          "heapTotalKb": 357904,
+          "externalKb": 20017,
+          "arrayBuffersKb": 45
+        },
+        "memAfter": {
+          "rssKb": 1530272,
+          "heapUsedKb": 436201,
+          "heapTotalKb": 841008,
+          "externalKb": 20012,
+          "arrayBuffersKb": 45
+        },
+        "memPeak": {
+          "rssKb": 1530272,
+          "heapUsedKb": 436201,
+          "heapTotalKb": 841008,
+          "externalKb": 20017,
+          "arrayBuffersKb": 45
+        },
+        "rssGrowthKb": 926944,
+        "heapUsedGrowthKb": 334576,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 9843.695,
+          "systemMs": 309.701
+        },
+        "iterations": 50,
+        "totalWallMs": 9021.169000000002,
+        "opsPerSec": 5.542518935184563,
+        "framesProduced": 150,
+        "bytesProduced": 2538100,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:34:26.272Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "virtual-list",
+      "framework": "rezi-native",
+      "params": {
+        "items": 100000,
+        "viewport": 40
+      },
+      "metrics": {
+        "timing": {
+          "n": 1000,
+          "mean": 0.14978854800000052,
+          "median": 0.13206250000000352,
+          "p95": 0.21758400000001643,
+          "p99": 0.4122500000000002,
+          "min": 0.11466699999999719,
+          "max": 1.1432909999999765,
+          "stddev": 0.058280254287225934,
+          "cv": 0.3890835118264564,
+          "meanCi95Low": 0.14644846100000058,
+          "meanCi95High": 0.1536712120000003
+        },
+        "memBefore": {
+          "rssKb": 95904,
+          "heapUsedKb": 14578,
+          "heapTotalKb": 32464,
+          "externalKb": 1975,
+          "arrayBuffersKb": 60
+        },
+        "memAfter": {
+          "rssKb": 153488,
+          "heapUsedKb": 56003,
+          "heapTotalKb": 86720,
+          "externalKb": 1975,
+          "arrayBuffersKb": 60
+        },
+        "memPeak": {
+          "rssKb": 153488,
+          "heapUsedKb": 57357,
+          "heapTotalKb": 86720,
+          "externalKb": 1975,
+          "arrayBuffersKb": 60
+        },
+        "rssGrowthKb": 57584,
+        "heapUsedGrowthKb": 41425,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 232.549,
+          "systemMs": 9.807000000000002
+        },
+        "iterations": 1000,
+        "totalWallMs": 150.264416,
+        "opsPerSec": 6654.9355237902755,
+        "framesProduced": 1000,
+        "bytesProduced": 6310616,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:34:37.800Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "virtual-list",
+      "framework": "ink",
+      "params": {
+        "items": 100000,
+        "viewport": 40
+      },
+      "metrics": {
+        "timing": {
+          "n": 1000,
+          "mean": 25.749475554000067,
+          "median": 26.489125000000058,
+          "p95": 44.82145799999853,
+          "p99": 45.73374999999942,
+          "min": 3.1697500000009313,
+          "max": 47.667207999998936,
+          "stddev": 17.320197621807406,
+          "cv": 0.6726427334601301,
+          "meanCi95Low": 24.705438764000046,
+          "meanCi95High": 26.821518471000022
+        },
+        "memBefore": {
+          "rssKb": 261776,
+          "heapUsedKb": 28599,
+          "heapTotalKb": 168592,
+          "externalKb": 19971,
+          "arrayBuffersKb": 53
+        },
+        "memAfter": {
+          "rssKb": 351280,
+          "heapUsedKb": 160574,
+          "heapTotalKb": 256000,
+          "externalKb": 19987,
+          "arrayBuffersKb": 69
+        },
+        "memPeak": {
+          "rssKb": 351280,
+          "heapUsedKb": 164286,
+          "heapTotalKb": 256000,
+          "externalKb": 20003,
+          "arrayBuffersKb": 85
+        },
+        "rssGrowthKb": 89504,
+        "heapUsedGrowthKb": 131975,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 11276.61,
+          "systemMs": 253.274
+        },
+        "iterations": 1000,
+        "totalWallMs": 25751.437083,
+        "opsPerSec": 38.832784235570195,
+        "framesProduced": 3000,
+        "bytesProduced": 1207622,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:34:38.089Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tables",
+      "framework": "rezi-native",
+      "params": {
+        "rows": 100,
+        "cols": 8
+      },
+      "metrics": {
+        "timing": {
+          "n": 300,
+          "mean": 0.5856186466666667,
+          "median": 0.5447919999999726,
+          "p95": 0.8699169999999867,
+          "p99": 1.1408329999999864,
+          "min": 0.4600000000000364,
+          "max": 1.6843340000000069,
+          "stddev": 0.13656431758335838,
+          "cv": 0.23319666878894754,
+          "meanCi95Low": 0.5717461566666655,
+          "meanCi95High": 0.6014558766666666
+        },
+        "memBefore": {
+          "rssKb": 114992,
+          "heapUsedKb": 16694,
+          "heapTotalKb": 52432,
+          "externalKb": 1996,
+          "arrayBuffersKb": 77
+        },
+        "memAfter": {
+          "rssKb": 147088,
+          "heapUsedKb": 54836,
+          "heapTotalKb": 83376,
+          "externalKb": 1994,
+          "arrayBuffersKb": 79
+        },
+        "memPeak": {
+          "rssKb": 147088,
+          "heapUsedKb": 54836,
+          "heapTotalKb": 83376,
+          "externalKb": 1996,
+          "arrayBuffersKb": 80
+        },
+        "rssGrowthKb": 32096,
+        "heapUsedGrowthKb": 38142,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 248.66400000000002,
+          "systemMs": 7.6419999999999995
+        },
+        "iterations": 300,
+        "totalWallMs": 175.93966700000001,
+        "opsPerSec": 1705.1299750385454,
+        "framesProduced": 300,
+        "bytesProduced": 3969948,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:35:06.629Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "tables",
+      "framework": "ink",
+      "params": {
+        "rows": 100,
+        "cols": 8
+      },
+      "metrics": {
+        "timing": {
+          "n": 300,
+          "mean": 32.82971887333331,
+          "median": 35.238666499999454,
+          "p95": 54.12333299999955,
+          "p99": 55.845666000001074,
+          "min": 15.015834000000268,
+          "max": 56.179833000000144,
+          "stddev": 15.811061698686228,
+          "cv": 0.481608196515174,
+          "meanCi95Low": 31.06222582000001,
+          "meanCi95High": 34.609455569999994
+        },
+        "memBefore": {
+          "rssKb": 364976,
+          "heapUsedKb": 63326,
+          "heapTotalKb": 241264,
+          "externalKb": 19974,
+          "arrayBuffersKb": 45
+        },
+        "memAfter": {
+          "rssKb": 886816,
+          "heapUsedKb": 514739,
+          "heapTotalKb": 596848,
+          "externalKb": 19977,
+          "arrayBuffersKb": 59
+        },
+        "memPeak": {
+          "rssKb": 886816,
+          "heapUsedKb": 514739,
+          "heapTotalKb": 596848,
+          "externalKb": 19977,
+          "arrayBuffersKb": 59
+        },
+        "rssGrowthKb": 521840,
+        "heapUsedGrowthKb": 451413,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 6763.957,
+          "systemMs": 247.449
+        },
+        "iterations": 300,
+        "totalWallMs": 9849.439292,
+        "opsPerSec": 30.458586636872692,
+        "framesProduced": 900,
+        "bytesProduced": 1894303,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:35:06.967Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "memory-profile",
+      "framework": "rezi-native",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 2000,
+          "mean": 0.17325415949999956,
+          "median": 0.13508300000000162,
+          "p95": 0.26412500000003547,
+          "p99": 0.4260829999999771,
+          "min": 0.0735000000000241,
+          "max": 5.0376660000000015,
+          "stddev": 0.23960341966446047,
+          "cv": 1.3829591183030794,
+          "meanCi95Low": 0.1634384994999997,
+          "meanCi95High": 0.18676409299999933
+        },
+        "memBefore": {
+          "rssKb": 98816,
+          "heapUsedKb": 14191,
+          "heapTotalKb": 32208,
+          "externalKb": 1975,
+          "arrayBuffersKb": 53
+        },
+        "memAfter": {
+          "rssKb": 314960,
+          "heapUsedKb": 156679,
+          "heapTotalKb": 230528,
+          "externalKb": 2140,
+          "arrayBuffersKb": 225
+        },
+        "memPeak": {
+          "rssKb": 314960,
+          "heapUsedKb": 156679,
+          "heapTotalKb": 230528,
+          "externalKb": 2179,
+          "arrayBuffersKb": 264
+        },
+        "rssGrowthKb": 216144,
+        "heapUsedGrowthKb": 142488,
+        "rssSlopeKbPerIter": 113.9506191369606,
+        "heapUsedSlopeKbPerIter": 67.74877298311445,
+        "memStable": false,
+        "cpu": {
+          "userMs": 515.212,
+          "systemMs": 32.547
+        },
+        "iterations": 2000,
+        "totalWallMs": 347.414875,
+        "opsPerSec": 5756.805893817874,
+        "framesProduced": 2000,
+        "bytesProduced": 5402244,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:35:18.854Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "memory-profile",
+      "framework": "ink",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 2000,
+          "mean": 22.576046481000006,
+          "median": 22.55872950000048,
+          "p95": 40.74054099999921,
+          "p99": 41.21495799999866,
+          "min": 1.0952909999978147,
+          "max": 44.26787500000137,
+          "stddev": 17.142060340273414,
+          "cv": 0.7593030229938695,
+          "meanCi95Low": 21.879380537000117,
+          "meanCi95High": 23.292130222500063
+        },
+        "memBefore": {
+          "rssKb": 138240,
+          "heapUsedKb": 22924,
+          "heapTotalKb": 57872,
+          "externalKb": 20016,
+          "arrayBuffersKb": 53
+        },
+        "memAfter": {
+          "rssKb": 274064,
+          "heapUsedKb": 123366,
+          "heapTotalKb": 203136,
+          "externalKb": 19979,
+          "arrayBuffersKb": 61
+        },
+        "memPeak": {
+          "rssKb": 274064,
+          "heapUsedKb": 124698,
+          "heapTotalKb": 203136,
+          "externalKb": 20072,
+          "arrayBuffersKb": 141
+        },
+        "rssGrowthKb": 135824,
+        "heapUsedGrowthKb": 100442,
+        "rssSlopeKbPerIter": 49.55506191369606,
+        "heapUsedSlopeKbPerIter": 39.024315196998124,
+        "memStable": false,
+        "cpu": {
+          "userMs": 11757.529,
+          "systemMs": 258.795
+        },
+        "iterations": 2000,
+        "totalWallMs": 45158.314750000005,
+        "opsPerSec": 44.28863236088765,
+        "framesProduced": 6000,
+        "bytesProduced": 1415822,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:35:19.351Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "memory-profile",
+      "framework": "terminal-kit",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 2000,
+          "mean": 0.058805724000000156,
+          "median": 0.057166999999999746,
+          "p95": 0.06225000000000591,
+          "p99": 0.07375000000001819,
+          "min": 0.05379099999998971,
+          "max": 1.002541000000008,
+          "stddev": 0.027370952248558116,
+          "cv": 0.465447075331613,
+          "meanCi95Low": 0.057849575000000666,
+          "meanCi95High": 0.06037888750000009
+        },
+        "memBefore": {
+          "rssKb": 87200,
+          "heapUsedKb": 14740,
+          "heapTotalKb": 32816,
+          "externalKb": 2050,
+          "arrayBuffersKb": 111
+        },
+        "memAfter": {
+          "rssKb": 99008,
+          "heapUsedKb": 20423,
+          "heapTotalKb": 49456,
+          "externalKb": 2042,
+          "arrayBuffersKb": 111
+        },
+        "memPeak": {
+          "rssKb": 99008,
+          "heapUsedKb": 30814,
+          "heapTotalKb": 49456,
+          "externalKb": 2050,
+          "arrayBuffersKb": 111
+        },
+        "rssGrowthKb": 11808,
+        "heapUsedGrowthKb": 5683,
+        "rssSlopeKbPerIter": 7.220202626641651,
+        "heapUsedSlopeKbPerIter": 2.955878048780488,
+        "memStable": false,
+        "cpu": {
+          "userMs": 124.22399999999999,
+          "systemMs": 1.7579999999999991
+        },
+        "iterations": 2000,
+        "totalWallMs": 118.004459,
+        "opsPerSec": 16948.512089699932,
+        "framesProduced": 2000,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:36:05.921Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "memory-profile",
+      "framework": "blessed",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 2000,
+          "mean": 0.15003598550000022,
+          "median": 0.14258399999999938,
+          "p95": 0.17208300000001486,
+          "p99": 0.2913340000000062,
+          "min": 0.13749999999998863,
+          "max": 0.7163749999999993,
+          "stddev": 0.027182227843855593,
+          "cv": 0.18117138867232324,
+          "meanCi95Low": 0.14899405599999974,
+          "meanCi95High": 0.1514206495000003
+        },
+        "memBefore": {
+          "rssKb": 92912,
+          "heapUsedKb": 15543,
+          "heapTotalKb": 33520,
+          "externalKb": 2090,
+          "arrayBuffersKb": 38
+        },
+        "memAfter": {
+          "rssKb": 114048,
+          "heapUsedKb": 25882,
+          "heapTotalKb": 51184,
+          "externalKb": 2082,
+          "arrayBuffersKb": 62
+        },
+        "memPeak": {
+          "rssKb": 114048,
+          "heapUsedKb": 33547,
+          "heapTotalKb": 51184,
+          "externalKb": 2106,
+          "arrayBuffersKb": 86
+        },
+        "rssGrowthKb": 21136,
+        "heapUsedGrowthKb": 10339,
+        "rssSlopeKbPerIter": 8.419842401500938,
+        "heapUsedSlopeKbPerIter": 2.5843827392120073,
+        "memStable": false,
+        "cpu": {
+          "userMs": 299.066,
+          "systemMs": 71.465
+        },
+        "iterations": 2000,
+        "totalWallMs": 300.822792,
+        "opsPerSec": 6648.432410001699,
+        "framesProduced": 2000,
+        "bytesProduced": 1021828,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:36:06.160Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "memory-profile",
+      "framework": "ratatui",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 2000,
+          "mean": 0.0785513380000002,
+          "median": 0.07775,
+          "p95": 0.08237499999999999,
+          "p99": 0.087417,
+          "min": 0.075292,
+          "max": 0.0975,
+          "stddev": 0.0022610630154323414,
+          "cv": 0.028784525801869035,
+          "meanCi95Low": 0.07845765900000003,
+          "meanCi95High": 0.07865235450000013
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 0,
+          "systemMs": 0
+        },
+        "iterations": 2000,
+        "totalWallMs": 157.1585,
+        "opsPerSec": 12726.005911229746,
+        "framesProduced": 2000,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:36:06.590Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-rerender",
+      "framework": "rezi-native",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 1000,
+          "mean": 0.016821170000000094,
+          "median": 0.015520500000000936,
+          "p95": 0.02883300000000588,
+          "p99": 0.049791999999996506,
+          "min": 0.0061249999999972715,
+          "max": 0.3143749999999983,
+          "stddev": 0.014083423923006072,
+          "cv": 0.8372440159041252,
+          "meanCi95Low": 0.016090206000000322,
+          "meanCi95High": 0.01783425000000021
+        },
+        "memBefore": {
+          "rssKb": 81184,
+          "heapUsedKb": 12848,
+          "heapTotalKb": 30928,
+          "externalKb": 1967,
+          "arrayBuffersKb": 52
+        },
+        "memAfter": {
+          "rssKb": 111312,
+          "heapUsedKb": 24137,
+          "heapTotalKb": 34512,
+          "externalKb": 1967,
+          "arrayBuffersKb": 52
+        },
+        "memPeak": {
+          "rssKb": 111312,
+          "heapUsedKb": 24137,
+          "heapTotalKb": 34512,
+          "externalKb": 1967,
+          "arrayBuffersKb": 52
+        },
+        "rssGrowthKb": 30128,
+        "heapUsedGrowthKb": 11289,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 40.284000000000006,
+          "systemMs": 2.962999999999999
+        },
+        "iterations": 1000,
+        "totalWallMs": 17.045833000000002,
+        "opsPerSec": 58665.3641391418,
+        "framesProduced": 1000,
+        "bytesProduced": 284404,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:36:06.839Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-rerender",
+      "framework": "ink",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 1000,
+          "mean": 18.818793242000016,
+          "median": 18.520479499999965,
+          "p95": 36.643458000000464,
+          "p99": 36.83945799999947,
+          "min": 0.4061669999991864,
+          "max": 37.483916999999565,
+          "stddev": 17.315029795082793,
+          "cv": 0.9200924614251511,
+          "meanCi95Low": 17.772668922999973,
+          "meanCi95High": 19.869608957
+        },
+        "memBefore": {
+          "rssKb": 134336,
+          "heapUsedKb": 21729,
+          "heapTotalKb": 55824,
+          "externalKb": 19976,
+          "arrayBuffersKb": 53
+        },
+        "memAfter": {
+          "rssKb": 143296,
+          "heapUsedKb": 34420,
+          "heapTotalKb": 60688,
+          "externalKb": 20056,
+          "arrayBuffersKb": 133
+        },
+        "memPeak": {
+          "rssKb": 143296,
+          "heapUsedKb": 40106,
+          "heapTotalKb": 60688,
+          "externalKb": 20056,
+          "arrayBuffersKb": 133
+        },
+        "rssGrowthKb": 8960,
+        "heapUsedGrowthKb": 12691,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 1792.3269999999998,
+          "systemMs": 36.388
+        },
+        "iterations": 1000,
+        "totalWallMs": 18821.010042,
+        "opsPerSec": 53.132111282468436,
+        "framesProduced": 1000,
+        "bytesProduced": 77101,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:36:06.960Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-rerender",
+      "framework": "ratatui",
+      "params": {},
+      "metrics": {
+        "timing": {
+          "n": 1000,
+          "mean": 0.06214595100000035,
+          "median": 0.062084,
+          "p95": 0.063166,
+          "p99": 0.068625,
+          "min": 0.060166,
+          "max": 0.082834,
+          "stddev": 0.0016041893892552084,
+          "cv": 0.025813256751919353,
+          "meanCi95Low": 0.06205641700000018,
+          "meanCi95High": 0.06225275600000013
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 2480,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 68.351,
+          "systemMs": 0.29100000000000015
+        },
+        "iterations": 1000,
+        "totalWallMs": 62.183,
+        "opsPerSec": 16081.565701236672,
+        "framesProduced": 1000,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:36:28.065Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-frame-fill",
+      "framework": "rezi-native",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "dirtyLines": 1
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 0.044810778,
+          "median": 0.04137500000000216,
+          "p95": 0.05916700000000219,
+          "p99": 0.13720899999999858,
+          "min": 0.03295900000000529,
+          "max": 0.2552079999999961,
+          "stddev": 0.01718908639238027,
+          "cv": 0.3835926792518592,
+          "meanCi95Low": 0.043475435999999604,
+          "meanCi95High": 0.04666916399999999
+        },
+        "memBefore": {
+          "rssKb": 84208,
+          "heapUsedKb": 13172,
+          "heapTotalKb": 31440,
+          "externalKb": 1984,
+          "arrayBuffersKb": 55
+        },
+        "memAfter": {
+          "rssKb": 103568,
+          "heapUsedKb": 28633,
+          "heapTotalKb": 38096,
+          "externalKb": 1982,
+          "arrayBuffersKb": 67
+        },
+        "memPeak": {
+          "rssKb": 103568,
+          "heapUsedKb": 28633,
+          "heapTotalKb": 38096,
+          "externalKb": 1984,
+          "arrayBuffersKb": 67
+        },
+        "rssGrowthKb": 19360,
+        "heapUsedGrowthKb": 15461,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 51.897999999999996,
+          "systemMs": 2.391
+        },
+        "iterations": 500,
+        "totalWallMs": 22.56304200000001,
+        "opsPerSec": 22160.132485681665,
+        "framesProduced": 500,
+        "bytesProduced": 182000,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:36:28.225Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-frame-fill",
+      "framework": "ink",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "dirtyLines": 1
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 25.485123595999983,
+          "median": 24.324208500000168,
+          "p95": 44.863124999999854,
+          "p99": 45.61620799999946,
+          "min": 2.0542500000001382,
+          "max": 55.677582999999686,
+          "stddev": 17.53276650255547,
+          "cv": 0.6879608190445397,
+          "meanCi95Low": 24.079732355999926,
+          "meanCi95High": 27.063589418000014
+        },
+        "memBefore": {
+          "rssKb": 182032,
+          "heapUsedKb": 22018,
+          "heapTotalKb": 89616,
+          "externalKb": 19984,
+          "arrayBuffersKb": 53
+        },
+        "memAfter": {
+          "rssKb": 253088,
+          "heapUsedKb": 33126,
+          "heapTotalKb": 164368,
+          "externalKb": 19992,
+          "arrayBuffersKb": 69
+        },
+        "memPeak": {
+          "rssKb": 253088,
+          "heapUsedKb": 78953,
+          "heapTotalKb": 164368,
+          "externalKb": 20056,
+          "arrayBuffersKb": 133
+        },
+        "rssGrowthKb": 71056,
+        "heapUsedGrowthKb": 11108,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 4478.827,
+          "systemMs": 115.92500000000001
+        },
+        "iterations": 500,
+        "totalWallMs": 12743.757792,
+        "opsPerSec": 39.23489508831368,
+        "framesProduced": 500,
+        "bytesProduced": 299416,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:36:28.354Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-frame-fill",
+      "framework": "ratatui",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "dirtyLines": 1
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 0.1756344380000001,
+          "median": 0.175041,
+          "p95": 0.18083300000000002,
+          "p99": 0.184541,
+          "min": 0.17175,
+          "max": 0.19799999999999998,
+          "stddev": 0.002733433117922588,
+          "cv": 0.015563195629792071,
+          "meanCi95Low": 0.17540654999999983,
+          "meanCi95High": 0.17590144799999988
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 2640,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 96.716,
+          "systemMs": 0.17300000000000004
+        },
+        "iterations": 500,
+        "totalWallMs": 87.830833,
+        "opsPerSec": 5692.7616751625255,
+        "framesProduced": 500,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:36:42.676Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-frame-fill",
+      "framework": "rezi-native",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "dirtyLines": 40
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 0.08234387399999935,
+          "median": 0.07570799999999878,
+          "p95": 0.10783399999999688,
+          "p99": 0.3017500000000126,
+          "min": 0.06204199999999105,
+          "max": 0.4099999999999966,
+          "stddev": 0.03329144995992436,
+          "cv": 0.4042978347111119,
+          "meanCi95Low": 0.07963834399999947,
+          "meanCi95High": 0.08574161799999928
+        },
+        "memBefore": {
+          "rssKb": 88480,
+          "heapUsedKb": 13360,
+          "heapTotalKb": 31696,
+          "externalKb": 2093,
+          "arrayBuffersKb": 62
+        },
+        "memAfter": {
+          "rssKb": 111456,
+          "heapUsedKb": 24837,
+          "heapTotalKb": 39888,
+          "externalKb": 2015,
+          "arrayBuffersKb": 100
+        },
+        "memPeak": {
+          "rssKb": 111456,
+          "heapUsedKb": 27113,
+          "heapTotalKb": 39888,
+          "externalKb": 2116,
+          "arrayBuffersKb": 201
+        },
+        "rssGrowthKb": 22976,
+        "heapUsedGrowthKb": 11477,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 83.85099999999998,
+          "systemMs": 3.6080000000000005
+        },
+        "iterations": 500,
+        "totalWallMs": 41.38033300000001,
+        "opsPerSec": 12083.03471119964,
+        "framesProduced": 500,
+        "bytesProduced": 2032000,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:36:42.862Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-frame-fill",
+      "framework": "ink",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "dirtyLines": 40
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 25.940916357999946,
+          "median": 36.66349999999966,
+          "p95": 44.76391700000022,
+          "p99": 45.404749999999694,
+          "min": 2.0805410000002666,
+          "max": 149.60350000000017,
+          "stddev": 18.343392828414817,
+          "cv": 0.7071220066116854,
+          "meanCi95Low": 24.438181181999965,
+          "meanCi95High": 27.673719479999978
+        },
+        "memBefore": {
+          "rssKb": 175104,
+          "heapUsedKb": 23905,
+          "heapTotalKb": 91664,
+          "externalKb": 20016,
+          "arrayBuffersKb": 53
+        },
+        "memAfter": {
+          "rssKb": 268752,
+          "heapUsedKb": 52350,
+          "heapTotalKb": 181104,
+          "externalKb": 20024,
+          "arrayBuffersKb": 93
+        },
+        "memPeak": {
+          "rssKb": 268752,
+          "heapUsedKb": 82256,
+          "heapTotalKb": 181104,
+          "externalKb": 20024,
+          "arrayBuffersKb": 93
+        },
+        "rssGrowthKb": 93648,
+        "heapUsedGrowthKb": 28445,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 4806.165,
+          "systemMs": 82.52199999999999
+        },
+        "iterations": 500,
+        "totalWallMs": 12971.497625,
+        "opsPerSec": 38.5460503061997,
+        "framesProduced": 500,
+        "bytesProduced": 549656,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:36:43.012Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-frame-fill",
+      "framework": "ratatui",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "dirtyLines": 40
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 0.17824884800000015,
+          "median": 0.178417,
+          "p95": 0.184625,
+          "p99": 0.187959,
+          "min": 0.17191700000000001,
+          "max": 0.23691700000000002,
+          "stddev": 0.004419623694942366,
+          "cv": 0.024794683076674706,
+          "meanCi95Low": 0.17789787799999993,
+          "meanCi95High": 0.17869574400000007
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 2656,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 98.15299999999999,
+          "systemMs": 0.14
+        },
+        "iterations": 500,
+        "totalWallMs": 89.13787500000001,
+        "opsPerSec": 5609.287858836661,
+        "framesProduced": 500,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:36:57.575Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-screen-transition",
+      "framework": "rezi-native",
+      "params": {
+        "rows": 40,
+        "cols": 120
+      },
+      "metrics": {
+        "timing": {
+          "n": 1000,
+          "mean": 0.0754954629999997,
+          "median": 0.06893750000000409,
+          "p95": 0.10050000000001091,
+          "p99": 0.2507500000000107,
+          "min": 0.050416999999981726,
+          "max": 0.8277919999999881,
+          "stddev": 0.04488470002562789,
+          "cv": 0.5945350653141642,
+          "meanCi95Low": 0.07319894299999968,
+          "meanCi95High": 0.07874603899999999
+        },
+        "memBefore": {
+          "rssKb": 88784,
+          "heapUsedKb": 13466,
+          "heapTotalKb": 31696,
+          "externalKb": 2078,
+          "arrayBuffersKb": 55
+        },
+        "memAfter": {
+          "rssKb": 126960,
+          "heapUsedKb": 26671,
+          "heapTotalKb": 60112,
+          "externalKb": 2218,
+          "arrayBuffersKb": 303
+        },
+        "memPeak": {
+          "rssKb": 126960,
+          "heapUsedKb": 42430,
+          "heapTotalKb": 63440,
+          "externalKb": 2226,
+          "arrayBuffersKb": 311
+        },
+        "rssGrowthKb": 38176,
+        "heapUsedGrowthKb": 13205,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 141.22200000000004,
+          "systemMs": 6.214000000000002
+        },
+        "iterations": 1000,
+        "totalWallMs": 75.873208,
+        "opsPerSec": 13179.882943660426,
+        "framesProduced": 1000,
+        "bytesProduced": 4064000,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:36:57.760Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-screen-transition",
+      "framework": "ink",
+      "params": {
+        "rows": 40,
+        "cols": 120
+      },
+      "metrics": {
+        "timing": {
+          "n": 1000,
+          "mean": 25.53990104600009,
+          "median": 24.418229000000565,
+          "p95": 44.42937499999971,
+          "p99": 44.981958000000304,
+          "min": 1.9379159999989497,
+          "max": 46.65991700000086,
+          "stddev": 17.416143772920183,
+          "cv": 0.6819189996684736,
+          "meanCi95Low": 24.47473643100004,
+          "meanCi95High": 26.619852654000102
+        },
+        "memBefore": {
+          "rssKb": 178672,
+          "heapUsedKb": 26012,
+          "heapTotalKb": 96016,
+          "externalKb": 20016,
+          "arrayBuffersKb": 53
+        },
+        "memAfter": {
+          "rssKb": 292192,
+          "heapUsedKb": 76003,
+          "heapTotalKb": 202416,
+          "externalKb": 19995,
+          "arrayBuffersKb": 61
+        },
+        "memPeak": {
+          "rssKb": 292192,
+          "heapUsedKb": 106171,
+          "heapTotalKb": 202416,
+          "externalKb": 20016,
+          "arrayBuffersKb": 77
+        },
+        "rssGrowthKb": 113520,
+        "heapUsedGrowthKb": 49991,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 9174.065,
+          "systemMs": 139.729
+        },
+        "iterations": 1000,
+        "totalWallMs": 25542.105375,
+        "opsPerSec": 39.151040422015335,
+        "framesProduced": 3000,
+        "bytesProduced": 2065900,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:36:57.950Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-screen-transition",
+      "framework": "ratatui",
+      "params": {
+        "rows": 40,
+        "cols": 120
+      },
+      "metrics": {
+        "timing": {
+          "n": 1000,
+          "mean": 0.18268275899999972,
+          "median": 0.18052049999999997,
+          "p95": 0.192833,
+          "p99": 0.19737500000000002,
+          "min": 0.174875,
+          "max": 0.21745799999999998,
+          "stddev": 0.005879802767348492,
+          "cv": 0.03218586581204689,
+          "meanCi95Low": 0.18233718800000004,
+          "meanCi95High": 0.18306168099999984
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 2832,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 200.683,
+          "systemMs": 0.473
+        },
+        "iterations": 1000,
+        "totalWallMs": 182.711791,
+        "opsPerSec": 5473.100529127865,
+        "framesProduced": 1000,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:37:26.343Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-fps-stream",
+      "framework": "rezi-native",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "channels": 12
+      },
+      "metrics": {
+        "timing": {
+          "n": 1200,
+          "mean": 0.5997240391666682,
+          "median": 0.5904165000000035,
+          "p95": 0.6530839999999785,
+          "p99": 0.8139579999999569,
+          "min": 0.5097090000000435,
+          "max": 1.2307080000000497,
+          "stddev": 0.047054002913312014,
+          "cv": 0.0784594244024214,
+          "meanCi95Low": 0.5972534516666691,
+          "meanCi95High": 0.6025226166666682
+        },
+        "memBefore": {
+          "rssKb": 87920,
+          "heapUsedKb": 13582,
+          "heapTotalKb": 31696,
+          "externalKb": 2001,
+          "arrayBuffersKb": 59
+        },
+        "memAfter": {
+          "rssKb": 126640,
+          "heapUsedKb": 21993,
+          "heapTotalKb": 61648,
+          "externalKb": 1983,
+          "arrayBuffersKb": 68
+        },
+        "memPeak": {
+          "rssKb": 126640,
+          "heapUsedKb": 44480,
+          "heapTotalKb": 63440,
+          "externalKb": 2116,
+          "arrayBuffersKb": 201
+        },
+        "rssGrowthKb": 38720,
+        "heapUsedGrowthKb": 8411,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 799.481,
+          "systemMs": 10.532
+        },
+        "iterations": 1200,
+        "totalWallMs": 720.1874580000001,
+        "opsPerSec": 1666.2328490591403,
+        "framesProduced": 1200,
+        "bytesProduced": 5568000,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:37:26.634Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-fps-stream",
+      "framework": "ink",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "channels": 12
+      },
+      "metrics": {
+        "timing": {
+          "n": 1200,
+          "mean": 26.169840957500046,
+          "median": 25.424833499998385,
+          "p95": 45.02512499999966,
+          "p99": 45.83662499999991,
+          "min": 2.9179579999981797,
+          "max": 48.45933299999979,
+          "stddev": 17.350848398295252,
+          "cv": 0.663009317728492,
+          "meanCi95Low": 25.269830603333375,
+          "meanCi95High": 27.066072921666724
+        },
+        "memBefore": {
+          "rssKb": 183024,
+          "heapUsedKb": 27089,
+          "heapTotalKb": 95888,
+          "externalKb": 20024,
+          "arrayBuffersKb": 53
+        },
+        "memAfter": {
+          "rssKb": 300320,
+          "heapUsedKb": 106217,
+          "heapTotalKb": 210304,
+          "externalKb": 19987,
+          "arrayBuffersKb": 69
+        },
+        "memPeak": {
+          "rssKb": 300320,
+          "heapUsedKb": 117021,
+          "heapTotalKb": 210304,
+          "externalKb": 20024,
+          "arrayBuffersKb": 77
+        },
+        "rssGrowthKb": 117296,
+        "heapUsedGrowthKb": 79128,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 11765.771999999999,
+          "systemMs": 145.85500000000002
+        },
+        "iterations": 1200,
+        "totalWallMs": 31405.875875000005,
+        "opsPerSec": 38.20941039110566,
+        "framesProduced": 3600,
+        "bytesProduced": 3273901,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:37:27.526Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-fps-stream",
+      "framework": "ratatui",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "channels": 12
+      },
+      "metrics": {
+        "timing": {
+          "n": 1200,
+          "mean": 0.188579905,
+          "median": 0.186791,
+          "p95": 0.194667,
+          "p99": 0.199458,
+          "min": 0.183708,
+          "max": 0.216666,
+          "stddev": 0.0035484951168500045,
+          "cv": 0.018816931299493467,
+          "meanCi95Low": 0.18836893416666675,
+          "meanCi95High": 0.1887714666666666
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 2784,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 245.323,
+          "systemMs": 0.381
+        },
+        "iterations": 1200,
+        "totalWallMs": 226.32870799999998,
+        "opsPerSec": 5302.022932062158,
+        "framesProduced": 1200,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:38:01.881Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-input-latency",
+      "framework": "rezi-native",
+      "params": {
+        "rows": 40,
+        "cols": 120
+      },
+      "metrics": {
+        "timing": {
+          "n": 1000,
+          "mean": 0.09194608300000046,
+          "median": 0.0846249999999884,
+          "p95": 0.1270409999999913,
+          "p99": 0.24774999999999636,
+          "min": 0.05699999999998795,
+          "max": 0.7547079999999937,
+          "stddev": 0.04233358700965601,
+          "cv": 0.4604175145737943,
+          "meanCi95Low": 0.08967107900000015,
+          "meanCi95High": 0.09488496200000118
+        },
+        "memBefore": {
+          "rssKb": 88496,
+          "heapUsedKb": 13564,
+          "heapTotalKb": 31696,
+          "externalKb": 1989,
+          "arrayBuffersKb": 55
+        },
+        "memAfter": {
+          "rssKb": 112800,
+          "heapUsedKb": 27209,
+          "heapTotalKb": 55504,
+          "externalKb": 2240,
+          "arrayBuffersKb": 325
+        },
+        "memPeak": {
+          "rssKb": 112800,
+          "heapUsedKb": 27209,
+          "heapTotalKb": 55504,
+          "externalKb": 2240,
+          "arrayBuffersKb": 325
+        },
+        "rssGrowthKb": 24304,
+        "heapUsedGrowthKb": 13645,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 153.01800000000003,
+          "systemMs": 6.754000000000001
+        },
+        "iterations": 1000,
+        "totalWallMs": 92.33100000000002,
+        "opsPerSec": 10830.598607185017,
+        "framesProduced": 1000,
+        "bytesProduced": 4064000,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:38:02.216Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-input-latency",
+      "framework": "ink",
+      "params": {
+        "rows": 40,
+        "cols": 120
+      },
+      "metrics": {
+        "timing": {
+          "n": 1000,
+          "mean": 25.423512420000005,
+          "median": 25.577729499999805,
+          "p95": 44.53554200000144,
+          "p99": 45.861957999999504,
+          "min": 2.1209170000001905,
+          "max": 50.097999999999956,
+          "stddev": 17.55797207345281,
+          "cv": 0.6906194464160829,
+          "meanCi95Low": 24.355057062,
+          "meanCi95High": 26.51294701300003
+        },
+        "memBefore": {
+          "rssKb": 179808,
+          "heapUsedKb": 25939,
+          "heapTotalKb": 100880,
+          "externalKb": 20088,
+          "arrayBuffersKb": 53
+        },
+        "memAfter": {
+          "rssKb": 279328,
+          "heapUsedKb": 116287,
+          "heapTotalKb": 202672,
+          "externalKb": 20011,
+          "arrayBuffersKb": 85
+        },
+        "memPeak": {
+          "rssKb": 279328,
+          "heapUsedKb": 121912,
+          "heapTotalKb": 202672,
+          "externalKb": 20088,
+          "arrayBuffersKb": 85
+        },
+        "rssGrowthKb": 99520,
+        "heapUsedGrowthKb": 90348,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 9151.440999999999,
+          "systemMs": 125.64700000000002
+        },
+        "iterations": 1000,
+        "totalWallMs": 25425.824833,
+        "opsPerSec": 39.33009082569101,
+        "framesProduced": 3000,
+        "bytesProduced": 1033572,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:38:02.426Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-input-latency",
+      "framework": "ratatui",
+      "params": {
+        "rows": 40,
+        "cols": 120
+      },
+      "metrics": {
+        "timing": {
+          "n": 1000,
+          "mean": 0.17354615099999982,
+          "median": 0.17283300000000001,
+          "p95": 0.17925,
+          "p99": 0.180958,
+          "min": 0.170542,
+          "max": 0.196875,
+          "stddev": 0.002377864648839164,
+          "cv": 0.01370162711842089,
+          "meanCi95Low": 0.173408708,
+          "meanCi95High": 0.1737055199999997
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 2704,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 191.015,
+          "systemMs": 0.2350000000000001
+        },
+        "iterations": 1000,
+        "totalWallMs": 173.574166,
+        "opsPerSec": 5761.226011018252,
+        "framesProduced": 1000,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:38:30.723Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-memory-soak",
+      "framework": "rezi-native",
+      "params": {
+        "rows": 40,
+        "cols": 120
+      },
+      "metrics": {
+        "timing": {
+          "n": 1200,
+          "mean": 0.06990175916666701,
+          "median": 0.06239550000000804,
+          "p95": 0.09087499999998272,
+          "p99": 0.2303749999999951,
+          "min": 0.05129200000001788,
+          "max": 0.8916250000000048,
+          "stddev": 0.0429749209011429,
+          "cv": 0.6147902629843356,
+          "meanCi95Low": 0.06772911833333321,
+          "meanCi95High": 0.0725671925000004
+        },
+        "memBefore": {
+          "rssKb": 90080,
+          "heapUsedKb": 13439,
+          "heapTotalKb": 31440,
+          "externalKb": 2057,
+          "arrayBuffersKb": 55
+        },
+        "memAfter": {
+          "rssKb": 138160,
+          "heapUsedKb": 28086,
+          "heapTotalKb": 61648,
+          "externalKb": 2210,
+          "arrayBuffersKb": 295
+        },
+        "memPeak": {
+          "rssKb": 138160,
+          "heapUsedKb": 40275,
+          "heapTotalKb": 63696,
+          "externalKb": 2327,
+          "arrayBuffersKb": 412
+        },
+        "rssGrowthKb": 48080,
+        "heapUsedGrowthKb": 14647,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 153.392,
+          "systemMs": 6.0379999999999985
+        },
+        "iterations": 1200,
+        "totalWallMs": 84.29499999999999,
+        "opsPerSec": 14235.719793582066,
+        "framesProduced": 1200,
+        "bytesProduced": 4876800,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:38:31.004Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-memory-soak",
+      "framework": "ink",
+      "params": {
+        "rows": 40,
+        "cols": 120
+      },
+      "metrics": {
+        "timing": {
+          "n": 1200,
+          "mean": 25.851579834166607,
+          "median": 25.990083500000765,
+          "p95": 45.34420900000259,
+          "p99": 46.051791999998386,
+          "min": 2.025667000001704,
+          "max": 47.21620800000164,
+          "stddev": 17.55493684331523,
+          "cv": 0.6790663068147904,
+          "meanCi95Low": 24.953035442499992,
+          "meanCi95High": 26.770157672499938
+        },
+        "memBefore": {
+          "rssKb": 245776,
+          "heapUsedKb": 28128,
+          "heapTotalKb": 161280,
+          "externalKb": 19984,
+          "arrayBuffersKb": 53
+        },
+        "memAfter": {
+          "rssKb": 298256,
+          "heapUsedKb": 105327,
+          "heapTotalKb": 211328,
+          "externalKb": 19995,
+          "arrayBuffersKb": 69
+        },
+        "memPeak": {
+          "rssKb": 298256,
+          "heapUsedKb": 120083,
+          "heapTotalKb": 211328,
+          "externalKb": 20008,
+          "arrayBuffersKb": 85
+        },
+        "rssGrowthKb": 52480,
+        "heapUsedGrowthKb": 77199,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 11213.103,
+          "systemMs": 138.81099999999998
+        },
+        "iterations": 1200,
+        "totalWallMs": 31024.568167,
+        "opsPerSec": 38.6790234610391,
+        "framesProduced": 3600,
+        "bytesProduced": 1085661,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:38:31.204Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-memory-soak",
+      "framework": "ratatui",
+      "params": {
+        "rows": 40,
+        "cols": 120
+      },
+      "metrics": {
+        "timing": {
+          "n": 1200,
+          "mean": 0.17596422249999982,
+          "median": 0.175167,
+          "p95": 0.182,
+          "p99": 0.193583,
+          "min": 0.168042,
+          "max": 0.24354199999999998,
+          "stddev": 0.00446812677244731,
+          "cv": 0.025392245701806315,
+          "meanCi95Low": 0.1757132524999999,
+          "meanCi95High": 0.1762272391666663
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 2864,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 238.032,
+          "systemMs": 0.3550000000000001
+        },
+        "iterations": 1200,
+        "totalWallMs": 211.195625,
+        "opsPerSec": 5681.9358829047715,
+        "framesProduced": 1200,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:39:06.389Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-full-ui",
+      "framework": "rezi-native",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "services": 24
+      },
+      "metrics": {
+        "timing": {
+          "n": 1200,
+          "mean": 0.5553212166666662,
+          "median": 0.5436459999999954,
+          "p95": 0.6015409999999974,
+          "p99": 0.8089159999999538,
+          "min": 0.5046250000000327,
+          "max": 1.2196670000000154,
+          "stddev": 0.05026372056362338,
+          "cv": 0.09051287625085352,
+          "meanCi95Low": 0.5526795791666658,
+          "meanCi95High": 0.558348320000001
+        },
+        "memBefore": {
+          "rssKb": 87712,
+          "heapUsedKb": 13641,
+          "heapTotalKb": 31696,
+          "externalKb": 1995,
+          "arrayBuffersKb": 59
+        },
+        "memAfter": {
+          "rssKb": 126416,
+          "heapUsedKb": 37095,
+          "heapTotalKb": 62928,
+          "externalKb": 2093,
+          "arrayBuffersKb": 178
+        },
+        "memPeak": {
+          "rssKb": 126416,
+          "heapUsedKb": 37095,
+          "heapTotalKb": 62928,
+          "externalKb": 2101,
+          "arrayBuffersKb": 186
+        },
+        "rssGrowthKb": 38704,
+        "heapUsedGrowthKb": 23454,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 749.969,
+          "systemMs": 9.612000000000002
+        },
+        "iterations": 1200,
+        "totalWallMs": 666.892375,
+        "opsPerSec": 1799.3907937543895,
+        "framesProduced": 1200,
+        "bytesProduced": 4963200,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:39:06.719Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-full-ui",
+      "framework": "ink",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "services": 24
+      },
+      "metrics": {
+        "timing": {
+          "n": 1200,
+          "mean": 26.551613040833356,
+          "median": 24.673791499997606,
+          "p95": 45.95662500000617,
+          "p99": 46.725374999999985,
+          "min": 2.746208000000479,
+          "max": 47.298375000000306,
+          "stddev": 17.49746927074457,
+          "cv": 0.6589983532765206,
+          "meanCi95Low": 25.643798784166776,
+          "meanCi95High": 27.45535403666669
+        },
+        "memBefore": {
+          "rssKb": 194304,
+          "heapUsedKb": 27977,
+          "heapTotalKb": 163712,
+          "externalKb": 19972,
+          "arrayBuffersKb": 45
+        },
+        "memAfter": {
+          "rssKb": 313824,
+          "heapUsedKb": 112250,
+          "heapTotalKb": 216576,
+          "externalKb": 19985,
+          "arrayBuffersKb": 67
+        },
+        "memPeak": {
+          "rssKb": 313824,
+          "heapUsedKb": 131247,
+          "heapTotalKb": 216576,
+          "externalKb": 19999,
+          "arrayBuffersKb": 81
+        },
+        "rssGrowthKb": 119520,
+        "heapUsedGrowthKb": 84273,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 12105.655999999999,
+          "systemMs": 139.375
+        },
+        "iterations": 1200,
+        "totalWallMs": 31864.146582999998,
+        "opsPerSec": 37.65988198912624,
+        "framesProduced": 3600,
+        "bytesProduced": 5657366,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:39:07.568Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-full-ui",
+      "framework": "ratatui",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "services": 24
+      },
+      "metrics": {
+        "timing": {
+          "n": 1200,
+          "mean": 0.1942438650000001,
+          "median": 0.193208,
+          "p95": 0.20191699999999999,
+          "p99": 0.21220899999999998,
+          "min": 0.186125,
+          "max": 0.256959,
+          "stddev": 0.004973374943648259,
+          "cv": 0.025603768456976785,
+          "meanCi95Low": 0.19397025916666655,
+          "meanCi95High": 0.1945329149999999
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 3168,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 256.746,
+          "systemMs": 0.43100000000000005
+        },
+        "iterations": 1200,
+        "totalWallMs": 233.124,
+        "opsPerSec": 5147.475163432337,
+        "framesProduced": 1200,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:39:42.915Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-full-ui-navigation",
+      "framework": "rezi-native",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "services": 24,
+        "dwell": 8
+      },
+      "metrics": {
+        "timing": {
+          "n": 1200,
+          "mean": 0.0780771783333331,
+          "median": 0.07087500000000091,
+          "p95": 0.10566699999999685,
+          "p99": 0.28683300000000145,
+          "min": 0.051375000000007276,
+          "max": 0.7356659999999806,
+          "stddev": 0.04030787986334898,
+          "cv": 0.5162568720306909,
+          "meanCi95Low": 0.07607288749999984,
+          "meanCi95High": 0.08053113749999974
+        },
+        "memBefore": {
+          "rssKb": 89568,
+          "heapUsedKb": 13565,
+          "heapTotalKb": 31184,
+          "externalKb": 2030,
+          "arrayBuffersKb": 55
+        },
+        "memAfter": {
+          "rssKb": 134320,
+          "heapUsedKb": 28065,
+          "heapTotalKb": 60880,
+          "externalKb": 2136,
+          "arrayBuffersKb": 221
+        },
+        "memPeak": {
+          "rssKb": 134320,
+          "heapUsedKb": 41980,
+          "heapTotalKb": 63184,
+          "externalKb": 2215,
+          "arrayBuffersKb": 300
+        },
+        "rssGrowthKb": 44752,
+        "heapUsedGrowthKb": 14500,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 184.31499999999997,
+          "systemMs": 6.628999999999998
+        },
+        "iterations": 1200,
+        "totalWallMs": 94.100625,
+        "opsPerSec": 12752.30637416064,
+        "framesProduced": 1200,
+        "bytesProduced": 4795800,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:39:43.263Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-full-ui-navigation",
+      "framework": "ink",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "services": 24,
+        "dwell": 8
+      },
+      "metrics": {
+        "timing": {
+          "n": 1200,
+          "mean": 25.544813090000005,
+          "median": 25.16797950000091,
+          "p95": 45.021584000001894,
+          "p99": 46.02691700000105,
+          "min": 1.8400409999994736,
+          "max": 49.32899999999972,
+          "stddev": 17.392308200554314,
+          "cv": 0.6808547840721081,
+          "meanCi95Low": 24.65550925833332,
+          "meanCi95High": 26.447306037499946
+        },
+        "memBefore": {
+          "rssKb": 190096,
+          "heapUsedKb": 26325,
+          "heapTotalKb": 93712,
+          "externalKb": 19984,
+          "arrayBuffersKb": 53
+        },
+        "memAfter": {
+          "rssKb": 294112,
+          "heapUsedKb": 112779,
+          "heapTotalKb": 204288,
+          "externalKb": 19987,
+          "arrayBuffersKb": 69
+        },
+        "memPeak": {
+          "rssKb": 294112,
+          "heapUsedKb": 117635,
+          "heapTotalKb": 204288,
+          "externalKb": 20003,
+          "arrayBuffersKb": 85
+        },
+        "rssGrowthKb": 104016,
+        "heapUsedGrowthKb": 86454,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 10772.317000000001,
+          "systemMs": 155.548
+        },
+        "iterations": 1200,
+        "totalWallMs": 30656.435459,
+        "opsPerSec": 39.14349408315534,
+        "framesProduced": 3600,
+        "bytesProduced": 3077798,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:39:43.473Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-full-ui-navigation",
+      "framework": "ratatui",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "services": 24,
+        "dwell": 8
+      },
+      "metrics": {
+        "timing": {
+          "n": 1200,
+          "mean": 0.17732501250000007,
+          "median": 0.176833,
+          "p95": 0.186417,
+          "p99": 0.19283399999999998,
+          "min": 0.166334,
+          "max": 0.20350000000000001,
+          "stddev": 0.004771723659469791,
+          "cv": 0.02690947877119021,
+          "meanCi95Low": 0.17705892999999964,
+          "meanCi95High": 0.17757168083333316
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 3136,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 233.946,
+          "systemMs": 0.4159999999999999
+        },
+        "iterations": 1200,
+        "totalWallMs": 212.824333,
+        "opsPerSec": 5638.453005277362,
+        "framesProduced": 1200,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:40:17.524Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-strict-ui",
+      "framework": "rezi-native",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "services": 24
+      },
+      "metrics": {
+        "timing": {
+          "n": 1200,
+          "mean": 0.2627751816666674,
+          "median": 0.22343749999998863,
+          "p95": 0.4123329999999896,
+          "p99": 0.8063750000000027,
+          "min": 0.13462499999999977,
+          "max": 1.9461660000000052,
+          "stddev": 0.14029207990963646,
+          "cv": 0.5338863397213751,
+          "meanCi95Low": 0.2551149183333344,
+          "meanCi95High": 0.270562065
+        },
+        "memBefore": {
+          "rssKb": 94880,
+          "heapUsedKb": 16834,
+          "heapTotalKb": 51392,
+          "externalKb": 2035,
+          "arrayBuffersKb": 120
+        },
+        "memAfter": {
+          "rssKb": 202576,
+          "heapUsedKb": 74466,
+          "heapTotalKb": 131600,
+          "externalKb": 2114,
+          "arrayBuffersKb": 199
+        },
+        "memPeak": {
+          "rssKb": 202576,
+          "heapUsedKb": 74466,
+          "heapTotalKb": 131600,
+          "externalKb": 2114,
+          "arrayBuffersKb": 199
+        },
+        "rssGrowthKb": 107696,
+        "heapUsedGrowthKb": 57632,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 438.19899999999996,
+          "systemMs": 17.52
+        },
+        "iterations": 1200,
+        "totalWallMs": 315.851292,
+        "opsPerSec": 3799.2562651920384,
+        "framesProduced": 1200,
+        "bytesProduced": 28320160,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:40:17.848Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-strict-ui",
+      "framework": "ink",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "services": 24
+      },
+      "metrics": {
+        "timing": {
+          "n": 1200,
+          "mean": 25.76545069916664,
+          "median": 25.294645500001934,
+          "p95": 45.55233399999997,
+          "p99": 46.37720799999806,
+          "min": 4.4375,
+          "max": 49.309666999999536,
+          "stddev": 18.04237520796787,
+          "cv": 0.7002545935884379,
+          "meanCi95Low": 24.81910353749996,
+          "meanCi95High": 26.68800364500003
+        },
+        "memBefore": {
+          "rssKb": 250144,
+          "heapUsedKb": 31383,
+          "heapTotalKb": 165424,
+          "externalKb": 19974,
+          "arrayBuffersKb": 45
+        },
+        "memAfter": {
+          "rssKb": 368816,
+          "heapUsedKb": 179780,
+          "heapTotalKb": 277040,
+          "externalKb": 19993,
+          "arrayBuffersKb": 75
+        },
+        "memPeak": {
+          "rssKb": 368816,
+          "heapUsedKb": 179780,
+          "heapTotalKb": 277040,
+          "externalKb": 19993,
+          "arrayBuffersKb": 75
+        },
+        "rssGrowthKb": 118672,
+        "heapUsedGrowthKb": 148397,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 13419.164,
+          "systemMs": 165.326
+        },
+        "iterations": 1200,
+        "totalWallMs": 30920.061209,
+        "opsPerSec": 38.809754996562305,
+        "framesProduced": 3600,
+        "bytesProduced": 6846600,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:40:18.302Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-strict-ui",
+      "framework": "ratatui",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "services": 24
+      },
+      "metrics": {
+        "timing": {
+          "n": 1200,
+          "mean": 0.14020044083333352,
+          "median": 0.139333,
+          "p95": 0.145458,
+          "p99": 0.15395799999999998,
+          "min": 0.135833,
+          "max": 0.191,
+          "stddev": 0.003250256075783256,
+          "cv": 0.02318292336646125,
+          "meanCi95Low": 0.14002075666666683,
+          "meanCi95High": 0.14039236416666662
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 3264,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 185.369,
+          "systemMs": 0.403
+        },
+        "iterations": 1200,
+        "totalWallMs": 168.284875,
+        "opsPerSec": 7130.765613962633,
+        "framesProduced": 1200,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:40:52.648Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-strict-ui-navigation",
+      "framework": "rezi-native",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "services": 24,
+        "dwell": 8
+      },
+      "metrics": {
+        "timing": {
+          "n": 1200,
+          "mean": 0.3276338191666665,
+          "median": 0.2883539999999982,
+          "p95": 0.6065000000000396,
+          "p99": 0.7606659999999579,
+          "min": 0.14312499999999773,
+          "max": 1.8727910000000065,
+          "stddev": 0.16344818105695355,
+          "cv": 0.49887457122919254,
+          "meanCi95Low": 0.31824551166666654,
+          "meanCi95High": 0.336807950833333
+        },
+        "memBefore": {
+          "rssKb": 94592,
+          "heapUsedKb": 16911,
+          "heapTotalKb": 51120,
+          "externalKb": 2028,
+          "arrayBuffersKb": 113
+        },
+        "memAfter": {
+          "rssKb": 196944,
+          "heapUsedKb": 87301,
+          "heapTotalKb": 130320,
+          "externalKb": 2041,
+          "arrayBuffersKb": 126
+        },
+        "memPeak": {
+          "rssKb": 196944,
+          "heapUsedKb": 87301,
+          "heapTotalKb": 130320,
+          "externalKb": 2041,
+          "arrayBuffersKb": 126
+        },
+        "rssGrowthKb": 102352,
+        "heapUsedGrowthKb": 70390,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 504.5450000000001,
+          "systemMs": 15.912999999999997
+        },
+        "iterations": 1200,
+        "totalWallMs": 393.644334,
+        "opsPerSec": 3048.4371203981304,
+        "framesProduced": 1200,
+        "bytesProduced": 29315536,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:40:52.925Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-strict-ui-navigation",
+      "framework": "ink",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "services": 24,
+        "dwell": 8
+      },
+      "metrics": {
+        "timing": {
+          "n": 1200,
+          "mean": 25.77812204833329,
+          "median": 25.619729500000176,
+          "p95": 46.03412499999831,
+          "p99": 47.21820900000239,
+          "min": 4.50537500000064,
+          "max": 49.086708000000726,
+          "stddev": 18.25028784376704,
+          "cv": 0.707975849037732,
+          "meanCi95Low": 24.828937643333294,
+          "meanCi95High": 26.715915665833265
+        },
+        "memBefore": {
+          "rssKb": 249840,
+          "heapUsedKb": 31215,
+          "heapTotalKb": 166192,
+          "externalKb": 19975,
+          "arrayBuffersKb": 45
+        },
+        "memAfter": {
+          "rssKb": 364272,
+          "heapUsedKb": 169640,
+          "heapTotalKb": 274224,
+          "externalKb": 19983,
+          "arrayBuffersKb": 65
+        },
+        "memPeak": {
+          "rssKb": 364272,
+          "heapUsedKb": 170074,
+          "heapTotalKb": 274224,
+          "externalKb": 19995,
+          "arrayBuffersKb": 77
+        },
+        "rssGrowthKb": 114432,
+        "heapUsedGrowthKb": 138425,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 13360.936,
+          "systemMs": 251.234
+        },
+        "iterations": 1200,
+        "totalWallMs": 30935.407124999998,
+        "opsPerSec": 38.790502906626934,
+        "framesProduced": 3600,
+        "bytesProduced": 7107640,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:40:53.456Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-strict-ui-navigation",
+      "framework": "ratatui",
+      "params": {
+        "rows": 40,
+        "cols": 120,
+        "services": 24,
+        "dwell": 8
+      },
+      "metrics": {
+        "timing": {
+          "n": 1200,
+          "mean": 0.14549680416666688,
+          "median": 0.1423545,
+          "p95": 0.16612500000000002,
+          "p99": 0.190083,
+          "min": 0.133875,
+          "max": 0.319625,
+          "stddev": 0.011584903878502808,
+          "cv": 0.07962308137869666,
+          "meanCi95Low": 0.14485465749999973,
+          "meanCi95High": 0.1461733349999999
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 3312,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 190.324,
+          "systemMs": 1.6879999999999997
+        },
+        "iterations": 1200,
+        "totalWallMs": 174.632416,
+        "opsPerSec": 6871.576466078325,
+        "framesProduced": 1200,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:41:27.820Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-virtual-list",
+      "framework": "rezi-native",
+      "params": {
+        "items": 100000,
+        "viewport": 40
+      },
+      "metrics": {
+        "timing": {
+          "n": 1000,
+          "mean": 0.16095027999999942,
+          "median": 0.1430830000000043,
+          "p95": 0.23866599999999494,
+          "p99": 0.3920829999999853,
+          "min": 0.12491699999998218,
+          "max": 1.5467910000000131,
+          "stddev": 0.06656273997366427,
+          "cv": 0.4135608833589138,
+          "meanCi95Low": 0.15725696199999983,
+          "meanCi95High": 0.16563860199999914
+        },
+        "memBefore": {
+          "rssKb": 90096,
+          "heapUsedKb": 14659,
+          "heapTotalKb": 32464,
+          "externalKb": 1975,
+          "arrayBuffersKb": 60
+        },
+        "memAfter": {
+          "rssKb": 152592,
+          "heapUsedKb": 70305,
+          "heapTotalKb": 88256,
+          "externalKb": 1975,
+          "arrayBuffersKb": 60
+        },
+        "memPeak": {
+          "rssKb": 152592,
+          "heapUsedKb": 70305,
+          "heapTotalKb": 88256,
+          "externalKb": 1975,
+          "arrayBuffersKb": 60
+        },
+        "rssGrowthKb": 62496,
+        "heapUsedGrowthKb": 55646,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 247.184,
+          "systemMs": 10.758
+        },
+        "iterations": 1000,
+        "totalWallMs": 161.44433299999997,
+        "opsPerSec": 6194.085487039054,
+        "framesProduced": 1000,
+        "bytesProduced": 6398716,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:41:28.108Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-virtual-list",
+      "framework": "ink",
+      "params": {
+        "items": 100000,
+        "viewport": 40
+      },
+      "metrics": {
+        "timing": {
+          "n": 1000,
+          "mean": 25.918257923000034,
+          "median": 25.739853999999013,
+          "p95": 45.35074999999779,
+          "p99": 46.60512500000186,
+          "min": 3.1884160000008706,
+          "max": 49.59154200000012,
+          "stddev": 17.406471803573506,
+          "cv": 0.6715911175545054,
+          "meanCi95Low": 24.870650844999947,
+          "meanCi95High": 26.998017589999975
+        },
+        "memBefore": {
+          "rssKb": 255840,
+          "heapUsedKb": 28909,
+          "heapTotalKb": 168080,
+          "externalKb": 20003,
+          "arrayBuffersKb": 53
+        },
+        "memAfter": {
+          "rssKb": 350096,
+          "heapUsedKb": 163852,
+          "heapTotalKb": 255488,
+          "externalKb": 20011,
+          "arrayBuffersKb": 93
+        },
+        "memPeak": {
+          "rssKb": 350096,
+          "heapUsedKb": 163852,
+          "heapTotalKb": 255488,
+          "externalKb": 20011,
+          "arrayBuffersKb": 93
+        },
+        "rssGrowthKb": 94256,
+        "heapUsedGrowthKb": 134943,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 11568.489000000001,
+          "systemMs": 183.52
+        },
+        "iterations": 1000,
+        "totalWallMs": 25920.022834,
+        "opsPerSec": 38.580212926675074,
+        "framesProduced": 1000,
+        "bytesProduced": 1219622,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:41:28.409Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-virtual-list",
+      "framework": "ratatui",
+      "params": {
+        "items": 100000,
+        "viewport": 40
+      },
+      "metrics": {
+        "timing": {
+          "n": 1000,
+          "mean": 0.09026668800000026,
+          "median": 0.089875,
+          "p95": 0.094292,
+          "p99": 0.10245800000000001,
+          "min": 0.08675,
+          "max": 0.142667,
+          "stddev": 0.0032277900177452687,
+          "cv": 0.03575837431573051,
+          "meanCi95Low": 0.09009887200000004,
+          "meanCi95High": 0.09049955999999998
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 2608,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 99.25699999999999,
+          "systemMs": 0.19199999999999995
+        },
+        "iterations": 1000,
+        "totalWallMs": 90.296042,
+        "opsPerSec": 11074.682542563716,
+        "framesProduced": 1000,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:41:57.263Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-table",
+      "framework": "rezi-native",
+      "params": {
+        "rows": 40,
+        "cols": 8
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 0.05836765999999972,
+          "median": 0.05295849999999547,
+          "p95": 0.08370899999999892,
+          "p99": 0.15783299999999656,
+          "min": 0.04075000000000273,
+          "max": 0.2788330000000059,
+          "stddev": 0.021504271752756397,
+          "cv": 0.3684278546160066,
+          "meanCi95Low": 0.05672932999999981,
+          "meanCi95High": 0.060697175999999645
+        },
+        "memBefore": {
+          "rssKb": 88112,
+          "heapUsedKb": 13352,
+          "heapTotalKb": 31184,
+          "externalKb": 1972,
+          "arrayBuffersKb": 57
+        },
+        "memAfter": {
+          "rssKb": 104240,
+          "heapUsedKb": 28026,
+          "heapTotalKb": 39120,
+          "externalKb": 1990,
+          "arrayBuffersKb": 75
+        },
+        "memPeak": {
+          "rssKb": 104240,
+          "heapUsedKb": 28026,
+          "heapTotalKb": 39120,
+          "externalKb": 1990,
+          "arrayBuffersKb": 75
+        },
+        "rssGrowthKb": 16128,
+        "heapUsedGrowthKb": 14674,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 60.89899999999999,
+          "systemMs": 2.3640000000000008
+        },
+        "iterations": 500,
+        "totalWallMs": 29.353875000000002,
+        "opsPerSec": 17033.526238017977,
+        "framesProduced": 500,
+        "bytesProduced": 1064892,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:41:57.453Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-table",
+      "framework": "ink",
+      "params": {
+        "rows": 40,
+        "cols": 8
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 25.31061715800002,
+          "median": 23.59331300000008,
+          "p95": 44.73454099999981,
+          "p99": 45.593624999999975,
+          "min": 1.8248750000002474,
+          "max": 46.93462499999987,
+          "stddev": 17.532014543626733,
+          "cv": 0.6926743205898211,
+          "meanCi95Low": 23.920913992000063,
+          "meanCi95High": 26.893524837999976
+        },
+        "memBefore": {
+          "rssKb": 178320,
+          "heapUsedKb": 22057,
+          "heapTotalKb": 89616,
+          "externalKb": 19992,
+          "arrayBuffersKb": 53
+        },
+        "memAfter": {
+          "rssKb": 249552,
+          "heapUsedKb": 31953,
+          "heapTotalKb": 164368,
+          "externalKb": 20008,
+          "arrayBuffersKb": 61
+        },
+        "memPeak": {
+          "rssKb": 249552,
+          "heapUsedKb": 56117,
+          "heapTotalKb": 164368,
+          "externalKb": 20008,
+          "arrayBuffersKb": 69
+        },
+        "rssGrowthKb": 71232,
+        "heapUsedGrowthKb": 9896,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 4406.914,
+          "systemMs": 64.00200000000001
+        },
+        "iterations": 500,
+        "totalWallMs": 12656.382375,
+        "opsPerSec": 39.505759638523884,
+        "framesProduced": 500,
+        "bytesProduced": 1605006,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:41:57.590Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    {
+      "scenario": "terminal-table",
+      "framework": "ratatui",
+      "params": {
+        "rows": 40,
+        "cols": 8
+      },
+      "metrics": {
+        "timing": {
+          "n": 500,
+          "mean": 0.16773433999999995,
+          "median": 0.1676875,
+          "p95": 0.173583,
+          "p99": 0.175209,
+          "min": 0.163042,
+          "max": 0.182333,
+          "stddev": 0.0025434731011748485,
+          "cv": 0.015163699342512984,
+          "meanCi95Low": 0.16751709000000026,
+          "meanCi95High": 0.16800051800000015
+        },
+        "memBefore": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memAfter": {
+          "rssKb": 0,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "memPeak": {
+          "rssKb": 2672,
+          "heapUsedKb": null,
+          "heapTotalKb": null,
+          "externalKb": null,
+          "arrayBuffersKb": null
+        },
+        "rssGrowthKb": 0,
+        "heapUsedGrowthKb": null,
+        "rssSlopeKbPerIter": null,
+        "heapUsedSlopeKbPerIter": null,
+        "memStable": null,
+        "cpu": {
+          "userMs": 92.452,
+          "systemMs": 0.128
+        },
+        "iterations": 500,
+        "totalWallMs": 83.88195800000001,
+        "opsPerSec": 5960.757377647288,
+        "framesProduced": 500,
+        "bytesProduced": 0,
+        "ptyBytesObserved": null
+      },
+      "replicate": 0,
+      "timestamp": "2026-02-27T15:42:11.825Z",
+      "nodeVersion": "v24.12.0",
+      "platform": "darwin",
+      "arch": "arm64"
+    }
+  ]
+}
