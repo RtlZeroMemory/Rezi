@@ -22,10 +22,13 @@ function mapNodeType(type: string): InkNodeType {
 function sanitizeProps(props: unknown): Record<string, unknown> {
   if (typeof props !== "object" || props === null) return {};
 
+  const source = props as Record<string, unknown>;
   const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(props)) {
+  const keys = Object.keys(source);
+  for (let index = 0; index < keys.length; index += 1) {
+    const key = keys[index]!;
     if (key === "children" || key === "key" || key === "ref") continue;
-    out[key] = value;
+    out[key] = source[key];
   }
   return out;
 }
@@ -122,18 +125,24 @@ export const hostConfig = {
 
     const oldObj = oldProps as Record<string, unknown>;
     const newObj = newProps as Record<string, unknown>;
-    const oldKeys = Object.keys(oldObj).filter(
-      (key) => key !== "children" && key !== "key" && key !== "ref",
-    );
-    const newKeys = Object.keys(newObj).filter(
-      (key) => key !== "children" && key !== "key" && key !== "ref",
-    );
-
-    if (oldKeys.length !== newKeys.length) return true;
-    for (const key of newKeys) {
+    let newCount = 0;
+    const newKeys = Object.keys(newObj);
+    for (let index = 0; index < newKeys.length; index += 1) {
+      const key = newKeys[index]!;
+      if (key === "children" || key === "key" || key === "ref") continue;
+      newCount += 1;
       if (oldObj[key] !== newObj[key]) return true;
     }
 
+    let oldCount = 0;
+    const oldKeys = Object.keys(oldObj);
+    for (let index = 0; index < oldKeys.length; index += 1) {
+      const key = oldKeys[index]!;
+      if (key === "children" || key === "key" || key === "ref") continue;
+      oldCount += 1;
+    }
+
+    if (oldCount !== newCount) return true;
     return null;
   },
 

@@ -26,6 +26,9 @@ for (const [name, value] of Object.entries(NAMED_COLORS)) {
   NAMED_COLORS_LOWER[name.toLowerCase()] = value;
 }
 
+const COLOR_CACHE = new Map<string, Rgb24 | undefined>();
+const COLOR_CACHE_MAX = 256;
+
 function rgbR(value: Rgb24): number {
   return (value >>> 16) & 0xff;
 }
@@ -62,6 +65,18 @@ export function parseColor(color: string | undefined): Rgb24 | undefined {
 }
 
 function parseColorInner(color: string): Rgb24 | undefined {
+  const cached = COLOR_CACHE.get(color);
+  if (cached !== undefined || COLOR_CACHE.has(color)) return cached;
+
+  const result = parseColorUncached(color);
+  if (COLOR_CACHE.size >= COLOR_CACHE_MAX) {
+    COLOR_CACHE.clear();
+  }
+  COLOR_CACHE.set(color, result);
+  return result;
+}
+
+function parseColorUncached(color: string): Rgb24 | undefined {
   if (color in NAMED_COLORS) return NAMED_COLORS[color];
 
   const lower = color.toLowerCase();

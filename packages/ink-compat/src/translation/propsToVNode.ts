@@ -201,9 +201,8 @@ const ESC = "\u001b";
 
 interface CachedTranslation {
   revision: number;
-  contextSignature: string;
   vnode: VNode | null;
-  meta: TranslationMetadata;
+  metaMask: number;
 }
 
 interface TranslationPerfStats {
@@ -216,7 +215,7 @@ interface TranslationPerfStats {
   parseAnsiFallbackPathHits: number;
 }
 
-let translationCache = new WeakMap<InkHostNode, Map<string, CachedTranslation>>();
+let translationCache = new WeakMap<InkHostNode, Map<number, CachedTranslation>>();
 const translationPerfStats: TranslationPerfStats = {
   translatedNodes: 0,
   cacheHits: 0,
@@ -229,7 +228,7 @@ const translationPerfStats: TranslationPerfStats = {
 let translationCacheEnabled = process.env["INK_COMPAT_DISABLE_TRANSLATION_CACHE"] !== "1";
 
 function clearTranslationCache(): void {
-  translationCache = new WeakMap<InkHostNode, Map<string, CachedTranslation>>();
+  translationCache = new WeakMap<InkHostNode, Map<number, CachedTranslation>>();
 }
 
 function resetTranslationPerfStats(): void {
@@ -242,19 +241,37 @@ function resetTranslationPerfStats(): void {
   translationPerfStats.parseAnsiFallbackPathHits = 0;
 }
 
-function contextSignature(context: TranslateContext): string {
-  const mode = context.mode;
-  const direction = context.parentDirection;
-  const parentMainDefinite = context.parentMainDefinite ? "1" : "0";
-  const isRoot = context.isRoot ? "1" : "0";
-  const inStaticSubtree = context.inStaticSubtree ? "1" : "0";
-  return `${mode}|${direction}|${parentMainDefinite}|${isRoot}|${inStaticSubtree}`;
+const META_MASK_STATIC_NODES = 1 << 0;
+const META_MASK_PERCENT_MARKERS = 1 << 1;
+const META_MASK_ANSI_SGR = 1 << 2;
+
+function toMetaMask(meta: TranslationMetadata): number {
+  let mask = 0;
+  if (meta.hasStaticNodes) mask |= META_MASK_STATIC_NODES;
+  if (meta.hasPercentMarkers) mask |= META_MASK_PERCENT_MARKERS;
+  if (meta.hasAnsiSgr) mask |= META_MASK_ANSI_SGR;
+  return mask;
 }
 
-function mergeMeta(target: TranslationMetadata, source: TranslationMetadata): void {
-  if (source.hasStaticNodes) target.hasStaticNodes = true;
-  if (source.hasPercentMarkers) target.hasPercentMarkers = true;
-  if (source.hasAnsiSgr) target.hasAnsiSgr = true;
+function applyMetaMask(meta: TranslationMetadata, mask: number): void {
+  if ((mask & META_MASK_STATIC_NODES) !== 0) meta.hasStaticNodes = true;
+  if ((mask & META_MASK_PERCENT_MARKERS) !== 0) meta.hasPercentMarkers = true;
+  if ((mask & META_MASK_ANSI_SGR) !== 0) meta.hasAnsiSgr = true;
+}
+
+function contextKey(context: TranslateContext): number {
+  const modeBits = context.mode === "dynamic" ? 1 : context.mode === "static" ? 2 : 0;
+  const directionBit = context.parentDirection === "column" ? 1 : 0;
+  const parentMainDefiniteBit = context.parentMainDefinite ? 1 : 0;
+  const isRootBit = context.isRoot ? 1 : 0;
+  const inStaticSubtreeBit = context.inStaticSubtree ? 1 : 0;
+  return (
+    modeBits |
+    (directionBit << 2) |
+    (parentMainDefiniteBit << 3) |
+    (isRootBit << 4) |
+    (inStaticSubtreeBit << 5)
+  );
 }
 
 function hasDisallowedControlChars(text: string): boolean {
@@ -278,22 +295,6 @@ function parsePercentValue(value: unknown): number | undefined {
   if (!match) return undefined;
   const parsed = Number.parseFloat(match[1]!);
   return Number.isFinite(parsed) ? parsed : undefined;
-}
-
-function attachHostNode(vnode: VNode | null, node: InkHostNode): VNode | null {
-  if (!vnode || typeof vnode !== "object") return vnode;
-  const candidate = vnode as { props?: unknown };
-  const props =
-    typeof candidate.props === "object" && candidate.props !== null
-      ? (candidate.props as Record<string, unknown>)
-      : {};
-  return {
-    ...(vnode as Record<string, unknown>),
-    props: {
-      ...props,
-      __inkHostNode: node,
-    },
-  } as unknown as VNode;
 }
 
 function readAccessibilityLabel(props: Record<string, unknown>): string | undefined {
@@ -329,6 +330,20 @@ function createMeta(): TranslationMetadata {
   return { hasStaticNodes: false, hasPercentMarkers: false, hasAnsiSgr: false };
 }
 
+function collectTranslatedChildren(
+  children: readonly InkHostNode[],
+  context: TranslateContext,
+): VNode[] {
+  const out: VNode[] = [];
+  for (let index = 0; index < children.length; index += 1) {
+    const child = children[index];
+    if (!child) continue;
+    const translated = translateNode(child, context);
+    if (translated !== null) out.push(translated);
+  }
+  return out;
+}
+
 /**
  * Translate the entire InkHostNode tree into a Rezi VNode tree.
  */
@@ -346,9 +361,7 @@ export function translateTree(
     inStaticSubtree: false,
     meta,
   };
-  const children = container.children
-    .map((child) => translateNode(child, rootContext))
-    .filter(Boolean) as VNode[];
+  const children = collectTranslatedChildren(container.children, rootContext);
   if (children.length === 0) return ui.text("");
   if (children.length === 1) return children[0]!;
   return ui.column({ gap: 0 }, children);
@@ -382,9 +395,7 @@ export function translateDynamicTreeWithMetadata(container: InkHostContainer): {
     meta,
   };
 
-  const children = container.children
-    .map((child) => translateNode(child, rootContext))
-    .filter(Boolean) as VNode[];
+  const children = collectTranslatedChildren(container.children, rootContext);
 
   let vnode: VNode;
   if (children.length === 0) vnode = ui.text("");
@@ -395,59 +406,62 @@ export function translateDynamicTreeWithMetadata(container: InkHostContainer): {
 }
 
 function translateNode(node: InkHostNode, context: TranslateContext): VNode | null {
-  const parentMeta = context.meta;
-  const localMeta = createMeta();
-  const localContext: TranslateContext = {
-    ...context,
-    meta: localMeta,
-  };
+  const savedParentDirection = context.parentDirection;
+  const savedParentMainDefinite = context.parentMainDefinite;
+  const savedIsRoot = context.isRoot;
+  const savedInStaticSubtree = context.inStaticSubtree;
+  const metaBeforeMask = toMetaMask(context.meta);
 
-  if (!translationCacheEnabled) {
+  try {
+    if (!translationCacheEnabled) {
+      translationPerfStats.cacheMisses += 1;
+      translationPerfStats.translatedNodes += 1;
+      return translateNodeUncached(node, context);
+    }
+
+    const key = contextKey(context);
+    const perNodeCache = translationCache.get(node);
+    const cached = perNodeCache?.get(key);
+    if (cached) {
+      if (cached.revision === node.__inkRevision) {
+        translationPerfStats.cacheHits += 1;
+        applyMetaMask(context.meta, cached.metaMask);
+        return cached.vnode;
+      }
+      translationPerfStats.cacheStaleMisses += 1;
+    } else {
+      translationPerfStats.cacheEmptyMisses += 1;
+    }
+
     translationPerfStats.cacheMisses += 1;
     translationPerfStats.translatedNodes += 1;
-    const translated = translateNodeUncached(node, localContext);
-    mergeMeta(parentMeta, localMeta);
-    return translated;
-  }
+    const translated = translateNodeUncached(node, context);
+    const metaAfterMask = toMetaMask(context.meta);
+    const metaMask = metaAfterMask & ~metaBeforeMask;
 
-  const signature = contextSignature(context);
-  const perNodeCache = translationCache.get(node);
-  const cached = perNodeCache?.get(signature);
-  if (cached) {
-    if (cached.revision === node.__inkRevision) {
-      translationPerfStats.cacheHits += 1;
-      mergeMeta(parentMeta, cached.meta);
-      return cached.vnode;
+    if (!perNodeCache) {
+      const nextCache = new Map<number, CachedTranslation>();
+      translationCache.set(node, nextCache);
+      nextCache.set(key, {
+        revision: node.__inkRevision,
+        vnode: translated,
+        metaMask,
+      });
+      return translated;
     }
-    translationPerfStats.cacheStaleMisses += 1;
-  } else {
-    translationPerfStats.cacheEmptyMisses += 1;
-  }
-
-  translationPerfStats.cacheMisses += 1;
-  translationPerfStats.translatedNodes += 1;
-  const translated = translateNodeUncached(node, localContext);
-  mergeMeta(parentMeta, localMeta);
-
-  if (!perNodeCache) {
-    const nextCache = new Map<string, CachedTranslation>();
-    translationCache.set(node, nextCache);
-    nextCache.set(signature, {
+    perNodeCache.set(key, {
       revision: node.__inkRevision,
-      contextSignature: signature,
       vnode: translated,
-      meta: localMeta,
+      metaMask,
     });
-    return translated;
-  }
-  perNodeCache.set(signature, {
-    revision: node.__inkRevision,
-    contextSignature: signature,
-    vnode: translated,
-    meta: localMeta,
-  });
 
-  return translated;
+    return translated;
+  } finally {
+    context.parentDirection = savedParentDirection;
+    context.parentMainDefinite = savedParentMainDefinite;
+    context.isRoot = savedIsRoot;
+    context.inStaticSubtree = savedInStaticSubtree;
+  }
 }
 
 function translateNodeUncached(node: InkHostNode, context: TranslateContext): VNode | null {
@@ -485,9 +499,9 @@ function translateNodeUncached(node: InkHostNode, context: TranslateContext): VN
 
   switch (node.type) {
     case "ink-box":
-      return attachHostNode(translateBox(node, context), node);
+      return translateBox(node, context);
     case "ink-text":
-      return attachHostNode(translateText(node), node);
+      return translateText(node);
     default:
       return translateChildren(node, context);
   }
@@ -584,15 +598,6 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
       inheritsMainDefinite;
   const inStaticSubtree = context.inStaticSubtree || p.__inkStatic === true;
 
-  const childContext: TranslateContext = {
-    parentDirection: isRow ? "row" : "column",
-    parentMainDefinite: nodeMainDefinite,
-    isRoot: false,
-    mode: context.mode,
-    inStaticSubtree,
-    meta: context.meta,
-  };
-
   if (p.display === "none") return null;
 
   if (p.__inkStatic === true) {
@@ -614,14 +619,13 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
       ...node,
       props: staticProps,
     };
-    const staticContext = context.inStaticSubtree
-      ? context
-      : {
-          ...context,
-          inStaticSubtree: true,
-        };
-
-    return translateBox(staticNode, staticContext);
+    const savedInStaticSubtree = context.inStaticSubtree;
+    if (!savedInStaticSubtree) {
+      context.inStaticSubtree = true;
+    }
+    const translated = translateBox(staticNode, context);
+    context.inStaticSubtree = savedInStaticSubtree;
+    return translated;
   }
 
   if (p.__inkType === "spacer") {
@@ -631,9 +635,19 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
     });
   }
 
-  const children = node.children
-    .map((child) => translateNode(child, childContext))
-    .filter(Boolean) as VNode[];
+  const savedParentDirection = context.parentDirection;
+  const savedParentMainDefinite = context.parentMainDefinite;
+  const savedIsRoot = context.isRoot;
+  const savedInStaticSubtree = context.inStaticSubtree;
+  context.parentDirection = isRow ? "row" : "column";
+  context.parentMainDefinite = nodeMainDefinite;
+  context.isRoot = false;
+  context.inStaticSubtree = inStaticSubtree;
+  const children = collectTranslatedChildren(node.children, context);
+  context.parentDirection = savedParentDirection;
+  context.parentMainDefinite = savedParentMainDefinite;
+  context.isRoot = savedIsRoot;
+  context.inStaticSubtree = savedInStaticSubtree;
   const hasBorder = p.borderStyle != null;
   const hasBg = p.backgroundColor != null;
 
@@ -835,6 +849,7 @@ function translateBox(node: InkHostNode, context: TranslateContext): VNode | nul
 
   if (layoutProps.gap == null) layoutProps.gap = 0;
   if (accessibilityLabel) layoutProps.accessibilityLabel = accessibilityLabel;
+  layoutProps["__inkHostNode"] = node;
 
   if (hasBorder || hasBg) {
     if (!hasBorder) {
@@ -990,7 +1005,9 @@ function translateText(node: InkHostNode): VNode {
 
   const { spans, isSingleSpan, fullText } = flattenTextChildren(node, style);
 
-  const textProps: Record<string, unknown> = {};
+  const textProps: Record<string, unknown> = {
+    __inkHostNode: node,
+  };
   if (Object.keys(style).length > 0) textProps["style"] = style;
   const accessibilityLabel = readAccessibilityLabel(p);
   if (accessibilityLabel) {
@@ -1012,17 +1029,21 @@ function translateText(node: InkHostNode): VNode {
   }
 
   if (fullText.includes("\n")) {
-    return translateMultilineRichText(
-      spans,
-      accessibilityLabel ? { accessibilityLabel } : undefined,
-    );
+    const rootProps: Record<string, unknown> = { __inkHostNode: node };
+    if (accessibilityLabel) {
+      rootProps["accessibilityLabel"] = accessibilityLabel;
+    }
+    return translateMultilineRichText(spans, rootProps);
   }
 
   if (isSingleSpan) {
     return Object.keys(textProps).length > 0 ? ui.text(fullText, textProps) : ui.text(fullText);
   }
 
-  return ui.richText(spans.map((span) => ({ text: span.text, style: span.style })));
+  return ui.richText(
+    spans.map((span) => ({ text: span.text, style: span.style })),
+    textProps,
+  );
 }
 
 function translateMultilineRichText(
@@ -1577,9 +1598,7 @@ function isByte(value: unknown): value is number {
 }
 
 function translateChildren(node: InkHostNode, context: TranslateContext): VNode | null {
-  const children = node.children
-    .map((child) => translateNode(child, context))
-    .filter(Boolean) as VNode[];
+  const children = collectTranslatedChildren(node.children, context);
   if (children.length === 0) return null;
   if (children.length === 1) return children[0]!;
   return ui.column({ gap: 0 }, children);

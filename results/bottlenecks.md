@@ -152,3 +152,91 @@ Post-fix cpuprofile (`dashboard-grid`, ink-compat):
 - `results/ink-bench_dashboard-grid_ink-compat_2026-02-27T18-33-45-835Z/run_01/cpu-prof/dashboard-grid_ink-compat_run1.cpuprofile`
 
 Filtered summaries for `packages/core/dist/testing/renderer.js` and `rootChildRevisionsChanged` return **no top self-time entries**, consistent with removing those hot-path costs from default runtime rendering.
+
+## Latest call-stack refresh (2026-02-27 18:50 UTC)
+
+Profiles used:
+
+- ink-compat: `results/claude-improvements-after/ink-bench_dashboard-grid_ink-compat_2026-02-27T18-50-32-433Z/run_01/cpu-prof/dashboard-grid_ink-compat_run1.cpuprofile`
+- real-ink: `results/claude-improvements-after/ink-bench_dashboard-grid_real-ink_2026-02-27T18-50-38-677Z/run_01/cpu-prof/dashboard-grid_real-ink_run1.cpuprofile`
+
+Percentages below are from `summarize-cpuprofile.mjs --active`.
+
+### 1) Dashboard-grid tail latency remains a bottleneck (frame pacing + render path)
+
+Benchmark evidence:
+
+- Repeat pair: `renderTotalP95Ms` is still **+14.2%** for ink-compat vs real-ink (`results/claude-improvements-after-repeat/...`).
+- Full matrix pair: `renderTotalP95Ms` is **+20.9%** for ink-compat vs real-ink (`results/claude-improvements-after-fullmatrix/...`).
+
+Representative runtime stacks (`--filter packages/ink-compat/dist/runtime/render.js`):
+
+- `renderFrame` — **0.6% self**
+  ```text
+  commitRoot -> resetAfterCommit -> bridge.rootNode.onCommit
+  -> scheduleRender -> call -> flushPendingRender -> renderFrame
+  ```
+- `renderOpsToAnsi` — **0.3% self**
+  ```text
+  ... -> renderFrame -> renderOpsToAnsi
+  ```
+- `styleToSgr` — **0.3% self**
+  ```text
+  ... -> renderFrame -> renderOpsToAnsi -> styleToSgr
+  ```
+
+### 2) Translation still contributes measurable per-frame CPU
+
+Representative stacks (`--filter packages/ink-compat/dist/translation/propsToVNode.js`):
+
+- `translateText` — **0.3% self**
+  ```text
+  translateDynamicWithMetadata -> translateDynamicTreeWithMetadata
+  -> collectTranslatedChildren -> translateNode -> translateNodeUncached -> translateText
+  ```
+- `translateBox` — **0.3% self**
+  ```text
+  translateNodeUncached -> translateBox -> collectTranslatedChildren -> translateNode -> ...
+  ```
+- `collectTranslatedChildren` — **0.3% self**
+  ```text
+  translateBox -> collectTranslatedChildren -> translateNode -> translateNodeUncached -> ...
+  ```
+
+### 3) Core layout remains the largest non-startup hot path
+
+Representative stacks (`--filter packages/core/dist/layout`):
+
+- `measureStack` — **0.6% self**
+  ```text
+  layout -> measureNode -> measureStackKinds -> measureStack
+  ```
+- `layoutNode` — **0.3% self**
+  ```text
+  layout -> layoutNode -> layoutStackKinds -> layoutStack -> layoutNode
+  ```
+- `measureTextWrapped` — **0.3% self**
+  ```text
+  layout -> measureNode -> measureLeaf -> measureTextWrapped
+  ```
+
+### 4) Real-ink comparator hotspots (same scenario)
+
+Representative stacks (`--filter ink/build`):
+
+- `ink/build/output.js:get` — **0.6% self**
+  ```text
+  resetAfterCommit -> onRender -> renderer -> get
+  ```
+- `ink/build/render-border.js:renderBorder` — **0.4% self**
+  ```text
+  resetAfterCommit -> onRender -> renderer -> renderNodeToOutput -> renderBorder
+  ```
+- `ink/build/output.js:applyWriteOperation` — **0.4% self**
+  ```text
+  resetAfterCommit -> onRender -> renderer -> get -> applyWriteOperation
+  ```
+
+### 5) Host config overhead is no longer a top dashboard-grid sample
+
+Filtered profile (`--filter packages/ink-compat/dist/reconciler/hostConfig.js`) shows no top self-time entries in this run, so `sanitizeProps`/`prepareUpdate` are not current top dashboard-grid hotspots.

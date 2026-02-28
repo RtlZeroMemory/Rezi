@@ -1397,45 +1397,62 @@ function styleToSgr(style: CellStyle | undefined, colorSupport: ColorSupport): s
   const cached = sgrCache.get(style);
   if (cached !== undefined) return cached;
 
-  const codes: string[] = [];
-  if (style.bold) codes.push("1");
-  if (style.dim) codes.push("2");
-  if (style.italic) codes.push("3");
-  if (style.underline) codes.push("4");
-  if (style.inverse) codes.push("7");
-  if (style.strikethrough) codes.push("9");
+  let sgr = "\u001b[0";
+  let hasCodes = false;
+  if (style.bold) {
+    sgr += ";1";
+    hasCodes = true;
+  }
+  if (style.dim) {
+    sgr += ";2";
+    hasCodes = true;
+  }
+  if (style.italic) {
+    sgr += ";3";
+    hasCodes = true;
+  }
+  if (style.underline) {
+    sgr += ";4";
+    hasCodes = true;
+  }
+  if (style.inverse) {
+    sgr += ";7";
+    hasCodes = true;
+  }
+  if (style.strikethrough) {
+    sgr += ";9";
+    hasCodes = true;
+  }
   if (colorSupport.level > 0) {
     if (style.fg != null) {
       if (colorSupport.level >= 3) {
-        codes.push(
-          `38;2;${clampByte(rgbR(style.fg))};${clampByte(rgbG(style.fg))};${clampByte(rgbB(style.fg))}`,
-        );
+        sgr += `;38;2;${clampByte(rgbR(style.fg))};${clampByte(rgbG(style.fg))};${clampByte(rgbB(style.fg))}`;
       } else if (colorSupport.level === 2) {
-        codes.push(`38;5;${toAnsi256Code(style.fg)}`);
+        sgr += `;38;5;${toAnsi256Code(style.fg)}`;
       } else {
-        codes.push(String(toAnsi16Code(style.fg, false)));
+        sgr += `;${toAnsi16Code(style.fg, false)}`;
       }
+      hasCodes = true;
     }
     if (style.bg != null) {
       if (colorSupport.level >= 3) {
-        codes.push(
-          `48;2;${clampByte(rgbR(style.bg))};${clampByte(rgbG(style.bg))};${clampByte(rgbB(style.bg))}`,
-        );
+        sgr += `;48;2;${clampByte(rgbR(style.bg))};${clampByte(rgbG(style.bg))};${clampByte(rgbB(style.bg))}`;
       } else if (colorSupport.level === 2) {
-        codes.push(`48;5;${toAnsi256Code(style.bg)}`);
+        sgr += `;48;5;${toAnsi256Code(style.bg)}`;
       } else {
-        codes.push(String(toAnsi16Code(style.bg, true)));
+        sgr += `;${toAnsi16Code(style.bg, true)}`;
       }
+      hasCodes = true;
     }
   }
 
   let result: string;
-  if (codes.length === 0) {
+  if (!hasCodes) {
     result = "\u001b[0m";
   } else {
     // Always reset (0) before applying new attributes to prevent attribute
     // bleed from previous cells (e.g. bold, bg carrying over).
-    result = `\u001b[0;${codes.join(";")}m`;
+    result = `${sgr}m`;
   }
 
   sgrCache.set(style, result);
@@ -1770,14 +1787,8 @@ function renderOpsToAnsi(
   ops: readonly RenderOp[],
   viewport: ViewportSize,
   colorSupport: ColorSupport,
+  grid: StyledCell[][],
 ): { ansi: string; grid: StyledCell[][]; shape: OutputShapeSummary } {
-  const grid: StyledCell[][] = new Array(viewport.rows);
-  for (let rowIndex = 0; rowIndex < viewport.rows; rowIndex += 1) {
-    const row = new Array<StyledCell>(viewport.cols);
-    row.fill(BLANK_CELL);
-    grid[rowIndex] = row;
-  }
-
   const clipStack: ClipRect[] = [];
   let effectiveClip: ClipRect | null = null;
 
@@ -1851,6 +1862,7 @@ function renderOpsToAnsi(
   let firstNonBlankLine = -1;
   let lastNonBlankLine = -1;
   let widestLine = 0;
+  const lineParts: string[] = [];
 
   for (let rowIndex = 0; rowIndex < grid.length; rowIndex += 1) {
     const row = grid[rowIndex]!;
@@ -1875,20 +1887,20 @@ function renderOpsToAnsi(
     if (firstNonBlankLine === -1) firstNonBlankLine = rowIndex;
     lastNonBlankLine = rowIndex;
 
-    let line = "";
+    lineParts.length = 0;
     let activeStyle: CellStyle | undefined;
 
     for (let colIndex = 0; colIndex <= lastUsefulCol; colIndex += 1) {
       const cell = row[colIndex]!;
       if (!stylesEqual(activeStyle, cell.style)) {
-        line += styleToSgr(cell.style, colorSupport);
+        lineParts.push(styleToSgr(cell.style, colorSupport));
         activeStyle = cell.style;
       }
-      line += cell.char;
+      lineParts.push(cell.char);
     }
 
-    if (activeStyle) line += "\u001b[0m";
-    lines.push(line);
+    if (activeStyle) lineParts.push("\u001b[0m");
+    lines.push(lineParts.join(""));
   }
 
   while (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
@@ -1919,6 +1931,7 @@ interface PercentResolveContext {
   parentSize: ViewportSize;
   parentMainAxis: FlexMainAxis;
   deps?: PercentResolveDeps;
+  markerCache?: WeakMap<object, boolean>;
 }
 
 interface PercentParentDep {
@@ -1972,34 +1985,47 @@ function readNodeMainAxis(kind: unknown): FlexMainAxis {
   return "column";
 }
 
-function hasPercentMarkers(vnode: VNode): boolean {
+function hasPercentMarkers(vnode: VNode, markerCache?: WeakMap<object, boolean>): boolean {
   if (typeof vnode !== "object" || vnode === null) return false;
+  const vnodeObject = vnode as object;
+  if (markerCache && markerCache.has(vnodeObject)) {
+    return markerCache.get(vnodeObject) === true;
+  }
   const candidate = vnode as { props?: unknown; children?: unknown };
   const props =
     typeof candidate.props === "object" && candidate.props !== null
       ? (candidate.props as Record<string, unknown>)
       : undefined;
 
-  if (
+  const hasDirectMarkers =
     props &&
     (typeof props["__inkPercentWidth"] === "number" ||
       typeof props["__inkPercentHeight"] === "number" ||
       typeof props["__inkPercentMinWidth"] === "number" ||
       typeof props["__inkPercentMinHeight"] === "number" ||
-      typeof props["__inkPercentFlexBasis"] === "number")
-  ) {
+      typeof props["__inkPercentFlexBasis"] === "number");
+  if (hasDirectMarkers) {
+    markerCache?.set(vnodeObject, true);
     return true;
   }
 
   const children = Array.isArray(candidate.children) ? (candidate.children as VNode[]) : [];
   for (const child of children) {
-    if (hasPercentMarkers(child)) return true;
+    if (hasPercentMarkers(child, markerCache)) {
+      markerCache?.set(vnodeObject, true);
+      return true;
+    }
   }
+  markerCache?.set(vnodeObject, false);
   return false;
 }
 
 function resolvePercentMarkers(vnode: VNode, context: PercentResolveContext): VNode {
   if (typeof vnode !== "object" || vnode === null) {
+    return vnode;
+  }
+  const markerCache = context.markerCache ?? new WeakMap<object, boolean>();
+  if (!hasPercentMarkers(vnode, markerCache)) {
     return vnode;
   }
 
@@ -2096,10 +2122,15 @@ function resolvePercentMarkers(vnode: VNode, context: PercentResolveContext): VN
     parentSize: nextParentSize,
     parentMainAxis: readNodeMainAxis(candidate.kind),
     ...(context.deps ? { deps: context.deps } : {}),
+    markerCache,
   };
 
   const originalChildren = Array.isArray(candidate.children) ? (candidate.children as VNode[]) : [];
-  const nextChildren = originalChildren.map((child) => resolvePercentMarkers(child, nextContext));
+  const nextChildren: VNode[] = new Array(originalChildren.length);
+  for (let index = 0; index < originalChildren.length; index += 1) {
+    const child = originalChildren[index]!;
+    nextChildren[index] = resolvePercentMarkers(child, nextContext);
+  }
 
   return {
     ...(vnode as Record<string, unknown>),
@@ -2389,6 +2420,28 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         }
       : {}),
   });
+  let pooledAnsiGrid: StyledCell[][] = [];
+  let pooledAnsiGridCols = 0;
+  let pooledAnsiGridRows = 0;
+  const getOrResizeAnsiGrid = (cols: number, rows: number): StyledCell[][] => {
+    if (cols === pooledAnsiGridCols && rows === pooledAnsiGridRows) {
+      for (let rowIndex = 0; rowIndex < rows; rowIndex += 1) {
+        pooledAnsiGrid[rowIndex]!.fill(BLANK_CELL);
+      }
+      return pooledAnsiGrid;
+    }
+
+    const nextGrid: StyledCell[][] = new Array(rows);
+    for (let rowIndex = 0; rowIndex < rows; rowIndex += 1) {
+      const row = new Array<StyledCell>(cols);
+      row.fill(BLANK_CELL);
+      nextGrid[rowIndex] = row;
+    }
+    pooledAnsiGrid = nextGrid;
+    pooledAnsiGridCols = cols;
+    pooledAnsiGridRows = rows;
+    return pooledAnsiGrid;
+  };
 
   let lastOutput = "";
   let lastStableOutput = "";
@@ -2780,6 +2833,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
       staticResult.ops as readonly RenderOp[],
       viewport,
       staticColorSupport,
+      getOrResizeAnsiGrid(viewport.cols, viewport.rows),
     );
     const staticTrimmed = trimAnsiToNonBlankBlock(staticAnsi);
 
@@ -2961,7 +3015,12 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         ansi: rawAnsiOutput,
         grid: cellGrid,
         shape: outputShape,
-      } = renderOpsToAnsi(result.ops as readonly RenderOp[], gridViewport, frameColorSupport);
+      } = renderOpsToAnsi(
+        result.ops as readonly RenderOp[],
+        gridViewport,
+        frameColorSupport,
+        getOrResizeAnsiGrid(gridViewport.cols, gridViewport.rows),
+      );
       if (timePhases) ansiMs = performance.now() - ansiStartedAt;
 
       // In alternate-buffer mode the output fills the full layoutViewport.

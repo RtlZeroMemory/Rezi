@@ -120,6 +120,7 @@ export type InkRenderer = Readonly<{
 
 class RecordingDrawlistBuilder implements DrawlistBuilder {
   private _ops: InkRenderOp[] = [];
+  private _prevOps: InkRenderOp[] = [];
   private readonly textRunBlobs: Array<readonly TextRunSegment[]> = [];
 
   clear(): void {
@@ -127,15 +128,27 @@ class RecordingDrawlistBuilder implements DrawlistBuilder {
   }
 
   clearTo(cols: number, rows: number, style?: TextStyle): void {
-    this._ops.push({ kind: "clearTo", cols, rows, ...(style ? { style } : {}) });
+    if (style === undefined) {
+      this._ops.push({ kind: "clearTo", cols, rows });
+      return;
+    }
+    this._ops.push({ kind: "clearTo", cols, rows, style });
   }
 
   fillRect(x: number, y: number, w: number, h: number, style?: TextStyle): void {
-    this._ops.push({ kind: "fillRect", x, y, w, h, ...(style ? { style } : {}) });
+    if (style === undefined) {
+      this._ops.push({ kind: "fillRect", x, y, w, h });
+      return;
+    }
+    this._ops.push({ kind: "fillRect", x, y, w, h, style });
   }
 
   drawText(x: number, y: number, text: string, style?: TextStyle): void {
-    this._ops.push({ kind: "drawText", x, y, text, ...(style ? { style } : {}) });
+    if (style === undefined) {
+      this._ops.push({ kind: "drawText", x, y, text });
+      return;
+    }
+    this._ops.push({ kind: "drawText", x, y, text, style });
   }
 
   pushClip(x: number, y: number, w: number, h: number): void {
@@ -152,7 +165,7 @@ class RecordingDrawlistBuilder implements DrawlistBuilder {
 
   addTextRunBlob(segments: readonly TextRunSegment[]): number | null {
     const index = this.textRunBlobs.length;
-    this.textRunBlobs.push(segments.slice());
+    this.textRunBlobs.push(segments);
     return index;
   }
 
@@ -165,7 +178,11 @@ class RecordingDrawlistBuilder implements DrawlistBuilder {
       const text = segment.text;
       if (text.length > 0) {
         const style = segment.style;
-        this._ops.push({ kind: "drawText", x: cursorX, y, text, ...(style ? { style } : {}) });
+        if (style === undefined) {
+          this._ops.push({ kind: "drawText", x: cursorX, y, text });
+        } else {
+          this._ops.push({ kind: "drawText", x: cursorX, y, text, style });
+        }
         cursorX += measureTextCells(text);
       }
     }
@@ -228,6 +245,7 @@ class RecordingDrawlistBuilder implements DrawlistBuilder {
 
   reset(): void {
     this._ops.length = 0;
+    this._prevOps.length = 0;
     this.textRunBlobs.length = 0;
   }
 
@@ -237,8 +255,12 @@ class RecordingDrawlistBuilder implements DrawlistBuilder {
     this.textRunBlobs.length = 0;
   }
 
-  snapshotOps(): readonly InkRenderOp[] {
-    return this._ops.slice();
+  swapAndGetOps(): readonly InkRenderOp[] {
+    const out = this._ops;
+    this._ops = this._prevOps;
+    this._ops.length = 0;
+    this._prevOps = out;
+    return out;
   }
 }
 
@@ -627,7 +649,7 @@ export function createInkRenderer(opts: InkRendererOptions = {}): InkRenderer {
     const drawMs = performance.now() - drawStartedAt;
 
     // ─── COLLECT ───
-    const ops = builder.snapshotOps();
+    const ops = builder.swapAndGetOps();
     const nodes = collectNodes(cachedLayoutTree);
     cachedOps = ops;
     cachedNodes = nodes;
