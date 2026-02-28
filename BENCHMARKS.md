@@ -441,8 +441,9 @@ bun --version
 # 3. Go (for Bubble Tea scenarios — built automatically on first run)
 go version   # >= 1.21
 
-# 4. Rust (for Ratatui — built automatically on first run)
-cargo --version
+# 4. Rust (for Ratatui — must be built manually before running)
+cd benchmarks/native/ratatui-bench && cargo build --release && cd -
+# Override binary path: REZI_RATATUI_BENCH_BIN=/path/to/ratatui-bench
 ```
 
 > `node-pty` is required for PTY mode. It is included in `packages/bench/package.json`

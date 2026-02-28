@@ -115,7 +115,9 @@ npx tsc -b packages/bench
 # Install: curl -fsSL https://bun.sh/install | bash
 
 # Go — required for Bubble Tea (built automatically on first run)
-# Rust/cargo — required for Ratatui (built automatically on first run)
+
+# Rust/cargo — required for Ratatui (must be built manually):
+cd benchmarks/native/ratatui-bench && cargo build --release && cd -
 ```
 
 ### Quick run — all frameworks, PTY mode
