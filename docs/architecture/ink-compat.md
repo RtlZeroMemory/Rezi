@@ -4,6 +4,8 @@
 
 It is designed for practical compatibility: keep React + Ink component/hook semantics, but replace Ink's renderer backend with Rezi's deterministic layout and draw pipeline.
 
+If you are actively migrating an app, start with [Ink to Ink-Compat Migration](../migration/ink-to-ink-compat.md) and use this page as the runtime/internals reference.
+
 ## What this gives you
 
 - Reuse existing Ink app code with minimal migration.

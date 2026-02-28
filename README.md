@@ -45,7 +45,7 @@ Rezi is a high-performance terminal UI framework for TypeScript. You write decla
 - **Inline image rendering** — display PNG, JPEG, and raw RGBA buffers using Kitty, Sixel, or iTerm2 graphics protocols, with automatic blitter fallback
 - **Terminal auto-detection** — identifies Kitty, WezTerm, iTerm2, Ghostty, Windows Terminal, and tmux; enables the best graphics protocol automatically, with env-var overrides for any capability
 - **Performance-focused architecture** — binary drawlists + native C framebuffer diffing; benchmark details and caveats are documented in the Benchmarks section
-- **Ink compatibility layer** — run existing Ink CLIs on Rezi with minimal changes (import swap or dependency aliasing), plus deterministic parity diagnostics; details: [Ink Compat docs](docs/architecture/ink-compat.md)
+- **Ink compatibility layer** — run existing Ink CLIs on Rezi with minimal changes (import swap or dependency aliasing), plus deterministic parity diagnostics; details: [Porting guide](docs/migration/ink-to-ink-compat.md) · [Ink Compat architecture](docs/architecture/ink-compat.md)
 - **JSX without React** — optional `@rezi-ui/jsx` maps JSX directly to Rezi VNodes with zero React runtime overhead
 - **Deterministic rendering** — same state + same events = same frames; versioned binary protocol, pinned Unicode tables
 - **Hot state-preserving reload** — swap widget views or route tables in-process during development without losing app state or focus context
@@ -148,6 +148,10 @@ Docs + reports:
 - Methodology + metric definitions: `BENCHMARK_VALIDITY.md`
 - Latest report: `results/report_2026-02-27.md`
 - Bottlenecks + fixes: `results/bottlenecks.md`
+- Porting and architecture docs:
+  - `docs/migration/ink-to-ink-compat.md`
+  - `docs/architecture/ink-compat.md`
+  - `docs/dev/ink-compat-debugging.md`
 
 ## Quick Start
 

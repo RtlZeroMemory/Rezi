@@ -105,6 +105,7 @@ nav:
       - Examples: getting-started/examples.md
       - FAQ: getting-started/faq.md
   - Migration:
+      - Ink to Ink-Compat: migration/ink-to-ink-compat.md
       - Ink to Rezi: migration/ink-to-rezi.md
       - Beautiful Defaults: migration/beautiful-defaults.md
   - Guides:

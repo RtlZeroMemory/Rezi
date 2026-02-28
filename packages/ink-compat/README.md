@@ -92,7 +92,8 @@ Key behavior:
 - Input/focus/cursor are bridged through compat context/hooks.
 - Diagnostics and heavy instrumentation are env-gated.
 
-For full architecture details, see `docs/architecture/ink-compat.md`.
+For full architecture details, see `https://rezitui.dev/docs/architecture/ink-compat/`.
+For a practical migration workflow, see `https://rezitui.dev/docs/migration/ink-to-ink-compat/`.
 
 ## Supported API surface
 
@@ -176,5 +177,6 @@ Debugging runbook:
 
 ## Documentation
 
-- Architecture and internals: `docs/architecture/ink-compat.md`
-- Debugging and parity runbook: `docs/dev/ink-compat-debugging.md`
+- Porting guide: `https://rezitui.dev/docs/migration/ink-to-ink-compat/`
+- Architecture and internals: `https://rezitui.dev/docs/architecture/ink-compat/`
+- Debugging and parity runbook: `https://rezitui.dev/docs/dev/ink-compat-debugging/`

@@ -220,6 +220,7 @@ User feedback: `spinner`, `skeleton`, `callout`, `errorDisplay`, `empty`
 ## Learn More
 
 - [Concepts](guide/concepts.md) - Understanding Rezi's architecture
+- [Ink to Ink-Compat Migration](migration/ink-to-ink-compat.md) - Port existing Ink apps with minimal code churn
 - [Beautiful Defaults migration](migration/beautiful-defaults.md) - Design system styling defaults and manual overrides
 - [Ink to Rezi Migration](migration/ink-to-rezi.md) - Mental model mapping and migration recipes
 - [Lifecycle & Updates](guide/lifecycle-and-updates.md) - State management patterns

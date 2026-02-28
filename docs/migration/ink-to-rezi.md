@@ -2,6 +2,8 @@
 
 This guide maps common Ink mental models to Rezi and gives practical migration recipes.
 
+If you want to keep the Ink component/hook model and only switch runtime backend first, use [Ink to Ink-Compat Migration](ink-to-ink-compat.md) instead.
+
 ## Read this first
 
 Rezi is not a drop-in replacement for Ink.
