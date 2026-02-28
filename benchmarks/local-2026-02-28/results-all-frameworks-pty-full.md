@@ -1,9 +1,7 @@
 # Benchmark Results
 
 > 2026-02-28T01:45:15.748Z | Node v24.12.0 | Bun 1.3.10 | rustc rustc 1.93.0 (254b59607 2026-01-19) | cargo cargo 1.93.0 (083ac5135 2025-12-15) | Darwin 25.2.0 | darwin arm64 | Apple M4 Pro (12 cores) | RAM 24576MB | governor=n/a | wsl=no
-
 > Invocation: suite=all matchup=none scenario=all framework=all warmup=default iterations=default quick=no io=pty opentuiDriver=react replicates=1 discardFirstReplicate=no shuffleFrameworkOrder=no shuffleSeed=rezi-bench-seed envCheck=off cpuAffinity=none
-
 > Byte columns: "Bytes(local)" = framework-local counter; "Bytes(pty)" = observed PTY bytes (cross-framework comparable in PTY mode).
 
 ## startup

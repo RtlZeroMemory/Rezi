@@ -79,7 +79,6 @@ const FRAMEWORK_ORDER: Framework[] = [
 
 const FRAMEWORK_LABELS: Record<Framework, string> = {
   "rezi-native": "Rezi (native)",
-  "ink-compat": "Ink-Compat (removed)",
   ink: "Ink",
   opentui: "OpenTUI (React)",
   "opentui-core": "OpenTUI (Core)",
@@ -290,18 +289,13 @@ export function toMarkdown(run: BenchRun): string {
   const { meta, invocation, results } = run;
   const lines: string[] = [];
   lines.push("# Benchmark Results\n");
-  lines.push(
-    `> ${meta.timestamp} | Node ${meta.nodeVersion} | Bun ${meta.bunVersion ?? "n/a"} | rustc ${meta.rustcVersion ?? "n/a"} | cargo ${meta.cargoVersion ?? "n/a"} | ${meta.osType} ${meta.osRelease} | ${meta.platform} ${meta.arch} | ${meta.cpuModel} (${meta.cpuCores} cores) | RAM ${meta.memoryTotalMb}MB | governor=${meta.cpuGovernor ?? "n/a"} | wsl=${meta.isWsl ? "yes" : "no"}\n`,
-  );
-  if (meta.environmentCaveat) {
-    lines.push(`> WARNING: ${meta.environmentCaveat}\n`);
-  }
-  lines.push(
-    `> Invocation: suite=${invocation.suite} matchup=${invocation.matchup} scenario=${invocation.scenarioFilter ?? "all"} framework=${invocation.frameworkFilter ?? "all"} warmup=${invocation.warmupOverride ?? "default"} iterations=${invocation.iterationsOverride ?? "default"} quick=${invocation.quick ? "yes" : "no"} io=${invocation.ioMode} opentuiDriver=${invocation.opentuiDriver} replicates=${invocation.replicates} discardFirstReplicate=${invocation.discardFirstReplicate ? "yes" : "no"} shuffleFrameworkOrder=${invocation.shuffleFrameworkOrder ? "yes" : "no"} shuffleSeed=${invocation.shuffleSeed} envCheck=${invocation.envCheck} cpuAffinity=${invocation.cpuAffinity ?? "none"}\n`,
-  );
-  lines.push(
-    '> Byte columns: "Bytes(local)" = framework-local counter; "Bytes(pty)" = observed PTY bytes (cross-framework comparable in PTY mode).\n',
-  );
+  const headerLines: string[] = [
+    `> ${meta.timestamp} | Node ${meta.nodeVersion} | Bun ${meta.bunVersion ?? "n/a"} | rustc ${meta.rustcVersion ?? "n/a"} | cargo ${meta.cargoVersion ?? "n/a"} | ${meta.osType} ${meta.osRelease} | ${meta.platform} ${meta.arch} | ${meta.cpuModel} (${meta.cpuCores} cores) | RAM ${meta.memoryTotalMb}MB | governor=${meta.cpuGovernor ?? "n/a"} | wsl=${meta.isWsl ? "yes" : "no"}`,
+    ...(meta.environmentCaveat ? [`> WARNING: ${meta.environmentCaveat}`] : []),
+    `> Invocation: suite=${invocation.suite} matchup=${invocation.matchup} scenario=${invocation.scenarioFilter ?? "all"} framework=${invocation.frameworkFilter ?? "all"} warmup=${invocation.warmupOverride ?? "default"} iterations=${invocation.iterationsOverride ?? "default"} quick=${invocation.quick ? "yes" : "no"} io=${invocation.ioMode} opentuiDriver=${invocation.opentuiDriver} replicates=${invocation.replicates} discardFirstReplicate=${invocation.discardFirstReplicate ? "yes" : "no"} shuffleFrameworkOrder=${invocation.shuffleFrameworkOrder ? "yes" : "no"} shuffleSeed=${invocation.shuffleSeed} envCheck=${invocation.envCheck} cpuAffinity=${invocation.cpuAffinity ?? "none"}`,
+    '> Byte columns: "Bytes(local)" = framework-local counter; "Bytes(pty)" = observed PTY bytes (cross-framework comparable in PTY mode).',
+  ];
+  lines.push(headerLines.join("\n") + "\n");
 
   const groups = aggregateResultsByScenario(results);
 
