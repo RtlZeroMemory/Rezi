@@ -43,9 +43,15 @@ type MeasureCacheEntry = Readonly<{
 }>;
 
 type MeasureCache = WeakMap<VNode, MeasureCacheEntry>;
+type LayoutCacheLeaf = Map<number, LayoutResult<LayoutTree>>;
+type LayoutCacheByX = Map<number, LayoutCacheLeaf>;
+type LayoutCacheByForcedH = Map<number, LayoutCacheByX>;
+type LayoutCacheByForcedW = Map<number, LayoutCacheByForcedH>;
+type LayoutCacheByMaxH = Map<number, LayoutCacheByForcedW>;
+type LayoutAxisCache = Map<number, LayoutCacheByMaxH>;
 type LayoutCacheEntry = Readonly<{
-  row: Map<string, LayoutResult<LayoutTree>>;
-  column: Map<string, LayoutResult<LayoutTree>>;
+  row: LayoutAxisCache;
+  column: LayoutAxisCache;
 }>;
 type LayoutCache = WeakMap<VNode, LayoutCacheEntry>;
 
@@ -80,6 +86,7 @@ const measureCacheStack: MeasureCache[] = [];
 let activeLayoutCache: LayoutCache | null = null;
 const layoutCacheStack: LayoutCache[] = [];
 const syntheticThemedColumnCache = new WeakMap<VNode, SyntheticThemedColumnCacheEntry>();
+const NULL_FORCED_DIMENSION = -1;
 
 function pushMeasureCache(cache: MeasureCache): void {
   measureCacheStack.push(cache);
@@ -103,17 +110,74 @@ function popLayoutCache(): void {
     layoutCacheStack.length > 0 ? (layoutCacheStack[layoutCacheStack.length - 1] ?? null) : null;
 }
 
-function layoutCacheKey(
+function forcedDimensionKey(value: number | null): number {
+  if (value === null) return NULL_FORCED_DIMENSION;
+  if (value < 0) {
+    throw new RangeError("layout: forced dimensions must be >= 0");
+  }
+  return value;
+}
+
+function getLayoutCacheHit(
+  axisMap: LayoutAxisCache,
   maxW: number,
   maxH: number,
   forcedW: number | null,
   forcedH: number | null,
   x: number,
   y: number,
-): string {
-  return `${String(maxW)}:${String(maxH)}:${forcedW === null ? "n" : String(forcedW)}:${
-    forcedH === null ? "n" : String(forcedH)
-  }:${String(x)}:${String(y)}`;
+): LayoutResult<LayoutTree> | null {
+  const byMaxH = axisMap.get(maxW);
+  if (!byMaxH) return null;
+  const byForcedW = byMaxH.get(maxH);
+  if (!byForcedW) return null;
+  const byForcedH = byForcedW.get(forcedDimensionKey(forcedW));
+  if (!byForcedH) return null;
+  const byX = byForcedH.get(forcedDimensionKey(forcedH));
+  if (!byX) return null;
+  const byY = byX.get(x);
+  if (!byY) return null;
+  return byY.get(y) ?? null;
+}
+
+function setLayoutCacheValue(
+  axisMap: LayoutAxisCache,
+  maxW: number,
+  maxH: number,
+  forcedW: number | null,
+  forcedH: number | null,
+  x: number,
+  y: number,
+  value: LayoutResult<LayoutTree>,
+): void {
+  let byMaxH = axisMap.get(maxW);
+  if (!byMaxH) {
+    byMaxH = new Map();
+    axisMap.set(maxW, byMaxH);
+  }
+  let byForcedW = byMaxH.get(maxH);
+  if (!byForcedW) {
+    byForcedW = new Map();
+    byMaxH.set(maxH, byForcedW);
+  }
+  const forcedWKey = forcedDimensionKey(forcedW);
+  let byForcedH = byForcedW.get(forcedWKey);
+  if (!byForcedH) {
+    byForcedH = new Map();
+    byForcedW.set(forcedWKey, byForcedH);
+  }
+  const forcedHKey = forcedDimensionKey(forcedH);
+  let byX = byForcedH.get(forcedHKey);
+  if (!byX) {
+    byX = new Map();
+    byForcedH.set(forcedHKey, byX);
+  }
+  let byY = byX.get(x);
+  if (!byY) {
+    byY = new Map();
+    byX.set(x, byY);
+  }
+  byY.set(y, value);
 }
 
 function getSyntheticThemedColumn(vnode: ThemedVNode): VNode {
@@ -378,14 +442,13 @@ function layoutNode(
   }
 
   const cache = activeLayoutCache;
-  const cacheKey = layoutCacheKey(maxW, maxH, forcedW, forcedH, x, y);
   const dirtySet = getActiveDirtySet();
   let cacheHit: LayoutResult<LayoutTree> | null = null;
   if (cache) {
     const entry = cache.get(vnode);
     if (entry) {
       const axisMap = axis === "row" ? entry.row : entry.column;
-      cacheHit = axisMap.get(cacheKey) ?? null;
+      cacheHit = getLayoutCacheHit(axisMap, maxW, maxH, forcedW, forcedH, x, y);
       if (cacheHit && (dirtySet === null || !dirtySet.has(vnode))) {
         if (__layoutProfile.enabled) __layoutProfile.layoutCacheHits++;
         return cacheHit;
@@ -697,7 +760,7 @@ function layoutNode(
       cache.set(vnode, entry);
     }
     const axisMap = axis === "row" ? entry.row : entry.column;
-    axisMap.set(cacheKey, computed);
+    setLayoutCacheValue(axisMap, maxW, maxH, forcedW, forcedH, x, y, computed);
   }
 
   return computed;
