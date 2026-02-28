@@ -6,6 +6,35 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.49] - 2026-02-28
+
+### Features
+
+- **bench/ink-compat**: Added a fairness-focused Ink vs Ink-compat benchmark harness with shared app scenarios, PTY replay, CPU profiling support, and final-screen equivalence verification.
+- **bench/validity**: Added benchmark validity documentation and reporting workflow for reproducible comparisons.
+
+### Performance
+
+- **core/layout-renderer**: Reduced hot-path allocation churn in layout and render paths.
+- **ink-compat**: Reduced dashboard-grid tail latency and renderer overhead across translation and runtime hot paths.
+
+### Bug Fixes
+
+- **ink-compat**: Fixed soft-wrap whitespace behavior and hardened ANSI transform rendering parity.
+- **core/types**: Fixed strict index-signature access handling for text prop hashing.
+
+### Documentation
+
+- **ink-compat/docs**: Expanded migration, architecture, and debugging documentation for Ink-compat.
+- **benchmarks**: Updated benchmark reports with latest 8-framework results and moved detailed Ink-compat bench command block into architecture docs.
+
+### Merged Pull Requests
+
+- [#228](https://github.com/RtlZeroMemory/Rezi/pull/228) refactor(core): reduce layout/render hot-path allocations
+- [#229](https://github.com/RtlZeroMemory/Rezi/pull/229) benchmarks: update results to 2026-02-28 full run (all 8 frameworks)
+- [#230](https://github.com/RtlZeroMemory/Rezi/pull/230) perf(ink-compat): finalize benchmark harness, renderer fixes, and docs
+- [#231](https://github.com/RtlZeroMemory/Rezi/pull/231) docs(ink-compat): move benchmark block out of root README
+
 ## [0.1.0-alpha.48] - 2026-02-27
 
 ### Features
