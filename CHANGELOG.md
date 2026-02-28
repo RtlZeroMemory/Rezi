@@ -6,6 +6,57 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.48] - 2026-02-27
+
+### Features
+
+- **ink-compat**: Improved Ink compatibility fidelity, diagnostics, and documentation coverage.
+- **drawlist/backend**: Added builder `buildInto(dst)` and backend zero-copy `beginFrame` SAB path.
+- **renderer/perf**: Shipped packed-style pipeline, frame text arena, retained sub-display-lists, BLIT_RECT plumbing, and logs scrolling optimizations.
+- **runtime/perf**: Added layout stability signatures and content-keyed render packets with additional hot-path optimizations.
+
+### Bug Fixes
+
+- **release/publish**: Fixed npm publish flow for `@rezi-ui/ink-compat` and shim packages.
+- **native**: Fixed MSVC `ZR_ARRAYLEN` compatibility and bumped vendored Zireael revisions.
+- **node/backend**: Prevented reclaiming READY SAB slots during `beginFrame`.
+- **starship/template**: Fixed rendering regressions and added PTY debugging runbook coverage.
+- **ink-compat**: Fixed translation/layout hot paths and regression fallout from the optimization pass.
+
+### Developer Experience
+
+- **docs/dev**: Added code-standards enforcement references.
+- **ci**: Optimized PR pipeline concurrency and fast-gate behavior.
+- **renderer/refactor**: Replaced WeakMap theme propagation with stack-based propagation.
+- **release**: Added release prep updates leading into alpha.40+ publishing flow.
+
+### Merged Pull Requests
+
+- [#201](https://github.com/RtlZeroMemory/Rezi/pull/201) docs(dev): add Rezi code standards and enforcement references
+- [#202](https://github.com/RtlZeroMemory/Rezi/pull/202) chore(release): bump Zireael vendor and prepare alpha.40
+- [#203](https://github.com/RtlZeroMemory/Rezi/pull/203) feat(ink-compat): improve fidelity, diagnostics, and docs
+- [#204](https://github.com/RtlZeroMemory/Rezi/pull/204) fix(release): publish ink-compat and shim packages
+- [#205](https://github.com/RtlZeroMemory/Rezi/pull/205) fix(native): make ZR_ARRAYLEN MSVC-compatible
+- [#206](https://github.com/RtlZeroMemory/Rezi/pull/206) fix(release): publish ink-compat by path
+- [#207](https://github.com/RtlZeroMemory/Rezi/pull/207) docs: add comprehensive Ink-compat guide and README feature callout
+- [#208](https://github.com/RtlZeroMemory/Rezi/pull/208) chore(release): publish scoped ink shim packages
+- [#210](https://github.com/RtlZeroMemory/Rezi/pull/210) fix(native): bump Zireael vendor to v1.3.9
+- [#211](https://github.com/RtlZeroMemory/Rezi/pull/211) refactor(renderer): replace WeakMap theme propagation with stack
+- [#212](https://github.com/RtlZeroMemory/Rezi/pull/212) feat(core): add drawlist builder buildInto(dst) for v2/v3
+- [#213](https://github.com/RtlZeroMemory/Rezi/pull/213) feat: add backend beginFrame zero-copy SAB frame path
+- [#214](https://github.com/RtlZeroMemory/Rezi/pull/214) fix(node): do not reclaim READY SAB slots in beginFrame
+- [#215](https://github.com/RtlZeroMemory/Rezi/pull/215) ci: optimize PR pipeline — concurrency, fast gate, reduced matrix
+- [#216](https://github.com/RtlZeroMemory/Rezi/pull/216) drawlist: make v1 the only protocol and persistent builder
+- [#217](https://github.com/RtlZeroMemory/Rezi/pull/217) EPIC 6: packed style pipeline + Zireael vendor bump
+- [#218](https://github.com/RtlZeroMemory/Rezi/pull/218) EPIC 8: frame text arena + slice-referenced text ops
+- [#219](https://github.com/RtlZeroMemory/Rezi/pull/219) chore(native): bump vendored Zireael to v1.3.11
+- [#220](https://github.com/RtlZeroMemory/Rezi/pull/220) EPIC 7: retained sub-display-lists via per-instance render packets
+- [#221](https://github.com/RtlZeroMemory/Rezi/pull/221) EPIC 9B: plumb BLIT_RECT and optimize logs scroll rendering
+- [#223](https://github.com/RtlZeroMemory/Rezi/pull/223) Fix post-refactor regressions and bump native vendor to Zireael #103
+- [#225](https://github.com/RtlZeroMemory/Rezi/pull/225) Fix starship rendering regressions with clean diff and PTY debug runbook
+- [#226](https://github.com/RtlZeroMemory/Rezi/pull/226) perf: layout stability signatures, content-keyed packets, hot-path fixes
+- [#227](https://github.com/RtlZeroMemory/Rezi/pull/227) fix(ink-compat): optimize translation and layout hot paths
+
 ## [0.1.0-alpha.40] - 2026-02-25
 
 ### Bug Fixes

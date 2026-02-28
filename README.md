@@ -45,7 +45,7 @@ Rezi is a high-performance terminal UI framework for TypeScript. You write decla
 - **Inline image rendering** — display PNG, JPEG, and raw RGBA buffers using Kitty, Sixel, or iTerm2 graphics protocols, with automatic blitter fallback
 - **Terminal auto-detection** — identifies Kitty, WezTerm, iTerm2, Ghostty, Windows Terminal, and tmux; enables the best graphics protocol automatically, with env-var overrides for any capability
 - **Performance-focused architecture** — binary drawlists + native C framebuffer diffing; benchmark details and caveats are documented in the Benchmarks section
-- **Ink compatibility layer** — run existing Ink CLIs on Rezi with minimal changes (import swap or dependency aliasing), plus deterministic parity diagnostics; details: [Ink Compat docs](docs/architecture/ink-compat.md)
+- **Ink compatibility layer** — run existing Ink CLIs on Rezi with minimal changes (import swap or dependency aliasing), plus deterministic parity diagnostics; details: [Porting guide](docs/migration/ink-to-ink-compat.md) · [Ink Compat architecture](docs/architecture/ink-compat.md)
 - **JSX without React** — optional `@rezi-ui/jsx` maps JSX directly to Rezi VNodes with zero React runtime overhead
 - **Deterministic rendering** — same state + same events = same frames; versioned binary protocol, pinned Unicode tables
 - **Hot state-preserving reload** — swap widget views or route tables in-process during development without losing app state or focus context
@@ -132,6 +132,44 @@ node --expose-gc packages/bench/dist/run.js \
 See [BENCHMARKS.md](BENCHMARKS.md) for full results, all scenarios, scenario definitions, methodology caveats, and advanced run options.
 
 ---
+
+## Ink-Compat Bench (Ink vs Ink-Compat)
+
+This repo includes a fairness-focused benchmark + profiling suite that runs the **same TUI app code** against:
+
+- `real-ink`: `@jrichman/ink`
+- `ink-compat`: `@rezi-ui/ink-compat`
+
+Key commands:
+
+```bash
+# build bench packages
+npm run prebench
+
+# (optional) set up module resolution for bench-app explicitly
+npm run prepare:real-ink
+npm run prepare:ink-compat
+
+# run a scenario (3 replicates)
+npm run -s bench -- --scenario streaming-chat --renderer real-ink --runs 3 --out results/
+npm run -s bench -- --scenario streaming-chat --renderer ink-compat --runs 3 --out results/
+
+# CPU profiling (writes .cpuprofile under results/.../run_XX/cpu-prof/)
+npm run -s bench -- --scenario dashboard-grid --renderer ink-compat --runs 1 --cpu-prof --out results/
+
+# final-screen equivalence gate
+npm run -s verify -- --scenario streaming-chat --compare real-ink,ink-compat --out results/
+```
+
+Docs + reports:
+
+- Methodology + metric definitions: `BENCHMARK_VALIDITY.md`
+- Latest report: `results/report_2026-02-27.md`
+- Bottlenecks + fixes: `results/bottlenecks.md`
+- Porting and architecture docs:
+  - `docs/migration/ink-to-ink-compat.md`
+  - `docs/architecture/ink-compat.md`
+  - `docs/dev/ink-compat-debugging.md`
 
 ## Quick Start
 

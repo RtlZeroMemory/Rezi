@@ -182,3 +182,8 @@ CODEX_*.md
 .last_perf_pack_quick
 *.cpuprofile
 packages/bench/bubbletea-bench/.bin/
+
+# Ink compat benchmark artifacts (runner output)
+results/ink-bench_*/
+results/verify_*/
+results/verify_*.json

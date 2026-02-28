@@ -1,0 +1,24 @@
+{
+  "name": "@rezi-ui/ink-compat-bench-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "main": "./dist/entry.js",
+  "types": "./dist/entry.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --pretty false",
+    "typecheck": "tsc -p tsconfig.json --pretty false --noEmit"
+  },
+  "dependencies": {
+    "@jrichman/ink": "^6.4.10",
+    "@rezi-ui/ink-compat": "0.1.0-alpha.34",
+    "react": "^19.0.0",
+    "react-reconciler": "^0.31.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.6.3"
+  }
+}

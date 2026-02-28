@@ -19,7 +19,10 @@ Rezi is designed specifically for terminal UIs, not as a React port.
 
 ### I'm using Ink. How do I migrate?
 
-Use the [Ink to Rezi migration guide](../migration/ink-to-rezi.md) for a direct mental-model map and practical migration recipes.
+Choose the migration path that matches your goal:
+
+- For minimal app-code churn, use [Ink to Ink-Compat Migration](../migration/ink-to-ink-compat.md).
+- For a full Rezi-native rewrite (`createNodeApp`, `ui.*`), use [Ink to Rezi migration guide](../migration/ink-to-rezi.md).
 
 ### What platforms does Rezi support?
 

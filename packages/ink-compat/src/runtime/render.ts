@@ -13,12 +13,16 @@ import React from "react";
 
 import { type KittyFlagName, resolveKittyFlags } from "../kitty-keyboard.js";
 import type { InkHostContainer, InkHostNode } from "../reconciler/types.js";
+import { __inkCompatTranslationTestHooks } from "../translation/propsToVNode.js";
 import { enableTranslationTrace, flushTranslationTrace } from "../translation/traceCollector.js";
 import { checkAllResizeObservers } from "./ResizeObserver.js";
 import { createBridge } from "./bridge.js";
 import { InkContext } from "./context.js";
 import { advanceLayoutGeneration, readCurrentLayout, writeCurrentLayout } from "./layoutState.js";
 import { commitSync, createReactRoot } from "./reactHelpers.js";
+
+const BENCH_PHASES_ENABLED = process.env["BENCH_INK_COMPAT_PHASES"] === "1";
+const BENCH_DETAIL_ENABLED = process.env["BENCH_DETAIL"] === "1";
 
 export interface KittyKeyboardOptions {
   mode?: "auto" | "enabled" | "disabled";
@@ -1038,13 +1042,20 @@ function scanHostTreeForStaticAndAnsi(rootNode: InkHostContainer): {
   };
 }
 
-function rootChildRevisionSignature(rootNode: InkHostContainer): string {
-  if (rootNode.children.length === 0) return "";
-  const revisions: string[] = [];
-  for (const child of rootNode.children) {
-    revisions.push(String(child.__inkRevision));
+function rootChildRevisionsChanged(rootNode: InkHostContainer, previous: number[]): boolean {
+  const nextLength = rootNode.children.length;
+  let changed = previous.length !== nextLength;
+  if (previous.length !== nextLength) {
+    previous.length = nextLength;
   }
-  return revisions.join(",");
+  for (let index = 0; index < nextLength; index += 1) {
+    const nextRevision = rootNode.children[index]?.__inkRevision ?? 0;
+    if (previous[index] !== nextRevision) {
+      previous[index] = nextRevision;
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 function staticRootRevisionSignature(rootNode: InkHostContainer): string {
@@ -1386,45 +1397,62 @@ function styleToSgr(style: CellStyle | undefined, colorSupport: ColorSupport): s
   const cached = sgrCache.get(style);
   if (cached !== undefined) return cached;
 
-  const codes: string[] = [];
-  if (style.bold) codes.push("1");
-  if (style.dim) codes.push("2");
-  if (style.italic) codes.push("3");
-  if (style.underline) codes.push("4");
-  if (style.inverse) codes.push("7");
-  if (style.strikethrough) codes.push("9");
+  let sgr = "\u001b[0";
+  let hasCodes = false;
+  if (style.bold) {
+    sgr += ";1";
+    hasCodes = true;
+  }
+  if (style.dim) {
+    sgr += ";2";
+    hasCodes = true;
+  }
+  if (style.italic) {
+    sgr += ";3";
+    hasCodes = true;
+  }
+  if (style.underline) {
+    sgr += ";4";
+    hasCodes = true;
+  }
+  if (style.inverse) {
+    sgr += ";7";
+    hasCodes = true;
+  }
+  if (style.strikethrough) {
+    sgr += ";9";
+    hasCodes = true;
+  }
   if (colorSupport.level > 0) {
     if (style.fg != null) {
       if (colorSupport.level >= 3) {
-        codes.push(
-          `38;2;${clampByte(rgbR(style.fg))};${clampByte(rgbG(style.fg))};${clampByte(rgbB(style.fg))}`,
-        );
+        sgr += `;38;2;${clampByte(rgbR(style.fg))};${clampByte(rgbG(style.fg))};${clampByte(rgbB(style.fg))}`;
       } else if (colorSupport.level === 2) {
-        codes.push(`38;5;${toAnsi256Code(style.fg)}`);
+        sgr += `;38;5;${toAnsi256Code(style.fg)}`;
       } else {
-        codes.push(String(toAnsi16Code(style.fg, false)));
+        sgr += `;${toAnsi16Code(style.fg, false)}`;
       }
+      hasCodes = true;
     }
     if (style.bg != null) {
       if (colorSupport.level >= 3) {
-        codes.push(
-          `48;2;${clampByte(rgbR(style.bg))};${clampByte(rgbG(style.bg))};${clampByte(rgbB(style.bg))}`,
-        );
+        sgr += `;48;2;${clampByte(rgbR(style.bg))};${clampByte(rgbG(style.bg))};${clampByte(rgbB(style.bg))}`;
       } else if (colorSupport.level === 2) {
-        codes.push(`48;5;${toAnsi256Code(style.bg)}`);
+        sgr += `;48;5;${toAnsi256Code(style.bg)}`;
       } else {
-        codes.push(String(toAnsi16Code(style.bg, true)));
+        sgr += `;${toAnsi16Code(style.bg, true)}`;
       }
+      hasCodes = true;
     }
   }
 
   let result: string;
-  if (codes.length === 0) {
+  if (!hasCodes) {
     result = "\u001b[0m";
   } else {
     // Always reset (0) before applying new attributes to prevent attribute
     // bleed from previous cells (e.g. bold, bg carrying over).
-    result = `\u001b[0;${codes.join(";")}m`;
+    result = `${sgr}m`;
   }
 
   sgrCache.set(style, result);
@@ -1759,14 +1787,8 @@ function renderOpsToAnsi(
   ops: readonly RenderOp[],
   viewport: ViewportSize,
   colorSupport: ColorSupport,
+  grid: StyledCell[][],
 ): { ansi: string; grid: StyledCell[][]; shape: OutputShapeSummary } {
-  const grid: StyledCell[][] = new Array(viewport.rows);
-  for (let rowIndex = 0; rowIndex < viewport.rows; rowIndex += 1) {
-    const row = new Array<StyledCell>(viewport.cols);
-    row.fill(BLANK_CELL);
-    grid[rowIndex] = row;
-  }
-
   const clipStack: ClipRect[] = [];
   let effectiveClip: ClipRect | null = null;
 
@@ -1840,6 +1862,7 @@ function renderOpsToAnsi(
   let firstNonBlankLine = -1;
   let lastNonBlankLine = -1;
   let widestLine = 0;
+  const lineParts: string[] = [];
 
   for (let rowIndex = 0; rowIndex < grid.length; rowIndex += 1) {
     const row = grid[rowIndex]!;
@@ -1864,20 +1887,20 @@ function renderOpsToAnsi(
     if (firstNonBlankLine === -1) firstNonBlankLine = rowIndex;
     lastNonBlankLine = rowIndex;
 
-    let line = "";
+    lineParts.length = 0;
     let activeStyle: CellStyle | undefined;
 
     for (let colIndex = 0; colIndex <= lastUsefulCol; colIndex += 1) {
       const cell = row[colIndex]!;
       if (!stylesEqual(activeStyle, cell.style)) {
-        line += styleToSgr(cell.style, colorSupport);
+        lineParts.push(styleToSgr(cell.style, colorSupport));
         activeStyle = cell.style;
       }
-      line += cell.char;
+      lineParts.push(cell.char);
     }
 
-    if (activeStyle) line += "\u001b[0m";
-    lines.push(line);
+    if (activeStyle) lineParts.push("\u001b[0m");
+    lines.push(lineParts.join(""));
   }
 
   while (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
@@ -1908,6 +1931,7 @@ interface PercentResolveContext {
   parentSize: ViewportSize;
   parentMainAxis: FlexMainAxis;
   deps?: PercentResolveDeps;
+  markerCache?: WeakMap<object, boolean>;
 }
 
 interface PercentParentDep {
@@ -1961,34 +1985,47 @@ function readNodeMainAxis(kind: unknown): FlexMainAxis {
   return "column";
 }
 
-function hasPercentMarkers(vnode: VNode): boolean {
+function hasPercentMarkers(vnode: VNode, markerCache?: WeakMap<object, boolean>): boolean {
   if (typeof vnode !== "object" || vnode === null) return false;
+  const vnodeObject = vnode as object;
+  if (markerCache?.has(vnodeObject)) {
+    return markerCache?.get(vnodeObject) === true;
+  }
   const candidate = vnode as { props?: unknown; children?: unknown };
   const props =
     typeof candidate.props === "object" && candidate.props !== null
       ? (candidate.props as Record<string, unknown>)
       : undefined;
 
-  if (
+  const hasDirectMarkers =
     props &&
     (typeof props["__inkPercentWidth"] === "number" ||
       typeof props["__inkPercentHeight"] === "number" ||
       typeof props["__inkPercentMinWidth"] === "number" ||
       typeof props["__inkPercentMinHeight"] === "number" ||
-      typeof props["__inkPercentFlexBasis"] === "number")
-  ) {
+      typeof props["__inkPercentFlexBasis"] === "number");
+  if (hasDirectMarkers) {
+    markerCache?.set(vnodeObject, true);
     return true;
   }
 
   const children = Array.isArray(candidate.children) ? (candidate.children as VNode[]) : [];
   for (const child of children) {
-    if (hasPercentMarkers(child)) return true;
+    if (hasPercentMarkers(child, markerCache)) {
+      markerCache?.set(vnodeObject, true);
+      return true;
+    }
   }
+  markerCache?.set(vnodeObject, false);
   return false;
 }
 
 function resolvePercentMarkers(vnode: VNode, context: PercentResolveContext): VNode {
   if (typeof vnode !== "object" || vnode === null) {
+    return vnode;
+  }
+  const markerCache = context.markerCache ?? new WeakMap<object, boolean>();
+  if (!hasPercentMarkers(vnode, markerCache)) {
     return vnode;
   }
 
@@ -2085,10 +2122,15 @@ function resolvePercentMarkers(vnode: VNode, context: PercentResolveContext): VN
     parentSize: nextParentSize,
     parentMainAxis: readNodeMainAxis(candidate.kind),
     ...(context.deps ? { deps: context.deps } : {}),
+    markerCache,
   };
 
   const originalChildren = Array.isArray(candidate.children) ? (candidate.children as VNode[]) : [];
-  const nextChildren = originalChildren.map((child) => resolvePercentMarkers(child, nextContext));
+  const nextChildren: VNode[] = new Array(originalChildren.length);
+  for (let index = 0; index < originalChildren.length; index += 1) {
+    const child = originalChildren[index]!;
+    nextChildren[index] = resolvePercentMarkers(child, nextContext);
+  }
 
   return {
     ...(vnode as Record<string, unknown>),
@@ -2099,18 +2141,18 @@ function resolvePercentMarkers(vnode: VNode, context: PercentResolveContext): VN
 
 function assignHostLayouts(
   container: InkHostContainer,
-  nodes: readonly {
-    rect?: { x?: number; y?: number; w?: number; h?: number };
-    props?: Record<string, unknown>;
-  }[],
+  forEachLayoutNode: (
+    visit: (
+      rect: { x?: number; y?: number; w?: number; h?: number },
+      props: Readonly<Record<string, unknown>>,
+    ) => void,
+  ) => void,
 ): void {
   const generation = advanceLayoutGeneration(container);
-  for (const node of nodes) {
-    if (!node) continue;
-    const host = node.props?.["__inkHostNode"];
-    if (typeof host !== "object" || host === null) continue;
+  forEachLayoutNode((rect, props) => {
+    const host = props["__inkHostNode"];
+    if (typeof host !== "object" || host === null) return;
     const hostNode = host as HostNodeWithLayout;
-    const rect = node.rect;
     const x = rect?.x;
     const y = rect?.y;
     const w = rect?.w;
@@ -2125,7 +2167,7 @@ function assignHostLayouts(
       typeof h !== "number" ||
       !Number.isFinite(h)
     ) {
-      continue;
+      return;
     }
     writeCurrentLayout(
       hostNode,
@@ -2137,7 +2179,83 @@ function assignHostLayouts(
       },
       generation,
     );
+  });
+}
+
+function createThrottle(
+  fn: () => void,
+  throttleMs: number,
+): Readonly<{
+  call: () => void;
+  cancel: () => void;
+}> {
+  const waitMs = Math.max(0, Math.trunc(throttleMs));
+  if (waitMs === 0) {
+    return {
+      call: fn,
+      cancel: () => {},
+    };
   }
+
+  let timeoutId: NodeJS.Timeout | null = null;
+  let pendingAt: number | null = null;
+  let hasPendingCall = false;
+
+  const clearTimer = (): void => {
+    if (timeoutId === null) return;
+    clearTimeout(timeoutId);
+    timeoutId = null;
+  };
+
+  const cancel = (): void => {
+    clearTimer();
+    pendingAt = null;
+    hasPendingCall = false;
+  };
+
+  const invoke = (): void => {
+    if (!hasPendingCall) return;
+    hasPendingCall = false;
+    fn();
+    pendingAt = null;
+  };
+
+  const schedule = (): void => {
+    clearTimer();
+    timeoutId = setTimeout(() => {
+      timeoutId = null;
+      invoke();
+      cancel();
+    }, waitMs);
+    timeoutId.unref?.();
+  };
+
+  const call = (): void => {
+    hasPendingCall = true;
+    const now = performance.now();
+    if (pendingAt === null) pendingAt = now;
+
+    if (now - pendingAt >= waitMs) {
+      fn();
+      pendingAt = now;
+      // Clear any pending trailing call, but keep the window open so
+      // subsequent calls within waitMs don't re-trigger leading behavior.
+      hasPendingCall = false;
+      clearTimer();
+      schedule();
+      return;
+    }
+
+    const isFirstCall = timeoutId === null;
+    schedule();
+    if (isFirstCall) {
+      fn();
+      hasPendingCall = false;
+      pendingAt = null;
+    }
+  };
+
+  return { call, cancel };
 }
 
 function createRenderSession(element: React.ReactElement, options: RenderOptions = {}): Instance {
@@ -2184,7 +2302,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   const detailOpLimit = traceDetailFull ? 4000 : 500;
   const detailResizeLimit = traceDetailFull ? 300 : 80;
   const writeErr = (stderr as { write: (s: string) => void }).write.bind(stderr);
-  const traceStartAt = Date.now();
+  const traceStartAt = performance.now();
 
   const trace = (message: string): void => {
     if (!traceEnabled) return;
@@ -2274,6 +2392,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   let viewport = readViewportSize(stdout, fallbackStdout);
   const renderer = createTestRenderer({
     viewport,
+    mode: traceEnabled ? "test" : "runtime",
     ...(traceEnabled
       ? {
           traceDetail: traceDetailFull,
@@ -2304,6 +2423,28 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         }
       : {}),
   });
+  let pooledAnsiGrid: StyledCell[][] = [];
+  let pooledAnsiGridCols = 0;
+  let pooledAnsiGridRows = 0;
+  const getOrResizeAnsiGrid = (cols: number, rows: number): StyledCell[][] => {
+    if (cols === pooledAnsiGridCols && rows === pooledAnsiGridRows) {
+      for (let rowIndex = 0; rowIndex < rows; rowIndex += 1) {
+        pooledAnsiGrid[rowIndex]!.fill(BLANK_CELL);
+      }
+      return pooledAnsiGrid;
+    }
+
+    const nextGrid: StyledCell[][] = new Array(rows);
+    for (let rowIndex = 0; rowIndex < rows; rowIndex += 1) {
+      const row = new Array<StyledCell>(cols);
+      row.fill(BLANK_CELL);
+      nextGrid[rowIndex] = row;
+    }
+    pooledAnsiGrid = nextGrid;
+    pooledAnsiGridCols = cols;
+    pooledAnsiGridRows = rows;
+    return pooledAnsiGrid;
+  };
 
   let lastOutput = "";
   let lastStableOutput = "";
@@ -2318,10 +2459,10 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   let writeBlocked = false;
   const queuedOutputs: RenderWritePayload[] = [];
   let drainListener: (() => void) | undefined;
-  let throttledRenderTimer: NodeJS.Timeout | undefined;
   let pendingRender = false;
   let pendingRenderForce = false;
-  let lastRenderAt = 0;
+  let forceRenderMicrotaskScheduled = false;
+  let sessionClosed = false;
   let rawModeRefCount = 0;
   let rawModeActive = false;
   let restoreConsole: (() => void) | undefined;
@@ -2333,7 +2474,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   let compatWriteDepth = 0;
   let restoreStdoutWrite: (() => void) | undefined;
   let lastCursorSignature = "hidden";
-  let lastCommitSignature = "";
+  const lastCommitRevisions: number[] = [];
   let lastStaticCaptureSignature = "";
 
   const _s = debug ? writeErr : (_msg: string): void => {};
@@ -2695,6 +2836,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
       staticResult.ops as readonly RenderOp[],
       viewport,
       staticColorSupport,
+      getOrResizeAnsiGrid(viewport.cols, viewport.rows),
     );
     const staticTrimmed = trimAnsiToNonBlankBlock(staticAnsi);
 
@@ -2711,6 +2853,15 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
     const frameStartedAt = performance.now();
     frameCount++;
     let translationMs = 0;
+    let translationStats: null | {
+      translatedNodes: number;
+      cacheHits: number;
+      cacheMisses: number;
+      cacheEmptyMisses: number;
+      cacheStaleMisses: number;
+      parseAnsiFastPathHits: number;
+      parseAnsiFallbackPathHits: number;
+    } = null;
     let percentResolveMs = 0;
     let coreRenderMs = 0;
     let coreRenderPassesThisFrame = 0;
@@ -2718,7 +2869,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
     let rectScanMs = 0;
     let ansiMs = 0;
     try {
-      const frameNow = Date.now();
+      const frameNow = performance.now();
       const nextViewport = readViewportSize(stdout, fallbackStdout);
       const viewportChanged =
         nextViewport.cols !== viewport.cols || nextViewport.rows !== viewport.rows;
@@ -2726,10 +2877,20 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         viewport = nextViewport;
       }
 
-      const translationStartedAt = phaseProfile ? performance.now() : 0;
+      const timePhases = phaseProfile != null || BENCH_PHASES_ENABLED;
+
+      const collectBenchDetail = BENCH_PHASES_ENABLED && BENCH_DETAIL_ENABLED;
+      if (collectBenchDetail) {
+        __inkCompatTranslationTestHooks.resetStats();
+      }
+
+      const translationStartedAt = timePhases ? performance.now() : 0;
       const { vnode: translatedDynamic, meta: translationMeta } =
         bridge.translateDynamicWithMetadata();
-      if (phaseProfile) translationMs = performance.now() - translationStartedAt;
+      if (timePhases) translationMs = performance.now() - translationStartedAt;
+      if (collectBenchDetail) {
+        translationStats = __inkCompatTranslationTestHooks.getStats();
+      }
       const hasDynamicPercentMarkers = translationMeta.hasPercentMarkers;
 
       // In static-channel mode, static output is rendered above the dynamic
@@ -2748,7 +2909,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
 
       let percentDeps: PercentResolveDeps | null = null;
       const percentResolveStartedAt =
-        phaseProfile && hasDynamicPercentMarkers ? performance.now() : 0;
+        timePhases && hasDynamicPercentMarkers ? performance.now() : 0;
       let translatedDynamicWithPercent = translatedDynamic;
       if (hasDynamicPercentMarkers) {
         percentDeps = { parents: new Map(), missingParentLayout: false };
@@ -2765,24 +2926,18 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
       const coerced = coerceRootViewportHeight(translatedDynamicWithPercent, layoutViewport);
       vnode = coerced.vnode;
       rootHeightCoerced = coerced.coerced;
-      if (phaseProfile && hasDynamicPercentMarkers) {
+      if (timePhases && hasDynamicPercentMarkers) {
         percentResolveMs += performance.now() - percentResolveStartedAt;
       }
 
       coreRenderPassesThisFrame = 1;
-      const renderStartedAt = phaseProfile ? performance.now() : 0;
+      const renderStartedAt = timePhases ? performance.now() : 0;
       let result = renderer.render(vnode, { viewport: layoutViewport });
-      if (phaseProfile) coreRenderMs += performance.now() - renderStartedAt;
+      if (timePhases) coreRenderMs += performance.now() - renderStartedAt;
 
-      const assignLayoutsStartedAt = phaseProfile ? performance.now() : 0;
-      assignHostLayouts(
-        bridge.rootNode,
-        result.nodes as readonly {
-          rect?: { x?: number; y?: number; w?: number; h?: number };
-          props?: Record<string, unknown>;
-        }[],
-      );
-      if (phaseProfile) assignLayoutsMs += performance.now() - assignLayoutsStartedAt;
+      const assignLayoutsStartedAt = timePhases ? performance.now() : 0;
+      assignHostLayouts(bridge.rootNode, result.forEachLayoutNode);
+      if (timePhases) assignLayoutsMs += performance.now() - assignLayoutsStartedAt;
       if (hasDynamicPercentMarkers) {
         // Percent sizing is resolved against parent layout. On the first pass we only have
         // the previous generation's layouts, so we run a second render only when a percent
@@ -2806,7 +2961,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
 
         if (needsSecondPass) {
           coreRenderPassesThisFrame = 2;
-          const secondPercentStartedAt = phaseProfile ? performance.now() : 0;
+          const secondPercentStartedAt = timePhases ? performance.now() : 0;
           translatedDynamicWithPercent = resolvePercentMarkers(translatedDynamic, {
             parentSize: layoutViewport,
             parentMainAxis: "column",
@@ -2814,42 +2969,34 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
           const secondPass = coerceRootViewportHeight(translatedDynamicWithPercent, layoutViewport);
           vnode = secondPass.vnode;
           rootHeightCoerced = rootHeightCoerced || secondPass.coerced;
-          if (phaseProfile) percentResolveMs += performance.now() - secondPercentStartedAt;
+          if (timePhases) percentResolveMs += performance.now() - secondPercentStartedAt;
 
-          const secondRenderStartedAt = phaseProfile ? performance.now() : 0;
+          const secondRenderStartedAt = timePhases ? performance.now() : 0;
           result = renderer.render(vnode, { viewport: layoutViewport });
-          if (phaseProfile) coreRenderMs += performance.now() - secondRenderStartedAt;
+          if (timePhases) coreRenderMs += performance.now() - secondRenderStartedAt;
 
-          const secondAssignStartedAt = phaseProfile ? performance.now() : 0;
-          assignHostLayouts(
-            bridge.rootNode,
-            result.nodes as readonly {
-              rect?: { x?: number; y?: number; w?: number; h?: number };
-              props?: Record<string, unknown>;
-            }[],
-          );
-          if (phaseProfile) assignLayoutsMs += performance.now() - secondAssignStartedAt;
+          const secondAssignStartedAt = timePhases ? performance.now() : 0;
+          assignHostLayouts(bridge.rootNode, result.forEachLayoutNode);
+          if (timePhases) assignLayoutsMs += performance.now() - secondAssignStartedAt;
         }
       }
       checkAllResizeObservers();
 
-      const rectScanStartedAt = phaseProfile ? performance.now() : 0;
+      const rectScanStartedAt = timePhases ? performance.now() : 0;
       // Compute maxRectBottom from layout result — needed to size the ANSI
       // grid correctly in non-alternate-buffer mode.
       let minRectY = Number.POSITIVE_INFINITY;
       let maxRectBottom = 0;
       let zeroHeightRects = 0;
-      for (const node of result.nodes as readonly { rect?: { y?: number; h?: number } }[]) {
-        const rect = node.rect;
-        if (!rect) continue;
+      result.forEachLayoutNode((rect) => {
         const y = toNumber(rect.y);
         const h = toNumber(rect.h);
-        if (y == null || h == null) continue;
+        if (y == null || h == null) return;
         minRectY = Math.min(minRectY, y);
         maxRectBottom = Math.max(maxRectBottom, y + h);
         if (h === 0) zeroHeightRects += 1;
-      }
-      if (phaseProfile) rectScanMs = performance.now() - rectScanStartedAt;
+      });
+      if (timePhases) rectScanMs = performance.now() - rectScanStartedAt;
 
       // Keep non-alt output content-sized by using computed layout height.
       // When root coercion applies (overflow hidden/scroll), maxRectBottom
@@ -2860,13 +3007,18 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
 
       const frameHasAnsiSgr = translationMeta.hasAnsiSgr;
       const frameColorSupport = frameHasAnsiSgr ? FORCED_TRUECOLOR_SUPPORT : colorSupport;
-      const ansiStartedAt = phaseProfile ? performance.now() : 0;
+      const ansiStartedAt = timePhases ? performance.now() : 0;
       const {
         ansi: rawAnsiOutput,
         grid: cellGrid,
         shape: outputShape,
-      } = renderOpsToAnsi(result.ops as readonly RenderOp[], gridViewport, frameColorSupport);
-      if (phaseProfile) ansiMs = performance.now() - ansiStartedAt;
+      } = renderOpsToAnsi(
+        result.ops as readonly RenderOp[],
+        gridViewport,
+        frameColorSupport,
+        getOrResizeAnsiGrid(gridViewport.cols, gridViewport.rows),
+      );
+      if (timePhases) ansiMs = performance.now() - ansiStartedAt;
 
       // In alternate-buffer mode the output fills the full layoutViewport.
       // In non-alternate-buffer mode the grid is content-sized so the
@@ -3107,6 +3259,37 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         phaseProfile.maxFrameMs = Math.max(phaseProfile.maxFrameMs, renderTime);
       }
 
+      if (BENCH_PHASES_ENABLED) {
+        const hook = (
+          globalThis as unknown as {
+            __INK_COMPAT_BENCH_ON_FRAME?: ((m: unknown) => void) | undefined;
+          }
+        ).__INK_COMPAT_BENCH_ON_FRAME;
+        if (hook) {
+          hook({
+            translationMs,
+            percentResolveMs,
+            coreRenderMs,
+            assignLayoutsMs,
+            rectScanMs,
+            ansiMs,
+            nodes: result.nodes.length,
+            ops: result.ops.length,
+            coreRenderPasses: coreRenderPassesThisFrame || 1,
+            ...(translationStats
+              ? {
+                  translatedNodes: translationStats.translatedNodes,
+                  translationCacheHits: translationStats.cacheHits,
+                  translationCacheMisses: translationStats.cacheMisses,
+                  translationCacheEmptyMisses: translationStats.cacheEmptyMisses,
+                  translationCacheStaleMisses: translationStats.cacheStaleMisses,
+                  parseAnsiFastPathHits: translationStats.parseAnsiFastPathHits,
+                  parseAnsiFallbackPathHits: translationStats.parseAnsiFallbackPathHits,
+                }
+              : {}),
+          });
+        }
+      }
       writeOutput({ output, staticOutput });
       options.onRender?.({
         renderTime,
@@ -3127,47 +3310,46 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
     }
   };
 
-  const flushScheduledRender = (): void => {
-    throttledRenderTimer = undefined;
+  const flushPendingRender = (): void => {
     if (!pendingRender) return;
     const force = pendingRenderForce;
     pendingRender = false;
     pendingRenderForce = false;
-    lastRenderAt = Date.now();
     renderFrame(force);
-    if (pendingRender) {
-      scheduleRender(pendingRenderForce);
-    }
   };
 
-  const scheduleRender = (force = false): void => {
-    pendingRender = true;
-    if (force) pendingRenderForce = true;
+  const renderThrottle =
+    unthrottledRender || renderIntervalMs <= 0
+      ? null
+      : createThrottle(flushPendingRender, renderIntervalMs);
 
-    if (unthrottledRender) {
-      const nextForce = pendingRenderForce;
-      pendingRender = false;
-      pendingRenderForce = false;
-      lastRenderAt = Date.now();
-      renderFrame(nextForce);
+  const scheduleRender = (): void => {
+    pendingRender = true;
+    if (renderThrottle) {
+      renderThrottle.call();
       return;
     }
+    flushPendingRender();
+  };
 
-    if (throttledRenderTimer !== undefined) return;
-    const elapsed = Date.now() - lastRenderAt;
-    const waitMs = Math.max(0, renderIntervalMs - elapsed);
-    throttledRenderTimer = setTimeout(flushScheduledRender, waitMs);
-    throttledRenderTimer.unref?.();
+  const scheduleForceRender = (): void => {
+    pendingRender = true;
+    pendingRenderForce = true;
+    if (forceRenderMicrotaskScheduled) return;
+    forceRenderMicrotaskScheduled = true;
+    queueMicrotask(() => {
+      forceRenderMicrotaskScheduled = false;
+      if (sessionClosed) return;
+      flushPendingRender();
+    });
   };
 
   bridge.rootNode.onCommit = () => {
-    const nextCommitSignature = rootChildRevisionSignature(bridge.rootNode);
-    if (nextCommitSignature === lastCommitSignature) {
+    if (!rootChildRevisionsChanged(bridge.rootNode, lastCommitRevisions)) {
       return;
     }
-    lastCommitSignature = nextCommitSignature;
     capturePendingStaticOutput();
-    scheduleRender(false);
+    scheduleRender();
   };
 
   let currentElement = element;
@@ -3223,7 +3405,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
 
   const scheduleResize = (source: string): void => {
     const latest = readViewportSize(stdout, fallbackStdout);
-    const now = Date.now();
+    const now = performance.now();
     lastResizeSignalAt = now;
     resizeTimeline.push({
       at: now,
@@ -3239,7 +3421,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
     if (!changed) return;
 
     viewport = latest;
-    const flushAt = Date.now();
+    const flushAt = performance.now();
     lastResizeFlushAt = flushAt;
     resizeTimeline.push({
       at: flushAt,
@@ -3255,7 +3437,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
         `resize source=${source} viewport=${latest.cols}x${latest.rows} timeline=${formatResizeTimeline(resizeTimeline, traceStartAt, detailResizeLimit)}`,
       );
     }
-    scheduleRender(true);
+    scheduleForceRender();
   };
 
   const onStdoutResize = (): void => {
@@ -3318,10 +3500,7 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
     }
     process.off("SIGWINCH", onSigWinch);
     clearInterval(viewportPoll);
-    if (throttledRenderTimer !== undefined) {
-      clearTimeout(throttledRenderTimer);
-      throttledRenderTimer = undefined;
-    }
+    renderThrottle?.cancel();
     removeDrainListener();
     restoreStdoutWrite?.();
     restoreStdoutWrite = undefined;
@@ -3362,12 +3541,12 @@ function createRenderSession(element: React.ReactElement, options: RenderOptions
   pendingRender = false;
   pendingRenderForce = false;
   renderFrame(true);
-  lastRenderAt = Date.now();
 
   let cleanedUp = false;
   function cleanup(unmountTree: boolean): void {
     if (cleanedUp) return;
     cleanedUp = true;
+    sessionClosed = true;
     flushPhaseProfile();
     if (translationTraceEnabled) {
       enableTranslationTrace(false);

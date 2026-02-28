@@ -4,6 +4,8 @@
 
 It is designed for practical compatibility: keep React + Ink component/hook semantics, but replace Ink's renderer backend with Rezi's deterministic layout and draw pipeline.
 
+If you are actively migrating an app, start with [Ink to Ink-Compat Migration](../migration/ink-to-ink-compat.md) and use this page as the runtime/internals reference.
+
 ## What this gives you
 
 - Reuse existing Ink app code with minimal migration.
@@ -80,6 +82,26 @@ You can also import shim implementations from `@rezi-ui/ink-compat` directly:
 
 - `@rezi-ui/ink-compat/shims/ink-gradient`
 - `@rezi-ui/ink-compat/shims/ink-spinner`
+
+## Wiring verification (recommended in CI)
+
+To ensure you are not silently running real Ink:
+
+1. Verify resolved package identity:
+
+```bash
+node -e "const p=require('ink/package.json'); if(p.name!=='@rezi-ui/ink-compat') throw new Error('ink resolves to '+p.name); console.log('ink-compat active:', p.version);"
+```
+
+2. Verify resolved module path:
+
+```bash
+node -e "const fs=require('node:fs'); const path=require('node:path'); const pkg=require.resolve('ink/package.json'); console.log(fs.realpathSync(path.dirname(pkg)));"
+```
+
+3. For bundled CLIs, rebuild the bundle after aliasing and validate expected compat-only markers in generated output.
+
+4. For rendering/layout/theme parity checks, run a live PTY with `REZI_FRAME_AUDIT=1` and generate evidence with `node scripts/frame-audit-report.mjs`.
 
 ## Public compatibility surface
 

@@ -283,6 +283,57 @@ function isContainer(parent: InkHostNode | InkHostContainer): parent is InkHostC
   return parent.type === "ink-root" && "onCommit" in parent;
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+function deepEqual(valueA: unknown, valueB: unknown, depth: number): boolean {
+  if (valueA === valueB) return true;
+  if (depth <= 0) return false;
+
+  if (Array.isArray(valueA) && Array.isArray(valueB)) {
+    if (valueA.length !== valueB.length) return false;
+    for (let index = 0; index < valueA.length; index += 1) {
+      if (!deepEqual(valueA[index], valueB[index], depth - 1)) return false;
+    }
+    return true;
+  }
+
+  if (isPlainObject(valueA) && isPlainObject(valueB)) {
+    const keysA = Object.keys(valueA);
+    const keysB = Object.keys(valueB);
+    if (keysA.length !== keysB.length) return false;
+    for (const key of keysA) {
+      if (!Object.hasOwn(valueB, key)) return false;
+      if (!deepEqual(valueA[key], valueB[key], depth - 1)) return false;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+function propsSemanticallyEqual(
+  previousProps: Record<string, unknown>,
+  nextProps: Record<string, unknown>,
+): boolean {
+  if (previousProps === nextProps) return true;
+  const previousKeys = Object.keys(previousProps);
+  const nextKeys = Object.keys(nextProps);
+  if (previousKeys.length !== nextKeys.length) return false;
+  for (const key of previousKeys) {
+    if (!Object.hasOwn(nextProps, key)) return false;
+    const previousValue = previousProps[key];
+    const nextValue = nextProps[key];
+    if (previousValue === nextValue) continue;
+    if (deepEqual(previousValue, nextValue, 3)) continue;
+    return false;
+  }
+  return true;
+}
+
 export function appendChild(parent: InkHostNode | InkHostContainer, child: InkHostNode): void {
   detachFromCurrentParent(child);
   attachToParent(parent, child, null);
@@ -331,6 +382,10 @@ export function insertBefore(
 }
 
 export function setNodeProps(node: InkHostNode, props: Record<string, unknown>): void {
+  if (propsSemanticallyEqual(node.props, props)) {
+    return;
+  }
+
   const previousSelfStatic = node.__inkSelfHasStatic;
   node.props = props;
 
@@ -345,6 +400,8 @@ export function setNodeProps(node: InkHostNode, props: Record<string, unknown>):
 }
 
 export function setNodeTextContent(node: InkHostNode, textContent: string | null): void {
+  if (node.textContent === textContent) return;
+
   const previousSelfAnsi = node.__inkSelfHasAnsiSgr;
   node.textContent = textContent;
 
