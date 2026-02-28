@@ -227,21 +227,16 @@ function collectNodes(layoutTree: LayoutTree, mode: TestRendererMode): readonly 
       props,
       id,
       path: mode === "runtime" ? EMPTY_PATH : Object.freeze(path.slice()),
-      ...(mode === "runtime" || node.vnode.kind !== "text"
-        ? {}
-        : { text: (node.vnode as Readonly<{ text: string }>).text }),
+      ...(node.vnode.kind === "text"
+        ? { text: (node.vnode as Readonly<{ text: string }>).text }
+        : {}),
     };
     out.push(mode === "runtime" ? base : Object.freeze(base));
 
     for (let i = 0; i < node.children.length; i++) {
       const child = node.children[i];
       if (!child) continue;
-      walk(
-        child,
-        mode === "runtime"
-          ? EMPTY_PATH
-          : Object.freeze([...path, i]),
-      );
+      walk(child, mode === "runtime" ? EMPTY_PATH : Object.freeze([...path, i]));
     }
   };
 
@@ -540,7 +535,8 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
     const drawMs = Date.now() - drawStartedAt;
 
     const ops = builder.snapshotOps();
-    let nodesCache: readonly TestRenderNode[] | null = mode === "test" ? collectNodes(layoutTree, mode) : null;
+    let nodesCache: readonly TestRenderNode[] | null =
+      mode === "test" ? collectNodes(layoutTree, mode) : null;
     const getNodes = (): readonly TestRenderNode[] => {
       if (nodesCache !== null) return nodesCache;
       nodesCache = collectNodes(layoutTree, mode);

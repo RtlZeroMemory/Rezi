@@ -128,6 +128,7 @@ describe("createTestRenderer", () => {
     });
     assert.ok(visited > 0);
     assert.equal(result.toText().includes("Runtime Mode"), true);
+    assert.notEqual(result.findText("Runtime Mode"), null);
     assert.equal(result.findById("submit")?.kind, "button");
     assert.equal(result.findAll("button").length, 1);
   });

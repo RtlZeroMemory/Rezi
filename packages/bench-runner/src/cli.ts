@@ -307,7 +307,7 @@ async function main(): Promise<void> {
         ? Array.from({ length: 40 }, (_, j) => ({
             kind: "write" as const,
             atMs: 250 + j * 35,
-            data: "\\u001b[B",
+            data: "\u001b[B",
           }))
         : scenario === "resize-storm"
           ? [

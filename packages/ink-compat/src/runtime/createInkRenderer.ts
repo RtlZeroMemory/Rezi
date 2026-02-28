@@ -260,7 +260,7 @@ class RecordingDrawlistBuilder implements DrawlistBuilder {
     this._ops = this._prevOps;
     this._ops.length = 0;
     this._prevOps = out;
-    return out;
+    return out.slice();
   }
 }
 

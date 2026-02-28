@@ -410,13 +410,17 @@ function translateNode(node: InkHostNode, context: TranslateContext): VNode | nu
   const savedParentMainDefinite = context.parentMainDefinite;
   const savedIsRoot = context.isRoot;
   const savedInStaticSubtree = context.inStaticSubtree;
-  const metaBeforeMask = toMetaMask(context.meta);
+  const parentMeta = context.meta;
+  const localMeta = createMeta();
+  context.meta = localMeta;
 
   try {
     if (!translationCacheEnabled) {
       translationPerfStats.cacheMisses += 1;
       translationPerfStats.translatedNodes += 1;
-      return translateNodeUncached(node, context);
+      const translated = translateNodeUncached(node, context);
+      applyMetaMask(parentMeta, toMetaMask(localMeta));
+      return translated;
     }
 
     const key = contextKey(context);
@@ -425,7 +429,7 @@ function translateNode(node: InkHostNode, context: TranslateContext): VNode | nu
     if (cached) {
       if (cached.revision === node.__inkRevision) {
         translationPerfStats.cacheHits += 1;
-        applyMetaMask(context.meta, cached.metaMask);
+        applyMetaMask(parentMeta, cached.metaMask);
         return cached.vnode;
       }
       translationPerfStats.cacheStaleMisses += 1;
@@ -436,8 +440,8 @@ function translateNode(node: InkHostNode, context: TranslateContext): VNode | nu
     translationPerfStats.cacheMisses += 1;
     translationPerfStats.translatedNodes += 1;
     const translated = translateNodeUncached(node, context);
-    const metaAfterMask = toMetaMask(context.meta);
-    const metaMask = metaAfterMask & ~metaBeforeMask;
+    const metaMask = toMetaMask(localMeta);
+    applyMetaMask(parentMeta, metaMask);
 
     if (!perNodeCache) {
       const nextCache = new Map<number, CachedTranslation>();
@@ -457,6 +461,7 @@ function translateNode(node: InkHostNode, context: TranslateContext): VNode | nu
 
     return translated;
   } finally {
+    context.meta = parentMeta;
     context.parentDirection = savedParentDirection;
     context.parentMainDefinite = savedParentMainDefinite;
     context.isRoot = savedIsRoot;
@@ -1033,7 +1038,7 @@ function translateText(node: InkHostNode): VNode {
     if (accessibilityLabel) {
       rootProps["accessibilityLabel"] = accessibilityLabel;
     }
-    return translateMultilineRichText(spans, rootProps);
+    return translateMultilineRichText(spans, rootProps, textProps);
   }
 
   if (isSingleSpan) {
@@ -1049,6 +1054,7 @@ function translateText(node: InkHostNode): VNode {
 function translateMultilineRichText(
   spans: readonly TextSpan[],
   rootProps?: Record<string, unknown>,
+  textProps?: Record<string, unknown>,
 ): VNode {
   const lines: TextSpan[][] = [[]];
 
@@ -1066,15 +1072,30 @@ function translateMultilineRichText(
     }
   }
 
+  const lineTextProps =
+    textProps == null
+      ? undefined
+      : Object.fromEntries(
+          Object.entries(textProps).filter(
+            ([key]) => key !== "__inkHostNode" && key !== "accessibilityLabel",
+          ),
+        );
+  const hasLineTextProps = lineTextProps != null && Object.keys(lineTextProps).length > 0;
+
   const lineNodes = lines.map((line) => {
-    if (line.length === 0) return ui.text("");
+    if (line.length === 0) {
+      return hasLineTextProps ? ui.text("", lineTextProps) : ui.text("");
+    }
     if (line.length === 1) {
       const only = line[0]!;
-      return Object.keys(only.style).length > 0
-        ? ui.text(only.text, { style: only.style })
-        : ui.text(only.text);
+      const lineProps: Record<string, unknown> = hasLineTextProps ? { ...lineTextProps } : {};
+      if (Object.keys(only.style).length > 0) {
+        lineProps["style"] = only.style;
+      }
+      return Object.keys(lineProps).length > 0 ? ui.text(only.text, lineProps) : ui.text(only.text);
     }
-    return ui.richText(line.map((span) => ({ text: span.text, style: span.style })));
+    const richLine = line.map((span) => ({ text: span.text, style: span.style }));
+    return hasLineTextProps ? ui.richText(richLine, lineTextProps) : ui.richText(richLine);
   });
 
   const hasRootProps = rootProps != null && Object.keys(rootProps).length > 0;
