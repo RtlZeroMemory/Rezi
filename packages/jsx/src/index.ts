@@ -194,15 +194,24 @@ export type {
 } from "./types.js";
 
 export {
+  conditionalConstraints,
   defineWidget,
   each,
   eachInline,
+  expr,
+  fluid,
+  groupConstraints,
+  heightConstraints,
+  isConstraintExpr,
   match,
   maybe,
   recipe,
   rgb,
   show,
+  spaceConstraints,
+  visibilityConstraints,
   when,
+  widthConstraints,
 } from "@rezi-ui/core";
 
 export type {
@@ -258,12 +267,17 @@ export type {
 
 export type {
   AnimatedValue,
+  ConstraintExpr,
+  ConstraintValue,
   ParallelAnimationEntry,
   PlaybackControl,
   Rgb24,
+  SiblingAggregation,
+  SpaceTerm,
   TextStyle,
   UseAnimatedValueConfig,
   UseChainConfig,
   UseParallelConfig,
   VNode,
+  WidgetMetric,
 } from "@rezi-ui/core";

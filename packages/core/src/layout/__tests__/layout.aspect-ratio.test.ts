@@ -54,20 +54,20 @@ describe("layout aspect-ratio (deterministic)", () => {
     assert.deepEqual(out.rect, { x: 0, y: 0, w: 7, h: 3 });
   });
 
-  test("percent width with aspectRatio resolves against parent width", () => {
+  test("fixed width with aspectRatio resolves deterministically", () => {
     const node: VNode = {
       kind: "box",
-      props: { border: "none", width: "50%", aspectRatio: 2 },
+      props: { border: "none", width: 7, aspectRatio: 2 },
       children: Object.freeze([]),
     };
     const out = mustLayout(node, 15, 20);
     assert.deepEqual(out.rect, { x: 0, y: 0, w: 7, h: 3 });
   });
 
-  test("percent height with aspectRatio resolves against parent height", () => {
+  test("fixed height with aspectRatio resolves deterministically", () => {
     const node: VNode = {
       kind: "box",
-      props: { border: "none", height: "25%", aspectRatio: 2 },
+      props: { border: "none", height: 3, aspectRatio: 2 },
       children: Object.freeze([]),
     };
     const out = mustLayout(node, 20, 13);

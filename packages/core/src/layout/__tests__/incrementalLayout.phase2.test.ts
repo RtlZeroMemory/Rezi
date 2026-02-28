@@ -121,7 +121,7 @@ describe("incremental layout phase 2", () => {
     test("changing root constraints misses cache", () => {
       const measureCache = new WeakMap<VNode, unknown>();
       const layoutCache = new WeakMap<VNode, unknown>();
-      const root = box([row([text("alpha"), text("beta")], { gap: 1 })], { width: "100%" });
+      const root = box([row([text("alpha"), text("beta")], { gap: 1 })], { width: "full" });
 
       const first = mustLayout(root, 30, 10, "column", measureCache, layoutCache);
       const second = mustLayout(root, 50, 10, "column", measureCache, layoutCache);

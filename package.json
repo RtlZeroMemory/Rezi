@@ -30,6 +30,7 @@
     "build:native": "npm -w @rezi-ui/native run build:native",
     "test:native:smoke": "npm -w @rezi-ui/native run test:native:smoke",
     "check:create-rezi-templates": "node scripts/check-create-rezi-templates.mjs",
+    "migrate:constraints-helpers": "node scripts/migrate-constraints-to-helpers.mjs",
     "check:core-portability": "node scripts/check-core-portability.mjs",
     "check:docs": "npm run docs:build",
     "check:native-vendor": "node scripts/check-native-vendor-integrity.mjs",

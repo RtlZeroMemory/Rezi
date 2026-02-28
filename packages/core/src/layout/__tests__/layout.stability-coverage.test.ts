@@ -38,7 +38,8 @@ function runtimeNode(
 function runSignatures(root: RuntimeInstance, prev: Map<InstanceId, number>): boolean {
   const next = new Map<InstanceId, number>();
   const stack: RuntimeInstance[] = [];
-  return updateLayoutStabilitySignatures(root, prev, next, stack);
+  const parentKindStack: (string | undefined)[] = [];
+  return updateLayoutStabilitySignatures(root, prev, next, stack, parentKindStack);
 }
 
 function assertCoveredKind(

@@ -1,7 +1,6 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import { ui } from "../../index.js";
 import { layout } from "../layout.js";
-import { getResponsiveViewport, setResponsiveViewport } from "../responsive.js";
 
 function mustRow(children: readonly ReturnType<typeof ui.box>[], width: number) {
   const res = layout(ui.row({ width, gap: 0 }, children), 0, 0, width, 20, "row");
@@ -16,7 +15,7 @@ function box(props: {
   minWidth?: number;
   flex?: number;
   flexShrink?: number;
-  flexBasis?: number;
+  flexBasis?: number | "auto";
 }) {
   return ui.box({ border: "none", ...props }, []);
 }
@@ -95,24 +94,18 @@ describe("layout flex shrink + basis", () => {
     );
   });
 
-  test('responsive flexBasis "auto" resolves before basis planning', () => {
-    const prev = getResponsiveViewport();
-    setResponsiveViewport(70, 24);
-    try {
-      const out = mustRow(
-        [
-          ui.box({ border: "none", flex: 1, flexBasis: { sm: "auto" } }, [ui.text("123456")]),
-          ui.box({ border: "none", flex: 1, flexBasis: { sm: "auto" } }, [ui.text("12")]),
-        ],
-        20,
-      );
-      assert.deepEqual(
-        out.children.map((child) => child.rect.w),
-        [12, 8],
-      );
-    } finally {
-      setResponsiveViewport(prev.width, prev.height);
-    }
+  test('flexBasis "auto" resolves before basis planning', () => {
+    const out = mustRow(
+      [
+        ui.box({ border: "none", flex: 1, flexBasis: "auto" }, [ui.text("123456")]),
+        ui.box({ border: "none", flex: 1, flexBasis: "auto" }, [ui.text("12")]),
+      ],
+      20,
+    );
+    assert.deepEqual(
+      out.children.map((child) => child.rect.w),
+      [12, 8],
+    );
   });
 
   test("intrinsic min-content floor is used when explicit minWidth is absent", () => {
@@ -129,10 +122,10 @@ describe("layout flex shrink + basis", () => {
     );
   });
 
-  test("column flexBasis percentages resolve against parent height (main axis)", () => {
+  test("column flexBasis numeric values resolve against parent height (main axis)", () => {
     const tree = ui.column({ width: 20, height: 10, gap: 0 }, [
-      ui.box({ border: "none", flexBasis: "50%" }, []),
-      ui.box({ border: "none", flexBasis: "50%" }, []),
+      ui.box({ border: "none", flexBasis: 5 }, []),
+      ui.box({ border: "none", flexBasis: 5 }, []),
     ]);
     const res = layout(tree, 0, 0, 20, 10, "column");
     assert.ok(res.ok);

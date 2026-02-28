@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { BACKEND_DRAWLIST_VERSION_MARKER, createApp, rgb, ui } from "@rezi-ui/core";
 import { ZrUiError } from "@rezi-ui/core";
+import { selectNodeBackendExecutionMode } from "../backend/nodeBackend.js";
 import { createNodeApp, createNodeBackend } from "../index.js";
 
 async function withTempDir<T>(run: (dir: string) => Promise<T> | T): Promise<T> {
@@ -167,6 +168,46 @@ test("config guard: matching fpsCap/native target fps is accepted", () => {
     nativeConfig: { target_fps: 75 },
   });
   backend.dispose();
+});
+
+test("config guard: native worker mode falls back to inline by default in TTY", () => {
+  const selection = selectNodeBackendExecutionMode({
+    requestedExecutionMode: "worker",
+    fpsCap: 60,
+    hasAnyTty: true,
+  });
+  assert.deepEqual(selection, {
+    resolvedExecutionMode: "worker",
+    selectedExecutionMode: "inline",
+    fallbackReason: "native-worker-unstable",
+  });
+});
+
+test("config guard: native worker mode remains inline even when worker is requested", () => {
+  const selection = selectNodeBackendExecutionMode({
+    requestedExecutionMode: "worker",
+    fpsCap: 60,
+    hasAnyTty: true,
+  });
+  assert.deepEqual(selection, {
+    resolvedExecutionMode: "worker",
+    selectedExecutionMode: "inline",
+    fallbackReason: "native-worker-unstable",
+  });
+});
+
+test("config guard: worker mode with shim does not fallback", () => {
+  const selection = selectNodeBackendExecutionMode({
+    requestedExecutionMode: "worker",
+    fpsCap: 60,
+    nativeShimModule: "mock://native-shim",
+    hasAnyTty: true,
+  });
+  assert.deepEqual(selection, {
+    resolvedExecutionMode: "worker",
+    selectedExecutionMode: "worker",
+    fallbackReason: null,
+  });
 });
 
 test("createNodeApp constructs a compatible app/backend pair", () => {

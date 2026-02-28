@@ -9,6 +9,7 @@ import type { InputMeta } from "../../runtime/widgetMeta.js";
 import type { Theme } from "../../theme/theme.js";
 import type { CodeEditorProps, CommandPaletteProps } from "../../widgets/types.js";
 import type {
+  RuntimeBreadcrumbConstraintsSummary,
   RuntimeBreadcrumbCursorSummary,
   RuntimeBreadcrumbDamageMode,
   WidgetRuntimeBreadcrumbSnapshot,
@@ -38,6 +39,7 @@ type UpdateRuntimeBreadcrumbSnapshotContext = Readonly<{
   collectRuntimeBreadcrumbs: boolean;
   focusState: FocusManagerState;
   focusAnnouncement: string | null;
+  constraintBreadcrumbs: RuntimeBreadcrumbConstraintsSummary | null;
 }>;
 
 type SnapshotRenderedFrameStateParams = Readonly<{
@@ -340,6 +342,7 @@ export function updateRuntimeBreadcrumbSnapshot(
       incremental: params.incremental,
       renderTimeMs: 0,
     }),
+    constraints: ctx.constraintBreadcrumbs,
   });
 }
 

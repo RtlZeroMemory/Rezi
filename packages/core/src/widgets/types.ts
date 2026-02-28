@@ -18,9 +18,15 @@
  */
 
 import type { EasingInput } from "../animation/types.js";
+import type { ConstraintExpr } from "../constraints/types.js";
 import type { FocusConfig } from "../focus/styles.js";
 import type { SpacingValue } from "../layout/spacing-scale.js";
-import type { LayoutConstraints } from "../layout/types.js";
+import type {
+  DisplayConstraint,
+  LayoutConstraints,
+  SizeConstraint,
+  SizeConstraintAtom,
+} from "../layout/types.js";
 import type { InstanceId } from "../runtime/instance.js";
 import type { ThemeOverrides } from "../theme/extend.js";
 import type { Theme } from "../theme/theme.js";
@@ -89,6 +95,11 @@ export type ThemedProps = Readonly<{
   theme: ThemeOverrides;
 }>;
 
+type DisplayableProps = Readonly<{
+  /** Conditional layout visibility. false (or expr <= 0) hides this node. */
+  display?: DisplayConstraint;
+}>;
+
 /**
  * Text display variants with predefined styling.
  */
@@ -128,12 +139,13 @@ export type TextProps = Readonly<{
   /** How to handle text that exceeds available width. Defaults to "clip". */
   textOverflow?: "clip" | "ellipsis" | "middle" | "start";
   /** Maximum width for overflow handling (in cells) */
-  maxWidth?: number;
+  maxWidth?: SizeConstraint;
   /** When true, text wraps to multiple lines instead of single-line truncation. */
   wrap?: boolean;
   /** Internal callback used by ink-compat to transform rendered lines. */
   __inkTransform?: (line: string, index: number) => string;
-}>;
+}> &
+  DisplayableProps;
 
 /**
  * Shadow configuration for box widgets.
@@ -293,16 +305,19 @@ export type ColumnProps = StackProps &
     wrap?: boolean;
   }>;
 
-export type GridProps = Readonly<{
-  key?: string;
-  columns: number | string;
-  rows?: number | string;
-  gap?: number;
-  rowGap?: number;
-  columnGap?: number;
-  transition?: TransitionSpec;
-  exitTransition?: TransitionSpec;
-}>;
+export type GridProps = Readonly<
+  {
+    id?: string;
+    key?: string;
+    columns: number | string;
+    rows?: number | string;
+    gap?: number;
+    rowGap?: number;
+    columnGap?: number;
+    transition?: TransitionSpec;
+    exitTransition?: TransitionSpec;
+  } & LayoutConstraints
+>;
 
 /** Props for spacer element. size is in cells along stack axis. */
 export type SpacerProps = Readonly<{
@@ -498,6 +513,10 @@ export type GaugeProps = Readonly<{
   key?: string;
   /** Value from 0 to 1 */
   value: number;
+  /** Optional forced width in cells. */
+  width?: SizeConstraint;
+  /** Optional forced height in rows. */
+  height?: SizeConstraint;
   /** Label before the gauge */
   label?: string;
   /** Display variant */
@@ -506,7 +525,8 @@ export type GaugeProps = Readonly<{
   thresholds?: readonly { value: number; variant: BadgeVariant }[];
   /** Optional style override */
   style?: TextStyle;
-}>;
+}> &
+  DisplayableProps;
 
 /**
  * Props for empty state widget.
@@ -648,20 +668,22 @@ export type LinkProps = Readonly<{
   disabled?: boolean;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
-}>;
+}> &
+  DisplayableProps;
 
 export type CanvasProps = Readonly<{
   id?: string;
   key?: string;
   /** Width in terminal columns. */
-  width: number;
+  width?: SizeConstraint;
   /** Height in terminal rows. */
-  height: number;
+  height?: SizeConstraint;
   /** Drawing callback, called every frame with a fresh context. */
   draw: (ctx: CanvasContext) => void;
   /** Preferred blitter. */
   blitter?: GraphicsBlitter;
-}>;
+}> &
+  DisplayableProps;
 
 export type ImageFit = "fill" | "contain" | "cover";
 export type ImageProtocol = "auto" | "kitty" | "sixel" | "iterm2" | "blitter";
@@ -676,9 +698,9 @@ export type ImageProps = Readonly<{
   /** Optional source height in pixels (recommended for raw RGBA inputs). */
   sourceHeight?: number;
   /** Width in terminal columns. */
-  width: number;
+  width?: SizeConstraint;
   /** Height in terminal rows. */
-  height: number;
+  height?: SizeConstraint;
   /** Fit mode (default: contain). */
   fit?: ImageFit;
   /** Alt text for unsupported terminals or decode failures. */
@@ -689,7 +711,8 @@ export type ImageProps = Readonly<{
   zLayer?: -1 | 0 | 1;
   /** Stable image id for protocol-level caching. */
   imageId?: number;
-}>;
+}> &
+  DisplayableProps;
 
 export type LineChartSeries = Readonly<{
   data: readonly number[];
@@ -706,13 +729,14 @@ export type ChartAxis = Readonly<{
 export type LineChartProps = Readonly<{
   id?: string;
   key?: string;
-  width: number;
-  height: number;
+  width?: SizeConstraint;
+  height?: SizeConstraint;
   series: readonly LineChartSeries[];
   axes?: Readonly<{ x?: ChartAxis; y?: ChartAxis }>;
   blitter?: Exclude<GraphicsBlitter, "ascii">;
   showLegend?: boolean;
-}>;
+}> &
+  DisplayableProps;
 
 export type ScatterPoint = Readonly<{
   x: number;
@@ -723,27 +747,29 @@ export type ScatterPoint = Readonly<{
 export type ScatterProps = Readonly<{
   id?: string;
   key?: string;
-  width: number;
-  height: number;
+  width?: SizeConstraint;
+  height?: SizeConstraint;
   points: readonly ScatterPoint[];
   axes?: Readonly<{ x?: ChartAxis; y?: ChartAxis }>;
   color?: string;
   blitter?: Exclude<GraphicsBlitter, "ascii">;
-}>;
+}> &
+  DisplayableProps;
 
 export type HeatmapColorScale = "viridis" | "plasma" | "inferno" | "magma" | "turbo" | "grayscale";
 
 export type HeatmapProps = Readonly<{
   id?: string;
   key?: string;
-  width: number;
-  height: number;
+  width?: SizeConstraint;
+  height?: SizeConstraint;
   /** 2D value matrix [row][col]. */
   data: readonly (readonly number[])[];
   colorScale?: HeatmapColorScale;
   min?: number;
   max?: number;
-}>;
+}> &
+  DisplayableProps;
 
 /**
  * Props for sparkline widget.
@@ -754,7 +780,9 @@ export type SparklineProps = Readonly<{
   /** Data points (will be normalized to 0-1 range) */
   data: readonly number[];
   /** Display width in cells (default: data.length) */
-  width?: number;
+  width?: SizeConstraint;
+  /** Display height in rows (default: 1) */
+  height?: SizeConstraint;
   /** Minimum value for scaling (default: auto) */
   min?: number;
   /** Maximum value for scaling (default: auto) */
@@ -765,7 +793,8 @@ export type SparklineProps = Readonly<{
   blitter?: Exclude<GraphicsBlitter, "auto" | "ascii">;
   /** Optional style override */
   style?: TextStyle;
-}>;
+}> &
+  DisplayableProps;
 
 /**
  * Single item in a bar chart.
@@ -785,6 +814,10 @@ export type BarChartItem = Readonly<{
  */
 export type BarChartProps = Readonly<{
   key?: string;
+  /** Optional forced width in cells. */
+  width?: SizeConstraint;
+  /** Optional forced height in rows. */
+  height?: SizeConstraint;
   /** Data items to display */
   data: readonly BarChartItem[];
   /** Chart orientation (default: "horizontal") */
@@ -801,7 +834,8 @@ export type BarChartProps = Readonly<{
   blitter?: Exclude<GraphicsBlitter, "auto" | "ascii">;
   /** Optional style override */
   style?: TextStyle;
-}>;
+}> &
+  DisplayableProps;
 
 /**
  * Props for mini chart widget.
@@ -809,13 +843,18 @@ export type BarChartProps = Readonly<{
  */
 export type MiniChartProps = Readonly<{
   key?: string;
+  /** Optional forced width in cells. */
+  width?: SizeConstraint;
+  /** Optional forced height in rows. */
+  height?: SizeConstraint;
   /** Chart values (2-4 values recommended) */
   values: readonly { label: string; value: number; max?: number }[];
   /** Display variant */
   variant?: "bars" | "pills";
   /** Optional style override */
   style?: TextStyle;
-}>;
+}> &
+  DisplayableProps;
 
 export type ButtonIntent = "primary" | "secondary" | "danger" | "success" | "warning" | "link";
 
@@ -1016,7 +1055,8 @@ export type VirtualListProps<T = unknown> = Readonly<{
   selectionStyle?: TextStyle;
   /** Optional focus appearance configuration. */
   focusConfig?: FocusConfig;
-}>;
+}> &
+  LayoutConstraints;
 
 /* ========== Layer System (GitHub issue #117) ========== */
 
@@ -1071,16 +1111,16 @@ export type ModalProps = Readonly<{
   content: VNode;
   /** Action buttons rendered in modal footer. */
   actions?: readonly VNode[];
-  /** Modal width in cells, or "auto" to fit content. */
-  width?: number | "auto";
-  /** Modal height in cells. */
-  height?: number;
-  /** Maximum width constraint. */
-  maxWidth?: number;
-  /** Minimum width constraint. */
-  minWidth?: number;
-  /** Minimum height constraint. */
-  minHeight?: number;
+  /** Modal width sizing. Supports fixed values, "auto", "full", `fluid(...)`, or `expr(...)`. */
+  width?: SizeConstraintAtom;
+  /** Modal height sizing. Supports fixed values, "full", `fluid(...)`, or `expr(...)` (no "auto" height). */
+  height?: Exclude<SizeConstraintAtom, "auto">;
+  /** Maximum width bound (cells, "full", `fluid(...)`, or `expr(...)`). */
+  maxWidth?: Exclude<SizeConstraintAtom, "auto">;
+  /** Minimum width bound (cells, "full", `fluid(...)`, or `expr(...)`). */
+  minWidth?: Exclude<SizeConstraintAtom, "auto">;
+  /** Minimum height bound (cells, "full", `fluid(...)`, or `expr(...)`). */
+  minHeight?: Exclude<SizeConstraintAtom, "auto">;
   /** Frame/surface colors for modal body and border. */
   frameStyle?: OverlayFrameStyle;
   /** Backdrop style/config (default: "dim"). */
@@ -1377,7 +1417,8 @@ export type TableProps<T = unknown> = Readonly<{
   dsSize?: WidgetSize;
   /** Design system: tone (reserved for future table recipe variants). */
   dsTone?: WidgetTone;
-}>;
+}> &
+  LayoutConstraints;
 
 /* ========== Form Widgets (GitHub issue #119) ========== */
 
@@ -1765,7 +1806,8 @@ export type FilePickerProps = Readonly<{
   onSelectionChange?: (paths: readonly string[]) => void;
   /** Optional focus appearance configuration. */
   focusConfig?: FocusConfig;
-}>;
+}> &
+  LayoutConstraints;
 
 /** Props for FileTreeExplorer widget. Tree view of files with expand/collapse. */
 export type FileTreeExplorerProps = Readonly<{
@@ -1804,7 +1846,8 @@ export type FileTreeExplorerProps = Readonly<{
   renderNode?: (node: FileNode, depth: number, state: FileNodeState) => VNode;
   /** Optional focus appearance configuration. */
   focusConfig?: FocusConfig;
-}>;
+}> &
+  LayoutConstraints;
 
 /* ---------- SplitPane & ResizablePanels Widgets ---------- */
 
@@ -2020,7 +2063,8 @@ export type CodeEditorProps = Readonly<{
   scrollbarVariant?: "minimal" | "classic" | "modern" | "dots" | "thin";
   /** Optional style override for rendered scrollbar. */
   scrollbarStyle?: TextStyle;
-}>;
+}> &
+  LayoutConstraints;
 
 /* ---------- DiffViewer Widget ---------- */
 
@@ -2111,7 +2155,8 @@ export type DiffViewerProps = Readonly<{
   scrollbarVariant?: "minimal" | "classic" | "modern" | "dots" | "thin";
   /** Optional style override for rendered scrollbar. */
   scrollbarStyle?: TextStyle;
-}>;
+}> &
+  LayoutConstraints;
 
 /* ---------- ToolApprovalDialog Widget ---------- */
 
@@ -2252,7 +2297,8 @@ export type LogsConsoleProps = Readonly<{
   scrollbarVariant?: "minimal" | "classic" | "modern" | "dots" | "thin";
   /** Optional style override for rendered scrollbar. */
   scrollbarStyle?: TextStyle;
-}>;
+}> &
+  LayoutConstraints;
 
 /* ---------- Toast/Notifications Widget ---------- */
 
@@ -2368,7 +2414,8 @@ export type TreeProps<T = unknown> = Readonly<{
   dsTone?: WidgetTone;
   /** Design system: size preset. */
   dsSize?: WidgetSize;
-}>;
+}> &
+  LayoutConstraints;
 
 export type VNode =
   | Readonly<{ kind: "text"; text: string; props: TextProps }>

@@ -54,6 +54,14 @@ function fmtMaybeInt(value: number | undefined): string {
   return String(Math.max(0, Math.trunc(value)));
 }
 
+function fmtMaybeNumber(value: number | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "n/a";
+  const n = Object.is(value, -0) ? 0 : value;
+  const i = Math.trunc(n);
+  if (i === n) return String(i);
+  return n.toFixed(2);
+}
+
 function fmtBool(value: boolean): string {
   return value ? "yes" : "no";
 }
@@ -111,6 +119,33 @@ function buildRows(props: InspectorOverlayProps): readonly string[] {
   rows.push(`event: kind=${eventKind} path=${eventPath}`);
   rows.push(`action: ${lastAction}`);
 
+  const constraints = snapshot?.constraints ?? null;
+  if (!constraints || !constraints.enabled) {
+    rows.push("constraints: disabled");
+  } else {
+    const cacheKey = summarize(constraints.cacheKey ?? null);
+    rows.push(
+      `constraints: nodes=${String(constraints.nodeCount)} hidden=${String(constraints.hiddenInstanceCount)} resolve=${constraints.resolution.kind} cacheKey=${cacheKey}`,
+    );
+    const focused = constraints.focused;
+    if (focused && focused.id.length > 0) {
+      const resolved = focused.resolved;
+      rows.push(
+        `constraints_focus: id=${summarize(focused.id)} instances=${String(focused.instanceCount)} display=${fmtMaybeNumber(resolved?.display)} w=${fmtMaybeNumber(resolved?.width)} h=${fmtMaybeNumber(resolved?.height)} minW=${fmtMaybeNumber(resolved?.minWidth)} minH=${fmtMaybeNumber(resolved?.minHeight)}`,
+      );
+      const exprs = focused.expressions ?? null;
+      if (exprs && exprs.length > 0) {
+        const shown = exprs.slice(0, 2);
+        rows.push(
+          `constraints_exprs: ${shown.map((e) => `${String(e.prop)}=${summarize(e.source)}`).join(" | ")}`,
+        );
+        if (exprs.length > shown.length) {
+          rows.push(`constraints_exprs_more: +${String(exprs.length - shown.length)}`);
+        }
+      }
+    }
+  }
+
   if (props.hotkeyHint && props.hotkeyHint.length > 0) {
     rows.push(`toggle: ${props.hotkeyHint}`);
   }
@@ -127,12 +162,12 @@ function placePanel(position: InspectorOverlayPosition, panel: VNode): VNode {
   const v: "start" | "end" = position.startsWith("bottom") ? "end" : "start";
   return ui.column(
     {
-      width: "100%",
-      height: "100%",
+      width: "full",
+      height: "full",
       justify: v,
       p: 1,
     },
-    [ui.row({ width: "100%", justify: h }, [panel])],
+    [ui.row({ width: "full", justify: h }, [panel])],
   );
 }
 

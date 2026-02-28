@@ -27,8 +27,8 @@ describe("constraints (deterministic) - golden cases", () => {
     assert.equal(out.children[1]?.rect.w, 60);
   });
 
-  test('width:"50%" in parent width 80 => 40', () => {
-    const tree = ui.row({ gap: 0 }, [ui.box({ border: "none", width: "50%" }, [])]);
+  test("width:40 in parent width 80 => 40", () => {
+    const tree = ui.row({ gap: 0 }, [ui.box({ border: "none", width: 40 }, [])]);
     const out = mustLayout(tree, 80, 10);
     assert.equal(out.children[0]?.rect.w, 40);
   });
@@ -41,10 +41,10 @@ describe("constraints (deterministic) - golden cases", () => {
     assert.equal(out.children[0]?.rect.w, 50);
   });
 
-  test("nested percentages: 100 -> 50% -> 50% = 25", () => {
+  test("nested fixed widths: 100 -> 50 -> 25", () => {
     const tree = ui.row({ gap: 0 }, [
-      ui.box({ border: "none", width: "50%" }, [
-        ui.box({ border: "none", width: "50%" }, [ui.text("x")]),
+      ui.box({ border: "none", width: 50 }, [
+        ui.box({ border: "none", width: 25 }, [ui.text("x")]),
       ]),
     ]);
     const out = mustLayout(tree, 100, 10);
@@ -67,7 +67,7 @@ describe("constraints (deterministic) - golden cases", () => {
 
   test('row align:"stretch" propagates forced cross-size to descendants', () => {
     const tree = ui.row({ width: 20, height: 10, align: "stretch", gap: 0 }, [
-      ui.box({ border: "none", height: "50%" }, [ui.box({ border: "none", height: "100%" }, [])]),
+      ui.box({ border: "none", height: "full" }, [ui.box({ border: "none", height: "full" }, [])]),
     ]);
 
     const out = mustLayout(tree, 20, 10);

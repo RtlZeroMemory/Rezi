@@ -291,7 +291,7 @@ describe("layout edge cases", () => {
     }
   });
 
-  test("sparse children do not consume flex/percent constraint slots", () => {
+  test("sparse children do not consume flex/fixed constraint slots", () => {
     const sparseFlexRow = {
       kind: "row",
       props: { width: 10, gap: 1 },
@@ -313,9 +313,9 @@ describe("layout edge cases", () => {
       kind: "column",
       props: { height: 10, gap: 1 },
       children: Object.freeze([
-        { kind: "box", props: { border: "none", height: "50%" }, children: Object.freeze([]) },
+        { kind: "box", props: { border: "none", height: 5 }, children: Object.freeze([]) },
         undefined,
-        { kind: "box", props: { border: "none", height: "50%" }, children: Object.freeze([]) },
+        { kind: "box", props: { border: "none", height: 5 }, children: Object.freeze([]) },
       ]),
     } as unknown as VNode;
     const columnLayout = layout(sparsePercentColumn, 0, 0, 3, 10, "column");

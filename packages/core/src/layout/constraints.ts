@@ -1,10 +1,12 @@
 /**
  * packages/core/src/layout/constraints.ts — Constraint resolution helpers.
  *
- * Why: Converts user-facing constraint values (numbers, percentages, "auto")
+ * Why: Converts user-facing constraint values (numbers, "auto"/"full")
  * into concrete cell sizes for a given parent rectangle.
  */
 
+import { isConstraintExpr } from "../constraints/expr.js";
+import type { ResolvedConstraintValues } from "../constraints/resolver.js";
 import { resolveResponsiveValue } from "./responsive.js";
 import type {
   Axis,
@@ -58,24 +60,46 @@ const I32_MAX = 2147483647;
  * Resolve a single size constraint to a concrete cell count relative to `parentSize`.
  *
  * - numbers are returned as-is
- * - percentages are floored to an integer cell count
  * - "auto" resolves to `NaN` (caller decides meaning)
  */
 export function resolveConstraint(value: SizeConstraintAtom, parentSize: number): number {
   if (value === "auto") return Number.NaN;
   if (value === "full") return parentSize;
   if (typeof value === "number") return value;
-  const raw = Number.parseFloat(value.slice(0, -1));
-  if (!Number.isFinite(raw)) return Number.NaN;
-  return Math.floor((parentSize * raw) / 100);
+  if (isConstraintExpr(value)) return Number.NaN;
+  const resolved = resolveResponsiveValue(value);
+  if (typeof resolved === "number" && Number.isFinite(resolved)) return resolved;
+  return Number.NaN;
 }
 
-function resolveOptional(value: SizeConstraint | undefined, parentSize: number): number | null {
+function resolveOptional(
+  value: SizeConstraint | undefined,
+  parentSize: number,
+  resolvedValue?: number,
+): number | null {
+  if (typeof resolvedValue === "number" && Number.isFinite(resolvedValue)) {
+    return Math.floor(resolvedValue);
+  }
   const resolved = resolveResponsiveValue(value);
   if (resolved === undefined) return null;
-  if (typeof resolved !== "number" && typeof resolved !== "string") return null;
+  if (isConstraintExpr(resolved)) return null;
+  if (typeof resolved !== "number" && resolved !== "auto" && resolved !== "full") return null;
   const n = resolveConstraint(resolved as SizeConstraintAtom, parentSize);
   return Number.isFinite(n) ? (n as number) : null;
+}
+
+function readOptionalNonNegative(
+  value: unknown,
+  resolvedValue: number | undefined,
+): number | undefined {
+  if (typeof resolvedValue === "number" && Number.isFinite(resolvedValue)) {
+    return Math.floor(resolvedValue);
+  }
+  const resolved = resolveResponsiveValue(value);
+  if (resolved === undefined) return undefined;
+  if (isConstraintExpr(resolved)) return undefined;
+  if (typeof resolved !== "number" || !Number.isFinite(resolved)) return undefined;
+  return Math.floor(resolved);
 }
 
 function or0(n: number | undefined): number {
@@ -90,9 +114,10 @@ export function resolveLayoutConstraints(
   props: LayoutConstraints,
   parent: Rect,
   mainAxis: Axis = "row",
+  resolved?: ResolvedConstraintValues | null,
 ): ResolvedConstraints {
-  let width = resolveOptional(props.width, parent.w);
-  let height = resolveOptional(props.height, parent.h);
+  let width = resolveOptional(props.width, parent.w, resolved?.width);
+  let height = resolveOptional(props.height, parent.h, resolved?.height);
   const flexShrink =
     typeof props.flexShrink === "number" &&
     Number.isFinite(props.flexShrink) &&
@@ -101,8 +126,7 @@ export function resolveLayoutConstraints(
       : 0;
   const flexBasisRaw = props.flexBasis;
   const flexBasisParent = mainAxis === "row" ? parent.w : parent.h;
-  const flexBasis =
-    flexBasisRaw !== undefined ? resolveOptional(flexBasisRaw, flexBasisParent) : null;
+  const flexBasis = resolveOptional(flexBasisRaw, flexBasisParent, resolved?.flexBasis);
 
   const aspectRatio =
     props.aspectRatio === undefined || props.aspectRatio === null ? null : props.aspectRatio;
@@ -115,10 +139,10 @@ export function resolveLayoutConstraints(
   return {
     width,
     height,
-    minWidth: or0(props.minWidth),
-    maxWidth: orInf(props.maxWidth),
-    minHeight: or0(props.minHeight),
-    maxHeight: orInf(props.maxHeight),
+    minWidth: or0(readOptionalNonNegative(props.minWidth, resolved?.minWidth)),
+    maxWidth: orInf(readOptionalNonNegative(props.maxWidth, resolved?.maxWidth)),
+    minHeight: or0(readOptionalNonNegative(props.minHeight, resolved?.minHeight)),
+    maxHeight: orInf(readOptionalNonNegative(props.maxHeight, resolved?.maxHeight)),
     flex: props.flex === undefined ? 0 : props.flex,
     flexShrink,
     flexBasis,
@@ -135,7 +159,7 @@ function readFiniteFloor(value: unknown): number | null {
 function readOptionalSizeConstraintFloor(value: unknown, parentSize: number): number | null {
   const resolved = resolveResponsiveValue(value);
   if (resolved === undefined) return null;
-  if (typeof resolved !== "number" && typeof resolved !== "string") return null;
+  if (typeof resolved !== "number" && resolved !== "auto" && resolved !== "full") return null;
   const n = resolveConstraint(resolved as SizeConstraintAtom, parentSize);
   if (!Number.isFinite(n)) return null;
   return Math.floor(n);

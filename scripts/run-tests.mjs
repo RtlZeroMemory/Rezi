@@ -73,6 +73,7 @@ function collectPackageTests(root) {
 
 function parseArgs(argv) {
   let scope = "all";
+  let filter = null;
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -85,13 +86,22 @@ function parseArgs(argv) {
       }
       throw new Error(`run-tests: invalid --scope value: ${String(v)}`);
     }
+
+    if (a === "--filter") {
+      const v = argv[i + 1];
+      if (typeof v !== "string" || v.trim().length === 0) {
+        throw new Error("run-tests: --filter requires a non-empty pattern string");
+      }
+      filter = v;
+      i++;
+    }
   }
 
-  return { scope };
+  return { scope, filter };
 }
 
 const root = process.cwd();
-const { scope } = parseArgs(process.argv.slice(2));
+const { scope, filter } = parseArgs(process.argv.slice(2));
 
 const scriptsTests = scope === "scripts" || scope === "all" ? collectScriptTests(root) : [];
 const packageTests = scope === "packages" || scope === "all" ? collectPackageTests(root) : [];
@@ -133,7 +143,24 @@ if (scope === "packages" && packageTests.length === 0) {
 }
 
 // Use relative paths for more stable output across environments.
-const relFiles = files.map((f) => relative(root, f));
+let relFiles = files.map((f) => relative(root, f));
+
+if (typeof filter === "string") {
+  let rx;
+  try {
+    rx = new RegExp(filter);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`run-tests: invalid --filter regex: ${msg}\n`);
+    process.exit(1);
+  }
+
+  relFiles = relFiles.filter((p) => rx.test(p));
+  if (relFiles.length === 0) {
+    process.stderr.write(`run-tests: --filter matched 0 test files (${filter})\n`);
+    process.exit(1);
+  }
+}
 
 const cmd = process.execPath;
 const supportsTestConcurrency = process.allowedNodeEnvironmentFlags.has("--test-concurrency");

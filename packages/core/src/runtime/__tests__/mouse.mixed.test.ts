@@ -725,7 +725,7 @@ describe("overlay/modal hit priority integration", () => {
 
     const app = createApp({ backend, initialState: 0 });
     app.view(() =>
-      ui.column({ width: "100%", height: "100%" }, [
+      ui.column({ width: "full", height: "full" }, [
         ui.virtualList({
           id: "bg-list",
           items,

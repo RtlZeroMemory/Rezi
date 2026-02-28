@@ -87,6 +87,80 @@ let activeLayoutCache: LayoutCache | null = null;
 const layoutCacheStack: LayoutCache[] = [];
 const syntheticThemedColumnCache = new WeakMap<VNode, SyntheticThemedColumnCacheEntry>();
 const NULL_FORCED_DIMENSION = -1;
+const LEGACY_SIZE_PROP_NAMES: readonly string[] = Object.freeze([
+  "width",
+  "height",
+  "minWidth",
+  "maxWidth",
+  "minHeight",
+  "maxHeight",
+  "flexBasis",
+]);
+
+function isLegacyBreakpointMap(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  if ((value as { kind?: unknown }).kind === "fluid") return false;
+  const record = value as Record<string, unknown>;
+  return "sm" in record || "md" in record || "lg" in record || "xl" in record;
+}
+
+function findLegacyConstraintUsage(root: VNode): string | null {
+  const stack: Array<Readonly<{ node: VNode; path: string }>> = [{ node: root, path: root.kind }];
+
+  while (stack.length > 0) {
+    const frame = stack.pop();
+    if (!frame) continue;
+    const { node, path } = frame;
+    const props = (node.props ?? {}) as Readonly<Record<string, unknown>>;
+
+    for (const propName of LEGACY_SIZE_PROP_NAMES) {
+      const value = props[propName];
+      if (typeof value === "string" && value.trim().endsWith("%")) {
+        return `${path}.${propName}: percentage strings are removed. Use expr("parent.${propName === "height" || propName === "minHeight" || propName === "maxHeight" ? "h" : "w"} * <ratio>"), "full", numbers, or fluid(...).`;
+      }
+      if (isLegacyBreakpointMap(value)) {
+        return `${path}.${propName}: responsive maps are removed. Use expr("steps(...)"), fluid(...), or explicit values.`;
+      }
+    }
+
+    const children = (node as Readonly<{ children?: readonly VNode[] }>).children;
+    if (Array.isArray(children) && children.length > 0) {
+      for (let i = children.length - 1; i >= 0; i--) {
+        const child = children[i];
+        if (!child) continue;
+        stack.push({ node: child, path: `${path}>${child.kind}[${String(i)}]` });
+      }
+    }
+
+    if (node.kind === "modal") {
+      const modalProps = node.props as Readonly<{
+        content?: unknown;
+        actions?: readonly unknown[];
+      }>;
+      if (
+        modalProps.content &&
+        typeof modalProps.content === "object" &&
+        "kind" in modalProps.content
+      ) {
+        stack.push({ node: modalProps.content as VNode, path: `${path}.content` });
+      }
+      if (Array.isArray(modalProps.actions)) {
+        for (let i = modalProps.actions.length - 1; i >= 0; i--) {
+          const action = modalProps.actions[i];
+          if (!action || typeof action !== "object" || !("kind" in action)) continue;
+          stack.push({ node: action as VNode, path: `${path}.actions[${String(i)}]` });
+        }
+      }
+    } else if (node.kind === "layer") {
+      const layerContent = (node.props as Readonly<{ content?: unknown }>).content;
+      if (layerContent && typeof layerContent === "object" && "kind" in layerContent) {
+        stack.push({ node: layerContent as VNode, path: `${path}.content` });
+      }
+    }
+  }
+
+  return null;
+}
 
 function pushMeasureCache(cache: MeasureCache): void {
   measureCacheStack.push(cache);
@@ -204,6 +278,11 @@ function measureNode(vnode: VNode, maxW: number, maxH: number, axis: Axis): Layo
       ok: false,
       fatal: { code: "ZRUI_INVALID_PROPS", detail: "measure: maxH must be an int32 >= 0" },
     };
+  }
+
+  const display = (vnode.props as Readonly<{ display?: unknown }> | undefined)?.display;
+  if (display === false) {
+    return { ok: true, value: { w: 0, h: 0 } };
   }
 
   if (__layoutProfile.enabled) {
@@ -462,8 +541,10 @@ function layoutNode(
       : { ok: true, value: precomputedSize };
   if (!sizeRes.ok) return sizeRes;
 
-  const rectW = clampNonNegative(Math.min(maxW, forcedW ?? sizeRes.value.w));
-  const rectH = clampNonNegative(Math.min(maxH, forcedH ?? sizeRes.value.h));
+  const hiddenByDisplay =
+    (vnode.props as Readonly<{ display?: unknown }> | undefined)?.display === false;
+  const rectW = hiddenByDisplay ? 0 : clampNonNegative(Math.min(maxW, forcedW ?? sizeRes.value.w));
+  const rectH = hiddenByDisplay ? 0 : clampNonNegative(Math.min(maxH, forcedH ?? sizeRes.value.h));
 
   let computed: LayoutResult<LayoutTree>;
   switch (vnode.kind) {
@@ -768,6 +849,16 @@ function layoutNode(
 
 /** Measure a VNode tree without positioning (public API). */
 export function measure(node: VNode, maxW: number, maxH: number, axis: Axis): LayoutResult<Size> {
+  const legacyUsage = findLegacyConstraintUsage(node);
+  if (legacyUsage !== null) {
+    return {
+      ok: false,
+      fatal: {
+        code: "ZRUI_INVALID_PROPS",
+        detail: `Legacy size constraint usage detected: ${legacyUsage}`,
+      },
+    };
+  }
   return measureNode(node, maxW, maxH, axis);
 }
 
@@ -793,6 +884,16 @@ export function layout(
   layoutCache?: WeakMap<VNode, unknown>,
   dirtySet?: Set<VNode> | null,
 ): LayoutResult<LayoutTree> {
+  const legacyUsage = findLegacyConstraintUsage(node);
+  if (legacyUsage !== null) {
+    return {
+      ok: false,
+      fatal: {
+        code: "ZRUI_INVALID_PROPS",
+        detail: `Legacy size constraint usage detected: ${legacyUsage}`,
+      },
+    };
+  }
   const resolvedMeasureCache: MeasureCache = measureCache
     ? (measureCache as MeasureCache)
     : new WeakMap<VNode, MeasureCacheEntry>();
