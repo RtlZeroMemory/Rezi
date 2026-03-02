@@ -27,12 +27,13 @@ const NODE_TYPE_ROOT = join(ROOT, "node_modules", "@types");
 const LEGACY_LAYOUT_PATTERNS = Object.freeze([
   Object.freeze({
     name: "percentage layout constraint",
-    regex: /\b(?:width|height|minWidth|maxWidth|minHeight|maxHeight|flexBasis)\s*:\s*["']\d+%["']/,
+    regex:
+      /\b(?:width|height|minWidth|maxWidth|minHeight|maxHeight|flexBasis)\s*:\s*["'](?:\d+(?:\.\d+)?|\.\d+)\s*%["']/,
   }),
   Object.freeze({
     name: "responsive-map layout constraint",
     regex:
-      /\b(?:width|height|minWidth|maxWidth|minHeight|maxHeight|flexBasis|display)\s*:\s*\{\s*sm\s*:/m,
+      /\b(?:width|height|minWidth|maxWidth|minHeight|maxHeight|flexBasis|display)\s*:\s*\{[^}]*\b(?:sm|md|lg|xl)\s*:/m,
   }),
 ]);
 const TEMPLATE_EXPR_ESCAPE_HATCH = Object.freeze(

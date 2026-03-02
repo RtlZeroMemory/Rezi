@@ -93,13 +93,13 @@ function readOptionalNonNegative(
   resolvedValue: number | undefined,
 ): number | undefined {
   if (typeof resolvedValue === "number" && Number.isFinite(resolvedValue)) {
-    return Math.floor(resolvedValue);
+    return Math.max(0, Math.floor(resolvedValue));
   }
   const resolved = resolveResponsiveValue(value);
   if (resolved === undefined) return undefined;
   if (isConstraintExpr(resolved)) return undefined;
   if (typeof resolved !== "number" || !Number.isFinite(resolved)) return undefined;
-  return Math.floor(resolved);
+  return Math.max(0, Math.floor(resolved));
 }
 
 function or0(n: number | undefined): number {

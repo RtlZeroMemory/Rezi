@@ -139,6 +139,7 @@ nav:
       - Hooks Reference: guide/hooks-reference.md
       - Recommended Patterns: guide/recommended-patterns.md
   - Reference:
+      - Benchmarks: benchmarks.md
       - Glossary: reference/glossary.md
       - Constraints API: reference/constraints-api.md
       - Constraint Expressions: reference/constraint-expressions.md
@@ -276,6 +277,3 @@ nav:
       - Style Guide: dev/style-guide.md
       - JSX Internals: dev/jsx-internals.md
       - Maintaining Docs: maintainers.md
-  - Reference:
-      - Benchmarks: benchmarks.md
-      - Glossary: reference/glossary.md

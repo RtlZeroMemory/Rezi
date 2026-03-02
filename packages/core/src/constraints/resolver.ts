@@ -67,6 +67,56 @@ function sanitizeFinite(value: number): number {
   return Number.isFinite(value) ? value : 0;
 }
 
+function serializeFiniteOrEmpty(value: number | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "";
+  return String(Math.trunc(value));
+}
+
+function serializeRefValuesInput(input: RefValuesInput | undefined): string {
+  if (input === undefined) return "";
+  return [
+    serializeFiniteOrEmpty(input.w),
+    serializeFiniteOrEmpty(input.h),
+    serializeFiniteOrEmpty(input.min_w),
+    serializeFiniteOrEmpty(input.min_h),
+  ].join(":");
+}
+
+function serializeResolvedConstraintValues(input: ResolvedConstraintValues | undefined): string {
+  if (input === undefined) return "";
+  return [
+    serializeFiniteOrEmpty(input.width),
+    serializeFiniteOrEmpty(input.height),
+    serializeFiniteOrEmpty(input.minWidth),
+    serializeFiniteOrEmpty(input.maxWidth),
+    serializeFiniteOrEmpty(input.minHeight),
+    serializeFiniteOrEmpty(input.maxHeight),
+    serializeFiniteOrEmpty(input.flexBasis),
+    serializeFiniteOrEmpty(input.display),
+  ].join(":");
+}
+
+function serializeMapValues<T>(
+  map: ReadonlyMap<InstanceId, T> | undefined,
+  serializeValue: (value: T | undefined) => string,
+): string {
+  if (map === undefined || map.size === 0) return "";
+  const parts: string[] = [];
+  for (const [instanceId, value] of map.entries()) {
+    parts.push(`${String(instanceId)}=${serializeValue(value)}`);
+  }
+  parts.sort();
+  return parts.join(",");
+}
+
+function createDynamicResolutionInputKey(options: ConstraintResolutionOptions): string {
+  const base = serializeMapValues(options.baseValues, serializeResolvedConstraintValues);
+  const parent = serializeMapValues(options.parentValues, serializeRefValuesInput);
+  const intrinsic = serializeMapValues(options.intrinsicValues, serializeRefValuesInput);
+  if (base === "" && parent === "" && intrinsic === "") return "";
+  return [base, parent, intrinsic].join("|");
+}
+
 function normalizeRefValues(
   input: RefValuesInput | null | undefined,
   fallback: RefValues,
@@ -375,14 +425,19 @@ export function createResolutionCacheKey(
   fingerprint: number,
   viewport: Readonly<{ w: number; h: number }>,
   parent: Readonly<{ w: number; h: number }>,
+  dynamicInputKey?: string,
 ): string {
-  return [
+  const keyParts: Array<string | number> = [
     Math.trunc(fingerprint),
     Math.trunc(viewport.w),
     Math.trunc(viewport.h),
     Math.trunc(parent.w),
     Math.trunc(parent.h),
-  ].join("|");
+  ];
+  if (typeof dynamicInputKey === "string" && dynamicInputKey.length > 0) {
+    keyParts.push(dynamicInputKey);
+  }
+  return keyParts.join("|");
 }
 
 export function resolveConstraints(
@@ -393,7 +448,12 @@ export function resolveConstraints(
   const parentRoot = createRootRefValues(options.parent.w, options.parent.h);
   const cacheKey =
     options.cacheKey ??
-    createResolutionCacheKey(graph.fingerprint, options.viewport, options.parent);
+    createResolutionCacheKey(
+      graph.fingerprint,
+      options.viewport,
+      options.parent,
+      createDynamicResolutionInputKey(options),
+    );
   const cached = options.cache?.get(cacheKey) ?? null;
   if (cached !== null) {
     return { values: cached, cacheHit: true };

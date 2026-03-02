@@ -10,7 +10,6 @@ See also:
 - [Debugging Constraints](debugging-constraints.md)
 - [Performance with Constraints](performance-with-constraints.md)
 - [Design Principles](../design-principles.md)
-- [RFC-001](../rfc/001-constraint-layout-dsl.md)
 
 ## Alpha Contract
 

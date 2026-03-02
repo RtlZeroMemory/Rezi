@@ -103,6 +103,11 @@ describe("constraint helpers", () => {
     assert.equal(out.source, "if(1, 0.0000001, 0)");
   });
 
+  test("formats large numbers without exponent notation", () => {
+    const out = conditionalConstraints.ifThenElse(1, 1e21, 0);
+    assert.equal(out.source, "if(1, 1000000000000000000000, 0)");
+  });
+
   test("rejects invalid widget IDs for #id references", () => {
     assert.throws(() => groupConstraints.maxSiblingWidth("bad id"), /must not contain whitespace/);
     assert.throws(() => groupConstraints.maxSiblingWidth("bad.id"), /must not contain "\."/);

@@ -89,7 +89,7 @@ function parseArgs(argv) {
 
     if (a === "--filter") {
       const v = argv[i + 1];
-      if (typeof v !== "string" || v.trim().length === 0) {
+      if (typeof v !== "string" || v.trim().length === 0 || v.startsWith("--")) {
         throw new Error("run-tests: --filter requires a non-empty pattern string");
       }
       filter = v;

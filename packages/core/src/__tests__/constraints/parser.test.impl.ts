@@ -146,6 +146,13 @@ describe("constraint parser", () => {
     assert.equal(Object.isFrozen(compiled.ast), true);
   });
 
+  test("expr() refs metadata is immutable at runtime", () => {
+    const compiled = expr("#a.w + #b.h");
+    assert.deepEqual([...compiled.refs].sort(), ["a", "b"]);
+    assert.throws(() => Set.prototype.add.call(compiled.refs as unknown as Set<string>, "c"));
+    assert.deepEqual([...compiled.refs].sort(), ["a", "b"]);
+  });
+
   test("throws syntax errors with position/caret details", () => {
     const empty = mustThrowSyntax("");
     assert.match(empty.message, /Unexpected end of input/);

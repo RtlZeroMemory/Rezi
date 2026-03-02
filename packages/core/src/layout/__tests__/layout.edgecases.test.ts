@@ -13,6 +13,26 @@ function mustLayout(vnode: VNode, maxW: number, maxH: number) {
 }
 
 describe("layout edge cases", () => {
+  test("display:false short-circuits child layout recursion", () => {
+    const hiddenTree: VNode = {
+      kind: "box",
+      props: { display: false },
+      children: Object.freeze<readonly VNode[]>([
+        {
+          kind: "column",
+          props: { width: 20, height: 5 },
+          children: Object.freeze<readonly VNode[]>([
+            { kind: "text", text: "hidden-child", props: {} },
+          ]),
+        },
+      ]),
+    };
+
+    const laidOut = mustLayout(hiddenTree, 20, 10);
+    assert.deepEqual(laidOut.rect, { x: 0, y: 0, w: 0, h: 0 });
+    assert.equal(laidOut.children.length, 0);
+  });
+
   test("leaf widgets clamp to available height=0", () => {
     const nodes: readonly VNode[] = Object.freeze([
       {

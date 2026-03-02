@@ -236,6 +236,42 @@ describe("constraint resolver", () => {
     assert.notEqual(third.values, second.values);
   });
 
+  test("default cache key accounts for dynamic base/parent/intrinsic maps", () => {
+    const node = boxWithId(71, "dynamicCacheNode", { width: expr("parent.w + intrinsic.w") });
+    const built = buildConstraintGraph(runtimeNode(70, {}, [node]));
+    assert.equal(built.ok, true);
+    if (!built.ok) return;
+
+    const cache = new ConstraintResolutionCache();
+    const first = resolveConstraints(built.value, {
+      viewport: { w: 120, h: 40 },
+      parent: { w: 100, h: 40 },
+      parentValues: new Map([[71, { w: 80, h: 20, min_w: 80, min_h: 20 }]]),
+      intrinsicValues: new Map([[71, { w: 1, h: 1, min_w: 1, min_h: 1 }]]),
+      cache,
+    });
+    const second = resolveConstraints(built.value, {
+      viewport: { w: 120, h: 40 },
+      parent: { w: 100, h: 40 },
+      parentValues: new Map([[71, { w: 80, h: 20, min_w: 80, min_h: 20 }]]),
+      intrinsicValues: new Map([[71, { w: 9, h: 9, min_w: 9, min_h: 9 }]]),
+      cache,
+    });
+    const secondAgain = resolveConstraints(built.value, {
+      viewport: { w: 120, h: 40 },
+      parent: { w: 100, h: 40 },
+      parentValues: new Map([[71, { w: 80, h: 20, min_w: 80, min_h: 20 }]]),
+      intrinsicValues: new Map([[71, { w: 9, h: 9, min_w: 9, min_h: 9 }]]),
+      cache,
+    });
+
+    assert.equal(first.cacheHit, false);
+    assert.equal(second.cacheHit, false);
+    assert.equal(secondAgain.cacheHit, true);
+    assert.equal(first.values.get(71)?.width, 81);
+    assert.equal(second.values.get(71)?.width, 89);
+  });
+
   test("supports explicit cacheKey for multi-key cache reuse", () => {
     const node = boxWithId(41, "cacheNode", { width: expr("viewport.w + parent.w + intrinsic.w") });
     const built = buildConstraintGraph(runtimeNode(40, {}, [node]));

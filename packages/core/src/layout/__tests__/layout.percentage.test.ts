@@ -1,6 +1,7 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import { type VNode, ui } from "../../index.js";
-import { layout, measure } from "../layout.js";
+import { createTestRenderer } from "../../testing/renderer.js";
+import { measure } from "../layout.js";
 
 type Axis = "row" | "column";
 
@@ -11,11 +12,14 @@ function expectLegacyFatal(
   axis: Axis,
   detailPattern: RegExp,
 ): void {
-  const layoutRes = layout(node, 0, 0, maxW, maxH, axis);
-  assert.equal(layoutRes.ok, false);
-  if (layoutRes.ok) return;
-  assert.equal(layoutRes.fatal.code, "ZRUI_INVALID_PROPS");
-  assert.match(layoutRes.fatal.detail, detailPattern);
+  const renderer = createTestRenderer({ viewport: { cols: maxW, rows: maxH } });
+  assert.throws(
+    () => renderer.render(node),
+    (error) =>
+      error instanceof Error &&
+      error.message.includes("ZRUI_INVALID_PROPS") &&
+      detailPattern.test(error.message),
+  );
 
   const measureRes = measure(node, maxW, maxH, axis);
   assert.equal(measureRes.ok, false);

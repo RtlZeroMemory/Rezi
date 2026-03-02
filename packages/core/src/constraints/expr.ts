@@ -75,7 +75,36 @@ function freezeAst(node: ExprNode): ExprNode {
 }
 
 function freezeReadonlySet<T>(set: Set<T>): ReadonlySet<T> {
-  return Object.freeze(set) as ReadonlySet<T>;
+  const snapshot = new Set(set);
+  const view: ReadonlySet<T> = {
+    get size() {
+      return snapshot.size;
+    },
+    has(value: T): boolean {
+      return snapshot.has(value);
+    },
+    forEach(
+      callbackfn: (value: T, value2: T, set: ReadonlySet<T>) => void,
+      thisArg?: unknown,
+    ): void {
+      for (const value of snapshot) {
+        callbackfn.call(thisArg, value, value, view);
+      }
+    },
+    entries(): IterableIterator<[T, T]> {
+      return snapshot.entries();
+    },
+    keys(): IterableIterator<T> {
+      return snapshot.keys();
+    },
+    values(): IterableIterator<T> {
+      return snapshot.values();
+    },
+    [Symbol.iterator](): IterableIterator<T> {
+      return snapshot[Symbol.iterator]();
+    },
+  };
+  return Object.freeze(view);
 }
 
 export function expr(source: string): ConstraintExpr {

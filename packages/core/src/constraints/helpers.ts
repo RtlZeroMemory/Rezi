@@ -101,7 +101,9 @@ function formatDslNumber(fn: string, value: number): string {
     out = `${digits.slice(0, decimalPos)}.${digits.slice(decimalPos)}`;
   }
 
-  out = out.replace(/\.?0+$/, "");
+  if (out.includes(".")) {
+    out = out.replace(/0+$/, "").replace(/\.$/, "");
+  }
   if (out.length > 64) {
     throw invalidArg(
       fn,

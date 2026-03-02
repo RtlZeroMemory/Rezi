@@ -153,7 +153,9 @@ export function renderShell(options: ShellOptions): VNode {
   const showSidebar = !minimalHeight && layout.width >= 78;
   const showRouteHealth = !compactHeight && showSidebar;
   const showToastOverlay = !compactHeight && state.toasts.length > 0;
-  const showRightRail = Boolean(options.rightRail && !layout.hideNonCritical && layout.height >= 40);
+  const showRightRail = Boolean(
+    options.rightRail && !layout.hideNonCritical && layout.height >= 40 && layout.width >= 80,
+  );
   const sidebarWidth = layout.compactSidebar ? 18 : 34;
   // Helper-first constraints (readable intent) over raw `expr("if(viewport.w < ...)")` strings.
   const rightRailDisplay = visibilityConstraints.viewportAtLeast({ width: 80, height: 40 });
@@ -432,7 +434,7 @@ export function renderShell(options: ShellOptions): VNode {
     ],
   );
 
-  const rightRailNode = options.rightRail
+  const rightRailNode = showRightRail
     ? ui.box(
         {
           border: "none",

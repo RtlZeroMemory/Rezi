@@ -348,7 +348,7 @@ const CrewDeck = defineWidget<CrewDeckProps>((props, ctx): VNode => {
               {
                 border: "none",
                 p: 0,
-                // Helper-first responsive sizing: wide terminals get a stable master width, narrow gets full.
+                // Helper-first responsive sizing: wide terminals get a stable master width, narrow gets fallback width.
                 width: conditionalConstraints.ifThenElse(
                   visibilityConstraints.viewportWidthAtLeast(120),
                   60,

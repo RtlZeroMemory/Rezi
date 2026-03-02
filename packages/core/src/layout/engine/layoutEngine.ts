@@ -543,8 +543,28 @@ function layoutNode(
 
   const hiddenByDisplay =
     (vnode.props as Readonly<{ display?: unknown }> | undefined)?.display === false;
-  const rectW = hiddenByDisplay ? 0 : clampNonNegative(Math.min(maxW, forcedW ?? sizeRes.value.w));
-  const rectH = hiddenByDisplay ? 0 : clampNonNegative(Math.min(maxH, forcedH ?? sizeRes.value.h));
+  if (hiddenByDisplay) {
+    const hiddenResult: LayoutResult<LayoutTree> = {
+      ok: true,
+      value: {
+        vnode,
+        rect: { x, y, w: 0, h: 0 },
+        children: Object.freeze([]),
+      },
+    };
+    if (cache) {
+      let entry = cache.get(vnode);
+      if (!entry) {
+        entry = Object.freeze({ row: new Map(), column: new Map() });
+        cache.set(vnode, entry);
+      }
+      const axisMap = axis === "row" ? entry.row : entry.column;
+      setLayoutCacheValue(axisMap, maxW, maxH, forcedW, forcedH, x, y, hiddenResult);
+    }
+    return hiddenResult;
+  }
+  const rectW = clampNonNegative(Math.min(maxW, forcedW ?? sizeRes.value.w));
+  const rectH = clampNonNegative(Math.min(maxH, forcedH ?? sizeRes.value.h));
 
   let computed: LayoutResult<LayoutTree>;
   switch (vnode.kind) {

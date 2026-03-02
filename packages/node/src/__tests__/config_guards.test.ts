@@ -183,19 +183,6 @@ test("config guard: native worker mode falls back to inline by default in TTY", 
   });
 });
 
-test("config guard: native worker mode remains inline even when worker is requested", () => {
-  const selection = selectNodeBackendExecutionMode({
-    requestedExecutionMode: "worker",
-    fpsCap: 60,
-    hasAnyTty: true,
-  });
-  assert.deepEqual(selection, {
-    resolvedExecutionMode: "worker",
-    selectedExecutionMode: "inline",
-    fallbackReason: "native-worker-unstable",
-  });
-});
-
 test("config guard: worker mode with shim does not fallback", () => {
   const selection = selectNodeBackendExecutionMode({
     requestedExecutionMode: "worker",

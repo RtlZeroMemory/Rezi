@@ -68,7 +68,7 @@ A three-column dashboard layout with info cards:
 ui.grid({ columns: 3, gap: 1 },
   ui.box({ border: "rounded", p: 1 }, [
     ui.text("CPU", { style: { bold: true } }),
-    ui.text("42"),
+    ui.text("42%"),
   ]),
   ui.box({ border: "rounded", p: 1 }, [
     ui.text("Memory", { style: { bold: true } }),
