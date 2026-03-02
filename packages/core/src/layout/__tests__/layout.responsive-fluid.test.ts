@@ -34,33 +34,6 @@ describe("layout responsive fluid values", () => {
     });
   });
 
-  test("responsive map values can contain fluid()", () => {
-    const value = { sm: 12, md: fluid(20, 40), lg: 50 };
-    withViewport(79, 24, () => {
-      assert.equal(resolveResponsiveValue(value), 12);
-    });
-    withViewport(119, 24, () => {
-      assert.equal(resolveResponsiveValue(value), 30);
-    });
-  });
-
-  test("nested responsive maps recurse and resolve fluid leaves", () => {
-    const value = {
-      sm: { sm: 8, md: fluid(10, 20), lg: 22 },
-      md: { sm: 12, md: fluid(30, 50), lg: 60 },
-      lg: 70,
-    };
-    withViewport(79, 24, () => {
-      assert.equal(resolveResponsiveValue(value), 8);
-    });
-    withViewport(119, 24, () => {
-      assert.equal(resolveResponsiveValue(value), 40);
-    });
-    withViewport(159, 24, () => {
-      assert.equal(resolveResponsiveValue(value), 70);
-    });
-  });
-
   test("layout resolves fluid width in widget props", () => {
     withViewport(119, 24, () => {
       const tree = ui.box({ border: "none", width: fluid(20, 40), height: 2 }, []);

@@ -257,8 +257,8 @@ function buildLayoutDebugOverlay(rectById: ReadonlyMap<string, Rect>): VNode | n
     modal: false,
     backdrop: "none",
     closeOnEscape: false,
-    content: ui.column({ width: "100%", height: "100%", justify: "end", p: 1 }, [
-      ui.row({ width: "100%", justify: "start" }, [panel]),
+    content: ui.column({ width: "full", height: "full", justify: "end", p: 1 }, [
+      ui.row({ width: "full", justify: "start" }, [panel]),
     ]),
   });
 }
@@ -389,11 +389,11 @@ function buildTopLevelViewErrorScreen(error: TopLevelViewError): VNode {
   if (error.stack === undefined || error.stack.length === 0) {
     lines.push(`Detail: ${error.detail}`);
   }
-  return ui.column({ width: "100%", height: "100%", justify: "center", align: "center", p: 1 }, [
+  return ui.column({ width: "full", height: "full", justify: "center", align: "center", p: 1 }, [
     ui.box(
       {
-        width: "100%",
-        height: "100%",
+        width: "full",
+        height: "full",
         border: "single",
         title: "Runtime Error",
         p: 1,

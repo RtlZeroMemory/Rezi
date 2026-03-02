@@ -73,7 +73,7 @@ const CommsDeck = defineWidget<CommsDeckProps>((props, ctx): VNode => {
   };
 
   if (compactHeight) {
-    return ui.column({ gap: SPACE.sm, width: "100%" }, [
+    return ui.column({ gap: SPACE.sm, width: "full" }, [
       surfacePanel(tokens, "Channel Controls", [
         sectionHeader(tokens, "Compact Comms View", "Expand terminal height for full traffic console"),
         ui.tabs({
@@ -259,7 +259,7 @@ const CommsDeck = defineWidget<CommsDeckProps>((props, ctx): VNode => {
     }) ?? ui.text(""),
   ]);
 
-  return ui.column({ gap: SPACE.sm, width: "100%" }, [
+  return ui.column({ gap: SPACE.sm, width: "full" }, [
     show(
       state.activeChannel === "emergency",
       ui.callout("Emergency channel monitored with elevated priority.", {
@@ -462,7 +462,7 @@ export function renderCommsScreen(
     title: "Communications",
     context,
     deps,
-    body: ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
+    body: ui.column({ gap: SPACE.sm, width: "full", height: "full" }, [
       CommsDeck({
         key: "comms-deck",
         state: context.state,

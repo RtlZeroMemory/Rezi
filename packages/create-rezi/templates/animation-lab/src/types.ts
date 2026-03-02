@@ -3,8 +3,6 @@ export type AnimationLabState = Readonly<{
   phase: number;
   viewportCols: number;
   viewportRows: number;
-  panelWidth: number;
-  panelHeight: number;
   panelOpacity: number;
   driftTarget: number;
   fluxTarget: number;

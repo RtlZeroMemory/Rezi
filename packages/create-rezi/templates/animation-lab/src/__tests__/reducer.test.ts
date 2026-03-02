@@ -23,8 +23,8 @@ test("animation lab reducer applies viewport", () => {
 
   assert.equal(resized.viewportCols, 70);
   assert.equal(resized.viewportRows, 20);
-  assert.ok(resized.panelWidth <= 66);
-  assert.ok(resized.panelHeight <= 18);
+  assert.equal("panelWidth" in resized, false);
+  assert.equal("panelHeight" in resized, false);
 });
 
 test("animation lab reducer supports nudge and phase cycle", () => {

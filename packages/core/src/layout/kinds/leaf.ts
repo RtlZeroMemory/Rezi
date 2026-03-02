@@ -9,6 +9,7 @@ import type { VNode } from "../../widgets/types.js";
 import { layoutLeaf } from "../engine/layoutTree.js";
 import { ok } from "../engine/result.js";
 import type { LayoutTree } from "../engine/types.js";
+import { resolveResponsiveValue } from "../responsive.js";
 import { measureTextCells, measureTextWrapped } from "../textMeasure.js";
 import type { Axis, Size } from "../types.js";
 import type { LayoutResult } from "../validateProps.js";
@@ -41,6 +42,17 @@ function resolveButtonPx(vnode: VNode): number {
   return typeof rawPx === "number" && Number.isFinite(rawPx) && rawPx >= 0 ? Math.trunc(rawPx) : 1;
 }
 
+function resolveLeafSizeConstraint(value: unknown, fallback: number): number {
+  const resolved = resolveResponsiveValue(value);
+  if (typeof resolved === "number" && Number.isFinite(resolved)) {
+    return Math.max(0, Math.trunc(resolved));
+  }
+  if (resolved === "full" || resolved === "auto" || resolved === undefined) {
+    return Math.max(0, Math.trunc(fallback));
+  }
+  return 0;
+}
+
 export function measureLeaf(
   vnode: VNode,
   maxW: number,
@@ -53,9 +65,9 @@ export function measureLeaf(
       if (!propsRes.ok) return propsRes;
       const intrinsicW = measureTextCells(vnode.text);
       const cappedW =
-        propsRes.value.maxWidth === undefined
-          ? intrinsicW
-          : Math.min(intrinsicW, propsRes.value.maxWidth);
+        typeof propsRes.value.maxWidth === "number" && Number.isFinite(propsRes.value.maxWidth)
+          ? Math.min(intrinsicW, propsRes.value.maxWidth)
+          : intrinsicW;
       const maxLineW = Math.min(maxW, cappedW);
       if (propsRes.value.wrap) {
         const wrapped = measureTextWrapped(vnode.text, maxLineW);
@@ -201,15 +213,23 @@ export function measureLeaf(
     }
     case "gauge": {
       // Gauge: label + bar + percentage
-      const props = vnode.props as { label?: string; variant?: string };
+      const props = vnode.props as {
+        label?: string;
+        variant?: string;
+        width?: unknown;
+        height?: unknown;
+      };
       const labelW = props.label ? measureTextCells(props.label) + 1 : 0;
       const variant = props.variant ?? "linear";
+      const intrinsicW = variant === "compact" ? labelW + 5 + 8 : labelW + 12 + 5;
+      const width = resolveLeafSizeConstraint(props.width, intrinsicW);
+      const height = resolveLeafSizeConstraint(props.height, 1);
       if (variant === "compact") {
         // Compact: "CPU 42% ████"
-        return ok({ w: Math.min(maxW, labelW + 5 + 8), h: Math.min(maxH, 1) });
+        return ok({ w: Math.min(maxW, width), h: Math.min(maxH, height) });
       }
       // Linear: "CPU [████░░░░] 42%"
-      return ok({ w: Math.min(maxW, labelW + 12 + 5), h: Math.min(maxH, 1) });
+      return ok({ w: Math.min(maxW, width), h: Math.min(maxH, height) });
     }
     case "empty": {
       // Empty: icon + title + description + action (multi-line)
@@ -275,24 +295,29 @@ export function measureLeaf(
     case "scatter":
     case "heatmap": {
       const props = vnode.props as { width?: unknown; height?: unknown };
-      const width =
-        typeof props.width === "number" && Number.isFinite(props.width) ? props.width : 0;
-      const height =
-        typeof props.height === "number" && Number.isFinite(props.height) ? props.height : 0;
+      const width = resolveLeafSizeConstraint(props.width, maxW);
+      const height = resolveLeafSizeConstraint(props.height, maxH);
       return ok({
-        w: Math.min(maxW, Math.max(0, Math.trunc(width))),
-        h: Math.min(maxH, Math.max(0, Math.trunc(height))),
+        w: Math.min(maxW, width),
+        h: Math.min(maxH, height),
       });
     }
     case "sparkline": {
       // Sparkline: mini inline chart using block characters
-      const props = vnode.props as { data: readonly number[]; width?: number };
-      const w = props.width ?? props.data.length;
-      return ok({ w: Math.min(maxW, w), h: Math.min(maxH, 1) });
+      const props = vnode.props as {
+        data: readonly number[];
+        width?: unknown;
+        height?: unknown;
+      };
+      const width = resolveLeafSizeConstraint(props.width, props.data.length);
+      const height = resolveLeafSizeConstraint(props.height, 1);
+      return ok({ w: Math.min(maxW, width), h: Math.min(maxH, height) });
     }
     case "barChart": {
       // Bar chart: horizontal or vertical bars with optional labels
       const props = vnode.props as {
+        width?: unknown;
+        height?: unknown;
         data: readonly { label: string; value: number }[];
         orientation?: "horizontal" | "vertical";
         showValues?: boolean;
@@ -313,21 +338,30 @@ export function measureLeaf(
         const labelW = showLabels ? maxLabelW + 1 : 0;
         const barW = props.maxBarLength ?? 20;
         const valueW = showValues ? 6 : 0; // " 100%"
+        const intrinsicW = labelW + barW + valueW;
+        const intrinsicH = props.data.length;
+        const width = resolveLeafSizeConstraint(props.width, intrinsicW);
+        const height = resolveLeafSizeConstraint(props.height, intrinsicH);
         return ok({
-          w: Math.min(maxW, labelW + barW + valueW),
-          h: Math.min(maxH, props.data.length),
+          w: Math.min(maxW, width),
+          h: Math.min(maxH, height),
         });
       }
       // Vertical: bars side by side, labels below
       const barW = 3; // Each bar is 3 cells wide
       const barH = props.maxBarLength ?? 8;
-      const w = props.data.length === 0 ? 0 : props.data.length * barW + (props.data.length - 1); // bars + gaps
-      const h = barH + (showLabels ? 1 : 0) + (showValues ? 1 : 0);
-      return ok({ w: Math.min(maxW, w), h: Math.min(maxH, h) });
+      const intrinsicW =
+        props.data.length === 0 ? 0 : props.data.length * barW + (props.data.length - 1); // bars + gaps
+      const intrinsicH = barH + (showLabels ? 1 : 0) + (showValues ? 1 : 0);
+      const width = resolveLeafSizeConstraint(props.width, intrinsicW);
+      const height = resolveLeafSizeConstraint(props.height, intrinsicH);
+      return ok({ w: Math.min(maxW, width), h: Math.min(maxH, height) });
     }
     case "miniChart": {
       // Mini chart: compact multi-value display
       const props = vnode.props as {
+        width?: unknown;
+        height?: unknown;
         values: readonly { label: string; value: number; max?: number }[];
         variant?: "bars" | "pills";
       };
@@ -341,7 +375,9 @@ export function measureLeaf(
           if (i < props.values.length - 1) totalW += 2; // separator
         }
       }
-      return ok({ w: Math.min(maxW, totalW), h: Math.min(maxH, 1) });
+      const width = resolveLeafSizeConstraint(props.width, totalW);
+      const height = resolveLeafSizeConstraint(props.height, 1);
+      return ok({ w: Math.min(maxW, width), h: Math.min(maxH, height) });
     }
     case "select": {
       const propsRes = validateSelectProps(vnode.props);

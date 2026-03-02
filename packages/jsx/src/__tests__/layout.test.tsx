@@ -1,6 +1,6 @@
 /** @jsxImportSource @rezi-ui/jsx */
 
-import { fluid, ui } from "@rezi-ui/core";
+import { expr, fluid, ui } from "@rezi-ui/core";
 import { assert, describe, test } from "@rezi-ui/testkit";
 import { Box, Column, Divider, Grid, HStack, Layers, Row, Spacer, Text, VStack } from "../index.js";
 
@@ -27,12 +27,13 @@ describe("layout components", () => {
 
   test("Box forwards advanced layout constraints", () => {
     const fluidWidth = fluid(10, 30);
+    const halfParentWidth = expr("parent.w * 0.5");
     const vnode = (
       <Box
         gap={2}
         width={fluidWidth}
         flexShrink={2}
-        flexBasis="50%"
+        flexBasis={halfParentWidth}
         alignSelf="stretch"
         position="absolute"
         top={1}
@@ -55,7 +56,7 @@ describe("layout components", () => {
           gap: 2,
           width: fluidWidth,
           flexShrink: 2,
-          flexBasis: "50%",
+          flexBasis: halfParentWidth,
           alignSelf: "stretch",
           position: "absolute",
           top: 1,

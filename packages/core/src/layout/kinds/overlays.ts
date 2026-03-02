@@ -4,6 +4,7 @@ import { clampNonNegative, clampWithin } from "../engine/bounds.js";
 import { isVNode } from "../engine/guards.js";
 import { ok } from "../engine/result.js";
 import type { LayoutTree } from "../engine/types.js";
+import { resolveResponsiveValue } from "../responsive.js";
 import { measureTextCells } from "../textMeasure.js";
 import type { Axis, Rect, Size } from "../types.js";
 import type { LayoutResult } from "../validateProps.js";
@@ -62,6 +63,13 @@ function readNonNegativeInt(raw: unknown, fallback: number): number {
     return I32_MAX;
   }
   return truncated;
+}
+
+function resolveOverlayScalar(raw: unknown, parentSize: number): number | null {
+  const resolved = resolveResponsiveValue(raw);
+  if (resolved === "full") return Math.max(0, Math.floor(parentSize));
+  if (typeof resolved === "number" && Number.isFinite(resolved)) return Math.floor(resolved);
+  return null;
 }
 
 function readToastPosition(raw: unknown): ToastPosition {
@@ -276,19 +284,20 @@ export function layoutOverlays(
       const titleH = title ? 1 : 0;
       const actionsH = actions.length > 0 ? 1 : 0;
 
-      const maxWidth =
-        typeof props.maxWidth === "number" && props.maxWidth > 0
-          ? Math.floor(props.maxWidth)
-          : rectW;
+      const maxWidth = (() => {
+        const resolved = resolveOverlayScalar(props.maxWidth, rectW);
+        if (resolved !== null && resolved > 0) return resolved;
+        return rectW;
+      })();
 
       let modalH = Math.floor(rectH * 0.6);
-      const heightProp = props.height;
-      if (typeof heightProp === "number" && heightProp > 0) {
-        modalH = Math.floor(heightProp);
+      const resolvedHeight = resolveOverlayScalar(props.height, rectH);
+      if (resolvedHeight !== null && resolvedHeight > 0) {
+        modalH = resolvedHeight;
       }
-      const minHeightProp = props.minHeight;
-      if (typeof minHeightProp === "number" && minHeightProp > 0) {
-        modalH = Math.max(modalH, Math.floor(minHeightProp));
+      const resolvedMinHeight = resolveOverlayScalar(props.minHeight, rectH);
+      if (resolvedMinHeight !== null && resolvedMinHeight > 0) {
+        modalH = Math.max(modalH, resolvedMinHeight);
       }
       modalH = clampWithin(modalH, Math.min(5, rectH), rectH);
       if (rectH >= 4) modalH = Math.min(modalH, rectH - 2);
@@ -298,9 +307,12 @@ export function layoutOverlays(
       const maxInnerH = clampNonNegative(modalH - border * 2 - titleH - actionsH);
 
       let modalW: number;
-      if (typeof props.width === "number" && props.width > 0) {
-        modalW = Math.floor(props.width);
-      } else if (props.width === "auto") {
+      const widthProp = resolveResponsiveValue(props.width);
+      if (typeof widthProp === "number" && widthProp > 0) {
+        modalW = Math.floor(widthProp);
+      } else if (widthProp === "full") {
+        modalW = maxModalW;
+      } else if (widthProp === "auto") {
         let contentW = 0;
         if (content) {
           const sizeRes = measureNode(content, maxInnerW, maxInnerH, "column");
@@ -331,9 +343,9 @@ export function layoutOverlays(
         modalW = Math.floor(rectW * 0.7);
       }
 
-      const minWidthProp = props.minWidth;
-      if (typeof minWidthProp === "number" && minWidthProp > 0) {
-        modalW = Math.max(modalW, Math.floor(minWidthProp));
+      const resolvedMinWidth = resolveOverlayScalar(props.minWidth, rectW);
+      if (resolvedMinWidth !== null && resolvedMinWidth > 0) {
+        modalW = Math.max(modalW, resolvedMinWidth);
       }
       modalW = clampNonNegative(Math.min(modalW, maxWidth));
       modalW = clampWithin(modalW, Math.min(10, rectW), rectW);

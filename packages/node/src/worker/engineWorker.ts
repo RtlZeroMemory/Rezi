@@ -55,6 +55,9 @@ import { computeNextIdleDelay, computeTickTiming } from "./tickTiming.js";
 const PERF_ENABLED = (process.env as Readonly<{ REZI_PERF?: string }>).REZI_PERF === "1";
 const ZR_ERR_LIMIT = -3;
 const IS_BUN_RUNTIME = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
+const FORCE_WORKER_EXIT_ON_SHUTDOWN =
+  IS_BUN_RUNTIME ||
+  (process.env as Readonly<{ REZI_WORKER_FORCE_EXIT?: string }>).REZI_WORKER_FORCE_EXIT === "1";
 type PerfSample = { phase: string; durationMs: number };
 const perfSamples: PerfSample[] = [];
 const PERF_MAX_SAMPLES = 1024;
@@ -362,6 +365,7 @@ type FrameAuditMeta = {
 };
 
 let engineId: number | null = null;
+let engineBootSucceeded = false;
 let running = false;
 let haveSubmittedDrawlist = false;
 let pendingFrame: PendingFrame | null = null;
@@ -1005,9 +1009,10 @@ function shutdownNow(): void {
 
   // Let worker thread exit naturally once handles are cleared.
   if (parentPort !== null) parentPort.close();
-  // Bun worker_threads can keep the worker alive after parentPort.close().
-  // Force a clean worker exit after sending shutdownComplete.
-  if (IS_BUN_RUNTIME) {
+  // Explicit process exit can race native teardown in worker mode and has
+  // produced process-level crashes on some platforms (exit 139 in PTY runs).
+  // Keep it opt-in for runtimes/environments that require it.
+  if (FORCE_WORKER_EXIT_ON_SHUTDOWN && engineBootSucceeded) {
     setImmediate(() => {
       process.exit(0);
     });
@@ -1262,6 +1267,7 @@ function onMessage(msg: MainToWorkerMessage): void {
   switch (msg.type) {
     case "init": {
       if (engineId !== null) return;
+      engineBootSucceeded = false;
       const maxEventBytes = parsePositiveInt(msg.config.maxEventBytes);
       if (maxEventBytes === null) {
         fatal("init", -1, "config.maxEventBytes must be a positive integer");
@@ -1294,6 +1300,7 @@ function onMessage(msg: MainToWorkerMessage): void {
       }
 
       engineId = id;
+      engineBootSucceeded = true;
       haveSubmittedDrawlist = false;
       running = true;
       pendingFrame = null;

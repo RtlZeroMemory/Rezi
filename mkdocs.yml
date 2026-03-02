@@ -97,10 +97,12 @@ copyright: Copyright &copy; 2025-2026 RtlZeroMemory
 
 nav:
   - Home: index.md
+  - Design Principles: design-principles.md
   - Getting Started:
       - Install: getting-started/install.md
       - Create Rezi: getting-started/create-rezi.md
       - Quickstart: getting-started/quickstart.md
+      - Constraints (10 min): getting-started/constraints-quickstart.md
       - JSX: getting-started/jsx.md
       - Examples: getting-started/examples.md
       - FAQ: getting-started/faq.md
@@ -108,6 +110,7 @@ nav:
       - Ink to Ink-Compat: migration/ink-to-ink-compat.md
       - Ink to Rezi: migration/ink-to-rezi.md
       - Beautiful Defaults: migration/beautiful-defaults.md
+      - Manual Math to Constraints: guide/migration-from-manual-layout-math.md
   - Guides:
       - Index: guide/index.md
       - Concepts: guide/concepts.md
@@ -117,6 +120,13 @@ nav:
       - Lifecycle & Updates: guide/lifecycle-and-updates.md
       - Routing: guide/routing.md
       - Layout: guide/layout.md
+      - Layout Decision Tree: guide/layout-decision-tree.md
+      - Constraints: guide/constraints.md
+      - Constraint Recipes: guide/constraint-recipes.md
+      - Constraint Demos: guide/constraint-demos.md
+      - Styling with Constraints: guide/styling-with-constraints.md
+      - Debugging Constraints: guide/debugging-constraints.md
+      - Performance with Constraints: guide/performance-with-constraints.md
       - Input & Focus: guide/input-and-focus.md
       - Mouse Support: guide/mouse-support.md
       - Styling: guide/styling.md
@@ -128,6 +138,11 @@ nav:
       - Record & Replay: guide/record-replay.md
       - Hooks Reference: guide/hooks-reference.md
       - Recommended Patterns: guide/recommended-patterns.md
+  - Reference:
+      - Benchmarks: benchmarks.md
+      - Glossary: reference/glossary.md
+      - Constraints API: reference/constraints-api.md
+      - Constraint Expressions: reference/constraint-expressions.md
   - Widgets:
       - Overview: widgets/index.md
       - Stability: widgets/stability.md
@@ -169,6 +184,7 @@ nav:
       - Overlays:
           - Layers: widgets/layers.md
           - Modal: widgets/modal.md
+          - Dialog: widgets/dialog.md
           - Dropdown: widgets/dropdown.md
           - Layer: widgets/layer.md
           - Toast: widgets/toast.md
@@ -261,6 +277,3 @@ nav:
       - Style Guide: dev/style-guide.md
       - JSX Internals: dev/jsx-internals.md
       - Maintaining Docs: maintainers.md
-  - Reference:
-      - Benchmarks: benchmarks.md
-      - Glossary: reference/glossary.md

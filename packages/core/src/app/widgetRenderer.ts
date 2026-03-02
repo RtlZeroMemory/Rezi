@@ -30,6 +30,19 @@ import {
   FRAME_ACCEPTED_ACK_MARKER,
   type RuntimeBackend,
 } from "../backend.js";
+import { isConstraintExpr } from "../constraints/expr.js";
+import {
+  type ConstraintGraph,
+  type ConstraintGraphError,
+  type ConstraintNodeProp,
+  buildConstraintGraph,
+} from "../constraints/graph.js";
+import {
+  ConstraintResolutionCache,
+  type RefValuesInput,
+  type ResolvedConstraintValues,
+  resolveConstraints,
+} from "../constraints/resolver.js";
 import { CURSOR_DEFAULTS } from "../cursor/index.js";
 import { type DrawlistBuilder, createDrawlistBuilder } from "../drawlist/index.js";
 import type { ZrevEvent } from "../events.js";
@@ -63,7 +76,7 @@ import {
 import type { LayoutOverflowMetadata } from "../layout/constraints.js";
 import { computeDropdownGeometry } from "../layout/dropdownGeometry.js";
 import { hitTestAnyId, hitTestFocusable } from "../layout/hitTest.js";
-import { type LayoutTree, layout } from "../layout/layout.js";
+import { type LayoutTree, layout, measure } from "../layout/layout.js";
 import {
   type ResponsiveBreakpointThresholds,
   getResponsiveViewport,
@@ -189,6 +202,7 @@ import {
 } from "../widgets/virtualList.js";
 import {
   EMPTY_WIDGET_RUNTIME_BREADCRUMBS,
+  type RuntimeBreadcrumbConstraintsSummary,
   type RuntimeBreadcrumbCursorSummary,
   type RuntimeBreadcrumbDamageMode,
   type WidgetRuntimeBreadcrumbSnapshot,
@@ -364,7 +378,9 @@ export type WidgetRenderSubmitResult =
         | "ZRUI_BACKEND_ERROR"
         | "ZRUI_DUPLICATE_KEY"
         | "ZRUI_DUPLICATE_ID"
-        | "ZRUI_INVALID_PROPS";
+        | "ZRUI_INVALID_PROPS"
+        | "ZRUI_INVALID_CONSTRAINT"
+        | "ZRUI_CIRCULAR_CONSTRAINT";
       detail: string;
     }>;
 
@@ -467,6 +483,30 @@ function encodeLayerZIndex(baseZ: number | null, overlaySeq: number): number {
 
 const EMPTY_ROUTING: RoutingResult = Object.freeze({});
 const EMPTY_STRING_ARRAY: readonly string[] = Object.freeze([]);
+const EMPTY_INSTANCE_ID_ARRAY: readonly InstanceId[] = Object.freeze([]);
+const CONSTRAINT_NODE_PROPS: readonly ConstraintNodeProp[] = Object.freeze([
+  "width",
+  "height",
+  "minWidth",
+  "maxWidth",
+  "minHeight",
+  "maxHeight",
+  "flexBasis",
+  "display",
+]);
+const CONSTRAINT_RESOLUTION_NONE = Object.freeze({ kind: "none" as const });
+const CONSTRAINT_RESOLUTION_REUSED = Object.freeze({ kind: "reused" as const });
+const CONSTRAINT_RESOLUTION_CACHE_HIT = Object.freeze({ kind: "cacheHit" as const });
+const CONSTRAINT_RESOLUTION_COMPUTED = Object.freeze({ kind: "computed" as const });
+const EMPTY_CONSTRAINT_BREADCRUMBS: RuntimeBreadcrumbConstraintsSummary = Object.freeze({
+  enabled: false,
+  graphFingerprint: 0,
+  nodeCount: 0,
+  cacheKey: null,
+  resolution: CONSTRAINT_RESOLUTION_NONE,
+  hiddenInstanceCount: 0,
+  focused: null,
+});
 const ROUTE_RENDER: WidgetRoutingOutcome = Object.freeze({ needsRender: true });
 const ROUTE_NO_RENDER: WidgetRoutingOutcome = Object.freeze({ needsRender: false });
 const ZERO_RECT: Rect = Object.freeze({ x: 0, y: 0, w: 0, h: 0 });
@@ -1113,6 +1153,30 @@ export class WidgetRenderer<S> {
   private _lastRenderedFocusAnnouncement: string | null = null;
   private _layoutMeasureCache: WeakMap<VNode, unknown> = new WeakMap<VNode, unknown>();
   private _layoutTreeCache: WeakMap<VNode, unknown> = new WeakMap<VNode, unknown>();
+  private _constraintGraph: ConstraintGraph | null = null;
+  private _constraintInputKey: string | null = null;
+  private _constraintValuesByInstanceId: ReadonlyMap<InstanceId, ResolvedConstraintValues> | null =
+    null;
+  private _constraintInputSignatureValid = false;
+  private readonly _constraintInputSignature: number[] = [];
+  private readonly _constraintResolutionCache = new ConstraintResolutionCache(8);
+  private _constraintHasStaticHiddenDisplay = false;
+  private _constraintAffectedPathInstanceIds: ReadonlySet<InstanceId> = new Set<InstanceId>();
+  private _constraintNodesWithAffectedDescendants: ReadonlySet<InstanceId> = new Set<InstanceId>();
+  private _hiddenConstraintInstanceIds: ReadonlySet<InstanceId> = new Set<InstanceId>();
+  private _hiddenConstraintWidgetIds: ReadonlySet<string> = new Set<string>();
+  private readonly _pooledConstraintBaseValues = new Map<InstanceId, ResolvedConstraintValues>();
+  private readonly _pooledConstraintParentValues = new Map<InstanceId, RefValuesInput>();
+  private readonly _pooledConstraintIntrinsicValues = new Map<InstanceId, RefValuesInput>();
+  private readonly _pooledConstraintParentByInstanceId = new Map<InstanceId, InstanceId | null>();
+  private readonly _pooledConstraintAffectedPathInstanceIds = new Set<InstanceId>();
+  private readonly _pooledConstraintNodesWithAffectedDescendants = new Set<InstanceId>();
+  private readonly _pooledConstraintRuntimeStack: RuntimeInstance[] = [];
+  private readonly _pooledConstraintParentStack: Array<InstanceId | null> = [];
+  private readonly _pooledConstraintAxisStack: Array<"row" | "column"> = [];
+  private readonly _pooledConstraintVisibilityStack: boolean[] = [];
+  private readonly _pooledHiddenConstraintInstanceIds = new Set<InstanceId>();
+  private readonly _pooledHiddenConstraintWidgetIds = new Set<string>();
   private readonly _pooledCloseOnEscape = new Map<string, boolean>();
   private readonly _pooledCloseOnBackdrop = new Map<string, boolean>();
   private readonly _pooledOnClose = new Map<string, () => void>();
@@ -1120,6 +1184,7 @@ export class WidgetRenderer<S> {
   private readonly _pooledToastActionLabelByFocusId = new Map<string, string>();
   private readonly _pooledLayoutStack: LayoutTree[] = [];
   private readonly _pooledRuntimeStack: RuntimeInstance[] = [];
+  private readonly _pooledRuntimeParentKindStack: (string | undefined)[] = [];
   private readonly _pooledParentInstanceIdStack: InstanceId[] = [];
   private readonly _pooledOffsetXStack: number[] = [];
   private readonly _pooledOffsetYStack: number[] = [];
@@ -1144,6 +1209,17 @@ export class WidgetRenderer<S> {
   private readonly _pooledPrevDiffViewerIds = new Set<string>();
   private readonly _pooledPrevLogsConsoleIds = new Set<string>();
   private _runtimeBreadcrumbs: WidgetRuntimeBreadcrumbSnapshot = EMPTY_WIDGET_RUNTIME_BREADCRUMBS;
+  private _constraintBreadcrumbs: RuntimeBreadcrumbConstraintsSummary | null = null;
+  private _constraintExprIndexByInstanceId: ReadonlyMap<
+    InstanceId,
+    readonly Readonly<{ prop: string; source: string }>[]
+  > | null = null;
+  private _constraintLastResolution:
+    | Readonly<{ kind: "none" }>
+    | Readonly<{ kind: "reused" }>
+    | Readonly<{ kind: "cacheHit" }>
+    | Readonly<{ kind: "computed" }> = CONSTRAINT_RESOLUTION_NONE;
+  private _constraintLastCacheKey: string | null = null;
 
   constructor(
     opts: Readonly<{
@@ -1674,6 +1750,7 @@ export class WidgetRenderer<S> {
     this.collectRuntimeBreadcrumbs = enabled;
     if (!enabled) {
       this._runtimeBreadcrumbs = EMPTY_WIDGET_RUNTIME_BREADCRUMBS;
+      this._constraintBreadcrumbs = null;
     }
   }
 
@@ -2356,7 +2433,19 @@ export class WidgetRenderer<S> {
   }
 
   private applyScrollOverridesToVNode(vnode: VNode): VNode {
-    const propsRecord = (vnode.props ?? {}) as Readonly<Record<string, unknown>>;
+    type MutableLayoutProps = Record<string, unknown> & {
+      display?: boolean;
+      width?: number;
+      height?: number;
+      minWidth?: number;
+      maxWidth?: number;
+      minHeight?: number;
+      maxHeight?: number;
+      flex?: number;
+      flexBasis?: number;
+    };
+
+    const propsRecord = (vnode.props ?? {}) as Readonly<MutableLayoutProps>;
     const propsForRead = propsRecord as Readonly<{
       id?: unknown;
       scrollX?: unknown;
@@ -2401,6 +2490,611 @@ export class WidgetRenderer<S> {
       ...(childrenChanged ? { children: nextChildren } : {}),
     };
     return Object.freeze(nextVNode) as VNode;
+  }
+
+  private describeConstraintGraphFatal(fatal: ConstraintGraphError): string {
+    if (fatal.code === "ZRUI_CIRCULAR_CONSTRAINT") {
+      return `Circular constraint dependency: ${fatal.cycle.join(" -> ")}`;
+    }
+    return fatal.detail;
+  }
+
+  private readWidgetIdFromRuntimeNode(node: RuntimeInstance): string | null {
+    const id = (node.vnode.props as Readonly<{ id?: unknown }> | undefined)?.id;
+    return typeof id === "string" && id.length > 0 ? id : null;
+  }
+
+  private hasConstraintSourceDiff(node: RuntimeInstance, graph: ConstraintGraph): boolean {
+    const props = (node.vnode.props ?? {}) as Readonly<Record<string, unknown>>;
+    for (const prop of CONSTRAINT_NODE_PROPS) {
+      const prev = graph.nodeByKey.get(`${String(node.instanceId)}:${prop}`);
+      const prevSource = prev?.expr.source ?? null;
+      const nextRaw = props[prop];
+      const nextSource = isConstraintExpr(nextRaw) ? nextRaw.source : null;
+      if (prevSource !== nextSource) return true;
+    }
+    return false;
+  }
+
+  private hasRuntimeConstraintExpr(node: RuntimeInstance): boolean {
+    const props = node.vnode.props as Readonly<Record<string, unknown>> | null | undefined;
+    if (props === undefined || props === null) return false;
+    for (const prop of CONSTRAINT_NODE_PROPS) {
+      if (isConstraintExpr(props[prop])) return true;
+    }
+    return false;
+  }
+
+  private resolveConstraintChildAxis(
+    node: RuntimeInstance,
+    parentAxis: "row" | "column",
+  ): "row" | "column" {
+    switch (node.vnode.kind) {
+      case "row":
+        return "row";
+      case "column":
+      case "box":
+        return "column";
+      default:
+        return parentAxis;
+    }
+  }
+
+  private measureConstraintIntrinsicValues(
+    node: RuntimeInstance,
+    parentW: number,
+    parentH: number,
+    axis: "row" | "column",
+  ): RefValuesInput | null {
+    const measured = measure(node.vnode, parentW, parentH, axis);
+    if (!measured.ok) return null;
+    const w = Math.max(0, Math.floor(measured.value.w));
+    const h = Math.max(0, Math.floor(measured.value.h));
+    return {
+      w,
+      h,
+      min_w: w,
+      min_h: h,
+    };
+  }
+
+  private shouldRebuildConstraintGraph(
+    root: RuntimeInstance,
+    prevGraph: ConstraintGraph,
+    removedInstanceIds: readonly InstanceId[],
+  ): boolean {
+    if (removedInstanceIds.length > 0) {
+      for (const instanceId of removedInstanceIds) {
+        if (
+          prevGraph.constrainedInstanceIds.has(instanceId) ||
+          prevGraph.instanceIdToWidgetId.has(instanceId)
+        ) {
+          return true;
+        }
+      }
+    }
+
+    this._pooledConstraintRuntimeStack.length = 0;
+    this._pooledConstraintRuntimeStack.push(root);
+    while (this._pooledConstraintRuntimeStack.length > 0) {
+      const node = this._pooledConstraintRuntimeStack.pop();
+      if (!node) continue;
+      if (!node.dirty) continue;
+
+      if (node.selfDirty) {
+        const prevWidgetId = prevGraph.instanceIdToWidgetId.get(node.instanceId) ?? null;
+        const nextWidgetId = this.readWidgetIdFromRuntimeNode(node);
+        if (prevWidgetId !== nextWidgetId) {
+          return true;
+        }
+        const hadConstraintExpr = prevGraph.constrainedInstanceIds.has(node.instanceId);
+        if (
+          (hadConstraintExpr || this.hasRuntimeConstraintExpr(node)) &&
+          this.hasConstraintSourceDiff(node, prevGraph)
+        ) {
+          return true;
+        }
+      }
+
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        const child = node.children[i];
+        if (!child) continue;
+        if (!child.dirty) continue;
+        this._pooledConstraintRuntimeStack.push(child);
+      }
+    }
+    return false;
+  }
+
+  private buildConstraintResolutionInputs(
+    root: RuntimeInstance,
+    graph: ConstraintGraph,
+    rootW: number,
+    rootH: number,
+  ): void {
+    this._pooledConstraintBaseValues.clear();
+    this._pooledConstraintParentValues.clear();
+    this._pooledConstraintIntrinsicValues.clear();
+    this._pooledConstraintParentByInstanceId.clear();
+    this._pooledConstraintRuntimeStack.length = 0;
+    this._pooledConstraintParentStack.length = 0;
+    this._pooledConstraintAxisStack.length = 0;
+    let hasStaticHiddenDisplay = false;
+    const requiredInstanceIds = graph.requiredRuntimeInstanceIds;
+    const intrinsicInstanceIds = graph.intrinsicRuntimeInstanceIds;
+    let remainingRequiredInstanceCount = requiredInstanceIds.size;
+
+    this._pooledConstraintRuntimeStack.push(root);
+    this._pooledConstraintParentStack.push(null);
+    this._pooledConstraintAxisStack.push("column");
+    let head = 0;
+    while (head < this._pooledConstraintRuntimeStack.length) {
+      const node = this._pooledConstraintRuntimeStack[head];
+      const parentInstanceId = this._pooledConstraintParentStack[head] ?? null;
+      const axis = this._pooledConstraintAxisStack[head] ?? "column";
+      head++;
+      if (!node) continue;
+      this._pooledConstraintParentByInstanceId.set(node.instanceId, parentInstanceId);
+
+      const needsNodeData = requiredInstanceIds.has(node.instanceId);
+      if (needsNodeData) {
+        remainingRequiredInstanceCount--;
+        const parentRect =
+          parentInstanceId === null ? null : this._pooledRectByInstanceId.get(parentInstanceId);
+        const parentW = parentRect?.w ?? rootW;
+        const parentH = parentRect?.h ?? rootH;
+        const displayRaw = (node.vnode.props as Readonly<{ display?: unknown }> | undefined)
+          ?.display;
+        if (displayRaw === false) hasStaticHiddenDisplay = true;
+        const staticDisplay = displayRaw === false ? 0 : displayRaw === true ? 1 : undefined;
+
+        if (graph.constrainedInstanceIds.has(node.instanceId)) {
+          this._pooledConstraintParentValues.set(node.instanceId, {
+            w: parentW,
+            h: parentH,
+            min_w: parentW,
+            min_h: parentH,
+          });
+        }
+
+        const rect = this._pooledRectByInstanceId.get(node.instanceId);
+        if (rect) {
+          const base: {
+            width: number;
+            height: number;
+            minWidth: number;
+            minHeight: number;
+            display?: number;
+          } = {
+            width: rect.w,
+            height: rect.h,
+            minWidth: rect.w,
+            minHeight: rect.h,
+          };
+          if (staticDisplay !== undefined) {
+            base.display = staticDisplay;
+          }
+          this._pooledConstraintBaseValues.set(node.instanceId, {
+            ...base,
+          });
+        } else if (staticDisplay !== undefined) {
+          this._pooledConstraintBaseValues.set(node.instanceId, {
+            display: staticDisplay,
+          });
+        }
+        if (intrinsicInstanceIds.has(node.instanceId)) {
+          const intrinsicValues = this.measureConstraintIntrinsicValues(
+            node,
+            parentW,
+            parentH,
+            axis,
+          );
+          if (intrinsicValues !== null) {
+            this._pooledConstraintIntrinsicValues.set(node.instanceId, intrinsicValues);
+          }
+        }
+      }
+
+      if (remainingRequiredInstanceCount === 0) break;
+      const childAxis = this.resolveConstraintChildAxis(node, axis);
+      for (let i = 0; i < node.children.length; i++) {
+        const child = node.children[i];
+        if (!child) continue;
+        this._pooledConstraintRuntimeStack.push(child);
+        this._pooledConstraintParentStack.push(node.instanceId);
+        this._pooledConstraintAxisStack.push(childAxis);
+      }
+    }
+    this._pooledConstraintRuntimeStack.length = 0;
+    this._pooledConstraintParentStack.length = 0;
+    this._pooledConstraintAxisStack.length = 0;
+    this._constraintHasStaticHiddenDisplay = hasStaticHiddenDisplay;
+  }
+
+  private rebuildConstraintHiddenState(
+    root: RuntimeInstance,
+    valuesByInstanceId: ReadonlyMap<InstanceId, ResolvedConstraintValues> | null,
+  ): void {
+    this._pooledHiddenConstraintInstanceIds.clear();
+    this._pooledHiddenConstraintWidgetIds.clear();
+    this._pooledConstraintRuntimeStack.length = 0;
+    this._pooledConstraintVisibilityStack.length = 0;
+    this._pooledConstraintRuntimeStack.push(root);
+    this._pooledConstraintVisibilityStack.push(false);
+
+    while (this._pooledConstraintRuntimeStack.length > 0) {
+      const node = this._pooledConstraintRuntimeStack.pop();
+      const parentHidden = this._pooledConstraintVisibilityStack.pop() ?? false;
+      if (!node) continue;
+
+      const props = (node.vnode.props ?? {}) as Readonly<{
+        id?: unknown;
+        display?: unknown;
+      }>;
+      const displayResolved = valuesByInstanceId?.get(node.instanceId)?.display;
+      const hiddenByResolved =
+        typeof displayResolved === "number" && Number.isFinite(displayResolved)
+          ? displayResolved <= 0
+          : false;
+      const hiddenByStatic = props.display === false;
+      const hidden = parentHidden || hiddenByResolved || hiddenByStatic;
+
+      if (hidden) {
+        this._pooledHiddenConstraintInstanceIds.add(node.instanceId);
+        const id = props.id;
+        if (typeof id === "string" && id.length > 0) {
+          this._pooledHiddenConstraintWidgetIds.add(id);
+        }
+      }
+
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        const child = node.children[i];
+        if (!child) continue;
+        this._pooledConstraintRuntimeStack.push(child);
+        this._pooledConstraintVisibilityStack.push(hidden);
+      }
+    }
+
+    this._hiddenConstraintInstanceIds = this._pooledHiddenConstraintInstanceIds;
+    this._hiddenConstraintWidgetIds = this._pooledHiddenConstraintWidgetIds;
+  }
+
+  private rebuildConstraintAffectedPathSet(
+    graph: ConstraintGraph,
+    hiddenInstanceIds: ReadonlySet<InstanceId>,
+  ): void {
+    this._pooledConstraintAffectedPathInstanceIds.clear();
+    this._pooledConstraintNodesWithAffectedDescendants.clear();
+
+    const addWithAncestors = (instanceId: InstanceId): void => {
+      let cursor: InstanceId | null = instanceId;
+      while (cursor !== null) {
+        this._pooledConstraintAffectedPathInstanceIds.add(cursor);
+        const parentInstanceId: InstanceId | null =
+          this._pooledConstraintParentByInstanceId.get(cursor) ?? null;
+        if (parentInstanceId !== null) {
+          this._pooledConstraintNodesWithAffectedDescendants.add(parentInstanceId);
+        }
+        cursor = parentInstanceId;
+      }
+    };
+
+    for (const node of graph.nodes) {
+      addWithAncestors(node.instanceId);
+    }
+    for (const instanceId of hiddenInstanceIds) {
+      addWithAncestors(instanceId);
+    }
+
+    this._constraintAffectedPathInstanceIds = this._pooledConstraintAffectedPathInstanceIds;
+    this._constraintNodesWithAffectedDescendants =
+      this._pooledConstraintNodesWithAffectedDescendants;
+  }
+
+  private hasConstraintInputSignatureChange(
+    graph: ConstraintGraph,
+    viewport: Viewport,
+    rootW: number,
+    rootH: number,
+  ): boolean {
+    const signature = this._constraintInputSignature;
+    let index = 0;
+    let changed = !this._constraintInputSignatureValid;
+    const write = (value: number): void => {
+      if (!changed && !Object.is(signature[index], value)) changed = true;
+      signature[index] = value;
+      index++;
+    };
+    const writeOrNaN = (value: number | undefined): void => {
+      write(value === undefined ? Number.NaN : value);
+    };
+
+    write(graph.fingerprint);
+    write(viewport.cols);
+    write(viewport.rows);
+    write(rootW);
+    write(rootH);
+
+    for (let i = 0; i < graph.nodes.length; i++) {
+      const node = graph.nodes[i];
+      if (!node) continue;
+      const base = this._pooledConstraintBaseValues.get(node.instanceId);
+      const parent = this._pooledConstraintParentValues.get(node.instanceId);
+      const intrinsic = this._pooledConstraintIntrinsicValues.get(node.instanceId);
+      write(node.instanceId);
+      writeOrNaN(base?.width);
+      writeOrNaN(base?.height);
+      writeOrNaN(base?.minWidth);
+      writeOrNaN(base?.minHeight);
+      writeOrNaN(base?.display);
+      writeOrNaN(parent?.w);
+      writeOrNaN(parent?.h);
+      writeOrNaN(parent?.min_w);
+      writeOrNaN(parent?.min_h);
+      writeOrNaN(intrinsic?.w);
+      writeOrNaN(intrinsic?.h);
+      writeOrNaN(intrinsic?.min_w);
+      writeOrNaN(intrinsic?.min_h);
+    }
+
+    if (!changed && signature.length !== index) changed = true;
+    signature.length = index;
+    this._constraintInputSignatureValid = true;
+    return changed;
+  }
+
+  private invalidateConstraintInputSignature(): void {
+    this._constraintInputSignatureValid = false;
+    this._constraintInputSignature.length = 0;
+  }
+
+  private computeConstraintInputKey(
+    graph: ConstraintGraph,
+    viewport: Viewport,
+    rootW: number,
+    rootH: number,
+  ): string {
+    const parts: string[] = [
+      String(graph.fingerprint),
+      String(viewport.cols),
+      String(viewport.rows),
+      String(rootW),
+      String(rootH),
+    ];
+
+    for (let i = 0; i < graph.nodes.length; i++) {
+      const node = graph.nodes[i];
+      if (!node) continue;
+      const base = this._pooledConstraintBaseValues.get(node.instanceId);
+      const parent = this._pooledConstraintParentValues.get(node.instanceId);
+      const intrinsic = this._pooledConstraintIntrinsicValues.get(node.instanceId);
+      parts.push(
+        String(node.instanceId),
+        String(base?.width ?? "u"),
+        String(base?.height ?? "u"),
+        String(base?.minWidth ?? "u"),
+        String(base?.minHeight ?? "u"),
+        String(base?.display ?? "u"),
+        String(parent?.w ?? rootW),
+        String(parent?.h ?? rootH),
+        String(parent?.min_w ?? rootW),
+        String(parent?.min_h ?? rootH),
+        String(intrinsic?.w ?? "u"),
+        String(intrinsic?.h ?? "u"),
+        String(intrinsic?.min_w ?? "u"),
+        String(intrinsic?.min_h ?? "u"),
+      );
+    }
+
+    return parts.join("|");
+  }
+
+  private rebuildConstraintExprIndex(graph: ConstraintGraph): void {
+    const mutable = new Map<InstanceId, Array<Readonly<{ prop: string; source: string }>>>();
+    for (const node of graph.nodes) {
+      const entry = Object.freeze({ prop: node.prop, source: node.expr.source });
+      const bucket = mutable.get(node.instanceId);
+      if (bucket) bucket.push(entry);
+      else mutable.set(node.instanceId, [entry]);
+    }
+
+    const frozen = new Map<InstanceId, readonly Readonly<{ prop: string; source: string }>[]>();
+    for (const [instanceId, list] of mutable.entries()) {
+      frozen.set(instanceId, Object.freeze(list.slice()));
+    }
+    this._constraintExprIndexByInstanceId = frozen;
+  }
+
+  private computeConstraintBreadcrumbs(): RuntimeBreadcrumbConstraintsSummary {
+    const graph = this._constraintGraph;
+    if (graph === null || graph.nodes.length === 0) return EMPTY_CONSTRAINT_BREADCRUMBS;
+
+    if (this._constraintExprIndexByInstanceId === null) {
+      this.rebuildConstraintExprIndex(graph);
+    }
+
+    const focusedId = this.focusState.focusedId;
+    const resolvedByInstanceId = this._constraintValuesByInstanceId;
+    const hiddenInstanceCount = this._hiddenConstraintInstanceIds.size;
+
+    let focused: RuntimeBreadcrumbConstraintsSummary["focused"] = null;
+    if (focusedId) {
+      const instances = graph.idToInstances.get(focusedId) ?? EMPTY_INSTANCE_ID_ARRAY;
+      const instanceCount = instances.length;
+      const instanceId = instances[0] ?? null;
+      const resolved = instanceId !== null ? (resolvedByInstanceId?.get(instanceId) ?? null) : null;
+      const expressions =
+        instanceId !== null
+          ? (this._constraintExprIndexByInstanceId?.get(instanceId) ?? null)
+          : null;
+
+      focused = Object.freeze({
+        id: focusedId,
+        instanceCount,
+        instanceId,
+        resolved: resolved
+          ? (() => {
+              const out: {
+                display?: number;
+                width?: number;
+                height?: number;
+                minWidth?: number;
+                maxWidth?: number;
+                minHeight?: number;
+                maxHeight?: number;
+                flexBasis?: number;
+              } = {};
+              if (typeof resolved.display === "number" && Number.isFinite(resolved.display))
+                out.display = resolved.display;
+              if (typeof resolved.width === "number" && Number.isFinite(resolved.width))
+                out.width = resolved.width;
+              if (typeof resolved.height === "number" && Number.isFinite(resolved.height))
+                out.height = resolved.height;
+              if (typeof resolved.minWidth === "number" && Number.isFinite(resolved.minWidth))
+                out.minWidth = resolved.minWidth;
+              if (typeof resolved.maxWidth === "number" && Number.isFinite(resolved.maxWidth))
+                out.maxWidth = resolved.maxWidth;
+              if (typeof resolved.minHeight === "number" && Number.isFinite(resolved.minHeight))
+                out.minHeight = resolved.minHeight;
+              if (typeof resolved.maxHeight === "number" && Number.isFinite(resolved.maxHeight))
+                out.maxHeight = resolved.maxHeight;
+              if (typeof resolved.flexBasis === "number" && Number.isFinite(resolved.flexBasis))
+                out.flexBasis = resolved.flexBasis;
+              return Object.freeze(out);
+            })()
+          : null,
+        expressions,
+      });
+    }
+
+    return Object.freeze({
+      enabled: true,
+      graphFingerprint: graph.fingerprint,
+      nodeCount: graph.nodes.length,
+      cacheKey: this._constraintLastCacheKey,
+      resolution: this._constraintLastResolution,
+      hiddenInstanceCount,
+      focused,
+    });
+  }
+
+  private applyConstraintOverridesToVNode(
+    runtimeNode: RuntimeInstance,
+    valuesByInstanceId: ReadonlyMap<InstanceId, ResolvedConstraintValues> | null,
+    hiddenInstanceIds: ReadonlySet<InstanceId>,
+    affectedPathInstanceIds: ReadonlySet<InstanceId>,
+  ): VNode {
+    const vnode = runtimeNode.vnode;
+    type MutableConstraintOverrideProps = Record<string, unknown> & {
+      display?: boolean;
+      width?: number;
+      height?: number;
+      minWidth?: number;
+      maxWidth?: number;
+      minHeight?: number;
+      maxHeight?: number;
+      flex?: number;
+      flexBasis?: number;
+    };
+
+    const propsRecord = (vnode.props ?? {}) as Readonly<MutableConstraintOverrideProps>;
+    const resolved = valuesByInstanceId?.get(runtimeNode.instanceId);
+    const isHidden = hiddenInstanceIds.has(runtimeNode.instanceId);
+    const shouldTraverseChildren = this._constraintNodesWithAffectedDescendants.has(
+      runtimeNode.instanceId,
+    );
+    let propsChanged = false;
+    let nextProps = vnode.props;
+
+    let nextPropsMutable: MutableConstraintOverrideProps | null = null;
+    const ensureMutableProps = (): MutableConstraintOverrideProps => {
+      if (nextPropsMutable === null)
+        nextPropsMutable = { ...propsRecord } as MutableConstraintOverrideProps;
+      return nextPropsMutable;
+    };
+
+    if (resolved) {
+      const write = (name: Exclude<keyof ResolvedConstraintValues, "display">): void => {
+        const raw = resolved[name];
+        if (raw === undefined || !Number.isFinite(raw)) return;
+        const nextValue = Math.floor(raw);
+        if (propsRecord[name] === nextValue) return;
+        ensureMutableProps()[name] = nextValue;
+      };
+
+      write("width");
+      write("height");
+      write("minWidth");
+      write("maxWidth");
+      write("minHeight");
+      write("maxHeight");
+      write("flexBasis");
+
+      if (typeof resolved.display === "number" && Number.isFinite(resolved.display)) {
+        const displayVisible = resolved.display > 0;
+        if (propsRecord.display !== displayVisible) {
+          ensureMutableProps().display = displayVisible;
+        }
+      }
+    }
+
+    if (isHidden) {
+      const mutable = ensureMutableProps();
+      mutable.display = false;
+      mutable.width = 0;
+      mutable.height = 0;
+      mutable.minWidth = 0;
+      mutable.maxWidth = 0;
+      mutable.minHeight = 0;
+      mutable.maxHeight = 0;
+      mutable.flex = 0;
+      mutable.flexBasis = 0;
+    }
+
+    if (nextPropsMutable !== null) {
+      nextProps = Object.freeze(nextPropsMutable) as typeof vnode.props;
+      propsChanged = true;
+    }
+
+    const currentChildren = (vnode as Readonly<{ children?: readonly VNode[] }>).children;
+    let childrenChanged = false;
+    let nextChildren = currentChildren;
+    if (Array.isArray(currentChildren) && currentChildren.length > 0 && shouldTraverseChildren) {
+      let rebuiltChildren: VNode[] | null = null;
+      for (let i = 0; i < currentChildren.length; i++) {
+        const childVNode = currentChildren[i] as VNode;
+        const runtimeChild = runtimeNode.children[i];
+        if (!runtimeChild || !childVNode || !affectedPathInstanceIds.has(runtimeChild.instanceId)) {
+          if (rebuiltChildren !== null) rebuiltChildren[i] = childVNode;
+          continue;
+        }
+        const nextChild = this.applyConstraintOverridesToVNode(
+          runtimeChild,
+          valuesByInstanceId,
+          hiddenInstanceIds,
+          affectedPathInstanceIds,
+        );
+        if (nextChild !== childVNode) {
+          if (rebuiltChildren === null) {
+            rebuiltChildren = currentChildren.slice() as VNode[];
+          }
+          rebuiltChildren[i] = nextChild;
+          childrenChanged = true;
+        } else if (rebuiltChildren !== null) {
+          rebuiltChildren[i] = childVNode;
+        }
+      }
+      if (rebuiltChildren !== null && childrenChanged) {
+        nextChildren = Object.freeze(rebuiltChildren);
+      }
+    }
+
+    if (!propsChanged && !childrenChanged) return vnode;
+    return Object.freeze({
+      ...vnode,
+      ...(propsChanged ? { props: nextProps } : {}),
+      ...(childrenChanged ? { children: nextChildren } : {}),
+    }) as VNode;
   }
 
   private computeDropdownRect(props: DropdownProps): Rect | null {
@@ -2552,6 +3246,7 @@ export class WidgetRenderer<S> {
         collectRuntimeBreadcrumbs: this.collectRuntimeBreadcrumbs,
         focusState: this.focusState,
         focusAnnouncement: this.getFocusAnnouncement(),
+        constraintBreadcrumbs: this._constraintBreadcrumbs,
       },
       params,
     );
@@ -2723,6 +3418,7 @@ export class WidgetRenderer<S> {
       let didRoutingRebuild = false;
       let identityDamageFromCommit: IdentityDiffDamageResult | null = null;
       let layoutShapeVerifiedBySignature = false;
+      let constraintGraph: ConstraintGraph | null = this._constraintGraph;
 
       if (doCommit) {
         let commitReadViewport = false;
@@ -2778,6 +3474,49 @@ export class WidgetRenderer<S> {
         this.committedRoot = commitRes.root;
         this.recomputeAnimatedWidgetPresence(this.committedRoot);
 
+        const prevConstraintGraph = this._constraintGraph;
+        if (
+          prevConstraintGraph !== null &&
+          !this.shouldRebuildConstraintGraph(
+            this.committedRoot,
+            prevConstraintGraph,
+            commitRes.unmountedInstanceIds,
+          )
+        ) {
+          constraintGraph = prevConstraintGraph;
+          if (this._constraintExprIndexByInstanceId === null) {
+            this.rebuildConstraintExprIndex(prevConstraintGraph);
+          }
+        } else {
+          const graphRes = buildConstraintGraph(this.committedRoot);
+          if (!graphRes.ok) {
+            return {
+              ok: false,
+              code: graphRes.fatal.code,
+              detail: this.describeConstraintGraphFatal(graphRes.fatal),
+            };
+          }
+          constraintGraph = graphRes.value;
+          this._constraintGraph = graphRes.value;
+          this.rebuildConstraintExprIndex(graphRes.value);
+          this._constraintResolutionCache.clear();
+          this.invalidateConstraintInputSignature();
+        }
+        if (constraintGraph.nodes.length === 0) {
+          this._constraintInputKey = null;
+          this._constraintValuesByInstanceId = null;
+          this._constraintResolutionCache.clear();
+          this.invalidateConstraintInputSignature();
+          this._constraintExprIndexByInstanceId = null;
+          this._constraintLastResolution = CONSTRAINT_RESOLUTION_NONE;
+          this._constraintLastCacheKey = null;
+        } else if (!doLayout && constraintGraph.requiresCommitRelayout) {
+          // Some constraint graphs depend on baseline layout/intrinsic data that
+          // can change on commit without touching explicit layout-key props.
+          // Only those graphs force relayout here.
+          doLayout = true;
+        }
+
         const damageToken = PERF_DETAIL_ENABLED ? perfMarkStart("damage_identity_diff") : 0;
         identityDamageFromCommit = this.computeIdentityDiffDamage(
           prevCommittedRoot,
@@ -2794,6 +3533,7 @@ export class WidgetRenderer<S> {
             this._pooledLayoutSigByInstanceId,
             this._pooledNextLayoutSigByInstanceId,
             this._pooledRuntimeStack,
+            this._pooledRuntimeParentKindStack,
             commitRes.unmountedInstanceIds,
             true,
           );
@@ -2849,6 +3589,22 @@ export class WidgetRenderer<S> {
         }
       }
 
+      if (constraintGraph === null && this.committedRoot !== null) {
+        const graphRes = buildConstraintGraph(this.committedRoot);
+        if (!graphRes.ok) {
+          return {
+            ok: false,
+            code: graphRes.fatal.code,
+            detail: this.describeConstraintGraphFatal(graphRes.fatal),
+          };
+        }
+        constraintGraph = graphRes.value;
+        this._constraintGraph = graphRes.value;
+        this.rebuildConstraintExprIndex(graphRes.value);
+        this._constraintResolutionCache.clear();
+        this.invalidateConstraintInputSignature();
+      }
+
       if (!this.committedRoot) {
         return {
           ok: false,
@@ -2879,10 +3635,87 @@ export class WidgetRenderer<S> {
         if (forceFullRelayout) {
           this._layoutTreeCache = new WeakMap<VNode, unknown>();
         }
+        let constrainedLayoutRootVNode = this.committedRoot.vnode;
+        let resolvedValuesForLayout: ReadonlyMap<InstanceId, ResolvedConstraintValues> | null =
+          null;
+        if (constraintGraph !== null && constraintGraph.nodes.length > 0) {
+          this.buildConstraintResolutionInputs(this.committedRoot, constraintGraph, rootW, rootH);
+          const constraintInputChanged = this.hasConstraintInputSignatureChange(
+            constraintGraph,
+            viewport,
+            rootW,
+            rootH,
+          );
+          let resolvedValues = this._constraintValuesByInstanceId;
+          if (constraintInputChanged || resolvedValues === null) {
+            const constraintInputKey = this.computeConstraintInputKey(
+              constraintGraph,
+              viewport,
+              rootW,
+              rootH,
+            );
+            const resolved = resolveConstraints(constraintGraph, {
+              viewport: { w: viewport.cols, h: viewport.rows },
+              parent: { w: rootW, h: rootH },
+              baseValues: this._pooledConstraintBaseValues,
+              parentValues: this._pooledConstraintParentValues,
+              intrinsicValues: this._pooledConstraintIntrinsicValues,
+              cache: this._constraintResolutionCache,
+              cacheKey: constraintInputKey,
+            });
+            resolvedValues = resolved.values;
+            this._constraintValuesByInstanceId = resolved.values;
+            this._constraintInputKey = constraintInputKey;
+            this._constraintLastCacheKey = constraintInputKey;
+            this._constraintLastResolution = resolved.cacheHit
+              ? CONSTRAINT_RESOLUTION_CACHE_HIT
+              : CONSTRAINT_RESOLUTION_COMPUTED;
+          } else {
+            this._constraintLastCacheKey = this._constraintInputKey;
+            this._constraintLastResolution = CONSTRAINT_RESOLUTION_REUSED;
+          }
+          resolvedValuesForLayout = resolvedValues;
+        } else {
+          this._constraintInputKey = null;
+          this._constraintValuesByInstanceId = null;
+          this._constraintResolutionCache.clear();
+          this.invalidateConstraintInputSignature();
+          this._constraintHasStaticHiddenDisplay = false;
+          this._constraintExprIndexByInstanceId = null;
+          this._constraintLastResolution = CONSTRAINT_RESOLUTION_NONE;
+          this._constraintLastCacheKey = null;
+          this._pooledConstraintAffectedPathInstanceIds.clear();
+          this._pooledConstraintNodesWithAffectedDescendants.clear();
+          this._constraintAffectedPathInstanceIds = this._pooledConstraintAffectedPathInstanceIds;
+          this._constraintNodesWithAffectedDescendants =
+            this._pooledConstraintNodesWithAffectedDescendants;
+        }
+        const hasDisplayConstraint = constraintGraph?.hasDisplayConstraints ?? false;
+        if (hasDisplayConstraint || this._constraintHasStaticHiddenDisplay) {
+          this.rebuildConstraintHiddenState(this.committedRoot, resolvedValuesForLayout);
+        } else {
+          this._pooledHiddenConstraintInstanceIds.clear();
+          this._pooledHiddenConstraintWidgetIds.clear();
+          this._hiddenConstraintInstanceIds = this._pooledHiddenConstraintInstanceIds;
+          this._hiddenConstraintWidgetIds = this._pooledHiddenConstraintWidgetIds;
+        }
+        if (
+          constraintGraph !== null &&
+          ((resolvedValuesForLayout !== null && resolvedValuesForLayout.size > 0) ||
+            this._hiddenConstraintInstanceIds.size > 0)
+        ) {
+          this.rebuildConstraintAffectedPathSet(constraintGraph, this._hiddenConstraintInstanceIds);
+          constrainedLayoutRootVNode = this.applyConstraintOverridesToVNode(
+            this.committedRoot,
+            resolvedValuesForLayout,
+            this._hiddenConstraintInstanceIds,
+            this._constraintAffectedPathInstanceIds,
+          );
+        }
         const layoutRootVNode =
           this.scrollOverrides.size > 0
-            ? this.applyScrollOverridesToVNode(this.committedRoot.vnode)
-            : this.committedRoot.vnode;
+            ? this.applyScrollOverridesToVNode(constrainedLayoutRootVNode)
+            : constrainedLayoutRootVNode;
         this.scrollOverrides.clear();
         const layoutRes = layout(
           layoutRootVNode,
@@ -2946,9 +3779,9 @@ export class WidgetRenderer<S> {
           }
           nextLayoutTree = fallbackLayoutRes.value;
           shapeMismatch = findRuntimeLayoutShapeMismatch(this.committedRoot, nextLayoutTree);
-          if (shapeMismatch !== null && layoutRootVNode !== this.committedRoot.vnode) {
+          if (shapeMismatch !== null && layoutRootVNode !== constrainedLayoutRootVNode) {
             const directLayoutRes = layout(
-              this.committedRoot.vnode,
+              constrainedLayoutRootVNode,
               rootPad,
               rootPad,
               rootW,
@@ -2983,6 +3816,22 @@ export class WidgetRenderer<S> {
           }
         }
         this.layoutTree = nextLayoutTree;
+
+        if (doCommit) {
+          // Seed/refresh per-instance layout stability signatures after a real
+          // layout pass so subsequent commits can take the signature fast path.
+          const sigSeedToken = PERF_ENABLED ? perfNow() : 0;
+          updateLayoutStabilitySignatures(
+            this.committedRoot,
+            this._pooledLayoutSigByInstanceId,
+            this._pooledNextLayoutSigByInstanceId,
+            this._pooledRuntimeStack,
+            this._pooledRuntimeParentKindStack,
+            commitRes?.unmountedInstanceIds ?? [],
+            false,
+          );
+          if (PERF_ENABLED) perfCount("layout_sig_seed_time_ms", perfNow() - sigSeedToken);
+        }
         this.emitDevLayoutWarnings(nextLayoutTree, viewport);
 
         // Build a fast instanceId->rect index for overlay routing (modal/layer hit testing),
@@ -3004,6 +3853,13 @@ export class WidgetRenderer<S> {
         this.rectById = this._pooledRectById;
         this.splitPaneChildRectsById = this._pooledSplitPaneChildRectsById;
         this.markLayoutDirtyNodes(this.committedRoot);
+      } else {
+        this.rebuildConstraintHiddenState(
+          this.committedRoot,
+          constraintGraph !== null && constraintGraph.nodes.length > 0
+            ? this._constraintValuesByInstanceId
+            : null,
+        );
       }
 
       if (!this.layoutTree) {
@@ -3032,23 +3888,90 @@ export class WidgetRenderer<S> {
           const widgetMeta = this._metadataCollector.collect(this.committedRoot);
           hasRoutingWidgets = widgetMeta.hasRoutingWidgets;
 
-          const nextZoneMetaById = new Map(widgetMeta.zones);
+          let focusableIds = widgetMeta.focusableIds;
+          let enabledById = widgetMeta.enabledById;
+          let focusInfoById = widgetMeta.focusInfoById;
+          let pressableIds = widgetMeta.pressableIds;
+          let inputById = widgetMeta.inputById;
+          let zones = widgetMeta.zones;
+          let traps = widgetMeta.traps;
+          const hiddenWidgetIds = this._hiddenConstraintWidgetIds;
+          if (hiddenWidgetIds.size > 0) {
+            const filteredFocusable = focusableIds.filter((id) => !hiddenWidgetIds.has(id));
+            focusableIds = Object.freeze(filteredFocusable);
+
+            const filteredEnabled = new Map<string, boolean>();
+            for (const [id, enabled] of enabledById) {
+              if (!hiddenWidgetIds.has(id)) filteredEnabled.set(id, enabled);
+            }
+            enabledById = filteredEnabled;
+
+            const filteredFocusInfo = new Map<string, FocusInfo>();
+            for (const [id, info] of focusInfoById) {
+              if (!hiddenWidgetIds.has(id)) filteredFocusInfo.set(id, info);
+            }
+            focusInfoById = filteredFocusInfo;
+
+            const filteredPressable = new Set<string>();
+            for (const id of pressableIds) {
+              if (!hiddenWidgetIds.has(id)) filteredPressable.add(id);
+            }
+            pressableIds = filteredPressable;
+
+            const filteredInputById = new Map<string, InputMeta>();
+            for (const [id, info] of inputById) {
+              if (!hiddenWidgetIds.has(id)) filteredInputById.set(id, info);
+            }
+            inputById = filteredInputById;
+
+            const filteredZones = new Map<string, CollectedZone>();
+            for (const [id, zone] of zones) {
+              const zoneFocusable = zone.focusableIds.filter(
+                (focusId) => !hiddenWidgetIds.has(focusId),
+              );
+              filteredZones.set(
+                id,
+                Object.freeze({
+                  ...zone,
+                  focusableIds: Object.freeze(zoneFocusable),
+                }),
+              );
+            }
+            zones = filteredZones;
+
+            const filteredTraps = new Map<string, CollectedTrap>();
+            for (const [id, trap] of traps) {
+              const trapFocusable = trap.focusableIds.filter(
+                (focusId) => !hiddenWidgetIds.has(focusId),
+              );
+              filteredTraps.set(
+                id,
+                Object.freeze({
+                  ...trap,
+                  focusableIds: Object.freeze(trapFocusable),
+                }),
+              );
+            }
+            traps = filteredTraps;
+          }
+
+          const nextZoneMetaById = new Map(zones);
 
           prevFocusedIdBeforeFinalize = this.focusState.focusedId;
           this.focusState = finalizeFocusWithPreCollectedMetadata(
             this.focusState,
-            widgetMeta.focusableIds,
-            widgetMeta.zones,
-            widgetMeta.traps,
+            focusableIds,
+            zones,
+            traps,
           );
-          this.baseFocusList = widgetMeta.focusableIds;
-          this.baseEnabledById = widgetMeta.enabledById;
-          this.focusList = widgetMeta.focusableIds;
-          this.focusInfoById = widgetMeta.focusInfoById;
-          this.enabledById = widgetMeta.enabledById;
-          this.pressableIds = widgetMeta.pressableIds;
-          this.inputById = widgetMeta.inputById;
-          this.traps = widgetMeta.traps;
+          this.baseFocusList = focusableIds;
+          this.baseEnabledById = enabledById;
+          this.focusList = focusableIds;
+          this.focusInfoById = focusInfoById;
+          this.enabledById = enabledById;
+          this.pressableIds = pressableIds;
+          this.inputById = inputById;
+          this.traps = traps;
           this.zoneMetaById = nextZoneMetaById;
           if (PERF_DETAIL_ENABLED) perfMarkEnd("metadata_collect", metaToken);
         }
@@ -3119,6 +4042,7 @@ export class WidgetRenderer<S> {
         while (this._pooledRuntimeStack.length > 0) {
           const cur = this._pooledRuntimeStack.pop();
           if (!cur) continue;
+          if (this._hiddenConstraintInstanceIds.has(cur.instanceId)) continue;
 
           const v = cur.vnode;
           switch (v.kind) {
@@ -3438,6 +4362,7 @@ export class WidgetRenderer<S> {
         while (this._pooledRuntimeStack.length > 0) {
           const cur = this._pooledRuntimeStack.pop();
           if (!cur) continue;
+          if (this._hiddenConstraintInstanceIds.has(cur.instanceId)) continue;
 
           const v = cur.vnode;
           switch (v.kind) {
@@ -4048,6 +4973,7 @@ export class WidgetRenderer<S> {
       perfMarkEnd("drawlist_build", buildToken);
       this.clearRuntimeDirtyNodes(this.committedRoot);
       if (captureRuntimeBreadcrumbs) {
+        this._constraintBreadcrumbs = this.computeConstraintBreadcrumbs();
         this.updateRuntimeBreadcrumbSnapshot({
           tick,
           commit: doCommit,

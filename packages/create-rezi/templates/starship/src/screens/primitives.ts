@@ -66,7 +66,7 @@ export function surfacePanel(
       border: "rounded",
       p: options?.p ?? SPACE.sm,
       gap: options?.gap ?? SPACE.sm,
-      ...(fill ? { width: "100%" } : {}),
+      ...(fill ? { width: "full" } : {}),
       style: { bg: colors.background, fg: tokens.text.primary },
       borderStyle: { fg: colors.border, bg: colors.background },
       inheritStyle: { fg: tokens.text.primary },

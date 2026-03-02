@@ -131,8 +131,8 @@ const BridgeCommandDeck = defineWidget<BridgeCommandDeckProps>((props, ctx): VNo
 
   const selected = selectedCrew(props.state);
   const subsystemNames = props.state.subsystems.map((item) => item.name);
-  const chartWidth = layout.chartWidth;
-  const schematicWidth = layout.canvasWidth;
+  const chartWidth = clamp(Math.floor(layout.width * (layout.wide ? 0.5 : 0.9)), 28, 132);
+  const schematicWidth = clamp(Math.floor(layout.width * (layout.wide ? 0.48 : 0.9)), 26, 116);
   const schematicHeight = clamp(Math.floor(contentRows * 0.38), 8, 14);
   const showGaugeRow = contentRows >= 28;
   const showSparkline = contentRows >= 24;
@@ -326,7 +326,7 @@ const BridgeCommandDeck = defineWidget<BridgeCommandDeckProps>((props, ctx): VNo
     showSystemsPanel: contentRows >= 60,
   });
   const commandRegion = showCommandSummary
-    ? ui.row({ gap: SPACE.sm, items: "stretch", width: "100%" }, [
+    ? ui.row({ gap: SPACE.sm, items: "stretch", width: "full" }, [
         ui.box({ border: "none", p: 0, flex: 2 }, [commandDeck]),
         ui.box({ border: "none", p: 0, flex: 1 }, [commandSummary]),
       ])
@@ -498,18 +498,18 @@ const BridgeCommandDeck = defineWidget<BridgeCommandDeckProps>((props, ctx): VNo
 
   const showSchematicRail = layout.wide && !layout.hideNonCritical && contentRows >= 28;
   const telemetryRegion = showSchematicRail
-    ? ui.row({ gap: SPACE.sm, items: "stretch", wrap: false, width: "100%" }, [
+    ? ui.row({ gap: SPACE.sm, items: "stretch", wrap: false, width: "full" }, [
         ui.box({ border: "none", p: 0, flex: 2 }, [telemetryPanel]),
         ui.box({ border: "none", p: 0, flex: 1 }, [schematicPanel]),
       ])
     : telemetryPanel;
 
   if (veryCompactHeight) {
-    return ui.column({ gap: SPACE.sm, width: "100%" }, [commandDeck]);
+    return ui.column({ gap: SPACE.sm, width: "full" }, [commandDeck]);
   }
 
   if (compactHeight) {
-    return ui.column({ gap: SPACE.sm, width: "100%" }, [
+    return ui.column({ gap: SPACE.sm, width: "full" }, [
       commandDeck,
       surfacePanel(
         tokens,
@@ -532,10 +532,10 @@ const BridgeCommandDeck = defineWidget<BridgeCommandDeckProps>((props, ctx): VNo
   }
 
   if (constrainedHeight) {
-    return ui.column({ gap: SPACE.sm, width: "100%" }, [commandDeck, telemetryPanel]);
+    return ui.column({ gap: SPACE.sm, width: "full" }, [commandDeck, telemetryPanel]);
   }
 
-  return ui.column({ gap: SPACE.sm, width: "100%" }, [
+  return ui.column({ gap: SPACE.sm, width: "full" }, [
     commandRegion,
     telemetryRegion,
     ...(contentRows >= 60 ? [systemsPanel] : []),
@@ -554,7 +554,7 @@ export function renderBridgeScreen(
     title: "Bridge Overview",
     context,
     deps,
-    body: ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
+    body: ui.column({ gap: SPACE.sm, width: "full", height: "full" }, [
       BridgeCommandDeck({ key: "bridge-command-deck", state, dispatch: deps.dispatch }),
     ]),
   });

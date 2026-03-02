@@ -118,10 +118,11 @@ function measureLeafMinContent(
       const propsRes = validateTextProps(vnode.props);
       if (!propsRes.ok) return propsRes;
       const longestWord = measureLongestWordCells(vnode.text);
-      const capped =
-        propsRes.value.maxWidth === undefined
-          ? longestWord
-          : Math.min(longestWord, propsRes.value.maxWidth);
+      const maxWidth =
+        typeof propsRes.value.maxWidth === "number" && Number.isFinite(propsRes.value.maxWidth)
+          ? propsRes.value.maxWidth
+          : undefined;
+      const capped = maxWidth === undefined ? longestWord : Math.min(longestWord, maxWidth);
       return ok(clampSize({ w: capped, h: countExplicitLines(vnode.text) }));
     }
     case "button": {
@@ -171,8 +172,11 @@ function measureLeafMaxContent(
       const propsRes = validateTextProps(vnode.props);
       if (!propsRes.ok) return propsRes;
       const full = measureMaxLineCells(vnode.text);
-      const capped =
-        propsRes.value.maxWidth === undefined ? full : Math.min(full, propsRes.value.maxWidth);
+      const maxWidth =
+        typeof propsRes.value.maxWidth === "number" && Number.isFinite(propsRes.value.maxWidth)
+          ? propsRes.value.maxWidth
+          : undefined;
+      const capped = maxWidth === undefined ? full : Math.min(full, maxWidth);
       return ok(clampSize({ w: capped, h: countExplicitLines(vnode.text) }));
     }
     case "button": {

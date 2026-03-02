@@ -1,3 +1,4 @@
+import { isConstraintExpr } from "../../constraints/expr.js";
 import type { LayoutTree } from "../../layout/layout.js";
 import { measureTextCells } from "../../layout/textMeasure.js";
 import type { Rect } from "../../layout/types.js";
@@ -115,6 +116,26 @@ const BOX_LAYOUT_KEYS: readonly string[] = Object.freeze([
 ]);
 
 const GRID_LAYOUT_KEYS: readonly string[] = Object.freeze([
+  "width",
+  "height",
+  "minWidth",
+  "maxWidth",
+  "minHeight",
+  "maxHeight",
+  "flex",
+  "flexShrink",
+  "flexBasis",
+  "aspectRatio",
+  "alignSelf",
+  "position",
+  "top",
+  "right",
+  "bottom",
+  "left",
+  "gridColumn",
+  "gridRow",
+  "colSpan",
+  "rowSpan",
   "columns",
   "rows",
   "gap",
@@ -154,6 +175,7 @@ function hashLayoutPropValue(hash: number, value: unknown): number | null {
   if (typeof value === "boolean") return hashU32(hash, value ? 2 : 3);
   if (typeof value === "number") return hashNumber(hash, value);
   if (typeof value === "string") return hashString(hash, value);
+  if (isConstraintExpr(value)) return hashString(hash, value.source);
   return null;
 }
 
@@ -197,8 +219,13 @@ function hashSizesArray(hash: number, sizes: readonly unknown[]): number | null 
 
 function computeLayoutStabilitySignature(
   node: RuntimeInstance,
-  _parentKind: string | undefined,
+  parentKind: string | undefined,
 ): number | null {
+  const display = (node.vnode.props as Readonly<{ display?: unknown }> | undefined)?.display;
+  if (display !== undefined) {
+    return null;
+  }
+
   switch (node.vnode.kind) {
     case "text": {
       const props = node.vnode.props as Readonly<{ maxWidth?: unknown; wrap?: unknown }>;
@@ -220,14 +247,14 @@ function computeLayoutStabilitySignature(
       // - Always when wrap is enabled (text content determines line count)
       // - When the global override requests it
       // Otherwise skip for pure paint-only fast path. Even inside
-      // width-sensitive parents (row/grid/splitPane) we intentionally skip
-      // measuring unconstrained text width: the layout engine correctly
-      // computes intrinsic sizes on the next structural layout pass, and
-      // treating every text-content change as layout-affecting causes
-      // O(frames) relayout in scrolling lists.
+      // width-sensitive parents (row) we must include the unconstrained
+      // intrinsic width to keep sibling placement and hit-testing correct. For
+      // column-like stacking (common in long lists), we still treat plain text
+      // as paint-only by default to avoid relayout churn.
       let cappedWidth = 0;
       if (maxWidth === undefined) {
-        if (LAYOUT_SIG_INCLUDE_TEXT_WIDTH || wrap) {
+        const parentWidthSensitive = parentKind === "row";
+        if (LAYOUT_SIG_INCLUDE_TEXT_WIDTH || wrap || parentWidthSensitive) {
           cappedWidth = measureTextCellsFast(node.vnode.text);
         }
       } else {
@@ -544,6 +571,7 @@ export function updateLayoutStabilitySignatures(
   prevByInstanceId: Map<InstanceId, number>,
   nextByInstanceId: Map<InstanceId, number>,
   pooledRuntimeStack: RuntimeInstance[],
+  pooledParentKindStack: (string | undefined)[],
   removedInstanceIds: readonly InstanceId[] = EMPTY_INSTANCE_IDS,
   trustDirtyFlags = false,
 ): boolean {
@@ -554,11 +582,14 @@ export function updateLayoutStabilitySignatures(
   if (!trustDirtyFlags) {
     nextByInstanceId.clear();
     pooledRuntimeStack.length = 0;
+    pooledParentKindStack.length = 0;
     pooledRuntimeStack.push(runtimeRoot);
+    pooledParentKindStack.push(undefined);
 
     let changed = false;
     while (pooledRuntimeStack.length > 0) {
       const node = pooledRuntimeStack.pop();
+      const parentKind = pooledParentKindStack.pop();
       if (!node) continue;
       if (PERF_ENABLED) {
         perfCount("layout_sig_nodes_scanned");
@@ -566,7 +597,7 @@ export function updateLayoutStabilitySignatures(
         if (node.selfDirty) perfCount("layout_sig_nodes_self_dirty");
       }
 
-      const signature = computeLayoutStabilitySignature(node, undefined);
+      const signature = computeLayoutStabilitySignature(node, parentKind);
       if (signature === null) {
         if (PERF_ENABLED) {
           perfCount("layout_sig_forced_layout_from_unsupported");
@@ -574,6 +605,7 @@ export function updateLayoutStabilitySignatures(
         prevByInstanceId.clear();
         nextByInstanceId.clear();
         pooledRuntimeStack.length = 0;
+        pooledParentKindStack.length = 0;
         return true;
       }
 
@@ -591,6 +623,7 @@ export function updateLayoutStabilitySignatures(
         const child = node.children[i];
         if (child) {
           pooledRuntimeStack.push(child);
+          pooledParentKindStack.push(node.vnode.kind);
         }
       }
     }
@@ -611,6 +644,7 @@ export function updateLayoutStabilitySignatures(
       prevByInstanceId.set(instanceId, signature);
     }
     nextByInstanceId.clear();
+    pooledParentKindStack.length = 0;
 
     return changed;
   }
@@ -624,11 +658,14 @@ export function updateLayoutStabilitySignatures(
     }
   }
   pooledRuntimeStack.length = 0;
+  pooledParentKindStack.length = 0;
   pooledRuntimeStack.push(runtimeRoot);
+  pooledParentKindStack.push(undefined);
 
   let changed = false;
   while (pooledRuntimeStack.length > 0) {
     const node = pooledRuntimeStack.pop();
+    const parentKind = pooledParentKindStack.pop();
     if (!node) continue;
     if (PERF_ENABLED) {
       perfCount("layout_sig_nodes_scanned");
@@ -644,12 +681,13 @@ export function updateLayoutStabilitySignatures(
         if (!child) continue;
         if (child.dirty || !prevByInstanceId.has(child.instanceId)) {
           pooledRuntimeStack.push(child);
+          pooledParentKindStack.push(node.vnode.kind);
         }
       }
       continue;
     }
 
-    const signature = computeLayoutStabilitySignature(node, undefined);
+    const signature = computeLayoutStabilitySignature(node, parentKind);
     if (signature === null) {
       if (PERF_ENABLED) {
         perfCount("layout_sig_forced_layout_from_unsupported");
@@ -657,6 +695,7 @@ export function updateLayoutStabilitySignatures(
       prevByInstanceId.clear();
       nextByInstanceId.clear();
       pooledRuntimeStack.length = 0;
+      pooledParentKindStack.length = 0;
       return true;
     }
 
@@ -675,6 +714,7 @@ export function updateLayoutStabilitySignatures(
       if (!child) continue;
       if (child.dirty || !prevByInstanceId.has(child.instanceId)) {
         pooledRuntimeStack.push(child);
+        pooledParentKindStack.push(node.vnode.kind);
       }
     }
   }

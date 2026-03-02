@@ -1,3 +1,4 @@
+import type { ConstraintExpr } from "../constraints/types.js";
 /**
  * packages/core/src/layout/types.ts — Layout primitive type definitions.
  *
@@ -6,7 +7,7 @@
  *
  * @see docs/guide/layout.md
  */
-import type { ResponsiveValue } from "./responsive.js";
+import type { FluidValue } from "./responsive.js";
 
 /** Rectangle with position (x,y) and dimensions (w,h) in terminal cells. */
 export type Rect = Readonly<{ x: number; y: number; w: number; h: number }>;
@@ -18,24 +19,26 @@ export type Size = Readonly<{ w: number; h: number }>;
 export type Axis = "row" | "column";
 
 /** Base size constraint scalar value. */
-export type SizeConstraintAtom = number | `${number}%` | "full" | "auto";
-/** Size constraint: scalar value or responsive breakpoint map. */
-export type SizeConstraint = ResponsiveValue<SizeConstraintAtom>;
+export type SizeConstraintAtom = number | "full" | "auto" | ConstraintExpr | FluidValue;
+/** Size constraint: scalar value only (responsive maps are removed in alpha). */
+export type SizeConstraint = SizeConstraintAtom;
+export type LayoutNumericConstraint = number | ConstraintExpr;
+export type DisplayConstraint = boolean | ConstraintExpr;
 
 /**
  * Generic layout constraints supported by container widgets.
  *
  * Notes:
- * - `width`/`height` are resolved against the parent content size when expressed as percentages.
+ * - `width`/`height` accept fixed values, `full`, `auto`, `fluid(...)`, or `expr(...)`.
  * - `flex` participates in main-axis space distribution inside Row/Column.
  */
 export type LayoutConstraints = Readonly<{
   width?: SizeConstraint;
   height?: SizeConstraint;
-  minWidth?: number;
-  maxWidth?: number;
-  minHeight?: number;
-  maxHeight?: number;
+  minWidth?: LayoutNumericConstraint;
+  maxWidth?: LayoutNumericConstraint;
+  minHeight?: LayoutNumericConstraint;
+  maxHeight?: LayoutNumericConstraint;
   flex?: number;
   /** Flex shrink factor. How much this child shrinks when siblings overflow. Default 0. */
   flexShrink?: number;
@@ -63,4 +66,6 @@ export type LayoutConstraints = Readonly<{
   colSpan?: number;
   /** Number of rows to span (default 1). Only used when parent is a grid. */
   rowSpan?: number;
+  /** Conditional layout visibility. <= 0 (or false) hides node from layout/render/focus/hit-test. */
+  display?: DisplayConstraint;
 }>;

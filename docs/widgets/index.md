@@ -338,12 +338,12 @@ The `ui` namespace includes convenience wrappers that compose lower-level widget
 | `ui.panel(titleOrOptions, children)` | `ui.box({ border: "rounded", p: 1, title }, ...)` | Bordered panel with title; options support `id`, `key`, `title`, `gap`, `p`, `variant`, `style` |
 | `ui.form(children)` / `ui.form(options, children)` | `ui.column({ gap: 1 }, children)` | Vertically stacked form layout; options support `id`, `key`, `gap` |
 | `ui.actions(children)` / `ui.actions(options, children)` | `ui.row({ justify: "end", gap: 1 }, children)` | Right-aligned action button row; options support `id`, `key`, `gap` |
-| `ui.center(child, options?)` | `ui.column({ width: "100%", height: "100%", align: "center", justify: "center" }, ...)` | Center a single widget; options support `id`, `key`, `p` |
+| `ui.center(child, options?)` | `ui.column({ width: "full", height: "full", align: "center", justify: "center" }, ...)` | Center a single widget; options support `id`, `key`, `p` |
 | `ui.page(options)` | `ui.column(...)` with optional header/body/footer | Full-page layout scaffold |
 | `ui.appShell(options)` | `ui.page(...)` with standard header/sidebar/body/footer layout | Full app scaffold (header + optional sidebar + body + footer) |
 | `ui.card(titleOrOptions, children)` | `ui.box({ border: "rounded", p: 1 }, ...)` | Elevated content block with optional title/subtitle/actions |
 | `ui.toolbar(children)` / `ui.toolbar(options, children)` | `ui.row({ items: "center", wrap: true }, ...)` | Inline action bar |
-| `ui.statusBar(options)` | `ui.row({ width: "100%" }, [...left, spacer(1), ...right])` | Left/right status strip |
+| `ui.statusBar(options)` | `ui.row({ width: "full" }, [...left, spacer(1), ...right])` | Left/right status strip |
 | `ui.header(options)` | `ui.box({ border: "rounded", px: 1 }, ...)` | Standard header bar (title/subtitle/actions) |
 | `ui.sidebar(options)` | `ui.box({ border: \"rounded\", width, p: 1 }, ...)` | Navigation panel with selectable buttons |
 | `ui.masterDetail(options)` | `ui.row([...master, detail])` | Split master/detail layout |
@@ -558,15 +558,15 @@ ui.column({ p: 2, gap: 1 }, [...])  // equivalent numeric form
 
 ```typescript
 // Dimensions
-width?: number | string    // Fixed width or percentage ("100%")
-height?: number | string   // Fixed height or percentage
+width?: number | "full" | "auto" | fluid(...) | expr(...)
+height?: number | "full" | "auto" | fluid(...) | expr(...)
 minWidth?: number
 maxWidth?: number
 minHeight?: number
 maxHeight?: number
 flex?: number              // Flex grow factor
 flexShrink?: number        // Overflow shrink factor (default 0)
-flexBasis?: number | string // Initial main-axis basis ("auto", "%", "full", number)
+flexBasis?: number | "full" | "auto" | fluid(...) | expr(...)
 alignSelf?: "auto" | "start" | "center" | "end" | "stretch"
 position?: "static" | "absolute"
 top?: number
@@ -589,7 +589,8 @@ colSpan?: number    // default 1
 rowSpan?: number    // default 1
 ```
 
-`width`/`height` and related layout scalar props also support responsive values, including `fluid(min, max, options?)` from `@rezi-ui/core`.
+`width`/`height` and related layout scalar props support `fluid(min, max, options?)` and `expr("...")`.
+Responsive-map layout constraints (for example `{ sm, md, lg, xl }`) and `%` size strings are removed in the breaking alpha.
 
 ### Visual Props
 

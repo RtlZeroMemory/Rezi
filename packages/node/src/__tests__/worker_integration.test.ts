@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
+import { existsSync } from "node:fs";
 import test from "node:test";
-import { Worker } from "node:worker_threads";
+import { fileURLToPath } from "node:url";
+import { Worker, type WorkerOptions } from "node:worker_threads";
 import {
   BACKEND_BEGIN_FRAME_MARKER,
   DEFAULT_TERMINAL_CAPS,
@@ -33,10 +35,39 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function setIsTty(
+  stream: NodeJS.ReadStream | NodeJS.WriteStream,
+  value: boolean | undefined,
+): void {
+  Object.defineProperty(stream, "isTTY", {
+    value,
+    writable: true,
+    configurable: true,
+  });
+}
+
+function resolveWorkerEntry(workerData: WorkerOptions["workerData"]): Readonly<{
+  entry: URL;
+  options: WorkerOptions;
+}> {
+  const options: WorkerOptions = { workerData };
+  const workerEntryJs = new URL("../worker/engineWorker.js", import.meta.url);
+  if (existsSync(workerEntryJs)) {
+    return { entry: workerEntryJs, options };
+  }
+
+  const workerEntryBootstrapJs = new URL("../worker/engineWorker.bootstrap.js", import.meta.url);
+  if (existsSync(workerEntryBootstrapJs)) {
+    return { entry: workerEntryBootstrapJs, options };
+  }
+
+  throw new Error("Unable to locate worker entry for worker integration tests");
+}
+
 function makeWorker(): Worker {
-  const entry = new URL("../worker/engineWorker.js", import.meta.url);
   const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
-  return new Worker(entry, { workerData: { nativeShimModule: shim } });
+  const { entry, options } = resolveWorkerEntry({ nativeShimModule: shim });
+  return new Worker(entry, options);
 }
 
 function waitFor(worker: Worker, pred: (m: Msg) => boolean): Promise<Msg> {
@@ -86,6 +117,37 @@ async function shutdownAndWaitForExit(worker: Worker): Promise<void> {
   await waitFor(worker, (m) => m.type === "shutdownComplete");
   await exitPromise;
 }
+
+test("native loader: worker-thread load fails deterministically without native crash", async () => {
+  const loaderPath = fileURLToPath(new URL("../../../native/loader.cjs", import.meta.url));
+  const worker = new Worker(
+    `
+      const { parentPort } = require("node:worker_threads");
+      try {
+        require(${JSON.stringify(loaderPath)});
+        parentPort.postMessage({ type: "loaderResult", ok: true, message: "" });
+      } catch (err) {
+        const message =
+          err && typeof err === "object" && "message" in err
+            ? String(err.message)
+            : String(err);
+        parentPort.postMessage({ type: "loaderResult", ok: false, message });
+      }
+    `,
+    { eval: true },
+  );
+
+  const [msg] = (await once(worker, "message")) as [
+    Readonly<{ type?: unknown; ok?: unknown; message?: unknown }>,
+  ];
+  assert.equal(msg.type, "loaderResult");
+  assert.equal(msg.ok, false);
+  assert.equal(typeof msg.message, "string");
+  assert.match(String(msg.message), /does not support worker_threads/);
+
+  const [code] = (await once(worker, "exit")) as [number];
+  assert.equal(code, 0);
+});
 
 test("worker: init/ready + latest-wins transfer mailbox avoids stale fatal", async () => {
   const worker = makeWorker();
@@ -593,6 +655,38 @@ test("backend: inline path fails deterministically on invalid engine_poll_events
   );
   backend.dispose();
 });
+
+test(
+  "backend: worker mode without shim rejects deterministically when no TTY is present",
+  { concurrency: false },
+  async () => {
+    const prevStdinIsTty = process.stdin.isTTY;
+    const prevStdoutIsTty = process.stdout.isTTY;
+    const prevStderrIsTty = process.stderr.isTTY;
+
+    setIsTty(process.stdin, false);
+    setIsTty(process.stdout, false);
+    setIsTty(process.stderr, false);
+
+    const backend = createNodeBackendInternal({
+      config: { executionMode: "worker", fpsCap: 1000, maxEventBytes: 1024 },
+    });
+    try {
+      await assert.rejects(
+        backend.start(),
+        (err) =>
+          err instanceof ZrUiError &&
+          err.code === "ZRUI_BACKEND_ERROR" &&
+          err.message.includes("requires a TTY"),
+      );
+    } finally {
+      backend.dispose();
+      setIsTty(process.stdin, prevStdinIsTty);
+      setIsTty(process.stdout, prevStdoutIsTty);
+      setIsTty(process.stderr, prevStderrIsTty);
+    }
+  },
+);
 
 test("backend: mailbox resolves coalesced frame sequences", async () => {
   const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
