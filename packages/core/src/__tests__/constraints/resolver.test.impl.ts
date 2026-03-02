@@ -135,6 +135,26 @@ describe("constraint resolver", () => {
     assert.equal(out.values.get(42)?.width, 80);
   });
 
+  test("resolved display overrides baseline hidden state for metric reads", () => {
+    const item = boxWithId(91, "item", {
+      width: expr("10"),
+      display: expr("1"),
+    });
+    const sumNode = boxWithId(92, "sumPanel", { width: expr("sum_sibling(#item.w)") });
+    const built = buildConstraintGraph(runtimeNode(90, {}, [item, sumNode]));
+    assert.equal(built.ok, true);
+    if (!built.ok) return;
+
+    const out = resolveConstraints(built.value, {
+      viewport: { w: 120, h: 40 },
+      parent: { w: 100, h: 40 },
+      baseValues: new Map([[91, { display: 0 }]]),
+    });
+
+    assert.equal(out.values.get(91)?.display, 1);
+    assert.equal(out.values.get(92)?.width, 10);
+  });
+
   test("computes max_sibling/sum_sibling aggregations", () => {
     const items = [boxWithId(11, "item", {}), boxWithId(12, "item", {}), boxWithId(13, "item", {})];
     const maxNode = boxWithId(21, "maxPanel", { width: expr("max_sibling(#item.min_w)") });

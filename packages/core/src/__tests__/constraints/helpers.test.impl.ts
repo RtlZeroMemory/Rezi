@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { expr } from "../../constraints/expr.js";
 import {
   conditionalConstraints,
+  expr,
   groupConstraints,
   heightConstraints,
   spaceConstraints,
   visibilityConstraints,
   widthConstraints,
-} from "../../constraints/helpers.js";
+} from "../../index.js";
 
 describe("constraint helpers", () => {
   test("creates viewport threshold display constraints", () => {

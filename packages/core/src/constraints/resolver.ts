@@ -464,21 +464,17 @@ export function resolveConstraints(
 
   const readMetric = (instanceId: InstanceId, prop: RefProp): number => {
     const resolvedDisplay = readResolvedProp(resolvedByInstance.get(instanceId), "display");
-    if (
-      typeof resolvedDisplay === "number" &&
-      Number.isFinite(resolvedDisplay) &&
-      resolvedDisplay <= 0
-    ) {
-      return 0;
-    }
-
-    const baselineDisplay = readResolvedProp(options.baseValues?.get(instanceId), "display");
-    if (
-      typeof baselineDisplay === "number" &&
-      Number.isFinite(baselineDisplay) &&
-      baselineDisplay <= 0
-    ) {
-      return 0;
+    if (typeof resolvedDisplay === "number" && Number.isFinite(resolvedDisplay)) {
+      if (resolvedDisplay <= 0) return 0;
+    } else {
+      const baselineDisplay = readResolvedProp(options.baseValues?.get(instanceId), "display");
+      if (
+        typeof baselineDisplay === "number" &&
+        Number.isFinite(baselineDisplay) &&
+        baselineDisplay <= 0
+      ) {
+        return 0;
+      }
     }
 
     const targetProp = constraintPropFromRefProp(prop);
