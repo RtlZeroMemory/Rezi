@@ -11,6 +11,10 @@ function describeThrown(value: unknown): string {
   }
 }
 
+function parserBootstrapError(error: unknown): Error {
+  return new Error(`Failed to load parser constraint test bootstrap: ${describeThrown(error)}`);
+}
+
 const require = createRequire(import.meta.url);
 const tsImplPath = fileURLToPath(new URL("./parser.test.impl.ts", import.meta.url));
 const jsImplPath = fileURLToPath(new URL("./parser.test.impl.js", import.meta.url));
@@ -20,10 +24,14 @@ try {
     require("tsx/cjs");
     require(tsImplPath);
   } else if (existsSync(jsImplPath)) {
-    require(jsImplPath);
+    void import("./parser.test.impl.js").catch((error: unknown) => {
+      process.nextTick(() => {
+        throw parserBootstrapError(error);
+      });
+    });
   } else {
     throw new Error("Missing parser constraint test implementation");
   }
 } catch (error: unknown) {
-  throw new Error(`Failed to load parser constraint test bootstrap: ${describeThrown(error)}`);
+  throw parserBootstrapError(error);
 }

@@ -11,6 +11,10 @@ function describeThrown(value: unknown): string {
   }
 }
 
+function helpersBootstrapError(error: unknown): Error {
+  return new Error(`Failed to load helpers constraint test bootstrap: ${describeThrown(error)}`);
+}
+
 const require = createRequire(import.meta.url);
 const tsImplPath = fileURLToPath(new URL("./helpers.test.impl.ts", import.meta.url));
 const jsImplPath = fileURLToPath(new URL("./helpers.test.impl.js", import.meta.url));
@@ -20,10 +24,14 @@ try {
     require("tsx/cjs");
     require(tsImplPath);
   } else if (existsSync(jsImplPath)) {
-    require(jsImplPath);
+    void import("./helpers.test.impl.js").catch((error: unknown) => {
+      process.nextTick(() => {
+        throw helpersBootstrapError(error);
+      });
+    });
   } else {
     throw new Error("Missing helpers constraint test implementation");
   }
 } catch (error: unknown) {
-  throw new Error(`Failed to load helpers constraint test bootstrap: ${describeThrown(error)}`);
+  throw helpersBootstrapError(error);
 }

@@ -11,6 +11,10 @@ function describeThrown(value: unknown): string {
   }
 }
 
+function graphBootstrapError(error: unknown): Error {
+  return new Error(`Failed to load graph constraint test bootstrap: ${describeThrown(error)}`);
+}
+
 const require = createRequire(import.meta.url);
 const tsImplPath = fileURLToPath(new URL("./graph.test.impl.ts", import.meta.url));
 const jsImplPath = fileURLToPath(new URL("./graph.test.impl.js", import.meta.url));
@@ -20,10 +24,14 @@ try {
     require("tsx/cjs");
     require(tsImplPath);
   } else if (existsSync(jsImplPath)) {
-    require(jsImplPath);
+    void import("./graph.test.impl.js").catch((error: unknown) => {
+      process.nextTick(() => {
+        throw graphBootstrapError(error);
+      });
+    });
   } else {
     throw new Error("Missing graph constraint test implementation");
   }
 } catch (error: unknown) {
-  throw new Error(`Failed to load graph constraint test bootstrap: ${describeThrown(error)}`);
+  throw graphBootstrapError(error);
 }
