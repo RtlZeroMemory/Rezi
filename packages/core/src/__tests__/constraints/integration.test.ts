@@ -26,11 +26,7 @@ try {
     require("tsx/cjs");
     require(tsImplPath);
   } else if (existsSync(jsImplPath)) {
-    void import("./integration.test.impl.js").catch((error: unknown) => {
-      process.nextTick(() => {
-        throw integrationBootstrapError(error);
-      });
-    });
+    await import("./integration.test.impl.js");
   } else {
     throw new Error("Missing integration constraint test implementation");
   }

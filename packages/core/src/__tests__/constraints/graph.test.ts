@@ -24,11 +24,7 @@ try {
     require("tsx/cjs");
     require(tsImplPath);
   } else if (existsSync(jsImplPath)) {
-    void import("./graph.test.impl.js").catch((error: unknown) => {
-      process.nextTick(() => {
-        throw graphBootstrapError(error);
-      });
-    });
+    await import("./graph.test.impl.js");
   } else {
     throw new Error("Missing graph constraint test implementation");
   }

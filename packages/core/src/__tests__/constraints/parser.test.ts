@@ -24,11 +24,7 @@ try {
     require("tsx/cjs");
     require(tsImplPath);
   } else if (existsSync(jsImplPath)) {
-    void import("./parser.test.impl.js").catch((error: unknown) => {
-      process.nextTick(() => {
-        throw parserBootstrapError(error);
-      });
-    });
+    await import("./parser.test.impl.js");
   } else {
     throw new Error("Missing parser constraint test implementation");
   }

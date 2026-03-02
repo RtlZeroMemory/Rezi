@@ -24,11 +24,7 @@ try {
     require("tsx/cjs");
     require(tsImplPath);
   } else if (existsSync(jsImplPath)) {
-    void import("./resolver.test.impl.js").catch((error: unknown) => {
-      process.nextTick(() => {
-        throw resolverBootstrapError(error);
-      });
-    });
+    await import("./resolver.test.impl.js");
   } else {
     throw new Error("Missing resolver constraint test implementation");
   }

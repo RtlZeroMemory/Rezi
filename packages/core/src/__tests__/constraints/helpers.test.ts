@@ -24,11 +24,7 @@ try {
     require("tsx/cjs");
     require(tsImplPath);
   } else if (existsSync(jsImplPath)) {
-    void import("./helpers.test.impl.js").catch((error: unknown) => {
-      process.nextTick(() => {
-        throw helpersBootstrapError(error);
-      });
-    });
+    await import("./helpers.test.impl.js");
   } else {
     throw new Error("Missing helpers constraint test implementation");
   }
