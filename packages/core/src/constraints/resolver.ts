@@ -69,7 +69,7 @@ function sanitizeFinite(value: number): number {
 
 function serializeFiniteOrEmpty(value: number | undefined): string {
   if (typeof value !== "number" || !Number.isFinite(value)) return "";
-  return String(Math.trunc(value));
+  return String(Object.is(value, -0) ? 0 : value);
 }
 
 function serializeRefValuesInput(input: RefValuesInput | undefined): string {
@@ -401,14 +401,15 @@ export class ConstraintResolutionCache {
     // Refresh access order for simple LRU eviction.
     this.#entries.delete(key);
     this.#entries.set(key, hit);
-    return hit;
+    return new Map(hit);
   }
 
   set(key: string, value: ReadonlyMap<InstanceId, ResolvedConstraintValues>): void {
+    const snapshot = new Map(value);
     if (this.#entries.has(key)) {
       this.#entries.delete(key);
     }
-    this.#entries.set(key, value);
+    this.#entries.set(key, snapshot);
     while (this.#entries.size > this.#maxEntries) {
       const oldest = this.#entries.keys().next().value;
       if (typeof oldest !== "string") break;
@@ -427,12 +428,12 @@ export function createResolutionCacheKey(
   parent: Readonly<{ w: number; h: number }>,
   dynamicInputKey?: string,
 ): string {
-  const keyParts: Array<string | number> = [
-    Math.trunc(fingerprint),
-    Math.trunc(viewport.w),
-    Math.trunc(viewport.h),
-    Math.trunc(parent.w),
-    Math.trunc(parent.h),
+  const keyParts: string[] = [
+    String(Math.trunc(fingerprint)),
+    serializeFiniteOrEmpty(viewport.w),
+    serializeFiniteOrEmpty(viewport.h),
+    serializeFiniteOrEmpty(parent.w),
+    serializeFiniteOrEmpty(parent.h),
   ];
   if (typeof dynamicInputKey === "string" && dynamicInputKey.length > 0) {
     keyParts.push(dynamicInputKey);

@@ -106,11 +106,14 @@ function isLegacyBreakpointMap(value: unknown): boolean {
 
 function findLegacyConstraintUsage(root: VNode): string | null {
   const stack: Array<Readonly<{ node: VNode; path: string }>> = [{ node: root, path: root.kind }];
+  const visited = new WeakSet<VNode>();
 
   while (stack.length > 0) {
     const frame = stack.pop();
     if (!frame) continue;
     const { node, path } = frame;
+    if (visited.has(node)) continue;
+    visited.add(node);
     const props = (node.props ?? {}) as Readonly<Record<string, unknown>>;
 
     for (const propName of LEGACY_SIZE_PROP_NAMES) {

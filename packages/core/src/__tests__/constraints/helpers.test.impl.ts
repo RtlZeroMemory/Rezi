@@ -125,4 +125,24 @@ describe("constraint helpers", () => {
       /min must be <= max/,
     );
   });
+
+  test("rejects malformed step entries", () => {
+    assert.throws(
+      () =>
+        widthConstraints.stepsByViewportWidth({
+          steps: [
+            { below: 80, value: 10 },
+            undefined as unknown as { below: number; value: number },
+          ],
+        }),
+      /options\.steps\[1\] must be an object/,
+    );
+    assert.throws(
+      () =>
+        heightConstraints.stepsByViewportHeight({
+          steps: [{ below: 24, value: 1 }, null as unknown as { below: number; value: number }],
+        }),
+      /options\.steps\[1\] must be an object/,
+    );
+  });
 });

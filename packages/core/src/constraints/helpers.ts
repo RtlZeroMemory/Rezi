@@ -318,7 +318,9 @@ export const widthConstraints = Object.freeze({
     const parts: string[] = ["viewport.w"];
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
-      if (!step) continue;
+      if (step === undefined || step === null || typeof step !== "object") {
+        throw invalidArg(fn, `options.steps[${String(i)}] must be an object`);
+      }
       const below = assertInt32NonNegative(fn, `options.steps[${String(i)}].below`, step.below);
       if (below <= prev) {
         throw invalidArg(fn, "options.steps thresholds must be strictly increasing");
@@ -396,7 +398,9 @@ export const heightConstraints = Object.freeze({
     const parts: string[] = ["viewport.h"];
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
-      if (!step) continue;
+      if (step === undefined || step === null || typeof step !== "object") {
+        throw invalidArg(fn, `options.steps[${String(i)}] must be an object`);
+      }
       const below = assertInt32NonNegative(fn, `options.steps[${String(i)}].below`, step.below);
       if (below <= prev) {
         throw invalidArg(fn, "options.steps thresholds must be strictly increasing");

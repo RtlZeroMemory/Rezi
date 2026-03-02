@@ -1,35 +1,18 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { type VNode, ui } from "../../index.js";
-import { createTestRenderer } from "../../testing/renderer.js";
+import { type TestRenderResult, type VNode, createTestRenderer, ui } from "../../index.js";
 
 function mustRow(children: readonly VNode[], width: number) {
   const renderer = createTestRenderer({ viewport: { cols: width, rows: 20 } });
   return renderer.render(ui.row({ width, gap: 0 }, children));
 }
 
-function childWidths(
-  out: ReturnType<ReturnType<typeof createTestRenderer>["render"]>,
-  ids: string[],
-) {
+function childRectMeasure(out: TestRenderResult, ids: string[], dimension: "w" | "h") {
   return ids.map((id) => {
     const node = out.findById(id);
     if (node === null) {
       assert.fail(`missing node with id=${id}`);
     }
-    return node.rect.w;
-  });
-}
-
-function childHeights(
-  out: ReturnType<ReturnType<typeof createTestRenderer>["render"]>,
-  ids: string[],
-) {
-  return ids.map((id) => {
-    const node = out.findById(id);
-    if (node === null) {
-      assert.fail(`missing node with id=${id}`);
-    }
-    return node.rect.h;
+    return node.rect[dimension];
   });
 }
 
@@ -57,7 +40,7 @@ describe("layout flex shrink + basis", () => {
       ],
       100,
     );
-    assert.deepEqual(childWidths(out, ids), [33, 33, 34]);
+    assert.deepEqual(childRectMeasure(out, ids, "w"), [33, 33, 34]);
   });
 
   test("flexShrink:0 child is never shrunk", () => {
@@ -70,7 +53,7 @@ describe("layout flex shrink + basis", () => {
       ],
       100,
     );
-    assert.deepEqual(childWidths(out, ids), [50, 25, 25]);
+    assert.deepEqual(childRectMeasure(out, ids, "w"), [50, 25, 25]);
   });
 
   test("higher shrink factor shrinks proportionally more", () => {
@@ -82,7 +65,7 @@ describe("layout flex shrink + basis", () => {
       ],
       90,
     );
-    assert.deepEqual(childWidths(out, ids), [40, 50]);
+    assert.deepEqual(childRectMeasure(out, ids, "w"), [40, 50]);
   });
 
   test("minWidth floors shrink", () => {
@@ -94,7 +77,7 @@ describe("layout flex shrink + basis", () => {
       ],
       90,
     );
-    assert.deepEqual(childWidths(out, ids), [50, 40]);
+    assert.deepEqual(childRectMeasure(out, ids, "w"), [50, 40]);
   });
 
   test("no overflow keeps sizes unchanged", () => {
@@ -106,13 +89,13 @@ describe("layout flex shrink + basis", () => {
       ],
       60,
     );
-    assert.deepEqual(childWidths(out, ids), [30, 20]);
+    assert.deepEqual(childRectMeasure(out, ids, "w"), [30, 20]);
   });
 
   test("default flexShrink is 0 (backward compatibility)", () => {
     const ids = ["a", "b"];
     const out = mustRow([box(ids[0] ?? "a", { width: 40 }), box(ids[1] ?? "b", { width: 40 })], 50);
-    assert.deepEqual(childWidths(out, ids), [40, 10]);
+    assert.deepEqual(childRectMeasure(out, ids, "w"), [40, 10]);
   });
 
   test("flexBasis participates as initial main size before growth", () => {
@@ -124,7 +107,7 @@ describe("layout flex shrink + basis", () => {
       ],
       120,
     );
-    assert.deepEqual(childWidths(out, ids), [80, 40]);
+    assert.deepEqual(childRectMeasure(out, ids, "w"), [80, 40]);
   });
 
   test('flexBasis "auto" resolves before basis planning', () => {
@@ -138,7 +121,7 @@ describe("layout flex shrink + basis", () => {
       ],
       20,
     );
-    assert.deepEqual(childWidths(out, ids), [12, 8]);
+    assert.deepEqual(childRectMeasure(out, ids, "w"), [12, 8]);
   });
 
   test("intrinsic min-content floor is used when explicit minWidth is absent", () => {
@@ -150,7 +133,7 @@ describe("layout flex shrink + basis", () => {
       ],
       8,
     );
-    assert.deepEqual(childWidths(out, ids), [5, 5]);
+    assert.deepEqual(childRectMeasure(out, ids, "w"), [5, 5]);
   });
 
   test("column flexBasis numeric values resolve against parent height (main axis)", () => {
@@ -161,6 +144,6 @@ describe("layout flex shrink + basis", () => {
     ]);
     const renderer = createTestRenderer({ viewport: { cols: 20, rows: 10 } });
     const out = renderer.render(tree);
-    assert.deepEqual(childHeights(out, ids), [5, 5]);
+    assert.deepEqual(childRectMeasure(out, ids, "h"), [5, 5]);
   });
 });

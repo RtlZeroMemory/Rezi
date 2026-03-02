@@ -231,7 +231,8 @@ describe("constraint resolver", () => {
 
     assert.equal(first.cacheHit, false);
     assert.equal(second.cacheHit, true);
-    assert.equal(second.values, first.values);
+    assert.notEqual(second.values, first.values);
+    assert.equal(second.values.get(31)?.width, first.values.get(31)?.width);
     assert.equal(third.cacheHit, false);
     assert.notEqual(third.values, second.values);
   });
@@ -270,6 +271,42 @@ describe("constraint resolver", () => {
     assert.equal(secondAgain.cacheHit, true);
     assert.equal(first.values.get(71)?.width, 81);
     assert.equal(second.values.get(71)?.width, 89);
+  });
+
+  test("default cache key distinguishes fractional dynamic inputs", () => {
+    const node = boxWithId(81, "fractionalCacheNode", { width: expr("parent.w + intrinsic.w") });
+    const built = buildConstraintGraph(runtimeNode(80, {}, [node]));
+    assert.equal(built.ok, true);
+    if (!built.ok) return;
+
+    const cache = new ConstraintResolutionCache();
+    const first = resolveConstraints(built.value, {
+      viewport: { w: 120, h: 40 },
+      parent: { w: 100, h: 40 },
+      parentValues: new Map([[81, { w: 80.5, h: 20.5, min_w: 80.5, min_h: 20.5 }]]),
+      intrinsicValues: new Map([[81, { w: 1.2, h: 1.2, min_w: 1.2, min_h: 1.2 }]]),
+      cache,
+    });
+    const firstAgain = resolveConstraints(built.value, {
+      viewport: { w: 120, h: 40 },
+      parent: { w: 100, h: 40 },
+      parentValues: new Map([[81, { w: 80.5, h: 20.5, min_w: 80.5, min_h: 20.5 }]]),
+      intrinsicValues: new Map([[81, { w: 1.2, h: 1.2, min_w: 1.2, min_h: 1.2 }]]),
+      cache,
+    });
+    const second = resolveConstraints(built.value, {
+      viewport: { w: 120, h: 40 },
+      parent: { w: 100, h: 40 },
+      parentValues: new Map([[81, { w: 80.9, h: 20.9, min_w: 80.9, min_h: 20.9 }]]),
+      intrinsicValues: new Map([[81, { w: 1.8, h: 1.8, min_w: 1.8, min_h: 1.8 }]]),
+      cache,
+    });
+
+    assert.equal(first.cacheHit, false);
+    assert.equal(firstAgain.cacheHit, true);
+    assert.equal(second.cacheHit, false);
+    assert.equal(first.values.get(81)?.width, 81.7);
+    assert.equal(second.values.get(81)?.width, 82.7);
   });
 
   test("supports explicit cacheKey for multi-key cache reuse", () => {

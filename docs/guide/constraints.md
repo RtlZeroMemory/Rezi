@@ -1,6 +1,7 @@
 # Constraints Guide
 
-Rezi's constraint DSL (`expr("...")`) is the canonical way to express derived layout relationships in the breaking alpha branch.
+Rezi's helper-first constraints API is the canonical way to express derived layout relationships in the alpha branch.
+Use `expr("...")` as an advanced escape hatch when helper primitives do not cover the case.
 
 See also:
 - [Layout Guide](layout.md)
@@ -13,9 +14,9 @@ See also:
 
 ## Alpha Contract
 
-- Use `expr("...")` for derived layout values (`width`, `height`, min/max constraints, `flexBasis`, and `display` on supported widgets).
+- Use helper constraints first for derived layout values (`width`, `height`, min/max constraints, `flexBasis`, and `display` on supported widgets).
 - Prefer the helper layer for common patterns (`visibilityConstraints`, `widthConstraints`, `heightConstraints`, `spaceConstraints`, `groupConstraints`, `conditionalConstraints`); keep raw `expr("...")` as the advanced escape hatch.
-- Use `display: expr("...")` for layout/viewport visibility decisions.
+- Use `display: expr("...")` only as an escape hatch when a helper does not fit the visibility rule.
 - Keep business-logic visibility in `show(...)`, `when(...)`, `match(...)`, or `maybe(...)`.
 - `%` layout size strings and responsive-map layout constraints (`{ sm, md, ... }`) are removed.
 - `grid.columns` supports `number | string` only in alpha. `columns: expr(...)` is intentionally invalid.

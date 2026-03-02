@@ -43,6 +43,14 @@ const TEMPLATE_EXPR_ESCAPE_HATCH = Object.freeze(
     allowMarker: "rezi-allow-expr",
   }),
 );
+function escapeRegexLiteral(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const TEMPLATE_EXPR_ALLOW_MARKER_IN_COMMENT = new RegExp(
+  `(?:\\/\\/[^\\n]*\\b${escapeRegexLiteral(TEMPLATE_EXPR_ESCAPE_HATCH.allowMarker)}\\b|\\/\\*[\\s\\S]*?\\b${escapeRegexLiteral(TEMPLATE_EXPR_ESCAPE_HATCH.allowMarker)}\\b[\\s\\S]*?\\*\\/)`,
+  "u",
+);
 const HOTSPOT_VIEWPORT_MATH = Object.freeze([
   Object.freeze({
     templateKey: "starship",
@@ -69,9 +77,9 @@ function collectFilesRecursiveSorted(dir, predicate) {
   const out = [];
 
   function walk(currentDir) {
-    const entries = readdirSync(currentDir, { withFileTypes: true })
-      .map((entry) => entry)
-      .sort((left, right) => left.name.localeCompare(right.name));
+    const entries = readdirSync(currentDir, { withFileTypes: true }).sort((left, right) =>
+      left.name.localeCompare(right.name),
+    );
     for (const entry of entries) {
       const fullPath = join(currentDir, entry.name);
       if (entry.isDirectory()) {
@@ -83,22 +91,19 @@ function collectFilesRecursiveSorted(dir, predicate) {
   }
 
   walk(dir);
-  out.sort();
   return out;
 }
 
 function findLineMatch(content, regex) {
-  const lines = content.split(/\r?\n/u);
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index] ?? "";
-    if (regex.test(line)) {
-      return Object.freeze({
-        line: index + 1,
-        snippet: line.trim(),
-      });
-    }
-  }
-  return null;
+  const flags = regex.flags.replace(/g/gu, "");
+  const matcher = new RegExp(regex.source, flags);
+  const match = matcher.exec(content);
+  if (match === null || typeof match.index !== "number") return null;
+  const line = content.slice(0, match.index).split(/\r?\n/u).length;
+  return Object.freeze({
+    line,
+    snippet: snippetAtLine(content, line),
+  });
 }
 
 function snippetAtLine(content, lineNumber) {
@@ -129,7 +134,7 @@ function ensureNoLegacyLayoutPatterns(templateDir, templateKey) {
     const contentForCheck = stripTypeScriptComments(content);
     if (
       TEMPLATE_EXPR_ESCAPE_HATCH.regex.test(contentForCheck) &&
-      !content.includes(TEMPLATE_EXPR_ESCAPE_HATCH.allowMarker)
+      !TEMPLATE_EXPR_ALLOW_MARKER_IN_COMMENT.test(content)
     ) {
       const match = findLineMatch(content, TEMPLATE_EXPR_ESCAPE_HATCH.regex);
       fail(

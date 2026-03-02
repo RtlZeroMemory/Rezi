@@ -1,9 +1,7 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { type VNode, ui } from "../../index.js";
-import { createTestRenderer } from "../../testing/renderer.js";
+import { type VNode, createTestRenderer, ui } from "../../index.js";
 import { measure } from "../layout.js";
-
-type Axis = "row" | "column";
+import type { Axis } from "../types.js";
 
 function expectLegacyFatal(
   node: VNode,
