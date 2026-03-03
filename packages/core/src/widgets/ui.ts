@@ -820,47 +820,46 @@ function center(child: VNode, options: CenterOptions = {}): VNode {
 }
 
 function page(options: PageOptions): VNode {
+  const { id, key, header, body, footer, gap, p, width, height, ...layoutConstraints } = options;
   return column(
     {
-      ...(options.id === undefined ? {} : { id: options.id }),
-      ...(options.key === undefined ? {} : { key: options.key }),
-      width: "full",
-      height: "full",
-      gap: options.gap ?? 1,
-      ...(options.p === undefined ? {} : { p: options.p }),
+      ...(id === undefined ? {} : { id }),
+      ...(key === undefined ? {} : { key }),
+      width: width ?? "full",
+      height: height ?? "full",
+      ...layoutConstraints,
+      gap: gap ?? 1,
+      ...(p === undefined ? {} : { p }),
     },
     [
-      options.header ?? null,
-      box({ border: "none", flex: 1 }, [options.body]),
-      options.footer ?? null,
+      header ?? null,
+      box({ border: "none", flex: 1 }, [body]),
+      footer ?? null,
     ],
   );
 }
 
 function appShell(options: AppShellOptions): VNode {
-  const headerNode = options.header
-    ? box({ border: "rounded", px: 1, py: 0 }, [options.header])
-    : null;
-  const bodyNode = options.sidebar
+  const { id, key, header, sidebar, body, footer, gap, p, ...layoutConstraints } = options;
+  const headerNode = header ? box({ border: "rounded", px: 1, py: 0 }, [header]) : null;
+  const bodyNode = sidebar
     ? row({ gap: 1, items: "stretch" }, [
-        box({ border: "rounded", width: options.sidebar.width ?? 25, p: 1 }, [
-          options.sidebar.content,
-        ]),
-        box({ flex: 1 }, [options.body]),
+        box({ border: "rounded", width: sidebar.width ?? 25, p: 1 }, [sidebar.content]),
+        box({ flex: 1 }, [body]),
       ])
-    : options.body;
-  const footerNode = options.footer
-    ? row({ gap: 1, items: "center", wrap: true }, [options.footer])
+    : body;
+  const footerNode = footer ? row({ gap: 1, items: "center", wrap: true }, [footer])
     : null;
 
   return page({
-    ...(options.id === undefined ? {} : { id: options.id }),
-    ...(options.key === undefined ? {} : { key: options.key }),
+    ...(id === undefined ? {} : { id }),
+    ...(key === undefined ? {} : { key }),
     header: headerNode,
     body: bodyNode,
     footer: footerNode,
-    gap: options.gap ?? 1,
-    p: options.p ?? 1,
+    gap: gap ?? 1,
+    p: p ?? 1,
+    ...layoutConstraints,
   });
 }
 

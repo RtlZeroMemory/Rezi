@@ -3,7 +3,7 @@
 Constraints answer “**how big / where**” while the design system answers “**how it looks**”.
 
 Use constraints to encode layout intent (derived relationships) and keep visual styling consistent by relying on:
-- `ui.page()` / `ui.appShell()` structure
+- `ui.page()` / `ui.appShell()` structure (both accept layout constraints like `width`, `height`, `display`, and min/max bounds)
 - `ui.panel()` grouping
 - spacing scale (`gap`, `p`)
 - design-system recipes (`intent`, `dsSize`, `dsTone`, etc.)
@@ -39,22 +39,35 @@ Use constraints to size regions, not to encode padding/gap rules.
 ## Responsive shell pattern (styled)
 
 ```ts
-ui.row({ gap: 1, width: "full", height: "full" }, [
-  ui.panel("Navigation", [...], {
-    id: "nav",
+ui.appShell({
+  p: 1,
+  gap: 1,
+  display: visibilityConstraints.viewportHeightAtLeast(24),
+  width: widthConstraints.percentOfParent(0.98),
+  sidebar: {
     width: widthConstraints.clampedPercentOfParent({ ratio: 0.22, min: 18, max: 32 }),
-    display: visibilityConstraints.viewportWidthAtLeast(70),
-  }),
-  ui.panel("Main", [...], {
-    id: "main",
-    width: spaceConstraints.remainingWidth({ subtract: [{ id: "nav" }, { id: "rail" }], minus: 2 }),
-  }),
-  ui.panel("Details", [...], {
-    id: "rail",
-    width: widthConstraints.clampedPercentOfParent({ ratio: 0.28, min: 26, max: 44 }),
-    display: visibilityConstraints.viewportAtLeast({ width: 110, height: 28 }),
-  }),
-])
+    content: ui.panel({ title: "Navigation" }, [...]),
+  },
+  body: ui.row({ gap: 1 }, [
+    ui.panel(
+      {
+        id: "main",
+        title: "Main",
+        width: spaceConstraints.remainingWidth({ subtract: [{ id: "rail" }], minus: 1 }),
+      },
+      [...],
+    ),
+    ui.panel(
+      {
+        id: "rail",
+        title: "Details",
+        width: widthConstraints.clampedPercentOfParent({ ratio: 0.28, min: 26, max: 44 }),
+        display: visibilityConstraints.viewportAtLeast({ width: 110, height: 28 }),
+      },
+      [...],
+    ),
+  ]),
+})
 ```
 
 Visual structure remains idiomatic (`panel`/spacing), while constraints define responsive region sizing.
@@ -77,4 +90,3 @@ ui.modal({
   content: ui.column({ gap: 1 }, [...]),
 })
 ```
-

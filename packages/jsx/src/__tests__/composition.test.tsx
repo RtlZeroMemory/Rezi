@@ -1,7 +1,7 @@
 /** @jsxImportSource @rezi-ui/jsx */
 
 import type { RegisteredBinding, VNode } from "@rezi-ui/core";
-import { createTestRenderer, ui } from "@rezi-ui/core";
+import { createTestRenderer, ui, visibilityConstraints, widthConstraints } from "@rezi-ui/core";
 import {
   Actions,
   AppShell,
@@ -112,6 +112,31 @@ describe("composition helpers", () => {
 
     const withoutSidebarJsx = <AppShell body={<Text>Body</Text>} />;
     assertRenderParity(withoutSidebarJsx, ui.appShell({ body: ui.text("Body") }));
+  });
+
+  test("AppShell accepts constraint-based layout props", () => {
+    const shellDisplay = visibilityConstraints.viewportWidthAtLeast(110);
+    const shellWidth = widthConstraints.percentOfParent(0.9);
+    const sidebarWidth = widthConstraints.clampedPercentOfParent({ ratio: 0.25, min: 18, max: 30 });
+
+    const jsxNode = (
+      <AppShell
+        body={<Text>Body</Text>}
+        display={shellDisplay}
+        width={shellWidth}
+        sidebar={{ content: <Text>Nav</Text>, width: sidebarWidth }}
+      />
+    );
+
+    assertRenderParity(
+      jsxNode,
+      ui.appShell({
+        body: ui.text("Body"),
+        display: shellDisplay,
+        width: shellWidth,
+        sidebar: { content: ui.text("Nav"), width: sidebarWidth },
+      }),
+    );
   });
 
   test("Card delegates to ui.card", () => {
