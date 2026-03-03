@@ -510,7 +510,7 @@ describe("empty states", () => {
         id: "sp1",
         direction: "horizontal",
         sizes: Object.freeze([50, 50]),
-        onResize: () => {},
+        onChange: () => {},
       },
       children: Object.freeze([]),
     } as unknown as VNode;

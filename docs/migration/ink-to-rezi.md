@@ -190,7 +190,7 @@ ui.layers([
   ui.toastContainer({
     toasts: state.toasts,
     position: "bottom-right",
-    onDismiss: (id) => app.update((s) => ({ ...s, toasts: s.toasts.filter((t) => t.id !== id) })),
+    onClose: (id) => app.update((s) => ({ ...s, toasts: s.toasts.filter((t) => t.id !== id) })),
   }),
 ]);
 ```

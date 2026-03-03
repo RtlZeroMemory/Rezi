@@ -12,7 +12,7 @@ ui.splitPane(
     sizes: state.panelSizes,
     minSizes: [20, 30, 20],
     dividerSize: 1,
-    onResize: (sizes) => app.update((s) => ({ ...s, panelSizes: sizes })),
+    onChange: (sizes) => app.update((s) => ({ ...s, panelSizes: sizes })),
   },
   [FileExplorer(), Editor(), LogsPanel()]
 )
@@ -31,7 +31,7 @@ ui.splitPane(
 | `dividerSize` | `number` | `1` | Divider width/height in cells |
 | `collapsible` | `boolean` | `false` | Allow collapsing panels |
 | `collapsed` | `number[]` | - | Collapsed panel indices |
-| `onResize` | `(sizes) => void` | **required** | Resize callback |
+| `onChange` | `(sizes) => void` | **required** | Resize callback |
 | `onCollapse` | `(index, collapsed) => void` | - | Collapse callback |
 
 ## Behavior
@@ -39,7 +39,7 @@ ui.splitPane(
 Dividers between panels can be dragged with the mouse to resize:
 
 - **Mouse down** on a divider starts the drag
-- **Moving the mouse** updates panel sizes in real-time via the `onResize` callback
+- **Moving the mouse** updates panel sizes in real-time via the `onChange` callback
 - **Mouse up** ends the drag
 
 The hit area for dividers extends 1 cell on each side of the divider for easier grabbing.

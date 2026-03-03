@@ -3,7 +3,7 @@ import { ui } from "../ui.js";
 
 describe("informational widgets - edge cases", () => {
   test("empty preserves action and accepts empty strings", () => {
-    const action = ui.button("retry", "Retry");
+    const action = ui.button({ id: "retry", label: "Retry" });
     const vnode = ui.empty("", {
       icon: "status.info",
       description: "",

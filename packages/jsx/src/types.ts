@@ -167,10 +167,6 @@ export type ThemedJsxProps = Readonly<{
   children?: JsxChildren;
 }>;
 export type GridJsxProps = WithContainerChildren<GridPropsWithOptionalKey>;
-export type HStackJsxProps = WithContainerChildren<RowProps>;
-export type VStackJsxProps = WithContainerChildren<ColumnProps>;
-export type SpacedVStackJsxProps = Readonly<{ key?: string; gap?: number; children?: JsxChildren }>;
-export type SpacedHStackJsxProps = Readonly<{ key?: string; gap?: number; children?: JsxChildren }>;
 export type LayersJsxProps = WithContainerChildren<LayersProps>;
 export type FocusZoneJsxProps = WithContainerChildren<FocusZoneProps>;
 export type FocusTrapJsxProps = WithContainerChildren<FocusTrapProps>;
@@ -275,10 +271,6 @@ export interface ReziIntrinsicElements {
   column: ColumnJsxProps;
   themed: ThemedJsxProps;
   grid: GridJsxProps;
-  hstack: HStackJsxProps;
-  vstack: VStackJsxProps;
-  spacedVStack: SpacedVStackJsxProps;
-  spacedHStack: SpacedHStackJsxProps;
   layers: LayersJsxProps;
   focusZone: FocusZoneJsxProps;
   focusTrap: FocusTrapJsxProps;

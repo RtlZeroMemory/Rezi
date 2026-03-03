@@ -19,7 +19,9 @@ app.view((state) =>
       ui.row({ gap: 1, items: "center" }, [
         ui.text(String(state.count), { variant: "heading" }),
         ui.spacer({ flex: 1 }),
-        ui.button("inc", "+1", {
+        ui.button({
+          id: "inc",
+          label: "+1",
           intent: "primary",
           onPress: () => app.update((s) => ({ count: s.count + 1 })),
         }),

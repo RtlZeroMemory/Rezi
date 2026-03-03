@@ -30,7 +30,7 @@ export function routeToolApprovalDialogKeyDown(
     focusedActionById.get(toolDialog.id) ?? toolDialog.focusedAction ?? actions[0] ?? "allow";
 
   if (keyCode === ZR_KEY_ESCAPE) {
-    toolDialog.onDeny();
+    toolDialog.onPress("deny");
     toolDialog.onClose();
     return true;
   }
@@ -46,12 +46,12 @@ export function routeToolApprovalDialogKeyDown(
   }
 
   if (keyCode === Y) {
-    toolDialog.onAllow();
+    toolDialog.onPress("allow");
     toolDialog.onClose();
     return true;
   }
   if (keyCode === N) {
-    toolDialog.onDeny();
+    toolDialog.onPress("deny");
     toolDialog.onClose();
     return true;
   }
@@ -61,10 +61,10 @@ export function routeToolApprovalDialogKeyDown(
     return true;
   }
   if (keyCode === ZR_KEY_ENTER) {
-    if (focusedAction === "deny") toolDialog.onDeny();
+    if (focusedAction === "deny") toolDialog.onPress("deny");
     else if (focusedAction === "allowSession" && toolDialog.onAllowForSession)
       toolDialog.onAllowForSession();
-    else toolDialog.onAllow();
+    else toolDialog.onPress("allow");
     toolDialog.onClose();
     return true;
   }

@@ -57,9 +57,9 @@ export function renderLogsScreen(
               ? {}
               : { levelFilter: Object.freeze(["info", "warn", "error"] as const) }),
             onScroll: (scrollTop) => deps.dispatch({ type: "set-scroll-top", scrollTop }),
-            onEntryToggle: (entryId, expanded) =>
+            onChange: (entryId, expanded) =>
               deps.dispatch({ type: "set-entry-expanded", entryId, expanded }),
-            onClear: () => deps.dispatch({ type: "clear-logs" }),
+            onPress: () => deps.dispatch({ type: "clear-logs" }),
           }),
         ]),
         ui.panel({ title: "Recent entries", style: styles.panelStyle }, [

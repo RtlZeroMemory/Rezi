@@ -281,7 +281,7 @@ const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode =
       ...(selectedSubsystemId ? { selected: selectedSubsystemId } : {}),
       showLines: true,
       indentSize: 2,
-      onToggle: (node) => props.dispatch({ type: "toggle-subsystem", subsystemId: node.id }),
+      onChange: (node) => props.dispatch({ type: "toggle-subsystem", subsystemId: node.id }),
       onSelect: (node) => setSelectedSubsystemId(node.id),
       renderNode: (node, depth, state: NodeState) =>
         ui.row({ gap: SPACE.xs, wrap: false }, [

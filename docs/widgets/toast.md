@@ -9,7 +9,7 @@ ui.toastContainer({
   toasts: state.toasts,
   position: "bottom-right",
   maxVisible: 5,
-  onDismiss: (id) =>
+  onClose: (id) =>
     app.update((s) => ({ ...s, toasts: s.toasts.filter((t) => t.id !== id) })),
 })
 ```
@@ -23,7 +23,7 @@ ui.toastContainer({
 | `maxVisible` | `number` | `5` | Max visible toasts |
 | `width` | `number` | `40` | Toast container width in cells (clamped to viewport width) |
 | `frameStyle` | `{ background?, foreground?, border? }` | - | Optional frame/surface colors for toast background, message text, and border |
-| `onDismiss` | `(id) => void` | **required** | Dismiss callback |
+| `onClose` | `(id) => void` | **required** | Dismiss callback |
 
 ## Mouse Behavior
 

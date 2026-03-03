@@ -113,8 +113,8 @@ describe("editor widgets - VNode construction", () => {
       showSource: true,
       expandedEntries: ["1"],
       onScroll: () => undefined,
-      onEntryToggle: () => undefined,
-      onClear: () => undefined,
+      onChange: () => undefined,
+      onPress: () => undefined,
     });
 
     assert.equal(vnode.kind, "logsConsole");

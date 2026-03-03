@@ -851,7 +851,7 @@ describe("WidgetRenderer integration battery", () => {
             action: { label: "Act", onAction: () => {} },
           },
         ],
-        onDismiss: () => {},
+        onClose: () => {},
       }),
     ]);
 
@@ -909,7 +909,7 @@ describe("WidgetRenderer integration battery", () => {
             action: { label: "Act", onAction: () => activated.push("t0") },
           },
         ],
-        onDismiss: () => {},
+        onClose: () => {},
       }),
     ]);
 
@@ -1103,7 +1103,7 @@ describe("WidgetRenderer integration battery", () => {
         id: "sp",
         direction: "horizontal",
         sizes: [50, 50],
-        onResize: () => {},
+        onChange: () => {},
         collapsible: true,
         collapsed: [],
         onCollapse: (index, collapsed) => {
@@ -1449,7 +1449,7 @@ describe("WidgetRenderer integration battery", () => {
         expanded,
         renderNode: (n) => ui.text(n.key),
         onSelect: (n) => selectedKeys.push(n.key),
-        onToggle: (n, next) => {
+        onChange: (n, next) => {
           expanded = next
             ? Object.freeze([...expanded, n.key])
             : Object.freeze(expanded.filter((k) => k !== n.key));
@@ -1531,8 +1531,8 @@ describe("WidgetRenderer integration battery", () => {
       ],
       expandedPaths: [],
       onSelect: (path) => selected.push(path),
-      onToggle: (path, expanded) => toggled.push(`${path}:${expanded ? "1" : "0"}`),
-      onOpen: (path) => opened.push(path),
+      onChange: (path, expanded) => toggled.push(`${path}:${expanded ? "1" : "0"}`),
+      onPress: (path) => opened.push(path),
     });
 
     const res = renderer.submitFrame(
@@ -1572,13 +1572,13 @@ describe("WidgetRenderer integration battery", () => {
       id: "fte",
       data: [{ name: "a.ts", path: "/a.ts", type: "file" as const }],
       expanded: [],
-      onToggle: () => {
+      onChange: () => {
         throw new Error("toggle");
       },
       onSelect: () => {
         throw new Error("select");
       },
-      onActivate: () => {
+      onPress: () => {
         throw new Error("activate");
       },
     });
@@ -1627,8 +1627,8 @@ describe("WidgetRenderer integration battery", () => {
       expanded: [],
       renderNode: (n) => ui.text(n.key),
       onSelect: (n) => selected.push(n.key),
-      onActivate: (n) => activated.push(n.key),
-      onToggle: (n, next) => toggled.push(`${n.key}:${next ? "1" : "0"}`),
+      onPress: (n) => activated.push(n.key),
+      onChange: (n, next) => toggled.push(`${n.key}:${next ? "1" : "0"}`),
     });
 
     const res = renderer.submitFrame(
@@ -1674,7 +1674,7 @@ describe("WidgetRenderer integration battery", () => {
           action: { label: "Act1", onAction: () => activated.push("t1") },
         },
       ],
-      onDismiss: () => {},
+      onClose: () => {},
     });
 
     const res = renderer.submitFrame(

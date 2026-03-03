@@ -40,8 +40,8 @@ describe("design system rendering", () => {
   });
 
   it("does not truncate short button labels due to recipe padding", () => {
-    assert.ok(renderText(ui.button("b-ok", "OK")).includes("OK"));
-    assert.ok(renderText(ui.button("b-save", "Save")).includes("Save"));
+    assert.ok(renderText(ui.button({ id: "b-ok", label: "OK" })).includes("OK"));
+    assert.ok(renderText(ui.button({ id: "b-save", label: "Save" })).includes("Save"));
   });
 
   it("honors `px` overrides when button recipe styling is active", () => {
@@ -60,7 +60,9 @@ describe("design system rendering", () => {
   it("renders input with recipe border/background when stretched", () => {
     const renderer = createTestRenderer({ viewport: { cols: 40, rows: 5 }, theme });
     const result = renderer.render(
-      ui.row({ height: 3, items: "stretch" }, [ui.input("name", "", { placeholder: "Name" })]),
+      ui.row({ height: 3, items: "stretch" }, [
+        ui.input({ id: "name", value: "", ...{ placeholder: "Name" } }),
+      ]),
     );
     const input = result.findById("name");
     assert.ok(input, "input should render");
@@ -83,7 +85,7 @@ describe("design system rendering", () => {
   it("does not overwrite borders when input height is too small for framed rendering", () => {
     const renderer = createTestRenderer({ viewport: { cols: 40, rows: 4 }, theme });
     const result = renderer.render(
-      ui.row({ height: 2, items: "stretch" }, [ui.input("i", "Hello")]),
+      ui.row({ height: 2, items: "stretch" }, [ui.input({ id: "i", value: "Hello" })]),
     );
     const text = result.toText();
     assert.ok(text.includes("Hello"), "input should render value text");

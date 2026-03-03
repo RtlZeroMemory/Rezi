@@ -26,7 +26,7 @@ Benefits of `ui.*` factories:
 - Proper VNode construction with correct `kind` discriminants.
 - Automatic filtering of `null`, `false`, and `undefined` children.
 - Automatic flattening of nested child arrays.
-- Default `gap: 1` applied to `row`/`column`/`hstack`/`vstack` when omitted.
+- Default `gap: 1` applied to `row`/`column` when omitted.
 - Interactive widget props validated before layout (e.g. `button` requires non-empty `id`).
 
 ## Beautiful Defaults
@@ -44,8 +44,6 @@ Container and spacing primitives for arranging widgets.
 | [`ui.box(props, children)`](box.md) | Container with border, padding, title, and optional `transition`/`exitTransition`/opacity props | No | `stable` |
 | [`ui.row(props, children)`](stack.md) | Horizontal stack layout (supports `transition` for animated layout changes) | No | `stable` |
 | [`ui.column(props, children)`](stack.md) | Vertical stack layout (supports `transition` for animated layout changes) | No | `stable` |
-| [`ui.hstack(...)`](stack.md) | Shorthand horizontal stack (accepts gap number, props, or just children) | No | `stable` |
-| [`ui.vstack(...)`](stack.md) | Shorthand vertical stack (accepts gap number, props, or just children) | No | `stable` |
 | [`ui.grid(props, ...children)`](grid.md) | Two-dimensional grid layout (supports `transition` for animated layout changes) | No | `stable` |
 | [`ui.spacer(props?)`](spacer.md) | Fixed-size or flexible spacing | No | `stable` |
 | [`ui.divider(props?)`](divider.md) | Visual separator line | No | `stable` |
@@ -53,8 +51,6 @@ Container and spacing primitives for arranging widgets.
 | [`ui.splitPane(props, children)`](split-pane.md) | Resizable split layout with draggable dividers | No | `beta` |
 | [`ui.panelGroup(props, children)`](panel-group.md) | Container for resizable panels | No | `beta` |
 | [`ui.resizablePanel(props?, children?)`](resizable-panel.md) | Panel within a panel group | No | `beta` |
-
-> **Convenience aliases:** `ui.spacedVStack(children)` and `ui.spacedHStack(children)` are shorthand for `vstack`/`hstack` with a default gap. They also accept an explicit gap number as the first argument: `ui.spacedVStack(2, children)`.
 
 **Quick example:**
 
@@ -152,8 +148,8 @@ Interactive form controls. All form widgets require an `id` prop for focus manag
 
 | Factory | Description | Focusable | Stability |
 |---------|-------------|-----------|-----------|
-| [`ui.button(id, label)` / `ui.button(props)`](button.md) | Clickable button with label | Yes | `beta` |
-| [`ui.input(id, value)` / `ui.input(props)`](input.md) | Single-line text input | Yes | `stable` |
+| [`ui.button(props)`](button.md) | Clickable button with label | Yes | `beta` |
+| [`ui.input(props)`](input.md) | Single-line text input | Yes | `stable` |
 | [`ui.textarea(props)`](textarea.md) | Multi-line text input (multiline input variant) | Yes | `beta` |
 | [`ui.slider(props)`](slider.md) | Numeric range input | Yes | `beta` |
 | [`ui.checkbox(props)`](checkbox.md) | Toggle checkbox | Yes | `beta` |
@@ -169,7 +165,9 @@ ui.form([
     label: "Username",
     required: true,
     error: errors.username,
-    children: ui.input("username", state.username, {
+    children: ui.input({
+      id: "username",
+      value: state.username,
       onInput: (v) => app.update({ username: v }),
     }),
   }),
@@ -180,7 +178,9 @@ ui.form([
     onChange: (c) => app.update({ remember: c }),
   }),
   ui.actions([
-    ui.button("submit", "Submit", {
+    ui.button({
+      id: "submit",
+      label: "Submit",
       onPress: () => handleSubmit(),
     }),
   ]),
@@ -196,7 +196,7 @@ Widgets for navigating between views, sections, and pages.
 | [`ui.tabs(props)`](tabs.md) | Tab switcher with scoped content | Yes | `beta` |
 | [`ui.accordion(props)`](accordion.md) | Expand/collapse stacked sections | Yes | `beta` |
 | [`ui.breadcrumb(props)`](breadcrumb.md) | Hierarchical location path with jumps | Optional (`id`) | `beta` |
-| [`ui.link(url, label?)` / `ui.link(props)`](link.md) | Hyperlink text with optional press behavior | Optional (`id`) | `beta` |
+| [`ui.link(props)`](link.md) | Hyperlink text with optional press behavior | Optional (`id`) | `beta` |
 | [`ui.pagination(props)`](pagination.md) | Navigate paged datasets | Yes | `beta` |
 | [`ui.routerBreadcrumb(router, routes, props?)`](../guide/routing.md) | Breadcrumbs derived from current router history | No | `beta` |
 | [`ui.routerTabs(router, routes, props?)`](../guide/routing.md) | Tabs derived from registered routes with current route selection | No | `beta` |
@@ -355,10 +355,10 @@ ui.page({
   body: ui.panel("Content", [
     ui.text("Main content goes here"),
     ui.form([
-      ui.field({ label: "Name", children: ui.input("name", state.name) }),
+      ui.field({ label: "Name", children: ui.input({ id: "name", value: state.name }) }),
       ui.actions([
-        ui.button("save", "Save", { intent: "primary" }),
-        ui.button("cancel", "Cancel"),
+        ui.button({ id: "save", label: "Save", intent: "primary" }),
+        ui.button({ id: "cancel", label: "Cancel" }),
       ]),
     ]),
   ]),
@@ -513,7 +513,7 @@ focusable?: boolean
 
 ### Spacing Props
 
-`box`, `row`, `column`, `hstack`, and `vstack` all accept spacing props. Values are either a number (terminal cells) or a named key.
+`box`, `row`, and `column` all accept spacing props. Values are either a number (terminal cells) or a named key.
 
 ```typescript
 // Padding
@@ -574,7 +574,7 @@ right?: number
 bottom?: number
 left?: number
 
-// Gap between children (row, column, hstack, vstack)
+// Gap between children (row, column)
 gap?: SpacingValue
 
 // Alignment

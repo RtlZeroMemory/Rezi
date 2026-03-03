@@ -269,7 +269,7 @@
     {
       "name": "tree",
       "requiredProps": ["id", "data", "getKey"],
-      "commonProps": ["expanded", "onToggle"],
+      "commonProps": ["expanded", "onChange"],
       "example": "ui.tree({ id: 'fs', data, getKey: (n) => n.id })"
     },
     {
@@ -305,7 +305,7 @@
     {
       "name": "accordion",
       "requiredProps": ["id", "items"],
-      "commonProps": ["expanded", "onToggle"],
+      "commonProps": ["expanded", "onChange"],
       "example": "ui.accordion({ id: 'acc', items })"
     },
     {
@@ -335,19 +335,19 @@
     {
       "name": "fileTreeExplorer",
       "requiredProps": ["id", "nodes"],
-      "commonProps": ["expanded", "onToggle"],
+      "commonProps": ["expanded", "onChange"],
       "example": "ui.fileTreeExplorer({ id: 'tree', nodes })"
     },
     {
       "name": "splitPane",
       "requiredProps": ["id", "direction", "children"],
-      "commonProps": ["ratio", "onResize"],
+      "commonProps": ["ratio", "onChange"],
       "example": "ui.splitPane({ id: 'split', direction: 'horizontal' }, [left, right])"
     },
     {
       "name": "panelGroup",
       "requiredProps": ["id", "direction", "children"],
-      "commonProps": ["sizes", "onResize"],
+      "commonProps": ["sizes", "onChange"],
       "example": "ui.panelGroup({ id: 'pg', direction: 'horizontal' }, [a, b])"
     },
     {
@@ -371,8 +371,8 @@
     {
       "name": "toolApprovalDialog",
       "requiredProps": ["id", "request"],
-      "commonProps": ["onAllow", "onDeny"],
-      "example": "ui.toolApprovalDialog({ id: 'approve', request })"
+      "commonProps": ["onPress", "onAllowForSession"],
+      "example": "ui.toolApprovalDialog({ id: 'approve', request, onPress: (action) => handleApproval(action) })"
     },
     {
       "name": "logsConsole",
@@ -382,9 +382,9 @@
     },
     {
       "name": "toastContainer",
-      "requiredProps": ["toasts", "onDismiss"],
+      "requiredProps": ["toasts", "onClose"],
       "commonProps": ["position", "maxVisible", "frameStyle"],
-      "example": "ui.toastContainer({ toasts, onDismiss: (id) => dismissToast(id) })"
+      "example": "ui.toastContainer({ toasts, onClose: (id) => dismissToast(id) })"
     }
   ]
 }

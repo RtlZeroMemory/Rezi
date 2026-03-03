@@ -72,10 +72,6 @@ All JSX components delegate to the equivalent `ui.*()` factory.
 | `<Column>` | `ui.column()` |
 | `<Themed>` | `ui.themed()` |
 | `<Grid>` | `ui.grid()` |
-| `<HStack>` | `ui.hstack()` |
-| `<VStack>` | `ui.vstack()` |
-| `<SpacedVStack>` | `ui.spacedVStack()` |
-| `<SpacedHStack>` | `ui.spacedHStack()` |
 | `<Layers>` | `ui.layers()` |
 | `<FocusZone>` | `ui.focusZone()` |
 | `<FocusTrap>` | `ui.focusTrap()` |

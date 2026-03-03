@@ -2,7 +2,7 @@
 
 import { expr, fluid, ui } from "@rezi-ui/core";
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { Box, Column, Divider, Grid, HStack, Layers, Row, Spacer, Text, VStack } from "../index.js";
+import { Box, Column, Divider, Grid, Layers, Row, Spacer, Text } from "../index.js";
 
 describe("layout components", () => {
   test("Box maps props and children", () => {
@@ -153,24 +153,24 @@ describe("layout components", () => {
     );
   });
 
-  test("HStack and VStack map to helper defaults", () => {
+  test("Row and Column map default gap behavior", () => {
     assert.deepEqual(
-      <HStack>
+      <Row>
         <Text>A</Text>
         <Text>B</Text>
-      </HStack>,
-      ui.hstack({}, [ui.text("A"), ui.text("B")]),
+      </Row>,
+      ui.row({}, [ui.text("A"), ui.text("B")]),
     );
 
     assert.deepEqual(
-      <VStack gap={3}>
+      <Column gap={3}>
         <Text>A</Text>
-      </VStack>,
-      ui.vstack({ gap: 3 }, [ui.text("A")]),
+      </Column>,
+      ui.column({ gap: 3 }, [ui.text("A")]),
     );
   });
 
-  test("Grid/HStack/VStack normalize nullish and primitive children", () => {
+  test("Grid/Row/Column normalize nullish and primitive children", () => {
     assert.deepEqual(
       <Grid columns={1}>
         {null}
@@ -182,20 +182,20 @@ describe("layout components", () => {
     );
 
     assert.deepEqual(
-      <HStack>
+      <Row>
         {null}
         {false}
         {"h"}
-      </HStack>,
-      ui.hstack({}, [ui.text("h")]),
+      </Row>,
+      ui.row({}, [ui.text("h")]),
     );
 
     assert.deepEqual(
-      <VStack>
+      <Column>
         {false}
         {2}
-      </VStack>,
-      ui.vstack({}, [ui.text("2")]),
+      </Column>,
+      ui.column({}, [ui.text("2")]),
     );
   });
 

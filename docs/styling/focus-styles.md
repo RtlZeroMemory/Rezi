@@ -84,9 +84,9 @@ ui.fileTreeExplorer({
   data: fileTree,
   expanded: expandedPaths,
   focusConfig: { indicator: "none" },
-  onToggle: handleToggle,
+  onChange: handleToggle,
   onSelect: handleSelect,
-  onActivate: handleActivate,
+  onPress: handleActivate,
 });
 ```
 

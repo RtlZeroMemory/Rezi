@@ -23,8 +23,8 @@ function filePicker(id: string): VNode {
     data: Object.freeze({ name: "a.txt", path: "/a.txt", type: "file" }),
     expandedPaths: Object.freeze([]),
     onSelect: () => {},
-    onToggle: () => {},
-    onOpen: () => {},
+    onChange: () => {},
+    onPress: () => {},
   };
   return { kind: "filePicker", props };
 }

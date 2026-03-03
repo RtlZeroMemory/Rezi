@@ -64,9 +64,9 @@ describe("FileTreeExplorer context menu", () => {
       id: "fte",
       data,
       expanded: [],
-      onToggle: () => {},
+      onChange: () => {},
       onSelect: () => {},
-      onActivate: () => {},
+      onPress: () => {},
       onContextMenu: (node) => calls.push(node.path),
     });
 
@@ -115,9 +115,9 @@ describe("FileTreeExplorer context menu", () => {
       id: "fte",
       data,
       expanded: ["/"],
-      onToggle: () => {},
+      onChange: () => {},
       onSelect: () => {},
-      onActivate: () => {},
+      onPress: () => {},
       onContextMenu: (node) => calls.push(node.path),
     });
 

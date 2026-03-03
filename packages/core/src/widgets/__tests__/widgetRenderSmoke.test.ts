@@ -101,7 +101,10 @@ describe("widget render smoke", () => {
       }),
     },
     { name: "callout", vnode: ui.callout("watch out", { variant: "warning" }) },
-    { name: "link", vnode: ui.link("https://example.com", "Example", { id: "lnk" }) },
+    {
+      name: "link",
+      vnode: ui.link({ url: "https://example.com", label: "Example", id: "lnk" }),
+    },
     {
       name: "canvas",
       vnode: ui.canvas({
@@ -166,16 +169,18 @@ describe("widget render smoke", () => {
         { label: "MEM", value: 72, max: 100 },
       ]),
     },
-    { name: "button", vnode: ui.button("ok", "OK") },
-    { name: "input", vnode: ui.input("name", "value") },
+    { name: "button", vnode: ui.button({ id: "ok", label: "OK" }) },
+    { name: "input", vnode: ui.input({ id: "name", value: "value" }) },
     { name: "slider", vnode: ui.slider({ id: "volume", value: 50, min: 0, max: 100, step: 5 }) },
     {
       name: "focusZone",
-      vnode: ui.focusZone({ id: "zone", navigation: "linear" }, [ui.button("z1", "One")]),
+      vnode: ui.focusZone({ id: "zone", navigation: "linear" }, [
+        ui.button({ id: "z1", label: "One" }),
+      ]),
     },
     {
       name: "focusTrap",
-      vnode: ui.focusTrap({ id: "trap", active: true }, [ui.button("t1", "One")]),
+      vnode: ui.focusTrap({ id: "trap", active: true }, [ui.button({ id: "t1", label: "One" })]),
     },
     {
       name: "virtualList",
@@ -193,7 +198,7 @@ describe("widget render smoke", () => {
         id: "modal",
         title: "Confirm",
         content: ui.text("Continue?"),
-        actions: [ui.button("yes", "Yes")],
+        actions: [ui.button({ id: "yes", label: "Yes" })],
       }),
     },
     {
@@ -225,13 +230,17 @@ describe("widget render smoke", () => {
         getKey: (node) => node.id,
         getChildren: (node) => node.children,
         expanded: ["root"],
-        onToggle: noop,
+        onChange: noop,
         renderNode: (node) => ui.text(node.id),
       }),
     },
     {
       name: "field",
-      vnode: ui.field({ label: "Name", required: true, children: ui.input("field", "") }),
+      vnode: ui.field({
+        label: "Name",
+        required: true,
+        children: ui.input({ id: "field", value: "" }),
+      }),
     },
     {
       name: "select",
@@ -270,7 +279,7 @@ describe("widget render smoke", () => {
           },
         ],
         selectedIndex: 0,
-        onQueryChange: noop,
+        onChange: noop,
         onSelect: noop,
         onClose: noop,
       }),
@@ -283,8 +292,8 @@ describe("widget render smoke", () => {
         data: fileData,
         expandedPaths: ["/"],
         onSelect: noop,
-        onToggle: noop,
-        onOpen: noop,
+        onChange: noop,
+        onPress: noop,
       }),
     },
     {
@@ -293,9 +302,9 @@ describe("widget render smoke", () => {
         id: "explorer",
         data: fileData,
         expanded: ["/"],
-        onToggle: noop,
+        onChange: noop,
         onSelect: noop,
-        onActivate: noop,
+        onPress: noop,
       }),
     },
     {
@@ -305,7 +314,7 @@ describe("widget render smoke", () => {
           id: "split",
           direction: "horizontal",
           sizes: [50, 50],
-          onResize: noop,
+          onChange: noop,
         },
         [ui.text("L"), ui.text("R")],
       ),
@@ -351,8 +360,7 @@ describe("widget render smoke", () => {
         id: "approval",
         open: true,
         request: { toolId: "shell", toolName: "Shell", riskLevel: "low" },
-        onAllow: noop,
-        onDeny: noop,
+        onPress: noop,
         onClose: noop,
       }),
     },
@@ -377,7 +385,7 @@ describe("widget render smoke", () => {
       name: "toastContainer",
       vnode: ui.toastContainer({
         toasts: [{ id: "t1", message: "Saved", type: "success" }],
-        onDismiss: noop,
+        onClose: noop,
       }),
     },
   ];

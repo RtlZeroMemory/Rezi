@@ -544,14 +544,14 @@ function createHarness(): Harness {
       data: FileNode;
       expanded: readonly string[];
       selected?: string;
-      onToggle: (node: FileNode, expanded: boolean) => void;
+      onChange: (node: FileNode, expanded: boolean) => void;
       onSelect: (node: FileNode) => void;
-      onActivate: (node: FileNode) => void;
+      onPress: (node: FileNode) => void;
     } = {
       id: "tree",
       data: FILE_TREE,
       expanded: state.expanded,
-      onToggle: (node, expanded) => {
+      onChange: (node, expanded) => {
         app.update((current) =>
           Object.freeze({
             ...current,
@@ -570,7 +570,7 @@ function createHarness(): Harness {
           });
         });
       },
-      onActivate: (node) => {
+      onPress: (node) => {
         app.update((current) => {
           if (node.type === "file" && isFilePath(node.path)) {
             return openFileTab(current, node.path);
@@ -693,7 +693,7 @@ function createHarness(): Harness {
           placeholder: "Find file or type > command",
           maxVisible: 8,
           sources: PALETTE_SOURCES,
-          onQueryChange: (query) => {
+          onChange: (query) => {
             app.update((current) =>
               Object.freeze({
                 ...current,

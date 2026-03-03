@@ -59,7 +59,7 @@ function dropdownNode(props: Record<string, unknown> = {}): VNode {
   } as unknown as VNode;
 }
 
-const NOOP_RESIZE = (): void => {};
+const NOOP_CHANGE = (): void => {};
 
 function splitPaneNode(children: readonly VNode[], props: Record<string, unknown> = {}): VNode {
   return {
@@ -68,7 +68,7 @@ function splitPaneNode(children: readonly VNode[], props: Record<string, unknown
       id: "split-pane",
       direction: "horizontal",
       sizes: Object.freeze([50, 50]),
-      onResize: NOOP_RESIZE,
+      onChange: NOOP_CHANGE,
       ...props,
     },
     children: Object.freeze([...children]),

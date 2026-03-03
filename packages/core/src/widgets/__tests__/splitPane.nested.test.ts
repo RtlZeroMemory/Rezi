@@ -9,7 +9,7 @@ function leafPanel(id: string): VNode {
       id: `leaf-${id}`,
       direction: "horizontal",
       sizes: [],
-      onResize: () => undefined,
+      onChange: () => undefined,
     },
     children: Object.freeze([]),
   } as unknown as VNode;
@@ -27,7 +27,7 @@ function splitPane(
       id: "sp",
       direction,
       sizes,
-      onResize: () => undefined,
+      onChange: () => undefined,
       ...extras,
     },
     children: Object.freeze(children),

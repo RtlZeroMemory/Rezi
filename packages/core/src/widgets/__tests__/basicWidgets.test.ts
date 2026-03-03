@@ -298,7 +298,7 @@ describe("ui.basic widgets - VNode construction", () => {
   });
 
   test("empty creates kind and forwards title/options", () => {
-    const action = ui.button("retry", "Retry");
+    const action = ui.button({ id: "retry", label: "Retry" });
     const vnode = ui.empty("No items", {
       icon: "ui.search",
       description: "Try a different filter",

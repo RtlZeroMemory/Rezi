@@ -51,14 +51,14 @@ describe("advanced widgets", () => {
     const renderNode = (node: { id: string }, _depth: number, _state: NodeState) =>
       ui.text(node.id);
     const getKey = (node: { id: string }) => node.id;
-    const onToggle = () => {};
+    const onTreeChange = () => {};
     const tree = (
-      <Tree
+      <Tree<{ id: string }>
         id="tree"
         data={[{ id: "root" }]}
         getKey={getKey}
         expanded={[]}
-        onToggle={onToggle}
+        onChange={onTreeChange}
         renderNode={renderNode}
       />
     );
@@ -69,7 +69,7 @@ describe("advanced widgets", () => {
         data: [{ id: "root" }],
         getKey,
         expanded: [],
-        onToggle,
+        onChange: onTreeChange,
         renderNode,
       }),
     );
@@ -91,9 +91,9 @@ describe("advanced widgets", () => {
   });
 
   test("SplitPane, PanelGroup, ResizablePanel map to matching VNodes", () => {
-    const onResize = () => {};
+    const onChange = () => {};
     const split = (
-      <SplitPane id="split" direction="horizontal" sizes={[50, 50]} onResize={onResize}>
+      <SplitPane id="split" direction="horizontal" sizes={[50, 50]} onChange={onChange}>
         <ResizablePanel defaultSize={30}>
           <ResizablePanel defaultSize={100} />
         </ResizablePanel>
@@ -102,7 +102,7 @@ describe("advanced widgets", () => {
 
     assert.deepEqual(
       split,
-      ui.splitPane({ id: "split", direction: "horizontal", sizes: [50, 50], onResize }, [
+      ui.splitPane({ id: "split", direction: "horizontal", sizes: [50, 50], onChange }, [
         ui.resizablePanel({ defaultSize: 30 }, [ui.resizablePanel({ defaultSize: 100 }, [])]),
       ]),
     );
@@ -123,16 +123,16 @@ describe("advanced widgets", () => {
   });
 
   test("SplitPane normalizes primitive children in nested panels", () => {
-    const onResize = () => {};
+    const onChange = () => {};
     const vnode = (
-      <SplitPane id="split-primitive" direction="horizontal" sizes={[100]} onResize={onResize}>
+      <SplitPane id="split-primitive" direction="horizontal" sizes={[100]} onChange={onChange}>
         <ResizablePanel defaultSize={100}>{1}</ResizablePanel>
       </SplitPane>
     );
 
     assert.deepEqual(
       vnode,
-      ui.splitPane({ id: "split-primitive", direction: "horizontal", sizes: [100], onResize }, [
+      ui.splitPane({ id: "split-primitive", direction: "horizontal", sizes: [100], onChange }, [
         ui.resizablePanel({ defaultSize: 100 }, [ui.text("1")]),
       ]),
     );
@@ -199,7 +199,7 @@ describe("advanced widgets", () => {
         getItems: async (_query: string): Promise<readonly CommandItem[]> => [],
       },
     ] as const;
-    const onQueryChange = () => {};
+    const onChange = () => {};
     const onCommandSelect = () => {};
     const onPaletteClose = () => {};
 
@@ -212,7 +212,7 @@ describe("advanced widgets", () => {
         selectedIndex={0}
         width={72}
         maxVisible={8}
-        onQueryChange={onQueryChange}
+        onChange={onChange}
         onSelect={onCommandSelect}
         onClose={onPaletteClose}
       />
@@ -227,7 +227,7 @@ describe("advanced widgets", () => {
         selectedIndex: 0,
         width: 72,
         maxVisible: 8,
-        onQueryChange,
+        onChange,
         onSelect: onCommandSelect,
         onClose: onPaletteClose,
       }),
@@ -244,8 +244,8 @@ describe("advanced widgets", () => {
         data={rootNode}
         expandedPaths={[]}
         onSelect={onPickerSelect}
-        onToggle={onPickerToggle}
-        onOpen={onPickerOpen}
+        onChange={onPickerToggle}
+        onPress={onPickerOpen}
       />
     );
     assert.deepEqual(
@@ -256,8 +256,8 @@ describe("advanced widgets", () => {
         data: rootNode,
         expandedPaths: [],
         onSelect: onPickerSelect,
-        onToggle: onPickerToggle,
-        onOpen: onPickerOpen,
+        onChange: onPickerToggle,
+        onPress: onPickerOpen,
       }),
     );
 
@@ -269,9 +269,9 @@ describe("advanced widgets", () => {
         id="explorer"
         data={rootNode}
         expanded={[]}
-        onToggle={onExplorerToggle}
+        onChange={onExplorerToggle}
         onSelect={onExplorerSelect}
-        onActivate={onExplorerActivate}
+        onPress={onExplorerActivate}
       />
     );
     assert.deepEqual(
@@ -280,14 +280,13 @@ describe("advanced widgets", () => {
         id: "explorer",
         data: rootNode,
         expanded: [],
-        onToggle: onExplorerToggle,
+        onChange: onExplorerToggle,
         onSelect: onExplorerSelect,
-        onActivate: onExplorerActivate,
+        onPress: onExplorerActivate,
       }),
     );
 
-    const onAllow = () => {};
-    const onDeny = () => {};
+    const onApprovalPress = () => {};
     const onApprovalClose = () => {};
     const approval = (
       <ToolApprovalDialog
@@ -296,8 +295,7 @@ describe("advanced widgets", () => {
         request={{ toolId: "run", toolName: "run", riskLevel: "low" }}
         width={54}
         height={16}
-        onAllow={onAllow}
-        onDeny={onDeny}
+        onPress={onApprovalPress}
         onClose={onApprovalClose}
       />
     );
@@ -309,8 +307,7 @@ describe("advanced widgets", () => {
         request: { toolId: "run", toolName: "run", riskLevel: "low" },
         width: 54,
         height: 16,
-        onAllow,
-        onDeny,
+        onPress: onApprovalPress,
         onClose: onApprovalClose,
       }),
     );
@@ -322,13 +319,13 @@ describe("advanced widgets", () => {
       ui.logsConsole({ id: "logs", entries: [], scrollTop: 0, onScroll: onLogsScroll }),
     );
 
-    const onDismiss = () => {};
+    const onClose = () => {};
     const toasts = (
       <ToastContainer
         toasts={[{ id: "1", message: "Saved", type: "success" }]}
         width={48}
         maxVisible={3}
-        onDismiss={onDismiss}
+        onClose={onClose}
       />
     );
     assert.deepEqual(
@@ -337,7 +334,7 @@ describe("advanced widgets", () => {
         toasts: [{ id: "1", message: "Saved", type: "success" }],
         width: 48,
         maxVisible: 3,
-        onDismiss,
+        onClose,
       }),
     );
   });

@@ -9,8 +9,10 @@ ui.toolApprovalDialog({
   id: "approval",
   open: state.pendingApproval !== null,
   request: state.pendingApproval,
-  onAllow: () => executeTool(state.pendingApproval),
-  onDeny: () => app.update((s) => ({ ...s, pendingApproval: null })),
+  onPress: (action) =>
+    action === "allow"
+      ? executeTool(state.pendingApproval)
+      : app.update((s) => ({ ...s, pendingApproval: null })),
   onAllowForSession: () => allowForSession(state.pendingApproval),
   onClose: () => app.update((s) => ({ ...s, pendingApproval: null })),
 })
@@ -26,8 +28,7 @@ ui.toolApprovalDialog({
 | `width` | `number` | `50` | Dialog width in cells (clamped to viewport width) |
 | `height` | `number` | `15` | Dialog height in cells (clamped to viewport height) |
 | `focusedAction` | `"allow" \| "deny" \| "allowSession"` | - | Focused action button |
-| `onAllow` | `() => void` | **required** | Allow callback |
-| `onDeny` | `() => void` | **required** | Deny callback |
+| `onPress` | `(action: "allow" \| "deny") => void` | **required** | Allow/deny callback |
 | `onAllowForSession` | `() => void` | - | Allow for session callback |
 | `onClose` | `() => void` | **required** | Close callback |
 

@@ -661,8 +661,8 @@ describe("renderer damage rect behavior", () => {
 
   test("focus update null -> first button matches full render", () => {
     const vnode = ui.column({ width: 20, height: 6 }, [
-      ui.button("a", "Alpha"),
-      ui.button("b", "Beta"),
+      ui.button({ id: "a", label: "Alpha" }),
+      ui.button({ id: "b", label: "Beta" }),
     ]);
     const scene = buildScene(vnode, viewport);
     const aRect = getRectById(scene, "a");
@@ -683,8 +683,8 @@ describe("renderer damage rect behavior", () => {
 
   test("focus update a -> b with union damage matches full render", () => {
     const vnode = ui.column({ width: 20, height: 6 }, [
-      ui.button("a", "Alpha"),
-      ui.button("b", "Beta"),
+      ui.button({ id: "a", label: "Alpha" }),
+      ui.button({ id: "b", label: "Beta" }),
     ]);
     const scene = buildScene(vnode, viewport);
     const aRect = getRectById(scene, "a");
@@ -708,8 +708,8 @@ describe("renderer damage rect behavior", () => {
 
   test("focus update a -> b only mutates cells inside focus damage union", () => {
     const vnode = ui.column({ width: 20, height: 6 }, [
-      ui.button("a", "Alpha"),
-      ui.button("b", "Beta"),
+      ui.button({ id: "a", label: "Alpha" }),
+      ui.button({ id: "b", label: "Beta" }),
     ]);
     const scene = buildScene(vnode, viewport);
     const aRect = getRectById(scene, "a");

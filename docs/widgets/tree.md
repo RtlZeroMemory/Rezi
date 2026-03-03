@@ -13,7 +13,7 @@ ui.tree<FileNode>({
   hasChildren: (n) => n.type === "directory",
   expanded: state.expandedPaths,
   selected: state.selectedPath,
-  onToggle: (node, exp) =>
+  onChange: (node, exp) =>
     app.update((s) => ({
       ...s,
       expandedPaths: exp
@@ -21,7 +21,7 @@ ui.tree<FileNode>({
         : s.expandedPaths.filter((p) => p !== node.path),
     })),
   onSelect: (n) => app.update((s) => ({ ...s, selectedPath: n.path })),
-  onActivate: (n) => n.type === "file" && openFile(n.path),
+  onPress: (n) => n.type === "file" && openFile(n.path),
   renderNode: (node, _depth, st) =>
     ui.row({ gap: 1 }, [
       ui.text(st.expanded ? "▼" : st.hasChildren ? "▶" : " "),

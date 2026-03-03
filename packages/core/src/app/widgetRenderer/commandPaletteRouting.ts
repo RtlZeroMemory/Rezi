@@ -95,7 +95,7 @@ export function routeCommandPaletteKeyDown(
         prefixes[(idx + 1 + prefixes.length) % prefixes.length] ?? prefixes[0] ?? "";
       const nextQuery = bare.length > 0 ? `${nextPrefix} ${bare}` : nextPrefix;
 
-      palette.onQueryChange(nextQuery);
+      palette.onChange(nextQuery);
       if (palette.onSelectionChange) palette.onSelectionChange(0);
       return true;
     }
@@ -120,7 +120,7 @@ export function routeCommandPaletteKeyDown(
   }
 
   if (event.key === ZR_KEY_BACKSPACE && palette.query.length > 0) {
-    palette.onQueryChange(popLastCodePoint(palette.query));
+    palette.onChange(popLastCodePoint(palette.query));
     if (palette.onSelectionChange) palette.onSelectionChange(0);
     return true;
   }

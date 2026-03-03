@@ -21,7 +21,7 @@ ui.commandPalette({
     },
   ],
   selectedIndex: state.selectedIndex,
-  onQueryChange: (q) => app.update((s) => ({ ...s, query: q })),
+  onChange: (q) => app.update((s) => ({ ...s, query: q })),
   onSelectionChange: (i) => app.update((s) => ({ ...s, selectedIndex: i })),
   onSelect: (item) => runCommand(item.id),
   onClose: () => app.update((s) => ({ ...s, open: false })),
@@ -42,7 +42,7 @@ ui.commandPalette({
 | `maxVisible` | `number` | `10` | Maximum visible result rows. Useful for capping palette height in smaller viewports. |
 | `width` | `number` | `60` | Palette width in cells (clamped to viewport width). |
 | `frameStyle` | `{ background?, foreground?, border? }` | - | Optional frame/surface colors for palette background, text, and border. |
-| `onQueryChange` | `(query) => void` | **required** | Called when the query changes. |
+| `onChange` | `(query) => void` | **required** | Called when the query changes. |
 | `onSelect` | `(item) => void` | **required** | Called when a result item is selected. |
 | `onClose` | `() => void` | **required** | Called when the palette should close. |
 | `onSelectionChange` | `(index) => void` | - | Called when highlighted index changes. |
@@ -75,7 +75,7 @@ ui.commandPalette({
     },
   ],
   selectedIndex: state.selectedIndex,
-  onQueryChange: (query) => app.update((s) => ({ ...s, query })),
+  onChange: (query) => app.update((s) => ({ ...s, query })),
   onSelectionChange: (selectedIndex) => app.update((s) => ({ ...s, selectedIndex })),
   onSelect: (item) => runCommand(item.id),
   onClose: () => app.update((s) => ({ ...s, open: false })),

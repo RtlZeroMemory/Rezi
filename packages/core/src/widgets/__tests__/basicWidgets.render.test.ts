@@ -533,7 +533,10 @@ describe("basic widgets render to drawlist", () => {
   });
 
   test("link encodes hyperlink refs", () => {
-    const v3 = renderBytesV3(ui.link("https://example.com", "Docs"), { cols: 40, rows: 4 });
+    const v3 = renderBytesV3(ui.link({ url: "https://example.com", label: "Docs" }), {
+      cols: 40,
+      rows: 4,
+    });
     assert.equal(parseOpcodes(v3).includes(8), false);
     assert.equal(parseInternedStrings(v3).includes("https://example.com"), true);
     const v3Docs = parseDrawTextCommands(v3).find((cmd) => cmd.text === "Docs");

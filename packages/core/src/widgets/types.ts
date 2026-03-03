@@ -1720,7 +1720,7 @@ export type CommandPaletteProps = Readonly<{
   /** Optional style override for selected result row highlighting. */
   selectionStyle?: TextStyle;
   /** Callback when query changes. */
-  onQueryChange: (query: string) => void;
+  onChange: (query: string) => void;
   /** Callback when item is selected. */
   onSelect: (item: CommandItem) => void;
   /** Callback when palette should close. */
@@ -1799,9 +1799,9 @@ export type FilePickerProps = Readonly<{
   /** Callback when file is selected. */
   onSelect: (path: string) => void;
   /** Callback when directory expand state changes. */
-  onToggle: (path: string, expanded: boolean) => void;
+  onChange: (path: string, expanded: boolean) => void;
   /** Callback when file is opened (double-click / Enter). */
-  onOpen: (path: string) => void;
+  onPress: (path: string) => void;
   /** Callback when selection changes (multi-select). */
   onSelectionChange?: (paths: readonly string[]) => void;
   /** Optional focus appearance configuration. */
@@ -1835,11 +1835,11 @@ export type FileTreeExplorerProps = Readonly<{
   /** Indentation per level (default: 2). */
   indentSize?: number;
   /** Callback when node expand state changes. */
-  onToggle: (node: FileNode, expanded: boolean) => void;
+  onChange: (node: FileNode, expanded: boolean) => void;
   /** Callback when node is selected. */
   onSelect: (node: FileNode) => void;
   /** Callback when node is activated (Enter / double-click). */
-  onActivate: (node: FileNode) => void;
+  onPress: (node: FileNode) => void;
   /** Callback for context menu (right-click / Menu key). */
   onContextMenu?: (node: FileNode) => void;
   /** Custom node renderer. */
@@ -1878,7 +1878,7 @@ export type SplitPaneProps = Readonly<{
   /** Collapsed panel indices. */
   collapsed?: readonly number[];
   /** Callback when sizes change from dragging. */
-  onResize: (sizes: readonly number[]) => void;
+  onChange: (sizes: readonly number[]) => void;
   /** Callback when panel collapse state changes. */
   onCollapse?: (index: number, collapsed: boolean) => void;
 }>;
@@ -2209,10 +2209,8 @@ export type ToolApprovalDialogProps = Readonly<{
   height?: number;
   /** Focused action button. */
   focusedAction?: "allow" | "deny" | "allowSession";
-  /** Callback when allowed. */
-  onAllow: () => void;
-  /** Callback when denied. */
-  onDeny: () => void;
+  /** Callback when an allow/deny action is pressed. */
+  onPress: (action: "allow" | "deny") => void;
   /** Callback when allowed for session. */
   onAllowForSession?: () => void;
   /** Callback when dialog should close. */
@@ -2288,9 +2286,9 @@ export type LogsConsoleProps = Readonly<{
   /** Callback when scroll position changes. */
   onScroll: (scrollTop: number) => void;
   /** Callback when entry expand state changes. */
-  onEntryToggle?: (entryId: string, expanded: boolean) => void;
+  onChange?: (entryId: string, expanded: boolean) => void;
   /** Callback to clear logs. */
-  onClear?: () => void;
+  onPress?: () => void;
   /** Optional focus appearance configuration. */
   focusConfig?: FocusConfig;
   /** Scrollbar glyph variant (default: "minimal"). */
@@ -2349,7 +2347,7 @@ export type ToastContainerProps = Readonly<{
   /** Frame/surface colors for toast backgrounds, text, and borders. */
   frameStyle?: OverlayFrameStyle;
   /** Callback when toast is dismissed. */
-  onDismiss: (id: string) => void;
+  onClose: (id: string) => void;
 }>;
 
 /* ========== Tree Widget (GitHub issue #122) ========== */
@@ -2395,11 +2393,11 @@ export type TreeProps<T = unknown> = Readonly<{
   /** Currently selected node key. */
   selected?: string;
   /** Callback when node expand/collapse state changes. */
-  onToggle: (node: T, expanded: boolean) => void;
+  onChange: (node: T, expanded: boolean) => void;
   /** Callback when node is selected. */
   onSelect?: (node: T) => void;
   /** Callback when node is activated (Enter key or double-click). */
-  onActivate?: (node: T) => void;
+  onPress?: (node: T) => void;
   /** Custom render function for node content. */
   renderNode: (node: T, depth: number, state: NodeState) => VNode;
   /** Function to load children asynchronously. */

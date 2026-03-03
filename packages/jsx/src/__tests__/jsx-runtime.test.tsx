@@ -18,7 +18,7 @@ describe("jsx runtime", () => {
 
   test("jsx() supports intrinsic string elements", () => {
     const vnode = jsx("button", { id: "ok", label: "OK" });
-    assert.deepEqual(vnode, ui.button("ok", "OK"));
+    assert.deepEqual(vnode, ui.button({ id: "ok", label: "OK" }));
   });
 
   test("jsxs() handles multiple children", () => {
@@ -27,7 +27,10 @@ describe("jsx runtime", () => {
       children: [jsx(Text, { children: "A" }), jsx(Button, { id: "x", label: "X" })],
     });
 
-    assert.deepEqual(vnode, ui.column({ gap: 1 }, [ui.text("A"), ui.button("x", "X")]));
+    assert.deepEqual(
+      vnode,
+      ui.column({ gap: 1 }, [ui.text("A"), ui.button({ id: "x", label: "X" })]),
+    );
   });
 
   test("key argument is injected into component props", () => {
@@ -45,10 +48,13 @@ describe("jsx runtime", () => {
 
   test("key argument takes precedence over props.key", () => {
     const intrinsicFromProps = jsx("button", { id: "ok", label: "OK", key: "props-key" });
-    assert.deepEqual(intrinsicFromProps, ui.button("ok", "OK", { key: "props-key" }));
+    assert.deepEqual(
+      intrinsicFromProps,
+      ui.button({ id: "ok", label: "OK", ...{ key: "props-key" } }),
+    );
 
     const intrinsicFromArg = jsx("button", { id: "ok", label: "OK", key: "props-key" }, "arg-key");
-    assert.deepEqual(intrinsicFromArg, ui.button("ok", "OK", { key: "arg-key" }));
+    assert.deepEqual(intrinsicFromArg, ui.button({ id: "ok", label: "OK", ...{ key: "arg-key" } }));
 
     const functionFromArg = jsx(
       (props: { key?: string }) => ui.text(props.key ?? ""),
@@ -71,7 +77,7 @@ describe("jsx runtime", () => {
     assert.deepEqual(vnode, ui.slider({ id: "volume", value: 15, onChange }));
     assert.deepEqual(
       jsx("link", { url: "https://example.com", label: "Docs" }),
-      ui.link("https://example.com", "Docs"),
+      ui.link({ url: "https://example.com", label: "Docs" }),
     );
     assert.deepEqual(
       jsx("canvas", { width: 10, height: 4, draw }),

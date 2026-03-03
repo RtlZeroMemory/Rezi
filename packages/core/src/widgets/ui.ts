@@ -254,91 +254,6 @@ function grid(props: GridProps, ...children: UiChild[]): VNode {
 }
 
 const DEFAULT_STACK_GAP = 1;
-const DEFAULT_SPACED_STACK_GAP = 1;
-
-function vstack(props: ColumnProps, children?: readonly UiChild[]): VNode;
-function vstack(gap: number, children: readonly UiChild[]): VNode;
-function vstack(children: readonly UiChild[]): VNode;
-function vstack(
-  gapOrPropsOrChildren: number | ColumnProps | readonly UiChild[],
-  children: readonly UiChild[] = [],
-): VNode {
-  if (typeof gapOrPropsOrChildren === "number") {
-    return {
-      kind: "column",
-      props: { gap: gapOrPropsOrChildren },
-      children: filterChildren(children ?? []),
-    };
-  }
-  if (isUiChildren(gapOrPropsOrChildren)) {
-    return {
-      kind: "column",
-      props: { gap: DEFAULT_STACK_GAP },
-      children: filterChildren(gapOrPropsOrChildren),
-    };
-  }
-  const props = gapOrPropsOrChildren;
-  const filtered = filterChildren(children);
-  return {
-    kind: "column",
-    props: props.gap === undefined ? { gap: DEFAULT_STACK_GAP, ...props } : props,
-    children: maybeReverseChildren(filtered, props.reverse),
-  };
-}
-
-function hstack(props: RowProps, children?: readonly UiChild[]): VNode;
-function hstack(gap: number, children: readonly UiChild[]): VNode;
-function hstack(children: readonly UiChild[]): VNode;
-function hstack(
-  gapOrPropsOrChildren: number | RowProps | readonly UiChild[],
-  children: readonly UiChild[] = [],
-): VNode {
-  if (typeof gapOrPropsOrChildren === "number") {
-    return {
-      kind: "row",
-      props: { gap: gapOrPropsOrChildren },
-      children: filterChildren(children ?? []),
-    };
-  }
-  if (isUiChildren(gapOrPropsOrChildren)) {
-    return {
-      kind: "row",
-      props: { gap: DEFAULT_STACK_GAP },
-      children: filterChildren(gapOrPropsOrChildren),
-    };
-  }
-  const props = gapOrPropsOrChildren;
-  const filtered = filterChildren(children);
-  return {
-    kind: "row",
-    props: props.gap === undefined ? { gap: DEFAULT_STACK_GAP, ...props } : props,
-    children: maybeReverseChildren(filtered, props.reverse),
-  };
-}
-
-function spacedVStack(children: readonly UiChild[]): VNode;
-function spacedVStack(gap: number, children: readonly UiChild[]): VNode;
-function spacedVStack(
-  gapOrChildren: number | readonly UiChild[],
-  children: readonly UiChild[] = [],
-): VNode {
-  if (typeof gapOrChildren === "number") {
-    return vstack(gapOrChildren, children);
-  }
-  return vstack(DEFAULT_SPACED_STACK_GAP, gapOrChildren);
-}
-
-function spacedHStack(children: readonly UiChild[]): VNode;
-function spacedHStack(gap: number, children: readonly UiChild[]): VNode;
-function spacedHStack(
-  gapOrChildren: number | readonly UiChild[],
-  children: readonly UiChild[] = [],
-): VNode {
-  if (typeof gapOrChildren === "number") {
-    return hstack(gapOrChildren, children);
-  }
-  return hstack(DEFAULT_SPACED_STACK_GAP, gapOrChildren);
-}
 
 function spacer(props: SpacerProps = {}): VNode {
   return { kind: "spacer", props };
@@ -608,7 +523,7 @@ function gauge(value: number, props: Omit<GaugeProps, "value"> = {}): VNode {
  * ui.empty("No messages", {
  *   icon: "ui.mail",
  *   description: "Messages will appear here",
- *   action: ui.button("compose", "Compose")
+ *   action: ui.button({ id: "compose", label: "Compose" })
  * })
  * ```
  */
@@ -680,24 +595,8 @@ function callout(message: string, props: Omit<CalloutProps, "message"> = {}): VN
   return { kind: "callout", props: { message, ...props } };
 }
 
-function link(props: LinkProps): VNode;
-function link(url: string, label?: string, props?: Omit<LinkProps, "url" | "label">): VNode;
-function link(
-  urlOrProps: string | LinkProps,
-  label?: string,
-  props: Omit<LinkProps, "url" | "label"> = {},
-): VNode {
-  if (typeof urlOrProps === "string") {
-    return {
-      kind: "link",
-      props: {
-        url: urlOrProps,
-        ...(label === undefined ? {} : { label }),
-        ...props,
-      },
-    };
-  }
-  return { kind: "link", props: urlOrProps };
+function link(props: LinkProps): VNode {
+  return { kind: "link", props };
 }
 
 function canvas(props: CanvasProps): VNode {
@@ -779,35 +678,14 @@ function miniChart(
   return { kind: "miniChart", props: { values, ...props } };
 }
 
-function button(id: string, label: string): VNode;
-function button(id: string, label: string, props: Omit<ButtonProps, "id" | "label">): VNode;
 function button(props: ButtonProps): VNode;
-function button(
-  idOrProps: string | ButtonProps,
-  label?: string,
-  props?: Omit<ButtonProps, "id" | "label">,
-): VNode {
-  if (typeof idOrProps === "string") {
-    return {
-      kind: "button",
-      props: resolveButtonIntent({ id: idOrProps, label: label ?? "", ...(props ?? {}) }),
-    };
-  }
-  return { kind: "button", props: resolveButtonIntent(idOrProps) };
+function button(props: ButtonProps): VNode {
+  return { kind: "button", props: resolveButtonIntent(props) };
 }
 
-function input(id: string, value: string): VNode;
-function input(id: string, value: string, props: Omit<InputProps, "id" | "value">): VNode;
 function input(props: InputProps): VNode;
-function input(
-  idOrProps: string | InputProps,
-  value?: string,
-  props?: Omit<InputProps, "id" | "value">,
-): VNode {
-  if (typeof idOrProps === "string") {
-    return { kind: "input", props: { id: idOrProps, value: value ?? "", ...(props ?? {}) } };
-  }
-  return { kind: "input", props: idOrProps };
+function input(props: InputProps): VNode {
+  return { kind: "input", props };
 }
 
 function textarea(props: TextareaProps): VNode {
@@ -1138,10 +1016,6 @@ export const ui = {
   column,
   themed,
   grid,
-  vstack,
-  hstack,
-  spacedVStack,
-  spacedHStack,
   spacer,
   divider,
   icon,
@@ -1339,13 +1213,13 @@ export const ui = {
    *   hasChildren: (n) => n.type === "directory",
    *   expanded: state.expandedPaths,
    *   selected: state.selectedPath,
-   *   onToggle: (node, exp) => app.update(s => ({
+   *   onChange: (node, exp) => app.update(s => ({
    *     expandedPaths: exp
    *       ? [...s.expandedPaths, node.path]
    *       : s.expandedPaths.filter(p => p !== node.path)
    *   })),
    *   onSelect: (n) => app.update({ selectedPath: n.path }),
-   *   onActivate: (n) => n.type === "file" && openFile(n.path),
+   *   onPress: (n) => n.type === "file" && openFile(n.path),
    *   renderNode: (node, depth, state) => ui.row({ gap: 1 }, [
    *     ui.text(state.expanded ? "▼" : state.hasChildren ? "▶" : " "),
    *     ui.text(node.type === "directory" ? "📁" : "📄"),
@@ -1537,7 +1411,7 @@ export const ui = {
    *     { id: "files", name: "Files", getItems: searchFiles },
    *   ],
    *   selectedIndex: state.selectedIndex,
-   *   onQueryChange: (q) => app.update({ query: q }),
+   *   onChange: (q) => app.update({ query: q }),
    *   onSelect: (item) => executeCommand(item),
    *   onClose: () => app.update({ paletteOpen: false }),
    * })
@@ -1561,8 +1435,8 @@ export const ui = {
    *   expandedPaths: state.expanded,
    *   modifiedPaths: state.gitModified,
    *   onSelect: (path) => app.update({ selectedFile: path }),
-   *   onToggle: (path, exp) => toggleExpanded(path, exp),
-   *   onOpen: (path) => openFile(path),
+   *   onChange: (path, exp) => toggleExpanded(path, exp),
+   *   onPress: (path) => openFile(path),
    * })
    * ```
    */
@@ -1583,9 +1457,9 @@ export const ui = {
    *   selected: state.selected,
    *   showIcons: true,
    *   showStatus: true,
-   *   onToggle: (node, exp) => toggleNode(node, exp),
+   *   onChange: (node, exp) => toggleNode(node, exp),
    *   onSelect: (node) => selectNode(node),
-   *   onActivate: (node) => openNode(node),
+   *   onPress: (node) => openNode(node),
    * })
    * ```
    */
@@ -1604,7 +1478,7 @@ export const ui = {
    *   direction: "horizontal",
    *   sizes: [25, 50, 25],
    *   minSizes: [20, 30, 20],
-   *   onResize: (sizes) => app.update({ panelSizes: sizes }),
+   *   onChange: (sizes) => app.update({ panelSizes: sizes }),
    * }, [
    *   FileExplorer(),
    *   Editor(),
@@ -1712,8 +1586,9 @@ export const ui = {
    *   id: "approval",
    *   open: state.pendingApproval !== null,
    *   request: state.pendingApproval,
-   *   onAllow: () => executeTool(state.pendingApproval),
-   *   onDeny: () => app.update({ pendingApproval: null }),
+   *   onPress: (action) => action === "allow"
+   *     ? executeTool(state.pendingApproval)
+   *     : app.update({ pendingApproval: null }),
    *   onAllowForSession: () => allowForSession(state.pendingApproval),
    *   onClose: () => app.update({ pendingApproval: null }),
    * })
@@ -1737,7 +1612,7 @@ export const ui = {
    *   scrollTop: state.logsScrollTop,
    *   showTimestamps: true,
    *   onScroll: (top) => app.update({ logsScrollTop: top }),
-   *   onClear: () => app.update({ logs: [] }),
+   *   onPress: () => app.update({ logs: [] }),
    * })
    * ```
    */
@@ -1755,7 +1630,7 @@ export const ui = {
    *   toasts: state.toasts,
    *   position: "bottom-right",
    *   maxVisible: 5,
-   *   onDismiss: (id) => app.update(s => ({
+   *   onClose: (id) => app.update(s => ({
    *     toasts: s.toasts.filter(t => t.id !== id)
    *   })),
    * })

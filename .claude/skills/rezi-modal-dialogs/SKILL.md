@@ -57,7 +57,20 @@ Use this skill when:
              returnFocusTo: "open-confirm",
              onClose: () => app.update((s) => ({ ...s, showModal: false })),
              content: ui.text("Are you sure?"),
-             actions: [ui.button({ id: "confirm-ok", label: "OK" })],
+             actions: [
+               ui.button({
+                 id: "confirm-cancel",
+                 label: "Cancel",
+                 intent: "secondary",
+                 onPress: () => app.update((s) => ({ ...s, showModal: false })),
+               }),
+               ui.button({
+                 id: "confirm-ok",
+                 label: "OK",
+                 intent: "primary",
+                 onPress: () => app.update((s) => ({ ...s, showModal: false })),
+               }),
+             ],
            }),
          ]
        : []),
@@ -67,6 +80,10 @@ Use this skill when:
 2. **Overlay ordering note**:
    - Modal, dropdown, and toast overlays share unified z-ordering through the LayerRegistry.
    - Prefer `ui.layers([...])` as the common overlay composition root.
+
+3. **Dialog action intent note**:
+   - Use `intent` to communicate action semantics in modal/dialog button rows.
+   - Recommended mapping: confirm/continue -> `primary`, cancel/back -> `secondary`, destructive -> `danger`, positive approval -> `success`, cautionary acknowledgment -> `warning`.
 
 ## Verification
 

@@ -39,7 +39,7 @@ describe("container widgets - VNode construction", () => {
       id: "confirm",
       title: "Confirm",
       content: ui.text("Proceed?"),
-      actions: [ui.button("ok", "OK")],
+      actions: [ui.button({ id: "ok", label: "OK" })],
       closeOnEscape: true,
       closeOnBackdrop: true,
     });
@@ -125,7 +125,7 @@ describe("container widgets - VNode construction", () => {
         id: "split",
         direction: "horizontal",
         sizes: [50, 50],
-        onResize: () => undefined,
+        onChange: () => undefined,
         minSizes: [20, 20],
       },
       [left, right],

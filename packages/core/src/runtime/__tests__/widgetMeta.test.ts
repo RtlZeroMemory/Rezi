@@ -90,7 +90,7 @@ test("widgetMeta: SplitPane/PanelGroup are not focusable but their children are 
         id: "split",
         direction: "horizontal",
         sizes: [50, 50],
-        onResize: () => {},
+        onChange: () => {},
       },
       [ui.button({ id: "left", label: "Left" }), ui.button({ id: "right", label: "Right" })],
     ),

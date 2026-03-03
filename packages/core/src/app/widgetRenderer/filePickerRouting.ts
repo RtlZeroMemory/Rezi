@@ -72,7 +72,7 @@ export function routeFileTreeExplorerKeyDown(
 
   if (r.nodeToActivate) {
     const found = flatNodes.find((n) => n.key === r.nodeToActivate);
-    if (found) fte.onActivate(found.node);
+    if (found) fte.onPress(found.node);
   }
 
   if (r.nextExpanded !== undefined) {
@@ -84,7 +84,7 @@ export function routeFileTreeExplorerKeyDown(
 
     for (const k of diffs) {
       const found = flatNodes.find((n) => n.key === k);
-      if (found) fte.onToggle(found.node, next.has(k));
+      if (found) fte.onChange(found.node, next.has(k));
     }
   }
 
@@ -170,9 +170,9 @@ export function routeFilePickerKeyDown(
     if (found) {
       if (found.node.type === "directory") {
         const isExpanded = fp.expandedPaths.includes(found.key);
-        fp.onToggle(found.key, !isExpanded);
+        fp.onChange(found.key, !isExpanded);
       } else {
-        fp.onOpen(found.key);
+        fp.onPress(found.key);
       }
     }
   }
@@ -184,7 +184,7 @@ export function routeFilePickerKeyDown(
     for (const k of next) if (!prev.has(k)) diffs.push(k);
     for (const k of prev) if (!next.has(k)) diffs.push(k);
     for (const k of diffs) {
-      fp.onToggle(k, next.has(k));
+      fp.onChange(k, next.has(k));
     }
   }
 

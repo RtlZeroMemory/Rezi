@@ -73,15 +73,15 @@ const factoryCases: readonly FactoryCase[] = [
     optionalAbsent: "rows",
   },
   {
-    name: "vstack",
+    name: "column with children",
     expectedKind: "column",
-    build: () => ui.vstack([ui.text("a")]),
+    build: () => ui.column({}, [ui.text("a")]),
     optionalAbsent: "key",
   },
   {
-    name: "hstack",
+    name: "row with children",
     expectedKind: "row",
-    build: () => ui.hstack([ui.text("a")]),
+    build: () => ui.row({}, [ui.text("a")]),
     optionalAbsent: "key",
   },
   {
@@ -193,7 +193,7 @@ const factoryCases: readonly FactoryCase[] = [
   {
     name: "link",
     expectedKind: "link",
-    build: () => ui.link("https://example.com", "Example"),
+    build: () => ui.link({ url: "https://example.com", label: "Example" }),
     optionalAbsent: "style",
   },
   {
@@ -256,13 +256,13 @@ const factoryCases: readonly FactoryCase[] = [
   {
     name: "button",
     expectedKind: "button",
-    build: () => ui.button("save", "Save"),
+    build: () => ui.button({ id: "save", label: "Save" }),
     optionalAbsent: "disabled",
   },
   {
     name: "input",
     expectedKind: "input",
-    build: () => ui.input("query", ""),
+    build: () => ui.input({ id: "query", value: "" }),
     optionalAbsent: "disabled",
   },
   {
@@ -346,7 +346,7 @@ const factoryCases: readonly FactoryCase[] = [
         data: { id: "root" },
         getKey: (node: { id: string }) => node.id,
         expanded: [],
-        onToggle: noop,
+        onChange: noop,
         renderNode: (node: { id: string }) => ui.text(node.id),
       }),
     optionalAbsent: "selected",
@@ -354,7 +354,7 @@ const factoryCases: readonly FactoryCase[] = [
   {
     name: "field",
     expectedKind: "field",
-    build: () => ui.field({ label: "Name", children: ui.input("name", "") }),
+    build: () => ui.field({ label: "Name", children: ui.input({ id: "name", value: "" }) }),
     optionalAbsent: "error",
   },
   {
@@ -401,7 +401,7 @@ const factoryCases: readonly FactoryCase[] = [
         query: "",
         sources: [{ id: "core", name: "Core", getItems: () => commandItems }],
         selectedIndex: 0,
-        onQueryChange: noop,
+        onChange: noop,
         onSelect: noop,
         onClose: noop,
       }),
@@ -417,8 +417,8 @@ const factoryCases: readonly FactoryCase[] = [
         data: fileNode,
         expandedPaths: [],
         onSelect: noop,
-        onToggle: noop,
-        onOpen: noop,
+        onChange: noop,
+        onPress: noop,
       }),
     optionalAbsent: "selectedPath",
   },
@@ -430,9 +430,9 @@ const factoryCases: readonly FactoryCase[] = [
         id: "explorer",
         data: fileNode,
         expanded: [],
-        onToggle: noop,
+        onChange: noop,
         onSelect: noop,
-        onActivate: noop,
+        onPress: noop,
       }),
     optionalAbsent: "selected",
   },
@@ -440,7 +440,7 @@ const factoryCases: readonly FactoryCase[] = [
     name: "splitPane",
     expectedKind: "splitPane",
     build: () =>
-      ui.splitPane({ id: "split", direction: "horizontal", sizes: [50, 50], onResize: noop }, [
+      ui.splitPane({ id: "split", direction: "horizontal", sizes: [50, 50], onChange: noop }, [
         ui.text("left"),
         ui.text("right"),
       ]),
@@ -496,8 +496,7 @@ const factoryCases: readonly FactoryCase[] = [
         id: "approval",
         request: toolRequest,
         open: true,
-        onAllow: noop,
-        onDeny: noop,
+        onPress: () => undefined,
         onClose: noop,
       }),
     optionalAbsent: "focusedAction",
@@ -520,7 +519,7 @@ const factoryCases: readonly FactoryCase[] = [
     build: () =>
       ui.toastContainer({
         toasts: [],
-        onDismiss: noop,
+        onClose: noop,
       }),
     optionalAbsent: "position",
   },
@@ -536,8 +535,8 @@ const keyCases: readonly KeyCase[] = [
   { name: "box", build: (key) => ui.box({ key }, []) },
   { name: "row", build: (key) => ui.row({ key }, []) },
   { name: "column", build: (key) => ui.column({ key }, []) },
-  { name: "vstack", build: (key) => ui.vstack({ key, gap: 2 }, []) },
-  { name: "hstack", build: (key) => ui.hstack({ key, gap: 2 }, []) },
+  { name: "column with key+gap", build: (key) => ui.column({ key, gap: 2 }, []) },
+  { name: "row with key+gap", build: (key) => ui.row({ key, gap: 2 }, []) },
   { name: "spacer", build: (key) => ui.spacer({ key }) },
   { name: "divider", build: (key) => ui.divider({ key }) },
   { name: "icon", build: (key) => ui.icon("status.check", { key }) },
@@ -558,7 +557,7 @@ const keyCases: readonly KeyCase[] = [
   { name: "miniChart", build: (key) => ui.miniChart([{ label: "A", value: 1 }], { key }) },
   {
     name: "button shorthand",
-    build: (key) => ui.button("save", "Save", { key }),
+    build: (key) => ui.button({ id: "save", label: "Save", ...{ key } }),
   },
   {
     name: "button object",
@@ -566,7 +565,7 @@ const keyCases: readonly KeyCase[] = [
   },
   {
     name: "input shorthand",
-    build: (key) => ui.input("query", "", { key }),
+    build: (key) => ui.input({ id: "query", value: "", ...{ key } }),
   },
   {
     name: "input object",
@@ -613,13 +612,13 @@ const keyCases: readonly KeyCase[] = [
         data: { id: "root" },
         getKey: (node: { id: string }) => node.id,
         expanded: [],
-        onToggle: noop,
+        onChange: noop,
         renderNode: (node: { id: string }) => ui.text(node.id),
       }),
   },
   {
     name: "field",
-    build: (key) => ui.field({ key, label: "Name", children: ui.input("name", "") }),
+    build: (key) => ui.field({ key, label: "Name", children: ui.input({ id: "name", value: "" }) }),
   },
   {
     name: "select",
@@ -653,7 +652,7 @@ const keyCases: readonly KeyCase[] = [
         query: "",
         sources: [{ id: "core", name: "Core", getItems: () => commandItems }],
         selectedIndex: 0,
-        onQueryChange: noop,
+        onChange: noop,
         onSelect: noop,
         onClose: noop,
       }),
@@ -668,8 +667,8 @@ const keyCases: readonly KeyCase[] = [
         data: fileNode,
         expandedPaths: [],
         onSelect: noop,
-        onToggle: noop,
-        onOpen: noop,
+        onChange: noop,
+        onPress: noop,
       }),
   },
   {
@@ -680,16 +679,16 @@ const keyCases: readonly KeyCase[] = [
         key,
         data: fileNode,
         expanded: [],
-        onToggle: noop,
+        onChange: noop,
         onSelect: noop,
-        onActivate: noop,
+        onPress: noop,
       }),
   },
   {
     name: "splitPane",
     build: (key) =>
       ui.splitPane(
-        { id: "split", key, direction: "horizontal", sizes: [50, 50], onResize: noop },
+        { id: "split", key, direction: "horizontal", sizes: [50, 50], onChange: noop },
         [],
       ),
   },
@@ -737,8 +736,7 @@ const keyCases: readonly KeyCase[] = [
         key,
         request: toolRequest,
         open: true,
-        onAllow: noop,
-        onDeny: noop,
+        onPress: () => undefined,
         onClose: noop,
       }),
   },
@@ -748,7 +746,7 @@ const keyCases: readonly KeyCase[] = [
   },
   {
     name: "toastContainer",
-    build: (key) => ui.toastContainer({ key, toasts: [], onDismiss: noop }),
+    build: (key) => ui.toastContainer({ key, toasts: [], onClose: noop }),
   },
 ];
 

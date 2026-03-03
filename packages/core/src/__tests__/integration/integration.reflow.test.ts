@@ -328,7 +328,7 @@ describe("integration reflow behavior", () => {
         getKey: (node: TreeNode) => node.id,
         getChildren: (node: TreeNode) => node.children,
         expanded: state.expanded,
-        onToggle: (_node: TreeNode, _expanded: boolean) => {},
+        onChange: (_node: TreeNode, _expanded: boolean) => {},
         renderNode: (node: TreeNode) => ui.text(node.id),
       }),
     );
@@ -374,7 +374,7 @@ describe("integration reflow behavior", () => {
         getKey: (node: TreeNode) => node.id,
         getChildren: (node: TreeNode) => node.children,
         expanded: state.expanded,
-        onToggle: (_node: TreeNode, _expanded: boolean) => {},
+        onChange: (_node: TreeNode, _expanded: boolean) => {},
         renderNode: (node: TreeNode) => ui.text(node.id),
       }),
     );
@@ -482,7 +482,7 @@ describe("integration reflow behavior", () => {
         ],
         position: "bottom-right",
         maxVisible: 1,
-        onDismiss: (_id: string) => {},
+        onClose: (_id: string) => {},
       }),
     );
 
@@ -513,7 +513,7 @@ describe("integration reflow behavior", () => {
         ],
         position: "top-left",
         maxVisible: 2,
-        onDismiss: (_id: string) => {},
+        onClose: (_id: string) => {},
       }),
     );
 
@@ -545,7 +545,7 @@ describe("integration reflow behavior", () => {
         ],
         position: "top-left",
         maxVisible: 2,
-        onDismiss: (_id: string) => {},
+        onClose: (_id: string) => {},
       }),
     );
 

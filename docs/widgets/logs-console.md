@@ -13,7 +13,7 @@ ui.logsConsole({
   scrollTop: state.logsScrollTop,
   showTimestamps: true,
   onScroll: (top) => app.update((s) => ({ ...s, logsScrollTop: top })),
-  onClear: () => app.update((s) => ({ ...s, logs: [] })),
+  onPress: () => app.update((s) => ({ ...s, logs: [] })),
 })
 ```
 
@@ -32,8 +32,8 @@ ui.logsConsole({
 | `showSource` | `boolean` | `true` | Show source labels |
 | `expandedEntries` | `string[]` | - | Expanded entry IDs |
 | `onScroll` | `(scrollTop) => void` | **required** | Scroll callback |
-| `onEntryToggle` | `(id, expanded) => void` | - | Expand/collapse callback |
-| `onClear` | `() => void` | - | Clear entries callback |
+| `onChange` | `(id, expanded) => void` | - | Expand/collapse callback |
+| `onPress` | `() => void` | - | Clear entries callback |
 | `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focus decoration |
 | `scrollbarVariant` | `"minimal" \| "classic" \| "modern" \| "dots" \| "thin"` | `"minimal"` | Scrollbar glyph variant |
 | `scrollbarStyle` | `TextStyle` | - | Style override for scrollbar |
