@@ -42,10 +42,6 @@ env -u NO_COLOR \
 node scripts/frame-audit-report.mjs /tmp/rezi-frame-audit.ndjson --latest-pid
 ```
 
-Media:
-
-![Starship demo placeholder capture](../assets/constraints/starship-shell.svg)
-
 ---
 
 ## Demo 2: Dashboard (equalized inspector labels + intrinsic-aware modal)
@@ -61,10 +57,6 @@ Run:
 npx tsx packages/create-rezi/templates/dashboard/src/main.ts
 ```
 
-Media:
-
-![Dashboard demo placeholder capture](../assets/constraints/dashboard-inspector.svg)
-
 ---
 
 ## Demo 3: Animation Lab (viewport clamping + display constraints)
@@ -79,7 +71,3 @@ Run:
 ```bash
 npx tsx packages/create-rezi/templates/animation-lab/src/main.ts
 ```
-
-Media:
-
-![Animation Lab demo placeholder capture](../assets/constraints/animation-lab-reactor.svg)

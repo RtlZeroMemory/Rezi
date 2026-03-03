@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.50] - 2026-03-03
+
 ### Features
 
 - **core/constraints**: Added helper-first constraint API (`visibilityConstraints`, `widthConstraints`, `heightConstraints`, `spaceConstraints`, `groupConstraints`, `conditionalConstraints`) and exported it from `@rezi-ui/core` and `@rezi-ui/jsx`.
@@ -20,6 +22,19 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 ### Documentation
 
 - **docs/constraints**: Added comprehensive constraints docs (conceptual guide, API reference, DSL reference, cookbook, migration/styling/debug/perf guides, quickstart, decision tree, demo index).
+- **docs/api-canonicalization**: Consolidated assistant-facing docs/skills around one canonical interactive widget calling convention (object form), intent-first button styling, and complete hook/callback references.
+- **docs/constraints**: Removed temporary placeholder media links from the constraint demos guide to avoid broken asset imports in downstream docs deploys.
+
+### Breaking Changes
+
+- **interactive widgets**: Removed positional overloads for `ui.button`, `ui.input`, and `ui.link`; object-form props are now the only supported API.
+- **layout helpers**: Removed stack aliases `ui.vstack`, `ui.hstack`, `ui.spacedVStack`, and `ui.spacedHStack`; use `ui.column` / `ui.row` instead.
+- **callback normalization**: Renamed widget callbacks to canonical names across tree/file-picker/command-palette/toast and related widgets (`onToggle` -> `onChange`, `onActivate` -> `onPress`, `onQueryChange` -> `onChange`, `onDismiss` -> `onClose`, and related Tier 2 callback renames).
+
+### Merged Pull Requests
+
+- [#234](https://github.com/RtlZeroMemory/Rezi/pull/234) feat(constraints): helper-first constraints integration
+- [#235](https://github.com/RtlZeroMemory/Rezi/pull/235) docs+core: canonicalize interactive widget API and consolidate agent docs
 
 ## [0.1.0-alpha.49] - 2026-02-28
 
