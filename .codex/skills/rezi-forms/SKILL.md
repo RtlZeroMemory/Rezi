@@ -52,12 +52,16 @@ Use this skill when:
          error: form.errors.email,
          children: ui.input({ id: "field-email", ...form.bind("email") }),
        }),
-       ui.button({ id: "submit", label: "Submit", intent: "primary", onPress: form.submit }),
+       ui.actions([
+         ui.button({ id: "save", label: "Save", intent: "primary", onPress: form.handleSubmit }),
+         ui.button({ id: "approve", label: "Approve", intent: "success", onPress: form.handleSubmit }),
+         ui.button({ id: "review", label: "Needs Review", intent: "warning", onPress: form.handleSubmit }),
+       ]),
      ]);
    }, { name: "MyForm" });
    ```
 
-2. **Bind fields** using `form.bind("fieldName")` — returns `{ value, onChange }` props
+2. **Bind fields** using `form.bind("fieldName")` — returns object-form input props (`id`, `value`, `onInput`, `onBlur`, `disabled`)
 
 3. **Use `ui.field()`** to wrap inputs with labels and error display
 
@@ -68,6 +72,8 @@ Use this skill when:
 Inputs are recipe-styled by default when semantic color tokens are available (for example via a `ThemeDefinition` preset).
 Manual overrides merge on top via the same `mergeTextStyle(baseStyle, ownStyle)` pattern used by the renderer.
 Use manual `style` only for targeted overrides (merged on top of recipe output).
+For button visuals, use `intent` (`primary`, `secondary`, `danger`, `success`, `warning`, `link`) in app code.
+Do not use `dsVariant`/`dsTone` in app-level form code.
 
 ## Verification
 

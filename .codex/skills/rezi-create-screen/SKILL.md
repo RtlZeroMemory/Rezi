@@ -40,7 +40,7 @@ Use this skill when:
    }
    ```
 
-   **Prefer intent-based DS styling** for simple cases (`intent: "primary"`, `"danger"`, `"secondary"`, `"link"`):
+   **Prefer intent-based button styling** (`intent: "primary"`, `"secondary"`, `"danger"`, `"success"`, `"warning"`, `"link"`):
    ```typescript
    ui.button({
      id: "action",
@@ -49,8 +49,6 @@ Use this skill when:
      onPress: handleAction,
    })
    ```
-
-   Use `dsVariant`, `dsTone`, or `dsSize` only when you need finer control.
 
 2. **Use `ui.column()` or `ui.row()`** as the root container
 
