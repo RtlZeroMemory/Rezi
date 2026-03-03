@@ -1161,35 +1161,40 @@ export type DialogProps = Readonly<
 
 export type AppShellSidebar = Readonly<{
   content: VNode;
-  width?: number;
+  /** Sidebar width. Supports fixed values, "full", `fluid(...)`, or `expr(...)`. */
+  width?: SizeConstraint;
 }>;
 
-export type AppShellOptions = Readonly<{
-  id?: string;
-  key?: string;
-  /** Header content — typically title text, badges, action buttons */
-  header?: VNode | null;
-  /** Sidebar content — typically navigation */
-  sidebar?: AppShellSidebar | null;
-  /** Main body content */
-  body: VNode;
-  /** Footer/status bar content */
-  footer?: VNode | null;
-  /** Padding around the shell (default: 1) */
-  p?: SpacingValue;
-  /** Gap between sections (default: 1) */
-  gap?: number;
-}>;
+export type AppShellOptions = Readonly<
+  {
+    id?: string;
+    key?: string;
+    /** Header content — typically title text, badges, action buttons */
+    header?: VNode | null;
+    /** Sidebar content — typically navigation */
+    sidebar?: AppShellSidebar | null;
+    /** Main body content */
+    body: VNode;
+    /** Footer/status bar content */
+    footer?: VNode | null;
+    /** Padding around the shell (default: 1) */
+    p?: SpacingValue;
+    /** Gap between sections (default: 1) */
+    gap?: number;
+  } & LayoutConstraints
+>;
 
-export type PageOptions = Readonly<{
-  id?: string;
-  key?: string;
-  header?: VNode | null;
-  body: VNode;
-  footer?: VNode | null;
-  gap?: SpacingValue;
-  p?: SpacingValue;
-}>;
+export type PageOptions = Readonly<
+  {
+    id?: string;
+    key?: string;
+    header?: VNode | null;
+    body: VNode;
+    footer?: VNode | null;
+    gap?: SpacingValue;
+    p?: SpacingValue;
+  } & LayoutConstraints
+>;
 
 export type CardOptions = Readonly<{
   id?: string;

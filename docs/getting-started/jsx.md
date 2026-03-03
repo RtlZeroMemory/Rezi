@@ -228,6 +228,20 @@ Use composition helpers for app-level structure:
 - `<Form>` and `<Actions>` for forms and action rows
 - `<Toolbar>`, `<StatusBar>`, `<Header>`, `<Sidebar>`, `<MasterDetail>` for common shell/navigation patterns
 
+`<Page>` and `<AppShell>` also accept layout constraints (`width`, `height`, min/max, `display`, etc.), and `<AppShell sidebar={{ width: ... }}>` accepts constraint expressions as well:
+
+```tsx
+<AppShell
+  display={visibilityConstraints.viewportWidthAtLeast(90)}
+  width={widthConstraints.percentOfParent(0.95)}
+  sidebar={{
+    width: widthConstraints.clampedPercentOfParent({ ratio: 0.22, min: 18, max: 30 }),
+    content: <Sidebar items={items} selected={selected} onSelect={setSelected} />,
+  }}
+  body={<Panel title="Main">...</Panel>}
+/>
+```
+
 ## Children Handling
 
 Container components (`Box`, `Row`, `Column`, etc.) normalize children as follows:

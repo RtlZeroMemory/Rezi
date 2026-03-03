@@ -339,8 +339,8 @@ The `ui` namespace includes convenience wrappers that compose lower-level widget
 | `ui.form(children)` / `ui.form(options, children)` | `ui.column({ gap: 1 }, children)` | Vertically stacked form layout; options support `id`, `key`, `gap` |
 | `ui.actions(children)` / `ui.actions(options, children)` | `ui.row({ justify: "end", gap: 1 }, children)` | Right-aligned action button row; options support `id`, `key`, `gap` |
 | `ui.center(child, options?)` | `ui.column({ width: "full", height: "full", align: "center", justify: "center" }, ...)` | Center a single widget; options support `id`, `key`, `p` |
-| `ui.page(options)` | `ui.column(...)` with optional header/body/footer | Full-page layout scaffold |
-| `ui.appShell(options)` | `ui.page(...)` with standard header/sidebar/body/footer layout | Full app scaffold (header + optional sidebar + body + footer) |
+| `ui.page(options)` | `ui.column(...)` with optional header/body/footer | Full-page layout scaffold; supports full `LayoutConstraints` (`width`, `height`, `min/max`, `flex`, `display`, etc.) |
+| `ui.appShell(options)` | `ui.page(...)` with standard header/sidebar/body/footer layout | Full app scaffold (header + optional sidebar + body + footer); supports full `LayoutConstraints` plus constraint-capable `sidebar.width` |
 | `ui.card(titleOrOptions, children)` | `ui.box({ border: "rounded", p: 1 }, ...)` | Elevated content block with optional title/subtitle/actions |
 | `ui.toolbar(children)` / `ui.toolbar(options, children)` | `ui.row({ items: "center", wrap: true }, ...)` | Inline action bar |
 | `ui.statusBar(options)` | `ui.row({ width: "full" }, [...left, spacer(1), ...right])` | Left/right status strip |
@@ -363,6 +363,20 @@ ui.page({
     ]),
   ]),
   footer: ui.text("Press Ctrl+Q to quit", { dim: true }),
+})
+```
+
+```typescript
+import { ui, visibilityConstraints, widthConstraints } from "@rezi-ui/core";
+
+ui.appShell({
+  display: visibilityConstraints.viewportWidthAtLeast(80),
+  width: widthConstraints.percentOfParent(0.95),
+  sidebar: {
+    width: widthConstraints.clampedPercentOfParent({ ratio: 0.22, min: 18, max: 30 }),
+    content: ui.sidebar({ items, selected, onSelect: (id) => app.update({ selected: id }) }),
+  },
+  body: ui.panel("Content", [ui.text("Main view")]),
 })
 ```
 
