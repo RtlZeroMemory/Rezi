@@ -1,146 +1,173 @@
 # AGENTS.md — Multi-Agent Workflow Guide for Rezi
 
-This file guides AI agents (Claude Code, OpenAI Codex) on how to explore, modify, test, and verify changes in the Rezi codebase. Follow these protocols for reliable results.
+This file defines how Claude Code and Codex should explore, modify, test, and verify changes in Rezi.
+Use `CLAUDE.md` as the canonical API and design reference; this file focuses on workflow and execution discipline.
 
 ## Project Overview
 
-Rezi is a runtime-agnostic TypeScript TUI framework. Monorepo with `npm` workspaces (NOT pnpm).
-
-**Packages:**
+Rezi is a runtime-agnostic TypeScript TUI framework in an npm-workspaces monorepo.
 
 | Package | Path | Purpose |
 |---------|------|---------|
-| `@rezi-ui/core` | `packages/core/` | Runtime-agnostic core framework |
-| `@rezi-ui/node` | `packages/node/` | Node.js backend (terminal I/O) |
-| `@rezi-ui/jsx` | `packages/jsx/` | JSX runtime layer with `ui.*` parity |
+| `@rezi-ui/core` | `packages/core/` | Runtime-agnostic framework APIs |
+| `@rezi-ui/node` | `packages/node/` | Node.js terminal backend |
+| `@rezi-ui/jsx` | `packages/jsx/` | JSX parity layer over `ui.*` |
 | `@rezi-ui/native` | `packages/native/` | Native engine bindings |
-| `@rezi-ui/testkit` | `packages/testkit/` | Test utilities |
-| `create-rezi` | `packages/create-rezi/` | Project scaffolding CLI |
-| `@rezi-ui/bench` | `packages/bench/` | Benchmark suite |
+| `@rezi-ui/testkit` | `packages/testkit/` | Testing utilities |
+| `create-rezi` | `packages/create-rezi/` | Scaffolding CLI/templates |
+| `@rezi-ui/bench` | `packages/bench/` | Benchmarks and profiling |
 
 ## Mandatory Code Standards
 
-All code changes MUST comply with `docs/dev/code-standards.md`.
-Treat it as a required merge checklist for:
-- TypeScript strictness and API modeling
-- Rezi runtime/layout/reconciliation invariants
-- Error handling, callback safety, and async cancellation guards
+All code changes must comply with `docs/dev/code-standards.md`.
+Treat it as a merge checklist for:
+- TypeScript strictness
+- runtime/layout/reconciliation invariants
+- callback safety and async cancellation
 
 ## Exploration Protocol
 
-When investigating Rezi code, follow this order:
+### Before Writing Any Code
 
-1. **Start with exports.** Read `packages/core/src/index.ts` to understand the full public API surface. This is the single source of truth for what the framework exposes.
-2. **Widget API.** `packages/core/src/widgets/ui.ts` has all 60+ widget factory functions (`ui.text()`, `ui.box()`, `ui.column()`, etc.).
-3. **Types.** `packages/core/src/widgets/types.ts` has all prop interfaces (`TextProps`, `BoxProps`, `ButtonProps`, etc.).
-4. **Composition + hook APIs.** `packages/core/src/widgets/composition.ts` contains `defineWidget` hooks, including animation hooks (`useTransition`, `useSpring`, `useSequence`, `useStagger`).
-5. **Templates are reference implementations.** Check `packages/create-rezi/templates/` for canonical app patterns. Five templates exist: `minimal`, `dashboard`, `cli-tool`, `stress-test`, `animation-lab`.
-6. **Tests show expected behavior.** `packages/core/src/**/__tests__/` contains 240+ test files. Read tests before making assumptions about how a module works.
+Run this checklist first:
 
-**Render pipeline (execution order):**
+1. Read this file fully.
+2. Read `CLAUDE.md` sections relevant to the task.
+3. Read the target file and adjacent tests before changing behavior.
 
+### Exploration Order
+
+1. `packages/core/src/index.ts`: public export surface.
+2. `packages/core/src/widgets/ui.ts`: canonical widget factory API.
+3. `packages/core/src/widgets/types.ts`: prop contracts and callback signatures.
+4. `packages/core/src/widgets/composition.ts`: composition API and hook context.
+5. `packages/create-rezi/templates/`: reference implementations.
+6. `packages/core/src/**/__tests__/`: expected behavior and edge cases.
+
+### Render Pipeline
+
+Event routing detail to preserve:
+
+```text
+key/mouse input -> router -> wheel router (nearest scroll target)
 ```
-State -> view(state) -> VNode tree -> commitVNodeTree (reconciliation)
-     -> layout -> metadata_collect -> overlay manager (LayerRegistry)
-     -> renderToDrawlist
-     -> builder.build() -> backend.requestFrame()
 
-Event routing: key/mouse input -> router -> wheel router (nearest scroll target)
-```
+Key files for this path:
+- `packages/core/src/runtime/router/router.ts`
+- `packages/core/src/runtime/router/wheel.ts`
+- `packages/core/src/runtime/router/mouseRouting.ts`
+- `packages/core/src/runtime/router/keyboardRouting.ts`
 
-Key pipeline files:
-- `packages/core/src/app/widgetRenderer.ts` — orchestrates full pipeline
-- `packages/core/src/runtime/commit.ts` — VNode to RuntimeInstance tree
-- `packages/core/src/runtime/reconcile.ts` — child matching (keyed/unkeyed)
-- `packages/core/src/runtime/router/wheel.ts` — mouse wheel routing for scroll targets
-- `packages/core/src/renderer/renderToDrawlist/renderTree.ts` — stack-based DFS renderer
-- `packages/core/src/layout/dropdownGeometry.ts` — shared dropdown overlay geometry
-- `packages/core/src/drawlist/builder.ts` — ZRDL binary drawlist builder (unified)
+## Agent Coordination Playbook
+
+Use this when more than one agent is touching related scope.
+
+### Task Slicing Rules
+
+1. Assign each agent clear ownership by path/purpose.
+2. Keep one agent as integration owner for final merge and test pass.
+3. Split by independent concerns:
+   - API/type changes
+   - runtime behavior
+   - JSX parity
+   - docs and skills
+4. Avoid overlapping edits to the same file unless intentional pair-review is required.
+
+### Parallel Work Contract
+
+- Each worker reports:
+  - files changed
+  - behavior changed
+  - tests run
+  - residual risks
+- Integration owner resolves conflicts and runs final validation commands.
+- If two workers changed the same semantic behavior differently, escalate before merge.
+
+### Conflict Handling
+
+When a conflict appears:
+
+1. Preserve canonical API from `types.ts` and `ui.ts` first.
+2. Reconcile docs/examples to match merged API.
+3. Re-run affected unit tests immediately after resolution.
+4. Run full suite before final commit.
+
+## Risk Triage Matrix
+
+| Change Type | Risk Level | Required Checks |
+|-------------|------------|-----------------|
+| Docs-only wording update | Low | lint/grep validation |
+| Widget prop rename | Medium | compile + affected tests + docs parity |
+| Runtime router/reconcile/layout changes | High | full test suite + integration coverage + PTY evidence |
+| Drawlist protocol changes | High | codegen + protocol tests + docs sync |
+| Theme/recipe behavior changes | Medium | visual snapshots + multi-theme PTY spot-check |
+
+Escalation rules:
+
+- High-risk changes need explicit evidence in commit or handoff notes.
+- Medium-risk changes require at least one focused test pass and one integration assertion.
+- Low-risk changes still require API consistency greps when docs include signatures/examples.
 
 ## Layout Engine Baseline (Current)
 
-When modifying layout code/docs, assume these features are part of the current contract:
-
-- Intrinsic sizing protocol (`measureMinContent` / `measureMaxContent`) for leaf + container kinds.
-- Stack flex model supports `flex`, `flexShrink`, `flexBasis`, per-child `alignSelf`, and wrap/non-wrap cross-axis feedback (max-2-pass).
-- Box synthetic inner column honors `box.gap` and excludes absolute-positioned children from flow.
-- Text supports `wrap` with grapheme-safe hard breaks and newline-aware wrapping.
-- Overlay sizing constraints exist for modal/commandPalette/toolApprovalDialog/toastContainer.
-- Absolute positioning exists for stack/box children (`position: "absolute"` + offsets).
-- Grid supports explicit placement + spans (`gridColumn/gridRow/colSpan/rowSpan`) with occupancy-aware auto-placement.
-- Stability signatures cover: `text/button/input/spacer/divider/row/column/box/grid/table/tabs/accordion/modal/virtualList/splitPane/breadcrumb/pagination/focusZone/focusTrap`.
-- Weighted integer splits use shared deterministic distribution (`layout/engine/distributeInteger.ts`) including split-pane percent sizing and grid growth.
-- Responsive layout scalars support `fluid(...)` interpolation through `resolveResponsiveValue(...)`.
+See `CLAUDE.md` § Layout Engine Baseline.
 
 ## Modification Protocol
 
-### Before changing code
+### Before Changing Code
 
-1. Read `docs/dev/code-standards.md` and apply the relevant MUST rules.
-2. Read the target file fully.
-3. Check existing tests for the module (`__tests__/` directory adjacent to or near the file).
-4. Understand where the target sits in the render pipeline.
+1. Read target file end-to-end.
+2. Read neighboring tests and integration tests for the module.
+3. Identify if the file is in a danger zone (below).
+4. Confirm required sibling updates (JSX parity, docs, tests).
 
-### Safe modification zones
+### Safe Modification Zones
 
-These areas tolerate changes well and have good test coverage:
+- `packages/core/src/widgets/ui.ts`
+- `packages/core/src/widgets/types.ts`
+- `packages/core/src/widgets/protocol.ts`
+- `packages/create-rezi/templates/`
+- `docs/`
+- test files (`**/__tests__/*.test.ts`)
+- `packages/core/src/theme/`
+- `packages/core/src/ui/`
+- `packages/core/src/icons/`
+- `examples/gallery/`
 
-- `packages/core/src/widgets/ui.ts` — adding new widget factory functions
-- `packages/core/src/widgets/types.ts` — adding new prop types
-- `packages/core/src/widgets/protocol.ts` — widget capability registry updates
-- `packages/create-rezi/templates/` — template modifications
-- `docs/` — documentation changes
-- Test files (`**/__tests__/*.test.ts`)
-- `packages/core/src/theme/` — theme definitions and presets
-- `packages/core/src/ui/` — design system tokens, recipes, capabilities
-- `packages/core/src/icons/` — icon registries
-- `examples/gallery/` — widget gallery app
+### Danger Zones (Extra Care Required)
 
-### Danger zones (require extra care)
+- `packages/core/src/runtime/commit.ts`
+- `packages/core/src/runtime/reconcile.ts`
+- `packages/core/src/runtime/router/wheel.ts`
+- `packages/core/src/app/createApp.ts`
+- `packages/core/src/layout/`
+- `packages/core/src/layout/dropdownGeometry.ts`
+- `packages/core/src/renderer/`
+- `packages/core/src/drawlist/`
+- `packages/core/src/binary/`
 
-Changes here affect all rendering and can introduce subtle regressions:
+### Module Boundary Rules
 
-- `packages/core/src/runtime/commit.ts` — reconciliation logic
-- `packages/core/src/runtime/reconcile.ts` — child matching, key algorithm
-- `packages/core/src/runtime/router/wheel.ts` — scroll routing behavior
-- `packages/core/src/app/createApp.ts` — app lifecycle, error handling
-- `packages/core/src/layout/` — layout engine, constraint resolution
-- `packages/core/src/layout/dropdownGeometry.ts` — shared overlay positioning logic
-- `packages/core/src/renderer/` — drawlist generation
-- `packages/core/src/drawlist/` — binary protocol builders
-- `packages/core/src/binary/` — binary reader/writer
-
-### Module boundary rules
-
-These boundaries are strict. Violating them breaks the runtime-agnostic guarantee.
-
-- `@rezi-ui/core` MUST NOT import from `@rezi-ui/node`, `@rezi-ui/jsx`, or `@rezi-ui/native`
-- `@rezi-ui/node` imports from `@rezi-ui/core` only
-- `@rezi-ui/jsx` imports from `@rezi-ui/core` only
+These boundaries are strict:
+- `@rezi-ui/core` must not import from `@rezi-ui/node`, `@rezi-ui/jsx`, or `@rezi-ui/native`.
+- `@rezi-ui/node` may import from `@rezi-ui/core`.
+- `@rezi-ui/jsx` may import from `@rezi-ui/core`.
 
 ### Cross-Cutting Concern: JSX Parity
 
-When core widget APIs change, JSX must be updated in the same change set.
+When a core widget API changes, update JSX in the same change set:
+- `packages/jsx/src/components.ts`
+- `packages/jsx/src/types.ts`
+- `packages/jsx/src/createElement.ts`
+- `packages/jsx/src/index.ts`
+- `packages/jsx/src/__tests__/`
+- `docs/getting-started/jsx.md`
+- `docs/packages/jsx.md`
+- `packages/jsx/README.md`
 
-- Any new/changed `ui.*` factory in `packages/core/src/widgets/ui.ts` must be mirrored in `packages/jsx/src/components.ts`.
-- Keep JSX props/intrinsics in sync in `packages/jsx/src/types.ts` and `packages/jsx/src/createElement.ts`.
-- JSX components should delegate to `ui.*()` factories instead of constructing raw VNodes directly.
-- Update JSX exports (`packages/jsx/src/index.ts`), tests (`packages/jsx/src/__tests__/`), and docs (`docs/getting-started/jsx.md`, `docs/packages/jsx.md`, `packages/jsx/README.md`) together.
+### Drawlist Codegen
 
-### Drawlist writer codegen guardrail (MUST for ZRDL command changes)
-
-The command writer implementation is code-generated. Never hand-edit
-`packages/core/src/drawlist/writers.gen.ts`.
-
-When changing drawlist command layout/opcodes/field widths/offsets:
-
-1. Update `scripts/drawlist-spec.ts` (single source of truth).
-2. Regenerate writers: `npm run codegen`.
-3. Verify sync guardrail: `npm run codegen:check`.
-4. Update `packages/core/src/drawlist/__tests__/writers.gen.test.ts` if command bytes changed.
-5. Update protocol docs (`docs/protocol/zrdl.md`, `docs/protocol/versioning.md`) in the same PR.
-
-CI enforces this with `codegen:check`; stale generated writers are a hard failure.
+See `CLAUDE.md` § Drawlist Codegen Protocol.
 
 ## Testing Protocol
 
@@ -148,183 +175,129 @@ CI enforces this with `codegen:check`; stale generated writers are a hard failur
 # Run all tests
 node scripts/run-tests.mjs
 
-# Run specific test file
+# Run one test file
 node --test packages/core/src/widgets/__tests__/basicWidgets.test.ts
 
-# Run tests matching pattern
+# Run filtered suite
 node scripts/run-tests.mjs --filter "widget"
 ```
 
-**Test locations:**
+### Test Location Index
 
 | Category | Path |
 |----------|------|
-| Unit tests | `packages/core/src/**/__tests__/*.test.ts` |
-| Integration tests | `packages/core/src/__tests__/integration/` |
-| Stress/fuzz tests | `packages/core/src/__tests__/stress/` |
+| Unit | `packages/core/src/**/__tests__/*.test.ts` |
+| Integration | `packages/core/src/__tests__/integration/` |
+| Stress/Fuzz | `packages/core/src/__tests__/stress/` |
 | Template tests | `packages/create-rezi/templates/*/src/__tests__/` |
 
-**After any code change:**
+### Required Execution Order
 
-1. Run tests for the affected module first.
-2. If changing runtime, layout, or renderer code, also run integration tests.
-3. Run the full suite before committing.
+1. Run nearest unit tests first.
+2. If runtime/layout/renderer changed, run integration tests.
+3. Run full suite before commit.
 
 ### Mandatory Live PTY Validation for UI Regressions
 
-For rendering/layout/theme regressions, do not stop at unit snapshots. Run the
-app in a real PTY and collect frame audit evidence yourself before asking a
-human to reproduce.
+For rendering/layout/theme regressions, include a live PTY pass and frame-audit evidence.
 
 Canonical runbook:
+- `docs/dev/live-pty-debugging.md`
 
-- [`docs/dev/live-pty-debugging.md`](docs/dev/live-pty-debugging.md)
-
-Minimum required checks for UI regression work:
-
+Minimum checks:
 1. Run target app/template in PTY with deterministic viewport.
-2. Exercise relevant routes/keys (for starship: `1..6`, `t`, `q`).
-3. Capture `REZI_FRAME_AUDIT` logs and analyze with
-   `node scripts/frame-audit-report.mjs ... --latest-pid`.
-4. Capture app-level debug snapshots (`REZI_STARSHIP_DEBUG=1`) when applicable.
-5. Include concrete evidence in your report (hash changes, route summary, key stages).
+2. Exercise relevant routes and key paths.
+3. Capture `REZI_FRAME_AUDIT` logs.
+4. Analyze logs with `node scripts/frame-audit-report.mjs ... --latest-pid`.
+5. Include concrete evidence (hash deltas, route/key summaries) in your report.
 
 ## Verification Protocol (Two-Agent Verification)
 
-When verifying documentation or code changes, split into two passes:
+### Agent 1 — Accuracy Checker
 
-**Agent 1 — Accuracy Checker:**
-- Verify all file paths referenced in docs actually exist on disk.
-- Verify all function signatures match actual exports in `packages/core/src/index.ts`.
-- Verify all prop types match actual type definitions in `packages/core/src/widgets/types.ts`.
-- Verify code examples would compile and run with the current API.
+- Confirm file paths in docs exist.
+- Confirm signatures match exports in `packages/core/src/index.ts`.
+- Confirm prop/callback names match `packages/core/src/widgets/types.ts`.
+- Confirm examples compile against current API shape.
 
-**Agent 2 — Completeness Checker:**
-- Check that no important exports are missing from docs.
-- Check that no deprecated APIs are recommended.
-- Check patterns match the template reference implementations in `packages/create-rezi/templates/`.
-- Check guardrails and limits match actual constants in code (e.g., `MAX_UNDO_STACK`, `MAX_LOG_ENTRIES`).
+### Agent 2 — Completeness Checker
+
+- Confirm no critical exports are missing from docs.
+- Confirm canonical APIs are represented (no stale alternatives).
+- Confirm guidance matches template patterns in `packages/create-rezi/templates/`.
+- Confirm constraints and limits referenced in docs match code constants.
 
 ## Building TUIs with Rezi
 
-When creating demo apps or TUI implementations, follow the template structure:
+Use template structure from `create-rezi` and keep view functions pure.
 
-```
+Required structure:
+
+```text
 src/
-  main.ts              -- App bootstrap, keybindings, event loop
-  types.ts             -- State and action types
-  theme.ts             -- Theme selection
+  main.ts
+  types.ts
+  theme.ts
   helpers/
-    state.ts           -- Initial state + reducer function
-    keybindings.ts     -- Keybinding command resolver
+    state.ts
+    keybindings.ts
   screens/
-    *.ts               -- Pure view functions per screen
+    *.ts
   __tests__/
-    reducer.test.ts    -- State logic tests
-    render.test.ts     -- Render output tests
-    keybindings.test.ts -- Keybinding tests
+    reducer.test.ts
+    render.test.ts
+    keybindings.test.ts
 ```
 
-**Required patterns:**
-
-1. Define state type and action union in `types.ts`.
-2. Create reducer in `helpers/state.ts`.
-3. Create pure screen functions in `screens/` (each returns a `VNode`).
-4. Wire keybindings via `app.keys()` in `main.ts`.
-5. Use `createNodeApp({ config: { fpsCap: 30 } })` for production apps.
-6. For animated screens, prefer declarative hooks (`useTransition`, `useSpring`, `useSequence`, `useStagger`, `useAnimatedValue`, `useParallel`, `useChain`) plus container `transition`/`exitTransition` props over ad-hoc timers in view code.
-
-**Widget usage hierarchy (prefer higher):**
-
-1. `ui.*` factory functions — `text`, `box`, `column`, `row`, `button`, `input`, `select`, `table`, etc.
-2. `defineWidget()` — for stateful reusable components with hooks.
-3. `useTransition()/useSpring()/useSequence()/useStagger()`, `useTable()`, `useModalStack()`, `useForm()` — for complex interaction patterns.
-4. `each()`, `show()`, `when()`, `maybe()`, `match()` — rendering control flow utilities.
+Implementation expectations:
+- state and action types in `types.ts`
+- reducer in `helpers/state.ts`
+- screen functions in `screens/`
+- keybindings wired via `app.keys()`
+- use `createNodeApp({ config: { fpsCap: 30 } })` for production apps
 
 ## TUI Aesthetics Protocol
 
-When building or modifying Rezi TUI applications, follow these visual design rules to ensure professional output.
+Use `CLAUDE.md` as source of truth for all design/layout guidance.
 
 ### Mandatory Structure
-1. Root view MUST use `ui.page()` or `ui.appShell()` — never a bare `ui.column()`.
-2. Root MUST have `p: 1` (minimum 1-cell padding from terminal edges).
-3. Content sections MUST be wrapped in `ui.panel("Title", [...])` for visual grouping.
-4. Button groups MUST use `ui.actions([...])` for right-aligned layout.
-5. Forms MUST use `ui.form([...])` with `ui.field()` wrappers.
 
-### Widget Styling Defaults
-When the active theme provides semantic color tokens, core interactive widgets use design system recipes by default:
-- **Buttons**: Auto-styled with `soft` variant. Use `intent: "primary"` for main CTA.
-- **Inputs**: Auto-styled with border + elevated background. No manual styling needed.
-- **Selects**: Auto-styled with border + background.
-- **Checkboxes**: Auto-styled with accent color when checked.
-- **Progress bars**: Auto-styled with theme accent color.
-- **Callouts**: Auto-styled with semantic border color based on variant.
+- Root view uses `ui.page()` or `ui.appShell()`.
+- Root keeps at least `p: 1`.
+- Major content sections are grouped in `ui.panel()` or `ui.card()`.
+- Action rows use `ui.actions()`.
+- Forms use `ui.form()` + `ui.field()` wrappers.
 
-If the active theme does not provide semantic color tokens, these widgets fall back to non-recipe rendering.
+### Button Styling
 
-Notes:
-- A framed border for input/select requires at least 3 rows of height; at 1 row they still use recipe text/background styling but render without a box border.
-- For buttons, `px` overrides recipe padding when recipe styling is active; use `dsSize` for standard size presets.
-
-### Button Intent Shorthand
-Instead of `dsVariant` + `dsTone` + `dsSize`, use the `intent` prop:
-| Intent | Maps to | Use for |
-|--------|---------|---------|
-| `"primary"` | solid + primary | Main call-to-action (Save, Submit) |
-| `"secondary"` | soft + default | Secondary actions (Cancel, Back) |
-| `"danger"` | outline + danger | Destructive actions (Delete, Remove) |
-| `"success"` | soft + success | Positive confirmations |
-| `"warning"` | soft + warning | Caution actions |
-| `"link"` | ghost + default + sm | Minimal/link-style actions |
-
-### Spacing Scale
-| Value | Use for |
-|-------|---------|
-| `gap: 0` | Tightly coupled items only |
-| `gap: 1` | Related items (fields, buttons, list items) |
-| `gap: 2` | Distinct sections within a panel |
-| `p: 1` | Standard container/panel padding |
-| `p: 2` | Prominent/spacious panels |
-
-### Visual Hierarchy (text variants)
-- `variant: "heading"` — page/section titles (bold, primary)
-- `variant: "caption"` — labels, descriptions (dim, secondary)
-- `variant: "code"` — code/mono content
-- No variant — regular body text
+See `CLAUDE.md` § Button Styling.
 
 ### Verification Checklist
-Before finalizing any TUI implementation, verify:
-- [ ] Root uses `ui.page()` or `ui.appShell()` with `p: 1`
-- [ ] All content sections use `ui.panel()` or `ui.card()`
-- [ ] Primary action button has `intent: "primary"`
-- [ ] Destructive buttons have `intent: "danger"`
-- [ ] Forms use `ui.field()` wrappers with labels
-- [ ] Button groups use `ui.actions()`
-- [ ] No hardcoded RGB colors (use theme/design system)
-- [ ] Consistent gap values (1 for items, 2 for sections)
-- [ ] Status/state shown with `ui.badge()` or `ui.status()`
+
+Before finalizing a TUI feature:
+- [ ] Root structure and spacing follow canonical page patterns.
+- [ ] Semantic status widgets are used (badge/status/tag/callout).
+- [ ] Button actions use intent-based semantics.
+- [ ] No hardcoded RGB/hex styling in app widgets.
+- [ ] Large collections use `ui.virtualList`.
 
 ## PR and Commit Protocol
 
-- Run full test suite before commits: `node scripts/run-tests.mjs`
-- Verify `docs/dev/code-standards.md` checklist before opening/merging a PR.
-- Commit message format: `feat(scope):`, `fix(scope):`, `docs(scope):`, `refactor(scope):`, `test(scope):`
-- Keep commits atomic — one logical change per commit.
-- Update `CHANGELOG.md` for user-facing changes.
-- Do not use `pnpm`. This project uses `npm` workspaces.
+- Run `node scripts/run-tests.mjs` before commit.
+- Keep commits atomic (one logical change per commit).
+- Use commit prefixes: `feat`, `fix`, `refactor`, `docs`, `test`, `perf`, `chore`.
+- Update `CHANGELOG.md` for user-visible behavior changes.
+- Use npm workspaces; do not switch to pnpm.
 
 ## Common Mistakes to Avoid
 
-1. **Importing from internal paths** instead of package exports. Always import from `@rezi-ui/core`, not from `@rezi-ui/core/dist/widgets/ui.js`.
-2. **Forgetting `id` prop on interactive widgets.** Buttons, inputs, checkboxes, selects, and other focusable widgets require a unique `id`. Omitting it causes a runtime crash.
-3. **Calling hooks conditionally.** `defineWidget` hooks (`useTransition`, `useSpring`, `useSequence`, `useStagger`, `useAsync`, `useDebounce`, `usePrevious`, etc.) must be called in the same order every render. No conditional hook calls.
-4. **Mutating state directly.** Always use `app.update()` with an updater function or new state object. Never mutate the state reference.
-5. **Creating duplicate widget IDs.** Two widgets with the same `id` in the same render tree will cause a fatal error. Use `ctx.id()` for dynamic lists inside `defineWidget`.
-6. **Using `pnpm`.** This project uses `npm` workspaces. Running `pnpm install` will break the workspace links.
-7. **Skipping tests after pipeline changes.** Any change to commit, reconcile, layout, or renderer files requires running the full test suite. Subtle regressions are common.
-8. **Breaking module boundaries.** Core must remain runtime-agnostic. Never add Node.js-specific imports (`Buffer`, `worker_threads`, `node:*`) to `@rezi-ui/core`.
-9. **Misconfiguring container transitions.** `ui.box`/`ui.row`/`ui.column`/`ui.grid` transition defaults animate `position`, `size`, and `opacity`; use explicit `properties` filters (or `[]` to disable) when behavior should be constrained, and use `exitTransition` when removals should animate out.
-10. **Editing generated drawlist writers by hand.** Update `scripts/drawlist-spec.ts` and run `npm run codegen` instead.
-11. **Assuming only `press` and `input` actions exist.** The routed action model also emits `select`, `rowPress`, `toggle`, `change`, `activate`, and `scroll` through `app.on("event", ...)`.
-12. **Misunderstanding animation completion behavior.** Completion callbacks should only run on a finished run; retargeted and looping animations start a new run and should not reuse the prior completion expectation.
+1. Importing from internal paths instead of package exports.
+2. Missing `id` on interactive widgets.
+3. Conditional hook execution.
+4. In-place mutation of app state.
+5. Duplicate widget IDs in one tree.
+6. Skipping full-suite test pass after runtime/layout changes.
+7. Breaking module boundaries (core importing runtime-specific modules).
+8. Editing generated drawlist writer files directly.
+9. Using non-semantic manual status rendering instead of semantic widgets.
+10. Rendering large lists without virtualization.
