@@ -118,6 +118,7 @@ Current behavior that docs and code generation must preserve:
 - Overlay widgets use constraint-driven sizing (`modal`, `commandPalette`, `toolApprovalDialog`, `toastContainer`).
 - Deterministic integer distribution is shared across split and grid sizing paths.
 - Stability signatures are active for common leaf/container/widget kinds.
+- Responsive scalars are resolved via responsive maps and `fluid(min, max, options?)`.
 
 ### Container vs Leaf Taxonomy
 
@@ -132,6 +133,17 @@ Rules:
 - Containers define structure.
 - Leaves fill structure.
 - Avoid redundant container chains with no layout contribution.
+
+### Responsive Primitives
+
+Layout values support responsive maps and fluid interpolation through `ResponsiveValue<T>` resolution in `packages/core/src/layout/responsive.ts`.
+
+```ts
+const width = { base: 24, md: 40, lg: 56 };
+const p = fluid(1, 3);
+```
+
+Use responsive maps for breakpoint-driven values and `fluid(...)` for smooth viewport interpolation.
 
 ## Design System
 
@@ -178,7 +190,7 @@ ui.button({ id: "review", label: "Review", intent: "warning" })
 ui.button({ id: "docs", label: "Docs", intent: "link" })
 ```
 
-Internals note: `intent` resolves into recipe-level `dsVariant` and `dsTone`; those fields are internal recipe levers, not the documented app-facing API.
+Precedence rule: `style > dsVariant/dsTone > intent`.
 
 ### Elevation Model
 
@@ -354,29 +366,29 @@ All hook signatures below are sourced from:
 
 ## Widget Quick Reference
 
-Canonical signatures and callbacks below are sourced from `packages/core/src/widgets/types.ts`.
+Canonical signatures below are sourced from `packages/core/src/widgets/ui.ts` and callback signatures from `packages/core/src/widgets/types.ts`.
 
 ### Interactive Widgets
 
 | Widget | Canonical Signature | Required Props | Primary Callback | DS Props |
 |--------|---------------------|----------------|------------------|----------|
-| `button` | `ui.button({ id, label, intent?, onPress? })` | `id`, `label` | `onPress?: () => void` | `intent`, `dsSize` (`dsVariant`/`dsTone` internal) |
-| `input` | `ui.input({ id, value, onInput?, onBlur? })` | `id`, `value` | `onInput?: (value: string, cursor: number) => void` | `dsSize` |
+| `button` | `ui.button({ id, label, intent?, onPress? })` | `id`, `label` | `onPress?: () => void` | `intent` |
+| `input` | `ui.input({ id, value, onInput?, onBlur? })` | `id`, `value` | `onInput?: (value: string, cursor: number) => void` | advanced/internal DS styling (avoid in app code) |
 | `textarea` | `ui.textarea({ id, value, onInput?, onBlur? })` | `id`, `value` | `onInput?: (value: string, cursor: number) => void` | — |
 | `link` | `ui.link({ url, label?, onPress? })` | `url` | `onPress?: () => void` | — |
-| `select` | `ui.select({ id, value, options, onChange? })` | `id`, `value`, `options` | `onChange?: (value: string) => void` | `dsVariant`, `dsTone`, `dsSize` |
+| `select` | `ui.select({ id, value, options, onChange? })` | `id`, `value`, `options` | `onChange?: (value: string) => void` | advanced/internal DS styling (avoid in app code) |
 | `slider` | `ui.slider({ id, value, onChange? })` | `id`, `value` | `onChange?: (value: number) => void` | — |
-| `checkbox` | `ui.checkbox({ id, checked, onChange? })` | `id`, `checked` | `onChange?: (checked: boolean) => void` | `dsTone`, `dsSize` |
-| `radioGroup` | `ui.radioGroup({ id, value, options, onChange? })` | `id`, `value`, `options` | `onChange?: (value: string) => void` | `dsTone`, `dsSize` |
-| `tabs` | `ui.tabs({ id, tabs, activeTab, onChange })` | `id`, `tabs`, `activeTab`, `onChange` | `onChange: (key: string) => void` | `dsVariant`, `dsTone`, `dsSize` |
-| `accordion` | `ui.accordion({ id, items, expanded, onChange })` | `id`, `items`, `expanded`, `onChange` | `onChange: (expanded: readonly string[]) => void` | `dsVariant`, `dsTone`, `dsSize` |
-| `breadcrumb` | `ui.breadcrumb({ items, separator? })` | `items` | `items[].onPress?: () => void` | `dsVariant`, `dsTone`, `dsSize` |
-| `pagination` | `ui.pagination({ id, page, totalPages, onChange })` | `id`, `page`, `totalPages`, `onChange` | `onChange: (page: number) => void` | `dsVariant`, `dsTone`, `dsSize` |
+| `checkbox` | `ui.checkbox({ id, checked, onChange? })` | `id`, `checked` | `onChange?: (checked: boolean) => void` | advanced/internal DS styling (avoid in app code) |
+| `radioGroup` | `ui.radioGroup({ id, value, options, onChange? })` | `id`, `value`, `options` | `onChange?: (value: string) => void` | advanced/internal DS styling (avoid in app code) |
+| `tabs` | `ui.tabs({ id, tabs, activeTab, onChange })` | `id`, `tabs`, `activeTab`, `onChange` | `onChange: (key: string) => void` | advanced/internal DS styling (avoid in app code) |
+| `accordion` | `ui.accordion({ id, items, expanded, onChange })` | `id`, `items`, `expanded`, `onChange` | `onChange: (expanded: readonly string[]) => void` | advanced/internal DS styling (avoid in app code) |
+| `breadcrumb` | `ui.breadcrumb({ items, separator? })` | `items` | `items[].onPress?: () => void` | advanced/internal DS styling (avoid in app code) |
+| `pagination` | `ui.pagination({ id, page, totalPages, onChange })` | `id`, `page`, `totalPages`, `onChange` | `onChange: (page: number) => void` | advanced/internal DS styling (avoid in app code) |
 | `sidebar` | `ui.sidebar({ items, selected?, onSelect? })` | `items` | `onSelect?: (id: string) => void` | — |
-| `table` | `ui.table<T>({ id, columns, data, getRowKey, ... })` | `id`, `columns`, `data`, `getRowKey` | `onSelectionChange?: (keys: readonly string[]) => void` | `dsSize`, `dsTone` |
-| `tree` | `ui.tree<T>({ id, data, getKey, expanded, onChange, renderNode, ... })` | `id`, `data`, `getKey`, `expanded`, `onChange`, `renderNode` | `onChange: (node: T, expanded: boolean) => void` | `dsVariant`, `dsTone`, `dsSize` |
+| `table` | `ui.table<T>({ id, columns, data, getRowKey, ... })` | `id`, `columns`, `data`, `getRowKey` | `onSelectionChange?: (keys: readonly string[]) => void` | advanced/internal DS styling (avoid in app code) |
+| `tree` | `ui.tree<T>({ id, data, getKey, expanded, onChange, renderNode, ... })` | `id`, `data`, `getKey`, `expanded`, `onChange`, `renderNode` | `onChange: (node: T, expanded: boolean) => void` | advanced/internal DS styling (avoid in app code) |
 | `virtualList` | `ui.virtualList<T>({ id, items, renderItem, ... })` | `id`, `items`, `renderItem` | `onSelect?: (item: T, index: number) => void` | — |
-| `dropdown` | `ui.dropdown({ id, anchorId, items, ... })` | `id`, `anchorId`, `items` | `onSelect?: (item: DropdownItem) => void` | `dsVariant`, `dsTone`, `dsSize` |
+| `dropdown` | `ui.dropdown({ id, anchorId, items, ... })` | `id`, `anchorId`, `items` | `onSelect?: (item: DropdownItem) => void` | advanced/internal DS styling (avoid in app code) |
 | `modal` | `ui.modal({ id, content, ... })` | `id`, `content` | `onClose?: () => void` | — |
 | `dialog` | `ui.dialog({ id, message, actions, ... })` | `id`, `message`, `actions` | `actions[].onPress: () => void` | action `intent` |
 | `commandPalette` | `ui.commandPalette({ id, open, query, sources, selectedIndex, onChange, onSelect, onClose, ... })` | `id`, `open`, `query`, `sources`, `selectedIndex`, `onChange`, `onSelect`, `onClose` | `onChange: (query: string) => void` | — |
@@ -388,6 +400,8 @@ Canonical signatures and callbacks below are sourced from `packages/core/src/wid
 | `toolApprovalDialog` | `ui.toolApprovalDialog({ id, request, open, onPress, onClose, ... })` | `id`, `request`, `open`, `onPress`, `onClose` | `onPress: (action: \"allow\" | \"deny\") => void` | — |
 | `logsConsole` | `ui.logsConsole({ id, entries, scrollTop, onScroll, ... })` | `id`, `entries`, `scrollTop`, `onScroll` | `onChange?: (entryId: string, expanded: boolean) => void` | — |
 | `toastContainer` | `ui.toastContainer({ toasts, onClose, ... })` | `toasts`, `onClose` | `onClose: (id: string) => void` | — |
+| `routerBreadcrumb` | `ui.routerBreadcrumb(router, routes, props?)` | `router`, `routes` | uses route-history item presses from helper output | — |
+| `routerTabs` | `ui.routerTabs(router, routes, props?)` | `router`, `routes` | tab change routing is wired by helper output | — |
 
 ### Container Widgets
 
@@ -396,18 +410,27 @@ Canonical signatures and callbacks below are sourced from `packages/core/src/wid
 | `box` | `ui.box(props, children)` | `p/px/py`, `gap`, `border`, `style`, `overflow`, layout constraints |
 | `row` | `ui.row(props, children)` | `gap`, `items`, `justify`, `wrap`, flex constraints |
 | `column` | `ui.column(props, children)` | `gap`, `items`, `justify`, `wrap`, flex constraints |
+| `themed` | `ui.themed(themeOverride, children?)` | scoped theme override subtree |
 | `grid` | `ui.grid(props, children)` | `columns`, `rows`, `gap`, `rowGap`, `columnGap` |
-| `layers` | `ui.layers(children)` | overlay stack order via child order |
+| `layers` | `ui.layers(children)` or `ui.layers(props, children)` | overlay stack order via child order |
 | `layer` | `ui.layer({ id, content, ... })` | `id`, `content`, `zIndex`, `modal`, `backdrop`, `onClose` |
-| `panel` | `ui.panel(title, children, options?)` | titled bordered section wrapper |
-| `form` | `ui.form(children, options?)` | canonical vertical form container |
-| `actions` | `ui.actions(children, options?)` | canonical action-row container |
+| `panel` | `ui.panel(title, children)` or `ui.panel(options, children)` | titled bordered section wrapper |
+| `form` | `ui.form(children)` or `ui.form(options, children)` | canonical vertical form container |
+| `actions` | `ui.actions(children)` or `ui.actions(options, children)` | canonical action-row container |
 | `center` | `ui.center(child, options?)` | centering wrapper |
 | `page` | `ui.page({ body, header?, footer?, p?, gap? })` | root page composition |
 | `appShell` | `ui.appShell({ body, header?, sidebar?, footer?, p?, gap? })` | app chrome layout |
-| `card` | `ui.card(title?, children, options?)` | elevated content block |
-| `toolbar` | `ui.toolbar(children, options?)` | toolbar row composition |
+| `card` | `ui.card(title, children)` or `ui.card(options, children)` | elevated content block |
+| `toolbar` | `ui.toolbar(children)` or `ui.toolbar(options, children)` | toolbar row composition |
 | `statusBar` | `ui.statusBar({ left?, right?, style? })` | footer status composition |
+| `header` | `ui.header({ title, subtitle?, actions?, ... })` | bordered page-header composition |
+| `masterDetail` | `ui.masterDetail({ master, detail, masterWidth?, gap?, ... })` | two-pane layout composition |
+| `focusZone` | `ui.focusZone(props, children?)` | grouped focus navigation |
+| `focusTrap` | `ui.focusTrap(props, children?)` | modal/local focus containment |
+| `field` | `ui.field({ label, children, ... })` | form label+hint+error wrapper |
+| `panelGroup` | `ui.panelGroup({ id, direction }, children)` | resizable panel container |
+| `resizablePanel` | `ui.resizablePanel(props?, children)` | panel size constraints for panel group |
+| `errorBoundary` | `ui.errorBoundary({ children, fallback })` | guarded subtree with fallback renderer |
 
 ### Display Widgets
 
@@ -419,44 +442,61 @@ Canonical signatures and callbacks below are sourced from `packages/core/src/wid
 | `icon` | `ui.icon(icon, props?)` | icon id/path, optional fallback |
 | `spinner` | `ui.spinner(props?)` | `variant`, `label` |
 | `progress` | `ui.progress(value, props?)` | `value`, `width`, `variant`, `showPercent` |
-| `skeleton` | `ui.skeleton({ width, height?, ... })` | loading placeholders |
+| `skeleton` | `ui.skeleton(width, props?)` | loading placeholders |
 | `richText` | `ui.richText(spans, props?)` | styled span sequences |
 | `kbd` | `ui.kbd(keys, props?)` | shortcut rendering |
+| `keybindingHelp` | `ui.keybindingHelp(bindings, options?)` | keyboard shortcut help list |
 | `badge` | `ui.badge(text, props?)` | `variant`, semantic labels |
 | `status` | `ui.status(status, props?)` | online/offline/away/busy states |
 | `tag` | `ui.tag(text, props?)` | label chips, optional removable state |
 | `gauge` | `ui.gauge(value, props?)` | compact thresholded value indicator |
+| `empty` | `ui.empty(title, props?)` | empty-state rendering |
+| `errorDisplay` | `ui.errorDisplay(message, props?)` | standardized error view |
 | `callout` | `ui.callout(message, props?)` | semantic info/success/warning/error blocks |
-| `empty` | `ui.empty({ title, description?, action? })` | empty-state rendering |
+| `focusAnnouncer` | `ui.focusAnnouncer(props?)` | focus summary/live-announcement line |
+| `canvas` | `ui.canvas({ width, height, draw, ... })` | low-level drawing surface |
+| `image` | `ui.image({ src, width, height, ... })` | protocol-aware image rendering |
+| `lineChart` | `ui.lineChart({ width, height, series, ... })` | multi-series line chart |
+| `scatter` | `ui.scatter({ width, height, points, ... })` | scatter plot |
+| `heatmap` | `ui.heatmap({ width, height, data, ... })` | matrix heatmap |
+| `sparkline` | `ui.sparkline(data, props?)` | inline trend chart |
+| `barChart` | `ui.barChart(data, props?)` | horizontal/vertical bar chart |
+| `miniChart` | `ui.miniChart(values, props?)` | compact multi-metric chart |
 
 ### Callback Quick Reference
 
-| Widget | Callback Name | Signature |
-|--------|---------------|-----------|
-| `button` | `onPress` | `() => void` |
-| `input` | `onInput` | `(value: string, cursor: number) => void` |
-| `textarea` | `onInput` | `(value: string, cursor: number) => void` |
-| `select` | `onChange` | `(value: string) => void` |
-| `slider` | `onChange` | `(value: number) => void` |
-| `checkbox` | `onChange` | `(checked: boolean) => void` |
-| `radioGroup` | `onChange` | `(value: string) => void` |
-| `tabs` | `onChange` | `(key: string) => void` |
-| `accordion` | `onChange` | `(expanded: readonly string[]) => void` |
-| `pagination` | `onChange` | `(page: number) => void` |
-| `table` | `onSelectionChange` | `(keys: readonly string[]) => void` |
-| `table` | `onSort` | `(column: string, direction: \"asc\" | \"desc\") => void` |
-| `tree` | `onChange` | `(node: T, expanded: boolean) => void` |
-| `tree` | `onPress` | `(node: T) => void` |
-| `commandPalette` | `onChange` | `(query: string) => void` |
-| `filePicker` | `onChange` | `(path: string, expanded: boolean) => void` |
-| `filePicker` | `onPress` | `(path: string) => void` |
-| `fileTreeExplorer` | `onChange` | `(node: FileNode, expanded: boolean) => void` |
-| `fileTreeExplorer` | `onPress` | `(node: FileNode) => void` |
-| `splitPane` | `onChange` | `(sizes: readonly number[]) => void` |
-| `toolApprovalDialog` | `onPress` | `(action: \"allow\" | \"deny\") => void` |
-| `logsConsole` | `onChange` | `(entryId: string, expanded: boolean) => void` |
-| `logsConsole` | `onPress` | `() => void` |
-| `toastContainer` | `onClose` | `(id: string) => void` |
+| Widget | Callback Name | Signature | Required? |
+|--------|---------------|-----------|-----------|
+| `button` | `onPress` | `() => void` | No |
+| `input` | `onInput` | `(value: string, cursor: number) => void` | No |
+| `textarea` | `onInput` | `(value: string, cursor: number) => void` | No |
+| `link` | `onPress` | `() => void` | No |
+| `select` | `onChange` | `(value: string) => void` | No |
+| `slider` | `onChange` | `(value: number) => void` | No |
+| `checkbox` | `onChange` | `(checked: boolean) => void` | No |
+| `radioGroup` | `onChange` | `(value: string) => void` | No |
+| `tabs` | `onChange` | `(key: string) => void` | Yes |
+| `accordion` | `onChange` | `(expanded: readonly string[]) => void` | Yes |
+| `breadcrumb` | `items[].onPress` | `() => void` | No |
+| `pagination` | `onChange` | `(page: number) => void` | Yes |
+| `sidebar` | `onSelect` | `(id: string) => void` | No |
+| `table` | `onSelectionChange` | `(keys: readonly string[]) => void` | No |
+| `tree` | `onChange` | `(node: T, expanded: boolean) => void` | Yes |
+| `virtualList` | `onSelect` | `(item: T, index: number) => void` | No |
+| `dropdown` | `onSelect` | `(item: DropdownItem) => void` | No |
+| `modal` | `onClose` | `() => void` | No |
+| `dialog` | `actions[].onPress` | `() => void` | Yes |
+| `commandPalette` | `onChange` | `(query: string) => void` | Yes |
+| `filePicker` | `onChange` | `(path: string, expanded: boolean) => void` | Yes |
+| `fileTreeExplorer` | `onChange` | `(node: FileNode, expanded: boolean) => void` | Yes |
+| `splitPane` | `onChange` | `(sizes: readonly number[]) => void` | Yes |
+| `codeEditor` | `onChange` | `(lines: readonly string[], cursor: CursorPosition) => void` | Yes |
+| `diffViewer` | `onScroll` | `(scrollTop: number) => void` | Yes |
+| `toolApprovalDialog` | `onPress` | `(action: "allow" | "deny") => void` | Yes |
+| `logsConsole` | `onScroll` | `(scrollTop: number) => void` | Yes |
+| `toastContainer` | `onClose` | `(id: string) => void` | Yes |
+| `routerBreadcrumb` | callback is derived from helper-built breadcrumb items | `items[].onPress?: () => void` | No |
+| `routerTabs` | callback is derived from helper-built tabs widget | internal `tabs.onChange(key)` wiring | Yes (internal) |
 
 ## Conditional and List Rendering
 
@@ -816,7 +856,11 @@ Project-level skills are mirrored for Claude and Codex.
 
 - Prefer `ui.virtualList` for collections above 50 items.
 - Avoid rendering hundreds of static rows as plain `ui.text` nodes.
-- Stability signatures skip relayout for unchanged subtrees.
+- Layout stability signatures use FNV-1a hashing to skip relayout for unchanged subtrees.
+- Builder `validateParams` is disabled in production fast paths.
+- Leaf node reuse avoids allocations for unchanged `text`/`spacer`/`divider` nodes.
+- Container reuse skips reconciliation when children remain structurally identical.
 - Preserve stable object identity for expensive static subtrees via memoization.
 - Use `ctx.useMemo` and `ctx.useCallback` to reduce avoidable recompute/churn.
 - Profile with `REZI_PERF=1 REZI_PERF_DETAIL=1`.
+- Benchmark scripts: `packages/bench/src/profile-phases.ts`, `packages/bench/src/profile-construction.ts`.
