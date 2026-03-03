@@ -53,9 +53,8 @@ Use this skill when:
          children: ui.input({ id: "field-email", ...form.bind("email") }),
        }),
        ui.actions([
+         ui.button({ id: "cancel", label: "Cancel", intent: "secondary", onPress: () => {} }),
          ui.button({ id: "save", label: "Save", intent: "primary", onPress: form.handleSubmit }),
-         ui.button({ id: "approve", label: "Approve", intent: "success", onPress: form.handleSubmit }),
-         ui.button({ id: "review", label: "Needs Review", intent: "warning", onPress: form.handleSubmit }),
        ]),
      ]);
    }, { name: "MyForm" });
@@ -66,6 +65,12 @@ Use this skill when:
 3. **Use `ui.field()`** to wrap inputs with labels and error display
 
 4. **Access form state** via `form.errors`, `form.touched`, `form.dirty`, `form.submitting`
+
+5. **Use success/warning for non-submit side actions**:
+   ```typescript
+   ui.button({ id: "approve", label: "Approve", intent: "success", onPress: handleApprove });
+   ui.button({ id: "review", label: "Needs Review", intent: "warning", onPress: handleReview });
+   ```
 
 ## Design system note
 

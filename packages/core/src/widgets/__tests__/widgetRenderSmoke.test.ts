@@ -103,7 +103,7 @@ describe("widget render smoke", () => {
     { name: "callout", vnode: ui.callout("watch out", { variant: "warning" }) },
     {
       name: "link",
-      vnode: ui.link({ url: "https://example.com", label: "Example", ...{ id: "lnk" } }),
+      vnode: ui.link({ url: "https://example.com", label: "Example", id: "lnk" }),
     },
     {
       name: "canvas",

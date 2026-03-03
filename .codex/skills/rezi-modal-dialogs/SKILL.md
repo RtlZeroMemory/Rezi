@@ -58,8 +58,18 @@ Use this skill when:
              onClose: () => app.update((s) => ({ ...s, showModal: false })),
              content: ui.text("Are you sure?"),
              actions: [
-               ui.button({ id: "confirm-cancel", label: "Cancel", intent: "secondary" }),
-               ui.button({ id: "confirm-ok", label: "OK", intent: "primary" }),
+               ui.button({
+                 id: "confirm-cancel",
+                 label: "Cancel",
+                 intent: "secondary",
+                 onPress: () => app.update((s) => ({ ...s, showModal: false })),
+               }),
+               ui.button({
+                 id: "confirm-ok",
+                 label: "OK",
+                 intent: "primary",
+                 onPress: () => app.update((s) => ({ ...s, showModal: false })),
+               }),
              ],
            }),
          ]

@@ -215,17 +215,17 @@ Minimum checks:
 
 ### Agent 1 — Accuracy Checker
 
-- Confirm file paths in docs exist.
-- Confirm signatures match exports in `packages/core/src/index.ts`.
-- Confirm prop/callback names match `packages/core/src/widgets/types.ts`.
-- Confirm examples compile against current API shape.
+- Verify file paths in docs exist.
+- Check signatures match exports in `packages/core/src/index.ts`.
+- Validate prop/callback names match `packages/core/src/widgets/types.ts`.
+- Ensure examples compile against current API shape.
 
 ### Agent 2 — Completeness Checker
 
-- Confirm no critical exports are missing from docs.
-- Confirm canonical APIs are represented (no stale alternatives).
-- Confirm guidance matches template patterns in `packages/create-rezi/templates/`.
-- Confirm constraints and limits referenced in docs match code constants.
+- Check no critical exports are missing from docs.
+- Verify canonical APIs are represented (no stale alternatives).
+- Ensure guidance matches template patterns in `packages/create-rezi/templates/`.
+- Validate constraints and limits referenced in docs match code constants.
 
 ## Building TUIs with Rezi
 

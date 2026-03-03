@@ -397,7 +397,7 @@ Canonical signatures below are sourced from `packages/core/src/widgets/ui.ts` an
 | `splitPane` | `ui.splitPane({ id, direction, sizes, onChange, ... }, children)` | `id`, `direction`, `sizes`, `onChange` | `onChange: (sizes: readonly number[]) => void` | — |
 | `codeEditor` | `ui.codeEditor({ id, lines, cursor, selection, scrollTop, scrollLeft, onChange, onSelectionChange, onScroll, ... })` | `id`, `lines`, `cursor`, `selection`, `scrollTop`, `scrollLeft`, `onChange`, `onSelectionChange`, `onScroll` | `onChange: (lines: readonly string[], cursor: CursorPosition) => void` | — |
 | `diffViewer` | `ui.diffViewer({ id, diff, mode, scrollTop, onScroll, ... })` | `id`, `diff`, `mode`, `scrollTop`, `onScroll` | `onScroll: (scrollTop: number) => void` | — |
-| `toolApprovalDialog` | `ui.toolApprovalDialog({ id, request, open, onPress, onClose, ... })` | `id`, `request`, `open`, `onPress`, `onClose` | `onPress: (action: \"allow\" | \"deny\") => void` | — |
+| `toolApprovalDialog` | `ui.toolApprovalDialog({ id, request, open, onPress, onClose, ... })` | `id`, `request`, `open`, `onPress`, `onClose` | `onPress: (action: \"allow\" \| \"deny\") => void` | — |
 | `logsConsole` | `ui.logsConsole({ id, entries, scrollTop, onScroll, ... })` | `id`, `entries`, `scrollTop`, `onScroll` | `onChange?: (entryId: string, expanded: boolean) => void` | — |
 | `toastContainer` | `ui.toastContainer({ toasts, onClose, ... })` | `toasts`, `onClose` | `onClose: (id: string) => void` | — |
 | `routerBreadcrumb` | `ui.routerBreadcrumb(router, routes, props?)` | `router`, `routes` | uses route-history item presses from helper output | — |
@@ -492,7 +492,7 @@ Canonical signatures below are sourced from `packages/core/src/widgets/ui.ts` an
 | `splitPane` | `onChange` | `(sizes: readonly number[]) => void` | Yes |
 | `codeEditor` | `onChange` | `(lines: readonly string[], cursor: CursorPosition) => void` | Yes |
 | `diffViewer` | `onScroll` | `(scrollTop: number) => void` | Yes |
-| `toolApprovalDialog` | `onPress` | `(action: "allow" | "deny") => void` | Yes |
+| `toolApprovalDialog` | `onPress` | `(action: "allow" \| "deny") => void` | Yes |
 | `logsConsole` | `onScroll` | `(scrollTop: number) => void` | Yes |
 | `toastContainer` | `onClose` | `(id: string) => void` | Yes |
 | `routerBreadcrumb` | callback is derived from helper-built breadcrumb items | `items[].onPress?: () => void` | No |
