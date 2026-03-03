@@ -60,7 +60,7 @@ Use this skill when:
    }, { name: "MyForm" });
    ```
 
-2. **Bind fields** using `form.bind("fieldName")` — returns object-form input props (`id`, `value`, `onInput`, `onBlur`, `disabled`)
+2. **Bind fields** using `form.bind("fieldName")` — returns object-form input props (`value`, `onInput`, `onBlur`, `disabled`)
 
 3. **Use `ui.field()`** to wrap inputs with labels and error display
 
