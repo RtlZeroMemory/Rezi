@@ -101,7 +101,7 @@ describe("widget render smoke", () => {
       }),
     },
     { name: "callout", vnode: ui.callout("watch out", { variant: "warning" }) },
-    { name: "link", vnode: ui.link("https://example.com", "Example", { id: "lnk" }) },
+    { name: "link", vnode: ui.link({ url: "https://example.com", label: "Example", ...{ id: "lnk" } }) },
     {
       name: "canvas",
       vnode: ui.canvas({
@@ -166,16 +166,16 @@ describe("widget render smoke", () => {
         { label: "MEM", value: 72, max: 100 },
       ]),
     },
-    { name: "button", vnode: ui.button("ok", "OK") },
-    { name: "input", vnode: ui.input("name", "value") },
+    { name: "button", vnode: ui.button({ id: "ok", label: "OK" }) },
+    { name: "input", vnode: ui.input({ id: "name", value: "value" }) },
     { name: "slider", vnode: ui.slider({ id: "volume", value: 50, min: 0, max: 100, step: 5 }) },
     {
       name: "focusZone",
-      vnode: ui.focusZone({ id: "zone", navigation: "linear" }, [ui.button("z1", "One")]),
+      vnode: ui.focusZone({ id: "zone", navigation: "linear" }, [ui.button({ id: "z1", label: "One" })]),
     },
     {
       name: "focusTrap",
-      vnode: ui.focusTrap({ id: "trap", active: true }, [ui.button("t1", "One")]),
+      vnode: ui.focusTrap({ id: "trap", active: true }, [ui.button({ id: "t1", label: "One" })]),
     },
     {
       name: "virtualList",
@@ -193,7 +193,7 @@ describe("widget render smoke", () => {
         id: "modal",
         title: "Confirm",
         content: ui.text("Continue?"),
-        actions: [ui.button("yes", "Yes")],
+        actions: [ui.button({ id: "yes", label: "Yes" })],
       }),
     },
     {
@@ -231,7 +231,7 @@ describe("widget render smoke", () => {
     },
     {
       name: "field",
-      vnode: ui.field({ label: "Name", required: true, children: ui.input("field", "") }),
+      vnode: ui.field({ label: "Name", required: true, children: ui.input({ id: "field", value: "" }) }),
     },
     {
       name: "select",

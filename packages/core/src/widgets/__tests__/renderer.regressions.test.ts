@@ -398,7 +398,7 @@ describe("renderer regressions", () => {
   test("dropdown renders shortcut text", () => {
     const bytes = renderBytes(
       ui.column({}, [
-        ui.button("file-trigger", "File"),
+        ui.button({ id: "file-trigger", label: "File" }),
         ui.dropdown({
           id: "file-menu",
           anchorId: "file-trigger",
@@ -544,7 +544,7 @@ describe("renderer regressions", () => {
   test("dropdown frameStyle encodes foreground, background, and border colors", () => {
     const bytes = renderBytes(
       ui.column({}, [
-        ui.button("menu-anchor", "Menu"),
+        ui.button({ id: "menu-anchor", label: "Menu" }),
         ui.dropdown({
           id: "styled-dropdown",
           anchorId: "menu-anchor",

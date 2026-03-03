@@ -193,7 +193,7 @@ const factoryCases: readonly FactoryCase[] = [
   {
     name: "link",
     expectedKind: "link",
-    build: () => ui.link("https://example.com", "Example"),
+    build: () => ui.link({ url: "https://example.com", label: "Example" }),
     optionalAbsent: "style",
   },
   {
@@ -256,13 +256,13 @@ const factoryCases: readonly FactoryCase[] = [
   {
     name: "button",
     expectedKind: "button",
-    build: () => ui.button("save", "Save"),
+    build: () => ui.button({ id: "save", label: "Save" }),
     optionalAbsent: "disabled",
   },
   {
     name: "input",
     expectedKind: "input",
-    build: () => ui.input("query", ""),
+    build: () => ui.input({ id: "query", value: "" }),
     optionalAbsent: "disabled",
   },
   {
@@ -354,7 +354,7 @@ const factoryCases: readonly FactoryCase[] = [
   {
     name: "field",
     expectedKind: "field",
-    build: () => ui.field({ label: "Name", children: ui.input("name", "") }),
+    build: () => ui.field({ label: "Name", children: ui.input({ id: "name", value: "" }) }),
     optionalAbsent: "error",
   },
   {
@@ -558,7 +558,7 @@ const keyCases: readonly KeyCase[] = [
   { name: "miniChart", build: (key) => ui.miniChart([{ label: "A", value: 1 }], { key }) },
   {
     name: "button shorthand",
-    build: (key) => ui.button("save", "Save", { key }),
+    build: (key) => ui.button({ id: "save", label: "Save", ...{ key } }),
   },
   {
     name: "button object",
@@ -566,7 +566,7 @@ const keyCases: readonly KeyCase[] = [
   },
   {
     name: "input shorthand",
-    build: (key) => ui.input("query", "", { key }),
+    build: (key) => ui.input({ id: "query", value: "", ...{ key } }),
   },
   {
     name: "input object",
@@ -619,7 +619,7 @@ const keyCases: readonly KeyCase[] = [
   },
   {
     name: "field",
-    build: (key) => ui.field({ key, label: "Name", children: ui.input("name", "") }),
+    build: (key) => ui.field({ key, label: "Name", children: ui.input({ id: "name", value: "" }) }),
   },
   {
     name: "select",

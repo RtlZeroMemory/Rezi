@@ -39,7 +39,7 @@ describe("container widgets - VNode construction", () => {
       id: "confirm",
       title: "Confirm",
       content: ui.text("Proceed?"),
-      actions: [ui.button("ok", "OK")],
+      actions: [ui.button({ id: "ok", label: "OK" })],
       closeOnEscape: true,
       closeOnBackdrop: true,
     });

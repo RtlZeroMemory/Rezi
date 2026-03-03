@@ -226,7 +226,7 @@ describe("radioGroup widget utilities", () => {
 
 describe("ui helper functions", () => {
   test("ui.button supports shorthand and object overloads", () => {
-    const short = ui.button("save", "Save", { disabled: true, px: 2 });
+    const short = ui.button({ id: "save", label: "Save", ...{ disabled: true, px: 2 } });
     assert.equal(short.kind, "button");
     assert.deepEqual(short.props, { id: "save", label: "Save", disabled: true, px: 2 });
 
@@ -240,7 +240,7 @@ describe("ui helper functions", () => {
   });
 
   test("ui.input supports shorthand and object overloads", () => {
-    const short = ui.input("query", "", { disabled: true });
+    const short = ui.input({ id: "query", value: "", ...{ disabled: true } });
     assert.equal(short.kind, "input");
     assert.deepEqual(short.props, { id: "query", value: "", disabled: true });
 

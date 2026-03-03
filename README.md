@@ -176,7 +176,9 @@ app.view((s) =>
       ui.row({ gap: 1, items: "center" }, [
         ui.text(String(s.count), { variant: "heading" }),
         ui.spacer({ flex: 1 }),
-        ui.button("inc", "+1", {
+        ui.button({
+          id: "inc",
+          label: "+1",
           intent: "primary",
           onPress: () => app.update((prev) => ({ count: prev.count + 1 })),
         }),

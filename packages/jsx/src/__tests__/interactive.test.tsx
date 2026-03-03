@@ -6,16 +6,16 @@ import { Button, Checkbox, Input, RadioGroup, Select, Slider, Textarea } from ".
 
 describe("interactive widgets", () => {
   test("Button and Input map to matching VNodes", () => {
-    assert.deepEqual(<Button id="ok" label="OK" />, ui.button("ok", "OK"));
+    assert.deepEqual(<Button id="ok" label="OK" />, ui.button({ id: "ok", label: "OK" }));
     assert.deepEqual(
       <Button id="ok" label="OK" disabled />,
-      ui.button("ok", "OK", { disabled: true }),
+      ui.button({ id: "ok", label: "OK", ...{ disabled: true } }),
     );
 
-    assert.deepEqual(<Input id="name" value="Alice" />, ui.input("name", "Alice"));
+    assert.deepEqual(<Input id="name" value="Alice" />, ui.input({ id: "name", value: "Alice" }));
     assert.deepEqual(
       <Input id="name" value="" disabled />,
-      ui.input("name", "", { disabled: true }),
+      ui.input({ id: "name", value: "", ...{ disabled: true } }),
     );
 
     assert.deepEqual(

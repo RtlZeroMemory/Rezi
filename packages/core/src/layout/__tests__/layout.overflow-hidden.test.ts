@@ -57,7 +57,7 @@ const IMPOSSIBLE_SCROLL_META: OverflowMeta = Object.freeze({
 describe("layout overflow:hidden (deterministic)", () => {
   describe("clipping in hidden containers", () => {
     test("hidden row clips right-side child overflow", () => {
-      const button = ui.button("clip-row", "clip-row");
+      const button = ui.button({ id: "clip-row", label: "clip-row" });
       const root = ui.row({ overflow: "hidden" }, [button]);
       const tree = layoutNode(root, { x: 0, y: 0, w: 4, h: 1 }, [
         layoutNode(button, { x: 0, y: 0, w: 8, h: 1 }),
@@ -68,7 +68,7 @@ describe("layout overflow:hidden (deterministic)", () => {
     });
 
     test("hidden column clips bottom-side child overflow", () => {
-      const button = ui.button("clip-column", "clip-column");
+      const button = ui.button({ id: "clip-column", label: "clip-column" });
       const root = ui.column({ overflow: "hidden" }, [button]);
       const tree = layoutNode(root, { x: 0, y: 0, w: 3, h: 2 }, [
         layoutNode(button, { x: 0, y: 0, w: 3, h: 4 }),
@@ -79,7 +79,7 @@ describe("layout overflow:hidden (deterministic)", () => {
     });
 
     test("hidden box clips child overflow that starts left of the box rect", () => {
-      const button = ui.button("clip-box-left", "clip-box-left");
+      const button = ui.button({ id: "clip-box-left", label: "clip-box-left" });
       const root = ui.box({ border: "none", overflow: "hidden" }, [button]);
       const tree = layoutNode(root, { x: 2, y: 0, w: 4, h: 1 }, [
         layoutNode(button, { x: 0, y: 0, w: 6, h: 1 }),
@@ -90,7 +90,7 @@ describe("layout overflow:hidden (deterministic)", () => {
     });
 
     test("hidden box border clips descendants to the inner content rect", () => {
-      const button = ui.button("clip-box-border", "clip-box-border");
+      const button = ui.button({ id: "clip-box-border", label: "clip-box-border" });
       const root = ui.box({ border: "single", overflow: "hidden" }, [button]);
       const tree = layoutNode(root, { x: 0, y: 0, w: 6, h: 3 }, [
         layoutNode(button, { x: 1, y: 1, w: 8, h: 1 }),
@@ -101,7 +101,7 @@ describe("layout overflow:hidden (deterministic)", () => {
     });
 
     test("hidden box padding clips descendants to padded content", () => {
-      const button = ui.button("clip-box-padding", "clip-box-padding");
+      const button = ui.button({ id: "clip-box-padding", label: "clip-box-padding" });
       const root = ui.box({ border: "none", p: 1, overflow: "hidden" }, [button]);
       const tree = layoutNode(root, { x: 0, y: 0, w: 6, h: 3 }, [
         layoutNode(button, { x: 0, y: 1, w: 6, h: 1 }),
@@ -115,7 +115,7 @@ describe("layout overflow:hidden (deterministic)", () => {
 
   describe("no scrollbar metadata reliance", () => {
     test("hidden row ignores impossible scroll metadata", () => {
-      const button = ui.button("hidden-row-meta", "hidden-row-meta");
+      const button = ui.button({ id: "hidden-row-meta", label: "hidden-row-meta" });
       const root = ui.row({ overflow: "hidden" }, [button]);
       const tree = layoutNode(
         root,
@@ -129,7 +129,7 @@ describe("layout overflow:hidden (deterministic)", () => {
     });
 
     test("hidden box ignores impossible scroll metadata and still uses content clipping", () => {
-      const button = ui.button("hidden-box-meta", "hidden-box-meta");
+      const button = ui.button({ id: "hidden-box-meta", label: "hidden-box-meta" });
       const root = ui.box({ border: "none", p: 1, overflow: "hidden" }, [button]);
       const tree = layoutNode(
         root,
@@ -143,7 +143,7 @@ describe("layout overflow:hidden (deterministic)", () => {
     });
 
     test("hidden column still clips deterministically when metadata is absent", () => {
-      const button = ui.button("hidden-column-no-meta", "hidden-column-no-meta");
+      const button = ui.button({ id: "hidden-column-no-meta", label: "hidden-column-no-meta" });
       const root = ui.column({ overflow: "hidden" }, [button]);
       const tree = layoutNode(root, { x: 0, y: 0, w: 3, h: 2 }, [
         layoutNode(button, { x: 0, y: 0, w: 3, h: 4 }),
@@ -156,7 +156,7 @@ describe("layout overflow:hidden (deterministic)", () => {
 
   describe("nested hidden clip intersections", () => {
     test("two-level hidden intersection allows hits in overlap", () => {
-      const leaf = ui.button("nested-two", "nested-two");
+      const leaf = ui.button({ id: "nested-two", label: "nested-two" });
       const mid = ui.column({ overflow: "hidden" }, [leaf]);
       const root = ui.row({ overflow: "hidden" }, [mid]);
       const tree = layoutNode(root, { x: 0, y: 0, w: 8, h: 3 }, [
@@ -167,7 +167,7 @@ describe("layout overflow:hidden (deterministic)", () => {
     });
 
     test("two-level hidden intersection rejects points outside overlap", () => {
-      const leaf = ui.button("nested-two", "nested-two");
+      const leaf = ui.button({ id: "nested-two", label: "nested-two" });
       const mid = ui.column({ overflow: "hidden" }, [leaf]);
       const root = ui.row({ overflow: "hidden" }, [mid]);
       const tree = layoutNode(root, { x: 0, y: 0, w: 8, h: 3 }, [
@@ -178,7 +178,7 @@ describe("layout overflow:hidden (deterministic)", () => {
     });
 
     test("triple hidden intersection keeps one-cell overlap hit-testable", () => {
-      const leaf = ui.button("nested-three", "nested-three");
+      const leaf = ui.button({ id: "nested-three", label: "nested-three" });
       const midB = ui.box({ border: "none", overflow: "hidden" }, [leaf]);
       const midA = ui.column({ overflow: "hidden" }, [midB]);
       const root = ui.row({ overflow: "hidden" }, [midA]);
@@ -194,7 +194,7 @@ describe("layout overflow:hidden (deterministic)", () => {
     });
 
     test("triple hidden intersection excludes adjacent cell outside overlap", () => {
-      const leaf = ui.button("nested-three", "nested-three");
+      const leaf = ui.button({ id: "nested-three", label: "nested-three" });
       const midB = ui.box({ border: "none", overflow: "hidden" }, [leaf]);
       const midA = ui.column({ overflow: "hidden" }, [midB]);
       const root = ui.row({ overflow: "hidden" }, [midA]);
@@ -212,7 +212,7 @@ describe("layout overflow:hidden (deterministic)", () => {
 
   describe("zero-size hidden container behavior", () => {
     test("hidden row with width=0 is never hit-testable", () => {
-      const root = ui.row({ overflow: "hidden", width: 0 }, [ui.button("zero-row", "zero-row")]);
+      const root = ui.row({ overflow: "hidden", width: 0 }, [ui.button({ id: "zero-row", label: "zero-row" })]);
       const tree = mustLayout(root, 0, 3, "row");
 
       assert.equal(tree.rect.w, 0);
@@ -222,7 +222,7 @@ describe("layout overflow:hidden (deterministic)", () => {
 
     test("hidden column with height=0 is never hit-testable", () => {
       const root = ui.column({ overflow: "hidden", height: 0 }, [
-        ui.button("zero-col", "zero-col"),
+        ui.button({ id: "zero-col", label: "zero-col" }),
       ]);
       const tree = mustLayout(root, 8, 0, "column");
 
@@ -233,7 +233,7 @@ describe("layout overflow:hidden (deterministic)", () => {
 
     test("hidden box with explicit width/height=0 clips out descendants", () => {
       const root = ui.box({ border: "none", overflow: "hidden", width: 0, height: 0 }, [
-        ui.button("zero-box", "zero-box"),
+        ui.button({ id: "zero-box", label: "zero-box" }),
       ]);
       const tree = mustLayout(root, 10, 10, "column");
 
@@ -244,7 +244,7 @@ describe("layout overflow:hidden (deterministic)", () => {
 
   describe("mixed row/column/box hidden layouts", () => {
     test("mixed hidden containers allow hits inside final clipped intersection", () => {
-      const leaf = ui.button("mixed-visible", "mixed-visible");
+      const leaf = ui.button({ id: "mixed-visible", label: "mixed-visible" });
       const box = ui.box({ border: "none", p: 1, overflow: "hidden" }, [leaf]);
       const column = ui.column({ p: 1, overflow: "hidden" }, [box]);
       const root = ui.row({ p: 1, overflow: "hidden" }, [column]);
@@ -260,7 +260,7 @@ describe("layout overflow:hidden (deterministic)", () => {
     });
 
     test("mixed hidden containers reject horizontal overflow outside final clip", () => {
-      const leaf = ui.button("mixed-visible", "mixed-visible");
+      const leaf = ui.button({ id: "mixed-visible", label: "mixed-visible" });
       const box = ui.box({ border: "none", p: 1, overflow: "hidden" }, [leaf]);
       const column = ui.column({ p: 1, overflow: "hidden" }, [box]);
       const root = ui.row({ p: 1, overflow: "hidden" }, [column]);
@@ -276,7 +276,7 @@ describe("layout overflow:hidden (deterministic)", () => {
     });
 
     test("mixed hidden containers reject vertical overflow outside final clip", () => {
-      const leaf = ui.button("mixed-visible", "mixed-visible");
+      const leaf = ui.button({ id: "mixed-visible", label: "mixed-visible" });
       const box = ui.box({ border: "none", p: 1, overflow: "hidden" }, [leaf]);
       const column = ui.column({ p: 1, overflow: "hidden" }, [box]);
       const root = ui.row({ p: 1, overflow: "hidden" }, [column]);
@@ -292,7 +292,7 @@ describe("layout overflow:hidden (deterministic)", () => {
     });
 
     test("mixed hidden row/column/box honors outer-row padding clip", () => {
-      const leaf = ui.button("mixed-row-padding", "mixed-row-padding");
+      const leaf = ui.button({ id: "mixed-row-padding", label: "mixed-row-padding" });
       const box = ui.box({ border: "none", overflow: "hidden" }, [leaf]);
       const column = ui.column({ overflow: "hidden" }, [box]);
       const root = ui.row({ p: 1, overflow: "hidden" }, [column]);

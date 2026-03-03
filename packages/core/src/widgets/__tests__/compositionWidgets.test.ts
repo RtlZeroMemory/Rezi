@@ -7,9 +7,9 @@ describe("composition widgets", () => {
     const nodes = [
       ui.appShell({ body: ui.text("body") }),
       ui.card("Card", [ui.text("Body")]),
-      ui.toolbar([ui.button("a", "Action")]),
+      ui.toolbar([ui.button({ id: "a", label: "Action" })]),
       ui.statusBar({ left: [ui.text("left")], right: [ui.text("right")] }),
-      ui.header({ title: "Header", actions: [ui.button("h-act", "Run")] }),
+      ui.header({ title: "Header", actions: [ui.button({ id: "h-act", label: "Run" })] }),
       ui.sidebar({
         id: "nav",
         items: [

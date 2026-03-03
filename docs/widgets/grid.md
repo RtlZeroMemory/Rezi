@@ -149,7 +149,7 @@ ui.grid({ columns: "auto 1fr auto", gap: 1 }, [
     value: state.name,
     onInput: (value) => app.update((s) => ({ ...s, name: value })),
   }),
-  ui.button("save", "Save"),
+  ui.button({ id: "save", label: "Save" }),
 ])
 ```
 

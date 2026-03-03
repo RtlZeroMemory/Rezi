@@ -52,7 +52,7 @@ describe("data visualization widgets", () => {
 
     assert.deepEqual(
       <Link url="https://example.com/docs" label="Docs" />,
-      ui.link("https://example.com/docs", "Docs"),
+      ui.link({ url: "https://example.com/docs", label: "Docs" }),
     );
     assert.deepEqual(
       <Canvas width={12} height={4} draw={draw} />,

@@ -152,8 +152,8 @@ Interactive form controls. All form widgets require an `id` prop for focus manag
 
 | Factory | Description | Focusable | Stability |
 |---------|-------------|-----------|-----------|
-| [`ui.button(id, label)` / `ui.button(props)`](button.md) | Clickable button with label | Yes | `beta` |
-| [`ui.input(id, value)` / `ui.input(props)`](input.md) | Single-line text input | Yes | `stable` |
+| [`ui.button(props)`](button.md) | Clickable button with label | Yes | `beta` |
+| [`ui.input(props)`](input.md) | Single-line text input | Yes | `stable` |
 | [`ui.textarea(props)`](textarea.md) | Multi-line text input (multiline input variant) | Yes | `beta` |
 | [`ui.slider(props)`](slider.md) | Numeric range input | Yes | `beta` |
 | [`ui.checkbox(props)`](checkbox.md) | Toggle checkbox | Yes | `beta` |
@@ -169,7 +169,9 @@ ui.form([
     label: "Username",
     required: true,
     error: errors.username,
-    children: ui.input("username", state.username, {
+    children: ui.input({
+      id: "username",
+      value: state.username,
       onInput: (v) => app.update({ username: v }),
     }),
   }),
@@ -180,7 +182,9 @@ ui.form([
     onChange: (c) => app.update({ remember: c }),
   }),
   ui.actions([
-    ui.button("submit", "Submit", {
+    ui.button({
+      id: "submit",
+      label: "Submit",
       onPress: () => handleSubmit(),
     }),
   ]),
@@ -196,7 +200,7 @@ Widgets for navigating between views, sections, and pages.
 | [`ui.tabs(props)`](tabs.md) | Tab switcher with scoped content | Yes | `beta` |
 | [`ui.accordion(props)`](accordion.md) | Expand/collapse stacked sections | Yes | `beta` |
 | [`ui.breadcrumb(props)`](breadcrumb.md) | Hierarchical location path with jumps | Optional (`id`) | `beta` |
-| [`ui.link(url, label?)` / `ui.link(props)`](link.md) | Hyperlink text with optional press behavior | Optional (`id`) | `beta` |
+| [`ui.link(props)`](link.md) | Hyperlink text with optional press behavior | Optional (`id`) | `beta` |
 | [`ui.pagination(props)`](pagination.md) | Navigate paged datasets | Yes | `beta` |
 | [`ui.routerBreadcrumb(router, routes, props?)`](../guide/routing.md) | Breadcrumbs derived from current router history | No | `beta` |
 | [`ui.routerTabs(router, routes, props?)`](../guide/routing.md) | Tabs derived from registered routes with current route selection | No | `beta` |
@@ -355,10 +359,10 @@ ui.page({
   body: ui.panel("Content", [
     ui.text("Main content goes here"),
     ui.form([
-      ui.field({ label: "Name", children: ui.input("name", state.name) }),
+      ui.field({ label: "Name", children: ui.input({ id: "name", value: state.name }) }),
       ui.actions([
-        ui.button("save", "Save", { intent: "primary" }),
-        ui.button("cancel", "Cancel"),
+        ui.button({ id: "save", label: "Save", intent: "primary" }),
+        ui.button({ id: "cancel", label: "Cancel" }),
       ]),
     ]),
   ]),

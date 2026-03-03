@@ -76,7 +76,7 @@ describe("text and display widgets", () => {
   });
 
   test("Empty, ErrorDisplay, and Callout map to matching VNodes", () => {
-    const action = ui.button("retry", "Retry");
+    const action = ui.button({ id: "retry", label: "Retry" });
 
     assert.deepEqual(
       <Empty title="No data" description="Try again" action={action} />,

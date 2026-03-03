@@ -31,7 +31,7 @@ describe("integration", () => {
       ]),
       ui.divider(),
       ui.box({ border: "rounded", p: 1 }, [
-        ui.column({ gap: 1 }, [ui.button("a", "Action A"), ui.button("b", "Action B")]),
+        ui.column({ gap: 1 }, [ui.button({ id: "a", label: "Action A" }), ui.button({ id: "b", label: "Action B" })]),
       ]),
     ]);
 

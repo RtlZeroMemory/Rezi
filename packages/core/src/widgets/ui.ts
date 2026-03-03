@@ -608,7 +608,7 @@ function gauge(value: number, props: Omit<GaugeProps, "value"> = {}): VNode {
  * ui.empty("No messages", {
  *   icon: "ui.mail",
  *   description: "Messages will appear here",
- *   action: ui.button("compose", "Compose")
+ *   action: ui.button({ id: "compose", label: "Compose" })
  * })
  * ```
  */
@@ -680,24 +680,8 @@ function callout(message: string, props: Omit<CalloutProps, "message"> = {}): VN
   return { kind: "callout", props: { message, ...props } };
 }
 
-function link(props: LinkProps): VNode;
-function link(url: string, label?: string, props?: Omit<LinkProps, "url" | "label">): VNode;
-function link(
-  urlOrProps: string | LinkProps,
-  label?: string,
-  props: Omit<LinkProps, "url" | "label"> = {},
-): VNode {
-  if (typeof urlOrProps === "string") {
-    return {
-      kind: "link",
-      props: {
-        url: urlOrProps,
-        ...(label === undefined ? {} : { label }),
-        ...props,
-      },
-    };
-  }
-  return { kind: "link", props: urlOrProps };
+function link(props: LinkProps): VNode {
+  return { kind: "link", props };
 }
 
 function canvas(props: CanvasProps): VNode {
@@ -779,35 +763,14 @@ function miniChart(
   return { kind: "miniChart", props: { values, ...props } };
 }
 
-function button(id: string, label: string): VNode;
-function button(id: string, label: string, props: Omit<ButtonProps, "id" | "label">): VNode;
 function button(props: ButtonProps): VNode;
-function button(
-  idOrProps: string | ButtonProps,
-  label?: string,
-  props?: Omit<ButtonProps, "id" | "label">,
-): VNode {
-  if (typeof idOrProps === "string") {
-    return {
-      kind: "button",
-      props: resolveButtonIntent({ id: idOrProps, label: label ?? "", ...(props ?? {}) }),
-    };
-  }
-  return { kind: "button", props: resolveButtonIntent(idOrProps) };
+function button(props: ButtonProps): VNode {
+  return { kind: "button", props: resolveButtonIntent(props) };
 }
 
-function input(id: string, value: string): VNode;
-function input(id: string, value: string, props: Omit<InputProps, "id" | "value">): VNode;
 function input(props: InputProps): VNode;
-function input(
-  idOrProps: string | InputProps,
-  value?: string,
-  props?: Omit<InputProps, "id" | "value">,
-): VNode {
-  if (typeof idOrProps === "string") {
-    return { kind: "input", props: { id: idOrProps, value: value ?? "", ...(props ?? {}) } };
-  }
-  return { kind: "input", props: idOrProps };
+function input(props: InputProps): VNode {
+  return { kind: "input", props };
 }
 
 function textarea(props: TextareaProps): VNode {

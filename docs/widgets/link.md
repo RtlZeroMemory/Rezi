@@ -5,7 +5,7 @@ Text link widget with optional focus/press behavior and terminal hyperlink suppo
 ## Usage
 
 ```typescript
-ui.link("https://rezi.dev/docs", "Docs")
+ui.link({ url: "https://rezi.dev/docs", label: "Docs" })
 ui.link({
   id: "docs-link",
   url: "https://rezi.dev/docs",
