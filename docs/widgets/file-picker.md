@@ -12,14 +12,14 @@ ui.filePicker({
   selectedPath: state.selectedPath,
   expandedPaths: state.expandedPaths,
   onSelect: (path) => app.update((s) => ({ ...s, selectedPath: path })),
-  onToggle: (path, expanded) =>
+  onChange: (path, expanded) =>
     app.update((s) => ({
       ...s,
       expandedPaths: expanded
         ? [...s.expandedPaths, path]
         : s.expandedPaths.filter((p) => p !== path),
     })),
-  onOpen: (path) => openFile(path),
+  onPress: (path) => openFile(path),
 })
 ```
 
@@ -39,8 +39,8 @@ ui.filePicker({
 | `multiSelect` | `boolean` | - | Enable multi-select |
 | `selection` | `string[]` | - | Selected paths (multi-select) |
 | `onSelect` | `(path) => void` | **required** | Selection callback |
-| `onToggle` | `(path, expanded) => void` | **required** | Expand/collapse callback |
-| `onOpen` | `(path) => void` | **required** | Open callback |
+| `onChange` | `(path, expanded) => void` | **required** | Expand/collapse callback |
+| `onPress` | `(path) => void` | **required** | Open callback |
 | `onSelectionChange` | `(paths) => void` | - | Multi-select change callback |
 | `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused row highlight |
 

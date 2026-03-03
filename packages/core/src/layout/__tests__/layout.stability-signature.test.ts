@@ -68,7 +68,7 @@ function splitPaneNode(children: readonly VNode[], props: Record<string, unknown
       id: "split-pane",
       direction: "horizontal",
       sizes: Object.freeze([50, 50]),
-      onResize: NOOP_RESIZE,
+      onChange: NOOP_RESIZE,
       ...props,
     },
     children: Object.freeze([...children]),

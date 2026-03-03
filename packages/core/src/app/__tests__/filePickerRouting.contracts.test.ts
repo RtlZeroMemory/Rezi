@@ -51,8 +51,8 @@ describe("file picker routing contracts", () => {
       expandedPaths: Object.freeze(["/"]),
       selectedPath: "/a.txt",
       onSelect: (path) => selected.push(path),
-      onToggle: (path, next) => toggled.push(`${path}:${String(next)}`),
-      onOpen: (path) => opened.push(path),
+      onChange: (path, next) => toggled.push(`${path}:${String(next)}`),
+      onPress: (path) => opened.push(path),
     };
 
     assert.equal(routeFilePickerKeyDown(keyDown(ZR_KEY_ENTER), props, treeStore), true);
@@ -78,8 +78,8 @@ describe("file picker routing contracts", () => {
       expandedPaths: Object.freeze(["/"]),
       selectedPath: "/dir",
       onSelect: (path) => selected.push(path),
-      onToggle: (path, next) => toggled.push(`${path}:${String(next)}`),
-      onOpen: (path) => opened.push(path),
+      onChange: (path, next) => toggled.push(`${path}:${String(next)}`),
+      onPress: (path) => opened.push(path),
     };
 
     assert.equal(routeFilePickerKeyDown(keyDown(ZR_KEY_RIGHT), collapsedProps, treeStore), true);
@@ -127,8 +127,8 @@ describe("file picker routing contracts", () => {
       expandedPaths: Object.freeze(["/"]),
       selectedPath: "/old.txt",
       onSelect: () => {},
-      onToggle: () => {},
-      onOpen: (path) => opened.push(path),
+      onChange: () => {},
+      onPress: (path) => opened.push(path),
     };
 
     const second: FilePickerProps = {
@@ -157,8 +157,8 @@ describe("file tree explorer routing contracts", () => {
       focused: "/a.txt",
       selected: "/dir",
       onSelect: (node) => selected.push(node.path),
-      onToggle: (node, next) => toggled.push(`${node.path}:${String(next)}`),
-      onActivate: (node) => activated.push(node.path),
+      onChange: (node, next) => toggled.push(`${node.path}:${String(next)}`),
+      onPress: (node) => activated.push(node.path),
     };
 
     assert.equal(routeFileTreeExplorerKeyDown(keyDown(ZR_KEY_ENTER), props, treeStore), true);
@@ -183,8 +183,8 @@ describe("file tree explorer routing contracts", () => {
       expanded: Object.freeze(["/"]),
       selected: "/dir",
       onSelect: (node) => selected.push(node.path),
-      onToggle: (node, next) => toggled.push(`${node.path}:${String(next)}`),
-      onActivate: (node) => activated.push(node.path),
+      onChange: (node, next) => toggled.push(`${node.path}:${String(next)}`),
+      onPress: (node) => activated.push(node.path),
     };
 
     assert.equal(
@@ -240,8 +240,8 @@ describe("file tree explorer routing contracts", () => {
       expanded: Object.freeze(["/"]),
       selected: "/old.txt",
       onSelect: () => {},
-      onToggle: () => {},
-      onActivate: (node) => activated.push(node.path),
+      onChange: () => {},
+      onPress: (node) => activated.push(node.path),
     };
 
     const second: FileTreeExplorerProps = {

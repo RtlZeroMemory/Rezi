@@ -63,7 +63,7 @@ describe("overlay widgets - VNode construction", () => {
       loading: false,
       placeholder: "Type a command",
       maxVisible: 15,
-      onQueryChange: () => undefined,
+      onChange: () => undefined,
       onSelect: () => undefined,
       onClose: () => undefined,
       onSelectionChange: () => undefined,
@@ -90,7 +90,7 @@ describe("overlay widgets - VNode construction", () => {
       sources: [{ id: "cmd", name: "Commands", getItems: () => [] }],
       selectedIndex: 0,
       frameStyle,
-      onQueryChange: () => undefined,
+      onChange: () => undefined,
       onSelect: () => undefined,
       onClose: () => undefined,
     });
@@ -110,8 +110,7 @@ describe("overlay widgets - VNode construction", () => {
         command: "rm -rf /tmp/demo",
       },
       focusedAction: "deny",
-      onAllow: () => undefined,
-      onDeny: () => undefined,
+      onPress: () => undefined,
       onAllowForSession: () => undefined,
       onClose: () => undefined,
     });
@@ -136,7 +135,7 @@ describe("overlay widgets - VNode construction", () => {
       ],
       position: "top-left",
       maxVisible: 0,
-      onDismiss: () => undefined,
+      onClose: () => undefined,
     });
 
     assert.equal(vnode.kind, "toastContainer");
@@ -153,7 +152,7 @@ describe("overlay widgets - VNode construction", () => {
     } as const;
     const vnode = ui.toastContainer({
       toasts: [],
-      onDismiss: () => undefined,
+      onClose: () => undefined,
       frameStyle,
     });
 

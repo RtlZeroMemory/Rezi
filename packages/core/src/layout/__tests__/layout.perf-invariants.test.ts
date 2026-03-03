@@ -58,7 +58,7 @@ function splitPaneNode(
       id: "split-pane-perf",
       direction: "horizontal",
       sizes,
-      onResize: NOOP_RESIZE,
+      onChange: NOOP_RESIZE,
       ...props,
     },
     children: Object.freeze([...children]),

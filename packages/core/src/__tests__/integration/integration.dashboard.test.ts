@@ -257,7 +257,7 @@ function createDashboardHarness(
       getChildren: (node) => node.children,
       expanded: state.expanded,
       ...(state.selectedNode !== null ? { selected: state.selectedNode } : {}),
-      onToggle: (node, expanded) => {
+      onChange: (node, expanded) => {
         app.update((prev) => {
           const nextExpanded = expanded
             ? prev.expanded.includes(node.id)

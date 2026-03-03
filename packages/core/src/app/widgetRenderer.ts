@@ -2044,7 +2044,7 @@ export class WidgetRenderer<S> {
               : ""
             : UTF8_DECODER.decode(event.bytes);
         if (append.length > 0) {
-          palette.onQueryChange(palette.query + append);
+          palette.onChange(palette.query + append);
           palette.onSelectionChange?.(0);
           return ROUTE_RENDER;
         }

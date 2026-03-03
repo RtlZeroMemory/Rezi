@@ -125,7 +125,7 @@ describe("container widgets - VNode construction", () => {
         id: "split",
         direction: "horizontal",
         sizes: [50, 50],
-        onResize: () => undefined,
+        onChange: () => undefined,
         minSizes: [20, 20],
       },
       [left, right],

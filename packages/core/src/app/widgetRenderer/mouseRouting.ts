@@ -461,7 +461,7 @@ export function routeSplitPaneMouse(
         );
         const nextSizes =
           drag.sizeMode === "percent" ? sizesToPercentages(nextCellSizes) : nextCellSizes;
-        pane.onResize(Object.freeze(nextSizes.slice()));
+        pane.onChange(Object.freeze(nextSizes.slice()));
         return ROUTE_RENDER;
       }
 
@@ -707,7 +707,7 @@ export function routeToastMouseDown(
         }
       }
 
-      invokeCallbackSafely(tc.props.onDismiss, toast.id);
+      invokeCallbackSafely(tc.props.onClose, toast.id);
       return ROUTE_RENDER;
     }
   }
@@ -1113,9 +1113,9 @@ export function routeFilePickerMouseClick(
 
               if (isDouble) {
                 if (fn.node.type === "directory") {
-                  invokeCallbackSafely(fp.onToggle, fn.key, !fp.expandedPaths.includes(fn.key));
+                  invokeCallbackSafely(fp.onChange, fn.key, !fp.expandedPaths.includes(fn.key));
                 } else {
-                  invokeCallbackSafely(fp.onOpen, fn.key);
+                  invokeCallbackSafely(fp.onPress, fn.key);
                 }
                 ctx.setLastFilePickerClick(null);
                 localNeedsRender = true;
@@ -1240,9 +1240,9 @@ export function routeFileTreeExplorerMouseClick(
 
               if (isDouble) {
                 if (fn.node.type === "directory") {
-                  invokeCallbackSafely(fte.onToggle, fn.node, !fte.expanded.includes(fn.key));
+                  invokeCallbackSafely(fte.onChange, fn.node, !fte.expanded.includes(fn.key));
                 }
-                invokeCallbackSafely(fte.onActivate, fn.node);
+                invokeCallbackSafely(fte.onPress, fn.node);
                 ctx.setLastFileTreeClick(null);
               } else {
                 ctx.setLastFileTreeClick(
@@ -1402,12 +1402,12 @@ export function routeTreeMouseClick(event: ZrevEvent, ctx: RouteTreeMouseClickCo
               if (isDouble) {
                 if (fn.hasChildren) {
                   invokeCallbackSafely(
-                    tree.onToggle,
+                    tree.onChange,
                     fn.node as unknown,
                     !tree.expanded.includes(fn.key),
                   );
                 }
-                if (tree.onActivate) invokeCallbackSafely(tree.onActivate, fn.node as unknown);
+                if (tree.onPress) invokeCallbackSafely(tree.onPress, fn.node as unknown);
                 ctx.setLastTreeClick(null);
               } else {
                 ctx.setLastTreeClick(

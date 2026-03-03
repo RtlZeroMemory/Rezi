@@ -26,8 +26,8 @@ describe("file widgets - VNode construction", () => {
       multiSelect: true,
       selection: ["/README.md"],
       onSelect: () => undefined,
-      onToggle: () => undefined,
-      onOpen: () => undefined,
+      onChange: () => undefined,
+      onPress: () => undefined,
       onSelectionChange: () => undefined,
     });
 
@@ -42,9 +42,9 @@ describe("file widgets - VNode construction", () => {
       id: "explorer",
       data,
       expanded: ["/"],
-      onToggle: () => undefined,
+      onChange: () => undefined,
       onSelect: () => undefined,
-      onActivate: () => undefined,
+      onPress: () => undefined,
     });
 
     assert.equal(vnode.kind, "fileTreeExplorer");

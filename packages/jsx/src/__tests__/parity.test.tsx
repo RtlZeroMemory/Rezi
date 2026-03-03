@@ -180,14 +180,14 @@ describe("jsx-ui parity", () => {
       ui.focusTrap({ id: "ft", active: true }, [ui.text("a")]),
     );
 
-    const onResize = () => {};
+    const onSplitChange = () => {};
     assert.deepEqual(
-      <SplitPane id="split" direction="horizontal" sizes={[100]} onResize={onResize}>
+      <SplitPane id="split" direction="horizontal" sizes={[100]} onChange={onSplitChange}>
         <ResizablePanel defaultSize={100}>
           <Text>a</Text>
         </ResizablePanel>
       </SplitPane>,
-      ui.splitPane({ id: "split", direction: "horizontal", sizes: [100], onResize }, [
+      ui.splitPane({ id: "split", direction: "horizontal", sizes: [100], onChange: onSplitChange }, [
         ui.resizablePanel({ defaultSize: 100 }, [ui.text("a")]),
       ]),
     );
@@ -404,7 +404,7 @@ describe("jsx-ui parity", () => {
 
     const renderNode = (_node: { id: string }, _depth: number, _state: NodeState): VNode =>
       ui.text("node");
-    const onToggle = () => {};
+    const onTreeChange = () => {};
     const getKey = (node: { id: string }) => node.id;
     assert.deepEqual(
       <Tree
@@ -412,10 +412,17 @@ describe("jsx-ui parity", () => {
         data={[{ id: "root" }]}
         getKey={getKey}
         expanded={[]}
-        onToggle={onToggle}
+        onChange={onTreeChange}
         renderNode={renderNode}
       />,
-      ui.tree({ id: "tree", data: [{ id: "root" }], getKey, expanded: [], onToggle, renderNode }),
+      ui.tree({
+        id: "tree",
+        data: [{ id: "root" }],
+        getKey,
+        expanded: [],
+        onChange: onTreeChange,
+        renderNode,
+      }),
     );
 
     assert.deepEqual(
@@ -515,7 +522,7 @@ describe("jsx-ui parity", () => {
       replaceFunctions(ui.routerTabs(router, routes, {})),
     );
 
-    const onQueryChange = () => {};
+    const onPaletteChange = () => {};
     const onCommandSelect = () => {};
     const onPaletteClose = () => {};
     const commandSources = [{ id: "s", name: "Source", getItems: async () => [] }] as const;
@@ -526,7 +533,7 @@ describe("jsx-ui parity", () => {
         query=""
         sources={commandSources}
         selectedIndex={0}
-        onQueryChange={onQueryChange}
+        onChange={onPaletteChange}
         onSelect={onCommandSelect}
         onClose={onPaletteClose}
       />,
@@ -536,7 +543,7 @@ describe("jsx-ui parity", () => {
         query: "",
         sources: commandSources,
         selectedIndex: 0,
-        onQueryChange,
+        onChange: onPaletteChange,
         onSelect: onCommandSelect,
         onClose: onPaletteClose,
       }),
@@ -558,8 +565,8 @@ describe("jsx-ui parity", () => {
         data={pickerRoot}
         expandedPaths={[]}
         onSelect={onPickerSelect}
-        onToggle={onPickerToggle}
-        onOpen={onPickerOpen}
+        onChange={onPickerToggle}
+        onPress={onPickerOpen}
       />,
       ui.filePicker({
         id: "picker",
@@ -567,8 +574,8 @@ describe("jsx-ui parity", () => {
         data: pickerRoot,
         expandedPaths: [],
         onSelect: onPickerSelect,
-        onToggle: onPickerToggle,
-        onOpen: onPickerOpen,
+        onChange: onPickerToggle,
+        onPress: onPickerOpen,
       }),
     );
 
@@ -580,17 +587,17 @@ describe("jsx-ui parity", () => {
         id="explorer"
         data={pickerRoot}
         expanded={[]}
-        onToggle={onExplorerToggle}
+        onChange={onExplorerToggle}
         onSelect={onExplorerSelect}
-        onActivate={onExplorerActivate}
+        onPress={onExplorerActivate}
       />,
       ui.fileTreeExplorer({
         id: "explorer",
         data: pickerRoot,
         expanded: [],
-        onToggle: onExplorerToggle,
+        onChange: onExplorerToggle,
         onSelect: onExplorerSelect,
-        onActivate: onExplorerActivate,
+        onPress: onExplorerActivate,
       }),
     );
 
@@ -641,25 +648,22 @@ describe("jsx-ui parity", () => {
       }),
     );
 
-    const onAllow = () => {};
-    const onDeny = () => {};
-    const onClose = () => {};
+    const onApprovalPress = () => {};
+    const onApprovalClose = () => {};
     assert.deepEqual(
       <ToolApprovalDialog
         id="approval"
         request={{ toolId: "tool", toolName: "tool", riskLevel: "low" }}
         open
-        onAllow={onAllow}
-        onDeny={onDeny}
-        onClose={onClose}
+        onPress={onApprovalPress}
+        onClose={onApprovalClose}
       />,
       ui.toolApprovalDialog({
         id: "approval",
         request: { toolId: "tool", toolName: "tool", riskLevel: "low" },
         open: true,
-        onAllow,
-        onDeny,
-        onClose,
+        onPress: onApprovalPress,
+        onClose: onApprovalClose,
       }),
     );
 
@@ -669,13 +673,16 @@ describe("jsx-ui parity", () => {
       ui.logsConsole({ id: "logs", entries: [], scrollTop: 0, onScroll: onLogsScroll }),
     );
 
-    const onDismiss = () => {};
+    const onToastClose = () => {};
     assert.deepEqual(
       <ToastContainer
         toasts={[{ id: "t1", message: "Saved", type: "success" }]}
-        onDismiss={onDismiss}
+        onClose={onToastClose}
       />,
-      ui.toastContainer({ toasts: [{ id: "t1", message: "Saved", type: "success" }], onDismiss }),
+      ui.toastContainer({
+        toasts: [{ id: "t1", message: "Saved", type: "success" }],
+        onClose: onToastClose,
+      }),
     );
 
     assert.deepEqual(

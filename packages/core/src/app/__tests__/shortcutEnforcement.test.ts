@@ -219,7 +219,7 @@ describe("widget shortcut enforcement contracts", () => {
         query: "",
         sources: Object.freeze([source]),
         selectedIndex: 0,
-        onQueryChange: () => {},
+        onChange: () => {},
         onSelect: (item) => selections.push(item.id),
         onClose: () => {
           closeCount++;

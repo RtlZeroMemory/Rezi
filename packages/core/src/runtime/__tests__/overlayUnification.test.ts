@@ -240,7 +240,7 @@ describe("overlay unification", () => {
       ui.layers([
         ui.toastContainer({
           toasts: [{ id: "t1", message: "Saved", type: "success" }],
-          onDismiss: () => {},
+          onClose: () => {},
         }),
       ]),
     );

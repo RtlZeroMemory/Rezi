@@ -1213,13 +1213,13 @@ export const ui = {
    *   hasChildren: (n) => n.type === "directory",
    *   expanded: state.expandedPaths,
    *   selected: state.selectedPath,
-   *   onToggle: (node, exp) => app.update(s => ({
+   *   onChange: (node, exp) => app.update(s => ({
    *     expandedPaths: exp
    *       ? [...s.expandedPaths, node.path]
    *       : s.expandedPaths.filter(p => p !== node.path)
    *   })),
    *   onSelect: (n) => app.update({ selectedPath: n.path }),
-   *   onActivate: (n) => n.type === "file" && openFile(n.path),
+   *   onPress: (n) => n.type === "file" && openFile(n.path),
    *   renderNode: (node, depth, state) => ui.row({ gap: 1 }, [
    *     ui.text(state.expanded ? "▼" : state.hasChildren ? "▶" : " "),
    *     ui.text(node.type === "directory" ? "📁" : "📄"),
@@ -1411,7 +1411,7 @@ export const ui = {
    *     { id: "files", name: "Files", getItems: searchFiles },
    *   ],
    *   selectedIndex: state.selectedIndex,
-   *   onQueryChange: (q) => app.update({ query: q }),
+   *   onChange: (q) => app.update({ query: q }),
    *   onSelect: (item) => executeCommand(item),
    *   onClose: () => app.update({ paletteOpen: false }),
    * })
@@ -1435,8 +1435,8 @@ export const ui = {
    *   expandedPaths: state.expanded,
    *   modifiedPaths: state.gitModified,
    *   onSelect: (path) => app.update({ selectedFile: path }),
-   *   onToggle: (path, exp) => toggleExpanded(path, exp),
-   *   onOpen: (path) => openFile(path),
+   *   onChange: (path, exp) => toggleExpanded(path, exp),
+   *   onPress: (path) => openFile(path),
    * })
    * ```
    */
@@ -1457,9 +1457,9 @@ export const ui = {
    *   selected: state.selected,
    *   showIcons: true,
    *   showStatus: true,
-   *   onToggle: (node, exp) => toggleNode(node, exp),
+   *   onChange: (node, exp) => toggleNode(node, exp),
    *   onSelect: (node) => selectNode(node),
-   *   onActivate: (node) => openNode(node),
+   *   onPress: (node) => openNode(node),
    * })
    * ```
    */
@@ -1478,7 +1478,7 @@ export const ui = {
    *   direction: "horizontal",
    *   sizes: [25, 50, 25],
    *   minSizes: [20, 30, 20],
-   *   onResize: (sizes) => app.update({ panelSizes: sizes }),
+   *   onChange: (sizes) => app.update({ panelSizes: sizes }),
    * }, [
    *   FileExplorer(),
    *   Editor(),
@@ -1586,8 +1586,9 @@ export const ui = {
    *   id: "approval",
    *   open: state.pendingApproval !== null,
    *   request: state.pendingApproval,
-   *   onAllow: () => executeTool(state.pendingApproval),
-   *   onDeny: () => app.update({ pendingApproval: null }),
+   *   onPress: (action) => action === "allow"
+   *     ? executeTool(state.pendingApproval)
+   *     : app.update({ pendingApproval: null }),
    *   onAllowForSession: () => allowForSession(state.pendingApproval),
    *   onClose: () => app.update({ pendingApproval: null }),
    * })
@@ -1611,7 +1612,7 @@ export const ui = {
    *   scrollTop: state.logsScrollTop,
    *   showTimestamps: true,
    *   onScroll: (top) => app.update({ logsScrollTop: top }),
-   *   onClear: () => app.update({ logs: [] }),
+   *   onPress: () => app.update({ logs: [] }),
    * })
    * ```
    */
@@ -1629,7 +1630,7 @@ export const ui = {
    *   toasts: state.toasts,
    *   position: "bottom-right",
    *   maxVisible: 5,
-   *   onDismiss: (id) => app.update(s => ({
+   *   onClose: (id) => app.update(s => ({
    *     toasts: s.toasts.filter(t => t.id !== id)
    *   })),
    * })

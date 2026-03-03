@@ -65,7 +65,7 @@ Wheel deltas route to the nearest scrollable ancestor under the cursor.
   - Only the two panels adjacent to the dragged divider resize.
   - Delta is clamped against both panels' `minSizes` and `maxSizes`.
   - The panel-pair total size is preserved.
-- `onResize` fires on each drag update (absolute cells or percentages, based on `sizeMode`).
+- `onChange` fires on each drag update (absolute cells or percentages, based on `sizeMode`).
 - Mouse up ends drag and clears drag state. If pane metadata disappears mid-drag, drag state is canceled.
 - When `collapsible` and `onCollapse` are set, divider double-click (`<= 500ms`) toggles collapse for the side clicked.
 
@@ -76,7 +76,7 @@ Wheel deltas route to the nearest scrollable ancestor under the cursor.
 - **Mouse down (left button):** Hit-tests the click position against the visible node rows. Computes the target node index from `scrollTop + localY`. Calls `onSelect(node)` immediately to select the clicked node. Stores the pressed node index.
 - **Mouse up:** If the release lands on the same widget and same node index as the press:
   - Checks for double-click (two clicks on the same node within 500ms)
-  - On double-click: calls `onActivate(node)` (open file, toggle directory, etc.)
+  - On double-click: calls `onPress(node)` (open file, toggle directory, etc.)
   - On single click: selection already fired on mouse down, no additional action
 - **Right button:** Skipped by the left-click handler; right-click context menu routing handles it separately.
 - **Drag/release elsewhere:** Pressing state is cleared, no activation fires.

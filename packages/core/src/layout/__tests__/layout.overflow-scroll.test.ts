@@ -536,7 +536,7 @@ describe("collection scroll metadata wiring", () => {
       getKey: (node) => node.id,
       getChildren: (node) => node.children,
       expanded: Object.freeze([]),
-      onToggle: noop,
+      onChange: noop,
       renderNode: (node) => ui.text(node.id),
     });
     const tree = mustLayout(vnode, 10, 4);
@@ -559,7 +559,7 @@ describe("collection scroll metadata wiring", () => {
       getKey: (node) => node.id,
       getChildren: (node) => node.children,
       expanded: Object.freeze([]),
-      onToggle: noop,
+      onChange: noop,
       renderNode: (node) => ui.text(node.id),
     });
     const tree = renderAndGetLayoutTree(vnode, { cols: 10, rows: 4 }, { treeStore });
@@ -582,7 +582,7 @@ describe("collection scroll metadata wiring", () => {
       getKey: (node) => node.id,
       getChildren: (node) => node.children,
       expanded: Object.freeze([]),
-      onToggle: noop,
+      onChange: noop,
       renderNode: (node) => ui.text(node.id),
     });
     const tree = renderAndGetLayoutTree(vnode, { cols: 10, rows: 4 }, { treeStore });

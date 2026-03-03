@@ -165,7 +165,7 @@ const CommsDeck = defineWidget<CommsDeckProps>((props, ctx): VNode => {
             focusedStyle: { fg: tokens.text.primary, bg: tokens.bg.panel.elevated, bold: true },
             onScroll: (scrollTop) => props.dispatch({ type: "set-comms-scroll", scrollTop }),
             expandedEntries: state.expandedMessageIds,
-            onEntryToggle: (entryId, expanded) =>
+            onChange: (entryId, expanded) =>
               props.dispatch({
                 type: "toggle-message-expanded",
                 messageId: entryId,

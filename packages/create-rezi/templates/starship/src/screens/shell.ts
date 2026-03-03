@@ -588,7 +588,7 @@ export function renderShell(options: ShellOptions): VNode {
               background: tokens.bg.panel.elevated,
               foreground: tokens.text.primary,
             },
-            onDismiss: (id) => options.deps.dispatch({ type: "dismiss-toast", toastId: id }),
+            onClose: (id) => options.deps.dispatch({ type: "dismiss-toast", toastId: id }),
           }),
         })
       : null,
@@ -612,7 +612,7 @@ export function renderShell(options: ShellOptions): VNode {
             sources: commandSources,
             selectedIndex: state.commandIndex,
             placeholder: "Type command or route",
-            onQueryChange: (query) => options.deps.dispatch({ type: "set-command-query", query }),
+            onChange: (query) => options.deps.dispatch({ type: "set-command-query", query }),
             onSelectionChange: (index) =>
               options.deps.dispatch({ type: "set-command-index", index }),
             onSelect: (item) => {

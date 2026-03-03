@@ -203,17 +203,17 @@ export function routeLogsConsoleKeyDown(
     return ROUTE_NO_RENDER;
   }
 
-  if (!isShift && key === 67 /* C */ && logs.onClear) {
-    logs.onClear();
+  if (!isShift && key === 67 /* C */ && logs.onPress) {
+    logs.onPress();
     return ROUTE_RENDER;
   }
 
-  if (key === ZR_KEY_ENTER && logs.onEntryToggle) {
+  if (key === ZR_KEY_ENTER && logs.onChange) {
     const idx = Math.max(0, Math.min(filtered.length - 1, logs.scrollTop));
     const entry = filtered[idx];
     if (entry) {
       const expanded = logs.expandedEntries?.includes(entry.id) ?? false;
-      logs.onEntryToggle(entry.id, !expanded);
+      logs.onChange(entry.id, !expanded);
       return ROUTE_RENDER;
     }
     return ROUTE_NO_RENDER;
@@ -609,7 +609,7 @@ export function routeTreeKeyDown(
 
   if (r.nodeToActivate) {
     const found = flatNodes.find((n) => n.key === r.nodeToActivate);
-    if (found && tree.onActivate) tree.onActivate(found.node as unknown);
+    if (found && tree.onPress) tree.onPress(found.node as unknown);
     routedAction = Object.freeze({
       id: tree.id,
       action: "activate",
@@ -661,7 +661,7 @@ export function routeTreeKeyDown(
 
     for (const k of diffs) {
       const found = flatNodes.find((n) => n.key === k);
-      if (found) tree.onToggle(found.node as unknown, next.has(k));
+      if (found) tree.onChange(found.node as unknown, next.has(k));
     }
   }
 
