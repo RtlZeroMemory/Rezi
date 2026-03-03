@@ -60,7 +60,9 @@ describe("design system rendering", () => {
   it("renders input with recipe border/background when stretched", () => {
     const renderer = createTestRenderer({ viewport: { cols: 40, rows: 5 }, theme });
     const result = renderer.render(
-      ui.row({ height: 3, items: "stretch" }, [ui.input({ id: "name", value: "", ...{ placeholder: "Name" } })]),
+      ui.row({ height: 3, items: "stretch" }, [
+        ui.input({ id: "name", value: "", ...{ placeholder: "Name" } }),
+      ]),
     );
     const input = result.findById("name");
     assert.ok(input, "input should render");

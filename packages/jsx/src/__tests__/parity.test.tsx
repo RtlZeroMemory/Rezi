@@ -187,9 +187,10 @@ describe("jsx-ui parity", () => {
           <Text>a</Text>
         </ResizablePanel>
       </SplitPane>,
-      ui.splitPane({ id: "split", direction: "horizontal", sizes: [100], onChange: onSplitChange }, [
-        ui.resizablePanel({ defaultSize: 100 }, [ui.text("a")]),
-      ]),
+      ui.splitPane(
+        { id: "split", direction: "horizontal", sizes: [100], onChange: onSplitChange },
+        [ui.resizablePanel({ defaultSize: 100 }, [ui.text("a")])],
+      ),
     );
 
     assert.deepEqual(

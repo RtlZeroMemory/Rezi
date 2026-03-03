@@ -27,7 +27,10 @@ describe("jsx runtime", () => {
       children: [jsx(Text, { children: "A" }), jsx(Button, { id: "x", label: "X" })],
     });
 
-    assert.deepEqual(vnode, ui.column({ gap: 1 }, [ui.text("A"), ui.button({ id: "x", label: "X" })]));
+    assert.deepEqual(
+      vnode,
+      ui.column({ gap: 1 }, [ui.text("A"), ui.button({ id: "x", label: "X" })]),
+    );
   });
 
   test("key argument is injected into component props", () => {
@@ -45,7 +48,10 @@ describe("jsx runtime", () => {
 
   test("key argument takes precedence over props.key", () => {
     const intrinsicFromProps = jsx("button", { id: "ok", label: "OK", key: "props-key" });
-    assert.deepEqual(intrinsicFromProps, ui.button({ id: "ok", label: "OK", ...{ key: "props-key" } }));
+    assert.deepEqual(
+      intrinsicFromProps,
+      ui.button({ id: "ok", label: "OK", ...{ key: "props-key" } }),
+    );
 
     const intrinsicFromArg = jsx("button", { id: "ok", label: "OK", key: "props-key" }, "arg-key");
     assert.deepEqual(intrinsicFromArg, ui.button({ id: "ok", label: "OK", ...{ key: "arg-key" } }));

@@ -507,7 +507,10 @@ async function runEventFuzz(seed: number, profile: EventProfile): Promise<void> 
       ui.text(
         `k:${String(state.keyCount)} m:${String(state.mouseCount)} t:${String(state.textCount)}`,
       ),
-      ui.row({ gap: 1 }, [ui.button({ id: "btn-main", label: "Main" }), ui.button({ id: "btn-aux", label: "Aux" })]),
+      ui.row({ gap: 1 }, [
+        ui.button({ id: "btn-main", label: "Main" }),
+        ui.button({ id: "btn-aux", label: "Aux" }),
+      ]),
       ui.input({ id: "inp-main", value: state.mainValue }),
       ui.input({ id: "inp-aux", value: state.auxValue }),
     ]);

@@ -212,7 +212,9 @@ describe("layout overflow:hidden (deterministic)", () => {
 
   describe("zero-size hidden container behavior", () => {
     test("hidden row with width=0 is never hit-testable", () => {
-      const root = ui.row({ overflow: "hidden", width: 0 }, [ui.button({ id: "zero-row", label: "zero-row" })]);
+      const root = ui.row({ overflow: "hidden", width: 0 }, [
+        ui.button({ id: "zero-row", label: "zero-row" }),
+      ]);
       const tree = mustLayout(root, 0, 3, "row");
 
       assert.equal(tree.rect.w, 0);

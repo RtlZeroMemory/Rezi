@@ -17,7 +17,9 @@ function firstDrawText(
 describe("input recipe rendering", () => {
   test("uses recipe colors with semantic-token themes", () => {
     const ops = renderOps(
-      ui.row({ height: 3, items: "stretch" }, [ui.input({ id: "name", value: "", ...{ placeholder: "Name" } })]),
+      ui.row({ height: 3, items: "stretch" }, [
+        ui.input({ id: "name", value: "", ...{ placeholder: "Name" } }),
+      ]),
       { viewport: { cols: 40, rows: 5 }, theme: dsTheme },
     );
     const fill = ops.find((op) => op.kind === "fillRect");
@@ -33,7 +35,9 @@ describe("input recipe rendering", () => {
 
   test("keeps legacy fallback path for non-semantic themes", () => {
     const ops = renderOps(
-      ui.row({ height: 3, items: "stretch" }, [ui.input({ id: "legacy", value: "", ...{ placeholder: "Name" } })]),
+      ui.row({ height: 3, items: "stretch" }, [
+        ui.input({ id: "legacy", value: "", ...{ placeholder: "Name" } }),
+      ]),
       { viewport: { cols: 40, rows: 5 }, theme: defaultTheme },
     );
     assert.equal(
@@ -63,7 +67,9 @@ describe("input recipe rendering", () => {
 
   test("increases left padding when dsSize is lg", () => {
     const mdOps = renderOps(
-      ui.column({ width: 20, items: "stretch" }, [ui.input({ id: "i-md", value: "", ...{ placeholder: "Name" } })]),
+      ui.column({ width: 20, items: "stretch" }, [
+        ui.input({ id: "i-md", value: "", ...{ placeholder: "Name" } }),
+      ]),
       { viewport: { cols: 40, rows: 5 }, theme: dsTheme },
     );
     const lgOps = renderOps(

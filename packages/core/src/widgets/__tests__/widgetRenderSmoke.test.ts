@@ -101,7 +101,10 @@ describe("widget render smoke", () => {
       }),
     },
     { name: "callout", vnode: ui.callout("watch out", { variant: "warning" }) },
-    { name: "link", vnode: ui.link({ url: "https://example.com", label: "Example", ...{ id: "lnk" } }) },
+    {
+      name: "link",
+      vnode: ui.link({ url: "https://example.com", label: "Example", ...{ id: "lnk" } }),
+    },
     {
       name: "canvas",
       vnode: ui.canvas({
@@ -171,7 +174,9 @@ describe("widget render smoke", () => {
     { name: "slider", vnode: ui.slider({ id: "volume", value: 50, min: 0, max: 100, step: 5 }) },
     {
       name: "focusZone",
-      vnode: ui.focusZone({ id: "zone", navigation: "linear" }, [ui.button({ id: "z1", label: "One" })]),
+      vnode: ui.focusZone({ id: "zone", navigation: "linear" }, [
+        ui.button({ id: "z1", label: "One" }),
+      ]),
     },
     {
       name: "focusTrap",
@@ -231,7 +236,11 @@ describe("widget render smoke", () => {
     },
     {
       name: "field",
-      vnode: ui.field({ label: "Name", required: true, children: ui.input({ id: "field", value: "" }) }),
+      vnode: ui.field({
+        label: "Name",
+        required: true,
+        children: ui.input({ id: "field", value: "" }),
+      }),
     },
     {
       name: "select",
