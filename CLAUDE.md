@@ -352,6 +352,112 @@ All hook signatures below are sourced from:
 | `useModalStack` | `<State = void>(ctx: WidgetContext<State>)` | `UseModalStack` |
 | `useForm` | `<T extends Record<string, unknown>, State = void>(ctx: WidgetContext<State>, options: UseFormOptions<T>)` | `UseFormReturn<T>` |
 
+## Widget Quick Reference
+
+Canonical signatures and callbacks below are sourced from `packages/core/src/widgets/types.ts`.
+
+### Interactive Widgets
+
+| Widget | Canonical Signature | Required Props | Primary Callback | DS Props |
+|--------|---------------------|----------------|------------------|----------|
+| `button` | `ui.button({ id, label, intent?, onPress? })` | `id`, `label` | `onPress?: () => void` | `intent`, `dsSize` (`dsVariant`/`dsTone` internal) |
+| `input` | `ui.input({ id, value, onInput?, onBlur? })` | `id`, `value` | `onInput?: (value: string, cursor: number) => void` | `dsSize` |
+| `textarea` | `ui.textarea({ id, value, onInput?, onBlur? })` | `id`, `value` | `onInput?: (value: string, cursor: number) => void` | — |
+| `link` | `ui.link({ url, label?, onPress? })` | `url` | `onPress?: () => void` | — |
+| `select` | `ui.select({ id, value, options, onChange? })` | `id`, `value`, `options` | `onChange?: (value: string) => void` | `dsVariant`, `dsTone`, `dsSize` |
+| `slider` | `ui.slider({ id, value, onChange? })` | `id`, `value` | `onChange?: (value: number) => void` | — |
+| `checkbox` | `ui.checkbox({ id, checked, onChange? })` | `id`, `checked` | `onChange?: (checked: boolean) => void` | `dsTone`, `dsSize` |
+| `radioGroup` | `ui.radioGroup({ id, value, options, onChange? })` | `id`, `value`, `options` | `onChange?: (value: string) => void` | `dsTone`, `dsSize` |
+| `tabs` | `ui.tabs({ id, tabs, activeTab, onChange })` | `id`, `tabs`, `activeTab`, `onChange` | `onChange: (key: string) => void` | `dsVariant`, `dsTone`, `dsSize` |
+| `accordion` | `ui.accordion({ id, items, expanded, onChange })` | `id`, `items`, `expanded`, `onChange` | `onChange: (expanded: readonly string[]) => void` | `dsVariant`, `dsTone`, `dsSize` |
+| `breadcrumb` | `ui.breadcrumb({ items, separator? })` | `items` | `items[].onPress?: () => void` | `dsVariant`, `dsTone`, `dsSize` |
+| `pagination` | `ui.pagination({ id, page, totalPages, onChange })` | `id`, `page`, `totalPages`, `onChange` | `onChange: (page: number) => void` | `dsVariant`, `dsTone`, `dsSize` |
+| `sidebar` | `ui.sidebar({ items, selected?, onSelect? })` | `items` | `onSelect?: (id: string) => void` | — |
+| `table` | `ui.table<T>({ id, columns, data, getRowKey, ... })` | `id`, `columns`, `data`, `getRowKey` | `onSelectionChange?: (keys: readonly string[]) => void` | `dsSize`, `dsTone` |
+| `tree` | `ui.tree<T>({ id, data, getKey, expanded, onChange, renderNode, ... })` | `id`, `data`, `getKey`, `expanded`, `onChange`, `renderNode` | `onChange: (node: T, expanded: boolean) => void` | `dsVariant`, `dsTone`, `dsSize` |
+| `virtualList` | `ui.virtualList<T>({ id, items, renderItem, ... })` | `id`, `items`, `renderItem` | `onSelect?: (item: T, index: number) => void` | — |
+| `dropdown` | `ui.dropdown({ id, anchorId, items, ... })` | `id`, `anchorId`, `items` | `onSelect?: (item: DropdownItem) => void` | `dsVariant`, `dsTone`, `dsSize` |
+| `modal` | `ui.modal({ id, content, ... })` | `id`, `content` | `onClose?: () => void` | — |
+| `dialog` | `ui.dialog({ id, message, actions, ... })` | `id`, `message`, `actions` | `actions[].onPress: () => void` | action `intent` |
+| `commandPalette` | `ui.commandPalette({ id, open, query, sources, selectedIndex, onChange, onSelect, onClose, ... })` | `id`, `open`, `query`, `sources`, `selectedIndex`, `onChange`, `onSelect`, `onClose` | `onChange: (query: string) => void` | — |
+| `filePicker` | `ui.filePicker({ id, rootPath, data, expandedPaths, onSelect, onChange, onPress, ... })` | `id`, `rootPath`, `data`, `expandedPaths`, `onSelect`, `onChange`, `onPress` | `onChange: (path: string, expanded: boolean) => void` | — |
+| `fileTreeExplorer` | `ui.fileTreeExplorer({ id, data, expanded, onChange, onSelect, onPress, ... })` | `id`, `data`, `expanded`, `onChange`, `onSelect`, `onPress` | `onChange: (node: FileNode, expanded: boolean) => void` | — |
+| `splitPane` | `ui.splitPane({ id, direction, sizes, onChange, ... }, children)` | `id`, `direction`, `sizes`, `onChange` | `onChange: (sizes: readonly number[]) => void` | — |
+| `codeEditor` | `ui.codeEditor({ id, lines, cursor, selection, scrollTop, scrollLeft, onChange, onSelectionChange, onScroll, ... })` | `id`, `lines`, `cursor`, `selection`, `scrollTop`, `scrollLeft`, `onChange`, `onSelectionChange`, `onScroll` | `onChange: (lines: readonly string[], cursor: CursorPosition) => void` | — |
+| `diffViewer` | `ui.diffViewer({ id, diff, mode, scrollTop, onScroll, ... })` | `id`, `diff`, `mode`, `scrollTop`, `onScroll` | `onScroll: (scrollTop: number) => void` | — |
+| `toolApprovalDialog` | `ui.toolApprovalDialog({ id, request, open, onPress, onClose, ... })` | `id`, `request`, `open`, `onPress`, `onClose` | `onPress: (action: \"allow\" | \"deny\") => void` | — |
+| `logsConsole` | `ui.logsConsole({ id, entries, scrollTop, onScroll, ... })` | `id`, `entries`, `scrollTop`, `onScroll` | `onChange?: (entryId: string, expanded: boolean) => void` | — |
+| `toastContainer` | `ui.toastContainer({ toasts, onClose, ... })` | `toasts`, `onClose` | `onClose: (id: string) => void` | — |
+
+### Container Widgets
+
+| Widget | Signature | Key Props |
+|--------|-----------|-----------|
+| `box` | `ui.box(props, children)` | `p/px/py`, `gap`, `border`, `style`, `overflow`, layout constraints |
+| `row` | `ui.row(props, children)` | `gap`, `items`, `justify`, `wrap`, flex constraints |
+| `column` | `ui.column(props, children)` | `gap`, `items`, `justify`, `wrap`, flex constraints |
+| `grid` | `ui.grid(props, children)` | `columns`, `rows`, `gap`, `rowGap`, `columnGap` |
+| `layers` | `ui.layers(children)` | overlay stack order via child order |
+| `layer` | `ui.layer({ id, content, ... })` | `id`, `content`, `zIndex`, `modal`, `backdrop`, `onClose` |
+| `panel` | `ui.panel(title, children, options?)` | titled bordered section wrapper |
+| `form` | `ui.form(children, options?)` | canonical vertical form container |
+| `actions` | `ui.actions(children, options?)` | canonical action-row container |
+| `center` | `ui.center(child, options?)` | centering wrapper |
+| `page` | `ui.page({ body, header?, footer?, p?, gap? })` | root page composition |
+| `appShell` | `ui.appShell({ body, header?, sidebar?, footer?, p?, gap? })` | app chrome layout |
+| `card` | `ui.card(title?, children, options?)` | elevated content block |
+| `toolbar` | `ui.toolbar(children, options?)` | toolbar row composition |
+| `statusBar` | `ui.statusBar({ left?, right?, style? })` | footer status composition |
+
+### Display Widgets
+
+| Widget | Signature | Key Props |
+|--------|-----------|-----------|
+| `text` | `ui.text(content, props?)` | `variant`, `wrap`, `textOverflow`, `style` |
+| `spacer` | `ui.spacer({ size?, flex? })` | fixed gap or flex fill |
+| `divider` | `ui.divider(props?)` | `direction`, `char`, `label` |
+| `icon` | `ui.icon(icon, props?)` | icon id/path, optional fallback |
+| `spinner` | `ui.spinner(props?)` | `variant`, `label` |
+| `progress` | `ui.progress(value, props?)` | `value`, `width`, `variant`, `showPercent` |
+| `skeleton` | `ui.skeleton({ width, height?, ... })` | loading placeholders |
+| `richText` | `ui.richText(spans, props?)` | styled span sequences |
+| `kbd` | `ui.kbd(keys, props?)` | shortcut rendering |
+| `badge` | `ui.badge(text, props?)` | `variant`, semantic labels |
+| `status` | `ui.status(status, props?)` | online/offline/away/busy states |
+| `tag` | `ui.tag(text, props?)` | label chips, optional removable state |
+| `gauge` | `ui.gauge(value, props?)` | compact thresholded value indicator |
+| `callout` | `ui.callout(message, props?)` | semantic info/success/warning/error blocks |
+| `empty` | `ui.empty({ title, description?, action? })` | empty-state rendering |
+
+### Callback Quick Reference
+
+| Widget | Callback Name | Signature |
+|--------|---------------|-----------|
+| `button` | `onPress` | `() => void` |
+| `input` | `onInput` | `(value: string, cursor: number) => void` |
+| `textarea` | `onInput` | `(value: string, cursor: number) => void` |
+| `select` | `onChange` | `(value: string) => void` |
+| `slider` | `onChange` | `(value: number) => void` |
+| `checkbox` | `onChange` | `(checked: boolean) => void` |
+| `radioGroup` | `onChange` | `(value: string) => void` |
+| `tabs` | `onChange` | `(key: string) => void` |
+| `accordion` | `onChange` | `(expanded: readonly string[]) => void` |
+| `pagination` | `onChange` | `(page: number) => void` |
+| `table` | `onSelectionChange` | `(keys: readonly string[]) => void` |
+| `table` | `onSort` | `(column: string, direction: \"asc\" | \"desc\") => void` |
+| `tree` | `onChange` | `(node: T, expanded: boolean) => void` |
+| `tree` | `onPress` | `(node: T) => void` |
+| `commandPalette` | `onChange` | `(query: string) => void` |
+| `filePicker` | `onChange` | `(path: string, expanded: boolean) => void` |
+| `filePicker` | `onPress` | `(path: string) => void` |
+| `fileTreeExplorer` | `onChange` | `(node: FileNode, expanded: boolean) => void` |
+| `fileTreeExplorer` | `onPress` | `(node: FileNode) => void` |
+| `splitPane` | `onChange` | `(sizes: readonly number[]) => void` |
+| `toolApprovalDialog` | `onPress` | `(action: \"allow\" | \"deny\") => void` |
+| `logsConsole` | `onChange` | `(entryId: string, expanded: boolean) => void` |
+| `logsConsole` | `onPress` | `() => void` |
+| `toastContainer` | `onClose` | `(id: string) => void` |
+
 ## Conditional and List Rendering
 
 ```ts
