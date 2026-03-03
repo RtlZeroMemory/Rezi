@@ -374,7 +374,7 @@ ui.appShell({
   width: widthConstraints.percentOfParent(0.95),
   sidebar: {
     width: widthConstraints.clampedPercentOfParent({ ratio: 0.22, min: 18, max: 30 }),
-    content: ui.sidebar({ items, selected, onPress: (id) => app.update({ selected: id }) }),
+    content: ui.sidebar({ items, selected, onSelect: (id) => app.update({ selected: id }) }),
   },
   body: ui.panel("Content", [ui.text("Main view")]),
 })

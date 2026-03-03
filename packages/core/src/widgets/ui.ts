@@ -831,11 +831,7 @@ function page(options: PageOptions): VNode {
       gap: gap ?? 1,
       ...(p === undefined ? {} : { p }),
     },
-    [
-      header ?? null,
-      box({ border: "none", flex: 1 }, [body]),
-      footer ?? null,
-    ],
+    [header ?? null, box({ border: "none", flex: 1 }, [body]), footer ?? null],
   );
 }
 
@@ -848,8 +844,7 @@ function appShell(options: AppShellOptions): VNode {
         box({ flex: 1 }, [body]),
       ])
     : body;
-  const footerNode = footer ? row({ gap: 1, items: "center", wrap: true }, [footer])
-    : null;
+  const footerNode = footer ? row({ gap: 1, items: "center", wrap: true }, [footer]) : null;
 
   return page({
     ...(id === undefined ? {} : { id }),

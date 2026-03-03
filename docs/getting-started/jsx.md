@@ -236,7 +236,7 @@ Use composition helpers for app-level structure:
   width={widthConstraints.percentOfParent(0.95)}
   sidebar={{
     width: widthConstraints.clampedPercentOfParent({ ratio: 0.22, min: 18, max: 30 }),
-    content: <Sidebar items={items} selected={selected} onPress={setSelected} />,
+    content: <Sidebar items={items} selected={selected} onSelect={setSelected} />,
   }}
   body={<Panel title="Main">...</Panel>}
 />
