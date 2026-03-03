@@ -106,7 +106,7 @@ describe("layout absolute positioning", () => {
     assert.deepEqual(findChildRect(out, "abs"), { x: 2, y: 1, w: 7, h: 4 });
   });
 
-  test('absolute width/height support "%" constraints', () => {
+  test("absolute width/height support fixed numeric constraints", () => {
     const abs = ui.box(
       {
         id: "abs",
@@ -114,8 +114,8 @@ describe("layout absolute positioning", () => {
         position: "absolute",
         top: 0,
         left: 0,
-        width: "50%",
-        height: "30%",
+        width: 20,
+        height: 3,
       },
       [],
     );

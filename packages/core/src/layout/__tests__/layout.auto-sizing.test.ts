@@ -175,15 +175,15 @@ const CASES: readonly AutoCase[] = [
     expectedChild0Children: [{ x: 0, y: 0, w: 2, h: 1 }],
   },
   {
-    name: "auto row with cross-axis percent fills available height",
+    name: "auto row with cross-axis full fills available height",
     vnode: ui.row({ width: "auto" }, [
-      ui.box({ border: "none", width: "auto", height: "50%" }, [ui.text("xx")]),
+      ui.box({ border: "none", width: "auto", height: "full" }, [ui.text("xx")]),
     ]),
     axis: "row",
     maxW: 10,
     maxH: 10,
     expectedRoot: { x: 0, y: 0, w: 2, h: 10 },
-    expectedChildren: [{ x: 0, y: 0, w: 2, h: 5 }],
+    expectedChildren: [{ x: 0, y: 0, w: 2, h: 10 }],
     expectedChild0Children: [{ x: 0, y: 0, w: 2, h: 1 }],
   },
   {
@@ -199,15 +199,15 @@ const CASES: readonly AutoCase[] = [
     expectedChild0Children: [{ x: 0, y: 0, w: 2, h: 1 }],
   },
   {
-    name: "auto column with cross-axis percent fills available width",
+    name: "auto column with cross-axis full fills available width",
     vnode: ui.column({ height: "auto" }, [
-      ui.box({ border: "none", height: "auto", width: "50%" }, [ui.text("xx")]),
+      ui.box({ border: "none", height: "auto", width: "full" }, [ui.text("xx")]),
     ]),
     axis: "column",
     maxW: 10,
     maxH: 10,
     expectedRoot: { x: 0, y: 0, w: 10, h: 1 },
-    expectedChildren: [{ x: 0, y: 0, w: 5, h: 1 }],
+    expectedChildren: [{ x: 0, y: 0, w: 10, h: 1 }],
     expectedChild0Children: [{ x: 0, y: 0, w: 2, h: 1 }],
   },
 ] as const;

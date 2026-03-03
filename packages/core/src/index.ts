@@ -506,6 +506,36 @@ export { rgb, type Rgb24, type TextStyle } from "./widgets/style.js";
 export type { Rect, Size, Axis } from "./layout/types.js";
 
 // =============================================================================
+// Constraint Expressions
+// =============================================================================
+
+export { expr, isConstraintExpr } from "./constraints/expr.js";
+export {
+  conditionalConstraints,
+  groupConstraints,
+  heightConstraints,
+  spaceConstraints,
+  visibilityConstraints,
+  widthConstraints,
+} from "./constraints/helpers.js";
+export type {
+  AggregationName,
+  BinaryOp,
+  CompareOp,
+  ConstraintExpr,
+  ExprNode,
+  RefProp,
+  RefScope,
+  WidgetRefUsage,
+} from "./constraints/types.js";
+export type {
+  ConstraintValue,
+  SiblingAggregation,
+  SpaceTerm,
+  WidgetMetric,
+} from "./constraints/helpers.js";
+
+// =============================================================================
 // Spacing Scale
 // =============================================================================
 

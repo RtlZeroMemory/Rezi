@@ -176,7 +176,8 @@ function buildWideRuntimeRow(leafCount: number, factory: CountingRuntimeFactory)
 function updateSignatures(root: RuntimeInstance, prevById: Map<InstanceId, number>): boolean {
   const nextById = new Map<InstanceId, number>();
   const stack: RuntimeInstance[] = [];
-  return updateLayoutStabilitySignatures(root, prevById, nextById, stack);
+  const parentKindStack: (string | undefined)[] = [];
+  return updateLayoutStabilitySignatures(root, prevById, nextById, stack, parentKindStack);
 }
 
 function signatureGateLayout(
@@ -306,7 +307,7 @@ describe("layout perf invariants (deterministic counters)", () => {
     assert.equal(prev.size, 2);
   });
 
-  test("signature gate skips layout for unconstrained text width changes", () => {
+  test("signature gate invokes layout for unconstrained row text width changes", () => {
     const prev = new Map<InstanceId, number>();
     let layoutCalls = 0;
 
@@ -322,7 +323,7 @@ describe("layout perf invariants (deterministic counters)", () => {
       layoutCalls++;
     });
 
-    assert.equal(layoutCalls, 1);
+    assert.equal(layoutCalls, 2);
     assert.equal(prev.size, 2);
   });
 

@@ -16,6 +16,8 @@
  * @see docs/guide/layout.md
  */
 
+import { isConstraintExpr } from "../constraints/expr.js";
+import type { ConstraintExpr } from "../constraints/types.js";
 import type {
   Align,
   BoxProps,
@@ -31,7 +33,7 @@ import type {
 } from "../widgets/types.js";
 import { resolveResponsiveValue } from "./responsive.js";
 import { SPACING_SCALE, isSpacingKey } from "./spacing-scale.js";
-import type { SizeConstraint } from "./types.js";
+import type { DisplayConstraint, SizeConstraint } from "./types.js";
 
 /** Fatal error type for invalid widget props. */
 export type InvalidPropsFatal = Readonly<{ code: "ZRUI_INVALID_PROPS"; detail: string }>;
@@ -49,10 +51,10 @@ export type LayoutResult<T> =
 export type ValidatedLayoutConstraints = Readonly<{
   width?: SizeConstraint;
   height?: SizeConstraint;
-  minWidth?: number;
-  maxWidth?: number;
-  minHeight?: number;
-  maxHeight?: number;
+  minWidth?: number | ConstraintExpr;
+  maxWidth?: number | ConstraintExpr;
+  minHeight?: number | ConstraintExpr;
+  maxHeight?: number | ConstraintExpr;
   flex?: number;
   flexShrink?: number;
   flexBasis?: SizeConstraint;
@@ -67,6 +69,7 @@ export type ValidatedLayoutConstraints = Readonly<{
   gridRow?: number;
   colSpan?: number;
   rowSpan?: number;
+  display?: DisplayConstraint;
 }>;
 
 export type ValidatedSpacingProps = Readonly<{
@@ -157,7 +160,7 @@ export type ValidatedRadioGroupProps = Readonly<{
   disabled: boolean;
 }>;
 export type ValidatedTextProps = Readonly<{
-  maxWidth?: number;
+  maxWidth?: number | ConstraintExpr;
   wrap: boolean;
 }>;
 
@@ -182,6 +185,7 @@ type LayoutConstraintPropBag = Readonly<{
   gridRow?: unknown;
   colSpan?: unknown;
   rowSpan?: unknown;
+  display?: unknown;
 }>;
 
 type StackPropBag = Readonly<
@@ -268,6 +272,13 @@ const I32_MAX = 2147483647;
 function normalizeStringToken(value: unknown): unknown {
   if (typeof value !== "string") return value;
   return value.trim().toLowerCase();
+}
+
+function isResponsiveBreakpointMap(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  if ((value as { kind?: unknown }).kind === "fluid") return false;
+  const record = value as Record<string, unknown>;
+  return "sm" in record || "md" in record || "lg" in record || "xl" in record;
 }
 
 function parseFiniteNumber(value: unknown): number | undefined {
@@ -367,6 +378,24 @@ function requireOptionalIntNonNegative(
   return { ok: true, value: res.value };
 }
 
+function requireOptionalIntNonNegativeOrConstraint(
+  kind: string,
+  name: string,
+  v: unknown,
+): LayoutResult<number | ConstraintExpr | undefined> {
+  if (isResponsiveBreakpointMap(v)) {
+    return invalid(
+      `${kind}.${name} no longer supports responsive maps. Use expr("steps(...)") or fluid(...) instead.`,
+    );
+  }
+  const resolved = resolveResponsiveValue(v);
+  if (resolved === undefined) return { ok: true, value: undefined };
+  if (isConstraintExpr(resolved)) return { ok: true, value: resolved };
+  const res = requireIntNonNegative(kind, name, resolved, 0);
+  if (!res.ok) return res;
+  return { ok: true, value: res.value };
+}
+
 function requireOptionalIntSigned(
   kind: string,
   name: string,
@@ -447,35 +476,31 @@ function requireOverflow(
   return invalid(`${kind}.${name} must be one of "visible" | "hidden" | "scroll"`);
 }
 
-function parsePercent(kind: string, name: string, raw: string): LayoutResult<`${number}%`> {
-  const m = /^(\d+(?:\.\d+)?)%$/.exec(raw);
-  if (!m) return invalidProp(kind, name, '"<n>%"', raw);
-  const n = Number.parseFloat(m[1] ?? "");
-  if (!Number.isFinite(n) || n < 0) {
-    return invalidProp(kind, name, 'non-negative "<n>%"', raw);
-  }
-  return { ok: true, value: raw as `${number}%` };
-}
-
 function requireSizeConstraint(
   kind: string,
   name: string,
   v: unknown,
 ): LayoutResult<SizeConstraint | undefined> {
+  if (isResponsiveBreakpointMap(v)) {
+    return invalid(
+      `${kind}.${name} no longer supports responsive maps. Use expr("steps(...)") or fluid(...) instead.`,
+    );
+  }
   const resolved = resolveResponsiveValue(v);
   if (resolved === undefined) return { ok: true, value: undefined };
+  if (isConstraintExpr(resolved)) return { ok: true, value: resolved };
   if (typeof resolved === "string") {
     const normalized = normalizeStringToken(resolved);
     if (normalized === "auto") return { ok: true, value: "auto" };
     if (normalized === "full") return { ok: true, value: "full" };
     if (typeof normalized === "string" && normalized.endsWith("%")) {
-      const pct = parsePercent(kind, name, normalized);
-      if (!pct.ok) return pct;
-      return { ok: true, value: pct.value };
+      return invalid(
+        `${kind}.${name} no longer supports percentage strings. Use expr("parent.${name === "height" ? "h" : "w"} * <ratio>") instead.`,
+      );
     }
     const parsed = parseCoercedInt(normalized);
     if (parsed === undefined || parsed < 0 || parsed > I32_MAX) {
-      return invalidProp(kind, name, 'number | "<n>%" | "full" | "auto"', resolved);
+      return invalidProp(kind, name, 'number | "full" | "auto" | fluid(...) | expr(...)', resolved);
     }
     return { ok: true, value: parsed };
   }
@@ -486,7 +511,49 @@ function requireSizeConstraint(
     }
     return { ok: true, value: parsed };
   }
-  return invalidProp(kind, name, 'number | "<n>%" | "full" | "auto"', resolved);
+  return invalidProp(kind, name, 'number | "full" | "auto" | fluid(...) | expr(...)', resolved);
+}
+
+function requireDisplayConstraint(
+  kind: string,
+  name: string,
+  v: unknown,
+): LayoutResult<DisplayConstraint | undefined> {
+  if (v === undefined) return { ok: true, value: undefined };
+  if (isResponsiveBreakpointMap(v)) {
+    return invalid(
+      `${kind}.${name} no longer supports responsive maps. Use expr("steps(...)") instead.`,
+    );
+  }
+  const resolved = resolveResponsiveValue(v);
+  if (resolved === undefined) return { ok: true, value: undefined };
+  if (typeof resolved === "boolean") return { ok: true, value: resolved };
+  if (isConstraintExpr(resolved)) return { ok: true, value: resolved };
+  return invalidProp(kind, name, "boolean | expr(...)", resolved);
+}
+
+function requireOptionalTextMaxWidth(
+  kind: string,
+  name: string,
+  v: unknown,
+): LayoutResult<number | ConstraintExpr | undefined> {
+  if (isResponsiveBreakpointMap(v)) {
+    return invalid(
+      `${kind}.${name} no longer supports responsive maps. Use expr("steps(...)") or fluid(...) instead.`,
+    );
+  }
+  const resolved = resolveResponsiveValue(v);
+  if (resolved === undefined) return { ok: true, value: undefined };
+  if (isConstraintExpr(resolved)) return { ok: true, value: resolved };
+  if (resolved === "full" || resolved === "auto") return { ok: true, value: undefined };
+  if (typeof resolved === "string" && resolved.trim().endsWith("%")) {
+    return invalid(
+      `${kind}.${name} no longer supports percentage strings. Use expr("parent.w * <ratio>") instead.`,
+    );
+  }
+  const res = requireIntNonNegative(kind, name, resolved, 0);
+  if (!res.ok) return res;
+  return { ok: true, value: res.value };
 }
 
 function requireFlex(kind: string, v: unknown): LayoutResult<number | undefined> {
@@ -609,10 +676,10 @@ function validateMinMax(
   kind: string,
   minName: string,
   maxName: string,
-  minV: number | undefined,
-  maxV: number | undefined,
+  minV: number | ConstraintExpr | undefined,
+  maxV: number | ConstraintExpr | undefined,
 ): LayoutResult<true> {
-  if (minV !== undefined && maxV !== undefined && minV > maxV) {
+  if (typeof minV === "number" && typeof maxV === "number" && minV > maxV) {
     return invalid(`${kind}.${minName} must be <= ${kind}.${maxName}`);
   }
   return { ok: true, value: true };
@@ -627,13 +694,13 @@ function validateLayoutConstraints(
   const heightRes = requireSizeConstraint(kind, "height", p.height);
   if (!heightRes.ok) return heightRes;
 
-  const minWidthRes = requireOptionalIntNonNegative(kind, "minWidth", p.minWidth);
+  const minWidthRes = requireOptionalIntNonNegativeOrConstraint(kind, "minWidth", p.minWidth);
   if (!minWidthRes.ok) return minWidthRes;
-  const maxWidthRes = requireOptionalIntNonNegative(kind, "maxWidth", p.maxWidth);
+  const maxWidthRes = requireOptionalIntNonNegativeOrConstraint(kind, "maxWidth", p.maxWidth);
   if (!maxWidthRes.ok) return maxWidthRes;
-  const minHeightRes = requireOptionalIntNonNegative(kind, "minHeight", p.minHeight);
+  const minHeightRes = requireOptionalIntNonNegativeOrConstraint(kind, "minHeight", p.minHeight);
   if (!minHeightRes.ok) return minHeightRes;
-  const maxHeightRes = requireOptionalIntNonNegative(kind, "maxHeight", p.maxHeight);
+  const maxHeightRes = requireOptionalIntNonNegativeOrConstraint(kind, "maxHeight", p.maxHeight);
   if (!maxHeightRes.ok) return maxHeightRes;
 
   const mmw = validateMinMax(kind, "minWidth", "maxWidth", minWidthRes.value, maxWidthRes.value);
@@ -675,6 +742,8 @@ function validateLayoutConstraints(
   if (!colSpanRes.ok) return colSpanRes;
   const rowSpanRes = requireGridSpan(kind, "rowSpan", p.rowSpan);
   if (!rowSpanRes.ok) return rowSpanRes;
+  const displayRes = requireDisplayConstraint(kind, "display", p.display);
+  if (!displayRes.ok) return displayRes;
 
   return {
     ok: true,
@@ -699,6 +768,7 @@ function validateLayoutConstraints(
       ...(gridRowRes.value === undefined ? {} : { gridRow: gridRowRes.value }),
       ...(colSpanRes.value === undefined ? {} : { colSpan: colSpanRes.value }),
       ...(rowSpanRes.value === undefined ? {} : { rowSpan: rowSpanRes.value }),
+      ...(displayRes.value === undefined ? {} : { display: displayRes.value }),
     },
   };
 }
@@ -1116,7 +1186,7 @@ export function validateRadioGroupProps(
 /** Validate Text props (`maxWidth` affects measurement; style/overflow are renderer concerns). */
 export function validateTextProps(props: TextProps | unknown): LayoutResult<ValidatedTextProps> {
   const p = (props ?? {}) as { maxWidth?: unknown; wrap?: unknown };
-  const maxWidthRes = requireOptionalIntNonNegative("text", "maxWidth", p.maxWidth);
+  const maxWidthRes = requireOptionalTextMaxWidth("text", "maxWidth", p.maxWidth);
   if (!maxWidthRes.ok) return maxWidthRes;
   const wrapRes = requireBoolean("text", "wrap", p.wrap, false);
   if (!wrapRes.ok) return wrapRes;

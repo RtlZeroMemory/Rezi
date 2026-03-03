@@ -1,10 +1,14 @@
 import {
   defineWidget,
+  heightConstraints,
+  rgb,
   ui,
   useSequence,
   useSpring,
   useStagger,
   useTransition,
+  visibilityConstraints,
+  widthConstraints,
   type CanvasContext,
   type VNode,
 } from "@rezi-ui/core";
@@ -12,46 +16,46 @@ import { APP_NAME, PRODUCT_TAGLINE, TEMPLATE_LABEL } from "../theme.js";
 import type { AnimationLabState } from "../types.js";
 
 type Palette = Readonly<{
-  title: Readonly<{ r: number; g: number; b: number }>;
+  title: number;
   accent: string;
   core: string;
   hot: string;
   wave: string;
-  module: Readonly<{ r: number; g: number; b: number }>;
+  module: number;
 }>;
 
 const PALETTES: readonly Palette[] = Object.freeze([
   Object.freeze({
-    title: Object.freeze({ r: 120, g: 225, b: 255 }),
+    title: rgb(120, 225, 255),
     accent: "#80dfff",
     core: "#62ffd2",
     hot: "#ffd28a",
     wave: "#98ffc2",
-    module: Object.freeze({ r: 204, g: 232, b: 244 }),
+    module: rgb(204, 232, 244),
   }),
   Object.freeze({
-    title: Object.freeze({ r: 173, g: 198, b: 255 }),
+    title: rgb(173, 198, 255),
     accent: "#9fb4ff",
     core: "#7ee6ff",
     hot: "#ffb26b",
     wave: "#c4ff8f",
-    module: Object.freeze({ r: 214, g: 222, b: 245 }),
+    module: rgb(214, 222, 245),
   }),
   Object.freeze({
-    title: Object.freeze({ r: 160, g: 255, b: 205 }),
+    title: rgb(160, 255, 205),
     accent: "#84ffd4",
     core: "#65f5b2",
     hot: "#ffc66f",
     wave: "#9cf4ff",
-    module: Object.freeze({ r: 209, g: 239, b: 224 }),
+    module: rgb(209, 239, 224),
   }),
   Object.freeze({
-    title: Object.freeze({ r: 255, g: 212, b: 150 }),
+    title: rgb(255, 212, 150),
     accent: "#ffd48e",
     core: "#ffc871",
     hot: "#ff8c6a",
     wave: "#a7ffe3",
-    module: Object.freeze({ r: 240, g: 224, b: 208 }),
+    module: rgb(240, 224, 208),
   }),
 ]);
 
@@ -390,8 +394,8 @@ type CommandDeckProps = Readonly<{
   key?: string;
   tick: number;
   phase: number;
-  panelWidth: number;
-  panelHeight: number;
+  viewportCols: number;
+  viewportRows: number;
   driftTarget: number;
   fluxTarget: number;
   orbitTarget: number;
@@ -432,11 +436,13 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
   });
 
   const palette = paletteForPhase(props.phase);
-  const compact = props.panelWidth < 72 || props.panelHeight < 26;
-  const sidePanelWidth = compact ? clamp(Math.floor(props.panelWidth * 0.31), 14, 20) : 22;
-  const leftPanelWidth = clamp(props.panelWidth - sidePanelWidth - 2, 20, 64);
+  const shellWidth = clamp(props.viewportCols - 4, 20, 140);
+  const shellHeight = clamp(props.viewportRows - 4, 8, 40);
+  const compact = shellWidth < 72 || shellHeight < 26;
+  const sidePanelWidth = compact ? clamp(Math.floor(shellWidth * 0.31), 14, 20) : 22;
+  const leftPanelWidth = clamp(shellWidth - sidePanelWidth - 2, 20, 64);
   const coreCanvasWidth = clamp(leftPanelWidth - 4, 14, 48);
-  const coreCanvasHeight = clamp(Math.floor(props.panelHeight * 0.24), 7, 13);
+  const coreCanvasHeight = clamp(Math.floor(shellHeight * 0.24), 7, 13);
   const sideCanvasWidth = clamp(sidePanelWidth - 4, 8, 18);
   const spectrumHeight = compact ? 8 : 10;
   const streamChartHeight = compact ? 4 : 6;
@@ -496,8 +502,8 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
         width: moduleProgressWidth,
         variant: "blocks",
         showPercent: false,
-        style: { fg: { r: 122, g: 255, b: 203 } },
-        trackStyle: { fg: { r: 58, g: 86, b: 82 } },
+        style: { fg: rgb(122, 255, 203) },
+        trackStyle: { fg: rgb(58, 86, 82) },
       }),
     ]);
   });
@@ -526,7 +532,7 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
           ]),
           ui.text(PRODUCT_TAGLINE, {
             key: "core-tagline",
-            style: { fg: { r: 152, g: 176, b: 200 } },
+            style: { fg: rgb(152, 176, 200) },
           }),
           ui.row({ key: "beacon-lane", gap: 0 }, [
             ui.spacer({ key: "beacon-spacer", size: beaconLane }),
@@ -546,7 +552,7 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
               [
                 ui.text("◆", {
                   key: "beacon-dot",
-                  style: { fg: { r: 255, g: 228, b: 158 } },
+                  style: { fg: rgb(255, 228, 158) },
                 }),
               ],
             ),
@@ -585,7 +591,7 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
               width: sparklineWidth,
               highRes: true,
               blitter: "braille",
-              style: { fg: { r: 132, g: 246, b: 198 } },
+              style: { fg: rgb(132, 246, 198) },
             }),
           ]),
         ],
@@ -596,6 +602,8 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
             key: "spectrum-radar-panel",
             border: "single",
             width: sidePanelWidth,
+            // Helper-first visibility over `expr("if(viewport.w < 70, 0, 1)")`.
+            display: visibilityConstraints.viewportWidthAtLeast(70),
             p: 1,
             transition: {
               duration: 300,
@@ -606,7 +614,7 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
           [
             ui.text("Spectrum and Radar", {
               key: "spectrum-radar-title",
-              style: { fg: { r: 174, g: 232, b: 255 } },
+              style: { fg: rgb(174, 232, 255) },
             }),
             ui.canvas({
               key: "spectrum-radar-canvas",
@@ -632,6 +640,8 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
             key: "stream-panel",
             border: "single",
             width: sidePanelWidth,
+            // Helper-first visibility over `expr("if(viewport.h < 24, 0, 1)")`.
+            display: visibilityConstraints.viewportHeightAtLeast(24),
             p: 1,
             transition: {
               duration: 320,
@@ -642,7 +652,7 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
           [
             ui.text("Telemetry Streams", {
               key: "stream-title",
-              style: { fg: { r: 154, g: 198, b: 255 } },
+              style: { fg: rgb(154, 198, 255) },
             }),
             ui.lineChart({
               key: "stream-chart",
@@ -681,6 +691,8 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
       {
         key: "modules-panel",
         border: "single",
+        // Helper-first visibility over `expr("if(viewport.h < 22, 0, 1)")`.
+        display: visibilityConstraints.viewportHeightAtLeast(22),
         p: 1,
         transition: {
           duration: 260,
@@ -691,7 +703,7 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
       [
         ui.text("Module Sync Rails", {
           key: "modules-title",
-          style: { fg: { r: 153, g: 255, b: 213 } },
+          style: { fg: rgb(153, 255, 213) },
         }),
         ui.column({ key: "modules-list", gap: 0 }, moduleRows),
       ],
@@ -702,7 +714,7 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
       ).padStart(3, "0")}%  drift=${drift.toFixed(2)}  burst=${String(Math.round(burst * 100)).padStart(3, "0")}%`,
       {
         key: "metrics-readout",
-        style: { fg: { r: 138, g: 166, b: 193 } },
+        style: { fg: rgb(138, 166, 193) },
       },
     ),
   ]);
@@ -718,15 +730,16 @@ export function renderReactorLab(state: AnimationLabState): VNode {
       ui.text("•", { key: "brand-dot" }),
       ui.text("Animation Lab", {
         key: "brand-name",
-        style: { fg: { r: 150, g: 225, b: 255 } },
+        style: { fg: rgb(150, 225, 255) },
       }),
     ]),
     ui.box(
       {
         key: "stage-shell",
         border: "double",
-        width: state.panelWidth,
-        height: state.panelHeight,
+        // Helper-first viewport clamping over fragile raw `clamp(...)` expression strings.
+        width: widthConstraints.clampedViewportMinus({ minus: 4, min: 20, max: 140 }),
+        height: heightConstraints.clampedViewportMinus({ minus: 4, min: 8, max: 40 }),
         opacity: state.panelOpacity,
         p: 1,
         transition: {
@@ -740,8 +753,8 @@ export function renderReactorLab(state: AnimationLabState): VNode {
           key: "command-deck",
           tick: state.tick,
           phase: state.phase,
-          panelWidth: state.panelWidth,
-          panelHeight: state.panelHeight,
+          viewportCols: state.viewportCols,
+          viewportRows: state.viewportRows,
           driftTarget: state.driftTarget,
           fluxTarget: state.fluxTarget,
           orbitTarget: state.orbitTarget,
@@ -756,7 +769,7 @@ export function renderReactorLab(state: AnimationLabState): VNode {
       )}  controls: space/p autoplay, enter step, arrows tune vectors, b burst, m palette, r random, q quit`,
       {
         key: "footer",
-        style: { fg: { r: 130, g: 150, b: 180 } },
+        style: { fg: rgb(130, 150, 180) },
       },
     ),
   ]);

@@ -1,5 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import type { VNode } from "../../index.js";
+import { type VNode, expr } from "../../index.js";
 import type { RuntimeInstance } from "../../runtime/commit.js";
 import type { InstanceId } from "../../runtime/instance.js";
 import { computeDirtyLayoutSet, instanceDirtySetToVNodeDirtySet } from "../engine/dirtySet.js";
@@ -224,7 +224,7 @@ describe("incremental layout phase 3", () => {
     test("row: dirty middle child with stable size skips trailing sibling relayout", () => {
       const a = createMutableTrackedText("A");
       const b = createMutableTrackedText("Count: 5");
-      const c = createMutableTrackedText("C", { width: "50%" });
+      const c = createMutableTrackedText("C", { width: expr("parent.w * 0.5") });
       const root = row([a.vnode, b.vnode, c.vnode], { width: 30 });
       const measureCache = new WeakMap<VNode, unknown>();
       const layoutCache = new WeakMap<VNode, unknown>();
@@ -266,7 +266,7 @@ describe("incremental layout phase 3", () => {
     test("row: dirty middle child with changed size relayouts trailing sibling", () => {
       const a = createMutableTrackedText("A");
       const b = createMutableTrackedText("Count: 9");
-      const c = createMutableTrackedText("C", { width: "50%" });
+      const c = createMutableTrackedText("C", { width: expr("parent.w * 0.5") });
       const root = row([a.vnode, b.vnode, c.vnode], { width: 30 });
       const measureCache = new WeakMap<VNode, unknown>();
       const layoutCache = new WeakMap<VNode, unknown>();
@@ -283,7 +283,7 @@ describe("incremental layout phase 3", () => {
     test("column: dirty middle child with stable size skips trailing sibling relayout", () => {
       const a = createMutableTrackedText("A");
       const b = createMutableSpacer(1);
-      const c = createMutableTrackedText("C", { height: "50%" });
+      const c = createMutableTrackedText("C", { height: expr("parent.h * 0.5") });
       const root = column([a.vnode, b.vnode, c.vnode], { height: 9 });
       const measureCache = new WeakMap<VNode, unknown>();
       const layoutCache = new WeakMap<VNode, unknown>();
@@ -325,7 +325,7 @@ describe("incremental layout phase 3", () => {
     test("column: dirty middle child with changed size relayouts trailing sibling", () => {
       const a = createMutableTrackedText("A");
       const b = createMutableSpacer(1);
-      const c = createMutableTrackedText("C", { height: "50%" });
+      const c = createMutableTrackedText("C", { height: expr("parent.h * 0.5") });
       const root = column([a.vnode, b.vnode, c.vnode], { height: 9 });
       const measureCache = new WeakMap<VNode, unknown>();
       const layoutCache = new WeakMap<VNode, unknown>();
@@ -366,7 +366,7 @@ describe("incremental layout phase 3", () => {
 
     test("count text 5->6 keeps width stable and preserves trailing cache hit", () => {
       const b = createMutableTrackedText("Count: 5");
-      const c = createMutableTrackedText("Tail", { width: "50%" });
+      const c = createMutableTrackedText("Tail", { width: expr("parent.w * 0.5") });
       const root = row([b.vnode, c.vnode], { width: 24 });
       const measureCache = new WeakMap<VNode, unknown>();
       const layoutCache = new WeakMap<VNode, unknown>();
@@ -406,7 +406,7 @@ describe("incremental layout phase 3", () => {
 
     test("count text 9->10 changes width and relayouts trailing sibling", () => {
       const b = createMutableTrackedText("Count: 9");
-      const c = createMutableTrackedText("Tail", { width: "50%" });
+      const c = createMutableTrackedText("Tail", { width: expr("parent.w * 0.5") });
       const root = row([b.vnode, c.vnode], { width: 24 });
       const measureCache = new WeakMap<VNode, unknown>();
       const layoutCache = new WeakMap<VNode, unknown>();
@@ -480,7 +480,7 @@ describe("incremental layout phase 3", () => {
     });
 
     test("viewport resize uses full relayout path (null dirty set)", () => {
-      const tree = row([text("left"), text("right")], { width: "100%" });
+      const tree = row([text("left"), text("right")], { width: "full" });
       const inc = layout(tree, 0, 0, 80, 10, "column", new WeakMap(), new WeakMap(), null);
       const full = layout(tree, 0, 0, 80, 10, "column", new WeakMap(), new WeakMap(), null);
       assert.deepEqual(inc, full);
@@ -507,12 +507,12 @@ describe("incremental layout phase 3", () => {
       assertIncrementalEqualsFull(tree, 30, 8, new Set<VNode>([tree]));
     });
 
-    test("percentage-width children incremental equals full", () => {
+    test("expression-width children incremental equals full", () => {
       const tree = row(
         [
-          text("left", { width: "25%" }),
-          text("mid", { width: "50%" }),
-          text("right", { width: "25%" }),
+          text("left", { width: expr("parent.w * 0.25") }),
+          text("mid", { width: expr("parent.w * 0.5") }),
+          text("right", { width: expr("parent.w * 0.25") }),
         ],
         { width: 40 },
       );

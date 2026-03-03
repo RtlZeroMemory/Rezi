@@ -6,7 +6,7 @@ type Axis = "row" | "column";
 
 type ChildSpec = Readonly<{
   flex?: number;
-  main?: number | `${number}%`;
+  main?: number;
   min?: number;
   max?: number;
 }>;
@@ -35,8 +35,8 @@ function buildChild(axis: Axis, spec: ChildSpec): VNode {
   const props: {
     border: "none";
     flex?: number;
-    width?: number | `${number}%`;
-    height?: number | `${number}%`;
+    width?: number;
+    height?: number;
     minWidth?: number;
     minHeight?: number;
     maxWidth?: number;
@@ -152,10 +152,10 @@ const CASES: readonly FlexCase[] = [
     ],
   },
   {
-    name: "percent children are resolved before flex distribution",
+    name: "fixed main-size children are allocated before flex distribution",
     main: 20,
     cross: 5,
-    children: [{ main: "50%" }, { flex: 1 }, { main: "25%" }, { flex: 1 }],
+    children: [{ main: 10 }, { flex: 1 }, { main: 5 }, { flex: 1 }],
     expectedRowChildren: [
       { x: 0, y: 0, w: 10, h: 0 },
       { x: 10, y: 0, w: 3, h: 0 },

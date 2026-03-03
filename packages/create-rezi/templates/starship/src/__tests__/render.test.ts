@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { RouteRenderContext, RouterApi } from "@rezi-ui/core";
 import { createTestRenderer } from "@rezi-ui/core/testing";
-import { createInitialState } from "../helpers/state.js";
+import { createInitialState, reduceStarshipState } from "../helpers/state.js";
 import { renderBridgeScreen } from "../screens/bridge.js";
 import { renderCargoScreen } from "../screens/cargo.js";
 import { renderCommsScreen } from "../screens/comms.js";
@@ -68,6 +68,22 @@ test("bridge screen renders core markers", () => {
   assert.match(output, /Bridge Overview/);
   assert.match(output, /Navigation/);
   assert.match(output, /Route Health/);
+});
+
+test("bridge screen remains deterministic in compact viewport", () => {
+  const state = reduceStarshipState(createInitialState(0), {
+    type: "set-viewport",
+    cols: 76,
+    rows: 30,
+  });
+  const renderer = createTestRenderer({ viewport: { cols: 76, rows: 30 } });
+  const output = renderer
+    .render(renderBridgeScreen(createContext(state, "bridge"), createDeps()))
+    .toText();
+
+  assert.match(output, /Bridge Overview/);
+  assert.doesNotMatch(output, /Navigation/);
+  assert.doesNotMatch(output, /Route Health/);
 });
 
 test("engineering screen renders core markers", () => {

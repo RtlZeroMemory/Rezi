@@ -1,7 +1,5 @@
 import type { VNode } from "../../widgets/types.js";
-import { resolveResponsiveValue } from "../responsive.js";
 import type { Axis } from "../types.js";
-import { isPercentString } from "./bounds.js";
 
 type ConstraintPropsBag = Readonly<{
   width?: unknown;
@@ -22,7 +20,29 @@ export function isVNode(v: unknown): v is VNode {
 
 export function getConstraintProps(vnode: unknown): ConstraintPropsBag | null {
   if (!isVNode(vnode)) return null;
-  if (vnode.kind === "box" || vnode.kind === "row" || vnode.kind === "column") {
+  if (
+    vnode.kind === "box" ||
+    vnode.kind === "row" ||
+    vnode.kind === "column" ||
+    vnode.kind === "grid" ||
+    vnode.kind === "virtualList" ||
+    vnode.kind === "table" ||
+    vnode.kind === "tree" ||
+    vnode.kind === "filePicker" ||
+    vnode.kind === "fileTreeExplorer" ||
+    vnode.kind === "codeEditor" ||
+    vnode.kind === "diffViewer" ||
+    vnode.kind === "logsConsole" ||
+    vnode.kind === "canvas" ||
+    vnode.kind === "image" ||
+    vnode.kind === "lineChart" ||
+    vnode.kind === "scatter" ||
+    vnode.kind === "heatmap" ||
+    vnode.kind === "sparkline" ||
+    vnode.kind === "barChart" ||
+    vnode.kind === "miniChart" ||
+    vnode.kind === "gauge"
+  ) {
     return vnode.props as ConstraintPropsBag;
   }
   return null;
@@ -41,17 +61,15 @@ export function childHasFlexInMainAxis(vnode: unknown, axis: Axis): boolean {
 }
 
 export function childHasPercentInMainAxis(vnode: unknown, axis: Axis): boolean {
-  const p = getConstraintProps(vnode);
-  if (!p) return false;
-  const main = axis === "row" ? p.width : p.height;
-  return isPercentString(resolveResponsiveValue(main));
+  void vnode;
+  void axis;
+  return false;
 }
 
 export function childHasPercentInCrossAxis(vnode: unknown, axis: Axis): boolean {
-  const p = getConstraintProps(vnode);
-  if (!p) return false;
-  const cross = axis === "row" ? p.height : p.width;
-  return isPercentString(resolveResponsiveValue(cross));
+  void vnode;
+  void axis;
+  return false;
 }
 
 export function childHasAbsolutePosition(vnode: unknown): boolean {

@@ -30,8 +30,8 @@ function assertRects(actual: readonly LayoutTree[], expected: readonly Rect[]): 
 }
 
 function box(props: {
-  width?: number | `${number}%`;
-  height?: number | `${number}%`;
+  width?: number | "auto" | "full";
+  height?: number | "auto" | "full";
   flex?: number;
 }): VNode {
   return ui.box({ border: "none", ...props }, []);
@@ -553,12 +553,12 @@ describe("layout wrap (deterministic)", () => {
     assert.deepEqual(size, { w: 8, h: 4 });
   });
 
-  test("row wrap percent widths use container width, not per-line remaining width (assumption)", () => {
-    // Assumption documented here: percent widths resolve from full row content width.
+  test("row wrap fixed widths use container width, not per-line remaining width (assumption)", () => {
+    // Assumption documented here: widths resolve from full row content width.
     const out = mustLayout(
       ui.row({ width: 8, height: 6, wrap: true, gap: 1 }, [
-        box({ width: "50%", height: 1 }),
-        box({ width: "50%", height: 1 }),
+        box({ width: 4, height: 1 }),
+        box({ width: 4, height: 1 }),
       ]),
       8,
       6,
@@ -572,12 +572,11 @@ describe("layout wrap (deterministic)", () => {
     ]);
   });
 
-  test("column wrap percent heights use container height, not per-line remaining height (assumption)", () => {
-    // Assumption documented here: percent heights resolve from full column content height.
+  test("column wrap fixed heights use container height, not per-line remaining height (assumption)", () => {
     const out = mustLayout(
       ui.column({ width: 6, height: 8, wrap: true, gap: 1 }, [
-        box({ width: 1, height: "50%" }),
-        box({ width: 1, height: "50%" }),
+        box({ width: 1, height: 4 }),
+        box({ width: 1, height: 4 }),
       ]),
       6,
       8,

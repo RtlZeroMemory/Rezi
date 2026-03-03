@@ -94,7 +94,8 @@ function runtimeNode(
 function runSignatures(root: RuntimeInstance, prev: Map<InstanceId, number>): boolean {
   const next = new Map<InstanceId, number>();
   const stack: RuntimeInstance[] = [];
-  return updateLayoutStabilitySignatures(root, prev, next, stack);
+  const parentKindStack: (string | undefined)[] = [];
+  return updateLayoutStabilitySignatures(root, prev, next, stack, parentKindStack);
 }
 
 function expectSignatureChanged(base: RuntimeInstance, changed: RuntimeInstance): void {
@@ -588,14 +589,14 @@ describe("layout stability signatures", () => {
     expectSignatureUnchanged(base, changed);
   });
 
-  test("unconstrained text in row parent ignores width change (paint-only fast path)", () => {
-    // Even though row is width-sensitive, unconstrained text width changes
-    // are treated as paint-only to avoid O(frames) relayout in scrolling lists.
+  test("unconstrained text in row parent triggers signature change (layout-affecting)", () => {
+    // Row sibling placement depends on the intrinsic width of unconstrained text,
+    // so width changes must invalidate the layout stability signature.
     const textA = runtimeNode(2, textNode("short"));
     const textB = runtimeNode(2, textNode("much longer text"));
     const base = runtimeNode(1, rowNode([textA.vnode], { gap: 0 }), [textA]);
     const changed = runtimeNode(1, rowNode([textB.vnode], { gap: 0 }), [textB]);
-    expectSignatureUnchanged(base, changed);
+    expectSignatureChanged(base, changed);
   });
 
   test("unconstrained text in grid parent ignores width change (paint-only fast path)", () => {

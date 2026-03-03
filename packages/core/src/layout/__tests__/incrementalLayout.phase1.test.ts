@@ -1,5 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import type { VNode } from "../../index.js";
+import { type VNode, expr } from "../../index.js";
 import { type LayoutTree, layout } from "../layout.js";
 
 type Axis = "row" | "column";
@@ -154,10 +154,10 @@ describe("incremental layout phase 1", () => {
       assert.deepEqual([a.reads(), b.reads(), c.reads()], [2, 2, 2]);
     });
 
-    test("row with percentage widths stays at 2 leaf reads each", () => {
-      const a = createTrackedText("left", { width: "25%" });
-      const b = createTrackedText("mid", { width: "50%" });
-      const c = createTrackedText("right", { width: "25%" });
+    test("row with expression widths stays at 2 leaf reads each", () => {
+      const a = createTrackedText("left", { width: expr("parent.w * 0.25") });
+      const b = createTrackedText("mid", { width: expr("parent.w * 0.5") });
+      const c = createTrackedText("right", { width: expr("parent.w * 0.25") });
       mustLayout(row([a.vnode, b.vnode, c.vnode], { width: 40 }), 40, 6);
       assert.deepEqual([a.reads(), b.reads(), c.reads()], [2, 2, 2]);
     });
@@ -166,7 +166,7 @@ describe("incremental layout phase 1", () => {
       const a = createTrackedText("a", { flex: 1 });
       const b = createTrackedText("b", { flex: 1 });
       const c = createTrackedText("c", { flex: 1 });
-      const inner = row([a.vnode, b.vnode], { flex: 1, width: "50%" });
+      const inner = row([a.vnode, b.vnode], { flex: 1, width: expr("parent.w * 0.5") });
       const root = row([inner, c.vnode], { width: 60 });
       mustLayout(root, 60, 8);
       assert.deepEqual([a.reads(), b.reads(), c.reads()], [2, 2, 3]);
@@ -213,7 +213,7 @@ describe("incremental layout phase 1", () => {
     test("viewport resize invalidates cached measurements via new constraints", () => {
       const cache = new WeakMap<VNode, unknown>();
       const tracked = createTrackedText("resize-sensitive");
-      const node = row([tracked.vnode], { width: "100%" });
+      const node = row([tracked.vnode], { width: "full" });
 
       mustLayout(node, 40, 8, "column", cache);
       const readsAfterSmall = tracked.reads();

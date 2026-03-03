@@ -931,8 +931,8 @@ function center(child: VNode, options: CenterOptions = {}): VNode {
     {
       ...(options.id === undefined ? {} : { id: options.id }),
       ...(options.key === undefined ? {} : { key: options.key }),
-      width: "100%",
-      height: "100%",
+      width: "full",
+      height: "full",
       align: "center",
       justify: "center",
       ...(options.p === undefined ? {} : { p: options.p }),
@@ -946,8 +946,8 @@ function page(options: PageOptions): VNode {
     {
       ...(options.id === undefined ? {} : { id: options.id }),
       ...(options.key === undefined ? {} : { key: options.key }),
-      width: "100%",
-      height: "100%",
+      width: "full",
+      height: "full",
       gap: options.gap ?? 1,
       ...(options.p === undefined ? {} : { p: options.p }),
     },
@@ -1047,7 +1047,7 @@ function statusBar(options: StatusBarOptions): VNode {
     {
       ...(options.id === undefined ? {} : { id: options.id }),
       ...(options.key === undefined ? {} : { key: options.key }),
-      width: "100%",
+      width: "full",
       items: "center",
       ...(options.style === undefined ? {} : { style: options.style }),
     },

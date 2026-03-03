@@ -1,4 +1,15 @@
 const { readdirSync } = require("node:fs");
+const { isMainThread } = require("node:worker_threads");
+
+if (!isMainThread && process.env.REZI_NATIVE_ALLOW_WORKER_THREADS !== "1") {
+  throw new Error(
+    [
+      "@rezi-ui/native does not support worker_threads execution.",
+      'Use `executionMode: "inline"` for native runtime, or provide `nativeShimModule` in worker test harnesses.',
+      "Set REZI_NATIVE_ALLOW_WORKER_THREADS=1 only for low-level debugging.",
+    ].join(" "),
+  );
+}
 
 let native = null;
 let lastErr = null;

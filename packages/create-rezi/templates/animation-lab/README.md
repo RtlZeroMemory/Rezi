@@ -15,7 +15,7 @@ Scaffolded with `create-rezi` using the **__TEMPLATE_LABEL__** template.
 
 - `src/types.ts`: animation state and action contracts.
 - `src/theme.ts`: template identity constants.
-- `src/helpers/state.ts`: layout resolver + reducer transitions.
+- `src/helpers/state.ts`: viewport normalization + reducer transitions.
 - `src/helpers/keybindings.ts`: key to command resolver.
 - `src/screens/reactor-lab.ts`: reactor field screen renderer.
 - `src/main.ts`: app bootstrap, resize handling, animation loop.

@@ -159,7 +159,7 @@ const SettingsDeck = defineWidget<SettingsDeckProps>((props, ctx): VNode => {
   ], { tone: "base" });
 
   return ui.layers([
-    ui.column({ gap: SPACE.md, width: "100%" }, [
+    ui.column({ gap: SPACE.md, width: "full" }, [
       settingsForm,
       layout.hideNonCritical
         ? surfacePanel(tokens, "Theme Snapshot", [
@@ -209,7 +209,7 @@ function settingsRightRail(state: StarshipState, deps: RouteDeps): VNode {
       subtitle: activeTheme.label,
       actions: [ui.badge("Preview", { variant: "info" })],
     }),
-    body: ui.column({ gap: SPACE.xs, width: "100%", height: "100%" }, [
+    body: ui.column({ gap: SPACE.xs, width: "full", height: "full" }, [
       ui.breadcrumb({
         items: [{ label: "Bridge" }, { label: "Settings" }, { label: "Theme Preview" }],
       }),
@@ -228,7 +228,7 @@ function settingsRightRail(state: StarshipState, deps: RouteDeps): VNode {
     }),
   });
 
-  return ui.column({ gap: SPACE.sm, width: "100%" }, [
+  return ui.column({ gap: SPACE.sm, width: "full" }, [
     surfacePanel(tokens, "Theme Preview", [
       sectionHeader(tokens, "Theme Modes", "Changes apply instantly across the console"),
       ui.grid(
@@ -277,7 +277,7 @@ export function renderSettingsScreen(
     title: "Ship Settings",
     context,
     deps,
-    body: ui.column({ gap: SPACE.sm, width: "100%", height: "100%" }, [
+    body: ui.column({ gap: SPACE.sm, width: "full", height: "full" }, [
       SettingsDeck({
         key: "settings-deck",
         state: context.state,

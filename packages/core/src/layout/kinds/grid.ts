@@ -1,11 +1,12 @@
 import type { VNode } from "../../widgets/types.js";
-import { clampNonNegative } from "../engine/bounds.js";
+import { resolveLayoutConstraints } from "../constraints.js";
+import { clampNonNegative, clampWithin, toFiniteMax } from "../engine/bounds.js";
 import { distributeInteger } from "../engine/distributeInteger.js";
 import { type FlexItem, distributeFlex } from "../engine/flex.js";
 import { releaseArray } from "../engine/pool.js";
 import { ok } from "../engine/result.js";
 import type { LayoutTree } from "../engine/types.js";
-import type { Axis, Size } from "../types.js";
+import type { Axis, LayoutConstraints, Size } from "../types.js";
 import type { LayoutResult } from "../validateProps.js";
 
 type MeasureNodeFn = (vnode: VNode, maxW: number, maxH: number, axis: Axis) => LayoutResult<Size>;
@@ -675,10 +676,21 @@ export function measureGridKinds(
 
       const naturalW = sumTracksWithGap(naturals.columns, parsed.columnGap);
       const naturalH = sumTracksWithGap(naturals.rows, parsed.rowGap);
+      const self = resolveLayoutConstraints(
+        vnode.props as LayoutConstraints,
+        { x: 0, y: 0, w: maxW, h: maxH },
+        axis,
+      );
+      const maxWCap = clampNonNegative(Math.min(maxW, toFiniteMax(self.maxWidth, maxW)));
+      const maxHCap = clampNonNegative(Math.min(maxH, toFiniteMax(self.maxHeight, maxH)));
+      const minW = Math.min(self.minWidth, maxWCap);
+      const minH = Math.min(self.minHeight, maxHCap);
+      const chosenW = self.width === null ? naturalW : self.width;
+      const chosenH = self.height === null ? naturalH : self.height;
 
       return ok({
-        w: clampNonNegative(Math.min(maxW, naturalW)),
-        h: clampNonNegative(Math.min(maxH, naturalH)),
+        w: clampNonNegative(clampWithin(chosenW, minW, maxWCap)),
+        h: clampNonNegative(clampWithin(chosenH, minH, maxHCap)),
       });
     }
     default:

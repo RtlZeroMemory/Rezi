@@ -195,7 +195,7 @@ async function stopApp(code = 0): Promise<void> {
   } catch {
     // Ignore stop races.
   }
-  frameAuditGlobal.__reziFrameAuditContext = undefined;
+  frameAuditGlobal.__reziFrameAuditContext = () => Object.freeze({});
   stopResolve?.();
   stopResolve = null;
 }

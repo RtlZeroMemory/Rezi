@@ -7,7 +7,8 @@
  * @see docs/backend/native.md
  */
 
-import { Worker } from "node:worker_threads";
+import { existsSync } from "node:fs";
+import { Worker, type WorkerOptions } from "node:worker_threads";
 import type {
   BackendEventBatch,
   BackendRawWrite,
@@ -143,10 +144,28 @@ export type NodeBackendPerf = Readonly<{
 
 export type NodeBackend = RuntimeBackend & Readonly<{ debug: DebugBackend; perf: NodeBackendPerf }>;
 
+export type NodeBackendExecutionModeSelectionInput = Readonly<{
+  requestedExecutionMode: "auto" | "worker" | "inline";
+  fpsCap: number;
+  nativeShimModule?: string;
+  hasAnyTty: boolean;
+}>;
+
+export type NodeBackendExecutionModeSelection = Readonly<{
+  resolvedExecutionMode: "worker" | "inline";
+  selectedExecutionMode: "worker" | "inline";
+  fallbackReason: "native-worker-unstable" | null;
+}>;
+
 type Deferred<T> = Readonly<{
   promise: Promise<T>;
   resolve: (v: T) => void;
   reject: (err: Error) => void;
+}>;
+
+type WorkerEntryResolution = Readonly<{
+  entry: URL;
+  options: WorkerOptions;
 }>;
 
 type SabFrameTransport = Readonly<{
@@ -303,6 +322,62 @@ function resolveTargetFps(fpsCap: number, nativeConfig: Readonly<Record<string, 
 
 function safeErr(err: unknown): Error {
   return err instanceof Error ? err : new Error(String(err));
+}
+
+function resolveWorkerEntry(workerData: WorkerOptions["workerData"]): WorkerEntryResolution {
+  const options: WorkerOptions = { workerData };
+  const workerEntryJs = new URL("../worker/engineWorker.js", import.meta.url);
+  if (existsSync(workerEntryJs)) {
+    return { entry: workerEntryJs, options };
+  }
+
+  // Source-mode worktrees do not emit sibling .js worker files under src.
+  // Use a JS bootstrap that registers tsx and then imports engineWorker.ts.
+  const workerEntryBootstrapJs = new URL("../worker/engineWorker.bootstrap.js", import.meta.url);
+  if (existsSync(workerEntryBootstrapJs)) {
+    return { entry: workerEntryBootstrapJs, options };
+  }
+
+  throw new ZrUiError(
+    "ZRUI_BACKEND_ERROR",
+    "Unable to locate worker entry (expected engineWorker.js or engineWorker.bootstrap.js)",
+  );
+}
+
+function hasInteractiveTty(): boolean {
+  return (
+    process.stdin.isTTY === true || process.stdout.isTTY === true || process.stderr.isTTY === true
+  );
+}
+
+export function selectNodeBackendExecutionMode(
+  input: NodeBackendExecutionModeSelectionInput,
+): NodeBackendExecutionModeSelection {
+  const { requestedExecutionMode, fpsCap, nativeShimModule, hasAnyTty } = input;
+  const resolvedExecutionMode: "worker" | "inline" =
+    requestedExecutionMode === "inline"
+      ? "inline"
+      : requestedExecutionMode === "worker"
+        ? "worker"
+        : fpsCap <= 30
+          ? "inline"
+          : "worker";
+  const shouldFallbackForNativeWorker =
+    resolvedExecutionMode === "worker" && nativeShimModule === undefined && hasAnyTty;
+  return {
+    resolvedExecutionMode,
+    selectedExecutionMode: shouldFallbackForNativeWorker ? "inline" : resolvedExecutionMode,
+    fallbackReason: shouldFallbackForNativeWorker ? "native-worker-unstable" : null,
+  };
+}
+
+function assertWorkerEnvironmentSupported(nativeShimModule: string | undefined): void {
+  if (nativeShimModule !== undefined) return;
+  if (hasInteractiveTty()) return;
+  throw new ZrUiError(
+    "ZRUI_BACKEND_ERROR",
+    'Worker backend requires a TTY when using @rezi-ui/native. Use `executionMode: "inline"` for headless runs or pass `nativeShimModule` in test harnesses.',
+  );
 }
 
 const DEBUG_QUERY_DEFAULT_RECORDS = 4096 as const;
@@ -486,14 +561,21 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
     MAX_SAFE_FPS_CAP,
   );
   const requestedExecutionMode = cfg.executionMode ?? "auto";
-  const executionMode: "worker" | "inline" =
-    requestedExecutionMode === "inline"
-      ? "inline"
-      : requestedExecutionMode === "worker"
-        ? "worker"
-        : fpsCap <= 30
-          ? "inline"
-          : "worker";
+  const executionModeSelection = selectNodeBackendExecutionMode({
+    requestedExecutionMode,
+    fpsCap,
+    hasAnyTty: hasInteractiveTty(),
+    ...(opts.nativeShimModule === undefined ? {} : { nativeShimModule: opts.nativeShimModule }),
+  });
+  const executionMode = executionModeSelection.selectedExecutionMode;
+  if (executionModeSelection.fallbackReason !== null && frameAudit.enabled) {
+    frameAudit.emit("backend.executionModeFallback", {
+      requestedExecutionMode,
+      resolvedExecutionMode: executionModeSelection.resolvedExecutionMode,
+      selectedExecutionMode: executionMode,
+      reason: executionModeSelection.fallbackReason,
+    });
+  }
   if (executionMode === "inline") {
     return createNodeBackendInlineInternal(opts);
   }
@@ -1134,6 +1216,7 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       if (disposed) throw new Error("NodeBackend: disposed");
       if (fatal !== null) throw fatal;
       if (started) return;
+      assertWorkerEnvironmentSupported(opts.nativeShimModule);
 
       if (worker === null) {
         if (initConfigResolved === null) {
@@ -1161,17 +1244,18 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
         stopRequested = false;
         if (sabFrameTransport !== null) resetSabFrameTransport(sabFrameTransport);
 
-        const entry = new URL("../worker/engineWorker.js", import.meta.url);
         const workerData =
           opts.nativeShimModule === undefined
             ? undefined
             : { nativeShimModule: opts.nativeShimModule };
-        worker = new Worker(entry, { workerData });
+        const workerEntry = resolveWorkerEntry(workerData);
+        worker = new Worker(workerEntry.entry, workerEntry.options);
         if (frameAudit.enabled) {
           frameAudit.emit("worker.spawn", {
             frameTransport: frameTransportWire.kind,
             frameSabSlotCount: frameSabSlotCount,
             frameSabSlotBytes: frameSabSlotBytes,
+            workerEntry: workerEntry.entry.href,
           });
         }
         exitDef = deferred<void>();
@@ -1189,7 +1273,21 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
       }
 
       if (startDef === null) throw new Error("NodeBackend: invariant violated (startDef is null)");
-      await startDef.promise;
+      try {
+        await startDef.promise;
+      } catch (err) {
+        // Startup fatals can race with worker teardown. Waiting for exit keeps
+        // caller shutdown paths deterministic and avoids process-level teardown
+        // races when user code exits immediately after a start() rejection.
+        if (exitDef !== null) {
+          try {
+            await exitDef.promise;
+          } catch {
+            // ignore teardown wait failures
+          }
+        }
+        throw err;
+      }
     },
 
     async stop(): Promise<void> {

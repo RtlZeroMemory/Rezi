@@ -14,10 +14,10 @@ function mustNodeById(
 describe("layout stack cross-axis feedback", () => {
   test("non-wrap stack remeasures wrapped content at final allocated width", () => {
     const tree = ui.row({ id: "root", width: 20, gap: 0, align: "start" }, [
-      ui.box({ id: "first", border: "none", width: "50%" }, [
+      ui.box({ id: "first", border: "none", width: 10 }, [
         ui.text("abcdefghijklmnopqrst", { wrap: true }),
       ]),
-      ui.box({ id: "second", border: "none", width: "50%" }, [ui.text("x")]),
+      ui.box({ id: "second", border: "none", width: 10 }, [ui.text("x")]),
     ]);
     const out = createTestRenderer({ viewport: { cols: 20, rows: 10 } }).render(tree);
     assert.equal(mustNodeById(out, "root").h, 2);
@@ -28,10 +28,8 @@ describe("layout stack cross-axis feedback", () => {
 
   test("wrap stack uses remeasured line cross-size before placing later lines", () => {
     const tree = ui.row({ id: "root", width: 8, wrap: true, gap: 1, align: "start" }, [
-      ui.box({ id: "first", border: "none", width: "50%" }, [
-        ui.text("abcdefghij", { wrap: true }),
-      ]),
-      ui.box({ id: "second", border: "none", width: "50%" }, [ui.text("x")]),
+      ui.box({ id: "first", border: "none", width: 4 }, [ui.text("abcdefghij", { wrap: true })]),
+      ui.box({ id: "second", border: "none", width: 4 }, [ui.text("x")]),
     ]);
     const out = createTestRenderer({ viewport: { cols: 8, rows: 20 } }).render(tree);
     assert.equal(mustNodeById(out, "first").h, 3);
@@ -53,10 +51,10 @@ describe("layout stack cross-axis feedback", () => {
   });
 
   test("engineering-style wide row keeps canvas pane visible across viewports", () => {
-    const tree = ui.column({ id: "root", gap: 1, width: "100%" }, [
+    const tree = ui.column({ id: "root", gap: 1, width: "full" }, [
       ui.panel("Engineering Controls", [ui.text("Control summary")]),
-      ui.row({ id: "deck-layout", gap: 1, items: "stretch", width: "100%" }, [
-        ui.box({ id: "left-pane", border: "none", p: 0, flex: 2, width: "100%" }, [
+      ui.row({ id: "deck-layout", gap: 1, items: "stretch", width: "full" }, [
+        ui.box({ id: "left-pane", border: "none", p: 0, flex: 2 }, [
           ui.panel("Reactor Schematic", [
             ui.canvas({
               id: "reactor-canvas",
@@ -68,7 +66,7 @@ describe("layout stack cross-axis feedback", () => {
             }),
           ]),
         ]),
-        ui.box({ id: "right-pane", border: "none", p: 0, flex: 3, width: "100%" }, [
+        ui.box({ id: "right-pane", border: "none", p: 0, flex: 3 }, [
           ui.panel("Power Distribution", [
             ui.text("Power lanes"),
             ui.progress(0.8, { label: "Warp Core" }),

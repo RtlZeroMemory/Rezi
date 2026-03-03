@@ -117,23 +117,31 @@ describe("spacing", () => {
     assert.equal(res.value.border, "heavy-dashed");
   });
 
-  test("layout size constraints normalize string numbers, percentages, and auto", () => {
+  test("layout size constraints normalize string numbers and auto", () => {
     const numeric = validateBoxProps({
       width: " 12.8 ",
       minWidth: "2.9",
       maxWidth: "20",
-      height: "50%",
+      height: "6.9",
     });
     assert.equal(numeric.ok, true);
     if (!numeric.ok) throw new Error("expected ok");
     assert.equal(numeric.value.width, 12);
     assert.equal(numeric.value.minWidth, 2);
     assert.equal(numeric.value.maxWidth, 20);
-    assert.equal(numeric.value.height, "50%");
+    assert.equal(numeric.value.height, 6);
 
     const auto = validateBoxProps({ width: " AUTO " });
     assert.equal(auto.ok, true);
     if (!auto.ok) throw new Error("expected ok");
     assert.equal(auto.value.width, "auto");
+  });
+
+  test("layout size constraints reject removed percentage strings", () => {
+    const res = validateBoxProps({ height: "50%" });
+    assert.equal(res.ok, false);
+    if (res.ok) throw new Error("expected fatal");
+    assert.equal(res.fatal.code, "ZRUI_INVALID_PROPS");
+    assert.match(res.fatal.detail, /no longer supports percentage strings/i);
   });
 });

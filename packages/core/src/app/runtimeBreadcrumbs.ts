@@ -69,12 +69,46 @@ export type RuntimeBreadcrumbFrameSummary = Readonly<{
   renderTimeMs: number;
 }>;
 
+export type RuntimeBreadcrumbConstraintsResolution =
+  | Readonly<{ kind: "none" }>
+  | Readonly<{ kind: "reused" }>
+  | Readonly<{ kind: "cacheHit" }>
+  | Readonly<{ kind: "computed" }>;
+
+export type RuntimeBreadcrumbConstraintsWidgetSummary = Readonly<{
+  id: string;
+  instanceCount: number;
+  instanceId: number | null;
+  resolved: Readonly<{
+    display?: number;
+    width?: number;
+    height?: number;
+    minWidth?: number;
+    maxWidth?: number;
+    minHeight?: number;
+    maxHeight?: number;
+    flexBasis?: number;
+  }> | null;
+  expressions: readonly Readonly<{ prop: string; source: string }>[] | null;
+}>;
+
+export type RuntimeBreadcrumbConstraintsSummary = Readonly<{
+  enabled: boolean;
+  graphFingerprint: number;
+  nodeCount: number;
+  cacheKey: string | null;
+  resolution: RuntimeBreadcrumbConstraintsResolution;
+  hiddenInstanceCount: number;
+  focused: RuntimeBreadcrumbConstraintsWidgetSummary | null;
+}>;
+
 /** Renderer-owned runtime metadata snapshot (without app-level event routing fields). */
 export type WidgetRuntimeBreadcrumbSnapshot = Readonly<{
   focus: RuntimeBreadcrumbFocusSummary;
   cursor: RuntimeBreadcrumbCursorSummary | null;
   damage: RuntimeBreadcrumbDamageSummary;
   frame: RuntimeBreadcrumbFrameSummary;
+  constraints?: RuntimeBreadcrumbConstraintsSummary | null;
 }>;
 
 /** Full runtime breadcrumb snapshot emitted to internal inspector hooks. */
@@ -115,6 +149,7 @@ export const EMPTY_WIDGET_RUNTIME_BREADCRUMBS: WidgetRuntimeBreadcrumbSnapshot =
   cursor: null,
   damage: EMPTY_DAMAGE,
   frame: EMPTY_FRAME,
+  constraints: null,
 });
 
 /** Convert router action payload to breadcrumb summary shape. */
@@ -156,6 +191,7 @@ export function mergeRuntimeBreadcrumbSnapshot(
     cursor: widget.cursor,
     damage: widget.damage,
     frame,
+    constraints: widget.constraints ?? null,
     event: Object.freeze({
       kind: eventKind,
       path: eventPath,
