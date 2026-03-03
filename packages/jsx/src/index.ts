@@ -38,7 +38,6 @@ export {
   Grid,
   Header,
   Heatmap,
-  HStack,
   Icon,
   Image,
   Input,
@@ -68,8 +67,6 @@ export {
   Sidebar,
   Skeleton,
   Slider,
-  SpacedHStack,
-  SpacedVStack,
   Spacer,
   Sparkline,
   Spinner,
@@ -86,7 +83,6 @@ export {
   ToolApprovalDialog,
   Toolbar,
   Tree,
-  VStack,
   VirtualList,
 } from "./components.js";
 
@@ -139,7 +135,6 @@ export type {
   GridJsxProps,
   HeaderJsxProps,
   HeatmapJsxProps,
-  HStackJsxProps,
   IconJsxProps,
   ImageJsxProps,
   InputJsxProps,
@@ -171,8 +166,6 @@ export type {
   SidebarJsxProps,
   SkeletonJsxProps,
   SliderJsxProps,
-  SpacedHStackJsxProps,
-  SpacedVStackJsxProps,
   SpacerJsxProps,
   SparklineJsxProps,
   SpinnerJsxProps,
@@ -189,7 +182,6 @@ export type {
   ToolApprovalDialogJsxProps,
   ToolbarJsxProps,
   TreeJsxProps,
-  VStackJsxProps,
   VirtualListJsxProps,
 } from "./types.js";
 

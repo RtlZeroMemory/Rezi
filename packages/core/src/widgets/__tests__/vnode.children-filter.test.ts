@@ -50,32 +50,32 @@ describe("vnode children filtering", () => {
     assert.equal(childrenOf(vnode).length, 2);
   });
 
-  test("vstack children-only overload filters children", () => {
-    const vnode = ui.vstack([text("a"), null, false, undefined, text("b")]);
+  test("column filters children and defaults gap to 1", () => {
+    const vnode = ui.column({}, [text("a"), null, false, undefined, text("b")]);
     assert.equal(childrenOf(vnode).length, 2);
     assert.equal((vnode.props as { gap?: number }).gap, 1);
   });
 
-  test("vstack gap overload filters children", () => {
-    const vnode = ui.vstack(2, [text("a"), false, text("b"), undefined]);
+  test("column with explicit gap filters children", () => {
+    const vnode = ui.column({ gap: 2 }, [text("a"), false, text("b"), undefined]);
     assert.equal(childrenOf(vnode).length, 2);
   });
 
-  test("hstack children-only overload filters children", () => {
-    const vnode = ui.hstack([text("a"), null, undefined, false, text("b")]);
+  test("row filters children and defaults gap to 1", () => {
+    const vnode = ui.row({}, [text("a"), null, undefined, false, text("b")]);
     assert.equal(childrenOf(vnode).length, 2);
     assert.equal((vnode.props as { gap?: number }).gap, 1);
   });
 
   test("spaced stack helpers default to gap=1", () => {
-    const vertical = ui.spacedVStack([text("a"), text("b")]);
-    const horizontal = ui.spacedHStack([text("a"), text("b")]);
+    const vertical = ui.column({}, [text("a"), text("b")]);
+    const horizontal = ui.row({}, [text("a"), text("b")]);
     assert.equal((vertical.props as { gap?: number }).gap, 1);
     assert.equal((horizontal.props as { gap?: number }).gap, 1);
   });
 
-  test("hstack props overload filters children", () => {
-    const vnode = ui.hstack({ key: "row", gap: 1 }, [text("a"), false, undefined, text("b")]);
+  test("row props filters children", () => {
+    const vnode = ui.row({ key: "row", gap: 1 }, [text("a"), false, undefined, text("b")]);
     assert.equal(childrenOf(vnode).length, 2);
   });
 

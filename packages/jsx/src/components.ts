@@ -102,7 +102,6 @@ import type {
   FormOptions,
   GaugeJsxProps,
   GridJsxProps,
-  HStackJsxProps,
   HeaderJsxProps,
   HeatmapJsxProps,
   IconJsxProps,
@@ -136,8 +135,6 @@ import type {
   SidebarJsxProps,
   SkeletonJsxProps,
   SliderJsxProps,
-  SpacedHStackJsxProps,
-  SpacedVStackJsxProps,
   SpacerJsxProps,
   SparklineJsxProps,
   SpinnerJsxProps,
@@ -154,7 +151,6 @@ import type {
   ToolApprovalDialogJsxProps,
   ToolbarJsxProps,
   TreeJsxProps,
-  VStackJsxProps,
   VirtualListJsxProps,
 } from "./types.js";
 
@@ -219,34 +215,6 @@ export function Grid(props: GridJsxProps): VNode {
   return ui.grid(
     withOptionalKey<GridPropsWithOptionalKey>(rest, key),
     ...normalizeContainerChildren(children),
-  );
-}
-
-export function HStack(props: HStackJsxProps): VNode {
-  const { children, key, ...rest } = props;
-  return ui.hstack(withOptionalKey<RowProps>(rest, key), normalizeContainerChildren(children));
-}
-
-export function VStack(props: VStackJsxProps): VNode {
-  const { children, key, ...rest } = props;
-  return ui.vstack(withOptionalKey<ColumnProps>(rest, key), normalizeContainerChildren(children));
-}
-
-export function SpacedVStack(props: SpacedVStackJsxProps): VNode {
-  const { children, key, gap } = props;
-  const normalized = normalizeContainerChildren(children);
-  return withVNodeKey(
-    gap === undefined ? ui.spacedVStack(normalized) : ui.spacedVStack(gap, normalized),
-    key,
-  );
-}
-
-export function SpacedHStack(props: SpacedHStackJsxProps): VNode {
-  const { children, key, gap } = props;
-  const normalized = normalizeContainerChildren(children);
-  return withVNodeKey(
-    gap === undefined ? ui.spacedHStack(normalized) : ui.spacedHStack(gap, normalized),
-    key,
   );
 }
 

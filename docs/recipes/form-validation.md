@@ -141,7 +141,7 @@ const form = useForm(ctx, {
   },
 });
 
-return ui.vstack([
+return ui.column({}, [
   form.field("email", { label: "Email", required: true }),
   form.field("password", { label: "Password", required: true, hint: "Minimum 8 characters" }),
   ui.button({

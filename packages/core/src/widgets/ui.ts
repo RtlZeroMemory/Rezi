@@ -254,91 +254,6 @@ function grid(props: GridProps, ...children: UiChild[]): VNode {
 }
 
 const DEFAULT_STACK_GAP = 1;
-const DEFAULT_SPACED_STACK_GAP = 1;
-
-function vstack(props: ColumnProps, children?: readonly UiChild[]): VNode;
-function vstack(gap: number, children: readonly UiChild[]): VNode;
-function vstack(children: readonly UiChild[]): VNode;
-function vstack(
-  gapOrPropsOrChildren: number | ColumnProps | readonly UiChild[],
-  children: readonly UiChild[] = [],
-): VNode {
-  if (typeof gapOrPropsOrChildren === "number") {
-    return {
-      kind: "column",
-      props: { gap: gapOrPropsOrChildren },
-      children: filterChildren(children ?? []),
-    };
-  }
-  if (isUiChildren(gapOrPropsOrChildren)) {
-    return {
-      kind: "column",
-      props: { gap: DEFAULT_STACK_GAP },
-      children: filterChildren(gapOrPropsOrChildren),
-    };
-  }
-  const props = gapOrPropsOrChildren;
-  const filtered = filterChildren(children);
-  return {
-    kind: "column",
-    props: props.gap === undefined ? { gap: DEFAULT_STACK_GAP, ...props } : props,
-    children: maybeReverseChildren(filtered, props.reverse),
-  };
-}
-
-function hstack(props: RowProps, children?: readonly UiChild[]): VNode;
-function hstack(gap: number, children: readonly UiChild[]): VNode;
-function hstack(children: readonly UiChild[]): VNode;
-function hstack(
-  gapOrPropsOrChildren: number | RowProps | readonly UiChild[],
-  children: readonly UiChild[] = [],
-): VNode {
-  if (typeof gapOrPropsOrChildren === "number") {
-    return {
-      kind: "row",
-      props: { gap: gapOrPropsOrChildren },
-      children: filterChildren(children ?? []),
-    };
-  }
-  if (isUiChildren(gapOrPropsOrChildren)) {
-    return {
-      kind: "row",
-      props: { gap: DEFAULT_STACK_GAP },
-      children: filterChildren(gapOrPropsOrChildren),
-    };
-  }
-  const props = gapOrPropsOrChildren;
-  const filtered = filterChildren(children);
-  return {
-    kind: "row",
-    props: props.gap === undefined ? { gap: DEFAULT_STACK_GAP, ...props } : props,
-    children: maybeReverseChildren(filtered, props.reverse),
-  };
-}
-
-function spacedVStack(children: readonly UiChild[]): VNode;
-function spacedVStack(gap: number, children: readonly UiChild[]): VNode;
-function spacedVStack(
-  gapOrChildren: number | readonly UiChild[],
-  children: readonly UiChild[] = [],
-): VNode {
-  if (typeof gapOrChildren === "number") {
-    return vstack(gapOrChildren, children);
-  }
-  return vstack(DEFAULT_SPACED_STACK_GAP, gapOrChildren);
-}
-
-function spacedHStack(children: readonly UiChild[]): VNode;
-function spacedHStack(gap: number, children: readonly UiChild[]): VNode;
-function spacedHStack(
-  gapOrChildren: number | readonly UiChild[],
-  children: readonly UiChild[] = [],
-): VNode {
-  if (typeof gapOrChildren === "number") {
-    return hstack(gapOrChildren, children);
-  }
-  return hstack(DEFAULT_SPACED_STACK_GAP, gapOrChildren);
-}
 
 function spacer(props: SpacerProps = {}): VNode {
   return { kind: "spacer", props };
@@ -1101,10 +1016,6 @@ export const ui = {
   column,
   themed,
   grid,
-  vstack,
-  hstack,
-  spacedVStack,
-  spacedHStack,
   spacer,
   divider,
   icon,

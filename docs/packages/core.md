@@ -139,7 +139,7 @@ const form = useForm(ctx, {
   onSubmit: (values) => handleLogin(values),
 });
 
-const view = ui.vstack([
+const view = ui.column({}, [
   form.field("email", { label: "Email", required: true }),
   form.field("password", { label: "Password", required: true }),
   ui.input(form.bind("email", { id: "email-inline" })),

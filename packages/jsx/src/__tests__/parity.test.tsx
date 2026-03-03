@@ -43,7 +43,6 @@ import {
   Fragment,
   Gauge,
   Grid,
-  HStack,
   Header,
   Heatmap,
   Icon,
@@ -75,8 +74,6 @@ import {
   Sidebar,
   Skeleton,
   Slider,
-  SpacedHStack,
-  SpacedVStack,
   Spacer,
   Sparkline,
   Spinner,
@@ -92,7 +89,6 @@ import {
   ToolApprovalDialog,
   Toolbar,
   Tree,
-  VStack,
   VirtualList,
 } from "../index.js";
 
@@ -141,29 +137,29 @@ describe("jsx-ui parity", () => {
       ui.grid({ columns: 2 }, ui.text("a"), ui.text("b")),
     );
     assert.deepEqual(
-      <HStack>
+      <Row>
         <Text>a</Text>
         <Text>b</Text>
-      </HStack>,
-      ui.hstack({}, [ui.text("a"), ui.text("b")]),
+      </Row>,
+      ui.row({}, [ui.text("a"), ui.text("b")]),
     );
     assert.deepEqual(
-      <VStack>
+      <Column>
         <Text>a</Text>
-      </VStack>,
-      ui.vstack({}, [ui.text("a")]),
+      </Column>,
+      ui.column({}, [ui.text("a")]),
     );
     assert.deepEqual(
-      <SpacedVStack gap={2}>
+      <Column gap={2}>
         <Text>a</Text>
-      </SpacedVStack>,
-      ui.spacedVStack(2, [ui.text("a")]),
+      </Column>,
+      ui.column({ gap: 2 }, [ui.text("a")]),
     );
     assert.deepEqual(
-      <SpacedHStack gap={2}>
+      <Row gap={2}>
         <Text>a</Text>
-      </SpacedHStack>,
-      ui.spacedHStack(2, [ui.text("a")]),
+      </Row>,
+      ui.row({ gap: 2 }, [ui.text("a")]),
     );
     assert.deepEqual(
       <Layers>

@@ -26,7 +26,7 @@ Benefits of `ui.*` factories:
 - Proper VNode construction with correct `kind` discriminants.
 - Automatic filtering of `null`, `false`, and `undefined` children.
 - Automatic flattening of nested child arrays.
-- Default `gap: 1` applied to `row`/`column`/`hstack`/`vstack` when omitted.
+- Default `gap: 1` applied to `row`/`column` when omitted.
 - Interactive widget props validated before layout (e.g. `button` requires non-empty `id`).
 
 ## Beautiful Defaults
@@ -44,8 +44,6 @@ Container and spacing primitives for arranging widgets.
 | [`ui.box(props, children)`](box.md) | Container with border, padding, title, and optional `transition`/`exitTransition`/opacity props | No | `stable` |
 | [`ui.row(props, children)`](stack.md) | Horizontal stack layout (supports `transition` for animated layout changes) | No | `stable` |
 | [`ui.column(props, children)`](stack.md) | Vertical stack layout (supports `transition` for animated layout changes) | No | `stable` |
-| [`ui.hstack(...)`](stack.md) | Shorthand horizontal stack (accepts gap number, props, or just children) | No | `stable` |
-| [`ui.vstack(...)`](stack.md) | Shorthand vertical stack (accepts gap number, props, or just children) | No | `stable` |
 | [`ui.grid(props, ...children)`](grid.md) | Two-dimensional grid layout (supports `transition` for animated layout changes) | No | `stable` |
 | [`ui.spacer(props?)`](spacer.md) | Fixed-size or flexible spacing | No | `stable` |
 | [`ui.divider(props?)`](divider.md) | Visual separator line | No | `stable` |
@@ -53,8 +51,6 @@ Container and spacing primitives for arranging widgets.
 | [`ui.splitPane(props, children)`](split-pane.md) | Resizable split layout with draggable dividers | No | `beta` |
 | [`ui.panelGroup(props, children)`](panel-group.md) | Container for resizable panels | No | `beta` |
 | [`ui.resizablePanel(props?, children?)`](resizable-panel.md) | Panel within a panel group | No | `beta` |
-
-> **Convenience aliases:** `ui.spacedVStack(children)` and `ui.spacedHStack(children)` are shorthand for `vstack`/`hstack` with a default gap. They also accept an explicit gap number as the first argument: `ui.spacedVStack(2, children)`.
 
 **Quick example:**
 
@@ -517,7 +513,7 @@ focusable?: boolean
 
 ### Spacing Props
 
-`box`, `row`, `column`, `hstack`, and `vstack` all accept spacing props. Values are either a number (terminal cells) or a named key.
+`box`, `row`, and `column` all accept spacing props. Values are either a number (terminal cells) or a named key.
 
 ```typescript
 // Padding
@@ -578,7 +574,7 @@ right?: number
 bottom?: number
 left?: number
 
-// Gap between children (row, column, hstack, vstack)
+// Gap between children (row, column)
 gap?: SpacingValue
 
 // Alignment

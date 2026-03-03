@@ -93,12 +93,7 @@ ui.row({ width: 40, gap: 0 }, [
 
 ## Helpers
 
-Rezi also includes:
-
-- `ui.hstack(...)` — shorthand row with default `gap: 1`
-- `ui.vstack(...)` — shorthand column with default `gap: 1`
-- `ui.spacedHStack(...)` — shorthand row with default `gap: 1` (alias)
-- `ui.spacedVStack(...)` — shorthand column with default `gap: 1` (alias)
+Use `ui.row()` and `ui.column()` directly. Both default to `gap: 1`.
 
 ## Related
 
