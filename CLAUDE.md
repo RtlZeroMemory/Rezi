@@ -3,171 +3,210 @@
 ## Project Overview
 
 Rezi is a high-performance TypeScript TUI framework with a native C rendering engine (Zireael).
-Monorepo with npm workspaces (NOT pnpm).
-Packages: `@rezi-ui/core` (runtime-agnostic framework), `@rezi-ui/node` (Node.js backend), `@rezi-ui/jsx` (JSX transform), `create-rezi` (scaffolding CLI).
+This repo uses npm workspaces.
+
+Main packages:
+- `@rezi-ui/core`: runtime-agnostic framework APIs and internals
+- `@rezi-ui/node`: Node backend runtime
+- `@rezi-ui/jsx`: JSX runtime and components
+- `create-rezi`: scaffolding templates
 
 ## Quick Commands
 
 ```bash
-npm install                          # Install all workspaces
-node scripts/run-tests.mjs           # Run all tests (~900+ tests, node:test)
-npx tsx packages/bench/src/...       # Run benchmarks (bypasses tsc)
-REZI_PERF=1 REZI_PERF_DETAIL=1      # Enable profiling (env vars, prefix any command)
+npm install
+npm run build
+node scripts/run-tests.mjs
+npx tsx examples/gallery/src/index.ts
+REZI_PERF=1 REZI_PERF_DETAIL=1 node scripts/run-tests.mjs
 ```
 
 ## Mandatory Code Standards
 
-All code changes MUST follow `docs/dev/code-standards.md`.
-Use it as the merge gate for TypeScript rigor, Rezi-specific invariants, and
-error-handling patterns.
+All code changes must follow `docs/dev/code-standards.md`.
+Use that file as the merge gate for TypeScript rigor, reconciliation safety, callback safety, and runtime invariants.
 
 ## Project Map
 
-```
+```text
 packages/core/src/
   app/
-    createApp.ts              # createApp() factory, App interface, app.run()/app.stop()
-    widgetRenderer.ts         # Render orchestrator, full frame pipeline
+    createApp.ts              # App factory + lifecycle
+    widgetRenderer.ts         # Render orchestration
   widgets/
-    ui.ts                     # ui.* factory functions (60+ widgets) — THE recommended API
-    types.ts                  # All widget prop types (VNode discriminated union)
-    composition.ts            # defineWidget(), WidgetContext, hooks
-    conditionals.ts           # show(), when(), match(), maybe()
-    collections.ts            # each(), eachInline() — keyed list rendering
-    useTable.ts               # useTable() hook for table state
-    useModalStack.ts          # useModalStack() hook for modal state
+    ui.ts                     # Canonical ui.* widget factory API
+    types.ts                  # VNode props definitions
+    composition.ts            # defineWidget + WidgetContext hooks
+    conditionals.ts           # show/when/match/maybe
+    collections.ts            # each/eachInline
+    hooks/
+      animation.ts            # useTransition/useSpring/useSequence/useStagger/useAnimatedValue/useParallel/useChain
+      utility.ts              # useDebounce/usePrevious
+      data.ts                 # useAsync/useStream/useInterval/useEventSource/useWebSocket/useTail
+    useTable.ts               # useTable domain hook
+    useModalStack.ts          # useModalStack domain hook
   runtime/
-    commit.ts                 # VNode -> RuntimeInstance reconciliation
-    reconcile.ts              # Child matching (keyed/unkeyed diffing)
-    instances.ts              # Hook state registry (useState, useEffect, etc.)
-    focus.ts                  # Focus traversal and management
+    commit.ts                 # VNode -> RuntimeInstance
+    reconcile.ts              # keyed/unkeyed tree diffing
+    focus.ts                  # Focus management
   layout/
-    layout.ts                 # Public facade (re-exports from engine/)
-    engine/layoutEngine.ts    # Constraint-based layout algorithm
-    kinds/                    # Per-widget layout implementations (stack, box, grid, leaf, etc.)
+    engine/layoutEngine.ts    # Constraint-driven layout engine
+    kinds/                    # Per-widget layout logic
   renderer/
-    renderToDrawlist.ts       # Public entry for drawlist rendering
+    renderToDrawlist.ts       # Drawlist render entry
     renderToDrawlist/
-      renderTree.ts           # Stack-based DFS renderer
+      renderTree.ts           # DFS render traversal
   drawlist/
-    builder.ts                # ZRDL binary drawlist builder (single unified version)
-    builderBase.ts            # Abstract base class for drawlist builder
-    writers.gen.ts            # Generated drawlist command writers (codegen)
-  keybindings/
-    manager.ts                # Modal keybinding system
-    parser.ts                 # Key sequence parsing
-  router/
-    router.ts                 # Page routing with guards + nested outlets
-    helpers.ts                # routerBreadcrumb(), routerTabs()
+    builder.ts                # ZRDL builder facade
+    builderBase.ts            # Base writer
+    writers.gen.ts            # Generated command writers
   forms/
-    useForm.ts                # Form management hook
-    validation.ts             # Form field validation
-    bind.ts                   # Two-way binding helpers
+    useForm.ts                # Form domain hook
+    validation.ts             # Validation helpers
+  router/
+    router.ts                 # Routing and nested outlets
+    helpers.ts                # routerBreadcrumb/routerTabs helpers
   testing/
-    renderer.ts               # createTestRenderer() — full pipeline test helper
-    events.ts                 # TestEventBuilder, encodeZrevBatchV1
-    snapshot.ts               # Golden frame snapshot system (captureSnapshot, diffSnapshots)
-  ui/
-    capabilities.ts           # Capability tier detection (A/B/C)
-    designTokens.ts           # Typography, elevation, size, variant, tone tokens
-    recipes.ts                # Style recipes for all widget families
-    index.ts                  # Design system public exports
-  __tests__/
-    integration/              # Integration test suites (dashboard, form-editor, etc.)
-    stress/                   # Fuzzing and stress tests (large trees, rapid events)
+    renderer.ts               # createTestRenderer
+    events.ts                 # Test event builders
+    snapshot.ts               # Snapshot helpers
 
 packages/node/src/
   backend/
-    nodeBackend.ts            # Node.js backend factory (async, worker-based)
-    nodeBackendInline.ts      # Inline (sync) backend for simple apps
+    nodeBackend.ts            # Worker-mode backend
+    nodeBackendInline.ts      # Inline backend
 
 packages/create-rezi/templates/
-  minimal/                    # Bare-minimum counter app
-  cli-tool/                   # Multi-screen app with routing
-  dashboard/                  # Real-time dashboard with charts
-  stress-test/                # Stress/performance testing template
-  animation-lab/              # Declarative animation + responsive reactor lab
-  (each template follows: main.ts, types.ts, theme.ts, helpers/, screens/)
+  minimal/
+  cli-tool/
+  dashboard/
+  stress-test/
+  animation-lab/
 ```
 
 ## Architecture — Render Pipeline
 
-```
-State -> view(state) -> VNode tree -> commitVNodeTree -> layout -> metadata_collect (when tree/routing/focus changes; otherwise reused) -> renderToDrawlist -> builder.build() -> backend.requestFrame()
+```text
+State
+  -> view(state)
+  -> VNode tree
+  -> commitVNodeTree
+  -> layout
+  -> metadata collect (focus + hit-testing)
+  -> renderToDrawlist
+  -> builder.build()
+  -> backend.requestFrame()
 ```
 
-1. **State**: Application state managed via `app.update()` or `useReducer` pattern.
-2. **view(state)**: Pure function returns a VNode tree describing the UI.
-3. **VNode tree**: Declarative widget descriptions (discriminated union by `kind`).
-4. **commitVNodeTree**: Reconciles new VNodes against previous RuntimeInstance tree (keyed/unkeyed diffing).
-5. **layout**: Constraint-based engine computes absolute position/size for every widget.
-6. **metadata_collect**: Gathers focus targets, hit-test regions, and accessibility info when needed; layout-only passes can reuse prior metadata.
-7. **renderToDrawlist**: Stack-based DFS walks the layout tree, emitting draw operations.
-8. **builder.build()**: Serializes draw operations into ZRDL binary format.
-9. **backend.requestFrame()**: Sends binary drawlist to the native Zireael renderer.
+Pipeline references:
+- `packages/core/src/app/widgetRenderer.ts`
+- `packages/core/src/runtime/commit.ts`
+- `packages/core/src/runtime/reconcile.ts`
+- `packages/core/src/renderer/renderToDrawlist/renderTree.ts`
+- `packages/core/src/drawlist/builder.ts`
 
 ## Layout Engine Baseline
 
-Current layout behavior to preserve when editing or generating docs:
-
-- Intrinsic sizing protocol (`measureMinContent` / `measureMaxContent`) is active for leaf and container measurement.
-- Stack constraints support `flex`, `flexShrink`, `flexBasis`, and per-child `alignSelf`.
-- Stack wrap and non-wrap paths use bounded cross-axis feedback (max 2 measure passes per child when needed).
-- Text supports `wrap` with grapheme-safe hard breaks and newline-aware paragraph splits. `textOverflow` supports `"clip"`, `"ellipsis"`, `"middle"`, and `"start"` (keeps tail with leading ellipsis).
-- Box has `gap` on its synthetic inner column and runs absolute children in a second out-of-flow pass.
-- Stack/box absolute positioning supports `position: "absolute"` + `top/right/bottom/left`.
-- Grid supports explicit placement and spans (`gridColumn`, `gridRow`, `colSpan`, `rowSpan`) with occupancy-aware auto placement.
+Current behavior that docs and code generation must preserve:
+- Intrinsic sizing protocol for container and leaf widgets (`measureMinContent` / `measureMaxContent`).
+- Stack flex model supports `flex`, `flexShrink`, `flexBasis`, and `alignSelf`.
+- Wrap and non-wrap stack logic uses bounded cross-axis feedback.
+- Text supports wrapping with grapheme-safe breaks and `textOverflow` (`clip`, `ellipsis`, `middle`, `start`).
+- `box` supports synthetic inner-column layout with `gap` and out-of-flow absolute children.
+- Absolute positioning is supported for stack/box children (`position: "absolute"` + offsets).
+- Grid supports explicit placement and spans (`gridColumn`, `gridRow`, `colSpan`, `rowSpan`).
 - Overlay widgets use constraint-driven sizing (`modal`, `commandPalette`, `toolApprovalDialog`, `toastContainer`).
-- Integer-weighted splits use shared deterministic remainder distribution (`distributeInteger`).
-- Responsive scalar interpolation supports `fluid(min, max, options?)` and resolves through responsive maps.
-- Stability signatures include: `text`, `button`, `input`, `spacer`, `divider`, `row`, `column`, `box`, `grid`, `table`, `tabs`, `accordion`, `modal`, `virtualList`, `splitPane`, `breadcrumb`, `pagination`, `focusZone`, and `focusTrap`.
+- Deterministic integer distribution is shared across split and grid sizing paths.
+- Stability signatures are active for common leaf/container/widget kinds.
+
+### Container vs Leaf Taxonomy
+
+Every widget is either a container (lays out children) or a leaf (measures and renders content).
+
+| Type | Role | Typical Widgets |
+|------|------|-----------------|
+| Container | Defines layout shape and child distribution | `box`, `row`, `column`, `grid`, `tabs`, `accordion`, `splitPane`, `panelGroup`, `focusZone`, `focusTrap`, `layers` |
+| Leaf | Renders intrinsic content | `text`, `button`, `input`, `select`, `table`, `virtualList`, `codeEditor`, `image`, `canvas` |
+
+Rules:
+- Containers define structure.
+- Leaves fill structure.
+- Avoid redundant container chains with no layout contribution.
 
 ## Design System
 
-Rezi includes a cohesive design system with tokens, recipes, and capability tiers.
-See [docs/design-system.md](docs/design-system.md) for the full specification.
+Rezi ships semantic design tokens, recipes, and capability tiers.
+Primary reference: `docs/design-system.md`.
 
 ### Key Concepts
 
-- **Tokens**: Semantic color slots (`bg.base`, `fg.primary`, `accent.primary`, etc.) defined per theme
-- **Recipes**: `recipe.button()`, `recipe.input()`, etc. — compute styles from tokens
-- **Capability Tiers**: A (256-color), B (truecolor), C (enhanced/images)
-- **DS Props**: `dsVariant`, `dsTone`, `dsSize` on interactive widgets for recipe-based styling
-- **Snapshot Testing**: `captureSnapshot()` + `rezi-snap` CLI for visual regression
+- Tokens: semantic slots (`bg.base`, `fg.primary`, `accent.primary`, `surface.*`).
+- Recipes: deterministic style composition for widget families.
+- Capability tiers: A (256-color), B (truecolor), C (enhanced/image).
+- Snapshot-based visual validation with `captureSnapshot` and `rezi-snap`.
 
 ### Beautiful Defaults (Design System by Default)
 
-When the active theme provides semantic color tokens, these widgets are recipe-styled by default:
+When semantic tokens are available, these widgets are recipe-styled by default:
 `ui.button`, `ui.input`, `ui.checkbox`, `ui.select`, `ui.table`, `ui.progress`, `ui.badge`, `ui.callout`, `ui.scrollbar`, `ui.modal`, `ui.divider`, `ui.surface`, `ui.text`.
 
-- **Manual overrides**: `style` / `pressedStyle` / `px` / `trackStyle` are merged on top of recipe results (they do not disable recipes).
-- **Framed inputs/selects**: Drawing a full border + interior requires at least **3 rows** of height; at 1 row they still use recipe text/background styling but render without a box border.
+Notes:
+- Manual overrides are merged on top of recipe results.
+- Input/select framed borders need at least 3 rows of height.
 
-### Design System Buttons
+### Button Styling
 
-```typescript
-// Intent-based button styling
+Use `intent` for all button styling decisions.
+
+| Intent | Meaning | Typical Action |
+|--------|---------|----------------|
+| `"primary"` | Highest emphasis CTA | Save, Confirm, Continue |
+| `"secondary"` | Default secondary action | Cancel, Back |
+| `"danger"` | Destructive action | Delete, Remove |
+| `"success"` | Positive confirmation action | Approve, Mark complete |
+| `"warning"` | Cautionary action | Retry risky step |
+| `"link"` | Minimal text-like action | Learn more, Open docs |
+
+Examples:
+
+```ts
 ui.button({ id: "save", label: "Save", intent: "primary" })
 ui.button({ id: "cancel", label: "Cancel", intent: "secondary" })
 ui.button({ id: "delete", label: "Delete", intent: "danger" })
-ui.button({ id: "learn-more", label: "Learn more", intent: "link" })
+ui.button({ id: "approve", label: "Approve", intent: "success" })
+ui.button({ id: "review", label: "Review", intent: "warning" })
+ui.button({ id: "docs", label: "Docs", intent: "link" })
 ```
 
-### Widget Gallery
+Internals note: `intent` resolves into recipe-level `dsVariant` and `dsTone`; those fields are internal recipe levers, not the documented app-facing API.
 
-```bash
-npx tsx examples/gallery/src/index.ts          # Interactive
-npx tsx examples/gallery/src/index.ts --headless  # Headless CI
-node scripts/rezi-snap.mjs --update            # Update snapshots
-node scripts/rezi-snap.mjs --verify            # Verify snapshots
-```
+### Elevation Model
 
-## API Layers (safest to lowest-level)
+| Elevation | Token Family | Typical Use |
+|-----------|--------------|-------------|
+| 0 | `surface0` / base | Page background |
+| 1 | `surface1` / card | Panels, cards, sidebars |
+| 2 | `surface2` / dropdown | Menus, popovers |
+| 3 | `surface3` / modal | Modals, dialogs, command palette |
 
-### Layer 1 — Widget API (ALWAYS prefer this)
+Use adjacent elevation levels for nearby layers.
 
-```typescript
-import { ui, createApp } from "@rezi-ui/core";
+### Theme Switching
+
+UIs must render correctly in all built-in themes without code changes:
+- Dark
+- Light
+- Dimmed
+- High-contrast
+- Nord
+- Dracula
+
+## API Layers (Safest to Lowest-Level)
+
+### Layer 1 — Widget API (Preferred)
+
+```ts
+import { createApp, ui } from "@rezi-ui/core";
 
 const view = (state: AppState) =>
   ui.page({
@@ -188,14 +227,10 @@ const view = (state: AppState) =>
   });
 ```
 
-Verified factory availability (from `@rezi-ui/core` via `ui`): `ui.page()`,
-`ui.panel()`, `ui.card()`, `ui.actions()`, `ui.appShell()`, `ui.sidebar()`,
-`ui.statusBar()`, `ui.form()`, and `ui.field()`.
+### Layer 2 — Composition API
 
-### Layer 2 — Composition API (for reusable widgets)
-
-```typescript
-import { defineWidget } from "@rezi-ui/core";
+```ts
+import { defineWidget, ui } from "@rezi-ui/core";
 
 const Counter = defineWidget<{ initial: number; key?: string }>((props, ctx) => {
   const [count, setCount] = ctx.useState(props.initial);
@@ -214,36 +249,23 @@ const Counter = defineWidget<{ initial: number; key?: string }>((props, ctx) => 
 });
 ```
 
-Available hooks: `ctx.useState()`, `ctx.useEffect()`, `ctx.useRef()`, `ctx.useMemo()`, `ctx.useCallback()`, `ctx.useAppState()`, `ctx.useViewport()`, `ctx.id()`.
-Animation utility hooks: `useTransition()`, `useSpring()`, `useSequence()`, `useStagger()`, `useAnimatedValue()`, `useParallel()`, `useChain()` for declarative numeric motion.
-Animation easing presets include `linear` plus quad/cubic families (`easeInQuad`, `easeOutQuad`, `easeInOutQuad`, `easeInCubic`, `easeOutCubic`, `easeInOutCubic`); use `interpolateRgb()` / `interpolateRgbArray()` for color ramps.
+### Layer 3 — Domain Hooks
 
-### Layer 3 — Domain Hooks (for complex state and motion)
-
-```typescript
-import {
-  useTransition,
-  useSpring,
-  useSequence,
-  useStagger,
-  useAnimatedValue,
-  useParallel,
-  useChain,
-  useTable,
-  useModalStack,
-  useForm,
-} from "@rezi-ui/core";
+```ts
+import { useForm, useModalStack, useTable } from "@rezi-ui/core";
 ```
 
-### Layer 4 — Raw VNodes (avoid unless necessary)
+### Layer 4 — Raw VNode Objects
 
-```typescript
+Use only when authoring low-level internals.
+
+```ts
 const node: VNode = { kind: "text", text: "hello", props: {} };
 ```
 
 ### JSX Alternative
 
-The `@rezi-ui/jsx` package provides JSX syntax as an alternative to `ui.*()`:
+`@rezi-ui/jsx` mirrors `ui.*` with equivalent props.
 
 ```tsx
 import { Button, Page, Panel, Text } from "@rezi-ui/jsx";
@@ -262,48 +284,106 @@ const view = (state: AppState) => (
 );
 ```
 
-Setup requires `"jsx": "react-jsx"` and `"jsxImportSource": "@rezi-ui/jsx"` in `tsconfig.json`.
+Required TypeScript settings:
+- `"jsx": "react-jsx"`
+- `"jsxImportSource": "@rezi-ui/jsx"`
 
-All `ui.*` functions have JSX equivalents and matching props. Design system props (`intent`, `dsVariant`, `dsTone`, `dsSize`) behave identically in both APIs.
+## Hooks Reference
 
-- Composition helpers: `<Page>`, `<AppShell>`, `<Panel>`, `<Card>`, `<Form>`, `<Actions>`, `<Center>`, `<Toolbar>`, `<StatusBar>`, `<Header>`, `<Sidebar>`, `<MasterDetail>`
-- Use `show()`, `when()`, `match()`, `maybe()` from core for conditionals
-- Use `each()`, `eachInline()` from core for lists
-- `defineWidget()` works with JSX return values
+All hook signatures below are sourced from:
+- `packages/core/src/widgets/composition.ts`
+- `packages/core/src/widgets/hooks/animation.ts`
+- `packages/core/src/widgets/hooks/utility.ts`
+- `packages/core/src/widgets/hooks/data.ts`
+- `packages/core/src/widgets/useTable.ts`
+- `packages/core/src/widgets/useModalStack.ts`
+- `packages/core/src/forms/useForm.ts`
+
+### State & Lifecycle (10)
+
+| Hook | Signature | Returns |
+|------|-----------|---------|
+| `ctx.useState` | `<T>(initial: T \| (() => T))` | `[T, (v: T \| ((prev: T) => T)) => void]` |
+| `ctx.useRef` | `<T>(initial: T)` | `{ current: T }` |
+| `ctx.useMemo` | `<T>(factory: () => T, deps?: readonly unknown[])` | `T` |
+| `ctx.useCallback` | `<T extends (...args: never[]) => unknown>(callback: T, deps?: readonly unknown[])` | `T` |
+| `ctx.useEffect` | `(effect: () => void \| (() => void), deps?: readonly unknown[])` | `void` |
+| `ctx.useAppState` | `<T>(selector: (s: State) => T)` | `T` |
+| `ctx.useTheme` | `()` | `ColorTokens \| null` |
+| `ctx.useViewport` | `?(): ResponsiveViewportSnapshot` | `ResponsiveViewportSnapshot` |
+| `ctx.id` | `(suffix: string)` | `string` |
+| `ctx.invalidate` | `()` | `void` |
+
+### Animation (7)
+
+| Hook | Signature | Returns |
+|------|-----------|---------|
+| `useTransition` | `(ctx, value: number, config?: UseTransitionConfig)` | `number` |
+| `useSpring` | `(ctx, target: number, config?: UseSpringConfig)` | `number` |
+| `useSequence` | `(ctx, keyframes: readonly SequenceKeyframe[], config?: UseSequenceConfig)` | `number` |
+| `useStagger` | `<T>(ctx, items: readonly T[], config?: UseStaggerConfig)` | `readonly number[]` |
+| `useAnimatedValue` | `(ctx, target: number, config?: UseAnimatedValueConfig)` | `AnimatedValue` |
+| `useParallel` | `(ctx, animations: UseParallelConfig)` | `readonly ParallelAnimationEntry[]` |
+| `useChain` | `(ctx, steps: UseChainConfig)` | `Readonly<{ value: number; currentStep: number; isComplete: boolean }>` |
+
+### Utility (2)
+
+| Hook | Signature | Returns |
+|------|-----------|---------|
+| `useDebounce` | `<T>(ctx, value: T, delayMs: number)` | `T` |
+| `usePrevious` | `<T>(ctx, value: T)` | `T \| undefined` |
+
+### Data & Streaming (6)
+
+| Hook | Signature | Returns |
+|------|-----------|---------|
+| `useAsync` | `<T>(ctx, task: () => Promise<T>, deps: readonly unknown[])` | `UseAsyncState<T>` |
+| `useStream` | `<T>(ctx, stream: AsyncIterable<T> \| undefined, deps?: readonly unknown[])` | `UseStreamState<T>` |
+| `useInterval` | `(ctx, fn: () => void, ms: number)` | `void` |
+| `useEventSource` | `<T = string>(ctx, url: string, options?: UseEventSourceOptions<T>)` | `UseEventSourceState<T>` |
+| `useWebSocket` | `<T = string>(ctx, url: string, protocol?: string \| readonly string[], options?: UseWebSocketOptions<T>)` | `UseWebSocketState<T>` |
+| `useTail` | `<T = string>(ctx, filePath: string, options?: UseTailOptions<T>)` | `UseTailState<T>` |
+
+### Domain (3)
+
+| Hook | Signature | Returns |
+|------|-----------|---------|
+| `useTable` | `<T, State = void>(ctx: WidgetContext<State>, options: UseTableOptions<T>)` | `UseTableResult<T>` |
+| `useModalStack` | `<State = void>(ctx: WidgetContext<State>)` | `UseModalStack` |
+| `useForm` | `<T extends Record<string, unknown>, State = void>(ctx: WidgetContext<State>, options: UseFormOptions<T>)` | `UseFormReturn<T>` |
 
 ## Conditional and List Rendering
 
-```typescript
-import { show, when, match, maybe } from "@rezi-ui/core";
-import { each, eachInline } from "@rezi-ui/core";
+```ts
+import { each, eachInline, match, maybe, show, when } from "@rezi-ui/core";
 
-// Conditional
-show(isVisible, ui.text("shown"));
-when(loading, () => ui.spinner({}), () => ui.text("done"));
-maybe(user, u => ui.text(u.name));
+show(isVisible, ui.text("Shown"));
+when(loading, () => ui.spinner({}), () => ui.text("Done"));
+maybe(user, (u) => ui.text(u.name));
 
-// Lists (always provide key function)
+match(mode)
+  .case("loading", () => ui.spinner({}))
+  .case("ready", () => ui.text("Ready"))
+  .default(() => ui.text("Unknown"));
+
 each(items, (item) => ui.text(item.name), { key: (item) => item.id });
+eachInline(tags, (tag) => ui.badge(tag));
 ```
 
 ## Code Standards and Guardrails
 
-- Canonical standards document: `docs/dev/code-standards.md` (MUST follow).
-- All interactive widgets MUST have a unique `id` prop.
-- Hooks must be called in consistent order (no conditional hooks, no hooks in loops).
-- Container transition properties (`ui.box`/`ui.row`/`ui.column`/`ui.grid`) default to animating `position`, `size`, and `opacity`; constrain with explicit `properties` when needed.
-- Use `key` prop for list items to enable stable reconciliation.
-- State updates during render are forbidden (throws `ZRUI_UPDATE_DURING_RENDER`).
-- Duplicate interactive widget IDs are fatal (throws `ZRUI_DUPLICATE_ID`).
-- Max nesting depth: 500 (warn at 200). Max composite render depth: 100.
-- Prefer `useReducer` pattern (reducer + dispatch) over raw `app.update()`.
-- Import from package exports only (`@rezi-ui/core`, `@rezi-ui/node`), never from internal paths.
-- Drawlist command writers are generated; do not edit `packages/core/src/drawlist/writers.gen.ts` manually.
+- Import from package exports only (`@rezi-ui/core`, `@rezi-ui/node`, `@rezi-ui/jsx`).
+- Interactive widgets require unique `id` values.
+- Hooks must run in consistent order (no conditional hooks).
+- Prefer `ui.*` and composition API over direct VNode construction.
+- Use `key` for stable list reconciliation.
+- State updates during render are invalid.
+- Duplicate IDs are fatal.
+- Drawlist writers are generated; do not edit `packages/core/src/drawlist/writers.gen.ts` by hand.
 
 ## Event System
 
-`UiEvent` action payloads cover the extended routed action model:
-
+`UiEvent` action payloads include:
 - `press`
 - `input`
 - `select`
@@ -313,105 +393,135 @@ each(items, (item) => ui.text(item.name), { key: (item) => item.id });
 - `activate`
 - `scroll`
 
-This allows centralized logging/middleware via app-level event listeners in addition to per-widget callbacks.
+This supports app-level logging/middleware plus per-widget callbacks.
 
 ## Layout Measurement
 
-`app.measureElement(id)` returns the computed layout `Rect` (`{ x, y, w, h }`) for any widget by its string `id`, or `null` if the widget is not in the current tree. The rect reflects the most recent layout pass. Types `Rect`, `Size`, and `Axis` are exported from `@rezi-ui/core`.
+`app.measureElement(id)` returns the computed rect (`{ x, y, w, h }`) for the latest layout pass, or `null` when the widget is not present.
 
-## Drawlist Codegen Protocol (MUST for ZRDL command changes)
+## Drawlist Codegen Protocol (Must for ZRDL Changes)
 
-When changing drawlist command layout/opcodes/field offsets for v3/v4/v5:
+When changing drawlist command bytes/opcodes/field layout:
 
-1. Update `scripts/drawlist-spec.ts` (single source of truth).
+1. Update `scripts/drawlist-spec.ts`.
 2. Regenerate with `npm run codegen`.
-3. Validate sync with `npm run codegen:check`.
-4. Update byte-level tests in `packages/core/src/drawlist/__tests__/writers.gen.test.ts`.
-5. Update protocol docs (`docs/protocol/zrdl.md`, `docs/protocol/versioning.md`) in the same PR.
-
-CI runs `codegen:check`; stale generated writers fail the build.
+3. Verify with `npm run codegen:check`.
+4. Update `packages/core/src/drawlist/__tests__/writers.gen.test.ts`.
+5. Update protocol docs:
+   - `docs/protocol/zrdl.md`
+   - `docs/protocol/versioning.md`
 
 ## Patterns
 
-### DO
+### Do
 
-- Use `ui.*` functions for all widget construction.
-- Use `each()` / `eachInline()` for list rendering with keys.
-- Use `show()` / `when()` / `maybe()` / `match()` for conditional rendering.
-- Use `defineWidget()` for reusable stateful components.
-- Use `useTransition()` / `useSpring()` / `useSequence()` / `useStagger()` / `useAnimatedValue()` / `useParallel()` / `useChain()` for declarative numeric motion.
-- Use `useTable()` for table state, `useModalStack()` for modal state.
-- Follow template structure: separate `screens/`, `helpers/state.ts`, `helpers/keybindings.ts`, `theme.ts`, `types.ts` (see `animation-lab` for motion-heavy screens).
-- Test with `createTestRenderer()` from the testing module.
+- Use `ui.*` factories for widget construction.
+- Use `defineWidget` for reusable stateful components.
+- Use `useTable`, `useModalStack`, `useForm` for domain logic.
+- Use `show`, `when`, `maybe`, `match` for conditional rendering.
+- Use `each`/`eachInline` for keyed list rendering.
+- Use animation hooks instead of ad hoc timers in view code.
+- Keep layout tokens and theme tokens semantic.
 
-### DON'T
+### Don’t
 
-- Don't construct raw VNode objects `{ kind: ..., props: ... }`.
-- Don't call hooks conditionally or in loops.
-- Don't use `app.update()` inside view functions.
-- Don't duplicate widget IDs across the tree.
-- Don't exceed 500 nesting depth.
-- Don't import from internal paths (use package exports only).
+- Build custom status widgets from manually styled text.
+- Nest containers that do not add layout or visual structure.
+- Render large lists without `ui.virtualList`.
+- Duplicate interactive IDs.
+- Construct raw VNodes in feature code.
+- Import from private/internal package paths.
 
 ## TUI Aesthetics Rulebook
 
-Follow these rules when building Rezi TUI applications to produce professional, visually appealing interfaces.
-
 ### Layout Rules
-- ALWAYS wrap the root view in `ui.page({ p: 1, gap: 1, header, body, footer })` for proper page structure with breathing room from terminal edges.
-- Use `ui.appShell()` for apps with sidebar navigation. Use `ui.page()` for simpler layouts.
-- Group related content in `ui.panel("Section Title", [...])` — this gives you rounded borders, padding, and a title automatically.
-- Use `ui.card("Title", [...])` for standalone elevated content blocks.
-- Never let content touch terminal edges — always have at least `p: 1` on the outermost container.
 
-### Spacing Rhythm
-- `gap: 0` — tightly coupled items only (label + value on same line, radio options)
-- `gap: 1` — related items (form fields, list items, buttons in a row)
-- `gap: 2` — distinct sections within a panel (form groups, content blocks)
-- Use `ui.divider()` between major sections instead of large gaps.
-- Use `ui.spacer({ flex: 1 })` to push content apart (e.g., left/right in a row).
+- Root views use `ui.page(...)` or `ui.appShell(...)`.
+- Keep a minimum outer padding of `p: 1`.
+- Group sections with `ui.panel(...)` or `ui.card(...)`.
+- Place action rows in `ui.actions(...)`.
+- Prefer one clearly dominant CTA per section.
 
-### Button Styling
-- Primary action (Save, Submit, Confirm): `intent: "primary"` or `dsVariant: "solid", dsTone: "primary"`
-- Secondary action (Cancel, Back): `intent: "secondary"` or `dsVariant: "soft"` (this is the default — just `ui.button("id", "Label")` works)
-- Destructive action (Delete, Remove): `intent: "danger"` or `dsVariant: "outline", dsTone: "danger"`
-- Minimal/link action (Learn more, Skip): `intent: "link"` or `dsVariant: "ghost"`
-- Place buttons in `ui.actions([...])` for right-aligned button rows
-- ONLY ONE solid/primary button per visible section — it's the main call to action.
+### Spacing Model
+
+Use the shared spacing scale.
+
+| Token | Cells | Use For |
+|-------|-------|---------|
+| `0` | 0 | Tight packing only |
+| `"xs"` | 1 | Minimal internal spacing |
+| `"sm"` | 1 | Default sibling gaps |
+| `"md"` | 2 | Section separation |
+| `"lg"` | 3 | Major section breaks |
+| `"xl"` | 4 | Page-level margins |
+
+Guidance:
+- `row` and `column` default to `gap: 1`.
+- Use `p: 1` for standard card/panel padding.
+- Use `px: 1` for horizontal bar/header spacing.
 
 ### Visual Hierarchy
-- Page title: `ui.text("Title", { variant: "heading" })` — bold, primary color
-- Section titles: use `ui.panel("Section Name", [...])` to get automatic titled panels
-- Labels/captions: `ui.text("label", { variant: "caption" })` — dim, secondary color
-- Body text: `ui.text("content")` — default, no variant needed
-- Code/mono: `ui.text("code", { variant: "code" })`
-- De-emphasized: `ui.text("muted", { dim: true })`
+
+- Page titles: `ui.text("Title", { variant: "heading" })`
+- Labels/meta text: `ui.text("Label", { variant: "caption" })`
+- Code text: `ui.text("npm run build", { variant: "code" })`
+- Default body copy: `ui.text("Body content")`
 
 ### Status & Indicators
-- Use `ui.badge("text", { variant: "success" })` for status labels (success/error/warning/info)
-- Use `ui.status("online")` for connection/presence indicators
-- Use `ui.tag("label", { variant: "info" })` for categorization tags
-- Use `ui.callout("message", { variant: "warning" })` for inline alerts
-- Use `ui.progress(value)` for progress bars — recipe-styled by default when semantic tokens are present
+
+| Need | Widget | Example |
+|------|--------|---------|
+| Inline status dot | `ui.status(...)` | `ui.status("online")` |
+| Labeled status badge | `ui.badge(...)` | `ui.badge("Live", { variant: "success" })` |
+| Categorization tag | `ui.tag(...)` | `ui.tag("backend", { variant: "info" })` |
+| Inline alert | `ui.callout(...)` | `ui.callout("Disk usage high", { variant: "warning" })` |
+| Loading indicator | `ui.spinner(...)` | `ui.spinner({ variant: "dots" })` |
+| Progress indicator | `ui.progress(...)` | `ui.progress(0.72)` |
+
+Use semantic widgets directly instead of custom text-based status constructs.
 
 ### Form Patterns
-- Wrap each field in `ui.field({ label: "Name", children: ui.input(...) })` for label + error + hint
-- Group fields in `ui.form([...])` for consistent spacing
-- End forms with `ui.actions([cancelBtn, submitBtn])` — cancel first, primary submit last
-- Inputs are recipe-styled by default when semantic tokens are present (use 3+ rows for a framed border)
-- Use `placeholder` prop on inputs for guidance text
+
+```ts
+ui.form([
+  ui.field({
+    label: "Name",
+    children: ui.input({
+      id: "name",
+      value: state.name,
+      onInput: (value) => dispatch({ type: "name", value }),
+    }),
+  }),
+  ui.field({
+    label: "Email",
+    children: ui.input({
+      id: "email",
+      value: state.email,
+      onInput: (value) => dispatch({ type: "email", value }),
+    }),
+  }),
+  ui.actions([
+    ui.button({ id: "cancel", label: "Cancel", intent: "secondary" }),
+    ui.button({ id: "submit", label: "Submit", intent: "primary" }),
+  ]),
+]);
+```
+
+Rules:
+- Wrap inputs with `ui.field`.
+- Group related fields with `ui.form`.
+- Keep primary submit action visually explicit with `intent: "primary"`.
 
 ### Color Usage
-- NEVER hardcode RGB values — let the theme handle colors via tokens
-- Use `variant` props on badges, tags, callouts, status indicators for semantic colors
-- Use `dsVariant`/`dsTone` on buttons and interactive widgets for consistent theming
-- If you need manual colors, use theme token paths, not raw `{ r, g, b }` objects
-- Trust the design system — 6 built-in themes all work with the semantic color system
+
+- Do not hardcode RGB/hex literals in app widgets.
+- Use semantic tokens and recipe-powered variants.
+- Use `variant` and `intent` props for semantic coloring.
+- Validate screens in all built-in themes.
 
 ### Common Layout Patterns
 
-```typescript
-// Standard app layout with header and footer
+```ts
 ui.page({
   p: 1,
   gap: 1,
@@ -419,107 +529,172 @@ ui.page({
     ui.text("My App", { variant: "heading" }),
     ui.badge("v1.0", { variant: "info" }),
     ui.spacer({ flex: 1 }),
-    ui.button("settings", "Settings", { intent: "link" }),
+    ui.button({ id: "settings", label: "Settings", intent: "link" }),
   ]),
   body: ui.column({ gap: 2 }, [
-    ui.panel("Section 1", [
-      ui.text("Content goes here"),
-    ]),
-    ui.panel("Section 2", [
+    ui.panel("Profile", [ui.text("Content")]),
+    ui.panel("Contact", [
       ui.form([
-        ui.field({ label: "Name", children: ui.input("name", state.name) }),
-        ui.field({ label: "Email", children: ui.input("email", state.email) }),
+        ui.field({
+          label: "Email",
+          children: ui.input({ id: "email", value: state.email, onInput: onEmailInput }),
+        }),
       ]),
     ]),
   ]),
   footer: ui.actions([
-    ui.button("cancel", "Cancel"),
-    ui.button("save", "Save", { intent: "primary" }),
+    ui.button({ id: "cancel", label: "Cancel", intent: "secondary" }),
+    ui.button({ id: "save", label: "Save", intent: "primary" }),
   ]),
-})
+});
 ```
 
-```typescript
-// Dashboard with sidebar navigation
+```ts
 ui.appShell({
   header: ui.row({ gap: 1, items: "center" }, [
     ui.text("Dashboard", { variant: "heading" }),
     ui.badge("Live", { variant: "success" }),
   ]),
   sidebar: {
+    width: 22,
     content: ui.sidebar({
       items: [
         { id: "overview", label: "Overview" },
         { id: "users", label: "Users" },
         { id: "settings", label: "Settings" },
       ],
-      selected: state.currentPage,
-      onSelect: (id) => dispatch({ type: "navigate", page: id }),
+      selected: state.page,
+      onSelect: (id) => dispatch({ type: "page", id }),
     }),
-    width: 22,
   },
-  body: renderCurrentPage(state),
+  body: renderBody(state),
   footer: ui.statusBar({
     left: [ui.status("online"), ui.text("Connected")],
     right: [ui.text("v1.0.0")],
   }),
-})
+});
 ```
 
-```typescript
-// Confirmation dialog
-ui.dialog({
-  id: "confirm-delete",
-  title: "Delete Item",
-  message: "Are you sure you want to delete this item? This action cannot be undone.",
-  actions: [
-    { label: "Cancel", onPress: () => dispatch({ type: "close-dialog" }) },
-    { label: "Delete", intent: "danger", onPress: () => dispatch({ type: "delete" }) },
-  ],
-})
+```ts
+ui.box({ border: "rounded", p: 1, gap: 1 }, [
+  ui.text("Users", { variant: "heading" }),
+  ui.table({
+    id: "users-table",
+    columns: [
+      { key: "name", header: "Name", flex: 2 },
+      { key: "role", header: "Role", flex: 1 },
+      { key: "status", header: "Status", width: 10 },
+    ],
+    data: state.users,
+    getRowKey: (row) => row.id,
+    onRowPress: (row) => openUser(row.id),
+  }),
+]);
 ```
 
-### Anti-Patterns (DO NOT)
-- Don't use `ui.column` as your root — use `ui.page()` or `ui.appShell()` instead.
-- Don't manually set `fg`/`bg` colors on every widget — use the design system.
-- Don't use `gap: 0` everywhere — it makes the UI cramped and hard to read.
-- Don't put buttons without `ui.actions()` — they'll be left-aligned and look scattered.
-- Don't skip `ui.panel()` for content sections — bare text with no container looks unfinished.
-- Don't use `dsVariant: "solid"` on every button — only the primary CTA should be solid.
-- Don't nest more than 3 levels of bordered containers — it gets visually noisy.
+### Anti-Patterns
+
+- Rooting screens at `ui.column` instead of `ui.page`/`ui.appShell`.
+- Manually styling every control with explicit colors.
+- Setting `gap: 0` globally.
+- Sprinkling standalone buttons instead of `ui.actions` rows.
+- Overusing nested bordered containers.
+- Replacing semantic status widgets with custom text/color fragments.
+- Rendering large data sets without virtualization.
+
+## Accessibility
+
+### Focus Order
+
+- Every interactive widget must define `id`.
+- Tab order follows tree order (depth-first preorder).
+- Use `ui.focusZone` for custom local navigation.
+- Use `ui.focusTrap` in modal contexts.
+
+### Screen Reader Support
+
+- Use `accessibleLabel` when visual labels are ambiguous.
+- Use `ui.focusAnnouncer` for dynamic focus context.
+- Prefer semantic variants/intents over manual style-only distinctions.
+
+### Keyboard Navigation
+
+- Every action must be keyboard reachable.
+- Modal overlays must support close with Escape.
+- Menus/dropdowns must support arrow navigation.
+- Command discovery should be exposed through `ui.commandPalette` where applicable.
+
+## Quick Decision Trees
+
+### Layout
+
+```text
+Need to size a widget?
+  ├─ Exact cells known? -> set width/height directly (e.g., width: 20)
+  ├─ Share remaining space with siblings? -> use flex
+  ├─ Two-dimensional arrangement? -> use ui.grid(...)
+  └─ Long/large scrolling collection? -> use ui.virtualList(...)
+```
+
+### Visibility and Rendering Flow
+
+```text
+Need conditional content?
+  ├─ Simple boolean branch -> show(...)
+  ├─ if/else branch -> when(...)
+  ├─ optional value branch -> maybe(...)
+  └─ multi-state branch -> match(...)
+```
+
+### Spacing
+
+```text
+Need spacing?
+  ├─ Between sibling items -> gap on row/column (default: 1)
+  ├─ Inside a container -> padding (usually p: 1)
+  └─ Between major sections -> gap: 2 or divider
+```
 
 ## Testing
 
-```typescript
+```ts
 import { createTestRenderer } from "@rezi-ui/core";
 
 const renderer = createTestRenderer({ viewport: { cols: 80, rows: 24 } });
-const result = renderer.render(myView(state));
+const result = renderer.render(view(state));
 
-// Query the rendered tree
-result.findById("my-button");      // Find node by widget ID
-result.findText("Hello");          // Find node containing text
-result.findAll("button");          // Find all nodes of a kind
-result.toText();                   // Render to plain text for snapshots
+result.findById("save");
+result.findText("Settings");
+result.findAll("button");
+result.toText();
 ```
 
-Test runner: `node:test`. Run all tests with `node scripts/run-tests.mjs`.
+Run all tests:
 
-For rendering regressions, add a live PTY verification pass and frame-audit
-evidence (not just snapshot/unit tests). Use:
+```bash
+node scripts/run-tests.mjs
+```
 
-- [`docs/dev/live-pty-debugging.md`](docs/dev/live-pty-debugging.md)
+For UI regressions, run live PTY validation and frame audit:
+- `docs/dev/live-pty-debugging.md`
 
-This runbook covers deterministic viewport setup, worker-mode PTY execution,
-route/theme key driving, and cross-layer log analysis (`REZI_FRAME_AUDIT`,
-`REZI_STARSHIP_DEBUG`, `frame-audit-report.mjs`).
+### What to Test
+
+| Aspect | How |
+|--------|-----|
+| Visual output | Snapshot assertions via `toText()` / `toAnsi()` |
+| Layout correctness | Assert `findById(...).rect` values |
+| Interaction | Trigger key/mouse events and assert state/UI |
+| Responsive behavior | Validate at multiple viewport sizes |
+| Focus traversal | Assert focused ID movement across Tab/Shift+Tab |
+| List performance | Verify `virtualList` behavior for large collections |
 
 ## Skills (Repeatable Recipes)
 
-Project-level skills for both Claude Code and Codex:
+Project-level skills are mirrored for Claude and Codex.
 
-| Skill | Claude Code | Codex |
-|-------|-------------|-------|
+| Skill | Claude Path | Codex Path |
+|------|-------------|------------|
 | Add Widget | `.claude/skills/rezi-add-widget/` | `.codex/skills/rezi-add-widget/` |
 | Create Screen | `.claude/skills/rezi-create-screen/` | `.codex/skills/rezi-create-screen/` |
 | Keybindings | `.claude/skills/rezi-keybindings/` | `.codex/skills/rezi-keybindings/` |
@@ -531,15 +706,11 @@ Project-level skills for both Claude Code and Codex:
 | Perf Profiling | `.claude/skills/rezi-perf-profiling/` | `.codex/skills/rezi-perf-profiling/` |
 | Routing | `.claude/skills/rezi-routing/` | `.codex/skills/rezi-routing/` |
 
-Claude Code: invoke via `/rezi-add-widget`, `/rezi-write-tests`, etc.
-Codex: invoke via `$rezi-add-widget` or implicitly via description matching.
-
 ## Performance Notes
 
-- Layout stability signatures (FNV-1a hash) auto-skip relayout for unchanged subtrees.
-- Builder `validateParams` defaults to false in production (fast path).
-- Leaf node reuse eliminates allocation for unchanged text/spacer/divider nodes.
-- Container reuse skips reconciliation when children are structurally identical.
-- Use `ctx.useMemo()` for expensive computations in widget render functions.
-- Profile with `REZI_PERF=1 REZI_PERF_DETAIL=1` environment variables.
-- Benchmark scripts: `packages/bench/src/profile-phases.ts`, `profile-construction.ts`.
+- Prefer `ui.virtualList` for collections above 50 items.
+- Avoid rendering hundreds of static rows as plain `ui.text` nodes.
+- Stability signatures skip relayout for unchanged subtrees.
+- Preserve stable object identity for expensive static subtrees via memoization.
+- Use `ctx.useMemo` and `ctx.useCallback` to reduce avoidable recompute/churn.
+- Profile with `REZI_PERF=1 REZI_PERF_DETAIL=1`.
