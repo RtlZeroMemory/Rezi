@@ -18,10 +18,17 @@ import {
   ZR_KEY_RIGHT,
   ZR_KEY_TAB,
   ZR_KEY_UP,
+  ZR_MOD_ALT,
+  ZR_MOD_CTRL,
+  ZR_MOD_META,
 } from "../../keybindings/keyCodes.js";
 import { ui } from "../../widgets/ui.js";
 
 const ITERATIONS = 1024;
+const KEY_C = 67;
+const KEY_Q = 81;
+const TEXT_Q = 81;
+const TEXT_LOWER_Q = 113;
 
 const LETTER_KEYS = Object.freeze(Array.from({ length: 26 }, (_unused, idx) => 65 + idx));
 const DIGIT_KEYS = Object.freeze(Array.from({ length: 10 }, (_unused, idx) => 48 + idx));
@@ -276,6 +283,23 @@ function randomMods(rng: Rng): number {
   return rng.u32() & 0x0f;
 }
 
+function isDefaultQuitKeyEvent(
+  key: number,
+  mods: number,
+  action: "down" | "up" | "repeat",
+): boolean {
+  if (action !== "down") return false;
+  if (key === KEY_Q) {
+    return (mods & (ZR_MOD_CTRL | ZR_MOD_ALT | ZR_MOD_META)) === 0;
+  }
+  if (key === KEY_C) {
+    const hasCtrl = (mods & ZR_MOD_CTRL) !== 0;
+    const hasAltOrMeta = (mods & (ZR_MOD_ALT | ZR_MOD_META)) !== 0;
+    return hasCtrl && !hasAltOrMeta;
+  }
+  return false;
+}
+
 function randomKeyCode(rng: Rng, profile: EventProfile): number {
   if (profile.interactiveKeyBias && chance(rng, 65)) {
     return pick(rng, NAV_KEYS);
@@ -307,11 +331,17 @@ function generateKeyEvent(rng: Rng, stream: StreamState, profile: EventProfile):
     }
   }
 
+  let mods = randomMods(rng);
+  // Keep fuzz deterministic while avoiding global default quit hotkeys.
+  if (isDefaultQuitKeyEvent(key, mods, action)) {
+    mods |= ZR_MOD_ALT;
+  }
+
   return {
     kind: "key",
     timeMs: nextTime(stream, rng),
     key,
-    mods: randomMods(rng),
+    mods,
     action,
   };
 }
@@ -376,10 +406,14 @@ function generateMouseEvent(
 }
 
 function generateTextEvent(rng: Rng, stream: StreamState): EncodedInputEvent {
+  let codepoint = 32 + (rng.u32() % 95);
+  if (codepoint === TEXT_Q || codepoint === TEXT_LOWER_Q) {
+    codepoint = (codepoint === TEXT_Q ? TEXT_Q + 1 : TEXT_LOWER_Q - 1) >>> 0;
+  }
   return {
     kind: "text",
     timeMs: nextTime(stream, rng),
-    codepoint: 32 + (rng.u32() % 95),
+    codepoint,
   };
 }
 

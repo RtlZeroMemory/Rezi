@@ -1,6 +1,7 @@
 import { assert, test } from "@rezi-ui/testkit";
 import { parseInternedStrings } from "../../__tests__/drawlistDecode.js";
 import { defineWidget, ui } from "../../index.js";
+import { ZR_MOD_CTRL, ZR_MOD_SHIFT } from "../../keybindings/keyCodes.js";
 import { createApp } from "../createApp.js";
 import { encodeZrevBatchV1, flushMicrotasks, makeBackendBatch } from "./helpers.js";
 import { StubBackend } from "./stubBackend.js";
@@ -159,6 +160,132 @@ test("top-level view error screen handles Q by stopping and disposing the app", 
 
   assert.equal(backend.stopCalls >= 1, true);
   assert.equal(backend.disposeCalls >= 1, true);
+});
+
+test("unhandled q text event stops app by default", async () => {
+  const backend = new StubBackend();
+  const app = createApp({ backend, initialState: {} });
+
+  app.view(() => ui.text("hello"));
+
+  await app.start();
+  await emitResize(backend, 1);
+  await settleNextFrame(backend);
+
+  await pushEvents(backend, [{ kind: "text", timeMs: 3, codepoint: 113 }]);
+  await flushMicrotasks(30);
+
+  assert.equal(backend.stopCalls >= 1, true);
+  assert.equal(backend.disposeCalls, 0);
+});
+
+test("unhandled ctrl+c key/text events stop app by default", async () => {
+  const backend = new StubBackend();
+  const app = createApp({ backend, initialState: {} });
+
+  app.view(() => ui.text("hello"));
+
+  await app.start();
+  await emitResize(backend, 1);
+  await settleNextFrame(backend);
+
+  await pushEvents(backend, [
+    { kind: "key", timeMs: 3, key: 67, mods: ZR_MOD_CTRL, action: "down" },
+  ]);
+  await flushMicrotasks(30);
+
+  assert.equal(backend.stopCalls >= 1, true);
+
+  await app.start();
+  await emitResize(backend, 5);
+  await settleNextFrame(backend);
+
+  await pushEvents(backend, [{ kind: "text", timeMs: 6, codepoint: 3 }]);
+  await flushMicrotasks(30);
+
+  assert.equal(backend.stopCalls >= 2, true);
+});
+
+test("handled ctrl+c copy in input does not trigger default quit", async () => {
+  const backend = new StubBackend();
+  const app = createApp({ backend, initialState: {} });
+
+  app.view(() =>
+    ui.input({
+      id: "inp",
+      value: "hello world",
+    }),
+  );
+
+  await app.start();
+  await emitResize(backend, 1);
+  await settleNextFrame(backend);
+
+  await pushEvents(backend, [
+    { kind: "key", timeMs: 2, key: 3, mods: 0, action: "down" }, // Tab -> focus input
+    { kind: "key", timeMs: 3, key: 22, mods: ZR_MOD_SHIFT | ZR_MOD_CTRL, action: "down" }, // Shift+Ctrl+Left
+    { kind: "key", timeMs: 4, key: 67, mods: ZR_MOD_CTRL, action: "down" }, // Ctrl+C
+  ]);
+
+  assert.equal(backend.stopCalls, 0);
+  assert.equal(backend.disposeCalls, 0);
+});
+
+test("unhandled quit emits fatal when stop throws synchronously", async () => {
+  class ThrowingStopBackend extends StubBackend {
+    override stop(): Promise<void> {
+      this.stopCalls++;
+      this.callLog.push("stop");
+      throw new Error("sync-stop-fail");
+    }
+  }
+
+  const backend = new ThrowingStopBackend();
+  const app = createApp({ backend, initialState: {} });
+  const fatals: string[] = [];
+
+  app.view(() => ui.text("hello"));
+  app.onEvent((ev) => {
+    if (ev.kind === "fatal") fatals.push(`${ev.code}:${ev.detail}`);
+  });
+
+  await app.start();
+  await emitResize(backend, 1);
+  await settleNextFrame(backend);
+
+  await pushEvents(backend, [{ kind: "text", timeMs: 3, codepoint: 113 }]);
+  await flushMicrotasks(30);
+
+  assert.equal(fatals.length >= 1, true);
+  assert.equal(
+    fatals[0]?.startsWith("ZRUI_BACKEND_ERROR:stop threw after unhandled quit input:"),
+    true,
+  );
+  assert.equal(backend.disposeCalls, 1);
+  assert.equal(backend.stopCalls >= 2, true);
+});
+
+test("custom q keybinding overrides default unhandled quit behavior", async () => {
+  const backend = new StubBackend();
+  const app = createApp({ backend, initialState: {} });
+  let keybindingHits = 0;
+
+  app.view(() => ui.text("hello"));
+  app.keys({
+    q: () => {
+      keybindingHits++;
+    },
+  });
+
+  await app.start();
+  await emitResize(backend, 1);
+  await settleNextFrame(backend);
+
+  await pushEvents(backend, [{ kind: "text", timeMs: 3, codepoint: 113 }]);
+  await flushMicrotasks(30);
+
+  assert.equal(keybindingHits, 1);
+  assert.equal(backend.stopCalls, 0);
 });
 
 test("app.run() wires SIGINT/SIGTERM/SIGHUP and performs graceful shutdown", async () => {

@@ -8,6 +8,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ### Bug Fixes
 
+- **core/runtime**: Unhandled top-level `q`/`Q` and `Ctrl+C` inputs now stop the app by default, while preserving explicit keybinding handlers.
 - **native/detect**: Startup terminal probing now exits after a short DA1 drain window instead of waiting the full 500ms budget when XTVERSION never responds, reducing first-render delay on VTE-like terminals.
 - **core/constraints**: Constraint input signatures now include all required runtime dependencies, preventing stale cache reuse when unconstrained referenced widget geometry changes.
 - **core/layout**: Constraint resolution now performs bounded in-frame settle passes for deeper parent-dependent chains, eliminating first-frame/resize layout jump artifacts in nested constraint trees.
