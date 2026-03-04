@@ -669,12 +669,12 @@ describe("basic widgets render to drawlist", () => {
     assert.equal(opcodes.includes(9), true);
   });
 
-  test("tag renders pill edge glyphs", () => {
+  test("tag renders deterministic text-chip wrapper", () => {
     const strings = parseInternedStrings(renderBytes(ui.tag("beta")));
     assert.equal(
-      strings.some((s) => s.includes("▌") || s.includes("▐")),
+      strings.some((s) => s.includes("( beta )")),
       true,
-      "should include half-block pill edges",
+      "should include stable bracket wrapper",
     );
   });
 

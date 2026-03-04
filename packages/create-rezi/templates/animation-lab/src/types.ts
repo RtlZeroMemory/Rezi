@@ -1,6 +1,9 @@
+export type ThemeName = "nord" | "dracula" | "dimmed" | "dark" | "light" | "high-contrast";
+
 export type AnimationLabState = Readonly<{
   tick: number;
   phase: number;
+  themeName: ThemeName;
   viewportCols: number;
   viewportRows: number;
   panelOpacity: number;
@@ -22,6 +25,7 @@ export type NudgePayload = Readonly<{
 export type AnimationLabAction =
   | Readonly<{ type: "advance" }>
   | Readonly<{ type: "cycle-phase" }>
+  | Readonly<{ type: "cycle-theme" }>
   | Readonly<{ type: "burst" }>
   | Readonly<{ type: "nudge"; payload: NudgePayload }>
   | Readonly<{ type: "apply-viewport"; cols: number; rows: number }>;

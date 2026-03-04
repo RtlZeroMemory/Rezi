@@ -3,6 +3,7 @@ import { createNodeApp } from "@rezi-ui/node";
 import { resolveAnimationLabCommand } from "./helpers/keybindings.js";
 import { createInitialState, reduceAnimationLabState } from "./helpers/state.js";
 import { renderReactorLab } from "./screens/reactor-lab.js";
+import { cycleThemeName, themeSpec } from "./theme.js";
 import type { AnimationLabAction, NudgePayload } from "./types.js";
 
 function describeThrown(error: unknown): string {
@@ -10,16 +11,30 @@ function describeThrown(error: unknown): string {
   return String(error);
 }
 
+const initialState = createInitialState({
+  cols: typeof process.stdout.columns === "number" ? process.stdout.columns : 96,
+  rows: typeof process.stdout.rows === "number" ? process.stdout.rows : 32,
+});
+
 const app = createNodeApp({
-  initialState: createInitialState({
-    cols: typeof process.stdout.columns === "number" ? process.stdout.columns : 96,
-    rows: typeof process.stdout.rows === "number" ? process.stdout.rows : 32,
-  }),
+  initialState,
+  theme: themeSpec(initialState.themeName).theme,
   config: { fpsCap: 30, executionMode: "inline" },
 });
 
+let activeThemeName = initialState.themeName;
+
 function dispatch(action: AnimationLabAction): void {
-  app.update((previous) => reduceAnimationLabState(previous, action));
+  if (action.type === "cycle-theme") {
+    activeThemeName = cycleThemeName(activeThemeName);
+    app.setTheme(themeSpec(activeThemeName).theme);
+  }
+
+  app.update((previous) => {
+    const next = reduceAnimationLabState(previous, action);
+    activeThemeName = next.themeName;
+    return next;
+  });
 }
 
 let stopping = false;
@@ -97,6 +112,11 @@ function applyCommand(command: ReturnType<typeof resolveAnimationLabCommand>): v
     return;
   }
 
+  if (command === "cycle-theme") {
+    dispatch({ type: "cycle-theme" });
+    return;
+  }
+
   if (command === "randomize") {
     dispatch({ type: "nudge", payload: randomNudge() });
     return;
@@ -145,6 +165,7 @@ app.keys({
   b: () => applyCommand(resolveAnimationLabCommand("b")),
   r: () => applyCommand(resolveAnimationLabCommand("r")),
   m: () => applyCommand(resolveAnimationLabCommand("m")),
+  t: () => applyCommand(resolveAnimationLabCommand("t")),
 });
 
 app.onEvent((event) => {

@@ -12,8 +12,8 @@ import {
   type CanvasContext,
   type VNode,
 } from "@rezi-ui/core";
-import { APP_NAME, PRODUCT_TAGLINE, TEMPLATE_LABEL } from "../theme.js";
-import type { AnimationLabState } from "../types.js";
+import { APP_NAME, PRODUCT_TAGLINE, TEMPLATE_LABEL, stylesForTheme, themeSpec } from "../theme.js";
+import type { AnimationLabState, ThemeName } from "../types.js";
 
 type Palette = Readonly<{
   title: number;
@@ -22,42 +22,29 @@ type Palette = Readonly<{
   hot: string;
   wave: string;
   module: number;
+  trail: string;
+  shockOuter: string;
+  shockInner: string;
+  streamCore: string;
+  streamOuter: string;
+  waveSoft: string;
+  textCool: string;
+  textWarm: string;
+  textMuted: string;
+  radarRing: string;
+  radarInner: string;
+  radarAxis: string;
+  radarCurve: string;
+  chartA: string;
+  chartB: string;
+  scatter: string;
+  panelTitle: number;
+  panelBody: number;
+  progressFill: number;
+  progressTrack: number;
+  brand: number;
+  footer: number;
 }>;
-
-const PALETTES: readonly Palette[] = Object.freeze([
-  Object.freeze({
-    title: rgb(120, 225, 255),
-    accent: "#80dfff",
-    core: "#62ffd2",
-    hot: "#ffd28a",
-    wave: "#98ffc2",
-    module: rgb(204, 232, 244),
-  }),
-  Object.freeze({
-    title: rgb(173, 198, 255),
-    accent: "#9fb4ff",
-    core: "#7ee6ff",
-    hot: "#ffb26b",
-    wave: "#c4ff8f",
-    module: rgb(214, 222, 245),
-  }),
-  Object.freeze({
-    title: rgb(160, 255, 205),
-    accent: "#84ffd4",
-    core: "#65f5b2",
-    hot: "#ffc66f",
-    wave: "#9cf4ff",
-    module: rgb(209, 239, 224),
-  }),
-  Object.freeze({
-    title: rgb(255, 212, 150),
-    accent: "#ffd48e",
-    core: "#ffc871",
-    hot: "#ff8c6a",
-    wave: "#a7ffe3",
-    module: rgb(240, 224, 208),
-  }),
-]);
 
 function clamp(value: number, min: number, max: number): number {
   if (value < min) return min;
@@ -84,8 +71,77 @@ function toHex(r: number, g: number, b: number): string {
   return `#${rr}${gg}${bb}`;
 }
 
-function paletteForPhase(phase: number): Palette {
-  return PALETTES[phase % PALETTES.length] ?? PALETTES[0]!;
+function colorChannels(color: number): Readonly<{ r: number; g: number; b: number }> {
+  return Object.freeze({
+    r: (color >>> 16) & 0xff,
+    g: (color >>> 8) & 0xff,
+    b: color & 0xff,
+  });
+}
+
+function blendColor(left: number, right: number, weight: number): number {
+  const t = clamp01(weight);
+  const a = colorChannels(left);
+  const b = colorChannels(right);
+  return rgb(
+    a.r + (b.r - a.r) * t,
+    a.g + (b.g - a.g) * t,
+    a.b + (b.b - a.b) * t,
+  );
+}
+
+function colorHex(color: number): string {
+  const value = colorChannels(color);
+  return toHex(value.r, value.g, value.b);
+}
+
+const PHASE_BLEND: readonly number[] = Object.freeze([0.2, 0.45, 0.72, 0.88]);
+
+function paletteForPhase(themeName: ThemeName, phase: number): Palette {
+  const colors = themeSpec(themeName).theme.colors;
+  const blend = PHASE_BLEND[phase % PHASE_BLEND.length] ?? 0.2;
+
+  const accent = blendColor(colors.accent.primary, colors.accent.secondary, blend);
+  const core = blendColor(colors.accent.tertiary, colors.success, 0.28 + blend * 0.2);
+  const hot = blendColor(colors.warning, colors.error, 0.18 + blend * 0.36);
+  const wave = blendColor(colors.info, colors.accent.primary, 0.3 + blend * 0.12);
+
+  const panelTitle = blendColor(colors.fg.secondary, accent, 0.46);
+  const panelBody = blendColor(colors.fg.secondary, colors.fg.muted, 0.24);
+  const module = blendColor(colors.fg.primary, accent, 0.22);
+  const progressFill = blendColor(core, accent, 0.24);
+  const progressTrack = blendColor(colors.bg.subtle, colors.border.subtle, 0.58);
+
+  return Object.freeze({
+    title: blendColor(panelTitle, colors.fg.primary, 0.25),
+    accent: colorHex(accent),
+    core: colorHex(core),
+    hot: colorHex(hot),
+    wave: colorHex(wave),
+    module,
+    trail: colorHex(blendColor(accent, colors.info, 0.5)),
+    shockOuter: colorHex(blendColor(hot, colors.warning, 0.58)),
+    shockInner: colorHex(blendColor(hot, colors.fg.primary, 0.38)),
+    streamCore: colorHex(blendColor(wave, colors.info, 0.52)),
+    streamOuter: colorHex(blendColor(core, accent, 0.56)),
+    waveSoft: colorHex(blendColor(wave, colors.fg.secondary, 0.4)),
+    textCool: colorHex(blendColor(colors.info, colors.fg.primary, 0.24)),
+    textWarm: colorHex(blendColor(colors.warning, colors.fg.primary, 0.16)),
+    textMuted: colorHex(blendColor(colors.fg.secondary, colors.fg.muted, 0.34)),
+    radarRing: colorHex(blendColor(colors.border.default, accent, 0.22)),
+    radarInner: colorHex(blendColor(colors.border.strong, wave, 0.46)),
+    radarAxis: colorHex(blendColor(colors.border.subtle, colors.info, 0.2)),
+    radarCurve: colorHex(blendColor(wave, colors.info, 0.48)),
+    chartA: colorHex(blendColor(wave, colors.info, 0.26)),
+    chartB: colorHex(blendColor(hot, colors.warning, 0.32)),
+    scatter: colorHex(blendColor(colors.info, colors.accent.secondary, 0.38)),
+    panelTitle,
+    panelBody,
+    progressFill,
+    progressTrack,
+    brand: blendColor(colors.accent.primary, colors.fg.primary, 0.24),
+    footer: blendColor(colors.fg.secondary, colors.fg.muted, 0.28),
+  });
 }
 
 function buildSeries(
@@ -185,7 +241,7 @@ function drawReactorField(ctx: CanvasContext, params: ReactorDrawParams): void {
     const color = toHex(160 + 80 * twinkle, 180 + 50 * twinkle, 220 + 35 * params.orbit);
     ctx.setPixel(sx, sy, color);
     if (layer === 2 && twinkle > 0.86) {
-      ctx.setPixel(clamp(sx + 1, 0, width - 1), sy, "#d7f5ff");
+      ctx.setPixel(clamp(sx + 1, 0, width - 1), sy, params.palette.textCool);
     }
   }
 
@@ -220,13 +276,13 @@ function drawReactorField(ctx: CanvasContext, params: ReactorDrawParams): void {
         }),
       );
     }
-    ctx.polyline(trail, "#8ad8ff");
+    ctx.polyline(trail, params.palette.trail);
   }
 
   if (params.burst > 0.08) {
     const shock = outerRadius + 2 + params.burst * 10;
-    ctx.circle(centerX, centerY, shock, "#ffe2b6");
-    ctx.circle(centerX, centerY, shock + 1.2, "#ffc79e");
+    ctx.circle(centerX, centerY, shock, params.palette.shockOuter);
+    ctx.circle(centerX, centerY, shock + 1.2, params.palette.shockInner);
   }
 
   for (let row = -1; row <= 1; row++) {
@@ -241,7 +297,7 @@ function drawReactorField(ctx: CanvasContext, params: ReactorDrawParams): void {
         params.drift * 0.4;
       stream.push(Object.freeze({ x, y }));
     }
-    ctx.polyline(stream, row === 0 ? "#9be6ff" : "#73ffd3");
+    ctx.polyline(stream, row === 0 ? params.palette.streamCore : params.palette.streamOuter);
   }
 
   const waveA: Array<Readonly<{ x: number; y: number }>> = [];
@@ -267,21 +323,21 @@ function drawReactorField(ctx: CanvasContext, params: ReactorDrawParams): void {
   }
 
   ctx.polyline(waveA, params.palette.wave);
-  ctx.polyline(waveB, "#8fd4ff");
+  ctx.polyline(waveB, params.palette.waveSoft);
 
   const stability = clamp01(0.58 + params.flux * 0.24 - params.burst * 0.2 + params.orbit * 0.08);
-  ctx.text(2, 1, `flux ${String(Math.round(params.flux * 100)).padStart(3, "0")}%`, "#c8ffe7");
+  ctx.text(2, 1, `flux ${String(Math.round(params.flux * 100)).padStart(3, "0")}%`, params.palette.textCool);
   ctx.text(
     Math.max(0, width - 18),
     1,
     `orbit ${String(Math.round(params.orbit * 100)).padStart(3, "0")}`,
-    "#ffd7ac",
+    params.palette.textWarm,
   );
   ctx.text(
     Math.max(0, Math.floor(width * 0.52)),
     Math.max(2, height - 3),
     `stability ${String(Math.round(stability * 100)).padStart(3, "0")}%`,
-    "#b7cadf",
+    params.palette.textMuted,
   );
 }
 
@@ -342,7 +398,7 @@ function drawSpectrumRadar(ctx: CanvasContext, params: SpectrumRadarParams): voi
   }
 
   const beamX = Math.floor(fract(params.clock * 0.03) * width);
-  ctx.fillRect(beamX, 0, 2, splitY, "#a2f6d3");
+  ctx.fillRect(beamX, 0, 2, splitY, params.palette.streamOuter);
   ctx.line(0, splitY - 1, width - 1, splitY - 1, params.palette.accent);
 
   const radarTop = splitY + 1;
@@ -351,15 +407,15 @@ function drawSpectrumRadar(ctx: CanvasContext, params: SpectrumRadarParams): voi
   const centerY = radarTop + Math.floor(radarHeight * 0.56);
   const radius = Math.max(2, Math.min(Math.floor(width * 0.42), Math.floor(radarHeight * 0.9)));
 
-  ctx.circle(centerX, centerY, radius, "#3b7698");
-  ctx.circle(centerX, centerY, Math.max(1, Math.floor(radius * 0.62)), "#58b7dc");
-  ctx.line(centerX - radius, centerY, centerX + radius, centerY, "#2e6a86");
+  ctx.circle(centerX, centerY, radius, params.palette.radarRing);
+  ctx.circle(centerX, centerY, Math.max(1, Math.floor(radius * 0.62)), params.palette.radarInner);
+  ctx.line(centerX - radius, centerY, centerX + radius, centerY, params.palette.radarAxis);
   ctx.line(
     centerX,
     centerY - Math.floor(radius * 0.58),
     centerX,
     centerY + Math.floor(radius * 0.58),
-    "#2e6a86",
+    params.palette.radarAxis,
   );
 
   const sweep = params.clock * 0.17;
@@ -387,13 +443,14 @@ function drawSpectrumRadar(ctx: CanvasContext, params: SpectrumRadarParams): voi
       }),
     );
   }
-  ctx.polyline(lissa, "#8fd8ff");
+  ctx.polyline(lissa, params.palette.radarCurve);
 }
 
 type CommandDeckProps = Readonly<{
   key?: string;
   tick: number;
   phase: number;
+  palette: Palette;
   viewportCols: number;
   viewportRows: number;
   driftTarget: number;
@@ -435,7 +492,7 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
     easing: "easeOutCubic",
   });
 
-  const palette = paletteForPhase(props.phase);
+  const palette = props.palette;
   const shellWidth = clamp(props.viewportCols - 4, 20, 140);
   const shellHeight = clamp(props.viewportRows - 4, 8, 40);
   const compact = shellWidth < 72 || shellHeight < 26;
@@ -502,8 +559,8 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
         width: moduleProgressWidth,
         variant: "blocks",
         showPercent: false,
-        style: { fg: rgb(122, 255, 203) },
-        trackStyle: { fg: rgb(58, 86, 82) },
+        style: { fg: palette.progressFill },
+        trackStyle: { fg: palette.progressTrack },
       }),
     ]);
   });
@@ -532,7 +589,7 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
           ]),
           ui.text(PRODUCT_TAGLINE, {
             key: "core-tagline",
-            style: { fg: rgb(152, 176, 200) },
+            style: { fg: palette.panelBody },
           }),
           ui.row({ key: "beacon-lane", gap: 0 }, [
             ui.spacer({ key: "beacon-spacer", size: beaconLane }),
@@ -552,7 +609,7 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
               [
                 ui.text("◆", {
                   key: "beacon-dot",
-                  style: { fg: rgb(255, 228, 158) },
+                  style: { fg: palette.progressFill },
                 }),
               ],
             ),
@@ -591,7 +648,7 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
               width: sparklineWidth,
               highRes: true,
               blitter: "braille",
-              style: { fg: rgb(132, 246, 198) },
+              style: { fg: palette.progressFill },
             }),
           ]),
         ],
@@ -614,7 +671,7 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
           [
             ui.text("Spectrum and Radar", {
               key: "spectrum-radar-title",
-              style: { fg: rgb(174, 232, 255) },
+              style: { fg: palette.panelTitle },
             }),
             ui.canvas({
               key: "spectrum-radar-canvas",
@@ -652,7 +709,7 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
           [
             ui.text("Telemetry Streams", {
               key: "stream-title",
-              style: { fg: rgb(154, 198, 255) },
+              style: { fg: palette.panelTitle },
             }),
             ui.lineChart({
               key: "stream-chart",
@@ -661,12 +718,12 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
               series: [
                 {
                   label: "alpha",
-                  color: "#8fe6ff",
+                  color: palette.chartA,
                   data: streamA,
                 },
                 {
                   label: "beta",
-                  color: "#ffd188",
+                  color: palette.chartB,
                   data: streamB,
                 },
               ],
@@ -680,7 +737,7 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
               height: streamScatterHeight,
               points: scatter,
               axes: { x: { min: 0, max: 100 }, y: { min: 0, max: 60 } },
-              color: "#9fdfff",
+              color: palette.scatter,
               blitter: "quadrant",
             }),
           ],
@@ -703,7 +760,7 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
       [
         ui.text("Module Sync Rails", {
           key: "modules-title",
-          style: { fg: rgb(153, 255, 213) },
+          style: { fg: palette.module },
         }),
         ui.column({ key: "modules-list", gap: 0 }, moduleRows),
       ],
@@ -714,14 +771,17 @@ const CommandDeck = defineWidget<CommandDeckProps>((props, ctx): VNode => {
       ).padStart(3, "0")}%  drift=${drift.toFixed(2)}  burst=${String(Math.round(burst * 100)).padStart(3, "0")}%`,
       {
         key: "metrics-readout",
-        style: { fg: rgb(138, 166, 193) },
+        style: { fg: palette.panelBody },
       },
     ),
   ]);
 });
 
 export function renderReactorLab(state: AnimationLabState): VNode {
-  return ui.column({ key: "root", p: 1, gap: 1 }, [
+  const styles = stylesForTheme(state.themeName);
+  const palette = paletteForPhase(state.themeName, state.phase);
+
+  return ui.column({ key: "root", p: 1, gap: 1, style: styles.rootStyle }, [
     ui.row({ key: "brand-row", gap: 1, wrap: true }, [
       ui.text(APP_NAME, {
         key: "app-name",
@@ -730,7 +790,12 @@ export function renderReactorLab(state: AnimationLabState): VNode {
       ui.text("•", { key: "brand-dot" }),
       ui.text("Animation Lab", {
         key: "brand-name",
-        style: { fg: rgb(150, 225, 255) },
+        style: { fg: palette.brand },
+      }),
+      ui.spacer({ flex: 1 }),
+      ui.text(`Theme ${themeSpec(state.themeName).label}`, {
+        key: "theme-label",
+        style: styles.mutedStyle,
       }),
     ]),
     ui.box(
@@ -742,6 +807,7 @@ export function renderReactorLab(state: AnimationLabState): VNode {
         height: heightConstraints.clampedViewportMinus({ minus: 4, min: 8, max: 40 }),
         opacity: state.panelOpacity,
         p: 1,
+        style: styles.panelStyle,
         transition: {
           duration: 420,
           easing: "easeInOutCubic",
@@ -753,6 +819,7 @@ export function renderReactorLab(state: AnimationLabState): VNode {
           key: "command-deck",
           tick: state.tick,
           phase: state.phase,
+          palette,
           viewportCols: state.viewportCols,
           viewportRows: state.viewportRows,
           driftTarget: state.driftTarget,
@@ -766,10 +833,10 @@ export function renderReactorLab(state: AnimationLabState): VNode {
     ui.text(
       `tick=${String(state.tick).padStart(3, "0")}  viewport=${String(state.viewportCols)}x${String(
         state.viewportRows,
-      )}  controls: space/p autoplay, enter step, arrows tune vectors, b burst, m palette, r random, q quit`,
+      )}  controls: space/p autoplay, enter step, arrows tune vectors, b burst, m phase, t theme, r random, q quit`,
       {
         key: "footer",
-        style: { fg: rgb(130, 150, 180) },
+        style: { fg: palette.footer },
       },
     ),
   ]);

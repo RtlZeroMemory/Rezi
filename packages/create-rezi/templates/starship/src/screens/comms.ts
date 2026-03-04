@@ -80,7 +80,7 @@ const CommsDeck = defineWidget<CommsDeckProps>((props, ctx): VNode => {
           id: "comms-channel-tabs-compact",
           activeTab: state.activeChannel,
           variant: "pills",
-          dsVariant: "soft",
+          dsVariant: "ghost",
           dsTone: state.themeName === "alert" ? "danger" : "primary",
           dsSize: "sm",
           onChange: (key) =>
@@ -218,8 +218,8 @@ const CommsDeck = defineWidget<CommsDeckProps>((props, ctx): VNode => {
               ? ui.tag("Pending", { variant: "warning" })
               : ui.tag("Ack", { variant: "success" }),
             ui.text(`#${String(index + 1).padStart(3, "0")}`, {
-              variant: "code",
-              style: { fg: tokens.accent.info },
+              variant: "caption",
+              style: { fg: tokens.accent.info, bold: true },
             }),
           ]),
         ]),
@@ -292,7 +292,7 @@ const CommsDeck = defineWidget<CommsDeckProps>((props, ctx): VNode => {
                     key: `comms-channel-btn-${channel}`,
                     id: `comms-channel-btn-${channel}`,
                     label: channelLabel(channel),
-                    dsVariant: active ? "solid" : "soft",
+                    dsVariant: active ? "solid" : "ghost",
                     dsTone: active ? tone : "default",
                     dsSize: showExpandedControls ? "md" : "sm",
                     style: active ? { bold: true } : { fg: tokens.text.muted },

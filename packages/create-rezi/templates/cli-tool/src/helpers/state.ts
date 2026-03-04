@@ -1,4 +1,5 @@
 import type { CliAction, CliState } from "../types.js";
+import { DEFAULT_THEME_NAME } from "../theme.js";
 import { buildLogEntry, seedLogs } from "./logs.js";
 
 const LOG_HISTORY_LIMIT = 160;
@@ -27,7 +28,7 @@ export function createInitialState(nowMs = Date.now()): CliState {
     includeDebug: true,
     operatorName: "operator",
     environment: "staging",
-    themeName: "nord",
+    themeName: DEFAULT_THEME_NAME,
     showHelp: false,
   };
 }

@@ -120,9 +120,9 @@ const CargoDeck = defineWidget<CargoDeckProps>((props, ctx): VNode => {
               ui.tag(categoryLabel(selected.category), {
                 variant: categoryVariant(selected.category),
               }),
-              ui.text(`Q${selected.quantity}`, { variant: "code" }),
-              ui.text(`P${selected.priority}`, { variant: "code" }),
-              ui.text(`B${selected.bay}`, { variant: "code" }),
+              ui.text(`Q${selected.quantity}`, { variant: "label" }),
+              ui.text(`P${selected.priority}`, { variant: "label" }),
+              ui.text(`B${selected.bay}`, { variant: "label" }),
             ])
           : ui.text("No cargo selected", { variant: "caption" }),
         ui.row({ gap: SPACE.xs, wrap: true }, [
@@ -158,7 +158,10 @@ const CargoDeck = defineWidget<CargoDeckProps>((props, ctx): VNode => {
                     : { bg: tokens.table.rowAltBg, fg: tokens.text.primary },
               },
               [
-                ui.text(String(index + 1).padStart(4, "0"), { variant: "code" }),
+                ui.text(String(index + 1).padStart(4, "0"), {
+                  variant: "caption",
+                  style: { fg: tokens.text.muted },
+                }),
                 ui.text(padLabel(item.name, nameWidth)),
                 ...(layout.width >= 100
                   ? eachInline(
@@ -173,11 +176,11 @@ const CargoDeck = defineWidget<CargoDeckProps>((props, ctx): VNode => {
                       }),
                     ]),
                 ui.spacer({ flex: 1 }),
-                ui.text(String(item.quantity).padStart(6, " "), { variant: "code" }),
+                ui.text(String(item.quantity).padStart(6, " ")),
                 ui.text("|", { variant: "caption", style: { fg: tokens.border.muted } }),
-                ui.text(`P${item.priority}`.padStart(3, " "), { variant: "code" }),
+                ui.text(`P${item.priority}`.padStart(3, " ")),
                 ui.text("|", { variant: "caption", style: { fg: tokens.border.muted } }),
-                ui.text(`B${item.bay}`.padStart(3, " "), { variant: "code" }),
+                ui.text(`B${item.bay}`.padStart(3, " ")),
               ],
             ),
           onScroll: (scrollTop) => props.dispatch({ type: "set-cargo-scroll", scrollTop }),
@@ -263,9 +266,9 @@ const CargoDeck = defineWidget<CargoDeckProps>((props, ctx): VNode => {
                     ui.tag(categoryLabel(selected.category), {
                       variant: categoryVariant(selected.category),
                     }),
-                    ui.text(`Q${selected.quantity}`, { variant: "code" }),
-                    ui.text(`P${selected.priority}`, { variant: "code" }),
-                    ui.text(`B${selected.bay}`, { variant: "code" }),
+                    ui.text(`Q${selected.quantity}`, { variant: "label" }),
+                    ui.text(`P${selected.priority}`, { variant: "label" }),
+                    ui.text(`B${selected.bay}`, { variant: "label" }),
                   ]),
                 ]
               : []),

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createInitialState, reduceAnimationLabState } from "../helpers/state.js";
+import { DEFAULT_THEME_NAME } from "../theme.js";
 
 test("animation lab reducer advances and keeps bounds", () => {
   const initial = createInitialState();
@@ -38,4 +39,11 @@ test("animation lab reducer supports nudge and phase cycle", () => {
   assert.equal(cycled.phase, 1);
   assert.ok(cycled.driftTarget > initial.driftTarget);
   assert.ok(cycled.fluxTarget > initial.fluxTarget);
+});
+
+test("animation lab reducer cycles theme", () => {
+  const initial = createInitialState();
+  assert.equal(initial.themeName, DEFAULT_THEME_NAME);
+  const next = reduceAnimationLabState(initial, { type: "cycle-theme" });
+  assert.notEqual(next.themeName, initial.themeName);
 });

@@ -1,7 +1,14 @@
 import * as fs from "node:fs";
 import { devNull, tmpdir } from "node:os";
 import * as path from "node:path";
-import type { BadgeVariant, RichTextSpan, TextStyle, ThemeDefinition, VNode } from "@rezi-ui/core";
+import type {
+  BadgeVariant,
+  Rgb24,
+  RichTextSpan,
+  TextStyle,
+  ThemeDefinition,
+  VNode,
+} from "@rezi-ui/core";
 import {
   darkTheme,
   dimmedTheme,
@@ -55,6 +62,31 @@ type SimModel = {
   textChurnPct: number;
   motionPct: number;
 };
+
+type LanePalette = Readonly<{
+  promptFg: Rgb24;
+  typedFg: Rgb24;
+  cursorFg: Rgb24;
+  readFg: Rgb24;
+  writeFg: Rgb24;
+  parseFg: Rgb24;
+  queueLabelFg: Rgb24;
+  queueBarFg: Rgb24;
+  queuePctFg: Rgb24;
+  fileFg: Rgb24;
+  opWriteFg: Rgb24;
+  opReadFg: Rgb24;
+  opParseFg: Rgb24;
+  opIdleFg: Rgb24;
+  percentFg: Rgb24;
+  barFg: Rgb24;
+  heatFg: Rgb24;
+  matrixHeadFg: Rgb24;
+  matrixBodyFg: Rgb24;
+  matrixTailStartFg: Rgb24;
+  matrixTailEndFg: Rgb24;
+  matrixSparkFg: Rgb24;
+}>;
 
 type State = {
   phase: Phase;
@@ -312,6 +344,56 @@ function nextThemeName(current: ThemeName): ThemeName {
   return themeOrder[nextIndex] ?? themeOrder[0] ?? "nord";
 }
 
+function rgbChannel(color: Rgb24, shift: 0 | 8 | 16): number {
+  return (color >>> shift) & 0xff;
+}
+
+function mixRgb(left: Rgb24, right: Rgb24, weight: number): Rgb24 {
+  const t = clamp(weight, 0, 1);
+  return rgb(
+    lerpChannel(rgbChannel(left, 16), rgbChannel(right, 16), t),
+    lerpChannel(rgbChannel(left, 8), rgbChannel(right, 8), t),
+    lerpChannel(rgbChannel(left, 0), rgbChannel(right, 0), t),
+  );
+}
+
+let _cachedLanePaletteTheme: ThemeName | null = null;
+let _cachedLanePalette: LanePalette | null = null;
+
+function lanePaletteForTheme(themeName: ThemeName): LanePalette {
+  if (_cachedLanePaletteTheme === themeName && _cachedLanePalette) {
+    return _cachedLanePalette;
+  }
+  const colors = (themeCatalog[themeName] ?? themeCatalog.nord).theme.colors;
+  const palette = Object.freeze({
+    promptFg: mixRgb(colors.accent.primary, colors.info, 0.24),
+    typedFg: mixRgb(colors.fg.primary, colors.accent.primary, 0.18),
+    cursorFg: mixRgb(colors.warning, colors.accent.secondary, 0.22),
+    readFg: mixRgb(colors.info, colors.accent.primary, 0.2),
+    writeFg: mixRgb(colors.warning, colors.error, 0.28),
+    parseFg: mixRgb(colors.accent.secondary, colors.info, 0.34),
+    queueLabelFg: mixRgb(colors.fg.secondary, colors.fg.muted, 0.28),
+    queueBarFg: mixRgb(colors.accent.primary, colors.info, 0.3),
+    queuePctFg: mixRgb(colors.info, colors.fg.primary, 0.24),
+    fileFg: mixRgb(colors.fg.secondary, colors.fg.primary, 0.2),
+    opWriteFg: mixRgb(colors.error, colors.warning, 0.22),
+    opReadFg: mixRgb(colors.warning, colors.accent.primary, 0.34),
+    opParseFg: mixRgb(colors.info, colors.accent.secondary, 0.3),
+    opIdleFg: mixRgb(colors.fg.muted, colors.fg.secondary, 0.24),
+    percentFg: mixRgb(colors.info, colors.fg.primary, 0.26),
+    barFg: mixRgb(colors.accent.primary, colors.accent.secondary, 0.2),
+    heatFg: mixRgb(colors.accent.secondary, colors.info, 0.36),
+    matrixHeadFg: mixRgb(colors.fg.primary, colors.success, 0.32),
+    matrixBodyFg: mixRgb(colors.success, colors.accent.tertiary, 0.32),
+    matrixTailStartFg: mixRgb(colors.success, colors.accent.tertiary, 0.2),
+    matrixTailEndFg: mixRgb(colors.bg.base, colors.fg.muted, 0.32),
+    matrixSparkFg: mixRgb(colors.accent.tertiary, colors.success, 0.24),
+  });
+  _cachedLanePaletteTheme = themeName;
+  _cachedLanePalette = palette;
+  return palette;
+}
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
@@ -534,7 +616,12 @@ function renderGeometryLane(tick: number, intensity: number, lane: LaneSize): re
   return rows;
 }
 
-function renderTextLabLane(tick: number, intensity: number, lane: LaneSize): readonly VNode[] {
+function renderTextLabLane(
+  tick: number,
+  intensity: number,
+  lane: LaneSize,
+  palette: LanePalette,
+): readonly VNode[] {
   const rows: VNode[] = [];
   const width = lane.width;
   const height = lane.height;
@@ -547,9 +634,9 @@ function renderTextLabLane(tick: number, intensity: number, lane: LaneSize): rea
 
   rows.push(
     ui.richText([
-      { text: "$ ", style: { fg: rgb(120, 210, 255), bold: true } },
-      { text: typed, style: { fg: rgb(195, 225, 255) } },
-      { text: cursor, style: { fg: rgb(255, 216, 98), bold: true } },
+      { text: "$ ", style: { fg: palette.promptFg, bold: true } },
+      { text: typed, style: { fg: palette.typedFg } },
+      { text: cursor, style: { fg: palette.cursorFg, bold: true } },
     ]),
   );
 
@@ -560,17 +647,17 @@ function renderTextLabLane(tick: number, intensity: number, lane: LaneSize): rea
     ui.richText([
       {
         text: `sim read ${readRate.toString().padStart(4, " ")} MB/s`,
-        style: { fg: rgb(150, 220, 255) },
+        style: { fg: palette.readFg },
       },
       { text: "  |  " },
       {
         text: `sim write ${writeRate.toString().padStart(4, " ")} MB/s`,
-        style: { fg: rgb(255, 188, 110) },
+        style: { fg: palette.writeFg },
       },
       { text: "  |  " },
       {
         text: `parse ${parseRate.toString().padStart(3, " ")} op/s`,
-        style: { fg: rgb(165, 206, 255) },
+        style: { fg: palette.parseFg },
       },
     ]),
   );
@@ -578,14 +665,14 @@ function renderTextLabLane(tick: number, intensity: number, lane: LaneSize): rea
   const queueDepth = clamp(0.22 + intensity * 0.68 + 0.12 * Math.sin(tick / 7), 0, 1);
   rows.push(
     ui.richText([
-      { text: "queue ", style: { fg: rgb(148, 178, 212) } },
+      { text: "queue ", style: { fg: palette.queueLabelFg } },
       {
         text: smoothBar(queueDepth, clamp(Math.floor(width * 0.25), 10, 24)),
-        style: { fg: rgb(98, 168, 230) },
+        style: { fg: palette.queueBarFg },
       },
       {
         text: ` ${(queueDepth * 100).toFixed(0).padStart(3, " ")}%`,
-        style: { fg: rgb(120, 196, 255) },
+        style: { fg: palette.queuePctFg },
       },
     ]),
   );
@@ -599,29 +686,29 @@ function renderTextLabLane(tick: number, intensity: number, lane: LaneSize): rea
     const op = load > 0.82 ? "WRITE" : load > 0.62 ? "READ " : load > 0.38 ? "PARSE" : "IDLE ";
     const opStyle: TextStyle =
       op === "WRITE"
-        ? { fg: rgb(255, 132, 132), bold: true }
+        ? { fg: palette.opWriteFg, bold: true }
         : op === "READ "
-          ? { fg: rgb(255, 214, 120), bold: true }
+          ? { fg: palette.opReadFg, bold: true }
           : op === "PARSE"
-            ? { fg: rgb(130, 215, 255) }
-            : { fg: rgb(134, 152, 174), dim: true };
+            ? { fg: palette.opParseFg }
+            : { fg: palette.opIdleFg, dim: true };
     const pct = Math.round(load * 100);
     const bar = smoothBar(load, barWidth);
     const heatGlyph = SHAPE_GLYPHS[Math.round(load * (SHAPE_GLYPHS.length - 1))] ?? ".";
     rows.push(
       ui.richText([
-        { text: fixedLabel(name, fileNameWidth, fileNameWidth), style: { fg: rgb(192, 204, 224) } },
+        { text: fixedLabel(name, fileNameWidth, fileNameWidth), style: { fg: palette.fileFg } },
         { text: " " },
         { text: op, style: opStyle },
         { text: " " },
         {
           text: fixedLabel(`${pct.toString().padStart(3, " ")}%`, 4, 4),
-          style: { fg: rgb(110, 196, 255) },
+          style: { fg: palette.percentFg },
         },
         { text: " " },
-        { text: bar, style: { fg: rgb(98, 170, 225) } },
+        { text: bar, style: { fg: palette.barFg } },
         { text: " " },
-        { text: `${heatGlyph}${heatGlyph}`, style: { fg: rgb(168, 216, 255), dim: load < 0.42 } },
+        { text: `${heatGlyph}${heatGlyph}`, style: { fg: palette.heatFg, dim: load < 0.42 } },
       ]),
     );
   }
@@ -629,7 +716,12 @@ function renderTextLabLane(tick: number, intensity: number, lane: LaneSize): rea
   return rows.slice(0, height);
 }
 
-function renderMatrixLane(tick: number, intensity: number, lane: LaneSize): readonly VNode[] {
+function renderMatrixLane(
+  tick: number,
+  intensity: number,
+  lane: LaneSize,
+  palette: LanePalette,
+): readonly VNode[] {
   const rows: VNode[] = [];
   const width = lane.width;
   const height = lane.height;
@@ -653,20 +745,21 @@ function renderMatrixLane(tick: number, intensity: number, lane: LaneSize): read
           ] ?? "#";
         glyph = g;
         if (distance < 1.1) {
-          style = { fg: rgb(232, 255, 236), bold: true };
+          style = { fg: palette.matrixHeadFg, bold: true };
         } else if (distance < 3.8) {
-          style = { fg: rgb(166, 255, 174), bold: intensity > 0.85 };
+          style = { fg: palette.matrixBodyFg, bold: intensity > 0.85 };
         } else {
           const fade = 1 - distance / tailLen;
-          const green = lerpChannel(74, 210, fade);
-          const blue = lerpChannel(20, 110, fade * 0.65 + columnSeed * 0.35);
-          style = { fg: rgb(24, green, blue), dim: fade < 0.25 };
+          style = {
+            fg: mixRgb(palette.matrixTailEndFg, palette.matrixTailStartFg, fade * (0.7 + columnSeed * 0.3)),
+            dim: fade < 0.25,
+          };
         }
       } else {
         const spark = noise4(x, y, tick, 109);
         if (spark > 0.994 - intensity * 0.03) {
           glyph = spark > 0.994 ? "*" : ".";
-          style = { fg: rgb(42, 96, 58), dim: true };
+          style = { fg: palette.matrixSparkFg, dim: true };
         }
       }
 
@@ -1031,6 +1124,7 @@ const app = createNodeApp<State>({
 });
 
 _backend = app.backend;
+let _activeThemeName: ThemeName = "nord";
 
 // ---------------------------------------------------------------------------
 // Actions
@@ -1049,12 +1143,10 @@ function toggleWriteFloodAction(): void {
 }
 
 function cycleThemeAction(): void {
-  let nextTheme: ThemeName = "nord";
-  app.update((s) => {
-    nextTheme = nextThemeName(s.themeName);
-    return { ...s, themeName: nextTheme };
-  });
+  const nextTheme = nextThemeName(_activeThemeName);
+  _activeThemeName = nextTheme;
   app.setTheme(themeCatalog[nextTheme]?.theme ?? themeCatalog.nord.theme);
+  app.update((s) => ({ ...s, themeName: nextTheme }));
 }
 
 function openHelpAction(): void {
@@ -1154,7 +1246,9 @@ app.view((state) => {
 
   const spec = phaseSpec(state.phase);
   const themeSpec = themeCatalog[state.themeName] ?? themeCatalog.nord;
+  _activeThemeName = state.themeName;
   const palette = themeSpec.theme.colors;
+  const lanePalette = lanePaletteForTheme(state.themeName);
 
   const rootStyle: TextStyle = { bg: palette.bg.base, fg: palette.fg.primary };
   const panelStyle: TextStyle = { bg: palette.bg.elevated, fg: palette.fg.primary };
@@ -1211,6 +1305,7 @@ app.view((state) => {
     ui.text(`phase ${state.phase}/${PHASE_SPECS.length} ${spec.name}`, { style: accentStyle }),
     ui.text(`· ${spec.hz} Hz`, { style: metaStyle }),
     ui.text(`· ${(intensity * 100).toFixed(0)}%`, { style: metaStyle }),
+    ui.badge(`Theme ${themeSpec.label}`, { variant: themeSpec.badge }),
   ]);
 
   const phaseStrip = ui.row({ gap: 1, items: "center", wrap: true }, [
@@ -1376,7 +1471,7 @@ app.view((state) => {
           [
             ui.column({ gap: 0 }, [
               ui.text("Typing, file churn, stream-style updates", { style: metaStyle }),
-              ...renderTextLabLane(state.ticks, intensity, lane),
+              ...renderTextLabLane(state.ticks, intensity, lane, lanePalette),
             ]),
           ],
         ),
@@ -1392,7 +1487,7 @@ app.view((state) => {
           [
             ui.column({ gap: 0 }, [
               ui.text("Matrix-style rain with varying tails", { style: metaStyle }),
-              ...renderMatrixLane(state.ticks, intensity, lane),
+              ...renderMatrixLane(state.ticks, intensity, lane, lanePalette),
             ]),
           ],
         ),
@@ -1469,7 +1564,6 @@ app.view((state) => {
           },
           backdrop: "dim",
           initialFocus: "help-close",
-          returnFocusTo: "toggle-pause",
           content: ui.column({ gap: 1 }, [
             ui.keybindingHelp(app.getBindings(), {
               title: "Keyboard Controls",

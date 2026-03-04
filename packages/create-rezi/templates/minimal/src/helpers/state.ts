@@ -1,11 +1,11 @@
-import { cycleTheme } from "../theme.js";
+import { DEFAULT_THEME_NAME, cycleTheme } from "../theme.js";
 import type { MinimalAction, MinimalState } from "../types.js";
 
 export function createInitialState(): MinimalState {
   return {
     count: 0,
     showHelp: false,
-    themeName: "nord",
+    themeName: DEFAULT_THEME_NAME,
     lastError: null,
   };
 }

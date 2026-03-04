@@ -10,6 +10,7 @@ Scaffolded with `create-rezi` using the **__TEMPLATE_LABEL__** template.
 - Keybindings for quit/help/theme/counter updates.
 - Signal-safe startup and shutdown pattern.
 - Built-in error display pattern for small utility tools.
+- Theme-driven root/panel styling with semantic status callouts.
 
 ## File Layout
 

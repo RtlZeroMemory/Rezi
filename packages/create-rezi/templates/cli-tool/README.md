@@ -9,6 +9,7 @@ Scaffolded with `create-rezi` using the **__TEMPLATE_LABEL__** template.
 - Streamed logs + settings forms + global route keybindings.
 - Route shell pattern you can extend for additional screens.
 - `ui.page()` + `ui.panel()` composition with intent-based button styling.
+- Shared theme metadata pipeline (`src/theme.ts`) used by shell, settings, and reducer defaults.
 
 ## Screens
 

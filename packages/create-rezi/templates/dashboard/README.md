@@ -10,6 +10,7 @@ Scaffolded with `create-rezi` using the **__TEMPLATE_LABEL__** template.
 - Theme cycling and keyboard-driven controls designed for fast operational workflows.
 - `ui.panel()` section composition with recipe-styled table defaults (`dsSize`/`dsTone`).
 - Wheel-scroll-friendly containers (`overflow: "scroll"`) for dense service lanes.
+- Shared theme styles (`root`, `panel`, `strip`, `muted`) applied across the root shell and primary sections.
 
 ## File Layout
 

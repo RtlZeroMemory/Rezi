@@ -1,4 +1,5 @@
 import type { AnimationLabAction, AnimationLabState, NudgePayload } from "../types.js";
+import { DEFAULT_THEME_NAME, cycleThemeName } from "../theme.js";
 
 const MODULE_SET: readonly string[] = Object.freeze([
   "Particle mesh synchronized",
@@ -48,6 +49,7 @@ export function createInitialState(viewport?: Viewport): AnimationLabState {
   return Object.freeze({
     tick: 0,
     phase: 0,
+    themeName: DEFAULT_THEME_NAME,
     viewportCols: layout.viewportCols,
     viewportRows: layout.viewportRows,
     panelOpacity: 0.9,
@@ -84,6 +86,7 @@ function advanceState(previous: AnimationLabState): AnimationLabState {
   return Object.freeze({
     tick: nextTick,
     phase: previous.phase,
+    themeName: previous.themeName,
     viewportCols: previous.viewportCols,
     viewportRows: previous.viewportRows,
     panelOpacity: clamp(panelOpacityTarget, 0.3, 1),
@@ -123,6 +126,13 @@ export function reduceAnimationLabState(
     return Object.freeze({
       ...previous,
       phase: (previous.phase + 1) % 4,
+    });
+  }
+
+  if (action.type === "cycle-theme") {
+    return Object.freeze({
+      ...previous,
+      themeName: cycleThemeName(previous.themeName),
     });
   }
 

@@ -25,6 +25,8 @@ Renders variable-speed matrix rain with fading tails and spark noise.
 
 Lane resolution scales from terminal size so larger terminals render richer detail.
 
+Text/Matrix lanes and panel chrome derive from the active Rezi theme palette, so dark/light/high-contrast presets keep the benchmark legible without per-app color tweaking.
+
 ## Metric Integrity
 
 `SIM` metrics are deterministic and repeatable:

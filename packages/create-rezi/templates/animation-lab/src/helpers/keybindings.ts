@@ -8,7 +8,8 @@ export type AnimationLabCommand =
   | "nudge-down"
   | "burst"
   | "randomize"
-  | "cycle-phase";
+  | "cycle-phase"
+  | "cycle-theme";
 
 const COMMAND_MAP: Readonly<Record<string, AnimationLabCommand>> = Object.freeze({
   q: "quit",
@@ -23,6 +24,7 @@ const COMMAND_MAP: Readonly<Record<string, AnimationLabCommand>> = Object.freeze
   b: "burst",
   r: "randomize",
   m: "cycle-phase",
+  t: "cycle-theme",
 });
 
 export function resolveAnimationLabCommand(key: string): AnimationLabCommand | undefined {

@@ -1,7 +1,7 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import { coerceToLegacyTheme } from "../../theme/interop.js";
 import { darkTheme } from "../../theme/presets.js";
-import { badgeRecipe, selectRecipe, tagRecipe } from "../../ui/recipes.js";
+import { selectRecipe } from "../../ui/recipes.js";
 import { ui } from "../../widgets/ui.js";
 import { type DrawOp, renderOps } from "./recipeRendering.test-utils.js";
 
@@ -46,27 +46,12 @@ describe("slider/badge/tag recipe rendering", () => {
       viewport: { cols: 24, rows: 2 },
       theme: dsTheme,
     });
-    const expected = badgeRecipe(darkTheme.colors, { tone: "info" });
-    const leftEdge = firstDrawText(ops, (s) => s === "▌");
     const text = firstDrawText(ops, (s) => s.includes("Info"));
-    const rightEdge = firstDrawText(ops, (s) => s === "▐");
-    assert.ok(leftEdge && leftEdge.kind === "drawText");
     assert.ok(text && text.kind === "drawText");
-    assert.ok(rightEdge && rightEdge.kind === "drawText");
-    if (
-      !leftEdge ||
-      leftEdge.kind !== "drawText" ||
-      !text ||
-      text.kind !== "drawText" ||
-      !rightEdge ||
-      rightEdge.kind !== "drawText"
-    )
-      return;
-
-    assert.deepEqual(leftEdge.style?.fg, dsTheme.colors.info);
-    assert.deepEqual(rightEdge.style?.fg, dsTheme.colors.info);
-    assert.deepEqual(text.style?.bg, dsTheme.colors.info);
-    assert.deepEqual(text.style?.fg, expected.text.fg);
+    if (!text || text.kind !== "drawText") return;
+    assert.ok(text.text.includes("( Info )"));
+    assert.deepEqual(text.style?.fg, dsTheme.colors.info);
+    assert.notEqual(text.style?.bg, dsTheme.colors.info);
     assert.equal(text.style?.bold, true);
   });
 
@@ -75,27 +60,12 @@ describe("slider/badge/tag recipe rendering", () => {
       viewport: { cols: 24, rows: 2 },
       theme: dsTheme,
     });
-    const expected = tagRecipe(darkTheme.colors, { tone: "success" });
-    const leftEdge = firstDrawText(ops, (s) => s === "▌");
     const text = firstDrawText(ops, (s) => s.includes("Release"));
-    const rightEdge = firstDrawText(ops, (s) => s === "▐");
-    assert.ok(leftEdge && leftEdge.kind === "drawText");
     assert.ok(text && text.kind === "drawText");
-    assert.ok(rightEdge && rightEdge.kind === "drawText");
-    if (
-      !leftEdge ||
-      leftEdge.kind !== "drawText" ||
-      !text ||
-      text.kind !== "drawText" ||
-      !rightEdge ||
-      rightEdge.kind !== "drawText"
-    )
-      return;
-
-    assert.deepEqual(leftEdge.style?.fg, dsTheme.colors.success);
-    assert.deepEqual(rightEdge.style?.fg, dsTheme.colors.success);
-    assert.deepEqual(text.style?.bg, dsTheme.colors.success);
-    assert.deepEqual(text.style?.fg, expected.text.fg);
+    if (!text || text.kind !== "drawText") return;
+    assert.ok(text.text.includes("( Release )"));
+    assert.deepEqual(text.style?.fg, dsTheme.colors.success);
+    assert.notEqual(text.style?.bg, dsTheme.colors.success);
     assert.equal(text.style?.bold, true);
   });
 });
