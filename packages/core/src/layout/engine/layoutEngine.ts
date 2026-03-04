@@ -270,6 +270,11 @@ function isVNode(value: unknown): value is VNode {
 }
 
 function hiddenLayoutChildrenForVNode(vnode: VNode): readonly VNode[] {
+  if (vnode.kind === "field" || vnode.kind === "resizablePanel") {
+    const onlyChild = vnode.children[0];
+    return isVNode(onlyChild) ? [onlyChild] : [];
+  }
+
   const directChildren = (vnode as Readonly<{ children?: readonly VNode[] }>).children;
   if (Array.isArray(directChildren) && directChildren.length > 0) {
     return directChildren.filter((child): child is VNode => isVNode(child));

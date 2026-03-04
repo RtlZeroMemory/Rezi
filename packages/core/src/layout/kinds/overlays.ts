@@ -380,6 +380,7 @@ export function layoutOverlays(
         const ay = my + modalH - border - 1;
         const gap = 1;
         let cursorX = innerX + innerW;
+        const actionLayouts: Array<LayoutTree | undefined> = new Array(actions.length);
 
         for (let i = actions.length - 1; i >= 0; i--) {
           const a = actions[i];
@@ -392,10 +393,16 @@ export function layoutOverlays(
           cursorX -= aw;
           const actionRes = layoutNode(a, cursorX, ay, aw, 1, "row", aw, 1);
           if (!actionRes.ok) return actionRes;
-          children.push(actionRes.value);
+          actionLayouts[i] = actionRes.value;
 
           cursorX -= gap;
           if (cursorX <= innerX) break;
+        }
+
+        for (let i = 0; i < actionLayouts.length; i++) {
+          const actionLayout = actionLayouts[i];
+          if (!actionLayout) continue;
+          children.push(actionLayout);
         }
       }
 
