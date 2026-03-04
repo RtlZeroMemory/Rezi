@@ -2469,8 +2469,8 @@ export class WidgetRenderer<S> {
 
   private applyScrollOverridesToVNode(
     vnode: VNode,
-    overrides: ReadonlyMap<string, Readonly<{ scrollX: number; scrollY: number }>> =
-      this.scrollOverrides,
+    overrides: ReadonlyMap<string, Readonly<{ scrollX: number; scrollY: number }>> = this
+      .scrollOverrides,
   ): VNode {
     type MutableLayoutProps = Record<string, unknown> & {
       scrollX?: number;

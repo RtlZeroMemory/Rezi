@@ -286,7 +286,8 @@ function hiddenLayoutChildrenForVNode(vnode: VNode): readonly VNode[] {
   }
 
   if (vnode.kind === "modal") {
-    const props = (vnode.props as Readonly<{ content?: unknown; actions?: unknown }> | undefined) ?? {};
+    const props =
+      (vnode.props as Readonly<{ content?: unknown; actions?: unknown }> | undefined) ?? {};
     const children: VNode[] = [];
     if (isVNode(props.content)) children.push(props.content);
     if (Array.isArray(props.actions)) {
