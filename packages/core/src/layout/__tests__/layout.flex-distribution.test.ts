@@ -6,6 +6,8 @@ type Axis = "row" | "column";
 
 type ChildSpec = Readonly<{
   flex?: number;
+  flexShrink?: number;
+  flexBasis?: number | "auto";
   main?: number;
   min?: number;
   max?: number;
@@ -35,6 +37,8 @@ function buildChild(axis: Axis, spec: ChildSpec): VNode {
   const props: {
     border: "none";
     flex?: number;
+    flexShrink?: number;
+    flexBasis?: number | "auto";
     width?: number;
     height?: number;
     minWidth?: number;
@@ -44,6 +48,8 @@ function buildChild(axis: Axis, spec: ChildSpec): VNode {
   } = { border: "none" };
 
   if (spec.flex !== undefined) props.flex = spec.flex;
+  if (spec.flexShrink !== undefined) props.flexShrink = spec.flexShrink;
+  if (spec.flexBasis !== undefined) props.flexBasis = spec.flexBasis;
 
   if (axis === "row") {
     if (spec.main !== undefined) props.width = spec.main;
@@ -86,6 +92,40 @@ const CASES: readonly FlexCase[] = [
     expectedColumnChildren: [
       { x: 0, y: 0, w: 0, h: 30 },
       { x: 0, y: 30, w: 0, h: 60 },
+    ],
+  },
+  {
+    name: "flexBasis seeds distribution before flex growth",
+    main: 20,
+    cross: 5,
+    children: [
+      { flex: 1, flexBasis: 6 },
+      { flex: 1, flexBasis: 2 },
+    ],
+    expectedRowChildren: [
+      { x: 0, y: 0, w: 12, h: 0 },
+      { x: 12, y: 0, w: 8, h: 0 },
+    ],
+    expectedColumnChildren: [
+      { x: 0, y: 0, w: 0, h: 12 },
+      { x: 0, y: 12, w: 0, h: 8 },
+    ],
+  },
+  {
+    name: "negative free space shrinks by flexShrink weights",
+    main: 10,
+    cross: 5,
+    children: [
+      { main: 8, flexShrink: 1 },
+      { main: 8, flexShrink: 3 },
+    ],
+    expectedRowChildren: [
+      { x: 0, y: 0, w: 6, h: 0 },
+      { x: 6, y: 0, w: 4, h: 0 },
+    ],
+    expectedColumnChildren: [
+      { x: 0, y: 0, w: 0, h: 6 },
+      { x: 0, y: 6, w: 0, h: 4 },
     ],
   },
   {
@@ -231,6 +271,50 @@ const CASES: readonly FlexCase[] = [
     expectedColumnChildren: [
       { x: 0, y: 0, w: 0, h: 5 },
       { x: 0, y: 5, w: 0, h: 11 },
+    ],
+  },
+  {
+    name: "fixed children reserve room for downstream flex minimums when feasible",
+    main: 20,
+    cross: 5,
+    children: [{ main: 18 }, { flex: 1, min: 4 }],
+    expectedRowChildren: [
+      { x: 0, y: 0, w: 16, h: 0 },
+      { x: 16, y: 0, w: 4, h: 0 },
+    ],
+    expectedColumnChildren: [
+      { x: 0, y: 0, w: 0, h: 16 },
+      { x: 0, y: 16, w: 0, h: 4 },
+    ],
+  },
+  {
+    name: "reserve boundary with exact downstream minimum keeps later minimum feasible",
+    main: 10,
+    cross: 5,
+    children: [{ main: 10 }, { flex: 1, min: 10 }],
+    expectedRowChildren: [
+      { x: 0, y: 0, w: 0, h: 0 },
+      { x: 0, y: 0, w: 10, h: 0 },
+    ],
+    expectedColumnChildren: [
+      { x: 0, y: 0, w: 0, h: 0 },
+      { x: 0, y: 0, w: 0, h: 10 },
+    ],
+  },
+  {
+    name: "advanced flex mode still reserves downstream flex minimums",
+    main: 20,
+    cross: 5,
+    children: [{ main: 18 }, { flex: 1, min: 4 }, { main: 0, flexShrink: 1 }],
+    expectedRowChildren: [
+      { x: 0, y: 0, w: 16, h: 0 },
+      { x: 16, y: 0, w: 4, h: 0 },
+      { x: 20, y: 0, w: 0, h: 0 },
+    ],
+    expectedColumnChildren: [
+      { x: 0, y: 0, w: 0, h: 16 },
+      { x: 0, y: 16, w: 0, h: 4 },
+      { x: 0, y: 20, w: 0, h: 0 },
     ],
   },
   {

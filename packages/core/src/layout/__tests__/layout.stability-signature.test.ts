@@ -599,6 +599,13 @@ describe("layout stability signatures", () => {
     expectSignatureChanged(base, changed);
   });
 
+  test("row wrap prop change is included", () => {
+    const child = runtimeNode(2, textNode("abcdef"));
+    const base = runtimeNode(1, rowNode([child.vnode], { width: 12, wrap: false }), [child]);
+    const changed = runtimeNode(1, rowNode([child.vnode], { width: 12, wrap: true }), [child]);
+    expectSignatureChanged(base, changed);
+  });
+
   test("unconstrained text in grid parent ignores width change (paint-only fast path)", () => {
     const gridNode = (children: readonly VNode[], props: Record<string, unknown> = {}): VNode => {
       return {

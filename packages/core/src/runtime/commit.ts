@@ -815,17 +815,20 @@ function commitChildrenForVNode(vnode: VNode): readonly VNode[] {
     vnode.kind === "focusZone" ||
     vnode.kind === "focusTrap" ||
     vnode.kind === "layers" ||
-    vnode.kind === "field" ||
     vnode.kind === "tabs" ||
     vnode.kind === "accordion" ||
     vnode.kind === "breadcrumb" ||
     vnode.kind === "pagination" ||
     // Advanced container widgets (GitHub issue #136)
     vnode.kind === "splitPane" ||
-    vnode.kind === "panelGroup" ||
-    vnode.kind === "resizablePanel"
+    vnode.kind === "panelGroup"
   ) {
     return vnode.children;
+  }
+
+  if (vnode.kind === "field" || vnode.kind === "resizablePanel") {
+    const child = vnode.children[0];
+    return child ? [child] : [];
   }
 
   if (vnode.kind === "layer") {

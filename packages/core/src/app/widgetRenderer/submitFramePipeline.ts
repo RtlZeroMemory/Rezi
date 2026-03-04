@@ -67,6 +67,7 @@ const STACK_LAYOUT_KEYS: readonly string[] = Object.freeze([
   "align",
   "justify",
   "items",
+  "wrap",
 ]);
 
 const BOX_LAYOUT_KEYS: readonly string[] = Object.freeze([

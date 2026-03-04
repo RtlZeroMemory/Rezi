@@ -265,6 +265,65 @@ function getSyntheticThemedColumn(vnode: ThemedVNode): VNode {
   return columnNode;
 }
 
+function isVNode(value: unknown): value is VNode {
+  return typeof value === "object" && value !== null && "kind" in value;
+}
+
+function hiddenLayoutChildrenForVNode(vnode: VNode): readonly VNode[] {
+  if (vnode.kind === "field" || vnode.kind === "resizablePanel") {
+    const onlyChild = vnode.children[0];
+    return isVNode(onlyChild) ? [onlyChild] : [];
+  }
+
+  const directChildren = (vnode as Readonly<{ children?: readonly VNode[] }>).children;
+  if (Array.isArray(directChildren) && directChildren.length > 0) {
+    return directChildren.filter((child): child is VNode => isVNode(child));
+  }
+
+  if (vnode.kind === "layer") {
+    const content = (vnode.props as Readonly<{ content?: unknown }> | undefined)?.content;
+    return isVNode(content) ? [content] : [];
+  }
+
+  if (vnode.kind === "modal") {
+    const props =
+      (vnode.props as Readonly<{ content?: unknown; actions?: unknown }> | undefined) ?? {};
+    const children: VNode[] = [];
+    if (isVNode(props.content)) children.push(props.content);
+    if (Array.isArray(props.actions)) {
+      for (let i = 0; i < props.actions.length; i++) {
+        const action = props.actions[i];
+        if (isVNode(action)) children.push(action);
+      }
+    }
+    return children;
+  }
+
+  return [];
+}
+
+function buildHiddenLayoutTree(vnode: VNode, x: number, y: number): LayoutTree {
+  const childNodes = hiddenLayoutChildrenForVNode(vnode);
+  if (childNodes.length === 0) {
+    return {
+      vnode,
+      rect: { x, y, w: 0, h: 0 },
+      children: Object.freeze([]),
+    };
+  }
+  const hiddenChildren: LayoutTree[] = [];
+  for (let i = 0; i < childNodes.length; i++) {
+    const child = childNodes[i];
+    if (!child) continue;
+    hiddenChildren.push(buildHiddenLayoutTree(child, x, y));
+  }
+  return {
+    vnode,
+    rect: { x, y, w: 0, h: 0 },
+    children: Object.freeze(hiddenChildren),
+  };
+}
+
 /**
  * Measure the natural size of a VNode given constraints.
  * Does not position; only computes width and height.
@@ -549,11 +608,7 @@ function layoutNode(
   if (hiddenByDisplay) {
     const hiddenResult: LayoutResult<LayoutTree> = {
       ok: true,
-      value: {
-        vnode,
-        rect: { x, y, w: 0, h: 0 },
-        children: Object.freeze([]),
-      },
+      value: buildHiddenLayoutTree(vnode, x, y),
     };
     if (cache) {
       let entry = cache.get(vnode);

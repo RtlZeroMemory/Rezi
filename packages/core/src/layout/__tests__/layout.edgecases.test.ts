@@ -13,7 +13,7 @@ function mustLayout(vnode: VNode, maxW: number, maxH: number) {
 }
 
 describe("layout edge cases", () => {
-  test("display:false short-circuits child layout recursion", () => {
+  test("display:false preserves subtree shape while zeroing all rects", () => {
     const hiddenTree: VNode = {
       kind: "box",
       props: { display: false },
@@ -30,7 +30,192 @@ describe("layout edge cases", () => {
 
     const laidOut = mustLayout(hiddenTree, 20, 10);
     assert.deepEqual(laidOut.rect, { x: 0, y: 0, w: 0, h: 0 });
-    assert.equal(laidOut.children.length, 0);
+    assert.equal(laidOut.children.length, 1);
+    assert.deepEqual(laidOut.children[0]?.rect, { x: 0, y: 0, w: 0, h: 0 });
+    assert.equal(laidOut.children[0]?.children.length, 1);
+    assert.deepEqual(laidOut.children[0]?.children[0]?.rect, { x: 0, y: 0, w: 0, h: 0 });
+  });
+
+  test("display:false mirrors single-child wrapper semantics for hidden subtrees", () => {
+    const hiddenTree = {
+      kind: "box",
+      props: { display: false },
+      children: Object.freeze([
+        {
+          kind: "field",
+          props: { label: "Name" },
+          children: Object.freeze([
+            { kind: "text", text: "field-first", props: {} },
+            { kind: "text", text: "field-second", props: {} },
+          ]),
+        },
+        {
+          kind: "resizablePanel",
+          props: {},
+          children: Object.freeze([
+            { kind: "text", text: "panel-first", props: {} },
+            { kind: "text", text: "panel-second", props: {} },
+          ]),
+        },
+      ]),
+    } as unknown as VNode;
+
+    const laidOut = mustLayout(hiddenTree, 50, 12);
+    assert.equal(laidOut.children.length, 2);
+
+    const hiddenField = laidOut.children[0];
+    assert.ok(hiddenField !== undefined, "expected hidden field child");
+    if (!hiddenField) return;
+    assert.equal(hiddenField.children.length, 1);
+    assert.deepEqual(hiddenField.rect, { x: 0, y: 0, w: 0, h: 0 });
+    assert.deepEqual(hiddenField.children[0]?.rect, { x: 0, y: 0, w: 0, h: 0 });
+    assert.equal(
+      (hiddenField.children[0]?.vnode as Readonly<{ text?: string }>).text,
+      "field-first",
+    );
+
+    const hiddenPanel = laidOut.children[1];
+    assert.ok(hiddenPanel !== undefined, "expected hidden panel child");
+    if (!hiddenPanel) return;
+    assert.equal(hiddenPanel.children.length, 1);
+    assert.deepEqual(hiddenPanel.rect, { x: 0, y: 0, w: 0, h: 0 });
+    assert.deepEqual(hiddenPanel.children[0]?.rect, { x: 0, y: 0, w: 0, h: 0 });
+    assert.equal(
+      (hiddenPanel.children[0]?.vnode as Readonly<{ text?: string }>).text,
+      "panel-first",
+    );
+  });
+
+  test("row preserves original child order when absolute children are interleaved", () => {
+    const tree: VNode = {
+      kind: "row",
+      props: { width: 20, height: 4, gap: 1 },
+      children: Object.freeze<readonly VNode[]>([
+        {
+          kind: "box",
+          props: {
+            id: "abs-left",
+            border: "none",
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: 3,
+            height: 1,
+          },
+          children: Object.freeze([]),
+        },
+        {
+          kind: "box",
+          props: { id: "flow-main", border: "none", width: 6, height: 1 },
+          children: Object.freeze([]),
+        },
+        {
+          kind: "box",
+          props: {
+            id: "abs-right",
+            border: "none",
+            position: "absolute",
+            right: 0,
+            top: 0,
+            width: 4,
+            height: 1,
+          },
+          children: Object.freeze([]),
+        },
+      ]),
+    };
+
+    const laidOut = mustLayout(tree, 20, 4);
+    assert.deepEqual(
+      laidOut.children.map(
+        (child) =>
+          ((child.vnode.props as Readonly<{ id?: unknown }>).id as string | undefined) ?? "",
+      ),
+      ["abs-left", "flow-main", "abs-right"],
+    );
+    const absLeft = laidOut.children.find(
+      (child) =>
+        ((child.vnode.props as Readonly<{ id?: unknown }>).id as string | undefined) === "abs-left",
+    );
+    const flowMain = laidOut.children.find(
+      (child) =>
+        ((child.vnode.props as Readonly<{ id?: unknown }>).id as string | undefined) ===
+        "flow-main",
+    );
+    const absRight = laidOut.children.find(
+      (child) =>
+        ((child.vnode.props as Readonly<{ id?: unknown }>).id as string | undefined) ===
+        "abs-right",
+    );
+    assert.deepEqual(absLeft?.rect, { x: 0, y: 0, w: 3, h: 1 });
+    assert.deepEqual(flowMain?.rect, { x: 0, y: 0, w: 6, h: 1 });
+    assert.deepEqual(absRight?.rect, { x: 16, y: 0, w: 4, h: 1 });
+  });
+
+  test("box preserves original child order when absolute children are interleaved", () => {
+    const tree: VNode = {
+      kind: "box",
+      props: { border: "none", width: 20, height: 4, gap: 0 },
+      children: Object.freeze<readonly VNode[]>([
+        {
+          kind: "box",
+          props: {
+            id: "flow-1",
+            border: "none",
+            width: 5,
+            height: 1,
+          },
+          children: Object.freeze([]),
+        },
+        {
+          kind: "box",
+          props: {
+            id: "abs-mid",
+            border: "none",
+            position: "absolute",
+            left: 8,
+            top: 0,
+            width: 3,
+            height: 1,
+          },
+          children: Object.freeze([]),
+        },
+        {
+          kind: "box",
+          props: {
+            id: "flow-2",
+            border: "none",
+            width: 5,
+            height: 1,
+          },
+          children: Object.freeze([]),
+        },
+      ]),
+    };
+
+    const laidOut = mustLayout(tree, 20, 4);
+    assert.deepEqual(
+      laidOut.children.map(
+        (child) =>
+          ((child.vnode.props as Readonly<{ id?: unknown }>).id as string | undefined) ?? "",
+      ),
+      ["flow-1", "abs-mid", "flow-2"],
+    );
+    const flow1 = laidOut.children.find(
+      (child) =>
+        ((child.vnode.props as Readonly<{ id?: unknown }>).id as string | undefined) === "flow-1",
+    );
+    const absMid = laidOut.children.find(
+      (child) =>
+        ((child.vnode.props as Readonly<{ id?: unknown }>).id as string | undefined) === "abs-mid",
+    );
+    const flow2 = laidOut.children.find(
+      (child) =>
+        ((child.vnode.props as Readonly<{ id?: unknown }>).id as string | undefined) === "flow-2",
+    );
+    assert.deepEqual(flow1?.rect, { x: 0, y: 0, w: 5, h: 1 });
+    assert.deepEqual(absMid?.rect, { x: 8, y: 0, w: 3, h: 1 });
+    assert.deepEqual(flow2?.rect, { x: 0, y: 1, w: 5, h: 1 });
   });
 
   test("leaf widgets clamp to available height=0", () => {
@@ -447,6 +632,38 @@ describe("layout edge cases", () => {
     assert.ok(modalLayout !== undefined, "expected modal layout node");
     if (!modalLayout) return;
     assert.equal(modalLayout.rect.w, 20);
+  });
+
+  test("modal layout children preserve declared action order", () => {
+    const modal: VNode = {
+      kind: "modal",
+      props: {
+        id: "m-order",
+        width: "auto",
+        content: {
+          kind: "box",
+          props: { id: "modal-content", border: "none", width: 12, height: 1 },
+          children: Object.freeze([]),
+        },
+        actions: Object.freeze([
+          { kind: "button", props: { id: "action-first", label: "First" } },
+          { kind: "button", props: { id: "action-second", label: "Second" } },
+          { kind: "button", props: { id: "action-third", label: "Third" } },
+        ]),
+      },
+    };
+    const tree: VNode = { kind: "layers", props: {}, children: Object.freeze([modal]) };
+    const laidOut = mustLayout(tree, 120, 40);
+    const modalLayout = laidOut.children[0];
+    assert.ok(modalLayout !== undefined, "expected modal layout node");
+    if (!modalLayout) return;
+    assert.deepEqual(
+      modalLayout.children.map(
+        (child) =>
+          ((child.vnode.props as Readonly<{ id?: unknown }>).id as string | undefined) ?? "",
+      ),
+      ["modal-content", "action-first", "action-second", "action-third"],
+    );
   });
 
   test("layer frame border insets content layout by one cell", () => {

@@ -554,8 +554,17 @@ function warnDev(message: string): void {
   c?.warn?.(message);
 }
 
-function isVNodeLike(v: unknown): boolean {
+function isVNodeLike(v: unknown): v is VNode {
   return typeof v === "object" && v !== null && "kind" in v;
+}
+
+function readLayoutShapeIdentity(vnode: VNode): string | null {
+  const props = vnode.props as Readonly<{ id?: unknown; key?: unknown }> | undefined;
+  const id = props?.id;
+  if (typeof id === "string" && id.length > 0) return `id:${id}`;
+  const key = props?.key;
+  if (typeof key === "string" && key.length > 0) return `key:${key}`;
+  return null;
 }
 
 function clipRectToViewport(rect: Rect, viewport: Viewport): Rect | null {
@@ -768,7 +777,7 @@ function summarizeRuntimeTreeForAudit(
 type RuntimeLayoutShapeMismatch = Readonly<{
   path: string;
   depth: number;
-  reason: "kind" | "children";
+  reason: "kind" | "children" | "identity";
   runtimeKind: string;
   layoutKind: string;
   runtimeChildCount: number;
@@ -814,6 +823,24 @@ function findRuntimeLayoutShapeMismatch(
         path,
         depth,
         reason: "kind",
+        runtimeKind,
+        layoutKind,
+        runtimeChildCount,
+        layoutChildCount,
+        runtimeTrail,
+        layoutTrail,
+      });
+    }
+    const runtimeIdentity = readLayoutShapeIdentity(runtimeNode.vnode);
+    const layoutIdentity = readLayoutShapeIdentity(layoutNode.vnode);
+    if (
+      (runtimeIdentity !== null || layoutIdentity !== null) &&
+      runtimeIdentity !== layoutIdentity
+    ) {
+      return Object.freeze({
+        path,
+        depth,
+        reason: "identity",
         runtimeKind,
         layoutKind,
         runtimeChildCount,
@@ -886,6 +913,14 @@ function hasRuntimeLayoutShapeMismatch(root: RuntimeInstance, layoutRoot: Layout
     if (!runtimeNode || !layoutNode) continue;
 
     if (runtimeNode.vnode.kind !== layoutNode.vnode.kind) return true;
+    const runtimeIdentity = readLayoutShapeIdentity(runtimeNode.vnode);
+    const layoutIdentity = readLayoutShapeIdentity(layoutNode.vnode);
+    if (
+      (runtimeIdentity !== null || layoutIdentity !== null) &&
+      runtimeIdentity !== layoutIdentity
+    ) {
+      return true;
+    }
     if (runtimeNode.children.length !== layoutNode.children.length) return true;
 
     for (let i = runtimeNode.children.length - 1; i >= 0; i--) {
@@ -2432,17 +2467,16 @@ export class WidgetRenderer<S> {
     return null;
   }
 
-  private applyScrollOverridesToVNode(vnode: VNode): VNode {
+  private applyScrollOverridesToVNode(
+    vnode: VNode,
+    overrides: ReadonlyMap<string, Readonly<{ scrollX: number; scrollY: number }>> = this
+      .scrollOverrides,
+  ): VNode {
     type MutableLayoutProps = Record<string, unknown> & {
-      display?: boolean;
-      width?: number;
-      height?: number;
-      minWidth?: number;
-      maxWidth?: number;
-      minHeight?: number;
-      maxHeight?: number;
-      flex?: number;
-      flexBasis?: number;
+      scrollX?: number;
+      scrollY?: number;
+      content?: unknown;
+      actions?: unknown;
     };
 
     const propsRecord = (vnode.props ?? {}) as Readonly<MutableLayoutProps>;
@@ -2453,18 +2487,18 @@ export class WidgetRenderer<S> {
     }>;
     const idRaw = propsForRead.id;
     const nodeId = typeof idRaw === "string" && idRaw.length > 0 ? idRaw : null;
-    const override = nodeId ? this.scrollOverrides.get(nodeId) : undefined;
+    const override = nodeId ? overrides.get(nodeId) : undefined;
 
-    let propsChanged = false;
-    let nextProps = vnode.props;
+    let nextPropsMutable: MutableLayoutProps | null = null;
+    const ensureMutableProps = (): MutableLayoutProps => {
+      if (nextPropsMutable === null) nextPropsMutable = { ...propsRecord };
+      return nextPropsMutable;
+    };
     if (override) {
       if (propsForRead.scrollX !== override.scrollX || propsForRead.scrollY !== override.scrollY) {
-        nextProps = Object.freeze({
-          ...propsRecord,
-          scrollX: override.scrollX,
-          scrollY: override.scrollY,
-        }) as typeof vnode.props;
-        propsChanged = true;
+        const mutable = ensureMutableProps();
+        mutable.scrollX = override.scrollX;
+        mutable.scrollY = override.scrollY;
       }
     }
 
@@ -2475,11 +2509,57 @@ export class WidgetRenderer<S> {
       const rebuiltChildren: VNode[] = new Array(currentChildren.length);
       for (let i = 0; i < currentChildren.length; i++) {
         const child = currentChildren[i];
-        const nextChild = this.applyScrollOverridesToVNode(child);
+        const nextChild = this.applyScrollOverridesToVNode(child, overrides);
         rebuiltChildren[i] = nextChild;
         if (nextChild !== child) childrenChanged = true;
       }
       if (childrenChanged) nextChildren = Object.freeze(rebuiltChildren);
+    }
+
+    if (vnode.kind === "layer") {
+      const content = (propsRecord as Readonly<{ content?: unknown }>).content;
+      if (isVNodeLike(content)) {
+        const nextContent = this.applyScrollOverridesToVNode(content, overrides);
+        if (nextContent !== content) {
+          ensureMutableProps().content = nextContent;
+        }
+      }
+    } else if (vnode.kind === "modal") {
+      const modalProps = propsRecord as Readonly<{ content?: unknown; actions?: unknown }>;
+      const content = modalProps.content;
+      if (isVNodeLike(content)) {
+        const nextContent = this.applyScrollOverridesToVNode(content, overrides);
+        if (nextContent !== content) {
+          ensureMutableProps().content = nextContent;
+        }
+      }
+      const actionsRaw = modalProps.actions;
+      if (Array.isArray(actionsRaw) && actionsRaw.length > 0) {
+        let nextActions: unknown[] | null = null;
+        for (let i = 0; i < actionsRaw.length; i++) {
+          const action = actionsRaw[i];
+          if (!isVNodeLike(action)) {
+            if (nextActions !== null) nextActions[i] = action;
+            continue;
+          }
+          const nextAction = this.applyScrollOverridesToVNode(action, overrides);
+          if (nextAction !== action) {
+            if (nextActions === null) nextActions = actionsRaw.slice();
+            nextActions[i] = nextAction;
+          } else if (nextActions !== null) {
+            nextActions[i] = action;
+          }
+        }
+        if (nextActions !== null) {
+          ensureMutableProps().actions = Object.freeze(nextActions);
+        }
+      }
+    }
+
+    let nextProps = vnode.props;
+    const propsChanged = nextPropsMutable !== null;
+    if (nextPropsMutable !== null) {
+      nextProps = Object.freeze(nextPropsMutable) as typeof vnode.props;
     }
 
     if (!propsChanged && !childrenChanged) return vnode;
@@ -2815,13 +2895,11 @@ export class WidgetRenderer<S> {
     write(rootW);
     write(rootH);
 
-    for (let i = 0; i < graph.nodes.length; i++) {
-      const node = graph.nodes[i];
-      if (!node) continue;
-      const base = this._pooledConstraintBaseValues.get(node.instanceId);
-      const parent = this._pooledConstraintParentValues.get(node.instanceId);
-      const intrinsic = this._pooledConstraintIntrinsicValues.get(node.instanceId);
-      write(node.instanceId);
+    for (const instanceId of graph.requiredRuntimeInstanceIds) {
+      const base = this._pooledConstraintBaseValues.get(instanceId);
+      const parent = this._pooledConstraintParentValues.get(instanceId);
+      const intrinsic = this._pooledConstraintIntrinsicValues.get(instanceId);
+      write(instanceId);
       writeOrNaN(base?.width);
       writeOrNaN(base?.height);
       writeOrNaN(base?.minWidth);
@@ -2862,14 +2940,12 @@ export class WidgetRenderer<S> {
       String(rootH),
     ];
 
-    for (let i = 0; i < graph.nodes.length; i++) {
-      const node = graph.nodes[i];
-      if (!node) continue;
-      const base = this._pooledConstraintBaseValues.get(node.instanceId);
-      const parent = this._pooledConstraintParentValues.get(node.instanceId);
-      const intrinsic = this._pooledConstraintIntrinsicValues.get(node.instanceId);
+    for (const instanceId of graph.requiredRuntimeInstanceIds) {
+      const base = this._pooledConstraintBaseValues.get(instanceId);
+      const parent = this._pooledConstraintParentValues.get(instanceId);
+      const intrinsic = this._pooledConstraintIntrinsicValues.get(instanceId);
       parts.push(
-        String(node.instanceId),
+        String(instanceId),
         String(base?.width ?? "u"),
         String(base?.height ?? "u"),
         String(base?.minWidth ?? "u"),
@@ -2995,6 +3071,8 @@ export class WidgetRenderer<S> {
       maxHeight?: number;
       flex?: number;
       flexBasis?: number;
+      content?: unknown;
+      actions?: unknown;
     };
 
     const propsRecord = (vnode.props ?? {}) as Readonly<MutableConstraintOverrideProps>;
@@ -3051,11 +3129,6 @@ export class WidgetRenderer<S> {
       mutable.flexBasis = 0;
     }
 
-    if (nextPropsMutable !== null) {
-      nextProps = Object.freeze(nextPropsMutable) as typeof vnode.props;
-      propsChanged = true;
-    }
-
     const currentChildren = (vnode as Readonly<{ children?: readonly VNode[] }>).children;
     let childrenChanged = false;
     let nextChildren = currentChildren;
@@ -3087,6 +3160,84 @@ export class WidgetRenderer<S> {
       if (rebuiltChildren !== null && childrenChanged) {
         nextChildren = Object.freeze(rebuiltChildren);
       }
+    }
+
+    if (shouldTraverseChildren && vnode.kind === "layer") {
+      const content = (propsRecord as Readonly<{ content?: unknown }>).content;
+      const runtimeChild = runtimeNode.children[0];
+      if (
+        runtimeChild &&
+        isVNodeLike(content) &&
+        affectedPathInstanceIds.has(runtimeChild.instanceId)
+      ) {
+        const nextContent = this.applyConstraintOverridesToVNode(
+          runtimeChild,
+          valuesByInstanceId,
+          hiddenInstanceIds,
+          affectedPathInstanceIds,
+        );
+        if (nextContent !== content) {
+          ensureMutableProps().content = nextContent;
+        }
+      }
+    } else if (shouldTraverseChildren && vnode.kind === "modal") {
+      const modalProps = propsRecord as Readonly<{ content?: unknown; actions?: unknown }>;
+      let runtimeChildIndex = 0;
+
+      const content = modalProps.content;
+      if (isVNodeLike(content)) {
+        const runtimeChild = runtimeNode.children[runtimeChildIndex];
+        runtimeChildIndex++;
+        if (runtimeChild && affectedPathInstanceIds.has(runtimeChild.instanceId)) {
+          const nextContent = this.applyConstraintOverridesToVNode(
+            runtimeChild,
+            valuesByInstanceId,
+            hiddenInstanceIds,
+            affectedPathInstanceIds,
+          );
+          if (nextContent !== content) {
+            ensureMutableProps().content = nextContent;
+          }
+        }
+      }
+
+      const actionsRaw = modalProps.actions;
+      if (Array.isArray(actionsRaw) && actionsRaw.length > 0) {
+        let nextActions: unknown[] | null = null;
+        for (let i = 0; i < actionsRaw.length; i++) {
+          const action = actionsRaw[i];
+          if (!isVNodeLike(action)) {
+            if (nextActions !== null) nextActions[i] = action;
+            continue;
+          }
+          const runtimeChild = runtimeNode.children[runtimeChildIndex];
+          runtimeChildIndex++;
+          if (!runtimeChild || !affectedPathInstanceIds.has(runtimeChild.instanceId)) {
+            if (nextActions !== null) nextActions[i] = action;
+            continue;
+          }
+          const nextAction = this.applyConstraintOverridesToVNode(
+            runtimeChild,
+            valuesByInstanceId,
+            hiddenInstanceIds,
+            affectedPathInstanceIds,
+          );
+          if (nextAction !== action) {
+            if (nextActions === null) nextActions = actionsRaw.slice();
+            nextActions[i] = nextAction;
+          } else if (nextActions !== null) {
+            nextActions[i] = action;
+          }
+        }
+        if (nextActions !== null) {
+          ensureMutableProps().actions = Object.freeze(nextActions);
+        }
+      }
+    }
+
+    if (nextPropsMutable !== null) {
+      nextProps = Object.freeze(nextPropsMutable) as typeof vnode.props;
+      propsChanged = true;
     }
 
     if (!propsChanged && !childrenChanged) return vnode;
@@ -3343,6 +3494,116 @@ export class WidgetRenderer<S> {
     this._lastRenderedThemeRef = nextFrameState.lastRenderedThemeRef;
     this._lastRenderedFocusedId = nextFrameState.lastRenderedFocusedId;
     this._lastRenderedFocusAnnouncement = nextFrameState.lastRenderedFocusAnnouncement;
+  }
+
+  private layoutWithShapeFallback(
+    layoutRootVNode: VNode,
+    constrainedLayoutRootVNode: VNode,
+    rootPad: number,
+    rootW: number,
+    rootH: number,
+    checkShape: boolean,
+  ): ReturnType<typeof layout> {
+    const layoutRes = layout(
+      layoutRootVNode,
+      rootPad,
+      rootPad,
+      rootW,
+      rootH,
+      "column",
+      this._layoutMeasureCache,
+      this._layoutTreeCache,
+      null,
+    );
+    if (!layoutRes.ok) {
+      return layoutRes;
+    }
+    let nextLayoutTree = layoutRes.value;
+    const runtimeRoot = this.committedRoot;
+    if (!runtimeRoot) {
+      return {
+        ok: false,
+        fatal: {
+          code: "ZRUI_INVALID_PROPS",
+          detail: "widgetRenderer: missing committed root",
+        },
+      };
+    }
+    let shapeMismatch: RuntimeLayoutShapeMismatch | null = null;
+    if (checkShape) {
+      const postLayoutShapeToken = PERF_ENABLED ? perfNow() : 0;
+      if (hasRuntimeLayoutShapeMismatch(runtimeRoot, nextLayoutTree)) {
+        shapeMismatch = findRuntimeLayoutShapeMismatch(runtimeRoot, nextLayoutTree);
+      }
+      if (PERF_ENABLED)
+        perfCount("layout_shape_post_layout_time_ms", perfNow() - postLayoutShapeToken);
+    }
+    if (checkShape && shapeMismatch !== null) {
+      if (FRAME_AUDIT_ENABLED) {
+        emitFrameAudit("widgetRenderer", "layout.shape_mismatch", {
+          reason: "post-layout-cache-hit",
+          path: shapeMismatch.path,
+          depth: shapeMismatch.depth,
+          mismatchKind: shapeMismatch.reason,
+          runtimeKind: shapeMismatch.runtimeKind,
+          layoutKind: shapeMismatch.layoutKind,
+          runtimeChildCount: shapeMismatch.runtimeChildCount,
+          layoutChildCount: shapeMismatch.layoutChildCount,
+          runtimeTrail: shapeMismatch.runtimeTrail,
+          layoutTrail: shapeMismatch.layoutTrail,
+        });
+      }
+      // Cache can become stale under structural changes; force a cold relayout.
+      this._layoutTreeCache = new WeakMap<VNode, unknown>();
+      const fallbackLayoutRes = layout(
+        layoutRootVNode,
+        rootPad,
+        rootPad,
+        rootW,
+        rootH,
+        "column",
+        this._layoutMeasureCache,
+        this._layoutTreeCache,
+        null,
+      );
+      if (!fallbackLayoutRes.ok) {
+        return fallbackLayoutRes;
+      }
+      nextLayoutTree = fallbackLayoutRes.value;
+      shapeMismatch = findRuntimeLayoutShapeMismatch(runtimeRoot, nextLayoutTree);
+      if (shapeMismatch !== null && layoutRootVNode !== constrainedLayoutRootVNode) {
+        const directLayoutRes = layout(
+          constrainedLayoutRootVNode,
+          rootPad,
+          rootPad,
+          rootW,
+          rootH,
+          "column",
+          this._layoutMeasureCache,
+          this._layoutTreeCache,
+          null,
+        );
+        if (!directLayoutRes.ok) {
+          return directLayoutRes;
+        }
+        nextLayoutTree = directLayoutRes.value;
+        shapeMismatch = findRuntimeLayoutShapeMismatch(runtimeRoot, nextLayoutTree);
+      }
+      if (shapeMismatch !== null && FRAME_AUDIT_ENABLED) {
+        emitFrameAudit("widgetRenderer", "layout.shape_mismatch.persisted", {
+          path: shapeMismatch.path,
+          depth: shapeMismatch.depth,
+          mismatchKind: shapeMismatch.reason,
+          runtimeKind: shapeMismatch.runtimeKind,
+          layoutKind: shapeMismatch.layoutKind,
+          runtimeChildCount: shapeMismatch.runtimeChildCount,
+          layoutChildCount: shapeMismatch.layoutChildCount,
+          runtimeTrail: shapeMismatch.runtimeTrail,
+          layoutTrail: shapeMismatch.layoutTrail,
+        });
+      }
+    }
+    return { ok: true, value: nextLayoutTree };
   }
 
   /**
@@ -3712,109 +3973,151 @@ export class WidgetRenderer<S> {
             this._constraintAffectedPathInstanceIds,
           );
         }
+        const pendingScrollOverrides =
+          this.scrollOverrides.size > 0 ? new Map(this.scrollOverrides) : null;
         const layoutRootVNode =
-          this.scrollOverrides.size > 0
-            ? this.applyScrollOverridesToVNode(constrainedLayoutRootVNode)
+          pendingScrollOverrides !== null
+            ? this.applyScrollOverridesToVNode(constrainedLayoutRootVNode, pendingScrollOverrides)
             : constrainedLayoutRootVNode;
         this.scrollOverrides.clear();
-        const layoutRes = layout(
+        const initialLayoutRes = this.layoutWithShapeFallback(
           layoutRootVNode,
-          rootPad,
+          constrainedLayoutRootVNode,
           rootPad,
           rootW,
           rootH,
-          "column",
-          this._layoutMeasureCache,
-          this._layoutTreeCache,
-          null,
+          true,
         );
-        perfMarkEnd("layout", layoutToken);
-        if (!layoutRes.ok) {
-          return { ok: false, code: layoutRes.fatal.code, detail: layoutRes.fatal.detail };
+        if (!initialLayoutRes.ok) {
+          perfMarkEnd("layout", layoutToken);
+          return {
+            ok: false,
+            code: initialLayoutRes.fatal.code,
+            detail: initialLayoutRes.fatal.detail,
+          };
         }
-        let nextLayoutTree = layoutRes.value;
-        let shapeMismatch: RuntimeLayoutShapeMismatch | null = null;
-        if (doCommit) {
-          const postLayoutShapeToken = PERF_ENABLED ? perfNow() : 0;
-          if (hasRuntimeLayoutShapeMismatch(this.committedRoot, nextLayoutTree)) {
-            shapeMismatch = findRuntimeLayoutShapeMismatch(this.committedRoot, nextLayoutTree);
-          }
-          if (PERF_ENABLED)
-            perfCount("layout_shape_post_layout_time_ms", perfNow() - postLayoutShapeToken);
-        }
-        if (doCommit && shapeMismatch !== null) {
-          if (FRAME_AUDIT_ENABLED) {
-            emitFrameAudit("widgetRenderer", "layout.shape_mismatch", {
-              reason: "post-layout-cache-hit",
-              path: shapeMismatch.path,
-              depth: shapeMismatch.depth,
-              mismatchKind: shapeMismatch.reason,
-              runtimeKind: shapeMismatch.runtimeKind,
-              layoutKind: shapeMismatch.layoutKind,
-              runtimeChildCount: shapeMismatch.runtimeChildCount,
-              layoutChildCount: shapeMismatch.layoutChildCount,
-              runtimeTrail: shapeMismatch.runtimeTrail,
-              layoutTrail: shapeMismatch.layoutTrail,
+        let nextLayoutTree = initialLayoutRes.value;
+
+        // Constraint graphs that depend on parent/widget geometry may need
+        // multiple in-frame settle passes because nested parent-dependent
+        // constraints can converge one depth level at a time.
+        if (constraintGraph !== null && constraintGraph.nodes.length > 0) {
+          let settlePasses = 0;
+          const maxSettlePasses = Math.max(3, Math.min(12, constraintGraph.nodes.length + 1));
+          while (settlePasses < maxSettlePasses) {
+            buildLayoutRectIndexes(
+              nextLayoutTree,
+              this.committedRoot,
+              this._pooledRectByInstanceId,
+              this._pooledDamageRectByInstanceId,
+              this._pooledRectById,
+              this._pooledDamageRectById,
+              this._pooledSplitPaneChildRectsById,
+              this._pooledLayoutStack,
+              this._pooledRuntimeStack,
+            );
+            this.buildConstraintResolutionInputs(this.committedRoot, constraintGraph, rootW, rootH);
+            const settleInputChanged = this.hasConstraintInputSignatureChange(
+              constraintGraph,
+              viewport,
+              rootW,
+              rootH,
+            );
+            if (!settleInputChanged) {
+              break;
+            }
+            const constraintInputKey = this.computeConstraintInputKey(
+              constraintGraph,
+              viewport,
+              rootW,
+              rootH,
+            );
+            const settled = resolveConstraints(constraintGraph, {
+              viewport: { w: viewport.cols, h: viewport.rows },
+              parent: { w: rootW, h: rootH },
+              baseValues: this._pooledConstraintBaseValues,
+              parentValues: this._pooledConstraintParentValues,
+              intrinsicValues: this._pooledConstraintIntrinsicValues,
+              cache: this._constraintResolutionCache,
+              cacheKey: constraintInputKey,
             });
-          }
-          // Cache can become stale under structural changes; force a cold relayout.
-          this._layoutTreeCache = new WeakMap<VNode, unknown>();
-          const fallbackLayoutRes = layout(
-            layoutRootVNode,
-            rootPad,
-            rootPad,
-            rootW,
-            rootH,
-            "column",
-            this._layoutMeasureCache,
-            this._layoutTreeCache,
-            null,
-          );
-          if (!fallbackLayoutRes.ok) {
-            return {
-              ok: false,
-              code: fallbackLayoutRes.fatal.code,
-              detail: fallbackLayoutRes.fatal.detail,
-            };
-          }
-          nextLayoutTree = fallbackLayoutRes.value;
-          shapeMismatch = findRuntimeLayoutShapeMismatch(this.committedRoot, nextLayoutTree);
-          if (shapeMismatch !== null && layoutRootVNode !== constrainedLayoutRootVNode) {
-            const directLayoutRes = layout(
-              constrainedLayoutRootVNode,
-              rootPad,
+            resolvedValuesForLayout = settled.values;
+            this._constraintValuesByInstanceId = settled.values;
+            this._constraintInputKey = constraintInputKey;
+            this._constraintLastCacheKey = constraintInputKey;
+            this._constraintLastResolution = settled.cacheHit
+              ? CONSTRAINT_RESOLUTION_CACHE_HIT
+              : CONSTRAINT_RESOLUTION_COMPUTED;
+
+            if (hasDisplayConstraint || this._constraintHasStaticHiddenDisplay) {
+              this.rebuildConstraintHiddenState(this.committedRoot, resolvedValuesForLayout);
+            } else {
+              this._pooledHiddenConstraintInstanceIds.clear();
+              this._pooledHiddenConstraintWidgetIds.clear();
+              this._hiddenConstraintInstanceIds = this._pooledHiddenConstraintInstanceIds;
+              this._hiddenConstraintWidgetIds = this._pooledHiddenConstraintWidgetIds;
+            }
+
+            let settledConstrainedRootVNode = this.committedRoot.vnode;
+            if (
+              (resolvedValuesForLayout !== null && resolvedValuesForLayout.size > 0) ||
+              this._hiddenConstraintInstanceIds.size > 0
+            ) {
+              this.rebuildConstraintAffectedPathSet(
+                constraintGraph,
+                this._hiddenConstraintInstanceIds,
+              );
+              settledConstrainedRootVNode = this.applyConstraintOverridesToVNode(
+                this.committedRoot,
+                resolvedValuesForLayout,
+                this._hiddenConstraintInstanceIds,
+                this._constraintAffectedPathInstanceIds,
+              );
+            }
+            const settledLayoutRootVNode =
+              pendingScrollOverrides !== null
+                ? this.applyScrollOverridesToVNode(
+                    settledConstrainedRootVNode,
+                    pendingScrollOverrides,
+                  )
+                : settledConstrainedRootVNode;
+
+            const settledLayoutRes = this.layoutWithShapeFallback(
+              settledLayoutRootVNode,
+              settledConstrainedRootVNode,
               rootPad,
               rootW,
               rootH,
-              "column",
-              this._layoutMeasureCache,
-              this._layoutTreeCache,
-              null,
+              true,
             );
-            if (!directLayoutRes.ok) {
+            if (!settledLayoutRes.ok) {
+              perfMarkEnd("layout", layoutToken);
               return {
                 ok: false,
-                code: directLayoutRes.fatal.code,
-                detail: directLayoutRes.fatal.detail,
+                code: settledLayoutRes.fatal.code,
+                detail: settledLayoutRes.fatal.detail,
               };
             }
-            nextLayoutTree = directLayoutRes.value;
-            shapeMismatch = findRuntimeLayoutShapeMismatch(this.committedRoot, nextLayoutTree);
+            nextLayoutTree = settledLayoutRes.value;
+            settlePasses++;
           }
-          if (shapeMismatch !== null && FRAME_AUDIT_ENABLED) {
-            emitFrameAudit("widgetRenderer", "layout.shape_mismatch.persisted", {
-              path: shapeMismatch.path,
-              depth: shapeMismatch.depth,
-              mismatchKind: shapeMismatch.reason,
-              runtimeKind: shapeMismatch.runtimeKind,
-              layoutKind: shapeMismatch.layoutKind,
-              runtimeChildCount: shapeMismatch.runtimeChildCount,
-              layoutChildCount: shapeMismatch.layoutChildCount,
-              runtimeTrail: shapeMismatch.runtimeTrail,
-              layoutTrail: shapeMismatch.layoutTrail,
-            });
+          if (settlePasses >= maxSettlePasses) {
+            if (PERF_ENABLED) {
+              perfCount("layout_constraint_settle_passes_cap_hit", 1);
+            }
+            if (FRAME_AUDIT_ENABLED) {
+              emitFrameAudit("widgetRenderer", "layout.constraint_settle_cap_hit", {
+                passes: settlePasses,
+                maxPasses: maxSettlePasses,
+                nodeCount: constraintGraph.nodes.length,
+              });
+            }
+          }
+          if (PERF_ENABLED && settlePasses > 0) {
+            perfCount("layout_constraint_settle_passes", settlePasses);
           }
         }
+        perfMarkEnd("layout", layoutToken);
         this.layoutTree = nextLayoutTree;
 
         if (doCommit) {

@@ -6,6 +6,22 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- **core/constraints**: Constraint input signatures now include all required runtime dependencies, preventing stale cache reuse when unconstrained referenced widget geometry changes.
+- **core/layout**: Constraint resolution now performs bounded in-frame settle passes for deeper parent-dependent chains, eliminating first-frame/resize layout jump artifacts in nested constraint trees.
+- **core/layout**: Constraint and scroll override traversal now covers modal/layer slot children (`content`/`actions`) so display and geometry overrides apply consistently to overlay subtrees.
+- **core/layout**: Runtime/layout shape checks now include stable child identity (`id`/`key`) and trigger cold relayout fallback on mismatch to avoid stale layout cache shape drift.
+- **core/layout**: Fixed stack sizing reservation edge cases so downstream minimums are preserved more reliably in both legacy and advanced flex planning paths.
+- **core/layout**: Box/stack now preserve original child ordering when absolute and flow children are interleaved.
+- **core/layout**: `display: false` now preserves subtree shape with zero-sized rects, preventing runtime/layout structure divergence in hidden branches.
+- **core/runtime**: `field` and `resizablePanel` runtime commit child-shape semantics now match their single-child layout semantics.
+
+### Tests
+
+- Added renderer/constraint integration tests for nested settle, deep parent-dependent chains, unconstrained-reference invalidation, and modal/layer display traversal.
+- Added layout regression coverage for stack reservation boundaries, hidden-subtree shape preservation, interleaved absolute-child ordering, and stack `wrap` stability signatures.
+
 ## [0.1.0-alpha.50] - 2026-03-03
 
 ### Features
