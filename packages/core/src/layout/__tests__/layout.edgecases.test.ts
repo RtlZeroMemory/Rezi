@@ -13,7 +13,7 @@ function mustLayout(vnode: VNode, maxW: number, maxH: number) {
 }
 
 describe("layout edge cases", () => {
-  test("display:false short-circuits child layout recursion", () => {
+  test("display:false preserves subtree shape while zeroing all rects", () => {
     const hiddenTree: VNode = {
       kind: "box",
       props: { display: false },
@@ -30,7 +30,108 @@ describe("layout edge cases", () => {
 
     const laidOut = mustLayout(hiddenTree, 20, 10);
     assert.deepEqual(laidOut.rect, { x: 0, y: 0, w: 0, h: 0 });
-    assert.equal(laidOut.children.length, 0);
+    assert.equal(laidOut.children.length, 1);
+    assert.deepEqual(laidOut.children[0]?.rect, { x: 0, y: 0, w: 0, h: 0 });
+    assert.equal(laidOut.children[0]?.children.length, 1);
+    assert.deepEqual(laidOut.children[0]?.children[0]?.rect, { x: 0, y: 0, w: 0, h: 0 });
+  });
+
+  test("row preserves original child order when absolute children are interleaved", () => {
+    const tree: VNode = {
+      kind: "row",
+      props: { width: 20, height: 4, gap: 1 },
+      children: Object.freeze<readonly VNode[]>([
+        {
+          kind: "box",
+          props: {
+            id: "abs-left",
+            border: "none",
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: 3,
+            height: 1,
+          },
+          children: Object.freeze([]),
+        },
+        {
+          kind: "box",
+          props: { id: "flow-main", border: "none", width: 6, height: 1 },
+          children: Object.freeze([]),
+        },
+        {
+          kind: "box",
+          props: {
+            id: "abs-right",
+            border: "none",
+            position: "absolute",
+            right: 0,
+            top: 0,
+            width: 4,
+            height: 1,
+          },
+          children: Object.freeze([]),
+        },
+      ]),
+    };
+
+    const laidOut = mustLayout(tree, 20, 4);
+    assert.deepEqual(
+      laidOut.children.map(
+        (child) => ((child.vnode.props as Readonly<{ id?: unknown }>).id as string | undefined) ?? "",
+      ),
+      ["abs-left", "flow-main", "abs-right"],
+    );
+  });
+
+  test("box preserves original child order when absolute children are interleaved", () => {
+    const tree: VNode = {
+      kind: "box",
+      props: { border: "none", width: 20, height: 4, gap: 0 },
+      children: Object.freeze<readonly VNode[]>([
+        {
+          kind: "box",
+          props: {
+            id: "flow-1",
+            border: "none",
+            width: 5,
+            height: 1,
+          },
+          children: Object.freeze([]),
+        },
+        {
+          kind: "box",
+          props: {
+            id: "abs-mid",
+            border: "none",
+            position: "absolute",
+            left: 8,
+            top: 0,
+            width: 3,
+            height: 1,
+          },
+          children: Object.freeze([]),
+        },
+        {
+          kind: "box",
+          props: {
+            id: "flow-2",
+            border: "none",
+            width: 5,
+            height: 1,
+          },
+          children: Object.freeze([]),
+        },
+      ]),
+    };
+
+    const laidOut = mustLayout(tree, 20, 4);
+    assert.deepEqual(
+      laidOut.children.map(
+        (child) => ((child.vnode.props as Readonly<{ id?: unknown }>).id as string | undefined) ?? "",
+      ),
+      ["flow-1", "abs-mid", "flow-2"],
+    );
   });
 
   test("leaf widgets clamp to available height=0", () => {

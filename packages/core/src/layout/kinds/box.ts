@@ -266,10 +266,33 @@ export function layoutBoxKinds(
         children.push(childRes.value);
       }
 
-      const { contentWidth, contentHeight } = measureContentBounds(children, cx, cy);
+      const flowChildCount = vnode.children.reduce((count, child) => {
+        if (!child || childHasAbsolutePosition(child)) return count;
+        return count + 1;
+      }, 0);
+      const flowChildren = children.slice(0, flowChildCount);
+      const absChildren = children.slice(flowChildCount);
+      const orderedChildren: LayoutTree[] = [];
+      let flowIndex = 0;
+      let absIndex = 0;
+      for (let i = 0; i < vnode.children.length; i++) {
+        const child = vnode.children[i];
+        if (!child) continue;
+        if (childHasAbsolutePosition(child)) {
+          const absChild = absChildren[absIndex];
+          absIndex++;
+          if (absChild) orderedChildren.push(absChild);
+          continue;
+        }
+        const flowChild = flowChildren[flowIndex];
+        flowIndex++;
+        if (flowChild) orderedChildren.push(flowChild);
+      }
+
+      const { contentWidth, contentHeight } = measureContentBounds(orderedChildren, cx, cy);
       const overflow = resolveOverflow(propsRes.value, cw, ch, contentWidth, contentHeight);
       const shiftedChildren = shiftLayoutChildren(
-        children,
+        orderedChildren,
         -overflow.metadata.scrollX,
         -overflow.metadata.scrollY,
       );

@@ -776,11 +776,40 @@ function planConstraintMainSizes(
   // Preserve legacy planning semantics when advanced flex-shrink/basis is not used.
   if (!hasAdvancedFlex) {
     const flexItems: FlexItem[] = [];
+    const reservedMainByIndex = new Array<number>(children.length + 1).fill(0);
+    for (let i = children.length - 1; i >= 0; i--) {
+      const child = children[i];
+      const downstreamReserved = reservedMainByIndex[i + 1] ?? 0;
+      if (!child || childHasAbsolutePosition(child)) {
+        reservedMainByIndex[i] = downstreamReserved;
+        continue;
+      }
+      if (child.kind === "spacer") {
+        const sp = validateSpacerProps(child.props);
+        if (!sp.ok) return sp;
+        reservedMainByIndex[i] = downstreamReserved + Math.max(0, sp.value.size);
+        continue;
+      }
+      const childProps = getConstraintProps(child) ?? {};
+      const resolved = resolveLayoutConstraints(childProps as never, parentRect, axis.axis);
+      const fixedMain = resolved[axis.mainProp];
+      const minMain = resolved[axis.minMainProp];
+      const maxMain = Math.min(
+        toFiniteMax(resolved[axis.maxMainProp], availableForChildren),
+        availableForChildren,
+      );
+      const required =
+        fixedMain !== null || resolved.flex > 0 ? clampWithin(minMain, 0, maxMain) : 0;
+      reservedMainByIndex[i] = downstreamReserved + required;
+    }
     let remaining = availableForChildren;
 
     for (let i = 0; i < children.length; i++) {
       const child = children[i];
       if (!child || childHasAbsolutePosition(child)) continue;
+      const reserveForLater = reservedMainByIndex[i + 1] ?? 0;
+      const budgetAfterReserve =
+        reserveForLater <= remaining ? clampNonNegative(remaining - reserveForLater) : remaining;
 
       if (child.kind === "spacer") {
         const sp = validateSpacerProps(child.props);
@@ -805,7 +834,7 @@ function planConstraintMainSizes(
           continue;
         }
 
-        const size = Math.min(sp.value.size, remaining);
+        const size = Math.min(sp.value.size, budgetAfterReserve);
         mainSizes[i] = size;
         measureMaxMain[i] = size;
         remaining = clampNonNegative(remaining - size);
@@ -834,7 +863,7 @@ function planConstraintMainSizes(
 
       if (fixedMain !== null) {
         const desired = clampWithin(fixedMain, minMain, maxMain);
-        const size = Math.min(desired, remaining);
+        const size = Math.min(desired, budgetAfterReserve);
         mainSizes[i] = size;
         measureMaxMain[i] = mainIsPercent ? mainLimit : size;
         remaining = clampNonNegative(remaining - size);
@@ -903,20 +932,55 @@ function planConstraintMainSizes(
   const maxMains = acquireArray(children.length);
   maxMains.fill(availableForChildren, 0, children.length);
   const shrinkFactors = acquireArray(children.length);
+  const reservedMainByIndex = new Array<number>(children.length + 1).fill(0);
 
   try {
+    for (let i = children.length - 1; i >= 0; i--) {
+      const child = children[i];
+      const downstreamReserved = reservedMainByIndex[i + 1] ?? 0;
+      if (!child || childHasAbsolutePosition(child)) {
+        reservedMainByIndex[i] = downstreamReserved;
+        continue;
+      }
+
+      if (child.kind === "spacer") {
+        const sp = validateSpacerProps(child.props);
+        if (!sp.ok) return sp;
+        reservedMainByIndex[i] = downstreamReserved + Math.max(0, sp.value.size);
+        continue;
+      }
+
+      const childProps = (getConstraintProps(child) ?? {}) as Record<string, unknown> & FlexPropBag;
+      const resolved = resolveLayoutConstraints(childProps as never, parentRect, axis.axis);
+      const fixedMain = resolved[axis.mainProp];
+      const minMain = resolved[axis.minMainProp];
+      const maxMain = Math.min(
+        toFiniteMax(resolved[axis.maxMainProp], availableForChildren),
+        availableForChildren,
+      );
+      const required =
+        fixedMain !== null || resolved.flex > 0 ? clampWithin(minMain, 0, maxMain) : 0;
+      reservedMainByIndex[i] = downstreamReserved + required;
+    }
+
     const growItems: FlexItem[] = [];
     let totalMain = 0;
 
     for (let i = 0; i < children.length; i++) {
       const child = children[i];
       if (!child || childHasAbsolutePosition(child)) continue;
+      const reserveForLater = reservedMainByIndex[i + 1] ?? 0;
+      const remainingBudget = clampNonNegative(availableForChildren - totalMain);
+      const budgetAfterReserve =
+        reserveForLater <= remainingBudget
+          ? clampNonNegative(remainingBudget - reserveForLater)
+          : remainingBudget;
 
       if (child.kind === "spacer") {
         const sp = validateSpacerProps(child.props);
         if (!sp.ok) return sp;
 
-        const basis = sp.value.flex > 0 ? 0 : sp.value.size;
+        const basis = sp.value.flex > 0 ? 0 : Math.min(sp.value.size, budgetAfterReserve);
         mainSizes[i] = basis;
         measureMaxMain[i] = basis;
         minMains[i] = 0;
@@ -989,6 +1053,14 @@ function planConstraintMainSizes(
         if (!childRes.ok) return childRes;
         measuredSize = childRes.value;
         basis = clampWithin(mainFromSize(axis, childRes.value), normalizedMinMain, maxMain);
+      }
+      const reserveForLaterMins =
+        fixedMain !== null &&
+        resolved.flex === 0 &&
+        resolved.flexShrink <= 0 &&
+        resolved.flexBasis === null;
+      if (reserveForLaterMins) {
+        basis = Math.min(basis, budgetAfterReserve);
       }
 
       mainSizes[i] = basis;
@@ -1936,10 +2008,29 @@ function layoutStack(
     children.push(childRes.value);
   }
 
-  const { contentWidth, contentHeight } = measureContentBounds(children, cx, cy);
+  const flowChildren = children.slice(0, childCount);
+  const absChildren = children.slice(childCount);
+  const orderedChildren: LayoutTree[] = [];
+  let flowIndex = 0;
+  let absIndex = 0;
+  for (let i = 0; i < count; i++) {
+    const child = vnode.children[i];
+    if (!child) continue;
+    if (childHasAbsolutePosition(child)) {
+      const absChild = absChildren[absIndex];
+      absIndex++;
+      if (absChild) orderedChildren.push(absChild);
+      continue;
+    }
+    const flowChild = flowChildren[flowIndex];
+    flowIndex++;
+    if (flowChild) orderedChildren.push(flowChild);
+  }
+
+  const { contentWidth, contentHeight } = measureContentBounds(orderedChildren, cx, cy);
   const overflow = resolveOverflow(propsRes.value, cw, ch, contentWidth, contentHeight);
   const shiftedChildren = shiftLayoutChildren(
-    children,
+    orderedChildren,
     -overflow.metadata.scrollX,
     -overflow.metadata.scrollY,
   );
