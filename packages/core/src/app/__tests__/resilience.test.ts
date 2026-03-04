@@ -231,6 +231,40 @@ test("handled ctrl+c copy in input does not trigger default quit", async () => {
   assert.equal(backend.disposeCalls, 0);
 });
 
+test("unhandled quit emits fatal when stop throws synchronously", async () => {
+  class ThrowingStopBackend extends StubBackend {
+    override stop(): Promise<void> {
+      this.stopCalls++;
+      this.callLog.push("stop");
+      throw new Error("sync-stop-fail");
+    }
+  }
+
+  const backend = new ThrowingStopBackend();
+  const app = createApp({ backend, initialState: {} });
+  const fatals: string[] = [];
+
+  app.view(() => ui.text("hello"));
+  app.onEvent((ev) => {
+    if (ev.kind === "fatal") fatals.push(`${ev.code}:${ev.detail}`);
+  });
+
+  await app.start();
+  await emitResize(backend, 1);
+  await settleNextFrame(backend);
+
+  await pushEvents(backend, [{ kind: "text", timeMs: 3, codepoint: 113 }]);
+  await flushMicrotasks(30);
+
+  assert.equal(fatals.length >= 1, true);
+  assert.equal(
+    fatals[0]?.startsWith("ZRUI_BACKEND_ERROR:stop threw after unhandled quit input:"),
+    true,
+  );
+  assert.equal(backend.disposeCalls, 1);
+  assert.equal(backend.stopCalls >= 2, true);
+});
+
 test("custom q keybinding overrides default unhandled quit behavior", async () => {
   const backend = new StubBackend();
   const app = createApp({ backend, initialState: {} });

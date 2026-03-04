@@ -964,8 +964,13 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     let stopPromise: Promise<void>;
     try {
       stopPromise = app.stop();
-    } catch {
-      // ignore
+    } catch (e: unknown) {
+      // Late events can race while a stop is already in-flight; avoid double-fatal.
+      if (lifecycleBusy === "stop") return;
+      enqueueFatal(
+        "ZRUI_BACKEND_ERROR",
+        `stop threw after unhandled quit input: ${describeThrown(e)}`,
+      );
       return;
     }
     void stopPromise.catch((e: unknown) => {
