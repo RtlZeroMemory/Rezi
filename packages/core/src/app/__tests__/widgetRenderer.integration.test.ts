@@ -10,7 +10,7 @@ import type { DrawlistBuilder } from "../../drawlist/index.js";
 import type { ZrevEvent } from "../../events.js";
 import { type VNode, defineWidget, ui } from "../../index.js";
 import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
-import { createTestRenderer } from "../../testing/renderer.js";
+import { createTestRenderer } from "../../testing/index.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
 import { TOAST_HEIGHT, getToastActionFocusId } from "../../widgets/toast.js";
 import { createApp } from "../createApp.js";
