@@ -441,7 +441,7 @@ describe("basic widgets render to drawlist", () => {
       ),
     );
     assert.equal(
-      strings.some((s) => s.includes(`* ${message}`)),
+      strings.some((s) => s.includes(message)),
       true,
     );
   });
@@ -669,9 +669,13 @@ describe("basic widgets render to drawlist", () => {
     assert.equal(opcodes.includes(9), true);
   });
 
-  test("tag emits fill rect for pill background", () => {
-    const opcodes = parseOpcodes(renderBytes(ui.tag("beta")));
-    assert.equal(opcodes.includes(2), true, "should include FILL_RECT");
+  test("tag renders pill edge glyphs", () => {
+    const strings = parseInternedStrings(renderBytes(ui.tag("beta")));
+    assert.equal(
+      strings.some((s) => s.includes("▌") || s.includes("▐")),
+      true,
+      "should include half-block pill edges",
+    );
   });
 
   test("vertical barChart respects maxBarLength", () => {

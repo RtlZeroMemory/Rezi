@@ -138,6 +138,13 @@ describe("focus indicator rendering contracts", () => {
     const legacy = defaultTheme;
     const cases = Object.freeze([
       {
+        name: "button",
+        vnode: ui.button({ id: "btn", label: "Save" }),
+        focusedId: "btn",
+        token: "Save",
+        expectUnderline: true,
+      },
+      {
         name: "checkbox",
         vnode: ui.checkbox({ id: "cb", checked: false, label: "Choice" }),
         focusedId: "cb",
@@ -242,6 +249,34 @@ describe("focus indicator rendering contracts", () => {
       true,
       "codeEditor: focused rendering should add cursor-cell overlay",
     );
+  });
+
+  test("bracket and arrow indicators render focused decorations in ring color", () => {
+    const theme = coerceToLegacyTheme(darkTheme);
+
+    const buttonOps = drawTextOps(renderOps(ui.button({ id: "btn", label: "Save" }), "btn", theme));
+    const leftBracket = findDrawTextByToken(buttonOps, "[");
+    const rightBracket = findDrawTextByToken(buttonOps, "]");
+    assert.ok(leftBracket !== null, "focused button should render left bracket indicator");
+    assert.ok(rightBracket !== null, "focused button should render right bracket indicator");
+    if (
+      leftBracket?.style?.fg &&
+      typeof leftBracket.style.fg !== "string" &&
+      rightBracket?.style?.fg &&
+      typeof rightBracket.style.fg !== "string"
+    ) {
+      assert.deepEqual(leftBracket.style.fg, darkTheme.colors.focus.ring);
+      assert.deepEqual(rightBracket.style.fg, darkTheme.colors.focus.ring);
+    }
+
+    const checkboxOps = drawTextOps(
+      renderOps(ui.checkbox({ id: "cb", checked: false, label: "Choice" }), "cb", theme),
+    );
+    const arrow = findDrawTextByToken(checkboxOps, "▸ ");
+    assert.ok(arrow !== null, "focused checkbox should render arrow indicator");
+    if (arrow?.style?.fg && typeof arrow.style.fg !== "string") {
+      assert.deepEqual(arrow.style.fg, darkTheme.colors.focus.ring);
+    }
   });
 
   test("dark theme focus uses focus.ring color", () => {

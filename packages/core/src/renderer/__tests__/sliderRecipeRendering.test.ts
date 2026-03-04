@@ -47,13 +47,25 @@ describe("slider/badge/tag recipe rendering", () => {
       theme: dsTheme,
     });
     const expected = badgeRecipe(darkTheme.colors, { tone: "info" });
-    const fill = ops.find((op) => op.kind === "fillRect");
+    const leftEdge = firstDrawText(ops, (s) => s === "▌");
     const text = firstDrawText(ops, (s) => s.includes("Info"));
-    assert.ok(fill && fill.kind === "fillRect");
+    const rightEdge = firstDrawText(ops, (s) => s === "▐");
+    assert.ok(leftEdge && leftEdge.kind === "drawText");
     assert.ok(text && text.kind === "drawText");
-    if (!fill || fill.kind !== "fillRect" || !text || text.kind !== "drawText") return;
+    assert.ok(rightEdge && rightEdge.kind === "drawText");
+    if (
+      !leftEdge ||
+      leftEdge.kind !== "drawText" ||
+      !text ||
+      text.kind !== "drawText" ||
+      !rightEdge ||
+      rightEdge.kind !== "drawText"
+    )
+      return;
 
-    assert.deepEqual(fill.style?.bg, dsTheme.colors.info);
+    assert.deepEqual(leftEdge.style?.fg, dsTheme.colors.info);
+    assert.deepEqual(rightEdge.style?.fg, dsTheme.colors.info);
+    assert.deepEqual(text.style?.bg, dsTheme.colors.info);
     assert.deepEqual(text.style?.fg, expected.text.fg);
     assert.equal(text.style?.bold, true);
   });
@@ -64,13 +76,25 @@ describe("slider/badge/tag recipe rendering", () => {
       theme: dsTheme,
     });
     const expected = tagRecipe(darkTheme.colors, { tone: "success" });
-    const fill = ops.find((op) => op.kind === "fillRect");
+    const leftEdge = firstDrawText(ops, (s) => s === "▌");
     const text = firstDrawText(ops, (s) => s.includes("Release"));
-    assert.ok(fill && fill.kind === "fillRect");
+    const rightEdge = firstDrawText(ops, (s) => s === "▐");
+    assert.ok(leftEdge && leftEdge.kind === "drawText");
     assert.ok(text && text.kind === "drawText");
-    if (!fill || fill.kind !== "fillRect" || !text || text.kind !== "drawText") return;
+    assert.ok(rightEdge && rightEdge.kind === "drawText");
+    if (
+      !leftEdge ||
+      leftEdge.kind !== "drawText" ||
+      !text ||
+      text.kind !== "drawText" ||
+      !rightEdge ||
+      rightEdge.kind !== "drawText"
+    )
+      return;
 
-    assert.deepEqual(fill.style?.bg, dsTheme.colors.success);
+    assert.deepEqual(leftEdge.style?.fg, dsTheme.colors.success);
+    assert.deepEqual(rightEdge.style?.fg, dsTheme.colors.success);
+    assert.deepEqual(text.style?.bg, dsTheme.colors.success);
     assert.deepEqual(text.style?.fg, expected.text.fg);
     assert.equal(text.style?.bold, true);
   });

@@ -840,19 +840,20 @@ export function renderTextWidgets(
       const text = readString(props.text) ?? "";
       const ownStyle = asTextStyle(props.style, theme);
       const color = variantToThemeColor(theme, props.variant, "primary");
-      const style = mergeTextStyle(
+      const pillTextStyle = mergeTextStyle(
         mergeTextStyle(parentStyle, { fg: theme.colors.bg, bg: color, bold: true }),
         ownStyle,
       );
+      const edgeStyle = mergeTextStyle(parentStyle, { fg: color });
       const content = ` ${text} `;
+      const segments: StyledSegment[] = [
+        { text: "▌", style: edgeStyle },
+        { text: content, style: pillTextStyle },
+        { text: "▐", style: edgeStyle },
+      ];
 
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
-      const display = truncateToWidth(content, rect.w);
-      if (display.length > 0) {
-        const fillW = Math.min(rect.w, measureTextCells(display));
-        if (fillW > 0) builder.fillRect(rect.x, rect.y, fillW, 1, style);
-        builder.drawText(rect.x, rect.y, display, style);
-      }
+      drawSegments(builder, rect.x, rect.y, rect.w, segments);
       builder.popClip();
       break;
     }
@@ -969,19 +970,21 @@ export function renderTextWidgets(
       const removable = props.removable === true;
       const ownStyle = asTextStyle(props.style, theme);
       const variantColor = variantToThemeColor(theme, props.variant, "secondary");
-      const style = mergeTextStyle(
+      const pillTextStyle = mergeTextStyle(
         mergeTextStyle(parentStyle, { fg: theme.colors.bg, bg: variantColor, bold: true }),
         ownStyle,
       );
-      maybeFillOwnBackground(builder, rect, ownStyle, style);
+      const edgeStyle = mergeTextStyle(parentStyle, { fg: variantColor });
+      maybeFillOwnBackground(builder, rect, ownStyle, pillTextStyle);
       const content = ` ${text}${removable ? " ×" : ""} `;
-      const display = truncateToWidth(content, rect.w);
-      if (display.length === 0) break;
+      const segments: StyledSegment[] = [
+        { text: "▌", style: edgeStyle },
+        { text: content, style: pillTextStyle },
+        { text: "▐", style: edgeStyle },
+      ];
 
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
-      const fillW = Math.min(rect.w, measureTextCells(display));
-      if (fillW > 0) builder.fillRect(rect.x, rect.y, fillW, 1, style);
-      builder.drawText(rect.x, rect.y, display, style);
+      drawSegments(builder, rect.x, rect.y, rect.w, segments);
       builder.popClip();
       break;
     }

@@ -141,7 +141,7 @@ function measureLeafMinContent(
       return ok({ w: 10, h: 1 });
     }
     case "badge": {
-      return ok({ w: 3, h: 1 });
+      return ok({ w: 4, h: 1 });
     }
     case "select": {
       const propsRes = validateSelectProps(vnode.props);
@@ -215,7 +215,7 @@ function measureLeafMaxContent(
     case "badge": {
       const text = (vnode.props as { text?: unknown }).text;
       const textW = typeof text === "string" ? measureTextCells(text) : 0;
-      return ok(clampSize({ w: textW + 2, h: 1 }));
+      return ok(clampSize({ w: textW + 4, h: 1 }));
     }
     case "select": {
       const propsRes = validateSelectProps(vnode.props);

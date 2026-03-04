@@ -7,7 +7,7 @@ import { type DrawOp, renderOps } from "./recipeRendering.test-utils.js";
 const dsTheme = coerceToLegacyTheme(darkTheme);
 
 function findTextOp(ops: readonly DrawOp[], text: string): DrawOp | undefined {
-  return ops.find((op) => op.kind === "drawText" && op.text === text);
+  return ops.find((op) => op.kind === "drawText" && op.text.includes(text));
 }
 
 describe("checkbox recipe rendering", () => {
@@ -68,7 +68,7 @@ describe("checkbox recipe rendering", () => {
       focusedId: "f",
     });
     const indicator = findTextOp(ops, "[ ]");
-    const label = findTextOp(ops, "Focus me");
+    const label = findTextOp(ops, "Focus");
     assert.ok(indicator && indicator.kind === "drawText");
     assert.ok(label && label.kind === "drawText");
     if (!indicator || indicator.kind !== "drawText" || !label || label.kind !== "drawText") return;

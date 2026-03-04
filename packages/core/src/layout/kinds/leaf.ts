@@ -192,10 +192,10 @@ export function measureLeaf(
       return ok({ w: Math.min(maxW, totalW), h: Math.min(maxH, 1) });
     }
     case "badge": {
-      // Badge: text with padding
+      // Badge: pill edges + inner spacing around text
       const props = vnode.props as { text: string };
       const textW = measureTextCells(props.text);
-      return ok({ w: Math.min(maxW, textW + 2), h: Math.min(maxH, 1) });
+      return ok({ w: Math.min(maxW, textW + 4), h: Math.min(maxH, 1) });
     }
     case "status": {
       // Status: dot + optional label
@@ -205,11 +205,11 @@ export function measureLeaf(
       return ok({ w: Math.min(maxW, 1 + labelW), h: Math.min(maxH, 1) });
     }
     case "tag": {
-      // Tag: text with brackets/padding
+      // Tag: pill edges + inner spacing around text
       const props = vnode.props as { text: string; removable?: boolean };
       const textW = measureTextCells(props.text);
       const removeW = props.removable ? 2 : 0; // " x"
-      return ok({ w: Math.min(maxW, textW + 2 + removeW), h: Math.min(maxH, 1) });
+      return ok({ w: Math.min(maxW, textW + 4 + removeW), h: Math.min(maxH, 1) });
     }
     case "gauge": {
       // Gauge: label + bar + percentage

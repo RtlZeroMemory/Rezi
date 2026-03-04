@@ -14,6 +14,7 @@ import type {
   DropdownProps,
   ToolApprovalDialogProps,
 } from "../../../widgets/types.js";
+import { createShadowConfig, renderShadow } from "../../shadow.js";
 import { asTextStyle } from "../../styles.js";
 import { renderBoxBorder } from "../boxBorder.js";
 import type { IdRectIndex } from "../indices.js";
@@ -67,6 +68,8 @@ type OverlayFrameColors = Readonly<{
   background?: ResolvedTextStyle["bg"];
   border?: ResolvedTextStyle["fg"];
 }>;
+
+type OverlayShadowRecipe = false | Readonly<{ density: "light" | "medium" | "dense"; offsetX?: number; offsetY?: number }>;
 
 function readString(raw: unknown, fallback = ""): string {
   return typeof raw === "string" ? raw : fallback;
@@ -140,6 +143,25 @@ function readToastPosition(raw: unknown): ToastPosition {
 
 function readRiskLevel(raw: unknown): "low" | "medium" | "high" {
   return raw === "low" || raw === "medium" || raw === "high" ? raw : "medium";
+}
+
+function resolveOverlayShadow(
+  shadow: OverlayShadowRecipe | undefined,
+  theme: Theme,
+): ReturnType<typeof createShadowConfig> | null {
+  if (!shadow) return null;
+  const shadowConfig: {
+    color: number;
+    density: "light" | "medium" | "dense";
+    offsetX?: number;
+    offsetY?: number;
+  } = {
+    color: theme.colors.border,
+    density: shadow.density,
+    ...(shadow.offsetX !== undefined ? { offsetX: shadow.offsetX } : {}),
+    ...(shadow.offsetY !== undefined ? { offsetY: shadow.offsetY } : {}),
+  };
+  return createShadowConfig(shadowConfig);
 }
 
 function riskLevelToThemeColor(theme: Theme, riskLevel: "low" | "medium" | "high") {
@@ -255,6 +277,11 @@ export function renderOverlayWidget(
       const selectedIndex = dropdownSelectedIndexById?.get(props.id) ?? 0;
       const dropdownRect = computeDropdownGeometry(props, anchor, viewport);
       if (!dropdownRect || !isVisibleRect(dropdownRect)) break;
+
+      const dropdownShadow = resolveOverlayShadow(dropdownBaseRecipe?.shadow, theme);
+      if (dropdownShadow) {
+        renderShadow(builder, dropdownRect, dropdownShadow, borderStyle);
+      }
 
       if (dropdownStyle.bg !== undefined) {
         builder.fillRect(
@@ -398,6 +425,13 @@ export function renderOverlayWidget(
       const paletteBorderStyle = mergeTextStyle(paletteStyle, { fg: paletteBorder });
       const paletteMutedStyle = mergeTextStyle(paletteStyle, { fg: paletteMuted });
       const paletteAccentStyle = mergeTextStyle(paletteStyle, { fg: paletteAccent });
+
+      renderShadow(
+        builder,
+        rect,
+        createShadowConfig({ color: theme.colors.border, density: "medium", offsetX: 1, offsetY: 1 }),
+        paletteBorderStyle,
+      );
 
       // Draw background
       builder.fillRect(rect.x, rect.y, rect.w, rect.h, { bg: paletteBg });

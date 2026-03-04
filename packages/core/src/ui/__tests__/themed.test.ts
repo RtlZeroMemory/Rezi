@@ -116,7 +116,7 @@ describe("ui.themed", () => {
     const scopedPrimary = (30 << 16) | (210 << 8) | 40;
 
     const vnode = ui.column({}, [
-      ui.divider({ label: "OUT", color: "primary" }),
+      ui.divider({ char: "O", color: "primary" }),
       ui.themed(
         {
           colors: {
@@ -125,15 +125,15 @@ describe("ui.themed", () => {
             },
           },
         },
-        [ui.divider({ label: "IN", color: "primary" })],
+        [ui.divider({ char: "I", color: "primary" })],
       ),
-      ui.divider({ label: "AFTER", color: "primary" }),
+      ui.divider({ char: "A", color: "primary" }),
     ]);
 
     const ops = renderTextOps(vnode, baseTheme);
-    assert.deepEqual(fgByText(ops, "OUT"), baseTheme.colors.primary);
-    assert.deepEqual(fgByText(ops, "IN"), scopedPrimary);
-    assert.deepEqual(fgByText(ops, "AFTER"), baseTheme.colors.primary);
+    assert.deepEqual(fgByText(ops, "OOO"), baseTheme.colors.primary);
+    assert.deepEqual(fgByText(ops, "III"), scopedPrimary);
+    assert.deepEqual(fgByText(ops, "AAA"), baseTheme.colors.primary);
   });
 
   test("is layout-transparent for single-child subtrees", () => {

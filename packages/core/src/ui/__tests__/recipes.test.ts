@@ -28,7 +28,8 @@ describe("buttonRecipe", () => {
     assert.deepEqual(result.label.fg, darkColors.accent.primary);
     assert.deepEqual(result.bg.bg, darkColors.bg.elevated);
     assert.equal(result.px, 2);
-    assert.equal(result.border, "none");
+    assert.equal(result.border, "rounded");
+    assert.deepEqual(result.borderStyle, { fg: darkColors.border.subtle });
   });
 
   it("solid variant uses inverse text over tone background", () => {
@@ -37,9 +38,9 @@ describe("buttonRecipe", () => {
     assert.deepEqual(result.bg.bg, darkColors.error);
   });
 
-  it("outline variant uses single border and default border color", () => {
+  it("outline variant uses rounded border and default border color", () => {
     const result = buttonRecipe(darkColors, { variant: "outline" });
-    assert.equal(result.border, "single");
+    assert.equal(result.border, "rounded");
     assert.deepEqual(result.borderStyle, { fg: darkColors.border.default });
   });
 
@@ -60,13 +61,14 @@ describe("buttonRecipe", () => {
     assert.deepEqual(result.borderStyle, { fg: darkColors.disabled.fg });
   });
 
-  it("focus and pressed states add expected text attributes", () => {
+  it("focus and pressed states add expected visual treatment", () => {
     const focused = buttonRecipe(darkColors, { state: "focus" });
     assert.equal(focused.label.underline, true);
     assert.equal(focused.label.bold, true);
 
     const pressed = buttonRecipe(darkColors, { variant: "solid", state: "pressed" });
-    assert.equal(pressed.label.dim, true);
+    assert.equal(pressed.label.dim, undefined);
+    assert.notDeepEqual(pressed.bg.bg, darkColors.accent.primary);
   });
 
   it("size presets map to deterministic horizontal padding", () => {
@@ -106,6 +108,8 @@ describe("inputRecipe", () => {
     const result = inputRecipe(darkColors);
     assert.deepEqual(result.text.fg, darkColors.fg.primary);
     assert.deepEqual(result.placeholder.fg, darkColors.fg.muted);
+    assert.equal(result.placeholder.dim, true);
+    assert.equal(result.placeholder.italic, true);
     assert.deepEqual(result.bg.bg, darkColors.bg.elevated);
     assert.equal(result.border, "single");
     assert.deepEqual(result.borderStyle.fg, darkColors.border.default);
@@ -152,10 +156,15 @@ describe("surfaceRecipe", () => {
     assert.deepEqual(level1.bg.bg, darkColors.bg.elevated);
     assert.equal(level1.border, "rounded");
     assert.deepEqual(level1.borderStyle, { fg: darkColors.border.subtle });
+    assert.equal(level1.shadow, false);
+
+    const level2 = surfaceRecipe(darkColors, { elevation: 2 });
+    assert.equal(level2.border, "single");
+    assert.deepEqual(level2.shadow, { density: "light" });
 
     const level3 = surfaceRecipe(darkColors, { elevation: 3 });
     assert.deepEqual(level3.bg.bg, darkColors.bg.overlay);
-    assert.equal(level3.shadow, true);
+    assert.deepEqual(level3.shadow, { density: "medium" });
   });
 
   it("focused surface upgrades border styling", () => {
@@ -167,6 +176,11 @@ describe("surfaceRecipe", () => {
   it("resolves light-theme styling", () => {
     const result = surfaceRecipe(lightColors, { elevation: 1 });
     assert.deepEqual(result.bg.bg, lightColors.bg.elevated);
+  });
+
+  it("adds accent-colored top edge style for card-like surfaces", () => {
+    const result = surfaceRecipe(darkColors, { elevation: 1, cardLike: true });
+    assert.deepEqual(result.borderStyleSides, { top: { fg: darkColors.accent.primary } });
   });
 });
 
@@ -278,6 +292,7 @@ describe("textRecipe", () => {
     const caption = textRecipe(darkColors, { role: "caption" });
     assert.deepEqual(caption.style.fg, darkColors.fg.secondary);
     assert.equal(caption.style.dim, true);
+    assert.equal(caption.style.italic, true);
   });
 
   it("resolves light-theme styling", () => {

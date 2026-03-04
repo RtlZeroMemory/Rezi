@@ -4,6 +4,7 @@ import { measureTextCells, truncateWithEllipsis } from "../../../layout/textMeas
 import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { FocusState } from "../../../runtime/focus.js";
+import { getDefaultFocusConfig } from "../../../focus/styles.js";
 import type { Theme } from "../../../theme/theme.js";
 import {
   buttonRecipe,
@@ -35,6 +36,7 @@ import type { CursorInfo } from "../types.js";
 import {
   focusIndicatorEnabled,
   readFocusConfig,
+  resolveFocusIndicatorDecoration,
   resolveFocusedContentStyle,
 } from "./focusConfig.js";
 import { type StyledSegment, drawSegments, truncateToWidth } from "./renderTextWidgets.js";
@@ -222,12 +224,13 @@ function resolveFocusFlags(
   focusState: FocusState,
   id: string | null,
   focusConfigRaw: unknown,
+  widgetKind: string,
 ): Readonly<{
   focused: boolean;
   focusVisible: boolean;
   focusConfig: ReturnType<typeof readFocusConfig>;
 }> {
-  const focusConfig = readFocusConfig(focusConfigRaw);
+  const focusConfig = readFocusConfig(focusConfigRaw) ?? getDefaultFocusConfig(widgetKind);
   const focused = id !== null && focusState.focusedId === id;
   const focusVisible = focused && focusIndicatorEnabled(focusConfig);
   return { focused, focusVisible, focusConfig };
@@ -275,7 +278,7 @@ export function renderFormWidgets(
         focused,
         focusVisible: effectiveFocused,
         focusConfig,
-      } = resolveFocusFlags(focusState, id, props.focusConfig);
+      } = resolveFocusFlags(focusState, id, props.focusConfig, "button");
       const pressed = !disabled && id !== null && pressedId === id;
 
       // Design system recipe path
@@ -310,16 +313,25 @@ export function renderFormWidgets(
             ? Math.trunc(props.px)
             : undefined;
         const recipePx = requestedPx ?? recipeResult.px;
+        const focusDecoration = effectiveFocused
+          ? resolveFocusIndicatorDecoration(parentStyle, theme, focusConfig)
+          : undefined;
+        const decorationPrefixW = focusDecoration ? measureTextCells(focusDecoration.prefix) : 0;
+        const decorationSuffixW = focusDecoration ? measureTextCells(focusDecoration.suffix) : 0;
         const labelW = measureTextCells(label);
         const maxPxForAtLeastOneCell =
           contentW <= 0 ? 0 : Math.max(0, Math.floor((contentW - 1) / 2));
         let px = Math.min(recipePx, maxPxForAtLeastOneCell);
         // If the label would fit without padding but is truncated by recipe padding, reduce px so it fits.
         if (labelW > 0 && labelW <= contentW) {
-          const maxPxToFitFullLabel = Math.max(0, Math.floor((contentW - labelW) / 2));
+          const maxPxToFitFullLabel = Math.max(
+            0,
+            Math.floor((contentW - labelW - decorationPrefixW - decorationSuffixW) / 2),
+          );
           px = Math.min(px, maxPxToFitFullLabel);
         }
-        const availableLabelW = Math.max(0, contentW - px * 2);
+        const availableRunW = Math.max(0, contentW - px * 2);
+        const availableLabelW = Math.max(0, availableRunW - decorationPrefixW - decorationSuffixW);
         const displayLabel =
           availableLabelW <= 0
             ? ""
@@ -342,7 +354,7 @@ export function renderFormWidgets(
         }
 
         // Draw label
-        if (displayLabel.length > 0) {
+        if (displayLabel.length > 0 || focusDecoration) {
           // Keep text cells on the same background as the filled button surface.
           // Without this, inherited parent bg would repaint label cells and leave
           // only side padding visibly filled.
@@ -357,15 +369,41 @@ export function renderFormWidgets(
           if (ownStyle) labelStyle = mergeTextStyle(labelStyle, ownStyle);
           const pressedStyle = asTextStyle(props.pressedStyle, theme);
           if (pressedStyle && pressed) labelStyle = mergeTextStyle(labelStyle, pressedStyle);
-          builder.drawText(contentX + px, contentY, displayLabel, labelStyle);
+          const drawX = contentX + px;
+          if (focusDecoration) {
+            drawSegments(builder, drawX, contentY, availableRunW, [
+              { text: focusDecoration.prefix, style: focusDecoration.style },
+              { text: displayLabel, style: labelStyle },
+              { text: focusDecoration.suffix, style: focusDecoration.style },
+            ]);
+          } else if (displayLabel.length > 0) {
+            builder.drawText(drawX, contentY, displayLabel, labelStyle);
+          }
         }
       } else {
         // Legacy path: original ad-hoc styling
-        const px =
+        const requestedPx =
           typeof props.px === "number" && Number.isFinite(props.px) && props.px >= 0
             ? Math.trunc(props.px)
-            : 1;
-        const availableLabelW = Math.max(0, rect.w - px * 2);
+            : undefined;
+        const focusDecoration = effectiveFocused
+          ? resolveFocusIndicatorDecoration(parentStyle, theme, focusConfig)
+          : undefined;
+        const decorationPrefixW = focusDecoration ? measureTextCells(focusDecoration.prefix) : 0;
+        const decorationSuffixW = focusDecoration ? measureTextCells(focusDecoration.suffix) : 0;
+        const labelW = measureTextCells(label);
+        const maxPxForAtLeastOneCell =
+          rect.w <= 0 ? 0 : Math.max(0, Math.floor((rect.w - 1) / 2));
+        let px = Math.min(requestedPx ?? 1, maxPxForAtLeastOneCell);
+        if (labelW > 0 && labelW <= rect.w) {
+          const maxPxToFitFullLabel = Math.max(
+            0,
+            Math.floor((rect.w - labelW - decorationPrefixW - decorationSuffixW) / 2),
+          );
+          px = Math.min(px, maxPxToFitFullLabel);
+        }
+        const availableRunW = Math.max(0, rect.w - px * 2);
+        const availableLabelW = Math.max(0, availableRunW - decorationPrefixW - decorationSuffixW);
         const displayLabel =
           availableLabelW <= 0
             ? ""
@@ -384,8 +422,24 @@ export function renderFormWidgets(
         if (pressedStyle && pressed) {
           labelStyle = mergeTextStyle(labelStyle, pressedStyle);
         }
-        if (displayLabel.length > 0) {
-          builder.drawText(rect.x + px, rect.y, displayLabel, labelStyle);
+        if (displayLabel.length > 0 || focusDecoration) {
+          if (focusState.focusedId !== null) {
+            const clearRun = repeatCached(" ", rect.w);
+            if (clearRun.length > 0) {
+              const clearStyle = ownStyle ? mergeTextStyle(parentStyle, ownStyle) : parentStyle;
+              builder.drawText(rect.x, rect.y, clearRun, clearStyle);
+            }
+          }
+          const drawX = rect.x + px;
+          if (focusDecoration) {
+            drawSegments(builder, drawX, rect.y, availableRunW, [
+              { text: focusDecoration.prefix, style: focusDecoration.style },
+              { text: displayLabel, style: labelStyle },
+              { text: focusDecoration.suffix, style: focusDecoration.style },
+            ]);
+          } else if (displayLabel.length > 0) {
+            builder.drawText(drawX, rect.y, displayLabel, labelStyle);
+          }
         }
       }
       break;
@@ -413,6 +467,7 @@ export function renderFormWidgets(
         focusState,
         id,
         props.focusConfig,
+        "input",
       );
       const showPlaceholder = value.length === 0 && placeholder.length > 0;
       const colorTokens = getColorTokens(theme);
@@ -578,6 +633,7 @@ export function renderFormWidgets(
         focusState,
         id ?? null,
         props.focusConfig,
+        "slider",
       );
       const disabled = props.disabled === true;
       const readOnly = props.readOnly === true;
@@ -750,7 +806,12 @@ export function renderFormWidgets(
         dsSize?: unknown;
       };
       const id = typeof props.id === "string" ? props.id : null;
-      const { focusVisible, focusConfig } = resolveFocusFlags(focusState, id, props.focusConfig);
+      const { focusVisible, focusConfig } = resolveFocusFlags(
+        focusState,
+        id,
+        props.focusConfig,
+        "select",
+      );
       const disabled = props.disabled === true;
       const value = typeof props.value === "string" ? props.value : "";
       const placeholder = typeof props.placeholder === "string" ? props.placeholder : "Select…";
@@ -769,6 +830,11 @@ export function renderFormWidgets(
 
       const colorTokens = getColorTokens(theme);
       const dsSize = readWidgetSize(props.dsSize) ?? "md";
+      const focusDecoration = focusVisible
+        ? resolveFocusIndicatorDecoration(parentStyle, theme, focusConfig)
+        : undefined;
+      const decorationPrefixW = focusDecoration ? measureTextCells(focusDecoration.prefix) : 0;
+      const decorationSuffixW = focusDecoration ? measureTextCells(focusDecoration.suffix) : 0;
       if (colorTokens !== null) {
         const state = disabled
           ? ("disabled" as const)
@@ -792,7 +858,8 @@ export function renderFormWidgets(
           innerW <= minContentW ? 0 : Math.max(0, Math.floor((innerW - minContentW) / 2));
         let px = Math.min(recipeResult.px, maxPxForMinContent);
         const labelW = measureTextCells(label);
-        const requiredWToFitLabel = labelW + indicatorWidth + (labelW > 0 ? 1 : 0);
+        const requiredWToFitLabel =
+          labelW + decorationPrefixW + decorationSuffixW + indicatorWidth + (labelW > 0 ? 1 : 0);
         if (labelW > 0 && requiredWToFitLabel <= innerW) {
           const maxPxToFitFullLabel = Math.max(0, Math.floor((innerW - requiredWToFitLabel) / 2));
           px = Math.min(px, maxPxToFitFullLabel);
@@ -824,21 +891,38 @@ export function renderFormWidgets(
         const availableLabelW =
           contentW <= 0
             ? 0
-            : Math.max(0, contentW - indicatorWidth - (contentW > indicatorWidth ? 1 : 0));
+            : Math.max(
+                0,
+                contentW -
+                  indicatorWidth -
+                  (contentW > indicatorWidth ? 1 : 0) -
+                  decorationPrefixW -
+                  decorationSuffixW,
+              );
         const displayLabel =
           availableLabelW <= 0
             ? ""
             : measureTextCells(label) > availableLabelW
               ? truncateWithEllipsis(label, availableLabelW)
               : label;
-        const text =
-          displayLabel.length > 0
-            ? `${displayLabel}${availableLabelW > 0 ? " " : ""}${indicator}`
-            : indicator;
 
         if (innerW > 0 && innerH > 0) {
           builder.pushClip(rect.x + borderInset, rect.y + borderInset, innerW, innerH);
-          builder.drawText(contentX, contentY, text, triggerStyle);
+          const segments: StyledSegment[] = [];
+          if (focusDecoration) {
+            segments.push({ text: focusDecoration.prefix, style: focusDecoration.style });
+          }
+          if (displayLabel.length > 0) {
+            segments.push({ text: displayLabel, style: triggerStyle });
+          }
+          if (focusDecoration) {
+            segments.push({ text: focusDecoration.suffix, style: focusDecoration.style });
+          }
+          if (displayLabel.length > 0 && contentW > indicatorWidth) {
+            segments.push({ text: " ", style: triggerStyle });
+          }
+          segments.push({ text: indicator, style: triggerStyle });
+          drawSegments(builder, contentX, contentY, contentW, segments);
           builder.popClip();
         }
       } else {
@@ -853,8 +937,18 @@ export function renderFormWidgets(
           : baseStyle;
 
         builder.pushClip(rect.x, rect.y, rect.w, rect.h);
-        const text = ` ${label} ▼`;
-        builder.drawText(rect.x, rect.y, text, style);
+        const segments: StyledSegment[] = [{ text: " ", style }];
+        if (focusDecoration) {
+          segments.push({ text: focusDecoration.prefix, style: focusDecoration.style });
+        }
+        if (label.length > 0) {
+          segments.push({ text: label, style });
+        }
+        if (focusDecoration) {
+          segments.push({ text: focusDecoration.suffix, style: focusDecoration.style });
+        }
+        segments.push({ text: " ▼", style });
+        drawSegments(builder, rect.x, rect.y, rect.w, segments);
         builder.popClip();
       }
       break;
@@ -871,11 +965,19 @@ export function renderFormWidgets(
         dsSize?: unknown;
       };
       const id = typeof props.id === "string" ? props.id : null;
-      const { focusVisible, focusConfig } = resolveFocusFlags(focusState, id, props.focusConfig);
+      const { focusVisible, focusConfig } = resolveFocusFlags(
+        focusState,
+        id,
+        props.focusConfig,
+        "checkbox",
+      );
       const disabled = props.disabled === true;
       const checked = props.checked === true;
       const label = typeof props.label === "string" ? props.label : "";
       const indicator = checked ? "[x]" : "[ ]";
+      const focusDecoration = focusVisible
+        ? resolveFocusIndicatorDecoration(parentStyle, theme, focusConfig)
+        : undefined;
       const colorTokens = getColorTokens(theme);
       const dsTone = readWidgetTone(props.dsTone);
       const dsSize = readWidgetSize(props.dsSize) ?? "md";
@@ -902,10 +1004,19 @@ export function renderFormWidgets(
         const labelStyle = focusVisible
           ? resolveFocusedContentStyle(labelBaseStyle, theme, focusConfig)
           : labelBaseStyle;
-        builder.drawText(rect.x, rect.y, indicator, indicatorStyle);
-        if (label.length > 0) {
-          builder.drawText(rect.x + measureTextCells(indicator) + 1, rect.y, label, labelStyle);
+        const segments: StyledSegment[] = [];
+        if (focusDecoration) {
+          segments.push({ text: focusDecoration.prefix, style: focusDecoration.style });
         }
+        segments.push({ text: indicator, style: indicatorStyle });
+        if (label.length > 0) {
+          segments.push({ text: " ", style: labelStyle });
+          segments.push({ text: label, style: labelStyle });
+        }
+        if (focusDecoration) {
+          segments.push({ text: focusDecoration.suffix, style: focusDecoration.style });
+        }
+        drawSegments(builder, rect.x, rect.y, rect.w, segments);
       } else {
         const text = label.length > 0 ? `${indicator} ${label}` : indicator;
         const baseStyle = mergeTextStyle(
@@ -917,7 +1028,15 @@ export function renderFormWidgets(
         const style = focusVisible
           ? resolveFocusedContentStyle(baseStyle, theme, focusConfig)
           : baseStyle;
-        builder.drawText(rect.x, rect.y, text, style);
+        const segments: StyledSegment[] = [];
+        if (focusDecoration) {
+          segments.push({ text: focusDecoration.prefix, style: focusDecoration.style });
+        }
+        segments.push({ text, style });
+        if (focusDecoration) {
+          segments.push({ text: focusDecoration.suffix, style: focusDecoration.style });
+        }
+        drawSegments(builder, rect.x, rect.y, rect.w, segments);
       }
       builder.popClip();
       break;
@@ -935,7 +1054,12 @@ export function renderFormWidgets(
         dsSize?: unknown;
       };
       const id = typeof props.id === "string" ? props.id : null;
-      const { focusVisible, focusConfig } = resolveFocusFlags(focusState, id, props.focusConfig);
+      const { focusVisible, focusConfig } = resolveFocusFlags(
+        focusState,
+        id,
+        props.focusConfig,
+        "radioGroup",
+      );
       const disabled = props.disabled === true;
       const value = typeof props.value === "string" ? props.value : "";
       const direction = props.direction === "horizontal" ? "horizontal" : "vertical";
@@ -943,6 +1067,9 @@ export function renderFormWidgets(
       const colorTokens = getColorTokens(theme);
       const dsTone = readWidgetTone(props.dsTone);
       const dsSize = readWidgetSize(props.dsSize) ?? "md";
+      const focusDecoration = focusVisible
+        ? resolveFocusIndicatorDecoration(parentStyle, theme, focusConfig)
+        : undefined;
 
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
       let cx = rect.x;
@@ -977,10 +1104,19 @@ export function renderFormWidgets(
           const labelStyle = focusVisible
             ? resolveFocusedContentStyle(labelBaseStyle, theme, focusConfig)
             : labelBaseStyle;
-          builder.drawText(cx, cy, mark, indicatorStyle);
-          if (optionLabel.length > 0) {
-            builder.drawText(cx + measureTextCells(mark) + 1, cy, optionLabel, labelStyle);
+          const segments: StyledSegment[] = [];
+          if (selected && focusDecoration) {
+            segments.push({ text: focusDecoration.prefix, style: focusDecoration.style });
           }
+          segments.push({ text: mark, style: indicatorStyle });
+          if (optionLabel.length > 0) {
+            segments.push({ text: " ", style: labelStyle });
+            segments.push({ text: optionLabel, style: labelStyle });
+          }
+          if (selected && focusDecoration) {
+            segments.push({ text: focusDecoration.suffix, style: focusDecoration.style });
+          }
+          drawSegments(builder, cx, cy, rect.w - (cx - rect.x), segments);
         } else {
           const focusStyle = focusVisible ? { underline: true, bold: true } : undefined;
           const baseStyle = mergeTextStyle(
@@ -991,12 +1127,24 @@ export function renderFormWidgets(
             ? resolveFocusedContentStyle(baseStyle, theme, focusConfig)
             : baseStyle;
           const chunk = `${mark} ${optionLabel}`;
-          builder.drawText(cx, cy, chunk, style);
+          const segments: StyledSegment[] = [];
+          if (selected && focusDecoration) {
+            segments.push({ text: focusDecoration.prefix, style: focusDecoration.style });
+          }
+          segments.push({ text: chunk, style });
+          if (selected && focusDecoration) {
+            segments.push({ text: focusDecoration.suffix, style: focusDecoration.style });
+          }
+          drawSegments(builder, cx, cy, rect.w - (cx - rect.x), segments);
         }
 
         const chunk = `${mark} ${optionLabel}`;
+        const decoratedChunk =
+          selected && focusDecoration
+            ? `${focusDecoration.prefix}${chunk}${focusDecoration.suffix}`
+            : chunk;
         if (direction === "horizontal") {
-          cx += measureTextCells(chunk) + 2;
+          cx += measureTextCells(decoratedChunk) + 2;
         } else {
           cy += 1;
         }

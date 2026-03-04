@@ -75,11 +75,14 @@ describe("select recipe rendering", () => {
       "legacy select should not draw recipe border",
     );
     assert.equal(
-      ops.some(
-        (op) => op.kind === "drawText" && op.text.includes("Alpha") && op.text.includes("▼"),
-      ),
+      ops.some((op) => op.kind === "drawText" && op.text.includes("Alpha")),
       true,
-      "legacy select should render inline caret text",
+      "legacy select should render selected text",
+    );
+    assert.equal(
+      ops.some((op) => op.kind === "drawText" && op.text.includes("▼")),
+      true,
+      "legacy select should render inline caret",
     );
   });
 });
