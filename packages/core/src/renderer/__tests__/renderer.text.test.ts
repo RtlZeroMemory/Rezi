@@ -296,6 +296,44 @@ function expectBlob(frame: ParsedFrame, blobIndex: number): TextRunBlob {
   return blob;
 }
 
+function drawTextsByY(frame: ParsedFrame): readonly DrawTextCommand[] {
+  return Object.freeze([...frame.drawTexts].sort((a, b) => a.y - b.y || a.x - b.x));
+}
+
+describe("renderer text - wrap newline handling", () => {
+  test("wrap=true renders explicit newline lines on separate rows", () => {
+    const frame = parseFrame(
+      renderBytes(textVNode("First line\nSecond line", { wrap: true }), { cols: 20, rows: 4 }),
+    );
+    const draws = drawTextsByY(frame).filter((cmd) => cmd.text.length > 0);
+
+    assert.equal(draws.length, 2);
+    const first = draws[0];
+    const second = draws[1];
+    assert.ok(first !== undefined);
+    assert.ok(second !== undefined);
+    assert.equal(first.y, 0);
+    assert.equal(first.text, "First line");
+    assert.equal(second.y, 1);
+    assert.equal(second.text, "Second line");
+  });
+
+  test("wrap=true preserves blank lines from double newlines", () => {
+    const frame = parseFrame(renderBytes(textVNode("Alpha\n\nOmega", { wrap: true }), { cols: 20, rows: 6 }));
+    const draws = drawTextsByY(frame).filter((cmd) => cmd.text.length > 0);
+
+    assert.equal(draws.length, 2);
+    const first = draws[0];
+    const second = draws[1];
+    assert.ok(first !== undefined);
+    assert.ok(second !== undefined);
+    assert.equal(first.y, 0);
+    assert.equal(first.text, "Alpha");
+    assert.equal(second.y, 2);
+    assert.equal(second.text, "Omega");
+  });
+});
+
 describe("renderer text - transform ANSI styling", () => {
   const gradientTransform = (): string => "\u001b[31mA\u001b[32mB\u001b[0m";
 
