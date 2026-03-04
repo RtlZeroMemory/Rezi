@@ -67,6 +67,8 @@ describe("layout edge cases", () => {
     assert.ok(hiddenField !== undefined, "expected hidden field child");
     if (!hiddenField) return;
     assert.equal(hiddenField.children.length, 1);
+    assert.deepEqual(hiddenField.rect, { x: 0, y: 0, w: 0, h: 0 });
+    assert.deepEqual(hiddenField.children[0]?.rect, { x: 0, y: 0, w: 0, h: 0 });
     assert.equal(
       (hiddenField.children[0]?.vnode as Readonly<{ text?: string }>).text,
       "field-first",
@@ -76,6 +78,8 @@ describe("layout edge cases", () => {
     assert.ok(hiddenPanel !== undefined, "expected hidden panel child");
     if (!hiddenPanel) return;
     assert.equal(hiddenPanel.children.length, 1);
+    assert.deepEqual(hiddenPanel.rect, { x: 0, y: 0, w: 0, h: 0 });
+    assert.deepEqual(hiddenPanel.children[0]?.rect, { x: 0, y: 0, w: 0, h: 0 });
     assert.equal(
       (hiddenPanel.children[0]?.vnode as Readonly<{ text?: string }>).text,
       "panel-first",
@@ -129,6 +133,23 @@ describe("layout edge cases", () => {
       ),
       ["abs-left", "flow-main", "abs-right"],
     );
+    const absLeft = laidOut.children.find(
+      (child) =>
+        ((child.vnode.props as Readonly<{ id?: unknown }>).id as string | undefined) === "abs-left",
+    );
+    const flowMain = laidOut.children.find(
+      (child) =>
+        ((child.vnode.props as Readonly<{ id?: unknown }>).id as string | undefined) ===
+        "flow-main",
+    );
+    const absRight = laidOut.children.find(
+      (child) =>
+        ((child.vnode.props as Readonly<{ id?: unknown }>).id as string | undefined) ===
+        "abs-right",
+    );
+    assert.deepEqual(absLeft?.rect, { x: 0, y: 0, w: 3, h: 1 });
+    assert.deepEqual(flowMain?.rect, { x: 0, y: 0, w: 6, h: 1 });
+    assert.deepEqual(absRight?.rect, { x: 16, y: 0, w: 4, h: 1 });
   });
 
   test("box preserves original child order when absolute children are interleaved", () => {
@@ -180,6 +201,21 @@ describe("layout edge cases", () => {
       ),
       ["flow-1", "abs-mid", "flow-2"],
     );
+    const flow1 = laidOut.children.find(
+      (child) =>
+        ((child.vnode.props as Readonly<{ id?: unknown }>).id as string | undefined) === "flow-1",
+    );
+    const absMid = laidOut.children.find(
+      (child) =>
+        ((child.vnode.props as Readonly<{ id?: unknown }>).id as string | undefined) === "abs-mid",
+    );
+    const flow2 = laidOut.children.find(
+      (child) =>
+        ((child.vnode.props as Readonly<{ id?: unknown }>).id as string | undefined) === "flow-2",
+    );
+    assert.deepEqual(flow1?.rect, { x: 0, y: 0, w: 5, h: 1 });
+    assert.deepEqual(absMid?.rect, { x: 8, y: 0, w: 3, h: 1 });
+    assert.deepEqual(flow2?.rect, { x: 0, y: 1, w: 5, h: 1 });
   });
 
   test("leaf widgets clamp to available height=0", () => {

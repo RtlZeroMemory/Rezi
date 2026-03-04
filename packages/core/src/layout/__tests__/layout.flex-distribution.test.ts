@@ -95,6 +95,40 @@ const CASES: readonly FlexCase[] = [
     ],
   },
   {
+    name: "flexBasis seeds distribution before flex growth",
+    main: 20,
+    cross: 5,
+    children: [
+      { flex: 1, flexBasis: 6 },
+      { flex: 1, flexBasis: 2 },
+    ],
+    expectedRowChildren: [
+      { x: 0, y: 0, w: 12, h: 0 },
+      { x: 12, y: 0, w: 8, h: 0 },
+    ],
+    expectedColumnChildren: [
+      { x: 0, y: 0, w: 0, h: 12 },
+      { x: 0, y: 12, w: 0, h: 8 },
+    ],
+  },
+  {
+    name: "negative free space shrinks by flexShrink weights",
+    main: 10,
+    cross: 5,
+    children: [
+      { main: 8, flexShrink: 1 },
+      { main: 8, flexShrink: 3 },
+    ],
+    expectedRowChildren: [
+      { x: 0, y: 0, w: 6, h: 0 },
+      { x: 6, y: 0, w: 4, h: 0 },
+    ],
+    expectedColumnChildren: [
+      { x: 0, y: 0, w: 0, h: 6 },
+      { x: 0, y: 6, w: 0, h: 4 },
+    ],
+  },
+  {
     name: "flex:0 child does not receive distributed space",
     main: 30,
     cross: 5,

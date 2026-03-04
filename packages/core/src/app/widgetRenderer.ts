@@ -4101,6 +4101,18 @@ export class WidgetRenderer<S> {
             nextLayoutTree = settledLayoutRes.value;
             settlePasses++;
           }
+          if (settlePasses >= maxSettlePasses) {
+            if (PERF_ENABLED) {
+              perfCount("layout_constraint_settle_passes_cap_hit", 1);
+            }
+            if (FRAME_AUDIT_ENABLED) {
+              emitFrameAudit("widgetRenderer", "layout.constraint_settle_cap_hit", {
+                passes: settlePasses,
+                maxPasses: maxSettlePasses,
+                nodeCount: constraintGraph.nodes.length,
+              });
+            }
+          }
           if (PERF_ENABLED && settlePasses > 0) {
             perfCount("layout_constraint_settle_passes", settlePasses);
           }
