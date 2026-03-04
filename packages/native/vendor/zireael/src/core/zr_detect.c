@@ -867,10 +867,20 @@ zr_result_t zr_detect_probe_terminal(plat_t* plat, const plat_caps_t* baseline_c
     uint32_t timeout_spent_ms = 0u;
     /* DA1 acts as a probe sentinel; after it arrives, drain briefly then stop. */
     uint8_t da1_responded = 0u;
+    uint64_t da1_seen_ms = 0u;
     uint32_t da1_drain_spent_ms = 0u;
     while (true) {
       int32_t timeout_ms = zr_detect_read_timeout_slice(start_ms, timeout_spent_ms);
       if (da1_responded != 0u) {
+        const uint64_t now_ms = plat_now_ms();
+        uint32_t da1_elapsed_ms = 0u;
+        if (now_ms > da1_seen_ms) {
+          const uint64_t delta_ms = now_ms - da1_seen_ms;
+          da1_elapsed_ms = (delta_ms > UINT32_MAX) ? UINT32_MAX : (uint32_t)delta_ms;
+        }
+        if (da1_elapsed_ms > da1_drain_spent_ms) {
+          da1_drain_spent_ms = da1_elapsed_ms;
+        }
         const int32_t da1_budget_ms = zr_detect_remaining_da1_drain_budget(da1_drain_spent_ms);
         timeout_ms = zr_detect_clamp_timeout_budget(timeout_ms, da1_budget_ms);
       }
@@ -904,6 +914,9 @@ zr_result_t zr_detect_probe_terminal(plat_t* plat, const plat_caps_t* baseline_c
         zr_detect_parsed_reset(&partial);
         (void)zr_detect_parse_responses(collected, collected_len, &partial);
         da1_responded = partial.da1_responded;
+        if (da1_responded != 0u) {
+          da1_seen_ms = plat_now_ms();
+        }
       }
       if (collected_len == sizeof(collected)) {
         break;
