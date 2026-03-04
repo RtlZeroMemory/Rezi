@@ -442,9 +442,7 @@ function isTopLevelQuitEvent(ev: ZrevEvent): boolean {
 function isUnmodifiedTextQuitEvent(ev: ZrevEvent): boolean {
   if (ev.kind !== "text") return false;
   return (
-    ev.codepoint === KEY_Q ||
-    ev.codepoint === KEY_LOWER_Q ||
-    ev.codepoint === CTRL_C_CODEPOINT
+    ev.codepoint === KEY_Q || ev.codepoint === KEY_LOWER_Q || ev.codepoint === CTRL_C_CODEPOINT
   );
 }
 
@@ -1347,7 +1345,6 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
           ) {
             noteBreadcrumbConsumptionPath("widgetRouting");
             stopFromUnhandledQuitEvent();
-            continue;
           }
         }
       }
