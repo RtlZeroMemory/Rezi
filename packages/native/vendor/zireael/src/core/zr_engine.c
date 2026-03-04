@@ -47,7 +47,7 @@ enum {
 static const uint8_t ZR_ENGINE_PASTE_BEGIN[] = "\x1b[200~";
 static const uint8_t ZR_ENGINE_PASTE_END[] = "\x1b[201~";
 
-struct zr_engine_t {
+struct zr_engine_t { /* NOLINT(clang-analyzer-optin.performance.Padding): keep subsystem-grouped layout readable */
   /* --- Platform (OS boundary) --- */
   plat_t* plat;
   struct zr_engine_t* restore_prev;

@@ -116,8 +116,8 @@ typedef void (*zr_posix_sa_sigaction_fn)(int, siginfo_t*, void*);
 #error "POSIX signal chaining requires lock-free int/pointer atomics."
 #endif
 static _Atomic int g_posix_prev_handler_kind = ZR_POSIX_HANDLER_KIND_NONE;
-static _Atomic(zr_posix_sa_handler_fn) g_posix_prev_sa_handler = NULL;
-static _Atomic(zr_posix_sa_sigaction_fn) g_posix_prev_sa_sigaction = NULL;
+static _Atomic(zr_posix_sa_handler_fn) g_posix_prev_sa_handler;
+static _Atomic(zr_posix_sa_sigaction_fn) g_posix_prev_sa_sigaction;
 
 /*
   POSIX testing hook: force SIGWINCH overflow marker path.
@@ -734,8 +734,8 @@ static void zr_posix_sigwinch_publish_previous(const struct sigaction* prev) {
     return;
   }
 
-  atomic_store_explicit(&g_posix_prev_sa_handler, NULL, memory_order_relaxed);
-  atomic_store_explicit(&g_posix_prev_sa_sigaction, NULL, memory_order_relaxed);
+  atomic_store_explicit(&g_posix_prev_sa_handler, (zr_posix_sa_handler_fn)0, memory_order_relaxed);
+  atomic_store_explicit(&g_posix_prev_sa_sigaction, (zr_posix_sa_sigaction_fn)0, memory_order_relaxed);
   atomic_store_explicit(&g_posix_prev_handler_kind, ZR_POSIX_HANDLER_KIND_NONE, memory_order_relaxed);
 
   if ((prev->sa_flags & SA_SIGINFO) != 0) {
@@ -758,8 +758,8 @@ static void zr_posix_sigwinch_publish_previous(const struct sigaction* prev) {
 
 static void zr_posix_sigwinch_clear_previous(void) {
   atomic_store_explicit(&g_posix_prev_handler_kind, ZR_POSIX_HANDLER_KIND_NONE, memory_order_release);
-  atomic_store_explicit(&g_posix_prev_sa_handler, NULL, memory_order_relaxed);
-  atomic_store_explicit(&g_posix_prev_sa_sigaction, NULL, memory_order_relaxed);
+  atomic_store_explicit(&g_posix_prev_sa_handler, (zr_posix_sa_handler_fn)0, memory_order_relaxed);
+  atomic_store_explicit(&g_posix_prev_sa_sigaction, (zr_posix_sa_sigaction_fn)0, memory_order_relaxed);
 }
 
 static void zr_posix_sigwinch_handler(int signo, siginfo_t* info, void* ucontext) {
