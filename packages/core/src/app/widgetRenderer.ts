@@ -406,6 +406,7 @@ export type WidgetRenderPlan = Readonly<{
 export type WidgetRoutingOutcome = Readonly<{
   needsRender: boolean;
   action?: RoutedAction;
+  consumed?: boolean;
 }>;
 
 /**
@@ -509,6 +510,10 @@ const EMPTY_CONSTRAINT_BREADCRUMBS: RuntimeBreadcrumbConstraintsSummary = Object
 });
 const ROUTE_RENDER: WidgetRoutingOutcome = Object.freeze({ needsRender: true });
 const ROUTE_NO_RENDER: WidgetRoutingOutcome = Object.freeze({ needsRender: false });
+const ROUTE_NO_RENDER_CONSUMED: WidgetRoutingOutcome = Object.freeze({
+  needsRender: false,
+  consumed: true,
+});
 const ZERO_RECT: Rect = Object.freeze({ x: 0, y: 0, w: 0, h: 0 });
 const INCREMENTAL_DAMAGE_AREA_FRACTION = 0.45;
 const DEFAULT_POSITION_TRANSITION_DURATION_MS = 180;
@@ -1896,7 +1901,7 @@ export class WidgetRenderer<S> {
     if (event.kind === "key" && event.action === "down") {
       const shortcutResult = this.routeOverlayShortcut(event);
       if (shortcutResult === "matched") return ROUTE_RENDER;
-      if (shortcutResult === "pending") return ROUTE_NO_RENDER;
+      if (shortcutResult === "pending") return ROUTE_NO_RENDER_CONSUMED;
 
       const topLayerId =
         this.layerStack.length > 0 ? (this.layerStack[this.layerStack.length - 1] ?? null) : null;
@@ -2042,12 +2047,12 @@ export class WidgetRenderer<S> {
 
           if (isCut && editor.readOnly !== true) {
             const cut = selection ? deleteRange(editor.lines, selection) : null;
-            if (!cut) return ROUTE_NO_RENDER;
+            if (!cut) return ROUTE_NO_RENDER_CONSUMED;
             editor.onSelectionChange(null);
             editor.onChange(cut.lines, cut.cursor);
             return ROUTE_RENDER;
           }
-          return ROUTE_NO_RENDER;
+          return ROUTE_NO_RENDER_CONSUMED;
         }
 
         const rect = this.rectById.get(editor.id) ?? null;

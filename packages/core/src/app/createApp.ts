@@ -961,11 +961,19 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   }
 
   function stopFromUnhandledQuitEvent(): void {
+    let stopPromise: Promise<void>;
     try {
-      void app.stop();
+      stopPromise = app.stop();
     } catch {
       // ignore
+      return;
     }
+    void stopPromise.catch((e: unknown) => {
+      enqueueFatal(
+        "ZRUI_BACKEND_ERROR",
+        `stop rejected after unhandled quit input: ${describeThrown(e)}`,
+      );
+    });
   }
 
   function buildRuntimeBreadcrumbSnapshot(renderTimeMs: number): RuntimeBreadcrumbSnapshot | null {
@@ -1341,6 +1349,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
           if (
             routed.action === undefined &&
             !routed.needsRender &&
+            routed.consumed !== true &&
             (isUnmodifiedTextQuitEvent(ev) || isUnhandledCtrlCKeyEvent(ev))
           ) {
             noteBreadcrumbConsumptionPath("widgetRouting");

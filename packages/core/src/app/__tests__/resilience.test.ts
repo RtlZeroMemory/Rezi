@@ -1,7 +1,7 @@
 import { assert, test } from "@rezi-ui/testkit";
 import { parseInternedStrings } from "../../__tests__/drawlistDecode.js";
 import { defineWidget, ui } from "../../index.js";
-import { ZR_MOD_CTRL } from "../../keybindings/keyCodes.js";
+import { ZR_MOD_CTRL, ZR_MOD_SHIFT } from "../../keybindings/keyCodes.js";
 import { createApp } from "../createApp.js";
 import { encodeZrevBatchV1, flushMicrotasks, makeBackendBatch } from "./helpers.js";
 import { StubBackend } from "./stubBackend.js";
@@ -204,6 +204,31 @@ test("unhandled ctrl+c key/text events stop app by default", async () => {
   await flushMicrotasks(30);
 
   assert.equal(backend.stopCalls >= 2, true);
+});
+
+test("handled ctrl+c copy in input does not trigger default quit", async () => {
+  const backend = new StubBackend();
+  const app = createApp({ backend, initialState: {} });
+
+  app.view(() =>
+    ui.input({
+      id: "inp",
+      value: "hello world",
+    }),
+  );
+
+  await app.start();
+  await emitResize(backend, 1);
+  await settleNextFrame(backend);
+
+  await pushEvents(backend, [
+    { kind: "key", timeMs: 2, key: 3, mods: 0, action: "down" }, // Tab -> focus input
+    { kind: "key", timeMs: 3, key: 22, mods: ZR_MOD_SHIFT | ZR_MOD_CTRL, action: "down" }, // Shift+Ctrl+Left
+    { kind: "key", timeMs: 4, key: 67, mods: ZR_MOD_CTRL, action: "down" }, // Ctrl+C
+  ]);
+
+  assert.equal(backend.stopCalls, 0);
+  assert.equal(backend.disposeCalls, 0);
 });
 
 test("custom q keybinding overrides default unhandled quit behavior", async () => {

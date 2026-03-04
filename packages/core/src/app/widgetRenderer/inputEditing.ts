@@ -17,6 +17,7 @@ import type { InputMeta } from "../../runtime/widgetMeta.js";
 export type InputEditingRoutingOutcome = Readonly<{
   needsRender: boolean;
   action?: RoutedAction;
+  consumed?: boolean;
 }>;
 
 type RouteInputEditingEventContext = Readonly<{
@@ -32,7 +33,10 @@ type RouteInputEditingEventContext = Readonly<{
 }>;
 
 const ROUTE_RENDER: InputEditingRoutingOutcome = Object.freeze({ needsRender: true });
-const ROUTE_NO_RENDER: InputEditingRoutingOutcome = Object.freeze({ needsRender: false });
+const ROUTE_NO_RENDER_CONSUMED: InputEditingRoutingOutcome = Object.freeze({
+  needsRender: false,
+  consumed: true,
+});
 
 function invokeOnInputSafely(
   meta: InputMeta,
@@ -180,7 +184,7 @@ export function routeInputEditingEvent(
             return Object.freeze({ needsRender: true, action });
           }
         }
-        return ROUTE_NO_RENDER;
+        return ROUTE_NO_RENDER_CONSUMED;
       }
     }
 
@@ -203,7 +207,7 @@ export function routeInputEditingEvent(
         });
         return Object.freeze({ needsRender: true, action });
       }
-      return ROUTE_NO_RENDER;
+      return ROUTE_NO_RENDER_CONSUMED;
     }
   }
 
