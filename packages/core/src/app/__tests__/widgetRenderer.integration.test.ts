@@ -1089,6 +1089,63 @@ describe("WidgetRenderer integration battery", () => {
     assert.deepEqual(events, []);
   });
 
+  test("modal actions preserve declared order and click behavior", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const calls: string[] = [];
+    const vnode = ui.modal({
+      id: "confirm-quit",
+      title: "Confirm quit",
+      content: ui.text("Are you sure?"),
+      actions: [
+        ui.button({
+          id: "cancel",
+          label: "Cancel",
+          onPress: () => calls.push("cancel"),
+        }),
+        ui.button({
+          id: "confirm",
+          label: "Quit",
+          onPress: () => calls.push("confirm"),
+        }),
+      ],
+    });
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 80, rows: 24 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    const rects = renderer.getRectByIdIndex();
+    const cancelRect = rects.get("cancel");
+    const confirmRect = rects.get("confirm");
+    assert.ok(cancelRect !== undefined, "cancel rect should exist");
+    assert.ok(confirmRect !== undefined, "confirm rect should exist");
+    if (!cancelRect || !confirmRect) return;
+
+    assert.equal(cancelRect.x < confirmRect.x, true, "cancel should render left of confirm");
+
+    const cancelX = cancelRect.x + Math.max(0, Math.floor((cancelRect.w - 1) / 2));
+    const cancelY = cancelRect.y;
+    renderer.routeEngineEvent(mouseDownEvent(cancelX, cancelY));
+    renderer.routeEngineEvent(mouseEvent(cancelX, cancelY, 4));
+
+    const confirmX = confirmRect.x + Math.max(0, Math.floor((confirmRect.w - 1) / 2));
+    const confirmY = confirmRect.y;
+    renderer.routeEngineEvent(mouseDownEvent(confirmX, confirmY));
+    renderer.routeEngineEvent(mouseEvent(confirmX, confirmY, 4));
+
+    assert.deepEqual(calls, ["cancel", "confirm"]);
+  });
+
   test("splitPane double-click toggles collapse via onCollapse", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({
