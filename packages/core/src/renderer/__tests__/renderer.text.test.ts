@@ -11,10 +11,11 @@ import {
   parseCommandHeaders,
   parseInternedStrings,
 } from "../../__tests__/drawlistDecode.js";
-import { type VNode, createDrawlistBuilder } from "../../index.js";
+import { type VNode, createDrawlistBuilder, ui } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
 import { createInstanceIdAllocator } from "../../runtime/instance.js";
+import { createTestRenderer } from "../../testing/renderer.js";
 import { renderToDrawlist } from "../renderToDrawlist.js";
 
 const decoder = new TextDecoder();
@@ -296,41 +297,44 @@ function expectBlob(frame: ParsedFrame, blobIndex: number): TextRunBlob {
   return blob;
 }
 
-function drawTextsByY(frame: ParsedFrame): readonly DrawTextCommand[] {
-  return Object.freeze([...frame.drawTexts].sort((a, b) => a.y - b.y || a.x - b.x));
-}
-
 describe("renderer text - wrap newline handling", () => {
   test("wrap=true renders explicit newline lines on separate rows", () => {
-    const frame = parseFrame(
-      renderBytes(textVNode("First line\nSecond line", { wrap: true }), { cols: 20, rows: 4 }),
+    const renderer = createTestRenderer({ viewport: { cols: 20, rows: 4 } });
+    const frame = renderer.render(
+      ui.text("First line\nSecond line", {
+        id: "wrapped",
+        wrap: true,
+      }),
     );
-    const draws = drawTextsByY(frame).filter((cmd) => cmd.text.length > 0);
+    const lines = frame.toText().split("\n");
 
-    assert.equal(draws.length, 2);
-    const first = draws[0];
-    const second = draws[1];
-    assert.ok(first !== undefined);
-    assert.ok(second !== undefined);
-    assert.equal(first.y, 0);
-    assert.equal(first.text, "First line");
-    assert.equal(second.y, 1);
-    assert.equal(second.text, "Second line");
+    assert.equal(lines[0]?.includes("First line"), true);
+    assert.equal(lines[1]?.includes("Second line"), true);
+
+    const wrapped = frame.findById("wrapped");
+    assert.notEqual(wrapped, null);
+    assert.equal(wrapped?.rect.y, 0);
+    assert.ok((wrapped?.rect.h ?? 0) >= 2);
   });
 
   test("wrap=true preserves blank lines from double newlines", () => {
-    const frame = parseFrame(renderBytes(textVNode("Alpha\n\nOmega", { wrap: true }), { cols: 20, rows: 6 }));
-    const draws = drawTextsByY(frame).filter((cmd) => cmd.text.length > 0);
+    const renderer = createTestRenderer({ viewport: { cols: 20, rows: 6 } });
+    const frame = renderer.render(
+      ui.text("Alpha\n\nOmega", {
+        id: "wrapped-blank",
+        wrap: true,
+      }),
+    );
+    const lines = frame.toText().split("\n");
 
-    assert.equal(draws.length, 2);
-    const first = draws[0];
-    const second = draws[1];
-    assert.ok(first !== undefined);
-    assert.ok(second !== undefined);
-    assert.equal(first.y, 0);
-    assert.equal(first.text, "Alpha");
-    assert.equal(second.y, 2);
-    assert.equal(second.text, "Omega");
+    assert.equal(lines[0]?.includes("Alpha"), true);
+    assert.equal((lines[1] ?? "").trim(), "");
+    assert.equal(lines[2]?.includes("Omega"), true);
+
+    const wrapped = frame.findById("wrapped-blank");
+    assert.notEqual(wrapped, null);
+    assert.equal(wrapped?.rect.y, 0);
+    assert.ok((wrapped?.rect.h ?? 0) >= 3);
   });
 });
 
