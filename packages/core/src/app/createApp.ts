@@ -366,6 +366,10 @@ type TopLevelViewError = Readonly<{
 
 const KEY_Q = 81;
 const KEY_R = 82;
+const KEY_C = 67;
+const KEY_LOWER_Q = 113;
+const KEY_LOWER_R = 114;
+const CTRL_C_CODEPOINT = 3;
 
 function captureTopLevelViewError(value: unknown): TopLevelViewError {
   if (value instanceof Error) {
@@ -420,7 +424,7 @@ function isTopLevelRetryEvent(ev: ZrevEvent): boolean {
     return ev.action === "down" && isUnmodifiedLetterKey(ev.mods) && ev.key === KEY_R;
   }
   if (ev.kind === "text") {
-    return ev.codepoint === KEY_R || ev.codepoint === 114;
+    return ev.codepoint === KEY_R || ev.codepoint === KEY_LOWER_R;
   }
   return false;
 }
@@ -430,9 +434,27 @@ function isTopLevelQuitEvent(ev: ZrevEvent): boolean {
     return ev.action === "down" && isUnmodifiedLetterKey(ev.mods) && ev.key === KEY_Q;
   }
   if (ev.kind === "text") {
-    return ev.codepoint === KEY_Q || ev.codepoint === 113;
+    return ev.codepoint === KEY_Q || ev.codepoint === KEY_LOWER_Q;
   }
   return false;
+}
+
+function isUnmodifiedTextQuitEvent(ev: ZrevEvent): boolean {
+  if (ev.kind !== "text") return false;
+  return (
+    ev.codepoint === KEY_Q ||
+    ev.codepoint === KEY_LOWER_Q ||
+    ev.codepoint === CTRL_C_CODEPOINT
+  );
+}
+
+function isUnhandledCtrlCKeyEvent(ev: ZrevEvent): boolean {
+  if (ev.kind !== "key") return false;
+  if (ev.action !== "down") return false;
+  if (ev.key !== KEY_C) return false;
+  const hasCtrl = (ev.mods & ZR_MOD_CTRL) !== 0;
+  if (!hasCtrl) return false;
+  return (ev.mods & (ZR_MOD_ALT | ZR_MOD_META)) === 0;
 }
 
 type ProcessLike = Readonly<{
@@ -940,6 +962,14 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     });
   }
 
+  function stopFromUnhandledQuitEvent(): void {
+    try {
+      void app.stop();
+    } catch {
+      // ignore
+    }
+  }
+
   function buildRuntimeBreadcrumbSnapshot(renderTimeMs: number): RuntimeBreadcrumbSnapshot | null {
     if (!runtimeBreadcrumbsEnabled) return null;
     const widgetSnapshot = widgetRenderer.getRuntimeBreadcrumbSnapshot();
@@ -1309,6 +1339,15 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
             noteBreadcrumbAction(routed.action);
             emit({ kind: "action", ...routed.action });
             if (sm.state !== "Running") return;
+          }
+          if (
+            routed.action === undefined &&
+            !routed.needsRender &&
+            (isUnmodifiedTextQuitEvent(ev) || isUnhandledCtrlCKeyEvent(ev))
+          ) {
+            noteBreadcrumbConsumptionPath("widgetRouting");
+            stopFromUnhandledQuitEvent();
+            continue;
           }
         }
       }
