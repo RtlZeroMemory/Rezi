@@ -18,6 +18,7 @@ enum {
   ZR_DETECT_READ_ACCUM_CAP = 4096u,
   ZR_DETECT_QUERY_TIMEOUT_MS = 100u,
   ZR_DETECT_TOTAL_TIMEOUT_MS = 500u,
+  ZR_DETECT_DA1_DRAIN_TIMEOUT_MS = 20u,
   ZR_DETECT_DECRQM_SET = 1u,
 };
 
@@ -756,6 +757,23 @@ static int32_t zr_detect_read_timeout_slice(uint64_t start_ms, uint32_t spent_ms
   return remaining;
 }
 
+static int32_t zr_detect_remaining_da1_drain_budget(uint32_t spent_ms) {
+  if (spent_ms >= (uint32_t)ZR_DETECT_DA1_DRAIN_TIMEOUT_MS) {
+    return 0;
+  }
+  return (int32_t)((uint32_t)ZR_DETECT_DA1_DRAIN_TIMEOUT_MS - spent_ms);
+}
+
+static int32_t zr_detect_clamp_timeout_budget(int32_t timeout_ms, int32_t budget_ms) {
+  if (timeout_ms <= 0 || budget_ms <= 0) {
+    return 0;
+  }
+  if (timeout_ms > budget_ms) {
+    return budget_ms;
+  }
+  return timeout_ms;
+}
+
 static zr_terminal_id_t zr_detect_fallback_terminal_id(plat_t* plat) {
   zr_terminal_id_t id = ZR_TERM_UNKNOWN;
   if (plat_guess_terminal_id(plat, &id) != ZR_OK) {
@@ -847,8 +865,25 @@ zr_result_t zr_detect_probe_terminal(plat_t* plat, const plat_caps_t* baseline_c
 
     uint64_t start_ms = plat_now_ms();
     uint32_t timeout_spent_ms = 0u;
+    /* DA1 acts as a probe sentinel; after it arrives, drain briefly then stop. */
+    uint8_t da1_responded = 0u;
+    uint64_t da1_seen_ms = 0u;
+    uint32_t da1_drain_spent_ms = 0u;
     while (true) {
-      const int32_t timeout_ms = zr_detect_read_timeout_slice(start_ms, timeout_spent_ms);
+      int32_t timeout_ms = zr_detect_read_timeout_slice(start_ms, timeout_spent_ms);
+      if (da1_responded != 0u) {
+        const uint64_t now_ms = plat_now_ms();
+        uint32_t da1_elapsed_ms = 0u;
+        if (now_ms > da1_seen_ms) {
+          const uint64_t delta_ms = now_ms - da1_seen_ms;
+          da1_elapsed_ms = (delta_ms > UINT32_MAX) ? UINT32_MAX : (uint32_t)delta_ms;
+        }
+        if (da1_elapsed_ms > da1_drain_spent_ms) {
+          da1_drain_spent_ms = da1_elapsed_ms;
+        }
+        const int32_t da1_budget_ms = zr_detect_remaining_da1_drain_budget(da1_drain_spent_ms);
+        timeout_ms = zr_detect_clamp_timeout_budget(timeout_ms, da1_budget_ms);
+      }
       if (timeout_ms <= 0) {
         break;
       }
@@ -860,6 +895,9 @@ zr_result_t zr_detect_probe_terminal(plat_t* plat, const plat_caps_t* baseline_c
       }
       if (n == 0) {
         timeout_spent_ms += (uint32_t)timeout_ms;
+        if (da1_responded != 0u) {
+          da1_drain_spent_ms += (uint32_t)timeout_ms;
+        }
         continue;
       }
 
@@ -870,6 +908,15 @@ zr_result_t zr_detect_probe_terminal(plat_t* plat, const plat_caps_t* baseline_c
       if (copy_len != 0u) {
         memcpy(collected + collected_len, chunk, copy_len);
         collected_len += copy_len;
+      }
+      if (da1_responded == 0u) {
+        zr_detect_parsed_t partial;
+        zr_detect_parsed_reset(&partial);
+        (void)zr_detect_parse_responses(collected, collected_len, &partial);
+        da1_responded = partial.da1_responded;
+        if (da1_responded != 0u) {
+          da1_seen_ms = plat_now_ms();
+        }
       }
       if (collected_len == sizeof(collected)) {
         break;
