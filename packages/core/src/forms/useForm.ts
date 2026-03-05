@@ -50,7 +50,11 @@ function formatErrorForDev(error: unknown): string {
   if (error instanceof Error) {
     return `${error.name}: ${error.message}`;
   }
-  return String(error);
+  try {
+    return String(error);
+  } catch {
+    return "[unstringifiable thrown value]";
+  }
 }
 
 type FieldOverrides<T extends Record<string, unknown>> = Partial<Record<keyof T, boolean>>;
