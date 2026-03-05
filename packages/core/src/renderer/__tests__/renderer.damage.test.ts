@@ -529,6 +529,31 @@ describe("renderer damage rect behavior", () => {
     assert.equal(plainOps.length, 0);
   });
 
+  test("negative shadow offsets do not force overflow traversal outside damage", () => {
+    const scene = buildScene(
+      ui.row({ width: 5, height: 2, overflow: "visible" }, [
+        ui.box(
+          {
+            width: 5,
+            height: 2,
+            border: "none",
+            shadow: {
+              offsetX: -2,
+              offsetY: -3,
+            },
+            style: { bg: (12 << 16) | (12 << 8) | 12 },
+          },
+          [ui.text("inside")],
+        ),
+      ]),
+      viewport,
+    );
+
+    const outsideDamage = { x: 20, y: 10, w: 1, h: 1 };
+    const ops = renderScene(scene, null, { damageRect: outsideDamage });
+    assert.equal(drawTextOps(ops).length, 0);
+  });
+
   test("visible-overflow ancestors do not drop shadow-only incremental damage outside parent rect", () => {
     const visibleAncestor = buildScene(
       ui.row({ width: 4, height: 2, overflow: "visible" }, [

@@ -14,7 +14,7 @@ import type { Theme } from "../../theme/theme.js";
 import { resolveColor } from "../../theme/theme.js";
 import { badgeRecipe, tagRecipe } from "../../ui/recipes.js";
 import type { VNode } from "../../widgets/types.js";
-import { createShadowConfig, renderShadow } from "../shadow.js";
+import { createShadowConfig, readShadowOffset, renderShadow } from "../shadow.js";
 import { asTextStyle, getButtonLabelStyle } from "../styles.js";
 import { readBoxBorder, renderBoxBorder } from "./boxBorder.js";
 import { readIntNonNegative, resolveMarginFromProps, resolveSpacingFromProps } from "./spacing.js";
@@ -176,14 +176,6 @@ function readShadowDensity(raw: unknown): "light" | "medium" | "dense" | undefin
     return raw;
   }
   return undefined;
-}
-
-function readShadowOffset(raw: unknown, fallback: number): number {
-  if (typeof raw !== "number" || !Number.isFinite(raw)) {
-    return fallback;
-  }
-  const value = Math.trunc(raw);
-  return value <= 0 ? 0 : value;
 }
 
 function resolveBoxShadowConfig(

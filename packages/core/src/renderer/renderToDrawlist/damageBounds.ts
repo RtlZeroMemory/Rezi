@@ -1,18 +1,10 @@
 import type { Rect } from "../../layout/types.js";
 import type { RuntimeInstance } from "../../runtime/commit.js";
-import { getRectWithShadow } from "../shadow.js";
+import { getRectWithShadow, readShadowOffset } from "../shadow.js";
 
 type BoxShadowProps = Readonly<{
   shadow?: unknown;
 }>;
-
-function readShadowOffset(raw: unknown, fallback: number): number {
-  if (typeof raw !== "number" || !Number.isFinite(raw)) {
-    return fallback;
-  }
-  const value = Math.trunc(raw);
-  return value <= 0 ? 0 : value;
-}
 
 function resolveShadowOffsets(
   shadow: unknown,

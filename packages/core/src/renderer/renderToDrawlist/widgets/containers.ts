@@ -10,7 +10,7 @@ import {
   renderHorizontalScrollbar,
   renderVerticalScrollbar,
 } from "../../scrollbar.js";
-import { createShadowConfig, renderShadow } from "../../shadow.js";
+import { createShadowConfig, readShadowOffset, renderShadow } from "../../shadow.js";
 import { asTextStyle } from "../../styles.js";
 import {
   type BorderSideStyleMap,
@@ -317,14 +317,6 @@ function readShadowDensity(raw: unknown): "light" | "medium" | "dense" | undefin
     return raw;
   }
   return undefined;
-}
-
-function readShadowOffset(raw: unknown, fallback: number): number {
-  if (typeof raw !== "number" || !Number.isFinite(raw)) {
-    return fallback;
-  }
-  const value = Math.trunc(raw);
-  return value <= 0 ? 0 : value;
 }
 
 function resolveBoxShadowConfig(

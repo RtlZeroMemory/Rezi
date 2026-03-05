@@ -42,6 +42,18 @@ type ShadowBoundsConfig = Readonly<{
 }>;
 
 /**
+ * Parse shadow offset-like numeric inputs.
+ * Invalid values fall back; negative and zero values clamp to 0.
+ */
+export function readShadowOffset(raw: unknown, fallback: number): number {
+  if (typeof raw !== "number" || !Number.isFinite(raw)) {
+    return fallback;
+  }
+  const value = Math.trunc(raw);
+  return value <= 0 ? 0 : value;
+}
+
+/**
  * Default shadow configuration.
  */
 export const DEFAULT_SHADOW: ShadowConfig = Object.freeze({
