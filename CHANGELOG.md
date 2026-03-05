@@ -6,6 +6,45 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.55] - 2026-03-05
+
+### Features
+
+- **core/runtime**: Added `useReducer` to composite widget hooks, including stale-dispatch generation guards and runtime/unit coverage.
+- **core/testing**: Added `findAll("textarea")` alias support in the test renderer for multiline input variants.
+
+### Bug Fixes
+
+- **core/renderer**: Unified shadow offset parsing across drawlist damage/overflow paths and centralized shared box-shadow config resolution to eliminate negative-offset divergence.
+- **core/forms**: `useForm.handleSubmit` now exposes submission failures via callback/state (`onSubmitError`, `submitError`) with safer thrown-value formatting.
+- **core/layout**: Added dev-mode warnings for unsupported child constraint props, including a `spacer` flex-only carveout.
+
+### Refactors
+
+- **core/layout**: Removed dead percent-sizing guard paths from stack layout planning.
+
+### Documentation
+
+- **docs/guide**: Added `testing.md` and `error-handling.md` entrypoint guides.
+- **docs/widgets**: Clarified `textarea` behavior as a multiline `input` variant in widget documentation/index mapping.
+
+### Tests
+
+- Added baseline test coverage for `cursor`, `focus/styles`, and `perf` frame/counter modules.
+- Added renderer regression coverage for negative shadow offsets and damage culling interaction.
+- Added runtime/unit coverage for `useReducer` behavior and test-renderer `textarea` alias lookup.
+
+### Merged Pull Requests
+
+- [#246](https://github.com/RtlZeroMemory/Rezi/pull/246) fix(core): unify shadow offset parsing across renderer paths
+- [#247](https://github.com/RtlZeroMemory/Rezi/pull/247) feat(core): expose useForm submit errors via callback and state
+- [#248](https://github.com/RtlZeroMemory/Rezi/pull/248) refactor(core): remove dead percent guard paths from stack layout
+- [#249](https://github.com/RtlZeroMemory/Rezi/pull/249) feat(core): warn in dev for unsupported child layout constraints
+- [#250](https://github.com/RtlZeroMemory/Rezi/pull/250) docs(guide): add testing and error-handling entrypoint guides
+- [#251](https://github.com/RtlZeroMemory/Rezi/pull/251) feat: add textarea kind alias support in test renderer
+- [#252](https://github.com/RtlZeroMemory/Rezi/pull/252) test: add baseline coverage for focus cursor and perf modules
+- [#253](https://github.com/RtlZeroMemory/Rezi/pull/253) feat: add useReducer hook for composite widgets
+
 ### Bug Fixes
 
 - **core/design-system + templates**: Visual polish/theming pass landed across recipes and renderer paths (tiered borders/shadows, refined focus indicators, chip/tag/badge treatment, scrollbar separation, and template theming consistency), with follow-up regressions fixed for tag `primary` fallback tones and focused form intrinsic widths.
