@@ -217,6 +217,17 @@ describe("basic widgets render to drawlist", () => {
     );
   });
 
+  test("kbd with unicode labels renders via DRAW_TEXT slices", () => {
+    const bytes = renderBytes(ui.kbd(["↑↓", "⏎"]));
+    const opcodes = parseOpcodes(bytes);
+    const strings = parseInternedStrings(bytes);
+
+    assert.equal(opcodes.includes(3), true, "should include DRAW_TEXT");
+    assert.equal(opcodes.includes(6), false, "should avoid DRAW_TEXT_RUN");
+    assert.equal(strings.includes("↑↓"), true);
+    assert.equal(strings.includes("⏎"), true);
+  });
+
   test("focusAnnouncer renders focus summary and empty fallback", () => {
     const announced = parseInternedStrings(
       renderBytes(

@@ -614,6 +614,19 @@ describe("renderer text - emoji multi-codepoint allocation", () => {
   });
 });
 
+describe("renderer text - kbd unicode fallback", () => {
+  test("kbd with unicode label uses DRAW_TEXT slices (no DRAW_TEXT_RUN)", () => {
+    const frame = parseFrame(renderBytes(ui.kbd("↑↓"), { cols: 10, rows: 1 }));
+
+    assert.equal(frame.drawTextRuns.length, 0);
+    assert.equal(frame.drawTexts.length, 3);
+    assert.deepEqual(
+      frame.drawTexts.map((cmd) => cmd.text),
+      ["[", "↑↓", "]"],
+    );
+  });
+});
+
 describe("renderer text - truncation boundaries", () => {
   test("ellipsis exact boundary keeps full ascii text", () => {
     const frame = parseFrame(
