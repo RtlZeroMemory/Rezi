@@ -4888,7 +4888,7 @@ export class WidgetRenderer<S> {
         }
 
         // Garbage collect local state for virtual lists that were removed.
-        for (const virtualListId of this.virtualListStore.keys?.() ?? []) {
+        for (const virtualListId of this.virtualListStore.keys()) {
           if (!this.virtualListById.has(virtualListId)) this.virtualListStore.delete(virtualListId);
         }
         if (this.pressedVirtualList && !this.virtualListById.has(this.pressedVirtualList.id)) {
@@ -4896,7 +4896,7 @@ export class WidgetRenderer<S> {
         }
 
         // Garbage collect local state for tables that were removed.
-        for (const tableId of this.tableStore.keys?.() ?? []) {
+        for (const tableId of this.tableStore.keys()) {
           if (!this.tableById.has(tableId)) this.tableStore.delete(tableId);
         }
 
@@ -4912,7 +4912,7 @@ export class WidgetRenderer<S> {
         }
 
         // Garbage collect treeStore entries for tree-like widgets that were removed.
-        for (const treeLikeId of this.treeStore.keys?.() ?? []) {
+        for (const treeLikeId of this.treeStore.keys()) {
           if (
             !this.treeById.has(treeLikeId) &&
             !this.filePickerById.has(treeLikeId) &&
