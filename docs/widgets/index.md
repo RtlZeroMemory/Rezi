@@ -29,6 +29,11 @@ Benefits of `ui.*` factories:
 - Default `gap: 1` applied to `row`/`column` when omitted.
 - Interactive widget props validated before layout (e.g. `button` requires non-empty `id`).
 
+## Widget Kind Mapping Notes
+
+- `ui.textarea(...)` is a multiline variant of `ui.input(...)` and compiles to VNode kind `"input"` with `multiline: true`.
+- In tests, `createTestRenderer(...).render(...).findAll("textarea")` matches those multiline input nodes.
+
 ## Beautiful Defaults
 
 When the active theme provides semantic color tokens, core interactive widgets are recipe-styled by default (buttons, inputs, selects, checkboxes, progress bars, callouts). Use `intent` on buttons for common patterns (primary/danger/link), and use manual `style` props to override specific attributes (they do not disable recipes).

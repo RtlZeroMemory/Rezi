@@ -48,6 +48,9 @@ When focused:
 
 Textarea is controlled: `value` is always the source of truth.
 
+Runtime note: `ui.textarea(...)` is represented as VNode kind `"input"` with `multiline: true`.
+Use this mapping when writing low-level kind assertions.
+
 ## Related
 
 - [Input](input.md) - Single-line controlled input
