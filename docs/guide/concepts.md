@@ -165,6 +165,7 @@ app.view(() =>
 `defineWidget()` gives each instance its own `WidgetContext` with hooks:
 
 - `ctx.useState()` -- Local state that persists across renders
+- `ctx.useReducer()` -- Reducer-driven local state transitions
 - `ctx.useRef()` -- Mutable ref without triggering re-render
 - `ctx.useMemo()` -- Memoize expensive computations
 - `ctx.useCallback()` -- Stable callback references

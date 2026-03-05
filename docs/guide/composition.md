@@ -32,6 +32,7 @@ export const Counter = defineWidget<CounterProps>((props, ctx) => {
 Composite widgets receive a `WidgetContext` with:
 
 - `useState` and `useRef` for local state
+- `useReducer` for reducer-driven local state transitions
 - `useEffect` for post-commit effects with cleanup
 - `useMemo` and `useCallback` for memoization with React-compatible dependency semantics
 - `useAppState` to select a slice of app state

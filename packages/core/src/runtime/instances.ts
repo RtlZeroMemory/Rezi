@@ -69,6 +69,11 @@ export type HookState =
       value: unknown;
     }
   | {
+      kind: "reducer";
+      value: unknown;
+      reducer: (state: unknown, action: unknown) => unknown;
+    }
+  | {
       kind: "ref";
       ref: RefState;
     }
@@ -321,6 +326,12 @@ export type HookContext = Readonly<{
   /** Get or create state hook at current index. */
   useState: <T>(initial: T | (() => T)) => [T, (v: T | ((prev: T) => T)) => void];
 
+  /** Get or create reducer hook at current index. */
+  useReducer: <T, A>(
+    reducer: (state: T, action: A) => T,
+    initial: T | (() => T),
+  ) => [T, (action: A) => void];
+
   /** Get or create ref hook at current index. */
   useRef: <T>(initial: T) => RefState<T>;
 
@@ -400,6 +411,51 @@ export function createHookContext(
       };
 
       return [hookState.value, setValue];
+    },
+
+    useReducer<T, A>(
+      reducer: (state: T, action: A) => T,
+      initial: T | (() => T),
+    ): [T, (action: A) => void] {
+      const index = getHookIndex();
+      const existing = mutableState.hooks[index];
+
+      if (existing === undefined) {
+        assertCanCreateHook(index, "reducer");
+        const initialValue = typeof initial === "function" ? (initial as () => T)() : initial;
+        mutableState.hooks[index] = {
+          kind: "reducer",
+          value: initialValue,
+          reducer: reducer as (state: unknown, action: unknown) => unknown,
+        };
+      } else if (existing.kind !== "reducer") {
+        throw new Error(
+          `Hook order mismatch at index ${index}: expected reducer, got ${existing.kind}`,
+        );
+      }
+
+      const hookState = mutableState.hooks[index] as {
+        kind: "reducer";
+        value: T;
+        reducer: (state: T, action: A) => T;
+      };
+      hookState.reducer = reducer;
+      const currentGeneration = mutableState.generation;
+
+      const dispatch = (action: A) => {
+        if (mutableState.generation !== currentGeneration) {
+          warnDev("[rezi] dispatch called from stale closure (instance generation changed)");
+          return;
+        }
+
+        const nextValue = hookState.reducer(hookState.value, action);
+        if (!Object.is(hookState.value, nextValue)) {
+          hookState.value = nextValue;
+          onInvalidate();
+        }
+      };
+
+      return [hookState.value, dispatch];
     },
 
     useRef<T>(initial: T): RefState<T> {
