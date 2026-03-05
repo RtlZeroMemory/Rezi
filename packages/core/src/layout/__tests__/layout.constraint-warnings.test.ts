@@ -51,4 +51,35 @@ describe("layout unsupported child-constraint warnings", () => {
 
     assert.deepEqual(warnings, []);
   });
+
+  test("does not warn when spacer uses flex", () => {
+    __resetLayoutConstraintWarningsForTest();
+    const vnode = ui.row({ width: 20, height: 3 }, [ui.spacer({ flex: 1 })]);
+
+    const warnings = captureWarnings(() => {
+      const measured = measure(vnode, 20, 3, "row");
+      assert.equal(measured.ok, true);
+      const laidOut = layout(vnode, 0, 0, 20, 3, "row");
+      assert.equal(laidOut.ok, true);
+    });
+
+    assert.deepEqual(warnings, []);
+  });
+
+  test("warns when spacer receives unsupported child constraints", () => {
+    __resetLayoutConstraintWarningsForTest();
+    const vnode = ui.row({ width: 20, height: 3 }, [
+      ui.spacer({ flex: 1, gridColumn: 2 } as unknown as never),
+    ]);
+
+    const warnings = captureWarnings(() => {
+      const measured = measure(vnode, 20, 3, "row");
+      assert.equal(measured.ok, true);
+      const laidOut = layout(vnode, 0, 0, 20, 3, "row");
+      assert.equal(laidOut.ok, true);
+    });
+
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0] ?? "", /spacer ignores gridColumn/i);
+  });
 });

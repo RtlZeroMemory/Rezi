@@ -128,7 +128,6 @@ const LAYOUT_CHILD_CONSTRAINT_KINDS = new Set<VNode["kind"]>([
   "barChart",
   "miniChart",
   "gauge",
-  "spacer",
 ]);
 const LAYOUT_CHILD_CONSTRAINT_KIND_LIST = Array.from(LAYOUT_CHILD_CONSTRAINT_KINDS)
   .sort()
@@ -233,7 +232,10 @@ function findUnsupportedLayoutConstraintUsage(root: VNode): readonly string[] {
       const props = (node.props ?? {}) as Readonly<Record<string, unknown>>;
       const unsupportedProps: string[] = [];
       for (const propName of LAYOUT_CHILD_CONSTRAINT_PROP_NAMES) {
-        if (props[propName] !== undefined) unsupportedProps.push(propName);
+        if (props[propName] === undefined) continue;
+        // spacer supports only flex grow/shrink behavior from parent stack.
+        if (node.kind === "spacer" && propName === "flex") continue;
+        unsupportedProps.push(propName);
       }
       if (unsupportedProps.length > 0) {
         issues.push(`${path}: ${node.kind} ignores ${unsupportedProps.join(", ")}`);
