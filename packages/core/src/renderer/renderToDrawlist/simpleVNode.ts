@@ -14,7 +14,7 @@ import type { Theme } from "../../theme/theme.js";
 import { resolveColor } from "../../theme/theme.js";
 import { badgeRecipe, tagRecipe } from "../../ui/recipes.js";
 import type { VNode } from "../../widgets/types.js";
-import { resolveBoxShadowConfig, renderShadow } from "../shadow.js";
+import { renderShadow, resolveBoxShadowConfig } from "../shadow.js";
 import { asTextStyle, getButtonLabelStyle } from "../styles.js";
 import { readBoxBorder, renderBoxBorder } from "./boxBorder.js";
 import { readIntNonNegative, resolveMarginFromProps, resolveSpacingFromProps } from "./spacing.js";

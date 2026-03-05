@@ -10,7 +10,7 @@ import {
   renderHorizontalScrollbar,
   renderVerticalScrollbar,
 } from "../../scrollbar.js";
-import { resolveBoxShadowConfig, renderShadow } from "../../shadow.js";
+import { renderShadow, resolveBoxShadowConfig } from "../../shadow.js";
 import { asTextStyle } from "../../styles.js";
 import {
   type BorderSideStyleMap,
