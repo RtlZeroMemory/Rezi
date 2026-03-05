@@ -382,6 +382,12 @@ function findAll(
 ): readonly TestRenderNode[] {
   const out: TestRenderNode[] = [];
   for (const node of nodes) {
+    if (kind === "textarea") {
+      if (node.kind === "input" && node.props.multiline === true) {
+        out.push(node);
+      }
+      continue;
+    }
     if (node.kind === kind) out.push(node);
   }
   return Object.freeze(out);

@@ -132,4 +132,19 @@ describe("createTestRenderer", () => {
     assert.equal(result.findById("submit")?.kind, "button");
     assert.equal(result.findAll("button").length, 1);
   });
+
+  test("findAll supports textarea kind alias", () => {
+    const renderer = createTestRenderer({ viewport: { cols: 40, rows: 8 } });
+    const result = renderer.render(
+      ui.column({}, [
+        ui.input({ id: "single", value: "single" }),
+        ui.textarea({ id: "multi", value: "line1\nline2", rows: 2 }),
+      ]),
+    );
+
+    const textareas = result.findAll("textarea");
+    assert.equal(textareas.length, 1);
+    assert.equal(textareas[0]?.id, "multi");
+    assert.equal(textareas[0]?.kind, "input");
+  });
 });
