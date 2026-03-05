@@ -170,7 +170,7 @@ test("config guard: matching fpsCap/native target fps is accepted", () => {
   backend.dispose();
 });
 
-test("config guard: native worker mode falls back to inline by default in TTY", () => {
+test("config guard: native worker mode stays on worker in TTY", () => {
   const selection = selectNodeBackendExecutionMode({
     requestedExecutionMode: "worker",
     fpsCap: 60,
@@ -178,8 +178,8 @@ test("config guard: native worker mode falls back to inline by default in TTY", 
   });
   assert.deepEqual(selection, {
     resolvedExecutionMode: "worker",
-    selectedExecutionMode: "inline",
-    fallbackReason: "native-worker-unstable",
+    selectedExecutionMode: "worker",
+    fallbackReason: null,
   });
 });
 

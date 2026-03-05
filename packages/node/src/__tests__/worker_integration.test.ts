@@ -118,7 +118,7 @@ async function shutdownAndWaitForExit(worker: Worker): Promise<void> {
   await exitPromise;
 }
 
-test("native loader: worker-thread load fails deterministically without native crash", async () => {
+test("native loader: worker-thread load succeeds and exits cleanly", async () => {
   const loaderPath = fileURLToPath(new URL("../../../native/loader.cjs", import.meta.url));
   const worker = new Worker(
     `
@@ -141,9 +141,9 @@ test("native loader: worker-thread load fails deterministically without native c
     Readonly<{ type?: unknown; ok?: unknown; message?: unknown }>,
   ];
   assert.equal(msg.type, "loaderResult");
-  assert.equal(msg.ok, false);
+  assert.equal(msg.ok, true);
   assert.equal(typeof msg.message, "string");
-  assert.match(String(msg.message), /does not support worker_threads/);
+  assert.equal(String(msg.message), "");
 
   const [code] = (await once(worker, "exit")) as [number];
   assert.equal(code, 0);

@@ -154,7 +154,7 @@ export type NodeBackendExecutionModeSelectionInput = Readonly<{
 export type NodeBackendExecutionModeSelection = Readonly<{
   resolvedExecutionMode: "worker" | "inline";
   selectedExecutionMode: "worker" | "inline";
-  fallbackReason: "native-worker-unstable" | null;
+  fallbackReason: string | null;
 }>;
 
 type Deferred<T> = Readonly<{
@@ -353,7 +353,7 @@ function hasInteractiveTty(): boolean {
 export function selectNodeBackendExecutionMode(
   input: NodeBackendExecutionModeSelectionInput,
 ): NodeBackendExecutionModeSelection {
-  const { requestedExecutionMode, fpsCap, nativeShimModule, hasAnyTty } = input;
+  const { requestedExecutionMode, fpsCap } = input;
   const resolvedExecutionMode: "worker" | "inline" =
     requestedExecutionMode === "inline"
       ? "inline"
@@ -362,12 +362,10 @@ export function selectNodeBackendExecutionMode(
         : fpsCap <= 30
           ? "inline"
           : "worker";
-  const shouldFallbackForNativeWorker =
-    resolvedExecutionMode === "worker" && nativeShimModule === undefined && hasAnyTty;
   return {
     resolvedExecutionMode,
-    selectedExecutionMode: shouldFallbackForNativeWorker ? "inline" : resolvedExecutionMode,
-    fallbackReason: shouldFallbackForNativeWorker ? "native-worker-unstable" : null,
+    selectedExecutionMode: resolvedExecutionMode,
+    fallbackReason: null,
   };
 }
 
