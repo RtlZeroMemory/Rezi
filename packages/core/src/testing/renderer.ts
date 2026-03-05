@@ -383,6 +383,7 @@ function findAll(
   const out: TestRenderNode[] = [];
   for (const node of nodes) {
     if (kind === "textarea") {
+      // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket access for index-signature properties.
       if (node.kind === "input" && node.props["multiline"] === true) {
         out.push(node);
       }
