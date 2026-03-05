@@ -10,7 +10,7 @@ import {
   renderHorizontalScrollbar,
   renderVerticalScrollbar,
 } from "../../scrollbar.js";
-import { createShadowConfig, renderShadow } from "../../shadow.js";
+import { renderShadow, resolveBoxShadowConfig } from "../../shadow.js";
 import { asTextStyle } from "../../styles.js";
 import {
   type BorderSideStyleMap,
@@ -310,52 +310,6 @@ function pushChildrenWithLayout(
     }
   }
   return pushedChildren;
-}
-
-function readShadowDensity(raw: unknown): "light" | "medium" | "dense" | undefined {
-  if (raw === "light" || raw === "medium" || raw === "dense") {
-    return raw;
-  }
-  return undefined;
-}
-
-function readShadowOffset(raw: unknown, fallback: number): number {
-  if (typeof raw !== "number" || !Number.isFinite(raw)) {
-    return fallback;
-  }
-  const value = Math.trunc(raw);
-  return value <= 0 ? 0 : value;
-}
-
-function resolveBoxShadowConfig(
-  shadow: unknown,
-  theme: Theme,
-): ReturnType<typeof createShadowConfig> | null {
-  if (shadow !== true && (shadow === false || shadow === undefined || shadow === null)) {
-    return null;
-  }
-
-  if (shadow === true) {
-    return createShadowConfig({ color: theme.colors.border });
-  }
-
-  if (typeof shadow !== "object") {
-    return null;
-  }
-
-  const config = shadow as { offsetX?: unknown; offsetY?: unknown; density?: unknown };
-  const offsetX = readShadowOffset(config.offsetX, 1);
-  const offsetY = readShadowOffset(config.offsetY, 1);
-  const density = readShadowDensity(config.density);
-  if (offsetX <= 0 && offsetY <= 0) {
-    return null;
-  }
-  return createShadowConfig({
-    color: theme.colors.border,
-    offsetX,
-    offsetY,
-    ...(density !== undefined ? { density } : {}),
-  });
 }
 
 function readRgbColor(raw: unknown): ResolvedTextStyle["fg"] | undefined {
@@ -790,7 +744,7 @@ export function renderContainerWidget(
         : undefined;
       const shadowConfig = resolveBoxShadowConfig(
         props.shadow === undefined ? (surfaceDefaults?.shadow ?? false) : props.shadow,
-        theme,
+        theme.colors.border,
       );
       if (shadowConfig) {
         renderShadow(builder, rect, shadowConfig, borderDrawStyle);
@@ -898,7 +852,10 @@ export function renderContainerWidget(
         }
       }
 
-      const shadowConfig = resolveBoxShadowConfig(modalDefaults?.shadow ?? false, theme);
+      const shadowConfig = resolveBoxShadowConfig(
+        modalDefaults?.shadow ?? false,
+        theme.colors.border,
+      );
       if (shadowConfig) {
         renderShadow(builder, rect, shadowConfig, borderStyle);
       }

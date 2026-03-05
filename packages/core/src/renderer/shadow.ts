@@ -36,10 +36,24 @@ export type ShadowConfig = Readonly<{
   density: ShadowDensity;
 }>;
 
+type ShadowDensityInput = Readonly<{ density?: unknown; offsetX?: unknown; offsetY?: unknown }>;
+
 type ShadowBoundsConfig = Readonly<{
   offsetX: number;
   offsetY: number;
 }>;
+
+/**
+ * Parse shadow offset-like numeric inputs.
+ * Invalid values fall back; negative and zero values clamp to 0.
+ */
+export function readShadowOffset(raw: unknown, fallback: number): number {
+  if (typeof raw !== "number" || !Number.isFinite(raw)) {
+    return fallback;
+  }
+  const value = Math.trunc(raw);
+  return value <= 0 ? 0 : value;
+}
 
 /**
  * Default shadow configuration.
@@ -50,6 +64,47 @@ export const DEFAULT_SHADOW: ShadowConfig = Object.freeze({
   color: rgb(0, 0, 0),
   density: "light",
 });
+
+function readShadowDensity(raw: unknown): ShadowDensity | undefined {
+  if (raw === "light" || raw === "medium" || raw === "dense") {
+    return raw;
+  }
+  return undefined;
+}
+
+/**
+ * Resolve box-style shadow props into a canonical shadow config.
+ */
+export function resolveBoxShadowConfig(
+  shadow: unknown,
+  color: Rgb24,
+): ReturnType<typeof createShadowConfig> | null {
+  if (shadow !== true && (shadow === false || shadow === undefined || shadow === null)) {
+    return null;
+  }
+
+  if (shadow === true) {
+    return createShadowConfig({ color });
+  }
+
+  if (typeof shadow !== "object") {
+    return null;
+  }
+
+  const config = shadow as ShadowDensityInput;
+  const offsetX = readShadowOffset(config.offsetX, 1);
+  const offsetY = readShadowOffset(config.offsetY, 1);
+  const density = readShadowDensity(config.density);
+  if (offsetX <= 0 && offsetY <= 0) {
+    return null;
+  }
+  return createShadowConfig({
+    color,
+    offsetX,
+    offsetY,
+    ...(density !== undefined ? { density } : {}),
+  });
+}
 
 /**
  * Create a shadow config with custom options.

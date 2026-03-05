@@ -1,4 +1,5 @@
 import type { RuntimeInstance } from "../../runtime/commit.js";
+import { readShadowOffset } from "../shadow.js";
 
 type OverflowProps = Readonly<{
   overflow?: unknown;
@@ -9,14 +10,6 @@ type LayerWrapperProps = Readonly<{
   backdrop?: unknown;
   frameStyle?: unknown;
 }>;
-
-function readShadowOffset(raw: unknown, fallback: number): number {
-  if (typeof raw !== "number" || !Number.isFinite(raw)) {
-    return fallback;
-  }
-  const value = Math.trunc(raw);
-  return Math.abs(value);
-}
 
 function hasBoxShadowOverflow(node: RuntimeInstance): boolean {
   if (node.vnode.kind !== "box") {
