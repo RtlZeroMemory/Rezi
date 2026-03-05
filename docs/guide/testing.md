@@ -34,6 +34,7 @@ node scripts/run-tests.mjs --filter "layout"
 - Integration behavior for rendering, routing, and event flow.
 - Regression coverage for bugs (repro test first, then fix).
 - Snapshot/visual stability for renderer-facing changes.
+- Responsive behavior validation across multiple viewport sizes (`**/*.test.{ts,tsx,js,jsx}`).
 
 ## Renderer and widget tests
 
@@ -42,7 +43,7 @@ For high-level widget assertions, prefer `createTestRenderer()` so tests can use
 - `findById(...)`
 - `findAll(...)`
 - `findText(...)`
-- `toText()` / `toAnsi()`
+- `toText()`
 
 ## Snapshot workflow
 

@@ -38,7 +38,7 @@ Fatal event semantics are documented in:
 - Keep view functions pure and deterministic.
 - Avoid throwing from event handlers; return error state instead.
 - Wrap integration points (network/filesystem/process) and convert errors into explicit UI state.
-- For form submits, use `useForm` `onSubmitError` / `submitError` to surface failures.
+- For form submits, convert thrown submit failures into explicit UI state and user-visible feedback.
 
 ## Runtime error codes
 
