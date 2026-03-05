@@ -60,6 +60,51 @@ const MyWidget = defineWidget<{ key?: string }>((props, ctx) => {
 
 ---
 
+### `ctx.useReducer`
+
+Create reducer-driven local state for complex state transitions. Returns a `[state, dispatch]` tuple.
+
+**Signature:**
+
+```typescript
+ctx.useReducer<T, A>(
+  reducer: (state: T, action: A) => T,
+  initial: T | (() => T),
+): [T, (action: A) => void]
+```
+
+**Description:**
+
+- The reducer receives the current state and action, and must return the next state.
+- The initial value is read once on first render (supports lazy initializer functions).
+- `dispatch(action)` runs the reducer and schedules a re-render only if state changed (`Object.is` comparison).
+
+**Example:**
+
+```typescript
+type CounterAction = { type: "inc" } | { type: "dec" } | { type: "reset" };
+
+const Counter = defineWidget<{ key?: string }>((props, ctx) => {
+  const [count, dispatch] = ctx.useReducer(
+    (state: number, action: CounterAction) => {
+      if (action.type === "inc") return state + 1;
+      if (action.type === "dec") return state - 1;
+      return 0;
+    },
+    0,
+  );
+
+  return ui.row({ gap: 1 }, [
+    ui.button({ id: ctx.id("dec"), label: "-", onPress: () => dispatch({ type: "dec" }) }),
+    ui.text(String(count)),
+    ui.button({ id: ctx.id("inc"), label: "+", onPress: () => dispatch({ type: "inc" }) }),
+    ui.button({ id: ctx.id("reset"), label: "Reset", onPress: () => dispatch({ type: "reset" }) }),
+  ]);
+});
+```
+
+---
+
 ### `ctx.useRef`
 
 Create a mutable ref that persists across renders without triggering re-renders.

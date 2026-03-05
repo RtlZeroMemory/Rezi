@@ -245,6 +245,32 @@ describe("Composition API - Hooks", () => {
     assert.equal(value, 15);
   });
 
+  test("useReducer persists state across renders", () => {
+    const registry = createCompositeInstanceRegistry();
+    const state = registry.create(1, "Counter");
+
+    registry.beginRender(1);
+    let hookCtx = createHookContext(state, () => {});
+    const [value1, dispatch] = hookCtx.useReducer(
+      (current: number, action: number) => current + action,
+      1,
+    );
+    registry.endRender(1);
+
+    assert.equal(value1, 1);
+
+    dispatch(4);
+
+    registry.beginRender(1);
+    const instance = registry.get(1);
+    assert.ok(instance !== undefined);
+    hookCtx = createHookContext(instance, () => {});
+    const [value2] = hookCtx.useReducer((current: number, action: number) => current + action, 0);
+    registry.endRender(1);
+
+    assert.equal(value2, 5);
+  });
+
   test("useState setter ignores updates after generation change (stale closure)", () => {
     const registry = createCompositeInstanceRegistry();
     const state = registry.create(1, "Counter");
@@ -560,6 +586,7 @@ describe("Composition API - createWidgetContext", () => {
 
     assert.equal(typeof ctx.id, "function");
     assert.equal(typeof ctx.useState, "function");
+    assert.equal(typeof ctx.useReducer, "function");
     assert.equal(typeof ctx.useRef, "function");
     assert.equal(typeof ctx.useEffect, "function");
     assert.equal(typeof ctx.useMemo, "function");

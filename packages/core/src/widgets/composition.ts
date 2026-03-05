@@ -50,6 +50,19 @@ export type WidgetContext<State = void> = Readonly<{
   useState: <T>(initial: T | (() => T)) => [T, (v: T | ((prev: T) => T)) => void];
 
   /**
+   * Create reducer-driven local state for complex transitions.
+   * Similar to React's useReducer hook.
+   *
+   * @param reducer - State transition function
+   * @param initial - Initial state or lazy initializer function
+   * @returns Tuple of [currentState, dispatch]
+   */
+  useReducer: <T, A>(
+    reducer: (state: T, action: A) => T,
+    initial: T | (() => T),
+  ) => [T, (action: A) => void];
+
+  /**
    * Create a mutable ref that persists across renders without triggering re-renders.
    * Similar to React's useRef hook.
    *
@@ -350,7 +363,7 @@ export function createWidgetContext<State>(
   instanceIndex: number,
   hookContext: Pick<
     WidgetContext<State>,
-    "useState" | "useRef" | "useEffect" | "useMemo" | "useCallback"
+    "useState" | "useReducer" | "useRef" | "useEffect" | "useMemo" | "useCallback"
   >,
   appState: State,
   viewport: ResponsiveViewportSnapshot,
@@ -360,6 +373,7 @@ export function createWidgetContext<State>(
   return Object.freeze({
     id: (suffix: string) => scopedId(widgetKey, instanceIndex, suffix),
     useState: hookContext.useState,
+    useReducer: hookContext.useReducer,
     useRef: hookContext.useRef,
     useEffect: hookContext.useEffect,
     useMemo: hookContext.useMemo,
