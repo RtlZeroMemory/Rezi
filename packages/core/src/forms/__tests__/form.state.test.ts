@@ -254,10 +254,15 @@ describe("form.state - submit and reset lifecycle", () => {
     assert.equal(form.isSubmitting, false);
   });
 
-  test("submit rejection clears isSubmitting", async () => {
+  test("submit rejection clears isSubmitting and exposes submitError", async () => {
     const h = createFormHarness();
+    const submitError = new Error("submit failed");
+    const captured: unknown[] = [];
     const opts = options({
-      onSubmit: async () => Promise.reject(new Error("submit failed")),
+      onSubmit: async () => Promise.reject(submitError),
+      onSubmitError: (error) => {
+        captured.push(error);
+      },
     });
 
     let form = h.render(opts);
@@ -267,6 +272,34 @@ describe("form.state - submit and reset lifecycle", () => {
 
     assert.equal(form.isSubmitting, false);
     assert.equal(form.submitCount, 1);
+    assert.equal(form.submitError, submitError);
+    assert.deepEqual(captured, [submitError]);
+  });
+
+  test("successful submit clears prior submitError", async () => {
+    const h = createFormHarness();
+    const submitError = new Error("first failure");
+    let shouldFail = true;
+    const opts = options({
+      onSubmit: async () => {
+        if (shouldFail) {
+          return Promise.reject(submitError);
+        }
+      },
+      onSubmitError: () => undefined,
+    });
+
+    let form = h.render(opts);
+    form.handleSubmit();
+    await flushMicrotasks(4);
+    form = h.render(opts);
+    assert.equal(form.submitError, submitError);
+
+    shouldFail = false;
+    form.handleSubmit();
+    await flushMicrotasks(4);
+    form = h.render(opts);
+    assert.equal(form.submitError, undefined);
   });
 
   test("reset clears values, errors, touched, dirty and submitCount", () => {
@@ -289,6 +322,7 @@ describe("form.state - submit and reset lifecycle", () => {
     assert.deepEqual(form.dirty, {});
     assert.equal(form.isDirty, false);
     assert.equal(form.submitCount, 0);
+    assert.equal(form.submitError, undefined);
   });
 
   test("reset during pending submit immediately clears submitting state", async () => {

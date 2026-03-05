@@ -80,6 +80,9 @@ export type UseFormOptions<T extends Record<string, unknown>> = Readonly<{
   /** Callback invoked when form is submitted with valid values. */
   onSubmit: (values: T) => void | Promise<void>;
 
+  /** Optional callback invoked when `onSubmit` throws or rejects. */
+  onSubmitError?: (error: unknown) => void;
+
   /** Whether to reset form to initial values after successful submit. Default: false. */
   resetOnSubmit?: boolean;
 
@@ -188,6 +191,9 @@ export type UseFormReturn<T extends Record<string, unknown>> = Readonly<{
 
   /** True if form submission is in progress. */
   isSubmitting: boolean;
+
+  /** Most recent submit error from `onSubmit`, if any. */
+  submitError: unknown | undefined;
 
   /** Number of times handleSubmit has been called. */
   submitCount: number;
@@ -301,6 +307,7 @@ export type FormState<T extends Record<string, unknown>> = {
   touched: Partial<Record<keyof T, FieldBooleanValue>>;
   dirty: Partial<Record<keyof T, FieldBooleanValue>>;
   isSubmitting: boolean;
+  submitError: unknown | undefined;
   submitCount: number;
   disabled: boolean;
   readOnly: boolean;

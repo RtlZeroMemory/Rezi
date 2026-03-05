@@ -46,6 +46,13 @@ function warnDev(message: string): void {
   c?.warn?.(message);
 }
 
+function formatErrorForDev(error: unknown): string {
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}`;
+  }
+  return String(error);
+}
+
 type FieldOverrides<T extends Record<string, unknown>> = Partial<Record<keyof T, boolean>>;
 
 function cloneInitialValues<T extends Record<string, unknown>>(values: T): T {
@@ -101,6 +108,7 @@ function createInitialState<T extends Record<string, unknown>>(
     touched: {},
     dirty: {},
     isSubmitting: false,
+    submitError: undefined,
     submitCount: 0,
     disabled: options.disabled ?? false,
     readOnly: options.readOnly ?? false,
@@ -1134,6 +1142,7 @@ export function useForm<T extends Record<string, unknown>, State = void>(
       ...prev,
       touched: allTouched,
       errors: syncErrors,
+      submitError: undefined,
       submitCount: prev.submitCount + 1,
     }));
 
@@ -1152,7 +1161,17 @@ export function useForm<T extends Record<string, unknown>, State = void>(
     // Run async validation and submit
     const submitAsync = async (): Promise<void> => {
       try {
-        const asyncErrors = await runAsyncValidationFiltered(state.values, state);
+        let asyncErrors: ValidationResult<T>;
+        try {
+          asyncErrors = await runAsyncValidationFiltered(state.values, state);
+        } catch {
+          setState((prev) => ({
+            ...prev,
+            isSubmitting: false,
+            submitError: undefined,
+          }));
+          return;
+        }
 
         const allErrors = mergeValidationErrors(syncErrors, asyncErrors);
 
@@ -1162,12 +1181,34 @@ export function useForm<T extends Record<string, unknown>, State = void>(
             ...prev,
             isSubmitting: false,
             errors: allErrors,
+            submitError: undefined,
           }));
           return;
         }
 
-        // Call onSubmit
-        await Promise.resolve(options.onSubmit(state.values));
+        try {
+          // Call onSubmit
+          await Promise.resolve(options.onSubmit(state.values));
+        } catch (error) {
+          // Submission error - stop submitting and expose the last submit error.
+          if (typeof options.onSubmitError === "function") {
+            try {
+              options.onSubmitError(error);
+            } catch (callbackError) {
+              warnDev(
+                `[rezi] useForm: onSubmitError callback threw: ${formatErrorForDev(callbackError)}`,
+              );
+            }
+          } else {
+            warnDev(`[rezi] useForm: submit failed: ${formatErrorForDev(error)}`);
+          }
+          setState((prev) => ({
+            ...prev,
+            isSubmitting: false,
+            submitError: error,
+          }));
+          return;
+        }
 
         // Reset if configured
         if (options.resetOnSubmit) {
@@ -1176,14 +1217,9 @@ export function useForm<T extends Record<string, unknown>, State = void>(
           setState((prev) => ({
             ...prev,
             isSubmitting: false,
+            submitError: undefined,
           }));
         }
-      } catch {
-        // Submission error - stop submitting
-        setState((prev) => ({
-          ...prev,
-          isSubmitting: false,
-        }));
       } finally {
         submittingRef.current = false;
       }
@@ -1201,6 +1237,7 @@ export function useForm<T extends Record<string, unknown>, State = void>(
     isValid,
     isDirty,
     isSubmitting: state.isSubmitting,
+    submitError: state.submitError,
     submitCount: state.submitCount,
     disabled: state.disabled,
     readOnly: state.readOnly,

@@ -1219,6 +1219,7 @@ type UseFormOptions<T> = {
   validateOnChange?: boolean;                               // Validate on every change (default: false)
   validateOnBlur?: boolean;                                 // Validate on blur (default: true)
   onSubmit: (values: T) => void | Promise<void>;           // Submit handler
+  onSubmitError?: (error: unknown) => void;                // Optional submit error callback
   resetOnSubmit?: boolean;                                  // Reset after submit (default: false)
   disabled?: boolean;                                       // Form-level disabled
   readOnly?: boolean;                                       // Form-level read-only
@@ -1239,6 +1240,7 @@ type UseFormOptions<T> = {
 | `isValid` | `boolean` | True if no validation errors |
 | `isDirty` | `boolean` | True if any field modified |
 | `isSubmitting` | `boolean` | True during async submission |
+| `submitError` | `unknown \| undefined` | Most recent submit error, if any |
 | `bind(field)` | `UseFormInputBinding` | Spread-ready props for `ui.input(...)` |
 | `field(field, opts?)` | `VNode` | Fully wired `ui.field(...)` with child `ui.input(...)` |
 | `handleChange(field)` | `(value) => void` | Change handler factory |
