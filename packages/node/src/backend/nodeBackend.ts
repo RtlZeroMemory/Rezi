@@ -11,7 +11,6 @@ import { existsSync } from "node:fs";
 import { Worker, type WorkerOptions } from "node:worker_threads";
 import type {
   BackendEventBatch,
-  BackendRawWrite,
   DebugBackend,
   DebugConfig,
   DebugQuery,
@@ -21,15 +20,7 @@ import type {
   TerminalCaps,
   TerminalProfile,
 } from "@rezi-ui/core";
-import {
-  BACKEND_BEGIN_FRAME_MARKER,
-  BACKEND_DRAWLIST_VERSION_MARKER,
-  BACKEND_FPS_CAP_MARKER,
-  BACKEND_MAX_EVENT_BYTES_MARKER,
-  BACKEND_RAW_WRITE_MARKER,
-  DEFAULT_TERMINAL_CAPS,
-  FRAME_ACCEPTED_ACK_MARKER,
-} from "@rezi-ui/core";
+import { DEFAULT_TERMINAL_CAPS, FRAME_ACCEPTED_ACK_MARKER } from "@rezi-ui/core";
 import {
   ZR_DRAWLIST_VERSION_V1,
   ZR_ENGINE_ABI_MAJOR,
@@ -66,6 +57,19 @@ import {
   type PerfSnapshotWire,
   type WorkerToMainMessage,
 } from "../worker/protocol.js";
+import {
+  DEFAULT_FPS_CAP,
+  DEFAULT_MAX_EVENT_BYTES,
+  MAX_SAFE_EVENT_BYTES,
+  MAX_SAFE_FPS_CAP,
+  normalizeBackendNativeConfig,
+  parseBoundedPositiveIntOrThrow,
+  parsePositiveInt,
+  parsePositiveIntOr,
+  resolveTargetFps,
+} from "./backendSharedConfig.js";
+import { DEBUG_QUERY_DEFAULT_RECORDS, DEBUG_QUERY_MAX_RECORDS } from "./backendSharedDebug.js";
+import { attachBackendMarkers } from "./backendSharedMarkers.js";
 import { applyEmojiWidthPolicy, resolveBackendEmojiWidthPolicy } from "./emojiWidthPolicy.js";
 import { createNodeBackendInlineInternal } from "./nodeBackendInline.js";
 import { terminalProfileFromNodeEnv } from "./terminalProfile.js";
@@ -205,20 +209,6 @@ type FrameAuditEntry = {
 
 const WIDTH_POLICY_KEY = "widthPolicy" as const;
 
-const DEFAULT_NATIVE_LIMITS: Readonly<Record<string, number>> = Object.freeze({
-  // Align native validation caps with JS drawlist builder defaults.
-  //
-  // Native defaults are intentionally conservative; however, @rezi-ui/core's
-  // drawlist builders default to 2 MiB max drawlist bytes and large command
-  // budgets. Without overriding, moderately large frames (e.g. images/canvas)
-  // can fail with ZR_ERR_LIMIT (-3) at submit time.
-  outMaxBytesPerFrame: 2 * 1024 * 1024,
-  dlMaxTotalBytes: 2 * 1024 * 1024,
-  dlMaxCmds: 100_000,
-  dlMaxStrings: 10_000,
-  dlMaxBlobs: 10_000,
-});
-
 function deferred<T>(): Deferred<T> {
   let resolve!: (v: T) => void;
   let reject!: (err: Error) => void;
@@ -227,97 +217,6 @@ function deferred<T>(): Deferred<T> {
     reject = (err: unknown) => rej(err instanceof Error ? err : new Error(String(err)));
   });
   return { promise, resolve, reject };
-}
-
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
-
-function mergeNativeLimits(
-  nativeConfig: Readonly<Record<string, unknown>>,
-): Readonly<Record<string, unknown>> {
-  // biome-ignore lint/complexity/useLiteralKeys: bracket access is required by noPropertyAccessFromIndexSignature.
-  const limitsValue = nativeConfig["limits"];
-  const existingLimits = isPlainObject(limitsValue)
-    ? (limitsValue as Record<string, unknown>)
-    : null;
-  const limits: Record<string, unknown> = { ...(existingLimits ?? {}) };
-
-  const has = (camel: string): boolean => {
-    const snake = camel.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
-    return (
-      Object.prototype.hasOwnProperty.call(limits, camel) ||
-      Object.prototype.hasOwnProperty.call(limits, snake)
-    );
-  };
-
-  for (const [camel, value] of Object.entries(DEFAULT_NATIVE_LIMITS)) {
-    if (has(camel)) continue;
-    limits[camel] = value;
-  }
-
-  return Object.freeze({ ...nativeConfig, limits: Object.freeze(limits) });
-}
-
-function parsePositiveIntOr(n: unknown, fallback: number): number {
-  if (typeof n !== "number") return fallback;
-  if (!Number.isFinite(n)) return fallback;
-  if (!Number.isInteger(n)) return fallback;
-  if (n <= 0) return fallback;
-  return n;
-}
-
-function parsePositiveInt(n: unknown): number | null {
-  if (typeof n !== "number") return null;
-  if (!Number.isFinite(n)) return null;
-  if (!Number.isInteger(n)) return null;
-  if (n <= 0) return null;
-  return n;
-}
-
-function parseBoundedPositiveIntOrThrow(
-  name: string,
-  value: unknown,
-  fallback: number,
-  max: number,
-): number {
-  if (value === undefined) return fallback;
-  const parsed = parsePositiveInt(value);
-  if (parsed === null) {
-    throw new ZrUiError("ZRUI_INVALID_PROPS", `${name} must be a positive integer`);
-  }
-  if (parsed > max) {
-    throw new ZrUiError("ZRUI_INVALID_PROPS", `${name} must be <= ${String(max)}`);
-  }
-  return parsed;
-}
-
-function readNativeTargetFpsValues(
-  cfg: Readonly<Record<string, unknown>>,
-): Readonly<{ camel: number | null; snake: number | null }> {
-  const targetFpsCfg = cfg as Readonly<{ targetFps?: unknown; target_fps?: unknown }>;
-  return {
-    camel: parsePositiveInt(targetFpsCfg.targetFps),
-    snake: parsePositiveInt(targetFpsCfg.target_fps),
-  };
-}
-
-function resolveTargetFps(fpsCap: number, nativeConfig: Readonly<Record<string, unknown>>): number {
-  const values = readNativeTargetFpsValues(nativeConfig);
-  if (values.camel !== null && values.snake !== null && values.camel !== values.snake) {
-    throw new ZrUiError(
-      "ZRUI_INVALID_PROPS",
-      `createNodeBackend config mismatch: nativeConfig.targetFps=${String(values.camel)} must match nativeConfig.target_fps=${String(values.snake)}.`,
-    );
-  }
-  const nativeTargetFps = values.camel ?? values.snake;
-  if (nativeTargetFps !== null && nativeTargetFps !== fpsCap) {
-    throw new ZrUiError(
-      "ZRUI_INVALID_PROPS",
-      `createNodeBackend config mismatch: fpsCap=${String(fpsCap)} must match nativeConfig.targetFps/target_fps=${String(nativeTargetFps)}. Fix: set nativeConfig.targetFps (or target_fps) to ${String(fpsCap)}, or remove the override and use fpsCap only.`,
-    );
-  }
-  return fpsCap;
 }
 
 function safeErr(err: unknown): Error {
@@ -380,14 +279,8 @@ function assertWorkerEnvironmentSupported(nativeShimModule: string | undefined):
   );
 }
 
-const DEBUG_QUERY_DEFAULT_RECORDS = 4096 as const;
-const DEBUG_QUERY_MAX_RECORDS = 16384 as const;
 const FRAME_SAB_SLOT_COUNT_DEFAULT = 8 as const;
 const FRAME_SAB_SLOT_BYTES_DEFAULT = 1 << 20;
-const DEFAULT_FPS_CAP = 60 as const;
-const MAX_SAFE_FPS_CAP = 1000 as const;
-const DEFAULT_MAX_EVENT_BYTES = 1 << 20;
-const MAX_SAFE_EVENT_BYTES = 4 << 20;
 
 function copyInto(buf: ArrayBuffer, bytes: Uint8Array): void {
   new Uint8Array(buf, 0, bytes.byteLength).set(bytes);
@@ -608,12 +501,7 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
           kind: FRAME_TRANSPORT_TRANSFER_V1,
           version: FRAME_TRANSPORT_VERSION,
         };
-  const nativeConfig: Readonly<Record<string, unknown>> =
-    typeof cfg.nativeConfig === "object" &&
-    cfg.nativeConfig !== null &&
-    !Array.isArray(cfg.nativeConfig)
-      ? mergeNativeLimits(cfg.nativeConfig as Record<string, unknown>)
-      : mergeNativeLimits(Object.freeze({}));
+  const nativeConfig = normalizeBackendNativeConfig(cfg.nativeConfig);
   const nativeTargetFps = resolveTargetFps(fpsCap, nativeConfig);
 
   const initConfigBase: EngineCreateConfig = {
@@ -1795,55 +1683,10 @@ export function createNodeBackendInternal(opts: NodeBackendInternalOpts = {}): N
           };
         };
 
-  const out = Object.assign(backend, { debug, perf }) as NodeBackend &
-    Record<
-      | typeof BACKEND_BEGIN_FRAME_MARKER
-      | typeof BACKEND_DRAWLIST_VERSION_MARKER
-      | typeof BACKEND_MAX_EVENT_BYTES_MARKER
-      | typeof BACKEND_FPS_CAP_MARKER
-      | typeof BACKEND_RAW_WRITE_MARKER,
-      boolean | number | BackendRawWrite | BackendBeginFrame
-    >;
-  Object.defineProperties(out, {
-    [BACKEND_DRAWLIST_VERSION_MARKER]: {
-      value: requestedDrawlistVersion,
-      writable: false,
-      enumerable: false,
-      configurable: false,
-    },
-    [BACKEND_MAX_EVENT_BYTES_MARKER]: {
-      value: maxEventBytes,
-      writable: false,
-      enumerable: false,
-      configurable: false,
-    },
-    [BACKEND_FPS_CAP_MARKER]: {
-      value: fpsCap,
-      writable: false,
-      enumerable: false,
-      configurable: false,
-    },
-    [BACKEND_RAW_WRITE_MARKER]: {
-      value: ((text: string): void => {
-        if (typeof text !== "string" || text.length === 0) return;
-        try {
-          process.stdout.write(text);
-        } catch {
-          // Preserve backend determinism: clipboard write failures are non-fatal.
-        }
-      }) satisfies BackendRawWrite,
-      writable: false,
-      enumerable: false,
-      configurable: false,
-    },
+  return attachBackendMarkers(Object.assign(backend, { debug, perf }) as NodeBackend, {
+    requestedDrawlistVersion,
+    maxEventBytes,
+    fpsCap,
+    beginFrame,
   });
-  if (beginFrame !== null) {
-    Object.defineProperty(out, BACKEND_BEGIN_FRAME_MARKER, {
-      value: beginFrame,
-      writable: false,
-      enumerable: false,
-      configurable: false,
-    });
-  }
-  return out;
 }
