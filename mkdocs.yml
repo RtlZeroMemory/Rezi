@@ -118,6 +118,7 @@ nav:
       - Animation: guide/animation.md
       - Runtime & Layout: guide/runtime-and-layout.md
       - Lifecycle & Updates: guide/lifecycle-and-updates.md
+      - Error Handling: guide/error-handling.md
       - Routing: guide/routing.md
       - Layout: guide/layout.md
       - Layout Decision Tree: guide/layout-decision-tree.md
@@ -135,6 +136,7 @@ nav:
       - Graphics: guide/graphics.md
       - Performance: guide/performance.md
       - Debugging: guide/debugging.md
+      - Testing: guide/testing.md
       - Record & Replay: guide/record-replay.md
       - Hooks Reference: guide/hooks-reference.md
       - Recommended Patterns: guide/recommended-patterns.md
