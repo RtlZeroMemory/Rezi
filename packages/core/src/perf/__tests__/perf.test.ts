@@ -44,6 +44,7 @@ describe("perf instrumentation", () => {
     const layout = snapshot.phases.layout;
     assert.ok(commit !== undefined);
     assert.ok(layout !== undefined);
+    // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket access for index-signature properties.
     assert.equal((snapshot.counters["test_counter"] ?? 0) >= 1, true);
   });
 });
