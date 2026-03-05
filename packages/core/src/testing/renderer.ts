@@ -383,7 +383,7 @@ function findAll(
   const out: TestRenderNode[] = [];
   for (const node of nodes) {
     if (kind === "textarea") {
-      if (node.kind === "input" && node.props.multiline === true) {
+      if (node.kind === "input" && node.props["multiline"] === true) {
         out.push(node);
       }
       continue;
