@@ -136,10 +136,7 @@ describe("runtime hooks - useReducer", () => {
     staleDispatch({ type: "set", value: 10 });
 
     const [value] = h.render((hooks) =>
-      hooks.useReducer(
-        (state: number, action: { type: "set"; value: number }) => action.value,
-        0,
-      ),
+      hooks.useReducer((state: number, action: { type: "set"; value: number }) => action.value, 0),
     );
     assert.equal(value, 0);
   });
