@@ -29,6 +29,20 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 - [#242](https://github.com/RtlZeroMemory/Rezi/pull/242) feat(design): visual polish and theming upgrades
 
+## [0.1.0-alpha.54] - 2026-03-05
+
+### Performance
+
+- **core/runtime**: Reduced routing commit overhead by skipping full routing rebuilds on non-routing commits, trimming routing GC snapshot work, and avoiding `Object.freeze` on transient routing arrays in hot paths.
+
+### Bug Fixes
+
+- **core/runtime**: Tightened local-state store contracts by requiring `keys()` on virtual-list/table/tree stores and removing optional `keys?.()` fallback usage in renderer GC loops.
+
+### Merged Pull Requests
+
+- [#245](https://github.com/RtlZeroMemory/Rezi/pull/245) perf(core): reduce routing commit overhead
+
 ## [0.1.0-alpha.50] - 2026-03-03
 
 ### Features
