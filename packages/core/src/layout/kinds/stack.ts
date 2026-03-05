@@ -19,8 +19,6 @@ import {
 import {
   childHasAbsolutePosition,
   childHasFlexInMainAxis,
-  childHasPercentInCrossAxis,
-  childHasPercentInMainAxis,
   getConstraintProps,
 } from "../engine/guards.js";
 import { measureMaxContent, measureMinContent } from "../engine/intrinsic.js";
@@ -1284,19 +1282,10 @@ function measureStack(
   const hasFlexInMainAxis = vnode.children.some(
     (c) => !childHasAbsolutePosition(c) && childHasFlexInMainAxis(c, axis.axis),
   );
-  const hasPercentInMainAxis = vnode.children.some(
-    (c) => !childHasAbsolutePosition(c) && childHasPercentInMainAxis(c, axis.axis),
-  );
   const hasAdvancedFlexProps = vnode.children.some(
     (c) => !childHasAbsolutePosition(c) && childHasAdvancedFlexProps(c),
   );
-  const needsConstraintPass = hasFlexInMainAxis || hasPercentInMainAxis || hasAdvancedFlexProps;
-  const fillMain = forcedMain === null && hasPercentInMainAxis;
-  const fillCross =
-    forcedCross === null &&
-    vnode.children.some(
-      (c) => !childHasAbsolutePosition(c) && childHasPercentInCrossAxis(c, axis.axis),
-    );
+  const needsConstraintPass = hasFlexInMainAxis || hasAdvancedFlexProps;
   const childCount = countNonEmptyChildren(vnode.children);
 
   const outerWLimit = forcedW ?? maxWCap;
@@ -1307,10 +1296,8 @@ function measureStack(
   const crossLimit = crossFromWH(axis, cw, ch);
 
   const finalizeSize = (contentMain: number, contentCross: number): LayoutResult<Size> => {
-    const chosenMain =
-      forcedMain ?? (fillMain ? maxMainCap : Math.min(maxMainCap, padMain + contentMain));
-    const chosenCross =
-      forcedCross ?? (fillCross ? maxCrossCap : Math.min(maxCrossCap, padCross + contentCross));
+    const chosenMain = forcedMain ?? Math.min(maxMainCap, padMain + contentMain);
+    const chosenCross = forcedCross ?? Math.min(maxCrossCap, padCross + contentCross);
     const innerMain = clampWithin(chosenMain, minMain, maxMainCap);
     const innerCross = clampWithin(chosenCross, minCross, maxCrossCap);
     const { w: innerW, h: innerH } = toWH(axis, innerMain, innerCross);
@@ -1585,9 +1572,7 @@ function layoutStack(
   const needsConstraintPass = vnode.children.some(
     (c) =>
       !childHasAbsolutePosition(c) &&
-      (childHasFlexInMainAxis(c, axis.axis) ||
-        childHasPercentInMainAxis(c, axis.axis) ||
-        childHasAdvancedFlexProps(c)),
+      (childHasFlexInMainAxis(c, axis.axis) || childHasAdvancedFlexProps(c)),
   );
   const wrap = isWrapEnabled(vnode.props);
 

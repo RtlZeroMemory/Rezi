@@ -60,18 +60,6 @@ export function childHasFlexInMainAxis(vnode: unknown, axis: Axis): boolean {
   return typeof flex === "number" && Number.isFinite(flex) && flex > 0;
 }
 
-export function childHasPercentInMainAxis(vnode: unknown, axis: Axis): boolean {
-  void vnode;
-  void axis;
-  return false;
-}
-
-export function childHasPercentInCrossAxis(vnode: unknown, axis: Axis): boolean {
-  void vnode;
-  void axis;
-  return false;
-}
-
 export function childHasAbsolutePosition(vnode: unknown): boolean {
   if (!isVNode(vnode)) return false;
   const p = vnode.props as { position?: unknown };
