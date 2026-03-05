@@ -202,12 +202,28 @@ function clipSegmentsToWidth(
   return out;
 }
 
+function isAsciiText(text: string): boolean {
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (c < 0x20 || c > 0x7e) return false;
+  }
+  return true;
+}
+
+function containsNonAsciiSegment(segments: readonly StyledSegment[]): boolean {
+  for (const segment of segments) {
+    if (!isAsciiText(segment.text)) return true;
+  }
+  return false;
+}
+
 function drawSegments(
   builder: DrawlistBuilder,
   x: number,
   y: number,
   maxWidth: number,
   segments: readonly StyledSegment[],
+  options: Readonly<{ preferDrawText?: boolean }> = {},
 ): void {
   const textRunStableKey = (segments0: readonly StyledSegment[]): string =>
     JSON.stringify(segments0.map((segment) => [segment.text, segment.style ?? null] as const));
@@ -221,15 +237,17 @@ function drawSegments(
     return;
   }
 
-  const blobIndex = builder.addTextRunBlob(
-    clipped.map((segment) => ({
-      text: segment.text,
-      style: segment.style,
-    })),
-  );
-  if (blobIndex !== null) {
-    builder.drawTextRun(x, y, blobIndex);
-    return;
+  if (options.preferDrawText !== true) {
+    const blobIndex = builder.addTextRunBlob(
+      clipped.map((segment) => ({
+        text: segment.text,
+        style: segment.style,
+      })),
+    );
+    if (blobIndex !== null) {
+      builder.drawTextRun(x, y, blobIndex);
+      return;
+    }
   }
 
   let cursorX = x;
@@ -552,7 +570,9 @@ export function renderVNodeSimple(
       }
 
       builder.pushClip(x, y, w, h);
-      drawSegments(builder, x, y, w, segments);
+      drawSegments(builder, x, y, w, segments, {
+        preferDrawText: containsNonAsciiSegment(segments),
+      });
       builder.popClip();
       break;
     }
