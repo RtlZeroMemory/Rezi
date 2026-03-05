@@ -4285,7 +4285,18 @@ export class WidgetRenderer<S> {
         }
       }
 
-      if (doCommit && (hasRoutingWidgets || hadRoutingWidgets)) {
+      const canSkipFullRoutingRebuildOnCommit =
+        doCommit &&
+        hadRoutingWidgets &&
+        hasRoutingWidgets &&
+        identityDamageFromCommit !== null &&
+        identityDamageFromCommit.routingRelevantChanged === false;
+
+      if (
+        doCommit &&
+        (hasRoutingWidgets || hadRoutingWidgets) &&
+        !canSkipFullRoutingRebuildOnCommit
+      ) {
         didRoutingRebuild = true;
         this.hadRoutingWidgets = hasRoutingWidgets;
         const routingToken = PERF_DETAIL_ENABLED ? perfMarkStart("routing_rebuild") : 0;
@@ -4860,6 +4871,12 @@ export class WidgetRenderer<S> {
 
       if (doCommit && !didRoutingRebuild) {
         this.hadRoutingWidgets = hasRoutingWidgets;
+        if (canSkipFullRoutingRebuildOnCommit && !doLayout) {
+          // Full routing rebuild usually refreshes shortcut bindings. When this
+          // fast path skips that rebuild on commit-only turns, keep shortcut
+          // bindings in sync with async command palette item updates.
+          this.rebuildOverlayShortcutBindings();
+        }
       }
 
       if (doCommit && didRoutingRebuild) {
