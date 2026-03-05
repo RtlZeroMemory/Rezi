@@ -47,7 +47,6 @@
     "hsr:record:router": "node scripts/record-hsr-gif.mjs --mode router",
     "hsr:record:widget:auto": "node scripts/record-hsr-gif.mjs --mode widget --scripted",
     "hsr:record:router:auto": "node scripts/record-hsr-gif.mjs --mode router --scripted",
-    "demo:issue-243:kbd": "tsx scripts/issue-243-unicode-kbd-demo.ts",
     "prebench": "npm -w @rezi-ui/ink-compat-bench-harness run build && npm -w @rezi-ui/ink-compat-bench-runner run build && npm -w @rezi-ui/ink-compat-bench-app run build && npm -w @rezi-ui/ink-compat run build",
     "preverify": "npm run prebench",
     "prepare:real-ink": "node scripts/ink-compat-bench/prepare-real-ink.mjs",
