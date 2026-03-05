@@ -781,63 +781,68 @@ export function renderReactorLab(state: AnimationLabState): VNode {
   const styles = stylesForTheme(state.themeName);
   const palette = paletteForPhase(state.themeName, state.phase);
 
-  return ui.column({ key: "root", p: 1, gap: 1, style: styles.rootStyle }, [
-    ui.row({ key: "brand-row", gap: 1, wrap: true }, [
-      ui.text(APP_NAME, {
-        key: "app-name",
-        variant: "heading",
-      }),
-      ui.text("•", { key: "brand-dot" }),
-      ui.text("Animation Lab", {
-        key: "brand-name",
-        style: { fg: palette.brand },
-      }),
-      ui.spacer({ flex: 1 }),
-      ui.text(`Theme ${themeSpec(state.themeName).label}`, {
-        key: "theme-label",
-        style: styles.mutedStyle,
-      }),
-    ]),
-    ui.box(
-      {
-        key: "stage-shell",
-        border: "double",
-        // Helper-first viewport clamping over fragile raw `clamp(...)` expression strings.
-        width: widthConstraints.clampedViewportMinus({ minus: 4, min: 20, max: 140 }),
-        height: heightConstraints.clampedViewportMinus({ minus: 4, min: 8, max: 40 }),
-        opacity: state.panelOpacity,
-        p: 1,
-        style: styles.panelStyle,
-        transition: {
-          duration: 420,
-          easing: "easeInOutCubic",
-          properties: ["opacity"],
-        },
-      },
-      [
-        CommandDeck({
-          key: "command-deck",
-          tick: state.tick,
-          phase: state.phase,
-          palette,
-          viewportCols: state.viewportCols,
-          viewportRows: state.viewportRows,
-          driftTarget: state.driftTarget,
-          fluxTarget: state.fluxTarget,
-          orbitTarget: state.orbitTarget,
-          burstTarget: state.burstTarget,
-          modules: state.modules,
+  return ui.page({
+    key: "root",
+    p: 1,
+    gap: 1,
+    body: ui.column({ key: "root-body", gap: 1, style: styles.rootStyle }, [
+      ui.row({ key: "brand-row", gap: 1, wrap: true }, [
+        ui.text(APP_NAME, {
+          key: "app-name",
+          variant: "heading",
         }),
-      ],
-    ),
-    ui.text(
-      `tick=${String(state.tick).padStart(3, "0")}  viewport=${String(state.viewportCols)}x${String(
-        state.viewportRows,
-      )}  controls: space/p autoplay, enter step, arrows tune vectors, b burst, m phase, t theme, r random, q quit`,
-      {
-        key: "footer",
-        style: { fg: palette.footer },
-      },
-    ),
-  ]);
+        ui.text("•", { key: "brand-dot" }),
+        ui.text("Animation Lab", {
+          key: "brand-name",
+          style: { fg: palette.brand },
+        }),
+        ui.spacer({ flex: 1 }),
+        ui.text(`Theme ${themeSpec(state.themeName).label}`, {
+          key: "theme-label",
+          style: styles.mutedStyle,
+        }),
+      ]),
+      ui.box(
+        {
+          key: "stage-shell",
+          border: "double",
+          // Helper-first viewport clamping over fragile raw `clamp(...)` expression strings.
+          width: widthConstraints.clampedViewportMinus({ minus: 4, min: 20, max: 140 }),
+          height: heightConstraints.clampedViewportMinus({ minus: 4, min: 8, max: 40 }),
+          opacity: state.panelOpacity,
+          p: 1,
+          style: styles.panelStyle,
+          transition: {
+            duration: 420,
+            easing: "easeInOutCubic",
+            properties: ["opacity"],
+          },
+        },
+        [
+          CommandDeck({
+            key: "command-deck",
+            tick: state.tick,
+            phase: state.phase,
+            palette,
+            viewportCols: state.viewportCols,
+            viewportRows: state.viewportRows,
+            driftTarget: state.driftTarget,
+            fluxTarget: state.fluxTarget,
+            orbitTarget: state.orbitTarget,
+            burstTarget: state.burstTarget,
+            modules: state.modules,
+          }),
+        ],
+      ),
+      ui.text(
+        `tick=${String(state.tick).padStart(3, "0")}  viewport=${String(state.viewportCols)}x${String(
+          state.viewportRows,
+        )}  controls: space/p autoplay, enter step, arrows tune vectors, b burst, m phase, t theme, r random, q quit`,
+        {
+          key: "footer",
+          style: { fg: palette.footer },
+        },
+      ),
+    ]),
+  });
 }

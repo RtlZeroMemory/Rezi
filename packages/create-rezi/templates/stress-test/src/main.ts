@@ -751,7 +751,11 @@ function renderMatrixLane(
         } else {
           const fade = 1 - distance / tailLen;
           style = {
-            fg: mixRgb(palette.matrixTailEndFg, palette.matrixTailStartFg, fade * (0.7 + columnSeed * 0.3)),
+            fg: mixRgb(
+              palette.matrixTailEndFg,
+              palette.matrixTailStartFg,
+              fade * (0.7 + columnSeed * 0.3),
+            ),
             dim: fade < 0.25,
           };
         }
@@ -1246,7 +1250,6 @@ app.view((state) => {
 
   const spec = phaseSpec(state.phase);
   const themeSpec = themeCatalog[state.themeName] ?? themeCatalog.nord;
-  _activeThemeName = state.themeName;
   const palette = themeSpec.theme.colors;
   const lanePalette = lanePaletteForTheme(state.themeName);
 

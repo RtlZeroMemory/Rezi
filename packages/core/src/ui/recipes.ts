@@ -107,8 +107,7 @@ export function buttonRecipe(
 
   switch (variant) {
     case "solid": {
-      const bg =
-        state === "pressed" ? blendRgb(accentColor, colors.bg.base, 0.2) : accentColor;
+      const bg = state === "pressed" ? blendRgb(accentColor, colors.bg.base, 0.2) : accentColor;
       return {
         label: { fg: colors.fg.inverse, ...focusAttrs },
         bg: { bg },

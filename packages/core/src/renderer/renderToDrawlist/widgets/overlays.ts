@@ -69,7 +69,9 @@ type OverlayFrameColors = Readonly<{
   border?: ResolvedTextStyle["fg"];
 }>;
 
-type OverlayShadowRecipe = false | Readonly<{ density: "light" | "medium" | "dense"; offsetX?: number; offsetY?: number }>;
+type OverlayShadowRecipe =
+  | false
+  | Readonly<{ density: "light" | "medium" | "dense"; offsetX?: number; offsetY?: number }>;
 
 function readString(raw: unknown, fallback = ""): string {
   return typeof raw === "string" ? raw : fallback;
@@ -150,6 +152,8 @@ function resolveOverlayShadow(
   theme: Theme,
 ): ReturnType<typeof createShadowConfig> | null {
   if (!shadow) return null;
+  const offsetX = shadow.offsetX === undefined ? undefined : readNonNegativeInt(shadow.offsetX, 0);
+  const offsetY = shadow.offsetY === undefined ? undefined : readNonNegativeInt(shadow.offsetY, 0);
   const shadowConfig: {
     color: number;
     density: "light" | "medium" | "dense";
@@ -158,8 +162,8 @@ function resolveOverlayShadow(
   } = {
     color: theme.colors.border,
     density: shadow.density,
-    ...(shadow.offsetX !== undefined ? { offsetX: shadow.offsetX } : {}),
-    ...(shadow.offsetY !== undefined ? { offsetY: shadow.offsetY } : {}),
+    ...(offsetX !== undefined ? { offsetX } : {}),
+    ...(offsetY !== undefined ? { offsetY } : {}),
   };
   return createShadowConfig(shadowConfig);
 }
@@ -429,7 +433,12 @@ export function renderOverlayWidget(
       renderShadow(
         builder,
         rect,
-        createShadowConfig({ color: theme.colors.border, density: "medium", offsetX: 1, offsetY: 1 }),
+        createShadowConfig({
+          color: theme.colors.border,
+          density: "medium",
+          offsetX: 1,
+          offsetY: 1,
+        }),
         paletteBorderStyle,
       );
 

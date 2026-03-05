@@ -25,7 +25,7 @@ Renders variable-speed matrix rain with fading tails and spark noise.
 
 Lane resolution scales from terminal size so larger terminals render richer detail.
 
-Text/Matrix lanes and panel chrome derive from the active Rezi theme palette, so dark/light/high-contrast presets keep the benchmark legible without per-app color tweaking.
+Text/Matrix lanes and panel chrome derive from the active Rezi theme palette, so all built-in presets (Dark, Light, Dimmed, High-contrast, Nord, Dracula) keep the benchmark legible without per-app color tweaking.
 
 ## Metric Integrity
 

@@ -533,9 +533,9 @@ function resolveChipColor(theme: Theme, variant: unknown, kind: "badge" | "tag")
   const colorTokens = getColorTokens(theme);
   if (colorTokens !== null) {
     const tone = variantToRecipeTone(variant);
-    const bgStyle = (kind === "badge"
-      ? badgeRecipe(colorTokens, { tone }).bg
-      : tagRecipe(colorTokens, { tone }).bg) as { bg?: unknown };
+    const bgStyle = (
+      kind === "badge" ? badgeRecipe(colorTokens, { tone }).bg : tagRecipe(colorTokens, { tone }).bg
+    ) as { bg?: unknown };
     if (typeof bgStyle.bg === "number") {
       return bgStyle.bg;
     }

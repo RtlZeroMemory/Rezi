@@ -876,7 +876,8 @@ export function renderContainerWidget(
           : surfaceStyle;
       const backdrop = resolveModalBackdrop(props.backdrop);
       const colorTokens = getColorTokens(theme);
-      const modalDefaults = colorTokens !== null ? modalRecipe(colorTokens, { focused: true }) : null;
+      const modalDefaults =
+        colorTokens !== null ? modalRecipe(colorTokens, { focused: true }) : null;
 
       const fill = currentClip ?? { x: 0, y: 0, w: viewport.cols, h: viewport.rows };
       if (backdrop.variant === "opaque") {

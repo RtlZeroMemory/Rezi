@@ -1,5 +1,5 @@
-import type { CliAction, CliState } from "../types.js";
 import { DEFAULT_THEME_NAME } from "../theme.js";
+import type { CliAction, CliState } from "../types.js";
 import { buildLogEntry, seedLogs } from "./logs.js";
 
 const LOG_HISTORY_LIMIT = 160;

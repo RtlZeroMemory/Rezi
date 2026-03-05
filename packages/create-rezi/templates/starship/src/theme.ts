@@ -360,7 +360,11 @@ export function themeTokens(themeName: ThemeName): StarshipThemeTokens {
   const panelBase = blend(colors.bg.elevated, colors.bg.base, 0.14);
   const panelInset = blend(colors.bg.subtle, panelBase, 0.3);
   const panelElevated = blend(colors.bg.overlay, panelBase, 0.22);
-  const selectedBg = blend(colors.selected.bg, colors.accent.primary, mode === "alert" ? 0.22 : 0.16);
+  const selectedBg = blend(
+    colors.selected.bg,
+    colors.accent.primary,
+    mode === "alert" ? 0.22 : 0.16,
+  );
   const hoverBg = blend(panelBase, colors.accent.primary, mode === "alert" ? 0.14 : 0.1);
   const accentBrand = packRgb(colors.accent.primary);
   const accentInfo = blend(colors.accent.primary, colors.accent.secondary, 0.34);

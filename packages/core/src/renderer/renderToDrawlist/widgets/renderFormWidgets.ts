@@ -1,10 +1,10 @@
 import type { DrawlistBuilder } from "../../../drawlist/types.js";
+import { getDefaultFocusConfig } from "../../../focus/styles.js";
 import type { LayoutTree } from "../../../layout/layout.js";
 import { measureTextCells, truncateWithEllipsis } from "../../../layout/textMeasure.js";
 import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { FocusState } from "../../../runtime/focus.js";
-import { getDefaultFocusConfig } from "../../../focus/styles.js";
 import type { Theme } from "../../../theme/theme.js";
 import {
   buttonRecipe,
@@ -392,8 +392,7 @@ export function renderFormWidgets(
         const decorationPrefixW = focusDecoration ? measureTextCells(focusDecoration.prefix) : 0;
         const decorationSuffixW = focusDecoration ? measureTextCells(focusDecoration.suffix) : 0;
         const labelW = measureTextCells(label);
-        const maxPxForAtLeastOneCell =
-          rect.w <= 0 ? 0 : Math.max(0, Math.floor((rect.w - 1) / 2));
+        const maxPxForAtLeastOneCell = rect.w <= 0 ? 0 : Math.max(0, Math.floor((rect.w - 1) / 2));
         let px = Math.min(requestedPx ?? 1, maxPxForAtLeastOneCell);
         if (labelW > 0 && labelW <= rect.w) {
           const maxPxToFitFullLabel = Math.max(

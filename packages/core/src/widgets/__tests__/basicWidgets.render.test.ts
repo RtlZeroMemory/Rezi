@@ -431,11 +431,12 @@ describe("basic widgets render to drawlist", () => {
 
   test("callout without title keeps full first-line message with icon prefix", () => {
     const message = "12345678901234567890";
+    const icon = "*";
     const strings = parseInternedStrings(
       renderBytes(
         ui.callout(message, {
           variant: "info",
-          icon: "*",
+          icon,
         }),
         { cols: 80, rows: 8 },
       ),
@@ -443,6 +444,11 @@ describe("basic widgets render to drawlist", () => {
     assert.equal(
       strings.some((s) => s.includes(message)),
       true,
+    );
+    assert.equal(
+      strings.some((s) => s.includes(icon)),
+      true,
+      "expected custom icon prefix to render",
     );
   });
 
@@ -671,6 +677,10 @@ describe("basic widgets render to drawlist", () => {
 
   test("tag renders deterministic text-chip wrapper", () => {
     const strings = parseInternedStrings(renderBytes(ui.tag("beta")));
+    const hasLeftEdge = strings.some((s) => s.includes("( "));
+    const hasRightEdge = strings.some((s) => s.includes(" )"));
+    assert.equal(hasLeftEdge, true, "should include left wrapper edge");
+    assert.equal(hasRightEdge, true, "should include right wrapper edge");
     assert.equal(
       strings.some((s) => s.includes("( beta )")),
       true,

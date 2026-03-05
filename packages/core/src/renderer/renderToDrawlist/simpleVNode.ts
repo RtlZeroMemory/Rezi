@@ -123,9 +123,9 @@ function resolveChipColor(theme: Theme, variant: unknown, kind: "badge" | "tag")
   const colorTokens = getColorTokens(theme);
   if (colorTokens !== null) {
     const tone = variantToRecipeTone(variant);
-    const bgStyle = (kind === "badge"
-      ? badgeRecipe(colorTokens, { tone }).bg
-      : tagRecipe(colorTokens, { tone }).bg) as { bg?: unknown };
+    const bgStyle = (
+      kind === "badge" ? badgeRecipe(colorTokens, { tone }).bg : tagRecipe(colorTokens, { tone }).bg
+    ) as { bg?: unknown };
     if (typeof bgStyle.bg === "number") {
       return bgStyle.bg;
     }
@@ -546,7 +546,10 @@ export function renderVNodeSimple(
       const text = readString(props.text) ?? "";
       const ownStyle = asTextStyle(props.style, theme);
       const color = resolveChipColor(theme, props.variant, "badge");
-      const style = mergeTextStyle(mergeTextStyle(inheritedStyle, { fg: color, bold: true }), ownStyle);
+      const style = mergeTextStyle(
+        mergeTextStyle(inheritedStyle, { fg: color, bold: true }),
+        ownStyle,
+      );
       const content = truncateToWidth(`( ${text} )`, w);
 
       if (shouldFillForStyleOverride(ownStyle)) {
@@ -781,13 +784,13 @@ export function renderVNodeSimple(
           case "badge": {
             const p = child.props as { text?: unknown };
             const text = typeof p.text === "string" ? p.text : "";
-            return measureTextCells(text) + 2;
+            return measureTextCells(`( ${text} )`);
           }
           case "tag": {
             const p = child.props as { text?: unknown; removable?: unknown };
             const text = typeof p.text === "string" ? p.text : "";
-            const removable = p.removable === true ? 2 : 0;
-            return measureTextCells(text) + 2 + removable;
+            const suffix = p.removable === true ? " ×" : "";
+            return measureTextCells(`( ${text}${suffix} )`);
           }
           case "status": {
             const p = child.props as { label?: unknown; showLabel?: unknown };
