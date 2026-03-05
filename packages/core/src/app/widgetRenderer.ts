@@ -4548,9 +4548,9 @@ export class WidgetRenderer<S> {
         this.closeOnEscapeByLayerId = this._pooledCloseOnEscape;
         this.closeOnBackdropByLayerId = this._pooledCloseOnBackdrop;
         this.onCloseByLayerId = this._pooledOnClose;
-        this.dropdownStack = Object.freeze(this._pooledDropdownStack.slice());
-        this.overlayShortcutOwners = Object.freeze(this._pooledOverlayShortcutOwners.slice());
-        this.toastContainers = Object.freeze(this._pooledToastContainers.slice());
+        this.dropdownStack = this._pooledDropdownStack.slice();
+        this.overlayShortcutOwners = this._pooledOverlayShortcutOwners.slice();
+        this.toastContainers = this._pooledToastContainers.slice();
         this.rebuildOverlayShortcutBindings();
 
         // Build toast action maps using pooled collections.
@@ -4579,7 +4579,7 @@ export class WidgetRenderer<S> {
 
         this.toastActionByFocusId = this._pooledToastActionByFocusId;
         this.toastActionLabelByFocusId = this._pooledToastActionLabelByFocusId;
-        this.toastFocusableActionIds = Object.freeze(this._pooledToastFocusableActionIds.slice());
+        this.toastFocusableActionIds = this._pooledToastFocusableActionIds.slice();
 
         const baseFocusList = this.baseFocusList;
         const baseEnabledById = this.baseEnabledById;
@@ -4780,8 +4780,8 @@ export class WidgetRenderer<S> {
         this.closeOnEscapeByLayerId = this._pooledCloseOnEscape;
         this.closeOnBackdropByLayerId = this._pooledCloseOnBackdrop;
         this.onCloseByLayerId = this._pooledOnClose;
-        this.dropdownStack = Object.freeze(this._pooledDropdownStack.slice());
-        this.toastContainers = Object.freeze(this._pooledToastContainers.slice());
+        this.dropdownStack = this._pooledDropdownStack.slice();
+        this.toastContainers = this._pooledToastContainers.slice();
         this.rebuildOverlayShortcutBindings();
 
         this._pooledToastActionByFocusId.clear();
@@ -4809,7 +4809,7 @@ export class WidgetRenderer<S> {
 
         this.toastActionByFocusId = this._pooledToastActionByFocusId;
         this.toastActionLabelByFocusId = this._pooledToastActionLabelByFocusId;
-        this.toastFocusableActionIds = Object.freeze(this._pooledToastFocusableActionIds.slice());
+        this.toastFocusableActionIds = this._pooledToastFocusableActionIds.slice();
 
         const baseFocusList = this.baseFocusList;
         const baseEnabledById = this.baseEnabledById;
