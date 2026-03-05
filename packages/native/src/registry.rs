@@ -1,11 +1,12 @@
 use crate::ffi;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
+use std::thread::ThreadId;
 
 pub(crate) struct EngineSlot {
     pub(crate) engine: *mut ffi::zr_engine_t,
-    owner_thread_id: u64,
+    owner_thread_id: ThreadId,
     active_calls: AtomicUsize,
     active_calls_mu: Mutex<()>,
     active_calls_cv: Condvar,
@@ -19,7 +20,7 @@ impl EngineSlot {
     fn new(engine: *mut ffi::zr_engine_t) -> Self {
         Self {
             engine,
-            owner_thread_id: current_thread_id_u64(),
+            owner_thread_id: current_thread_id(),
             active_calls: AtomicUsize::new(0),
             active_calls_mu: Mutex::new(()),
             active_calls_cv: Condvar::new(),
@@ -28,7 +29,7 @@ impl EngineSlot {
     }
 
     pub(crate) fn is_owner_thread(&self) -> bool {
-        self.owner_thread_id == current_thread_id_u64()
+        self.owner_thread_id == current_thread_id()
     }
 
     pub(crate) fn mark_destroyed(&self) {
@@ -65,18 +66,13 @@ impl Drop for EngineGuard {
 
 static REGISTRY: OnceLock<Mutex<HashMap<u32, Arc<EngineSlot>>>> = OnceLock::new();
 static NEXT_ENGINE_ID: AtomicU32 = AtomicU32::new(1);
-static NEXT_THREAD_ID: AtomicU64 = AtomicU64::new(1);
 
 fn registry() -> &'static Mutex<HashMap<u32, Arc<EngineSlot>>> {
     REGISTRY.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn current_thread_id_u64() -> u64 {
-    thread_local! {
-      static THREAD_ID: u64 = NEXT_THREAD_ID.fetch_add(1, Ordering::Relaxed);
-    }
-
-    THREAD_ID.with(|id| *id)
+fn current_thread_id() -> ThreadId {
+    std::thread::current().id()
 }
 
 fn alloc_engine_id() -> Result<u32, i32> {

@@ -72,6 +72,32 @@ function readU64LE(bytes, offset) {
   return dv.getBigUint64(offset, true);
 }
 
+async function assertWorkerLoadExitCleanly() {
+  const worker = new Worker(new URL("./smoke-worker.mjs", import.meta.url), {
+    workerData: { phase: "loadOnly" },
+    type: "module",
+  });
+
+  const loadResult = await new Promise((resolve, reject) => {
+    const onExit = (code) => reject(new Error(`load-only worker exited with ${code}`));
+    const onError = (err) => reject(err);
+    const onMessage = (msg) => {
+      worker.off("exit", onExit);
+      worker.off("error", onError);
+      resolve(msg);
+    };
+    worker.once("exit", onExit);
+    worker.once("error", onError);
+    worker.once("message", onMessage);
+  });
+
+  assert(loadResult.phase === "loadOnly", "worker load-only phase must complete");
+  const exitCode = await new Promise((resolve) => worker.once("exit", resolve));
+  assert(exitCode === 0, `load-only worker must exit cleanly, got: ${String(exitCode)}`);
+}
+
+await assertWorkerLoadExitCleanly();
+
 // Unknown / stale id behavior (result-returning functions).
 assert(
   enginePresent(0) === ZR_ERR_INVALID_ARGUMENT,

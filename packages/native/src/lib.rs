@@ -19,7 +19,8 @@ use crate::config::{
 use crate::registry::{get_engine_guard, register_engine, take_engine_for_owner};
 use napi::bindgen_prelude::{BigInt, Error, Status, Uint8Array};
 use napi::{Env, JsObject};
-use napi_derive::napi;
+use napi_derive::{module_exports, napi};
+use std::sync::OnceLock;
 
 pub(crate) fn bigint_from_u64(value: u64) -> BigInt {
     BigInt {
@@ -30,6 +31,115 @@ pub(crate) fn bigint_from_u64(value: u64) -> BigInt {
 
 pub(crate) fn invalid_arg_error() -> Error {
     Error::new(Status::InvalidArg, "ZR_ERR_INVALID_ARGUMENT")
+}
+
+// Keep the addon resident for process lifetime so worker-thread TLS cleanup
+// cannot jump back into an already-unloaded Rust/N-API image.
+static MODULE_PIN_STATE: OnceLock<Result<usize, String>> = OnceLock::new();
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn pin_current_module() -> Result<usize, String> {
+    use std::ffi::{c_char, c_int, c_void, CStr};
+
+    #[repr(C)]
+    struct DlInfo {
+        dli_fname: *const c_char,
+        dli_fbase: *mut c_void,
+        dli_sname: *const c_char,
+        dli_saddr: *mut c_void,
+    }
+
+    unsafe extern "C" {
+        fn dladdr(addr: *const c_void, info: *mut DlInfo) -> c_int;
+        fn dlopen(filename: *const c_char, flags: c_int) -> *mut c_void;
+        fn dlerror() -> *const c_char;
+    }
+
+    const RTLD_NOW: c_int = 0x2;
+    #[cfg(target_os = "linux")]
+    const RTLD_NODELETE: c_int = 0x1000;
+
+    let mut info = DlInfo {
+        dli_fname: std::ptr::null(),
+        dli_fbase: std::ptr::null_mut(),
+        dli_sname: std::ptr::null(),
+        dli_saddr: std::ptr::null_mut(),
+    };
+    let symbol = pin_current_module as *const ();
+    let lookup_ok = unsafe { dladdr(symbol.cast::<c_void>(), &mut info as *mut _) };
+    if lookup_ok == 0 || info.dli_fname.is_null() {
+        return Err("dladdr failed for native module address".to_owned());
+    }
+
+    let mut flags = RTLD_NOW;
+    #[cfg(target_os = "linux")]
+    {
+        flags |= RTLD_NODELETE;
+    }
+
+    let handle = unsafe { dlopen(info.dli_fname, flags) };
+    if handle.is_null() {
+        let detail = unsafe { dlerror() };
+        if detail.is_null() {
+            return Err("dlopen returned null without dlerror detail".to_owned());
+        }
+        let detail = unsafe { CStr::from_ptr(detail) }
+            .to_string_lossy()
+            .into_owned();
+        return Err(format!("dlopen failed while pinning module: {detail}"));
+    }
+
+    Ok(handle as usize)
+}
+
+#[cfg(windows)]
+fn pin_current_module() -> Result<usize, String> {
+    use std::ffi::c_void;
+
+    type Hmodule = *mut c_void;
+
+    unsafe extern "system" {
+        fn GetModuleHandleExW(flags: u32, module_name: *const u16, module: *mut Hmodule) -> i32;
+    }
+
+    const GET_MODULE_HANDLE_EX_FLAG_PIN: u32 = 0x0000_0001;
+    const GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS: u32 = 0x0000_0004;
+
+    let mut module: Hmodule = std::ptr::null_mut();
+    let symbol = pin_current_module as *const ();
+    let ok = unsafe {
+        GetModuleHandleExW(
+            GET_MODULE_HANDLE_EX_FLAG_PIN | GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+            symbol.cast::<u16>(),
+            &mut module as *mut _,
+        )
+    };
+    if ok == 0 || module.is_null() {
+        return Err(std::io::Error::last_os_error().to_string());
+    }
+
+    Ok(module as usize)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
+fn pin_current_module() -> Result<usize, String> {
+    Ok(0)
+}
+
+fn ensure_module_pinned() -> napi::Result<()> {
+    let state = MODULE_PIN_STATE.get_or_init(pin_current_module);
+    match state {
+        Ok(_) => Ok(()),
+        Err(detail) => Err(Error::new(
+            Status::GenericFailure,
+            format!("failed to pin @rezi-ui/native for worker_threads safety: {detail}"),
+        )),
+    }
+}
+
+#[module_exports]
+fn init_native_module(_exports: JsObject, _env: Env) -> napi::Result<()> {
+    ensure_module_pinned()
 }
 
 #[napi(object)]
