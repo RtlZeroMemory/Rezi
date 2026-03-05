@@ -1238,16 +1238,7 @@ export class WidgetRenderer<S> {
   private readonly _pooledToastContainers: { rect: Rect; props: ToastContainerProps }[] = [];
   private readonly _pooledToastFocusableActionIds: string[] = [];
   private readonly _pooledActiveExitKeys = new Set<string>();
-  // Pooled Sets for tracking previous IDs (GC cleanup detection)
   private readonly _pooledPrevTreeIds = new Set<string>();
-  private readonly _pooledPrevDropdownIds = new Set<string>();
-  private readonly _pooledPrevVirtualListIds = new Set<string>();
-  private readonly _pooledPrevTableIds = new Set<string>();
-  private readonly _pooledPrevTreeStoreIds = new Set<string>();
-  private readonly _pooledPrevCommandPaletteIds = new Set<string>();
-  private readonly _pooledPrevToolApprovalDialogIds = new Set<string>();
-  private readonly _pooledPrevDiffViewerIds = new Set<string>();
-  private readonly _pooledPrevLogsConsoleIds = new Set<string>();
   private _runtimeBreadcrumbs: WidgetRuntimeBreadcrumbSnapshot = EMPTY_WIDGET_RUNTIME_BREADCRUMBS;
   private _constraintBreadcrumbs: RuntimeBreadcrumbConstraintsSummary | null = null;
   private _constraintExprIndexByInstanceId: ReadonlyMap<
@@ -4285,7 +4276,18 @@ export class WidgetRenderer<S> {
         }
       }
 
-      if (doCommit && (hasRoutingWidgets || hadRoutingWidgets)) {
+      const canSkipFullRoutingRebuildOnCommit =
+        doCommit &&
+        hadRoutingWidgets &&
+        hasRoutingWidgets &&
+        identityDamageFromCommit !== null &&
+        identityDamageFromCommit.routingRelevantChanged === false;
+
+      if (
+        doCommit &&
+        (hasRoutingWidgets || hadRoutingWidgets) &&
+        !canSkipFullRoutingRebuildOnCommit
+      ) {
         didRoutingRebuild = true;
         this.hadRoutingWidgets = hasRoutingWidgets;
         const routingToken = PERF_DETAIL_ENABLED ? perfMarkStart("routing_rebuild") : 0;
@@ -4293,29 +4295,8 @@ export class WidgetRenderer<S> {
           this._pooledRectByInstanceId.get(instanceId) ?? ZERO_RECT;
 
         // Rebuild complex widget metadata maps (id -> props) for routing.
-        // Use pooled Sets to track previous IDs for GC cleanup detection (avoids per-frame allocations).
         this._pooledPrevTreeIds.clear();
-        for (const k of this.treeById.keys()) this._pooledPrevTreeIds.add(k);
-        this._pooledPrevDropdownIds.clear();
-        for (const k of this.dropdownById.keys()) this._pooledPrevDropdownIds.add(k);
-        this._pooledPrevVirtualListIds.clear();
-        for (const k of this.virtualListById.keys()) this._pooledPrevVirtualListIds.add(k);
-        this._pooledPrevTableIds.clear();
-        for (const k of this.tableById.keys()) this._pooledPrevTableIds.add(k);
-        this._pooledPrevTreeStoreIds.clear();
-        for (const k of this.treeById.keys()) this._pooledPrevTreeStoreIds.add(k);
-        for (const k of this.filePickerById.keys()) this._pooledPrevTreeStoreIds.add(k);
-        for (const k of this.fileTreeExplorerById.keys()) this._pooledPrevTreeStoreIds.add(k);
-        this._pooledPrevCommandPaletteIds.clear();
-        for (const k of this.commandPaletteById.keys()) this._pooledPrevCommandPaletteIds.add(k);
-        this._pooledPrevToolApprovalDialogIds.clear();
-        for (const k of this.toolApprovalDialogById.keys())
-          this._pooledPrevToolApprovalDialogIds.add(k);
-        this._pooledPrevDiffViewerIds.clear();
-        for (const k of this.diffViewerById.keys()) this._pooledPrevDiffViewerIds.add(k);
-        this._pooledPrevLogsConsoleIds.clear();
-        for (const k of this.logsConsoleById.keys()) this._pooledPrevLogsConsoleIds.add(k);
-
+        for (const treeId of this.treeById.keys()) this._pooledPrevTreeIds.add(treeId);
         this.virtualListById.clear();
         this.buttonById.clear();
         this.linkById.clear();
@@ -4567,9 +4548,9 @@ export class WidgetRenderer<S> {
         this.closeOnEscapeByLayerId = this._pooledCloseOnEscape;
         this.closeOnBackdropByLayerId = this._pooledCloseOnBackdrop;
         this.onCloseByLayerId = this._pooledOnClose;
-        this.dropdownStack = Object.freeze(this._pooledDropdownStack.slice());
-        this.overlayShortcutOwners = Object.freeze(this._pooledOverlayShortcutOwners.slice());
-        this.toastContainers = Object.freeze(this._pooledToastContainers.slice());
+        this.dropdownStack = this._pooledDropdownStack.slice();
+        this.overlayShortcutOwners = this._pooledOverlayShortcutOwners.slice();
+        this.toastContainers = this._pooledToastContainers.slice();
         this.rebuildOverlayShortcutBindings();
 
         // Build toast action maps using pooled collections.
@@ -4598,7 +4579,7 @@ export class WidgetRenderer<S> {
 
         this.toastActionByFocusId = this._pooledToastActionByFocusId;
         this.toastActionLabelByFocusId = this._pooledToastActionLabelByFocusId;
-        this.toastFocusableActionIds = Object.freeze(this._pooledToastFocusableActionIds.slice());
+        this.toastFocusableActionIds = this._pooledToastFocusableActionIds.slice();
 
         const baseFocusList = this.baseFocusList;
         const baseEnabledById = this.baseEnabledById;
@@ -4799,8 +4780,8 @@ export class WidgetRenderer<S> {
         this.closeOnEscapeByLayerId = this._pooledCloseOnEscape;
         this.closeOnBackdropByLayerId = this._pooledCloseOnBackdrop;
         this.onCloseByLayerId = this._pooledOnClose;
-        this.dropdownStack = Object.freeze(this._pooledDropdownStack.slice());
-        this.toastContainers = Object.freeze(this._pooledToastContainers.slice());
+        this.dropdownStack = this._pooledDropdownStack.slice();
+        this.toastContainers = this._pooledToastContainers.slice();
         this.rebuildOverlayShortcutBindings();
 
         this._pooledToastActionByFocusId.clear();
@@ -4828,7 +4809,7 @@ export class WidgetRenderer<S> {
 
         this.toastActionByFocusId = this._pooledToastActionByFocusId;
         this.toastActionLabelByFocusId = this._pooledToastActionLabelByFocusId;
-        this.toastFocusableActionIds = Object.freeze(this._pooledToastFocusableActionIds.slice());
+        this.toastFocusableActionIds = this._pooledToastFocusableActionIds.slice();
 
         const baseFocusList = this.baseFocusList;
         const baseEnabledById = this.baseEnabledById;
@@ -4860,6 +4841,12 @@ export class WidgetRenderer<S> {
 
       if (doCommit && !didRoutingRebuild) {
         this.hadRoutingWidgets = hasRoutingWidgets;
+        if (canSkipFullRoutingRebuildOnCommit && !doLayout) {
+          // Full routing rebuild usually refreshes shortcut bindings. When this
+          // fast path skips that rebuild on commit-only turns, keep shortcut
+          // bindings in sync with async command palette item updates.
+          this.rebuildOverlayShortcutBindings();
+        }
       }
 
       if (doCommit && didRoutingRebuild) {
@@ -4896,27 +4883,21 @@ export class WidgetRenderer<S> {
         }
 
         // Garbage collect per-dropdown routing state for dropdowns that were removed.
-        for (const prevDropdownId of this._pooledPrevDropdownIds) {
-          if (!this.dropdownById.has(prevDropdownId)) {
-            this.dropdownSelectedIndexById.delete(prevDropdownId);
-          }
+        for (const dropdownId of this.dropdownSelectedIndexById.keys()) {
+          if (!this.dropdownById.has(dropdownId)) this.dropdownSelectedIndexById.delete(dropdownId);
         }
 
         // Garbage collect local state for virtual lists that were removed.
-        for (const prevId of this._pooledPrevVirtualListIds) {
-          if (!this.virtualListById.has(prevId)) {
-            this.virtualListStore.delete(prevId);
-            if (this.pressedVirtualList?.id === prevId) {
-              this.pressedVirtualList = null;
-            }
-          }
+        for (const virtualListId of this.virtualListStore.keys()) {
+          if (!this.virtualListById.has(virtualListId)) this.virtualListStore.delete(virtualListId);
+        }
+        if (this.pressedVirtualList && !this.virtualListById.has(this.pressedVirtualList.id)) {
+          this.pressedVirtualList = null;
         }
 
         // Garbage collect local state for tables that were removed.
-        for (const prevId of this._pooledPrevTableIds) {
-          if (!this.tableById.has(prevId)) {
-            this.tableStore.delete(prevId);
-          }
+        for (const tableId of this.tableStore.keys()) {
+          if (!this.tableById.has(tableId)) this.tableStore.delete(tableId);
         }
 
         // Garbage collect per-tree lazy-loading caches for trees that were removed.
@@ -4931,13 +4912,13 @@ export class WidgetRenderer<S> {
         }
 
         // Garbage collect treeStore entries for tree-like widgets that were removed.
-        for (const prevId of this._pooledPrevTreeStoreIds) {
+        for (const treeLikeId of this.treeStore.keys()) {
           if (
-            !this.treeById.has(prevId) &&
-            !this.filePickerById.has(prevId) &&
-            !this.fileTreeExplorerById.has(prevId)
+            !this.treeById.has(treeLikeId) &&
+            !this.filePickerById.has(treeLikeId) &&
+            !this.fileTreeExplorerById.has(treeLikeId)
           ) {
-            this.treeStore.delete(prevId);
+            this.treeStore.delete(treeLikeId);
           }
         }
 
@@ -4962,33 +4943,35 @@ export class WidgetRenderer<S> {
         }
 
         // Garbage collect command palette async state for palettes that were removed.
-        for (const prevId of this._pooledPrevCommandPaletteIds) {
-          if (!this.commandPaletteById.has(prevId)) {
-            this.commandPaletteItemsById.delete(prevId);
-            this.commandPaletteLoadingById.delete(prevId);
-            this.commandPaletteFetchTokenById.delete(prevId);
-            this.commandPaletteLastQueryById.delete(prevId);
-            this.commandPaletteLastSourcesRefById.delete(prevId);
-          }
+        for (const id of this.commandPaletteItemsById.keys()) {
+          if (!this.commandPaletteById.has(id)) this.commandPaletteItemsById.delete(id);
+        }
+        for (const id of this.commandPaletteLoadingById.keys()) {
+          if (!this.commandPaletteById.has(id)) this.commandPaletteLoadingById.delete(id);
+        }
+        for (const id of this.commandPaletteFetchTokenById.keys()) {
+          if (!this.commandPaletteById.has(id)) this.commandPaletteFetchTokenById.delete(id);
+        }
+        for (const id of this.commandPaletteLastQueryById.keys()) {
+          if (!this.commandPaletteById.has(id)) this.commandPaletteLastQueryById.delete(id);
+        }
+        for (const id of this.commandPaletteLastSourcesRefById.keys()) {
+          if (!this.commandPaletteById.has(id)) this.commandPaletteLastSourcesRefById.delete(id);
         }
 
-        for (const prevId of this._pooledPrevToolApprovalDialogIds) {
-          if (!this.toolApprovalDialogById.has(prevId)) {
-            this.toolApprovalFocusedActionById.delete(prevId);
-          }
+        for (const id of this.toolApprovalFocusedActionById.keys()) {
+          if (!this.toolApprovalDialogById.has(id)) this.toolApprovalFocusedActionById.delete(id);
         }
 
-        for (const prevId of this._pooledPrevDiffViewerIds) {
-          if (!this.diffViewerById.has(prevId)) {
-            this.diffViewerFocusedHunkById.delete(prevId);
-            this.diffViewerExpandedHunksById.delete(prevId);
-          }
+        for (const id of this.diffViewerFocusedHunkById.keys()) {
+          if (!this.diffViewerById.has(id)) this.diffViewerFocusedHunkById.delete(id);
+        }
+        for (const id of this.diffViewerExpandedHunksById.keys()) {
+          if (!this.diffViewerById.has(id)) this.diffViewerExpandedHunksById.delete(id);
         }
 
-        for (const prevId of this._pooledPrevLogsConsoleIds) {
-          if (!this.logsConsoleById.has(prevId)) {
-            this.logsConsoleLastGTimeById.delete(prevId);
-          }
+        for (const id of this.logsConsoleLastGTimeById.keys()) {
+          if (!this.logsConsoleById.has(id)) this.logsConsoleLastGTimeById.delete(id);
         }
       }
 

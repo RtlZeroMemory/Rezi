@@ -140,6 +140,7 @@ export type VirtualListStateStore = Readonly<{
   get: (id: string) => VirtualListLocalState;
   set: (id: string, patch: VirtualListLocalStatePatch) => VirtualListLocalState;
   delete: (id: string) => void;
+  keys: () => IterableIterator<string>;
 }>;
 
 /** Create a new virtual list state store instance. */
@@ -173,6 +174,7 @@ export function createVirtualListStateStore(): VirtualListStateStore {
     delete: (id) => {
       table.delete(id);
     },
+    keys: () => table.keys(),
   });
 }
 
@@ -222,6 +224,7 @@ export type TableStateStore = Readonly<{
   get: (id: string) => TableLocalState;
   set: (id: string, patch: TableLocalStatePatch) => TableLocalState;
   delete: (id: string) => void;
+  keys: () => IterableIterator<string>;
 }>;
 
 /** Create a new table state store instance. */
@@ -253,6 +256,7 @@ export function createTableStateStore(): TableStateStore {
     delete: (id) => {
       table.delete(id);
     },
+    keys: () => table.keys(),
   });
 }
 
@@ -331,6 +335,7 @@ export type TreeStateStore = Readonly<{
   get: (id: string) => TreeLocalState;
   set: (id: string, patch: TreeLocalStatePatch) => TreeLocalState;
   delete: (id: string) => void;
+  keys: () => IterableIterator<string>;
   /** Add a key to the loading set. */
   startLoading: (id: string, nodeKey: string) => TreeLocalState;
   /** Remove a key from the loading set. */
@@ -363,6 +368,7 @@ export function createTreeStateStore(): TreeStateStore {
     delete: (id) => {
       table.delete(id);
     },
+    keys: () => table.keys(),
     startLoading: (id, nodeKey) => {
       const prev = table.get(id) ?? DEFAULT_TREE_STATE;
       const newLoading = new Set(prev.loadingKeys);
