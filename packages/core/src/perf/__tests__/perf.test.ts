@@ -44,6 +44,6 @@ describe("perf instrumentation", () => {
     const layout = snapshot.phases.layout;
     assert.ok(commit !== undefined);
     assert.ok(layout !== undefined);
-    assert.equal((snapshot.counters.test_counter ?? 0) >= 1, true);
+    assert.equal((snapshot.counters["test_counter"] ?? 0) >= 1, true);
   });
 });
