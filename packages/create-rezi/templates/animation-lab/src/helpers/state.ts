@@ -1,5 +1,5 @@
-import type { AnimationLabAction, AnimationLabState, NudgePayload } from "../types.js";
 import { DEFAULT_THEME_NAME, cycleThemeName } from "../theme.js";
+import type { AnimationLabAction, AnimationLabState, NudgePayload } from "../types.js";
 
 const MODULE_SET: readonly string[] = Object.freeze([
   "Particle mesh synchronized",

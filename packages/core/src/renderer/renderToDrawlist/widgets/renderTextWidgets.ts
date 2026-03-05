@@ -495,6 +495,8 @@ export function variantToThemeColor(
   fallback: string,
 ): Theme["colors"][string] {
   switch (variant) {
+    case "primary":
+      return theme.colors.primary;
     case "success":
       return theme.colors.success;
     case "warning":
@@ -540,7 +542,9 @@ function resolveChipColor(theme: Theme, variant: unknown, kind: "badge" | "tag")
       return bgStyle.bg;
     }
   }
-  return variantToThemeColor(theme, variant, kind === "badge" ? "primary" : "secondary");
+  const fallbackTone =
+    kind === "badge" || variant === "primary" ? ("primary" as const) : ("secondary" as const);
+  return variantToThemeColor(theme, variant, fallbackTone);
 }
 
 function statusToThemeColor(theme: Theme, status: unknown): Theme["colors"][string] {
