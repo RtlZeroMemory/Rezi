@@ -14,7 +14,7 @@ import type { Theme } from "../../theme/theme.js";
 import { resolveColor } from "../../theme/theme.js";
 import { badgeRecipe, tagRecipe } from "../../ui/recipes.js";
 import type { VNode } from "../../widgets/types.js";
-import { createShadowConfig, readShadowOffset, renderShadow } from "../shadow.js";
+import { resolveBoxShadowConfig, renderShadow } from "../shadow.js";
 import { asTextStyle, getButtonLabelStyle } from "../styles.js";
 import { readBoxBorder, renderBoxBorder } from "./boxBorder.js";
 import { readIntNonNegative, resolveMarginFromProps, resolveSpacingFromProps } from "./spacing.js";
@@ -169,44 +169,6 @@ function readSpinnerVariant(v: unknown): SpinnerVariant {
 
 function resolveIconText(iconPath: string, fallback: boolean): string {
   return resolveIconRenderGlyph(iconPath, fallback).glyph;
-}
-
-function readShadowDensity(raw: unknown): "light" | "medium" | "dense" | undefined {
-  if (raw === "light" || raw === "medium" || raw === "dense") {
-    return raw;
-  }
-  return undefined;
-}
-
-function resolveBoxShadowConfig(
-  shadow: unknown,
-  theme: Theme,
-): ReturnType<typeof createShadowConfig> | null {
-  if (shadow !== true && (shadow === false || shadow === undefined || shadow === null)) {
-    return null;
-  }
-
-  if (shadow === true) {
-    return createShadowConfig({ color: theme.colors.border });
-  }
-
-  if (typeof shadow !== "object") {
-    return null;
-  }
-
-  const config = shadow as { offsetX?: unknown; offsetY?: unknown; density?: unknown };
-  const offsetX = readShadowOffset(config.offsetX, 1);
-  const offsetY = readShadowOffset(config.offsetY, 1);
-  const density = readShadowDensity(config.density);
-  if (offsetX <= 0 && offsetY <= 0) {
-    return null;
-  }
-  return createShadowConfig({
-    color: theme.colors.border,
-    offsetX,
-    offsetY,
-    ...(density !== undefined ? { density } : {}),
-  });
 }
 
 function clipSegmentsToWidth(
@@ -988,7 +950,7 @@ export function renderVNodeSimple(
       const boxY = y + margin.top;
       const boxW = Math.max(0, w - margin.left - margin.right);
       const boxH = Math.max(0, h - margin.top - margin.bottom);
-      const shadowConfig = resolveBoxShadowConfig(props.shadow, theme);
+      const shadowConfig = resolveBoxShadowConfig(props.shadow, theme.colors.border);
       if (shadowConfig) {
         renderShadow(
           builder,
