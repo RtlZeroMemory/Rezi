@@ -96,6 +96,57 @@ const LEGACY_SIZE_PROP_NAMES: readonly string[] = Object.freeze([
   "maxHeight",
   "flexBasis",
 ]);
+const LAYOUT_CHILD_CONSTRAINT_PROP_NAMES: readonly string[] = Object.freeze([
+  "flex",
+  "flexShrink",
+  "flexBasis",
+  "alignSelf",
+  "gridColumn",
+  "gridRow",
+  "colSpan",
+  "rowSpan",
+]);
+const LAYOUT_CHILD_CONSTRAINT_KINDS = new Set<VNode["kind"]>([
+  "box",
+  "row",
+  "column",
+  "grid",
+  "virtualList",
+  "table",
+  "tree",
+  "filePicker",
+  "fileTreeExplorer",
+  "codeEditor",
+  "diffViewer",
+  "logsConsole",
+  "canvas",
+  "image",
+  "lineChart",
+  "scatter",
+  "heatmap",
+  "sparkline",
+  "barChart",
+  "miniChart",
+  "gauge",
+]);
+const LAYOUT_CHILD_CONSTRAINT_KIND_LIST = Array.from(LAYOUT_CHILD_CONSTRAINT_KINDS)
+  .sort()
+  .join(", ");
+const NODE_ENV =
+  (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV ??
+  "development";
+const DEV_MODE = NODE_ENV !== "production";
+const emittedLayoutConstraintWarnings = new Set<string>();
+
+function warnDev(message: string): void {
+  if (!DEV_MODE) return;
+  const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
+  c?.warn?.(message);
+}
+
+export function __resetLayoutConstraintWarningsForTest(): void {
+  emittedLayoutConstraintWarnings.clear();
+}
 
 function isLegacyBreakpointMap(value: unknown): boolean {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
@@ -163,6 +214,83 @@ function findLegacyConstraintUsage(root: VNode): string | null {
   }
 
   return null;
+}
+
+function findUnsupportedLayoutConstraintUsage(root: VNode): readonly string[] {
+  const issues: string[] = [];
+  const stack: Array<Readonly<{ node: VNode; path: string }>> = [{ node: root, path: root.kind }];
+  const visited = new WeakSet<VNode>();
+
+  while (stack.length > 0) {
+    const frame = stack.pop();
+    if (!frame) continue;
+    const { node, path } = frame;
+    if (visited.has(node)) continue;
+    visited.add(node);
+
+    if (!LAYOUT_CHILD_CONSTRAINT_KINDS.has(node.kind)) {
+      const props = (node.props ?? {}) as Readonly<Record<string, unknown>>;
+      const unsupportedProps: string[] = [];
+      for (const propName of LAYOUT_CHILD_CONSTRAINT_PROP_NAMES) {
+        if (props[propName] === undefined) continue;
+        // spacer supports only flex grow/shrink behavior from parent stack.
+        if (node.kind === "spacer" && propName === "flex") continue;
+        unsupportedProps.push(propName);
+      }
+      if (unsupportedProps.length > 0) {
+        issues.push(`${path}: ${node.kind} ignores ${unsupportedProps.join(", ")}`);
+      }
+    }
+
+    const children = (node as Readonly<{ children?: readonly VNode[] }>).children;
+    if (Array.isArray(children) && children.length > 0) {
+      for (let i = children.length - 1; i >= 0; i--) {
+        const child = children[i];
+        if (!child) continue;
+        stack.push({ node: child, path: `${path}>${child.kind}[${String(i)}]` });
+      }
+    }
+
+    if (node.kind === "modal") {
+      const modalProps = node.props as Readonly<{
+        content?: unknown;
+        actions?: readonly unknown[];
+      }>;
+      if (
+        modalProps.content &&
+        typeof modalProps.content === "object" &&
+        "kind" in modalProps.content
+      ) {
+        stack.push({ node: modalProps.content as VNode, path: `${path}.content` });
+      }
+      if (Array.isArray(modalProps.actions)) {
+        for (let i = modalProps.actions.length - 1; i >= 0; i--) {
+          const action = modalProps.actions[i];
+          if (!action || typeof action !== "object" || !("kind" in action)) continue;
+          stack.push({ node: action as VNode, path: `${path}.actions[${String(i)}]` });
+        }
+      }
+    } else if (node.kind === "layer") {
+      const layerContent = (node.props as Readonly<{ content?: unknown }>).content;
+      if (layerContent && typeof layerContent === "object" && "kind" in layerContent) {
+        stack.push({ node: layerContent as VNode, path: `${path}.content` });
+      }
+    }
+  }
+
+  return Object.freeze(issues);
+}
+
+function warnUnsupportedLayoutConstraintUsage(root: VNode): void {
+  if (!DEV_MODE) return;
+  const issues = findUnsupportedLayoutConstraintUsage(root);
+  for (const issue of issues) {
+    if (emittedLayoutConstraintWarnings.has(issue)) continue;
+    emittedLayoutConstraintWarnings.add(issue);
+    warnDev(
+      `[rezi] layout: ${issue}. Supported child-constraint kinds: ${LAYOUT_CHILD_CONSTRAINT_KIND_LIST}.`,
+    );
+  }
 }
 
 function pushMeasureCache(cache: MeasureCache): void {
@@ -937,6 +1065,7 @@ export function measure(node: VNode, maxW: number, maxH: number, axis: Axis): La
       },
     };
   }
+  warnUnsupportedLayoutConstraintUsage(node);
   return measureNode(node, maxW, maxH, axis);
 }
 
@@ -972,6 +1101,7 @@ export function layout(
       },
     };
   }
+  warnUnsupportedLayoutConstraintUsage(node);
   const resolvedMeasureCache: MeasureCache = measureCache
     ? (measureCache as MeasureCache)
     : new WeakMap<VNode, MeasureCacheEntry>();

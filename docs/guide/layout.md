@@ -230,6 +230,17 @@ Most container widgets accept layout constraints:
 - `aspectRatio`: enforce `w/h`
 - `position`: `"static"` (default) or `"absolute"` with `top` / `right` / `bottom` / `left`
 
+Child-constraint support for `flex`, `flexShrink`, `flexBasis`, `alignSelf`, `gridColumn`, `gridRow`, `colSpan`, and `rowSpan` is limited to:
+
+- `box`, `row`, `column`, `grid`
+- `virtualList`, `table`, `tree`
+- `filePicker`, `fileTreeExplorer`
+- `codeEditor`, `diffViewer`, `logsConsole`
+- `canvas`, `image`, `lineChart`, `scatter`, `heatmap`, `sparkline`, `barChart`, `miniChart`, `gauge`
+- `spacer` (`flex` only)
+
+When these child-constraint props are passed to unsupported widget kinds (for example `ui.button({ flex: 1 } as any)`), Rezi emits a dev-mode warning and ignores them.
+
 Responsive layout notes:
 
 - Use `fluid(min, max, options?)` to interpolate deterministically between breakpoints (`sm`, `md`, `lg`, `xl`) with floor semantics and clamped bounds.
