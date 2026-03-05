@@ -11,6 +11,7 @@ type ThemeSpec = Readonly<{
 export const PRODUCT_NAME = "__APP_NAME__";
 export const TEMPLATE_LABEL = "__TEMPLATE_LABEL__";
 export const PRODUCT_TAGLINE = "Multi-screen CLI workflow with first-party routing";
+export const DEFAULT_THEME_NAME: ThemeName = "nord";
 
 const THEME_ORDER: readonly ThemeName[] = Object.freeze(["nord", "dark", "light"]);
 
@@ -27,7 +28,19 @@ export function themeSpec(themeName: ThemeName): ThemeSpec {
 export function nextThemeName(current: ThemeName): ThemeName {
   const index = THEME_ORDER.indexOf(current);
   const next = index < 0 ? 0 : (index + 1) % THEME_ORDER.length;
-  return THEME_ORDER[next] ?? "nord";
+  return THEME_ORDER[next] ?? DEFAULT_THEME_NAME;
+}
+
+export const THEME_OPTIONS: readonly Readonly<{ value: ThemeName; label: string }>[] =
+  Object.freeze(
+    THEME_ORDER.map((themeName) => {
+      const spec = THEME_BY_NAME[themeName];
+      return Object.freeze({ value: themeName, label: spec?.label ?? themeName });
+    }),
+  );
+
+export function isThemeName(value: string): value is ThemeName {
+  return value === "nord" || value === "dark" || value === "light";
 }
 
 export type CliStyles = Readonly<{

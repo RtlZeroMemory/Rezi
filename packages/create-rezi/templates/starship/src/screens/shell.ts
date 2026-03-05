@@ -13,7 +13,6 @@ import { alertLabel } from "../helpers/formatters.js";
 import { systemHealth } from "../helpers/state.js";
 import {
   SPACE,
-  alertBadgeVariant,
   PRODUCT_NAME,
   PRODUCT_TAGLINE,
   stylesForTheme,
@@ -115,6 +114,12 @@ function normalizedPercent(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
+function alertStatus(level: StarshipState["alertLevel"]): "online" | "away" | "busy" {
+  if (level === "green") return "online";
+  if (level === "yellow") return "away";
+  return "busy";
+}
+
 function routeHealthScore(routeId: RouteId, state: StarshipState): number {
   if (routeId === "bridge") return normalizedPercent(state.telemetry.hullIntegrity);
   if (routeId === "engineering") {
@@ -179,7 +184,7 @@ export function renderShell(options: ShellOptions): VNode {
     screen: () => ui.text(route.title),
   }));
   const currentRoute = options.context.router.currentRoute().id as RouteId;
-  const routeTabsTone = state.themeName === "alert" ? "danger" : state.themeName === "day" ? "primary" : "default";
+  const routeTabsTone = state.themeName === "alert" ? "danger" : "primary";
   const currentRouteTitle =
     routeDefinitions.find((route) => route.id === currentRoute)?.title ?? currentRoute;
   const contextStatus =
@@ -205,38 +210,19 @@ export function renderShell(options: ShellOptions): VNode {
           const active = currentRoute === route.id;
           const health = routeHealthScore(route.id, state);
           const degraded = health < 60;
-          return ui.box(
-            {
-              key: `deck-nav-box-${route.id}`,
-              border: "none",
-              p: 0,
-              px: 0,
-              py: 0,
-              style: active
-                ? { bg: tokens.state.selectedBg, fg: tokens.state.selectedText }
-                : { bg: tokens.bg.panel.inset, fg: tokens.text.primary },
-              inheritStyle: { fg: active ? tokens.state.selectedText : tokens.text.primary },
-            },
-            [
-              ui.row({ gap: SPACE.xs, items: "center", wrap: false }, [
-                ui.text(active ? "||" : "··", {
-                  style: active
-                    ? { fg: tokens.accent.brand, bold: true }
-                    : { fg: tokens.text.dim, dim: true },
-                }),
-                ui.button({
-                  id: `deck-sidebar-${route.id}`,
-                  label: routeLabel(route.id, route.title, layout.compactSidebar),
-                  dsVariant: active ? "solid" : "ghost",
-                  dsTone: active ? routeTabsTone : "default",
-                  dsSize: "sm",
-                  onPress: () => options.deps.navigate(route.id),
-                }),
-                ui.spacer({ flex: 1 }),
-                ui.status(degraded ? "busy" : active ? "online" : "away", { showLabel: false }),
-              ]),
-            ],
-          );
+          return ui.row({ key: `deck-nav-${route.id}`, gap: SPACE.xs, items: "center", wrap: false }, [
+            ui.button({
+              id: `deck-sidebar-${route.id}`,
+              label: routeLabel(route.id, route.title, layout.compactSidebar),
+              dsVariant: active ? "solid" : "ghost",
+              dsTone: routeTabsTone,
+              dsSize: "sm",
+              focusConfig: { indicator: "ring", ringVariant: "rounded" },
+              onPress: () => options.deps.navigate(route.id),
+            }),
+            ui.spacer({ flex: 1 }),
+            ui.status(degraded ? "busy" : active ? "online" : "away", { showLabel: false }),
+          ]);
         }),
       ),
       ...(showRouteHealth
@@ -258,7 +244,7 @@ export function renderShell(options: ShellOptions): VNode {
                   ? tokens.accent.danger
                   : warning
                     ? tokens.accent.warn
-                    : tokens.accent.success;
+                    : tokens.accent.brand;
                 return ui.column({ key: `route-health-${route.id}`, gap: SPACE.xs }, [
                   ui.row({ gap: SPACE.xs, items: "center", wrap: false }, [
                     ui.text(routeLabel(route.id, route.title, layout.compactSidebar), {
@@ -271,7 +257,7 @@ export function renderShell(options: ShellOptions): VNode {
                     }),
                     ui.spacer({ flex: 1 }),
                     ui.text(`${score}%`, {
-                      variant: "code",
+                      variant: "label",
                       style:
                         variant === "error"
                           ? { fg: tokens.accent.danger, bold: true }
@@ -292,7 +278,7 @@ export function renderShell(options: ShellOptions): VNode {
         : []),
     ],
     {
-      tone: "inset",
+      tone: "base",
       p: SPACE.xs,
       gap: SPACE.sm,
     },
@@ -303,7 +289,7 @@ export function renderShell(options: ShellOptions): VNode {
       border: "none",
       p: SPACE.xs,
       width: "full",
-      style: { bg: tokens.bg.panel.inset, fg: tokens.text.primary },
+      style: { bg: tokens.bg.panel.base, fg: tokens.text.primary },
       inheritStyle: { fg: tokens.text.primary },
     },
     [
@@ -311,7 +297,7 @@ export function renderShell(options: ShellOptions): VNode {
         ui.breadcrumb({
           id: "bridge-breadcrumb",
           separator: ">",
-          dsVariant: "soft",
+          dsVariant: "ghost",
           dsTone: routeTabsTone,
           dsSize: layout.compactSidebar ? "sm" : "md",
           items: [
@@ -342,7 +328,7 @@ export function renderShell(options: ShellOptions): VNode {
       border: "none",
       p: SPACE.xs,
       width: "full",
-      style: { bg: tokens.bg.panel.inset, fg: tokens.text.primary },
+      style: { bg: tokens.bg.panel.base, fg: tokens.text.primary },
       inheritStyle: { fg: tokens.text.primary },
     },
     [
@@ -355,28 +341,16 @@ export function renderShell(options: ShellOptions): VNode {
         [
           ...options.deps.routes.map((route) => {
             const active = route.id === currentRoute;
-            return ui.box(
-              {
-                key: `route-tab-box-${route.id}`,
-                border: "none",
-                p: 0,
-                style: active
-                  ? { bg: tokens.table.headerBg, fg: tokens.text.primary }
-                  : { bg: tokens.bg.panel.inset, fg: tokens.text.primary },
-              },
-              [
-                ui.button({
-                  key: `route-tab-${route.id}`,
-                  id: `route-tab-${route.id}`,
-                  label: route.title,
-                  dsVariant: active ? "solid" : "soft",
-                  dsTone: active ? routeTabsTone : "default",
-                  dsSize: layout.compactSidebar ? "sm" : "md",
-                  style: active ? { bold: true } : { fg: tokens.text.muted },
-                  onPress: () => options.deps.navigate(route.id),
-                }),
-              ],
-            );
+            return ui.button({
+              key: `route-tab-${route.id}`,
+              id: `route-tab-${route.id}`,
+              label: route.title,
+              dsVariant: active ? "solid" : "ghost",
+              dsTone: routeTabsTone,
+              dsSize: layout.compactSidebar ? "sm" : "md",
+              focusConfig: { indicator: "ring", ringVariant: "rounded" },
+              onPress: () => options.deps.navigate(route.id),
+            });
           }),
           ui.spacer({ flex: 1 }),
           ...(layout.wide
@@ -400,6 +374,8 @@ export function renderShell(options: ShellOptions): VNode {
       gap: SPACE.sm,
       width: "full",
       height: "full",
+      style: { bg: tokens.bg.panel.base, fg: tokens.text.primary },
+      inheritStyle: { fg: tokens.text.primary },
     },
     [
       ui.box(
@@ -426,7 +402,7 @@ export function renderShell(options: ShellOptions): VNode {
           p: 0,
           width: "full",
           flex: 1,
-          style: { bg: tokens.bg.app, fg: tokens.text.primary },
+          style: { bg: tokens.bg.panel.base, fg: tokens.text.primary },
           inheritStyle: { fg: tokens.text.primary },
         },
         [options.body],
@@ -458,26 +434,44 @@ export function renderShell(options: ShellOptions): VNode {
   const headerNode = minimalHeight
     ? ui.row({ gap: SPACE.sm, items: "center", wrap: true }, [
         ui.text(`${state.shipName} · ${options.title}`, { variant: "label", style: styles.accentStyle }),
-        ui.badge(alertLabel(state.alertLevel), { variant: alertBadgeVariant(state.alertLevel) }),
-        ui.tag(`Theme ${theme.label}`, { variant: theme.badge }),
+        ui.status(alertStatus(state.alertLevel), {
+          label: `Alert ${alertLabel(state.alertLevel)}`,
+        }),
+        ui.status(state.autopilot ? "online" : "away", {
+          label: state.autopilot ? "Autopilot" : "Manual",
+        }),
+        ui.text(`Theme ${theme.label}`, {
+          variant: "caption",
+          style: styles.mutedStyle,
+        }),
       ])
     : ui.header({
         title: `${state.shipName} · ${options.title}`,
         ...(compactHeight ? {} : { subtitle: PRODUCT_TAGLINE }),
         actions: compactHeight
           ? [
-              ui.badge(alertLabel(state.alertLevel), { variant: alertBadgeVariant(state.alertLevel) }),
-              ui.tag(`Theme ${theme.label}`, { variant: theme.badge }),
+              ui.status(alertStatus(state.alertLevel), {
+                label: `Alert ${alertLabel(state.alertLevel)}`,
+              }),
               ui.status(state.autopilot ? "online" : "away", {
                 label: state.autopilot ? "Autopilot" : "Manual",
               }),
+              ui.text(`Theme ${theme.label}`, {
+                variant: "caption",
+                style: styles.mutedStyle,
+              }),
             ]
           : [
-              ui.badge("Fleet Active", { variant: "success" }),
-              ui.badge(alertLabel(state.alertLevel), { variant: alertBadgeVariant(state.alertLevel) }),
-              ui.tag(`Theme ${theme.label}`, { variant: theme.badge }),
+              ui.status("online", { label: "Fleet Active" }),
+              ui.status(alertStatus(state.alertLevel), {
+                label: `Alert ${alertLabel(state.alertLevel)}`,
+              }),
               ui.status(state.autopilot ? "online" : "away", {
                 label: state.autopilot ? "Autopilot" : "Manual",
+              }),
+              ui.text(`Theme ${theme.label}`, {
+                variant: "caption",
+                style: styles.mutedStyle,
               }),
             ],
       });
@@ -499,7 +493,7 @@ export function renderShell(options: ShellOptions): VNode {
       p: 0,
       width: "full",
       height: "full",
-      style: { bg: tokens.bg.app, fg: tokens.text.primary },
+      style: { bg: tokens.bg.panel.base, fg: tokens.text.primary },
       inheritStyle: { fg: tokens.text.primary },
     },
     [navPanel],
@@ -511,7 +505,7 @@ export function renderShell(options: ShellOptions): VNode {
       p: 0,
       width: "full",
       height: "full",
-      style: { bg: tokens.bg.app, fg: tokens.text.primary },
+      style: { bg: tokens.bg.panel.base, fg: tokens.text.primary },
       inheritStyle: { fg: tokens.text.primary },
     },
     [bodyWithRail],
@@ -546,8 +540,8 @@ export function renderShell(options: ShellOptions): VNode {
       },
       [
         ui.appShell({
-          p: minimalHeight ? 0 : SPACE.xs,
-          gap: minimalHeight ? 0 : SPACE.xs,
+          p: 0,
+          gap: 0,
           header: headerContent,
           ...(showSidebar
             ? {
@@ -562,11 +556,10 @@ export function renderShell(options: ShellOptions): VNode {
             left: [
               ui.row({ gap: SPACE.lg, wrap: false, items: "center" }, [
                 ui.row({ gap: SPACE.xs, wrap: false, items: "center" }, [
-                  ui.text("Alert", { variant: "caption", style: styles.mutedStyle }),
-                  ui.badge(alertLabel(state.alertLevel), {
-                    variant: alertBadgeVariant(state.alertLevel),
+                  ui.status(alertStatus(state.alertLevel), {
+                    label: `Alert ${alertLabel(state.alertLevel)}`,
                   }),
-                  ui.text(`Systems ${health.average}%`, { variant: "code", style: styles.codeStyle }),
+                  ui.text(`Systems ${health.average}%`, { variant: "label", style: styles.codeStyle }),
                 ]),
                 ui.text(contextStatus, {
                   variant: "caption",

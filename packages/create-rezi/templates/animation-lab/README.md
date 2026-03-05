@@ -9,12 +9,12 @@ Scaffolded with `create-rezi` using the **__TEMPLATE_LABEL__** template.
 - Canvas-driven reactor visualization combined with charts, gauges, and staggered module rails.
 - Reducer-managed animation targets with deterministic tick updates.
 - Responsive layout that adapts to terminal resize events.
-- Keyboard controls for autoplay, single-step, vector tuning, burst impulses, and palette cycling.
+- Keyboard controls for autoplay, single-step, vector tuning, burst impulses, phase cycling, and theme cycling.
 
 ## File Layout
 
 - `src/types.ts`: animation state and action contracts.
-- `src/theme.ts`: template identity constants.
+- `src/theme.ts`: template identity + built-in theme catalog.
 - `src/helpers/state.ts`: viewport normalization + reducer transitions.
 - `src/helpers/keybindings.ts`: key to command resolver.
 - `src/screens/reactor-lab.ts`: reactor field screen renderer.
@@ -41,4 +41,5 @@ bun run start
 - Arrow keys: Nudge drift/flux/orbit vectors
 - `b`: Burst impulse
 - `r`: Randomized retarget
-- `m`: Cycle color palette
+- `m`: Cycle phase
+- `t`: Cycle theme preset

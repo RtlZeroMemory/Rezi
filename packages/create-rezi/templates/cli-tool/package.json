@@ -8,7 +8,7 @@
     "dev": "tsx watch src/main.ts --hsr",
     "build": "tsc --pretty false",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/__tests__"
+    "test": "tsx --test src/__tests__/*.test.ts"
   },
   "dependencies": {
     "@rezi-ui/core": "^0.1.0-alpha.17",

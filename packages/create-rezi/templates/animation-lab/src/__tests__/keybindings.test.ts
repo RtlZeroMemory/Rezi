@@ -9,5 +9,6 @@ test("animation lab keybinding map resolves expected commands", () => {
   assert.equal(resolveAnimationLabCommand("right"), "nudge-right");
   assert.equal(resolveAnimationLabCommand("b"), "burst");
   assert.equal(resolveAnimationLabCommand("m"), "cycle-phase");
+  assert.equal(resolveAnimationLabCommand("t"), "cycle-theme");
   assert.equal(resolveAnimationLabCommand("x"), undefined);
 });

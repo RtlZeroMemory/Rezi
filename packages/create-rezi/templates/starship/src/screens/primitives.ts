@@ -51,6 +51,12 @@ function panelColors(tokens: StarshipThemeTokens, tone: PanelTone): Readonly<{
   };
 }
 
+function panelPreset(tone: PanelTone): "card" | "well" | "elevated" {
+  if (tone === "inset" || tone === "muted" || tone === "default" || tone === "base") return "well";
+  if (tone === "elevated" || tone === "focused" || tone === "danger") return "elevated";
+  return "well";
+}
+
 export function surfacePanel(
   tokens: StarshipThemeTokens,
   title: string,
@@ -63,13 +69,17 @@ export function surfacePanel(
   return ui.box(
     {
       title,
-      border: "rounded",
+      preset: panelPreset(tone),
       p: options?.p ?? SPACE.sm,
       gap: options?.gap ?? SPACE.sm,
       ...(fill ? { width: "full" } : {}),
       style: { bg: colors.background, fg: tokens.text.primary },
-      borderStyle: { fg: colors.border, bg: colors.background },
       inheritStyle: { fg: tokens.text.primary },
+      ...(tone === "focused"
+        ? { borderStyle: { fg: tokens.border.focus } }
+        : tone === "danger"
+          ? { borderStyle: { fg: tokens.border.danger } }
+          : { borderStyle: { fg: colors.border } }),
     },
     children,
   );
@@ -126,7 +136,7 @@ export function progressRow(
       style: { fg: fillColor },
       trackStyle: { fg: tokens.progress.track },
     }),
-    ui.text(`${pct}%`, { variant: "code", style: { fg: tokens.text.primary, bold: true } }),
+    ui.text(`${pct}%`, { variant: "label", style: { fg: tokens.text.primary } }),
     ui.text(trendGlyph, {
       variant: "caption",
       style:

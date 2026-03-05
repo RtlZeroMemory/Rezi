@@ -200,13 +200,13 @@ function resolveBoxPreset(props: BoxProps): BoxProps {
   if (preset === undefined) return props;
   switch (preset) {
     case "card":
-      return { border: "rounded", p: 1, ...rest };
+      return { preset, border: "rounded", p: 1, ...rest };
     case "surface":
-      return { p: 1, ...rest };
+      return { preset, border: "none", p: 1, ...rest };
     case "well":
-      return { border: "single", p: 1, ...rest };
+      return { preset, border: "single", p: 1, ...rest };
     case "elevated":
-      return { border: "rounded", p: 1, shadow: true, ...rest };
+      return { preset, border: "single", p: 1, shadow: { density: "light" }, ...rest };
   }
 }
 
@@ -754,6 +754,7 @@ function panel(titleOrOptions: string | PanelOptions, children: readonly UiChild
     {
       ...(options.id === undefined ? {} : { id: options.id }),
       ...(options.key === undefined ? {} : { key: options.key }),
+      preset: "card",
       ...(options.title === undefined ? {} : { title: options.title }),
       border: options.variant ?? "rounded",
       p: options.p ?? 1,
@@ -884,6 +885,7 @@ function card(optionsOrTitle: CardOptions | string, children: readonly UiChild[]
     {
       ...(options.id === undefined ? {} : { id: options.id }),
       ...(options.key === undefined ? {} : { key: options.key }),
+      preset: "card",
       border: options.border ?? "rounded",
       p: options.p ?? 1,
       ...(options.style === undefined ? {} : { style: options.style }),

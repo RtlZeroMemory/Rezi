@@ -8,6 +8,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ### Bug Fixes
 
+- **core/design-system + templates**: Visual polish/theming pass landed across recipes and renderer paths (tiered borders/shadows, refined focus indicators, chip/tag/badge treatment, scrollbar separation, and template theming consistency), with follow-up regressions fixed for tag `primary` fallback tones and focused form intrinsic widths.
 - **core/runtime**: Unhandled top-level `q`/`Q` and `Ctrl+C` inputs now stop the app by default, while preserving explicit keybinding handlers.
 - **native/detect**: Startup terminal probing now exits after a short DA1 drain window instead of waiting the full 500ms budget when XTVERSION never responds, reducing first-render delay on VTE-like terminals.
 - **core/constraints**: Constraint input signatures now include all required runtime dependencies, preventing stale cache reuse when unconstrained referenced widget geometry changes.
@@ -23,6 +24,10 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 - Added renderer/constraint integration tests for nested settle, deep parent-dependent chains, unconstrained-reference invalidation, and modal/layer display traversal.
 - Added layout regression coverage for stack reservation boundaries, hidden-subtree shape preservation, interleaved absolute-child ordering, and stack `wrap` stability signatures.
+
+### Merged Pull Requests
+
+- [#242](https://github.com/RtlZeroMemory/Rezi/pull/242) feat(design): visual polish and theming upgrades
 
 ## [0.1.0-alpha.50] - 2026-03-03
 

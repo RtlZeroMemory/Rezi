@@ -22,8 +22,12 @@ type DashboardScreenHandlers = Readonly<{
   onSelectService: (serviceId: string) => void;
 }>;
 
-function panel(title: string, body: readonly VNode[], style: Readonly<Record<string, unknown>>): VNode {
-  return ui.panel({ title, style }, body);
+function panel(
+  title: string,
+  body: readonly VNode[],
+  style?: Readonly<Record<string, unknown>>,
+): VNode {
+  return ui.panel(style ? { title, style } : { title }, body);
 }
 
 export function renderOverviewScreen(state: DashboardState, handlers: DashboardScreenHandlers): VNode {
@@ -63,12 +67,8 @@ export function renderOverviewScreen(state: DashboardState, handlers: DashboardS
               label: `${service.name} · ${service.region}`,
               onPress: () => handlers.onSelectService(service.id),
             }),
-            ui.tag(formatLatency(service.latencyMs), {
-              variant: service.status === "down" ? "error" : service.status === "warning" ? "warning" : "info",
-            }),
-            ui.tag(formatErrorRate(service.errorRate), {
-              variant: service.errorRate >= 3 ? "error" : service.errorRate >= 1 ? "warning" : "default",
-            }),
+            ui.tag(formatLatency(service.latencyMs), { variant: "default" }),
+            ui.tag(formatErrorRate(service.errorRate), { variant: "default" }),
             ui.text(formatTraffic(service.trafficRpm), { style: styles.mutedStyle }),
           ]);
         });
@@ -96,7 +96,7 @@ export function renderOverviewScreen(state: DashboardState, handlers: DashboardS
       () => ui.text("No service selected.", { style: styles.mutedStyle }),
     ) ?? ui.text("No service selected.", { style: styles.mutedStyle });
 
-  const content = ui.page({
+  const page = ui.page({
     p: 1,
     gap: 1,
     header: ui.header({
@@ -108,7 +108,7 @@ export function renderOverviewScreen(state: DashboardState, handlers: DashboardS
         ui.status(state.paused ? "away" : "online", {
           label: state.paused ? "Paused" : "Streaming",
         }),
-        ui.tag(`Theme ${theme.label}`, { variant: theme.badge }),
+        ui.text(`Theme ${theme.label}`, { style: styles.mutedStyle }),
       ],
     }),
     body: ui.column({ gap: 1 }, [
@@ -142,7 +142,7 @@ export function renderOverviewScreen(state: DashboardState, handlers: DashboardS
             }),
           ]),
         ],
-        styles.panelStyle,
+        styles.stripStyle,
       ),
       ui.row({ gap: 1, wrap: true, items: "stretch" }, [
         panel(
@@ -174,13 +174,8 @@ export function renderOverviewScreen(state: DashboardState, handlers: DashboardS
               dsTone: "default",
             }),
           ],
-          styles.panelStyle,
         ),
-        panel(
-          "Inspector",
-          [inspectorContent],
-          styles.panelStyle,
-        ),
+        panel("Inspector", [inspectorContent]),
       ]),
     ]),
     footer: ui.statusBar({
@@ -190,6 +185,8 @@ export function renderOverviewScreen(state: DashboardState, handlers: DashboardS
       right: [ui.text(`Tick ${String(state.tick)}`, { style: styles.mutedStyle })],
     }),
   });
+
+  const content = ui.box({ border: "none", p: 0, style: styles.rootStyle }, [page]);
 
   if (!state.showHelp) return content;
 
@@ -201,7 +198,7 @@ export function renderOverviewScreen(state: DashboardState, handlers: DashboardS
       // Helper-first intrinsic sizing: this modal adapts to its content but stays within viewport bounds.
       width: widthConstraints.clampedIntrinsicPlus({ pad: 8, min: 44, max: "parent" }),
       height: heightConstraints.clampedIntrinsicPlus({ pad: 4, min: 10, max: "parent" }),
-      backdrop: "none",
+      backdrop: "dim",
       returnFocusTo: "help",
       content: ui.column({ gap: 1 }, [
         ui.text("q, ctrl+c : quit"),

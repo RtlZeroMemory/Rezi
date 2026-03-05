@@ -16,7 +16,7 @@ export function renderShell(options: ShellOptions): VNode {
   const styles = stylesForTheme(state.themeName);
   const theme = themeSpec(state.themeName);
 
-  const content = ui.page({
+  const page = ui.page({
     p: 1,
     gap: 1,
     header: ui.header({
@@ -24,7 +24,7 @@ export function renderShell(options: ShellOptions): VNode {
       subtitle: PRODUCT_TAGLINE,
       actions: [
         ui.badge(TEMPLATE_LABEL, { variant: "info" }),
-        ui.tag(`Theme ${theme.label}`, { variant: theme.badge }),
+        ui.text(`Theme ${theme.label}`, { style: styles.mutedStyle }),
         ui.badge(`Tick ${String(state.tick)}`, { variant: "default" }),
         ui.status(state.autoRefresh ? "online" : "away", {
           label: state.autoRefresh ? "Streaming" : "Paused",
@@ -70,6 +70,8 @@ export function renderShell(options: ShellOptions): VNode {
     }),
   });
 
+  const content = ui.box({ border: "none", p: 0, style: styles.rootStyle }, [page]);
+
   if (!state.showHelp) return content;
 
   return ui.layers([
@@ -78,7 +80,7 @@ export function renderShell(options: ShellOptions): VNode {
       id: "cli-help-modal",
       title: `${PRODUCT_NAME} Shortcuts`,
       width: 70,
-      backdrop: "none",
+      backdrop: "dim",
       initialFocus: "cli-help-close",
       returnFocusTo: "toggle-help",
       content: ui.column({ gap: 1 }, [

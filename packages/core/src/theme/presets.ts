@@ -40,7 +40,7 @@ export const darkTheme: ThemeDefinition = createThemeDefinition("dark", {
     tertiary: color(149, 230, 203), // #95e6cb (teal)
   },
   success: color(170, 217, 76), // #aad94c
-  warning: color(255, 180, 84), // #ffb454
+  warning: color(242, 169, 59), // #f2a93b
   error: color(240, 113, 120), // #f07178
   info: color(89, 194, 255), // #59c2ff
   focus: {
@@ -57,7 +57,7 @@ export const darkTheme: ThemeDefinition = createThemeDefinition("dark", {
   },
   diagnostic: {
     error: color(240, 113, 120), // #f07178
-    warning: color(255, 180, 84), // #ffb454
+    warning: color(242, 169, 59), // #f2a93b
     info: color(89, 194, 255), // #59c2ff
     hint: color(149, 230, 203), // #95e6cb
   },

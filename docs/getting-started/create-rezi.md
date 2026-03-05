@@ -23,13 +23,13 @@ If `--template` is omitted, the CLI prompts you to choose (default: `dashboard`)
 - `dashboard`: Live ops dashboard with deterministic telemetry updates.
   Highlights: reducer-driven updates, fleet filter/selection workflow, inspector panel, and help overlay.
 - `stress-test`: Visual benchmark matrix with deterministic simulation + real runtime diagnostics.
-  Highlights: geometry/text/matrix stress lanes, phase escalation, measured CPU/RSS/lag/sink I/O.
+  Highlights: geometry/text/matrix stress lanes, phase escalation, measured CPU/RSS/lag/sink I/O, and theme-aware text/matrix lane coloring.
   Aliases: `stress`, `chaos`, `bench`.
 - `cli-tool`: Multi-screen product workflow app with first-party page routing.
   Highlights: home/logs/settings routes, shared route shell, logs console, and global route keybindings.
   Aliases: `cli`, `tool`, `multiscreen`.
 - `animation-lab`: Declarative animation starter with responsive reactor visuals.
-  Highlights: transition/spring/sequence/stagger hooks, canvas + chart composition, and live resize adaptation.
+  Highlights: transition/spring/sequence/stagger hooks, canvas + chart composition, live resize adaptation, and runtime theme cycling (`t`).
   Aliases: `animation`, `anim`, `lab`, `motion`.
 - `starship`: Multi-deck starship command console with the full widget catalog.
   Highlights: six routed screens, charts/canvas/forms/overlays, and route-aware keybinding modes.
@@ -87,6 +87,7 @@ Templates now demonstrate a shared starter architecture:
 - `src/__tests__/`
 
 Each template includes example tests for reducer logic, widget rendering, and keybinding mapping.
+`src/theme.ts` is the canonical place for template identity plus theme catalog/style helpers (the `stress-test` benchmark keeps theme wiring in `src/main.ts` by design).
 
 ## Dev Loop (HSR)
 

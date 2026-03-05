@@ -12,6 +12,7 @@ import {
 } from "../../layout/textMeasure.js";
 import type { Theme } from "../../theme/theme.js";
 import { resolveColor } from "../../theme/theme.js";
+import { badgeRecipe, tagRecipe } from "../../ui/recipes.js";
 import type { VNode } from "../../widgets/types.js";
 import { createShadowConfig, renderShadow } from "../shadow.js";
 import { asTextStyle, getButtonLabelStyle } from "../styles.js";
@@ -19,6 +20,7 @@ import { readBoxBorder, renderBoxBorder } from "./boxBorder.js";
 import { readIntNonNegative, resolveMarginFromProps, resolveSpacingFromProps } from "./spacing.js";
 import { mergeTextStyle, shouldFillForStyleOverride } from "./textStyle.js";
 import type { ResolvedTextStyle } from "./textStyle.js";
+import { getColorTokens } from "./themeTokens.js";
 
 type StyledSegment = Readonly<{
   text: string;
@@ -85,6 +87,8 @@ function variantToThemeColor(
   fallback: string,
 ): Theme["colors"][string] {
   switch (variant) {
+    case "primary":
+      return theme.colors.primary;
     case "success":
       return theme.colors.success;
     case "warning":
@@ -96,6 +100,41 @@ function variantToThemeColor(
     default:
       return theme.colors[fallback] ?? theme.colors.primary;
   }
+}
+
+function variantToRecipeTone(
+  variant: unknown,
+): "default" | "primary" | "danger" | "success" | "warning" | "info" {
+  switch (variant) {
+    case "success":
+      return "success";
+    case "warning":
+      return "warning";
+    case "error":
+      return "danger";
+    case "info":
+      return "info";
+    case "primary":
+      return "primary";
+    default:
+      return "default";
+  }
+}
+
+function resolveChipColor(theme: Theme, variant: unknown, kind: "badge" | "tag"): number {
+  const colorTokens = getColorTokens(theme);
+  if (colorTokens !== null) {
+    const tone = variantToRecipeTone(variant);
+    const bgStyle = (
+      kind === "badge" ? badgeRecipe(colorTokens, { tone }).bg : tagRecipe(colorTokens, { tone }).bg
+    ) as { bg?: unknown };
+    if (typeof bgStyle.bg === "number") {
+      return bgStyle.bg;
+    }
+  }
+  const fallbackTone =
+    kind === "badge" || variant === "primary" ? ("primary" as const) : ("secondary" as const);
+  return variantToThemeColor(theme, variant, fallbackTone);
 }
 
 function statusToThemeColor(theme: Theme, status: unknown): Theme["colors"][string] {
@@ -510,17 +549,18 @@ export function renderVNodeSimple(
       const props = vnode.props as { text?: unknown; variant?: unknown; style?: unknown };
       const text = readString(props.text) ?? "";
       const ownStyle = asTextStyle(props.style, theme);
-      const color = variantToThemeColor(theme, props.variant, "primary");
+      const color = resolveChipColor(theme, props.variant, "badge");
       const style = mergeTextStyle(
-        mergeTextStyle(inheritedStyle, { fg: theme.colors.bg, bg: color, bold: true }),
+        mergeTextStyle(inheritedStyle, { fg: color, bold: true }),
         ownStyle,
       );
-      const content = truncateToWidth(` ${text} `, w);
+      const content = truncateToWidth(`( ${text} )`, w);
 
+      if (shouldFillForStyleOverride(ownStyle)) {
+        builder.fillRect(x, y, w, h, style);
+      }
       builder.pushClip(x, y, w, h);
       if (content.length > 0) {
-        const fillW = Math.min(w, measureTextCells(content));
-        if (fillW > 0) builder.fillRect(x, y, fillW, 1, style);
         builder.drawText(x, y, content, style);
       }
       builder.popClip();
@@ -592,17 +632,18 @@ export function renderVNodeSimple(
       const text = readString(props.text) ?? "";
       const removable = props.removable === true;
       const ownStyle = asTextStyle(props.style, theme);
-      const variantColor = variantToThemeColor(theme, props.variant, "secondary");
+      const variantColor = resolveChipColor(theme, props.variant, "tag");
       const tagStyle = mergeTextStyle(
-        mergeTextStyle(inheritedStyle, { fg: theme.colors.bg, bg: variantColor, bold: true }),
+        mergeTextStyle(inheritedStyle, { fg: variantColor, bold: true }),
         ownStyle,
       );
-      const content = truncateToWidth(` ${text}${removable ? " ×" : ""} `, w);
+      const content = truncateToWidth(`( ${text}${removable ? " ×" : ""} )`, w);
 
+      if (shouldFillForStyleOverride(ownStyle)) {
+        builder.fillRect(x, y, w, h, tagStyle);
+      }
       builder.pushClip(x, y, w, h);
       if (content.length > 0) {
-        const fillW = Math.min(w, measureTextCells(content));
-        if (fillW > 0) builder.fillRect(x, y, fillW, 1, tagStyle);
         builder.drawText(x, y, content, tagStyle);
       }
       builder.popClip();
@@ -747,13 +788,13 @@ export function renderVNodeSimple(
           case "badge": {
             const p = child.props as { text?: unknown };
             const text = typeof p.text === "string" ? p.text : "";
-            return measureTextCells(text) + 2;
+            return measureTextCells(`( ${text} )`);
           }
           case "tag": {
             const p = child.props as { text?: unknown; removable?: unknown };
             const text = typeof p.text === "string" ? p.text : "";
-            const removable = p.removable === true ? 2 : 0;
-            return measureTextCells(text) + 2 + removable;
+            const suffix = p.removable === true ? " ×" : "";
+            return measureTextCells(`( ${text}${suffix} )`);
           }
           case "status": {
             const p = child.props as { label?: unknown; showLabel?: unknown };

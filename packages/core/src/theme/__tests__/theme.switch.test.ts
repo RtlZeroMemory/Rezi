@@ -367,65 +367,65 @@ describe("theme scoped container overrides", () => {
 
   test("box scoped override applies to subtree and restores parent theme", () => {
     const vnode = ui.column({}, [
-      ui.divider({ label: "ROOT", color: "primary" }),
+      ui.divider({ char: "R", color: "primary" }),
       ui.box({ border: "none", theme: { colors: { primary: GREEN } } }, [
-        ui.divider({ label: "INNER", color: "primary" }),
+        ui.divider({ char: "I", color: "primary" }),
       ]),
-      ui.divider({ label: "AFTER", color: "primary" }),
+      ui.divider({ char: "A", color: "primary" }),
     ]);
 
     const ops = renderTextOps(vnode, baseTheme);
-    assert.deepEqual(fgByText(ops, "ROOT"), RED);
-    assert.deepEqual(fgByText(ops, "INNER"), GREEN);
-    assert.deepEqual(fgByText(ops, "AFTER"), RED);
+    assert.deepEqual(fgByText(ops, "RRR"), RED);
+    assert.deepEqual(fgByText(ops, "III"), GREEN);
+    assert.deepEqual(fgByText(ops, "AAA"), RED);
   });
 
   test("nested container overrides compose and restore parent scopes", () => {
     const vnode = ui.column({}, [
-      ui.divider({ label: "ROOT", color: "primary" }),
+      ui.divider({ char: "R", color: "primary" }),
       ui.column({ theme: { colors: { primary: BLUE } } }, [
-        ui.divider({ label: "ROW", color: "primary" }),
+        ui.divider({ char: "W", color: "primary" }),
         ui.box({ border: "none", theme: { colors: { primary: GREEN } } }, [
-          ui.divider({ label: "BOX", color: "primary" }),
+          ui.divider({ char: "B", color: "primary" }),
         ]),
-        ui.divider({ label: "ROW_AFTER", color: "primary" }),
+        ui.divider({ char: "X", color: "primary" }),
       ]),
-      ui.divider({ label: "ROOT_AFTER", color: "primary" }),
+      ui.divider({ char: "Z", color: "primary" }),
     ]);
 
     const ops = renderTextOps(vnode, baseTheme);
-    assert.deepEqual(fgByText(ops, "ROOT"), RED);
-    assert.deepEqual(fgByText(ops, "ROW"), BLUE);
-    assert.deepEqual(fgByText(ops, "BOX"), GREEN);
-    assert.deepEqual(fgByText(ops, "ROW_AFTER"), BLUE);
-    assert.deepEqual(fgByText(ops, "ROOT_AFTER"), RED);
+    assert.deepEqual(fgByText(ops, "RRR"), RED);
+    assert.deepEqual(fgByText(ops, "WWW"), BLUE);
+    assert.deepEqual(fgByText(ops, "BBB"), GREEN);
+    assert.deepEqual(fgByText(ops, "XXX"), BLUE);
+    assert.deepEqual(fgByText(ops, "ZZZ"), RED);
   });
 
   test("partial overrides inherit unspecified parent theme values", () => {
     const vnode = ui.box({ border: "none", theme: { colors: { primary: GREEN } } }, [
-      ui.divider({ label: "PRIMARY", color: "primary" }),
-      ui.divider({ label: "INFO", color: "info" }),
+      ui.divider({ char: "P", color: "primary" }),
+      ui.divider({ char: "N", color: "info" }),
     ]);
 
     const ops = renderTextOps(vnode, baseTheme);
-    assert.deepEqual(fgByText(ops, "PRIMARY"), GREEN);
-    assert.deepEqual(fgByText(ops, "INFO"), CYAN);
+    assert.deepEqual(fgByText(ops, "PPP"), GREEN);
+    assert.deepEqual(fgByText(ops, "NNN"), CYAN);
   });
 
   test("token-style accent.primary override maps to legacy primary and restores parent", () => {
     const vnode = ui.column({}, [
-      ui.divider({ label: "ROOT", color: "primary" }),
+      ui.divider({ char: "R", color: "primary" }),
       ui.column({ theme: { colors: { accent: { primary: BLUE } } } }, [
-        ui.divider({ label: "TOKEN_PRIMARY", color: "primary" }),
-        ui.divider({ label: "TOKEN_PATH", color: "accent.primary" }),
+        ui.divider({ char: "T", color: "primary" }),
+        ui.divider({ char: "U", color: "accent.primary" }),
       ]),
-      ui.divider({ label: "AFTER", color: "primary" }),
+      ui.divider({ char: "A", color: "primary" }),
     ]);
 
     const ops = renderTextOps(vnode, baseTheme);
-    assert.deepEqual(fgByText(ops, "ROOT"), RED);
-    assert.deepEqual(fgByText(ops, "TOKEN_PRIMARY"), BLUE);
-    assert.deepEqual(fgByText(ops, "TOKEN_PATH"), BLUE);
-    assert.deepEqual(fgByText(ops, "AFTER"), RED);
+    assert.deepEqual(fgByText(ops, "RRR"), RED);
+    assert.deepEqual(fgByText(ops, "TTT"), BLUE);
+    assert.deepEqual(fgByText(ops, "UUU"), BLUE);
+    assert.deepEqual(fgByText(ops, "AAA"), RED);
   });
 });

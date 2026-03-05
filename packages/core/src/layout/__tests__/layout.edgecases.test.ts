@@ -270,6 +270,48 @@ describe("layout edge cases", () => {
     }
   });
 
+  test("checkbox intrinsic width reserves focused arrow prefix", () => {
+    const measured = measure(
+      {
+        kind: "checkbox",
+        props: { id: "cb-auto", checked: false, label: "Choice" },
+      },
+      80,
+      4,
+      "column",
+    );
+    if (!measured.ok) {
+      assert.fail(`measure failed: ${measured.fatal.code}: ${measured.fatal.detail}`);
+    }
+    assert.equal(measured.value.w, 12);
+    assert.equal(measured.value.h, 1);
+  });
+
+  test("radioGroup horizontal intrinsic width reserves selected focus prefix", () => {
+    const measured = measure(
+      {
+        kind: "radioGroup",
+        props: {
+          id: "rg-auto",
+          value: "b",
+          direction: "horizontal",
+          options: Object.freeze([
+            { value: "a", label: "A" },
+            { value: "b", label: "B" },
+          ]),
+        },
+      },
+      80,
+      4,
+      "column",
+    );
+    if (!measured.ok) {
+      assert.fail(`measure failed: ${measured.fatal.code}: ${measured.fatal.detail}`);
+    }
+    assert.equal(measured.value.w, 16);
+    assert.equal(measured.value.h, 1);
+  });
+
   test("overflowed column child does not remain hit-testable outside viewport", () => {
     const tree: VNode = {
       kind: "column",

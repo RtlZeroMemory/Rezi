@@ -431,18 +431,24 @@ describe("basic widgets render to drawlist", () => {
 
   test("callout without title keeps full first-line message with icon prefix", () => {
     const message = "12345678901234567890";
+    const icon = "*";
     const strings = parseInternedStrings(
       renderBytes(
         ui.callout(message, {
           variant: "info",
-          icon: "*",
+          icon,
         }),
         { cols: 80, rows: 8 },
       ),
     );
     assert.equal(
-      strings.some((s) => s.includes(`* ${message}`)),
+      strings.some((s) => s.includes(message)),
       true,
+    );
+    assert.equal(
+      strings.some((s) => s.includes(icon)),
+      true,
+      "expected custom icon prefix to render",
     );
   });
 
@@ -669,9 +675,17 @@ describe("basic widgets render to drawlist", () => {
     assert.equal(opcodes.includes(9), true);
   });
 
-  test("tag emits fill rect for pill background", () => {
-    const opcodes = parseOpcodes(renderBytes(ui.tag("beta")));
-    assert.equal(opcodes.includes(2), true, "should include FILL_RECT");
+  test("tag renders deterministic text-chip wrapper", () => {
+    const strings = parseInternedStrings(renderBytes(ui.tag("beta")));
+    const hasLeftEdge = strings.some((s) => s.includes("( "));
+    const hasRightEdge = strings.some((s) => s.includes(" )"));
+    assert.equal(hasLeftEdge, true, "should include left wrapper edge");
+    assert.equal(hasRightEdge, true, "should include right wrapper edge");
+    assert.equal(
+      strings.some((s) => s.includes("( beta )")),
+      true,
+      "should include stable bracket wrapper",
+    );
   });
 
   test("vertical barChart respects maxBarLength", () => {

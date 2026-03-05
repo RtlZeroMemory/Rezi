@@ -46,48 +46,48 @@ const DAY_SHIFT_THEME = extendTheme(nordTheme, {
   },
   colors: {
     bg: {
-      base: rgb(29, 42, 58),
-      elevated: rgb(40, 57, 76),
-      overlay: rgb(52, 72, 94),
-      subtle: rgb(34, 49, 67),
+      base: rgb(18, 31, 46),
+      elevated: rgb(24, 40, 60),
+      overlay: rgb(31, 52, 77),
+      subtle: rgb(21, 35, 53),
     },
     fg: {
-      primary: rgb(236, 243, 255),
-      secondary: rgb(190, 217, 242),
-      muted: rgb(108, 138, 168),
-      inverse: rgb(20, 30, 42),
+      primary: rgb(238, 246, 255),
+      secondary: rgb(180, 214, 244),
+      muted: rgb(105, 138, 171),
+      inverse: rgb(15, 25, 38),
     },
     border: {
-      subtle: rgb(74, 98, 126),
-      default: rgb(104, 136, 168),
-      strong: rgb(137, 171, 206),
+      subtle: rgb(52, 83, 116),
+      default: rgb(79, 120, 163),
+      strong: rgb(112, 162, 217),
     },
     accent: {
-      primary: rgb(106, 195, 255),
-      secondary: rgb(129, 217, 255),
-      tertiary: rgb(180, 231, 164),
+      primary: rgb(78, 206, 255),
+      secondary: rgb(119, 164, 255),
+      tertiary: rgb(113, 233, 202),
     },
-    info: rgb(118, 208, 255),
-    success: rgb(166, 228, 149),
-    warning: rgb(255, 211, 131),
-    error: rgb(239, 118, 132),
+    info: rgb(92, 216, 255),
+    success: rgb(110, 228, 189),
+    warning: rgb(255, 191, 120),
+    error: rgb(255, 110, 133),
     selected: {
-      bg: rgb(68, 105, 139),
-      fg: rgb(236, 243, 255),
+      bg: rgb(52, 93, 137),
+      fg: rgb(238, 246, 255),
     },
     disabled: {
-      fg: rgb(95, 121, 149),
-      bg: rgb(39, 55, 72),
+      fg: rgb(84, 113, 144),
+      bg: rgb(22, 36, 54),
     },
     diagnostic: {
-      error: rgb(239, 118, 132),
-      warning: rgb(255, 211, 131),
-      info: rgb(118, 208, 255),
-      hint: rgb(149, 187, 228),
+      error: rgb(255, 110, 133),
+      warning: rgb(255, 191, 120),
+      info: rgb(92, 216, 255),
+      hint: rgb(126, 176, 236),
     },
     focus: {
-      ring: rgb(118, 208, 255),
-      bg: rgb(63, 96, 126),
+      ring: rgb(92, 216, 255),
+      bg: rgb(45, 81, 118),
     },
   },
 });
@@ -109,48 +109,48 @@ const NIGHT_SHIFT_THEME = extendTheme(draculaTheme, {
   },
   colors: {
     bg: {
-      base: rgb(19, 22, 33),
-      elevated: rgb(28, 31, 46),
-      overlay: rgb(37, 41, 60),
-      subtle: rgb(24, 27, 40),
+      base: rgb(12, 16, 27),
+      elevated: rgb(17, 24, 40),
+      overlay: rgb(23, 33, 53),
+      subtle: rgb(15, 21, 35),
     },
     fg: {
-      primary: rgb(244, 246, 252),
-      secondary: rgb(202, 185, 252),
-      muted: rgb(131, 146, 186),
-      inverse: rgb(19, 22, 33),
+      primary: rgb(236, 243, 255),
+      secondary: rgb(170, 194, 228),
+      muted: rgb(99, 122, 159),
+      inverse: rgb(12, 16, 27),
     },
     accent: {
-      primary: rgb(176, 133, 255),
-      secondary: rgb(129, 235, 255),
-      tertiary: rgb(119, 255, 196),
+      primary: rgb(96, 215, 255),
+      secondary: rgb(137, 156, 255),
+      tertiary: rgb(108, 238, 216),
     },
-    info: rgb(129, 235, 255),
-    success: rgb(110, 249, 174),
-    warning: rgb(255, 207, 124),
-    error: rgb(255, 118, 132),
+    info: rgb(110, 226, 255),
+    success: rgb(125, 232, 204),
+    warning: rgb(255, 188, 116),
+    error: rgb(255, 103, 132),
     selected: {
-      bg: rgb(68, 76, 112),
-      fg: rgb(244, 246, 252),
+      bg: rgb(37, 70, 111),
+      fg: rgb(236, 243, 255),
     },
     disabled: {
-      fg: rgb(99, 111, 146),
-      bg: rgb(28, 31, 46),
+      fg: rgb(82, 102, 137),
+      bg: rgb(14, 20, 33),
     },
     diagnostic: {
-      error: rgb(255, 118, 132),
-      warning: rgb(255, 207, 124),
-      info: rgb(129, 235, 255),
-      hint: rgb(206, 158, 255),
+      error: rgb(255, 103, 132),
+      warning: rgb(255, 188, 116),
+      info: rgb(110, 226, 255),
+      hint: rgb(155, 170, 255),
     },
     focus: {
-      ring: rgb(176, 133, 255),
-      bg: rgb(64, 57, 96),
+      ring: rgb(110, 226, 255),
+      bg: rgb(29, 59, 93),
     },
     border: {
-      subtle: rgb(43, 49, 71),
-      default: rgb(72, 81, 116),
-      strong: rgb(104, 115, 156),
+      subtle: rgb(35, 51, 79),
+      default: rgb(54, 78, 119),
+      strong: rgb(77, 110, 166),
     },
   },
 });
@@ -172,48 +172,48 @@ const RED_ALERT_THEME = extendTheme(draculaTheme, {
   },
   colors: {
     bg: {
-      base: rgb(24, 12, 19),
-      elevated: rgb(34, 15, 24),
-      overlay: rgb(46, 21, 32),
-      subtle: rgb(29, 13, 22),
+      base: rgb(22, 8, 14),
+      elevated: rgb(31, 12, 21),
+      overlay: rgb(42, 18, 30),
+      subtle: rgb(26, 10, 18),
     },
     fg: {
-      primary: rgb(255, 238, 242),
-      secondary: rgb(244, 190, 205),
-      muted: rgb(170, 122, 139),
-      inverse: rgb(24, 12, 19),
+      primary: rgb(255, 238, 243),
+      secondary: rgb(244, 189, 201),
+      muted: rgb(176, 121, 138),
+      inverse: rgb(22, 8, 14),
     },
     accent: {
-      primary: rgb(255, 114, 144),
-      secondary: rgb(255, 182, 120),
-      tertiary: rgb(255, 220, 146),
+      primary: rgb(255, 102, 128),
+      secondary: rgb(255, 146, 112),
+      tertiary: rgb(255, 190, 130),
     },
-    success: rgb(134, 247, 176),
-    warning: rgb(255, 181, 112),
-    error: rgb(255, 93, 117),
-    info: rgb(255, 141, 153),
+    success: rgb(255, 170, 139),
+    warning: rgb(255, 186, 118),
+    error: rgb(255, 86, 112),
+    info: rgb(255, 137, 153),
     selected: {
-      bg: rgb(82, 34, 52),
-      fg: rgb(255, 238, 242),
+      bg: rgb(86, 32, 49),
+      fg: rgb(255, 238, 243),
     },
     disabled: {
-      fg: rgb(142, 96, 112),
-      bg: rgb(34, 15, 24),
+      fg: rgb(146, 93, 111),
+      bg: rgb(30, 11, 19),
     },
     diagnostic: {
-      error: rgb(255, 93, 117),
-      warning: rgb(255, 181, 112),
-      info: rgb(255, 141, 153),
-      hint: rgb(255, 203, 133),
+      error: rgb(255, 86, 112),
+      warning: rgb(255, 186, 118),
+      info: rgb(255, 137, 153),
+      hint: rgb(255, 196, 130),
     },
     focus: {
-      ring: rgb(255, 112, 112),
-      bg: rgb(76, 35, 50),
+      ring: rgb(255, 102, 128),
+      bg: rgb(78, 29, 46),
     },
     border: {
-      subtle: rgb(86, 45, 61),
-      default: rgb(124, 65, 86),
-      strong: rgb(172, 86, 112),
+      subtle: rgb(91, 42, 59),
+      default: rgb(134, 59, 83),
+      strong: rgb(182, 82, 112),
     },
   },
 });
@@ -357,64 +357,37 @@ export type StarshipThemeTokens = Readonly<{
 export function themeTokens(themeName: ThemeName): StarshipThemeTokens {
   const colors = themeSpec(themeName).theme.colors;
   const mode = themeName === "alert" ? "alert" : themeName === "day" ? "day" : "night";
-  const panelAccent = mode === "alert" ? colors.accent.primary : colors.accent.secondary;
-  const panelBaseSeed = blend(
-    colors.bg.elevated,
-    colors.bg.base,
-    mode === "day" ? 0.22 : mode === "alert" ? 0.18 : 0.16,
-  );
-  const panelInsetSeed = blend(
-    colors.bg.subtle,
-    colors.bg.base,
-    mode === "day" ? 0.26 : mode === "alert" ? 0.2 : 0.24,
-  );
-  const panelElevatedSeed = blend(
-    colors.bg.overlay,
-    mode === "alert" ? colors.error : colors.focus.bg,
-    mode === "day" ? 0.18 : mode === "alert" ? 0.18 : 0.24,
-  );
-  const panelBase = blend(
-    panelBaseSeed,
-    panelAccent,
-    mode === "day" ? 0.06 : mode === "alert" ? 0.08 : 0.07,
-  );
-  const panelInset = blend(
-    panelInsetSeed,
-    panelAccent,
-    mode === "day" ? 0.05 : mode === "alert" ? 0.07 : 0.06,
-  );
-  const panelElevated = blend(
-    panelElevatedSeed,
-    mode === "alert" ? colors.error : colors.focus.bg,
-    mode === "day" ? 0.08 : mode === "alert" ? 0.12 : 0.1,
-  );
+  const panelBase = blend(colors.bg.elevated, colors.bg.base, 0.14);
+  const panelInset = blend(colors.bg.subtle, panelBase, 0.3);
+  const panelElevated = blend(colors.bg.overlay, panelBase, 0.22);
   const selectedBg = blend(
     colors.selected.bg,
     colors.accent.primary,
-    mode === "alert" ? 0.26 : mode === "day" ? 0.24 : 0.3,
+    mode === "alert" ? 0.22 : 0.16,
   );
-  const hoverBg = blend(
-    colors.bg.subtle,
-    colors.accent.secondary,
-    mode === "alert" ? 0.14 : mode === "day" ? 0.18 : 0.2,
-  );
-  const progressFill =
-    mode === "alert"
-      ? blend(colors.error, colors.accent.secondary, 0.22)
-      : blend(colors.accent.primary, colors.accent.secondary, mode === "day" ? 0.18 : 0.1);
+  const hoverBg = blend(panelBase, colors.accent.primary, mode === "alert" ? 0.14 : 0.1);
+  const accentBrand = packRgb(colors.accent.primary);
+  const accentInfo = blend(colors.accent.primary, colors.accent.secondary, 0.34);
+  const accentSuccess = blend(colors.accent.primary, colors.accent.tertiary, 0.2);
+  const accentWarn = blend(colors.accent.primary, colors.warning, mode === "alert" ? 0.34 : 0.42);
+  const accentDanger = packRgb(colors.error);
+  const progressFill = mode === "alert" ? accentDanger : accentBrand;
+  const tableHeader = blend(panelInset, panelBase, 0.48);
+  const rowAltBg = blend(panelBase, panelInset, 0.42);
+  const rowHoverBg = blend(rowAltBg, selectedBg, 0.28);
   return Object.freeze({
     bg: Object.freeze({
-      app: packRgb(colors.bg.base),
+      app: packRgb(panelBase),
       panel: Object.freeze({
-        base: panelBase,
-        inset: panelInset,
-        elevated: panelElevated,
+        base: packRgb(panelBase),
+        inset: packRgb(panelInset),
+        elevated: packRgb(panelElevated),
       }),
-      modal: packRgb(colors.bg.overlay),
+      modal: packRgb(panelElevated),
     }),
     border: Object.freeze({
-      default: packRgb(colors.border.default),
-      muted: packRgb(colors.border.subtle),
+      default: blend(colors.border.default, colors.accent.primary, mode === "alert" ? 0.14 : 0.08),
+      muted: blend(colors.border.subtle, colors.bg.base, 0.22),
       focus: mode === "alert" ? packRgb(colors.error) : packRgb(colors.focus.ring),
       danger: packRgb(colors.error),
     }),
@@ -424,40 +397,36 @@ export function themeTokens(themeName: ThemeName): StarshipThemeTokens {
       dim: packRgb(colors.fg.muted),
     }),
     accent: Object.freeze({
-      info: packRgb(colors.info),
-      success: packRgb(colors.success),
-      warn: packRgb(colors.warning),
-      danger: packRgb(colors.error),
-      brand: packRgb(colors.accent.primary),
+      info: accentInfo,
+      success: accentSuccess,
+      warn: accentWarn,
+      danger: accentDanger,
+      brand: accentBrand,
     }),
     state: Object.freeze({
-      selectedBg,
+      selectedBg: packRgb(selectedBg),
       selectedText: packRgb(colors.selected.fg),
-      hoverBg,
+      hoverBg: packRgb(hoverBg),
       focusRing: mode === "alert" ? packRgb(colors.error) : packRgb(colors.focus.ring),
     }),
     progress: Object.freeze({
       track: blend(
         colors.bg.subtle,
-        colors.border.default,
-        mode === "day" ? 0.44 : mode === "alert" ? 0.46 : 0.52,
+        colors.border.subtle,
+        mode === "day" ? 0.58 : mode === "alert" ? 0.62 : 0.66,
       ),
       fill: progressFill,
     }),
     table: Object.freeze({
-      headerBg: blend(
-        colors.bg.overlay,
-        colors.accent.primary,
-        mode === "day" ? 0.18 : mode === "alert" ? 0.1 : 0.14,
-      ),
-      rowAltBg: blend(colors.bg.subtle, colors.bg.elevated, mode === "day" ? 0.42 : 0.5),
-      rowHoverBg: blend(hoverBg, selectedBg, 0.16),
-      rowSelectedBg: selectedBg,
+      headerBg: packRgb(tableHeader),
+      rowAltBg: packRgb(rowAltBg),
+      rowHoverBg: packRgb(rowHoverBg),
+      rowSelectedBg: packRgb(selectedBg),
     }),
     log: Object.freeze({
-      info: blend(colors.info, colors.accent.secondary, 0.22),
-      warn: blend(colors.warning, colors.accent.secondary, mode === "alert" ? 0.14 : 0.1),
-      error: blend(colors.error, colors.accent.primary, mode === "alert" ? 0.18 : 0.14),
+      info: accentInfo,
+      warn: accentWarn,
+      error: accentDanger,
     }),
   });
 }
@@ -468,12 +437,12 @@ export function stylesForTheme(themeName: ThemeName): StarshipStyles {
     rootStyle: { bg: tokens.bg.app, fg: tokens.text.primary },
     panelStyle: { bg: tokens.bg.panel.base, fg: tokens.text.primary },
     panelMutedStyle: { bg: tokens.bg.panel.inset, fg: tokens.text.primary },
-    stripStyle: { bg: tokens.bg.panel.inset, fg: tokens.text.primary },
+    stripStyle: { bg: tokens.bg.panel.base, fg: tokens.text.primary },
     mutedStyle: { fg: tokens.text.muted, dim: true },
     accentStyle: { fg: tokens.accent.brand, bold: true },
-    codeStyle: { fg: tokens.accent.info, bg: tokens.bg.panel.elevated },
-    statusStyle: { fg: tokens.text.primary, bg: tokens.bg.panel.inset },
+    codeStyle: { fg: tokens.accent.info, bold: true },
+    statusStyle: { fg: tokens.text.primary, bg: tokens.bg.panel.base },
     focusStyle: { fg: tokens.text.primary, bg: tokens.state.selectedBg, bold: true },
-    dangerStyle: { fg: tokens.accent.danger, bg: tokens.bg.panel.inset, bold: true },
+    dangerStyle: { fg: tokens.accent.danger, bg: tokens.bg.panel.base, bold: true },
   });
 }

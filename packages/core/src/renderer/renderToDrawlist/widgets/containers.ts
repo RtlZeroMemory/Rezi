@@ -3,6 +3,7 @@ import type { LayoutTree } from "../../../layout/layout.js";
 import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { Theme } from "../../../theme/theme.js";
+import { modalRecipe, surfaceRecipe } from "../../../ui/recipes.js";
 import type { TextStyle } from "../../../widgets/style.js";
 import {
   SCROLLBAR_CONFIGS,
@@ -22,6 +23,7 @@ import { isVisibleRect } from "../indices.js";
 import { clampNonNegative, resolveSpacingFromProps } from "../spacing.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
 import { applyOpacityToStyle, mergeTextStyle, shouldFillForStyleOverride } from "../textStyle.js";
+import { getColorTokens } from "../themeTokens.js";
 
 type ClipRect = Readonly<Rect>;
 type OverlayFrameColors = Readonly<{
@@ -65,6 +67,13 @@ type BorderSideStyleOverrides = Readonly<{
   left?: TextStyle;
 }>;
 
+type SurfacePreset = "surface" | "card" | "well" | "elevated";
+
+type SurfacePresetConfig = Readonly<{
+  elevation: 0 | 1 | 2 | 3;
+  cardLike: boolean;
+}>;
+
 const SCROLLBAR_RENDER_CONFIG = {
   ...SCROLLBAR_CONFIGS.minimal,
   minThumbSize: 1,
@@ -95,6 +104,51 @@ function readBorderSideStyleMap(raw: unknown, theme: Theme): BorderSideStyleOver
     ...(right ? { right } : {}),
     ...(bottom ? { bottom } : {}),
     ...(left ? { left } : {}),
+  };
+}
+
+function readSurfacePreset(raw: unknown): SurfacePreset | undefined {
+  switch (raw) {
+    case "surface":
+    case "card":
+    case "well":
+    case "elevated":
+      return raw;
+    default:
+      return undefined;
+  }
+}
+
+function resolveSurfacePresetConfig(raw: unknown): SurfacePresetConfig | undefined {
+  const preset = readSurfacePreset(raw);
+  switch (preset) {
+    case "surface":
+      return { elevation: 0, cardLike: false };
+    case "card":
+      return { elevation: 1, cardLike: true };
+    case "well":
+      return { elevation: 1, cardLike: false };
+    case "elevated":
+      return { elevation: 2, cardLike: true };
+    default:
+      return undefined;
+  }
+}
+
+function mergeBorderSideStyles(
+  base: BorderSideStyleOverrides | undefined,
+  override: BorderSideStyleOverrides | undefined,
+): BorderSideStyleOverrides | undefined {
+  if (!base && !override) return undefined;
+  return {
+    ...(base?.top ? { top: base.top } : {}),
+    ...(base?.right ? { right: base.right } : {}),
+    ...(base?.bottom ? { bottom: base.bottom } : {}),
+    ...(base?.left ? { left: base.left } : {}),
+    ...(override?.top ? { top: override.top } : {}),
+    ...(override?.right ? { right: override.right } : {}),
+    ...(override?.bottom ? { bottom: override.bottom } : {}),
+    ...(override?.left ? { left: override.left } : {}),
   };
 }
 
@@ -476,13 +530,19 @@ function drawScrollbars(
   scrollbarVariant: ScrollbarVariant,
   scrollbarOwnStyle: ReturnType<typeof asTextStyle>,
 ): void {
-  const scrollbarStyle = scrollbarOwnStyle
-    ? mergeTextStyle(mergeTextStyle(style, { fg: theme.colors.border }), scrollbarOwnStyle)
-    : mergeTextStyle(style, { fg: theme.colors.border });
+  const trackFg = (theme.colors["border.subtle"] as ResolvedTextStyle["fg"]) ?? theme.colors.border;
+  const thumbFg = (theme.colors["border.strong"] as ResolvedTextStyle["fg"]) ?? theme.colors.border;
+  const trackStyle = scrollbarOwnStyle
+    ? mergeTextStyle(mergeTextStyle(style, { fg: trackFg }), scrollbarOwnStyle)
+    : mergeTextStyle(style, { fg: trackFg });
+  const thumbStyle = scrollbarOwnStyle
+    ? mergeTextStyle(mergeTextStyle(style, { fg: thumbFg }), scrollbarOwnStyle)
+    : mergeTextStyle(style, { fg: thumbFg });
   const variantConfig =
     scrollbarVariant === "minimal"
       ? SCROLLBAR_RENDER_CONFIG
       : (SCROLLBAR_CONFIGS[scrollbarVariant] ?? SCROLLBAR_RENDER_CONFIG);
+  const thumbGlyph = variantConfig.glyphs?.thumb;
 
   if (viewport.showVertical && viewport.viewportRect.h > 0) {
     const maxScrollY = Math.max(0, viewport.contentHeight - viewport.viewportRect.h);
@@ -500,7 +560,12 @@ function drawScrollbars(
     for (let dy = 0; dy < glyphs.length; dy++) {
       const glyph = glyphs[dy];
       if (!glyph) continue;
-      builder.drawText(x, viewport.viewportRect.y + dy, glyph, scrollbarStyle);
+      builder.drawText(
+        x,
+        viewport.viewportRect.y + dy,
+        glyph,
+        glyph === thumbGlyph ? thumbStyle : trackStyle,
+      );
     }
   }
 
@@ -518,7 +583,12 @@ function drawScrollbars(
     for (let dx = 0; dx < glyphs.length; dx++) {
       const glyph = glyphs[dx];
       if (!glyph) continue;
-      builder.drawText(viewport.viewportRect.x + dx, y, glyph, scrollbarStyle);
+      builder.drawText(
+        viewport.viewportRect.x + dx,
+        y,
+        glyph,
+        glyph === thumbGlyph ? thumbStyle : trackStyle,
+      );
     }
   }
 
@@ -526,7 +596,7 @@ function drawScrollbars(
     const x = viewport.viewportRect.x + viewport.viewportRect.w;
     const y = viewport.viewportRect.y + viewport.viewportRect.h;
     const corner = variantConfig.glyphs?.track ?? " ";
-    builder.drawText(x, y, corner, scrollbarStyle);
+    builder.drawText(x, y, corner, trackStyle);
   }
 }
 
@@ -637,6 +707,7 @@ export function renderContainerWidget(
         borderRight?: unknown;
         borderBottom?: unknown;
         borderLeft?: unknown;
+        preset?: unknown;
         title?: unknown;
         titleAlign?: unknown;
         shadow?: unknown;
@@ -649,7 +720,19 @@ export function renderContainerWidget(
         scrollbarStyle?: unknown;
       };
       const spacing = resolveSpacingFromProps(props);
-      const border = readBoxBorder(props.border);
+      const colorTokens = getColorTokens(theme);
+      const surfacePresetConfig = resolveSurfacePresetConfig(props.preset);
+      const surfaceDefaults =
+        colorTokens !== null && surfacePresetConfig !== undefined
+          ? surfaceRecipe(colorTokens, {
+              elevation: surfacePresetConfig.elevation,
+              cardLike: surfacePresetConfig.cardLike,
+            })
+          : null;
+      const border =
+        props.border === undefined
+          ? readBoxBorder(surfaceDefaults?.border)
+          : readBoxBorder(props.border);
       const defaultSide = border !== "none";
       const borderTop = typeof props.borderTop === "boolean" ? props.borderTop : defaultSide;
       const borderRight = typeof props.borderRight === "boolean" ? props.borderRight : defaultSide;
@@ -659,11 +742,14 @@ export function renderContainerWidget(
       const title = typeof props.title === "string" ? props.title : undefined;
       const titleAlign = readTitleAlign(props.titleAlign);
       const ownStyle = asTextStyle(props.style, theme);
-      const borderOwnStyle = asTextStyle(props.borderStyle, theme);
-      const borderSideOwnStyles = readBorderSideStyleMap(props.borderStyleSides, theme);
+      const borderOwnStyle = asTextStyle(props.borderStyle ?? surfaceDefaults?.borderStyle, theme);
+      const borderSideOwnStyles = mergeBorderSideStyles(
+        surfaceDefaults?.borderStyleSides,
+        readBorderSideStyleMap(props.borderStyleSides, theme),
+      );
       const inheritedStyle = asTextStyle(props.inheritStyle, theme);
       const baseStyle = inheritedStyle ? mergeTextStyle(parentStyle, inheritedStyle) : parentStyle;
-      const mergedStyle = mergeTextStyle(baseStyle, ownStyle);
+      const mergedStyle = mergeTextStyle(mergeTextStyle(baseStyle, surfaceDefaults?.bg), ownStyle);
       // When borderStyle is set, decouple border appearance from child content:
       // - contentStyle is passed to children (style without borderStyle)
       // - effectiveBorderStyle is used for border/shadow rendering
@@ -702,11 +788,17 @@ export function renderContainerWidget(
               : {}),
           }
         : undefined;
-      const shadowConfig = resolveBoxShadowConfig(props.shadow, theme);
+      const shadowConfig = resolveBoxShadowConfig(
+        props.shadow === undefined ? (surfaceDefaults?.shadow ?? false) : props.shadow,
+        theme,
+      );
       if (shadowConfig) {
         renderShadow(builder, rect, shadowConfig, borderDrawStyle);
       }
-      if (isVisibleRect(rect) && shouldFillForStyleOverride(ownStyle)) {
+      if (
+        isVisibleRect(rect) &&
+        (shouldFillForStyleOverride(ownStyle) || surfaceDefaults?.bg.bg !== undefined)
+      ) {
         builder.fillRect(rect.x, rect.y, rect.w, rect.h, style);
       }
 
@@ -783,6 +875,9 @@ export function renderContainerWidget(
           ? mergeTextStyle(surfaceStyle, { fg: frame.border })
           : surfaceStyle;
       const backdrop = resolveModalBackdrop(props.backdrop);
+      const colorTokens = getColorTokens(theme);
+      const modalDefaults =
+        colorTokens !== null ? modalRecipe(colorTokens, { focused: true }) : null;
 
       const fill = currentClip ?? { x: 0, y: 0, w: viewport.cols, h: viewport.rows };
       if (backdrop.variant === "opaque") {
@@ -801,6 +896,11 @@ export function renderContainerWidget(
             builder.drawText(fill.x, fill.y + dy, line, style);
           }
         }
+      }
+
+      const shadowConfig = resolveBoxShadowConfig(modalDefaults?.shadow ?? false, theme);
+      if (shadowConfig) {
+        renderShadow(builder, rect, shadowConfig, borderStyle);
       }
 
       if (frame.background !== undefined) {

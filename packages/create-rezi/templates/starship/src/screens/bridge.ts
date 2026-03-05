@@ -268,7 +268,7 @@ const BridgeCommandDeck = defineWidget<BridgeCommandDeckProps>((props, ctx): VNo
     ]),
     ui.row({ gap: SPACE.sm, wrap: true }, [
       ui.badge(`Warp ${warp.toFixed(2)}`, { variant: "info" }),
-      ui.badge(`Reactor ${formatPower(reactor * 100)}`, { variant: "success" }),
+      ui.badge(`Reactor ${formatPower(reactor * 100)}`, { variant: "default" }),
       ui.badge(scanBoost ? "Scan Pulse" : "Scan Stable", {
         variant: scanBoost ? "warning" : "default",
       }),
@@ -293,10 +293,10 @@ const BridgeCommandDeck = defineWidget<BridgeCommandDeckProps>((props, ctx): VNo
           },
         ),
         ui.badge(props.state.autopilot ? "Autopilot On" : "Manual Helm", {
-          variant: props.state.autopilot ? "success" : "warning",
+          variant: props.state.autopilot ? "default" : "warning",
         }),
         ui.badge(props.state.paused ? "Simulation Paused" : "Live Tick", {
-          variant: props.state.paused ? "warning" : "info",
+          variant: props.state.paused ? "warning" : "default",
         }),
       ]),
       progressRow(tokens, "Warp Lane", Math.min(1, warp / 9), {
@@ -344,13 +344,13 @@ const BridgeCommandDeck = defineWidget<BridgeCommandDeckProps>((props, ctx): VNo
       labelWidth: 12,
       width: clamp(chartWidth - 14, 18, 68),
       trend: shieldTrend,
-      tone: props.state.telemetry.shieldStrength < 40 ? "warning" : "success",
+      tone: props.state.telemetry.shieldStrength < 40 ? "warning" : "default",
     }),
     progressRow(tokens, "Hull", props.state.telemetry.hullIntegrity / 100, {
       labelWidth: 12,
       width: clamp(chartWidth - 14, 18, 68),
       trend: 0,
-      tone: props.state.telemetry.hullIntegrity < 70 ? "danger" : "success",
+      tone: props.state.telemetry.hullIntegrity < 70 ? "danger" : "default",
     }),
     ui.row({ gap: SPACE.sm, wrap: true }, [
       ui.text(`Reactor ${formatPower(props.state.telemetry.reactorPower)}`, {
@@ -447,8 +447,8 @@ const BridgeCommandDeck = defineWidget<BridgeCommandDeckProps>((props, ctx): VNo
             },
           }),
           ui.row({ gap: SPACE.sm, wrap: true }, [
-            ui.tag(`Fuel ${formatPower(props.state.telemetry.fuelLevel)}`, { variant: "warning" }),
-            ui.tag(`Life ${formatPower(props.state.telemetry.lifeSupportPct)}`, { variant: "success" }),
+            ui.tag(`Fuel ${formatPower(props.state.telemetry.fuelLevel)}`, { variant: "default" }),
+            ui.tag(`Life ${formatPower(props.state.telemetry.lifeSupportPct)}`, { variant: "default" }),
           ]),
         ],
         {
@@ -475,7 +475,7 @@ const BridgeCommandDeck = defineWidget<BridgeCommandDeckProps>((props, ctx): VNo
             progressRow(tokens, "Boot", progress, {
               labelWidth: 6,
               width: 20,
-              tone: online ? "success" : "warning",
+              tone: online ? "default" : "warning",
             }),
           ]);
         },
@@ -516,12 +516,12 @@ const BridgeCommandDeck = defineWidget<BridgeCommandDeckProps>((props, ctx): VNo
         "Systems Snapshot",
         [
           ui.row({ gap: SPACE.sm, wrap: true }, [
-            ui.badge(`Reactor ${formatPower(props.state.telemetry.reactorPower)}`, { variant: "info" }),
+            ui.badge(`Reactor ${formatPower(props.state.telemetry.reactorPower)}`, { variant: "default" }),
             ui.badge(`Shields ${formatPower(props.state.telemetry.shieldStrength)}`, {
-              variant: props.state.telemetry.shieldStrength < 40 ? "warning" : "success",
+              variant: props.state.telemetry.shieldStrength < 40 ? "warning" : "default",
             }),
             ui.badge(`Hull ${formatPower(props.state.telemetry.hullIntegrity)}`, {
-              variant: props.state.telemetry.hullIntegrity < 70 ? "error" : "success",
+              variant: props.state.telemetry.hullIntegrity < 70 ? "error" : "default",
             }),
           ]),
           ui.text(`Duty officer: ${selected?.name ?? "unassigned"}`, { variant: "caption" }),

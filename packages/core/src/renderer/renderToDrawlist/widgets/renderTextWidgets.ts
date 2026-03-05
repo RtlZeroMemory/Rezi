@@ -15,6 +15,7 @@ import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { FocusState } from "../../../runtime/focus.js";
 import type { Theme } from "../../../theme/theme.js";
+import { badgeRecipe, tagRecipe } from "../../../ui/recipes.js";
 import { linkLabel } from "../../../widgets/link.js";
 import { type Rgb24, rgb } from "../../../widgets/style.js";
 import { asTextStyle } from "../../styles.js";
@@ -494,6 +495,8 @@ export function variantToThemeColor(
   fallback: string,
 ): Theme["colors"][string] {
   switch (variant) {
+    case "primary":
+      return theme.colors.primary;
     case "success":
       return theme.colors.success;
     case "warning":
@@ -507,6 +510,41 @@ export function variantToThemeColor(
     default:
       return theme.colors[fallback] ?? theme.colors.primary;
   }
+}
+
+function variantToRecipeTone(
+  variant: unknown,
+): "default" | "primary" | "danger" | "success" | "warning" | "info" {
+  switch (variant) {
+    case "success":
+      return "success";
+    case "warning":
+      return "warning";
+    case "error":
+      return "danger";
+    case "info":
+      return "info";
+    case "primary":
+      return "primary";
+    default:
+      return "default";
+  }
+}
+
+function resolveChipColor(theme: Theme, variant: unknown, kind: "badge" | "tag"): Rgb24 {
+  const colorTokens = getColorTokens(theme);
+  if (colorTokens !== null) {
+    const tone = variantToRecipeTone(variant);
+    const bgStyle = (
+      kind === "badge" ? badgeRecipe(colorTokens, { tone }).bg : tagRecipe(colorTokens, { tone }).bg
+    ) as { bg?: unknown };
+    if (typeof bgStyle.bg === "number") {
+      return bgStyle.bg;
+    }
+  }
+  const fallbackTone =
+    kind === "badge" || variant === "primary" ? ("primary" as const) : ("secondary" as const);
+  return variantToThemeColor(theme, variant, fallbackTone);
 }
 
 function statusToThemeColor(theme: Theme, status: unknown): Theme["colors"][string] {
@@ -839,20 +877,17 @@ export function renderTextWidgets(
       const props = vnode.props as { text?: unknown; variant?: unknown; style?: unknown };
       const text = readString(props.text) ?? "";
       const ownStyle = asTextStyle(props.style, theme);
-      const color = variantToThemeColor(theme, props.variant, "primary");
-      const style = mergeTextStyle(
-        mergeTextStyle(parentStyle, { fg: theme.colors.bg, bg: color, bold: true }),
+      const color = resolveChipColor(theme, props.variant, "badge");
+      const chipStyle = mergeTextStyle(
+        mergeTextStyle(parentStyle, { fg: color, bold: true }),
         ownStyle,
       );
-      const content = ` ${text} `;
+      maybeFillOwnBackground(builder, rect, ownStyle, chipStyle);
+      const content = `( ${text} )`;
+      const segments: StyledSegment[] = [{ text: content, style: chipStyle }];
 
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
-      const display = truncateToWidth(content, rect.w);
-      if (display.length > 0) {
-        const fillW = Math.min(rect.w, measureTextCells(display));
-        if (fillW > 0) builder.fillRect(rect.x, rect.y, fillW, 1, style);
-        builder.drawText(rect.x, rect.y, display, style);
-      }
+      drawSegments(builder, rect.x, rect.y, rect.w, segments);
       builder.popClip();
       break;
     }
@@ -968,20 +1003,17 @@ export function renderTextWidgets(
       const text = readString(props.text) ?? "";
       const removable = props.removable === true;
       const ownStyle = asTextStyle(props.style, theme);
-      const variantColor = variantToThemeColor(theme, props.variant, "secondary");
-      const style = mergeTextStyle(
-        mergeTextStyle(parentStyle, { fg: theme.colors.bg, bg: variantColor, bold: true }),
+      const variantColor = resolveChipColor(theme, props.variant, "tag");
+      const chipStyle = mergeTextStyle(
+        mergeTextStyle(parentStyle, { fg: variantColor, bold: true }),
         ownStyle,
       );
-      maybeFillOwnBackground(builder, rect, ownStyle, style);
-      const content = ` ${text}${removable ? " ×" : ""} `;
-      const display = truncateToWidth(content, rect.w);
-      if (display.length === 0) break;
+      maybeFillOwnBackground(builder, rect, ownStyle, chipStyle);
+      const content = `( ${text}${removable ? " ×" : ""} )`;
+      const segments: StyledSegment[] = [{ text: content, style: chipStyle }];
 
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
-      const fillW = Math.min(rect.w, measureTextCells(display));
-      if (fillW > 0) builder.fillRect(rect.x, rect.y, fillW, 1, style);
-      builder.drawText(rect.x, rect.y, display, style);
+      drawSegments(builder, rect.x, rect.y, rect.w, segments);
       builder.popClip();
       break;
     }

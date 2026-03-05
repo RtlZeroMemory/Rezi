@@ -22,6 +22,12 @@ type FocusConfigShape = Readonly<{
   contentStyle?: unknown;
 }>;
 
+export type FocusIndicatorDecoration = Readonly<{
+  prefix: string;
+  suffix: string;
+  style: ResolvedTextStyle;
+}>;
+
 export function readFocusConfig(raw: unknown): FocusConfig | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
   return raw as FocusConfig;
@@ -73,4 +79,27 @@ export function resolveFocusedContentStyle(
   const override = asTextStyle((config as FocusConfigShape | undefined)?.contentStyle, theme);
   if (override) out = mergeTextStyle(out, override);
   return out;
+}
+
+export function resolveFocusIndicatorDecoration(
+  baseStyle: ResolvedTextStyle,
+  theme: Theme,
+  config: FocusConfig | undefined,
+): FocusIndicatorDecoration | undefined {
+  const indicator = readFocusIndicator(config);
+  if (indicator !== "bracket" && indicator !== "arrow") return undefined;
+
+  let style = baseStyle;
+  const colorTokens = getColorTokens(theme);
+  if (colorTokens) {
+    style = mergeTextStyle(style, { fg: colorTokens.focus.ring, bold: true });
+  }
+  const override = asTextStyle((config as FocusConfigShape | undefined)?.style, theme);
+  if (override) {
+    style = mergeTextStyle(style, override);
+  }
+
+  return indicator === "bracket"
+    ? { prefix: "[", suffix: "]", style }
+    : { prefix: "▸ ", suffix: "", style };
 }

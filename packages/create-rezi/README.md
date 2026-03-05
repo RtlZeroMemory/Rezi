@@ -66,5 +66,11 @@ Scaffolded templates now follow the same baseline structure:
 - `src/main.ts`
 - `src/__tests__/`
 
+Template theming convention:
+
+- `src/theme.ts` is the canonical source for theme catalogs and style helpers.
+- Screens should derive visual styling from active theme tokens instead of hardcoded RGB/hex literals.
+- `stress-test` is the current exception and keeps theme/catalog wiring in `src/main.ts`.
+
 For template descriptions and highlights, see:
 https://rezitui.dev/docs/getting-started/create-rezi/

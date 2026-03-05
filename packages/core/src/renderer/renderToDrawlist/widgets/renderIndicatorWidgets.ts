@@ -222,19 +222,23 @@ export function renderIndicatorWidgets(
         if (label && label.length > 0) {
           const labelText = ` ${label} `;
           const labelWidth = measureTextCells(labelText);
+          const colorTokens = getColorTokens(theme);
+          const labelStyle = mergeTextStyle(style, {
+            bold: true,
+            fg: colorTokens?.fg.secondary ?? theme.colors.muted,
+          });
           if (labelWidth >= w) {
-            builder.drawText(rect.x, rect.y, truncateToWidth(labelText, w), style);
+            builder.drawText(rect.x, rect.y, truncateToWidth(labelText, w), labelStyle);
             break;
           }
           const remaining = w - labelWidth;
           const left = Math.floor(remaining / 2);
           const right = remaining - left;
-          builder.drawText(
-            rect.x,
-            rect.y,
-            `${repeatCached(glyph, left)}${labelText}${repeatCached(glyph, right)}`,
-            style,
-          );
+          drawSegments(builder, rect.x, rect.y, w, [
+            { text: repeatCached(glyph, left), style },
+            { text: labelText, style: labelStyle },
+            { text: repeatCached(glyph, right), style },
+          ]);
           break;
         }
         builder.drawText(rect.x, rect.y, repeatCached(glyph, w), style);
@@ -567,7 +571,7 @@ export function renderIndicatorWidgets(
           recipeResult?.bg.bg !== undefined
             ? mergeTextStyle(borderBaseWithOverrides, { bg: recipeResult.bg.bg })
             : borderBaseWithOverrides;
-        renderBoxBorder(builder, rect, "single", undefined, "left", borderStyle);
+        renderBoxBorder(builder, rect, "rounded", undefined, "left", borderStyle);
       }
 
       const inset = rect.w >= 2 && rect.h >= 2 ? 1 : 0;
@@ -588,6 +592,7 @@ export function renderIndicatorWidgets(
           : mergeTextStyle(style, { fg: calloutVariantToColor(theme, variant), bold: true });
       const accentStyle = ownStyle ? mergeTextStyle(accentBaseStyle, ownStyle) : accentBaseStyle;
       const titleStyle = accentStyle;
+      const iconStyle = mergeTextStyle(accentStyle, { bold: true });
       const textBaseStyle =
         recipeResult !== null
           ? mergeTextStyle(
@@ -609,26 +614,34 @@ export function renderIndicatorWidgets(
         builder.drawText(innerX, innerY + row, "│", accentStyle);
       }
 
-      const contentX = innerX + (innerW >= 3 ? 2 : 1);
+      const contentX = innerX + (innerW >= 2 ? 2 : 1);
       const contentW = Math.max(0, innerW - (contentX - innerX));
       if (contentW > 0) {
         let y = innerY;
         if (title && title.length > 0) {
           const header: StyledSegment[] = [];
-          if (iconGlyph.length > 0) header.push({ text: `${iconGlyph} `, style: accentStyle });
+          if (iconGlyph.length > 0) header.push({ text: `${iconGlyph} `, style: iconStyle });
           header.push({ text: title, style: titleStyle });
           drawSegments(builder, contentX, y, contentW, header);
           y += 1;
         }
 
         if (y < innerY + innerH) {
-          const firstLinePrefix =
-            title && title.length > 0 ? "" : iconGlyph.length > 0 ? `${iconGlyph} ` : "";
           const lines = message.split("\n");
           for (let i = 0; i < lines.length; i++) {
             if (y >= innerY + innerH) break;
-            const line = i === 0 ? `${firstLinePrefix}${lines[i] ?? ""}` : (lines[i] ?? "");
-            builder.drawText(contentX, y, truncateToWidth(line, contentW), textStyle);
+            const line = lines[i] ?? "";
+            if (i === 0 && (!title || title.length === 0) && iconGlyph.length > 0) {
+              const iconPrefix = `${iconGlyph} `;
+              const iconWidth = measureTextCells(iconPrefix);
+              const textWidth = Math.max(0, contentW - iconWidth);
+              drawSegments(builder, contentX, y, contentW, [
+                { text: iconPrefix, style: iconStyle },
+                { text: truncateToWidth(line, textWidth), style: textStyle },
+              ]);
+            } else {
+              builder.drawText(contentX, y, truncateToWidth(line, contentW), textStyle);
+            }
             y += 1;
           }
         }

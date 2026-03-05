@@ -1,20 +1,8 @@
 import type { RouteRenderContext, VNode } from "@rezi-ui/core";
 import { ui } from "@rezi-ui/core";
-import { themeSpec } from "../theme.js";
-import type {
-  CliAction,
-  CliState,
-  EnvironmentName,
-  RouteId,
-  ThemeName,
-} from "../types.js";
+import { THEME_OPTIONS, isThemeName, stylesForTheme, themeSpec } from "../theme.js";
+import type { CliAction, CliState, EnvironmentName, RouteId } from "../types.js";
 import { renderShell } from "./shell.js";
-
-const THEME_OPTIONS: readonly Readonly<{ value: ThemeName; label: string }>[] = Object.freeze([
-  { value: "nord", label: "Nord" },
-  { value: "dark", label: "Dark" },
-  { value: "light", label: "Light" },
-]);
 
 const ENVIRONMENT_OPTIONS: readonly Readonly<{ value: EnvironmentName; label: string }>[] =
   Object.freeze([
@@ -22,10 +10,6 @@ const ENVIRONMENT_OPTIONS: readonly Readonly<{ value: EnvironmentName; label: st
     { value: "staging", label: "Staging" },
     { value: "production", label: "Production" },
   ]);
-
-function isThemeName(value: string): value is ThemeName {
-  return value === "nord" || value === "dark" || value === "light";
-}
 
 function isEnvironmentName(value: string): value is EnvironmentName {
   return value === "development" || value === "staging" || value === "production";
@@ -43,13 +27,14 @@ export function renderSettingsScreen(
 ): VNode {
   const state = context.state;
   const theme = themeSpec(state.themeName);
+  const styles = stylesForTheme(state.themeName);
 
   return renderShell({
     title: "Settings",
     context,
     onNavigate: deps.onNavigate,
     onToggleHelp: deps.onToggleHelp,
-    body: ui.panel("Profile Settings", [
+    body: ui.panel({ title: "Profile Settings", style: styles.panelStyle }, [
       ui.column({ gap: 1 }, [
         ui.text("Profile", { variant: "heading" }),
         ui.field({
@@ -96,7 +81,7 @@ export function renderSettingsScreen(
           label: "Include debug entries",
           onChange: () => deps.dispatch({ type: "toggle-debug" }),
         }),
-        ui.text(`Current theme: ${theme.label}`, { style: { dim: true } }),
+        ui.text(`Current theme: ${theme.label}`, { style: styles.mutedStyle }),
       ]),
     ]),
   });

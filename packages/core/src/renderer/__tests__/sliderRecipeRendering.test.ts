@@ -1,7 +1,7 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import { coerceToLegacyTheme } from "../../theme/interop.js";
 import { darkTheme } from "../../theme/presets.js";
-import { badgeRecipe, selectRecipe, tagRecipe } from "../../ui/recipes.js";
+import { selectRecipe } from "../../ui/recipes.js";
 import { ui } from "../../widgets/ui.js";
 import { type DrawOp, renderOps } from "./recipeRendering.test-utils.js";
 
@@ -46,15 +46,12 @@ describe("slider/badge/tag recipe rendering", () => {
       viewport: { cols: 24, rows: 2 },
       theme: dsTheme,
     });
-    const expected = badgeRecipe(darkTheme.colors, { tone: "info" });
-    const fill = ops.find((op) => op.kind === "fillRect");
     const text = firstDrawText(ops, (s) => s.includes("Info"));
-    assert.ok(fill && fill.kind === "fillRect");
     assert.ok(text && text.kind === "drawText");
-    if (!fill || fill.kind !== "fillRect" || !text || text.kind !== "drawText") return;
-
-    assert.deepEqual(fill.style?.bg, dsTheme.colors.info);
-    assert.deepEqual(text.style?.fg, expected.text.fg);
+    if (!text || text.kind !== "drawText") return;
+    assert.ok(text.text.includes("( Info )"));
+    assert.deepEqual(text.style?.fg, dsTheme.colors.info);
+    assert.notEqual(text.style?.bg, dsTheme.colors.info);
     assert.equal(text.style?.bold, true);
   });
 
@@ -63,15 +60,12 @@ describe("slider/badge/tag recipe rendering", () => {
       viewport: { cols: 24, rows: 2 },
       theme: dsTheme,
     });
-    const expected = tagRecipe(darkTheme.colors, { tone: "success" });
-    const fill = ops.find((op) => op.kind === "fillRect");
     const text = firstDrawText(ops, (s) => s.includes("Release"));
-    assert.ok(fill && fill.kind === "fillRect");
     assert.ok(text && text.kind === "drawText");
-    if (!fill || fill.kind !== "fillRect" || !text || text.kind !== "drawText") return;
-
-    assert.deepEqual(fill.style?.bg, dsTheme.colors.success);
-    assert.deepEqual(text.style?.fg, expected.text.fg);
+    if (!text || text.kind !== "drawText") return;
+    assert.ok(text.text.includes("( Release )"));
+    assert.deepEqual(text.style?.fg, dsTheme.colors.success);
+    assert.notEqual(text.style?.bg, dsTheme.colors.success);
     assert.equal(text.style?.bold, true);
   });
 });

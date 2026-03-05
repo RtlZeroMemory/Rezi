@@ -31,7 +31,9 @@ Canonical template names:
 - `minimal` (aliases: `mini`, `basic`, `utility`)
 - `starship` (aliases: `ship`, `bridge`, `command`)
 
-`animation-lab` is the canonical reference for Rezi's declarative motion APIs (`useTransition`, `useSpring`, `useSequence`, `useStagger`) plus `ui.box` transition props.
+`animation-lab` is the canonical reference for Rezi's declarative motion APIs (`useTransition`, `useSpring`, `useSequence`, `useStagger`) plus `ui.box` transition props and runtime theme cycling.
+
+`stress-test` and `animation-lab` derive major lane/canvas chrome from the active theme palette so dark/light/high-contrast presets remain coherent by default.
 
 Use a specific template:
 

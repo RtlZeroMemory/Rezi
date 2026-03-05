@@ -261,10 +261,9 @@ const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode =
             style: { fg: tokens.text.dim, dim: true },
           }),
           ui.text(`(${shieldTrend >= 0 ? "+" : ""}${Math.round(shieldTrend)})`, {
-            variant: "code",
+            variant: "label",
             style: {
               fg: shieldTrend >= 0 ? tokens.accent.success : tokens.accent.warn,
-              bold: true,
             },
           }),
         ]),
@@ -286,7 +285,7 @@ const EngineeringDeck = defineWidget<EngineeringDeckProps>((props, ctx): VNode =
       renderNode: (node, depth, state: NodeState) =>
         ui.row({ gap: SPACE.xs, wrap: false }, [
           ui.text(`${"| ".repeat(depth)}${state.expanded ? "v" : state.hasChildren ? ">" : "-"}`, {
-            variant: "code",
+            variant: "caption",
             style: state.selected
               ? { fg: tokens.state.focusRing, bold: true }
               : { fg: tokens.border.muted },

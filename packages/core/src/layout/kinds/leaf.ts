@@ -192,10 +192,10 @@ export function measureLeaf(
       return ok({ w: Math.min(maxW, totalW), h: Math.min(maxH, 1) });
     }
     case "badge": {
-      // Badge: text with padding
+      // Badge: pill edges + inner spacing around text
       const props = vnode.props as { text: string };
       const textW = measureTextCells(props.text);
-      return ok({ w: Math.min(maxW, textW + 2), h: Math.min(maxH, 1) });
+      return ok({ w: Math.min(maxW, textW + 4), h: Math.min(maxH, 1) });
     }
     case "status": {
       // Status: dot + optional label
@@ -205,11 +205,11 @@ export function measureLeaf(
       return ok({ w: Math.min(maxW, 1 + labelW), h: Math.min(maxH, 1) });
     }
     case "tag": {
-      // Tag: text with brackets/padding
+      // Tag: pill edges + inner spacing around text
       const props = vnode.props as { text: string; removable?: boolean };
       const textW = measureTextCells(props.text);
       const removeW = props.removable ? 2 : 0; // " x"
-      return ok({ w: Math.min(maxW, textW + 2 + removeW), h: Math.min(maxH, 1) });
+      return ok({ w: Math.min(maxW, textW + 4 + removeW), h: Math.min(maxH, 1) });
     }
     case "gauge": {
       // Gauge: label + bar + percentage
@@ -392,25 +392,29 @@ export function measureLeaf(
     case "checkbox": {
       const propsRes = validateCheckboxProps(vnode.props);
       if (!propsRes.ok) return propsRes;
+      const focusPrefixW = 2;
       const labelW =
         propsRes.value.label === undefined ? 0 : measureTextCells(propsRes.value.label) + 1;
-      return ok({ w: Math.min(maxW, 3 + labelW), h: Math.min(maxH, 1) });
+      return ok({ w: Math.min(maxW, 3 + labelW + focusPrefixW), h: Math.min(maxH, 1) });
     }
     case "radioGroup": {
       const propsRes = validateRadioGroupProps(vnode.props);
       if (!propsRes.ok) return propsRes;
       const direction = propsRes.value.direction;
+      const focusPrefixW = 2;
       if (direction === "horizontal") {
         let totalW = 0;
         for (const opt of propsRes.value.options) {
-          totalW += measureTextCells(opt.label) + 5; // "(x) label "
+          const selectedPrefixW = opt.value === propsRes.value.value ? focusPrefixW : 0;
+          totalW += measureTextCells(opt.label) + 6 + selectedPrefixW; // "(x) label" + horizontal gap
         }
         return ok({ w: Math.min(maxW, totalW), h: Math.min(maxH, 1) });
       }
       // Vertical: max width of options, height = num options
       let maxOptW = 0;
       for (const opt of propsRes.value.options) {
-        const w = measureTextCells(opt.label) + 4; // "(x) label"
+        const selectedPrefixW = opt.value === propsRes.value.value ? focusPrefixW : 0;
+        const w = measureTextCells(opt.label) + 4 + selectedPrefixW; // "(x) label"
         if (w > maxOptW) maxOptW = w;
       }
       return ok({ w: Math.min(maxW, maxOptW), h: Math.min(maxH, propsRes.value.options.length) });

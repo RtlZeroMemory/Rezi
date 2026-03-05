@@ -25,6 +25,7 @@ export type TypographyRole = "title" | "subtitle" | "body" | "caption" | "code" 
  */
 export type TypographyStyle = Readonly<{
   fg: Rgb24;
+  bg?: Rgb24;
   bold?: boolean;
   dim?: boolean;
   italic?: boolean;
@@ -42,13 +43,13 @@ export function resolveTypography(colors: ColorTokens, role: TypographyRole): Ty
     case "body":
       return { fg: colors.fg.primary };
     case "caption":
-      return { fg: colors.fg.secondary, dim: true };
+      return { fg: colors.fg.secondary, dim: true, italic: true };
     case "code":
-      return { fg: colors.accent.tertiary };
+      return { fg: colors.accent.tertiary, bg: colors.bg.elevated };
     case "label":
       return { fg: colors.fg.primary, bold: true };
     case "muted":
-      return { fg: colors.fg.muted, dim: true };
+      return { fg: colors.fg.muted, dim: true, italic: true };
   }
 }
 
@@ -71,7 +72,13 @@ export type SurfaceStyle = Readonly<{
   /** Border color (none for level 0) */
   border: Rgb24 | null;
   /** Whether to render a shadow */
-  shadow: boolean;
+  shadow:
+    | false
+    | Readonly<{
+        density: "light" | "medium" | "dense";
+        offsetX?: number;
+        offsetY?: number;
+      }>;
 }>;
 
 /**
@@ -84,9 +91,17 @@ export function resolveSurface(colors: ColorTokens, level: ElevationLevel): Surf
     case 1:
       return { bg: colors.bg.elevated, border: colors.border.subtle, shadow: false };
     case 2:
-      return { bg: colors.bg.overlay, border: colors.border.default, shadow: false };
+      return {
+        bg: colors.bg.overlay,
+        border: colors.border.default,
+        shadow: { density: "light" },
+      };
     case 3:
-      return { bg: colors.bg.overlay, border: colors.border.strong, shadow: true };
+      return {
+        bg: colors.bg.overlay,
+        border: colors.border.strong,
+        shadow: { density: "medium" },
+      };
   }
 }
 

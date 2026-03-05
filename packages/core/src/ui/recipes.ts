@@ -36,12 +36,6 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Lighten or darken a color toward white/black. */
-function adjustBrightness(color: Rgb24, amount: number): Rgb24 {
-  const target = amount > 0 ? (255 << 16) | (255 << 8) | 255 : (0 << 16) | (0 << 8) | 0;
-  return blendRgb(color, target, Math.abs(amount));
-}
-
 // ---------------------------------------------------------------------------
 // Button recipe
 // ---------------------------------------------------------------------------
@@ -84,12 +78,13 @@ export function buttonRecipe(
 
   // Disabled overrides everything
   if (state === "disabled") {
+    const outlineLike = variant === "outline" || variant === "soft";
     return {
       label: { fg: colors.disabled.fg },
       bg: { bg: colors.disabled.bg },
       px,
-      border: variant === "outline" ? "single" : "none",
-      borderStyle: variant === "outline" ? { fg: colors.disabled.fg } : undefined,
+      border: outlineLike ? "rounded" : "none",
+      borderStyle: outlineLike ? { fg: colors.disabled.fg } : undefined,
     };
   }
 
@@ -112,9 +107,9 @@ export function buttonRecipe(
 
   switch (variant) {
     case "solid": {
-      const bg = state === "pressed" ? adjustBrightness(accentColor, -0.15) : accentColor;
+      const bg = state === "pressed" ? blendRgb(accentColor, colors.bg.base, 0.2) : accentColor;
       return {
-        label: { fg: colors.fg.inverse, ...focusAttrs, ...pressedAttrs },
+        label: { fg: colors.fg.inverse, ...focusAttrs },
         bg: { bg },
         px,
         border: "none",
@@ -129,8 +124,8 @@ export function buttonRecipe(
         label: { fg: accentColor, ...focusAttrs, ...pressedAttrs },
         bg: { bg: bgColor },
         px,
-        border: "none",
-        borderStyle: undefined,
+        border: "rounded",
+        borderStyle: { fg: colors.border.subtle },
       };
     }
 
@@ -140,7 +135,7 @@ export function buttonRecipe(
         label: { fg: colors.fg.primary, ...focusAttrs, ...pressedAttrs },
         bg: { bg: colors.bg.base },
         px,
-        border: state === "focus" ? "heavy" : "single",
+        border: "rounded",
         borderStyle: { fg: borderColor },
       };
     }
@@ -149,7 +144,12 @@ export function buttonRecipe(
       const fg = tone === "default" ? colors.fg.secondary : accentColor;
       return {
         label: { fg, ...focusAttrs, ...pressedAttrs },
-        bg: state === "active-item" || state === "focus" ? { bg: colors.bg.subtle } : {},
+        bg:
+          state === "focus"
+            ? { bg: colors.bg.elevated }
+            : state === "active-item"
+              ? { bg: colors.bg.subtle }
+              : {},
         px,
         border: "none",
         borderStyle: undefined,
@@ -197,7 +197,7 @@ export function inputRecipe(
   if (state === "disabled") {
     return {
       text: { fg: colors.disabled.fg },
-      placeholder: { fg: colors.disabled.fg, dim: true },
+      placeholder: { fg: colors.disabled.fg, dim: true, italic: true },
       bg: { bg: colors.disabled.bg },
       border: "single",
       borderStyle: { fg: colors.disabled.fg },
@@ -208,7 +208,7 @@ export function inputRecipe(
   if (state === "error") {
     return {
       text: { fg: colors.fg.primary },
-      placeholder: { fg: colors.fg.muted },
+      placeholder: { fg: colors.fg.muted, dim: true, italic: true },
       bg: { bg: colors.bg.elevated },
       border: "single",
       borderStyle: { fg: colors.error },
@@ -219,7 +219,7 @@ export function inputRecipe(
   if (state === "focus") {
     return {
       text: { fg: colors.fg.primary },
-      placeholder: { fg: colors.fg.muted },
+      placeholder: { fg: colors.fg.muted, dim: true, italic: true },
       bg: { bg: colors.bg.elevated },
       border: "heavy",
       borderStyle: { fg: colors.accent.primary, bold: true },
@@ -229,7 +229,7 @@ export function inputRecipe(
 
   return {
     text: { fg: colors.fg.primary },
-    placeholder: { fg: colors.fg.muted },
+    placeholder: { fg: colors.fg.muted, dim: true, italic: true },
     bg: { bg: colors.bg.elevated },
     border: "single",
     borderStyle: { fg: colors.border.default },
@@ -244,6 +244,7 @@ export function inputRecipe(
 export type SurfaceRecipeParams = Readonly<{
   elevation?: ElevationLevel;
   focused?: boolean;
+  cardLike?: boolean;
 }>;
 
 export type SurfaceRecipeResult = Readonly<{
@@ -253,8 +254,16 @@ export type SurfaceRecipeResult = Readonly<{
   border: BorderVariant;
   /** Border style */
   borderStyle: TextStyle | undefined;
+  /** Per-edge border style overrides */
+  borderStyleSides: Readonly<{ top: TextStyle }> | undefined;
   /** Whether to show shadow */
-  shadow: boolean;
+  shadow:
+    | false
+    | Readonly<{
+        density: "light" | "medium" | "dense";
+        offsetX?: number;
+        offsetY?: number;
+      }>;
 }>;
 
 export function surfaceRecipe(
@@ -263,6 +272,7 @@ export function surfaceRecipe(
 ): SurfaceRecipeResult {
   const elevation = params.elevation ?? 1;
   const focused = params.focused ?? false;
+  const cardLike = params.cardLike ?? false;
   const surface = resolveSurface(colors, elevation);
   const borderVariant = resolveBorderVariant(elevation, focused);
 
@@ -270,11 +280,14 @@ export function surfaceRecipe(
   if (surface.border !== null) {
     borderStyle = focused ? { fg: colors.accent.primary, bold: true } : { fg: surface.border };
   }
+  const borderStyleSides =
+    cardLike && elevation >= 1 ? { top: { fg: colors.accent.primary } } : undefined;
 
   return {
     bg: { bg: surface.bg },
     border: borderVariant,
     borderStyle,
+    borderStyleSides,
     shadow: surface.shadow,
   };
 }
@@ -945,6 +958,13 @@ export type DropdownRecipeResult = Readonly<{
   bg: TextStyle;
   border: BorderVariant;
   borderStyle: TextStyle;
+  shadow:
+    | false
+    | Readonly<{
+        density: "light" | "medium" | "dense";
+        offsetX?: number;
+        offsetY?: number;
+      }>;
   px: number;
 }>;
 
@@ -966,6 +986,7 @@ export function dropdownRecipe(
       bg: { bg: colors.disabled.bg },
       border: "single",
       borderStyle: { fg: colors.disabled.fg },
+      shadow: false,
       px: spacing.px,
     };
   }
@@ -977,6 +998,7 @@ export function dropdownRecipe(
       bg: { bg: accentColor },
       border: "single",
       borderStyle: { fg: accentColor },
+      shadow: { density: "light", offsetX: 1, offsetY: 1 },
       px: spacing.px,
     };
   }
@@ -988,6 +1010,7 @@ export function dropdownRecipe(
       bg: { bg: colors.bg.overlay },
       border: "heavy",
       borderStyle: { fg: accentColor, bold: true },
+      shadow: { density: "light", offsetX: 1, offsetY: 1 },
       px: spacing.px,
     };
   }
@@ -1013,6 +1036,7 @@ export function dropdownRecipe(
     borderStyle: {
       fg: variant === "outline" ? colors.border.default : colors.border.strong,
     },
+    shadow: { density: "light", offsetX: 1, offsetY: 1 },
     px: spacing.px,
   };
 }
