@@ -389,6 +389,9 @@ pub fn engine_post_user_event(engine_id: u32, tag: u32, payload: Uint8Array) -> 
         Ok(guard) => guard,
         Err(rc) => return rc,
     };
+    if !guard.slot.is_owner_thread() {
+        return ffi::ZR_ERR_INVALID_ARGUMENT;
+    }
 
     if payload.len() > (i32::MAX as usize) {
         return ffi::ZR_ERR_LIMIT;

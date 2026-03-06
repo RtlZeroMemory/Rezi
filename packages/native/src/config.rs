@@ -188,11 +188,14 @@ fn js_obj(obj: &JsObject, primary: &str, alias: &str) -> ParseResult<Option<JsOb
             Ok(v) => v,
             Err(_) => continue,
         };
-        if v.get_type().map_err(|_| ())? == ValueType::Undefined {
-            continue;
+        match v.get_type().map_err(|_| ())? {
+            ValueType::Undefined => continue,
+            ValueType::Object => {
+                let o = v.coerce_to_object().map_err(|_| ())?;
+                return Ok(Some(o));
+            }
+            _ => return Err(()),
         }
-        let o = v.coerce_to_object().map_err(|_| ())?;
-        return Ok(Some(o));
     }
     Ok(None)
 }

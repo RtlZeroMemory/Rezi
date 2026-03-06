@@ -168,6 +168,11 @@ assert(
   "engineSetConfig(null) must return ZR_ERR_INVALID_ARGUMENT",
 );
 assertThrows(
+  () => engineSetConfig(engineId, { plat: 1 }),
+  /plat must be an object/i,
+  "engineSetConfig must reject non-object plat values",
+);
+assertThrows(
   () => engineSetConfig(engineId, { unknownKey: 1 }),
   /unknown key/i,
   "engineSetConfig with unknown key must throw",
@@ -292,8 +297,8 @@ assert(
   `wrong-thread enginePresent must return ZR_ERR_INVALID_ARGUMENT, got: ${alive.present}`,
 );
 assert(
-  alive.postUserEvent === ZR_OK,
-  `enginePostUserEvent must succeed cross-thread while alive (ZR_OK), got: ${alive.postUserEvent}`,
+  alive.postUserEvent === ZR_ERR_INVALID_ARGUMENT,
+  `wrong-thread enginePostUserEvent must return ZR_ERR_INVALID_ARGUMENT, got: ${alive.postUserEvent}`,
 );
 assert(
   alive.setConfig === ZR_ERR_INVALID_ARGUMENT,

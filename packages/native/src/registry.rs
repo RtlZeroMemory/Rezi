@@ -57,7 +57,11 @@ pub(crate) struct EngineGuard {
 
 impl Drop for EngineGuard {
     fn drop(&mut self) {
-        let prev = self.slot.active_calls.fetch_sub(1, Ordering::Release);
+        let _active_calls_guard = match self.slot.active_calls_mu.lock() {
+            Ok(guard) => guard,
+            Err(poison) => poison.into_inner(),
+        };
+        let prev = self.slot.active_calls.fetch_sub(1, Ordering::AcqRel);
         if prev == 1 {
             self.slot.active_calls_cv.notify_all();
         }
