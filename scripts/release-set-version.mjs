@@ -11,6 +11,7 @@ const EXTRA_RELEASE_PACKAGE_DIRS = [
   "packages/rezi-ink-gradient-shim",
   "packages/rezi-ink-spinner-shim",
 ];
+const CREATE_REZI_TEMPLATES_DIR = "packages/create-rezi/templates";
 
 function die(msg) {
   process.stderr.write(`${msg}\n`);
@@ -88,6 +89,22 @@ function updateInternalDeps(pkgJson, nextVersion) {
   }
 }
 
+function listCreateReziTemplatePackagePaths() {
+  const templatesDir = join(ROOT, CREATE_REZI_TEMPLATES_DIR);
+  if (!isDir(templatesDir)) return [];
+
+  const out = [];
+  const entries = readdirSync(templatesDir).slice().sort();
+  for (const name of entries) {
+    const full = join(templatesDir, name);
+    if (!isDir(full)) continue;
+    const pkgPath = join(full, "package.json");
+    if (!statSync(pkgPath, { throwIfNoEntry: false })) continue;
+    out.push(pkgPath);
+  }
+  return out;
+}
+
 const releasePackageDirs = listReleasePackageDirs();
 if (releasePackageDirs.length === 0) die("release-set-version: no release packages discovered");
 
@@ -103,6 +120,14 @@ for (const relDir of releasePackageDirs) {
   writeJson(pkgPath, pkgJson);
 }
 
+const templatePackagePaths = listCreateReziTemplatePackagePaths();
+for (const pkgPath of templatePackagePaths) {
+  const pkgJson = readJson(pkgPath);
+  if (typeof pkgJson !== "object" || pkgJson === null) continue;
+  updateInternalDeps(pkgJson, version);
+  writeJson(pkgPath, pkgJson);
+}
+
 process.stdout.write(
-  `release-set-version: set version=${version} for ${releasePackageDirs.length} package(s)\n`,
+  `release-set-version: set version=${version} for ${releasePackageDirs.length} package(s) and ${templatePackagePaths.length} template(s)\n`,
 );
