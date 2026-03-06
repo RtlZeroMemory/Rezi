@@ -499,6 +499,7 @@ const CONSTRAINT_RESOLUTION_NONE = Object.freeze({ kind: "none" as const });
 const CONSTRAINT_RESOLUTION_REUSED = Object.freeze({ kind: "reused" as const });
 const CONSTRAINT_RESOLUTION_CACHE_HIT = Object.freeze({ kind: "cacheHit" as const });
 const CONSTRAINT_RESOLUTION_COMPUTED = Object.freeze({ kind: "computed" as const });
+const MAX_CONSTRAINT_SETTLE_PASSES = 128;
 const EMPTY_CONSTRAINT_BREADCRUMBS: RuntimeBreadcrumbConstraintsSummary = Object.freeze({
   enabled: false,
   graphFingerprint: 0,
@@ -3994,7 +3995,10 @@ export class WidgetRenderer<S> {
           // Nested parent/intrinsic chains can converge one dependency level at a time.
           // Use the graph size instead of an arbitrary small cap so first-frame layout
           // can fully settle for deep but valid trees.
-          const maxSettlePasses = Math.max(3, constraintGraph.nodes.length + 1);
+          const maxSettlePasses = Math.min(
+            MAX_CONSTRAINT_SETTLE_PASSES,
+            Math.max(3, constraintGraph.nodes.length + 1),
+          );
           while (settlePasses < maxSettlePasses) {
             buildLayoutRectIndexes(
               nextLayoutTree,

@@ -229,14 +229,19 @@ function findUnsupportedLayoutConstraintUsage(root: VNode): readonly string[] {
   const stack: Array<Readonly<{ node: VNode; path: string; parentKind: VNode["kind"] | null }>> = [
     { node: root, path: root.kind, parentKind: null },
   ];
-  const visited = new WeakSet<VNode>();
+  const visitedByParentKind = new WeakMap<VNode, Set<VNode["kind"] | null>>();
 
   while (stack.length > 0) {
     const frame = stack.pop();
     if (!frame) continue;
     const { node, path, parentKind } = frame;
-    if (visited.has(node)) continue;
-    visited.add(node);
+    const seenParentKinds = visitedByParentKind.get(node);
+    if (seenParentKinds?.has(parentKind)) continue;
+    if (seenParentKinds === undefined) {
+      visitedByParentKind.set(node, new Set([parentKind]));
+    } else {
+      seenParentKinds.add(parentKind);
+    }
 
     const props = (node.props ?? {}) as Readonly<Record<string, unknown> & { position?: unknown }>;
 
