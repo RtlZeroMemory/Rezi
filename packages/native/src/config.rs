@@ -155,6 +155,13 @@ pub(crate) fn js_u32(obj: &JsObject, primary: &str, alias: &str) -> ParseResult<
     Ok(None)
 }
 
+pub(crate) fn checked_u8(value: u32) -> ParseResult<u8> {
+    if value > u8::MAX as u32 {
+        return Err(());
+    }
+    Ok(value as u8)
+}
+
 pub(crate) fn js_u8_bool(obj: &JsObject, primary: &str, alias: &str) -> ParseResult<Option<u8>> {
     for name in [primary, alias] {
         let v = match obj.get_named_property::<JsUnknown>(name) {
@@ -238,7 +245,7 @@ fn apply_limits(dst: &mut ffi::zr_limits_t, obj: &JsObject) -> ParseResult<()> {
 
 fn apply_plat(dst: &mut ffi::plat_config_t, obj: &JsObject) -> ParseResult<()> {
     if let Some(v) = js_u32(obj, "requestedColorMode", "requested_color_mode")? {
-        dst.requested_color_mode = (v & 0xFF) as u8;
+        dst.requested_color_mode = checked_u8(v)?;
     }
     if let Some(v) = js_u8_bool(obj, "enableMouse", "enable_mouse")? {
         dst.enable_mouse = v;

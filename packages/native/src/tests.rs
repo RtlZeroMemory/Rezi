@@ -1,4 +1,5 @@
-use crate::debug::parse_debug_query_bigint_u64;
+use crate::config::checked_u8;
+use crate::debug::{parse_debug_query_bigint_u64, parse_debug_query_number_u64};
 use crate::ffi;
 
 const ATTR_BOLD: u32 = 1 << 0;
@@ -712,6 +713,31 @@ fn debug_query_bigint_u64_rejects_negative_values() {
 fn debug_query_bigint_u64_rejects_overflow_values() {
     assert!(parse_debug_query_bigint_u64(false, &[0, 1]).is_err());
     assert!(parse_debug_query_bigint_u64(false, &[u64::MAX, 1]).is_err());
+}
+
+#[test]
+fn debug_query_number_u64_accepts_safe_integers() {
+    assert_eq!(parse_debug_query_number_u64(0.0), Ok(0));
+    assert_eq!(parse_debug_query_number_u64(42.0), Ok(42));
+    assert_eq!(
+        parse_debug_query_number_u64(9_007_199_254_740_991.0),
+        Ok(9_007_199_254_740_991)
+    );
+}
+
+#[test]
+fn debug_query_number_u64_rejects_fractional_or_unsafe_numbers() {
+    assert!(parse_debug_query_number_u64(-1.0).is_err());
+    assert!(parse_debug_query_number_u64(1.5).is_err());
+    assert!(parse_debug_query_number_u64(f64::INFINITY).is_err());
+    assert!(parse_debug_query_number_u64(9_007_199_254_740_992.0).is_err());
+}
+
+#[test]
+fn checked_u8_rejects_out_of_range_values() {
+    assert_eq!(checked_u8(0), Ok(0));
+    assert_eq!(checked_u8(255), Ok(255));
+    assert!(checked_u8(256).is_err());
 }
 
 #[test]

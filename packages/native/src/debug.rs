@@ -46,6 +46,8 @@ const DEBUG_QUERY_KEYS: &[(&str, &str)] = &[
     ("maxRecords", "max_records"),
 ];
 
+const MAX_SAFE_INTEGER_U64: u64 = 9_007_199_254_740_991;
+
 pub(crate) fn parse_debug_query_bigint_u64(sign_bit: bool, words: &[u64]) -> ParseResult<u64> {
     if sign_bit && words.iter().any(|word| *word != 0) {
         return Err(());
@@ -56,6 +58,18 @@ pub(crate) fn parse_debug_query_bigint_u64(sign_bit: bool, words: &[u64]) -> Par
         [value] => Ok(*value),
         _ => Err(()),
     }
+}
+
+pub(crate) fn parse_debug_query_number_u64(float: f64) -> ParseResult<u64> {
+    if !float.is_finite()
+        || float < 0.0
+        || float.fract() != 0.0
+        || float > MAX_SAFE_INTEGER_U64 as f64
+    {
+        return Err(());
+    }
+
+    Ok(float as u64)
 }
 
 fn js_u64(obj: &JsObject, primary: &str, alias: &str) -> ParseResult<Option<u64>> {
@@ -74,10 +88,7 @@ fn js_u64(obj: &JsObject, primary: &str, alias: &str) -> ParseResult<Option<u64>
             ValueType::Number => {
                 let number = value.coerce_to_number().map_err(|_| ())?;
                 let float = number.get_double().map_err(|_| ())?;
-                if !float.is_finite() || float < 0.0 || float > (u64::MAX as f64) {
-                    return Err(());
-                }
-                return Ok(Some(float as u64));
+                return Ok(Some(parse_debug_query_number_u64(float)?));
             }
             _ => return Err(()),
         }
