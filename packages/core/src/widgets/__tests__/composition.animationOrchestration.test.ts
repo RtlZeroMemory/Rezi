@@ -355,12 +355,24 @@ describe("composition animation hooks - orchestration", () => {
   test("useChain playback changes do not reset the active step", async () => {
     const h = createHarness();
     const running = [
-      { target: 4, config: { duration: 90, easing: "linear" as const, playback: { paused: false } } },
-      { target: 8, config: { duration: 90, easing: "linear" as const, playback: { paused: false } } },
+      {
+        target: 4,
+        config: { duration: 90, easing: "linear" as const, playback: { paused: false } },
+      },
+      {
+        target: 8,
+        config: { duration: 90, easing: "linear" as const, playback: { paused: false } },
+      },
     ] as const;
     const paused = [
-      { target: 4, config: { duration: 90, easing: "linear" as const, playback: { paused: true } } },
-      { target: 8, config: { duration: 90, easing: "linear" as const, playback: { paused: false } } },
+      {
+        target: 4,
+        config: { duration: 90, easing: "linear" as const, playback: { paused: true } },
+      },
+      {
+        target: 8,
+        config: { duration: 90, easing: "linear" as const, playback: { paused: false } },
+      },
     ] as const;
 
     let render = h.render((hooks) => useChain(hooks, running));
