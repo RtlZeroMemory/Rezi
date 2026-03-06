@@ -565,6 +565,36 @@ export function finalizeFocusWithPreCollectedMetadata(
     nextFocusedId = focusList[0] ?? null;
   }
 
+  const activeTrapId = trapStack.length > 0 ? (trapStack[trapStack.length - 1] ?? null) : null;
+  if (activeTrapId !== null) {
+    const activeTrap = collectedTraps.get(activeTrapId);
+    const activeTrapFocusables = activeTrap?.focusableIds ?? [];
+    const activeTrapFocusableSet = trapFocusableSets.get(activeTrapId);
+    const initialFocus = activeTrap?.initialFocus ?? null;
+
+    if (activeTrap?.active === true) {
+      if (activeTrapFocusables.length === 0) {
+        if (initialFocus !== null && focusSet.has(initialFocus)) {
+          nextFocusedId = initialFocus;
+        } else if (activeTrap.kind === "modal") {
+          nextFocusedId = null;
+        }
+      } else if (nextFocusedId === null || activeTrapFocusableSet?.has(nextFocusedId) !== true) {
+        if (
+          initialFocus !== null &&
+          focusSet.has(initialFocus) &&
+          activeTrapFocusableSet?.has(initialFocus) === true
+        ) {
+          nextFocusedId = initialFocus;
+        } else {
+          const firstInTrap = activeTrapFocusables[0];
+          nextFocusedId =
+            firstInTrap !== undefined && focusSet.has(firstInTrap) ? firstInTrap : null;
+        }
+      }
+    }
+  }
+
   // Active zone should always reflect the final focused id.
   let activeZoneId: string | null = null;
   if (nextFocusedId !== null) {

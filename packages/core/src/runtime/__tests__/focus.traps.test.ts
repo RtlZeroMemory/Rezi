@@ -47,6 +47,7 @@ function trap(args: {
 }): CollectedTrap {
   return {
     id: args.id,
+    kind: "focusTrap",
     active: args.active,
     returnFocusTo: args.returnFocusTo ?? null,
     initialFocus: args.initialFocus ?? null,

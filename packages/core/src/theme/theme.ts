@@ -13,14 +13,22 @@ import type {
   ThemeSpacingTokens,
   WidgetTokens,
 } from "./tokens.js";
-import { validateTheme } from "./validate.js";
 import type { Theme, ThemeColors, ThemeSpacing } from "./types.js";
+import { validateTheme } from "./validate.js";
 export type { Theme, ThemeColors, ThemeSpacing } from "./types.js";
 
 const compiledThemeCache = new WeakMap<ThemeDefinition, Theme>();
 
 function buildSpacing(spacing: ThemeSpacingTokens): ThemeSpacing {
-  return Object.freeze([0, spacing.xs, spacing.sm, spacing.md, spacing.lg, spacing.xl, spacing["2xl"]]);
+  return Object.freeze([
+    0,
+    spacing.xs,
+    spacing.sm,
+    spacing.md,
+    spacing.lg,
+    spacing.xl,
+    spacing["2xl"],
+  ]);
 }
 
 function buildColorIndex(theme: ThemeDefinition): ThemeColors {

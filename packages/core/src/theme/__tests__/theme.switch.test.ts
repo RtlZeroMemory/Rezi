@@ -15,7 +15,7 @@ import { commitVNodeTree } from "../../runtime/commit.js";
 import { createInstanceIdAllocator } from "../../runtime/instance.js";
 import { extendTheme } from "../extend.js";
 import { darkTheme, lightTheme } from "../presets.js";
-import { compileTheme, type Theme } from "../theme.js";
+import { type Theme, compileTheme } from "../theme.js";
 import type { ThemeDefinition } from "../tokens.js";
 
 type EncodedEvent = NonNullable<Parameters<typeof encodeZrevBatchV1>[0]["events"]>[number];

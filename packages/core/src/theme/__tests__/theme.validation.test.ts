@@ -55,7 +55,8 @@ describe("theme.validateTheme", () => {
 
   test("rejects invalid name", () => {
     const theme = cloneDarkTheme();
-    theme["name"] = "";
+    const namedTheme = theme as Record<"name", unknown>;
+    namedTheme.name = "";
 
     expectValidationError(
       theme,

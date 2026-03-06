@@ -11,7 +11,7 @@ import { commitVNodeTree } from "../../runtime/commit.js";
 import { createInstanceIdAllocator } from "../../runtime/instance.js";
 import { extendTheme } from "../../theme/extend.js";
 import { darkTheme } from "../../theme/presets.js";
-import { compileTheme, type Theme } from "../../theme/theme.js";
+import { type Theme, compileTheme } from "../../theme/theme.js";
 import type { TextStyle } from "../../widgets/style.js";
 import type { VNode } from "../../widgets/types.js";
 import { ui } from "../../widgets/ui.js";

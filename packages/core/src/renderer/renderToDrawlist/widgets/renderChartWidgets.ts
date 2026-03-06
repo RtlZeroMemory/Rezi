@@ -275,7 +275,8 @@ export function renderChartWidgets(
       );
       const mapped = mapScatterPointsToPixels(normalized, surface.widthPx, surface.heightPx, range);
       const fallbackColor =
-        readString(props.color) ?? rgbToHex(chartThemeColor(theme, "primary", theme.colors.primary));
+        readString(props.color) ??
+        rgbToHex(chartThemeColor(theme, "primary", theme.colors.primary));
       for (const point of mapped) {
         surface.ctx.setPixel(point.x, point.y, point.color ?? fallbackColor);
       }

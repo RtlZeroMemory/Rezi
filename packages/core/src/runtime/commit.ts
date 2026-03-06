@@ -578,11 +578,12 @@ function diagWhichPropFails(prev: VNode, next: VNode): string | undefined {
   type ReuseDiagProps = {
     style?: unknown;
     inheritStyle?: unknown;
+    key?: unknown;
     [key: string]: unknown;
   };
   const ap = (prev.props ?? {}) as ReuseDiagProps;
   const bp = (next.props ?? {}) as ReuseDiagProps;
-  if (prev.kind === "fragment" && ap["key"] !== bp["key"]) {
+  if (prev.kind === "fragment" && ap.key !== bp.key) {
     return "key";
   }
   if (prev.kind === "row" || prev.kind === "column") {
@@ -1971,7 +1972,11 @@ function commitNode(
 
     const idFatal = ensureInteractiveId(ctx.seenInteractiveIds, instanceId, vnode);
     if (idFatal) return { ok: false, fatal: idFatal };
-    const focusContainerFatal = ensureFocusContainerId(ctx.seenFocusContainerIds, instanceId, vnode);
+    const focusContainerFatal = ensureFocusContainerId(
+      ctx.seenFocusContainerIds,
+      instanceId,
+      vnode,
+    );
     if (focusContainerFatal) return { ok: false, fatal: focusContainerFatal };
 
     if (ctx.collectLifecycleInstanceIds) {

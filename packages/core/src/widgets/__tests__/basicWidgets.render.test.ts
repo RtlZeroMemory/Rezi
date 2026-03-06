@@ -3,18 +3,14 @@ import {
   parseDrawTextCommands as parseDecodedDrawTextCommands,
   parseInternedStrings,
 } from "../../__tests__/drawlistDecode.js";
-import {
-  type DrawlistBuilder,
-  type VNode,
-  createDrawlistBuilder,
-} from "../../index.js";
+import { type DrawlistBuilder, type VNode, createDrawlistBuilder } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
 import { createInstanceIdAllocator } from "../../runtime/instance.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
 import { extendTheme } from "../../theme/extend.js";
-import { compileTheme, type Theme } from "../../theme/theme.js";
+import { type Theme, compileTheme } from "../../theme/theme.js";
 import { ui } from "../ui.js";
 
 function u16(bytes: Uint8Array, off: number): number {

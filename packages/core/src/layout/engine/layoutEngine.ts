@@ -537,6 +537,7 @@ function measureNode(vnode: VNode, maxW: number, maxH: number, axis: Axis): Layo
       computed = measureStackKinds(vnode, maxW, maxH, axis, measureNode);
       break;
     }
+    case "fragment":
     case "themed": {
       const themedVNode = vnode as ThemedVNode;
       if (themedVNode.children.length === 0) {
@@ -797,6 +798,7 @@ function layoutNode(
       computed = layoutStackKinds(vnode, x, y, rectW, rectH, axis, measureNode, layoutNode);
       break;
     }
+    case "fragment":
     case "themed": {
       const themedVNode = vnode as ThemedVNode;
       if (themedVNode.children.length === 0) {

@@ -18,7 +18,7 @@ import { renderToDrawlist } from "../renderer/renderToDrawlist.js";
 import { type RuntimeInstance, commitVNodeTree } from "../runtime/commit.js";
 import { type InstanceIdAllocator, createInstanceIdAllocator } from "../runtime/instance.js";
 import { defaultTheme as coreDefaultTheme } from "../theme/defaultTheme.js";
-import { compileTheme, type Theme } from "../theme/theme.js";
+import { type Theme, compileTheme } from "../theme/theme.js";
 import type { ThemeDefinition } from "../theme/tokens.js";
 import type { TextStyle } from "../widgets/style.js";
 import type { VNode } from "../widgets/types.js";

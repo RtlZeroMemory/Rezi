@@ -71,11 +71,7 @@ function resolveSyntaxThemeColor(theme: Theme, key: string, fallback: Rgb24) {
   return theme.colors[key] ?? fallback;
 }
 
-function resolveDiffThemeColor(
-  theme: Theme,
-  key: string,
-  fallback: Rgb24,
-): Rgb24 {
+function resolveDiffThemeColor(theme: Theme, key: string, fallback: Rgb24): Rgb24 {
   return theme.colors[key] ?? fallback;
 }
 

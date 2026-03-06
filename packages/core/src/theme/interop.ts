@@ -2,25 +2,34 @@
  * packages/core/src/theme/interop.ts — Scoped theme override helpers.
  */
 
-import { extendTheme, type ThemeOverrides } from "./extend.js";
-import { compileTheme, type Theme } from "./theme.js";
+import { type ThemeOverrides, extendTheme } from "./extend.js";
+import { type Theme, compileTheme } from "./theme.js";
 import type { ThemeDefinition } from "./tokens.js";
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+type ThemeDefinitionCandidate = Readonly<{
+  name?: unknown;
+  colors?: unknown;
+  spacing?: unknown;
+  focusIndicator?: unknown;
+  widget?: unknown;
+}>;
+
 function isThemeDefinition(value: unknown): value is ThemeDefinition {
   if (!isObject(value)) return false;
-  if (typeof value["name"] !== "string") return false;
+  const candidate = value as ThemeDefinitionCandidate;
+  if (typeof candidate.name !== "string") return false;
   if (
-    !isObject(value["colors"]) ||
-    !isObject(value["spacing"]) ||
-    !isObject(value["focusIndicator"])
+    !isObject(candidate.colors) ||
+    !isObject(candidate.spacing) ||
+    !isObject(candidate.focusIndicator)
   ) {
     return false;
   }
-  return isObject(value["widget"]);
+  return isObject(candidate.widget);
 }
 
 export function mergeThemeOverride(parentTheme: Theme, override: unknown): Theme {

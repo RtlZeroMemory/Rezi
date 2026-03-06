@@ -40,8 +40,14 @@ describe("input recipe rendering", () => {
       ]),
       { viewport: { cols: 40, rows: 5 }, theme: defaultTheme },
     );
-    assert.equal(ops.some((op) => op.kind === "fillRect"), true);
-    assert.equal(ops.some((op) => op.kind === "drawText" && /[┌┐└┘]/.test(op.text)), true);
+    assert.equal(
+      ops.some((op) => op.kind === "fillRect"),
+      true,
+    );
+    assert.equal(
+      ops.some((op) => op.kind === "drawText" && /[┌┐└┘]/.test(op.text)),
+      true,
+    );
   });
 
   test("textarea renders placeholder when value is empty", () => {

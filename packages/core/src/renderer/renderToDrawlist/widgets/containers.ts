@@ -576,6 +576,25 @@ export function renderContainerWidget(
   const forceChildrenRender = forceSubtreeRender || node.selfDirty;
 
   switch (vnode.kind) {
+    case "fragment": {
+      const childClip = currentClip ?? { x: rect.x, y: rect.y, w: rect.w, h: rect.h };
+      pushChildrenWithLayout(
+        node,
+        layoutNode,
+        parentStyle,
+        nodeStack,
+        styleStack,
+        layoutStack,
+        clipStack,
+        childClip,
+        damageRect,
+        skipCleanSubtrees,
+        forceChildrenRender,
+        undefined,
+        clipOnFirstQueuedChild(builder, nodeStack, currentClip, childClip),
+      );
+      break;
+    }
     case "row":
     case "column":
     case "grid": {

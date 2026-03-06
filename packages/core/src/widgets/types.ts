@@ -72,9 +72,7 @@ export type SpacingProps = Readonly<{
   ml?: SpacingValue;
 }>;
 
-export type ScopedThemeOverride =
-  | ThemeDefinition
-  | ThemeOverrides;
+export type ScopedThemeOverride = ThemeDefinition | ThemeOverrides;
 
 export type ThemedProps = Readonly<{
   key?: string;

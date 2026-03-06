@@ -31,6 +31,7 @@ import {
   FRAME_ACCEPTED_ACK_MARKER,
   type RuntimeBackend,
 } from "../backend.js";
+import { describeThrown } from "../debug/describeThrown.js";
 import type { UiEvent, ZrevEvent } from "../events.js";
 import type {
   BindingMap,
@@ -43,9 +44,9 @@ import {
   getBindings,
   getMode,
   getPendingChord,
-  removeBindingsBySource,
   registerBindings,
   registerModes,
+  removeBindingsBySource,
   resetChordState,
   routeKeyEvent,
   setMode,
@@ -56,7 +57,6 @@ import {
   normalizeBreakpointThresholds,
 } from "../layout/responsive.js";
 import type { Rect } from "../layout/types.js";
-import { describeThrown } from "../debug/describeThrown.js";
 import { PERF_ENABLED, perfMarkEnd, perfMarkStart, perfNow, perfRecord } from "../perf/perf.js";
 import type { EventTimeUnwrapState } from "../protocol/types.js";
 import { parseEventBatchV1 } from "../protocol/zrev_v1.js";
@@ -68,7 +68,7 @@ import {
   terminalProfileFromCaps,
 } from "../terminalProfile.js";
 import { defaultTheme } from "../theme/defaultTheme.js";
-import { blendTheme, compileTheme, type Theme } from "../theme/theme.js";
+import { type Theme, blendTheme, compileTheme } from "../theme/theme.js";
 import type { ThemeDefinition } from "../theme/tokens.js";
 import type { VNode } from "../widgets/types.js";
 import { ui } from "../widgets/ui.js";
@@ -670,7 +670,10 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     getFocusInfo: () => widgetRenderer.getCurrentFocusInfo(),
     initialFocusedId: widgetRenderer.getFocusedId(),
     onHandlerError: (error: unknown) => {
-      fatalNowOrEnqueue("ZRUI_USER_CODE_THROW", `onFocusChange handler threw: ${describeThrown(error)}`);
+      fatalNowOrEnqueue(
+        "ZRUI_USER_CODE_THROW",
+        `onFocusChange handler threw: ${describeThrown(error)}`,
+      );
     },
   });
 
@@ -1677,6 +1680,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       viewFn = fn;
       topLevelViewError = null;
       if (sm.state === "Running") {
+        widgetRenderer.forceFullRenderNextFrame();
         markDirty(DIRTY_VIEW);
       }
     },
@@ -1698,6 +1702,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       replaceRouteBindings(nextRouteKeybindings);
       topLevelViewError = null;
       if (sm.state === "Running") {
+        widgetRenderer.forceFullRenderNextFrame();
         markDirty(DIRTY_VIEW);
       }
     },

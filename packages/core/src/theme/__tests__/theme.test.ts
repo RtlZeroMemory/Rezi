@@ -29,6 +29,9 @@ describe("theme runtime compilation", () => {
 
   test("resolveColorToken covers widget extension paths", () => {
     assert.equal(resolveColorToken(darkTheme, "widget.toast.info"), darkTheme.widget.toast.info);
-    assert.equal(resolveColorToken(darkTheme, "widget.syntax.keyword"), darkTheme.widget.syntax.keyword);
+    assert.equal(
+      resolveColorToken(darkTheme, "widget.syntax.keyword"),
+      darkTheme.widget.syntax.keyword,
+    );
   });
 });

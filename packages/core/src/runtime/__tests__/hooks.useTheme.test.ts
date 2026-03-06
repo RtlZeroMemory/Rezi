@@ -4,7 +4,7 @@ import { extendTheme } from "../../theme/extend.js";
 import { getColorTokens } from "../../theme/extract.js";
 import { mergeThemeOverride } from "../../theme/interop.js";
 import { darkTheme } from "../../theme/presets.js";
-import { compileTheme, type Theme } from "../../theme/theme.js";
+import { type Theme, compileTheme } from "../../theme/theme.js";
 import type { ColorTokens } from "../../theme/tokens.js";
 import { defineWidget } from "../../widgets/composition.js";
 import type { VNode } from "../../widgets/types.js";

@@ -1240,6 +1240,7 @@ export class WidgetRenderer<S> {
   private readonly _pooledActiveExitKeys = new Set<string>();
   private readonly _pooledPrevTreeIds = new Set<string>();
   private _runtimeBreadcrumbs: WidgetRuntimeBreadcrumbSnapshot = EMPTY_WIDGET_RUNTIME_BREADCRUMBS;
+  private forceFullRenderOnNextSubmit = false;
   private _constraintBreadcrumbs: RuntimeBreadcrumbConstraintsSummary | null = null;
   private _constraintExprIndexByInstanceId: ReadonlyMap<
     InstanceId,
@@ -1331,6 +1332,10 @@ export class WidgetRenderer<S> {
     for (const id of ids) {
       this.compositeRegistry.invalidate(id);
     }
+  }
+
+  forceFullRenderNextFrame(): void {
+    this.forceFullRenderOnNextSubmit = true;
   }
 
   private describeLayoutNode(node: LayoutTree): string {
@@ -1821,6 +1826,23 @@ export class WidgetRenderer<S> {
    */
   shouldBypassKeybindings(event: ZrevEvent): boolean {
     if (event.kind !== "key" || event.action !== "down") return false;
+    const topLayerId =
+      this.layerStack.length > 0 ? (this.layerStack[this.layerStack.length - 1] ?? null) : null;
+    const topDropdownId =
+      this.dropdownStack.length > 0
+        ? (this.dropdownStack[this.dropdownStack.length - 1] ?? null)
+        : null;
+
+    if (topDropdownId !== null && topLayerId === `dropdown:${topDropdownId}`) {
+      return (
+        event.key === ZR_KEY_ESCAPE ||
+        event.key === ZR_KEY_UP ||
+        event.key === ZR_KEY_DOWN ||
+        event.key === ZR_KEY_ENTER ||
+        event.key === ZR_KEY_SPACE
+      );
+    }
+
     if (event.key !== ZR_KEY_ESCAPE) return false;
     return this.hasActiveOverlay();
   }
@@ -3254,6 +3276,7 @@ export class WidgetRenderer<S> {
     viewport: Viewport,
     theme: Theme,
   ): boolean {
+    if (this.forceFullRenderOnNextSubmit) return false;
     return shouldAttemptIncrementalRenderImpl({
       hasRenderedFrame: this._hasRenderedFrame,
       doLayout,
@@ -3716,6 +3739,7 @@ export class WidgetRenderer<S> {
             activePaths: this.committedErrorBoundaryPathsScratch,
             requestRetry: (retryPath: string) => {
               this.retryErrorBoundaryPaths.add(retryPath);
+              this.forceFullRenderNextFrame();
               this.requestView();
             },
           },
@@ -5062,7 +5086,12 @@ export class WidgetRenderer<S> {
       let runtimeDamageMode: RuntimeBreadcrumbDamageMode = "none";
       let runtimeDamageRectCount = 0;
       let runtimeDamageArea = 0;
-      if (this.shouldAttemptIncrementalRender(doLayout, viewport, theme)) {
+      const forceFullRenderThisSubmit = this.forceFullRenderOnNextSubmit;
+      this.forceFullRenderOnNextSubmit = false;
+      if (
+        !forceFullRenderThisSubmit &&
+        this.shouldAttemptIncrementalRender(doLayout, viewport, theme)
+      ) {
         if (!doCommit) {
           this.markTransientDirtyNodes(
             this.committedRoot,

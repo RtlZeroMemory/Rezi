@@ -165,13 +165,21 @@ describe("composition animation hooks - orchestration", () => {
   test("useParallel playback pause and resume preserves elapsed progress", async () => {
     const h = createHarness();
     const running = [
-      { target: 10, config: { duration: 140, easing: "linear" as const, playback: { paused: false } } },
+      {
+        target: 10,
+        config: { duration: 140, easing: "linear" as const, playback: { paused: false } },
+      },
     ] as const;
     const paused = [
-      { target: 10, config: { duration: 140, easing: "linear" as const, playback: { paused: true } } },
+      {
+        target: 10,
+        config: { duration: 140, easing: "linear" as const, playback: { paused: true } },
+      },
     ] as const;
 
-    let render = h.render((hooks) => useParallel(hooks, [{ target: 0, config: { duration: 140, easing: "linear" as const } }]));
+    let render = h.render((hooks) =>
+      useParallel(hooks, [{ target: 0, config: { duration: 140, easing: "linear" as const } }]),
+    );
     h.runPending(render.pendingEffects);
 
     render = h.render((hooks) => useParallel(hooks, running));
@@ -304,12 +312,24 @@ describe("composition animation hooks - orchestration", () => {
   test("useChain playback changes do not reset the active step", async () => {
     const h = createHarness();
     const running = [
-      { target: 4, config: { duration: 90, easing: "linear" as const, playback: { paused: false } } },
-      { target: 8, config: { duration: 90, easing: "linear" as const, playback: { paused: false } } },
+      {
+        target: 4,
+        config: { duration: 90, easing: "linear" as const, playback: { paused: false } },
+      },
+      {
+        target: 8,
+        config: { duration: 90, easing: "linear" as const, playback: { paused: false } },
+      },
     ] as const;
     const paused = [
-      { target: 4, config: { duration: 90, easing: "linear" as const, playback: { paused: true } } },
-      { target: 8, config: { duration: 90, easing: "linear" as const, playback: { paused: false } } },
+      {
+        target: 4,
+        config: { duration: 90, easing: "linear" as const, playback: { paused: true } },
+      },
+      {
+        target: 8,
+        config: { duration: 90, easing: "linear" as const, playback: { paused: false } },
+      },
     ] as const;
 
     let render = h.render((hooks) => useChain(hooks, running));

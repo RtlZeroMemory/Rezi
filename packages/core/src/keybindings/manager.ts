@@ -404,22 +404,6 @@ function validateModeGraph<C>(modes: ReadonlyMap<string, CompiledMode<C>>): void
       );
     }
   }
-
-  for (const modeName of modes.keys()) {
-    const visited = new Set<string>();
-    let currentName: string | undefined = modeName;
-
-    while (currentName !== undefined) {
-      if (visited.has(currentName)) {
-        throw new Error(`cyclic keybinding mode parent chain detected at "${currentName}"`);
-      }
-      visited.add(currentName);
-
-      const current = modes.get(currentName);
-      if (!current) break;
-      currentName = current.parent;
-    }
-  }
 }
 
 /**
