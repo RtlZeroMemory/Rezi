@@ -28,6 +28,9 @@ Filter to a subset:
 node scripts/run-tests.mjs --filter "layout"
 ```
 
+`--filter` matches a literal substring in the discovered relative test file
+paths.
+
 ## What to test
 
 - Unit behavior for pure helpers and validators.

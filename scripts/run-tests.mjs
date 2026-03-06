@@ -71,6 +71,10 @@ function collectPackageTests(root) {
   return out;
 }
 
+function escapeRegExpLiteral(value) {
+  return value.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
+}
+
 function parseArgs(argv) {
   let scope = "all";
   let filter = null;
@@ -146,15 +150,7 @@ if (scope === "packages" && packageTests.length === 0) {
 let relFiles = files.map((f) => relative(root, f));
 
 if (typeof filter === "string") {
-  let rx;
-  try {
-    rx = new RegExp(filter);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    process.stderr.write(`run-tests: invalid --filter regex: ${msg}\n`);
-    process.exit(1);
-  }
-
+  const rx = new RegExp(escapeRegExpLiteral(filter));
   relFiles = relFiles.filter((p) => rx.test(p));
   if (relFiles.length === 0) {
     process.stderr.write(`run-tests: --filter matched 0 test files (${filter})\n`);

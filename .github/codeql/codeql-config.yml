@@ -1,0 +1,9 @@
+name: rezi-codeql
+paths-ignore:
+  - "**/__tests__/**"
+  - "**/*.test.js"
+  - "**/*.test.jsx"
+  - "**/*.test.mjs"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/tests.rs"

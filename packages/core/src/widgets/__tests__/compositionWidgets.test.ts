@@ -71,6 +71,16 @@ describe("composition widgets", () => {
     assert.equal(sidebarBox.props.width, railWidth);
   });
 
+  test("constraint helpers format exponent inputs as trimmed decimal literals", () => {
+    const width = widthConstraints.clampedPercentOfParent({
+      ratio: 1e-7,
+      min: 2.5e-7,
+      max: 1e-6,
+    });
+
+    assert.equal(width.source, "clamp(0.00000025, parent.w * 0.0000001, 0.000001)");
+  });
+
   test("ui.card title overload includes title and body", () => {
     const renderer = createTestRenderer({ viewport: { cols: 60, rows: 10 } });
     const result = renderer.render(ui.card("Title", [ui.text("body")]));
