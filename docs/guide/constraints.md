@@ -30,7 +30,7 @@ Inside `expr("...")`, these references are supported:
 - `intrinsic.w`, `intrinsic.h`
 - `#id.w`, `#id.h`, `#id.min_w`, `#id.min_h`
 
-Direct `#id.*` references require a unique target ID in scope. Shared IDs must use aggregation functions.
+Direct `#id.*` references require a unique target ID in scope. Shared IDs must use aggregation functions, and `max_sibling(...)` / `sum_sibling(...)` only aggregate matching ids under the same parent.
 
 ## Supported Functions
 
@@ -44,8 +44,8 @@ Constraint function allowlist:
 - `round(x)`
 - `abs(x)`
 - `if(cond, then, else)` (`cond > 0` is truthy)
-- `max_sibling(#id.min_w)` (or other supported `#id.*` metric)
-- `sum_sibling(#id.w)` (or other supported `#id.*` metric)
+- `max_sibling(#id.min_w)` (or other supported `#id.*` metric for matching siblings under one parent)
+- `sum_sibling(#id.w)` (or other supported `#id.*` metric for matching siblings under one parent)
 - `steps(value, threshold1: result1, threshold2: result2, ...)`
 
 Unknown function names are deterministic errors (`ZRUI_INVALID_CONSTRAINT`).
@@ -74,7 +74,7 @@ Use constraints when layout depends on relationships:
 
 - Parent-relative sizing: `expr("parent.w * 0.5")`
 - Viewport breakpoints: `expr("if(viewport.w >= 110, 32, 20)")`
-- Sibling-relative sizing: `expr("parent.w - #sidebar.w - #rail.w")`
+- Same-parent sibling-relative sizing: `expr("parent.w - #sidebar.w - #rail.w")`
 - Intrinsic sizing with bounds: `expr("clamp(30, intrinsic.w + 4, parent.w)")`
 
 Use non-constraint APIs when relationships are not needed:
@@ -98,7 +98,8 @@ ui.box({
 
 Notes:
 
-- Hidden nodes are excluded from normal layout and metadata surfaces (focus/hit-test).
+- Hidden nodes are excluded from normal layout and from rendered constraint geometry.
+- Do not rely on `display` alone as a guarantee that every metadata surface will drop the node immediately.
 - Sibling metric lookups to hidden nodes resolve deterministically as zero-sized metrics.
 
 ## Grid Contract (Important)

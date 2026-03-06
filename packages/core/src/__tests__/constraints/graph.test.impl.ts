@@ -147,6 +147,35 @@ describe("constraint graph", () => {
     assert.deepEqual([...deps].sort(), targetKeys);
   });
 
+  test("limits aggregation dependencies to the consumer sibling group", () => {
+    const branchA = runtimeNode(510, {}, [
+      boxWithId(11, "item", { minWidth: expr("5") }),
+      boxWithId(12, "item", { minWidth: expr("9") }),
+      boxWithId(19, "panel", { width: expr("max_sibling(#item.min_w)") }),
+    ]);
+    const branchB = runtimeNode(520, {}, [boxWithId(13, "item", { minWidth: expr("20") })]);
+    const root = runtimeNode(500, {}, [branchA, branchB]);
+
+    const built = buildConstraintGraph(root);
+    assert.equal(built.ok, true);
+    if (!built.ok) return;
+
+    const panelNode = built.value.nodes.find(
+      (node) => node.widgetId === "panel" && node.prop === "width",
+    );
+    assert.ok(panelNode !== undefined);
+    if (panelNode === undefined) return;
+
+    const deps = built.value.edges.get(panelNode.key) ?? [];
+    assert.equal(deps.length, 2);
+    const targetKeys = built.value.nodes
+      .filter((node) => node.widgetId === "item" && node.prop === "minWidth")
+      .filter((node) => node.parentInstanceId === 510)
+      .map((node) => node.key)
+      .sort();
+    assert.deepEqual([...deps].sort(), targetKeys);
+  });
+
   test("adds display dependency for sibling metric lookups", () => {
     const sidebar = boxWithId(1, "sidebar", {
       width: expr("20"),
@@ -218,6 +247,18 @@ describe("constraint graph", () => {
     const ambiguous = buildConstraintGraph(runtimeNode(601, {}, [dupA, dupB, consumer]));
     assert.equal(ambiguous.ok, false);
     if (!ambiguous.ok) assert.equal(ambiguous.fatal.code, "ZRUI_INVALID_CONSTRAINT");
+
+    const siblingOnly = buildConstraintGraph(
+      runtimeNode(602, {}, [
+        runtimeNode(610, {}, [boxWithId(1, "dup", { width: expr("10") })]),
+        runtimeNode(620, {}, [boxWithId(2, "consumer", { width: expr("sum_sibling(#dup.w)") })]),
+      ]),
+    );
+    assert.equal(siblingOnly.ok, false);
+    if (!siblingOnly.ok) {
+      assert.equal(siblingOnly.fatal.code, "ZRUI_INVALID_CONSTRAINT");
+      assert.match(siblingOnly.fatal.detail, /same parent/i);
+    }
   });
 
   test("produces stable fingerprint and deterministic node ordering", () => {

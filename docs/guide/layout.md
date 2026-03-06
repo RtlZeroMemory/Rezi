@@ -141,7 +141,7 @@ ui.grid(
 
 ## Padding and margins
 
-Container widgets accept spacing props (values are **cells**, or named keys like `"sm"`, `"md"`, `"lg"`):
+`box`, `row`, and `column` accept spacing props (values are **cells**, or named keys like `"sm"`, `"md"`, `"lg"`). `grid` supports `gap` / `rowGap` / `columnGap`, but not padding or margin props:
 
 ### Padding (inside)
 
@@ -228,7 +228,7 @@ Most container widgets accept layout constraints:
 - `flexShrink`: overflow shrink factor (`0` default)
 - `flexBasis`: initial main-axis size (`number | "full" | "auto" | fluid(...) | expr("...")`)
 - `aspectRatio`: enforce `w/h`
-- `position`: `"static"` (default) or `"absolute"` with `top` / `right` / `bottom` / `left`
+- `position`: `"static"` (default) or `"absolute"` with `top` / `right` / `bottom` / `left` for children of `box` / `row` / `column`
 
 Child-constraint support for `flex`, `flexShrink`, `flexBasis`, `alignSelf`, `gridColumn`, `gridRow`, `colSpan`, and `rowSpan` is limited to:
 
@@ -266,7 +266,7 @@ ui.row({ gap: 1 }, [
 
 ## Absolute positioning
 
-Children with `position: "absolute"` are removed from normal stack/box flow and laid out in a second pass relative to the parent content rect.
+Children with `position: "absolute"` are removed from normal flow only when their parent is a `box`, `row`, or `column`. Other parents ignore absolute positioning and emit a dev-mode warning.
 
 - In-flow siblings ignore absolute children for size and cursor advancement.
 - `top/left/right/bottom` offsets use integer cell coordinates.

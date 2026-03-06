@@ -499,6 +499,7 @@ const CONSTRAINT_RESOLUTION_NONE = Object.freeze({ kind: "none" as const });
 const CONSTRAINT_RESOLUTION_REUSED = Object.freeze({ kind: "reused" as const });
 const CONSTRAINT_RESOLUTION_CACHE_HIT = Object.freeze({ kind: "cacheHit" as const });
 const CONSTRAINT_RESOLUTION_COMPUTED = Object.freeze({ kind: "computed" as const });
+const MAX_CONSTRAINT_SETTLE_PASSES = 128;
 const EMPTY_CONSTRAINT_BREADCRUMBS: RuntimeBreadcrumbConstraintsSummary = Object.freeze({
   enabled: false,
   graphFingerprint: 0,
@@ -3947,15 +3948,7 @@ export class WidgetRenderer<S> {
           this._constraintNodesWithAffectedDescendants =
             this._pooledConstraintNodesWithAffectedDescendants;
         }
-        const hasDisplayConstraint = constraintGraph?.hasDisplayConstraints ?? false;
-        if (hasDisplayConstraint || this._constraintHasStaticHiddenDisplay) {
-          this.rebuildConstraintHiddenState(this.committedRoot, resolvedValuesForLayout);
-        } else {
-          this._pooledHiddenConstraintInstanceIds.clear();
-          this._pooledHiddenConstraintWidgetIds.clear();
-          this._hiddenConstraintInstanceIds = this._pooledHiddenConstraintInstanceIds;
-          this._hiddenConstraintWidgetIds = this._pooledHiddenConstraintWidgetIds;
-        }
+        this.rebuildConstraintHiddenState(this.committedRoot, resolvedValuesForLayout);
         if (
           constraintGraph !== null &&
           ((resolvedValuesForLayout !== null && resolvedValuesForLayout.size > 0) ||
@@ -3999,7 +3992,13 @@ export class WidgetRenderer<S> {
         // constraints can converge one depth level at a time.
         if (constraintGraph !== null && constraintGraph.nodes.length > 0) {
           let settlePasses = 0;
-          const maxSettlePasses = Math.max(3, Math.min(12, constraintGraph.nodes.length + 1));
+          // Nested parent/intrinsic chains can converge one dependency level at a time.
+          // Use the graph size instead of an arbitrary small cap so first-frame layout
+          // can fully settle for deep but valid trees.
+          const maxSettlePasses = Math.min(
+            MAX_CONSTRAINT_SETTLE_PASSES,
+            Math.max(3, constraintGraph.nodes.length + 1),
+          );
           while (settlePasses < maxSettlePasses) {
             buildLayoutRectIndexes(
               nextLayoutTree,
@@ -4045,14 +4044,7 @@ export class WidgetRenderer<S> {
               ? CONSTRAINT_RESOLUTION_CACHE_HIT
               : CONSTRAINT_RESOLUTION_COMPUTED;
 
-            if (hasDisplayConstraint || this._constraintHasStaticHiddenDisplay) {
-              this.rebuildConstraintHiddenState(this.committedRoot, resolvedValuesForLayout);
-            } else {
-              this._pooledHiddenConstraintInstanceIds.clear();
-              this._pooledHiddenConstraintWidgetIds.clear();
-              this._hiddenConstraintInstanceIds = this._pooledHiddenConstraintInstanceIds;
-              this._hiddenConstraintWidgetIds = this._pooledHiddenConstraintWidgetIds;
-            }
+            this.rebuildConstraintHiddenState(this.committedRoot, resolvedValuesForLayout);
 
             let settledConstrainedRootVNode = this.committedRoot.vnode;
             if (

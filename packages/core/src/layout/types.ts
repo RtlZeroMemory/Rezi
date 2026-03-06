@@ -48,15 +48,18 @@ export type LayoutConstraints = Readonly<{
   aspectRatio?: number;
   /** Per-child cross-axis alignment override. "auto" inherits parent align. */
   alignSelf?: "auto" | "start" | "center" | "end" | "stretch";
-  /** Positioning mode. "absolute" removes from flow, relative to parent content rect. */
+  /**
+   * Positioning mode.
+   * "absolute" is honored only for children of box/row/column parents; other parents ignore it.
+   */
   position?: "static" | "absolute";
-  /** Top offset for absolute positioning (cells). */
+  /** Top offset for absolute positioning (cells, box/row/column children only). */
   top?: number;
-  /** Right offset for absolute positioning (cells). */
+  /** Right offset for absolute positioning (cells, box/row/column children only). */
   right?: number;
-  /** Bottom offset for absolute positioning (cells). */
+  /** Bottom offset for absolute positioning (cells, box/row/column children only). */
   bottom?: number;
-  /** Left offset for absolute positioning (cells). */
+  /** Left offset for absolute positioning (cells, box/row/column children only). */
   left?: number;
   /** Grid column start (1-based). Only used when parent is a grid. */
   gridColumn?: number;
