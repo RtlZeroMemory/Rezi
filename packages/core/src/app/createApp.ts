@@ -49,7 +49,7 @@ import {
   routeKeyEvent,
   setMode,
 } from "../keybindings/index.js";
-import { ZR_MOD_ALT, ZR_MOD_CTRL, ZR_MOD_META } from "../keybindings/keyCodes.js";
+import { ZR_MOD_CTRL } from "../keybindings/keyCodes.js";
 import {
   type ResponsiveBreakpointThresholds,
   normalizeBreakpointThresholds,
@@ -72,6 +72,24 @@ import type { Theme } from "../theme/theme.js";
 import type { ThemeDefinition } from "../theme/tokens.js";
 import type { VNode } from "../widgets/types.js";
 import { ui } from "../widgets/ui.js";
+import {
+  DIRTY_LAYOUT,
+  DIRTY_RENDER,
+  DIRTY_VIEW,
+  buildWidgetRenderPlan,
+  createDirtyTracker,
+} from "./createApp/dirtyPlan.js";
+import { createFocusDispatcher } from "./createApp/focusDispatcher.js";
+import { createRunSignalController, readProcessLike } from "./createApp/runSignals.js";
+import {
+  type TopLevelViewError,
+  buildTopLevelViewErrorScreen,
+  captureTopLevelViewError,
+  isTopLevelQuitEvent,
+  isTopLevelRetryEvent,
+  isUnhandledCtrlCKeyEvent,
+  isUnmodifiedTextQuitEvent,
+} from "./createApp/topLevelViewError.js";
 import { RawRenderer } from "./rawRenderer.js";
 import {
   type RuntimeBreadcrumbAction,
@@ -350,145 +368,10 @@ type WorkItem =
 
 /** Event handler registration with deactivation flag. */
 type HandlerSlot = Readonly<{ fn: EventHandler; active: { value: boolean } }>;
-type FocusHandlerSlot = Readonly<{ fn: FocusChangeHandler; active: { value: boolean } }>;
 
 function describeThrown(v: unknown): string {
   if (v instanceof Error) return `${v.name}: ${v.message}`;
   return String(v);
-}
-
-type TopLevelViewError = Readonly<{
-  code: "ZRUI_USER_CODE_THROW";
-  detail: string;
-  message: string;
-  stack?: string;
-}>;
-
-const KEY_Q = 81;
-const KEY_R = 82;
-const KEY_C = 67;
-const KEY_LOWER_Q = 113;
-const KEY_LOWER_R = 114;
-const CTRL_C_CODEPOINT = 3;
-
-function captureTopLevelViewError(value: unknown): TopLevelViewError {
-  if (value instanceof Error) {
-    return Object.freeze({
-      code: "ZRUI_USER_CODE_THROW",
-      detail: `${value.name}: ${value.message}`,
-      message: value.message,
-      ...(typeof value.stack === "string" && value.stack.length > 0 ? { stack: value.stack } : {}),
-    });
-  }
-  const detail = String(value);
-  return Object.freeze({
-    code: "ZRUI_USER_CODE_THROW",
-    detail,
-    message: detail,
-  });
-}
-
-function buildTopLevelViewErrorScreen(error: TopLevelViewError): VNode {
-  const lines = [`Code: ${error.code}`, `Message: ${error.message}`];
-  if (error.stack === undefined || error.stack.length === 0) {
-    lines.push(`Detail: ${error.detail}`);
-  }
-  return ui.column({ width: "full", height: "full", justify: "center", align: "center", p: 1 }, [
-    ui.box(
-      {
-        width: "full",
-        height: "full",
-        border: "single",
-        title: "Runtime Error",
-        p: 1,
-      },
-      [
-        ui.errorDisplay(lines.join("\n"), {
-          title: "Top-level view() threw",
-          ...(error.stack === undefined || error.stack.length === 0
-            ? {}
-            : { stack: error.stack, showStack: true }),
-        }),
-        ui.callout("Press R to retry, Q to quit", { variant: "warning" }),
-      ],
-    ),
-  ]);
-}
-
-function isUnmodifiedLetterKey(mods: number): boolean {
-  return (mods & (ZR_MOD_CTRL | ZR_MOD_ALT | ZR_MOD_META)) === 0;
-}
-
-function isTopLevelRetryEvent(ev: ZrevEvent): boolean {
-  if (ev.kind === "key") {
-    return ev.action === "down" && isUnmodifiedLetterKey(ev.mods) && ev.key === KEY_R;
-  }
-  if (ev.kind === "text") {
-    return ev.codepoint === KEY_R || ev.codepoint === KEY_LOWER_R;
-  }
-  return false;
-}
-
-function isTopLevelQuitEvent(ev: ZrevEvent): boolean {
-  if (ev.kind === "key") {
-    return ev.action === "down" && isUnmodifiedLetterKey(ev.mods) && ev.key === KEY_Q;
-  }
-  if (ev.kind === "text") {
-    return ev.codepoint === KEY_Q || ev.codepoint === KEY_LOWER_Q;
-  }
-  return false;
-}
-
-function isUnmodifiedTextQuitEvent(ev: ZrevEvent): boolean {
-  if (ev.kind !== "text") return false;
-  return (
-    ev.codepoint === KEY_Q || ev.codepoint === KEY_LOWER_Q || ev.codepoint === CTRL_C_CODEPOINT
-  );
-}
-
-function isUnhandledCtrlCKeyEvent(ev: ZrevEvent): boolean {
-  if (ev.kind !== "key") return false;
-  if (ev.action !== "down") return false;
-  if (ev.key !== KEY_C) return false;
-  const hasCtrl = (ev.mods & ZR_MOD_CTRL) !== 0;
-  if (!hasCtrl) return false;
-  return (ev.mods & (ZR_MOD_ALT | ZR_MOD_META)) === 0;
-}
-
-type ProcessLike = Readonly<{
-  on?: ((event: string, handler: (...args: unknown[]) => void) => unknown) | undefined;
-  off?: ((event: string, handler: (...args: unknown[]) => void) => unknown) | undefined;
-  removeListener?: ((event: string, handler: (...args: unknown[]) => void) => unknown) | undefined;
-  exit?: ((code?: number) => void) | undefined;
-}>;
-
-function readProcessLike(): ProcessLike | null {
-  const processRef = (
-    globalThis as {
-      process?: {
-        on?: (event: string, handler: (...args: unknown[]) => void) => unknown;
-        off?: (event: string, handler: (...args: unknown[]) => void) => unknown;
-        removeListener?: (event: string, handler: (...args: unknown[]) => void) => unknown;
-        exit?: (code?: number) => void;
-      };
-    }
-  ).process;
-  if (!processRef || typeof processRef !== "object") return null;
-  return processRef;
-}
-
-function removeSignalHandler(
-  proc: ProcessLike,
-  signal: string,
-  handler: (...args: unknown[]) => void,
-): void {
-  if (typeof proc.off === "function") {
-    proc.off(signal, handler);
-    return;
-  }
-  if (typeof proc.removeListener === "function") {
-    proc.removeListener(signal, handler);
-  }
 }
 
 /**
@@ -674,18 +557,9 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   const updates = new UpdateQueue<S>();
 
   const handlers: HandlerSlot[] = [];
-  const focusHandlers: FocusHandlerSlot[] = [];
-  let lastEmittedFocusId: string | null = null;
-
-  const DIRTY_RENDER = 1 << 0;
-  const DIRTY_LAYOUT = 1 << 1;
-  const DIRTY_VIEW = 1 << 2;
+  const dirtyTracker = createDirtyTracker();
   const spinnerTickMinIntervalMs = Math.max(1, Math.floor(1000 / Math.min(config.fpsCap, 8)));
 
-  let dirtyFlags = 0;
-  let dirtyRenderVersion = 0;
-  let dirtyLayoutVersion = 0;
-  let dirtyViewVersion = 0;
   let framesInFlight = 0;
   let interactiveBudget = 0;
   let lastSpinnerRenderTickMs = Number.NEGATIVE_INFINITY;
@@ -712,39 +586,11 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
   const scheduler = new TurnScheduler<WorkItem>((items) => processTurn(items));
 
-  type DirtyVersionSnapshot = Readonly<{ render: number; layout: number; view: number }>;
-
-  function snapshotDirtyVersions(): DirtyVersionSnapshot {
-    return {
-      render: dirtyRenderVersion,
-      layout: dirtyLayoutVersion,
-      view: dirtyViewVersion,
-    };
-  }
-
-  function clearConsumedDirtyFlags(consumedFlags: number, snapshot: DirtyVersionSnapshot): void {
-    let clearMask = 0;
-    if ((consumedFlags & DIRTY_RENDER) !== 0 && dirtyRenderVersion === snapshot.render) {
-      clearMask |= DIRTY_RENDER;
-    }
-    if ((consumedFlags & DIRTY_LAYOUT) !== 0 && dirtyLayoutVersion === snapshot.layout) {
-      clearMask |= DIRTY_LAYOUT;
-    }
-    if ((consumedFlags & DIRTY_VIEW) !== 0 && dirtyViewVersion === snapshot.view) {
-      clearMask |= DIRTY_VIEW;
-    }
-    dirtyFlags &= ~clearMask;
-  }
-
   function markDirty(flags: number, schedule = true): void {
     // Track when dirty flags are first set for schedule_wait measurement.
     // This captures time from "render needed" to "render started".
-    const wasDirty = dirtyFlags !== 0;
-    dirtyFlags |= flags;
-    if ((flags & DIRTY_RENDER) !== 0) dirtyRenderVersion++;
-    if ((flags & DIRTY_LAYOUT) !== 0) dirtyLayoutVersion++;
-    if ((flags & DIRTY_VIEW) !== 0) dirtyViewVersion++;
-    if (PERF_ENABLED && !wasDirty && dirtyFlags !== 0 && scheduleWaitStartMs === null) {
+    const { wasDirty, flags: nextFlags } = dirtyTracker.markDirty(flags);
+    if (PERF_ENABLED && !wasDirty && nextFlags !== 0 && scheduleWaitStartMs === null) {
       scheduleWaitStartMs = perfMarkStart("schedule_wait");
     }
     if (!schedule) return;
@@ -833,7 +679,14 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     onUserCodeError: (detail) => enqueueFatal("ZRUI_USER_CODE_THROW", detail),
     collectRuntimeBreadcrumbs: runtimeBreadcrumbsEnabled,
   });
-  lastEmittedFocusId = widgetRenderer.getFocusedId();
+  const focusDispatcher = createFocusDispatcher({
+    getFocusedId: () => widgetRenderer.getFocusedId(),
+    getFocusInfo: () => widgetRenderer.getCurrentFocusInfo(),
+    initialFocusedId: widgetRenderer.getFocusedId(),
+    onHandlerError: (error: unknown) => {
+      enqueueFatal("ZRUI_USER_CODE_THROW", `onFocusChange handler threw: ${describeThrown(error)}`);
+    },
+  });
 
   let routeStateUpdater: ((updater: StateUpdater<S>) => void) | null = null;
   let routerIntegration: RouterIntegration<S> | null = null;
@@ -1073,25 +926,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   }
 
   function emitFocusChangeIfNeeded(): boolean {
-    const focusedId = widgetRenderer.getFocusedId();
-    if (focusedId === lastEmittedFocusId) return true;
-    lastEmittedFocusId = focusedId;
-
-    const info = widgetRenderer.getCurrentFocusInfo();
-    const snapshot: FocusChangeHandler[] = [];
-    for (const slot of focusHandlers) {
-      if (slot.active.value) snapshot.push(slot.fn);
-    }
-
-    for (const fn of snapshot) {
-      try {
-        fn(info);
-      } catch (e: unknown) {
-        enqueueFatal("ZRUI_USER_CODE_THROW", `onFocusChange handler threw: ${describeThrown(e)}`);
-        return false;
-      }
-    }
-    return true;
+    return focusDispatcher.emitIfChanged();
   }
 
   function doFatal(code: ZrUiErrorCode, detail: string): void {
@@ -1503,7 +1338,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     // During stop(), we may still receive a few late event batches, but we must not
     // submit new frames (backend may be tearing down).
     if (lifecycleBusy === "stop") return;
-    if (dirtyFlags === 0) return;
+    if (dirtyTracker.getFlags() === 0) return;
     const maxInFlight = config.maxFramesInFlight + (interactiveBudget > 0 ? 1 : 0);
     if (framesInFlight >= maxInFlight) return;
     if (mode === null) return;
@@ -1514,7 +1349,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       scheduleWaitStartMs = null;
     }
 
-    const dirtyVersionStart = snapshotDirtyVersions();
+    const dirtyVersionStart = dirtyTracker.snapshotVersions();
 
     const snapshot = committedState as Readonly<S>;
     const hooks = {
@@ -1545,7 +1380,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       framesInFlight++;
       if (interactiveBudget > 0) interactiveBudget--;
       scheduleFrameSettlement(res.inFlight, submitFrameStartMs, buildEndMs);
-      clearConsumedDirtyFlags(DIRTY_RENDER | DIRTY_LAYOUT | DIRTY_VIEW, dirtyVersionStart);
+      dirtyTracker.clearConsumedFlags(DIRTY_RENDER | DIRTY_LAYOUT | DIRTY_VIEW, dirtyVersionStart);
       return;
     }
 
@@ -1554,7 +1389,8 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
     if (!viewport) return;
 
-    if ((dirtyFlags & (DIRTY_VIEW | DIRTY_LAYOUT | DIRTY_RENDER)) === 0) return;
+    const pendingDirtyFlags = dirtyTracker.getFlags();
+    if ((pendingDirtyFlags & (DIRTY_VIEW | DIRTY_LAYOUT | DIRTY_RENDER)) === 0) return;
 
     // Compute render plan from dirty flags. Render-only turns (e.g., focus change)
     // skip view/commit/layout. Layout-only turns (e.g., resize without state change)
@@ -1562,18 +1398,8 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     // to decide whether relayout is required, instead of forcing layout by default.
     // First-frame/bootstrap safety is handled inside submitFrame(): it falls back
     // to full pipeline when committedRoot or layoutTree is null.
-    const pendingDirtyFlags = dirtyFlags;
     const frameNowMs = monotonicNowMs();
-    const plan: WidgetRenderPlan = {
-      commit: (pendingDirtyFlags & DIRTY_VIEW) !== 0,
-      layout: (pendingDirtyFlags & DIRTY_LAYOUT) !== 0,
-      // Commit turns must always run layout-stability checks when layout is not
-      // already explicitly dirty; otherwise interactive state updates can render a
-      // newly-committed tree against stale layout nodes until the next resize.
-      checkLayoutStability:
-        (pendingDirtyFlags & DIRTY_LAYOUT) === 0 && (pendingDirtyFlags & DIRTY_VIEW) !== 0,
-      nowMs: frameNowMs,
-    };
+    const plan: WidgetRenderPlan = buildWidgetRenderPlan(pendingDirtyFlags, frameNowMs);
     advanceThemeTransitionFrame();
 
     const resilientView: ViewFn<S> = (state) => {
@@ -1618,7 +1444,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     let consumedDirtyFlags = DIRTY_RENDER;
     if (plan.layout) consumedDirtyFlags |= DIRTY_LAYOUT;
     if (plan.commit) consumedDirtyFlags |= DIRTY_VIEW;
-    clearConsumedDirtyFlags(consumedDirtyFlags, dirtyVersionStart);
+    dirtyTracker.clearConsumedFlags(consumedDirtyFlags, dirtyVersionStart);
     scheduleThemeTransitionContinuation();
   }
 
@@ -1809,12 +1635,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       if (inCommit || inRender) {
         throwCode("ZRUI_REENTRANT_CALL", "onFocusChange: re-entrant call");
       }
-
-      const active = { value: true };
-      focusHandlers.push({ fn: handler, active });
-      return () => {
-        active.value = false;
-      };
+      return focusDispatcher.register(handler);
     },
 
     update(updater: StateUpdater<S>): void {
@@ -1900,41 +1721,14 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       if (mode === null) throwCode("ZRUI_NO_RENDER_MODE", "run: no render mode selected");
 
       const proc = readProcessLike();
-      const addSignalHandler =
-        proc !== null && typeof proc.on === "function" ? proc.on.bind(proc) : null;
-      const canRegisterSignals = addSignalHandler !== null;
-      const signals = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
-      const handlers: Array<Readonly<{ signal: string; handler: (...args: unknown[]) => void }>> =
-        [];
-
-      let runSettled = false;
-      let resolveRun!: () => void;
-      const runPromise = new Promise<void>((resolve) => {
-        resolveRun = resolve;
-      });
-
-      const cleanupSignalHandlers = (): void => {
-        if (!proc) return;
-        for (const entry of handlers) {
-          removeSignalHandler(proc, entry.signal, entry.handler);
-        }
-        handlers.length = 0;
-      };
-
-      const settleRun = (): void => {
-        if (runSettled) return;
-        runSettled = true;
-        cleanupSignalHandlers();
-        if (settleActiveRun === settleRun) settleActiveRun = null;
-        resolveRun();
-      };
-
-      const onSignal = (): void => {
-        if (runSettled) return;
-        runSettled = true;
-        cleanupSignalHandlers();
-        if (settleActiveRun === settleRun) settleActiveRun = null;
-        void (async () => {
+      let runSettle: (() => void) | null = null;
+      const runController = createRunSignalController({
+        onDetached: () => {
+          if (runSettle !== null && settleActiveRun === runSettle) {
+            settleActiveRun = null;
+          }
+        },
+        onSignal: async () => {
           try {
             if (sm.state === "Running") await app.stop();
           } catch {
@@ -1950,29 +1744,29 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
           } catch {
             // ignore
           }
-          resolveRun();
-        })();
-      };
+        },
+        processLike: proc,
+      });
+      runSettle = runController.settle;
+      settleActiveRun = runController.settle;
 
-      if (canRegisterSignals) {
-        for (const signal of signals) {
-          const handler = () => onSignal();
-          handlers.push(Object.freeze({ signal, handler }));
-          addSignalHandler(signal, handler);
-        }
+      let startPromise: Promise<void>;
+      try {
+        startPromise = app.start();
+      } catch (e: unknown) {
+        runController.detach();
+        throw e;
       }
-      settleActiveRun = settleRun;
 
-      return app.start().then(
+      return startPromise.then(
         () => {
-          if (!canRegisterSignals) {
-            settleRun();
+          if (!runController.canRegisterSignals) {
+            runController.settle();
           }
-          return runPromise;
+          return runController.promise;
         },
         (e: unknown) => {
-          cleanupSignalHandlers();
-          if (settleActiveRun === settleRun) settleActiveRun = null;
+          runController.detach();
           throw e;
         },
       );
