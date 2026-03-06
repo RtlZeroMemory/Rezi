@@ -16,6 +16,7 @@
  * @see docs/guide/runtime-and-layout.md
  */
 
+import { ZrUiError } from "../abi.js";
 import { getWidgetProtocol, kindIsFocusable, kindIsPressable } from "../widgets/protocol.js";
 import type { FocusZoneNavigation } from "../widgets/types.js";
 import type { RuntimeInstance } from "./commit.js";
@@ -55,6 +56,28 @@ function isEnabledInteractive(v: RuntimeInstance["vnode"]): string | null {
   }
 
   return id;
+}
+
+type FocusContainerKind = "focusZone" | "focusTrap" | "modal";
+
+function duplicateFocusContainerDetail(
+  id: string,
+  firstKind: FocusContainerKind,
+  secondKind: FocusContainerKind,
+): string {
+  return `Duplicate focus container id "${id}". First: <${firstKind}>, second: <${secondKind}>. Hint: focusZone, focusTrap, and modal ids must be unique across the tree.`;
+}
+
+function recordFocusContainerId(
+  seen: Map<string, FocusContainerKind>,
+  id: string,
+  kind: FocusContainerKind,
+): void {
+  const existing = seen.get(id);
+  if (existing !== undefined) {
+    throw new ZrUiError("ZRUI_DUPLICATE_ID", duplicateFocusContainerDetail(id, existing, kind));
+  }
+  seen.set(id, kind);
 }
 
 /**
@@ -127,6 +150,7 @@ export type InputMeta = Readonly<{
   instanceId: InstanceId;
   value: string;
   disabled: boolean;
+  readOnly: boolean;
   multiline: boolean;
   rows: number;
   wordWrap: boolean;
@@ -398,6 +422,7 @@ export function collectInputMetaById(tree: RuntimeInstance): ReadonlyMap<string,
         id?: unknown;
         value?: unknown;
         disabled?: unknown;
+        readOnly?: unknown;
         multiline?: unknown;
         rows?: unknown;
         wordWrap?: unknown;
@@ -408,6 +433,7 @@ export function collectInputMetaById(tree: RuntimeInstance): ReadonlyMap<string,
       const value = typeof props.value === "string" ? props.value : null;
       if (id !== null && value !== null && !m.has(id)) {
         const disabled = props.disabled === true;
+        const readOnly = props.readOnly === true;
         const multiline = props.multiline === true;
         const rowsRaw =
           typeof props.rows === "number" && Number.isFinite(props.rows) ? props.rows : 3;
@@ -423,6 +449,7 @@ export function collectInputMetaById(tree: RuntimeInstance): ReadonlyMap<string,
           instanceId: node.instanceId,
           value,
           disabled,
+          readOnly,
           multiline,
           rows,
           wordWrap,
@@ -510,6 +537,7 @@ function collectFocusableIdsInSubtree(node: RuntimeInstance): readonly string[] 
  */
 export function collectFocusZones(tree: RuntimeInstance): ReadonlyMap<string, CollectedZone> {
   const m = new Map<string, CollectedZone>();
+  const seen = new Map<string, FocusContainerKind>();
 
   const stack: Array<{ node: RuntimeInstance; parentZoneId: string | null }> = [
     { node: tree, parentZoneId: null },
@@ -531,7 +559,8 @@ export function collectFocusZones(tree: RuntimeInstance): ReadonlyMap<string, Co
       };
       const id = typeof props.id === "string" && props.id.length > 0 ? props.id : null;
 
-      if (id !== null && !m.has(id)) {
+      if (id !== null) {
+        recordFocusContainerId(seen, id, "focusZone");
         const tabIndex = typeof props.tabIndex === "number" ? props.tabIndex : 0;
         const navigation =
           props.navigation === "linear" ||
@@ -606,6 +635,7 @@ export function collectFocusZones(tree: RuntimeInstance): ReadonlyMap<string, Co
  */
 export function collectFocusTraps(tree: RuntimeInstance): ReadonlyMap<string, CollectedTrap> {
   const m = new Map<string, CollectedTrap>();
+  const seen = new Map<string, FocusContainerKind>();
 
   const stack: RuntimeInstance[] = [tree];
   while (stack.length > 0) {
@@ -621,22 +651,18 @@ export function collectFocusTraps(tree: RuntimeInstance): ReadonlyMap<string, Co
       };
       const id = typeof props.id === "string" && props.id.length > 0 ? props.id : null;
 
-      if (id !== null && !m.has(id)) {
+      if (id !== null) {
+        recordFocusContainerId(seen, id, node.vnode.kind);
         const active = node.vnode.kind === "modal" ? true : props.active === true;
         const returnFocusTo = typeof props.returnFocusTo === "string" ? props.returnFocusTo : null;
         const initialFocus = typeof props.initialFocus === "string" ? props.initialFocus : null;
 
-        // Collect focusable ids from trap children (not traversing into nested zones/traps)
+        // Collect focusable ids from trap children, including nested zones but
+        // excluding nested traps/modals which manage their own focus scope.
         const focusableIds: string[] = [];
         for (const child of node.children) {
-          if (
-            child.vnode.kind === "focusZone" ||
-            child.vnode.kind === "focusTrap" ||
-            child.vnode.kind === "modal"
-          ) {
-            continue;
-          }
-          const childFocusables = collectFocusableIdsInSubtree(child);
+          if (child.vnode.kind === "focusTrap" || child.vnode.kind === "modal") continue;
+          const childFocusables = collectFocusableIdsInTrapSubtree(child);
           focusableIds.push(...childFocusables);
         }
 
@@ -661,6 +687,30 @@ export function collectFocusTraps(tree: RuntimeInstance): ReadonlyMap<string, Co
   }
 
   return m;
+}
+
+function collectFocusableIdsInTrapSubtree(node: RuntimeInstance): readonly string[] {
+  const out: string[] = [];
+  const stack: RuntimeInstance[] = [node];
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) continue;
+
+    if (current.vnode.kind === "focusTrap" || current.vnode.kind === "modal") {
+      continue;
+    }
+
+    const id = isFocusableInteractive(current.vnode) ? isEnabledInteractive(current.vnode) : null;
+    if (id !== null) out.push(id);
+
+    for (let i = current.children.length - 1; i >= 0; i--) {
+      const child = current.children[i];
+      if (child) stack.push(child);
+    }
+  }
+
+  return Object.freeze(out);
 }
 
 // ---------------------------------------------------------------------------
@@ -720,6 +770,7 @@ export class WidgetMetadataCollector {
   private readonly _inputById = new Map<string, InputMeta>();
 
   // Zone/trap intermediate data (reused)
+  private readonly _focusContainerKindsById = new Map<string, FocusContainerKind>();
   private readonly _zoneDataById = new Map<
     string,
     Omit<CollectedZone, "focusableIds"> & {
@@ -755,6 +806,7 @@ export class WidgetMetadataCollector {
     this._enabledById.clear();
     this._pressableIds.clear();
     this._inputById.clear();
+    this._focusContainerKindsById.clear();
     this._zoneDataById.clear();
     this._trapDataById.clear();
     this._zoneFocusables.clear();
@@ -805,15 +857,22 @@ export class WidgetMetadataCollector {
             buildFocusInfo(vnode, focusableId, this._fieldStack),
           );
         }
-        // Attribute to current container (innermost zone/trap)
-        if (this._containerStack.length > 0) {
-          const container = this._containerStack[this._containerStack.length - 1];
-          if (container) {
-            if (container.kind === "zone") {
-              this._zoneFocusables.get(container.id)?.push(focusableId);
-            } else {
-              this._trapFocusables.get(container.id)?.push(focusableId);
-            }
+        // Attribute to the nearest zone and nearest enclosing trap. Focusables
+        // inside zones still participate in an enclosing trap's focus scope.
+        for (let i = this._containerStack.length - 1; i >= 0; i--) {
+          const container = this._containerStack[i];
+          if (!container) continue;
+          if (container.kind === "zone") {
+            this._zoneFocusables.get(container.id)?.push(focusableId);
+            break;
+          }
+        }
+        for (let i = this._containerStack.length - 1; i >= 0; i--) {
+          const container = this._containerStack[i];
+          if (!container) continue;
+          if (container.kind === "trap") {
+            this._trapFocusables.get(container.id)?.push(focusableId);
+            break;
           }
         }
       }
@@ -848,6 +907,7 @@ export class WidgetMetadataCollector {
           id?: unknown;
           value?: unknown;
           disabled?: unknown;
+          readOnly?: unknown;
           multiline?: unknown;
           rows?: unknown;
           wordWrap?: unknown;
@@ -858,6 +918,7 @@ export class WidgetMetadataCollector {
         const value = typeof props.value === "string" ? props.value : null;
         if (id !== null && value !== null && !this._inputById.has(id)) {
           const disabled = props.disabled === true;
+          const readOnly = props.readOnly === true;
           const multiline = props.multiline === true;
           const rowsRaw =
             typeof props.rows === "number" && Number.isFinite(props.rows) ? props.rows : 3;
@@ -873,6 +934,7 @@ export class WidgetMetadataCollector {
             instanceId: node.instanceId,
             value,
             disabled,
+            readOnly,
             multiline,
             rows,
             wordWrap,
@@ -902,7 +964,8 @@ export class WidgetMetadataCollector {
         };
         const id = typeof props.id === "string" && props.id.length > 0 ? props.id : null;
 
-        if (id !== null && !this._zoneDataById.has(id)) {
+        if (id !== null) {
+          recordFocusContainerId(this._focusContainerKindsById, id, "focusZone");
           const tabIndex = typeof props.tabIndex === "number" ? props.tabIndex : 0;
           const navigation =
             props.navigation === "linear" ||
@@ -961,7 +1024,8 @@ export class WidgetMetadataCollector {
         };
         const id = typeof props.id === "string" && props.id.length > 0 ? props.id : null;
 
-        if (id !== null && !this._trapDataById.has(id)) {
+        if (id !== null) {
+          recordFocusContainerId(this._focusContainerKindsById, id, vnode.kind);
           const active = vnode.kind === "modal" ? true : props.active === true;
           const returnFocusTo =
             typeof props.returnFocusTo === "string" ? props.returnFocusTo : null;
@@ -991,7 +1055,7 @@ export class WidgetMetadataCollector {
         id,
         Object.freeze({
           ...data,
-          focusableIds: Object.freeze(focusables),
+          focusableIds: Object.freeze(focusables.slice()),
         }),
       );
     }
@@ -1003,19 +1067,19 @@ export class WidgetMetadataCollector {
         id,
         Object.freeze({
           ...data,
-          focusableIds: Object.freeze(focusables),
+          focusableIds: Object.freeze(focusables.slice()),
         }),
       );
     }
 
     return Object.freeze({
       focusableIds: Object.freeze(this._focusableIds.slice()),
-      focusInfoById: this._focusInfoById,
-      enabledById: this._enabledById,
-      pressableIds: this._pressableIds,
-      inputById: this._inputById,
-      zones: this._zones,
-      traps: this._traps,
+      focusInfoById: new Map(this._focusInfoById),
+      enabledById: new Map(this._enabledById),
+      pressableIds: new Set(this._pressableIds),
+      inputById: new Map(this._inputById),
+      zones: new Map(this._zones),
+      traps: new Map(this._traps),
       hasRoutingWidgets,
     });
   }

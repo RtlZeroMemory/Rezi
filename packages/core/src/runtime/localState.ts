@@ -88,6 +88,14 @@ function freezeState(s: RuntimeLocalState): RuntimeLocalState {
   });
 }
 
+function cloneReadonlyMap<K, V>(value: ReadonlyMap<K, V>): ReadonlyMap<K, V> {
+  return new Map(value);
+}
+
+function cloneReadonlySet<T>(value: ReadonlySet<T>): ReadonlySet<T> {
+  return new Set(value);
+}
+
 /** Create a new local state store instance. */
 export function createRuntimeLocalStateStore(): RuntimeLocalStateStore {
   const table = new Map<InstanceId, RuntimeLocalState>();
@@ -152,7 +160,9 @@ export function createVirtualListStateStore(): VirtualListStateStore {
     set: (id, patch) => {
       const prev = table.get(id) ?? DEFAULT_VLIST_STATE;
       const measuredHeights =
-        patch.measuredHeights !== undefined ? patch.measuredHeights : prev.measuredHeights;
+        patch.measuredHeights !== undefined
+          ? cloneReadonlyMap(patch.measuredHeights)
+          : prev.measuredHeights;
       const measuredWidth =
         patch.measuredWidth !== undefined ? patch.measuredWidth : prev.measuredWidth;
       const measuredItemCount =
@@ -352,14 +362,16 @@ export function createTreeStateStore(): TreeStateStore {
       const prev = table.get(id) ?? DEFAULT_TREE_STATE;
       const next: TreeLocalState = Object.freeze({
         focusedKey: patch.focusedKey !== undefined ? patch.focusedKey : prev.focusedKey,
-        loadingKeys: patch.loadingKeys !== undefined ? patch.loadingKeys : prev.loadingKeys,
+        loadingKeys:
+          patch.loadingKeys !== undefined ? cloneReadonlySet(patch.loadingKeys) : prev.loadingKeys,
         scrollTop: patch.scrollTop !== undefined ? patch.scrollTop : prev.scrollTop,
         viewportHeight:
           patch.viewportHeight !== undefined ? patch.viewportHeight : prev.viewportHeight,
         flatCache: patch.flatCache !== undefined ? patch.flatCache : prev.flatCache,
         expandedSetRef:
           patch.expandedSetRef !== undefined ? patch.expandedSetRef : prev.expandedSetRef,
-        expandedSet: patch.expandedSet !== undefined ? patch.expandedSet : prev.expandedSet,
+        expandedSet:
+          patch.expandedSet !== undefined ? cloneReadonlySet(patch.expandedSet) : prev.expandedSet,
         prefixCache: patch.prefixCache !== undefined ? patch.prefixCache : prev.prefixCache,
       });
       table.set(id, next);

@@ -5,7 +5,15 @@ All notable changes to Rezi are documented in this file.
 The format is based on Keep a Changelog and the project follows Semantic Versioning.
 
 ## [Unreleased]
+### Bug Fixes
 
+- **core/composition + hooks**: Composite widgets now use a layout-transparent default wrapper, animation hooks share a frame driver, transition/orchestration hooks stop relying on stringified config signatures, `useAnimatedValue` transition playback preserves progress across pause/resume, `useStagger` restarts on same-length item replacement, and streaming hook reconnect delays clamp away tight-loop reconnects.
+- **core/runtime + perf**: Hardened lifecycle start/stop/fatal edges, sync frame follow-up scheduling, focus/layer callback failure handling, focus container metadata/state publication, and perf ring-buffer rollover stats.
+
+### Documentation
+
+- **docs/guide**: Synced composition, animation, and hook reference docs with the current hook surface, easing presets, callback semantics, viewport availability, and stable parser examples for streaming hooks.
+- **docs/lifecycle**: Corrected `onEvent(...)` examples, fatal payload fields, hot-reload state guarantees, and `run()` behavior when signal registration is unavailable.
 ## [0.1.0-alpha.57] - 2026-03-06
 
 ### Documentation

@@ -813,8 +813,8 @@ describe("Layer ESC Routing", () => {
       ]),
     });
 
-    assert.equal(result.closedLayerId, "modal1");
-    assert.equal(closedLayer, "modal1");
+    assert.equal(result.closedLayerId, undefined);
+    assert.equal(closedLayer, null);
   });
 
   test("non-ESC key is not consumed", () => {

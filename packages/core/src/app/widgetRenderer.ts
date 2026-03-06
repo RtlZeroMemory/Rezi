@@ -947,6 +947,9 @@ function cloneFocusManagerState(state: FocusManagerState): FocusManagerState {
     ...(state.pendingFocusedId === undefined ? {} : { pendingFocusedId: state.pendingFocusedId }),
     zones: new Map(state.zones),
     trapStack: Object.freeze([...state.trapStack]),
+    ...(state.trapReturnFocusById === undefined
+      ? {}
+      : { trapReturnFocusById: new Map(state.trapReturnFocusById) }),
     lastFocusedByZone: new Map(state.lastFocusedByZone),
   });
 }
@@ -1815,13 +1818,12 @@ export class WidgetRenderer<S> {
   /**
    * Determine whether a key event should bypass the keybinding system.
    *
-   * Why: When dropdowns or modal overlays are active, widgets must be able to
-   * consume Escape to close/deny/exit without being preempted by global
-   * keybindings (e.g., "Escape => menu").
+   * Why: Active overlays own keyboard interaction. Global keybindings should
+   * not preempt dropdown navigation, modal dismissal, or overlay-local
+   * shortcuts while an overlay is present.
    */
   shouldBypassKeybindings(event: ZrevEvent): boolean {
     if (event.kind !== "key" || event.action !== "down") return false;
-    if (event.key !== ZR_KEY_ESCAPE) return false;
     return this.hasActiveOverlay();
   }
 
@@ -2135,7 +2137,7 @@ export class WidgetRenderer<S> {
       diffViewerById: this.diffViewerById,
       rectById: this.rectById,
       scrollOverrides: this.scrollOverrides,
-      findNearestScrollableAncestor: (targetId) => this.findNearestScrollableAncestor(targetId),
+      findScrollableAncestors: (targetId) => this.findScrollableAncestors(targetId),
     });
     if (wheelRoute) return wheelRoute;
 
@@ -2384,8 +2386,8 @@ export class WidgetRenderer<S> {
       if (prev?.onExit) {
         try {
           prev.onExit();
-        } catch {
-          // Swallow callback errors to preserve routing determinism.
+        } catch (error: unknown) {
+          this.reportUserCodeError(`focusZone onExit threw: ${describeThrown(error)}`);
         }
       }
     }
@@ -2395,30 +2397,30 @@ export class WidgetRenderer<S> {
       if (next?.onEnter) {
         try {
           next.onEnter();
-        } catch {
-          // Swallow callback errors to preserve routing determinism.
+        } catch (error: unknown) {
+          this.reportUserCodeError(`focusZone onEnter threw: ${describeThrown(error)}`);
         }
       }
     }
   }
 
-  private findNearestScrollableAncestor(
+  private findScrollableAncestors(
     targetId: string | null,
-  ): Readonly<{ nodeId: string; meta: LayoutOverflowMetadata }> | null {
-    if (targetId === null || !this.committedRoot || !this.layoutTree) return null;
+  ): readonly Readonly<{ nodeId: string; meta: LayoutOverflowMetadata }>[] {
+    if (targetId === null || !this.committedRoot || !this.layoutTree) return Object.freeze([]);
 
     type ScrollableMatch = Readonly<{ nodeId: string; meta: LayoutOverflowMetadata }>;
     type Cursor = Readonly<{
       runtimeNode: RuntimeInstance;
       layoutNode: LayoutTree;
-      nearest: ScrollableMatch | null;
+      scrollables: readonly ScrollableMatch[];
     }>;
 
     const stack: Cursor[] = [
       {
         runtimeNode: this.committedRoot,
         layoutNode: this.layoutTree,
-        nearest: null,
+        scrollables: Object.freeze([]),
       },
     ];
 
@@ -2428,7 +2430,7 @@ export class WidgetRenderer<S> {
 
       const runtimeNode = frame.runtimeNode;
       const layoutNode = frame.layoutNode;
-      let nearest = frame.nearest;
+      let scrollables = frame.scrollables;
 
       const props = runtimeNode.vnode.props as Readonly<{
         id?: unknown;
@@ -2441,11 +2443,13 @@ export class WidgetRenderer<S> {
         const hasScrollableAxis =
           meta.contentWidth > meta.viewportWidth || meta.contentHeight > meta.viewportHeight;
         if (hasScrollableAxis) {
-          nearest = { nodeId, meta };
+          scrollables = Object.freeze([...scrollables, { nodeId, meta }]);
         }
       }
 
-      if (nodeId === targetId) return nearest;
+      if (nodeId === targetId) {
+        return Object.freeze([...scrollables].reverse());
+      }
 
       const childCount = Math.min(runtimeNode.children.length, layoutNode.children.length);
       for (let i = childCount - 1; i >= 0; i--) {
@@ -2455,12 +2459,12 @@ export class WidgetRenderer<S> {
         stack.push({
           runtimeNode: runtimeChild,
           layoutNode: layoutChild,
-          nearest,
+          scrollables,
         });
       }
     }
 
-    return null;
+    return Object.freeze([]);
   }
 
   private applyScrollOverridesToVNode(
@@ -3947,15 +3951,7 @@ export class WidgetRenderer<S> {
           this._constraintNodesWithAffectedDescendants =
             this._pooledConstraintNodesWithAffectedDescendants;
         }
-        const hasDisplayConstraint = constraintGraph?.hasDisplayConstraints ?? false;
-        if (hasDisplayConstraint || this._constraintHasStaticHiddenDisplay) {
-          this.rebuildConstraintHiddenState(this.committedRoot, resolvedValuesForLayout);
-        } else {
-          this._pooledHiddenConstraintInstanceIds.clear();
-          this._pooledHiddenConstraintWidgetIds.clear();
-          this._hiddenConstraintInstanceIds = this._pooledHiddenConstraintInstanceIds;
-          this._hiddenConstraintWidgetIds = this._pooledHiddenConstraintWidgetIds;
-        }
+        this.rebuildConstraintHiddenState(this.committedRoot, resolvedValuesForLayout);
         if (
           constraintGraph !== null &&
           ((resolvedValuesForLayout !== null && resolvedValuesForLayout.size > 0) ||
@@ -3999,7 +3995,10 @@ export class WidgetRenderer<S> {
         // constraints can converge one depth level at a time.
         if (constraintGraph !== null && constraintGraph.nodes.length > 0) {
           let settlePasses = 0;
-          const maxSettlePasses = Math.max(3, Math.min(12, constraintGraph.nodes.length + 1));
+          // Nested parent/intrinsic chains can converge one dependency level at a time.
+          // Use the graph size instead of an arbitrary small cap so first-frame layout
+          // can fully settle for deep but valid trees.
+          const maxSettlePasses = Math.max(3, constraintGraph.nodes.length + 1);
           while (settlePasses < maxSettlePasses) {
             buildLayoutRectIndexes(
               nextLayoutTree,
@@ -4045,14 +4044,7 @@ export class WidgetRenderer<S> {
               ? CONSTRAINT_RESOLUTION_CACHE_HIT
               : CONSTRAINT_RESOLUTION_COMPUTED;
 
-            if (hasDisplayConstraint || this._constraintHasStaticHiddenDisplay) {
-              this.rebuildConstraintHiddenState(this.committedRoot, resolvedValuesForLayout);
-            } else {
-              this._pooledHiddenConstraintInstanceIds.clear();
-              this._pooledHiddenConstraintWidgetIds.clear();
-              this._hiddenConstraintInstanceIds = this._pooledHiddenConstraintInstanceIds;
-              this._hiddenConstraintWidgetIds = this._pooledHiddenConstraintWidgetIds;
-            }
+            this.rebuildConstraintHiddenState(this.committedRoot, resolvedValuesForLayout);
 
             let settledConstrainedRootVNode = this.committedRoot.vnode;
             if (

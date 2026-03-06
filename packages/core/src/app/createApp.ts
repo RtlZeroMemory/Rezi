@@ -55,6 +55,7 @@ import {
   normalizeBreakpointThresholds,
 } from "../layout/responsive.js";
 import type { Rect } from "../layout/types.js";
+import { describeThrown } from "../debug/describeThrown.js";
 import { PERF_ENABLED, perfMarkEnd, perfMarkStart, perfNow, perfRecord } from "../perf/perf.js";
 import type { EventTimeUnwrapState } from "../protocol/types.js";
 import { parseEventBatchV1 } from "../protocol/zrev_v1.js";
@@ -369,11 +370,6 @@ type WorkItem =
 /** Event handler registration with deactivation flag. */
 type HandlerSlot = Readonly<{ fn: EventHandler; active: { value: boolean } }>;
 
-function describeThrown(v: unknown): string {
-  if (v instanceof Error) return `${v.name}: ${v.message}`;
-  return String(v);
-}
-
 /**
  * Convert a text codepoint to a key code for keybinding matching.
  * Letters are normalized to uppercase (A-Z = 65-90).
@@ -573,8 +569,11 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   let inEventHandlerDepth = 0;
 
   let lifecycleBusy: "start" | "stop" | null = null;
+  let backendStarted = false;
+  let lifecycleGeneration = 0;
   let pollToken = 0;
   let settleActiveRun: (() => void) | null = null;
+  let renderRequestQueuedForCurrentTurn = false;
 
   let userCommitScheduled = false;
 
@@ -595,7 +594,14 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     }
     if (!schedule) return;
     if (sm.state !== "Running") return;
-    if (scheduler.isScheduled || scheduler.isExecuting) return;
+    if (scheduler.isExecuting) {
+      if (!renderRequestQueuedForCurrentTurn) {
+        renderRequestQueuedForCurrentTurn = true;
+        scheduler.enqueue({ kind: "renderRequest" });
+      }
+      return;
+    }
+    if (scheduler.isScheduled) return;
     scheduler.enqueue({ kind: "renderRequest" });
   }
 
@@ -676,7 +682,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     drawlistEncodedStringCacheCap: config.drawlistEncodedStringCacheCap,
     requestRender: requestRenderFromRenderer,
     requestView: requestViewFromRenderer,
-    onUserCodeError: (detail) => enqueueFatal("ZRUI_USER_CODE_THROW", detail),
+    onUserCodeError: (detail) => fatalNowOrEnqueue("ZRUI_USER_CODE_THROW", detail),
     collectRuntimeBreadcrumbs: runtimeBreadcrumbsEnabled,
   });
   const focusDispatcher = createFocusDispatcher({
@@ -684,7 +690,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     getFocusInfo: () => widgetRenderer.getCurrentFocusInfo(),
     initialFocusedId: widgetRenderer.getFocusedId(),
     onHandlerError: (error: unknown) => {
-      enqueueFatal("ZRUI_USER_CODE_THROW", `onFocusChange handler threw: ${describeThrown(error)}`);
+      fatalNowOrEnqueue("ZRUI_USER_CODE_THROW", `onFocusChange handler threw: ${describeThrown(error)}`);
     },
   });
 
@@ -820,14 +826,14 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     } catch (e: unknown) {
       // Late events can race while a stop is already in-flight; avoid double-fatal.
       if (lifecycleBusy === "stop") return;
-      enqueueFatal(
+      fatalNowOrEnqueue(
         "ZRUI_BACKEND_ERROR",
         `stop threw after unhandled quit input: ${describeThrown(e)}`,
       );
       return;
     }
     void stopPromise.catch((e: unknown) => {
-      enqueueFatal(
+      fatalNowOrEnqueue(
         "ZRUI_BACKEND_ERROR",
         `stop rejected after unhandled quit input: ${describeThrown(e)}`,
       );
@@ -855,6 +861,9 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     const st = sm.state;
     if (st === "Disposed" || st === "Faulted") {
       throwCode("ZRUI_INVALID_STATE", `${method}: app is ${st}`);
+    }
+    if (lifecycleBusy !== null) {
+      throwCode("ZRUI_INVALID_STATE", `${method}: lifecycle operation already in flight`);
     }
   }
 
@@ -903,7 +912,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     });
   }
 
-  function emit(ev: UiEvent): void {
+  function emit(ev: UiEvent): boolean {
     const snapshot: EventHandler[] = [];
     for (const slot of handlers) {
       if (slot.active.value) snapshot.push(slot.fn);
@@ -915,14 +924,14 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
         try {
           fn(ev);
         } catch (e: unknown) {
-          // Treat handler exceptions as fatal, but defer out of the handler stack.
-          enqueueFatal("ZRUI_USER_CODE_THROW", `onEvent handler threw: ${describeThrown(e)}`);
-          return;
+          fatalNowOrEnqueue("ZRUI_USER_CODE_THROW", `onEvent handler threw: ${describeThrown(e)}`);
+          return false;
         }
       }
     } finally {
       inEventHandlerDepth--;
     }
+    return true;
   }
 
   function emitFocusChangeIfNeeded(): boolean {
@@ -931,6 +940,9 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
   function doFatal(code: ZrUiErrorCode, detail: string): void {
     if (sm.state !== "Running") return;
+    lifecycleBusy = null;
+    lifecycleGeneration++;
+    backendStarted = false;
 
     // 1) emit fatal to handlers (registration order, best-effort)
     const fatalEv: UiEvent = { kind: "fatal", code, detail };
@@ -979,6 +991,29 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     }
   }
 
+  function cleanupStartedBackendAfterAbort(): void {
+    if (!backendStarted) return;
+    backendStarted = false;
+    try {
+      void backend
+        .stop()
+        .catch(() => undefined)
+        .finally(() => {
+          try {
+            backend.dispose();
+          } catch {
+            // ignore
+          }
+        });
+    } catch {
+      try {
+        backend.dispose();
+      } catch {
+        // ignore
+      }
+    }
+  }
+
   function releaseOnce(batch: BackendEventBatch): () => void {
     let released = false;
     return () => {
@@ -1012,7 +1047,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
     try {
       if (engineTruncated || droppedBatches > 0) {
-        emit({ kind: "overrun", engineTruncated, droppedBatches });
+        if (!emit({ kind: "overrun", engineTruncated, droppedBatches })) return;
         if (sm.state !== "Running") return;
       }
 
@@ -1026,7 +1061,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
           interactiveBudget = 2;
         }
         noteBreadcrumbEvent(ev.kind);
-        emit({ kind: "engine", event: ev });
+        if (!emit({ kind: "engine", event: ev })) return;
         if (sm.state !== "Running") return;
         if (ev.kind === "resize") {
           const prev = viewport;
@@ -1113,7 +1148,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
                 const keyResult = routeKeyEvent(routeInputState, ev, keyCtx);
                 applyRoutedKeybindingState(routeInputState, keyResult.nextState);
                 if (keyResult.handlerError !== undefined) {
-                  enqueueFatal(
+                  fatalNowOrEnqueue(
                     "ZRUI_USER_CODE_THROW",
                     `keybinding handler threw: ${describeThrown(keyResult.handlerError)}`,
                   );
@@ -1156,7 +1191,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
                   const keyResult = routeKeyEvent(routeInputState, syntheticKeyEvent, keyCtx);
                   applyRoutedKeybindingState(routeInputState, keyResult.nextState);
                   if (keyResult.handlerError !== undefined) {
-                    enqueueFatal(
+                    fatalNowOrEnqueue(
                       "ZRUI_USER_CODE_THROW",
                       `keybinding handler threw: ${describeThrown(keyResult.handlerError)}`,
                     );
@@ -1176,14 +1211,15 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
             noteBreadcrumbConsumptionPath("widgetRouting");
             routed = widgetRenderer.routeEngineEvent(ev);
           } catch (e: unknown) {
-            enqueueFatal("ZRUI_USER_CODE_THROW", `widget routing threw: ${describeThrown(e)}`);
+            fatalNowOrEnqueue("ZRUI_USER_CODE_THROW", `widget routing threw: ${describeThrown(e)}`);
             return;
           }
+          if (sm.state !== "Running") return;
           if (!emitFocusChangeIfNeeded()) return;
           if (routed.needsRender) markDirty(DIRTY_RENDER);
           if (routed.action) {
             noteBreadcrumbAction(routed.action);
-            emit({ kind: "action", ...routed.action });
+            if (!emit({ kind: "action", ...routed.action })) return;
             if (sm.state !== "Running") return;
           }
           if (
@@ -1446,6 +1482,10 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     if (plan.commit) consumedDirtyFlags |= DIRTY_VIEW;
     dirtyTracker.clearConsumedFlags(consumedDirtyFlags, dirtyVersionStart);
     scheduleThemeTransitionContinuation();
+    if (dirtyTracker.getFlags() !== 0 && !renderRequestQueuedForCurrentTurn) {
+      renderRequestQueuedForCurrentTurn = true;
+      scheduler.enqueue({ kind: "renderRequest" });
+    }
   }
 
   function drainIgnored(items: readonly WorkItem[]): void {
@@ -1461,6 +1501,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   }
 
   function processTurn(items: readonly WorkItem[]): void {
+    renderRequestQueuedForCurrentTurn = false;
     const st = sm.state;
     if (st === "Disposed" || st === "Faulted") {
       drainIgnored(items);
@@ -1536,7 +1577,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
         batch = await backend.pollEvents();
       } catch (e: unknown) {
         if (sm.state === "Running" && token === pollToken) {
-          enqueueFatal("ZRUI_BACKEND_ERROR", `pollEvents rejected: ${describeThrown(e)}`);
+          fatalNowOrEnqueue("ZRUI_BACKEND_ERROR", `pollEvents rejected: ${describeThrown(e)}`);
         }
         return;
       }
@@ -1679,33 +1720,48 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     start(): Promise<void> {
       assertOperational("start");
       assertNotReentrant("start");
-      if (lifecycleBusy)
-        throwCode("ZRUI_INVALID_STATE", "start: lifecycle operation already in flight");
       sm.assertOneOf(["Created", "Stopped"], "start: must be Created or Stopped");
       if (mode === null) throwCode("ZRUI_NO_RENDER_MODE", "start: no render mode selected");
 
       lifecycleBusy = "start";
+      const startGeneration = ++lifecycleGeneration;
       let p: Promise<void>;
       try {
         p = backend.start();
       } catch (e: unknown) {
-        lifecycleBusy = null;
+        if (lifecycleGeneration === startGeneration) lifecycleBusy = null;
         throwCode("ZRUI_BACKEND_ERROR", `backend.start threw: ${describeThrown(e)}`);
       }
 
       return p.then(
         async () => {
-          lifecycleBusy = null;
-          topLevelViewError = null;
-          terminalProfile = await loadTerminalProfile(backend);
-          widgetRenderer.setTerminalProfile(terminalProfile);
-          sm.toRunning();
-          markDirty(DIRTY_VIEW, false);
-          pollToken++;
-          void pollLoop(pollToken);
-          scheduler.enqueue({ kind: "kick" });
+          try {
+            backendStarted = true;
+            if (lifecycleGeneration !== startGeneration) {
+              cleanupStartedBackendAfterAbort();
+              return;
+            }
+            topLevelViewError = null;
+            const loadedTerminalProfile = await loadTerminalProfile(backend);
+            if (lifecycleGeneration !== startGeneration) {
+              cleanupStartedBackendAfterAbort();
+              return;
+            }
+            terminalProfile = loadedTerminalProfile;
+            widgetRenderer.setTerminalProfile(terminalProfile);
+            sm.toRunning();
+            markDirty(DIRTY_VIEW, false);
+            pollToken++;
+            void pollLoop(pollToken);
+            scheduler.enqueue({ kind: "kick" });
+          } finally {
+            if (lifecycleGeneration === startGeneration && lifecycleBusy === "start") {
+              lifecycleBusy = null;
+            }
+          }
         },
         (e: unknown) => {
+          if (lifecycleGeneration !== startGeneration) return;
           lifecycleBusy = null;
           throw new ZrUiError("ZRUI_BACKEND_ERROR", `backend.start rejected: ${describeThrown(e)}`);
         },
@@ -1715,8 +1771,6 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     run(): Promise<void> {
       assertOperational("run");
       assertNotReentrant("run");
-      if (lifecycleBusy)
-        throwCode("ZRUI_INVALID_STATE", "run: lifecycle operation already in flight");
       sm.assertOneOf(["Created", "Stopped"], "run: must be Created or Stopped");
       if (mode === null) throwCode("ZRUI_NO_RENDER_MODE", "run: no render mode selected");
 
@@ -1775,11 +1829,10 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     stop(): Promise<void> {
       assertOperational("stop");
       assertNotReentrant("stop");
-      if (lifecycleBusy)
-        throwCode("ZRUI_INVALID_STATE", "stop: lifecycle operation already in flight");
       sm.assertOneOf(["Running"], "stop: must be Running");
 
       lifecycleBusy = "stop";
+      const stopGeneration = ++lifecycleGeneration;
       // Stop polling immediately so in-flight pollEvents rejections from backend.stop()
       // are treated as part of shutdown (not a fatal backend error).
       pollToken++;
@@ -1790,18 +1843,26 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       try {
         p = backend.stop();
       } catch (e: unknown) {
-        lifecycleBusy = null;
+        if (lifecycleGeneration === stopGeneration) lifecycleBusy = null;
         throwCode("ZRUI_BACKEND_ERROR", `backend.stop threw: ${describeThrown(e)}`);
       }
 
       return p.then(
         () => {
-          lifecycleBusy = null;
-          themeTransition = null;
-          sm.toStopped();
-          settleActiveRun?.();
+          try {
+            if (lifecycleGeneration !== stopGeneration) return;
+            backendStarted = false;
+            themeTransition = null;
+            sm.toStopped();
+            settleActiveRun?.();
+          } finally {
+            if (lifecycleGeneration === stopGeneration && lifecycleBusy === "stop") {
+              lifecycleBusy = null;
+            }
+          }
         },
         (e: unknown) => {
+          if (lifecycleGeneration !== stopGeneration) return;
           lifecycleBusy = null;
           throw new ZrUiError("ZRUI_BACKEND_ERROR", `backend.stop rejected: ${describeThrown(e)}`);
         },
@@ -1815,6 +1876,8 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       const st0 = sm.state;
       if (st0 === "Disposed") return;
 
+      lifecycleGeneration++;
+      lifecycleBusy = null;
       pollToken++;
       themeTransition = null;
       try {
@@ -1823,13 +1886,14 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
         // ignore
       }
 
-      if (st0 === "Running") {
+      if (st0 === "Running" || backendStarted) {
         try {
           void backend.stop().catch(() => undefined);
         } catch {
           // ignore
         }
       }
+      backendStarted = false;
       try {
         backend.dispose();
       } catch {

@@ -1,6 +1,7 @@
 import { assert, test } from "@rezi-ui/testkit";
+import { ZrUiError } from "../../abi.js";
 import { type VNode, ui } from "../../index.js";
-import { commitVNodeTree } from "../commit.js";
+import { type RuntimeInstance, commitVNodeTree } from "../commit.js";
 import { createInstanceIdAllocator } from "../instance.js";
 import {
   collectAllWidgetMetadata,
@@ -10,6 +11,7 @@ import {
   collectFocusableIds,
   collectInputMetaById,
   collectPressableIds,
+  createWidgetMetadataCollector,
 } from "../widgetMeta.js";
 
 function commitTree(vnode: VNode) {
@@ -19,6 +21,22 @@ function commitTree(vnode: VNode) {
     assert.fail(`commit failed: ${res.fatal.code}: ${res.fatal.detail}`);
   }
   return res.value.root;
+}
+
+function runtimeNode(
+  instanceId: number,
+  vnode: VNode,
+  children: readonly RuntimeInstance[] = [],
+): RuntimeInstance {
+  return {
+    instanceId,
+    vnode,
+    children,
+    dirty: false,
+    selfDirty: false,
+    renderPacketKey: 0,
+    renderPacket: null,
+  };
 }
 
 test("widgetMeta: collectFocusableIds + collectEnabledMap (Buttons + Inputs) (#82, #92)", () => {
@@ -351,6 +369,66 @@ test("widgetMeta: collectAllWidgetMetadata includes accessible focus semantics",
   assert.equal(ageInfo.required, true);
   assert.deepEqual(ageInfo.errors, []);
   assert.equal(ageInfo.announcement, "Age — Required");
+});
+
+test("widgetMeta: reusable collector publishes stable snapshots across collects", () => {
+  const collector = createWidgetMetadataCollector();
+
+  const first = collector.collect(
+    commitTree(
+      ui.column({}, [
+        ui.button({ id: "first-btn", label: "First" }),
+        ui.input({ id: "first-input", value: "hello" }),
+        ui.focusZone({ id: "zone-a" }, [ui.button({ id: "zone-btn", label: "Zone" })]),
+        ui.focusTrap(
+          { id: "trap-a", active: true },
+          [ui.button({ id: "trap-btn", label: "Trap" })],
+        ),
+      ]),
+    ),
+  );
+
+  const second = collector.collect(
+    commitTree(
+      ui.column({}, [
+        ui.button({ id: "second-btn", label: "Second" }),
+        ui.focusZone({ id: "zone-b" }, [ui.button({ id: "zone-b-btn", label: "Zone B" })]),
+      ]),
+    ),
+  );
+
+  assert.deepEqual(first.focusableIds, ["first-btn", "first-input", "zone-btn", "trap-btn"]);
+  assert.deepEqual([...first.enabledById.entries()], [
+    ["first-btn", true],
+    ["first-input", true],
+    ["zone-btn", true],
+    ["trap-btn", true],
+  ]);
+  assert.equal(first.pressableIds.has("first-btn"), true);
+  assert.equal(first.pressableIds.has("second-btn"), false);
+  assert.equal(first.inputById.get("first-input")?.value, "hello");
+  assert.deepEqual(first.zones.get("zone-a")?.focusableIds, ["zone-btn"]);
+  assert.deepEqual(first.traps.get("trap-a")?.focusableIds, ["trap-btn"]);
+
+  assert.deepEqual(second.focusableIds, ["second-btn", "zone-b-btn"]);
+  assert.equal(second.pressableIds.has("second-btn"), true);
+  assert.equal(second.zones.has("zone-b"), true);
+});
+
+test("widgetMeta: duplicate focus container ids throw deterministic ZrUiError", () => {
+  const zoneVNode = ui.focusZone({ id: "dup" }, []);
+  const trapVNode = ui.focusTrap({ id: "dup", active: true }, []);
+  const rootVNode = ui.column({}, [zoneVNode, trapVNode]);
+  const root = runtimeNode(1, rootVNode, [runtimeNode(2, zoneVNode), runtimeNode(3, trapVNode)]);
+
+  assert.throws(
+    () => collectAllWidgetMetadata(root),
+    (error: unknown) =>
+      error instanceof ZrUiError &&
+      error.code === "ZRUI_DUPLICATE_ID" &&
+      error.message ===
+        'Duplicate focus container id "dup". First: <focusZone>, second: <focusTrap>. Hint: focusZone, focusTrap, and modal ids must be unique across the tree.',
+  );
 });
 
 /* ========== Performance Tests ========== */
