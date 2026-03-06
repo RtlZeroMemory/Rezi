@@ -53,6 +53,10 @@ export type ConstraintGraph = Readonly<{
   intrinsicRuntimeInstanceIds: ReadonlySet<InstanceId>;
   nodeByKey: ReadonlyMap<string, ConstraintNode>;
   idToInstances: ReadonlyMap<string, readonly InstanceId[]>;
+  siblingIdToInstancesByParentId: ReadonlyMap<
+    InstanceId | null,
+    ReadonlyMap<string, readonly InstanceId[]>
+  >;
   instanceIdToWidgetId: ReadonlyMap<InstanceId, string>;
 }>;
 
@@ -107,6 +111,29 @@ function makeNodeKey(instanceId: InstanceId, prop: ConstraintNodeProp): string {
 
 function makeInstancePropKey(instanceId: InstanceId, prop: ConstraintNodeProp): string {
   return `${String(instanceId)}:${prop}`;
+}
+
+function addInstanceToIdIndex(
+  index: Map<string, InstanceId[]>,
+  id: string,
+  instanceId: InstanceId,
+): void {
+  const group = index.get(id);
+  if (group === undefined) {
+    index.set(id, [instanceId]);
+    return;
+  }
+  group.push(instanceId);
+}
+
+function freezeIdIndex(
+  index: ReadonlyMap<string, InstanceId[]>,
+): ReadonlyMap<string, readonly InstanceId[]> {
+  const frozen = new Map<string, readonly InstanceId[]>();
+  for (const [id, instances] of index.entries()) {
+    frozen.set(id, Object.freeze(instances.slice()));
+  }
+  return frozen;
 }
 
 function maybeAddDisplayDependency(
@@ -273,6 +300,10 @@ export function topologicalSort(
 export function buildConstraintGraph(root: RuntimeInstance): ConstraintGraphResult {
   const collected: ConstraintNode[] = [];
   const idToInstancesMutable = new Map<string, InstanceId[]>();
+  const siblingIdToInstancesByParentMutable = new Map<
+    InstanceId | null,
+    Map<string, InstanceId[]>
+  >();
   const instanceIdToWidgetIdMutable = new Map<InstanceId, string>();
   let requiresCommitRelayout = false;
   let hasDisplayConstraints = false;
@@ -288,11 +319,14 @@ export function buildConstraintGraph(root: RuntimeInstance): ConstraintGraphResu
     const widgetId = readWidgetId(node);
     if (widgetId !== null) {
       instanceIdToWidgetIdMutable.set(node.instanceId, widgetId);
-      const group = idToInstancesMutable.get(widgetId);
-      if (group === undefined) {
-        idToInstancesMutable.set(widgetId, [node.instanceId]);
+      addInstanceToIdIndex(idToInstancesMutable, widgetId, node.instanceId);
+      const siblingGroups = siblingIdToInstancesByParentMutable.get(parent);
+      if (siblingGroups === undefined) {
+        const nextSiblingGroups = new Map<string, InstanceId[]>();
+        addInstanceToIdIndex(nextSiblingGroups, widgetId, node.instanceId);
+        siblingIdToInstancesByParentMutable.set(parent, nextSiblingGroups);
       } else {
-        group.push(node.instanceId);
+        addInstanceToIdIndex(siblingGroups, widgetId, node.instanceId);
       }
     }
 
@@ -352,7 +386,14 @@ export function buildConstraintGraph(root: RuntimeInstance): ConstraintGraphResu
       }
 
       if (usage.viaAggregation) {
-        for (const instanceId of instances) {
+        const siblingInstances =
+          siblingIdToInstancesByParentMutable.get(node.parentInstanceId)?.get(usage.id) ?? [];
+        if (siblingInstances.length === 0) {
+          return invalid(
+            `Sibling aggregation "#${usage.id}.${usage.prop}" in ${labelNode(node)} (${node.expr.source}) has no matching sibling group. Hint: max_sibling()/sum_sibling() only see widgets with the same parent.`,
+          );
+        }
+        for (const instanceId of siblingInstances) {
           requiredRuntimeInstanceIds.add(instanceId);
           const depProp = refPropToConstraintProp(usage.prop);
           const depKey = instancePropToNodeKey.get(makeInstancePropKey(instanceId, depProp));
@@ -399,6 +440,13 @@ export function buildConstraintGraph(root: RuntimeInstance): ConstraintGraphResu
   for (const [id, instances] of idToInstancesMutable.entries()) {
     idToInstances.set(id, Object.freeze(instances.slice()));
   }
+  const siblingIdToInstancesByParentId = new Map<
+    InstanceId | null,
+    ReadonlyMap<string, readonly InstanceId[]>
+  >();
+  for (const [parentId, siblingGroups] of siblingIdToInstancesByParentMutable.entries()) {
+    siblingIdToInstancesByParentId.set(parentId, freezeIdIndex(siblingGroups));
+  }
   const instanceIdToWidgetId = new Map<InstanceId, string>(instanceIdToWidgetIdMutable.entries());
   const edges = new Map<string, readonly string[]>(edgesMutable.entries());
   const fingerprint = computeFingerprint(nodes);
@@ -420,6 +468,7 @@ export function buildConstraintGraph(root: RuntimeInstance): ConstraintGraphResu
       intrinsicRuntimeInstanceIds: Object.freeze(intrinsicRuntimeInstanceIds),
       nodeByKey,
       idToInstances,
+      siblingIdToInstancesByParentId,
       instanceIdToWidgetId,
     },
   };

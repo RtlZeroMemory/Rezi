@@ -61,7 +61,8 @@ Practical steps:
 1. Search for `expr("` usages near the failing widget
 2. Check for `#id.*` references and confirm the referenced ids exist in the same committed tree
 3. Confirm direct `#id.*` targets are unique (use `max_sibling` / `sum_sibling` for shared ids)
-4. Reduce the expression to a simpler form to isolate which term is invalid
+4. For `max_sibling` / `sum_sibling`, confirm the matching ids are siblings under the same parent as the consumer
+5. Reduce the expression to a simpler form to isolate which term is invalid
 
 ---
 

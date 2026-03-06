@@ -6,6 +6,14 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- **core/layout + constraints**: Constraint sibling aggregation is now same-parent scoped, hidden `display: false` layout widgets are removed from runtime interaction metadata even without an active constraint graph, deep parent-dependent chains settle fully in the first committed frame, box intrinsic sizing ignores absolute children, and unsupported absolute-position usage now emits deterministic dev warnings.
+
+### Documentation
+
+- **docs/layout + constraints**: Aligned recipes and guides with actual support boundaries for spacing, absolute positioning, `display`, and same-parent sibling aggregation semantics.
+
 ## [0.1.0-alpha.57] - 2026-03-06
 
 ### Documentation

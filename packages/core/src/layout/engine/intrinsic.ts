@@ -290,6 +290,7 @@ function measureBoxIntrinsic(
   for (let i = 0; i < vnode.children.length; i++) {
     const child = vnode.children[i];
     if (!child) continue;
+    if ((child.props as { position?: unknown } | undefined)?.position === "absolute") continue;
     const childRes = mode(child, "column", measureNode);
     if (!childRes.ok) return childRes;
     if (childRes.value.w > contentW) contentW = childRes.value.w;

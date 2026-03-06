@@ -15,8 +15,8 @@ See also:
 - Fixed size? → `width: 24`
 - Share space? → `flex: 1`
 - Smooth interpolation? → `fluid(min, max)`
-- Derived from parent/viewport/siblings/intrinsic? → helper constraints (or `expr("...")`)
-- Layout-driven visibility? → `display: ...` constraints
+- Derived from parent/viewport/same-parent siblings/intrinsic? → helper constraints (or `expr("...")`)
+- Layout-driven visibility on supported layout widgets? → `display: ...` constraints
 - Business logic visibility? → `show(...)`, `when(...)`, `maybe(...)`, `match(...)`
 
 ---
@@ -26,8 +26,8 @@ See also:
 | Before (anti-pattern) | After (preferred) |
 |---|---|
 | `width: "50%"` | `width: widthConstraints.percentOfParent(0.5)` or `expr("parent.w * 0.5")` |
-| `width: { sm: 10, md: 20 }` | `expr("steps(viewport.w, 80: 10, 120: 20)")` or `fluid(10, 20)` |
-| `if (viewport.w < 80) return null` | Keep node, set `display: visibilityConstraints.viewportWidthAtLeast(80)` |
+| `width: { sm: 10, md: 20 }` | `expr("steps(viewport.w, 80: 10, 120: 20)")` for breakpoint-like steps, or `fluid(10, 20)` for smooth interpolation |
+| `if (viewport.w < 80) return null` | Keep a supported layout widget, set `display: visibilityConstraints.viewportWidthAtLeast(80)` |
 | `Math.max(56, viewport.w * 0.62)` | `widthConstraints.minViewportPercent({ ratio: 0.62, min: 56 })` |
 | `clamp(viewport.w - 4, 20, 140)` | `widthConstraints.clampedViewportMinus({ minus: 4, min: 20, max: 140 })` |
 | Repeated label padding hacks | `groupConstraints.maxSiblingMinWidth("kv-key")` |
@@ -72,7 +72,7 @@ Before (manual spacing guesses):
 ui.box({ width: 12, border: "none", p: 0 }, [ui.text("Latency", { dim: true })])
 ```
 
-After (derived from the widest sibling label):
+After (derived from the widest same-parent sibling label):
 
 ```ts
 ui.box(
