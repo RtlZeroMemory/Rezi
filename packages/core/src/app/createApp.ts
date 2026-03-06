@@ -882,7 +882,9 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   }
 
   function fatalNowOrEnqueue(code: ZrUiErrorCode, detail: string): void {
-    if (scheduler.isExecuting) {
+    const canFailFastInline =
+      scheduler.isExecuting && !inRender && !inCommit && inEventHandlerDepth === 0;
+    if (canFailFastInline) {
       doFatal(code, detail);
       return;
     }

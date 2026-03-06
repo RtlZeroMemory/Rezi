@@ -103,3 +103,42 @@ test("onEvent handler failure aborts the current batch before later events commi
   assert.equal(backend.stopCalls, 1);
   assert.equal(backend.disposeCalls, 1);
 });
+
+test("fatal handlers run after onEvent handler depth unwinds", async () => {
+  const backend = new StubBackend();
+  const app = createApp({ backend, initialState: 0 });
+  app.draw((g) => g.clear());
+
+  app.onEvent((ev) => {
+    if (ev.kind === "engine" && ev.event.kind === "text") {
+      throw new Error("boom");
+    }
+  });
+
+  let fatalHandlerError: unknown = null;
+  let sawFatal = false;
+  app.onEvent((ev) => {
+    if (ev.kind !== "fatal") return;
+    sawFatal = true;
+    try {
+      app.dispose();
+    } catch (error: unknown) {
+      fatalHandlerError = error;
+    }
+  });
+
+  await app.start();
+  backend.pushBatch(
+    makeBackendBatch({
+      bytes: encodeZrevBatchV1({
+        events: [{ kind: "text", timeMs: 1, codepoint: 65 }],
+      }),
+    }),
+  );
+
+  await flushMicrotasks(20);
+
+  assert.equal(sawFatal, true);
+  assert.equal(fatalHandlerError, null);
+  assert.equal(backend.disposeCalls >= 1, true);
+});
