@@ -1,9 +1,9 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import { defaultTheme } from "../defaultTheme.js";
 import { extendTheme } from "../extend.js";
-import { coerceToLegacyTheme, mergeThemeOverride } from "../interop.js";
+import { mergeThemeOverride } from "../interop.js";
 import { darkTheme } from "../presets.js";
-import { createTheme } from "../theme.js";
+import { compileTheme } from "../theme.js";
 import type { ThemeDefinition } from "../tokens.js";
 
 function cloneTheme(theme: ThemeDefinition): ThemeDefinition {
@@ -12,12 +12,12 @@ function cloneTheme(theme: ThemeDefinition): ThemeDefinition {
 
 function withoutSpacing(theme: ThemeDefinition): ThemeDefinition {
   const clone = cloneTheme(theme) as { spacing?: unknown };
-  clone.spacing = undefined;
+  clone.spacing = defaultTheme.definition.spacing;
   return clone as ThemeDefinition;
 }
 
-describe("theme.interop spacing", () => {
-  test("coerceToLegacyTheme preserves ThemeDefinition spacing tokens", () => {
+describe("theme overrides", () => {
+  test("compileTheme preserves semantic spacing tokens", () => {
     const semanticTheme = extendTheme(darkTheme, {
       spacing: {
         xs: 2,
@@ -29,22 +29,13 @@ describe("theme.interop spacing", () => {
       },
     });
 
-    const legacyTheme = coerceToLegacyTheme(semanticTheme);
-    assert.deepEqual(legacyTheme.spacing, [0, 2, 3, 4, 5, 6, 7]);
+    const compiledTheme = compileTheme(semanticTheme);
+    assert.deepEqual(compiledTheme.spacing, [0, 2, 3, 4, 5, 6, 7]);
   });
 
-  test("coerceToLegacyTheme falls back to default spacing when semantic spacing is absent", () => {
-    const semanticThemeWithoutSpacing = withoutSpacing(darkTheme);
-    const legacyTheme = coerceToLegacyTheme(semanticThemeWithoutSpacing);
-
-    assert.equal(legacyTheme.spacing, defaultTheme.spacing);
-  });
-
-  test("mergeThemeOverride applies spacing from ThemeDefinition overrides", () => {
-    const parentTheme = createTheme({
-      spacing: [0, 10, 20, 30, 40, 50, 60],
-    });
-    const override = extendTheme(darkTheme, {
+  test("mergeThemeOverride applies spacing and focusIndicator overrides", () => {
+    const parentTheme = compileTheme(darkTheme);
+    const merged = mergeThemeOverride(parentTheme, {
       spacing: {
         xs: 9,
         sm: 8,
@@ -53,17 +44,56 @@ describe("theme.interop spacing", () => {
         xl: 5,
         "2xl": 4,
       },
+      focusIndicator: {
+        bold: false,
+        underline: true,
+      },
     });
 
-    const merged = mergeThemeOverride(parentTheme, override);
     assert.deepEqual(merged.spacing, [0, 9, 8, 7, 6, 5, 4]);
-    assert.notEqual(merged.spacing, parentTheme.spacing);
+    assert.equal(merged.focusIndicator.bold, false);
+    assert.equal(merged.focusIndicator.underline, true);
   });
 
-  test("mergeThemeOverride preserves parent spacing when ThemeDefinition spacing is absent", () => {
-    const parentTheme = createTheme({
-      spacing: [0, 11, 22, 33, 44, 55, 66],
+  test("full ThemeDefinition overrides replace subtree theme", () => {
+    const override = extendTheme(darkTheme, {
+      colors: {
+        accent: {
+          primary: (1 << 16) | (2 << 8) | 3,
+        },
+      },
     });
+
+    const merged = mergeThemeOverride(compileTheme(darkTheme), override);
+    assert.equal(merged.definition, override);
+    assert.deepEqual(merged.colors["accent.primary"], (1 << 16) | (2 << 8) | 3);
+  });
+
+  test("mergeThemeOverride carries diagnostic colors through compiled aliases", () => {
+    const merged = mergeThemeOverride(compileTheme(darkTheme), {
+      colors: {
+        diagnostic: {
+          warning: (7 << 16) | (8 << 8) | 9,
+        },
+      },
+    });
+
+    assert.deepEqual(merged.colors["diagnostic.warning"], (7 << 16) | (8 << 8) | 9);
+  });
+
+  test("mergeThemeOverride preserves unrelated parent tokens", () => {
+    const parentTheme = compileTheme(
+      extendTheme(darkTheme, {
+        spacing: {
+          xs: 4,
+          sm: 4,
+          md: 4,
+          lg: 4,
+          xl: 4,
+          "2xl": 4,
+        },
+      }),
+    );
     const override = withoutSpacing(
       extendTheme(darkTheme, {
         colors: {
@@ -75,38 +105,7 @@ describe("theme.interop spacing", () => {
     );
 
     const merged = mergeThemeOverride(parentTheme, override);
-    assert.equal(merged.spacing, parentTheme.spacing);
-    assert.notEqual(merged, parentTheme);
-  });
-
-  test("coerceToLegacyTheme carries diagnostic semantic colors", () => {
-    const semanticTheme = extendTheme(darkTheme, {
-      colors: {
-        diagnostic: {
-          warning: (1 << 16) | (2 << 8) | 3,
-        },
-      },
-    });
-
-    const legacyTheme = coerceToLegacyTheme(semanticTheme);
-    assert.deepEqual(legacyTheme.colors["diagnostic.warning"], (1 << 16) | (2 << 8) | 3);
-  });
-
-  test("mergeThemeOverride accepts nested legacy diagnostic overrides", () => {
-    const parentTheme = createTheme({
-      colors: {
-        "diagnostic.error": (9 << 16) | (9 << 8) | 9,
-      },
-    });
-
-    const merged = mergeThemeOverride(parentTheme, {
-      colors: {
-        diagnostic: {
-          error: (7 << 16) | (8 << 8) | 9,
-        },
-      },
-    });
-
-    assert.deepEqual(merged.colors["diagnostic.error"], (7 << 16) | (8 << 8) | 9);
+    assert.deepEqual(merged.spacing, compileTheme(defaultTheme.definition).spacing);
+    assert.deepEqual(merged.colors["accent.primary"], (1 << 16) | (2 << 8) | 3);
   });
 });

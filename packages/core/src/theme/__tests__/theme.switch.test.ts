@@ -8,13 +8,15 @@ import { StubBackend } from "../../app/__tests__/stubBackend.js";
 import { createApp } from "../../app/createApp.js";
 import type { DrawlistTextRunSegment } from "../../drawlist/types.js";
 import type { App, DrawlistBuildResult, DrawlistBuilder, TextStyle, VNode } from "../../index.js";
-import { createTheme, ui } from "../../index.js";
+import { ui } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
 import { createInstanceIdAllocator } from "../../runtime/instance.js";
-import { darkTheme } from "../presets.js";
-import type { Theme } from "../theme.js";
+import { extendTheme } from "../extend.js";
+import { darkTheme, lightTheme } from "../presets.js";
+import { compileTheme, type Theme } from "../theme.js";
+import type { ThemeDefinition } from "../tokens.js";
 
 type EncodedEvent = NonNullable<Parameters<typeof encodeZrevBatchV1>[0]["events"]>[number];
 
@@ -46,10 +48,12 @@ async function resolveNextFrame(backend: StubBackend): Promise<void> {
   await flushMicrotasks(8);
 }
 
-function themeWithPrimary(r: number, g: number, b: number): Theme {
-  return createTheme({
+function themeWithPrimary(r: number, g: number, b: number): ThemeDefinition {
+  return extendTheme(darkTheme, {
     colors: {
-      primary: (r << 16) | (g << 8) | b,
+      accent: {
+        primary: (r << 16) | (g << 8) | b,
+      },
     },
   });
 }
@@ -149,7 +153,7 @@ describe("theme runtime switching", () => {
   test("focused widget is preserved across theme switch", async () => {
     const backend = new StubBackend();
     const presses: string[] = [];
-    const app = createApp({ backend, initialState: 0 });
+    const app = createApp({ backend, initialState: 0, theme: lightTheme });
 
     app.view(() =>
       ui.column({}, [ui.button({ id: "a", label: "A" }), ui.button({ id: "b", label: "B" })]),
@@ -335,7 +339,7 @@ describe("theme runtime switching", () => {
 
   test("setTheme no-ops for identical ThemeDefinition identity", async () => {
     const backend = new StubBackend();
-    const app = createApp({ backend, initialState: 0 });
+    const app = createApp({ backend, initialState: 0, theme: lightTheme });
 
     app.view(() => ui.divider({ label: "DEF", color: "primary" }));
 
@@ -358,17 +362,21 @@ describe("theme scoped container overrides", () => {
   const GREEN = Object.freeze((40 << 16) | (190 << 8) | 80);
   const BLUE = Object.freeze((40 << 16) | (100 << 8) | 210);
   const CYAN = Object.freeze((20 << 16) | (180 << 8) | 200);
-  const baseTheme = createTheme({
-    colors: {
-      primary: RED,
-      info: CYAN,
-    },
-  });
+  const baseTheme = compileTheme(
+    extendTheme(darkTheme, {
+      colors: {
+        accent: {
+          primary: RED,
+        },
+        info: CYAN,
+      },
+    }),
+  );
 
   test("box scoped override applies to subtree and restores parent theme", () => {
     const vnode = ui.column({}, [
       ui.divider({ char: "R", color: "primary" }),
-      ui.box({ border: "none", theme: { colors: { primary: GREEN } } }, [
+      ui.box({ border: "none", theme: { colors: { accent: { primary: GREEN } } } }, [
         ui.divider({ char: "I", color: "primary" }),
       ]),
       ui.divider({ char: "A", color: "primary" }),
@@ -383,9 +391,9 @@ describe("theme scoped container overrides", () => {
   test("nested container overrides compose and restore parent scopes", () => {
     const vnode = ui.column({}, [
       ui.divider({ char: "R", color: "primary" }),
-      ui.column({ theme: { colors: { primary: BLUE } } }, [
+      ui.column({ theme: { colors: { accent: { primary: BLUE } } } }, [
         ui.divider({ char: "W", color: "primary" }),
-        ui.box({ border: "none", theme: { colors: { primary: GREEN } } }, [
+        ui.box({ border: "none", theme: { colors: { accent: { primary: GREEN } } } }, [
           ui.divider({ char: "B", color: "primary" }),
         ]),
         ui.divider({ char: "X", color: "primary" }),
@@ -402,7 +410,7 @@ describe("theme scoped container overrides", () => {
   });
 
   test("partial overrides inherit unspecified parent theme values", () => {
-    const vnode = ui.box({ border: "none", theme: { colors: { primary: GREEN } } }, [
+    const vnode = ui.box({ border: "none", theme: { colors: { accent: { primary: GREEN } } } }, [
       ui.divider({ char: "P", color: "primary" }),
       ui.divider({ char: "N", color: "info" }),
     ]);

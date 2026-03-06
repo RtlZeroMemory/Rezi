@@ -18,7 +18,8 @@ import { renderToDrawlist } from "../renderer/renderToDrawlist.js";
 import { type RuntimeInstance, commitVNodeTree } from "../runtime/commit.js";
 import { type InstanceIdAllocator, createInstanceIdAllocator } from "../runtime/instance.js";
 import { defaultTheme as coreDefaultTheme } from "../theme/defaultTheme.js";
-import type { Theme } from "../theme/theme.js";
+import { compileTheme, type Theme } from "../theme/theme.js";
+import type { ThemeDefinition } from "../theme/tokens.js";
 import type { TextStyle } from "../widgets/style.js";
 import type { VNode } from "../widgets/types.js";
 
@@ -28,7 +29,7 @@ export type TestRendererMode = "test" | "runtime";
 
 export type TestRendererOptions = Readonly<{
   viewport?: TestViewport;
-  theme?: Theme;
+  theme?: Theme | ThemeDefinition;
   focusedId?: string | null;
   tick?: number;
   mode?: TestRendererMode;
@@ -38,7 +39,7 @@ export type TestRendererOptions = Readonly<{
 
 export type TestRenderOptions = Readonly<{
   viewport?: TestViewport;
-  theme?: Theme;
+  theme?: Theme | ThemeDefinition;
   focusedId?: string | null;
   tick?: number;
   mode?: TestRendererMode;
@@ -119,6 +120,11 @@ function normalizeViewport(viewport: TestViewport | undefined): TestViewport {
   const safeCols = Number.isFinite(cols) ? Math.max(0, Math.trunc(cols)) : 0;
   const safeRows = Number.isFinite(rows) ? Math.max(0, Math.trunc(rows)) : 0;
   return Object.freeze({ cols: safeCols, rows: safeRows });
+}
+
+function normalizeTheme(theme: Theme | ThemeDefinition | undefined): Theme {
+  if (theme === undefined) return coreDefaultTheme;
+  return "definition" in theme ? theme : compileTheme(theme);
 }
 
 const EMPTY_PROPS: TestNodeProps = Object.freeze({});
@@ -488,7 +494,7 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
   let prevRoot: RuntimeInstance | null = null;
   let allocator: InstanceIdAllocator = createInstanceIdAllocator(1);
   const defaultViewport = normalizeViewport(opts.viewport);
-  const rendererTheme = opts.theme ?? coreDefaultTheme;
+  const rendererTheme = normalizeTheme(opts.theme);
   const defaultFocusedId = opts.focusedId ?? null;
   const defaultTick = opts.tick ?? 0;
   const defaultMode = opts.mode ?? "test";
@@ -504,7 +510,7 @@ export function createTestRenderer(opts: TestRendererOptions = {}): TestRenderer
     const viewport = normalizeViewport(renderOpts.viewport ?? defaultViewport);
     const focusedId = renderOpts.focusedId === undefined ? defaultFocusedId : renderOpts.focusedId;
     const tick = renderOpts.tick ?? defaultTick;
-    const theme = renderOpts.theme ?? rendererTheme;
+    const theme = normalizeTheme(renderOpts.theme ?? rendererTheme);
     const traceDetail = renderOpts.traceDetail ?? defaultTraceDetail;
     const mode = renderOpts.mode ?? defaultMode;
     if (traceDetail && !trace && !warnedTraceDetailWithoutTrace) {

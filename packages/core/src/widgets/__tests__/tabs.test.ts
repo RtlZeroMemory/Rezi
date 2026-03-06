@@ -157,9 +157,9 @@ describe("tabs vnode construction", () => {
     assert.equal(vnode.children.length, 2);
   });
 
-  test("ui.tabs returns a composite wrapper vnode", () => {
+  test("ui.tabs returns a layout-transparent composite wrapper vnode", () => {
     const vnode = ui.tabs(props);
-    assert.equal(vnode.kind, "column");
+    assert.equal(vnode.kind, "fragment");
   });
 });
 

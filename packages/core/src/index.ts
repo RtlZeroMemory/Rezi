@@ -562,15 +562,6 @@ export type {
 // =============================================================================
 
 export {
-  // Runtime theme (resolved theme shape)
-  createTheme,
-  defaultTheme,
-  resolveColor,
-  resolveSpacing,
-  type Theme,
-  type ThemeColors,
-  type ThemeSpacing,
-  // New semantic token system
   color,
   createColorTokens,
   createThemeDefinition,
@@ -579,15 +570,21 @@ export {
   type AccentTokens,
   type BgTokens,
   type BorderTokens,
+  type ChartTokens,
   type ColorTokens,
   type DiagnosticTokens,
+  type DiffTokens,
   type DisabledTokens,
   type FocusIndicatorTokens,
   type FgTokens,
   type FocusTokens,
+  type LogsTokens,
   type SelectedTokens,
+  type SyntaxTokens,
   type ThemeSpacingTokens,
   type ThemeDefinition,
+  type ToastTokens,
+  type WidgetTokens,
   // Theme presets
   darkTheme,
   lightTheme,
@@ -611,13 +608,6 @@ export {
   // Accessibility
   contrastRatio,
 } from "./theme/index.js";
-
-// Theme interop (ThemeDefinition <-> runtime Theme conversion)
-export {
-  coerceToLegacyTheme,
-  mergeThemeOverride,
-  isThemeDefinition,
-} from "./theme/interop.js";
 
 // =============================================================================
 // Design System

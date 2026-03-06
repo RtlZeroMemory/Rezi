@@ -1402,10 +1402,12 @@ export function checkboxRecipe(
     indicator: {
       fg: selected ? selectedColor : colors.fg.secondary,
       bold: isFocused || large,
+      ...(isFocused ? { underline: true } : {}),
     },
     label: {
       fg: colors.fg.primary,
       bold: isFocused || large,
+      ...(isFocused ? { underline: true } : {}),
     },
   };
 }

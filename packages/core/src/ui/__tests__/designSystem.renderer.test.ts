@@ -1,12 +1,11 @@
 import * as assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createTestRenderer } from "../../testing/renderer.js";
-import { coerceToLegacyTheme } from "../../theme/interop.js";
 import { darkTheme } from "../../theme/presets.js";
 import type { VNode } from "../../widgets/types.js";
 import { ui } from "../../widgets/ui.js";
 
-const theme = coerceToLegacyTheme(darkTheme);
+const theme = darkTheme;
 const viewport = { cols: 40, rows: 6 };
 
 function renderText(vnode: VNode): string {
@@ -21,7 +20,7 @@ describe("design system rendering", () => {
       ui.button({
         id: "btn",
         label: "Save",
-        style: { fg: theme.colors.fg },
+        style: { fg: theme.colors.fg.primary },
       }),
     );
     const node = result.findById("btn");
@@ -74,7 +73,12 @@ describe("design system rendering", () => {
     const renderer = createTestRenderer({ viewport: { cols: 40, rows: 5 }, theme });
     const result = renderer.render(
       ui.row({ height: 3, items: "stretch" }, [
-        ui.input({ id: "name", value: "", placeholder: "Name", style: { fg: theme.colors.fg } }),
+        ui.input({
+          id: "name",
+          value: "",
+          placeholder: "Name",
+          style: { fg: theme.colors.fg.primary },
+        }),
       ]),
     );
     const input = result.findById("name");

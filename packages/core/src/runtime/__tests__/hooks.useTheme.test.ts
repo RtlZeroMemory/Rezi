@@ -1,9 +1,10 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { defaultTheme } from "../../theme/defaultTheme.js";
 import { extendTheme } from "../../theme/extend.js";
 import { getColorTokens } from "../../theme/extract.js";
-import { coerceToLegacyTheme } from "../../theme/interop.js";
+import { mergeThemeOverride } from "../../theme/interop.js";
 import { darkTheme } from "../../theme/presets.js";
-import type { Theme } from "../../theme/theme.js";
+import { compileTheme, type Theme } from "../../theme/theme.js";
 import type { ColorTokens } from "../../theme/tokens.js";
 import { defineWidget } from "../../widgets/composition.js";
 import type { VNode } from "../../widgets/types.js";
@@ -13,9 +14,9 @@ import { createInstanceIdAllocator } from "../instance.js";
 import { createCompositeInstanceRegistry } from "../instances.js";
 
 type CompositeCommitOptions = Readonly<{
-  colorTokens?: ColorTokens | null;
+  colorTokens?: ColorTokens;
   theme?: Theme;
-  getColorTokens?: (theme: Theme) => ColorTokens | null;
+  getColorTokens?: (theme: Theme) => ColorTokens;
 }>;
 
 type CompositeHarness<State> = Readonly<{
@@ -34,7 +35,7 @@ function createCompositeHarness<State>(): CompositeHarness<State> {
         composite: {
           registry,
           appState,
-          colorTokens: options.colorTokens ?? null,
+          colorTokens: options.colorTokens ?? defaultTheme.definition.colors,
           ...(options.theme ? { theme: options.theme } : {}),
           ...(options.getColorTokens ? { getColorTokens: options.getColorTokens } : {}),
           viewport: { width: 80, height: 24, breakpoint: "md" },
@@ -52,17 +53,10 @@ function createCompositeHarness<State>(): CompositeHarness<State> {
   });
 }
 
-function requireColorTokens(tokens: ColorTokens | null): ColorTokens {
-  if (!tokens) {
-    throw new Error("expected semantic color tokens");
-  }
-  return tokens;
-}
-
 describe("runtime hooks - useTheme", () => {
   test("provides composite color tokens from commit context", () => {
-    const tokens = requireColorTokens(getColorTokens(coerceToLegacyTheme(darkTheme)));
-    let seenTokens: ColorTokens | null | undefined;
+    const tokens = getColorTokens(compileTheme(darkTheme));
+    let seenTokens: ColorTokens | undefined;
 
     const Widget = defineWidget<{ key?: string }, Record<string, never>>((_props, ctx) => {
       seenTokens = ctx.useTheme();
@@ -75,8 +69,8 @@ describe("runtime hooks - useTheme", () => {
     assert.equal(seenTokens, tokens);
   });
 
-  test("returns null when semantic color tokens are unavailable", () => {
-    let seenTokens: ColorTokens | null | undefined = undefined;
+  test("falls back to default theme tokens when composite context does not provide one", () => {
+    let seenTokens: ColorTokens | undefined;
 
     const Widget = defineWidget<{ key?: string }, Record<string, never>>((_props, ctx) => {
       seenTokens = ctx.useTheme();
@@ -86,26 +80,24 @@ describe("runtime hooks - useTheme", () => {
     const h = createCompositeHarness<Record<string, never>>();
     h.commit(Widget({}), Object.freeze({}));
 
-    assert.equal(seenTokens, null);
+    assert.deepEqual(seenTokens, defaultTheme.definition.colors);
   });
 
   test("reads latest tokens on rerender", () => {
-    const firstTokens = requireColorTokens(getColorTokens(coerceToLegacyTheme(darkTheme)));
-    const secondTokens = requireColorTokens(
-      getColorTokens(
-        coerceToLegacyTheme(
-          extendTheme(darkTheme, {
-            colors: {
-              accent: {
-                primary: (250 << 16) | (20 << 8) | 20,
-              },
+    const firstTokens = getColorTokens(compileTheme(darkTheme));
+    const secondTokens = getColorTokens(
+      compileTheme(
+        extendTheme(darkTheme, {
+          colors: {
+            accent: {
+              primary: (250 << 16) | (20 << 8) | 20,
             },
-          }),
-        ),
+          },
+        }),
       ),
     );
 
-    const seen: Array<ColorTokens | null | undefined> = [];
+    const seen: ColorTokens[] = [];
 
     const Widget = defineWidget<{ key?: string }, Readonly<{ count: number }>>((_props, ctx) => {
       ctx.useAppState((state) => state.count);
@@ -123,13 +115,13 @@ describe("runtime hooks - useTheme", () => {
   });
 
   test("resolves scoped themed overrides for composites", () => {
-    const baseTheme = coerceToLegacyTheme(darkTheme);
+    const baseTheme = compileTheme(darkTheme);
     const override = Object.freeze({
       colors: { accent: { primary: (18 << 16) | (164 << 8) | 245 } },
+      focusIndicator: { bold: false },
     });
-    const scopedTheme = coerceToLegacyTheme(extendTheme(darkTheme, override));
-    const expected = requireColorTokens(getColorTokens(scopedTheme));
-    let seenTokens: ColorTokens | null | undefined;
+    const scopedTheme = mergeThemeOverride(baseTheme, override);
+    let seenTokens: ColorTokens | undefined;
 
     const Widget = defineWidget<{ key?: string }, Record<string, never>>((_props, ctx) => {
       seenTokens = ctx.useTheme();
@@ -138,11 +130,11 @@ describe("runtime hooks - useTheme", () => {
 
     const h = createCompositeHarness<Record<string, never>>();
     h.commit(ui.themed(override, [Widget({})]), Object.freeze({}), {
-      colorTokens: requireColorTokens(getColorTokens(baseTheme)),
+      colorTokens: getColorTokens(baseTheme),
       theme: baseTheme,
       getColorTokens,
     });
 
-    assert.deepEqual(seenTokens, expected);
+    assert.deepEqual(seenTokens, scopedTheme.definition.colors);
   });
 });

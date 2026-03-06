@@ -2,9 +2,10 @@
 
 This page is the reference for the styling-related props used across Rezi widgets.
 
-## `Rgb` and `rgb()`
+## `Rgb24` and `rgb()`
 
-Colors are expressed as RGB triples with components in `0..255`:
+Colors are expressed as packed `Rgb24` integers. Use `rgb(...)` or `color(...)`
+to create them:
 
 ```typescript
 import { rgb } from "@rezi-ui/core";
@@ -16,7 +17,7 @@ const slate = rgb(20, 24, 32);
 Type:
 
 ```typescript
-type Rgb = Readonly<{ r: number; g: number; b: number }>;
+type Rgb24 = number;
 ```
 
 ## `TextStyle`
@@ -25,8 +26,8 @@ Most widgets that render text accept a `style` prop of type `TextStyle`:
 
 ```typescript
 type TextStyle = Readonly<{
-  fg?: Rgb;
-  bg?: Rgb;
+  fg?: Rgb24;
+  bg?: Rgb24;
   bold?: boolean;
   dim?: boolean;
   italic?: boolean;
@@ -36,12 +37,13 @@ type TextStyle = Readonly<{
   overline?: boolean;
   blink?: boolean;
   underlineStyle?: "none" | "straight" | "double" | "curly" | "dotted" | "dashed";
-  underlineColor?: Rgb | string;
+  underlineColor?: Rgb24 | string;
 }>;
 ```
 
 `underlineStyle` controls underline variant where supported by the renderer/terminal.
-`underlineColor` accepts either direct RGB values or a theme token string (for example `"accent.primary"`).
+`fg` and `bg` use direct `Rgb24` values. `underlineColor` accepts either an
+`Rgb24` value or a theme token string (for example `"accent.primary"`).
 
 Example:
 

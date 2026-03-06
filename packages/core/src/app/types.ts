@@ -10,7 +10,6 @@ import type { Rect } from "../layout/types.js";
 import type { RouteDefinition, RouterApi } from "../router/types.js";
 import type { FocusInfo } from "../runtime/widgetMeta.js";
 import type { TerminalProfile } from "../terminalProfile.js";
-import type { Theme } from "../theme/theme.js";
 import type { ThemeDefinition } from "../theme/tokens.js";
 import type { VNode } from "../widgets/types.js";
 
@@ -49,7 +48,7 @@ export interface App<S> {
   onEvent(handler: EventHandler): () => void;
   onFocusChange(handler: FocusChangeHandler): () => void;
   update(updater: S | ((prev: Readonly<S>) => S)): void;
-  setTheme(theme: Theme | ThemeDefinition): void;
+  setTheme(theme: ThemeDefinition): void;
   debugLayout(enabled?: boolean): boolean;
   start(): Promise<void>;
   run(): Promise<void>;

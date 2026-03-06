@@ -10,8 +10,7 @@ import { defineWidget } from "../../widgets/composition.js";
 import { ui } from "../../widgets/ui.js";
 import { extendTheme } from "../extend.js";
 import { darkTheme } from "../presets.js";
-import type { Theme } from "../theme.js";
-import { createTheme } from "../theme.js";
+import type { ThemeDefinition } from "../tokens.js";
 
 type EncodedEvent = NonNullable<Parameters<typeof encodeZrevBatchV1>[0]["events"]>[number];
 
@@ -31,7 +30,7 @@ function pushEvents(backend: StubBackend, events: readonly EncodedEvent[]): void
   );
 }
 
-async function bootstrap(backend: StubBackend, appTheme: Theme) {
+async function bootstrap(backend: StubBackend, appTheme: ThemeDefinition) {
   const app = createApp({
     backend,
     initialState: 0,
@@ -61,10 +60,12 @@ async function drainPendingFrames(backend: StubBackend, maxRounds = 24): Promise
   }
 }
 
-function themeWithPrimary(r: number, g: number, b: number): Theme {
-  return createTheme({
+function themeWithPrimary(r: number, g: number, b: number): ThemeDefinition {
+  return extendTheme(darkTheme, {
     colors: {
-      primary: (r << 16) | (g << 8) | b,
+      accent: {
+        primary: (r << 16) | (g << 8) | b,
+      },
     },
   });
 }

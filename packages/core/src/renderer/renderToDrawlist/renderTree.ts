@@ -199,6 +199,7 @@ export function renderTree(
       }
 
       // Containers
+      case "fragment":
       case "row":
       case "column":
       case "grid":

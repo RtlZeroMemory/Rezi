@@ -6,13 +6,27 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- **core/composition**: `WidgetContext.useViewport` is now required. Custom callers constructing widget contexts must provide `useViewport`, and `createWidgetContext(...)` now supplies it consistently.
+
 ### Bug Fixes
 
-- **core/composition + hooks**: Composite widgets now use a layout-transparent default wrapper, animation hooks share a frame driver, transition/orchestration hooks stop relying on stringified config signatures, `useAnimatedValue` transition playback preserves progress across pause/resume, `useStagger` restarts on same-length item replacement, and streaming hook reconnect delays clamp away tight-loop reconnects.
+- **core/composition**: Composite widgets now use a layout-transparent default wrapper.
+- **hooks/animation**: Animation hooks now share a frame driver.
+- **hooks/animation**: Transition/orchestration hooks stop relying on stringified config signatures.
+- **hooks/animation**: `useAnimatedValue` transition playback preserves progress across pause/resume.
+- **hooks/animation**: `useParallel` and `useChain` now read the latest callbacks without stale-closure behavior.
+- **hooks/animation**: `useStagger` restarts on same-length item replacement.
+- **hooks/streaming**: Streaming hook reconnect delays clamp away tight-loop reconnects.
+- **core/runtime + perf**: Hardened lifecycle start/stop/fatal edges, sync frame follow-up scheduling, focus/layer callback failure handling, focus container metadata/state publication, and perf ring-buffer rollover stats.
+- **core/theme + renderer**: Removed the public legacy theme API, made semantic `ThemeDefinition` theming the only supported app/runtime path, completed scoped override inheritance for spacing and focus indicators, and extended semantic widget palettes into focus, chart, diff, logs, toast, and recipe-backed renderer defaults.
 
 ### Documentation
 
 - **docs/guide**: Synced composition, animation, and hook reference docs with the current hook surface, easing presets, callback semantics, viewport availability, and stable parser examples for streaming hooks.
+- **docs/lifecycle**: Corrected `onEvent(...)` examples, fatal payload fields, hot-reload state guarantees, and `run()` behavior when signal registration is unavailable.
+- **docs/styling**: Rewrote theme/design-system guidance around semantic-only theming, scoped overrides, packed `Rgb24` style props, recipe-backed defaults, and advanced widget palette coverage.
 
 ## [0.1.0-alpha.57] - 2026-03-06
 

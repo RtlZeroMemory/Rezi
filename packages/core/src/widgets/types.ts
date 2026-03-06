@@ -29,7 +29,6 @@ import type {
 } from "../layout/types.js";
 import type { InstanceId } from "../runtime/instance.js";
 import type { ThemeOverrides } from "../theme/extend.js";
-import type { Theme } from "../theme/theme.js";
 import type { ThemeDefinition } from "../theme/tokens.js";
 import type { WidgetSize, WidgetTone, WidgetVariant } from "../ui/designTokens.js";
 import type { TextStyle } from "./style.js";
@@ -73,26 +72,18 @@ export type SpacingProps = Readonly<{
   ml?: SpacingValue;
 }>;
 
-type DeepPartial<T> = {
-  [K in keyof T]?: T[K] extends readonly (infer U)[]
-    ? readonly U[]
-    : T[K] extends object
-      ? DeepPartial<T[K]>
-      : T[K];
-};
-
 export type ScopedThemeOverride =
-  | Theme
   | ThemeDefinition
-  | Readonly<{
-      colors?: DeepPartial<Theme["colors"]> | DeepPartial<ThemeDefinition["colors"]>;
-      spacing?: Theme["spacing"];
-    }>;
+  | ThemeOverrides;
 
 export type ThemedProps = Readonly<{
   key?: string;
   /** Partial theme overrides applied to children. */
   theme: ThemeOverrides;
+}>;
+
+export type FragmentProps = Readonly<{
+  key?: string;
 }>;
 
 type DisplayableProps = Readonly<{
@@ -314,6 +305,7 @@ export type GridProps = Readonly<
     gap?: number;
     rowGap?: number;
     columnGap?: number;
+    theme?: ScopedThemeOverride;
     transition?: TransitionSpec;
     exitTransition?: TransitionSpec;
   } & LayoutConstraints
@@ -913,6 +905,8 @@ export type InputProps = Readonly<{
   accessibleLabel?: string;
   value: string;
   disabled?: boolean;
+  /** Keep the input focusable/selectable while preventing edits. */
+  readOnly?: boolean;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
   /** Optional style applied to the input value (merged with focus/disabled state). */
@@ -948,6 +942,8 @@ export type TextareaProps = Readonly<{
   accessibleLabel?: string;
   value: string;
   disabled?: boolean;
+  /** Keep the textarea focusable/selectable while preventing edits. */
+  readOnly?: boolean;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
   /** Visible line count (default: 3). */
@@ -2422,6 +2418,7 @@ export type TreeProps<T = unknown> = Readonly<{
 
 export type VNode =
   | Readonly<{ kind: "text"; text: string; props: TextProps }>
+  | Readonly<{ kind: "fragment"; props: FragmentProps; children: readonly VNode[] }>
   | Readonly<{ kind: "box"; props: BoxProps; children: readonly VNode[] }>
   | Readonly<{ kind: "row"; props: RowProps; children: readonly VNode[] }>
   | Readonly<{ kind: "column"; props: ColumnProps; children: readonly VNode[] }>

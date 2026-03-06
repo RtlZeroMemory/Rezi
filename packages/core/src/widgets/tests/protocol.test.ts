@@ -4,6 +4,7 @@ import type { VNode } from "../types.js";
 
 const VNODE_KIND_COVERAGE: Record<VNode["kind"], true> = {
   text: true,
+  fragment: true,
   richText: true,
   kbd: true,
   badge: true,

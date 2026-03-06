@@ -58,13 +58,13 @@ export function resolveFocusIndicatorStyle(
     out = mergeTextStyle(out, override);
   } else {
     const colorTokens = getColorTokens(theme);
-    if (colorTokens) {
-      out = mergeTextStyle(out, {
-        fg: colorTokens.focus.ring,
-        underline: true,
-        bold: true,
-      });
-    }
+    out = mergeTextStyle(out, {
+      ...(out.fg === undefined
+        ? { fg: theme.focusIndicator.focusRingColor ?? colorTokens.focus.ring }
+        : {}),
+      ...(theme.focusIndicator.underline ? { underline: true } : {}),
+      ...(theme.focusIndicator.bold ? { bold: true } : {}),
+    });
   }
   return out;
 }
@@ -76,6 +76,10 @@ export function resolveFocusedContentStyle(
   fallback: ResolvedTextStyle | undefined = undefined,
 ): ResolvedTextStyle {
   let out = fallback ? mergeTextStyle(baseStyle, fallback) : baseStyle;
+  out = mergeTextStyle(out, {
+    ...(theme.focusIndicator.underline ? { underline: true } : {}),
+    ...(theme.focusIndicator.bold ? { bold: true } : {}),
+  });
   const override = asTextStyle((config as FocusConfigShape | undefined)?.contentStyle, theme);
   if (override) out = mergeTextStyle(out, override);
   return out;
@@ -91,9 +95,10 @@ export function resolveFocusIndicatorDecoration(
 
   let style = baseStyle;
   const colorTokens = getColorTokens(theme);
-  if (colorTokens) {
-    style = mergeTextStyle(style, { fg: colorTokens.focus.ring, bold: true });
-  }
+  style = mergeTextStyle(style, {
+    fg: theme.focusIndicator.focusRingColor ?? colorTokens.focus.ring,
+    ...(theme.focusIndicator.bold ? { bold: true } : {}),
+  });
   const override = asTextStyle((config as FocusConfigShape | undefined)?.style, theme);
   if (override) {
     style = mergeTextStyle(style, override);

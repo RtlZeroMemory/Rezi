@@ -10,9 +10,7 @@ import {
   type DrawlistBuildResult,
   type DrawlistBuilder,
   type TextStyle,
-  type Theme,
   type VNode,
-  defaultTheme as coreDefaultTheme,
   measureTextCells,
 } from "@rezi-ui/core";
 
@@ -26,7 +24,9 @@ import {
   collectSelfDirtyInstanceIds,
   commitVNodeTree,
   computeDirtyLayoutSet,
+  defaultTheme as coreDefaultTheme,
   createInstanceIdAllocator,
+  type Theme,
   instanceDirtySetToVNodeDirtySet,
   layout,
   renderToDrawlist,

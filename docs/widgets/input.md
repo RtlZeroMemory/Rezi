@@ -28,9 +28,8 @@ ui.input({
 
 ## Design System Styling
 
-Inputs are design-system styled by default when semantic color tokens are
-available (for example via a `ThemeDefinition` preset). In that path, the input
-renderer applies `inputRecipe()` output automatically.
+Inputs are design-system styled by default. The input renderer applies
+`inputRecipe()` output automatically from the active `ThemeDefinition`.
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
@@ -39,10 +38,6 @@ renderer applies `inputRecipe()` output automatically.
 
 Manual `style` overrides are merged on top of recipe output via
 `mergeTextStyle(baseStyle, ownStyle)` (they do not disable recipes).
-
-If semantic color tokens are unavailable, the renderer uses the non-recipe path:
-it merges parent/own style with `getButtonLabelStyle({ focused, disabled })`,
-then applies focus-aware content styling.
 
 Framed chrome requires both `width >= 3` and `height >= 3`. At `height = 1`,
 the recipe still applies text/background styling, but no box border is drawn.

@@ -18,7 +18,9 @@
 
 import { resolveEasing } from "../animation/easing.js";
 import { normalizeDurationMs } from "../animation/interpolate.js";
+import { describeThrown } from "../debug/describeThrown.js";
 import type { ResponsiveViewportSnapshot } from "../layout/responsive.js";
+import { defaultTheme } from "../theme/defaultTheme.js";
 import { mergeThemeOverride } from "../theme/interop.js";
 import type { Theme } from "../theme/theme.js";
 import type { ColorTokens } from "../theme/tokens.js";
@@ -539,9 +541,18 @@ function themedPropsEqual(a: unknown, b: unknown): boolean {
   return deepEqualUnknown(ao.theme, bo.theme);
 }
 
+function fragmentPropsEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  const ao = (a ?? {}) as { key?: unknown };
+  const bo = (b ?? {}) as typeof ao;
+  return ao.key === bo.key;
+}
+
 function canFastReuseContainerSelf(prev: VNode, next: VNode): boolean {
   if (prev.kind !== next.kind) return false;
   switch (prev.kind) {
+    case "fragment":
+      return fragmentPropsEqual(prev.props, (next as typeof prev).props);
     case "box":
       return boxPropsEqual(prev.props, (next as typeof prev).props);
     case "row":
@@ -571,6 +582,9 @@ function diagWhichPropFails(prev: VNode, next: VNode): string | undefined {
   };
   const ap = (prev.props ?? {}) as ReuseDiagProps;
   const bp = (next.props ?? {}) as ReuseDiagProps;
+  if (prev.kind === "fragment" && ap["key"] !== bp["key"]) {
+    return "key";
+  }
   if (prev.kind === "row" || prev.kind === "column") {
     for (const k of ["pad", "gap", "align", "justify", "items"] as const) {
       if (ap[k] !== bp[k]) return k;
@@ -801,12 +815,52 @@ function ensureInteractiveId(
   return null;
 }
 
+type FocusContainerKind = "focusZone" | "focusTrap" | "modal";
+
+function isFocusContainerVNode(vnode: VNode): vnode is VNode & { kind: FocusContainerKind } {
+  return vnode.kind === "focusZone" || vnode.kind === "focusTrap" || vnode.kind === "modal";
+}
+
+function ensureFocusContainerId(
+  seen: Map<string, FocusContainerKind>,
+  instanceId: InstanceId,
+  vnode: VNode,
+): CommitFatal | null {
+  if (!isFocusContainerVNode(vnode)) return null;
+
+  const id = (vnode as { props: { id?: unknown } }).props.id;
+  if (typeof id !== "string" || id.length === 0) {
+    return {
+      code: "ZRUI_INVALID_PROPS",
+      detail: `focus container missing required id (kind=${vnode.kind}, instanceId=${String(instanceId)})`,
+    };
+  }
+  if (id.trim().length === 0) {
+    return {
+      code: "ZRUI_INVALID_PROPS",
+      detail: `focus container id must contain non-whitespace characters (kind=${vnode.kind}, instanceId=${String(instanceId)})`,
+    };
+  }
+
+  const existing = seen.get(id);
+  if (existing !== undefined) {
+    return {
+      code: "ZRUI_DUPLICATE_ID",
+      detail: `Duplicate focus container id "${id}". First: <${existing}>, second: <${vnode.kind}>. Hint: focusZone, focusTrap, and modal ids must be unique across the tree.`,
+    };
+  }
+
+  seen.set(id, vnode.kind);
+  return null;
+}
+
 function isVNode(v: unknown): v is VNode {
   return typeof v === "object" && v !== null && "kind" in v;
 }
 
 function commitChildrenForVNode(vnode: VNode): readonly VNode[] {
   if (
+    vnode.kind === "fragment" ||
     vnode.kind === "box" ||
     vnode.kind === "row" ||
     vnode.kind === "column" ||
@@ -991,22 +1045,23 @@ function resolveCompositeChildTheme(parentTheme: Theme, vnode: VNode): Theme {
   return parentTheme;
 }
 
-function readCompositeColorTokens(ctx: CommitCtx): ColorTokens | null {
+function readCompositeColorTokens(ctx: CommitCtx): ColorTokens {
   const composite = ctx.composite;
-  if (!composite) return null;
+  if (!composite) return defaultTheme.definition.colors;
 
   const theme = currentCompositeTheme(ctx);
-  if (theme !== null && composite.getColorTokens) {
-    return composite.getColorTokens(theme);
+  if (theme !== null) {
+    return composite.getColorTokens ? composite.getColorTokens(theme) : theme.definition.colors;
   }
 
-  return composite.colorTokens ?? null;
+  return composite.colorTokens ?? defaultTheme.definition.colors;
 }
 
 type CommitCtx = Readonly<{
   allocator: InstanceIdAllocator;
   localState: RuntimeLocalStateStore | undefined;
   seenInteractiveIds: Map<string, string>;
+  seenFocusContainerIds: Map<string, FocusContainerKind>;
   prevNodeStack: Array<RuntimeInstance | null>;
   containerChildOverrides: Map<InstanceId, readonly VNode[]>;
   layoutDepthRef: { value: number };
@@ -1017,9 +1072,9 @@ type CommitCtx = Readonly<{
   composite: Readonly<{
     registry: CompositeInstanceRegistry;
     appState: unknown;
-    colorTokens?: ColorTokens | null;
+    colorTokens?: ColorTokens;
     theme?: Theme;
-    getColorTokens?: (theme: Theme) => ColorTokens | null;
+    getColorTokens?: (theme: Theme) => ColorTokens;
     viewport?: ResponsiveViewportSnapshot;
     onInvalidate: (instanceId: InstanceId) => void;
     onUseViewport?: () => void;
@@ -1105,7 +1160,7 @@ function commitErrorBoundaryFallback(
       ok: false,
       fatal: {
         code: "ZRUI_USER_CODE_THROW",
-        detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+        detail: describeThrown(e),
       },
     };
   }
@@ -1132,6 +1187,7 @@ function formatNodePath(nodePath: readonly string[]): string {
 
 function isContainerVNode(vnode: VNode): boolean {
   return (
+    vnode.kind === "fragment" ||
     vnode.kind === "box" ||
     vnode.kind === "row" ||
     vnode.kind === "column" ||
@@ -1185,6 +1241,7 @@ function rewriteCommittedVNode(next: VNode, committedChildren: readonly VNode[])
   }
 
   if (
+    next.kind === "fragment" ||
     next.kind === "box" ||
     next.kind === "row" ||
     next.kind === "column" ||
@@ -1597,7 +1654,7 @@ function executeCompositeRender(
           ok: false,
           fatal: {
             code: "ZRUI_USER_CODE_THROW",
-            detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+            detail: describeThrown(e),
           },
         };
       }
@@ -1707,7 +1764,7 @@ function executeCompositeRender(
           ok: false,
           fatal: {
             code: "ZRUI_USER_CODE_THROW",
-            detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+            detail: describeThrown(e),
           },
         };
       }
@@ -1723,7 +1780,7 @@ function executeCompositeRender(
           ok: false,
           fatal: {
             code: "ZRUI_USER_CODE_THROW",
-            detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+            detail: describeThrown(e),
           },
         };
       }
@@ -1914,6 +1971,8 @@ function commitNode(
 
     const idFatal = ensureInteractiveId(ctx.seenInteractiveIds, instanceId, vnode);
     if (idFatal) return { ok: false, fatal: idFatal };
+    const focusContainerFatal = ensureFocusContainerId(ctx.seenFocusContainerIds, instanceId, vnode);
+    if (focusContainerFatal) return { ok: false, fatal: focusContainerFatal };
 
     if (ctx.collectLifecycleInstanceIds) {
       if (prev) ctx.lists.reused.push(instanceId);
@@ -1997,9 +2056,9 @@ export function commitVNodeTree(
     composite?: Readonly<{
       registry: CompositeInstanceRegistry;
       appState: unknown;
-      colorTokens?: ColorTokens | null;
+      colorTokens?: ColorTokens;
       theme?: Theme;
-      getColorTokens?: (theme: Theme) => ColorTokens | null;
+      getColorTokens?: (theme: Theme) => ColorTokens;
       viewport?: ResponsiveViewportSnapshot;
       onInvalidate: (instanceId: InstanceId) => void;
       onUseViewport?: () => void;
@@ -2019,6 +2078,7 @@ export function commitVNodeTree(
     allocator: opts.allocator,
     localState: opts.localState,
     seenInteractiveIds: interactiveIdIndex,
+    seenFocusContainerIds: new Map<string, FocusContainerKind>(),
     prevNodeStack: [],
     containerChildOverrides: new Map<InstanceId, readonly VNode[]>(),
     layoutDepthRef: { value: 0 },

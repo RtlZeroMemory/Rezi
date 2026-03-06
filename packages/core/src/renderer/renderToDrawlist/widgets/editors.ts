@@ -53,19 +53,27 @@ function rectIntersects(a: Rect, b: Rect): boolean {
 function logLevelToThemeColor(theme: Theme, level: LogsConsoleProps["entries"][number]["level"]) {
   switch (level) {
     case "warn":
-      return theme.colors.warning;
+      return theme.colors["widget.logs.level.warn"] ?? theme.colors.warning;
     case "error":
-      return theme.colors.danger;
+      return theme.colors["widget.logs.level.error"] ?? theme.colors.danger;
     case "info":
-      return theme.colors.fg;
+      return theme.colors["widget.logs.level.info"] ?? theme.colors.fg;
     default:
-      return theme.colors.muted;
+      return theme.colors["widget.logs.level.trace"] ?? theme.colors.muted;
   }
 }
 
 type CodeEditorSyntaxStyleMap = Readonly<Record<CodeEditorSyntaxTokenKind, ResolvedTextStyle>>;
 
 function resolveSyntaxThemeColor(theme: Theme, key: string, fallback: Rgb24) {
+  return theme.colors[key] ?? fallback;
+}
+
+function resolveDiffThemeColor(
+  theme: Theme,
+  key: string,
+  fallback: Rgb24,
+): Rgb24 {
   return theme.colors[key] ?? fallback;
 }
 
@@ -332,18 +340,12 @@ export function renderEditorWidget(
         if (localY >= 0 && localY < rect.h && localX >= 0 && localX < textW) {
           const cursorLine = lines[cursor.line] ?? "";
           const cursorGlyph = cursorLine.slice(cursor.column, cursor.column + 1) || " ";
-          const widgetFocusStyle = resolveWidgetFocusStyle(colorTokens, true, false);
           const cursorCellStyle = resolveFocusedContentStyle(
-            resolveFocusIndicatorStyle(
-              parentStyle,
-              theme,
-              focusConfig,
-              mergeTextStyle(mergeTextStyle(parentStyle, widgetFocusStyle), {
-                fg: resolveSyntaxThemeColor(theme, "syntax.cursor.fg", theme.colors.bg),
-                bg: resolveSyntaxThemeColor(theme, "syntax.cursor.bg", theme.colors.primary),
-                bold: true,
-              }),
-            ),
+            mergeTextStyle(parentStyle, {
+              fg: resolveSyntaxThemeColor(theme, "syntax.cursor.fg", theme.colors.bg),
+              bg: resolveSyntaxThemeColor(theme, "syntax.cursor.bg", theme.colors.primary),
+              bold: true,
+            }),
             theme,
             focusConfig,
           );
@@ -384,14 +386,22 @@ export function renderEditorWidget(
       const focusedHunkStyle = asTextStyle(props.focusedHunkStyle, theme);
       const { diff } = props;
       const diffCache = diffRenderCacheById?.get(props.id);
-      const addBg = theme.colors.success;
-      const deleteBg = theme.colors.danger;
-      const addFg = theme.colors.bg;
-      const deleteFg = theme.colors.bg;
-      const hunkHeaderFg = theme.colors.info;
-      const lineNumberFg = theme.colors.muted;
-      const borderFg = theme.colors.border;
-      const collapsedStyle = mergeTextStyle(parentStyle, { fg: theme.colors.muted });
+      const addBg = resolveDiffThemeColor(theme, "widget.diff.add.bg", theme.colors.success);
+      const deleteBg = resolveDiffThemeColor(theme, "widget.diff.delete.bg", theme.colors.danger);
+      const addFg = resolveDiffThemeColor(theme, "widget.diff.add.fg", theme.colors.bg);
+      const deleteFg = resolveDiffThemeColor(theme, "widget.diff.delete.fg", theme.colors.bg);
+      const hunkHeaderFg = resolveDiffThemeColor(
+        theme,
+        "widget.diff.hunkHeader",
+        theme.colors.info,
+      );
+      const lineNumberFg = resolveDiffThemeColor(
+        theme,
+        "widget.diff.lineNumber",
+        theme.colors.muted,
+      );
+      const borderFg = resolveDiffThemeColor(theme, "widget.diff.border", theme.colors.border);
+      const collapsedStyle = mergeTextStyle(parentStyle, { fg: lineNumberFg });
 
       if (diff.isBinary === true) {
         builder.drawText(
@@ -790,7 +800,10 @@ export function renderEditorWidget(
           parentStyle,
           theme,
           focusConfig,
-          mergeTextStyle(parentStyle, resolveWidgetFocusStyle(colorTokens, true, false)),
+          mergeTextStyle(
+            parentStyle,
+            resolveWidgetFocusStyle(colorTokens, true, false, theme.focusIndicator),
+          ),
         );
         if (focusedStyleOverride) {
           ringStyle = mergeTextStyle(ringStyle, focusedStyleOverride);

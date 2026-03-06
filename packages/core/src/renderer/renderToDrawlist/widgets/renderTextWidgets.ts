@@ -1052,7 +1052,7 @@ export function renderTextWidgets(
       const focused = !disabled && id !== undefined && focusState.focusedId === id;
       const finalStyle = mergeTextStyle(
         styledLink,
-        resolveWidgetFocusStyle(getColorTokens(theme), focused, disabled),
+        resolveWidgetFocusStyle(getColorTokens(theme), focused, disabled, theme.focusIndicator),
       );
 
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);

@@ -71,6 +71,7 @@ describe("vnode interactive prop validation - button/input", () => {
       id: "query",
       value: "",
       disabled: false,
+      readOnly: false,
       multiline: false,
       rows: 1,
       wordWrap: false,

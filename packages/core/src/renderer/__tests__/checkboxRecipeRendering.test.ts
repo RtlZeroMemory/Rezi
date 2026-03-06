@@ -1,10 +1,10 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { coerceToLegacyTheme } from "../../theme/interop.js";
 import { darkTheme } from "../../theme/presets.js";
+import { compileTheme } from "../../theme/theme.js";
 import { ui } from "../../widgets/ui.js";
 import { type DrawOp, renderOps } from "./recipeRendering.test-utils.js";
 
-const dsTheme = coerceToLegacyTheme(darkTheme);
+const dsTheme = compileTheme(darkTheme);
 
 function findTextOp(ops: readonly DrawOp[], text: string): DrawOp | undefined {
   return ops.find((op) => op.kind === "drawText" && op.text.includes(text));

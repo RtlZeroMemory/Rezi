@@ -14,7 +14,10 @@ Rezi styling works at two levels:
 
 ## Beautiful Defaults
 
-When the active theme provides semantic color tokens, core interactive widgets are recipe-styled by default (buttons, inputs, selects, checkboxes, progress, callouts). Use `intent` on buttons for common “primary/danger/link” patterns, and use manual `style` props to override specific attributes (they do not disable recipes).
+Core interactive widgets are recipe-styled by default (buttons, inputs,
+selects, checkboxes, progress, callouts). Use `intent` on buttons for common
+“primary/danger/link” patterns, and use manual `style` props to override
+specific attributes (they do not disable recipes).
 
 ## Quick Example
 
@@ -56,8 +59,8 @@ Every widget that displays text supports a `style` prop:
 
 ```typescript
 type TextStyle = Readonly<{
-  fg?: Rgb;              // Foreground (text) color
-  bg?: Rgb;              // Background color
+  fg?: Rgb24;            // Foreground (text) color
+  bg?: Rgb24;            // Background color
   bold?: boolean;        // Bold text
   dim?: boolean;         // Dim/faint text
   italic?: boolean;      // Italic text
@@ -67,7 +70,7 @@ type TextStyle = Readonly<{
   overline?: boolean;    // Overline text
   blink?: boolean;       // Blinking text
   underlineStyle?: "none" | "straight" | "double" | "curly" | "dotted" | "dashed";
-  underlineColor?: string | ThemeColor;
+  underlineColor?: Rgb24 | ThemeColor;
 }>;
 ```
 
@@ -92,7 +95,7 @@ ui.text("Bold text", { style: { bold: true } });
 ui.text("Italic text", { style: { italic: true } });
 ui.text("Underlined", { style: { underline: true } });
 ui.text("Curly underline", {
-  style: { underlineStyle: "curly", underlineColor: "#ff6b6b" },
+  style: { underlineStyle: "curly", underlineColor: rgb(255, 107, 107) },
 });
 ui.text("Dim text", { style: { dim: true } });
 ui.text("Struck through", { style: { strikethrough: true } });
@@ -226,7 +229,6 @@ Use the spacing scale for consistent layouts:
 
 | Key | Value | Use Case |
 |-----|-------|----------|
-| `"none"` | 0 | No spacing |
 | `"xs"` | 1 | Tight spacing |
 | `"sm"` | 1 | Compact elements |
 | `"md"` | 2 | Default spacing |

@@ -139,8 +139,8 @@ describe("accordion vnode construction", () => {
     assert.equal(vnode.children.length, 2);
   });
 
-  test("ui.accordion returns a composite wrapper vnode", () => {
+  test("ui.accordion returns a layout-transparent composite wrapper vnode", () => {
     const vnode = ui.accordion(baseProps);
-    assert.equal(vnode.kind, "column");
+    assert.equal(vnode.kind, "fragment");
   });
 });

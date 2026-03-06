@@ -109,6 +109,14 @@ function readGraphicsBlitter(v: unknown): GraphicsBlitter | undefined {
   }
 }
 
+function chartThemeColor(
+  theme: Theme,
+  key: "primary" | "accent" | "muted" | "success" | "warning" | "danger",
+  fallback: number,
+): number {
+  return theme.colors[`widget.chart.${key}`] ?? fallback;
+}
+
 function sparklineForData(
   data: readonly number[],
   width: number,
@@ -169,7 +177,9 @@ export function renderChartWidgets(
               .map((value) => readNumber(value) ?? 0)
               .filter((value) => Number.isFinite(value))
           : ([] as number[]),
-        color: readString(entry.color) ?? rgbToHex(theme.colors.primary),
+        color:
+          readString(entry.color) ??
+          rgbToHex(chartThemeColor(theme, "primary", theme.colors.primary)),
         label: readString(entry.label),
       }));
       const range = getLineChartRange(
@@ -264,7 +274,8 @@ export function renderChartWidgets(
             },
       );
       const mapped = mapScatterPointsToPixels(normalized, surface.widthPx, surface.heightPx, range);
-      const fallbackColor = readString(props.color) ?? rgbToHex(theme.colors.primary);
+      const fallbackColor =
+        readString(props.color) ?? rgbToHex(chartThemeColor(theme, "primary", theme.colors.primary));
       for (const point of mapped) {
         surface.ctx.setPixel(point.x, point.y, point.color ?? fallbackColor);
       }
@@ -353,7 +364,7 @@ export function renderChartWidgets(
       const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
-      const sparkColor = ownStyle?.fg ?? theme.colors.info;
+      const sparkColor = ownStyle?.fg ?? chartThemeColor(theme, "accent", theme.colors.info);
 
       const width = Math.max(1, Math.min(rect.w, readPositiveInt(props.width) ?? data.length));
       const autoMin = Math.min(...data);
@@ -507,7 +518,9 @@ export function renderChartWidgets(
             fg: variantToThemeColor(theme, item.variant, "primary"),
             bold: true,
           });
-          const trackStyle = mergeTextStyle(style, { fg: theme.colors.muted });
+          const trackStyle = mergeTextStyle(style, {
+            fg: chartThemeColor(theme, "muted", theme.colors.muted),
+          });
           const segments: StyledSegment[] = [];
           if (labelText.length > 0) segments.push({ text: labelText, style });
           if (filled > 0) segments.push({ text: repeatCached("█", filled), style: barStyle });
@@ -537,7 +550,9 @@ export function renderChartWidgets(
             fg: variantToThemeColor(theme, item.variant, "primary"),
             bold: true,
           });
-          const trackStyle = mergeTextStyle(style, { fg: theme.colors.muted });
+          const trackStyle = mergeTextStyle(style, {
+            fg: chartThemeColor(theme, "muted", theme.colors.muted),
+          });
           for (let y = 0; y < chartHeight; y++) {
             const cellY = rect.y + chartHeight - 1 - y;
             const filledCell = y < filled;
@@ -573,7 +588,9 @@ export function renderChartWidgets(
             rect.x,
             y,
             truncateToWidth(valueLine, rect.w),
-            mergeTextStyle(style, { fg: theme.colors.muted }),
+            mergeTextStyle(style, {
+              fg: chartThemeColor(theme, "muted", theme.colors.muted),
+            }),
           );
         }
       }
@@ -600,8 +617,13 @@ export function renderChartWidgets(
 
       const fillGlyph = variant === "pills" ? "●" : "▓";
       const emptyGlyph = variant === "pills" ? "○" : "░";
-      const fillStyle = mergeTextStyle(style, { fg: theme.colors.primary, bold: true });
-      const trackStyle = mergeTextStyle(style, { fg: theme.colors.muted });
+      const fillStyle = mergeTextStyle(style, {
+        fg: chartThemeColor(theme, "primary", theme.colors.primary),
+        bold: true,
+      });
+      const trackStyle = mergeTextStyle(style, {
+        fg: chartThemeColor(theme, "muted", theme.colors.muted),
+      });
       const segments: StyledSegment[] = [];
 
       for (let i = 0; i < values.length; i++) {

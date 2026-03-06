@@ -225,6 +225,7 @@ function resolveFocusFlags(
   id: string | null,
   focusConfigRaw: unknown,
   widgetKind: string,
+  focusEnabled = true,
 ): Readonly<{
   focused: boolean;
   focusVisible: boolean;
@@ -232,7 +233,7 @@ function resolveFocusFlags(
 }> {
   const focusConfig = readFocusConfig(focusConfigRaw) ?? getDefaultFocusConfig(widgetKind);
   const focused = id !== null && focusState.focusedId === id;
-  const focusVisible = focused && focusIndicatorEnabled(focusConfig);
+  const focusVisible = focused && focusEnabled && focusIndicatorEnabled(focusConfig);
   return { focused, focusVisible, focusConfig };
 }
 
@@ -278,7 +279,7 @@ export function renderFormWidgets(
         focused,
         focusVisible: effectiveFocused,
         focusConfig,
-      } = resolveFocusFlags(focusState, id, props.focusConfig, "button");
+      } = resolveFocusFlags(focusState, id, props.focusConfig, "button", !disabled);
       const pressed = !disabled && id !== null && pressedId === id;
 
       // Design system recipe path
@@ -467,6 +468,7 @@ export function renderFormWidgets(
         id,
         props.focusConfig,
         "input",
+        !disabled,
       );
       const showPlaceholder = value.length === 0 && placeholder.length > 0;
       const colorTokens = getColorTokens(theme);
@@ -530,10 +532,20 @@ export function renderFormWidgets(
         const recipePlaceholderStyle = recipeResult.bg.bg
           ? { ...recipeResult.placeholder, bg: recipeResult.bg.bg, dim: true }
           : { ...recipeResult.placeholder, dim: true };
+        const compactFocusStyle =
+          focusVisible && !hasBorder
+            ? resolveWidgetFocusStyle(colorTokens, true, false, theme.focusIndicator)
+            : undefined;
 
         const ownStyle = asTextStyle(props.style, theme);
-        const baseStyle = mergeTextStyle(parentStyle, recipeTextStyle);
-        const basePlaceholderStyle = mergeTextStyle(parentStyle, recipePlaceholderStyle);
+        const baseStyle = mergeTextStyle(
+          mergeTextStyle(parentStyle, recipeTextStyle),
+          compactFocusStyle,
+        );
+        const basePlaceholderStyle = mergeTextStyle(
+          mergeTextStyle(parentStyle, recipePlaceholderStyle),
+          compactFocusStyle,
+        );
         style = ownStyle ? mergeTextStyle(baseStyle, ownStyle) : baseStyle;
         placeholderStyle = ownStyle
           ? mergeTextStyle(basePlaceholderStyle, ownStyle)
@@ -628,13 +640,14 @@ export function renderFormWidgets(
         style?: unknown;
       };
       const id = readString(props.id);
+      const disabled = props.disabled === true;
       const { focused, focusVisible, focusConfig } = resolveFocusFlags(
         focusState,
         id ?? null,
         props.focusConfig,
         "slider",
+        !disabled,
       );
-      const disabled = props.disabled === true;
       const readOnly = props.readOnly === true;
       const label = readString(props.label) ?? "";
       const showValue = props.showValue !== false;
@@ -661,7 +674,12 @@ export function renderFormWidgets(
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
 
-      const focusStyle = resolveWidgetFocusStyle(colorTokens, focusVisible, disabled);
+      const focusStyle = resolveWidgetFocusStyle(
+        colorTokens,
+        focusVisible,
+        disabled,
+        theme.focusIndicator,
+      );
       let stateStyle: TextStyle;
       if (disabled) {
         stateStyle = { fg: theme.colors.muted };
@@ -805,13 +823,14 @@ export function renderFormWidgets(
         dsSize?: unknown;
       };
       const id = typeof props.id === "string" ? props.id : null;
+      const disabled = props.disabled === true;
       const { focusVisible, focusConfig } = resolveFocusFlags(
         focusState,
         id,
         props.focusConfig,
         "select",
+        !disabled,
       );
-      const disabled = props.disabled === true;
       const value = typeof props.value === "string" ? props.value : "";
       const placeholder = typeof props.placeholder === "string" ? props.placeholder : "Select…";
 
@@ -929,7 +948,7 @@ export function renderFormWidgets(
           parentStyle,
           disabled
             ? { fg: theme.colors.muted }
-            : resolveWidgetFocusStyle(colorTokens, focusVisible, false),
+            : resolveWidgetFocusStyle(colorTokens, focusVisible, false, theme.focusIndicator),
         );
         const style = focusVisible
           ? resolveFocusedContentStyle(baseStyle, theme, focusConfig)
@@ -964,13 +983,14 @@ export function renderFormWidgets(
         dsSize?: unknown;
       };
       const id = typeof props.id === "string" ? props.id : null;
+      const disabled = props.disabled === true;
       const { focusVisible, focusConfig } = resolveFocusFlags(
         focusState,
         id,
         props.focusConfig,
         "checkbox",
+        !disabled,
       );
-      const disabled = props.disabled === true;
       const checked = props.checked === true;
       const label = typeof props.label === "string" ? props.label : "";
       const indicator = checked ? "[x]" : "[ ]";
@@ -1022,7 +1042,7 @@ export function renderFormWidgets(
           parentStyle,
           disabled
             ? { fg: theme.colors.muted }
-            : resolveWidgetFocusStyle(colorTokens, focusVisible, false),
+            : resolveWidgetFocusStyle(colorTokens, focusVisible, false, theme.focusIndicator),
         );
         const style = focusVisible
           ? resolveFocusedContentStyle(baseStyle, theme, focusConfig)
@@ -1053,13 +1073,14 @@ export function renderFormWidgets(
         dsSize?: unknown;
       };
       const id = typeof props.id === "string" ? props.id : null;
+      const disabled = props.disabled === true;
       const { focusVisible, focusConfig } = resolveFocusFlags(
         focusState,
         id,
         props.focusConfig,
         "radioGroup",
+        !disabled,
       );
-      const disabled = props.disabled === true;
       const value = typeof props.value === "string" ? props.value : "";
       const direction = props.direction === "horizontal" ? "horizontal" : "vertical";
       const options = Array.isArray(props.options) ? props.options : [];

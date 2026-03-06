@@ -117,7 +117,7 @@ describe("modal.focus - layer escape routing", () => {
     assert.deepEqual(closed, ["b"]);
   });
 
-  test("skips layers with closeOnEscape=false", () => {
+  test("top layer bubbles escape when closeOnEscape=false", () => {
     const closed: string[] = [];
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
       layerStack: ["base", "modal"],
@@ -131,11 +131,12 @@ describe("modal.focus - layer escape routing", () => {
       ]),
     });
 
-    assert.equal(result.closedLayerId, "base");
-    assert.deepEqual(closed, ["base"]);
+    assert.equal(result.consumed, false);
+    assert.equal(result.closedLayerId, undefined);
+    assert.deepEqual(closed, []);
   });
 
-  test("skips closable layer without onClose callback", () => {
+  test("top layer consumes escape when onClose is missing", () => {
     const closed: string[] = [];
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
       layerStack: ["base", "top"],
@@ -146,11 +147,12 @@ describe("modal.focus - layer escape routing", () => {
       onClose: new Map([["base", () => closed.push("base")]]),
     });
 
-    assert.equal(result.closedLayerId, "base");
-    assert.deepEqual(closed, ["base"]);
+    assert.equal(result.consumed, true);
+    assert.equal(result.closedLayerId, undefined);
+    assert.deepEqual(closed, []);
   });
 
-  test("swallows onClose callback errors and still consumes", () => {
+  test("callback errors do not report a successful close", () => {
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
       layerStack: ["modal"],
       closeOnEscape: new Map([["modal", true]]),
@@ -165,16 +167,18 @@ describe("modal.focus - layer escape routing", () => {
     });
 
     assert.equal(result.consumed, true);
-    assert.equal(result.closedLayerId, "modal");
+    assert.equal(result.closedLayerId, undefined);
+    assert.equal(result.callbackError instanceof Error, true);
   });
 
-  test("returns not consumed when no layer can close", () => {
+  test("non-closable top layer bubbles escape", () => {
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
       layerStack: ["modal"],
       closeOnEscape: new Map([["modal", false]]),
       onClose: new Map([["modal", () => undefined]]),
     });
     assert.equal(result.consumed, false);
+    assert.equal(result.closedLayerId, undefined);
   });
 
   test("defaults closeOnEscape to true when map entry missing", () => {

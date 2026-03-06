@@ -30,10 +30,9 @@ ui.checkbox({
 
 ## Design System Styling
 
-Checkboxes are design-system styled by default when a `ThemeDefinition` preset is active.
+Checkboxes are design-system styled by default under the active
+`ThemeDefinition`.
 The indicator and label use `checkboxRecipe()` for checked/focus/disabled states.
-
-If the active theme does not provide semantic color tokens, checkboxes fall back to non-recipe rendering.
 
 ## Behavior
 

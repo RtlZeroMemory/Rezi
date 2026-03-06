@@ -1,11 +1,11 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { coerceToLegacyTheme } from "../../theme/interop.js";
 import { darkTheme } from "../../theme/presets.js";
+import { compileTheme } from "../../theme/theme.js";
 import { selectRecipe } from "../../ui/recipes.js";
 import { ui } from "../../widgets/ui.js";
 import { type DrawOp, renderOps } from "./recipeRendering.test-utils.js";
 
-const dsTheme = coerceToLegacyTheme(darkTheme);
+const dsTheme = compileTheme(darkTheme);
 function firstDrawText(
   ops: readonly DrawOp[],
   match: (text: string) => boolean,

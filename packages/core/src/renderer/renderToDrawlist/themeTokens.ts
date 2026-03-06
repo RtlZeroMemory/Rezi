@@ -33,17 +33,15 @@ export function readWidgetSize(value: unknown): WidgetSize | undefined {
 }
 
 export function resolveWidgetFocusStyle(
-  colorTokens: ColorTokens | null,
+  colorTokens: ColorTokens,
   focused: boolean,
   disabled: boolean,
+  focusIndicator: Readonly<{ bold: boolean; underline: boolean; focusRingColor?: number }>,
 ): TextStyle | undefined {
   if (!focused || disabled) return undefined;
-  if (colorTokens !== null) {
-    return {
-      underline: true,
-      bold: true,
-      fg: colorTokens.focus.ring,
-    };
-  }
-  return { underline: true, bold: true };
+  return {
+    ...(focusIndicator.underline ? { underline: true } : {}),
+    ...(focusIndicator.bold ? { bold: true } : {}),
+    fg: focusIndicator.focusRingColor ?? colorTokens.focus.ring,
+  };
 }
