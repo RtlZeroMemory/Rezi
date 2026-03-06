@@ -33,7 +33,7 @@ Container style inherits to descendants unless a child overrides it.
 Themes are semantic `ThemeDefinition` objects.
 
 ```ts
-import { ui, darkTheme } from "@rezi-ui/core";
+import { ui, darkTheme, lightTheme } from "@rezi-ui/core";
 import { createNodeApp } from "@rezi-ui/node";
 
 const app = createNodeApp({ initialState: {}, theme: darkTheme });
@@ -45,7 +45,7 @@ await app.start();
 Switching themes at runtime:
 
 ```ts
-app.setTheme(darkTheme);
+app.setTheme(lightTheme);
 ```
 
 ## Design-system defaults
