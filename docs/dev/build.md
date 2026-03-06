@@ -235,7 +235,7 @@ The repository includes several CI-oriented scripts in `scripts/`:
 | `bench-ci-compare.mjs`          | Benchmark comparison across runs |
 | `check-core-portability.mjs`    | Verify `@rezi-ui/core` has no Node-specific imports |
 | `check-unicode-sync.mjs`        | Verify Unicode table versions match |
-| `check-create-rezi-templates.mjs` | Validate `create-rezi` scaffolding templates |
+| `check-create-rezi-templates.mjs` | Validate `create-rezi` scaffolding templates; `--install-smoke` also scaffolds, installs, builds, and tests temp apps |
 | `verify-native-pack.mjs`        | Verify native package contents before publish |
 | `release-set-version.mjs`       | Set version across all workspace packages |
 | `guardrails.sh`                  | Pre-commit guardrail checks |
