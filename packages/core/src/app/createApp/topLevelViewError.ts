@@ -1,5 +1,5 @@
-import type { ZrevEvent } from "../../events.js";
 import { describeThrown } from "../../debug/describeThrown.js";
+import type { ZrevEvent } from "../../events.js";
 import { ZR_MOD_ALT, ZR_MOD_CTRL, ZR_MOD_META, ZR_MOD_SHIFT } from "../../keybindings/keyCodes.js";
 import type { VNode } from "../../widgets/types.js";
 import { ui } from "../../widgets/ui.js";
