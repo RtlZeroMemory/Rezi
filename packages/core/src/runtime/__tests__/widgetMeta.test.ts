@@ -320,6 +320,40 @@ test("widgetMeta: collectAllWidgetMetadata produces same results as individual c
   assert.deepEqual(traps.get("trap1")?.focusableIds, ["t1-btn1", "t1-btn2", "nz-btn"]);
 });
 
+test("widgetMeta: outer zones exclude trap descendants while traps keep nested-zone focusables", () => {
+  const vnode = ui.focusZone(
+    {
+      id: "outer-zone",
+      tabIndex: 0,
+    },
+    [
+      ui.button({ id: "outer-btn", label: "Outer" }),
+      ui.focusTrap(
+        {
+          id: "trap1",
+          active: true,
+        },
+        [
+          ui.button({ id: "trap-btn", label: "Trap" }),
+          ui.focusZone(
+            {
+              id: "inner-zone",
+              tabIndex: 1,
+            },
+            [ui.button({ id: "inner-btn", label: "Inner" })],
+          ),
+        ],
+      ),
+    ],
+  );
+
+  const committed = commitTree(vnode);
+  const meta = collectAllWidgetMetadata(committed);
+
+  assert.deepEqual(meta.zones.get("outer-zone")?.focusableIds, ["outer-btn"]);
+  assert.deepEqual(meta.zones.get("inner-zone")?.focusableIds, ["inner-btn"]);
+  assert.deepEqual(meta.traps.get("trap1")?.focusableIds, ["trap-btn", "inner-btn"]);
+});
 
 test("widgetMeta: collectAllWidgetMetadata includes accessible focus semantics", () => {
   const vnode = ui.column({}, [

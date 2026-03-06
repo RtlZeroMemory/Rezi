@@ -67,7 +67,13 @@ function collectedTrap(
   initialFocus: string | null,
   focusableIds: readonly string[],
 ): CollectedTrap {
-  return Object.freeze({ id, active, returnFocusTo, initialFocus, focusableIds });
+  return Object.freeze({
+    id,
+    active,
+    returnFocusTo,
+    initialFocus,
+    focusableIds,
+  });
 }
 
 describe("modal.focus - layer escape routing", () => {
@@ -286,7 +292,10 @@ describe("modal.focus - focus state finalization with traps", () => {
 
   test("falls back to first focusable when focused id disappears", () => {
     const base = createFocusManagerState();
-    const state: FocusManagerState = Object.freeze({ ...base, focusedId: "missing" });
+    const state: FocusManagerState = Object.freeze({
+      ...base,
+      focusedId: "missing",
+    });
 
     const next = finalizeFocusWithPreCollectedMetadata(
       state,

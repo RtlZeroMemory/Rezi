@@ -42,10 +42,7 @@ export function routeLayerEscape(event: ZrevEvent, ctx: LayerRoutingCtx): LayerR
 
   const closeCallback = onClose.get(layerId);
   if (!closeCallback) {
-    return Object.freeze({
-      closedLayerId: layerId,
-      consumed: true,
-    });
+    return Object.freeze({ closedLayerId: layerId, consumed: true });
   }
 
   try {

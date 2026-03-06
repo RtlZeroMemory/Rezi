@@ -32,7 +32,9 @@ type RouteInputEditingEventContext = Readonly<{
   onInputCallbackError: (error: unknown) => void;
 }>;
 
-const ROUTE_RENDER: InputEditingRoutingOutcome = Object.freeze({ needsRender: true });
+const ROUTE_RENDER: InputEditingRoutingOutcome = Object.freeze({
+  needsRender: true,
+});
 const ROUTE_NO_RENDER_CONSUMED: InputEditingRoutingOutcome = Object.freeze({
   needsRender: false,
   consumed: true,
@@ -149,6 +151,7 @@ export function routeInputEditingEvent(
       if (selected && selected.length > 0) {
         ctx.writeSelectedTextToClipboard(selected);
         if (event.key === 88 /* X */) {
+          if (meta.readOnly) return ROUTE_NO_RENDER_CONSUMED;
           const selection = normalizeInputSelection(
             current.value,
             current.selectionStart,

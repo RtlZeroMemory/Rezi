@@ -34,7 +34,12 @@ function mouseEvent(
   x: number,
   y: number,
   mouseKind: 1 | 2 | 3 | 4 | 5,
-  opts: Readonly<{ timeMs?: number; buttons?: number; wheelX?: number; wheelY?: number }> = {},
+  opts: Readonly<{
+    timeMs?: number;
+    buttons?: number;
+    wheelX?: number;
+    wheelY?: number;
+  }> = {},
 ): ZrevEvent {
   return {
     kind: "mouse",
@@ -426,7 +431,10 @@ describe("WidgetRenderer integration battery", () => {
     });
 
     let lines: readonly string[] = Object.freeze(["hello world"]);
-    let cursor: { line: number; column: number } = Object.freeze({ line: 0, column: 11 });
+    let cursor: { line: number; column: number } = Object.freeze({
+      line: 0,
+      column: 11,
+    });
     let selection: {
       anchor: { line: number; column: number };
       active: { line: number; column: number };
@@ -534,6 +542,7 @@ describe("WidgetRenderer integration battery", () => {
     assert.ok(res.ok);
 
     renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "inp");
     const typed = renderer.routeEngineEvent(textEvent(97, 100));
     const newline = renderer.routeEngineEvent(keyEvent(2 /* ENTER */));
     const undo = renderer.routeEngineEvent(keyEvent(90 /* Z */, 1 << 1, 200));
@@ -570,6 +579,7 @@ describe("WidgetRenderer integration battery", () => {
     assert.ok(res.ok);
 
     renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "ta");
     const enter = renderer.routeEngineEvent(keyEvent(2 /* ENTER */));
     const typed = renderer.routeEngineEvent(textEvent(99, 100));
 
@@ -1295,7 +1305,9 @@ describe("WidgetRenderer integration battery", () => {
       noRenderHooks(),
     );
     assert.ok(res.ok);
-    const textSnapshot = createTestRenderer({ viewport: { cols: 80, rows: 24 } })
+    const textSnapshot = createTestRenderer({
+      viewport: { cols: 80, rows: 24 },
+    })
       .render(vnode)
       .toText();
     assert.equal(textSnapshot.includes("Cancel"), true);

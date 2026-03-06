@@ -299,7 +299,11 @@ function kindToAnnouncementPrefix(kind: RuntimeInstance["vnode"]["kind"]): strin
 
 function readFieldContext(vnode: RuntimeInstance["vnode"]): FieldContext | null {
   if (vnode.kind !== "field") return null;
-  const props = vnode.props as { label?: unknown; required?: unknown; error?: unknown };
+  const props = vnode.props as {
+    label?: unknown;
+    required?: unknown;
+    error?: unknown;
+  };
   return Object.freeze({
     label: readNonEmptyString(props.label),
     required: props.required === true,
@@ -1054,7 +1058,12 @@ export class WidgetMetadataCollector {
             typeof props.returnFocusTo === "string" ? props.returnFocusTo : null;
           const initialFocus = typeof props.initialFocus === "string" ? props.initialFocus : null;
 
-          this._trapDataById.set(id, { id, active, returnFocusTo, initialFocus });
+          this._trapDataById.set(id, {
+            id,
+            active,
+            returnFocusTo,
+            initialFocus,
+          });
           this._trapFocusables.set(id, []);
 
           // Push exit marker and enter container

@@ -44,9 +44,9 @@ import {
   getBindings,
   getMode,
   getPendingChord,
-  removeBindingsBySource,
   registerBindings,
   registerModes,
+  removeBindingsBySource,
   resetChordState,
   routeKeyEvent,
   setMode,
@@ -161,7 +161,7 @@ const DEFAULT_CONFIG: ResolvedAppConfig = Object.freeze({
 });
 
 const MAX_SAFE_FPS_CAP = 1000;
-const MAX_SAFE_EVENT_BYTES = 4 << 20 /* 4 MiB */;
+const MAX_SAFE_EVENT_BYTES = 4 << 20; /* 4 MiB */
 const SYNC_FRAME_ACK_MARKER = "__reziSyncFrameAck";
 export const APP_INTERNAL_REQUEST_VIEW_LAYOUT_MARKER = "__reziRequestViewLayout";
 export const APP_INTERNAL_SET_RUNTIME_BREADCRUMB_HOOKS_MARKER = "__reziSetRuntimeBreadcrumbHooks";
@@ -798,13 +798,22 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   }
 
   function replaceRouteBindings(bindings: BindingMap<KeyContext<S>>): void {
-    applyKeybindingState(removeBindingsBySource(keybindingState, ROUTE_KEYBINDING_SOURCE));
-    if (Object.keys(bindings).length > 0) {
-      registerAppBindings(bindings, {
-        sourceTag: ROUTE_KEYBINDING_SOURCE,
-        method: "replaceRoutes",
-      });
+    const baseState = removeBindingsBySource(keybindingState, ROUTE_KEYBINDING_SOURCE);
+    if (Object.keys(bindings).length === 0) {
+      applyKeybindingState(baseState);
+      return;
     }
+
+    const result = registerBindings(baseState, bindings, {
+      sourceTag: ROUTE_KEYBINDING_SOURCE,
+    });
+    if (result.invalidKeys.length > 0) {
+      throwCode(
+        "ZRUI_INVALID_PROPS",
+        `replaceRoutes: invalid keybinding sequence(s): ${formatInvalidKeybindingDetail(result.invalidKeys)}`,
+      );
+    }
+    applyKeybindingState(result.state);
   }
 
   function applyRoutedKeybindingState(

@@ -370,7 +370,9 @@ function markFieldsTouched<T extends Record<string, unknown>>(
   values: T,
   fields: ReadonlyArray<keyof T>,
 ): Partial<Record<keyof T, FieldBooleanValue>> {
-  const nextTouched: Partial<Record<keyof T, FieldBooleanValue>> = { ...prevTouched };
+  const nextTouched: Partial<Record<keyof T, FieldBooleanValue>> = {
+    ...prevTouched,
+  };
   for (const field of fields) {
     const value = values[field];
     if (Array.isArray(value)) {
@@ -462,8 +464,10 @@ export function useForm<T extends Record<string, unknown>, State = void>(
 
   const isFieldEditableInternal = (
     field: keyof T,
-    source: Pick<FormState<T>, "disabled" | "fieldDisabled" | "readOnly" | "fieldReadOnly"> =
-      stateRef.current,
+    source: Pick<
+      FormState<T>,
+      "disabled" | "fieldDisabled" | "readOnly" | "fieldReadOnly"
+    > = stateRef.current,
   ): boolean => !isFieldDisabledInternal(field, source) && !isFieldReadOnlyInternal(field, source);
 
   const filterDisabledValidationErrors = (
@@ -566,13 +570,11 @@ export function useForm<T extends Record<string, unknown>, State = void>(
     transitionSteps: ReadonlyArray<Readonly<{ stepIndex: number; fields: Array<keyof T> }>>,
     source: Pick<FormState<T>, "disabled" | "fieldDisabled" | "errors" | "touched">,
     asyncErrors?: ValidationResult<T>,
-  ):
-    | Readonly<{
-        blockedFields: ReadonlyArray<keyof T>;
-        mergedErrors: ValidationResult<T>;
-        touched: Partial<Record<keyof T, FieldBooleanValue>>;
-      }>
-    | null => {
+  ): Readonly<{
+    blockedFields: ReadonlyArray<keyof T>;
+    mergedErrors: ValidationResult<T>;
+    touched: Partial<Record<keyof T, FieldBooleanValue>>;
+  }> | null => {
     let mergedErrors = source.errors as ValidationResult<T>;
     for (const transitionStep of transitionSteps) {
       const baseStepErrors = runWizardStepValidation(values, transitionStep.stepIndex, {
@@ -582,7 +584,10 @@ export function useForm<T extends Record<string, unknown>, State = void>(
       const stepErrors =
         asyncErrors === undefined
           ? baseStepErrors
-          : mergeValidationErrors(baseStepErrors, pickValidationFields(asyncErrors, transitionStep.fields));
+          : mergeValidationErrors(
+              baseStepErrors,
+              pickValidationFields(asyncErrors, transitionStep.fields),
+            );
       if (!isValidationClean(stepErrors)) {
         return Object.freeze({
           blockedFields: transitionStep.fields,
@@ -799,33 +804,35 @@ export function useForm<T extends Record<string, unknown>, State = void>(
   /**
    * Handle blur for a specific field.
    */
-  const handleBlur = <K extends keyof T>(field: K) => (): void => {
-    const snapshot = stateRef.current;
-    if (isFieldDisabledInternal(field, snapshot)) {
-      return;
-    }
+  const handleBlur =
+    <K extends keyof T>(field: K) =>
+    (): void => {
+      const snapshot = stateRef.current;
+      if (isFieldDisabledInternal(field, snapshot)) {
+        return;
+      }
 
-    // Run validation on blur if enabled (default: true)
-    const validateOnBlur = options.validateOnBlur ?? true;
-    if (!validateOnBlur) {
-      setFieldTouched(field, true);
-      return;
-    }
+      // Run validation on blur if enabled (default: true)
+      const validateOnBlur = options.validateOnBlur ?? true;
+      if (!validateOnBlur) {
+        setFieldTouched(field, true);
+        return;
+      }
 
-    const errors = runSyncValidationFiltered(snapshot.values, snapshot);
-    updateFormState((prev) => ({
-      ...prev,
-      touched: {
-        ...prev.touched,
-        [field]: true,
-      },
-      errors,
-    }));
+      const errors = runSyncValidationFiltered(snapshot.values, snapshot);
+      updateFormState((prev) => ({
+        ...prev,
+        touched: {
+          ...prev.touched,
+          [field]: true,
+        },
+        errors,
+      }));
 
-    if (asyncValidatorRef.current) {
-      asyncValidatorRef.current.run(snapshot.values);
-    }
-  };
+      if (asyncValidatorRef.current) {
+        asyncValidatorRef.current.run(snapshot.values);
+      }
+    };
 
   const bind = <K extends UseFormTextFieldName<T>>(
     field: K,
@@ -852,7 +859,10 @@ export function useForm<T extends Record<string, unknown>, State = void>(
     };
   };
 
-  const field = <K extends UseFormTextFieldName<T>>(fieldName: K, options?: UseFormFieldOptions) => {
+  const field = <K extends UseFormTextFieldName<T>>(
+    fieldName: K,
+    options?: UseFormFieldOptions,
+  ) => {
     const { key, label, required, hint, error, ...inputOverrides } = options ?? {};
     const inputBinding = bind(
       fieldName,
@@ -1437,11 +1447,12 @@ export function useForm<T extends Record<string, unknown>, State = void>(
       }));
     };
 
-    const runSubmitCallback = (): void => {
+    const runSubmitCallback = async (): Promise<void> => {
       let submitResult: void | Promise<void>;
       try {
         submitResult = options.onSubmit(submitValues);
       } catch (error) {
+        submittingRef.current = false;
         failSubmit(error);
         return;
       }
@@ -1460,20 +1471,20 @@ export function useForm<T extends Record<string, unknown>, State = void>(
         }));
       }
 
-      void submitResult.then(
-        () => {
-          submittingRef.current = false;
-          finishSuccessfulSubmit();
-        },
-        (error) => {
-          submittingRef.current = false;
-          failSubmit(error);
-        },
-      );
+      try {
+        await submitResult;
+      } catch (error) {
+        submittingRef.current = false;
+        failSubmit(error);
+        return;
+      }
+
+      submittingRef.current = false;
+      finishSuccessfulSubmit();
     };
 
     if (!options.validateAsync) {
-      runSubmitCallback();
+      void runSubmitCallback();
       return;
     }
 
@@ -1483,8 +1494,9 @@ export function useForm<T extends Record<string, unknown>, State = void>(
       isSubmitting: true,
     }));
 
-    void runAsyncValidationFiltered(submitValues, snapshot).then(
-      (asyncErrors) => {
+    void (async () => {
+      try {
+        const asyncErrors = await runAsyncValidationFiltered(submitValues, snapshot);
         const allErrors = mergeValidationErrors(syncErrors, asyncErrors);
         if (!isValidationClean(allErrors)) {
           submittingRef.current = false;
@@ -1496,17 +1508,16 @@ export function useForm<T extends Record<string, unknown>, State = void>(
           }));
           return;
         }
-        runSubmitCallback();
-      },
-      (error) => {
+        await runSubmitCallback();
+      } catch (error) {
         submittingRef.current = false;
         updateFormState((prev) => ({
           ...prev,
           isSubmitting: false,
           submitError: error,
         }));
-      },
-    );
+      }
+    })();
   };
 
   return Object.freeze({
@@ -1541,8 +1552,10 @@ export function useForm<T extends Record<string, unknown>, State = void>(
     setReadOnly,
     setFieldDisabled,
     setFieldReadOnly,
-    isFieldDisabled: <K extends keyof T>(field: K) => isFieldDisabledInternal(field, stateRef.current),
-    isFieldReadOnly: <K extends keyof T>(field: K) => isFieldReadOnlyInternal(field, stateRef.current),
+    isFieldDisabled: <K extends keyof T>(field: K) =>
+      isFieldDisabledInternal(field, stateRef.current),
+    isFieldReadOnly: <K extends keyof T>(field: K) =>
+      isFieldReadOnlyInternal(field, stateRef.current),
     useFieldArray,
     nextStep,
     previousStep,
