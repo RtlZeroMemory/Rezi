@@ -235,7 +235,6 @@ const app = createNodeApp({
   config: {
     fpsCap: UI_FPS_CAP,
     emojiWidthPolicy: "auto",
-    executionMode: "inline",
   },
   initialState,
   theme: themeSpec(initialState.themeName).theme,

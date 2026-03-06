@@ -96,8 +96,6 @@ const app = createNodeApp<State>({
     activeScene: 0,
     themeName: "dark",
   },
-  // Inline mode avoids worker/native crash during live theme switches in demo flow.
-  config: { executionMode: "inline" },
 });
 
 function resolveSceneTabWindow(

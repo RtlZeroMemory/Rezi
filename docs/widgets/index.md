@@ -508,7 +508,7 @@ Widget stability tiers and guarantees are documented in [Widget Stability](stabi
 
 | Tier | Meaning |
 |------|---------|
-| `stable` | Semver-protected behavior contract with deterministic regression tests. No breaking changes in minor/patch releases. |
+| `stable` | Strongest contract-hardened tier inside the current pre-alpha line. Deterministic regression tests exist, but repo-wide pre-alpha status still applies. |
 | `beta` | Core invariants tested; contract may evolve in minor releases. |
 | `experimental` | No compatibility guarantees; APIs can change at any time. |
 

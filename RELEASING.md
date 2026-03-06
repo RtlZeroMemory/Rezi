@@ -22,11 +22,11 @@ That's it. The `release` workflow will:
 
 1. Create a GitHub Release with auto-generated notes
 2. Build native prebuilds for 6 platforms (linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64, win32-arm64)
-3. Run smoke tests on each platform
+3. Run smoke tests on the host lanes that currently support them
 4. Sync all `package.json` versions to match the tag (via `scripts/release-set-version.mjs`)
 5. Build TypeScript
 6. Assemble native binaries and verify pack contents
-7. Publish all 6 packages to npm in dependency order
+7. Publish all npm artifacts in dependency order
 
 ## Packages published
 
@@ -37,9 +37,17 @@ In order:
 3. `@rezi-ui/testkit` — no internal deps
 4. `@rezi-ui/node` — depends on core + native
 5. `@rezi-ui/jsx` — depends on core
-6. `create-rezi` — CLI scaffolding tool
+6. `@rezi-ui/ink-compat` — compatibility layer
+7. `ink-gradient-shim` — legacy shim package
+8. `ink-spinner-shim` — legacy shim package
+9. `@rezi-ui/ink-gradient-shim` — scoped shim package
+10. `@rezi-ui/ink-spinner-shim` — scoped shim package
+11. `create-rezi` — CLI scaffolding tool
 
 `@rezi-ui/bench` is private and never published.
+
+Documentation deployment is handled by the separate `docs` workflow on pushes to
+`main`.
 
 ## Version format
 

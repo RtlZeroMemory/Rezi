@@ -46,7 +46,8 @@ Or with other package managers:
 
 ## Prebuilt Binaries
 
-The `@rezi-ui/node` package includes prebuilt native binaries for common platforms:
+Installing `@rezi-ui/node` also installs `@rezi-ui/native`, which contains the
+prebuilt `.node` binaries for supported platforms:
 
 | Platform | Architecture | Status |
 |----------|--------------|--------|
@@ -55,15 +56,18 @@ The `@rezi-ui/node` package includes prebuilt native binaries for common platfor
 | macOS | x64 (Intel) | Included |
 | macOS | arm64 (Apple Silicon) | Included |
 | Windows | x64 | Included |
+| Windows | arm64 | Included |
 
-If a prebuilt binary is not available for your platform, the package will attempt to compile from source (requires a C toolchain).
+No install-time source build runs for unsupported targets. If a matching
+prebuilt binary is not available, build from a repository checkout with
+`npm run build:native`.
 
 ## Package Overview
 
 | Package | Description | Required |
 |---------|-------------|----------|
 | `@rezi-ui/core` | Widgets, layout, themes, forms, keybindings | Yes |
-| `@rezi-ui/node` | Node.js/Bun backend (worker/inline modes + native rendering) | Yes |
+| `@rezi-ui/node` | Node.js/Bun backend (worker/inline modes + depends on `@rezi-ui/native`) | Yes |
 | `@rezi-ui/testkit` | Testing utilities and fixtures | Optional |
 
 ## Optional packages
