@@ -16,7 +16,6 @@ function warnDev(message: string): void {
   const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
   c?.warn?.(message);
 }
-
 /**
  * Route ESC key to the topmost layer only.
  *
@@ -32,28 +31,28 @@ export function routeLayerEscape(event: ZrevEvent, ctx: LayerRoutingCtx): LayerR
   const { layerStack, closeOnEscape, onClose } = ctx;
 
   const layerId = layerStack[layerStack.length - 1];
-  if (!layerId) {
+  if (layerId === undefined) {
     return Object.freeze({ consumed: false });
   }
 
   const canClose = closeOnEscape.get(layerId) ?? true;
   if (canClose !== true) {
-    return Object.freeze({ consumed: true });
+    return Object.freeze({ consumed: false });
   }
 
   const closeCallback = onClose.get(layerId);
   if (!closeCallback) {
-    return Object.freeze({ consumed: true });
+    return Object.freeze({
+      closedLayerId: layerId,
+      consumed: true,
+    });
   }
 
   try {
     closeCallback();
   } catch (error: unknown) {
     warnDev(`[rezi] layer onClose callback threw: ${describeThrown(error)}`);
-    return Object.freeze({
-      consumed: true,
-      callbackError: error,
-    });
+    return Object.freeze({ consumed: true });
   }
 
   return Object.freeze({

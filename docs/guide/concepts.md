@@ -253,6 +253,10 @@ app.keys({
 
 Key names support modifiers (`ctrl`, `alt`, `shift`, `meta`) and chord sequences (space-separated keys pressed in sequence).
 
+Invalid keybinding sequences are rejected during registration. Rezi throws
+instead of silently skipping malformed shortcuts so broken bindings are caught
+early.
+
 ### Modal / Vim-Style Modes
 
 For applications with distinct input modes, use `app.modes()`:
@@ -321,6 +325,10 @@ ui.column({}, [
 ])
 ```
 
+Zones remember the last focused widget they contained. Arrow-key movement stays
+within the active zone, and Tab falls back predictably if the remembered target
+disappears.
+
 ### Focus Traps
 Constrain focus within a region (useful for modals):
 
@@ -330,6 +338,9 @@ ui.focusTrap({ id: "modal-trap", active: true }, [
   ui.button({ id: "cancel", label: "Cancel" }),
 ])
 ```
+
+An active trap owns Tab traversal until it closes. When traps are stacked, only
+the topmost active trap participates in focus movement and Escape handling.
 
 ## Deterministic Rendering
 

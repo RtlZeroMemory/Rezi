@@ -913,6 +913,8 @@ export type InputProps = Readonly<{
   accessibleLabel?: string;
   value: string;
   disabled?: boolean;
+  /** Keep the input focusable/selectable while preventing edits. */
+  readOnly?: boolean;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
   /** Optional style applied to the input value (merged with focus/disabled state). */
@@ -948,6 +950,8 @@ export type TextareaProps = Readonly<{
   accessibleLabel?: string;
   value: string;
   disabled?: boolean;
+  /** Keep the textarea focusable/selectable while preventing edits. */
+  readOnly?: boolean;
   /** Opt out of Tab focus order while keeping id-based routing available. */
   focusable?: boolean;
   /** Visible line count (default: 3). */

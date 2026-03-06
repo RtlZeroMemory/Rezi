@@ -292,6 +292,7 @@ test("widgetMeta: collectAllWidgetMetadata produces same results as individual c
     assert.ok(allMeta2, `inputById missing ${id}`);
     assert.equal(allMeta2.value, meta.value);
     assert.equal(allMeta2.disabled, meta.disabled);
+    assert.equal(allMeta2.readOnly, meta.readOnly);
   }
 
   // Verify zones match
@@ -315,7 +316,10 @@ test("widgetMeta: collectAllWidgetMetadata produces same results as individual c
     assert.equal(allTrap.returnFocusTo, trap.returnFocusTo);
     assert.deepEqual([...allTrap.focusableIds], [...trap.focusableIds]);
   }
+
+  assert.deepEqual(traps.get("trap1")?.focusableIds, ["t1-btn1", "t1-btn2", "nz-btn"]);
 });
+
 
 test("widgetMeta: collectAllWidgetMetadata includes accessible focus semantics", () => {
   const vnode = ui.column({}, [

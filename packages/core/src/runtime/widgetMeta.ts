@@ -529,6 +529,30 @@ function collectFocusableIdsInSubtree(node: RuntimeInstance): readonly string[] 
   return Object.freeze(out);
 }
 
+function collectFocusableIdsInTrapSubtree(node: RuntimeInstance): readonly string[] {
+  const out: string[] = [];
+  const stack: RuntimeInstance[] = [node];
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) continue;
+
+    if (current.vnode.kind === "focusTrap" || current.vnode.kind === "modal") {
+      continue;
+    }
+
+    const id = isFocusableInteractive(current.vnode) ? isEnabledInteractive(current.vnode) : null;
+    if (id !== null) out.push(id);
+
+    for (let i = current.children.length - 1; i >= 0; i--) {
+      const child = current.children[i];
+      if (child) stack.push(child);
+    }
+  }
+
+  return Object.freeze(out);
+}
+
 /**
  * Collect all focus zones from a committed runtime tree.
  *
@@ -857,21 +881,19 @@ export class WidgetMetadataCollector {
             buildFocusInfo(vnode, focusableId, this._fieldStack),
           );
         }
-        // Attribute to the nearest zone and nearest enclosing trap. Focusables
-        // inside zones still participate in an enclosing trap's focus scope.
         for (let i = this._containerStack.length - 1; i >= 0; i--) {
           const container = this._containerStack[i];
-          if (!container) continue;
-          if (container.kind === "trap") break;
-          if (container.kind === "zone") {
+          if (container?.kind === "trap") {
+            break;
+          }
+          if (container?.kind === "zone") {
             this._zoneFocusables.get(container.id)?.push(focusableId);
             break;
           }
         }
         for (let i = this._containerStack.length - 1; i >= 0; i--) {
           const container = this._containerStack[i];
-          if (!container) continue;
-          if (container.kind === "trap") {
+          if (container?.kind === "trap") {
             this._trapFocusables.get(container.id)?.push(focusableId);
             break;
           }

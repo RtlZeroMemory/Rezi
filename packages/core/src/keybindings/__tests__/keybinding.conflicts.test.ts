@@ -11,7 +11,7 @@ import { ui } from "../../index.js";
 import { routeKey } from "../../runtime/router/key.js";
 import { routeLayerEscape } from "../../runtime/router/layer.js";
 import type { KeyRoutingCtx } from "../../runtime/router/types.js";
-import { ZR_KEY_ENTER, ZR_KEY_ESCAPE, charToKeyCode } from "../keyCodes.js";
+import { ZR_KEY_DOWN, ZR_KEY_ENTER, ZR_KEY_ESCAPE, charToKeyCode } from "../keyCodes.js";
 import {
   DEFAULT_MODE,
   createManagerState,
@@ -351,7 +351,7 @@ describe("routing semantics", () => {
     assert.deepEqual(closed, ["modal"]);
   });
 
-  test("layer escape is owned by a non-closable top layer", () => {
+  test("layer escape bubbles past a non-closable top layer", () => {
     const closed: string[] = [];
 
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE, 1), {
@@ -366,12 +366,12 @@ describe("routing semantics", () => {
       ]),
     });
 
-    assert.equal(result.consumed, true);
+    assert.equal(result.consumed, false);
     assert.equal(result.closedLayerId, undefined);
     assert.deepEqual(closed, []);
   });
 
-  test("layer escape is consumed when the top layer has no close callback", () => {
+  test("layer escape is consumed when the top layer has no callback", () => {
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE, 1), {
       layerStack: ["modal"],
       closeOnEscape: new Map([["modal", true]]),
@@ -379,6 +379,7 @@ describe("routing semantics", () => {
     });
 
     assert.equal(result.consumed, true);
+    assert.equal(result.closedLayerId, "modal");
   });
 });
 
@@ -577,5 +578,49 @@ describe("app routing precedence", () => {
 
     assert.equal(closed, 1);
     assert.equal(keybindingHits, 0);
+  });
+
+  test("active dropdown navigation bypasses app-level arrow and Enter keybindings", async () => {
+    const backend = new StubBackend();
+    const globalHits: string[] = [];
+    const selected: string[] = [];
+
+    const app = createApp({ backend, initialState: 0 });
+    app.keys({
+      down: () => {
+        globalHits.push("down");
+      },
+      enter: () => {
+        globalHits.push("enter");
+      },
+    });
+    app.view(() =>
+      ui.layers([
+        ui.button({ id: "anchor", label: "Menu" }),
+        ui.dropdown({
+          id: "menu",
+          anchorId: "anchor",
+          items: [
+            { id: "first", label: "First" },
+            { id: "second", label: "Second" },
+          ],
+          onSelect: (item) => {
+            selected.push(item.id);
+          },
+        }),
+      ]),
+    );
+
+    await app.start();
+    await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 40, rows: 10 }]);
+    await flushMicrotasks(20);
+
+    await pushEvents(backend, [{ kind: "key", timeMs: 2, key: ZR_KEY_DOWN, action: "down" }]);
+    await pushEvents(backend, [{ kind: "key", timeMs: 3, key: ZR_KEY_ENTER, action: "down" }]);
+
+    assert.deepEqual(globalHits, []);
+    assert.deepEqual(selected, ["second"]);
+
+    await app.stop();
   });
 });

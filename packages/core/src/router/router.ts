@@ -110,11 +110,22 @@ function collectRouteDefinitions<S>(
   ancestryPrefix: readonly string[],
   routeMap: Map<string, RouteDefinition<S>>,
   recordById: Map<string, RouteRecord<S>>,
+  routeIdsByKeybinding: Map<string, string>,
 ): void {
   for (const route of routes) {
     const routeId = normalizeRouteId(route.id);
     if (routeMap.has(routeId)) {
       throwInvalidProps(`duplicate route id: ${routeId}`);
+    }
+    const keybinding = route.keybinding?.trim();
+    if (keybinding) {
+      const existingRouteId = routeIdsByKeybinding.get(keybinding);
+      if (existingRouteId !== undefined && existingRouteId !== routeId) {
+        throwInvalidProps(
+          `duplicate route keybinding "${keybinding}" for routes "${existingRouteId}" and "${routeId}"`,
+        );
+      }
+      routeIdsByKeybinding.set(keybinding, routeId);
     }
 
     const ancestry = Object.freeze([...ancestryPrefix, routeId]);
@@ -133,7 +144,14 @@ function collectRouteDefinitions<S>(
       if (!Array.isArray(children)) {
         throwInvalidProps(`children for route "${routeId}" must be an array when provided`);
       }
-      collectRouteDefinitions(children, routeId, ancestry, routeMap, recordById);
+      collectRouteDefinitions(
+        children,
+        routeId,
+        ancestry,
+        routeMap,
+        recordById,
+        routeIdsByKeybinding,
+      );
     }
   }
 }
@@ -148,7 +166,7 @@ export function createRouteRegistry<S>(routes: readonly RouteDefinition<S>[]): R
 
   const routeMap = new Map<string, RouteDefinition<S>>();
   const recordById = new Map<string, RouteRecord<S>>();
-  collectRouteDefinitions(routes, null, [], routeMap, recordById);
+  collectRouteDefinitions(routes, null, [], routeMap, recordById, new Map<string, string>());
 
   return Object.freeze({
     routeMap,

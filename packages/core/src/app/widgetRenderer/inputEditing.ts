@@ -189,6 +189,7 @@ export function routeInputEditingEvent(
     }
 
     if (event.key === 90 /* Z */ || event.key === 89 /* Y */) {
+      if (meta.readOnly) return ROUTE_NO_RENDER_CONSUMED;
       const snap = event.key === 89 || isShift ? history.redoSnapshot() : history.undoSnapshot();
       if (snap) {
         applyInputSnapshot(
@@ -220,6 +221,9 @@ export function routeInputEditingEvent(
     multiline: meta.multiline,
   });
   if (!edit) return null;
+  if (meta.readOnly && edit.action) {
+    return ROUTE_NO_RENDER_CONSUMED;
+  }
 
   const next: InputEditorSnapshot = Object.freeze({
     value: edit.nextValue,
