@@ -6,6 +6,28 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.57] - 2026-03-06
+
+### Documentation
+
+- **docs/runtime + release**: Aligned install, worker/headless, protocol ABI, stability, and release documentation with current behavior and package layout.
+- **docs/create-rezi**: Documented the installed template smoke path used by CI for scaffolded apps.
+
+### CI / Tooling
+
+- **create-rezi/templates**: Template package versions are now synced by the release versioning script and validated against the current `create-rezi` version.
+- **create-rezi/templates**: Added installed scaffold smoke coverage that scaffolds temp apps, installs local packages, builds, and runs template tests in CI.
+- **bench/ci**: Updated benchmark workflow/docs to use the maintained reduced CI benchmark profile and to retain comparison artifacts on failures.
+- **ci/security**: Enabled CodeQL result uploads, standardized reproducible install lanes, and refreshed vulnerable dependency pins in the release tree.
+
+### Merged Pull Requests
+
+- [#258](https://github.com/RtlZeroMemory/Rezi/pull/258) docs: align runtime and release docs with current behavior
+- [#259](https://github.com/RtlZeroMemory/Rezi/pull/259) bench: align workflow with maintained CI profile
+- [#260](https://github.com/RtlZeroMemory/Rezi/pull/260) ci: add installed create-rezi smoke checks
+- [#261](https://github.com/RtlZeroMemory/Rezi/pull/261) fix(create-rezi): pin and validate template package versions
+- [#262](https://github.com/RtlZeroMemory/Rezi/pull/262) ci: tighten dependency and analysis hygiene
+
 ## [0.1.0-alpha.56] - 2026-03-06
 
 ### Bug Fixes

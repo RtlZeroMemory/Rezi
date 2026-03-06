@@ -1,6 +1,6 @@
 {
   "name": "ink-spinner-shim",
-  "version": "0.1.0-alpha.56",
+  "version": "0.1.0-alpha.57",
   "type": "module",
   "main": "index.js",
   "types": "index.d.ts",

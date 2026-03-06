@@ -1,6 +1,6 @@
 {
   "name": "@rezi-ui/ink-gradient-shim",
-  "version": "0.1.0-alpha.56",
+  "version": "0.1.0-alpha.57",
   "description": "Scoped ink-gradient shim alias for Rezi Ink compatibility.",
   "type": "module",
   "main": "index.js",
