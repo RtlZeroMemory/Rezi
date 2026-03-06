@@ -146,7 +146,7 @@ Build, test, and CI automation scripts.
 | `check-core-portability.mjs`      | Scans `@rezi-ui/core` for prohibited Node.js imports. |
 | `check-native-vendor-integrity.mjs` | Verifies native vendor source wiring and `VENDOR_COMMIT.txt` pin consistency with `vendor/zireael`. |
 | `check-unicode-sync.mjs`          | Verifies Unicode table versions are consistent. |
-| `check-create-rezi-templates.mjs` | Validates scaffolding templates are up to date. |
+| `check-create-rezi-templates.mjs` | Validates scaffolding templates are up to date; installed smoke mode scaffolds, installs, builds, and tests temp apps. |
 | `verify-native-pack.mjs`          | Checks native package contents before npm publish. |
 | `release-set-version.mjs`         | Updates version strings across all workspace packages. |
 

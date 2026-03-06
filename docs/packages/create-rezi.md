@@ -82,3 +82,9 @@ Run deterministic template smoke checks (metadata consistency + build/typecheck 
 ```bash
 npm run check:create-rezi-templates
 ```
+
+Run the installed smoke path used in CI (scaffold temp project -> local package install -> build -> test):
+
+```bash
+npm run smoke:create-rezi-templates
+```
