@@ -32,27 +32,34 @@ jobs:
       - name: Build native addon
         run: npm run build:native
 
-      - name: Run Rezi benchmarks (with perf instrumentation)
+      - name: Run reduced Rezi benchmark suite (with perf instrumentation)
         env:
           REZI_PERF: "1"
+        run: npm run bench:ci -- --output-dir .artifacts/bench/ci
+
+      - name: Compare reduced benchmark results against baseline
         run: |
-          # Run each scenario separately for detailed analysis
-          npm run bench -- --impl rezi --scenario max_60fps --warmup 2 --duration 10 --runs 3
-          npm run bench -- --impl rezi --scenario max_uncapped --warmup 2 --duration 10 --runs 3
-          npm run bench -- --impl rezi --scenario latency --warmup 2 --duration 10 --runs 3 --latency-interval 50
-          npm run bench -- --impl rezi --scenario latency_under_load --warmup 2 --duration 10 --runs 3 --latency-interval 50
+          npm run bench:ci:compare -- \
+            --baseline benchmarks/ci-baseline/results.json \
+            --current .artifacts/bench/ci/results.json \
+            --config benchmarks/ci-baseline/config.json \
+            --report-json .artifacts/bench/ci/compare.json \
+            --report-md .artifacts/bench/ci/compare.md
 
       - name: Display results summary
         run: |
           echo "=== Benchmark Results ==="
-          for f in packages/bench/results/*/summary.json; do
-            echo "--- $f ---"
-            cat "$f" | head -200
-          done
+          if [ -f .artifacts/bench/ci/results.md ]; then
+            echo "--- .artifacts/bench/ci/results.md ---"
+            sed -n '1,200p' .artifacts/bench/ci/results.md
+          fi
+          if [ -f .artifacts/bench/ci/compare.md ]; then
+            echo "--- .artifacts/bench/ci/compare.md ---"
+            sed -n '1,200p' .artifacts/bench/ci/compare.md
+          fi
 
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
           name: bench-results
-          path: packages/bench/results/
-
+          path: .artifacts/bench/ci/
