@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { BACKEND_DRAWLIST_VERSION_MARKER, createApp, rgb, ui } from "@rezi-ui/core";
+import { BACKEND_DRAWLIST_VERSION_MARKER, createApp, darkTheme, extendTheme, rgb, ui } from "@rezi-ui/core";
 import { ZrUiError } from "@rezi-ui/core";
 import { selectNodeBackendExecutionMode } from "../backend/nodeBackend.js";
 import { createNodeApp, createNodeBackend } from "../index.js";
@@ -301,25 +301,37 @@ test("createNodeApp exposes isNoColor=true when NO_COLOR is present", () => {
   withNoColor("1", () => {
     const app = createNodeApp({
       initialState: { value: 0 },
-      theme: {
+      theme: extendTheme(darkTheme, {
+        name: "no-color-test",
         colors: {
-          primary: rgb(255, 0, 0),
-          secondary: rgb(0, 255, 0),
+          accent: {
+            primary: rgb(255, 0, 0),
+            secondary: rgb(0, 255, 0),
+            tertiary: rgb(255, 0, 255),
+          },
           success: rgb(0, 0, 255),
-          danger: rgb(255, 0, 255),
+          error: rgb(255, 0, 255),
           warning: rgb(255, 255, 0),
           info: rgb(0, 255, 255),
-          muted: rgb(120, 120, 120),
-          bg: rgb(10, 10, 10),
-          fg: rgb(240, 240, 240),
-          border: rgb(64, 64, 64),
-          "diagnostic.error": rgb(255, 90, 90),
-          "diagnostic.warning": rgb(255, 200, 90),
-          "diagnostic.info": rgb(90, 180, 255),
-          "diagnostic.hint": rgb(140, 255, 120),
+          bg: {
+            base: rgb(10, 10, 10),
+          },
+          fg: {
+            primary: rgb(240, 240, 240),
+            muted: rgb(120, 120, 120),
+          },
+          border: {
+            default: rgb(64, 64, 64),
+          },
+          diagnostic: {
+            error: rgb(255, 90, 90),
+            warning: rgb(255, 200, 90),
+            info: rgb(90, 180, 255),
+            hint: rgb(140, 255, 120),
+          },
         },
-        spacing: [0, 1, 2, 4, 8, 16],
-      },
+        spacing: { xs: 1, sm: 2, md: 4, lg: 8, xl: 16, "2xl": 24 },
+      }),
     });
     assert.equal(app.isNoColor, true);
     app.dispose();

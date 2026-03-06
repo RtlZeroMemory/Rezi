@@ -10,6 +10,7 @@ import {
   createHookContext,
   runPendingEffects,
 } from "../../runtime/instances.js";
+import { defaultTheme } from "../../theme/defaultTheme.js";
 import type { WidgetContext } from "../../widgets/composition.js";
 import type { UseFormOptions, UseFormReturn } from "../types.js";
 import { useForm } from "../useForm.js";
@@ -50,8 +51,8 @@ function createTestContext<State = void>(): {
         useMemo: hookCtx.useMemo,
         useCallback: hookCtx.useCallback,
         useAppState: <U>(_selector: (s: State) => U): U => undefined as U,
-        useTheme: () => null,
-        useViewport: () => ({ width: 80, height: 24, breakpoint: "md" }),
+        useTheme: () => defaultTheme.definition.colors,
+        useViewport: () => ({ width: 80, height: 24, breakpoint: "md" as const }),
         invalidate: () => {
           registry.invalidate(instanceId);
         },
@@ -374,6 +375,28 @@ describe("useForm disabled/readOnly behavior", () => {
     assert.equal(result, undefined);
     assert.equal(form.errors.name, undefined);
     assert.equal(validateCalls, 0);
+  });
+
+  test("disabling a field clears stale validation errors immediately", () => {
+    const h = createTestContext();
+
+    const options: UseFormOptions<TestValues> = {
+      initialValues: { name: "", email: "john@example.com", age: 30 },
+      onSubmit: () => {},
+    };
+
+    let form = h.render(options);
+    form.setFieldError("name", "Name required");
+    form.setFieldError("email", "Email invalid");
+    form = h.render(options);
+    assert.equal(form.errors.name, "Name required");
+    assert.equal(form.errors.email, "Email invalid");
+
+    form.setFieldDisabled("name", true);
+    form = h.render(options);
+
+    assert.equal(form.errors.name, undefined);
+    assert.equal(form.errors.email, "Email invalid");
   });
 
   test("isFieldDisabled/isFieldReadOnly resolve effective state from form + overrides", () => {

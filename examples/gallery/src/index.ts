@@ -59,7 +59,7 @@ const sceneArg = args.find((_, i) => args[i - 1] === "--scene");
 
 if (isHeadless) {
   // Headless: render scene(s) and exit
-  const { createTestRenderer, coerceToLegacyTheme } = await import("@rezi-ui/core");
+  const { createTestRenderer } = await import("@rezi-ui/core");
 
   const scenesToRender = sceneArg ? [getScene(sceneArg)].filter(Boolean) : scenes;
 
@@ -74,8 +74,10 @@ if (isHeadless) {
     console.log(`\n=== ${scene.title} (${scene.name}) ===\n`);
 
     for (const themeName of THEME_NAMES) {
-      const theme = coerceToLegacyTheme(THEMES[themeName]);
-      const renderer = createTestRenderer({ viewport: { cols: 80, rows: 40 }, theme });
+      const renderer = createTestRenderer({
+        viewport: { cols: 80, rows: 40 },
+        theme: THEMES[themeName],
+      });
       const result = renderer.render(scene.render());
       console.log(`--- Theme: ${themeName} ---`);
       console.log(result.toText());

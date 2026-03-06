@@ -125,6 +125,8 @@ export type LayerRoutingCtx = Readonly<{
 export type LayerRoutingResult = Readonly<{
   /** Layer that was closed, if any. */
   closedLayerId?: string;
+  /** Error thrown by the close callback, if any. */
+  callbackError?: unknown;
   /** Whether the event was consumed. */
   consumed: boolean;
 }>;

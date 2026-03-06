@@ -3,6 +3,7 @@ import {
   createHookContext,
   runPendingEffects,
 } from "../../runtime/instances.js";
+import { defaultTheme } from "../../theme/defaultTheme.js";
 import type { WidgetContext } from "../../widgets/composition.js";
 import type { UseFormOptions, UseFormReturn } from "../types.js";
 import { useForm } from "../useForm.js";
@@ -41,8 +42,8 @@ export function createFormHarness<State = void>(): {
         useMemo: hookCtx.useMemo,
         useCallback: hookCtx.useCallback,
         useAppState: <U>(_selector: (s: State) => U): U => undefined as U,
-        useTheme: () => null,
-        useViewport: () => ({ width: 80, height: 24, breakpoint: "md" }),
+        useTheme: () => defaultTheme.definition.colors,
+        useViewport: () => ({ width: 80, height: 24, breakpoint: "md" as const }),
         invalidate: () => {
           invalidateCount++;
           registry.invalidate(instanceId);

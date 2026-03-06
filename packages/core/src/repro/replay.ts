@@ -738,7 +738,7 @@ export async function runReproReplayHarness(
         ? { maxDrawlistBytes: opts.bundle.captureConfig.maxDrawlistBytes }
         : {}),
     },
-    ...(opts.theme !== undefined ? { theme: opts.theme } : {}),
+    ...(opts.theme !== undefined ? { theme: opts.theme.definition } : {}),
   });
   app.view(() => opts.view());
 

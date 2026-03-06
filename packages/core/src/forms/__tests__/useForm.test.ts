@@ -10,6 +10,7 @@ import {
   createHookContext,
   runPendingEffects,
 } from "../../runtime/instances.js";
+import { defaultTheme } from "../../theme/defaultTheme.js";
 import type { WidgetContext } from "../../widgets/composition.js";
 import type { UseFormOptions, UseFormReturn } from "../types.js";
 import { useForm } from "../useForm.js";
@@ -66,8 +67,8 @@ function createTestContext<State = void>(): {
         useMemo: hookCtx.useMemo,
         useCallback: hookCtx.useCallback,
         useAppState: <U>(_selector: (s: State) => U): U => undefined as U,
-        useTheme: () => null,
-        useViewport: () => ({ width: 80, height: 24, breakpoint: "md" }),
+        useTheme: () => defaultTheme.definition.colors,
+        useViewport: () => ({ width: 80, height: 24, breakpoint: "md" as const }),
         invalidate: () => {
           invalidateCount++;
           registry.invalidate(instanceId);
@@ -145,6 +146,7 @@ describe("useForm hook", () => {
     assert.equal(typeof binding.id, "string");
     assert.equal(binding.value, "");
     assert.equal(binding.disabled, false);
+    assert.equal(binding.readOnly, false);
 
     binding.onInput?.("ada", 3);
     form = h.render(options);
@@ -159,7 +161,7 @@ describe("useForm hook", () => {
     assert.equal(custom.id, "custom-email");
   });
 
-  test("bind disables input when field is not editable", () => {
+  test("bind separates disabled and readOnly state", () => {
     const h = createTestContext();
     const options: UseFormOptions<{ email: string }> = {
       initialValues: { email: "a@example.com" },
@@ -168,18 +170,22 @@ describe("useForm hook", () => {
 
     let form = h.render(options);
     assert.equal(form.bind("email").disabled, false);
+    assert.equal(form.bind("email").readOnly, false);
 
     form.setReadOnly(true);
     form = h.render(options);
-    assert.equal(form.bind("email").disabled, true);
+    assert.equal(form.bind("email").disabled, false);
+    assert.equal(form.bind("email").readOnly, true);
 
     form.setFieldReadOnly("email", false);
     form = h.render(options);
     assert.equal(form.bind("email").disabled, false);
+    assert.equal(form.bind("email").readOnly, false);
 
     form.setDisabled(true);
     form = h.render(options);
     assert.equal(form.bind("email").disabled, true);
+    assert.equal(form.bind("email").readOnly, false);
   });
 
   test("field returns a wired field wrapper with input child", () => {
@@ -196,6 +202,7 @@ describe("useForm hook", () => {
       required: true,
       hint: "Use your work email",
       style: { italic: true },
+      placeholder: "name@example.com",
       disabled: true,
     });
     assert.equal(vnode.kind, "field");
@@ -211,6 +218,7 @@ describe("useForm hook", () => {
       if (child?.kind === "input") {
         assert.equal(child.props.value, "");
         assert.deepEqual(child.props.style, { italic: true });
+        assert.equal(child.props.placeholder, "name@example.com");
         assert.equal(child.props.disabled, true);
         child.props.onBlur?.();
       }
@@ -241,6 +249,16 @@ describe("useForm hook", () => {
       const child = forceEnabled.children[0];
       if (child && child.kind === "input") {
         assert.equal(child.props.disabled, false);
+      }
+    }
+
+    form.setReadOnly(true);
+    form = h.render(options);
+    const forceEditable = form.field("email", { readOnly: false });
+    if (forceEditable.kind === "field") {
+      const child = forceEditable.children[0];
+      if (child && child.kind === "input") {
+        assert.equal(child.props.readOnly, false);
       }
     }
   });
@@ -450,6 +468,65 @@ describe("useForm hook", () => {
 
     assert.equal(error, "Name required");
     assert.equal(form.errors.name, "Name required");
+  });
+
+  test("validateField uses same-turn field values", () => {
+    const h = createTestContext();
+
+    const options: UseFormOptions<{ name: string }> = {
+      initialValues: { name: "" },
+      validate: (values) => (values.name ? {} : { name: "Name required" }),
+      onSubmit: () => {},
+    };
+
+    let form = h.render(options);
+    form.setFieldValue("name", "Ada");
+    const error = form.validateField("name");
+    form = h.render(options);
+
+    assert.equal(error, undefined);
+    assert.equal(form.values.name, "Ada");
+    assert.equal(form.errors.name, undefined);
+  });
+
+  test("handleBlur validates against same-turn edits", () => {
+    const h = createTestContext();
+
+    const options: UseFormOptions<{ name: string }> = {
+      initialValues: { name: "" },
+      validate: (values) => (values.name ? {} : { name: "Name required" }),
+      onSubmit: () => {},
+    };
+
+    let form = h.render(options);
+    form.setFieldValue("name", "Ada");
+    form.handleBlur("name")();
+    form = h.render(options);
+
+    assert.equal(form.touched.name, true);
+    assert.equal(form.errors.name, undefined);
+  });
+
+  test("handleSubmit uses same-turn field values", () => {
+    const h = createTestContext();
+    const submissions: string[] = [];
+
+    const options: UseFormOptions<{ name: string }> = {
+      initialValues: { name: "" },
+      validate: (values) => (values.name ? {} : { name: "Name required" }),
+      onSubmit: (values) => {
+        submissions.push(values.name);
+      },
+    };
+
+    let form = h.render(options);
+    form.setFieldValue("name", "Ada");
+    form.handleSubmit();
+    form = h.render(options);
+
+    assert.deepEqual(submissions, ["Ada"]);
+    assert.equal(form.submitCount, 1);
+    assert.equal(form.errors.name, undefined);
   });
 
   test("submitCount increments on each submit attempt", () => {

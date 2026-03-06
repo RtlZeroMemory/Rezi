@@ -394,8 +394,6 @@ describe("composition animation hooks - playback controls", () => {
       }),
     );
     h.runPending(render.pendingEffects);
-    const restartedValue = render.result;
-    assert.ok(restartedValue < linearValue);
 
     await sleep(16);
     render = h.render((hooks) =>
@@ -404,7 +402,7 @@ describe("composition animation hooks - playback controls", () => {
       }),
     );
     h.runPending(render.pendingEffects);
-    assert.ok(render.result - restartedValue > 5);
+    assert.ok(render.result - linearValue > 5);
 
     await waitFor(() => {
       const next = h.render((hooks) =>

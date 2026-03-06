@@ -8,6 +8,7 @@ import {
   createHookContext,
   runPendingEffects,
 } from "../../runtime/instances.js";
+import { defaultTheme } from "../../theme/defaultTheme.js";
 import type { WidgetContext } from "../../widgets/composition.js";
 import type { UseFormOptions, UseFormReturn } from "../types.js";
 import { useForm } from "../useForm.js";
@@ -48,8 +49,8 @@ function createTestContext<State = void>(): {
         useMemo: hookCtx.useMemo,
         useCallback: hookCtx.useCallback,
         useAppState: <U>(_selector: (s: State) => U): U => undefined as U,
-        useTheme: () => null,
-        useViewport: () => ({ width: 80, height: 24, breakpoint: "md" }),
+        useTheme: () => defaultTheme.definition.colors,
+        useViewport: () => ({ width: 80, height: 24, breakpoint: "md" as const }),
         invalidate: () => {
           registry.invalidate(instanceId);
         },
@@ -164,6 +165,32 @@ describe("useForm wizard", () => {
     assert.equal(form.currentStep, 1);
     assert.equal(form.errors.email, undefined);
     assert.equal(form.errors.age, undefined);
+  });
+
+  test("nextStep waits for async validation before advancing", async () => {
+    const h = createTestContext();
+
+    const options = createWizardOptions({
+      initialValues: {
+        name: "Ada",
+        email: "",
+        age: 0,
+      },
+      validateAsync: async () => ({}),
+    });
+
+    let form = h.render(options);
+    const moved = form.nextStep();
+    form = h.render(options);
+
+    assert.equal(moved, false);
+    assert.equal(form.currentStep, 0);
+
+    await flushMicrotasks();
+    form = h.render(options);
+
+    assert.equal(form.currentStep, 1);
+    assert.equal(form.errors.name, undefined);
   });
 
   test("nextStep called twice before rerender does not skip intermediate validation", () => {
@@ -310,6 +337,57 @@ describe("useForm wizard", () => {
     assert.equal(form.errors.email, "Email required");
   });
 
+  test("goToStep respects existing async-style errors on intermediate steps", () => {
+    const h = createTestContext();
+
+    const options = createWizardOptions({
+      initialValues: {
+        name: "Ada",
+        email: "ada@example.com",
+        age: 30,
+      },
+    });
+
+    let form = h.render(options);
+    form.setFieldError("email", "Email already taken");
+    form = h.render(options);
+
+    const moved = form.goToStep(2);
+    form = h.render(options);
+
+    assert.equal(moved, false);
+    assert.equal(form.currentStep, 0);
+    assert.equal(form.touched.email, true);
+    assert.equal(form.errors.email, "Email already taken");
+  });
+
+  test("goToStep blocks forward navigation when async validation fails on an intermediate step", async () => {
+    const h = createTestContext();
+
+    const options = createWizardOptions({
+      initialValues: {
+        name: "Ada",
+        email: "ada@example.com",
+        age: 30,
+      },
+      validateAsync: async () => ({ email: "Email already taken" }),
+    });
+
+    let form = h.render(options);
+    const moved = form.goToStep(2);
+    form = h.render(options);
+
+    assert.equal(moved, false);
+    assert.equal(form.currentStep, 0);
+
+    await flushMicrotasks();
+    form = h.render(options);
+
+    assert.equal(form.currentStep, 0);
+    assert.equal(form.touched.email, true);
+    assert.equal(form.errors.email, "Email already taken");
+  });
+
   test("goToStep allows forward navigation when intermediate steps are valid", () => {
     const h = createTestContext();
 
@@ -409,6 +487,31 @@ describe("useForm wizard", () => {
     assert.equal(submitCalls, 0);
     assert.equal(form.touched.name, true);
     assert.equal(form.errors.name, "Name required");
+  });
+
+  test("handleSubmit before last step does not advance past existing async-style step errors", () => {
+    const h = createTestContext();
+
+    const options = createWizardOptions({
+      initialValues: {
+        name: "Ada",
+        email: "ada@example.com",
+        age: 30,
+      },
+    });
+
+    let form = h.render(options);
+    form.nextStep();
+    form = h.render(options);
+    assert.equal(form.currentStep, 1);
+
+    form.setFieldError("email", "Email already taken");
+    form = h.render(options);
+    form.handleSubmit();
+    form = h.render(options);
+
+    assert.equal(form.currentStep, 1);
+    assert.equal(form.errors.email, "Email already taken");
   });
 
   test("handleSubmit called twice before rerender does not skip step validation gates", () => {
