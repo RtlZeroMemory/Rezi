@@ -120,7 +120,7 @@ describe("focus layers - modal focus trap lifecycle", () => {
     assert.deepEqual(next.trapStack, ["modal"]);
   });
 
-  test("modal open with no focusables keeps current focus", () => {
+  test("modal open with no focusables clears current focus", () => {
     const state = Object.freeze({
       ...createFocusManagerState(),
       focusedId: "trigger",
@@ -139,7 +139,7 @@ describe("focus layers - modal focus trap lifecycle", () => {
     ]);
 
     const next = finalizeFocusWithPreCollectedMetadata(state, focusList, zones, traps);
-    assert.equal(next.focusedId, "trigger");
+    assert.equal(next.focusedId, null);
     assert.deepEqual(next.trapStack, ["modal"]);
   });
 
@@ -376,7 +376,7 @@ describe("focus layers - ESC and layer stack routing", () => {
     assert.equal(closedLayer, null);
   });
 
-  test("ESC is consumed by the top layer when it has no close callback", () => {
+  test("ESC reports the top layer when it has no close callback", () => {
     let closedLayer: string | null = null;
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
       layerStack: ["base", "middle", "top"],
@@ -396,22 +396,18 @@ describe("focus layers - ESC and layer stack routing", () => {
     });
 
     assert.equal(result.consumed, true);
-    assert.equal(result.closedLayerId, undefined);
+    assert.equal(result.closedLayerId, "top");
     assert.equal(closedLayer, null);
   });
 
-  test("ESC is consumed by the top layer even when lower layers could close", () => {
+  test("ESC is not consumed when there are no layers", () => {
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
-      layerStack: ["a", "b", "c"],
-      closeOnEscape: new Map([
-        ["a", false],
-        ["b", true],
-        ["c", false],
-      ]),
+      layerStack: [],
+      closeOnEscape: new Map(),
       onClose: new Map(),
     });
 
-    assert.equal(result.consumed, true);
+    assert.equal(result.consumed, false);
     assert.equal(result.closedLayerId, undefined);
   });
 
@@ -432,23 +428,34 @@ describe("focus layers - ESC and layer stack routing", () => {
     assert.equal(result.consumed, false);
   });
 
-  test("close callback errors are swallowed and ESC remains consumed", () => {
-    const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
-      layerStack: ["modal"],
-      closeOnEscape: new Map([["modal", true]]),
-      onClose: new Map([
-        [
-          "modal",
-          () => {
-            throw new Error("boom");
-          },
-        ],
-      ]),
-    });
+  test("close callback errors still consume ESC and warn in dev mode", () => {
+    const originalWarn = console.warn;
+    const warnings: string[] = [];
+    console.warn = (message?: unknown) => {
+      warnings.push(String(message));
+    };
 
-    assert.equal(result.consumed, true);
-    assert.equal(result.closedLayerId, undefined);
-    assert.ok(result.callbackError instanceof Error);
+    try {
+      const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
+        layerStack: ["modal"],
+        closeOnEscape: new Map([["modal", true]]),
+        onClose: new Map([
+          [
+            "modal",
+            () => {
+              throw new Error("boom");
+            },
+          ],
+        ]),
+      });
+
+      assert.equal(result.consumed, true);
+      assert.equal(result.closedLayerId, undefined);
+      assert.equal(warnings.length, 1);
+      assert.ok(warnings[0]?.includes("layer onClose callback threw: Error: boom"));
+    } finally {
+      console.warn = originalWarn;
+    }
   });
 
   test("popLayer removes a middle layer deterministically", () => {

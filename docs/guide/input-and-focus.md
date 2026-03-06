@@ -168,7 +168,7 @@ apps. See [Focus Announcer](../widgets/focus-announcer.md) for details.
 - Supported modifiers: `shift`, `ctrl`/`control`, `alt`, `meta`/`cmd`/`command`/`win`/`super`.
 - Supported named keys: `escape`/`esc`, `enter`/`return`, `tab`, `backspace`, `space`, `insert`, `delete`/`del`, `home`, `end`, `pageup`, `pagedown`, `up`, `down`, `left`, `right`, `f1`-`f12`.
 - Single-character keys are supported for letters, digits, and most punctuation (`+` is reserved as the modifier separator). Use `space` (not a literal space) for the Space key.
-- Invalid key strings are skipped during registration; they do not throw.
+- Invalid key strings throw during registration so configuration mistakes fail fast.
 
 ### Chord matching
 
@@ -218,8 +218,8 @@ ui.text(app.pendingChord ? `Waiting for: ${app.pendingChord}` : "Ready");
 
 In widget mode, key routing is:
 
-1. App keybindings (`app.keys` / `app.modes`) run first.
-2. Escape bypass: if key is `Escape` and a dropdown is open or any modal layer exists, app keybindings are skipped for that event.
+1. If any overlay is active (for example a dropdown, dialog, or modal layer), app keybindings are bypassed for that key event.
+2. Otherwise app keybindings (`app.keys` / `app.modes`) run first.
 3. If keybindings consume the event (matched or pending chord), widget routing is skipped.
 4. Otherwise widget routing runs, in this order: top dropdown key handling, layer Escape close handling, focused-widget-specific key handlers, then generic focus/press/input routing.
 
@@ -229,7 +229,7 @@ Mouse input shares the same focus state as keyboard navigation:
 
 - Mouse down transfers focus immediately to the hit, enabled focusable widget.
 - Button activation is press/release based (down + up on the same enabled button).
-- Wheel routing prefers a `VirtualList` under cursor, then focused scrollables; wheel deltas are step-based and clamped.
+- Wheel routing prefers a `VirtualList` under cursor, then the nearest scrollable ancestor under the pointer. If that scroller is already clamped, routing falls through to the next outer scrollable ancestor.
 - `SplitPane` dividers use dedicated drag routing (split panes are not focusable targets).
 - Mouse events do not run keybinding chord matching directly.
 

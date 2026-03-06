@@ -37,6 +37,18 @@ export type ArrayFieldItem<
 > = T[K] extends ReadonlyArray<infer Item> ? Item : never;
 
 /**
+ * Field names whose value can safely round-trip through a text input.
+ * Excludes literal-string fields because text inputs can emit arbitrary strings.
+ */
+export type UseFormTextFieldName<T extends Record<string, unknown>> = {
+  [K in keyof T]-?: Exclude<T[K], null | undefined> extends string
+    ? string extends Exclude<T[K], null | undefined>
+      ? K
+      : never
+    : never;
+}[keyof T];
+
+/**
  * Step definition for multi-step form wizard support.
  */
 export type FormWizardStep<T extends Record<string, unknown>> = Readonly<{
@@ -113,7 +125,7 @@ export type UseFormOptions<T extends Record<string, unknown>> = Readonly<{
  */
 export type UseFormInputBinding = Pick<
   InputProps,
-  "id" | "value" | "onInput" | "onBlur" | "disabled"
+  "id" | "value" | "onInput" | "onBlur" | "disabled" | "readOnly"
 >;
 
 /**
@@ -223,25 +235,28 @@ export type UseFormReturn<T extends Record<string, unknown>> = Readonly<{
    * Returns a change handler for a specific field.
    * Use with input onInput callbacks.
    */
-  handleChange: (field: keyof T) => (value: T[keyof T]) => void;
+  handleChange: <K extends keyof T>(field: K) => (value: T[K]) => void;
 
   /**
    * Returns a blur handler for a specific field.
    * Marks field as touched and may trigger validation.
    */
-  handleBlur: (field: keyof T) => () => void;
+  handleBlur: <K extends keyof T>(field: K) => () => void;
 
   /**
    * Returns spread-ready input props for a specific field.
    * Equivalent to wiring id/value/onInput/onBlur manually.
    */
-  bind: <K extends keyof T>(field: K, options?: UseFormBindOptions) => UseFormInputBinding;
+  bind: <K extends UseFormTextFieldName<T>>(
+    field: K,
+    options?: UseFormBindOptions,
+  ) => UseFormInputBinding;
 
   /**
    * Returns a fully wired ui.field(...) node with a child ui.input(...).
    * Auto-wires bind props and touched error display.
    */
-  field: <K extends keyof T>(field: K, options?: UseFormFieldOptions) => VNode;
+  field: <K extends UseFormTextFieldName<T>>(field: K, options?: UseFormFieldOptions) => VNode;
 
   /**
    * Submits the form if validation passes.
@@ -253,16 +268,16 @@ export type UseFormReturn<T extends Record<string, unknown>> = Readonly<{
   reset: () => void;
 
   /** Sets a specific field's value programmatically. */
-  setFieldValue: (field: keyof T, value: T[keyof T]) => void;
+  setFieldValue: <K extends keyof T>(field: K, value: T[K]) => void;
 
   /** Sets a specific field's error programmatically. */
-  setFieldError: (field: keyof T, error: FieldErrorValue | undefined) => void;
+  setFieldError: <K extends keyof T>(field: K, error: FieldErrorValue | undefined) => void;
 
   /** Marks a specific field as touched or untouched. */
-  setFieldTouched: (field: keyof T, touched: boolean) => void;
+  setFieldTouched: <K extends keyof T>(field: K, touched: boolean) => void;
 
   /** Validates a single field and returns its error (if any). */
-  validateField: (field: keyof T) => FieldErrorValue | undefined;
+  validateField: <K extends keyof T>(field: K) => ValidationResult<T>[K] | undefined;
 
   /** Validates all fields and returns errors object. */
   validateForm: () => ValidationResult<T>;
@@ -274,16 +289,16 @@ export type UseFormReturn<T extends Record<string, unknown>> = Readonly<{
   setReadOnly: (readOnly: boolean) => void;
 
   /** Set or clear field-level disabled override. */
-  setFieldDisabled: (field: keyof T, disabled: boolean | undefined) => void;
+  setFieldDisabled: <K extends keyof T>(field: K, disabled: boolean | undefined) => void;
 
   /** Set or clear field-level read-only override. */
-  setFieldReadOnly: (field: keyof T, readOnly: boolean | undefined) => void;
+  setFieldReadOnly: <K extends keyof T>(field: K, readOnly: boolean | undefined) => void;
 
   /** Check effective disabled state for a field. */
-  isFieldDisabled: (field: keyof T) => boolean;
+  isFieldDisabled: <K extends keyof T>(field: K) => boolean;
 
   /** Check effective read-only state for a field. */
-  isFieldReadOnly: (field: keyof T) => boolean;
+  isFieldReadOnly: <K extends keyof T>(field: K) => boolean;
 
   /** Dynamic array helpers for an array-valued field. */
   useFieldArray: <K extends ArrayFieldName<T>>(field: K) => UseFieldArrayReturn<T, K>;

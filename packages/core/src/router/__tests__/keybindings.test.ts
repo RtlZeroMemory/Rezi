@@ -1,4 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { ZrUiError } from "../../abi.js";
 import { createRouteKeybindings } from "../keybindings.js";
 import type { RouteDefinition, RouterApi } from "../types.js";
 
@@ -130,5 +131,30 @@ describe("createRouteKeybindings", () => {
     fireBinding(staleBinding);
     assert.deepEqual(navigateCalls, []);
     assert.equal(currentId, "home");
+  });
+
+  test("rejects duplicate route keybindings", () => {
+    const router: RouterApi = {
+      navigate() {},
+      replace() {},
+      back() {},
+      currentRoute() {
+        return Object.freeze({ id: "home", params: Object.freeze({}) });
+      },
+      canGoBack() {
+        return false;
+      },
+      history() {
+        return Object.freeze([Object.freeze({ id: "home", params: Object.freeze({}) })]);
+      },
+    };
+
+    assert.throws(
+      () => createRouteKeybindings([route("home", "ctrl+1"), route("logs", "ctrl+1")], router),
+      (error: unknown) =>
+        error instanceof ZrUiError &&
+        error.code === "ZRUI_INVALID_PROPS" &&
+        error.message.includes('duplicate route keybinding "ctrl+1"'),
+    );
   });
 });

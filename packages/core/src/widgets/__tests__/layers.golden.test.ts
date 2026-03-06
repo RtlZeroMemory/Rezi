@@ -50,7 +50,10 @@ type LayerHitFixtureCase = Readonly<{
   }>;
 }>;
 
-type LayerHitFixture = Readonly<{ schemaVersion: 1; cases: readonly LayerHitFixtureCase[] }>;
+type LayerHitFixture = Readonly<{
+  schemaVersion: 1;
+  cases: readonly LayerHitFixtureCase[];
+}>;
 
 async function loadLayerHitFixture(): Promise<LayerHitFixture> {
   const bytes = await readFixture("routing/layer_hit_overlap.json");
@@ -816,6 +819,17 @@ describe("Layer ESC Routing", () => {
     assert.equal(result.closedLayerId, undefined);
     assert.equal(result.consumed, true);
     assert.equal(closedLayer, null);
+  });
+
+  test("ESC reports the topmost closable layer even without an onClose callback", () => {
+    const result = routeLayerEscape(escEvent, {
+      layerStack: ["modal1"],
+      closeOnEscape: new Map([["modal1", true]]),
+      onClose: new Map(),
+    });
+
+    assert.equal(result.consumed, true);
+    assert.equal(result.closedLayerId, "modal1");
   });
 
   test("non-ESC key is not consumed", () => {

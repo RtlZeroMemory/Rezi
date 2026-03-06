@@ -507,6 +507,39 @@ describe("form.async-validation - useForm behavior", () => {
     assert.equal(form.isSubmitting, false);
   });
 
+  test("synchronous submit throws clear the submit lock after async validation passes", async () => {
+    const h = createFormHarness();
+    const submitError = new Error("boom");
+    let submitCalls = 0;
+    const opts = options({
+      validateOnChange: false,
+      validate: () => ({}),
+      validateAsync: async () => ({}),
+      onSubmit: () => {
+        submitCalls++;
+        throw submitError;
+      },
+      onSubmitError: () => undefined,
+    });
+
+    let form = h.render(opts);
+    form.handleSubmit();
+    await flushMicrotasks(4);
+    form = h.render(opts);
+
+    assert.equal(form.isSubmitting, false);
+    assert.equal(form.submitError, submitError);
+    assert.equal(submitCalls, 1);
+
+    form.handleSubmit();
+    await flushMicrotasks(4);
+    form = h.render(opts);
+
+    assert.equal(form.isSubmitting, false);
+    assert.equal(form.submitError, submitError);
+    assert.equal(submitCalls, 2);
+  });
+
   test("async validation overrides sync error for same field", async () => {
     const timers = useFakeTimers();
     try {

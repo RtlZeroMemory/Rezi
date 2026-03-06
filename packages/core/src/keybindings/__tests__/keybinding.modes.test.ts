@@ -306,24 +306,23 @@ describe("keybinding modes", () => {
     assert.equal(defaultHits, 0);
   });
 
-  test("mode-parent cycles are guarded and return no match", () => {
-    let state = createManagerState<TestContext>();
+  test("mode-parent cycles are rejected during registration", () => {
+    const state = createManagerState<TestContext>();
 
-    state = registerModes(state, {
-      a: {
-        parent: "b",
-        bindings: {},
-      },
-      b: {
-        parent: "a",
-        bindings: {},
-      },
-    }).state;
-    state = setMode(state, "a");
-
-    const result = routeKeyEvent(state, keyDown(KEY_A, 1), ctx());
-
-    assert.equal(result.consumed, false);
+    assert.throws(
+      () =>
+        registerModes(state, {
+          a: {
+            parent: "b",
+            bindings: {},
+          },
+          b: {
+            parent: "a",
+            bindings: {},
+          },
+        }),
+      /cyclic keybinding mode parent chain detected at "a"/,
+    );
   });
 
   test("inherited parent chord can start and complete in child mode", () => {

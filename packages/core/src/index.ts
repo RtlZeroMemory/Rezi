@@ -1055,6 +1055,7 @@ export {
   type UseFormInputBinding,
   type UseFormOptions,
   type UseFormReturn,
+  type UseFormTextFieldName,
   type ValidationContext,
   type ValidationResult,
 } from "./forms/index.js";

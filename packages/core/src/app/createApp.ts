@@ -46,6 +46,7 @@ import {
   getPendingChord,
   registerBindings,
   registerModes,
+  removeBindingsBySource,
   resetChordState,
   routeKeyEvent,
   setMode,
@@ -120,6 +121,8 @@ import {
   type WidgetRoutingOutcome,
 } from "./widgetRenderer.js";
 
+const ROUTE_KEYBINDING_SOURCE = "__rezi:router";
+
 /** Resolved configuration with defaults applied. */
 type ResolvedAppConfig = Readonly<{
   fpsCap: number;
@@ -158,7 +161,7 @@ const DEFAULT_CONFIG: ResolvedAppConfig = Object.freeze({
 });
 
 const MAX_SAFE_FPS_CAP = 1000;
-const MAX_SAFE_EVENT_BYTES = 4 << 20 /* 4 MiB */;
+const MAX_SAFE_EVENT_BYTES = 4 << 20; /* 4 MiB */
 const SYNC_FRAME_ACK_MARKER = "__reziSyncFrameAck";
 export const APP_INTERNAL_REQUEST_VIEW_LAYOUT_MARKER = "__reziRequestViewLayout";
 export const APP_INTERNAL_SET_RUNTIME_BREADCRUMB_HOOKS_MARKER = "__reziSetRuntimeBreadcrumbHooks";
@@ -745,6 +748,75 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     return false;
   }
 
+  function formatInvalidKeybindingDetail(
+    invalidKeys: readonly Readonly<{ key: string; detail: string }>[],
+  ): string {
+    return invalidKeys.map((invalid) => `"${invalid.key}": ${invalid.detail}`).join("; ");
+  }
+
+  function applyKeybindingState(nextState: KeybindingManagerState<KeyContext<S>>): void {
+    keybindingState = nextState;
+    keybindingsEnabled = computeKeybindingsEnabled(keybindingState);
+  }
+
+  function registerAppBindings(
+    bindings: BindingMap<KeyContext<S>>,
+    options?: Readonly<{ sourceTag?: string; method?: string }>,
+  ): void {
+    const result = registerBindings(keybindingState, bindings, {
+      ...(options?.sourceTag === undefined ? {} : { sourceTag: options.sourceTag }),
+    });
+    if (result.invalidKeys.length > 0) {
+      const method = options?.method ?? "keys";
+      throwCode(
+        "ZRUI_INVALID_PROPS",
+        `${method}: invalid keybinding sequence(s): ${formatInvalidKeybindingDetail(result.invalidKeys)}`,
+      );
+    }
+    applyKeybindingState(result.state);
+  }
+
+  function registerAppModes(modes: ModeBindingMap<KeyContext<S>>): void {
+    let result: Readonly<{
+      state: KeybindingManagerState<KeyContext<S>>;
+      invalidKeys: readonly Readonly<{ key: string; detail: string }>[];
+    }>;
+    try {
+      result = registerModes(keybindingState, modes);
+    } catch (error: unknown) {
+      throwCode(
+        "ZRUI_INVALID_PROPS",
+        `modes: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    if (result.invalidKeys.length > 0) {
+      throwCode(
+        "ZRUI_INVALID_PROPS",
+        `modes: invalid keybinding sequence(s): ${formatInvalidKeybindingDetail(result.invalidKeys)}`,
+      );
+    }
+    applyKeybindingState(result.state);
+  }
+
+  function replaceRouteBindings(bindings: BindingMap<KeyContext<S>>): void {
+    const baseState = removeBindingsBySource(keybindingState, ROUTE_KEYBINDING_SOURCE);
+    if (Object.keys(bindings).length === 0) {
+      applyKeybindingState(baseState);
+      return;
+    }
+
+    const result = registerBindings(baseState, bindings, {
+      sourceTag: ROUTE_KEYBINDING_SOURCE,
+    });
+    if (result.invalidKeys.length > 0) {
+      throwCode(
+        "ZRUI_INVALID_PROPS",
+        `replaceRoutes: invalid keybinding sequence(s): ${formatInvalidKeybindingDetail(result.invalidKeys)}`,
+      );
+    }
+    applyKeybindingState(result.state);
+  }
+
   function applyRoutedKeybindingState(
     routeInputState: KeybindingManagerState<KeyContext<S>>,
     routeNextState: KeybindingManagerState<KeyContext<S>>,
@@ -909,6 +981,12 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   }
 
   function assertRouterMutationAllowed(method: string): void {
+    assertOperational(method);
+    if (inCommit) throwCode("ZRUI_REENTRANT_CALL", `${method}: called during commit`);
+    if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", updateDuringRenderDetail(method));
+  }
+
+  function assertKeybindingMutationAllowed(method: string): void {
     assertOperational(method);
     if (inCommit) throwCode("ZRUI_REENTRANT_CALL", `${method}: called during commit`);
     if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", updateDuringRenderDetail(method));
@@ -1674,7 +1752,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
         throwCode("ZRUI_MODE_CONFLICT", "replaceRoutes: draw mode already selected");
       }
       const nextRouteKeybindings = routerIntegration.replaceRoutes(nextRoutes);
-      app.keys(nextRouteKeybindings);
+      replaceRouteBindings(nextRouteKeybindings);
       topLevelViewError = null;
       if (sm.state === "Running") {
         markDirty(DIRTY_VIEW);
@@ -1935,19 +2013,17 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     /* --- Keybinding API --- */
 
     keys(bindings: BindingMap<KeyContext<S>>): void {
-      assertOperational("keys");
-      keybindingState = registerBindings(keybindingState, bindings).state;
-      keybindingsEnabled = computeKeybindingsEnabled(keybindingState);
+      assertKeybindingMutationAllowed("keys");
+      registerAppBindings(bindings);
     },
 
     modes(modes: ModeBindingMap<KeyContext<S>>): void {
-      assertOperational("modes");
-      keybindingState = registerModes(keybindingState, modes).state;
-      keybindingsEnabled = computeKeybindingsEnabled(keybindingState);
+      assertKeybindingMutationAllowed("modes");
+      registerAppModes(modes);
     },
 
     setMode(modeName: string): void {
-      assertOperational("setMode");
+      assertKeybindingMutationAllowed("setMode");
       keybindingState = setMode(keybindingState, modeName);
     },
 
@@ -1978,9 +2054,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   routeStateUpdater = app.update;
   if (routerIntegration) {
     const routeKeybindings = routerIntegration.routeKeybindings;
-    if (Object.keys(routeKeybindings).length > 0) {
-      app.keys(routeKeybindings);
-    }
+    replaceRouteBindings(routeKeybindings);
   }
 
   Object.defineProperty(app, APP_INTERNAL_REQUEST_VIEW_LAYOUT_MARKER, {

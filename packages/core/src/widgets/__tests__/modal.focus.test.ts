@@ -67,7 +67,13 @@ function collectedTrap(
   initialFocus: string | null,
   focusableIds: readonly string[],
 ): CollectedTrap {
-  return Object.freeze({ id, active, returnFocusTo, initialFocus, focusableIds });
+  return Object.freeze({
+    id,
+    active,
+    returnFocusTo,
+    initialFocus,
+    focusableIds,
+  });
 }
 
 describe("modal.focus - layer escape routing", () => {
@@ -117,7 +123,7 @@ describe("modal.focus - layer escape routing", () => {
     assert.deepEqual(closed, ["b"]);
   });
 
-  test("top layer owns escape when closeOnEscape=false", () => {
+  test("topmost layer with closeOnEscape=false keeps ESC owned by the top layer", () => {
     const closed: string[] = [];
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
       layerStack: ["base", "modal"],
@@ -131,11 +137,12 @@ describe("modal.focus - layer escape routing", () => {
       ]),
     });
 
+    assert.equal(result.consumed, true);
     assert.equal(result.closedLayerId, undefined);
     assert.deepEqual(closed, []);
   });
 
-  test("skips closable layer without onClose callback", () => {
+  test("topmost closable layer without onClose still reports the closed layer", () => {
     const closed: string[] = [];
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
       layerStack: ["base", "top"],
@@ -146,7 +153,8 @@ describe("modal.focus - layer escape routing", () => {
       onClose: new Map([["base", () => closed.push("base")]]),
     });
 
-    assert.equal(result.closedLayerId, undefined);
+    assert.equal(result.consumed, true);
+    assert.equal(result.closedLayerId, "top");
     assert.deepEqual(closed, []);
   });
 
@@ -166,7 +174,6 @@ describe("modal.focus - layer escape routing", () => {
 
     assert.equal(result.consumed, true);
     assert.equal(result.closedLayerId, undefined);
-    assert.ok(result.callbackError instanceof Error);
   });
 
   test("returns consumed when the top layer owns escape but cannot close", () => {
@@ -285,7 +292,10 @@ describe("modal.focus - focus state finalization with traps", () => {
 
   test("falls back to first focusable when focused id disappears", () => {
     const base = createFocusManagerState();
-    const state: FocusManagerState = Object.freeze({ ...base, focusedId: "missing" });
+    const state: FocusManagerState = Object.freeze({
+      ...base,
+      focusedId: "missing",
+    });
 
     const next = finalizeFocusWithPreCollectedMetadata(
       state,

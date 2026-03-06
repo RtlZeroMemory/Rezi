@@ -2152,7 +2152,7 @@ export class WidgetRenderer<S> {
       diffViewerById: this.diffViewerById,
       rectById: this.rectById,
       scrollOverrides: this.scrollOverrides,
-      findNearestScrollableAncestor: (targetId) => this.findNearestScrollableAncestor(targetId),
+      findScrollableAncestors: (targetId) => this.findScrollableAncestors(targetId),
     });
     if (wheelRoute) return wheelRoute;
 
@@ -2435,7 +2435,7 @@ export class WidgetRenderer<S> {
       {
         runtimeNode: this.committedRoot,
         layoutNode: this.layoutTree,
-        scrollables: [],
+        scrollables: Object.freeze([]),
       },
     ];
 
@@ -2458,12 +2458,12 @@ export class WidgetRenderer<S> {
         const hasScrollableAxis =
           meta.contentWidth > meta.viewportWidth || meta.contentHeight > meta.viewportHeight;
         if (hasScrollableAxis) {
-          scrollables = [...scrollables, { nodeId, meta }];
+          scrollables = Object.freeze([...scrollables, { nodeId, meta }]);
         }
       }
 
       if (nodeId === targetId) {
-        return Object.freeze(scrollables.slice().reverse());
+        return Object.freeze([...scrollables].reverse());
       }
 
       const childCount = Math.min(runtimeNode.children.length, layoutNode.children.length);
@@ -2480,13 +2480,6 @@ export class WidgetRenderer<S> {
     }
 
     return Object.freeze([]);
-  }
-
-  private findNearestScrollableAncestor(
-    targetId: string | null,
-  ): Readonly<{ nodeId: string; meta: LayoutOverflowMetadata }> | null {
-    const matches = this.findScrollableAncestors(targetId);
-    return matches.length > 0 ? (matches[0] ?? null) : null;
   }
 
   private applyScrollOverridesToVNode(

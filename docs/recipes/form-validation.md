@@ -172,6 +172,7 @@ ui.input(form.bind("email"));
   - configure `wizard.steps` in `useForm` options
   - navigate with `form.nextStep()`, `form.previousStep()`, `form.goToStep(index)`
   - backward navigation does not re-run validation
+  - forward navigation waits for `validateAsync` when configured and only advances after the step validates cleanly
 - **Form-level disabled/readOnly** with per-field overrides:
   - `form.setDisabled(true)` / `form.setReadOnly(true)`
   - `form.setFieldDisabled("name", false)` and `form.setFieldReadOnly("name", false)` override form-level flags

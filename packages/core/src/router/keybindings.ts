@@ -1,3 +1,4 @@
+import { ZrUiError } from "../abi.js";
 import type { BindingMap, KeyContext } from "../keybindings/index.js";
 import type { RouteDefinition, RouterApi } from "./types.js";
 
@@ -13,6 +14,47 @@ export type CreateRouteKeybindingsOptions = Readonly<{
   resolveRouteIdForKeybinding?: RouteKeybindingResolver;
 }>;
 
+export type RouteKeybindingEntry = Readonly<{
+  sequence: string;
+  routeId: string;
+  title?: string;
+}>;
+
+export function collectRouteKeybindingEntries<S>(
+  routes: readonly RouteDefinition<S>[],
+): readonly RouteKeybindingEntry[] {
+  const entries: RouteKeybindingEntry[] = [];
+  const seenBySequence = new Map<string, string>();
+
+  function visit(routeList: readonly RouteDefinition<S>[]): void {
+    for (const route of routeList) {
+      const keybinding = route.keybinding?.trim();
+      if (keybinding) {
+        const existingRouteId = seenBySequence.get(keybinding);
+        if (existingRouteId !== undefined && existingRouteId !== route.id) {
+          throw new ZrUiError(
+            "ZRUI_INVALID_PROPS",
+            `duplicate route keybinding "${keybinding}" for routes "${existingRouteId}" and "${route.id}"`,
+          );
+        }
+        seenBySequence.set(keybinding, route.id);
+        entries.push(
+          route.title === undefined
+            ? Object.freeze({ sequence: keybinding, routeId: route.id })
+            : Object.freeze({ sequence: keybinding, routeId: route.id, title: route.title }),
+        );
+      }
+
+      if (route.children !== undefined) {
+        visit(route.children);
+      }
+    }
+  }
+
+  visit(routes);
+  return Object.freeze(entries);
+}
+
 /**
  * Build route keybindings that navigate to route ids.
  *
@@ -25,33 +67,21 @@ export function createRouteKeybindings<S>(
 ): BindingMap<KeyContext<S>> {
   const bindings: Record<string, BindingMap<KeyContext<S>>[string]> = {};
   const resolveRouteIdForKeybinding = options?.resolveRouteIdForKeybinding;
-
-  function visit(routeList: readonly RouteDefinition<S>[]): void {
-    for (const route of routeList) {
-      const keybinding = route.keybinding?.trim();
-      if (keybinding) {
-        const boundRouteId = route.id;
-        bindings[keybinding] = {
-          priority: -100,
-          ...(route.title === undefined ? {} : { description: `Navigate to ${route.title}` }),
-          handler: () => {
-            if (resolveRouteIdForKeybinding) {
-              const currentTargetRouteId = resolveRouteIdForKeybinding(keybinding);
-              if (currentTargetRouteId !== boundRouteId) return;
-            }
-            if (router.currentRoute().id === boundRouteId) return;
-            router.navigate(boundRouteId);
-          },
-        };
-      }
-
-      if (route.children !== undefined) {
-        visit(route.children);
-      }
-    }
+  const entries = collectRouteKeybindingEntries(routes);
+  for (const entry of entries) {
+    bindings[entry.sequence] = {
+      priority: -100,
+      ...(entry.title === undefined ? {} : { description: `Navigate to ${entry.title}` }),
+      handler: () => {
+        if (resolveRouteIdForKeybinding) {
+          const currentTargetRouteId = resolveRouteIdForKeybinding(entry.sequence);
+          if (currentTargetRouteId !== entry.routeId) return;
+        }
+        if (router.currentRoute().id === entry.routeId) return;
+        router.navigate(entry.routeId);
+      },
+    };
   }
-
-  visit(routes);
 
   return Object.freeze(bindings);
 }

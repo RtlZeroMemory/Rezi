@@ -149,6 +149,17 @@ describe("router core state machine", () => {
     );
   });
 
+  test("createRouteMap validates duplicate route keybindings", () => {
+    assert.throws(
+      () =>
+        createRouteMap([
+          { ...route("home"), keybinding: "ctrl+1" },
+          { ...route("logs"), keybinding: "ctrl+1" },
+        ]),
+      (err: unknown) => err instanceof ZrUiError && err.code === "ZRUI_INVALID_PROPS",
+    );
+  });
+
   test("invalid maxDepth throws", () => {
     assert.throws(
       () => createRouterState("home", { maxDepth: 0 }),
