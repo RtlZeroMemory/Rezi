@@ -35,6 +35,13 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// The default JS test suite runs before CI builds the native addon. Keep the
+// bare worker-thread loader smoke opt-in; packages/native/scripts/smoke.mjs
+// covers the same path after an explicit native build.
+const runNativeLoaderPrebuildSmoke =
+  (process.env as NodeJS.ProcessEnv & Readonly<{ REZI_RUN_NATIVE_LOADER_PREBUILD_SMOKE?: string }>)
+    .REZI_RUN_NATIVE_LOADER_PREBUILD_SMOKE === "1";
+
 function setIsTty(
   stream: NodeJS.ReadStream | NodeJS.WriteStream,
   value: boolean | undefined,
@@ -118,10 +125,12 @@ async function shutdownAndWaitForExit(worker: Worker): Promise<void> {
   await exitPromise;
 }
 
-test("native loader: worker-thread load succeeds and exits cleanly", async () => {
-  const loaderPath = fileURLToPath(new URL("../../../native/loader.cjs", import.meta.url));
-  const worker = new Worker(
-    `
+(runNativeLoaderPrebuildSmoke ? test : test.skip)(
+  "native loader: worker-thread load succeeds and exits cleanly",
+  async () => {
+    const loaderPath = fileURLToPath(new URL("../../../native/loader.cjs", import.meta.url));
+    const worker = new Worker(
+      `
       const { parentPort } = require("node:worker_threads");
       try {
         require(${JSON.stringify(loaderPath)});
@@ -134,20 +143,21 @@ test("native loader: worker-thread load succeeds and exits cleanly", async () =>
         parentPort.postMessage({ type: "loaderResult", ok: false, message });
       }
     `,
-    { eval: true },
-  );
+      { eval: true },
+    );
 
-  const [msg] = (await once(worker, "message")) as [
-    Readonly<{ type?: unknown; ok?: unknown; message?: unknown }>,
-  ];
-  assert.equal(msg.type, "loaderResult");
-  assert.equal(msg.ok, true);
-  assert.equal(typeof msg.message, "string");
-  assert.equal(String(msg.message), "");
+    const [msg] = (await once(worker, "message")) as [
+      Readonly<{ type?: unknown; ok?: unknown; message?: unknown }>,
+    ];
+    assert.equal(msg.type, "loaderResult");
+    assert.equal(msg.ok, true);
+    assert.equal(typeof msg.message, "string");
+    assert.equal(String(msg.message), "");
 
-  const [code] = (await once(worker, "exit")) as [number];
-  assert.equal(code, 0);
-});
+    const [code] = (await once(worker, "exit")) as [number];
+    assert.equal(code, 0);
+  },
+);
 
 test("worker: init/ready + latest-wins transfer mailbox avoids stale fatal", async () => {
   const worker = makeWorker();
