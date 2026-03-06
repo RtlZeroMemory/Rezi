@@ -136,6 +136,7 @@ test("native loader: worker-thread load exits cleanly with or without a built bi
     `,
     { eval: true },
   );
+  const exitPromise = once(worker, "exit");
 
   const [msg] = (await once(worker, "message")) as [
     Readonly<{ type?: unknown; ok?: unknown; message?: unknown }>,
@@ -153,7 +154,7 @@ test("native loader: worker-thread load exits cleanly with or without a built bi
     assert.doesNotMatch(String(msg.message), /does not support worker_threads/);
   }
 
-  const [code] = (await once(worker, "exit")) as [number];
+  const [code] = (await exitPromise) as [number];
   assert.equal(code, 0);
 });
 

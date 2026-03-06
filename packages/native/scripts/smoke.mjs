@@ -77,6 +77,7 @@ async function assertWorkerLoadExitCleanly() {
     workerData: { phase: "loadOnly" },
     type: "module",
   });
+  const exitPromise = new Promise((resolve) => worker.once("exit", resolve));
 
   const loadResult = await new Promise((resolve, reject) => {
     const onExit = (code) => reject(new Error(`load-only worker exited with ${code}`));
@@ -92,7 +93,7 @@ async function assertWorkerLoadExitCleanly() {
   });
 
   assert(loadResult.phase === "loadOnly", "worker load-only phase must complete");
-  const exitCode = await new Promise((resolve) => worker.once("exit", resolve));
+  const exitCode = await exitPromise;
   assert(exitCode === 0, `load-only worker must exit cleanly, got: ${String(exitCode)}`);
 }
 
@@ -166,6 +167,11 @@ assert(engineId > 0, `engineCreate must return a non-zero engineId, got: ${engin
 assert(
   engineSetConfig(engineId, null) === ZR_ERR_INVALID_ARGUMENT,
   "engineSetConfig(null) must return ZR_ERR_INVALID_ARGUMENT",
+);
+assertThrows(
+  () => engineSetConfig(engineId, { plat: 1 }),
+  /plat must be an object/i,
+  "engineSetConfig must reject non-object plat values",
 );
 assertThrows(
   () => engineSetConfig(engineId, { unknownKey: 1 }),
@@ -292,8 +298,8 @@ assert(
   `wrong-thread enginePresent must return ZR_ERR_INVALID_ARGUMENT, got: ${alive.present}`,
 );
 assert(
-  alive.postUserEvent === ZR_OK,
-  `enginePostUserEvent must succeed cross-thread while alive (ZR_OK), got: ${alive.postUserEvent}`,
+  alive.postUserEvent === ZR_ERR_INVALID_ARGUMENT,
+  `wrong-thread enginePostUserEvent must return ZR_ERR_INVALID_ARGUMENT, got: ${alive.postUserEvent}`,
 );
 assert(
   alive.setConfig === ZR_ERR_INVALID_ARGUMENT,
