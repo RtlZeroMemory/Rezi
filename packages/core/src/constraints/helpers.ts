@@ -102,7 +102,7 @@ function formatDslNumber(fn: string, value: number): string {
   }
 
   if (out.includes(".")) {
-    out = out.replace(/0+$/, "").replace(/\.$/, "");
+    out = trimTrailingZerosAfterDecimal(out);
   }
   if (out.length > 64) {
     throw invalidArg(
@@ -111,6 +111,17 @@ function formatDslNumber(fn: string, value: number): string {
     );
   }
   return `${sign}${out}`;
+}
+
+function trimTrailingZerosAfterDecimal(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 48) {
+    end--;
+  }
+  if (end > 0 && value.charCodeAt(end - 1) === 46) {
+    end--;
+  }
+  return end === value.length ? value : value.slice(0, end);
 }
 
 function metricToRefProp(metric: WidgetMetric): RefProp {

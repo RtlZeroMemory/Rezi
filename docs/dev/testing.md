@@ -157,6 +157,9 @@ Quick scoped run:
 node scripts/run-tests.mjs --filter "codeEditor.syntax"
 ```
 
+`--filter` performs a literal substring match against discovered relative test
+file paths. It does not interpret the value as a raw regular expression.
+
 ### Manual HSR + GIF Workflow
 
 Use the built-in demos under `scripts/hsr/`:
