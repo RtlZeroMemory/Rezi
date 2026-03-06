@@ -180,11 +180,7 @@ test("keybinding mutation APIs reject updater-time re-entrancy", async () => {
   });
 
   await flushMicrotasks(5);
-  assert.deepEqual(codes, [
-    "ZRUI_REENTRANT_CALL",
-    "ZRUI_REENTRANT_CALL",
-    "ZRUI_REENTRANT_CALL",
-  ]);
+  assert.deepEqual(codes, ["ZRUI_REENTRANT_CALL", "ZRUI_REENTRANT_CALL", "ZRUI_REENTRANT_CALL"]);
 
   await app.stop();
 });

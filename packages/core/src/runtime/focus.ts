@@ -574,10 +574,7 @@ export function finalizeFocusWithPreCollectedMetadata(
     if (activeTrap?.active === true) {
       if (activeTrapFocusables.length === 0) {
         nextFocusedId = null;
-      } else if (
-        nextFocusedId === null ||
-        activeTrapFocusableSet?.has(nextFocusedId) !== true
-      ) {
+      } else if (nextFocusedId === null || activeTrapFocusableSet?.has(nextFocusedId) !== true) {
         const initialFocus = activeTrap.initialFocus;
         if (
           initialFocus !== null &&
