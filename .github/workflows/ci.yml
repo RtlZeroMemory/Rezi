@@ -64,6 +64,30 @@ jobs:
       - name: Check Unicode pins (submodule sync)
         run: npm run check:unicode
 
+  template-smoke:
+    name: create-rezi smoke
+    needs: [guardrails, checks]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Smoke scaffolded templates
+        run: npm run smoke:create-rezi-templates
+
   # Compute matrix: 5 runners on PRs (all Node versions on Linux + latest on
   # macOS/Windows), full 3×3 on push to main.
   matrix-config:
@@ -81,7 +105,7 @@ jobs:
           fi
 
   ci:
-    needs: [guardrails, checks, matrix-config]
+    needs: [guardrails, checks, template-smoke, matrix-config]
     name: node ${{ matrix.node-version }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:

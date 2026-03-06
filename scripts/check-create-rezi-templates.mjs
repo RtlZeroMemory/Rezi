@@ -8,6 +8,8 @@
  * - Template metadata matches on-disk template directories.
  * - Template package scripts/dependencies contain expected entries.
  * - Template entry files build and typecheck against local @rezi-ui declarations.
+ * - Optional install smoke scaffolds temp apps and runs install/build/test
+ *   against the local Rezi package set.
  */
 
 import { spawnSync } from "node:child_process";
@@ -25,6 +27,13 @@ const CORE_TYPES = join(ROOT, "packages", "core", "dist", "index.d.ts");
 const NODE_TYPES = join(ROOT, "packages", "node", "dist", "index.d.ts");
 const TSC_CLI = join(ROOT, "node_modules", "typescript", "bin", "tsc");
 const NODE_TYPE_ROOT = join(ROOT, "node_modules", "@types");
+const NPM_CLI = process.platform === "win32" ? "npm.cmd" : "npm";
+const INSTALL_SMOKE_ENABLED = process.argv.includes("--install-smoke");
+const LOCAL_PACKAGE_OVERRIDES = Object.freeze({
+  "@rezi-ui/core": pathToFileURL(join(ROOT, "packages", "core")).href,
+  "@rezi-ui/node": pathToFileURL(join(ROOT, "packages", "node")).href,
+  "@rezi-ui/native": pathToFileURL(join(ROOT, "packages", "native")).href,
+});
 const LEGACY_LAYOUT_PATTERNS = Object.freeze([
   Object.freeze({
     name: "percentage layout constraint",
@@ -81,6 +90,44 @@ function expectedTemplateReziVersion() {
     fail(`Unable to resolve version from ${CREATE_REZI_PACKAGE_JSON}.`);
   }
   return version;
+}
+
+function runCommand(command, args, cwd, label) {
+  const result = spawnSync(command, args, {
+    cwd,
+    encoding: "utf8",
+  });
+  if (result.status !== 0) {
+    const output = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
+    fail(`${label} failed.\n${output}`);
+  }
+}
+
+function rewritePackageJsonForLocalInstall(projectDir) {
+  const packagePath = join(projectDir, "package.json");
+  const packageJson = JSON.parse(readFileSync(packagePath, "utf8"));
+  packageJson.dependencies = {
+    ...(packageJson.dependencies ?? {}),
+    "@rezi-ui/core": LOCAL_PACKAGE_OVERRIDES["@rezi-ui/core"],
+    "@rezi-ui/node": LOCAL_PACKAGE_OVERRIDES["@rezi-ui/node"],
+  };
+  packageJson.overrides = {
+    ...(packageJson.overrides ?? {}),
+    ...LOCAL_PACKAGE_OVERRIDES,
+  };
+  writeFileSync(packagePath, toJson(packageJson), "utf8");
+}
+
+function runInstalledSmoke(projectDir, templateKey) {
+  rewritePackageJsonForLocalInstall(projectDir);
+  runCommand(
+    NPM_CLI,
+    ["install", "--prefer-offline", "--no-audit", "--no-fund"],
+    projectDir,
+    `Template ${templateKey} install`,
+  );
+  runCommand(NPM_CLI, ["run", "build"], projectDir, `Template ${templateKey} build`);
+  runCommand(NPM_CLI, ["run", "test"], projectDir, `Template ${templateKey} test`);
 }
 
 function collectFilesRecursiveSorted(dir, predicate) {
@@ -254,6 +301,9 @@ const templates = scaffoldModule.TEMPLATE_DEFINITIONS;
 if (!Array.isArray(templates) || templates.length === 0) {
   fail("TEMPLATE_DEFINITIONS is missing or empty in create-rezi scaffold output.");
 }
+if (INSTALL_SMOKE_ENABLED && typeof scaffoldModule.createProject !== "function") {
+  fail("createProject export is missing or invalid in create-rezi scaffold output.");
+}
 const templateReziVersion = expectedTemplateReziVersion();
 
 const templateDirsOnDisk = readdirSync(TEMPLATES_ROOT, { withFileTypes: true })
@@ -328,11 +378,23 @@ for (const template of templates) {
   try {
     runTsc(tempProject, template.dir, "build");
     runTsc(tempProject, template.dir, "typecheck");
+    if (INSTALL_SMOKE_ENABLED) {
+      const scaffoldedProject = join(tempProject, "app");
+      await scaffoldModule.createProject({
+        targetDir: scaffoldedProject,
+        templateKey: template.key,
+        packageName: `rezi-template-smoke-${template.key}`,
+        displayName: `Template Smoke ${template.label}`,
+      });
+      runInstalledSmoke(scaffoldedProject, template.key);
+    }
   } finally {
     rmSync(tempProject, { recursive: true, force: true });
   }
 
-  process.stdout.write(`  - ${template.key}: build/typecheck OK\n`);
+  process.stdout.write(
+    `  - ${template.key}: build/typecheck${INSTALL_SMOKE_ENABLED ? "/install/build/test" : ""} OK\n`,
+  );
 }
 
 process.stdout.write("check-create-rezi-templates: OK\n");
