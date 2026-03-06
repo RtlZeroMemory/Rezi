@@ -19,6 +19,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
 const CREATE_REZI_SCAFFOLD_DIST = join(ROOT, "packages", "create-rezi", "dist", "scaffold.js");
+const CREATE_REZI_PACKAGE_JSON = join(ROOT, "packages", "create-rezi", "package.json");
 const TEMPLATES_ROOT = join(ROOT, "packages", "create-rezi", "templates");
 const CORE_TYPES = join(ROOT, "packages", "core", "dist", "index.d.ts");
 const NODE_TYPES = join(ROOT, "packages", "node", "dist", "index.d.ts");
@@ -71,6 +72,15 @@ function fail(message) {
 
 function toJson(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function expectedTemplateReziVersion() {
+  const pkg = JSON.parse(readFileSync(CREATE_REZI_PACKAGE_JSON, "utf8"));
+  const version = pkg?.version;
+  if (typeof version !== "string" || version.length === 0) {
+    fail(`Unable to resolve version from ${CREATE_REZI_PACKAGE_JSON}.`);
+  }
+  return version;
 }
 
 function collectFilesRecursiveSorted(dir, predicate) {
@@ -244,6 +254,7 @@ const templates = scaffoldModule.TEMPLATE_DEFINITIONS;
 if (!Array.isArray(templates) || templates.length === 0) {
   fail("TEMPLATE_DEFINITIONS is missing or empty in create-rezi scaffold output.");
 }
+const templateReziVersion = expectedTemplateReziVersion();
 
 const templateDirsOnDisk = readdirSync(TEMPLATES_ROOT, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
@@ -304,6 +315,11 @@ for (const template of templates) {
   const deps = packageJson.dependencies ?? {};
   if (typeof deps["@rezi-ui/core"] !== "string" || typeof deps["@rezi-ui/node"] !== "string") {
     fail(`Template ${template.key} must declare @rezi-ui/core and @rezi-ui/node dependencies.`);
+  }
+  if (deps["@rezi-ui/core"] !== templateReziVersion || deps["@rezi-ui/node"] !== templateReziVersion) {
+    fail(
+      `Template ${template.key} must pin @rezi-ui/core and @rezi-ui/node to ${templateReziVersion}.`,
+    );
   }
 
   ensureNoLegacyLayoutPatterns(templateDir, template.key);

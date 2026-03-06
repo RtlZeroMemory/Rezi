@@ -62,6 +62,9 @@ test("template keys match template directories and include highlights", async ()
 
 test("createProject scaffolds each template with substitutions", async () => {
   const root = await mkdtemp(join(tmpdir(), "rezi-create-"));
+  const createReziPkg = JSON.parse(
+    await readFile(join(getTemplatesRoot(), "..", "package.json"), "utf8"),
+  ) as { version: string };
 
   for (const template of TEMPLATE_DEFINITIONS) {
     const targetDir = join(root, template.key);
@@ -76,8 +79,13 @@ test("createProject scaffolds each template with substitutions", async () => {
     });
 
     const pkgRaw = await readFile(join(targetDir, "package.json"), "utf8");
-    const pkg = JSON.parse(pkgRaw) as { name: string };
+    const pkg = JSON.parse(pkgRaw) as {
+      name: string;
+      dependencies?: Record<string, string>;
+    };
     assert.equal(pkg.name, packageName);
+    assert.equal(pkg.dependencies?.["@rezi-ui/core"], createReziPkg.version);
+    assert.equal(pkg.dependencies?.["@rezi-ui/node"], createReziPkg.version);
 
     const main = await readFile(join(targetDir, "src", "main.ts"), "utf8");
     let appNameSource = main;
