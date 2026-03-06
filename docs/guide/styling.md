@@ -12,12 +12,18 @@ Rezi styling is:
 Use inline `style` props for one-off presentation.
 
 ```ts
-import { darkTheme, resolveColorToken, ui } from "@rezi-ui/core";
+import { resolveColorToken, type ThemeDefinition, ui } from "@rezi-ui/core";
 
-ui.text("Warning", { style: { fg: resolveColorToken(darkTheme, "warning"), bold: true } });
-ui.box({ border: "rounded", p: 1, style: { bg: resolveColorToken(darkTheme, "bg.elevated") } }, [
-  ui.text("Panel content"),
-]);
+function warningPanel(activeTheme: ThemeDefinition) {
+  return ui.box(
+    {
+      border: "rounded",
+      p: 1,
+      style: { bg: resolveColorToken(activeTheme, "bg.elevated") },
+    },
+    [ui.text("Warning", { style: { fg: resolveColorToken(activeTheme, "warning"), bold: true } })],
+  );
+}
 ```
 
 Container style inherits to descendants unless a child overrides it.
@@ -116,13 +122,15 @@ overrides when that is more convenient than wrapping with `ui.themed(...)`.
 Compute styles from state, but keep `view(state)` pure.
 
 ```ts
-import { darkTheme, resolveColorToken, ui } from "@rezi-ui/core";
+import { resolveColorToken, type ThemeDefinition, ui } from "@rezi-ui/core";
 
-ui.text(state.connected ? "Online" : "Offline", {
-  style: {
-    fg: resolveColorToken(darkTheme, state.connected ? "success" : "error"),
-  },
-});
+function connectionStatus(activeTheme: ThemeDefinition, state: { connected: boolean }) {
+  return ui.text(state.connected ? "Online" : "Offline", {
+    style: {
+      fg: resolveColorToken(activeTheme, state.connected ? "success" : "error"),
+    },
+  });
+}
 ```
 
 ## Related

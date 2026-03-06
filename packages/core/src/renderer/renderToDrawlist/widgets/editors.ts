@@ -52,6 +52,8 @@ function rectIntersects(a: Rect, b: Rect): boolean {
 
 function logLevelToThemeColor(theme: Theme, level: LogsConsoleProps["entries"][number]["level"]) {
   switch (level) {
+    case "debug":
+      return theme.colors["widget.logs.debug"] ?? theme.colors.info;
     case "warn":
       return theme.colors["widget.logs.warn"] ?? theme.colors.warning;
     case "error":
