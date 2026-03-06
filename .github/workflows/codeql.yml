@@ -33,8 +33,6 @@ jobs:
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
-        with:
-          upload: false
 
   analyze-rust:
     name: analyze (rust)
@@ -52,5 +50,3 @@ jobs:
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
-        with:
-          upload: false

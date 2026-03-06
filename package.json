@@ -73,6 +73,6 @@
     "@opentui/react": "0.1.50",
     "diff": "8.0.3",
     "markdown-it": "14.1.1",
-    "minimatch": "10.2.1"
+    "minimatch": "10.2.4"
   }
 }
