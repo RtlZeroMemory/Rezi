@@ -505,45 +505,72 @@ describe("keybindings", () => {
 
 ### Use Built-in Themes
 
-Rezi ships with a default theme. Pass a custom theme or theme definition to `createNodeApp()`:
+Pass a semantic `ThemeDefinition` to `createNodeApp()`:
 
 ```typescript
 import { createNodeApp } from "@rezi-ui/node";
-import type { ThemeDefinition } from "@rezi-ui/core";
+import { createThemeDefinition, rgb } from "@rezi-ui/core";
 
-const darkTheme: ThemeDefinition = {
-  colors: {
-    fg: { r: 220, g: 220, b: 220 },
-    bg: { r: 20, g: 20, b: 30 },
-    primary: { r: 100, g: 180, b: 255 },
-    secondary: { r: 180, g: 100, b: 255 },
-    success: { r: 100, g: 220, b: 100 },
-    danger: { r: 255, g: 100, b: 100 },
-    warning: { r: 255, g: 200, b: 50 },
-    info: { r: 100, g: 200, b: 255 },
-    muted: { r: 100, g: 100, b: 100 },
-    border: { r: 60, g: 60, b: 80 },
+const appTheme = createThemeDefinition(
+  "app",
+  {
+    bg: {
+      base: rgb(20, 20, 30),
+      elevated: rgb(28, 28, 40),
+      overlay: rgb(36, 36, 52),
+      subtle: rgb(24, 24, 36),
+    },
+    fg: {
+      primary: rgb(220, 220, 220),
+      secondary: rgb(170, 170, 190),
+      muted: rgb(120, 120, 140),
+      inverse: rgb(20, 20, 30),
+    },
+    accent: {
+      primary: rgb(100, 180, 255),
+      secondary: rgb(180, 100, 255),
+      tertiary: rgb(120, 220, 180),
+    },
+    success: rgb(100, 220, 100),
+    warning: rgb(255, 200, 50),
+    error: rgb(255, 100, 100),
+    info: rgb(100, 200, 255),
+    focus: { ring: rgb(100, 180, 255), bg: rgb(32, 36, 48) },
+    selected: { bg: rgb(40, 52, 72), fg: rgb(220, 220, 220) },
+    disabled: { fg: rgb(120, 120, 140), bg: rgb(28, 28, 40) },
+    diagnostic: {
+      error: rgb(255, 100, 100),
+      warning: rgb(255, 200, 50),
+      info: rgb(100, 200, 255),
+      hint: rgb(120, 220, 180),
+    },
+    border: {
+      subtle: rgb(36, 36, 52),
+      default: rgb(80, 80, 96),
+      strong: rgb(120, 120, 140),
+    },
   },
-};
+);
 
 const app = createNodeApp<State>({
   initialState,
-  theme: darkTheme,
+  theme: appTheme,
 });
 ```
 
 ### Theme Switching
 
-Store the active theme in state and recreate the theme object:
+Store the active theme name in state and switch among stable prebuilt theme
+objects:
 
 ```typescript
 // src/theme.ts
-import type { ThemeDefinition } from "@rezi-ui/core";
+import { createThemeDefinition } from "@rezi-ui/core";
 
 export const themes = {
-  dark: { colors: { /* ... */ } } satisfies ThemeDefinition,
-  light: { colors: { /* ... */ } } satisfies ThemeDefinition,
-  solarized: { colors: { /* ... */ } } satisfies ThemeDefinition,
+  dark: createThemeDefinition("dark", { /* colors */ }),
+  light: createThemeDefinition("light", { /* colors */ }),
+  solarized: createThemeDefinition("solarized", { /* colors */ }),
 } as const;
 
 export type ThemeName = keyof typeof themes;
@@ -558,9 +585,9 @@ import { defineWidget, recipe, ui } from "@rezi-ui/core";
 
 const MetricTile = defineWidget<{ label: string; value: string; key?: string }>((props, ctx) => {
   const tokens = ctx.useTheme();
-  const surface = tokens ? recipe.surface(tokens, { elevation: 1 }) : null;
+  const surface = recipe.surface(tokens, { elevation: 1 });
 
-  return ui.box({ border: surface?.border ?? "single", style: surface?.bg, p: 1 }, [
+  return ui.box({ border: surface.border, style: surface.bg, p: 1 }, [
     ui.text(props.label, { variant: "caption" }),
     ui.text(props.value, { variant: "heading" }),
   ]);
@@ -593,18 +620,15 @@ ui.row({ gap: 1 }, [
 
 ### Spacing scale in recipes
 
-When calling recipes directly, pass `theme.spacing` to align component padding with the active theme:
+When calling recipes directly, pass the spacing scale from the same
+`ThemeDefinition` you install on the app so component padding stays aligned:
 
 ```typescript
 const tokens = ctx.useTheme();
-const appTheme = darkTheme;
-const activeThemeSpacing = appTheme.spacing;
-if (tokens) {
-  const button = recipe.button(tokens, {
-    size: "lg",
-    spacing: activeThemeSpacing,
-  });
-}
+const button = recipe.button(tokens, {
+  size: "lg",
+  spacing: appTheme.spacing,
+});
 ```
 
 ### NO_COLOR Support

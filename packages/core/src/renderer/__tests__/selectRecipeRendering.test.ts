@@ -1,11 +1,11 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import { defaultTheme } from "../../theme/defaultTheme.js";
-import { coerceToLegacyTheme } from "../../theme/interop.js";
 import { darkTheme } from "../../theme/presets.js";
+import { compileTheme } from "../../theme/theme.js";
 import { ui } from "../../widgets/ui.js";
 import { type DrawOp, renderOps } from "./recipeRendering.test-utils.js";
 
-const dsTheme = coerceToLegacyTheme(darkTheme);
+const dsTheme = compileTheme(darkTheme);
 const options = [{ value: "a", label: "Alpha" }] as const;
 
 function firstDrawText(
@@ -59,30 +59,24 @@ describe("select recipe rendering", () => {
     assert.deepEqual(text.style?.fg, dsTheme.colors["disabled.fg"]);
   });
 
-  test("keeps legacy fallback when semantic tokens are absent", () => {
+  test("default theme keeps semantic select recipe styling enabled", () => {
     const ops = renderOps(
-      ui.row({ height: 3, items: "stretch" }, [ui.select({ id: "legacy", value: "a", options })]),
+      ui.row({ height: 3, items: "stretch" }, [ui.select({ id: "default", value: "a", options })]),
       { viewport: { cols: 40, rows: 5 }, theme: defaultTheme },
     );
-    assert.equal(
-      ops.some((op) => op.kind === "fillRect"),
-      false,
-      "legacy select should not fill recipe background",
-    );
-    assert.equal(
-      ops.some((op) => op.kind === "drawText" && /[┌┐└┘]/.test(op.text)),
-      false,
-      "legacy select should not draw recipe border",
-    );
+    const fill = ops.find((op) => op.kind === "fillRect");
+    assert.ok(fill !== undefined, "select should fill recipe background");
+    if (!fill || fill.kind !== "fillRect") return;
+    assert.deepEqual(fill.style?.bg, defaultTheme.colors["bg.elevated"]);
     assert.equal(
       ops.some((op) => op.kind === "drawText" && op.text.includes("Alpha")),
       true,
-      "legacy select should render selected text",
+      "select should render selected text",
     );
     assert.equal(
       ops.some((op) => op.kind === "drawText" && op.text.includes("▼")),
       true,
-      "legacy select should render inline caret",
+      "select should render inline caret",
     );
   });
 });

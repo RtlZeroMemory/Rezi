@@ -94,7 +94,7 @@ test("app.keys rejects invalid keybinding strings", () => {
   );
 });
 
-test("app.modes rejects invalid bindings and invalid parent graphs", () => {
+test("app.modes rejects invalid bindings and unknown parent graphs", () => {
   const backend = new StubBackend();
   const app = createApp({ backend, initialState: 0 });
 
@@ -118,20 +118,23 @@ test("app.modes rejects invalid bindings and invalid parent graphs", () => {
       }),
     /unknown parent mode/,
   );
+});
 
-  assert.throws(
-    () =>
-      app.modes({
-        a: {
-          parent: "b",
-          bindings: { x: () => {} },
-        },
-        b: {
-          parent: "a",
-          bindings: { y: () => {} },
-        },
-      }),
-    /cyclic keybinding mode parent chain/,
+test("app.modes allows cyclic parent graphs and leaves cycle handling to routing", () => {
+  const backend = new StubBackend();
+  const app = createApp({ backend, initialState: 0 });
+
+  assert.doesNotThrow(() =>
+    app.modes({
+      a: {
+        parent: "b",
+        bindings: { x: () => {} },
+      },
+      b: {
+        parent: "a",
+        bindings: { y: () => {} },
+      },
+    }),
   );
 });
 

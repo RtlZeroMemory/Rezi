@@ -186,10 +186,10 @@ playback: {
 Use animation utilities for RGB interpolation:
 
 ```typescript
-import { interpolateRgb, interpolateRgbArray } from "@rezi-ui/core";
+import { interpolateRgb, interpolateRgbArray, rgb } from "@rezi-ui/core";
 
-const mid = interpolateRgb({ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 }, 0.5);
-const ramp = interpolateRgbArray({ r: 0, g: 40, b: 80 }, { r: 220, g: 200, b: 40 }, 8);
+const mid = interpolateRgb(rgb(0, 0, 0), rgb(255, 255, 255), 0.5);
+const ramp = interpolateRgbArray(rgb(0, 40, 80), rgb(220, 200, 40), 8);
 ```
 
 - Channels are linearly interpolated in RGB space.

@@ -3,18 +3,14 @@ import {
   parseDrawTextCommands as parseDecodedDrawTextCommands,
   parseInternedStrings,
 } from "../../__tests__/drawlistDecode.js";
-import {
-  type DrawlistBuilder,
-  type Theme,
-  type VNode,
-  createDrawlistBuilder,
-  createTheme,
-} from "../../index.js";
+import { type DrawlistBuilder, type VNode, createDrawlistBuilder } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
 import { createInstanceIdAllocator } from "../../runtime/instance.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
+import { extendTheme } from "../../theme/extend.js";
+import { type Theme, compileTheme } from "../../theme/theme.js";
 import { ui } from "../ui.js";
 
 function u16(bytes: Uint8Array, off: number): number {
@@ -293,7 +289,7 @@ describe("basic widgets render to drawlist", () => {
   });
 
   test("design-system solid button label keeps filled background under text", () => {
-    const theme = createTheme(defaultTheme);
+    const theme = defaultTheme;
     const bytes = renderBytes(
       ui.button({
         id: "scene-tab",
@@ -345,7 +341,7 @@ describe("basic widgets render to drawlist", () => {
         style: { fg: (1 << 16) | (2 << 8) | 3 },
       }),
       { cols: 24, rows: 3 },
-      { theme: createTheme(defaultTheme) },
+      { theme: defaultTheme },
     );
     const drawText = parseDrawTextCommands(bytes).find((cmd) => cmd.text.includes("━"));
     assert.ok(drawText, "expected drawText for filled progress glyphs");
@@ -523,11 +519,15 @@ describe("basic widgets render to drawlist", () => {
   });
 
   test("link underlineColor theme token resolves on v3", () => {
-    const theme = createTheme({
-      colors: {
-        "diagnostic.info": (1 << 16) | (2 << 8) | 3,
-      },
-    });
+    const theme = compileTheme(
+      extendTheme(defaultTheme.definition, {
+        colors: {
+          diagnostic: {
+            info: (1 << 16) | (2 << 8) | 3,
+          },
+        },
+      }),
+    );
     const bytes = renderBytesV3(
       ui.link({
         id: "docs-link",
@@ -561,11 +561,15 @@ describe("basic widgets render to drawlist", () => {
   });
 
   test("codeEditor diagnostics use curly underline + token color", () => {
-    const theme = createTheme({
-      colors: {
-        "diagnostic.warning": (1 << 16) | (2 << 8) | 3,
-      },
-    });
+    const theme = compileTheme(
+      extendTheme(defaultTheme.definition, {
+        colors: {
+          diagnostic: {
+            warning: (1 << 16) | (2 << 8) | 3,
+          },
+        },
+      }),
+    );
     const vnode = ui.codeEditor({
       id: "editor",
       lines: ["warn"],
@@ -594,13 +598,17 @@ describe("basic widgets render to drawlist", () => {
   });
 
   test("codeEditor applies syntax token colors for mainstream language presets", () => {
-    const theme = createTheme({
-      colors: {
-        "syntax.keyword": (10 << 16) | (20 << 8) | 30,
-        "syntax.function": (30 << 16) | (40 << 8) | 50,
-        "syntax.string": (60 << 16) | (70 << 8) | 80,
-      },
-    });
+    const theme = compileTheme(
+      extendTheme(defaultTheme.definition, {
+        widget: {
+          syntax: {
+            keyword: (10 << 16) | (20 << 8) | 30,
+            function: (30 << 16) | (40 << 8) | 50,
+            string: (60 << 16) | (70 << 8) | 80,
+          },
+        },
+      }),
+    );
     const vnode = ui.codeEditor({
       id: "editor",
       lines: ['func greet(name string) { return "ok"; }'],
@@ -629,12 +637,16 @@ describe("basic widgets render to drawlist", () => {
   });
 
   test("codeEditor draws a highlighted cursor cell for focused editor", () => {
-    const theme = createTheme({
-      colors: {
-        "syntax.cursor.bg": (1 << 16) | (2 << 8) | 3,
-        "syntax.cursor.fg": (4 << 16) | (5 << 8) | 6,
-      },
-    });
+    const theme = compileTheme(
+      extendTheme(defaultTheme.definition, {
+        widget: {
+          syntax: {
+            cursorBg: (1 << 16) | (2 << 8) | 3,
+            cursorFg: (4 << 16) | (5 << 8) | 6,
+          },
+        },
+      }),
+    );
     const vnode = ui.codeEditor({
       id: "editor",
       lines: ["abc"],

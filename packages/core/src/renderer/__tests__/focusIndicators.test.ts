@@ -6,8 +6,8 @@ import { layout } from "../../layout/layout.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
 import { createInstanceIdAllocator } from "../../runtime/instance.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
-import { coerceToLegacyTheme } from "../../theme/interop.js";
 import { darkTheme } from "../../theme/presets.js";
+import { compileTheme } from "../../theme/theme.js";
 import type { Theme } from "../../theme/theme.js";
 import { renderToDrawlist } from "../renderToDrawlist.js";
 
@@ -148,7 +148,7 @@ describe("focus indicator rendering contracts", () => {
         name: "checkbox",
         vnode: ui.checkbox({ id: "cb", checked: false, label: "Choice" }),
         focusedId: "cb",
-        token: "[ ]",
+        token: "Choice",
         expectUnderline: true,
       },
       {
@@ -252,7 +252,7 @@ describe("focus indicator rendering contracts", () => {
   });
 
   test("bracket and arrow indicators render focused decorations in ring color", () => {
-    const theme = coerceToLegacyTheme(darkTheme);
+    const theme = compileTheme(darkTheme);
 
     const buttonOps = drawTextOps(renderOps(ui.button({ id: "btn", label: "Save" }), "btn", theme));
     const leftBracket = findDrawTextByToken(buttonOps, "[");
@@ -277,7 +277,7 @@ describe("focus indicator rendering contracts", () => {
   });
 
   test("dark theme focus uses focus.ring color", () => {
-    const theme = coerceToLegacyTheme(darkTheme);
+    const theme = compileTheme(darkTheme);
     const textOps = drawTextOps(
       renderOps(ui.link({ id: "lnk", url: "https://example.com" }), "lnk", theme),
     );
@@ -287,15 +287,15 @@ describe("focus indicator rendering contracts", () => {
     assert.deepEqual(op.style.fg, darkTheme.colors.focus.ring);
   });
 
-  test("legacy theme falls back to underline + bold focus", () => {
+  test("default theme applies configured underline + bold focus styling", () => {
     const focusedOps = drawTextOps(
       renderOps(ui.checkbox({ id: "cb", checked: false, label: "Legacy" }), "cb", defaultTheme),
     );
     const unfocusedOps = drawTextOps(
       renderOps(ui.checkbox({ id: "cb", checked: false, label: "Legacy" }), null, defaultTheme),
     );
-    const focusedOp = findDrawTextByToken(focusedOps, "[ ]");
-    const unfocusedOp = findDrawTextByToken(unfocusedOps, "[ ]");
+    const focusedOp = findDrawTextByToken(focusedOps, "Legacy");
+    const unfocusedOp = findDrawTextByToken(unfocusedOps, "Legacy");
     assert.ok(focusedOp !== null, "focused checkbox should render");
     assert.ok(unfocusedOp !== null, "unfocused checkbox should render");
     if (!focusedOp?.style?.fg || typeof focusedOp.style.fg === "string") return;
@@ -374,7 +374,7 @@ describe("focus indicator rendering contracts", () => {
 
   test("FocusConfig.style overrides design-system focus defaults", () => {
     const customRing = Object.freeze((255 << 16) | (0 << 8) | 128);
-    const theme = coerceToLegacyTheme(darkTheme);
+    const theme = compileTheme(darkTheme);
     const textOps = drawTextOps(
       renderOps(
         ui.table({

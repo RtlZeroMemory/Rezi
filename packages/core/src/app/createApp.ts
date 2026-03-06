@@ -67,10 +67,8 @@ import {
   type TerminalProfile,
   terminalProfileFromCaps,
 } from "../terminalProfile.js";
-import { blendRgb } from "../theme/blend.js";
 import { defaultTheme } from "../theme/defaultTheme.js";
-import { coerceToLegacyTheme } from "../theme/interop.js";
-import type { Theme } from "../theme/theme.js";
+import { type Theme, blendTheme, compileTheme } from "../theme/theme.js";
 import type { ThemeDefinition } from "../theme/tokens.js";
 import type { VNode } from "../widgets/types.js";
 import { ui } from "../widgets/ui.js";
@@ -418,7 +416,7 @@ function codepointToCtrlKeyCode(codepoint: number): number | null {
 type CreateAppBaseOptions = Readonly<{
   backend: RuntimeBackend;
   config?: AppConfig;
-  theme?: Theme | ThemeDefinition;
+  theme?: ThemeDefinition;
 }>;
 
 type CreateAppStateOptions<S> = CreateAppBaseOptions &
@@ -445,28 +443,7 @@ type ThemeTransitionState = Readonly<{
 }>;
 
 function blendThemeColors(from: Theme, to: Theme, t: number): Theme {
-  const clampedT = Math.max(0, Math.min(1, t));
-  if (clampedT <= 0) return from;
-  if (clampedT >= 1) return to;
-
-  const colors: Record<string, Theme["colors"][string]> = {};
-  const keys = new Set<string>([...Object.keys(from.colors), ...Object.keys(to.colors)]);
-  for (const key of keys) {
-    const fromColor = from.colors[key];
-    const toColor = to.colors[key];
-    if (fromColor && toColor) {
-      colors[key] = blendRgb(fromColor, toColor, clampedT);
-    } else if (toColor) {
-      colors[key] = toColor;
-    } else if (fromColor) {
-      colors[key] = fromColor;
-    }
-  }
-
-  return Object.freeze({
-    colors: Object.freeze(colors) as Theme["colors"],
-    spacing: to.spacing,
-  });
+  return blendTheme(from, to, t);
 }
 
 /**
@@ -525,7 +502,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     );
   }
 
-  let theme = coerceToLegacyTheme(opts.theme ?? defaultTheme);
+  let theme = compileTheme(opts.theme ?? defaultTheme.definition);
   let themeTransition: ThemeTransitionState | null = null;
   let terminalProfile: TerminalProfile = DEFAULT_TERMINAL_PROFILE;
 
@@ -784,10 +761,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     try {
       result = registerModes(keybindingState, modes);
     } catch (error: unknown) {
-      throwCode(
-        "ZRUI_INVALID_PROPS",
-        `modes: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      throwCode("ZRUI_INVALID_PROPS", `modes: ${describeThrown(error)}`);
     }
     if (result.invalidKeys.length > 0) {
       throwCode(
@@ -939,6 +913,12 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     if (st === "Disposed" || st === "Faulted") {
       throwCode("ZRUI_INVALID_STATE", `${method}: app is ${st}`);
     }
+    if (lifecycleBusy !== null) {
+      throwCode("ZRUI_INVALID_STATE", `${method}: lifecycle operation already in flight`);
+    }
+  }
+
+  function assertLifecycleIdle(method: string): void {
     if (lifecycleBusy !== null) {
       throwCode("ZRUI_INVALID_STATE", `${method}: lifecycle operation already in flight`);
     }
@@ -1706,6 +1686,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   const app: App<S> = {
     view(fn: ViewFn<S>): void {
       assertOperational("view");
+      assertLifecycleIdle("view");
       sm.assertOneOf(["Created", "Stopped"], "view: must be Created or Stopped");
       assertNotReentrant("view");
       if (routes !== undefined) {
@@ -1721,6 +1702,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
     replaceView(fn: ViewFn<S>): void {
       assertOperational("replaceView");
+      assertLifecycleIdle("replaceView");
       assertNotReentrant("replaceView");
       if (routes !== undefined) {
         throwCode(
@@ -1735,12 +1717,14 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       viewFn = fn;
       topLevelViewError = null;
       if (sm.state === "Running") {
+        widgetRenderer.forceFullRenderNextFrame();
         markDirty(DIRTY_VIEW);
       }
     },
 
     replaceRoutes(nextRoutes: readonly RouteDefinition<S>[]): void {
       assertOperational("replaceRoutes");
+      assertLifecycleIdle("replaceRoutes");
       assertNotReentrant("replaceRoutes");
       if (!routerIntegration || routes === undefined) {
         throwCode(
@@ -1755,12 +1739,14 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       replaceRouteBindings(nextRouteKeybindings);
       topLevelViewError = null;
       if (sm.state === "Running") {
+        widgetRenderer.forceFullRenderNextFrame();
         markDirty(DIRTY_VIEW);
       }
     },
 
     draw(fn: DrawFn): void {
       assertOperational("draw");
+      assertLifecycleIdle("draw");
       sm.assertOneOf(["Created", "Stopped"], "draw: must be Created or Stopped");
       assertNotReentrant("draw");
       if (mode === "widget") throwCode("ZRUI_MODE_CONFLICT", "draw: view mode already selected");
@@ -1789,6 +1775,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
     update(updater: StateUpdater<S>): void {
       assertOperational("update");
+      assertLifecycleIdle("update");
       if (inCommit) throwCode("ZRUI_REENTRANT_CALL", "update: called during commit");
       if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", updateDuringRenderDetail("update"));
 
@@ -1799,11 +1786,12 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       }
     },
 
-    setTheme(next: Theme | ThemeDefinition): void {
+    setTheme(next: ThemeDefinition): void {
       assertOperational("setTheme");
+      assertLifecycleIdle("setTheme");
       if (inCommit) throwCode("ZRUI_REENTRANT_CALL", "setTheme: called during commit");
       if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", updateDuringRenderDetail("setTheme"));
-      const nextTheme = coerceToLegacyTheme(next);
+      const nextTheme = compileTheme(next);
       if (nextTheme === themeTransition?.to) return;
       if (nextTheme === theme) {
         themeTransition = null;
@@ -1815,6 +1803,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
     debugLayout(enabled?: boolean): boolean {
       assertOperational("debugLayout");
+      assertLifecycleIdle("debugLayout");
       if (mode === "raw") {
         throwCode("ZRUI_MODE_CONFLICT", "debugLayout: not available in draw mode");
       }
@@ -2014,17 +2003,21 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
     keys(bindings: BindingMap<KeyContext<S>>): void {
       assertKeybindingMutationAllowed("keys");
+      assertLifecycleIdle("keys");
       registerAppBindings(bindings);
     },
 
     modes(modes: ModeBindingMap<KeyContext<S>>): void {
       assertKeybindingMutationAllowed("modes");
+      assertLifecycleIdle("modes");
       registerAppModes(modes);
     },
 
     setMode(modeName: string): void {
       assertKeybindingMutationAllowed("setMode");
+      assertLifecycleIdle("setMode");
       keybindingState = setMode(keybindingState, modeName);
+      keybindingsEnabled = computeKeybindingsEnabled(keybindingState);
     },
 
     getMode(): string {

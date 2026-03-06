@@ -119,7 +119,7 @@ export type BindingMap<C> = Readonly<Record<string, BindingDefinition<C>>>;
 export type RegisterBindingsOptions = Readonly<{
   /** Mode to register bindings in (default: "default") */
   mode?: string;
-  /** Internal ownership tag used to replace/remove binding groups safely. */
+  /** Internal ownership tag used by the runtime to replace/remove binding groups safely. */
   sourceTag?: string;
 }>;
 
@@ -413,21 +413,6 @@ function validateModeGraph<C>(modes: ReadonlyMap<string, CompiledMode<C>>): void
       throw new Error(
         `unknown parent mode "${mode.parent}" for mode "${modeName}" (register the parent first or in the same app.modes() call)`,
       );
-    }
-  }
-
-  for (const modeName of modes.keys()) {
-    const visited = new Set<string>();
-    let currentName: string | undefined = modeName;
-
-    while (currentName !== undefined) {
-      if (visited.has(currentName)) {
-        throw new Error(`cyclic keybinding mode parent chain detected at "${currentName}"`);
-      }
-      visited.add(currentName);
-      const current = modes.get(currentName);
-      if (!current) break;
-      currentName = current.parent;
     }
   }
 }

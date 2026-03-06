@@ -1,35 +1,41 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
-import { rgbB, rgbG, rgbR } from "../../widgets/style.js";
-import { createTheme, defaultTheme, resolveColor, resolveSpacing } from "../index.js";
+import { darkTheme } from "../presets.js";
+import { resolveColorToken } from "../resolve.js";
+import { compileTheme, resolveColor, resolveSpacing } from "../theme.js";
 
-describe("theme", () => {
-  test("createTheme merges colors and spacing", () => {
-    const t = createTheme({
-      colors: { primary: (1 << 16) | (2 << 8) | 3 },
-      spacing: [0, 2, 4],
-    });
+describe("theme runtime compilation", () => {
+  test("compileTheme exposes semantic aliases and spacing", () => {
+    const theme = compileTheme(darkTheme);
 
-    assert.equal(rgbR(t.colors.primary), 1);
-    assert.equal(rgbG(t.colors.primary), 2);
-    assert.equal(rgbB(t.colors.primary), 3);
-    assert.equal(rgbR(t.colors.fg), rgbR(defaultTheme.colors.fg));
-    assert.deepEqual(t.spacing, [0, 2, 4]);
+    assert.equal(theme.colors.primary, darkTheme.colors.accent.primary);
+    assert.equal(theme.colors["accent.primary"], darkTheme.colors.accent.primary);
+    assert.deepEqual(theme.spacing, [0, 1, 1, 2, 3, 4, 6]);
   });
 
-  test("resolveColor returns theme color or fg fallback", () => {
-    assert.deepEqual(resolveColor(defaultTheme, "primary"), defaultTheme.colors.primary);
-    assert.deepEqual(resolveColor(defaultTheme, "missing"), defaultTheme.colors.fg);
-    assert.deepEqual(
-      resolveColor(defaultTheme, (9 << 16) | (8 << 8) | 7),
-      (9 << 16) | (8 << 8) | 7,
-    );
+  test("resolveColor returns indexed theme color or fg fallback", () => {
+    const theme = compileTheme(darkTheme);
+    assert.deepEqual(resolveColor(theme, "primary"), theme.colors.primary);
+    assert.deepEqual(resolveColor(theme, "missing"), theme.colors.fg);
+    assert.deepEqual(resolveColor(theme, (9 << 16) | (8 << 8) | 7), (9 << 16) | (8 << 8) | 7);
   });
 
   test("resolveSpacing maps indices and allows raw values", () => {
-    const t = createTheme({ spacing: [0, 10, 20] });
-    assert.equal(resolveSpacing(t, 0), 0);
-    assert.equal(resolveSpacing(t, 1), 10);
-    assert.equal(resolveSpacing(t, 2), 20);
-    assert.equal(resolveSpacing(t, 5), 5);
+    const theme = compileTheme(darkTheme);
+    assert.equal(resolveSpacing(theme, 0), 0);
+    assert.equal(resolveSpacing(theme, 1), 1);
+    assert.equal(resolveSpacing(theme, 6), 6);
+    assert.equal(resolveSpacing(theme, 9), 9);
+    assert.equal(resolveSpacing(theme, Number.NaN), 0);
+    assert.equal(resolveSpacing(theme, Number.POSITIVE_INFINITY), 0);
+    assert.equal(resolveSpacing(theme, Number.NEGATIVE_INFINITY), 0);
+  });
+
+  test("resolveColorToken covers widget extension paths", () => {
+    assert.equal(resolveColorToken(darkTheme, "widget.toast.info"), darkTheme.widget.toast.info);
+    assert.equal(
+      resolveColorToken(darkTheme, "widget.syntax.keyword"),
+      darkTheme.widget.syntax.keyword,
+    );
+    assert.equal(resolveColorToken(darkTheme, "not.a.valid.token.path"), null);
   });
 });

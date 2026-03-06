@@ -1,7 +1,7 @@
 import * as assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { coerceToLegacyTheme } from "../../theme/interop.js";
 import { darkTheme } from "../../theme/presets.js";
+import { compileTheme } from "../../theme/theme.js";
 import { ui } from "../../widgets/ui.js";
 import {
   type Snapshot,
@@ -112,7 +112,7 @@ describe("diffSnapshots", () => {
 
 describe("captureSnapshot", () => {
   it("captures a simple text widget", () => {
-    const theme = coerceToLegacyTheme(darkTheme);
+    const theme = compileTheme(darkTheme);
     const snapshot = captureSnapshot(
       "simple-text",
       ui.text("Hello"),
@@ -126,7 +126,7 @@ describe("captureSnapshot", () => {
   });
 
   it("produces deterministic output for same input", () => {
-    const theme = coerceToLegacyTheme(darkTheme);
+    const theme = compileTheme(darkTheme);
     const vnode = ui.column({ gap: 1 }, [
       ui.text("Title", { style: { bold: true } }),
       ui.text("Body text"),

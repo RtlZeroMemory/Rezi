@@ -122,6 +122,7 @@ export type ValidatedInputProps = Readonly<{
   id: string;
   value: string;
   disabled: boolean;
+  readOnly: boolean;
   multiline: boolean;
   rows: number;
   wordWrap: boolean;
@@ -950,6 +951,7 @@ export function validateInputProps(props: InputProps | unknown): LayoutResult<Va
     id?: unknown;
     value?: unknown;
     disabled?: unknown;
+    readOnly?: unknown;
     multiline?: unknown;
     rows?: unknown;
     wordWrap?: unknown;
@@ -960,6 +962,8 @@ export function validateInputProps(props: InputProps | unknown): LayoutResult<Va
   if (!valueRes.ok) return valueRes;
   const disabledRes = requireBoolean("input", "disabled", p.disabled, false);
   if (!disabledRes.ok) return disabledRes;
+  const readOnlyRes = requireBoolean("input", "readOnly", p.readOnly, false);
+  if (!readOnlyRes.ok) return readOnlyRes;
   const multilineRes = requireBoolean("input", "multiline", p.multiline, false);
   if (!multilineRes.ok) return multilineRes;
   const rowsRes = requireOptionalIntNonNegative("input", "rows", p.rows);
@@ -976,6 +980,7 @@ export function validateInputProps(props: InputProps | unknown): LayoutResult<Va
       id: idRes.value,
       value: valueRes.value,
       disabled: disabledRes.value,
+      readOnly: readOnlyRes.value,
       multiline,
       rows,
       wordWrap,

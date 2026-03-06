@@ -105,7 +105,7 @@ describe("breadcrumb vnode construction", () => {
     }
   });
 
-  test("ui.breadcrumb returns a composite wrapper vnode", () => {
+  test("ui.breadcrumb returns a layout-transparent composite wrapper vnode", () => {
     const vnode = ui.breadcrumb({ items: props.items });
     assert.equal(vnode.kind, "fragment");
   });

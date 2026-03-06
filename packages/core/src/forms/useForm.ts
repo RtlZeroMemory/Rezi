@@ -845,7 +845,6 @@ export function useForm<T extends Record<string, unknown>, State = void>(
     if (!textBindable) {
       warnUnsupportedTextBinding(field);
     }
-
     return {
       id: options?.id ?? ctx.id(String(field)),
       value: toInputValue(snapshot.values[field]),
@@ -1415,7 +1414,6 @@ export function useForm<T extends Record<string, unknown>, State = void>(
       return;
     }
     const submitValues = cloneInitialValues(snapshot.values);
-
     const failSubmit = (error: unknown): void => {
       if (typeof options.onSubmitError === "function") {
         try {

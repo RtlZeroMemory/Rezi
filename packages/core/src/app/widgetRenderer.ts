@@ -1244,6 +1244,7 @@ export class WidgetRenderer<S> {
   private readonly _pooledActiveExitKeys = new Set<string>();
   private readonly _pooledPrevTreeIds = new Set<string>();
   private _runtimeBreadcrumbs: WidgetRuntimeBreadcrumbSnapshot = EMPTY_WIDGET_RUNTIME_BREADCRUMBS;
+  private forceFullRenderOnNextSubmit = false;
   private _constraintBreadcrumbs: RuntimeBreadcrumbConstraintsSummary | null = null;
   private _constraintExprIndexByInstanceId: ReadonlyMap<
     InstanceId,
@@ -1335,6 +1336,10 @@ export class WidgetRenderer<S> {
     for (const id of ids) {
       this.compositeRegistry.invalidate(id);
     }
+  }
+
+  forceFullRenderNextFrame(): void {
+    this.forceFullRenderOnNextSubmit = true;
   }
 
   private describeLayoutNode(node: LayoutTree): string {
@@ -3273,6 +3278,7 @@ export class WidgetRenderer<S> {
     viewport: Viewport,
     theme: Theme,
   ): boolean {
+    if (this.forceFullRenderOnNextSubmit) return false;
     return shouldAttemptIncrementalRenderImpl({
       hasRenderedFrame: this._hasRenderedFrame,
       doLayout,
@@ -3735,6 +3741,7 @@ export class WidgetRenderer<S> {
             activePaths: this.committedErrorBoundaryPathsScratch,
             requestRetry: (retryPath: string) => {
               this.retryErrorBoundaryPaths.add(retryPath);
+              this.forceFullRenderNextFrame();
               this.requestView();
             },
           },
@@ -5073,7 +5080,12 @@ export class WidgetRenderer<S> {
       let runtimeDamageMode: RuntimeBreadcrumbDamageMode = "none";
       let runtimeDamageRectCount = 0;
       let runtimeDamageArea = 0;
-      if (this.shouldAttemptIncrementalRender(doLayout, viewport, theme)) {
+      const forceFullRenderThisSubmit = this.forceFullRenderOnNextSubmit;
+      this.forceFullRenderOnNextSubmit = false;
+      if (
+        !forceFullRenderThisSubmit &&
+        this.shouldAttemptIncrementalRender(doLayout, viewport, theme)
+      ) {
         if (!doCommit) {
           this.markTransientDirtyNodes(
             this.committedRoot,

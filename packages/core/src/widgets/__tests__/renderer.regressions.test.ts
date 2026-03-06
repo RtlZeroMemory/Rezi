@@ -165,6 +165,8 @@ function renderBytes(
 describe("renderer regressions", () => {
   const noop = (..._args: readonly unknown[]) => undefined;
   const ATTR_INVERSE = 1 << 3;
+  const ATTR_BOLD = 1 << 0;
+  const ATTR_UNDERLINE = 1 << 2;
 
   test("box shadow renders shade glyphs when enabled", () => {
     const withShadow = parseInternedStrings(
@@ -222,16 +224,20 @@ describe("renderer regressions", () => {
       selectionMode: "none",
     } as const;
 
-    const withStripedOpcodes = parseOpcodes(
+    const withStripedStyles = parseCommandStyles(
       renderBytes(ui.table({ ...tableProps, stripedRows: true }), { cols: 40, rows: 8 }),
     );
-    const withoutStripedOpcodes = parseOpcodes(
+    const withoutStripedStyles = parseCommandStyles(
       renderBytes(ui.table({ ...tableProps, stripedRows: false }), { cols: 40, rows: 8 }),
     );
 
-    const withFillCount = withStripedOpcodes.filter((op) => op === 2).length;
-    const withoutFillCount = withoutStripedOpcodes.filter((op) => op === 2).length;
-    assert.equal(withFillCount > withoutFillCount, true);
+    const withStripedBgs = new Set(
+      withStripedStyles.filter((style) => style.opcode === 2).map((style) => style.bg),
+    );
+    const withoutStripedBgs = new Set(
+      withoutStripedStyles.filter((style) => style.opcode === 2).map((style) => style.bg),
+    );
+    assert.equal(withStripedBgs.size > withoutStripedBgs.size, true);
   });
 
   test("table single-selection suppresses focused inverse style when focused row is not selected", () => {
@@ -260,7 +266,7 @@ describe("renderer regressions", () => {
     assert.equal(hasInverse, false);
   });
 
-  test("table keeps focused inverse style when focused row is selected", () => {
+  test("table keeps focused emphasis style when focused row is selected", () => {
     const tableStore = createTableStateStore();
     tableStore.set("tbl-single-active-selected", { focusedRowIndex: 1 });
 
@@ -282,8 +288,16 @@ describe("renderer regressions", () => {
     );
 
     const styles = parseCommandStyles(bytes);
-    const hasInverse = styles.some((s) => (s.attrs & ATTR_INVERSE) !== 0);
-    assert.equal(hasInverse, true);
+    const focusedSelectedRow = styles.find(
+      (style) =>
+        style.opcode === 3 &&
+        style.bg !== 0 &&
+        (style.attrs & ATTR_BOLD) !== 0 &&
+        (style.attrs & ATTR_UNDERLINE) !== 0,
+    );
+    assert.ok(focusedSelectedRow);
+    if (!focusedSelectedRow) return;
+    assert.equal((focusedSelectedRow.attrs & ATTR_INVERSE) !== 0, false);
   });
 
   test("table column overflow policies render ellipsis, middle, and clip deterministically", () => {

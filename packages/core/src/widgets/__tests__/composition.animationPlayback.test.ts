@@ -89,8 +89,8 @@ describe("composition animation hooks - playback controls", () => {
     render = h.render((hooks) =>
       useTransition(hooks, 10, { duration: 200, easing: "linear", playback: { paused: true } }),
     );
-    const pausedValue = render.result;
     h.runPending(render.pendingEffects);
+    const pausedValue = render.result;
 
     await sleep(80);
     render = h.render((hooks) =>

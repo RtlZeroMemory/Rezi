@@ -9,7 +9,9 @@ import type { LayoutTree } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
 import { createInstanceIdAllocator } from "../../runtime/instance.js";
-import { createTheme } from "../../theme/theme.js";
+import { extendTheme } from "../../theme/extend.js";
+import { darkTheme } from "../../theme/presets.js";
+import { type Theme, compileTheme } from "../../theme/theme.js";
 import type { TextStyle } from "../../widgets/style.js";
 import type { VNode } from "../../widgets/types.js";
 import { ui } from "../../widgets/ui.js";
@@ -59,7 +61,7 @@ function commitAndLayout(vnode: VNode): LayoutTree {
 
 function renderTextOps(
   vnode: VNode,
-  theme: ReturnType<typeof createTheme>,
+  theme: Theme,
 ): readonly Readonly<{ text: string; style?: TextStyle }>[] {
   const committed = commitVNodeTree(null, vnode, { allocator: createInstanceIdAllocator(1) });
   assert.equal(committed.ok, true, "commit should succeed");
@@ -108,11 +110,15 @@ describe("ui.themed", () => {
   });
 
   test("applies theme override to subtree without leaking to siblings", () => {
-    const baseTheme = createTheme({
-      colors: {
-        primary: (200 << 16) | (40 << 8) | 40,
-      },
-    });
+    const baseTheme = compileTheme(
+      extendTheme(darkTheme, {
+        colors: {
+          accent: {
+            primary: (200 << 16) | (40 << 8) | 40,
+          },
+        },
+      }),
+    );
     const scopedPrimary = (30 << 16) | (210 << 8) | 40;
 
     const vnode = ui.column({}, [

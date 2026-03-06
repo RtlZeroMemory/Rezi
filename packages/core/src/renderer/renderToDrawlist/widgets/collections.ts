@@ -341,7 +341,12 @@ export function renderCollectionWidget(
           itemParentStyle = mergeTextStyle(itemParentStyle, selectionStyle);
         }
         if (focused) {
-          const widgetFocusStyle = resolveWidgetFocusStyle(colorTokens, true, false);
+          const widgetFocusStyle = resolveWidgetFocusStyle(
+            colorTokens,
+            true,
+            false,
+            theme.focusIndicator,
+          );
           if (widgetFocusStyle) {
             itemParentStyle = mergeTextStyle(itemParentStyle, widgetFocusStyle);
           }
@@ -666,7 +671,7 @@ export function renderCollectionWidget(
             colorTokens !== null
               ? mergeTextStyle(parentStyle, focusedRecipe?.cell)
               : mergeTextStyle(parentStyle, { inverse: true }),
-            resolveWidgetFocusStyle(colorTokens, true, false),
+            resolveWidgetFocusStyle(colorTokens, true, false, theme.focusIndicator),
           );
           focusedRowStyle = resolveFocusedContentStyle(
             resolveFocusIndicatorStyle(parentStyle, theme, focusConfig, focusFallback),

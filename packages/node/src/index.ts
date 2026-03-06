@@ -2,10 +2,9 @@ import {
   type App,
   type AppConfig,
   type RouteDefinition,
-  type Theme,
   type ThemeDefinition,
   createApp,
-  defaultTheme,
+  darkTheme,
   setDefaultTailSourceFactory,
 } from "@rezi-ui/core";
 import {
@@ -60,7 +59,7 @@ export type CreateNodeAppOptions<S> = Readonly<{
   routes?: readonly RouteDefinition<S>[];
   initialRoute?: string;
   config?: NodeAppConfig;
-  theme?: Theme | ThemeDefinition;
+  theme?: ThemeDefinition;
   /**
    * Development-only hot state-preserving reload wiring.
    *
@@ -85,88 +84,91 @@ export type NodeApp<S> = App<S> &
 
 type ProcessEnv = Readonly<Record<string, string | undefined>>;
 
-type ThemeSpacingTokensLike = Readonly<{
-  xs?: unknown;
-  sm?: unknown;
-  md?: unknown;
-  lg?: unknown;
-  xl?: unknown;
-  "2xl"?: unknown;
-}>;
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function isRgb24(value: unknown): value is number {
-  return isFiniteNumber(value) && value >= 0 && value <= 0x00ff_ffff;
-}
-
-function isSpacingToken(value: unknown): value is number {
-  return isFiniteNumber(value) && Number.isInteger(value) && value >= 0;
-}
-
-function readLegacyThemeColors(theme: Theme | ThemeDefinition | undefined): Theme["colors"] | null {
-  if (!theme || typeof theme !== "object") return null;
-  const colors = (theme as { colors?: unknown }).colors;
-  if (!colors || typeof colors !== "object") return null;
-  const candidate = colors as { fg?: unknown; bg?: unknown } & Record<string, unknown>;
-  if (!isRgb24(candidate.fg) || !isRgb24(candidate.bg)) return null;
-  return candidate as Theme["colors"];
-}
-
-function readThemeSpacing(theme: Theme | ThemeDefinition | undefined): Theme["spacing"] {
-  if (!theme || typeof theme !== "object") return defaultTheme.spacing;
-  const spacing = (theme as { spacing?: unknown }).spacing;
-  if (Array.isArray(spacing)) {
-    for (const value of spacing) {
-      if (!isFiniteNumber(value)) return defaultTheme.spacing;
-    }
-    return Object.freeze([...spacing]);
-  }
-  if (spacing && typeof spacing === "object") {
-    const tokens = spacing as ThemeSpacingTokensLike;
-    const xs = tokens.xs;
-    const sm = tokens.sm;
-    const md = tokens.md;
-    const lg = tokens.lg;
-    const xl = tokens.xl;
-    const x2xl = tokens["2xl"];
-    if (
-      isSpacingToken(xs) &&
-      isSpacingToken(sm) &&
-      isSpacingToken(md) &&
-      isSpacingToken(lg) &&
-      isSpacingToken(xl) &&
-      isSpacingToken(x2xl)
-    ) {
-      return Object.freeze([0, xs, sm, md, lg, xl, x2xl]);
-    }
-  }
-  return defaultTheme.spacing;
-}
-
-function createNoColorTheme(theme: Theme | ThemeDefinition | undefined): Theme {
-  const baseColors = readLegacyThemeColors(theme) ?? defaultTheme.colors;
-  const spacing = readThemeSpacing(theme);
-  const mono = baseColors.fg;
+function createNoColorTheme(theme: ThemeDefinition | undefined): ThemeDefinition {
+  const base = theme ?? darkTheme;
+  const mono = base.colors.fg.primary;
   return Object.freeze({
+    ...base,
     colors: Object.freeze({
-      ...baseColors,
-      primary: mono,
-      secondary: mono,
+      ...base.colors,
+      accent: Object.freeze({
+        primary: mono,
+        secondary: mono,
+        tertiary: mono,
+      }),
       success: mono,
-      danger: mono,
       warning: mono,
+      error: mono,
       info: mono,
-      muted: mono,
-      border: mono,
-      "diagnostic.error": mono,
-      "diagnostic.warning": mono,
-      "diagnostic.info": mono,
-      "diagnostic.hint": mono,
+      focus: Object.freeze({
+        ring: mono,
+        bg: base.colors.bg.base,
+      }),
+      selected: Object.freeze({
+        bg: base.colors.bg.base,
+        fg: mono,
+      }),
+      disabled: Object.freeze({
+        fg: mono,
+        bg: base.colors.bg.base,
+      }),
+      diagnostic: Object.freeze({
+        error: mono,
+        warning: mono,
+        info: mono,
+        hint: mono,
+      }),
+      border: Object.freeze({
+        subtle: mono,
+        default: mono,
+        strong: mono,
+      }),
     }),
-    spacing,
+    widget: Object.freeze({
+      syntax: Object.freeze({
+        keyword: mono,
+        type: mono,
+        string: mono,
+        number: mono,
+        comment: mono,
+        operator: mono,
+        punctuation: mono,
+        function: mono,
+        variable: mono,
+        cursorFg: base.colors.bg.base,
+        cursorBg: mono,
+      }),
+      diff: Object.freeze({
+        addBg: base.colors.bg.base,
+        deleteBg: base.colors.bg.base,
+        addFg: mono,
+        deleteFg: mono,
+        hunkHeader: mono,
+        lineNumber: mono,
+        border: mono,
+      }),
+      logs: Object.freeze({
+        trace: mono,
+        debug: mono,
+        info: mono,
+        warn: mono,
+        error: mono,
+      }),
+      toast: Object.freeze({
+        info: mono,
+        success: mono,
+        warning: mono,
+        error: mono,
+      }),
+      chart: Object.freeze({
+        primary: mono,
+        accent: mono,
+        muted: mono,
+        success: mono,
+        warning: mono,
+        danger: mono,
+      }),
+    }),
   });
 }
 

@@ -1,22 +1,7 @@
 /**
  * packages/core/src/theme/index.ts — Theme public exports.
- *
- * Exports both the runtime theme system (Theme, createTheme) and the new
- * semantic token system (ThemeDefinition, ColorTokens, etc.).
  */
 
-// Runtime theme system (resolved theme shape)
-export { defaultTheme } from "./defaultTheme.js";
-export {
-  createTheme,
-  resolveColor,
-  resolveSpacing,
-  type Theme,
-  type ThemeColors,
-  type ThemeSpacing,
-} from "./theme.js";
-
-// New semantic token system
 export {
   color,
   createColorTokens,
@@ -26,18 +11,22 @@ export {
   type AccentTokens,
   type BgTokens,
   type BorderTokens,
+  type ChartTokens,
   type ColorTokens,
   type DiagnosticTokens,
+  type DiffTokens,
   type DisabledTokens,
   type FocusIndicatorTokens,
   type FgTokens,
   type FocusTokens,
+  type LogsTokens,
   type SelectedTokens,
-  type ThemeSpacingTokens,
+  type SyntaxTokens,
   type ThemeDefinition,
+  type ThemeSpacingTokens,
+  type ToastTokens,
+  type WidgetTokens,
 } from "./tokens.js";
-
-// Theme presets
 export {
   darkTheme,
   lightTheme,
@@ -48,8 +37,6 @@ export {
   themePresets,
   type ThemePresetName,
 } from "./presets.js";
-
-// Resolution utilities
 export {
   resolveColorToken,
   tryResolveColorToken,
@@ -58,10 +45,6 @@ export {
   type ColorPath,
   type ResolveColorResult,
 } from "./resolve.js";
-
-// Validation and extension utilities
 export { validateTheme } from "./validate.js";
 export { extendTheme, type ThemeOverrides } from "./extend.js";
-
-// Accessibility utilities
 export { contrastRatio } from "./contrast.js";

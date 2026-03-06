@@ -314,7 +314,7 @@ describe("graphics/widgets/style (locked) - zrdl-v1 graphics fixtures", () => {
             bold: true,
             underline: true,
             underlineStyle: "curly",
-            underlineColor: "#ff3366",
+            underlineColor: packRgb(0xff, 0x33, 0x66),
           },
         },
         { text: " -> " },
@@ -322,7 +322,7 @@ describe("graphics/widgets/style (locked) - zrdl-v1 graphics fixtures", () => {
           text: "warn",
           style: {
             underlineStyle: "dashed",
-            underlineColor: (0 << 16) | (170 << 8) | 255,
+            underlineColor: packRgb(0, 170, 255),
           },
         },
       ]),
@@ -345,7 +345,7 @@ describe("graphics/widgets/style (locked) - zrdl-v1 graphics fixtures", () => {
     const thirdDecoded = decodeStyleV3(thirdSegmentReserved, thirdSegmentUnderlineRgb);
     assert.deepEqual(firstDecoded, {
       underlineStyle: 3,
-      underlineColorRgb: 0xffffff,
+      underlineColorRgb: 0xff3366,
     });
     assert.deepEqual(thirdDecoded, {
       underlineStyle: 5,

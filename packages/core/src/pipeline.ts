@@ -18,6 +18,8 @@ export type { LayoutTree } from "./layout/layout.js";
 
 // Drawlist rendering
 export { renderToDrawlist } from "./renderer/renderToDrawlist.js";
+export { compileTheme, type Theme } from "./theme/theme.js";
+export { defaultTheme } from "./theme/defaultTheme.js";
 
 // Layout stability
 export { updateLayoutStabilitySignatures } from "./app/widgetRenderer/submitFramePipeline.js";

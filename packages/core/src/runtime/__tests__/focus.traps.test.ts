@@ -47,6 +47,7 @@ function trap(args: {
 }): CollectedTrap {
   return {
     id: args.id,
+    kind: "focusTrap",
     active: args.active,
     returnFocusTo: args.returnFocusTo ?? null,
     initialFocus: args.initialFocus ?? null,
@@ -159,7 +160,7 @@ describe("focus traps - finalizeFocusWithPreCollectedMetadata", () => {
     assert.equal(next.focusedId, "first");
   });
 
-  test("empty trap focusables clear focus so background widgets are not left active", () => {
+  test("empty focusTrap focusables preserve the current focus", () => {
     const next = finalizeWith(
       managerState({ focusedId: "outside" }),
       ["outside"],
@@ -168,10 +169,10 @@ describe("focus traps - finalizeFocusWithPreCollectedMetadata", () => {
       ]),
     );
 
-    assert.equal(next.focusedId, null);
+    assert.equal(next.focusedId, "outside");
   });
 
-  test("empty trap focusables ignore initialFocus outside the trap scope", () => {
+  test("empty focusTrap focusables can honor a valid nested initialFocus", () => {
     const next = finalizeWith(
       managerState({ focusedId: "outside" }),
       ["outside", "nested-id"],
@@ -188,7 +189,7 @@ describe("focus traps - finalizeFocusWithPreCollectedMetadata", () => {
       ]),
     );
 
-    assert.equal(next.focusedId, null);
+    assert.equal(next.focusedId, "nested-id");
   });
 
   test("deactivation restores returnFocusTo when valid", () => {
@@ -456,7 +457,7 @@ describe("focus traps - finalizeFocusForCommittedTreeWithZones integration", () 
     assert.deepEqual(next.trapStack, []);
   });
 
-  test("active empty trap clears focus when no trap focusables exist", () => {
+  test("active empty focusTrap preserves focus when no trap focusables exist", () => {
     const tree: VNode = {
       kind: "column",
       props: {},
@@ -472,7 +473,7 @@ describe("focus traps - finalizeFocusForCommittedTreeWithZones integration", () 
 
     const prev = managerState({ focusedId: "outside" });
     const next = finalizeFocusForCommittedTreeWithZones(prev, commitTree(tree));
-    assert.equal(next.focusedId, null);
+    assert.equal(next.focusedId, "outside");
     assert.deepEqual(next.trapStack, ["modal"]);
   });
 

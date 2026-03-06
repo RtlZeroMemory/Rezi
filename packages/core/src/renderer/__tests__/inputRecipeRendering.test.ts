@@ -1,11 +1,11 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import { defaultTheme } from "../../theme/defaultTheme.js";
-import { coerceToLegacyTheme } from "../../theme/interop.js";
 import { darkTheme } from "../../theme/presets.js";
+import { compileTheme } from "../../theme/theme.js";
 import { ui } from "../../widgets/ui.js";
 import { type DrawOp, renderOps } from "./recipeRendering.test-utils.js";
 
-const dsTheme = coerceToLegacyTheme(darkTheme);
+const dsTheme = compileTheme(darkTheme);
 
 function firstDrawText(
   ops: readonly DrawOp[],
@@ -33,7 +33,7 @@ describe("input recipe rendering", () => {
     assert.deepEqual(border.style?.fg, dsTheme.colors["border.default"]);
   });
 
-  test("keeps legacy fallback path for non-semantic themes", () => {
+  test("default theme uses recipe background and border by default", () => {
     const ops = renderOps(
       ui.row({ height: 3, items: "stretch" }, [
         ui.input({ id: "legacy", value: "", placeholder: "Name" }),
@@ -42,13 +42,11 @@ describe("input recipe rendering", () => {
     );
     assert.equal(
       ops.some((op) => op.kind === "fillRect"),
-      false,
-      "legacy input should not fill recipe background",
+      true,
     );
     assert.equal(
       ops.some((op) => op.kind === "drawText" && /[┌┐└┘]/.test(op.text)),
-      false,
-      "legacy input should not render recipe border",
+      true,
     );
   });
 

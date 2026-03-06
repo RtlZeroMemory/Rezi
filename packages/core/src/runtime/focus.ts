@@ -570,12 +570,16 @@ export function finalizeFocusWithPreCollectedMetadata(
     const activeTrap = collectedTraps.get(activeTrapId);
     const activeTrapFocusables = activeTrap?.focusableIds ?? [];
     const activeTrapFocusableSet = trapFocusableSets.get(activeTrapId);
+    const initialFocus = activeTrap?.initialFocus ?? null;
 
     if (activeTrap?.active === true) {
       if (activeTrapFocusables.length === 0) {
-        nextFocusedId = null;
+        if (initialFocus !== null && focusSet.has(initialFocus)) {
+          nextFocusedId = initialFocus;
+        } else if (activeTrap.kind === "modal") {
+          nextFocusedId = null;
+        }
       } else if (nextFocusedId === null || activeTrapFocusableSet?.has(nextFocusedId) !== true) {
-        const initialFocus = activeTrap.initialFocus;
         if (
           initialFocus !== null &&
           focusSet.has(initialFocus) &&

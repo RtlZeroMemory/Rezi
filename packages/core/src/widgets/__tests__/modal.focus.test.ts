@@ -158,7 +158,7 @@ describe("modal.focus - layer escape routing", () => {
     assert.deepEqual(closed, []);
   });
 
-  test("swallows onClose callback errors and still consumes", () => {
+  test("callback errors do not report a successful close", () => {
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
       layerStack: ["modal"],
       closeOnEscape: new Map([["modal", true]]),

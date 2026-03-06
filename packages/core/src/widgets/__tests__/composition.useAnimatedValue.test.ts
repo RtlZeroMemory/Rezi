@@ -328,7 +328,6 @@ describe("composition animation hooks - useAnimatedValue", () => {
 
     assert.equal(h.unmount(), true);
   });
-
   test("onComplete fires on settlement", async () => {
     const h = createHarness();
     let transitionCompleteCount = 0;

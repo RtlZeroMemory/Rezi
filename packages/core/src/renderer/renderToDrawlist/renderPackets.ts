@@ -143,6 +143,16 @@ function hashTheme(theme: Theme): number {
   for (let i = 0; i < theme.spacing.length; i++) {
     hash = mixHash(hash, (Math.trunc(theme.spacing[i] ?? 0) & HASH_MASK_32) >>> 0);
   }
+  hash = mixHash(hash, theme.focusIndicator.bold ? 1 : 2);
+  hash = mixHash(hash, theme.focusIndicator.underline ? 1 : 2);
+  const hasFocusRingColor = theme.focusIndicator.focusRingColor !== undefined;
+  hash = mixHash(hash, hasFocusRingColor ? 1 : 2);
+  if (hasFocusRingColor) {
+    hash = mixHash(
+      hash,
+      (Math.trunc(theme.focusIndicator.focusRingColor ?? 0) & HASH_MASK_32) >>> 0,
+    );
+  }
   const out = hash === 0 ? 1 : hash >>> 0;
   themeHashCache.set(theme, out);
   return out;

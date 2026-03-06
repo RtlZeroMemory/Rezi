@@ -16,7 +16,6 @@ import {
   routerTabs as buildRouterTabs,
 } from "../router/helpers.js";
 import type { RouteDefinition, RouterApi } from "../router/types.js";
-import type { ThemeOverrides } from "../theme/extend.js";
 import { createAccordionWidgetVNode } from "./accordion.js";
 import { createBreadcrumbWidgetVNode } from "./breadcrumb.js";
 import { createPaginationWidgetVNode } from "./pagination.js";
@@ -77,6 +76,7 @@ import type {
   RichTextSpan,
   RowProps,
   ScatterProps,
+  ScopedThemeOverride,
   SelectProps,
   SidebarOptions,
   SkeletonProps,
@@ -245,7 +245,7 @@ function column(props: ColumnProps = {}, children: readonly UiChild[] = []): VNo
   };
 }
 
-function themed(themeOverride: ThemeOverrides, children: readonly UiChild[] = []): VNode {
+function themed(themeOverride: ScopedThemeOverride, children: readonly UiChild[] = []): VNode {
   return { kind: "themed", props: { theme: themeOverride }, children: filterChildren(children) };
 }
 

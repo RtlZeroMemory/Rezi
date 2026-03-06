@@ -182,13 +182,13 @@ function riskLevelToThemeColor(theme: Theme, riskLevel: "low" | "medium" | "high
 function toastTypeToThemeColor(theme: Theme, type: "info" | "success" | "warning" | "error") {
   switch (type) {
     case "success":
-      return theme.colors.success;
+      return theme.colors["widget.toast.success"] ?? theme.colors.success;
     case "warning":
-      return theme.colors.warning;
+      return theme.colors["widget.toast.warning"] ?? theme.colors.warning;
     case "error":
-      return theme.colors.danger;
+      return theme.colors["widget.toast.error"] ?? theme.colors.danger;
     default:
-      return theme.colors.info;
+      return theme.colors["widget.toast.info"] ?? theme.colors.info;
   }
 }
 
@@ -306,7 +306,21 @@ export function renderOverlayWidget(
       const cx = dropdownRect.x + 1;
       let cy = dropdownRect.y + 1;
       const cw = clampNonNegative(dropdownRect.w - 2);
-      const contentPx = Math.min(itemPx, Math.floor(cw / 2));
+      let maxLabelW = 0;
+      let maxShortcutW = 0;
+      for (const item of items) {
+        if (!item || item.divider) continue;
+        const itemLabelW = measureTextCells(readString(item.label));
+        if (itemLabelW > maxLabelW) maxLabelW = itemLabelW;
+        const itemShortcutW = measureTextCells(readString(item.shortcut));
+        if (itemShortcutW > maxShortcutW) maxShortcutW = itemShortcutW;
+      }
+      const maxShortcutSlotW = maxShortcutW > 0 ? maxShortcutW + 1 : 0;
+      const widestItemW = maxLabelW + maxShortcutSlotW;
+      const contentPx = Math.min(
+        itemPx,
+        Math.max(0, Math.floor((Math.max(0, cw) - widestItemW) / 2)),
+      );
       const contentX = cx + contentPx;
       const contentW = clampNonNegative(cw - contentPx * 2);
 

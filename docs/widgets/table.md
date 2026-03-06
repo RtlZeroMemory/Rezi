@@ -5,6 +5,8 @@ Renders tabular data with column definitions, optional sorting, and row selectio
 ## Usage
 
 ```ts
+import { rgb, ui } from "@rezi-ui/core";
+
 ui.table({
   id: "users",
   columns: [
@@ -16,8 +18,8 @@ ui.table({
   selection: state.selection,
   selectionMode: "multi",
   onSelectionChange: (keys) => app.update((s) => ({ ...s, selection: keys })),
-  stripeStyle: { odd: { r: 34, g: 37, b: 45 } },
-  borderStyle: { variant: "double", color: { r: 120, g: 130, b: 145 } },
+  stripeStyle: { odd: rgb(34, 37, 45) },
+  borderStyle: { variant: "double", color: rgb(120, 130, 145) },
 })
 ```
 
@@ -84,7 +86,7 @@ const FilesTable = defineWidget<{ rows: readonly { id: string; name: string; siz
 
 ## Design System Styling
 
-Tables are design-system styled by default when a `ThemeDefinition` preset is active.
+Tables are design-system styled by default under the active `ThemeDefinition`.
 `tableRecipe()` provides consistent colors for:
 
 ```typescript

@@ -114,6 +114,80 @@ export type DiagnosticTokens = Readonly<{
 }>;
 
 /**
+ * Syntax highlighting token set for code-oriented widgets.
+ */
+export type SyntaxTokens = Readonly<{
+  keyword: Rgb24;
+  type: Rgb24;
+  string: Rgb24;
+  number: Rgb24;
+  comment: Rgb24;
+  operator: Rgb24;
+  punctuation: Rgb24;
+  function: Rgb24;
+  variable: Rgb24;
+  cursorFg: Rgb24;
+  cursorBg: Rgb24;
+}>;
+
+/**
+ * Diff viewer token set.
+ */
+export type DiffTokens = Readonly<{
+  addBg: Rgb24;
+  deleteBg: Rgb24;
+  addFg: Rgb24;
+  deleteFg: Rgb24;
+  hunkHeader: Rgb24;
+  lineNumber: Rgb24;
+  border: Rgb24;
+}>;
+
+/**
+ * Log console level token set.
+ */
+export type LogsTokens = Readonly<{
+  trace: Rgb24;
+  debug: Rgb24;
+  info: Rgb24;
+  warn: Rgb24;
+  error: Rgb24;
+}>;
+
+/**
+ * Toast style token set.
+ */
+export type ToastTokens = Readonly<{
+  info: Rgb24;
+  success: Rgb24;
+  warning: Rgb24;
+  error: Rgb24;
+}>;
+
+/**
+ * Chart palette token set.
+ */
+export type ChartTokens = Readonly<{
+  primary: Rgb24;
+  accent: Rgb24;
+  muted: Rgb24;
+  success: Rgb24;
+  warning: Rgb24;
+  danger: Rgb24;
+}>;
+
+/**
+ * Extended widget-specific theme tokens.
+ */
+export type WidgetTokens = Readonly<{
+  syntax: SyntaxTokens;
+  diff: DiffTokens;
+  logs: LogsTokens;
+  toast: ToastTokens;
+  chart: ChartTokens;
+}>;
+
+/**
  * Complete semantic color token set.
  */
 export type ColorTokens = Readonly<{
@@ -177,16 +251,12 @@ export type ThemeDefinition = Readonly<{
   name: string;
   /** Complete color token set */
   colors: ColorTokens;
-  /**
-   * Optional spacing scale for forward compatibility.
-   * Added by createThemeDefinition for built-in presets.
-   */
-  spacing?: ThemeSpacingTokens;
-  /**
-   * Optional focus indicator style tokens for forward compatibility.
-   * Added by createThemeDefinition for built-in presets.
-   */
-  focusIndicator?: FocusIndicatorTokens;
+  /** Required spacing scale used by design-system recipes. */
+  spacing: ThemeSpacingTokens;
+  /** Required default focus indicator styling. */
+  focusIndicator: FocusIndicatorTokens;
+  /** Widget-specific palettes for advanced surfaces. */
+  widget: WidgetTokens;
 }>;
 
 /**
@@ -236,14 +306,81 @@ export function createColorTokens(tokens: ColorTokens): ColorTokens {
   });
 }
 
+function createWidgetTokens(tokens: WidgetTokens): WidgetTokens {
+  return Object.freeze({
+    syntax: Object.freeze({ ...tokens.syntax }),
+    diff: Object.freeze({ ...tokens.diff }),
+    logs: Object.freeze({ ...tokens.logs }),
+    toast: Object.freeze({ ...tokens.toast }),
+    chart: Object.freeze({ ...tokens.chart }),
+  });
+}
+
+function createDefaultWidgetTokens(colors: ColorTokens): WidgetTokens {
+  return Object.freeze({
+    syntax: Object.freeze({
+      keyword: colors.accent.secondary,
+      type: colors.warning,
+      string: colors.success,
+      number: colors.warning,
+      comment: colors.fg.muted,
+      operator: colors.accent.primary,
+      punctuation: colors.fg.primary,
+      function: colors.accent.primary,
+      variable: colors.accent.tertiary,
+      cursorFg: colors.bg.base,
+      cursorBg: colors.accent.primary,
+    }),
+    diff: Object.freeze({
+      addBg: colors.success,
+      deleteBg: colors.error,
+      addFg: colors.fg.inverse,
+      deleteFg: colors.fg.inverse,
+      hunkHeader: colors.info,
+      lineNumber: colors.fg.muted,
+      border: colors.border.default,
+    }),
+    logs: Object.freeze({
+      trace: colors.fg.muted,
+      debug: colors.fg.secondary,
+      info: colors.fg.primary,
+      warn: colors.warning,
+      error: colors.error,
+    }),
+    toast: Object.freeze({
+      info: colors.info,
+      success: colors.success,
+      warning: colors.warning,
+      error: colors.error,
+    }),
+    chart: Object.freeze({
+      primary: colors.accent.primary,
+      accent: colors.info,
+      muted: colors.fg.muted,
+      success: colors.success,
+      warning: colors.warning,
+      danger: colors.error,
+    }),
+  });
+}
+
 /**
  * Helper to create a complete theme definition.
  */
-export function createThemeDefinition(name: string, colors: ColorTokens): ThemeDefinition {
+export function createThemeDefinition(
+  name: string,
+  colors: ColorTokens,
+  options: Readonly<{
+    spacing?: ThemeSpacingTokens;
+    focusIndicator?: FocusIndicatorTokens;
+    widget?: WidgetTokens;
+  }> = {},
+): ThemeDefinition {
   return Object.freeze({
     name,
     colors: createColorTokens(colors),
-    spacing: DEFAULT_THEME_SPACING,
-    focusIndicator: DEFAULT_FOCUS_INDICATOR,
+    spacing: Object.freeze({ ...(options.spacing ?? DEFAULT_THEME_SPACING) }),
+    focusIndicator: Object.freeze({ ...(options.focusIndicator ?? DEFAULT_FOCUS_INDICATOR) }),
+    widget: createWidgetTokens(options.widget ?? createDefaultWidgetTokens(colors)),
   });
 }

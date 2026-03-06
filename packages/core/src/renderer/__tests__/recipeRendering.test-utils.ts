@@ -1,10 +1,11 @@
 import { assert } from "@rezi-ui/testkit";
 import type { DrawlistTextRunSegment } from "../../drawlist/types.js";
-import type { DrawlistBuildResult, DrawlistBuilder, TextStyle, Theme, VNode } from "../../index.js";
+import type { DrawlistBuildResult, DrawlistBuilder, TextStyle, VNode } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import type { Axis } from "../../layout/types.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
 import { createInstanceIdAllocator } from "../../runtime/instance.js";
+import type { Theme } from "../../theme/theme.js";
 import { renderToDrawlist } from "../renderToDrawlist.js";
 
 export type DrawOp =

@@ -36,7 +36,10 @@ Benefits of `ui.*` factories:
 
 ## Beautiful Defaults
 
-When the active theme provides semantic color tokens, core interactive widgets are recipe-styled by default (buttons, inputs, selects, checkboxes, progress bars, callouts). Use `intent` on buttons for common patterns (primary/danger/link), and use manual `style` props to override specific attributes (they do not disable recipes).
+Core interactive widgets are recipe-styled by default (buttons, inputs,
+selects, checkboxes, progress bars, callouts). Use `intent` on buttons for
+common patterns (primary/danger/link), and use manual `style` props to
+override specific attributes (they do not disable recipes).
 
 ## Quick-Reference Table
 
@@ -90,9 +93,11 @@ Content rendering, labels, and informational widgets.
 **Quick example:**
 
 ```typescript
+import { rgb, ui } from "@rezi-ui/core";
+
 ui.column({ gap: 1 }, [
   ui.richText([
-    { text: "Error: ", style: { fg: { r: 255, g: 0, b: 0 }, bold: true } },
+    { text: "Error: ", style: { fg: rgb(255, 0, 0), bold: true } },
     { text: "File not found" },
   ]),
   ui.callout("This action cannot be undone", { variant: "warning" }),

@@ -1,11 +1,11 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import { defaultTheme } from "../../theme/defaultTheme.js";
-import { coerceToLegacyTheme } from "../../theme/interop.js";
 import { darkTheme } from "../../theme/presets.js";
+import { compileTheme } from "../../theme/theme.js";
 import { ui } from "../../widgets/ui.js";
 import { type DrawOp, renderOps } from "./recipeRendering.test-utils.js";
 
-const dsTheme = coerceToLegacyTheme(darkTheme);
+const dsTheme = compileTheme(darkTheme);
 
 type Row = Readonly<{ id: string; name: string }>;
 
@@ -83,10 +83,10 @@ describe("table recipe rendering", () => {
     );
   });
 
-  test("keeps legacy table fallback when semantic tokens are absent", () => {
+  test("default theme keeps semantic table recipe styling enabled", () => {
     const ops = renderOps(
       ui.table<Row>({
-        id: "legacy-table",
+        id: "default-table",
         columns,
         data,
         getRowKey: (row) => row.id,
@@ -101,14 +101,16 @@ describe("table recipe rendering", () => {
     const sortedHeader = firstDrawText(ops, (text) => text.includes("▲"));
     assert.ok(sortedHeader && sortedHeader.kind === "drawText");
     if (!sortedHeader || sortedHeader.kind !== "drawText") return;
-    assert.deepEqual(sortedHeader.style?.fg, defaultTheme.colors.info);
+    assert.deepEqual(sortedHeader.style?.fg, defaultTheme.colors["fg.secondary"]);
+    assert.equal(sortedHeader.style?.bold, true);
+    assert.equal(sortedHeader.style?.underline, true);
 
     assert.equal(
       ops.some(
-        (op) => op.kind === "fillRect" && rgbEquals(op.style?.bg, defaultTheme.colors.border),
+        (op) => op.kind === "fillRect" && rgbEquals(op.style?.bg, defaultTheme.colors["bg.subtle"]),
       ),
       true,
-      "legacy striped rows should still use theme.colors.border",
+      "striped rows should use the semantic subtle background",
     );
   });
 });

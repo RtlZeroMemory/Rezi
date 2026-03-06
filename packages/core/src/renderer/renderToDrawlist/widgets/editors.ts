@@ -52,20 +52,26 @@ function rectIntersects(a: Rect, b: Rect): boolean {
 
 function logLevelToThemeColor(theme: Theme, level: LogsConsoleProps["entries"][number]["level"]) {
   switch (level) {
+    case "debug":
+      return theme.colors["widget.logs.debug"] ?? theme.colors.info;
     case "warn":
-      return theme.colors.warning;
+      return theme.colors["widget.logs.warn"] ?? theme.colors.warning;
     case "error":
-      return theme.colors.danger;
+      return theme.colors["widget.logs.error"] ?? theme.colors.danger;
     case "info":
-      return theme.colors.fg;
+      return theme.colors["widget.logs.info"] ?? theme.colors.fg;
     default:
-      return theme.colors.muted;
+      return theme.colors["widget.logs.trace"] ?? theme.colors.muted;
   }
 }
 
 type CodeEditorSyntaxStyleMap = Readonly<Record<CodeEditorSyntaxTokenKind, ResolvedTextStyle>>;
 
 function resolveSyntaxThemeColor(theme: Theme, key: string, fallback: Rgb24) {
+  return theme.colors[key] ?? fallback;
+}
+
+function resolveDiffThemeColor(theme: Theme, key: string, fallback: Rgb24): Rgb24 {
   return theme.colors[key] ?? fallback;
 }
 
@@ -76,35 +82,35 @@ function createCodeEditorSyntaxStyleMap(
   return Object.freeze({
     plain: parentStyle,
     keyword: mergeTextStyle(parentStyle, {
-      fg: resolveSyntaxThemeColor(theme, "syntax.keyword", theme.colors.info),
+      fg: resolveSyntaxThemeColor(theme, "widget.syntax.keyword", theme.colors.info),
       bold: true,
     }),
     type: mergeTextStyle(parentStyle, {
-      fg: resolveSyntaxThemeColor(theme, "syntax.type", theme.colors.warning),
+      fg: resolveSyntaxThemeColor(theme, "widget.syntax.type", theme.colors.warning),
       bold: true,
     }),
     string: mergeTextStyle(parentStyle, {
-      fg: resolveSyntaxThemeColor(theme, "syntax.string", theme.colors.success),
+      fg: resolveSyntaxThemeColor(theme, "widget.syntax.string", theme.colors.success),
     }),
     number: mergeTextStyle(parentStyle, {
-      fg: resolveSyntaxThemeColor(theme, "syntax.number", theme.colors.warning),
+      fg: resolveSyntaxThemeColor(theme, "widget.syntax.number", theme.colors.warning),
     }),
     comment: mergeTextStyle(parentStyle, {
-      fg: resolveSyntaxThemeColor(theme, "syntax.comment", theme.colors.muted),
+      fg: resolveSyntaxThemeColor(theme, "widget.syntax.comment", theme.colors.muted),
       italic: true,
     }),
     operator: mergeTextStyle(parentStyle, {
-      fg: resolveSyntaxThemeColor(theme, "syntax.operator", theme.colors.primary),
+      fg: resolveSyntaxThemeColor(theme, "widget.syntax.operator", theme.colors.primary),
     }),
     punctuation: mergeTextStyle(parentStyle, {
-      fg: resolveSyntaxThemeColor(theme, "syntax.punctuation", theme.colors.fg),
+      fg: resolveSyntaxThemeColor(theme, "widget.syntax.punctuation", theme.colors.fg),
     }),
     function: mergeTextStyle(parentStyle, {
-      fg: resolveSyntaxThemeColor(theme, "syntax.function", theme.colors.primary),
+      fg: resolveSyntaxThemeColor(theme, "widget.syntax.function", theme.colors.primary),
       bold: true,
     }),
     variable: mergeTextStyle(parentStyle, {
-      fg: resolveSyntaxThemeColor(theme, "syntax.variable", theme.colors.secondary),
+      fg: resolveSyntaxThemeColor(theme, "widget.syntax.variable", theme.colors.secondary),
       bold: true,
     }),
   });
@@ -332,18 +338,12 @@ export function renderEditorWidget(
         if (localY >= 0 && localY < rect.h && localX >= 0 && localX < textW) {
           const cursorLine = lines[cursor.line] ?? "";
           const cursorGlyph = cursorLine.slice(cursor.column, cursor.column + 1) || " ";
-          const widgetFocusStyle = resolveWidgetFocusStyle(colorTokens, true, false);
           const cursorCellStyle = resolveFocusedContentStyle(
-            resolveFocusIndicatorStyle(
-              parentStyle,
-              theme,
-              focusConfig,
-              mergeTextStyle(mergeTextStyle(parentStyle, widgetFocusStyle), {
-                fg: resolveSyntaxThemeColor(theme, "syntax.cursor.fg", theme.colors.bg),
-                bg: resolveSyntaxThemeColor(theme, "syntax.cursor.bg", theme.colors.primary),
-                bold: true,
-              }),
-            ),
+            mergeTextStyle(parentStyle, {
+              fg: resolveSyntaxThemeColor(theme, "widget.syntax.cursorFg", theme.colors.bg),
+              bg: resolveSyntaxThemeColor(theme, "widget.syntax.cursorBg", theme.colors.primary),
+              bold: true,
+            }),
             theme,
             focusConfig,
           );
@@ -384,14 +384,22 @@ export function renderEditorWidget(
       const focusedHunkStyle = asTextStyle(props.focusedHunkStyle, theme);
       const { diff } = props;
       const diffCache = diffRenderCacheById?.get(props.id);
-      const addBg = theme.colors.success;
-      const deleteBg = theme.colors.danger;
-      const addFg = theme.colors.bg;
-      const deleteFg = theme.colors.bg;
-      const hunkHeaderFg = theme.colors.info;
-      const lineNumberFg = theme.colors.muted;
-      const borderFg = theme.colors.border;
-      const collapsedStyle = mergeTextStyle(parentStyle, { fg: theme.colors.muted });
+      const addBg = resolveDiffThemeColor(theme, "widget.diff.addBg", theme.colors.success);
+      const deleteBg = resolveDiffThemeColor(theme, "widget.diff.deleteBg", theme.colors.danger);
+      const addFg = resolveDiffThemeColor(theme, "widget.diff.addFg", theme.colors.bg);
+      const deleteFg = resolveDiffThemeColor(theme, "widget.diff.deleteFg", theme.colors.bg);
+      const hunkHeaderFg = resolveDiffThemeColor(
+        theme,
+        "widget.diff.hunkHeader",
+        theme.colors.info,
+      );
+      const lineNumberFg = resolveDiffThemeColor(
+        theme,
+        "widget.diff.lineNumber",
+        theme.colors.muted,
+      );
+      const borderFg = resolveDiffThemeColor(theme, "widget.diff.border", theme.colors.border);
+      const collapsedStyle = mergeTextStyle(parentStyle, { fg: lineNumberFg });
 
       if (diff.isBinary === true) {
         builder.drawText(
@@ -790,7 +798,10 @@ export function renderEditorWidget(
           parentStyle,
           theme,
           focusConfig,
-          mergeTextStyle(parentStyle, resolveWidgetFocusStyle(colorTokens, true, false)),
+          mergeTextStyle(
+            parentStyle,
+            resolveWidgetFocusStyle(colorTokens, true, false, theme.focusIndicator),
+          ),
         );
         if (focusedStyleOverride) {
           ringStyle = mergeTextStyle(ringStyle, focusedStyleOverride);

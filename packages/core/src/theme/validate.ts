@@ -10,6 +10,7 @@ import type { ThemeDefinition } from "./tokens.js";
 type UnknownRecord = Record<string, unknown>;
 
 const REQUIRED_COLOR_PATHS = [
+  "name",
   "colors.bg.base",
   "colors.bg.elevated",
   "colors.bg.overlay",
@@ -40,6 +41,42 @@ const REQUIRED_COLOR_PATHS = [
   "colors.border.strong",
 ] as const;
 
+const REQUIRED_WIDGET_COLOR_PATHS = [
+  "widget.syntax.keyword",
+  "widget.syntax.type",
+  "widget.syntax.string",
+  "widget.syntax.number",
+  "widget.syntax.comment",
+  "widget.syntax.operator",
+  "widget.syntax.punctuation",
+  "widget.syntax.function",
+  "widget.syntax.variable",
+  "widget.syntax.cursorFg",
+  "widget.syntax.cursorBg",
+  "widget.diff.addBg",
+  "widget.diff.deleteBg",
+  "widget.diff.addFg",
+  "widget.diff.deleteFg",
+  "widget.diff.hunkHeader",
+  "widget.diff.lineNumber",
+  "widget.diff.border",
+  "widget.logs.trace",
+  "widget.logs.debug",
+  "widget.logs.info",
+  "widget.logs.warn",
+  "widget.logs.error",
+  "widget.toast.info",
+  "widget.toast.success",
+  "widget.toast.warning",
+  "widget.toast.error",
+  "widget.chart.primary",
+  "widget.chart.accent",
+  "widget.chart.muted",
+  "widget.chart.success",
+  "widget.chart.warning",
+  "widget.chart.danger",
+] as const;
+
 const REQUIRED_SPACING_PATHS = [
   "spacing.xs",
   "spacing.sm",
@@ -53,6 +90,7 @@ const REQUIRED_FOCUS_STYLE_PATHS = ["focusIndicator.bold", "focusIndicator.under
 
 const REQUIRED_THEME_PATHS = [
   ...REQUIRED_COLOR_PATHS,
+  ...REQUIRED_WIDGET_COLOR_PATHS,
   ...REQUIRED_SPACING_PATHS,
   ...REQUIRED_FOCUS_STYLE_PATHS,
 ] as const;
@@ -91,6 +129,14 @@ function throwMissingPaths(theme: unknown): void {
   throw new Error(`Theme validation failed: missing required token path(s): ${missing.join(", ")}`);
 }
 
+function validateName(path: string, value: unknown): void {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(
+      `Theme validation failed at ${path}: expected non-empty string (received ${formatValue(value)})`,
+    );
+  }
+}
+
 function validateRgb(path: string, value: unknown): void {
   if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > 0x00ffffff) {
     throw new Error(
@@ -120,14 +166,18 @@ function validateFocusStyle(path: string, value: unknown): void {
  *
  * Throws on first invalid value with deterministic path-specific errors.
  * Missing required paths are reported together in deterministic order.
- * Note: spacing/focusIndicator are optional on the type for backward compatibility
- * with pre-hardening definitions, but this validator intentionally treats them as
- * required for hardened theme contracts.
  */
 export function validateTheme(theme: unknown): ThemeDefinition {
   throwMissingPaths(theme);
 
+  validateName("name", getPathValue(theme, "name"));
+
   for (const path of REQUIRED_COLOR_PATHS) {
+    if (path === "name") continue;
+    validateRgb(path, getPathValue(theme, path));
+  }
+
+  for (const path of REQUIRED_WIDGET_COLOR_PATHS) {
     validateRgb(path, getPathValue(theme, path));
   }
 

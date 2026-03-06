@@ -138,7 +138,7 @@ describe("pagination ids and vnode", () => {
     assert.equal(ids.includes(getPaginationControlId("pages", "last")), true);
   });
 
-  test("ui.pagination returns a composite wrapper vnode", () => {
+  test("ui.pagination returns a layout-transparent composite wrapper vnode", () => {
     const vnode = ui.pagination({
       id: "pages",
       page: 1,

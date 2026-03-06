@@ -495,6 +495,7 @@ export type CollectedZone = Readonly<{
 /** Collected focus trap metadata. */
 export type CollectedTrap = Readonly<{
   id: string;
+  kind?: "focusTrap" | "modal";
   active: boolean;
   returnFocusTo: string | null;
   initialFocus: string | null;
@@ -698,6 +699,7 @@ export function collectFocusTraps(tree: RuntimeInstance): ReadonlyMap<string, Co
           id,
           Object.freeze({
             id,
+            kind: node.vnode.kind,
             active,
             returnFocusTo,
             initialFocus,

@@ -11,7 +11,6 @@ import type { RuntimeBackend } from "../backend.js";
 import type { FrameSnapshot } from "../debug/frameInspector.js";
 import type { RouteDefinition } from "../router/types.js";
 import { defaultTheme } from "../theme/defaultTheme.js";
-import type { Theme } from "../theme/theme.js";
 import type { ThemeDefinition } from "../theme/tokens.js";
 import {
   type InspectorOverlayFrameTiming,
@@ -40,7 +39,7 @@ type AppCreateOptions<S> = Readonly<{
   backend: RuntimeBackend;
   initialState: S;
   config?: AppConfig;
-  theme?: Theme | ThemeDefinition;
+  theme?: ThemeDefinition;
 }>;
 
 export type InspectorOverlayHelperOptions = Readonly<{
@@ -126,7 +125,7 @@ export function createAppWithInspectorOverlay<S>(
 
   let latestSnapshot: RuntimeBreadcrumbSnapshot | null = null;
   let overlayEnabled = inspectorOpts.enabled === true;
-  let lastThemeInput: Theme | ThemeDefinition = opts.theme ?? defaultTheme;
+  let lastThemeInput: ThemeDefinition = opts.theme ?? defaultTheme.definition;
 
   const app = createApp({
     backend: opts.backend,
@@ -260,7 +259,7 @@ export function createAppWithInspectorOverlay<S>(
     update(updater: S | ((prev: Readonly<S>) => S)): void {
       app.update(updater);
     },
-    setTheme(theme: Theme | ThemeDefinition): void {
+    setTheme(theme: ThemeDefinition): void {
       lastThemeInput = theme;
       app.setTheme(theme);
     },
