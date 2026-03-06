@@ -2434,7 +2434,7 @@ export class WidgetRenderer<S> {
       {
         runtimeNode: this.committedRoot,
         layoutNode: this.layoutTree,
-        scrollables: Object.freeze([]),
+        scrollables: [],
       },
     ];
 
@@ -2457,12 +2457,12 @@ export class WidgetRenderer<S> {
         const hasScrollableAxis =
           meta.contentWidth > meta.viewportWidth || meta.contentHeight > meta.viewportHeight;
         if (hasScrollableAxis) {
-          scrollables = Object.freeze([...scrollables, { nodeId, meta }]);
+          scrollables = [...scrollables, { nodeId, meta }];
         }
       }
 
       if (nodeId === targetId) {
-        return Object.freeze([...scrollables].reverse());
+        return Object.freeze(scrollables.slice().reverse());
       }
 
       const childCount = Math.min(runtimeNode.children.length, layoutNode.children.length);
@@ -4016,10 +4016,15 @@ export class WidgetRenderer<S> {
         // constraints can converge one depth level at a time.
         if (constraintGraph !== null && constraintGraph.nodes.length > 0) {
           let settlePasses = 0;
+          const MAX_CONSTRAINT_SETTLE_PASSES = 256;
           // Nested parent/intrinsic chains can converge one dependency level at a time.
           // Use the graph size instead of an arbitrary small cap so first-frame layout
-          // can fully settle for deep but valid trees.
-          const maxSettlePasses = Math.max(3, constraintGraph.nodes.length + 1);
+          // can fully settle for deep but valid trees, but bound worst-case synchronous
+          // frame time for pathological graphs and emit an audit signal if we hit the cap.
+          const maxSettlePasses = Math.min(
+            MAX_CONSTRAINT_SETTLE_PASSES,
+            Math.max(3, constraintGraph.nodes.length + 1),
+          );
           while (settlePasses < maxSettlePasses) {
             buildLayoutRectIndexes(
               nextLayoutTree,

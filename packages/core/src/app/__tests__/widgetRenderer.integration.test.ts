@@ -827,10 +827,13 @@ describe("WidgetRenderer integration battery", () => {
 
   test("focusZone error reporting swallows onUserCodeError sink failures", () => {
     const backend = createNoopBackend();
+    let onEnterCalls = 0;
+    let onUserCodeErrorCalls = 0;
     const renderer = new WidgetRenderer<void>({
       backend,
       requestRender: () => {},
       onUserCodeError: () => {
+        onUserCodeErrorCalls++;
         throw new Error("sink-fail");
       },
     });
@@ -840,6 +843,7 @@ describe("WidgetRenderer integration battery", () => {
         {
           id: "zone-1",
           onEnter: () => {
+            onEnterCalls++;
             throw new Error("boom");
           },
         },
@@ -859,6 +863,8 @@ describe("WidgetRenderer integration battery", () => {
 
     assert.doesNotThrow(() => renderer.routeEngineEvent(keyEvent(3 /* TAB */)));
     assert.equal(renderer.getFocusedId(), "a");
+    assert.equal(onEnterCalls, 1);
+    assert.equal(onUserCodeErrorCalls, 1);
   });
 
   test("focusZone callbacks use final state after toast focus reconciliation", () => {

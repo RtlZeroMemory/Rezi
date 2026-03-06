@@ -427,7 +427,8 @@ test("widgetMeta: pooled collector does not attribute trap focusables to outer z
     ]),
   );
 
-  const metadata = collectAllWidgetMetadata(committed);
+  const collector = createWidgetMetadataCollector();
+  const metadata = collector.collect(committed);
 
   assert.deepEqual(metadata.zones.get("outer-zone")?.focusableIds, ["outer-btn"]);
   assert.deepEqual(metadata.traps.get("inner-trap")?.focusableIds, ["inner-btn"]);

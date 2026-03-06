@@ -31,6 +31,7 @@ import {
   FRAME_ACCEPTED_ACK_MARKER,
   type RuntimeBackend,
 } from "../backend.js";
+import { describeThrown } from "../debug/describeThrown.js";
 import type { UiEvent, ZrevEvent } from "../events.js";
 import type {
   BindingMap,
@@ -55,7 +56,6 @@ import {
   normalizeBreakpointThresholds,
 } from "../layout/responsive.js";
 import type { Rect } from "../layout/types.js";
-import { describeThrown } from "../debug/describeThrown.js";
 import { PERF_ENABLED, perfMarkEnd, perfMarkStart, perfNow, perfRecord } from "../perf/perf.js";
 import type { EventTimeUnwrapState } from "../protocol/types.js";
 import { parseEventBatchV1 } from "../protocol/zrev_v1.js";
@@ -641,6 +641,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     // Theme-aware composite widgets resolve recipe styles during commit, so
     // transition frames must invalidate view/commit, not only render.
     markDirty(DIRTY_VIEW, false);
+    renderRequestQueuedForCurrentTurn = true;
     scheduler.enqueue({ kind: "renderRequest" });
   }
 

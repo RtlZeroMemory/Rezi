@@ -108,7 +108,9 @@ class ReadonlyMapSnapshot<K, V> implements ReadonlyMap<K, V> {
   }
 
   forEach(callbackfn: (value: V, key: K, map: ReadonlyMap<K, V>) => void, thisArg?: unknown): void {
-    this.map.forEach((value, key) => callbackfn.call(thisArg, value, key, this));
+    for (const [key, value] of this.map) {
+      callbackfn.call(thisArg, value, key, this);
+    }
   }
 
   entries(): MapIterator<[K, V]> {
@@ -160,7 +162,9 @@ class ReadonlySetSnapshot<T> implements ReadonlySet<T> {
   }
 
   forEach(callbackfn: (value: T, value2: T, set: ReadonlySet<T>) => void, thisArg?: unknown): void {
-    this.set.forEach((value) => callbackfn.call(thisArg, value, value, this));
+    for (const value of this.set) {
+      callbackfn.call(thisArg, value, value, this);
+    }
   }
 
   entries(): SetIterator<[T, T]> {
