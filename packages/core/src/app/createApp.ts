@@ -1750,7 +1750,15 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       runSettle = runController.settle;
       settleActiveRun = runController.settle;
 
-      return app.start().then(
+      let startPromise: Promise<void>;
+      try {
+        startPromise = app.start();
+      } catch (e: unknown) {
+        runController.detach();
+        throw e;
+      }
+
+      return startPromise.then(
         () => {
           if (!runController.canRegisterSignals) {
             runController.settle();

@@ -60,6 +60,41 @@ test("run signal controller settles cleanly without process hooks", async () => 
   assert.equal(detached, 1);
 });
 
+test("run signal controller resolves when onSignal throws synchronously", async () => {
+  const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
+  const proc = {
+    on: (signal: string, handler: (...args: unknown[]) => void) => {
+      const set = listeners.get(signal) ?? new Set<(...args: unknown[]) => void>();
+      set.add(handler);
+      listeners.set(signal, set);
+    },
+    off: (signal: string, handler: (...args: unknown[]) => void) => {
+      listeners.get(signal)?.delete(handler);
+    },
+  };
+  const events: string[] = [];
+
+  const controller = createRunSignalController({
+    onDetached: () => {
+      events.push("detached");
+    },
+    onSignal: () => {
+      events.push("signal");
+      throw new Error("boom");
+    },
+    processLike: proc,
+    signals: ["SIGINT"],
+  });
+
+  for (const handler of listeners.get("SIGINT") ?? []) {
+    handler("SIGINT");
+  }
+  await controller.promise;
+
+  assert.deepEqual(events, ["detached", "signal"]);
+  assert.equal(listeners.get("SIGINT")?.size ?? 0, 0);
+});
+
 test("readProcessLike ignores non-object process globals", () => {
   const g = globalThis as { process?: unknown };
   const prevProcess = g.process;

@@ -90,7 +90,8 @@ export function createRunSignalController(
         if (settled) return;
         settled = true;
         detach();
-        void Promise.resolve(options.onSignal())
+        void Promise.resolve()
+          .then(() => options.onSignal())
           .catch(() => undefined)
           .finally(() => {
             resolvePromise();

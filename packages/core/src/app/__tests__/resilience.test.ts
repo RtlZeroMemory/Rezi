@@ -426,6 +426,43 @@ test("app.run() resolves when app transitions to Faulted", async () => {
   }
 });
 
+test("app.run() detaches signal handlers when start throws synchronously", async () => {
+  class ThrowingStartBackend extends StubBackend {
+    override start(): Promise<void> {
+      this.startCalls++;
+      this.callLog.push("start");
+      throw new Error("start boom");
+    }
+  }
+
+  const backend = new ThrowingStartBackend();
+  const app = createApp({ backend, initialState: 0 });
+  app.draw((g) => g.clear());
+
+  const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
+  const fakeProcess = {
+    on: (signal: string, handler: (...args: unknown[]) => void) => {
+      const set = listeners.get(signal) ?? new Set<(...args: unknown[]) => void>();
+      set.add(handler);
+      listeners.set(signal, set);
+    },
+    off: (signal: string, handler: (...args: unknown[]) => void) => {
+      listeners.get(signal)?.delete(handler);
+    },
+  };
+  const g = globalThis as { process?: unknown };
+  const prevProcess = g.process;
+  g.process = fakeProcess;
+  try {
+    assert.throws(() => app.run(), /backend.start threw: Error: start boom/);
+    assert.equal(listeners.get("SIGINT")?.size ?? 0, 0);
+    assert.equal(listeners.get("SIGTERM")?.size ?? 0, 0);
+    assert.equal(listeners.get("SIGHUP")?.size ?? 0, 0);
+  } finally {
+    g.process = prevProcess;
+  }
+});
+
 test("nested errorBoundary retry state remains isolated", async () => {
   const backend = new StubBackend();
   const app = createApp({

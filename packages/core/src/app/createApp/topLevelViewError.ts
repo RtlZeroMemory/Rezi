@@ -1,14 +1,14 @@
 import type { ZrevEvent } from "../../events.js";
-import { ZR_MOD_ALT, ZR_MOD_CTRL, ZR_MOD_META } from "../../keybindings/keyCodes.js";
+import { ZR_MOD_ALT, ZR_MOD_CTRL, ZR_MOD_META, ZR_MOD_SHIFT } from "../../keybindings/keyCodes.js";
 import type { VNode } from "../../widgets/types.js";
 import { ui } from "../../widgets/ui.js";
 
-export type TopLevelViewError = Readonly<{
-  code: "ZRUI_USER_CODE_THROW";
-  detail: string;
-  message: string;
-  stack?: string;
-}>;
+export interface TopLevelViewError {
+  readonly code: "ZRUI_USER_CODE_THROW";
+  readonly detail: string;
+  readonly message: string;
+  readonly stack?: string;
+}
 
 const KEY_Q = 81;
 const KEY_R = 82;
@@ -98,5 +98,5 @@ export function isUnhandledCtrlCKeyEvent(ev: ZrevEvent): boolean {
   if (ev.key !== KEY_C) return false;
   const hasCtrl = (ev.mods & ZR_MOD_CTRL) !== 0;
   if (!hasCtrl) return false;
-  return (ev.mods & (ZR_MOD_ALT | ZR_MOD_META)) === 0;
+  return (ev.mods & (ZR_MOD_SHIFT | ZR_MOD_ALT | ZR_MOD_META)) === 0;
 }
