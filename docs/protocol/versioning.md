@@ -17,12 +17,12 @@ Pinned to match Zireael:
 
 ## Drawlist (ZRDL)
 
-Pinned drawlist version:
+Exported drawlist version pin:
 
 - `ZR_DRAWLIST_VERSION_V1 = 1`
-- `ZR_DRAWLIST_VERSION_V2 = 2`
 
-Rezi currently emits ZRDL v1, and the engine accepts v1/v2.
+Rezi currently emits ZRDL v1. The engine accepts v1/v2, with `ZR_DRAWLIST_VERSION_V2 = 2`
+defined in Zireael's public headers.
 ZRDL v2 adds opcode `14` (`BLIT_RECT`).
 Style link reference fields (`linkUriRef`, `linkIdRef`) are stable across v1/v2:
 `0` means unset and positive values are 1-based string resource IDs.

@@ -41,8 +41,13 @@ Development hot reload:
 Execution mode details:
 
 - `auto` (default): select inline for low-fps workloads (`fpsCap <= 30`), worker otherwise.
-- `worker`: force worker-thread engine execution.
+- `worker`: force worker-thread engine execution. With the real native addon this
+  requires an interactive TTY; test harnesses can provide `nativeShimModule`
+  instead.
 - `inline`: run the engine inline on the main JS thread.
+
+For headless snapshots and unit tests, prefer `createTestRenderer()` /
+`@rezi-ui/testkit` over the real native backend.
 
 `NO_COLOR` support:
 

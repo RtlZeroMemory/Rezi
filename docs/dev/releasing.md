@@ -6,7 +6,6 @@ Releases cover:
 
 - npm package publishing
 - GitHub Releases (notes + artifacts)
-- documentation deployment
 
 The native addon release includes prebuilt `.node` binaries for the supported platform matrix and packaging into `@rezi-ui/native`.
 
@@ -18,6 +17,13 @@ Rezi publishes:
 - `@rezi-ui/node`
 - `@rezi-ui/native`
 - `@rezi-ui/testkit`
+- `@rezi-ui/jsx`
+- `@rezi-ui/ink-compat`
+- `ink-gradient-shim`
+- `ink-spinner-shim`
+- `@rezi-ui/ink-gradient-shim`
+- `@rezi-ui/ink-spinner-shim`
+- `create-rezi`
 
 The repo uses a single version across these publishable packages.
 
@@ -65,6 +71,9 @@ node scripts/release-set-version.mjs 0.1.0-alpha.16
    - native prebuild matrix passes
    - npm publish steps pass
    - GitHub Release notes and assets are generated
+
+Documentation deployment is handled separately by the docs workflow on pushes to
+`main`, not by the npm release workflow.
 
 ## Publishing requirements
 
