@@ -353,7 +353,7 @@ describe("focus layers - ESC and layer stack routing", () => {
     assert.equal(closedLayer, "modal-b");
   });
 
-  test("ESC skips top layer when closeOnEscape is false", () => {
+  test("ESC is owned by the top layer when closeOnEscape is false", () => {
     let closedLayer: string | null = null;
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
       layerStack: ["modal-a", "modal-b"],
@@ -372,11 +372,11 @@ describe("focus layers - ESC and layer stack routing", () => {
     });
 
     assert.equal(result.consumed, true);
-    assert.equal(result.closedLayerId, "modal-a");
-    assert.equal(closedLayer, "modal-a");
+    assert.equal(result.closedLayerId, undefined);
+    assert.equal(closedLayer, null);
   });
 
-  test("ESC skips closable layers without callbacks", () => {
+  test("ESC is consumed by the top layer when it has no close callback", () => {
     let closedLayer: string | null = null;
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
       layerStack: ["base", "middle", "top"],
@@ -396,11 +396,11 @@ describe("focus layers - ESC and layer stack routing", () => {
     });
 
     assert.equal(result.consumed, true);
-    assert.equal(result.closedLayerId, "middle");
-    assert.equal(closedLayer, "middle");
+    assert.equal(result.closedLayerId, undefined);
+    assert.equal(closedLayer, null);
   });
 
-  test("ESC is not consumed when all layers are non-closable or missing callbacks", () => {
+  test("ESC is consumed by the top layer even when lower layers could close", () => {
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
       layerStack: ["a", "b", "c"],
       closeOnEscape: new Map([
@@ -411,7 +411,7 @@ describe("focus layers - ESC and layer stack routing", () => {
       onClose: new Map(),
     });
 
-    assert.equal(result.consumed, false);
+    assert.equal(result.consumed, true);
     assert.equal(result.closedLayerId, undefined);
   });
 
@@ -447,7 +447,8 @@ describe("focus layers - ESC and layer stack routing", () => {
     });
 
     assert.equal(result.consumed, true);
-    assert.equal(result.closedLayerId, "modal");
+    assert.equal(result.closedLayerId, undefined);
+    assert.ok(result.callbackError instanceof Error);
   });
 
   test("popLayer removes a middle layer deterministically", () => {

@@ -51,24 +51,23 @@ ui.row({ gap: 1, width: "full", height: "full" }, [
 ])
 ```
 
-Templates:
-- `packages/create-rezi/templates/starship/src/screens/shell.ts`
-
----
-
 ## 2) Equal-width “key/value” rows (label equalization)
 
-Use `max_sibling(#id.min_w)` through `groupConstraints.maxSiblingMinWidth(...)` to align labels.
+Use `max_sibling(#id.min_w)` through `groupConstraints.maxSiblingMinWidth(...)` to align labels that share an id under the same parent container.
 
 ```ts
 const rows = entries.map((e) =>
   ui.row({ key: e.key, gap: 2, wrap: true }, [
-    ui.text(e.key, {
-      id: "kv-key",
-      width: groupConstraints.maxSiblingMinWidth("kv-key"),
-      dim: true,
-    }),
-    ui.text(e.value, { flex: 1 }),
+    ui.box(
+      {
+        id: "kv-key",
+        width: groupConstraints.maxSiblingMinWidth("kv-key"),
+        border: "none",
+        p: 0,
+      },
+      [ui.text(e.key, { dim: true })],
+    ),
+    ui.box({ flex: 1, border: "none", p: 0 }, [ui.text(e.value)]),
   ]),
 )
 ```
@@ -151,4 +150,3 @@ Good (anchor one side to parent/viewport/intrinsic):
 ui.box({ id: "a", width: widthConstraints.clampedPercentOfParent({ ratio: 0.33, min: 10, max: 40 }) })
 ui.box({ id: "b", width: expr("#a.w * 2") })
 ```
-

@@ -37,7 +37,7 @@ Need to set a size?
 
 ## Visibility rule of thumb
 
-- Layout/viewport visibility → `display: ...` constraint
+- Layout/viewport visibility on supported layout widgets → `display: ...` constraint
 - Business logic visibility → `show(...)` / `when(...)` / `maybe(...)` / `match(...)`
 
 ---
@@ -48,4 +48,3 @@ Need to set a size?
 - `docs/reference/constraints-api.md`
 - `docs/reference/constraint-expressions.md`
 - `docs/guide/constraint-recipes.md`
-

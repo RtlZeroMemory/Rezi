@@ -1,5 +1,5 @@
 import { assert, test } from "@rezi-ui/testkit";
-import type { VNode } from "../../index.js";
+import { type VNode, ui } from "../../index.js";
 import type { FilePickerProps } from "../../widgets/types.js";
 import { commitVNodeTree } from "../commit.js";
 import { createInstanceIdAllocator } from "../instance.js";
@@ -38,6 +38,14 @@ function link(id?: string): VNode {
   return { kind: "link", props };
 }
 
+function focusZone(id: string): VNode {
+  return ui.focusZone({ id }, []);
+}
+
+function focusTrap(id: string): VNode {
+  return ui.focusTrap({ id, active: true }, []);
+}
+
 test("duplicate Button ids anywhere in the tree trigger deterministic fatal ZRUI_DUPLICATE_ID (#66)", () => {
   const allocator = createInstanceIdAllocator(1);
 
@@ -67,6 +75,22 @@ test("duplicate advanced widget ids trigger deterministic fatal ZRUI_DUPLICATE_I
   assert.equal(
     res.fatal.detail,
     'Duplicate interactive widget id "dup". First: <filePicker>, second: <filePicker>. Hint: Use ctx.id() inside defineWidget to generate unique IDs for list items.',
+  );
+});
+
+test("duplicate focus container ids trigger deterministic fatal ZRUI_DUPLICATE_ID", () => {
+  const allocator = createInstanceIdAllocator(1);
+
+  const tree = column([focusZone("dup"), box([focusTrap("dup")])]);
+  const res = commitVNodeTree(null, tree, { allocator });
+
+  assert.equal(res.ok, false);
+  if (res.ok) return;
+
+  assert.equal(res.fatal.code, "ZRUI_DUPLICATE_ID");
+  assert.equal(
+    res.fatal.detail,
+    'Duplicate focus container id "dup". First: <focusZone>, second: <focusTrap>. Hint: focusZone, focusTrap, and modal ids must be unique across the tree.',
   );
 });
 

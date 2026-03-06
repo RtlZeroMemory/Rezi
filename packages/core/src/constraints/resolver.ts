@@ -492,8 +492,14 @@ export function resolveConstraints(
     return 0;
   };
 
-  const resolveAggregation = (name: AggregationName, id: string, prop: RefProp): number => {
-    const instances = graph.idToInstances.get(id) ?? [];
+  const resolveAggregation = (
+    node: Readonly<{ parentInstanceId: InstanceId | null }>,
+    name: AggregationName,
+    id: string,
+    prop: RefProp,
+  ): number => {
+    const instances =
+      graph.siblingIdToInstancesByParentId.get(node.parentInstanceId)?.get(id) ?? [];
     if (instances.length === 0) return 0;
 
     if (name === "max_sibling") {
@@ -529,7 +535,7 @@ export function resolveConstraints(
         const target = instances[0];
         return target === undefined ? 0 : readMetric(target, prop);
       },
-      resolveAggregation,
+      resolveAggregation: (name, id, prop) => resolveAggregation(node, name, id, prop),
     });
 
     const current = resolvedByInstance.get(node.instanceId) ?? {};

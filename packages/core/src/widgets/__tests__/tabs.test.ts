@@ -159,7 +159,7 @@ describe("tabs vnode construction", () => {
 
   test("ui.tabs returns a composite wrapper vnode", () => {
     const vnode = ui.tabs(props);
-    assert.equal(vnode.kind, "column");
+    assert.equal(vnode.kind, "fragment");
   });
 });
 

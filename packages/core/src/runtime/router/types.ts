@@ -127,6 +127,8 @@ export type LayerRoutingResult = Readonly<{
   closedLayerId?: string;
   /** Whether the event was consumed. */
   consumed: boolean;
+  /** Error thrown by the close callback, if any. */
+  callbackError?: unknown;
 }>;
 
 /** Dropdown routing context. */

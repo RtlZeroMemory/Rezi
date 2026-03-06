@@ -14,7 +14,7 @@ See also:
 - Source: `packages/create-rezi/templates/starship/src/`
 - Highlights:
   - viewport-driven `display` constraints for rails/strips
-  - conditional sizing via `conditionalConstraints.ifThenElse(...)`
+  - helper-first visibility constraints inside a larger app-shell layout
 
 Run:
 
