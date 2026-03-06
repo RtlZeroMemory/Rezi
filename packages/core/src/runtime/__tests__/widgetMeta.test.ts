@@ -380,10 +380,9 @@ test("widgetMeta: reusable collector publishes stable snapshots across collects"
         ui.button({ id: "first-btn", label: "First" }),
         ui.input({ id: "first-input", value: "hello" }),
         ui.focusZone({ id: "zone-a" }, [ui.button({ id: "zone-btn", label: "Zone" })]),
-        ui.focusTrap(
-          { id: "trap-a", active: true },
-          [ui.button({ id: "trap-btn", label: "Trap" })],
-        ),
+        ui.focusTrap({ id: "trap-a", active: true }, [
+          ui.button({ id: "trap-btn", label: "Trap" }),
+        ]),
       ]),
     ),
   );
@@ -398,12 +397,15 @@ test("widgetMeta: reusable collector publishes stable snapshots across collects"
   );
 
   assert.deepEqual(first.focusableIds, ["first-btn", "first-input", "zone-btn", "trap-btn"]);
-  assert.deepEqual([...first.enabledById.entries()], [
-    ["first-btn", true],
-    ["first-input", true],
-    ["zone-btn", true],
-    ["trap-btn", true],
-  ]);
+  assert.deepEqual(
+    [...first.enabledById.entries()],
+    [
+      ["first-btn", true],
+      ["first-input", true],
+      ["zone-btn", true],
+      ["trap-btn", true],
+    ],
+  );
   assert.equal(first.pressableIds.has("first-btn"), true);
   assert.equal(first.pressableIds.has("second-btn"), false);
   assert.equal(first.inputById.get("first-input")?.value, "hello");
@@ -413,6 +415,22 @@ test("widgetMeta: reusable collector publishes stable snapshots across collects"
   assert.deepEqual(second.focusableIds, ["second-btn", "zone-b-btn"]);
   assert.equal(second.pressableIds.has("second-btn"), true);
   assert.equal(second.zones.has("zone-b"), true);
+});
+
+test("widgetMeta: pooled collector does not attribute trap focusables to outer zones", () => {
+  const committed = commitTree(
+    ui.focusZone({ id: "outer-zone" }, [
+      ui.button({ id: "outer-btn", label: "Outer" }),
+      ui.focusTrap({ id: "inner-trap", active: true }, [
+        ui.button({ id: "inner-btn", label: "Inner" }),
+      ]),
+    ]),
+  );
+
+  const metadata = collectAllWidgetMetadata(committed);
+
+  assert.deepEqual(metadata.zones.get("outer-zone")?.focusableIds, ["outer-btn"]);
+  assert.deepEqual(metadata.traps.get("inner-trap")?.focusableIds, ["inner-btn"]);
 });
 
 test("widgetMeta: duplicate focus container ids throw deterministic ZrUiError", () => {

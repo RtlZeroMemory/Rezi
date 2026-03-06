@@ -814,6 +814,7 @@ describe("Layer ESC Routing", () => {
     });
 
     assert.equal(result.closedLayerId, undefined);
+    assert.equal(result.consumed, true);
     assert.equal(closedLayer, null);
   });
 

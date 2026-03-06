@@ -1680,10 +1680,7 @@ function executeCompositeRender(
           ok: false,
           fatal: {
             code: "ZRUI_USER_CODE_THROW",
-            detail:
-              evalRes.threw instanceof Error
-                ? `${evalRes.threw.name}: ${evalRes.threw.message}`
-                : String(evalRes.threw),
+            detail: describeThrown(evalRes.threw),
           },
         };
       }
@@ -1956,7 +1953,11 @@ function commitNode(
 
     const idFatal = ensureInteractiveId(ctx.seenInteractiveIds, instanceId, vnode);
     if (idFatal) return { ok: false, fatal: idFatal };
-    const focusContainerFatal = ensureFocusContainerId(ctx.seenFocusContainerIds, instanceId, vnode);
+    const focusContainerFatal = ensureFocusContainerId(
+      ctx.seenFocusContainerIds,
+      instanceId,
+      vnode,
+    );
     if (focusContainerFatal) return { ok: false, fatal: focusContainerFatal };
 
     if (ctx.collectLifecycleInstanceIds) {

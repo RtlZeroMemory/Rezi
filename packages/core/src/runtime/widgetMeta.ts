@@ -862,6 +862,7 @@ export class WidgetMetadataCollector {
         for (let i = this._containerStack.length - 1; i >= 0; i--) {
           const container = this._containerStack[i];
           if (!container) continue;
+          if (container.kind === "trap") break;
           if (container.kind === "zone") {
             this._zoneFocusables.get(container.id)?.push(focusableId);
             break;

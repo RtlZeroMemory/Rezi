@@ -42,6 +42,14 @@ test("virtual list state store clones measuredHeights inputs", () => {
   assert.notEqual(state.measuredHeights, measuredHeights);
   assert.equal(state.measuredHeights?.has(1), false);
   assert.equal(store.get("list").measuredHeights?.has(1), false);
+  assert.throws(() =>
+    (
+      state.measuredHeights as unknown as {
+        set: (key: number, value: number) => void;
+      }
+    ).set(2, 7),
+  );
+  assert.equal(store.get("list").measuredHeights?.has(2), false);
 });
 
 test("tree state store clones loading and expanded set inputs", () => {
@@ -63,4 +71,20 @@ test("tree state store clones loading and expanded set inputs", () => {
   assert.equal(state.expandedSet?.has("child"), false);
   assert.equal(store.get("tree").loadingKeys.has("loading-b"), false);
   assert.equal(store.get("tree").expandedSet?.has("child"), false);
+  assert.throws(() =>
+    (
+      state.loadingKeys as unknown as {
+        add: (value: string) => void;
+      }
+    ).add("loading-c"),
+  );
+  assert.throws(() =>
+    (
+      state.expandedSet as unknown as {
+        add: (value: string) => void;
+      }
+    ).add("grandchild"),
+  );
+  assert.equal(store.get("tree").loadingKeys.has("loading-c"), false);
+  assert.equal(store.get("tree").expandedSet?.has("grandchild"), false);
 });

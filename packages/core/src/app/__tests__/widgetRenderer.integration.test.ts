@@ -825,6 +825,42 @@ describe("WidgetRenderer integration battery", () => {
     assert.equal(renderer.getFocusedId(), "b");
   });
 
+  test("focusZone error reporting swallows onUserCodeError sink failures", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+      onUserCodeError: () => {
+        throw new Error("sink-fail");
+      },
+    });
+
+    const vnode = ui.column({}, [
+      ui.focusZone(
+        {
+          id: "zone-1",
+          onEnter: () => {
+            throw new Error("boom");
+          },
+        },
+        [ui.button({ id: "a", label: "A" })],
+      ),
+      ui.focusZone({ id: "zone-2" }, [ui.button({ id: "b", label: "B" })]),
+    ]);
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 40, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    assert.doesNotThrow(() => renderer.routeEngineEvent(keyEvent(3 /* TAB */)));
+    assert.equal(renderer.getFocusedId(), "a");
+  });
+
   test("focusZone callbacks use final state after toast focus reconciliation", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({

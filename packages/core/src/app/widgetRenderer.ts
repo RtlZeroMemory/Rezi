@@ -1806,6 +1806,20 @@ export class WidgetRenderer<S> {
     }
   }
 
+  private reportFocusZoneCallbackError(phase: "onEnter" | "onExit", error: unknown): void {
+    const detail = `focusZone ${phase} threw: ${describeThrown(error)}`;
+    try {
+      this.reportUserCodeError(detail);
+    } catch (sinkError: unknown) {
+      const c = (globalThis as { console?: { error?: (message: string) => void } }).console;
+      c?.error?.(
+        `[rezi][runtime] onUserCodeError sink threw while reporting focusZone ${phase}: ${describeThrown(
+          sinkError,
+        )}; original=${detail}`,
+      );
+    }
+  }
+
   private invokeBlurCallbackSafely(callback: (() => void) | undefined): void {
     if (typeof callback !== "function") return;
     try {
@@ -2387,7 +2401,7 @@ export class WidgetRenderer<S> {
         try {
           prev.onExit();
         } catch (error: unknown) {
-          this.reportUserCodeError(`focusZone onExit threw: ${describeThrown(error)}`);
+          this.reportFocusZoneCallbackError("onExit", error);
         }
       }
     }
@@ -2398,7 +2412,7 @@ export class WidgetRenderer<S> {
         try {
           next.onEnter();
         } catch (error: unknown) {
-          this.reportUserCodeError(`focusZone onEnter threw: ${describeThrown(error)}`);
+          this.reportFocusZoneCallbackError("onEnter", error);
         }
       }
     }

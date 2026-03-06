@@ -88,12 +88,120 @@ function freezeState(s: RuntimeLocalState): RuntimeLocalState {
   });
 }
 
+class ReadonlyMapSnapshot<K, V> implements ReadonlyMap<K, V> {
+  private readonly map: Map<K, V>;
+
+  constructor(value: ReadonlyMap<K, V>) {
+    this.map = new Map(value);
+  }
+
+  get size(): number {
+    return this.map.size;
+  }
+
+  get(key: K): V | undefined {
+    return this.map.get(key);
+  }
+
+  has(key: K): boolean {
+    return this.map.has(key);
+  }
+
+  forEach(callbackfn: (value: V, key: K, map: ReadonlyMap<K, V>) => void, thisArg?: unknown): void {
+    this.map.forEach((value, key) => callbackfn.call(thisArg, value, key, this));
+  }
+
+  entries(): MapIterator<[K, V]> {
+    return this.map.entries();
+  }
+
+  keys(): MapIterator<K> {
+    return this.map.keys();
+  }
+
+  values(): MapIterator<V> {
+    return this.map.values();
+  }
+
+  [Symbol.iterator](): MapIterator<[K, V]> {
+    return this.map[Symbol.iterator]();
+  }
+
+  get [Symbol.toStringTag](): string {
+    return "Map";
+  }
+
+  set(): never {
+    throw new TypeError("Cannot mutate readonly map snapshot");
+  }
+
+  delete(): never {
+    throw new TypeError("Cannot mutate readonly map snapshot");
+  }
+
+  clear(): never {
+    throw new TypeError("Cannot mutate readonly map snapshot");
+  }
+}
+
+class ReadonlySetSnapshot<T> implements ReadonlySet<T> {
+  private readonly set: Set<T>;
+
+  constructor(value: ReadonlySet<T>) {
+    this.set = new Set(value);
+  }
+
+  get size(): number {
+    return this.set.size;
+  }
+
+  has(value: T): boolean {
+    return this.set.has(value);
+  }
+
+  forEach(callbackfn: (value: T, value2: T, set: ReadonlySet<T>) => void, thisArg?: unknown): void {
+    this.set.forEach((value) => callbackfn.call(thisArg, value, value, this));
+  }
+
+  entries(): SetIterator<[T, T]> {
+    return this.set.entries();
+  }
+
+  keys(): SetIterator<T> {
+    return this.set.keys();
+  }
+
+  values(): SetIterator<T> {
+    return this.set.values();
+  }
+
+  [Symbol.iterator](): SetIterator<T> {
+    return this.set[Symbol.iterator]();
+  }
+
+  get [Symbol.toStringTag](): string {
+    return "Set";
+  }
+
+  add(): never {
+    throw new TypeError("Cannot mutate readonly set snapshot");
+  }
+
+  delete(): never {
+    throw new TypeError("Cannot mutate readonly set snapshot");
+  }
+
+  clear(): never {
+    throw new TypeError("Cannot mutate readonly set snapshot");
+  }
+}
+
 function cloneReadonlyMap<K, V>(value: ReadonlyMap<K, V>): ReadonlyMap<K, V> {
-  return new Map(value);
+  return Object.freeze(new ReadonlyMapSnapshot(value));
 }
 
 function cloneReadonlySet<T>(value: ReadonlySet<T>): ReadonlySet<T> {
-  return new Set(value);
+  return Object.freeze(new ReadonlySetSnapshot(value));
 }
 
 /** Create a new local state store instance. */
@@ -319,7 +427,7 @@ export type TreeFlatCache = Readonly<{
 
 const DEFAULT_TREE_STATE: TreeLocalState = Object.freeze({
   focusedKey: null,
-  loadingKeys: Object.freeze(new Set<string>()),
+  loadingKeys: cloneReadonlySet(new Set<string>()),
   scrollTop: 0,
   viewportHeight: 0,
   flatCache: null,
@@ -387,7 +495,7 @@ export function createTreeStateStore(): TreeStateStore {
       newLoading.add(nodeKey);
       const next: TreeLocalState = Object.freeze({
         ...prev,
-        loadingKeys: Object.freeze(newLoading) as ReadonlySet<string>,
+        loadingKeys: cloneReadonlySet(newLoading),
       });
       table.set(id, next);
       return next;
@@ -401,7 +509,7 @@ export function createTreeStateStore(): TreeStateStore {
       newLoading.delete(nodeKey);
       const next: TreeLocalState = Object.freeze({
         ...prev,
-        loadingKeys: Object.freeze(newLoading) as ReadonlySet<string>,
+        loadingKeys: cloneReadonlySet(newLoading),
       });
       table.set(id, next);
       return next;

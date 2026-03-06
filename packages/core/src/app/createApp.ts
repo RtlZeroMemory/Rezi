@@ -690,7 +690,10 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     getFocusInfo: () => widgetRenderer.getCurrentFocusInfo(),
     initialFocusedId: widgetRenderer.getFocusedId(),
     onHandlerError: (error: unknown) => {
-      fatalNowOrEnqueue("ZRUI_USER_CODE_THROW", `onFocusChange handler threw: ${describeThrown(error)}`);
+      fatalNowOrEnqueue(
+        "ZRUI_USER_CODE_THROW",
+        `onFocusChange handler threw: ${describeThrown(error)}`,
+      );
     },
   });
 
@@ -1014,11 +1017,15 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     }
   }
 
-  function releaseOnce(batch: BackendEventBatch): () => void {
+  function releaseOnce(
+    batch: BackendEventBatch,
+    releasedBatches: Set<BackendEventBatch>,
+  ): () => void {
     let released = false;
     return () => {
       if (released) return;
       released = true;
+      releasedBatches.add(batch);
       try {
         batch.release();
       } catch {
@@ -1027,8 +1034,11 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     };
   }
 
-  function processEventBatch(batch: BackendEventBatch): void {
-    const release = releaseOnce(batch);
+  function processEventBatch(
+    batch: BackendEventBatch,
+    releasedBatches: Set<BackendEventBatch>,
+  ): void {
+    const release = releaseOnce(batch, releasedBatches);
 
     const parseToken = perfMarkStart("event_parse");
     const parsed = parseEventBatchV1(batch.bytes, {
@@ -1488,9 +1498,10 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     }
   }
 
-  function drainIgnored(items: readonly WorkItem[]): void {
+  function drainIgnored(items: readonly WorkItem[], releasedBatches: Set<BackendEventBatch>): void {
     for (const it of items) {
-      if (it.kind === "eventBatch") {
+      if (it.kind === "eventBatch" && !releasedBatches.has(it.batch)) {
+        releasedBatches.add(it.batch);
         try {
           it.batch.release();
         } catch {
@@ -1502,27 +1513,29 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
   function processTurn(items: readonly WorkItem[]): void {
     renderRequestQueuedForCurrentTurn = false;
+    const releasedBatches = new Set<BackendEventBatch>();
     const st = sm.state;
     if (st === "Disposed" || st === "Faulted") {
-      drainIgnored(items);
+      drainIgnored(items, releasedBatches);
       return;
     }
 
     let sawKick = false;
     for (const item of items) {
       if (sm.state === "Faulted" || sm.state === "Disposed") {
-        drainIgnored(items);
+        drainIgnored(items, releasedBatches);
         return;
       }
 
       switch (item.kind) {
         case "fatal": {
           doFatal(item.code, item.detail);
-          drainIgnored(items);
+          drainIgnored(items, releasedBatches);
           return;
         }
         case "eventBatch": {
           if (sm.state !== "Running") {
+            releasedBatches.add(item.batch);
             try {
               item.batch.release();
             } catch {
@@ -1530,9 +1543,9 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
             }
             break;
           }
-          processEventBatch(item.batch);
+          processEventBatch(item.batch, releasedBatches);
           if (sm.state !== "Running") {
-            drainIgnored(items);
+            drainIgnored(items, releasedBatches);
             return;
           }
           commitUpdates();
