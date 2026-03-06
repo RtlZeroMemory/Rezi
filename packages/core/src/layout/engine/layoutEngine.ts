@@ -55,9 +55,11 @@ type LayoutCacheEntry = Readonly<{
 }>;
 type LayoutCache = WeakMap<VNode, LayoutCacheEntry>;
 
-type ThemedVNode = VNode & Readonly<{ kind: "themed"; children: readonly VNode[] }>;
+type TransparentVNode =
+  | (VNode & Readonly<{ kind: "fragment"; children: readonly VNode[] }>)
+  | (VNode & Readonly<{ kind: "themed"; children: readonly VNode[] }>);
 
-type SyntheticThemedColumnCacheEntry = Readonly<{
+type SyntheticTransparentColumnCacheEntry = Readonly<{
   childrenRef: readonly VNode[];
   columnNode: VNode;
 }>;
@@ -85,7 +87,7 @@ let activeMeasureCache: MeasureCache | null = null;
 const measureCacheStack: MeasureCache[] = [];
 let activeLayoutCache: LayoutCache | null = null;
 const layoutCacheStack: LayoutCache[] = [];
-const syntheticThemedColumnCache = new WeakMap<VNode, SyntheticThemedColumnCacheEntry>();
+const syntheticTransparentColumnCache = new WeakMap<VNode, SyntheticTransparentColumnCacheEntry>();
 const NULL_FORCED_DIMENSION = -1;
 const LEGACY_SIZE_PROP_NAMES: readonly string[] = Object.freeze([
   "width",
@@ -385,11 +387,14 @@ function setLayoutCacheValue(
   byY.set(y, value);
 }
 
-function getSyntheticThemedColumn(vnode: ThemedVNode): VNode {
-  const hit = syntheticThemedColumnCache.get(vnode);
+function getSyntheticTransparentColumn(vnode: TransparentVNode): VNode {
+  const hit = syntheticTransparentColumnCache.get(vnode);
   if (hit && hit.childrenRef === vnode.children) return hit.columnNode;
   const columnNode: VNode = { kind: "column", props: { gap: 0 }, children: vnode.children };
-  syntheticThemedColumnCache.set(vnode, Object.freeze({ childrenRef: vnode.children, columnNode }));
+  syntheticTransparentColumnCache.set(
+    vnode,
+    Object.freeze({ childrenRef: vnode.children, columnNode }),
+  );
   return columnNode;
 }
 
@@ -537,20 +542,21 @@ function measureNode(vnode: VNode, maxW: number, maxH: number, axis: Axis): Layo
       computed = measureStackKinds(vnode, maxW, maxH, axis, measureNode);
       break;
     }
+    case "fragment":
     case "themed": {
-      const themedVNode = vnode as ThemedVNode;
-      if (themedVNode.children.length === 0) {
+      const transparentVNode = vnode as TransparentVNode;
+      if (transparentVNode.children.length === 0) {
         computed = { ok: true, value: { w: 0, h: 0 } };
         break;
       }
-      if (themedVNode.children.length === 1) {
-        const child = themedVNode.children[0];
+      if (transparentVNode.children.length === 1) {
+        const child = transparentVNode.children[0];
         computed = child
           ? measureNode(child, maxW, maxH, axis)
           : { ok: true, value: { w: 0, h: 0 } };
         break;
       }
-      const syntheticColumn = getSyntheticThemedColumn(themedVNode);
+      const syntheticColumn = getSyntheticTransparentColumn(transparentVNode);
       computed = measureNode(syntheticColumn, maxW, maxH, "column");
       break;
     }
@@ -797,9 +803,10 @@ function layoutNode(
       computed = layoutStackKinds(vnode, x, y, rectW, rectH, axis, measureNode, layoutNode);
       break;
     }
+    case "fragment":
     case "themed": {
-      const themedVNode = vnode as ThemedVNode;
-      if (themedVNode.children.length === 0) {
+      const transparentVNode = vnode as TransparentVNode;
+      if (transparentVNode.children.length === 0) {
         computed = {
           ok: true,
           value: {
@@ -810,9 +817,9 @@ function layoutNode(
         };
         break;
       }
-      if (themedVNode.children.length === 1) {
+      if (transparentVNode.children.length === 1) {
         const children: LayoutTree[] = [];
-        const child = themedVNode.children[0];
+        const child = transparentVNode.children[0];
         if (child) {
           const childRes = layoutNode(child, x, y, rectW, rectH, axis, rectW, rectH);
           if (!childRes.ok) {
@@ -831,7 +838,7 @@ function layoutNode(
         };
         break;
       }
-      const syntheticColumn = getSyntheticThemedColumn(themedVNode);
+      const syntheticColumn = getSyntheticTransparentColumn(transparentVNode);
       const innerRes = layoutNode(syntheticColumn, x, y, rectW, rectH, "column", rectW, rectH);
       if (!innerRes.ok) {
         computed = innerRes;

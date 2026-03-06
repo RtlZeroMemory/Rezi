@@ -72,6 +72,7 @@ function isPassThroughLayer(node: RuntimeInstance): boolean {
 function isTransparentOverflowWrapper(node: RuntimeInstance): boolean {
   const kind = node.vnode.kind;
   return (
+    kind === "fragment" ||
     kind === "themed" ||
     kind === "focusZone" ||
     kind === "focusTrap" ||

@@ -165,6 +165,7 @@ export const WIDGET_PROTOCOL: Readonly<Partial<Record<string, WidgetProtocol>>> 
 
   // --- Containers ---
   box: CONTAINER,
+  fragment: CONTAINER,
   row: CONTAINER,
   column: CONTAINER,
   themed: CONTAINER,
