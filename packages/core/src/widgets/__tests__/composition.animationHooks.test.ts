@@ -575,6 +575,36 @@ describe("composition animation hooks - useStagger", () => {
     assert.equal(h.unmount(), true);
   });
 
+  test("same-length item replacement restarts stagger progress", async () => {
+    const h = createHarness();
+    const config = { delay: 25, duration: 70, easing: "linear" as const };
+
+    let items: readonly string[] = ["a", "b"];
+    let render = h.render((hooks) => useStagger(hooks, items, config));
+    h.runPending(render.pendingEffects);
+
+    await waitFor(() => {
+      const next = h.render((hooks) => useStagger(hooks, items, config));
+      h.runPending(next.pendingEffects);
+      return next.result.every((value) => Math.abs(value - 1) <= 0.01);
+    });
+
+    items = ["x", "y"];
+    render = h.render((hooks) => useStagger(hooks, items, config));
+    h.runPending(render.pendingEffects);
+
+    let restarted: readonly number[] = [];
+    await waitFor(() => {
+      const next = h.render((hooks) => useStagger(hooks, items, config));
+      restarted = next.result;
+      h.runPending(next.pendingEffects);
+      return (restarted[0] ?? 0) > (restarted[1] ?? 0) && (restarted[1] ?? 1) < 1;
+    });
+
+    assert.equal(restarted.length, 2);
+    assert.equal(h.unmount(), true);
+  });
+
   test("zero duration eventually completes all items", async () => {
     const h = createHarness();
     const items = ["x", "y", "z"];

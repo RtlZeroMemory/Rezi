@@ -181,7 +181,7 @@ describe("router helper wrappers", () => {
     const breadcrumbVNode = routerBreadcrumb(router, routes);
     const tabsVNode = routerTabs(router, routes);
 
-    assert.equal(breadcrumbVNode.kind, "column");
-    assert.equal(tabsVNode.kind, "column");
+    assert.equal(breadcrumbVNode.kind, "fragment");
+    assert.equal(tabsVNode.kind, "fragment");
   });
 });

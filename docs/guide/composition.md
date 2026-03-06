@@ -37,11 +37,13 @@ Composite widgets receive a `WidgetContext` with:
 - `useMemo` and `useCallback` for memoization with React-compatible dependency semantics
 - `useAppState` to select a slice of app state
 - `useTheme` to read semantic design tokens (`ColorTokens | null`)
+- `useViewport` to read the current responsive viewport snapshot
 - `id()` to create scoped IDs for focusable widgets
 - `invalidate()` to request a re-render
 
 Behavior details:
 
+- `defineWidget(...)` uses a layout-transparent fragment wrapper by default, so returning `ui.row(...)` or `ui.column(...)` preserves the child layout contract. Pass `{ wrapper: "row" }` or `{ wrapper: "column" }` only when you intentionally need an extra container node.
 - `useEffect` cleanup runs before an effect re-fires, and unmount cleanups run in reverse declaration order.
 - `useMemo` and `useCallback` compare dependencies with `Object.is` (including `NaN` equality and `+0/-0` distinction).
 - `useAppState` uses selector snapshots and `Object.is` equality; widgets only re-render when selected values change.
@@ -84,6 +86,9 @@ Rezi ships a small utility-hook layer for common composition patterns:
   - `useSpring(ctx, target, config?)` animates toward a target with spring physics.
   - `useSequence(ctx, keyframes, config?)` runs keyframe timelines (optional loop).
   - `useStagger(ctx, items, config?)` returns per-item eased progress for staggered entrances.
+  - `useAnimatedValue(ctx, target, config?)` exposes `{ value, velocity, isAnimating }` for transition/spring motion.
+  - `useParallel(ctx, animations)` runs multiple transitions concurrently.
+  - `useChain(ctx, steps)` runs transitions step-by-step.
 - `useDebounce(ctx, value, delayMs)` returns a debounced value.
 - `useAsync(ctx, task, deps)` runs async tasks with loading/error state and stale-result protection.
 - `usePrevious(ctx, value)` returns the previous render value.

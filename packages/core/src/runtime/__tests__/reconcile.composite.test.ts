@@ -7,6 +7,7 @@ import {
 import { StubBackend } from "../../app/__tests__/stubBackend.js";
 import { createApp } from "../../app/createApp.js";
 import { type VNode, defineWidget, ui } from "../../index.js";
+import { layout } from "../../layout/layout.js";
 import { type RuntimeInstance, commitVNodeTree } from "../commit.js";
 import { createInstanceIdAllocator } from "../instance.js";
 import {
@@ -95,6 +96,36 @@ function deleteUnmounted(
 }
 
 describe("reconciliation - defineWidget/composite", () => {
+  test("default composite wrapper is layout-transparent", () => {
+    const harness = createHarness();
+    const InlineActions = defineWidget<{ key?: string }>(() =>
+      ui.row({ gap: 1 }, [ui.button({ id: "a", label: "A" }), ui.button({ id: "b", label: "B" })]),
+    );
+
+    const committed = commitComposite(
+      null,
+      widgetHost([InlineActions({ key: "inline" })]),
+      harness,
+    );
+    const laidOut = layout(committed.root.vnode, 0, 0, 20, 5, "column");
+    if (!laidOut.ok) {
+      assert.fail(`layout failed: ${laidOut.fatal.code}: ${laidOut.fatal.detail}`);
+      return;
+    }
+
+    const wrapper = laidOut.value.children[0];
+    const row = wrapper?.children[0];
+    const first = row?.children[0];
+    const second = row?.children[1];
+
+    assert.equal(wrapper?.vnode.kind, "fragment");
+    assert.equal(row?.vnode.kind, "row");
+    assert.ok(first && second);
+    if (!first || !second) return;
+    assert.equal(first.rect.y, second.rect.y);
+    assert.equal(second.rect.x > first.rect.x, true);
+  });
+
   test("same widget + different props reuses widget instance", () => {
     const harness = createHarness();
     const Banner = defineWidget<{ label: string; key?: string }>((props) =>

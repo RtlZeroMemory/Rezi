@@ -77,6 +77,12 @@ describe("Composition API - defineWidget", () => {
     assert.equal(meta.key, "my-key");
   });
 
+  test("default wrapper is layout-transparent", () => {
+    const Widget = defineWidget<{ key?: string }>(() => ui.text("transparent"));
+    const vnode = Widget({});
+    assert.equal(vnode.kind, "fragment");
+  });
+
   test("wrapper option controls composite container kind", () => {
     const InlineRow = defineWidget<{ key?: string }>(() => ui.text("inline"), { wrapper: "row" });
     const vnode = InlineRow({});

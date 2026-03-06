@@ -546,6 +546,8 @@ function canFastReuseContainerSelf(prev: VNode, next: VNode): boolean {
   switch (prev.kind) {
     case "box":
       return boxPropsEqual(prev.props, (next as typeof prev).props);
+    case "fragment":
+      return true;
     case "row":
     case "column":
       return stackPropsEqual(prev.props, (next as typeof prev).props);
@@ -849,6 +851,7 @@ function isVNode(v: unknown): v is VNode {
 function commitChildrenForVNode(vnode: VNode): readonly VNode[] {
   if (
     vnode.kind === "box" ||
+    vnode.kind === "fragment" ||
     vnode.kind === "row" ||
     vnode.kind === "column" ||
     vnode.kind === "themed" ||
@@ -1175,6 +1178,7 @@ function formatNodePath(nodePath: readonly string[]): string {
 function isContainerVNode(vnode: VNode): boolean {
   return (
     vnode.kind === "box" ||
+    vnode.kind === "fragment" ||
     vnode.kind === "row" ||
     vnode.kind === "column" ||
     vnode.kind === "themed" ||
@@ -1228,6 +1232,7 @@ function rewriteCommittedVNode(next: VNode, committedChildren: readonly VNode[])
 
   if (
     next.kind === "box" ||
+    next.kind === "fragment" ||
     next.kind === "row" ||
     next.kind === "column" ||
     next.kind === "themed" ||

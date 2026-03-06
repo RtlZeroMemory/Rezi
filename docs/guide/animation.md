@@ -5,7 +5,7 @@ Rezi supports declarative motion in two layers:
 - **Hook-driven numeric animation** for custom widget behavior (`useTransition`, `useSpring`, `useSequence`, `useStagger`, `useAnimatedValue`, `useParallel`, `useChain`).
 - **Container transitions** for layout/surface animation on `ui.box(...)`, `ui.row(...)`, `ui.column(...)`, and `ui.grid(...)` via `transition`/`exitTransition` props.
 
-All animation APIs are deterministic for the same state/input sequence.
+Hook animations share a frame driver inside the widget runtime, so concurrent animations advance together instead of each hook spinning its own timer loop.
 
 ## Choose the right API
 
@@ -35,6 +35,14 @@ All animation APIs are deterministic for the same state/input sequence.
 | `easeInCubic` | cubic | Stronger acceleration |
 | `easeOutCubic` | cubic | Standard UI deceleration |
 | `easeInOutCubic` | cubic | Balanced default for panels/opacity |
+| `easeInExpo` | expo | Fast late acceleration |
+| `easeOutExpo` | expo | Fast early arrival |
+| `easeInOutExpo` | expo | Dramatic in/out motion |
+| `easeInBack` | back | Anticipation before moving forward |
+| `easeOutBack` | back | Overshoot on settle |
+| `easeInOutBack` | back | Anticipation + overshoot |
+| `easeOutBounce` | bounce | Playful settling |
+| `easeInBounce` | bounce | Reverse bounce-in |
 
 ## Hook Example
 
@@ -97,7 +105,9 @@ export const ReactorRow = defineWidget<ReactorProps>((props, ctx) => {
 
 - Retargeting mid-flight starts from the current interpolated value (no jump).
 - Looping timelines (`useSequence(..., { loop: true })`) continue indefinitely.
-- `onComplete` is supported on `useTransition`, `useSpring`, `useSequence`, `useStagger`, and `useAnimatedValue` configs.
+- `onComplete` is supported on `useTransition`, `useSpring`, `useSequence`, `useStagger`, `useAnimatedValue`, `useParallel`, and `useChain`.
+- `useAnimatedValue(..., { mode: "transition" })` honors transition playback controls (`paused`, `reversed`, `rate`) and resumes from the retained transition progress.
+- `useStagger` tracks item identity, not just item count, so same-length replacements restart the stagger.
 
 ## Container Transitions
 

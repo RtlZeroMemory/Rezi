@@ -171,6 +171,7 @@ export function renderTree(
 
     // Depth-first preorder: render node, then its children.
     switch (vnode.kind) {
+      case "fragment":
       case "themed": {
         const forceChildrenRender = node.selfDirty;
         const childCount = Math.min(node.children.length, layoutNode.children.length);

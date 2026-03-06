@@ -141,6 +141,6 @@ describe("accordion vnode construction", () => {
 
   test("ui.accordion returns a composite wrapper vnode", () => {
     const vnode = ui.accordion(baseProps);
-    assert.equal(vnode.kind, "column");
+    assert.equal(vnode.kind, "fragment");
   });
 });

@@ -145,7 +145,7 @@ describe("pagination ids and vnode", () => {
       totalPages: 4,
       onChange: () => undefined,
     });
-    assert.equal(vnode.kind, "column");
+    assert.equal(vnode.kind, "fragment");
   });
 });
 

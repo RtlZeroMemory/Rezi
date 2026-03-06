@@ -107,6 +107,14 @@ export type UseChainConfig = readonly ChainAnimationConfig[];
 
 const ANIMATION_FRAME_MS = 16;
 const DEFAULT_TRANSITION_DURATION_MS = 160;
+const DEFAULT_PARALLEL_TARGET = 0;
+
+type AnimationLoopHandle =
+  | Readonly<{ kind: "timeout"; timerId: ReturnType<typeof setTimeout> }>
+  | Readonly<{ kind: "frame"; cancel: () => void }>;
+
+const activeAnimationFrameCallbacks = new Set<() => boolean>();
+let animationFrameTimer: ReturnType<typeof setTimeout> | null = null;
 
 function nowMs(): number {
   const perf = (globalThis as { performance?: { now?: () => number } }).performance;
@@ -115,11 +123,69 @@ function nowMs(): number {
   return Date.now();
 }
 
-function clearAnimationTimer(ref: { current: ReturnType<typeof setTimeout> | null }): void {
-  if (ref.current !== null) {
-    clearTimeout(ref.current);
-    ref.current = null;
+function warnDev(message: string): void {
+  const consoleRef = (globalThis as { console?: { warn?: (message: string) => void } }).console;
+  consoleRef?.warn?.(message);
+}
+
+function describeThrown(value: unknown): string {
+  if (value instanceof Error) {
+    return `${value.name}: ${value.message}`;
   }
+  try {
+    return String(value);
+  } catch {
+    return "[unstringifiable thrown value]";
+  }
+}
+
+function safeInvokeAnimationCallback(callback: (() => void) | undefined): void {
+  if (!callback) return;
+  try {
+    callback();
+  } catch (error: unknown) {
+    warnDev(`[rezi][animation] onComplete callback threw: ${describeThrown(error)}`);
+  }
+}
+
+function scheduleSharedAnimationFrame(): void {
+  if (animationFrameTimer !== null || activeAnimationFrameCallbacks.size === 0) return;
+  animationFrameTimer = setTimeout(() => {
+    animationFrameTimer = null;
+    const callbacks = Array.from(activeAnimationFrameCallbacks);
+    for (const callback of callbacks) {
+      if (!activeAnimationFrameCallbacks.has(callback)) continue;
+      if (!callback()) {
+        activeAnimationFrameCallbacks.delete(callback);
+      }
+    }
+    if (activeAnimationFrameCallbacks.size > 0) {
+      scheduleSharedAnimationFrame();
+    }
+  }, ANIMATION_FRAME_MS);
+}
+
+function subscribeAnimationFrames(callback: () => boolean): () => void {
+  activeAnimationFrameCallbacks.add(callback);
+  scheduleSharedAnimationFrame();
+  return () => {
+    activeAnimationFrameCallbacks.delete(callback);
+    if (activeAnimationFrameCallbacks.size === 0 && animationFrameTimer !== null) {
+      clearTimeout(animationFrameTimer);
+      animationFrameTimer = null;
+    }
+  };
+}
+
+function clearAnimationTimer(ref: { current: AnimationLoopHandle | null }): void {
+  const handle = ref.current;
+  if (handle === null) return;
+  if (handle.kind === "timeout") {
+    clearTimeout(handle.timerId);
+  } else {
+    handle.cancel();
+  }
+  ref.current = null;
 }
 
 type AnimationCompletionState = {
@@ -149,12 +215,12 @@ function scheduleAnimationCompletion(
     const state = ref.current;
     if (state.runId !== runId || state.completedRunId === runId) return;
     state.completedRunId = runId;
-    onCompleteRef.current?.();
+    safeInvokeAnimationCallback(onCompleteRef.current);
   }, 0);
 }
 
 type TimerLoopOptions = Readonly<{
-  timerRef: { current: ReturnType<typeof setTimeout> | null };
+  timerRef: { current: AnimationLoopHandle | null };
   delayMs: number;
   onStart?: () => boolean;
   onTick: () => boolean;
@@ -169,11 +235,11 @@ function runTimerLoop(options: TimerLoopOptions): void {
     }
 
     const tick = () => {
-      if (!options.onTick()) {
+      const keepRunning = options.onTick();
+      if (!keepRunning) {
         options.timerRef.current = null;
-        return;
       }
-      options.timerRef.current = setTimeout(tick, ANIMATION_FRAME_MS);
+      return keepRunning;
     };
 
     if (options.sampleOnStart === true) {
@@ -183,18 +249,154 @@ function runTimerLoop(options: TimerLoopOptions): void {
       }
     }
 
-    options.timerRef.current = setTimeout(tick, ANIMATION_FRAME_MS);
+    options.timerRef.current = Object.freeze({
+      kind: "frame",
+      cancel: subscribeAnimationFrames(tick),
+    });
   };
 
   if (options.delayMs > 0) {
-    options.timerRef.current = setTimeout(() => {
-      options.timerRef.current = null;
-      start();
-    }, options.delayMs);
+    options.timerRef.current = Object.freeze({
+      kind: "timeout",
+      timerId: setTimeout(() => {
+        options.timerRef.current = null;
+        start();
+      }, options.delayMs),
+    });
     return;
   }
 
   start();
+}
+
+function normalizedDelayMs(value: number | undefined): number {
+  return normalizeDurationMs(value, 0);
+}
+
+function normalizedTransitionDurationMs(value: number | undefined): number {
+  return normalizeDurationMs(value, DEFAULT_TRANSITION_DURATION_MS);
+}
+
+function playbackControlEqual(
+  a: PlaybackControl | undefined,
+  b: PlaybackControl | undefined,
+): boolean {
+  const left = normalizePlayback(a);
+  const right = normalizePlayback(b);
+  return (
+    left.paused === right.paused &&
+    left.reversed === right.reversed &&
+    Object.is(left.rate, right.rate)
+  );
+}
+
+function transitionMotionEqual(
+  a: Readonly<{ target: number; config?: TransitionConfig }>,
+  b: Readonly<{ target: number; config?: TransitionConfig }>,
+): boolean {
+  return (
+    Object.is(a.target, b.target) &&
+    normalizedDelayMs(a.config?.delay) === normalizedDelayMs(b.config?.delay) &&
+    normalizedTransitionDurationMs(a.config?.duration) ===
+      normalizedTransitionDurationMs(b.config?.duration) &&
+    Object.is(a.config?.easing, b.config?.easing)
+  );
+}
+
+function sequenceKeyframeEqual(a: SequenceKeyframe, b: SequenceKeyframe): boolean {
+  if (typeof a === "number" || typeof b === "number") {
+    return typeof a === "number" && typeof b === "number" && Object.is(a, b);
+  }
+  return (
+    Object.is(a.value, b.value) &&
+    normalizedTransitionDurationMs(a.duration) === normalizedTransitionDurationMs(b.duration) &&
+    Object.is(a.easing, b.easing)
+  );
+}
+
+function sequenceInputsEqual(
+  prevKeyframes: readonly SequenceKeyframe[],
+  nextKeyframes: readonly SequenceKeyframe[],
+  prevConfig: Readonly<{
+    duration: UseSequenceConfig["duration"];
+    easing: UseSequenceConfig["easing"];
+    loop: boolean;
+  }>,
+  nextConfig: Readonly<{
+    duration: UseSequenceConfig["duration"];
+    easing: UseSequenceConfig["easing"];
+    loop: boolean;
+  }>,
+): boolean {
+  if (prevKeyframes.length !== nextKeyframes.length) return false;
+  for (let i = 0; i < prevKeyframes.length; i++) {
+    const prevFrame = prevKeyframes[i];
+    const nextFrame = nextKeyframes[i];
+    if (prevFrame === undefined || nextFrame === undefined) return false;
+    if (!sequenceKeyframeEqual(prevFrame, nextFrame)) return false;
+  }
+  return (
+    normalizedTransitionDurationMs(prevConfig.duration) ===
+      normalizedTransitionDurationMs(nextConfig.duration) &&
+    Object.is(prevConfig.easing, nextConfig.easing) &&
+    (prevConfig.loop === true) === (nextConfig.loop === true)
+  );
+}
+
+function shallowItemsEqual<T>(a: readonly T[], b: readonly T[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (!Object.is(a[i], b[i])) return false;
+  }
+  return true;
+}
+
+function transitionStepsEqual(
+  prev: readonly Readonly<{ target: number; config?: TransitionConfig }>[],
+  next: readonly Readonly<{ target: number; config?: TransitionConfig }>[],
+): boolean {
+  if (prev.length !== next.length) return false;
+  for (let i = 0; i < prev.length; i++) {
+    const prevEntry = prev[i];
+    const nextEntry = next[i];
+    if (!prevEntry || !nextEntry) return false;
+    if (!transitionMotionEqual(prevEntry, nextEntry)) return false;
+  }
+  return true;
+}
+
+function transitionPlaybackStepsEqual(
+  prev: readonly Readonly<{ target: number; config?: TransitionConfig }>[],
+  next: readonly Readonly<{ target: number; config?: TransitionConfig }>[],
+): boolean {
+  if (prev.length !== next.length) return false;
+  for (let i = 0; i < prev.length; i++) {
+    const prevEntry = prev[i];
+    const nextEntry = next[i];
+    if (!prevEntry || !nextEntry) return false;
+    if (!playbackControlEqual(prevEntry.config?.playback, nextEntry.config?.playback)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+type SequenceInputSnapshot = Readonly<{
+  keyframes: readonly SequenceKeyframe[];
+  duration: number | undefined;
+  easing: UseSequenceConfig["easing"] | undefined;
+  loop: boolean;
+}>;
+
+type AnimationListSnapshot<T extends Readonly<{ target: number; config?: TransitionConfig }>> =
+  readonly T[];
+
+function zeroProgressEntries(count: number): readonly ParallelAnimationEntry[] {
+  return Object.freeze(new Array(count).fill(undefined).map(() => createParallelEntry(0, false)));
+}
+
+function zeroProgressVector(count: number): readonly number[] {
+  return Object.freeze(new Array<number>(count).fill(0));
 }
 
 type NormalizedPlayback = Readonly<{
@@ -228,9 +430,108 @@ type TransitionRunState = {
   to: number;
   elapsedMs: number;
   durationMs: number;
+  delayMs: number;
   easing: (t: number) => number;
   pendingDelayMs: number;
 };
+
+type ParallelTrackState = TransitionRunState & {
+  completed: boolean;
+  easingInput: TransitionConfig["easing"];
+};
+
+type TransitionStepResult = Readonly<{
+  done: boolean;
+  value: number;
+  waiting: boolean;
+}>;
+
+function syncTransitionRunState(
+  state: TransitionRunState,
+  currentValue: number,
+  target: number,
+  durationMs: number,
+  easing: (t: number) => number,
+  delayMs: number,
+  reversed: boolean,
+): void {
+  const shouldReset =
+    !state.initialized ||
+    !Object.is(state.to, target) ||
+    state.durationMs !== durationMs ||
+    state.delayMs !== delayMs ||
+    state.easing !== easing;
+
+  if (shouldReset) {
+    state.initialized = true;
+    state.from = currentValue;
+    state.to = target;
+    state.durationMs = durationMs;
+    state.delayMs = delayMs;
+    state.easing = easing;
+    state.elapsedMs = reversed ? durationMs : 0;
+    state.pendingDelayMs = delayMs;
+    return;
+  }
+
+  state.durationMs = durationMs;
+  state.delayMs = delayMs;
+  state.easing = easing;
+  if (state.elapsedMs < 0) state.elapsedMs = 0;
+  if (state.elapsedMs > state.durationMs) state.elapsedMs = state.durationMs;
+  if (state.pendingDelayMs < 0) state.pendingDelayMs = 0;
+}
+
+function currentTransitionValue(state: TransitionRunState): number {
+  const progress = state.durationMs <= 0 ? 1 : clamp01(state.elapsedMs / state.durationMs);
+  return interpolateNumber(state.from, state.to, state.easing(progress));
+}
+
+function transitionFinalValue(state: TransitionRunState, reversed: boolean): number {
+  return reversed ? state.from : state.to;
+}
+
+function stepTransitionRunState(
+  state: TransitionRunState,
+  deltaMs: number,
+  reversed: boolean,
+): TransitionStepResult {
+  let remainingDeltaMs = deltaMs;
+  if (state.pendingDelayMs > 0) {
+    if (remainingDeltaMs < state.pendingDelayMs) {
+      state.pendingDelayMs -= remainingDeltaMs;
+      return { done: false, value: state.from, waiting: true };
+    }
+    remainingDeltaMs -= state.pendingDelayMs;
+    state.pendingDelayMs = 0;
+  }
+
+  state.elapsedMs += remainingDeltaMs * (reversed ? -1 : 1);
+  if (state.elapsedMs < 0) state.elapsedMs = 0;
+  if (state.elapsedMs > state.durationMs) state.elapsedMs = state.durationMs;
+
+  return {
+    done: reversed ? state.elapsedMs <= 0 : state.elapsedMs >= state.durationMs,
+    value: currentTransitionValue(state),
+    waiting: false,
+  };
+}
+
+function parallelEntriesEqual(
+  a: readonly ParallelAnimationEntry[],
+  b: readonly ParallelAnimationEntry[],
+): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const left = a[i];
+    const right = b[i];
+    if (!left || !right) return false;
+    if (!Object.is(left.value, right.value) || left.isAnimating !== right.isAnimating) {
+      return false;
+    }
+  }
+  return true;
+}
 
 /**
  * Animate from the current numeric value to `value` over time.
@@ -243,7 +544,7 @@ export function useTransition(
   config: UseTransitionConfig = {},
 ): number {
   const [current, setCurrent] = ctx.useState<number>(() => value);
-  const timerRef = ctx.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timerRef = ctx.useRef<AnimationLoopHandle | null>(null);
   const currentRef = ctx.useRef<number>(current);
   const lastTickMsRef = ctx.useRef<number | null>(null);
   const completionRef = ctx.useRef<AnimationCompletionState>({ runId: 0, completedRunId: 0 });
@@ -251,8 +552,8 @@ export function useTransition(
   onCompleteRef.current = config.onComplete;
   currentRef.current = current;
 
-  const delayMs = normalizeDurationMs(config.delay, 0);
-  const durationMs = normalizeDurationMs(config.duration, DEFAULT_TRANSITION_DURATION_MS);
+  const delayMs = normalizedDelayMs(config.delay);
+  const durationMs = normalizedTransitionDurationMs(config.duration);
   const easing = ctx.useMemo(() => resolveEasing(config.easing), [config.easing]);
   const playback = normalizePlayback(config.playback);
   const transitionStateRef = ctx.useRef<TransitionRunState>({
@@ -261,6 +562,7 @@ export function useTransition(
     to: value,
     elapsedMs: 0,
     durationMs,
+    delayMs,
     easing,
     pendingDelayMs: 0,
   });
@@ -274,6 +576,7 @@ export function useTransition(
       !state.initialized ||
       !Object.is(state.to, value) ||
       state.durationMs !== durationMs ||
+      state.delayMs !== delayMs ||
       state.easing !== easing;
 
     if (shouldReset) {
@@ -281,11 +584,13 @@ export function useTransition(
       state.from = currentRef.current;
       state.to = value;
       state.durationMs = durationMs;
+      state.delayMs = delayMs;
       state.easing = easing;
       state.elapsedMs = playback.reversed ? durationMs : 0;
       state.pendingDelayMs = delayMs;
     } else {
       state.durationMs = durationMs;
+      state.delayMs = delayMs;
       state.easing = easing;
       if (state.elapsedMs < 0) state.elapsedMs = 0;
       if (state.elapsedMs > state.durationMs) state.elapsedMs = state.durationMs;
@@ -381,7 +686,7 @@ export function useSpring(
   config: UseSpringConfig = {},
 ): number {
   const [current, setCurrent] = ctx.useState<number>(() => target);
-  const timerRef = ctx.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timerRef = ctx.useRef<AnimationLoopHandle | null>(null);
   const valueRef = ctx.useRef<number>(current);
   const velocityRef = ctx.useRef<number>(0);
   const targetRef = ctx.useRef<number>(target);
@@ -391,7 +696,7 @@ export function useSpring(
   onCompleteRef.current = config.onComplete;
   valueRef.current = current;
   targetRef.current = target;
-  const delayMs = normalizeDurationMs(config.delay, 0);
+  const delayMs = normalizedDelayMs(config.delay);
 
   const springConfig: NormalizedSpringConfig = ctx.useMemo(
     () => normalizeSpringConfig(config),
@@ -481,44 +786,51 @@ export function useSequence(
   keyframes: readonly SequenceKeyframe[],
   config: UseSequenceConfig = {},
 ): number {
-  const timerRef = ctx.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timerRef = ctx.useRef<AnimationLoopHandle | null>(null);
   const lastStepMsRef = ctx.useRef<number | null>(null);
   const completionRef = ctx.useRef<AnimationCompletionState>({ runId: 0, completedRunId: 0 });
   const onCompleteRef = ctx.useRef<(() => void) | undefined>(config.onComplete);
   onCompleteRef.current = config.onComplete;
 
   const playback = normalizePlayback(config.playback);
-  const signature = ctx.useMemo(() => {
-    const parts: string[] = [];
-    for (const frame of keyframes) {
-      if (typeof frame === "number") {
-        parts.push(`n:${String(frame)}`);
-        continue;
-      }
-      parts.push(
-        `k:${String(frame.value)}:${String(frame.duration ?? "")}:${String(frame.easing ?? "")}`,
-      );
-    }
-    parts.push(`cfg:${String(config.duration ?? "")}:${String(config.easing ?? "")}`);
-    parts.push(`loop:${config.loop === true ? "1" : "0"}`);
-    return parts.join("|");
-  }, [config.duration, config.easing, config.loop, keyframes]);
+  const sequenceInputRef = ctx.useRef<SequenceInputSnapshot | null>(null);
+  const sequenceVersionRef = ctx.useRef(0);
+  const nextSequenceInput: SequenceInputSnapshot = Object.freeze({
+    keyframes,
+    duration: config.duration,
+    easing: config.easing,
+    loop: config.loop === true,
+  });
+  if (
+    sequenceInputRef.current === null ||
+    !sequenceInputsEqual(
+      sequenceInputRef.current.keyframes,
+      nextSequenceInput.keyframes,
+      sequenceInputRef.current,
+      nextSequenceInput,
+    )
+  ) {
+    sequenceInputRef.current = nextSequenceInput;
+    sequenceVersionRef.current += 1;
+  }
+  const sequenceVersion = sequenceVersionRef.current;
+  const sequenceInput = sequenceInputRef.current ?? nextSequenceInput;
 
   const sequence = ctx.useMemo(
     () =>
-      normalizeSequence(keyframes, {
-        ...(config.duration === undefined ? {} : { duration: config.duration }),
-        ...(config.easing === undefined ? {} : { easing: config.easing }),
+      normalizeSequence(sequenceInput.keyframes, {
+        ...(sequenceInput.duration === undefined ? {} : { duration: sequenceInput.duration }),
+        ...(sequenceInput.easing === undefined ? {} : { easing: sequenceInput.easing }),
       }),
-    [signature],
+    [sequenceVersion],
   );
 
-  const sequenceSignatureRef = ctx.useRef<string>(signature);
+  const sequenceVersionAppliedRef = ctx.useRef<number>(sequenceVersion);
   const sequenceElapsedMsRef = ctx.useRef<number>(
     playback.reversed && config.loop !== true ? sequence.totalDurationMs : 0,
   );
-  if (sequenceSignatureRef.current !== signature) {
-    sequenceSignatureRef.current = signature;
+  if (sequenceVersionAppliedRef.current !== sequenceVersion) {
+    sequenceVersionAppliedRef.current = sequenceVersion;
     sequenceElapsedMsRef.current =
       playback.reversed && config.loop !== true ? sequence.totalDurationMs : 0;
   }
@@ -594,7 +906,7 @@ export function useSequence(
       clearAnimationTimer(timerRef);
       invalidateAnimationRun(completionRef, runId);
     };
-  }, [config.loop, playback.paused, playback.rate, playback.reversed, sequence, signature]);
+  }, [config.loop, playback.paused, playback.rate, playback.reversed, sequence, sequenceVersion]);
 
   return current;
 }
@@ -617,16 +929,23 @@ export function useStagger<T>(
   items: readonly T[],
   config: UseStaggerConfig = {},
 ): readonly number[] {
-  const timerRef = ctx.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timerRef = ctx.useRef<AnimationLoopHandle | null>(null);
   const completionRef = ctx.useRef<AnimationCompletionState>({ runId: 0, completedRunId: 0 });
   const onCompleteRef = ctx.useRef<(() => void) | undefined>(config.onComplete);
   onCompleteRef.current = config.onComplete;
+  const itemsRef = ctx.useRef(items);
+  const itemsVersionRef = ctx.useRef(0);
+  if (!shallowItemsEqual(itemsRef.current, items)) {
+    itemsRef.current = items;
+    itemsVersionRef.current += 1;
+  }
   const count = items.length;
+  const itemsVersion = itemsVersionRef.current;
   const delayMs = normalizeDurationMs(config.delay, 40);
   const durationMs = normalizeDurationMs(config.duration, 180);
   const easing = ctx.useMemo(() => resolveEasing(config.easing), [config.easing]);
   const [progresses, setProgresses] = ctx.useState<readonly number[]>(() =>
-    Object.freeze(new Array<number>(count).fill(0)),
+    zeroProgressVector(count),
   );
 
   ctx.useEffect(() => {
@@ -638,6 +957,7 @@ export function useStagger<T>(
       return;
     }
 
+    setProgresses(zeroProgressVector(count));
     const startMs = nowMs();
     const totalDurationMs = delayMs * Math.max(0, count - 1) + durationMs;
 
@@ -666,7 +986,7 @@ export function useStagger<T>(
       clearAnimationTimer(timerRef);
       invalidateAnimationRun(completionRef, runId);
     };
-  }, [count, delayMs, durationMs, easing]);
+  }, [count, delayMs, durationMs, easing, itemsVersion]);
 
   return progresses;
 }
@@ -686,14 +1006,31 @@ export function useAnimatedValue(
   const [animated, setAnimated] = ctx.useState<AnimatedValue>(() =>
     createAnimatedValue(target, 0, false),
   );
-  const timerRef = ctx.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timerRef = ctx.useRef<AnimationLoopHandle | null>(null);
   const valueRef = ctx.useRef<number>(animated.value);
   const velocityRef = ctx.useRef<number>(animated.velocity);
   const lastStepMsRef = ctx.useRef<number | null>(null);
   const completionRef = ctx.useRef<AnimationCompletionState>({ runId: 0, completedRunId: 0 });
+  const transitionStateRef = ctx.useRef<TransitionRunState>({
+    initialized: false,
+    from: target,
+    to: target,
+    elapsedMs: 0,
+    durationMs: normalizedTransitionDurationMs(transitionConfig.duration),
+    delayMs: normalizedDelayMs(transitionConfig.delay),
+    easing: resolveEasing(transitionConfig.easing),
+    pendingDelayMs: 0,
+  });
+  const previousModeRef = ctx.useRef<typeof mode>(mode);
 
   valueRef.current = animated.value;
   velocityRef.current = animated.velocity;
+
+  if (previousModeRef.current !== mode) {
+    previousModeRef.current = mode;
+    transitionStateRef.current.initialized = false;
+    lastStepMsRef.current = null;
+  }
 
   const onCompleteRef = ctx.useRef<(() => void) | undefined>(
     mode === "spring" ? springConfigInput.onComplete : transitionConfig.onComplete,
@@ -703,9 +1040,9 @@ export function useAnimatedValue(
 
   const delayMs =
     mode === "spring"
-      ? normalizeDurationMs(springConfigInput.delay, 0)
-      : normalizeDurationMs(transitionConfig.delay, 0);
-  const durationMs = normalizeDurationMs(transitionConfig.duration, DEFAULT_TRANSITION_DURATION_MS);
+      ? normalizedDelayMs(springConfigInput.delay)
+      : normalizedDelayMs(transitionConfig.delay);
+  const durationMs = normalizedTransitionDurationMs(transitionConfig.duration);
   const easing = ctx.useMemo(
     () => resolveEasing(transitionConfig.easing),
     [transitionConfig.easing],
@@ -728,21 +1065,44 @@ export function useAnimatedValue(
     const runId = beginAnimationRun(completionRef);
 
     if (mode === "transition") {
-      const from = valueRef.current;
-      const to = target;
-      const initialElapsedMs = playback.reversed ? durationMs : 0;
-      let elapsedMs = initialElapsedMs;
+      const state = transitionStateRef.current;
+      const shouldReset =
+        !state.initialized ||
+        !Object.is(state.to, target) ||
+        state.durationMs !== durationMs ||
+        state.delayMs !== delayMs ||
+        state.easing !== easing;
+
+      if (shouldReset) {
+        state.initialized = true;
+        state.from = valueRef.current;
+        state.to = target;
+        state.durationMs = durationMs;
+        state.delayMs = delayMs;
+        state.easing = easing;
+        state.elapsedMs = playback.reversed ? durationMs : 0;
+        state.pendingDelayMs = delayMs;
+      } else {
+        state.durationMs = durationMs;
+        state.delayMs = delayMs;
+        state.easing = easing;
+        if (state.elapsedMs < 0) state.elapsedMs = 0;
+        if (state.elapsedMs > state.durationMs) state.elapsedMs = state.durationMs;
+      }
 
       if (playback.paused) {
+        lastStepMsRef.current = null;
+        setAnimated(createAnimatedValue(valueRef.current, 0, false));
         return () => {
           invalidateAnimationRun(completionRef, runId);
         };
       }
 
-      if (!Number.isFinite(from) || !Number.isFinite(to)) {
-        const finalValue = playback.reversed ? from : to;
+      if (!Number.isFinite(state.from) || !Number.isFinite(state.to)) {
+        const finalValue = playback.reversed ? state.from : state.to;
         setAnimated(createAnimatedValue(finalValue, 0, false));
-        if (!Object.is(from, finalValue)) {
+        state.elapsedMs = playback.reversed ? 0 : state.durationMs;
+        if (!Object.is(valueRef.current, finalValue)) {
           scheduleAnimationCompletion(completionRef, runId, onCompleteRef);
         }
         return () => {
@@ -750,10 +1110,11 @@ export function useAnimatedValue(
         };
       }
 
-      if (durationMs <= 0 || Object.is(from, to)) {
-        const finalValue = playback.reversed ? from : to;
+      if (state.durationMs <= 0 || Object.is(state.from, state.to)) {
+        const finalValue = playback.reversed ? state.from : state.to;
         setAnimated(createAnimatedValue(finalValue, 0, false));
-        if (!Object.is(from, finalValue)) {
+        state.elapsedMs = playback.reversed ? 0 : state.durationMs;
+        if (!Object.is(valueRef.current, finalValue)) {
           scheduleAnimationCompletion(completionRef, runId, onCompleteRef);
         }
         return () => {
@@ -762,12 +1123,14 @@ export function useAnimatedValue(
       }
 
       const direction = playback.reversed ? -1 : 1;
+      const startDelayMs = state.pendingDelayMs;
+      state.pendingDelayMs = 0;
       runTimerLoop({
         timerRef,
-        delayMs,
+        delayMs: startDelayMs,
         onStart: () => {
           lastStepMsRef.current = nowMs() - ANIMATION_FRAME_MS;
-          setAnimated(createAnimatedValue(from, 0, true));
+          setAnimated(createAnimatedValue(valueRef.current, 0, true));
           return true;
         },
         sampleOnStart: true,
@@ -776,15 +1139,17 @@ export function useAnimatedValue(
           const prevMs = lastStepMsRef.current ?? stepNowMs;
           lastStepMsRef.current = stepNowMs;
           const deltaMs = Math.max(0, stepNowMs - prevMs) * playback.rate;
-          elapsedMs += deltaMs * direction;
-          if (elapsedMs < 0) elapsedMs = 0;
-          if (elapsedMs > durationMs) elapsedMs = durationMs;
+          state.elapsedMs += deltaMs * direction;
+          if (state.elapsedMs < 0) state.elapsedMs = 0;
+          if (state.elapsedMs > state.durationMs) state.elapsedMs = state.durationMs;
 
-          const progress = clamp01(elapsedMs / durationMs);
-          const nextValue = interpolateNumber(from, to, easing(progress));
-          const done = playback.reversed ? elapsedMs <= 0 : elapsedMs >= durationMs;
+          const progress = clamp01(state.elapsedMs / state.durationMs);
+          const nextValue = interpolateNumber(state.from, state.to, state.easing(progress));
+          const done = playback.reversed
+            ? state.elapsedMs <= 0
+            : state.elapsedMs >= state.durationMs;
           if (done) {
-            const finalValue = playback.reversed ? from : to;
+            const finalValue = playback.reversed ? state.from : state.to;
             setAnimated(createAnimatedValue(finalValue, 0, false));
             scheduleAnimationCompletion(completionRef, runId, onCompleteRef);
             return false;
@@ -801,6 +1166,7 @@ export function useAnimatedValue(
       };
     }
 
+    transitionStateRef.current.initialized = false;
     runTimerLoop({
       timerRef,
       delayMs,
@@ -874,103 +1240,186 @@ export function useParallel(
   ctx: AnimationHookContext,
   animations: UseParallelConfig,
 ): readonly ParallelAnimationEntry[] {
-  const signature = ctx.useMemo(() => {
-    const parts: string[] = [];
-    for (const animation of animations) {
-      parts.push(
-        [
-          String(animation.target),
-          String(animation.config?.delay ?? ""),
-          String(animation.config?.duration ?? ""),
-          String(animation.config?.easing ?? ""),
-          String(animation.config?.playback?.paused ?? ""),
-          String(animation.config?.playback?.reversed ?? ""),
-          String(animation.config?.playback?.rate ?? ""),
-        ].join(":"),
-      );
+  const animationsRef = ctx.useRef<AnimationListSnapshot<ParallelAnimationConfig>>(animations);
+  const animationsVersionRef = ctx.useRef(0);
+  const playbackVersionRef = ctx.useRef(0);
+  if (!transitionStepsEqual(animationsRef.current, animations)) {
+    animationsRef.current = animations;
+    animationsVersionRef.current += 1;
+  } else {
+    if (!transitionPlaybackStepsEqual(animationsRef.current, animations)) {
+      playbackVersionRef.current += 1;
     }
-    return parts.join("|");
-  }, [animations]);
-
+    animationsRef.current = animations;
+  }
+  const animationsVersion = animationsVersionRef.current;
+  const playbackVersion = playbackVersionRef.current;
   const [entries, setEntries] = ctx.useState<readonly ParallelAnimationEntry[]>(() =>
-    Object.freeze(animations.map(() => createParallelEntry(0, false))),
+    zeroProgressEntries(animations.length),
   );
   const entriesRef = ctx.useRef(entries);
-  const timerRef = ctx.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timerRef = ctx.useRef<AnimationLoopHandle | null>(null);
+  const lastStepMsRef = ctx.useRef<number | null>(null);
+  const trackStatesRef = ctx.useRef<ParallelTrackState[]>([]);
   entriesRef.current = entries;
 
   ctx.useEffect(() => {
     clearAnimationTimer(timerRef);
+    lastStepMsRef.current = null;
 
     if (animations.length === 0) {
+      trackStatesRef.current = [];
       setEntries(Object.freeze([]));
       return;
     }
 
-    const startMs = nowMs();
-    const tracks = animations.map((animation, index) => {
-      const from = entriesRef.current[index]?.value ?? 0;
-      const to = animation.target;
-      const durationMs = normalizeDurationMs(
-        animation.config?.duration,
-        DEFAULT_TRANSITION_DURATION_MS,
-      );
-      const delayMs = normalizeDurationMs(animation.config?.delay, 0);
-      const easing = resolveEasing(animation.config?.easing);
+    const nextShape: ParallelAnimationEntry[] = new Array(animations.length);
+    let shapeChanged = entriesRef.current.length !== animations.length;
+    const tracks = trackStatesRef.current;
+    tracks.length = animations.length;
+    for (let i = 0; i < animations.length; i++) {
+      const animation = animations[i];
+      if (!animation) continue;
+      const currentEntry = entriesRef.current[i];
+      const currentValue = currentEntry?.value ?? DEFAULT_PARALLEL_TARGET;
+      const durationMs = normalizedTransitionDurationMs(animation.config?.duration);
+      const delayMs = normalizedDelayMs(animation.config?.delay);
+      const easingInput = animation.config?.easing;
       const playback = normalizePlayback(animation.config?.playback);
-      const onComplete = animation.config?.onComplete;
-      return {
-        from,
-        to,
-        durationMs,
-        delayMs,
-        easing,
-        playback,
-        onComplete,
-        completed: false,
+      const existing = tracks[i];
+      if (!existing) {
+        const easing = resolveEasing(easingInput);
+        tracks[i] = {
+          initialized: false,
+          from: currentValue,
+          to: animation.target,
+          elapsedMs: 0,
+          durationMs,
+          delayMs,
+          easing,
+          pendingDelayMs: 0,
+          completed: false,
+          easingInput,
+        };
+      }
+      const state = tracks[i];
+      if (!state) continue;
+      const easing = Object.is(state.easingInput, easingInput)
+        ? state.easing
+        : resolveEasing(easingInput);
+      const before = {
+        initialized: state.initialized,
+        to: state.to,
+        durationMs: state.durationMs,
+        delayMs: state.delayMs,
+        easing: state.easing,
       };
-    });
+      syncTransitionRunState(
+        state,
+        currentValue,
+        animation.target,
+        durationMs,
+        easing,
+        delayMs,
+        playback.reversed,
+      );
+      const motionChanged =
+        !before.initialized ||
+        !Object.is(before.to, state.to) ||
+        before.durationMs !== state.durationMs ||
+        before.delayMs !== state.delayMs ||
+        before.easing !== state.easing;
+      if (motionChanged) {
+        state.completed = false;
+      }
+      state.easingInput = easingInput;
+      const nextValue = motionChanged ? currentValue : (currentEntry?.value ?? currentValue);
+      nextShape[i] = createParallelEntry(nextValue, false);
+      if (
+        !shapeChanged &&
+        (!currentEntry ||
+          !Object.is(currentEntry.value, nextShape[i]?.value ?? DEFAULT_PARALLEL_TARGET) ||
+          currentEntry.isAnimating !== false)
+      ) {
+        shapeChanged = true;
+      }
+    }
+    if (shapeChanged) {
+      const frozenShape = Object.freeze(nextShape);
+      setEntries((prev) => (parallelEntriesEqual(prev, frozenShape) ? prev : frozenShape));
+    }
 
     runTimerLoop({
       timerRef,
       delayMs: 0,
+      onStart: () => {
+        lastStepMsRef.current = nowMs() - ANIMATION_FRAME_MS;
+        return true;
+      },
+      sampleOnStart: true,
       onTick: () => {
-        const elapsedMs = nowMs() - startMs;
+        const stepNowMs = nowMs();
+        const prevMs = lastStepMsRef.current ?? stepNowMs;
+        lastStepMsRef.current = stepNowMs;
         let activeCount = 0;
         const nextEntries: ParallelAnimationEntry[] = new Array(tracks.length);
 
         for (let i = 0; i < tracks.length; i++) {
           const track = tracks[i];
           if (!track) continue;
-          if (track.playback.paused) {
-            nextEntries[i] = createParallelEntry(track.from, false);
+          const animation = animationsRef.current[i];
+          const playback = normalizePlayback(animation?.config?.playback);
+          const currentValue = entriesRef.current[i]?.value ?? track.from;
+          if (playback.paused) {
+            nextEntries[i] = createParallelEntry(currentValue, false);
+            continue;
+          }
+          if (!Number.isFinite(track.from) || !Number.isFinite(track.to)) {
+            const finalValue = transitionFinalValue(track, playback.reversed);
+            if (!track.completed && !Object.is(currentValue, finalValue)) {
+              track.completed = true;
+              safeInvokeAnimationCallback(animation?.config?.onComplete);
+            }
+            nextEntries[i] = createParallelEntry(finalValue, false);
+            continue;
+          }
+          if (track.durationMs <= 0 || Object.is(track.from, track.to)) {
+            const finalValue = transitionFinalValue(track, playback.reversed);
+            if (!track.completed && !Object.is(currentValue, finalValue)) {
+              track.completed = true;
+              safeInvokeAnimationCallback(animation?.config?.onComplete);
+            }
+            nextEntries[i] = createParallelEntry(finalValue, false);
             continue;
           }
 
-          const localElapsedMs = Math.max(0, elapsedMs - track.delayMs);
-          const rawProgress =
-            track.durationMs <= 0
-              ? 1
-              : clamp01((localElapsedMs * track.playback.rate) / track.durationMs);
-          const progress = track.playback.reversed ? 1 - rawProgress : rawProgress;
-          const nextValue = interpolateNumber(track.from, track.to, track.easing(progress));
-          const finished = track.playback.reversed ? rawProgress >= 1 : rawProgress >= 1;
-
-          const isAnimating = !track.playback.paused && !finished;
-          if (isAnimating) activeCount++;
-
-          if (finished && !track.completed) {
-            track.completed = true;
-            track.onComplete?.();
+          const step = stepTransitionRunState(
+            track,
+            Math.max(0, stepNowMs - prevMs) * playback.rate,
+            playback.reversed,
+          );
+          if (step.waiting) {
+            activeCount++;
+            nextEntries[i] = createParallelEntry(currentValue, true);
+            continue;
+          }
+          if (step.done) {
+            const finalValue = transitionFinalValue(track, playback.reversed);
+            if (!track.completed) {
+              track.completed = true;
+              safeInvokeAnimationCallback(animation?.config?.onComplete);
+            }
+            nextEntries[i] = createParallelEntry(finalValue, false);
+            continue;
           }
 
-          nextEntries[i] = createParallelEntry(
-            finished ? (track.playback.reversed ? track.from : track.to) : nextValue,
-            isAnimating,
-          );
+          track.completed = false;
+          activeCount++;
+          nextEntries[i] = createParallelEntry(step.value, true);
         }
 
-        setEntries(Object.freeze(nextEntries));
+        const frozen = Object.freeze(nextEntries);
+        setEntries((prev) => (parallelEntriesEqual(prev, frozen) ? prev : frozen));
         return activeCount > 0;
       },
     });
@@ -978,7 +1427,7 @@ export function useParallel(
     return () => {
       clearAnimationTimer(timerRef);
     };
-  }, [signature]);
+  }, [animationsVersion, playbackVersion, animations.length]);
 
   return entries;
 }
@@ -990,29 +1439,18 @@ export function useChain(
   ctx: AnimationHookContext,
   steps: UseChainConfig,
 ): Readonly<{ value: number; currentStep: number; isComplete: boolean }> {
-  const stepsRef = ctx.useRef<UseChainConfig>(steps);
-  stepsRef.current = steps;
-
-  const signature = ctx.useMemo(() => {
-    const parts: string[] = [];
-    for (const step of steps) {
-      parts.push(
-        [
-          String(step.target),
-          String(step.config?.delay ?? ""),
-          String(step.config?.duration ?? ""),
-          String(step.config?.easing ?? ""),
-          String(step.config?.playback?.paused ?? ""),
-          String(step.config?.playback?.reversed ?? ""),
-          String(step.config?.playback?.rate ?? ""),
-        ].join(":"),
-      );
-    }
-    return parts.join("|");
-  }, [steps]);
+  const stepsRef = ctx.useRef<AnimationListSnapshot<ChainAnimationConfig>>(steps);
+  const stepsVersionRef = ctx.useRef(0);
+  if (!transitionStepsEqual(stepsRef.current, steps)) {
+    stepsRef.current = steps;
+    stepsVersionRef.current += 1;
+  } else {
+    stepsRef.current = steps;
+  }
+  const stepsVersion = stepsVersionRef.current;
 
   const [currentStep, setCurrentStep] = ctx.useState<number>(0);
-  const [currentTarget, setCurrentTarget] = ctx.useState<number>(0);
+  const [currentTarget, setCurrentTarget] = ctx.useState<number>(DEFAULT_PARALLEL_TARGET);
   const currentStepRef = ctx.useRef<number>(0);
   currentStepRef.current = currentStep;
 
@@ -1020,11 +1458,11 @@ export function useChain(
     currentStepRef.current = 0;
     setCurrentStep(0);
     if (stepsRef.current.length === 0) {
-      setCurrentTarget(0);
+      setCurrentTarget(DEFAULT_PARALLEL_TARGET);
       return;
     }
-    setCurrentTarget(stepsRef.current[0]?.target ?? 0);
-  }, [signature]);
+    setCurrentTarget(stepsRef.current[0]?.target ?? DEFAULT_PARALLEL_TARGET);
+  }, [stepsVersion]);
 
   const activeStepConfig = currentStep < steps.length ? steps[currentStep]?.config : undefined;
   const value = useTransition(ctx, currentTarget, {
@@ -1033,12 +1471,12 @@ export function useChain(
       const completedStep = currentStepRef.current;
       const completedConfig = stepsRef.current[completedStep]?.config;
       if (!completedConfig && completedStep >= stepsRef.current.length) return;
-      completedConfig?.onComplete?.();
+      safeInvokeAnimationCallback(completedConfig?.onComplete);
       const nextStep = completedStep + 1;
       if (nextStep < stepsRef.current.length) {
         currentStepRef.current = nextStep;
         setCurrentStep(nextStep);
-        setCurrentTarget(stepsRef.current[nextStep]?.target ?? 0);
+        setCurrentTarget(stepsRef.current[nextStep]?.target ?? DEFAULT_PARALLEL_TARGET);
         return;
       }
       currentStepRef.current = stepsRef.current.length;

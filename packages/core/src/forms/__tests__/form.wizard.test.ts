@@ -49,6 +49,7 @@ function createTestContext<State = void>(): {
         useCallback: hookCtx.useCallback,
         useAppState: <U>(_selector: (s: State) => U): U => undefined as U,
         useTheme: () => null,
+        useViewport: () => ({ width: 80, height: 24, breakpoint: "md" as const }),
         invalidate: () => {
           registry.invalidate(instanceId);
         },

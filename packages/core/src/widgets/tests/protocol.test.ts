@@ -56,6 +56,7 @@ const VNODE_KIND_COVERAGE: Record<VNode["kind"], true> = {
   logsConsole: true,
   toastContainer: true,
   box: true,
+  fragment: true,
   row: true,
   column: true,
   themed: true,

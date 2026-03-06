@@ -5,76 +5,13 @@
  */
 
 import { assert, describe, test } from "@rezi-ui/testkit";
-import {
-  createCompositeInstanceRegistry,
-  createHookContext,
-  runPendingEffects,
-} from "../../runtime/instances.js";
-import type { WidgetContext } from "../../widgets/composition.js";
 import type { UseFormOptions, UseFormReturn } from "../types.js";
-import { useForm } from "../useForm.js";
+import { createFormHarness } from "./harness.js";
 
 type FieldArrayFormValues = {
   items: string[];
   note: string;
 };
-
-/**
- * Create a mock widget context for testing hooks.
- */
-function createTestContext<State = void>(): {
-  render: <T extends Record<string, unknown>>(options: UseFormOptions<T>) => UseFormReturn<T>;
-  unmount: () => void;
-  getInvalidateCount: () => number;
-} {
-  const registry = createCompositeInstanceRegistry();
-  const instanceId = 1;
-  const widgetKey = "TestWidget";
-  registry.create(instanceId, widgetKey);
-
-  let invalidateCount = 0;
-
-  return {
-    render: <T extends Record<string, unknown>>(options: UseFormOptions<T>): UseFormReturn<T> => {
-      const state = registry.get(instanceId);
-      if (!state) {
-        throw new Error("test harness: instance missing");
-      }
-
-      registry.beginRender(instanceId);
-      const hookCtx = createHookContext(state, () => {
-        invalidateCount++;
-        registry.invalidate(instanceId);
-      });
-
-      const ctx: WidgetContext<State> = Object.freeze({
-        id: (suffix: string) => `${widgetKey}_${instanceId}_${suffix}`,
-        useState: hookCtx.useState,
-        useReducer: hookCtx.useReducer,
-        useRef: hookCtx.useRef,
-        useEffect: hookCtx.useEffect,
-        useMemo: hookCtx.useMemo,
-        useCallback: hookCtx.useCallback,
-        useAppState: <U>(_selector: (s: State) => U): U => undefined as U,
-        useTheme: () => null,
-        invalidate: () => {
-          invalidateCount++;
-          registry.invalidate(instanceId);
-        },
-      });
-
-      const form = useForm(ctx as unknown as WidgetContext<void>, options) as UseFormReturn<T>;
-      const effects = registry.endRender(instanceId);
-      runPendingEffects(effects);
-      return form;
-    },
-    unmount: () => {
-      registry.incrementGeneration(instanceId);
-      registry.delete(instanceId);
-    },
-    getInvalidateCount: () => invalidateCount,
-  };
-}
 
 const validateItemsRequired = ((values: FieldArrayFormValues) => ({
   items: values.items.map((item) => (item.trim().length > 0 ? undefined : "Required")),
@@ -82,7 +19,7 @@ const validateItemsRequired = ((values: FieldArrayFormValues) => ({
 
 describe("useFieldArray", () => {
   test("returns initial array values with deterministic keys", () => {
-    const h = createTestContext();
+    const h = createFormHarness();
 
     const options: UseFormOptions<FieldArrayFormValues> = {
       initialValues: { items: ["a", "b"], note: "" },
@@ -101,7 +38,7 @@ describe("useFieldArray", () => {
   });
 
   test("append adds value and initializes item state", () => {
-    const h = createTestContext();
+    const h = createFormHarness();
 
     const options: UseFormOptions<FieldArrayFormValues> = {
       initialValues: { items: ["a"], note: "" },
@@ -121,7 +58,7 @@ describe("useFieldArray", () => {
   });
 
   test("append works from an empty array", () => {
-    const h = createTestContext();
+    const h = createFormHarness();
 
     const options: UseFormOptions<FieldArrayFormValues> = {
       initialValues: { items: [], note: "" },
@@ -145,7 +82,7 @@ describe("useFieldArray", () => {
   });
 
   test("remove deletes value and aligns per-item arrays", () => {
-    const h = createTestContext();
+    const h = createFormHarness();
 
     const options: UseFormOptions<FieldArrayFormValues> = {
       initialValues: { items: ["a", "b", "c"], note: "" },
@@ -169,7 +106,7 @@ describe("useFieldArray", () => {
   });
 
   test("remove ignores out-of-range indexes", () => {
-    const h = createTestContext();
+    const h = createFormHarness();
 
     const options: UseFormOptions<FieldArrayFormValues> = {
       initialValues: { items: ["a", "b"], note: "" },
@@ -200,7 +137,7 @@ describe("useFieldArray", () => {
   });
 
   test("move reorders values and keys", () => {
-    const h = createTestContext();
+    const h = createFormHarness();
 
     const options: UseFormOptions<FieldArrayFormValues> = {
       initialValues: { items: ["a", "b", "c"], note: "" },
@@ -219,7 +156,7 @@ describe("useFieldArray", () => {
   });
 
   test("move preserves per-item error array ordering", () => {
-    const h = createTestContext();
+    const h = createFormHarness();
 
     const options: UseFormOptions<FieldArrayFormValues> = {
       initialValues: { items: ["a", "b", "c"], note: "" },
@@ -239,7 +176,7 @@ describe("useFieldArray", () => {
   });
 
   test("move preserves touched state for moved items", () => {
-    const h = createTestContext();
+    const h = createFormHarness();
 
     const options: UseFormOptions<FieldArrayFormValues> = {
       initialValues: { items: ["a", "b"], note: "" },
@@ -261,7 +198,7 @@ describe("useFieldArray", () => {
   });
 
   test("move preserves dirty state for moved items", () => {
-    const h = createTestContext();
+    const h = createFormHarness();
 
     const options: UseFormOptions<FieldArrayFormValues> = {
       initialValues: { items: ["a", "b"], note: "" },
@@ -279,7 +216,7 @@ describe("useFieldArray", () => {
   });
 
   test("move no-ops for same index or invalid indexes", () => {
-    const h = createTestContext();
+    const h = createFormHarness();
 
     const options: UseFormOptions<FieldArrayFormValues> = {
       initialValues: { items: ["a", "b"], note: "" },
@@ -313,7 +250,7 @@ describe("useFieldArray", () => {
   });
 
   test("remove and move are safe on empty arrays", () => {
-    const h = createTestContext();
+    const h = createFormHarness();
 
     const options: UseFormOptions<FieldArrayFormValues> = {
       initialValues: { items: [], note: "" },
@@ -335,7 +272,7 @@ describe("useFieldArray", () => {
   });
 
   test("rapid append/remove sequence is deterministic", () => {
-    const h = createTestContext();
+    const h = createFormHarness();
 
     const options: UseFormOptions<FieldArrayFormValues> = {
       initialValues: { items: [], note: "" },
@@ -363,7 +300,7 @@ describe("useFieldArray", () => {
   });
 
   test("rapid alternating append/remove settles to empty state deterministically", () => {
-    const h = createTestContext();
+    const h = createFormHarness();
 
     const options: UseFormOptions<FieldArrayFormValues> = {
       initialValues: { items: [], note: "" },
@@ -387,7 +324,7 @@ describe("useFieldArray", () => {
   });
 
   test("validateForm supports per-item validation arrays", () => {
-    const h = createTestContext();
+    const h = createFormHarness();
 
     const options: UseFormOptions<FieldArrayFormValues> = {
       initialValues: { items: ["ok", "", "  "], note: "" },
@@ -405,7 +342,7 @@ describe("useFieldArray", () => {
   });
 
   test("handleSubmit blocks submission when item validation array has errors", () => {
-    const h = createTestContext();
+    const h = createFormHarness();
     let submitCount = 0;
 
     const options: UseFormOptions<FieldArrayFormValues> = {
@@ -427,7 +364,7 @@ describe("useFieldArray", () => {
   });
 
   test("setDisabled blocks field-array writes until cleared", () => {
-    const h = createTestContext();
+    const h = createFormHarness();
 
     const options: UseFormOptions<FieldArrayFormValues> = {
       initialValues: { items: ["a", "b"], note: "" },
@@ -455,7 +392,7 @@ describe("useFieldArray", () => {
   });
 
   test("setFieldDisabled blocks array writes for that field until cleared", () => {
-    const h = createTestContext();
+    const h = createFormHarness();
 
     const options: UseFormOptions<FieldArrayFormValues> = {
       initialValues: { items: ["a"], note: "" },
@@ -478,7 +415,7 @@ describe("useFieldArray", () => {
   });
 
   test("setReadOnly blocks field-array writes until cleared", () => {
-    const h = createTestContext();
+    const h = createFormHarness();
 
     const options: UseFormOptions<FieldArrayFormValues> = {
       initialValues: { items: ["a", "b"], note: "" },

@@ -37,8 +37,8 @@ describe("navigation widgets", () => {
       variant: "line",
       position: "top",
     });
-    assert.equal(vnode.kind, "column");
-    assert.equal(expected.kind, "column");
+    assert.equal(vnode.kind, "fragment");
+    assert.equal(expected.kind, "fragment");
     assert.deepEqual(compositeProps(vnode), compositeProps(expected));
   });
 
@@ -67,8 +67,8 @@ describe("navigation widgets", () => {
       onChange,
       allowMultiple: true,
     });
-    assert.equal(vnode.kind, "column");
-    assert.equal(expected.kind, "column");
+    assert.equal(vnode.kind, "fragment");
+    assert.equal(expected.kind, "fragment");
     assert.deepEqual(compositeProps(vnode), compositeProps(expected));
   });
 
@@ -84,8 +84,8 @@ describe("navigation widgets", () => {
       items,
       separator: "/",
     });
-    assert.equal(breadcrumb.kind, "column");
-    assert.equal(expectedBreadcrumb.kind, "column");
+    assert.equal(breadcrumb.kind, "fragment");
+    assert.equal(expectedBreadcrumb.kind, "fragment");
     assert.deepEqual(compositeProps(breadcrumb), compositeProps(expectedBreadcrumb));
 
     const pagination = (
@@ -106,8 +106,8 @@ describe("navigation widgets", () => {
       onChange: onPageChange,
       showFirstLast: true,
     });
-    assert.equal(pagination.kind, "column");
-    assert.equal(expectedPagination.kind, "column");
+    assert.equal(pagination.kind, "fragment");
+    assert.equal(expectedPagination.kind, "fragment");
     assert.deepEqual(compositeProps(pagination), compositeProps(expectedPagination));
   });
 });

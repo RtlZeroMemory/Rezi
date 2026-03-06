@@ -7,7 +7,13 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 ## [Unreleased]
 ### Bug Fixes
 
-- **core/composition + hooks**: Composite widgets now use a layout-transparent default wrapper, animation hooks share a frame driver, transition/orchestration hooks stop relying on stringified config signatures, `useAnimatedValue` transition playback preserves progress across pause/resume, `useStagger` restarts on same-length item replacement, and streaming hook reconnect delays clamp away tight-loop reconnects.
+### Breaking Changes
+
+- **core/composition**: `WidgetContext.useViewport` is now required. Custom callers constructing widget contexts must provide `useViewport`, and `createWidgetContext(...)` now supplies it consistently.
+
+### Bug Fixes
+
+- **core/composition + hooks**: Composite widgets now use a layout-transparent default wrapper, animation hooks share a frame driver, transition/orchestration hooks stop relying on stringified config signatures, `useAnimatedValue` transition playback preserves progress across pause/resume, `useParallel` and `useChain` now read the latest callbacks without stale-closure behavior, `useStagger` restarts on same-length item replacement, and streaming hook reconnect delays clamp away tight-loop reconnects.
 - **core/runtime + perf**: Hardened lifecycle start/stop/fatal edges, sync frame follow-up scheduling, focus/layer callback failure handling, focus container metadata/state publication, and perf ring-buffer rollover stats.
 - **core/layout + constraints**: Constraint sibling aggregation is now same-parent scoped, hidden `display: false` layout widgets are removed from runtime interaction metadata even without an active constraint graph, deep parent-dependent chains settle fully in the first committed frame, box intrinsic sizing ignores absolute children, and unsupported absolute-position usage now emits deterministic dev warnings.
 
@@ -16,6 +22,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - **docs/guide**: Synced composition, animation, and hook reference docs with the current hook surface, easing presets, callback semantics, viewport availability, and stable parser examples for streaming hooks.
 - **docs/lifecycle**: Corrected `onEvent(...)` examples, fatal payload fields, hot-reload state guarantees, and `run()` behavior when signal registration is unavailable.
 - **docs/layout + constraints**: Aligned recipes and guides with actual support boundaries for spacing, absolute positioning, `display`, and same-parent sibling aggregation semantics.
+
 ## [0.1.0-alpha.57] - 2026-03-06
 
 ### Documentation

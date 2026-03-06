@@ -118,14 +118,13 @@ export type WidgetContext<State = void> = Readonly<{
 
   /**
    * Read the currently-resolved semantic color tokens for this render.
-   * Returns null when semantic tokens are unavailable for the active theme.
    */
   useTheme: () => ColorTokens | null;
 
   /**
    * Read current viewport size and responsive breakpoint.
    */
-  useViewport?: () => ResponsiveViewportSnapshot;
+  useViewport: () => ResponsiveViewportSnapshot;
 
   /**
    * Request a re-render of this widget instance.
@@ -248,7 +247,7 @@ export type WidgetPropsBase = Readonly<{ key?: string }>;
  */
 export type WidgetFactory<Props extends WidgetPropsBase> = (props: Props) => VNode;
 
-export type WidgetWrapperKind = "column" | "row";
+export type WidgetWrapperKind = "fragment" | "column" | "row";
 
 /**
  * Options for defineWidget.
@@ -258,7 +257,7 @@ export type DefineWidgetOptions = Readonly<{
   name?: string;
   /**
    * Container wrapper kind used by the composite placeholder node.
-   * Defaults to "column" for backwards compatibility.
+   * Defaults to a layout-transparent fragment wrapper.
    */
   wrapper?: WidgetWrapperKind;
 }>;
@@ -301,7 +300,7 @@ export function defineWidget<Props extends WidgetPropsBase, State = void>(
   options?: DefineWidgetOptions,
 ): WidgetFactory<Props> {
   const widgetKey = generateWidgetKey(options?.name);
-  const wrapperKind = options?.wrapper ?? "column";
+  const wrapperKind = options?.wrapper ?? "fragment";
 
   return function widgetFactory(props: Props): VNode {
     // Store render function and props for later execution
