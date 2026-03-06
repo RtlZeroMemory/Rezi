@@ -1,6 +1,6 @@
 # Benchmarks
 
-Terminal UI benchmark suite comparing Rezi against other frameworks across 22 scenarios. Each scenario measures one complete render cycle — state update through final frame output — in PTY mode (real terminal write path).
+Terminal UI benchmark suite comparing Rezi against other frameworks across 21 scenarios. Each scenario measures one complete render cycle — state update through final frame output — in PTY mode (real terminal write path).
 
 ## Frameworks
 
