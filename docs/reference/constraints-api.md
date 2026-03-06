@@ -94,7 +94,7 @@ Height analogs of `widthConstraints`.
 
 Sibling aggregation wrappers (equalization / totals).
 
-These are most useful when **multiple siblings share the same non-interactive `id`** (for example repeated label widgets), and you want a max/sum across that group.
+These are most useful when **multiple siblings under the same parent share the same non-interactive `id`** (for example repeated label widgets), and you want a max/sum across that local group.
 
 - `maxSiblingWidth(id: string)` → `max_sibling(#id.w)`
 - `maxSiblingHeight(id: string)` → `max_sibling(#id.h)`

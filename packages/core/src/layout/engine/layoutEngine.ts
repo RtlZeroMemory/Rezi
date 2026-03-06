@@ -106,6 +106,13 @@ const LAYOUT_CHILD_CONSTRAINT_PROP_NAMES: readonly string[] = Object.freeze([
   "colSpan",
   "rowSpan",
 ]);
+const ABSOLUTE_POSITION_PROP_NAMES: readonly string[] = Object.freeze([
+  "position",
+  "top",
+  "right",
+  "bottom",
+  "left",
+]);
 const LAYOUT_CHILD_CONSTRAINT_KINDS = new Set<VNode["kind"]>([
   "box",
   "row",
@@ -129,6 +136,7 @@ const LAYOUT_CHILD_CONSTRAINT_KINDS = new Set<VNode["kind"]>([
   "miniChart",
   "gauge",
 ]);
+const ABSOLUTE_POSITION_PARENT_KINDS = new Set<VNode["kind"]>(["box", "row", "column"]);
 const LAYOUT_CHILD_CONSTRAINT_KIND_LIST = Array.from(LAYOUT_CHILD_CONSTRAINT_KINDS)
   .sort()
   .join(", ");
@@ -218,18 +226,26 @@ function findLegacyConstraintUsage(root: VNode): string | null {
 
 function findUnsupportedLayoutConstraintUsage(root: VNode): readonly string[] {
   const issues: string[] = [];
-  const stack: Array<Readonly<{ node: VNode; path: string }>> = [{ node: root, path: root.kind }];
-  const visited = new WeakSet<VNode>();
+  const stack: Array<Readonly<{ node: VNode; path: string; parentKind: VNode["kind"] | null }>> = [
+    { node: root, path: root.kind, parentKind: null },
+  ];
+  const visitedByParentKind = new WeakMap<VNode, Set<VNode["kind"] | null>>();
 
   while (stack.length > 0) {
     const frame = stack.pop();
     if (!frame) continue;
-    const { node, path } = frame;
-    if (visited.has(node)) continue;
-    visited.add(node);
+    const { node, path, parentKind } = frame;
+    const seenParentKinds = visitedByParentKind.get(node);
+    if (seenParentKinds?.has(parentKind)) continue;
+    if (seenParentKinds === undefined) {
+      visitedByParentKind.set(node, new Set([parentKind]));
+    } else {
+      seenParentKinds.add(parentKind);
+    }
+
+    const props = (node.props ?? {}) as Readonly<Record<string, unknown> & { position?: unknown }>;
 
     if (!LAYOUT_CHILD_CONSTRAINT_KINDS.has(node.kind)) {
-      const props = (node.props ?? {}) as Readonly<Record<string, unknown>>;
       const unsupportedProps: string[] = [];
       for (const propName of LAYOUT_CHILD_CONSTRAINT_PROP_NAMES) {
         if (props[propName] === undefined) continue;
@@ -242,12 +258,33 @@ function findUnsupportedLayoutConstraintUsage(root: VNode): readonly string[] {
       }
     }
 
+    const position = props.position;
+    const usesAbsoluteOffsets =
+      LAYOUT_CHILD_CONSTRAINT_KINDS.has(node.kind) &&
+      ABSOLUTE_POSITION_PROP_NAMES.some(
+        (propName) => propName !== "position" && props[propName] !== undefined,
+      );
+    const usesAbsolutePosition = position === "absolute" || usesAbsoluteOffsets;
+    if (
+      usesAbsolutePosition &&
+      (parentKind === null || !ABSOLUTE_POSITION_PARENT_KINDS.has(parentKind))
+    ) {
+      const parentLabel = parentKind === null ? "root" : parentKind;
+      issues.push(
+        `${path}: absolute positioning is only honored for children of box/row/column (parent: ${parentLabel})`,
+      );
+    }
+
     const children = (node as Readonly<{ children?: readonly VNode[] }>).children;
     if (Array.isArray(children) && children.length > 0) {
       for (let i = children.length - 1; i >= 0; i--) {
         const child = children[i];
         if (!child) continue;
-        stack.push({ node: child, path: `${path}>${child.kind}[${String(i)}]` });
+        stack.push({
+          node: child,
+          path: `${path}>${child.kind}[${String(i)}]`,
+          parentKind: node.kind,
+        });
       }
     }
 
@@ -261,19 +298,31 @@ function findUnsupportedLayoutConstraintUsage(root: VNode): readonly string[] {
         typeof modalProps.content === "object" &&
         "kind" in modalProps.content
       ) {
-        stack.push({ node: modalProps.content as VNode, path: `${path}.content` });
+        stack.push({
+          node: modalProps.content as VNode,
+          path: `${path}.content`,
+          parentKind: node.kind,
+        });
       }
       if (Array.isArray(modalProps.actions)) {
         for (let i = modalProps.actions.length - 1; i >= 0; i--) {
           const action = modalProps.actions[i];
           if (!action || typeof action !== "object" || !("kind" in action)) continue;
-          stack.push({ node: action as VNode, path: `${path}.actions[${String(i)}]` });
+          stack.push({
+            node: action as VNode,
+            path: `${path}.actions[${String(i)}]`,
+            parentKind: node.kind,
+          });
         }
       }
     } else if (node.kind === "layer") {
       const layerContent = (node.props as Readonly<{ content?: unknown }>).content;
       if (layerContent && typeof layerContent === "object" && "kind" in layerContent) {
-        stack.push({ node: layerContent as VNode, path: `${path}.content` });
+        stack.push({
+          node: layerContent as VNode,
+          path: `${path}.content`,
+          parentKind: node.kind,
+        });
       }
     }
   }
