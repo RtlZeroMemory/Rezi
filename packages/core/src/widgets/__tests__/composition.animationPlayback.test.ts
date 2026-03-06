@@ -365,4 +365,46 @@ describe("composition animation hooks - playback controls", () => {
     assert.ok(max <= 10.1);
     assert.equal(h.unmount(), true);
   });
+
+  test("changing sequence easing functions restarts with the new curve", async () => {
+    const h = createHarness();
+    const linearFrames = [{ value: 0, duration: 100, easing: (t: number) => t }, 10] as const;
+    const snapFrames = [{ value: 0, duration: 100, easing: (_t: number) => 1 }, 10] as const;
+
+    let render = h.render((hooks) =>
+      useSequence(hooks, linearFrames, {
+        playback: { paused: false },
+      }),
+    );
+    h.runPending(render.pendingEffects);
+
+    await sleep(30);
+    render = h.render((hooks) =>
+      useSequence(hooks, linearFrames, {
+        playback: { paused: false },
+      }),
+    );
+    const linearValue = render.result;
+    h.runPending(render.pendingEffects);
+    assert.ok(linearValue > 0 && linearValue < 10);
+
+    render = h.render((hooks) =>
+      useSequence(hooks, snapFrames, {
+        playback: { paused: false },
+      }),
+    );
+    h.runPending(render.pendingEffects);
+
+    await waitFor(() => {
+      const next = h.render((hooks) =>
+        useSequence(hooks, snapFrames, {
+          playback: { paused: false },
+        }),
+      );
+      h.runPending(next.pendingEffects);
+      return next.result >= 9.5;
+    });
+
+    assert.equal(h.unmount(), true);
+  });
 });

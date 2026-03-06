@@ -322,7 +322,7 @@ All hook signatures below are sourced from:
 | `ctx.useEffect` | `(effect: () => void \| (() => void), deps?: readonly unknown[])` | `void` |
 | `ctx.useAppState` | `<T>(selector: (s: State) => T)` | `T` |
 | `ctx.useTheme` | `()` | `ColorTokens \| null` |
-| `ctx.useViewport` | `?(): ResponsiveViewportSnapshot` | `ResponsiveViewportSnapshot` |
+| `ctx.useViewport` | `(): ResponsiveViewportSnapshot` | `ResponsiveViewportSnapshot` |
 | `ctx.id` | `(suffix: string)` | `string` |
 | `ctx.invalidate` | `()` | `void` |
 

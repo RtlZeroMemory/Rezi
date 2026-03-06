@@ -210,6 +210,60 @@ describe("composition animation hooks - useAnimatedValue", () => {
     assert.equal(h.unmount(), true);
   });
 
+  test("transition playback pause and resume preserves elapsed progress", async () => {
+    const h = createHarness();
+    const baseConfig = {
+      mode: "transition" as const,
+      transition: { duration: 120, easing: "linear" as const, playback: { paused: false } },
+    };
+
+    let render = h.render((hooks) => useAnimatedValue(hooks, 0, baseConfig));
+    h.runPending(render.pendingEffects);
+
+    render = h.render((hooks) => useAnimatedValue(hooks, 10, baseConfig));
+    h.runPending(render.pendingEffects);
+
+    let pausedValue = 0;
+    await waitFor(() => {
+      const next = h.render((hooks) => useAnimatedValue(hooks, 10, baseConfig));
+      pausedValue = next.result.value;
+      h.runPending(next.pendingEffects);
+      return pausedValue > 2 && pausedValue < 9;
+    });
+
+    render = h.render((hooks) =>
+      useAnimatedValue(hooks, 10, {
+        mode: "transition",
+        transition: { duration: 120, easing: "linear", playback: { paused: true } },
+      }),
+    );
+    pausedValue = render.result.value;
+    h.runPending(render.pendingEffects);
+
+    await sleep(80);
+    render = h.render((hooks) =>
+      useAnimatedValue(hooks, 10, {
+        mode: "transition",
+        transition: { duration: 120, easing: "linear", playback: { paused: true } },
+      }),
+    );
+    h.runPending(render.pendingEffects);
+    assert.ok(Math.abs(render.result.value - pausedValue) <= 0.1);
+    assert.equal(render.result.isAnimating, false);
+
+    render = h.render((hooks) => useAnimatedValue(hooks, 10, baseConfig));
+    h.runPending(render.pendingEffects);
+
+    await waitFor(() => {
+      const next = h.render((hooks) => useAnimatedValue(hooks, 10, baseConfig));
+      render = next;
+      h.runPending(next.pendingEffects);
+      return Math.abs(next.result.value - 10) <= 0.2 && next.result.isAnimating === false;
+    });
+
+    assert.equal(h.unmount(), true);
+  });
+
   test("onComplete fires on settlement", async () => {
     const h = createHarness();
     let transitionCompleteCount = 0;
@@ -246,6 +300,36 @@ describe("composition animation hooks - useAnimatedValue", () => {
     });
 
     assert.equal(transitionCompleteCount, 1);
+    assert.equal(h.unmount(), true);
+  });
+
+  test("spring onComplete fires once on settlement", async () => {
+    const h = createHarness();
+    let completeCount = 0;
+    const config = {
+      mode: "spring" as const,
+      spring: {
+        stiffness: 220,
+        damping: 24,
+        restDelta: 0.01,
+        restSpeed: 0.01,
+        onComplete: () => completeCount++,
+      },
+    };
+
+    let render = h.render((hooks) => useAnimatedValue(hooks, 0, config));
+    h.runPending(render.pendingEffects);
+
+    render = h.render((hooks) => useAnimatedValue(hooks, 10, config));
+    h.runPending(render.pendingEffects);
+
+    await waitFor(() => {
+      const next = h.render((hooks) => useAnimatedValue(hooks, 10, config));
+      h.runPending(next.pendingEffects);
+      return completeCount >= 1 && next.result.isAnimating === false;
+    });
+
+    assert.equal(completeCount, 1);
     assert.equal(h.unmount(), true);
   });
 });

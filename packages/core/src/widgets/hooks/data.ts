@@ -259,6 +259,13 @@ function normalizePositiveInteger(value: number | undefined, fallback: number): 
   return Math.floor(value);
 }
 
+const MIN_STREAM_RECONNECT_MS = 10;
+
+function normalizeReconnectDelayMs(value: number | undefined, fallback: number): number {
+  const normalized = normalizeNonNegativeInteger(value, fallback);
+  return normalized <= 0 ? MIN_STREAM_RECONNECT_MS : normalized;
+}
+
 type EventSourceCtor = new (
   url: string,
   options?: Readonly<{ withCredentials?: boolean }>,
@@ -483,7 +490,7 @@ export function useEventSource<T = string>(
   const runIdRef = ctx.useRef(0);
 
   const enabled = options.enabled ?? true;
-  const reconnectMs = normalizeNonNegativeInteger(options.reconnectMs, DEFAULT_STREAM_RECONNECT_MS);
+  const reconnectMs = normalizeReconnectDelayMs(options.reconnectMs, DEFAULT_STREAM_RECONNECT_MS);
   const eventType = options.eventType ?? "message";
   const parse = options.parse;
 
@@ -675,7 +682,7 @@ export function useWebSocket<T = string>(
   }
 
   const enabled = options.enabled ?? true;
-  const reconnectMs = normalizeNonNegativeInteger(options.reconnectMs, DEFAULT_STREAM_RECONNECT_MS);
+  const reconnectMs = normalizeReconnectDelayMs(options.reconnectMs, DEFAULT_STREAM_RECONNECT_MS);
   const parse = options.parse;
 
   ctx.useEffect(() => {

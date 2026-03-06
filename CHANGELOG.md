@@ -6,6 +6,14 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- **core/composition + hooks**: Composite widgets now use a layout-transparent default wrapper, animation hooks share a frame driver, transition/orchestration hooks stop relying on stringified config signatures, `useAnimatedValue` transition playback preserves progress across pause/resume, `useStagger` restarts on same-length item replacement, and streaming hook reconnect delays clamp away tight-loop reconnects.
+
+### Documentation
+
+- **docs/guide**: Synced composition, animation, and hook reference docs with the current hook surface, easing presets, callback semantics, viewport availability, and stable parser examples for streaming hooks.
+
 ## [0.1.0-alpha.57] - 2026-03-06
 
 ### Documentation

@@ -535,6 +535,7 @@ useStagger<T>(
 - Useful for staggered opacity/position/scale-style numeric effects.
 - Defaults: `delay=40ms`, `duration=180ms`.
 - Empty item lists return an empty frozen array.
+- Same-length item replacements restart the stagger when item identity changes.
 
 **Config fields (`UseStaggerConfig`):**
 
@@ -593,6 +594,7 @@ useAnimatedValue(
 - `mode: "spring"` uses spring physics semantics.
 - `velocity` is meaningful in spring mode and `0` for transition mode.
 - `isAnimating` indicates whether the current run is still active.
+- Transition mode supports `playback` pause/reverse/rate controls and resumes from retained progress.
 
 **Example:**
 
@@ -635,6 +637,7 @@ useParallel(
 - Runs all entries in parallel.
 - Returns one `{ value, isAnimating }` record per input entry.
 - Each entry accepts `target` and optional `TransitionConfig`.
+- Callback updates are read from the latest render without forcing a restart.
 
 **Example:**
 
@@ -811,6 +814,7 @@ type UseAsyncState<T> = Readonly<{
 - Stores the resolved value in `data`.
 - Stores any thrown/rejected value in `error`.
 - Ignores stale completions from older dependency runs (race condition safe).
+- Retains the previous `data` value while a new run is loading.
 - Internally uses `ctx.useState`, `ctx.useRef`, and `ctx.useEffect`.
 
 **Example:**
@@ -869,6 +873,7 @@ type UseStreamState<T> = Readonly<{
 - Sets `loading` while waiting for the first value.
 - Marks `done` once the iterable completes.
 - Ignores stale values from older subscriptions after dependency changes.
+- Retains the last emitted `value` until a new subscription produces a replacement.
 
 **Example:**
 
@@ -919,6 +924,8 @@ useEventSource<T = string>(
 - Reconnects automatically after connection failures.
 - Supports custom parsing with `options.parse(message)`.
 - Exposes connection status and retry count.
+- `reconnectMs` is clamped to a minimum `10ms` to avoid tight reconnect loops.
+- Keep `options.parse` stable with `ctx.useCallback(...)` if the widget re-renders often.
 
 **Example:**
 
@@ -926,11 +933,15 @@ useEventSource<T = string>(
 import { defineWidget, useEventSource, ui } from "@rezi-ui/core";
 
 const Alerts = defineWidget<{ key?: string }>((props, ctx) => {
+  const parseAlert = ctx.useCallback(
+    (message: { data: string }) => JSON.parse(message.data) as { severity: string; message: string },
+    [],
+  );
   const alerts = useEventSource<{ severity: string; message: string }>(
     ctx,
     "https://ops.example.com/alerts",
     {
-      parse: (message) => JSON.parse(message.data) as { severity: string; message: string },
+      parse: parseAlert,
       reconnectMs: 1500,
     },
   );
@@ -974,6 +985,8 @@ useWebSocket<T = string>(
 - Parses incoming `message` payloads via `options.parse`.
 - Auto-reconnects after unexpected connection closure.
 - Provides `send(...)` and `close(...)` helpers.
+- `reconnectMs` is clamped to a minimum `10ms` to avoid tight reconnect loops.
+- Keep `options.parse` stable with `ctx.useCallback(...)` if the widget re-renders often.
 
 **Example:**
 
@@ -981,8 +994,12 @@ useWebSocket<T = string>(
 import { defineWidget, useWebSocket, ui } from "@rezi-ui/core";
 
 const LiveQueue = defineWidget<{ key?: string }>((props, ctx) => {
+  const parseQueue = ctx.useCallback(
+    (payload: unknown) => JSON.parse(String(payload)) as { queued: number },
+    [],
+  );
   const socket = useWebSocket<{ queued: number }>(ctx, "wss://ops.example.com/queue", "json", {
-    parse: (payload) => JSON.parse(String(payload)) as { queued: number },
+    parse: parseQueue,
   });
 
   return ui.text(`Queued jobs: ${String(socket.value?.queued ?? 0)}`);
