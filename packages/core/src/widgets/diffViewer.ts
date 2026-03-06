@@ -231,10 +231,10 @@ export function getHunkScrollPosition(hunkIndex: number, hunks: readonly DiffHun
 const WIDGET_PALETTE = defaultTheme.colors;
 
 export const DIFF_COLORS = Object.freeze({
-  addBg: WIDGET_PALETTE["widget.diff.add.bg"] ?? WIDGET_PALETTE.success,
-  deleteBg: WIDGET_PALETTE["widget.diff.delete.bg"] ?? WIDGET_PALETTE.danger,
-  addFg: WIDGET_PALETTE["widget.diff.add.fg"] ?? WIDGET_PALETTE.fg,
-  deleteFg: WIDGET_PALETTE["widget.diff.delete.fg"] ?? WIDGET_PALETTE.fg,
+  addBg: WIDGET_PALETTE["widget.diff.addBg"] ?? WIDGET_PALETTE.success,
+  deleteBg: WIDGET_PALETTE["widget.diff.deleteBg"] ?? WIDGET_PALETTE.danger,
+  addFg: WIDGET_PALETTE["widget.diff.addFg"] ?? WIDGET_PALETTE.fg,
+  deleteFg: WIDGET_PALETTE["widget.diff.deleteFg"] ?? WIDGET_PALETTE.fg,
   hunkHeader: WIDGET_PALETTE["widget.diff.hunkHeader"] ?? WIDGET_PALETTE.info,
   lineNumber: WIDGET_PALETTE["widget.diff.lineNumber"] ?? WIDGET_PALETTE.muted,
   border: WIDGET_PALETTE["widget.diff.border"] ?? WIDGET_PALETTE.border,

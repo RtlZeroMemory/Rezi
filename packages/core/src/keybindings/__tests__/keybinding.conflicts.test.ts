@@ -613,7 +613,7 @@ describe("app routing precedence", () => {
 
     await app.start();
     await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 40, rows: 10 }]);
-    await flushMicrotasks(20);
+    await settleNextFrame(backend);
 
     await pushEvents(backend, [{ kind: "key", timeMs: 2, key: ZR_KEY_DOWN, action: "down" }]);
     await pushEvents(backend, [{ kind: "key", timeMs: 3, key: ZR_KEY_ENTER, action: "down" }]);

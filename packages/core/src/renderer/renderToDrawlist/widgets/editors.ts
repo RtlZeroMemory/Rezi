@@ -53,13 +53,13 @@ function rectIntersects(a: Rect, b: Rect): boolean {
 function logLevelToThemeColor(theme: Theme, level: LogsConsoleProps["entries"][number]["level"]) {
   switch (level) {
     case "warn":
-      return theme.colors["widget.logs.level.warn"] ?? theme.colors.warning;
+      return theme.colors["widget.logs.warn"] ?? theme.colors.warning;
     case "error":
-      return theme.colors["widget.logs.level.error"] ?? theme.colors.danger;
+      return theme.colors["widget.logs.error"] ?? theme.colors.danger;
     case "info":
-      return theme.colors["widget.logs.level.info"] ?? theme.colors.fg;
+      return theme.colors["widget.logs.info"] ?? theme.colors.fg;
     default:
-      return theme.colors["widget.logs.level.trace"] ?? theme.colors.muted;
+      return theme.colors["widget.logs.trace"] ?? theme.colors.muted;
   }
 }
 
@@ -84,35 +84,35 @@ function createCodeEditorSyntaxStyleMap(
   return Object.freeze({
     plain: parentStyle,
     keyword: mergeTextStyle(parentStyle, {
-      fg: resolveSyntaxThemeColor(theme, "syntax.keyword", theme.colors.info),
+      fg: resolveSyntaxThemeColor(theme, "widget.syntax.keyword", theme.colors.info),
       bold: true,
     }),
     type: mergeTextStyle(parentStyle, {
-      fg: resolveSyntaxThemeColor(theme, "syntax.type", theme.colors.warning),
+      fg: resolveSyntaxThemeColor(theme, "widget.syntax.type", theme.colors.warning),
       bold: true,
     }),
     string: mergeTextStyle(parentStyle, {
-      fg: resolveSyntaxThemeColor(theme, "syntax.string", theme.colors.success),
+      fg: resolveSyntaxThemeColor(theme, "widget.syntax.string", theme.colors.success),
     }),
     number: mergeTextStyle(parentStyle, {
-      fg: resolveSyntaxThemeColor(theme, "syntax.number", theme.colors.warning),
+      fg: resolveSyntaxThemeColor(theme, "widget.syntax.number", theme.colors.warning),
     }),
     comment: mergeTextStyle(parentStyle, {
-      fg: resolveSyntaxThemeColor(theme, "syntax.comment", theme.colors.muted),
+      fg: resolveSyntaxThemeColor(theme, "widget.syntax.comment", theme.colors.muted),
       italic: true,
     }),
     operator: mergeTextStyle(parentStyle, {
-      fg: resolveSyntaxThemeColor(theme, "syntax.operator", theme.colors.primary),
+      fg: resolveSyntaxThemeColor(theme, "widget.syntax.operator", theme.colors.primary),
     }),
     punctuation: mergeTextStyle(parentStyle, {
-      fg: resolveSyntaxThemeColor(theme, "syntax.punctuation", theme.colors.fg),
+      fg: resolveSyntaxThemeColor(theme, "widget.syntax.punctuation", theme.colors.fg),
     }),
     function: mergeTextStyle(parentStyle, {
-      fg: resolveSyntaxThemeColor(theme, "syntax.function", theme.colors.primary),
+      fg: resolveSyntaxThemeColor(theme, "widget.syntax.function", theme.colors.primary),
       bold: true,
     }),
     variable: mergeTextStyle(parentStyle, {
-      fg: resolveSyntaxThemeColor(theme, "syntax.variable", theme.colors.secondary),
+      fg: resolveSyntaxThemeColor(theme, "widget.syntax.variable", theme.colors.secondary),
       bold: true,
     }),
   });
@@ -342,8 +342,8 @@ export function renderEditorWidget(
           const cursorGlyph = cursorLine.slice(cursor.column, cursor.column + 1) || " ";
           const cursorCellStyle = resolveFocusedContentStyle(
             mergeTextStyle(parentStyle, {
-              fg: resolveSyntaxThemeColor(theme, "syntax.cursor.fg", theme.colors.bg),
-              bg: resolveSyntaxThemeColor(theme, "syntax.cursor.bg", theme.colors.primary),
+              fg: resolveSyntaxThemeColor(theme, "widget.syntax.cursorFg", theme.colors.bg),
+              bg: resolveSyntaxThemeColor(theme, "widget.syntax.cursorBg", theme.colors.primary),
               bold: true,
             }),
             theme,
@@ -386,10 +386,10 @@ export function renderEditorWidget(
       const focusedHunkStyle = asTextStyle(props.focusedHunkStyle, theme);
       const { diff } = props;
       const diffCache = diffRenderCacheById?.get(props.id);
-      const addBg = resolveDiffThemeColor(theme, "widget.diff.add.bg", theme.colors.success);
-      const deleteBg = resolveDiffThemeColor(theme, "widget.diff.delete.bg", theme.colors.danger);
-      const addFg = resolveDiffThemeColor(theme, "widget.diff.add.fg", theme.colors.bg);
-      const deleteFg = resolveDiffThemeColor(theme, "widget.diff.delete.fg", theme.colors.bg);
+      const addBg = resolveDiffThemeColor(theme, "widget.diff.addBg", theme.colors.success);
+      const deleteBg = resolveDiffThemeColor(theme, "widget.diff.deleteBg", theme.colors.danger);
+      const addFg = resolveDiffThemeColor(theme, "widget.diff.addFg", theme.colors.bg);
+      const deleteFg = resolveDiffThemeColor(theme, "widget.diff.deleteFg", theme.colors.bg);
       const hunkHeaderFg = resolveDiffThemeColor(
         theme,
         "widget.diff.hunkHeader",

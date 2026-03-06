@@ -48,10 +48,15 @@ export const DEFAULT_MODE = "default";
  */
 type CompiledMode<C> = Readonly<{
   name: string;
-  bindings: readonly KeyBinding<C>[];
+  bindings: readonly ManagedBinding<C>[];
   parent?: string;
   trie: TrieNode<C>;
 }>;
+
+type ManagedBinding<C> = KeyBinding<C> &
+  Readonly<{
+    sourceTag?: string;
+  }>;
 
 /**
  * State of the keybinding manager.
@@ -114,6 +119,8 @@ export type BindingMap<C> = Readonly<Record<string, BindingDefinition<C>>>;
 export type RegisterBindingsOptions = Readonly<{
   /** Mode to register bindings in (default: "default") */
   mode?: string;
+  /** Internal ownership tag used by the runtime to replace/remove binding groups safely. */
+  sourceTag?: string;
 }>;
 
 /**
@@ -179,6 +186,30 @@ function parseBindings<C>(map: BindingMap<C>): ParseBindingsResult<C> {
   });
 }
 
+function parseBindingsWithOptions<C>(
+  map: BindingMap<C>,
+  options?: RegisterBindingsOptions,
+): ParseBindingsResult<C> {
+  const parsed = parseBindings(map);
+  const sourceTag = options?.sourceTag;
+  if (sourceTag === undefined) return parsed;
+
+  const bindings: ManagedBinding<C>[] = [];
+  for (const binding of parsed.bindings) {
+    bindings.push(
+      Object.freeze({
+        ...binding,
+        sourceTag,
+      }),
+    );
+  }
+
+  return Object.freeze({
+    bindings: Object.freeze(bindings),
+    invalidKeys: parsed.invalidKeys,
+  });
+}
+
 function keySequencesEqual(a: KeySequence, b: KeySequence): boolean {
   if (a.keys.length !== b.keys.length) return false;
   for (let i = 0; i < a.keys.length; i++) {
@@ -190,9 +221,9 @@ function keySequencesEqual(a: KeySequence, b: KeySequence): boolean {
 }
 
 function mergeBindingsReplacingSequences<C>(
-  existing: readonly KeyBinding<C>[],
-  incoming: readonly KeyBinding<C>[],
-): KeyBinding<C>[] {
+  existing: readonly ManagedBinding<C>[],
+  incoming: readonly ManagedBinding<C>[],
+): ManagedBinding<C>[] {
   const merged = [...existing];
   for (const next of incoming) {
     for (let i = merged.length - 1; i >= 0; i--) {
@@ -236,7 +267,7 @@ export function registerBindings<C>(
   options?: RegisterBindingsOptions,
 ): RegisterBindingsResult<C> {
   const modeName = options?.mode ?? DEFAULT_MODE;
-  const parsed = parseBindings(bindings);
+  const parsed = parseBindingsWithOptions(bindings, options);
 
   const existingMode = state.modes.get(modeName);
   const existingBindings = existingMode?.bindings ?? [];
@@ -356,10 +387,39 @@ export function registerModes<C>(
     });
   }
 
+  validateModeGraph(newState.modes);
+
   return Object.freeze({
     state: newState,
     invalidKeys: Object.freeze(allInvalidKeys),
   });
+}
+
+function validateModeGraph<C>(modes: ReadonlyMap<string, CompiledMode<C>>): void {
+  for (const [modeName, mode] of modes) {
+    if (mode.parent === undefined) continue;
+    if (!modes.has(mode.parent)) {
+      throw new Error(
+        `unknown parent mode "${mode.parent}" for mode "${modeName}" (register the parent first or in the same app.modes() call)`,
+      );
+    }
+  }
+
+  for (const modeName of modes.keys()) {
+    const visited = new Set<string>();
+    let currentName: string | undefined = modeName;
+
+    while (currentName !== undefined) {
+      if (visited.has(currentName)) {
+        throw new Error(`cyclic keybinding mode parent chain detected at "${currentName}"`);
+      }
+      visited.add(currentName);
+
+      const current = modes.get(currentName);
+      if (!current) break;
+      currentName = current.parent;
+    }
+  }
 }
 
 /**
@@ -462,6 +522,53 @@ export function getBindings<C>(
   }
 
   return Object.freeze(out);
+}
+
+export function removeBindingsBySource<C>(
+  state: KeybindingManagerState<C>,
+  sourceTag: string,
+  options?: Readonly<{ mode?: string }>,
+): KeybindingManagerState<C> {
+  const modeName = options?.mode;
+  let didChange = false;
+  const nextModes = new Map<string, CompiledMode<C>>();
+
+  for (const [currentModeName, compiled] of state.modes) {
+    if (modeName !== undefined && currentModeName !== modeName) {
+      nextModes.set(currentModeName, compiled);
+      continue;
+    }
+
+    const filteredBindings = compiled.bindings.filter((binding) => binding.sourceTag !== sourceTag);
+    if (filteredBindings.length === compiled.bindings.length) {
+      nextModes.set(currentModeName, compiled);
+      continue;
+    }
+
+    didChange = true;
+    nextModes.set(
+      currentModeName,
+      compiled.parent !== undefined
+        ? Object.freeze({
+            name: compiled.name,
+            parent: compiled.parent,
+            bindings: Object.freeze(filteredBindings),
+            trie: buildTrie(filteredBindings),
+          })
+        : Object.freeze({
+            name: compiled.name,
+            bindings: Object.freeze(filteredBindings),
+            trie: buildTrie(filteredBindings),
+          }),
+    );
+  }
+
+  if (!didChange) return state;
+
+  return Object.freeze({
+    ...state,
+    modes: nextModes,
+  });
 }
 
 /**

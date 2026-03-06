@@ -125,6 +125,7 @@ export {
   getBindings,
   registerBindings,
   getPendingChord,
+  removeBindingsBySource,
   registerModes,
   setMode,
   getMode,

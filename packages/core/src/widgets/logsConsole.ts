@@ -211,11 +211,11 @@ export function formatCost(costCents: number): string {
 const WIDGET_PALETTE = defaultTheme.colors;
 
 export const LEVEL_COLORS: Record<LogLevel, Rgb24> = {
-  trace: WIDGET_PALETTE["widget.logs.level.trace"] ?? WIDGET_PALETTE.muted,
-  debug: WIDGET_PALETTE["widget.logs.level.debug"] ?? WIDGET_PALETTE.secondary,
-  info: WIDGET_PALETTE["widget.logs.level.info"] ?? WIDGET_PALETTE.fg,
-  warn: WIDGET_PALETTE["widget.logs.level.warn"] ?? WIDGET_PALETTE.warning,
-  error: WIDGET_PALETTE["widget.logs.level.error"] ?? WIDGET_PALETTE.danger,
+  trace: WIDGET_PALETTE["widget.logs.trace"] ?? WIDGET_PALETTE.muted,
+  debug: WIDGET_PALETTE["widget.logs.debug"] ?? WIDGET_PALETTE.secondary,
+  info: WIDGET_PALETTE["widget.logs.info"] ?? WIDGET_PALETTE.fg,
+  warn: WIDGET_PALETTE["widget.logs.warn"] ?? WIDGET_PALETTE.warning,
+  error: WIDGET_PALETTE["widget.logs.error"] ?? WIDGET_PALETTE.danger,
 };
 
 /** Level priority for filtering. */

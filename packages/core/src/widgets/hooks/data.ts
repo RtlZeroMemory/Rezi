@@ -263,7 +263,7 @@ const MIN_STREAM_RECONNECT_MS = 10;
 
 function normalizeReconnectDelayMs(value: number | undefined, fallback: number): number {
   const normalized = normalizeNonNegativeInteger(value, fallback);
-  return normalized <= 0 ? MIN_STREAM_RECONNECT_MS : normalized;
+  return Math.max(MIN_STREAM_RECONNECT_MS, normalized);
 }
 
 type EventSourceCtor = new (

@@ -322,7 +322,7 @@ describe("graphics/widgets/style (locked) - zrdl-v1 graphics fixtures", () => {
           text: "warn",
           style: {
             underlineStyle: "dashed",
-            underlineColor: (0 << 16) | (170 << 8) | 255,
+            underlineColor: packRgb(0, 170, 255),
           },
         },
       ]),

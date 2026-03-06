@@ -12,10 +12,10 @@ Rezi styling is:
 Use inline `style` props for one-off presentation.
 
 ```ts
-import { rgb, ui } from "@rezi-ui/core";
+import { darkTheme, resolveColorToken, ui } from "@rezi-ui/core";
 
-ui.text("Warning", { style: { fg: rgb(255, 180, 0), bold: true } });
-ui.box({ border: "rounded", p: 1, style: { bg: rgb(20, 20, 24) } }, [
+ui.text("Warning", { style: { fg: resolveColorToken(darkTheme, "warning"), bold: true } });
+ui.box({ border: "rounded", p: 1, style: { bg: resolveColorToken(darkTheme, "bg.elevated") } }, [
   ui.text("Panel content"),
 ]);
 ```
@@ -116,11 +116,11 @@ overrides when that is more convenient than wrapping with `ui.themed(...)`.
 Compute styles from state, but keep `view(state)` pure.
 
 ```ts
-import { rgb, ui } from "@rezi-ui/core";
+import { darkTheme, resolveColorToken, ui } from "@rezi-ui/core";
 
 ui.text(state.connected ? "Online" : "Offline", {
   style: {
-    fg: state.connected ? rgb(80, 220, 120) : rgb(255, 100, 100),
+    fg: resolveColorToken(darkTheme, state.connected ? "success" : "error"),
   },
 });
 ```

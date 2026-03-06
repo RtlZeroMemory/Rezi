@@ -58,10 +58,11 @@ export function resolveFocusIndicatorStyle(
     out = mergeTextStyle(out, override);
   } else {
     const colorTokens = getColorTokens(theme);
+    const hadFallbackFg = fallback !== undefined && fallback.fg !== baseStyle.fg;
     out = mergeTextStyle(out, {
-      ...(out.fg === undefined
-        ? { fg: theme.focusIndicator.focusRingColor ?? colorTokens.focus.ring }
-        : {}),
+      ...(hadFallbackFg
+        ? {}
+        : { fg: theme.focusIndicator.focusRingColor ?? colorTokens.focus.ring }),
       ...(theme.focusIndicator.underline ? { underline: true } : {}),
       ...(theme.focusIndicator.bold ? { bold: true } : {}),
     });

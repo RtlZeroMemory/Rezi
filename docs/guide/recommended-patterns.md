@@ -620,13 +620,14 @@ ui.row({ gap: 1 }, [
 
 ### Spacing scale in recipes
 
-When calling recipes directly, pass `theme.spacing` to align component padding with the active theme:
+When calling recipes directly, pass the spacing scale from the same
+`ThemeDefinition` you install on the app so component padding stays aligned:
 
 ```typescript
 const tokens = ctx.useTheme();
 const button = recipe.button(tokens, {
   size: "lg",
-  spacing: darkTheme.spacing,
+  spacing: appTheme.spacing,
 });
 ```
 

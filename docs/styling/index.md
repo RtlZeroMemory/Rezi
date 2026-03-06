@@ -15,7 +15,7 @@ Rezi styling works at two levels:
 ## Beautiful Defaults
 
 Core interactive widgets are recipe-styled by default (buttons, inputs,
-selects, checkboxes, progress, callouts). Use `intent` on buttons for common
+textareas, selects, checkboxes, progress, callouts). Use `intent` on buttons for common
 “primary/danger/link” patterns, and use manual `style` props to override
 specific attributes (they do not disable recipes).
 

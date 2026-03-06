@@ -89,8 +89,8 @@ describe("composition animation hooks - playback controls", () => {
     render = h.render((hooks) =>
       useTransition(hooks, 10, { duration: 200, easing: "linear", playback: { paused: true } }),
     );
-    const pausedValue = render.result;
     h.runPending(render.pendingEffects);
+    const pausedValue = render.result;
 
     await sleep(80);
     render = h.render((hooks) =>
@@ -394,6 +394,17 @@ describe("composition animation hooks - playback controls", () => {
       }),
     );
     h.runPending(render.pendingEffects);
+    const restartedValue = render.result;
+    assert.ok(restartedValue < linearValue);
+
+    await sleep(16);
+    render = h.render((hooks) =>
+      useSequence(hooks, snapFrames, {
+        playback: { paused: false },
+      }),
+    );
+    h.runPending(render.pendingEffects);
+    assert.ok(render.result - restartedValue > 5);
 
     await waitFor(() => {
       const next = h.render((hooks) =>
