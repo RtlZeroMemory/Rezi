@@ -254,11 +254,12 @@ function findUnsupportedLayoutConstraintUsage(root: VNode): readonly string[] {
     }
 
     const position = props.position;
-    const usesAbsolutePosition =
-      position === "absolute" ||
+    const usesAbsoluteOffsets =
+      LAYOUT_CHILD_CONSTRAINT_KINDS.has(node.kind) &&
       ABSOLUTE_POSITION_PROP_NAMES.some(
         (propName) => propName !== "position" && props[propName] !== undefined,
       );
+    const usesAbsolutePosition = position === "absolute" || usesAbsoluteOffsets;
     if (
       usesAbsolutePosition &&
       (parentKind === null || !ABSOLUTE_POSITION_PARENT_KINDS.has(parentKind))

@@ -85,6 +85,22 @@ describe("layout unsupported child-constraint warnings", () => {
     assert.deepEqual(warnings, []);
   });
 
+  test("does not treat unrelated left/right props as absolute positioning", () => {
+    __resetLayoutConstraintWarningsForTest();
+    const vnode = ui.grid({ columns: 1 }, [
+      ui.button({ id: "save", label: "Save", left: [ui.text("left")] } as unknown as never),
+    ]);
+
+    const warnings = captureWarnings(() => {
+      const measured = measure(vnode, 20, 3, "column");
+      assert.equal(measured.ok, true);
+      const laidOut = layout(vnode, 0, 0, 20, 3, "column");
+      assert.equal(laidOut.ok, true);
+    });
+
+    assert.deepEqual(warnings, []);
+  });
+
   test("does not warn when spacer uses flex", () => {
     __resetLayoutConstraintWarningsForTest();
     const vnode = ui.row({ width: 20, height: 3 }, [ui.spacer({ flex: 1 })]);
