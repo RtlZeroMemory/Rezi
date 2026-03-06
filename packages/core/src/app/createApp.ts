@@ -719,6 +719,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   let breadcrumbLastConsumptionPath: RuntimeBreadcrumbConsumptionPath | null = null;
   let breadcrumbLastAction: RuntimeBreadcrumbAction | null = null;
   let breadcrumbEventTracked = false;
+  let deferredInlineFatal: Readonly<{ code: ZrUiErrorCode; detail: string }> | null = null;
 
   function recomputeRuntimeBreadcrumbCollection(): void {
     const next =
@@ -881,8 +882,22 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     scheduler.enqueue({ kind: "fatal", code, detail });
   }
 
+  function flushDeferredInlineFatal(): void {
+    if (deferredInlineFatal === null || inEventHandlerDepth !== 0) return;
+    const fatal = deferredInlineFatal;
+    deferredInlineFatal = null;
+    doFatal(fatal.code, fatal.detail);
+  }
+
   function fatalNowOrEnqueue(code: ZrUiErrorCode, detail: string): void {
-    if (scheduler.isExecuting) {
+    const canFailFastInline = scheduler.isExecuting && !inRender && !inCommit;
+    if (canFailFastInline && inEventHandlerDepth > 0) {
+      if (deferredInlineFatal === null) {
+        deferredInlineFatal = Object.freeze({ code, detail });
+      }
+      return;
+    }
+    if (canFailFastInline) {
       doFatal(code, detail);
       return;
     }
@@ -934,6 +949,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       }
     } finally {
       inEventHandlerDepth--;
+      flushDeferredInlineFatal();
     }
     return true;
   }
