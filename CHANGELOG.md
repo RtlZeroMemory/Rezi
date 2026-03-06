@@ -5,6 +5,8 @@ All notable changes to Rezi are documented in this file.
 The format is based on Keep a Changelog and the project follows Semantic Versioning.
 
 ## [Unreleased]
+
+## [0.1.0-alpha.58] - 2026-03-06
 ### Breaking Changes
 
 - **core/composition**: `WidgetContext.useViewport` is now required. Custom callers constructing widget contexts must provide `useViewport`, and `createWidgetContext(...)` now supplies it consistently.
@@ -22,6 +24,15 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - **docs/lifecycle**: Corrected `onEvent(...)` examples, fatal payload fields, hot-reload state guarantees, and `run()` behavior when signal registration is unavailable.
 - **docs/layout + constraints**: Aligned recipes and guides with actual support boundaries for spacing, absolute positioning, `display`, and same-parent sibling aggregation semantics.
 - **docs/styling**: Rewrote theme/design-system guidance around semantic-only theming, scoped overrides, packed `Rgb24` style props, recipe-backed defaults, and advanced widget palette coverage.
+
+### Merged Pull Requests
+
+- [#263](https://github.com/RtlZeroMemory/Rezi/pull/263) fix(core): harden layout and constraint edge cases
+- [#264](https://github.com/RtlZeroMemory/Rezi/pull/264) fix(core): harden composition and animation hooks
+- [#265](https://github.com/RtlZeroMemory/Rezi/pull/265) fix(core): harden runtime lifecycle and layer routing
+- [#266](https://github.com/RtlZeroMemory/Rezi/pull/266) feat: harden semantic theming and design system
+- [#267](https://github.com/RtlZeroMemory/Rezi/pull/267) fix: harden routing, focus, keybindings, and forms
+- [#268](https://github.com/RtlZeroMemory/Rezi/pull/268) fix(core): defer fatal handlers outside event dispatch
 
 ## [0.1.0-alpha.57] - 2026-03-06
 
