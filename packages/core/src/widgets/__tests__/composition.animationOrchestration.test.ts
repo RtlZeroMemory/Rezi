@@ -165,13 +165,21 @@ describe("composition animation hooks - orchestration", () => {
   test("useParallel playback pause and resume preserves elapsed progress", async () => {
     const h = createHarness();
     const running = [
-      { target: 10, config: { duration: 140, easing: "linear" as const, playback: { paused: false } } },
+      {
+        target: 10,
+        config: { duration: 140, easing: "linear" as const, playback: { paused: false } },
+      },
     ] as const;
     const paused = [
-      { target: 10, config: { duration: 140, easing: "linear" as const, playback: { paused: true } } },
+      {
+        target: 10,
+        config: { duration: 140, easing: "linear" as const, playback: { paused: true } },
+      },
     ] as const;
 
-    let render = h.render((hooks) => useParallel(hooks, [{ target: 0, config: { duration: 140, easing: "linear" as const } }]));
+    let render = h.render((hooks) =>
+      useParallel(hooks, [{ target: 0, config: { duration: 140, easing: "linear" as const } }]),
+    );
     h.runPending(render.pendingEffects);
 
     render = h.render((hooks) => useParallel(hooks, running));
@@ -206,6 +214,49 @@ describe("composition animation hooks - orchestration", () => {
     });
 
     assert.equal(render.result[0]?.isAnimating, false);
+    assert.equal(h.unmount(), true);
+  });
+
+  test("useParallel reapplies delay when delay changes mid-flight", async () => {
+    const h = createHarness();
+    const immediate = [
+      { target: 10, config: { duration: 140, easing: "linear" as const } },
+    ] as const;
+    const delayed = [
+      { target: 10, config: { duration: 140, delay: 90, easing: "linear" as const } },
+    ] as const;
+
+    let render = h.render((hooks) =>
+      useParallel(hooks, [{ target: 0, config: { duration: 140, easing: "linear" as const } }]),
+    );
+    h.runPending(render.pendingEffects);
+
+    render = h.render((hooks) => useParallel(hooks, immediate));
+    h.runPending(render.pendingEffects);
+
+    let midValue = 0;
+    await waitFor(() => {
+      const next = h.render((hooks) => useParallel(hooks, immediate));
+      midValue = next.result[0]?.value ?? 0;
+      h.runPending(next.pendingEffects);
+      return midValue > 2 && midValue < 9;
+    });
+
+    render = h.render((hooks) => useParallel(hooks, delayed));
+    h.runPending(render.pendingEffects);
+
+    await sleep(60);
+    render = h.render((hooks) => useParallel(hooks, delayed));
+    h.runPending(render.pendingEffects);
+    assert.ok(Math.abs((render.result[0]?.value ?? 0) - midValue) <= 0.2);
+
+    await waitFor(() => {
+      const next = h.render((hooks) => useParallel(hooks, delayed));
+      render = next;
+      h.runPending(next.pendingEffects);
+      return (next.result[0]?.value ?? 0) > midValue + 0.25;
+    });
+
     assert.equal(h.unmount(), true);
   });
 

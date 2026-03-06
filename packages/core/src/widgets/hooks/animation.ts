@@ -430,6 +430,7 @@ type TransitionRunState = {
   to: number;
   elapsedMs: number;
   durationMs: number;
+  delayMs: number;
   easing: (t: number) => number;
   pendingDelayMs: number;
 };
@@ -458,6 +459,7 @@ function syncTransitionRunState(
     !state.initialized ||
     !Object.is(state.to, target) ||
     state.durationMs !== durationMs ||
+    state.delayMs !== delayMs ||
     state.easing !== easing;
 
   if (shouldReset) {
@@ -465,6 +467,7 @@ function syncTransitionRunState(
     state.from = currentValue;
     state.to = target;
     state.durationMs = durationMs;
+    state.delayMs = delayMs;
     state.easing = easing;
     state.elapsedMs = reversed ? durationMs : 0;
     state.pendingDelayMs = delayMs;
@@ -472,6 +475,7 @@ function syncTransitionRunState(
   }
 
   state.durationMs = durationMs;
+  state.delayMs = delayMs;
   state.easing = easing;
   if (state.elapsedMs < 0) state.elapsedMs = 0;
   if (state.elapsedMs > state.durationMs) state.elapsedMs = state.durationMs;
@@ -558,6 +562,7 @@ export function useTransition(
     to: value,
     elapsedMs: 0,
     durationMs,
+    delayMs,
     easing,
     pendingDelayMs: 0,
   });
@@ -571,6 +576,7 @@ export function useTransition(
       !state.initialized ||
       !Object.is(state.to, value) ||
       state.durationMs !== durationMs ||
+      state.delayMs !== delayMs ||
       state.easing !== easing;
 
     if (shouldReset) {
@@ -578,11 +584,13 @@ export function useTransition(
       state.from = currentRef.current;
       state.to = value;
       state.durationMs = durationMs;
+      state.delayMs = delayMs;
       state.easing = easing;
       state.elapsedMs = playback.reversed ? durationMs : 0;
       state.pendingDelayMs = delayMs;
     } else {
       state.durationMs = durationMs;
+      state.delayMs = delayMs;
       state.easing = easing;
       if (state.elapsedMs < 0) state.elapsedMs = 0;
       if (state.elapsedMs > state.durationMs) state.elapsedMs = state.durationMs;
@@ -1009,6 +1017,7 @@ export function useAnimatedValue(
     to: target,
     elapsedMs: 0,
     durationMs: normalizedTransitionDurationMs(transitionConfig.duration),
+    delayMs: normalizedDelayMs(transitionConfig.delay),
     easing: resolveEasing(transitionConfig.easing),
     pendingDelayMs: 0,
   });
@@ -1061,6 +1070,7 @@ export function useAnimatedValue(
         !state.initialized ||
         !Object.is(state.to, target) ||
         state.durationMs !== durationMs ||
+        state.delayMs !== delayMs ||
         state.easing !== easing;
 
       if (shouldReset) {
@@ -1068,11 +1078,13 @@ export function useAnimatedValue(
         state.from = valueRef.current;
         state.to = target;
         state.durationMs = durationMs;
+        state.delayMs = delayMs;
         state.easing = easing;
         state.elapsedMs = playback.reversed ? durationMs : 0;
         state.pendingDelayMs = delayMs;
       } else {
         state.durationMs = durationMs;
+        state.delayMs = delayMs;
         state.easing = easing;
         if (state.elapsedMs < 0) state.elapsedMs = 0;
         if (state.elapsedMs > state.durationMs) state.elapsedMs = state.durationMs;
@@ -1283,6 +1295,7 @@ export function useParallel(
           to: animation.target,
           elapsedMs: 0,
           durationMs,
+          delayMs,
           easing,
           pendingDelayMs: 0,
           completed: false,
@@ -1298,6 +1311,7 @@ export function useParallel(
         initialized: state.initialized,
         to: state.to,
         durationMs: state.durationMs,
+        delayMs: state.delayMs,
         easing: state.easing,
       };
       syncTransitionRunState(
@@ -1313,6 +1327,7 @@ export function useParallel(
         !before.initialized ||
         !Object.is(before.to, state.to) ||
         before.durationMs !== state.durationMs ||
+        before.delayMs !== state.delayMs ||
         before.easing !== state.easing;
       if (motionChanged) {
         state.completed = false;

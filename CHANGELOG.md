@@ -6,9 +6,19 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- **core/composition**: `WidgetContext.useViewport` is now required. Custom callers constructing widget contexts must provide `useViewport`, and `createWidgetContext(...)` now supplies it consistently.
+
 ### Bug Fixes
 
-- **core/composition + hooks**: Composite widgets now use a layout-transparent default wrapper, animation hooks share a frame driver, transition/orchestration hooks stop relying on stringified config signatures, `useAnimatedValue` transition playback preserves progress across pause/resume, `useStagger` restarts on same-length item replacement, and streaming hook reconnect delays clamp away tight-loop reconnects.
+- **core/composition**: Composite widgets now use a layout-transparent default wrapper.
+- **hooks/animation**: Animation hooks now share a frame driver.
+- **hooks/animation**: Transition/orchestration hooks stop relying on stringified config signatures.
+- **hooks/animation**: `useAnimatedValue` transition playback preserves progress across pause/resume.
+- **hooks/animation**: `useParallel` and `useChain` now read the latest callbacks without stale-closure behavior.
+- **hooks/animation**: `useStagger` restarts on same-length item replacement.
+- **hooks/streaming**: Streaming hook reconnect delays clamp away tight-loop reconnects.
 
 ### Documentation
 
