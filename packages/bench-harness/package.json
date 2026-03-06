@@ -1,6 +1,6 @@
 {
   "name": "@rezi-ui/ink-compat-bench-harness",
-  "version": "0.0.0",
+  "version": "0.1.0-alpha.56",
   "private": true,
   "type": "module",
   "license": "Apache-2.0",

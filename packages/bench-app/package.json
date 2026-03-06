@@ -1,6 +1,6 @@
 {
   "name": "@rezi-ui/ink-compat-bench-app",
-  "version": "0.0.0",
+  "version": "0.1.0-alpha.56",
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@jrichman/ink": "^6.4.10",
-    "@rezi-ui/ink-compat": "0.1.0-alpha.34",
+    "@rezi-ui/ink-compat": "0.1.0-alpha.56",
     "react": "^19.0.0",
     "react-reconciler": "^0.31.0"
   },

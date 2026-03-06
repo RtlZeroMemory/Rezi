@@ -6,6 +6,30 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.56] - 2026-03-06
+
+### Bug Fixes
+
+- **native/worker_threads**: Fixed addon teardown crashes by pinning the native module for process lifetime, tracking real owner thread identity, and hardening worker-thread loader/smoke coverage.
+- **core/runtime**: Hardened app startup and shutdown resilience around sync `app.start()` failures, signal handler throws, top-level view errors, and default `Ctrl+C` handling.
+
+### Refactors
+
+- **core/runtime**: Split `createApp` orchestration into focused lifecycle, dirty-plan, focus-dispatch, signal, and top-level-error controllers with direct regression coverage.
+- **node/backend**: Extracted shared config, debug, and marker helpers from inline and worker backends to reduce drift in transport/runtime reconciliation.
+- **native/bridge**: Split the Rust native bridge into dedicated config, FFI, debug, registry, and tests modules, reducing monolithic boundary surface at the JS/native seam.
+
+### Validation
+
+- Added regression coverage for worker-thread loader exits, numeric config/debug parsing guards, and controller-level app resilience behavior.
+
+### Merged Pull Requests
+
+- [#254](https://github.com/RtlZeroMemory/Rezi/pull/254) Fix native worker-thread teardown crash
+- [#255](https://github.com/RtlZeroMemory/Rezi/pull/255) refactor(native): split bridge modules and merge worker teardown fix
+- [#256](https://github.com/RtlZeroMemory/Rezi/pull/256) refactor(core): split createApp orchestration controllers
+- [#257](https://github.com/RtlZeroMemory/Rezi/pull/257) refactor(node): share backend helpers
+
 ## [0.1.0-alpha.55] - 2026-03-05
 
 ### Features

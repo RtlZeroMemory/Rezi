@@ -11,8 +11,8 @@
     "test": "tsx --test src/__tests__/*.test.ts"
   },
   "dependencies": {
-    "@rezi-ui/core": "file:../../packages/core",
-    "@rezi-ui/node": "file:../../packages/node"
+    "@rezi-ui/core": "0.1.0-alpha.56",
+    "@rezi-ui/node": "0.1.0-alpha.56"
   },
   "engines": {
     "node": ">=18",
