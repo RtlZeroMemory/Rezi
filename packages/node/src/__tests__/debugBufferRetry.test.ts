@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readDebugBytesWithRetry } from "../backend/nodeBackendInline.js";
+import { readDebugBytesWithRetry } from "../backend/backendSharedDebug.js";
 
 test("readDebugBytesWithRetry retries when first read exactly fills the buffer", () => {
   let callCount = 0;

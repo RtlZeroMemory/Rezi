@@ -140,8 +140,10 @@ pub(crate) fn js_u32(obj: &JsObject, primary: &str, alias: &str) -> ParseResult<
             Ok(v) => v,
             Err(_) => continue,
         };
-        if v.get_type().map_err(|_| ())? == ValueType::Undefined {
-            continue;
+        match v.get_type().map_err(|_| ())? {
+            ValueType::Undefined => continue,
+            ValueType::Number => {}
+            _ => return Err(()),
         }
         let n = v.coerce_to_number().map_err(|_| ())?;
         let f = n.get_double().map_err(|_| ())?;

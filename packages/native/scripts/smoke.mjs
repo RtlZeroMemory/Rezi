@@ -77,6 +77,7 @@ async function assertWorkerLoadExitCleanly() {
     workerData: { phase: "loadOnly" },
     type: "module",
   });
+  const exitPromise = new Promise((resolve) => worker.once("exit", resolve));
 
   const loadResult = await new Promise((resolve, reject) => {
     const onExit = (code) => reject(new Error(`load-only worker exited with ${code}`));
@@ -92,7 +93,7 @@ async function assertWorkerLoadExitCleanly() {
   });
 
   assert(loadResult.phase === "loadOnly", "worker load-only phase must complete");
-  const exitCode = await new Promise((resolve) => worker.once("exit", resolve));
+  const exitCode = await exitPromise;
   assert(exitCode === 0, `load-only worker must exit cleanly, got: ${String(exitCode)}`);
 }
 
