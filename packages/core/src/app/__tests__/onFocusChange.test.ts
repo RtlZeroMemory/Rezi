@@ -84,3 +84,34 @@ test("onFocusChange unsubscribe stops future callbacks", async () => {
 
   await settleNextFrame(backend);
 });
+
+test("onFocusChange handler failure faults immediately before focus-render follow-up", async () => {
+  const backend = new StubBackend();
+  const app = createApp({
+    backend,
+    initialState: 0,
+  });
+
+  app.view(() =>
+    ui.column({}, [ui.input({ id: "name", value: "" }), ui.button({ id: "save", label: "Save" })]),
+  );
+
+  const fatals: string[] = [];
+  app.onEvent((ev) => {
+    if (ev.kind === "fatal") fatals.push(ev.detail);
+  });
+  app.onFocusChange(() => {
+    throw new Error("focus boom");
+  });
+
+  await app.start();
+  await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 40, rows: 10 }]);
+  await settleNextFrame(backend);
+
+  await pushEvents(backend, [{ kind: "key", timeMs: 2, key: ZR_KEY_TAB, action: "down" }]);
+
+  assert.equal(fatals.length, 1);
+  assert.equal(backend.requestedFrames.length, 1);
+  assert.equal(backend.stopCalls, 1);
+  assert.equal(backend.disposeCalls, 1);
+});

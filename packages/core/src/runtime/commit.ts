@@ -18,7 +18,9 @@
 
 import { resolveEasing } from "../animation/easing.js";
 import { normalizeDurationMs } from "../animation/interpolate.js";
+import { describeThrown } from "../debug/describeThrown.js";
 import type { ResponsiveViewportSnapshot } from "../layout/responsive.js";
+import { defaultTheme } from "../theme/defaultTheme.js";
 import { mergeThemeOverride } from "../theme/interop.js";
 import type { Theme } from "../theme/theme.js";
 import type { ColorTokens } from "../theme/tokens.js";
@@ -801,6 +803,45 @@ function ensureInteractiveId(
   return null;
 }
 
+type FocusContainerKind = "focusZone" | "focusTrap" | "modal";
+
+function isFocusContainerVNode(vnode: VNode): vnode is VNode & { kind: FocusContainerKind } {
+  return vnode.kind === "focusZone" || vnode.kind === "focusTrap" || vnode.kind === "modal";
+}
+
+function ensureFocusContainerId(
+  seen: Map<string, FocusContainerKind>,
+  instanceId: InstanceId,
+  vnode: VNode,
+): CommitFatal | null {
+  if (!isFocusContainerVNode(vnode)) return null;
+
+  const id = (vnode as { props: { id?: unknown } }).props.id;
+  if (typeof id !== "string" || id.length === 0) {
+    return {
+      code: "ZRUI_INVALID_PROPS",
+      detail: `focus container missing required id (kind=${vnode.kind}, instanceId=${String(instanceId)})`,
+    };
+  }
+  if (id.trim().length === 0) {
+    return {
+      code: "ZRUI_INVALID_PROPS",
+      detail: `focus container id must contain non-whitespace characters (kind=${vnode.kind}, instanceId=${String(instanceId)})`,
+    };
+  }
+
+  const existing = seen.get(id);
+  if (existing !== undefined) {
+    return {
+      code: "ZRUI_DUPLICATE_ID",
+      detail: `Duplicate focus container id "${id}". First: <${existing}>, second: <${vnode.kind}>. Hint: focusZone, focusTrap, and modal ids must be unique across the tree.`,
+    };
+  }
+
+  seen.set(id, vnode.kind);
+  return null;
+}
+
 function isVNode(v: unknown): v is VNode {
   return typeof v === "object" && v !== null && "kind" in v;
 }
@@ -1007,6 +1048,7 @@ type CommitCtx = Readonly<{
   allocator: InstanceIdAllocator;
   localState: RuntimeLocalStateStore | undefined;
   seenInteractiveIds: Map<string, string>;
+  seenFocusContainerIds: Map<string, FocusContainerKind>;
   prevNodeStack: Array<RuntimeInstance | null>;
   containerChildOverrides: Map<InstanceId, readonly VNode[]>;
   layoutDepthRef: { value: number };
@@ -1105,7 +1147,7 @@ function commitErrorBoundaryFallback(
       ok: false,
       fatal: {
         code: "ZRUI_USER_CODE_THROW",
-        detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+        detail: describeThrown(e),
       },
     };
   }
@@ -1597,7 +1639,7 @@ function executeCompositeRender(
           ok: false,
           fatal: {
             code: "ZRUI_USER_CODE_THROW",
-            detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+            detail: describeThrown(e),
           },
         };
       }
@@ -1638,10 +1680,7 @@ function executeCompositeRender(
           ok: false,
           fatal: {
             code: "ZRUI_USER_CODE_THROW",
-            detail:
-              evalRes.threw instanceof Error
-                ? `${evalRes.threw.name}: ${evalRes.threw.message}`
-                : String(evalRes.threw),
+            detail: describeThrown(evalRes.threw),
           },
         };
       }
@@ -1707,7 +1746,7 @@ function executeCompositeRender(
           ok: false,
           fatal: {
             code: "ZRUI_USER_CODE_THROW",
-            detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+            detail: describeThrown(e),
           },
         };
       }
@@ -1723,7 +1762,7 @@ function executeCompositeRender(
           ok: false,
           fatal: {
             code: "ZRUI_USER_CODE_THROW",
-            detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+            detail: describeThrown(e),
           },
         };
       }
@@ -1914,6 +1953,12 @@ function commitNode(
 
     const idFatal = ensureInteractiveId(ctx.seenInteractiveIds, instanceId, vnode);
     if (idFatal) return { ok: false, fatal: idFatal };
+    const focusContainerFatal = ensureFocusContainerId(
+      ctx.seenFocusContainerIds,
+      instanceId,
+      vnode,
+    );
+    if (focusContainerFatal) return { ok: false, fatal: focusContainerFatal };
 
     if (ctx.collectLifecycleInstanceIds) {
       if (prev) ctx.lists.reused.push(instanceId);
@@ -2019,6 +2064,7 @@ export function commitVNodeTree(
     allocator: opts.allocator,
     localState: opts.localState,
     seenInteractiveIds: interactiveIdIndex,
+    seenFocusContainerIds: new Map<string, FocusContainerKind>(),
     prevNodeStack: [],
     containerChildOverrides: new Map<InstanceId, readonly VNode[]>(),
     layoutDepthRef: { value: 0 },

@@ -130,7 +130,7 @@ describe("overlay.edge - layout sizing and clamping", () => {
 });
 
 describe("overlay.edge - cross-overlay escape ordering", () => {
-  test("closeOnEscape=false lets dropdown consume escape", () => {
+  test("closeOnEscape=false keeps escape owned by the top layer", () => {
     const layerResult = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
       layerStack: ["modal"],
       closeOnEscape: new Map([["modal", false]]),
@@ -143,7 +143,7 @@ describe("overlay.edge - cross-overlay escape ordering", () => {
       selectedIndex: 0,
     });
 
-    assert.equal(layerResult.consumed, false);
+    assert.equal(layerResult.consumed, true);
     assert.equal(dropdownResult.consumed, true);
     assert.equal(dropdownResult.shouldClose, true);
   });

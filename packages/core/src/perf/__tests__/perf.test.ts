@@ -47,4 +47,42 @@ describe("perf instrumentation", () => {
     // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket access for index-signature properties.
     assert.equal((snapshot.counters["test_counter"] ?? 0) >= 1, true);
   });
+
+  test("rolling snapshots recompute max from the retained sample window", () => {
+    perfReset();
+    if (!PERF_ENABLED) {
+      assert.deepEqual(perfSnapshot().phases, {});
+      return;
+    }
+
+    for (let i = 0; i < 1100; i++) {
+      perfRecord("commit", 10);
+    }
+    for (let i = 0; i < 1100; i++) {
+      perfRecord("commit", 5);
+    }
+
+    const commit = perfSnapshot().phases.commit;
+    assert.ok(commit !== undefined);
+    assert.equal(commit?.max, 5);
+    assert.deepEqual(commit?.worst10, Object.freeze(new Array(10).fill(5)));
+  });
+
+  test("perfReset clears retained samples and counters", () => {
+    perfReset();
+    perfRecord("layout", 3);
+    perfCount("before_reset");
+    perfReset();
+
+    const snapshot = perfSnapshot();
+    if (!PERF_ENABLED) {
+      assert.deepEqual(snapshot.phases, {});
+      assert.deepEqual(snapshot.counters, {});
+      return;
+    }
+
+    assert.equal(snapshot.phases.layout, undefined);
+    // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket access for index-signature properties.
+    assert.equal(snapshot.counters["before_reset"], undefined);
+  });
 });

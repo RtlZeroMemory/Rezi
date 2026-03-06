@@ -351,7 +351,7 @@ describe("routing semantics", () => {
     assert.deepEqual(closed, ["modal"]);
   });
 
-  test("layer escape skips non-closable top layer and closes next layer", () => {
+  test("layer escape is owned by a non-closable top layer", () => {
     const closed: string[] = [];
 
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE, 1), {
@@ -367,18 +367,18 @@ describe("routing semantics", () => {
     });
 
     assert.equal(result.consumed, true);
-    assert.equal(result.closedLayerId, "base");
-    assert.deepEqual(closed, ["base"]);
+    assert.equal(result.closedLayerId, undefined);
+    assert.deepEqual(closed, []);
   });
 
-  test("layer escape is not consumed when closable layer has no callback", () => {
+  test("layer escape is consumed when the top layer has no close callback", () => {
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE, 1), {
       layerStack: ["modal"],
       closeOnEscape: new Map([["modal", true]]),
       onClose: new Map(),
     });
 
-    assert.equal(result.consumed, false);
+    assert.equal(result.consumed, true);
   });
 });
 
