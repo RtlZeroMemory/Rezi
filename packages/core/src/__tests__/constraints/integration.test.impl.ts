@@ -165,6 +165,35 @@ describe("constraint integration", () => {
     assert.equal(rectById.get("editor")?.w, 80);
   });
 
+  test("limits sibling aggregations to matching ids under the same parent at runtime", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    const vnode = ui.column({ id: "root", width: "full", gap: 0 }, [
+      ui.row({ id: "branch-a", gap: 0 }, [
+        ui.box({ id: "item", border: "none", width: 10, height: 1 }, []),
+        ui.box({ id: "sum", border: "none", width: expr("sum_sibling(#item.w)"), height: 1 }, []),
+      ]),
+      ui.row({ id: "branch-b", gap: 0 }, [
+        ui.box({ id: "item", border: "none", width: 7, height: 1 }, []),
+      ]),
+    ]);
+
+    const submit = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 80, rows: 20 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+
+    assert.equal(submit.ok, true);
+    const rectById = renderer.getRectByIdIndex();
+    assert.equal(rectById.get("sum")?.w, 10);
+  });
+
   test("keeps intrinsic self-reference widths stable across identical frames", () => {
     const renderer = new WidgetRenderer<void>({
       backend: createNoopBackend(),

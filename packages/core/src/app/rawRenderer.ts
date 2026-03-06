@@ -11,6 +11,7 @@
  */
 
 import { FRAME_ACCEPTED_ACK_MARKER, type RuntimeBackend } from "../backend.js";
+import { describeThrown } from "../debug/describeThrown.js";
 import { type DrawlistBuilder, createDrawlistBuilder } from "../drawlist/index.js";
 import { FRAME_AUDIT_ENABLED, drawlistFingerprint, emitFrameAudit } from "../perf/frameAudit.js";
 import { perfMarkEnd, perfMarkStart } from "../perf/perf.js";
@@ -33,12 +34,6 @@ export type RawRenderSubmitResult =
       code: "ZRUI_USER_CODE_THROW" | "ZRUI_DRAWLIST_BUILD_ERROR" | "ZRUI_BACKEND_ERROR";
       detail: string;
     }>;
-
-/** Format thrown value for error message. */
-function describeThrown(v: unknown): string {
-  if (v instanceof Error) return `${v.name}: ${v.message}`;
-  return String(v);
-}
 
 /**
  * Renderer for raw draw API mode.

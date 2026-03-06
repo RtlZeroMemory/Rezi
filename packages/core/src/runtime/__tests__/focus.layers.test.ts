@@ -354,7 +354,7 @@ describe("focus layers - ESC and layer stack routing", () => {
     assert.equal(closedLayer, "modal-b");
   });
 
-  test("ESC bubbles past the top layer when closeOnEscape is false", () => {
+  test("ESC is owned by the top layer when closeOnEscape is false", () => {
     let closedLayer: string | null = null;
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
       layerStack: ["modal-a", "modal-b"],
@@ -372,12 +372,12 @@ describe("focus layers - ESC and layer stack routing", () => {
       ]),
     });
 
-    assert.equal(result.consumed, false);
+    assert.equal(result.consumed, true);
     assert.equal(result.closedLayerId, undefined);
     assert.equal(closedLayer, null);
   });
 
-  test("ESC is consumed by the top layer when it has no close callback", () => {
+  test("ESC reports the top layer when it has no close callback", () => {
     let closedLayer: string | null = null;
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
       layerStack: ["base", "middle", "top"],
@@ -397,7 +397,7 @@ describe("focus layers - ESC and layer stack routing", () => {
     });
 
     assert.equal(result.consumed, true);
-    assert.equal(result.closedLayerId, undefined);
+    assert.equal(result.closedLayerId, "top");
     assert.equal(closedLayer, null);
   });
 

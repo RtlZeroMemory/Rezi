@@ -298,13 +298,82 @@ describe("wheel routing", () => {
     );
 
     submit(renderer, vnode);
-    const buttonRect = getRectById(renderer, "inner.btn");
-    renderer.routeEngineEvent(wheelEvent(buttonRect.x, buttonRect.y, 1));
+    const innerRect = getRectById(renderer, "inner.scroll");
+    renderer.routeEngineEvent(wheelEvent(innerRect.x, innerRect.y, 1));
     submit(renderer, vnode, { commit: false, layout: false, checkLayoutStability: true });
 
     const innerMeta = getOverflowMetaById(renderer, "inner.scroll");
     const outerMeta = getOverflowMetaById(renderer, "outer.scroll");
     assert.ok(innerMeta.scrollY > 0);
     assert.equal(outerMeta.scrollY, 0);
+  });
+
+  test("wheel falls through to an outer scroll container when the inner one is clamped", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    const vnode = ui.box(
+      {
+        id: "outer.scroll",
+        border: "none",
+        width: 30,
+        height: 4,
+        overflow: "scroll",
+        scrollY: 0,
+      },
+      [
+        ui.box({ border: "none", mb: -2 }, [
+          ui.box(
+            {
+              id: "inner.scroll",
+              border: "none",
+              width: 20,
+              height: 3,
+              overflow: "scroll",
+              scrollY: 2,
+            },
+            [
+              ui.box({ border: "none", mb: -2 }, [
+                ui.button({ id: "inner.btn", label: "Inner" }),
+                ui.text("inner-2"),
+                ui.text("inner-3"),
+                ui.text("inner-4"),
+                ui.text("inner-5"),
+              ]),
+            ],
+          ),
+          ui.text("outer-1"),
+          ui.text("outer-2"),
+          ui.text("outer-3"),
+          ui.text("outer-4"),
+          ui.text("outer-5"),
+          ui.text("outer-6"),
+          ui.text("outer-7"),
+          ui.text("outer-8"),
+        ]),
+      ],
+    );
+
+    submit(renderer, vnode);
+    const internal = renderer as unknown as Readonly<{
+      findScrollableAncestors: (
+        targetId: string | null,
+      ) => readonly Readonly<{ nodeId: string; meta: LayoutOverflowMetadata }>[];
+    }>;
+    const scrollTargets = internal.findScrollableAncestors("inner.scroll");
+    assert.deepEqual(
+      scrollTargets.map((target) => target.nodeId),
+      ["inner.scroll", "outer.scroll"],
+    );
+
+    const [innerScrollTarget, outerScrollTarget] = scrollTargets;
+    assert.ok(innerScrollTarget);
+    assert.ok(outerScrollTarget);
+    assert.deepEqual(routeWheel(wheelEvent(0, 0, 1), innerScrollTarget.meta), {});
+    const outerResult = routeWheel(wheelEvent(0, 0, 1), outerScrollTarget.meta);
+    assert.ok(typeof outerResult.nextScrollY === "number");
+    assert.ok(outerResult.nextScrollY > outerScrollTarget.meta.scrollY);
   });
 });

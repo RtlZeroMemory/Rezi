@@ -264,6 +264,70 @@ describe("composition animation hooks - useAnimatedValue", () => {
     assert.equal(h.unmount(), true);
   });
 
+  test("transition reapplies delay when delay changes mid-flight", async () => {
+    const h = createHarness();
+
+    let render = h.render((hooks) =>
+      useAnimatedValue(hooks, 0, {
+        mode: "transition",
+        transition: { duration: 140, easing: "linear" },
+      }),
+    );
+    h.runPending(render.pendingEffects);
+
+    render = h.render((hooks) =>
+      useAnimatedValue(hooks, 10, {
+        mode: "transition",
+        transition: { duration: 140, easing: "linear" },
+      }),
+    );
+    h.runPending(render.pendingEffects);
+
+    let midValue = 0;
+    await waitFor(() => {
+      const next = h.render((hooks) =>
+        useAnimatedValue(hooks, 10, {
+          mode: "transition",
+          transition: { duration: 140, easing: "linear" },
+        }),
+      );
+      midValue = next.result.value;
+      h.runPending(next.pendingEffects);
+      return midValue > 2 && midValue < 9;
+    });
+
+    render = h.render((hooks) =>
+      useAnimatedValue(hooks, 10, {
+        mode: "transition",
+        transition: { duration: 140, delay: 90, easing: "linear" },
+      }),
+    );
+    h.runPending(render.pendingEffects);
+
+    await sleep(60);
+    render = h.render((hooks) =>
+      useAnimatedValue(hooks, 10, {
+        mode: "transition",
+        transition: { duration: 140, delay: 90, easing: "linear" },
+      }),
+    );
+    h.runPending(render.pendingEffects);
+    assert.ok(Math.abs(render.result.value - midValue) <= 0.2);
+
+    await waitFor(() => {
+      const next = h.render((hooks) =>
+        useAnimatedValue(hooks, 10, {
+          mode: "transition",
+          transition: { duration: 140, delay: 90, easing: "linear" },
+        }),
+      );
+      render = next;
+      h.runPending(next.pendingEffects);
+      return next.result.value > midValue + 0.25;
+    });
+
+    assert.equal(h.unmount(), true);
+  });
   test("onComplete fires on settlement", async () => {
     const h = createHarness();
     let transitionCompleteCount = 0;

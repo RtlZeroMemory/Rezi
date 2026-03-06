@@ -1,3 +1,4 @@
+import { describeThrown } from "../../debug/describeThrown.js";
 import type { ZrevEvent } from "../../events.js";
 import { ZR_MOD_ALT, ZR_MOD_CTRL, ZR_MOD_META, ZR_MOD_SHIFT } from "../../keybindings/keyCodes.js";
 import type { VNode } from "../../widgets/types.js";
@@ -30,7 +31,7 @@ export function captureTopLevelViewError(value: unknown): TopLevelViewError {
       ...(typeof value.stack === "string" && value.stack.length > 0 ? { stack: value.stack } : {}),
     });
   }
-  const detail = String(value);
+  const detail = describeThrown(value);
   return Object.freeze({
     code: "ZRUI_USER_CODE_THROW",
     detail,

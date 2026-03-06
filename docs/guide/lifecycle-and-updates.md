@@ -29,6 +29,7 @@ Use `run()` for batteries-included lifecycle wiring in Node/Bun apps:
 - `run()` wraps `start()`
 - registers `SIGINT` / `SIGTERM` / `SIGHUP`
 - on signal: `stop()` then `dispose()` best-effort, then exits with code `0`
+- if signal handlers cannot be registered in the current runtime, `run()` still starts the app and resolves once startup completes
 
 Use `start()` directly when you need manual signal/process control.
 
@@ -60,8 +61,8 @@ Set one mode before calling `start()`. Switching modes while running is rejected
 Rezi supports development-time view hot swapping without process restarts.
 
 - `app.view(fn)` remains the initial setup API (`Created`/`Stopped` states)
-- `app.replaceView(fn)` swaps the active widget view while `Running`
-- `app.replaceRoutes(routes)` swaps route definitions for route-managed apps while `Running`
+- `app.replaceView(fn)` swaps the active widget view while `Running`, and also updates the configured widget view in `Created`/`Stopped`
+- `app.replaceRoutes(routes)` swaps route definitions for route-managed apps while `Running`, and also updates the configured route table in `Created`/`Stopped`
 
 When a new view function is applied, Rezi keeps:
 
@@ -170,7 +171,7 @@ app.keys({
 
 ```typescript
 const unsubscribe = app.onEvent((ev) => {
-  if (ev.kind === "fatal") console.error(ev.code, ev.message);
+  if (ev.kind === "fatal") console.error(ev.code, ev.detail);
 });
 // later: unsubscribe()
 ```
@@ -194,7 +195,7 @@ In addition, these actions also flow through `app.onEvent(...)`, which enables
 cross-cutting middleware, logging, analytics, and undo stacks.
 
 ```typescript
-app.on("event", (ev) => {
+app.onEvent((ev) => {
   if (ev.kind === "action" && ev.action === "toggle") {
     console.log(`Checkbox ${ev.id} toggled to ${ev.checked}`);
   }

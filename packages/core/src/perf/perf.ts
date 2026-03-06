@@ -130,7 +130,6 @@ type PhaseRing = {
   cursor: number;
   count: number;
   sum: number;
-  max: number;
 };
 
 function createPhaseRing(): PhaseRing {
@@ -139,7 +138,6 @@ function createPhaseRing(): PhaseRing {
     cursor: 0,
     count: 0,
     sum: 0,
-    max: 0,
   };
 }
 
@@ -154,10 +152,6 @@ function recordSample(ring: PhaseRing, dt: number): void {
   ring.sum += dt;
   ring.cursor = (ring.cursor + 1) % RING_CAP;
   ring.count = Math.min(ring.count + 1, RING_CAP);
-
-  if (dt > ring.max) {
-    ring.max = dt;
-  }
 }
 
 function computeStats(ring: PhaseRing): PhaseStats | null {
@@ -188,7 +182,7 @@ function computeStats(ring: PhaseRing): PhaseStats | null {
     p50: arr[p50Idx] ?? 0,
     p95: arr[p95Idx] ?? 0,
     p99: arr[p99Idx] ?? 0,
-    max: ring.max,
+    max: arr[arr.length - 1] ?? 0,
     worst10,
   });
 }

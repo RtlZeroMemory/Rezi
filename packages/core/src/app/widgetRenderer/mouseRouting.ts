@@ -229,7 +229,7 @@ type RouteMouseWheelContext = Readonly<{
   diffViewerById: ReadonlyMap<string, DiffViewerProps>;
   rectById: ReadonlyMap<string, Rect>;
   scrollOverrides: Map<string, Readonly<{ scrollX: number; scrollY: number }>>;
-  findNearestScrollableAncestor: (targetId: string | null) => Readonly<{
+  findScrollableAncestors: (targetId: string | null) => readonly Readonly<{
     nodeId: string;
     meta: Readonly<{
       scrollX: number;
@@ -239,7 +239,7 @@ type RouteMouseWheelContext = Readonly<{
       viewportWidth: number;
       viewportHeight: number;
     }>;
-  }> | null;
+  }>[];
 }>;
 
 const NODE_ENV =
@@ -1621,8 +1621,8 @@ export function routeMouseWheel(
     }
   }
 
-  const scrollTarget = ctx.findNearestScrollableAncestor(ctx.mouseTargetAnyId);
-  if (scrollTarget) {
+  const scrollTargets = ctx.findScrollableAncestors(ctx.mouseTargetAnyId);
+  for (const scrollTarget of scrollTargets) {
     const { nodeId, meta } = scrollTarget;
     const r = routeWheel(event, {
       scrollX: meta.scrollX,

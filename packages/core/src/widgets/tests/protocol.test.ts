@@ -4,7 +4,6 @@ import type { VNode } from "../types.js";
 
 const VNODE_KIND_COVERAGE: Record<VNode["kind"], true> = {
   text: true,
-  fragment: true,
   richText: true,
   kbd: true,
   badge: true,
@@ -57,6 +56,7 @@ const VNODE_KIND_COVERAGE: Record<VNode["kind"], true> = {
   logsConsole: true,
   toastContainer: true,
   box: true,
+  fragment: true,
   row: true,
   column: true,
   themed: true,

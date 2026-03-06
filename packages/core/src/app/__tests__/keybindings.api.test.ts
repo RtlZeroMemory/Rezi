@@ -81,6 +81,113 @@ test("app.pendingChord reflects in-progress chord state", async () => {
   }
 });
 
+test("app.keys rejects invalid keybinding strings", () => {
+  const backend = new StubBackend();
+  const app = createApp({ backend, initialState: 0 });
+
+  assert.throws(
+    () =>
+      app.keys({
+        "invalid+++key": () => {},
+      }),
+    /invalid keybinding sequence/,
+  );
+});
+
+test("app.modes rejects invalid bindings and unknown parent graphs", () => {
+  const backend = new StubBackend();
+  const app = createApp({ backend, initialState: 0 });
+
+  assert.throws(
+    () =>
+      app.modes({
+        normal: {
+          "invalid+++key": () => {},
+        },
+      }),
+    /invalid keybinding sequence/,
+  );
+
+  assert.throws(
+    () =>
+      app.modes({
+        child: {
+          parent: "missing",
+          bindings: { q: () => {} },
+        },
+      }),
+    /unknown parent mode/,
+  );
+});
+
+test("app.modes allows cyclic parent graphs and leaves cycle handling to routing", () => {
+  const backend = new StubBackend();
+  const app = createApp({ backend, initialState: 0 });
+
+  assert.doesNotThrow(() =>
+    app.modes({
+      a: {
+        parent: "b",
+        bindings: { x: () => {} },
+      },
+      b: {
+        parent: "a",
+        bindings: { y: () => {} },
+      },
+    }),
+  );
+});
+
+test("keybinding mutation APIs reject updater-time re-entrancy", async () => {
+  const backend = new StubBackend();
+  const app = createApp({ backend, initialState: 0 });
+  app.draw((g) => g.clear());
+  await app.start();
+
+  const codes: string[] = [];
+
+  app.update((prev) => {
+    try {
+      app.keys({ q: () => {} });
+    } catch (e: unknown) {
+      const code = (e as { code?: unknown }).code;
+      if (typeof code === "string") codes.push(code);
+    }
+    return prev;
+  });
+
+  app.update((prev) => {
+    try {
+      app.modes({
+        normal: { q: () => {} },
+      });
+    } catch (e: unknown) {
+      const code = (e as { code?: unknown }).code;
+      if (typeof code === "string") codes.push(code);
+    }
+    return prev;
+  });
+
+  app.modes({
+    normal: { q: () => {} },
+  });
+
+  app.update((prev) => {
+    try {
+      app.setMode("normal");
+    } catch (e: unknown) {
+      const code = (e as { code?: unknown }).code;
+      if (typeof code === "string") codes.push(code);
+    }
+    return prev;
+  });
+
+  await flushMicrotasks(5);
+  assert.deepEqual(codes, ["ZRUI_REENTRANT_CALL", "ZRUI_REENTRANT_CALL", "ZRUI_REENTRANT_CALL"]);
+
+  await app.stop();
+});
+
 test("chord-state transitions trigger rerenders for app.pendingChord consumers", async () => {
   const backend = new StubBackend();
   const snapshots: string[] = [];

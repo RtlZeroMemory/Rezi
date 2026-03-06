@@ -74,7 +74,15 @@ describe("createApp routes integration", () => {
     backend.pushBatch(
       makeBackendBatch({
         bytes: encodeZrevBatchV1({
-          events: [{ kind: "key", timeMs: 2, key: 50, mods: ZR_MOD_CTRL, action: "down" }],
+          events: [
+            {
+              kind: "key",
+              timeMs: 2,
+              key: 50,
+              mods: ZR_MOD_CTRL,
+              action: "down",
+            },
+          ],
         }),
       }),
     );
@@ -113,7 +121,15 @@ describe("createApp routes integration", () => {
     backend.pushBatch(
       makeBackendBatch({
         bytes: encodeZrevBatchV1({
-          events: [{ kind: "key", timeMs: 9, key: 56, mods: ZR_MOD_CTRL, action: "down" }],
+          events: [
+            {
+              kind: "key",
+              timeMs: 9,
+              key: 56,
+              mods: ZR_MOD_CTRL,
+              action: "down",
+            },
+          ],
         }),
       }),
     );
@@ -168,7 +184,15 @@ describe("createApp routes integration", () => {
     backend.pushBatch(
       makeBackendBatch({
         bytes: encodeZrevBatchV1({
-          events: [{ kind: "key", timeMs: 2, key: 50, mods: ZR_MOD_CTRL, action: "down" }],
+          events: [
+            {
+              kind: "key",
+              timeMs: 2,
+              key: 50,
+              mods: ZR_MOD_CTRL,
+              action: "down",
+            },
+          ],
         }),
       }),
     );
@@ -212,7 +236,15 @@ describe("createApp routes integration", () => {
     backend.pushBatch(
       makeBackendBatch({
         bytes: encodeZrevBatchV1({
-          events: [{ kind: "key", timeMs: 2, key: 50, mods: ZR_MOD_CTRL, action: "down" }],
+          events: [
+            {
+              kind: "key",
+              timeMs: 2,
+              key: 50,
+              mods: ZR_MOD_CTRL,
+              action: "down",
+            },
+          ],
         }),
       }),
     );
@@ -249,7 +281,15 @@ describe("createApp routes integration", () => {
     backend.pushBatch(
       makeBackendBatch({
         bytes: encodeZrevBatchV1({
-          events: [{ kind: "key", timeMs: 3, key: 50, mods: ZR_MOD_CTRL, action: "down" }],
+          events: [
+            {
+              kind: "key",
+              timeMs: 3,
+              key: 50,
+              mods: ZR_MOD_CTRL,
+              action: "down",
+            },
+          ],
         }),
       }),
     );
@@ -259,7 +299,15 @@ describe("createApp routes integration", () => {
     backend.pushBatch(
       makeBackendBatch({
         bytes: encodeZrevBatchV1({
-          events: [{ kind: "key", timeMs: 4, key: 51, mods: ZR_MOD_CTRL, action: "down" }],
+          events: [
+            {
+              kind: "key",
+              timeMs: 4,
+              key: 51,
+              mods: ZR_MOD_CTRL,
+              action: "down",
+            },
+          ],
         }),
       }),
     );
@@ -271,7 +319,15 @@ describe("createApp routes integration", () => {
     backend.pushBatch(
       makeBackendBatch({
         bytes: encodeZrevBatchV1({
-          events: [{ kind: "key", timeMs: 5, key: 55, mods: ZR_MOD_CTRL, action: "down" }],
+          events: [
+            {
+              kind: "key",
+              timeMs: 5,
+              key: 55,
+              mods: ZR_MOD_CTRL,
+              action: "down",
+            },
+          ],
         }),
       }),
     );
@@ -279,6 +335,74 @@ describe("createApp routes integration", () => {
     backend.resolveNextFrame();
     await flushMicrotasks(10);
     assert.equal(app.router?.currentRoute().id, "home");
+
+    app.dispose();
+  });
+
+  test("replaceRoutes preserves existing route shortcuts when new keybindings are invalid", async () => {
+    const backend = new StubBackend();
+
+    const app = createApp({
+      backend,
+      initialState: Object.freeze({}),
+      routes: [
+        {
+          id: "home",
+          title: "Home",
+          keybinding: "ctrl+1",
+          screen: () => ui.button({ id: "home-btn", label: "Home" }),
+        },
+        {
+          id: "logs",
+          title: "Logs",
+          keybinding: "ctrl+2",
+          screen: () => ui.button({ id: "logs-btn", label: "Logs" }),
+        },
+      ],
+      initialRoute: "home",
+    });
+
+    await bootWithResize(backend, app);
+
+    assert.throws(
+      () =>
+        app.replaceRoutes([
+          {
+            id: "home",
+            title: "Home",
+            keybinding: "invalid+++key",
+            screen: () => ui.button({ id: "home-btn", label: "Home v2" }),
+          },
+          {
+            id: "logs",
+            title: "Logs",
+            keybinding: "ctrl+2",
+            screen: () => ui.button({ id: "logs-btn", label: "Logs v2" }),
+          },
+        ]),
+      /invalid keybinding sequence/,
+    );
+
+    backend.pushBatch(
+      makeBackendBatch({
+        bytes: encodeZrevBatchV1({
+          events: [
+            {
+              kind: "key",
+              timeMs: 3,
+              key: 50,
+              mods: ZR_MOD_CTRL,
+              action: "down",
+            },
+          ],
+        }),
+      }),
+    );
+    await flushMicrotasks(20);
+    backend.resolveNextFrame();
+    await flushMicrotasks(10);
+
+    assert.equal(app.router?.currentRoute().id, "logs");
 
     app.dispose();
   });
@@ -329,7 +453,15 @@ describe("createApp routes integration", () => {
     backend.pushBatch(
       makeBackendBatch({
         bytes: encodeZrevBatchV1({
-          events: [{ kind: "key", timeMs: 8, key: 49, mods: ZR_MOD_CTRL, action: "down" }],
+          events: [
+            {
+              kind: "key",
+              timeMs: 8,
+              key: 49,
+              mods: ZR_MOD_CTRL,
+              action: "down",
+            },
+          ],
         }),
       }),
     );
@@ -403,7 +535,15 @@ describe("createApp routes integration", () => {
     backend.pushBatch(
       makeBackendBatch({
         bytes: encodeZrevBatchV1({
-          events: [{ kind: "key", timeMs: 20, key: 57, mods: ZR_MOD_CTRL, action: "down" }],
+          events: [
+            {
+              kind: "key",
+              timeMs: 20,
+              key: 57,
+              mods: ZR_MOD_CTRL,
+              action: "down",
+            },
+          ],
         }),
       }),
     );

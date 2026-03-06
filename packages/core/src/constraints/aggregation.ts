@@ -43,7 +43,7 @@ export function collectAggregationRequests(ast: ExprNode): readonly AggregationR
 
 export function computeSiblingAggregations(
   requests: readonly AggregationRequest[],
-  idToInstances: ReadonlyMap<string, readonly InstanceId[]>,
+  siblingIdToInstances: ReadonlyMap<string, readonly InstanceId[]>,
   readMetric: SiblingMetricReader,
 ): ReadonlyMap<string, number> {
   const out = new Map<string, number>();
@@ -51,7 +51,7 @@ export function computeSiblingAggregations(
   for (const request of requests) {
     const key = aggregationKey(request.name, request.id, request.prop);
     if (out.has(key)) continue;
-    const instances = idToInstances.get(request.id) ?? [];
+    const instances = siblingIdToInstances.get(request.id) ?? [];
     if (instances.length === 0) {
       out.set(key, 0);
       continue;

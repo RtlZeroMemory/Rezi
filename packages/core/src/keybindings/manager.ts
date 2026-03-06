@@ -134,8 +134,8 @@ export type InvalidKey = Readonly<{
 /**
  * Result of parsing binding definitions.
  */
-export type ParseBindingsResult<C> = Readonly<{
-  bindings: readonly KeyBinding<C>[];
+export type ParseBindingsResult<C, B extends KeyBinding<C> = KeyBinding<C>> = Readonly<{
+  bindings: readonly B[];
   invalidKeys: readonly InvalidKey[];
 }>;
 
@@ -143,8 +143,8 @@ export type ParseBindingsResult<C> = Readonly<{
  * Parse binding definitions into KeyBinding array.
  * Returns both valid bindings and any invalid keys that were skipped.
  */
-function parseBindings<C>(map: BindingMap<C>): ParseBindingsResult<C> {
-  const bindings: KeyBinding<C>[] = [];
+function parseBindings<C>(map: BindingMap<C>): ParseBindingsResult<C, ManagedBinding<C>> {
+  const bindings: ManagedBinding<C>[] = [];
   const invalidKeys: InvalidKey[] = [];
 
   for (const [keyStr, def] of Object.entries(map)) {
@@ -170,11 +170,22 @@ function parseBindings<C>(map: BindingMap<C>): ParseBindingsResult<C> {
 
     const binding: KeyBinding<C> =
       when !== undefined && description !== undefined
-        ? Object.freeze({ sequence: parsed.value, priority, handler, when, description })
+        ? Object.freeze({
+            sequence: parsed.value,
+            priority,
+            handler,
+            when,
+            description,
+          })
         : when !== undefined
           ? Object.freeze({ sequence: parsed.value, priority, handler, when })
           : description !== undefined
-            ? Object.freeze({ sequence: parsed.value, priority, handler, description })
+            ? Object.freeze({
+                sequence: parsed.value,
+                priority,
+                handler,
+                description,
+              })
             : Object.freeze({ sequence: parsed.value, priority, handler });
 
     bindings.push(binding);
@@ -189,7 +200,7 @@ function parseBindings<C>(map: BindingMap<C>): ParseBindingsResult<C> {
 function parseBindingsWithOptions<C>(
   map: BindingMap<C>,
   options?: RegisterBindingsOptions,
-): ParseBindingsResult<C> {
+): ParseBindingsResult<C, ManagedBinding<C>> {
   const parsed = parseBindings(map);
   const sourceTag = options?.sourceTag;
   if (sourceTag === undefined) return parsed;

@@ -2418,6 +2418,7 @@ export type VNode =
   | Readonly<{ kind: "text"; text: string; props: TextProps }>
   | Readonly<{ kind: "fragment"; props: FragmentProps; children: readonly VNode[] }>
   | Readonly<{ kind: "box"; props: BoxProps; children: readonly VNode[] }>
+  | Readonly<{ kind: "fragment"; props: Readonly<{ key?: string }>; children: readonly VNode[] }>
   | Readonly<{ kind: "row"; props: RowProps; children: readonly VNode[] }>
   | Readonly<{ kind: "column"; props: ColumnProps; children: readonly VNode[] }>
   | Readonly<{ kind: "themed"; props: ThemedProps; children: readonly VNode[] }>

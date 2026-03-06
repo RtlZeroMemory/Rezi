@@ -164,8 +164,8 @@ export const WIDGET_PROTOCOL: Readonly<Partial<Record<string, WidgetProtocol>>> 
   spacer: DISPLAY_ONLY,
 
   // --- Containers ---
-  fragment: CONTAINER,
   box: CONTAINER,
+  fragment: CONTAINER,
   row: CONTAINER,
   column: CONTAINER,
   themed: CONTAINER,

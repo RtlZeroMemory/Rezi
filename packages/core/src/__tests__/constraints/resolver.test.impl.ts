@@ -180,6 +180,32 @@ describe("constraint resolver", () => {
     assert.equal(out.values.get(22)?.width, 18);
   });
 
+  test("limits sibling aggregations to matching ids under the same parent", () => {
+    const branchA = runtimeNode(110, {}, [
+      boxWithId(11, "item", {}),
+      boxWithId(12, "item", {}),
+      boxWithId(13, "panel", { width: expr("sum_sibling(#item.w)") }),
+    ]);
+    const branchB = runtimeNode(120, {}, [boxWithId(21, "item", {})]);
+    const built = buildConstraintGraph(runtimeNode(100, {}, [branchA, branchB]));
+    assert.equal(built.ok, true);
+    if (!built.ok) return;
+
+    const baseValues = new Map<number, { width?: number }>([
+      [11, { width: 4 }],
+      [12, { width: 6 }],
+      [21, { width: 30 }],
+    ]);
+
+    const out = resolveConstraints(built.value, {
+      viewport: { w: 120, h: 40 },
+      parent: { w: 100, h: 40 },
+      baseValues,
+    });
+
+    assert.equal(out.values.get(13)?.width, 10);
+  });
+
   test("computes sum_sibling from same-frame constrained sibling values", () => {
     const itemA = boxWithId(51, "item", { width: expr("10") });
     const itemB = boxWithId(52, "item", { width: expr("20") });

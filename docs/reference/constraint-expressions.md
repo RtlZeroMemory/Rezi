@@ -39,6 +39,7 @@ Inside `expr("...")`, these references are supported:
 Notes:
 - Direct `#id.*` references require a **unique target id** in scope.
 - Shared ids are allowed (for non-interactive nodes) but must be used with sibling aggregation functions (`max_sibling`, `sum_sibling`) to avoid ambiguity.
+- `max_sibling` / `sum_sibling` only aggregate matching ids that share the same parent as the consuming widget.
 
 ---
 

@@ -1303,8 +1303,8 @@ type UseFormOptions<T> = {
 | `isDirty` | `boolean` | True if any field modified |
 | `isSubmitting` | `boolean` | True during async submission |
 | `submitError` | `unknown \| undefined` | Most recent submit error, if any |
-| `bind(field)` | `UseFormInputBinding` | Spread-ready props for `ui.input(...)` |
-| `field(field, opts?)` | `VNode` | Fully wired `ui.field(...)` with child `ui.input(...)` |
+| `bind(field)` | `UseFormInputBinding` | Spread-ready props for `ui.input(...)`, including effective `disabled` / `readOnly` state |
+| `field(field, opts?)` | `VNode` | Fully wired `ui.field(...)` with child `ui.input(...)`; forwards supported input props like `placeholder`, `style`, `disabled`, and `readOnly` |
 | `handleChange(field)` | `(value) => void` | Change handler factory |
 | `handleBlur(field)` | `() => void` | Blur handler factory |
 | `handleSubmit` | `() => void` | Submit (validates then calls `onSubmit`) |
@@ -1314,9 +1314,9 @@ type UseFormOptions<T> = {
 | `validateField` | `(field) => error` | Validate single field |
 | `validateForm` | `() => errors` | Validate all fields |
 | `useFieldArray(field)` | `UseFieldArrayReturn` | Dynamic array field helpers |
-| `nextStep` | `() => boolean` | Wizard: advance (validates current step) |
+| `nextStep` | `() => boolean` | Wizard: advance. Returns `true` when the step changes immediately, `false` when blocked or waiting for async validation |
 | `previousStep` | `() => void` | Wizard: go back (no validation) |
-| `goToStep(stepIndex)` | `(stepIndex: number) => boolean` | Wizard: jump to step (validates forward) |
+| `goToStep(stepIndex)` | `(stepIndex: number) => boolean` | Wizard: jump to step. Forward moves validate intermediate steps and may complete asynchronously when `validateAsync` is configured |
 
 **Example:**
 

@@ -159,7 +159,7 @@ const DEFAULT_CONFIG: ResolvedAppConfig = Object.freeze({
 });
 
 const MAX_SAFE_FPS_CAP = 1000;
-const MAX_SAFE_EVENT_BYTES = 4 << 20 /* 4 MiB */;
+const MAX_SAFE_EVENT_BYTES = 4 << 20; /* 4 MiB */
 const SYNC_FRAME_ACK_MARKER = "__reziSyncFrameAck";
 export const APP_INTERNAL_REQUEST_VIEW_LAYOUT_MARKER = "__reziRequestViewLayout";
 export const APP_INTERNAL_SET_RUNTIME_BREADCRUMB_HOOKS_MARKER = "__reziSetRuntimeBreadcrumbHooks";
@@ -621,6 +621,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     // Theme-aware composite widgets resolve recipe styles during commit, so
     // transition frames must invalidate view/commit, not only render.
     markDirty(DIRTY_VIEW, false);
+    renderRequestQueuedForCurrentTurn = true;
     scheduler.enqueue({ kind: "renderRequest" });
   }
 
@@ -698,6 +699,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   let breadcrumbLastConsumptionPath: RuntimeBreadcrumbConsumptionPath | null = null;
   let breadcrumbLastAction: RuntimeBreadcrumbAction | null = null;
   let breadcrumbEventTracked = false;
+  let deferredInlineFatal: Readonly<{ code: ZrUiErrorCode; detail: string }> | null = null;
 
   function recomputeRuntimeBreadcrumbCollection(): void {
     const next =
@@ -758,8 +760,8 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     }>;
     try {
       result = registerModes(keybindingState, modes);
-    } catch (e: unknown) {
-      throwCode("ZRUI_INVALID_PROPS", `modes: ${describeThrown(e)}`);
+    } catch (error: unknown) {
+      throwCode("ZRUI_INVALID_PROPS", `modes: ${describeThrown(error)}`);
     }
     if (result.invalidKeys.length > 0) {
       throwCode(
@@ -771,12 +773,22 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   }
 
   function replaceRouteBindings(bindings: BindingMap<KeyContext<S>>): void {
-    applyKeybindingState(removeBindingsBySource(keybindingState, ROUTE_KEYBINDING_SOURCE));
-    if (Object.keys(bindings).length === 0) return;
-    registerAppBindings(bindings, {
+    const baseState = removeBindingsBySource(keybindingState, ROUTE_KEYBINDING_SOURCE);
+    if (Object.keys(bindings).length === 0) {
+      applyKeybindingState(baseState);
+      return;
+    }
+
+    const result = registerBindings(baseState, bindings, {
       sourceTag: ROUTE_KEYBINDING_SOURCE,
-      method: "replaceRoutes",
     });
+    if (result.invalidKeys.length > 0) {
+      throwCode(
+        "ZRUI_INVALID_PROPS",
+        `replaceRoutes: invalid keybinding sequence(s): ${formatInvalidKeybindingDetail(result.invalidKeys)}`,
+      );
+    }
+    applyKeybindingState(result.state);
   }
 
   function applyRoutedKeybindingState(
@@ -922,8 +934,22 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     scheduler.enqueue({ kind: "fatal", code, detail });
   }
 
+  function flushDeferredInlineFatal(): void {
+    if (deferredInlineFatal === null || inEventHandlerDepth !== 0) return;
+    const fatal = deferredInlineFatal;
+    deferredInlineFatal = null;
+    doFatal(fatal.code, fatal.detail);
+  }
+
   function fatalNowOrEnqueue(code: ZrUiErrorCode, detail: string): void {
-    if (scheduler.isExecuting) {
+    const canFailFastInline = scheduler.isExecuting && !inRender && !inCommit;
+    if (canFailFastInline && inEventHandlerDepth > 0) {
+      if (deferredInlineFatal === null) {
+        deferredInlineFatal = Object.freeze({ code, detail });
+      }
+      return;
+    }
+    if (canFailFastInline) {
       doFatal(code, detail);
       return;
     }
@@ -981,6 +1007,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       }
     } finally {
       inEventHandlerDepth--;
+      flushDeferredInlineFatal();
     }
     return true;
   }
@@ -1065,11 +1092,15 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     }
   }
 
-  function releaseOnce(batch: BackendEventBatch): () => void {
+  function releaseOnce(
+    batch: BackendEventBatch,
+    releasedBatches: Set<BackendEventBatch>,
+  ): () => void {
     let released = false;
     return () => {
       if (released) return;
       released = true;
+      releasedBatches.add(batch);
       try {
         batch.release();
       } catch {
@@ -1078,8 +1109,11 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     };
   }
 
-  function processEventBatch(batch: BackendEventBatch): void {
-    const release = releaseOnce(batch);
+  function processEventBatch(
+    batch: BackendEventBatch,
+    releasedBatches: Set<BackendEventBatch>,
+  ): void {
+    const release = releaseOnce(batch, releasedBatches);
 
     const parseToken = perfMarkStart("event_parse");
     const parsed = parseEventBatchV1(batch.bytes, {
@@ -1539,9 +1573,10 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     }
   }
 
-  function drainIgnored(items: readonly WorkItem[]): void {
+  function drainIgnored(items: readonly WorkItem[], releasedBatches: Set<BackendEventBatch>): void {
     for (const it of items) {
-      if (it.kind === "eventBatch") {
+      if (it.kind === "eventBatch" && !releasedBatches.has(it.batch)) {
+        releasedBatches.add(it.batch);
         try {
           it.batch.release();
         } catch {
@@ -1553,27 +1588,29 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
   function processTurn(items: readonly WorkItem[]): void {
     renderRequestQueuedForCurrentTurn = false;
+    const releasedBatches = new Set<BackendEventBatch>();
     const st = sm.state;
     if (st === "Disposed" || st === "Faulted") {
-      drainIgnored(items);
+      drainIgnored(items, releasedBatches);
       return;
     }
 
     let sawKick = false;
     for (const item of items) {
       if (sm.state === "Faulted" || sm.state === "Disposed") {
-        drainIgnored(items);
+        drainIgnored(items, releasedBatches);
         return;
       }
 
       switch (item.kind) {
         case "fatal": {
           doFatal(item.code, item.detail);
-          drainIgnored(items);
+          drainIgnored(items, releasedBatches);
           return;
         }
         case "eventBatch": {
           if (sm.state !== "Running") {
+            releasedBatches.add(item.batch);
             try {
               item.batch.release();
             } catch {
@@ -1581,9 +1618,9 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
             }
             break;
           }
-          processEventBatch(item.batch);
+          processEventBatch(item.batch, releasedBatches);
           if (sm.state !== "Running") {
-            drainIgnored(items);
+            drainIgnored(items, releasedBatches);
             return;
           }
           commitUpdates();

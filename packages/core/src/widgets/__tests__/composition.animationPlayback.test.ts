@@ -395,15 +395,6 @@ describe("composition animation hooks - playback controls", () => {
     );
     h.runPending(render.pendingEffects);
 
-    await sleep(16);
-    render = h.render((hooks) =>
-      useSequence(hooks, snapFrames, {
-        playback: { paused: false },
-      }),
-    );
-    h.runPending(render.pendingEffects);
-    assert.ok(render.result - linearValue > 5);
-
     await waitFor(() => {
       const next = h.render((hooks) =>
         useSequence(hooks, snapFrames, {

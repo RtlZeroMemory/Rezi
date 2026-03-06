@@ -55,9 +55,11 @@ type LayoutCacheEntry = Readonly<{
 }>;
 type LayoutCache = WeakMap<VNode, LayoutCacheEntry>;
 
-type ThemedVNode = VNode & Readonly<{ kind: "themed"; children: readonly VNode[] }>;
+type TransparentVNode =
+  | (VNode & Readonly<{ kind: "fragment"; children: readonly VNode[] }>)
+  | (VNode & Readonly<{ kind: "themed"; children: readonly VNode[] }>);
 
-type SyntheticThemedColumnCacheEntry = Readonly<{
+type SyntheticTransparentColumnCacheEntry = Readonly<{
   childrenRef: readonly VNode[];
   columnNode: VNode;
 }>;
@@ -85,7 +87,7 @@ let activeMeasureCache: MeasureCache | null = null;
 const measureCacheStack: MeasureCache[] = [];
 let activeLayoutCache: LayoutCache | null = null;
 const layoutCacheStack: LayoutCache[] = [];
-const syntheticThemedColumnCache = new WeakMap<VNode, SyntheticThemedColumnCacheEntry>();
+const syntheticTransparentColumnCache = new WeakMap<VNode, SyntheticTransparentColumnCacheEntry>();
 const NULL_FORCED_DIMENSION = -1;
 const LEGACY_SIZE_PROP_NAMES: readonly string[] = Object.freeze([
   "width",
@@ -105,6 +107,13 @@ const LAYOUT_CHILD_CONSTRAINT_PROP_NAMES: readonly string[] = Object.freeze([
   "gridRow",
   "colSpan",
   "rowSpan",
+]);
+const ABSOLUTE_POSITION_PROP_NAMES: readonly string[] = Object.freeze([
+  "position",
+  "top",
+  "right",
+  "bottom",
+  "left",
 ]);
 const LAYOUT_CHILD_CONSTRAINT_KINDS = new Set<VNode["kind"]>([
   "box",
@@ -129,6 +138,7 @@ const LAYOUT_CHILD_CONSTRAINT_KINDS = new Set<VNode["kind"]>([
   "miniChart",
   "gauge",
 ]);
+const ABSOLUTE_POSITION_PARENT_KINDS = new Set<VNode["kind"]>(["box", "row", "column"]);
 const LAYOUT_CHILD_CONSTRAINT_KIND_LIST = Array.from(LAYOUT_CHILD_CONSTRAINT_KINDS)
   .sort()
   .join(", ");
@@ -218,18 +228,26 @@ function findLegacyConstraintUsage(root: VNode): string | null {
 
 function findUnsupportedLayoutConstraintUsage(root: VNode): readonly string[] {
   const issues: string[] = [];
-  const stack: Array<Readonly<{ node: VNode; path: string }>> = [{ node: root, path: root.kind }];
-  const visited = new WeakSet<VNode>();
+  const stack: Array<Readonly<{ node: VNode; path: string; parentKind: VNode["kind"] | null }>> = [
+    { node: root, path: root.kind, parentKind: null },
+  ];
+  const visitedByParentKind = new WeakMap<VNode, Set<VNode["kind"] | null>>();
 
   while (stack.length > 0) {
     const frame = stack.pop();
     if (!frame) continue;
-    const { node, path } = frame;
-    if (visited.has(node)) continue;
-    visited.add(node);
+    const { node, path, parentKind } = frame;
+    const seenParentKinds = visitedByParentKind.get(node);
+    if (seenParentKinds?.has(parentKind)) continue;
+    if (seenParentKinds === undefined) {
+      visitedByParentKind.set(node, new Set([parentKind]));
+    } else {
+      seenParentKinds.add(parentKind);
+    }
+
+    const props = (node.props ?? {}) as Readonly<Record<string, unknown> & { position?: unknown }>;
 
     if (!LAYOUT_CHILD_CONSTRAINT_KINDS.has(node.kind)) {
-      const props = (node.props ?? {}) as Readonly<Record<string, unknown>>;
       const unsupportedProps: string[] = [];
       for (const propName of LAYOUT_CHILD_CONSTRAINT_PROP_NAMES) {
         if (props[propName] === undefined) continue;
@@ -242,12 +260,33 @@ function findUnsupportedLayoutConstraintUsage(root: VNode): readonly string[] {
       }
     }
 
+    const position = props.position;
+    const usesAbsoluteOffsets =
+      LAYOUT_CHILD_CONSTRAINT_KINDS.has(node.kind) &&
+      ABSOLUTE_POSITION_PROP_NAMES.some(
+        (propName) => propName !== "position" && props[propName] !== undefined,
+      );
+    const usesAbsolutePosition = position === "absolute" || usesAbsoluteOffsets;
+    if (
+      usesAbsolutePosition &&
+      (parentKind === null || !ABSOLUTE_POSITION_PARENT_KINDS.has(parentKind))
+    ) {
+      const parentLabel = parentKind === null ? "root" : parentKind;
+      issues.push(
+        `${path}: absolute positioning is only honored for children of box/row/column (parent: ${parentLabel})`,
+      );
+    }
+
     const children = (node as Readonly<{ children?: readonly VNode[] }>).children;
     if (Array.isArray(children) && children.length > 0) {
       for (let i = children.length - 1; i >= 0; i--) {
         const child = children[i];
         if (!child) continue;
-        stack.push({ node: child, path: `${path}>${child.kind}[${String(i)}]` });
+        stack.push({
+          node: child,
+          path: `${path}>${child.kind}[${String(i)}]`,
+          parentKind: node.kind,
+        });
       }
     }
 
@@ -261,19 +300,31 @@ function findUnsupportedLayoutConstraintUsage(root: VNode): readonly string[] {
         typeof modalProps.content === "object" &&
         "kind" in modalProps.content
       ) {
-        stack.push({ node: modalProps.content as VNode, path: `${path}.content` });
+        stack.push({
+          node: modalProps.content as VNode,
+          path: `${path}.content`,
+          parentKind: node.kind,
+        });
       }
       if (Array.isArray(modalProps.actions)) {
         for (let i = modalProps.actions.length - 1; i >= 0; i--) {
           const action = modalProps.actions[i];
           if (!action || typeof action !== "object" || !("kind" in action)) continue;
-          stack.push({ node: action as VNode, path: `${path}.actions[${String(i)}]` });
+          stack.push({
+            node: action as VNode,
+            path: `${path}.actions[${String(i)}]`,
+            parentKind: node.kind,
+          });
         }
       }
     } else if (node.kind === "layer") {
       const layerContent = (node.props as Readonly<{ content?: unknown }>).content;
       if (layerContent && typeof layerContent === "object" && "kind" in layerContent) {
-        stack.push({ node: layerContent as VNode, path: `${path}.content` });
+        stack.push({
+          node: layerContent as VNode,
+          path: `${path}.content`,
+          parentKind: node.kind,
+        });
       }
     }
   }
@@ -385,11 +436,14 @@ function setLayoutCacheValue(
   byY.set(y, value);
 }
 
-function getSyntheticThemedColumn(vnode: ThemedVNode): VNode {
-  const hit = syntheticThemedColumnCache.get(vnode);
+function getSyntheticTransparentColumn(vnode: TransparentVNode): VNode {
+  const hit = syntheticTransparentColumnCache.get(vnode);
   if (hit && hit.childrenRef === vnode.children) return hit.columnNode;
   const columnNode: VNode = { kind: "column", props: { gap: 0 }, children: vnode.children };
-  syntheticThemedColumnCache.set(vnode, Object.freeze({ childrenRef: vnode.children, columnNode }));
+  syntheticTransparentColumnCache.set(
+    vnode,
+    Object.freeze({ childrenRef: vnode.children, columnNode }),
+  );
   return columnNode;
 }
 
@@ -539,19 +593,19 @@ function measureNode(vnode: VNode, maxW: number, maxH: number, axis: Axis): Layo
     }
     case "fragment":
     case "themed": {
-      const themedVNode = vnode as ThemedVNode;
-      if (themedVNode.children.length === 0) {
+      const transparentVNode = vnode as TransparentVNode;
+      if (transparentVNode.children.length === 0) {
         computed = { ok: true, value: { w: 0, h: 0 } };
         break;
       }
-      if (themedVNode.children.length === 1) {
-        const child = themedVNode.children[0];
+      if (transparentVNode.children.length === 1) {
+        const child = transparentVNode.children[0];
         computed = child
           ? measureNode(child, maxW, maxH, axis)
           : { ok: true, value: { w: 0, h: 0 } };
         break;
       }
-      const syntheticColumn = getSyntheticThemedColumn(themedVNode);
+      const syntheticColumn = getSyntheticTransparentColumn(transparentVNode);
       computed = measureNode(syntheticColumn, maxW, maxH, "column");
       break;
     }
@@ -800,8 +854,8 @@ function layoutNode(
     }
     case "fragment":
     case "themed": {
-      const themedVNode = vnode as ThemedVNode;
-      if (themedVNode.children.length === 0) {
+      const transparentVNode = vnode as TransparentVNode;
+      if (transparentVNode.children.length === 0) {
         computed = {
           ok: true,
           value: {
@@ -812,9 +866,9 @@ function layoutNode(
         };
         break;
       }
-      if (themedVNode.children.length === 1) {
+      if (transparentVNode.children.length === 1) {
         const children: LayoutTree[] = [];
-        const child = themedVNode.children[0];
+        const child = transparentVNode.children[0];
         if (child) {
           const childRes = layoutNode(child, x, y, rectW, rectH, axis, rectW, rectH);
           if (!childRes.ok) {
@@ -833,7 +887,7 @@ function layoutNode(
         };
         break;
       }
-      const syntheticColumn = getSyntheticThemedColumn(themedVNode);
+      const syntheticColumn = getSyntheticTransparentColumn(transparentVNode);
       const innerRes = layoutNode(syntheticColumn, x, y, rectW, rectH, "column", rectW, rectH);
       if (!innerRes.ok) {
         computed = innerRes;

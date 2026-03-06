@@ -32,7 +32,9 @@ type RouteInputEditingEventContext = Readonly<{
   onInputCallbackError: (error: unknown) => void;
 }>;
 
-const ROUTE_RENDER: InputEditingRoutingOutcome = Object.freeze({ needsRender: true });
+const ROUTE_RENDER: InputEditingRoutingOutcome = Object.freeze({
+  needsRender: true,
+});
 const ROUTE_NO_RENDER_CONSUMED: InputEditingRoutingOutcome = Object.freeze({
   needsRender: false,
   consumed: true,
@@ -149,6 +151,7 @@ export function routeInputEditingEvent(
       if (selected && selected.length > 0) {
         ctx.writeSelectedTextToClipboard(selected);
         if (event.key === 88 /* X */) {
+          if (meta.readOnly) return ROUTE_NO_RENDER_CONSUMED;
           const selection = normalizeInputSelection(
             current.value,
             current.selectionStart,
@@ -189,6 +192,7 @@ export function routeInputEditingEvent(
     }
 
     if (event.key === 90 /* Z */ || event.key === 89 /* Y */) {
+      if (meta.readOnly) return ROUTE_NO_RENDER_CONSUMED;
       const snap = event.key === 89 || isShift ? history.redoSnapshot() : history.undoSnapshot();
       if (snap) {
         applyInputSnapshot(
@@ -220,6 +224,9 @@ export function routeInputEditingEvent(
     multiline: meta.multiline,
   });
   if (!edit) return null;
+  if (meta.readOnly && edit.action) {
+    return ROUTE_NO_RENDER_CONSUMED;
+  }
 
   const next: InputEditorSnapshot = Object.freeze({
     value: edit.nextValue,

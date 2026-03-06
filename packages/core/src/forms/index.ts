@@ -15,6 +15,7 @@ export type {
   UseFormBindOptions,
   UseFormFieldOptions,
   UseFormInputBinding,
+  UseFormTextFieldName,
   UseFieldArrayReturn,
   UseFormOptions,
   UseFormReturn,

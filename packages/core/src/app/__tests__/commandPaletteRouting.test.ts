@@ -307,7 +307,7 @@ describe("commandPalette async fetch contracts", () => {
 });
 
 describe("commandPalette escape contracts in layered focus contexts", () => {
-  test("modal layer with closeOnEscape=false routes Escape to focused command palette", () => {
+  test("modal layer with closeOnEscape=false keeps Escape owned by the top layer", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({
       backend,
@@ -348,7 +348,7 @@ describe("commandPalette escape contracts in layered focus contexts", () => {
     assert.equal(renderer.getFocusedId(), "cp");
 
     renderer.routeEngineEvent(keyEvent(ZR_KEY_ESCAPE));
-    assert.deepEqual(events, ["palette-close"]);
+    assert.deepEqual(events, []);
   });
 
   test("modal layer with closeOnEscape=true closes layer before palette handler", () => {

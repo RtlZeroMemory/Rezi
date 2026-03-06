@@ -34,7 +34,12 @@ function mouseEvent(
   x: number,
   y: number,
   mouseKind: 1 | 2 | 3 | 4 | 5,
-  opts: Readonly<{ timeMs?: number; buttons?: number; wheelX?: number; wheelY?: number }> = {},
+  opts: Readonly<{
+    timeMs?: number;
+    buttons?: number;
+    wheelX?: number;
+    wheelY?: number;
+  }> = {},
 ): ZrevEvent {
   return {
     kind: "mouse",
@@ -426,7 +431,10 @@ describe("WidgetRenderer integration battery", () => {
     });
 
     let lines: readonly string[] = Object.freeze(["hello world"]);
-    let cursor: { line: number; column: number } = Object.freeze({ line: 0, column: 11 });
+    let cursor: { line: number; column: number } = Object.freeze({
+      line: 0,
+      column: 11,
+    });
     let selection: {
       anchor: { line: number; column: number };
       active: { line: number; column: number };
@@ -509,6 +517,77 @@ describe("WidgetRenderer integration battery", () => {
     assert.deepEqual(values, ["ab\n"]);
   });
 
+  test("readOnly input remains focusable but blocks editing commands", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const values: string[] = [];
+    const vnode = ui.input({
+      id: "inp",
+      value: "hello",
+      readOnly: true,
+      onInput: (value) => values.push(value),
+    });
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 40, rows: 5 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "inp");
+    const typed = renderer.routeEngineEvent(textEvent(97, 100));
+    const newline = renderer.routeEngineEvent(keyEvent(2 /* ENTER */));
+    const undo = renderer.routeEngineEvent(keyEvent(90 /* Z */, 1 << 1, 200));
+
+    assert.equal(typed.action, undefined);
+    assert.equal(newline.action, undefined);
+    assert.equal(undo.action, undefined);
+    assert.deepEqual(values, []);
+  });
+
+  test("readOnly textarea remains focusable but blocks multiline edits", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const values: string[] = [];
+    const vnode = ui.textarea({
+      id: "ta",
+      value: "ab",
+      rows: 4,
+      readOnly: true,
+      onInput: (value) => values.push(value),
+    });
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 40, rows: 8 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "ta");
+    const enter = renderer.routeEngineEvent(keyEvent(2 /* ENTER */));
+    const typed = renderer.routeEngineEvent(textEvent(99, 100));
+
+    assert.equal(enter.action, undefined);
+    assert.equal(typed.action, undefined);
+    assert.deepEqual(values, []);
+  });
+
   test("focusTrap wraps TAB within active trap", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({
@@ -543,6 +622,66 @@ describe("WidgetRenderer integration battery", () => {
 
     renderer.routeEngineEvent(keyEvent(3 /* TAB */));
     assert.equal(renderer.getFocusedId(), "a");
+  });
+
+  test("focus snapshots preserve trap return targets across restore", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const modalView = () =>
+      ui.column({}, [
+        ui.button({ id: "before", label: "Before" }),
+        ui.button({ id: "trigger", label: "Trigger" }),
+        ui.modal({
+          id: "modal",
+          title: "Modal",
+          returnFocusTo: "trigger",
+          initialFocus: "confirm",
+          content: ui.button({ id: "confirm", label: "Confirm" }),
+        }),
+      ]);
+
+    const modalFrame = renderer.submitFrame(
+      modalView,
+      undefined,
+      { cols: 40, rows: 12 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(modalFrame.ok);
+    assert.equal(renderer.getFocusedId(), "confirm");
+
+    const snapshot = renderer.captureFocusSnapshot();
+
+    const baseView = () =>
+      ui.column({}, [
+        ui.button({ id: "before", label: "Before" }),
+        ui.button({ id: "trigger", label: "Trigger" }),
+      ]);
+
+    const baseFrame = renderer.submitFrame(
+      baseView,
+      undefined,
+      { cols: 40, rows: 12 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(baseFrame.ok);
+
+    renderer.restoreFocusSnapshot(snapshot);
+
+    const restoredFrame = renderer.submitFrame(
+      baseView,
+      undefined,
+      { cols: 40, rows: 12 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(restoredFrame.ok);
+    assert.equal(renderer.getFocusedId(), "trigger");
   });
 
   test("focusZone linear navigation moves focus with arrows", () => {
@@ -823,6 +962,48 @@ describe("WidgetRenderer integration battery", () => {
 
     assert.doesNotThrow(() => renderer.routeEngineEvent(keyEvent(3 /* TAB */)));
     assert.equal(renderer.getFocusedId(), "b");
+  });
+
+  test("focusZone error reporting swallows onUserCodeError sink failures", () => {
+    const backend = createNoopBackend();
+    let onEnterCalls = 0;
+    let onUserCodeErrorCalls = 0;
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+      onUserCodeError: () => {
+        onUserCodeErrorCalls++;
+        throw new Error("sink-fail");
+      },
+    });
+
+    const vnode = ui.column({}, [
+      ui.focusZone(
+        {
+          id: "zone-1",
+          onEnter: () => {
+            onEnterCalls++;
+            throw new Error("boom");
+          },
+        },
+        [ui.button({ id: "a", label: "A" })],
+      ),
+      ui.focusZone({ id: "zone-2" }, [ui.button({ id: "b", label: "B" })]),
+    ]);
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 40, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    assert.doesNotThrow(() => renderer.routeEngineEvent(keyEvent(3 /* TAB */)));
+    assert.equal(renderer.getFocusedId(), "a");
+    assert.equal(onEnterCalls, 1);
+    assert.equal(onUserCodeErrorCalls, 1);
   });
 
   test("focusZone callbacks use final state after toast focus reconciliation", () => {
@@ -1124,7 +1305,9 @@ describe("WidgetRenderer integration battery", () => {
       noRenderHooks(),
     );
     assert.ok(res.ok);
-    const textSnapshot = createTestRenderer({ viewport: { cols: 80, rows: 24 } })
+    const textSnapshot = createTestRenderer({
+      viewport: { cols: 80, rows: 24 },
+    })
       .render(vnode)
       .toText();
     assert.equal(textSnapshot.includes("Cancel"), true);

@@ -160,7 +160,7 @@ describe("focus traps - finalizeFocusWithPreCollectedMetadata", () => {
     assert.equal(next.focusedId, "first");
   });
 
-  test("empty trap focusables do not force focus changes", () => {
+  test("empty focusTrap focusables preserve the current focus", () => {
     const next = finalizeWith(
       managerState({ focusedId: "outside" }),
       ["outside"],
@@ -172,7 +172,7 @@ describe("focus traps - finalizeFocusWithPreCollectedMetadata", () => {
     assert.equal(next.focusedId, "outside");
   });
 
-  test("empty trap focusables still honor valid initialFocus", () => {
+  test("empty focusTrap focusables can honor a valid nested initialFocus", () => {
     const next = finalizeWith(
       managerState({ focusedId: "outside" }),
       ["outside", "nested-id"],
@@ -407,6 +407,36 @@ describe("focus traps - finalizeFocusForCommittedTreeWithZones integration", () 
     assert.deepEqual(next.trapStack, ["modal"]);
   });
 
+  test("trap focusables include controls nested inside focus zones", () => {
+    const tree: VNode = {
+      kind: "column",
+      props: {},
+      children: [
+        {
+          kind: "focusTrap",
+          props: { id: "modal", active: true, initialFocus: "nested-b" },
+          children: [
+            {
+              kind: "focusZone",
+              props: { id: "nested-zone", navigation: "linear" },
+              children: [
+                { kind: "button", props: { id: "nested-a", label: "A" } },
+                { kind: "button", props: { id: "nested-b", label: "B" } },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const next = finalizeFocusForCommittedTreeWithZones(
+      createFocusManagerState(),
+      commitTree(tree),
+    );
+    assert.equal(next.focusedId, "nested-b");
+    assert.deepEqual(next.trapStack, ["modal"]);
+  });
+
   test("inactive trap does not capture focus", () => {
     const tree: VNode = {
       kind: "column",
@@ -427,7 +457,7 @@ describe("focus traps - finalizeFocusForCommittedTreeWithZones integration", () 
     assert.deepEqual(next.trapStack, []);
   });
 
-  test("active empty trap keeps current focus when no trap focusables exist", () => {
+  test("active empty focusTrap preserves focus when no trap focusables exist", () => {
     const tree: VNode = {
       kind: "column",
       props: {},

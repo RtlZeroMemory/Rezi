@@ -370,7 +370,9 @@ function markFieldsTouched<T extends Record<string, unknown>>(
   values: T,
   fields: ReadonlyArray<keyof T>,
 ): Partial<Record<keyof T, FieldBooleanValue>> {
-  const nextTouched: Partial<Record<keyof T, FieldBooleanValue>> = { ...prevTouched };
+  const nextTouched: Partial<Record<keyof T, FieldBooleanValue>> = {
+    ...prevTouched,
+  };
   for (const field of fields) {
     const value = values[field];
     if (Array.isArray(value)) {
@@ -599,13 +601,9 @@ export function useForm<T extends Record<string, unknown>, State = void>(
   };
 
   const warnUnsupportedTextBinding = (field: keyof T): void => {
-    if (!DEV_MODE) {
-      return;
-    }
+    if (!DEV_MODE) return;
     const fieldKey = String(field);
-    if (nonTextBindingWarningsRef.current.has(fieldKey)) {
-      return;
-    }
+    if (nonTextBindingWarningsRef.current.has(fieldKey)) return;
     nonTextBindingWarningsRef.current.add(fieldKey);
     warnDev(
       `[rezi] useForm: bind/field only support string-compatible fields; "${fieldKey}" is not safely bindable to ui.input().`,
@@ -831,7 +829,6 @@ export function useForm<T extends Record<string, unknown>, State = void>(
         errors,
       }));
 
-      // Trigger async validation
       if (asyncValidatorRef.current) {
         asyncValidatorRef.current.run(snapshot.values);
       }
@@ -845,20 +842,16 @@ export function useForm<T extends Record<string, unknown>, State = void>(
     const disabled = isFieldDisabledInternal(field, snapshot);
     const readOnly = !disabled && isFieldReadOnlyInternal(field, snapshot);
     const textBindable = canBindFieldAsText(field, snapshot.values);
-
     if (!textBindable) {
       warnUnsupportedTextBinding(field);
     }
-
     return {
       id: options?.id ?? ctx.id(String(field)),
       value: toInputValue(snapshot.values[field]),
       disabled,
       readOnly,
       onInput: (value: string) => {
-        if (!textBindable) {
-          return;
-        }
+        if (!textBindable) return;
         setFieldValue(field, value as T[K]);
       },
       onBlur: handleBlur(field),
@@ -1177,7 +1170,6 @@ export function useForm<T extends Record<string, unknown>, State = void>(
     if (!hasWizard) {
       return true;
     }
-
     const snapshot = stateRef.current;
     const currentStepIndex = clampStepIndex(snapshot.currentStep, stepCount);
     if (currentStepIndex >= stepCount - 1) {
@@ -1279,7 +1271,6 @@ export function useForm<T extends Record<string, unknown>, State = void>(
     if (!hasWizard) {
       return false;
     }
-
     const snapshot = stateRef.current;
     const currentStepIndex = clampStepIndex(snapshot.currentStep, stepCount);
     const targetStep = clampStepIndex(stepIndex, stepCount);
@@ -1422,9 +1413,7 @@ export function useForm<T extends Record<string, unknown>, State = void>(
       submittingRef.current = false;
       return;
     }
-
     const submitValues = cloneInitialValues(snapshot.values);
-
     const failSubmit = (error: unknown): void => {
       if (typeof options.onSubmitError === "function") {
         try {
@@ -1456,11 +1445,12 @@ export function useForm<T extends Record<string, unknown>, State = void>(
       }));
     };
 
-    const runSubmitCallback = (): void => {
+    const runSubmitCallback = async (): Promise<void> => {
       let submitResult: void | Promise<void>;
       try {
         submitResult = options.onSubmit(submitValues);
       } catch (error) {
+        submittingRef.current = false;
         failSubmit(error);
         return;
       }
@@ -1479,20 +1469,20 @@ export function useForm<T extends Record<string, unknown>, State = void>(
         }));
       }
 
-      void submitResult.then(
-        () => {
-          submittingRef.current = false;
-          finishSuccessfulSubmit();
-        },
-        (error) => {
-          submittingRef.current = false;
-          failSubmit(error);
-        },
-      );
+      try {
+        await submitResult;
+      } catch (error) {
+        submittingRef.current = false;
+        failSubmit(error);
+        return;
+      }
+
+      submittingRef.current = false;
+      finishSuccessfulSubmit();
     };
 
     if (!options.validateAsync) {
-      runSubmitCallback();
+      void runSubmitCallback();
       return;
     }
 
@@ -1502,10 +1492,10 @@ export function useForm<T extends Record<string, unknown>, State = void>(
       isSubmitting: true,
     }));
 
-    void runAsyncValidationFiltered(submitValues, snapshot).then(
-      (asyncErrors) => {
+    void (async () => {
+      try {
+        const asyncErrors = await runAsyncValidationFiltered(submitValues, snapshot);
         const allErrors = mergeValidationErrors(syncErrors, asyncErrors);
-
         if (!isValidationClean(allErrors)) {
           submittingRef.current = false;
           updateFormState((prev) => ({
@@ -1516,18 +1506,16 @@ export function useForm<T extends Record<string, unknown>, State = void>(
           }));
           return;
         }
-
-        runSubmitCallback();
-      },
-      (error) => {
+        await runSubmitCallback();
+      } catch (error) {
         submittingRef.current = false;
         updateFormState((prev) => ({
           ...prev,
           isSubmitting: false,
           submitError: error,
         }));
-      },
-    );
+      }
+    })();
   };
 
   return Object.freeze({

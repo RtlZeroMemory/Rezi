@@ -351,7 +351,7 @@ describe("routing semantics", () => {
     assert.deepEqual(closed, ["modal"]);
   });
 
-  test("layer escape bubbles past a non-closable top layer", () => {
+  test("layer escape is owned by a non-closable top layer", () => {
     const closed: string[] = [];
 
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE, 1), {
@@ -366,7 +366,7 @@ describe("routing semantics", () => {
       ]),
     });
 
-    assert.equal(result.consumed, false);
+    assert.equal(result.consumed, true);
     assert.equal(result.closedLayerId, undefined);
     assert.deepEqual(closed, []);
   });
@@ -379,7 +379,7 @@ describe("routing semantics", () => {
     });
 
     assert.equal(result.consumed, true);
-    assert.equal(result.closedLayerId, undefined);
+    assert.equal(result.closedLayerId, "modal");
   });
 });
 
@@ -613,7 +613,7 @@ describe("app routing precedence", () => {
 
     await app.start();
     await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 40, rows: 10 }]);
-    await settleNextFrame(backend);
+    await flushMicrotasks(20);
 
     await pushEvents(backend, [{ kind: "key", timeMs: 2, key: ZR_KEY_DOWN, action: "down" }]);
     await pushEvents(backend, [{ kind: "key", timeMs: 3, key: ZR_KEY_ENTER, action: "down" }]);

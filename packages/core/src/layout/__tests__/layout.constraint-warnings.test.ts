@@ -52,6 +52,82 @@ describe("layout unsupported child-constraint warnings", () => {
     assert.deepEqual(warnings, []);
   });
 
+  test("warns when absolute positioning is used under unsupported parents", () => {
+    __resetLayoutConstraintWarningsForTest();
+    const vnode = ui.grid({ columns: 1 }, [
+      ui.box({ border: "none", position: "absolute", left: 2, top: 0, width: 4, height: 1 }, []),
+    ]);
+
+    const warnings = captureWarnings(() => {
+      const measured = measure(vnode, 20, 3, "column");
+      assert.equal(measured.ok, true);
+      const laidOut = layout(vnode, 0, 0, 20, 3, "column");
+      assert.equal(laidOut.ok, true);
+    });
+
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0] ?? "", /absolute positioning is only honored/i);
+  });
+
+  test("does not warn when absolute positioning is used under row children", () => {
+    __resetLayoutConstraintWarningsForTest();
+    const vnode = ui.row({ width: 20, height: 3 }, [
+      ui.box({ border: "none", position: "absolute", left: 2, top: 0, width: 4, height: 1 }, []),
+    ]);
+
+    const warnings = captureWarnings(() => {
+      const measured = measure(vnode, 20, 3, "row");
+      assert.equal(measured.ok, true);
+      const laidOut = layout(vnode, 0, 0, 20, 3, "row");
+      assert.equal(laidOut.ok, true);
+    });
+
+    assert.deepEqual(warnings, []);
+  });
+
+  test("does not treat unrelated left/right props as absolute positioning", () => {
+    __resetLayoutConstraintWarningsForTest();
+    const vnode = ui.grid({ columns: 1 }, [
+      ui.button({ id: "save", label: "Save", left: [ui.text("left")] } as unknown as never),
+    ]);
+
+    const warnings = captureWarnings(() => {
+      const measured = measure(vnode, 20, 3, "column");
+      assert.equal(measured.ok, true);
+      const laidOut = layout(vnode, 0, 0, 20, 3, "column");
+      assert.equal(laidOut.ok, true);
+    });
+
+    assert.deepEqual(warnings, []);
+  });
+
+  test("warns when a shared absolute child is reused under both supported and unsupported parents", () => {
+    __resetLayoutConstraintWarningsForTest();
+    const sharedChild = ui.box({
+      border: "none",
+      position: "absolute",
+      left: 1,
+      top: 0,
+      width: 4,
+      height: 1,
+    });
+    const vnode = ui.column({ width: 20, height: 6 }, [
+      ui.row({ width: 20, height: 2 }, [sharedChild]),
+      ui.grid({ columns: 1 }, [sharedChild]),
+    ]);
+
+    const warnings = captureWarnings(() => {
+      const measured = measure(vnode, 20, 6, "column");
+      assert.equal(measured.ok, true);
+      const laidOut = layout(vnode, 0, 0, 20, 6, "column");
+      assert.equal(laidOut.ok, true);
+    });
+
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0] ?? "", /absolute positioning is only honored/i);
+    assert.match(warnings[0] ?? "", /grid/i);
+  });
+
   test("does not warn when spacer uses flex", () => {
     __resetLayoutConstraintWarningsForTest();
     const vnode = ui.row({ width: 20, height: 3 }, [ui.spacer({ flex: 1 })]);
