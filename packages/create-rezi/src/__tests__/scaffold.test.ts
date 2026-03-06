@@ -84,8 +84,9 @@ test("createProject scaffolds each template with substitutions", async () => {
       dependencies?: Record<string, string>;
     };
     assert.equal(pkg.name, packageName);
-    assert.equal(pkg.dependencies?.["@rezi-ui/core"], createReziPkg.version);
-    assert.equal(pkg.dependencies?.["@rezi-ui/node"], createReziPkg.version);
+    assert.ok(pkg.dependencies, `Template ${template.key} is missing dependencies`);
+    assert.equal(pkg.dependencies["@rezi-ui/core"], createReziPkg.version);
+    assert.equal(pkg.dependencies["@rezi-ui/node"], createReziPkg.version);
 
     const main = await readFile(join(targetDir, "src", "main.ts"), "utf8");
     let appNameSource = main;

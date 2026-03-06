@@ -316,7 +316,10 @@ for (const template of templates) {
   if (typeof deps["@rezi-ui/core"] !== "string" || typeof deps["@rezi-ui/node"] !== "string") {
     fail(`Template ${template.key} must declare @rezi-ui/core and @rezi-ui/node dependencies.`);
   }
-  if (deps["@rezi-ui/core"] !== templateReziVersion || deps["@rezi-ui/node"] !== templateReziVersion) {
+  if (
+    deps["@rezi-ui/core"] !== templateReziVersion ||
+    deps["@rezi-ui/node"] !== templateReziVersion
+  ) {
     fail(
       `Template ${template.key} must pin @rezi-ui/core and @rezi-ui/node to ${templateReziVersion}.`,
     );
