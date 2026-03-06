@@ -24,6 +24,13 @@ function setPath(root: Record<string, unknown>, path: readonly string[], value: 
   parent[key] = value;
 }
 
+function deletePath(root: Record<string, unknown>, path: readonly string[]): void {
+  const parent = getRecord(root, path.slice(0, -1));
+  const key = path[path.length - 1];
+  if (key === undefined) return;
+  delete parent[key];
+}
+
 function expectValidationError(input: unknown, expectedMessage: string): void {
   assert.throws(
     () => validateTheme(input),
@@ -45,7 +52,7 @@ describe("theme.validateTheme", () => {
 
   test("rejects missing widget token paths", () => {
     const theme = cloneDarkTheme();
-    setPath(theme, ["widget", "toast", "info"], undefined);
+    deletePath(theme, ["widget", "toast", "info"]);
 
     expectValidationError(
       theme,

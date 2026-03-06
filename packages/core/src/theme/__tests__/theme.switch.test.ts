@@ -317,7 +317,7 @@ describe("theme runtime switching", () => {
     assert.equal(bytesEqual(inFlightFrame, latestFrame), false, "latest switch updates output");
   });
 
-  test("setTheme no-ops for identical Theme object identity", async () => {
+  test("setTheme no-ops for identical initial ThemeDefinition identity", async () => {
     const backend = new StubBackend();
     const sharedTheme = themeWithPrimary(180, 30, 30);
     const app = createApp({

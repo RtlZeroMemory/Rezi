@@ -295,6 +295,38 @@ describe("renderer clipping (deterministic)", () => {
     assert.equal(cellAt(frame, 3, 0), "B");
   });
 
+  test("fragment does not introduce a clip under overflow-visible parents", () => {
+    const viewport = { cols: 20, rows: 4 };
+    const vnode: VNode = {
+      kind: "row",
+      props: { gap: 0, width: 4, height: 1, overflow: "visible" },
+      children: [
+        {
+          kind: "fragment",
+          props: {},
+          children: [
+            ui.row({ gap: 0, width: 4, height: 1, ml: 2, overflow: "hidden" }, [ui.text("ABCD")]),
+          ],
+        },
+      ],
+    };
+
+    const ops = renderOps(vnode, viewport, "row");
+    const frame = frameFromOps(ops, viewport);
+    const pushes = collectPushClips(ops);
+
+    assert.equal(
+      pushes.some((clip) => clip.x === 0 && clip.y === 0 && clip.w === 4 && clip.h === 1),
+      false,
+    );
+    assert.equal(
+      pushes.some((clip) => clip.x === 2 && clip.y === 0 && clip.w === 2 && clip.h === 1),
+      true,
+    );
+    assert.equal(cellAt(frame, 2, 0), "A");
+    assert.equal(cellAt(frame, 3, 0), "B");
+  });
+
   test("two-level nested clips constrain overflow to overlap", () => {
     const viewport = { cols: 20, rows: 4 };
     const vnode = ui.row({ gap: 0, width: 8, height: 1, overflow: "hidden" }, [

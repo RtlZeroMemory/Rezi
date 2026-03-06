@@ -25,6 +25,9 @@ describe("theme runtime compilation", () => {
     assert.equal(resolveSpacing(theme, 1), 1);
     assert.equal(resolveSpacing(theme, 6), 6);
     assert.equal(resolveSpacing(theme, 9), 9);
+    assert.equal(resolveSpacing(theme, Number.NaN), 0);
+    assert.equal(resolveSpacing(theme, Number.POSITIVE_INFINITY), 0);
+    assert.equal(resolveSpacing(theme, Number.NEGATIVE_INFINITY), 0);
   });
 
   test("resolveColorToken covers widget extension paths", () => {
@@ -33,5 +36,6 @@ describe("theme runtime compilation", () => {
       resolveColorToken(darkTheme, "widget.syntax.keyword"),
       darkTheme.widget.syntax.keyword,
     );
+    assert.equal(resolveColorToken(darkTheme, "not.a.valid.token.path"), null);
   });
 });

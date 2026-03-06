@@ -1052,7 +1052,8 @@ function readCompositeColorTokens(ctx: CommitCtx): ColorTokens {
 
   const theme = currentCompositeTheme(ctx);
   if (theme !== null) {
-    return composite.getColorTokens ? composite.getColorTokens(theme) : theme.definition.colors;
+    if (!composite.getColorTokens) return theme.definition.colors;
+    return composite.getColorTokens(theme) ?? theme.definition.colors;
   }
 
   return composite.colorTokens ?? defaultTheme.definition.colors;
@@ -1706,7 +1707,18 @@ function executeCompositeRender(
     if (canSkipCompositeRender && prevChild !== null) {
       compositeChild = prevChild.vnode;
     } else {
-      const colorTokens = readCompositeColorTokens(ctx);
+      let colorTokens: ColorTokens;
+      try {
+        colorTokens = readCompositeColorTokens(ctx);
+      } catch (e: unknown) {
+        return {
+          ok: false,
+          fatal: {
+            code: "ZRUI_USER_CODE_THROW",
+            detail: describeThrown(e),
+          },
+        };
+      }
       const compositeDepth = ctx.compositeRenderStack.length + 1;
       if (compositeDepth > MAX_COMPOSITE_RENDER_DEPTH) {
         const chain = ctx.compositeRenderStack

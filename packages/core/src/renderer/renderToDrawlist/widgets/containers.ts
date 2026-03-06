@@ -577,7 +577,7 @@ export function renderContainerWidget(
 
   switch (vnode.kind) {
     case "fragment": {
-      const childClip = currentClip ?? { x: rect.x, y: rect.y, w: rect.w, h: rect.h };
+      const childClip = currentClip;
       pushChildrenWithLayout(
         node,
         layoutNode,

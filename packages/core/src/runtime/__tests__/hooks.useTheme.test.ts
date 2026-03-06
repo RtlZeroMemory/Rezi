@@ -53,6 +53,25 @@ function createCompositeHarness<State>(): CompositeHarness<State> {
   });
 }
 
+function commitCompositeOnce<State>(
+  vnode: VNode,
+  appState: State,
+  options: CompositeCommitOptions = {},
+) {
+  return commitVNodeTree(null, vnode, {
+    allocator: createInstanceIdAllocator(1),
+    composite: {
+      registry: createCompositeInstanceRegistry(),
+      appState,
+      colorTokens: options.colorTokens ?? defaultTheme.definition.colors,
+      ...(options.theme ? { theme: options.theme } : {}),
+      ...(options.getColorTokens ? { getColorTokens: options.getColorTokens } : {}),
+      viewport: { width: 80, height: 24, breakpoint: "md" },
+      onInvalidate: () => {},
+    },
+  });
+}
+
 describe("runtime hooks - useTheme", () => {
   test("provides composite color tokens from commit context", () => {
     const tokens = getColorTokens(compileTheme(darkTheme));
@@ -136,5 +155,42 @@ describe("runtime hooks - useTheme", () => {
     });
 
     assert.deepEqual(seenTokens, scopedTheme.definition.colors);
+  });
+
+  test("falls back to theme colors when getColorTokens returns undefined", () => {
+    const baseTheme = compileTheme(darkTheme);
+    let seenTokens: ColorTokens | undefined;
+
+    const Widget = defineWidget<{ key?: string }, Record<string, never>>((_props, ctx) => {
+      seenTokens = ctx.useTheme();
+      return ui.text("ok");
+    });
+
+    const res = commitCompositeOnce(Widget({}), Object.freeze({}), {
+      theme: baseTheme,
+      getColorTokens: () => undefined as unknown as ColorTokens,
+    });
+
+    assert.equal(res.ok, true);
+    assert.deepEqual(seenTokens, baseTheme.definition.colors);
+  });
+
+  test("shapes getColorTokens throws as ZRUI_USER_CODE_THROW", () => {
+    const Widget = defineWidget<{ key?: string }, Record<string, never>>((_props, ctx) => {
+      ctx.useTheme();
+      return ui.text("ok");
+    });
+
+    const res = commitCompositeOnce(Widget({}), Object.freeze({}), {
+      theme: compileTheme(darkTheme),
+      getColorTokens: () => {
+        throw new Error("boom");
+      },
+    });
+
+    assert.equal(res.ok, false);
+    if (res.ok) return;
+    assert.equal(res.fatal.code, "ZRUI_USER_CODE_THROW");
+    assert.match(res.fatal.detail, /boom/);
   });
 });
