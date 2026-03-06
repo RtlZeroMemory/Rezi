@@ -2137,7 +2137,7 @@ export class WidgetRenderer<S> {
       diffViewerById: this.diffViewerById,
       rectById: this.rectById,
       scrollOverrides: this.scrollOverrides,
-      findScrollableAncestors: (targetId) => this.findScrollableAncestors(targetId),
+      findNearestScrollableAncestor: (targetId) => this.findNearestScrollableAncestor(targetId),
     });
     if (wheelRoute) return wheelRoute;
 
@@ -2465,6 +2465,13 @@ export class WidgetRenderer<S> {
     }
 
     return Object.freeze([]);
+  }
+
+  private findNearestScrollableAncestor(
+    targetId: string | null,
+  ): Readonly<{ nodeId: string; meta: LayoutOverflowMetadata }> | null {
+    const matches = this.findScrollableAncestors(targetId);
+    return matches.length > 0 ? (matches[0] ?? null) : null;
   }
 
   private applyScrollOverridesToVNode(

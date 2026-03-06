@@ -541,18 +541,9 @@ function themedPropsEqual(a: unknown, b: unknown): boolean {
   return deepEqualUnknown(ao.theme, bo.theme);
 }
 
-function fragmentPropsEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  const ao = (a ?? {}) as { key?: unknown };
-  const bo = (b ?? {}) as typeof ao;
-  return ao.key === bo.key;
-}
-
 function canFastReuseContainerSelf(prev: VNode, next: VNode): boolean {
   if (prev.kind !== next.kind) return false;
   switch (prev.kind) {
-    case "fragment":
-      return fragmentPropsEqual(prev.props, (next as typeof prev).props);
     case "box":
       return boxPropsEqual(prev.props, (next as typeof prev).props);
     case "row":
@@ -582,9 +573,6 @@ function diagWhichPropFails(prev: VNode, next: VNode): string | undefined {
   };
   const ap = (prev.props ?? {}) as ReuseDiagProps;
   const bp = (next.props ?? {}) as ReuseDiagProps;
-  if (prev.kind === "fragment" && ap.key !== bp.key) {
-    return "key";
-  }
   if (prev.kind === "row" || prev.kind === "column") {
     for (const k of ["pad", "gap", "align", "justify", "items"] as const) {
       if (ap[k] !== bp[k]) return k;
@@ -860,7 +848,6 @@ function isVNode(v: unknown): v is VNode {
 
 function commitChildrenForVNode(vnode: VNode): readonly VNode[] {
   if (
-    vnode.kind === "fragment" ||
     vnode.kind === "box" ||
     vnode.kind === "row" ||
     vnode.kind === "column" ||
@@ -1045,16 +1032,16 @@ function resolveCompositeChildTheme(parentTheme: Theme, vnode: VNode): Theme {
   return parentTheme;
 }
 
-function readCompositeColorTokens(ctx: CommitCtx): ColorTokens {
+function readCompositeColorTokens(ctx: CommitCtx): ColorTokens | null {
   const composite = ctx.composite;
-  if (!composite) return defaultTheme.definition.colors;
+  if (!composite) return null;
 
   const theme = currentCompositeTheme(ctx);
-  if (theme !== null) {
-    return composite.getColorTokens ? composite.getColorTokens(theme) : theme.definition.colors;
+  if (theme !== null && composite.getColorTokens) {
+    return composite.getColorTokens(theme);
   }
 
-  return composite.colorTokens ?? defaultTheme.definition.colors;
+  return composite.colorTokens ?? null;
 }
 
 type CommitCtx = Readonly<{
@@ -1072,9 +1059,9 @@ type CommitCtx = Readonly<{
   composite: Readonly<{
     registry: CompositeInstanceRegistry;
     appState: unknown;
-    colorTokens?: ColorTokens;
+    colorTokens?: ColorTokens | null;
     theme?: Theme;
-    getColorTokens?: (theme: Theme) => ColorTokens;
+    getColorTokens?: (theme: Theme) => ColorTokens | null;
     viewport?: ResponsiveViewportSnapshot;
     onInvalidate: (instanceId: InstanceId) => void;
     onUseViewport?: () => void;
@@ -1187,7 +1174,6 @@ function formatNodePath(nodePath: readonly string[]): string {
 
 function isContainerVNode(vnode: VNode): boolean {
   return (
-    vnode.kind === "fragment" ||
     vnode.kind === "box" ||
     vnode.kind === "row" ||
     vnode.kind === "column" ||
@@ -1241,7 +1227,6 @@ function rewriteCommittedVNode(next: VNode, committedChildren: readonly VNode[])
   }
 
   if (
-    next.kind === "fragment" ||
     next.kind === "box" ||
     next.kind === "row" ||
     next.kind === "column" ||
@@ -2056,9 +2041,9 @@ export function commitVNodeTree(
     composite?: Readonly<{
       registry: CompositeInstanceRegistry;
       appState: unknown;
-      colorTokens?: ColorTokens;
+      colorTokens?: ColorTokens | null;
       theme?: Theme;
-      getColorTokens?: (theme: Theme) => ColorTokens;
+      getColorTokens?: (theme: Theme) => ColorTokens | null;
       viewport?: ResponsiveViewportSnapshot;
       onInvalidate: (instanceId: InstanceId) => void;
       onUseViewport?: () => void;

@@ -117,7 +117,7 @@ describe("modal.focus - layer escape routing", () => {
     assert.deepEqual(closed, ["b"]);
   });
 
-  test("skips layers with closeOnEscape=false", () => {
+  test("top layer owns escape when closeOnEscape=false", () => {
     const closed: string[] = [];
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE), {
       layerStack: ["base", "modal"],
