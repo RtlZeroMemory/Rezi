@@ -1936,18 +1936,6 @@ export class WidgetRenderer<S> {
         }
       }
 
-      const topLayerCloseOnEscape =
-        topLayerId === null ? true : (this.closeOnEscapeByLayerId.get(topLayerId) ?? true);
-      if (event.key === ZR_KEY_ESCAPE && topLayerCloseOnEscape === false && focusedId !== null) {
-        const palette = this.commandPaletteById.get(focusedId);
-        if (palette?.open === true) {
-          const items = this.commandPaletteItemsById.get(palette.id) ?? Object.freeze([]);
-          if (routeCommandPaletteKeyDown(event, palette, items)) {
-            return ROUTE_RENDER;
-          }
-        }
-      }
-
       const layerRes = routeLayerEscape(event, {
         layerStack: this.layerStack,
         closeOnEscape: this.closeOnEscapeByLayerId,

@@ -351,7 +351,7 @@ describe("routing semantics", () => {
     assert.deepEqual(closed, ["modal"]);
   });
 
-  test("layer escape bubbles past a non-closable top layer", () => {
+  test("layer escape is owned by a non-closable top layer", () => {
     const closed: string[] = [];
 
     const result = routeLayerEscape(keyEvent(ZR_KEY_ESCAPE, 1), {
@@ -366,7 +366,7 @@ describe("routing semantics", () => {
       ]),
     });
 
-    assert.equal(result.consumed, false);
+    assert.equal(result.consumed, true);
     assert.equal(result.closedLayerId, undefined);
     assert.deepEqual(closed, []);
   });

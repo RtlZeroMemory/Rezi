@@ -37,7 +37,7 @@ export function routeLayerEscape(event: ZrevEvent, ctx: LayerRoutingCtx): LayerR
 
   const canClose = closeOnEscape.get(layerId) ?? true;
   if (canClose !== true) {
-    return Object.freeze({ consumed: false });
+    return Object.freeze({ consumed: true });
   }
 
   const closeCallback = onClose.get(layerId);

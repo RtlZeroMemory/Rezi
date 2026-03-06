@@ -797,7 +797,7 @@ describe("Layer ESC Routing", () => {
     assert.equal(closedLayer, "modal2");
   });
 
-  test("ESC leaves topmost closeOnEscape=false layer open", () => {
+  test("ESC is owned by the top layer when closeOnEscape=false", () => {
     let closedLayer: string | null = null;
 
     const result = routeLayerEscape(escEvent, {
@@ -816,8 +816,8 @@ describe("Layer ESC Routing", () => {
       ]),
     });
 
-    assert.equal(result.consumed, false);
     assert.equal(result.closedLayerId, undefined);
+    assert.equal(result.consumed, true);
     assert.equal(closedLayer, null);
   });
 
