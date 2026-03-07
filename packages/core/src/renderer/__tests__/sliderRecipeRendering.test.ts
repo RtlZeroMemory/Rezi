@@ -46,12 +46,14 @@ describe("slider/badge/tag recipe rendering", () => {
       viewport: { cols: 24, rows: 2 },
       theme: dsTheme,
     });
+    const fill = ops.find((op) => op.kind === "fillRect");
     const text = firstDrawText(ops, (s) => s.includes("Info"));
+    assert.ok(fill && fill.kind === "fillRect");
     assert.ok(text && text.kind === "drawText");
-    if (!text || text.kind !== "drawText") return;
+    if (!fill || fill.kind !== "fillRect" || !text || text.kind !== "drawText") return;
     assert.ok(text.text.includes("( Info )"));
-    assert.deepEqual(text.style?.fg, dsTheme.colors.info);
-    assert.notEqual(text.style?.bg, dsTheme.colors.info);
+    assert.deepEqual(fill.style?.bg, dsTheme.colors.info);
+    assert.deepEqual(text.style?.fg, dsTheme.colors["fg.inverse"]);
     assert.equal(text.style?.bold, true);
   });
 
