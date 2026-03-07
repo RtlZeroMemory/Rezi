@@ -46,7 +46,7 @@ describe("slider/badge/tag recipe rendering", () => {
       viewport: { cols: 24, rows: 2 },
       theme: dsTheme,
     });
-    const fill = ops.find((op) => op.kind === "fillRect");
+    const fill = ops.find((op) => op.kind === "fillRect" && op.style?.bg === dsTheme.colors.info);
     const text = firstDrawText(ops, (s) => s.includes("Info"));
     assert.ok(fill && fill.kind === "fillRect");
     assert.ok(text && text.kind === "drawText");
@@ -55,6 +55,28 @@ describe("slider/badge/tag recipe rendering", () => {
     assert.deepEqual(fill.style?.bg, dsTheme.colors.info);
     assert.deepEqual(text.style?.bg, dsTheme.colors.info);
     assert.deepEqual(text.style?.fg, dsTheme.colors["fg.inverse"]);
+    assert.equal(text.style?.bold, true);
+  });
+
+  test("badge explicit style overrides recipe fg/bg", () => {
+    const explicitFg = 0x11_88_ff;
+    const explicitBg = 0x22_33_44;
+    const ops = renderOps(
+      ui.badge("Info", { variant: "info", style: { fg: explicitFg, bg: explicitBg } }),
+      {
+        viewport: { cols: 24, rows: 2 },
+        theme: dsTheme,
+      },
+    );
+    const fill = ops.find((op) => op.kind === "fillRect" && op.style?.bg === explicitBg);
+    const text = firstDrawText(ops, (s) => s.includes("Info"));
+    assert.ok(fill && fill.kind === "fillRect");
+    assert.ok(text && text.kind === "drawText");
+    if (!fill || fill.kind !== "fillRect" || !text || text.kind !== "drawText") return;
+    assert.ok(text.text.includes("( Info )"));
+    assert.deepEqual(fill.style?.bg, explicitBg);
+    assert.deepEqual(text.style?.bg, explicitBg);
+    assert.deepEqual(text.style?.fg, explicitFg);
     assert.equal(text.style?.bold, true);
   });
 

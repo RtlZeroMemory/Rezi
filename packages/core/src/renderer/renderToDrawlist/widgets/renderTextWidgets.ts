@@ -905,7 +905,10 @@ export function renderTextWidgets(
       const chipStyle = ownStyle ? mergeTextStyle(chipBaseStyle, ownStyle) : chipBaseStyle;
       if (recipeResult?.bg.bg !== undefined) {
         const bgBaseStyle = mergeTextStyle(parentStyle, recipeResult.bg);
-        const bgStyle = ownStyle ? mergeTextStyle(bgBaseStyle, ownStyle) : bgBaseStyle;
+        const bgStyle = mergeTextStyle(
+          bgBaseStyle,
+          ownStyle && ownStyle.bg !== undefined ? { bg: ownStyle.bg } : undefined,
+        );
         builder.fillRect(rect.x, rect.y, rect.w, rect.h, bgStyle);
       } else {
         maybeFillOwnBackground(builder, rect, ownStyle, chipStyle);
