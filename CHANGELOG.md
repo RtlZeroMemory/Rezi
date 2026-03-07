@@ -6,6 +6,16 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.59] - 2026-03-07
+### Bug Fixes
+
+- **core/theme + renderer**: Restored semantic badge coloring so recipe-backed badges keep intended background/text contrast, and preserved explicit badge background fills during text rendering (regression tracked in [#270](https://github.com/RtlZeroMemory/Rezi/issues/270)).
+- **core/tests**: Stabilized `useParallel` pause/resume orchestration assertions to avoid Windows timing flakiness in CI.
+
+### Merged Pull Requests
+
+- [#271](https://github.com/RtlZeroMemory/Rezi/pull/271) fix(core): restore badge semantic colors and stabilize orchestration CI test
+
 ## [0.1.0-alpha.58] - 2026-03-06
 ### Breaking Changes
 
