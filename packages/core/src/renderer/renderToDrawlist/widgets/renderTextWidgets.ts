@@ -894,7 +894,14 @@ export function renderTextWidgets(
         bold: true,
       });
       const chipBaseStyle =
-        recipeResult !== null ? mergeTextStyle(parentStyle, recipeResult.text) : fallbackStyle;
+        recipeResult !== null
+          ? mergeTextStyle(
+              parentStyle,
+              recipeResult.bg.bg !== undefined
+                ? { ...recipeResult.text, bg: recipeResult.bg.bg }
+                : recipeResult.text,
+            )
+          : fallbackStyle;
       const chipStyle = ownStyle ? mergeTextStyle(chipBaseStyle, ownStyle) : chipBaseStyle;
       if (recipeResult?.bg.bg !== undefined) {
         const bgBaseStyle = mergeTextStyle(parentStyle, recipeResult.bg);

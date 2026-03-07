@@ -53,6 +53,7 @@ describe("slider/badge/tag recipe rendering", () => {
     if (!fill || fill.kind !== "fillRect" || !text || text.kind !== "drawText") return;
     assert.ok(text.text.includes("( Info )"));
     assert.deepEqual(fill.style?.bg, dsTheme.colors.info);
+    assert.deepEqual(text.style?.bg, dsTheme.colors.info);
     assert.deepEqual(text.style?.fg, dsTheme.colors["fg.inverse"]);
     assert.equal(text.style?.bold, true);
   });
