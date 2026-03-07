@@ -541,19 +541,16 @@ function variantToRecipeTone(
   }
 }
 
-function resolveChipColor(theme: Theme, variant: unknown, kind: "badge" | "tag"): Rgb24 {
+function resolveTagColor(theme: Theme, variant: unknown): Rgb24 {
   const colorTokens = getColorTokens(theme);
   if (colorTokens !== null) {
     const tone = variantToRecipeTone(variant);
-    const bgStyle = (
-      kind === "badge" ? badgeRecipe(colorTokens, { tone }).bg : tagRecipe(colorTokens, { tone }).bg
-    ) as { bg?: unknown };
+    const bgStyle = tagRecipe(colorTokens, { tone }).bg as { bg?: unknown };
     if (typeof bgStyle.bg === "number") {
       return bgStyle.bg;
     }
   }
-  const fallbackTone =
-    kind === "badge" || variant === "primary" ? ("primary" as const) : ("secondary" as const);
+  const fallbackTone = variant === "primary" ? ("primary" as const) : ("secondary" as const);
   return variantToThemeColor(theme, variant, fallbackTone);
 }
 
@@ -887,12 +884,35 @@ export function renderTextWidgets(
       const props = vnode.props as { text?: unknown; variant?: unknown; style?: unknown };
       const text = readString(props.text) ?? "";
       const ownStyle = asTextStyle(props.style, theme);
-      const color = resolveChipColor(theme, props.variant, "badge");
-      const chipStyle = mergeTextStyle(
-        mergeTextStyle(parentStyle, { fg: color, bold: true }),
-        ownStyle,
-      );
-      maybeFillOwnBackground(builder, rect, ownStyle, chipStyle);
+      const colorTokens = getColorTokens(theme);
+      const recipeResult =
+        colorTokens !== null
+          ? badgeRecipe(colorTokens, { tone: variantToRecipeTone(props.variant) })
+          : null;
+      const fallbackStyle = mergeTextStyle(parentStyle, {
+        fg: variantToThemeColor(theme, props.variant, "primary"),
+        bold: true,
+      });
+      const chipBaseStyle =
+        recipeResult !== null
+          ? mergeTextStyle(
+              parentStyle,
+              recipeResult.bg.bg !== undefined
+                ? { ...recipeResult.text, bg: recipeResult.bg.bg }
+                : recipeResult.text,
+            )
+          : fallbackStyle;
+      const chipStyle = ownStyle ? mergeTextStyle(chipBaseStyle, ownStyle) : chipBaseStyle;
+      if (recipeResult?.bg.bg !== undefined) {
+        const bgBaseStyle = mergeTextStyle(parentStyle, recipeResult.bg);
+        const bgStyle = mergeTextStyle(
+          bgBaseStyle,
+          ownStyle && ownStyle.bg !== undefined ? { bg: ownStyle.bg } : undefined,
+        );
+        builder.fillRect(rect.x, rect.y, rect.w, rect.h, bgStyle);
+      } else {
+        maybeFillOwnBackground(builder, rect, ownStyle, chipStyle);
+      }
       const content = `( ${text} )`;
       const segments: StyledSegment[] = [{ text: content, style: chipStyle }];
 
@@ -1014,7 +1034,7 @@ export function renderTextWidgets(
       const text = readString(props.text) ?? "";
       const removable = props.removable === true;
       const ownStyle = asTextStyle(props.style, theme);
-      const variantColor = resolveChipColor(theme, props.variant, "tag");
+      const variantColor = resolveTagColor(theme, props.variant);
       const chipStyle = mergeTextStyle(
         mergeTextStyle(parentStyle, { fg: variantColor, bold: true }),
         ownStyle,

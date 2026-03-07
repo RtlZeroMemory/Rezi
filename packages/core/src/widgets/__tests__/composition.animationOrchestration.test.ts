@@ -200,11 +200,14 @@ describe("composition animation hooks - orchestration", () => {
       pausedValue = render.result[0]?.value ?? 0;
       h.runPending(render.pendingEffects);
 
-      await sleep(80);
-      render = h.render((hooks) => useParallel(hooks, paused));
-      h.runPending(render.pendingEffects);
-      assert.ok(Math.abs((render.result[0]?.value ?? 0) - pausedValue) <= 0.1);
-      assert.equal(render.result[0]?.isAnimating, false);
+      await waitFor(() => {
+        const next = h.render((hooks) => useParallel(hooks, paused));
+        render = next;
+        h.runPending(next.pendingEffects);
+        const entry = next.result[0];
+        if (!entry) return false;
+        return Math.abs(entry.value - pausedValue) <= 0.1 && entry.isAnimating === false;
+      });
 
       render = h.render((hooks) => useParallel(hooks, running));
       h.runPending(render.pendingEffects);
