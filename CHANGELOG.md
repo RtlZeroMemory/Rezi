@@ -6,9 +6,21 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.60] - 2026-03-14
+
 ### Bug Fixes
 
+- **core/renderer**: Corrected badge recipe rendering so badge text/background semantics are preserved during draw operations.
 - **create-rezi/cli**: Fixed `npm create rezi` / `bun create rezi` no-op scaffolding by making CLI main-entry detection symlink-safe.
+
+### Tests
+
+- **core/renderer**: Tightened badge renderer regression coverage and stabilized pause/resume orchestration test timing.
+
+### Merged Pull Requests
+
+- [#271](https://github.com/RtlZeroMemory/Rezi/pull/271) fix(core): correctly render badge recipe background/text
+- [#275](https://github.com/RtlZeroMemory/Rezi/pull/275) fix(create-rezi): make CLI main-entry detection symlink-safe
 
 ## [0.1.0-alpha.58] - 2026-03-06
 ### Breaking Changes
