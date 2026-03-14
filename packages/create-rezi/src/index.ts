@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { relative, resolve } from "node:path";
 import { cwd, exit, stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
-import { fileURLToPath } from "node:url";
+import { isMainModuleEntry } from "./mainEntry.js";
 import {
   TEMPLATE_DEFINITIONS,
   createProject,
@@ -276,7 +276,7 @@ async function main(): Promise<void> {
   }
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+const isMain = isMainModuleEntry(process.argv[1], import.meta.url);
 if (isMain) {
   main().catch((err) => {
     stdout.write(`\ncreate-rezi error: ${err instanceof Error ? err.message : String(err)}\n`);
