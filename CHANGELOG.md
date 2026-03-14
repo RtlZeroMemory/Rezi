@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- **create-rezi/cli**: Fixed `npm create rezi` / `bun create rezi` no-op scaffolding by making CLI main-entry detection symlink-safe.
+
 ## [0.1.0-alpha.58] - 2026-03-06
 ### Breaking Changes
 
