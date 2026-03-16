@@ -216,7 +216,9 @@ describe("composition animation hooks - orchestration", () => {
         const next = h.render((hooks) => useParallel(hooks, running));
         render = next;
         h.runPending(next.pendingEffects);
-        return Math.abs((next.result[0]?.value ?? 0) - 10) <= 0.2;
+        const entry = next.result[0];
+        if (!entry) return false;
+        return Math.abs(entry.value - 10) <= 0.2 && entry.isAnimating === false;
       });
 
       assert.equal(render.result[0]?.isAnimating, false);
