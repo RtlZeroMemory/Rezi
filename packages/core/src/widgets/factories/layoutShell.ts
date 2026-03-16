@@ -127,7 +127,7 @@ export function page(options: PageOptions): VNode {
       height: height ?? "full",
       ...layoutConstraints,
       gap: gap ?? 1,
-      ...(p === undefined ? {} : { p }),
+      p: p ?? 1,
     },
     [header ?? null, box({ border: "none", flex: 1 }, [body]), footer ?? null],
   );
@@ -250,17 +250,28 @@ export function header(options: HeaderOptions): VNode {
 }
 
 export function sidebar(options: SidebarOptions): VNode {
-  const buttonNodes = options.items.map((item) =>
-    button({
-      id: `${options.id ?? "sidebar"}-${item.id}`,
+  const idPrefix =
+    options.id ?? (options.key === undefined ? undefined : `sidebar-${String(options.key)}`);
+  if (idPrefix === undefined) {
+    throw new Error("sidebar() requires a stable `id` or `key` to generate unique item ids.");
+  }
+
+  const seen = new Set<string>();
+  const buttonNodes = options.items.map((item) => {
+    if (seen.has(item.id)) {
+      throw new Error(`Duplicate sidebar item id: ${item.id}`);
+    }
+    seen.add(item.id);
+    return button({
+      id: `${idPrefix}-${item.id}`,
       label: item.icon ? `${item.icon} ${item.label}` : item.label,
       onPress: () => {
         options.onSelect?.(item.id);
       },
       dsVariant: options.selected === item.id ? "soft" : "ghost",
       dsTone: options.selected === item.id ? "primary" : "default",
-    }),
-  );
+    });
+  });
 
   return box(
     {

@@ -15,12 +15,10 @@ import type {
 } from "../types.js";
 import { type UiChild, filterChildren, resolveButtonIntent } from "./helpers.js";
 
-export function button(props: ButtonProps): VNode;
 export function button(props: ButtonProps): VNode {
   return { kind: "button", props: resolveButtonIntent(props) };
 }
 
-export function input(props: InputProps): VNode;
 export function input(props: InputProps): VNode {
   return { kind: "input", props };
 }

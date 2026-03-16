@@ -19,10 +19,12 @@ import type {
   VNode,
 } from "../types.js";
 import { text } from "./basic.js";
+import { type UiChild, filterChildren } from "./helpers.js";
 import { button } from "./interactive.js";
 
 export function dialog(props: DialogProps): VNode {
   const { message, actions, onClose, ...modalProps } = props;
+  const baseId = modalProps.id ?? "dialog";
   return {
     kind: "modal",
     props: {
@@ -32,7 +34,7 @@ export function dialog(props: DialogProps): VNode {
       actions: actions.map((action, index) => {
         const intentProps = action.intent === undefined ? {} : { intent: action.intent };
         return button({
-          id: action.id ?? `${modalProps.id}-action-${String(index)}`,
+          id: action.id ?? `${baseId}-action-${String(index)}`,
           label: action.label,
           onPress: action.onPress,
           ...intentProps,
@@ -76,19 +78,19 @@ export function fileTreeExplorer(props: FileTreeExplorerProps): VNode {
   return { kind: "fileTreeExplorer", props };
 }
 
-export function splitPane(props: SplitPaneProps, children: readonly VNode[] = []): VNode {
-  return { kind: "splitPane", props, children };
+export function splitPane(props: SplitPaneProps, children: readonly UiChild[] = []): VNode {
+  return { kind: "splitPane", props, children: filterChildren(children) };
 }
 
-export function panelGroup(props: PanelGroupProps, children: readonly VNode[] = []): VNode {
-  return { kind: "panelGroup", props, children };
+export function panelGroup(props: PanelGroupProps, children: readonly UiChild[] = []): VNode {
+  return { kind: "panelGroup", props, children: filterChildren(children) };
 }
 
 export function resizablePanel(
   props: ResizablePanelProps = {},
-  children: readonly VNode[] = [],
+  children: readonly UiChild[] = [],
 ): VNode {
-  return { kind: "resizablePanel", props, children };
+  return { kind: "resizablePanel", props, children: filterChildren(children) };
 }
 
 export function codeEditor(props: CodeEditorProps): VNode {
