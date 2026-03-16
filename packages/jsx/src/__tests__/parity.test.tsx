@@ -253,10 +253,8 @@ describe("jsx-ui parity", () => {
     );
     assert.deepEqual(<Header title="H" subtitle="S" />, ui.header({ title: "H", subtitle: "S" }));
     assert.deepEqual(
-      replaceFunctions(<Sidebar id="nav" items={[{ id: "one", label: "One" }]} selected="one" />),
-      replaceFunctions(
-        ui.sidebar({ id: "nav", items: [{ id: "one", label: "One" }], selected: "one" }),
-      ),
+      replaceFunctions(<Sidebar items={[{ id: "one", label: "One" }]} selected="one" />),
+      replaceFunctions(ui.sidebar({ items: [{ id: "one", label: "One" }], selected: "one" })),
     );
     assert.deepEqual(
       <MasterDetail master={<Text>m</Text>} detail={<Text>d</Text>} />,

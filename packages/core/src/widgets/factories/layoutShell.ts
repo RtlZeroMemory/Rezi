@@ -250,19 +250,9 @@ export function header(options: HeaderOptions): VNode {
 }
 
 export function sidebar(options: SidebarOptions): VNode {
-  const idPrefix =
-    options.id ?? (options.key === undefined ? undefined : `sidebar-${String(options.key)}`);
-  if (idPrefix === undefined) {
-    throw new Error("sidebar() requires a stable `id` or `key` to generate unique item ids.");
-  }
-
-  const seen = new Set<string>();
-  const buttonNodes = options.items.map((item) => {
-    if (seen.has(item.id)) {
-      throw new Error(`Duplicate sidebar item id: ${item.id}`);
-    }
-    seen.add(item.id);
-    return button({
+  const idPrefix = options.id ?? "sidebar";
+  const buttonNodes = options.items.map((item) =>
+    button({
       id: `${idPrefix}-${item.id}`,
       label: item.icon ? `${item.icon} ${item.label}` : item.label,
       onPress: () => {
@@ -270,8 +260,8 @@ export function sidebar(options: SidebarOptions): VNode {
       },
       dsVariant: options.selected === item.id ? "soft" : "ghost",
       dsTone: options.selected === item.id ? "primary" : "default",
-    });
-  });
+    }),
+  );
 
   return box(
     {

@@ -36,16 +36,6 @@ describe("composition widgets", () => {
     assert.ok(result.toText().includes("content"));
   });
 
-  test("ui.sidebar requires id or key for stable generated button ids", () => {
-    assert.throws(
-      () =>
-        ui.sidebar({
-          items: [{ id: "overview", label: "Overview" }],
-        }),
-      /sidebar\(\) requires a stable `id` or `key`/,
-    );
-  });
-
   test("ui.appShell forwards layout constraints and sidebar constraint widths", () => {
     const shellDisplay = visibilityConstraints.viewportWidthAtLeast(100);
     const shellWidth = widthConstraints.percentOfParent(0.9);
