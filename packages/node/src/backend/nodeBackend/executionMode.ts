@@ -37,10 +37,17 @@ export function hasInteractiveTty(): boolean {
   );
 }
 
+export function hasWorkerEnvironmentSupport(
+  nativeShimModule: string | undefined,
+  hasAnyTty: boolean,
+): boolean {
+  return hasAnyTty || (typeof nativeShimModule === "string" && nativeShimModule.length > 0);
+}
+
 export function selectNodeBackendExecutionMode(
   input: NodeBackendExecutionModeSelectionInput,
 ): NodeBackendExecutionModeSelection {
-  const { requestedExecutionMode, fpsCap } = input;
+  const { requestedExecutionMode, fpsCap, hasAnyTty, nativeShimModule } = input;
   const resolvedExecutionMode: "worker" | "inline" =
     requestedExecutionMode === "inline"
       ? "inline"
@@ -49,6 +56,17 @@ export function selectNodeBackendExecutionMode(
         : fpsCap <= 30
           ? "inline"
           : "worker";
+  if (
+    requestedExecutionMode === "auto" &&
+    resolvedExecutionMode === "worker" &&
+    !hasWorkerEnvironmentSupport(nativeShimModule, hasAnyTty)
+  ) {
+    return {
+      resolvedExecutionMode,
+      selectedExecutionMode: "inline",
+      fallbackReason: "worker backend requires a TTY or nativeShimModule in auto mode",
+    };
+  }
   return {
     resolvedExecutionMode,
     selectedExecutionMode: resolvedExecutionMode,
@@ -57,8 +75,7 @@ export function selectNodeBackendExecutionMode(
 }
 
 export function assertWorkerEnvironmentSupported(nativeShimModule: string | undefined): void {
-  if (nativeShimModule !== undefined) return;
-  if (hasInteractiveTty()) return;
+  if (hasWorkerEnvironmentSupport(nativeShimModule, hasInteractiveTty())) return;
   throw new ZrUiError(
     "ZRUI_BACKEND_ERROR",
     'Worker backend requires a TTY when using @rezi-ui/native. Use `executionMode: "inline"` for headless runs or pass `nativeShimModule` in test harnesses.',

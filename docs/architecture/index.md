@@ -69,7 +69,7 @@ Both formats are little-endian, 4-byte aligned, and versioned. Mismatched versio
 
 The Node/Bun backend supports three execution modes:
 
-- **`"auto"`** (default): selects `"inline"` when `fpsCap <= 30`, otherwise `"worker"`.
+- **`"auto"`** (default): selects `"inline"` when `fpsCap <= 30`; otherwise prefers `"worker"` and falls back to `"inline"` when no TTY or `nativeShimModule` is available.
 - **`"worker"`**: native engine runs on a dedicated worker thread. Main thread is never blocked by terminal I/O.
 - **`"inline"`**: engine runs on the main thread. Lower latency, but main thread blocks during I/O.
 

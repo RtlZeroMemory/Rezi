@@ -25,7 +25,7 @@ bun add @rezi-ui/node
 
 Set `config.executionMode` on `createNodeApp(...)`:
 
-- `auto` (default): inline when `fpsCap <= 30`, worker otherwise
+- `auto` (default): inline when `fpsCap <= 30`; otherwise prefer worker and fall back to inline when no TTY or `nativeShimModule` is available
 - `worker`: always run the engine on a worker thread
 - `inline`: run the engine inline on the main JS thread
 

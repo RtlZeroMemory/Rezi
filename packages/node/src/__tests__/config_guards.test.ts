@@ -13,6 +13,7 @@ import {
 } from "@rezi-ui/core";
 import { ZrUiError } from "@rezi-ui/core";
 import { selectNodeBackendExecutionMode } from "../backend/nodeBackend.js";
+import { hasWorkerEnvironmentSupport } from "../backend/nodeBackend/executionMode.js";
 import { createNodeApp, createNodeBackend } from "../index.js";
 
 async function withTempDir<T>(run: (dir: string) => Promise<T> | T): Promise<T> {
@@ -202,6 +203,39 @@ test("config guard: worker mode with shim does not fallback", () => {
     selectedExecutionMode: "worker",
     fallbackReason: null,
   });
+});
+
+test("config guard: auto mode falls back to inline when worker prerequisites are unavailable", () => {
+  const selection = selectNodeBackendExecutionMode({
+    requestedExecutionMode: "auto",
+    fpsCap: 60,
+    hasAnyTty: false,
+  });
+  assert.deepEqual(selection, {
+    resolvedExecutionMode: "worker",
+    selectedExecutionMode: "inline",
+    fallbackReason: "worker backend requires a TTY or nativeShimModule in auto mode",
+  });
+});
+
+test("config guard: explicit worker mode stays on worker without silent fallback", () => {
+  const selection = selectNodeBackendExecutionMode({
+    requestedExecutionMode: "worker",
+    fpsCap: 60,
+    hasAnyTty: false,
+  });
+  assert.deepEqual(selection, {
+    resolvedExecutionMode: "worker",
+    selectedExecutionMode: "worker",
+    fallbackReason: null,
+  });
+});
+
+test("config guard: worker environment support rejects empty shim strings", () => {
+  assert.equal(hasWorkerEnvironmentSupport(undefined, false), false);
+  assert.equal(hasWorkerEnvironmentSupport("", false), false);
+  assert.equal(hasWorkerEnvironmentSupport("mock://native-shim", false), true);
+  assert.equal(hasWorkerEnvironmentSupport(undefined, true), true);
 });
 
 test("createNodeApp constructs a compatible app/backend pair", () => {

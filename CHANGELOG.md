@@ -6,6 +6,14 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- Node backend auto execution mode now falls back to inline for headless worker-ineligible runs, and worker environment checks reject empty `nativeShimModule` strings.
+
+### Tests
+
+- Added node backend regressions for auto-mode fallback selection and worker environment support checks.
+
 ## [0.1.0-alpha.60] - 2026-03-14
 
 ### Bug Fixes
