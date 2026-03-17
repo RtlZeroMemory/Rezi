@@ -52,17 +52,13 @@ import {
 import { attachBackendMarkers } from "./backendSharedMarkers.js";
 import { applyEmojiWidthPolicy, resolveBackendEmojiWidthPolicy } from "./emojiWidthPolicy.js";
 import type {
+  Deferred,
   NodeBackend,
   NodeBackendInternalOpts,
   NodeBackendPerfSnapshot,
-} from "./nodeBackend.js";
+} from "./nodeBackend/shared.js";
+import { deferred, safeErr } from "./nodeBackend/shared.js";
 import { terminalProfileFromNodeEnv } from "./terminalProfile.js";
-
-type Deferred<T> = Readonly<{
-  promise: Promise<T>;
-  resolve: (value: T) => void;
-  reject: (err: Error) => void;
-}>;
 
 type NativeCaps = Readonly<{
   colorMode: number;
@@ -154,20 +150,6 @@ const PERF_ENABLED = (process.env as Readonly<{ REZI_PERF?: string }>).REZI_PERF
 const PERF_MAX_SAMPLES = 1024;
 
 type PerfSample = Readonly<{ phase: string; durationMs: number }>;
-
-function deferred<T>(): Deferred<T> {
-  let resolve!: (value: T) => void;
-  let reject!: (err: Error) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = (err: unknown) => rej(err instanceof Error ? err : new Error(String(err)));
-  });
-  return { promise, resolve, reject };
-}
-
-function safeErr(err: unknown): Error {
-  return err instanceof Error ? err : new Error(String(err));
-}
 
 function safeDetail(err: unknown): string {
   if (err instanceof Error) return `${err.name}: ${err.message}`;
