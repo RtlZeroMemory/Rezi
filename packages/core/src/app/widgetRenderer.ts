@@ -34,7 +34,6 @@ import { isConstraintExpr } from "../constraints/expr.js";
 import {
   type ConstraintGraph,
   type ConstraintGraphError,
-  type ConstraintNodeProp,
   buildConstraintGraph,
 } from "../constraints/graph.js";
 import {
@@ -46,36 +45,10 @@ import {
 import { CURSOR_DEFAULTS } from "../cursor/index.js";
 import { type DrawlistBuilder, createDrawlistBuilder } from "../drawlist/index.js";
 import type { ZrevEvent } from "../events.js";
-import {
-  buildTrie,
-  matchKey,
-  modsFromBitmask,
-  parseKeySequence,
-  resetChordState,
-  sequenceToString,
-} from "../keybindings/index.js";
-import type { ChordState, KeyBinding, ParsedKey } from "../keybindings/index.js";
-import {
-  ZR_KEY_BACKSPACE,
-  ZR_KEY_DELETE,
-  ZR_KEY_DOWN,
-  ZR_KEY_END,
-  ZR_KEY_ENTER,
-  ZR_KEY_ESCAPE,
-  ZR_KEY_HOME,
-  ZR_KEY_LEFT,
-  ZR_KEY_PAGE_DOWN,
-  ZR_KEY_PAGE_UP,
-  ZR_KEY_RIGHT,
-  ZR_KEY_SPACE,
-  ZR_KEY_TAB,
-  ZR_KEY_UP,
-  ZR_MOD_CTRL,
-  ZR_MOD_SHIFT,
-} from "../keybindings/keyCodes.js";
+import { buildTrie, resetChordState } from "../keybindings/index.js";
+import type { ChordState } from "../keybindings/index.js";
 import type { LayoutOverflowMetadata } from "../layout/constraints.js";
 import { computeDropdownGeometry } from "../layout/dropdownGeometry.js";
-import { hitTestAnyId, hitTestFocusable } from "../layout/hitTest.js";
 import { type LayoutTree, layout, measure } from "../layout/layout.js";
 import {
   type ResponsiveBreakpointThresholds,
@@ -83,7 +56,6 @@ import {
   normalizeBreakpointThresholds,
   setResponsiveViewport,
 } from "../layout/responsive.js";
-import { measureTextCells } from "../layout/textMeasure.js";
 import type { Rect } from "../layout/types.js";
 import { FRAME_AUDIT_ENABLED, drawlistFingerprint, emitFrameAudit } from "../perf/frameAudit.js";
 import {
@@ -95,7 +67,6 @@ import {
   perfNow,
 } from "../perf/perf.js";
 import { type CursorInfo, renderToDrawlist } from "../renderer/renderToDrawlist.js";
-import { getRuntimeNodeDamageRect } from "../renderer/renderToDrawlist/damageBounds.js";
 import { renderTree } from "../renderer/renderToDrawlist/renderTree.js";
 import { DEFAULT_BASE_STYLE } from "../renderer/renderToDrawlist/textStyle.js";
 import {
@@ -113,8 +84,6 @@ import {
   type InputEditorSnapshot,
   type InputSelection,
   type InputUndoStack,
-  applyInputEditEvent,
-  getInputSelectionText,
   normalizeInputCursor,
   normalizeInputSelection,
 } from "../runtime/inputEditor.js";
@@ -124,29 +93,13 @@ import {
   runPendingCleanups,
   runPendingEffects,
 } from "../runtime/instances.js";
-import { createLayerRegistry, hitTestLayers } from "../runtime/layers.js";
+import { createLayerRegistry } from "../runtime/layers.js";
 import {
-  type TableLocalState,
-  type TreeFlatCache,
-  type TreeLocalState,
-  type VirtualListLocalState,
   createTableStateStore,
   createTreeStateStore,
   createVirtualListStateStore,
 } from "../runtime/localState.js";
-import {
-  type RoutedAction,
-  type RoutingResult,
-  routeDropdownKey,
-  routeKeyWithZones,
-  routeLayerEscape,
-  routeMouse,
-  routeTableKey,
-  routeTreeKey,
-  routeVirtualListKey,
-  routeVirtualListWheel,
-  routeWheel,
-} from "../runtime/router.js";
+import type { RoutedAction } from "../runtime/router.js";
 import {
   type CollectedTrap,
   type CollectedZone,
@@ -158,18 +111,7 @@ import {
 import { DEFAULT_TERMINAL_PROFILE, type TerminalProfile } from "../terminalProfile.js";
 import { getColorTokens } from "../theme/extract.js";
 import type { Theme } from "../theme/theme.js";
-import { deleteRange, getSelectedText, insertText } from "../widgets/codeEditor.js";
-import { getHunkScrollPosition, navigateHunk } from "../widgets/diffViewer.js";
-import { applyFilters } from "../widgets/logsConsole.js";
-import { adjustSliderValue, normalizeSliderState } from "../widgets/slider.js";
-import {
-  computePanelCellSizes,
-  handleDividerDrag,
-  sizesToPercentages,
-} from "../widgets/splitPane.js";
-import { computeSelection, distributeColumnWidths } from "../widgets/table.js";
-import { TOAST_HEIGHT, getToastActionFocusId, parseToastActionFocusId } from "../widgets/toast.js";
-import { type FlattenedNode, flattenTree } from "../widgets/tree.js";
+import { parseToastActionFocusId } from "../widgets/toast.js";
 import type { VNode } from "../widgets/types.js";
 import type {
   ButtonProps,
@@ -179,7 +121,6 @@ import type {
   CommandPaletteProps,
   DiffViewerProps,
   DropdownProps,
-  FileNode,
   FilePickerProps,
   FileTreeExplorerProps,
   LinkProps,
@@ -195,11 +136,6 @@ import type {
   TreeProps,
   VirtualListProps,
 } from "../widgets/types.js";
-import {
-  computeVisibleRange,
-  getTotalHeight,
-  resolveVirtualListItemHeightSpec,
-} from "../widgets/virtualList.js";
 import {
   EMPTY_WIDGET_RUNTIME_BREADCRUMBS,
   type RuntimeBreadcrumbConstraintsSummary,
@@ -219,11 +155,20 @@ import {
   sampleExitAnimations as sampleExitAnimationsImpl,
   scheduleExitAnimations as scheduleExitAnimationsImpl,
 } from "./widgetRenderer/animationTracks.js";
-import { routeCodeEditorKeyDown } from "./widgetRenderer/codeEditorRouting.js";
+import { kickoffCommandPaletteItemFetches } from "./widgetRenderer/commandPaletteRouting.js";
 import {
-  kickoffCommandPaletteItemFetches,
-  routeCommandPaletteKeyDown,
-} from "./widgetRenderer/commandPaletteRouting.js";
+  CONSTRAINT_NODE_PROPS,
+  applyConstraintOverridesToVNode as applyConstraintOverridesToVNodeImpl,
+  buildConstraintResolutionInputs as buildConstraintResolutionInputsImpl,
+  computeConstraintBreadcrumbs as computeConstraintBreadcrumbsImpl,
+  computeConstraintInputKey as computeConstraintInputKeyImpl,
+  describeConstraintGraphFatal as describeConstraintGraphFatalImpl,
+  hasConstraintInputSignatureChange as hasConstraintInputSignatureChangeImpl,
+  rebuildConstraintAffectedPathSet as rebuildConstraintAffectedPathSetImpl,
+  rebuildConstraintExprIndex as rebuildConstraintExprIndexImpl,
+  rebuildConstraintHiddenState as rebuildConstraintHiddenStateImpl,
+  shouldRebuildConstraintGraph as shouldRebuildConstraintGraphImpl,
+} from "./widgetRenderer/constraintState.js";
 import {
   emitIncrementalCursor as emitIncrementalCursorImpl,
   resolveRuntimeCursorSummary as resolveRuntimeCursorSummaryImpl,
@@ -255,47 +200,17 @@ import {
   warnShortcutIssue as warnShortcutIssueImpl,
 } from "./widgetRenderer/devWarnings.js";
 import {
-  fileNodeGetChildren,
-  fileNodeGetKey,
-  fileNodeHasChildren,
-  makeFileNodeFlatCache,
-  readFileNodeFlatCache,
-} from "./widgetRenderer/fileNodeCache.js";
-import {
-  routeFilePickerKeyDown,
-  routeFileTreeExplorerKeyDown,
-} from "./widgetRenderer/filePickerRouting.js";
+  buildFallbackFocusInfo as buildFallbackFocusInfoImpl,
+  captureFocusSnapshotState,
+  findScrollableAncestors as findScrollableAncestorsImpl,
+  invokeFocusZoneCallbacks as invokeFocusZoneCallbacksImpl,
+  restoreFocusSnapshotState,
+} from "./widgetRenderer/focusState.js";
 import {
   applyInputSnapshot as applyInputSnapshotImpl,
   getInputUndoStack as getInputUndoStackImpl,
   readInputSnapshot as readInputSnapshotImpl,
-  routeInputEditingEvent,
 } from "./widgetRenderer/inputEditing.js";
-import {
-  routeCheckboxKeyDown,
-  routeDiffViewerKeyDown,
-  routeLogsConsoleKeyDown,
-  routeRadioGroupKeyDown,
-  routeSelectKeyDown,
-  routeSliderKeyDown,
-  routeTableKeyDown,
-  routeToastActionKeyDown,
-  routeTreeKeyDown,
-  routeVirtualListKeyDown,
-} from "./widgetRenderer/keyboardRouting.js";
-import {
-  routeDropdownMouse,
-  routeFilePickerMouseClick,
-  routeFileTreeExplorerContextMenuMouse,
-  routeFileTreeExplorerMouseClick,
-  routeLayerBackdropMouse,
-  routeMouseWheel,
-  routeSplitPaneMouse,
-  routeTableMouseClick,
-  routeToastMouseDown,
-  routeTreeMouseClick,
-  routeVirtualListMouseClick,
-} from "./widgetRenderer/mouseRouting.js";
 import {
   type OverlayShortcutBinding,
   type OverlayShortcutContext,
@@ -309,17 +224,26 @@ import {
   selectDropdownShortcutItem as selectDropdownShortcutItemImpl,
 } from "./widgetRenderer/overlayShortcuts.js";
 import {
-  type CodeEditorRenderCache,
-  type DiffRenderCache,
-  type LogsConsoleRenderCache,
-  type TableRenderCache,
-  rebuildRenderCaches,
+  cleanupRoutingStateAfterRebuild,
+  finalizeLayoutOnlyOverlayState,
+  finalizeRebuiltOverlayState,
+  rebuildOverlayStateForLayout,
+  rebuildRoutingWidgetMapsAndOverlayState,
+} from "./widgetRenderer/overlayState.js";
+import type {
+  CodeEditorRenderCache,
+  DiffRenderCache,
+  LogsConsoleRenderCache,
+  TableRenderCache,
 } from "./widgetRenderer/renderCaches.js";
+import {
+  type RouteEngineEventState,
+  routeEngineEventImpl,
+} from "./widgetRenderer/routeEngineEvent.js";
 import {
   buildLayoutRectIndexes,
   updateLayoutStabilitySignatures,
 } from "./widgetRenderer/submitFramePipeline.js";
-import { routeToolApprovalDialogKeyDown } from "./widgetRenderer/toolApprovalRouting.js";
 
 /** Callbacks for render lifecycle tracking (used by app to set inRender flag). */
 export type WidgetRendererHooks = Readonly<{
@@ -327,7 +251,6 @@ export type WidgetRendererHooks = Readonly<{
   exitRender: () => void;
 }>;
 
-const UTF8_DECODER = new TextDecoder();
 const UTF8_ENCODER = new TextEncoder();
 const BASE64_TABLE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
@@ -433,68 +356,12 @@ function describeThrown(v: unknown): string {
   }
 }
 
-function invokeCallbackSafely<TArgs extends readonly unknown[]>(
-  callback: ((...args: TArgs) => void) | undefined,
-  ...args: TArgs
-): boolean {
-  if (typeof callback !== "function") return false;
-  try {
-    callback(...args);
-    return true;
-  } catch (e) {
-    if (DEV_MODE) {
-      const message = describeThrown(e);
-      warnDev(`[rezi] widget callback threw: ${message}`);
-    }
-    return false;
-  }
-}
-
 function isI32NonNegative(n: number): boolean {
   return Number.isInteger(n) && n >= 0 && n <= 2147483647;
 }
 
-const LAYER_ZINDEX_SCALE = 1_000_000;
-const LAYER_ZINDEX_MAX_BASE = Math.floor(
-  (Number.MAX_SAFE_INTEGER - (LAYER_ZINDEX_SCALE - 1)) / LAYER_ZINDEX_SCALE,
-);
-
-function clampInt(v: number, min: number, max: number): number {
-  if (v < min) return min;
-  if (v > max) return max;
-  return v;
-}
-
-function clampIndexScrollTopForRows(
-  scrollTop: number,
-  totalRows: number,
-  viewportRows: number,
-): number {
-  const maxScrollTop = Math.max(0, totalRows - viewportRows);
-  if (!Number.isFinite(scrollTop) || scrollTop <= 0) return 0;
-  if (scrollTop >= maxScrollTop) return maxScrollTop;
-  return Math.trunc(scrollTop);
-}
-
-function encodeLayerZIndex(baseZ: number | null, overlaySeq: number): number {
-  if (baseZ === null) return overlaySeq;
-  const clampedBaseZ = clampInt(baseZ, -LAYER_ZINDEX_MAX_BASE, LAYER_ZINDEX_MAX_BASE);
-  return clampedBaseZ * LAYER_ZINDEX_SCALE + overlaySeq;
-}
-
-const EMPTY_ROUTING: RoutingResult = Object.freeze({});
 const EMPTY_STRING_ARRAY: readonly string[] = Object.freeze([]);
 const EMPTY_INSTANCE_ID_ARRAY: readonly InstanceId[] = Object.freeze([]);
-const CONSTRAINT_NODE_PROPS: readonly ConstraintNodeProp[] = Object.freeze([
-  "width",
-  "height",
-  "minWidth",
-  "maxWidth",
-  "minHeight",
-  "maxHeight",
-  "flexBasis",
-  "display",
-]);
 const CONSTRAINT_RESOLUTION_NONE = Object.freeze({ kind: "none" as const });
 const CONSTRAINT_RESOLUTION_REUSED = Object.freeze({ kind: "reused" as const });
 const CONSTRAINT_RESOLUTION_CACHE_HIT = Object.freeze({ kind: "cacheHit" as const });
@@ -509,15 +376,7 @@ const EMPTY_CONSTRAINT_BREADCRUMBS: RuntimeBreadcrumbConstraintsSummary = Object
   hiddenInstanceCount: 0,
   focused: null,
 });
-const ROUTE_RENDER: WidgetRoutingOutcome = Object.freeze({ needsRender: true });
-const ROUTE_NO_RENDER: WidgetRoutingOutcome = Object.freeze({ needsRender: false });
-const ROUTE_NO_RENDER_CONSUMED: WidgetRoutingOutcome = Object.freeze({
-  needsRender: false,
-  consumed: true,
-});
 const ZERO_RECT: Rect = Object.freeze({ x: 0, y: 0, w: 0, h: 0 });
-const INCREMENTAL_DAMAGE_AREA_FRACTION = 0.45;
-const DEFAULT_POSITION_TRANSITION_DURATION_MS = 180;
 const EMPTY_FOCUS_ERRORS: readonly string[] = Object.freeze([]);
 const EMPTY_FOCUS_INFO: FocusInfo = Object.freeze({
   id: null,
@@ -571,37 +430,6 @@ function readLayoutShapeIdentity(vnode: VNode): string | null {
   const key = props?.key;
   if (typeof key === "string" && key.length > 0) return `key:${key}`;
   return null;
-}
-
-function clipRectToViewport(rect: Rect, viewport: Viewport): Rect | null {
-  const x0 = Math.max(0, rect.x);
-  const y0 = Math.max(0, rect.y);
-  const x1 = Math.min(viewport.cols, rect.x + rect.w);
-  const y1 = Math.min(viewport.rows, rect.y + rect.h);
-  const w = x1 - x0;
-  const h = y1 - y0;
-  if (w <= 0 || h <= 0) return null;
-  return { x: x0, y: y0, w, h };
-}
-
-function rectOverlapsOrTouches(a: Rect, b: Rect): boolean {
-  return a.x <= b.x + b.w && a.x + a.w >= b.x && a.y <= b.y + b.h && a.y + a.h >= b.y;
-}
-
-function unionRect(a: Rect, b: Rect): Rect {
-  const x0 = Math.min(a.x, b.x);
-  const y0 = Math.min(a.y, b.y);
-  const x1 = Math.max(a.x + a.w, b.x + b.w);
-  const y1 = Math.max(a.y + a.h, b.y + b.h);
-  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
-}
-
-function isNonEmptyRect(rect: Rect | undefined): rect is Rect {
-  return rect !== undefined && rect.w > 0 && rect.h > 0;
-}
-
-function rectEquals(a: Rect, b: Rect): boolean {
-  return a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 }
 
 function monotonicNowMs(): number {
@@ -939,20 +767,6 @@ function hasRuntimeLayoutShapeMismatch(root: RuntimeInstance, layoutRoot: Layout
   }
 
   return runtimeStack.length !== layoutStack.length;
-}
-
-function cloneFocusManagerState(state: FocusManagerState): FocusManagerState {
-  return Object.freeze({
-    focusedId: state.focusedId,
-    activeZoneId: state.activeZoneId,
-    ...(state.pendingFocusedId === undefined ? {} : { pendingFocusedId: state.pendingFocusedId }),
-    zones: new Map(state.zones),
-    trapStack: Object.freeze([...state.trapStack]),
-    ...(state.trapReturnFocusById === undefined
-      ? {}
-      : { trapReturnFocusById: new Map(state.trapReturnFocusById) }),
-    lastFocusedByZone: new Map(state.lastFocusedByZone),
-  });
 }
 
 type ErrorBoundaryState = Readonly<{
@@ -1703,17 +1517,10 @@ export class WidgetRenderer<S> {
   }
 
   private buildFallbackFocusInfo(id: string): FocusInfo {
-    const toastActionLabel = this.toastActionLabelByFocusId.get(id) ?? null;
-    const primary = toastActionLabel ?? id;
-    return Object.freeze({
+    return buildFallbackFocusInfoImpl(
+      { toastActionLabelByFocusId: this.toastActionLabelByFocusId },
       id,
-      kind: null,
-      accessibleLabel: toastActionLabel,
-      visibleLabel: toastActionLabel,
-      required: false,
-      errors: EMPTY_FOCUS_ERRORS,
-      announcement: primary,
-    });
+    );
   }
 
   /**
@@ -1736,30 +1543,31 @@ export class WidgetRenderer<S> {
    * Capture the current focus/routing metadata for app-level route restoration.
    */
   captureFocusSnapshot(): WidgetFocusSnapshot {
-    return Object.freeze({
-      focusState: cloneFocusManagerState(this.focusState),
-      focusList: Object.freeze([...this.focusList]),
-      baseFocusList: Object.freeze([...this.baseFocusList]),
-      enabledById: new Map(this.enabledById),
-      baseEnabledById: new Map(this.baseEnabledById),
-      pressableIds: new Set(this.pressableIds),
-      traps: new Map(this.traps),
-      zoneMetaById: new Map(this.zoneMetaById),
-    });
+    return captureFocusSnapshotState(
+      this.focusState,
+      this.focusList,
+      this.baseFocusList,
+      this.enabledById,
+      this.baseEnabledById,
+      this.pressableIds,
+      this.traps,
+      this.zoneMetaById,
+    );
   }
 
   /**
    * Restore a previously captured focus snapshot.
    */
   restoreFocusSnapshot(snapshot: WidgetFocusSnapshot): void {
-    this.focusState = cloneFocusManagerState(snapshot.focusState);
-    this.focusList = Object.freeze([...snapshot.focusList]);
-    this.baseFocusList = Object.freeze([...snapshot.baseFocusList]);
-    this.enabledById = new Map(snapshot.enabledById);
-    this.baseEnabledById = new Map(snapshot.baseEnabledById);
-    this.pressableIds = new Set(snapshot.pressableIds);
-    this.traps = new Map(snapshot.traps);
-    this.zoneMetaById = new Map(snapshot.zoneMetaById);
+    const restored = restoreFocusSnapshotState(snapshot);
+    this.focusState = restored.focusState;
+    this.focusList = restored.focusList;
+    this.baseFocusList = restored.baseFocusList;
+    this.enabledById = restored.enabledById;
+    this.baseEnabledById = restored.baseEnabledById;
+    this.pressableIds = restored.pressableIds;
+    this.traps = restored.traps;
+    this.zoneMetaById = restored.zoneMetaById;
   }
 
   /**
@@ -1893,504 +1701,113 @@ export class WidgetRenderer<S> {
    * @returns Routing outcome with render flag and optional action
    */
   routeEngineEvent(event: ZrevEvent): WidgetRoutingOutcome {
-    if (!this.committedRoot || !this.layoutTree) return ROUTE_NO_RENDER;
-
-    const enabledById = this.enabledById;
-
-    const prevFocusedId = this.focusState.focusedId;
-    const prevActiveZoneId = this.focusState.activeZoneId;
-    const prevPressedId = this.pressedId;
-
-    const focusedId = this.focusState.focusedId;
-    const mouseTargetId =
-      event.kind === "mouse"
-        ? hitTestFocusable(this.committedRoot.vnode, this.layoutTree, event.x, event.y)
-        : null;
-    const mouseTargetAnyId =
-      event.kind === "mouse" ? hitTestAnyId(this.layoutTree, event.x, event.y) : null;
-    let localNeedsRender = false;
-
-    // Overlay routing: dropdown key navigation, layer/modal ESC close, and modal backdrop blocking.
-    if (event.kind === "key" && event.action === "down") {
-      const shortcutResult = this.routeOverlayShortcut(event);
-      if (shortcutResult === "matched") return ROUTE_RENDER;
-      if (shortcutResult === "pending") return ROUTE_NO_RENDER_CONSUMED;
-
-      const topLayerId =
-        this.layerStack.length > 0 ? (this.layerStack[this.layerStack.length - 1] ?? null) : null;
-      const topDropdownId =
-        this.dropdownStack.length > 0
-          ? (this.dropdownStack[this.dropdownStack.length - 1] ?? null)
-          : null;
-      if (topDropdownId && topLayerId === `dropdown:${topDropdownId}`) {
-        const dropdown = this.dropdownById.get(topDropdownId);
-        if (dropdown) {
-          const selectedIndex = this.dropdownSelectedIndexById.get(topDropdownId) ?? 0;
-          const ctx: Parameters<typeof routeDropdownKey>[1] = {
-            dropdownId: topDropdownId,
-            items: dropdown.items,
-            selectedIndex,
-            ...(dropdown.onSelect ? { onSelect: dropdown.onSelect } : {}),
-            ...(dropdown.onClose ? { onClose: dropdown.onClose } : {}),
-          };
-          const r = routeDropdownKey(event, ctx);
-          if (r.nextSelectedIndex !== undefined) {
-            this.dropdownSelectedIndexById.set(topDropdownId, r.nextSelectedIndex);
-          }
-          if (r.consumed) return ROUTE_RENDER;
-        }
-      }
-
-      const layerRes = routeLayerEscape(event, {
-        layerStack: this.layerStack,
-        closeOnEscape: this.closeOnEscapeByLayerId,
-        onClose: this.onCloseByLayerId,
-      });
-      if (layerRes.consumed) return ROUTE_RENDER;
-    }
-
-    if (event.kind === "mouse") {
-      const dropdownMouse = routeDropdownMouse(event, {
-        layerStack: this.layerStack,
-        dropdownStack: this.dropdownStack,
-        dropdownById: this.dropdownById,
-        dropdownSelectedIndexById: this.dropdownSelectedIndexById,
-        pressedDropdown: this.pressedDropdown,
-        setPressedDropdown: (next) => {
-          this.pressedDropdown = next;
-        },
-        computeDropdownRect: (props) => this.computeDropdownRect(props),
-      });
-      if (dropdownMouse) return dropdownMouse;
-
-      const layerBackdrop = routeLayerBackdropMouse(event, {
-        layerRegistry: this.layerRegistry,
-        closeOnBackdropByLayerId: this.closeOnBackdropByLayerId,
-        onCloseByLayerId: this.onCloseByLayerId,
-      });
-      if (layerBackdrop) return layerBackdrop;
-    }
-
-    const splitPaneRouting = routeSplitPaneMouse(event, {
+    const state: RouteEngineEventState = {
+      focusState: this.focusState,
+      pressedId: this.pressedId,
+      pressedDropdown: this.pressedDropdown,
+      pressedVirtualList: this.pressedVirtualList,
+      pressedTable: this.pressedTable,
+      pressedTableHeader: this.pressedTableHeader,
+      lastTableClick: this.lastTableClick,
+      pressedFileTree: this.pressedFileTree,
+      lastFileTreeClick: this.lastFileTreeClick,
+      pressedFilePicker: this.pressedFilePicker,
+      lastFilePickerClick: this.lastFilePickerClick,
+      pressedTree: this.pressedTree,
+      lastTreeClick: this.lastTreeClick,
       splitPaneDrag: this.splitPaneDrag,
-      setSplitPaneDrag: (next) => {
-        this.splitPaneDrag = next;
-      },
       splitPaneLastDividerDown: this.splitPaneLastDividerDown,
-      setSplitPaneLastDividerDown: (next) => {
-        this.splitPaneLastDividerDown = next;
-      },
-      splitPaneById: this.splitPaneById,
-      splitPaneChildRectsById: this.splitPaneChildRectsById,
-      rectById: this.rectById,
-    });
-    if (splitPaneRouting) return splitPaneRouting;
+    };
 
-    const toastMouse = routeToastMouseDown(
+    const outcome = routeEngineEventImpl(
       event,
       {
-        toastContainers: this.toastContainers,
-        focusState: this.focusState,
-        setFocusState: (next) => {
-          this.focusState = next;
-        },
+        committedRoot: this.committedRoot,
+        layoutTree: this.layoutTree,
+        enabledById: this.enabledById,
+        focusList: this.focusList,
+        pressableIds: this.pressableIds,
+        traps: this.traps,
         zoneMetaById: this.zoneMetaById,
-        invokeFocusZoneCallbacks: (prevZoneId, nextZoneId, prevZones, nextZones) =>
-          this.invokeFocusZoneCallbacks(prevZoneId, nextZoneId, prevZones, nextZones),
-      },
-      prevActiveZoneId,
-    );
-    if (toastMouse) return toastMouse;
-
-    // Route complex widgets first (so arrow keys act "within" the widget, not as focus movement).
-    if (event.kind === "key" && event.action === "down" && focusedId !== null) {
-      const toastActionRoute = routeToastActionKeyDown(event, {
-        focusedId,
-        toastActionByFocusId: this.toastActionByFocusId,
-      });
-      if (toastActionRoute) return toastActionRoute;
-
-      // Command palette routing (GitHub issue #136)
-      const palette = this.commandPaletteById.get(focusedId);
-      if (palette?.open === true) {
-        const items = this.commandPaletteItemsById.get(palette.id) ?? Object.freeze([]);
-        if (routeCommandPaletteKeyDown(event, palette, items)) {
-          return ROUTE_RENDER;
-        }
-      }
-
-      // Tool approval dialog routing (GitHub issue #136)
-      const toolDialog = this.toolApprovalDialogById.get(focusedId);
-      if (toolDialog?.open === true) {
-        if (routeToolApprovalDialogKeyDown(event, toolDialog, this.toolApprovalFocusedActionById)) {
-          return ROUTE_RENDER;
-        }
-      }
-
-      // File tree explorer routing (GitHub issue #136)
-      const fte = this.fileTreeExplorerById.get(focusedId);
-      if (fte) {
-        if (routeFileTreeExplorerKeyDown(event, fte, this.treeStore)) {
-          return ROUTE_RENDER;
-        }
-      }
-
-      // File picker routing (GitHub issue #136)
-      const fp = this.filePickerById.get(focusedId);
-      if (fp) {
-        if (routeFilePickerKeyDown(event, fp, this.treeStore)) {
-          return ROUTE_RENDER;
-        }
-      }
-
-      // Code editor routing (GitHub issue #136)
-      const editor = this.codeEditorById.get(focusedId);
-      if (editor) {
-        const isCtrl = (event.mods & ZR_MOD_CTRL) !== 0;
-        const isCopy = event.key === 67;
-        const isCut = event.key === 88;
-        const selection = editor.selection;
-        const hasSelection =
-          selection !== null &&
-          (selection.anchor.line !== selection.active.line ||
-            selection.anchor.column !== selection.active.column);
-        if (isCtrl && hasSelection && (isCopy || isCut)) {
-          const selected = selection ? getSelectedText(editor.lines, selection) : "";
-          if (selected.length > 0) this.writeSelectedTextToClipboard(selected);
-
-          if (isCut && editor.readOnly !== true) {
-            const cut = selection ? deleteRange(editor.lines, selection) : null;
-            if (!cut) return ROUTE_NO_RENDER_CONSUMED;
-            editor.onSelectionChange(null);
-            editor.onChange(cut.lines, cut.cursor);
-            return ROUTE_RENDER;
-          }
-          return ROUTE_NO_RENDER_CONSUMED;
-        }
-
-        const rect = this.rectById.get(editor.id) ?? null;
-        const r = routeCodeEditorKeyDown(event, editor, rect);
-        if (r) return r;
-      }
-
-      const logsRoute = routeLogsConsoleKeyDown(event, {
-        focusedId,
+        inputById: this.inputById,
+        buttonById: this.buttonById,
+        linkById: this.linkById,
+        virtualListById: this.virtualListById,
+        tableById: this.tableById,
+        treeById: this.treeById,
+        dropdownById: this.dropdownById,
+        sliderById: this.sliderById,
+        selectById: this.selectById,
+        checkboxById: this.checkboxById,
+        radioGroupById: this.radioGroupById,
+        commandPaletteById: this.commandPaletteById,
+        commandPaletteItemsById: this.commandPaletteItemsById,
+        filePickerById: this.filePickerById,
+        fileTreeExplorerById: this.fileTreeExplorerById,
+        splitPaneById: this.splitPaneById,
+        codeEditorById: this.codeEditorById,
+        diffViewerById: this.diffViewerById,
+        toolApprovalDialogById: this.toolApprovalDialogById,
         logsConsoleById: this.logsConsoleById,
         rectById: this.rectById,
-        logsConsoleRenderCacheById: this.logsConsoleRenderCacheById,
-        logsConsoleLastGTimeById: this.logsConsoleLastGTimeById,
-      });
-      if (logsRoute) return logsRoute;
-
-      const diffRoute = routeDiffViewerKeyDown(event, {
-        focusedId,
-        diffViewerById: this.diffViewerById,
+        splitPaneChildRectsById: this.splitPaneChildRectsById,
+        toastContainers: this.toastContainers,
+        toastActionByFocusId: this.toastActionByFocusId,
+        dropdownSelectedIndexById: this.dropdownSelectedIndexById,
+        toolApprovalFocusedActionById: this.toolApprovalFocusedActionById,
         diffViewerFocusedHunkById: this.diffViewerFocusedHunkById,
         diffViewerExpandedHunksById: this.diffViewerExpandedHunksById,
-      });
-      if (diffRoute) return diffRoute;
-
-      const virtualListRoute = routeVirtualListKeyDown(event, {
-        focusedId,
-        virtualListById: this.virtualListById,
-        virtualListStore: this.virtualListStore,
-      });
-      if (virtualListRoute) return virtualListRoute;
-
-      const tableRoute = routeTableKeyDown(event, {
-        focusedId,
-        tableById: this.tableById,
+        logsConsoleLastGTimeById: this.logsConsoleLastGTimeById,
+        logsConsoleRenderCacheById: this.logsConsoleRenderCacheById,
+        diffRenderCacheById: this.diffRenderCacheById,
+        codeEditorRenderCacheById: this.codeEditorRenderCacheById,
         tableRenderCacheById: this.tableRenderCacheById,
+        inputCursorByInstanceId: this.inputCursorByInstanceId,
+        inputSelectionByInstanceId: this.inputSelectionByInstanceId,
+        inputWorkingValueByInstanceId: this.inputWorkingValueByInstanceId,
+        inputUndoByInstanceId: this.inputUndoByInstanceId,
+        virtualListStore: this.virtualListStore,
         tableStore: this.tableStore,
-        emptyStringArray: EMPTY_STRING_ARRAY,
-      });
-      if (tableRoute) return tableRoute;
-
-      const treeRoute = routeTreeKeyDown(event, {
-        focusedId,
-        treeById: this.treeById,
         treeStore: this.treeStore,
         loadedTreeChildrenByTreeId: this.loadedTreeChildrenByTreeId,
         treeLoadTokenByTreeAndKey: this.treeLoadTokenByTreeAndKey,
-        allocNextTreeLoadToken: () => this.nextTreeLoadToken++,
+        layerRegistry: this.layerRegistry,
+        layerStack: this.layerStack,
+        closeOnEscapeByLayerId: this.closeOnEscapeByLayerId,
+        closeOnBackdropByLayerId: this.closeOnBackdropByLayerId,
+        onCloseByLayerId: this.onCloseByLayerId,
+        dropdownStack: this.dropdownStack,
+        scrollOverrides: this.scrollOverrides,
+        routeOverlayShortcut: (nextEvent) => this.routeOverlayShortcut(nextEvent),
+        invokeFocusZoneCallbacks: (prevZoneId, nextZoneId, prevZones, nextZones) =>
+          this.invokeFocusZoneCallbacks(prevZoneId, nextZoneId, prevZones, nextZones),
+        invokeBlurCallbackSafely: (callback) => this.invokeBlurCallbackSafely(callback),
+        computeDropdownRect: (props) => this.computeDropdownRect(props),
+        findScrollableAncestors: (targetId) => this.findScrollableAncestors(targetId),
+        writeSelectedTextToClipboard: (text) => this.writeSelectedTextToClipboard(text),
+        reportInputCallbackError: (name, error) => this.reportInputCallbackError(name, error),
         requestRender: this.requestRender,
-      });
-      if (treeRoute) return treeRoute;
-
-      const sliderRoute = routeSliderKeyDown(event, {
-        focusedId,
-        sliderById: this.sliderById,
-      });
-      if (sliderRoute) return sliderRoute;
-
-      const selectRoute = routeSelectKeyDown(event, {
-        focusedId,
-        selectById: this.selectById,
-      });
-      if (selectRoute) return selectRoute;
-
-      const checkboxRoute = routeCheckboxKeyDown(event, {
-        focusedId,
-        checkboxById: this.checkboxById,
-      });
-      if (checkboxRoute) return checkboxRoute;
-
-      const radioGroupRoute = routeRadioGroupKeyDown(event, {
-        focusedId,
-        radioGroupById: this.radioGroupById,
-      });
-      if (radioGroupRoute) return radioGroupRoute;
-    }
-
-    const wheelRoute = routeMouseWheel(event, {
-      layerRegistry: this.layerRegistry,
-      layerStack: this.layerStack,
-      mouseTargetId,
-      mouseTargetAnyId,
-      focusedId,
-      virtualListById: this.virtualListById,
-      virtualListStore: this.virtualListStore,
-      codeEditorById: this.codeEditorById,
-      codeEditorRenderCacheById: this.codeEditorRenderCacheById,
-      logsConsoleById: this.logsConsoleById,
-      logsConsoleRenderCacheById: this.logsConsoleRenderCacheById,
-      diffViewerById: this.diffViewerById,
-      rectById: this.rectById,
-      scrollOverrides: this.scrollOverrides,
-      findScrollableAncestors: (targetId) => this.findScrollableAncestors(targetId),
-    });
-    if (wheelRoute) return wheelRoute;
-
-    // Text/paste input for command palette and code editor (docs/18 text events are distinct from keys).
-    if ((event.kind === "text" || event.kind === "paste") && this.focusState.focusedId !== null) {
-      const focusedId = this.focusState.focusedId;
-
-      const palette = this.commandPaletteById.get(focusedId);
-      if (palette?.open === true) {
-        const append =
-          event.kind === "text"
-            ? event.codepoint >= 0 && event.codepoint <= 0x10ffff
-              ? String.fromCodePoint(event.codepoint)
-              : ""
-            : UTF8_DECODER.decode(event.bytes);
-        if (append.length > 0) {
-          palette.onChange(palette.query + append);
-          palette.onSelectionChange?.(0);
-          return ROUTE_RENDER;
-        }
-      }
-
-      const editor = this.codeEditorById.get(focusedId);
-      if (editor && editor.readOnly !== true) {
-        const insert =
-          event.kind === "text"
-            ? event.codepoint >= 0 && event.codepoint <= 0x10ffff
-              ? String.fromCodePoint(event.codepoint)
-              : ""
-            : UTF8_DECODER.decode(event.bytes);
-        if (insert.length > 0) {
-          const base = editor.selection ? deleteRange(editor.lines, editor.selection) : null;
-          const next = insertText(
-            base ? base.lines : editor.lines,
-            base ? base.cursor : editor.cursor,
-            insert,
-          );
-          if (editor.selection !== null) editor.onSelectionChange(null);
-          editor.onChange(next.lines, next.cursor);
-          return ROUTE_RENDER;
-        }
-      }
-    }
-
-    localNeedsRender =
-      routeVirtualListMouseClick(event, {
-        mouseTargetId,
-        virtualListById: this.virtualListById,
-        rectById: this.rectById,
-        virtualListStore: this.virtualListStore,
-        pressedVirtualList: this.pressedVirtualList,
-        setPressedVirtualList: (next) => {
-          this.pressedVirtualList = next;
-        },
-      }) || localNeedsRender;
-
-    localNeedsRender =
-      routeTableMouseClick(event, {
-        mouseTargetId,
-        tableById: this.tableById,
-        rectById: this.rectById,
-        tableRenderCacheById: this.tableRenderCacheById,
-        tableStore: this.tableStore,
-        pressedTable: this.pressedTable,
-        setPressedTable: (next) => {
-          this.pressedTable = next;
-        },
-        pressedTableHeader: this.pressedTableHeader,
-        setPressedTableHeader: (next) => {
-          this.pressedTableHeader = next;
-        },
-        lastTableClick: this.lastTableClick,
-        setLastTableClick: (next) => {
-          this.lastTableClick = next;
-        },
-        emptyStringArray: EMPTY_STRING_ARRAY,
-      }) || localNeedsRender;
-
-    localNeedsRender =
-      routeFilePickerMouseClick(event, {
-        mouseTargetId,
-        filePickerById: this.filePickerById,
-        rectById: this.rectById,
-        treeStore: this.treeStore,
-        pressedFilePicker: this.pressedFilePicker,
-        setPressedFilePicker: (next) => {
-          this.pressedFilePicker = next;
-        },
-        lastFilePickerClick: this.lastFilePickerClick,
-        setLastFilePickerClick: (next) => {
-          this.lastFilePickerClick = next;
-        },
-      }) || localNeedsRender;
-
-    localNeedsRender =
-      routeFileTreeExplorerMouseClick(event, {
-        mouseTargetId,
-        fileTreeExplorerById: this.fileTreeExplorerById,
-        rectById: this.rectById,
-        treeStore: this.treeStore,
-        pressedFileTree: this.pressedFileTree,
-        setPressedFileTree: (next) => {
-          this.pressedFileTree = next;
-        },
-        lastFileTreeClick: this.lastFileTreeClick,
-        setLastFileTreeClick: (next) => {
-          this.lastFileTreeClick = next;
-        },
-      }) || localNeedsRender;
-
-    localNeedsRender =
-      routeTreeMouseClick(event, {
-        mouseTargetId,
-        treeById: this.treeById,
-        rectById: this.rectById,
-        treeStore: this.treeStore,
-        loadedTreeChildrenByTreeId: this.loadedTreeChildrenByTreeId,
-        pressedTree: this.pressedTree,
-        setPressedTree: (next) => {
-          this.pressedTree = next;
-        },
-        lastTreeClick: this.lastTreeClick,
-        setLastTreeClick: (next) => {
-          this.lastTreeClick = next;
-        },
-      }) || localNeedsRender;
-
-    localNeedsRender =
-      routeFileTreeExplorerContextMenuMouse(event, {
-        mouseTargetId,
-        fileTreeExplorerById: this.fileTreeExplorerById,
-        rectById: this.rectById,
-        treeStore: this.treeStore,
-      }) || localNeedsRender;
-
-    const res: RoutingResult & { nextZoneId?: string | null } =
-      event.kind === "key"
-        ? routeKeyWithZones(event, {
-            focusedId: this.focusState.focusedId,
-            activeZoneId: this.focusState.activeZoneId,
-            focusList: this.focusList,
-            zones: this.focusState.zones,
-            lastFocusedByZone: this.focusState.lastFocusedByZone,
-            traps: this.traps,
-            trapStack: this.focusState.trapStack,
-            enabledById,
-            pressableIds: this.pressableIds,
-          })
-        : event.kind === "mouse"
-          ? routeMouse(event, {
-              pressedId: this.pressedId,
-              hitTestTargetId: mouseTargetId,
-              enabledById,
-              pressableIds: this.pressableIds,
-            })
-          : EMPTY_ROUTING;
-
-    if (res.nextPressedId !== undefined) this.pressedId = res.nextPressedId;
-
-    if (res.nextZoneId !== undefined) {
-      this.focusState = Object.freeze({ ...this.focusState, activeZoneId: res.nextZoneId ?? null });
-    }
-
-    if (res.nextFocusedId !== undefined) {
-      const nextFocused = res.nextFocusedId;
-      let nextZoneId: string | null = this.focusState.activeZoneId;
-      if (nextFocused !== null) {
-        for (const [zoneId, zone] of this.focusState.zones) {
-          if (zone.focusableIds.includes(nextFocused)) {
-            nextZoneId = zoneId;
-            break;
-          }
-        }
-      }
-
-      const nextLastFocusedByZone = new Map(this.focusState.lastFocusedByZone);
-      if (nextFocused !== null && nextZoneId !== null) {
-        nextLastFocusedByZone.set(nextZoneId, nextFocused);
-      }
-
-      this.focusState = Object.freeze({
-        ...this.focusState,
-        focusedId: nextFocused,
-        activeZoneId: nextZoneId,
-        lastFocusedByZone: nextLastFocusedByZone,
-      });
-    }
-
-    const didFocusChange = this.focusState.focusedId !== prevFocusedId;
-    const needsRender = didFocusChange || this.pressedId !== prevPressedId || localNeedsRender;
-
-    if (didFocusChange && prevFocusedId !== null) {
-      const prevInput = this.inputById.get(prevFocusedId);
-      this.invokeBlurCallbackSafely(prevInput?.onBlur);
-    }
-
-    if (this.focusState.activeZoneId !== prevActiveZoneId) {
-      this.invokeFocusZoneCallbacks(
-        prevActiveZoneId,
-        this.focusState.activeZoneId,
-        this.zoneMetaById,
-        this.zoneMetaById,
-      );
-    }
-
-    if (res.action) {
-      if (res.action.action === "press") {
-        const btn = this.buttonById.get(res.action.id);
-        if (btn?.onPress) btn.onPress();
-        const link = this.linkById.get(res.action.id);
-        if (link?.onPress) link.onPress();
-      }
-      return Object.freeze({ needsRender, action: res.action });
-    }
-
-    const inputEditingRoute = routeInputEditingEvent(event, {
-      focusedId: this.focusState.focusedId,
-      enabledById,
-      inputById: this.inputById,
-      inputCursorByInstanceId: this.inputCursorByInstanceId,
-      inputSelectionByInstanceId: this.inputSelectionByInstanceId,
-      inputWorkingValueByInstanceId: this.inputWorkingValueByInstanceId,
-      inputUndoByInstanceId: this.inputUndoByInstanceId,
-      writeSelectedTextToClipboard: (text) => {
-        this.writeSelectedTextToClipboard(text);
+        allocNextTreeLoadToken: () => this.nextTreeLoadToken++,
       },
-      onInputCallbackError: (error) => {
-        this.reportInputCallbackError("onInput", error);
-      },
-    });
-    if (inputEditingRoute) return inputEditingRoute;
+      state,
+    );
 
-    return Object.freeze({ needsRender });
+    this.focusState = state.focusState;
+    this.pressedId = state.pressedId;
+    this.pressedDropdown = state.pressedDropdown;
+    this.pressedVirtualList = state.pressedVirtualList;
+    this.pressedTable = state.pressedTable;
+    this.pressedTableHeader = state.pressedTableHeader;
+    this.lastTableClick = state.lastTableClick;
+    this.pressedFileTree = state.pressedFileTree;
+    this.lastFileTreeClick = state.lastFileTreeClick;
+    this.pressedFilePicker = state.pressedFilePicker;
+    this.lastFilePickerClick = state.lastFilePickerClick;
+    this.pressedTree = state.pressedTree;
+    this.lastTreeClick = state.lastTreeClick;
+    this.splitPaneDrag = state.splitPaneDrag;
+    this.splitPaneLastDividerDown = state.splitPaneLastDividerDown;
+    return outcome;
   }
 
   private invokeFocusZoneCallbacks(
@@ -2399,92 +1816,20 @@ export class WidgetRenderer<S> {
     prevZones: ReadonlyMap<string, CollectedZone>,
     nextZones: ReadonlyMap<string, CollectedZone>,
   ): void {
-    if (prevZoneId === nextZoneId) return;
-
-    if (prevZoneId !== null) {
-      const prev = prevZones.get(prevZoneId);
-      if (prev?.onExit) {
-        try {
-          prev.onExit();
-        } catch (error: unknown) {
-          this.reportFocusZoneCallbackError("onExit", error);
-        }
-      }
-    }
-
-    if (nextZoneId !== null) {
-      const next = nextZones.get(nextZoneId);
-      if (next?.onEnter) {
-        try {
-          next.onEnter();
-        } catch (error: unknown) {
-          this.reportFocusZoneCallbackError("onEnter", error);
-        }
-      }
-    }
+    invokeFocusZoneCallbacksImpl({
+      prevZoneId,
+      nextZoneId,
+      prevZones,
+      nextZones,
+      reportFocusZoneCallbackError: (phase, error) =>
+        this.reportFocusZoneCallbackError(phase, error),
+    });
   }
 
   private findScrollableAncestors(
     targetId: string | null,
   ): readonly Readonly<{ nodeId: string; meta: LayoutOverflowMetadata }>[] {
-    if (targetId === null || !this.committedRoot || !this.layoutTree) return Object.freeze([]);
-
-    type ScrollableMatch = Readonly<{ nodeId: string; meta: LayoutOverflowMetadata }>;
-    type Cursor = Readonly<{
-      runtimeNode: RuntimeInstance;
-      layoutNode: LayoutTree;
-      scrollables: readonly ScrollableMatch[];
-    }>;
-
-    const stack: Cursor[] = [
-      {
-        runtimeNode: this.committedRoot,
-        layoutNode: this.layoutTree,
-        scrollables: Object.freeze([]),
-      },
-    ];
-
-    while (stack.length > 0) {
-      const frame = stack.pop();
-      if (!frame) continue;
-
-      const runtimeNode = frame.runtimeNode;
-      const layoutNode = frame.layoutNode;
-      let scrollables = frame.scrollables;
-
-      const props = runtimeNode.vnode.props as Readonly<{
-        id?: unknown;
-        overflow?: unknown;
-      }>;
-      const nodeId =
-        typeof props.id === "string" && props.id.length > 0 ? (props.id as string) : null;
-      if (nodeId !== null && props.overflow === "scroll" && layoutNode.meta) {
-        const meta = layoutNode.meta;
-        const hasScrollableAxis =
-          meta.contentWidth > meta.viewportWidth || meta.contentHeight > meta.viewportHeight;
-        if (hasScrollableAxis) {
-          scrollables = Object.freeze([...scrollables, { nodeId, meta }]);
-        }
-      }
-
-      if (nodeId === targetId) {
-        return Object.freeze([...scrollables].reverse());
-      }
-
-      const childCount = Math.min(runtimeNode.children.length, layoutNode.children.length);
-      for (let i = childCount - 1; i >= 0; i--) {
-        const runtimeChild = runtimeNode.children[i];
-        const layoutChild = layoutNode.children[i];
-        if (!runtimeChild || !layoutChild) continue;
-        stack.push({
-          runtimeNode: runtimeChild,
-          layoutNode: layoutChild,
-          scrollables,
-        });
-      }
-    }
-
-    return Object.freeze([]);
+    return findScrollableAncestorsImpl(targetId, this.committedRoot, this.layoutTree);
   }
 
   private applyScrollOverridesToVNode(
@@ -2593,10 +1938,7 @@ export class WidgetRenderer<S> {
   }
 
   private describeConstraintGraphFatal(fatal: ConstraintGraphError): string {
-    if (fatal.code === "ZRUI_CIRCULAR_CONSTRAINT") {
-      return `Circular constraint dependency: ${fatal.cycle.join(" -> ")}`;
-    }
-    return fatal.detail;
+    return describeConstraintGraphFatalImpl(fatal);
   }
 
   private readWidgetIdFromRuntimeNode(node: RuntimeInstance): string | null {
@@ -2663,47 +2005,12 @@ export class WidgetRenderer<S> {
     prevGraph: ConstraintGraph,
     removedInstanceIds: readonly InstanceId[],
   ): boolean {
-    if (removedInstanceIds.length > 0) {
-      for (const instanceId of removedInstanceIds) {
-        if (
-          prevGraph.constrainedInstanceIds.has(instanceId) ||
-          prevGraph.instanceIdToWidgetId.has(instanceId)
-        ) {
-          return true;
-        }
-      }
-    }
-
-    this._pooledConstraintRuntimeStack.length = 0;
-    this._pooledConstraintRuntimeStack.push(root);
-    while (this._pooledConstraintRuntimeStack.length > 0) {
-      const node = this._pooledConstraintRuntimeStack.pop();
-      if (!node) continue;
-      if (!node.dirty) continue;
-
-      if (node.selfDirty) {
-        const prevWidgetId = prevGraph.instanceIdToWidgetId.get(node.instanceId) ?? null;
-        const nextWidgetId = this.readWidgetIdFromRuntimeNode(node);
-        if (prevWidgetId !== nextWidgetId) {
-          return true;
-        }
-        const hadConstraintExpr = prevGraph.constrainedInstanceIds.has(node.instanceId);
-        if (
-          (hadConstraintExpr || this.hasRuntimeConstraintExpr(node)) &&
-          this.hasConstraintSourceDiff(node, prevGraph)
-        ) {
-          return true;
-        }
-      }
-
-      for (let i = node.children.length - 1; i >= 0; i--) {
-        const child = node.children[i];
-        if (!child) continue;
-        if (!child.dirty) continue;
-        this._pooledConstraintRuntimeStack.push(child);
-      }
-    }
-    return false;
+    return shouldRebuildConstraintGraphImpl(
+      root,
+      prevGraph,
+      removedInstanceIds,
+      this._pooledConstraintRuntimeStack,
+    );
   }
 
   private buildConstraintResolutionInputs(
@@ -2712,183 +2019,52 @@ export class WidgetRenderer<S> {
     rootW: number,
     rootH: number,
   ): void {
-    this._pooledConstraintBaseValues.clear();
-    this._pooledConstraintParentValues.clear();
-    this._pooledConstraintIntrinsicValues.clear();
-    this._pooledConstraintParentByInstanceId.clear();
-    this._pooledConstraintRuntimeStack.length = 0;
-    this._pooledConstraintParentStack.length = 0;
-    this._pooledConstraintAxisStack.length = 0;
-    let hasStaticHiddenDisplay = false;
-    const requiredInstanceIds = graph.requiredRuntimeInstanceIds;
-    const intrinsicInstanceIds = graph.intrinsicRuntimeInstanceIds;
-    let remainingRequiredInstanceCount = requiredInstanceIds.size;
-
-    this._pooledConstraintRuntimeStack.push(root);
-    this._pooledConstraintParentStack.push(null);
-    this._pooledConstraintAxisStack.push("column");
-    let head = 0;
-    while (head < this._pooledConstraintRuntimeStack.length) {
-      const node = this._pooledConstraintRuntimeStack[head];
-      const parentInstanceId = this._pooledConstraintParentStack[head] ?? null;
-      const axis = this._pooledConstraintAxisStack[head] ?? "column";
-      head++;
-      if (!node) continue;
-      this._pooledConstraintParentByInstanceId.set(node.instanceId, parentInstanceId);
-
-      const needsNodeData = requiredInstanceIds.has(node.instanceId);
-      if (needsNodeData) {
-        remainingRequiredInstanceCount--;
-        const parentRect =
-          parentInstanceId === null ? null : this._pooledRectByInstanceId.get(parentInstanceId);
-        const parentW = parentRect?.w ?? rootW;
-        const parentH = parentRect?.h ?? rootH;
-        const displayRaw = (node.vnode.props as Readonly<{ display?: unknown }> | undefined)
-          ?.display;
-        if (displayRaw === false) hasStaticHiddenDisplay = true;
-        const staticDisplay = displayRaw === false ? 0 : displayRaw === true ? 1 : undefined;
-
-        if (graph.constrainedInstanceIds.has(node.instanceId)) {
-          this._pooledConstraintParentValues.set(node.instanceId, {
-            w: parentW,
-            h: parentH,
-            min_w: parentW,
-            min_h: parentH,
-          });
-        }
-
-        const rect = this._pooledRectByInstanceId.get(node.instanceId);
-        if (rect) {
-          const base: {
-            width: number;
-            height: number;
-            minWidth: number;
-            minHeight: number;
-            display?: number;
-          } = {
-            width: rect.w,
-            height: rect.h,
-            minWidth: rect.w,
-            minHeight: rect.h,
-          };
-          if (staticDisplay !== undefined) {
-            base.display = staticDisplay;
-          }
-          this._pooledConstraintBaseValues.set(node.instanceId, {
-            ...base,
-          });
-        } else if (staticDisplay !== undefined) {
-          this._pooledConstraintBaseValues.set(node.instanceId, {
-            display: staticDisplay,
-          });
-        }
-        if (intrinsicInstanceIds.has(node.instanceId)) {
-          const intrinsicValues = this.measureConstraintIntrinsicValues(
-            node,
-            parentW,
-            parentH,
-            axis,
-          );
-          if (intrinsicValues !== null) {
-            this._pooledConstraintIntrinsicValues.set(node.instanceId, intrinsicValues);
-          }
-        }
-      }
-
-      if (remainingRequiredInstanceCount === 0) break;
-      const childAxis = this.resolveConstraintChildAxis(node, axis);
-      for (let i = 0; i < node.children.length; i++) {
-        const child = node.children[i];
-        if (!child) continue;
-        this._pooledConstraintRuntimeStack.push(child);
-        this._pooledConstraintParentStack.push(node.instanceId);
-        this._pooledConstraintAxisStack.push(childAxis);
-      }
-    }
-    this._pooledConstraintRuntimeStack.length = 0;
-    this._pooledConstraintParentStack.length = 0;
-    this._pooledConstraintAxisStack.length = 0;
-    this._constraintHasStaticHiddenDisplay = hasStaticHiddenDisplay;
+    const result = buildConstraintResolutionInputsImpl({
+      root,
+      graph,
+      rootW,
+      rootH,
+      pooledConstraintBaseValues: this._pooledConstraintBaseValues,
+      pooledConstraintParentValues: this._pooledConstraintParentValues,
+      pooledConstraintIntrinsicValues: this._pooledConstraintIntrinsicValues,
+      pooledConstraintParentByInstanceId: this._pooledConstraintParentByInstanceId,
+      pooledRectByInstanceId: this._pooledRectByInstanceId,
+      pooledConstraintRuntimeStack: this._pooledConstraintRuntimeStack,
+      pooledConstraintParentStack: this._pooledConstraintParentStack,
+      pooledConstraintAxisStack: this._pooledConstraintAxisStack,
+    });
+    this._constraintHasStaticHiddenDisplay = result.hasStaticHiddenDisplay;
   }
 
   private rebuildConstraintHiddenState(
     root: RuntimeInstance,
     valuesByInstanceId: ReadonlyMap<InstanceId, ResolvedConstraintValues> | null,
   ): void {
-    this._pooledHiddenConstraintInstanceIds.clear();
-    this._pooledHiddenConstraintWidgetIds.clear();
-    this._pooledConstraintRuntimeStack.length = 0;
-    this._pooledConstraintVisibilityStack.length = 0;
-    this._pooledConstraintRuntimeStack.push(root);
-    this._pooledConstraintVisibilityStack.push(false);
-
-    while (this._pooledConstraintRuntimeStack.length > 0) {
-      const node = this._pooledConstraintRuntimeStack.pop();
-      const parentHidden = this._pooledConstraintVisibilityStack.pop() ?? false;
-      if (!node) continue;
-
-      const props = (node.vnode.props ?? {}) as Readonly<{
-        id?: unknown;
-        display?: unknown;
-      }>;
-      const displayResolved = valuesByInstanceId?.get(node.instanceId)?.display;
-      const hiddenByResolved =
-        typeof displayResolved === "number" && Number.isFinite(displayResolved)
-          ? displayResolved <= 0
-          : false;
-      const hiddenByStatic = props.display === false;
-      const hidden = parentHidden || hiddenByResolved || hiddenByStatic;
-
-      if (hidden) {
-        this._pooledHiddenConstraintInstanceIds.add(node.instanceId);
-        const id = props.id;
-        if (typeof id === "string" && id.length > 0) {
-          this._pooledHiddenConstraintWidgetIds.add(id);
-        }
-      }
-
-      for (let i = node.children.length - 1; i >= 0; i--) {
-        const child = node.children[i];
-        if (!child) continue;
-        this._pooledConstraintRuntimeStack.push(child);
-        this._pooledConstraintVisibilityStack.push(hidden);
-      }
-    }
-
-    this._hiddenConstraintInstanceIds = this._pooledHiddenConstraintInstanceIds;
-    this._hiddenConstraintWidgetIds = this._pooledHiddenConstraintWidgetIds;
+    const result = rebuildConstraintHiddenStateImpl(
+      root,
+      valuesByInstanceId,
+      this._pooledConstraintRuntimeStack,
+      this._pooledConstraintVisibilityStack,
+      this._pooledHiddenConstraintInstanceIds,
+      this._pooledHiddenConstraintWidgetIds,
+    );
+    this._hiddenConstraintInstanceIds = result.hiddenConstraintInstanceIds;
+    this._hiddenConstraintWidgetIds = result.hiddenConstraintWidgetIds;
   }
 
   private rebuildConstraintAffectedPathSet(
     graph: ConstraintGraph,
     hiddenInstanceIds: ReadonlySet<InstanceId>,
   ): void {
-    this._pooledConstraintAffectedPathInstanceIds.clear();
-    this._pooledConstraintNodesWithAffectedDescendants.clear();
-
-    const addWithAncestors = (instanceId: InstanceId): void => {
-      let cursor: InstanceId | null = instanceId;
-      while (cursor !== null) {
-        this._pooledConstraintAffectedPathInstanceIds.add(cursor);
-        const parentInstanceId: InstanceId | null =
-          this._pooledConstraintParentByInstanceId.get(cursor) ?? null;
-        if (parentInstanceId !== null) {
-          this._pooledConstraintNodesWithAffectedDescendants.add(parentInstanceId);
-        }
-        cursor = parentInstanceId;
-      }
-    };
-
-    for (const node of graph.nodes) {
-      addWithAncestors(node.instanceId);
-    }
-    for (const instanceId of hiddenInstanceIds) {
-      addWithAncestors(instanceId);
-    }
-
-    this._constraintAffectedPathInstanceIds = this._pooledConstraintAffectedPathInstanceIds;
-    this._constraintNodesWithAffectedDescendants =
-      this._pooledConstraintNodesWithAffectedDescendants;
+    const result = rebuildConstraintAffectedPathSetImpl(
+      graph,
+      hiddenInstanceIds,
+      this._pooledConstraintAffectedPathInstanceIds,
+      this._pooledConstraintNodesWithAffectedDescendants,
+      this._pooledConstraintParentByInstanceId,
+    );
+    this._constraintAffectedPathInstanceIds = result.constraintAffectedPathInstanceIds;
+    this._constraintNodesWithAffectedDescendants = result.constraintNodesWithAffectedDescendants;
   }
 
   private hasConstraintInputSignatureChange(
@@ -2897,48 +2073,19 @@ export class WidgetRenderer<S> {
     rootW: number,
     rootH: number,
   ): boolean {
-    const signature = this._constraintInputSignature;
-    let index = 0;
-    let changed = !this._constraintInputSignatureValid;
-    const write = (value: number): void => {
-      if (!changed && !Object.is(signature[index], value)) changed = true;
-      signature[index] = value;
-      index++;
-    };
-    const writeOrNaN = (value: number | undefined): void => {
-      write(value === undefined ? Number.NaN : value);
-    };
-
-    write(graph.fingerprint);
-    write(viewport.cols);
-    write(viewport.rows);
-    write(rootW);
-    write(rootH);
-
-    for (const instanceId of graph.requiredRuntimeInstanceIds) {
-      const base = this._pooledConstraintBaseValues.get(instanceId);
-      const parent = this._pooledConstraintParentValues.get(instanceId);
-      const intrinsic = this._pooledConstraintIntrinsicValues.get(instanceId);
-      write(instanceId);
-      writeOrNaN(base?.width);
-      writeOrNaN(base?.height);
-      writeOrNaN(base?.minWidth);
-      writeOrNaN(base?.minHeight);
-      writeOrNaN(base?.display);
-      writeOrNaN(parent?.w);
-      writeOrNaN(parent?.h);
-      writeOrNaN(parent?.min_w);
-      writeOrNaN(parent?.min_h);
-      writeOrNaN(intrinsic?.w);
-      writeOrNaN(intrinsic?.h);
-      writeOrNaN(intrinsic?.min_w);
-      writeOrNaN(intrinsic?.min_h);
-    }
-
-    if (!changed && signature.length !== index) changed = true;
-    signature.length = index;
-    this._constraintInputSignatureValid = true;
-    return changed;
+    const result = hasConstraintInputSignatureChangeImpl({
+      graph,
+      viewport,
+      rootW,
+      rootH,
+      pooledConstraintBaseValues: this._pooledConstraintBaseValues,
+      pooledConstraintParentValues: this._pooledConstraintParentValues,
+      pooledConstraintIntrinsicValues: this._pooledConstraintIntrinsicValues,
+      signature: this._constraintInputSignature,
+      valid: this._constraintInputSignatureValid,
+    });
+    this._constraintInputSignatureValid = result.valid;
+    return result.changed;
   }
 
   private invalidateConstraintInputSignature(): void {
@@ -2952,125 +2099,33 @@ export class WidgetRenderer<S> {
     rootW: number,
     rootH: number,
   ): string {
-    const parts: string[] = [
-      String(graph.fingerprint),
-      String(viewport.cols),
-      String(viewport.rows),
-      String(rootW),
-      String(rootH),
-    ];
-
-    for (const instanceId of graph.requiredRuntimeInstanceIds) {
-      const base = this._pooledConstraintBaseValues.get(instanceId);
-      const parent = this._pooledConstraintParentValues.get(instanceId);
-      const intrinsic = this._pooledConstraintIntrinsicValues.get(instanceId);
-      parts.push(
-        String(instanceId),
-        String(base?.width ?? "u"),
-        String(base?.height ?? "u"),
-        String(base?.minWidth ?? "u"),
-        String(base?.minHeight ?? "u"),
-        String(base?.display ?? "u"),
-        String(parent?.w ?? rootW),
-        String(parent?.h ?? rootH),
-        String(parent?.min_w ?? rootW),
-        String(parent?.min_h ?? rootH),
-        String(intrinsic?.w ?? "u"),
-        String(intrinsic?.h ?? "u"),
-        String(intrinsic?.min_w ?? "u"),
-        String(intrinsic?.min_h ?? "u"),
-      );
-    }
-
-    return parts.join("|");
+    return computeConstraintInputKeyImpl(
+      graph,
+      viewport,
+      rootW,
+      rootH,
+      this._pooledConstraintBaseValues,
+      this._pooledConstraintParentValues,
+      this._pooledConstraintIntrinsicValues,
+    );
   }
 
   private rebuildConstraintExprIndex(graph: ConstraintGraph): void {
-    const mutable = new Map<InstanceId, Array<Readonly<{ prop: string; source: string }>>>();
-    for (const node of graph.nodes) {
-      const entry = Object.freeze({ prop: node.prop, source: node.expr.source });
-      const bucket = mutable.get(node.instanceId);
-      if (bucket) bucket.push(entry);
-      else mutable.set(node.instanceId, [entry]);
-    }
-
-    const frozen = new Map<InstanceId, readonly Readonly<{ prop: string; source: string }>[]>();
-    for (const [instanceId, list] of mutable.entries()) {
-      frozen.set(instanceId, Object.freeze(list.slice()));
-    }
-    this._constraintExprIndexByInstanceId = frozen;
+    this._constraintExprIndexByInstanceId = rebuildConstraintExprIndexImpl(graph);
   }
 
   private computeConstraintBreadcrumbs(): RuntimeBreadcrumbConstraintsSummary {
-    const graph = this._constraintGraph;
-    if (graph === null || graph.nodes.length === 0) return EMPTY_CONSTRAINT_BREADCRUMBS;
-
-    if (this._constraintExprIndexByInstanceId === null) {
-      this.rebuildConstraintExprIndex(graph);
-    }
-
-    const focusedId = this.focusState.focusedId;
-    const resolvedByInstanceId = this._constraintValuesByInstanceId;
-    const hiddenInstanceCount = this._hiddenConstraintInstanceIds.size;
-
-    let focused: RuntimeBreadcrumbConstraintsSummary["focused"] = null;
-    if (focusedId) {
-      const instances = graph.idToInstances.get(focusedId) ?? EMPTY_INSTANCE_ID_ARRAY;
-      const instanceCount = instances.length;
-      const instanceId = instances[0] ?? null;
-      const resolved = instanceId !== null ? (resolvedByInstanceId?.get(instanceId) ?? null) : null;
-      const expressions =
-        instanceId !== null
-          ? (this._constraintExprIndexByInstanceId?.get(instanceId) ?? null)
-          : null;
-
-      focused = Object.freeze({
-        id: focusedId,
-        instanceCount,
-        instanceId,
-        resolved: resolved
-          ? (() => {
-              const out: {
-                display?: number;
-                width?: number;
-                height?: number;
-                minWidth?: number;
-                maxWidth?: number;
-                minHeight?: number;
-                maxHeight?: number;
-                flexBasis?: number;
-              } = {};
-              if (typeof resolved.display === "number" && Number.isFinite(resolved.display))
-                out.display = resolved.display;
-              if (typeof resolved.width === "number" && Number.isFinite(resolved.width))
-                out.width = resolved.width;
-              if (typeof resolved.height === "number" && Number.isFinite(resolved.height))
-                out.height = resolved.height;
-              if (typeof resolved.minWidth === "number" && Number.isFinite(resolved.minWidth))
-                out.minWidth = resolved.minWidth;
-              if (typeof resolved.maxWidth === "number" && Number.isFinite(resolved.maxWidth))
-                out.maxWidth = resolved.maxWidth;
-              if (typeof resolved.minHeight === "number" && Number.isFinite(resolved.minHeight))
-                out.minHeight = resolved.minHeight;
-              if (typeof resolved.maxHeight === "number" && Number.isFinite(resolved.maxHeight))
-                out.maxHeight = resolved.maxHeight;
-              if (typeof resolved.flexBasis === "number" && Number.isFinite(resolved.flexBasis))
-                out.flexBasis = resolved.flexBasis;
-              return Object.freeze(out);
-            })()
-          : null,
-        expressions,
-      });
-    }
-
-    return Object.freeze({
-      enabled: true,
-      graphFingerprint: graph.fingerprint,
-      nodeCount: graph.nodes.length,
-      cacheKey: this._constraintLastCacheKey,
-      resolution: this._constraintLastResolution,
-      hiddenInstanceCount,
-      focused,
+    return computeConstraintBreadcrumbsImpl({
+      graph: this._constraintGraph,
+      exprIndexByInstanceId: this._constraintExprIndexByInstanceId,
+      rebuildConstraintExprIndex: (graph) => rebuildConstraintExprIndexImpl(graph),
+      focusedId: this.focusState.focusedId,
+      resolvedByInstanceId: this._constraintValuesByInstanceId,
+      hiddenConstraintInstanceIds: this._hiddenConstraintInstanceIds,
+      lastCacheKey: this._constraintLastCacheKey,
+      lastResolution: this._constraintLastResolution,
+      emptyConstraintBreadcrumbs: EMPTY_CONSTRAINT_BREADCRUMBS,
+      emptyInstanceIds: EMPTY_INSTANCE_ID_ARRAY,
     });
   }
 
@@ -3080,192 +2135,13 @@ export class WidgetRenderer<S> {
     hiddenInstanceIds: ReadonlySet<InstanceId>,
     affectedPathInstanceIds: ReadonlySet<InstanceId>,
   ): VNode {
-    const vnode = runtimeNode.vnode;
-    type MutableConstraintOverrideProps = Record<string, unknown> & {
-      display?: boolean;
-      width?: number;
-      height?: number;
-      minWidth?: number;
-      maxWidth?: number;
-      minHeight?: number;
-      maxHeight?: number;
-      flex?: number;
-      flexBasis?: number;
-      content?: unknown;
-      actions?: unknown;
-    };
-
-    const propsRecord = (vnode.props ?? {}) as Readonly<MutableConstraintOverrideProps>;
-    const resolved = valuesByInstanceId?.get(runtimeNode.instanceId);
-    const isHidden = hiddenInstanceIds.has(runtimeNode.instanceId);
-    const shouldTraverseChildren = this._constraintNodesWithAffectedDescendants.has(
-      runtimeNode.instanceId,
-    );
-    let propsChanged = false;
-    let nextProps = vnode.props;
-
-    let nextPropsMutable: MutableConstraintOverrideProps | null = null;
-    const ensureMutableProps = (): MutableConstraintOverrideProps => {
-      if (nextPropsMutable === null)
-        nextPropsMutable = { ...propsRecord } as MutableConstraintOverrideProps;
-      return nextPropsMutable;
-    };
-
-    if (resolved) {
-      const write = (name: Exclude<keyof ResolvedConstraintValues, "display">): void => {
-        const raw = resolved[name];
-        if (raw === undefined || !Number.isFinite(raw)) return;
-        const nextValue = Math.floor(raw);
-        if (propsRecord[name] === nextValue) return;
-        ensureMutableProps()[name] = nextValue;
-      };
-
-      write("width");
-      write("height");
-      write("minWidth");
-      write("maxWidth");
-      write("minHeight");
-      write("maxHeight");
-      write("flexBasis");
-
-      if (typeof resolved.display === "number" && Number.isFinite(resolved.display)) {
-        const displayVisible = resolved.display > 0;
-        if (propsRecord.display !== displayVisible) {
-          ensureMutableProps().display = displayVisible;
-        }
-      }
-    }
-
-    if (isHidden) {
-      const mutable = ensureMutableProps();
-      mutable.display = false;
-      mutable.width = 0;
-      mutable.height = 0;
-      mutable.minWidth = 0;
-      mutable.maxWidth = 0;
-      mutable.minHeight = 0;
-      mutable.maxHeight = 0;
-      mutable.flex = 0;
-      mutable.flexBasis = 0;
-    }
-
-    const currentChildren = (vnode as Readonly<{ children?: readonly VNode[] }>).children;
-    let childrenChanged = false;
-    let nextChildren = currentChildren;
-    if (Array.isArray(currentChildren) && currentChildren.length > 0 && shouldTraverseChildren) {
-      let rebuiltChildren: VNode[] | null = null;
-      for (let i = 0; i < currentChildren.length; i++) {
-        const childVNode = currentChildren[i] as VNode;
-        const runtimeChild = runtimeNode.children[i];
-        if (!runtimeChild || !childVNode || !affectedPathInstanceIds.has(runtimeChild.instanceId)) {
-          if (rebuiltChildren !== null) rebuiltChildren[i] = childVNode;
-          continue;
-        }
-        const nextChild = this.applyConstraintOverridesToVNode(
-          runtimeChild,
-          valuesByInstanceId,
-          hiddenInstanceIds,
-          affectedPathInstanceIds,
-        );
-        if (nextChild !== childVNode) {
-          if (rebuiltChildren === null) {
-            rebuiltChildren = currentChildren.slice() as VNode[];
-          }
-          rebuiltChildren[i] = nextChild;
-          childrenChanged = true;
-        } else if (rebuiltChildren !== null) {
-          rebuiltChildren[i] = childVNode;
-        }
-      }
-      if (rebuiltChildren !== null && childrenChanged) {
-        nextChildren = Object.freeze(rebuiltChildren);
-      }
-    }
-
-    if (shouldTraverseChildren && vnode.kind === "layer") {
-      const content = (propsRecord as Readonly<{ content?: unknown }>).content;
-      const runtimeChild = runtimeNode.children[0];
-      if (
-        runtimeChild &&
-        isVNodeLike(content) &&
-        affectedPathInstanceIds.has(runtimeChild.instanceId)
-      ) {
-        const nextContent = this.applyConstraintOverridesToVNode(
-          runtimeChild,
-          valuesByInstanceId,
-          hiddenInstanceIds,
-          affectedPathInstanceIds,
-        );
-        if (nextContent !== content) {
-          ensureMutableProps().content = nextContent;
-        }
-      }
-    } else if (shouldTraverseChildren && vnode.kind === "modal") {
-      const modalProps = propsRecord as Readonly<{ content?: unknown; actions?: unknown }>;
-      let runtimeChildIndex = 0;
-
-      const content = modalProps.content;
-      if (isVNodeLike(content)) {
-        const runtimeChild = runtimeNode.children[runtimeChildIndex];
-        runtimeChildIndex++;
-        if (runtimeChild && affectedPathInstanceIds.has(runtimeChild.instanceId)) {
-          const nextContent = this.applyConstraintOverridesToVNode(
-            runtimeChild,
-            valuesByInstanceId,
-            hiddenInstanceIds,
-            affectedPathInstanceIds,
-          );
-          if (nextContent !== content) {
-            ensureMutableProps().content = nextContent;
-          }
-        }
-      }
-
-      const actionsRaw = modalProps.actions;
-      if (Array.isArray(actionsRaw) && actionsRaw.length > 0) {
-        let nextActions: unknown[] | null = null;
-        for (let i = 0; i < actionsRaw.length; i++) {
-          const action = actionsRaw[i];
-          if (!isVNodeLike(action)) {
-            if (nextActions !== null) nextActions[i] = action;
-            continue;
-          }
-          const runtimeChild = runtimeNode.children[runtimeChildIndex];
-          runtimeChildIndex++;
-          if (!runtimeChild || !affectedPathInstanceIds.has(runtimeChild.instanceId)) {
-            if (nextActions !== null) nextActions[i] = action;
-            continue;
-          }
-          const nextAction = this.applyConstraintOverridesToVNode(
-            runtimeChild,
-            valuesByInstanceId,
-            hiddenInstanceIds,
-            affectedPathInstanceIds,
-          );
-          if (nextAction !== action) {
-            if (nextActions === null) nextActions = actionsRaw.slice();
-            nextActions[i] = nextAction;
-          } else if (nextActions !== null) {
-            nextActions[i] = action;
-          }
-        }
-        if (nextActions !== null) {
-          ensureMutableProps().actions = Object.freeze(nextActions);
-        }
-      }
-    }
-
-    if (nextPropsMutable !== null) {
-      nextProps = Object.freeze(nextPropsMutable) as typeof vnode.props;
-      propsChanged = true;
-    }
-
-    if (!propsChanged && !childrenChanged) return vnode;
-    return Object.freeze({
-      ...vnode,
-      ...(propsChanged ? { props: nextProps } : {}),
-      ...(childrenChanged ? { children: nextChildren } : {}),
-    }) as VNode;
+    return applyConstraintOverridesToVNodeImpl({
+      runtimeNode,
+      valuesByInstanceId,
+      hiddenInstanceIds,
+      affectedPathInstanceIds,
+      constraintNodesWithAffectedDescendants: this._constraintNodesWithAffectedDescendants,
+    });
   }
 
   private computeDropdownRect(props: DropdownProps): Rect | null {
@@ -4311,343 +3187,75 @@ export class WidgetRenderer<S> {
         const routingToken = PERF_DETAIL_ENABLED ? perfMarkStart("routing_rebuild") : 0;
         const getRectForInstance = (instanceId: InstanceId) =>
           this._pooledRectByInstanceId.get(instanceId) ?? ZERO_RECT;
-
-        // Rebuild complex widget metadata maps (id -> props) for routing.
-        this._pooledPrevTreeIds.clear();
-        for (const treeId of this.treeById.keys()) this._pooledPrevTreeIds.add(treeId);
-        this.virtualListById.clear();
-        this.buttonById.clear();
-        this.linkById.clear();
-        this.tableById.clear();
-        this.treeById.clear();
-        this.dropdownById.clear();
-        this.sliderById.clear();
-        this.selectById.clear();
-        this.checkboxById.clear();
-        this.radioGroupById.clear();
-        this.commandPaletteById.clear();
-        this.filePickerById.clear();
-        this.fileTreeExplorerById.clear();
-        this.splitPaneById.clear();
-        this.codeEditorById.clear();
-        this.diffViewerById.clear();
-        this.toolApprovalDialogById.clear();
-        this.logsConsoleById.clear();
-
-        // Rebuild overlay routing state using pooled collections.
-        this.layerRegistry.clear();
-        this._pooledCloseOnEscape.clear();
-        this._pooledCloseOnBackdrop.clear();
-        this._pooledOnClose.clear();
-        this._pooledDropdownStack.length = 0;
-        this._pooledOverlayShortcutOwners.length = 0;
-        this._pooledToastContainers.length = 0;
-        let overlaySeq = 0;
-
-        this._pooledRuntimeStack.length = 0;
-        this._pooledRuntimeStack.push(this.committedRoot);
-        while (this._pooledRuntimeStack.length > 0) {
-          const cur = this._pooledRuntimeStack.pop();
-          if (!cur) continue;
-          if (this._hiddenConstraintInstanceIds.has(cur.instanceId)) continue;
-
-          const v = cur.vnode;
-          switch (v.kind) {
-            case "dropdown": {
-              const p = v.props as DropdownProps;
-              this.dropdownById.set(p.id, p);
-              this._pooledDropdownStack.push(p.id);
-              const rect = this.computeDropdownRect(p) ?? ZERO_RECT;
-              const zIndex = overlaySeq++;
-              const layerId = `dropdown:${p.id}`;
-              const onClose = typeof p.onClose === "function" ? p.onClose : undefined;
-              this._pooledCloseOnEscape.set(layerId, true);
-              this._pooledCloseOnBackdrop.set(layerId, false);
-              if (onClose) this._pooledOnClose.set(layerId, onClose);
-              const layerInput = {
-                id: layerId,
-                rect,
-                backdrop: "none",
-                modal: false,
-                closeOnEscape: true,
-                zIndex,
-              } as const;
-              this.layerRegistry.register(onClose ? { ...layerInput, onClose } : layerInput);
-              this._pooledOverlayShortcutOwners.push(Object.freeze({ kind: "dropdown", id: p.id }));
-              break;
-            }
-            case "button": {
-              const p = v.props as ButtonProps;
-              this.buttonById.set(p.id, p);
-              break;
-            }
-            case "link": {
-              const p = v.props as LinkProps;
-              if (typeof p.id === "string" && p.id.length > 0) {
-                this.linkById.set(p.id, p);
-              }
-              break;
-            }
-            case "virtualList": {
-              const p = v.props as VirtualListProps<unknown>;
-              this.virtualListById.set(p.id, p);
-              break;
-            }
-            case "table": {
-              const p = v.props as TableProps<unknown>;
-              this.tableById.set(p.id, p);
-              break;
-            }
-            case "tree": {
-              const p = v.props as TreeProps<unknown>;
-              this.treeById.set(p.id, p);
-              break;
-            }
-            case "commandPalette": {
-              const p = v.props as CommandPaletteProps;
-              this.commandPaletteById.set(p.id, p);
-              this._pooledOverlayShortcutOwners.push(
-                Object.freeze({ kind: "commandPalette", id: p.id }),
-              );
-              break;
-            }
-            case "filePicker": {
-              const p = v.props as FilePickerProps;
-              this.filePickerById.set(p.id, p);
-              break;
-            }
-            case "fileTreeExplorer": {
-              const p = v.props as FileTreeExplorerProps;
-              this.fileTreeExplorerById.set(p.id, p);
-              break;
-            }
-            case "splitPane": {
-              const p = v.props as SplitPaneProps;
-              this.splitPaneById.set(p.id, p);
-              break;
-            }
-            case "codeEditor": {
-              const p = v.props as CodeEditorProps;
-              this.codeEditorById.set(p.id, p);
-              break;
-            }
-            case "diffViewer": {
-              const p = v.props as DiffViewerProps;
-              this.diffViewerById.set(p.id, p);
-              break;
-            }
-            case "toolApprovalDialog": {
-              const p = v.props as ToolApprovalDialogProps;
-              this.toolApprovalDialogById.set(p.id, p);
-              break;
-            }
-            case "logsConsole": {
-              const p = v.props as LogsConsoleProps;
-              this.logsConsoleById.set(p.id, p);
-              break;
-            }
-            case "toastContainer": {
-              const p = v.props as ToastContainerProps;
-              const rect = getRectForInstance(cur.instanceId);
-              this._pooledToastContainers.push({ rect, props: p });
-              const zIndex = overlaySeq++;
-              const toastIdRaw = (p as { id?: unknown }).id;
-              const toastId = typeof toastIdRaw === "string" ? toastIdRaw : "default";
-              const layerId = `toast:${toastId}`;
-              this._pooledCloseOnEscape.set(layerId, false);
-              this._pooledCloseOnBackdrop.set(layerId, false);
-              this.layerRegistry.register({
-                id: layerId,
-                rect,
-                backdrop: "none",
-                modal: false,
-                closeOnEscape: false,
-                zIndex,
-              });
-              break;
-            }
-            case "modal": {
-              const p = v.props as {
-                id?: unknown;
-                backdrop?: unknown;
-                closeOnEscape?: unknown;
-                closeOnBackdrop?: unknown;
-                onClose?: unknown;
-              };
-              const id = typeof p.id === "string" ? p.id : null;
-              if (id) {
-                const rect = getRectForInstance(cur.instanceId);
-                const zIndex = overlaySeq++;
-                const canClose = p.closeOnEscape !== false;
-                this._pooledCloseOnEscape.set(id, canClose);
-                this._pooledCloseOnBackdrop.set(id, p.closeOnBackdrop !== false);
-                const cb = typeof p.onClose === "function" ? (p.onClose as () => void) : undefined;
-                if (cb) this._pooledOnClose.set(id, cb);
-                const layerInput = {
-                  id,
-                  rect,
-                  backdrop:
-                    p.backdrop === "none" || p.backdrop === "dim" || p.backdrop === "opaque"
-                      ? p.backdrop
-                      : "dim",
-                  modal: true,
-                  closeOnEscape: canClose,
-                  zIndex,
-                } as const;
-                this.layerRegistry.register(cb ? { ...layerInput, onClose: cb } : layerInput);
-              }
-              break;
-            }
-            case "layer": {
-              const p = v.props as {
-                id?: unknown;
-                zIndex?: unknown;
-                backdrop?: unknown;
-                modal?: unknown;
-                closeOnEscape?: unknown;
-                onClose?: unknown;
-              };
-              const id = typeof p.id === "string" ? p.id : null;
-              if (id) {
-                const rect = getRectForInstance(cur.instanceId);
-                const baseZ =
-                  typeof p.zIndex === "number" && Number.isFinite(p.zIndex)
-                    ? Math.trunc(p.zIndex)
-                    : null;
-                const zIndex = encodeLayerZIndex(baseZ, overlaySeq++);
-                const modal = p.modal === true;
-                const canClose = p.closeOnEscape !== false;
-                this._pooledCloseOnEscape.set(id, canClose);
-                this._pooledCloseOnBackdrop.set(id, false);
-                const cb = typeof p.onClose === "function" ? (p.onClose as () => void) : undefined;
-                if (cb) this._pooledOnClose.set(id, cb);
-                const layerInput = {
-                  id,
-                  rect,
-                  backdrop:
-                    p.backdrop === "none" || p.backdrop === "dim" || p.backdrop === "opaque"
-                      ? p.backdrop
-                      : "none",
-                  modal,
-                  closeOnEscape: canClose,
-                  zIndex,
-                } as const;
-                this.layerRegistry.register(cb ? { ...layerInput, onClose: cb } : layerInput);
-              }
-              break;
-            }
-            case "slider": {
-              this.sliderById.set((v.props as SliderProps).id, v.props as SliderProps);
-              break;
-            }
-            case "select": {
-              this.selectById.set((v.props as SelectProps).id, v.props as SelectProps);
-              break;
-            }
-            case "checkbox": {
-              this.checkboxById.set((v.props as CheckboxProps).id, v.props as CheckboxProps);
-              break;
-            }
-            case "radioGroup": {
-              this.radioGroupById.set((v.props as RadioGroupProps).id, v.props as RadioGroupProps);
-              break;
-            }
-            default:
-              break;
-          }
-
-          for (let i = cur.children.length - 1; i >= 0; i--) {
-            const c = cur.children[i];
-            if (c) this._pooledRuntimeStack.push(c);
-          }
-        }
-
-        this.layerStack = Object.freeze(this.layerRegistry.getAll().map((l) => l.id));
-        this.closeOnEscapeByLayerId = this._pooledCloseOnEscape;
-        this.closeOnBackdropByLayerId = this._pooledCloseOnBackdrop;
-        this.onCloseByLayerId = this._pooledOnClose;
-        this.dropdownStack = this._pooledDropdownStack.slice();
-        this.overlayShortcutOwners = this._pooledOverlayShortcutOwners.slice();
-        this.toastContainers = this._pooledToastContainers.slice();
-        this.rebuildOverlayShortcutBindings();
-
-        // Build toast action maps using pooled collections.
-        this._pooledToastActionByFocusId.clear();
-        this._pooledToastActionLabelByFocusId.clear();
-        this._pooledToastFocusableActionIds.length = 0;
-
-        for (const tc of this._pooledToastContainers) {
-          if (!tc) continue;
-          const rect = tc.rect;
-          if (rect.w <= 0 || rect.h <= 0) continue;
-
-          const toasts = tc.props.toasts;
-          const maxVisible = tc.props.maxVisible ?? 5;
-          const maxByHeight = Math.floor(rect.h / TOAST_HEIGHT);
-          const visibleCount = Math.min(toasts.length, maxVisible, maxByHeight);
-          for (let i = 0; i < visibleCount; i++) {
-            const toast = toasts[i];
-            if (!toast?.action) continue;
-            const fid = getToastActionFocusId(toast.id);
-            this._pooledToastActionByFocusId.set(fid, toast.action.onAction);
-            this._pooledToastActionLabelByFocusId.set(fid, toast.action.label);
-            this._pooledToastFocusableActionIds.push(fid);
-          }
-        }
-
-        this.toastActionByFocusId = this._pooledToastActionByFocusId;
-        this.toastActionLabelByFocusId = this._pooledToastActionLabelByFocusId;
-        this.toastFocusableActionIds = this._pooledToastFocusableActionIds.slice();
-
-        const baseFocusList = this.baseFocusList;
-        const baseEnabledById = this.baseEnabledById;
-        this.focusList = baseFocusList;
-        this.enabledById = baseEnabledById;
-
-        if (this._pooledToastFocusableActionIds.length > 0) {
-          this.focusList = Object.freeze([...baseFocusList, ...this.toastFocusableActionIds]);
-          const enabled = new Map(baseEnabledById);
-          for (const id of this.toastFocusableActionIds) enabled.set(id, true);
-          this.enabledById = enabled;
-        }
+        rebuildRoutingWidgetMapsAndOverlayState({
+          committedRoot: this.committedRoot,
+          hiddenConstraintInstanceIds: this._hiddenConstraintInstanceIds,
+          pooledRuntimeStack: this._pooledRuntimeStack,
+          pooledPrevTreeIds: this._pooledPrevTreeIds,
+          getRectForInstance,
+          computeDropdownRect: (props) => this.computeDropdownRect(props),
+          layerRegistry: this.layerRegistry,
+          pooledCloseOnEscape: this._pooledCloseOnEscape,
+          pooledCloseOnBackdrop: this._pooledCloseOnBackdrop,
+          pooledOnClose: this._pooledOnClose,
+          pooledDropdownStack: this._pooledDropdownStack,
+          pooledOverlayShortcutOwners: this._pooledOverlayShortcutOwners,
+          pooledToastContainers: this._pooledToastContainers,
+          virtualListById: this.virtualListById,
+          buttonById: this.buttonById,
+          linkById: this.linkById,
+          tableById: this.tableById,
+          treeById: this.treeById,
+          dropdownById: this.dropdownById,
+          sliderById: this.sliderById,
+          selectById: this.selectById,
+          checkboxById: this.checkboxById,
+          radioGroupById: this.radioGroupById,
+          commandPaletteById: this.commandPaletteById,
+          filePickerById: this.filePickerById,
+          fileTreeExplorerById: this.fileTreeExplorerById,
+          splitPaneById: this.splitPaneById,
+          codeEditorById: this.codeEditorById,
+          diffViewerById: this.diffViewerById,
+          toolApprovalDialogById: this.toolApprovalDialogById,
+          logsConsoleById: this.logsConsoleById,
+        });
 
         const preferredToastFocus =
           prevFocusedIdBeforeFinalize !== null &&
           parseToastActionFocusId(prevFocusedIdBeforeFinalize) !== null
             ? prevFocusedIdBeforeFinalize
             : null;
-        if (preferredToastFocus && this._pooledToastActionByFocusId.has(preferredToastFocus)) {
-          this.focusState = Object.freeze({
-            ...this.focusState,
-            focusedId: preferredToastFocus,
-            activeZoneId: null,
-          });
-        } else {
-          const curFocus = this.focusState.focusedId;
-          if (
-            curFocus !== null &&
-            parseToastActionFocusId(curFocus) !== null &&
-            !this._pooledToastActionByFocusId.has(curFocus)
-          ) {
-            this.focusState = Object.freeze({
-              ...this.focusState,
-              focusedId: null,
-              activeZoneId: null,
-            });
-          }
-        }
-
-        rebuildRenderCaches({
-          tableById: this.tableById,
-          logsConsoleById: this.logsConsoleById,
-          diffViewerById: this.diffViewerById,
-          codeEditorById: this.codeEditorById,
-          tableRenderCacheById: this.tableRenderCacheById,
-          logsConsoleRenderCacheById: this.logsConsoleRenderCacheById,
-          diffRenderCacheById: this.diffRenderCacheById,
-          codeEditorRenderCacheById: this.codeEditorRenderCacheById,
-          emptyStringArray: EMPTY_STRING_ARRAY,
+        const finalizedOverlayState = finalizeRebuiltOverlayState({
+          layerRegistry: this.layerRegistry,
+          pooledCloseOnEscape: this._pooledCloseOnEscape,
+          pooledCloseOnBackdrop: this._pooledCloseOnBackdrop,
+          pooledOnClose: this._pooledOnClose,
+          pooledDropdownStack: this._pooledDropdownStack,
+          pooledOverlayShortcutOwners: this._pooledOverlayShortcutOwners,
+          pooledToastContainers: this._pooledToastContainers,
+          pooledToastActionByFocusId: this._pooledToastActionByFocusId,
+          pooledToastActionLabelByFocusId: this._pooledToastActionLabelByFocusId,
+          pooledToastFocusableActionIds: this._pooledToastFocusableActionIds,
+          baseFocusList: this.baseFocusList,
+          baseEnabledById: this.baseEnabledById,
+          focusState: this.focusState,
+          preferredToastFocus,
         });
+        this.layerStack = finalizedOverlayState.layerStack;
+        this.closeOnEscapeByLayerId = finalizedOverlayState.closeOnEscapeByLayerId;
+        this.closeOnBackdropByLayerId = finalizedOverlayState.closeOnBackdropByLayerId;
+        this.onCloseByLayerId = finalizedOverlayState.onCloseByLayerId;
+        this.dropdownStack = finalizedOverlayState.dropdownStack;
+        this.overlayShortcutOwners = finalizedOverlayState.overlayShortcutOwners;
+        this.toastContainers = finalizedOverlayState.toastContainers;
+        this.rebuildOverlayShortcutBindings();
+        this.toastActionByFocusId = finalizedOverlayState.toastActionByFocusId;
+        this.toastActionLabelByFocusId = finalizedOverlayState.toastActionLabelByFocusId;
+        this.toastFocusableActionIds = finalizedOverlayState.toastFocusableActionIds;
+        this.focusList = finalizedOverlayState.focusList;
+        this.enabledById = finalizedOverlayState.enabledById;
+        this.focusState = finalizedOverlayState.focusState;
         if (PERF_DETAIL_ENABLED) perfMarkEnd("routing_rebuild", routingToken);
       } else if (doLayout && hadRoutingWidgets) {
         // Layout-only turns (e.g. resize) keep the committed widget maps intact.
@@ -4655,204 +3263,48 @@ export class WidgetRenderer<S> {
         const routingToken = PERF_DETAIL_ENABLED ? perfMarkStart("routing_rebuild") : 0;
         const getRectForInstance = (instanceId: InstanceId) =>
           this._pooledRectByInstanceId.get(instanceId) ?? ZERO_RECT;
+        rebuildOverlayStateForLayout({
+          committedRoot: this.committedRoot,
+          hiddenConstraintInstanceIds: this._hiddenConstraintInstanceIds,
+          pooledRuntimeStack: this._pooledRuntimeStack,
+          getRectForInstance,
+          computeDropdownRect: (props) => this.computeDropdownRect(props),
+          layerRegistry: this.layerRegistry,
+          pooledCloseOnEscape: this._pooledCloseOnEscape,
+          pooledCloseOnBackdrop: this._pooledCloseOnBackdrop,
+          pooledOnClose: this._pooledOnClose,
+          pooledDropdownStack: this._pooledDropdownStack,
+          pooledOverlayShortcutOwners: this._pooledOverlayShortcutOwners,
+          pooledToastContainers: this._pooledToastContainers,
+        });
 
-        this.layerRegistry.clear();
-        this._pooledCloseOnEscape.clear();
-        this._pooledCloseOnBackdrop.clear();
-        this._pooledOnClose.clear();
-        this._pooledDropdownStack.length = 0;
-        this._pooledToastContainers.length = 0;
-        let overlaySeq = 0;
-
-        this._pooledRuntimeStack.length = 0;
-        this._pooledRuntimeStack.push(this.committedRoot);
-        while (this._pooledRuntimeStack.length > 0) {
-          const cur = this._pooledRuntimeStack.pop();
-          if (!cur) continue;
-          if (this._hiddenConstraintInstanceIds.has(cur.instanceId)) continue;
-
-          const v = cur.vnode;
-          switch (v.kind) {
-            case "dropdown": {
-              const p = v.props as DropdownProps;
-              this._pooledDropdownStack.push(p.id);
-              const rect = this.computeDropdownRect(p) ?? ZERO_RECT;
-              const zIndex = overlaySeq++;
-              const layerId = `dropdown:${p.id}`;
-              const onClose = typeof p.onClose === "function" ? p.onClose : undefined;
-              this._pooledCloseOnEscape.set(layerId, true);
-              this._pooledCloseOnBackdrop.set(layerId, false);
-              if (onClose) this._pooledOnClose.set(layerId, onClose);
-              const layerInput = {
-                id: layerId,
-                rect,
-                backdrop: "none",
-                modal: false,
-                closeOnEscape: true,
-                zIndex,
-              } as const;
-              this.layerRegistry.register(onClose ? { ...layerInput, onClose } : layerInput);
-              break;
-            }
-            case "toastContainer": {
-              const p = v.props as ToastContainerProps;
-              const rect = getRectForInstance(cur.instanceId);
-              this._pooledToastContainers.push({ rect, props: p });
-              const zIndex = overlaySeq++;
-              const toastIdRaw = (p as { id?: unknown }).id;
-              const toastId = typeof toastIdRaw === "string" ? toastIdRaw : "default";
-              const layerId = `toast:${toastId}`;
-              this._pooledCloseOnEscape.set(layerId, false);
-              this._pooledCloseOnBackdrop.set(layerId, false);
-              this.layerRegistry.register({
-                id: layerId,
-                rect,
-                backdrop: "none",
-                modal: false,
-                closeOnEscape: false,
-                zIndex,
-              });
-              break;
-            }
-            case "modal": {
-              const p = v.props as {
-                id?: unknown;
-                backdrop?: unknown;
-                closeOnEscape?: unknown;
-                closeOnBackdrop?: unknown;
-                onClose?: unknown;
-              };
-              const id = typeof p.id === "string" ? p.id : null;
-              if (id) {
-                const rect = getRectForInstance(cur.instanceId);
-                const zIndex = overlaySeq++;
-                const canClose = p.closeOnEscape !== false;
-                this._pooledCloseOnEscape.set(id, canClose);
-                this._pooledCloseOnBackdrop.set(id, p.closeOnBackdrop !== false);
-                const cb = typeof p.onClose === "function" ? (p.onClose as () => void) : undefined;
-                if (cb) this._pooledOnClose.set(id, cb);
-                const layerInput = {
-                  id,
-                  rect,
-                  backdrop:
-                    p.backdrop === "none" || p.backdrop === "dim" || p.backdrop === "opaque"
-                      ? p.backdrop
-                      : "dim",
-                  modal: true,
-                  closeOnEscape: canClose,
-                  zIndex,
-                } as const;
-                this.layerRegistry.register(cb ? { ...layerInput, onClose: cb } : layerInput);
-              }
-              break;
-            }
-            case "layer": {
-              const p = v.props as {
-                id?: unknown;
-                zIndex?: unknown;
-                backdrop?: unknown;
-                modal?: unknown;
-                closeOnEscape?: unknown;
-                onClose?: unknown;
-              };
-              const id = typeof p.id === "string" ? p.id : null;
-              if (id) {
-                const rect = getRectForInstance(cur.instanceId);
-                const baseZ =
-                  typeof p.zIndex === "number" && Number.isFinite(p.zIndex)
-                    ? Math.trunc(p.zIndex)
-                    : null;
-                const zIndex = encodeLayerZIndex(baseZ, overlaySeq++);
-                const modal = p.modal === true;
-                const canClose = p.closeOnEscape !== false;
-                this._pooledCloseOnEscape.set(id, canClose);
-                this._pooledCloseOnBackdrop.set(id, false);
-                const cb = typeof p.onClose === "function" ? (p.onClose as () => void) : undefined;
-                if (cb) this._pooledOnClose.set(id, cb);
-                const layerInput = {
-                  id,
-                  rect,
-                  backdrop:
-                    p.backdrop === "none" || p.backdrop === "dim" || p.backdrop === "opaque"
-                      ? p.backdrop
-                      : "none",
-                  modal,
-                  closeOnEscape: canClose,
-                  zIndex,
-                } as const;
-                this.layerRegistry.register(cb ? { ...layerInput, onClose: cb } : layerInput);
-              }
-              break;
-            }
-            default:
-              break;
-          }
-
-          for (let i = cur.children.length - 1; i >= 0; i--) {
-            const c = cur.children[i];
-            if (c) this._pooledRuntimeStack.push(c);
-          }
-        }
-
-        this.layerStack = Object.freeze(this.layerRegistry.getAll().map((l) => l.id));
-        this.closeOnEscapeByLayerId = this._pooledCloseOnEscape;
-        this.closeOnBackdropByLayerId = this._pooledCloseOnBackdrop;
-        this.onCloseByLayerId = this._pooledOnClose;
-        this.dropdownStack = this._pooledDropdownStack.slice();
-        this.toastContainers = this._pooledToastContainers.slice();
+        const finalizedOverlayState = finalizeLayoutOnlyOverlayState({
+          layerRegistry: this.layerRegistry,
+          pooledCloseOnEscape: this._pooledCloseOnEscape,
+          pooledCloseOnBackdrop: this._pooledCloseOnBackdrop,
+          pooledOnClose: this._pooledOnClose,
+          pooledDropdownStack: this._pooledDropdownStack,
+          pooledToastContainers: this._pooledToastContainers,
+          pooledToastActionByFocusId: this._pooledToastActionByFocusId,
+          pooledToastActionLabelByFocusId: this._pooledToastActionLabelByFocusId,
+          pooledToastFocusableActionIds: this._pooledToastFocusableActionIds,
+          baseFocusList: this.baseFocusList,
+          baseEnabledById: this.baseEnabledById,
+          focusState: this.focusState,
+        });
+        this.layerStack = finalizedOverlayState.layerStack;
+        this.closeOnEscapeByLayerId = finalizedOverlayState.closeOnEscapeByLayerId;
+        this.closeOnBackdropByLayerId = finalizedOverlayState.closeOnBackdropByLayerId;
+        this.onCloseByLayerId = finalizedOverlayState.onCloseByLayerId;
+        this.dropdownStack = finalizedOverlayState.dropdownStack;
+        this.toastContainers = finalizedOverlayState.toastContainers;
         this.rebuildOverlayShortcutBindings();
-
-        this._pooledToastActionByFocusId.clear();
-        this._pooledToastActionLabelByFocusId.clear();
-        this._pooledToastFocusableActionIds.length = 0;
-
-        for (const tc of this._pooledToastContainers) {
-          if (!tc) continue;
-          const rect = tc.rect;
-          if (rect.w <= 0 || rect.h <= 0) continue;
-
-          const toasts = tc.props.toasts;
-          const maxVisible = tc.props.maxVisible ?? 5;
-          const maxByHeight = Math.floor(rect.h / TOAST_HEIGHT);
-          const visibleCount = Math.min(toasts.length, maxVisible, maxByHeight);
-          for (let i = 0; i < visibleCount; i++) {
-            const toast = toasts[i];
-            if (!toast?.action) continue;
-            const fid = getToastActionFocusId(toast.id);
-            this._pooledToastActionByFocusId.set(fid, toast.action.onAction);
-            this._pooledToastActionLabelByFocusId.set(fid, toast.action.label);
-            this._pooledToastFocusableActionIds.push(fid);
-          }
-        }
-
-        this.toastActionByFocusId = this._pooledToastActionByFocusId;
-        this.toastActionLabelByFocusId = this._pooledToastActionLabelByFocusId;
-        this.toastFocusableActionIds = this._pooledToastFocusableActionIds.slice();
-
-        const baseFocusList = this.baseFocusList;
-        const baseEnabledById = this.baseEnabledById;
-        this.focusList = baseFocusList;
-        this.enabledById = baseEnabledById;
-
-        if (this._pooledToastFocusableActionIds.length > 0) {
-          this.focusList = Object.freeze([...baseFocusList, ...this.toastFocusableActionIds]);
-          const enabled = new Map(baseEnabledById);
-          for (const id of this.toastFocusableActionIds) enabled.set(id, true);
-          this.enabledById = enabled;
-        }
-
-        const curFocus = this.focusState.focusedId;
-        if (
-          curFocus !== null &&
-          parseToastActionFocusId(curFocus) !== null &&
-          !this._pooledToastActionByFocusId.has(curFocus)
-        ) {
-          this.focusState = Object.freeze({
-            ...this.focusState,
-            focusedId: null,
-            activeZoneId: null,
-          });
-        }
+        this.toastActionByFocusId = finalizedOverlayState.toastActionByFocusId;
+        this.toastActionLabelByFocusId = finalizedOverlayState.toastActionLabelByFocusId;
+        this.toastFocusableActionIds = finalizedOverlayState.toastFocusableActionIds;
+        this.focusList = finalizedOverlayState.focusList;
+        this.enabledById = finalizedOverlayState.enabledById;
+        this.focusState = finalizedOverlayState.focusState;
 
         if (PERF_DETAIL_ENABLED) perfMarkEnd("routing_rebuild", routingToken);
       }
@@ -4868,129 +3320,61 @@ export class WidgetRenderer<S> {
       }
 
       if (doCommit && didRoutingRebuild) {
-        // Precompute flattened file trees for filePicker/fileTreeExplorer to avoid per-frame allocations.
-        for (const fp of this.filePickerById.values()) {
-          const s = this.treeStore.get(fp.id);
-          if (!readFileNodeFlatCache(s, fp.data, fp.expandedPaths)) {
-            const next = flattenTree(
-              fp.data,
-              fileNodeGetKey,
-              fileNodeGetChildren,
-              fileNodeHasChildren,
-              fp.expandedPaths,
-            );
-            this.treeStore.set(fp.id, {
-              flatCache: makeFileNodeFlatCache(fp.data, fp.expandedPaths, next),
-            });
-          }
-        }
-        for (const fte of this.fileTreeExplorerById.values()) {
-          const s = this.treeStore.get(fte.id);
-          if (!readFileNodeFlatCache(s, fte.data, fte.expanded)) {
-            const next = flattenTree(
-              fte.data,
-              fileNodeGetKey,
-              fileNodeGetChildren,
-              fileNodeHasChildren,
-              fte.expanded,
-            );
-            this.treeStore.set(fte.id, {
-              flatCache: makeFileNodeFlatCache(fte.data, fte.expanded, next),
-            });
-          }
-        }
-
-        // Garbage collect per-dropdown routing state for dropdowns that were removed.
-        for (const dropdownId of this.dropdownSelectedIndexById.keys()) {
-          if (!this.dropdownById.has(dropdownId)) this.dropdownSelectedIndexById.delete(dropdownId);
-        }
-
-        // Garbage collect local state for virtual lists that were removed.
-        for (const virtualListId of this.virtualListStore.keys()) {
-          if (!this.virtualListById.has(virtualListId)) this.virtualListStore.delete(virtualListId);
-        }
-        if (this.pressedVirtualList && !this.virtualListById.has(this.pressedVirtualList.id)) {
-          this.pressedVirtualList = null;
-        }
-
-        // Garbage collect local state for tables that were removed.
-        for (const tableId of this.tableStore.keys()) {
-          if (!this.tableById.has(tableId)) this.tableStore.delete(tableId);
-        }
-
-        // Garbage collect per-tree lazy-loading caches for trees that were removed.
-        for (const prevTreeId of this._pooledPrevTreeIds) {
-          if (!this.treeById.has(prevTreeId)) {
-            this.loadedTreeChildrenByTreeId.delete(prevTreeId);
-            const prefix = `${prevTreeId}\u0000`;
-            for (const tokenKey of this.treeLoadTokenByTreeAndKey.keys()) {
-              if (tokenKey.startsWith(prefix)) this.treeLoadTokenByTreeAndKey.delete(tokenKey);
-            }
-          }
-        }
-
-        // Garbage collect treeStore entries for tree-like widgets that were removed.
-        for (const treeLikeId of this.treeStore.keys()) {
-          if (
-            !this.treeById.has(treeLikeId) &&
-            !this.filePickerById.has(treeLikeId) &&
-            !this.fileTreeExplorerById.has(treeLikeId)
-          ) {
-            this.treeStore.delete(treeLikeId);
-          }
-        }
-
-        // Clear stale FileTreeExplorer click tracking state.
-        if (this.pressedFileTree && !this.fileTreeExplorerById.has(this.pressedFileTree.id)) {
-          this.pressedFileTree = null;
-        }
-        if (this.lastFileTreeClick && !this.fileTreeExplorerById.has(this.lastFileTreeClick.id)) {
-          this.lastFileTreeClick = null;
-        }
-        if (this.pressedFilePicker && !this.filePickerById.has(this.pressedFilePicker.id)) {
-          this.pressedFilePicker = null;
-        }
-        if (this.lastFilePickerClick && !this.filePickerById.has(this.lastFilePickerClick.id)) {
-          this.lastFilePickerClick = null;
-        }
-        if (this.pressedTree && !this.treeById.has(this.pressedTree.id)) {
-          this.pressedTree = null;
-        }
-        if (this.lastTreeClick && !this.treeById.has(this.lastTreeClick.id)) {
-          this.lastTreeClick = null;
-        }
-
-        // Garbage collect command palette async state for palettes that were removed.
-        for (const id of this.commandPaletteItemsById.keys()) {
-          if (!this.commandPaletteById.has(id)) this.commandPaletteItemsById.delete(id);
-        }
-        for (const id of this.commandPaletteLoadingById.keys()) {
-          if (!this.commandPaletteById.has(id)) this.commandPaletteLoadingById.delete(id);
-        }
-        for (const id of this.commandPaletteFetchTokenById.keys()) {
-          if (!this.commandPaletteById.has(id)) this.commandPaletteFetchTokenById.delete(id);
-        }
-        for (const id of this.commandPaletteLastQueryById.keys()) {
-          if (!this.commandPaletteById.has(id)) this.commandPaletteLastQueryById.delete(id);
-        }
-        for (const id of this.commandPaletteLastSourcesRefById.keys()) {
-          if (!this.commandPaletteById.has(id)) this.commandPaletteLastSourcesRefById.delete(id);
-        }
-
-        for (const id of this.toolApprovalFocusedActionById.keys()) {
-          if (!this.toolApprovalDialogById.has(id)) this.toolApprovalFocusedActionById.delete(id);
-        }
-
-        for (const id of this.diffViewerFocusedHunkById.keys()) {
-          if (!this.diffViewerById.has(id)) this.diffViewerFocusedHunkById.delete(id);
-        }
-        for (const id of this.diffViewerExpandedHunksById.keys()) {
-          if (!this.diffViewerById.has(id)) this.diffViewerExpandedHunksById.delete(id);
-        }
-
-        for (const id of this.logsConsoleLastGTimeById.keys()) {
-          if (!this.logsConsoleById.has(id)) this.logsConsoleLastGTimeById.delete(id);
-        }
+        const cleanedRoutingState = cleanupRoutingStateAfterRebuild({
+          pooledPrevTreeIds: this._pooledPrevTreeIds,
+          treeStore: this.treeStore,
+          virtualListStore: this.virtualListStore,
+          tableStore: this.tableStore,
+          loadedTreeChildrenByTreeId: this.loadedTreeChildrenByTreeId,
+          treeLoadTokenByTreeAndKey: this.treeLoadTokenByTreeAndKey,
+          dropdownSelectedIndexById: this.dropdownSelectedIndexById,
+          pressedVirtualList: this.pressedVirtualList,
+          pressedFileTree: this.pressedFileTree,
+          lastFileTreeClick: this.lastFileTreeClick,
+          pressedFilePicker: this.pressedFilePicker,
+          lastFilePickerClick: this.lastFilePickerClick,
+          pressedTree: this.pressedTree,
+          lastTreeClick: this.lastTreeClick,
+          commandPaletteItemsById: this.commandPaletteItemsById,
+          commandPaletteLoadingById: this.commandPaletteLoadingById,
+          commandPaletteFetchTokenById: this.commandPaletteFetchTokenById,
+          commandPaletteLastQueryById: this.commandPaletteLastQueryById,
+          commandPaletteLastSourcesRefById: this.commandPaletteLastSourcesRefById,
+          toolApprovalFocusedActionById: this.toolApprovalFocusedActionById,
+          diffViewerFocusedHunkById: this.diffViewerFocusedHunkById,
+          diffViewerExpandedHunksById: this.diffViewerExpandedHunksById,
+          logsConsoleLastGTimeById: this.logsConsoleLastGTimeById,
+          tableRenderCacheById: this.tableRenderCacheById,
+          logsConsoleRenderCacheById: this.logsConsoleRenderCacheById,
+          diffRenderCacheById: this.diffRenderCacheById,
+          codeEditorRenderCacheById: this.codeEditorRenderCacheById,
+          emptyStringArray: EMPTY_STRING_ARRAY,
+          virtualListById: this.virtualListById,
+          buttonById: this.buttonById,
+          linkById: this.linkById,
+          tableById: this.tableById,
+          treeById: this.treeById,
+          dropdownById: this.dropdownById,
+          sliderById: this.sliderById,
+          selectById: this.selectById,
+          checkboxById: this.checkboxById,
+          radioGroupById: this.radioGroupById,
+          commandPaletteById: this.commandPaletteById,
+          filePickerById: this.filePickerById,
+          fileTreeExplorerById: this.fileTreeExplorerById,
+          splitPaneById: this.splitPaneById,
+          codeEditorById: this.codeEditorById,
+          diffViewerById: this.diffViewerById,
+          toolApprovalDialogById: this.toolApprovalDialogById,
+          logsConsoleById: this.logsConsoleById,
+        });
+        this.pressedVirtualList = cleanedRoutingState.pressedVirtualList;
+        this.pressedFileTree = cleanedRoutingState.pressedFileTree;
+        this.lastFileTreeClick = cleanedRoutingState.lastFileTreeClick;
+        this.pressedFilePicker = cleanedRoutingState.pressedFilePicker;
+        this.lastFilePickerClick = cleanedRoutingState.lastFilePickerClick;
+        this.pressedTree = cleanedRoutingState.pressedTree;
+        this.lastTreeClick = cleanedRoutingState.lastTreeClick;
       }
 
       if (doCommit) {
