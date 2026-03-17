@@ -28,6 +28,24 @@ function expectLayoutFatal(vnode: VNode, detail: string): void {
 }
 
 describe("vnode interactive prop validation - button/input", () => {
+  test("interactive validators reject non-object prop bags", () => {
+    const cases = [
+      ["button", validateButtonProps(42)],
+      ["input", validateInputProps("bad")],
+      ["select", validateSelectProps(false)],
+      ["slider", validateSliderProps(null)],
+      ["checkbox", validateCheckboxProps(0)],
+      ["radioGroup", validateRadioGroupProps(["bad"])],
+    ] as const;
+
+    for (const [kind, result] of cases) {
+      assert.equal(result.ok, false);
+      if (result.ok) continue;
+      assert.equal(result.fatal.code, "ZRUI_INVALID_PROPS");
+      assert.equal(result.fatal.detail, `${kind} props must be an object`);
+    }
+  });
+
   test("validateButtonProps accepts valid props", () => {
     const res = validateButtonProps({ id: "save", label: "Save" });
     assert.equal(res.ok, true);

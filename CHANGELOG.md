@@ -6,6 +6,14 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- Layout and interactive prop validators now reject non-object prop bags instead of silently treating them as empty props.
+
+### Tests
+
+- Added regressions covering non-object prop bags for stack/box layout validators and all top-level interactive validators.
+
 ## [0.1.0-alpha.60] - 2026-03-14
 
 ### Bug Fixes

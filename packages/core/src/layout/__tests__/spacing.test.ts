@@ -80,6 +80,20 @@ describe("spacing", () => {
     assert.equal(res.fatal.detail, "row.gap must be an int32 >= 0");
   });
 
+  test("validate layout containers reject non-object prop bags", () => {
+    const stackRes = validateStackProps("row", 42);
+    assert.equal(stackRes.ok, false);
+    if (stackRes.ok) throw new Error("expected fatal");
+    assert.equal(stackRes.fatal.code, "ZRUI_INVALID_PROPS");
+    assert.equal(stackRes.fatal.detail, "row props must be an object");
+
+    const boxRes = validateBoxProps("invalid");
+    assert.equal(boxRes.ok, false);
+    if (boxRes.ok) throw new Error("expected fatal");
+    assert.equal(boxRes.fatal.code, "ZRUI_INVALID_PROPS");
+    assert.equal(boxRes.fatal.detail, "box props must be an object");
+  });
+
   test("validate spacing accepts numeric strings and truncates finite numbers", () => {
     const res = validateBoxProps({ p: "2.9", m: "-3.4", pad: 1.8 });
     assert.equal(res.ok, true);

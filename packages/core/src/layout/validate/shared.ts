@@ -13,6 +13,19 @@ export function invalid(detail: string): LayoutResult<never> {
   return { ok: false, fatal: { code: "ZRUI_INVALID_PROPS", detail } };
 }
 
+export function requirePropBag(
+  kind: string,
+  props: unknown,
+): LayoutResult<Readonly<Record<string, unknown>>> {
+  if (props === undefined) {
+    return { ok: true, value: {} };
+  }
+  if (typeof props !== "object" || props === null || Array.isArray(props)) {
+    return invalid(`${kind} props must be an object`);
+  }
+  return { ok: true, value: props as Readonly<Record<string, unknown>> };
+}
+
 export function describeReceivedType(value: unknown): string {
   if (value === null) return "null";
   if (Array.isArray(value)) return "array";

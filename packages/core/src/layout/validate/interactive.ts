@@ -30,7 +30,7 @@ import {
   requireSpacingIntNonNegative,
   requireString,
 } from "./primitives.js";
-import { type LayoutResult, invalid } from "./shared.js";
+import { type LayoutResult, invalid, requirePropBag } from "./shared.js";
 import type { ValidatedSpacingProps } from "./spacing.js";
 import { validateSpacingProps } from "./spacing.js";
 
@@ -173,7 +173,9 @@ export function validateStackProps(
   kind: "row" | "column",
   props: StackProps | unknown,
 ): LayoutResult<ValidatedStackProps> {
-  const p = (props ?? {}) as StackPropBag;
+  const propsRes = requirePropBag(kind, props);
+  if (!propsRes.ok) return propsRes;
+  const p = propsRes.value as StackPropBag;
 
   const padRes = requireSpacingIntNonNegative(kind, "pad", p.pad, 0);
   if (!padRes.ok) return padRes;
@@ -245,7 +247,9 @@ export function validateStackProps(
 
 /** Validate Box props: pad (default 0), border (default "single"). */
 export function validateBoxProps(props: BoxProps | unknown): LayoutResult<ValidatedBoxProps> {
-  const p = (props ?? {}) as BoxPropBag;
+  const propsRes = requirePropBag("box", props);
+  if (!propsRes.ok) return propsRes;
+  const p = propsRes.value as BoxPropBag;
 
   const padRes = requireSpacingIntNonNegative("box", "pad", p.pad, 0);
   if (!padRes.ok) return padRes;
@@ -312,7 +316,9 @@ export function validateBoxProps(props: BoxProps | unknown): LayoutResult<Valida
 export function validateSpacerProps(
   props: SpacerProps | unknown,
 ): LayoutResult<ValidatedSpacerProps> {
-  const p = (props ?? {}) as { size?: unknown; flex?: unknown };
+  const propsRes = requirePropBag("spacer", props);
+  if (!propsRes.ok) return propsRes;
+  const p = propsRes.value as { size?: unknown; flex?: unknown };
   const flexRes = requireFlex("spacer", p.flex);
   if (!flexRes.ok) return flexRes;
   const flex = flexRes.value ?? 0;
@@ -326,7 +332,9 @@ export function validateSpacerProps(
 export function validateButtonProps(
   props: ButtonProps | unknown,
 ): LayoutResult<ValidatedButtonProps> {
-  const p = (props ?? {}) as { id?: unknown; label?: unknown; disabled?: unknown };
+  const propsRes = requirePropBag("button", props);
+  if (!propsRes.ok) return propsRes;
+  const p = propsRes.value as { id?: unknown; label?: unknown; disabled?: unknown };
   const idRes = requireNonEmptyString("button", "id", p.id);
   if (!idRes.ok) return idRes;
   const labelRes = requireString("button", "label", p.label);
@@ -341,7 +349,9 @@ export function validateButtonProps(
 
 /** Validate Input props: id (required, non-empty), value (required), disabled (default false). */
 export function validateInputProps(props: InputProps | unknown): LayoutResult<ValidatedInputProps> {
-  const p = (props ?? {}) as {
+  const propsRes = requirePropBag("input", props);
+  if (!propsRes.ok) return propsRes;
+  const p = propsRes.value as {
     id?: unknown;
     value?: unknown;
     disabled?: unknown;
@@ -415,7 +425,9 @@ function validateInteractiveOptions(
 export function validateSelectProps(
   props: SelectProps | unknown,
 ): LayoutResult<ValidatedSelectProps> {
-  const p = (props ?? {}) as {
+  const propsRes = requirePropBag("select", props);
+  if (!propsRes.ok) return propsRes;
+  const p = propsRes.value as {
     id?: unknown;
     value?: unknown;
     options?: unknown;
@@ -457,7 +469,9 @@ export function validateSelectProps(
 export function validateSliderProps(
   props: SliderProps | unknown,
 ): LayoutResult<ValidatedSliderProps> {
-  const p = (props ?? {}) as {
+  const propsRes = requirePropBag("slider", props);
+  if (!propsRes.ok) return propsRes;
+  const p = propsRes.value as {
     id?: unknown;
     value?: unknown;
     min?: unknown;
@@ -522,7 +536,9 @@ export function validateSliderProps(
 export function validateCheckboxProps(
   props: CheckboxProps | unknown,
 ): LayoutResult<ValidatedCheckboxProps> {
-  const p = (props ?? {}) as {
+  const propsRes = requirePropBag("checkbox", props);
+  if (!propsRes.ok) return propsRes;
+  const p = propsRes.value as {
     id?: unknown;
     checked?: unknown;
     label?: unknown;
@@ -552,7 +568,9 @@ export function validateCheckboxProps(
 export function validateRadioGroupProps(
   props: RadioGroupProps | unknown,
 ): LayoutResult<ValidatedRadioGroupProps> {
-  const p = (props ?? {}) as {
+  const propsRes = requirePropBag("radioGroup", props);
+  if (!propsRes.ok) return propsRes;
+  const p = propsRes.value as {
     id?: unknown;
     value?: unknown;
     options?: unknown;
@@ -585,7 +603,9 @@ export function validateRadioGroupProps(
 
 /** Validate Text props (`maxWidth` affects measurement; style/overflow are renderer concerns). */
 export function validateTextProps(props: TextProps | unknown): LayoutResult<ValidatedTextProps> {
-  const p = (props ?? {}) as { maxWidth?: unknown; wrap?: unknown };
+  const propsRes = requirePropBag("text", props);
+  if (!propsRes.ok) return propsRes;
+  const p = propsRes.value as { maxWidth?: unknown; wrap?: unknown };
   const maxWidthRes = requireOptionalTextMaxWidth("text", "maxWidth", p.maxWidth);
   if (!maxWidthRes.ok) return maxWidthRes;
   const wrapRes = requireBoolean("text", "wrap", p.wrap, false);
