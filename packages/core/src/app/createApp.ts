@@ -24,15 +24,12 @@
 
 import { ZrUiError, type ZrUiErrorCode } from "../abi.js";
 import {
-  BACKEND_DRAWLIST_VERSION_MARKER,
   BACKEND_FPS_CAP_MARKER,
   BACKEND_MAX_EVENT_BYTES_MARKER,
-  type BackendEventBatch,
-  FRAME_ACCEPTED_ACK_MARKER,
   type RuntimeBackend,
 } from "../backend.js";
 import { describeThrown } from "../debug/describeThrown.js";
-import type { UiEvent, ZrevEvent } from "../events.js";
+import type { UiEvent } from "../events.js";
 import type {
   BindingMap,
   KeyContext,
@@ -44,374 +41,59 @@ import {
   getBindings,
   getMode,
   getPendingChord,
-  registerBindings,
-  registerModes,
-  removeBindingsBySource,
-  resetChordState,
-  routeKeyEvent,
   setMode,
 } from "../keybindings/index.js";
-import { ZR_MOD_CTRL } from "../keybindings/keyCodes.js";
-import {
-  type ResponsiveBreakpointThresholds,
-  normalizeBreakpointThresholds,
-} from "../layout/responsive.js";
 import type { Rect } from "../layout/types.js";
-import { PERF_ENABLED, perfMarkEnd, perfMarkStart, perfNow, perfRecord } from "../perf/perf.js";
+import { PERF_ENABLED, perfMarkStart } from "../perf/perf.js";
 import type { EventTimeUnwrapState } from "../protocol/types.js";
-import { parseEventBatchV1 } from "../protocol/zrev_v1.js";
 import { type RouterIntegration, createRouterIntegration } from "../router/integration.js";
 import type { RouteDefinition } from "../router/types.js";
-import {
-  DEFAULT_TERMINAL_PROFILE,
-  type TerminalProfile,
-  terminalProfileFromCaps,
-} from "../terminalProfile.js";
+import { DEFAULT_TERMINAL_PROFILE, type TerminalProfile } from "../terminalProfile.js";
 import { defaultTheme } from "../theme/defaultTheme.js";
-import { type Theme, blendTheme, compileTheme } from "../theme/theme.js";
+import { type Theme, compileTheme } from "../theme/theme.js";
 import type { ThemeDefinition } from "../theme/tokens.js";
-import type { VNode } from "../widgets/types.js";
-import { ui } from "../widgets/ui.js";
+import {
+  type InternalRuntimeBreadcrumbHooks,
+  createRuntimeBreadcrumbHelpers,
+} from "./createApp/breadcrumbs.js";
+import {
+  type ResolvedAppConfig,
+  loadTerminalProfile,
+  readBackendDrawlistVersionMarker,
+  readBackendPositiveIntMarker,
+  requirePositiveInt,
+  resolveAppConfig as resolveAppConfigImpl,
+} from "./createApp/config.js";
 import {
   DIRTY_LAYOUT,
   DIRTY_RENDER,
   DIRTY_VIEW,
-  buildWidgetRenderPlan,
   createDirtyTracker,
 } from "./createApp/dirtyPlan.js";
+import { type WorkItem, createEventLoop } from "./createApp/eventLoop.js";
 import { createFocusDispatcher } from "./createApp/focusDispatcher.js";
+import { createAppGuards } from "./createApp/guards.js";
+import { computeKeybindingsEnabled, createAppKeybindingHelpers } from "./createApp/keybindings.js";
+import { type ThemeTransitionState, createRenderLoop } from "./createApp/renderLoop.js";
 import { createRunSignalController, readProcessLike } from "./createApp/runSignals.js";
-import {
-  type TopLevelViewError,
-  buildTopLevelViewErrorScreen,
-  captureTopLevelViewError,
-  isTopLevelQuitEvent,
-  isTopLevelRetryEvent,
-  isUnhandledCtrlCKeyEvent,
-  isUnmodifiedTextQuitEvent,
-} from "./createApp/topLevelViewError.js";
+import type { TopLevelViewError } from "./createApp/topLevelViewError.js";
 import { RawRenderer } from "./rawRenderer.js";
-import {
-  type RuntimeBreadcrumbAction,
-  type RuntimeBreadcrumbConsumptionPath,
-  type RuntimeBreadcrumbEventKind,
-  type RuntimeBreadcrumbSnapshot,
-  isRuntimeBreadcrumbEventKind,
-  mergeRuntimeBreadcrumbSnapshot,
-  toRuntimeBreadcrumbAction,
+import type {
+  RuntimeBreadcrumbAction,
+  RuntimeBreadcrumbConsumptionPath,
+  RuntimeBreadcrumbEventKind,
 } from "./runtimeBreadcrumbs.js";
 import { AppStateMachine } from "./stateMachine.js";
 import { TurnScheduler } from "./turnScheduler.js";
-import type {
-  App,
-  AppConfig,
-  AppLayoutSnapshot,
-  AppRenderMetrics,
-  DrawFn,
-  EventHandler,
-  FocusChangeHandler,
-  ViewFn,
-} from "./types.js";
+import type { App, AppConfig, DrawFn, EventHandler, FocusChangeHandler, ViewFn } from "./types.js";
 import { type StateUpdater, UpdateQueue } from "./updateQueue.js";
-import {
-  type WidgetRenderPlan,
-  WidgetRenderer,
-  type WidgetRoutingOutcome,
-} from "./widgetRenderer.js";
+import { WidgetRenderer } from "./widgetRenderer.js";
 
-const ROUTE_KEYBINDING_SOURCE = "__rezi:router";
-
-/** Resolved configuration with defaults applied. */
-type ResolvedAppConfig = Readonly<{
-  fpsCap: number;
-  maxEventBytes: number;
-  maxDrawlistBytes: number;
-  rootPadding: number;
-  breakpointThresholds: ResponsiveBreakpointThresholds;
-  drawlistValidateParams: boolean;
-  drawlistReuseOutputBuffer: boolean;
-  drawlistEncodedStringCacheCap: number;
-  maxFramesInFlight: number;
-  themeTransitionFrames: number;
-  internal_onRender?: ((metrics: AppRenderMetrics) => void) | undefined;
-  internal_onLayout?: ((snapshot: AppLayoutSnapshot) => void) | undefined;
-}>;
-
-type InternalRenderMetricsWithBreadcrumbs = AppRenderMetrics &
-  Readonly<{ runtimeBreadcrumbs: RuntimeBreadcrumbSnapshot }>;
-type InternalLayoutSnapshotWithBreadcrumbs = AppLayoutSnapshot &
-  Readonly<{ runtimeBreadcrumbs: RuntimeBreadcrumbSnapshot }>;
-
-/** Default configuration values. */
-const DEFAULT_CONFIG: ResolvedAppConfig = Object.freeze({
-  fpsCap: 60,
-  maxEventBytes: 1 << 20 /* 1 MiB */,
-  maxDrawlistBytes: 2 << 20 /* 2 MiB */,
-  rootPadding: 0,
-  breakpointThresholds: normalizeBreakpointThresholds(undefined),
-  drawlistValidateParams: true,
-  drawlistReuseOutputBuffer: true,
-  drawlistEncodedStringCacheCap: 131072,
-  maxFramesInFlight: 1,
-  themeTransitionFrames: 0,
-  internal_onRender: undefined,
-  internal_onLayout: undefined,
-});
-
-const MAX_SAFE_FPS_CAP = 1000;
-const MAX_SAFE_EVENT_BYTES = 4 << 20; /* 4 MiB */
-const SYNC_FRAME_ACK_MARKER = "__reziSyncFrameAck";
 export const APP_INTERNAL_REQUEST_VIEW_LAYOUT_MARKER = "__reziRequestViewLayout";
 export const APP_INTERNAL_SET_RUNTIME_BREADCRUMB_HOOKS_MARKER = "__reziSetRuntimeBreadcrumbHooks";
 
-type InternalRuntimeBreadcrumbHooks = Readonly<{
-  onRender?: ((metrics: AppRenderMetrics) => void) | undefined;
-  onLayout?: ((snapshot: AppLayoutSnapshot) => void) | undefined;
-}>;
-
-function invalidProps(detail: string): never {
-  throw new ZrUiError("ZRUI_INVALID_PROPS", detail);
-}
-
-function requirePositiveInt(name: string, v: number): number {
-  if (!Number.isInteger(v) || v <= 0) invalidProps(`${name} must be a positive integer`);
-  return v;
-}
-
-function requirePositiveIntAtMost(name: string, v: number, max: number): number {
-  const parsed = requirePositiveInt(name, v);
-  if (parsed > max) invalidProps(`${name} must be <= ${String(max)}`);
-  return parsed;
-}
-
-function requireNonNegativeInt(name: string, v: number): number {
-  if (!Number.isInteger(v) || v < 0) invalidProps(`${name} must be a non-negative integer`);
-  return v;
-}
-
-function isSyncFrameAck(
-  p: Promise<void>,
-): p is Promise<void> & Readonly<Record<typeof SYNC_FRAME_ACK_MARKER, true>> {
-  return (
-    typeof p === "object" &&
-    p !== null &&
-    (p as Promise<void> & Partial<Record<typeof SYNC_FRAME_ACK_MARKER, true>>)[
-      SYNC_FRAME_ACK_MARKER
-    ] === true
-  );
-}
-
-function getAcceptedFrameAck(p: Promise<void>): Promise<void> | null {
-  if (typeof p !== "object" || p === null) return null;
-  const marker = (p as Promise<void> & Partial<Record<typeof FRAME_ACCEPTED_ACK_MARKER, unknown>>)[
-    FRAME_ACCEPTED_ACK_MARKER
-  ];
-  if (typeof marker !== "object" || marker === null) return null;
-  if (typeof (marker as { then?: unknown }).then !== "function") return null;
-  return marker as Promise<void>;
-}
-
-function readBackendPositiveIntMarker(
-  backend: RuntimeBackend,
-  marker: typeof BACKEND_MAX_EVENT_BYTES_MARKER | typeof BACKEND_FPS_CAP_MARKER,
-): number | null {
-  const value = (backend as RuntimeBackend & Readonly<Record<string, unknown>>)[marker];
-  if (value === undefined) return null;
-  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
-    invalidProps(`backend marker ${marker} must be a positive integer when present`);
-  }
-  return value;
-}
-
-function readBackendDrawlistVersionMarker(backend: RuntimeBackend): 1 | null {
-  const value = (backend as RuntimeBackend & Readonly<Record<string, unknown>>)[
-    BACKEND_DRAWLIST_VERSION_MARKER
-  ];
-  if (value === undefined) return null;
-  if (value !== 1) {
-    invalidProps(
-      `backend marker ${BACKEND_DRAWLIST_VERSION_MARKER} must be 1 (received ${String(value)})`,
-    );
-  }
-  return 1;
-}
-
-function monotonicNowMs(): number {
-  const perf = (globalThis as { performance?: { now?: () => number } }).performance;
-  const perfNow = perf?.now;
-  if (typeof perfNow === "function") return perfNow.call(perf);
-  return Date.now();
-}
-
-async function loadTerminalProfile(backend: RuntimeBackend): Promise<TerminalProfile> {
-  try {
-    if (typeof backend.getTerminalProfile === "function") {
-      return await backend.getTerminalProfile();
-    }
-  } catch {
-    // fall through to caps-derived profile
-  }
-
-  try {
-    const caps = await backend.getCaps();
-    return terminalProfileFromCaps(caps);
-  } catch {
-    return DEFAULT_TERMINAL_PROFILE;
-  }
-}
-
-function buildLayoutDebugOverlay(rectById: ReadonlyMap<string, Rect>): VNode | null {
-  if (rectById.size === 0) return null;
-  const rows = [...rectById.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .slice(0, 18)
-    .map(([id, rect]) =>
-      ui.text(`${id}  ${String(rect.x)},${String(rect.y)}  ${String(rect.w)}x${String(rect.h)}`),
-    );
-  const panel = ui.box({ border: "single", title: `Layout (${String(rectById.size)})`, p: 1 }, [
-    ui.column({ gap: 0 }, rows),
-  ]);
-  return ui.layer({
-    id: "rezi.layout.debug.overlay",
-    zIndex: 2_000_000_000,
-    modal: false,
-    backdrop: "none",
-    closeOnEscape: false,
-    content: ui.column({ width: "full", height: "full", justify: "end", p: 1 }, [
-      ui.row({ width: "full", justify: "start" }, [panel]),
-    ]),
-  });
-}
-
-/** Apply defaults to user-provided config, validating all values. */
-export function resolveAppConfig(config: AppConfig | undefined): ResolvedAppConfig {
-  if (!config) return DEFAULT_CONFIG;
-  const fpsCap =
-    config.fpsCap === undefined
-      ? DEFAULT_CONFIG.fpsCap
-      : requirePositiveIntAtMost("fpsCap", config.fpsCap, MAX_SAFE_FPS_CAP);
-  const maxEventBytes =
-    config.maxEventBytes === undefined
-      ? DEFAULT_CONFIG.maxEventBytes
-      : requirePositiveIntAtMost("maxEventBytes", config.maxEventBytes, MAX_SAFE_EVENT_BYTES);
-  const maxDrawlistBytes =
-    config.maxDrawlistBytes === undefined
-      ? DEFAULT_CONFIG.maxDrawlistBytes
-      : requirePositiveInt("maxDrawlistBytes", config.maxDrawlistBytes);
-  const rootPadding =
-    config.rootPadding === undefined
-      ? DEFAULT_CONFIG.rootPadding
-      : requireNonNegativeInt("rootPadding", config.rootPadding);
-  const breakpointThresholds = normalizeBreakpointThresholds(config.breakpoints);
-  const drawlistValidateParams =
-    config.drawlistValidateParams === undefined
-      ? DEFAULT_CONFIG.drawlistValidateParams
-      : config.drawlistValidateParams !== false;
-  const drawlistReuseOutputBuffer =
-    config.drawlistReuseOutputBuffer === undefined
-      ? DEFAULT_CONFIG.drawlistReuseOutputBuffer
-      : config.drawlistReuseOutputBuffer === true;
-  const drawlistEncodedStringCacheCap =
-    config.drawlistEncodedStringCacheCap === undefined
-      ? DEFAULT_CONFIG.drawlistEncodedStringCacheCap
-      : requireNonNegativeInt(
-          "drawlistEncodedStringCacheCap",
-          config.drawlistEncodedStringCacheCap,
-        );
-  const maxFramesInFlight =
-    config.maxFramesInFlight === undefined
-      ? DEFAULT_CONFIG.maxFramesInFlight
-      : Math.min(4, Math.max(1, requirePositiveInt("maxFramesInFlight", config.maxFramesInFlight)));
-  const themeTransitionFrames =
-    config.themeTransitionFrames === undefined
-      ? DEFAULT_CONFIG.themeTransitionFrames
-      : requireNonNegativeInt("themeTransitionFrames", config.themeTransitionFrames);
-  const internal_onRender =
-    typeof config.internal_onRender === "function" ? config.internal_onRender : undefined;
-  const internal_onLayout =
-    typeof config.internal_onLayout === "function" ? config.internal_onLayout : undefined;
-
-  return Object.freeze({
-    fpsCap,
-    maxEventBytes,
-    maxDrawlistBytes,
-    rootPadding,
-    breakpointThresholds,
-    drawlistValidateParams,
-    drawlistReuseOutputBuffer,
-    drawlistEncodedStringCacheCap,
-    maxFramesInFlight,
-    themeTransitionFrames,
-    internal_onRender,
-    internal_onLayout,
-  });
-}
-
-/** Render mode: raw (draw API) or widget (view function). */
 type Mode = "raw" | "widget";
-
-/**
- * Internal work items processed by the turn scheduler.
- *   - eventBatch: Parsed event batch from backend polling
- *   - userCommit: Scheduled state commit from update()
- *   - kick: Initial render trigger after start()
- *   - frameDone: Frame acknowledged by backend
- *   - frameError: Frame submission failed
- *   - fatal: Unrecoverable error requiring shutdown
- */
-type WorkItem =
-  | Readonly<{ kind: "eventBatch"; batch: BackendEventBatch }>
-  | Readonly<{ kind: "userCommit" }>
-  | Readonly<{ kind: "kick" }>
-  | Readonly<{ kind: "renderRequest" }>
-  | Readonly<{ kind: "frameDone" }>
-  | Readonly<{ kind: "frameError"; error: unknown }>
-  | Readonly<{ kind: "fatal"; code: ZrUiErrorCode; detail: string }>;
-
-/** Event handler registration with deactivation flag. */
 type HandlerSlot = Readonly<{ fn: EventHandler; active: { value: boolean } }>;
-
-/**
- * Convert a text codepoint to a key code for keybinding matching.
- * Letters are normalized to uppercase (A-Z = 65-90).
- * Returns null if codepoint is not matchable.
- */
-function codepointToKeyCode(codepoint: number): number | null {
-  // Lowercase letters -> uppercase
-  if (codepoint >= 97 && codepoint <= 122) {
-    return codepoint - 32; // 'a' (97) -> 'A' (65)
-  }
-  // Uppercase letters
-  if (codepoint >= 65 && codepoint <= 90) {
-    return codepoint;
-  }
-  // Digits and printable ASCII
-  if (codepoint >= 32 && codepoint <= 126) {
-    return codepoint;
-  }
-  return null;
-}
-
-/**
- * Convert text control characters into Ctrl+key key codes.
- *
- * Terminals without kitty/CSI-u often emit Ctrl+letter as text bytes:
- * 0x01-0x1A for Ctrl+A..Ctrl+Z, and 0x1C-0x1F for Ctrl+\..Ctrl+_.
- * We intentionally exclude 0x09 (Tab), 0x0D (Enter), and 0x1B (Escape)
- * because they have dedicated key semantics in the engine.
- */
-function codepointToCtrlKeyCode(codepoint: number): number | null {
-  if (codepoint === 9 || codepoint === 13) {
-    return null;
-  }
-  if (codepoint >= 1 && codepoint <= 26) {
-    return codepoint + 64;
-  }
-  if (codepoint >= 28 && codepoint <= 31) {
-    return codepoint + 64;
-  }
-  return null;
-}
 
 type CreateAppBaseOptions = Readonly<{
   backend: RuntimeBackend;
@@ -435,37 +117,14 @@ type CreateAppRoutesOnlyOptions = CreateAppBaseOptions &
     routeHistoryMaxDepth?: number;
   }>;
 
-type ThemeTransitionState = Readonly<{
-  from: Theme;
-  to: Theme;
-  frame: number;
-  totalFrames: number;
-}>;
-
-function blendThemeColors(from: Theme, to: Theme, t: number): Theme {
-  return blendTheme(from, to, t);
+function invalidProps(detail: string): never {
+  throw new ZrUiError("ZRUI_INVALID_PROPS", detail);
 }
 
-/**
- * Create a Rezi application instance.
- *
- * @typeParam S - Application state type
- * @param opts.backend - Runtime backend implementation
- * @param opts.initialState - Initial application state
- * @param opts.config - Optional configuration overrides
- * @returns App instance with view/draw, update, start/stop/dispose methods
- *
- * @example
- * ```ts
- * // For Node/Bun apps, prefer createNodeApp() from @rezi-ui/node:
- * // const app = createNodeApp({ initialState: { count: 0 } });
- *
- * // For custom runtimes/backends, compose manually:
- * const app = createApp({ backend, initialState: { count: 0 } });
- * app.view((state) => ui.text(`Count: ${state.count}`));
- * await app.run();
- * ```
- */
+export function resolveAppConfig(config: AppConfig | undefined): ResolvedAppConfig {
+  return resolveAppConfigImpl(config);
+}
+
 export function createApp(opts: CreateAppRoutesOnlyOptions): App<Record<string, never>>;
 export function createApp<S>(opts: CreateAppStateOptions<S>): App<S>;
 export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnlyOptions): App<S> {
@@ -556,18 +215,32 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
   let renderRequestQueuedForCurrentTurn = false;
 
   let userCommitScheduled = false;
-
-  // Perf tracking: submit time for backend_ack calculation
-  let submitFrameStartMs: number | null = null;
-
-  // Perf tracking: schedule_wait measures time from render request to render start
   let scheduleWaitStartMs: number | null = null;
 
-  const scheduler = new TurnScheduler<WorkItem>((items) => processTurn(items));
+  const baseInternalOnRender = config.internal_onRender;
+  const baseInternalOnLayout = config.internal_onLayout;
+  let inspectorInternalOnRender: InternalRuntimeBreadcrumbHooks["onRender"];
+  let inspectorInternalOnLayout: InternalRuntimeBreadcrumbHooks["onLayout"];
+  let runtimeBreadcrumbsEnabled =
+    baseInternalOnRender !== undefined || baseInternalOnLayout !== undefined;
+
+  let keybindingState: KeybindingManagerState<KeyContext<S>> = createManagerState();
+  let keybindingsEnabled = false;
+
+  let breadcrumbLastEventKind: RuntimeBreadcrumbEventKind | null = null;
+  let breadcrumbLastConsumptionPath: RuntimeBreadcrumbConsumptionPath | null = null;
+  let breadcrumbLastAction: RuntimeBreadcrumbAction | null = null;
+  let breadcrumbEventTracked = false;
+  let deferredInlineFatal: Readonly<{ code: ZrUiErrorCode; detail: string }> | null = null;
+
+  let processTurnImpl: (items: readonly WorkItem[]) => void = () => undefined;
+  let tryRenderOnceImpl: () => void = () => undefined;
+  const scheduler = new TurnScheduler<WorkItem>((items) => processTurnImpl(items));
+  const enqueueWorkItem = (item: WorkItem): void => {
+    scheduler.enqueue(item);
+  };
 
   function markDirty(flags: number, schedule = true): void {
-    // Track when dirty flags are first set for schedule_wait measurement.
-    // This captures time from "render needed" to "render started".
     const { wasDirty, flags: nextFlags } = dirtyTracker.markDirty(flags);
     if (PERF_ENABLED && !wasDirty && nextFlags !== 0 && scheduleWaitStartMs === null) {
       scheduleWaitStartMs = perfMarkStart("schedule_wait");
@@ -577,52 +250,12 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     if (scheduler.isExecuting) {
       if (!renderRequestQueuedForCurrentTurn) {
         renderRequestQueuedForCurrentTurn = true;
-        scheduler.enqueue({ kind: "renderRequest" });
+        enqueueWorkItem({ kind: "renderRequest" });
       }
       return;
     }
     if (scheduler.isScheduled) return;
-    scheduler.enqueue({ kind: "renderRequest" });
-  }
-
-  function beginThemeTransition(nextTheme: Theme): void {
-    if (config.themeTransitionFrames <= 0 || sm.state !== "Running" || mode !== "widget") {
-      theme = nextTheme;
-      themeTransition = null;
-      return;
-    }
-
-    themeTransition = Object.freeze({
-      from: theme,
-      to: nextTheme,
-      frame: 0,
-      totalFrames: config.themeTransitionFrames,
-    });
-  }
-
-  function advanceThemeTransitionFrame(): void {
-    const active = themeTransition;
-    if (!active) return;
-    const nextFrame = active.frame + 1;
-    if (nextFrame >= active.totalFrames) {
-      theme = active.to;
-      themeTransition = null;
-      return;
-    }
-    theme = blendThemeColors(active.from, active.to, nextFrame / active.totalFrames);
-    themeTransition = Object.freeze({
-      ...active,
-      frame: nextFrame,
-    });
-  }
-
-  function scheduleThemeTransitionContinuation(): void {
-    if (!themeTransition || sm.state !== "Running") return;
-    // Theme-aware composite widgets resolve recipe styles during commit, so
-    // transition frames must invalidate view/commit, not only render.
-    markDirty(DIRTY_VIEW, false);
-    renderRequestQueuedForCurrentTurn = true;
-    scheduler.enqueue({ kind: "renderRequest" });
+    enqueueWorkItem({ kind: "renderRequest" });
   }
 
   function requestRenderFromRenderer(): void {
@@ -633,13 +266,111 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     markDirty(DIRTY_VIEW);
   }
 
-  const baseInternalOnRender = config.internal_onRender;
-  const baseInternalOnLayout = config.internal_onLayout;
-  let inspectorInternalOnRender: ((metrics: AppRenderMetrics) => void) | undefined;
-  let inspectorInternalOnLayout: ((snapshot: AppLayoutSnapshot) => void) | undefined;
+  const guards = createAppGuards({
+    getEventHandlerDepth: () => inEventHandlerDepth,
+    getLifecycleBusy: () => lifecycleBusy,
+    getRuntimeState: () => sm.state,
+    isInCommit: () => inCommit,
+    isInRender: () => inRender,
+  });
 
-  let runtimeBreadcrumbsEnabled =
-    baseInternalOnRender !== undefined || baseInternalOnLayout !== undefined;
+  function enqueueFatal(code: ZrUiErrorCode, detail: string): void {
+    enqueueWorkItem({ kind: "fatal", code, detail });
+  }
+
+  function doFatal(code: ZrUiErrorCode, detail: string): void {
+    if (sm.state !== "Running") return;
+    lifecycleBusy = null;
+    lifecycleGeneration++;
+    backendStarted = false;
+
+    const fatalEv: UiEvent = { kind: "fatal", code, detail };
+    const snapshot: EventHandler[] = [];
+    for (const slot of handlers) {
+      if (slot.active.value) snapshot.push(slot.fn);
+    }
+    for (const fn of snapshot) {
+      try {
+        fn(fatalEv);
+      } catch {
+        // ignore
+      }
+    }
+
+    try {
+      sm.toFaulted();
+    } catch {
+      // ignore
+    }
+
+    pollToken++;
+
+    try {
+      void backend
+        .stop()
+        .catch(() => undefined)
+        .finally(() => {
+          try {
+            backend.dispose();
+          } catch {
+            // ignore
+          }
+          settleActiveRun?.();
+        });
+    } catch {
+      try {
+        backend.dispose();
+      } catch {
+        // ignore
+      }
+      settleActiveRun?.();
+    }
+  }
+
+  function flushDeferredInlineFatal(): void {
+    if (deferredInlineFatal === null || inEventHandlerDepth !== 0) return;
+    const fatal = deferredInlineFatal;
+    deferredInlineFatal = null;
+    doFatal(fatal.code, fatal.detail);
+  }
+
+  function fatalNowOrEnqueue(code: ZrUiErrorCode, detail: string): void {
+    const canFailFastInline = scheduler.isExecuting && !inRender && !inCommit;
+    if (canFailFastInline && inEventHandlerDepth > 0) {
+      if (deferredInlineFatal === null) {
+        deferredInlineFatal = Object.freeze({ code, detail });
+      }
+      return;
+    }
+    if (canFailFastInline) {
+      doFatal(code, detail);
+      return;
+    }
+    enqueueFatal(code, detail);
+  }
+
+  function cleanupStartedBackendAfterAbort(): void {
+    if (!backendStarted) return;
+    backendStarted = false;
+    try {
+      void backend
+        .stop()
+        .catch(() => undefined)
+        .finally(() => {
+          try {
+            backend.dispose();
+          } catch {
+            // ignore
+          }
+        });
+    } catch {
+      try {
+        backend.dispose();
+      } catch {
+        // ignore
+      }
+    }
+  }
 
   const rawRenderer = new RawRenderer({
     backend,
@@ -691,158 +422,53 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     };
   }
 
-  /* --- Keybinding State --- */
-  let keybindingState: KeybindingManagerState<KeyContext<S>> = createManagerState();
-  let keybindingsEnabled = false;
-
-  let breadcrumbLastEventKind: RuntimeBreadcrumbEventKind | null = null;
-  let breadcrumbLastConsumptionPath: RuntimeBreadcrumbConsumptionPath | null = null;
-  let breadcrumbLastAction: RuntimeBreadcrumbAction | null = null;
-  let breadcrumbEventTracked = false;
-  let deferredInlineFatal: Readonly<{ code: ZrUiErrorCode; detail: string }> | null = null;
-
-  function recomputeRuntimeBreadcrumbCollection(): void {
-    const next =
-      baseInternalOnRender !== undefined ||
-      baseInternalOnLayout !== undefined ||
-      inspectorInternalOnRender !== undefined ||
-      inspectorInternalOnLayout !== undefined;
-    if (next === runtimeBreadcrumbsEnabled) return;
-    runtimeBreadcrumbsEnabled = next;
-    widgetRenderer.setRuntimeBreadcrumbCaptureEnabled(next);
-    if (!next) {
-      breadcrumbLastEventKind = null;
-      breadcrumbLastConsumptionPath = null;
-      breadcrumbLastAction = null;
-      breadcrumbEventTracked = false;
-    }
-  }
-
-  function computeKeybindingsEnabled(state: KeybindingManagerState<KeyContext<S>>): boolean {
-    for (const m of state.modes.values()) {
-      if (m.bindings.length > 0) return true;
-    }
-    return false;
-  }
-
-  function formatInvalidKeybindingDetail(
-    invalidKeys: readonly Readonly<{ key: string; detail: string }>[],
-  ): string {
-    return invalidKeys.map((invalid) => `"${invalid.key}": ${invalid.detail}`).join("; ");
-  }
-
-  function applyKeybindingState(nextState: KeybindingManagerState<KeyContext<S>>): void {
+  const applyKeybindingState = (nextState: KeybindingManagerState<KeyContext<S>>): void => {
     keybindingState = nextState;
     keybindingsEnabled = computeKeybindingsEnabled(keybindingState);
-  }
+  };
+  const keybindingHelpers = createAppKeybindingHelpers<S>({
+    getState: () => keybindingState,
+    markDirty: (flags) => markDirty(flags),
+    setState: applyKeybindingState,
+    throwCode: guards.throwCode,
+  });
 
-  function registerAppBindings(
-    bindings: BindingMap<KeyContext<S>>,
-    options?: Readonly<{ sourceTag?: string; method?: string }>,
-  ): void {
-    const result = registerBindings(keybindingState, bindings, {
-      ...(options?.sourceTag === undefined ? {} : { sourceTag: options.sourceTag }),
-    });
-    if (result.invalidKeys.length > 0) {
-      const method = options?.method ?? "keys";
-      throwCode(
-        "ZRUI_INVALID_PROPS",
-        `${method}: invalid keybinding sequence(s): ${formatInvalidKeybindingDetail(result.invalidKeys)}`,
-      );
-    }
-    applyKeybindingState(result.state);
-  }
-
-  function registerAppModes(modes: ModeBindingMap<KeyContext<S>>): void {
-    let result: Readonly<{
-      state: KeybindingManagerState<KeyContext<S>>;
-      invalidKeys: readonly Readonly<{ key: string; detail: string }>[];
-    }>;
-    try {
-      result = registerModes(keybindingState, modes);
-    } catch (error: unknown) {
-      throwCode("ZRUI_INVALID_PROPS", `modes: ${describeThrown(error)}`);
-    }
-    if (result.invalidKeys.length > 0) {
-      throwCode(
-        "ZRUI_INVALID_PROPS",
-        `modes: invalid keybinding sequence(s): ${formatInvalidKeybindingDetail(result.invalidKeys)}`,
-      );
-    }
-    applyKeybindingState(result.state);
-  }
-
-  function replaceRouteBindings(bindings: BindingMap<KeyContext<S>>): void {
-    const baseState = removeBindingsBySource(keybindingState, ROUTE_KEYBINDING_SOURCE);
-    if (Object.keys(bindings).length === 0) {
-      applyKeybindingState(baseState);
-      return;
-    }
-
-    const result = registerBindings(baseState, bindings, {
-      sourceTag: ROUTE_KEYBINDING_SOURCE,
-    });
-    if (result.invalidKeys.length > 0) {
-      throwCode(
-        "ZRUI_INVALID_PROPS",
-        `replaceRoutes: invalid keybinding sequence(s): ${formatInvalidKeybindingDetail(result.invalidKeys)}`,
-      );
-    }
-    applyKeybindingState(result.state);
-  }
-
-  function applyRoutedKeybindingState(
-    routeInputState: KeybindingManagerState<KeyContext<S>>,
-    routeNextState: KeybindingManagerState<KeyContext<S>>,
-  ): void {
-    const previousChordState = keybindingState.chordState;
-
-    // If handlers did not mutate keybinding state, take the routed state directly.
-    if (keybindingState === routeInputState) {
-      keybindingState = routeNextState;
-      if (keybindingState.chordState !== previousChordState) {
-        markDirty(DIRTY_VIEW);
-      }
-      return;
-    }
-
-    // Preserve handler-triggered mode changes (for example app.setMode() in a binding).
-    if (keybindingState.currentMode !== routeInputState.currentMode) {
-      return;
-    }
-
-    // For non-mode mutations (e.g. app.keys/app.modes in a handler), keep those
-    // edits but still advance chord state from the routed event.
-    keybindingState = Object.freeze({
-      ...keybindingState,
-      chordState: routeNextState.chordState,
-    });
-
-    if (keybindingState.chordState !== previousChordState) {
-      markDirty(DIRTY_VIEW);
-    }
-  }
-
-  function noteBreadcrumbEvent(kind: string): void {
-    breadcrumbEventTracked = false;
-    if (!runtimeBreadcrumbsEnabled) return;
-    if (!isRuntimeBreadcrumbEventKind(kind)) return;
-    breadcrumbLastEventKind = kind;
-    breadcrumbLastConsumptionPath = null;
-    breadcrumbEventTracked = true;
-  }
-
-  function noteBreadcrumbConsumptionPath(path: RuntimeBreadcrumbConsumptionPath): void {
-    if (!runtimeBreadcrumbsEnabled) return;
-    if (!breadcrumbEventTracked) return;
-    breadcrumbLastConsumptionPath = path;
-  }
-
-  function noteBreadcrumbAction(action: NonNullable<WidgetRoutingOutcome["action"]>): void {
-    if (!runtimeBreadcrumbsEnabled) return;
-    if (!breadcrumbEventTracked) return;
-    breadcrumbLastAction = toRuntimeBreadcrumbAction(action);
-  }
+  const runtimeBreadcrumbHelpers = createRuntimeBreadcrumbHelpers({
+    getBaseInternalOnLayout: () => baseInternalOnLayout,
+    getBaseInternalOnRender: () => baseInternalOnRender,
+    getInspectorInternalOnLayout: () => inspectorInternalOnLayout,
+    getInspectorInternalOnRender: () => inspectorInternalOnRender,
+    getLastAction: () => breadcrumbLastAction,
+    getLastConsumptionPath: () => breadcrumbLastConsumptionPath,
+    getLastEventKind: () => breadcrumbLastEventKind,
+    getWidgetRuntimeBreadcrumbSnapshot: () => widgetRenderer.getRuntimeBreadcrumbSnapshot(),
+    isEnabled: () => runtimeBreadcrumbsEnabled,
+    isEventTracked: () => breadcrumbEventTracked,
+    setEnabled: (enabled) => {
+      runtimeBreadcrumbsEnabled = enabled;
+    },
+    setEventTracked: (tracked) => {
+      breadcrumbEventTracked = tracked;
+    },
+    setInspectorInternalOnLayout: (callback) => {
+      inspectorInternalOnLayout = callback;
+    },
+    setInspectorInternalOnRender: (callback) => {
+      inspectorInternalOnRender = callback;
+    },
+    setLastAction: (action) => {
+      breadcrumbLastAction = action;
+    },
+    setLastConsumptionPath: (path) => {
+      breadcrumbLastConsumptionPath = path;
+    },
+    setLastEventKind: (kind) => {
+      breadcrumbLastEventKind = kind;
+    },
+    setWidgetRuntimeBreadcrumbCaptureEnabled: (enabled) => {
+      widgetRenderer.setRuntimeBreadcrumbCaptureEnabled(enabled);
+    },
+  });
 
   function retryTopLevelViewError(): void {
     topLevelViewError = null;
@@ -874,102 +500,20 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     let stopPromise: Promise<void>;
     try {
       stopPromise = app.stop();
-    } catch (e: unknown) {
-      // Late events can race while a stop is already in-flight; avoid double-fatal.
+    } catch (error: unknown) {
       if (lifecycleBusy === "stop") return;
       fatalNowOrEnqueue(
         "ZRUI_BACKEND_ERROR",
-        `stop threw after unhandled quit input: ${describeThrown(e)}`,
+        `stop threw after unhandled quit input: ${describeThrown(error)}`,
       );
       return;
     }
-    void stopPromise.catch((e: unknown) => {
+    void stopPromise.catch((error: unknown) => {
       fatalNowOrEnqueue(
         "ZRUI_BACKEND_ERROR",
-        `stop rejected after unhandled quit input: ${describeThrown(e)}`,
+        `stop rejected after unhandled quit input: ${describeThrown(error)}`,
       );
     });
-  }
-
-  function buildRuntimeBreadcrumbSnapshot(renderTimeMs: number): RuntimeBreadcrumbSnapshot | null {
-    if (!runtimeBreadcrumbsEnabled) return null;
-    const widgetSnapshot = widgetRenderer.getRuntimeBreadcrumbSnapshot();
-    if (!widgetSnapshot) return null;
-    return mergeRuntimeBreadcrumbSnapshot(
-      widgetSnapshot,
-      breadcrumbLastEventKind,
-      breadcrumbLastConsumptionPath,
-      breadcrumbLastAction,
-      renderTimeMs,
-    );
-  }
-
-  function throwCode(code: ZrUiErrorCode, detail: string): never {
-    throw new ZrUiError(code, detail);
-  }
-
-  function assertOperational(method: string): void {
-    const st = sm.state;
-    if (st === "Disposed" || st === "Faulted") {
-      throwCode("ZRUI_INVALID_STATE", `${method}: app is ${st}`);
-    }
-    if (lifecycleBusy !== null) {
-      throwCode("ZRUI_INVALID_STATE", `${method}: lifecycle operation already in flight`);
-    }
-  }
-
-  function assertLifecycleIdle(method: string): void {
-    if (lifecycleBusy !== null) {
-      throwCode("ZRUI_INVALID_STATE", `${method}: lifecycle operation already in flight`);
-    }
-  }
-
-  function assertNotReentrant(method: string): void {
-    if (inCommit || inRender || inEventHandlerDepth > 0) {
-      throwCode("ZRUI_REENTRANT_CALL", `${method}: re-entrant call`);
-    }
-  }
-
-  function enqueueFatal(code: ZrUiErrorCode, detail: string): void {
-    scheduler.enqueue({ kind: "fatal", code, detail });
-  }
-
-  function flushDeferredInlineFatal(): void {
-    if (deferredInlineFatal === null || inEventHandlerDepth !== 0) return;
-    const fatal = deferredInlineFatal;
-    deferredInlineFatal = null;
-    doFatal(fatal.code, fatal.detail);
-  }
-
-  function fatalNowOrEnqueue(code: ZrUiErrorCode, detail: string): void {
-    const canFailFastInline = scheduler.isExecuting && !inRender && !inCommit;
-    if (canFailFastInline && inEventHandlerDepth > 0) {
-      if (deferredInlineFatal === null) {
-        deferredInlineFatal = Object.freeze({ code, detail });
-      }
-      return;
-    }
-    if (canFailFastInline) {
-      doFatal(code, detail);
-      return;
-    }
-    enqueueFatal(code, detail);
-  }
-
-  function updateDuringRenderDetail(method: string): string {
-    return `${method}: called during render. Hint: This usually means an onPress/onChange callback calls app.update() synchronously during the render phase. Move state updates to event handlers or useEffect.`;
-  }
-
-  function assertRouterMutationAllowed(method: string): void {
-    assertOperational(method);
-    if (inCommit) throwCode("ZRUI_REENTRANT_CALL", `${method}: called during commit`);
-    if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", updateDuringRenderDetail(method));
-  }
-
-  function assertKeybindingMutationAllowed(method: string): void {
-    assertOperational(method);
-    if (inCommit) throwCode("ZRUI_REENTRANT_CALL", `${method}: called during commit`);
-    if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", updateDuringRenderDetail(method));
   }
 
   if (routes !== undefined) {
@@ -980,12 +524,10 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
         ? {}
         : { maxHistoryDepth: opts.routeHistoryMaxDepth }),
       getState: () => committedState,
-      // Route transitions can swap the entire screen tree; force both commit
-      // and layout so id->rect indexes and focus metadata stay in sync.
       requestRouteRender: () => markDirty(DIRTY_VIEW | DIRTY_LAYOUT),
       captureFocusSnapshot: () => widgetRenderer.captureFocusSnapshot(),
       restoreFocusSnapshot: (snapshot) => widgetRenderer.restoreFocusSnapshot(snapshot),
-      assertCanMutate: assertRouterMutationAllowed,
+      assertCanMutate: guards.assertRouterMutationAllowed,
     });
   }
 
@@ -1000,8 +542,11 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       for (const fn of snapshot) {
         try {
           fn(ev);
-        } catch (e: unknown) {
-          fatalNowOrEnqueue("ZRUI_USER_CODE_THROW", `onEvent handler threw: ${describeThrown(e)}`);
+        } catch (error: unknown) {
+          fatalNowOrEnqueue(
+            "ZRUI_USER_CODE_THROW",
+            `onEvent handler threw: ${describeThrown(error)}`,
+          );
           return false;
         }
       }
@@ -1016,702 +561,163 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     return focusDispatcher.emitIfChanged();
   }
 
-  function doFatal(code: ZrUiErrorCode, detail: string): void {
-    if (sm.state !== "Running") return;
-    lifecycleBusy = null;
-    lifecycleGeneration++;
-    backendStarted = false;
+  const renderLoop = createRenderLoop<S>({
+    buildRuntimeBreadcrumbSnapshot: runtimeBreadcrumbHelpers.buildRuntimeBreadcrumbSnapshot,
+    config,
+    dirtyTracker,
+    emitFocusChangeIfNeeded,
+    enqueueWorkItem,
+    fatalNowOrEnqueue,
+    getBaseInternalOnLayout: () => baseInternalOnLayout,
+    getBaseInternalOnRender: () => baseInternalOnRender,
+    getCommittedState: () => committedState,
+    getDebugLayoutEnabled: () => debugLayoutEnabled,
+    getDrawFn: () => drawFn,
+    getFramesInFlight: () => framesInFlight,
+    getInspectorInternalOnLayout: () => inspectorInternalOnLayout,
+    getInspectorInternalOnRender: () => inspectorInternalOnRender,
+    getInteractiveBudget: () => interactiveBudget,
+    getLifecycleBusy: () => lifecycleBusy,
+    getMode: () => mode,
+    getRenderRequestQueuedForCurrentTurn: () => renderRequestQueuedForCurrentTurn,
+    getScheduleWaitStartMs: () => scheduleWaitStartMs,
+    getTheme: () => theme,
+    getThemeTransition: () => themeTransition,
+    getTopLevelViewError: () => topLevelViewError,
+    getViewFn: () => viewFn,
+    getViewport: () => viewport,
+    isRunning: () => sm.state === "Running",
+    markDirty,
+    rawRenderer,
+    setFramesInFlight: (next) => {
+      framesInFlight = next;
+    },
+    setInRender: (next) => {
+      inRender = next;
+    },
+    setInteractiveBudget: (next) => {
+      interactiveBudget = next;
+    },
+    setRenderRequestQueuedForCurrentTurn: (next) => {
+      renderRequestQueuedForCurrentTurn = next;
+    },
+    setScheduleWaitStartMs: (next) => {
+      scheduleWaitStartMs = next;
+    },
+    setTheme: (next) => {
+      theme = next;
+    },
+    setThemeTransition: (next) => {
+      themeTransition = next;
+    },
+    setTopLevelViewError: (next) => {
+      topLevelViewError = next;
+    },
+    widgetRenderer,
+  });
+  tryRenderOnceImpl = renderLoop.tryRenderOnce;
 
-    // 1) emit fatal to handlers (registration order, best-effort)
-    const fatalEv: UiEvent = { kind: "fatal", code, detail };
-    const snapshot: EventHandler[] = [];
-    for (const slot of handlers) {
-      if (slot.active.value) snapshot.push(slot.fn);
-    }
-    for (const fn of snapshot) {
-      try {
-        fn(fatalEv);
-      } catch {
-        // ignore
-      }
-    }
-
-    // 2) transition to Faulted
-    try {
-      sm.toFaulted();
-    } catch {
-      // ignore
-    }
-
-    // Stop polling immediately.
-    pollToken++;
-
-    // 3) backend stop/dispose best-effort (stop then dispose)
-    try {
-      void backend
-        .stop()
-        .catch(() => undefined)
-        .finally(() => {
-          try {
-            backend.dispose();
-          } catch {
-            // ignore
-          }
-          settleActiveRun?.();
-        });
-    } catch {
-      try {
-        backend.dispose();
-      } catch {
-        // ignore
-      }
-      settleActiveRun?.();
-    }
-  }
-
-  function cleanupStartedBackendAfterAbort(): void {
-    if (!backendStarted) return;
-    backendStarted = false;
-    try {
-      void backend
-        .stop()
-        .catch(() => undefined)
-        .finally(() => {
-          try {
-            backend.dispose();
-          } catch {
-            // ignore
-          }
-        });
-    } catch {
-      try {
-        backend.dispose();
-      } catch {
-        // ignore
-      }
-    }
-  }
-
-  function releaseOnce(
-    batch: BackendEventBatch,
-    releasedBatches: Set<BackendEventBatch>,
-  ): () => void {
-    let released = false;
-    return () => {
-      if (released) return;
-      released = true;
-      releasedBatches.add(batch);
-      try {
-        batch.release();
-      } catch {
-        // ignore
-      }
-    };
-  }
-
-  function processEventBatch(
-    batch: BackendEventBatch,
-    releasedBatches: Set<BackendEventBatch>,
-  ): void {
-    const release = releaseOnce(batch, releasedBatches);
-
-    const parseToken = perfMarkStart("event_parse");
-    const parsed = parseEventBatchV1(batch.bytes, {
-      maxTotalSize: config.maxEventBytes,
-      timeUnwrap,
-    });
-    perfMarkEnd("event_parse", parseToken);
-    if (!parsed.ok) {
-      release();
-      fatalNowOrEnqueue("ZRUI_PROTOCOL_ERROR", `${parsed.error.code}: ${parsed.error.detail}`);
-      return;
-    }
-
-    const engineTruncated = (parsed.value.flags & 1) !== 0;
-    const droppedBatches = batch.droppedBatches;
-
-    try {
-      if (engineTruncated || droppedBatches > 0) {
-        if (!emit({ kind: "overrun", engineTruncated, droppedBatches })) return;
-        if (sm.state !== "Running") return;
-      }
-
-      for (const ev of parsed.value.events) {
-        // Input-priority / preemption: when an interactive input event arrives,
-        // allow a short urgent burst even if a previous frame is still
-        // in-flight. This keeps interactive latency resilient to transport/ack
-        // jitter while older frames are still coalesced downstream (latest-wins)
-        // in the backend/worker.
-        if (ev.kind === "key" || ev.kind === "text" || ev.kind === "paste" || ev.kind === "mouse") {
-          interactiveBudget = 2;
-        }
-        noteBreadcrumbEvent(ev.kind);
-        if (!emit({ kind: "engine", event: ev })) return;
-        if (sm.state !== "Running") return;
-        if (ev.kind === "resize") {
-          const prev = viewport;
-          if (prev === null || prev.cols !== ev.cols || prev.rows !== ev.rows) {
-            viewport = Object.freeze({ cols: ev.cols, rows: ev.rows });
-            if (widgetRenderer.hasViewportAwareComposites()) {
-              widgetRenderer.invalidateCompositeWidgets();
-              markDirty(DIRTY_LAYOUT | DIRTY_VIEW);
-            } else {
-              markDirty(DIRTY_LAYOUT);
-            }
-          }
-        }
-        if (ev.kind === "tick" && mode === "widget") {
-          // Tick events drive render-only animation frames for animated widgets
-          // (currently spinner). Throttle to avoid repaint storms/flicker.
-          //
-          // Prefer backend tick timestamps when they advance, but fall back to
-          // local monotonic time for runtimes/terminals where tick time is
-          // constant or non-monotonic.
-          if (widgetRenderer.hasAnimatedWidgets()) {
-            const tickMs = ev.timeMs;
-            const perfMs = perfNow();
-            const eventClockAdvances = tickMs > lastObservedSpinnerTickEventMs;
-            if (eventClockAdvances) lastObservedSpinnerTickEventMs = tickMs;
-            const elapsedMs = eventClockAdvances
-              ? tickMs - lastSpinnerRenderTickMs
-              : perfMs - lastSpinnerRenderPerfMs;
-            if (elapsedMs >= spinnerTickMinIntervalMs) {
-              lastSpinnerRenderTickMs = tickMs;
-              lastSpinnerRenderPerfMs = perfMs;
-              markDirty(DIRTY_RENDER);
-            }
-          }
-        }
-
-        if (mode === "widget" && topLevelViewError !== null) {
-          if (isTopLevelRetryEvent(ev)) {
-            noteBreadcrumbConsumptionPath("widgetRouting");
-            retryTopLevelViewError();
-            continue;
-          }
-          if (isTopLevelQuitEvent(ev)) {
-            noteBreadcrumbConsumptionPath("widgetRouting");
-            quitFromTopLevelViewError();
-            continue;
-          }
-          if (
-            ev.kind === "key" ||
-            ev.kind === "text" ||
-            ev.kind === "paste" ||
-            ev.kind === "mouse"
-          ) {
-            noteBreadcrumbConsumptionPath("widgetRouting");
-            continue;
-          }
-        }
-
-        const isWidgetRoutableEvent =
-          ev.kind === "key" || ev.kind === "text" || ev.kind === "paste" || ev.kind === "mouse";
-        if (mode === "widget" && isWidgetRoutableEvent) {
-          if (keybindingsEnabled) {
-            if (
-              ev.kind === "mouse" &&
-              ev.mouseKind === 3 &&
-              keybindingState.chordState.pendingKeys.length > 0
-            ) {
-              keybindingState = Object.freeze({
-                ...keybindingState,
-                chordState: resetChordState(),
-              });
-            }
-
-            // Route key events through keybinding system first
-            if (ev.kind === "key") {
-              const bypass = widgetRenderer.shouldBypassKeybindings(ev);
-              if (!bypass) {
-                const keyCtx: KeyContext<S> = Object.freeze({
-                  state: committedState,
-                  update: app.update,
-                  focusedId: widgetRenderer.getFocusedId(),
-                });
-                const routeInputState = keybindingState;
-                const keyResult = routeKeyEvent(routeInputState, ev, keyCtx);
-                applyRoutedKeybindingState(routeInputState, keyResult.nextState);
-                if (keyResult.handlerError !== undefined) {
-                  fatalNowOrEnqueue(
-                    "ZRUI_USER_CODE_THROW",
-                    `keybinding handler threw: ${describeThrown(keyResult.handlerError)}`,
-                  );
-                  return;
-                }
-                if (keyResult.consumed) {
-                  noteBreadcrumbConsumptionPath("keybindings");
-                  continue; // Skip default widget routing
-                }
-              }
-            }
-
-            // Also route text events through keybinding system for single-character bindings.
-            // Printable text is guarded during overlays, but Ctrl+text control chars are not.
-            if (ev.kind === "text") {
-              const ctrlKeyCode = codepointToCtrlKeyCode(ev.codepoint);
-              const shouldRouteCtrlText = ctrlKeyCode !== null;
-              const shouldRoutePrintableText =
-                !shouldRouteCtrlText && !widgetRenderer.hasActiveOverlay();
-              if (shouldRouteCtrlText || shouldRoutePrintableText) {
-                const keyCode = shouldRouteCtrlText
-                  ? ctrlKeyCode
-                  : codepointToKeyCode(ev.codepoint);
-                const mods = shouldRouteCtrlText ? ZR_MOD_CTRL : 0;
-                if (keyCode !== null) {
-                  // Create a synthetic key event for keybinding matching
-                  const syntheticKeyEvent = {
-                    kind: "key" as const,
-                    action: "down" as const,
-                    key: keyCode,
-                    mods,
-                    timeMs: ev.timeMs,
-                  };
-                  const keyCtx: KeyContext<S> = Object.freeze({
-                    state: committedState,
-                    update: app.update,
-                    focusedId: widgetRenderer.getFocusedId(),
-                  });
-                  const routeInputState = keybindingState;
-                  const keyResult = routeKeyEvent(routeInputState, syntheticKeyEvent, keyCtx);
-                  applyRoutedKeybindingState(routeInputState, keyResult.nextState);
-                  if (keyResult.handlerError !== undefined) {
-                    fatalNowOrEnqueue(
-                      "ZRUI_USER_CODE_THROW",
-                      `keybinding handler threw: ${describeThrown(keyResult.handlerError)}`,
-                    );
-                    return;
-                  }
-                  if (keyResult.consumed) {
-                    noteBreadcrumbConsumptionPath("keybindings");
-                    continue; // Skip default widget routing
-                  }
-                }
-              }
-            }
-          }
-
-          let routed: WidgetRoutingOutcome;
-          try {
-            noteBreadcrumbConsumptionPath("widgetRouting");
-            routed = widgetRenderer.routeEngineEvent(ev);
-          } catch (e: unknown) {
-            fatalNowOrEnqueue("ZRUI_USER_CODE_THROW", `widget routing threw: ${describeThrown(e)}`);
-            return;
-          }
-          if (sm.state !== "Running") return;
-          if (!emitFocusChangeIfNeeded()) return;
-          if (routed.needsRender) markDirty(DIRTY_RENDER);
-          if (routed.action) {
-            noteBreadcrumbAction(routed.action);
-            if (!emit({ kind: "action", ...routed.action })) return;
-            if (sm.state !== "Running") return;
-          }
-          if (
-            routed.action === undefined &&
-            !routed.needsRender &&
-            routed.consumed !== true &&
-            (isUnmodifiedTextQuitEvent(ev) || isUnhandledCtrlCKeyEvent(ev))
-          ) {
-            noteBreadcrumbConsumptionPath("widgetRouting");
-            stopFromUnhandledQuitEvent();
-          }
-        }
-      }
-    } finally {
-      release();
-    }
-  }
-
-  function commitUpdates(): void {
-    const drained = updates.drain();
-    if (drained.length === 0) return;
-
-    const commitToken = perfMarkStart("commit");
-    inCommit = true;
-    try {
-      let next = committedState;
-      for (const u of drained) {
-        if (typeof u === "function") {
-          next = (u as (prev: Readonly<S>) => S)(next);
-        } else {
-          next = u;
-        }
-      }
-      if (next !== committedState) {
-        committedState = next;
-        markDirty(DIRTY_VIEW, false);
-      }
-    } catch (e: unknown) {
-      fatalNowOrEnqueue("ZRUI_USER_CODE_THROW", `state updater threw: ${describeThrown(e)}`);
-    } finally {
-      inCommit = false;
-      perfMarkEnd("commit", commitToken);
-    }
-  }
-
-  function scheduleFrameSettlement(
-    p: Promise<void>,
-    submitStart: number | null,
-    submitEnd: number | null,
-  ): void {
-    if (isSyncFrameAck(p)) {
-      if (PERF_ENABLED && submitStart !== null) {
-        const ackNow = perfNow();
-        perfRecord("backend_ack", ackNow - submitStart);
-        if (submitEnd !== null) {
-          perfRecord("frame_build", submitEnd - submitStart);
-          perfRecord("worker_roundtrip", ackNow - submitEnd);
-        }
-      }
-      framesInFlight = Math.max(0, framesInFlight - 1);
-      return;
-    }
-
-    const acceptedAck = getAcceptedFrameAck(p);
-    const ackPromise = acceptedAck ?? p;
-
-    void ackPromise.then(
-      () => {
-        if (PERF_ENABLED && submitStart !== null) {
-          const ackNow = perfNow();
-          // backend_ack: total time from frame build start to backend ack.
-          // Equals frame_build + worker_roundtrip (kept for backward compat).
-          perfRecord("backend_ack", ackNow - submitStart);
-          if (submitEnd !== null) {
-            // frame_build: synchronous TS pipeline (view/commit/layout/render/build).
-            perfRecord("frame_build", submitEnd - submitStart);
-            // worker_roundtrip: async transport from requestFrame to backend ack.
-            perfRecord("worker_roundtrip", ackNow - submitEnd);
-          }
-        }
-        scheduler.enqueue({ kind: "frameDone" });
-      },
-      (err: unknown) => scheduler.enqueue({ kind: "frameError", error: err }),
-    );
-
-    if (acceptedAck !== null) {
-      void p.then(
-        () => {},
-        (err: unknown) =>
-          scheduler.enqueue({
-            kind: "fatal",
-            code: "ZRUI_BACKEND_ERROR",
-            detail: `requestFrame completion rejected after accepted ack: ${describeThrown(err)}`,
-          }),
-      );
-    }
-  }
-
-  function emitInternalRenderMetrics(
-    renderTime: number,
-    runtimeBreadcrumbs: RuntimeBreadcrumbSnapshot | null = null,
-  ): boolean {
-    if (baseInternalOnRender === undefined && inspectorInternalOnRender === undefined) return true;
-    try {
-      const clampedRenderTime = Math.max(0, renderTime);
-      if (runtimeBreadcrumbs) {
-        const payload: InternalRenderMetricsWithBreadcrumbs = {
-          renderTime: clampedRenderTime,
-          runtimeBreadcrumbs,
-        };
-        baseInternalOnRender?.(payload);
-        inspectorInternalOnRender?.(payload);
-      } else {
-        const payload: AppRenderMetrics = { renderTime: clampedRenderTime };
-        baseInternalOnRender?.(payload);
-        inspectorInternalOnRender?.(payload);
-      }
-      return true;
-    } catch (e: unknown) {
-      fatalNowOrEnqueue("ZRUI_USER_CODE_THROW", `onRender callback threw: ${describeThrown(e)}`);
-      return false;
-    }
-  }
-
-  function emitInternalLayoutSnapshot(
-    runtimeBreadcrumbs: RuntimeBreadcrumbSnapshot | null = null,
-  ): boolean {
-    if (baseInternalOnLayout === undefined && inspectorInternalOnLayout === undefined) return true;
-    try {
-      const idRects = widgetRenderer.getRectByIdIndex();
-      if (runtimeBreadcrumbs) {
-        const payload: InternalLayoutSnapshotWithBreadcrumbs = {
-          idRects,
-          runtimeBreadcrumbs,
-        };
-        baseInternalOnLayout?.(payload);
-        inspectorInternalOnLayout?.(payload);
-      } else {
-        const payload: AppLayoutSnapshot = { idRects };
-        baseInternalOnLayout?.(payload);
-        inspectorInternalOnLayout?.(payload);
-      }
-      return true;
-    } catch (e: unknown) {
-      fatalNowOrEnqueue("ZRUI_USER_CODE_THROW", `onLayout callback threw: ${describeThrown(e)}`);
-      return false;
-    }
-  }
-
-  function tryRenderOnce(): void {
-    if (sm.state !== "Running") return;
-    // During stop(), we may still receive a few late event batches, but we must not
-    // submit new frames (backend may be tearing down).
-    if (lifecycleBusy === "stop") return;
-    if (dirtyTracker.getFlags() === 0) return;
-    const maxInFlight = config.maxFramesInFlight + (interactiveBudget > 0 ? 1 : 0);
-    if (framesInFlight >= maxInFlight) return;
-    if (mode === null) return;
-
-    // Record schedule_wait: time from render request to render start
-    if (PERF_ENABLED && scheduleWaitStartMs !== null) {
-      perfMarkEnd("schedule_wait", scheduleWaitStartMs);
-      scheduleWaitStartMs = null;
-    }
-
-    const dirtyVersionStart = dirtyTracker.snapshotVersions();
-
-    const snapshot = committedState as Readonly<S>;
-    const hooks = {
-      enterRender: () => {
-        inRender = true;
-      },
-      exitRender: () => {
-        inRender = false;
-      },
-    };
-
-    if (mode === "raw") {
-      const df = drawFn;
-      if (!df) return;
-
-      const renderStart = perfNow();
-      const submitToken = perfMarkStart("submit_frame");
-      const res = rawRenderer.submitFrame(df, hooks);
-      perfMarkEnd("submit_frame", submitToken);
-      if (!res.ok) {
-        fatalNowOrEnqueue(res.code, res.detail);
-        return;
-      }
-      if (!emitInternalRenderMetrics(perfNow() - renderStart)) return;
-
-      submitFrameStartMs = PERF_ENABLED ? submitToken : null;
-      const buildEndMs = PERF_ENABLED ? perfNow() : null;
-      framesInFlight++;
-      if (interactiveBudget > 0) interactiveBudget--;
-      scheduleFrameSettlement(res.inFlight, submitFrameStartMs, buildEndMs);
-      dirtyTracker.clearConsumedFlags(DIRTY_RENDER | DIRTY_LAYOUT | DIRTY_VIEW, dirtyVersionStart);
-      return;
-    }
-
-    const vf = viewFn;
-    if (!vf) return;
-
-    if (!viewport) return;
-
-    const pendingDirtyFlags = dirtyTracker.getFlags();
-    if ((pendingDirtyFlags & (DIRTY_VIEW | DIRTY_LAYOUT | DIRTY_RENDER)) === 0) return;
-
-    // Compute render plan from dirty flags. Render-only turns (e.g., focus change)
-    // skip view/commit/layout. Layout-only turns (e.g., resize without state change)
-    // skip view/commit. Commit turns now rely on WidgetRenderer layout signatures
-    // to decide whether relayout is required, instead of forcing layout by default.
-    // First-frame/bootstrap safety is handled inside submitFrame(): it falls back
-    // to full pipeline when committedRoot or layoutTree is null.
-    const frameNowMs = monotonicNowMs();
-    const plan: WidgetRenderPlan = buildWidgetRenderPlan(pendingDirtyFlags, frameNowMs);
-    advanceThemeTransitionFrame();
-
-    const resilientView: ViewFn<S> = (state) => {
-      if (topLevelViewError !== null) {
-        return buildTopLevelViewErrorScreen(topLevelViewError);
-      }
-      try {
-        return vf(state);
-      } catch (e: unknown) {
-        topLevelViewError = captureTopLevelViewError(e);
-        return buildTopLevelViewErrorScreen(topLevelViewError);
-      }
-    };
-
-    const renderStart = perfNow();
-    const submitToken = perfMarkStart("submit_frame");
-    const frameView: ViewFn<S> = debugLayoutEnabled
-      ? (state) => {
-          const root = resilientView(state);
-          const overlay = buildLayoutDebugOverlay(widgetRenderer.getRectByIdIndex());
-          if (!overlay) return root;
-          return ui.layers([root, overlay]);
-        }
-      : resilientView;
-    const res = widgetRenderer.submitFrame(frameView, snapshot, viewport, theme, hooks, plan);
-    perfMarkEnd("submit_frame", submitToken);
-    if (!res.ok) {
-      fatalNowOrEnqueue(res.code, res.detail);
-      return;
-    }
-    if (!emitFocusChangeIfNeeded()) return;
-    const renderTime = perfNow() - renderStart;
-    const runtimeBreadcrumbs = buildRuntimeBreadcrumbSnapshot(Math.max(0, renderTime));
-    if (!emitInternalRenderMetrics(renderTime, runtimeBreadcrumbs)) return;
-    if (!emitInternalLayoutSnapshot(runtimeBreadcrumbs)) return;
-
-    submitFrameStartMs = PERF_ENABLED ? submitToken : null;
-    const buildEndMs = PERF_ENABLED ? perfNow() : null;
-    framesInFlight++;
-    if (interactiveBudget > 0) interactiveBudget--;
-    scheduleFrameSettlement(res.inFlight, submitFrameStartMs, buildEndMs);
-    let consumedDirtyFlags = DIRTY_RENDER;
-    if (plan.layout) consumedDirtyFlags |= DIRTY_LAYOUT;
-    if (plan.commit) consumedDirtyFlags |= DIRTY_VIEW;
-    dirtyTracker.clearConsumedFlags(consumedDirtyFlags, dirtyVersionStart);
-    scheduleThemeTransitionContinuation();
-    if (dirtyTracker.getFlags() !== 0 && !renderRequestQueuedForCurrentTurn) {
-      renderRequestQueuedForCurrentTurn = true;
-      scheduler.enqueue({ kind: "renderRequest" });
-    }
-  }
-
-  function drainIgnored(items: readonly WorkItem[], releasedBatches: Set<BackendEventBatch>): void {
-    for (const it of items) {
-      if (it.kind === "eventBatch" && !releasedBatches.has(it.batch)) {
-        releasedBatches.add(it.batch);
-        try {
-          it.batch.release();
-        } catch {
-          // ignore
-        }
-      }
-    }
-  }
-
-  function processTurn(items: readonly WorkItem[]): void {
-    renderRequestQueuedForCurrentTurn = false;
-    const releasedBatches = new Set<BackendEventBatch>();
-    const st = sm.state;
-    if (st === "Disposed" || st === "Faulted") {
-      drainIgnored(items, releasedBatches);
-      return;
-    }
-
-    let sawKick = false;
-    for (const item of items) {
-      if (sm.state === "Faulted" || sm.state === "Disposed") {
-        drainIgnored(items, releasedBatches);
-        return;
-      }
-
-      switch (item.kind) {
-        case "fatal": {
-          doFatal(item.code, item.detail);
-          drainIgnored(items, releasedBatches);
-          return;
-        }
-        case "eventBatch": {
-          if (sm.state !== "Running") {
-            releasedBatches.add(item.batch);
-            try {
-              item.batch.release();
-            } catch {
-              // ignore
-            }
-            break;
-          }
-          processEventBatch(item.batch, releasedBatches);
-          if (sm.state !== "Running") {
-            drainIgnored(items, releasedBatches);
-            return;
-          }
-          commitUpdates();
-          break;
-        }
-        case "userCommit": {
-          userCommitScheduled = false;
-          if (sm.state === "Running") commitUpdates();
-          break;
-        }
-        case "kick": {
-          sawKick = true;
-          break;
-        }
-        case "renderRequest": {
-          break;
-        }
-        case "frameDone": {
-          framesInFlight = Math.max(0, framesInFlight - 1);
-          break;
-        }
-        case "frameError": {
-          framesInFlight = Math.max(0, framesInFlight - 1);
-          // If we are intentionally stopping, treat requestFrame rejections as
-          // part of shutdown (not a fatal backend error).
-          if (lifecycleBusy === "stop") break;
-          doFatal("ZRUI_BACKEND_ERROR", `requestFrame rejected: ${describeThrown(item.error)}`);
-          break;
-        }
-      }
-    }
-
-    if (sm.state !== "Running") return;
-    if (sawKick) commitUpdates();
-    tryRenderOnce();
-  }
-
-  async function pollLoop(token: number): Promise<void> {
-    while (sm.state === "Running" && token === pollToken) {
-      let batch: BackendEventBatch;
-      try {
-        batch = await backend.pollEvents();
-      } catch (e: unknown) {
-        if (sm.state === "Running" && token === pollToken) {
-          fatalNowOrEnqueue("ZRUI_BACKEND_ERROR", `pollEvents rejected: ${describeThrown(e)}`);
-        }
-        return;
-      }
-
-      if (token !== pollToken || sm.state !== "Running") {
-        try {
-          batch.release();
-        } catch {
-          // ignore
-        }
-        return;
-      }
-
-      scheduler.enqueue({ kind: "eventBatch", batch });
-    }
-  }
+  const eventLoop = createEventLoop<S>({
+    backend,
+    config,
+    doFatal,
+    emit,
+    emitFocusChangeIfNeeded,
+    enqueueWorkItem,
+    fatalNowOrEnqueue,
+    getAppUpdate: () => app.update,
+    getCommittedState: () => committedState,
+    getFramesInFlight: () => framesInFlight,
+    getInteractiveBudget: () => interactiveBudget,
+    getKeybindingState: () => keybindingState,
+    getKeybindingsEnabled: () => keybindingsEnabled,
+    getLastObservedSpinnerTickEventMs: () => lastObservedSpinnerTickEventMs,
+    getLastSpinnerRenderPerfMs: () => lastSpinnerRenderPerfMs,
+    getLastSpinnerRenderTickMs: () => lastSpinnerRenderTickMs,
+    getLifecycleBusy: () => lifecycleBusy,
+    getMode: () => mode,
+    getPollToken: () => pollToken,
+    getRenderRequestQueuedForCurrentTurn: () => renderRequestQueuedForCurrentTurn,
+    getRuntimeState: () => sm.state,
+    getTopLevelViewError: () => topLevelViewError,
+    getViewport: () => viewport,
+    keybindingHelpers,
+    markDirty,
+    noteBreadcrumbAction: runtimeBreadcrumbHelpers.noteBreadcrumbAction,
+    noteBreadcrumbConsumptionPath: runtimeBreadcrumbHelpers.noteBreadcrumbConsumptionPath,
+    noteBreadcrumbEvent: runtimeBreadcrumbHelpers.noteBreadcrumbEvent,
+    quitFromTopLevelViewError,
+    retryTopLevelViewError,
+    setCommittedState: (next) => {
+      committedState = next;
+    },
+    setFramesInFlight: (next) => {
+      framesInFlight = next;
+    },
+    setInCommit: (next) => {
+      inCommit = next;
+    },
+    setInteractiveBudget: (next) => {
+      interactiveBudget = next;
+    },
+    setKeybindingState: applyKeybindingState,
+    setLastObservedSpinnerTickEventMs: (next) => {
+      lastObservedSpinnerTickEventMs = next;
+    },
+    setLastSpinnerRenderPerfMs: (next) => {
+      lastSpinnerRenderPerfMs = next;
+    },
+    setLastSpinnerRenderTickMs: (next) => {
+      lastSpinnerRenderTickMs = next;
+    },
+    setRenderRequestQueuedForCurrentTurn: (next) => {
+      renderRequestQueuedForCurrentTurn = next;
+    },
+    setUserCommitScheduled: (next) => {
+      userCommitScheduled = next;
+    },
+    setViewport: (next) => {
+      viewport = next;
+    },
+    spinnerTickMinIntervalMs,
+    stopFromUnhandledQuitEvent,
+    timeUnwrap,
+    tryRenderOnce: () => tryRenderOnceImpl(),
+    updates,
+    widgetRenderer,
+  });
+  processTurnImpl = eventLoop.processTurn;
 
   const app: App<S> = {
     view(fn: ViewFn<S>): void {
-      assertOperational("view");
-      assertLifecycleIdle("view");
+      guards.assertOperational("view");
+      guards.assertLifecycleIdle("view");
       sm.assertOneOf(["Created", "Stopped"], "view: must be Created or Stopped");
-      assertNotReentrant("view");
+      guards.assertNotReentrant("view");
       if (routes !== undefined) {
-        throwCode(
+        guards.throwCode(
           "ZRUI_MODE_CONFLICT",
           "view: routes are configured in createApp(); screen rendering is managed by router",
         );
       }
-      if (mode === "raw") throwCode("ZRUI_MODE_CONFLICT", "view: draw mode already selected");
+      if (mode === "raw")
+        guards.throwCode("ZRUI_MODE_CONFLICT", "view: draw mode already selected");
       mode = "widget";
       viewFn = fn;
     },
 
     replaceView(fn: ViewFn<S>): void {
-      assertOperational("replaceView");
-      assertLifecycleIdle("replaceView");
-      assertNotReentrant("replaceView");
+      guards.assertOperational("replaceView");
+      guards.assertLifecycleIdle("replaceView");
+      guards.assertNotReentrant("replaceView");
       if (routes !== undefined) {
-        throwCode(
+        guards.throwCode(
           "ZRUI_MODE_CONFLICT",
           "replaceView: routes are configured in createApp(); screen rendering is managed by router",
         );
       }
       if (mode === "raw") {
-        throwCode("ZRUI_MODE_CONFLICT", "replaceView: draw mode already selected");
+        guards.throwCode("ZRUI_MODE_CONFLICT", "replaceView: draw mode already selected");
       }
       if (mode === null) mode = "widget";
       viewFn = fn;
@@ -1723,20 +729,21 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     },
 
     replaceRoutes(nextRoutes: readonly RouteDefinition<S>[]): void {
-      assertOperational("replaceRoutes");
-      assertLifecycleIdle("replaceRoutes");
-      assertNotReentrant("replaceRoutes");
-      if (!routerIntegration || routes === undefined) {
-        throwCode(
+      guards.assertOperational("replaceRoutes");
+      guards.assertLifecycleIdle("replaceRoutes");
+      guards.assertNotReentrant("replaceRoutes");
+      const activeRouterIntegration = routerIntegration;
+      if (activeRouterIntegration === null || routes === undefined) {
+        throw new ZrUiError(
           "ZRUI_MODE_CONFLICT",
           "replaceRoutes: app was created without routes; use replaceView for view-mode apps",
         );
       }
       if (mode === "raw") {
-        throwCode("ZRUI_MODE_CONFLICT", "replaceRoutes: draw mode already selected");
+        guards.throwCode("ZRUI_MODE_CONFLICT", "replaceRoutes: draw mode already selected");
       }
-      const nextRouteKeybindings = routerIntegration.replaceRoutes(nextRoutes);
-      replaceRouteBindings(nextRouteKeybindings);
+      const nextRouteKeybindings = activeRouterIntegration.replaceRoutes(nextRoutes);
+      keybindingHelpers.replaceRouteBindings(nextRouteKeybindings);
       topLevelViewError = null;
       if (sm.state === "Running") {
         widgetRenderer.forceFullRenderNextFrame();
@@ -1745,18 +752,19 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     },
 
     draw(fn: DrawFn): void {
-      assertOperational("draw");
-      assertLifecycleIdle("draw");
+      guards.assertOperational("draw");
+      guards.assertLifecycleIdle("draw");
       sm.assertOneOf(["Created", "Stopped"], "draw: must be Created or Stopped");
-      assertNotReentrant("draw");
-      if (mode === "widget") throwCode("ZRUI_MODE_CONFLICT", "draw: view mode already selected");
+      guards.assertNotReentrant("draw");
+      if (mode === "widget")
+        guards.throwCode("ZRUI_MODE_CONFLICT", "draw: view mode already selected");
       mode = "raw";
       drawFn = fn;
     },
 
     onEvent(handler: EventHandler): () => void {
-      assertOperational("onEvent");
-      if (inCommit || inRender) throwCode("ZRUI_REENTRANT_CALL", "onEvent: re-entrant call");
+      guards.assertOperational("onEvent");
+      if (inCommit || inRender) guards.throwCode("ZRUI_REENTRANT_CALL", "onEvent: re-entrant call");
 
       const active = { value: true };
       handlers.push({ fn: handler, active });
@@ -1766,46 +774,50 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     },
 
     onFocusChange(handler: FocusChangeHandler): () => void {
-      assertOperational("onFocusChange");
+      guards.assertOperational("onFocusChange");
       if (inCommit || inRender) {
-        throwCode("ZRUI_REENTRANT_CALL", "onFocusChange: re-entrant call");
+        guards.throwCode("ZRUI_REENTRANT_CALL", "onFocusChange: re-entrant call");
       }
       return focusDispatcher.register(handler);
     },
 
     update(updater: StateUpdater<S>): void {
-      assertOperational("update");
-      assertLifecycleIdle("update");
-      if (inCommit) throwCode("ZRUI_REENTRANT_CALL", "update: called during commit");
-      if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", updateDuringRenderDetail("update"));
+      guards.assertOperational("update");
+      guards.assertLifecycleIdle("update");
+      if (inCommit) guards.throwCode("ZRUI_REENTRANT_CALL", "update: called during commit");
+      if (inRender) {
+        guards.throwCode("ZRUI_UPDATE_DURING_RENDER", guards.updateDuringRenderDetail("update"));
+      }
 
       updates.enqueue(updater);
       if (sm.state === "Running" && inEventHandlerDepth === 0 && !userCommitScheduled) {
         userCommitScheduled = true;
-        scheduler.enqueue({ kind: "userCommit" });
+        enqueueWorkItem({ kind: "userCommit" });
       }
     },
 
     setTheme(next: ThemeDefinition): void {
-      assertOperational("setTheme");
-      assertLifecycleIdle("setTheme");
-      if (inCommit) throwCode("ZRUI_REENTRANT_CALL", "setTheme: called during commit");
-      if (inRender) throwCode("ZRUI_UPDATE_DURING_RENDER", updateDuringRenderDetail("setTheme"));
+      guards.assertOperational("setTheme");
+      guards.assertLifecycleIdle("setTheme");
+      if (inCommit) guards.throwCode("ZRUI_REENTRANT_CALL", "setTheme: called during commit");
+      if (inRender) {
+        guards.throwCode("ZRUI_UPDATE_DURING_RENDER", guards.updateDuringRenderDetail("setTheme"));
+      }
       const nextTheme = compileTheme(next);
       if (nextTheme === themeTransition?.to) return;
       if (nextTheme === theme) {
         themeTransition = null;
         return;
       }
-      beginThemeTransition(nextTheme);
+      renderLoop.beginThemeTransition(nextTheme);
       requestViewFromRenderer();
     },
 
     debugLayout(enabled?: boolean): boolean {
-      assertOperational("debugLayout");
-      assertLifecycleIdle("debugLayout");
+      guards.assertOperational("debugLayout");
+      guards.assertLifecycleIdle("debugLayout");
       if (mode === "raw") {
-        throwCode("ZRUI_MODE_CONFLICT", "debugLayout: not available in draw mode");
+        guards.throwCode("ZRUI_MODE_CONFLICT", "debugLayout: not available in draw mode");
       }
       const next = enabled === undefined ? !debugLayoutEnabled : enabled === true;
       if (next === debugLayoutEnabled) return debugLayoutEnabled;
@@ -1815,22 +827,23 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
     },
 
     start(): Promise<void> {
-      assertOperational("start");
-      assertNotReentrant("start");
+      guards.assertOperational("start");
+      guards.assertNotReentrant("start");
       sm.assertOneOf(["Created", "Stopped"], "start: must be Created or Stopped");
-      if (mode === null) throwCode("ZRUI_NO_RENDER_MODE", "start: no render mode selected");
+      if (mode === null) guards.throwCode("ZRUI_NO_RENDER_MODE", "start: no render mode selected");
 
       lifecycleBusy = "start";
       const startGeneration = ++lifecycleGeneration;
-      let p: Promise<void>;
+      let promise: Promise<void> | null = null;
       try {
-        p = backend.start();
-      } catch (e: unknown) {
+        promise = backend.start();
+      } catch (error: unknown) {
         if (lifecycleGeneration === startGeneration) lifecycleBusy = null;
-        throwCode("ZRUI_BACKEND_ERROR", `backend.start threw: ${describeThrown(e)}`);
+        guards.throwCode("ZRUI_BACKEND_ERROR", `backend.start threw: ${describeThrown(error)}`);
       }
+      if (promise === null) throw new Error("start: backend.start did not return a promise");
 
-      return p.then(
+      return promise.then(
         async () => {
           try {
             backendStarted = true;
@@ -1849,27 +862,30 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
             sm.toRunning();
             markDirty(DIRTY_VIEW, false);
             pollToken++;
-            void pollLoop(pollToken);
-            scheduler.enqueue({ kind: "kick" });
+            void eventLoop.pollLoop(pollToken);
+            enqueueWorkItem({ kind: "kick" });
           } finally {
             if (lifecycleGeneration === startGeneration && lifecycleBusy === "start") {
               lifecycleBusy = null;
             }
           }
         },
-        (e: unknown) => {
+        (error: unknown) => {
           if (lifecycleGeneration !== startGeneration) return;
           lifecycleBusy = null;
-          throw new ZrUiError("ZRUI_BACKEND_ERROR", `backend.start rejected: ${describeThrown(e)}`);
+          throw new ZrUiError(
+            "ZRUI_BACKEND_ERROR",
+            `backend.start rejected: ${describeThrown(error)}`,
+          );
         },
       );
     },
 
     run(): Promise<void> {
-      assertOperational("run");
-      assertNotReentrant("run");
+      guards.assertOperational("run");
+      guards.assertNotReentrant("run");
       sm.assertOneOf(["Created", "Stopped"], "run: must be Created or Stopped");
-      if (mode === null) throwCode("ZRUI_NO_RENDER_MODE", "run: no render mode selected");
+      if (mode === null) guards.throwCode("ZRUI_NO_RENDER_MODE", "run: no render mode selected");
 
       const proc = readProcessLike();
       let runSettle: (() => void) | null = null;
@@ -1904,9 +920,9 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       let startPromise: Promise<void>;
       try {
         startPromise = app.start();
-      } catch (e: unknown) {
+      } catch (error: unknown) {
         runController.detach();
-        throw e;
+        throw error;
       }
 
       return startPromise.then(
@@ -1916,35 +932,32 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
           }
           return runController.promise;
         },
-        (e: unknown) => {
+        (error: unknown) => {
           runController.detach();
-          throw e;
+          throw error;
         },
       );
     },
 
     stop(): Promise<void> {
-      assertOperational("stop");
-      assertNotReentrant("stop");
+      guards.assertOperational("stop");
+      guards.assertNotReentrant("stop");
       sm.assertOneOf(["Running"], "stop: must be Running");
 
       lifecycleBusy = "stop";
       const stopGeneration = ++lifecycleGeneration;
-      // Stop polling immediately so in-flight pollEvents rejections from backend.stop()
-      // are treated as part of shutdown (not a fatal backend error).
       pollToken++;
-      // Clear any in-flight frames so a shutdown doesn't strand the app in a state
-      // where a future start() cannot submit frames.
       framesInFlight = 0;
-      let p: Promise<void>;
+      let promise: Promise<void> | null = null;
       try {
-        p = backend.stop();
-      } catch (e: unknown) {
+        promise = backend.stop();
+      } catch (error: unknown) {
         if (lifecycleGeneration === stopGeneration) lifecycleBusy = null;
-        throwCode("ZRUI_BACKEND_ERROR", `backend.stop threw: ${describeThrown(e)}`);
+        guards.throwCode("ZRUI_BACKEND_ERROR", `backend.stop threw: ${describeThrown(error)}`);
       }
+      if (promise === null) throw new Error("stop: backend.stop did not return a promise");
 
-      return p.then(
+      return promise.then(
         () => {
           try {
             if (lifecycleGeneration !== stopGeneration) return;
@@ -1958,17 +971,20 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
             }
           }
         },
-        (e: unknown) => {
+        (error: unknown) => {
           if (lifecycleGeneration !== stopGeneration) return;
           lifecycleBusy = null;
-          throw new ZrUiError("ZRUI_BACKEND_ERROR", `backend.stop rejected: ${describeThrown(e)}`);
+          throw new ZrUiError(
+            "ZRUI_BACKEND_ERROR",
+            `backend.stop rejected: ${describeThrown(error)}`,
+          );
         },
       );
     },
 
     dispose(): void {
       if (inCommit || inRender || inEventHandlerDepth > 0) {
-        throwCode("ZRUI_REENTRANT_CALL", "dispose: re-entrant call");
+        guards.throwCode("ZRUI_REENTRANT_CALL", "dispose: re-entrant call");
       }
       const st0 = sm.state;
       if (st0 === "Disposed") return;
@@ -1999,25 +1015,22 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
       settleActiveRun?.();
     },
 
-    /* --- Keybinding API --- */
-
     keys(bindings: BindingMap<KeyContext<S>>): void {
-      assertKeybindingMutationAllowed("keys");
-      assertLifecycleIdle("keys");
-      registerAppBindings(bindings);
+      guards.assertKeybindingMutationAllowed("keys");
+      guards.assertLifecycleIdle("keys");
+      keybindingHelpers.registerAppBindings(bindings);
     },
 
     modes(modes: ModeBindingMap<KeyContext<S>>): void {
-      assertKeybindingMutationAllowed("modes");
-      assertLifecycleIdle("modes");
-      registerAppModes(modes);
+      guards.assertKeybindingMutationAllowed("modes");
+      guards.assertLifecycleIdle("modes");
+      keybindingHelpers.registerAppModes(modes);
     },
 
     setMode(modeName: string): void {
-      assertKeybindingMutationAllowed("setMode");
-      assertLifecycleIdle("setMode");
-      keybindingState = setMode(keybindingState, modeName);
-      keybindingsEnabled = computeKeybindingsEnabled(keybindingState);
+      guards.assertKeybindingMutationAllowed("setMode");
+      guards.assertLifecycleIdle("setMode");
+      applyKeybindingState(setMode(keybindingState, modeName));
     },
 
     getMode(): string {
@@ -2046,8 +1059,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
   routeStateUpdater = app.update;
   if (routerIntegration) {
-    const routeKeybindings = routerIntegration.routeKeybindings;
-    replaceRouteBindings(routeKeybindings);
+    keybindingHelpers.replaceRouteBindings(routerIntegration.routeKeybindings);
   }
 
   Object.defineProperty(app, APP_INTERNAL_REQUEST_VIEW_LAYOUT_MARKER, {
@@ -2062,11 +1074,7 @@ export function createApp<S>(opts: CreateAppStateOptions<S> | CreateAppRoutesOnl
 
   Object.defineProperty(app, APP_INTERNAL_SET_RUNTIME_BREADCRUMB_HOOKS_MARKER, {
     value: (hooks: InternalRuntimeBreadcrumbHooks | null | undefined) => {
-      inspectorInternalOnRender =
-        typeof hooks?.onRender === "function" ? hooks.onRender : undefined;
-      inspectorInternalOnLayout =
-        typeof hooks?.onLayout === "function" ? hooks.onLayout : undefined;
-      recomputeRuntimeBreadcrumbCollection();
+      runtimeBreadcrumbHelpers.setInspectorHooks(hooks);
     },
     enumerable: false,
     configurable: false,
