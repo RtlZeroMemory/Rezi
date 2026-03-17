@@ -6,6 +6,14 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- **core/forms**: `useFieldArray` now recomputes array dirty state from the next value snapshot after append/remove/move and preserves scalar array-level errors when `validateOnChange` is disabled.
+
+### Tests
+
+- **core/forms**: Added field-array regressions for structural dirty recomputation and scalar array-level error preservation across append/remove/move.
+
 ## [0.1.0-alpha.60] - 2026-03-14
 
 ### Bug Fixes

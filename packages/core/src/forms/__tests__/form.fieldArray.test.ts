@@ -53,7 +53,7 @@ describe("useFieldArray", () => {
     assert.deepEqual(fa.values, ["a", "b"]);
     assert.deepEqual(fa.keys, ["items_0", "items_1"]);
     assert.deepEqual(form.touched.items, [false, false]);
-    assert.deepEqual(form.dirty.items, [false, true]);
+    assert.equal(form.dirty.items, true);
     assert.deepEqual(form.errors.items, [undefined, undefined]);
   });
 
@@ -77,7 +77,7 @@ describe("useFieldArray", () => {
     assert.deepEqual(fa.values, ["x"]);
     assert.deepEqual(fa.keys, ["items_0"]);
     assert.deepEqual(form.touched.items, [false]);
-    assert.deepEqual(form.dirty.items, [true]);
+    assert.equal(form.dirty.items, true);
     assert.deepEqual(form.errors.items, [undefined]);
   });
 
@@ -102,7 +102,67 @@ describe("useFieldArray", () => {
     assert.deepEqual(fa.keys, ["items_0", "items_2"]);
     assert.deepEqual(form.errors.items, ["e0", "e2"]);
     assert.deepEqual(form.touched.items, [true, true]);
-    assert.deepEqual(form.dirty.items, [false, false]);
+    assert.equal(form.dirty.items, true);
+  });
+
+  test("append preserves scalar array-level errors when validateOnChange is disabled", () => {
+    const h = createFormHarness();
+
+    const options: UseFormOptions<FieldArrayFormValues> = {
+      initialValues: { items: ["a"], note: "" },
+      validateOnChange: false,
+      onSubmit: () => {},
+    };
+
+    let form = h.render(options);
+    form.useFieldArray("items");
+    form.setFieldError("items", "Array-level error");
+    form = h.render(options);
+
+    form.useFieldArray("items").append("b");
+    form = h.render(options);
+
+    assert.equal(form.errors.items, "Array-level error");
+  });
+
+  test("remove preserves scalar array-level errors when validateOnChange is disabled", () => {
+    const h = createFormHarness();
+
+    const options: UseFormOptions<FieldArrayFormValues> = {
+      initialValues: { items: ["a", "b"], note: "" },
+      validateOnChange: false,
+      onSubmit: () => {},
+    };
+
+    let form = h.render(options);
+    form.useFieldArray("items");
+    form.setFieldError("items", "Array-level error");
+    form = h.render(options);
+
+    form.useFieldArray("items").remove(0);
+    form = h.render(options);
+
+    assert.equal(form.errors.items, "Array-level error");
+  });
+
+  test("move preserves scalar array-level errors when validateOnChange is disabled", () => {
+    const h = createFormHarness();
+
+    const options: UseFormOptions<FieldArrayFormValues> = {
+      initialValues: { items: ["a", "b"], note: "" },
+      validateOnChange: false,
+      onSubmit: () => {},
+    };
+
+    let form = h.render(options);
+    form.useFieldArray("items");
+    form.setFieldError("items", "Array-level error");
+    form = h.render(options);
+
+    form.useFieldArray("items").move(0, 1);
+    form = h.render(options);
+
+    assert.equal(form.errors.items, "Array-level error");
   });
 
   test("remove ignores out-of-range indexes", () => {
@@ -153,6 +213,7 @@ describe("useFieldArray", () => {
     const fa = form.useFieldArray("items");
     assert.deepEqual(fa.values, ["b", "c", "a"]);
     assert.deepEqual(fa.keys, [initialKeys[1], initialKeys[2], initialKeys[0]]);
+    assert.deepEqual(form.dirty.items, [true, true, true]);
   });
 
   test("move preserves per-item error array ordering", () => {
@@ -197,7 +258,7 @@ describe("useFieldArray", () => {
     assert.deepEqual(form.touched.items, [false, true, true]);
   });
 
-  test("move preserves dirty state for moved items", () => {
+  test("move keeps appended arrays dirty after reordering", () => {
     const h = createFormHarness();
 
     const options: UseFormOptions<FieldArrayFormValues> = {
@@ -208,11 +269,11 @@ describe("useFieldArray", () => {
     let form = h.render(options);
     form.useFieldArray("items").append("c");
     form = h.render(options);
-    assert.deepEqual(form.dirty.items, [false, false, true]);
+    assert.equal(form.dirty.items, true);
 
     form.useFieldArray("items").move(2, 0);
     form = h.render(options);
-    assert.deepEqual(form.dirty.items, [true, false, false]);
+    assert.equal(form.dirty.items, true);
   });
 
   test("move no-ops for same index or invalid indexes", () => {
@@ -295,7 +356,7 @@ describe("useFieldArray", () => {
     assert.deepEqual(next.values, ["c", "d"]);
     assert.deepEqual(next.keys, ["items_2", "items_3"]);
     assert.deepEqual(form.touched.items, [false, false]);
-    assert.deepEqual(form.dirty.items, [true, true]);
+    assert.equal(form.dirty.items, true);
     assert.deepEqual(form.errors.items, [undefined, undefined]);
   });
 
