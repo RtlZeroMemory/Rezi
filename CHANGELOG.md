@@ -6,6 +6,14 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- `useForm` now ignores late async validation results and submit rejections after `reset()` cancels a pending submit attempt, keeping reset state authoritative.
+
+### Tests
+
+- Added `useForm` regressions covering reset during pending submit rejection and reset during pending async-submit validation completion.
+
 ## [0.1.0-alpha.60] - 2026-03-14
 
 ### Bug Fixes
