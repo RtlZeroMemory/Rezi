@@ -6,6 +6,14 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- `internal_onRender` and runtime breadcrumb render timing now use the always-on monotonic clock even when perf instrumentation is disabled.
+
+### Tests
+
+- Added deterministic regressions for widget-mode breadcrumb render timing and draw-mode `internal_onRender` timing.
+
 ## [0.1.0-alpha.60] - 2026-03-14
 
 ### Bug Fixes

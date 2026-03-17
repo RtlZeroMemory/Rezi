@@ -2,7 +2,12 @@ import { assert, test } from "@rezi-ui/testkit";
 import { ZrUiError } from "../../abi.js";
 import { darkTheme } from "../../theme/presets.js";
 import { createApp } from "../createApp.js";
-import { encodeZrevBatchV1, flushMicrotasks, makeBackendBatch } from "./helpers.js";
+import {
+  encodeZrevBatchV1,
+  flushMicrotasks,
+  makeBackendBatch,
+  withMockPerformanceNow,
+} from "./helpers.js";
 import { StubBackend } from "./stubBackend.js";
 
 test("update() commits at end of explicit user turn (#57)", async () => {
@@ -158,4 +163,27 @@ test("explicit null initialState is preserved", async () => {
   assert.deepEqual(seen, [null]);
 
   app.dispose();
+});
+
+test("draw mode internal_onRender reports monotonic render timing", async () => {
+  const backend = new StubBackend();
+  const renderTimes: number[] = [];
+  const app = createApp({
+    backend,
+    initialState: 0,
+    config: {
+      internal_onRender: (metrics) => {
+        renderTimes.push(metrics.renderTime);
+      },
+    },
+  });
+
+  app.draw((g) => g.clear());
+
+  await withMockPerformanceNow([30, 37], async () => {
+    await app.start();
+    await flushMicrotasks(5);
+  });
+
+  assert.deepEqual(renderTimes, [7]);
 });

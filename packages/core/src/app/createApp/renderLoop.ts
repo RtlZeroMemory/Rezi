@@ -322,7 +322,7 @@ export function createRenderLoop<S>(options: CreateRenderLoopOptions<S>): AppRen
       const drawFn = options.getDrawFn();
       if (!drawFn) return;
 
-      const renderStart = perfNow();
+      const renderStartMs = monotonicNowMs();
       const submitToken = perfMarkStart("submit_frame");
       const res = options.rawRenderer.submitFrame(drawFn, hooks);
       perfMarkEnd("submit_frame", submitToken);
@@ -330,7 +330,7 @@ export function createRenderLoop<S>(options: CreateRenderLoopOptions<S>): AppRen
         options.fatalNowOrEnqueue(res.code, res.detail);
         return;
       }
-      if (!emitInternalRenderMetrics(perfNow() - renderStart)) return;
+      if (!emitInternalRenderMetrics(monotonicNowMs() - renderStartMs)) return;
 
       const submitStartMs = PERF_ENABLED ? submitToken : null;
       const buildEndMs = PERF_ENABLED ? perfNow() : null;
@@ -373,7 +373,7 @@ export function createRenderLoop<S>(options: CreateRenderLoopOptions<S>): AppRen
       }
     };
 
-    const renderStart = perfNow();
+    const renderStartMs = monotonicNowMs();
     const submitToken = perfMarkStart("submit_frame");
     const frameView: ViewFn<S> = options.getDebugLayoutEnabled()
       ? (state) => {
@@ -397,7 +397,7 @@ export function createRenderLoop<S>(options: CreateRenderLoopOptions<S>): AppRen
       return;
     }
     if (!options.emitFocusChangeIfNeeded()) return;
-    const renderTime = perfNow() - renderStart;
+    const renderTime = monotonicNowMs() - renderStartMs;
     const runtimeBreadcrumbs = options.buildRuntimeBreadcrumbSnapshot(Math.max(0, renderTime));
     if (!emitInternalRenderMetrics(renderTime, runtimeBreadcrumbs)) return;
     if (!emitInternalLayoutSnapshot(runtimeBreadcrumbs)) return;
