@@ -388,6 +388,82 @@ describe("useForm wizard", () => {
     assert.equal(form.errors.email, "Email already taken");
   });
 
+  test("nextStep clears stale async-style step errors after the field value changes", async () => {
+    const h = createTestContext();
+
+    const options = createWizardOptions({
+      initialValues: {
+        name: "Ada",
+        email: "taken@example.com",
+        age: 30,
+      },
+      validateOnChange: false,
+      validateAsync: async (values) =>
+        values.email === "taken@example.com" ? { email: "Email already taken" } : {},
+      wizard: {
+        initialStep: 1,
+        steps: [
+          { id: "step-account", fields: ["name"] },
+          { id: "step-contact", fields: ["email"] },
+          { id: "step-confirm", fields: ["age"] },
+        ],
+      },
+    });
+
+    let form = h.render(options);
+    form.setFieldError("email", "Email already taken");
+    form = h.render(options);
+    form.setFieldValue("email", "fresh@example.com");
+    form = h.render(options);
+
+    const moved = form.nextStep();
+    form = h.render(options);
+
+    assert.equal(moved, false);
+    assert.equal(form.currentStep, 1);
+    assert.equal(form.errors.email, "Email already taken");
+
+    await flushMicrotasks();
+    form = h.render(options);
+
+    assert.equal(form.currentStep, 2);
+    assert.equal(form.errors.email, undefined);
+  });
+
+  test("goToStep clears stale async-style intermediate errors after the field value changes", async () => {
+    const h = createTestContext();
+
+    const options = createWizardOptions({
+      initialValues: {
+        name: "Ada",
+        email: "taken@example.com",
+        age: 30,
+      },
+      validateOnChange: false,
+      validateAsync: async (values) =>
+        values.email === "taken@example.com" ? { email: "Email already taken" } : {},
+    });
+
+    let form = h.render(options);
+    form.setFieldError("email", "Email already taken");
+    form = h.render(options);
+    form.setFieldValue("email", "fresh@example.com");
+    form = h.render(options);
+
+    const moved = form.goToStep(2);
+    form = h.render(options);
+
+    assert.equal(moved, false);
+    assert.equal(form.currentStep, 0);
+    assert.equal(form.errors.email, "Email already taken");
+
+    await flushMicrotasks();
+    form = h.render(options);
+
+    assert.equal(form.currentStep, 2);
+    assert.equal(form.errors.email, undefined);
+  });
+
   test("goToStep allows forward navigation when intermediate steps are valid", () => {
     const h = createTestContext();
 

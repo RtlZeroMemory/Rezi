@@ -6,6 +6,14 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- `useForm` wizard transitions now clear stale step errors when async revalidation succeeds after a field value changes, preventing false navigation blocks.
+
+### Tests
+
+- Added wizard regressions for `nextStep()` and `goToStep()` when async step errors become stale after field edits.
+
 ## [0.1.0-alpha.60] - 2026-03-14
 
 ### Bug Fixes

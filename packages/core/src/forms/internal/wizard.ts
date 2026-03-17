@@ -197,6 +197,7 @@ export function resolveWizardTransition<T extends Record<string, unknown>>(optio
   transitionSteps: ReadonlyArray<WizardTransitionStep<T>>;
   source: WizardTransitionSource<T>;
   asyncErrors?: ValidationResult<T>;
+  includeSourceErrors?: boolean;
   runWizardStepValidation: (
     values: T,
     stepIndex: number,
@@ -209,12 +210,18 @@ export function resolveWizardTransition<T extends Record<string, unknown>>(optio
 }> | null {
   let mergedErrors = options.source.errors as ValidationResult<T>;
   for (const transitionStep of options.transitionSteps) {
+    const stepSourceErrors =
+      options.includeSourceErrors === false
+        ? clearValidationFields(mergedErrors, transitionStep.fields)
+        : options.asyncErrors === undefined
+          ? mergedErrors
+          : clearValidationFields(mergedErrors, transitionStep.fields);
     const baseStepErrors = options.runWizardStepValidation(
       options.values,
       transitionStep.stepIndex,
       {
         ...options.source,
-        errors: mergedErrors,
+        errors: stepSourceErrors,
       },
     );
     const stepErrors =
@@ -278,6 +285,7 @@ export function createWizardActions<T extends Record<string, unknown>>(options: 
       values: snapshot.values,
       transitionSteps,
       source: snapshot,
+      includeSourceErrors: !options.validateAsync,
       runWizardStepValidation: options.runWizardStepValidation,
     });
     if (blocked) {
@@ -330,6 +338,7 @@ export function createWizardActions<T extends Record<string, unknown>>(options: 
         transitionSteps,
         source: options.stateRef.current,
         asyncErrors,
+        includeSourceErrors: false,
         runWizardStepValidation: options.runWizardStepValidation,
       });
       if (asyncBlocked) {
@@ -393,6 +402,7 @@ export function createWizardActions<T extends Record<string, unknown>>(options: 
       values: snapshot.values,
       transitionSteps,
       source: snapshot,
+      includeSourceErrors: !options.validateAsync,
       runWizardStepValidation: options.runWizardStepValidation,
     });
     if (blocked) {
@@ -445,6 +455,7 @@ export function createWizardActions<T extends Record<string, unknown>>(options: 
         transitionSteps,
         source: options.stateRef.current,
         asyncErrors,
+        includeSourceErrors: false,
         runWizardStepValidation: options.runWizardStepValidation,
       });
       if (asyncBlocked) {
