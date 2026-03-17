@@ -6,6 +6,14 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- Invalid-prop diagnostics now stay safe when rendering the received value would throw during stringification.
+
+### Tests
+
+- Added a regression covering hostile invalid prop values that throw during diagnostic stringification.
+
 ## [0.1.0-alpha.60] - 2026-03-14
 
 ### Bug Fixes

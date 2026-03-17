@@ -19,6 +19,14 @@ export function describeReceivedType(value: unknown): string {
   return typeof value;
 }
 
+export function describeReceivedValue(value: unknown): string {
+  try {
+    return String(value);
+  } catch {
+    return "<unprintable>";
+  }
+}
+
 export function invalidProp(
   kind: string,
   name: string,
@@ -27,6 +35,6 @@ export function invalidProp(
 ): LayoutResult<never> {
   return invalid(
     `Invalid prop "${name}" on <${kind}>: expected ${expected}, ` +
-      `got ${describeReceivedType(received)} (${String(received)})`,
+      `got ${describeReceivedType(received)} (${describeReceivedValue(received)})`,
   );
 }
