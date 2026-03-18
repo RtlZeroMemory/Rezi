@@ -9,7 +9,12 @@ import { createApp } from "../createApp.js";
 import type { RuntimeBreadcrumbSnapshot } from "../runtimeBreadcrumbs.js";
 import { isRuntimeBreadcrumbEventKind } from "../runtimeBreadcrumbs.js";
 import { WidgetRenderer } from "../widgetRenderer.js";
-import { encodeZrevBatchV1, flushMicrotasks, makeBackendBatch } from "./helpers.js";
+import {
+  encodeZrevBatchV1,
+  flushMicrotasks,
+  makeBackendBatch,
+  withMockPerformanceNow,
+} from "./helpers.js";
 import { StubBackend } from "./stubBackend.js";
 
 function noRenderHooks(): { enterRender: () => void; exitRender: () => void } {
@@ -240,6 +245,43 @@ test("runtime breadcrumbs refresh focus announcements when field metadata change
   assert.ok(second);
   assert.equal(second.focus.focusedId, "email");
   assert.equal(second.focus.announcement?.includes("Invalid format"), true);
+
+  await settleNextFrame(backend);
+});
+
+test("runtime breadcrumbs keep monotonic render timings when perf instrumentation is off", async () => {
+  const backend = new StubBackend();
+  const renderMetrics: number[] = [];
+  const renderSnapshots: RuntimeBreadcrumbSnapshot[] = [];
+
+  const app = createApp({
+    backend,
+    initialState: 0,
+    config: {
+      internal_onRender: (metrics) => {
+        renderMetrics.push(metrics.renderTime);
+        const breadcrumbs = (
+          metrics as Readonly<{ runtimeBreadcrumbs?: RuntimeBreadcrumbSnapshot }>
+        ).runtimeBreadcrumbs;
+        if (breadcrumbs) renderSnapshots.push(breadcrumbs);
+      },
+    },
+  });
+
+  app.view(() => ui.text("timing"));
+
+  await app.start();
+  await withMockPerformanceNow([10, 15, 23], async () => {
+    await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 40, rows: 10 }]);
+  });
+
+  assert.equal(renderMetrics.length, 1);
+  const renderTime = renderMetrics[0];
+  assert.ok(renderTime !== undefined);
+  assert.equal(renderTime > 0, true);
+  assert.equal(renderTime, 8);
+  assert.equal(renderSnapshots.length, 1);
+  assert.equal(renderSnapshots[0]?.frame.renderTimeMs, 8);
 
   await settleNextFrame(backend);
 });
