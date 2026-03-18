@@ -346,6 +346,43 @@ describe("form.state - submit and reset lifecycle", () => {
     await flushMicrotasks();
     form = h.render(opts);
     assert.equal(form.isSubmitting, false);
+    assert.deepEqual(form.values, { name: "Ada", email: "ada@example.com", age: 42 });
+    assert.equal(form.submitError, undefined);
+  });
+
+  test("reset ignores late submit rejection from a canceled attempt", async () => {
+    const h = createFormHarness();
+    const submit = createDeferred<void>();
+    const submitError = new Error("submit failed");
+    const captured: unknown[] = [];
+    const opts = options({
+      onSubmit: async () => submit.promise,
+      onSubmitError: (error) => {
+        captured.push(error);
+      },
+    });
+
+    let form = h.render(opts);
+    form.setFieldValue("name", "Changed");
+    form = h.render(opts);
+    form.handleSubmit();
+    await flushMicrotasks();
+    form = h.render(opts);
+    assert.equal(form.isSubmitting, true);
+
+    form.reset();
+    form = h.render(opts);
+    assert.equal(form.isSubmitting, false);
+    assert.deepEqual(form.values, { name: "Ada", email: "ada@example.com", age: 42 });
+
+    submit.reject(submitError);
+    await flushMicrotasks(4);
+    form = h.render(opts);
+
+    assert.equal(form.isSubmitting, false);
+    assert.equal(form.submitError, undefined);
+    assert.deepEqual(form.values, { name: "Ada", email: "ada@example.com", age: 42 });
+    assert.deepEqual(captured, []);
   });
 
   test("resetOnSubmit restores initial values after successful submit", async () => {

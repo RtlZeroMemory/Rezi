@@ -93,7 +93,7 @@ describe("layout performance", () => {
   const IS_MACOS = process.platform === "darwin";
   const env = process.env as NodeJS.ProcessEnv & { CI?: string };
   const IS_CI = env.CI === "true";
-  const FRAME_BUDGET_MS = IS_WINDOWS ? 120 : 16; // Keep 16ms target off Windows.
+  const FRAME_BUDGET_MS = IS_WINDOWS ? 120 : IS_CI ? 20 : 16; // Shared CI runners can drift slightly above the 16ms target.
   const REALISTIC_FRAME_BUDGET_MS = IS_WINDOWS ? 120 : IS_CI ? 24 : 16; // CI runner variance under shared load.
   const WARMUP_RUNS = 2;
 

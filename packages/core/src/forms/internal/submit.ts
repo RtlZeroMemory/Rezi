@@ -17,6 +17,8 @@ type AsyncValidatorRef<T extends Record<string, unknown>> = {
     | undefined;
 };
 
+type AttemptRef = { current: number };
+
 function markAllFieldsTouched<T extends Record<string, unknown>>(
   values: T,
 ): Partial<Record<keyof T, FieldBooleanValue>> {
@@ -32,11 +34,13 @@ function markAllFieldsTouched<T extends Record<string, unknown>>(
 export function createResetAction<T extends Record<string, unknown>>(options: {
   formOptions: UseFormOptions<T>;
   asyncValidatorRef: AsyncValidatorRef<T>;
+  attemptRef: AttemptRef;
   submittingRef: { current: boolean };
   fieldArrayKeysRef: { current: Partial<Record<keyof T, string[]>> };
   updateFormState: UpdateFormState<T>;
 }): () => void {
   return (): void => {
+    options.attemptRef.current += 1;
     options.submittingRef.current = false;
     options.asyncValidatorRef.current?.cancel();
     options.fieldArrayKeysRef.current = {};
@@ -51,6 +55,7 @@ export function createSubmitAction<T extends Record<string, unknown>>(options: {
   stateRef: { current: FormState<T> };
   submittingRef: { current: boolean };
   asyncValidatorRef: AsyncValidatorRef<T>;
+  attemptRef: AttemptRef;
   updateFormState: UpdateFormState<T>;
   runSyncValidationFiltered: (
     values: T,
@@ -94,8 +99,14 @@ export function createSubmitAction<T extends Record<string, unknown>>(options: {
       options.submittingRef.current = false;
       return;
     }
+    const attempt = options.attemptRef.current + 1;
+    options.attemptRef.current = attempt;
     const submitValues = cloneInitialValues(snapshot.values);
+    const isStaleAttempt = (): boolean => options.attemptRef.current !== attempt;
     const failSubmit = (error: unknown): void => {
+      if (isStaleAttempt()) {
+        return;
+      }
       if (typeof options.formOptions.onSubmitError === "function") {
         try {
           options.formOptions.onSubmitError(error);
@@ -115,6 +126,9 @@ export function createSubmitAction<T extends Record<string, unknown>>(options: {
     };
 
     const finishSuccessfulSubmit = (): void => {
+      if (isStaleAttempt()) {
+        return;
+      }
       if (options.formOptions.resetOnSubmit) {
         options.reset();
         return;
@@ -176,6 +190,9 @@ export function createSubmitAction<T extends Record<string, unknown>>(options: {
     void (async () => {
       try {
         const asyncErrors = await options.runAsyncValidationFiltered(submitValues, snapshot);
+        if (isStaleAttempt()) {
+          return;
+        }
         const allErrors = mergeValidationErrors(syncErrors, asyncErrors);
         if (!isValidationClean(allErrors)) {
           options.submittingRef.current = false;
@@ -189,6 +206,9 @@ export function createSubmitAction<T extends Record<string, unknown>>(options: {
         }
         await runSubmitCallback();
       } catch (error) {
+        if (isStaleAttempt()) {
+          return;
+        }
         options.submittingRef.current = false;
         options.updateFormState((prev) => ({
           ...prev,

@@ -479,6 +479,68 @@ describe("form.async-validation - useForm behavior", () => {
     assert.equal(form.isSubmitting, false);
   });
 
+  test("reset ignores late async validation errors from a canceled submit attempt", async () => {
+    const h = createFormHarness();
+    const validation = createDeferred<ValidationResult<Values>>();
+    let submitCalls = 0;
+    const opts = options({
+      validateOnChange: false,
+      validate: () => ({}),
+      validateAsync: async () => validation.promise,
+      onSubmit: () => {
+        submitCalls++;
+      },
+    });
+
+    let form = h.render(opts);
+    form.handleSubmit();
+    await flushMicrotasks();
+    form = h.render(opts);
+    assert.equal(form.isSubmitting, true);
+
+    form.reset();
+    form = h.render(opts);
+    assert.equal(form.isSubmitting, false);
+    assert.deepEqual(form.errors, {});
+
+    validation.resolve({ email: "taken" });
+    await flushMicrotasks(4);
+    form = h.render(opts);
+
+    assert.equal(form.isSubmitting, false);
+    assert.deepEqual(form.errors, {});
+    assert.equal(form.submitError, undefined);
+    assert.equal(submitCalls, 0);
+  });
+
+  test("reset ignores late async validation rejection from a canceled submit attempt", async () => {
+    const h = createFormHarness();
+    const validation = createDeferred<ValidationResult<Values>>();
+    const opts = options({
+      validateOnChange: false,
+      validate: () => ({}),
+      validateAsync: async () => validation.promise,
+    });
+
+    let form = h.render(opts);
+    form.handleSubmit();
+    await flushMicrotasks();
+    form = h.render(opts);
+    assert.equal(form.isSubmitting, true);
+
+    form.reset();
+    form = h.render(opts);
+    assert.equal(form.isSubmitting, false);
+
+    validation.reject(new Error("offline"));
+    await flushMicrotasks(4);
+    form = h.render(opts);
+
+    assert.equal(form.isSubmitting, false);
+    assert.equal(form.submitError, undefined);
+    assert.deepEqual(form.errors, {});
+  });
+
   test("handleSubmit rejects concurrent submits while pending", async () => {
     const h = createFormHarness();
     const submit = createDeferred<void>();

@@ -47,6 +47,7 @@ export function useForm<T extends Record<string, unknown>, State = void>(
 
   const pendingAsyncValuesRef = ctx.useRef<T | null>(null);
   const submittingRef = ctx.useRef(false);
+  const submitAttemptRef = ctx.useRef(0);
   const validateRef = ctx.useRef(options.validate);
   validateRef.current = options.validate;
   const nonTextBindingWarningsRef = ctx.useRef<Set<string>>(new Set());
@@ -192,6 +193,7 @@ export function useForm<T extends Record<string, unknown>, State = void>(
   const reset = createResetAction({
     formOptions: options,
     asyncValidatorRef,
+    attemptRef: submitAttemptRef,
     submittingRef,
     fieldArrayKeysRef,
     updateFormState,
@@ -204,6 +206,7 @@ export function useForm<T extends Record<string, unknown>, State = void>(
     stateRef,
     submittingRef,
     asyncValidatorRef,
+    attemptRef: submitAttemptRef,
     updateFormState,
     runSyncValidationFiltered,
     runAsyncValidationFiltered,
