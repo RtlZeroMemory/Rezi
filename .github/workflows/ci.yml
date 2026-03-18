@@ -43,17 +43,7 @@ jobs:
               "https://api.github.com/repos/${REPOSITORY}/dependency-graph/compare/${BASE_SHA}...${HEAD_SHA}"
           )"
 
-          message="$(
-            python3 -c 'import json, sys
-path = sys.argv[1]
-try:
-    with open(path, encoding="utf-8") as handle:
-        payload = json.load(handle)
-except Exception:
-    print("")
-else:
-    print(payload.get("message", ""))' "${response_path}"
-          )"
+          message="$(jq -r '.message // ""' "${response_path}" 2>/dev/null || true)"
 
           case "${status_code}" in
             200)
