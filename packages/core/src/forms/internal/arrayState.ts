@@ -1,6 +1,7 @@
 import type {
   ArrayFieldItem,
   ArrayFieldName,
+  FieldErrorValue,
   FormState,
   UseFieldArrayReturn,
   ValidationResult,
@@ -119,6 +120,17 @@ function moveFieldArrayKey<T extends Record<string, unknown>>(
   fieldArrayKeysRef.current[field] = existing;
 }
 
+function remapFieldArrayErrors(
+  fieldError: FieldErrorValue | undefined,
+  size: number,
+  map: (currentErrors: Array<string | undefined>) => Array<string | undefined>,
+): FieldErrorValue {
+  if (typeof fieldError === "string") {
+    return fieldError;
+  }
+  return map(normalizeErrorArray(fieldError, size));
+}
+
 export function createFieldArrayApi<T extends Record<string, unknown>>(options: {
   state: FormState<T>;
   validateOnChange: boolean | undefined;
@@ -169,25 +181,23 @@ export function createFieldArrayApi<T extends Record<string, unknown>>(options: 
           ...normalizeBooleanArray(prev.touched[fieldKey], currentValues.length, false),
           false,
         ];
-        const previousDirty = normalizeBooleanArray(
-          prev.dirty[fieldKey],
-          currentValues.length,
-          false,
+        const nextDirty = computeFieldDirty(
+          fieldKey,
+          nextValuesArray as T[keyof T],
+          options.initialValuesRef.current,
         );
-        const initialArray = Array.isArray(options.initialValuesRef.current[fieldKey])
-          ? (options.initialValuesRef.current[fieldKey] as ReadonlyArray<unknown>)
-          : [];
-        const appendedDirty = !Object.is(item as unknown, initialArray[nextValuesArray.length - 1]);
-        const nextDirty = [...previousDirty, appendedDirty];
 
         let nextErrors = prev.errors;
         if (options.validateOnChange) {
           nextErrors = options.runSyncValidationFiltered(nextValues, prev);
         } else {
-          const currentErrors = normalizeErrorArray(prev.errors[fieldKey], currentValues.length);
           nextErrors = {
             ...prev.errors,
-            [fieldKey]: [...currentErrors, undefined],
+            [fieldKey]: remapFieldArrayErrors(
+              prev.errors[fieldKey],
+              currentValues.length,
+              (errs) => [...errs, undefined],
+            ),
           };
         }
 
@@ -240,22 +250,21 @@ export function createFieldArrayApi<T extends Record<string, unknown>>(options: 
           normalizeBooleanArray(prev.touched[fieldKey], currentValues.length, false),
           index,
         );
-        const nextDirty = removeAtIndex(
-          normalizeBooleanArray(prev.dirty[fieldKey], currentValues.length, false),
-          index,
+        const nextDirty = computeFieldDirty(
+          fieldKey,
+          nextValuesArray as T[keyof T],
+          options.initialValuesRef.current,
         );
 
         let nextErrors = prev.errors;
         if (options.validateOnChange) {
           nextErrors = options.runSyncValidationFiltered(nextValues, prev);
         } else {
-          const nextErrorArray = removeAtIndex(
-            normalizeErrorArray(prev.errors[fieldKey], currentValues.length),
-            index,
-          );
           nextErrors = {
             ...prev.errors,
-            [fieldKey]: nextErrorArray,
+            [fieldKey]: remapFieldArrayErrors(prev.errors[fieldKey], currentValues.length, (errs) =>
+              removeAtIndex(errs, index),
+            ),
           };
         }
 
@@ -315,20 +324,17 @@ export function createFieldArrayApi<T extends Record<string, unknown>>(options: 
           from,
           to,
         );
-        const nextDirty = moveIndex(
-          normalizeBooleanArray(prev.dirty[fieldKey], currentValues.length, false),
-          from,
-          to,
-        );
-        const nextErrorArray = moveIndex(
-          normalizeErrorArray(prev.errors[fieldKey], currentValues.length),
-          from,
-          to,
+        const nextDirty = computeFieldDirty(
+          fieldKey,
+          nextValuesArray as T[keyof T],
+          options.initialValuesRef.current,
         );
 
         let nextErrors = {
           ...prev.errors,
-          [fieldKey]: nextErrorArray,
+          [fieldKey]: remapFieldArrayErrors(prev.errors[fieldKey], currentValues.length, (errs) =>
+            moveIndex(errs, from, to),
+          ),
         } as ValidationResult<T>;
         if (options.validateOnChange) {
           nextErrors = options.runSyncValidationFiltered(nextValues, prev);
