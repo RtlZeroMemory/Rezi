@@ -422,6 +422,7 @@ export function renderTree(
           tick,
           parentStyle,
           node,
+          layoutNode,
           nodeStack,
           styleStack,
           treeStore,

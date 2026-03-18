@@ -901,4 +901,138 @@ describe("renderer regressions", () => {
       true,
     );
   });
+
+  test("fileTreeExplorer renderNode receives depth/state and replaces default content", () => {
+    const calls: Array<
+      Readonly<{
+        path: string;
+        depth: number;
+        expanded: boolean;
+        selected: boolean;
+        focused: boolean;
+        hasChildren: boolean;
+      }>
+    > = [];
+
+    const strings = parseInternedStrings(
+      renderBytes(
+        ui.fileTreeExplorer({
+          id: "explorer-custom",
+          data: Object.freeze({
+            name: "root",
+            path: "/",
+            type: "directory" as const,
+            children: Object.freeze([
+              Object.freeze({
+                name: "child",
+                path: "/child",
+                type: "file" as const,
+                status: "modified" as const,
+              }),
+            ]),
+          }),
+          expanded: Object.freeze(["/"]),
+          selected: "/child",
+          focused: "/",
+          onChange: noop,
+          onSelect: noop,
+          onPress: noop,
+          renderNode: (node, depth, state) => {
+            calls.push(
+              Object.freeze({
+                path: node.path,
+                depth,
+                expanded: state.expanded,
+                selected: state.selected,
+                focused: state.focused,
+                hasChildren: state.hasChildren,
+              }),
+            );
+            return ui.text(
+              `${node.path}:${depth}:${state.expanded ? "E" : "e"}:${state.selected ? "S" : "s"}:${state.focused ? "F" : "f"}:${state.hasChildren ? "C" : "c"}`,
+            );
+          },
+        }),
+        { cols: 40, rows: 6 },
+        { focusedId: "explorer-custom" },
+      ),
+    );
+
+    assert.deepEqual(calls, [
+      { path: "/", depth: 0, expanded: true, selected: false, focused: true, hasChildren: true },
+      {
+        path: "/child",
+        depth: 1,
+        expanded: false,
+        selected: true,
+        focused: false,
+        hasChildren: false,
+      },
+    ]);
+    assert.equal(
+      strings.some((s) => s.includes("/:0:E:s:F:C")),
+      true,
+    );
+    assert.equal(
+      strings.some((s) => s.includes("/child:1:e:S:f:c")),
+      true,
+    );
+    assert.equal(
+      strings.some((s) => s.includes("D root")),
+      false,
+    );
+    assert.equal(strings.includes("M"), false);
+  });
+
+  test("fileTreeExplorer showIcons and showStatus only affect the default renderer", () => {
+    const data = Object.freeze([
+      Object.freeze({
+        name: "alpha",
+        path: "/alpha",
+        type: "file" as const,
+        status: "modified" as const,
+      }),
+    ]);
+
+    const withDefaults = parseInternedStrings(
+      renderBytes(
+        ui.fileTreeExplorer({
+          id: "explorer-defaults",
+          data,
+          expanded: Object.freeze([]),
+          onChange: noop,
+          onSelect: noop,
+          onPress: noop,
+        }),
+        { cols: 30, rows: 4 },
+      ),
+    );
+    const withoutDecorators = parseInternedStrings(
+      renderBytes(
+        ui.fileTreeExplorer({
+          id: "explorer-plain",
+          data,
+          expanded: Object.freeze([]),
+          showIcons: false,
+          showStatus: false,
+          onChange: noop,
+          onSelect: noop,
+          onPress: noop,
+        }),
+        { cols: 30, rows: 4 },
+      ),
+    );
+
+    assert.equal(
+      withDefaults.some((s) => s.includes("F alpha")),
+      true,
+    );
+    assert.equal(withDefaults.includes("M"), true);
+    assert.equal(withoutDecorators.includes("F alpha"), false);
+    assert.equal(withoutDecorators.includes("M"), false);
+    assert.equal(
+      withoutDecorators.some((s) => s.includes("alpha")),
+      true,
+    );
+  });
 });

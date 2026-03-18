@@ -334,9 +334,18 @@
     },
     {
       "name": "fileTreeExplorer",
-      "requiredProps": ["id", "nodes"],
-      "commonProps": ["expanded", "onChange"],
-      "example": "ui.fileTreeExplorer({ id: 'tree', nodes })"
+      "requiredProps": ["id", "data", "expanded", "onChange", "onSelect", "onPress"],
+      "commonProps": [
+        "selected",
+        "focused",
+        "showIcons",
+        "showStatus",
+        "indentSize",
+        "onContextMenu",
+        "renderNode",
+        "focusConfig"
+      ],
+      "example": "ui.fileTreeExplorer({ id: 'tree', data, expanded, onChange, onSelect, onPress })"
     },
     {
       "name": "splitPane",

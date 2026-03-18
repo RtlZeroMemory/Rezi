@@ -33,9 +33,9 @@ ui.fileTreeExplorer({
 | `onChange` | `(node, expanded) => void` | **required** | Expand/collapse callback |
 | `onSelect` | `(node) => void` | **required** | Selection callback |
 | `onPress` | `(node) => void` | **required** | Activate callback (Enter/double-click) |
-| `onContextMenu` | `(node) => void` | - | Context menu callback |
+| `onContextMenu` | `(node) => void` | - | Context menu callback for right-click mouse routing |
 | `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses row highlight |
-| `renderNode` | `(node, depth, state) => VNode` | - | Custom renderer |
+| `renderNode` | `(node, depth, state) => VNode` | - | Custom row renderer; replaces the built-in icon/status/name line |
 
 ## Behavior
 
@@ -48,13 +48,16 @@ ui.fileTreeExplorer({
 - **Left click** on a node calls `onSelect(node)` immediately on mouse down, moving selection to that node.
 - **Double-click** (two clicks within 500ms on the same node) calls `onPress(node)` on mouse up. For directory nodes, apps typically toggle expand/collapse; for files, apps open the file.
 - **Right click** on a node calls `onContextMenu(node)` when provided.
+- **Wheel** scroll moves the visible row window when the explorer content overflows the viewport.
 - Mouse click routing follows the same press/release model as the Table widget: mouse down captures the target node index, mouse up verifies the same node was hit before firing activation.
 
 ## Notes
 
 - `FileNode` includes `name`, `path`, `type`, and optional `children` and `status`.
 - `status` values: `"modified"`, `"staged"`, `"untracked"`, `"deleted"`, `"renamed"`.
-- Use `renderNode` to customize icons, colors, or badges.
+- `showIcons` and `showStatus` only affect the built-in row renderer.
+- `renderNode(node, depth, state)` replaces the built-in row content entirely and receives row metadata for `expanded`, `selected`, `focused`, and `hasChildren`.
+- The core renderer wires `onContextMenu` from right-click mouse input; it does not currently register a dedicated keyboard Menu-key handler.
 
 ## Focus Control
 
