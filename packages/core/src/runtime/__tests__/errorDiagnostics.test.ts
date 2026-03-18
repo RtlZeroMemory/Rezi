@@ -71,6 +71,33 @@ test("invalid props diagnostics include prop name and widget kind", () => {
   assert.equal(res.fatal.detail.includes("got boolean (false)"), true);
 });
 
+test("invalid props diagnostics stay catchable when received value stringification throws", () => {
+  const hostileValue = {
+    [Symbol.toPrimitive](): never {
+      throw new Error("hostile value");
+    },
+    toString(): string {
+      return "unreachable";
+    },
+    valueOf(): number {
+      return 0;
+    },
+  };
+  const vnode = {
+    kind: "box",
+    props: { width: hostileValue, border: "none" },
+    children: [],
+  } as unknown as VNode;
+
+  const res = measure(vnode, 80, 24, "column");
+  assert.equal(res.ok, false);
+  if (res.ok) return;
+
+  assert.equal(res.fatal.code, "ZRUI_INVALID_PROPS");
+  assert.equal(res.fatal.detail.includes('Invalid prop "width" on <box>'), true);
+  assert.equal(res.fatal.detail.includes("got object (<unprintable>)"), true);
+});
+
 test("render-phase update diagnostics remain catchable as ZrUiError with code", async () => {
   const backend = new StubBackend();
   const app = createApp({ backend, initialState: 0 });

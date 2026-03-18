@@ -12,6 +12,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - **core/forms**: `useForm` now ignores late async validation results and submit rejections after `reset()` cancels a pending submit attempt, keeping reset state authoritative.
 - **core/forms**: `useForm` wizard transitions now clear stale step errors when async revalidation succeeds after a field value changes, preventing false navigation blocks.
 - **core/layout**: Layout and interactive prop validators now reject non-object prop bags instead of silently treating them as empty props.
+- **core/layout**: Invalid-prop diagnostics now stay safe when rendering the received value would throw during stringification.
 
 ### Tests
 
@@ -19,6 +20,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - **core/forms**: Added `useForm` regressions covering reset during pending submit rejection and reset during pending async-submit validation completion.
 - **core/forms**: Added wizard regressions for `nextStep()` and `goToStep()` when async step errors become stale after field edits.
 - **core/layout**: Added regressions covering non-object prop bags for stack/box layout validators and all top-level interactive validators.
+- **core/layout**: Added a regression covering hostile invalid prop values that throw during diagnostic stringification.
 
 ## [0.1.0-alpha.60] - 2026-03-14
 
