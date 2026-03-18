@@ -65,9 +65,6 @@ A production-style terminal control console built entirely with Rezi.
 
 ![Rezi EdgeOps demo](Assets/REZICONSOLE3.gif)
 
-### Visual Stress Test
-
-![Rezi benchmark demo](Assets/REZIBENCHMARK.gif)
 
 ### Image Rendering
 
@@ -190,17 +187,6 @@ app.view((s) =>
 app.keys({ q: () => app.stop() });
 await app.start();
 ```
-
-## Beautiful Defaults
-
-When the active theme provides semantic color tokens, Rezi uses design system recipes by default for:
-`ui.button`, `ui.input`/`ui.textarea`, `ui.select`, `ui.checkbox`, `ui.progress`, and `ui.callout`.
-
-- Use `intent` on buttons for common “primary/danger/link” patterns.
-- Use `preset` on `ui.box` (or `ui.card`/`ui.panel`) for consistent container defaults.
-- Use manual `style` props to override specific attributes (they do not disable recipes).
-
-Docs: [Design System](docs/design-system.md) · [Migration: Beautiful Defaults](docs/migration/beautiful-defaults.md)
 
 Install:
 
