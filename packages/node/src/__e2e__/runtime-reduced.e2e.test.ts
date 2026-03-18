@@ -9,7 +9,7 @@ test(
   "terminal e2e reduced: worker backend frame/events/debug with native shim",
   { skip: e2eProfile === "reduced" ? false : "reduced-profile-only" },
   async () => {
-    const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+    const shim = new URL("../__tests__/worker/testShims/mockNative.js", import.meta.url).href;
     const backend = createNodeBackendInternal({
       config: {
         executionMode: "worker",

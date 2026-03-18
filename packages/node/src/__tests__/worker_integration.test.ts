@@ -65,7 +65,7 @@ function resolveWorkerEntry(workerData: WorkerOptions["workerData"]): Readonly<{
 }
 
 function makeWorker(): Worker {
-  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const { entry, options } = resolveWorkerEntry({ nativeShimModule: shim });
   return new Worker(entry, options);
 }
@@ -502,7 +502,7 @@ test("worker: deterministic shutdownComplete + exit", async () => {
 });
 
 test("backend: createNodeBackendInternal integrates worker buffers + release", async () => {
-  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: { fpsCap: 1000, maxEventBytes: 1024 },
     nativeShimModule: shim,
@@ -540,7 +540,7 @@ test("backend: createNodeBackendInternal integrates worker buffers + release", a
 });
 
 test("backend: pollEvents recovers from oversized event batch (ZR_ERR_LIMIT)", async () => {
-  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: { fpsCap: 1000, maxEventBytes: 64 },
     nativeShimModule: shim,
@@ -581,7 +581,7 @@ test("backend: pollEvents recovers from oversized event batch (ZR_ERR_LIMIT)", a
 });
 
 test("backend: maps fpsCap to native targetFps during init", async () => {
-  const shim = new URL("../worker/testShims/targetFpsNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/targetFpsNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: { fpsCap: 777, maxEventBytes: 1024 },
     nativeShimModule: shim,
@@ -593,7 +593,7 @@ test("backend: maps fpsCap to native targetFps during init", async () => {
 });
 
 test("backend: applies default native drawlist/output limits when nativeConfig.limits is absent", async () => {
-  const shim = new URL("../worker/testShims/limitsNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/limitsNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: { fpsCap: 777, maxEventBytes: 1024 },
     nativeShimModule: shim,
@@ -605,7 +605,7 @@ test("backend: applies default native drawlist/output limits when nativeConfig.l
 });
 
 test("backend: preserves explicit nativeConfig.limits overrides", async () => {
-  const shim = new URL("../worker/testShims/limitsExpectNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/limitsExpectNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: {
       fpsCap: 777,
@@ -626,7 +626,7 @@ test("backend: preserves explicit nativeConfig.limits overrides", async () => {
 });
 
 test("backend: worker path fails deterministically on invalid engine_poll_events byte counts", async () => {
-  const shim = new URL("../worker/testShims/invalidPollBytesNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/invalidPollBytesNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: { fpsCap: 1000, maxEventBytes: 64 },
     nativeShimModule: shim,
@@ -646,7 +646,7 @@ test("backend: worker path fails deterministically on invalid engine_poll_events
 });
 
 test("backend: inline path fails deterministically on invalid engine_poll_events byte counts", async () => {
-  const shim = new URL("../worker/testShims/invalidPollBytesNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/invalidPollBytesNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: { executionMode: "inline", fpsCap: 1000, maxEventBytes: 64 },
     nativeShimModule: shim,
@@ -698,7 +698,7 @@ test(
 );
 
 test("backend: mailbox resolves coalesced frame sequences", async () => {
-  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: { fpsCap: 1000, maxEventBytes: 1024 },
     nativeShimModule: shim,
@@ -715,7 +715,7 @@ test("backend: mailbox resolves coalesced frame sequences", async () => {
 });
 
 test("backend: requestFrame settles asynchronously after worker completion", async () => {
-  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: { fpsCap: 1000, maxEventBytes: 1024 },
     nativeShimModule: shim,
@@ -741,7 +741,7 @@ test("backend: requestFrame settles asynchronously after worker completion", asy
 });
 
 test("backend: requestFrame accepts subarray views without detaching input", async () => {
-  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: { fpsCap: 1000, maxEventBytes: 1024, frameTransport: "transfer" },
     nativeShimModule: shim,
@@ -762,7 +762,7 @@ test("backend: requestFrame accepts subarray views without detaching input", asy
 });
 
 test("backend: requestFrame does not detach full-buffer inputs", async () => {
-  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: { fpsCap: 1000, maxEventBytes: 1024, frameTransport: "transfer" },
     nativeShimModule: shim,
@@ -782,7 +782,7 @@ test("backend: requestFrame does not detach full-buffer inputs", async () => {
 });
 
 test("backend:inline: requestFrame keeps caller buffers attached", async () => {
-  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: { executionMode: "inline", fpsCap: 1000, maxEventBytes: 1024 },
     nativeShimModule: shim,
@@ -803,7 +803,7 @@ test("backend:inline: requestFrame keeps caller buffers attached", async () => {
 });
 
 test("backend: SAB requestFrame keeps caller buffers attached", async () => {
-  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: {
       fpsCap: 1000,
@@ -830,7 +830,7 @@ test("backend: SAB requestFrame keeps caller buffers attached", async () => {
 });
 
 test("backend: SAB beginFrame writer commits drawlist bytes", async () => {
-  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: {
       fpsCap: 1000,
@@ -901,7 +901,7 @@ test("backend: SAB beginFrame writer commits drawlist bytes", async () => {
 });
 
 test("backend: SAB beginFrame reclaims READY slot under pressure (latest-wins)", async () => {
-  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: {
       executionMode: "worker",
@@ -947,7 +947,7 @@ test("backend: SAB beginFrame reclaims READY slot under pressure (latest-wins)",
 });
 
 test("backend: SAB beginFrame returns null when all slots are WRITING", async () => {
-  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: {
       executionMode: "worker",
@@ -995,7 +995,7 @@ test("backend: SAB beginFrame returns null when all slots are WRITING", async ()
 });
 
 test("backend: SAB transport falls back to transfer for oversized frames", async () => {
-  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: {
       fpsCap: 1000,
@@ -1021,7 +1021,7 @@ test("backend: SAB transport falls back to transfer for oversized frames", async
 });
 
 test("backend: stop rejects pollEvents and blocks subsequent requestFrame deterministically", async () => {
-  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: { fpsCap: 1, maxEventBytes: 1024 },
     nativeShimModule: shim,
@@ -1042,7 +1042,7 @@ test("backend: stop rejects pollEvents and blocks subsequent requestFrame determ
 });
 
 test("backend:inline: stop rejects pollEvents and blocks subsequent requestFrame", async () => {
-  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: { executionMode: "inline", fpsCap: 1000, maxEventBytes: 1024 },
     nativeShimModule: shim,
@@ -1060,7 +1060,7 @@ test("backend:inline: stop rejects pollEvents and blocks subsequent requestFrame
 });
 
 test("backend: frame submission failure becomes fatal ZRUI_BACKEND_ERROR", async () => {
-  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: { fpsCap: 1000, maxEventBytes: 1024 },
     nativeShimModule: shim,
@@ -1085,7 +1085,7 @@ test("backend: frame submission failure becomes fatal ZRUI_BACKEND_ERROR", async
 });
 
 test("backend: getCaps returns defaults before start and worker caps after start", async () => {
-  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: { fpsCap: 1000, maxEventBytes: 1024 },
     nativeShimModule: shim,
@@ -1117,7 +1117,7 @@ test("backend: getCaps returns defaults before start and worker caps after start
 });
 
 test("backend: debugQuery clamps maxRecords to avoid large allocations", async () => {
-  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: { fpsCap: 1000, maxEventBytes: 1024 },
     nativeShimModule: shim,
@@ -1135,7 +1135,7 @@ test("backend: debugQuery clamps maxRecords to avoid large allocations", async (
 });
 
 test("backend: perfSnapshot returns valid structure when REZI_PERF is enabled", async () => {
-  const shim = new URL("../worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
     config: { fpsCap: 1000, maxEventBytes: 1024 },
     nativeShimModule: shim,
