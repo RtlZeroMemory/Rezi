@@ -5,6 +5,10 @@ import type { RuntimeInstance } from "../../../runtime/commit.js";
 import type { FocusState } from "../../../runtime/focus.js";
 import type { TreeLocalState, TreeStateStore } from "../../../runtime/localState.js";
 import type { Theme } from "../../../theme/theme.js";
+import {
+  flattenVisibleFilePickerNodes,
+  normalizeFilePickerFilter,
+} from "../../../widgets/filePicker.js";
 import { type FlattenedNode, flattenTree, getTreeLinePrefix } from "../../../widgets/tree.js";
 import type { FileNode, FilePickerProps, FileTreeExplorerProps } from "../../../widgets/types.js";
 import { asTextStyle } from "../../styles.js";
@@ -134,19 +138,22 @@ export function renderFileWidgets(
       }
 
       const cached = state.flatCache;
+      const normalizedFilter = normalizeFilePickerFilter(props.filter) ?? undefined;
+      const includeHidden = props.showHidden === true;
       const canReuseFlatCache =
         cached &&
         cached.kind === "fileNode" &&
         cached.dataRef === props.data &&
-        cached.expandedRef === props.expandedPaths;
+        cached.expandedRef === props.expandedPaths &&
+        cached.filterRef === normalizedFilter &&
+        cached.showHiddenRef === includeHidden;
       const flatNodes: readonly FlattenedNode<FileNode>[] = canReuseFlatCache
         ? (cached.flatNodes as readonly FlattenedNode<FileNode>[])
-        : flattenTree(
+        : flattenVisibleFilePickerNodes(
             props.data,
-            (n) => n.path,
-            (n) => n.children,
-            (n) => n.type === "directory",
             props.expandedPaths,
+            props.filter,
+            props.showHidden,
             expandedSet,
           );
 
@@ -156,6 +163,8 @@ export function renderFileWidgets(
             kind: "fileNode",
             dataRef: props.data,
             expandedRef: props.expandedPaths,
+            filterRef: normalizedFilter,
+            showHiddenRef: includeHidden,
             getKeyRef: null,
             getChildrenRef: null,
             hasChildrenRef: null,

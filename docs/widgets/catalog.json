@@ -338,6 +338,8 @@
         "onPress"
       ],
       "commonProps": [
+        "filter",
+        "showHidden",
         "selectedPath",
         "multiSelect",
         "selection",

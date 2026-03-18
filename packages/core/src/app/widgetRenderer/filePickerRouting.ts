@@ -2,6 +2,7 @@ import type { ZrevEvent } from "../../events.js";
 import { ZR_KEY_SPACE } from "../../keybindings/keyCodes.js";
 import type { TreeLocalState, TreeStateStore } from "../../runtime/localState.js";
 import { routeTreeKey } from "../../runtime/router.js";
+import { flattenVisibleFilePickerNodes } from "../../widgets/filePicker.js";
 import { type FlattenedNode, flattenTree } from "../../widgets/tree.js";
 import type { FilePickerProps, FileTreeExplorerProps } from "../../widgets/types.js";
 import {
@@ -9,7 +10,9 @@ import {
   fileNodeGetKey,
   fileNodeHasChildren,
   makeFileNodeFlatCache,
+  makeFilePickerFlatCache,
   readFileNodeFlatCache,
+  readFilePickerFlatCache,
 } from "./fileNodeCache.js";
 
 const EMPTY_STRING_ARRAY: readonly string[] = Object.freeze([]);
@@ -180,18 +183,23 @@ export function routeFilePickerKeyDown(
     treeStore.set(fp.id, { expandedSetRef: fp.expandedPaths, expandedSet });
   }
   const flatNodes =
-    readFileNodeFlatCache(state, fp.data, fp.expandedPaths) ??
+    readFilePickerFlatCache(state, fp.data, fp.expandedPaths, fp.filter, fp.showHidden) ??
     (() => {
-      const next = flattenTree(
+      const next = flattenVisibleFilePickerNodes(
         fp.data,
-        fileNodeGetKey,
-        fileNodeGetChildren,
-        fileNodeHasChildren,
         fp.expandedPaths,
+        fp.filter,
+        fp.showHidden,
         expandedSet,
       );
       treeStore.set(fp.id, {
-        flatCache: makeFileNodeFlatCache(fp.data, fp.expandedPaths, next),
+        flatCache: makeFilePickerFlatCache(
+          fp.data,
+          fp.expandedPaths,
+          fp.filter,
+          fp.showHidden,
+          next,
+        ),
       });
       return next;
     })();
@@ -240,10 +248,10 @@ export function routeFilePickerKeyDown(
   if (r.nodeToActivate) {
     const found = flatNodes.find((n) => n.key === r.nodeToActivate);
     if (found) {
-      if (found.node.type === "directory") {
+      if (found.hasChildren) {
         const isExpanded = fp.expandedPaths.includes(found.key);
         fp.onChange(found.key, !isExpanded);
-      } else {
+      } else if (found.node.type !== "directory") {
         fp.onPress(found.key);
       }
     }

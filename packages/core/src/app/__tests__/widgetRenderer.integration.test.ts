@@ -1883,6 +1883,44 @@ describe("WidgetRenderer integration battery", () => {
     assert.equal(selectedPath, "/c.ts");
   });
 
+  test("filePicker mouse routing targets filtered visible rows", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const selected: string[] = [];
+
+    const res = renderer.submitFrame(
+      () =>
+        ui.filePicker({
+          id: "fp-filtered-mouse",
+          rootPath: "/",
+          data: [
+            { name: ".env", path: "/.env", type: "file" as const },
+            { name: "notes.md", path: "/notes.md", type: "file" as const },
+            { name: "types.ts", path: "/types.ts", type: "file" as const },
+          ],
+          expandedPaths: [],
+          filter: "*.ts",
+          onSelect: (path) => selected.push(path),
+          onChange: () => {},
+          onPress: () => {},
+        }),
+      undefined,
+      { cols: 30, rows: 6 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(mouseEvent(0, 0, 3, { timeMs: 1, buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(0, 0, 4, { timeMs: 2 }));
+
+    assert.deepEqual(selected, ["/types.ts"]);
+  });
+
   test("fileTreeExplorer mouse routing guards thrown callbacks", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({

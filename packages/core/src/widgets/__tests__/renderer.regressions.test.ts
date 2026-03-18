@@ -873,6 +873,56 @@ describe("renderer regressions", () => {
     );
   });
 
+  test("filePicker filter prunes hidden and unmatched rows from rendering", () => {
+    const strings = parseInternedStrings(
+      renderBytes(
+        ui.filePicker({
+          id: "picker-filter-contract",
+          rootPath: "/",
+          data: [
+            Object.freeze({ name: ".env", path: "/.env", type: "file" as const }),
+            Object.freeze({
+              name: "src",
+              path: "/src",
+              type: "directory" as const,
+              children: Object.freeze([
+                Object.freeze({
+                  name: "index.ts",
+                  path: "/src/index.ts",
+                  type: "file" as const,
+                }),
+              ]),
+            }),
+            Object.freeze({ name: "README.md", path: "/README.md", type: "file" as const }),
+          ],
+          expandedPaths: ["/src"],
+          filter: "*.ts",
+          onSelect: noop,
+          onChange: noop,
+          onPress: noop,
+        }),
+        { cols: 40, rows: 6 },
+      ),
+    );
+
+    assert.equal(
+      strings.some((s) => s.includes("D src")),
+      true,
+    );
+    assert.equal(
+      strings.some((s) => s.includes("F index.ts")),
+      true,
+    );
+    assert.equal(
+      strings.some((s) => s.includes(".env")),
+      false,
+    );
+    assert.equal(
+      strings.some((s) => s.includes("README.md")),
+      false,
+    );
+  });
+
   test("fileTreeExplorer clamps stale scrollTop after data shrink", () => {
     const treeStore = createTreeStateStore();
     const viewport = { cols: 40, rows: 6 } as const;

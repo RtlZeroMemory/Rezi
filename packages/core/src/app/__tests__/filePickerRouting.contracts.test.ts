@@ -254,6 +254,55 @@ describe("file picker routing contracts", () => {
       ["/a.txt", "/b.txt", "/c.txt"],
     ]);
   });
+
+  test("filter and showHidden update the visible routing surface and flat-cache contract", () => {
+    const treeStore = createTreeStateStore();
+    const selected: string[] = [];
+    const opened: string[] = [];
+    const data = Object.freeze([
+      Object.freeze({ name: ".env", path: "/.env", type: "file" as const }),
+      Object.freeze({
+        name: "src",
+        path: "/src",
+        type: "directory" as const,
+        children: Object.freeze([
+          Object.freeze({ name: "index.ts", path: "/src/index.ts", type: "file" as const }),
+        ]),
+      }),
+      Object.freeze({ name: "notes.md", path: "/notes.md", type: "file" as const }),
+    ]);
+
+    const filteredProps: FilePickerProps = {
+      id: "fp-filter-surface",
+      rootPath: "/",
+      data,
+      expandedPaths: Object.freeze(["/src"]),
+      filter: "*.ts",
+      onSelect: (path) => selected.push(path),
+      onChange: () => {},
+      onPress: (path) => opened.push(path),
+    };
+
+    assert.equal(routeFilePickerKeyDown(keyDown(ZR_KEY_DOWN), filteredProps, treeStore), true);
+    assert.deepEqual(selected, ["/src"]);
+    assert.equal(treeStore.get(filteredProps.id).focusedKey, "/src");
+    treeStore.set(filteredProps.id, { focusedKey: null });
+
+    const hiddenProps: FilePickerProps = {
+      id: filteredProps.id,
+      rootPath: filteredProps.rootPath,
+      data,
+      expandedPaths: filteredProps.expandedPaths,
+      showHidden: true,
+      selectedPath: "/.env",
+      onSelect: filteredProps.onSelect,
+      onChange: filteredProps.onChange,
+      onPress: filteredProps.onPress,
+    };
+
+    assert.equal(routeFilePickerKeyDown(keyDown(ZR_KEY_ENTER), hiddenProps, treeStore), true);
+    assert.deepEqual(opened, ["/.env"]);
+  });
 });
 
 describe("file tree explorer routing contracts", () => {

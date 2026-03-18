@@ -34,8 +34,8 @@ ui.filePicker({
 | `expandedPaths` | `string[]` | **required** | Expanded directory paths |
 | `modifiedPaths` | `string[]` | - | Modified file paths |
 | `stagedPaths` | `string[]` | - | Staged file paths |
-| `filter` | `string` | - | Accepted by the API but not currently applied by the core renderer |
-| `showHidden` | `boolean` | - | Accepted by the API but not currently applied by the core renderer |
+| `filter` | `string` | - | Glob filter for visible rows. Matches file names and paths; directories stay visible when descendants match. |
+| `showHidden` | `boolean` | `false` | Show dotfiles and dot-directories. Omit or pass `false` to hide them. |
 | `multiSelect` | `boolean` | - | Enable controlled multi-select rendering and interaction |
 | `selection` | `string[]` | - | Controlled selected paths when `multiSelect` is `true` |
 | `onSelect` | `(path) => void` | **required** | Active-path callback. Update `selectedPath` here. |
@@ -47,6 +47,8 @@ ui.filePicker({
 ## Notes
 
 - `FileNode` includes `name`, `path`, `type`, and optional `children` and `status`.
+- `filter` uses glob-style matching. `*` stays within one path segment, and `**` can span directories.
+- `filter` affects renderer output, mouse hit-testing, and keyboard navigation. Matching descendants do not auto-expand collapsed directories; `expandedPaths` still controls visibility.
 - Single-select highlighting comes from `selectedPath`.
 - When `multiSelect` is `true`, checked/highlighted rows come from `selection` while `selectedPath` remains the active row for keyboard navigation and shift-click range selection.
 - Mouse plain click selects one row, Ctrl-click toggles the clicked row, Shift-click extends from the active `selectedPath`, and keyboard `Space` toggles the focused row.
