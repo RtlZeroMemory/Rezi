@@ -94,6 +94,11 @@ function percentileMs(values: readonly number[], p: number): number | null {
   return sorted[idx] ?? null;
 }
 
+function readRecordNumber(record: Readonly<Record<string, unknown>>, key: string): number | null {
+  const value = record[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 async function openControlServer(socketPath: string): Promise<{
   sendLine: (obj: unknown) => void;
   waitForClient: (timeoutMs: number) => Promise<boolean>;
@@ -285,6 +290,15 @@ async function main(): Promise<void> {
       appEntry,
     ];
 
+    const {
+      BENCH_TIMEOUT_MS,
+      BENCH_EXIT_AFTER_DONE_MS,
+      BENCH_INK_COMPAT_PHASES,
+      BENCH_DETAIL,
+      BENCH_MAX_FPS,
+      BENCH_STREAM_FRAMES,
+    } = process.env;
+
     const env: Record<string, string | undefined> = {
       ...process.env,
       BENCH_SCENARIO: scenario,
@@ -293,13 +307,13 @@ async function main(): Promise<void> {
       BENCH_COLS: String(cols),
       BENCH_ROWS: String(rows),
       BENCH_CONTROL_SOCKET: controlSocket,
-      BENCH_TIMEOUT_MS: process.env.BENCH_TIMEOUT_MS ?? "15000",
+      BENCH_TIMEOUT_MS: BENCH_TIMEOUT_MS ?? "15000",
       BENCH_EXIT_AFTER_DONE_MS:
-        process.env.BENCH_EXIT_AFTER_DONE_MS ?? String(Math.max(0, stableWindowMs + 50)),
-      BENCH_INK_COMPAT_PHASES: process.env.BENCH_INK_COMPAT_PHASES ?? "1",
-      BENCH_DETAIL: process.env.BENCH_DETAIL ?? "0",
-      BENCH_MAX_FPS: process.env.BENCH_MAX_FPS ?? "60",
-      BENCH_STREAM_FRAMES: process.env.BENCH_STREAM_FRAMES ?? (longRunEnabled ? "1" : "0"),
+        BENCH_EXIT_AFTER_DONE_MS ?? String(Math.max(0, stableWindowMs + 50)),
+      BENCH_INK_COMPAT_PHASES: BENCH_INK_COMPAT_PHASES ?? "1",
+      BENCH_DETAIL: BENCH_DETAIL ?? "0",
+      BENCH_MAX_FPS: BENCH_MAX_FPS ?? "60",
+      BENCH_STREAM_FRAMES: BENCH_STREAM_FRAMES ?? (longRunEnabled ? "1" : "0"),
     };
 
     const inputScript =
@@ -347,28 +361,36 @@ async function main(): Promise<void> {
 
     const frames = safeReadJsonl(path.join(runDir, "frames.jsonl"));
     const renderTotalsMs = frames
-      .map((f) => f.renderTotalMs)
-      .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+      .map((frame) => readRecordNumber(frame, "renderTotalMs"))
+      .filter((value): value is number => value !== null);
     const scheduleWaitsMs = frames
-      .map((f) => f.scheduleWaitMs)
-      .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-    const updatesRequested = frames.reduce((a, f) => {
-      const v = f.updatesRequestedDelta;
-      return a + (typeof v === "number" && Number.isFinite(v) ? v : 0);
+      .map((frame) => readRecordNumber(frame, "scheduleWaitMs"))
+      .filter((value): value is number => value !== null);
+    const updatesRequested = frames.reduce((total, frame) => {
+      return total + (readRecordNumber(frame, "updatesRequestedDelta") ?? 0);
     }, 0);
-    const framesWithCoalescedUpdates = frames.reduce((a, f) => {
-      const v = f.updatesRequestedDelta;
-      return a + (typeof v === "number" && Number.isFinite(v) && v > 1 ? 1 : 0);
+    const framesWithCoalescedUpdates = frames.reduce((total, frame) => {
+      const updates = readRecordNumber(frame, "updatesRequestedDelta");
+      return total + (updates !== null && updates > 1 ? 1 : 0);
     }, 0);
-    const maxUpdatesInFrame = frames.reduce((a, f) => {
-      const v = f.updatesRequestedDelta;
-      if (typeof v !== "number" || !Number.isFinite(v)) return a;
-      return Math.max(a, v);
+    const maxUpdatesInFrame = frames.reduce((max, frame) => {
+      const updates = readRecordNumber(frame, "updatesRequestedDelta");
+      if (updates === null) return max;
+      return Math.max(max, updates);
     }, 0);
 
-    const renderTotalMs = frames.reduce((a, f) => a + (Number(f.renderTotalMs) || 0), 0);
-    const stdoutBytes = frames.reduce((a, f) => a + (Number(f.stdoutBytes) || 0), 0);
-    const stdoutWrites = frames.reduce((a, f) => a + (Number(f.stdoutWrites) || 0), 0);
+    const renderTotalMs = frames.reduce(
+      (total, frame) => total + (readRecordNumber(frame, "renderTotalMs") ?? 0),
+      0,
+    );
+    const stdoutBytes = frames.reduce(
+      (total, frame) => total + (readRecordNumber(frame, "stdoutBytes") ?? 0),
+      0,
+    );
+    const stdoutWrites = frames.reduce(
+      (total, frame) => total + (readRecordNumber(frame, "stdoutWrites") ?? 0),
+      0,
+    );
     const cpuSeconds = computeCpuSecondsFromProcSamples(result.procSamples, clkTck);
     const peakRssBytes = computePeakRssBytesFromProcSamples(result.procSamples);
 

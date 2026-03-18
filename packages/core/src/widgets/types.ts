@@ -234,7 +234,6 @@ import type {
   StatusProps,
   TagProps,
   TextProps,
-  TextareaProps,
   ThemedProps,
   VirtualListProps,
 } from "./types/base.js";

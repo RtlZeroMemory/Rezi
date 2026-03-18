@@ -13,7 +13,7 @@
  * @see docs/guide/input-and-focus.md
  */
 
-import { EMPTY_MODS, KEY_NAME_TO_CODE, MODIFIER_NAMES, charToKeyCode } from "./keyCodes.js";
+import { KEY_NAME_TO_CODE, MODIFIER_NAMES, charToKeyCode } from "./keyCodes.js";
 import type { KeyParseError, KeySequence, Modifiers, ParseKeyResult, ParsedKey } from "./types.js";
 
 const MAX_CHORD_LENGTH = 8;

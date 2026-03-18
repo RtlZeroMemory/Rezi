@@ -15,6 +15,52 @@
   "overrides": [
     {
       "include": [
+        "packages/core/src/**/*.ts",
+        "packages/node/src/**/*.ts",
+        "packages/jsx/src/**/*.ts",
+        "packages/jsx/src/**/*.tsx",
+        "packages/testkit/src/**/*.ts"
+      ],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedImports": "error"
+          },
+          "style": {
+            "noNonNullAssertion": "error",
+            "useImportType": "error"
+          },
+          "suspicious": {
+            "noAsyncPromiseExecutor": "error",
+            "noExplicitAny": "error"
+          }
+        }
+      }
+    },
+    {
+      "include": [
+        "packages/core/src/**/__tests__/**",
+        "packages/node/src/**/__tests__/**",
+        "packages/node/src/**/__e2e__/**",
+        "packages/jsx/src/**/__tests__/**",
+        "packages/testkit/src/**/__tests__/**"
+      ],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedImports": "off"
+          },
+          "style": {
+            "noNonNullAssertion": "off"
+          },
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    },
+    {
+      "include": [
         "packages/ink-compat/**",
         "packages/ink-gradient-shim/**",
         "packages/ink-spinner-shim/**",
@@ -30,7 +76,8 @@
             "noDelete": "off"
           },
           "suspicious": {
-            "noControlCharactersInRegex": "off"
+            "noControlCharactersInRegex": "off",
+            "noExplicitAny": "off"
           }
         }
       }
@@ -47,7 +94,8 @@
       "linter": {
         "rules": {
           "style": {
-            "noNonNullAssertion": "off"
+            "noNonNullAssertion": "off",
+            "useImportType": "off"
           }
         }
       }
@@ -58,13 +106,25 @@
         "rules": {
           "correctness": {
             "noChildrenProp": "off",
+            "noUnusedImports": "off",
             "useExhaustiveDependencies": "off"
           },
           "style": {
-            "noNonNullAssertion": "off"
+            "noNonNullAssertion": "off",
+            "useImportType": "off"
           },
           "suspicious": {
             "noExplicitAny": "off"
+          }
+        }
+      }
+    },
+    {
+      "include": ["packages/core/src/drawlist/writers.gen.ts"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedImports": "off"
           }
         }
       }

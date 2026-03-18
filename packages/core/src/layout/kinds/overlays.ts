@@ -6,7 +6,7 @@ import { ok } from "../engine/result.js";
 import type { LayoutTree } from "../engine/types.js";
 import { resolveResponsiveValue } from "../responsive.js";
 import { measureTextCells } from "../textMeasure.js";
-import type { Axis, Rect, Size } from "../types.js";
+import type { Axis, Size } from "../types.js";
 import type { LayoutResult } from "../validateProps.js";
 
 type MeasureNodeFn = (vnode: VNode, maxW: number, maxH: number, axis: Axis) => LayoutResult<Size>;

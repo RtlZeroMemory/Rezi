@@ -14,23 +14,24 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  guardrails:
-    name: guardrails
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    name: dependency review
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: false
-      - name: Install tools
-        run: sudo apt-get update && sudo apt-get install -y ripgrep
-      - name: Run guardrails
-        run: bash scripts/guardrails.sh
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@v4
 
-  # Fast gate: lint, typecheck, codegen, and portability checks are
-  # platform-independent — run once on Linux/Node 22 instead of 9× in the
-  # matrix.  Failures here prevent the expensive matrix from starting at all.
-  checks:
-    name: lint / typecheck / codegen
+  # Fast gate: run the repo's blocking static analysis and quality policy once
+  # on Linux/Node 22 before the slower matrix and smoke jobs fan out.
+  quality-gates:
+    name: quality gates
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,6 +43,13 @@ jobs:
         with:
           node-version: "22"
           cache: npm
+
+      - name: Install repo utilities
+        run: |
+          if ! command -v rg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ripgrep
+          fi
 
       - name: Install
         run: npm ci
@@ -55,6 +63,15 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Build
+        run: npm run build
+
+      - name: Full TS project graph
+        run: npm run typecheck:ci
+
+      - name: Strict publishable source TS pass
+        run: npm run typecheck:strict
+
       - name: Check core portability
         run: npm run check:core-portability
 
@@ -64,9 +81,27 @@ jobs:
       - name: Check Unicode pins (submodule sync)
         run: npm run check:unicode
 
+      - name: Repo guardrails
+        run: npm run quality:guardrails
+
+      - name: Dependency graph guardrail
+        run: npm run quality:deps
+
+      - name: API surface guardrail
+        run: npm run quality:api
+
+      - name: Dead code advisory
+        id: quality_deadcode
+        continue-on-error: true
+        run: npm run quality:deadcode
+
+      - name: Dead code advisory summary
+        if: ${{ steps.quality_deadcode.outcome != 'success' }}
+        run: echo "::warning::Knip remains advisory in this PR. Review the dead-code report separately from the blocking quality gates."
+
   template-smoke:
     name: create-rezi smoke
-    needs: [guardrails, checks]
+    needs: [quality-gates]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -105,7 +140,7 @@ jobs:
           fi
 
   ci:
-    needs: [guardrails, checks, template-smoke, matrix-config]
+    needs: [quality-gates, template-smoke, matrix-config]
     name: node ${{ matrix.node-version }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -178,7 +213,7 @@ jobs:
         run: npm run test:native:smoke
 
   bun:
-    needs: [guardrails, checks]
+    needs: [quality-gates]
     name: bun / ubuntu-latest
     runs-on: ubuntu-latest
     steps:
@@ -212,6 +247,7 @@ jobs:
   perf-regression:
     name: perf regression gate
     if: github.event_name == 'pull_request'
+    needs: [quality-gates]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (with submodules)

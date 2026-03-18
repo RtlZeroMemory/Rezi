@@ -1,0 +1,37 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@rezi-ui/core": ["./packages/core/src/index.ts"],
+      "@rezi-ui/core/*": ["./packages/core/src/*"],
+      "@rezi-ui/node": ["./packages/node/src/index.ts"],
+      "@rezi-ui/node/*": ["./packages/node/src/*"],
+      "@rezi-ui/jsx": ["./packages/jsx/src/index.ts"],
+      "@rezi-ui/jsx/*": ["./packages/jsx/src/*"],
+      "@rezi-ui/testkit": ["./packages/testkit/src/index.ts"],
+      "@rezi-ui/testkit/*": ["./packages/testkit/src/*"]
+    },
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "allowUnusedLabels": false,
+    "allowUnreachableCode": false,
+    "noImplicitOverride": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": [
+    "./packages/core/src/**/*.ts",
+    "./packages/node/src/**/*.ts",
+    "./packages/jsx/src/**/*.ts",
+    "./packages/jsx/src/**/*.tsx",
+    "./packages/testkit/src/**/*.ts"
+  ],
+  "exclude": ["**/__tests__/**", "**/__e2e__/**"]
+}

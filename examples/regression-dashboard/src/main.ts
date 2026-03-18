@@ -16,18 +16,31 @@ const TICK_MS = 900;
 const DRAWLIST_HEADER_SIZE = 64;
 const DEBUG_HEADER_SIZE = 40;
 const DEBUG_QUERY_MAX_RECORDS = 64;
-const ENABLE_BACKEND_DEBUG = process.env.REZI_REGRESSION_BACKEND_DEBUG !== "0";
-const DEBUG_LOG_PATH =
-  process.env.REZI_REGRESSION_DEBUG_LOG ?? `${tmpdir()}/rezi-regression-dashboard.log`;
+const { REZI_REGRESSION_BACKEND_DEBUG, REZI_REGRESSION_DEBUG_LOG, REZI_HSR, TERM } = process.env;
+const ENABLE_BACKEND_DEBUG = REZI_REGRESSION_BACKEND_DEBUG !== "0";
+const DEBUG_LOG_PATH = REZI_REGRESSION_DEBUG_LOG ?? `${tmpdir()}/rezi-regression-dashboard.log`;
 
 const initialState = createInitialState();
-const enableHsr = process.argv.includes("--hsr") || process.env.REZI_HSR === "1";
+const enableHsr = process.argv.includes("--hsr") || REZI_HSR === "1";
 const forceHeadless = process.argv.includes("--headless");
 const hasInteractiveTty = process.stdout.isTTY === true && process.stdin.isTTY === true;
 
 type OverviewRenderer = typeof renderOverviewScreen;
 type OverviewModule = Readonly<{
   renderOverviewScreen?: OverviewRenderer;
+}>;
+
+type DebugPayloadCandidate = Readonly<{
+  kind?: unknown;
+  bytes?: unknown;
+  validationResult?: unknown;
+  executionResult?: unknown;
+}>;
+
+type DebugPayloadSummaryRecord = Readonly<{
+  kind?: unknown;
+  header?: unknown;
+  validationResultSigned?: unknown;
 }>;
 
 function serializeDetail(detail: unknown): string {
@@ -109,8 +122,9 @@ function summarizeDrawlistHeader(bytes: Uint8Array): DrawlistHeaderSummary | nul
 function summarizeDebugPayload(payload: unknown): unknown {
   if (!payload || typeof payload !== "object") return payload;
   const value = payload as Readonly<Record<string, unknown>>;
-  if (value.kind === "drawlistBytes") {
-    const bytes = value.bytes;
+  const candidate = value as DebugPayloadCandidate;
+  if (candidate.kind === "drawlistBytes") {
+    const bytes = candidate.bytes;
     if (bytes instanceof Uint8Array) {
       return {
         kind: "drawlistBytes",
@@ -119,11 +133,14 @@ function summarizeDebugPayload(payload: unknown): unknown {
       };
     }
   }
-  if (typeof value.validationResult === "number" && typeof value.executionResult === "number") {
+  if (
+    typeof candidate.validationResult === "number" &&
+    typeof candidate.executionResult === "number"
+  ) {
     return {
       ...value,
-      validationResultSigned: toSignedI32(value.validationResult),
-      executionResultSigned: toSignedI32(value.executionResult),
+      validationResultSigned: toSignedI32(candidate.validationResult),
+      executionResultSigned: toSignedI32(candidate.executionResult),
     };
   }
   return value;
@@ -153,7 +170,7 @@ function debugLog(step: string, detail?: unknown): void {
 debugLog("boot", {
   pid: process.pid,
   cwd: process.cwd(),
-  term: process.env.TERM ?? null,
+  term: TERM ?? null,
   stdoutTTY: process.stdout.isTTY === true,
   stdinTTY: process.stdin.isTTY === true,
   stdoutCols: process.stdout.columns ?? null,
@@ -421,7 +438,7 @@ async function dumpBackendDebug(reason: string): Promise<void> {
       debugLog("backend.debug.record", { reason, header, payload: payloadSummary });
 
       if (payloadSummary && typeof payloadSummary === "object") {
-        const record = payloadSummary as Readonly<Record<string, unknown>>;
+        const record = payloadSummary as DebugPayloadSummaryRecord;
         if (record.kind === "drawlistBytes") {
           const headerSummary = record.header;
           if (headerSummary && typeof headerSummary === "object") {

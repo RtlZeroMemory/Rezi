@@ -36,7 +36,6 @@ import type {
   KeyContext,
   KeySequence,
   MatchResult,
-  ModeDefinition,
   ParsedKey,
 } from "./types.js";
 

@@ -9,9 +9,82 @@ permissions:
   contents: write
 
 jobs:
+  quality-preflight:
+    name: quality preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install repo utilities
+        run: |
+          if ! command -v rg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ripgrep
+          fi
+
+      - name: Install
+        run: npm ci
+
+      - name: Drawlist codegen guardrail
+        run: npm run codegen:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Tests
+        run: npm run test
+
+      - name: Full TS project graph
+        run: npm run typecheck:ci
+
+      - name: Strict publishable source TS pass
+        run: npm run typecheck:strict
+
+      - name: Check core portability
+        run: npm run check:core-portability
+
+      - name: Check native vendor integrity
+        run: npm run check:native-vendor
+
+      - name: Check Unicode pins (submodule sync)
+        run: npm run check:unicode
+
+      - name: Repo guardrails
+        run: npm run quality:guardrails
+
+      - name: Dependency graph guardrail
+        run: npm run quality:deps
+
+      - name: API surface guardrail
+        run: npm run quality:api
+
+      - name: Dead code advisory
+        id: quality_deadcode
+        continue-on-error: true
+        run: npm run quality:deadcode
+
+      - name: Dead code advisory summary
+        if: ${{ steps.quality_deadcode.outcome != 'success' }}
+        run: echo "::warning::Knip remains advisory in release preflight. Review the dead-code report separately from the blocking publish gates."
+
   create-release:
     name: create release
     runs-on: ubuntu-latest
+    needs: quality-preflight
     steps:
       - uses: actions/checkout@v4
       - name: Create GitHub Release

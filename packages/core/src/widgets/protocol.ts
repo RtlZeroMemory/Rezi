@@ -1,12 +1,3 @@
-/**
- * Widget Protocol Registry — single source of truth for per-kind capabilities.
- *
- * Every subsystem (commit, widgetMeta, hitTest, router) MUST use this registry
- * instead of hardcoding widget kind checks.
- */
-
-import type { VNode } from "./types.js";
-
 /** Children layout policy. */
 export type ChildrenPolicy = "none" | "single" | "many";
 

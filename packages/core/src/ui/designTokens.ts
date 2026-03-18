@@ -9,7 +9,7 @@
  */
 
 import { type ColorTokens, DEFAULT_THEME_SPACING, type ThemeDefinition } from "../theme/tokens.js";
-import type { Rgb24, TextStyle } from "../widgets/style.js";
+import type { Rgb24 } from "../widgets/style.js";
 
 // ---------------------------------------------------------------------------
 // Typography roles

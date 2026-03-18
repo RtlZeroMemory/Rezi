@@ -77,16 +77,28 @@ type FrameMetric = Readonly<{
   parseAnsiFallbackPathHits: number | null;
 }>;
 
+type BenchGlobal = {
+  __BENCH_ON_RENDER: ((metrics: unknown) => void) | undefined;
+};
+
+type ControlMsgCandidate = Readonly<{
+  type?: unknown;
+  seed?: unknown;
+  n?: unknown;
+  text?: unknown;
+}>;
+
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
 function isControlMsg(value: unknown): value is ControlMsg {
   if (!isObjectRecord(value)) return false;
-  const type = value.type;
-  if (type === "init") return typeof value.seed === "number";
-  if (type === "tick") return value.n === undefined || typeof value.n === "number";
-  if (type === "token") return typeof value.text === "string";
+  const candidate = value as ControlMsgCandidate;
+  const type = candidate.type;
+  if (type === "init") return typeof candidate.seed === "number";
+  if (type === "tick") return candidate.n === undefined || typeof candidate.n === "number";
+  if (type === "token") return typeof candidate.text === "string";
   return type === "done";
 }
 
@@ -165,6 +177,10 @@ function createStdoutWriteProbe(): {
   };
 
   return { install, readAndReset };
+}
+
+function getBenchGlobal(): BenchGlobal {
+  return globalThis as unknown as BenchGlobal;
 }
 
 function useControlSocket(socketPath: string | undefined, onMsg: (msg: ControlMsg) => void): void {
@@ -349,7 +365,8 @@ function DashboardGridScenario(props: {
   setController: (c: ScenarioController) => void;
 }): React.ReactElement {
   const [tick, setTick] = useState(0);
-  const cols = Number.parseInt(process.env.BENCH_COLS ?? "80", 10) || 80;
+  const { BENCH_COLS } = process.env;
+  const cols = Number.parseInt(BENCH_COLS ?? "80", 10) || 80;
   const gap = 2;
   const topW = Math.max(18, Math.floor((cols - gap * 2) / 3));
   const bottomW = Math.max(18, Math.floor((cols - gap) / 2));
@@ -494,13 +511,19 @@ function BenchApp(props: {
   stdoutProbe: StdoutWriteProbe;
 }): React.ReactElement {
   const { exit } = useApp();
+  const {
+    BENCH_STREAM_FRAMES,
+    BENCH_INK_COMPAT_PHASES,
+    BENCH_EXIT_AFTER_DONE_MS,
+    BENCH_TIMEOUT_MS,
+  } = process.env;
   const stdoutProbe = props.stdoutProbe;
   const framesRef = useRef<FrameMetric[]>([]);
   const frameWriteBufferRef = useRef<string[]>([]);
   const frameCountRef = useRef(0);
   const startAt = useMemo(() => performance.now(), []);
   const lastUpdatesRequestedRef = useRef(0);
-  const streamFrames = process.env.BENCH_STREAM_FRAMES === "1";
+  const streamFrames = BENCH_STREAM_FRAMES === "1";
   const framesPath = useMemo(() => path.join(props.outDir, "frames.jsonl"), [props.outDir]);
 
   const flushFrameWriteBuffer = useCallback((): void => {
@@ -518,7 +541,7 @@ function BenchApp(props: {
 
   const compatFrameRef = useRef<InkCompatFrameBreakdown | null>(null);
   useEffect(() => {
-    if (process.env.BENCH_INK_COMPAT_PHASES === "1") {
+    if (BENCH_INK_COMPAT_PHASES === "1") {
       globalThis.__INK_COMPAT_BENCH_ON_FRAME = (m) => {
         compatFrameRef.current = m as InkCompatFrameBreakdown;
       };
@@ -526,7 +549,7 @@ function BenchApp(props: {
     return () => {
       globalThis.__INK_COMPAT_BENCH_ON_FRAME = undefined;
     };
-  }, []);
+  }, [BENCH_INK_COMPAT_PHASES]);
 
   const pendingMsgsRef = useRef<ControlMsg[]>([]);
   const controllerRef = useRef<ScenarioController>({
@@ -565,90 +588,87 @@ function BenchApp(props: {
 
   useEffect(() => {
     if (doneSeq <= 0) return;
-    const ms = Number.parseInt(process.env.BENCH_EXIT_AFTER_DONE_MS ?? "300", 10) || 300;
+    const ms = Number.parseInt(BENCH_EXIT_AFTER_DONE_MS ?? "300", 10) || 300;
     const t = setTimeout(() => exit(), Math.max(0, ms));
     return () => clearTimeout(t);
-  }, [doneSeq, exit]);
+  }, [BENCH_EXIT_AFTER_DONE_MS, doneSeq, exit]);
 
   useEffect(() => {
-    const ms = Number.parseInt(process.env.BENCH_TIMEOUT_MS ?? "15000", 10) || 15000;
+    const ms = Number.parseInt(BENCH_TIMEOUT_MS ?? "15000", 10) || 15000;
     const t = setTimeout(() => exit(new Error(`bench timeout ${ms}ms`)), ms);
     return () => clearTimeout(t);
-  }, [exit]);
+  }, [BENCH_TIMEOUT_MS, exit]);
 
-  (globalThis as unknown as { __BENCH_ON_RENDER?: (metrics: unknown) => void }).__BENCH_ON_RENDER =
-    (metrics: unknown): void => {
-      const renderTimeMs = readMetricNumber(metrics, "renderTime") ?? 0;
-      const layoutTimeMs = readMetricNumber(metrics, "layoutTimeMs");
-      const layoutMsSafe =
-        typeof layoutTimeMs === "number" && Number.isFinite(layoutTimeMs) ? layoutTimeMs : null;
-      const renderTimeMsSafe =
-        typeof renderTimeMs === "number" && Number.isFinite(renderTimeMs) ? renderTimeMs : 0;
+  getBenchGlobal().__BENCH_ON_RENDER = (metrics: unknown): void => {
+    const renderTimeMs = readMetricNumber(metrics, "renderTime") ?? 0;
+    const layoutTimeMs = readMetricNumber(metrics, "layoutTimeMs");
+    const layoutMsSafe =
+      typeof layoutTimeMs === "number" && Number.isFinite(layoutTimeMs) ? layoutTimeMs : null;
+    const renderTimeMsSafe =
+      typeof renderTimeMs === "number" && Number.isFinite(renderTimeMs) ? renderTimeMs : 0;
 
-      const now = performance.now();
-      const tsMs = now - startAt;
+    const now = performance.now();
+    const tsMs = now - startAt;
 
-      const state = stateRef.current;
-      const updatesDelta = state.updatesRequested - lastUpdatesRequestedRef.current;
-      lastUpdatesRequestedRef.current = state.updatesRequested;
+    const state = stateRef.current;
+    const updatesDelta = state.updatesRequested - lastUpdatesRequestedRef.current;
+    lastUpdatesRequestedRef.current = state.updatesRequested;
 
-      const stdout = stdoutProbe.readAndReset();
+    const stdout = stdoutProbe.readAndReset();
 
-      let scheduleWaitMs: number | null = null;
-      if (state.firstUpdateRequestedAtMs != null) {
-        const frameStartApprox = now - renderTimeMsSafe;
-        scheduleWaitMs = Math.max(0, frameStartApprox - state.firstUpdateRequestedAtMs);
-        stateRef.current = { ...stateRef.current, firstUpdateRequestedAtMs: null };
-      }
+    let scheduleWaitMs: number | null = null;
+    if (state.firstUpdateRequestedAtMs != null) {
+      const frameStartApprox = now - renderTimeMsSafe;
+      scheduleWaitMs = Math.max(0, frameStartApprox - state.firstUpdateRequestedAtMs);
+      stateRef.current = { ...stateRef.current, firstUpdateRequestedAtMs: null };
+    }
 
-      const compat = compatFrameRef.current;
-      compatFrameRef.current = null;
+    const compat = compatFrameRef.current;
+    compatFrameRef.current = null;
 
-      const frameNumber = frameCountRef.current + 1;
-      frameCountRef.current = frameNumber;
-      const frameMetric: FrameMetric = {
-        frame: frameNumber,
-        tsMs,
-        renderTimeMs: renderTimeMsSafe,
-        layoutTimeMs: layoutMsSafe,
-        renderTotalMs: renderTimeMsSafe + (layoutMsSafe ?? 0),
-        scheduleWaitMs,
-        stdoutWriteMs: stdout.writeMs,
-        stdoutBytes: stdout.bytes,
-        stdoutWrites: stdout.writes,
-        updatesRequestedDelta: updatesDelta,
-        translationMs: compat?.translationMs ?? null,
-        percentResolveMs: compat?.percentResolveMs ?? null,
-        coreRenderMs: compat?.coreRenderMs ?? null,
-        assignLayoutsMs: compat?.assignLayoutsMs ?? null,
-        rectScanMs: compat?.rectScanMs ?? null,
-        ansiMs: compat?.ansiMs ?? null,
-        nodes: compat?.nodes ?? null,
-        ops: compat?.ops ?? null,
-        coreRenderPasses: compat?.coreRenderPasses ?? null,
-        translatedNodes: compat?.translatedNodes ?? null,
-        translationCacheHits: compat?.translationCacheHits ?? null,
-        translationCacheMisses: compat?.translationCacheMisses ?? null,
-        translationCacheEmptyMisses: compat?.translationCacheEmptyMisses ?? null,
-        translationCacheStaleMisses: compat?.translationCacheStaleMisses ?? null,
-        parseAnsiFastPathHits: compat?.parseAnsiFastPathHits ?? null,
-        parseAnsiFallbackPathHits: compat?.parseAnsiFallbackPathHits ?? null,
-      };
-      if (streamFrames) {
-        frameWriteBufferRef.current.push(`${JSON.stringify(frameMetric)}\n`);
-        if (frameWriteBufferRef.current.length >= 64) {
-          flushFrameWriteBuffer();
-        }
-      } else {
-        framesRef.current.push(frameMetric);
-      }
+    const frameNumber = frameCountRef.current + 1;
+    frameCountRef.current = frameNumber;
+    const frameMetric: FrameMetric = {
+      frame: frameNumber,
+      tsMs,
+      renderTimeMs: renderTimeMsSafe,
+      layoutTimeMs: layoutMsSafe,
+      renderTotalMs: renderTimeMsSafe + (layoutMsSafe ?? 0),
+      scheduleWaitMs,
+      stdoutWriteMs: stdout.writeMs,
+      stdoutBytes: stdout.bytes,
+      stdoutWrites: stdout.writes,
+      updatesRequestedDelta: updatesDelta,
+      translationMs: compat?.translationMs ?? null,
+      percentResolveMs: compat?.percentResolveMs ?? null,
+      coreRenderMs: compat?.coreRenderMs ?? null,
+      assignLayoutsMs: compat?.assignLayoutsMs ?? null,
+      rectScanMs: compat?.rectScanMs ?? null,
+      ansiMs: compat?.ansiMs ?? null,
+      nodes: compat?.nodes ?? null,
+      ops: compat?.ops ?? null,
+      coreRenderPasses: compat?.coreRenderPasses ?? null,
+      translatedNodes: compat?.translatedNodes ?? null,
+      translationCacheHits: compat?.translationCacheHits ?? null,
+      translationCacheMisses: compat?.translationCacheMisses ?? null,
+      translationCacheEmptyMisses: compat?.translationCacheEmptyMisses ?? null,
+      translationCacheStaleMisses: compat?.translationCacheStaleMisses ?? null,
+      parseAnsiFastPathHits: compat?.parseAnsiFastPathHits ?? null,
+      parseAnsiFallbackPathHits: compat?.parseAnsiFallbackPathHits ?? null,
     };
+    if (streamFrames) {
+      frameWriteBufferRef.current.push(`${JSON.stringify(frameMetric)}\n`);
+      if (frameWriteBufferRef.current.length >= 64) {
+        flushFrameWriteBuffer();
+      }
+    } else {
+      framesRef.current.push(frameMetric);
+    }
+  };
 
   useEffect(() => {
     return () => {
-      (
-        globalThis as unknown as { __BENCH_ON_RENDER?: (metrics: unknown) => void }
-      ).__BENCH_ON_RENDER = undefined;
+      getBenchGlobal().__BENCH_ON_RENDER = undefined;
     };
   }, []);
 
@@ -683,12 +703,21 @@ function BenchApp(props: {
 }
 
 function main(): void {
-  const scenario = (process.env.BENCH_SCENARIO as ScenarioName | undefined) ?? "streaming-chat";
-  const renderer = (process.env.BENCH_RENDERER as RendererName | undefined) ?? "real-ink";
-  const outDir = process.env.BENCH_OUT_DIR ?? "results/tmp";
-  const cols = Number.parseInt(process.env.BENCH_COLS ?? "80", 10) || 80;
-  const rows = Number.parseInt(process.env.BENCH_ROWS ?? "24", 10) || 24;
-  const controlSocketPath = process.env.BENCH_CONTROL_SOCKET;
+  const {
+    BENCH_SCENARIO,
+    BENCH_RENDERER,
+    BENCH_OUT_DIR,
+    BENCH_COLS,
+    BENCH_ROWS,
+    BENCH_CONTROL_SOCKET,
+    BENCH_MAX_FPS,
+  } = process.env;
+  const scenario = (BENCH_SCENARIO as ScenarioName | undefined) ?? "streaming-chat";
+  const renderer = (BENCH_RENDERER as RendererName | undefined) ?? "real-ink";
+  const outDir = BENCH_OUT_DIR ?? "results/tmp";
+  const cols = Number.parseInt(BENCH_COLS ?? "80", 10) || 80;
+  const rows = Number.parseInt(BENCH_ROWS ?? "24", 10) || 24;
+  const controlSocketPath = BENCH_CONTROL_SOCKET;
 
   const inkImpl = resolveInkImpl();
   mkdirSync(outDir, { recursive: true });
@@ -711,12 +740,11 @@ function main(): void {
     {
       alternateBuffer: false,
       incrementalRendering: true,
-      maxFps: Number.parseInt(process.env.BENCH_MAX_FPS ?? "60", 10) || 60,
+      maxFps: Number.parseInt(BENCH_MAX_FPS ?? "60", 10) || 60,
       patchConsole: false,
       debug: false,
       onRender: (metrics) => {
-        const hook = (globalThis as unknown as { __BENCH_ON_RENDER?: (m: unknown) => void })
-          .__BENCH_ON_RENDER;
+        const hook = getBenchGlobal().__BENCH_ON_RENDER;
         hook?.(metrics);
       },
     },

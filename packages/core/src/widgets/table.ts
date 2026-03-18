@@ -12,7 +12,7 @@
  * @see docs/widgets/table.md
  */
 
-import type { TableColumn, TableProps } from "./types.js";
+import type { TableColumn } from "./types.js";
 
 // Re-export for convenience
 export type { TableColumn } from "./types.js";

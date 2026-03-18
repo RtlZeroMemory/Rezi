@@ -13,7 +13,7 @@
  * @see docs/design-system.md
  */
 
-import type { ColorMode, TerminalCaps } from "../terminalCaps.js";
+import type { TerminalCaps } from "../terminalCaps.js";
 import { COLOR_MODE_RGB } from "../terminalCaps.js";
 import type { TerminalProfile } from "../terminalProfile.js";
 
