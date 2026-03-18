@@ -50,7 +50,7 @@ import { type RouterIntegration, createRouterIntegration } from "../router/integ
 import type { RouteDefinition } from "../router/types.js";
 import { DEFAULT_TERMINAL_PROFILE, type TerminalProfile } from "../terminalProfile.js";
 import { defaultTheme } from "../theme/defaultTheme.js";
-import { type Theme, compileTheme } from "../theme/theme.js";
+import { compileTheme } from "../theme/theme.js";
 import type { ThemeDefinition } from "../theme/tokens.js";
 import {
   type InternalRuntimeBreadcrumbHooks,

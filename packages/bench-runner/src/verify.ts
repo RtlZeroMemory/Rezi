@@ -14,6 +14,11 @@ function parseRendererName(value: string): RendererName {
   throw new Error(`Invalid renderer: ${value}`);
 }
 
+function readPositiveIntEnv(value: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isNaN(parsed) || parsed <= 0 ? fallback : parsed;
+}
+
 function linkInkForRenderer(repoRoot: string, renderer: RendererName): void {
   const benchNodeModules = path.join(repoRoot, "packages/bench-app/node_modules");
   mkdirSync(benchNodeModules, { recursive: true });
@@ -108,8 +113,16 @@ async function runOnce(
   linkInkForRenderer(repoRoot, renderer);
   const appEntry = path.join(repoRoot, "packages/bench-app/dist/entry.js");
   const preloadPath = path.join(repoRoot, "scripts/ink-compat-bench/preload.mjs");
-  const cols = Number.parseInt(process.env.BENCH_COLS ?? "80", 10) || 80;
-  const rows = Number.parseInt(process.env.BENCH_ROWS ?? "24", 10) || 24;
+  const {
+    BENCH_COLS,
+    BENCH_ROWS,
+    BENCH_TIMEOUT_MS,
+    BENCH_EXIT_AFTER_DONE_MS,
+    BENCH_INK_COMPAT_PHASES,
+    BENCH_MAX_FPS,
+  } = process.env;
+  const cols = readPositiveIntEnv(BENCH_COLS, 80);
+  const rows = readPositiveIntEnv(BENCH_ROWS, 24);
   const controlSocket = path.join(
     os.tmpdir(),
     `inkbench_verify_${process.pid}_${Math.trunc(performance.now())}_${renderer}.sock`,
@@ -128,10 +141,10 @@ async function runOnce(
       BENCH_COLS: String(cols),
       BENCH_ROWS: String(rows),
       BENCH_CONTROL_SOCKET: controlSocket,
-      BENCH_TIMEOUT_MS: process.env.BENCH_TIMEOUT_MS ?? "15000",
-      BENCH_EXIT_AFTER_DONE_MS: process.env.BENCH_EXIT_AFTER_DONE_MS ?? "300",
-      BENCH_INK_COMPAT_PHASES: process.env.BENCH_INK_COMPAT_PHASES ?? "1",
-      BENCH_MAX_FPS: process.env.BENCH_MAX_FPS ?? "60",
+      BENCH_TIMEOUT_MS: BENCH_TIMEOUT_MS ?? "15000",
+      BENCH_EXIT_AFTER_DONE_MS: BENCH_EXIT_AFTER_DONE_MS ?? "300",
+      BENCH_INK_COMPAT_PHASES: BENCH_INK_COMPAT_PHASES ?? "1",
+      BENCH_MAX_FPS: BENCH_MAX_FPS ?? "60",
     },
     cols,
     rows,
@@ -172,8 +185,9 @@ async function main(): Promise<void> {
   const aScreen = await runOnce(repoRoot, scenario, compare[0], runA);
   const bScreen = await runOnce(repoRoot, scenario, compare[1], runB);
 
-  const cols = Number.parseInt(process.env.BENCH_COLS ?? "80", 10) || 80;
-  const rows = Number.parseInt(process.env.BENCH_ROWS ?? "24", 10) || 24;
+  const { BENCH_COLS, BENCH_ROWS } = process.env;
+  const cols = readPositiveIntEnv(BENCH_COLS, 80);
+  const rows = readPositiveIntEnv(BENCH_ROWS, 24);
 
   const toSnap = (screen: string) => {
     const lines = screen.split("\n");

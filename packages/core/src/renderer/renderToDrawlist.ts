@@ -1,13 +1,3 @@
-/**
- * packages/core/src/renderer/renderToDrawlist.ts — Widget tree to drawlist renderer.
- *
- * Facade file: public import path and signature are stable.
- * Internal implementation lives in `./renderToDrawlist/*`.
- *
- * @see docs/guide/runtime-and-layout.md
- */
-
-import type { DrawlistBuilder } from "../drawlist/types.js";
 import { defaultTheme } from "../theme/defaultTheme.js";
 import { indexIdRects, indexLayoutRects } from "./renderToDrawlist/indices.js";
 import { renderTree } from "./renderToDrawlist/renderTree.js";

@@ -9,7 +9,6 @@
 
 import { distributeInteger } from "../layout/engine/distributeInteger.js";
 import { rgb } from "./style.js";
-import type { SplitDirection } from "./types.js";
 
 /** Default divider size in cells. */
 export const DEFAULT_DIVIDER_SIZE = 1;

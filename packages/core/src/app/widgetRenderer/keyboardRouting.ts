@@ -10,7 +10,6 @@ import {
   ZR_KEY_RIGHT,
   ZR_KEY_SPACE,
   ZR_KEY_UP,
-  ZR_MOD_CTRL,
   ZR_MOD_SHIFT,
 } from "../../keybindings/keyCodes.js";
 import type { Rect } from "../../layout/types.js";
@@ -27,7 +26,6 @@ import type { RoutedAction } from "../../runtime/router.js";
 import { getHunkScrollPosition, navigateHunk } from "../../widgets/diffViewer.js";
 import { applyFilters } from "../../widgets/logsConsole.js";
 import { adjustSliderValue, normalizeSliderState } from "../../widgets/slider.js";
-import { distributeColumnWidths } from "../../widgets/table.js";
 import { parseToastActionFocusId } from "../../widgets/toast.js";
 import { type FlattenedNode, flattenTree } from "../../widgets/tree.js";
 import type {
@@ -45,7 +43,7 @@ import {
   computeVisibleRange,
   resolveVirtualListItemHeightSpec,
 } from "../../widgets/virtualList.js";
-import type { DiffRenderCache, LogsConsoleRenderCache, TableRenderCache } from "./renderCaches.js";
+import type { LogsConsoleRenderCache, TableRenderCache } from "./renderCaches.js";
 
 export type KeyboardRoutingOutcome = Readonly<{
   needsRender: boolean;

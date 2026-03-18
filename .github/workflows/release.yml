@@ -9,9 +9,214 @@ permissions:
   contents: write
 
 jobs:
+  quality-preflight:
+    name: quality preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install repo utilities
+        run: |
+          if ! command -v rg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ripgrep
+          fi
+
+      - name: Install
+        run: npm ci
+
+      - name: Drawlist codegen guardrail
+        run: npm run codegen:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Tests
+        run: npm run test
+
+      - name: Full TS project graph
+        run: npm run typecheck:ci
+
+      - name: Strict publishable source TS pass
+        run: npm run typecheck:strict
+
+      - name: Check core portability
+        run: npm run check:core-portability
+
+      - name: Check native vendor integrity
+        run: npm run check:native-vendor
+
+      - name: Check Unicode pins (submodule sync)
+        run: npm run check:unicode
+
+      - name: Repo guardrails
+        run: npm run quality:guardrails
+
+      - name: Dependency graph guardrail
+        run: npm run quality:deps
+
+      - name: API surface guardrail
+        run: npm run quality:api
+
+      - name: Dead code advisory
+        id: quality_deadcode
+        continue-on-error: true
+        run: npm run quality:deadcode
+
+      - name: Dead code advisory summary
+        if: ${{ steps.quality_deadcode.outcome != 'success' }}
+        run: echo "::warning::Knip remains advisory in release preflight. Review the dead-code report separately from the blocking publish gates."
+
+  template-smoke:
+    name: create-rezi smoke
+    needs: [quality-preflight]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Smoke scaffolded templates
+        run: npm run smoke:create-rezi-templates
+
+  release-ci:
+    name: node ${{ matrix.node-version }} / ${{ matrix.os }}
+    needs: [quality-preflight]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        node-version: ["18", "20", "22"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Tests
+        run: npm run test
+
+      - name: Repro replay fixtures (headless, explicit gate)
+        if: runner.os == 'Linux'
+        run: |
+          CONCURRENCY=$(node -p "parseInt(process.versions.node)>=19?'--test-concurrency=1':''")
+          # shellcheck disable=SC2086 -- empty expansion intentionally omits the extra flag
+          node --test $CONCURRENCY packages/core/dist/repro/__tests__/replay.harness.test.js
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build native addon
+        run: npm run build:native
+
+      - name: Terminal e2e (Linux full)
+        if: runner.os == 'Linux'
+        run: npm run test:e2e
+
+      - name: Terminal e2e (Linux reduced)
+        if: runner.os == 'Linux'
+        run: npm run test:e2e:reduced
+
+      - name: Terminal e2e equivalent (non-Linux reduced)
+        if: runner.os != 'Linux'
+        run: npm run test:e2e:reduced
+
+      - name: Native smoke + worker integration (Unix PTY)
+        if: runner.os != 'Windows'
+        run: |
+          python3 - <<'PY'
+          import os
+          import pty
+          import sys
+
+          status = pty.spawn(["bash", "-lc", "npm run test:native:smoke"])
+          if os.WIFEXITED(status):
+              sys.exit(os.WEXITSTATUS(status))
+          if os.WIFSIGNALED(status):
+              sys.exit(128 + os.WTERMSIG(status))
+          sys.exit(1)
+          PY
+
+      - name: Native smoke + worker integration (Windows)
+        if: runner.os == 'Windows'
+        run: npm run test:native:smoke
+
+  bun:
+    name: bun / ubuntu-latest
+    needs: [quality-preflight]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.9"
+
+      - name: Install
+        run: bun install
+
+      - name: Build
+        run: bun run build
+
+      - name: Tests
+        run: bun run test
+
+      - name: Terminal e2e (reduced)
+        run: bun run test:e2e:reduced
+
   create-release:
     name: create release
     runs-on: ubuntu-latest
+    needs: [quality-preflight, template-smoke, release-ci, bun]
     steps:
       - uses: actions/checkout@v4
       - name: Create GitHub Release

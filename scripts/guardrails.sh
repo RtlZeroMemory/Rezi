@@ -48,6 +48,84 @@ check_pattern "No legacy product name form" "\\bZireael\\s+UI\\b"
 check_pattern "No TODO/FIXME markers" "\\b(TODO|FIXME)\\b"
 check_pattern "No AI-generated markers" "AI-generated"
 
+print_section "No misplaced test-only directories in publishable source"
+misplaced_test_dirs="$(
+  find \
+    "${repo_root}/packages/core/src" \
+    "${repo_root}/packages/node/src" \
+    "${repo_root}/packages/jsx/src" \
+    "${repo_root}/packages/testkit/src" \
+    -type d \
+    \( \
+      -name test -o \
+      -name tests -o \
+      -name fixture -o \
+      -name fixtures -o \
+      -name __fixtures__ -o \
+      -name mocks -o \
+      -name __mocks__ \
+    \) \
+    ! -path '*/__tests__/*' \
+    ! -path '*/__e2e__/*' \
+    | LC_ALL=C sort
+)"
+if [[ -n "${misplaced_test_dirs}" ]]; then
+  echo "${misplaced_test_dirs}"
+  has_violations=1
+else
+  echo "ok"
+fi
+
+print_section "No misplaced .test/.typecheck files in publishable source"
+misplaced_test_files="$(
+  find \
+    "${repo_root}/packages/core/src" \
+    "${repo_root}/packages/node/src" \
+    "${repo_root}/packages/jsx/src" \
+    "${repo_root}/packages/testkit/src" \
+    -type f \
+    \( \
+      -name '*.test.ts' -o \
+      -name '*.test.tsx' -o \
+      -name '*.typecheck.ts' -o \
+      -name '*.typecheck.tsx' \
+    \) \
+    ! -path '*/__tests__/*' \
+    ! -path '*/__e2e__/*' \
+    | LC_ALL=C sort
+)"
+if [[ -n "${misplaced_test_files}" ]]; then
+  echo "${misplaced_test_files}"
+  has_violations=1
+else
+  echo "ok"
+fi
+
+print_section "No temporary investigation markers in publishable source"
+temporary_markers="$(
+  rg --no-heading --line-number --with-filename -S -i \
+    --glob '!**/__tests__/**' \
+    --glob '!**/__e2e__/**' \
+    -e '(^|\s)//.*\btemporary\b' \
+    -e '(^|\s)/\*.*\btemporary\b' \
+    -e '^\s*\*.*\btemporary\b' \
+    -e '(^|\s)//.*\b(remove after investigation|remove after debugging|debug-only|investigation-only)\b' \
+    -e '(^|\s)/\*.*\b(remove after investigation|remove after debugging|debug-only|investigation-only)\b' \
+    -e '^\s*\*.*\b(remove after investigation|remove after debugging|debug-only|investigation-only)\b' \
+    "${repo_root}/packages/core/src" \
+    "${repo_root}/packages/node/src" \
+    "${repo_root}/packages/jsx/src" \
+    "${repo_root}/packages/testkit/src" \
+    || true
+)"
+if [[ -n "${temporary_markers}" ]]; then
+  echo "${temporary_markers}"
+  echo "remove temporary markers from publishable source or move the note into tests/debug-only code"
+  has_violations=1
+else
+  echo "ok"
+fi
+
 print_section "Drawlist codegen files present"
 for required in \
   "scripts/drawlist-spec.ts" \

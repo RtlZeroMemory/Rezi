@@ -1,13 +1,7 @@
 import type { EasingInput } from "../../animation/types.js";
-import type { ConstraintExpr } from "../../constraints/types.js";
 import type { FocusConfig } from "../../focus/styles.js";
 import type { SpacingValue } from "../../layout/spacing-scale.js";
-import type {
-  DisplayConstraint,
-  LayoutConstraints,
-  SizeConstraint,
-  SizeConstraintAtom,
-} from "../../layout/types.js";
+import type { DisplayConstraint, LayoutConstraints, SizeConstraint } from "../../layout/types.js";
 import type { InstanceId } from "../../runtime/instance.js";
 import type { ThemeOverrides } from "../../theme/extend.js";
 import type { ThemeDefinition } from "../../theme/tokens.js";

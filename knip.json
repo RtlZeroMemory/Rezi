@@ -1,0 +1,169 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "rules": {
+    "files": "error",
+    "dependencies": "error",
+    "devDependencies": "error",
+    "duplicates": "error",
+    "unlisted": "error",
+    "exports": "warn",
+    "nsExports": "warn",
+    "types": "warn",
+    "nsTypes": "warn",
+    "classMembers": "warn",
+    "enumMembers": "warn"
+  },
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.mjs", "scripts/**/*.mjs", ".github/workflows/*.yml"],
+      "project": ["scripts/**/*.{js,mjs,ts}", ".github/workflows/*.yml"],
+      "ignoreDependencies": ["@rezi-ui/jsx"]
+    },
+    "packages/core": {
+      "entry": [
+        "src/index.ts",
+        "src/abi.ts",
+        "src/backend.ts",
+        "src/drawApi.ts",
+        "src/events.ts",
+        "src/pipeline.ts",
+        "src/terminalCaps.ts",
+        "src/terminalProfile.ts",
+        "src/ui.ts",
+        "src/cursor/index.ts",
+        "src/debug/index.ts",
+        "src/drawlist/index.ts",
+        "src/forms/index.ts",
+        "src/icons/index.ts",
+        "src/keybindings/index.ts",
+        "src/perf/index.ts",
+        "src/repro/index.ts",
+        "src/router/index.ts",
+        "src/testing/index.ts",
+        "src/theme/index.ts",
+        "src/ui/index.ts",
+        "src/widgets/dialogs/index.ts",
+        "src/**/__tests__/**/*.test.ts",
+        "src/**/__tests__/**/*.typecheck.ts"
+      ],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/node": {
+      "entry": [
+        "src/index.ts",
+        "src/repro/index.ts",
+        "src/worker/engineWorker.bootstrap.js",
+        "src/**/__tests__/**/*.test.ts",
+        "src/**/__e2e__/**/*.test.ts",
+        "src/**/__tests__/worker/testShims/**/*.ts",
+        "src/**/__e2e__/fixtures/**/*.ts"
+      ],
+      "project": ["src/**/*.ts", "src/**/*.js"]
+    },
+    "packages/jsx": {
+      "entry": [
+        "src/index.ts",
+        "src/jsx-runtime.ts",
+        "src/jsx-dev-runtime.ts",
+        "src/**/__tests__/**/*.test.ts",
+        "src/**/__tests__/**/*.test.tsx"
+      ],
+      "project": ["src/**/*.ts", "src/**/*.tsx"]
+    },
+    "packages/testkit": {
+      "entry": ["src/index.ts", "src/**/__tests__/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/ink-compat": {
+      "entry": [
+        "src/index.ts",
+        "src/testing/index.ts",
+        "src/shims/ink-spinner.tsx",
+        "src/shims/ink-gradient.tsx",
+        "src/**/__tests__/**/*.test.ts",
+        "src/**/__tests__/**/*.test.tsx"
+      ],
+      "project": ["src/**/*.ts", "src/**/*.tsx"]
+    },
+    "packages/native": {
+      "entry": ["index.js", "loader.cjs", "index.d.ts", "scripts/*.mjs"],
+      "project": ["index.js", "loader.cjs", "index.d.ts", "scripts/*.mjs"]
+    },
+    "packages/create-rezi": {
+      "entry": ["src/index.ts", "src/mainEntry.ts", "src/**/__tests__/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/bench-app": {
+      "entry": ["src/entry.tsx"],
+      "project": ["src/**/*.ts", "src/**/*.tsx"]
+    },
+    "packages/bench-harness": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/bench-runner": {
+      "entry": ["src/cli.ts", "src/verify.ts", "src/**/__tests__/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/ink-gradient-shim": {
+      "entry": ["index.js", "index.d.ts"],
+      "project": ["index.js", "index.d.ts"]
+    },
+    "packages/ink-spinner-shim": {
+      "entry": ["index.js", "index.d.ts"],
+      "project": ["index.js", "index.d.ts"]
+    },
+    "packages/rezi-ink-gradient-shim": {
+      "entry": ["index.js", "index.d.ts"],
+      "project": ["index.js", "index.d.ts"]
+    },
+    "packages/rezi-ink-spinner-shim": {
+      "entry": ["index.js", "index.d.ts"],
+      "project": ["index.js", "index.d.ts"]
+    },
+    "packages/bench": {
+      "entry": ["src/index.ts", "src/run.ts", "src/worker.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "examples/gallery": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "examples/hello-counter": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "examples/raw-draw-demo": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "examples/regression-dashboard": {
+      "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/create-rezi/templates/animation-lab": {
+      "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/create-rezi/templates/cli-tool": {
+      "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/create-rezi/templates/dashboard": {
+      "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/create-rezi/templates/minimal": {
+      "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/create-rezi/templates/starship": {
+      "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/create-rezi/templates/stress-test": {
+      "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    }
+  }
+}

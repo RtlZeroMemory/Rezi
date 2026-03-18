@@ -6,11 +6,9 @@ import type { FocusManagerState } from "../../runtime/focus.js";
 import type { LayerRegistry } from "../../runtime/layers.js";
 import { hitTestLayers } from "../../runtime/layers.js";
 import type {
-  TableLocalState,
   TableStateStore,
   TreeLocalState,
   TreeStateStore,
-  VirtualListLocalState,
   VirtualListStateStore,
 } from "../../runtime/localState.js";
 import { routeVirtualListWheel, routeWheel } from "../../runtime/router.js";

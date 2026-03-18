@@ -13,7 +13,7 @@
  * @see docs/widgets/tree.md
  */
 
-import type { NodeState, TreeProps } from "./types.js";
+import type { NodeState } from "./types.js";
 
 /* ========== Flattened Node ========== */
 

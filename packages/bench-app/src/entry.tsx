@@ -8,13 +8,18 @@ import { Box, Text, render, useApp, useInput } from "ink";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type RendererName = "real-ink" | "ink-compat";
-type ScenarioName =
-  | "streaming-chat"
-  | "large-list-scroll"
-  | "dashboard-grid"
-  | "style-churn"
-  | "resize-storm";
+const RENDERER_NAMES = ["real-ink", "ink-compat"] as const;
+type RendererName = (typeof RENDERER_NAMES)[number];
+
+const SCENARIO_NAMES = [
+  "streaming-chat",
+  "large-list-scroll",
+  "dashboard-grid",
+  "style-churn",
+  "resize-storm",
+] as const;
+type ScenarioName = (typeof SCENARIO_NAMES)[number];
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
 
 type ControlMsg =
   | Readonly<{ type: "init"; seed: number }>
@@ -77,16 +82,28 @@ type FrameMetric = Readonly<{
   parseAnsiFallbackPathHits: number | null;
 }>;
 
+interface BenchGlobal {
+  __BENCH_ON_RENDER: ((metrics: unknown) => void) | undefined;
+}
+
+interface ControlMsgCandidate {
+  readonly type?: unknown;
+  readonly seed?: unknown;
+  readonly n?: unknown;
+  readonly text?: unknown;
+}
+
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
 function isControlMsg(value: unknown): value is ControlMsg {
   if (!isObjectRecord(value)) return false;
-  const type = value.type;
-  if (type === "init") return typeof value.seed === "number";
-  if (type === "tick") return value.n === undefined || typeof value.n === "number";
-  if (type === "token") return typeof value.text === "string";
+  const candidate = value as ControlMsgCandidate;
+  const type = candidate.type;
+  if (type === "init") return typeof candidate.seed === "number";
+  if (type === "tick") return candidate.n === undefined || typeof candidate.n === "number";
+  if (type === "token") return typeof candidate.text === "string";
   return type === "done";
 }
 
@@ -94,6 +111,46 @@ function readMetricNumber(metrics: unknown, key: "renderTime" | "layoutTimeMs"):
   if (!isObjectRecord(metrics)) return null;
   const value = metrics[key];
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function readIntegerEnv(value: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+function readPositiveIntegerEnv(value: string | undefined, fallback: number): number {
+  const parsed = readIntegerEnv(value, fallback);
+  return parsed > 0 ? parsed : fallback;
+}
+
+function clampTimerDelay(ms: number): number {
+  return Math.min(MAX_TIMER_DELAY_MS, Math.max(0, ms));
+}
+
+function isScenarioName(value: string): value is ScenarioName {
+  return (SCENARIO_NAMES as readonly string[]).includes(value);
+}
+
+function isRendererName(value: string): value is RendererName {
+  return (RENDERER_NAMES as readonly string[]).includes(value);
+}
+
+function readScenarioEnv(value: string | undefined): ScenarioName {
+  if (value === undefined) return "streaming-chat";
+  if (isScenarioName(value)) return value;
+  console.error(
+    `Invalid BENCH_SCENARIO=${JSON.stringify(value)}; expected one of ${SCENARIO_NAMES.join(", ")}. Falling back to "streaming-chat".`,
+  );
+  return "streaming-chat";
+}
+
+function readRendererEnv(value: string | undefined): RendererName {
+  if (value === undefined) return "real-ink";
+  if (isRendererName(value)) return value;
+  console.error(
+    `Invalid BENCH_RENDERER=${JSON.stringify(value)}; expected one of ${RENDERER_NAMES.join(", ")}. Falling back to "real-ink".`,
+  );
+  return "real-ink";
 }
 
 function resolveInkImpl(): { resolvedFrom: string; name: string; version: string } {
@@ -165,6 +222,10 @@ function createStdoutWriteProbe(): {
   };
 
   return { install, readAndReset };
+}
+
+function getBenchGlobal(): BenchGlobal {
+  return globalThis as unknown as BenchGlobal;
 }
 
 function useControlSocket(socketPath: string | undefined, onMsg: (msg: ControlMsg) => void): void {
@@ -349,7 +410,8 @@ function DashboardGridScenario(props: {
   setController: (c: ScenarioController) => void;
 }): React.ReactElement {
   const [tick, setTick] = useState(0);
-  const cols = Number.parseInt(process.env.BENCH_COLS ?? "80", 10) || 80;
+  const { BENCH_COLS } = process.env;
+  const cols = readPositiveIntegerEnv(BENCH_COLS, 80);
   const gap = 2;
   const topW = Math.max(18, Math.floor((cols - gap * 2) / 3));
   const bottomW = Math.max(18, Math.floor((cols - gap) / 2));
@@ -494,13 +556,19 @@ function BenchApp(props: {
   stdoutProbe: StdoutWriteProbe;
 }): React.ReactElement {
   const { exit } = useApp();
+  const {
+    BENCH_STREAM_FRAMES,
+    BENCH_INK_COMPAT_PHASES,
+    BENCH_EXIT_AFTER_DONE_MS,
+    BENCH_TIMEOUT_MS,
+  } = process.env;
   const stdoutProbe = props.stdoutProbe;
   const framesRef = useRef<FrameMetric[]>([]);
   const frameWriteBufferRef = useRef<string[]>([]);
   const frameCountRef = useRef(0);
   const startAt = useMemo(() => performance.now(), []);
   const lastUpdatesRequestedRef = useRef(0);
-  const streamFrames = process.env.BENCH_STREAM_FRAMES === "1";
+  const streamFrames = BENCH_STREAM_FRAMES === "1";
   const framesPath = useMemo(() => path.join(props.outDir, "frames.jsonl"), [props.outDir]);
 
   const flushFrameWriteBuffer = useCallback((): void => {
@@ -518,7 +586,7 @@ function BenchApp(props: {
 
   const compatFrameRef = useRef<InkCompatFrameBreakdown | null>(null);
   useEffect(() => {
-    if (process.env.BENCH_INK_COMPAT_PHASES === "1") {
+    if (BENCH_INK_COMPAT_PHASES === "1") {
       globalThis.__INK_COMPAT_BENCH_ON_FRAME = (m) => {
         compatFrameRef.current = m as InkCompatFrameBreakdown;
       };
@@ -526,7 +594,7 @@ function BenchApp(props: {
     return () => {
       globalThis.__INK_COMPAT_BENCH_ON_FRAME = undefined;
     };
-  }, []);
+  }, [BENCH_INK_COMPAT_PHASES]);
 
   const pendingMsgsRef = useRef<ControlMsg[]>([]);
   const controllerRef = useRef<ScenarioController>({
@@ -565,18 +633,19 @@ function BenchApp(props: {
 
   useEffect(() => {
     if (doneSeq <= 0) return;
-    const ms = Number.parseInt(process.env.BENCH_EXIT_AFTER_DONE_MS ?? "300", 10) || 300;
-    const t = setTimeout(() => exit(), Math.max(0, ms));
+    const ms = readIntegerEnv(BENCH_EXIT_AFTER_DONE_MS, 300);
+    const t = setTimeout(() => exit(), clampTimerDelay(ms));
     return () => clearTimeout(t);
-  }, [doneSeq, exit]);
+  }, [BENCH_EXIT_AFTER_DONE_MS, doneSeq, exit]);
 
   useEffect(() => {
-    const ms = Number.parseInt(process.env.BENCH_TIMEOUT_MS ?? "15000", 10) || 15000;
-    const t = setTimeout(() => exit(new Error(`bench timeout ${ms}ms`)), ms);
+    const ms = readIntegerEnv(BENCH_TIMEOUT_MS, 15000);
+    const delayMs = clampTimerDelay(ms);
+    const t = setTimeout(() => exit(new Error(`bench timeout ${delayMs}ms`)), delayMs);
     return () => clearTimeout(t);
-  }, [exit]);
+  }, [BENCH_TIMEOUT_MS, exit]);
 
-  (globalThis as unknown as { __BENCH_ON_RENDER?: (metrics: unknown) => void }).__BENCH_ON_RENDER =
+  const handleBenchRender = useCallback(
     (metrics: unknown): void => {
       const renderTimeMs = readMetricNumber(metrics, "renderTime") ?? 0;
       const layoutTimeMs = readMetricNumber(metrics, "layoutTimeMs");
@@ -642,15 +711,19 @@ function BenchApp(props: {
       } else {
         framesRef.current.push(frameMetric);
       }
-    };
+    },
+    [flushFrameWriteBuffer, startAt, streamFrames, stdoutProbe],
+  );
 
   useEffect(() => {
+    const benchGlobal = getBenchGlobal();
+    benchGlobal.__BENCH_ON_RENDER = handleBenchRender;
     return () => {
-      (
-        globalThis as unknown as { __BENCH_ON_RENDER?: (metrics: unknown) => void }
-      ).__BENCH_ON_RENDER = undefined;
+      if (benchGlobal.__BENCH_ON_RENDER === handleBenchRender) {
+        benchGlobal.__BENCH_ON_RENDER = undefined;
+      }
     };
-  }, []);
+  }, [handleBenchRender]);
 
   useEffect(() => {
     mkdirSync(props.outDir, { recursive: true });
@@ -683,12 +756,22 @@ function BenchApp(props: {
 }
 
 function main(): void {
-  const scenario = (process.env.BENCH_SCENARIO as ScenarioName | undefined) ?? "streaming-chat";
-  const renderer = (process.env.BENCH_RENDERER as RendererName | undefined) ?? "real-ink";
-  const outDir = process.env.BENCH_OUT_DIR ?? "results/tmp";
-  const cols = Number.parseInt(process.env.BENCH_COLS ?? "80", 10) || 80;
-  const rows = Number.parseInt(process.env.BENCH_ROWS ?? "24", 10) || 24;
-  const controlSocketPath = process.env.BENCH_CONTROL_SOCKET;
+  const {
+    BENCH_SCENARIO,
+    BENCH_RENDERER,
+    BENCH_OUT_DIR,
+    BENCH_COLS,
+    BENCH_ROWS,
+    BENCH_CONTROL_SOCKET,
+    BENCH_MAX_FPS,
+  } = process.env;
+  const scenario = readScenarioEnv(BENCH_SCENARIO);
+  const renderer = readRendererEnv(BENCH_RENDERER);
+  const outDir = BENCH_OUT_DIR ?? "results/tmp";
+  const cols = readPositiveIntegerEnv(BENCH_COLS, 80);
+  const rows = readPositiveIntegerEnv(BENCH_ROWS, 24);
+  const controlSocketPath = BENCH_CONTROL_SOCKET;
+  const maxFps = readIntegerEnv(BENCH_MAX_FPS, 60);
 
   const inkImpl = resolveInkImpl();
   mkdirSync(outDir, { recursive: true });
@@ -711,12 +794,11 @@ function main(): void {
     {
       alternateBuffer: false,
       incrementalRendering: true,
-      maxFps: Number.parseInt(process.env.BENCH_MAX_FPS ?? "60", 10) || 60,
+      maxFps,
       patchConsole: false,
       debug: false,
       onRender: (metrics) => {
-        const hook = (globalThis as unknown as { __BENCH_ON_RENDER?: (m: unknown) => void })
-          .__BENCH_ON_RENDER;
+        const hook = getBenchGlobal().__BENCH_ON_RENDER;
         hook?.(metrics);
       },
     },

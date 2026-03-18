@@ -12,12 +12,7 @@ import {
 } from "../../scrollbar.js";
 import { renderShadow, resolveBoxShadowConfig } from "../../shadow.js";
 import { asTextStyle } from "../../styles.js";
-import {
-  type BorderSideStyleMap,
-  readBoxBorder,
-  readTitleAlign,
-  renderBoxBorder,
-} from "../boxBorder.js";
+import { readBoxBorder, readTitleAlign, renderBoxBorder } from "../boxBorder.js";
 import { getRuntimeNodeDamageRect } from "../damageBounds.js";
 import { isVisibleRect } from "../indices.js";
 import { clampNonNegative, resolveSpacingFromProps } from "../spacing.js";
