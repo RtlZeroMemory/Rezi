@@ -140,6 +140,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           CONCURRENCY=$(node -p "parseInt(process.versions.node)>=19?'--test-concurrency=1':''")
+          # shellcheck disable=SC2086 -- empty expansion intentionally omits the extra flag
           node --test $CONCURRENCY packages/core/dist/repro/__tests__/replay.harness.test.js
 
       - name: Setup Rust (stable)

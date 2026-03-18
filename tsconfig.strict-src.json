@@ -8,6 +8,7 @@
     "lib": ["ES2022"],
     "types": ["node"],
     "jsx": "react-jsx",
+    "jsxImportSource": "@rezi-ui/jsx",
     "baseUrl": ".",
     "paths": {
       "@rezi-ui/core": ["./packages/core/src/index.ts"],

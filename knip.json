@@ -16,7 +16,8 @@
   "workspaces": {
     ".": {
       "entry": ["scripts/*.mjs", "scripts/**/*.mjs", ".github/workflows/*.yml"],
-      "project": ["scripts/**/*.{js,mjs,ts}", ".github/workflows/*.yml"]
+      "project": ["scripts/**/*.{js,mjs,ts}", ".github/workflows/*.yml"],
+      "ignoreDependencies": ["@rezi-ui/jsx"]
     },
     "packages/core": {
       "entry": [

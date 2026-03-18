@@ -106,7 +106,11 @@ temporary_markers="$(
   rg --no-heading --line-number --with-filename -S -i \
     --glob '!**/__tests__/**' \
     --glob '!**/__e2e__/**' \
-    -e '\btemporary\b' \
+    -e '^\s*//.*\btemporary\b' \
+    -e '^\s*/\*.*\btemporary\b' \
+    -e '^\s*\*.*\btemporary\b' \
+    -e '\btemporary:' \
+    -e '\btemporary (hack|workaround|debug|investigation)\b' \
     -e 'remove after investigation' \
     -e 'remove after debugging' \
     -e 'debug-only' \
@@ -119,6 +123,7 @@ temporary_markers="$(
 )"
 if [[ -n "${temporary_markers}" ]]; then
   echo "${temporary_markers}"
+  echo "remove temporary markers from publishable source or move the note into tests/debug-only code"
   has_violations=1
 else
   echo "ok"

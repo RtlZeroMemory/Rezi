@@ -344,36 +344,50 @@ async function main(): Promise<void> {
     const result = await Promise.all([runPromise, drivePromise]).then(([r]) => r);
 
     const frames = safeReadJsonl(path.join(runDir, "frames.jsonl"));
-    const renderTotalsMs = frames
-      .map((frame) => readRecordNumber(frame, "renderTotalMs"))
-      .filter((value): value is number => value !== null);
-    const scheduleWaitsMs = frames
-      .map((frame) => readRecordNumber(frame, "scheduleWaitMs"))
-      .filter((value): value is number => value !== null);
-    const updatesRequested = frames.reduce((total, frame) => {
-      return total + (readRecordNumber(frame, "updatesRequestedDelta") ?? 0);
-    }, 0);
-    const framesWithCoalescedUpdates = frames.reduce((total, frame) => {
-      const updates = readRecordNumber(frame, "updatesRequestedDelta");
-      return total + (updates !== null && updates > 1 ? 1 : 0);
-    }, 0);
-    const maxUpdatesInFrame = frames.reduce((max, frame) => {
-      const updates = readRecordNumber(frame, "updatesRequestedDelta");
-      if (updates === null) return max;
-      return Math.max(max, updates);
-    }, 0);
+    type FrameStats = {
+      renderTotalsMs: number[];
+      scheduleWaitsMs: number[];
+      updatesRequested: number;
+      framesWithCoalescedUpdates: number;
+      maxUpdatesInFrame: number;
+      renderTotalMs: number;
+      stdoutBytes: number;
+      stdoutWrites: number;
+    };
+    const frameStats = frames.reduce<FrameStats>(
+      (acc, frame) => {
+        const renderTotal = readRecordNumber(frame, "renderTotalMs");
+        if (renderTotal !== null) {
+          acc.renderTotalsMs.push(renderTotal);
+          acc.renderTotalMs += renderTotal;
+        }
 
-    const renderTotalMs = frames.reduce(
-      (total, frame) => total + (readRecordNumber(frame, "renderTotalMs") ?? 0),
-      0,
-    );
-    const stdoutBytes = frames.reduce(
-      (total, frame) => total + (readRecordNumber(frame, "stdoutBytes") ?? 0),
-      0,
-    );
-    const stdoutWrites = frames.reduce(
-      (total, frame) => total + (readRecordNumber(frame, "stdoutWrites") ?? 0),
-      0,
+        const scheduleWait = readRecordNumber(frame, "scheduleWaitMs");
+        if (scheduleWait !== null) {
+          acc.scheduleWaitsMs.push(scheduleWait);
+        }
+
+        const updates = readRecordNumber(frame, "updatesRequestedDelta");
+        if (updates !== null) {
+          acc.updatesRequested += updates;
+          if (updates > 1) acc.framesWithCoalescedUpdates += 1;
+          acc.maxUpdatesInFrame = Math.max(acc.maxUpdatesInFrame, updates);
+        }
+
+        acc.stdoutBytes += readRecordNumber(frame, "stdoutBytes") ?? 0;
+        acc.stdoutWrites += readRecordNumber(frame, "stdoutWrites") ?? 0;
+        return acc;
+      },
+      {
+        renderTotalsMs: [] as number[],
+        scheduleWaitsMs: [] as number[],
+        updatesRequested: 0,
+        framesWithCoalescedUpdates: 0,
+        maxUpdatesInFrame: 0,
+        renderTotalMs: 0,
+        stdoutBytes: 0,
+        stdoutWrites: 0,
+      },
     );
     const cpuSeconds = computeCpuSecondsFromProcSamples(result.procSamples, clkTck);
     const peakRssBytes = computePeakRssBytesFromProcSamples(result.procSamples);
@@ -384,25 +398,28 @@ async function main(): Promise<void> {
       run: i + 1,
       meanWallS: (result.stableAtMs ?? result.durationMs) / 1000,
       totalCpuTimeS: cpuSeconds,
-      meanRenderTotalMs: renderTotalMs,
+      meanRenderTotalMs: frameStats.renderTotalMs,
       timeToFirstMeaningfulPaintMs: result.meaningfulPaintAtMs,
       timeToStableMs: result.stableAtMs,
-      writes: stdoutWrites,
-      bytes: stdoutBytes,
-      renderMsPerKB: stdoutBytes > 0 ? renderTotalMs / (stdoutBytes / 1024) : null,
+      writes: frameStats.stdoutWrites,
+      bytes: frameStats.stdoutBytes,
+      renderMsPerKB:
+        frameStats.stdoutBytes > 0
+          ? frameStats.renderTotalMs / (frameStats.stdoutBytes / 1024)
+          : null,
       framesEmitted: frames.length,
-      updatesRequested,
-      updatesPerFrameMean: frames.length > 0 ? updatesRequested / frames.length : null,
-      framesWithCoalescedUpdates,
-      maxUpdatesInFrame,
-      renderTotalP50Ms: percentileMs(renderTotalsMs, 0.5),
-      renderTotalP95Ms: percentileMs(renderTotalsMs, 0.95),
-      renderTotalP99Ms: percentileMs(renderTotalsMs, 0.99),
-      renderTotalMaxMs: percentileMs(renderTotalsMs, 1),
-      scheduleWaitP50Ms: percentileMs(scheduleWaitsMs, 0.5),
-      scheduleWaitP95Ms: percentileMs(scheduleWaitsMs, 0.95),
-      scheduleWaitP99Ms: percentileMs(scheduleWaitsMs, 0.99),
-      scheduleWaitMaxMs: percentileMs(scheduleWaitsMs, 1),
+      updatesRequested: frameStats.updatesRequested,
+      updatesPerFrameMean: frames.length > 0 ? frameStats.updatesRequested / frames.length : null,
+      framesWithCoalescedUpdates: frameStats.framesWithCoalescedUpdates,
+      maxUpdatesInFrame: frameStats.maxUpdatesInFrame,
+      renderTotalP50Ms: percentileMs(frameStats.renderTotalsMs, 0.5),
+      renderTotalP95Ms: percentileMs(frameStats.renderTotalsMs, 0.95),
+      renderTotalP99Ms: percentileMs(frameStats.renderTotalsMs, 0.99),
+      renderTotalMaxMs: percentileMs(frameStats.renderTotalsMs, 1),
+      scheduleWaitP50Ms: percentileMs(frameStats.scheduleWaitsMs, 0.5),
+      scheduleWaitP95Ms: percentileMs(frameStats.scheduleWaitsMs, 0.95),
+      scheduleWaitP99Ms: percentileMs(frameStats.scheduleWaitsMs, 0.99),
+      scheduleWaitMaxMs: percentileMs(frameStats.scheduleWaitsMs, 1),
       peakRssBytes,
       ...result,
     };

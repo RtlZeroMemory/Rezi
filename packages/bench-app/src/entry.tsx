@@ -8,13 +8,17 @@ import { Box, Text, render, useApp, useInput } from "ink";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type RendererName = "real-ink" | "ink-compat";
-type ScenarioName =
-  | "streaming-chat"
-  | "large-list-scroll"
-  | "dashboard-grid"
-  | "style-churn"
-  | "resize-storm";
+const RENDERER_NAMES = ["real-ink", "ink-compat"] as const;
+type RendererName = (typeof RENDERER_NAMES)[number];
+
+const SCENARIO_NAMES = [
+  "streaming-chat",
+  "large-list-scroll",
+  "dashboard-grid",
+  "style-churn",
+  "resize-storm",
+] as const;
+type ScenarioName = (typeof SCENARIO_NAMES)[number];
 
 type ControlMsg =
   | Readonly<{ type: "init"; seed: number }>
@@ -77,16 +81,16 @@ type FrameMetric = Readonly<{
   parseAnsiFallbackPathHits: number | null;
 }>;
 
-type BenchGlobal = {
+interface BenchGlobal {
   __BENCH_ON_RENDER: ((metrics: unknown) => void) | undefined;
-};
+}
 
-type ControlMsgCandidate = Readonly<{
-  type?: unknown;
-  seed?: unknown;
-  n?: unknown;
-  text?: unknown;
-}>;
+interface ControlMsgCandidate {
+  readonly type?: unknown;
+  readonly seed?: unknown;
+  readonly n?: unknown;
+  readonly text?: unknown;
+}
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -106,6 +110,42 @@ function readMetricNumber(metrics: unknown, key: "renderTime" | "layoutTimeMs"):
   if (!isObjectRecord(metrics)) return null;
   const value = metrics[key];
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function readIntegerEnv(value: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+function readPositiveIntegerEnv(value: string | undefined, fallback: number): number {
+  const parsed = readIntegerEnv(value, fallback);
+  return parsed > 0 ? parsed : fallback;
+}
+
+function isScenarioName(value: string): value is ScenarioName {
+  return (SCENARIO_NAMES as readonly string[]).includes(value);
+}
+
+function isRendererName(value: string): value is RendererName {
+  return (RENDERER_NAMES as readonly string[]).includes(value);
+}
+
+function readScenarioEnv(value: string | undefined): ScenarioName {
+  if (value === undefined) return "streaming-chat";
+  if (isScenarioName(value)) return value;
+  console.error(
+    `Invalid BENCH_SCENARIO=${JSON.stringify(value)}; expected one of ${SCENARIO_NAMES.join(", ")}. Falling back to "streaming-chat".`,
+  );
+  return "streaming-chat";
+}
+
+function readRendererEnv(value: string | undefined): RendererName {
+  if (value === undefined) return "real-ink";
+  if (isRendererName(value)) return value;
+  console.error(
+    `Invalid BENCH_RENDERER=${JSON.stringify(value)}; expected one of ${RENDERER_NAMES.join(", ")}. Falling back to "real-ink".`,
+  );
+  return "real-ink";
 }
 
 function resolveInkImpl(): { resolvedFrom: string; name: string; version: string } {
@@ -366,7 +406,7 @@ function DashboardGridScenario(props: {
 }): React.ReactElement {
   const [tick, setTick] = useState(0);
   const { BENCH_COLS } = process.env;
-  const cols = Number.parseInt(BENCH_COLS ?? "80", 10) || 80;
+  const cols = readPositiveIntegerEnv(BENCH_COLS, 80);
   const gap = 2;
   const topW = Math.max(18, Math.floor((cols - gap * 2) / 3));
   const bottomW = Math.max(18, Math.floor((cols - gap) / 2));
@@ -588,89 +628,96 @@ function BenchApp(props: {
 
   useEffect(() => {
     if (doneSeq <= 0) return;
-    const ms = Number.parseInt(BENCH_EXIT_AFTER_DONE_MS ?? "300", 10) || 300;
+    const ms = readIntegerEnv(BENCH_EXIT_AFTER_DONE_MS, 300);
     const t = setTimeout(() => exit(), Math.max(0, ms));
     return () => clearTimeout(t);
   }, [BENCH_EXIT_AFTER_DONE_MS, doneSeq, exit]);
 
   useEffect(() => {
-    const ms = Number.parseInt(BENCH_TIMEOUT_MS ?? "15000", 10) || 15000;
-    const t = setTimeout(() => exit(new Error(`bench timeout ${ms}ms`)), ms);
+    const ms = readIntegerEnv(BENCH_TIMEOUT_MS, 15000);
+    const t = setTimeout(() => exit(new Error(`bench timeout ${ms}ms`)), Math.max(0, ms));
     return () => clearTimeout(t);
   }, [BENCH_TIMEOUT_MS, exit]);
 
-  getBenchGlobal().__BENCH_ON_RENDER = (metrics: unknown): void => {
-    const renderTimeMs = readMetricNumber(metrics, "renderTime") ?? 0;
-    const layoutTimeMs = readMetricNumber(metrics, "layoutTimeMs");
-    const layoutMsSafe =
-      typeof layoutTimeMs === "number" && Number.isFinite(layoutTimeMs) ? layoutTimeMs : null;
-    const renderTimeMsSafe =
-      typeof renderTimeMs === "number" && Number.isFinite(renderTimeMs) ? renderTimeMs : 0;
+  const handleBenchRender = useCallback(
+    (metrics: unknown): void => {
+      const renderTimeMs = readMetricNumber(metrics, "renderTime") ?? 0;
+      const layoutTimeMs = readMetricNumber(metrics, "layoutTimeMs");
+      const layoutMsSafe =
+        typeof layoutTimeMs === "number" && Number.isFinite(layoutTimeMs) ? layoutTimeMs : null;
+      const renderTimeMsSafe =
+        typeof renderTimeMs === "number" && Number.isFinite(renderTimeMs) ? renderTimeMs : 0;
 
-    const now = performance.now();
-    const tsMs = now - startAt;
+      const now = performance.now();
+      const tsMs = now - startAt;
 
-    const state = stateRef.current;
-    const updatesDelta = state.updatesRequested - lastUpdatesRequestedRef.current;
-    lastUpdatesRequestedRef.current = state.updatesRequested;
+      const state = stateRef.current;
+      const updatesDelta = state.updatesRequested - lastUpdatesRequestedRef.current;
+      lastUpdatesRequestedRef.current = state.updatesRequested;
 
-    const stdout = stdoutProbe.readAndReset();
+      const stdout = stdoutProbe.readAndReset();
 
-    let scheduleWaitMs: number | null = null;
-    if (state.firstUpdateRequestedAtMs != null) {
-      const frameStartApprox = now - renderTimeMsSafe;
-      scheduleWaitMs = Math.max(0, frameStartApprox - state.firstUpdateRequestedAtMs);
-      stateRef.current = { ...stateRef.current, firstUpdateRequestedAtMs: null };
-    }
-
-    const compat = compatFrameRef.current;
-    compatFrameRef.current = null;
-
-    const frameNumber = frameCountRef.current + 1;
-    frameCountRef.current = frameNumber;
-    const frameMetric: FrameMetric = {
-      frame: frameNumber,
-      tsMs,
-      renderTimeMs: renderTimeMsSafe,
-      layoutTimeMs: layoutMsSafe,
-      renderTotalMs: renderTimeMsSafe + (layoutMsSafe ?? 0),
-      scheduleWaitMs,
-      stdoutWriteMs: stdout.writeMs,
-      stdoutBytes: stdout.bytes,
-      stdoutWrites: stdout.writes,
-      updatesRequestedDelta: updatesDelta,
-      translationMs: compat?.translationMs ?? null,
-      percentResolveMs: compat?.percentResolveMs ?? null,
-      coreRenderMs: compat?.coreRenderMs ?? null,
-      assignLayoutsMs: compat?.assignLayoutsMs ?? null,
-      rectScanMs: compat?.rectScanMs ?? null,
-      ansiMs: compat?.ansiMs ?? null,
-      nodes: compat?.nodes ?? null,
-      ops: compat?.ops ?? null,
-      coreRenderPasses: compat?.coreRenderPasses ?? null,
-      translatedNodes: compat?.translatedNodes ?? null,
-      translationCacheHits: compat?.translationCacheHits ?? null,
-      translationCacheMisses: compat?.translationCacheMisses ?? null,
-      translationCacheEmptyMisses: compat?.translationCacheEmptyMisses ?? null,
-      translationCacheStaleMisses: compat?.translationCacheStaleMisses ?? null,
-      parseAnsiFastPathHits: compat?.parseAnsiFastPathHits ?? null,
-      parseAnsiFallbackPathHits: compat?.parseAnsiFallbackPathHits ?? null,
-    };
-    if (streamFrames) {
-      frameWriteBufferRef.current.push(`${JSON.stringify(frameMetric)}\n`);
-      if (frameWriteBufferRef.current.length >= 64) {
-        flushFrameWriteBuffer();
+      let scheduleWaitMs: number | null = null;
+      if (state.firstUpdateRequestedAtMs != null) {
+        const frameStartApprox = now - renderTimeMsSafe;
+        scheduleWaitMs = Math.max(0, frameStartApprox - state.firstUpdateRequestedAtMs);
+        stateRef.current = { ...stateRef.current, firstUpdateRequestedAtMs: null };
       }
-    } else {
-      framesRef.current.push(frameMetric);
-    }
-  };
+
+      const compat = compatFrameRef.current;
+      compatFrameRef.current = null;
+
+      const frameNumber = frameCountRef.current + 1;
+      frameCountRef.current = frameNumber;
+      const frameMetric: FrameMetric = {
+        frame: frameNumber,
+        tsMs,
+        renderTimeMs: renderTimeMsSafe,
+        layoutTimeMs: layoutMsSafe,
+        renderTotalMs: renderTimeMsSafe + (layoutMsSafe ?? 0),
+        scheduleWaitMs,
+        stdoutWriteMs: stdout.writeMs,
+        stdoutBytes: stdout.bytes,
+        stdoutWrites: stdout.writes,
+        updatesRequestedDelta: updatesDelta,
+        translationMs: compat?.translationMs ?? null,
+        percentResolveMs: compat?.percentResolveMs ?? null,
+        coreRenderMs: compat?.coreRenderMs ?? null,
+        assignLayoutsMs: compat?.assignLayoutsMs ?? null,
+        rectScanMs: compat?.rectScanMs ?? null,
+        ansiMs: compat?.ansiMs ?? null,
+        nodes: compat?.nodes ?? null,
+        ops: compat?.ops ?? null,
+        coreRenderPasses: compat?.coreRenderPasses ?? null,
+        translatedNodes: compat?.translatedNodes ?? null,
+        translationCacheHits: compat?.translationCacheHits ?? null,
+        translationCacheMisses: compat?.translationCacheMisses ?? null,
+        translationCacheEmptyMisses: compat?.translationCacheEmptyMisses ?? null,
+        translationCacheStaleMisses: compat?.translationCacheStaleMisses ?? null,
+        parseAnsiFastPathHits: compat?.parseAnsiFastPathHits ?? null,
+        parseAnsiFallbackPathHits: compat?.parseAnsiFallbackPathHits ?? null,
+      };
+      if (streamFrames) {
+        frameWriteBufferRef.current.push(`${JSON.stringify(frameMetric)}\n`);
+        if (frameWriteBufferRef.current.length >= 64) {
+          flushFrameWriteBuffer();
+        }
+      } else {
+        framesRef.current.push(frameMetric);
+      }
+    },
+    [flushFrameWriteBuffer, startAt, streamFrames, stdoutProbe],
+  );
 
   useEffect(() => {
+    const benchGlobal = getBenchGlobal();
+    benchGlobal.__BENCH_ON_RENDER = handleBenchRender;
     return () => {
-      getBenchGlobal().__BENCH_ON_RENDER = undefined;
+      if (benchGlobal.__BENCH_ON_RENDER === handleBenchRender) {
+        benchGlobal.__BENCH_ON_RENDER = undefined;
+      }
     };
-  }, []);
+  }, [handleBenchRender]);
 
   useEffect(() => {
     mkdirSync(props.outDir, { recursive: true });
@@ -712,12 +759,13 @@ function main(): void {
     BENCH_CONTROL_SOCKET,
     BENCH_MAX_FPS,
   } = process.env;
-  const scenario = (BENCH_SCENARIO as ScenarioName | undefined) ?? "streaming-chat";
-  const renderer = (BENCH_RENDERER as RendererName | undefined) ?? "real-ink";
+  const scenario = readScenarioEnv(BENCH_SCENARIO);
+  const renderer = readRendererEnv(BENCH_RENDERER);
   const outDir = BENCH_OUT_DIR ?? "results/tmp";
-  const cols = Number.parseInt(BENCH_COLS ?? "80", 10) || 80;
-  const rows = Number.parseInt(BENCH_ROWS ?? "24", 10) || 24;
+  const cols = readPositiveIntegerEnv(BENCH_COLS, 80);
+  const rows = readPositiveIntegerEnv(BENCH_ROWS, 24);
   const controlSocketPath = BENCH_CONTROL_SOCKET;
+  const maxFps = readIntegerEnv(BENCH_MAX_FPS, 60);
 
   const inkImpl = resolveInkImpl();
   mkdirSync(outDir, { recursive: true });
@@ -740,7 +788,7 @@ function main(): void {
     {
       alternateBuffer: false,
       incrementalRendering: true,
-      maxFps: Number.parseInt(BENCH_MAX_FPS ?? "60", 10) || 60,
+      maxFps,
       patchConsole: false,
       debug: false,
       onRender: (metrics) => {

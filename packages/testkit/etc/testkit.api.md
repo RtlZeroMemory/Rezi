@@ -18,10 +18,14 @@ export function createRng(seed: number): Rng;
 
 export { describe }
 
-// Warning: (ae-forgotten-export) The symbol "HexdumpOptions" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export function hexdump(bytes: Uint8Array, opts?: HexdumpOptions): string;
+
+// @public (undocumented)
+export type HexdumpOptions = Readonly<{
+    startOffset?: number;
+    bytesPerLine?: number;
+}>;
 
 // @public (undocumented)
 export function matchesSnapshot(actualValue: string, snapshotName: string, opts?: SnapshotMatchOptions): void;

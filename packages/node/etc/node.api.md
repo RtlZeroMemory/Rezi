@@ -50,6 +50,15 @@ export type CreateReproRecorderOptions = Readonly<{
 }>;
 
 // @public (undocumented)
+export type HotStateReloadBaseOptions = Readonly<{
+    moduleRoot?: string | URL;
+    watchPaths?: readonly (string | URL)[];
+    debounceMs?: number;
+    onError?: (error: unknown, context: HotStateReloadErrorContext) => void;
+    log?: (event: HotStateReloadLogEvent) => void;
+}>;
+
+// @public (undocumented)
 export type HotStateReloadController = Readonly<{
     start: () => Promise<void>;
     reloadNow: () => Promise<boolean>;
@@ -73,8 +82,6 @@ export type HotStateReloadLogEvent = Readonly<{
 // @public (undocumented)
 export type HotStateReloadOptions<S> = HotStateReloadViewOptions<S> | HotStateReloadRoutesOptions<S>;
 
-// Warning: (ae-forgotten-export) The symbol "HotStateReloadBaseOptions" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export type HotStateReloadRoutesOptions<S> = HotStateReloadBaseOptions & Readonly<{
     app: Pick<App<S>, "replaceRoutes">;
@@ -132,6 +139,24 @@ export type NodeBackendConfig = Readonly<{
 }>;
 
 // @public (undocumented)
+export type NodeBackendPerf = Readonly<{
+    perfSnapshot: () => Promise<NodeBackendPerfSnapshot>;
+}>;
+
+// @public (undocumented)
+export type NodeBackendPerfSnapshot = Readonly<{
+    phases: Readonly<Record<string, {
+        count: number;
+        avg: number;
+        p50: number;
+        p95: number;
+        p99: number;
+        max: number;
+        worst10: readonly number[];
+    }>>;
+}>;
+
+// @public (undocumented)
 export type ReproRecorder = Readonly<{
     backend: RuntimeBackend;
     buildBundle: () => Promise<ReproBundleV1>;
@@ -159,10 +184,6 @@ export type ReproRecorderBuildResult = Readonly<{
     bundle: ReproBundleV1;
     bytes: Uint8Array;
 }>;
-
-// Warnings were encountered during analysis:
-//
-// src/backend/nodeBackend/shared.ts:76:76 - (ae-forgotten-export) The symbol "NodeBackendPerf" needs to be exported by the entry point index.d.ts
 
 // (No @packageDocumentation comment for this package)
 

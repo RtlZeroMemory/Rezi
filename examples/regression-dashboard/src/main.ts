@@ -30,18 +30,18 @@ type OverviewModule = Readonly<{
   renderOverviewScreen?: OverviewRenderer;
 }>;
 
-type DebugPayloadCandidate = Readonly<{
-  kind?: unknown;
-  bytes?: unknown;
-  validationResult?: unknown;
-  executionResult?: unknown;
-}>;
+interface DebugPayloadCandidate {
+  readonly kind?: unknown;
+  readonly bytes?: unknown;
+  readonly validationResult?: unknown;
+  readonly executionResult?: unknown;
+}
 
-type DebugPayloadSummaryRecord = Readonly<{
-  kind?: unknown;
-  header?: unknown;
-  validationResultSigned?: unknown;
-}>;
+interface DebugPayloadSummaryRecord {
+  readonly kind?: unknown;
+  readonly header?: unknown;
+  readonly validationResultSigned?: unknown;
+}
 
 function serializeDetail(detail: unknown): string {
   if (detail instanceof Error) {

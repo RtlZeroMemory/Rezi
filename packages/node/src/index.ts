@@ -24,6 +24,7 @@ import { createNodeTailSource } from "./streams/tail.js";
 export type { NodeBackendConfig };
 export type { NodeBackend };
 export type {
+  HotStateReloadBaseOptions,
   HotStateReloadController,
   HotStateReloadErrorContext,
   HotStateReloadLogEvent,
@@ -36,6 +37,7 @@ export type {
   NodeAppHotReloadRoutesOptions,
   NodeAppHotReloadViewOptions,
 } from "./dev/nodeAppHotReload.js";
+export type { NodeBackendPerf, NodeBackendPerfSnapshot } from "./backend/nodeBackend.js";
 export type {
   CreateReproRecorderOptions,
   ReproRecorder,

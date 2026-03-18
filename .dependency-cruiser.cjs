@@ -53,8 +53,14 @@ module.exports = {
       from: {
         orphan: true,
         path: "^packages/(core|node|jsx|testkit)/src/",
-        pathNot:
-          "(^|/)(__tests__|__e2e__)/|\\.d\\.ts$|writers\\.gen\\.ts$|(^|/)(index|all|abi|backend|composition|drawApi|events|pipeline|terminalCaps|terminalProfile|ui)\\.ts$|^packages/core/src/(cursor|debug|drawlist|forms|keybindings|layout|protocol|router|testing|theme|widgets)/index\\.ts$|^packages/jsx/src/jsx-(dev-)?runtime\\.ts$",
+        pathNot: [
+          "(^|/)(__tests__|__e2e__)/", // Approved test roots.
+          "|\\.d\\.ts$", // Declaration files.
+          "|writers\\.gen\\.ts$", // Generated drawlist writers.
+          "|(^|/)(index|all|abi|backend|composition|drawApi|events|pipeline|terminalCaps|terminalProfile|ui)\\.ts$", // Known entry/barrel filenames.
+          "|^packages/core/src/(cursor|debug|drawlist|forms|keybindings|layout|protocol|router|testing|theme|widgets)/index\\.ts$", // Core package submodule barrels.
+          "|^packages/jsx/src/jsx-(dev-)?runtime\\.ts$", // JSX runtime entry points.
+        ].join(""),
       },
       to: {},
     },

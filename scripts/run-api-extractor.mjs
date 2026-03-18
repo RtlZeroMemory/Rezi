@@ -31,6 +31,12 @@ for (const config of configs) {
     env: { ...process.env },
   });
 
+  if (result.error) {
+    console.error(`Failed to launch API Extractor: ${cli} ${args.join(" ")}`);
+    console.error(result.error);
+    process.exit(1);
+  }
+
   if ((result.status ?? 1) !== 0) {
     process.exit(result.status ?? 1);
   }

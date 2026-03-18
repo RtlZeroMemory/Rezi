@@ -57,7 +57,7 @@ export type HotStateReloadController = Readonly<{
   isRunning: () => boolean;
 }>;
 
-type HotStateReloadBaseOptions = Readonly<{
+export type HotStateReloadBaseOptions = Readonly<{
   /**
    * Root copied into a versioned snapshot before each reload.
    * Set this to your app `src/` directory so transitive imports are refreshed.

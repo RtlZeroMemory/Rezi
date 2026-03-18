@@ -143,16 +143,12 @@ export function Accordion(props: AccordionJsxProps): VNode;
 
 export { AccordionItem }
 
-// Warning: (ae-forgotten-export) The symbol "LeafProps" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export type AccordionJsxProps = LeafProps<AccordionProps>;
 
 // @public (undocumented)
 export function Actions(props: ActionsJsxProps): VNode;
 
-// Warning: (ae-forgotten-export) The symbol "WithContainerChildren" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export type ActionsJsxProps = WithContainerChildren<ActionsOptions>;
 
@@ -222,10 +218,13 @@ export type CalloutJsxProps = LeafProps<CalloutProps>;
 // @public (undocumented)
 export function Canvas(props: CanvasJsxProps): VNode;
 
-// Warning: (ae-forgotten-export) The symbol "CanvasProps" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export type CanvasJsxProps = LeafProps<CanvasProps>;
+
+// @public (undocumented)
+export type CanvasProps = Extract<VNode, {
+    kind: "canvas";
+}>["props"];
 
 // @public (undocumented)
 export function Card(props: CardJsxProps): VNode;
@@ -271,6 +270,11 @@ export function Column(props: ColumnJsxProps): VNode;
 // @public (undocumented)
 export type ColumnJsxProps = WithContainerChildren<ColumnProps>;
 
+// @public (undocumented)
+export type ColumnProps = Extract<VNode, {
+    kind: "column";
+}>["props"];
+
 export { CommandItem }
 
 // @public (undocumented)
@@ -281,14 +285,15 @@ export type CommandPaletteJsxProps = LeafProps<CommandPaletteProps>;
 
 export { CommandSource }
 
+// @public (undocumented)
+export type ComponentFunction<P = never> = (props: P) => VNode;
+
 export { conditionalConstraints }
 
 export { ConstraintExpr }
 
 export { ConstraintValue }
 
-// Warning: (ae-forgotten-export) The symbol "JsxElementType" needs to be exported by the entry point index.d.ts
-//
 // @public
 export function createElement(type: JsxElementType, props: Readonly<Record<string, unknown>> | null, key?: string): VNode;
 
@@ -343,8 +348,6 @@ export function ErrorBoundary(props: ErrorBoundaryJsxProps): VNode;
 
 export { ErrorBoundaryError }
 
-// Warning: (ae-forgotten-export) The symbol "WithSingleChild" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export type ErrorBoundaryJsxProps = WithSingleChild<ErrorBoundaryProps>;
 
@@ -393,18 +396,24 @@ export { FocusAnnouncerProps }
 // @public (undocumented)
 export function FocusTrap(props: FocusTrapJsxProps): VNode;
 
-// Warning: (ae-forgotten-export) The symbol "FocusTrapProps" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export type FocusTrapJsxProps = WithContainerChildren<FocusTrapProps>;
 
 // @public (undocumented)
+export type FocusTrapProps = Extract<VNode, {
+    kind: "focusTrap";
+}>["props"];
+
+// @public (undocumented)
 export function FocusZone(props: FocusZoneJsxProps): VNode;
 
-// Warning: (ae-forgotten-export) The symbol "FocusZoneProps" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export type FocusZoneJsxProps = WithContainerChildren<FocusZoneProps>;
+
+// @public (undocumented)
+export type FocusZoneProps = Extract<VNode, {
+    kind: "focusZone";
+}>["props"];
 
 // @public (undocumented)
 export function Form(props: FormJsxProps): VNode;
@@ -434,10 +443,18 @@ export type GaugeJsxProps = LeafProps<GaugeProps>;
 // @public (undocumented)
 export function Grid(props: GridJsxProps): VNode;
 
-// Warning: (ae-forgotten-export) The symbol "GridPropsWithOptionalKey" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export type GridJsxProps = WithContainerChildren<GridPropsWithOptionalKey>;
+
+// @public (undocumented)
+export type GridProps = Extract<VNode, {
+    kind: "grid";
+}>["props"];
+
+// @public (undocumented)
+export type GridPropsWithOptionalKey = GridProps & {
+    key?: string;
+};
 
 export { groupConstraints }
 
@@ -455,10 +472,13 @@ export { HeaderOptions }
 // @public (undocumented)
 export function Heatmap(props: HeatmapJsxProps): VNode;
 
-// Warning: (ae-forgotten-export) The symbol "HeatmapProps" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export type HeatmapJsxProps = LeafProps<HeatmapProps>;
+
+// @public (undocumented)
+export type HeatmapProps = Extract<VNode, {
+    kind: "heatmap";
+}>["props"];
 
 export { heightConstraints }
 
@@ -471,10 +491,13 @@ export type IconJsxProps = LeafProps<IconProps>;
 // @public (undocumented)
 export function Image(props: ImageJsxProps): VNode;
 
-// Warning: (ae-forgotten-export) The symbol "ImageProps" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export type ImageJsxProps = LeafProps<ImageProps>;
+
+// @public (undocumented)
+export type ImageProps = Extract<VNode, {
+    kind: "image";
+}>["props"];
 
 // @public (undocumented)
 export function Input(props: InputJsxProps): VNode;
@@ -489,6 +512,12 @@ export type JsxChild = VNode | string | number | boolean | null | undefined;
 
 // @public
 export type JsxChildren = JsxChild | readonly JsxChildren[];
+
+// @public (undocumented)
+export type JsxElement = VNode;
+
+// @public (undocumented)
+export type JsxElementType = string | ComponentFunction;
 
 // @public
 export type JsxTextChild = string | number | boolean | null | undefined;
@@ -536,22 +565,35 @@ export function Layers(props: LayersJsxProps): VNode;
 export type LayersJsxProps = WithContainerChildren<LayersProps>;
 
 // @public (undocumented)
+export type LeafProps<P extends {
+    key?: string;
+}> = WithOptionalKey<P> & {
+    children?: never;
+};
+
+// @public (undocumented)
 export function LineChart(props: LineChartJsxProps): VNode;
 
-// Warning: (ae-forgotten-export) The symbol "LineChartProps" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export type LineChartJsxProps = LeafProps<LineChartProps>;
+
+// @public (undocumented)
+export type LineChartProps = Extract<VNode, {
+    kind: "lineChart";
+}>["props"];
 
 export { LineChartSeries }
 
 // @public (undocumented)
 export function Link(props: LinkJsxProps): VNode;
 
-// Warning: (ae-forgotten-export) The symbol "LinkProps" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export type LinkJsxProps = LeafProps<LinkProps>;
+
+// @public (undocumented)
+export type LinkProps = Extract<VNode, {
+    kind: "link";
+}>["props"];
 
 export { LogEntry }
 
@@ -658,6 +700,18 @@ export function ResizablePanel(props: ResizablePanelJsxProps): VNode;
 // @public (undocumented)
 export type ResizablePanelJsxProps = WithContainerChildren<ResizablePanelProps>;
 
+// @public (undocumented)
+export interface ReziElementChildrenAttribute {
+    // (undocumented)
+    children: unknown;
+}
+
+// @public (undocumented)
+export interface ReziIntrinsicAttributes {
+    // (undocumented)
+    key?: string;
+}
+
 export { rgb }
 
 export { Rgb24 }
@@ -699,12 +753,20 @@ export function Row(props: RowJsxProps): VNode;
 export type RowJsxProps = WithContainerChildren<RowProps>;
 
 // @public (undocumented)
+export type RowProps = Extract<VNode, {
+    kind: "row";
+}>["props"];
+
+// @public (undocumented)
 export function Scatter(props: ScatterJsxProps): VNode;
 
-// Warning: (ae-forgotten-export) The symbol "ScatterProps" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export type ScatterJsxProps = LeafProps<ScatterProps>;
+
+// @public (undocumented)
+export type ScatterProps = Extract<VNode, {
+    kind: "scatter";
+}>["props"];
 
 // @public (undocumented)
 export function Select(props: SelectJsxProps): VNode;
@@ -816,8 +878,6 @@ export function Textarea(props: TextareaJsxProps): VNode;
 // @public (undocumented)
 export type TextareaJsxProps = LeafProps<TextareaProps>;
 
-// Warning: (ae-forgotten-export) The symbol "WithTextChildren" needs to be exported by the entry point index.d.ts
-//
 // @public (undocumented)
 export type TextJsxProps = WithTextChildren<TextProps>;
 
@@ -899,10 +959,35 @@ export { WidgetVariant }
 
 export { widthConstraints }
 
-// Warnings were encountered during analysis:
-//
-// src/types.ts:144:3 - (ae-forgotten-export) The symbol "RowProps" needs to be exported by the entry point index.d.ts
-// src/types.ts:150:3 - (ae-forgotten-export) The symbol "ColumnProps" needs to be exported by the entry point index.d.ts
+// @public (undocumented)
+export type WithContainerChildren<P extends {
+    key?: string;
+}> = WithOptionalKey<P> & {
+    children?: JsxChildren;
+};
+
+// @public (undocumented)
+export type WithOptionalKey<P extends {
+    key?: string;
+}> = Omit<P, "key"> & {
+    key?: string;
+};
+
+// @public (undocumented)
+export type WithSingleChild<P extends {
+    key?: string;
+    children: VNode;
+}> = Omit<P, "key" | "children"> & {
+    key?: string;
+    children: VNode;
+};
+
+// @public (undocumented)
+export type WithTextChildren<P extends {
+    key?: string;
+}> = WithOptionalKey<P> & {
+    children?: JsxTextChildren;
+};
 
 // (No @packageDocumentation comment for this package)
 

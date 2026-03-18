@@ -85,20 +85,20 @@ export interface ReziIntrinsicAttributes {
   key?: string;
 }
 
-type FocusZoneProps = Extract<VNode, { kind: "focusZone" }>["props"];
-type FocusTrapProps = Extract<VNode, { kind: "focusTrap" }>["props"];
-type RowProps = Extract<VNode, { kind: "row" }>["props"];
-type ColumnProps = Extract<VNode, { kind: "column" }>["props"];
-type GridProps = Extract<VNode, { kind: "grid" }>["props"];
-type LinkProps = Extract<VNode, { kind: "link" }>["props"];
-type CanvasProps = Extract<VNode, { kind: "canvas" }>["props"];
-type ImageProps = Extract<VNode, { kind: "image" }>["props"];
-type LineChartProps = Extract<VNode, { kind: "lineChart" }>["props"];
-type ScatterProps = Extract<VNode, { kind: "scatter" }>["props"];
-type HeatmapProps = Extract<VNode, { kind: "heatmap" }>["props"];
-type GridPropsWithOptionalKey = GridProps & { key?: string };
+export type FocusZoneProps = Extract<VNode, { kind: "focusZone" }>["props"];
+export type FocusTrapProps = Extract<VNode, { kind: "focusTrap" }>["props"];
+export type RowProps = Extract<VNode, { kind: "row" }>["props"];
+export type ColumnProps = Extract<VNode, { kind: "column" }>["props"];
+export type GridProps = Extract<VNode, { kind: "grid" }>["props"];
+export type LinkProps = Extract<VNode, { kind: "link" }>["props"];
+export type CanvasProps = Extract<VNode, { kind: "canvas" }>["props"];
+export type ImageProps = Extract<VNode, { kind: "image" }>["props"];
+export type LineChartProps = Extract<VNode, { kind: "lineChart" }>["props"];
+export type ScatterProps = Extract<VNode, { kind: "scatter" }>["props"];
+export type HeatmapProps = Extract<VNode, { kind: "heatmap" }>["props"];
+export type GridPropsWithOptionalKey = GridProps & { key?: string };
 
-type WithOptionalKey<P extends { key?: string }> = Omit<P, "key"> & {
+export type WithOptionalKey<P extends { key?: string }> = Omit<P, "key"> & {
   key?: string;
 };
 
