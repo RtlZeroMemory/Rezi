@@ -64,7 +64,7 @@ type SyntheticTransparentColumnCacheEntry = Readonly<{
   columnNode: VNode;
 }>;
 
-// Temporary profiling counters (remove after investigation)
+// Layout profiling counters exposed via the pipeline API.
 export const __layoutProfile = {
   enabled: false,
   layoutNodeCalls: 0,

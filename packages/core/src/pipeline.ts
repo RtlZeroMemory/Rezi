@@ -33,5 +33,5 @@ export {
 // Damage tracking (for collecting dirty instance IDs from commit flags)
 export { collectSelfDirtyInstanceIds } from "./app/widgetRenderer/damageTracking.js";
 
-// Temporary profiling (remove after investigation)
+// Layout profiling hooks
 export { __layoutProfile } from "./layout/engine/layoutEngine.js";
