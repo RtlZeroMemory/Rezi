@@ -44,18 +44,15 @@ jobs:
           )"
 
           message="$(
-            python3 - "${response_path}" <<'PY'
-            import json
-            import sys
-
-            try:
-                with open(sys.argv[1], encoding="utf-8") as handle:
-                    payload = json.load(handle)
-            except Exception:
-                print("")
-            else:
-                print(payload.get("message", ""))
-            PY
+            python3 -c 'import json, sys
+path = sys.argv[1]
+try:
+    with open(path, encoding="utf-8") as handle:
+        payload = json.load(handle)
+except Exception:
+    print("")
+else:
+    print(payload.get("message", ""))' "${response_path}"
           )"
 
           case "${status_code}" in
