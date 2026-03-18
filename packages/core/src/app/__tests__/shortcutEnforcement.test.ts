@@ -252,6 +252,119 @@ describe("widget shortcut enforcement contracts", () => {
     assert.equal(closeCount, 1);
   });
 
+  test("disabled command palette shortcut is inert", async () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({ backend, requestRender: () => {} });
+
+    let selected = 0;
+    let closeCount = 0;
+    const sourceItems: readonly CommandItem[] = Object.freeze([
+      { id: "save", label: "Save", sourceId: "commands", shortcut: "Ctrl+S", disabled: true },
+    ]);
+    const source: CommandSource = {
+      id: "commands",
+      name: "Commands",
+      getItems: () => sourceItems,
+    };
+
+    const view = () =>
+      ui.commandPalette({
+        id: "cp",
+        open: true,
+        query: "",
+        sources: Object.freeze([source]),
+        selectedIndex: 0,
+        onChange: () => {},
+        onSelect: () => {
+          selected++;
+        },
+        onClose: () => {
+          closeCount++;
+        },
+      });
+
+    const firstFrame = renderer.submitFrame(
+      view,
+      undefined,
+      { cols: 80, rows: 20 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.equal(firstFrame.ok, true);
+
+    await flushMicrotasks(8);
+
+    const secondFrame = renderer.submitFrame(
+      view,
+      undefined,
+      { cols: 80, rows: 20 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.equal(secondFrame.ok, true);
+
+    const routed = renderer.routeEngineEvent(keyEvent(83, ZR_MOD_CTRL, 10));
+    assert.equal(routed.needsRender, false);
+    assert.equal(selected, 0);
+    assert.equal(closeCount, 0);
+  });
+
+  test("conflicting command palette shortcuts prefer the later active item", async () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({ backend, requestRender: () => {} });
+
+    const selections: string[] = [];
+    let closeCount = 0;
+    const sourceItems: readonly CommandItem[] = Object.freeze([
+      { id: "save", label: "Save", sourceId: "commands", shortcut: "Ctrl+S" },
+      { id: "save-all", label: "Save All", sourceId: "commands", shortcut: "Ctrl+S" },
+    ]);
+    const source: CommandSource = {
+      id: "commands",
+      name: "Commands",
+      getItems: () => sourceItems,
+    };
+
+    const view = () =>
+      ui.commandPalette({
+        id: "cp",
+        open: true,
+        query: "",
+        sources: Object.freeze([source]),
+        selectedIndex: 0,
+        onChange: () => {},
+        onSelect: (item) => selections.push(item.id),
+        onClose: () => {
+          closeCount++;
+        },
+      });
+
+    const firstFrame = renderer.submitFrame(
+      view,
+      undefined,
+      { cols: 80, rows: 20 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.equal(firstFrame.ok, true);
+
+    await flushMicrotasks(8);
+
+    const secondFrame = renderer.submitFrame(
+      view,
+      undefined,
+      { cols: 80, rows: 20 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.equal(secondFrame.ok, true);
+
+    const routed = renderer.routeEngineEvent(keyEvent(83, ZR_MOD_CTRL, 10));
+    assert.equal(routed.needsRender, true);
+    assert.deepEqual(selections, ["save-all"]);
+    assert.equal(closeCount, 1);
+  });
+
   test("onInput callback errors do not break text routing", () => {
     const backend = createNoopBackend();
     const callbackErrors: string[] = [];
