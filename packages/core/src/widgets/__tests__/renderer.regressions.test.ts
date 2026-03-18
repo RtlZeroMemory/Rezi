@@ -840,6 +840,39 @@ describe("renderer regressions", () => {
     );
   });
 
+  test("filePicker multi-select renders selection independently from selectedPath", () => {
+    const strings = parseInternedStrings(
+      renderBytes(
+        ui.filePicker({
+          id: "picker-selection-contract",
+          rootPath: "/",
+          data: [
+            Object.freeze({ name: "a.ts", path: "/a.ts", type: "file" as const }),
+            Object.freeze({ name: "b.ts", path: "/b.ts", type: "file" as const }),
+          ],
+          expandedPaths: [],
+          multiSelect: true,
+          selectedPath: "/b.ts",
+          selection: Object.freeze(["/a.ts"]),
+          onSelect: noop,
+          onChange: noop,
+          onPress: noop,
+          onSelectionChange: noop,
+        }),
+        { cols: 40, rows: 6 },
+      ),
+    );
+
+    assert.equal(
+      strings.some((s) => s.includes("[x]   F a.ts")),
+      true,
+    );
+    assert.equal(
+      strings.some((s) => s.includes("[ ]   F b.ts")),
+      true,
+    );
+  });
+
   test("fileTreeExplorer clamps stale scrollTop after data shrink", () => {
     const treeStore = createTreeStateStore();
     const viewport = { cols: 40, rows: 6 } as const;

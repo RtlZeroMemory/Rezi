@@ -48,6 +48,7 @@ import {
   makeFileNodeFlatCache,
   readFileNodeFlatCache,
 } from "./fileNodeCache.js";
+import { computeFilePickerMouseSelection, getFilePickerActiveKey } from "./filePickerRouting.js";
 import type {
   CodeEditorRenderCache,
   LogsConsoleRenderCache,
@@ -1071,6 +1072,22 @@ export function routeFilePickerMouseClick(
           if (nodeIndex !== null) {
             const fn = flatNodes[nodeIndex];
             if (fn) {
+              const activeKey = getFilePickerActiveKey(state, fp, null);
+              if (fp.multiSelect === true && typeof fp.onSelectionChange === "function") {
+                const selection = computeFilePickerMouseSelection(
+                  fp.selection,
+                  fn.key,
+                  flatNodes,
+                  {
+                    shift: (event.mods & ZR_MOD_SHIFT) !== 0,
+                    ctrl: (event.mods & ZR_MOD_CTRL) !== 0,
+                  },
+                  activeKey,
+                );
+                if (selection.changed) {
+                  invokeCallbackSafely(fp.onSelectionChange, selection.selection);
+                }
+              }
               invokeCallbackSafely(fp.onSelect, fn.key);
               ctx.treeStore.set(fp.id, { focusedKey: fn.key });
               ctx.setPressedFilePicker(

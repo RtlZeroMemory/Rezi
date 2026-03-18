@@ -328,9 +328,23 @@
     },
     {
       "name": "filePicker",
-      "requiredProps": ["id", "entries"],
-      "commonProps": ["selected", "onSelect"],
-      "example": "ui.filePicker({ id: 'fp', entries })"
+      "requiredProps": [
+        "id",
+        "rootPath",
+        "data",
+        "expandedPaths",
+        "onSelect",
+        "onChange",
+        "onPress"
+      ],
+      "commonProps": [
+        "selectedPath",
+        "multiSelect",
+        "selection",
+        "onSelectionChange",
+        "focusConfig"
+      ],
+      "example": "ui.filePicker({ id: 'fp', rootPath: '/', data, expandedPaths, onSelect, onChange, onPress })"
     },
     {
       "name": "fileTreeExplorer",
