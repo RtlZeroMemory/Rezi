@@ -691,6 +691,111 @@ describe("renderer regressions", () => {
     );
   });
 
+  test("virtualList estimate mode uses custom measureItemHeight context", () => {
+    const virtualListStore = createVirtualListStateStore();
+    const calls: Array<
+      Readonly<{
+        item: string;
+        index: number;
+        width: number;
+        estimatedHeight: number;
+        vnodeKind: string;
+      }>
+    > = [];
+
+    renderBytes(
+      ui.virtualList({
+        id: "vl-measure",
+        items: ["a", "b"],
+        estimateItemHeight: 1,
+        measureItemHeight: (item, index, ctx) => {
+          calls.push(
+            Object.freeze({
+              item,
+              index,
+              width: ctx.width,
+              estimatedHeight: ctx.estimatedHeight,
+              vnodeKind: ctx.vnode.kind,
+            }),
+          );
+          return index === 0 ? 0 : 2.9;
+        },
+        renderItem: (item) => ui.column({}, [ui.text(item), ui.text(`${item}-extra`)]),
+      }),
+      { cols: 12, rows: 4 },
+      { virtualListStore },
+    );
+
+    const state = virtualListStore.get("vl-measure");
+    assert.deepEqual(calls, [
+      { item: "a", index: 0, width: 12, estimatedHeight: 1, vnodeKind: "column" },
+      { item: "b", index: 1, width: 12, estimatedHeight: 1, vnodeKind: "column" },
+    ]);
+    assert.deepEqual([...(state.measuredHeights ?? new Map<number, number>()).entries()], [[1, 2]]);
+  });
+
+  test("virtualList estimate mode remeasures after viewport width changes", () => {
+    const virtualListStore = createVirtualListStateStore();
+    const id = "vl-width-reset";
+    const vnode = ui.virtualList({
+      id,
+      items: ["a", "b", "c"],
+      estimateItemHeight: 1,
+      measureItemHeight: (_item, _index, ctx) => (ctx.width < 8 ? 3 : 1),
+      renderItem: (item) => ui.text(item),
+    });
+
+    renderBytes(vnode, { cols: 6, rows: 3 }, { virtualListStore });
+    const first = virtualListStore.get(id);
+    assert.equal(first.measuredWidth, 6);
+    assert.equal(first.measuredItemCount, 3);
+    assert.deepEqual(
+      [...(first.measuredHeights ?? new Map<number, number>()).entries()],
+      [
+        [0, 3],
+        [1, 3],
+        [2, 3],
+      ],
+    );
+
+    renderBytes(vnode, { cols: 12, rows: 3 }, { virtualListStore });
+    const second = virtualListStore.get(id);
+    assert.equal(second.measuredWidth, 12);
+    assert.equal(second.measuredItemCount, 3);
+    assert.deepEqual(
+      [...(second.measuredHeights ?? new Map<number, number>()).entries()],
+      [
+        [0, 1],
+        [1, 1],
+        [2, 1],
+      ],
+    );
+  });
+
+  test("virtualList selectionStyle background applies in estimate mode", () => {
+    const virtualListStore = createVirtualListStateStore();
+    const id = "vl-selection-estimate";
+    virtualListStore.set(id, { selectedIndex: 1 });
+
+    const bytes = renderBytes(
+      ui.virtualList({
+        id,
+        items: ["a", "b"],
+        estimateItemHeight: 1,
+        selectionStyle: { bg: (61 << 16) | (62 << 8) | 63 },
+        renderItem: (item) => ui.text(item),
+      }),
+      { cols: 20, rows: 4 },
+      { virtualListStore },
+    );
+
+    const styles = parseCommandStyles(bytes);
+    assert.equal(
+      styles.some((s) => s.bg === packRgb(61, 62, 63)),
+      true,
+    );
+  });
+
   test("table clamps stale scrollTop after data shrink", () => {
     const tableStore = createTableStateStore();
     const viewport = { cols: 40, rows: 6 } as const;
