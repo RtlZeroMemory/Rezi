@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -8,6 +8,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 
 import { runInPty } from "@rezi-ui/ink-compat-bench-harness";
+import { readRecordNumber, safeReadJsonl } from "./jsonl.js";
 
 type RendererName = "real-ink" | "ink-compat";
 
@@ -92,11 +93,6 @@ function percentileMs(values: readonly number[], p: number): number | null {
   const q = Math.min(1, Math.max(0, p));
   const idx = Math.max(0, Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * q)));
   return sorted[idx] ?? null;
-}
-
-function readRecordNumber(record: Readonly<Record<string, unknown>>, key: string): number | null {
-  const value = record[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 async function openControlServer(socketPath: string): Promise<{
@@ -223,18 +219,6 @@ async function driveScenario(
     await delay(tickMs);
   }
   control.sendLine({ type: "done" });
-}
-
-function safeReadJsonl(pathname: string): readonly Record<string, unknown>[] {
-  try {
-    const text = readFileSync(pathname, "utf8");
-    return text
-      .split("\n")
-      .filter(Boolean)
-      .map((l) => JSON.parse(l) as Record<string, unknown>);
-  } catch {
-    return [];
-  }
 }
 
 async function main(): Promise<void> {

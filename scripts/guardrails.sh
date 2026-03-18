@@ -106,7 +106,7 @@ temporary_markers="$(
   rg --no-heading --line-number --with-filename -S -i \
     --glob '!**/__tests__/**' \
     --glob '!**/__e2e__/**' \
-    -e '\\btemporary\\b' \
+    -e '\btemporary\b' \
     -e 'remove after investigation' \
     -e 'remove after debugging' \
     -e 'debug-only' \
