@@ -20,6 +20,8 @@ ui.input({
 | `value` | `string` | **required** | Current input value (controlled) |
 | `accessibleLabel` | `string` | - | Optional semantic label for focus announcements and debugging |
 | `disabled` | `boolean` | `false` | Disable editing and dim appearance |
+| `readOnly` | `boolean` | `false` | Keep the input focusable/selectable while preventing edits |
+| `focusable` | `boolean` | `true` | Opt out of Tab focus order while keeping id-based routing available |
 | `style` | `TextStyle` | - | Custom styling (merged with focus/disabled state) |
 | `onInput` | `(value: string, cursor: number) => void` | - | Callback when value changes |
 | `onBlur` | `() => void` | - | Callback when input loses focus |
@@ -44,7 +46,7 @@ the recipe still applies text/background styling, but no box border is drawn.
 
 ## Behavior
 
-Inputs are focusable when enabled. **Clicking** the input focuses it. When focused:
+Enabled inputs are focusable by default. `readOnly` keeps the input focusable/selectable while blocking edits, and `focusable: false` removes it from Tab traversal. **Clicking** the input focuses it when it remains focusable. When focused:
 
 - Text entry inserts at cursor position
 - **Left/Right** move by grapheme cluster
@@ -64,7 +66,7 @@ Inputs are focusable when enabled. **Clicking** the input focuses it. When focus
 - Paste strips `\r`/`\n` (single-line input) and keeps tabs
 - **Tab** moves focus to next widget
 
-Inputs are always controlled - the `value` prop determines what is displayed.
+Inputs are always controlled - the `value` prop determines what is displayed, and `onInput` is how edits persist across frames.
 For multi-line text, use [`ui.textarea`](textarea.md).
 
 ## Input Editor State

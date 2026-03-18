@@ -553,6 +553,37 @@ describe("WidgetRenderer integration battery", () => {
     assert.deepEqual(values, []);
   });
 
+  test("readOnly input can opt out of tab order with focusable false", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const vnode = ui.column({}, [
+      ui.input({
+        id: "inp",
+        value: "hello",
+        readOnly: true,
+        focusable: false,
+        onInput: () => {},
+      }),
+      ui.button({ id: "next", label: "Next" }),
+    ]);
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 40, rows: 5 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "next");
+  });
+
   test("readOnly textarea remains focusable but blocks multiline edits", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({
