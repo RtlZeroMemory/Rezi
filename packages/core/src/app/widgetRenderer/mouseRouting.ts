@@ -226,6 +226,8 @@ type RouteMouseWheelContext = Readonly<{
   virtualListStore: VirtualListStateStore;
   fileTreeExplorerById: ReadonlyMap<string, FileTreeExplorerProps>;
   treeStore: TreeStateStore;
+  tableById: ReadonlyMap<string, TableProps<unknown>>;
+  tableStore: TableStateStore;
   codeEditorById: ReadonlyMap<string, CodeEditorProps>;
   codeEditorRenderCacheById: ReadonlyMap<string, CodeEditorRenderCache>;
   logsConsoleById: ReadonlyMap<string, LogsConsoleProps>;
@@ -1555,6 +1557,35 @@ export function routeMouseWheel(
           );
           vlist.onScroll(r.nextScrollTop, [startIndex, endIndex]);
         }
+        return ROUTE_RENDER;
+      }
+    }
+
+    const table = ctx.tableById.get(targetId);
+    if (table && table.virtualized !== false) {
+      const state = ctx.tableStore.get(table.id);
+      const rect = ctx.rectById.get(table.id) ?? null;
+      const border = table.border === "none" ? "none" : "single";
+      const t = border === "none" ? 0 : 1;
+      const innerW = rect ? Math.max(0, rect.w - t * 2) : 0;
+      const innerH = rect ? Math.max(0, rect.h - t * 2) : 0;
+      const headerHeight = table.showHeader === false ? 0 : (table.headerHeight ?? 1);
+      const bodyH = Math.max(0, innerH - headerHeight);
+      const rowHeight = table.rowHeight ?? 1;
+      const safeRowHeight = rowHeight > 0 ? rowHeight : 1;
+      const totalHeight = table.data.length * safeRowHeight;
+
+      const r = routeWheel(event, {
+        scrollX: 0,
+        scrollY: state.scrollTop,
+        contentWidth: innerW,
+        contentHeight: totalHeight,
+        viewportWidth: innerW,
+        viewportHeight: bodyH,
+      });
+
+      if (r.nextScrollY !== undefined) {
+        ctx.tableStore.set(table.id, { scrollTop: r.nextScrollY });
         return ROUTE_RENDER;
       }
     }

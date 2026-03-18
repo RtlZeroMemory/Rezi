@@ -266,6 +266,39 @@ describe("wheel routing", () => {
     assert.equal(after.scrollY, 3);
   });
 
+  test("table wheel routing scrolls the table body metadata", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    const vnode = ui.table({
+      id: "table.scroll",
+      border: "none",
+      columns: [{ key: "id", header: "ID", flex: 1 }],
+      data: Array.from({ length: 20 }, (_, i) => ({ id: `r${String(i)}` })),
+      getRowKey: (row) => row.id,
+    });
+
+    submit(
+      renderer,
+      vnode,
+      { commit: true, layout: true, checkLayoutStability: true },
+      { cols: 20, rows: 6 },
+    );
+    const before = getOverflowMetaById(renderer, "table.scroll");
+    assert.equal(before.scrollY, 0);
+    assert.ok(before.contentHeight > before.viewportHeight);
+
+    const rect = getRectById(renderer, "table.scroll");
+    const routed = renderer.routeEngineEvent(wheelEvent(rect.x, rect.y + 2, 1));
+    assert.equal(routed.needsRender, true);
+
+    submit(renderer, vnode, { commit: false, layout: false, checkLayoutStability: true });
+    const after = getOverflowMetaById(renderer, "table.scroll");
+    assert.equal(after.scrollY, 3);
+  });
+
   test("codeEditor wheel routing still works", () => {
     const renderer = new WidgetRenderer<void>({
       backend: createNoopBackend(),

@@ -2,6 +2,7 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import type { RuntimeBackend } from "../../backend.js";
 import type { ZrevEvent } from "../../events.js";
 import { ui } from "../../index.js";
+import { ZR_MOD_CTRL, ZR_MOD_SHIFT } from "../../keybindings/keyCodes.js";
 import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
 import { WidgetRenderer } from "../widgetRenderer.js";
@@ -255,5 +256,61 @@ describe("table interactions", () => {
     renderer.routeEngineEvent(mouseEvent(1, 2, 4, { timeMs: 280 }));
 
     assert.deepEqual(calls, ["press:1", "sort:id:asc", "press:1"]);
+  });
+
+  test("multi-select mouse modifiers toggle and extend selection", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const selectionChanges: string[][] = [];
+    let selection = ["/r0"];
+
+    const view = () =>
+      ui.table({
+        id: "t",
+        border: "none",
+        columns: [{ key: "id", header: "ID", flex: 1 }],
+        data: [{ id: "/r0" }, { id: "/r1" }, { id: "/r2" }, { id: "/r3" }],
+        getRowKey: (r) => r.id,
+        selectionMode: "multi",
+        selection,
+        onSelectionChange: (keys) => {
+          const next = [...keys];
+          selectionChanges.push(next);
+          selection = next;
+        },
+      });
+
+    let res = renderer.submitFrame(
+      () => view(),
+      undefined,
+      { cols: 20, rows: 6 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(mouseEvent(1, 2, 3, { timeMs: 10, mods: ZR_MOD_CTRL }));
+    renderer.routeEngineEvent(mouseEvent(1, 2, 4, { timeMs: 11 }));
+    assert.deepEqual(selectionChanges, [["/r0", "/r1"]]);
+
+    res = renderer.submitFrame(
+      () => view(),
+      undefined,
+      { cols: 20, rows: 6 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(mouseEvent(1, 4, 3, { timeMs: 20, mods: ZR_MOD_SHIFT }));
+    renderer.routeEngineEvent(mouseEvent(1, 4, 4, { timeMs: 21 }));
+    assert.deepEqual(selectionChanges, [
+      ["/r0", "/r1"],
+      ["/r0", "/r1", "/r2", "/r3"],
+    ]);
   });
 });

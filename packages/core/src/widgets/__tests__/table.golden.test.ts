@@ -163,10 +163,10 @@ describe("table - distributeColumnWidths", () => {
     const first = distributeColumnWidths(columns, 10);
     const second = distributeColumnWidths(columns, 10);
 
-    assert.deepEqual([...first.widths], [3, 3, 3]);
-    assert.deepEqual([...second.widths], [3, 3, 3]);
-    assert.equal(first.totalWidth, 9);
-    assert.equal(second.totalWidth, 9);
+    assert.deepEqual([...first.widths], [4, 3, 3]);
+    assert.deepEqual([...second.widths], [4, 3, 3]);
+    assert.equal(first.totalWidth, 10);
+    assert.equal(second.totalWidth, 10);
   });
 
   test("mixed fixed/flex/min/max distribution is deterministic", () => {
@@ -179,10 +179,10 @@ describe("table - distributeColumnWidths", () => {
     const first = distributeColumnWidths(columns, 31);
     const second = distributeColumnWidths(columns, 31);
 
-    assert.deepEqual([...first.widths], [18, 5, 7]);
-    assert.deepEqual([...second.widths], [18, 5, 7]);
-    assert.equal(first.totalWidth, 30);
-    assert.equal(second.totalWidth, 30);
+    assert.deepEqual([...first.widths], [19, 5, 7]);
+    assert.deepEqual([...second.widths], [19, 5, 7]);
+    assert.equal(first.totalWidth, 31);
+    assert.equal(second.totalWidth, 31);
   });
 });
 

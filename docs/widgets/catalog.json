@@ -271,9 +271,9 @@
     },
     {
       "name": "table",
-      "requiredProps": ["id", "columns", "data"],
+      "requiredProps": ["id", "columns", "data", "getRowKey"],
       "commonProps": ["selection", "onSort"],
-      "example": "ui.table({ id: 't', columns, data })"
+      "example": "ui.table({ id: 't', columns, data, getRowKey: (row) => row.id })"
     },
     {
       "name": "tree",

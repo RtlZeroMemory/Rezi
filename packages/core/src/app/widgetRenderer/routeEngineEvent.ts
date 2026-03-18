@@ -497,6 +497,8 @@ export function routeEngineEventImpl(
     virtualListStore: ctx.virtualListStore,
     fileTreeExplorerById: ctx.fileTreeExplorerById,
     treeStore: ctx.treeStore,
+    tableById: ctx.tableById,
+    tableStore: ctx.tableStore,
     codeEditorById: ctx.codeEditorById,
     codeEditorRenderCacheById: ctx.codeEditorRenderCacheById,
     logsConsoleById: ctx.logsConsoleById,

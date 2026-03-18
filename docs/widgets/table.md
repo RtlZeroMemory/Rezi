@@ -78,7 +78,7 @@ const FilesTable = defineWidget<{ rows: readonly { id: string; name: string; siz
 | `showHeader` | `boolean` | `true` | Show/hide header row |
 | `stripedRows` | `boolean` | `false` | Legacy stripe toggle (kept for compatibility) |
 | `stripeStyle` | `{ odd?, even? }` | - | Stripe background colors. Providing this enables stripes even when `stripedRows` is `false`. |
-| `border` | `"none" \| "single"` | `"none"` | Legacy border toggle (kept for compatibility) |
+| `border` | `"none" \| "single"` | `"single"` | Legacy border toggle (kept for compatibility) |
 | `borderStyle` | `{ variant?, color? }` | - | Border glyph variant (`single`, `double`, `rounded`, `heavy`, `dashed`, `heavy-dashed`) and optional border color |
 | `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused row highlight |
 | `dsSize` | `"sm" \| "md" \| "lg"` | `"md"` | Design-system size preset for table recipe spacing |
@@ -120,6 +120,7 @@ ui.table({
 
 - **Arrow keys** navigate rows. **Enter** activates the selected row.
 - **Mouse click** on a row selects it and moves focus to the table.
+- In `selectionMode: "multi"`, **Ctrl-click** toggles the clicked row and **Shift-click** extends from the last clicked row.
 - **Mouse click** on a sortable header toggles sort and fires `onSort(column, direction)`.
 - When focused: **Up** from the first row focuses the header. **Left/Right** moves between columns. **Enter** toggles sort on the focused header.
 - **Double click** on a row fires `onRowDoublePress` (when provided).
@@ -131,7 +132,7 @@ ui.table({
 - Selection is tracked by row keys. Provide a stable `getRowKey`.
 - `headerHeight` is ignored when `showHeader` is `false`.
 - Column `overflow` defaults to `"ellipsis"` and supports `"clip"` and `"middle"` per column.
-- `borderStyle` is applied only when `border !== "none"` to preserve legacy behavior.
+- Tables render a single-line frame by default. Set `border: "none"` to suppress it, and use `borderStyle` to customize the active frame variant or color.
 
 ## Related
 
