@@ -11,12 +11,14 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - **core/forms**: `useFieldArray` now recomputes array dirty state from the next value snapshot after append/remove/move and preserves scalar array-level errors when `validateOnChange` is disabled.
 - **core/forms**: `useForm` now ignores late async validation results and submit rejections after `reset()` cancels a pending submit attempt, keeping reset state authoritative.
 - **core/forms**: `useForm` wizard transitions now clear stale step errors when async revalidation succeeds after a field value changes, preventing false navigation blocks.
+- **core/layout**: Layout and interactive prop validators now reject non-object prop bags instead of silently treating them as empty props.
 
 ### Tests
 
 - **core/forms**: Added field-array regressions for structural dirty recomputation and scalar array-level error preservation across append/remove/move.
 - **core/forms**: Added `useForm` regressions covering reset during pending submit rejection and reset during pending async-submit validation completion.
 - **core/forms**: Added wizard regressions for `nextStep()` and `goToStep()` when async step errors become stale after field edits.
+- **core/layout**: Added regressions covering non-object prop bags for stack/box layout validators and all top-level interactive validators.
 
 ## [0.1.0-alpha.60] - 2026-03-14
 
