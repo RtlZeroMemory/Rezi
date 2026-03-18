@@ -22,10 +22,73 @@ jobs:
       contents: read
       pull-requests: read
     steps:
+      - name: Detect dependency review support
+        id: support
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          response_path="$(mktemp)"
+          status_code="$(
+            curl -sS \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              -o "${response_path}" \
+              -w "%{http_code}" \
+              "https://api.github.com/repos/${REPOSITORY}/dependency-graph/compare/${BASE_SHA}...${HEAD_SHA}"
+          )"
+
+          message="$(
+            python3 - "${response_path}" <<'PY'
+            import json
+            import sys
+
+            try:
+                with open(sys.argv[1], encoding="utf-8") as handle:
+                    payload = json.load(handle)
+            except Exception:
+                print("")
+            else:
+                print(payload.get("message", ""))
+            PY
+          )"
+
+          case "${status_code}" in
+            200)
+              echo "supported=true" >> "${GITHUB_OUTPUT}"
+              ;;
+            403|404)
+              echo "supported=false" >> "${GITHUB_OUTPUT}"
+              echo "::warning::Dependency review skipped because GitHub dependency graph support is unavailable for this repository (${message:-HTTP ${status_code}}). Enable Dependency graph in repository security settings to enforce this gate."
+              {
+                echo "### Dependency review skipped"
+                echo
+                echo "GitHub dependency graph support is unavailable for this repository."
+                echo
+                echo "- HTTP status: ${status_code}"
+                echo "- API message: ${message:-unknown}"
+                echo "- Action: enable Dependency graph in repository security settings to enforce this gate"
+              } >> "${GITHUB_STEP_SUMMARY}"
+              ;;
+            *)
+              echo "Dependency review preflight failed with HTTP ${status_code}" >&2
+              cat "${response_path}" >&2
+              exit 1
+              ;;
+          esac
+
       - uses: actions/checkout@v4
+        if: steps.support.outputs.supported == 'true'
         with:
           submodules: false
+
       - name: Review dependency changes
+        if: steps.support.outputs.supported == 'true'
         uses: actions/dependency-review-action@v4
 
   # Fast gate: run the repo's blocking static analysis and quality policy once
