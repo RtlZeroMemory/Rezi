@@ -26,7 +26,7 @@ knobs aligned:
 
 - `maxEventBytes` is applied to both app parsing and backend transport buffers.
 - `fpsCap` is the single scheduling knob.
-- `executionMode: "auto"` resolves to inline when `fpsCap <= 30`, worker otherwise.
+- `executionMode: "auto"` resolves to inline when `fpsCap <= 30`, otherwise it prefers worker mode and falls back to inline for headless runs without a TTY or `nativeShimModule`.
 
 Development hot reload:
 
@@ -40,7 +40,7 @@ Development hot reload:
 
 Execution mode details:
 
-- `auto` (default): select inline for low-fps workloads (`fpsCap <= 30`), worker otherwise.
+- `auto` (default): select inline for low-fps workloads (`fpsCap <= 30`); otherwise prefer worker mode and fall back to inline when no TTY or `nativeShimModule` is available.
 - `worker`: force worker-thread engine execution. With the real native addon this
   requires an interactive TTY; test harnesses can provide `nativeShimModule`
   instead.

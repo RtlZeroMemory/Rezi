@@ -14,6 +14,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - **core/layout**: Layout and interactive prop validators now reject non-object prop bags instead of silently treating them as empty props.
 - **core/layout**: Invalid-prop diagnostics now stay safe when rendering the received value would throw during stringification.
 - **core/runtime**: `internal_onRender` and runtime breadcrumb render timing now use the always-on monotonic clock even when perf instrumentation is disabled.
+- **node/backend**: Auto execution mode now falls back to inline for headless worker-ineligible runs, and worker environment checks reject empty `nativeShimModule` strings.
 
 ### Tests
 
@@ -23,6 +24,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - **core/layout**: Added regressions covering non-object prop bags for stack/box layout validators and all top-level interactive validators.
 - **core/layout**: Added a regression covering hostile invalid prop values that throw during diagnostic stringification.
 - **core/runtime**: Added deterministic regressions for widget-mode breadcrumb render timing and draw-mode `internal_onRender` timing.
+- **node/backend**: Added node backend regressions for auto-mode fallback selection and worker environment support checks.
 
 ## [0.1.0-alpha.60] - 2026-03-14
 

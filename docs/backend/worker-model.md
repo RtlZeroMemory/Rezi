@@ -2,7 +2,7 @@
 
 Rezi supports three backend execution modes via `config.executionMode`:
 
-- `auto` (default): inline when `fpsCap <= 30`, worker otherwise
+- `auto` (default): inline when `fpsCap <= 30`; otherwise prefer worker and fall back to inline when no TTY or `nativeShimModule` is available
 - `worker`: run native engine/polling on a worker thread
 - `inline`: run native engine inline on the main JS thread
 

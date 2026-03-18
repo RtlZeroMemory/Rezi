@@ -3,7 +3,8 @@ import type { DebugBackend, RuntimeBackend } from "@rezi-ui/core";
 export type NodeBackendConfig = Readonly<{
   /**
    * Runtime execution mode:
-   * - "auto": pick inline only for very low fps caps (<=30), worker otherwise
+   * - "auto": pick inline for very low fps caps (<=30); otherwise prefer worker
+   *   and fall back to inline when no TTY/native shim is available
    * - "worker": worker-thread engine ownership
    * - "inline": single-thread inline backend (no worker-hop transport)
    */
