@@ -145,7 +145,7 @@ Primary KPIs:
 - `meanWallS`
 - `totalCpuTimeS`
   - derived from `/proc/<pid>/stat` sampling (user+system ticks), converted using `getconf CLK_TCK`
-- `meanRenderTotalMs` (sum of per-frame `renderTotalMs`)
+- `totalRenderMs` (sum of per-frame `renderTotalMs`)
 - `timeToFirstMeaningfulPaintMs`
 - `timeToStableMs`
 
@@ -209,4 +209,3 @@ Minimum instrumentation to prove:
 Minimum instrumentation to prove:
 
 - backpressure-aware measurements (bytes accepted vs drained), plus optional `strace`/`perf` outside this suite.
-

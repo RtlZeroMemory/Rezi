@@ -398,7 +398,7 @@ async function main(): Promise<void> {
       run: i + 1,
       meanWallS: (result.stableAtMs ?? result.durationMs) / 1000,
       totalCpuTimeS: cpuSeconds,
-      meanRenderTotalMs: frameStats.renderTotalMs,
+      totalRenderMs: frameStats.renderTotalMs,
       timeToFirstMeaningfulPaintMs: result.meaningfulPaintAtMs,
       timeToStableMs: result.stableAtMs,
       writes: frameStats.stdoutWrites,

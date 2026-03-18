@@ -33,8 +33,10 @@ jobs:
           set -euo pipefail
 
           response_path="$(mktemp)"
+          headers_path="$(mktemp)"
           status_code="$(
             curl -sS \
+              -D "${headers_path}" \
               -H "Authorization: Bearer ${GITHUB_TOKEN}" \
               -H "Accept: application/vnd.github+json" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
@@ -44,23 +46,52 @@ jobs:
           )"
 
           message="$(jq -r '.message // ""' "${response_path}" 2>/dev/null || true)"
+          rate_limit_remaining="$(awk 'tolower($1)=="x-ratelimit-remaining:" { print $2 }' "${headers_path}" | tr -d '\r')"
+          retry_after="$(awk 'tolower($1)=="retry-after:" { print $2 }' "${headers_path}" | tr -d '\r')"
+
+          skip_dependency_review() {
+            local reason="$1"
+            echo "supported=false" >> "${GITHUB_OUTPUT}"
+            echo "::warning::Dependency review skipped because ${reason}. Enable Dependency graph / Advanced Security for this repository and event context to enforce this gate."
+            {
+              echo "### Dependency review skipped"
+              echo
+              echo "${reason}."
+              echo
+              echo "- HTTP status: ${status_code}"
+              echo "- API message: ${message:-unknown}"
+              if [[ -n "${rate_limit_remaining}" ]]; then
+                echo "- X-RateLimit-Remaining: ${rate_limit_remaining}"
+              fi
+              if [[ -n "${retry_after}" ]]; then
+                echo "- Retry-After: ${retry_after}"
+              fi
+              echo "- Action: enable Dependency graph / Advanced Security for this repository and event context to enforce this gate"
+            } >> "${GITHUB_STEP_SUMMARY}"
+          }
 
           case "${status_code}" in
             200)
               echo "supported=true" >> "${GITHUB_OUTPUT}"
               ;;
-            403|404)
-              echo "supported=false" >> "${GITHUB_OUTPUT}"
-              echo "::warning::Dependency review skipped because GitHub dependency graph support is unavailable for this repository (${message:-HTTP ${status_code}}). Enable Dependency graph in repository security settings to enforce this gate."
-              {
-                echo "### Dependency review skipped"
-                echo
-                echo "GitHub dependency graph support is unavailable for this repository."
-                echo
-                echo "- HTTP status: ${status_code}"
-                echo "- API message: ${message:-unknown}"
-                echo "- Action: enable Dependency graph in repository security settings to enforce this gate"
-              } >> "${GITHUB_STEP_SUMMARY}"
+            404)
+              skip_dependency_review "GitHub dependency review support is unavailable for this repository or event context"
+              ;;
+            403)
+              if [[ "${rate_limit_remaining:-}" == "0" || -n "${retry_after}" ]]; then
+                echo "Dependency review preflight hit GitHub API rate limiting" >&2
+                echo "X-RateLimit-Remaining: ${rate_limit_remaining:-unknown}" >&2
+                echo "Retry-After: ${retry_after:-none}" >&2
+                cat "${response_path}" >&2
+                exit 1
+              fi
+              if echo "${message}" | grep -qiE '(^forbidden$|dependency graph|advanced security|repository is a fork|disabled|not enabled|unavailable)'; then
+                skip_dependency_review "GitHub dependency review returned HTTP 403 without rate-limit signals for this repository or event context"
+              else
+                echo "Dependency review preflight failed with HTTP 403: ${message:-unknown}" >&2
+                cat "${response_path}" >&2
+                exit 1
+              fi
               ;;
             *)
               echo "Dependency review preflight failed with HTTP ${status_code}" >&2

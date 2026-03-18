@@ -106,15 +106,12 @@ temporary_markers="$(
   rg --no-heading --line-number --with-filename -S -i \
     --glob '!**/__tests__/**' \
     --glob '!**/__e2e__/**' \
-    -e '^\s*//.*\btemporary\b' \
-    -e '^\s*/\*.*\btemporary\b' \
+    -e '(^|\s)//.*\btemporary\b' \
+    -e '(^|\s)/\*.*\btemporary\b' \
     -e '^\s*\*.*\btemporary\b' \
-    -e '\btemporary:' \
-    -e '\btemporary (hack|workaround|debug|investigation)\b' \
-    -e 'remove after investigation' \
-    -e 'remove after debugging' \
-    -e 'debug-only' \
-    -e 'investigation-only' \
+    -e '(^|\s)//.*\b(remove after investigation|remove after debugging|debug-only|investigation-only)\b' \
+    -e '(^|\s)/\*.*\b(remove after investigation|remove after debugging|debug-only|investigation-only)\b' \
+    -e '^\s*\*.*\b(remove after investigation|remove after debugging|debug-only|investigation-only)\b' \
     "${repo_root}/packages/core/src" \
     "${repo_root}/packages/node/src" \
     "${repo_root}/packages/jsx/src" \

@@ -19,6 +19,7 @@ const SCENARIO_NAMES = [
   "resize-storm",
 ] as const;
 type ScenarioName = (typeof SCENARIO_NAMES)[number];
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
 
 type ControlMsg =
   | Readonly<{ type: "init"; seed: number }>
@@ -120,6 +121,10 @@ function readIntegerEnv(value: string | undefined, fallback: number): number {
 function readPositiveIntegerEnv(value: string | undefined, fallback: number): number {
   const parsed = readIntegerEnv(value, fallback);
   return parsed > 0 ? parsed : fallback;
+}
+
+function clampTimerDelay(ms: number): number {
+  return Math.min(MAX_TIMER_DELAY_MS, Math.max(0, ms));
 }
 
 function isScenarioName(value: string): value is ScenarioName {
@@ -629,13 +634,14 @@ function BenchApp(props: {
   useEffect(() => {
     if (doneSeq <= 0) return;
     const ms = readIntegerEnv(BENCH_EXIT_AFTER_DONE_MS, 300);
-    const t = setTimeout(() => exit(), Math.max(0, ms));
+    const t = setTimeout(() => exit(), clampTimerDelay(ms));
     return () => clearTimeout(t);
   }, [BENCH_EXIT_AFTER_DONE_MS, doneSeq, exit]);
 
   useEffect(() => {
     const ms = readIntegerEnv(BENCH_TIMEOUT_MS, 15000);
-    const t = setTimeout(() => exit(new Error(`bench timeout ${ms}ms`)), Math.max(0, ms));
+    const delayMs = clampTimerDelay(ms);
+    const t = setTimeout(() => exit(new Error(`bench timeout ${delayMs}ms`)), delayMs);
     return () => clearTimeout(t);
   }, [BENCH_TIMEOUT_MS, exit]);
 
