@@ -417,6 +417,10 @@ export type TreeFlatCache = Readonly<{
   kind: "fileNode" | "tree";
   dataRef: unknown;
   expandedRef: readonly string[];
+  /** Optional file-picker filter identity (used only for kind="fileNode"). */
+  filterRef?: string | undefined;
+  /** Optional hidden-file visibility flag (used only for kind="fileNode"). */
+  showHiddenRef?: boolean | undefined;
   /** Loaded-children map identity (only used for kind="tree"). */
   loadedRef?: unknown;
   /** Key function identity (only used for kind="tree"). */

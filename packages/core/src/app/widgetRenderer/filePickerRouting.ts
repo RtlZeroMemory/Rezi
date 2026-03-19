@@ -2,15 +2,93 @@ import type { ZrevEvent } from "../../events.js";
 import { ZR_KEY_SPACE } from "../../keybindings/keyCodes.js";
 import type { TreeLocalState, TreeStateStore } from "../../runtime/localState.js";
 import { routeTreeKey } from "../../runtime/router.js";
-import { flattenTree } from "../../widgets/tree.js";
+import { flattenVisibleFilePickerNodes } from "../../widgets/filePicker.js";
+import { type FlattenedNode, flattenTree } from "../../widgets/tree.js";
 import type { FilePickerProps, FileTreeExplorerProps } from "../../widgets/types.js";
 import {
   fileNodeGetChildren,
   fileNodeGetKey,
   fileNodeHasChildren,
   makeFileNodeFlatCache,
+  makeFilePickerFlatCache,
   readFileNodeFlatCache,
+  readFilePickerFlatCache,
 } from "./fileNodeCache.js";
+
+const EMPTY_STRING_ARRAY: readonly string[] = Object.freeze([]);
+
+export type FilePickerSelectionResult = Readonly<{
+  selection: readonly string[];
+  changed: boolean;
+}>;
+
+function samePathArray(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+export function getFilePickerActiveKey(
+  state: TreeLocalState,
+  fp: Pick<FilePickerProps, "selectedPath" | "selection">,
+  fallbackKey: string | null,
+): string | null {
+  return state.focusedKey ?? fp.selectedPath ?? fp.selection?.[0] ?? fallbackKey;
+}
+
+export function toggleFilePickerSelection(
+  currentSelection: readonly string[] | undefined,
+  path: string,
+): FilePickerSelectionResult {
+  const prev = currentSelection ?? EMPTY_STRING_ARRAY;
+  const isSelected = prev.includes(path);
+  const next = isSelected ? prev.filter((entry) => entry !== path) : [...prev, path];
+  return Object.freeze({
+    selection: Object.freeze(next),
+    changed: true,
+  });
+}
+
+export function computeFilePickerMouseSelection(
+  currentSelection: readonly string[] | undefined,
+  path: string,
+  flatNodes: readonly FlattenedNode<unknown>[],
+  modifiers: Readonly<{ shift: boolean; ctrl: boolean }>,
+  anchorPath: string | null,
+): FilePickerSelectionResult {
+  const prev = currentSelection ?? EMPTY_STRING_ARRAY;
+
+  if (modifiers.shift && anchorPath !== null) {
+    const startIndex = flatNodes.findIndex((node) => node.key === anchorPath);
+    const endIndex = flatNodes.findIndex((node) => node.key === path);
+    if (startIndex !== -1 && endIndex !== -1) {
+      const rangeStart = Math.min(startIndex, endIndex);
+      const rangeEnd = Math.max(startIndex, endIndex);
+      const selectionSet = new Set(prev);
+      for (let i = rangeStart; i <= rangeEnd; i++) {
+        const nextNode = flatNodes[i];
+        if (nextNode) selectionSet.add(nextNode.key);
+      }
+      const next = [...selectionSet];
+      return Object.freeze({
+        selection: Object.freeze(next),
+        changed: !samePathArray(prev, next),
+      });
+    }
+  }
+
+  if (modifiers.ctrl) {
+    return toggleFilePickerSelection(prev, path);
+  }
+
+  const next = Object.freeze([path]);
+  return Object.freeze({
+    selection: next,
+    changed: !samePathArray(prev, next),
+  });
+}
 
 export function routeFileTreeExplorerKeyDown(
   event: ZrevEvent,
@@ -105,25 +183,29 @@ export function routeFilePickerKeyDown(
     treeStore.set(fp.id, { expandedSetRef: fp.expandedPaths, expandedSet });
   }
   const flatNodes =
-    readFileNodeFlatCache(state, fp.data, fp.expandedPaths) ??
+    readFilePickerFlatCache(state, fp.data, fp.expandedPaths, fp.filter, fp.showHidden) ??
     (() => {
-      const next = flattenTree(
+      const next = flattenVisibleFilePickerNodes(
         fp.data,
-        fileNodeGetKey,
-        fileNodeGetChildren,
-        fileNodeHasChildren,
         fp.expandedPaths,
+        fp.filter,
+        fp.showHidden,
         expandedSet,
       );
       treeStore.set(fp.id, {
-        flatCache: makeFileNodeFlatCache(fp.data, fp.expandedPaths, next),
+        flatCache: makeFilePickerFlatCache(
+          fp.data,
+          fp.expandedPaths,
+          fp.filter,
+          fp.showHidden,
+          next,
+        ),
       });
       return next;
     })();
 
-  const focusedKey =
-    state.focusedKey ?? fp.selectedPath ?? fp.selection?.[0] ?? flatNodes[0]?.key ?? null;
-  const routingFocusedKey = state.focusedKey ?? fp.selectedPath ?? fp.selection?.[0] ?? null;
+  const focusedKey = getFilePickerActiveKey(state, fp, flatNodes[0]?.key ?? null);
+  const routingFocusedKey = getFilePickerActiveKey(state, fp, null);
   const routingState =
     routingFocusedKey === state.focusedKey
       ? state
@@ -137,10 +219,8 @@ export function routeFilePickerKeyDown(
     focusedKey &&
     fp.onSelectionChange
   ) {
-    const s = new Set(fp.selection ?? []);
-    if (s.has(focusedKey)) s.delete(focusedKey);
-    else s.add(focusedKey);
-    fp.onSelectionChange(Object.freeze(Array.from(s)));
+    const nextSelection = toggleFilePickerSelection(fp.selection, focusedKey);
+    fp.onSelectionChange(nextSelection.selection);
     return true;
   }
 
@@ -168,10 +248,10 @@ export function routeFilePickerKeyDown(
   if (r.nodeToActivate) {
     const found = flatNodes.find((n) => n.key === r.nodeToActivate);
     if (found) {
-      if (found.node.type === "directory") {
+      if (found.hasChildren) {
         const isExpanded = fp.expandedPaths.includes(found.key);
         fp.onChange(found.key, !isExpanded);
-      } else {
+      } else if (found.node.type !== "directory") {
         fp.onPress(found.key);
       }
     }

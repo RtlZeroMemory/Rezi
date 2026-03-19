@@ -9,6 +9,7 @@ import {
 import type { DrawlistBuilder } from "../../drawlist/index.js";
 import type { ZrevEvent } from "../../events.js";
 import { type VNode, defineWidget, ui } from "../../index.js";
+import { ZR_MOD_CTRL, ZR_MOD_SHIFT } from "../../keybindings/keyCodes.js";
 import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
 import { createTestRenderer } from "../../testing/index.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
@@ -37,6 +38,7 @@ function mouseEvent(
   opts: Readonly<{
     timeMs?: number;
     buttons?: number;
+    mods?: number;
     wheelX?: number;
     wheelY?: number;
   }> = {},
@@ -47,7 +49,7 @@ function mouseEvent(
     x,
     y,
     mouseKind,
-    mods: 0,
+    mods: opts.mods ?? 0,
     buttons: opts.buttons ?? 0,
     wheelX: opts.wheelX ?? 0,
     wheelY: opts.wheelY ?? 0,
@@ -1804,6 +1806,119 @@ describe("WidgetRenderer integration battery", () => {
     assert.deepEqual(selected, ["/a.ts", "/a.ts", "/src", "/src"]);
     assert.deepEqual(opened, ["/a.ts"]);
     assert.deepEqual(toggled, ["/src:1"]);
+  });
+
+  test("filePicker mouse routing updates controlled multi-select state", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const selectionChanges: string[][] = [];
+    const selected: string[] = [];
+    let selectedPath = "/a.ts";
+    let selection = ["/a.ts"];
+
+    function view(): VNode {
+      return ui.filePicker({
+        id: "fp-multi",
+        rootPath: "/",
+        data: [
+          { name: "a.ts", path: "/a.ts", type: "file" as const },
+          { name: "b.ts", path: "/b.ts", type: "file" as const },
+          { name: "c.ts", path: "/c.ts", type: "file" as const },
+        ],
+        expandedPaths: [],
+        multiSelect: true,
+        selectedPath,
+        selection,
+        onSelect: (path) => {
+          selected.push(path);
+          selectedPath = path;
+        },
+        onChange: () => {},
+        onPress: () => {},
+        onSelectionChange: (paths) => {
+          const next = [...paths];
+          selectionChanges.push(next);
+          selection = next;
+        },
+      });
+    }
+
+    let res = renderer.submitFrame(
+      () => view(),
+      undefined,
+      { cols: 30, rows: 6 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(mouseEvent(0, 1, 3, { timeMs: 1, buttons: 1, mods: ZR_MOD_CTRL }));
+    renderer.routeEngineEvent(mouseEvent(0, 1, 4, { timeMs: 2 }));
+    assert.deepEqual(selected, ["/b.ts"]);
+    assert.deepEqual(selectionChanges, [["/a.ts", "/b.ts"]]);
+    assert.deepEqual(selection, ["/a.ts", "/b.ts"]);
+    assert.equal(selectedPath, "/b.ts");
+
+    res = renderer.submitFrame(
+      () => view(),
+      undefined,
+      { cols: 30, rows: 6 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(mouseEvent(0, 2, 3, { timeMs: 20, buttons: 1, mods: ZR_MOD_SHIFT }));
+    renderer.routeEngineEvent(mouseEvent(0, 2, 4, { timeMs: 21 }));
+    assert.deepEqual(selected, ["/b.ts", "/c.ts"]);
+    assert.deepEqual(selectionChanges, [
+      ["/a.ts", "/b.ts"],
+      ["/a.ts", "/b.ts", "/c.ts"],
+    ]);
+    assert.deepEqual(selection, ["/a.ts", "/b.ts", "/c.ts"]);
+    assert.equal(selectedPath, "/c.ts");
+  });
+
+  test("filePicker mouse routing targets filtered visible rows", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const selected: string[] = [];
+
+    const res = renderer.submitFrame(
+      () =>
+        ui.filePicker({
+          id: "fp-filtered-mouse",
+          rootPath: "/",
+          data: [
+            { name: ".env", path: "/.env", type: "file" as const },
+            { name: "notes.md", path: "/notes.md", type: "file" as const },
+            { name: "types.ts", path: "/types.ts", type: "file" as const },
+          ],
+          expandedPaths: [],
+          filter: "*.ts",
+          onSelect: (path) => selected.push(path),
+          onChange: () => {},
+          onPress: () => {},
+        }),
+      undefined,
+      { cols: 30, rows: 6 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(mouseEvent(0, 0, 3, { timeMs: 1, buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(0, 0, 4, { timeMs: 2 }));
+
+    assert.deepEqual(selected, ["/types.ts"]);
   });
 
   test("fileTreeExplorer mouse routing guards thrown callbacks", () => {

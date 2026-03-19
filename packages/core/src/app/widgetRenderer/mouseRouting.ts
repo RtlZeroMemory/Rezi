@@ -13,6 +13,7 @@ import type {
 } from "../../runtime/localState.js";
 import { routeVirtualListWheel, routeWheel } from "../../runtime/router.js";
 import type { CollectedZone } from "../../runtime/widgetMeta.js";
+import { flattenVisibleFilePickerNodes } from "../../widgets/filePicker.js";
 import { applyFilters } from "../../widgets/logsConsole.js";
 import {
   computePanelCellSizes,
@@ -46,8 +47,11 @@ import {
   fileNodeGetKey,
   fileNodeHasChildren,
   makeFileNodeFlatCache,
+  makeFilePickerFlatCache,
   readFileNodeFlatCache,
+  readFilePickerFlatCache,
 } from "./fileNodeCache.js";
+import { computeFilePickerMouseSelection, getFilePickerActiveKey } from "./filePickerRouting.js";
 import type {
   CodeEditorRenderCache,
   LogsConsoleRenderCache,
@@ -1032,17 +1036,22 @@ export function routeFilePickerMouseClick(
     if (fp && rect) {
       const state = ctx.treeStore.get(fp.id);
       const flatNodes =
-        readFileNodeFlatCache(state, fp.data, fp.expandedPaths) ??
+        readFilePickerFlatCache(state, fp.data, fp.expandedPaths, fp.filter, fp.showHidden) ??
         (() => {
-          const next = flattenTree(
+          const next = flattenVisibleFilePickerNodes(
             fp.data,
-            fileNodeGetKey,
-            fileNodeGetChildren,
-            fileNodeHasChildren,
             fp.expandedPaths,
+            fp.filter,
+            fp.showHidden,
           );
           ctx.treeStore.set(fp.id, {
-            flatCache: makeFileNodeFlatCache(fp.data, fp.expandedPaths, next),
+            flatCache: makeFilePickerFlatCache(
+              fp.data,
+              fp.expandedPaths,
+              fp.filter,
+              fp.showHidden,
+              next,
+            ),
           });
           return next;
         })();
@@ -1071,6 +1080,22 @@ export function routeFilePickerMouseClick(
           if (nodeIndex !== null) {
             const fn = flatNodes[nodeIndex];
             if (fn) {
+              const activeKey = getFilePickerActiveKey(state, fp, null);
+              if (fp.multiSelect === true && typeof fp.onSelectionChange === "function") {
+                const selection = computeFilePickerMouseSelection(
+                  fp.selection,
+                  fn.key,
+                  flatNodes,
+                  {
+                    shift: (event.mods & ZR_MOD_SHIFT) !== 0,
+                    ctrl: (event.mods & ZR_MOD_CTRL) !== 0,
+                  },
+                  activeKey,
+                );
+                if (selection.changed) {
+                  invokeCallbackSafely(fp.onSelectionChange, selection.selection);
+                }
+              }
               invokeCallbackSafely(fp.onSelect, fn.key);
               ctx.treeStore.set(fp.id, { focusedKey: fn.key });
               ctx.setPressedFilePicker(
@@ -1110,9 +1135,9 @@ export function routeFilePickerMouseClick(
                 dt <= DOUBLE_PRESS_MS;
 
               if (isDouble) {
-                if (fn.node.type === "directory") {
+                if (fn.hasChildren) {
                   invokeCallbackSafely(fp.onChange, fn.key, !fp.expandedPaths.includes(fn.key));
-                } else {
+                } else if (fn.node.type !== "directory") {
                   invokeCallbackSafely(fp.onPress, fn.key);
                 }
                 ctx.setLastFilePickerClick(null);
