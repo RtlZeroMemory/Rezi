@@ -3,9 +3,13 @@ import {
   parseDrawTextCommands as parseDecodedDrawTextCommands,
   parseInternedStrings,
 } from "../../__tests__/drawlistDecode.js";
-import { type DrawlistBuilder, type VNode, createDrawlistBuilder } from "../../index.js";
+import {
+  type DrawlistBuilder,
+  type VNode,
+  createDrawlistBuilder,
+  truncateWithEllipsis,
+} from "../../index.js";
 import { layout } from "../../layout/layout.js";
-import { truncateWithEllipsis } from "../../layout/textMeasure.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
 import { createInstanceIdAllocator } from "../../runtime/instance.js";
