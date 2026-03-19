@@ -224,6 +224,8 @@ type RouteMouseWheelContext = Readonly<{
   focusedId: string | null;
   virtualListById: ReadonlyMap<string, VirtualListProps<unknown>>;
   virtualListStore: VirtualListStateStore;
+  fileTreeExplorerById: ReadonlyMap<string, FileTreeExplorerProps>;
+  treeStore: TreeStateStore;
   codeEditorById: ReadonlyMap<string, CodeEditorProps>;
   codeEditorRenderCacheById: ReadonlyMap<string, CodeEditorRenderCache>;
   logsConsoleById: ReadonlyMap<string, LogsConsoleProps>;
@@ -1563,6 +1565,44 @@ export function routeMouseWheel(
     : [ctx.mouseTargetId];
   for (const candidateId of candidateIds) {
     if (candidateId === null) continue;
+
+    const fte = ctx.fileTreeExplorerById.get(candidateId);
+    if (fte) {
+      const state = ctx.treeStore.get(fte.id);
+      const rect = ctx.rectById.get(fte.id) ?? null;
+      const flatNodes =
+        readFileNodeFlatCache(state, fte.data, fte.expanded) ??
+        (() => {
+          const next = flattenTree(
+            fte.data,
+            fileNodeGetKey,
+            fileNodeGetChildren,
+            fileNodeHasChildren,
+            fte.expanded,
+          );
+          ctx.treeStore.set(fte.id, {
+            flatCache: makeFileNodeFlatCache(fte.data, fte.expanded, next),
+          });
+          return next;
+        })();
+      const viewportWidth = rect?.w ?? 0;
+      const viewportHeight = rect?.h ?? 0;
+
+      const r = routeWheel(event, {
+        scrollX: 0,
+        scrollY: state.scrollTop,
+        contentWidth: viewportWidth,
+        contentHeight: flatNodes.length,
+        viewportWidth,
+        viewportHeight,
+      });
+
+      if (r.nextScrollY !== undefined) {
+        ctx.treeStore.set(fte.id, { scrollTop: r.nextScrollY });
+        return ROUTE_RENDER;
+      }
+      break;
+    }
 
     const editor = ctx.codeEditorById.get(candidateId);
     if (editor) {

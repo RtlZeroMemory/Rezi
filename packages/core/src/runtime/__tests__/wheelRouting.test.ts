@@ -221,6 +221,51 @@ describe("wheel routing", () => {
     assert.deepEqual(scrolled, [3]);
   });
 
+  test("fileTreeExplorer wheel routing scrolls the explorer metadata", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    const vnode = ui.fileTreeExplorer({
+      id: "fte.scroll",
+      data: Object.freeze({
+        name: "root",
+        path: "/",
+        type: "directory" as const,
+        children: Array.from({ length: 20 }, (_, i) =>
+          Object.freeze({
+            name: `file-${String(i)}`,
+            path: `/file-${String(i)}`,
+            type: "file" as const,
+          }),
+        ),
+      }),
+      expanded: Object.freeze(["/"]),
+      onChange: () => {},
+      onSelect: () => {},
+      onPress: () => {},
+    });
+
+    submit(
+      renderer,
+      vnode,
+      { commit: true, layout: true, checkLayoutStability: true },
+      { cols: 20, rows: 6 },
+    );
+    const before = getOverflowMetaById(renderer, "fte.scroll");
+    assert.equal(before.scrollY, 0);
+    assert.ok(before.contentHeight > before.viewportHeight);
+
+    const rect = getRectById(renderer, "fte.scroll");
+    const routed = renderer.routeEngineEvent(wheelEvent(rect.x, rect.y, 1));
+    assert.equal(routed.needsRender, true);
+
+    submit(renderer, vnode, { commit: false, layout: false, checkLayoutStability: true });
+    const after = getOverflowMetaById(renderer, "fte.scroll");
+    assert.equal(after.scrollY, 3);
+  });
+
   test("codeEditor wheel routing still works", () => {
     const renderer = new WidgetRenderer<void>({
       backend: createNoopBackend(),

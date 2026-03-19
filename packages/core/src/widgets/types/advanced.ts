@@ -192,7 +192,7 @@ export type FileTreeExplorerProps = Readonly<{
   onSelect: (node: FileNode) => void;
   /** Callback when node is activated (Enter / double-click). */
   onPress: (node: FileNode) => void;
-  /** Callback for context menu (right-click / Menu key). */
+  /** Callback for context menu (right-click). */
   onContextMenu?: (node: FileNode) => void;
   /** Custom node renderer. */
   renderNode?: (node: FileNode, depth: number, state: FileNodeState) => VNode;

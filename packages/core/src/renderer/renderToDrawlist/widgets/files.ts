@@ -1,4 +1,5 @@
 import type { DrawlistBuilder } from "../../../drawlist/types.js";
+import type { LayoutTree } from "../../../layout/layout.js";
 import { measureTextCells } from "../../../layout/textMeasure.js";
 import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
@@ -35,6 +36,42 @@ function clampScrollTop(scrollTop: number, totalHeight: number, viewportHeight: 
 
 function clampIndexScrollTop(scrollTop: number, totalRows: number, viewportHeight: number): number {
   return Math.trunc(clampScrollTop(scrollTop, totalRows, viewportHeight));
+}
+
+function setLayoutScrollMetadata(
+  layoutNode: LayoutTree,
+  patch: Readonly<{
+    scrollX?: number;
+    scrollY?: number;
+    contentWidth?: number;
+    contentHeight?: number;
+    viewportWidth?: number;
+    viewportHeight?: number;
+  }>,
+): void {
+  const prev = layoutNode.meta as
+    | {
+        scrollX?: unknown;
+        scrollY?: unknown;
+        contentWidth?: unknown;
+        contentHeight?: unknown;
+        viewportWidth?: unknown;
+        viewportHeight?: unknown;
+      }
+    | undefined;
+  const next = Object.freeze({
+    scrollX: patch.scrollX ?? (typeof prev?.scrollX === "number" ? prev.scrollX : 0),
+    scrollY: patch.scrollY ?? (typeof prev?.scrollY === "number" ? prev.scrollY : 0),
+    contentWidth:
+      patch.contentWidth ?? (typeof prev?.contentWidth === "number" ? prev.contentWidth : 0),
+    contentHeight:
+      patch.contentHeight ?? (typeof prev?.contentHeight === "number" ? prev.contentHeight : 0),
+    viewportWidth:
+      patch.viewportWidth ?? (typeof prev?.viewportWidth === "number" ? prev.viewportWidth : 0),
+    viewportHeight:
+      patch.viewportHeight ?? (typeof prev?.viewportHeight === "number" ? prev.viewportHeight : 0),
+  });
+  (layoutNode as { meta?: unknown }).meta = next;
 }
 
 export function includesString(list: readonly string[] | undefined, value: string): boolean {
@@ -105,6 +142,7 @@ export function renderFileWidgets(
   tick: number,
   parentStyle: ResolvedTextStyle,
   node: RuntimeInstance,
+  layoutNode: LayoutTree,
   nodeStack: (RuntimeInstance | null)[],
   styleStack: ResolvedTextStyle[],
   treeStore: TreeStateStore | undefined,
@@ -377,6 +415,14 @@ export function renderFileWidgets(
       const effectiveScrollTop = clampIndexScrollTop(state.scrollTop, flatNodes.length, rect.h);
       const startIndex = Math.max(0, effectiveScrollTop);
       const endIndex = Math.min(flatNodes.length, startIndex + rect.h);
+      setLayoutScrollMetadata(layoutNode, {
+        scrollX: 0,
+        scrollY: effectiveScrollTop,
+        contentWidth: rect.w,
+        contentHeight: flatNodes.length,
+        viewportWidth: rect.w,
+        viewportHeight: rect.h,
+      });
 
       for (let i = startIndex; i < endIndex; i++) {
         const fn = flatNodes[i];
