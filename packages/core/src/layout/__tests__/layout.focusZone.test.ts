@@ -97,4 +97,20 @@ describe("focusZone/focusTrap layout transparency", () => {
     assert.equal(first.rect.y, second.rect.y);
     assert.equal(second.rect.x > first.rect.x, true);
   });
+
+  test("focusTrap with multiple direct children keeps legacy column fallback", () => {
+    const vnode = ui.focusTrap({ id: "trap-legacy", active: true }, [
+      ui.button({ id: "trap-legacy-a", label: "A" }),
+      ui.button({ id: "trap-legacy-b", label: "B" }),
+    ]);
+
+    const laidOut = mustLayout(vnode, 20, 8);
+    const first = laidOut.children[0];
+    const second = laidOut.children[1];
+    assert.ok(first && second, "legacy fallback should lay out both direct children");
+    if (!first || !second) return;
+
+    assert.equal(second.rect.y > first.rect.y, true);
+    assert.equal(second.rect.x, first.rect.x);
+  });
 });
