@@ -22,7 +22,7 @@ ui.button({
 | `label` | `string` | **required** | Button text |
 | `accessibleLabel` | `string` | - | Optional semantic label for focus announcements and debugging |
 | `disabled` | `boolean` | `false` | Disable interaction and dim appearance |
-| `focusable` | `boolean` | `true` | Remove the button from Tab order while keeping id-based routing available |
+| `focusable` | `boolean` | `true` | When `false`, removes the button from Tab order while keeping id-based routing available |
 | `px` | `number` | `dsSize` / `1` fallback | Horizontal padding in cells. When recipe styling is active, this overrides recipe padding; use `dsSize` for standard presets. |
 | `style` | `TextStyle` | - | Custom styling (merged with focus/disabled state) |
 | `pressedStyle` | `TextStyle` | - | Additional style applied while the button is pressed |
