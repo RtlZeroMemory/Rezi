@@ -23,6 +23,9 @@ ui.textarea({
 | `wordWrap` | `boolean` | `true` | Wrap long lines |
 | `accessibleLabel` | `string` | - | Optional semantic label for focus announcements/debugging |
 | `disabled` | `boolean` | `false` | Disable editing and dim appearance |
+| `readOnly` | `boolean` | `false` | Keep the textarea focusable while preventing edits |
+| `focusable` | `boolean` | `true` | Opt out of Tab order while keeping id-based routing available |
+| `placeholder` | `string` | - | Placeholder text shown when the value is empty |
 | `style` | `TextStyle` | - | Custom styling (merged with focus/disabled state) |
 | `onInput` | `(value: string, cursor: number) => void` | - | Callback when value changes |
 | `onBlur` | `() => void` | - | Callback when textarea loses focus |
@@ -47,6 +50,8 @@ When focused:
 - Paste preserves line breaks (CRLF normalized to `\n`)
 
 Textarea is controlled: `value` is always the source of truth.
+
+When `wordWrap: false`, long lines stay unwrapped and the focused viewport shifts horizontally to keep the active cursor column visible instead of clamping the cursor to the left-most window.
 
 Runtime note: `ui.textarea(...)` is represented as VNode kind `"input"` with `multiline: true`.
 Use this mapping when writing low-level kind assertions.

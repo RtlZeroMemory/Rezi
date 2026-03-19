@@ -206,7 +206,19 @@
     {
       "name": "textarea",
       "requiredProps": ["id", "value"],
-      "commonProps": ["rows", "onInput"],
+      "commonProps": [
+        "rows",
+        "wordWrap",
+        "onInput",
+        "onBlur",
+        "disabled",
+        "readOnly",
+        "focusable",
+        "accessibleLabel",
+        "placeholder",
+        "style",
+        "focusConfig"
+      ],
       "example": "ui.textarea({ id: 'notes', value: state.notes, rows: 5 })"
     },
     {
