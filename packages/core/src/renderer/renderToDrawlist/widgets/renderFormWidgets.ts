@@ -13,7 +13,6 @@ import {
   selectRecipe,
   sliderRecipe,
 } from "../../../ui/recipes.js";
-import { DEFAULT_PLACEHOLDER, getSelectDisplayText } from "../../../widgets/select.js";
 import {
   FIELD_ERROR_STYLE,
   FIELD_HINT_STYLE,
@@ -22,6 +21,7 @@ import {
   getFieldFooterText,
   shouldShowError,
 } from "../../../widgets/field.js";
+import { DEFAULT_PLACEHOLDER, getSelectDisplayText } from "../../../widgets/select.js";
 import {
   DEFAULT_SLIDER_TRACK_WIDTH,
   formatSliderValue,
