@@ -14,6 +14,14 @@ import {
   sliderRecipe,
 } from "../../../ui/recipes.js";
 import {
+  FIELD_ERROR_STYLE,
+  FIELD_HINT_STYLE,
+  FIELD_LABEL_STYLE,
+  buildFieldLabel,
+  getFieldFooterText,
+  shouldShowError,
+} from "../../../widgets/field.js";
+import {
   DEFAULT_SLIDER_TRACK_WIDTH,
   formatSliderValue,
   normalizeSliderState,
@@ -780,16 +788,22 @@ export function renderFormWidgets(
       const error = typeof props.error === "string" ? props.error : undefined;
       const hint = typeof props.hint === "string" ? props.hint : undefined;
 
-      const labelText = required ? `${label} *` : label;
+      const labelText = buildFieldLabel(label, required);
+      const showError = shouldShowError(error);
+      const footer = getFieldFooterText(error, hint);
+      const labelStyle = mergeTextStyle(parentStyle, FIELD_LABEL_STYLE);
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
-      builder.drawText(rect.x, rect.y, truncateToWidth(labelText, rect.w), parentStyle);
+      builder.drawText(rect.x, rect.y, truncateToWidth(labelText, rect.w), labelStyle);
       if (rect.h >= 2) {
         const footerY = rect.y + rect.h - 1;
-        const footer = error ?? hint;
         if (footer) {
+          const footerBaseStyle = showError ? FIELD_ERROR_STYLE : FIELD_HINT_STYLE;
+          const footerColorStyle = showError
+            ? { fg: theme.colors.danger }
+            : { fg: theme.colors.muted };
           const footerStyle = mergeTextStyle(
-            parentStyle,
-            error ? { fg: theme.colors.danger } : { fg: theme.colors.muted },
+            mergeTextStyle(parentStyle, footerBaseStyle),
+            footerColorStyle,
           );
           builder.drawText(rect.x, footerY, truncateToWidth(footer, rect.w), footerStyle);
         }

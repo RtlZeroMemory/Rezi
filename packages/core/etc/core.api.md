@@ -2188,7 +2188,7 @@ export type FgTokens = Readonly<{
 
 // @public
 export const FIELD_ERROR_STYLE: Readonly<{
-    fg: number;
+    bold: true;
 }>;
 
 // @public
@@ -2673,6 +2673,9 @@ export function getDefaultFocusConfig(kind: string): FocusConfig;
 
 // @public
 export function getExpandIndicator(hasChildren: boolean, isExpanded: boolean, isLoading: boolean): string;
+
+// @public
+export function getFieldFooterText(error: string | undefined, hint: string | undefined): string | undefined;
 
 // @public
 export function getFilteredItems(sources: readonly CommandSource[], query: string): Promise<readonly CommandItem[]>;

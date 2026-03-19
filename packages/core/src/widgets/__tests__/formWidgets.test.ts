@@ -5,6 +5,8 @@
  */
 
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { createTestRenderer } from "../../testing/renderer.js";
+import { darkTheme } from "../../theme/presets.js";
 import {
   CHECKBOX_CHECKED,
   CHECKBOX_DISABLED_CHECKED,
@@ -14,7 +16,15 @@ import {
   getCheckboxIndicator,
   toggleCheckbox,
 } from "../checkbox.js";
-import { REQUIRED_INDICATOR, buildFieldLabel, shouldShowError } from "../field.js";
+import {
+  FIELD_ERROR_STYLE,
+  FIELD_HINT_STYLE,
+  FIELD_LABEL_STYLE,
+  REQUIRED_INDICATOR,
+  buildFieldLabel,
+  getFieldFooterText,
+  shouldShowError,
+} from "../field.js";
 import {
   RADIO_SELECTED,
   RADIO_UNSELECTED,
@@ -56,6 +66,48 @@ describe("field widget utilities", () => {
 
   test("shouldShowError returns true for non-empty string", () => {
     assert.equal(shouldShowError("Required"), true);
+  });
+
+  test("getFieldFooterText prefers non-empty error over hint", () => {
+    assert.equal(getFieldFooterText("Required", "Helpful hint"), "Required");
+  });
+
+  test("getFieldFooterText falls back to hint when error is empty", () => {
+    assert.equal(getFieldFooterText("", "Helpful hint"), "Helpful hint");
+  });
+
+  test("field helper styles stay theme-agnostic", () => {
+    assert.deepEqual(FIELD_LABEL_STYLE, { bold: true });
+    assert.deepEqual(FIELD_ERROR_STYLE, { bold: true });
+    assert.deepEqual(FIELD_HINT_STYLE, { dim: true });
+  });
+
+  test("field renderer shows error footer before hint and falls back from empty error to hint", () => {
+    const renderer = createTestRenderer({
+      viewport: { cols: 40, rows: 6 },
+      theme: darkTheme,
+    });
+
+    const withError = renderer.render(
+      ui.field({
+        label: "Name",
+        error: "Required",
+        hint: "Enter your name",
+        children: ui.text("abcdefghijklmnopqrst"),
+      }),
+    );
+    const withEmptyError = renderer.render(
+      ui.field({
+        label: "Name",
+        error: "",
+        hint: "Enter your name",
+        children: ui.text("abcdefghijklmnopqrst"),
+      }),
+    );
+
+    assert.ok(withError.toText().includes("Required"));
+    assert.ok(!withError.toText().includes("Enter your name"));
+    assert.ok(withEmptyError.toText().includes("Enter your name"));
   });
 });
 

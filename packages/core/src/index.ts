@@ -1055,6 +1055,7 @@ export {
   FIELD_HINT_STYLE,
   FIELD_LABEL_STYLE,
   REQUIRED_INDICATOR,
+  getFieldFooterText,
   shouldShowError,
 } from "./widgets/field.js";
 
