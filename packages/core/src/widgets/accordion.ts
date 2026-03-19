@@ -94,12 +94,12 @@ export function buildAccordionChildren(props: AccordionProps): readonly VNode[] 
   const expanded = resolveAccordionExpanded(props.expanded, itemKeys, allowMultiple);
   const expandedSet = new Set(expanded);
 
-  const headerButtons: VNode[] = [];
+  const zoneChildren: VNode[] = [];
   for (let i = 0; i < props.items.length; i++) {
     const item = props.items[i];
     if (!item) continue;
     const isExpanded = expandedSet.has(item.key);
-    headerButtons.push({
+    zoneChildren.push({
       kind: "button",
       props: {
         id: getAccordionTriggerId(props.id, i, item.key),
@@ -110,9 +110,12 @@ export function buildAccordionChildren(props: AccordionProps): readonly VNode[] 
         },
       },
     });
+    if (isExpanded) {
+      zoneChildren.push(item.content);
+    }
   }
 
-  const children: VNode[] = [
+  return Object.freeze([
     {
       kind: "focusZone",
       props: {
@@ -122,17 +125,9 @@ export function buildAccordionChildren(props: AccordionProps): readonly VNode[] 
         columns: 1,
         wrapAround: false,
       },
-      children: Object.freeze(headerButtons),
+      children: Object.freeze(zoneChildren),
     },
-  ];
-
-  for (const item of props.items) {
-    if (!item) continue;
-    if (!expandedSet.has(item.key)) continue;
-    children.push(item.content);
-  }
-
-  return Object.freeze(children);
+  ]);
 }
 
 export function createAccordionVNode(props: AccordionProps): VNode {
