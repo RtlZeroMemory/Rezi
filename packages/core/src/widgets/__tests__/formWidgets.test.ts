@@ -94,9 +94,9 @@ describe("select widget utilities", () => {
     assert.equal(text, "United Kingdom");
   });
 
-  test("getSelectDisplayText returns value for unknown value", () => {
+  test("getSelectDisplayText returns placeholder for unknown value", () => {
     const text = getSelectDisplayText("unknown", options);
-    assert.equal(text, "unknown");
+    assert.equal(text, DEFAULT_PLACEHOLDER);
   });
 
   test("findOptionIndex finds correct index", () => {

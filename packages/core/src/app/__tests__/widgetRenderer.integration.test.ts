@@ -621,6 +621,59 @@ describe("WidgetRenderer integration battery", () => {
     assert.deepEqual(values, []);
   });
 
+  test("select uses Enter and Space to advance like the inline cycler runtime", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    let value = "dark";
+    const values: string[] = [];
+    const view = () =>
+      ui.select({
+        id: "theme",
+        value,
+        options: [
+          { value: "dark", label: "Dark" },
+          { value: "light", label: "Light" },
+          { value: "system", label: "System" },
+        ],
+        onChange: (nextValue) => {
+          value = nextValue;
+          values.push(nextValue);
+        },
+      });
+
+    let res = renderer.submitFrame(
+      () => view(),
+      undefined,
+      { cols: 40, rows: 5 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "theme");
+
+    renderer.routeEngineEvent(keyEvent(2 /* ENTER */));
+    assert.equal(value, "light");
+
+    res = renderer.submitFrame(
+      () => view(),
+      undefined,
+      { cols: 40, rows: 5 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(32 /* SPACE */));
+    assert.equal(value, "system");
+    assert.deepEqual(values, ["light", "system"]);
+  });
+
   test("focusTrap wraps TAB within active trap", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({

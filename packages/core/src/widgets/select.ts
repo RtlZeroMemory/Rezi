@@ -41,7 +41,7 @@ export function getSelectDisplayText(
   }
 
   const option = options.find((opt) => opt.value === value);
-  return option?.label ?? value;
+  return option?.label ?? placeholder ?? DEFAULT_PLACEHOLDER;
 }
 
 /**

@@ -1,3 +1,4 @@
+import { getSelectDisplayText } from "../../widgets/select.js";
 import type { RuntimeInstance } from "../commit.js";
 import { readNonEmptyString } from "./helpers.js";
 
@@ -42,16 +43,13 @@ function readFocusableVisibleLabel(vnode: RuntimeInstance["vnode"]): string | nu
       const options = Array.isArray(props.options)
         ? (props.options as readonly { value?: unknown; label?: unknown }[])
         : [];
-      for (const option of options) {
-        if (
-          typeof option?.value === "string" &&
-          option.value === value &&
-          typeof option.label === "string"
-        ) {
-          return readNonEmptyString(option.label);
-        }
-      }
-      return readNonEmptyString(props.placeholder);
+      return readNonEmptyString(
+        getSelectDisplayText(
+          value,
+          options as readonly { value: string; label: string; disabled?: boolean }[],
+          readNonEmptyString(props.placeholder) ?? undefined,
+        ),
+      );
     }
     case "radioGroup": {
       const props = vnode.props as { value?: unknown; options?: unknown };

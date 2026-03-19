@@ -289,8 +289,18 @@
     },
     {
       "name": "select",
-      "requiredProps": ["id", "value", "options", "onChange"],
-      "commonProps": ["placeholder", "disabled"],
+      "requiredProps": ["id", "value", "options"],
+      "commonProps": [
+        "onChange",
+        "placeholder",
+        "disabled",
+        "focusable",
+        "accessibleLabel",
+        "focusConfig",
+        "dsVariant",
+        "dsTone",
+        "dsSize"
+      ],
       "example": "ui.select({ id: 'country', value, options, onChange })"
     },
     {
