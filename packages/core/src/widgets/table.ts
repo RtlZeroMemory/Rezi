@@ -94,6 +94,7 @@ export function distributeColumnWidths<T>(
         }
 
         widths[i] = Math.max(0, width);
+        if (flex <= 0) continue;
         flexRemainders.push(
           Object.freeze({
             index: i,

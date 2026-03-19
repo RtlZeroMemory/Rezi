@@ -42,6 +42,17 @@ describe("table.columns - width allocation and truncation", () => {
     assert.equal(result.widths[0], 4);
   });
 
+  test("flex: 0 columns do not receive leftover remainder width", () => {
+    const columns: TableColumn<unknown>[] = [
+      { key: "a", header: "A", flex: 1, maxWidth: 1 },
+      { key: "b", header: "B", flex: 1, maxWidth: 1 },
+      { key: "c", header: "C", flex: 0 },
+    ];
+    const result = distributeColumnWidths(columns, 5);
+    assert.deepEqual(result.widths, [1, 1, 0]);
+    assert.equal(result.totalWidth, 2);
+  });
+
   test("negative fixed width clamps to zero", () => {
     const columns: TableColumn<unknown>[] = [
       { key: "a", header: "A", width: -10 },
