@@ -53,6 +53,7 @@ export function distributeColumnWidths<T>(
   const widths = new Array<number>(n).fill(0);
   let remainingWidth = availableWidth;
   let totalFlex = 0;
+  const flexRemainders: Array<Readonly<{ index: number; remainder: number }>> = [];
 
   // Pass 1: Assign fixed widths and calculate total flex
   for (let i = 0; i < n; i++) {
@@ -81,7 +82,8 @@ export function distributeColumnWidths<T>(
 
       if (col.width === undefined) {
         const flex = col.flex ?? 1;
-        let width = Math.floor(widthPerFlex * flex);
+        const rawWidth = widthPerFlex * flex;
+        let width = Math.floor(rawWidth);
 
         // Apply min/max constraints
         if (col.minWidth !== undefined) {
@@ -92,6 +94,47 @@ export function distributeColumnWidths<T>(
         }
 
         widths[i] = Math.max(0, width);
+        if (flex <= 0) continue;
+        flexRemainders.push(
+          Object.freeze({
+            index: i,
+            remainder: rawWidth - Math.floor(rawWidth),
+          }),
+        );
+      }
+    }
+
+    let totalAssignedWidth = 0;
+    for (let i = 0; i < n; i++) {
+      const width = widths[i];
+      if (width !== undefined) totalAssignedWidth += width;
+    }
+
+    let leftoverWidth = Math.max(0, availableWidth - totalAssignedWidth);
+    if (leftoverWidth > 0 && flexRemainders.length > 0) {
+      const remainderOrder = [...flexRemainders].sort((a, b) => {
+        if (b.remainder !== a.remainder) return b.remainder - a.remainder;
+        return a.index - b.index;
+      });
+
+      let distributed = true;
+      while (leftoverWidth > 0 && distributed) {
+        distributed = false;
+        for (let i = 0; i < remainderOrder.length; i++) {
+          const candidate = remainderOrder[i];
+          if (!candidate) continue;
+
+          const col = columns[candidate.index];
+          if (!col || col.width !== undefined) continue;
+
+          const currentWidth = widths[candidate.index] ?? 0;
+          if (col.maxWidth !== undefined && currentWidth >= col.maxWidth) continue;
+
+          widths[candidate.index] = currentWidth + 1;
+          leftoverWidth--;
+          distributed = true;
+          if (leftoverWidth === 0) break;
+        }
       }
     }
   }
