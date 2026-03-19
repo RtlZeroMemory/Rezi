@@ -51,13 +51,15 @@ ui.commandPalette({
 ## Notes
 
 - Command sources can be sync or async (`getItems` may return a `Promise`).
-- Keep `query` and `selectedIndex` in your app state (controlled pattern).
+- `open`, `query`, and `selectedIndex` are controlled props. Keep them in app state, update `query` from `onChange`, close state from `onClose`, and update `selectedIndex` from `onSelectionChange` when you want keyboard highlight changes to persist between frames.
 - `maxVisible` accepts non-negative values; `0` hides the results list while keeping the palette input visible.
 - Height is derived from `maxVisible + 4` (frame + input + separator + list rows), then clamped to viewport height.
 - Palette x/y placement is clamped to the viewport (default y target is roughly one-third from top).
-- Item `shortcut` text is currently a hint/display field (and used in query matching), not an auto-registered keybinding.
+- Enabled item `shortcut` values become active overlay shortcuts while this palette is open and topmost. Matching a shortcut calls `onSelect(item)` and then `onClose()`.
+- Disabled items do not register shortcuts. If multiple enabled results in the active palette share one shortcut, the later result in the resolved item list wins.
+- Shortcut labels are display and routing metadata only; they are not used in palette filtering or ranking today.
 
-## Shortcut example
+## Shortcut behavior
 
 ```ts
 ui.commandPalette({
@@ -82,7 +84,7 @@ ui.commandPalette({
 })
 ```
 
-Register key combos explicitly when needed:
+When the palette is open, the shortcuts above are active automatically. Use `app.keys()` only for shortcuts that should continue to work when the palette is closed:
 
 ```ts
 app.keys({

@@ -322,9 +322,27 @@
     },
     {
       "name": "commandPalette",
-      "requiredProps": ["id", "open"],
-      "commonProps": ["query", "onClose", "onSelect"],
-      "example": "ui.commandPalette({ id: 'cmd', open: true })"
+      "requiredProps": [
+        "id",
+        "open",
+        "query",
+        "sources",
+        "selectedIndex",
+        "onChange",
+        "onSelect",
+        "onClose"
+      ],
+      "commonProps": [
+        "loading",
+        "placeholder",
+        "maxVisible",
+        "width",
+        "frameStyle",
+        "selectionStyle",
+        "onSelectionChange",
+        "focusConfig"
+      ],
+      "example": "ui.commandPalette({ id: 'cmd', open, query, sources, selectedIndex, onChange, onSelect, onClose })"
     },
     {
       "name": "filePicker",

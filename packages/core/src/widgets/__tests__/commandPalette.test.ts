@@ -44,6 +44,21 @@ test('commandPalette: fuzzy query "cmd" matches "Command Palette"', async () => 
   assert.equal(results[0]?.label, "Command Palette");
 });
 
+test("commandPalette: shortcut labels do not participate in query matching", async () => {
+  const source = {
+    id: "commands",
+    name: "Commands",
+    getItems: () =>
+      [
+        { id: "save", label: "Save File", sourceId: "commands", shortcut: "Ctrl+S" },
+        { id: "open", label: "Open File", sourceId: "commands", shortcut: "Ctrl+O" },
+      ] as const,
+  };
+
+  const results = await getFilteredItems([source], "ctrl+s");
+  assert.deepEqual(results, []);
+});
+
 test("commandPalette: sortByScore keeps original order for equal scores", () => {
   const items = [
     { id: "open", label: "Open", sourceId: "commands" },
