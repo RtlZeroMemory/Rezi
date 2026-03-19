@@ -26,6 +26,8 @@ import {
   shouldShowError,
 } from "../field.js";
 import {
+  RADIO_DISABLED_SELECTED,
+  RADIO_DISABLED_UNSELECTED,
   RADIO_SELECTED,
   RADIO_UNSELECTED,
   buildRadioOptionText,
@@ -244,9 +246,19 @@ describe("radioGroup widget utilities", () => {
     assert.equal(getRadioIndicator(true), RADIO_SELECTED);
   });
 
+  test("getRadioIndicator disabled states", () => {
+    assert.equal(getRadioIndicator(false, true), RADIO_DISABLED_UNSELECTED);
+    assert.equal(getRadioIndicator(true, true), RADIO_DISABLED_SELECTED);
+  });
+
   test("buildRadioOptionText", () => {
     assert.equal(buildRadioOptionText(false, "Free"), `${RADIO_UNSELECTED} Free`);
     assert.equal(buildRadioOptionText(true, "Free"), `${RADIO_SELECTED} Free`);
+  });
+
+  test("buildRadioOptionText preserves disabled indicators", () => {
+    assert.equal(buildRadioOptionText(false, "Pro", true), `${RADIO_DISABLED_UNSELECTED} Pro`);
+    assert.equal(buildRadioOptionText(true, "Pro", true), `${RADIO_DISABLED_SELECTED} Pro`);
   });
 
   test("findSelectedIndex finds correct index", () => {
