@@ -221,6 +221,7 @@
         "onChange",
         "readOnly",
         "focusable",
+        "accessibleLabel",
         "focusConfig"
       ],
       "example": "ui.slider({ id: 'vol', value: 42, min: 0, max: 100, onChange: setVol })"
