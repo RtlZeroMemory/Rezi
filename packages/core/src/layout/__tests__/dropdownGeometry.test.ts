@@ -1,6 +1,6 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type { DropdownProps } from "../../widgets/types.js";
-import { computeDropdownGeometry } from "../dropdownGeometry.js";
+import { computeDropdownGeometry, computeDropdownWindow } from "../dropdownGeometry.js";
 import type { Rect } from "../types.js";
 
 function dropdownProps(items: DropdownProps["items"]): DropdownProps {
@@ -79,5 +79,25 @@ describe("dropdownGeometry", () => {
 
     assert.equal(rect.w, 3);
     assert.equal(rect.h, 2);
+  });
+
+  test("computeDropdownWindow preserves the previous window while selection stays visible", () => {
+    assert.deepEqual(computeDropdownWindow(12, 6, 4, 4), {
+      startIndex: 4,
+      endIndex: 8,
+      visibleRows: 4,
+      selectedIndex: 6,
+      overflow: true,
+    });
+  });
+
+  test("computeDropdownWindow advances only when selection leaves the visible window", () => {
+    assert.deepEqual(computeDropdownWindow(12, 8, 4, 4), {
+      startIndex: 5,
+      endIndex: 9,
+      visibleRows: 4,
+      selectedIndex: 8,
+      overflow: true,
+    });
   });
 });

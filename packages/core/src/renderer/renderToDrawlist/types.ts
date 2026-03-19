@@ -95,6 +95,8 @@ export type RenderToDrawlistParams = Readonly<{
     | undefined;
   /** Optional Dropdown selected index (per dropdown id). */
   dropdownSelectedIndexById?: ReadonlyMap<string, number> | undefined;
+  /** Optional Dropdown visible window start index (per dropdown id). */
+  dropdownWindowStartById?: ReadonlyMap<string, number> | undefined;
   /** Optional DiffViewer focused hunk index (per viewer id). */
   diffViewerFocusedHunkById?: ReadonlyMap<string, number> | undefined;
   /** Optional DiffViewer expanded hunks (per viewer id). */

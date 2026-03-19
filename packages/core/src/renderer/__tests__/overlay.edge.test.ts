@@ -4,11 +4,16 @@ import { type VNode, createDrawlistBuilder } from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
 import { createInstanceIdAllocator } from "../../runtime/instance.js";
+import { ui } from "../../widgets/ui.js";
 import { renderToDrawlist } from "../renderToDrawlist.js";
 
 function renderStrings(
   vnode: VNode,
   viewport: Readonly<{ cols: number; rows: number }>,
+  opts: Readonly<{
+    dropdownSelectedIndexById?: ReadonlyMap<string, number>;
+    dropdownWindowStartById?: ReadonlyMap<string, number>;
+  }> = {},
 ): readonly string[] {
   const allocator = createInstanceIdAllocator(1);
   const commitRes = commitVNodeTree(null, vnode, { allocator });
@@ -33,6 +38,12 @@ function renderStrings(
     viewport,
     focusState: Object.freeze({ focusedId: null }),
     builder,
+    ...(opts.dropdownSelectedIndexById
+      ? { dropdownSelectedIndexById: opts.dropdownSelectedIndexById }
+      : {}),
+    ...(opts.dropdownWindowStartById
+      ? { dropdownWindowStartById: opts.dropdownWindowStartById }
+      : {}),
   });
   const built = builder.build();
   assert.equal(built.ok, true, "drawlist build should succeed");
@@ -100,5 +111,33 @@ describe("overlay rendering edge cases", () => {
 
     const strings = renderStrings(malformed, { cols: 10, rows: 3 });
     assert.ok(Array.isArray(strings));
+  });
+
+  test("overflowing dropdown renders only the active visible window", () => {
+    const vnode = ui.layers([
+      ui.button({ id: "anchor", label: "Anchor" }),
+      ui.dropdown({
+        id: "menu",
+        anchorId: "anchor",
+        items: Array.from({ length: 8 }, (_, index) => ({
+          id: `item-${String(index)}`,
+          label: `Item ${String(index)}`,
+        })),
+      }),
+    ]);
+
+    const strings = renderStrings(
+      vnode,
+      { cols: 14, rows: 5 },
+      {
+        dropdownSelectedIndexById: new Map([["menu", 6]]),
+        dropdownWindowStartById: new Map([["menu", 4]]),
+      },
+    );
+
+    assert.equal(strings.includes("Item 0"), false);
+    assert.equal(strings.includes("Item 4"), true);
+    assert.equal(strings.includes("Item 6"), true);
+    assert.equal(strings.includes("Item 7"), false);
   });
 });

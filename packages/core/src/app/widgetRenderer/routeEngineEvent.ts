@@ -1,6 +1,7 @@
 import type { ZrevEvent } from "../../events.js";
 import { ZR_MOD_CTRL } from "../../keybindings/keyCodes.js";
 import type { LayoutOverflowMetadata } from "../../layout/constraints.js";
+import { computeDropdownWindow } from "../../layout/dropdownGeometry.js";
 import { hitTestAnyId, hitTestFocusable } from "../../layout/hitTest.js";
 import type { LayoutTree } from "../../layout/layout.js";
 import type { Rect } from "../../layout/types.js";
@@ -221,6 +222,7 @@ export type RouteEngineEventContext = Readonly<{
   toastContainers: readonly Readonly<{ rect: Rect; props: ToastContainerProps }>[];
   toastActionByFocusId: ReadonlyMap<string, () => void>;
   dropdownSelectedIndexById: Map<string, number>;
+  dropdownWindowStartById: Map<string, number>;
   toolApprovalFocusedActionById: Map<string, "allow" | "deny" | "allowSession">;
   diffViewerFocusedHunkById: Map<string, number>;
   diffViewerExpandedHunksById: Map<string, ReadonlySet<number>>;
@@ -310,6 +312,17 @@ export function routeEngineEventImpl(
         });
         if (dropdownResult.nextSelectedIndex !== undefined) {
           ctx.dropdownSelectedIndexById.set(topDropdownId, dropdownResult.nextSelectedIndex);
+          const dropdownRect = ctx.computeDropdownRect(dropdown);
+          const visibleRows = Math.max(0, (dropdownRect?.h ?? 0) - 2);
+          ctx.dropdownWindowStartById.set(
+            topDropdownId,
+            computeDropdownWindow(
+              dropdown.items.length,
+              dropdownResult.nextSelectedIndex,
+              visibleRows,
+              ctx.dropdownWindowStartById.get(topDropdownId) ?? 0,
+            ).startIndex,
+          );
         }
         if (dropdownResult.consumed) return ROUTE_RENDER;
       }
@@ -329,6 +342,7 @@ export function routeEngineEventImpl(
       dropdownStack: ctx.dropdownStack,
       dropdownById: ctx.dropdownById,
       dropdownSelectedIndexById: ctx.dropdownSelectedIndexById,
+      dropdownWindowStartById: ctx.dropdownWindowStartById,
       pressedDropdown: state.pressedDropdown,
       setPressedDropdown: (next) => {
         state.pressedDropdown = next;

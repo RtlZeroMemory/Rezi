@@ -79,6 +79,15 @@ const EMPTY_COMMAND_ITEMS: readonly CommandItem[] = Object.freeze([]);
 
 function noopOverlayShortcutHandler(_ctx: OverlayShortcutContext): void {}
 
+function describeThrown(value: unknown): string {
+  if (value instanceof Error) return `${value.name}: ${value.message}`;
+  try {
+    return String(value);
+  } catch {
+    return "[unstringifiable thrown value]";
+  }
+}
+
 export function selectDropdownShortcutItem(
   ctx: SelectDropdownShortcutContext,
   dropdownId: string,
@@ -99,14 +108,14 @@ export function selectDropdownShortcutItem(
     try {
       dropdown.onSelect(item);
     } catch (e) {
-      warnDev(`[rezi] onSelect callback threw: ${e instanceof Error ? e.message : String(e)}`);
+      warnDev(`[rezi] onSelect callback threw: ${describeThrown(e)}`);
     }
   }
   if (dropdown.onClose) {
     try {
       dropdown.onClose();
     } catch (e) {
-      warnDev(`[rezi] onClose callback threw: ${e instanceof Error ? e.message : String(e)}`);
+      warnDev(`[rezi] onClose callback threw: ${describeThrown(e)}`);
     }
   }
   return true;
@@ -127,12 +136,12 @@ export function selectCommandPaletteShortcutItem(
   try {
     palette.onSelect(item);
   } catch (e) {
-    warnDev(`[rezi] onSelect callback threw: ${e instanceof Error ? e.message : String(e)}`);
+    warnDev(`[rezi] onSelect callback threw: ${describeThrown(e)}`);
   }
   try {
     palette.onClose();
   } catch (e) {
-    warnDev(`[rezi] onClose callback threw: ${e instanceof Error ? e.message : String(e)}`);
+    warnDev(`[rezi] onClose callback threw: ${describeThrown(e)}`);
   }
   return true;
 }

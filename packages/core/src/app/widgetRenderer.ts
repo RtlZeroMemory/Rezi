@@ -980,6 +980,7 @@ export class WidgetRenderer<S> {
   private onCloseByLayerId: ReadonlyMap<string, () => void> = new Map<string, () => void>();
   private dropdownStack: readonly string[] = Object.freeze([]);
   private readonly dropdownSelectedIndexById = new Map<string, number>();
+  private readonly dropdownWindowStartById = new Map<string, number>();
   private overlayShortcutOwners: readonly OverlayShortcutOwner[] = Object.freeze([]);
   private readonly overlayShortcutBySequence = new Map<string, OverlayShortcutBinding>();
   private overlayShortcutTrie = buildTrie<OverlayShortcutContext>(Object.freeze([]));
@@ -1493,6 +1494,7 @@ export class WidgetRenderer<S> {
         this.commandPaletteLoadingById,
         this.toolApprovalFocusedActionById,
         this.dropdownSelectedIndexById,
+        this.dropdownWindowStartById,
         this.diffViewerFocusedHunkById,
         this.diffViewerExpandedHunksById,
         this.tableRenderCacheById,
@@ -1754,6 +1756,7 @@ export class WidgetRenderer<S> {
         toastContainers: this.toastContainers,
         toastActionByFocusId: this.toastActionByFocusId,
         dropdownSelectedIndexById: this.dropdownSelectedIndexById,
+        dropdownWindowStartById: this.dropdownWindowStartById,
         toolApprovalFocusedActionById: this.toolApprovalFocusedActionById,
         diffViewerFocusedHunkById: this.diffViewerFocusedHunkById,
         diffViewerExpandedHunksById: this.diffViewerExpandedHunksById,
@@ -3328,6 +3331,7 @@ export class WidgetRenderer<S> {
           loadedTreeChildrenByTreeId: this.loadedTreeChildrenByTreeId,
           treeLoadTokenByTreeAndKey: this.treeLoadTokenByTreeAndKey,
           dropdownSelectedIndexById: this.dropdownSelectedIndexById,
+          dropdownWindowStartById: this.dropdownWindowStartById,
           pressedVirtualList: this.pressedVirtualList,
           pressedFileTree: this.pressedFileTree,
           lastFileTreeClick: this.lastFileTreeClick,
@@ -3569,6 +3573,7 @@ export class WidgetRenderer<S> {
                 this.commandPaletteLoadingById,
                 this.toolApprovalFocusedActionById,
                 this.dropdownSelectedIndexById,
+                this.dropdownWindowStartById,
                 this.diffViewerFocusedHunkById,
                 this.diffViewerExpandedHunksById,
                 this.tableRenderCacheById,
@@ -3608,6 +3613,7 @@ export class WidgetRenderer<S> {
           commandPaletteLoadingById: this.commandPaletteLoadingById,
           toolApprovalFocusedActionById: this.toolApprovalFocusedActionById,
           dropdownSelectedIndexById: this.dropdownSelectedIndexById,
+          dropdownWindowStartById: this.dropdownWindowStartById,
           diffViewerFocusedHunkById: this.diffViewerFocusedHunkById,
           diffViewerExpandedHunksById: this.diffViewerExpandedHunksById,
           focusAnnouncement,
