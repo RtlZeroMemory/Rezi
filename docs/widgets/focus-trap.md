@@ -17,8 +17,21 @@ ui.focusTrap(
 
 ## Layout behavior
 
-`focusTrap` is layout-transparent and does not impose a hidden column layout.
-Children keep their native layout semantics (`row`, `column`, `grid`, etc.).
+`focusTrap` is layout-transparent when it wraps a single child.
+That child keeps its native layout semantics (`row`, `column`, `grid`, etc.).
+
+For legacy multi-child usage, direct children fall back to an implicit column layout.
+Prefer an explicit container inside the trap when you need more than one child:
+
+```typescript
+ui.focusTrap(
+  { id: "trap-legacy", active: true },
+  [
+    ui.button({ id: "a", label: "A" }),
+    ui.button({ id: "b", label: "B" }),
+  ]
+)
+```
 
 When you want explicit arrangement, compose a normal layout container inside the trap:
 
@@ -48,12 +61,14 @@ ui.focusTrap(
 
 When `active` is `true`:
 
-- Tab/Shift+Tab cycles only through focusable elements inside the trap
-- Focus cannot escape to elements outside the trap
+- If the trap contains focusable elements, Tab/Shift+Tab cycles only through those elements
+- Containment is focus-system based; `focusTrap` alone does not define an outside click boundary
 - Attempting to Tab past the last element wraps to the first
 - Attempting to Shift+Tab before the first element wraps to the last
 - The trap is collected into the focus system (`CollectedTrap`) so modal overlays
   consistently block/contain background focus.
+- If the active trap has no focusable descendants, it preserves the current focus unless
+  `initialFocus` names a valid nested target.
 
 When `active` becomes `false`:
 
@@ -128,7 +143,8 @@ ui.focusTrap({ id: "outer", active: true }, [
 
 ## Mouse Behavior
 
-When a focus trap is active, mouse clicks outside the trap region are blocked. Clicking widgets inside the trap works normally — the clicked widget receives focus.
+`focusTrap` does not block outside clicks by itself.
+Use it with `ui.modal()` or a layer-backed overlay when you need pointer containment as well as Tab containment.
 
 ## Related
 

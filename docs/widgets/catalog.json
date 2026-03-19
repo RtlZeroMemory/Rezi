@@ -229,9 +229,9 @@
     },
     {
       "name": "focusTrap",
-      "requiredProps": ["id"],
-      "commonProps": ["children"],
-      "example": "ui.focusTrap({ id: 'trap' }, [ui.input('q', '')])"
+      "requiredProps": ["id", "active"],
+      "commonProps": ["initialFocus", "returnFocusTo", "children"],
+      "example": "ui.focusTrap({ id: 'trap', active: true }, [ui.input({ id: 'q', value: '' })])"
     },
     {
       "name": "virtualList",
