@@ -185,8 +185,17 @@
     {
       "name": "button",
       "requiredProps": ["id", "label"],
-      "commonProps": ["disabled", "onPress"],
-      "example": "ui.button('save', 'Save')"
+      "commonProps": [
+        "disabled",
+        "focusable",
+        "intent",
+        "dsVariant",
+        "dsTone",
+        "dsSize",
+        "onPress",
+        "focusConfig"
+      ],
+      "example": "ui.button({ id: 'save', label: 'Save', intent: 'primary' })"
     },
     {
       "name": "input",

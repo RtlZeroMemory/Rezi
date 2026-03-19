@@ -22,8 +22,10 @@ ui.button({
 | `label` | `string` | **required** | Button text |
 | `accessibleLabel` | `string` | - | Optional semantic label for focus announcements and debugging |
 | `disabled` | `boolean` | `false` | Disable interaction and dim appearance |
+| `focusable` | `boolean` | `true` | When `false`, removes the button from Tab order while keeping id-based routing available |
 | `px` | `number` | `dsSize` / `1` fallback | Horizontal padding in cells. When recipe styling is active, this overrides recipe padding; use `dsSize` for standard presets. |
 | `style` | `TextStyle` | - | Custom styling (merged with focus/disabled state) |
+| `pressedStyle` | `TextStyle` | - | Additional style applied while the button is pressed |
 | `intent` | `"primary" \| "secondary" \| "danger" \| "success" \| "warning" \| "link"` | - | Shorthand for design system styling. Explicit `dsVariant`/`dsTone` override it. |
 | `onPress` | `() => void` | - | Callback when button is activated |
 | `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused label style |
@@ -35,7 +37,7 @@ Buttons are design-system styled by default when the active theme provides seman
 
 - `ui.button({ id, label })` renders with recipe-based styling (defaults to a `"soft"` look).
 - `dsVariant` / `dsTone` / `dsSize` customize the recipe styling.
-- `intent` is a shorthand for common `dsVariant`/`dsTone` combinations.
+- `intent` is a shorthand for common `dsVariant`/`dsTone` combinations when neither `dsVariant` nor `dsTone` is set explicitly.
 - `px` overrides recipe padding (use `dsSize` for standard presets).
 - Manual `style` / `pressedStyle` props are merged on top of the recipe result (they do not disable recipes).
 - If the active theme does not provide semantic color tokens, buttons fall back to non-recipe rendering.
@@ -45,6 +47,19 @@ Buttons are design-system styled by default when the active theme provides seman
 | `dsVariant` | `"solid" \| "soft" \| "outline" \| "ghost"` | `"soft"` | Visual variant |
 | `dsTone` | `"default" \| "primary" \| "danger" \| "success" \| "warning"` | `"default"` | Semantic tone |
 | `dsSize` | `"sm" \| "md" \| "lg"` | `"md"` | Size preset (controls padding) |
+
+If you pass both `intent` and explicit design-system props, the explicit props win:
+
+```typescript
+ui.button({
+  id: "publish",
+  label: "Publish",
+  intent: "primary",
+  dsTone: "warning",
+})
+```
+
+The example above keeps `dsTone: "warning"` and does not let `intent` remap the button to the primary recipe.
 
 ## Behavior
 
