@@ -111,5 +111,6 @@ describe("focusZone/focusTrap layout transparency", () => {
     if (!first || !second) return;
 
     assert.equal(second.rect.y > first.rect.y, true);
+    assert.equal(second.rect.x, first.rect.x);
   });
 });

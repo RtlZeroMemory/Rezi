@@ -8,9 +8,13 @@ Constrains focus within a subtree when active. Used by modals and overlays to pr
 ui.focusTrap(
   { id: "modal-trap", active: state.modalOpen },
   [
-    ui.text("Are you sure?"),
-    ui.button({ id: "confirm", label: "Confirm" }),
-    ui.button({ id: "cancel", label: "Cancel" }),
+    ui.column({ gap: 1 }, [
+      ui.text("Are you sure?"),
+      ui.row({ gap: 1 }, [
+        ui.button({ id: "confirm", label: "Confirm" }),
+        ui.button({ id: "cancel", label: "Cancel" }),
+      ]),
+    ]),
   ]
 )
 ```
