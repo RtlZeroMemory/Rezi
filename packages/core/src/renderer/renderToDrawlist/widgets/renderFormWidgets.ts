@@ -13,6 +13,7 @@ import {
   selectRecipe,
   sliderRecipe,
 } from "../../../ui/recipes.js";
+import { DEFAULT_PLACEHOLDER, getSelectDisplayText } from "../../../widgets/select.js";
 import {
   DEFAULT_SLIDER_TRACK_WIDTH,
   formatSliderValue,
@@ -873,19 +874,13 @@ export function renderFormWidgets(
         !disabled,
       );
       const value = typeof props.value === "string" ? props.value : "";
-      const placeholder = typeof props.placeholder === "string" ? props.placeholder : "Select…";
+      const placeholder =
+        typeof props.placeholder === "string" ? props.placeholder : DEFAULT_PLACEHOLDER;
 
       const options = Array.isArray(props.options)
         ? (props.options as readonly SelectOption[])
         : [];
-      let label = "";
-      for (const opt of options) {
-        if (opt && opt.value === value) {
-          label = opt.label;
-          break;
-        }
-      }
-      if (label.length === 0) label = placeholder;
+      const label = getSelectDisplayText(value, options, placeholder);
 
       const colorTokens = getColorTokens(theme);
       const dsSize = readWidgetSize(props.dsSize) ?? "md";

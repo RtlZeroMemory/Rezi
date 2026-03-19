@@ -1,6 +1,6 @@
 # Select
 
-A focusable dropdown selection widget for choosing one value from a list of options.
+A focusable inline selection widget that cycles through one value from a list of options.
 
 ## Usage
 
@@ -24,11 +24,13 @@ ui.select({
 | Prop | Type | Default | Description |
 |---|---|---|---|
 | `id` | `string` | **required** | Unique identifier for focus and event routing |
+| `focusable` | `boolean` | `true` | Opt out of Tab focus while keeping id-based routing available |
+| `accessibleLabel` | `string` | - | Semantic label used for accessibility and focus announcements |
 | `value` | `string` | **required** | Currently selected value |
 | `options` | `{ value: string; label: string; disabled?: boolean }[]` | **required** | Available options |
 | `onChange` | `(value: string) => void` | - | Called when selection changes |
 | `disabled` | `boolean` | `false` | Disable focus and interaction |
-| `placeholder` | `string` | - | Text shown when no matching option label is found |
+| `placeholder` | `string` | `"Select..."` | Text shown when the current value has no matching option label |
 | `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused select decoration |
 | `dsVariant` | `"solid" \| "soft" \| "outline" \| "ghost"` | - | Reserved for future select recipes (currently ignored) |
 | `dsTone` | `"default" \| "primary" \| "danger" \| "success" \| "warning"` | - | Reserved for future select recipes (currently ignored) |
@@ -51,8 +53,10 @@ If the active theme does not provide semantic color tokens, selects fall back to
 - Focusable when enabled.
 - **Mouse click** focuses the select widget.
 - Navigate options with **ArrowUp/ArrowDown**.
-- Confirm selection with **Enter**.
+- **Enter** and **Space** advance to the next enabled option.
 - **Tab / Shift+Tab** moves focus to the next/previous widget.
+
+This widget does not open a popup or dropdown list. It renders the current label inline and cycles through enabled options.
 
 ## Examples
 

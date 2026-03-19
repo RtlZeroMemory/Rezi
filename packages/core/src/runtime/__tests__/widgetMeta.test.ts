@@ -409,6 +409,22 @@ test("widgetMeta: collectAllWidgetMetadata includes accessible focus semantics",
   assert.equal(ageInfo.announcement, "Age — Required");
 });
 
+test("widgetMeta: select visible label falls back to placeholder for unknown value", () => {
+  const vnode = ui.select({
+    id: "theme",
+    value: "missing",
+    placeholder: "Choose a theme",
+    options: [{ value: "dark", label: "Dark" }],
+  });
+
+  const committed = commitTree(vnode);
+  const allMeta = collectAllWidgetMetadata(committed);
+  const info = allMeta.focusInfoById.get("theme");
+  assert.ok(info);
+  assert.equal(info.visibleLabel, "Choose a theme");
+  assert.equal(info.announcement, "Choose a theme");
+});
+
 test("widgetMeta: reusable collector publishes stable snapshots across collects", () => {
   const collector = createWidgetMetadataCollector();
 

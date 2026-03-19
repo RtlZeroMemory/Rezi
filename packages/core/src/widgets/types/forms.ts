@@ -48,8 +48,6 @@ export type SelectProps = Readonly<{
   disabled?: boolean;
   /** Placeholder text when no value is selected. */
   placeholder?: string;
-  /** Whether to show the select in an error state. */
-  error?: boolean;
   /** Optional focus appearance configuration. */
   focusConfig?: FocusConfig;
   /** Design system: visual variant (reserved for future select recipes). */
