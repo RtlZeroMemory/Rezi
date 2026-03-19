@@ -80,4 +80,17 @@ describe("slider widget API", () => {
     assert.equal(fromUi.kind, "slider");
     assert.deepEqual(fromUi.props, props);
   });
+
+  test("slider accepts focusConfig without requiring onChange", () => {
+    const props: SliderProps = {
+      id: "volume-passive",
+      value: 50,
+      focusable: true,
+      focusConfig: { indicator: "none" },
+    };
+
+    const fromUi = ui.slider(props);
+    assert.equal(fromUi.kind, "slider");
+    assert.deepEqual(fromUi.props, props);
+  });
 });

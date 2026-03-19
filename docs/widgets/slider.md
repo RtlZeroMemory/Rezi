@@ -23,6 +23,8 @@ ui.slider({
 |---|---|---|---|
 | `id` | `string` | **required** | Unique identifier for focus and routing |
 | `value` | `number` | **required** | Current value |
+| `focusable` | `boolean` | `true` | Remove the slider from Tab order while keeping id-based routing available |
+| `accessibleLabel` | `string` | - | Optional semantic label for focus announcements and debugging |
 | `min` | `number` | `0` | Minimum value |
 | `max` | `number` | `100` | Maximum value |
 | `step` | `number` | `1` | Keyboard increment/decrement step |
@@ -33,6 +35,7 @@ ui.slider({
 | `disabled` | `boolean` | `false` | Disable focus and interaction |
 | `readOnly` | `boolean` | `false` | Keep focusable, but block value changes |
 | `style` | `TextStyle` | - | Optional style override |
+| `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses the focused slider highlight |
 | `key` | `string` | - | Reconciliation key |
 
 ## Behavior
@@ -42,7 +45,9 @@ ui.slider({
 - **Right/Up** increases by `step`.
 - **PageDown/PageUp** changes by 10 steps.
 - **Home/End** jumps to min/max.
+- `onChange` is optional; without it, the slider still renders and can receive focus, but it behaves as a non-editing control.
 - `readOnly` sliders still receive focus but do not emit `onChange`.
+- `focusConfig: { indicator: "none" }` keeps keyboard focus routing but suppresses the focused slider styling.
 
 ## Related
 
