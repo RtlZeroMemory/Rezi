@@ -232,9 +232,20 @@
     },
     {
       "name": "slider",
-      "requiredProps": ["id", "value", "onChange"],
-      "commonProps": ["min", "max", "step"],
-      "example": "ui.slider({ id: 'vol', value: 42, onChange: setVol })"
+      "requiredProps": ["id", "value"],
+      "commonProps": [
+        "min",
+        "max",
+        "step",
+        "label",
+        "showValue",
+        "onChange",
+        "readOnly",
+        "focusable",
+        "accessibleLabel",
+        "focusConfig"
+      ],
+      "example": "ui.slider({ id: 'vol', value: 42, min: 0, max: 100, onChange: setVol })"
     },
     {
       "name": "focusAnnouncer",

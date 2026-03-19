@@ -103,6 +103,7 @@ The following widgets accept `focusConfig`:
 | `input` | Suppresses focused input decoration |
 | `textarea` | Suppresses focused textarea decoration |
 | `select` | Suppresses focused select decoration |
+| `slider` | Suppresses focused slider highlight |
 | `virtualList` | Suppresses focused item highlight |
 | `table` | Suppresses focused row highlight |
 | `commandPalette` | Suppresses focused item highlight |
