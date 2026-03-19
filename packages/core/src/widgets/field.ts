@@ -8,7 +8,6 @@
  * @see docs/widgets/field.md (GitHub issue #119)
  */
 
-import { rgb } from "./style.js";
 import type { FieldProps, VNode } from "./types.js";
 
 /** Character used to indicate required fields. */
@@ -21,7 +20,7 @@ export const FIELD_LABEL_STYLE = Object.freeze({
 
 /** Default styles for field error. */
 export const FIELD_ERROR_STYLE = Object.freeze({
-  fg: rgb(255, 0, 0),
+  bold: true,
 });
 
 /** Default styles for field hint. */
@@ -51,6 +50,17 @@ export function buildFieldLabel(label: string, required?: boolean): string {
  */
 export function shouldShowError(error: string | undefined): boolean {
   return error !== undefined && error !== "";
+}
+
+/**
+ * Resolve the footer text shown below a field.
+ * Non-empty errors take precedence; otherwise the hint is shown.
+ */
+export function getFieldFooterText(
+  error: string | undefined,
+  hint: string | undefined,
+): string | undefined {
+  return shouldShowError(error) ? error : hint;
 }
 
 /**

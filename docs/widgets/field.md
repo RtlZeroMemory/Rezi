@@ -33,10 +33,14 @@ form.field("name", { label: "Name", required: true, hint: "Your display name" })
 | `required` | `boolean` | `false` | Show required indicator |
 | `error` | `string` | - | Error message |
 | `hint` | `string` | - | Helper text |
+| `key` | `string` | - | Reconciliation key |
 
 ## Notes
 
 - The wrapped child remains the focusable element.
+- `Field` renders at most one footer line. A non-empty `error` takes precedence; otherwise `hint` is shown.
+- An empty-string `error` is treated as absent, so `hint` still renders when provided.
+- Footer colors come from the active theme. The exported field style helpers are structural presets, not fixed color tokens.
 - Use `Field` to keep label, hint, and error layout consistent across forms.
 
 ## Related

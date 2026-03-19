@@ -297,7 +297,7 @@
       "name": "field",
       "requiredProps": ["label", "children"],
       "commonProps": ["required", "error", "hint"],
-      "example": "ui.field({ label: 'Email', children: ui.input('email', '') })"
+      "example": "ui.field({ label: 'Email', children: ui.input({ id: 'email', value: '' }) })"
     },
     {
       "name": "select",
