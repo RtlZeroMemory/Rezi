@@ -338,15 +338,17 @@
         "onPress"
       ],
       "commonProps": [
+        "selectedPath",
+        "modifiedPaths",
+        "stagedPaths",
         "filter",
         "showHidden",
-        "selectedPath",
         "multiSelect",
         "selection",
         "onSelectionChange",
         "focusConfig"
       ],
-      "example": "ui.filePicker({ id: 'fp', rootPath: '/', data, expandedPaths, onSelect, onChange, onPress })"
+      "example": "ui.filePicker({ id: 'fp', rootPath: '/', data, selectedPath, expandedPaths, onSelect, onChange, onPress })"
     },
     {
       "name": "fileTreeExplorer",
