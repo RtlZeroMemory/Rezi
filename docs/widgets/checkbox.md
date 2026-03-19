@@ -42,7 +42,7 @@ The indicator and label use `checkboxRecipe()` for checked/focus/disabled states
 - Focusable when enabled.
 - Toggle with **Space** (and commonly **Enter** depending on terminal key mapping).
 - **Mouse down** focuses the checkbox.
-- **Mouse up on the same checkbox** toggles it.
+- **Mouse up on the same checkbox** toggles it when `onChange` is provided.
 - **Tab / Shift+Tab** moves focus.
 
 ## Examples
@@ -52,8 +52,18 @@ The indicator and label use `checkboxRecipe()` for checked/focus/disabled states
 ```typescript
 import { ui } from "@rezi-ui/core";
 
-ui.checkbox({ id: "flag", checked: state.flag, onChange: (c) => app.update((s) => ({ ...s, flag: c })) });
+ui.checkbox({
+  id: "flag",
+  checked: state.flag,
+  accessibleLabel: "Feature flag",
+  onChange: (c) => app.update((s) => ({ ...s, flag: c })),
+});
 ```
+
+When `label` is omitted or visually ambiguous, provide `accessibleLabel` so focus
+announcements and other semantic affordances stay clear. Set `focusable: false`
+only when you intentionally want the checkbox out of Tab order while keeping
+id-based routing available.
 
 ### 2) Disabled
 

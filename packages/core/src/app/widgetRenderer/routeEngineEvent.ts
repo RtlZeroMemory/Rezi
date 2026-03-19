@@ -148,7 +148,11 @@ function extendMousePressableIds(
   let merged: Set<string> | null = null;
 
   for (const [id, checkbox] of checkboxById) {
-    if (typeof checkbox.onChange !== "function" || pressableIds.has(id)) {
+    if (
+      typeof checkbox.onChange !== "function" ||
+      checkbox.disabled === true ||
+      pressableIds.has(id)
+    ) {
       continue;
     }
     if (merged === null) {
