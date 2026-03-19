@@ -375,7 +375,7 @@
       "name": "accordion",
       "requiredProps": ["id", "items"],
       "commonProps": ["expanded", "onChange"],
-      "example": "ui.accordion({ id: 'acc', items })"
+      "example": "ui.accordion({ id: 'acc', items, expanded, onChange })"
     },
     {
       "name": "breadcrumb",

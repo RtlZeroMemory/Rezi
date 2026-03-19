@@ -8,7 +8,14 @@ import {
   resolveAccordionExpanded,
   toggleAccordionExpanded,
 } from "../accordion.js";
+import type { VNode } from "../types.js";
 import { ui } from "../ui.js";
+
+function childSummary(child: VNode): string {
+  if (child.kind === "text") return child.text;
+  if (child.kind === "button") return child.props.label;
+  return child.kind;
+}
 
 const baseProps = {
   id: "acc-main",
@@ -105,18 +112,24 @@ describe("accordion vnode construction", () => {
     const children = buildAccordionChildren(baseProps);
     assert.equal(children[0]?.kind, "focusZone");
     if (children[0]?.kind !== "focusZone") return;
-    assert.equal(children[0].props.id, getAccordionHeadersZoneId(baseProps.id));
-    assert.equal(children[0].children.length, 3);
+    const zone = children[0];
+    assert.equal(zone.props.id, getAccordionHeadersZoneId(baseProps.id));
+    assert.equal(zone.children.length, 4);
+    assert.deepEqual(zone.children.map(childSummary), [
+      "> Intro",
+      "v API",
+      "api-content",
+      "> FAQ",
+    ]);
   });
 
-  test("buildAccordionChildren appends expanded panel content", () => {
+  test("buildAccordionChildren renders expanded panel directly after its header", () => {
     const children = buildAccordionChildren({ ...baseProps, expanded: ["faq"] });
-    assert.equal(children.length, 2);
-    const content = children[1];
-    assert.equal(content?.kind, "text");
-    if (content?.kind === "text") {
-      assert.equal(content.text, "faq-content");
-    }
+    assert.equal(children.length, 1);
+    const zone = children[0];
+    assert.equal(zone?.kind, "focusZone");
+    if (zone?.kind !== "focusZone") return;
+    assert.deepEqual(zone.children.map(childSummary), ["> Intro", "> API", "v FAQ", "faq-content"]);
   });
 
   test("buildAccordionChildren in single mode keeps first expanded panel", () => {
@@ -125,18 +138,17 @@ describe("accordion vnode construction", () => {
       expanded: ["faq", "intro"],
       allowMultiple: false,
     });
-    assert.equal(children.length, 2);
-    const content = children[1];
-    assert.equal(content?.kind, "text");
-    if (content?.kind === "text") {
-      assert.equal(content.text, "faq-content");
-    }
+    assert.equal(children.length, 1);
+    const zone = children[0];
+    assert.equal(zone?.kind, "focusZone");
+    if (zone?.kind !== "focusZone") return;
+    assert.deepEqual(zone.children.map(childSummary), ["> Intro", "> API", "v FAQ", "faq-content"]);
   });
 
   test("createAccordionVNode emits accordion kind", () => {
     const vnode = createAccordionVNode(baseProps);
     assert.equal(vnode.kind, "accordion");
-    assert.equal(vnode.children.length, 2);
+    assert.equal(vnode.children.length, 1);
   });
 
   test("ui.accordion returns a layout-transparent composite wrapper vnode", () => {
