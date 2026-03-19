@@ -3,7 +3,12 @@ import {
   parseDrawTextCommands as parseDecodedDrawTextCommands,
   parseInternedStrings,
 } from "../../__tests__/drawlistDecode.js";
-import { type DrawlistBuilder, type VNode, createDrawlistBuilder } from "../../index.js";
+import {
+  type DrawlistBuilder,
+  type VNode,
+  createDrawlistBuilder,
+  truncateWithEllipsis,
+} from "../../index.js";
 import { layout } from "../../layout/layout.js";
 import { renderToDrawlist } from "../../renderer/renderToDrawlist.js";
 import { commitVNodeTree } from "../../runtime/commit.js";
@@ -240,6 +245,33 @@ describe("basic widgets render to drawlist", () => {
       renderBytes(ui.focusAnnouncer({ emptyText: "No focus" }), { cols: 40, rows: 4 }, {}),
     );
     assert.equal(fallback.includes("No focus"), true);
+  });
+
+  test("focusAnnouncer renders nothing when both announcement and fallback are empty", () => {
+    const commands = parseDrawTextCommands(
+      renderBytes(ui.focusAnnouncer(), { cols: 40, rows: 4 }, {}),
+    );
+    assert.equal(commands.length, 0);
+  });
+
+  test("focusAnnouncer clips long text to the available width", () => {
+    const announcement = "Email input ready";
+    const clippedAnnouncement = parseDrawTextCommands(
+      renderBytes(ui.focusAnnouncer(), { cols: 8, rows: 2 }, { focusAnnouncement: announcement }),
+    );
+    assert.deepEqual(
+      clippedAnnouncement.map((command) => command.text),
+      [truncateWithEllipsis(announcement, 8)],
+    );
+
+    const fallback = "No focus selected";
+    const clippedFallback = parseDrawTextCommands(
+      renderBytes(ui.focusAnnouncer({ emptyText: fallback }), { cols: 7, rows: 2 }, {}),
+    );
+    assert.deepEqual(
+      clippedFallback.map((command) => command.text),
+      [truncateWithEllipsis(fallback, 7)],
+    );
   });
 
   test("input renders placeholder text when value is empty", () => {

@@ -26,6 +26,8 @@ ui.focusAnnouncer({
 - Uses semantic labels when provided via `accessibleLabel`.
 - Includes `field` metadata in announcements (for example required/error context).
 - Renders `emptyText` when focus is `null`.
+- Renders nothing when both the computed announcement and `emptyText` are empty.
+- Draws a single line and clips long announcements to the available width with ellipsis.
 
 ## Example
 
