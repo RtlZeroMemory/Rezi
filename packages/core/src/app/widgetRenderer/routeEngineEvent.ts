@@ -642,6 +642,23 @@ export function routeEngineEventImpl(
       treeStore: ctx.treeStore,
     }) || localNeedsRender;
 
+  if (event.kind === "key") {
+    const inputEditingRoute = routeInputEditingEvent(event, {
+      focusedId: state.focusState.focusedId,
+      enabledById,
+      inputById: ctx.inputById,
+      inputCursorByInstanceId: ctx.inputCursorByInstanceId,
+      inputSelectionByInstanceId: ctx.inputSelectionByInstanceId,
+      inputWorkingValueByInstanceId: ctx.inputWorkingValueByInstanceId,
+      inputUndoByInstanceId: ctx.inputUndoByInstanceId,
+      writeSelectedTextToClipboard: ctx.writeSelectedTextToClipboard,
+      onInputCallbackError: (error) => {
+        ctx.reportInputCallbackError("onInput", error);
+      },
+    });
+    if (inputEditingRoute) return inputEditingRoute as InputEditingRoutingOutcome;
+  }
+
   const res: RoutingResult & { nextZoneId?: string | null } =
     event.kind === "key"
       ? routeKeyWithZones(event, {
@@ -722,19 +739,22 @@ export function routeEngineEventImpl(
     return Object.freeze({ needsRender, action: res.action });
   }
 
-  const inputEditingRoute = routeInputEditingEvent(event, {
-    focusedId: state.focusState.focusedId,
-    enabledById,
-    inputById: ctx.inputById,
-    inputCursorByInstanceId: ctx.inputCursorByInstanceId,
-    inputSelectionByInstanceId: ctx.inputSelectionByInstanceId,
-    inputWorkingValueByInstanceId: ctx.inputWorkingValueByInstanceId,
-    inputUndoByInstanceId: ctx.inputUndoByInstanceId,
-    writeSelectedTextToClipboard: ctx.writeSelectedTextToClipboard,
-    onInputCallbackError: (error) => {
-      ctx.reportInputCallbackError("onInput", error);
-    },
-  });
+  const inputEditingRoute =
+    event.kind === "key"
+      ? null
+      : routeInputEditingEvent(event, {
+          focusedId: state.focusState.focusedId,
+          enabledById,
+          inputById: ctx.inputById,
+          inputCursorByInstanceId: ctx.inputCursorByInstanceId,
+          inputSelectionByInstanceId: ctx.inputSelectionByInstanceId,
+          inputWorkingValueByInstanceId: ctx.inputWorkingValueByInstanceId,
+          inputUndoByInstanceId: ctx.inputUndoByInstanceId,
+          writeSelectedTextToClipboard: ctx.writeSelectedTextToClipboard,
+          onInputCallbackError: (error) => {
+            ctx.reportInputCallbackError("onInput", error);
+          },
+        });
   if (inputEditingRoute) return inputEditingRoute as InputEditingRoutingOutcome;
 
   return Object.freeze({ needsRender });

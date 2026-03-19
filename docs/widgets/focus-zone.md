@@ -17,9 +17,14 @@ ui.focusZone(
 
 ## Layout behavior
 
-`focusZone` is layout-transparent: it does not force children into a column axis.
-Children keep their natural layout behavior (for example, a `row` stays horizontal,
-`grid` stays grid, nested stacks preserve their own axis rules).
+`focusZone` is layout-transparent when it wraps a single child: it does not force
+that child into a column axis. The child keeps its natural layout behavior
+(for example, a `row` stays horizontal, `grid` stays grid, nested stacks
+preserve their own axis rules).
+
+When you pass multiple direct children, Rezi currently uses a legacy column
+fallback. Keep explicit layout wrappers around multi-child zones so structure
+stays obvious and stable.
 
 When you want explicit structure, keep using standard layout widgets:
 
