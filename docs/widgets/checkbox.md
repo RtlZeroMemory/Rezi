@@ -21,9 +21,12 @@ ui.checkbox({
 |---|---|---|---|
 | `id` | `string` | **required** | Unique identifier for focus and event routing |
 | `checked` | `boolean` | **required** | Current checked state |
+| `focusable` | `boolean` | `true` | Opt out of Tab focus while keeping id-based routing available |
+| `accessibleLabel` | `string` | - | Semantic label used for accessibility and focus announcements |
 | `label` | `string` | - | Optional label displayed next to the box |
 | `onChange` | `(checked: boolean) => void` | - | Called when the user toggles the checkbox |
 | `disabled` | `boolean` | `false` | Disable focus and interaction |
+| `focusConfig` | `FocusConfig` | - | Custom focus appearance configuration |
 | `dsTone` | `"default" \| "primary" \| "danger" \| "success" \| "warning"` | `"default"` | Design-system tone for checked/focus rendering |
 | `dsSize` | `"sm" \| "md" \| "lg"` | `"md"` | Design-system size preset |
 | `key` | `string` | - | Reconciliation key |
@@ -38,7 +41,8 @@ The indicator and label use `checkboxRecipe()` for checked/focus/disabled states
 
 - Focusable when enabled.
 - Toggle with **Space** (and commonly **Enter** depending on terminal key mapping).
-- **Mouse click** focuses and toggles the checkbox.
+- **Mouse down** focuses the checkbox.
+- **Mouse up on the same checkbox** toggles it.
 - **Tab / Shift+Tab** moves focus.
 
 ## Examples

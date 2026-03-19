@@ -621,6 +621,46 @@ describe("WidgetRenderer integration battery", () => {
     assert.deepEqual(values, []);
   });
 
+  test("checkbox mouse toggles on release over the same target", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const changes: boolean[] = [];
+    const vnode = ui.checkbox({
+      id: "agree",
+      checked: false,
+      label: "Agree",
+      onChange: (checked) => changes.push(checked),
+    });
+
+    const res = renderer.submitFrame(
+      () => vnode,
+>>>>>>> 571cb467 (fix(checkbox): toggle on mouse release)
+      undefined,
+      { cols: 40, rows: 5 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    const down = renderer.routeEngineEvent(mouseEvent(1, 0, 3, { timeMs: 1, buttons: 1 }));
+    assert.equal(down.action, undefined);
+    assert.deepEqual(changes, []);
+    assert.equal(renderer.getFocusedId(), "agree");
+
+    const up = renderer.routeEngineEvent(mouseEvent(1, 0, 4, { timeMs: 2, buttons: 0 }));
+    assert.deepEqual(up.action, {
+      id: "agree",
+      action: "toggle",
+      checked: true,
+    });
+    assert.deepEqual(changes, [true]);
+    assert.equal(renderer.getFocusedId(), "agree");
+  });
+
   test("select uses Enter and Space to advance like the inline cycler runtime", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({
