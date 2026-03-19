@@ -134,6 +134,42 @@ function wrapLineByCells(line: string, width: number): readonly string[] {
   return Object.freeze(out.length > 0 ? out : [""]);
 }
 
+function sliceTextToCellWindow(
+  text: string,
+  startCell: number,
+  width: number,
+): Readonly<{ text: string; startCell: number }> {
+  const safeStart = Math.max(0, Math.trunc(startCell));
+  if (width <= 0 || text.length === 0) {
+    return Object.freeze({ text: "", startCell: safeStart });
+  }
+
+  const codepoints = Array.from(text);
+  let actualStart = 0;
+  let index = 0;
+
+  while (index < codepoints.length) {
+    const cp = codepoints[index] ?? "";
+    const cpWidth = Math.max(0, measureTextCells(cp));
+    if (actualStart + cpWidth > safeStart) break;
+    actualStart += cpWidth;
+    index++;
+  }
+
+  let visibleText = "";
+  let visibleWidth = 0;
+  while (index < codepoints.length) {
+    const cp = codepoints[index] ?? "";
+    const cpWidth = Math.max(0, measureTextCells(cp));
+    if (cpWidth > 0 && visibleWidth + cpWidth > width) break;
+    visibleText += cp;
+    visibleWidth += cpWidth;
+    index++;
+  }
+
+  return Object.freeze({ text: visibleText, startCell: actualStart });
+}
+
 type InputLineMeta = Readonly<{
   lines: readonly string[];
   starts: readonly number[];
@@ -572,6 +608,8 @@ export function renderFormWidgets(
           focused && !disabled
             ? Math.max(0, Math.min(maxStartVisual, wrapped.visualLine - contentH + 1))
             : 0;
+        const horizontalScroll =
+          focused && !disabled && !wordWrap ? Math.max(0, wrapped.visualX - contentW + 1) : 0;
 
         builder.pushClip(textX, textY, contentW, contentH);
         for (let row = 0; row < contentH; row++) {
@@ -580,7 +618,9 @@ export function renderFormWidgets(
               ? placeholder
               : ""
             : (wrapped.visualLines[startVisual + row] ?? "");
-          const line = wordWrap ? rawLine : truncateToWidth(rawLine, contentW);
+          const line = wordWrap
+            ? rawLine
+            : sliceTextToCellWindow(rawLine, horizontalScroll, contentW).text;
           if (line.length === 0) continue;
           builder.drawText(textX, textY + row, line, showPlaceholder ? placeholderStyle : style);
         }
@@ -590,8 +630,9 @@ export function renderFormWidgets(
           const localY = wrapped.visualLine - startVisual;
           if (localY >= 0 && localY < contentH) {
             const maxCursorX = Math.max(0, contentW - 1);
+            const localX = wordWrap ? wrapped.visualX : wrapped.visualX - horizontalScroll;
             resolvedCursor = {
-              x: textX + clampInt(wrapped.visualX, 0, maxCursorX),
+              x: textX + clampInt(localX, 0, maxCursorX),
               y: textY + localY,
               shape: cursorInfo.shape,
               blink: cursorInfo.blink,
