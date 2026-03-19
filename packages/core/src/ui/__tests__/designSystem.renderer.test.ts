@@ -165,4 +165,29 @@ describe("design system rendering", () => {
     if (vnode.kind !== "button") throw new Error("expected button vnode");
     assert.equal(vnode.props.dsVariant, "ghost");
   });
+
+  it("keeps explicit dsTone over intent mapping", () => {
+    const vnode = ui.button({
+      id: "b4",
+      label: "Custom",
+      intent: "primary",
+      dsTone: "warning",
+    });
+    if (vnode.kind !== "button") throw new Error("expected button vnode");
+    assert.equal(vnode.props.dsTone, "warning");
+    assert.equal(vnode.props.dsVariant, undefined);
+  });
+
+  it("keeps explicit dsVariant and dsTone over intent mapping", () => {
+    const vnode = ui.button({
+      id: "b5",
+      label: "Custom",
+      intent: "danger",
+      dsVariant: "outline",
+      dsTone: "success",
+    });
+    if (vnode.kind !== "button") throw new Error("expected button vnode");
+    assert.equal(vnode.props.dsVariant, "outline");
+    assert.equal(vnode.props.dsTone, "success");
+  });
 });

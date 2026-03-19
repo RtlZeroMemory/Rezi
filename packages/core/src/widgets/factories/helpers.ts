@@ -79,7 +79,9 @@ export function isTextProps(v: TextStyle | TextProps): v is TextProps {
 }
 
 export function resolveButtonIntent(props: ButtonProps): ButtonProps {
-  if (props.intent === undefined || props.dsVariant !== undefined) return props;
+  if (props.intent === undefined || props.dsVariant !== undefined || props.dsTone !== undefined) {
+    return props;
+  }
   switch (props.intent) {
     case "primary":
       return { ...props, dsVariant: "solid", dsTone: props.dsTone ?? "primary" };
