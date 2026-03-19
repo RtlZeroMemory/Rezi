@@ -5230,7 +5230,6 @@ export type SelectProps = Readonly<{
     onChange?: (value: string) => void;
     disabled?: boolean;
     placeholder?: string;
-    error?: boolean;
     focusConfig?: FocusConfig;
     dsVariant?: WidgetVariant;
     dsTone?: WidgetTone;
@@ -8014,7 +8013,7 @@ export type ZrUiErrorCode = "ZRUI_INVALID_STATE" | "ZRUI_MODE_CONFLICT" | "ZRUI_
 // src/runtime/instances.ts:161:3 - (ae-forgotten-export) The symbol "AppStateSelection" needs to be exported by the entry point index.d.ts
 // src/runtime/localState.ts:401:3 - (ae-forgotten-export) The symbol "TreeFlatCache" needs to be exported by the entry point index.d.ts
 // src/runtime/localState.ts:406:3 - (ae-forgotten-export) The symbol "TreePrefixCache" needs to be exported by the entry point index.d.ts
-// src/runtime/widgetMeta/focusInfo.ts:7:3 - (ae-forgotten-export) The symbol "RuntimeInstance" needs to be exported by the entry point index.d.ts
+// src/runtime/widgetMeta/focusInfo.ts:8:3 - (ae-forgotten-export) The symbol "RuntimeInstance" needs to be exported by the entry point index.d.ts
 // src/testing/renderer.ts:93:3 - (ae-forgotten-export) The symbol "TestRecordedOp" needs to be exported by the entry point index.d.ts
 // src/widgets/composition.ts:88:3 - (ae-forgotten-export) The symbol "UnknownCallback" needs to be exported by the entry point index.d.ts
 // src/widgets/style.ts:26:3 - (ae-forgotten-export) The symbol "UnderlineStyle" needs to be exported by the entry point index.d.ts
