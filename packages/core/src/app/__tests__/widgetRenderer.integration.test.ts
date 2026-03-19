@@ -833,7 +833,6 @@ describe("WidgetRenderer integration battery", () => {
 
     const res = renderer.submitFrame(
       view,
->>>>>>> 038d718a (fix(radio-group): render disabled options consistently)
       undefined,
       { cols: 40, rows: 10 },
       defaultTheme,
