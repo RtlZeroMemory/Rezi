@@ -105,9 +105,13 @@ describe("field widget utilities", () => {
       }),
     );
 
-    assert.ok(withError.toText().includes("Required"));
-    assert.ok(!withError.toText().includes("Enter your name"));
-    assert.ok(withEmptyError.toText().includes("Enter your name"));
+    const withErrorText = withError.toText();
+    const withEmptyErrorText = withEmptyError.toText();
+
+    assert.ok(withErrorText.includes("Required"));
+    assert.ok(!withErrorText.includes("Enter your name"));
+    assert.ok(withEmptyErrorText.includes("Enter your name"));
+    assert.ok(!withEmptyErrorText.includes("Required"));
   });
 });
 
