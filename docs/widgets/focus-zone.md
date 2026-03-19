@@ -8,18 +8,25 @@ Groups focusable widgets into a logical unit for Tab traversal. Focus zones help
 ui.focusZone(
   { id: "toolbar", tabIndex: 0 },
   [
-    ui.button({ id: "new", label: "New" }),
-    ui.button({ id: "open", label: "Open" }),
-    ui.button({ id: "save", label: "Save" }),
+    ui.row({ gap: 1 }, [
+      ui.button({ id: "new", label: "New" }),
+      ui.button({ id: "open", label: "Open" }),
+      ui.button({ id: "save", label: "Save" }),
+    ]),
   ]
 )
 ```
 
 ## Layout behavior
 
-`focusZone` is layout-transparent: it does not force children into a column axis.
-Children keep their natural layout behavior (for example, a `row` stays horizontal,
-`grid` stays grid, nested stacks preserve their own axis rules).
+`focusZone` is layout-transparent when it wraps a single child: it does not force
+that child into a column axis. The child keeps its natural layout behavior
+(for example, a `row` stays horizontal, `grid` stays grid, nested stacks
+preserve their own axis rules).
+
+When you pass multiple direct children, Rezi currently uses a legacy column
+fallback. Keep explicit layout wrappers around multi-child zones so structure
+stays obvious and stable.
 
 When you want explicit structure, keep using standard layout widgets:
 
@@ -56,9 +63,11 @@ Arrow keys move through items in document order:
 
 ```typescript
 ui.focusZone({ id: "list", navigation: "linear" }, [
-  ui.button({ id: "a", label: "A" }),
-  ui.button({ id: "b", label: "B" }),
-  ui.button({ id: "c", label: "C" }),
+  ui.column({ gap: 1 }, [
+    ui.button({ id: "a", label: "A" }),
+    ui.button({ id: "b", label: "B" }),
+    ui.button({ id: "c", label: "C" }),
+  ]),
 ])
 // Up/Down or Left/Right moves A -> B -> C
 ```
@@ -69,12 +78,14 @@ Arrow keys navigate a 2D grid layout:
 
 ```typescript
 ui.focusZone({ id: "grid", navigation: "grid", columns: 3 }, [
-  ui.button({ id: "1", label: "1" }),
-  ui.button({ id: "2", label: "2" }),
-  ui.button({ id: "3", label: "3" }),
-  ui.button({ id: "4", label: "4" }),
-  ui.button({ id: "5", label: "5" }),
-  ui.button({ id: "6", label: "6" }),
+  ui.grid({ columns: 3 }, [
+    ui.button({ id: "1", label: "1" }),
+    ui.button({ id: "2", label: "2" }),
+    ui.button({ id: "3", label: "3" }),
+    ui.button({ id: "4", label: "4" }),
+    ui.button({ id: "5", label: "5" }),
+    ui.button({ id: "6", label: "6" }),
+  ]),
 ])
 // Left/Right moves horizontally
 // Up/Down moves between rows
@@ -111,8 +122,10 @@ ui.focusZone({
   onEnter: () => showSearchHint(),
   onExit: () => hideSearchHint(),
 }, [
-  ui.input({ id: "query", value: state.query }),
-  ui.button({ id: "search", label: "Search" }),
+  ui.row({ gap: 1 }, [
+    ui.input({ id: "query", value: state.query }),
+    ui.button({ id: "search", label: "Search" }),
+  ]),
 ])
 ```
 
@@ -123,17 +136,21 @@ Organize a form into logical sections:
 ```typescript
 ui.column({ gap: 2 }, [
   ui.focusZone({ id: "credentials", tabIndex: 0 }, [
-    ui.field({ label: "Username", children:
-      ui.input({ id: "user", value: state.user })
-    }),
-    ui.field({ label: "Password", children:
-      ui.input({ id: "pass", value: state.pass })
-    }),
+    ui.column({ gap: 1 }, [
+      ui.field({ label: "Username", children:
+        ui.input({ id: "user", value: state.user })
+      }),
+      ui.field({ label: "Password", children:
+        ui.input({ id: "pass", value: state.pass })
+      }),
+    ]),
   ]),
 
   ui.focusZone({ id: "actions", tabIndex: 1 }, [
-    ui.button({ id: "login", label: "Login" }),
-    ui.button({ id: "cancel", label: "Cancel" }),
+    ui.row({ gap: 1 }, [
+      ui.button({ id: "login", label: "Login" }),
+      ui.button({ id: "cancel", label: "Cancel" }),
+    ]),
   ]),
 ])
 ```

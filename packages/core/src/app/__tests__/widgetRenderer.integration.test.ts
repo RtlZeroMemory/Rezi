@@ -805,6 +805,99 @@ describe("WidgetRenderer integration battery", () => {
     assert.equal(renderer.getFocusedId(), "z3");
   });
 
+  test("focusZone preserves single-line input arrow editing while active", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const values: string[] = [];
+    const vnode = ui.column({}, [
+      ui.focusZone({ id: "zone", navigation: "linear", wrapAround: true }, [
+        ui.input({
+          id: "name",
+          value: "ab",
+          onInput: (value) => values.push(value),
+        }),
+        ui.button({ id: "next", label: "Next" }),
+      ]),
+    ]);
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 40, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "name");
+
+    const left = renderer.routeEngineEvent(keyEvent(22 /* LEFT */));
+    assert.equal(left.action, undefined);
+    assert.equal(renderer.getFocusedId(), "name");
+
+    const typed = renderer.routeEngineEvent(textEvent(120 /* x */));
+    assert.deepEqual(typed.action, {
+      id: "name",
+      action: "input",
+      value: "axb",
+      cursor: 2,
+    });
+    assert.deepEqual(values, ["axb"]);
+    assert.equal(renderer.getFocusedId(), "name");
+  });
+
+  test("focusZone preserves textarea vertical editing while active", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const values: string[] = [];
+    const vnode = ui.column({}, [
+      ui.focusZone({ id: "zone", navigation: "linear", wrapAround: true }, [
+        ui.textarea({
+          id: "notes",
+          value: "abcd\nef",
+          rows: 4,
+          onInput: (value) => values.push(value),
+        }),
+        ui.button({ id: "submit", label: "Submit" }),
+      ]),
+    ]);
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 40, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "notes");
+
+    const up = renderer.routeEngineEvent(keyEvent(20 /* UP */));
+    assert.equal(up.action, undefined);
+    assert.equal(renderer.getFocusedId(), "notes");
+
+    const typed = renderer.routeEngineEvent(textEvent(120 /* x */));
+    assert.deepEqual(typed.action, {
+      id: "notes",
+      action: "input",
+      value: "abxcd\nef",
+      cursor: 3,
+    });
+    assert.deepEqual(values, ["abxcd\nef"]);
+    assert.equal(renderer.getFocusedId(), "notes");
+  });
+
   test("link is focusable and fires onPress with Enter/Space", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({
