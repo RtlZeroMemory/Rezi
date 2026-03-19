@@ -51,6 +51,7 @@ ui.virtualList({
 | `keyboardNavigation` | `boolean` | `true` | Enable arrow/page/home/end navigation |
 | `wrapAround` | `boolean` | `false` | Wrap selection from end to start |
 | `scrollDirection` | `"traditional" \| "natural"` | `"traditional"` | Mouse-wheel direction mode for this list |
+| `selectionStyle` | `TextStyle` | - | Optional style override for the selected row highlight |
 | `onScroll` | `(scrollTop, range) => void` | - | Scroll callback with visible range |
 | `onSelect` | `(item, index) => void` | - | Selection callback |
 | `focusConfig` | `FocusConfig` | - | Control focus visuals; `{ indicator: "none" }` suppresses focused item highlight |
@@ -67,9 +68,12 @@ ui.virtualList({
 
 - Use `itemHeight` for fixed heights or when exact heights are known up front.
 - Use `estimateItemHeight` when true height depends on rendered content/width.
-- In estimate mode, visible items are measured and cached, then scroll math is corrected.
-- Measured-height cache resets when viewport width or item count changes.
+- `measureItemHeight` is only used in estimate mode. It receives `{ width, estimatedHeight, vnode }` for each rendered item and can override the internal simple measurer.
+- Returned `measureItemHeight` values are normalized before entering the measured-height cache: non-finite or non-positive values fall back to `estimatedHeight`, and positive values are truncated to whole cells with a minimum of 1.
+- In estimate mode, visible items are measured and cached, then scroll math is corrected on the following frame.
+- Measured-height cache is reused only while viewport width and item count stay the same; changing either triggers remeasurement.
 - `renderItem` receives a `focused` flag for styling.
+- `selectionStyle` still applies to the selected row in estimate mode.
 - The `range` passed to `onScroll` is `[startIndex, endIndex)` and includes overscan.
 
 ## Related
