@@ -772,6 +772,53 @@ describe("renderer regressions", () => {
     );
   });
 
+  test("virtualList estimate mode remeasures after item count changes", () => {
+    const virtualListStore = createVirtualListStateStore();
+    const id = "vl-count-reset";
+    let measureCalls = 0;
+
+    const render = (items: readonly string[]) =>
+      renderBytes(
+        ui.virtualList({
+          id,
+          items,
+          estimateItemHeight: 1,
+          measureItemHeight: () => {
+            measureCalls += 1;
+            return 1;
+          },
+          renderItem: (item) => ui.text(item),
+        }),
+        { cols: 12, rows: 3 },
+        { virtualListStore },
+      );
+
+    render(["a", "b", "c"]);
+    const first = virtualListStore.get(id);
+    assert.equal(first.measuredItemCount, 3);
+    assert.equal(measureCalls, 3);
+    assert.deepEqual(
+      [...(first.measuredHeights ?? new Map<number, number>()).entries()],
+      [
+        [0, 1],
+        [1, 1],
+        [2, 1],
+      ],
+    );
+
+    render(["a", "b"]);
+    const second = virtualListStore.get(id);
+    assert.equal(second.measuredItemCount, 2);
+    assert.equal(measureCalls, 5);
+    assert.deepEqual(
+      [...(second.measuredHeights ?? new Map<number, number>()).entries()],
+      [
+        [0, 1],
+        [1, 1],
+      ],
+    );
+  });
+
   test("virtualList selectionStyle background applies in estimate mode", () => {
     const virtualListStore = createVirtualListStateStore();
     const id = "vl-selection-estimate";
