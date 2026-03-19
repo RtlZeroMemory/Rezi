@@ -337,8 +337,17 @@
     },
     {
       "name": "checkbox",
-      "requiredProps": ["id", "checked", "onChange"],
-      "commonProps": ["label", "disabled"],
+      "requiredProps": ["id", "checked"],
+      "commonProps": [
+        "onChange",
+        "label",
+        "disabled",
+        "focusable",
+        "accessibleLabel",
+        "focusConfig",
+        "dsTone",
+        "dsSize"
+      ],
       "example": "ui.checkbox({ id: 'agree', checked, onChange })"
     },
     {

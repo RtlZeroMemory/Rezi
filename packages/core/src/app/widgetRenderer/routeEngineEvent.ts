@@ -141,6 +141,29 @@ type SplitPaneLastDividerDown = Readonly<{
   timeMs: number;
 }> | null;
 
+function extendMousePressableIds(
+  pressableIds: ReadonlySet<string>,
+  checkboxById: ReadonlyMap<string, CheckboxProps>,
+): ReadonlySet<string> {
+  let merged: Set<string> | null = null;
+
+  for (const [id, checkbox] of checkboxById) {
+    if (
+      typeof checkbox.onChange !== "function" ||
+      checkbox.disabled === true ||
+      pressableIds.has(id)
+    ) {
+      continue;
+    }
+    if (merged === null) {
+      merged = new Set(pressableIds);
+    }
+    merged.add(id);
+  }
+
+  return merged ?? pressableIds;
+}
+
 export type RouteEngineEventOutcome = Readonly<{
   needsRender: boolean;
   action?: RoutedAction;
@@ -677,7 +700,7 @@ export function routeEngineEventImpl(
             pressedId: state.pressedId,
             hitTestTargetId: mouseTargetId,
             enabledById,
-            pressableIds: ctx.pressableIds,
+            pressableIds: extendMousePressableIds(ctx.pressableIds, ctx.checkboxById),
           })
         : EMPTY_ROUTING;
 
@@ -731,6 +754,20 @@ export function routeEngineEventImpl(
 
   if (res.action) {
     if (res.action.action === "press") {
+      const checkbox = ctx.checkboxById.get(res.action.id);
+      if (checkbox && typeof checkbox.onChange === "function" && checkbox.disabled !== true) {
+        const nextChecked = !checkbox.checked;
+        checkbox.onChange(nextChecked);
+        return Object.freeze({
+          needsRender,
+          action: Object.freeze({
+            id: res.action.id,
+            action: "toggle",
+            checked: nextChecked,
+          }),
+        });
+      }
+
       const btn = ctx.buttonById.get(res.action.id);
       if (btn?.onPress) btn.onPress();
       const link = ctx.linkById.get(res.action.id);
