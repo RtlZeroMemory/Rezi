@@ -30,7 +30,7 @@ export type CommandItem = Readonly<{
   label: string;
   /** Secondary description. */
   description?: string;
-  /** Shortcut label shown with the item and active while the palette is open. */
+  /** Shortcut label shown with the item; enabled shortcuts are active only for the open topmost palette. */
   shortcut?: string;
   /** Icon character (single cell). */
   icon?: string;
