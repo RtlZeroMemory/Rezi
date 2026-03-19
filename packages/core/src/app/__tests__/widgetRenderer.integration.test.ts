@@ -638,7 +638,6 @@ describe("WidgetRenderer integration battery", () => {
 
     const res = renderer.submitFrame(
       () => vnode,
->>>>>>> 571cb467 (fix(checkbox): toggle on mouse release)
       undefined,
       { cols: 40, rows: 5 },
       defaultTheme,
