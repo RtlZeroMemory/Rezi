@@ -25,18 +25,24 @@ ui.radioGroup({
 |---|---|---|---|
 | `id` | `string` | **required** | Unique identifier for focus and event routing |
 | `value` | `string` | **required** | Currently selected value |
-| `options` | `{ value: string; label: string }[]` | **required** | Available options |
-| `onChange` | `(value: string) => void` | - | Called when selection changes |
+| `options` | `{ value: string; label: string; disabled?: boolean }[]` | **required** | Available options; disabled entries stay visible but are skipped by keyboard selection |
+| `onChange` | `(value: string) => void` | - | Called when arrow-key navigation changes the selected value |
 | `direction` | `"horizontal" \| "vertical"` | `"vertical"` | Layout direction |
 | `disabled` | `boolean` | `false` | Disable focus and interaction |
+| `focusable` | `boolean` | `true` | Opt out of Tab order while keeping id-based routing available |
+| `accessibleLabel` | `string` | - | Optional semantic label for announcements and debugging |
+| `focusConfig` | `FocusConfig` | theme default | Optional focus-indicator configuration |
+| `dsTone` | `"default" \| "primary" \| "danger" \| "success" \| "warning"` | `"default"` | Design-system tone for selected/focus rendering |
+| `dsSize` | `"sm" \| "md" \| "lg"` | `"md"` | Design-system size preset |
 | `key` | `string` | - | Reconciliation key |
 
 ## Behavior
 
 - Focusable when enabled.
-- **Mouse click** focuses the radio group.
-- Navigate choices with **ArrowUp/ArrowDown** (or left/right in horizontal layouts).
-- Confirm with **Enter**.
+- Disabled options remain rendered with disabled styling and are skipped by arrow-key navigation.
+- **Mouse click** focuses the radio group but does not select an option.
+- Navigate choices with **ArrowUp/ArrowDown** in vertical groups or **ArrowLeft/ArrowRight** in horizontal groups.
+- **Enter** does not change the current selection.
 - **Tab / Shift+Tab** moves focus in/out.
 
 ## Examples
@@ -73,6 +79,6 @@ ui.radioGroup({
 
 ## Related
 
-- [Select](select.md) - Dropdown single-choice input
+- [Select](select.md) - Inline single-choice cycler
 - [Checkbox](checkbox.md) - Boolean toggle
 - [Input & Focus](../guide/input-and-focus.md) - Focus navigation rules

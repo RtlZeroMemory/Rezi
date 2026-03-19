@@ -1151,9 +1151,10 @@ export function renderFormWidgets(
         if (typeof optionValue !== "string" || typeof optionLabel !== "string") continue;
 
         const selected = optionValue === value;
+        const optionDisabled = disabled || (opt as { disabled?: unknown }).disabled === true;
         const mark = selected ? "(o)" : "( )";
         if (colorTokens !== null) {
-          const state = disabled
+          const state = optionDisabled
             ? ("disabled" as const)
             : focusVisible && selected
               ? ("focus" as const)
@@ -1191,7 +1192,7 @@ export function renderFormWidgets(
           const focusStyle = focusVisible ? { underline: true, bold: true } : undefined;
           const baseStyle = mergeTextStyle(
             parentStyle,
-            disabled ? { fg: theme.colors.muted, ...focusStyle } : focusStyle,
+            optionDisabled ? { fg: theme.colors.muted, ...focusStyle } : focusStyle,
           );
           const style = focusVisible
             ? resolveFocusedContentStyle(baseStyle, theme, focusConfig)

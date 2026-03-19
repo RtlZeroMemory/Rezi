@@ -805,6 +805,55 @@ describe("WidgetRenderer integration battery", () => {
     assert.equal(renderer.getFocusedId(), "z3");
   });
 
+  test("radioGroup arrows skip disabled options and Enter does not change selection", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const changes: string[] = [];
+    let selected = "free";
+    const view = () =>
+      ui.column({}, [
+        ui.radioGroup({
+          id: "plan",
+          value: selected,
+          options: [
+            { value: "free", label: "Free" },
+            { value: "pro", label: "Pro", disabled: true },
+            { value: "enterprise", label: "Enterprise" },
+          ],
+          onChange: (value) => {
+            changes.push(value);
+            selected = value;
+          },
+        }),
+      ]);
+
+    const res = renderer.submitFrame(
+      view,
+>>>>>>> 038d718a (fix(radio-group): render disabled options consistently)
+      undefined,
+      { cols: 40, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+    assert.equal(renderer.getFocusedId(), null);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "plan");
+
+    renderer.routeEngineEvent(keyEvent(21 /* DOWN */));
+    renderer.submitFrame(view, undefined, { cols: 40, rows: 10 }, defaultTheme, noRenderHooks());
+    assert.equal(selected, "enterprise");
+
+    renderer.routeEngineEvent(keyEvent(2 /* ENTER */));
+    assert.deepEqual(changes, ["enterprise"]);
+    assert.equal(selected, "enterprise");
+  });
+
   test("focusZone preserves single-line input arrow editing while active", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({

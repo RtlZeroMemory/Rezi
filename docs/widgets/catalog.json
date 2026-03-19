@@ -343,8 +343,17 @@
     },
     {
       "name": "radioGroup",
-      "requiredProps": ["id", "value", "options", "onChange"],
-      "commonProps": ["direction", "disabled"],
+      "requiredProps": ["id", "value", "options"],
+      "commonProps": [
+        "onChange",
+        "direction",
+        "disabled",
+        "focusable",
+        "accessibleLabel",
+        "focusConfig",
+        "dsTone",
+        "dsSize"
+      ],
       "example": "ui.radioGroup({ id: 'plan', value, options, onChange })"
     },
     {
