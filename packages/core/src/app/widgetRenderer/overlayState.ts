@@ -167,6 +167,7 @@ type CleanupRoutingStateParams = RoutingWidgetMaps &
     loadedTreeChildrenByTreeId: Map<string, ReadonlyMap<string, readonly unknown[]>>;
     treeLoadTokenByTreeAndKey: Map<string, number>;
     dropdownSelectedIndexById: Map<string, number>;
+    dropdownWindowStartById: Map<string, number>;
     pressedVirtualList: Readonly<{ id: string; index: number }> | null;
     pressedFileTree: Readonly<{ id: string; nodeIndex: number; nodeKey: string }> | null;
     lastFileTreeClick: Readonly<{
@@ -812,6 +813,9 @@ export function cleanupRoutingStateAfterRebuild(
 
   for (const dropdownId of params.dropdownSelectedIndexById.keys()) {
     if (!params.dropdownById.has(dropdownId)) params.dropdownSelectedIndexById.delete(dropdownId);
+  }
+  for (const dropdownId of params.dropdownWindowStartById.keys()) {
+    if (!params.dropdownById.has(dropdownId)) params.dropdownWindowStartById.delete(dropdownId);
   }
 
   for (const virtualListId of params.virtualListStore.keys()) {

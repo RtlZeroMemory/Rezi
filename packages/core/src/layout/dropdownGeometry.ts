@@ -3,6 +3,60 @@ import { calculateAnchorPosition } from "./positioning.js";
 import { measureTextCells } from "./textMeasure.js";
 import type { Rect } from "./types.js";
 
+export type DropdownWindow = Readonly<{
+  startIndex: number;
+  endIndex: number;
+  visibleRows: number;
+  selectedIndex: number;
+  overflow: boolean;
+}>;
+
+function clampIndex(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  const truncated = Math.trunc(value);
+  if (truncated <= min) return min;
+  if (truncated >= max) return max;
+  return truncated;
+}
+
+export function computeDropdownWindow(
+  itemCount: number,
+  selectedIndex: number,
+  maxVisibleRows: number,
+  previousStartIndex = 0,
+): DropdownWindow {
+  if (itemCount <= 0 || maxVisibleRows <= 0) {
+    return Object.freeze({
+      startIndex: 0,
+      endIndex: 0,
+      visibleRows: 0,
+      selectedIndex: 0,
+      overflow: false,
+    });
+  }
+
+  const visibleRows = Math.min(itemCount, Math.max(0, Math.trunc(maxVisibleRows)));
+  const normalizedSelectedIndex = clampIndex(selectedIndex, 0, itemCount - 1);
+  const maxStartIndex = Math.max(0, itemCount - visibleRows);
+  let startIndex = clampIndex(previousStartIndex, 0, maxStartIndex);
+
+  if (normalizedSelectedIndex < startIndex) {
+    startIndex = normalizedSelectedIndex;
+  } else if (normalizedSelectedIndex >= startIndex + visibleRows) {
+    startIndex = normalizedSelectedIndex - visibleRows + 1;
+  }
+
+  if (startIndex > maxStartIndex) startIndex = maxStartIndex;
+
+  return Object.freeze({
+    startIndex,
+    endIndex: startIndex + visibleRows,
+    visibleRows,
+    selectedIndex: normalizedSelectedIndex,
+    overflow: itemCount > visibleRows,
+  });
+}
+
 export function computeDropdownGeometry(
   props: DropdownProps,
   anchorRect: Rect | null,

@@ -1,5 +1,6 @@
 import type { ZrevEvent } from "../../events.js";
 import { ZR_MOD_CTRL, ZR_MOD_SHIFT } from "../../keybindings/keyCodes.js";
+import { computeDropdownWindow } from "../../layout/dropdownGeometry.js";
 import { measureTextCells } from "../../layout/textMeasure.js";
 import type { Rect } from "../../layout/types.js";
 import type { FocusManagerState } from "../../runtime/focus.js";
@@ -88,6 +89,7 @@ type RouteDropdownMouseContext = Readonly<{
   dropdownStack: readonly string[];
   dropdownById: ReadonlyMap<string, DropdownProps>;
   dropdownSelectedIndexById: Map<string, number>;
+  dropdownWindowStartById: Map<string, number>;
   pressedDropdown: Readonly<{ id: string; itemId: string }> | null;
   setPressedDropdown: (next: Readonly<{ id: string; itemId: string }> | null) => void;
   computeDropdownRect: (props: DropdownProps) => Rect | null;
@@ -325,12 +327,19 @@ export function routeDropdownMouse(
   const contentY = dropdownRect.y + 1;
   const contentW = Math.max(0, dropdownRect.w - 2);
   const contentH = Math.max(0, dropdownRect.h - 2);
+  const window = computeDropdownWindow(
+    dropdown.items.length,
+    ctx.dropdownSelectedIndexById.get(topDropdownId) ?? 0,
+    contentH,
+    ctx.dropdownWindowStartById.get(topDropdownId) ?? 0,
+  );
+  const itemAreaW = window.overflow ? Math.max(0, contentW - 1) : contentW;
   const inContent =
     event.x >= contentX &&
-    event.x < contentX + contentW &&
+    event.x < contentX + itemAreaW &&
     event.y >= contentY &&
     event.y < contentY + contentH;
-  const itemIndex = inContent ? event.y - contentY : null;
+  const itemIndex = inContent ? window.startIndex + (event.y - contentY) : null;
 
   const MOUSE_KIND_DOWN = 3;
   const MOUSE_KIND_UP = 4;
@@ -355,6 +364,15 @@ export function routeDropdownMouse(
       if (item && !item.divider && item.disabled !== true) {
         const prevSelected = ctx.dropdownSelectedIndexById.get(topDropdownId) ?? 0;
         ctx.dropdownSelectedIndexById.set(topDropdownId, itemIndex);
+        ctx.dropdownWindowStartById.set(
+          topDropdownId,
+          computeDropdownWindow(
+            dropdown.items.length,
+            itemIndex,
+            contentH,
+            ctx.dropdownWindowStartById.get(topDropdownId) ?? 0,
+          ).startIndex,
+        );
         ctx.setPressedDropdown(Object.freeze({ id: topDropdownId, itemId: item.id }));
         return Object.freeze({ needsRender: itemIndex !== prevSelected });
       }

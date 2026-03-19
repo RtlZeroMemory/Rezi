@@ -1,5 +1,8 @@
 import type { DrawlistBuilder } from "../../../drawlist/types.js";
-import { computeDropdownGeometry } from "../../../layout/dropdownGeometry.js";
+import {
+  computeDropdownGeometry,
+  computeDropdownWindow,
+} from "../../../layout/dropdownGeometry.js";
 import { measureTextCells, truncateWithEllipsis } from "../../../layout/textMeasure.js";
 import type { Rect } from "../../../layout/types.js";
 import type { RuntimeInstance } from "../../../runtime/commit.js";
@@ -14,6 +17,7 @@ import type {
   DropdownProps,
   ToolApprovalDialogProps,
 } from "../../../widgets/types.js";
+import { SCROLLBAR_CONFIGS, renderVerticalScrollbar } from "../../scrollbar.js";
 import { createShadowConfig, renderShadow } from "../../shadow.js";
 import { asTextStyle } from "../../styles.js";
 import { renderBoxBorder } from "../boxBorder.js";
@@ -208,6 +212,7 @@ export function renderOverlayWidget(
   commandPaletteLoadingById: ReadonlyMap<string, boolean> | undefined,
   toolApprovalFocusedActionById: ReadonlyMap<string, "allow" | "deny" | "allowSession"> | undefined,
   dropdownSelectedIndexById: ReadonlyMap<string, number> | undefined,
+  dropdownWindowStartById: ReadonlyMap<string, number> | undefined,
 ): ResolvedCursor | null {
   const vnode = node.vnode;
   let resolvedCursor: ResolvedCursor | null = null;
@@ -321,11 +326,21 @@ export function renderOverlayWidget(
         itemPx,
         Math.max(0, Math.floor((Math.max(0, cw) - widestItemW) / 2)),
       );
+      const visibleRows = clampNonNegative(dropdownRect.h - 2);
+      const window = computeDropdownWindow(
+        items.length,
+        selectedIndex,
+        visibleRows,
+        dropdownWindowStartById?.get(props.id) ?? 0,
+      );
+      const scrollbarW = window.overflow ? 1 : 0;
+      const textAreaW = clampNonNegative(cw - scrollbarW);
       const contentX = cx + contentPx;
-      const contentW = clampNonNegative(cw - contentPx * 2);
+      const contentW = clampNonNegative(textAreaW - contentPx * 2);
+      const scrollbarX = cx + textAreaW;
 
-      builder.pushClip(cx, dropdownRect.y + 1, cw, clampNonNegative(dropdownRect.h - 2));
-      for (let index = 0; index < items.length; index++) {
+      builder.pushClip(cx, dropdownRect.y + 1, textAreaW, visibleRows);
+      for (let index = window.startIndex; index < window.endIndex; index++) {
         const item = items[index];
         if (!item) {
           cy++;
@@ -335,7 +350,7 @@ export function renderOverlayWidget(
           // Render divider
           builder.drawText(contentX, cy, "\u2500".repeat(contentW), borderStyle);
         } else {
-          const isSelected = index === selectedIndex;
+          const isSelected = index === window.selectedIndex;
           const disabled = item.disabled === true;
           const label = readString(item.label);
           const shortcut = readString(item.shortcut);
@@ -400,6 +415,24 @@ export function renderOverlayWidget(
         cy++;
       }
       builder.popClip();
+      if (window.overflow && visibleRows > 0 && scrollbarX < dropdownRect.x + dropdownRect.w - 1) {
+        const viewportRatio = visibleRows / items.length;
+        const position =
+          items.length <= visibleRows
+            ? 0
+            : window.startIndex / Math.max(1, items.length - visibleRows);
+        const glyphs = renderVerticalScrollbar(
+          visibleRows,
+          { position, viewportRatio },
+          SCROLLBAR_CONFIGS.minimal,
+        );
+        const scrollbarStyle = mergeTextStyle(dropdownStyle, { fg: theme.colors.border });
+        for (let row = 0; row < glyphs.length; row++) {
+          const glyph = glyphs[row];
+          if (!glyph) continue;
+          builder.drawText(scrollbarX, dropdownRect.y + 1 + row, glyph, scrollbarStyle);
+        }
+      }
       break;
     }
     case "commandPalette": {
