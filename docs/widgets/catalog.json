@@ -191,8 +191,17 @@
     {
       "name": "input",
       "requiredProps": ["id", "value"],
-      "commonProps": ["placeholder", "onInput"],
-      "example": "ui.input('name', state.name)"
+      "commonProps": [
+        "readOnly",
+        "focusable",
+        "disabled",
+        "placeholder",
+        "onInput",
+        "onBlur",
+        "dsSize",
+        "focusConfig"
+      ],
+      "example": "ui.input({ id: 'name', value: state.name, onInput: (value) => setName(value) })"
     },
     {
       "name": "textarea",
