@@ -846,7 +846,14 @@ describe("WidgetRenderer integration battery", () => {
     assert.equal(renderer.getFocusedId(), "plan");
 
     renderer.routeEngineEvent(keyEvent(21 /* DOWN */));
-    renderer.submitFrame(view, undefined, { cols: 40, rows: 10 }, defaultTheme, noRenderHooks());
+    const rerender = renderer.submitFrame(
+      view,
+      undefined,
+      { cols: 40, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(rerender.ok);
     assert.equal(selected, "enterprise");
 
     renderer.routeEngineEvent(keyEvent(2 /* ENTER */));
