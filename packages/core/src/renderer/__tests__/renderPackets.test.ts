@@ -119,6 +119,7 @@ function renderScene(scene: Scene): RecordingBuilder {
     undefined,
     undefined,
     undefined,
+    undefined,
     null,
     undefined,
     undefined,

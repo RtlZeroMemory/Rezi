@@ -1,4 +1,6 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { routeDropdownMouse } from "../../app/widgetRenderer/mouseRouting.js";
+import { selectDropdownShortcutItem } from "../../app/widgetRenderer/overlayShortcuts.js";
 import type { ZrevEvent } from "../../events.js";
 import {
   ZR_KEY_DOWN,
@@ -8,6 +10,7 @@ import {
   ZR_KEY_UP,
 } from "../../keybindings/keyCodes.js";
 import { calculateAnchorPosition, createAnchorLookup } from "../../layout/positioning.js";
+import type { Rect } from "../../layout/types.js";
 import { routeDropdownKey } from "../../runtime/router.js";
 import type { DropdownItem } from "../types.js";
 
@@ -29,12 +32,49 @@ function mouseEvent(): ZrevEvent {
   };
 }
 
+function mouseClick(x: number, y: number, mouseKind: 3 | 4): ZrevEvent {
+  return {
+    kind: "mouse",
+    timeMs: 0,
+    x,
+    y,
+    mouseKind,
+    mods: 0,
+    buttons: mouseKind === 3 ? 1 : 0,
+    wheelX: 0,
+    wheelY: 0,
+  };
+}
+
 function item(id: string, label = id, overrides: Partial<DropdownItem> = {}): DropdownItem {
   return {
     id,
     label,
     ...overrides,
   };
+}
+
+function captureWarnings<T>(run: (warnings: string[]) => T): T {
+  const c = (globalThis as { console?: { warn?: (msg: string) => void } }).console;
+  const warnings: string[] = [];
+  const hadWarn = c ? "warn" in c : false;
+  const originalWarn = c?.warn;
+  if (c) {
+    c.warn = (msg: string) => {
+      warnings.push(msg);
+    };
+  }
+  try {
+    return run(warnings);
+  } finally {
+    if (!c) {
+      // no-op
+    } else if (hadWarn && originalWarn) {
+      c.warn = originalWarn;
+    } else {
+      (c as { warn: ((msg: string) => void) | undefined }).warn = undefined;
+    }
+  }
 }
 
 describe("dropdown.position - keyboard routing", () => {
@@ -200,6 +240,171 @@ describe("dropdown.position - keyboard routing", () => {
       selectedIndex: 2,
     });
     assert.equal(up.nextSelectedIndex, 1);
+  });
+});
+
+describe("dropdown.position - overflow mouse routing", () => {
+  test("maps visible rows through the current overflow window", () => {
+    const items = Array.from({ length: 8 }, (_, index) => item(`item-${String(index)}`));
+    const dropdown = {
+      id: "menu",
+      anchorId: "anchor",
+      items,
+    };
+    const dropdownRect: Rect = { x: 10, y: 4, w: 12, h: 5 };
+    const selectedById = new Map<string, number>([["menu", 4]]);
+    const windowStartById = new Map<string, number>([["menu", 4]]);
+    let pressed: Readonly<{ id: string; itemId: string }> | null = null;
+
+    const down = routeDropdownMouse(mouseClick(11, 5, 3), {
+      layerStack: ["dropdown:menu"],
+      dropdownStack: ["menu"],
+      dropdownById: new Map([["menu", dropdown]]),
+      dropdownSelectedIndexById: selectedById,
+      dropdownWindowStartById: windowStartById,
+      pressedDropdown: pressed,
+      setPressedDropdown: (next) => {
+        pressed = next;
+      },
+      computeDropdownRect: () => dropdownRect,
+    });
+
+    assert.equal(down?.needsRender, false);
+    assert.equal(selectedById.get("menu"), 4);
+    assert.deepEqual(pressed, { id: "menu", itemId: "item-4" });
+
+    const up = routeDropdownMouse(mouseClick(11, 5, 4), {
+      layerStack: ["dropdown:menu"],
+      dropdownStack: ["menu"],
+      dropdownById: new Map([["menu", dropdown]]),
+      dropdownSelectedIndexById: selectedById,
+      dropdownWindowStartById: windowStartById,
+      pressedDropdown: pressed,
+      setPressedDropdown: (next) => {
+        pressed = next;
+      },
+      computeDropdownRect: () => dropdownRect,
+    });
+
+    assert.equal(up?.needsRender, true);
+    assert.equal(pressed, null);
+  });
+
+  test("ignores clicks on the overflow scrollbar gutter", () => {
+    const items = Array.from({ length: 8 }, (_, index) => item(`item-${String(index)}`));
+    const dropdown = {
+      id: "menu",
+      anchorId: "anchor",
+      items,
+    };
+    const dropdownRect: Rect = { x: 10, y: 4, w: 12, h: 5 };
+    const selectedById = new Map<string, number>([["menu", 4]]);
+    const windowStartById = new Map<string, number>([["menu", 4]]);
+    let pressed: Readonly<{ id: string; itemId: string }> | null = null;
+
+    const result = routeDropdownMouse(mouseClick(20, 5, 3), {
+      layerStack: ["dropdown:menu"],
+      dropdownStack: ["menu"],
+      dropdownById: new Map([["menu", dropdown]]),
+      dropdownSelectedIndexById: selectedById,
+      dropdownWindowStartById: windowStartById,
+      pressedDropdown: pressed,
+      setPressedDropdown: (next) => {
+        pressed = next;
+      },
+      computeDropdownRect: () => dropdownRect,
+    });
+
+    assert.equal(result?.needsRender, false);
+    assert.equal(selectedById.get("menu"), 4);
+    assert.equal(pressed, null);
+  });
+});
+
+describe("dropdown.position - shortcut activation", () => {
+  test("selectDropdownShortcutItem isolates unstringifiable onSelect failures and still closes", () => {
+    const thrown = {
+      toString: () => {
+        throw new Error("bad stringify");
+      },
+    };
+    let closed = false;
+    let cleared = false;
+    const selectedById = new Map<string, number>();
+
+    const result = captureWarnings((warnings) => {
+      const ok = selectDropdownShortcutItem(
+        {
+          dropdownById: new Map([
+            [
+              "menu",
+              {
+                id: "menu",
+                anchorId: "anchor",
+                items: [item("save", "Save", { shortcut: "Ctrl+S" })],
+                onSelect: () => {
+                  throw thrown;
+                },
+                onClose: () => {
+                  closed = true;
+                },
+              },
+            ],
+          ]),
+          dropdownSelectedIndexById: selectedById,
+          clearPressedDropdown: () => {
+            cleared = true;
+          },
+        },
+        "menu",
+        "save",
+      );
+      assert.equal(warnings.length, 1);
+      assert.equal(warnings[0]?.includes("[unstringifiable thrown value]"), true);
+      return ok;
+    });
+
+    assert.equal(result, true);
+    assert.equal(selectedById.get("menu"), 0);
+    assert.equal(cleared, true);
+    assert.equal(closed, true);
+  });
+
+  test("selectDropdownShortcutItem isolates unstringifiable onClose failures", () => {
+    const thrown = {
+      toString: () => {
+        throw new Error("bad stringify");
+      },
+    };
+
+    const result = captureWarnings((warnings) => {
+      const ok = selectDropdownShortcutItem(
+        {
+          dropdownById: new Map([
+            [
+              "menu",
+              {
+                id: "menu",
+                anchorId: "anchor",
+                items: [item("save", "Save", { shortcut: "Ctrl+S" })],
+                onClose: () => {
+                  throw thrown;
+                },
+              },
+            ],
+          ]),
+          dropdownSelectedIndexById: new Map<string, number>(),
+          clearPressedDropdown: () => {},
+        },
+        "menu",
+        "save",
+      );
+      assert.equal(warnings.length, 1);
+      assert.equal(warnings[0]?.includes("[unstringifiable thrown value]"), true);
+      return ok;
+    });
+
+    assert.equal(result, true);
   });
 });
 

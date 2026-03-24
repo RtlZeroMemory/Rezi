@@ -36,12 +36,12 @@ ui.dropdown({
 
 - **Arrow keys** navigate items. **Enter** selects the highlighted item.
 - The current selection is visually highlighted.
+- Long menus render a deterministic visible window and keep the highlighted item in view as you navigate.
 - **Mouse click** on an item selects it and fires the `onSelect` callback.
 - **Clicking outside** the dropdown closes it (calls `onClose`).
 - Dropdown overlays register in the shared `LayerRegistry`, so z-order and
   hit-testing behavior is consistent with modal/layer overlays.
-- Item `shortcut` text is a display hint. Register actual key combos with
-  `app.keys()` and route to the same action handlers.
+- Item `shortcut` bindings are active for the topmost open dropdown and trigger the same selection/close path as keyboard or mouse activation.
 
 ## Notes
 
@@ -62,7 +62,7 @@ ui.dropdown({
 })
 ```
 
-Pair the labels with explicit bindings:
+Optional app-level bindings for the same actions:
 
 ```ts
 app.keys({
@@ -70,3 +70,5 @@ app.keys({
   "ctrl+q": () => runCommand("quit"),
 })
 ```
+
+Use `app.keys()` for app-level shortcuts that should work even when the dropdown is closed.
