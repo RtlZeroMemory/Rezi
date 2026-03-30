@@ -2,6 +2,8 @@
 
 Displays stacked sections that can be expanded or collapsed.
 
+Expanded content renders directly under its own header in item order.
+
 ## Usage
 
 ```ts
