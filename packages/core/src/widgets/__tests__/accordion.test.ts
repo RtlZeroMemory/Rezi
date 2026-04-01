@@ -115,12 +115,7 @@ describe("accordion vnode construction", () => {
     const zone = children[0];
     assert.equal(zone.props.id, getAccordionHeadersZoneId(baseProps.id));
     assert.equal(zone.children.length, 4);
-    assert.deepEqual(zone.children.map(childSummary), [
-      "> Intro",
-      "v API",
-      "api-content",
-      "> FAQ",
-    ]);
+    assert.deepEqual(zone.children.map(childSummary), ["> Intro", "v API", "api-content", "> FAQ"]);
   });
 
   test("buildAccordionChildren renders expanded panel directly after its header", () => {

@@ -1,6 +1,6 @@
 {
   "name": "@rezi-ui/ink-spinner-shim",
-  "version": "0.1.0-alpha.57",
+  "version": "0.1.0-alpha.61",
   "description": "Scoped ink-spinner shim alias for Rezi Ink compatibility.",
   "type": "module",
   "main": "index.js",

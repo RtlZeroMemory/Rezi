@@ -1,6 +1,6 @@
 {
   "name": "@rezi-ui/ink-compat-bench-runner",
-  "version": "0.1.0-alpha.57",
+  "version": "0.1.0-alpha.61",
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
@@ -11,6 +11,6 @@
     "typecheck": "tsc -p tsconfig.json --pretty false --noEmit"
   },
   "dependencies": {
-    "@rezi-ui/ink-compat-bench-harness": "0.1.0-alpha.57"
+    "@rezi-ui/ink-compat-bench-harness": "0.1.0-alpha.61"
   }
 }

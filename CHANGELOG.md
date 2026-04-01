@@ -6,8 +6,11 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.61] - 2026-04-01
+
 ### Bug Fixes
 
+- **core/widgets**: Fixed file-tree explorer context-menu targeting, file-picker multi-select parity across mouse and keyboard, checkbox toggle-on-release behavior, select contract/runtime alignment, radio-group disabled-option rendering, textarea cursor visibility for long unwrapped lines, focus-zone input-edit precedence, focus-trap containment behavior, button explicit design-system precedence over `intent`, field footer behavior/styling contracts, dropdown overflow/shortcut behavior, and accordion expanded-panel ordering under headers.
 - **core/filePicker**: File picker filtering and hidden-file visibility are now applied consistently across rendering, keyboard routing, and mouse routing.
 - **core/table**: Table flex-width allocation now consumes fractional remainder cells deterministically instead of leaving narrow layouts partially unused.
 - **core/table**: Wheel scrolling now routes to table-owned scroll state so virtualized table bodies scroll consistently.
@@ -21,6 +24,7 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ### Tests
 
+- **core/widgets**: Added focus-announcer empty/clipped rendering coverage, command-palette shortcut contract coverage, and regression tests around checkbox, focus-trap, field, accordion, and dropdown behaviors.
 - **core/filePicker**: Added routing, integration, and renderer regressions for filtered and hidden-file visibility contracts.
 - **core/table**: Added interaction coverage for modifier-click selection and wheel scrolling, and tightened width-allocation regressions around fractional remainder consumption.
 - **core/forms**: Added field-array regressions for structural dirty recomputation and scalar array-level error preservation across append/remove/move.
@@ -31,6 +35,41 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 - **core/runtime**: Added deterministic regressions for widget-mode breadcrumb render timing and draw-mode `internal_onRender` timing.
 - **node/backend**: Added node backend regressions for auto-mode fallback selection and worker environment support checks.
 
+### Documentation
+
+- **docs/widgets**: Synced input, slider, command-palette, and related widget docs with the current public behavior and shortcut/focus contracts.
+
+### CI / Tooling
+
+- **repo/ci**: Added static analysis quality gates and removed dead repository noise to keep the merged fix train releaseable.
+
+### Merged Pull Requests
+
+- [#289](https://github.com/RtlZeroMemory/Rezi/pull/289) fix(core): clear stale wizard step errors
+- [#290](https://github.com/RtlZeroMemory/Rezi/pull/290) fix(core): reject non-object layout prop bags
+- [#291](https://github.com/RtlZeroMemory/Rezi/pull/291) fix(core): harden invalid prop diagnostics
+- [#292](https://github.com/RtlZeroMemory/Rezi/pull/292) fix(core): use monotonic render metrics
+- [#293](https://github.com/RtlZeroMemory/Rezi/pull/293) fix(node): fallback auto backend mode in headless runs
+- [#294](https://github.com/RtlZeroMemory/Rezi/pull/294) chore(repo): remove dead code and repository noise
+- [#295](https://github.com/RtlZeroMemory/Rezi/pull/295) chore(repo): add static analysis and CI quality gates
+- [#296](https://github.com/RtlZeroMemory/Rezi/pull/296) fix(file-picker): align multi-select behavior across mouse and keyboard
+- [#297](https://github.com/RtlZeroMemory/Rezi/pull/297) fix(table): consume fractional width remainder
+- [#298](https://github.com/RtlZeroMemory/Rezi/pull/298) fix(command-palette): document and test item shortcut behavior
+- [#299](https://github.com/RtlZeroMemory/Rezi/pull/299) fix(file-tree-explorer): align context menu contract with implementation
+- [#300](https://github.com/RtlZeroMemory/Rezi/pull/300) test(virtual-list): cover estimate-mode measurement contracts
+- [#301](https://github.com/RtlZeroMemory/Rezi/pull/301) docs(input): sync documented API with current props
+- [#302](https://github.com/RtlZeroMemory/Rezi/pull/302) fix(focus-zone): preserve input editing inside active zones
+- [#303](https://github.com/RtlZeroMemory/Rezi/pull/303) fix(checkbox): toggle on mouse release
+- [#304](https://github.com/RtlZeroMemory/Rezi/pull/304) fix(select): align contract and runtime behavior
+- [#305](https://github.com/RtlZeroMemory/Rezi/pull/305) fix(radio-group): render disabled options consistently
+- [#306](https://github.com/RtlZeroMemory/Rezi/pull/306) fix(textarea): preserve cursor visibility for long unwrapped lines
+- [#307](https://github.com/RtlZeroMemory/Rezi/pull/307) fix(focus-trap): align containment contract with implementation
+- [#308](https://github.com/RtlZeroMemory/Rezi/pull/308) fix(button): honor explicit design-system props over intent
+- [#309](https://github.com/RtlZeroMemory/Rezi/pull/309) docs(slider): align documented focus surface with current behavior
+- [#310](https://github.com/RtlZeroMemory/Rezi/pull/310) fix(field): define footer behavior and styling contract
+- [#311](https://github.com/RtlZeroMemory/Rezi/pull/311) test(focus-announcer): cover empty and clipped render behavior
+- [#312](https://github.com/RtlZeroMemory/Rezi/pull/312) fix(accordion): render expanded panels under their headers
+- [#313](https://github.com/RtlZeroMemory/Rezi/pull/313) fix(dropdown): align overflow and shortcut behavior with the public contract
 ## [0.1.0-alpha.60] - 2026-03-14
 
 ### Bug Fixes
