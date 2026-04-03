@@ -1,5 +1,6 @@
 # This workflow goes in the Rezi repo at .github/workflows/docs-dispatch.yml
-# It triggers the website repo to sync docs when docs/ changes
+# It triggers the website repo to sync docs and staged API reference output.
+# The website workflow pushes directly to its main branch, so no PR is opened.
 
 name: Dispatch Docs Update
 
@@ -9,6 +10,11 @@ on:
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
+      - 'packages/**'
+      - 'typedoc.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/docs.sh'
 
 jobs:
   dispatch:
