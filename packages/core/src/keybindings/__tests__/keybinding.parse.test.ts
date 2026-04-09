@@ -212,9 +212,18 @@ describe("parseKeySequence area A", () => {
       assert.deepEqual(mixed.value, lower.value);
     });
 
-    test("uppercase and lowercase letters parse to same key code", () => {
+    test("bare uppercase letters parse as implicit shift+letter", () => {
       const upper = parseKeySequence("A");
-      const lower = parseKeySequence("a");
+      const explicit = parseKeySequence("shift+a");
+      assert.equal(upper.ok, true);
+      assert.equal(explicit.ok, true);
+      if (!upper.ok || !explicit.ok) return;
+      assert.deepEqual(upper.value, explicit.value);
+    });
+
+    test("ctrl+A still parses identically to ctrl+a", () => {
+      const upper = parseKeySequence("ctrl+A");
+      const lower = parseKeySequence("ctrl+a");
       assert.equal(upper.ok, true);
       assert.equal(lower.ok, true);
       if (!upper.ok || !lower.ok) return;

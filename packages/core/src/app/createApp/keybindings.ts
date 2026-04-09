@@ -11,6 +11,7 @@ import {
   registerModes,
   removeBindingsBySource,
 } from "../../keybindings/index.js";
+import { ZR_MOD_SHIFT } from "../../keybindings/keyCodes.js";
 import { DIRTY_VIEW } from "./dirtyPlan.js";
 
 const ROUTE_KEYBINDING_SOURCE = "__rezi:router";
@@ -59,6 +60,13 @@ export function codepointToCtrlKeyCode(codepoint: number): number | null {
     return codepoint + 64;
   }
   return null;
+}
+
+export function codepointToImplicitTextMods(codepoint: number): number {
+  if (codepoint >= 65 && codepoint <= 90) {
+    return ZR_MOD_SHIFT;
+  }
+  return 0;
 }
 
 export function computeKeybindingsEnabled<S>(
