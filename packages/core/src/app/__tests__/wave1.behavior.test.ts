@@ -11,9 +11,9 @@ import {
   ZR_KEY_TAB,
   ZR_KEY_UP,
 } from "../../keybindings/keyCodes.js";
+import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
 import { createTestRenderer } from "../../testing/index.js";
 import type { TestViewport } from "../../testing/renderer.js";
-import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
 import type { VNode } from "../../widgets/types.js";
 import { WidgetRenderer } from "../widgetRenderer.js";
