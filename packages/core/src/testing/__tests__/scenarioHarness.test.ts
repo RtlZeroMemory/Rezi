@@ -1,14 +1,14 @@
+import { assert, test } from "@rezi-ui/testkit";
 import type { App } from "../../app/types.js";
 import { ui } from "../../index.js";
-import { assert, test } from "@rezi-ui/testkit";
 import {
+  type ScenarioDefinition,
+  type ScenarioFixtureFactory,
   createReferenceInputModalFixture,
   evaluateScenarioResult,
   referenceInputModalScenario,
   runReplayScenario,
   runSemanticScenario,
-  type ScenarioDefinition,
-  type ScenarioFixtureFactory,
 } from "../index.js";
 
 type ReplayState = Readonly<{ value: string }>;
@@ -124,7 +124,10 @@ test("replay scenario runner: cursor-dependent scenario fails clearly", async ()
     createFixture: createReplayFixture,
   });
   assert.equal(result.pass, false);
-  assert.equal(result.mismatches.some((item) => item.code === "ZR_SCENARIO_UNSUPPORTED"), true);
+  assert.equal(
+    result.mismatches.some((item) => item.code === "ZR_SCENARIO_UNSUPPORTED"),
+    true,
+  );
 });
 
 test("evaluateScenarioResult: cursor assertions compare final cursor snapshots", () => {

@@ -1,5 +1,5 @@
-import xtermHeadless from "@xterm/headless";
 import type { ScenarioScreenSnapshot } from "@rezi-ui/core/testing";
+import xtermHeadless from "@xterm/headless";
 
 export type TerminalScreenCursor =
   | Readonly<{ visible: false; x: number; y: number }>
@@ -29,6 +29,7 @@ type HeadlessTerminal = {
     };
   };
 };
+
 type HeadlessTerminalCtor = new (opts: {
   cols: number;
   rows: number;
@@ -36,6 +37,12 @@ type HeadlessTerminalCtor = new (opts: {
   convertEol: boolean;
   scrollback: number;
 }) => HeadlessTerminal;
+
+// @xterm/headless does not expose cursor-hidden state publicly, so snapshotting
+// falls back to the current internal flag behind one guarded accessor.
+function isCursorHidden(term: HeadlessTerminal): boolean {
+  return term._core?._inputHandler?._coreService?.isCursorHidden === true;
+}
 
 export function createTerminalScreen(opts: Readonly<{ cols: number; rows: number }>): {
   write: (data: string) => Promise<void>;
@@ -89,7 +96,7 @@ export function createTerminalScreen(opts: Readonly<{ cols: number; rows: number
       const text = line?.translateToString(false) ?? "";
       lines.push(text.padEnd(cols, " ").slice(0, cols));
     }
-    const hidden = term._core?._inputHandler?._coreService?.isCursorHidden === true;
+    const hidden = isCursorHidden(term);
     const cursor = hidden
       ? Object.freeze({
           visible: false as const,

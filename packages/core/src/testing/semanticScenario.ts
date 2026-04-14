@@ -2,21 +2,6 @@ import { createApp } from "../app/createApp.js";
 import type { RuntimeBreadcrumbSnapshot } from "../app/runtimeBreadcrumbs.js";
 import type { AppRenderMetrics } from "../app/types.js";
 import type { BackendEventBatch, RuntimeBackend } from "../backend.js";
-import { DEFAULT_TERMINAL_CAPS, type TerminalCaps } from "../terminalCaps.js";
-import { defaultTheme } from "../theme/defaultTheme.js";
-import { createTestRenderer } from "./renderer.js";
-import {
-  createScenarioScreenSnapshot,
-  type ScenarioCapabilityProfile,
-  type ScenarioCursorSnapshot,
-  type ScenarioDefinition,
-  type ScenarioFixtureFactory,
-  type ScenarioRunResult,
-  type ScenarioScriptedInputEvent,
-  type ScenarioStepObservation,
-} from "./scenario.js";
-import { evaluateScenarioResult } from "./assertions.js";
-import { encodeZrevBatchV1, type TestZrevEvent } from "./events.js";
 import {
   ZR_KEY_BACKSPACE,
   ZR_KEY_DELETE,
@@ -24,6 +9,18 @@ import {
   ZR_KEY_END,
   ZR_KEY_ENTER,
   ZR_KEY_ESCAPE,
+  ZR_KEY_F1,
+  ZR_KEY_F2,
+  ZR_KEY_F3,
+  ZR_KEY_F4,
+  ZR_KEY_F5,
+  ZR_KEY_F6,
+  ZR_KEY_F7,
+  ZR_KEY_F8,
+  ZR_KEY_F9,
+  ZR_KEY_F10,
+  ZR_KEY_F11,
+  ZR_KEY_F12,
   ZR_KEY_HOME,
   ZR_KEY_LEFT,
   ZR_KEY_PAGE_DOWN,
@@ -32,14 +29,31 @@ import {
   ZR_KEY_SPACE,
   ZR_KEY_TAB,
   ZR_KEY_UP,
-  charToKeyCode,
   ZR_MOD_ALT,
   ZR_MOD_CTRL,
   ZR_MOD_META,
   ZR_MOD_SHIFT,
+  charToKeyCode,
 } from "../keybindings/keyCodes.js";
 import type { RoutedAction } from "../runtime/router/types.js";
+import { DEFAULT_TERMINAL_CAPS, type TerminalCaps } from "../terminalCaps.js";
+import { defaultTheme } from "../theme/defaultTheme.js";
+import { evaluateScenarioResult } from "./assertions.js";
+import { type TestZrevEvent, encodeZrevBatchV1 } from "./events.js";
+import { createTestRenderer } from "./renderer.js";
+import {
+  type ScenarioCapabilityProfile,
+  type ScenarioCursorSnapshot,
+  type ScenarioDefinition,
+  type ScenarioFixtureFactory,
+  type ScenarioRunResult,
+  type ScenarioScriptedInputEvent,
+  type ScenarioStepObservation,
+  createScenarioScreenSnapshot,
+} from "./scenario.js";
 
+// The harness batches a bounded number of microtask turns after each injected
+// event so async widget state settles deterministically without open-ended spins.
 function flushMicrotasks(count = 20): Promise<void> {
   let promise = Promise.resolve();
   for (let i = 0; i < count; i++) {
@@ -48,7 +62,9 @@ function flushMicrotasks(count = 20): Promise<void> {
   return promise;
 }
 
-function colorModeToCapsColor(mode: ScenarioCapabilityProfile["colorMode"]): TerminalCaps["colorMode"] {
+function colorModeToCapsColor(
+  mode: ScenarioCapabilityProfile["colorMode"],
+): TerminalCaps["colorMode"] {
   if (mode === "16") return 1;
   if (mode === "256") return 2;
   if (mode === "truecolor") return 3;
@@ -123,6 +139,26 @@ function keyNameToCode(key: string | number): number {
   if (typeof key === "number") return key;
   const normalized = key.trim().toLowerCase();
   if (normalized.length === 1) return charToKeyCode(normalized) ?? 0;
+  const functionKey = /^f(\d{1,2})$/u.exec(normalized);
+  if (functionKey) {
+    const functionKeyCodes = [
+      ZR_KEY_F1,
+      ZR_KEY_F2,
+      ZR_KEY_F3,
+      ZR_KEY_F4,
+      ZR_KEY_F5,
+      ZR_KEY_F6,
+      ZR_KEY_F7,
+      ZR_KEY_F8,
+      ZR_KEY_F9,
+      ZR_KEY_F10,
+      ZR_KEY_F11,
+      ZR_KEY_F12,
+    ] as const;
+    const index = Number(functionKey[1]) - 1;
+    const code = functionKeyCodes[index];
+    if (code !== undefined) return code;
+  }
   switch (normalized) {
     case "enter":
     case "return":
@@ -215,7 +251,9 @@ function focusIdFromBreadcrumbs(snapshot: RuntimeBreadcrumbSnapshot | null): str
   return snapshot === null ? null : snapshot.focus.focusedId;
 }
 
-function asCursorSnapshot(snapshot: RuntimeBreadcrumbSnapshot | null): ScenarioCursorSnapshot | null {
+function asCursorSnapshot(
+  snapshot: RuntimeBreadcrumbSnapshot | null,
+): ScenarioCursorSnapshot | null {
   if (snapshot === null || snapshot.cursor === null) return null;
   if (snapshot.cursor.visible) {
     return Object.freeze({
@@ -233,10 +271,12 @@ function asCursorSnapshot(snapshot: RuntimeBreadcrumbSnapshot | null): ScenarioC
   });
 }
 
-export async function runSemanticScenario<S>(opts: Readonly<{
-  scenario: ScenarioDefinition;
-  createFixture: ScenarioFixtureFactory<S>;
-}>): Promise<ScenarioRunResult> {
+export async function runSemanticScenario<S>(
+  opts: Readonly<{
+    scenario: ScenarioDefinition;
+    createFixture: ScenarioFixtureFactory<S>;
+  }>,
+): Promise<ScenarioRunResult> {
   const fixture = opts.createFixture();
   const backend = new SemanticHarnessBackend(toTerminalCaps(opts.scenario.capabilityProfile));
   let latestState = fixture.initialState;
@@ -248,9 +288,11 @@ export async function runSemanticScenario<S>(opts: Readonly<{
     initialState: fixture.initialState,
     config: {
       internal_onRender: (metrics: AppRenderMetrics) => {
-        const breadcrumbs = (metrics as AppRenderMetrics & {
-          runtimeBreadcrumbs?: RuntimeBreadcrumbSnapshot;
-        }).runtimeBreadcrumbs;
+        const breadcrumbs = (
+          metrics as AppRenderMetrics & {
+            runtimeBreadcrumbs?: RuntimeBreadcrumbSnapshot;
+          }
+        ).runtimeBreadcrumbs;
         if (breadcrumbs) latestBreadcrumbs = breadcrumbs;
       },
     },

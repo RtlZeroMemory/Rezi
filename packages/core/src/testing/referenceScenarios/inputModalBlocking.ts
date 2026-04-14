@@ -2,10 +2,10 @@ import type { App } from "../../app/types.js";
 import { ui } from "../../index.js";
 import type { ScenarioDefinition, ScenarioFixtureFactory } from "../scenario.js";
 
-type InputModalScenarioState = Readonly<{
-  value: string;
-  modalOpen: boolean;
-}>;
+interface InputModalScenarioState {
+  readonly value: string;
+  readonly modalOpen: boolean;
+}
 
 export const referenceInputModalScenario: ScenarioDefinition = Object.freeze({
   schemaVersion: 1,
@@ -33,7 +33,10 @@ export const referenceInputModalScenario: ScenarioDefinition = Object.freeze({
   }),
   scriptedInput: Object.freeze([
     Object.freeze({ atMs: 0, event: Object.freeze({ kind: "text", text: "a" }) }),
-    Object.freeze({ atMs: 1, event: Object.freeze({ kind: "key", key: "o", mods: Object.freeze(["ctrl"] as const) }) }),
+    Object.freeze({
+      atMs: 1,
+      event: Object.freeze({ kind: "key", key: "o", mods: Object.freeze(["ctrl"] as const) }),
+    }),
     Object.freeze({ atMs: 2, event: Object.freeze({ kind: "text", text: "b" }) }),
     Object.freeze({ atMs: 3, event: Object.freeze({ kind: "key", key: "enter" }) }),
     Object.freeze({ atMs: 4, event: Object.freeze({ kind: "text", text: "c" }) }),
@@ -123,7 +126,9 @@ export const referenceInputModalScenario: ScenarioDefinition = Object.freeze({
   ]),
 });
 
-export const createReferenceInputModalFixture: ScenarioFixtureFactory<InputModalScenarioState> = () => {
+export const createReferenceInputModalFixture: ScenarioFixtureFactory<
+  InputModalScenarioState
+> = () => {
   let app!: App<InputModalScenarioState>;
   return Object.freeze({
     initialState: Object.freeze({ value: "", modalOpen: false }),

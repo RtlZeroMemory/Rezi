@@ -1,5 +1,5 @@
-import type { App } from "../app/types.js";
 import type { CursorShape } from "../abi.js";
+import type { App } from "../app/types.js";
 import type { RoutedAction } from "../runtime/router/types.js";
 import type { ThemeDefinition } from "../theme/tokens.js";
 import type { VNode } from "../widgets/types.js";
@@ -170,7 +170,9 @@ export function createScenarioScreenSnapshot(
   });
 }
 
-export function validateScenarioDefinition(scenario: ScenarioDefinition): readonly ScenarioMismatch[] {
+export function validateScenarioDefinition(
+  scenario: ScenarioDefinition,
+): readonly ScenarioMismatch[] {
   const mismatches: ScenarioMismatch[] = [];
   if (scenario.schemaVersion !== 1) {
     mismatches.push({

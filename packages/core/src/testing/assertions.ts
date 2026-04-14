@@ -85,7 +85,9 @@ export function assertScreenRegion(
   path: string,
 ): ScenarioMismatch | null {
   const expectedSource = typeof args.text === "string" ? args.text.split("\n") : [...args.text];
-  const expectedLines = expectedSource.map((line: string) => line.padEnd(args.width, " ").slice(0, args.width));
+  const expectedLines = expectedSource.map((line: string) =>
+    line.padEnd(args.width, " ").slice(0, args.width),
+  );
   const actualLines: string[] = [];
   for (let row = 0; row < args.height; row++) {
     const line = screen.lines[args.y + row] ?? "".padEnd(screen.cols, " ");

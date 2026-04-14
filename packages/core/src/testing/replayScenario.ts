@@ -1,21 +1,4 @@
-import { runReproReplayHarness, type ReproBundle, type ReproReplayExpectedAction } from "../repro/index.js";
-import { DEFAULT_TERMINAL_CAPS, type TerminalCaps } from "../terminalCaps.js";
-import { defaultTheme } from "../theme/defaultTheme.js";
-import { compileTheme } from "../theme/theme.js";
-import { createTestRenderer } from "./renderer.js";
-import {
-  createScenarioScreenSnapshot,
-  type ScenarioCapabilityProfile,
-  type ScenarioDefinition,
-  type ScenarioExpectedAction,
-  type ScenarioFixtureFactory,
-  type ScenarioMismatch,
-  type ScenarioRunResult,
-  type ScenarioScriptedInputEvent,
-  type ScenarioStepObservation,
-} from "./scenario.js";
-import { evaluateScenarioResult } from "./assertions.js";
-import { encodeZrevBatchV1, type TestZrevEvent } from "./events.js";
+import type { App } from "../app/types.js";
 import {
   ZR_KEY_BACKSPACE,
   ZR_KEY_DELETE,
@@ -23,6 +6,18 @@ import {
   ZR_KEY_END,
   ZR_KEY_ENTER,
   ZR_KEY_ESCAPE,
+  ZR_KEY_F1,
+  ZR_KEY_F2,
+  ZR_KEY_F3,
+  ZR_KEY_F4,
+  ZR_KEY_F5,
+  ZR_KEY_F6,
+  ZR_KEY_F7,
+  ZR_KEY_F8,
+  ZR_KEY_F9,
+  ZR_KEY_F10,
+  ZR_KEY_F11,
+  ZR_KEY_F12,
   ZR_KEY_HOME,
   ZR_KEY_LEFT,
   ZR_KEY_PAGE_DOWN,
@@ -31,14 +26,38 @@ import {
   ZR_KEY_SPACE,
   ZR_KEY_TAB,
   ZR_KEY_UP,
-  charToKeyCode,
   ZR_MOD_ALT,
   ZR_MOD_CTRL,
   ZR_MOD_META,
   ZR_MOD_SHIFT,
+  charToKeyCode,
 } from "../keybindings/keyCodes.js";
+import {
+  type ReproBundle,
+  type ReproReplayExpectedAction,
+  runReproReplayHarness,
+} from "../repro/index.js";
+import { DEFAULT_TERMINAL_CAPS, type TerminalCaps } from "../terminalCaps.js";
+import { defaultTheme } from "../theme/defaultTheme.js";
+import { compileTheme } from "../theme/theme.js";
+import { evaluateScenarioResult } from "./assertions.js";
+import { type TestZrevEvent, encodeZrevBatchV1 } from "./events.js";
+import { createTestRenderer } from "./renderer.js";
+import {
+  type ScenarioCapabilityProfile,
+  type ScenarioDefinition,
+  type ScenarioExpectedAction,
+  type ScenarioFixtureFactory,
+  type ScenarioMismatch,
+  type ScenarioRunResult,
+  type ScenarioScriptedInputEvent,
+  type ScenarioStepObservation,
+  createScenarioScreenSnapshot,
+} from "./scenario.js";
 
-function colorModeToCapsColor(mode: ScenarioCapabilityProfile["colorMode"]): TerminalCaps["colorMode"] {
+function colorModeToCapsColor(
+  mode: ScenarioCapabilityProfile["colorMode"],
+): TerminalCaps["colorMode"] {
   if (mode === "16") return 1;
   if (mode === "256") return 2;
   if (mode === "truecolor") return 3;
@@ -61,6 +80,26 @@ function keyNameToCode(key: string | number): number {
   if (typeof key === "number") return key;
   const normalized = key.trim().toLowerCase();
   if (normalized.length === 1) return charToKeyCode(normalized) ?? 0;
+  const functionKey = /^f(\d{1,2})$/u.exec(normalized);
+  if (functionKey) {
+    const functionKeyCodes = [
+      ZR_KEY_F1,
+      ZR_KEY_F2,
+      ZR_KEY_F3,
+      ZR_KEY_F4,
+      ZR_KEY_F5,
+      ZR_KEY_F6,
+      ZR_KEY_F7,
+      ZR_KEY_F8,
+      ZR_KEY_F9,
+      ZR_KEY_F10,
+      ZR_KEY_F11,
+      ZR_KEY_F12,
+    ] as const;
+    const index = Number(functionKey[1]) - 1;
+    const code = functionKeyCodes[index];
+    if (code !== undefined) return code;
+  }
   switch (normalized) {
     case "enter":
     case "return":
@@ -237,8 +276,14 @@ function createReplayBundle(scenario: ScenarioDefinition): ReproBundle {
       timing: "step-delta-ms",
       bounds: Object.freeze({
         maxBatches: Math.max(1, batches.length),
-        maxEvents: Math.max(1, batches.reduce((sum, item) => sum + item.eventCount, 0)),
-        maxBytes: Math.max(1, batches.reduce((sum, item) => sum + item.byteLength, 0)),
+        maxEvents: Math.max(
+          1,
+          batches.reduce((sum, item) => sum + item.eventCount, 0),
+        ),
+        maxBytes: Math.max(
+          1,
+          batches.reduce((sum, item) => sum + item.byteLength, 0),
+        ),
       }),
       totals: Object.freeze({
         capturedBatches: batches.length,
@@ -260,20 +305,24 @@ function createReplayBundle(scenario: ScenarioDefinition): ReproBundle {
   });
 }
 
-export async function runReplayScenario<S>(opts: Readonly<{
-  scenario: ScenarioDefinition;
-  createFixture: ScenarioFixtureFactory<S>;
-}>): Promise<ScenarioRunResult> {
+export async function runReplayScenario<S>(
+  opts: Readonly<{
+    scenario: ScenarioDefinition;
+    createFixture: ScenarioFixtureFactory<S>;
+  }>,
+): Promise<ScenarioRunResult> {
   const fixture = opts.createFixture();
   const renderer = createTestRenderer({
     viewport: opts.scenario.viewport,
     theme: fixture.theme ?? defaultTheme.definition,
   });
-  const staticText = renderer.render(fixture.view(fixture.initialState), {
-    viewport: opts.scenario.viewport,
-    theme: fixture.theme ?? defaultTheme.definition,
-    focusedId: null,
-  }).toText();
+  const staticText = renderer
+    .render(fixture.view(fixture.initialState), {
+      viewport: opts.scenario.viewport,
+      theme: fixture.theme ?? defaultTheme.definition,
+      focusedId: null,
+    })
+    .toText();
   const staticScreen = createScenarioScreenSnapshot(opts.scenario.viewport, staticText);
   const steps: ScenarioStepObservation[] = opts.scenario.scriptedInput.map((_, index) =>
     Object.freeze({
@@ -287,6 +336,15 @@ export async function runReplayScenario<S>(opts: Readonly<{
   const replayResult = await runReproReplayHarness({
     bundle: createReplayBundle(opts.scenario),
     view: () => fixture.view(fixture.initialState),
+    initialState: fixture.initialState,
+    statefulView: (state) => fixture.view(state as Readonly<S>),
+    ...(fixture.setup !== undefined
+      ? {
+          setupApp: (app: App<Readonly<Record<string, never>>>) => {
+            fixture.setup?.(app as unknown as App<S>);
+          },
+        }
+      : {}),
     initialViewport: opts.scenario.viewport,
     theme: compileTheme(fixture.theme ?? defaultTheme.definition),
     expectedActions: toReplayExpectedActions(opts.scenario.expectedActions),
@@ -317,7 +375,8 @@ export async function runReplayScenario<S>(opts: Readonly<{
   const mismatch: ScenarioMismatch = Object.freeze({
     code: "ZR_SCENARIO_UNSUPPORTED",
     path: "expectedCursorState",
-    detail: "Replay MVP does not capture live cursor state; use semantic or PTY mode for cursor-dependent scenarios",
+    detail:
+      "Replay MVP does not capture live cursor state; use semantic or PTY mode for cursor-dependent scenarios",
   });
   return Object.freeze({
     ...result,

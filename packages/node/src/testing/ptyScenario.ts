@@ -2,13 +2,13 @@ import net from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
 import type { RoutedAction, TerminalCaps } from "@rezi-ui/core";
 import {
-  evaluateScenarioResult,
-  validateScenarioDefinition,
   type ScenarioCursorSnapshot,
   type ScenarioDefinition,
   type ScenarioMismatch,
   type ScenarioRunResult,
   type ScenarioStepObservation,
+  evaluateScenarioResult,
+  validateScenarioDefinition,
 } from "@rezi-ui/core/testing";
 import { startPtyHarness } from "./ptyHarness.js";
 import type { TerminalScreenCursor } from "./screen.js";
@@ -24,6 +24,7 @@ type HarnessCommand = Readonly<{ type: "stop" }>;
 
 type HarnessMessage =
   | Readonly<{ type: "ready"; caps: TerminalCaps }>
+  | Readonly<{ type: "engine" }>
   | Readonly<{ type: "action"; action: RoutedAction }>
   | Readonly<{ type: "render"; cursor: ScenarioCursorSnapshot | null }>
   | Readonly<{ type: "fatal"; detail: string }>;
@@ -35,13 +36,17 @@ type ControlState = Readonly<{
   actions: RoutedAction[];
   fatals: string[];
   latestCursor: { value: ScenarioCursorSnapshot | null };
+  engineSeq: { value: number };
   renderSeq: { value: number };
   lastRenderAt: { value: number };
 }>;
 
 const READY_TIMEOUT_MS = 5_000;
+const INITIAL_RENDER_TIMEOUT_MS = 250;
 const STEP_TIMEOUT_MS = 2_000;
 const QUIET_WINDOW_MS = 40;
+const NO_PROGRESS_GRACE_MS = 250;
+const SHUTDOWN_WAIT_MS = 1_000;
 
 type PtyInputStep =
   | Readonly<{ kind: "write"; data: string }>
@@ -96,7 +101,9 @@ function keyToBytes(key: string | number, mods: readonly string[] | undefined): 
     case "pagedown":
       return "\u001b[6~";
     default:
-      throw new Error(`Unsupported PTY scenario key ${JSON.stringify(key)} with mods ${JSON.stringify(mods ?? [])}`);
+      throw new Error(
+        `Unsupported PTY scenario key ${JSON.stringify(key)} with mods ${JSON.stringify(mods ?? [])}`,
+      );
   }
 }
 
@@ -126,7 +133,13 @@ function combineCursor(
 ): ScenarioCursorSnapshot | null {
   if (reported === null) {
     return terminalCursor.visible
-      ? Object.freeze({ visible: true, x: terminalCursor.x, y: terminalCursor.y, shape: 2, blink: true })
+      ? Object.freeze({
+          visible: true,
+          x: terminalCursor.x,
+          y: terminalCursor.y,
+          shape: 2,
+          blink: true,
+        })
       : Object.freeze({ visible: false, shape: 2, blink: true });
   }
   if (!terminalCursor.visible || !reported.visible) {
@@ -161,13 +174,19 @@ function parseMessage(line: string): HarnessMessage | null {
   if (record.type === "fatal" && typeof record.detail === "string") {
     return Object.freeze({ type: "fatal", detail: record.detail });
   }
+  if (record.type === "engine") {
+    return Object.freeze({ type: "engine" });
+  }
   if (record.type === "render") {
     return Object.freeze({
       type: "render",
       cursor: (record as { cursor?: ScenarioCursorSnapshot | null }).cursor ?? null,
     });
   }
-  if (record.type === "action" && typeof (record as { action?: RoutedAction }).action === "object") {
+  if (
+    record.type === "action" &&
+    typeof (record as { action?: RoutedAction }).action === "object"
+  ) {
     return Object.freeze({ type: "action", action: (record as { action: RoutedAction }).action });
   }
   return null;
@@ -179,11 +198,19 @@ async function closeServer(server: net.Server): Promise<void> {
   });
 }
 
-async function createControlServer(state: ControlState): Promise<Readonly<{ port: number; server: net.Server }>> {
+async function createControlServer(
+  state: ControlState,
+): Promise<Readonly<{ port: number; server: net.Server }>> {
   const server = net.createServer((socket) => {
     state.socket.current = socket;
     socket.setEncoding("utf8");
     let buffer = "";
+    socket.on("error", () => {
+      // PTY target shutdown can reset the control socket; observations remain buffered.
+    });
+    socket.on("close", () => {
+      if (state.socket.current === socket) state.socket.current = null;
+    });
     socket.on("data", (chunk: string) => {
       buffer += chunk;
       for (;;) {
@@ -204,6 +231,10 @@ async function createControlServer(state: ControlState): Promise<Readonly<{ port
         }
         if (message.type === "fatal") {
           state.fatals.push(message.detail);
+          continue;
+        }
+        if (message.type === "engine") {
+          state.engineSeq.value += 1;
           continue;
         }
         state.latestCursor.value = message.cursor;
@@ -230,7 +261,15 @@ async function createControlServer(state: ControlState): Promise<Readonly<{ port
 async function waitForReady(state: ControlState): Promise<void> {
   const deadline = Date.now() + READY_TIMEOUT_MS;
   while (!state.ready.value) {
-    if (Date.now() > deadline) throw new Error("Timed out waiting for PTY scenario target readiness");
+    if (Date.now() > deadline)
+      throw new Error("Timed out waiting for PTY scenario target readiness");
+    await delay(10);
+  }
+}
+
+async function waitForInitialRender(state: ControlState): Promise<void> {
+  const deadline = Date.now() + INITIAL_RENDER_TIMEOUT_MS;
+  while (state.renderSeq.value === 0 && Date.now() <= deadline) {
     await delay(10);
   }
 }
@@ -295,17 +334,33 @@ function capabilityMismatches(
   return Object.freeze(mismatches);
 }
 
-async function waitForQuiet(state: ControlState): Promise<void> {
+async function waitForQuiet(
+  state: ControlState,
+  baselineRender: number,
+  baselineEngine: number,
+  requireProgress: boolean,
+): Promise<void> {
   const startedAt = Date.now();
-  const baselineRender = state.renderSeq.value;
   while (Date.now() - startedAt <= STEP_TIMEOUT_MS) {
     const hasNewRender = state.renderSeq.value > baselineRender;
+    const hasNewEngine = state.engineSeq.value > baselineEngine;
     const quietForMs = Date.now() - state.lastRenderAt.value;
     if (hasNewRender && quietForMs >= QUIET_WINDOW_MS) return;
-    if (!hasNewRender && Date.now() - startedAt >= QUIET_WINDOW_MS) return;
+    if (!hasNewRender && hasNewEngine && Date.now() - startedAt >= QUIET_WINDOW_MS) return;
+    if (
+      !hasNewRender &&
+      !hasNewEngine &&
+      Date.now() - startedAt >= (requireProgress ? NO_PROGRESS_GRACE_MS : QUIET_WINDOW_MS)
+    ) {
+      return;
+    }
     await delay(10);
   }
-  throw new Error("Timed out waiting for PTY scenario render to settle");
+  throw new Error(
+    requireProgress
+      ? "Timed out waiting for PTY scenario input processing to settle after input"
+      : "Timed out waiting for PTY scenario state to settle",
+  );
 }
 
 function sendCommand(socket: net.Socket | null, command: HarnessCommand): void {
@@ -317,10 +372,21 @@ function sendCommand(socket: net.Socket | null, command: HarnessCommand): void {
   }
 }
 
-export async function runPtyScenario(opts: Readonly<{
-  scenario: ScenarioDefinition;
-  target: PtyScenarioHarnessTarget;
-}>): Promise<ScenarioRunResult> {
+async function waitForHarnessExit(
+  harness: Awaited<ReturnType<typeof startPtyHarness>>,
+): Promise<void> {
+  await Promise.race([
+    harness.waitForExit().then(() => undefined),
+    delay(SHUTDOWN_WAIT_MS).then(() => undefined),
+  ]);
+}
+
+export async function runPtyScenario(
+  opts: Readonly<{
+    scenario: ScenarioDefinition;
+    target: PtyScenarioHarnessTarget;
+  }>,
+): Promise<ScenarioRunResult> {
   const validation = validateScenarioDefinition(opts.scenario);
   if (validation.length > 0) {
     return Object.freeze({
@@ -329,7 +395,11 @@ export async function runPtyScenario(opts: Readonly<{
       pass: false,
       actions: Object.freeze([]),
       steps: Object.freeze([]),
-      finalScreen: Object.freeze({ cols: opts.scenario.viewport.cols, rows: opts.scenario.viewport.rows, lines: Object.freeze([]) }),
+      finalScreen: Object.freeze({
+        cols: opts.scenario.viewport.cols,
+        rows: opts.scenario.viewport.rows,
+        lines: Object.freeze([]),
+      }),
       finalCursor: null,
       mismatches: validation,
     });
@@ -342,6 +412,7 @@ export async function runPtyScenario(opts: Readonly<{
     actions: [],
     fatals: [],
     latestCursor: { value: null },
+    engineSeq: { value: 0 },
     renderSeq: { value: 0 },
     lastRenderAt: { value: Date.now() },
   });
@@ -377,18 +448,24 @@ export async function runPtyScenario(opts: Readonly<{
         mismatches: capabilityErrors,
       });
     }
-    await waitForQuiet(state);
+    await waitForInitialRender(state);
 
+    let previousAtMs = 0;
     for (let index = 0; index < opts.scenario.scriptedInput.length; index++) {
       const scenarioStep = opts.scenario.scriptedInput[index];
       if (scenarioStep === undefined) continue;
+      const delayMs = Math.max(0, scenarioStep.atMs - previousAtMs);
+      previousAtMs = scenarioStep.atMs;
+      if (delayMs > 0) await delay(delayMs);
+      const baselineRender = state.renderSeq.value;
+      const baselineEngine = state.engineSeq.value;
       const inputStep = eventToInputStep(opts.scenario, scenarioStep);
       if (inputStep.kind === "write") {
         await harness.write(inputStep.data);
       } else {
         await harness.resize(inputStep.cols, inputStep.rows);
       }
-      await waitForQuiet(state);
+      await waitForQuiet(state, baselineRender, baselineEngine, true);
       const snapshot = harness.snapshot();
       steps.push(
         Object.freeze({
@@ -445,6 +522,7 @@ export async function runPtyScenario(opts: Readonly<{
     } catch {
       // already exited
     }
+    await waitForHarnessExit(harness);
     await closeServer(control.server);
   }
 }
