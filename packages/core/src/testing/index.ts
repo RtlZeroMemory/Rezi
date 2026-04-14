@@ -24,3 +24,36 @@ export type {
   TestRendererOptions,
   TestViewport,
 } from "./renderer.js";
+
+export { runSemanticScenario } from "./semanticScenario.js";
+export { runReplayScenario } from "./replayScenario.js";
+export {
+  createScenarioScreenSnapshot,
+  validateScenarioDefinition,
+  type ScenarioCapabilityProfile,
+  type ScenarioCursorAssertion,
+  type ScenarioCursorSnapshot,
+  type ScenarioDefinition,
+  type ScenarioExpectedAction,
+  type ScenarioFixture,
+  type ScenarioFixtureFactory,
+  type ScenarioInvariant,
+  type ScenarioInvariantAssertion,
+  type ScenarioKeyMod,
+  type ScenarioMismatch,
+  type ScenarioMismatchCode,
+  type ScenarioRunResult,
+  type ScenarioScreenCheckpoint,
+  type ScenarioScreenRegionAssertion,
+  type ScenarioScreenSnapshot,
+  type ScenarioScriptedInputEvent,
+  type ScenarioScriptedInputStep,
+  type ScenarioStepObservation,
+  type ScenarioTheme,
+  type ScenarioWidgetFamily,
+} from "./scenario.js";
+export { evaluateScenarioResult } from "./assertions.js";
+export {
+  referenceInputModalScenario,
+  createReferenceInputModalFixture,
+} from "./referenceScenarios/inputModalBlocking.js";

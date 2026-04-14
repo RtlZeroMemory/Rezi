@@ -18,6 +18,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
     }
   },
   "files": ["dist/", "README.md", "!dist/**/__tests__/**", "!dist/**/__e2e__/**"],
@@ -27,9 +31,7 @@
   },
   "dependencies": {
     "@rezi-ui/core": "0.1.0-alpha.61",
-    "@rezi-ui/native": "0.1.0-alpha.61"
-  },
-  "devDependencies": {
+    "@rezi-ui/native": "0.1.0-alpha.61",
     "@xterm/headless": "^6.0.0",
     "node-pty": "^1.1.0"
   }
