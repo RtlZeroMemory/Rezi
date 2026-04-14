@@ -8,6 +8,7 @@ import {
   ZR_KEY_ENTER,
   ZR_KEY_ESCAPE,
   ZR_KEY_RIGHT,
+  ZR_KEY_SPACE,
   ZR_KEY_TAB,
   ZR_KEY_UP,
 } from "../../keybindings/keyCodes.js";
@@ -516,6 +517,64 @@ describe("select and dropdown behavior contracts", () => {
     assert.equal(value, "dark");
   });
 
+  test("select keyboard navigation skips disabled options and updates the visible value", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    let value = "dark";
+    const view = () =>
+      ui.column({}, [
+        ui.text(`Selected:${value}`),
+        ui.select({
+          id: "theme",
+          value,
+          options: [
+            { value: "dark", label: "Dark" },
+            { value: "light", label: "Light", disabled: true },
+            { value: "system", label: "System" },
+          ],
+          onChange: (next) => {
+            value = next;
+          },
+        }),
+        ui.button({ id: "next", label: "Next" }),
+      ]);
+
+    submit(renderer, view);
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_TAB));
+    assert.equal(renderer.getFocusedId(), "theme");
+
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_DOWN));
+    submit(renderer, view);
+    assert.equal(value, "system");
+    assert.equal(renderer.getFocusedId(), "theme");
+
+    let text = createTestRenderer({ viewport: { cols: 40, rows: 10 } })
+      .render(view())
+      .toText();
+    assert.equal(text.includes("Selected:system"), true);
+
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_ENTER));
+    submit(renderer, view);
+    assert.equal(value, "dark");
+
+    text = createTestRenderer({ viewport: { cols: 40, rows: 10 } })
+      .render(view())
+      .toText();
+    assert.equal(text.includes("Selected:dark"), true);
+
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_SPACE));
+    submit(renderer, view);
+    assert.equal(value, "system");
+
+    text = createTestRenderer({ viewport: { cols: 40, rows: 10 } })
+      .render(view())
+      .toText();
+    assert.equal(text.includes("Selected:system"), true);
+  });
+
   test("dropdown item click selects the item and closes the overlay", () => {
     const renderer = new WidgetRenderer<void>({
       backend: createNoopBackend(),
@@ -564,6 +623,52 @@ describe("select and dropdown behavior contracts", () => {
       .render(view())
       .toText();
     assert.equal(text.includes("Selected:two"), true);
+    assert.equal(text.includes("One"), false);
+  });
+
+  test("clicking outside the dropdown closes it", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    let open = true;
+    let closeCount = 0;
+    const view = () =>
+      ui.layers([
+        ui.column({}, [
+          ui.button({ id: "anchor", label: "Menu" }),
+          ui.text(`Open:${open ? "yes" : "no"}`),
+        ]),
+        ...(open
+          ? [
+              ui.dropdown({
+                id: "dd",
+                anchorId: "anchor",
+                position: "below-start",
+                items: [
+                  { id: "one", label: "One" },
+                  { id: "two", label: "Two" },
+                ],
+                onClose: () => {
+                  closeCount++;
+                  open = false;
+                },
+              }),
+            ]
+          : []),
+      ]);
+
+    submit(renderer, view);
+    renderer.routeEngineEvent(mouseEvent(35, 10, 3, { buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(35, 10, 4));
+    submit(renderer, view);
+
+    assert.equal(closeCount, 1);
+    const text = createTestRenderer({ viewport: { cols: 40, rows: 12 } })
+      .render(view())
+      .toText();
+    assert.equal(text.includes("Open:no"), true);
     assert.equal(text.includes("One"), false);
   });
 });
