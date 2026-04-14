@@ -7,6 +7,7 @@
 
 import { ZREV_MAGIC, ZR_EVENT_BATCH_VERSION_V1 } from "../abi.js";
 import { createApp } from "../app/createApp.js";
+import type { App } from "../app/types.js";
 import {
   type Viewport,
   type WidgetRenderPlan,
@@ -127,6 +128,9 @@ export type ReproReplayHarnessOptions = Readonly<
   ReproReplayDriverOptions & {
     expectedActions: readonly ReproReplayExpectedAction[];
     invariants?: ReproReplayInvariantExpectations;
+    initialState?: unknown;
+    statefulView?: (state: unknown) => VNode;
+    setupApp?: (app: App<unknown>) => void;
   }
 >;
 
@@ -730,7 +734,7 @@ export async function runReproReplayHarness(
 
   const app = createApp({
     backend: replayBackend.backend,
-    initialState: Object.freeze({}) as Readonly<Record<string, never>>,
+    initialState: opts.initialState ?? (Object.freeze({}) as Readonly<Record<string, never>>),
     config: {
       fpsCap: opts.bundle.captureConfig.fpsCap,
       maxEventBytes: opts.bundle.captureConfig.maxEventBytes,
@@ -740,7 +744,12 @@ export async function runReproReplayHarness(
     },
     ...(opts.theme !== undefined ? { theme: opts.theme.definition } : {}),
   });
-  app.view(() => opts.view());
+  opts.setupApp?.(app as App<unknown>);
+  if (opts.statefulView !== undefined) {
+    app.view((state) => opts.statefulView?.(state) ?? opts.view());
+  } else {
+    app.view(() => opts.view());
+  }
 
   app.onEvent((ev) => {
     if (ev.kind === "engine") {
