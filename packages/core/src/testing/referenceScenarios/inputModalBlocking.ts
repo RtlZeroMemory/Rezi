@@ -1,5 +1,5 @@
 import type { App } from "../../app/types.js";
-import { ui } from "../../index.js";
+import { ui } from "../../ui.js";
 import type { ScenarioDefinition, ScenarioFixtureFactory } from "../scenario.js";
 
 interface InputModalScenarioState {
