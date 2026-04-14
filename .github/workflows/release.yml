@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   quality-preflight:
-    name: quality preflight
+    name: release gate / quality preflight
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -81,9 +81,45 @@ jobs:
         if: ${{ steps.quality_deadcode.outcome != 'success' }}
         run: echo "::warning::Knip remains advisory in release preflight. Review the dead-code report separately from the blocking publish gates."
 
-  template-smoke:
-    name: create-rezi smoke
+  release-critical-suites:
+    name: release gate / release-critical suites
     needs: [quality-preflight]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Write testing progress summary
+        run: npm run test:progress >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run release-critical package suites
+        run: npm run test:release-critical
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build native addon
+        run: npm run build:native
+
+      - name: Run release-critical terminal suites
+        run: npm run test:release-critical:terminal
+
+  template-smoke:
+    name: release gate / create-rezi smoke
+    needs: [quality-preflight, release-critical-suites]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -106,8 +142,8 @@ jobs:
         run: npm run smoke:create-rezi-templates
 
   release-ci:
-    name: node ${{ matrix.node-version }} / ${{ matrix.os }}
-    needs: [quality-preflight]
+    name: release gate / node ${{ matrix.node-version }} / ${{ matrix.os }}
+    needs: [quality-preflight, release-critical-suites]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -188,8 +224,8 @@ jobs:
         run: npm run test:native:smoke
 
   bun:
-    name: bun / ubuntu-latest
-    needs: [quality-preflight]
+    name: release gate / bun / ubuntu-latest
+    needs: [quality-preflight, release-critical-suites]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -222,7 +258,7 @@ jobs:
   create-release:
     name: create release
     runs-on: ubuntu-latest
-    needs: [quality-preflight, template-smoke, release-ci, bun]
+    needs: [quality-preflight, release-critical-suites, template-smoke, release-ci, bun]
     steps:
       - uses: actions/checkout@v4
       - name: Create GitHub Release

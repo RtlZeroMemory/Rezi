@@ -30,6 +30,25 @@ Run only script tests (`.test.mjs` files under `scripts/__tests__/`):
 npm run test:scripts
 ```
 
+Run the named release-critical package suites that the fast PR gate surfaces:
+
+```bash
+npm run test:release-critical
+```
+
+Run the named terminal-real release-critical slice after building the native addon:
+
+```bash
+npm run build:native
+npm run test:release-critical:terminal
+```
+
+Print the CI-facing testing progress summary locally:
+
+```bash
+npm run test:progress
+```
+
 ### Individual Test Files
 
 Run a single test file directly with Node's test runner:
@@ -65,6 +84,35 @@ npm run test:e2e
 # Reduced profile (fewer scenarios, faster)
 npm run test:e2e:reduced
 ```
+
+## CI Gates
+
+Rezi keeps the gate split tied to real repo test entrypoints instead of abstract labels.
+
+- Fast PR gate: Linux / Node 22 quality checks plus the named release-critical package suites.
+- Full PR gate: the broader Node/OS matrix, reduced/full terminal e2e, PTY scenarios, native smoke, and Bun coverage.
+- Nightly gate: the scheduled rerun of the full cross-platform stack plus the release-critical package and terminal slices.
+- Release gate: the tag workflow repeats the release-critical slices before publishing, then runs the release matrix and Bun coverage.
+
+The release-critical suites surfaced in CI are:
+
+- Input editing and focus-capture contracts
+- Table selection, sorting, viewport, and row-key behavior
+- Virtual-list visible range and navigation behavior
+- Command palette query, async fetch, selection, and close behavior
+- File picker and file-tree explorer browse, open, and select flows
+- Modal focus entry and return behavior
+- Code editor editing, selection, and scroll behavior
+- Node terminal IO and worker/native backend flow
+
+## New Test Declarations
+
+New tests should declare two things before review:
+
+- Contract source: the docs page, public API, regression, or existing contract file that defines the behavior being pinned.
+- Fidelity: the lowest test level that can still prove the user-visible behavior, for example helper-level, semantic app/render coverage, or terminal-real PTY/e2e coverage.
+
+If the contract source is not obvious from the suite name, add a short comment near the test. If the behavior depends on terminal capabilities, stream ordering, or PTY/native behavior, prefer terminal-real coverage or explain why a lower-fidelity test is still sufficient. The pull-request template repeats this check during review.
 
 ## Live PTY Rendering Validation (for UI regressions)
 
@@ -377,20 +425,44 @@ across platforms.
 
 ## CI Integration
 
-Tests run automatically on every push and pull request via the `ci.yml` GitHub
-Actions workflow. The CI pipeline executes:
+Tests run automatically through the workflow split described above instead of a
+single CI flow.
 
-1. `guardrails` job: `bash scripts/guardrails.sh`.
-2. Install dependencies (`npm ci` on Linux, `npm install` on non-Linux matrix jobs).
-3. `npm run lint`.
-4. `npm run typecheck`.
-5. `npm run build`.
-6. `npm run check:core-portability`.
-7. `npm run check:unicode` (Linux only).
-8. `npm run test`.
-9. Native/e2e stages (`npm run build:native`, `npm run test:e2e*`, `npm run test:native:smoke`).
+Pull requests and pushes use `ci.yml`:
 
-Test failures block pull request merges.
+1. Fast gate:
+   `fast gate / quality` runs the blocking repo checks with `npm ci`,
+   `npm run lint`, `npm run typecheck`, `npm run build`, and the existing
+   guardrail commands.
+2. Fast gate:
+   `fast gate / release-critical suites` runs `npm run test:progress` and
+   `npm run test:release-critical`, which surfaces the named release-critical
+   package suites separately from the broader matrix.
+3. Full gate:
+   `full gate / create-rezi smoke`, `full gate / node <version> / <os>`, and
+   `full gate / bun / ubuntu-latest` run after the fast gate and cover the
+   broader matrix, replay harness, PTY/native build work, terminal e2e, native
+   smoke, and Bun coverage. These jobs also use `npm ci`.
+
+Nightly runs use `nightly.yml`:
+
+1. `nightly gate / release-critical suites` repeats the package slice and the
+   terminal slice (`npm run test:release-critical:terminal`).
+2. `nightly gate / create-rezi smoke`, the 3x3 Node/OS matrix, and Bun rerun
+   the current full stack on a schedule.
+
+Tag-based release runs use `release.yml`:
+
+1. `release gate / quality preflight` performs the blocking publish checks with
+   `npm ci`.
+2. `release gate / release-critical suites` repeats the named release-critical
+   package and terminal slices before the release matrix.
+3. `release gate / create-rezi smoke`, `release gate / node <version> / <os>`,
+   and `release gate / bun / ubuntu-latest` run the remaining release checks.
+
+The separate release-critical job is the visible mapping from the gate model to
+the named release-critical suites listed earlier in this document. Failures in
+those jobs block the downstream full or release fan-out work.
 
 ## Related
 
