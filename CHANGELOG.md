@@ -6,6 +6,22 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.62] - 2026-04-14
+
+### Features
+
+- **core/keybindings**: Distinguish shifted and unshifted control-letter bindings from kitty CSI-u input so uppercase and lowercase shortcut mappings can stay independent.
+- **native/vendor**: Bumped bundled Zireael engine to `v1.3.14`.
+
+### Tests
+
+- **core/keybindings**: Added regressions for split-batch shifted key/text pairing and uppercase-vs-lowercase binding resolution.
+- **native/vendor**: Synced vendor sources and commit pin to upstream release commit `4668ccc1d17a7c0bdea193b86b02e8584068d89c`.
+
+### Merged Pull Requests
+
+- [#319](https://github.com/RtlZeroMemory/Rezi/pull/319) feat: distinguish shifted letter keybindings
+
 ## [0.1.0-alpha.61] - 2026-04-01
 
 ### Bug Fixes

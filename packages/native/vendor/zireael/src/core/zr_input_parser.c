@@ -64,12 +64,13 @@ static uint32_t zr__mods_from_csi_param(uint32_t mod_param) {
   return mods;
 }
 
-static void zr__push_key(zr_event_queue_t* q, uint32_t time_ms, zr_key_t key, uint32_t mods, zr_key_action_t action) {
+static void zr__push_key(zr_event_queue_t* q, uint32_t time_ms, uint32_t key_code, uint32_t mods,
+                         zr_key_action_t action) {
   zr_event_t ev = {0};
   ev.type = ZR_EV_KEY;
   ev.time_ms = time_ms;
   ev.flags = 0u;
-  ev.u.key.key = (uint32_t)key;
+  ev.u.key.key = key_code;
   ev.u.key.mods = mods;
   ev.u.key.action = (uint32_t)action;
   ev.u.key.reserved0 = 0u;
@@ -464,6 +465,21 @@ static bool zr__extended_key_from_codepoint(uint32_t codepoint, zr_key_t* out_ke
   }
 }
 
+static bool zr__ascii_letter_key_from_codepoint(uint32_t codepoint, uint32_t* out_key_code) {
+  if (!out_key_code) {
+    return false;
+  }
+  if (codepoint >= (uint32_t)'a' && codepoint <= (uint32_t)'z') {
+    *out_key_code = codepoint - ((uint32_t)'a' - (uint32_t)'A');
+    return true;
+  }
+  if (codepoint >= (uint32_t)'A' && codepoint <= (uint32_t)'Z') {
+    *out_key_code = codepoint;
+    return true;
+  }
+  return false;
+}
+
 /*
   Emit a normalized event from an extended key protocol codepoint+modifier pair.
 
@@ -480,6 +496,20 @@ static bool zr__emit_extended_codepoint(zr_event_queue_t* q, uint32_t time_ms, u
   if (zr__extended_key_from_codepoint(codepoint, &key)) {
     zr__push_key(q, time_ms, key, mods, ZR_KEY_ACTION_DOWN);
     return true;
+  }
+
+  uint32_t letter_key_code = 0u;
+  const uint32_t text_mods = mods & (ZR_MOD_ALT | ZR_MOD_META);
+  if (text_mods == 0u && zr__ascii_letter_key_from_codepoint(codepoint, &letter_key_code)) {
+    if ((mods & ZR_MOD_CTRL) != 0u) {
+      zr__push_key(q, time_ms, letter_key_code, mods, ZR_KEY_ACTION_DOWN);
+      return true;
+    }
+    if (mods == ZR_MOD_SHIFT) {
+      zr__push_key(q, time_ms, letter_key_code, mods, ZR_KEY_ACTION_DOWN);
+      zr__push_text_scalar(q, time_ms, codepoint);
+      return true;
+    }
   }
 
   if (zr__is_valid_unicode_scalar(codepoint)) {

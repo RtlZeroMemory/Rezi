@@ -46,6 +46,8 @@ enum {
 
 static const uint8_t ZR_ENGINE_PASTE_BEGIN[] = "\x1b[200~";
 static const uint8_t ZR_ENGINE_PASTE_END[] = "\x1b[201~";
+static const uint8_t ZR_ENGINE_KITTY_KEYBOARD_PUSH[] = "\x1b[>1u";
+static const uint8_t ZR_ENGINE_KITTY_KEYBOARD_POP[] = "\x1b[<u";
 
 struct zr_engine_t { /* NOLINT(clang-analyzer-optin.performance.Padding): keep subsystem-grouped layout readable */
   /* --- Platform (OS boundary) --- */
@@ -63,6 +65,8 @@ struct zr_engine_t { /* NOLINT(clang-analyzer-optin.performance.Padding): keep s
   plat_caps_t caps;
   zr_terminal_profile_t term_profile;
   plat_size_t size;
+  uint8_t kitty_keyboard_active;
+  uint8_t _pad_caps0[3];
 
   /* --- Config (engine-owned copies) --- */
   zr_engine_config_t cfg_create;
@@ -162,6 +166,7 @@ enum {
 
 /* Forward declaration for cleanup helper. */
 static void zr_engine_debug_free(zr_engine_t* e);
+static zr_result_t zr_engine_sync_kitty_keyboard(zr_engine_t* e, const zr_terminal_profile_t* profile);
 
 static const uint8_t ZR_SYNC_BEGIN[] = "\x1b[?2026h";
 static const uint8_t ZR_SYNC_END[] = "\x1b[?2026l";
@@ -198,6 +203,15 @@ static void zr_engine_restore_sync_assert_hook_locked(void) {
   zr_assert_clear_cleanup_hook(zr_engine_restore_from_assert);
 }
 
+static void zr_engine_restore_platform_state(zr_engine_t* e) {
+  if (!e || !e->plat) {
+    return;
+  }
+
+  (void)zr_engine_sync_kitty_keyboard(e, &(zr_terminal_profile_t){0});
+  (void)plat_leave_raw(e->plat);
+}
+
 /*
   Restore active platforms to non-raw mode.
 
@@ -217,7 +231,7 @@ static uint32_t zr_engine_restore_active_platforms(void) {
       continue;
     }
     attempts++;
-    (void)plat_leave_raw(it->plat);
+    zr_engine_restore_platform_state(it);
   }
   zr_engine_restore_lock_release();
 
@@ -1130,6 +1144,31 @@ static void zr_engine_requeue_probe_passthrough(zr_engine_t* e, const uint8_t* b
   }
 }
 
+static zr_result_t zr_engine_sync_kitty_keyboard(zr_engine_t* e, const zr_terminal_profile_t* profile) {
+  if (!e || !profile) {
+    return ZR_ERR_INVALID_ARGUMENT;
+  }
+  if (!e->plat) {
+    return ZR_OK;
+  }
+
+  const uint8_t want_active = (uint8_t)(profile->supports_kitty_keyboard != 0u);
+  if (e->kitty_keyboard_active == want_active) {
+    return ZR_OK;
+  }
+
+  const uint8_t* bytes = want_active != 0u ? ZR_ENGINE_KITTY_KEYBOARD_PUSH : ZR_ENGINE_KITTY_KEYBOARD_POP;
+  const size_t len =
+      want_active != 0u ? (sizeof(ZR_ENGINE_KITTY_KEYBOARD_PUSH) - 1u) : (sizeof(ZR_ENGINE_KITTY_KEYBOARD_POP) - 1u);
+  const zr_result_t rc = plat_write_output(e->plat, bytes, (int32_t)len);
+  if (rc != ZR_OK) {
+    return rc;
+  }
+
+  e->kitty_keyboard_active = want_active;
+  return ZR_OK;
+}
+
 /* Recompute effective runtime caps from base detection + force/suppress flags. */
 static void zr_engine_apply_cap_overrides(zr_engine_t* e) {
   if (!e) {
@@ -1187,6 +1226,10 @@ static zr_result_t zr_engine_init_platform(zr_engine_t* e) {
     return rc;
   }
   zr_engine_detect_terminal_profile(e);
+  rc = zr_engine_sync_kitty_keyboard(e, &e->term_profile);
+  if (rc != ZR_OK) {
+    return rc;
+  }
   return plat_get_size(e->plat, &e->size);
 }
 
@@ -1377,7 +1420,7 @@ void engine_destroy(zr_engine_t* e) {
 
   if (e->plat) {
     zr_engine_restore_unregister(e);
-    (void)plat_leave_raw(e->plat);
+    zr_engine_restore_platform_state(e);
     plat_destroy(e->plat);
     e->plat = NULL;
   } else {
@@ -1841,6 +1884,11 @@ zr_result_t engine_set_config(zr_engine_t* e, const zr_engine_runtime_config_t* 
     goto cleanup;
   }
   rc = zr_engine_set_config_prepare_arenas(e, cfg, &arena_frame_new, &arena_persistent_new, &want_arena_reinit);
+  if (rc != ZR_OK) {
+    goto cleanup;
+  }
+
+  rc = zr_engine_sync_kitty_keyboard(e, &prospective_profile);
   if (rc != ZR_OK) {
     goto cleanup;
   }
