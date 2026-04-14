@@ -10,6 +10,8 @@ import {
 } from "../testing/index.js";
 
 const isBunRuntime = "Bun" in globalThis;
+// GitHub's macOS runners currently fail PTY child spawn with posix_spawnp.
+const isMacOsCi = process.platform === "darwin" && process.env["CI"] === "true";
 
 async function waitForSnapshot(
   harness: PtyHarness,
@@ -40,6 +42,8 @@ test("createTerminalScreen reconstructs visible lines and cursor position", asyn
 });
 
 if (process.platform === "win32") {
+  test.skip("startPtyHarness applies viewport changes, relays input, and preserves final screen state", () => {});
+} else if (isMacOsCi) {
   test.skip("startPtyHarness applies viewport changes, relays input, and preserves final screen state", () => {});
 } else if (isBunRuntime) {
   test.skip("startPtyHarness applies viewport changes, relays input, and preserves final screen state", () => {});

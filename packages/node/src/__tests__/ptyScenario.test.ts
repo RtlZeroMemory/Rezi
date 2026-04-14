@@ -10,6 +10,8 @@ import {
 import { runPtyScenario } from "../testing/index.js";
 
 const isBunRuntime = "Bun" in globalThis;
+// GitHub's macOS runners currently fail PTY child spawn with posix_spawnp.
+const isMacOsCi = process.platform === "darwin" && process.env["CI"] === "true";
 const nativePackageDir = fileURLToPath(new URL("../../../native/", import.meta.url));
 const hasHostNativeAddon = readdirSync(nativePackageDir).some((entry) => entry.endsWith(".node"));
 
@@ -18,6 +20,8 @@ function mismatchDetail(result: { mismatches: readonly unknown[] }): string {
 }
 
 if (process.platform === "win32") {
+  test.skip("reference scenario passes in semantic and PTY modes", () => {});
+} else if (isMacOsCi) {
   test.skip("reference scenario passes in semantic and PTY modes", () => {});
 } else if (isBunRuntime) {
   test.skip("reference scenario passes in semantic and PTY modes", () => {});
