@@ -115,6 +115,109 @@ describe("input and textarea behavior contracts", () => {
     renderer.routeEngineEvent(mouseEvent(notesCenter.x, notesCenter.y, 4));
     assert.equal(renderer.getFocusedId(), "save");
   });
+
+  test("clicking a focusable input moves focus and blur fires when focus leaves", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    let value = "";
+    let blurCount = 0;
+    let pressCount = 0;
+    const view = () =>
+      ui.column({}, [
+        ui.input({
+          id: "name",
+          value,
+          onInput: (next) => {
+            value = next;
+          },
+          onBlur: () => {
+            blurCount++;
+          },
+        }),
+        ui.button({
+          id: "save",
+          label: "Save",
+          onPress: () => {
+            pressCount++;
+          },
+        }),
+      ]);
+
+    submit(renderer, view);
+
+    const nameCenter = centerOf(renderer, "name");
+    renderer.routeEngineEvent(mouseEvent(nameCenter.x, nameCenter.y, 3, { buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(nameCenter.x, nameCenter.y, 4));
+    assert.equal(renderer.getFocusedId(), "name");
+
+    const typed = renderer.routeEngineEvent({ kind: "text", timeMs: 1, codepoint: 120 });
+    assert.deepEqual(typed.action, {
+      id: "name",
+      action: "input",
+      value: "x",
+      cursor: 1,
+    });
+
+    submit(renderer, view);
+
+    const saveCenter = centerOf(renderer, "save");
+    renderer.routeEngineEvent(mouseEvent(saveCenter.x, saveCenter.y, 3, { buttons: 1 }));
+    const release = renderer.routeEngineEvent(mouseEvent(saveCenter.x, saveCenter.y, 4));
+
+    assert.equal(renderer.getFocusedId(), "save");
+    assert.equal(blurCount, 1);
+    assert.equal(pressCount, 1);
+    assert.deepEqual(release.action, { id: "save", action: "press" });
+  });
+
+  test("readOnly textarea still accepts mouse focus and fires blur without emitting edits", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    const values: string[] = [];
+    let blurCount = 0;
+    const view = () =>
+      ui.column({}, [
+        ui.textarea({
+          id: "notes",
+          value: "line 1",
+          rows: 3,
+          readOnly: true,
+          onInput: (next) => {
+            values.push(next);
+          },
+          onBlur: () => {
+            blurCount++;
+          },
+        }),
+        ui.button({ id: "next", label: "Next" }),
+      ]);
+
+    submit(renderer, view);
+
+    const notesCenter = centerOf(renderer, "notes");
+    renderer.routeEngineEvent(mouseEvent(notesCenter.x, notesCenter.y, 3, { buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(notesCenter.x, notesCenter.y, 4));
+    assert.equal(renderer.getFocusedId(), "notes");
+
+    const enter = renderer.routeEngineEvent(keyEvent(ZR_KEY_ENTER));
+    const typed = renderer.routeEngineEvent({ kind: "text", timeMs: 1, codepoint: 120 });
+    assert.equal(enter.action, undefined);
+    assert.equal(typed.action, undefined);
+    assert.deepEqual(values, []);
+
+    const nextCenter = centerOf(renderer, "next");
+    renderer.routeEngineEvent(mouseEvent(nextCenter.x, nextCenter.y, 3, { buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(nextCenter.x, nextCenter.y, 4));
+
+    assert.equal(renderer.getFocusedId(), "next");
+    assert.equal(blurCount, 1);
+  });
 });
 
 describe("modal, overlay, and focus behavior contracts", () => {
