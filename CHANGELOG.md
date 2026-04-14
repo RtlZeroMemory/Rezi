@@ -6,6 +6,16 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.63] - 2026-04-14
+
+### Tests
+
+- **node/hsr**: Isolated temp-dir environment in `hotStateReload` leak regression so the Node 22 Ubuntu release lane no longer picks up unrelated `rezi-hsr-*` directories.
+
+### CI / Tooling
+
+- **release**: Follow-up release tag for the failed `v0.1.0-alpha.62` run (`node 22 / ubuntu-latest` test flake).
+
 ## [0.1.0-alpha.62] - 2026-04-14
 
 ### Features
