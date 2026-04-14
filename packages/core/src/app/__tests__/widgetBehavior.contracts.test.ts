@@ -1,7 +1,7 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type { RuntimeBackend } from "../../backend.js";
 import type { ZrevEvent } from "../../events.js";
-import { ui } from "../../index.js";
+import { defineWidget, ui, useModalStack } from "../../index.js";
 import {
   ZR_KEY_DOWN,
   ZR_KEY_END,
@@ -356,6 +356,117 @@ describe("modal, overlay, and focus behavior contracts", () => {
     assert.equal(closeCount, 0);
     assert.equal(backgroundPresses, 0);
     assert.equal(renderer.getFocusedId(), "cancel");
+  });
+
+  test("Escape closes a dialog and restores focus to returnFocusTo", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    let open = true;
+    let closeCount = 0;
+    const view = () =>
+      ui.layers([
+        ui.column({}, [ui.button({ id: "trigger", label: "Open dialog" })]),
+        ...(open
+          ? [
+              ui.dialog({
+                id: "confirm-exit",
+                title: "Discard changes",
+                message: "Leave without saving?",
+                initialFocus: "stay",
+                returnFocusTo: "trigger",
+                onClose: () => {
+                  closeCount++;
+                  open = false;
+                },
+                actions: [
+                  { id: "stay", label: "Stay", onPress: () => {} },
+                  { id: "leave", label: "Leave", intent: "danger", onPress: () => {} },
+                ],
+              }),
+            ]
+          : []),
+      ]);
+
+    submit(renderer, view);
+    assert.equal(renderer.getFocusedId(), "stay");
+
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_ESCAPE));
+    submit(renderer, view);
+
+    assert.equal(closeCount, 1);
+    assert.equal(renderer.getFocusedId(), "trigger");
+    assert.equal(renderer.getRectByIdIndex().get("stay"), undefined);
+  });
+
+  test("useModalStack closes the top modal first and restores focus through the stack", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    const ModalHarness = defineWidget<Record<string, never>>((_props, ctx) => {
+      const modals = useModalStack(ctx);
+      return ui.layers([
+        ui.button({
+          id: "open-login",
+          label: "Open login",
+          onPress: () => {
+            modals.push("login", {
+              title: "Login",
+              initialFocus: "login-next",
+              returnFocusTo: "open-login",
+              content: ui.text("Primary login flow"),
+              actions: [
+                ui.button({
+                  id: "login-next",
+                  label: "Next",
+                  onPress: () => {
+                    modals.push("mfa", {
+                      title: "Two-factor code",
+                      initialFocus: "mfa-close",
+                      content: ui.text("Enter one-time code"),
+                      actions: [ui.button({ id: "mfa-close", label: "Close" })],
+                    });
+                  },
+                }),
+              ],
+            });
+          },
+        }),
+        ...modals.render(),
+      ]);
+    });
+
+    const view = () => ModalHarness({});
+
+    submit(renderer, view);
+
+    const openCenter = centerOf(renderer, "open-login");
+    renderer.routeEngineEvent(mouseEvent(openCenter.x, openCenter.y, 3, { buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(openCenter.x, openCenter.y, 4));
+    submit(renderer, view);
+
+    assert.equal(renderer.getFocusedId(), "login-next");
+
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_ENTER));
+    submit(renderer, view);
+
+    assert.equal(renderer.getFocusedId(), "mfa-close");
+
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_ESCAPE));
+    submit(renderer, view);
+
+    assert.equal(renderer.getFocusedId(), "login-next");
+    assert.equal(renderer.getRectByIdIndex().get("mfa-close"), undefined);
+
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_ESCAPE));
+    submit(renderer, view);
+
+    assert.equal(renderer.getFocusedId(), "open-login");
+    assert.equal(renderer.getRectByIdIndex().get("login-next"), undefined);
   });
 });
 
