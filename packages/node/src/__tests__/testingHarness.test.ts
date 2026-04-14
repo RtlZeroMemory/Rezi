@@ -49,10 +49,12 @@ if (process.platform === "win32") {
     { timeout: 20_000 },
     async () => {
       const targetPath = fileURLToPath(new URL("./fixtures/ptyEchoTarget.js", import.meta.url));
+      const command = process.platform === "win32" ? process.execPath : "/usr/bin/env";
+      const args = process.platform === "win32" ? [targetPath] : ["node", targetPath];
       const harness = await startPtyHarness({
         cwd: process.cwd(),
-        command: process.execPath,
-        args: [targetPath],
+        command,
+        args,
         cols: 40,
         rows: 8,
       });

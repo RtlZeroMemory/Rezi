@@ -34,12 +34,14 @@ if (process.platform === "win32") {
     const targetPath = fileURLToPath(
       new URL("./fixtures/referenceScenarioTarget.js", import.meta.url),
     );
+    const command = process.platform === "win32" ? process.execPath : "/usr/bin/env";
+    const args = process.platform === "win32" ? [targetPath] : ["node", targetPath];
     const pty = await runPtyScenario({
       scenario: referenceInputModalScenario,
       target: {
         cwd: process.cwd(),
-        command: process.execPath,
-        args: [targetPath],
+        command,
+        args,
       },
     });
 
