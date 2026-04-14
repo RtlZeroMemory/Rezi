@@ -106,7 +106,10 @@ function parseArgs(argv) {
 
 const root = process.cwd();
 const { scope, filter } = parseArgs(process.argv.slice(2));
-const isBunRuntime = typeof process.versions?.bun === "string";
+const isBunRuntime =
+  typeof process.versions?.bun === "string" ||
+  /(?:^|\/)bun(?:$|\s)/u.test(process.env.npm_execpath ?? "") ||
+  /^bun\//u.test(process.env.npm_config_user_agent ?? "");
 const BUN_UNSUPPORTED_PACKAGE_TESTS = new Set([
   join("packages", "node", "dist", "__tests__", "ptyScenario.test.js"),
   join("packages", "node", "dist", "__tests__", "testingHarness.test.js"),
