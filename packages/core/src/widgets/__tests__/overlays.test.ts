@@ -1,4 +1,5 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
+import { createTestRenderer } from "../../testing/index.js";
 import { ui } from "../ui.js";
 
 describe("overlay widgets - VNode construction", () => {
@@ -119,6 +120,77 @@ describe("overlay widgets - VNode construction", () => {
     assert.equal(vnode.props.request.toolId, "shell");
     assert.equal(vnode.props.request.riskLevel, "high");
     assert.equal(vnode.props.focusedAction, "deny");
+  });
+
+  test("toolApprovalDialog renders the visible review surface when open", () => {
+    const output = createTestRenderer({ viewport: { cols: 60, rows: 16 } })
+      .render(
+        ui.toolApprovalDialog({
+          id: "approval",
+          open: true,
+          request: {
+            toolId: "shell",
+            toolName: "Shell",
+            riskLevel: "high",
+            command: "rm -rf /tmp/demo",
+          },
+          onPress: () => undefined,
+          onAllowForSession: () => undefined,
+          onClose: () => undefined,
+        }),
+      )
+      .toText();
+
+    assert.equal(output.includes("Tool Approval"), true);
+    assert.equal(output.includes("Tool: Shell"), true);
+    assert.equal(output.includes("Risk: HIGH"), true);
+    assert.equal(output.includes("Command:"), true);
+    assert.equal(output.includes("rm -rf /tmp/demo"), true);
+    assert.equal(output.includes("[Allow]"), true);
+    assert.equal(output.includes("[Deny]"), true);
+    assert.equal(output.includes("[Allow Session]"), true);
+  });
+
+  test("toolApprovalDialog omits allow-session action when no session callback is provided", () => {
+    const output = createTestRenderer({ viewport: { cols: 60, rows: 16 } })
+      .render(
+        ui.toolApprovalDialog({
+          id: "approval",
+          open: true,
+          request: {
+            toolId: "shell",
+            toolName: "Shell",
+            riskLevel: "low",
+          },
+          onPress: () => undefined,
+          onClose: () => undefined,
+        }),
+      )
+      .toText();
+
+    assert.equal(output.includes("[Allow]"), true);
+    assert.equal(output.includes("[Deny]"), true);
+    assert.equal(output.includes("[Allow Session]"), false);
+  });
+
+  test("toolApprovalDialog renders nothing when closed", () => {
+    const output = createTestRenderer({ viewport: { cols: 60, rows: 16 } })
+      .render(
+        ui.toolApprovalDialog({
+          id: "approval",
+          open: false,
+          request: {
+            toolId: "shell",
+            toolName: "Shell",
+            riskLevel: "low",
+          },
+          onPress: () => undefined,
+          onClose: () => undefined,
+        }),
+      )
+      .toText();
+
+    assert.equal(output.trim(), "");
   });
 
   test("toastContainer creates VNode with edge values", () => {
