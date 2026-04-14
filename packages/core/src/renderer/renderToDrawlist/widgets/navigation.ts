@@ -11,7 +11,6 @@ import {
   tabsRecipe,
 } from "../../../ui/recipes.js";
 import { getAccordionHeadersZoneId } from "../../../widgets/accordion.js";
-import { getBreadcrumbZoneId } from "../../../widgets/breadcrumb.js";
 import { getPaginationZoneId } from "../../../widgets/pagination.js";
 import { getTabsBarZoneId } from "../../../widgets/tabs.js";
 import { isVisibleRect } from "../indices.js";
@@ -127,9 +126,6 @@ function resolveNavigationControlZoneId(node: RuntimeInstance): string | undefin
     case "accordion": {
       return getAccordionHeadersZoneId(id);
     }
-    case "breadcrumb": {
-      return getBreadcrumbZoneId(id);
-    }
     case "pagination": {
       return getPaginationZoneId(id);
     }
@@ -143,6 +139,17 @@ function buildNavigationControlOverrides(
   dsProps: NavigationDsProps,
 ): ReadonlyMap<RuntimeInstance["instanceId"], RuntimeInstance> | null {
   if (!hasNavigationDsProps(dsProps)) return null;
+
+  if (node.vnode.kind === "breadcrumb") {
+    const overrides: [RuntimeInstance["instanceId"], RuntimeInstance][] = [];
+    for (const child of node.children) {
+      if (!child) continue;
+      const patchedChild = cloneWithNavigationDsProps(child, dsProps);
+      if (patchedChild === child) continue;
+      overrides.push([child.instanceId, patchedChild]);
+    }
+    return overrides.length === 0 ? null : new Map(overrides);
+  }
 
   const controlZoneId = resolveNavigationControlZoneId(node);
   if (controlZoneId === undefined) return null;

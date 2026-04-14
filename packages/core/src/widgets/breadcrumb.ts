@@ -97,19 +97,7 @@ export function buildBreadcrumbChildren(
     children: Object.freeze(rowChildren),
   };
 
-  const zone: VNode = {
-    kind: "focusZone",
-    props: {
-      id: getBreadcrumbZoneId(props.id),
-      tabIndex: 0,
-      navigation: "linear",
-      columns: 1,
-      wrapAround: false,
-    },
-    children: Object.freeze([row]),
-  };
-
-  return Object.freeze([zone]);
+  return Object.freeze([row]);
 }
 
 export function createBreadcrumbVNode(props: BreadcrumbProps & Readonly<{ id: string }>): VNode {
