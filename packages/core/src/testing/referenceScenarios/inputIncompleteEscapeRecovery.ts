@@ -13,10 +13,7 @@ export const referenceInputIncompleteEscapeScenario: ScenarioDefinition = Object
   widgetFamily: "input-textarea",
   behaviorStatement:
     "An incomplete escape prefix must fall back deterministically and preserve later text input instead of wedging the stream.",
-  evidenceRefs: Object.freeze([
-    "docs/widgets/input.md",
-    "docs/terminal-io-contract.md",
-  ]),
+  evidenceRefs: Object.freeze(["docs/widgets/input.md", "docs/terminal-io-contract.md"]),
   viewport: Object.freeze({ cols: 48, rows: 8 }),
   theme: Object.freeze({ mode: "named", value: "default" }),
   capabilityProfile: Object.freeze({

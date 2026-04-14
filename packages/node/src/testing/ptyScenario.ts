@@ -30,8 +30,8 @@ import {
   ZR_KEY_UP,
 } from "@rezi-ui/core/keybindings";
 import {
-  type ScenarioCursorSnapshot,
   type ScenarioCapabilityProfile,
+  type ScenarioCursorSnapshot,
   type ScenarioDefinition,
   type ScenarioMismatch,
   type ScenarioRunResult,
@@ -41,9 +41,9 @@ import {
 } from "@rezi-ui/core/testing";
 import { startPtyHarness } from "./ptyHarness.js";
 import {
+  type PtyCapabilityProfileInput,
   buildPtyTargetEnv,
   resolvePtyCapabilityProfile,
-  type PtyCapabilityProfileInput,
 } from "./ptyTargetConfig.js";
 import type { TerminalScreenCursor } from "./screen.js";
 
