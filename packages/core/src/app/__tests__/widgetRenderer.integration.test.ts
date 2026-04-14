@@ -14,6 +14,7 @@ import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
 import { createTestRenderer } from "../../testing/index.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
 import { getAccordionTriggerId } from "../../widgets/accordion.js";
+import { getTabsTriggerId } from "../../widgets/tabs.js";
 import { TOAST_HEIGHT, getToastActionFocusId } from "../../widgets/toast.js";
 import { createApp } from "../createApp.js";
 import { WidgetRenderer } from "../widgetRenderer.js";
@@ -1224,7 +1225,6 @@ describe("WidgetRenderer integration battery", () => {
     assert.equal(presses, 0);
     assert.equal(renderer.getFocusedId(), null);
   });
-
   test("accordion Tab enters headers, arrows move within the accordion, and Tab leaves to adjacent widgets", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({
@@ -1342,6 +1342,117 @@ describe("WidgetRenderer integration battery", () => {
     res = renderer.submitFrame(() => view(), undefined, viewport, defaultTheme, noRenderHooks());
     assert.ok(res.ok);
     assert.equal(renderer.getFocusedId(), secondHeaderId);
+  });
+
+  test("tabs arrow keys switch the active tab and update visible content", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    let activeTab = "general";
+    const changes: string[] = [];
+    const view = () =>
+      ui.tabs({
+        id: "settings-tabs",
+        activeTab,
+        onChange: (key) => {
+          changes.push(key);
+          activeTab = key;
+        },
+        tabs: [
+          {
+            key: "general",
+            label: "General",
+            content: ui.button({ id: "general-save", label: "Save general" }),
+          },
+          {
+            key: "security",
+            label: "Security",
+            content: ui.button({ id: "security-save", label: "Save security" }),
+          },
+        ],
+      });
+
+    const generalTrigger = getTabsTriggerId("settings-tabs", 0, "general");
+    const securityTrigger = getTabsTriggerId("settings-tabs", 1, "security");
+
+    const first = renderer.submitFrame(
+      () => view(),
+      undefined,
+      { cols: 50, rows: 12 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(first.ok);
+    assert.equal(renderer.getFocusedId(), null);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), generalTrigger);
+
+    renderer.routeEngineEvent(keyEvent(23 /* RIGHT */));
+    assert.equal(renderer.getFocusedId(), securityTrigger);
+    assert.deepEqual(changes, ["security"]);
+
+    const second = renderer.submitFrame(
+      () => view(),
+      undefined,
+      { cols: 50, rows: 12 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(second.ok);
+    const rects = renderer.getRectByIdIndex();
+    assert.ok(rects.get("security-save") !== undefined);
+    assert.equal(rects.get("general-save"), undefined);
+  });
+
+  test("Escape from tabs content returns focus to the tab bar", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const view = () =>
+      ui.tabs({
+        id: "settings-tabs",
+        activeTab: "general",
+        onChange: () => {},
+        tabs: [
+          {
+            key: "general",
+            label: "General",
+            content: ui.button({ id: "general-save", label: "Save general" }),
+          },
+          {
+            key: "security",
+            label: "Security",
+            content: ui.button({ id: "security-save", label: "Save security" }),
+          },
+        ],
+      });
+
+    const generalTrigger = getTabsTriggerId("settings-tabs", 0, "general");
+
+    const res = renderer.submitFrame(
+      () => view(),
+      undefined,
+      { cols: 50, rows: 12 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), generalTrigger);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "general-save");
+
+    renderer.routeEngineEvent(keyEvent(1 /* ESC */));
+    assert.equal(renderer.getFocusedId(), generalTrigger);
   });
 
   test("focusZone grid navigation moves by columns deterministically", () => {
