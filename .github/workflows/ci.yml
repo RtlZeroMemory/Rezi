@@ -209,7 +209,7 @@ jobs:
 
   template-smoke:
     name: full gate / create-rezi smoke
-    needs: [quality-gates]
+    needs: [quality-gates, release-critical-suites]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -248,7 +248,7 @@ jobs:
           fi
 
   ci:
-    needs: [quality-gates, template-smoke, matrix-config]
+    needs: [quality-gates, release-critical-suites, template-smoke, matrix-config]
     name: full gate / node ${{ matrix.node-version }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -327,7 +327,7 @@ jobs:
         run: npm run test:native:smoke
 
   bun:
-    needs: [quality-gates]
+    needs: [quality-gates, release-critical-suites]
     name: full gate / bun / ubuntu-latest
     runs-on: ubuntu-latest
     steps:

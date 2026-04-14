@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import process from "node:process";
 
@@ -154,6 +154,10 @@ function parseArgs(argv) {
   const json = argv.includes("--json");
 
   if (command === "summary") {
+    const unexpected = argv.slice(1).filter((arg) => arg !== "--json");
+    if (unexpected.length > 0) {
+      throw new Error(`testing-slices: unexpected extra argument: ${unexpected[0]}`);
+    }
     return { command, json };
   }
 
@@ -161,10 +165,10 @@ function parseArgs(argv) {
     if (typeof value !== "string" || value.length === 0) {
       throw new Error("testing-slices: run requires a slice name");
     }
-    if (typeof extra === "string" && !extra.startsWith("--")) {
+    if (typeof extra === "string") {
       throw new Error(`testing-slices: unexpected extra argument: ${extra}`);
     }
-    return { command, slice: value };
+    return { command, slice: value, json };
   }
 
   throw new Error("testing-slices: expected `summary` or `run <slice>`");
@@ -199,7 +203,9 @@ function buildSummary() {
 
   for (const scenarioId of referenceScenarioExpectations.failureFallbackScenarioIds) {
     if (!scenarioIds.has(scenarioId)) {
-      throw new Error(`testing-slices: missing expected failure/fallback scenario id ${scenarioId}`);
+      throw new Error(
+        `testing-slices: missing expected failure/fallback scenario id ${scenarioId}`,
+      );
     }
   }
 
@@ -297,9 +303,7 @@ function endGroup() {
 function ensureFilesExist(files) {
   for (const file of files) {
     if (!existsSync(join(root, file))) {
-      throw new Error(
-        `testing-slices: missing ${file}; build the repo first so dist tests exist`,
-      );
+      throw new Error(`testing-slices: missing ${file}; build the repo first so dist tests exist`);
     }
   }
 }
@@ -353,7 +357,9 @@ const args = parseArgs(process.argv.slice(2));
 
 if (args.command === "summary") {
   const summary = buildSummary();
-  process.stdout.write(args.json ? `${JSON.stringify(summary, null, 2)}\n` : renderMarkdown(summary));
+  process.stdout.write(
+    args.json ? `${JSON.stringify(summary, null, 2)}\n` : renderMarkdown(summary),
+  );
 } else {
   runSlice(args.slice);
 }

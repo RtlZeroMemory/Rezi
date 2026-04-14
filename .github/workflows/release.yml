@@ -119,7 +119,7 @@ jobs:
 
   template-smoke:
     name: release gate / create-rezi smoke
-    needs: [quality-preflight]
+    needs: [quality-preflight, release-critical-suites]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -143,7 +143,7 @@ jobs:
 
   release-ci:
     name: release gate / node ${{ matrix.node-version }} / ${{ matrix.os }}
-    needs: [quality-preflight]
+    needs: [quality-preflight, release-critical-suites]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -225,7 +225,7 @@ jobs:
 
   bun:
     name: release gate / bun / ubuntu-latest
-    needs: [quality-preflight]
+    needs: [quality-preflight, release-critical-suites]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

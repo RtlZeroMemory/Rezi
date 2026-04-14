@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process";
 import { strict as assert } from "node:assert";
+import { execFileSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -31,4 +31,24 @@ test("testing slices summary stays aligned with repo suites and scenarios", () =
     "code-editor-behavior",
   ]);
   assert.deepEqual(summary.groups["release-critical-terminal"], ["terminal-runtime-behavior"]);
+});
+
+test("testing slices rejects unexpected CLI arguments", () => {
+  assert.throws(
+    () =>
+      execFileSync(process.execPath, [scriptPath, "summary", "--bogus"], {
+        cwd: root,
+        encoding: "utf8",
+      }),
+    /testing-slices: unexpected extra argument: --bogus/u,
+  );
+
+  assert.throws(
+    () =>
+      execFileSync(process.execPath, [scriptPath, "run", "release-critical-packages", "--bogus"], {
+        cwd: root,
+        encoding: "utf8",
+      }),
+    /testing-slices: unexpected extra argument: --bogus/u,
+  );
 });

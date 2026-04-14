@@ -425,20 +425,44 @@ across platforms.
 
 ## CI Integration
 
-Tests run automatically on every push and pull request via the `ci.yml` GitHub
-Actions workflow. The CI pipeline executes:
+Tests run automatically through the workflow split described above instead of a
+single CI flow.
 
-1. `guardrails` job: `bash scripts/guardrails.sh`.
-2. Install dependencies (`npm ci` on Linux, `npm install` on non-Linux matrix jobs).
-3. `npm run lint`.
-4. `npm run typecheck`.
-5. `npm run build`.
-6. `npm run check:core-portability`.
-7. `npm run check:unicode` (Linux only).
-8. `npm run test`.
-9. Native/e2e stages (`npm run build:native`, `npm run test:e2e*`, `npm run test:native:smoke`).
+Pull requests and pushes use `ci.yml`:
 
-Test failures block pull request merges.
+1. Fast gate:
+   `fast gate / quality` runs the blocking repo checks with `npm ci`,
+   `npm run lint`, `npm run typecheck`, `npm run build`, and the existing
+   guardrail commands.
+2. Fast gate:
+   `fast gate / release-critical suites` runs `npm run test:progress` and
+   `npm run test:release-critical`, which surfaces the named release-critical
+   package suites separately from the broader matrix.
+3. Full gate:
+   `full gate / create-rezi smoke`, `full gate / node <version> / <os>`, and
+   `full gate / bun / ubuntu-latest` run after the fast gate and cover the
+   broader matrix, replay harness, PTY/native build work, terminal e2e, native
+   smoke, and Bun coverage. These jobs also use `npm ci`.
+
+Nightly runs use `nightly.yml`:
+
+1. `nightly gate / release-critical suites` repeats the package slice and the
+   terminal slice (`npm run test:release-critical:terminal`).
+2. `nightly gate / create-rezi smoke`, the 3x3 Node/OS matrix, and Bun rerun
+   the current full stack on a schedule.
+
+Tag-based release runs use `release.yml`:
+
+1. `release gate / quality preflight` performs the blocking publish checks with
+   `npm ci`.
+2. `release gate / release-critical suites` repeats the named release-critical
+   package and terminal slices before the release matrix.
+3. `release gate / create-rezi smoke`, `release gate / node <version> / <os>`,
+   and `release gate / bun / ubuntu-latest` run the remaining release checks.
+
+The separate release-critical job is the visible mapping from the gate model to
+the named release-critical suites listed earlier in this document. Failures in
+those jobs block the downstream full or release fan-out work.
 
 ## Related
 
