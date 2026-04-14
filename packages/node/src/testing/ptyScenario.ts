@@ -30,6 +30,7 @@ import {
   ZR_KEY_UP,
 } from "@rezi-ui/core/keybindings";
 import {
+  type ScenarioCapabilityProfile,
   type ScenarioCursorSnapshot,
   type ScenarioDefinition,
   type ScenarioMismatch,
@@ -39,6 +40,11 @@ import {
   validateScenarioDefinition,
 } from "@rezi-ui/core/testing";
 import { startPtyHarness } from "./ptyHarness.js";
+import {
+  type PtyCapabilityProfileInput,
+  buildPtyTargetEnv,
+  resolvePtyCapabilityProfile,
+} from "./ptyTargetConfig.js";
 import type { TerminalScreenCursor } from "./screen.js";
 
 export type PtyScenarioHarnessTarget = Readonly<{
@@ -46,6 +52,7 @@ export type PtyScenarioHarnessTarget = Readonly<{
   command: string;
   args?: readonly string[];
   env?: Readonly<Record<string, string | undefined>>;
+  capabilityProfile?: PtyCapabilityProfileInput;
 }>;
 
 type HarnessCommand = Readonly<{ type: "stop" }>;
@@ -289,6 +296,8 @@ function eventToInputStep(
     }
     case "resize":
       return Object.freeze({ kind: "resize", cols: step.event.cols, rows: step.event.rows });
+    case "terminalBytes":
+      return Object.freeze({ kind: "write", data: step.event.bytes });
     case "key":
       return Object.freeze({ kind: "write", data: keyToBytes(step.event.key, step.event.mods) });
   }
@@ -489,12 +498,12 @@ function capabilityMismatches(
     ["supportsOsc52", scenario.capabilityProfile.supportsOsc52, actual.supportsOsc52],
   ] as const;
   for (const [name, required, supported] of capabilityChecks) {
-    if (!required || supported) continue;
+    if (required === supported) continue;
     mismatches.push({
       code: "ZR_SCENARIO_UNSUPPORTED",
       path: `capabilityProfile.${name}`,
-      detail: `PTY target does not support required capability ${name}`,
-      expected: true,
+      detail: `PTY target capability ${name} does not match the scenario requirement`,
+      expected: required,
       actual: supported,
     });
   }
@@ -595,15 +604,23 @@ export async function runPtyScenario(
     lastRenderAt: { value: Date.now() },
   });
   const control = await createControlServer(state);
+  const launchProfile: ScenarioCapabilityProfile = resolvePtyCapabilityProfile(
+    opts.scenario.capabilityProfile,
+    opts.target.capabilityProfile,
+  );
   const harness = await startPtyHarness(
     Object.freeze({
       cwd: opts.target.cwd,
       command: opts.target.command,
       ...(opts.target.args !== undefined ? { args: opts.target.args } : {}),
-      env: {
-        ...(opts.target.env ?? {}),
+      env: Object.freeze({
+        ...buildPtyTargetEnv({
+          scenarioId: opts.scenario.id,
+          capabilityProfile: launchProfile,
+          ...(opts.target.env === undefined ? {} : { env: opts.target.env }),
+        }),
         REZI_SCENARIO_CTRL_PORT: String(control.port),
-      },
+      }),
       cols: opts.scenario.viewport.cols,
       rows: opts.scenario.viewport.rows,
     }),

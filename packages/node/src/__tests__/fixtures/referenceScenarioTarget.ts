@@ -2,9 +2,17 @@ import net from "node:net";
 import type { AppRenderMetrics } from "@rezi-ui/core";
 import {
   type ScenarioCursorSnapshot,
+  type ScenarioFixture,
+  createReferenceInputIncompleteEscapeFixture,
+  createReferenceInputIncompletePasteFixture,
   createReferenceInputModalFixture,
+  createReferenceInputMouseCapabilityFallbackFixture,
+  createReferenceSelectKeyboardCyclerFixture,
+  createReferenceTextareaMultilineFixture,
+  createReferenceVirtualListResizeStormFixture,
 } from "@rezi-ui/core/testing";
 import { createNodeApp } from "../../index.js";
+import { parsePtyTargetNativeConfig, parsePtyTargetScenarioId } from "../../testing/index.js";
 
 type HarnessCommand = Readonly<{ type: "stop" }>;
 
@@ -19,7 +27,6 @@ type OutboundMessage =
   | Readonly<{ type: "fatal"; detail: string }>;
 
 type TargetEnv = NodeJS.ProcessEnv & Readonly<{ REZI_SCENARIO_CTRL_PORT?: string }>;
-
 const targetEnv = process.env as TargetEnv;
 
 function failAndExit(msg: string): never {
@@ -57,7 +64,46 @@ function cursorFromMetrics(metrics: AppRenderMetrics): ScenarioCursorSnapshot | 
 }
 
 const ctrlPort = parsePortFromEnv();
-const fixture = createReferenceInputModalFixture();
+function loadFixture(): ScenarioFixture<unknown> {
+  const scenarioId = parsePtyTargetScenarioId(targetEnv);
+  switch (scenarioId) {
+    case "input-modal-blocking-focus-restore":
+      return createReferenceInputModalFixture() as unknown as ScenarioFixture<unknown>;
+    case "textarea-multiline-editing":
+      return createReferenceTextareaMultilineFixture() as unknown as ScenarioFixture<unknown>;
+    case "select-keyboard-cycler":
+      return createReferenceSelectKeyboardCyclerFixture() as unknown as ScenarioFixture<unknown>;
+    case "input-incomplete-paste-recovers":
+      return createReferenceInputIncompletePasteFixture() as unknown as ScenarioFixture<unknown>;
+    case "input-mouse-disabled-keeps-keyboard-focus":
+      return createReferenceInputMouseCapabilityFallbackFixture() as unknown as ScenarioFixture<unknown>;
+    case "input-incomplete-escape-recovers":
+      return createReferenceInputIncompleteEscapeFixture() as unknown as ScenarioFixture<unknown>;
+    case "virtual-list-resize-storm-stays-interactive":
+      return createReferenceVirtualListResizeStormFixture() as unknown as ScenarioFixture<unknown>;
+    default:
+      failAndExit(`referenceScenarioTarget: unsupported REZI_SCENARIO_ID=${scenarioId}`);
+  }
+}
+
+function loadFixtureOrExit(): ScenarioFixture<unknown> {
+  try {
+    return loadFixture();
+  } catch (error: unknown) {
+    failAndExit(`referenceScenarioTarget: ${asErrorDetail(error)}`);
+  }
+}
+
+function parseNativeConfigOrExit(): Readonly<Record<string, unknown>> {
+  try {
+    return parsePtyTargetNativeConfig(targetEnv);
+  } catch (error: unknown) {
+    failAndExit(`referenceScenarioTarget: ${asErrorDetail(error)}`);
+  }
+}
+
+const fixture = loadFixtureOrExit();
+const nativeConfig = parseNativeConfigOrExit();
 let socket: net.Socket | null = null;
 let lineBuf = "";
 let shuttingDown = false;
@@ -69,6 +115,7 @@ const app = createNodeApp({
     executionMode: "worker",
     fpsCap: 1000,
     maxEventBytes: 1 << 20,
+    nativeConfig,
     internal_onRender: (metrics: AppRenderMetrics) => {
       latestCursor = cursorFromMetrics(metrics);
       sendJsonLine(socket, { type: "render", cursor: latestCursor });

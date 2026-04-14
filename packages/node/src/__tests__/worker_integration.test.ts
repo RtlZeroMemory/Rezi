@@ -70,6 +70,10 @@ function makeWorker(): Worker {
   return new Worker(entry, options);
 }
 
+function shimUrl(path: string): string {
+  return new URL(path, import.meta.url).href;
+}
+
 function waitFor(worker: Worker, pred: (m: Msg) => boolean): Promise<Msg> {
   return new Promise((resolve, reject) => {
     const onMsg = (m: unknown) => {
@@ -714,6 +718,41 @@ test("backend: mailbox resolves coalesced frame sequences", async () => {
   backend.dispose();
 });
 
+test("backend: SAB mailbox pressure drains repeated frame bursts without fatal loop", async () => {
+  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
+  const backend = createNodeBackendInternal({
+    config: {
+      executionMode: "worker",
+      fpsCap: 1000,
+      maxEventBytes: 1024,
+      frameTransport: "sab",
+      frameSabSlotCount: 2,
+      frameSabSlotBytes: 256,
+    },
+    nativeShimModule: shim,
+  });
+
+  await backend.start();
+
+  const burst = Array.from({ length: 32 }, (_, index) =>
+    backend.requestFrame(
+      Uint8Array.from([index & 0xff, (index + 1) & 0xff, (index + 2) & 0xff, (index + 3) & 0xff]),
+    ),
+  );
+  const settled = await Promise.allSettled(burst);
+  assert.equal(
+    settled.every((entry) => entry.status === "fulfilled"),
+    true,
+    JSON.stringify(settled),
+  );
+
+  // A final frame after the burst proves the backend stays live after pressure.
+  await backend.requestFrame(Uint8Array.from([201, 202, 203, 204]));
+
+  await backend.stop();
+  backend.dispose();
+});
+
 test("backend: requestFrame settles asynchronously after worker completion", async () => {
   const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
   const backend = createNodeBackendInternal({
@@ -1085,7 +1124,7 @@ test("backend: frame submission failure becomes fatal ZRUI_BACKEND_ERROR", async
 });
 
 test("backend: getCaps returns defaults before start and worker caps after start", async () => {
-  const shim = new URL("./worker/testShims/mockNative.js", import.meta.url).href;
+  const shim = shimUrl("./worker/testShims/mockNative.js");
   const backend = createNodeBackendInternal({
     config: { fpsCap: 1000, maxEventBytes: 1024 },
     nativeShimModule: shim,
@@ -1113,6 +1152,63 @@ test("backend: getCaps returns defaults before start and worker caps after start
   });
 
   await backend.stop();
+  backend.dispose();
+});
+
+test("backend: configurable native shim can override reported capabilities", async () => {
+  const shim = shimUrl("./worker/testShims/configurableNative.js");
+  const backend = createNodeBackendInternal({
+    config: {
+      fpsCap: 1000,
+      maxEventBytes: 1024,
+      nativeConfig: {
+        testBehavior: {
+          caps: {
+            supportsMouse: false,
+            supportsBracketedPaste: false,
+            supportsFocusEvents: false,
+            supportsOsc52: true,
+            colorMode: 1,
+          },
+        },
+      },
+    },
+    nativeShimModule: shim,
+  });
+
+  await backend.start();
+  const caps = await backend.getCaps();
+  assert.equal(caps.supportsMouse, false);
+  assert.equal(caps.supportsBracketedPaste, false);
+  assert.equal(caps.supportsFocusEvents, false);
+  assert.equal(caps.supportsOsc52, true);
+  assert.equal(caps.colorMode, 1);
+
+  await backend.stop();
+  backend.dispose();
+});
+
+test("backend: configurable native shim can force engine present failures", async () => {
+  const shim = shimUrl("./worker/testShims/configurableNative.js");
+  const backend = createNodeBackendInternal({
+    config: {
+      fpsCap: 1000,
+      maxEventBytes: 1024,
+      nativeConfig: {
+        testBehavior: {
+          presentResult: -2,
+        },
+      },
+    },
+    nativeShimModule: shim,
+  });
+
+  await backend.start();
+
+  await assert.rejects(backend.requestFrame(new Uint8Array([1, 2, 3, 4])), (error) => {
+    return error instanceof ZrUiError && error.code === "ZRUI_BACKEND_ERROR";
+  });
+
   backend.dispose();
 });
 
@@ -1156,9 +1252,9 @@ test("backend: perfSnapshot returns valid structure when REZI_PERF is enabled", 
   assert.ok("phases" in snapshot);
   assert.ok(typeof snapshot.phases === "object");
 
-  // Each phase should have the expected structure if present
-  for (const [phase, stats] of Object.entries(snapshot.phases)) {
-    assert.ok(typeof phase === "string");
+  // Each perf bucket should have the expected structure if present.
+  for (const [bucketName, stats] of Object.entries(snapshot.phases)) {
+    assert.ok(typeof bucketName === "string");
     assert.ok(stats !== null && typeof stats === "object");
     if (stats) {
       const s = stats as { count?: number; avg?: number; p50?: number; p95?: number; max?: number };

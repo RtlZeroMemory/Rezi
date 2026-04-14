@@ -9,6 +9,14 @@ export {
   type PtyScenarioHarnessTarget,
 } from "./ptyScenario.js";
 export {
+  buildPtyTargetEnv,
+  parsePtyTargetNativeConfig,
+  parsePtyTargetScenarioId,
+  resolvePtyCapabilityProfile,
+  type PtyCapabilityProfileInput,
+  type PtyCapabilityProfileName,
+} from "./ptyTargetConfig.js";
+export {
   createTerminalScreen,
   type TerminalScreenCursor,
   type TerminalScreenSnapshot,

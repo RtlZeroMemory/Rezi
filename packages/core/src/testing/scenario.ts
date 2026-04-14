@@ -26,6 +26,7 @@ export type ScenarioScriptedInputEvent =
   | Readonly<{ kind: "text"; text: string }>
   | Readonly<{ kind: "paste"; text: string }>
   | Readonly<{ kind: "resize"; cols: number; rows: number }>
+  | Readonly<{ kind: "terminalBytes"; bytes: string }>
   | Readonly<{ kind: "key"; key: string | number; mods?: readonly ScenarioKeyMod[] }>;
 
 export type ScenarioScriptedInputStep = Readonly<{
@@ -208,7 +209,7 @@ export function validateScenarioDefinition(
     mismatches.push({
       code: "ZR_SCENARIO_UNSUPPORTED",
       path: "theme",
-      detail: `Only theme { mode: \"named\", value: \"default\" } is supported in this MVP`,
+      detail: `Only theme { mode: \"named\", value: \"default\" } is supported in this scenario harness`,
       expected: { mode: "named", value: "default" },
       actual: scenario.theme,
     });

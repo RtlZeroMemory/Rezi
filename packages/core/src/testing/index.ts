@@ -65,3 +65,19 @@ export {
   referenceSelectKeyboardCyclerScenario,
   createReferenceSelectKeyboardCyclerFixture,
 } from "./referenceScenarios/selectKeyboardCycler.js";
+export {
+  referenceInputIncompletePasteScenario,
+  createReferenceInputIncompletePasteFixture,
+} from "./referenceScenarios/inputIncompletePasteRecovery.js";
+export {
+  referenceInputMouseCapabilityFallbackScenario,
+  createReferenceInputMouseCapabilityFallbackFixture,
+} from "./referenceScenarios/inputMouseCapabilityFallback.js";
+export {
+  referenceInputIncompleteEscapeScenario,
+  createReferenceInputIncompleteEscapeFixture,
+} from "./referenceScenarios/inputIncompleteEscapeRecovery.js";
+export {
+  referenceVirtualListResizeStormScenario,
+  createReferenceVirtualListResizeStormFixture,
+} from "./referenceScenarios/virtualListResizeStorm.js";
