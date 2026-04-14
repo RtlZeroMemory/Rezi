@@ -234,6 +234,8 @@ function eventToZrevEvents(event: ScenarioScriptedInputEvent): readonly TestZrev
           rows: event.rows,
         },
       ]);
+    case "terminalBytes":
+      throw new Error("Semantic scenarios do not support terminalBytes input");
     case "key":
       return Object.freeze([
         {
@@ -277,6 +279,24 @@ export async function runSemanticScenario<S>(
     createFixture: ScenarioFixtureFactory<S>;
   }>,
 ): Promise<ScenarioRunResult> {
+  if (opts.scenario.scriptedInput.some((step) => step.event.kind === "terminalBytes")) {
+    return Object.freeze({
+      mode: "semantic",
+      status: "FAIL",
+      pass: false,
+      actions: Object.freeze([]),
+      steps: Object.freeze([]),
+      finalScreen: createScenarioScreenSnapshot(opts.scenario.viewport, ""),
+      finalCursor: null,
+      mismatches: Object.freeze([
+        Object.freeze({
+          code: "ZR_SCENARIO_UNSUPPORTED" as const,
+          path: "scriptedInput",
+          detail: "Semantic scenarios do not support terminalBytes input; use PTY mode",
+        }),
+      ]),
+    });
+  }
   const fixture = opts.createFixture();
   const backend = new SemanticHarnessBackend(toTerminalCaps(opts.scenario.capabilityProfile));
   let latestState = fixture.initialState;

@@ -175,6 +175,8 @@ function eventToZrevEvents(event: ScenarioScriptedInputEvent): readonly TestZrev
           rows: event.rows,
         },
       ]);
+    case "terminalBytes":
+      throw new Error("Replay scenarios do not support terminalBytes input");
     case "key":
       return Object.freeze([
         {
@@ -226,7 +228,9 @@ function toReplayExpectedActions(
       );
       continue;
     }
-    throw new Error(`Replay MVP supports only press/input expectedActions (got ${action.action})`);
+    throw new Error(
+      `Replay scenario runner supports only press/input expectedActions (got ${action.action})`,
+    );
   }
   return Object.freeze(out);
 }
@@ -338,6 +342,24 @@ export async function runReplayScenario<S>(
     createFixture: ScenarioFixtureFactory<S>;
   }>,
 ): Promise<ScenarioRunResult> {
+  if (opts.scenario.scriptedInput.some((step) => step.event.kind === "terminalBytes")) {
+    return Object.freeze({
+      mode: "replay",
+      status: "FAIL",
+      pass: false,
+      actions: Object.freeze([]),
+      steps: Object.freeze([]),
+      finalScreen: createScenarioScreenSnapshot(opts.scenario.viewport, ""),
+      finalCursor: null,
+      mismatches: Object.freeze([
+        Object.freeze({
+          code: "ZR_SCENARIO_UNSUPPORTED" as const,
+          path: "scriptedInput",
+          detail: "Replay scenarios do not support terminalBytes input; use PTY mode",
+        }),
+      ]),
+    });
+  }
   const fixture = opts.createFixture();
   const compiledTheme = compileTheme(fixture.theme ?? defaultTheme.definition);
   const renderer = createTestRenderer({
@@ -473,7 +495,7 @@ export async function runReplayScenario<S>(
     code: "ZR_SCENARIO_UNSUPPORTED",
     path: "expectedCursorState",
     detail:
-      "Replay MVP does not capture live cursor state; use semantic or PTY mode for cursor-dependent scenarios",
+      "Replay scenario runner does not capture live cursor state; use semantic or PTY mode for cursor-dependent scenarios",
   });
   return Object.freeze({
     ...result,
