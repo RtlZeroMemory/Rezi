@@ -398,6 +398,44 @@ describe("focus zones - routeKeyWithZones", () => {
     assert.equal(res.nextZoneId, null);
   });
 
+  test("mixed focus list: Tab leaves a multi-item zone instead of stepping to another item in the same zone", () => {
+    const zones = new Map<string, FocusZone>([
+      ["z1", zone({ id: "z1", tabIndex: 0, focusableIds: ["a1", "a2"] })],
+    ]);
+
+    const res = routeKeyWithZones(
+      keyEvent(ZR_KEY_TAB),
+      routingCtx({
+        focusedId: "a1",
+        activeZoneId: "z1",
+        focusList: ["before", "a1", "a2", "after"],
+        zones,
+      }),
+    );
+
+    assert.equal(res.nextFocusedId, "after");
+    assert.equal(res.nextZoneId, null);
+  });
+
+  test("mixed focus list: Shift+TAB leaves a multi-item zone instead of stepping to another item in the same zone", () => {
+    const zones = new Map<string, FocusZone>([
+      ["z1", zone({ id: "z1", tabIndex: 0, focusableIds: ["a1", "a2"] })],
+    ]);
+
+    const res = routeKeyWithZones(
+      keyEvent(ZR_KEY_TAB, ZR_MOD_SHIFT),
+      routingCtx({
+        focusedId: "a2",
+        activeZoneId: "z1",
+        focusList: ["before", "a1", "a2", "after"],
+        zones,
+      }),
+    );
+
+    assert.equal(res.nextFocusedId, "before");
+    assert.equal(res.nextZoneId, null);
+  });
+
   test("mixed focus list: TAB from non-zone item can enter zone", () => {
     const zones = new Map<string, FocusZone>([
       ["z1", zone({ id: "z1", tabIndex: 0, focusableIds: ["a1", "a2"] })],

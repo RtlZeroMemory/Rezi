@@ -13,6 +13,7 @@ import { ZR_MOD_CTRL, ZR_MOD_SHIFT } from "../../keybindings/keyCodes.js";
 import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
 import { createTestRenderer } from "../../testing/index.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
+import { getAccordionTriggerId } from "../../widgets/accordion.js";
 import { TOAST_HEIGHT, getToastActionFocusId } from "../../widgets/toast.js";
 import { createApp } from "../createApp.js";
 import { WidgetRenderer } from "../widgetRenderer.js";
@@ -1222,6 +1223,137 @@ describe("WidgetRenderer integration battery", () => {
     assert.equal(up.action, undefined);
     assert.equal(presses, 0);
     assert.equal(renderer.getFocusedId(), null);
+  });
+
+  test("accordion Tab enters headers, arrows move within the accordion, and Tab leaves to adjacent widgets", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const firstHeaderId = getAccordionTriggerId("faq", 0, "intro");
+    const secondHeaderId = getAccordionTriggerId("faq", 1, "api");
+
+    const vnode = ui.column({}, [
+      ui.button({ id: "before", label: "Before" }),
+      ui.accordion({
+        id: "faq",
+        items: [
+          { key: "intro", title: "Intro", content: ui.text("intro-content") },
+          { key: "api", title: "API", content: ui.text("api-content") },
+        ],
+        expanded: [],
+        onChange: () => {},
+      }),
+      ui.button({ id: "after", label: "After" }),
+    ]);
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 50, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+    assert.equal(renderer.getFocusedId(), null);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "before");
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), firstHeaderId);
+
+    renderer.routeEngineEvent(keyEvent(21 /* DOWN */));
+    assert.equal(renderer.getFocusedId(), secondHeaderId);
+
+    renderer.routeEngineEvent(keyEvent(20 /* UP */));
+    assert.equal(renderer.getFocusedId(), firstHeaderId);
+
+    renderer.routeEngineEvent(keyEvent(21 /* DOWN */));
+    assert.equal(renderer.getFocusedId(), secondHeaderId);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */, ZR_MOD_SHIFT));
+    assert.equal(renderer.getFocusedId(), "before");
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), firstHeaderId);
+
+    renderer.routeEngineEvent(keyEvent(21 /* DOWN */));
+    assert.equal(renderer.getFocusedId(), secondHeaderId);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "after");
+  });
+
+  test("accordion Enter and Space toggle the focused section and update the controlled expanded state", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    let expanded: readonly string[] = Object.freeze([]);
+    const changes: string[][] = [];
+    const firstHeaderId = getAccordionTriggerId("faq", 0, "intro");
+    const secondHeaderId = getAccordionTriggerId("faq", 1, "api");
+    const viewport = { cols: 50, rows: 10 };
+
+    const view = () =>
+      ui.accordion({
+        id: "faq",
+        items: [
+          { key: "intro", title: "Intro", content: ui.text("intro-content") },
+          { key: "api", title: "API", content: ui.text("api-content") },
+        ],
+        expanded,
+        onChange: (next) => {
+          expanded = next;
+          changes.push([...next]);
+        },
+      });
+
+    let res = renderer.submitFrame(
+      () => view(),
+      undefined,
+      viewport,
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), firstHeaderId);
+
+    renderer.routeEngineEvent(keyEvent(21 /* DOWN */));
+    assert.equal(renderer.getFocusedId(), secondHeaderId);
+
+    renderer.routeEngineEvent(keyEvent(2 /* ENTER */));
+    assert.deepEqual(changes, [["api"]]);
+
+    res = renderer.submitFrame(
+      () => view(),
+      undefined,
+      viewport,
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+    assert.equal(renderer.getFocusedId(), secondHeaderId);
+
+    renderer.routeEngineEvent(keyEvent(32 /* SPACE */));
+    assert.deepEqual(changes, [["api"], []]);
+
+    res = renderer.submitFrame(
+      () => view(),
+      undefined,
+      viewport,
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+    assert.equal(renderer.getFocusedId(), secondHeaderId);
   });
 
   test("focusZone grid navigation moves by columns deterministically", () => {

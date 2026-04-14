@@ -37,6 +37,32 @@ function findZoneForId(zones: ReadonlyMap<string, FocusZone>, focusedId: string)
   return null;
 }
 
+function findMixedTraversalTarget(
+  focusList: readonly string[],
+  focusedId: string,
+  move: FocusMove,
+  excludedIds: ReadonlySet<string>,
+): string | null {
+  const total = focusList.length;
+  if (total === 0) return null;
+
+  const startIndex = focusList.indexOf(focusedId);
+  if (startIndex < 0) return null;
+
+  for (let step = 1; step <= total; step++) {
+    const nextIndex =
+      move === "next"
+        ? (startIndex + step) % total
+        : (startIndex - step + total) % total;
+    const candidate = focusList[nextIndex];
+    if (candidate !== undefined && !excludedIds.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 /**
  * Map key code to focus direction.
  */
@@ -144,6 +170,23 @@ export function routeKeyWithZones(
       }
 
       if (hasNonZonedFocusable) {
+        const containingZoneId = activeZoneId ?? (focusedId === null ? null : findZoneForId(zones, focusedId));
+        if (focusedId !== null && containingZoneId !== null) {
+          const containingZone = zones.get(containingZoneId);
+          if (containingZone && containingZone.focusableIds.length > 0) {
+            const nextFocusedId = findMixedTraversalTarget(
+              focusList,
+              focusedId,
+              move,
+              new Set(containingZone.focusableIds),
+            );
+            if (nextFocusedId !== null) {
+              const nextZoneId = findZoneForId(zones, nextFocusedId);
+              return Object.freeze({ nextFocusedId, nextZoneId });
+            }
+          }
+        }
+
         const nextFocusedId = computeMovedFocusId(focusList, focusedId, move);
         const nextZoneId = nextFocusedId === null ? null : findZoneForId(zones, nextFocusedId);
         return Object.freeze({ nextFocusedId, nextZoneId });
