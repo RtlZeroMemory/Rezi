@@ -11,7 +11,8 @@ import {
 
 const isBunRuntime = "Bun" in globalThis;
 // GitHub's macOS runners currently fail PTY child spawn with posix_spawnp.
-const isMacOsCi = process.platform === "darwin" && process.env["CI"] === "true";
+const env = process.env as NodeJS.ProcessEnv & Readonly<{ CI?: string }>;
+const isMacOsCi = process.platform === "darwin" && env.CI === "true";
 
 async function waitForSnapshot(
   harness: PtyHarness,

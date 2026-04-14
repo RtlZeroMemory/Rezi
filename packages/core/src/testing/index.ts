@@ -57,3 +57,11 @@ export {
   referenceInputModalScenario,
   createReferenceInputModalFixture,
 } from "./referenceScenarios/inputModalBlocking.js";
+export {
+  referenceTextareaMultilineScenario,
+  createReferenceTextareaMultilineFixture,
+} from "./referenceScenarios/textareaMultilineEditing.js";
+export {
+  referenceSelectKeyboardCyclerScenario,
+  createReferenceSelectKeyboardCyclerFixture,
+} from "./referenceScenarios/selectKeyboardCycler.js";
