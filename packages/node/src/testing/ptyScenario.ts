@@ -146,6 +146,16 @@ function keyToBytes(key: string | number, mods: readonly string[] | undefined): 
   const ctrl = mods?.includes("ctrl") ?? false;
   const alt = mods?.includes("alt") ?? false;
   const meta = mods?.includes("meta") ?? false;
+  const shift = mods?.includes("shift") ?? false;
+  if (
+    typeof normalized === "string" &&
+    /^f(?:[1-9]|1[0-2])$/u.test(normalized) &&
+    (ctrl || alt || meta || shift)
+  ) {
+    throw new Error(
+      `Unsupported PTY scenario key ${JSON.stringify(key)} with function-key modifiers ${JSON.stringify(mods ?? [])}`,
+    );
+  }
   if ((alt || meta) && typeof normalized === "string" && normalized.length === 1 && !ctrl) {
     return `\u001b${normalized}`;
   }
@@ -608,14 +618,7 @@ export async function runPtyScenario(
     const finalSnapshot = harness.snapshot();
     const finalCursor = combineCursor(finalSnapshot.cursor, state.latestCursor.value);
     sendCommand(state.socket.current, { type: "stop" });
-    const baseResult = evaluateScenarioResult(opts.scenario, {
-      mode: "pty",
-      actions: Object.freeze(state.actions.slice()),
-      steps: Object.freeze(steps),
-      finalScreen: finalSnapshot.screen,
-      finalCursor,
-    });
-    const mismatches: ScenarioMismatch[] = [...baseResult.mismatches];
+    const mismatches: ScenarioMismatch[] = [];
     try {
       const exit = await waitForScenarioExit(harness);
       if (exit.exitCode !== 0) {
@@ -641,6 +644,15 @@ export async function runPtyScenario(
         detail: state.fatals[index] ?? "unknown fatal",
       });
     }
+    const finalActions = Object.freeze(state.actions.slice());
+    const baseResult = evaluateScenarioResult(opts.scenario, {
+      mode: "pty",
+      actions: finalActions,
+      steps: Object.freeze(steps),
+      finalScreen: finalSnapshot.screen,
+      finalCursor,
+    });
+    mismatches.unshift(...baseResult.mismatches);
     return Object.freeze({
       ...baseResult,
       status: mismatches.length === 0 ? "PASS" : "FAIL",
