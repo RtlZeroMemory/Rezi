@@ -192,7 +192,7 @@ function keyToBytes(key: string | number, mods: readonly string[] | undefined): 
     );
   }
   if ((alt || meta) && typeof normalized === "string" && normalized.length === 1 && !ctrl) {
-    return `\u001b${shiftPrintableChar(normalized)}`;
+    return `\u001b${shift ? shiftPrintableChar(normalized) : normalized}`;
   }
   if (ctrl && typeof normalized === "string" && normalized.length === 1) {
     const upper = normalized.toUpperCase();

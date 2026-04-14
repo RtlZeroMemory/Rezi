@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readdirSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
@@ -9,6 +10,8 @@ import {
 import { runPtyScenario } from "../testing/index.js";
 
 const isBunRuntime = "Bun" in globalThis;
+const nativePackageDir = fileURLToPath(new URL("../../../native/", import.meta.url));
+const hasHostNativeAddon = readdirSync(nativePackageDir).some((entry) => entry.endsWith(".node"));
 
 function mismatchDetail(result: { mismatches: readonly unknown[] }): string {
   return JSON.stringify(result.mismatches, null, 2);
@@ -17,6 +20,8 @@ function mismatchDetail(result: { mismatches: readonly unknown[] }): string {
 if (process.platform === "win32") {
   test.skip("reference scenario passes in semantic and PTY modes", () => {});
 } else if (isBunRuntime) {
+  test.skip("reference scenario passes in semantic and PTY modes", () => {});
+} else if (!hasHostNativeAddon) {
   test.skip("reference scenario passes in semantic and PTY modes", () => {});
 } else {
   test("reference scenario passes in semantic and PTY modes", { timeout: 20_000 }, async () => {

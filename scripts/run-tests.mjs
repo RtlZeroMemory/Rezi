@@ -170,6 +170,15 @@ if (typeof filter === "string") {
   }
 }
 
+if (relFiles.length === 0) {
+  process.stderr.write(
+    isBunRuntime
+      ? "run-tests: all selected tests are unsupported under Bun\n"
+      : "run-tests: no test files selected\n",
+  );
+  process.exit(1);
+}
+
 const cmd = process.execPath;
 const supportsTestConcurrency = process.allowedNodeEnvironmentFlags.has("--test-concurrency");
 const args = ["--test", ...(supportsTestConcurrency ? ["--test-concurrency=1"] : []), ...relFiles];
