@@ -1,0 +1,183 @@
+name: nightly testing
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-testing-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-critical-suites:
+    name: nightly gate / release-critical suites
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Write testing progress summary
+        run: npm run test:progress >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run release-critical package suites
+        run: npm run test:release-critical
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build native addon
+        run: npm run build:native
+
+      - name: Run release-critical terminal suites
+        run: npm run test:release-critical:terminal
+
+  template-smoke:
+    name: nightly gate / create-rezi smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Smoke scaffolded templates
+        run: npm run smoke:create-rezi-templates
+
+  nightly-ci:
+    name: nightly gate / node ${{ matrix.node-version }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        node-version: ["18", "20", "22"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Tests
+        run: npm run test
+
+      - name: Repro replay fixtures (headless, explicit gate)
+        if: runner.os == 'Linux'
+        run: |
+          CONCURRENCY=$(node -p "parseInt(process.versions.node)>=19?'--test-concurrency=1':''")
+          node --test $CONCURRENCY packages/core/dist/repro/__tests__/replay.harness.test.js
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build native addon
+        run: npm run build:native
+
+      - name: PTY reference scenario (post-native build)
+        if: runner.os != 'Windows'
+        run: |
+          CONCURRENCY=$(node -p "parseInt(process.versions.node)>=19?'--test-concurrency=1':''")
+          node --test $CONCURRENCY packages/node/dist/__tests__/ptyScenario.test.js
+
+      - name: Terminal e2e (Linux full)
+        if: runner.os == 'Linux'
+        run: npm run test:e2e
+
+      - name: Terminal e2e (Linux reduced)
+        if: runner.os == 'Linux'
+        run: npm run test:e2e:reduced
+
+      - name: Terminal e2e equivalent (non-Linux reduced)
+        if: runner.os != 'Linux'
+        run: npm run test:e2e:reduced
+
+      - name: Native smoke + worker integration (Unix PTY)
+        if: runner.os != 'Windows'
+        run: |
+          python3 - <<'PY'
+          import os
+          import pty
+          import sys
+
+          status = pty.spawn(["bash", "-lc", "npm run test:native:smoke"])
+          if os.WIFEXITED(status):
+              sys.exit(os.WEXITSTATUS(status))
+          if os.WIFSIGNALED(status):
+              sys.exit(128 + os.WTERMSIG(status))
+          sys.exit(1)
+          PY
+
+      - name: Native smoke + worker integration (Windows)
+        if: runner.os == 'Windows'
+        run: npm run test:native:smoke
+
+  bun:
+    name: nightly gate / bun / ubuntu-latest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.9"
+
+      - name: Install
+        run: bun install
+
+      - name: Build
+        run: bun run build
+
+      - name: Tests
+        run: bun run test
+
+      - name: Terminal e2e (reduced)
+        run: bun run test:e2e:reduced

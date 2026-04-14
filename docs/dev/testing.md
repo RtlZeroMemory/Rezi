@@ -30,6 +30,25 @@ Run only script tests (`.test.mjs` files under `scripts/__tests__/`):
 npm run test:scripts
 ```
 
+Run the named release-critical package suites that the fast PR gate surfaces:
+
+```bash
+npm run test:release-critical
+```
+
+Run the named terminal-real release-critical slice after building the native addon:
+
+```bash
+npm run build:native
+npm run test:release-critical:terminal
+```
+
+Print the CI-facing testing progress summary locally:
+
+```bash
+npm run test:progress
+```
+
 ### Individual Test Files
 
 Run a single test file directly with Node's test runner:
@@ -65,6 +84,35 @@ npm run test:e2e
 # Reduced profile (fewer scenarios, faster)
 npm run test:e2e:reduced
 ```
+
+## CI Gates
+
+Rezi keeps the gate split tied to real repo test entrypoints instead of abstract labels.
+
+- Fast PR gate: Linux / Node 22 quality checks plus the named release-critical package suites.
+- Full PR gate: the broader Node/OS matrix, reduced/full terminal e2e, PTY scenarios, native smoke, and Bun coverage.
+- Nightly gate: the scheduled rerun of the full cross-platform stack plus the release-critical package and terminal slices.
+- Release gate: the tag workflow repeats the release-critical slices before publishing, then runs the release matrix and Bun coverage.
+
+The release-critical suites surfaced in CI are:
+
+- Input editing and focus-capture contracts
+- Table selection, sorting, viewport, and row-key behavior
+- Virtual-list visible range and navigation behavior
+- Command palette query, async fetch, selection, and close behavior
+- File picker and file-tree explorer browse, open, and select flows
+- Modal focus entry and return behavior
+- Code editor editing, selection, and scroll behavior
+- Node terminal IO and worker/native backend flow
+
+## New Test Declarations
+
+New tests should declare two things before review:
+
+- Contract source: the docs page, public API, regression, or existing contract file that defines the behavior being pinned.
+- Fidelity: the lowest test level that can still prove the user-visible behavior, for example helper-level, semantic app/render coverage, or terminal-real PTY/e2e coverage.
+
+If the contract source is not obvious from the suite name, add a short comment near the test. If the behavior depends on terminal capabilities, stream ordering, or PTY/native behavior, prefer terminal-real coverage or explain why a lower-fidelity test is still sufficient. The pull-request template repeats this check during review.
 
 ## Live PTY Rendering Validation (for UI regressions)
 

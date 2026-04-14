@@ -112,7 +112,7 @@ jobs:
   # Fast gate: run the repo's blocking static analysis and quality policy once
   # on Linux/Node 22 before the slower matrix and smoke jobs fan out.
   quality-gates:
-    name: quality gates
+    name: fast gate / quality
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -180,8 +180,35 @@ jobs:
         if: ${{ steps.quality_deadcode.outcome != 'success' }}
         run: echo "::warning::Knip remains advisory in this PR. Review the dead-code report separately from the blocking quality gates."
 
+  release-critical-suites:
+    name: fast gate / release-critical suites
+    needs: [quality-gates]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Write testing progress summary
+        run: npm run test:progress >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run release-critical package suites
+        run: npm run test:release-critical
+
   template-smoke:
-    name: create-rezi smoke
+    name: full gate / create-rezi smoke
     needs: [quality-gates]
     runs-on: ubuntu-latest
     steps:
@@ -207,7 +234,7 @@ jobs:
   # Compute matrix: 5 runners on PRs (all Node versions on Linux + latest on
   # macOS/Windows), full 3×3 on push to main.
   matrix-config:
-    name: configure matrix
+    name: full gate / configure matrix
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set.outputs.matrix }}
@@ -222,7 +249,7 @@ jobs:
 
   ci:
     needs: [quality-gates, template-smoke, matrix-config]
-    name: node ${{ matrix.node-version }} / ${{ matrix.os }}
+    name: full gate / node ${{ matrix.node-version }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -301,7 +328,7 @@ jobs:
 
   bun:
     needs: [quality-gates]
-    name: bun / ubuntu-latest
+    name: full gate / bun / ubuntu-latest
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -332,7 +359,7 @@ jobs:
         run: bun run test:e2e:reduced
 
   perf-regression:
-    name: perf regression gate
+    name: perf regression advisory
     if: github.event_name == 'pull_request'
     needs: [quality-gates]
     runs-on: ubuntu-latest
