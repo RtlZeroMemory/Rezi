@@ -9,7 +9,7 @@ import {
   runSemanticScenario,
 } from "../index.js";
 
-test("wave1 shared scenario: input editing still pauses behind modal and resumes after close", async () => {
+test("reference scenario: input editing still pauses behind modal and resumes after close", async () => {
   const result = await runSemanticScenario({
     scenario: referenceInputModalScenario,
     createFixture: createReferenceInputModalFixture,
@@ -18,7 +18,7 @@ test("wave1 shared scenario: input editing still pauses behind modal and resumes
   assert.deepEqual(result.mismatches, []);
 });
 
-test("wave1 shared scenario: textarea editing preserves multiline behavior", async () => {
+test("reference scenario: textarea editing preserves multiline behavior", async () => {
   const result = await runSemanticScenario({
     scenario: referenceTextareaMultilineScenario,
     createFixture: createReferenceTextareaMultilineFixture,
@@ -27,7 +27,7 @@ test("wave1 shared scenario: textarea editing preserves multiline behavior", asy
   assert.deepEqual(result.mismatches, []);
 });
 
-test("wave1 shared scenario: select keyboard cycling skips disabled options", async () => {
+test("reference scenario: select keyboard cycling skips disabled options", async () => {
   const result = await runSemanticScenario({
     scenario: referenceSelectKeyboardCyclerScenario,
     createFixture: createReferenceSelectKeyboardCyclerFixture,

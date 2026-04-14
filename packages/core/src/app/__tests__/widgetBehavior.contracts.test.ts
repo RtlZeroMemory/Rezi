@@ -86,7 +86,7 @@ function centerOf(renderer: WidgetRenderer<void>, id: string): Readonly<{ x: num
   });
 }
 
-describe("wave1 behavior - input and textarea", () => {
+describe("input and textarea behavior contracts", () => {
   test("disabled input and textarea stay out of tab order and ignore mouse focus", () => {
     const renderer = new WidgetRenderer<void>({
       backend: createNoopBackend(),
@@ -117,7 +117,7 @@ describe("wave1 behavior - input and textarea", () => {
   });
 });
 
-describe("wave1 behavior - modal, overlay, and focus", () => {
+describe("modal, overlay, and focus behavior contracts", () => {
   test("Escape closes a modal and restores focus to returnFocusTo", () => {
     const renderer = new WidgetRenderer<void>({
       backend: createNoopBackend(),
@@ -256,7 +256,7 @@ describe("wave1 behavior - modal, overlay, and focus", () => {
   });
 });
 
-describe("wave1 behavior - select and dropdown", () => {
+describe("select and dropdown behavior contracts", () => {
   test("disabled select stays out of focus order and ignores pointer focus", () => {
     const renderer = new WidgetRenderer<void>({
       backend: createNoopBackend(),
@@ -354,7 +354,7 @@ describe("wave1 behavior - select and dropdown", () => {
   });
 });
 
-describe("wave1 behavior - table, tree, and virtual list", () => {
+describe("table, tree, and virtual list behavior contracts", () => {
   test("table sort changes visible row order and row activation follows that order", () => {
     const renderer = new WidgetRenderer<void>({
       backend: createNoopBackend(),
