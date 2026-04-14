@@ -58,11 +58,13 @@ if (process.platform === "win32") {
       });
 
       try {
+        const { PATH: expectedPathValue } = process.env;
+        const expectedPathLine = `path:${expectedPathValue ? "present" : "missing"}`;
         await waitForSnapshot(harness, (snapshot) =>
           snapshot.screen.lines.some((line) => line.includes("size:40x8")),
         );
         await waitForSnapshot(harness, (snapshot) =>
-          snapshot.screen.lines.some((line) => line.includes("path:present")),
+          snapshot.screen.lines.some((line) => line.includes(expectedPathLine)),
         );
 
         await harness.resize(52, 10);

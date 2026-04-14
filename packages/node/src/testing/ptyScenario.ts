@@ -81,7 +81,12 @@ type PtyInputStep =
   | Readonly<{ kind: "resize"; cols: number; rows: number }>;
 
 function normalizeKeyForPty(key: string | number): string | number {
-  if (typeof key !== "number") return key.trim().toLowerCase();
+  if (typeof key !== "number") {
+    if (key.length === 1) return key;
+    const trimmed = key.trim();
+    if (trimmed.length === 1) return trimmed;
+    return trimmed.toLowerCase();
+  }
   switch (key) {
     case ZR_KEY_ENTER:
       return "enter";
@@ -141,6 +146,36 @@ function normalizeKeyForPty(key: string | number): string | number {
   }
 }
 
+function shiftPrintableChar(value: string): string {
+  if (value.length !== 1) return value;
+  const shifted = {
+    "`": "~",
+    "1": "!",
+    "2": "@",
+    "3": "#",
+    "4": "$",
+    "5": "%",
+    "6": "^",
+    "7": "&",
+    "8": "*",
+    "9": "(",
+    "0": ")",
+    "-": "_",
+    "=": "+",
+    "[": "{",
+    "]": "}",
+    "\\": "|",
+    ";": ":",
+    "'": '"',
+    ",": "<",
+    ".": ">",
+    "/": "?",
+  } as const;
+  const mapped = shifted[value as keyof typeof shifted];
+  if (mapped !== undefined) return mapped;
+  return value.toUpperCase();
+}
+
 function keyToBytes(key: string | number, mods: readonly string[] | undefined): string {
   const normalized = normalizeKeyForPty(key);
   const ctrl = mods?.includes("ctrl") ?? false;
@@ -157,7 +192,7 @@ function keyToBytes(key: string | number, mods: readonly string[] | undefined): 
     );
   }
   if ((alt || meta) && typeof normalized === "string" && normalized.length === 1 && !ctrl) {
-    return `\u001b${normalized}`;
+    return `\u001b${shiftPrintableChar(normalized)}`;
   }
   if (ctrl && typeof normalized === "string" && normalized.length === 1) {
     const upper = normalized.toUpperCase();
@@ -166,8 +201,11 @@ function keyToBytes(key: string | number, mods: readonly string[] | undefined): 
       return String.fromCharCode(code - 64);
     }
   }
+  if (shift && normalized === "tab" && !ctrl && !alt && !meta) {
+    return "\u001b[Z";
+  }
   if (typeof normalized === "string" && normalized.length === 1 && !ctrl && !alt && !meta) {
-    return normalized;
+    return shift ? shiftPrintableChar(normalized) : normalized;
   }
   switch (normalized) {
     case "enter":
@@ -178,6 +216,8 @@ function keyToBytes(key: string | number, mods: readonly string[] | undefined): 
       return "\u001b";
     case "tab":
       return "\t";
+    case "space":
+      return " ";
     case "backspace":
       return "\u007f";
     case "up":
