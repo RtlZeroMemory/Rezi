@@ -375,20 +375,39 @@ test("createHotStateReload stop before start does not leak temp session director
   await withTempDir(async (dir) => {
     writeWidgetModule(dir, "v1");
     const viewModule = writeViewModule(dir);
-    const before = new Set(listHsrSessionDirs());
-    const controller = createHotStateReload<State>({
-      app: {
-        replaceView: () => {},
-      },
-      viewModule,
-      moduleRoot: dir,
-    });
+    const isolatedTmp = join(dir, ".tmp");
+    mkdirSync(isolatedTmp, { recursive: true });
 
-    await controller.stop();
+    const originalTmpdir = process.env["TMPDIR"];
+    const originalTmp = process.env["TMP"];
+    const originalTemp = process.env["TEMP"];
+    process.env["TMPDIR"] = isolatedTmp;
+    process.env["TMP"] = isolatedTmp;
+    process.env["TEMP"] = isolatedTmp;
 
-    const after = listHsrSessionDirs();
-    const leaked = after.filter((name) => !before.has(name));
-    assert.deepEqual(leaked, []);
+    try {
+      const before = new Set(listHsrSessionDirs());
+      const controller = createHotStateReload<State>({
+        app: {
+          replaceView: () => {},
+        },
+        viewModule,
+        moduleRoot: dir,
+      });
+
+      await controller.stop();
+
+      const after = listHsrSessionDirs();
+      const leaked = after.filter((name) => !before.has(name));
+      assert.deepEqual(leaked, []);
+    } finally {
+      if (originalTmpdir === undefined) delete process.env["TMPDIR"];
+      else process.env["TMPDIR"] = originalTmpdir;
+      if (originalTmp === undefined) delete process.env["TMP"];
+      else process.env["TMP"] = originalTmp;
+      if (originalTemp === undefined) delete process.env["TEMP"];
+      else process.env["TEMP"] = originalTemp;
+    }
   });
 });
 
