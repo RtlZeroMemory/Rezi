@@ -94,9 +94,11 @@ export type AppEventLoop = Readonly<{
   processTurn: (items: readonly WorkItem[]) => void;
 }>;
 
-type PendingShiftTextPair =
-  | Readonly<{ codepoint: number; keybindingConsumed: boolean; timeMs: number }>
-  | null;
+type PendingShiftTextPair = Readonly<{
+  codepoint: number;
+  keybindingConsumed: boolean;
+  timeMs: number;
+}> | null;
 
 export function createEventLoop<S>(options: CreateEventLoopOptions<S>): AppEventLoop {
   let pendingShiftTextPair: PendingShiftTextPair = null;
@@ -318,8 +320,9 @@ export function createEventLoop<S>(options: CreateEventLoopOptions<S>): AppEvent
                 const keyCode = shouldRouteCtrlText
                   ? ctrlKeyCode
                   : codepointToKeyCode(ev.codepoint);
-                const mods = (shouldRouteCtrlText ? ZR_MOD_CTRL : 0)
-                  | codepointToImplicitTextMods(ev.codepoint);
+                const mods =
+                  (shouldRouteCtrlText ? ZR_MOD_CTRL : 0) |
+                  codepointToImplicitTextMods(ev.codepoint);
                 if (keyCode !== null) {
                   const syntheticKeyEvent = {
                     kind: "key" as const,
