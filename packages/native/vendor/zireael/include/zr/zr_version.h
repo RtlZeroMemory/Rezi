@@ -22,10 +22,10 @@ extern "C" {
 #error "Zireael version pins are locked; do not override ZR_*_VERSION_* macros."
 #endif
 
-/* Library version (v1.3.8). */
+/* Library version (v1.3.14). */
 #define ZR_LIBRARY_VERSION_MAJOR (1u)
 #define ZR_LIBRARY_VERSION_MINOR (3u)
-#define ZR_LIBRARY_VERSION_PATCH (8u)
+#define ZR_LIBRARY_VERSION_PATCH (14u)
 
 /* Engine ABI version (v1.2.0). */
 #define ZR_ENGINE_ABI_MAJOR (1u)
