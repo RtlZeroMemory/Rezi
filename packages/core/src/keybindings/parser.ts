@@ -153,14 +153,7 @@ function parseKeyPart(
     // Single character - convert to key code
     keyCode = charToKeyCode(keyName);
     const charCode = keyName.charCodeAt(0);
-    if (
-      charCode >= 65 &&
-      charCode <= 90 &&
-      !shift &&
-      !ctrl &&
-      !alt &&
-      !meta
-    ) {
+    if (charCode >= 65 && charCode <= 90 && !shift && !ctrl && !alt && !meta) {
       shift = true;
     }
   }

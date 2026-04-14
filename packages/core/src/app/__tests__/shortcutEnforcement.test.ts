@@ -642,6 +642,47 @@ describe("widget shortcut enforcement contracts", () => {
     }
   });
 
+  test("split shift key and text batches still only fire uppercase keybindings once", async () => {
+    const backend = new StubBackend();
+    const inputValues: Array<readonly [string, number]> = [];
+    let uppercaseHits = 0;
+    const app = createApp({ backend, initialState: "" });
+
+    app.keys({
+      J: () => {
+        uppercaseHits++;
+      },
+    });
+    app.view((value) =>
+      ui.input({
+        id: "name",
+        value,
+        onInput: (next, cursor) => {
+          inputValues.push([next, cursor]);
+          app.update(() => next);
+        },
+      }),
+    );
+
+    await app.start();
+    try {
+      await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 40, rows: 12 }]);
+      await settleNextFrame(backend);
+
+      await pushEvents(backend, [{ kind: "key", timeMs: 2, key: 3, mods: 0, action: "down" }]);
+      await settleNextFrame(backend);
+      await pushEvents(backend, [
+        { kind: "key", timeMs: 3, key: 74, mods: ZR_MOD_SHIFT, action: "down" },
+      ]);
+      await pushEvents(backend, [{ kind: "text", timeMs: 3, codepoint: 74 }]);
+
+      assert.equal(uppercaseHits, 1);
+      assert.equal(inputValues.length, 0);
+    } finally {
+      await app.stop();
+    }
+  });
+
   test("paired shift key still routes text when no uppercase binding consumes it", async () => {
     const backend = new StubBackend();
     const inputValues: Array<readonly [string, number]> = [];

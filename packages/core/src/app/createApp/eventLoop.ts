@@ -15,8 +15,8 @@ import type { ResolvedAppConfig } from "./config.js";
 import { DIRTY_LAYOUT, DIRTY_RENDER, DIRTY_VIEW } from "./dirtyPlan.js";
 import {
   type AppKeybindingHelpers,
-  codepointToImplicitTextMods,
   codepointToCtrlKeyCode,
+  codepointToImplicitTextMods,
   codepointToKeyCode,
 } from "./keybindings.js";
 import {
@@ -94,7 +94,12 @@ export type AppEventLoop = Readonly<{
   processTurn: (items: readonly WorkItem[]) => void;
 }>;
 
+type PendingShiftTextPair =
+  | Readonly<{ codepoint: number; keybindingConsumed: boolean; timeMs: number }>
+  | null;
+
 export function createEventLoop<S>(options: CreateEventLoopOptions<S>): AppEventLoop {
+  let pendingShiftTextPair: PendingShiftTextPair = null;
   function commitUpdates(): void {
     const drained = options.updates.drain();
     if (drained.length === 0) return;
@@ -167,10 +172,6 @@ export function createEventLoop<S>(options: CreateEventLoopOptions<S>): AppEvent
     const droppedBatches = batch.droppedBatches;
 
     try {
-      let pendingShiftTextPair:
-        | Readonly<{ codepoint: number; keybindingConsumed: boolean; timeMs: number }>
-        | null = null;
-
       if (engineTruncated || droppedBatches > 0) {
         if (!options.emit({ kind: "overrun", engineTruncated, droppedBatches })) return;
         if (options.getRuntimeState() !== "Running") return;
@@ -317,8 +318,8 @@ export function createEventLoop<S>(options: CreateEventLoopOptions<S>): AppEvent
                 const keyCode = shouldRouteCtrlText
                   ? ctrlKeyCode
                   : codepointToKeyCode(ev.codepoint);
-                const mods =
-                  (shouldRouteCtrlText ? ZR_MOD_CTRL : 0) | codepointToImplicitTextMods(ev.codepoint);
+                const mods = (shouldRouteCtrlText ? ZR_MOD_CTRL : 0)
+                  | codepointToImplicitTextMods(ev.codepoint);
                 if (keyCode !== null) {
                   const syntheticKeyEvent = {
                     kind: "key" as const,
