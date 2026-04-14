@@ -4665,6 +4665,9 @@ export type ReproReplayFatal = Readonly<{
 export type ReproReplayHarnessOptions = Readonly<ReproReplayDriverOptions & {
     expectedActions: readonly ReproReplayExpectedAction[];
     invariants?: ReproReplayInvariantExpectations;
+    initialState?: unknown;
+    statefulView?: (state: unknown) => VNode;
+    setupApp?: (app: App<unknown>) => void;
 }>;
 
 // @public
@@ -8010,7 +8013,7 @@ export type ZrUiErrorCode = "ZRUI_INVALID_STATE" | "ZRUI_MODE_CONFLICT" | "ZRUI_
 // src/forms/types.ts:322:3 - (ae-forgotten-export) The symbol "FieldBooleanValue" needs to be exported by the entry point index.d.ts
 // src/keybindings/manager.ts:319:3 - (ae-forgotten-export) The symbol "ModeWithParent" needs to be exported by the entry point index.d.ts
 // src/protocol/zrev_v1.ts:46:3 - (ae-forgotten-export) The symbol "EventTimeUnwrapState" needs to be exported by the entry point index.d.ts
-// src/repro/replay.ts:115:3 - (ae-forgotten-export) The symbol "Theme" needs to be exported by the entry point index.d.ts
+// src/repro/replay.ts:116:3 - (ae-forgotten-export) The symbol "Theme" needs to be exported by the entry point index.d.ts
 // src/runtime/instances.ts:56:3 - (ae-forgotten-export) The symbol "UnknownCallback_2" needs to be exported by the entry point index.d.ts
 // src/runtime/instances.ts:134:3 - (ae-forgotten-export) The symbol "InstanceId" needs to be exported by the entry point index.d.ts
 // src/runtime/instances.ts:161:3 - (ae-forgotten-export) The symbol "AppStateSelection" needs to be exported by the entry point index.d.ts
