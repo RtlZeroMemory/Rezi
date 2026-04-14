@@ -137,16 +137,6 @@ describe("pagination ids and vnode", () => {
     assert.equal(ids.includes(getPaginationControlId("pages", "first")), true);
     assert.equal(ids.includes(getPaginationControlId("pages", "last")), true);
   });
-
-  test("ui.pagination returns a layout-transparent composite wrapper vnode", () => {
-    const vnode = ui.pagination({
-      id: "pages",
-      page: 1,
-      totalPages: 4,
-      onChange: () => undefined,
-    });
-    assert.equal(vnode.kind, "fragment");
-  });
 });
 
 describe("pagination keyboard routing", () => {

@@ -14,6 +14,7 @@ import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
 import { createTestRenderer } from "../../testing/index.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
 import { getAccordionTriggerId } from "../../widgets/accordion.js";
+import { getPaginationControlId, getPaginationPageId } from "../../widgets/pagination.js";
 import { getTabsTriggerId } from "../../widgets/tabs.js";
 import { TOAST_HEIGHT, getToastActionFocusId } from "../../widgets/toast.js";
 import { createApp } from "../createApp.js";
@@ -1459,6 +1460,173 @@ describe("WidgetRenderer integration battery", () => {
 
     renderer.routeEngineEvent(keyEvent(1 /* ESC */));
     assert.equal(renderer.getFocusedId(), generalTrigger);
+  });
+
+  test("pagination Tab enters the controls, arrows move within them, and Shift+Tab re-enters at the trailing boundary control", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const firstId = getPaginationControlId("pages", "first");
+    const prevId = getPaginationControlId("pages", "prev");
+    const page1Id = getPaginationPageId("pages", 1);
+    const lastId = getPaginationControlId("pages", "last");
+
+    const vnode = ui.column({}, [
+      ui.button({ id: "before", label: "Before" }),
+      ui.pagination({
+        id: "pages",
+        page: 3,
+        totalPages: 5,
+        showFirstLast: true,
+        onChange: () => {},
+      }),
+      ui.button({ id: "after", label: "After" }),
+    ]);
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 60, rows: 8 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+    assert.equal(renderer.getFocusedId(), null);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "before");
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), firstId);
+
+    renderer.routeEngineEvent(keyEvent(23 /* RIGHT */));
+    assert.equal(renderer.getFocusedId(), prevId);
+
+    renderer.routeEngineEvent(keyEvent(23 /* RIGHT */));
+    assert.equal(renderer.getFocusedId(), page1Id);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "after");
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */, ZR_MOD_SHIFT));
+    assert.equal(renderer.getFocusedId(), lastId);
+  });
+
+  test("pagination Left and Right update the controlled page when the focused page button has an adjacent page", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    let page = 2;
+    const changes: number[] = [];
+    const page2Id = getPaginationPageId("pages", 2);
+    const page3Id = getPaginationPageId("pages", 3);
+    const viewport = { cols: 60, rows: 8 };
+
+    const view = () =>
+      ui.column({}, [
+        ui.button({ id: "before", label: "Before" }),
+        ui.pagination({
+          id: "pages",
+          page,
+          totalPages: 5,
+          onChange: (next) => {
+            page = next;
+            changes.push(next);
+          },
+        }),
+      ]);
+
+    let res = renderer.submitFrame(
+      () => view(),
+      undefined,
+      viewport,
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    const page2Rect = renderer.getRectByIdIndex().get(page2Id);
+    assert.ok(page2Rect !== undefined);
+    if (!page2Rect) return;
+
+    const clickX = page2Rect.x + Math.max(0, Math.floor((page2Rect.w - 1) / 2));
+    const clickY = page2Rect.y;
+
+    renderer.routeEngineEvent(mouseEvent(clickX, clickY, 3, { timeMs: 1, buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(clickX, clickY, 4, { timeMs: 2, buttons: 0 }));
+    assert.equal(renderer.getFocusedId(), page2Id);
+    changes.length = 0;
+
+    renderer.routeEngineEvent(keyEvent(23 /* RIGHT */));
+    assert.deepEqual(changes, [3]);
+
+    res = renderer.submitFrame(() => view(), undefined, viewport, defaultTheme, noRenderHooks());
+    assert.ok(res.ok);
+    assert.equal(renderer.getFocusedId(), page3Id);
+
+    renderer.routeEngineEvent(keyEvent(22 /* LEFT */));
+    assert.deepEqual(changes, [3, 2]);
+
+    res = renderer.submitFrame(() => view(), undefined, viewport, defaultTheme, noRenderHooks());
+    assert.ok(res.ok);
+    assert.equal(renderer.getFocusedId(), page2Id);
+  });
+
+  test("pagination Home and End jump to first and last page when first/last controls are shown", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    let page = 5;
+    const changes: number[] = [];
+    const firstId = getPaginationControlId("pages", "first");
+    const lastId = getPaginationControlId("pages", "last");
+    const viewport = { cols: 60, rows: 8 };
+
+    const view = () =>
+      ui.pagination({
+        id: "pages",
+        page,
+        totalPages: 10,
+        showFirstLast: true,
+        onChange: (next) => {
+          page = next;
+          changes.push(next);
+        },
+      });
+
+    let res = renderer.submitFrame(
+      () => view(),
+      undefined,
+      viewport,
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), firstId);
+
+    renderer.routeEngineEvent(keyEvent(13 /* END */));
+    assert.deepEqual(changes, [10]);
+
+    res = renderer.submitFrame(() => view(), undefined, viewport, defaultTheme, noRenderHooks());
+    assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(12 /* HOME */));
+    assert.deepEqual(changes, [10, 1]);
+
+    res = renderer.submitFrame(() => view(), undefined, viewport, defaultTheme, noRenderHooks());
+    assert.ok(res.ok);
+  });
   });
 
   test("focusZone grid navigation moves by columns deterministically", () => {
