@@ -33,9 +33,8 @@ export async function startPtyHarness(opts: StartPtyHarnessOptions): Promise<Pty
   ) as Readonly<Record<string, string>>;
   const filteredEnv = Object.fromEntries(
     Object.entries(opts.env ?? {}).filter(([, value]) => value !== undefined),
-  ) as Readonly<Record<string, string> & { FORCE_COLOR?: string }>;
-  const termName =
-    filteredEnv["TERM"] ?? (process.platform === "win32" ? "xterm" : "xterm-256color");
+  ) as Readonly<Record<string, string> & { TERM?: string; FORCE_COLOR?: string }>;
+  const termName = filteredEnv.TERM ?? (process.platform === "win32" ? "xterm" : "xterm-256color");
   const term = pty.spawn(opts.command, [...(opts.args ?? [])], {
     name: termName,
     cols: opts.cols,

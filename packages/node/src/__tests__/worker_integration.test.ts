@@ -736,12 +736,7 @@ test("backend: SAB mailbox pressure drains repeated frame bursts without fatal l
 
   const burst = Array.from({ length: 32 }, (_, index) =>
     backend.requestFrame(
-      Uint8Array.from([
-        index & 0xff,
-        (index + 1) & 0xff,
-        (index + 2) & 0xff,
-        (index + 3) & 0xff,
-      ]),
+      Uint8Array.from([index & 0xff, (index + 1) & 0xff, (index + 2) & 0xff, (index + 3) & 0xff]),
     ),
   );
   const settled = await Promise.allSettled(burst);

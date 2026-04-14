@@ -45,11 +45,7 @@ export function resolvePtyCapabilityProfile(
   input: PtyCapabilityProfileInput | undefined = undefined,
 ): ScenarioCapabilityProfile {
   const overrides =
-    input === undefined
-      ? base
-      : typeof input === "string"
-        ? namedProfileOverrides(input)
-        : input;
+    input === undefined ? base : typeof input === "string" ? namedProfileOverrides(input) : input;
   return Object.freeze({
     ...base,
     ...overrides,
@@ -106,9 +102,7 @@ export function buildPtyTargetEnv(
     ...(args.env ?? {}),
     ...colorEnv,
     [PTY_TARGET_CAP_MOUSE_ENV]: args.capabilityProfile.supportsMouse ? "1" : "0",
-    [PTY_TARGET_CAP_BRACKETED_PASTE_ENV]: args.capabilityProfile.supportsBracketedPaste
-      ? "1"
-      : "0",
+    [PTY_TARGET_CAP_BRACKETED_PASTE_ENV]: args.capabilityProfile.supportsBracketedPaste ? "1" : "0",
     [PTY_TARGET_CAP_FOCUS_EVENTS_ENV]: args.capabilityProfile.supportsFocusEvents ? "1" : "0",
     [PTY_TARGET_CAP_OSC52_ENV]: args.capabilityProfile.supportsOsc52 ? "1" : "0",
     [PTY_TARGET_SCENARIO_ID_ENV]: args.scenarioId,

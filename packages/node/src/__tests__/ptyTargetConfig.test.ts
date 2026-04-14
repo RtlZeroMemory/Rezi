@@ -8,6 +8,18 @@ import {
   resolvePtyCapabilityProfile,
 } from "../testing/index.js";
 
+type PtyTargetEnvAssertions = ReturnType<typeof buildPtyTargetEnv> &
+  Readonly<{
+    REZI_SCENARIO_ID?: string;
+    TERM?: string;
+    COLORTERM?: string;
+    EXTRA_FLAG?: string;
+    ZIREAEL_CAP_MOUSE?: string;
+    ZIREAEL_CAP_BRACKETED_PASTE?: string;
+    ZIREAEL_CAP_FOCUS_EVENTS?: string;
+    ZIREAEL_CAP_OSC52?: string;
+  }>;
+
 const fullProfile: ScenarioCapabilityProfile = Object.freeze({
   supportsMouse: true,
   supportsBracketedPaste: true,
@@ -35,16 +47,16 @@ test("buildPtyTargetEnv encodes scenario id, native capability gates, and TERM o
       colorMode: "16",
     }),
     env: Object.freeze({ EXTRA_FLAG: "1" }),
-  });
+  }) as PtyTargetEnvAssertions;
 
-  assert.equal(env["REZI_SCENARIO_ID"], "input-incomplete-paste-recovers");
-  assert.equal(env["TERM"], "xterm");
-  assert.equal(env["COLORTERM"], undefined);
-  assert.equal(env["EXTRA_FLAG"], "1");
-  assert.equal(env["ZIREAEL_CAP_MOUSE"], "0");
-  assert.equal(env["ZIREAEL_CAP_BRACKETED_PASTE"], "1");
-  assert.equal(env["ZIREAEL_CAP_FOCUS_EVENTS"], "0");
-  assert.equal(env["ZIREAEL_CAP_OSC52"], "0");
+  assert.equal(env.REZI_SCENARIO_ID, "input-incomplete-paste-recovers");
+  assert.equal(env.TERM, "xterm");
+  assert.equal(env.COLORTERM, undefined);
+  assert.equal(env.EXTRA_FLAG, "1");
+  assert.equal(env.ZIREAEL_CAP_MOUSE, "0");
+  assert.equal(env.ZIREAEL_CAP_BRACKETED_PASTE, "1");
+  assert.equal(env.ZIREAEL_CAP_FOCUS_EVENTS, "0");
+  assert.equal(env.ZIREAEL_CAP_OSC52, "0");
 
   const nativeConfig = parsePtyTargetNativeConfig(env);
   assert.deepEqual(nativeConfig, {

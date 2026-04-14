@@ -14,6 +14,14 @@ type NativeCaps = Readonly<{
   sgrAttrsSupported: number;
 }>;
 
+type ConfigRecord = Readonly<{ testBehavior?: unknown }>;
+type TestBehaviorRecord = Readonly<{
+  caps?: unknown;
+  submitResult?: unknown;
+  presentResult?: unknown;
+  pollBytesBase64?: unknown;
+}>;
+
 type EngineState = Readonly<{
   destroyed: { value: boolean };
   queue: Uint8Array[];
@@ -50,13 +58,14 @@ function asPlainRecord(value: unknown): Record<string, unknown> | null {
 
 function readTestBehavior(config: unknown): Record<string, unknown> {
   const record = asPlainRecord(config);
-  const behavior = record === null ? null : asPlainRecord(record["testBehavior"]);
+  const typedRecord = record as ConfigRecord | null;
+  const behavior = typedRecord === null ? null : asPlainRecord(typedRecord.testBehavior);
   return behavior ?? {};
 }
 
 function readCapsOverride(config: unknown): NativeCaps {
-  const behavior = readTestBehavior(config);
-  const caps = asPlainRecord(behavior["caps"]);
+  const behavior = readTestBehavior(config) as TestBehaviorRecord;
+  const caps = asPlainRecord(behavior.caps);
   return Object.freeze({
     ...DEFAULT_CAPS,
     ...(caps ?? {}),
@@ -80,7 +89,7 @@ function getEngine(engineId: number): EngineState | null {
 
 export const native = {
   engineCreate(config?: object | null): number {
-    const behavior = readTestBehavior(config);
+    const behavior = readTestBehavior(config) as TestBehaviorRecord;
     const id = nextEngineId++;
     engines.set(
       id,
@@ -88,9 +97,9 @@ export const native = {
         destroyed: { value: false },
         queue: [],
         caps: readCapsOverride(config),
-        submitResult: readInt(behavior["submitResult"]),
-        presentResult: readInt(behavior["presentResult"]),
-        pollBytes: readBytes(behavior["pollBytesBase64"]),
+        submitResult: readInt(behavior.submitResult),
+        presentResult: readInt(behavior.presentResult),
+        pollBytes: readBytes(behavior.pollBytesBase64),
       }),
     );
     return id;

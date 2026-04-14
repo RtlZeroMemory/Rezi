@@ -1,21 +1,18 @@
 import net from "node:net";
 import type { AppRenderMetrics } from "@rezi-ui/core";
 import {
-  type ScenarioFixture,
   type ScenarioCursorSnapshot,
+  type ScenarioFixture,
   createReferenceInputIncompleteEscapeFixture,
   createReferenceInputIncompletePasteFixture,
-  createReferenceInputMouseCapabilityFallbackFixture,
   createReferenceInputModalFixture,
+  createReferenceInputMouseCapabilityFallbackFixture,
   createReferenceSelectKeyboardCyclerFixture,
   createReferenceTextareaMultilineFixture,
   createReferenceVirtualListResizeStormFixture,
 } from "@rezi-ui/core/testing";
 import { createNodeApp } from "../../index.js";
-import {
-  parsePtyTargetNativeConfig,
-  parsePtyTargetScenarioId,
-} from "../../testing/index.js";
+import { parsePtyTargetNativeConfig, parsePtyTargetScenarioId } from "../../testing/index.js";
 
 type HarnessCommand = Readonly<{ type: "stop" }>;
 
@@ -89,8 +86,24 @@ function loadFixture(): ScenarioFixture<unknown> {
   }
 }
 
-const fixture = loadFixture();
-const nativeConfig = parsePtyTargetNativeConfig(targetEnv);
+function loadFixtureOrExit(): ScenarioFixture<unknown> {
+  try {
+    return loadFixture();
+  } catch (error: unknown) {
+    failAndExit(`referenceScenarioTarget: ${asErrorDetail(error)}`);
+  }
+}
+
+function parseNativeConfigOrExit(): Readonly<Record<string, unknown>> {
+  try {
+    return parsePtyTargetNativeConfig(targetEnv);
+  } catch (error: unknown) {
+    failAndExit(`referenceScenarioTarget: ${asErrorDetail(error)}`);
+  }
+}
+
+const fixture = loadFixtureOrExit();
+const nativeConfig = parseNativeConfigOrExit();
 let socket: net.Socket | null = null;
 let lineBuf = "";
 let shuttingDown = false;
