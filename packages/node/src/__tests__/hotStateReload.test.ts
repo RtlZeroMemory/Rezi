@@ -378,12 +378,18 @@ test("createHotStateReload stop before start does not leak temp session director
     const isolatedTmp = join(dir, ".tmp");
     mkdirSync(isolatedTmp, { recursive: true });
 
-    const originalTmpdir = process.env["TMPDIR"];
-    const originalTmp = process.env["TMP"];
-    const originalTemp = process.env["TEMP"];
-    process.env["TMPDIR"] = isolatedTmp;
-    process.env["TMP"] = isolatedTmp;
-    process.env["TEMP"] = isolatedTmp;
+    const env = process.env as NodeJS.ProcessEnv & {
+      TMPDIR: string | undefined;
+      TMP: string | undefined;
+      TEMP: string | undefined;
+    };
+    const fallbackTmpdir = tmpdir();
+    const originalTmpdir = env.TMPDIR;
+    const originalTmp = env.TMP;
+    const originalTemp = env.TEMP;
+    env.TMPDIR = isolatedTmp;
+    env.TMP = isolatedTmp;
+    env.TEMP = isolatedTmp;
 
     try {
       const before = new Set(listHsrSessionDirs());
@@ -401,12 +407,12 @@ test("createHotStateReload stop before start does not leak temp session director
       const leaked = after.filter((name) => !before.has(name));
       assert.deepEqual(leaked, []);
     } finally {
-      if (originalTmpdir === undefined) delete process.env["TMPDIR"];
-      else process.env["TMPDIR"] = originalTmpdir;
-      if (originalTmp === undefined) delete process.env["TMP"];
-      else process.env["TMP"] = originalTmp;
-      if (originalTemp === undefined) delete process.env["TEMP"];
-      else process.env["TEMP"] = originalTemp;
+      if (originalTmpdir === undefined) env.TMPDIR = fallbackTmpdir;
+      else env.TMPDIR = originalTmpdir;
+      if (originalTmp === undefined) env.TMP = fallbackTmpdir;
+      else env.TMP = originalTmp;
+      if (originalTemp === undefined) env.TEMP = fallbackTmpdir;
+      else env.TEMP = originalTemp;
     }
   });
 });
