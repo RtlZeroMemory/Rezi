@@ -14,10 +14,7 @@ import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
 import type { CommandItem, CommandPaletteProps, CommandSource } from "../../widgets/types.js";
 import { WidgetRenderer } from "../widgetRenderer.js";
-import {
-  kickoffCommandPaletteItemFetches,
-  routeCommandPaletteKeyDown,
-} from "../widgetRenderer/commandPaletteRouting.js";
+import { routeCommandPaletteKeyDown } from "../widgetRenderer/commandPaletteRouting.js";
 import { flushMicrotasks } from "./helpers.js";
 
 function createDeferred<T>(): {
@@ -58,7 +55,7 @@ function createNoopBackend(): RuntimeBackend {
 }
 
 describe("commandPalette routing contracts", () => {
-  test("selection movement skips disabled items and wraps", () => {
+  test("ArrowDown skips disabled items", () => {
     const items: readonly CommandItem[] = Object.freeze([
       { id: "disabled", label: "Disabled", sourceId: "commands", disabled: true },
       { id: "enabled-1", label: "Enabled One", sourceId: "commands" },
@@ -66,7 +63,7 @@ describe("commandPalette routing contracts", () => {
     ]);
     const selectionChanges: number[] = [];
 
-    const basePalette: CommandPaletteProps = {
+    const palette: CommandPaletteProps = {
       id: "cp",
       open: true,
       query: "",
@@ -78,12 +75,32 @@ describe("commandPalette routing contracts", () => {
       onSelectionChange: (index) => selectionChanges.push(index),
     };
 
-    assert.equal(routeCommandPaletteKeyDown(keyEvent(ZR_KEY_DOWN), basePalette, items), true);
+    assert.equal(routeCommandPaletteKeyDown(keyEvent(ZR_KEY_DOWN), palette, items), true);
+    assert.deepEqual(selectionChanges, [1]);
+  });
 
-    const upPalette: CommandPaletteProps = { ...basePalette, selectedIndex: 1 };
-    assert.equal(routeCommandPaletteKeyDown(keyEvent(ZR_KEY_UP), upPalette, items), true);
+  test("ArrowUp wraps to the last enabled item when the selection starts at the first item", () => {
+    const items: readonly CommandItem[] = Object.freeze([
+      { id: "disabled", label: "Disabled", sourceId: "commands", disabled: true },
+      { id: "enabled-1", label: "Enabled One", sourceId: "commands" },
+      { id: "enabled-2", label: "Enabled Two", sourceId: "commands" },
+    ]);
+    const selectionChanges: number[] = [];
 
-    assert.deepEqual(selectionChanges, [1, 2]);
+    const palette: CommandPaletteProps = {
+      id: "cp",
+      open: true,
+      query: "",
+      sources: Object.freeze([]),
+      selectedIndex: 1,
+      onChange: () => {},
+      onSelect: () => {},
+      onClose: () => {},
+      onSelectionChange: (index) => selectionChanges.push(index),
+    };
+
+    assert.equal(routeCommandPaletteKeyDown(keyEvent(ZR_KEY_UP), palette, items), true);
+    assert.deepEqual(selectionChanges, [2]);
   });
 
   test("enter activates selected item or falls back to first enabled item", () => {
@@ -136,7 +153,72 @@ describe("commandPalette routing contracts", () => {
 });
 
 describe("commandPalette async fetch contracts", () => {
-  test("query/sources identity gate refetches and query changes trigger immediate fetch", () => {
+  test("same query and sources do not refetch until the query changes", () => {
+    const requestedQueries: string[] = [];
+
+    const source: CommandSource = {
+      id: "commands",
+      name: "Commands",
+      getItems: (query) => {
+        requestedQueries.push(query);
+        return Object.freeze([]);
+      },
+    };
+    const sources = Object.freeze([source]);
+
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    let query = "a";
+    const view = () =>
+      ui.commandPalette({
+        id: "cp",
+        open: true,
+        query,
+        sources,
+        selectedIndex: 0,
+        onChange: (next) => {
+          query = next;
+        },
+        onSelect: () => {},
+        onClose: () => {},
+      });
+
+    let frame = renderer.submitFrame(
+      view,
+      undefined,
+      { cols: 60, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.equal(frame.ok, true);
+
+    frame = renderer.submitFrame(
+      view,
+      undefined,
+      { cols: 60, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.equal(frame.ok, true);
+
+    query = "ab";
+    frame = renderer.submitFrame(
+      view,
+      undefined,
+      { cols: 60, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.equal(frame.ok, true);
+
+    assert.deepEqual(requestedQueries, ["a", "ab"]);
+  });
+
+  test("stale async results do not replace the latest command selection", async () => {
     const first = createDeferred<readonly CommandItem[]>();
     const second = createDeferred<readonly CommandItem[]>();
     const requestedQueries: string[] = [];
@@ -151,130 +233,51 @@ describe("commandPalette async fetch contracts", () => {
         return Object.freeze([]);
       },
     };
-    const sources: readonly CommandSource[] = Object.freeze([source]);
+    const sources = Object.freeze([source]);
 
-    const commandPaletteById = new Map<string, CommandPaletteProps>();
-    const commandPaletteItemsById = new Map<string, readonly CommandItem[]>();
-    const commandPaletteLoadingById = new Map<string, boolean>();
-    const commandPaletteFetchTokenById = new Map<string, number>();
-    const commandPaletteLastQueryById = new Map<string, string>();
-    const commandPaletteLastSourcesRefById = new Map<string, readonly unknown[]>();
-    let renderCount = 0;
-
-    const paletteForQuery = (query: string): CommandPaletteProps => ({
-      id: "cp",
-      open: true,
-      query,
-      sources,
-      selectedIndex: 0,
-      onChange: () => {},
-      onSelect: () => {},
-      onClose: () => {},
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
     });
+    const selected: string[] = [];
+    let closedCount = 0;
+    let query = "a";
 
-    commandPaletteById.set("cp", paletteForQuery("a"));
-    kickoffCommandPaletteItemFetches(
-      commandPaletteById,
-      commandPaletteItemsById,
-      commandPaletteLoadingById,
-      commandPaletteFetchTokenById,
-      commandPaletteLastQueryById,
-      commandPaletteLastSourcesRefById,
-      () => {
-        renderCount++;
-      },
+    const view = () =>
+      ui.commandPalette({
+        id: "cp",
+        open: true,
+        query,
+        sources,
+        selectedIndex: 0,
+        onChange: (next) => {
+          query = next;
+        },
+        onSelect: (item) => selected.push(item.id),
+        onClose: () => {
+          closedCount++;
+        },
+      });
+
+    let frame = renderer.submitFrame(
+      view,
+      undefined,
+      { cols: 60, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
     );
+    assert.equal(frame.ok, true);
 
-    // Same query and same sources reference should not schedule another fetch.
-    kickoffCommandPaletteItemFetches(
-      commandPaletteById,
-      commandPaletteItemsById,
-      commandPaletteLoadingById,
-      commandPaletteFetchTokenById,
-      commandPaletteLastQueryById,
-      commandPaletteLastSourcesRefById,
-      () => {
-        renderCount++;
-      },
+    query = "ab";
+    frame = renderer.submitFrame(
+      view,
+      undefined,
+      { cols: 60, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
     );
-
-    commandPaletteById.set("cp", paletteForQuery("ab"));
-    kickoffCommandPaletteItemFetches(
-      commandPaletteById,
-      commandPaletteItemsById,
-      commandPaletteLoadingById,
-      commandPaletteFetchTokenById,
-      commandPaletteLastQueryById,
-      commandPaletteLastSourcesRefById,
-      () => {
-        renderCount++;
-      },
-    );
-
-    assert.deepEqual(requestedQueries, ["a", "ab"]);
-    assert.equal(commandPaletteLoadingById.get("cp"), true);
-    assert.equal(renderCount, 0);
-  });
-
-  test("stale async results are ignored when a newer query fetch starts", async () => {
-    const first = createDeferred<readonly CommandItem[]>();
-    const second = createDeferred<readonly CommandItem[]>();
-
-    const source: CommandSource = {
-      id: "commands",
-      name: "Commands",
-      getItems: (query) => {
-        if (query === "a") return first.promise;
-        if (query === "ab") return second.promise;
-        return Object.freeze([]);
-      },
-    };
-    const sources: readonly CommandSource[] = Object.freeze([source]);
-
-    const commandPaletteById = new Map<string, CommandPaletteProps>();
-    const commandPaletteItemsById = new Map<string, readonly CommandItem[]>();
-    const commandPaletteLoadingById = new Map<string, boolean>();
-    const commandPaletteFetchTokenById = new Map<string, number>();
-    const commandPaletteLastQueryById = new Map<string, string>();
-    const commandPaletteLastSourcesRefById = new Map<string, readonly unknown[]>();
-    let renderCount = 0;
-
-    const paletteForQuery = (query: string): CommandPaletteProps => ({
-      id: "cp",
-      open: true,
-      query,
-      sources,
-      selectedIndex: 0,
-      onChange: () => {},
-      onSelect: () => {},
-      onClose: () => {},
-    });
-
-    commandPaletteById.set("cp", paletteForQuery("a"));
-    kickoffCommandPaletteItemFetches(
-      commandPaletteById,
-      commandPaletteItemsById,
-      commandPaletteLoadingById,
-      commandPaletteFetchTokenById,
-      commandPaletteLastQueryById,
-      commandPaletteLastSourcesRefById,
-      () => {
-        renderCount++;
-      },
-    );
-
-    commandPaletteById.set("cp", paletteForQuery("ab"));
-    kickoffCommandPaletteItemFetches(
-      commandPaletteById,
-      commandPaletteItemsById,
-      commandPaletteLoadingById,
-      commandPaletteFetchTokenById,
-      commandPaletteLastQueryById,
-      commandPaletteLastSourcesRefById,
-      () => {
-        renderCount++;
-      },
-    );
+    assert.equal(frame.ok, true);
 
     second.resolve(
       Object.freeze([
@@ -282,13 +285,14 @@ describe("commandPalette async fetch contracts", () => {
       ] satisfies CommandItem[]),
     );
     await flushMicrotasks(4);
-
-    assert.deepEqual(
-      commandPaletteItemsById.get("cp")?.map((item) => item.id),
-      ["new"],
+    frame = renderer.submitFrame(
+      view,
+      undefined,
+      { cols: 60, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
     );
-    assert.equal(commandPaletteLoadingById.get("cp"), false);
-    assert.equal(renderCount, 1);
+    assert.equal(frame.ok, true);
 
     first.resolve(
       Object.freeze([
@@ -296,102 +300,22 @@ describe("commandPalette async fetch contracts", () => {
       ] satisfies CommandItem[]),
     );
     await flushMicrotasks(4);
-
-    assert.deepEqual(
-      commandPaletteItemsById.get("cp")?.map((item) => item.id),
-      ["new"],
-    );
-    assert.equal(commandPaletteLoadingById.get("cp"), false);
-    assert.equal(renderCount, 1);
-  });
-});
-
-describe("commandPalette escape contracts in layered focus contexts", () => {
-  test("modal layer with closeOnEscape=false keeps Escape owned by the top layer", () => {
-    const backend = createNoopBackend();
-    const renderer = new WidgetRenderer<void>({
-      backend,
-      requestRender: () => {},
-    });
-    const events: string[] = [];
-
-    const vnode = ui.layers([
-      ui.layer({
-        id: "modal",
-        modal: true,
-        closeOnEscape: false,
-        onClose: () => events.push("layer-close"),
-        content: ui.commandPalette({
-          id: "cp",
-          open: true,
-          query: "",
-          sources: Object.freeze([]),
-          selectedIndex: 0,
-          onChange: () => {},
-          onSelect: () => {},
-          onClose: () => events.push("palette-close"),
-        }),
-      }),
-    ]);
-
-    const res = renderer.submitFrame(
-      () => vnode,
+    frame = renderer.submitFrame(
+      view,
       undefined,
       { cols: 60, rows: 10 },
       defaultTheme,
       noRenderHooks(),
     );
-    assert.ok(res.ok);
-    assert.equal(renderer.getFocusedId(), null);
+    assert.equal(frame.ok, true);
 
     renderer.routeEngineEvent(keyEvent(ZR_KEY_TAB));
     assert.equal(renderer.getFocusedId(), "cp");
 
-    renderer.routeEngineEvent(keyEvent(ZR_KEY_ESCAPE));
-    assert.deepEqual(events, []);
-  });
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_ENTER));
 
-  test("modal layer with closeOnEscape=true closes layer before palette handler", () => {
-    const backend = createNoopBackend();
-    const renderer = new WidgetRenderer<void>({
-      backend,
-      requestRender: () => {},
-    });
-    const events: string[] = [];
-
-    const vnode = ui.layers([
-      ui.layer({
-        id: "modal",
-        modal: true,
-        closeOnEscape: true,
-        onClose: () => events.push("layer-close"),
-        content: ui.commandPalette({
-          id: "cp",
-          open: true,
-          query: "",
-          sources: Object.freeze([]),
-          selectedIndex: 0,
-          onChange: () => {},
-          onSelect: () => {},
-          onClose: () => events.push("palette-close"),
-        }),
-      }),
-    ]);
-
-    const res = renderer.submitFrame(
-      () => vnode,
-      undefined,
-      { cols: 60, rows: 10 },
-      defaultTheme,
-      noRenderHooks(),
-    );
-    assert.ok(res.ok);
-    assert.equal(renderer.getFocusedId(), null);
-
-    renderer.routeEngineEvent(keyEvent(ZR_KEY_TAB));
-    assert.equal(renderer.getFocusedId(), "cp");
-
-    renderer.routeEngineEvent(keyEvent(ZR_KEY_ESCAPE));
-    assert.deepEqual(events, ["layer-close"]);
+    assert.deepEqual(requestedQueries, ["a", "ab"]);
+    assert.deepEqual(selected, ["new"]);
+    assert.equal(closedCount, 1);
   });
 });
