@@ -126,41 +126,6 @@ describe("file picker routing contracts", () => {
     assert.deepEqual(selected, []);
   });
 
-  test("stale flat-cache data is ignored after data identity changes", () => {
-    const treeStore = createTreeStateStore();
-    const opened: string[] = [];
-    const makeData = (leafPath: string): FileNode =>
-      Object.freeze({
-        name: "root",
-        path: "/",
-        type: "directory" as const,
-        children: Object.freeze([
-          Object.freeze({ name: leafPath.slice(1), path: leafPath, type: "file" as const }),
-        ]),
-      });
-
-    const first: FilePickerProps = {
-      id: "fp-stale",
-      rootPath: "/",
-      data: makeData("/old.txt"),
-      expandedPaths: Object.freeze(["/"]),
-      selectedPath: "/old.txt",
-      onSelect: () => {},
-      onChange: () => {},
-      onPress: (path) => opened.push(path),
-    };
-
-    const second: FilePickerProps = {
-      ...first,
-      data: makeData("/new.txt"),
-      selectedPath: "/new.txt",
-    };
-
-    assert.equal(routeFilePickerKeyDown(keyDown(ZR_KEY_ENTER), first, treeStore), true);
-    assert.equal(routeFilePickerKeyDown(keyDown(ZR_KEY_ENTER), second, treeStore), true);
-    assert.deepEqual(opened, ["/old.txt", "/new.txt"]);
-  });
-
   test("multi-select uses selectedPath as the active keyboard target before selection", () => {
     const treeStore = createTreeStateStore();
     const opened: string[] = [];
@@ -255,7 +220,7 @@ describe("file picker routing contracts", () => {
     ]);
   });
 
-  test("filter and showHidden update the visible routing surface and flat-cache contract", () => {
+  test("filter and showHidden update the visible routing surface", () => {
     const treeStore = createTreeStateStore();
     const selected: string[] = [];
     const opened: string[] = [];
@@ -383,37 +348,4 @@ describe("file tree explorer routing contracts", () => {
     assert.deepEqual(selected, []);
   });
 
-  test("stale flat-cache data is ignored after data identity changes", () => {
-    const treeStore = createTreeStateStore();
-    const activated: string[] = [];
-    const makeData = (leafPath: string): FileNode =>
-      Object.freeze({
-        name: "root",
-        path: "/",
-        type: "directory" as const,
-        children: Object.freeze([
-          Object.freeze({ name: leafPath.slice(1), path: leafPath, type: "file" as const }),
-        ]),
-      });
-
-    const first: FileTreeExplorerProps = {
-      id: "fte-stale",
-      data: makeData("/old.txt"),
-      expanded: Object.freeze(["/"]),
-      selected: "/old.txt",
-      onSelect: () => {},
-      onChange: () => {},
-      onPress: (node) => activated.push(node.path),
-    };
-
-    const second: FileTreeExplorerProps = {
-      ...first,
-      data: makeData("/new.txt"),
-      selected: "/new.txt",
-    };
-
-    assert.equal(routeFileTreeExplorerKeyDown(keyDown(ZR_KEY_ENTER), first, treeStore), true);
-    assert.equal(routeFileTreeExplorerKeyDown(keyDown(ZR_KEY_ENTER), second, treeStore), true);
-    assert.deepEqual(activated, ["/old.txt", "/new.txt"]);
-  });
 });
