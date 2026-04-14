@@ -4,7 +4,7 @@ import { describeThrown } from "../../debug/describeThrown.js";
 import type { UiEvent } from "../../events.js";
 import type { KeyContext, KeybindingManagerState } from "../../keybindings/index.js";
 import { resetChordState, routeKeyEvent } from "../../keybindings/index.js";
-import { ZR_MOD_CTRL } from "../../keybindings/keyCodes.js";
+import { ZR_MOD_CTRL, ZR_MOD_SHIFT } from "../../keybindings/keyCodes.js";
 import { perfMarkEnd, perfMarkStart, perfNow } from "../../perf/perf.js";
 import type { EventTimeUnwrapState } from "../../protocol/types.js";
 import { parseEventBatchV1 } from "../../protocol/zrev_v1.js";
@@ -16,6 +16,7 @@ import { DIRTY_LAYOUT, DIRTY_RENDER, DIRTY_VIEW } from "./dirtyPlan.js";
 import {
   type AppKeybindingHelpers,
   codepointToCtrlKeyCode,
+  codepointToImplicitTextMods,
   codepointToKeyCode,
 } from "./keybindings.js";
 import {
@@ -93,7 +94,14 @@ export type AppEventLoop = Readonly<{
   processTurn: (items: readonly WorkItem[]) => void;
 }>;
 
+type PendingShiftTextPair = Readonly<{
+  codepoint: number;
+  keybindingConsumed: boolean;
+  timeMs: number;
+}> | null;
+
 export function createEventLoop<S>(options: CreateEventLoopOptions<S>): AppEventLoop {
+  let pendingShiftTextPair: PendingShiftTextPair = null;
   function commitUpdates(): void {
     const drained = options.updates.drain();
     if (drained.length === 0) return;
@@ -172,6 +180,15 @@ export function createEventLoop<S>(options: CreateEventLoopOptions<S>): AppEvent
       }
 
       for (const ev of parsed.value.events) {
+        const pairedShiftText =
+          pendingShiftTextPair !== null &&
+          ev.kind === "text" &&
+          ev.timeMs === pendingShiftTextPair.timeMs &&
+          ev.codepoint === pendingShiftTextPair.codepoint
+            ? pendingShiftTextPair
+            : null;
+        pendingShiftTextPair = null;
+
         if (ev.kind === "key" || ev.kind === "text" || ev.kind === "paste" || ev.kind === "mouse") {
           options.setInteractiveBudget(2);
         }
@@ -251,6 +268,8 @@ export function createEventLoop<S>(options: CreateEventLoopOptions<S>): AppEvent
             }
 
             if (ev.kind === "key") {
+              const shouldPairShiftText =
+                ev.action === "down" && ev.mods === ZR_MOD_SHIFT && ev.key >= 65 && ev.key <= 90;
               const bypass = options.widgetRenderer.shouldBypassKeybindings(ev);
               if (!bypass) {
                 const keyCtx: KeyContext<S> = Object.freeze({
@@ -272,9 +291,23 @@ export function createEventLoop<S>(options: CreateEventLoopOptions<S>): AppEvent
                   return;
                 }
                 if (keyResult.consumed) {
+                  if (shouldPairShiftText) {
+                    pendingShiftTextPair = Object.freeze({
+                      codepoint: ev.key,
+                      keybindingConsumed: true,
+                      timeMs: ev.timeMs,
+                    });
+                  }
                   options.noteBreadcrumbConsumptionPath("keybindings");
                   continue;
                 }
+              }
+              if (shouldPairShiftText) {
+                pendingShiftTextPair = Object.freeze({
+                  codepoint: ev.key,
+                  keybindingConsumed: false,
+                  timeMs: ev.timeMs,
+                });
               }
             }
 
@@ -283,11 +316,13 @@ export function createEventLoop<S>(options: CreateEventLoopOptions<S>): AppEvent
               const shouldRouteCtrlText = ctrlKeyCode !== null;
               const shouldRoutePrintableText =
                 !shouldRouteCtrlText && !options.widgetRenderer.hasActiveOverlay();
-              if (shouldRouteCtrlText || shouldRoutePrintableText) {
+              if (pairedShiftText === null && (shouldRouteCtrlText || shouldRoutePrintableText)) {
                 const keyCode = shouldRouteCtrlText
                   ? ctrlKeyCode
                   : codepointToKeyCode(ev.codepoint);
-                const mods = shouldRouteCtrlText ? ZR_MOD_CTRL : 0;
+                const mods =
+                  (shouldRouteCtrlText ? ZR_MOD_CTRL : 0) |
+                  codepointToImplicitTextMods(ev.codepoint);
                 if (keyCode !== null) {
                   const syntheticKeyEvent = {
                     kind: "key" as const,
@@ -319,6 +354,10 @@ export function createEventLoop<S>(options: CreateEventLoopOptions<S>): AppEvent
                     continue;
                   }
                 }
+              }
+              if (pairedShiftText?.keybindingConsumed === true) {
+                options.noteBreadcrumbConsumptionPath("keybindings");
+                continue;
               }
             }
           }

@@ -34,10 +34,8 @@ function parseKeyPart(
     };
   }
 
-  const lower = part.toLowerCase();
-
   // Split on "+" to get modifiers and key
-  const pieces = lower.split("+");
+  const pieces = part.split("+");
   if (pieces.length === 0) {
     return {
       ok: false,
@@ -63,11 +61,12 @@ function parseKeyPart(
     }
 
     const isLast = i === pieces.length - 1;
+    const pieceLower = piece.toLowerCase();
 
-    if (MODIFIER_NAMES.has(piece)) {
+    if (MODIFIER_NAMES.has(pieceLower)) {
       // It's a modifier
       let modifier: "shift" | "ctrl" | "alt" | "meta" | null = null;
-      switch (piece) {
+      switch (pieceLower) {
         case "shift":
           modifier = "shift";
           shift = true;
@@ -144,14 +143,19 @@ function parseKeyPart(
 
   // Look up the key code
   let keyCode: number | null = null;
+  const keyNameLower = keyName.toLowerCase();
 
   // First try named keys
-  const namedCode = KEY_NAME_TO_CODE.get(keyName);
+  const namedCode = KEY_NAME_TO_CODE.get(keyNameLower);
   if (namedCode !== undefined) {
     keyCode = namedCode;
   } else if (keyName.length === 1) {
     // Single character - convert to key code
     keyCode = charToKeyCode(keyName);
+    const charCode = keyName.charCodeAt(0);
+    if (charCode >= 65 && charCode <= 90 && !shift && !ctrl && !alt && !meta) {
+      shift = true;
+    }
   }
 
   if (keyCode === null) {

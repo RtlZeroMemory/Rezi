@@ -41,6 +41,7 @@ describe("parseKeySequence", () => {
       assert.ok(key);
       if (!key) return;
       assert.equal(key.key, 65);
+      assert.equal(key.mods.shift, true);
     });
 
     test("digit", () => {
@@ -287,6 +288,17 @@ describe("parseKeySequence", () => {
   });
 
   describe("case insensitivity", () => {
+    test("bare uppercase letter implies shift", () => {
+      const upper = parseKeySequence("J");
+      const explicit = parseKeySequence("shift+j");
+
+      assert.equal(upper.ok, true);
+      assert.equal(explicit.ok, true);
+      if (!upper.ok || !explicit.ok) return;
+
+      assert.deepEqual(upper.value, explicit.value);
+    });
+
     test("CTRL+S equals ctrl+s", () => {
       const upper = parseKeySequence("CTRL+S");
       const lower = parseKeySequence("ctrl+s");

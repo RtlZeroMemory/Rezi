@@ -2,7 +2,7 @@ import { assert, describe, test } from "@rezi-ui/testkit";
 import type { RuntimeBackend } from "../../backend.js";
 import type { ZrevEvent } from "../../events.js";
 import { ui } from "../../index.js";
-import { ZR_MOD_CTRL } from "../../keybindings/keyCodes.js";
+import { ZR_MOD_CTRL, ZR_MOD_SHIFT } from "../../keybindings/keyCodes.js";
 import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
 import type { CommandItem, CommandSource } from "../../widgets/types.js";
@@ -566,6 +566,159 @@ describe("widget shortcut enforcement contracts", () => {
 
       await pushEvents(backend, [{ kind: "text", timeMs: 2, codepoint: 120 }]);
       assert.equal(keybindingHits, 0);
+    } finally {
+      await app.stop();
+    }
+  });
+
+  test("uppercase text bindings are distinct from lowercase text bindings", async () => {
+    const backend = new StubBackend();
+    const hits: string[] = [];
+    const app = createApp({ backend, initialState: 0 });
+
+    app.keys({
+      j: () => {
+        hits.push("lower");
+      },
+      J: () => {
+        hits.push("upper");
+      },
+    });
+    app.view(() => ui.text("ready"));
+
+    await app.start();
+    try {
+      await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 40, rows: 12 }]);
+      await settleNextFrame(backend);
+
+      await pushEvents(backend, [
+        { kind: "text", timeMs: 2, codepoint: 106 },
+        { kind: "text", timeMs: 3, codepoint: 74 },
+      ]);
+      assert.deepEqual(hits, ["lower", "upper"]);
+    } finally {
+      await app.stop();
+    }
+  });
+
+  test("paired shift key and text only fire uppercase keybindings once", async () => {
+    const backend = new StubBackend();
+    const inputValues: Array<readonly [string, number]> = [];
+    let uppercaseHits = 0;
+    const app = createApp({ backend, initialState: "" });
+
+    app.keys({
+      J: () => {
+        uppercaseHits++;
+      },
+    });
+    app.view((value) =>
+      ui.input({
+        id: "name",
+        value,
+        onInput: (next, cursor) => {
+          inputValues.push([next, cursor]);
+          app.update(() => next);
+        },
+      }),
+    );
+
+    await app.start();
+    try {
+      await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 40, rows: 12 }]);
+      await settleNextFrame(backend);
+
+      await pushEvents(backend, [{ kind: "key", timeMs: 2, key: 3, mods: 0, action: "down" }]);
+      await settleNextFrame(backend);
+      await pushEvents(backend, [
+        { kind: "key", timeMs: 3, key: 74, mods: ZR_MOD_SHIFT, action: "down" },
+        { kind: "text", timeMs: 3, codepoint: 74 },
+      ]);
+
+      assert.equal(uppercaseHits, 1);
+      assert.equal(inputValues.length, 0);
+    } finally {
+      await app.stop();
+    }
+  });
+
+  test("split shift key and text batches still only fire uppercase keybindings once", async () => {
+    const backend = new StubBackend();
+    const inputValues: Array<readonly [string, number]> = [];
+    let uppercaseHits = 0;
+    const app = createApp({ backend, initialState: "" });
+
+    app.keys({
+      J: () => {
+        uppercaseHits++;
+      },
+    });
+    app.view((value) =>
+      ui.input({
+        id: "name",
+        value,
+        onInput: (next, cursor) => {
+          inputValues.push([next, cursor]);
+          app.update(() => next);
+        },
+      }),
+    );
+
+    await app.start();
+    try {
+      await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 40, rows: 12 }]);
+      await settleNextFrame(backend);
+
+      await pushEvents(backend, [{ kind: "key", timeMs: 2, key: 3, mods: 0, action: "down" }]);
+      await settleNextFrame(backend);
+      await pushEvents(backend, [
+        { kind: "key", timeMs: 3, key: 74, mods: ZR_MOD_SHIFT, action: "down" },
+      ]);
+      await pushEvents(backend, [{ kind: "text", timeMs: 3, codepoint: 74 }]);
+
+      assert.equal(uppercaseHits, 1);
+      assert.equal(inputValues.length, 0);
+    } finally {
+      await app.stop();
+    }
+  });
+
+  test("paired shift key still routes text when no uppercase binding consumes it", async () => {
+    const backend = new StubBackend();
+    const inputValues: Array<readonly [string, number]> = [];
+    let lowercaseHits = 0;
+    const app = createApp({ backend, initialState: "" });
+
+    app.keys({
+      j: () => {
+        lowercaseHits++;
+      },
+    });
+    app.view((value) =>
+      ui.input({
+        id: "name",
+        value,
+        onInput: (next, cursor) => {
+          inputValues.push([next, cursor]);
+          app.update(() => next);
+        },
+      }),
+    );
+
+    await app.start();
+    try {
+      await pushEvents(backend, [{ kind: "resize", timeMs: 1, cols: 40, rows: 12 }]);
+      await settleNextFrame(backend);
+
+      await pushEvents(backend, [{ kind: "key", timeMs: 2, key: 3, mods: 0, action: "down" }]);
+      await settleNextFrame(backend);
+      await pushEvents(backend, [
+        { kind: "key", timeMs: 3, key: 74, mods: ZR_MOD_SHIFT, action: "down" },
+        { kind: "text", timeMs: 3, codepoint: 74 },
+      ]);
+
+      assert.equal(lowercaseHits, 0);
+      assert.deepEqual(inputValues[inputValues.length - 1], ["J", 1]);
     } finally {
       await app.stop();
     }
