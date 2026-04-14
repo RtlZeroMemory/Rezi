@@ -3,9 +3,11 @@ function emit(line: string): void {
 }
 
 let buffer = "";
+const { PATH: pathValue } = process.env;
 process.stdin.setEncoding("utf8");
 
 emit(`size:${String(process.stdout.columns ?? 0)}x${String(process.stdout.rows ?? 0)}`);
+emit(`path:${pathValue ? "present" : "missing"}`);
 
 process.on("SIGWINCH", () => {
   emit(`size:${String(process.stdout.columns ?? 0)}x${String(process.stdout.rows ?? 0)}`);

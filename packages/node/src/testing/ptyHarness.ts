@@ -28,6 +28,9 @@ export interface PtyHarness {
 
 export async function startPtyHarness(opts: StartPtyHarnessOptions): Promise<PtyHarness> {
   const screen = createTerminalScreen({ cols: opts.cols, rows: opts.rows });
+  const inheritedEnv = Object.fromEntries(
+    Object.entries(process.env).filter(([, value]) => value !== undefined),
+  ) as Readonly<Record<string, string>>;
   const filteredEnv = Object.fromEntries(
     Object.entries(opts.env ?? {}).filter(([, value]) => value !== undefined),
   ) as Readonly<Record<string, string> & { FORCE_COLOR?: string }>;
@@ -37,6 +40,7 @@ export async function startPtyHarness(opts: StartPtyHarnessOptions): Promise<Pty
     rows: opts.rows,
     cwd: opts.cwd,
     env: {
+      ...inheritedEnv,
       ...filteredEnv,
       TERM: process.platform === "win32" ? "xterm" : "xterm-256color",
       COLUMNS: String(opts.cols),

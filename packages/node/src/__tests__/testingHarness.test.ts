@@ -59,6 +59,9 @@ test(
       await waitForSnapshot(harness, (snapshot) =>
         snapshot.screen.lines.some((line) => line.includes("size:40x8")),
       );
+      await waitForSnapshot(harness, (snapshot) =>
+        snapshot.screen.lines.some((line) => line.includes("path:present")),
+      );
 
       await harness.resize(52, 10);
       await waitForSnapshot(harness, (snapshot) =>

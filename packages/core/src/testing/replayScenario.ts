@@ -231,13 +231,40 @@ function toReplayExpectedActions(
   return Object.freeze(out);
 }
 
+function toScenarioAction(
+  action:
+    | Readonly<{
+        id: string;
+        action: "press";
+      }>
+    | Readonly<{
+        id: string;
+        action: "input";
+        value: string;
+        cursor: number;
+      }>,
+): ScenarioExpectedAction {
+  if (action.action === "input") {
+    return Object.freeze({
+      id: action.id,
+      action: "input" as const,
+      value: action.value,
+      cursor: action.cursor,
+    });
+  }
+  return Object.freeze({ id: action.id, action: "press" as const });
+}
+
 function createReplayBundle(scenario: ScenarioDefinition): ReproBundle {
+  let previousAtMs = 0;
   const batches = scenario.scriptedInput.map((step, index) => {
+    const deltaMs = Math.max(0, step.atMs - previousAtMs);
+    previousAtMs = step.atMs;
     const encodedEvents = eventToZrevEvents(step.event);
     const bytes = encodeZrevBatchV1({ events: encodedEvents });
     return Object.freeze({
       step: index + 1,
-      deltaMs: step.atMs,
+      deltaMs,
       byteLength: bytes.byteLength,
       bytesHex: bytesToHex(bytes),
       eventCount: encodedEvents.length,
@@ -312,26 +339,64 @@ export async function runReplayScenario<S>(
   }>,
 ): Promise<ScenarioRunResult> {
   const fixture = opts.createFixture();
+  const compiledTheme = compileTheme(fixture.theme ?? defaultTheme.definition);
   const renderer = createTestRenderer({
     viewport: opts.scenario.viewport,
     theme: fixture.theme ?? defaultTheme.definition,
   });
-  const staticText = renderer
-    .render(fixture.view(fixture.initialState), {
-      viewport: opts.scenario.viewport,
-      theme: fixture.theme ?? defaultTheme.definition,
-      focusedId: null,
-    })
-    .toText();
-  const staticScreen = createScenarioScreenSnapshot(opts.scenario.viewport, staticText);
-  const steps: ScenarioStepObservation[] = opts.scenario.scriptedInput.map((_, index) =>
-    Object.freeze({
-      step: index + 1,
-      screen: staticScreen,
-      cursor: null,
-      actions: Object.freeze([]),
-    }),
-  );
+
+  async function captureStateAfterSteps(stepCount: number): Promise<
+    Readonly<{
+      viewport: { cols: number; rows: number };
+      state: Readonly<S>;
+      actions: readonly ScenarioExpectedAction[];
+    }>
+  > {
+    const prefixFixture = opts.createFixture();
+    let finalState = prefixFixture.initialState;
+    const prefixReplayResult = await runReproReplayHarness({
+      bundle: createReplayBundle({
+        ...opts.scenario,
+        scriptedInput: Object.freeze(opts.scenario.scriptedInput.slice(0, stepCount)),
+      }),
+      view: () => prefixFixture.view(prefixFixture.initialState),
+      initialState: prefixFixture.initialState,
+      statefulView: (state) => prefixFixture.view(state as Readonly<S>),
+      ...(prefixFixture.setup !== undefined
+        ? {
+            setupApp: (app: App<Readonly<Record<string, never>>>) => {
+              prefixFixture.setup?.(app as unknown as App<S>);
+            },
+          }
+        : {}),
+      ...(stepCount > 0
+        ? ({
+            onCompleteState: (state: unknown) => {
+              finalState = state as Readonly<S>;
+            },
+          } as {
+            onCompleteState: (state: unknown) => void;
+          })
+        : {}),
+      initialViewport: opts.scenario.viewport,
+      theme: compiledTheme,
+      expectedActions: Object.freeze([]),
+    });
+
+    let viewport = { ...opts.scenario.viewport };
+    for (const scriptedStep of opts.scenario.scriptedInput.slice(0, stepCount)) {
+      if (scriptedStep.event.kind === "resize") {
+        viewport = { cols: scriptedStep.event.cols, rows: scriptedStep.event.rows };
+      }
+    }
+    return Object.freeze({
+      viewport,
+      state: finalState,
+      actions: Object.freeze(
+        prefixReplayResult.replay.actions.map((action) => toScenarioAction(action)),
+      ),
+    });
+  }
 
   const replayResult = await runReproReplayHarness({
     bundle: createReplayBundle(opts.scenario),
@@ -346,28 +411,60 @@ export async function runReplayScenario<S>(
         }
       : {}),
     initialViewport: opts.scenario.viewport,
-    theme: compileTheme(fixture.theme ?? defaultTheme.definition),
+    theme: compiledTheme,
     expectedActions: toReplayExpectedActions(opts.scenario.expectedActions),
     invariants: { noFatal: true, noOverrun: true },
   });
 
+  const replayActionsWithSteps = replayResult.replay.actions.map((action) =>
+    Object.freeze({
+      step: action.step,
+      action: toScenarioAction(action),
+    }),
+  );
+  const scenarioActions = Object.freeze(replayActionsWithSteps.map((item) => item.action));
+
+  const steps: ScenarioStepObservation[] = [];
+  for (let index = 0; index < opts.scenario.scriptedInput.length; index += 1) {
+    const step = index + 1;
+    const stepState = await captureStateAfterSteps(step);
+    const text = renderer
+      .render(fixture.view(stepState.state), {
+        viewport: stepState.viewport,
+        theme: fixture.theme ?? defaultTheme.definition,
+        focusedId: null,
+      })
+      .toText();
+    steps.push(
+      Object.freeze({
+        step,
+        screen: createScenarioScreenSnapshot(stepState.viewport, text),
+        cursor: null,
+        actions: stepState.actions,
+      }),
+    );
+  }
+
+  const finalScreen = (() => {
+    const finalStep = steps.at(-1);
+    if (finalStep !== undefined) return finalStep.screen;
+    return createScenarioScreenSnapshot(
+      opts.scenario.viewport,
+      renderer
+        .render(fixture.view(fixture.initialState), {
+          viewport: opts.scenario.viewport,
+          theme: fixture.theme ?? defaultTheme.definition,
+          focusedId: null,
+        })
+        .toText(),
+    );
+  })();
+
   const result = evaluateScenarioResult(opts.scenario, {
     mode: "replay",
-    actions: Object.freeze(
-      replayResult.replay.actions.map((action) => {
-        if (action.action === "input") {
-          return Object.freeze({
-            id: action.id,
-            action: "input" as const,
-            value: action.value,
-            cursor: action.cursor,
-          });
-        }
-        return Object.freeze({ id: action.id, action: "press" as const });
-      }),
-    ),
+    actions: scenarioActions,
     steps: Object.freeze(steps),
-    finalScreen: staticScreen,
+    finalScreen,
     finalCursor: null,
   });
 

@@ -134,6 +134,11 @@ export type ReproReplayHarnessOptions = Readonly<
   }
 >;
 
+type InternalReproReplayHarnessOptions = ReproReplayHarnessOptions &
+  Readonly<{
+    onCompleteState?: (state: unknown) => void;
+  }>;
+
 /** Stable mismatch codes emitted by replay assertions. */
 export type ReproReplayMismatchCode =
   | "ZR_REPLAY_ACTION_COUNT_MISMATCH"
@@ -727,14 +732,16 @@ export function createReproReplayDriver(opts: ReproReplayDriverOptions): ReproRe
 export async function runReproReplayHarness(
   opts: ReproReplayHarnessOptions,
 ): Promise<ReproReplayHarnessResult> {
+  const internalOpts = opts as InternalReproReplayHarnessOptions;
   const replayBackend = createReplayStubBackend(opts.bundle);
   const actions: ReproReplayObservedAction[] = [];
   const overruns: ReproReplayOverrun[] = [];
   let fatal: ReproReplayFatal | null = null;
+  let latestState = opts.initialState ?? (Object.freeze({}) as Readonly<Record<string, never>>);
 
   const app = createApp({
     backend: replayBackend.backend,
-    initialState: opts.initialState ?? (Object.freeze({}) as Readonly<Record<string, never>>),
+    initialState: latestState,
     config: {
       fpsCap: opts.bundle.captureConfig.fpsCap,
       maxEventBytes: opts.bundle.captureConfig.maxEventBytes,
@@ -746,9 +753,15 @@ export async function runReproReplayHarness(
   });
   opts.setupApp?.(app as App<unknown>);
   if (opts.statefulView !== undefined) {
-    app.view((state) => opts.statefulView?.(state) ?? opts.view());
+    app.view((state) => {
+      latestState = state;
+      return opts.statefulView?.(state) ?? opts.view();
+    });
   } else {
-    app.view(() => opts.view());
+    app.view((state) => {
+      latestState = state;
+      return opts.view();
+    });
   }
 
   app.onEvent((ev) => {
@@ -831,6 +844,8 @@ export async function runReproReplayHarness(
     }
     app.dispose();
   }
+
+  internalOpts.onCompleteState?.(latestState);
 
   const replay: ReproReplayRunResult = Object.freeze({
     totalSteps: replayBackend.totalRealBatches,
