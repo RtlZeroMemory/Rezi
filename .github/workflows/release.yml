@@ -149,6 +149,12 @@ jobs:
       - name: Build native addon
         run: npm run build:native
 
+      - name: PTY reference scenario (post-native build)
+        if: runner.os != 'Windows'
+        run: |
+          CONCURRENCY=$(node -p "parseInt(process.versions.node)>=19?'--test-concurrency=1':''")
+          node --test $CONCURRENCY packages/node/dist/__tests__/ptyScenario.test.js
+
       - name: Terminal e2e (Linux full)
         if: runner.os == 'Linux'
         run: npm run test:e2e

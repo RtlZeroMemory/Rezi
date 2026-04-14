@@ -16,9 +16,9 @@ type ReplayState = Readonly<{ value: string }>;
 const replayScenario: ScenarioDefinition = Object.freeze({
   schemaVersion: 1,
   id: "replay-stateless-input",
-  title: "Replay runner supports stateless action assertions",
+  title: "Replay runner supports stateful screen assertions",
   widgetFamily: "input-textarea",
-  behaviorStatement: "A stateless replay view can still assert routed input actions.",
+  behaviorStatement: "A replay fixture can update state and assert the resulting screen content.",
   evidenceRefs: Object.freeze([
     "packages/core/src/repro/replay.ts",
     "packages/core/src/testing/events.ts",
@@ -34,22 +34,30 @@ const replayScenario: ScenarioDefinition = Object.freeze({
   }),
   scriptedInput: Object.freeze([
     Object.freeze({ atMs: 0, event: Object.freeze({ kind: "text", text: "a" }) }),
+    Object.freeze({ atMs: 100, event: Object.freeze({ kind: "text", text: "b" }) }),
   ]),
   expectedActions: Object.freeze([
     Object.freeze({ id: "field", action: "input", value: "a", cursor: 1 }),
+    Object.freeze({ id: "field", action: "input", value: "ab", cursor: 2 }),
   ]),
   expectedScreenCheckpoints: Object.freeze([
     Object.freeze({
-      id: "static-heading",
-      afterStep: 1,
+      id: "dynamic-value",
+      afterStep: 2,
       assertionRef: "screen_region_assertion",
       args: Object.freeze({
         x: 0,
         y: 1,
         width: 32,
-        height: 1,
+        height: 5,
         match: "exact",
-        text: Object.freeze([" Replay harness                 "]),
+        text: Object.freeze([
+          " Replay harness                 ",
+          "                                ",
+          " Value:ab                       ",
+          "                                ",
+          "  ab                            ",
+        ]),
       }),
     }),
   ]),
@@ -62,7 +70,7 @@ const replayScenario: ScenarioDefinition = Object.freeze({
         action: Object.freeze({
           id: "field",
           action: "input",
-          payloadSubset: Object.freeze({ value: "aa" }),
+          payloadSubset: Object.freeze({ value: "aba" }),
         }),
       }),
     }),
@@ -78,11 +86,17 @@ const createReplayFixture: ScenarioFixtureFactory<ReplayState> = () => {
       app = nextApp;
     },
     view(state) {
-      void app;
       return ui.focusTrap({ id: "trap", active: true, initialFocus: "field" }, [
         ui.column({ p: 1 }, [
           ui.text("Replay harness"),
-          ui.input({ id: "field", value: state.value }),
+          ui.text(`Value:${state.value}`),
+          ui.input({
+            id: "field",
+            value: state.value,
+            onInput: (value) => {
+              app.update({ value });
+            },
+          }),
         ]),
       ]);
     },

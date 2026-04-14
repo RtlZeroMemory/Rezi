@@ -164,7 +164,7 @@ export const createReferenceInputModalFixture: ScenarioFixtureFactory<
           title: "Pause editing",
           initialFocus: "modal-close",
           returnFocusTo: "field",
-          closeOnEscape: false,
+          closeOnEscape: true,
           closeOnBackdrop: false,
           content: ui.text("Modal blocks background typing"),
           actions: [

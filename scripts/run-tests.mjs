@@ -106,6 +106,14 @@ function parseArgs(argv) {
 
 const root = process.cwd();
 const { scope, filter } = parseArgs(process.argv.slice(2));
+const isBunRuntime =
+  typeof process.versions?.bun === "string" ||
+  /(?:^|\/)bun(?:$|\s)/u.test(process.env.npm_execpath ?? "") ||
+  /^bun\//u.test(process.env.npm_config_user_agent ?? "");
+const BUN_UNSUPPORTED_PACKAGE_TESTS = new Set([
+  join("packages", "node", "dist", "__tests__", "ptyScenario.test.js"),
+  join("packages", "node", "dist", "__tests__", "testingHarness.test.js"),
+]);
 
 const scriptsTests = scope === "scripts" || scope === "all" ? collectScriptTests(root) : [];
 const packageTests = scope === "packages" || scope === "all" ? collectPackageTests(root) : [];
@@ -149,6 +157,10 @@ if (scope === "packages" && packageTests.length === 0) {
 // Use relative paths for more stable output across environments.
 let relFiles = files.map((f) => relative(root, f));
 
+if (isBunRuntime) {
+  relFiles = relFiles.filter((file) => !BUN_UNSUPPORTED_PACKAGE_TESTS.has(file));
+}
+
 if (typeof filter === "string") {
   const rx = new RegExp(escapeRegExpLiteral(filter));
   relFiles = relFiles.filter((p) => rx.test(p));
@@ -156,6 +168,15 @@ if (typeof filter === "string") {
     process.stderr.write(`run-tests: --filter matched 0 test files (${filter})\n`);
     process.exit(1);
   }
+}
+
+if (relFiles.length === 0) {
+  process.stderr.write(
+    isBunRuntime
+      ? "run-tests: all selected tests are unsupported under Bun\n"
+      : "run-tests: no test files selected\n",
+  );
+  process.exit(1);
 }
 
 const cmd = process.execPath;

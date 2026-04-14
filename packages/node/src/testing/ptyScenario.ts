@@ -2,6 +2,34 @@ import net from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
 import type { RoutedAction, TerminalCaps } from "@rezi-ui/core";
 import {
+  ZR_KEY_BACKSPACE,
+  ZR_KEY_DELETE,
+  ZR_KEY_DOWN,
+  ZR_KEY_END,
+  ZR_KEY_ENTER,
+  ZR_KEY_ESCAPE,
+  ZR_KEY_F1,
+  ZR_KEY_F2,
+  ZR_KEY_F3,
+  ZR_KEY_F4,
+  ZR_KEY_F5,
+  ZR_KEY_F6,
+  ZR_KEY_F7,
+  ZR_KEY_F8,
+  ZR_KEY_F9,
+  ZR_KEY_F10,
+  ZR_KEY_F11,
+  ZR_KEY_F12,
+  ZR_KEY_HOME,
+  ZR_KEY_LEFT,
+  ZR_KEY_PAGE_DOWN,
+  ZR_KEY_PAGE_UP,
+  ZR_KEY_RIGHT,
+  ZR_KEY_SPACE,
+  ZR_KEY_TAB,
+  ZR_KEY_UP,
+} from "@rezi-ui/core/keybindings";
+import {
   type ScenarioCursorSnapshot,
   type ScenarioDefinition,
   type ScenarioMismatch,
@@ -41,7 +69,7 @@ type ControlState = Readonly<{
   lastRenderAt: { value: number };
 }>;
 
-const READY_TIMEOUT_MS = 5_000;
+const READY_TIMEOUT_MS = 15_000;
 const INITIAL_RENDER_TIMEOUT_MS = 250;
 const STEP_TIMEOUT_MS = 2_000;
 const QUIET_WINDOW_MS = 40;
@@ -52,13 +80,119 @@ type PtyInputStep =
   | Readonly<{ kind: "write"; data: string }>
   | Readonly<{ kind: "resize"; cols: number; rows: number }>;
 
+function normalizeKeyForPty(key: string | number): string | number {
+  if (typeof key !== "number") {
+    if (key.length === 1) return key;
+    const trimmed = key.trim();
+    if (trimmed.length === 1) return trimmed;
+    return trimmed.toLowerCase();
+  }
+  switch (key) {
+    case ZR_KEY_ENTER:
+      return "enter";
+    case ZR_KEY_ESCAPE:
+      return "escape";
+    case ZR_KEY_TAB:
+      return "tab";
+    case ZR_KEY_SPACE:
+      return "space";
+    case ZR_KEY_BACKSPACE:
+      return "backspace";
+    case ZR_KEY_DELETE:
+      return "delete";
+    case ZR_KEY_HOME:
+      return "home";
+    case ZR_KEY_END:
+      return "end";
+    case ZR_KEY_PAGE_UP:
+      return "pageup";
+    case ZR_KEY_PAGE_DOWN:
+      return "pagedown";
+    case ZR_KEY_LEFT:
+      return "left";
+    case ZR_KEY_RIGHT:
+      return "right";
+    case ZR_KEY_UP:
+      return "up";
+    case ZR_KEY_DOWN:
+      return "down";
+    case ZR_KEY_F1:
+      return "f1";
+    case ZR_KEY_F2:
+      return "f2";
+    case ZR_KEY_F3:
+      return "f3";
+    case ZR_KEY_F4:
+      return "f4";
+    case ZR_KEY_F5:
+      return "f5";
+    case ZR_KEY_F6:
+      return "f6";
+    case ZR_KEY_F7:
+      return "f7";
+    case ZR_KEY_F8:
+      return "f8";
+    case ZR_KEY_F9:
+      return "f9";
+    case ZR_KEY_F10:
+      return "f10";
+    case ZR_KEY_F11:
+      return "f11";
+    case ZR_KEY_F12:
+      return "f12";
+    default:
+      if (key >= 32 && key <= 126) return String.fromCharCode(key);
+      return key;
+  }
+}
+
+function shiftPrintableChar(value: string): string {
+  if (value.length !== 1) return value;
+  const shifted = {
+    "`": "~",
+    "1": "!",
+    "2": "@",
+    "3": "#",
+    "4": "$",
+    "5": "%",
+    "6": "^",
+    "7": "&",
+    "8": "*",
+    "9": "(",
+    "0": ")",
+    "-": "_",
+    "=": "+",
+    "[": "{",
+    "]": "}",
+    "\\": "|",
+    ";": ":",
+    "'": '"',
+    ",": "<",
+    ".": ">",
+    "/": "?",
+  } as const;
+  const mapped = shifted[value as keyof typeof shifted];
+  if (mapped !== undefined) return mapped;
+  return value.toUpperCase();
+}
+
 function keyToBytes(key: string | number, mods: readonly string[] | undefined): string {
-  const normalized = typeof key === "number" ? key : key.trim().toLowerCase();
+  const normalized = normalizeKeyForPty(key);
   const ctrl = mods?.includes("ctrl") ?? false;
   const alt = mods?.includes("alt") ?? false;
   const meta = mods?.includes("meta") ?? false;
+  const shift = mods?.includes("shift") ?? false;
+  if (
+    typeof normalized === "string" &&
+    /^f(?:[1-9]|1[0-2])$/u.test(normalized) &&
+    (ctrl || alt || meta || shift)
+  ) {
+    throw new Error(
+      `Unsupported PTY scenario key ${JSON.stringify(key)} with function-key modifiers ${JSON.stringify(mods ?? [])}`,
+    );
+  }
   if ((alt || meta) && typeof normalized === "string" && normalized.length === 1 && !ctrl) {
-    return `\u001b${normalized}`;
+    return `\u001b${shift ? shiftPrintableChar(normalized) : normalized}`;
   }
   if (ctrl && typeof normalized === "string" && normalized.length === 1) {
     const upper = normalized.toUpperCase();
@@ -67,8 +201,11 @@ function keyToBytes(key: string | number, mods: readonly string[] | undefined): 
       return String.fromCharCode(code - 64);
     }
   }
+  if (shift && normalized === "tab" && !ctrl && !alt && !meta) {
+    return "\u001b[Z";
+  }
   if (typeof normalized === "string" && normalized.length === 1 && !ctrl && !alt && !meta) {
-    return normalized;
+    return shift ? shiftPrintableChar(normalized) : normalized;
   }
   switch (normalized) {
     case "enter":
@@ -79,6 +216,8 @@ function keyToBytes(key: string | number, mods: readonly string[] | undefined): 
       return "\u001b";
     case "tab":
       return "\t";
+    case "space":
+      return " ";
     case "backspace":
       return "\u007f";
     case "up":
@@ -100,11 +239,39 @@ function keyToBytes(key: string | number, mods: readonly string[] | undefined): 
       return "\u001b[5~";
     case "pagedown":
       return "\u001b[6~";
+    case "f1":
+      return "\u001bOP";
+    case "f2":
+      return "\u001bOQ";
+    case "f3":
+      return "\u001bOR";
+    case "f4":
+      return "\u001bOS";
+    case "f5":
+      return "\u001b[15~";
+    case "f6":
+      return "\u001b[17~";
+    case "f7":
+      return "\u001b[18~";
+    case "f8":
+      return "\u001b[19~";
+    case "f9":
+      return "\u001b[20~";
+    case "f10":
+      return "\u001b[21~";
+    case "f11":
+      return "\u001b[23~";
+    case "f12":
+      return "\u001b[24~";
     default:
       throw new Error(
         `Unsupported PTY scenario key ${JSON.stringify(key)} with mods ${JSON.stringify(mods ?? [])}`,
       );
   }
+}
+
+function asErrorDetail(err: unknown): string {
+  return err instanceof Error ? `${err.name}: ${err.message}` : String(err);
 }
 
 function eventToInputStep(
@@ -381,6 +548,17 @@ async function waitForHarnessExit(
   ]);
 }
 
+async function waitForScenarioExit(
+  harness: Awaited<ReturnType<typeof startPtyHarness>>,
+): Promise<Awaited<ReturnType<typeof harness.waitForExit>>> {
+  return Promise.race([
+    harness.waitForExit(),
+    delay(SHUTDOWN_WAIT_MS).then(() => {
+      throw new Error("Timed out waiting for PTY scenario target shutdown");
+    }),
+  ]);
+}
+
 export async function runPtyScenario(
   opts: Readonly<{
     scenario: ScenarioDefinition;
@@ -480,22 +658,23 @@ export async function runPtyScenario(
     const finalSnapshot = harness.snapshot();
     const finalCursor = combineCursor(finalSnapshot.cursor, state.latestCursor.value);
     sendCommand(state.socket.current, { type: "stop" });
-    const exit = await harness.waitForExit();
-    const baseResult = evaluateScenarioResult(opts.scenario, {
-      mode: "pty",
-      actions: Object.freeze(state.actions.slice()),
-      steps: Object.freeze(steps),
-      finalScreen: finalSnapshot.screen,
-      finalCursor,
-    });
-    const mismatches: ScenarioMismatch[] = [...baseResult.mismatches];
-    if (exit.exitCode !== 0) {
+    const mismatches: ScenarioMismatch[] = [];
+    try {
+      const exit = await waitForScenarioExit(harness);
+      if (exit.exitCode !== 0) {
+        mismatches.push({
+          code: "ZR_SCENARIO_RUNTIME_FATAL",
+          path: "process.exitCode",
+          detail: `PTY target exited with code ${String(exit.exitCode)}`,
+          expected: 0,
+          actual: exit.exitCode,
+        });
+      }
+    } catch (error: unknown) {
       mismatches.push({
         code: "ZR_SCENARIO_RUNTIME_FATAL",
         path: "process.exitCode",
-        detail: `PTY target exited with code ${String(exit.exitCode)}`,
-        expected: 0,
-        actual: exit.exitCode,
+        detail: asErrorDetail(error),
       });
     }
     for (let index = 0; index < state.fatals.length; index++) {
@@ -505,6 +684,15 @@ export async function runPtyScenario(
         detail: state.fatals[index] ?? "unknown fatal",
       });
     }
+    const finalActions = Object.freeze(state.actions.slice());
+    const baseResult = evaluateScenarioResult(opts.scenario, {
+      mode: "pty",
+      actions: finalActions,
+      steps: Object.freeze(steps),
+      finalScreen: finalSnapshot.screen,
+      finalCursor,
+    });
+    mismatches.unshift(...baseResult.mismatches);
     return Object.freeze({
       ...baseResult,
       status: mismatches.length === 0 ? "PASS" : "FAIL",

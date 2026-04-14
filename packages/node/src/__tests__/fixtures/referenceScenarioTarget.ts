@@ -84,7 +84,8 @@ app.onEvent((event) => {
     return;
   }
   if (event.kind === "action") {
-    sendJsonLine(socket, { type: "action", action: event });
+    const { kind: _kind, ...action } = event;
+    sendJsonLine(socket, { type: "action", action });
     return;
   }
   if (event.kind === "fatal") {
