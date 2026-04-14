@@ -1,13 +1,14 @@
 import { assert, describe, test } from "@rezi-ui/testkit";
 import type { RuntimeBackend } from "../../backend.js";
 import type { ZrevEvent } from "../../events.js";
-import { ui } from "../../index.js";
+import { defineWidget, ui, useModalStack } from "../../index.js";
 import {
   ZR_KEY_DOWN,
   ZR_KEY_END,
   ZR_KEY_ENTER,
   ZR_KEY_ESCAPE,
   ZR_KEY_RIGHT,
+  ZR_KEY_SPACE,
   ZR_KEY_TAB,
   ZR_KEY_UP,
 } from "../../keybindings/keyCodes.js";
@@ -357,6 +358,117 @@ describe("modal, overlay, and focus behavior contracts", () => {
     assert.equal(backgroundPresses, 0);
     assert.equal(renderer.getFocusedId(), "cancel");
   });
+
+  test("Escape closes a dialog and restores focus to returnFocusTo", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    let open = true;
+    let closeCount = 0;
+    const view = () =>
+      ui.layers([
+        ui.column({}, [ui.button({ id: "trigger", label: "Open dialog" })]),
+        ...(open
+          ? [
+              ui.dialog({
+                id: "confirm-exit",
+                title: "Discard changes",
+                message: "Leave without saving?",
+                initialFocus: "stay",
+                returnFocusTo: "trigger",
+                onClose: () => {
+                  closeCount++;
+                  open = false;
+                },
+                actions: [
+                  { id: "stay", label: "Stay", onPress: () => {} },
+                  { id: "leave", label: "Leave", intent: "danger", onPress: () => {} },
+                ],
+              }),
+            ]
+          : []),
+      ]);
+
+    submit(renderer, view);
+    assert.equal(renderer.getFocusedId(), "stay");
+
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_ESCAPE));
+    submit(renderer, view);
+
+    assert.equal(closeCount, 1);
+    assert.equal(renderer.getFocusedId(), "trigger");
+    assert.equal(renderer.getRectByIdIndex().get("stay"), undefined);
+  });
+
+  test("useModalStack closes the top modal first and restores focus through the stack", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    const ModalHarness = defineWidget<Record<string, never>>((_props, ctx) => {
+      const modals = useModalStack(ctx);
+      return ui.layers([
+        ui.button({
+          id: "open-login",
+          label: "Open login",
+          onPress: () => {
+            modals.push("login", {
+              title: "Login",
+              initialFocus: "login-next",
+              returnFocusTo: "open-login",
+              content: ui.text("Primary login flow"),
+              actions: [
+                ui.button({
+                  id: "login-next",
+                  label: "Next",
+                  onPress: () => {
+                    modals.push("mfa", {
+                      title: "Two-factor code",
+                      initialFocus: "mfa-close",
+                      content: ui.text("Enter one-time code"),
+                      actions: [ui.button({ id: "mfa-close", label: "Close" })],
+                    });
+                  },
+                }),
+              ],
+            });
+          },
+        }),
+        ...modals.render(),
+      ]);
+    });
+
+    const view = () => ModalHarness({});
+
+    submit(renderer, view);
+
+    const openCenter = centerOf(renderer, "open-login");
+    renderer.routeEngineEvent(mouseEvent(openCenter.x, openCenter.y, 3, { buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(openCenter.x, openCenter.y, 4));
+    submit(renderer, view);
+
+    assert.equal(renderer.getFocusedId(), "login-next");
+
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_ENTER));
+    submit(renderer, view);
+
+    assert.equal(renderer.getFocusedId(), "mfa-close");
+
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_ESCAPE));
+    submit(renderer, view);
+
+    assert.equal(renderer.getFocusedId(), "login-next");
+    assert.equal(renderer.getRectByIdIndex().get("mfa-close"), undefined);
+
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_ESCAPE));
+    submit(renderer, view);
+
+    assert.equal(renderer.getFocusedId(), "open-login");
+    assert.equal(renderer.getRectByIdIndex().get("login-next"), undefined);
+  });
 });
 
 describe("select and dropdown behavior contracts", () => {
@@ -403,6 +515,64 @@ describe("select and dropdown behavior contracts", () => {
     renderer.routeEngineEvent(mouseEvent(disabledCenter.x, disabledCenter.y, 4));
     assert.equal(renderer.getFocusedId(), "enabled-theme");
     assert.equal(value, "dark");
+  });
+
+  test("select keyboard navigation skips disabled options and updates the visible value", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    let value = "dark";
+    const view = () =>
+      ui.column({}, [
+        ui.text(`Selected:${value}`),
+        ui.select({
+          id: "theme",
+          value,
+          options: [
+            { value: "dark", label: "Dark" },
+            { value: "light", label: "Light", disabled: true },
+            { value: "system", label: "System" },
+          ],
+          onChange: (next) => {
+            value = next;
+          },
+        }),
+        ui.button({ id: "next", label: "Next" }),
+      ]);
+
+    submit(renderer, view);
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_TAB));
+    assert.equal(renderer.getFocusedId(), "theme");
+
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_DOWN));
+    submit(renderer, view);
+    assert.equal(value, "system");
+    assert.equal(renderer.getFocusedId(), "theme");
+
+    let text = createTestRenderer({ viewport: { cols: 40, rows: 10 } })
+      .render(view())
+      .toText();
+    assert.equal(text.includes("Selected:system"), true);
+
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_ENTER));
+    submit(renderer, view);
+    assert.equal(value, "dark");
+
+    text = createTestRenderer({ viewport: { cols: 40, rows: 10 } })
+      .render(view())
+      .toText();
+    assert.equal(text.includes("Selected:dark"), true);
+
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_SPACE));
+    submit(renderer, view);
+    assert.equal(value, "system");
+
+    text = createTestRenderer({ viewport: { cols: 40, rows: 10 } })
+      .render(view())
+      .toText();
+    assert.equal(text.includes("Selected:system"), true);
   });
 
   test("dropdown item click selects the item and closes the overlay", () => {
@@ -453,6 +623,52 @@ describe("select and dropdown behavior contracts", () => {
       .render(view())
       .toText();
     assert.equal(text.includes("Selected:two"), true);
+    assert.equal(text.includes("One"), false);
+  });
+
+  test("clicking outside the dropdown closes it", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    let open = true;
+    let closeCount = 0;
+    const view = () =>
+      ui.layers([
+        ui.column({}, [
+          ui.button({ id: "anchor", label: "Menu" }),
+          ui.text(`Open:${open ? "yes" : "no"}`),
+        ]),
+        ...(open
+          ? [
+              ui.dropdown({
+                id: "dd",
+                anchorId: "anchor",
+                position: "below-start",
+                items: [
+                  { id: "one", label: "One" },
+                  { id: "two", label: "Two" },
+                ],
+                onClose: () => {
+                  closeCount++;
+                  open = false;
+                },
+              }),
+            ]
+          : []),
+      ]);
+
+    submit(renderer, view);
+    renderer.routeEngineEvent(mouseEvent(35, 10, 3, { buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(35, 10, 4));
+    submit(renderer, view);
+
+    assert.equal(closeCount, 1);
+    const text = createTestRenderer({ viewport: { cols: 40, rows: 12 } })
+      .render(view())
+      .toText();
+    assert.equal(text.includes("Open:no"), true);
     assert.equal(text.includes("One"), false);
   });
 });
