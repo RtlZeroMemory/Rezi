@@ -69,7 +69,7 @@ type ControlState = Readonly<{
   lastRenderAt: { value: number };
 }>;
 
-const READY_TIMEOUT_MS = 5_000;
+const READY_TIMEOUT_MS = 15_000;
 const INITIAL_RENDER_TIMEOUT_MS = 250;
 const STEP_TIMEOUT_MS = 2_000;
 const QUIET_WINDOW_MS = 40;
