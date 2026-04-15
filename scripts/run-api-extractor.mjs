@@ -54,6 +54,7 @@ for (const config of configs) {
   }
 
   normalizeApiReport(tempReportPath);
+  normalizeApiReport(reportPath);
 
   if (local) continue;
 
