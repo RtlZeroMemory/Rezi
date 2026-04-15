@@ -854,3 +854,126 @@ describe("table, tree, and virtual list behavior contracts", () => {
     assert.deepEqual(activatedKeys, ["lazyChild"]);
   });
 });
+
+describe("code editor behavior contracts", () => {
+  test("wheel scrolling works on hover and clicking focuses the editor", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    let scrollTop = 0;
+    let scrollLeft = 0;
+    const lines = Object.freeze([
+      "0123456789abcdefghijklmnopqrstuvwxyz",
+      "line-1",
+      "line-2",
+      "line-3",
+      "line-4",
+      "line-5",
+      "line-6",
+      "line-7",
+    ]);
+
+    const view = () =>
+      ui.column({}, [
+        ui.text(`Scroll:${String(scrollTop)},${String(scrollLeft)}`),
+        ui.codeEditor({
+          id: "editor",
+          lines,
+          cursor: Object.freeze({ line: 0, column: 0 }),
+          selection: null,
+          scrollTop,
+          scrollLeft,
+          lineNumbers: false,
+          onChange: () => {},
+          onSelectionChange: () => {},
+          onScroll: (top, left) => {
+            scrollTop = top;
+            scrollLeft = left;
+          },
+        }),
+      ]);
+
+    submit(renderer, view, { cols: 20, rows: 6 });
+    const editorCenter = centerOf(renderer, "editor");
+
+    renderer.routeEngineEvent(mouseEvent(editorCenter.x, editorCenter.y, 5, { wheelY: 1 }));
+    submit(renderer, view, { cols: 20, rows: 6 });
+
+    let text = createTestRenderer({ viewport: { cols: 20, rows: 6 } })
+      .render(view())
+      .toText();
+    assert.equal(text.includes("Scroll:3,0"), true);
+    assert.equal(renderer.getFocusedId(), null);
+
+    renderer.routeEngineEvent(mouseEvent(editorCenter.x, editorCenter.y, 3, { buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(editorCenter.x, editorCenter.y, 4));
+    assert.equal(renderer.getFocusedId(), "editor");
+
+    renderer.routeEngineEvent(mouseEvent(editorCenter.x, editorCenter.y, 5, { wheelX: 1 }));
+    submit(renderer, view, { cols: 20, rows: 6 });
+
+    text = createTestRenderer({ viewport: { cols: 20, rows: 6 } })
+      .render(view())
+      .toText();
+    assert.equal(text.includes("Scroll:3,3"), true);
+  });
+
+  test("readOnly code editor accepts mouse focus but ignores text edits", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    const changes: Array<readonly string[]> = [];
+    const selections: Array<unknown> = [];
+    const lines = Object.freeze(["hello world"]);
+
+    const view = () =>
+      ui.column({}, [
+        ui.text(`Changes:${String(changes.length)}`),
+        ui.codeEditor({
+          id: "editor",
+          lines,
+          cursor: Object.freeze({ line: 0, column: 11 }),
+          selection: Object.freeze({
+            anchor: Object.freeze({ line: 0, column: 6 }),
+            active: Object.freeze({ line: 0, column: 11 }),
+          }),
+          scrollTop: 0,
+          scrollLeft: 0,
+          readOnly: true,
+          lineNumbers: false,
+          onChange: (nextLines) => {
+            changes.push(nextLines);
+          },
+          onSelectionChange: (nextSelection) => {
+            selections.push(nextSelection);
+          },
+          onScroll: () => {},
+        }),
+      ]);
+
+    submit(renderer, view, { cols: 24, rows: 6 });
+    const editorCenter = centerOf(renderer, "editor");
+
+    renderer.routeEngineEvent(mouseEvent(editorCenter.x, editorCenter.y, 3, { buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(editorCenter.x, editorCenter.y, 4));
+    assert.equal(renderer.getFocusedId(), "editor");
+
+    const typed = renderer.routeEngineEvent({ kind: "text", timeMs: 1, codepoint: 120 });
+    const enter = renderer.routeEngineEvent(keyEvent(ZR_KEY_ENTER));
+
+    assert.equal(typed.action, undefined);
+    assert.equal(enter.action, undefined);
+    assert.deepEqual(changes, []);
+    assert.deepEqual(selections, []);
+
+    const text = createTestRenderer({ viewport: { cols: 24, rows: 6 } })
+      .render(view())
+      .toText();
+    assert.equal(text.includes("Changes:0"), true);
+    assert.equal(text.includes("hello world"), true);
+  });
+});
