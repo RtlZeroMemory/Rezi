@@ -112,61 +112,6 @@ export async function runReziLineScenario(
   }
 }
 
-export async function runInkCompatLineScenario(
-  config: ScenarioConfig,
-  params: Record<string, number | string>,
-  buildLines: LineBuilder,
-  mode: UpdateMode = "direct",
-): Promise<BenchMetrics> {
-  const React = (await import("react")) as ReactFactory;
-  const InkCompat = (await import("@rezi-ui/ink-compat")) as unknown as InkComponents & {
-    render: (
-      node: import("react").ReactNode,
-      opts: unknown,
-    ) => Readonly<{ rerender: (node: import("react").ReactNode) => void; unmount: () => void }>;
-  };
-  const backend = await createBenchBackend();
-
-  const initial = backend.waitForFrame();
-  const instance = InkCompat.render(reactTree(React, InkCompat, buildLines(0, params)), {
-    internal_backend: backend,
-  });
-  await initial;
-
-  try {
-    for (let i = 0; i < config.warmup; i++) {
-      const tick = i + 1;
-      const p = backend.waitForFrame();
-      await delayTrigger(mode, () =>
-        instance.rerender(reactTree(React, InkCompat, buildLines(tick, params))),
-      );
-      await p;
-    }
-
-    const frameBase = backend.frameCount;
-    const bytesBase = backend.totalFrameBytes;
-
-    const metrics = await benchAsync(
-      async (i) => {
-        const tick = config.warmup + i + 1;
-        const p = backend.waitForFrame();
-        await delayTrigger(mode, () =>
-          instance.rerender(reactTree(React, InkCompat, buildLines(tick, params))),
-        );
-        await p;
-      },
-      0,
-      config.iterations,
-    );
-
-    metrics.framesProduced = backend.frameCount - frameBase;
-    metrics.bytesProduced = backend.totalFrameBytes - bytesBase;
-    return metrics;
-  } finally {
-    instance.unmount();
-  }
-}
-
 export async function runInkLineScenario(
   config: ScenarioConfig,
   params: Record<string, number | string>,

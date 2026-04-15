@@ -1,5 +1,5 @@
 /**
- * @rezi-ui/bench — Benchmark suite for Rezi vs Ink.
+ * @rezi-ui/bench — Benchmark suite for Rezi and terminal UI runtimes.
  *
  * This package is intended to be run via the CLI entry point (run.ts),
  * but exports are available for programmatic use.

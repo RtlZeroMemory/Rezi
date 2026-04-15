@@ -6333,7 +6333,6 @@ export type TextProps = Readonly<{
     textOverflow?: "clip" | "ellipsis" | "middle" | "start";
     maxWidth?: SizeConstraint;
     wrap?: boolean;
-    __inkTransform?: (line: string, index: number) => string;
 }> & DisplayableProps;
 
 // @public (undocumented)

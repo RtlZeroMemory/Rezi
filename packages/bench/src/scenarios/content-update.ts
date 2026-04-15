@@ -162,49 +162,6 @@ async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
   }
 }
 
-async function runInkCompat(config: ScenarioConfig): Promise<BenchMetrics> {
-  const React = await import("react");
-  const InkCompat = await import("@rezi-ui/ink-compat");
-  const backend = new BenchBackend(120, 540);
-
-  let selected = 0;
-  const initialFrame = backend.waitForFrame();
-  const instance = InkCompat.render(
-    reactListTree(React, InkCompat, selected) as React.ReactNode,
-    { internal_backend: backend } as never,
-  );
-  await initialFrame;
-
-  try {
-    for (let i = 0; i < config.warmup; i++) {
-      selected = (selected + 1) % LIST_SIZE;
-      const frameP = backend.waitForFrame();
-      instance.rerender(reactListTree(React, InkCompat, selected) as React.ReactNode);
-      await frameP;
-    }
-
-    const frameBase = backend.frameCount;
-    const bytesBase = backend.totalFrameBytes;
-
-    const metrics = await benchAsync(
-      async () => {
-        selected = (selected + 1) % LIST_SIZE;
-        const frameP = backend.waitForFrame();
-        instance.rerender(reactListTree(React, InkCompat, selected) as React.ReactNode);
-        await frameP;
-      },
-      0,
-      config.iterations,
-    );
-
-    metrics.framesProduced = backend.frameCount - frameBase;
-    metrics.bytesProduced = backend.totalFrameBytes - bytesBase;
-    return metrics;
-  } finally {
-    instance.unmount();
-  }
-}
-
 async function runInk(config: ScenarioConfig): Promise<BenchMetrics> {
   const React = await import("react");
   const Ink = await import("ink");

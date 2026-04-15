@@ -3,7 +3,6 @@
  *
  * Goal: provide a comparable “small update” benchmark across:
  * - Rezi native
- * - Ink-on-Rezi
  * - Ink
  * - OpenTUI
  * - blessed
@@ -78,55 +77,6 @@ async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
   } finally {
     await app.stop();
     app.dispose();
-  }
-}
-
-async function runInkCompat(config: ScenarioConfig): Promise<BenchMetrics> {
-  const React = await import("react");
-  const InkCompat = await import("@rezi-ui/ink-compat");
-  const backend = await createBenchBackend();
-
-  const h = React.createElement;
-  const mk = (tick: number): React.ReactNode =>
-    h(
-      InkCompat.Box as unknown as string,
-      { flexDirection: "column", paddingX: 1, gap: 1 },
-      h(InkCompat.Text as unknown as string, { bold: true }, "terminal-rerender"),
-      h(InkCompat.Text as unknown as string, null, `tick=${tick}`),
-    );
-
-  const initial = backend.waitForFrame();
-  const instance = InkCompat.render(
-    mk(0) as React.ReactNode,
-    { internal_backend: backend } as never,
-  );
-  await initial;
-
-  try {
-    for (let i = 0; i < config.warmup; i++) {
-      const p = backend.waitForFrame();
-      instance.rerender(mk(i + 1) as React.ReactNode);
-      await p;
-    }
-
-    const frameBase = backend.frameCount;
-    const bytesBase = backend.totalFrameBytes;
-
-    const metrics = await benchAsync(
-      async (i) => {
-        const p = backend.waitForFrame();
-        instance.rerender(mk(config.warmup + i + 1) as React.ReactNode);
-        await p;
-      },
-      0,
-      config.iterations,
-    );
-
-    metrics.framesProduced = backend.frameCount - frameBase;
-    metrics.bytesProduced = backend.totalFrameBytes - bytesBase;
-    return metrics;
-  } finally {
-    instance.unmount();
   }
 }
 

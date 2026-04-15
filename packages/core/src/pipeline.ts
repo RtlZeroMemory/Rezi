@@ -2,8 +2,8 @@
  * packages/core/src/pipeline.ts — Pipeline primitives for external renderers.
  *
  * Re-exports the commit, layout, drawlist, and stability APIs that
- * ink-compat (and similar consumers) need to build an optimized render loop
- * without depending on the test-only createTestRenderer helper.
+ * external renderers need to build an optimized render loop without depending
+ * on the test-only createTestRenderer helper.
  */
 
 // Commit

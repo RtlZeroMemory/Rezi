@@ -15,9 +15,18 @@
   },
   "workspaces": {
     ".": {
-      "entry": ["scripts/*.mjs", "scripts/**/*.mjs", ".github/workflows/*.yml"],
-      "project": ["scripts/**/*.{js,mjs,ts}", ".github/workflows/*.yml"],
-      "ignoreDependencies": ["@rezi-ui/jsx"]
+      "entry": [
+        "scripts/*.mjs",
+        "scripts/**/*.mjs",
+        ".github/workflows/*.yml"
+      ],
+      "project": [
+        "scripts/**/*.{js,mjs,ts}",
+        ".github/workflows/*.yml"
+      ],
+      "ignoreDependencies": [
+        "@rezi-ui/jsx"
+      ]
     },
     "packages/core": {
       "entry": [
@@ -46,7 +55,9 @@
         "src/**/__tests__/**/*.test.ts",
         "src/**/__tests__/**/*.typecheck.ts"
       ],
-      "project": ["src/**/*.ts"]
+      "project": [
+        "src/**/*.ts"
+      ]
     },
     "packages/node": {
       "entry": [
@@ -58,7 +69,10 @@
         "src/**/__tests__/worker/testShims/**/*.ts",
         "src/**/__e2e__/fixtures/**/*.ts"
       ],
-      "project": ["src/**/*.ts", "src/**/*.js"]
+      "project": [
+        "src/**/*.ts",
+        "src/**/*.js"
+      ]
     },
     "packages/jsx": {
       "entry": [
@@ -68,102 +82,140 @@
         "src/**/__tests__/**/*.test.ts",
         "src/**/__tests__/**/*.test.tsx"
       ],
-      "project": ["src/**/*.ts", "src/**/*.tsx"]
+      "project": [
+        "src/**/*.ts",
+        "src/**/*.tsx"
+      ]
     },
     "packages/testkit": {
-      "entry": ["src/index.ts", "src/**/__tests__/**/*.test.ts"],
-      "project": ["src/**/*.ts"]
-    },
-    "packages/ink-compat": {
       "entry": [
         "src/index.ts",
-        "src/testing/index.ts",
-        "src/shims/ink-spinner.tsx",
-        "src/shims/ink-gradient.tsx",
-        "src/**/__tests__/**/*.test.ts",
-        "src/**/__tests__/**/*.test.tsx"
+        "src/**/__tests__/**/*.test.ts"
       ],
-      "project": ["src/**/*.ts", "src/**/*.tsx"]
+      "project": [
+        "src/**/*.ts"
+      ]
     },
     "packages/native": {
-      "entry": ["index.js", "loader.cjs", "index.d.ts", "scripts/*.mjs"],
-      "project": ["index.js", "loader.cjs", "index.d.ts", "scripts/*.mjs"]
+      "entry": [
+        "index.js",
+        "loader.cjs",
+        "index.d.ts",
+        "scripts/*.mjs"
+      ],
+      "project": [
+        "index.js",
+        "loader.cjs",
+        "index.d.ts",
+        "scripts/*.mjs"
+      ]
     },
     "packages/create-rezi": {
-      "entry": ["src/index.ts", "src/mainEntry.ts", "src/**/__tests__/**/*.test.ts"],
-      "project": ["src/**/*.ts"]
-    },
-    "packages/bench-app": {
-      "entry": ["src/entry.tsx"],
-      "project": ["src/**/*.ts", "src/**/*.tsx"]
-    },
-    "packages/bench-harness": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
-    },
-    "packages/bench-runner": {
-      "entry": ["src/cli.ts", "src/verify.ts", "src/**/__tests__/**/*.test.ts"],
-      "project": ["src/**/*.ts"]
-    },
-    "packages/ink-gradient-shim": {
-      "entry": ["index.js", "index.d.ts"],
-      "project": ["index.js", "index.d.ts"]
-    },
-    "packages/ink-spinner-shim": {
-      "entry": ["index.js", "index.d.ts"],
-      "project": ["index.js", "index.d.ts"]
-    },
-    "packages/rezi-ink-gradient-shim": {
-      "entry": ["index.js", "index.d.ts"],
-      "project": ["index.js", "index.d.ts"]
-    },
-    "packages/rezi-ink-spinner-shim": {
-      "entry": ["index.js", "index.d.ts"],
-      "project": ["index.js", "index.d.ts"]
+      "entry": [
+        "src/index.ts",
+        "src/mainEntry.ts",
+        "src/**/__tests__/**/*.test.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ]
     },
     "packages/bench": {
-      "entry": ["src/index.ts", "src/run.ts", "src/worker.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": [
+        "src/index.ts",
+        "src/run.ts",
+        "src/worker.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ]
     },
     "examples/gallery": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": [
+        "src/index.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ]
     },
     "examples/hello-counter": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": [
+        "src/index.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ]
     },
     "examples/raw-draw-demo": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": [
+        "src/index.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ]
     },
     "examples/regression-dashboard": {
-      "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": [
+        "src/main.ts",
+        "src/**/__tests__/**/*.test.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ]
     },
     "packages/create-rezi/templates/animation-lab": {
-      "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": [
+        "src/main.ts",
+        "src/**/__tests__/**/*.test.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ]
     },
     "packages/create-rezi/templates/cli-tool": {
-      "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": [
+        "src/main.ts",
+        "src/**/__tests__/**/*.test.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ]
     },
     "packages/create-rezi/templates/dashboard": {
-      "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": [
+        "src/main.ts",
+        "src/**/__tests__/**/*.test.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ]
     },
     "packages/create-rezi/templates/minimal": {
-      "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": [
+        "src/main.ts",
+        "src/**/__tests__/**/*.test.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ]
     },
     "packages/create-rezi/templates/starship": {
-      "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": [
+        "src/main.ts",
+        "src/**/__tests__/**/*.test.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ]
     },
     "packages/create-rezi/templates/stress-test": {
-      "entry": ["src/main.ts", "src/**/__tests__/**/*.test.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": [
+        "src/main.ts",
+        "src/**/__tests__/**/*.test.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ]
     }
   }
 }

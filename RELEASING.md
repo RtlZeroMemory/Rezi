@@ -37,12 +37,7 @@ In order:
 3. `@rezi-ui/testkit` — no internal deps
 4. `@rezi-ui/node` — depends on core + native
 5. `@rezi-ui/jsx` — depends on core
-6. `@rezi-ui/ink-compat` — compatibility layer
-7. `ink-gradient-shim` — legacy shim package
-8. `ink-spinner-shim` — legacy shim package
-9. `@rezi-ui/ink-gradient-shim` — scoped shim package
-10. `@rezi-ui/ink-spinner-shim` — scoped shim package
-11. `create-rezi` — CLI scaffolding tool
+6. `create-rezi` — CLI scaffolding tool
 
 `@rezi-ui/bench` is private and never published.
 

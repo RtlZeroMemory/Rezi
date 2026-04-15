@@ -80,7 +80,6 @@ const FRAMEWORK_ORDER: Framework[] = [
 const FRAMEWORK_LABELS: Record<Framework, string> = {
   "rezi-native": "Rezi (native)",
   ink: "Ink",
-  "ink-compat": "Ink-Compat (removed)",
   opentui: "OpenTUI (React)",
   "opentui-core": "OpenTUI (Core)",
   bubbletea: "Bubble Tea (Go)",

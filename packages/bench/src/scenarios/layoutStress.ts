@@ -117,54 +117,6 @@ async function runRezi(config: ScenarioConfig, rows: number, cols: number): Prom
   }
 }
 
-async function runInkCompat(
-  config: ScenarioConfig,
-  rows: number,
-  cols: number,
-): Promise<BenchMetrics> {
-  const React = await import("react");
-  const InkCompat = await import("@rezi-ui/ink-compat");
-  const backend = await createBenchBackend();
-
-  const initial = backend.waitForFrame();
-  const instance = InkCompat.render(
-    reactTree(React, InkCompat, rows, cols, 0) as React.ReactNode,
-    {
-      internal_backend: backend,
-    } as never,
-  );
-  await initial;
-
-  try {
-    for (let i = 0; i < config.warmup; i++) {
-      const p = backend.waitForFrame();
-      instance.rerender(reactTree(React, InkCompat, rows, cols, i + 1) as React.ReactNode);
-      await p;
-    }
-
-    const frameBase = backend.frameCount;
-    const bytesBase = backend.totalFrameBytes;
-
-    const metrics = await benchAsync(
-      async (i) => {
-        const p = backend.waitForFrame();
-        instance.rerender(
-          reactTree(React, InkCompat, rows, cols, config.warmup + i + 1) as React.ReactNode,
-        );
-        await p;
-      },
-      0,
-      config.iterations,
-    );
-
-    metrics.framesProduced = backend.frameCount - frameBase;
-    metrics.bytesProduced = backend.totalFrameBytes - bytesBase;
-    return metrics;
-  } finally {
-    instance.unmount();
-  }
-}
-
 async function runInk(config: ScenarioConfig, rows: number, cols: number): Promise<BenchMetrics> {
   const React = await import("react");
   const Ink = await import("ink");

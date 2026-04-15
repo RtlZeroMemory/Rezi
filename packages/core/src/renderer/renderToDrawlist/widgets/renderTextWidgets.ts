@@ -24,12 +24,10 @@ import { mergeTextStyle } from "../textStyle.js";
 import type { ResolvedTextStyle } from "../textStyle.js";
 import { getColorTokens, resolveWidgetFocusStyle } from "../themeTokens.js";
 import type { CursorInfo } from "../types.js";
-
 export type StyledSegment = Readonly<{
   text: string;
   style: ResolvedTextStyle;
 }>;
-
 type MutableAnsiSgrStyle = {
   fg?: Rgb24;
   bg?: Rgb24;
@@ -40,27 +38,23 @@ type MutableAnsiSgrStyle = {
   inverse?: boolean;
   strikethrough?: boolean;
 };
-
 type ParsedAnsiTransformText = Readonly<{
   segments: readonly StyledSegment[];
   visibleText: string;
   hasAnsi: boolean;
 }>;
-
 type ResolvedCursor = Readonly<{
   x: number;
   y: number;
   shape: CursorInfo["shape"];
   blink: boolean;
 }>;
-
 type MaybeFillOwnBackground = (
   builder: DrawlistBuilder,
   rect: Rect,
   ownStyle: unknown,
   style: ResolvedTextStyle,
 ) => void;
-
 /** Check if a string contains only printable ASCII (0x20..0x7E). */
 function isAsciiText(text: string): boolean {
   for (let i = 0; i < text.length; i++) {
@@ -69,7 +63,6 @@ function isAsciiText(text: string): boolean {
   }
   return true;
 }
-
 const ANSI_ESCAPE = String.fromCharCode(0x1b);
 const ANSI_SGR_REGEX = new RegExp(`${ANSI_ESCAPE}\\[([0-9:;]*)m`, "g");
 const ANSI_16_PALETTE: readonly Rgb24[] = [
@@ -90,15 +83,12 @@ const ANSI_16_PALETTE: readonly Rgb24[] = [
   rgb(0, 255, 255),
   rgb(255, 255, 255),
 ];
-
 function ansiPaletteColor(index: number): Rgb24 {
   return ANSI_16_PALETTE[index] ?? ANSI_16_PALETTE[0] ?? rgb(0, 0, 0);
 }
-
 function unsetAnsiStyleValue(style: MutableAnsiSgrStyle, key: keyof MutableAnsiSgrStyle): void {
   Reflect.deleteProperty(style, key);
 }
-
 function appendStyledSegment(
   segments: StyledSegment[],
   text: string,
@@ -112,16 +102,13 @@ function appendStyledSegment(
   }
   segments.push({ text, style });
 }
-
 function parseAnsiSgrCodes(raw: string): number[] {
   if (raw.length === 0) return [0];
-
   const normalizedRaw = raw
     .replace(/([34]8):2::(\d{1,3}):(\d{1,3}):(\d{1,3})/g, "$1;2;$2;$3;$4")
     .replace(/([34]8):2:\d{1,3}:(\d{1,3}):(\d{1,3}):(\d{1,3})/g, "$1;2;$2;$3;$4")
     .replace(/([34]8):5:(\d{1,3})/g, "$1;5;$2")
     .replaceAll(":", ";");
-
   const codes: number[] = [];
   for (const part of normalizedRaw.split(";")) {
     if (part.length === 0) {
@@ -133,11 +120,9 @@ function parseAnsiSgrCodes(raw: string): number[] {
   }
   return codes.length > 0 ? codes : [0];
 }
-
 function isByte(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 255;
 }
-
 function decodeAnsi256Color(index: number): Rgb24 {
   if (index < 16) return ansiPaletteColor(index);
   if (index <= 231) {
@@ -151,7 +136,6 @@ function decodeAnsi256Color(index: number): Rgb24 {
   const gray = 8 + (index - 232) * 10;
   return rgb(gray, gray, gray);
 }
-
 function clearAnsiStyleOverride(style: MutableAnsiSgrStyle): void {
   unsetAnsiStyleValue(style, "fg");
   unsetAnsiStyleValue(style, "bg");
@@ -162,7 +146,6 @@ function clearAnsiStyleOverride(style: MutableAnsiSgrStyle): void {
   unsetAnsiStyleValue(style, "inverse");
   unsetAnsiStyleValue(style, "strikethrough");
 }
-
 function applyExtendedAnsiColor(
   channel: "fg" | "bg",
   codes: readonly number[],
@@ -182,7 +165,6 @@ function applyExtendedAnsiColor(
     }
     return index + 2;
   }
-
   if (mode === 2) {
     const directR = codes[index + 2];
     const directG = codes[index + 3];
@@ -191,7 +173,6 @@ function applyExtendedAnsiColor(
       style[channel] = rgb(directR, directG, directB);
       return index + 4;
     }
-
     const colorSpace = codes[index + 2];
     const r = codes[index + 3];
     const g = codes[index + 4];
@@ -206,10 +187,8 @@ function applyExtendedAnsiColor(
       style[channel] = rgb(r, g, b);
       return index + 5;
     }
-
     return index + 4;
   }
-
   if (mode === 0) {
     if (channel === "fg") {
       unsetAnsiStyleValue(style, "fg");
@@ -218,10 +197,8 @@ function applyExtendedAnsiColor(
     }
     return index + 1;
   }
-
   return index;
 }
-
 function applyAnsiSgrCodes(codes: readonly number[], style: MutableAnsiSgrStyle): void {
   const normalized = codes.length > 0 ? codes : [0];
   for (let index = 0; index < normalized.length; index += 1) {
@@ -305,8 +282,7 @@ function applyAnsiSgrCodes(codes: readonly number[], style: MutableAnsiSgrStyle)
     }
   }
 }
-
-function parseAnsiTransformText(
+function parseAnsiStyledText(
   text: string,
   baseStyle: ResolvedTextStyle,
 ): ParsedAnsiTransformText {
@@ -317,14 +293,12 @@ function parseAnsiTransformText(
       hasAnsi: false,
     };
   }
-
   const segments: StyledSegment[] = [];
   let visibleText = "";
   let lastIndex = 0;
   let hasAnsi = false;
   const activeStyleOverride: MutableAnsiSgrStyle = {};
   let activeStyle = baseStyle;
-
   ANSI_SGR_REGEX.lastIndex = 0;
   for (const match of text.matchAll(ANSI_SGR_REGEX)) {
     const index = match.index;
@@ -335,18 +309,15 @@ function parseAnsiTransformText(
       visibleText += plainText;
       appendStyledSegment(segments, plainText, activeStyle);
     }
-
     applyAnsiSgrCodes(parseAnsiSgrCodes(match[1] ?? ""), activeStyleOverride);
     activeStyle = mergeTextStyle(baseStyle, activeStyleOverride);
     lastIndex = index + match[0].length;
   }
-
   const trailing = text.slice(lastIndex);
   if (trailing.length > 0) {
     visibleText += trailing;
     appendStyledSegment(segments, trailing, activeStyle);
   }
-
   if (!hasAnsi) {
     return {
       segments: [{ text, style: baseStyle }],
@@ -354,25 +325,20 @@ function parseAnsiTransformText(
       hasAnsi: false,
     };
   }
-
   return { segments, visibleText, hasAnsi: true };
 }
-
 function readNumber(v: unknown): number | undefined {
   if (typeof v !== "number" || !Number.isFinite(v)) return undefined;
   return v;
 }
-
 function readNonNegativeInt(v: unknown): number | undefined {
   const n = readNumber(v);
   if (n === undefined || n < 0) return undefined;
   return Math.trunc(n);
 }
-
 function readString(v: unknown): string | undefined {
   return typeof v === "string" ? v : undefined;
 }
-
 function readTerminalCursorMeta(
   props: Readonly<{
     internal_terminalCursorFocus?: unknown;
@@ -386,7 +352,6 @@ function readTerminalCursorMeta(
   const position = readNonNegativeInt(rawPosition);
   return { focused, ...(position === undefined ? {} : { position }) };
 }
-
 function readTextOverflow(v: unknown): "clip" | "ellipsis" | "middle" | "start" {
   switch (v) {
     case "ellipsis":
@@ -397,14 +362,12 @@ function readTextOverflow(v: unknown): "clip" | "ellipsis" | "middle" | "start" 
       return "clip";
   }
 }
-
 function clampInt(value: number, min: number, max: number): number {
   const n = Number.isFinite(value) ? Math.trunc(value) : min;
   if (n <= min) return min;
   if (n >= max) return max;
   return n;
 }
-
 export function textVariantToStyle(
   variant: unknown,
 ): { bold?: true; dim?: true; inverse?: true } | undefined {
@@ -420,21 +383,17 @@ export function textVariantToStyle(
       return undefined;
   }
 }
-
 export function truncateToWidth(text: string, width: number): string {
   if (width <= 0 || text.length === 0) return "";
   return measureTextCells(text) > width ? truncateWithEllipsis(text, width) : text;
 }
-
 export function clipSegmentsToWidth(
   segments: readonly StyledSegment[],
   maxWidth: number,
 ): StyledSegment[] {
   if (maxWidth <= 0 || segments.length === 0) return [];
-
   let remaining = maxWidth;
   const out: StyledSegment[] = [];
-
   for (const segment of segments) {
     if (remaining <= 0) break;
     if (segment.text.length === 0) continue;
@@ -448,17 +407,14 @@ export function clipSegmentsToWidth(
     if (clipped.length > 0) out.push({ text: clipped, style: segment.style });
     break;
   }
-
   return out;
 }
-
 function containsNonAsciiSegment(segments: readonly StyledSegment[]): boolean {
   for (const segment of segments) {
     if (!isAsciiText(segment.text)) return true;
   }
   return false;
 }
-
 export function drawSegments(
   builder: DrawlistBuilder,
   x: number,
@@ -469,7 +425,6 @@ export function drawSegments(
 ): void {
   const textRunStableKey = (segments0: readonly StyledSegment[]): string =>
     JSON.stringify(segments0.map((segment) => [segment.text, segment.style ?? null] as const));
-
   const clipped = clipSegmentsToWidth(segments, maxWidth);
   if (clipped.length === 0) return;
   if (clipped.length === 1) {
@@ -478,7 +433,6 @@ export function drawSegments(
     builder.drawText(x, y, first.text, first.style);
     return;
   }
-
   if (options.preferDrawText !== true) {
     const blobIndex = builder.addTextRunBlob(
       clipped.map((segment) => ({
@@ -491,14 +445,12 @@ export function drawSegments(
       return;
     }
   }
-
   let cursorX = x;
   for (const segment of clipped) {
     builder.drawText(cursorX, y, segment.text, segment.style);
     cursorX += measureTextCells(segment.text);
   }
 }
-
 export function variantToThemeColor(
   theme: Theme,
   variant: unknown,
@@ -521,7 +473,6 @@ export function variantToThemeColor(
       return theme.colors[fallback] ?? theme.colors.primary;
   }
 }
-
 function variantToRecipeTone(
   variant: unknown,
 ): "default" | "primary" | "danger" | "success" | "warning" | "info" {
@@ -540,7 +491,6 @@ function variantToRecipeTone(
       return "default";
   }
 }
-
 function resolveTagColor(theme: Theme, variant: unknown): Rgb24 {
   const colorTokens = getColorTokens(theme);
   if (colorTokens !== null) {
@@ -553,7 +503,6 @@ function resolveTagColor(theme: Theme, variant: unknown): Rgb24 {
   const fallbackTone = variant === "primary" ? ("primary" as const) : ("secondary" as const);
   return variantToThemeColor(theme, variant, fallbackTone);
 }
-
 function statusToThemeColor(theme: Theme, status: unknown): Theme["colors"][string] {
   switch (status) {
     case "online":
@@ -568,7 +517,6 @@ function statusToThemeColor(theme: Theme, status: unknown): Theme["colors"][stri
       return theme.colors.muted;
   }
 }
-
 function readSpinnerVariant(v: unknown): SpinnerVariant {
   switch (v) {
     case "dots":
@@ -583,11 +531,9 @@ function readSpinnerVariant(v: unknown): SpinnerVariant {
       return "dots";
   }
 }
-
 function resolveIconText(iconPath: string, useFallback: boolean): string {
   return resolveIconRenderGlyph(iconPath, useFallback).glyph;
 }
-
 export function renderTextWidgets(
   builder: DrawlistBuilder,
   focusState: FocusState,
@@ -602,7 +548,6 @@ export function renderTextWidgets(
 ): ResolvedCursor | null | undefined {
   const vnode = node.vnode;
   let resolvedCursor: ResolvedCursor | null = null;
-
   switch (vnode.kind) {
     case "text": {
       if (!isVisibleRect(rect)) break;
@@ -612,7 +557,6 @@ export function renderTextWidgets(
         textOverflow?: unknown;
         maxWidth?: unknown;
         wrap?: unknown;
-        __inkTransform?: unknown;
         internal_terminalCursorFocus?: unknown;
         internal_terminalCursorPosition?: unknown;
         terminalCursorFocus?: unknown;
@@ -628,39 +572,23 @@ export function renderTextWidgets(
       const maxWidth = readNonNegativeInt(props.maxWidth);
       const overflowW = maxWidth === undefined ? rect.w : Math.min(rect.w, maxWidth);
       if (overflowW <= 0) break;
-
       const text = vnode.text;
       const wrap = props.wrap === true;
-      const transform =
-        typeof props.__inkTransform === "function"
-          ? (props.__inkTransform as (line: string, index: number) => string)
-          : undefined;
-      const transformLine = (line: string, index: number): string => {
-        if (!transform) return line;
-        const next = transform(line, index);
-        if (typeof next === "string") return next;
-        return String(next ?? "");
-      };
       const cursorMeta = readTerminalCursorMeta(props);
       const cursorOffset = Math.min(text.length, Math.max(0, cursorMeta.position ?? text.length));
-
       if (wrap && rect.h > 1) {
         const wrappedLines = wrapTextToLines(text, overflowW);
-        const lines = transform
-          ? wrappedLines.map((line, index) => transformLine(line ?? "", index))
-          : wrappedLines;
+        const lines = wrappedLines;
         const visibleCount = Math.min(rect.h, lines.length);
         if (visibleCount <= 0) break;
-
         for (let i = 0; i < visibleCount; i++) {
           const rawLine = lines[i] ?? "";
-          const ansiLine = transform ? parseAnsiTransformText(rawLine, style) : undefined;
+          const ansiLine = parseAnsiStyledText(rawLine, style);
           const baseLine = ansiLine?.hasAnsi ? ansiLine.visibleText : rawLine;
           const isLastVisible = i === visibleCount - 1;
           const hasHiddenLines = lines.length > visibleCount;
           let line = baseLine;
           let lineSegments = ansiLine?.hasAnsi ? ansiLine.segments : undefined;
-
           if (isLastVisible) {
             switch (textOverflow) {
               case "ellipsis": {
@@ -695,8 +623,7 @@ export function renderTextWidgets(
                 break;
             }
           }
-
-          const clipWidth = transform ? Math.max(overflowW, measureTextCells(line)) : overflowW;
+          const clipWidth = overflowW;
           builder.pushClip(rect.x, rect.y + i, clipWidth, 1);
           if (lineSegments) {
             drawSegments(builder, rect.x, rect.y + i, clipWidth, lineSegments);
@@ -705,8 +632,7 @@ export function renderTextWidgets(
           }
           builder.popClip();
         }
-
-        if (!transform && cursorInfo && cursorMeta.focused) {
+        if (cursorInfo && cursorMeta.focused) {
           let remaining = cursorOffset;
           let cursorLine = 0;
           for (let i = 0; i < visibleCount; i++) {
@@ -729,24 +655,21 @@ export function renderTextWidgets(
         }
         break;
       }
-
-      const transformedText = transformLine(text, 0);
-      const ansiText = transform ? parseAnsiTransformText(transformedText, style) : undefined;
+      const transformedText = text;
+      const ansiText = parseAnsiStyledText(transformedText, style);
       const visibleTransformedText =
         ansiText?.hasAnsi === true ? ansiText.visibleText : transformedText;
-
       // Avoid measuring in the common ASCII case.
       const fits =
         (isAsciiText(visibleTransformedText) && visibleTransformedText.length <= overflowW) ||
         measureTextCells(visibleTransformedText) <= overflowW;
-
       if (fits) {
         if (ansiText?.hasAnsi) {
           drawSegments(builder, rect.x, rect.y, overflowW, ansiText.segments);
         } else {
           builder.drawText(rect.x, rect.y, visibleTransformedText, style);
         }
-        if (!transform && cursorInfo && cursorMeta.focused) {
+        if (cursorInfo && cursorMeta.focused) {
           const cursorX = Math.min(
             overflowW,
             measureTextCells(
@@ -765,11 +688,9 @@ export function renderTextWidgets(
         }
         break;
       }
-
       let displayText = visibleTransformedText;
       let useClip = false;
       let useStyledSegments = ansiText?.hasAnsi === true;
-
       switch (textOverflow) {
         case "ellipsis":
           displayText = truncateWithEllipsis(visibleTransformedText, overflowW);
@@ -802,7 +723,7 @@ export function renderTextWidgets(
           builder.drawText(rect.x, rect.y, displayText, style);
         }
       }
-      if (!transform && cursorInfo && cursorMeta.focused) {
+      if (cursorInfo && cursorMeta.focused) {
         const cursorX = Math.min(
           overflowW,
           measureTextCells(
@@ -845,7 +766,6 @@ export function renderTextWidgets(
         ? (props.spans as readonly { text?: unknown; style?: unknown }[])
         : [];
       if (spans.length === 0) break;
-
       const segments: StyledSegment[] = [];
       let combinedText = "";
       for (const span of spans) {
@@ -858,7 +778,6 @@ export function renderTextWidgets(
         });
       }
       if (segments.length === 0) break;
-
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
       drawSegments(builder, rect.x, rect.y, rect.w, segments);
       builder.popClip();
@@ -915,7 +834,6 @@ export function renderTextWidgets(
       }
       const content = `( ${text} )`;
       const segments: StyledSegment[] = [{ text: content, style: chipStyle }];
-
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
       drawSegments(builder, rect.x, rect.y, rect.w, segments);
       builder.popClip();
@@ -929,14 +847,12 @@ export function renderTextWidgets(
       const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
-
       const frame = getSpinnerFrame(variant, tick);
       const frameStyle = mergeTextStyle(style, { fg: theme.colors.primary, bold: true });
       const segments: StyledSegment[] = [{ text: frame, style: frameStyle }];
       if (label && label.length > 0) {
         segments.push({ text: ` ${label}`, style });
       }
-
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
       drawSegments(builder, rect.x, rect.y, rect.w, segments);
       builder.popClip();
@@ -949,11 +865,9 @@ export function renderTextWidgets(
       const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
-
       const glyph = resolveIconText(iconPath, props.fallback === true);
       const display = truncateToWidth(glyph, rect.w);
       if (display.length === 0) break;
-
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
       builder.drawText(rect.x, rect.y, display, style);
       builder.popClip();
@@ -967,11 +881,9 @@ export function renderTextWidgets(
       const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
-
       const keyStyle = mergeTextStyle(style, { bold: true });
       const mutedStyle = mergeTextStyle(keyStyle, { fg: theme.colors.muted });
       const segments: StyledSegment[] = [];
-
       if (typeof keysProp === "string") {
         segments.push({ text: "[", style: mutedStyle });
         segments.push({ text: keysProp, style: keyStyle });
@@ -988,7 +900,6 @@ export function renderTextWidgets(
       }
       if (segments.length === 0) break;
       const preferDrawText = containsNonAsciiSegment(segments);
-
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
       drawSegments(builder, rect.x, rect.y, rect.w, segments, { preferDrawText });
       builder.popClip();
@@ -1008,7 +919,6 @@ export function renderTextWidgets(
       const ownStyle = asTextStyle(props.style, theme);
       const style = mergeTextStyle(parentStyle, ownStyle);
       maybeFillOwnBackground(builder, rect, ownStyle, style);
-
       const dotStyle = mergeTextStyle(style, {
         fg: statusToThemeColor(theme, props.status),
         bold: true,
@@ -1017,7 +927,6 @@ export function renderTextWidgets(
       if (showLabel && label && label.length > 0) {
         segments.push({ text: ` ${label}`, style });
       }
-
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
       drawSegments(builder, rect.x, rect.y, rect.w, segments);
       builder.popClip();
@@ -1042,7 +951,6 @@ export function renderTextWidgets(
       maybeFillOwnBackground(builder, rect, ownStyle, chipStyle);
       const content = `( ${text}${removable ? " ×" : ""} )`;
       const segments: StyledSegment[] = [{ text: content, style: chipStyle }];
-
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
       drawSegments(builder, rect.x, rect.y, rect.w, segments);
       builder.popClip();
@@ -1074,7 +982,6 @@ export function renderTextWidgets(
         styledLink,
         resolveWidgetFocusStyle(getColorTokens(theme), focused, disabled, theme.focusIndicator),
       );
-
       builder.pushClip(rect.x, rect.y, rect.w, rect.h);
       if (!disabled) {
         builder.setLink(url, id);
@@ -1089,6 +996,5 @@ export function renderTextWidgets(
     default:
       return undefined;
   }
-
   return resolvedCursor;
 }

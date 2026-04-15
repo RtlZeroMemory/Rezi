@@ -107,8 +107,6 @@ export type TextProps = Readonly<{
   maxWidth?: SizeConstraint;
   /** When true, text wraps to multiple lines instead of single-line truncation. */
   wrap?: boolean;
-  /** Internal callback used by ink-compat to transform rendered lines. */
-  __inkTransform?: (line: string, index: number) => string;
 }> &
   DisplayableProps;
 

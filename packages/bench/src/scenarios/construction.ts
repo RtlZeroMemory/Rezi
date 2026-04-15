@@ -72,58 +72,6 @@ async function runRezi(config: ScenarioConfig, n: number): Promise<BenchMetrics>
   }
 }
 
-async function runInkCompat(config: ScenarioConfig, n: number): Promise<BenchMetrics> {
-  let React: typeof import("react");
-  let InkCompat: typeof import("@rezi-ui/ink-compat");
-  try {
-    React = await import("react");
-    InkCompat = await import("@rezi-ui/ink-compat");
-  } catch {
-    throw new Error("@rezi-ui/ink-compat or react not available");
-  }
-
-  const backend = new BenchBackend(120, Math.max(40, n + 5));
-
-  // Set up the frame waiter BEFORE render() — the initial frame may be
-  // produced in microtasks before we get a chance to await.
-  const initialFrame = backend.waitForFrame();
-  const tree = buildReactTree(React, InkCompat, n) as React.ReactNode;
-  const instance = InkCompat.render(tree, { internal_backend: backend } as never);
-  await initialFrame;
-
-  try {
-    // Warmup (excluded from measured stats).
-    for (let i = 0; i < config.warmup; i++) {
-      const frameP = backend.waitForFrame();
-      instance.rerender(buildReactTree(React, InkCompat, n, i + 1) as React.ReactNode);
-      await frameP;
-    }
-
-    const frameBase = backend.frameCount;
-    const bytesBase = backend.totalFrameBytes;
-
-    // Now benchmark rerenders (construction + reconciliation + VNode conversion).
-    // Seed starts after warmup so each frame remains visually distinct for Ink-style dedupe.
-    const metrics = await benchAsync(
-      async (i) => {
-        const frameP = backend.waitForFrame();
-        instance.rerender(
-          buildReactTree(React, InkCompat, n, config.warmup + i + 1) as React.ReactNode,
-        );
-        await frameP;
-      },
-      0,
-      config.iterations,
-    );
-
-    metrics.framesProduced = backend.frameCount - frameBase;
-    metrics.bytesProduced = backend.totalFrameBytes - bytesBase;
-    return metrics;
-  } finally {
-    instance.unmount();
-  }
-}
-
 async function runInk(config: ScenarioConfig, n: number): Promise<BenchMetrics> {
   let React: typeof import("react");
   let Ink: typeof import("ink");

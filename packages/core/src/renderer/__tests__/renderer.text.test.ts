@@ -338,23 +338,13 @@ describe("renderer text - wrap newline handling", () => {
   });
 });
 
-describe("renderer text - transform ANSI styling", () => {
-  const gradientTransform = (): string => "\u001b[31mA\u001b[32mB\u001b[0m";
-
-  test("single-line transform with ANSI emits visible glyphs without escape bytes", () => {
+describe("renderer text - ANSI styling", () => {
+  test("single-line ANSI text emits visible glyphs without escape bytes", () => {
     const frame = parseFrame(
-      renderBytes(
-        textVNode("AB", {
-          __inkTransform: gradientTransform,
-        }),
-        { cols: 20, rows: 1 },
-      ),
+      renderBytes(textVNode("\u001b[31mA\u001b[32mB\u001b[0m", {}), { cols: 20, rows: 1 }),
     );
 
-    assert.equal(
-      frame.drawTexts.some((cmd) => cmd.text.includes("\u001b[")),
-      false,
-    );
+    assert.equal(frame.drawTexts.some((cmd) => cmd.text.includes("\u001b[")), false);
     const run = expectSingleDrawTextRun(frame);
     const blob = expectBlob(frame, run.blobIndex);
     assert.equal(blob.segments.length, 2);
@@ -365,30 +355,6 @@ describe("renderer text - transform ANSI styling", () => {
     assert.equal(first.text, "A");
     assert.equal(second.text, "B");
     assert.equal(first.fg !== second.fg, true);
-  });
-
-  test("wrapped transform with ANSI does not render literal CSI tokens", () => {
-    const frame = parseFrame(
-      renderBytes(
-        textVNode("AB", {
-          wrap: true,
-          __inkTransform: gradientTransform,
-        }),
-        { cols: 20, rows: 3 },
-      ),
-    );
-
-    assert.equal(
-      frame.drawTexts.some((cmd) => cmd.text.includes("[39;") || cmd.text.includes("\u001b")),
-      false,
-    );
-    const run = expectSingleDrawTextRun(frame);
-    const blob = expectBlob(frame, run.blobIndex);
-    assert.equal(
-      blob.segments.every((segment) => segment.text.includes("\u001b") === false),
-      true,
-    );
-    assert.equal(blob.segments.map((segment) => segment.text).join(""), "AB");
   });
 });
 

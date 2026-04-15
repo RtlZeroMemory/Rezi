@@ -293,8 +293,6 @@ async function checkFramework(
         await import("@rezi-ui/core");
         if (io === "pty") await import("@rezi-ui/node");
         return true;
-      case "ink-compat":
-        return false;
       case "ink":
         await import("ink");
         return true;

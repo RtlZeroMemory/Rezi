@@ -102,8 +102,6 @@ export interface BenchMetrics {
 
 export type Framework =
   | "ink"
-  /** Deprecated: kept for historical result compatibility; not part of active suite. */
-  | "ink-compat"
   | "rezi-native"
   | "opentui"
   | "opentui-core"
