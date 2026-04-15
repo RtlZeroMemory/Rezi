@@ -14,6 +14,7 @@ import { DEFAULT_TERMINAL_CAPS } from "../../terminalCaps.js";
 import { createTestRenderer } from "../../testing/index.js";
 import { defaultTheme } from "../../theme/defaultTheme.js";
 import { getAccordionTriggerId } from "../../widgets/accordion.js";
+import { getBreadcrumbItemId } from "../../widgets/breadcrumb.js";
 import { getPaginationControlId, getPaginationPageId } from "../../widgets/pagination.js";
 import { getTabsTriggerId } from "../../widgets/tabs.js";
 import { TOAST_HEIGHT, getToastActionFocusId } from "../../widgets/toast.js";
@@ -1462,6 +1463,59 @@ describe("WidgetRenderer integration battery", () => {
     assert.equal(renderer.getFocusedId(), generalTrigger);
   });
 
+  test("breadcrumb keyboard focus moves across clickable items and Enter activates", () => {
+    const backend = createNoopBackend();
+    const renderer = new WidgetRenderer<void>({
+      backend,
+      requestRender: () => {},
+    });
+
+    const presses: string[] = [];
+    const vnode = ui.column({}, [
+      ui.breadcrumb({
+        id: "crumbs",
+        items: [
+          { label: "Home", onPress: () => presses.push("home") },
+          { label: "Docs", onPress: () => presses.push("docs") },
+          { label: "API" },
+        ],
+      }),
+    ]);
+
+    const firstId = getBreadcrumbItemId("crumbs", 0);
+    const secondId = getBreadcrumbItemId("crumbs", 1);
+    const lastId = getBreadcrumbItemId("crumbs", 2);
+
+    const res = renderer.submitFrame(
+      () => vnode,
+      undefined,
+      { cols: 50, rows: 8 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.ok(res.ok);
+
+    const rects = renderer.getRectByIdIndex();
+    assert.ok(rects.get(firstId) !== undefined);
+    assert.ok(rects.get(secondId) !== undefined);
+    assert.equal(rects.get(lastId), undefined);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), firstId);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), secondId);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */, ZR_MOD_SHIFT));
+    assert.equal(renderer.getFocusedId(), firstId);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), secondId);
+
+    renderer.routeEngineEvent(keyEvent(2 /* ENTER */));
+    assert.deepEqual(presses, ["docs"]);
+  });
+
   test("pagination Tab enters the controls, arrows move within them, and Shift+Tab re-enters at the trailing boundary control", () => {
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({
@@ -1588,7 +1642,6 @@ describe("WidgetRenderer integration battery", () => {
     let page = 5;
     const changes: number[] = [];
     const firstId = getPaginationControlId("pages", "first");
-    const lastId = getPaginationControlId("pages", "last");
     const viewport = { cols: 60, rows: 8 };
 
     const view = () =>
@@ -1621,11 +1674,17 @@ describe("WidgetRenderer integration battery", () => {
     res = renderer.submitFrame(() => view(), undefined, viewport, defaultTheme, noRenderHooks());
     assert.ok(res.ok);
 
+    renderer.routeEngineEvent(keyEvent(13 /* END */));
+    assert.deepEqual(changes, [10]);
+
     renderer.routeEngineEvent(keyEvent(12 /* HOME */));
     assert.deepEqual(changes, [10, 1]);
 
     res = renderer.submitFrame(() => view(), undefined, viewport, defaultTheme, noRenderHooks());
     assert.ok(res.ok);
+
+    renderer.routeEngineEvent(keyEvent(12 /* HOME */));
+    assert.deepEqual(changes, [10, 1]);
   });
 
   test("focusZone grid navigation moves by columns deterministically", () => {
