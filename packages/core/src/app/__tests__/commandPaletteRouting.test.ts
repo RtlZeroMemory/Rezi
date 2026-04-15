@@ -164,7 +164,7 @@ describe("commandPalette async fetch contracts", () => {
         return Object.freeze([]);
       },
     };
-    const sources = Object.freeze([source]);
+    let sources = Object.freeze([source]);
 
     const backend = createNoopBackend();
     const renderer = new WidgetRenderer<void>({
@@ -205,6 +205,16 @@ describe("commandPalette async fetch contracts", () => {
     );
     assert.equal(frame.ok, true);
 
+    sources = Object.freeze([source]);
+    frame = renderer.submitFrame(
+      view,
+      undefined,
+      { cols: 60, rows: 10 },
+      defaultTheme,
+      noRenderHooks(),
+    );
+    assert.equal(frame.ok, true);
+
     query = "ab";
     frame = renderer.submitFrame(
       view,
@@ -215,7 +225,7 @@ describe("commandPalette async fetch contracts", () => {
     );
     assert.equal(frame.ok, true);
 
-    assert.deepEqual(requestedQueries, ["a", "ab"]);
+    assert.deepEqual(requestedQueries, ["a", "a", "ab"]);
   });
 
   test("stale async results do not replace the latest command selection", async () => {
@@ -293,6 +303,13 @@ describe("commandPalette async fetch contracts", () => {
       noRenderHooks(),
     );
     assert.equal(frame.ok, true);
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_TAB));
+    assert.equal(renderer.getFocusedId(), "cp");
+    renderer.routeEngineEvent(keyEvent(ZR_KEY_ENTER));
+    assert.deepEqual(selected, ["new"]);
+    assert.equal(closedCount, 1);
+    selected.length = 0;
+    closedCount = 0;
 
     first.resolve(
       Object.freeze([
