@@ -5,7 +5,9 @@ import { ui } from "../ui.js";
 describe("indicator widgets - visible behavior", () => {
   test("spinner advances its visible frame while keeping the label", () => {
     const renderer = createTestRenderer({ viewport: { cols: 24, rows: 4 } });
-    const tick0 = renderer.render(ui.spinner({ variant: "line", label: "Loading" }), { tick: 0 }).toText();
+    const tick0 = renderer
+      .render(ui.spinner({ variant: "line", label: "Loading" }), { tick: 0 })
+      .toText();
     const tick125 = renderer
       .render(ui.spinner({ variant: "line", label: "Loading" }), { tick: 125 })
       .toText();
@@ -21,7 +23,9 @@ describe("indicator widgets - visible behavior", () => {
       .render(ui.progress(0.42, { label: "Build", showPercent: true, variant: "minimal" }))
       .toText();
     const blocks = renderer
-      .render(ui.progress(0.42, { label: "Build", showPercent: true, variant: "blocks", width: 10 }))
+      .render(
+        ui.progress(0.42, { label: "Build", showPercent: true, variant: "blocks", width: 10 }),
+      )
       .toText();
 
     assert.equal(minimal.includes("Build"), true);
@@ -58,7 +62,9 @@ describe("indicator widgets - visible behavior", () => {
   test("status hides its label when showLabel is false", () => {
     const renderer = createTestRenderer({ viewport: { cols: 20, rows: 4 } });
     const withLabel = renderer.render(ui.status("busy", { label: "Ada" })).toText();
-    const withoutLabel = renderer.render(ui.status("busy", { label: "Ada", showLabel: false })).toText();
+    const withoutLabel = renderer
+      .render(ui.status("busy", { label: "Ada", showLabel: false }))
+      .toText();
 
     assert.equal(withLabel.includes("Ada"), true);
     assert.equal(withoutLabel.trim(), "●");
@@ -69,12 +75,7 @@ describe("indicator widgets - visible behavior", () => {
     const badge = renderer.render(ui.badge("New", { variant: "info" })).toText();
     const tag = renderer.render(ui.tag("filter:open", { removable: true })).toText();
     const richText = renderer
-      .render(
-        ui.richText([
-          { text: "Error: ", style: { bold: true } },
-          { text: "File missing" },
-        ]),
-      )
+      .render(ui.richText([{ text: "Error: ", style: { bold: true } }, { text: "File missing" }]))
       .toText();
 
     assert.equal(badge.trim(), "( New )");
