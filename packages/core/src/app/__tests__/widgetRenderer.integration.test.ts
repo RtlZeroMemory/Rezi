@@ -1451,6 +1451,12 @@ describe("WidgetRenderer integration battery", () => {
     renderer.routeEngineEvent(keyEvent(3 /* TAB */));
     assert.equal(renderer.getFocusedId(), "general-save");
 
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */, ZR_MOD_SHIFT));
+    assert.equal(renderer.getFocusedId(), generalTrigger);
+
+    renderer.routeEngineEvent(keyEvent(3 /* TAB */));
+    assert.equal(renderer.getFocusedId(), "general-save");
+
     renderer.routeEngineEvent(keyEvent(1 /* ESC */));
     assert.equal(renderer.getFocusedId(), generalTrigger);
   });
