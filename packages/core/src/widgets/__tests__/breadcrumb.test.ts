@@ -90,9 +90,10 @@ describe("breadcrumb vnode construction", () => {
     }
   });
 
-  test("createBreadcrumbVNode applies custom separator", () => {
+  test("buildBreadcrumbChildren applies custom separator", () => {
     const children = buildBreadcrumbChildren({ ...props, separator: " / " });
     const row = children[0];
+    assert.equal(row?.kind, "row");
     if (row?.kind !== "row") return;
     const sep = row.children[1];
     assert.equal(sep?.kind, "text");
