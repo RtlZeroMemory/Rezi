@@ -8031,9 +8031,9 @@ export type ZrUiErrorCode = "ZRUI_INVALID_STATE" | "ZRUI_MODE_CONFLICT" | "ZRUI_
 // src/widgets/types.ts:297:35 - (ae-forgotten-export) The symbol "FocusTrapProps" needs to be exported by the entry point index.d.ts
 // src/widgets/types/advanced.ts:71:3 - (ae-forgotten-export) The symbol "OverlayFrameStyle" needs to be exported by the entry point index.d.ts
 // src/widgets/types/base.ts:81:3 - (ae-forgotten-export) The symbol "EasingInput" needs to be exported by the entry point index.d.ts
-// src/widgets/types/base.ts:181:5 - (ae-forgotten-export) The symbol "BoxBorderSideStyles" needs to be exported by the entry point index.d.ts
-// src/widgets/types/base.ts:188:5 - (ae-forgotten-export) The symbol "Overflow" needs to be exported by the entry point index.d.ts
-// src/widgets/types/base.ts:592:3 - (ae-forgotten-export) The symbol "CanvasPoint" needs to be exported by the entry point index.d.ts
+// src/widgets/types/base.ts:179:5 - (ae-forgotten-export) The symbol "BoxBorderSideStyles" needs to be exported by the entry point index.d.ts
+// src/widgets/types/base.ts:186:5 - (ae-forgotten-export) The symbol "Overflow" needs to be exported by the entry point index.d.ts
+// src/widgets/types/base.ts:590:3 - (ae-forgotten-export) The symbol "CanvasPoint" needs to be exported by the entry point index.d.ts
 // src/widgets/types/overlaysShell.ts:62:3 - (ae-forgotten-export) The symbol "SizeConstraintAtom" needs to be exported by the entry point index.d.ts
 // src/widgets/types/overlaysShell.ts:74:3 - (ae-forgotten-export) The symbol "ModalBackdrop" needs to be exported by the entry point index.d.ts
 // src/widgets/types/overlaysShell.ts:112:3 - (ae-forgotten-export) The symbol "SizeConstraint" needs to be exported by the entry point index.d.ts
