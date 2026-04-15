@@ -6,14 +6,58 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+## [0.1.0-alpha.64] - 2026-04-15
+
+### Breaking Changes
+
+- **create-rezi/templates**: Reduced the public scaffold set to `minimal`, `cli-tool`, and `starship`. The previously exposed `dashboard`, `animation-lab`, and `stress-test` templates are no longer offered through the public CLI prompt and docs.
+- **ink-compat**: Removed the `packages/ink-compat` compatibility package along with the related migration guides, debugging docs, and benchmark/comparison surface.
+
+### Bug Fixes
+
+- **create-rezi/cli**: Fixed nested `npm create rezi ...` installs on Windows by resolving the child install `cwd` absolutely and stripping leaked parent npm lifecycle/package metadata before spawning the inner package-manager install.
+
+### Tests
+
+- **node/testing**: Added the terminal-real harness MVP and follow-up stabilization work for PTY-backed terminal verification, including replay/scenario infrastructure and reduced-profile CI coverage.
+- **core/testing**: Added semantic/reference scenario helpers and expanded behavior coverage across input, textarea, select, dropdown, link, modal/dialog focus, command palette routing, tool approval, app shell, indicator/info widgets, charts, accordion, breadcrumb, file-node cache contracts, and diff/log surfaces.
+- **repo/testing**: Continued the behavior-suite rewrite and documented the testing policy used by the package and terminal verification lanes.
+
 ### Documentation
 
-- Removed the compatibility docs from the public docs navigation and landing-page positioning.
-- Tightened the README, template guide, example map, and benchmark tone around the focused public template set (`minimal`, `cli-tool`, `starship`).
+- Removed compatibility-oriented docs from the public navigation and repositioned the docs/README around the focused public template set (`minimal`, `cli-tool`, `starship`).
+- Rewrote the root README and benchmark wording to be more grounded, more technical, and less comparison-driven.
 
 ### GitHub / Hygiene
 
 - Fixed the security advisory contact link and removed the duplicate feature request issue template.
+
+### Merged Pull Requests
+
+- [#364](https://github.com/RtlZeroMemory/Rezi/pull/364) testing: add terminal-real harness MVP
+- [#365](https://github.com/RtlZeroMemory/Rezi/pull/365) test: terminal-real harness follow-ups
+- [#366](https://github.com/RtlZeroMemory/Rezi/pull/366) testing: rewrite wave-1 widget coverage
+- [#367](https://github.com/RtlZeroMemory/Rezi/pull/367) testing: add failure injection and degraded capability coverage
+- [#368](https://github.com/RtlZeroMemory/Rezi/pull/368) testing: align CI gates and suite cleanup
+- [#369](https://github.com/RtlZeroMemory/Rezi/pull/369) testing: cover input and textarea focus behavior
+- [#370](https://github.com/RtlZeroMemory/Rezi/pull/370) testing: cover modal and dialog focus behavior
+- [#371](https://github.com/RtlZeroMemory/Rezi/pull/371) testing: cover select and dropdown behavior
+- [#372](https://github.com/RtlZeroMemory/Rezi/pull/372) testing: cover code editor behavior
+- [#373](https://github.com/RtlZeroMemory/Rezi/pull/373) testing: cover diff viewer and logs console behavior
+- [#374](https://github.com/RtlZeroMemory/Rezi/pull/374) testing: cover link behavior
+- [#375](https://github.com/RtlZeroMemory/Rezi/pull/375) testing: cover file node cache invalidation
+- [#378](https://github.com/RtlZeroMemory/Rezi/pull/378) testing: cover select behavior
+- [#379](https://github.com/RtlZeroMemory/Rezi/pull/379) testing: command palette routing contracts
+- [#380](https://github.com/RtlZeroMemory/Rezi/pull/380) testing: cover accordion behavior
+- [#382](https://github.com/RtlZeroMemory/Rezi/pull/382) testing: cover tool approval dialog surface
+- [#383](https://github.com/RtlZeroMemory/Rezi/pull/383) testing: cover feedback widget behavior
+- [#384](https://github.com/RtlZeroMemory/Rezi/pull/384) testing: cover indicator widget behavior
+- [#385](https://github.com/RtlZeroMemory/Rezi/pull/385) testing: cover app shell behavior
+- [#386](https://github.com/RtlZeroMemory/Rezi/pull/386) testing: cover chart widget behavior
+- [#388](https://github.com/RtlZeroMemory/Rezi/pull/388) remove Ink-Compat and Ink benchmark support
+- [#389](https://github.com/RtlZeroMemory/Rezi/pull/389) docs: publish testing policy and fix docs build
+- [#391](https://github.com/RtlZeroMemory/Rezi/pull/391) docs: refresh README overview
+- [#392](https://github.com/RtlZeroMemory/Rezi/pull/392) fix: isolate create-rezi nested installs on Windows
 
 ## [0.1.0-alpha.63] - 2026-04-14
 
