@@ -2,7 +2,7 @@
  * blessed benchmark backend.
  *
  * Creates a blessed Screen that outputs to an in-memory Writable,
- * similar to the MeasuringStream approach used for Ink benchmarks.
+ * similar to the MeasuringStream approach used for benchmark runs.
  */
 
 import { createRequire } from "node:module";

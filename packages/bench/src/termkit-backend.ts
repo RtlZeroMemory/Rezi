@@ -3,7 +3,7 @@
  *
  * Creates a ScreenBuffer → Terminal pipeline that writes to an
  * in-memory Writable, matching the MeasuringStream approach used
- * for Ink benchmarks. No real terminal I/O occurs.
+ * for benchmark runs. No real terminal I/O occurs.
  */
 
 import { createRequire } from "node:module";

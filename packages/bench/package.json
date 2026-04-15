@@ -20,7 +20,6 @@
     "@opentui/react": "^0.1.80",
     "@rezi-ui/core": "0.1.0-alpha.61",
     "blessed": "^0.1.81",
-    "ink": "^6.8.0",
     "react": "^19.0.0",
     "terminal-kit": "^3.1.2",
     "web-tree-sitter": "0.25.10",

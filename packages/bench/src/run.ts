@@ -293,9 +293,6 @@ async function checkFramework(
         await import("@rezi-ui/core");
         if (io === "pty") await import("@rezi-ui/node");
         return true;
-      case "ink":
-        await import("ink");
-        return true;
       case "opentui":
         if (io !== "pty") return false;
         return (await import("./frameworks/opentui.js")).checkOpenTui(opentuiDriver);
@@ -510,7 +507,6 @@ async function main(): Promise<void> {
   const availableFrameworks = new Map<Framework, boolean>();
   for (const fw of [
     "rezi-native",
-    "ink",
     "opentui",
     "opentui-core",
     "bubbletea",

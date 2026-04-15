@@ -11,9 +11,8 @@
  */
 
 import { type VNode, ui } from "@rezi-ui/core";
-import { NullReadable } from "../backends.js";
 import { runOpenTuiScenario } from "../frameworks/opentui.js";
-import { createBenchBackend, createInkStdout } from "../io.js";
+import { createBenchBackend } from "../io.js";
 import { benchAsync, benchSync, tryGc } from "../measure.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 
@@ -25,27 +24,6 @@ function reziCounterTree(count: number): VNode {
     ui.row({ gap: 2 }, [ui.text(`Count: ${count}`), ui.text("[+1]"), ui.text("[-1]")]),
     ui.text(`Last updated: iteration ${count}`, { style: { dim: true } }),
   ]);
-}
-
-function reactCounterTree(
-  React: { createElement: typeof import("react").createElement },
-  C: { Box: unknown; Text: unknown },
-  count: number,
-): unknown {
-  const h = React.createElement;
-  return h(
-    C.Box as string,
-    { flexDirection: "column", paddingX: 1, gap: 1 },
-    h(C.Text as string, { bold: true }, "Counter Benchmark"),
-    h(
-      C.Box as string,
-      { flexDirection: "row", gap: 2 },
-      h(C.Text as string, null, `Count: ${count}`),
-      h(C.Text as string, null, "[+1]"),
-      h(C.Text as string, null, "[-1]"),
-    ),
-    h(C.Text as string, { dimColor: true }, `Last updated: iteration ${count}`),
-  );
 }
 
 // ── Runners ─────────────────────────────────────────────────────────
@@ -92,51 +70,6 @@ async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
   } finally {
     await app.stop();
     app.dispose();
-  }
-}
-
-async function runInk(config: ScenarioConfig): Promise<BenchMetrics> {
-  const React = await import("react");
-  const Ink = await import("ink");
-  const stdout = createInkStdout();
-  const stdin = new NullReadable();
-
-  const initialWrite = stdout.waitForWrite();
-  const instance = Ink.render(reactCounterTree(React, Ink, 0) as React.ReactNode, {
-    stdout: stdout as unknown as NodeJS.WriteStream,
-    stdin: stdin as unknown as NodeJS.ReadStream,
-    patchConsole: false,
-    exitOnCtrlC: false,
-  });
-  await initialWrite;
-
-  try {
-    // Warmup (excluded from measured stats).
-    for (let i = 0; i < config.warmup; i++) {
-      const writeP = stdout.waitForWrite();
-      instance.rerender(reactCounterTree(React, Ink, i + 1) as React.ReactNode);
-      await writeP;
-    }
-
-    const writeBase = stdout.writeCount;
-    const bytesBase = stdout.totalBytes;
-
-    // Seed offset: Ink deduplicates identical stdout output.
-    const metrics = await benchAsync(
-      async (i) => {
-        const writeP = stdout.waitForWrite();
-        instance.rerender(reactCounterTree(React, Ink, config.warmup + i + 1) as React.ReactNode);
-        await writeP;
-      },
-      0,
-      config.iterations,
-    );
-
-    metrics.framesProduced = stdout.writeCount - writeBase;
-    metrics.bytesProduced = stdout.totalBytes - bytesBase;
-    return metrics;
-  } finally {
-    instance.unmount();
   }
 }
 
@@ -269,7 +202,6 @@ export const rerenderScenario: Scenario = {
   paramSets: [{}],
   frameworks: [
     "rezi-native",
-    "ink",
     "opentui",
     "opentui-core",
     "bubbletea",
@@ -283,8 +215,6 @@ export const rerenderScenario: Scenario = {
     switch (framework) {
       case "rezi-native":
         return runRezi(config);
-      case "ink":
-        return runInk(config);
       case "opentui":
       case "opentui-core":
       case "bubbletea":

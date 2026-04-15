@@ -2,7 +2,7 @@
  * Shared tree builders for all scenarios.
  *
  * Each builder creates an equivalent visual tree at a given size N,
- * using either Rezi native or Ink (React).
+ * using either Rezi native or a React-based terminal renderer.
  *
  * The trees are semantically identical:
  *   Column(p=1, gap=1) [
@@ -14,7 +14,6 @@
  */
 
 import { type VNode, ui } from "@rezi-ui/core";
-import type React from "react";
 
 // ── Rezi Native ─────────────────────────────────────────────────────
 
@@ -36,7 +35,7 @@ export function buildReziTree(n: number, seed = 0): VNode {
   ]);
 }
 
-// ── React tree builders (used for Ink paths) ─────────────────────────
+// ── React tree builders ─────────────────────────
 
 // ── terminal-kit ────────────────────────────────────────────────────
 
@@ -117,11 +116,11 @@ export function buildBlessedTree(
   }
 }
 
-// ── React tree builders (used for Ink paths) ─────────────────────────
+// ── React tree builders ─────────────────────────
 
 /**
  * Build a React element tree using the given component set.
- * `C` must provide Box, Text, and Spacer (matching Ink's API).
+ * `C` must provide Box, Text, and Spacer (matching the React renderer API).
  */
 export function buildReactTree(
   ReactMod: { createElement: typeof import("react").createElement },

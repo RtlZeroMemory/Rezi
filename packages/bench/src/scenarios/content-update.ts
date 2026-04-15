@@ -15,7 +15,7 @@
  */
 
 import { type VNode, ui } from "@rezi-ui/core";
-import { BenchBackend, MeasuringStream, NullReadable } from "../backends.js";
+import { BenchBackend } from "../backends.js";
 import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { benchAsync, benchSync, tryGc } from "../measure.js";
 import { emitReziPerfSnapshot, resetReziPerfSnapshot } from "../reziProfile.js";
@@ -162,53 +162,6 @@ async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
   }
 }
 
-async function runInk(config: ScenarioConfig): Promise<BenchMetrics> {
-  const React = await import("react");
-  const Ink = await import("ink");
-  const stdout = new MeasuringStream();
-  stdout.rows = 540;
-  const stdin = new NullReadable();
-
-  let selected = 0;
-  const initialWrite = stdout.waitForWrite();
-  const instance = Ink.render(reactListTree(React, Ink, selected) as React.ReactNode, {
-    stdout: stdout as unknown as NodeJS.WriteStream,
-    stdin: stdin as unknown as NodeJS.ReadStream,
-    patchConsole: false,
-    exitOnCtrlC: false,
-  });
-  await initialWrite;
-
-  try {
-    for (let i = 0; i < config.warmup; i++) {
-      selected = (selected + 1) % LIST_SIZE;
-      const writeP = stdout.waitForWrite();
-      instance.rerender(reactListTree(React, Ink, selected) as React.ReactNode);
-      await writeP;
-    }
-
-    const writeBase = stdout.writeCount;
-    const bytesBase = stdout.totalBytes;
-
-    const metrics = await benchAsync(
-      async () => {
-        selected = (selected + 1) % LIST_SIZE;
-        const writeP = stdout.waitForWrite();
-        instance.rerender(reactListTree(React, Ink, selected) as React.ReactNode);
-        await writeP;
-      },
-      0,
-      config.iterations,
-    );
-
-    metrics.framesProduced = stdout.writeCount - writeBase;
-    metrics.bytesProduced = stdout.totalBytes - bytesBase;
-    return metrics;
-  } finally {
-    instance.unmount();
-  }
-}
-
 async function runTermkit(config: ScenarioConfig): Promise<BenchMetrics> {
   const { createTermkitContext } = await import("../termkit-backend.js");
   const ctx = createTermkitContext(120, 540);
@@ -250,7 +203,7 @@ type BlessedWidget = any;
 /**
  * Build the initial blessed list tree, returning refs to mutable widgets.
  * On subsequent updates, only the changed rows' content/style are patched
- * (matching how Rezi/Ink diff only the changed parts of the tree).
+ * (matching how the benchmark paths diff only the changed parts of the tree).
  */
 function buildInitialBlessedList(
   blessed: { text: (opts: Record<string, unknown>) => unknown },
@@ -410,7 +363,6 @@ export const contentUpdateScenario: Scenario = {
   paramSets: [{}],
   frameworks: [
     "rezi-native",
-    "ink",
     "opentui",
     "opentui-core",
     "bubbletea",
@@ -424,8 +376,6 @@ export const contentUpdateScenario: Scenario = {
     switch (framework) {
       case "rezi-native":
         return runRezi(config);
-      case "ink":
-        return runInk(config);
       case "opentui":
       case "opentui-core":
       case "bubbletea":

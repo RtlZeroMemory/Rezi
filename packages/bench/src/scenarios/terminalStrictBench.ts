@@ -1,9 +1,8 @@
 import { type VNode, ui } from "@rezi-ui/core";
-import { NullReadable } from "../backends.js";
 import { createBlessedOutput } from "../frameworks/blessed.js";
 import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { runRatatuiScenario } from "../frameworks/ratatui.js";
-import { createBenchBackend, createInkStdout } from "../io.js";
+import { createBenchBackend } from "../io.js";
 import { benchAsync } from "../measure.js";
 import { emitReziPerfSnapshot, resetReziPerfSnapshot } from "../reziProfile.js";
 import type { BenchMetrics, ScenarioConfig } from "../types.js";
@@ -12,12 +11,6 @@ import {
   type StrictVariant,
   buildStrictSections,
 } from "./terminalStrictWorkloads.js";
-
-type ReactFactory = Readonly<{
-  createElement: typeof import("react").createElement;
-}>;
-
-type InkComponents = Readonly<{ Box: unknown; Text: unknown }>;
 
 type BlessedElement = Readonly<{ setContent: (s: string) => void }>;
 type BlessedBox = Readonly<{
@@ -81,64 +74,6 @@ function reziTree(sections: StrictSections): VNode {
   ]);
 }
 
-function reactPanel(
-  h: ReactFactory["createElement"],
-  C: InkComponents,
-  title: string,
-  lines: readonly string[],
-  width?: number,
-): import("react").ReactNode {
-  const children: import("react").ReactNode[] = [
-    h(C.Text as string, { key: "title", bold: true }, title),
-    ...lines.map((line, idx) => h(C.Text as string, { key: `l:${idx}` }, line)),
-  ];
-
-  return h(
-    C.Box as string,
-    {
-      key: `panel:${title}`,
-      flexDirection: "column",
-      borderStyle: "single",
-      overflow: "hidden",
-      width,
-    },
-    ...children,
-  );
-}
-
-function reactTree(
-  ReactMod: ReactFactory,
-  C: InkComponents,
-  sections: StrictSections,
-): import("react").ReactNode {
-  const h = ReactMod.createElement;
-  const leftWidth = 24;
-  const rightWidth = 32;
-
-  return h(
-    C.Box as string,
-    { flexDirection: "column", width: sections.cols, height: sections.rows, overflow: "hidden" },
-    h(
-      C.Box as string,
-      { borderStyle: "single", height: 3, overflow: "hidden" },
-      h(C.Text as string, null, sections.header),
-    ),
-    h(
-      C.Box as string,
-      { flexDirection: "row", flexGrow: 1, overflow: "hidden" },
-      reactPanel(h, C, sections.leftTitle, sections.leftLines, leftWidth),
-      reactPanel(h, C, sections.centerTitle, sections.centerLines),
-      reactPanel(h, C, sections.rightTitle, sections.rightLines, rightWidth),
-    ),
-    h(
-      C.Box as string,
-      { borderStyle: "single", height: 2, overflow: "hidden", flexDirection: "column" },
-      h(C.Text as string, null, sections.status),
-      h(C.Text as string, null, sections.footer),
-    ),
-  );
-}
-
 async function runRezi(
   config: ScenarioConfig,
   params: Record<string, number | string>,
@@ -190,63 +125,6 @@ async function runRezi(
   } finally {
     await app.stop();
     app.dispose();
-  }
-}
-
-async function runInk(
-  config: ScenarioConfig,
-  params: Record<string, number | string>,
-  variant: StrictVariant,
-): Promise<BenchMetrics> {
-  const React = (await import("react")) as ReactFactory;
-  const Ink = (await import("ink")) as unknown as InkComponents & {
-    render: (
-      node: import("react").ReactNode,
-      opts: unknown,
-    ) => Readonly<{ rerender: (node: import("react").ReactNode) => void; unmount: () => void }>;
-  };
-  const stdout = createInkStdout();
-  const stdin = new NullReadable();
-
-  const initial = stdout.waitForWrite();
-  const instance = Ink.render(reactTree(React, Ink, buildStrictSections(0, params, variant)), {
-    stdout: stdout as unknown as NodeJS.WriteStream,
-    stdin: stdin as unknown as NodeJS.ReadStream,
-    patchConsole: false,
-    exitOnCtrlC: false,
-  });
-  await initial;
-
-  try {
-    for (let i = 0; i < config.warmup; i++) {
-      const p = stdout.waitForWrite();
-      instance.rerender(
-        reactTree(React, Ink, buildStrictSections(i + 1, params, variant)) as React.ReactNode,
-      );
-      await p;
-    }
-
-    const bytesBase = stdout.totalBytes;
-    const writesBase = stdout.writeCount;
-
-    const metrics = await benchAsync(
-      async (i) => {
-        const p = stdout.waitForWrite();
-        const tick = config.warmup + i + 1;
-        instance.rerender(
-          reactTree(React, Ink, buildStrictSections(tick, params, variant)) as React.ReactNode,
-        );
-        await p;
-      },
-      0,
-      config.iterations,
-    );
-
-    metrics.framesProduced = Math.max(0, stdout.writeCount - writesBase);
-    metrics.bytesProduced = stdout.totalBytes - bytesBase;
-    return metrics;
-  } finally {
-    instance.unmount();
   }
 }
 
@@ -428,7 +306,6 @@ async function runRatatui(
 export async function runTerminalStrictScenario(
   framework:
     | "rezi-native"
-    | "ink"
     | "opentui"
     | "opentui-core"
     | "bubbletea"
@@ -441,8 +318,6 @@ export async function runTerminalStrictScenario(
   switch (framework) {
     case "rezi-native":
       return runRezi(config, params, variant);
-    case "ink":
-      return runInk(config, params, variant);
     case "opentui":
     case "opentui-core":
     case "bubbletea":

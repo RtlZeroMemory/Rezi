@@ -10,7 +10,7 @@
 import { type VNode, ui } from "@rezi-ui/core";
 import { NullReadable } from "../backends.js";
 import { runOpenTuiScenario } from "../frameworks/opentui.js";
-import { createBenchBackend, createInkStdout } from "../io.js";
+import { createBenchBackend } from "../io.js";
 import { benchAsync, tryGc } from "../measure.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 
@@ -119,75 +119,6 @@ async function runRezi(
   }
 }
 
-async function runInk(
-  config: ScenarioConfig,
-  totalItems: number,
-  viewport: number,
-): Promise<BenchMetrics> {
-  const React = await import("react");
-  const Ink = await import("ink");
-  const stdout = createInkStdout();
-  const stdin = new NullReadable();
-
-  const initial = stdout.waitForWrite();
-  const instance = Ink.render(
-    reactTree(React, Ink, totalItems, viewport, 0, 0) as React.ReactNode,
-    {
-      stdout: stdout as unknown as NodeJS.WriteStream,
-      stdin: stdin as unknown as NodeJS.ReadStream,
-      patchConsole: false,
-      exitOnCtrlC: false,
-    },
-  );
-  await initial;
-
-  try {
-    for (let i = 0; i < config.warmup; i++) {
-      const p = stdout.waitForWrite();
-      instance.rerender(
-        reactTree(
-          React,
-          Ink,
-          totalItems,
-          viewport,
-          (i + 1) % (totalItems - viewport),
-          i + 1,
-        ) as React.ReactNode,
-      );
-      await p;
-    }
-
-    const writeBase = stdout.writeCount;
-    const bytesBase = stdout.totalBytes;
-
-    const metrics = await benchAsync(
-      async (i) => {
-        const p = stdout.waitForWrite();
-        const tick = config.warmup + i + 1;
-        instance.rerender(
-          reactTree(
-            React,
-            Ink,
-            totalItems,
-            viewport,
-            tick % (totalItems - viewport),
-            tick,
-          ) as React.ReactNode,
-        );
-        await p;
-      },
-      0,
-      config.iterations,
-    );
-
-    metrics.framesProduced = stdout.writeCount - writeBase;
-    metrics.bytesProduced = stdout.totalBytes - bytesBase;
-    return metrics;
-  } finally {
-    instance.unmount();
-  }
-}
-
 async function runOpenTui(
   config: ScenarioConfig,
   totalItems: number,
@@ -201,7 +132,7 @@ export const virtualListScenario: Scenario = {
   description: "Large logical list with virtualization window (viewport only)",
   defaultConfig: { warmup: 100, iterations: 1000 },
   paramSets: [{ items: 100_000, viewport: 40 }],
-  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea"],
+  frameworks: ["rezi-native", "opentui", "opentui-core", "bubbletea"],
 
   async run(framework: Framework, config: ScenarioConfig, params) {
     const { items, viewport } = params as { items: number; viewport: number };
@@ -209,8 +140,6 @@ export const virtualListScenario: Scenario = {
     switch (framework) {
       case "rezi-native":
         return runRezi(config, items, viewport);
-      case "ink":
-        return runInk(config, items, viewport);
       case "opentui":
       case "opentui-core":
       case "bubbletea":

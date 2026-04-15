@@ -12,9 +12,8 @@
  */
 
 import { type VNode, ui } from "@rezi-ui/core";
-import { NullReadable } from "../backends.js";
 import { runOpenTuiScenario } from "../frameworks/opentui.js";
-import { createBenchBackend, createInkStdout } from "../io.js";
+import { createBenchBackend } from "../io.js";
 import { computeStats, diffCpu, peakMemory, takeCpu, takeMemory, tryGc } from "../measure.js";
 import { emitReziPerfSnapshot, resetReziPerfSnapshot } from "../reziProfile.js";
 import type {
@@ -39,36 +38,6 @@ function reziTree(i: number): VNode {
       ui.text(`  Line ${j}: value=${i * 20 + j}`, { style: { dim: j % 2 === 0 } }),
     ),
   ]);
-}
-
-function reactTree(
-  React: { createElement: typeof import("react").createElement },
-  C: { Box: unknown; Text: unknown },
-  i: number,
-): unknown {
-  const h = React.createElement;
-  return h(
-    C.Box as string,
-    { flexDirection: "column", paddingX: 1 },
-    h(C.Text as string, { bold: true }, `Iteration ${i}`),
-    h(
-      C.Box as string,
-      { flexDirection: "row", gap: 1 },
-      h(
-        C.Text as string,
-        null,
-        `[${"#".repeat(Math.floor((i % 100) / 5))}${".".repeat(20 - Math.floor((i % 100) / 5))}]`,
-      ),
-      h(C.Text as string, null, `${i % 100}%`),
-    ),
-    ...Array.from({ length: 20 }, (_, j) =>
-      h(
-        C.Text as string,
-        { key: String(j), dimColor: j % 2 === 0 },
-        `  Line ${j}: value=${i * 20 + j}`,
-      ),
-    ),
-  );
 }
 
 // ── Core measurement loop ───────────────────────────────────────────
@@ -206,101 +175,6 @@ async function runRezi(config: ScenarioConfig): Promise<BenchMetrics> {
   }
 }
 
-async function runInk(config: ScenarioConfig): Promise<BenchMetrics> {
-  const React = await import("react");
-  const Ink = await import("ink");
-  const stdout = createInkStdout();
-  const stdin = new NullReadable();
-
-  const initialWrite = stdout.waitForWrite();
-  const instance = Ink.render(reactTree(React, Ink, 0) as React.ReactNode, {
-    stdout: stdout as unknown as NodeJS.WriteStream,
-    stdin: stdin as unknown as NodeJS.ReadStream,
-    patchConsole: false,
-    exitOnCtrlC: false,
-  });
-  await initialWrite;
-
-  const memorySamples: NodeMemorySnapshot[] = [];
-  const timingSamples: number[] = [];
-
-  // Warmup — offset by 1 to differ from initial render (Ink deduplicates identical output)
-  for (let i = 0; i < config.warmup; i++) {
-    const p = stdout.waitForWrite();
-    instance.rerender(reactTree(React, Ink, i + 1) as React.ReactNode);
-    await p;
-  }
-
-  const writeBase = stdout.writeCount;
-  const bytesBase = stdout.totalBytes;
-
-  try {
-    tryGc();
-    const memBefore = takeMemory();
-    const cpuBefore = takeCpu();
-    let memMax: MemorySnapshot = memBefore;
-    const t0 = performance.now();
-
-    for (let i = 0; i < config.iterations; i++) {
-      const ts = performance.now();
-      const p = stdout.waitForWrite();
-      instance.rerender(reactTree(React, Ink, config.warmup + i + 1) as React.ReactNode);
-      await p;
-      timingSamples.push(performance.now() - ts);
-
-      if (i % SAMPLE_INTERVAL === SAMPLE_INTERVAL - 1) {
-        const snap = takeMemory();
-        memorySamples.push(snap);
-        memMax = peakMemory(memMax, snap);
-      }
-    }
-
-    const totalWallMs = performance.now() - t0;
-    const cpuAfter = takeCpu();
-    const memAfter = takeMemory();
-    memMax = peakMemory(memMax, memAfter);
-    const prof = analyzeMemory(memorySamples);
-
-    return {
-      timing: computeStats(timingSamples),
-      memBefore,
-      memAfter,
-      memPeak: memMax,
-      rssGrowthKb: memAfter.rssKb - memBefore.rssKb,
-      heapUsedGrowthKb: memAfter.heapUsedKb - memBefore.heapUsedKb,
-      rssSlopeKbPerIter: prof.growthRateKbPerIter,
-      heapUsedSlopeKbPerIter: prof.heapUsedGrowthRateKbPerIter,
-      memStable: prof.stable,
-      cpu: diffCpu(cpuBefore, cpuAfter),
-      iterations: config.iterations,
-      totalWallMs,
-      opsPerSec: config.iterations / (totalWallMs / 1000),
-      framesProduced: stdout.writeCount - writeBase,
-      bytesProduced: stdout.totalBytes - bytesBase,
-      ptyBytesObserved: null,
-    };
-  } finally {
-    instance.unmount();
-  }
-}
-
-// ── terminal-kit tree builder ─────────────────────────────────────────
-
-function termkitMemTree(
-  buffer: { put: (opts: Record<string, unknown>, str: string) => void; fill: () => void },
-  i: number,
-): void {
-  buffer.fill();
-  buffer.put({ x: 1, y: 0, attr: { bold: true } }, `Iteration ${i}`);
-  const pct = i % 100;
-  const filled = Math.floor(pct / 5);
-  const bar = `[${"#".repeat(filled)}${".".repeat(20 - filled)}] ${pct}%`;
-  buffer.put({ x: 1, y: 1 }, bar);
-  for (let j = 0; j < 20; j++) {
-    buffer.put({ x: 1, y: 3 + j, attr: { dim: j % 2 === 0 } }, `  Line ${j}: value=${i * 20 + j}`);
-  }
-}
-
 async function runTermkit(config: ScenarioConfig): Promise<BenchMetrics> {
   const { createTermkitContext } = await import("../termkit-backend.js");
   const ctx = createTermkitContext(120, 40);
@@ -366,6 +240,23 @@ async function runTermkit(config: ScenarioConfig): Promise<BenchMetrics> {
 
   ctx.dispose();
   return result;
+}
+
+// ── terminal-kit tree builder ─────────────────────────────────────────
+
+function termkitMemTree(
+  buffer: { put: (opts: Record<string, unknown>, str: string) => void; fill: () => void },
+  i: number,
+): void {
+  buffer.fill();
+  buffer.put({ x: 1, y: 0, attr: { bold: true } }, `Iteration ${i}`);
+  const pct = i % 100;
+  const filled = Math.floor(pct / 5);
+  const bar = `[${"#".repeat(filled)}${".".repeat(20 - filled)}] ${pct}%`;
+  buffer.put({ x: 1, y: 1 }, bar);
+  for (let j = 0; j < 20; j++) {
+    buffer.put({ x: 1, y: 3 + j, attr: { dim: j % 2 === 0 } }, `  Line ${j}: value=${i * 20 + j}`);
+  }
 }
 
 // ── blessed memory tree ───────────────────────────────────────────────
@@ -491,7 +382,6 @@ export const memoryScenario: Scenario = {
   paramSets: [{}],
   frameworks: [
     "rezi-native",
-    "ink",
     "opentui",
     "opentui-core",
     "bubbletea",
@@ -505,8 +395,6 @@ export const memoryScenario: Scenario = {
     switch (framework) {
       case "rezi-native":
         return runRezi(config);
-      case "ink":
-        return runInk(config);
       case "opentui":
       case "opentui-core":
       case "bubbletea":

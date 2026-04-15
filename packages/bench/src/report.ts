@@ -68,7 +68,6 @@ interface AggregatedBenchResult {
 
 const FRAMEWORK_ORDER: Framework[] = [
   "rezi-native",
-  "ink",
   "opentui",
   "opentui-core",
   "bubbletea",
@@ -79,7 +78,6 @@ const FRAMEWORK_ORDER: Framework[] = [
 
 const FRAMEWORK_LABELS: Record<Framework, string> = {
   "rezi-native": "Rezi (native)",
-  ink: "Ink",
   opentui: "OpenTUI (React)",
   "opentui-core": "OpenTUI (Core)",
   bubbletea: "Bubble Tea (Go)",
@@ -321,7 +319,6 @@ export function toMarkdown(run: BenchRun): string {
   );
 
   const allFws: Framework[] = [
-    "ink",
     "opentui",
     "opentui-core",
     "terminal-kit",

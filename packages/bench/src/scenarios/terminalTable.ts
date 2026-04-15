@@ -9,7 +9,7 @@ import { NullReadable } from "../backends.js";
 import { createBlessedOutput } from "../frameworks/blessed.js";
 import { runOpenTuiScenario } from "../frameworks/opentui.js";
 import { runRatatuiScenario } from "../frameworks/ratatui.js";
-import { createBenchBackend, createInkStdout } from "../io.js";
+import { createBenchBackend } from "../io.js";
 import { benchAsync, tryGc } from "../measure.js";
 import type { BenchMetrics, Framework, Scenario, ScenarioConfig } from "../types.js";
 
@@ -116,50 +116,6 @@ async function runRezi(config: ScenarioConfig, rows: number, cols: number): Prom
   }
 }
 
-async function runInk(config: ScenarioConfig, rows: number, cols: number): Promise<BenchMetrics> {
-  const React = await import("react");
-  const Ink = await import("ink");
-  const stdout = createInkStdout();
-  const stdin = new NullReadable();
-
-  const initial = stdout.waitForWrite();
-  const instance = Ink.render(reactTree(React, Ink, rows, cols, 0) as React.ReactNode, {
-    stdout: stdout as unknown as NodeJS.WriteStream,
-    stdin: stdin as unknown as NodeJS.ReadStream,
-    patchConsole: false,
-    exitOnCtrlC: false,
-  });
-  await initial;
-
-  try {
-    for (let i = 0; i < config.warmup; i++) {
-      const p = stdout.waitForWrite();
-      instance.rerender(reactTree(React, Ink, rows, cols, i + 1) as React.ReactNode);
-      await p;
-    }
-
-    const bytesBase = stdout.totalBytes;
-
-    const metrics = await benchAsync(
-      async (i) => {
-        const p = stdout.waitForWrite();
-        instance.rerender(
-          reactTree(React, Ink, rows, cols, config.warmup + i + 1) as React.ReactNode,
-        );
-        await p;
-      },
-      0,
-      config.iterations,
-    );
-
-    metrics.framesProduced = config.iterations;
-    metrics.bytesProduced = stdout.totalBytes - bytesBase;
-    return metrics;
-  } finally {
-    instance.unmount();
-  }
-}
-
 async function runOpenTui(
   config: ScenarioConfig,
   rows: number,
@@ -235,7 +191,7 @@ export const terminalTableScenario: Scenario = {
   description: "Viewport-sized table update (single cell change) across terminal UI frameworks",
   defaultConfig: { warmup: 50, iterations: 500 },
   paramSets: [{ rows: 40, cols: 8 }],
-  frameworks: ["rezi-native", "ink", "opentui", "opentui-core", "bubbletea", "blessed", "ratatui"],
+  frameworks: ["rezi-native", "opentui", "opentui-core", "bubbletea", "blessed", "ratatui"],
 
   async run(framework: Framework, config: ScenarioConfig, params): Promise<BenchMetrics> {
     const { rows, cols } = params as { rows: number; cols: number };
@@ -243,8 +199,6 @@ export const terminalTableScenario: Scenario = {
     switch (framework) {
       case "rezi-native":
         return runRezi(config, rows, cols);
-      case "ink":
-        return runInk(config, rows, cols);
       case "opentui":
       case "opentui-core":
       case "bubbletea":

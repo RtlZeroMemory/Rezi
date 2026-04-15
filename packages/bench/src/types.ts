@@ -2,7 +2,7 @@
  * Benchmark suite types.
  *
  * Covers timing, memory, CPU, and stability metrics for comparing
- * Rezi native, Ink, OpenTUI, and other terminal rendering pipelines.
+ * Rezi native, OpenTUI, and other terminal rendering pipelines.
  */
 
 // ── Metric Primitives ──────────────────────────────────────────────
@@ -101,7 +101,6 @@ export interface BenchMetrics {
 // ── Result Envelope ────────────────────────────────────────────────
 
 export type Framework =
-  | "ink"
   | "rezi-native"
   | "opentui"
   | "opentui-core"

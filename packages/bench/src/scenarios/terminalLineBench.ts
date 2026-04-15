@@ -1,15 +1,8 @@
 import { type VNode, ui } from "@rezi-ui/core";
-import { NullReadable } from "../backends.js";
 import { createBlessedOutput } from "../frameworks/blessed.js";
-import { createBenchBackend, createInkStdout } from "../io.js";
+import { createBenchBackend } from "../io.js";
 import { benchAsync } from "../measure.js";
 import type { BenchMetrics, ScenarioConfig } from "../types.js";
-
-type ReactFactory = Readonly<{
-  createElement: typeof import("react").createElement;
-}>;
-
-type InkComponents = Readonly<{ Box: unknown; Text: unknown }>;
 
 type BlessedElement = Readonly<{ setContent: (s: string) => void }>;
 type BlessedScreen = Readonly<{
@@ -38,19 +31,6 @@ function reziTree(lines: readonly string[]): VNode {
   const nodes: VNode[] = [];
   for (const line of lines) nodes.push(ui.text(line));
   return ui.column({ p: 0 }, nodes);
-}
-
-function reactTree(
-  ReactMod: ReactFactory,
-  C: InkComponents,
-  lines: readonly string[],
-): import("react").ReactNode {
-  const h = ReactMod.createElement;
-  return h(
-    C.Box as string,
-    { flexDirection: "column", paddingX: 0 },
-    ...lines.map((line, i) => h(C.Text as string, { key: String(i) }, line)),
-  );
 }
 
 async function delayTrigger(mode: UpdateMode, fn: () => void): Promise<void> {
@@ -109,64 +89,6 @@ export async function runReziLineScenario(
   } finally {
     await app.stop();
     app.dispose();
-  }
-}
-
-export async function runInkLineScenario(
-  config: ScenarioConfig,
-  params: Record<string, number | string>,
-  buildLines: LineBuilder,
-  mode: UpdateMode = "direct",
-): Promise<BenchMetrics> {
-  const React = (await import("react")) as ReactFactory;
-  const Ink = (await import("ink")) as unknown as InkComponents & {
-    render: (
-      node: import("react").ReactNode,
-      opts: unknown,
-    ) => Readonly<{ rerender: (node: import("react").ReactNode) => void; unmount: () => void }>;
-  };
-  const stdout = createInkStdout();
-  const stdin = new NullReadable();
-
-  const initial = stdout.waitForWrite();
-  const instance = Ink.render(reactTree(React, Ink, buildLines(0, params)), {
-    stdout: stdout as unknown as NodeJS.WriteStream,
-    stdin: stdin as unknown as NodeJS.ReadStream,
-    patchConsole: false,
-    exitOnCtrlC: false,
-  });
-  await initial;
-
-  try {
-    for (let i = 0; i < config.warmup; i++) {
-      const tick = i + 1;
-      const p = stdout.waitForWrite();
-      await delayTrigger(mode, () =>
-        instance.rerender(reactTree(React, Ink, buildLines(tick, params))),
-      );
-      await p;
-    }
-
-    const bytesBase = stdout.totalBytes;
-    const writesBase = stdout.writeCount;
-    const metrics = await benchAsync(
-      async (i) => {
-        const tick = config.warmup + i + 1;
-        const p = stdout.waitForWrite();
-        await delayTrigger(mode, () =>
-          instance.rerender(reactTree(React, Ink, buildLines(tick, params))),
-        );
-        await p;
-      },
-      0,
-      config.iterations,
-    );
-
-    metrics.framesProduced = Math.max(0, stdout.writeCount - writesBase);
-    metrics.bytesProduced = stdout.totalBytes - bytesBase;
-    return metrics;
-  } finally {
-    instance.unmount();
   }
 }
 
