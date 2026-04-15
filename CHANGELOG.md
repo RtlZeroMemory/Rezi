@@ -6,6 +6,11 @@ The format is based on Keep a Changelog and the project follows Semantic Version
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- **create-rezi/cli**: Fixed Windows nested installs by switching `create-rezi` to the standard `cross-spawn` process launcher and by resolving npm installs through the active npm entrypoint instead of relying on Git Bash shell resolution.
+- **create-rezi/minimal**: Replaced the invalid bare `+` keybinding in the minimal template with Windows-safe `=` / `shift+=` bindings while keeping `+` as an accepted command alias.
+
 ## [0.1.0-alpha.68] - 2026-04-15
 
 ### CI / Tooling
