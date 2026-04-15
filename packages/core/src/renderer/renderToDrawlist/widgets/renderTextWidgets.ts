@@ -102,6 +102,97 @@ function appendStyledSegment(
   }
   segments.push({ text, style });
 }
+
+function cloneStyledSegments(segments: readonly StyledSegment[]): StyledSegment[] {
+  return segments.map((segment) => ({ text: segment.text, style: segment.style }));
+}
+
+function sliceStyledSegmentsByTextLength(
+  segments: readonly StyledSegment[],
+  textLength: number,
+): Readonly<{ taken: StyledSegment[]; remaining: StyledSegment[] }> {
+  if (textLength <= 0 || segments.length === 0) {
+    return { taken: [], remaining: cloneStyledSegments(segments) };
+  }
+  let remainingLength = textLength;
+  const taken: StyledSegment[] = [];
+  const remaining: StyledSegment[] = [];
+  for (const segment of segments) {
+    if (remainingLength <= 0) {
+      remaining.push({ text: segment.text, style: segment.style });
+      continue;
+    }
+    if (segment.text.length <= remainingLength) {
+      taken.push({ text: segment.text, style: segment.style });
+      remainingLength -= segment.text.length;
+      continue;
+    }
+    const splitIndex = Math.max(0, Math.min(segment.text.length, remainingLength));
+    const head = segment.text.slice(0, splitIndex);
+    const tail = segment.text.slice(splitIndex);
+    if (head.length > 0) {
+      taken.push({ text: head, style: segment.style });
+    }
+    if (tail.length > 0) {
+      remaining.push({ text: tail, style: segment.style });
+    }
+    remainingLength = 0;
+  }
+  return { taken, remaining };
+}
+
+function splitStyledSegmentsOnNewlines(
+  segments: readonly StyledSegment[],
+): readonly (readonly StyledSegment[])[] {
+  const lines: StyledSegment[][] = [[]];
+  for (const segment of segments) {
+    const parts = segment.text.split("\n");
+    for (let index = 0; index < parts.length; index++) {
+      const part = parts[index] ?? "";
+      if (part.length > 0) {
+        appendStyledSegment(lines[lines.length - 1] ?? (lines[0] = []), part, segment.style);
+      }
+      if (index < parts.length - 1) {
+        lines.push([]);
+      }
+    }
+  }
+  return Object.freeze(lines.map((line) => Object.freeze(line.slice())));
+}
+
+type WrappedStyledLine = Readonly<{
+  text: string;
+  segments: readonly StyledSegment[];
+}>;
+
+function wrapAnsiStyledLines(
+  segments: readonly StyledSegment[],
+  maxWidth: number,
+): readonly WrappedStyledLine[] {
+  if (segments.length === 0 || maxWidth <= 0) return Object.freeze([]);
+  const paragraphSegments = splitStyledSegmentsOnNewlines(segments);
+  const lines: WrappedStyledLine[] = [];
+  for (const paragraph of paragraphSegments) {
+    const paragraphText = paragraph.map((segment) => segment.text).join("");
+    const wrappedLines = paragraphText.length === 0 ? [""] : [...wrapTextToLines(paragraphText, maxWidth)];
+    let remainingSegments = cloneStyledSegments(paragraph);
+    for (const wrappedLine of wrappedLines) {
+      const { taken, remaining } = sliceStyledSegmentsByTextLength(
+        remainingSegments,
+        wrappedLine.length,
+      );
+      lines.push(
+        Object.freeze({
+          text: wrappedLine,
+          segments: Object.freeze(taken),
+        }),
+      );
+      remainingSegments = remaining;
+    }
+  }
+  return Object.freeze(lines);
+}
+
 function parseAnsiSgrCodes(raw: string): number[] {
   if (raw.length === 0) return [0];
   const normalizedRaw = raw
@@ -577,24 +668,27 @@ export function renderTextWidgets(
       const cursorMeta = readTerminalCursorMeta(props);
       const cursorOffset = Math.min(text.length, Math.max(0, cursorMeta.position ?? text.length));
       if (wrap && rect.h > 1) {
-        const wrappedLines = wrapTextToLines(text, overflowW);
-        const lines = wrappedLines;
+        const parsedText = parseAnsiStyledText(text, style);
+        const wrappedAnsiLines =
+          parsedText.hasAnsi === true ? wrapAnsiStyledLines(parsedText.segments, overflowW) : undefined;
+        const lines =
+          wrappedAnsiLines?.map((line) => line.text) ??
+          wrapTextToLines(parsedText.hasAnsi === true ? parsedText.visibleText : text, overflowW);
         const visibleCount = Math.min(rect.h, lines.length);
         if (visibleCount <= 0) break;
         for (let i = 0; i < visibleCount; i++) {
           const rawLine = lines[i] ?? "";
-          const ansiLine = parseAnsiStyledText(rawLine, style);
-          const baseLine = ansiLine?.hasAnsi ? ansiLine.visibleText : rawLine;
+          const baseLine = rawLine;
           const isLastVisible = i === visibleCount - 1;
           const hasHiddenLines = lines.length > visibleCount;
           let line = baseLine;
-          let lineSegments = ansiLine?.hasAnsi ? ansiLine.segments : undefined;
+          let lineSegments = wrappedAnsiLines?.[i]?.segments;
           if (isLastVisible) {
             switch (textOverflow) {
               case "ellipsis": {
                 if (!hasHiddenLines) {
                   line = truncateWithEllipsis(baseLine, overflowW);
-                  lineSegments = undefined;
+                  if (line !== baseLine) lineSegments = undefined;
                   break;
                 }
                 if (overflowW <= 1) {
@@ -625,7 +719,7 @@ export function renderTextWidgets(
           }
           const clipWidth = overflowW;
           builder.pushClip(rect.x, rect.y + i, clipWidth, 1);
-          if (lineSegments) {
+          if (lineSegments && line === baseLine) {
             drawSegments(builder, rect.x, rect.y + i, clipWidth, lineSegments);
           } else {
             builder.drawText(rect.x, rect.y + i, line, style);

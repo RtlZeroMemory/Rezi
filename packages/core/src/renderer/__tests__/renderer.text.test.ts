@@ -336,6 +336,26 @@ describe("renderer text - wrap newline handling", () => {
     assert.equal(wrapped?.rect.y, 0);
     assert.ok((wrapped?.rect.h ?? 0) >= 3);
   });
+
+  test("wrap=true wraps ANSI-styled text by visible width instead of escape bytes", () => {
+    const frame = parseFrame(
+      renderBytes(textVNode("\u001b[31mABCD\u001b[0m EFGH", { wrap: true }), {
+        cols: 4,
+        rows: 4,
+      }),
+    );
+
+    assert.equal(frame.drawTextRuns.length, 0);
+    assert.deepEqual(
+      frame.drawTexts.map((cmd) => ({ x: cmd.x, y: cmd.y, text: cmd.text })),
+      [
+        { x: 0, y: 0, text: "ABCD" },
+        { x: 0, y: 1, text: " " },
+        { x: 0, y: 2, text: "EFGH" },
+      ],
+    );
+    assert.equal(frame.drawTexts.some((cmd) => cmd.text.includes("\u001b[")), false);
+  });
 });
 
 describe("renderer text - ANSI styling", () => {
