@@ -4,18 +4,6 @@
 
 ```ts
 
-import { App } from '@rezi-ui/core';
-import { AppConfig } from '@rezi-ui/core';
-import type { DebugBackend } from '@rezi-ui/core';
-import { ReproBundleV1 } from '@rezi-ui/core';
-import { ReproEventCapture } from '@rezi-ui/core';
-import { RouteDefinition } from '@rezi-ui/core';
-import { RuntimeBackend } from '@rezi-ui/core';
-import type { TailSourceFactory } from '@rezi-ui/core';
-import { TerminalCaps } from '@rezi-ui/core';
-import { ThemeDefinition } from '@rezi-ui/core';
-import type { ViewFn } from '@rezi-ui/core';
-
 // @public (undocumented)
 export function createHotStateReload<S>(opts: HotStateReloadOptions<S>): HotStateReloadController;
 
@@ -35,9 +23,13 @@ export type CreateNodeAppOptions<S> = Readonly<{
 // @public
 export function createNodeBackend(config?: NodeBackendConfig): NodeBackend;
 
+// Warning: (ae-forgotten-export) The symbol "TailSourceFactory" needs to be exported by the entry point index.d.ts
+//
 // @public
 export const createNodeTailSource: TailSourceFactory<string>;
 
+// Warning: (ae-forgotten-export) The symbol "RuntimeBackend" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export function createReproRecorder(backend: RuntimeBackend, options?: CreateReproRecorderOptions): ReproRecorder;
 
@@ -108,6 +100,8 @@ export type NodeApp<S> = App<S> & Readonly<{
     hotReload: HotStateReloadController | null;
 }>;
 
+// Warning: (ae-forgotten-export) The symbol "AppConfig" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
 export type NodeAppConfig = Readonly<AppConfig & Omit<NodeBackendConfig, "fpsCap" | "maxEventBytes">>;
 
@@ -184,6 +178,17 @@ export type ReproRecorderBuildResult = Readonly<{
     bundle: ReproBundleV1;
     bytes: Uint8Array;
 }>;
+
+// Warnings were encountered during analysis:
+//
+// src/backend/nodeBackend/shared.ts:76:55 - (ae-forgotten-export) The symbol "DebugBackend" needs to be exported by the entry point index.d.ts
+// src/dev/hotStateReload.ts:91:5 - (ae-forgotten-export) The symbol "ViewFn" needs to be exported by the entry point index.d.ts
+// src/dev/hotStateReload.ts:97:5 - (ae-forgotten-export) The symbol "App" needs to be exported by the entry point index.d.ts
+// src/index.ts:61:3 - (ae-forgotten-export) The symbol "RouteDefinition" needs to be exported by the entry point index.d.ts
+// src/index.ts:64:3 - (ae-forgotten-export) The symbol "ThemeDefinition" needs to be exported by the entry point index.d.ts
+// src/repro/recorder.ts:46:3 - (ae-forgotten-export) The symbol "TerminalCaps" needs to be exported by the entry point index.d.ts
+// src/repro/recorder.ts:57:3 - (ae-forgotten-export) The symbol "ReproBundleV1" needs to be exported by the entry point index.d.ts
+// src/repro/recorder.ts:60:3 - (ae-forgotten-export) The symbol "ReproEventCapture" needs to be exported by the entry point index.d.ts
 
 // (No @packageDocumentation comment for this package)
 
