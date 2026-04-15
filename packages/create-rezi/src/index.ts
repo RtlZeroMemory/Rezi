@@ -25,6 +25,17 @@ type CliOptions = {
   help: boolean;
 };
 
+const INSTALL_ENV_EXACT_BLOCKLIST = new Set([
+  "init_cwd",
+  "npm_command",
+  "npm_config_argv",
+  "npm_config_local_prefix",
+  "npm_config_prefix",
+  "npm_execpath",
+  "npm_node_execpath",
+  "npm_prefix",
+]);
+
 function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
     install: true,
@@ -129,6 +140,31 @@ function resolvePackageManager(value?: string): PackageManager {
   throw new Error(`Unsupported package manager: ${value}`);
 }
 
+function shouldStripInstallEnvKey(key: string): boolean {
+  const normalized = key.toLowerCase();
+  return (
+    INSTALL_ENV_EXACT_BLOCKLIST.has(normalized) ||
+    normalized.startsWith("npm_lifecycle_") ||
+    normalized.startsWith("npm_package_")
+  );
+}
+
+export function createInstallEnv(
+  parentEnv: Readonly<Record<string, string | undefined>> = process.env,
+): NodeJS.ProcessEnv {
+  const childEnv: NodeJS.ProcessEnv = { ...parentEnv };
+  for (const key of Object.keys(childEnv)) {
+    if (shouldStripInstallEnvKey(key)) {
+      delete childEnv[key];
+    }
+  }
+  return childEnv;
+}
+
+export function resolveInstallCwd(targetDir: string, baseDir: string = cwd()): string {
+  return resolve(baseDir, targetDir);
+}
+
 async function promptText(
   rl: ReturnType<typeof createInterface>,
   prompt: string,
@@ -163,10 +199,15 @@ async function promptTemplate(rl: ReturnType<typeof createInterface>): Promise<s
 }
 
 function runInstall(pm: PackageManager, targetDir: string): void {
+  const installCwd = resolveInstallCwd(targetDir);
   const res = spawnSync(pm, ["install"], {
-    cwd: targetDir,
+    cwd: installCwd,
     stdio: "inherit",
+    env: createInstallEnv(),
   });
+  if (res.error) {
+    throw res.error;
+  }
   if (res.status !== 0) {
     throw new Error(`${pm} install failed`);
   }
