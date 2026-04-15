@@ -127,9 +127,10 @@ describe("composition widgets", () => {
       }),
     );
 
-    const sidebarBox = result.nodes.find(
-      (node) => node.kind === "box" && node.props["width"] === 18,
-    );
+    const sidebarBox = result.nodes.find((node) => {
+      const props = node.props as { width?: number };
+      return node.kind === "box" && props.width === 18;
+    });
     assert.ok(sidebarBox);
     if (!sidebarBox) return;
 
