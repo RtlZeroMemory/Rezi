@@ -11,6 +11,7 @@ const COMMAND_BY_KEY: Readonly<Record<string, MinimalCommand>> = Object.freeze({
   "ctrl+c": "quit",
   h: "toggle-help",
   "shift+/": "toggle-help",
+  "=": "increment",
   "+": "increment",
   "shift+=": "increment",
   "-": "decrement",

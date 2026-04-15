@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { spawnSync } from "node:child_process";
-import { relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { cwd, exit, stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
+import * as crossSpawn from "cross-spawn";
 import { isMainModuleEntry } from "./mainEntry.js";
 import {
   TEMPLATE_DEFINITIONS,
@@ -165,6 +165,32 @@ export function resolveInstallCwd(targetDir: string, baseDir: string = cwd()): s
   return resolve(baseDir, targetDir);
 }
 
+export function resolveInstallInvocation(
+  packageManager: PackageManager,
+  {
+    env = process.env,
+    platform = process.platform,
+    nodeExecPath = process.execPath,
+  }: {
+    env?: Readonly<Record<string, string | undefined>>;
+    platform?: NodeJS.Platform;
+    nodeExecPath?: string;
+  } = {},
+): { command: string; args: string[] } {
+  if (packageManager === "npm") {
+    // biome-ignore lint/complexity/useLiteralKeys: process.env-compatible maps use index signatures in TS.
+    const npmExecPath = env["npm_execpath"];
+    if (npmExecPath) {
+      return { command: nodeExecPath, args: [npmExecPath, "install"] };
+    }
+    if (platform === "win32") {
+      return { command: join(dirname(nodeExecPath), "npm.cmd"), args: ["install"] };
+    }
+  }
+
+  return { command: packageManager, args: ["install"] };
+}
+
 async function promptText(
   rl: ReturnType<typeof createInterface>,
   prompt: string,
@@ -200,7 +226,8 @@ async function promptTemplate(rl: ReturnType<typeof createInterface>): Promise<s
 
 function runInstall(pm: PackageManager, targetDir: string): void {
   const installCwd = resolveInstallCwd(targetDir);
-  const res = spawnSync(pm, ["install"], {
+  const installInvocation = resolveInstallInvocation(pm);
+  const res = crossSpawn.sync(installInvocation.command, installInvocation.args, {
     cwd: installCwd,
     stdio: "inherit",
     env: createInstallEnv(),

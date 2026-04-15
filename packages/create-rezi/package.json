@@ -22,6 +22,10 @@
     "bun": ">=1.3.0"
   },
   "devDependencies": {
-    "@rezi-ui/testkit": "0.1.0-alpha.61"
+    "@rezi-ui/testkit": "0.1.0-alpha.61",
+    "@types/cross-spawn": "^6.0.6"
+  },
+  "dependencies": {
+    "cross-spawn": "^7.0.6"
   }
 }

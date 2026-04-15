@@ -125,7 +125,7 @@ app.keys({
   "ctrl+c": () => applyCommand(resolveMinimalCommand("ctrl+c")),
   h: () => applyCommand(resolveMinimalCommand("h")),
   "shift+/": () => applyCommand(resolveMinimalCommand("shift+/")),
-  "+": () => applyCommand(resolveMinimalCommand("+")),
+  "=": () => applyCommand(resolveMinimalCommand("=")),
   "shift+=": () => applyCommand(resolveMinimalCommand("shift+=")),
   "-": () => applyCommand(resolveMinimalCommand("-")),
   t: () => applyCommand(resolveMinimalCommand("t")),

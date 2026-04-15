@@ -4,6 +4,7 @@ import { resolveMinimalCommand } from "../helpers/keybindings.js";
 
 test("minimal keybinding map resolves expected commands", () => {
   assert.equal(resolveMinimalCommand("q"), "quit");
+  assert.equal(resolveMinimalCommand("="), "increment");
   assert.equal(resolveMinimalCommand("+"), "increment");
   assert.equal(resolveMinimalCommand("-"), "decrement");
   assert.equal(resolveMinimalCommand("t"), "cycle-theme");
