@@ -25,18 +25,31 @@ test("createInstallEnv strips parent npm lifecycle metadata but preserves useful
     npm_config_user_agent: "npm/10.8.2 node/v20.19.5 win32 x64 workspaces/false",
   } as const;
 
-  const childEnv = createInstallEnv(env);
+  const childEnv = createInstallEnv(env) as NodeJS.ProcessEnv & {
+    PATH?: string;
+    HOME?: string;
+    INIT_CWD?: string;
+    npm_command?: string;
+    npm_execpath?: string;
+    npm_lifecycle_event?: string;
+    npm_lifecycle_script?: string;
+    npm_config_local_prefix?: string;
+    npm_package_name?: string;
+    npm_package_json?: string;
+    npm_config_registry?: string;
+    npm_config_user_agent?: string;
+  };
 
-  assert.equal(childEnv["PATH"], env["PATH"]);
-  assert.equal(childEnv["HOME"], env["HOME"]);
-  assert.equal(childEnv["npm_config_registry"], env["npm_config_registry"]);
-  assert.equal(childEnv["npm_config_user_agent"], env["npm_config_user_agent"]);
-  assert.equal(childEnv["INIT_CWD"], undefined);
-  assert.equal(childEnv["npm_command"], undefined);
-  assert.equal(childEnv["npm_execpath"], undefined);
-  assert.equal(childEnv["npm_lifecycle_event"], undefined);
-  assert.equal(childEnv["npm_lifecycle_script"], undefined);
-  assert.equal(childEnv["npm_config_local_prefix"], undefined);
-  assert.equal(childEnv["npm_package_name"], undefined);
-  assert.equal(childEnv["npm_package_json"], undefined);
+  assert.equal(childEnv.PATH, env.PATH);
+  assert.equal(childEnv.HOME, env.HOME);
+  assert.equal(childEnv.npm_config_registry, env.npm_config_registry);
+  assert.equal(childEnv.npm_config_user_agent, env.npm_config_user_agent);
+  assert.equal(childEnv.INIT_CWD, undefined);
+  assert.equal(childEnv.npm_command, undefined);
+  assert.equal(childEnv.npm_execpath, undefined);
+  assert.equal(childEnv.npm_lifecycle_event, undefined);
+  assert.equal(childEnv.npm_lifecycle_script, undefined);
+  assert.equal(childEnv.npm_config_local_prefix, undefined);
+  assert.equal(childEnv.npm_package_name, undefined);
+  assert.equal(childEnv.npm_package_json, undefined);
 });
