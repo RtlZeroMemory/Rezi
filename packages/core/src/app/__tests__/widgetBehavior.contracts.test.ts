@@ -977,3 +977,116 @@ describe("code editor behavior contracts", () => {
     assert.equal(text.includes("hello world"), true);
   });
 });
+
+describe("diff viewer and logs console behavior contracts", () => {
+  test("diffViewer scrolls on hover and clicking focuses it", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    let scrollTop = 0;
+    const diff = Object.freeze({
+      oldPath: "a.ts",
+      newPath: "a.ts",
+      status: "modified" as const,
+      hunks: Object.freeze([
+        Object.freeze({
+          oldStart: 1,
+          oldCount: 8,
+          newStart: 1,
+          newCount: 8,
+          lines: Object.freeze([
+            Object.freeze({ type: "context" as const, content: "line-1" }),
+            Object.freeze({ type: "context" as const, content: "line-2" }),
+            Object.freeze({ type: "delete" as const, content: "line-3 old" }),
+            Object.freeze({ type: "add" as const, content: "line-3 new" }),
+            Object.freeze({ type: "context" as const, content: "line-4" }),
+            Object.freeze({ type: "context" as const, content: "line-5" }),
+            Object.freeze({ type: "context" as const, content: "line-6" }),
+            Object.freeze({ type: "context" as const, content: "line-7" }),
+          ]),
+        }),
+      ]),
+    });
+
+    const view = () =>
+      ui.column({}, [
+        ui.text(`DiffScroll:${String(scrollTop)}`),
+        ui.diffViewer({
+          id: "diff",
+          diff,
+          mode: "unified",
+          scrollTop,
+          onScroll: (next) => {
+            scrollTop = next;
+          },
+        }),
+      ]);
+
+    submit(renderer, view, { cols: 28, rows: 6 });
+    const diffCenter = centerOf(renderer, "diff");
+
+    renderer.routeEngineEvent(mouseEvent(diffCenter.x, diffCenter.y, 5, { wheelY: 1 }));
+    submit(renderer, view, { cols: 28, rows: 6 });
+
+    const text = createTestRenderer({ viewport: { cols: 28, rows: 6 } })
+      .render(view())
+      .toText();
+    assert.equal(text.includes("DiffScroll:3"), true);
+    assert.equal(renderer.getFocusedId(), null);
+
+    renderer.routeEngineEvent(mouseEvent(diffCenter.x, diffCenter.y, 3, { buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(diffCenter.x, diffCenter.y, 4));
+    assert.equal(renderer.getFocusedId(), "diff");
+  });
+
+  test("logsConsole scrolls on hover and clicking focuses it", () => {
+    const renderer = new WidgetRenderer<void>({
+      backend: createNoopBackend(),
+      requestRender: () => {},
+    });
+
+    let scrollTop = 0;
+    const entries = Object.freeze(
+      new Array(12).fill(0).map((_, index) =>
+        Object.freeze({
+          id: `log-${String(index)}`,
+          level: "info" as const,
+          source: "app",
+          timestamp: index * 1000,
+          message: `message-${String(index)}`,
+        }),
+      ),
+    );
+
+    const view = () =>
+      ui.column({}, [
+        ui.text(`LogsScroll:${String(scrollTop)}`),
+        ui.logsConsole({
+          id: "logs",
+          entries,
+          scrollTop,
+          onScroll: (next) => {
+            scrollTop = next;
+          },
+        }),
+      ]);
+
+    submit(renderer, view, { cols: 28, rows: 6 });
+    const logsCenter = centerOf(renderer, "logs");
+
+    renderer.routeEngineEvent(mouseEvent(logsCenter.x, logsCenter.y, 5, { wheelY: 1 }));
+    submit(renderer, view, { cols: 28, rows: 6 });
+
+    const text = createTestRenderer({ viewport: { cols: 28, rows: 6 } })
+      .render(view())
+      .toText();
+    assert.equal(text.includes("LogsScroll:3"), true);
+    assert.equal(renderer.getFocusedId(), null);
+
+    renderer.routeEngineEvent(mouseEvent(logsCenter.x, logsCenter.y, 3, { buttons: 1 }));
+    renderer.routeEngineEvent(mouseEvent(logsCenter.x, logsCenter.y, 4));
+    assert.equal(renderer.getFocusedId(), "logs");
+  });
+});
